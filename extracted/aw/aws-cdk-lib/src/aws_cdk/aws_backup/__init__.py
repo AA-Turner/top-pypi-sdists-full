@@ -309,9 +309,6 @@ from .. import (
     TimeZone as _TimeZone_cdd72ac9,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-from ..aws_dynamodb import ITable as _ITable_504fd401
-from ..aws_ec2 import IInstanceRef as _IInstanceRef_bfcd205f
-from ..aws_efs import IFileSystem as _IFileSystem_b2d3a7cb
 from ..aws_events import Schedule as _Schedule_c151d01f
 from ..aws_iam import (
     Grant as _Grant_a7ae64f8,
@@ -321,13 +318,33 @@ from ..aws_iam import (
     PolicyDocument as _PolicyDocument_3ac34393,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
-from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
-from ..aws_rds import (
-    IDatabaseCluster as _IDatabaseCluster_6554c32b,
-    IDatabaseInstance as _IDatabaseInstance_e4cb03a8,
-    IServerlessCluster as _IServerlessCluster_adbbb720,
-)
 from ..aws_sns import ITopic as _ITopic_9eca4852
+from ..interfaces.aws_backup import (
+    BackupPlanReference as _BackupPlanReference_43879719,
+    BackupSelectionReference as _BackupSelectionReference_541c6985,
+    BackupVaultReference as _BackupVaultReference_228dbd3a,
+    FrameworkReference as _FrameworkReference_5ce10c24,
+    IBackupPlanRef as _IBackupPlanRef_754776b5,
+    IBackupSelectionRef as _IBackupSelectionRef_e9fbb7b2,
+    IBackupVaultRef as _IBackupVaultRef_c038ce00,
+    IFrameworkRef as _IFrameworkRef_dcbb25ea,
+    ILogicallyAirGappedBackupVaultRef as _ILogicallyAirGappedBackupVaultRef_94a8f212,
+    IReportPlanRef as _IReportPlanRef_2eb6ea89,
+    IRestoreTestingPlanRef as _IRestoreTestingPlanRef_3850185f,
+    IRestoreTestingSelectionRef as _IRestoreTestingSelectionRef_f3800013,
+    LogicallyAirGappedBackupVaultReference as _LogicallyAirGappedBackupVaultReference_53a7ab81,
+    ReportPlanReference as _ReportPlanReference_0a875581,
+    RestoreTestingPlanReference as _RestoreTestingPlanReference_99f8c406,
+    RestoreTestingSelectionReference as _RestoreTestingSelectionReference_05d8055b,
+)
+from ..interfaces.aws_dynamodb import ITableRef as _ITableRef_4478f0ad
+from ..interfaces.aws_ec2 import IInstanceRef as _IInstanceRef_b97803cb
+from ..interfaces.aws_efs import IFileSystemRef as _IFileSystemRef_3dcf8b98
+from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+from ..interfaces.aws_rds import (
+    IDBClusterRef as _IDBClusterRef_ebf419fe,
+    IDBInstanceRef as _IDBInstanceRef_10d60cd7,
+)
 
 
 @jsii.data_type(
@@ -343,9 +360,9 @@ class BackupPlanCopyActionProps:
     def __init__(
         self,
         *,
-        destination_backup_vault: "IBackupVault",
-        delete_after: typing.Optional[_Duration_4839e8c3] = None,
-        move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
+        destination_backup_vault: "_IBackupVaultRef_c038ce00",
+        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
+        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties for a BackupPlanCopyAction.
 
@@ -361,11 +378,12 @@ class BackupPlanCopyActionProps:
             # The values are placeholders you should change.
             import aws_cdk as cdk
             from aws_cdk import aws_backup as backup
+            from aws_cdk.interfaces import aws_backup as interfaces_backup
             
-            # backup_vault: backup.BackupVault
+            # backup_vault_ref: interfaces_backup.IBackupVaultRef
             
             backup_plan_copy_action_props = backup.BackupPlanCopyActionProps(
-                destination_backup_vault=backup_vault,
+                destination_backup_vault=backup_vault_ref,
             
                 # the properties below are optional
                 delete_after=cdk.Duration.minutes(30),
@@ -386,14 +404,14 @@ class BackupPlanCopyActionProps:
             self._values["move_to_cold_storage_after"] = move_to_cold_storage_after
 
     @builtins.property
-    def destination_backup_vault(self) -> "IBackupVault":
+    def destination_backup_vault(self) -> "_IBackupVaultRef_c038ce00":
         '''Destination Vault for recovery points to be copied into.'''
         result = self._values.get("destination_backup_vault")
         assert result is not None, "Required property 'destination_backup_vault' is missing"
-        return typing.cast("IBackupVault", result)
+        return typing.cast("_IBackupVaultRef_c038ce00", result)
 
     @builtins.property
-    def delete_after(self) -> typing.Optional[_Duration_4839e8c3]:
+    def delete_after(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Specifies the duration after creation that a copied recovery point is deleted from the destination vault.
 
         Must be at least 90 days greater than ``moveToColdStorageAfter``, if specified.
@@ -401,16 +419,16 @@ class BackupPlanCopyActionProps:
         :default: - recovery point is never deleted
         '''
         result = self._values.get("delete_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def move_to_cold_storage_after(self) -> typing.Optional[_Duration_4839e8c3]:
+    def move_to_cold_storage_after(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Specifies the duration after creation that a copied recovery point is moved to cold storage.
 
         :default: - recovery point is never moved to cold storage
         '''
         result = self._values.get("move_to_cold_storage_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -440,7 +458,7 @@ class BackupPlanProps:
         *,
         backup_plan_name: typing.Optional[builtins.str] = None,
         backup_plan_rules: typing.Optional[typing.Sequence["BackupPlanRule"]] = None,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
         windows_vss: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Properties for a BackupPlan.
@@ -496,7 +514,7 @@ class BackupPlanProps:
         return typing.cast(typing.Optional[typing.List["BackupPlanRule"]], result)
 
     @builtins.property
-    def backup_vault(self) -> typing.Optional["IBackupVault"]:
+    def backup_vault(self) -> typing.Optional["_IBackupVaultRef_c038ce00"]:
         '''The backup vault where backups are stored.
 
         :default:
@@ -505,7 +523,7 @@ class BackupPlanProps:
         common vault for the plan will be created
         '''
         result = self._values.get("backup_vault")
-        return typing.cast(typing.Optional["IBackupVault"], result)
+        return typing.cast(typing.Optional["_IBackupVaultRef_c038ce00"], result)
 
     @builtins.property
     def windows_vss(self) -> typing.Optional[builtins.bool]:
@@ -526,74 +544,6 @@ class BackupPlanProps:
 
     def __repr__(self) -> str:
         return "BackupPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.BackupPlanReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "backup_plan_arn": "backupPlanArn",
-        "backup_plan_id": "backupPlanId",
-    },
-)
-class BackupPlanReference:
-    def __init__(
-        self,
-        *,
-        backup_plan_arn: builtins.str,
-        backup_plan_id: builtins.str,
-    ) -> None:
-        '''A reference to a BackupPlan resource.
-
-        :param backup_plan_arn: The ARN of the BackupPlan resource.
-        :param backup_plan_id: The BackupPlanId of the BackupPlan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            backup_plan_reference = backup.BackupPlanReference(
-                backup_plan_arn="backupPlanArn",
-                backup_plan_id="backupPlanId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdffc715f03665cb52df4388f856f05f58c9b9d33c03fa7746888de2fb997c07)
-            check_type(argname="argument backup_plan_arn", value=backup_plan_arn, expected_type=type_hints["backup_plan_arn"])
-            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_plan_arn": backup_plan_arn,
-            "backup_plan_id": backup_plan_id,
-        }
-
-    @builtins.property
-    def backup_plan_arn(self) -> builtins.str:
-        '''The ARN of the BackupPlan resource.'''
-        result = self._values.get("backup_plan_arn")
-        assert result is not None, "Required property 'backup_plan_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def backup_plan_id(self) -> builtins.str:
-        '''The BackupPlanId of the BackupPlan resource.'''
-        result = self._values.get("backup_plan_id")
-        assert result is not None, "Required property 'backup_plan_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BackupPlanReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -619,17 +569,17 @@ class BackupPlanRule(
     def __init__(
         self,
         *,
-        backup_vault: typing.Optional["IBackupVault"] = None,
-        completion_window: typing.Optional[_Duration_4839e8c3] = None,
-        copy_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanCopyActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-        delete_after: typing.Optional[_Duration_4839e8c3] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        completion_window: typing.Optional["_Duration_4839e8c3"] = None,
+        copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
-        move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
+        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
-        schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
-        start_window: typing.Optional[_Duration_4839e8c3] = None,
+        schedule_expression: typing.Optional["_Schedule_c151d01f"] = None,
+        schedule_expression_timezone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        start_window: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param backup_vault: The backup vault where backups are. Default: - use the vault defined at the plan level. If not defined a new common vault for the plan will be created
@@ -664,7 +614,7 @@ class BackupPlanRule(
     @builtins.classmethod
     def daily(
         cls,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
     ) -> "BackupPlanRule":
         '''Daily with 35 days retention.
 
@@ -679,7 +629,7 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly1_year(
         cls,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 1 year retention, move to cold storage after 1 month.
 
@@ -694,7 +644,7 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly5_year(
         cls,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 5 year retention, move to cold storage after 3 months.
 
@@ -709,7 +659,7 @@ class BackupPlanRule(
     @builtins.classmethod
     def monthly7_year(
         cls,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
     ) -> "BackupPlanRule":
         '''Monthly 7 year retention, move to cold storage after 3 months.
 
@@ -724,7 +674,7 @@ class BackupPlanRule(
     @builtins.classmethod
     def weekly(
         cls,
-        backup_vault: typing.Optional["IBackupVault"] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
     ) -> "BackupPlanRule":
         '''Weekly with 3 months retention.
 
@@ -763,17 +713,17 @@ class BackupPlanRuleProps:
     def __init__(
         self,
         *,
-        backup_vault: typing.Optional["IBackupVault"] = None,
-        completion_window: typing.Optional[_Duration_4839e8c3] = None,
-        copy_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanCopyActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
-        delete_after: typing.Optional[_Duration_4839e8c3] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        completion_window: typing.Optional["_Duration_4839e8c3"] = None,
+        copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        delete_after: typing.Optional["_Duration_4839e8c3"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
-        move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
+        move_to_cold_storage_after: typing.Optional["_Duration_4839e8c3"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
-        schedule_expression: typing.Optional[_Schedule_c151d01f] = None,
-        schedule_expression_timezone: typing.Optional[_TimeZone_cdd72ac9] = None,
-        start_window: typing.Optional[_Duration_4839e8c3] = None,
+        schedule_expression: typing.Optional["_Schedule_c151d01f"] = None,
+        schedule_expression_timezone: typing.Optional["_TimeZone_cdd72ac9"] = None,
+        start_window: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties for a BackupPlanRule.
 
@@ -842,7 +792,7 @@ class BackupPlanRuleProps:
             self._values["start_window"] = start_window
 
     @builtins.property
-    def backup_vault(self) -> typing.Optional["IBackupVault"]:
+    def backup_vault(self) -> typing.Optional["_IBackupVaultRef_c038ce00"]:
         '''The backup vault where backups are.
 
         :default:
@@ -851,28 +801,28 @@ class BackupPlanRuleProps:
         common vault for the plan will be created
         '''
         result = self._values.get("backup_vault")
-        return typing.cast(typing.Optional["IBackupVault"], result)
+        return typing.cast(typing.Optional["_IBackupVaultRef_c038ce00"], result)
 
     @builtins.property
-    def completion_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def completion_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The duration after a backup job is successfully started before it must be completed or it is canceled by AWS Backup.
 
         :default: - 7 days
         '''
         result = self._values.get("completion_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def copy_actions(self) -> typing.Optional[typing.List[BackupPlanCopyActionProps]]:
+    def copy_actions(self) -> typing.Optional[typing.List["BackupPlanCopyActionProps"]]:
         '''Copy operations to perform on recovery points created by this rule.
 
         :default: - no copy actions
         '''
         result = self._values.get("copy_actions")
-        return typing.cast(typing.Optional[typing.List[BackupPlanCopyActionProps]], result)
+        return typing.cast(typing.Optional[typing.List["BackupPlanCopyActionProps"]], result)
 
     @builtins.property
-    def delete_after(self) -> typing.Optional[_Duration_4839e8c3]:
+    def delete_after(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Specifies the duration after creation that a recovery point is deleted.
 
         Must be greater than ``moveToColdStorageAfter``.
@@ -880,7 +830,7 @@ class BackupPlanRuleProps:
         :default: - recovery point is never deleted
         '''
         result = self._values.get("delete_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def enable_continuous_backup(self) -> typing.Optional[builtins.bool]:
@@ -897,13 +847,13 @@ class BackupPlanRuleProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def move_to_cold_storage_after(self) -> typing.Optional[_Duration_4839e8c3]:
+    def move_to_cold_storage_after(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''Specifies the duration after creation that a recovery point is moved to cold storage.
 
         :default: - recovery point is never moved to cold storage
         '''
         result = self._values.get("move_to_cold_storage_after")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def recovery_point_tags(
@@ -928,31 +878,31 @@ class BackupPlanRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def schedule_expression(self) -> typing.Optional[_Schedule_c151d01f]:
+    def schedule_expression(self) -> typing.Optional["_Schedule_c151d01f"]:
         '''A CRON expression specifying when AWS Backup initiates a backup job.
 
         :default: - no schedule
         '''
         result = self._values.get("schedule_expression")
-        return typing.cast(typing.Optional[_Schedule_c151d01f], result)
+        return typing.cast(typing.Optional["_Schedule_c151d01f"], result)
 
     @builtins.property
-    def schedule_expression_timezone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+    def schedule_expression_timezone(self) -> typing.Optional["_TimeZone_cdd72ac9"]:
         '''The timezone in which the schedule expression is set.
 
         :default: - UTC
         '''
         result = self._values.get("schedule_expression_timezone")
-        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], result)
+        return typing.cast(typing.Optional["_TimeZone_cdd72ac9"], result)
 
     @builtins.property
-    def start_window(self) -> typing.Optional[_Duration_4839e8c3]:
+    def start_window(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The duration after a backup is scheduled before a job is canceled if it doesn't start successfully.
 
         :default: - 8 hours
         '''
         result = self._values.get("start_window")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1014,7 +964,7 @@ class BackupResource(
         self,
         resource: typing.Optional[builtins.str] = None,
         tag_condition: typing.Optional[typing.Union["TagCondition", typing.Dict[builtins.str, typing.Any]]] = None,
-        construct: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        construct: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
     ) -> None:
         '''
         :param resource: -
@@ -1044,7 +994,7 @@ class BackupResource(
     @builtins.classmethod
     def from_construct(
         cls,
-        construct: _constructs_77d1e7e8.Construct,
+        construct: "_constructs_77d1e7e8.Construct",
     ) -> "BackupResource":
         '''Adds all supported resources in a construct.
 
@@ -1057,7 +1007,7 @@ class BackupResource(
 
     @jsii.member(jsii_name="fromDynamoDbTable")
     @builtins.classmethod
-    def from_dynamo_db_table(cls, table: _ITable_504fd401) -> "BackupResource":
+    def from_dynamo_db_table(cls, table: "_ITableRef_4478f0ad") -> "BackupResource":
         '''A DynamoDB table.
 
         :param table: -
@@ -1069,7 +1019,7 @@ class BackupResource(
 
     @jsii.member(jsii_name="fromEc2Instance")
     @builtins.classmethod
-    def from_ec2_instance(cls, instance: _IInstanceRef_bfcd205f) -> "BackupResource":
+    def from_ec2_instance(cls, instance: "_IInstanceRef_b97803cb") -> "BackupResource":
         '''An EC2 instance.
 
         :param instance: -
@@ -1083,7 +1033,7 @@ class BackupResource(
     @builtins.classmethod
     def from_efs_file_system(
         cls,
-        file_system: _IFileSystem_b2d3a7cb,
+        file_system: "_IFileSystemRef_3dcf8b98",
     ) -> "BackupResource":
         '''An EFS file system.
 
@@ -1098,7 +1048,7 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_database_cluster(
         cls,
-        cluster: _IDatabaseCluster_6554c32b,
+        cluster: "_IDBClusterRef_ebf419fe",
     ) -> "BackupResource":
         '''A RDS database cluter.
 
@@ -1113,7 +1063,7 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_database_instance(
         cls,
-        instance: _IDatabaseInstance_e4cb03a8,
+        instance: "_IDBInstanceRef_10d60cd7",
     ) -> "BackupResource":
         '''A RDS database instance.
 
@@ -1128,7 +1078,7 @@ class BackupResource(
     @builtins.classmethod
     def from_rds_serverless_cluster(
         cls,
-        cluster: _IServerlessCluster_adbbb720,
+        cluster: "_IDBClusterRef_ebf419fe",
     ) -> "BackupResource":
         '''An Aurora database instance.
 
@@ -1162,9 +1112,9 @@ class BackupResource(
 
     @builtins.property
     @jsii.member(jsii_name="construct")
-    def construct(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
+    def construct(self) -> typing.Optional["_constructs_77d1e7e8.Construct"]:
         '''A construct.'''
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], jsii.get(self, "construct"))
+        return typing.cast(typing.Optional["_constructs_77d1e7e8.Construct"], jsii.get(self, "construct"))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
@@ -1195,13 +1145,14 @@ class BackupSelection(
         # The values are placeholders you should change.
         from aws_cdk import aws_backup as backup
         from aws_cdk import aws_iam as iam
+        from aws_cdk.interfaces import aws_backup as interfaces_backup
         
-        # backup_plan: backup.BackupPlan
+        # backup_plan_ref: interfaces_backup.IBackupPlanRef
         # backup_resource: backup.BackupResource
         # role: iam.Role
         
         backup_selection = backup.BackupSelection(self, "MyBackupSelection",
-            backup_plan=backup_plan,
+            backup_plan=backup_plan_ref,
             resources=[backup_resource],
         
             # the properties below are optional
@@ -1214,15 +1165,15 @@ class BackupSelection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan: "IBackupPlan",
-        resources: typing.Sequence[BackupResource],
+        backup_plan: "_IBackupPlanRef_754776b5",
+        resources: typing.Sequence["BackupResource"],
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1266,9 +1217,9 @@ class BackupSelection(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _IPrincipal_539bb2fd:
+    def grant_principal(self) -> "_IPrincipal_539bb2fd":
         '''The principal to grant permissions to.'''
-        return typing.cast(_IPrincipal_539bb2fd, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="selectionId")
@@ -1295,11 +1246,11 @@ class BackupSelectionOptions:
     def __init__(
         self,
         *,
-        resources: typing.Sequence[BackupResource],
+        resources: typing.Sequence["BackupResource"],
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Options for a BackupSelection.
 
@@ -1366,14 +1317,14 @@ class BackupSelectionOptions:
             self._values["role"] = role
 
     @builtins.property
-    def resources(self) -> typing.List[BackupResource]:
+    def resources(self) -> typing.List["BackupResource"]:
         '''The resources to backup.
 
         Use the helper static methods defined on ``BackupResource``.
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
-        return typing.cast(typing.List[BackupResource], result)
+        return typing.cast(typing.List["BackupResource"], result)
 
     @builtins.property
     def allow_restores(self) -> typing.Optional[builtins.bool]:
@@ -1409,7 +1360,7 @@ class BackupSelectionOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role that AWS Backup uses to authenticate when backuping or restoring the resources.
 
         The ``AWSBackupServiceRolePolicyForBackup`` managed policy
@@ -1419,7 +1370,7 @@ class BackupSelectionOptions:
         :default: - a new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1449,12 +1400,12 @@ class BackupSelectionProps(BackupSelectionOptions):
     def __init__(
         self,
         *,
-        resources: typing.Sequence[BackupResource],
+        resources: typing.Sequence["BackupResource"],
         allow_restores: typing.Optional[builtins.bool] = None,
         backup_selection_name: typing.Optional[builtins.str] = None,
         disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        backup_plan: "IBackupPlan",
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        backup_plan: "_IBackupPlanRef_754776b5",
     ) -> None:
         '''Properties for a BackupSelection.
 
@@ -1473,13 +1424,14 @@ class BackupSelectionProps(BackupSelectionOptions):
             # The values are placeholders you should change.
             from aws_cdk import aws_backup as backup
             from aws_cdk import aws_iam as iam
+            from aws_cdk.interfaces import aws_backup as interfaces_backup
             
-            # backup_plan: backup.BackupPlan
+            # backup_plan_ref: interfaces_backup.IBackupPlanRef
             # backup_resource: backup.BackupResource
             # role: iam.Role
             
             backup_selection_props = backup.BackupSelectionProps(
-                backup_plan=backup_plan,
+                backup_plan=backup_plan_ref,
                 resources=[backup_resource],
             
                 # the properties below are optional
@@ -1511,14 +1463,14 @@ class BackupSelectionProps(BackupSelectionOptions):
             self._values["role"] = role
 
     @builtins.property
-    def resources(self) -> typing.List[BackupResource]:
+    def resources(self) -> typing.List["BackupResource"]:
         '''The resources to backup.
 
         Use the helper static methods defined on ``BackupResource``.
         '''
         result = self._values.get("resources")
         assert result is not None, "Required property 'resources' is missing"
-        return typing.cast(typing.List[BackupResource], result)
+        return typing.cast(typing.List["BackupResource"], result)
 
     @builtins.property
     def allow_restores(self) -> typing.Optional[builtins.bool]:
@@ -1554,7 +1506,7 @@ class BackupSelectionProps(BackupSelectionOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role that AWS Backup uses to authenticate when backuping or restoring the resources.
 
         The ``AWSBackupServiceRolePolicyForBackup`` managed policy
@@ -1564,14 +1516,14 @@ class BackupSelectionProps(BackupSelectionOptions):
         :default: - a new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def backup_plan(self) -> "IBackupPlan":
+    def backup_plan(self) -> "_IBackupPlanRef_754776b5":
         '''The backup plan for this selection.'''
         result = self._values.get("backup_plan")
         assert result is not None, "Required property 'backup_plan' is missing"
-        return typing.cast("IBackupPlan", result)
+        return typing.cast("_IBackupPlanRef_754776b5", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1581,55 +1533,6 @@ class BackupSelectionProps(BackupSelectionOptions):
 
     def __repr__(self) -> str:
         return "BackupSelectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.BackupSelectionReference",
-    jsii_struct_bases=[],
-    name_mapping={"backup_selection_id": "backupSelectionId"},
-)
-class BackupSelectionReference:
-    def __init__(self, *, backup_selection_id: builtins.str) -> None:
-        '''A reference to a BackupSelection resource.
-
-        :param backup_selection_id: The Id of the BackupSelection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            backup_selection_reference = backup.BackupSelectionReference(
-                backup_selection_id="backupSelectionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__063ae40062540dd49832ac66bd5b80948e3bd324b6ba922fa96d48bd9a2001cc)
-            check_type(argname="argument backup_selection_id", value=backup_selection_id, expected_type=type_hints["backup_selection_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_selection_id": backup_selection_id,
-        }
-
-    @builtins.property
-    def backup_selection_id(self) -> builtins.str:
-        '''The Id of the BackupSelection resource.'''
-        result = self._values.get("backup_selection_id")
-        assert result is not None, "Required property 'backup_selection_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BackupSelectionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1698,14 +1601,14 @@ class BackupVaultProps:
     def __init__(
         self,
         *,
-        access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+        access_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
         backup_vault_name: typing.Optional[builtins.str] = None,
         block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         lock_configuration: typing.Optional[typing.Union["LockConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
-        notification_topic: typing.Optional[_ITopic_9eca4852] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+        notification_events: typing.Optional[typing.Sequence["BackupVaultEvents"]] = None,
+        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Properties for a BackupVault.
 
@@ -1761,13 +1664,13 @@ class BackupVaultProps:
             self._values["removal_policy"] = removal_policy
 
     @builtins.property
-    def access_policy(self) -> typing.Optional[_PolicyDocument_3ac34393]:
+    def access_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
         '''A resource-based policy that is used to manage access permissions on the backup vault.
 
         :default: - access is not restricted
         '''
         result = self._values.get("access_policy")
-        return typing.cast(typing.Optional[_PolicyDocument_3ac34393], result)
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
 
     @builtins.property
     def backup_vault_name(self) -> typing.Optional[builtins.str]:
@@ -1792,13 +1695,13 @@ class BackupVaultProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_IKeyRef_1e82344b]:
+    def encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
         '''The server-side encryption key to use to protect your backups.
 
         :default: - an Amazon managed KMS key
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
+        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
 
     @builtins.property
     def lock_configuration(self) -> typing.Optional["LockConfiguration"]:
@@ -1812,7 +1715,7 @@ class BackupVaultProps:
         return typing.cast(typing.Optional["LockConfiguration"], result)
 
     @builtins.property
-    def notification_events(self) -> typing.Optional[typing.List[BackupVaultEvents]]:
+    def notification_events(self) -> typing.Optional[typing.List["BackupVaultEvents"]]:
         '''The vault events to send.
 
         :default: - all vault events if ``notificationTopic`` is defined
@@ -1820,10 +1723,10 @@ class BackupVaultProps:
         :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/sns-notifications.html
         '''
         result = self._values.get("notification_events")
-        return typing.cast(typing.Optional[typing.List[BackupVaultEvents]], result)
+        return typing.cast(typing.Optional[typing.List["BackupVaultEvents"]], result)
 
     @builtins.property
-    def notification_topic(self) -> typing.Optional[_ITopic_9eca4852]:
+    def notification_topic(self) -> typing.Optional["_ITopic_9eca4852"]:
         '''A SNS topic to send vault events to.
 
         :default: - no notifications
@@ -1831,10 +1734,10 @@ class BackupVaultProps:
         :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/sns-notifications.html
         '''
         result = self._values.get("notification_topic")
-        return typing.cast(typing.Optional[_ITopic_9eca4852], result)
+        return typing.cast(typing.Optional["_ITopic_9eca4852"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
         '''The removal policy to apply to the vault.
 
         Note that removing a vault
@@ -1843,7 +1746,7 @@ class BackupVaultProps:
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_RemovalPolicy_9f93c814], result)
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1857,2572 +1760,7 @@ class BackupVaultProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.BackupVaultReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "backup_vault_arn": "backupVaultArn",
-        "backup_vault_name": "backupVaultName",
-    },
-)
-class BackupVaultReference:
-    def __init__(
-        self,
-        *,
-        backup_vault_arn: builtins.str,
-        backup_vault_name: builtins.str,
-    ) -> None:
-        '''A reference to a BackupVault resource.
-
-        :param backup_vault_arn: The ARN of the BackupVault resource.
-        :param backup_vault_name: The BackupVaultName of the BackupVault resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            backup_vault_reference = backup.BackupVaultReference(
-                backup_vault_arn="backupVaultArn",
-                backup_vault_name="backupVaultName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8fbb9c285090a760cfee6239fc052ed08bee9b2a9c2de8cea956550f944d345)
-            check_type(argname="argument backup_vault_arn", value=backup_vault_arn, expected_type=type_hints["backup_vault_arn"])
-            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_vault_arn": backup_vault_arn,
-            "backup_vault_name": backup_vault_name,
-        }
-
-    @builtins.property
-    def backup_vault_arn(self) -> builtins.str:
-        '''The ARN of the BackupVault resource.'''
-        result = self._values.get("backup_vault_arn")
-        assert result is not None, "Required property 'backup_vault_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def backup_vault_name(self) -> builtins.str:
-        '''The BackupVaultName of the BackupVault resource.'''
-        result = self._values.get("backup_vault_name")
-        assert result is not None, "Required property 'backup_vault_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BackupVaultReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={"backup_plan": "backupPlan", "backup_plan_tags": "backupPlanTags"},
-)
-class CfnBackupPlanProps:
-    def __init__(
-        self,
-        *,
-        backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
-        backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBackupPlan``.
-
-        :param backup_plan: Uniquely identifies the backup plan to be associated with the selection of resources.
-        :param backup_plan_tags: The tags to assign to the backup plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # backup_options: Any
-            
-            cfn_backup_plan_props = backup.CfnBackupPlanProps(
-                backup_plan=backup.CfnBackupPlan.BackupPlanResourceTypeProperty(
-                    backup_plan_name="backupPlanName",
-                    backup_plan_rule=[backup.CfnBackupPlan.BackupRuleResourceTypeProperty(
-                        rule_name="ruleName",
-                        target_backup_vault="targetBackupVault",
-            
-                        # the properties below are optional
-                        completion_window_minutes=123,
-                        copy_actions=[backup.CfnBackupPlan.CopyActionResourceTypeProperty(
-                            destination_backup_vault_arn="destinationBackupVaultArn",
-            
-                            # the properties below are optional
-                            lifecycle=backup.CfnBackupPlan.LifecycleResourceTypeProperty(
-                                delete_after_days=123,
-                                move_to_cold_storage_after_days=123,
-                                opt_in_to_archive_for_supported_resources=False
-                            )
-                        )],
-                        enable_continuous_backup=False,
-                        index_actions=[backup.CfnBackupPlan.IndexActionsResourceTypeProperty(
-                            resource_types=["resourceTypes"]
-                        )],
-                        lifecycle=backup.CfnBackupPlan.LifecycleResourceTypeProperty(
-                            delete_after_days=123,
-                            move_to_cold_storage_after_days=123,
-                            opt_in_to_archive_for_supported_resources=False
-                        ),
-                        recovery_point_tags={
-                            "recovery_point_tags_key": "recoveryPointTags"
-                        },
-                        schedule_expression="scheduleExpression",
-                        schedule_expression_timezone="scheduleExpressionTimezone",
-                        start_window_minutes=123
-                    )],
-            
-                    # the properties below are optional
-                    advanced_backup_settings=[backup.CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty(
-                        backup_options=backup_options,
-                        resource_type="resourceType"
-                    )]
-                ),
-            
-                # the properties below are optional
-                backup_plan_tags={
-                    "backup_plan_tags_key": "backupPlanTags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8)
-            check_type(argname="argument backup_plan", value=backup_plan, expected_type=type_hints["backup_plan"])
-            check_type(argname="argument backup_plan_tags", value=backup_plan_tags, expected_type=type_hints["backup_plan_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_plan": backup_plan,
-        }
-        if backup_plan_tags is not None:
-            self._values["backup_plan_tags"] = backup_plan_tags
-
-    @builtins.property
-    def backup_plan(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
-        '''Uniquely identifies the backup plan to be associated with the selection of resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html#cfn-backup-backupplan-backupplan
-        '''
-        result = self._values.get("backup_plan")
-        assert result is not None, "Required property 'backup_plan' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupPlanResourceTypeProperty"], result)
-
-    @builtins.property
-    def backup_plan_tags(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to assign to the backup plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html#cfn-backup-backupplan-backupplantags
-        '''
-        result = self._values.get("backup_plan_tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBackupPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnBackupSelectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "backup_plan_id": "backupPlanId",
-        "backup_selection": "backupSelection",
-    },
-)
-class CfnBackupSelectionProps:
-    def __init__(
-        self,
-        *,
-        backup_plan_id: builtins.str,
-        backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnBackupSelection``.
-
-        :param backup_plan_id: Uniquely identifies a backup plan.
-        :param backup_selection: Specifies the body of a request to assign a set of resources to a backup plan. It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # conditions: Any
-            
-            cfn_backup_selection_props = backup.CfnBackupSelectionProps(
-                backup_plan_id="backupPlanId",
-                backup_selection=backup.CfnBackupSelection.BackupSelectionResourceTypeProperty(
-                    iam_role_arn="iamRoleArn",
-                    selection_name="selectionName",
-            
-                    # the properties below are optional
-                    conditions=conditions,
-                    list_of_tags=[backup.CfnBackupSelection.ConditionResourceTypeProperty(
-                        condition_key="conditionKey",
-                        condition_type="conditionType",
-                        condition_value="conditionValue"
-                    )],
-                    not_resources=["notResources"],
-                    resources=["resources"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9)
-            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
-            check_type(argname="argument backup_selection", value=backup_selection, expected_type=type_hints["backup_selection"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_plan_id": backup_plan_id,
-            "backup_selection": backup_selection,
-        }
-
-    @builtins.property
-    def backup_plan_id(self) -> builtins.str:
-        '''Uniquely identifies a backup plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html#cfn-backup-backupselection-backupplanid
-        '''
-        result = self._values.get("backup_plan_id")
-        assert result is not None, "Required property 'backup_plan_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def backup_selection(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
-        '''Specifies the body of a request to assign a set of resources to a backup plan.
-
-        It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html#cfn-backup-backupselection-backupselection
-        '''
-        result = self._values.get("backup_selection")
-        assert result is not None, "Required property 'backup_selection' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.BackupSelectionResourceTypeProperty"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBackupSelectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnBackupVaultProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "backup_vault_name": "backupVaultName",
-        "access_policy": "accessPolicy",
-        "backup_vault_tags": "backupVaultTags",
-        "encryption_key_arn": "encryptionKeyArn",
-        "lock_configuration": "lockConfiguration",
-        "notifications": "notifications",
-    },
-)
-class CfnBackupVaultProps:
-    def __init__(
-        self,
-        *,
-        backup_vault_name: builtins.str,
-        access_policy: typing.Any = None,
-        backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        encryption_key_arn: typing.Optional[builtins.str] = None,
-        lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBackupVault``.
-
-        :param backup_vault_name: The name of a logical container where backups are stored. Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created.
-        :param access_policy: A resource-based policy that is used to manage access permissions on the target backup vault.
-        :param backup_vault_tags: The tags to assign to the backup vault.
-        :param encryption_key_arn: A server-side encryption key you can specify to encrypt your backups from services that support full AWS Backup management; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If you specify a key, you must specify its ARN, not its alias. If you do not specify a key, AWS Backup creates a KMS key for you by default. To learn which AWS Backup services support full AWS Backup management and how AWS Backup handles encryption for backups from services that do not yet support full AWS Backup , see `Encryption for backups in AWS Backup <https://docs.aws.amazon.com/aws-backup/latest/devguide/encryption.html>`_
-        :param lock_configuration: Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .
-        :param notifications: The SNS event notifications for the specified backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # access_policy: Any
-            
-            cfn_backup_vault_props = backup.CfnBackupVaultProps(
-                backup_vault_name="backupVaultName",
-            
-                # the properties below are optional
-                access_policy=access_policy,
-                backup_vault_tags={
-                    "backup_vault_tags_key": "backupVaultTags"
-                },
-                encryption_key_arn="encryptionKeyArn",
-                lock_configuration=backup.CfnBackupVault.LockConfigurationTypeProperty(
-                    min_retention_days=123,
-            
-                    # the properties below are optional
-                    changeable_for_days=123,
-                    max_retention_days=123
-                ),
-                notifications=backup.CfnBackupVault.NotificationObjectTypeProperty(
-                    backup_vault_events=["backupVaultEvents"],
-                    sns_topic_arn="snsTopicArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28)
-            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-            check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
-            check_type(argname="argument backup_vault_tags", value=backup_vault_tags, expected_type=type_hints["backup_vault_tags"])
-            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
-            check_type(argname="argument lock_configuration", value=lock_configuration, expected_type=type_hints["lock_configuration"])
-            check_type(argname="argument notifications", value=notifications, expected_type=type_hints["notifications"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_vault_name": backup_vault_name,
-        }
-        if access_policy is not None:
-            self._values["access_policy"] = access_policy
-        if backup_vault_tags is not None:
-            self._values["backup_vault_tags"] = backup_vault_tags
-        if encryption_key_arn is not None:
-            self._values["encryption_key_arn"] = encryption_key_arn
-        if lock_configuration is not None:
-            self._values["lock_configuration"] = lock_configuration
-        if notifications is not None:
-            self._values["notifications"] = notifications
-
-    @builtins.property
-    def backup_vault_name(self) -> builtins.str:
-        '''The name of a logical container where backups are stored.
-
-        Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-backupvaultname
-        '''
-        result = self._values.get("backup_vault_name")
-        assert result is not None, "Required property 'backup_vault_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_policy(self) -> typing.Any:
-        '''A resource-based policy that is used to manage access permissions on the target backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-accesspolicy
-        '''
-        result = self._values.get("access_policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def backup_vault_tags(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to assign to the backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-backupvaulttags
-        '''
-        result = self._values.get("backup_vault_tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''A server-side encryption key you can specify to encrypt your backups from services that support full AWS Backup management;
-
-        for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If you specify a key, you must specify its ARN, not its alias. If you do not specify a key, AWS Backup creates a KMS key for you by default.
-
-        To learn which AWS Backup services support full AWS Backup management and how AWS Backup handles encryption for backups from services that do not yet support full AWS Backup , see `Encryption for backups in AWS Backup <https://docs.aws.amazon.com/aws-backup/latest/devguide/encryption.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-encryptionkeyarn
-        '''
-        result = self._values.get("encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def lock_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.LockConfigurationTypeProperty"]]:
-        '''Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-lockconfiguration
-        '''
-        result = self._values.get("lock_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.LockConfigurationTypeProperty"]], result)
-
-    @builtins.property
-    def notifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.NotificationObjectTypeProperty"]]:
-        '''The SNS event notifications for the specified backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-notifications
-        '''
-        result = self._values.get("notifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.NotificationObjectTypeProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBackupVaultProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnFrameworkProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "framework_controls": "frameworkControls",
-        "framework_description": "frameworkDescription",
-        "framework_name": "frameworkName",
-        "framework_tags": "frameworkTags",
-    },
-)
-class CfnFrameworkProps:
-    def __init__(
-        self,
-        *,
-        framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        framework_description: typing.Optional[builtins.str] = None,
-        framework_name: typing.Optional[builtins.str] = None,
-        framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFramework``.
-
-        :param framework_controls: Contains detailed information about all of the controls of a framework. Each framework must contain at least one control.
-        :param framework_description: An optional description of the framework with a maximum 1,024 characters.
-        :param framework_name: The unique name of a framework. This name is between 1 and 256 characters, starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
-        :param framework_tags: The tags to assign to your framework.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # control_scope: Any
-            
-            cfn_framework_props = backup.CfnFrameworkProps(
-                framework_controls=[backup.CfnFramework.FrameworkControlProperty(
-                    control_name="controlName",
-            
-                    # the properties below are optional
-                    control_input_parameters=[backup.CfnFramework.ControlInputParameterProperty(
-                        parameter_name="parameterName",
-                        parameter_value="parameterValue"
-                    )],
-                    control_scope=control_scope
-                )],
-            
-                # the properties below are optional
-                framework_description="frameworkDescription",
-                framework_name="frameworkName",
-                framework_tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7)
-            check_type(argname="argument framework_controls", value=framework_controls, expected_type=type_hints["framework_controls"])
-            check_type(argname="argument framework_description", value=framework_description, expected_type=type_hints["framework_description"])
-            check_type(argname="argument framework_name", value=framework_name, expected_type=type_hints["framework_name"])
-            check_type(argname="argument framework_tags", value=framework_tags, expected_type=type_hints["framework_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "framework_controls": framework_controls,
-        }
-        if framework_description is not None:
-            self._values["framework_description"] = framework_description
-        if framework_name is not None:
-            self._values["framework_name"] = framework_name
-        if framework_tags is not None:
-            self._values["framework_tags"] = framework_tags
-
-    @builtins.property
-    def framework_controls(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.FrameworkControlProperty"]]]:
-        '''Contains detailed information about all of the controls of a framework.
-
-        Each framework must contain at least one control.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkcontrols
-        '''
-        result = self._values.get("framework_controls")
-        assert result is not None, "Required property 'framework_controls' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.FrameworkControlProperty"]]], result)
-
-    @builtins.property
-    def framework_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the framework with a maximum 1,024 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkdescription
-        '''
-        result = self._values.get("framework_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def framework_name(self) -> typing.Optional[builtins.str]:
-        '''The unique name of a framework.
-
-        This name is between 1 and 256 characters, starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkname
-        '''
-        result = self._values.get("framework_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def framework_tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to your framework.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworktags
-        '''
-        result = self._values.get("framework_tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFrameworkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnLogicallyAirGappedBackupVaultProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "backup_vault_name": "backupVaultName",
-        "max_retention_days": "maxRetentionDays",
-        "min_retention_days": "minRetentionDays",
-        "access_policy": "accessPolicy",
-        "backup_vault_tags": "backupVaultTags",
-        "notifications": "notifications",
-    },
-)
-class CfnLogicallyAirGappedBackupVaultProps:
-    def __init__(
-        self,
-        *,
-        backup_vault_name: builtins.str,
-        max_retention_days: jsii.Number,
-        min_retention_days: jsii.Number,
-        access_policy: typing.Any = None,
-        backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLogicallyAirGappedBackupVault``.
-
-        :param backup_vault_name: The name of a logical container where backups are stored. Logically air-gapped backup vaults are identified by names that are unique to the account used to create them and the Region where they are created.
-        :param max_retention_days: The maximum retention period that the vault retains its recovery points.
-        :param min_retention_days: This setting specifies the minimum retention period that the vault retains its recovery points. The minimum value accepted is 7 days.
-        :param access_policy: The backup vault access policy document in JSON format.
-        :param backup_vault_tags: The tags to assign to the vault.
-        :param notifications: Returns event notifications for the specified backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # access_policy: Any
-            
-            cfn_logically_air_gapped_backup_vault_props = backup.CfnLogicallyAirGappedBackupVaultProps(
-                backup_vault_name="backupVaultName",
-                max_retention_days=123,
-                min_retention_days=123,
-            
-                # the properties below are optional
-                access_policy=access_policy,
-                backup_vault_tags={
-                    "backup_vault_tags_key": "backupVaultTags"
-                },
-                notifications=backup.CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty(
-                    backup_vault_events=["backupVaultEvents"],
-                    sns_topic_arn="snsTopicArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f)
-            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-            check_type(argname="argument max_retention_days", value=max_retention_days, expected_type=type_hints["max_retention_days"])
-            check_type(argname="argument min_retention_days", value=min_retention_days, expected_type=type_hints["min_retention_days"])
-            check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
-            check_type(argname="argument backup_vault_tags", value=backup_vault_tags, expected_type=type_hints["backup_vault_tags"])
-            check_type(argname="argument notifications", value=notifications, expected_type=type_hints["notifications"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_vault_name": backup_vault_name,
-            "max_retention_days": max_retention_days,
-            "min_retention_days": min_retention_days,
-        }
-        if access_policy is not None:
-            self._values["access_policy"] = access_policy
-        if backup_vault_tags is not None:
-            self._values["backup_vault_tags"] = backup_vault_tags
-        if notifications is not None:
-            self._values["notifications"] = notifications
-
-    @builtins.property
-    def backup_vault_name(self) -> builtins.str:
-        '''The name of a logical container where backups are stored.
-
-        Logically air-gapped backup vaults are identified by names that are unique to the account used to create them and the Region where they are created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-backupvaultname
-        '''
-        result = self._values.get("backup_vault_name")
-        assert result is not None, "Required property 'backup_vault_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def max_retention_days(self) -> jsii.Number:
-        '''The maximum retention period that the vault retains its recovery points.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-maxretentiondays
-        '''
-        result = self._values.get("max_retention_days")
-        assert result is not None, "Required property 'max_retention_days' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def min_retention_days(self) -> jsii.Number:
-        '''This setting specifies the minimum retention period that the vault retains its recovery points.
-
-        The minimum value accepted is 7 days.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-minretentiondays
-        '''
-        result = self._values.get("min_retention_days")
-        assert result is not None, "Required property 'min_retention_days' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def access_policy(self) -> typing.Any:
-        '''The backup vault access policy document in JSON format.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-accesspolicy
-        '''
-        result = self._values.get("access_policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def backup_vault_tags(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to assign to the vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-backupvaulttags
-        '''
-        result = self._values.get("backup_vault_tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def notifications(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
-        '''Returns event notifications for the specified backup vault.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-notifications
-        '''
-        result = self._values.get("notifications")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLogicallyAirGappedBackupVaultProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnReportPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "report_delivery_channel": "reportDeliveryChannel",
-        "report_setting": "reportSetting",
-        "report_plan_description": "reportPlanDescription",
-        "report_plan_name": "reportPlanName",
-        "report_plan_tags": "reportPlanTags",
-    },
-)
-class CfnReportPlanProps:
-    def __init__(
-        self,
-        *,
-        report_delivery_channel: typing.Any,
-        report_setting: typing.Any,
-        report_plan_description: typing.Optional[builtins.str] = None,
-        report_plan_name: typing.Optional[builtins.str] = None,
-        report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReportPlan``.
-
-        :param report_delivery_channel: Contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
-        :param report_setting: Identifies the report template for the report. Reports are built using a report template. The report templates are:. ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT`` If the report template is ``RESOURCE_COMPLIANCE_REPORT`` or ``CONTROL_COMPLIANCE_REPORT`` , this API resource also describes the report coverage by AWS Regions and frameworks.
-        :param report_plan_description: An optional description of the report plan with a maximum 1,024 characters.
-        :param report_plan_name: The unique name of the report plan. This name is between 1 and 256 characters starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
-        :param report_plan_tags: The tags to assign to your report plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            # report_delivery_channel: Any
-            # report_setting: Any
-            
-            cfn_report_plan_props = backup.CfnReportPlanProps(
-                report_delivery_channel=report_delivery_channel,
-                report_setting=report_setting,
-            
-                # the properties below are optional
-                report_plan_description="reportPlanDescription",
-                report_plan_name="reportPlanName",
-                report_plan_tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9)
-            check_type(argname="argument report_delivery_channel", value=report_delivery_channel, expected_type=type_hints["report_delivery_channel"])
-            check_type(argname="argument report_setting", value=report_setting, expected_type=type_hints["report_setting"])
-            check_type(argname="argument report_plan_description", value=report_plan_description, expected_type=type_hints["report_plan_description"])
-            check_type(argname="argument report_plan_name", value=report_plan_name, expected_type=type_hints["report_plan_name"])
-            check_type(argname="argument report_plan_tags", value=report_plan_tags, expected_type=type_hints["report_plan_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "report_delivery_channel": report_delivery_channel,
-            "report_setting": report_setting,
-        }
-        if report_plan_description is not None:
-            self._values["report_plan_description"] = report_plan_description
-        if report_plan_name is not None:
-            self._values["report_plan_name"] = report_plan_name
-        if report_plan_tags is not None:
-            self._values["report_plan_tags"] = report_plan_tags
-
-    @builtins.property
-    def report_delivery_channel(self) -> typing.Any:
-        '''Contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportdeliverychannel
-        '''
-        result = self._values.get("report_delivery_channel")
-        assert result is not None, "Required property 'report_delivery_channel' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def report_setting(self) -> typing.Any:
-        '''Identifies the report template for the report. Reports are built using a report template. The report templates are:.
-
-        ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT``
-
-        If the report template is ``RESOURCE_COMPLIANCE_REPORT`` or ``CONTROL_COMPLIANCE_REPORT`` , this API resource also describes the report coverage by AWS Regions and frameworks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportsetting
-        '''
-        result = self._values.get("report_setting")
-        assert result is not None, "Required property 'report_setting' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def report_plan_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the report plan with a maximum 1,024 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplandescription
-        '''
-        result = self._values.get("report_plan_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def report_plan_name(self) -> typing.Optional[builtins.str]:
-        '''The unique name of the report plan.
-
-        This name is between 1 and 256 characters starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplanname
-        '''
-        result = self._values.get("report_plan_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def report_plan_tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to assign to your report plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplantags
-        '''
-        result = self._values.get("report_plan_tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReportPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "recovery_point_selection": "recoveryPointSelection",
-        "restore_testing_plan_name": "restoreTestingPlanName",
-        "schedule_expression": "scheduleExpression",
-        "schedule_expression_timezone": "scheduleExpressionTimezone",
-        "start_window_hours": "startWindowHours",
-        "tags": "tags",
-    },
-)
-class CfnRestoreTestingPlanProps:
-    def __init__(
-        self,
-        *,
-        recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
-        restore_testing_plan_name: builtins.str,
-        schedule_expression: builtins.str,
-        schedule_expression_timezone: typing.Optional[builtins.str] = None,
-        start_window_hours: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRestoreTestingPlan``.
-
-        :param recovery_point_selection: The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
-        :param restore_testing_plan_name: The RestoreTestingPlanName is a unique string that is the name of the restore testing plan. This cannot be changed after creation, and it must consist of only alphanumeric characters and underscores.
-        :param schedule_expression: A CRON expression in specified timezone when a restore testing plan is executed. When no CRON expression is provided, AWS Backup will use the default expression ``cron(0 5 ? * * *)`` .
-        :param schedule_expression_timezone: Optional. This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
-        :param start_window_hours: Defaults to 24 hours. A value in hours after a restore test is scheduled before a job will be canceled if it doesn't start successfully. This value is optional. If this value is included, this parameter has a maximum value of 168 hours (one week).
-        :param tags: Optional tags to include. A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            cfn_restore_testing_plan_props = backup.CfnRestoreTestingPlanProps(
-                recovery_point_selection=backup.CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty(
-                    algorithm="algorithm",
-                    include_vaults=["includeVaults"],
-                    recovery_point_types=["recoveryPointTypes"],
-            
-                    # the properties below are optional
-                    exclude_vaults=["excludeVaults"],
-                    selection_window_days=123
-                ),
-                restore_testing_plan_name="restoreTestingPlanName",
-                schedule_expression="scheduleExpression",
-            
-                # the properties below are optional
-                schedule_expression_timezone="scheduleExpressionTimezone",
-                start_window_hours=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5)
-            check_type(argname="argument recovery_point_selection", value=recovery_point_selection, expected_type=type_hints["recovery_point_selection"])
-            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
-            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
-            check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
-            check_type(argname="argument start_window_hours", value=start_window_hours, expected_type=type_hints["start_window_hours"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "recovery_point_selection": recovery_point_selection,
-            "restore_testing_plan_name": restore_testing_plan_name,
-            "schedule_expression": schedule_expression,
-        }
-        if schedule_expression_timezone is not None:
-            self._values["schedule_expression_timezone"] = schedule_expression_timezone
-        if start_window_hours is not None:
-            self._values["start_window_hours"] = start_window_hours
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def recovery_point_selection(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
-        '''The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-recoverypointselection
-        '''
-        result = self._values.get("recovery_point_selection")
-        assert result is not None, "Required property 'recovery_point_selection' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], result)
-
-    @builtins.property
-    def restore_testing_plan_name(self) -> builtins.str:
-        '''The RestoreTestingPlanName is a unique string that is the name of the restore testing plan.
-
-        This cannot be changed after creation, and it must consist of only alphanumeric characters and underscores.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-restoretestingplanname
-        '''
-        result = self._values.get("restore_testing_plan_name")
-        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule_expression(self) -> builtins.str:
-        '''A CRON expression in specified timezone when a restore testing plan is executed.
-
-        When no CRON expression is provided, AWS Backup will use the default expression ``cron(0 5 ? * * *)`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-scheduleexpression
-        '''
-        result = self._values.get("schedule_expression")
-        assert result is not None, "Required property 'schedule_expression' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule_expression_timezone(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-scheduleexpressiontimezone
-        '''
-        result = self._values.get("schedule_expression_timezone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_window_hours(self) -> typing.Optional[jsii.Number]:
-        '''Defaults to 24 hours.
-
-        A value in hours after a restore test is scheduled before a job will be canceled if it doesn't start successfully. This value is optional. If this value is included, this parameter has a maximum value of 168 hours (one week).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-startwindowhours
-        '''
-        result = self._values.get("start_window_hours")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Optional tags to include.
-
-        A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRestoreTestingPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingSelectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "iam_role_arn": "iamRoleArn",
-        "protected_resource_type": "protectedResourceType",
-        "restore_testing_plan_name": "restoreTestingPlanName",
-        "restore_testing_selection_name": "restoreTestingSelectionName",
-        "protected_resource_arns": "protectedResourceArns",
-        "protected_resource_conditions": "protectedResourceConditions",
-        "restore_metadata_overrides": "restoreMetadataOverrides",
-        "validation_window_hours": "validationWindowHours",
-    },
-)
-class CfnRestoreTestingSelectionProps:
-    def __init__(
-        self,
-        *,
-        iam_role_arn: builtins.str,
-        protected_resource_type: builtins.str,
-        restore_testing_plan_name: builtins.str,
-        restore_testing_selection_name: builtins.str,
-        protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        validation_window_hours: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRestoreTestingSelection``.
-
-        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role that AWS Backup uses to create the target resource; for example: ``arn:aws:iam::123456789012:role/S3Access`` .
-        :param protected_resource_type: The type of AWS resource included in a resource testing selection; for example, an Amazon EBS volume or an Amazon RDS database.
-        :param restore_testing_plan_name: Unique string that is the name of the restore testing plan. The name cannot be changed after creation. The name must consist of only alphanumeric characters and underscores. Maximum length is 50.
-        :param restore_testing_selection_name: The unique name of the restore testing selection that belongs to the related restore testing plan.
-        :param protected_resource_arns: You can include specific ARNs, such as ``ProtectedResourceArns: ["arn:aws:...", "arn:aws:..."]`` or you can include a wildcard: ``ProtectedResourceArns: ["*"]`` , but not both.
-        :param protected_resource_conditions: In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
-        :param restore_metadata_overrides: You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` . Key values are not case sensitive. See the complete list of `restore testing inferred metadata <https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing-inferred-metadata.html>`_ .
-        :param validation_window_hours: This is amount of hours (1 to 168) available to run a validation script on the data. The data will be deleted upon the completion of the validation script or the end of the specified retention period, whichever comes first.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            cfn_restore_testing_selection_props = backup.CfnRestoreTestingSelectionProps(
-                iam_role_arn="iamRoleArn",
-                protected_resource_type="protectedResourceType",
-                restore_testing_plan_name="restoreTestingPlanName",
-                restore_testing_selection_name="restoreTestingSelectionName",
-            
-                # the properties below are optional
-                protected_resource_arns=["protectedResourceArns"],
-                protected_resource_conditions=backup.CfnRestoreTestingSelection.ProtectedResourceConditionsProperty(
-                    string_equals=[backup.CfnRestoreTestingSelection.KeyValueProperty(
-                        key="key",
-                        value="value"
-                    )],
-                    string_not_equals=[backup.CfnRestoreTestingSelection.KeyValueProperty(
-                        key="key",
-                        value="value"
-                    )]
-                ),
-                restore_metadata_overrides={
-                    "restore_metadata_overrides_key": "restoreMetadataOverrides"
-                },
-                validation_window_hours=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb)
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument protected_resource_type", value=protected_resource_type, expected_type=type_hints["protected_resource_type"])
-            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
-            check_type(argname="argument restore_testing_selection_name", value=restore_testing_selection_name, expected_type=type_hints["restore_testing_selection_name"])
-            check_type(argname="argument protected_resource_arns", value=protected_resource_arns, expected_type=type_hints["protected_resource_arns"])
-            check_type(argname="argument protected_resource_conditions", value=protected_resource_conditions, expected_type=type_hints["protected_resource_conditions"])
-            check_type(argname="argument restore_metadata_overrides", value=restore_metadata_overrides, expected_type=type_hints["restore_metadata_overrides"])
-            check_type(argname="argument validation_window_hours", value=validation_window_hours, expected_type=type_hints["validation_window_hours"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "iam_role_arn": iam_role_arn,
-            "protected_resource_type": protected_resource_type,
-            "restore_testing_plan_name": restore_testing_plan_name,
-            "restore_testing_selection_name": restore_testing_selection_name,
-        }
-        if protected_resource_arns is not None:
-            self._values["protected_resource_arns"] = protected_resource_arns
-        if protected_resource_conditions is not None:
-            self._values["protected_resource_conditions"] = protected_resource_conditions
-        if restore_metadata_overrides is not None:
-            self._values["restore_metadata_overrides"] = restore_metadata_overrides
-        if validation_window_hours is not None:
-            self._values["validation_window_hours"] = validation_window_hours
-
-    @builtins.property
-    def iam_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role that AWS Backup uses to create the target resource;
-
-        for example: ``arn:aws:iam::123456789012:role/S3Access`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        assert result is not None, "Required property 'iam_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protected_resource_type(self) -> builtins.str:
-        '''The type of AWS resource included in a resource testing selection;
-
-        for example, an Amazon EBS volume or an Amazon RDS database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourcetype
-        '''
-        result = self._values.get("protected_resource_type")
-        assert result is not None, "Required property 'protected_resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def restore_testing_plan_name(self) -> builtins.str:
-        '''Unique string that is the name of the restore testing plan.
-
-        The name cannot be changed after creation. The name must consist of only alphanumeric characters and underscores. Maximum length is 50.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoretestingplanname
-        '''
-        result = self._values.get("restore_testing_plan_name")
-        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def restore_testing_selection_name(self) -> builtins.str:
-        '''The unique name of the restore testing selection that belongs to the related restore testing plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoretestingselectionname
-        '''
-        result = self._values.get("restore_testing_selection_name")
-        assert result is not None, "Required property 'restore_testing_selection_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protected_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''You can include specific ARNs, such as ``ProtectedResourceArns: ["arn:aws:...", "arn:aws:..."]`` or you can include a wildcard: ``ProtectedResourceArns: ["*"]`` , but not both.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourcearns
-        '''
-        result = self._values.get("protected_resource_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def protected_resource_conditions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
-        '''In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourceconditions
-        '''
-        result = self._values.get("protected_resource_conditions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], result)
-
-    @builtins.property
-    def restore_metadata_overrides(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .
-
-        Key values are not case sensitive.
-
-        See the complete list of `restore testing inferred metadata <https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing-inferred-metadata.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoremetadataoverrides
-        '''
-        result = self._values.get("restore_metadata_overrides")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def validation_window_hours(self) -> typing.Optional[jsii.Number]:
-        '''This is amount of hours (1 to 168) available to run a validation script on the data.
-
-        The data will be deleted upon the completion of the validation script or the end of the specified retention period, whichever comes first.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-validationwindowhours
-        '''
-        result = self._values.get("validation_window_hours")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRestoreTestingSelectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.FrameworkReference",
-    jsii_struct_bases=[],
-    name_mapping={"framework_arn": "frameworkArn"},
-)
-class FrameworkReference:
-    def __init__(self, *, framework_arn: builtins.str) -> None:
-        '''A reference to a Framework resource.
-
-        :param framework_arn: The FrameworkArn of the Framework resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            framework_reference = backup.FrameworkReference(
-                framework_arn="frameworkArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f6e19a5b773b4593f523fb53dce853ea5f3b07b8bd58c44b171b4dfbbd10368)
-            check_type(argname="argument framework_arn", value=framework_arn, expected_type=type_hints["framework_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "framework_arn": framework_arn,
-        }
-
-    @builtins.property
-    def framework_arn(self) -> builtins.str:
-        '''The FrameworkArn of the Framework resource.'''
-        result = self._values.get("framework_arn")
-        assert result is not None, "Required property 'framework_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FrameworkReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupPlan")
-class IBackupPlan(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A backup plan.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanId")
-    def backup_plan_id(self) -> builtins.str:
-        '''The identifier of the backup plan.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IBackupPlanProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A backup plan.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupPlan"
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanId")
-    def backup_plan_id(self) -> builtins.str:
-        '''The identifier of the backup plan.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "backupPlanId"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBackupPlan).__jsii_proxy_class__ = lambda : _IBackupPlanProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupPlanRef")
-class IBackupPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a BackupPlan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanRef")
-    def backup_plan_ref(self) -> BackupPlanReference:
-        '''(experimental) A reference to a BackupPlan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBackupPlanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BackupPlan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupPlanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanRef")
-    def backup_plan_ref(self) -> BackupPlanReference:
-        '''(experimental) A reference to a BackupPlan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BackupPlanReference, jsii.get(self, "backupPlanRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBackupPlanRef).__jsii_proxy_class__ = lambda : _IBackupPlanRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupSelectionRef")
-class IBackupSelectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a BackupSelection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="backupSelectionRef")
-    def backup_selection_ref(self) -> BackupSelectionReference:
-        '''(experimental) A reference to a BackupSelection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBackupSelectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BackupSelection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupSelectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="backupSelectionRef")
-    def backup_selection_ref(self) -> BackupSelectionReference:
-        '''(experimental) A reference to a BackupSelection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BackupSelectionReference, jsii.get(self, "backupSelectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBackupSelectionRef).__jsii_proxy_class__ = lambda : _IBackupSelectionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupVault")
-class IBackupVault(_IResource_c80c4260, typing_extensions.Protocol):
-    '''A backup vault.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultArn")
-    def backup_vault_arn(self) -> builtins.str:
-        '''The ARN of the backup vault.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultName")
-    def backup_vault_name(self) -> builtins.str:
-        '''The name of a logical container where backups are stored.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the actions defined in actions to the given grantee on this backup vault.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        ...
-
-
-class _IBackupVaultProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''A backup vault.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupVault"
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultArn")
-    def backup_vault_arn(self) -> builtins.str:
-        '''The ARN of the backup vault.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "backupVaultArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultName")
-    def backup_vault_name(self) -> builtins.str:
-        '''The name of a logical container where backups are stored.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "backupVaultName"))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the actions defined in actions to the given grantee on this backup vault.
-
-        :param grantee: -
-        :param actions: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBackupVault).__jsii_proxy_class__ = lambda : _IBackupVaultProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupVaultRef")
-class IBackupVaultRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a BackupVault.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultRef")
-    def backup_vault_ref(self) -> BackupVaultReference:
-        '''(experimental) A reference to a BackupVault resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBackupVaultRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BackupVault.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupVaultRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultRef")
-    def backup_vault_ref(self) -> BackupVaultReference:
-        '''(experimental) A reference to a BackupVault resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(BackupVaultReference, jsii.get(self, "backupVaultRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBackupVaultRef).__jsii_proxy_class__ = lambda : _IBackupVaultRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IFrameworkRef")
-class IFrameworkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Framework.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="frameworkRef")
-    def framework_ref(self) -> FrameworkReference:
-        '''(experimental) A reference to a Framework resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFrameworkRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Framework.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IFrameworkRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="frameworkRef")
-    def framework_ref(self) -> FrameworkReference:
-        '''(experimental) A reference to a Framework resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(FrameworkReference, jsii.get(self, "frameworkRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFrameworkRef).__jsii_proxy_class__ = lambda : _IFrameworkRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.ILogicallyAirGappedBackupVaultRef")
-class ILogicallyAirGappedBackupVaultRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LogicallyAirGappedBackupVault.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="logicallyAirGappedBackupVaultRef")
-    def logically_air_gapped_backup_vault_ref(
-        self,
-    ) -> "LogicallyAirGappedBackupVaultReference":
-        '''(experimental) A reference to a LogicallyAirGappedBackupVault resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILogicallyAirGappedBackupVaultRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LogicallyAirGappedBackupVault.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.ILogicallyAirGappedBackupVaultRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="logicallyAirGappedBackupVaultRef")
-    def logically_air_gapped_backup_vault_ref(
-        self,
-    ) -> "LogicallyAirGappedBackupVaultReference":
-        '''(experimental) A reference to a LogicallyAirGappedBackupVault resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LogicallyAirGappedBackupVaultReference", jsii.get(self, "logicallyAirGappedBackupVaultRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILogicallyAirGappedBackupVaultRef).__jsii_proxy_class__ = lambda : _ILogicallyAirGappedBackupVaultRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IReportPlanRef")
-class IReportPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ReportPlan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="reportPlanRef")
-    def report_plan_ref(self) -> "ReportPlanReference":
-        '''(experimental) A reference to a ReportPlan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReportPlanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReportPlan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IReportPlanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="reportPlanRef")
-    def report_plan_ref(self) -> "ReportPlanReference":
-        '''(experimental) A reference to a ReportPlan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReportPlanReference", jsii.get(self, "reportPlanRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReportPlanRef).__jsii_proxy_class__ = lambda : _IReportPlanRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IRestoreTestingPlanRef")
-class IRestoreTestingPlanRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a RestoreTestingPlan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreTestingPlanRef")
-    def restore_testing_plan_ref(self) -> "RestoreTestingPlanReference":
-        '''(experimental) A reference to a RestoreTestingPlan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRestoreTestingPlanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RestoreTestingPlan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IRestoreTestingPlanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreTestingPlanRef")
-    def restore_testing_plan_ref(self) -> "RestoreTestingPlanReference":
-        '''(experimental) A reference to a RestoreTestingPlan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RestoreTestingPlanReference", jsii.get(self, "restoreTestingPlanRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRestoreTestingPlanRef).__jsii_proxy_class__ = lambda : _IRestoreTestingPlanRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IRestoreTestingSelectionRef")
-class IRestoreTestingSelectionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a RestoreTestingSelection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreTestingSelectionRef")
-    def restore_testing_selection_ref(self) -> "RestoreTestingSelectionReference":
-        '''(experimental) A reference to a RestoreTestingSelection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRestoreTestingSelectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RestoreTestingSelection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IRestoreTestingSelectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="restoreTestingSelectionRef")
-    def restore_testing_selection_ref(self) -> "RestoreTestingSelectionReference":
-        '''(experimental) A reference to a RestoreTestingSelection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RestoreTestingSelectionReference", jsii.get(self, "restoreTestingSelectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRestoreTestingSelectionRef).__jsii_proxy_class__ = lambda : _IRestoreTestingSelectionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.LockConfiguration",
-    jsii_struct_bases=[],
-    name_mapping={
-        "min_retention": "minRetention",
-        "changeable_for": "changeableFor",
-        "max_retention": "maxRetention",
-    },
-)
-class LockConfiguration:
-    def __init__(
-        self,
-        *,
-        min_retention: _Duration_4839e8c3,
-        changeable_for: typing.Optional[_Duration_4839e8c3] = None,
-        max_retention: typing.Optional[_Duration_4839e8c3] = None,
-    ) -> None:
-        '''Configuration for AWS Backup Vault Lock.
-
-        :param min_retention: The minimum retention period that the vault retains its recovery points. If this parameter is specified, any backup or copy job to the vault must have a lifecycle policy with a retention period equal to or longer than the minimum retention period. If the job's retention period is shorter than that minimum retention period, then the vault fails that backup or copy job, and you should either modify your lifecycle settings or use a different vault. Recovery points already saved in the vault prior to Vault Lock are not affected.
-        :param changeable_for: The duration before the lock date. AWS Backup enforces a 72-hour cooling-off period before Vault Lock takes effect and becomes immutable. Before the lock date, you can delete Vault Lock from the vault or change the Vault Lock configuration. On and after the lock date, the Vault Lock becomes immutable and cannot be changed or deleted. Default: - Vault Lock can be deleted or changed at any time
-        :param max_retention: The maximum retention period that the vault retains its recovery points. If this parameter is specified, any backup or copy job to the vault must have a lifecycle policy with a retention period equal to or shorter than the maximum retention period. If the job's retention period is longer than that maximum retention period, then the vault fails the backup or copy job, and you should either modify your lifecycle settings or use a different vault. Recovery points already saved in the vault prior to Vault Lock are not affected. Default: - Vault Lock does not enforce a maximum retention period
-
-        :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html
-        :exampleMetadata: infused
-
-        Example::
-
-            backup.BackupVault(self, "Vault",
-                lock_configuration=backup.LockConfiguration(
-                    min_retention=Duration.days(30)
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681)
-            check_type(argname="argument min_retention", value=min_retention, expected_type=type_hints["min_retention"])
-            check_type(argname="argument changeable_for", value=changeable_for, expected_type=type_hints["changeable_for"])
-            check_type(argname="argument max_retention", value=max_retention, expected_type=type_hints["max_retention"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "min_retention": min_retention,
-        }
-        if changeable_for is not None:
-            self._values["changeable_for"] = changeable_for
-        if max_retention is not None:
-            self._values["max_retention"] = max_retention
-
-    @builtins.property
-    def min_retention(self) -> _Duration_4839e8c3:
-        '''The minimum retention period that the vault retains its recovery points.
-
-        If this parameter is specified, any backup or copy job to the vault must
-        have a lifecycle policy with a retention period equal to or longer than
-        the minimum retention period. If the job's retention period is shorter than
-        that minimum retention period, then the vault fails that backup or copy job,
-        and you should either modify your lifecycle settings or use a different
-        vault. Recovery points already saved in the vault prior to Vault Lock are
-        not affected.
-        '''
-        result = self._values.get("min_retention")
-        assert result is not None, "Required property 'min_retention' is missing"
-        return typing.cast(_Duration_4839e8c3, result)
-
-    @builtins.property
-    def changeable_for(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The duration before the lock date.
-
-        AWS Backup enforces a 72-hour cooling-off period before Vault Lock takes
-        effect and becomes immutable.
-
-        Before the lock date, you can delete Vault Lock from the vault or change
-        the Vault Lock configuration. On and after the lock date, the Vault Lock
-        becomes immutable and cannot be changed or deleted.
-
-        :default: - Vault Lock can be deleted or changed at any time
-        '''
-        result = self._values.get("changeable_for")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def max_retention(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The maximum retention period that the vault retains its recovery points.
-
-        If this parameter is specified, any backup or copy job to the vault must
-        have a lifecycle policy with a retention period equal to or shorter than
-        the maximum retention period. If the job's retention period is longer than
-        that maximum retention period, then the vault fails the backup or copy job,
-        and you should either modify your lifecycle settings or use a different
-        vault. Recovery points already saved in the vault prior to Vault Lock are
-        not affected.
-
-        :default: - Vault Lock does not enforce a maximum retention period
-        '''
-        result = self._values.get("max_retention")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LockConfiguration(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.LogicallyAirGappedBackupVaultReference",
-    jsii_struct_bases=[],
-    name_mapping={"backup_vault_name": "backupVaultName"},
-)
-class LogicallyAirGappedBackupVaultReference:
-    def __init__(self, *, backup_vault_name: builtins.str) -> None:
-        '''A reference to a LogicallyAirGappedBackupVault resource.
-
-        :param backup_vault_name: The BackupVaultName of the LogicallyAirGappedBackupVault resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            logically_air_gapped_backup_vault_reference = backup.LogicallyAirGappedBackupVaultReference(
-                backup_vault_name="backupVaultName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8813a3e043efe12e58e0c0f09161facfb97c2dcfa3ded00ea77779e6e568924)
-            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "backup_vault_name": backup_vault_name,
-        }
-
-    @builtins.property
-    def backup_vault_name(self) -> builtins.str:
-        '''The BackupVaultName of the LogicallyAirGappedBackupVault resource.'''
-        result = self._values.get("backup_vault_name")
-        assert result is not None, "Required property 'backup_vault_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LogicallyAirGappedBackupVaultReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.ReportPlanReference",
-    jsii_struct_bases=[],
-    name_mapping={"report_plan_arn": "reportPlanArn"},
-)
-class ReportPlanReference:
-    def __init__(self, *, report_plan_arn: builtins.str) -> None:
-        '''A reference to a ReportPlan resource.
-
-        :param report_plan_arn: The ReportPlanArn of the ReportPlan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            report_plan_reference = backup.ReportPlanReference(
-                report_plan_arn="reportPlanArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c3ea0982a14d6de9d4c584271b927acee925d034d9d0fd5e77aef787e452ff9)
-            check_type(argname="argument report_plan_arn", value=report_plan_arn, expected_type=type_hints["report_plan_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "report_plan_arn": report_plan_arn,
-        }
-
-    @builtins.property
-    def report_plan_arn(self) -> builtins.str:
-        '''The ReportPlanArn of the ReportPlan resource.'''
-        result = self._values.get("report_plan_arn")
-        assert result is not None, "Required property 'report_plan_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReportPlanReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.RestoreTestingPlanReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "restore_testing_plan_arn": "restoreTestingPlanArn",
-        "restore_testing_plan_name": "restoreTestingPlanName",
-    },
-)
-class RestoreTestingPlanReference:
-    def __init__(
-        self,
-        *,
-        restore_testing_plan_arn: builtins.str,
-        restore_testing_plan_name: builtins.str,
-    ) -> None:
-        '''A reference to a RestoreTestingPlan resource.
-
-        :param restore_testing_plan_arn: The ARN of the RestoreTestingPlan resource.
-        :param restore_testing_plan_name: The RestoreTestingPlanName of the RestoreTestingPlan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            restore_testing_plan_reference = backup.RestoreTestingPlanReference(
-                restore_testing_plan_arn="restoreTestingPlanArn",
-                restore_testing_plan_name="restoreTestingPlanName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df487c6a75d94f62bc14d3c8d8df1d34e2a5e7ae5999bc9007da6c3adeff21b9)
-            check_type(argname="argument restore_testing_plan_arn", value=restore_testing_plan_arn, expected_type=type_hints["restore_testing_plan_arn"])
-            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "restore_testing_plan_arn": restore_testing_plan_arn,
-            "restore_testing_plan_name": restore_testing_plan_name,
-        }
-
-    @builtins.property
-    def restore_testing_plan_arn(self) -> builtins.str:
-        '''The ARN of the RestoreTestingPlan resource.'''
-        result = self._values.get("restore_testing_plan_arn")
-        assert result is not None, "Required property 'restore_testing_plan_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def restore_testing_plan_name(self) -> builtins.str:
-        '''The RestoreTestingPlanName of the RestoreTestingPlan resource.'''
-        result = self._values.get("restore_testing_plan_name")
-        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RestoreTestingPlanReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.RestoreTestingSelectionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "restore_testing_plan_name": "restoreTestingPlanName",
-        "restore_testing_selection_name": "restoreTestingSelectionName",
-    },
-)
-class RestoreTestingSelectionReference:
-    def __init__(
-        self,
-        *,
-        restore_testing_plan_name: builtins.str,
-        restore_testing_selection_name: builtins.str,
-    ) -> None:
-        '''A reference to a RestoreTestingSelection resource.
-
-        :param restore_testing_plan_name: The RestoreTestingPlanName of the RestoreTestingSelection resource.
-        :param restore_testing_selection_name: The RestoreTestingSelectionName of the RestoreTestingSelection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            restore_testing_selection_reference = backup.RestoreTestingSelectionReference(
-                restore_testing_plan_name="restoreTestingPlanName",
-                restore_testing_selection_name="restoreTestingSelectionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc0939242ba18bf99725a558149ab292469c51f0708a4cd3bf20617339606334)
-            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
-            check_type(argname="argument restore_testing_selection_name", value=restore_testing_selection_name, expected_type=type_hints["restore_testing_selection_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "restore_testing_plan_name": restore_testing_plan_name,
-            "restore_testing_selection_name": restore_testing_selection_name,
-        }
-
-    @builtins.property
-    def restore_testing_plan_name(self) -> builtins.str:
-        '''The RestoreTestingPlanName of the RestoreTestingSelection resource.'''
-        result = self._values.get("restore_testing_plan_name")
-        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def restore_testing_selection_name(self) -> builtins.str:
-        '''The RestoreTestingSelectionName of the RestoreTestingSelection resource.'''
-        result = self._values.get("restore_testing_selection_name")
-        assert result is not None, "Required property 'restore_testing_selection_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RestoreTestingSelectionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_backup.TagCondition",
-    jsii_struct_bases=[],
-    name_mapping={"key": "key", "value": "value", "operation": "operation"},
-)
-class TagCondition:
-    def __init__(
-        self,
-        *,
-        key: builtins.str,
-        value: builtins.str,
-        operation: typing.Optional["TagOperation"] = None,
-    ) -> None:
-        '''A tag condition.
-
-        :param key: The key in a key-value pair. For example, in ``"ec2:ResourceTag/Department": "accounting"``, ``ec2:ResourceTag/Department`` is the key.
-        :param value: The value in a key-value pair. For example, in ``"ec2:ResourceTag/Department": "accounting"``, ``accounting`` is the value.
-        :param operation: An operation that is applied to a key-value pair used to filter resources in a selection. Default: STRING_EQUALS
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_backup as backup
-            
-            tag_condition = backup.TagCondition(
-                key="key",
-                value="value",
-            
-                # the properties below are optional
-                operation=backup.TagOperation.STRING_EQUALS
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080)
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key": key,
-            "value": value,
-        }
-        if operation is not None:
-            self._values["operation"] = operation
-
-    @builtins.property
-    def key(self) -> builtins.str:
-        '''The key in a key-value pair.
-
-        For example, in ``"ec2:ResourceTag/Department": "accounting"``,
-        ``ec2:ResourceTag/Department`` is the key.
-        '''
-        result = self._values.get("key")
-        assert result is not None, "Required property 'key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def value(self) -> builtins.str:
-        '''The value in a key-value pair.
-
-        For example, in ``"ec2:ResourceTag/Department": "accounting"``,
-        ``accounting`` is the value.
-        '''
-        result = self._values.get("value")
-        assert result is not None, "Required property 'value' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def operation(self) -> typing.Optional["TagOperation"]:
-        '''An operation that is applied to a key-value pair used to filter resources in a selection.
-
-        :default: STRING_EQUALS
-        '''
-        result = self._values.get("operation")
-        return typing.cast(typing.Optional["TagOperation"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TagCondition(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_backup.TagOperation")
-class TagOperation(enum.Enum):
-    '''An operation that is applied to a key-value pair.'''
-
-    STRING_EQUALS = "STRING_EQUALS"
-    '''StringEquals.'''
-    DUMMY = "DUMMY"
-    '''Dummy member.'''
-
-
-@jsii.implements(IBackupPlan)
-class BackupPlan(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_backup.BackupPlan",
-):
-    '''A backup plan.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # Daily, weekly and monthly with 5 year retention
-        plan = backup.BackupPlan.daily_weekly_monthly5_year_retention(self, "Plan")
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        backup_plan_name: typing.Optional[builtins.str] = None,
-        backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
-        backup_vault: typing.Optional[IBackupVault] = None,
-        windows_vss: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param backup_plan_name: The display name of the backup plan. Default: - A CDK generated name
-        :param backup_plan_rules: Rules for the backup plan. Use ``addRule()`` to add rules after instantiation. Default: - use ``addRule()`` to add rules
-        :param backup_vault: The backup vault where backups are stored. Default: - use the vault defined at the rule level. If not defined a new common vault for the plan will be created
-        :param windows_vss: Enable Windows VSS backup. Default: false
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = BackupPlanProps(
-            backup_plan_name=backup_plan_name,
-            backup_plan_rules=backup_plan_rules,
-            backup_vault=backup_vault,
-            windows_vss=windows_vss,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="daily35DayRetention")
-    @builtins.classmethod
-    def daily35_day_retention(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault: typing.Optional[IBackupVault] = None,
-    ) -> "BackupPlan":
-        '''Daily with 35 day retention.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
-        return typing.cast("BackupPlan", jsii.sinvoke(cls, "daily35DayRetention", [scope, id, backup_vault]))
-
-    @jsii.member(jsii_name="dailyMonthly1YearRetention")
-    @builtins.classmethod
-    def daily_monthly1_year_retention(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault: typing.Optional[IBackupVault] = None,
-    ) -> "BackupPlan":
-        '''Daily and monthly with 1 year retention.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
-        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyMonthly1YearRetention", [scope, id, backup_vault]))
-
-    @jsii.member(jsii_name="dailyWeeklyMonthly5YearRetention")
-    @builtins.classmethod
-    def daily_weekly_monthly5_year_retention(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault: typing.Optional[IBackupVault] = None,
-    ) -> "BackupPlan":
-        '''Daily, weekly and monthly with 5 year retention.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
-        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyWeeklyMonthly5YearRetention", [scope, id, backup_vault]))
-
-    @jsii.member(jsii_name="dailyWeeklyMonthly7YearRetention")
-    @builtins.classmethod
-    def daily_weekly_monthly7_year_retention(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault: typing.Optional[IBackupVault] = None,
-    ) -> "BackupPlan":
-        '''Daily, weekly and monthly with 7 year retention.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
-        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyWeeklyMonthly7YearRetention", [scope, id, backup_vault]))
-
-    @jsii.member(jsii_name="fromBackupPlanId")
-    @builtins.classmethod
-    def from_backup_plan_id(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_plan_id: builtins.str,
-    ) -> IBackupPlan:
-        '''Import an existing backup plan.
-
-        :param scope: -
-        :param id: -
-        :param backup_plan_id: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
-        return typing.cast(IBackupPlan, jsii.sinvoke(cls, "fromBackupPlanId", [scope, id, backup_plan_id]))
-
-    @jsii.member(jsii_name="addRule")
-    def add_rule(self, rule: BackupPlanRule) -> None:
-        '''Adds a rule to a plan.
-
-        :param rule: the rule to add.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df)
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast(None, jsii.invoke(self, "addRule", [rule]))
-
-    @jsii.member(jsii_name="addSelection")
-    def add_selection(
-        self,
-        id: builtins.str,
-        *,
-        resources: typing.Sequence[BackupResource],
-        allow_restores: typing.Optional[builtins.bool] = None,
-        backup_selection_name: typing.Optional[builtins.str] = None,
-        disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> BackupSelection:
-        '''Adds a selection to this plan.
-
-        :param id: -
-        :param resources: The resources to backup. Use the helper static methods defined on ``BackupResource``.
-        :param allow_restores: Whether to automatically give restores permissions to the role that AWS Backup uses. If ``true``, the ``AWSBackupServiceRolePolicyForRestores`` managed policy will be attached to the role. Default: false
-        :param backup_selection_name: The name for this selection. Default: - a CDK generated name
-        :param disable_default_backup_policy: Whether to disable automatically assigning default backup permissions to the role that AWS Backup uses. If ``false``, the ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to the role. Default: false
-        :param role: The role that AWS Backup uses to authenticate when backuping or restoring the resources. The ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to this role unless ``disableDefaultBackupPolicy`` is set to ``true``. Default: - a new role will be created
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = BackupSelectionOptions(
-            resources=resources,
-            allow_restores=allow_restores,
-            backup_selection_name=backup_selection_name,
-            disable_default_backup_policy=disable_default_backup_policy,
-            role=role,
-        )
-
-        return typing.cast(BackupSelection, jsii.invoke(self, "addSelection", [id, options]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanArn")
-    def backup_plan_arn(self) -> builtins.str:
-        '''The ARN of the backup plan.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "backupPlanArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupPlanId")
-    def backup_plan_id(self) -> builtins.str:
-        '''The identifier of the backup plan.'''
-        return typing.cast(builtins.str, jsii.get(self, "backupPlanId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVault")
-    def backup_vault(self) -> IBackupVault:
-        '''The backup vault where backups are stored if not defined at the rule level.'''
-        return typing.cast(IBackupVault, jsii.get(self, "backupVault"))
-
-    @builtins.property
-    @jsii.member(jsii_name="versionId")
-    def version_id(self) -> builtins.str:
-        '''Version Id.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "versionId"))
-
-
-@jsii.implements(IBackupVault)
-class BackupVault(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_backup.BackupVault",
-):
-    '''A backup vault.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        imported_vault = backup.BackupVault.from_backup_vault_name(self, "Vault", "myVaultName")
-        
-        role = iam.Role(self, "Access Role", assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"))
-        
-        imported_vault.grant(role, "backup:StartBackupJob")
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-        backup_vault_name: typing.Optional[builtins.str] = None,
-        block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
-        lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
-        notification_topic: typing.Optional[_ITopic_9eca4852] = None,
-        removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param access_policy: A resource-based policy that is used to manage access permissions on the backup vault. Default: - access is not restricted
-        :param backup_vault_name: The name of a logical container where backups are stored. Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created. Default: - A CDK generated name
-        :param block_recovery_point_deletion: Whether to add statements to the vault access policy that prevents anyone from deleting a recovery point. Default: false
-        :param encryption_key: The server-side encryption key to use to protect your backups. Default: - an Amazon managed KMS key
-        :param lock_configuration: Configuration for AWS Backup Vault Lock. Default: - AWS Backup Vault Lock is disabled
-        :param notification_events: The vault events to send. Default: - all vault events if ``notificationTopic`` is defined
-        :param notification_topic: A SNS topic to send vault events to. Default: - no notifications
-        :param removal_policy: The removal policy to apply to the vault. Note that removing a vault that contains recovery points will fail. Default: RemovalPolicy.RETAIN
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = BackupVaultProps(
-            access_policy=access_policy,
-            backup_vault_name=backup_vault_name,
-            block_recovery_point_deletion=block_recovery_point_deletion,
-            encryption_key=encryption_key,
-            lock_configuration=lock_configuration,
-            notification_events=notification_events,
-            notification_topic=notification_topic,
-            removal_policy=removal_policy,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromBackupVaultArn")
-    @builtins.classmethod
-    def from_backup_vault_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault_arn: builtins.str,
-    ) -> IBackupVault:
-        '''Import an existing backup vault by arn.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault_arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault_arn", value=backup_vault_arn, expected_type=type_hints["backup_vault_arn"])
-        return typing.cast(IBackupVault, jsii.sinvoke(cls, "fromBackupVaultArn", [scope, id, backup_vault_arn]))
-
-    @jsii.member(jsii_name="fromBackupVaultName")
-    @builtins.classmethod
-    def from_backup_vault_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        backup_vault_name: builtins.str,
-    ) -> IBackupVault:
-        '''Import an existing backup vault by name.
-
-        :param scope: -
-        :param id: -
-        :param backup_vault_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
-        return typing.cast(IBackupVault, jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
-
-    @jsii.member(jsii_name="addToAccessPolicy")
-    def add_to_access_policy(self, statement: _PolicyStatement_0fe33853) -> None:
-        '''Adds a statement to the vault access policy.
-
-        :param statement: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175)
-            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(None, jsii.invoke(self, "addToAccessPolicy", [statement]))
-
-    @jsii.member(jsii_name="blockRecoveryPointDeletion")
-    def block_recovery_point_deletion(self) -> None:
-        '''Adds a statement to the vault access policy that prevents anyone from deleting a recovery point.'''
-        return typing.cast(None, jsii.invoke(self, "blockRecoveryPointDeletion", []))
-
-    @jsii.member(jsii_name="grant")
-    def grant(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        *actions: builtins.str,
-    ) -> _Grant_a7ae64f8:
-        '''Grant the actions defined in actions to the given grantee on this Backup Vault resource.
-
-        :param grantee: Principal to grant right to.
-        :param actions: The actions to grant.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grant", [grantee, *actions]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultArn")
-    def backup_vault_arn(self) -> builtins.str:
-        '''The ARN of the backup vault.'''
-        return typing.cast(builtins.str, jsii.get(self, "backupVaultArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="backupVaultName")
-    def backup_vault_name(self) -> builtins.str:
-        '''The name of a logical container where backups are stored.'''
-        return typing.cast(builtins.str, jsii.get(self, "backupVaultName"))
-
-
-@jsii.implements(_IInspectable_c2943556, IBackupPlanRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IBackupPlanRef_754776b5, _ITaggableV2_4e6798f8)
 class CfnBackupPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4432,7 +1770,7 @@ class CfnBackupPlan(
 
     Each rule in a backup plan is a separate scheduled task and can back up a different selection of AWS resources.
 
-    For a sample AWS CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
+    For a sample CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html
     :cloudformationResource: AWS::Backup::BackupPlan
@@ -4479,7 +1817,8 @@ class CfnBackupPlan(
                     },
                     schedule_expression="scheduleExpression",
                     schedule_expression_timezone="scheduleExpressionTimezone",
-                    start_window_minutes=123
+                    start_window_minutes=123,
+                    target_logically_air_gapped_backup_vault_arn="targetLogicallyAirGappedBackupVaultArn"
                 )],
         
                 # the properties below are optional
@@ -4498,13 +1837,14 @@ class CfnBackupPlan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
         backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::BackupPlan``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param backup_plan: Uniquely identifies the backup plan to be associated with the selection of resources.
@@ -4520,8 +1860,73 @@ class CfnBackupPlan(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForBackupPlan")
+    @builtins.classmethod
+    def arn_for_backup_plan(cls, resource: "_IBackupPlanRef_754776b5") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d90318e05f298e9e32d25d69776de891d8d1f9fdc6587cd780d823a2ffc981d8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackupPlan", [resource]))
+
+    @jsii.member(jsii_name="fromBackupPlanArn")
+    @builtins.classmethod
+    def from_backup_plan_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IBackupPlanRef_754776b5":
+        '''Creates a new IBackupPlanRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19a621581dc951af9f595672bab4c44806829db988a9a543e73c82aa211347cc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IBackupPlanRef_754776b5", jsii.sinvoke(cls, "fromBackupPlanArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromBackupPlanId")
+    @builtins.classmethod
+    def from_backup_plan_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_plan_id: builtins.str,
+    ) -> "_IBackupPlanRef_754776b5":
+        '''Creates a new IBackupPlanRef from a backupPlanId.
+
+        :param scope: -
+        :param id: -
+        :param backup_plan_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c10f5f2e9e380d8e917a10f74122d09d2b555c99380ffa6da4e01197e1e097dd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
+        return typing.cast("_IBackupPlanRef_754776b5", jsii.sinvoke(cls, "fromBackupPlanId", [scope, id, backup_plan_id]))
+
+    @jsii.member(jsii_name="isCfnBackupPlan")
+    @builtins.classmethod
+    def is_cfn_backup_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackupPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ede8b9af7edd83b17d51898aba87327c2de9e2dca982aab34a7f5ba5948e1b76)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupPlan", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4583,15 +1988,15 @@ class CfnBackupPlan(
 
     @builtins.property
     @jsii.member(jsii_name="backupPlanRef")
-    def backup_plan_ref(self) -> BackupPlanReference:
+    def backup_plan_ref(self) -> "_BackupPlanReference_43879719":
         '''A reference to a BackupPlan resource.'''
-        return typing.cast(BackupPlanReference, jsii.get(self, "backupPlanRef"))
+        return typing.cast("_BackupPlanReference_43879719", jsii.get(self, "backupPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4602,14 +2007,14 @@ class CfnBackupPlan(
     @jsii.member(jsii_name="backupPlan")
     def backup_plan(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
         '''Uniquely identifies the backup plan to be associated with the selection of resources.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupPlanResourceTypeProperty"], jsii.get(self, "backupPlan"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"], jsii.get(self, "backupPlan"))
 
     @backup_plan.setter
     def backup_plan(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupPlanResourceTypeProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6bcd3444e7d21cd081d514b722a886bbe4d7a7b6f5d932136467b22b0e106cb)
@@ -4740,8 +2145,8 @@ class CfnBackupPlan(
             self,
             *,
             backup_plan_name: builtins.str,
-            backup_plan_rule: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.BackupRuleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            advanced_backup_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            backup_plan_rule: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupRuleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            advanced_backup_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies an object containing properties used to create a backup plan.
 
@@ -4792,7 +2197,8 @@ class CfnBackupPlan(
                         },
                         schedule_expression="scheduleExpression",
                         schedule_expression_timezone="scheduleExpressionTimezone",
-                        start_window_minutes=123
+                        start_window_minutes=123,
+                        target_logically_air_gapped_backup_vault_arn="targetLogicallyAirGappedBackupVaultArn"
                     )],
                 
                     # the properties below are optional
@@ -4827,25 +2233,25 @@ class CfnBackupPlan(
         @builtins.property
         def backup_plan_rule(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupRuleResourceTypeProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]]:
             '''An array of ``BackupRule`` objects, each of which specifies a scheduled task that is used to back up a selection of resources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-backupplanrule
             '''
             result = self._values.get("backup_plan_rule")
             assert result is not None, "Required property 'backup_plan_rule' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.BackupRuleResourceTypeProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupRuleResourceTypeProperty"]]], result)
 
         @builtins.property
         def advanced_backup_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]]:
             '''A list of backup options for each resource type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupplanresourcetype.html#cfn-backup-backupplan-backupplanresourcetype-advancedbackupsettings
             '''
             result = self._values.get("advanced_backup_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4873,6 +2279,7 @@ class CfnBackupPlan(
             "schedule_expression": "scheduleExpression",
             "schedule_expression_timezone": "scheduleExpressionTimezone",
             "start_window_minutes": "startWindowMinutes",
+            "target_logically_air_gapped_backup_vault_arn": "targetLogicallyAirGappedBackupVaultArn",
         },
     )
     class BackupRuleResourceTypeProperty:
@@ -4882,14 +2289,15 @@ class CfnBackupPlan(
             rule_name: builtins.str,
             target_backup_vault: builtins.str,
             completion_window_minutes: typing.Optional[jsii.Number] = None,
-            copy_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.CopyActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            index_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            copy_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.CopyActionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enable_continuous_backup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            index_actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.IndexActionsResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            recovery_point_tags: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
             schedule_expression: typing.Optional[builtins.str] = None,
             schedule_expression_timezone: typing.Optional[builtins.str] = None,
             start_window_minutes: typing.Optional[jsii.Number] = None,
+            target_logically_air_gapped_backup_vault_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies an object containing properties used to schedule a task to back up a selection of resources.
 
@@ -4904,6 +2312,7 @@ class CfnBackupPlan(
             :param schedule_expression: A CRON expression specifying when AWS Backup initiates a backup job.
             :param schedule_expression_timezone: This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
             :param start_window_minutes: An optional value that specifies a period of time in minutes after a backup is scheduled before a job is canceled if it doesn't start successfully. If this value is included, it must be at least 60 minutes to avoid errors.
+            :param target_logically_air_gapped_backup_vault_arn: The ARN of a logically air-gapped vault. ARN must be in the same account and Region. If provided, supported fully managed resources back up directly to logically air-gapped vault, while other supported resources create a temporary (billable) snapshot in backup vault, then copy it to logically air-gapped vault. Unsupported resources only back up to the specified backup vault.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html
             :exampleMetadata: fixture=_generated
@@ -4944,7 +2353,8 @@ class CfnBackupPlan(
                     },
                     schedule_expression="scheduleExpression",
                     schedule_expression_timezone="scheduleExpressionTimezone",
-                    start_window_minutes=123
+                    start_window_minutes=123,
+                    target_logically_air_gapped_backup_vault_arn="targetLogicallyAirGappedBackupVaultArn"
                 )
             '''
             if __debug__:
@@ -4960,6 +2370,7 @@ class CfnBackupPlan(
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
                 check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
                 check_type(argname="argument start_window_minutes", value=start_window_minutes, expected_type=type_hints["start_window_minutes"])
+                check_type(argname="argument target_logically_air_gapped_backup_vault_arn", value=target_logically_air_gapped_backup_vault_arn, expected_type=type_hints["target_logically_air_gapped_backup_vault_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rule_name": rule_name,
                 "target_backup_vault": target_backup_vault,
@@ -4982,6 +2393,8 @@ class CfnBackupPlan(
                 self._values["schedule_expression_timezone"] = schedule_expression_timezone
             if start_window_minutes is not None:
                 self._values["start_window_minutes"] = start_window_minutes
+            if target_logically_air_gapped_backup_vault_arn is not None:
+                self._values["target_logically_air_gapped_backup_vault_arn"] = target_logically_air_gapped_backup_vault_arn
 
         @builtins.property
         def rule_name(self) -> builtins.str:
@@ -5017,29 +2430,29 @@ class CfnBackupPlan(
         @builtins.property
         def copy_actions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.CopyActionResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]]:
             '''An array of CopyAction objects, which contains the details of the copy operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-copyactions
             '''
             result = self._values.get("copy_actions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.CopyActionResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.CopyActionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def enable_continuous_backup(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Enables continuous backup and point-in-time restores (PITR).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-enablecontinuousbackup
             '''
             result = self._values.get("enable_continuous_backup")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def index_actions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]]:
             '''There can up to one IndexAction in each BackupRule, as each backup can have 0 or 1 backup index associated with it.
 
             Within the array is ResourceTypes. Only 1 resource type will be accepted for each BackupRule. Valid values:
@@ -5050,12 +2463,12 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-indexactions
             '''
             result = self._values.get("index_actions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.IndexActionsResourceTypeProperty"]]]], result)
 
         @builtins.property
         def lifecycle(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
             '''The lifecycle defines when a protected resource is transitioned to cold storage and when it expires.
 
             AWS Backup transitions and expires backups automatically according to the lifecycle that you define.
@@ -5063,18 +2476,18 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-lifecycle
             '''
             result = self._values.get("lifecycle")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
 
         @builtins.property
         def recovery_point_tags(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''The tags to assign to the resources.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-recoverypointtags
             '''
             result = self._values.get("recovery_point_tags")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def schedule_expression(self) -> typing.Optional[builtins.str]:
@@ -5107,6 +2520,19 @@ class CfnBackupPlan(
             result = self._values.get("start_window_minutes")
             return typing.cast(typing.Optional[jsii.Number], result)
 
+        @builtins.property
+        def target_logically_air_gapped_backup_vault_arn(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''The ARN of a logically air-gapped vault.
+
+            ARN must be in the same account and Region. If provided, supported fully managed resources back up directly to logically air-gapped vault, while other supported resources create a temporary (billable) snapshot in backup vault, then copy it to logically air-gapped vault. Unsupported resources only back up to the specified backup vault.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html#cfn-backup-backupplan-backupruleresourcetype-targetlogicallyairgappedbackupvaultarn
+            '''
+            result = self._values.get("target_logically_air_gapped_backup_vault_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -5131,7 +2557,7 @@ class CfnBackupPlan(
             self,
             *,
             destination_backup_vault_arn: builtins.str,
-            lifecycle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lifecycle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.LifecycleResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Copies backups created by a backup rule to another vault.
 
@@ -5183,7 +2609,7 @@ class CfnBackupPlan(
         @builtins.property
         def lifecycle(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]]:
             '''Defines when a protected resource is transitioned to cold storage and when it expires.
 
             AWS Backup transitions and expires backups automatically according to the lifecycle that you define. If you do not specify a lifecycle, AWS Backup applies the lifecycle policy of the source backup to the destination backup.
@@ -5193,7 +2619,7 @@ class CfnBackupPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-copyactionresourcetype.html#cfn-backup-backupplan-copyactionresourcetype-lifecycle
             '''
             result = self._values.get("lifecycle")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.LifecycleResourceTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5281,7 +2707,7 @@ class CfnBackupPlan(
             *,
             delete_after_days: typing.Optional[jsii.Number] = None,
             move_to_cold_storage_after_days: typing.Optional[jsii.Number] = None,
-            opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            opt_in_to_archive_for_supported_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Specifies an object containing an array of ``Transition`` objects that determine how long in days before a recovery point transitions to cold storage or is deleted.
 
@@ -5340,13 +2766,13 @@ class CfnBackupPlan(
         @builtins.property
         def opt_in_to_archive_for_supported_resources(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If the value is true, your backup plan transitions supported resources to archive (cold) storage tier in accordance with your lifecycle settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-lifecycleresourcetype.html#cfn-backup-backupplan-lifecycleresourcetype-optintoarchiveforsupportedresources
             '''
             result = self._values.get("opt_in_to_archive_for_supported_resources")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5360,7 +2786,130 @@ class CfnBackupPlan(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IBackupSelectionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnBackupPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={"backup_plan": "backupPlan", "backup_plan_tags": "backupPlanTags"},
+)
+class CfnBackupPlanProps:
+    def __init__(
+        self,
+        *,
+        backup_plan: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupPlan.BackupPlanResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBackupPlan``.
+
+        :param backup_plan: Uniquely identifies the backup plan to be associated with the selection of resources.
+        :param backup_plan_tags: The tags to assign to the backup plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # backup_options: Any
+            
+            cfn_backup_plan_props = backup.CfnBackupPlanProps(
+                backup_plan=backup.CfnBackupPlan.BackupPlanResourceTypeProperty(
+                    backup_plan_name="backupPlanName",
+                    backup_plan_rule=[backup.CfnBackupPlan.BackupRuleResourceTypeProperty(
+                        rule_name="ruleName",
+                        target_backup_vault="targetBackupVault",
+            
+                        # the properties below are optional
+                        completion_window_minutes=123,
+                        copy_actions=[backup.CfnBackupPlan.CopyActionResourceTypeProperty(
+                            destination_backup_vault_arn="destinationBackupVaultArn",
+            
+                            # the properties below are optional
+                            lifecycle=backup.CfnBackupPlan.LifecycleResourceTypeProperty(
+                                delete_after_days=123,
+                                move_to_cold_storage_after_days=123,
+                                opt_in_to_archive_for_supported_resources=False
+                            )
+                        )],
+                        enable_continuous_backup=False,
+                        index_actions=[backup.CfnBackupPlan.IndexActionsResourceTypeProperty(
+                            resource_types=["resourceTypes"]
+                        )],
+                        lifecycle=backup.CfnBackupPlan.LifecycleResourceTypeProperty(
+                            delete_after_days=123,
+                            move_to_cold_storage_after_days=123,
+                            opt_in_to_archive_for_supported_resources=False
+                        ),
+                        recovery_point_tags={
+                            "recovery_point_tags_key": "recoveryPointTags"
+                        },
+                        schedule_expression="scheduleExpression",
+                        schedule_expression_timezone="scheduleExpressionTimezone",
+                        start_window_minutes=123,
+                        target_logically_air_gapped_backup_vault_arn="targetLogicallyAirGappedBackupVaultArn"
+                    )],
+            
+                    # the properties below are optional
+                    advanced_backup_settings=[backup.CfnBackupPlan.AdvancedBackupSettingResourceTypeProperty(
+                        backup_options=backup_options,
+                        resource_type="resourceType"
+                    )]
+                ),
+            
+                # the properties below are optional
+                backup_plan_tags={
+                    "backup_plan_tags_key": "backupPlanTags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8)
+            check_type(argname="argument backup_plan", value=backup_plan, expected_type=type_hints["backup_plan"])
+            check_type(argname="argument backup_plan_tags", value=backup_plan_tags, expected_type=type_hints["backup_plan_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_plan": backup_plan,
+        }
+        if backup_plan_tags is not None:
+            self._values["backup_plan_tags"] = backup_plan_tags
+
+    @builtins.property
+    def backup_plan(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"]:
+        '''Uniquely identifies the backup plan to be associated with the selection of resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html#cfn-backup-backupplan-backupplan
+        '''
+        result = self._values.get("backup_plan")
+        assert result is not None, "Required property 'backup_plan' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupPlan.BackupPlanResourceTypeProperty"], result)
+
+    @builtins.property
+    def backup_plan_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to assign to the backup plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupplan.html#cfn-backup-backupplan-backupplantags
+        '''
+        result = self._values.get("backup_plan_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBackupPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IBackupSelectionRef_e9fbb7b2)
 class CfnBackupSelection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5368,7 +2917,7 @@ class CfnBackupSelection(
 ):
     '''Specifies a set of resources to assign to a backup plan.
 
-    For a sample AWS CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
+    For a sample CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html
     :cloudformationResource: AWS::Backup::BackupSelection
@@ -5403,13 +2952,14 @@ class CfnBackupSelection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        backup_plan_id: builtins.str,
-        backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        backup_plan_id: typing.Union[builtins.str, "_IBackupPlanRef_754776b5"],
+        backup_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::BackupSelection``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param backup_plan_id: Uniquely identifies a backup plan.
@@ -5425,8 +2975,20 @@ class CfnBackupSelection(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnBackupSelection")
+    @builtins.classmethod
+    def is_cfn_backup_selection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackupSelection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d35e73d1ff2149bad22c9c5051064e7e4eb9459ab990636de591005480b4e938)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupSelection", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5484,9 +3046,9 @@ class CfnBackupSelection(
 
     @builtins.property
     @jsii.member(jsii_name="backupSelectionRef")
-    def backup_selection_ref(self) -> BackupSelectionReference:
+    def backup_selection_ref(self) -> "_BackupSelectionReference_541c6985":
         '''A reference to a BackupSelection resource.'''
-        return typing.cast(BackupSelectionReference, jsii.get(self, "backupSelectionRef"))
+        return typing.cast("_BackupSelectionReference_541c6985", jsii.get(self, "backupSelectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5510,14 +3072,14 @@ class CfnBackupSelection(
     @jsii.member(jsii_name="backupSelection")
     def backup_selection(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
         '''Specifies the body of a request to assign a set of resources to a backup plan.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.BackupSelectionResourceTypeProperty"], jsii.get(self, "backupSelection"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], jsii.get(self, "backupSelection"))
 
     @backup_selection.setter
     def backup_selection(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.BackupSelectionResourceTypeProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c50a31cd4319cd1c025574f4d4937c890776ab110ae28de39672caf7d2e4b86b)
@@ -5543,7 +3105,7 @@ class CfnBackupSelection(
             iam_role_arn: builtins.str,
             selection_name: builtins.str,
             conditions: typing.Any = None,
-            list_of_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.ConditionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            list_of_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
             resources: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -5644,7 +3206,7 @@ class CfnBackupSelection(
         @builtins.property
         def list_of_tags(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionResourceTypeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionResourceTypeProperty"]]]]:
             '''A list of conditions that you define to assign resources to your backup plans using tags.
 
             For example, ``"StringEquals": { "ConditionKey": "aws:ResourceTag/CreatedByCryo", "ConditionValue": "true" },`` . Condition operators are case sensitive.
@@ -5657,7 +3219,7 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-backupselectionresourcetype.html#cfn-backup-backupselection-backupselectionresourcetype-listoftags
             '''
             result = self._values.get("list_of_tags")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionResourceTypeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionResourceTypeProperty"]]]], result)
 
         @builtins.property
         def not_resources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5881,10 +3443,10 @@ class CfnBackupSelection(
         def __init__(
             self,
             *,
-            string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_like: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_like: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_like: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_like: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.ConditionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about which resources to include or exclude from a backup plan using their tags.
 
@@ -5942,7 +3504,7 @@ class CfnBackupSelection(
         @builtins.property
         def string_equals(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged with the same value.
 
             Also called "exact matching."
@@ -5950,12 +3512,12 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringequals
             '''
             result = self._values.get("string_equals")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_like(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for matching tag values with the use of a wildcard character (*) anywhere in the string.
 
             For example, "prod*" or "*rod*" matches the tag value "production".
@@ -5963,12 +3525,12 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringlike
             '''
             result = self._values.get("string_like")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_not_equals(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged that do not have the same value.
 
             Also called "negated matching."
@@ -5976,18 +3538,18 @@ class CfnBackupSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringnotequals
             '''
             result = self._values.get("string_not_equals")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         @builtins.property
         def string_not_like(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]]:
             '''Filters the values of your tagged resources for non-matching tag values with the use of a wildcard character (*) anywhere in the string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupselection-conditions.html#cfn-backup-backupselection-conditions-stringnotlike
             '''
             result = self._values.get("string_not_like")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBackupSelection.ConditionParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.ConditionParameterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6001,7 +3563,101 @@ class CfnBackupSelection(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IBackupVaultRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnBackupSelectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "backup_plan_id": "backupPlanId",
+        "backup_selection": "backupSelection",
+    },
+)
+class CfnBackupSelectionProps:
+    def __init__(
+        self,
+        *,
+        backup_plan_id: typing.Union[builtins.str, "_IBackupPlanRef_754776b5"],
+        backup_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupSelection.BackupSelectionResourceTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnBackupSelection``.
+
+        :param backup_plan_id: Uniquely identifies a backup plan.
+        :param backup_selection: Specifies the body of a request to assign a set of resources to a backup plan. It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # conditions: Any
+            
+            cfn_backup_selection_props = backup.CfnBackupSelectionProps(
+                backup_plan_id="backupPlanId",
+                backup_selection=backup.CfnBackupSelection.BackupSelectionResourceTypeProperty(
+                    iam_role_arn="iamRoleArn",
+                    selection_name="selectionName",
+            
+                    # the properties below are optional
+                    conditions=conditions,
+                    list_of_tags=[backup.CfnBackupSelection.ConditionResourceTypeProperty(
+                        condition_key="conditionKey",
+                        condition_type="conditionType",
+                        condition_value="conditionValue"
+                    )],
+                    not_resources=["notResources"],
+                    resources=["resources"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9)
+            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
+            check_type(argname="argument backup_selection", value=backup_selection, expected_type=type_hints["backup_selection"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_plan_id": backup_plan_id,
+            "backup_selection": backup_selection,
+        }
+
+    @builtins.property
+    def backup_plan_id(self) -> typing.Union[builtins.str, "_IBackupPlanRef_754776b5"]:
+        '''Uniquely identifies a backup plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html#cfn-backup-backupselection-backupplanid
+        '''
+        result = self._values.get("backup_plan_id")
+        assert result is not None, "Required property 'backup_plan_id' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IBackupPlanRef_754776b5"], result)
+
+    @builtins.property
+    def backup_selection(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"]:
+        '''Specifies the body of a request to assign a set of resources to a backup plan.
+
+        It includes an array of resources, an optional array of patterns to exclude resources, an optional role to provide access to the AWS service the resource belongs to, and an optional array of tags used to identify a set of resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupselection.html#cfn-backup-backupselection-backupselection
+        '''
+        result = self._values.get("backup_selection")
+        assert result is not None, "Required property 'backup_selection' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnBackupSelection.BackupSelectionResourceTypeProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBackupSelectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IBackupVaultRef_c038ce00, _ITaggableV2_4e6798f8)
 class CfnBackupVault(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6013,7 +3669,7 @@ class CfnBackupVault(
 
     Do not include sensitive data, such as passport numbers, in the name of a backup vault.
 
-    For a sample AWS CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
+    For a sample CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html
     :cloudformationResource: AWS::Backup::BackupVault
@@ -6052,17 +3708,18 @@ class CfnBackupVault(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         backup_vault_name: builtins.str,
         access_policy: typing.Any = None,
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        encryption_key_arn: typing.Optional[builtins.str] = None,
-        lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::BackupVault``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param backup_vault_name: The name of a logical container where backups are stored. Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created.
@@ -6087,8 +3744,76 @@ class CfnBackupVault(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForBackupVault")
+    @builtins.classmethod
+    def arn_for_backup_vault(
+        cls,
+        resource: "_IBackupVaultRef_c038ce00",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ed92c2782108e3ac41b002f013a5190852956a16215b7e5e56ca133e9e72884)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBackupVault", [resource]))
+
+    @jsii.member(jsii_name="fromBackupVaultArn")
+    @builtins.classmethod
+    def from_backup_vault_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IBackupVaultRef_c038ce00":
+        '''Creates a new IBackupVaultRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2986d116c33dbb1dc995c507e7df9b0cf2f344f357d0a1404d0c2ece4c1fc5b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IBackupVaultRef_c038ce00", jsii.sinvoke(cls, "fromBackupVaultArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromBackupVaultName")
+    @builtins.classmethod
+    def from_backup_vault_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault_name: builtins.str,
+    ) -> "_IBackupVaultRef_c038ce00":
+        '''Creates a new IBackupVaultRef from a backupVaultName.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc137647a726cfa7058e572fdb03e73df8b9f52e786f61edcd64eb6c3fc59645)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+        return typing.cast("_IBackupVaultRef_c038ce00", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
+
+    @jsii.member(jsii_name="isCfnBackupVault")
+    @builtins.classmethod
+    def is_cfn_backup_vault(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBackupVault.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd36b260fa1819d239b14b42d40ba38036f7fcfb5eea5ee5997f7d891fe37b70)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBackupVault", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6141,15 +3866,15 @@ class CfnBackupVault(
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultRef")
-    def backup_vault_ref(self) -> BackupVaultReference:
+    def backup_vault_ref(self) -> "_BackupVaultReference_228dbd3a":
         '''A reference to a BackupVault resource.'''
-        return typing.cast(BackupVaultReference, jsii.get(self, "backupVaultRef"))
+        return typing.cast("_BackupVaultReference_228dbd3a", jsii.get(self, "backupVaultRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6217,14 +3942,14 @@ class CfnBackupVault(
     @jsii.member(jsii_name="lockConfiguration")
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.LockConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]]:
         '''Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.LockConfigurationTypeProperty"]], jsii.get(self, "lockConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]], jsii.get(self, "lockConfiguration"))
 
     @lock_configuration.setter
     def lock_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.LockConfigurationTypeProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c2b8e8d837c9ecececc40d52f27a016b926cd8c10c242b093a3f7cf0d24407a)
@@ -6235,14 +3960,14 @@ class CfnBackupVault(
     @jsii.member(jsii_name="notifications")
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]]:
         '''The SNS event notifications for the specified backup vault.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
 
     @notifications.setter
     def notifications(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBackupVault.NotificationObjectTypeProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd703ee9b654a333d2dac663658fcec508ffab2fc620c932c524dcd0df84e35e)
@@ -6440,7 +4165,175 @@ class CfnBackupVault(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IFrameworkRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnBackupVaultProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "backup_vault_name": "backupVaultName",
+        "access_policy": "accessPolicy",
+        "backup_vault_tags": "backupVaultTags",
+        "encryption_key_arn": "encryptionKeyArn",
+        "lock_configuration": "lockConfiguration",
+        "notifications": "notifications",
+    },
+)
+class CfnBackupVaultProps:
+    def __init__(
+        self,
+        *,
+        backup_vault_name: builtins.str,
+        access_policy: typing.Any = None,
+        backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        encryption_key_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.LockConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBackupVault``.
+
+        :param backup_vault_name: The name of a logical container where backups are stored. Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created.
+        :param access_policy: A resource-based policy that is used to manage access permissions on the target backup vault.
+        :param backup_vault_tags: The tags to assign to the backup vault.
+        :param encryption_key_arn: A server-side encryption key you can specify to encrypt your backups from services that support full AWS Backup management; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If you specify a key, you must specify its ARN, not its alias. If you do not specify a key, AWS Backup creates a KMS key for you by default. To learn which AWS Backup services support full AWS Backup management and how AWS Backup handles encryption for backups from services that do not yet support full AWS Backup , see `Encryption for backups in AWS Backup <https://docs.aws.amazon.com/aws-backup/latest/devguide/encryption.html>`_
+        :param lock_configuration: Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .
+        :param notifications: The SNS event notifications for the specified backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # access_policy: Any
+            
+            cfn_backup_vault_props = backup.CfnBackupVaultProps(
+                backup_vault_name="backupVaultName",
+            
+                # the properties below are optional
+                access_policy=access_policy,
+                backup_vault_tags={
+                    "backup_vault_tags_key": "backupVaultTags"
+                },
+                encryption_key_arn="encryptionKeyArn",
+                lock_configuration=backup.CfnBackupVault.LockConfigurationTypeProperty(
+                    min_retention_days=123,
+            
+                    # the properties below are optional
+                    changeable_for_days=123,
+                    max_retention_days=123
+                ),
+                notifications=backup.CfnBackupVault.NotificationObjectTypeProperty(
+                    backup_vault_events=["backupVaultEvents"],
+                    sns_topic_arn="snsTopicArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28)
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+            check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
+            check_type(argname="argument backup_vault_tags", value=backup_vault_tags, expected_type=type_hints["backup_vault_tags"])
+            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument lock_configuration", value=lock_configuration, expected_type=type_hints["lock_configuration"])
+            check_type(argname="argument notifications", value=notifications, expected_type=type_hints["notifications"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_vault_name": backup_vault_name,
+        }
+        if access_policy is not None:
+            self._values["access_policy"] = access_policy
+        if backup_vault_tags is not None:
+            self._values["backup_vault_tags"] = backup_vault_tags
+        if encryption_key_arn is not None:
+            self._values["encryption_key_arn"] = encryption_key_arn
+        if lock_configuration is not None:
+            self._values["lock_configuration"] = lock_configuration
+        if notifications is not None:
+            self._values["notifications"] = notifications
+
+    @builtins.property
+    def backup_vault_name(self) -> builtins.str:
+        '''The name of a logical container where backups are stored.
+
+        Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-backupvaultname
+        '''
+        result = self._values.get("backup_vault_name")
+        assert result is not None, "Required property 'backup_vault_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_policy(self) -> typing.Any:
+        '''A resource-based policy that is used to manage access permissions on the target backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-accesspolicy
+        '''
+        result = self._values.get("access_policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def backup_vault_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to assign to the backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-backupvaulttags
+        '''
+        result = self._values.get("backup_vault_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def encryption_key_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+        '''A server-side encryption key you can specify to encrypt your backups from services that support full AWS Backup management;
+
+        for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If you specify a key, you must specify its ARN, not its alias. If you do not specify a key, AWS Backup creates a KMS key for you by default.
+
+        To learn which AWS Backup services support full AWS Backup management and how AWS Backup handles encryption for backups from services that do not yet support full AWS Backup , see `Encryption for backups in AWS Backup <https://docs.aws.amazon.com/aws-backup/latest/devguide/encryption.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-encryptionkeyarn
+        '''
+        result = self._values.get("encryption_key_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+
+    @builtins.property
+    def lock_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]]:
+        '''Configuration for `AWS Backup Vault Lock <https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-lockconfiguration
+        '''
+        result = self._values.get("lock_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.LockConfigurationTypeProperty"]], result)
+
+    @builtins.property
+    def notifications(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]]:
+        '''The SNS event notifications for the specified backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-backupvault.html#cfn-backup-backupvault-notifications
+        '''
+        result = self._values.get("notifications")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBackupVault.NotificationObjectTypeProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBackupVaultProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IFrameworkRef_dcbb25ea, _ITaggableV2_4e6798f8)
 class CfnFramework(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6450,7 +4343,7 @@ class CfnFramework(
 
     A framework is a collection of controls that you can use to evaluate your backup practices. By using pre-built customizable controls to define your policies, you can evaluate whether your backup practices comply with your policies and which resources are not yet in compliance.
 
-    For a sample AWS CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/bam-cfn-integration.html#bam-cfn-frameworks-template>`_ .
+    For a sample CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/bam-cfn-integration.html#bam-cfn-frameworks-template>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html
     :cloudformationResource: AWS::Backup::Framework
@@ -6458,6 +4351,7 @@ class CfnFramework(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_backup as backup
@@ -6488,15 +4382,16 @@ class CfnFramework(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        framework_controls: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
         framework_description: typing.Optional[builtins.str] = None,
         framework_name: typing.Optional[builtins.str] = None,
-        framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        framework_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::Framework``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param framework_controls: Contains detailed information about all of the controls of a framework. Each framework must contain at least one control.
@@ -6517,8 +4412,31 @@ class CfnFramework(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForFramework")
+    @builtins.classmethod
+    def arn_for_framework(cls, resource: "_IFrameworkRef_dcbb25ea") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b50aa25a1cc9ba34b4868b9a50fe018bfd4cc98076a84c277bf66f3e1da5f09)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFramework", [resource]))
+
+    @jsii.member(jsii_name="isCfnFramework")
+    @builtins.classmethod
+    def is_cfn_framework(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFramework.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0e4b118e80cc8b6a02bf8eff05632314f7c32bd9e456ab50d3932ffbf790e7b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFramework", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6589,9 +4507,9 @@ class CfnFramework(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6600,22 +4518,22 @@ class CfnFramework(
 
     @builtins.property
     @jsii.member(jsii_name="frameworkRef")
-    def framework_ref(self) -> FrameworkReference:
+    def framework_ref(self) -> "_FrameworkReference_5ce10c24":
         '''A reference to a Framework resource.'''
-        return typing.cast(FrameworkReference, jsii.get(self, "frameworkRef"))
+        return typing.cast("_FrameworkReference_5ce10c24", jsii.get(self, "frameworkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="frameworkControls")
     def framework_controls(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.FrameworkControlProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]]:
         '''Contains detailed information about all of the controls of a framework.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.FrameworkControlProperty"]]], jsii.get(self, "frameworkControls"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]], jsii.get(self, "frameworkControls"))
 
     @framework_controls.setter
     def framework_controls(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.FrameworkControlProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3915617d48c3c99a3779ed995d74734c2f731d452cc340e149dd92de02e68dc6)
@@ -6650,14 +4568,14 @@ class CfnFramework(
 
     @builtins.property
     @jsii.member(jsii_name="frameworkTags")
-    def framework_tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def framework_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags to assign to your framework.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "frameworkTags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "frameworkTags"))
 
     @framework_tags.setter
     def framework_tags(
         self,
-        value: typing.Optional[typing.List[_CfnTag_f6864754]],
+        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d4922912c7db9cfb847d446edf6701acea095c2d0fefb7def73f3da3aa1cc1d)
@@ -6755,7 +4673,7 @@ class CfnFramework(
             *,
             compliance_resource_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             compliance_resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A framework consists of one or more controls.
 
@@ -6773,6 +4691,7 @@ class CfnFramework(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_backup as backup
@@ -6820,7 +4739,7 @@ class CfnFramework(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
-        def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
             '''The tag key-value pair applied to those AWS resources that you want to trigger an evaluation for a rule.
 
             A maximum of one key-value pair can be provided. The tag value is optional, but it cannot be an empty string if you are creating or editing a framework from the console (though the value can be an empty string when included in a CloudFormation template).
@@ -6830,7 +4749,7 @@ class CfnFramework(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-framework-controlscope.html#cfn-backup-framework-controlscope-tags
             '''
             result = self._values.get("tags")
-            return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6857,7 +4776,7 @@ class CfnFramework(
             self,
             *,
             control_name: builtins.str,
-            control_input_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFramework.ControlInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            control_input_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.ControlInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             control_scope: typing.Any = None,
         ) -> None:
             '''Contains detailed information about all of the controls of a framework.
@@ -6918,13 +4837,13 @@ class CfnFramework(
         @builtins.property
         def control_input_parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.ControlInputParameterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.ControlInputParameterProperty"]]]]:
             '''The name/value pairs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-framework-frameworkcontrol.html#cfn-backup-framework-frameworkcontrol-controlinputparameters
             '''
             result = self._values.get("control_input_parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFramework.ControlInputParameterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.ControlInputParameterProperty"]]]], result)
 
         @builtins.property
         def control_scope(self) -> typing.Any:
@@ -6951,7 +4870,137 @@ class CfnFramework(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ILogicallyAirGappedBackupVaultRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnFrameworkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "framework_controls": "frameworkControls",
+        "framework_description": "frameworkDescription",
+        "framework_name": "frameworkName",
+        "framework_tags": "frameworkTags",
+    },
+)
+class CfnFrameworkProps:
+    def __init__(
+        self,
+        *,
+        framework_controls: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFramework.FrameworkControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        framework_description: typing.Optional[builtins.str] = None,
+        framework_name: typing.Optional[builtins.str] = None,
+        framework_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFramework``.
+
+        :param framework_controls: Contains detailed information about all of the controls of a framework. Each framework must contain at least one control.
+        :param framework_description: An optional description of the framework with a maximum 1,024 characters.
+        :param framework_name: The unique name of a framework. This name is between 1 and 256 characters, starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
+        :param framework_tags: The tags to assign to your framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # control_scope: Any
+            
+            cfn_framework_props = backup.CfnFrameworkProps(
+                framework_controls=[backup.CfnFramework.FrameworkControlProperty(
+                    control_name="controlName",
+            
+                    # the properties below are optional
+                    control_input_parameters=[backup.CfnFramework.ControlInputParameterProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )],
+                    control_scope=control_scope
+                )],
+            
+                # the properties below are optional
+                framework_description="frameworkDescription",
+                framework_name="frameworkName",
+                framework_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7)
+            check_type(argname="argument framework_controls", value=framework_controls, expected_type=type_hints["framework_controls"])
+            check_type(argname="argument framework_description", value=framework_description, expected_type=type_hints["framework_description"])
+            check_type(argname="argument framework_name", value=framework_name, expected_type=type_hints["framework_name"])
+            check_type(argname="argument framework_tags", value=framework_tags, expected_type=type_hints["framework_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "framework_controls": framework_controls,
+        }
+        if framework_description is not None:
+            self._values["framework_description"] = framework_description
+        if framework_name is not None:
+            self._values["framework_name"] = framework_name
+        if framework_tags is not None:
+            self._values["framework_tags"] = framework_tags
+
+    @builtins.property
+    def framework_controls(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]]:
+        '''Contains detailed information about all of the controls of a framework.
+
+        Each framework must contain at least one control.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkcontrols
+        '''
+        result = self._values.get("framework_controls")
+        assert result is not None, "Required property 'framework_controls' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFramework.FrameworkControlProperty"]]], result)
+
+    @builtins.property
+    def framework_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the framework with a maximum 1,024 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkdescription
+        '''
+        result = self._values.get("framework_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def framework_name(self) -> typing.Optional[builtins.str]:
+        '''The unique name of a framework.
+
+        This name is between 1 and 256 characters, starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworkname
+        '''
+        result = self._values.get("framework_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def framework_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags to assign to your framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-framework.html#cfn-backup-framework-frameworktags
+        '''
+        result = self._values.get("framework_tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFrameworkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILogicallyAirGappedBackupVaultRef_94a8f212, _ITaggableV2_4e6798f8)
 class CfnLogicallyAirGappedBackupVault(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6986,6 +5035,8 @@ class CfnLogicallyAirGappedBackupVault(
             backup_vault_tags={
                 "backup_vault_tags_key": "backupVaultTags"
             },
+            encryption_key_arn="encryptionKeyArn",
+            mpa_approval_team_arn="mpaApprovalTeamArn",
             notifications=backup.CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty(
                 backup_vault_events=["backupVaultEvents"],
                 sns_topic_arn="snsTopicArn"
@@ -6995,7 +5046,7 @@ class CfnLogicallyAirGappedBackupVault(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         backup_vault_name: builtins.str,
@@ -7003,9 +5054,12 @@ class CfnLogicallyAirGappedBackupVault(
         min_retention_days: jsii.Number,
         access_policy: typing.Any = None,
         backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        mpa_approval_team_arn: typing.Optional[builtins.str] = None,
+        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::LogicallyAirGappedBackupVault``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param backup_vault_name: The name of a logical container where backups are stored. Logically air-gapped backup vaults are identified by names that are unique to the account used to create them and the Region where they are created.
@@ -7013,6 +5067,8 @@ class CfnLogicallyAirGappedBackupVault(
         :param min_retention_days: This setting specifies the minimum retention period that the vault retains its recovery points. The minimum value accepted is 7 days.
         :param access_policy: The backup vault access policy document in JSON format.
         :param backup_vault_tags: The tags to assign to the vault.
+        :param encryption_key_arn: The server-side encryption key that is used to protect your backups; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If this field is left blank, AWS Backup will create an AWS owned key to be used to encrypt the content of the logically air-gapped vault. The ARN of this created key will be available as ``Fn::GetAtt`` output.
+        :param mpa_approval_team_arn: The Amazon Resource Name (ARN) of the MPA approval team to associate with the backup vault. This cannot be changed after it is set from the CloudFormation template.
         :param notifications: Returns event notifications for the specified backup vault.
         '''
         if __debug__:
@@ -7025,13 +5081,62 @@ class CfnLogicallyAirGappedBackupVault(
             min_retention_days=min_retention_days,
             access_policy=access_policy,
             backup_vault_tags=backup_vault_tags,
+            encryption_key_arn=encryption_key_arn,
+            mpa_approval_team_arn=mpa_approval_team_arn,
             notifications=notifications,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForLogicallyAirGappedBackupVault")
+    @builtins.classmethod
+    def arn_for_logically_air_gapped_backup_vault(
+        cls,
+        resource: "_ILogicallyAirGappedBackupVaultRef_94a8f212",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__994d018be638a33f2eb32bb0e85f369b451e5bfae2907913519d7f9f54738a54)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLogicallyAirGappedBackupVault", [resource]))
+
+    @jsii.member(jsii_name="fromBackupVaultName")
+    @builtins.classmethod
+    def from_backup_vault_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault_name: builtins.str,
+    ) -> "_ILogicallyAirGappedBackupVaultRef_94a8f212":
+        '''Creates a new ILogicallyAirGappedBackupVaultRef from a backupVaultName.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2d7a451581b8c789f1a800340871c2a6bccebe8622af1e2f5b447a3a98d1dbb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+        return typing.cast("_ILogicallyAirGappedBackupVaultRef_94a8f212", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
+
+    @jsii.member(jsii_name="isCfnLogicallyAirGappedBackupVault")
+    @builtins.classmethod
+    def is_cfn_logically_air_gapped_backup_vault(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLogicallyAirGappedBackupVault.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5e25c462b1613e391c1de6e32d697ccfab1f83825922fabde05f59f0f0ed9bf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogicallyAirGappedBackupVault", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7070,15 +5175,6 @@ class CfnLogicallyAirGappedBackupVault(
         return typing.cast(builtins.str, jsii.get(self, "attrBackupVaultArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrEncryptionKeyArn")
-    def attr_encryption_key_arn(self) -> builtins.str:
-        '''The ARN of the server-side encryption key.
-
-        :cloudformationAttribute: EncryptionKeyArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrEncryptionKeyArn"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrVaultState")
     def attr_vault_state(self) -> builtins.str:
         '''The vault state.
@@ -7102,9 +5198,9 @@ class CfnLogicallyAirGappedBackupVault(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7115,9 +5211,9 @@ class CfnLogicallyAirGappedBackupVault(
     @jsii.member(jsii_name="logicallyAirGappedBackupVaultRef")
     def logically_air_gapped_backup_vault_ref(
         self,
-    ) -> LogicallyAirGappedBackupVaultReference:
+    ) -> "_LogicallyAirGappedBackupVaultReference_53a7ab81":
         '''A reference to a LogicallyAirGappedBackupVault resource.'''
-        return typing.cast(LogicallyAirGappedBackupVaultReference, jsii.get(self, "logicallyAirGappedBackupVaultRef"))
+        return typing.cast("_LogicallyAirGappedBackupVaultReference_53a7ab81", jsii.get(self, "logicallyAirGappedBackupVaultRef"))
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultName")
@@ -7190,17 +5286,46 @@ class CfnLogicallyAirGappedBackupVault(
         jsii.set(self, "backupVaultTags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="encryptionKeyArn")
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The server-side encryption key that is used to protect your backups;
+
+        for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` .
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKeyArn"))
+
+    @encryption_key_arn.setter
+    def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf0845b96f64c861986d9628b54d60700d109b971dc10dd34707fb3e98629c96)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="mpaApprovalTeamArn")
+    def mpa_approval_team_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the MPA approval team to associate with the backup vault.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "mpaApprovalTeamArn"))
+
+    @mpa_approval_team_arn.setter
+    def mpa_approval_team_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d69a75a0b7ce93d33d99d99ea46c6bed385bc4618297cfeb5204520844045d0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mpaApprovalTeamArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="notifications")
     def notifications(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
         '''Returns event notifications for the specified backup vault.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], jsii.get(self, "notifications"))
 
     @notifications.setter
     def notifications(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1dc991e6a5cd9bb0776543a7419ba117220c8fec8f29ec2587f9a6747b5dcab)
@@ -7283,7 +5408,199 @@ class CfnLogicallyAirGappedBackupVault(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IReportPlanRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnLogicallyAirGappedBackupVaultProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "backup_vault_name": "backupVaultName",
+        "max_retention_days": "maxRetentionDays",
+        "min_retention_days": "minRetentionDays",
+        "access_policy": "accessPolicy",
+        "backup_vault_tags": "backupVaultTags",
+        "encryption_key_arn": "encryptionKeyArn",
+        "mpa_approval_team_arn": "mpaApprovalTeamArn",
+        "notifications": "notifications",
+    },
+)
+class CfnLogicallyAirGappedBackupVaultProps:
+    def __init__(
+        self,
+        *,
+        backup_vault_name: builtins.str,
+        max_retention_days: jsii.Number,
+        min_retention_days: jsii.Number,
+        access_policy: typing.Any = None,
+        backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        mpa_approval_team_arn: typing.Optional[builtins.str] = None,
+        notifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLogicallyAirGappedBackupVault``.
+
+        :param backup_vault_name: The name of a logical container where backups are stored. Logically air-gapped backup vaults are identified by names that are unique to the account used to create them and the Region where they are created.
+        :param max_retention_days: The maximum retention period that the vault retains its recovery points.
+        :param min_retention_days: This setting specifies the minimum retention period that the vault retains its recovery points. The minimum value accepted is 7 days.
+        :param access_policy: The backup vault access policy document in JSON format.
+        :param backup_vault_tags: The tags to assign to the vault.
+        :param encryption_key_arn: The server-side encryption key that is used to protect your backups; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` . If this field is left blank, AWS Backup will create an AWS owned key to be used to encrypt the content of the logically air-gapped vault. The ARN of this created key will be available as ``Fn::GetAtt`` output.
+        :param mpa_approval_team_arn: The Amazon Resource Name (ARN) of the MPA approval team to associate with the backup vault. This cannot be changed after it is set from the CloudFormation template.
+        :param notifications: Returns event notifications for the specified backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # access_policy: Any
+            
+            cfn_logically_air_gapped_backup_vault_props = backup.CfnLogicallyAirGappedBackupVaultProps(
+                backup_vault_name="backupVaultName",
+                max_retention_days=123,
+                min_retention_days=123,
+            
+                # the properties below are optional
+                access_policy=access_policy,
+                backup_vault_tags={
+                    "backup_vault_tags_key": "backupVaultTags"
+                },
+                encryption_key_arn="encryptionKeyArn",
+                mpa_approval_team_arn="mpaApprovalTeamArn",
+                notifications=backup.CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty(
+                    backup_vault_events=["backupVaultEvents"],
+                    sns_topic_arn="snsTopicArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f)
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+            check_type(argname="argument max_retention_days", value=max_retention_days, expected_type=type_hints["max_retention_days"])
+            check_type(argname="argument min_retention_days", value=min_retention_days, expected_type=type_hints["min_retention_days"])
+            check_type(argname="argument access_policy", value=access_policy, expected_type=type_hints["access_policy"])
+            check_type(argname="argument backup_vault_tags", value=backup_vault_tags, expected_type=type_hints["backup_vault_tags"])
+            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument mpa_approval_team_arn", value=mpa_approval_team_arn, expected_type=type_hints["mpa_approval_team_arn"])
+            check_type(argname="argument notifications", value=notifications, expected_type=type_hints["notifications"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "backup_vault_name": backup_vault_name,
+            "max_retention_days": max_retention_days,
+            "min_retention_days": min_retention_days,
+        }
+        if access_policy is not None:
+            self._values["access_policy"] = access_policy
+        if backup_vault_tags is not None:
+            self._values["backup_vault_tags"] = backup_vault_tags
+        if encryption_key_arn is not None:
+            self._values["encryption_key_arn"] = encryption_key_arn
+        if mpa_approval_team_arn is not None:
+            self._values["mpa_approval_team_arn"] = mpa_approval_team_arn
+        if notifications is not None:
+            self._values["notifications"] = notifications
+
+    @builtins.property
+    def backup_vault_name(self) -> builtins.str:
+        '''The name of a logical container where backups are stored.
+
+        Logically air-gapped backup vaults are identified by names that are unique to the account used to create them and the Region where they are created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-backupvaultname
+        '''
+        result = self._values.get("backup_vault_name")
+        assert result is not None, "Required property 'backup_vault_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def max_retention_days(self) -> jsii.Number:
+        '''The maximum retention period that the vault retains its recovery points.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-maxretentiondays
+        '''
+        result = self._values.get("max_retention_days")
+        assert result is not None, "Required property 'max_retention_days' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def min_retention_days(self) -> jsii.Number:
+        '''This setting specifies the minimum retention period that the vault retains its recovery points.
+
+        The minimum value accepted is 7 days.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-minretentiondays
+        '''
+        result = self._values.get("min_retention_days")
+        assert result is not None, "Required property 'min_retention_days' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def access_policy(self) -> typing.Any:
+        '''The backup vault access policy document in JSON format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-accesspolicy
+        '''
+        result = self._values.get("access_policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def backup_vault_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to assign to the vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-backupvaulttags
+        '''
+        result = self._values.get("backup_vault_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The server-side encryption key that is used to protect your backups; for example, ``arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` .
+
+        If this field is left blank, AWS Backup will create an AWS owned key to be used to encrypt the content of the logically air-gapped vault. The ARN of this created key will be available as ``Fn::GetAtt`` output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-encryptionkeyarn
+        '''
+        result = self._values.get("encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mpa_approval_team_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the MPA approval team to associate with the backup vault.
+
+        This cannot be changed after it is set from the CloudFormation template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-mpaapprovalteamarn
+        '''
+        result = self._values.get("mpa_approval_team_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def notifications(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]]:
+        '''Returns event notifications for the specified backup vault.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-logicallyairgappedbackupvault.html#cfn-backup-logicallyairgappedbackupvault-notifications
+        '''
+        result = self._values.get("notifications")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLogicallyAirGappedBackupVaultProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReportPlanRef_2eb6ea89, _ITaggableV2_4e6798f8)
 class CfnReportPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7295,7 +5612,7 @@ class CfnReportPlan(
 
     If you call ``CreateReportPlan`` with a plan that already exists, you receive an ``AlreadyExistsException`` exception.
 
-    For a sample AWS CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
+    For a sample CloudFormation template, see the `AWS Backup Developer Guide <https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html#assigning-resources-cfn>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html
     :cloudformationResource: AWS::Backup::ReportPlan
@@ -7303,6 +5620,7 @@ class CfnReportPlan(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_backup as backup
@@ -7326,16 +5644,17 @@ class CfnReportPlan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         report_delivery_channel: typing.Any,
         report_setting: typing.Any,
         report_plan_description: typing.Optional[builtins.str] = None,
         report_plan_name: typing.Optional[builtins.str] = None,
-        report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::ReportPlan``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param report_delivery_channel: Contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
@@ -7358,8 +5677,31 @@ class CfnReportPlan(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForReportPlan")
+    @builtins.classmethod
+    def arn_for_report_plan(cls, resource: "_IReportPlanRef_2eb6ea89") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81ff19c28848fcb20b39db086fd0082e4e3c62072d87a29282066c70b97788c7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReportPlan", [resource]))
+
+    @jsii.member(jsii_name="isCfnReportPlan")
+    @builtins.classmethod
+    def is_cfn_report_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReportPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2abc06e48dfc31e4fbe55950c0e534070c2435094a084708de6199d364dde9e4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReportPlan", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7399,9 +5741,9 @@ class CfnReportPlan(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7410,9 +5752,9 @@ class CfnReportPlan(
 
     @builtins.property
     @jsii.member(jsii_name="reportPlanRef")
-    def report_plan_ref(self) -> ReportPlanReference:
+    def report_plan_ref(self) -> "_ReportPlanReference_0a875581":
         '''A reference to a ReportPlan resource.'''
-        return typing.cast(ReportPlanReference, jsii.get(self, "reportPlanRef"))
+        return typing.cast("_ReportPlanReference_0a875581", jsii.get(self, "reportPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="reportDeliveryChannel")
@@ -7471,14 +5813,14 @@ class CfnReportPlan(
 
     @builtins.property
     @jsii.member(jsii_name="reportPlanTags")
-    def report_plan_tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def report_plan_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags to assign to your report plan.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "reportPlanTags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "reportPlanTags"))
 
     @report_plan_tags.setter
     def report_plan_tags(
         self,
-        value: typing.Optional[typing.List[_CfnTag_f6864754]],
+        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16e4bb4b012408e08ab26526c9837368cc6121e55f663b4a10170c9edb8466f8)
@@ -7604,7 +5946,7 @@ class CfnReportPlan(
         ) -> None:
             '''Contains detailed information about a report setting.
 
-            :param report_template: Identifies the report template for the report. Reports are built using a report template. The report templates are:. ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT``
+            :param report_template: Identifies the report template for the report. Reports are built using a report template. The report templates are:. ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT | SCAN_JOB_REPORT``
             :param accounts: These are the accounts to be included in the report. Use string value of ``ROOT`` to include all organizational units.
             :param framework_arns: The Amazon Resource Names (ARNs) of the frameworks a report covers.
             :param organization_units: These are the Organizational Units to be included in the report.
@@ -7652,7 +5994,7 @@ class CfnReportPlan(
         def report_template(self) -> builtins.str:
             '''Identifies the report template for the report. Reports are built using a report template. The report templates are:.
 
-            ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT``
+            ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT | SCAN_JOB_REPORT``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-reportplan-reportsetting.html#cfn-backup-reportplan-reportsetting-reporttemplate
             '''
@@ -7712,7 +6054,145 @@ class CfnReportPlan(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IRestoreTestingPlanRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnReportPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "report_delivery_channel": "reportDeliveryChannel",
+        "report_setting": "reportSetting",
+        "report_plan_description": "reportPlanDescription",
+        "report_plan_name": "reportPlanName",
+        "report_plan_tags": "reportPlanTags",
+    },
+)
+class CfnReportPlanProps:
+    def __init__(
+        self,
+        *,
+        report_delivery_channel: typing.Any,
+        report_setting: typing.Any,
+        report_plan_description: typing.Optional[builtins.str] = None,
+        report_plan_name: typing.Optional[builtins.str] = None,
+        report_plan_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReportPlan``.
+
+        :param report_delivery_channel: Contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
+        :param report_setting: Identifies the report template for the report. Reports are built using a report template. The report templates are:. ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT`` If the report template is ``RESOURCE_COMPLIANCE_REPORT`` or ``CONTROL_COMPLIANCE_REPORT`` , this API resource also describes the report coverage by AWS Regions and frameworks.
+        :param report_plan_description: An optional description of the report plan with a maximum 1,024 characters.
+        :param report_plan_name: The unique name of the report plan. This name is between 1 and 256 characters starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
+        :param report_plan_tags: The tags to assign to your report plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # report_delivery_channel: Any
+            # report_setting: Any
+            
+            cfn_report_plan_props = backup.CfnReportPlanProps(
+                report_delivery_channel=report_delivery_channel,
+                report_setting=report_setting,
+            
+                # the properties below are optional
+                report_plan_description="reportPlanDescription",
+                report_plan_name="reportPlanName",
+                report_plan_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9)
+            check_type(argname="argument report_delivery_channel", value=report_delivery_channel, expected_type=type_hints["report_delivery_channel"])
+            check_type(argname="argument report_setting", value=report_setting, expected_type=type_hints["report_setting"])
+            check_type(argname="argument report_plan_description", value=report_plan_description, expected_type=type_hints["report_plan_description"])
+            check_type(argname="argument report_plan_name", value=report_plan_name, expected_type=type_hints["report_plan_name"])
+            check_type(argname="argument report_plan_tags", value=report_plan_tags, expected_type=type_hints["report_plan_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "report_delivery_channel": report_delivery_channel,
+            "report_setting": report_setting,
+        }
+        if report_plan_description is not None:
+            self._values["report_plan_description"] = report_plan_description
+        if report_plan_name is not None:
+            self._values["report_plan_name"] = report_plan_name
+        if report_plan_tags is not None:
+            self._values["report_plan_tags"] = report_plan_tags
+
+    @builtins.property
+    def report_delivery_channel(self) -> typing.Any:
+        '''Contains information about where and how to deliver your reports, specifically your Amazon S3 bucket name, S3 key prefix, and the formats of your reports.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportdeliverychannel
+        '''
+        result = self._values.get("report_delivery_channel")
+        assert result is not None, "Required property 'report_delivery_channel' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def report_setting(self) -> typing.Any:
+        '''Identifies the report template for the report. Reports are built using a report template. The report templates are:.
+
+        ``RESOURCE_COMPLIANCE_REPORT | CONTROL_COMPLIANCE_REPORT | BACKUP_JOB_REPORT | COPY_JOB_REPORT | RESTORE_JOB_REPORT``
+
+        If the report template is ``RESOURCE_COMPLIANCE_REPORT`` or ``CONTROL_COMPLIANCE_REPORT`` , this API resource also describes the report coverage by AWS Regions and frameworks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportsetting
+        '''
+        result = self._values.get("report_setting")
+        assert result is not None, "Required property 'report_setting' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def report_plan_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the report plan with a maximum 1,024 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplandescription
+        '''
+        result = self._values.get("report_plan_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def report_plan_name(self) -> typing.Optional[builtins.str]:
+        '''The unique name of the report plan.
+
+        This name is between 1 and 256 characters starting with a letter, and consisting of letters (a-z, A-Z), numbers (0-9), and underscores (_).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplanname
+        '''
+        result = self._values.get("report_plan_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def report_plan_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags to assign to your report plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-reportplan.html#cfn-backup-reportplan-reportplantags
+        '''
+        result = self._values.get("report_plan_tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReportPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRestoreTestingPlanRef_3850185f, _ITaggableV2_4e6798f8)
 class CfnRestoreTestingPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7728,6 +6208,7 @@ class CfnRestoreTestingPlan(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_backup as backup
@@ -7757,17 +6238,18 @@ class CfnRestoreTestingPlan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        recovery_point_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
         restore_testing_plan_name: builtins.str,
         schedule_expression: builtins.str,
         schedule_expression_timezone: typing.Optional[builtins.str] = None,
         start_window_hours: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::RestoreTestingPlan``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param recovery_point_selection: The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
@@ -7792,8 +6274,34 @@ class CfnRestoreTestingPlan(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForRestoreTestingPlan")
+    @builtins.classmethod
+    def arn_for_restore_testing_plan(
+        cls,
+        resource: "_IRestoreTestingPlanRef_3850185f",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7990b6debf547b5294197ae934069cb15deeef3fa415291836f77df56e14749c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRestoreTestingPlan", [resource]))
+
+    @jsii.member(jsii_name="isCfnRestoreTestingPlan")
+    @builtins.classmethod
+    def is_cfn_restore_testing_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRestoreTestingPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d546b33c12de5b002fa2057a49d81a560710ec58df95a495541fd40dfccedfd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRestoreTestingPlan", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7833,9 +6341,9 @@ class CfnRestoreTestingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7844,22 +6352,22 @@ class CfnRestoreTestingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="restoreTestingPlanRef")
-    def restore_testing_plan_ref(self) -> RestoreTestingPlanReference:
+    def restore_testing_plan_ref(self) -> "_RestoreTestingPlanReference_99f8c406":
         '''A reference to a RestoreTestingPlan resource.'''
-        return typing.cast(RestoreTestingPlanReference, jsii.get(self, "restoreTestingPlanRef"))
+        return typing.cast("_RestoreTestingPlanReference_99f8c406", jsii.get(self, "restoreTestingPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="recoveryPointSelection")
     def recovery_point_selection(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
         '''The specified criteria to assign a set of resources, such as recovery point types or backup vaults.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], jsii.get(self, "recoveryPointSelection"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], jsii.get(self, "recoveryPointSelection"))
 
     @recovery_point_selection.setter
     def recovery_point_selection(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__469f816a79c521b1d05c16d66ccb2fb6a0fe1163701e6173b0840fee4d922c49)
@@ -7923,12 +6431,12 @@ class CfnRestoreTestingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Optional tags to include.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93b4eb4b15380d36fec202a3d3c50a366e86616c5516db286f16625d21096205)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8075,7 +6583,172 @@ class CfnRestoreTestingPlan(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IRestoreTestingSelectionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "recovery_point_selection": "recoveryPointSelection",
+        "restore_testing_plan_name": "restoreTestingPlanName",
+        "schedule_expression": "scheduleExpression",
+        "schedule_expression_timezone": "scheduleExpressionTimezone",
+        "start_window_hours": "startWindowHours",
+        "tags": "tags",
+    },
+)
+class CfnRestoreTestingPlanProps:
+    def __init__(
+        self,
+        *,
+        recovery_point_selection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        restore_testing_plan_name: builtins.str,
+        schedule_expression: builtins.str,
+        schedule_expression_timezone: typing.Optional[builtins.str] = None,
+        start_window_hours: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRestoreTestingPlan``.
+
+        :param recovery_point_selection: The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
+        :param restore_testing_plan_name: The RestoreTestingPlanName is a unique string that is the name of the restore testing plan. This cannot be changed after creation, and it must consist of only alphanumeric characters and underscores.
+        :param schedule_expression: A CRON expression in specified timezone when a restore testing plan is executed. When no CRON expression is provided, AWS Backup will use the default expression ``cron(0 5 ? * * *)`` .
+        :param schedule_expression_timezone: Optional. This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
+        :param start_window_hours: Defaults to 24 hours. A value in hours after a restore test is scheduled before a job will be canceled if it doesn't start successfully. This value is optional. If this value is included, this parameter has a maximum value of 168 hours (one week).
+        :param tags: Optional tags to include. A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            cfn_restore_testing_plan_props = backup.CfnRestoreTestingPlanProps(
+                recovery_point_selection=backup.CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty(
+                    algorithm="algorithm",
+                    include_vaults=["includeVaults"],
+                    recovery_point_types=["recoveryPointTypes"],
+            
+                    # the properties below are optional
+                    exclude_vaults=["excludeVaults"],
+                    selection_window_days=123
+                ),
+                restore_testing_plan_name="restoreTestingPlanName",
+                schedule_expression="scheduleExpression",
+            
+                # the properties below are optional
+                schedule_expression_timezone="scheduleExpressionTimezone",
+                start_window_hours=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5)
+            check_type(argname="argument recovery_point_selection", value=recovery_point_selection, expected_type=type_hints["recovery_point_selection"])
+            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
+            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
+            check_type(argname="argument start_window_hours", value=start_window_hours, expected_type=type_hints["start_window_hours"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recovery_point_selection": recovery_point_selection,
+            "restore_testing_plan_name": restore_testing_plan_name,
+            "schedule_expression": schedule_expression,
+        }
+        if schedule_expression_timezone is not None:
+            self._values["schedule_expression_timezone"] = schedule_expression_timezone
+        if start_window_hours is not None:
+            self._values["start_window_hours"] = start_window_hours
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def recovery_point_selection(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"]:
+        '''The specified criteria to assign a set of resources, such as recovery point types or backup vaults.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-recoverypointselection
+        '''
+        result = self._values.get("recovery_point_selection")
+        assert result is not None, "Required property 'recovery_point_selection' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty"], result)
+
+    @builtins.property
+    def restore_testing_plan_name(self) -> builtins.str:
+        '''The RestoreTestingPlanName is a unique string that is the name of the restore testing plan.
+
+        This cannot be changed after creation, and it must consist of only alphanumeric characters and underscores.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-restoretestingplanname
+        '''
+        result = self._values.get("restore_testing_plan_name")
+        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_expression(self) -> builtins.str:
+        '''A CRON expression in specified timezone when a restore testing plan is executed.
+
+        When no CRON expression is provided, AWS Backup will use the default expression ``cron(0 5 ? * * *)`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-scheduleexpression
+        '''
+        result = self._values.get("schedule_expression")
+        assert result is not None, "Required property 'schedule_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_expression_timezone(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        This is the timezone in which the schedule expression is set. By default, ScheduleExpressions are in UTC. You can modify this to a specified timezone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-scheduleexpressiontimezone
+        '''
+        result = self._values.get("schedule_expression_timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_window_hours(self) -> typing.Optional[jsii.Number]:
+        '''Defaults to 24 hours.
+
+        A value in hours after a restore test is scheduled before a job will be canceled if it doesn't start successfully. This value is optional. If this value is included, this parameter has a maximum value of 168 hours (one week).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-startwindowhours
+        '''
+        result = self._values.get("start_window_hours")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Optional tags to include.
+
+        A tag is a key-value pair you can use to manage, filter, and search for your resources. Allowed characters include UTF-8 letters,numbers, spaces, and the following characters: ``+ - = . _ : /.``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingplan.html#cfn-backup-restoretestingplan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRestoreTestingPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRestoreTestingSelectionRef_f3800013)
 class CfnRestoreTestingSelection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8133,7 +6806,7 @@ class CfnRestoreTestingSelection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         iam_role_arn: builtins.str,
@@ -8141,17 +6814,18 @@ class CfnRestoreTestingSelection(
         restore_testing_plan_name: builtins.str,
         restore_testing_selection_name: builtins.str,
         protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         validation_window_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Backup::RestoreTestingSelection``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role that AWS Backup uses to create the target resource; for example: ``arn:aws:iam::123456789012:role/S3Access`` .
         :param protected_resource_type: The type of AWS resource included in a resource testing selection; for example, an Amazon EBS volume or an Amazon RDS database.
         :param restore_testing_plan_name: Unique string that is the name of the restore testing plan. The name cannot be changed after creation. The name must consist of only alphanumeric characters and underscores. Maximum length is 50.
-        :param restore_testing_selection_name: The unique name of the restore testing selection that belongs to the related restore testing plan.
+        :param restore_testing_selection_name: The unique name of the restore testing selection that belongs to the related restore testing plan. The name consists of only alphanumeric characters and underscores. Maximum length is 50.
         :param protected_resource_arns: You can include specific ARNs, such as ``ProtectedResourceArns: ["arn:aws:...", "arn:aws:..."]`` or you can include a wildcard: ``ProtectedResourceArns: ["*"]`` , but not both.
         :param protected_resource_conditions: In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
         :param restore_metadata_overrides: You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` . Key values are not case sensitive. See the complete list of `restore testing inferred metadata <https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing-inferred-metadata.html>`_ .
@@ -8174,8 +6848,20 @@ class CfnRestoreTestingSelection(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnRestoreTestingSelection")
+    @builtins.classmethod
+    def is_cfn_restore_testing_selection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRestoreTestingSelection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79ee0a62a83de7a0b3fcb7d1b018b671d46b1f2e324807ee26880a623641dcf2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRestoreTestingSelection", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8211,9 +6897,11 @@ class CfnRestoreTestingSelection(
 
     @builtins.property
     @jsii.member(jsii_name="restoreTestingSelectionRef")
-    def restore_testing_selection_ref(self) -> RestoreTestingSelectionReference:
+    def restore_testing_selection_ref(
+        self,
+    ) -> "_RestoreTestingSelectionReference_05d8055b":
         '''A reference to a RestoreTestingSelection resource.'''
-        return typing.cast(RestoreTestingSelectionReference, jsii.get(self, "restoreTestingSelectionRef"))
+        return typing.cast("_RestoreTestingSelectionReference_05d8055b", jsii.get(self, "restoreTestingSelectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
@@ -8287,14 +6975,14 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="protectedResourceConditions")
     def protected_resource_conditions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
         '''In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], jsii.get(self, "protectedResourceConditions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], jsii.get(self, "protectedResourceConditions"))
 
     @protected_resource_conditions.setter
     def protected_resource_conditions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bca09c3c518b6d44e5cb2086f38f9235f25ef7744e3c6cfba7d01b48e73b989)
@@ -8305,14 +6993,14 @@ class CfnRestoreTestingSelection(
     @jsii.member(jsii_name="restoreMetadataOverrides")
     def restore_metadata_overrides(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
         '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "restoreMetadataOverrides"))
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "restoreMetadataOverrides"))
 
     @restore_metadata_overrides.setter
     def restore_metadata_overrides(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9afb00368be90e46cf02ec2498547553cd056db449734f0be5d5877e388c4af5)
@@ -8412,8 +7100,8 @@ class CfnRestoreTestingSelection(
         def __init__(
             self,
             *,
-            string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            string_not_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            string_not_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.KeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The conditions that you define for resources in your restore testing plan using tags.
 
@@ -8453,7 +7141,7 @@ class CfnRestoreTestingSelection(
         @builtins.property
         def string_equals(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged with the same value.
 
             Also called "exact matching."
@@ -8461,12 +7149,12 @@ class CfnRestoreTestingSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-restoretestingselection-protectedresourceconditions.html#cfn-backup-restoretestingselection-protectedresourceconditions-stringequals
             '''
             result = self._values.get("string_equals")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
 
         @builtins.property
         def string_not_equals(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]]:
             '''Filters the values of your tagged resources for only those resources that you tagged that do not have the same value.
 
             Also called "negated matching."
@@ -8474,7 +7162,7 @@ class CfnRestoreTestingSelection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-restoretestingselection-protectedresourceconditions.html#cfn-backup-restoretestingselection-protectedresourceconditions-stringnotequals
             '''
             result = self._values.get("string_not_equals")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.KeyValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8488,22 +7176,958 @@ class CfnRestoreTestingSelection(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnRestoreTestingSelectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "iam_role_arn": "iamRoleArn",
+        "protected_resource_type": "protectedResourceType",
+        "restore_testing_plan_name": "restoreTestingPlanName",
+        "restore_testing_selection_name": "restoreTestingSelectionName",
+        "protected_resource_arns": "protectedResourceArns",
+        "protected_resource_conditions": "protectedResourceConditions",
+        "restore_metadata_overrides": "restoreMetadataOverrides",
+        "validation_window_hours": "validationWindowHours",
+    },
+)
+class CfnRestoreTestingSelectionProps:
+    def __init__(
+        self,
+        *,
+        iam_role_arn: builtins.str,
+        protected_resource_type: builtins.str,
+        restore_testing_plan_name: builtins.str,
+        restore_testing_selection_name: builtins.str,
+        protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        protected_resource_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRestoreTestingSelection.ProtectedResourceConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        validation_window_hours: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRestoreTestingSelection``.
+
+        :param iam_role_arn: The Amazon Resource Name (ARN) of the IAM role that AWS Backup uses to create the target resource; for example: ``arn:aws:iam::123456789012:role/S3Access`` .
+        :param protected_resource_type: The type of AWS resource included in a resource testing selection; for example, an Amazon EBS volume or an Amazon RDS database.
+        :param restore_testing_plan_name: Unique string that is the name of the restore testing plan. The name cannot be changed after creation. The name must consist of only alphanumeric characters and underscores. Maximum length is 50.
+        :param restore_testing_selection_name: The unique name of the restore testing selection that belongs to the related restore testing plan. The name consists of only alphanumeric characters and underscores. Maximum length is 50.
+        :param protected_resource_arns: You can include specific ARNs, such as ``ProtectedResourceArns: ["arn:aws:...", "arn:aws:..."]`` or you can include a wildcard: ``ProtectedResourceArns: ["*"]`` , but not both.
+        :param protected_resource_conditions: In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
+        :param restore_metadata_overrides: You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` . Key values are not case sensitive. See the complete list of `restore testing inferred metadata <https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing-inferred-metadata.html>`_ .
+        :param validation_window_hours: This is amount of hours (1 to 168) available to run a validation script on the data. The data will be deleted upon the completion of the validation script or the end of the specified retention period, whichever comes first.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            cfn_restore_testing_selection_props = backup.CfnRestoreTestingSelectionProps(
+                iam_role_arn="iamRoleArn",
+                protected_resource_type="protectedResourceType",
+                restore_testing_plan_name="restoreTestingPlanName",
+                restore_testing_selection_name="restoreTestingSelectionName",
+            
+                # the properties below are optional
+                protected_resource_arns=["protectedResourceArns"],
+                protected_resource_conditions=backup.CfnRestoreTestingSelection.ProtectedResourceConditionsProperty(
+                    string_equals=[backup.CfnRestoreTestingSelection.KeyValueProperty(
+                        key="key",
+                        value="value"
+                    )],
+                    string_not_equals=[backup.CfnRestoreTestingSelection.KeyValueProperty(
+                        key="key",
+                        value="value"
+                    )]
+                ),
+                restore_metadata_overrides={
+                    "restore_metadata_overrides_key": "restoreMetadataOverrides"
+                },
+                validation_window_hours=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb)
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument protected_resource_type", value=protected_resource_type, expected_type=type_hints["protected_resource_type"])
+            check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
+            check_type(argname="argument restore_testing_selection_name", value=restore_testing_selection_name, expected_type=type_hints["restore_testing_selection_name"])
+            check_type(argname="argument protected_resource_arns", value=protected_resource_arns, expected_type=type_hints["protected_resource_arns"])
+            check_type(argname="argument protected_resource_conditions", value=protected_resource_conditions, expected_type=type_hints["protected_resource_conditions"])
+            check_type(argname="argument restore_metadata_overrides", value=restore_metadata_overrides, expected_type=type_hints["restore_metadata_overrides"])
+            check_type(argname="argument validation_window_hours", value=validation_window_hours, expected_type=type_hints["validation_window_hours"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "iam_role_arn": iam_role_arn,
+            "protected_resource_type": protected_resource_type,
+            "restore_testing_plan_name": restore_testing_plan_name,
+            "restore_testing_selection_name": restore_testing_selection_name,
+        }
+        if protected_resource_arns is not None:
+            self._values["protected_resource_arns"] = protected_resource_arns
+        if protected_resource_conditions is not None:
+            self._values["protected_resource_conditions"] = protected_resource_conditions
+        if restore_metadata_overrides is not None:
+            self._values["restore_metadata_overrides"] = restore_metadata_overrides
+        if validation_window_hours is not None:
+            self._values["validation_window_hours"] = validation_window_hours
+
+    @builtins.property
+    def iam_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that AWS Backup uses to create the target resource;
+
+        for example: ``arn:aws:iam::123456789012:role/S3Access`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        assert result is not None, "Required property 'iam_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protected_resource_type(self) -> builtins.str:
+        '''The type of AWS resource included in a resource testing selection;
+
+        for example, an Amazon EBS volume or an Amazon RDS database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourcetype
+        '''
+        result = self._values.get("protected_resource_type")
+        assert result is not None, "Required property 'protected_resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def restore_testing_plan_name(self) -> builtins.str:
+        '''Unique string that is the name of the restore testing plan.
+
+        The name cannot be changed after creation. The name must consist of only alphanumeric characters and underscores. Maximum length is 50.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoretestingplanname
+        '''
+        result = self._values.get("restore_testing_plan_name")
+        assert result is not None, "Required property 'restore_testing_plan_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def restore_testing_selection_name(self) -> builtins.str:
+        '''The unique name of the restore testing selection that belongs to the related restore testing plan.
+
+        The name consists of only alphanumeric characters and underscores. Maximum length is 50.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoretestingselectionname
+        '''
+        result = self._values.get("restore_testing_selection_name")
+        assert result is not None, "Required property 'restore_testing_selection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protected_resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''You can include specific ARNs, such as ``ProtectedResourceArns: ["arn:aws:...", "arn:aws:..."]`` or you can include a wildcard: ``ProtectedResourceArns: ["*"]`` , but not both.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourcearns
+        '''
+        result = self._values.get("protected_resource_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def protected_resource_conditions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]]:
+        '''In a resource testing selection, this parameter filters by specific conditions such as ``StringEquals`` or ``StringNotEquals`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-protectedresourceconditions
+        '''
+        result = self._values.get("protected_resource_conditions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRestoreTestingSelection.ProtectedResourceConditionsProperty"]], result)
+
+    @builtins.property
+    def restore_metadata_overrides(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        '''You can override certain restore metadata keys by including the parameter ``RestoreMetadataOverrides`` in the body of ``RestoreTestingSelection`` .
+
+        Key values are not case sensitive.
+
+        See the complete list of `restore testing inferred metadata <https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing-inferred-metadata.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-restoremetadataoverrides
+        '''
+        result = self._values.get("restore_metadata_overrides")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def validation_window_hours(self) -> typing.Optional[jsii.Number]:
+        '''This is amount of hours (1 to 168) available to run a validation script on the data.
+
+        The data will be deleted upon the completion of the validation script or the end of the specified retention period, whichever comes first.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-restoretestingselection.html#cfn-backup-restoretestingselection-validationwindowhours
+        '''
+        result = self._values.get("validation_window_hours")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRestoreTestingSelectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupPlan")
+class IBackupPlan(
+    _IResource_c80c4260,
+    _IBackupPlanRef_754776b5,
+    typing_extensions.Protocol,
+):
+    '''A backup plan.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="backupPlanId")
+    def backup_plan_id(self) -> builtins.str:
+        '''The identifier of the backup plan.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IBackupPlanProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IBackupPlanRef_754776b5), # type: ignore[misc]
+):
+    '''A backup plan.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupPlan"
+
+    @builtins.property
+    @jsii.member(jsii_name="backupPlanId")
+    def backup_plan_id(self) -> builtins.str:
+        '''The identifier of the backup plan.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "backupPlanId"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBackupPlan).__jsii_proxy_class__ = lambda : _IBackupPlanProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_backup.IBackupVault")
+class IBackupVault(
+    _IResource_c80c4260,
+    _IBackupVaultRef_c038ce00,
+    typing_extensions.Protocol,
+):
+    '''A backup vault.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultArn")
+    def backup_vault_arn(self) -> builtins.str:
+        '''The ARN of the backup vault.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultName")
+    def backup_vault_name(self) -> builtins.str:
+        '''The name of a logical container where backups are stored.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the actions defined in actions to the given grantee on this backup vault.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        ...
+
+
+class _IBackupVaultProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IBackupVaultRef_c038ce00), # type: ignore[misc]
+):
+    '''A backup vault.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_backup.IBackupVault"
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultArn")
+    def backup_vault_arn(self) -> builtins.str:
+        '''The ARN of the backup vault.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "backupVaultArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultName")
+    def backup_vault_name(self) -> builtins.str:
+        '''The name of a logical container where backups are stored.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "backupVaultName"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the actions defined in actions to the given grantee on this backup vault.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBackupVault).__jsii_proxy_class__ = lambda : _IBackupVaultProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.LockConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "min_retention": "minRetention",
+        "changeable_for": "changeableFor",
+        "max_retention": "maxRetention",
+    },
+)
+class LockConfiguration:
+    def __init__(
+        self,
+        *,
+        min_retention: "_Duration_4839e8c3",
+        changeable_for: typing.Optional["_Duration_4839e8c3"] = None,
+        max_retention: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> None:
+        '''Configuration for AWS Backup Vault Lock.
+
+        :param min_retention: The minimum retention period that the vault retains its recovery points. If this parameter is specified, any backup or copy job to the vault must have a lifecycle policy with a retention period equal to or longer than the minimum retention period. If the job's retention period is shorter than that minimum retention period, then the vault fails that backup or copy job, and you should either modify your lifecycle settings or use a different vault. Recovery points already saved in the vault prior to Vault Lock are not affected.
+        :param changeable_for: The duration before the lock date. AWS Backup enforces a 72-hour cooling-off period before Vault Lock takes effect and becomes immutable. Before the lock date, you can delete Vault Lock from the vault or change the Vault Lock configuration. On and after the lock date, the Vault Lock becomes immutable and cannot be changed or deleted. Default: - Vault Lock can be deleted or changed at any time
+        :param max_retention: The maximum retention period that the vault retains its recovery points. If this parameter is specified, any backup or copy job to the vault must have a lifecycle policy with a retention period equal to or shorter than the maximum retention period. If the job's retention period is longer than that maximum retention period, then the vault fails the backup or copy job, and you should either modify your lifecycle settings or use a different vault. Recovery points already saved in the vault prior to Vault Lock are not affected. Default: - Vault Lock does not enforce a maximum retention period
+
+        :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html
+        :exampleMetadata: infused
+
+        Example::
+
+            backup.BackupVault(self, "Vault",
+                lock_configuration=backup.LockConfiguration(
+                    min_retention=Duration.days(30)
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681)
+            check_type(argname="argument min_retention", value=min_retention, expected_type=type_hints["min_retention"])
+            check_type(argname="argument changeable_for", value=changeable_for, expected_type=type_hints["changeable_for"])
+            check_type(argname="argument max_retention", value=max_retention, expected_type=type_hints["max_retention"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "min_retention": min_retention,
+        }
+        if changeable_for is not None:
+            self._values["changeable_for"] = changeable_for
+        if max_retention is not None:
+            self._values["max_retention"] = max_retention
+
+    @builtins.property
+    def min_retention(self) -> "_Duration_4839e8c3":
+        '''The minimum retention period that the vault retains its recovery points.
+
+        If this parameter is specified, any backup or copy job to the vault must
+        have a lifecycle policy with a retention period equal to or longer than
+        the minimum retention period. If the job's retention period is shorter than
+        that minimum retention period, then the vault fails that backup or copy job,
+        and you should either modify your lifecycle settings or use a different
+        vault. Recovery points already saved in the vault prior to Vault Lock are
+        not affected.
+        '''
+        result = self._values.get("min_retention")
+        assert result is not None, "Required property 'min_retention' is missing"
+        return typing.cast("_Duration_4839e8c3", result)
+
+    @builtins.property
+    def changeable_for(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The duration before the lock date.
+
+        AWS Backup enforces a 72-hour cooling-off period before Vault Lock takes
+        effect and becomes immutable.
+
+        Before the lock date, you can delete Vault Lock from the vault or change
+        the Vault Lock configuration. On and after the lock date, the Vault Lock
+        becomes immutable and cannot be changed or deleted.
+
+        :default: - Vault Lock can be deleted or changed at any time
+        '''
+        result = self._values.get("changeable_for")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def max_retention(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The maximum retention period that the vault retains its recovery points.
+
+        If this parameter is specified, any backup or copy job to the vault must
+        have a lifecycle policy with a retention period equal to or shorter than
+        the maximum retention period. If the job's retention period is longer than
+        that maximum retention period, then the vault fails the backup or copy job,
+        and you should either modify your lifecycle settings or use a different
+        vault. Recovery points already saved in the vault prior to Vault Lock are
+        not affected.
+
+        :default: - Vault Lock does not enforce a maximum retention period
+        '''
+        result = self._values.get("max_retention")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LockConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.TagCondition",
+    jsii_struct_bases=[],
+    name_mapping={"key": "key", "value": "value", "operation": "operation"},
+)
+class TagCondition:
+    def __init__(
+        self,
+        *,
+        key: builtins.str,
+        value: builtins.str,
+        operation: typing.Optional["TagOperation"] = None,
+    ) -> None:
+        '''A tag condition.
+
+        :param key: The key in a key-value pair. For example, in ``"ec2:ResourceTag/Department": "accounting"``, ``ec2:ResourceTag/Department`` is the key.
+        :param value: The value in a key-value pair. For example, in ``"ec2:ResourceTag/Department": "accounting"``, ``accounting`` is the value.
+        :param operation: An operation that is applied to a key-value pair used to filter resources in a selection. Default: STRING_EQUALS
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            tag_condition = backup.TagCondition(
+                key="key",
+                value="value",
+            
+                # the properties below are optional
+                operation=backup.TagOperation.STRING_EQUALS
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key": key,
+            "value": value,
+        }
+        if operation is not None:
+            self._values["operation"] = operation
+
+    @builtins.property
+    def key(self) -> builtins.str:
+        '''The key in a key-value pair.
+
+        For example, in ``"ec2:ResourceTag/Department": "accounting"``,
+        ``ec2:ResourceTag/Department`` is the key.
+        '''
+        result = self._values.get("key")
+        assert result is not None, "Required property 'key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''The value in a key-value pair.
+
+        For example, in ``"ec2:ResourceTag/Department": "accounting"``,
+        ``accounting`` is the value.
+        '''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def operation(self) -> typing.Optional["TagOperation"]:
+        '''An operation that is applied to a key-value pair used to filter resources in a selection.
+
+        :default: STRING_EQUALS
+        '''
+        result = self._values.get("operation")
+        return typing.cast(typing.Optional["TagOperation"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagCondition(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_backup.TagOperation")
+class TagOperation(enum.Enum):
+    '''An operation that is applied to a key-value pair.'''
+
+    STRING_EQUALS = "STRING_EQUALS"
+    '''StringEquals.'''
+    DUMMY = "DUMMY"
+    '''Dummy member.'''
+
+
+@jsii.implements(IBackupPlan)
+class BackupPlan(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.BackupPlan",
+):
+    '''A backup plan.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # Daily, weekly and monthly with 5 year retention
+        plan = backup.BackupPlan.daily_weekly_monthly5_year_retention(self, "Plan")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        backup_plan_name: typing.Optional[builtins.str] = None,
+        backup_plan_rules: typing.Optional[typing.Sequence["BackupPlanRule"]] = None,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+        windows_vss: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param backup_plan_name: The display name of the backup plan. Default: - A CDK generated name
+        :param backup_plan_rules: Rules for the backup plan. Use ``addRule()`` to add rules after instantiation. Default: - use ``addRule()`` to add rules
+        :param backup_vault: The backup vault where backups are stored. Default: - use the vault defined at the rule level. If not defined a new common vault for the plan will be created
+        :param windows_vss: Enable Windows VSS backup. Default: false
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = BackupPlanProps(
+            backup_plan_name=backup_plan_name,
+            backup_plan_rules=backup_plan_rules,
+            backup_vault=backup_vault,
+            windows_vss=windows_vss,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="daily35DayRetention")
+    @builtins.classmethod
+    def daily35_day_retention(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+    ) -> "BackupPlan":
+        '''Daily with 35 day retention.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
+        return typing.cast("BackupPlan", jsii.sinvoke(cls, "daily35DayRetention", [scope, id, backup_vault]))
+
+    @jsii.member(jsii_name="dailyMonthly1YearRetention")
+    @builtins.classmethod
+    def daily_monthly1_year_retention(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+    ) -> "BackupPlan":
+        '''Daily and monthly with 1 year retention.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
+        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyMonthly1YearRetention", [scope, id, backup_vault]))
+
+    @jsii.member(jsii_name="dailyWeeklyMonthly5YearRetention")
+    @builtins.classmethod
+    def daily_weekly_monthly5_year_retention(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+    ) -> "BackupPlan":
+        '''Daily, weekly and monthly with 5 year retention.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
+        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyWeeklyMonthly5YearRetention", [scope, id, backup_vault]))
+
+    @jsii.member(jsii_name="dailyWeeklyMonthly7YearRetention")
+    @builtins.classmethod
+    def daily_weekly_monthly7_year_retention(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault: typing.Optional["_IBackupVaultRef_c038ce00"] = None,
+    ) -> "BackupPlan":
+        '''Daily, weekly and monthly with 7 year retention.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault", value=backup_vault, expected_type=type_hints["backup_vault"])
+        return typing.cast("BackupPlan", jsii.sinvoke(cls, "dailyWeeklyMonthly7YearRetention", [scope, id, backup_vault]))
+
+    @jsii.member(jsii_name="fromBackupPlanId")
+    @builtins.classmethod
+    def from_backup_plan_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_plan_id: builtins.str,
+    ) -> "IBackupPlan":
+        '''Import an existing backup plan.
+
+        :param scope: -
+        :param id: -
+        :param backup_plan_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
+        return typing.cast("IBackupPlan", jsii.sinvoke(cls, "fromBackupPlanId", [scope, id, backup_plan_id]))
+
+    @jsii.member(jsii_name="addRule")
+    def add_rule(self, rule: "BackupPlanRule") -> None:
+        '''Adds a rule to a plan.
+
+        :param rule: the rule to add.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+        return typing.cast(None, jsii.invoke(self, "addRule", [rule]))
+
+    @jsii.member(jsii_name="addSelection")
+    def add_selection(
+        self,
+        id: builtins.str,
+        *,
+        resources: typing.Sequence["BackupResource"],
+        allow_restores: typing.Optional[builtins.bool] = None,
+        backup_selection_name: typing.Optional[builtins.str] = None,
+        disable_default_backup_policy: typing.Optional[builtins.bool] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+    ) -> "BackupSelection":
+        '''Adds a selection to this plan.
+
+        :param id: -
+        :param resources: The resources to backup. Use the helper static methods defined on ``BackupResource``.
+        :param allow_restores: Whether to automatically give restores permissions to the role that AWS Backup uses. If ``true``, the ``AWSBackupServiceRolePolicyForRestores`` managed policy will be attached to the role. Default: false
+        :param backup_selection_name: The name for this selection. Default: - a CDK generated name
+        :param disable_default_backup_policy: Whether to disable automatically assigning default backup permissions to the role that AWS Backup uses. If ``false``, the ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to the role. Default: false
+        :param role: The role that AWS Backup uses to authenticate when backuping or restoring the resources. The ``AWSBackupServiceRolePolicyForBackup`` managed policy will be attached to this role unless ``disableDefaultBackupPolicy`` is set to ``true``. Default: - a new role will be created
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = BackupSelectionOptions(
+            resources=resources,
+            allow_restores=allow_restores,
+            backup_selection_name=backup_selection_name,
+            disable_default_backup_policy=disable_default_backup_policy,
+            role=role,
+        )
+
+        return typing.cast("BackupSelection", jsii.invoke(self, "addSelection", [id, options]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupPlanArn")
+    def backup_plan_arn(self) -> builtins.str:
+        '''The ARN of the backup plan.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "backupPlanArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupPlanId")
+    def backup_plan_id(self) -> builtins.str:
+        '''The identifier of the backup plan.'''
+        return typing.cast(builtins.str, jsii.get(self, "backupPlanId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupPlanRef")
+    def backup_plan_ref(self) -> "_BackupPlanReference_43879719":
+        '''A reference to a BackupPlan resource.'''
+        return typing.cast("_BackupPlanReference_43879719", jsii.get(self, "backupPlanRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVault")
+    def backup_vault(self) -> "IBackupVault":
+        '''The backup vault where backups are stored if not defined at the rule level.'''
+        return typing.cast("IBackupVault", jsii.get(self, "backupVault"))
+
+    @builtins.property
+    @jsii.member(jsii_name="versionId")
+    def version_id(self) -> builtins.str:
+        '''Version Id.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "versionId"))
+
+
+@jsii.implements(IBackupVault)
+class BackupVault(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.BackupVault",
+):
+    '''A backup vault.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        imported_vault = backup.BackupVault.from_backup_vault_name(self, "Vault", "myVaultName")
+        
+        role = iam.Role(self, "Access Role", assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"))
+        
+        imported_vault.grant(role, "backup:StartBackupJob")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        access_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        backup_vault_name: typing.Optional[builtins.str] = None,
+        block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
+        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        lock_configuration: typing.Optional[typing.Union["LockConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_events: typing.Optional[typing.Sequence["BackupVaultEvents"]] = None,
+        notification_topic: typing.Optional["_ITopic_9eca4852"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param access_policy: A resource-based policy that is used to manage access permissions on the backup vault. Default: - access is not restricted
+        :param backup_vault_name: The name of a logical container where backups are stored. Backup vaults are identified by names that are unique to the account used to create them and the AWS Region where they are created. Default: - A CDK generated name
+        :param block_recovery_point_deletion: Whether to add statements to the vault access policy that prevents anyone from deleting a recovery point. Default: false
+        :param encryption_key: The server-side encryption key to use to protect your backups. Default: - an Amazon managed KMS key
+        :param lock_configuration: Configuration for AWS Backup Vault Lock. Default: - AWS Backup Vault Lock is disabled
+        :param notification_events: The vault events to send. Default: - all vault events if ``notificationTopic`` is defined
+        :param notification_topic: A SNS topic to send vault events to. Default: - no notifications
+        :param removal_policy: The removal policy to apply to the vault. Note that removing a vault that contains recovery points will fail. Default: RemovalPolicy.RETAIN
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = BackupVaultProps(
+            access_policy=access_policy,
+            backup_vault_name=backup_vault_name,
+            block_recovery_point_deletion=block_recovery_point_deletion,
+            encryption_key=encryption_key,
+            lock_configuration=lock_configuration,
+            notification_events=notification_events,
+            notification_topic=notification_topic,
+            removal_policy=removal_policy,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromBackupVaultArn")
+    @builtins.classmethod
+    def from_backup_vault_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault_arn: builtins.str,
+    ) -> "IBackupVault":
+        '''Import an existing backup vault by arn.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault_arn", value=backup_vault_arn, expected_type=type_hints["backup_vault_arn"])
+        return typing.cast("IBackupVault", jsii.sinvoke(cls, "fromBackupVaultArn", [scope, id, backup_vault_arn]))
+
+    @jsii.member(jsii_name="fromBackupVaultName")
+    @builtins.classmethod
+    def from_backup_vault_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        backup_vault_name: builtins.str,
+    ) -> "IBackupVault":
+        '''Import an existing backup vault by name.
+
+        :param scope: -
+        :param id: -
+        :param backup_vault_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
+        return typing.cast("IBackupVault", jsii.sinvoke(cls, "fromBackupVaultName", [scope, id, backup_vault_name]))
+
+    @jsii.member(jsii_name="addToAccessPolicy")
+    def add_to_access_policy(self, statement: "_PolicyStatement_0fe33853") -> None:
+        '''Adds a statement to the vault access policy.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast(None, jsii.invoke(self, "addToAccessPolicy", [statement]))
+
+    @jsii.member(jsii_name="blockRecoveryPointDeletion")
+    def block_recovery_point_deletion(self) -> None:
+        '''Adds a statement to the vault access policy that prevents anyone from deleting a recovery point.'''
+        return typing.cast(None, jsii.invoke(self, "blockRecoveryPointDeletion", []))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_Grant_a7ae64f8":
+        '''Grant the actions defined in actions to the given grantee on this Backup Vault resource.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: Principal to grant right to.
+        :param actions: The actions to grant.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultArn")
+    def backup_vault_arn(self) -> builtins.str:
+        '''The ARN of the backup vault.'''
+        return typing.cast(builtins.str, jsii.get(self, "backupVaultArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultName")
+    def backup_vault_name(self) -> builtins.str:
+        '''The name of a logical container where backups are stored.'''
+        return typing.cast(builtins.str, jsii.get(self, "backupVaultName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="backupVaultRef")
+    def backup_vault_ref(self) -> "_BackupVaultReference_228dbd3a":
+        '''A reference to a BackupVault resource.'''
+        return typing.cast("_BackupVaultReference_228dbd3a", jsii.get(self, "backupVaultRef"))
+
+
 __all__ = [
     "BackupPlan",
     "BackupPlanCopyActionProps",
     "BackupPlanProps",
-    "BackupPlanReference",
     "BackupPlanRule",
     "BackupPlanRuleProps",
     "BackupResource",
     "BackupSelection",
     "BackupSelectionOptions",
     "BackupSelectionProps",
-    "BackupSelectionReference",
     "BackupVault",
     "BackupVaultEvents",
     "BackupVaultProps",
-    "BackupVaultReference",
     "CfnBackupPlan",
     "CfnBackupPlanProps",
     "CfnBackupSelection",
@@ -8520,22 +8144,9 @@ __all__ = [
     "CfnRestoreTestingPlanProps",
     "CfnRestoreTestingSelection",
     "CfnRestoreTestingSelectionProps",
-    "FrameworkReference",
     "IBackupPlan",
-    "IBackupPlanRef",
-    "IBackupSelectionRef",
     "IBackupVault",
-    "IBackupVaultRef",
-    "IFrameworkRef",
-    "ILogicallyAirGappedBackupVaultRef",
-    "IReportPlanRef",
-    "IRestoreTestingPlanRef",
-    "IRestoreTestingSelectionRef",
     "LockConfiguration",
-    "LogicallyAirGappedBackupVaultReference",
-    "ReportPlanReference",
-    "RestoreTestingPlanReference",
-    "RestoreTestingSelectionReference",
     "TagCondition",
     "TagOperation",
 ]
@@ -8544,7 +8155,7 @@ publication.publish()
 
 def _typecheckingstub__502c247f5c1b9824033ca24f5efe3e1d20ee8980208ae5382890f6168ba12843(
     *,
-    destination_backup_vault: IBackupVault,
+    destination_backup_vault: _IBackupVaultRef_c038ce00,
     delete_after: typing.Optional[_Duration_4839e8c3] = None,
     move_to_cold_storage_after: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
@@ -8555,53 +8166,45 @@ def _typecheckingstub__2c977b2da08bc5e51abde064245ef25c86ebdc30dd86fbb4658318249
     *,
     backup_plan_name: typing.Optional[builtins.str] = None,
     backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
     windows_vss: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cdffc715f03665cb52df4388f856f05f58c9b9d33c03fa7746888de2fb997c07(
-    *,
-    backup_plan_arn: builtins.str,
-    backup_plan_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8f78e665a93a5f3c61a81adf713b3dce3bf2c3c24d2e314a1fbc4460dc83b538(
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d00b6f39a5ae5e68dc286fee4603f5606c654c044712abfb5d45b4c538938e0a(
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4124e390401942af3d104beae29adc9c33bd1305f68302b0dd47aae3e11ca132(
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__af7999bcc928a751830ca431012278b60250723ffee54654765a4596696d022d(
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__759b8b9514606abffe4399669994cb3f2c365fc9e05295dd8d754f5af6bb329f(
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d8353d5d90(
     *,
-    backup_vault: typing.Optional[IBackupVault] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
     completion_window: typing.Optional[_Duration_4839e8c3] = None,
     copy_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanCopyActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     delete_after: typing.Optional[_Duration_4839e8c3] = None,
@@ -8637,37 +8240,37 @@ def _typecheckingstub__8c8359998ff8f774202e1b0869097e19c3e167e8e7a6a5ee95936f1b0
     pass
 
 def _typecheckingstub__75ec54ba33468f397b4b954ffff5bb4a26a29e306b38c37a8a831233ca47cf40(
-    table: _ITable_504fd401,
+    table: _ITableRef_4478f0ad,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfac18ef33642ed976be7473c0fe4b5174e370a770ceabc690e397bcecfce6a3(
-    instance: _IInstanceRef_bfcd205f,
+    instance: _IInstanceRef_b97803cb,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a724b31752318e43681480d257f284af035f11db8b7b91a2712b0a19a09283b(
-    file_system: _IFileSystem_b2d3a7cb,
+    file_system: _IFileSystemRef_3dcf8b98,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2043352654f5d7b0272be6002773b2263d7a3a58bb3ca681d050846773b6a7a4(
-    cluster: _IDatabaseCluster_6554c32b,
+    cluster: _IDBClusterRef_ebf419fe,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a3a85f96e06b0e43fed194c604af81aa14d506827b7f57b6fef4f8e0191d38d1(
-    instance: _IDatabaseInstance_e4cb03a8,
+    instance: _IDBInstanceRef_10d60cd7,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a96658ef472d54f85f9fb6dfeffb763befda835ec279615ad329c159e5acf1a6(
-    cluster: _IServerlessCluster_adbbb720,
+    cluster: _IDBClusterRef_ebf419fe,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8684,7 +8287,7 @@ def _typecheckingstub__cb124dbc539b313053b8d36e3fbbda7c8ef513917e5cdb41a9d2a7eca
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    backup_plan: IBackupPlan,
+    backup_plan: _IBackupPlanRef_754776b5,
     resources: typing.Sequence[BackupResource],
     allow_restores: typing.Optional[builtins.bool] = None,
     backup_selection_name: typing.Optional[builtins.str] = None,
@@ -8712,14 +8315,7 @@ def _typecheckingstub__bd3a38c041da3373a6278620797d45b4058a0d5aede2c0a4bc706fdef
     backup_selection_name: typing.Optional[builtins.str] = None,
     disable_default_backup_policy: typing.Optional[builtins.bool] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
-    backup_plan: IBackupPlan,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__063ae40062540dd49832ac66bd5b80948e3bd324b6ba922fa96d48bd9a2001cc(
-    *,
-    backup_selection_id: builtins.str,
+    backup_plan: _IBackupPlanRef_754776b5,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8729,283 +8325,11 @@ def _typecheckingstub__6a7555f4b25ca4760e3a057b8e3a9b5e07feed1f99319d6e434cc8fed
     access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
     backup_vault_name: typing.Optional[builtins.str] = None,
     block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
     lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
     notification_topic: typing.Optional[_ITopic_9eca4852] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8fbb9c285090a760cfee6239fc052ed08bee9b2a9c2de8cea956550f944d345(
-    *,
-    backup_vault_arn: builtins.str,
-    backup_vault_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8(
-    *,
-    backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
-    backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9(
-    *,
-    backup_plan_id: builtins.str,
-    backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28(
-    *,
-    backup_vault_name: builtins.str,
-    access_policy: typing.Any = None,
-    backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    encryption_key_arn: typing.Optional[builtins.str] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7(
-    *,
-    framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    framework_description: typing.Optional[builtins.str] = None,
-    framework_name: typing.Optional[builtins.str] = None,
-    framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f(
-    *,
-    backup_vault_name: builtins.str,
-    max_retention_days: jsii.Number,
-    min_retention_days: jsii.Number,
-    access_policy: typing.Any = None,
-    backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9(
-    *,
-    report_delivery_channel: typing.Any,
-    report_setting: typing.Any,
-    report_plan_description: typing.Optional[builtins.str] = None,
-    report_plan_name: typing.Optional[builtins.str] = None,
-    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5(
-    *,
-    recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
-    restore_testing_plan_name: builtins.str,
-    schedule_expression: builtins.str,
-    schedule_expression_timezone: typing.Optional[builtins.str] = None,
-    start_window_hours: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb(
-    *,
-    iam_role_arn: builtins.str,
-    protected_resource_type: builtins.str,
-    restore_testing_plan_name: builtins.str,
-    restore_testing_selection_name: builtins.str,
-    protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    validation_window_hours: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7f6e19a5b773b4593f523fb53dce853ea5f3b07b8bd58c44b171b4dfbbd10368(
-    *,
-    framework_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68(
-    grantee: _IGrantable_71c4f5de,
-    *actions: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681(
-    *,
-    min_retention: _Duration_4839e8c3,
-    changeable_for: typing.Optional[_Duration_4839e8c3] = None,
-    max_retention: typing.Optional[_Duration_4839e8c3] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8813a3e043efe12e58e0c0f09161facfb97c2dcfa3ded00ea77779e6e568924(
-    *,
-    backup_vault_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c3ea0982a14d6de9d4c584271b927acee925d034d9d0fd5e77aef787e452ff9(
-    *,
-    report_plan_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__df487c6a75d94f62bc14d3c8d8df1d34e2a5e7ae5999bc9007da6c3adeff21b9(
-    *,
-    restore_testing_plan_arn: builtins.str,
-    restore_testing_plan_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc0939242ba18bf99725a558149ab292469c51f0708a4cd3bf20617339606334(
-    *,
-    restore_testing_plan_name: builtins.str,
-    restore_testing_selection_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-    operation: typing.Optional[TagOperation] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    backup_plan_name: typing.Optional[builtins.str] = None,
-    backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
-    backup_vault: typing.Optional[IBackupVault] = None,
-    windows_vss: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault: typing.Optional[IBackupVault] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault: typing.Optional[IBackupVault] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault: typing.Optional[IBackupVault] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault: typing.Optional[IBackupVault] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_plan_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df(
-    rule: BackupPlanRule,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b(
-    id: builtins.str,
-    *,
-    resources: typing.Sequence[BackupResource],
-    allow_restores: typing.Optional[builtins.bool] = None,
-    backup_selection_name: typing.Optional[builtins.str] = None,
-    disable_default_backup_policy: typing.Optional[builtins.bool] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-    backup_vault_name: typing.Optional[builtins.str] = None,
-    block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKeyRef_1e82344b] = None,
-    lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-    notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
-    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    backup_vault_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175(
-    statement: _PolicyStatement_0fe33853,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8(
-    grantee: _IGrantable_71c4f5de,
-    *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9016,6 +8340,34 @@ def _typecheckingstub__8250888ac08b345ef300cc4ce53cc267858e31401cdc7b6a427c98f5b
     *,
     backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
     backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d90318e05f298e9e32d25d69776de891d8d1f9fdc6587cd780d823a2ffc981d8(
+    resource: _IBackupPlanRef_754776b5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19a621581dc951af9f595672bab4c44806829db988a9a543e73c82aa211347cc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c10f5f2e9e380d8e917a10f74122d09d2b555c99380ffa6da4e01197e1e097dd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_plan_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ede8b9af7edd83b17d51898aba87327c2de9e2dca982aab34a7f5ba5948e1b76(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9074,6 +8426,7 @@ def _typecheckingstub__a15d5028e47f5757a8c2319a31ccf993bd398f0a4476991c75f1e1c3b
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_minutes: typing.Optional[jsii.Number] = None,
+    target_logically_air_gapped_backup_vault_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9102,12 +8455,26 @@ def _typecheckingstub__b9cc85d565a0bdd44f5b8b5d29dce7bae38cfd50437c39a049e1b16bd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__38320d1a2a15443c671b35047636824301e490f9e4406be550e214bb8dea25d8(
+    *,
+    backup_plan: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupPlan.BackupPlanResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    backup_plan_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__436ffdeb945f1d3144a7bb788e19b389a62e6e70ce5e213a46bb8c9ea289c07f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    backup_plan_id: builtins.str,
+    backup_plan_id: typing.Union[builtins.str, _IBackupPlanRef_754776b5],
     backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d35e73d1ff2149bad22c9c5051064e7e4eb9459ab990636de591005480b4e938(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9175,6 +8542,14 @@ def _typecheckingstub__d4989780545fff72ed41947c50d0e49cf85d2cf412bc84422f8757131
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__62d83c7c1dd04eb3d32a7eb1179b31577aa76122fb844fd17ddef00d8ef261c9(
+    *,
+    backup_plan_id: typing.Union[builtins.str, _IBackupPlanRef_754776b5],
+    backup_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupSelection.BackupSelectionResourceTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__91f579bea882f82608d503a3e561568131d8e8e6d825c152c63d596228cb1283(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9182,9 +8557,37 @@ def _typecheckingstub__91f579bea882f82608d503a3e561568131d8e8e6d825c152c63d59622
     backup_vault_name: builtins.str,
     access_policy: typing.Any = None,
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    encryption_key_arn: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ed92c2782108e3ac41b002f013a5190852956a16215b7e5e56ca133e9e72884(
+    resource: _IBackupVaultRef_c038ce00,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2986d116c33dbb1dc995c507e7df9b0cf2f344f357d0a1404d0c2ece4c1fc5b2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc137647a726cfa7058e572fdb03e73df8b9f52e786f61edcd64eb6c3fc59645(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd36b260fa1819d239b14b42d40ba38036f7fcfb5eea5ee5997f7d891fe37b70(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9254,6 +8657,18 @@ def _typecheckingstub__b1a218026ba958c0d56b8c624f104b73e68fb60c3d3ea03864a8affbd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a8f4cc95a208ae1aaf01a8bfd7ead0ecbd6d7559786be34f0a6087355d66ca28(
+    *,
+    backup_vault_name: builtins.str,
+    access_policy: typing.Any = None,
+    backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    encryption_key_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.LockConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__762b6f2cf173ed987e2f05e55b691e4e8e14552591e05b26b7f7f4e08e3c739d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9262,6 +8677,18 @@ def _typecheckingstub__762b6f2cf173ed987e2f05e55b691e4e8e14552591e05b26b7f7f4e08
     framework_description: typing.Optional[builtins.str] = None,
     framework_name: typing.Optional[builtins.str] = None,
     framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b50aa25a1cc9ba34b4868b9a50fe018bfd4cc98076a84c277bf66f3e1da5f09(
+    resource: _IFrameworkRef_dcbb25ea,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0e4b118e80cc8b6a02bf8eff05632314f7c32bd9e456ab50d3932ffbf790e7b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9328,6 +8755,16 @@ def _typecheckingstub__2629d2cfa8ee3e24a49017e656aec6745967bedbc91fb85dae3a38dfe
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d52b5fd7(
+    *,
+    framework_controls: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFramework.FrameworkControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    framework_description: typing.Optional[builtins.str] = None,
+    framework_name: typing.Optional[builtins.str] = None,
+    framework_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f46c2d817c43abec9e204fc8a7211b43dd15b93e11a637e67a9711664c3afd52(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9337,7 +8774,29 @@ def _typecheckingstub__f46c2d817c43abec9e204fc8a7211b43dd15b93e11a637e67a9711664
     min_retention_days: jsii.Number,
     access_policy: typing.Any = None,
     backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    mpa_approval_team_arn: typing.Optional[builtins.str] = None,
     notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__994d018be638a33f2eb32bb0e85f369b451e5bfae2907913519d7f9f54738a54(
+    resource: _ILogicallyAirGappedBackupVaultRef_94a8f212,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2d7a451581b8c789f1a800340871c2a6bccebe8622af1e2f5b447a3a98d1dbb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5e25c462b1613e391c1de6e32d697ccfab1f83825922fabde05f59f0f0ed9bf(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9384,6 +8843,18 @@ def _typecheckingstub__27388048f12fa4b0d6686a7b40795dea7b4219e2f388afdfc5733f704
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cf0845b96f64c861986d9628b54d60700d109b971dc10dd34707fb3e98629c96(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d69a75a0b7ce93d33d99d99ea46c6bed385bc4618297cfeb5204520844045d0e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1dc991e6a5cd9bb0776543a7419ba117220c8fec8f29ec2587f9a6747b5dcab(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty]],
 ) -> None:
@@ -9398,6 +8869,20 @@ def _typecheckingstub__44eaedb9d731db6382000976b38651ee3871dd8abe22e4171998d7581
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5a3b99abcf3e8ad32b3307410738488461421bb759c6f2f630a99abc5f63bb3f(
+    *,
+    backup_vault_name: builtins.str,
+    max_retention_days: jsii.Number,
+    min_retention_days: jsii.Number,
+    access_policy: typing.Any = None,
+    backup_vault_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    mpa_approval_team_arn: typing.Optional[builtins.str] = None,
+    notifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogicallyAirGappedBackupVault.NotificationObjectTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5c6528de906751786b24f01244334abf14ddb763be763a416a6d4f3c8b779828(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9407,6 +8892,18 @@ def _typecheckingstub__5c6528de906751786b24f01244334abf14ddb763be763a416a6d4f3c8
     report_plan_description: typing.Optional[builtins.str] = None,
     report_plan_name: typing.Optional[builtins.str] = None,
     report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81ff19c28848fcb20b39db086fd0082e4e3c62072d87a29282066c70b97788c7(
+    resource: _IReportPlanRef_2eb6ea89,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2abc06e48dfc31e4fbe55950c0e534070c2435094a084708de6199d364dde9e4(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9473,6 +8970,17 @@ def _typecheckingstub__f82410dd1600e96bdbb1b09d2f427b262b59db1aee2a2d8a69b04a7c4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__afbe22eade35dfb4647750a128ae7ae610bb82584420423ce86400329eeb84d9(
+    *,
+    report_delivery_channel: typing.Any,
+    report_setting: typing.Any,
+    report_plan_description: typing.Optional[builtins.str] = None,
+    report_plan_name: typing.Optional[builtins.str] = None,
+    report_plan_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ce1d12683247bbd0bcd185e807f3b41b4b53ee7cfd847d57ecbf875d4e7c017f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9483,6 +8991,18 @@ def _typecheckingstub__ce1d12683247bbd0bcd185e807f3b41b4b53ee7cfd847d57ecbf875d4
     schedule_expression_timezone: typing.Optional[builtins.str] = None,
     start_window_hours: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7990b6debf547b5294197ae934069cb15deeef3fa415291836f77df56e14749c(
+    resource: _IRestoreTestingPlanRef_3850185f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d546b33c12de5b002fa2057a49d81a560710ec58df95a495541fd40dfccedfd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9546,6 +9066,18 @@ def _typecheckingstub__b5c7325bf12ffdf44c2a91f87260dec7090351b3a614521cad6d903cf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d65b2884e40d5939ab5441a32efe6879390155bd000dab9e921f71ac415b50f5(
+    *,
+    recovery_point_selection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingPlan.RestoreTestingRecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    restore_testing_plan_name: builtins.str,
+    schedule_expression: builtins.str,
+    schedule_expression_timezone: typing.Optional[builtins.str] = None,
+    start_window_hours: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442b55b4cd(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9558,6 +9090,12 @@ def _typecheckingstub__fcf5b783f910e19031573c45aeb82865ab4fa2145dd36242b383df442
     protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     validation_window_hours: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79ee0a62a83de7a0b3fcb7d1b018b671d46b1f2e324807ee26880a623641dcf2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9637,3 +9175,160 @@ def _typecheckingstub__21f4334cd0e11f4b24684e9ff9cf575380c735e9265b95d69aa611aae
 ) -> None:
     """Type checking stubs"""
     pass
+
+def _typecheckingstub__fd755bb9b5c3f12e065d4bb10b1805bc3571946724f1d8f52794cc5491212cdb(
+    *,
+    iam_role_arn: builtins.str,
+    protected_resource_type: builtins.str,
+    restore_testing_plan_name: builtins.str,
+    restore_testing_selection_name: builtins.str,
+    protected_resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    protected_resource_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRestoreTestingSelection.ProtectedResourceConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restore_metadata_overrides: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    validation_window_hours: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f8085843c1a2a230e0c965fbb91f96b1b11b817ee7d9232b4d368b4767e6681(
+    *,
+    min_retention: _Duration_4839e8c3,
+    changeable_for: typing.Optional[_Duration_4839e8c3] = None,
+    max_retention: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebec77480ee4239c5e74e693ea6942bce079e6a195e1db4021330679f19a3080(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+    operation: typing.Optional[TagOperation] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac9eeb1158690e76fc800429198c84b42bf4dc68c223e34e743ca5c3de83102d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    backup_plan_name: typing.Optional[builtins.str] = None,
+    backup_plan_rules: typing.Optional[typing.Sequence[BackupPlanRule]] = None,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+    windows_vss: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17983f2742df72bf64d28b678e89a057f2b1feed375c39a562e042faadaf8668(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bb65bf5b0ac30cf59b76bfc6b0fd6a5c44fe614f682166d81e998f4dd87179a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e80dbcebd876b060051ccd746c3d678b6857f64ed24fda01e09c953ebbc3199c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__564733017434e9f62e49bb99610f3dd11fc4692ba00892447d2c38e0be976290(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault: typing.Optional[_IBackupVaultRef_c038ce00] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9d7e2dd359a33f71d62dc691f0b94d1443cc763901092b01ca933df0c543219(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_plan_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__398b9447d6dff004e80a6df5262bac01ef5f8f5af47ef115c710b218e23791df(
+    rule: BackupPlanRule,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__588f53b2d13b2b789941caeafb53933090659574015281ee228d0d35b924172b(
+    id: builtins.str,
+    *,
+    resources: typing.Sequence[BackupResource],
+    allow_restores: typing.Optional[builtins.bool] = None,
+    backup_selection_name: typing.Optional[builtins.str] = None,
+    disable_default_backup_policy: typing.Optional[builtins.bool] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5938cd051d17a4aa98a61f204449a9c4416544ba91e3c4e4821b784b40ffc921(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    access_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    backup_vault_name: typing.Optional[builtins.str] = None,
+    block_recovery_point_deletion: typing.Optional[builtins.bool] = None,
+    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    lock_configuration: typing.Optional[typing.Union[LockConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    notification_events: typing.Optional[typing.Sequence[BackupVaultEvents]] = None,
+    notification_topic: typing.Optional[_ITopic_9eca4852] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58170569b5f8f6dd33d5d700cfb73499de3162167c227fa90c30956f0160a753(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdc42d68a7099dab372cd0e3291aa3e3a7794912bbd2c7df2a059b1c39cc0e40(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    backup_vault_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e100029ccf44a7b32d3531902bcf8361f5e0f4bf872de45a759df0cb251ea175(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6f51b6b852524375032f5dd45b5c00d5d86423092d20d599599a38ce40675a8(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IBackupPlan, IBackupVault]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

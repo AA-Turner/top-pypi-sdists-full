@@ -195,8 +195,8 @@ class Table:
 class Column:
     def p_column_property(self, p: List):
         """c_property : id id
-            | id SET id 
-            | SET id """
+        | id SET id
+        | SET id"""
         p_list = list(p)
         if p[1].lower() == "auto":
             p[0] = {"increment": True}
@@ -415,9 +415,9 @@ class Column:
             if isinstance(item, dict):
                 if "property" in item:
                     for key, value in item["property"].items():
-                        if key == 'SET' and 'CHARACTER' in p[0]['type'].upper():
-                            p[0]['type'] = p[0]['type'].split('CHARACTER')[0].strip()
-                            key = f'CHARACTER_{key}'.lower()
+                        if key == "SET" and "CHARACTER" in p[0]["type"].upper():
+                            p[0]["type"] = p[0]["type"].split("CHARACTER")[0].strip()
+                            key = f"CHARACTER_{key}".lower()
                         p[0][key] = value
                     del item["property"]
                 p[0].update(item)
@@ -819,16 +819,26 @@ class AlterTable:
             p[0].update(p[2])
 
     def p_alter_column_modify(self, p: List) -> None:
-        """alter_column_modify : alt_table MODIFY COLUMN defcolumn"""
+        """alter_column_modify : alt_table MODIFY COLUMN defcolumn
+        | alter_column_modify COMMA MODIFY COLUMN defcolumn
+        """
         p[0] = p[1]
         p_list = list(p)
-        p[0]["columns_to_modify"] = [p_list[-1]]
+        if not p[0].get("columns_to_modify"):
+            p[0]["columns_to_modify"] = []
+        p[0]["columns_to_modify"].append(p_list[-1])
 
     def p_alter_drop_column(self, p: List) -> None:
-        """alter_drop_column : alt_table DROP COLUMN id"""
+        """alter_drop_column : alt_table DROP COLUMN id
+        | alt_table DROP id
+        | alter_drop_column COMMA DROP COLUMN id
+        | alter_drop_column COMMA DROP id
+        """
         p[0] = p[1]
         p_list = list(p)
-        p[0]["columns_to_drop"] = [p_list[-1]]
+        if not p[0].get("columns_to_drop"):
+            p[0]["columns_to_drop"] = []
+        p[0]["columns_to_drop"].append(p_list[-1])
 
     def p_alter_rename_column(self, p: List) -> None:
         """alter_rename_column : alt_table RENAME COLUMN id id id"""
@@ -837,10 +847,16 @@ class AlterTable:
         p[0]["columns_to_rename"] = [{"from": p_list[-3], "to": p_list[-1]}]
 
     def p_alter_column_add(self, p: List) -> None:
-        """alter_column_add : alt_table ADD defcolumn"""
+        """alter_column_add : alt_table ADD defcolumn
+        | alt_table ADD COLUMN defcolumn
+        | alter_column_add COMMA ADD defcolumn
+        | alter_column_add COMMA ADD COLUMN defcolumn
+        """
         p[0] = p[1]
         p_list = list(p)
-        p[0]["columns"] = [p_list[-1]]
+        if not p[0].get("columns"):
+            p[0]["columns"] = []
+        p[0]["columns"].append(p_list[-1])
 
     def p_alter_primary_key(self, p: List) -> None:
         """alter_primary_key : alt_table ADD PRIMARY KEY LP pid RP
@@ -960,6 +976,31 @@ class AlterTable:
             p[0]["project"] = table_data["project"]
 
 
+class Comment:
+    def p_expression_comment_on(self, p: List):
+        """expr : COMMENT ON TABLE id IS STRING
+        | COMMENT ON TABLE id DOT id IS STRING
+        | COMMENT ON COLUMN id DOT id IS STRING
+        | COMMENT ON COLUMN id DOT id DOT id IS STRING
+        """
+        comment_on = {}
+        p[0] = {"comment_on": comment_on}
+        p_list = list(p)
+        obj_type = p_list[3]
+
+        # Cleanse comment quotes and handle escaped quotes
+        comment_on["comment"] = p_list[-1][1:-1].replace("''", "'")
+        comment_on["object_type"] = obj_type
+
+        if obj_type == "COLUMN":
+            comment_on["column_name"] = p_list[-3]
+            comment_on["table_name"] = p_list[-5]
+            comment_on["schema"] = p_list[-7] if len(p_list) > 9 else None
+        elif obj_type == "TABLE":
+            comment_on["table_name"] = p_list[-3]
+            comment_on["schema"] = p_list[-5] if len(p_list) > 7 else None
+
+
 class BaseSQL(
     Database,
     Table,
@@ -971,6 +1012,7 @@ class BaseSQL(
     Type,
     Schema,
     TableSpaces,
+    Comment,
 ):
     def clean_up_id_list_in_equal(self, p_list: List) -> List:  # noqa R701
         if isinstance(p_list[1], str) and p_list[1].endswith("="):
@@ -1031,7 +1073,7 @@ class BaseSQL(
         """
         p_list = list(p)
 
-        if not p_list[-1] in [")", "]"]:
+        if p_list[-1] not in [")", "]"]:
             p[0] = {p[1]: p_list[-1]}
         else:
             if len(p_list) > 6 and isinstance(p_list[5], list):
@@ -1566,6 +1608,7 @@ class BaseSQL(
         | default id
         | DEFAULT ID EQ id_or_string
         | DEFAULT funct_expr
+        | DEFAULT dot_id
         | default dot_id
         """
         p_list = remove_par(list(p))
@@ -1651,6 +1694,8 @@ class BaseSQL(
         if len(p) > 3 and p_list[-1].lower() == "stored":
             stored = True
         _as = p[2]
+        if isinstance(_as, str):
+            _as = check_spec(_as)
 
         p[0] = {"generated": {"always": True, "as": _as, "stored": stored}}
 

@@ -197,7 +197,6 @@ class InvoiceRequest(RequestObject):
         """
         self.__metadata = value
 
-
     def validate(self):
         """
         Влидация данных модели PaymentRequest.

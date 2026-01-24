@@ -1,7 +1,7 @@
 r'''
 # `datadog_incident_notification_template`
 
-Refer to the Terraform Registry for docs: [`datadog_incident_notification_template`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template).
+Refer to the Terraform Registry for docs: [`datadog_incident_notification_template`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IncidentNotificationTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.incidentNotificationTemplate.IncidentNotificationTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template datadog_incident_notification_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template datadog_incident_notification_template}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class IncidentNotificationTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template datadog_incident_notification_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template datadog_incident_notification_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param category: The category of the notification template. Valid values are ``alert``, ``incident``, ``recovery``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
-        :param content: The content body of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
-        :param incident_type: The ID of the incident type this notification template is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
-        :param name: The name of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
-        :param subject: The subject line of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
+        :param category: The category of the notification template. Valid values are ``alert``, ``incident``, ``recovery``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
+        :param content: The content body of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
+        :param incident_type: The ID of the incident type this notification template is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
+        :param name: The name of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
+        :param subject: The subject line of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class IncidentNotificationTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IncidentNotificationTemplate to import.
-        :param import_from_id: The id of the existing IncidentNotificationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IncidentNotificationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IncidentNotificationTemplate to import is found.
         '''
         if __debug__:
@@ -283,11 +283,11 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param category: The category of the notification template. Valid values are ``alert``, ``incident``, ``recovery``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
-        :param content: The content body of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
-        :param incident_type: The ID of the incident type this notification template is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
-        :param name: The name of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
-        :param subject: The subject line of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
+        :param category: The category of the notification template. Valid values are ``alert``, ``incident``, ``recovery``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
+        :param content: The content body of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
+        :param incident_type: The ID of the incident type this notification template is associated with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
+        :param name: The name of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
+        :param subject: The subject line of the notification template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -395,7 +395,7 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def category(self) -> builtins.str:
         '''The category of the notification template. Valid values are ``alert``, ``incident``, ``recovery``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#category IncidentNotificationTemplate#category}
         '''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
@@ -405,7 +405,7 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def content(self) -> builtins.str:
         '''The content body of the notification template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#content IncidentNotificationTemplate#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -415,7 +415,7 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def incident_type(self) -> builtins.str:
         '''The ID of the incident type this notification template is associated with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#incident_type IncidentNotificationTemplate#incident_type}
         '''
         result = self._values.get("incident_type")
         assert result is not None, "Required property 'incident_type' is missing"
@@ -425,7 +425,7 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def name(self) -> builtins.str:
         '''The name of the notification template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#name IncidentNotificationTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -435,7 +435,7 @@ class IncidentNotificationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def subject(self) -> builtins.str:
         '''The subject line of the notification template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/incident_notification_template#subject IncidentNotificationTemplate#subject}
         '''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"

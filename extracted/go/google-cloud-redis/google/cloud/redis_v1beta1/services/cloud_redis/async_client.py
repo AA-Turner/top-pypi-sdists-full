@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ from typing import (
     Type,
     Union,
 )
+import uuid
 
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -35,6 +36,7 @@ from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
+import google.protobuf
 
 from google.cloud.redis_v1beta1 import gapic_version as package_version
 
@@ -76,19 +78,19 @@ class CloudRedisAsyncClient:
     Memorystore for Redis API and defines the following resource model
     for managing Redis instances:
 
-    -  The service works with a collection of cloud projects, named:
-       ``/projects/*``
-    -  Each project has a collection of available locations, named:
-       ``/locations/*``
-    -  Each location has a collection of Redis instances, named:
-       ``/instances/*``
-    -  As such, Redis instances are resources of the form:
-       ``/projects/{project_id}/locations/{location_id}/instances/{instance_id}``
+    - The service works with a collection of cloud projects, named:
+      ``/projects/*``
+    - Each project has a collection of available locations, named:
+      ``/locations/*``
+    - Each location has a collection of Redis instances, named:
+      ``/instances/*``
+    - As such, Redis instances are resources of the form:
+      ``/projects/{project_id}/locations/{location_id}/instances/{instance_id}``
 
     Note that location_id must be referring to a GCP ``region``; for
     example:
 
-    -  ``projects/redpepper-1290/locations/us-central1/instances/my-redis``
+    - ``projects/redpepper-1290/locations/us-central1/instances/my-redis``
     """
 
     _client: CloudRedisClient
@@ -322,7 +324,7 @@ class CloudRedisAsyncClient:
 
         The location should have the following format:
 
-        -  ``projects/{project_id}/locations/{location_id}``
+        - ``projects/{project_id}/locations/{location_id}``
 
         If ``location_id`` is specified as ``-`` (wildcard), then all
         regions available to the project are queried, and the results
@@ -748,12 +750,12 @@ class CloudRedisAsyncClient:
                 Required. The logical name of the Redis instance in the
                 customer project with the following restrictions:
 
-                -  Must contain only lowercase letters, numbers, and
-                   hyphens.
-                -  Must start with a letter.
-                -  Must be between 1-40 characters.
-                -  Must end with a number or a letter.
-                -  Must be unique within the customer project / location
+                - Must contain only lowercase letters, numbers, and
+                  hyphens.
+                - Must start with a letter.
+                - Must be between 1-40 characters.
+                - Must end with a number or a letter.
+                - Must be unique within the customer project / location
 
                 This corresponds to the ``instance_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -903,11 +905,11 @@ class CloudRedisAsyncClient:
                 repeated paths field may only include these fields from
                 [Instance][google.cloud.redis.v1beta1.Instance]:
 
-                -  ``displayName``
-                -  ``labels``
-                -  ``memorySizeGb``
-                -  ``redisConfig``
-                -  ``replica_count``
+                - ``displayName``
+                - ``labels``
+                - ``memorySizeGb``
+                - ``redisConfig``
+                - ``replica_count``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1870,6 +1872,9 @@ class CloudRedisAsyncClient:
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
+
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 
 __all__ = ("CloudRedisAsyncClient",)

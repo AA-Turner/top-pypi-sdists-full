@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_1 import (
         ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1,
     )
+    from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_2 import (
+        ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2,
+    )
+    from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_3 import (
+        ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3,
+    )
     from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_approvers_item import (
         ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleApproversItem,
     )
@@ -56,7 +62,9 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset,
             List[Union['ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType0',
-            'ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1']]]):
+            'ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1',
+            'ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2',
+            'ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
         parent_module (Union[Unset, str]):
     """
@@ -85,6 +93,8 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
             Union[
                 "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType0",
                 "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1",
+                "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2",
+                "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -95,6 +105,12 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_0 import (
             ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType0,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_1 import (
+            ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_2 import (
+            ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -149,6 +165,18 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
                 if isinstance(
                     agent_actions_item_data,
                     ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType0,
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data,
+                    ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1,
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data,
+                    ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2,
                 ):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
@@ -212,6 +240,12 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
         )
         from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_1 import (
             ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_2 import (
+            ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2,
+        )
+        from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_agent_actions_item_type_3 import (
+            ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3,
         )
         from ..models.list_extended_jobs_response_200_jobs_item_type_0_flow_status_failure_module_approvers_item import (
             ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleApproversItem,
@@ -302,6 +336,8 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
             ) -> Union[
                 "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType0",
                 "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1",
+                "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2",
+                "ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -315,13 +351,37 @@ class ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = (
+                        ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1.from_dict(
+                            data
+                        )
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = (
+                        ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType2.from_dict(
+                            data
+                        )
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = (
-                    ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = (
+                    ListExtendedJobsResponse200JobsItemType0FlowStatusFailureModuleAgentActionsItemType3.from_dict(data)
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

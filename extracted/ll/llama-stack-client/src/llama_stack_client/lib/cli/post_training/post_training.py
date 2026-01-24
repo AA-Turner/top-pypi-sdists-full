@@ -9,7 +9,10 @@ from typing import Optional
 import click
 from rich.console import Console
 
-from llama_stack_client.types.post_training_supervised_fine_tune_params import AlgorithmConfigParam, TrainingConfig
+from llama_stack_client.types.alpha.post_training_supervised_fine_tune_params import (
+    AlgorithmConfig,
+    TrainingConfig,
+)
 
 from ..common.utils import handle_client_errors
 
@@ -33,7 +36,7 @@ def supervised_fine_tune(
     ctx,
     job_uuid: str,
     model: str,
-    algorithm_config: AlgorithmConfigParam,
+    algorithm_config: AlgorithmConfig,
     training_config: TrainingConfig,
     checkpoint_dir: Optional[str],
 ):

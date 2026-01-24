@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 11.36.0
+Version: 12.31.2
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -11,18 +11,17 @@ License-File: IP_NOTICE
 License-File: LICENSE
 Keywords: Explainability,Monitoring,Observability
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Requires-Dist: aioitertools
 Requires-Dist: aiosqlite
 Requires-Dist: alembic<2,>=1.3.0
-Requires-Dist: arize-phoenix-client
-Requires-Dist: arize-phoenix-evals>=2.0.0
-Requires-Dist: arize-phoenix-otel>=0.10.3
+Requires-Dist: arize-phoenix-client>=1.28.0
+Requires-Dist: arize-phoenix-evals>=2.8.0
+Requires-Dist: arize-phoenix-otel>=0.14.0
 Requires-Dist: authlib
 Requires-Dist: cachetools
 Requires-Dist: email-validator
@@ -31,6 +30,8 @@ Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
 Requires-Dist: httpx
 Requires-Dist: jinja2
+Requires-Dist: jmespath
+Requires-Dist: ldap3
 Requires-Dist: numpy!=2.0.0
 Requires-Dist: openinference-instrumentation>=0.1.32
 Requires-Dist: openinference-semantic-conventions>=0.1.20
@@ -53,18 +54,21 @@ Requires-Dist: sqlalchemy[asyncio]<3,>=2.0.4
 Requires-Dist: sqlean-py<3.50,>=3.45.1; platform_system == 'Windows'
 Requires-Dist: sqlean-py>=3.45.1; platform_system != 'Windows'
 Requires-Dist: starlette
-Requires-Dist: strawberry-graphql==0.270.1
+Requires-Dist: strawberry-graphql==0.287.3
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
-Requires-Dist: wrapt>=1.17.2
+Requires-Dist: wrapt<2,>=1.17.2
+Provides-Extra: aws
+Requires-Dist: boto3; extra == 'aws'
 Provides-Extra: container
 Requires-Dist: aiohttp; extra == 'container'
 Requires-Dist: anthropic>=0.49.0; extra == 'container'
 Requires-Dist: azure-identity; extra == 'container'
 Requires-Dist: boto3; extra == 'container'
 Requires-Dist: fast-hdbscan>=0.2.0; extra == 'container'
-Requires-Dist: google-generativeai; extra == 'container'
+Requires-Dist: google-genai; (python_version < '3.10') and extra == 'container'
+Requires-Dist: google-genai>=1.50.0; (python_version >= '3.10') and extra == 'container'
 Requires-Dist: numba>=0.60.0; extra == 'container'
 Requires-Dist: openai>=1.0.0; extra == 'container'
 Requires-Dist: opentelemetry-exporter-otlp==1.33.1; extra == 'container'
@@ -76,7 +80,7 @@ Requires-Dist: opentelemetry-sdk==1.33.1; extra == 'container'
 Requires-Dist: opentelemetry-semantic-conventions==0.54b1; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
-Requires-Dist: strawberry-graphql[opentelemetry]==0.270.1; extra == 'container'
+Requires-Dist: strawberry-graphql[opentelemetry]==0.287.3; extra == 'container'
 Requires-Dist: umap-learn; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
 Provides-Extra: dev
@@ -106,7 +110,7 @@ Requires-Dist: pytest-postgresql; extra == 'dev'
 Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: pytest==8.3.3; extra == 'dev'
 Requires-Dist: ruff==0.6.9; extra == 'dev'
-Requires-Dist: strawberry-graphql[debug-server,opentelemetry]==0.270.1; extra == 'dev'
+Requires-Dist: strawberry-graphql[debug-server,opentelemetry]==0.287.3; extra == 'dev'
 Requires-Dist: tabulate; extra == 'dev'
 Requires-Dist: tox-uv==1.11.3; extra == 'dev'
 Requires-Dist: tox==4.18.1; extra == 'dev'
@@ -164,6 +168,7 @@ Description-Content-Type: text/markdown
         <img src="https://badge.mcpx.dev?status=on" title="MCP Enabled"/>
     </a>
     <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=phoenix&config=eyJjb21tYW5kIjoibnB4IC15IEBhcml6ZWFpL3Bob2VuaXgtbWNwQGxhdGVzdCAtLWJhc2VVcmwgaHR0cHM6Ly9teS1waG9lbml4LmNvbSAtLWFwaUtleSB5b3VyLWFwaS1rZXkifQ%3D%3D"><img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Add Arize Phoenix MCP server to Cursor" height=20 /></a>
+    <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=8e8e8b34-7900-43fa-a38f-1f070bd48c64&page=README.md" />
 </p>
 
 Phoenix is an open-source AI observability platform designed for experimentation, evaluation, and troubleshooting. It provides:
@@ -193,16 +198,23 @@ Phoenix container images are available via [Docker Hub](https://hub.docker.com/r
 
 The `arize-phoenix` package includes the entire Phoenix platfom. However if you have deployed the Phoenix platform, there are light-weight Python sub-packages and TypeScript packages that can be used in conjunction with the platfrom.
 
-### Subpackages
+### Python Subpackages
 
-| Package                                                                                             | Version & Docs                                                                                                                                                                                                                                                                      | Description                                                                                       |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [arize-phoenix-otel](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-otel)           | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-otel)](https://pypi.org/project/arize-phoenix-otel/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/otel/en/latest/index.html)       | Provides a lightweight wrapper around OpenTelemetry primitives with Phoenix-aware defaults        |
-| [arize-phoenix-client](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-client)       | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-client)](https://pypi.org/project/arize-phoenix-client/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/client/en/latest/index.html) | Lightweight client for interacting with the Phoenix server via its OpenAPI REST interface         |
-| [arize-phoenix-evals](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-evals)         | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-evals)](https://pypi.org/project/arize-phoenix-evals/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/evals/en/latest/index.html)    | Tooling to evaluate LLM applications including RAG relevance, answer relevance, and more          |
-| [@arizeai/phoenix-client](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-client) | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-client)](https://www.npmjs.com/package/@arizeai/phoenix-client) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize-ai.github.io/phoenix/)                            | Client for the Arize Phoenix API                                                                  |
-| [@arizeai/phoenix-evals](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-evals)   | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-evals)](https://www.npmjs.com/package/@arizeai/phoenix-evals) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize-ai.github.io/phoenix/)                              | TypeScript evaluation library for LLM applications (alpha release)                                |
-| [@arizeai/phoenix-mcp](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-mcp)       | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-mcp)](https://www.npmjs.com/package/@arizeai/phoenix-mcp) [![Docs](https://img.shields.io/badge/docs-blue?logo=markdown&logoColor=white)](./js/packages/phoenix-mcp/README.md)                                    | MCP server implementation for Arize Phoenix providing unified interface to Phoenix's capabilities |
+| Package                                                                                       | Version & Docs                                                                                                                                                                                                                                                                      | Description                                                                                |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [arize-phoenix-otel](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-otel)     | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-otel)](https://pypi.org/project/arize-phoenix-otel/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/otel/en/latest/index.html)       | Provides a lightweight wrapper around OpenTelemetry primitives with Phoenix-aware defaults |
+| [arize-phoenix-client](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-client) | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-client)](https://pypi.org/project/arize-phoenix-client/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/client/en/latest/index.html) | Lightweight client for interacting with the Phoenix server via its OpenAPI REST interface  |
+| [arize-phoenix-evals](https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-evals)   | [![PyPI Version](https://img.shields.io/pypi/v/arize-phoenix-evals)](https://pypi.org/project/arize-phoenix-evals/) [![Docs](https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white)](https://arize-phoenix.readthedocs.io/projects/evals/en/latest/index.html)    | Tooling to evaluate LLM applications including RAG relevance, answer relevance, and more   |
+
+### TypeScript Subpackages
+
+| Package                                                                                             | Version & Docs                                                                                                                                                                                                                                                                                 | Description                                                                                                  |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [@arizeai/phoenix-otel](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-otel)     | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-otel)](https://www.npmjs.com/package/@arizeai/phoenix-otel) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize-ai.github.io/phoenix/)                                           | Provides a lightweight wrapper around OpenTelemetry primitives with Phoenix-aware defaults                   |
+| [@arizeai/phoenix-client](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-client) | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-client)](https://www.npmjs.com/package/@arizeai/phoenix-client) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize-ai.github.io/phoenix/)                                       | Client for the Arize Phoenix API                                                                             |
+| [@arizeai/phoenix-evals](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-evals)   | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-evals)](https://www.npmjs.com/package/@arizeai/phoenix-evals) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize-ai.github.io/phoenix/)                                         | TypeScript evaluation library for LLM applications (alpha release)                                           |
+| [@arizeai/phoenix-mcp](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-mcp)       | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-mcp)](https://www.npmjs.com/package/@arizeai/phoenix-mcp) [![Docs](https://img.shields.io/badge/docs-blue?logo=markdown&logoColor=white)](./js/packages/phoenix-mcp/README.md)                                               | MCP server implementation for Arize Phoenix providing unified interface to Phoenix's capabilities            |
+| [@arizeai/phoenix-cli](https://github.com/Arize-ai/phoenix/tree/main/js/packages/phoenix-cli)       | [![NPM Version](https://img.shields.io/npm/v/%40arizeai%2Fphoenix-cli)](https://www.npmjs.com/package/@arizeai/phoenix-cli) [![Docs](https://img.shields.io/badge/docs-blue?logo=typescript&logoColor=white)](https://arize.com/docs/phoenix/sdk-api-reference/typescript/arizeai-phoenix-cli) | CLI for fetching traces, datasets, and experiments for use with Claude Code, Cursor, and other coding agents |
 
 ## Tracing Integrations
 
@@ -252,7 +264,7 @@ Normalize and convert data across other instrumentation libraries by adding span
 | [LangChain.js](https://arize.com/docs/phoenix/tracing/integrations-tracing/langchain)      | `@arizeai/openinference-instrumentation-langchain` | [![NPM Version](https://img.shields.io/npm/v/@arizeai/openinference-instrumentation-langchain.svg)](https://www.npmjs.com/package/@arizeai/openinference-instrumentation-langchain) |
 | [Vercel AI SDK](https://arize.com/docs/phoenix/tracing/integrations-tracing/vercel-ai-sdk) | `@arizeai/openinference-vercel`                    | [![NPM Version](https://img.shields.io/npm/v/@arizeai/openinference-vercel)](https://www.npmjs.com/package/@arizeai/openinference-vercel)                                           |
 | [BeeAI](https://arize.com/docs/phoenix/tracing/integrations-tracing/beeai)                 | `@arizeai/openinference-instrumentation-beeai`     | [![NPM Version](https://img.shields.io/npm/v/@arizeai/openinference-vercel)](https://www.npmjs.com/package/@arizeai/openinference-instrumentation-beeai)                            |
-| [Mastra](https://arize.com/docs/phoenix/integrations/mastra)                               | `@arizeai/openinference-mastra`                    | [![NPM Version](https://img.shields.io/npm/v/@arizeai/openinference-mastra.svg)](https://www.npmjs.com/package/@arizeai/openinference-mastra)                                       |
+| [Mastra](https://arize.com/docs/phoenix/integrations/typescript/mastra)                    | `@mastra/arize`                                    | [![NPM Version](https://img.shields.io/npm/v/@mastra/arize.svg)](https://www.npmjs.com/package/@mastra/arize)                                                                       |
 
 ### Java Integrations
 
@@ -270,6 +282,16 @@ Normalize and convert data across other instrumentation libraries by adding span
 | [Envoy AI Gateway](https://github.com/envoyproxy/ai-gateway)                                             | AI Gateway built on Envoy Proxy for AI workloads               | [Integration Guide](https://github.com/envoyproxy/ai-gateway/tree/main/cmd/aigw#opentelemetry-setup-with-phoenix) |
 | [LangFlow](https://arize.com/docs/phoenix/tracing/integrations-tracing/langflow)                         | Visual framework for building multi-agent and RAG applications | [Integration Guide](https://arize.com/docs/phoenix/tracing/integrations-tracing/langflow)                         |
 | [LiteLLM Proxy](https://docs.litellm.ai/docs/observability/phoenix_integration#using-with-litellm-proxy) | Proxy server for LLMs                                          | [Integration Guide](https://docs.litellm.ai/docs/observability/phoenix_integration#using-with-litellm-proxy)      |
+
+## Security & Privacy
+
+We take data security and privacy very seriously. For more details, see our [Security and Privacy documentation](https://arize.com/docs/phoenix/self-hosting/security/privacy).
+
+### Telemetry
+
+By default, Phoenix collects basic web analytics (e.g., page views, UI interactions) to help us understand how Phoenix is used and improve the product. **None of your trace data, evaluation results, or any sensitive information is ever collected.**
+
+You can opt-out of telemetry by setting the environment variable: `PHOENIX_TELEMETRY_ENABLED=false`
 
 ## Community
 

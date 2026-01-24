@@ -63,7 +63,7 @@ __all__ = (
 		)
 
 
-class IssueNode(nodes.reference):
+class IssueNode(nodes.reference):  # noqa: PRM002
 	"""
 	Docutils Node to represent a link to a GitHub *Issue* or *Pull Request*.
 
@@ -105,7 +105,7 @@ class IssueNode(nodes.reference):
 		return obj
 
 
-class IssueNodeWithName(IssueNode):
+class IssueNodeWithName(IssueNode):  # noqa: PRM002
 	"""
 	Docutils Node to represent a link to a GitHub *Issue* or *Pull Request*, with the repository name shown.
 
@@ -145,7 +145,7 @@ def issue_role(
 		lineno: int,
 		inliner: Inliner,
 		options: Dict[str, Any] = {},
-		content: List[str] = []
+		content: List[str] = [],
 		) -> Tuple[List[IssueNode], List[system_message]]:
 	"""
 	Adds a link to the given issue on GitHub.
@@ -202,7 +202,7 @@ def pull_role(
 		lineno: int,
 		inliner: Inliner,
 		options: Dict[str, Any] = {},
-		content: List[str] = []
+		content: List[str] = [],
 		) -> Tuple[List[IssueNode], List[system_message]]:
 	"""
 	Adds a link to the given pulll request on GitHub.
@@ -231,10 +231,8 @@ def pull_role(
 	if has_t:
 		repository_parts = nodes.unescape(repository).split('/')
 		if len(repository_parts) != 2:
-			warning_message = inliner.document.reporter.warning(
-					f"Invalid repository '{repository}' for pull request #{issue_number}."
-					)
-			messages.append(warning_message)
+			warning_message = f"Invalid repository '{repository}' for pull request #{issue_number}."
+			messages.append(inliner.document.reporter.warning(warning_message))
 
 		else:
 			refnode = IssueNodeWithName(
@@ -333,8 +331,8 @@ def get_issue_title(issue_url: str) -> Optional[str]:
 				content = soup.find_all("bdi", attrs={"class": "js-issue-title"})[0].text
 			except IndexError:
 				try:
-					# As of 17 2025, GitHub seems to have changed this again...
-					content = soup.find_all("bdi", attrs={"class": "Box-sc-g0xbh4-0 markdown-title"})[0].text
+					# As of 5 Dec 2025, GitHub seems to have changed this again...
+					content = soup.find_all("bdi", attrs={"data-testid": "issue-title"})[0].text
 				except IndexError:
 					# Give up
 					return None

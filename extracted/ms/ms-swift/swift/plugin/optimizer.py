@@ -9,10 +9,12 @@ from peft import PeftModel
 from transformers import Trainer
 
 from swift.trainers.optimizers.galore import create_optimizer_and_scheduler
-from swift.utils import get_dist_setting
+from swift.utils import get_dist_setting, get_logger
 
 if TYPE_CHECKING:
     from swift.trainers import TrainingArguments
+
+logger = get_logger()
 
 
 def calculate_max_steps(args: 'TrainingArguments', dataset) -> int:
@@ -98,6 +100,147 @@ def create_muon_optimizer(args: 'TrainingArguments', model, dataset):
     ), None
 
 
+def create_muon_clip_optimizer(args: 'TrainingArguments', model, dataset):
+    from swift.plugin.muonclip import MuonClip
+
+    # parse args.optim_args
+    optim_args = {}
+    raw = getattr(args, 'optim_args', None)
+    if raw:
+        for mapping in raw.replace(' ', '').split(','):
+            if not mapping:
+                continue
+            if '=' not in mapping:
+                continue
+            key, value = mapping.split('=', 1)
+            if not key:
+                continue
+
+            lv = value.lower()
+            if lv in ('true', 'false'):
+                value = (lv == 'true')
+            else:
+                try:
+                    f = float(value)
+                    value = int(f) if f.is_integer() else f
+                except ValueError:
+                    pass
+
+            optim_args[key] = value
+
+    # resolve keys like create_muon_optimizer
+    model_arch = model.model_meta.model_arch
+    embed_key = getattr(model_arch, 'embedding', None) or 'embed_tokens'
+    lm_head_key = getattr(model_arch, 'lm_head', None) or 'lm_head'
+
+    # hyperparams (single-source of truth)
+    lr = args.learning_rate
+    weight_decay = optim_args.get('weight_decay', args.weight_decay)
+    momentum = optim_args.get('momentum', 0.95)
+    nesterov = optim_args.get('nesterov', False)
+    newton_schulz_steps = optim_args.get('newton_schulz_steps', 5)
+    qk_clip_tau = optim_args.get('qk_clip_tau', 100.0)
+    qk_clip_enabled = optim_args.get('qk_clip_enabled', True)
+    rms_scale_factor = optim_args.get('rms_scale_factor', 0.2)
+
+    # collect trainable params and group them
+    muon_named = []
+    rest_named = []
+
+    for name, p in model.named_parameters():
+        if not p.requires_grad:
+            continue
+
+        is_muon_candidate = (p.ndim >= 2 and embed_key not in name and lm_head_key not in name)
+        if is_muon_candidate:
+            muon_named.append((name, p))
+        else:
+            rest_named.append((name, p))
+
+    def _is_qk_name(name: str) -> bool:
+        ln = name.lower()
+        # qwen2.5/qwen3 common patterns
+        return ('q_proj' in ln) or ('k_proj' in ln) or ('.wq' in ln) or ('.wk' in ln) or ('/wq' in ln) or ('/wk' in ln)
+
+    qk_muon_params = []
+    other_muon_params = []
+    for name, p in muon_named:
+        (qk_muon_params if _is_qk_name(name) else other_muon_params).append(p)
+
+    rest_params = [p for _, p in rest_named]
+
+    # build param groups
+    base_group_config = {
+        'lr': lr,
+        'momentum': momentum,
+        'weight_decay': weight_decay,
+        'nesterov': nesterov,
+        'newton_schulz_steps': newton_schulz_steps,
+        'qk_clip_tau': qk_clip_tau,
+        'qk_clip_enabled': qk_clip_enabled,
+        'rms_scale_factor': rms_scale_factor,
+    }
+    param_groups = []
+
+    if qk_muon_params:
+        group = base_group_config.copy()
+        group.update({
+            'params': qk_muon_params,
+            'apply_muon': True,
+            'is_qk': True,
+        })
+        param_groups.append(group)
+
+    if other_muon_params:
+        group = base_group_config.copy()
+        group.update({
+            'params': other_muon_params,
+            'apply_muon': True,
+            'is_qk': False,
+        })
+        param_groups.append(group)
+
+    if rest_params:
+        group = base_group_config.copy()
+        group.update({
+            'params': rest_params,
+            'apply_muon': False,
+            'is_qk': False,
+        })
+        param_groups.append(group)
+
+    # safety fallback
+    if not param_groups:
+        all_params = [p for _, p in model.named_parameters() if p.requires_grad]
+        param_groups = [{
+            'params': all_params,
+            'lr': lr,
+            'momentum': momentum,
+            'weight_decay': weight_decay,
+            'nesterov': nesterov,
+            'newton_schulz_steps': newton_schulz_steps,
+            'qk_clip_tau': qk_clip_tau,
+            'qk_clip_enabled': qk_clip_enabled,
+            'apply_muon': True,
+            'is_qk': False,
+        }]
+
+    # Only pass supported init kwargs; real behavior comes from param_groups
+    optimizer = MuonClip(
+        param_groups,
+        lr=lr,
+        momentum=momentum,
+        weight_decay=weight_decay,
+        nesterov=nesterov,
+        newton_schulz_steps=newton_schulz_steps,
+        qk_clip_tau=qk_clip_tau,
+        qk_clip_enabled=qk_clip_enabled,
+        rms_scale_factor=rms_scale_factor,
+    )
+
+    return optimizer, None
+
+
 def get_param_startswith(model,
                          chosen_prefix: List[str],
                          rejected_prefix: Optional[List[str]] = None) -> List[Tuple[str, nn.Parameter]]:
@@ -136,15 +279,16 @@ def create_multimodal_optimizer(args: 'TrainingArguments', model, dataset):
     aligner_parameters = get_param_startswith(model, model_arch.aligner)
     llm_parameters = get_param_startswith(model, model_arch.language_model)
     optimizer_grouped_parameters = []
-    for lr, parameters in zip([args.vit_lr, args.aligner_lr, args.learning_rate],
+    vit_lr = args.vit_lr if args.vit_lr is not None else args.learning_rate
+    aligner_lr = args.aligner_lr if args.aligner_lr is not None else args.learning_rate
+    logger.info(f'vit_lr: {vit_lr}, aligner_lr: {aligner_lr}, llm_lr: {args.learning_rate}')
+    for lr, parameters in zip([vit_lr, aligner_lr, args.learning_rate],
                               [vit_parameters, aligner_parameters, llm_parameters]):
-        if lr is None:
-            lr = args.learning_rate
-        for wd in [0., args.weight_decay]:
-            if wd == 0:
-                params = [p for n, p in parameters if n not in decay_parameters]
-            else:
+        for use_wd, wd in zip([False, True], [0., args.weight_decay]):
+            if use_wd:
                 params = [p for n, p in parameters if n in decay_parameters]
+            else:
+                params = [p for n, p in parameters if n not in decay_parameters]
             if not params:
                 continue
             optimizer_grouped_parameters.append({
@@ -161,5 +305,6 @@ optimizers_map = {
     'galore': create_galore_optimizer,
     'lorap': create_lorap_optimizer,
     'muon': create_muon_optimizer,
+    'muonclip': create_muon_clip_optimizer,
     'multimodal': create_multimodal_optimizer,
 }

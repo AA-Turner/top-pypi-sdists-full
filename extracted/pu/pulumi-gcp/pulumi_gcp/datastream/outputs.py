@@ -19,10 +19,18 @@ __all__ = [
     'ConnectionProfileBigqueryProfile',
     'ConnectionProfileForwardSshConnectivity',
     'ConnectionProfileGcsProfile',
+    'ConnectionProfileMongodbProfile',
+    'ConnectionProfileMongodbProfileHostAddress',
+    'ConnectionProfileMongodbProfileSrvConnectionFormat',
+    'ConnectionProfileMongodbProfileSslConfig',
+    'ConnectionProfileMongodbProfileStandardConnectionFormat',
     'ConnectionProfileMysqlProfile',
     'ConnectionProfileMysqlProfileSslConfig',
     'ConnectionProfileOracleProfile',
     'ConnectionProfilePostgresqlProfile',
+    'ConnectionProfilePostgresqlProfileSslConfig',
+    'ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification',
+    'ConnectionProfilePostgresqlProfileSslConfigServerVerification',
     'ConnectionProfilePrivateConnectivity',
     'ConnectionProfileSalesforceProfile',
     'ConnectionProfileSalesforceProfileOauth2ClientCredentials',
@@ -32,6 +40,10 @@ __all__ = [
     'PrivateConnectionPscInterfaceConfig',
     'PrivateConnectionVpcPeeringConfig',
     'StreamBackfillAll',
+    'StreamBackfillAllMongodbExcludedObjects',
+    'StreamBackfillAllMongodbExcludedObjectsDatabase',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollection',
+    'StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionField',
     'StreamBackfillAllMysqlExcludedObjects',
     'StreamBackfillAllMysqlExcludedObjectsMysqlDatabase',
     'StreamBackfillAllMysqlExcludedObjectsMysqlDatabaseMysqlTable',
@@ -63,7 +75,31 @@ __all__ = [
     'StreamDestinationConfigGcsDestinationConfig',
     'StreamDestinationConfigGcsDestinationConfigAvroFileFormat',
     'StreamDestinationConfigGcsDestinationConfigJsonFileFormat',
+    'StreamRuleSet',
+    'StreamRuleSetCustomizationRule',
+    'StreamRuleSetCustomizationRuleBigqueryClustering',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioning',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartition',
+    'StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition',
+    'StreamRuleSetObjectFilter',
+    'StreamRuleSetObjectFilterSourceObjectIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier',
+    'StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifier',
     'StreamSourceConfig',
+    'StreamSourceConfigMongodbSourceConfig',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjects',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabase',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollection',
+    'StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionField',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjects',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabase',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollection',
+    'StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionField',
     'StreamSourceConfigMysqlSourceConfig',
     'StreamSourceConfigMysqlSourceConfigBinaryLogPosition',
     'StreamSourceConfigMysqlSourceConfigExcludeObjects',
@@ -252,6 +288,372 @@ class ConnectionProfileGcsProfile(dict):
         The root path inside the Cloud Storage bucket.
         """
         return pulumi.get(self, "root_path")
+
+
+@pulumi.output_type
+class ConnectionProfileMongodbProfile(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "hostAddresses":
+            suggest = "host_addresses"
+        elif key == "replicaSet":
+            suggest = "replica_set"
+        elif key == "secretManagerStoredPassword":
+            suggest = "secret_manager_stored_password"
+        elif key == "srvConnectionFormat":
+            suggest = "srv_connection_format"
+        elif key == "sslConfig":
+            suggest = "ssl_config"
+        elif key == "standardConnectionFormat":
+            suggest = "standard_connection_format"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfileMongodbProfile. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfileMongodbProfile.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfileMongodbProfile.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 host_addresses: Sequence['outputs.ConnectionProfileMongodbProfileHostAddress'],
+                 username: _builtins.str,
+                 password: Optional[_builtins.str] = None,
+                 replica_set: Optional[_builtins.str] = None,
+                 secret_manager_stored_password: Optional[_builtins.str] = None,
+                 srv_connection_format: Optional['outputs.ConnectionProfileMongodbProfileSrvConnectionFormat'] = None,
+                 ssl_config: Optional['outputs.ConnectionProfileMongodbProfileSslConfig'] = None,
+                 standard_connection_format: Optional['outputs.ConnectionProfileMongodbProfileStandardConnectionFormat'] = None):
+        """
+        :param Sequence['ConnectionProfileMongodbProfileHostAddressArgs'] host_addresses: List of host addresses for a MongoDB cluster.
+               Structure is documented below.
+        :param _builtins.str username: Username for the MongoDB connection.
+        :param _builtins.str password: Password for the MongoDB connection. Mutually exclusive with
+               secretManagerStoredPassword.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.str replica_set: Name of the replica set.
+        :param _builtins.str secret_manager_stored_password: A reference to a Secret Manager resource name storing the MongoDB
+               connection password. Mutually exclusive with password.
+        :param 'ConnectionProfileMongodbProfileSrvConnectionFormatArgs' srv_connection_format: Srv connection format. Mutually exclusive with
+               standard_connection_Format.
+        :param 'ConnectionProfileMongodbProfileSslConfigArgs' ssl_config: SSL configuration for the MongoDB connection.
+               Structure is documented below.
+        :param 'ConnectionProfileMongodbProfileStandardConnectionFormatArgs' standard_connection_format: Standard connection format. Mutually exclusive with
+               srv_connection_format.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "host_addresses", host_addresses)
+        pulumi.set(__self__, "username", username)
+        if password is not None:
+            pulumi.set(__self__, "password", password)
+        if replica_set is not None:
+            pulumi.set(__self__, "replica_set", replica_set)
+        if secret_manager_stored_password is not None:
+            pulumi.set(__self__, "secret_manager_stored_password", secret_manager_stored_password)
+        if srv_connection_format is not None:
+            pulumi.set(__self__, "srv_connection_format", srv_connection_format)
+        if ssl_config is not None:
+            pulumi.set(__self__, "ssl_config", ssl_config)
+        if standard_connection_format is not None:
+            pulumi.set(__self__, "standard_connection_format", standard_connection_format)
+
+    @_builtins.property
+    @pulumi.getter(name="hostAddresses")
+    def host_addresses(self) -> Sequence['outputs.ConnectionProfileMongodbProfileHostAddress']:
+        """
+        List of host addresses for a MongoDB cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "host_addresses")
+
+    @_builtins.property
+    @pulumi.getter
+    def username(self) -> _builtins.str:
+        """
+        Username for the MongoDB connection.
+        """
+        return pulumi.get(self, "username")
+
+    @_builtins.property
+    @pulumi.getter
+    def password(self) -> Optional[_builtins.str]:
+        """
+        Password for the MongoDB connection. Mutually exclusive with
+        secretManagerStoredPassword.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "password")
+
+    @_builtins.property
+    @pulumi.getter(name="replicaSet")
+    def replica_set(self) -> Optional[_builtins.str]:
+        """
+        Name of the replica set.
+        """
+        return pulumi.get(self, "replica_set")
+
+    @_builtins.property
+    @pulumi.getter(name="secretManagerStoredPassword")
+    def secret_manager_stored_password(self) -> Optional[_builtins.str]:
+        """
+        A reference to a Secret Manager resource name storing the MongoDB
+        connection password. Mutually exclusive with password.
+        """
+        return pulumi.get(self, "secret_manager_stored_password")
+
+    @_builtins.property
+    @pulumi.getter(name="srvConnectionFormat")
+    def srv_connection_format(self) -> Optional['outputs.ConnectionProfileMongodbProfileSrvConnectionFormat']:
+        """
+        Srv connection format. Mutually exclusive with
+        standard_connection_Format.
+        """
+        return pulumi.get(self, "srv_connection_format")
+
+    @_builtins.property
+    @pulumi.getter(name="sslConfig")
+    def ssl_config(self) -> Optional['outputs.ConnectionProfileMongodbProfileSslConfig']:
+        """
+        SSL configuration for the MongoDB connection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ssl_config")
+
+    @_builtins.property
+    @pulumi.getter(name="standardConnectionFormat")
+    def standard_connection_format(self) -> Optional['outputs.ConnectionProfileMongodbProfileStandardConnectionFormat']:
+        """
+        Standard connection format. Mutually exclusive with
+        srv_connection_format.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "standard_connection_format")
+
+
+@pulumi.output_type
+class ConnectionProfileMongodbProfileHostAddress(dict):
+    def __init__(__self__, *,
+                 hostname: _builtins.str,
+                 port: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str hostname: Hostname for the connection.
+        :param _builtins.int port: Port for the connection.
+        """
+        pulumi.set(__self__, "hostname", hostname)
+        if port is not None:
+            pulumi.set(__self__, "port", port)
+
+    @_builtins.property
+    @pulumi.getter
+    def hostname(self) -> _builtins.str:
+        """
+        Hostname for the connection.
+        """
+        return pulumi.get(self, "hostname")
+
+    @_builtins.property
+    @pulumi.getter
+    def port(self) -> Optional[_builtins.int]:
+        """
+        Port for the connection.
+        """
+        return pulumi.get(self, "port")
+
+
+@pulumi.output_type
+class ConnectionProfileMongodbProfileSrvConnectionFormat(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class ConnectionProfileMongodbProfileSslConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caCertificate":
+            suggest = "ca_certificate"
+        elif key == "caCertificateSet":
+            suggest = "ca_certificate_set"
+        elif key == "clientCertificate":
+            suggest = "client_certificate"
+        elif key == "clientCertificateSet":
+            suggest = "client_certificate_set"
+        elif key == "clientKey":
+            suggest = "client_key"
+        elif key == "clientKeySet":
+            suggest = "client_key_set"
+        elif key == "secretManagerStoredClientKey":
+            suggest = "secret_manager_stored_client_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfileMongodbProfileSslConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfileMongodbProfileSslConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfileMongodbProfileSslConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_certificate: Optional[_builtins.str] = None,
+                 ca_certificate_set: Optional[_builtins.bool] = None,
+                 client_certificate: Optional[_builtins.str] = None,
+                 client_certificate_set: Optional[_builtins.bool] = None,
+                 client_key: Optional[_builtins.str] = None,
+                 client_key_set: Optional[_builtins.bool] = None,
+                 secret_manager_stored_client_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ca_certificate: PEM-encoded certificate of the CA that signed the source database
+               server's certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.bool ca_certificate_set: (Output)
+               Indicates whether the clientKey field is set.
+        :param _builtins.str client_certificate: PEM-encoded certificate that will be used by the replica to
+               authenticate against the source database server. If this field
+               is used then the 'clientKey' and the 'caCertificate' fields are
+               mandatory.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.bool client_certificate_set: (Output)
+               Indicates whether the clientCertificate field is set.
+        :param _builtins.str client_key: PEM-encoded private key associated with the Client Certificate.
+               If this field is used then the 'client_certificate' and the
+               'ca_certificate' fields are mandatory.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.bool client_key_set: (Output)
+               Indicates whether the clientKey field is set.
+        :param _builtins.str secret_manager_stored_client_key: A reference to a Secret Manager resource name storing the
+               PEM-encoded private key. Mutually exclusive with clientKey.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        if ca_certificate is not None:
+            pulumi.set(__self__, "ca_certificate", ca_certificate)
+        if ca_certificate_set is not None:
+            pulumi.set(__self__, "ca_certificate_set", ca_certificate_set)
+        if client_certificate is not None:
+            pulumi.set(__self__, "client_certificate", client_certificate)
+        if client_certificate_set is not None:
+            pulumi.set(__self__, "client_certificate_set", client_certificate_set)
+        if client_key is not None:
+            pulumi.set(__self__, "client_key", client_key)
+        if client_key_set is not None:
+            pulumi.set(__self__, "client_key_set", client_key_set)
+        if secret_manager_stored_client_key is not None:
+            pulumi.set(__self__, "secret_manager_stored_client_key", secret_manager_stored_client_key)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> Optional[_builtins.str]:
+        """
+        PEM-encoded certificate of the CA that signed the source database
+        server's certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificateSet")
+    def ca_certificate_set(self) -> Optional[_builtins.bool]:
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        return pulumi.get(self, "ca_certificate_set")
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificate")
+    def client_certificate(self) -> Optional[_builtins.str]:
+        """
+        PEM-encoded certificate that will be used by the replica to
+        authenticate against the source database server. If this field
+        is used then the 'clientKey' and the 'caCertificate' fields are
+        mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_certificate")
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificateSet")
+    def client_certificate_set(self) -> Optional[_builtins.bool]:
+        """
+        (Output)
+        Indicates whether the clientCertificate field is set.
+        """
+        return pulumi.get(self, "client_certificate_set")
+
+    @_builtins.property
+    @pulumi.getter(name="clientKey")
+    def client_key(self) -> Optional[_builtins.str]:
+        """
+        PEM-encoded private key associated with the Client Certificate.
+        If this field is used then the 'client_certificate' and the
+        'ca_certificate' fields are mandatory.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_key")
+
+    @_builtins.property
+    @pulumi.getter(name="clientKeySet")
+    def client_key_set(self) -> Optional[_builtins.bool]:
+        """
+        (Output)
+        Indicates whether the clientKey field is set.
+        """
+        return pulumi.get(self, "client_key_set")
+
+    @_builtins.property
+    @pulumi.getter(name="secretManagerStoredClientKey")
+    def secret_manager_stored_client_key(self) -> Optional[_builtins.str]:
+        """
+        A reference to a Secret Manager resource name storing the
+        PEM-encoded private key. Mutually exclusive with clientKey.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "secret_manager_stored_client_key")
+
+
+@pulumi.output_type
+class ConnectionProfileMongodbProfileStandardConnectionFormat(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "directConnection":
+            suggest = "direct_connection"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfileMongodbProfileStandardConnectionFormat. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfileMongodbProfileStandardConnectionFormat.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfileMongodbProfileStandardConnectionFormat.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 direct_connection: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool direct_connection: Specifies whether the client connects directly to the
+               host[:port] in the connection URI.
+        """
+        if direct_connection is not None:
+            pulumi.set(__self__, "direct_connection", direct_connection)
+
+    @_builtins.property
+    @pulumi.getter(name="directConnection")
+    def direct_connection(self) -> Optional[_builtins.bool]:
+        """
+        Specifies whether the client connects directly to the
+        host[:port] in the connection URI.
+        """
+        return pulumi.get(self, "direct_connection")
 
 
 @pulumi.output_type
@@ -602,6 +1004,8 @@ class ConnectionProfilePostgresqlProfile(dict):
         suggest = None
         if key == "secretManagerStoredPassword":
             suggest = "secret_manager_stored_password"
+        elif key == "sslConfig":
+            suggest = "ssl_config"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ConnectionProfilePostgresqlProfile. Access the value via the '{suggest}' property getter instead.")
@@ -620,7 +1024,8 @@ class ConnectionProfilePostgresqlProfile(dict):
                  username: _builtins.str,
                  password: Optional[_builtins.str] = None,
                  port: Optional[_builtins.int] = None,
-                 secret_manager_stored_password: Optional[_builtins.str] = None):
+                 secret_manager_stored_password: Optional[_builtins.str] = None,
+                 ssl_config: Optional['outputs.ConnectionProfilePostgresqlProfileSslConfig'] = None):
         """
         :param _builtins.str database: Database for the PostgreSQL connection.
         :param _builtins.str hostname: Hostname for the PostgreSQL connection.
@@ -629,6 +1034,8 @@ class ConnectionProfilePostgresqlProfile(dict):
                **Note**: This property is sensitive and will not be displayed in the plan.
         :param _builtins.int port: Port for the PostgreSQL connection.
         :param _builtins.str secret_manager_stored_password: A reference to a Secret Manager resource name storing the user's password.
+        :param 'ConnectionProfilePostgresqlProfileSslConfigArgs' ssl_config: SSL configuration for the PostgreSQL connection.
+               Structure is documented below.
         """
         pulumi.set(__self__, "database", database)
         pulumi.set(__self__, "hostname", hostname)
@@ -639,6 +1046,8 @@ class ConnectionProfilePostgresqlProfile(dict):
             pulumi.set(__self__, "port", port)
         if secret_manager_stored_password is not None:
             pulumi.set(__self__, "secret_manager_stored_password", secret_manager_stored_password)
+        if ssl_config is not None:
+            pulumi.set(__self__, "ssl_config", ssl_config)
 
     @_builtins.property
     @pulumi.getter
@@ -688,6 +1097,191 @@ class ConnectionProfilePostgresqlProfile(dict):
         A reference to a Secret Manager resource name storing the user's password.
         """
         return pulumi.get(self, "secret_manager_stored_password")
+
+    @_builtins.property
+    @pulumi.getter(name="sslConfig")
+    def ssl_config(self) -> Optional['outputs.ConnectionProfilePostgresqlProfileSslConfig']:
+        """
+        SSL configuration for the PostgreSQL connection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ssl_config")
+
+
+@pulumi.output_type
+class ConnectionProfilePostgresqlProfileSslConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "serverAndClientVerification":
+            suggest = "server_and_client_verification"
+        elif key == "serverVerification":
+            suggest = "server_verification"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfilePostgresqlProfileSslConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 server_and_client_verification: Optional['outputs.ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification'] = None,
+                 server_verification: Optional['outputs.ConnectionProfilePostgresqlProfileSslConfigServerVerification'] = None):
+        """
+        :param 'ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerificationArgs' server_and_client_verification: If this field is set, the communication will be encrypted with TLS encryption
+               and both the server identity and the client identity will be authenticated.
+               Structure is documented below.
+        :param 'ConnectionProfilePostgresqlProfileSslConfigServerVerificationArgs' server_verification: If this field is set, the communication will be encrypted with TLS encryption
+               and the server identity will be authenticated.
+               Structure is documented below.
+        """
+        if server_and_client_verification is not None:
+            pulumi.set(__self__, "server_and_client_verification", server_and_client_verification)
+        if server_verification is not None:
+            pulumi.set(__self__, "server_verification", server_verification)
+
+    @_builtins.property
+    @pulumi.getter(name="serverAndClientVerification")
+    def server_and_client_verification(self) -> Optional['outputs.ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification']:
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and both the server identity and the client identity will be authenticated.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "server_and_client_verification")
+
+    @_builtins.property
+    @pulumi.getter(name="serverVerification")
+    def server_verification(self) -> Optional['outputs.ConnectionProfilePostgresqlProfileSslConfigServerVerification']:
+        """
+        If this field is set, the communication will be encrypted with TLS encryption
+        and the server identity will be authenticated.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "server_verification")
+
+
+@pulumi.output_type
+class ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caCertificate":
+            suggest = "ca_certificate"
+        elif key == "clientCertificate":
+            suggest = "client_certificate"
+        elif key == "clientKey":
+            suggest = "client_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfigServerAndClientVerification.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_certificate: _builtins.str,
+                 client_certificate: _builtins.str,
+                 client_key: _builtins.str):
+        """
+        :param _builtins.str ca_certificate: PEM-encoded server root CA certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.str client_certificate: PEM-encoded certificate used by the source database to authenticate the
+               client identity (i.e., the Datastream's identity). This certificate is
+               signed by either a root certificate trusted by the server or one or more
+               intermediate certificates (which is stored with the leaf certificate) to
+               link to this certificate to the trusted root certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        :param _builtins.str client_key: PEM-encoded private key associated with the client certificate.
+               This value will be used during the SSL/TLS handshake, allowing
+               the PostgreSQL server to authenticate the client's identity,
+               i.e. identity of the stream.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        pulumi.set(__self__, "ca_certificate", ca_certificate)
+        pulumi.set(__self__, "client_certificate", client_certificate)
+        pulumi.set(__self__, "client_key", client_key)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> _builtins.str:
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
+
+    @_builtins.property
+    @pulumi.getter(name="clientCertificate")
+    def client_certificate(self) -> _builtins.str:
+        """
+        PEM-encoded certificate used by the source database to authenticate the
+        client identity (i.e., the Datastream's identity). This certificate is
+        signed by either a root certificate trusted by the server or one or more
+        intermediate certificates (which is stored with the leaf certificate) to
+        link to this certificate to the trusted root certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_certificate")
+
+    @_builtins.property
+    @pulumi.getter(name="clientKey")
+    def client_key(self) -> _builtins.str:
+        """
+        PEM-encoded private key associated with the client certificate.
+        This value will be used during the SSL/TLS handshake, allowing
+        the PostgreSQL server to authenticate the client's identity,
+        i.e. identity of the stream.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "client_key")
+
+
+@pulumi.output_type
+class ConnectionProfilePostgresqlProfileSslConfigServerVerification(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caCertificate":
+            suggest = "ca_certificate"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionProfilePostgresqlProfileSslConfigServerVerification. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfigServerVerification.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionProfilePostgresqlProfileSslConfigServerVerification.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_certificate: _builtins.str):
+        """
+        :param _builtins.str ca_certificate: PEM-encoded server root CA certificate.
+               **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        pulumi.set(__self__, "ca_certificate", ca_certificate)
+
+    @_builtins.property
+    @pulumi.getter(name="caCertificate")
+    def ca_certificate(self) -> _builtins.str:
+        """
+        PEM-encoded server root CA certificate.
+        **Note**: This property is sensitive and will not be displayed in the plan.
+        """
+        return pulumi.get(self, "ca_certificate")
 
 
 @pulumi.output_type
@@ -1153,7 +1747,9 @@ class StreamBackfillAll(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "mysqlExcludedObjects":
+        if key == "mongodbExcludedObjects":
+            suggest = "mongodb_excluded_objects"
+        elif key == "mysqlExcludedObjects":
             suggest = "mysql_excluded_objects"
         elif key == "oracleExcludedObjects":
             suggest = "oracle_excluded_objects"
@@ -1176,12 +1772,15 @@ class StreamBackfillAll(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 mongodb_excluded_objects: Optional['outputs.StreamBackfillAllMongodbExcludedObjects'] = None,
                  mysql_excluded_objects: Optional['outputs.StreamBackfillAllMysqlExcludedObjects'] = None,
                  oracle_excluded_objects: Optional['outputs.StreamBackfillAllOracleExcludedObjects'] = None,
                  postgresql_excluded_objects: Optional['outputs.StreamBackfillAllPostgresqlExcludedObjects'] = None,
                  salesforce_excluded_objects: Optional['outputs.StreamBackfillAllSalesforceExcludedObjects'] = None,
                  sql_server_excluded_objects: Optional['outputs.StreamBackfillAllSqlServerExcludedObjects'] = None):
         """
+        :param 'StreamBackfillAllMongodbExcludedObjectsArgs' mongodb_excluded_objects: MongoDB data source objects to avoid backfilling.
+               Structure is documented below.
         :param 'StreamBackfillAllMysqlExcludedObjectsArgs' mysql_excluded_objects: MySQL data source objects to avoid backfilling.
                Structure is documented below.
         :param 'StreamBackfillAllOracleExcludedObjectsArgs' oracle_excluded_objects: PostgreSQL data source objects to avoid backfilling.
@@ -1193,6 +1792,8 @@ class StreamBackfillAll(dict):
         :param 'StreamBackfillAllSqlServerExcludedObjectsArgs' sql_server_excluded_objects: SQL Server data source objects to avoid backfilling.
                Structure is documented below.
         """
+        if mongodb_excluded_objects is not None:
+            pulumi.set(__self__, "mongodb_excluded_objects", mongodb_excluded_objects)
         if mysql_excluded_objects is not None:
             pulumi.set(__self__, "mysql_excluded_objects", mysql_excluded_objects)
         if oracle_excluded_objects is not None:
@@ -1203,6 +1804,15 @@ class StreamBackfillAll(dict):
             pulumi.set(__self__, "salesforce_excluded_objects", salesforce_excluded_objects)
         if sql_server_excluded_objects is not None:
             pulumi.set(__self__, "sql_server_excluded_objects", sql_server_excluded_objects)
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbExcludedObjects")
+    def mongodb_excluded_objects(self) -> Optional['outputs.StreamBackfillAllMongodbExcludedObjects']:
+        """
+        MongoDB data source objects to avoid backfilling.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_excluded_objects")
 
     @_builtins.property
     @pulumi.getter(name="mysqlExcludedObjects")
@@ -1248,6 +1858,109 @@ class StreamBackfillAll(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "sql_server_excluded_objects")
+
+
+@pulumi.output_type
+class StreamBackfillAllMongodbExcludedObjects(dict):
+    def __init__(__self__, *,
+                 databases: Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabase']):
+        """
+        :param Sequence['StreamBackfillAllMongodbExcludedObjectsDatabaseArgs'] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabase']:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+
+@pulumi.output_type
+class StreamBackfillAllMongodbExcludedObjectsDatabase(dict):
+    def __init__(__self__, *,
+                 database: _builtins.str,
+                 collections: Optional[Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabaseCollection']] = None):
+        """
+        :param _builtins.str database: Database name.
+        :param Sequence['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionArgs'] collections: Collections in the database.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "database", database)
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> _builtins.str:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabaseCollection']]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+
+@pulumi.output_type
+class StreamBackfillAllMongodbExcludedObjectsDatabaseCollection(dict):
+    def __init__(__self__, *,
+                 collection: _builtins.str,
+                 fields: Optional[Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionField']] = None):
+        """
+        :param _builtins.str collection: Collection name.
+        :param Sequence['StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionFieldArgs'] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> _builtins.str:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionField']]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class StreamBackfillAllMongodbExcludedObjectsDatabaseCollectionField(dict):
+    def __init__(__self__, *,
+                 field: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[_builtins.str]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
 
 
 @pulumi.output_type
@@ -2705,6 +3418,8 @@ class StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets(di
         suggest = None
         if key == "datasetTemplate":
             suggest = "dataset_template"
+        elif key == "projectId":
+            suggest = "project_id"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets. Access the value via the '{suggest}' property getter instead.")
@@ -2718,12 +3433,16 @@ class StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets(di
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 dataset_template: 'outputs.StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate'):
+                 dataset_template: 'outputs.StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplate',
+                 project_id: Optional[_builtins.str] = None):
         """
         :param 'StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasetsDatasetTemplateArgs' dataset_template: Dataset template used for dynamic dataset creation.
                Structure is documented below.
+        :param _builtins.str project_id: Optional. The project id of the BigQuery dataset. If not specified, the project will be inferred from the stream resource.
         """
         pulumi.set(__self__, "dataset_template", dataset_template)
+        if project_id is not None:
+            pulumi.set(__self__, "project_id", project_id)
 
     @_builtins.property
     @pulumi.getter(name="datasetTemplate")
@@ -2733,6 +3452,14 @@ class StreamDestinationConfigBigqueryDestinationConfigSourceHierarchyDatasets(di
         Structure is documented below.
         """
         return pulumi.get(self, "dataset_template")
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> Optional[_builtins.str]:
+        """
+        Optional. The project id of the BigQuery dataset. If not specified, the project will be inferred from the stream resource.
+        """
+        return pulumi.get(self, "project_id")
 
 
 @pulumi.output_type
@@ -2959,12 +3686,696 @@ class StreamDestinationConfigGcsDestinationConfigJsonFileFormat(dict):
 
 
 @pulumi.output_type
+class StreamRuleSet(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customizationRules":
+            suggest = "customization_rules"
+        elif key == "objectFilter":
+            suggest = "object_filter"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSet. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSet.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSet.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 customization_rules: Sequence['outputs.StreamRuleSetCustomizationRule'],
+                 object_filter: 'outputs.StreamRuleSetObjectFilter'):
+        """
+        :param Sequence['StreamRuleSetCustomizationRuleArgs'] customization_rules: List of customization rules to apply.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterArgs' object_filter: Object filter to apply the customization rules to.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "customization_rules", customization_rules)
+        pulumi.set(__self__, "object_filter", object_filter)
+
+    @_builtins.property
+    @pulumi.getter(name="customizationRules")
+    def customization_rules(self) -> Sequence['outputs.StreamRuleSetCustomizationRule']:
+        """
+        List of customization rules to apply.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "customization_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="objectFilter")
+    def object_filter(self) -> 'outputs.StreamRuleSetObjectFilter':
+        """
+        Object filter to apply the customization rules to.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "object_filter")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRule(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "bigqueryClustering":
+            suggest = "bigquery_clustering"
+        elif key == "bigqueryPartitioning":
+            suggest = "bigquery_partitioning"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetCustomizationRule. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetCustomizationRule.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetCustomizationRule.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bigquery_clustering: Optional['outputs.StreamRuleSetCustomizationRuleBigqueryClustering'] = None,
+                 bigquery_partitioning: Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioning'] = None):
+        """
+        :param 'StreamRuleSetCustomizationRuleBigqueryClusteringArgs' bigquery_clustering: BigQuery clustering rule.
+               Structure is documented below.
+        :param 'StreamRuleSetCustomizationRuleBigqueryPartitioningArgs' bigquery_partitioning: BigQuery partitioning rule.
+               Structure is documented below.
+        """
+        if bigquery_clustering is not None:
+            pulumi.set(__self__, "bigquery_clustering", bigquery_clustering)
+        if bigquery_partitioning is not None:
+            pulumi.set(__self__, "bigquery_partitioning", bigquery_partitioning)
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryClustering")
+    def bigquery_clustering(self) -> Optional['outputs.StreamRuleSetCustomizationRuleBigqueryClustering']:
+        """
+        BigQuery clustering rule.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "bigquery_clustering")
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryPartitioning")
+    def bigquery_partitioning(self) -> Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioning']:
+        """
+        BigQuery partitioning rule.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "bigquery_partitioning")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRuleBigqueryClustering(dict):
+    def __init__(__self__, *,
+                 columns: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] columns: Column names to set as clustering columns.
+        """
+        pulumi.set(__self__, "columns", columns)
+
+    @_builtins.property
+    @pulumi.getter
+    def columns(self) -> Sequence[_builtins.str]:
+        """
+        Column names to set as clustering columns.
+        """
+        return pulumi.get(self, "columns")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioning(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ingestionTimePartition":
+            suggest = "ingestion_time_partition"
+        elif key == "integerRangePartition":
+            suggest = "integer_range_partition"
+        elif key == "requirePartitionFilter":
+            suggest = "require_partition_filter"
+        elif key == "timeUnitPartition":
+            suggest = "time_unit_partition"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetCustomizationRuleBigqueryPartitioning. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioning.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioning.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ingestion_time_partition: Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition'] = None,
+                 integer_range_partition: Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartition'] = None,
+                 require_partition_filter: Optional[_builtins.bool] = None,
+                 time_unit_partition: Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition'] = None):
+        """
+        :param 'StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartitionArgs' ingestion_time_partition: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartitionArgs' integer_range_partition: A nested object resource.
+               Structure is documented below.
+        :param _builtins.bool require_partition_filter: If true, queries over the table require a partition filter.
+        :param 'StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartitionArgs' time_unit_partition: A nested object resource.
+               Structure is documented below.
+        """
+        if ingestion_time_partition is not None:
+            pulumi.set(__self__, "ingestion_time_partition", ingestion_time_partition)
+        if integer_range_partition is not None:
+            pulumi.set(__self__, "integer_range_partition", integer_range_partition)
+        if require_partition_filter is not None:
+            pulumi.set(__self__, "require_partition_filter", require_partition_filter)
+        if time_unit_partition is not None:
+            pulumi.set(__self__, "time_unit_partition", time_unit_partition)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestionTimePartition")
+    def ingestion_time_partition(self) -> Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ingestion_time_partition")
+
+    @_builtins.property
+    @pulumi.getter(name="integerRangePartition")
+    def integer_range_partition(self) -> Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartition']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "integer_range_partition")
+
+    @_builtins.property
+    @pulumi.getter(name="requirePartitionFilter")
+    def require_partition_filter(self) -> Optional[_builtins.bool]:
+        """
+        If true, queries over the table require a partition filter.
+        """
+        return pulumi.get(self, "require_partition_filter")
+
+    @_builtins.property
+    @pulumi.getter(name="timeUnitPartition")
+    def time_unit_partition(self) -> Optional['outputs.StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "time_unit_partition")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "partitioningTimeGranularity":
+            suggest = "partitioning_time_granularity"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioningIngestionTimePartition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 partitioning_time_granularity: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str partitioning_time_granularity: Partition granularity.
+               Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        if partitioning_time_granularity is not None:
+            pulumi.set(__self__, "partitioning_time_granularity", partitioning_time_granularity)
+
+    @_builtins.property
+    @pulumi.getter(name="partitioningTimeGranularity")
+    def partitioning_time_granularity(self) -> Optional[_builtins.str]:
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        return pulumi.get(self, "partitioning_time_granularity")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningIntegerRangePartition(dict):
+    def __init__(__self__, *,
+                 column: _builtins.str,
+                 end: _builtins.int,
+                 interval: _builtins.int,
+                 start: _builtins.int):
+        """
+        :param _builtins.str column: The partitioning column.
+        :param _builtins.int end: The ending value for range partitioning (exclusive).
+        :param _builtins.int interval: The interval of each range within the partition.
+        :param _builtins.int start: The starting value for range partitioning (inclusive).
+        """
+        pulumi.set(__self__, "column", column)
+        pulumi.set(__self__, "end", end)
+        pulumi.set(__self__, "interval", interval)
+        pulumi.set(__self__, "start", start)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> _builtins.str:
+        """
+        The partitioning column.
+        """
+        return pulumi.get(self, "column")
+
+    @_builtins.property
+    @pulumi.getter
+    def end(self) -> _builtins.int:
+        """
+        The ending value for range partitioning (exclusive).
+        """
+        return pulumi.get(self, "end")
+
+    @_builtins.property
+    @pulumi.getter
+    def interval(self) -> _builtins.int:
+        """
+        The interval of each range within the partition.
+        """
+        return pulumi.get(self, "interval")
+
+    @_builtins.property
+    @pulumi.getter
+    def start(self) -> _builtins.int:
+        """
+        The starting value for range partitioning (inclusive).
+        """
+        return pulumi.get(self, "start")
+
+
+@pulumi.output_type
+class StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "partitioningTimeGranularity":
+            suggest = "partitioning_time_granularity"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetCustomizationRuleBigqueryPartitioningTimeUnitPartition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 column: _builtins.str,
+                 partitioning_time_granularity: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str column: The partitioning column.
+        :param _builtins.str partitioning_time_granularity: Partition granularity.
+               Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        pulumi.set(__self__, "column", column)
+        if partitioning_time_granularity is not None:
+            pulumi.set(__self__, "partitioning_time_granularity", partitioning_time_granularity)
+
+    @_builtins.property
+    @pulumi.getter
+    def column(self) -> _builtins.str:
+        """
+        The partitioning column.
+        """
+        return pulumi.get(self, "column")
+
+    @_builtins.property
+    @pulumi.getter(name="partitioningTimeGranularity")
+    def partitioning_time_granularity(self) -> Optional[_builtins.str]:
+        """
+        Partition granularity.
+        Possible values are: `PARTITIONING_TIME_GRANULARITY_UNSPECIFIED`, `PARTITIONING_TIME_GRANULARITY_HOUR`, `PARTITIONING_TIME_GRANULARITY_DAY`, `PARTITIONING_TIME_GRANULARITY_MONTH`, `PARTITIONING_TIME_GRANULARITY_YEAR`.
+        """
+        return pulumi.get(self, "partitioning_time_granularity")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "sourceObjectIdentifier":
+            suggest = "source_object_identifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetObjectFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetObjectFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetObjectFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 source_object_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifier'] = None):
+        """
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierArgs' source_object_identifier: Specific source object identifier.
+               Structure is documented below.
+        """
+        if source_object_identifier is not None:
+            pulumi.set(__self__, "source_object_identifier", source_object_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceObjectIdentifier")
+    def source_object_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifier']:
+        """
+        Specific source object identifier.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "source_object_identifier")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifier(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "mongodbIdentifier":
+            suggest = "mongodb_identifier"
+        elif key == "mysqlIdentifier":
+            suggest = "mysql_identifier"
+        elif key == "oracleIdentifier":
+            suggest = "oracle_identifier"
+        elif key == "postgresqlIdentifier":
+            suggest = "postgresql_identifier"
+        elif key == "salesforceIdentifier":
+            suggest = "salesforce_identifier"
+        elif key == "sqlServerIdentifier":
+            suggest = "sql_server_identifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetObjectFilterSourceObjectIdentifier. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetObjectFilterSourceObjectIdentifier.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetObjectFilterSourceObjectIdentifier.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 mongodb_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifier'] = None,
+                 mysql_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifier'] = None,
+                 oracle_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifier'] = None,
+                 postgresql_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifier'] = None,
+                 salesforce_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier'] = None,
+                 sql_server_identifier: Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifier'] = None):
+        """
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifierArgs' mongodb_identifier: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifierArgs' mysql_identifier: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifierArgs' oracle_identifier: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifierArgs' postgresql_identifier: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifierArgs' salesforce_identifier: A nested object resource.
+               Structure is documented below.
+        :param 'StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifierArgs' sql_server_identifier: A nested object resource.
+               Structure is documented below.
+        """
+        if mongodb_identifier is not None:
+            pulumi.set(__self__, "mongodb_identifier", mongodb_identifier)
+        if mysql_identifier is not None:
+            pulumi.set(__self__, "mysql_identifier", mysql_identifier)
+        if oracle_identifier is not None:
+            pulumi.set(__self__, "oracle_identifier", oracle_identifier)
+        if postgresql_identifier is not None:
+            pulumi.set(__self__, "postgresql_identifier", postgresql_identifier)
+        if salesforce_identifier is not None:
+            pulumi.set(__self__, "salesforce_identifier", salesforce_identifier)
+        if sql_server_identifier is not None:
+            pulumi.set(__self__, "sql_server_identifier", sql_server_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbIdentifier")
+    def mongodb_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_identifier")
+
+    @_builtins.property
+    @pulumi.getter(name="mysqlIdentifier")
+    def mysql_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mysql_identifier")
+
+    @_builtins.property
+    @pulumi.getter(name="oracleIdentifier")
+    def oracle_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "oracle_identifier")
+
+    @_builtins.property
+    @pulumi.getter(name="postgresqlIdentifier")
+    def postgresql_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "postgresql_identifier")
+
+    @_builtins.property
+    @pulumi.getter(name="salesforceIdentifier")
+    def salesforce_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "salesforce_identifier")
+
+    @_builtins.property
+    @pulumi.getter(name="sqlServerIdentifier")
+    def sql_server_identifier(self) -> Optional['outputs.StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifier']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "sql_server_identifier")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierMongodbIdentifier(dict):
+    def __init__(__self__, *,
+                 collection: _builtins.str,
+                 database: _builtins.str):
+        """
+        :param _builtins.str collection: The MongoDB collection name.
+        :param _builtins.str database: The MongoDB database name.
+        """
+        pulumi.set(__self__, "collection", collection)
+        pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> _builtins.str:
+        """
+        The MongoDB collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> _builtins.str:
+        """
+        The MongoDB database name.
+        """
+        return pulumi.get(self, "database")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierMysqlIdentifier(dict):
+    def __init__(__self__, *,
+                 database: _builtins.str,
+                 table: _builtins.str):
+        """
+        :param _builtins.str database: The database name.
+        :param _builtins.str table: The table name.
+        """
+        pulumi.set(__self__, "database", database)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> _builtins.str:
+        """
+        The database name.
+        """
+        return pulumi.get(self, "database")
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> _builtins.str:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierOracleIdentifier(dict):
+    def __init__(__self__, *,
+                 schema: _builtins.str,
+                 table: _builtins.str):
+        """
+        :param _builtins.str schema: The schema name.
+        :param _builtins.str table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> _builtins.str:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> _builtins.str:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierPostgresqlIdentifier(dict):
+    def __init__(__self__, *,
+                 schema: _builtins.str,
+                 table: _builtins.str):
+        """
+        :param _builtins.str schema: The schema name.
+        :param _builtins.str table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> _builtins.str:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> _builtins.str:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "objectName":
+            suggest = "object_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamRuleSetObjectFilterSourceObjectIdentifierSalesforceIdentifier.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 object_name: _builtins.str):
+        """
+        :param _builtins.str object_name: The Salesforce object name.
+        """
+        pulumi.set(__self__, "object_name", object_name)
+
+    @_builtins.property
+    @pulumi.getter(name="objectName")
+    def object_name(self) -> _builtins.str:
+        """
+        The Salesforce object name.
+        """
+        return pulumi.get(self, "object_name")
+
+
+@pulumi.output_type
+class StreamRuleSetObjectFilterSourceObjectIdentifierSqlServerIdentifier(dict):
+    def __init__(__self__, *,
+                 schema: _builtins.str,
+                 table: _builtins.str):
+        """
+        :param _builtins.str schema: The schema name.
+        :param _builtins.str table: The table name.
+        """
+        pulumi.set(__self__, "schema", schema)
+        pulumi.set(__self__, "table", table)
+
+    @_builtins.property
+    @pulumi.getter
+    def schema(self) -> _builtins.str:
+        """
+        The schema name.
+        """
+        return pulumi.get(self, "schema")
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> _builtins.str:
+        """
+        The table name.
+        """
+        return pulumi.get(self, "table")
+
+
+@pulumi.output_type
 class StreamSourceConfig(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
         if key == "sourceConnectionProfile":
             suggest = "source_connection_profile"
+        elif key == "mongodbSourceConfig":
+            suggest = "mongodb_source_config"
         elif key == "mysqlSourceConfig":
             suggest = "mysql_source_config"
         elif key == "oracleSourceConfig":
@@ -2989,6 +4400,7 @@ class StreamSourceConfig(dict):
 
     def __init__(__self__, *,
                  source_connection_profile: _builtins.str,
+                 mongodb_source_config: Optional['outputs.StreamSourceConfigMongodbSourceConfig'] = None,
                  mysql_source_config: Optional['outputs.StreamSourceConfigMysqlSourceConfig'] = None,
                  oracle_source_config: Optional['outputs.StreamSourceConfigOracleSourceConfig'] = None,
                  postgresql_source_config: Optional['outputs.StreamSourceConfigPostgresqlSourceConfig'] = None,
@@ -2996,6 +4408,8 @@ class StreamSourceConfig(dict):
                  sql_server_source_config: Optional['outputs.StreamSourceConfigSqlServerSourceConfig'] = None):
         """
         :param _builtins.str source_connection_profile: Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}
+        :param 'StreamSourceConfigMongodbSourceConfigArgs' mongodb_source_config: MongoDB source configuration.
+               Structure is documented below.
         :param 'StreamSourceConfigMysqlSourceConfigArgs' mysql_source_config: MySQL data source configuration.
                Structure is documented below.
         :param 'StreamSourceConfigOracleSourceConfigArgs' oracle_source_config: MySQL data source configuration.
@@ -3008,6 +4422,8 @@ class StreamSourceConfig(dict):
                Structure is documented below.
         """
         pulumi.set(__self__, "source_connection_profile", source_connection_profile)
+        if mongodb_source_config is not None:
+            pulumi.set(__self__, "mongodb_source_config", mongodb_source_config)
         if mysql_source_config is not None:
             pulumi.set(__self__, "mysql_source_config", mysql_source_config)
         if oracle_source_config is not None:
@@ -3026,6 +4442,15 @@ class StreamSourceConfig(dict):
         Source connection profile resource. Format: projects/{project}/locations/{location}/connectionProfiles/{name}
         """
         return pulumi.get(self, "source_connection_profile")
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbSourceConfig")
+    def mongodb_source_config(self) -> Optional['outputs.StreamSourceConfigMongodbSourceConfig']:
+        """
+        MongoDB source configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_source_config")
 
     @_builtins.property
     @pulumi.getter(name="mysqlSourceConfig")
@@ -3071,6 +4496,290 @@ class StreamSourceConfig(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "sql_server_source_config")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludeObjects":
+            suggest = "exclude_objects"
+        elif key == "includeObjects":
+            suggest = "include_objects"
+        elif key == "maxConcurrentBackfillTasks":
+            suggest = "max_concurrent_backfill_tasks"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StreamSourceConfigMongodbSourceConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StreamSourceConfigMongodbSourceConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StreamSourceConfigMongodbSourceConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 exclude_objects: Optional['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjects'] = None,
+                 include_objects: Optional['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjects'] = None,
+                 max_concurrent_backfill_tasks: Optional[_builtins.int] = None):
+        """
+        :param 'StreamSourceConfigMongodbSourceConfigExcludeObjectsArgs' exclude_objects: MongoDB collections to include in the stream.
+               Structure is documented below.
+        :param 'StreamSourceConfigMongodbSourceConfigIncludeObjectsArgs' include_objects: MongoDB collections to include in the stream.
+               Structure is documented below.
+        :param _builtins.int max_concurrent_backfill_tasks: Optional. Maximum number of concurrent backfill tasks. The number
+               should be non-negative and less than or equal to 50. If not set
+               (or set to 0), the system''s default value is used
+        """
+        if exclude_objects is not None:
+            pulumi.set(__self__, "exclude_objects", exclude_objects)
+        if include_objects is not None:
+            pulumi.set(__self__, "include_objects", include_objects)
+        if max_concurrent_backfill_tasks is not None:
+            pulumi.set(__self__, "max_concurrent_backfill_tasks", max_concurrent_backfill_tasks)
+
+    @_builtins.property
+    @pulumi.getter(name="excludeObjects")
+    def exclude_objects(self) -> Optional['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjects']:
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "exclude_objects")
+
+    @_builtins.property
+    @pulumi.getter(name="includeObjects")
+    def include_objects(self) -> Optional['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjects']:
+        """
+        MongoDB collections to include in the stream.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "include_objects")
+
+    @_builtins.property
+    @pulumi.getter(name="maxConcurrentBackfillTasks")
+    def max_concurrent_backfill_tasks(self) -> Optional[_builtins.int]:
+        """
+        Optional. Maximum number of concurrent backfill tasks. The number
+        should be non-negative and less than or equal to 50. If not set
+        (or set to 0), the system''s default value is used
+        """
+        return pulumi.get(self, "max_concurrent_backfill_tasks")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjects(dict):
+    def __init__(__self__, *,
+                 databases: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabase']] = None):
+        """
+        :param Sequence['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseArgs'] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        if databases is not None:
+            pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabase']]:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabase(dict):
+    def __init__(__self__, *,
+                 collections: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollection']] = None,
+                 database: Optional[_builtins.str] = None):
+        """
+        :param Sequence['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionArgs'] collections: Collections in the database.
+               Structure is documented below.
+        :param _builtins.str database: Database name.
+        """
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+        if database is not None:
+            pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollection']]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> Optional[_builtins.str]:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollection(dict):
+    def __init__(__self__, *,
+                 collection: Optional[_builtins.str] = None,
+                 fields: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionField']] = None):
+        """
+        :param _builtins.str collection: Collection name.
+        :param Sequence['StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionFieldArgs'] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        if collection is not None:
+            pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> Optional[_builtins.str]:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionField']]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigExcludeObjectsDatabaseCollectionField(dict):
+    def __init__(__self__, *,
+                 field: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[_builtins.str]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjects(dict):
+    def __init__(__self__, *,
+                 databases: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabase']] = None):
+        """
+        :param Sequence['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseArgs'] databases: MongoDB databases in the cluster.
+               Structure is documented below.
+        """
+        if databases is not None:
+            pulumi.set(__self__, "databases", databases)
+
+    @_builtins.property
+    @pulumi.getter
+    def databases(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabase']]:
+        """
+        MongoDB databases in the cluster.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "databases")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabase(dict):
+    def __init__(__self__, *,
+                 collections: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollection']] = None,
+                 database: Optional[_builtins.str] = None):
+        """
+        :param Sequence['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionArgs'] collections: Collections in the database.
+               Structure is documented below.
+        :param _builtins.str database: Database name.
+        """
+        if collections is not None:
+            pulumi.set(__self__, "collections", collections)
+        if database is not None:
+            pulumi.set(__self__, "database", database)
+
+    @_builtins.property
+    @pulumi.getter
+    def collections(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollection']]:
+        """
+        Collections in the database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collections")
+
+    @_builtins.property
+    @pulumi.getter
+    def database(self) -> Optional[_builtins.str]:
+        """
+        Database name.
+        """
+        return pulumi.get(self, "database")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollection(dict):
+    def __init__(__self__, *,
+                 collection: Optional[_builtins.str] = None,
+                 fields: Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionField']] = None):
+        """
+        :param _builtins.str collection: Collection name.
+        :param Sequence['StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionFieldArgs'] fields: Fields in the collection.
+               Structure is documented below.
+        """
+        if collection is not None:
+            pulumi.set(__self__, "collection", collection)
+        if fields is not None:
+            pulumi.set(__self__, "fields", fields)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> Optional[_builtins.str]:
+        """
+        Collection name.
+        """
+        return pulumi.get(self, "collection")
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionField']]:
+        """
+        Fields in the collection.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields")
+
+
+@pulumi.output_type
+class StreamSourceConfigMongodbSourceConfigIncludeObjectsDatabaseCollectionField(dict):
+    def __init__(__self__, *,
+                 field: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str field: Field name.
+        """
+        if field is not None:
+            pulumi.set(__self__, "field", field)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> Optional[_builtins.str]:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "field")
 
 
 @pulumi.output_type

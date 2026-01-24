@@ -17,14 +17,12 @@ class NODE_FH_image_node(_bpy_types.FileHandler):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -50,14 +48,12 @@ class NODE_OT_add_closure_zone(NodeAddZoneOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NODE_OT_add_empty_group(NodeAddOperator, _bpy_types.Operator):
@@ -72,14 +68,12 @@ class NODE_OT_add_empty_group(NodeAddOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @staticmethod
@@ -87,6 +81,14 @@ class NODE_OT_add_empty_group(NodeAddOperator, _bpy_types.Operator):
         """
 
         :param idname:
+        """
+
+    @classmethod
+    def description(cls, _context, properties) -> None:
+        """
+
+        :param _context:
+        :param properties:
         """
 
     def execute(self, context) -> None:
@@ -113,14 +115,12 @@ class NODE_OT_add_foreach_geometry_element_zone(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NODE_OT_add_node(NodeAddOperator, _bpy_types.Operator):
@@ -136,22 +136,12 @@ class NODE_OT_add_node(NodeAddOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    @classmethod
-    def description(cls, _context, properties) -> None:
-        """
-
-        :param _context:
-        :param properties:
         """
 
     def execute(self, context) -> None:
@@ -176,14 +166,12 @@ class NODE_OT_add_repeat_zone(NodeAddZoneOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class NODE_OT_add_simulation_zone(NodeAddZoneOperator, _bpy_types.Operator):
@@ -202,14 +190,32 @@ class NODE_OT_add_simulation_zone(NodeAddZoneOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
+        """
+
+class NODE_OT_add_zone(NodeAddZoneOperator, _bpy_types.Operator):
+    add_default_geometry_link: typing.Any
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
         """
 
 class NODE_OT_collapse_hide_unused_toggle(_bpy_types.Operator):
@@ -225,14 +231,12 @@ class NODE_OT_collapse_hide_unused_toggle(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -261,14 +265,12 @@ class NODE_OT_interface_item_duplicate(NodeInterfaceOperator, _bpy_types.Operato
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -299,14 +301,12 @@ class NODE_OT_interface_item_make_panel_toggle(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -335,14 +335,12 @@ class NODE_OT_interface_item_new(NodeInterfaceOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -358,15 +356,8 @@ class NODE_OT_interface_item_new(NodeInterfaceOperator, _bpy_types.Operator):
         :param tree:
         """
 
-    def get_items(self, _self, context) -> None:
-        """
-
-        :param _self:
-        :param context:
-        """
-
-class NODE_OT_interface_item_remove(NodeInterfaceOperator, _bpy_types.Operator):
-    """Remove active item from the interface"""
+class NODE_OT_interface_item_new_panel_toggle(_bpy_types.Operator):
+    """Add a checkbox to the currently selected panel"""
 
     bl_idname: typing.Any
     bl_label: typing.Any
@@ -378,14 +369,53 @@ class NODE_OT_interface_item_remove(NodeInterfaceOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
+        """
+
+    def execute(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @staticmethod
+    def get_panel_toggle(panel) -> None:
+        """
+
+        :param panel:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_OT_interface_item_remove(NodeInterfaceOperator, _bpy_types.Operator):
+    """Remove selected items from the interface"""
+
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
         """
 
     def execute(self, context) -> None:
@@ -409,14 +439,12 @@ class NODE_OT_interface_item_unlink_panel_toggle(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -432,6 +460,132 @@ class NODE_OT_interface_item_unlink_panel_toggle(
         :param context:
         """
 
+class NODE_OT_swap_empty_group(NodeSwapOperator, _bpy_types.Operator):
+    bl_description: typing.Any
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    properties_to_pass: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    @staticmethod
+    def create_empty_group(idname) -> None:
+        """
+
+        :param idname:
+        """
+
+    @classmethod
+    def description(cls, _context, properties) -> None:
+        """
+
+        :param _context:
+        :param properties:
+        """
+
+    def execute(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_OT_swap_node(NodeSwapOperator, _bpy_types.Operator):
+    """Replace the selected nodes with the specified type"""
+
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    properties_to_pass: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def execute(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @staticmethod
+    def get_zone_pair(tree, node) -> None:
+        """
+
+        :param tree:
+        :param node:
+        """
+
+class NODE_OT_swap_zone(NodeSwapOperator, ZoneOperator, _bpy_types.Operator):
+    bl_idname: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    properties_to_pass: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def execute(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @staticmethod
+    def get_child_items(node) -> None:
+        """
+
+        :param node:
+        """
+
+    @staticmethod
+    def get_zone_pair(tree, node) -> None:
+        """
+
+        :param tree:
+        :param node:
+        """
+
+    def transfer_zone_sockets(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
+        """
+
 class NODE_OT_tree_path_parent(_bpy_types.Operator):
     """Go to parent node tree"""
 
@@ -445,14 +599,12 @@ class NODE_OT_tree_path_parent(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -481,14 +633,12 @@ class NODE_OT_viewer_shortcut_get(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -517,14 +667,12 @@ class NODE_OT_viewer_shortcut_set(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -546,12 +694,26 @@ class NODE_OT_viewer_shortcut_set(_bpy_types.Operator):
         :param context:
         """
 
-class NodeAddOperator:
+class NodeOperator:
+    def apply_node_settings(self, node) -> None:
+        """
+
+        :param node:
+        """
+
     def create_node(self, context, node_type) -> None:
         """
 
         :param context:
         :param node_type:
+        """
+
+    @classmethod
+    def description(cls, _context, properties) -> None:
+        """
+
+        :param _context:
+        :param properties:
         """
 
     @staticmethod
@@ -561,6 +723,40 @@ class NodeAddOperator:
         :param context:
         """
 
+class NodeInterfaceOperator:
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NodeSetting(_bpy_types.PropertyGroup):
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+class ZoneOperator:
+    @classmethod
+    def description(cls, _context, properties) -> None:
+        """
+
+        :param _context:
+        :param properties:
+        """
+
+class NodeAddOperator(NodeOperator):
     def invoke(self, context, event) -> None:
         """
 
@@ -583,7 +779,16 @@ class NodeAddOperator:
         :param event:
         """
 
-class NodeInterfaceOperator:
+class NodeSwapOperator(NodeOperator):
+    properties_to_pass: typing.Any
+
+    @staticmethod
+    def get_switch_items(node) -> None:
+        """
+
+        :param node:
+        """
+
     @classmethod
     def poll(cls, context) -> None:
         """
@@ -591,25 +796,38 @@ class NodeInterfaceOperator:
         :param context:
         """
 
-class NodeSetting(_bpy_types.PropertyGroup):
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+    def transfer_input_values(self, old_node, new_node) -> None:
         """
 
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
+        :param old_node:
+        :param new_node:
         """
 
-    def bl_rna_get_subclass_py(self) -> typing.Any:
+    @staticmethod
+    def transfer_links(tree, old_node, new_node, is_input) -> None:
         """
 
-        :return: The class or default when not found.
-        :rtype: typing.Any
+        :param tree:
+        :param old_node:
+        :param new_node:
+        :param is_input:
         """
 
-class NodeAddZoneOperator(NodeAddOperator):
+    def transfer_node_properties(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
+        """
+
+    def transfer_switch_data(self, old_node, new_node) -> None:
+        """
+
+        :param old_node:
+        :param new_node:
+        """
+
+class NodeAddZoneOperator(ZoneOperator, NodeAddOperator):
     add_default_geometry_link: typing.Any
 
     def execute(self, context) -> None:
@@ -617,3 +835,5 @@ class NodeAddZoneOperator(NodeAddOperator):
 
         :param context:
         """
+
+def cast_value(source, target) -> None: ...

@@ -3,7 +3,7 @@ Type annotations for amplify service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amplify/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     WafStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -154,7 +149,7 @@ class AutoBranchCreationConfigOutputTypeDef(TypedDict):
     stage: NotRequired[StageType]
     framework: NotRequired[str]
     enableAutoBuild: NotRequired[bool]
-    environmentVariables: NotRequired[Dict[str, str]]
+    environmentVariables: NotRequired[dict[str, str]]
     basicAuthCredentials: NotRequired[str]
     enableBasicAuth: NotRequired[bool]
     enablePerformanceMode: NotRequired[bool]
@@ -235,7 +230,7 @@ CertificateTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -342,7 +337,7 @@ class StepTypeDef(TypedDict):
     artifactsUrl: NotRequired[str]
     testArtifactsUrl: NotRequired[str]
     testConfigUrl: NotRequired[str]
-    screenshots: NotRequired[Dict[str, str]]
+    screenshots: NotRequired[dict[str, str]]
     statusReason: NotRequired[str]
     context: NotRequired[str]
 
@@ -426,21 +421,21 @@ class AppTypeDef(TypedDict):
     platform: PlatformType
     createTime: datetime
     updateTime: datetime
-    environmentVariables: Dict[str, str]
+    environmentVariables: dict[str, str]
     defaultDomain: str
     enableBranchAutoBuild: bool
     enableBasicAuth: bool
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     computeRoleArn: NotRequired[str]
     iamServiceRoleArn: NotRequired[str]
     enableBranchAutoDeletion: NotRequired[bool]
     basicAuthCredentials: NotRequired[str]
-    customRules: NotRequired[List[CustomRuleTypeDef]]
+    customRules: NotRequired[list[CustomRuleTypeDef]]
     productionBranch: NotRequired[ProductionBranchTypeDef]
     buildSpec: NotRequired[str]
     customHeaders: NotRequired[str]
     enableAutoBranchCreation: NotRequired[bool]
-    autoBranchCreationPatterns: NotRequired[List[str]]
+    autoBranchCreationPatterns: NotRequired[list[str]]
     autoBranchCreationConfig: NotRequired[AutoBranchCreationConfigOutputTypeDef]
     repositoryCloneMethod: NotRequired[RepositoryCloneMethodType]
     cacheConfig: NotRequired[CacheConfigTypeDef]
@@ -461,22 +456,22 @@ class BranchTypeDef(TypedDict):
     enableNotification: bool
     createTime: datetime
     updateTime: datetime
-    environmentVariables: Dict[str, str]
+    environmentVariables: dict[str, str]
     enableAutoBuild: bool
-    customDomains: List[str]
+    customDomains: list[str]
     framework: str
     activeJobId: str
     totalNumberOfJobs: str
     enableBasicAuth: bool
     ttl: str
     enablePullRequestPreview: bool
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     enableSkewProtection: NotRequired[bool]
     enablePerformanceMode: NotRequired[bool]
     thumbnailUrl: NotRequired[str]
     basicAuthCredentials: NotRequired[str]
     buildSpec: NotRequired[str]
-    associatedResources: NotRequired[List[str]]
+    associatedResources: NotRequired[list[str]]
     pullRequestEnvironmentName: NotRequired[str]
     destinationBranch: NotRequired[str]
     sourceBranch: NotRequired[str]
@@ -535,7 +530,7 @@ class CreateBackendEnvironmentResultTypeDef(TypedDict):
 
 class CreateDeploymentResultTypeDef(TypedDict):
     jobId: str
-    fileUploadUrls: Dict[str, str]
+    fileUploadUrls: dict[str, str]
     zipUploadUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -557,17 +552,17 @@ class GetBackendEnvironmentResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListArtifactsResultTypeDef(TypedDict):
-    artifacts: List[ArtifactTypeDef]
+    artifacts: list[ArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListBackendEnvironmentsResultTypeDef(TypedDict):
-    backendEnvironments: List[BackendEnvironmentTypeDef]
+    backendEnvironments: list[BackendEnvironmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDomainAssociationRequestTypeDef(TypedDict):
@@ -606,7 +601,7 @@ class GetWebhookResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListWebhooksResultTypeDef(TypedDict):
-    webhooks: List[WebhookTypeDef]
+    webhooks: list[WebhookTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -619,7 +614,7 @@ class DeleteJobResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListJobsResultTypeDef(TypedDict):
-    jobSummaries: List[JobSummaryTypeDef]
+    jobSummaries: list[JobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -653,7 +648,7 @@ class StartJobRequestTypeDef(TypedDict):
 
 class JobTypeDef(TypedDict):
     summary: JobSummaryTypeDef
-    steps: List[StepTypeDef]
+    steps: list[StepTypeDef]
 
 class ListAppsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -684,7 +679,7 @@ class GetAppResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAppsResultTypeDef(TypedDict):
-    apps: List[AppTypeDef]
+    apps: list[AppTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -753,7 +748,7 @@ class GetBranchResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBranchesResultTypeDef(TypedDict):
-    branches: List[BranchTypeDef]
+    branches: list[BranchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -767,8 +762,8 @@ class DomainAssociationTypeDef(TypedDict):
     enableAutoSubDomain: bool
     domainStatus: DomainStatusType
     statusReason: str
-    subDomains: List[SubDomainTypeDef]
-    autoSubDomainCreationPatterns: NotRequired[List[str]]
+    subDomains: list[SubDomainTypeDef]
+    autoSubDomainCreationPatterns: NotRequired[list[str]]
     autoSubDomainIAMRole: NotRequired[str]
     updateStatus: NotRequired[UpdateStatusType]
     certificateVerificationDNSRecord: NotRequired[str]
@@ -791,7 +786,7 @@ class GetDomainAssociationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainAssociationsResultTypeDef(TypedDict):
-    domainAssociations: List[DomainAssociationTypeDef]
+    domainAssociations: list[DomainAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

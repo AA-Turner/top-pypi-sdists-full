@@ -1,5 +1,7 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
+
+import ipaddress
 import logging
 import time
 from collections import defaultdict, deque
@@ -10,17 +12,13 @@ from weakref import WeakValueDictionary
 
 from sql import Flavor
 
-from trytond.config import config
+import trytond.config as config
 from trytond.tools.immutabledict import ImmutableDict
 
 __all__ = ['Transaction',
     'check_access', 'without_check_access',
     'active_records', 'inactive_records']
 
-_retry = config.getint('database', 'retry')
-_cache_transaction = config.getint('cache', 'transaction')
-_cache_model = config.getint('cache', 'model')
-_cache_record = config.getint('cache', 'record')
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +50,8 @@ class _TransactionLockRecordsError(TransactionError):
 
 
 def record_cache_size(transaction):
-    return transaction.context.get('_record_cache_size', _cache_record)
+    return transaction.context.get(
+        '_record_cache_size', config.getint('cache', 'record'))
 
 
 def check_access(func=None, *, _access=True):
@@ -136,7 +135,8 @@ class Transaction(object):
             instance.timestamp = None
             instance.started_at = None
             instance.cache = WeakValueDictionary()
-            instance._cache_deque = deque(maxlen=_cache_transaction)
+            instance._cache_deque = deque(
+                maxlen=config.getint('cache', 'transaction'))
             instance._atexit = []
             transactions.append(instance)
         else:
@@ -160,9 +160,10 @@ class Transaction(object):
         keys = tuple(((key, self.context[key])
                 for key in sorted(self.cache_keys)
                 if key in self.context))
+        cache_model = config.getint('cache', 'model')
         cache = self.cache.setdefault(
             (self.user, keys), LRUDict(
-                _cache_model,
+                cache_model,
                 lambda name: LRUDict(
                     record_cache_size(self),
                     Pool().get(name)._record),
@@ -196,7 +197,7 @@ class Transaction(object):
             self.readonly = readonly
             self.close = close
             self.context = ImmutableDict(context or {})
-            self.create_records = defaultdict(set)
+            self.create_records = defaultdict(list)
             self.delete_records = defaultdict(set)
             self.trigger_records = defaultdict(set)
             self.log_records = []
@@ -208,9 +209,10 @@ class Transaction(object):
             self.connection = database.get_connection(readonly=readonly,
                 autocommit=autocommit, statement_timeout=timeout)
             count = 0
+            retry = config.getint('database', 'retry')
             while True:
                 if count:
-                    time.sleep(0.02 * (_retry - count))
+                    time.sleep(0.02 * (retry - count))
                 try:
                     lock_tables = extras.get('_lock_tables', [])
                     for table in lock_tables:
@@ -222,7 +224,7 @@ class Transaction(object):
                         locked_records[table].update(ids)
                     self._locked_records = locked_records
                 except backend.DatabaseOperationalError:
-                    if count < _retry:
+                    if count < retry:
                         self.connection.rollback()
                         count += 1
                         logger.debug("Retry: %i", count)
@@ -418,6 +420,17 @@ class Transaction(object):
         if self.context:
             return self.context.get('language') or get_language()
         return get_language()
+
+    def remote_address(self):
+        ip_address = ip_network = None
+        if self.context.get('_request') and (
+                remote_addr := self.context['_request'].get('remote_addr')):
+            ip_address = ipaddress.ip_address(remote_addr)
+            prefix = config.getint(
+                'session', f'ip_network_{ip_address.version}')
+            ip_network = ipaddress.ip_network(remote_addr)
+            ip_network = ip_network.supernet(new_prefix=prefix)
+        return ip_address, ip_network
 
     @property
     def check_access(self):

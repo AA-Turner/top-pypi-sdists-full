@@ -114,6 +114,7 @@ from both the user pool and the user pool client. For this reason identity pools
 to gather the necessary properties from the user pool constructs.
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders
 user_pool = cognito.UserPool(self, "Pool")
 
 IdentityPool(self, "myidentitypool",
@@ -164,6 +165,7 @@ One or more [external identity providers](https://docs.aws.amazon.com/cognito/la
 `authenticationProviders`:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
 IdentityPool(self, "myidentitypool",
     identity_pool_name="myidentitypool",
     authentication_providers=IdentityPoolAuthenticationProviders(
@@ -202,6 +204,7 @@ so that different users can be granted different sets of permissions. Associatin
 with an identity pool:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders
 # open_id_connect_provider: iam.OpenIdConnectProvider
 # saml_provider: iam.SamlProvider
 
@@ -225,6 +228,7 @@ Like the supported external providers, though, only one custom provider can be d
 pool.
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolGoogleLoginProvider
 # open_id_connect_provider: iam.OpenIdConnectProvider
 
 IdentityPool(self, "myidentitypool",
@@ -251,6 +255,7 @@ Using a [token-based approach](https://docs.aws.amazon.com/cognito/latest/develo
 `cognito:preferred_role` claims from the identity provider:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping
 from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl
 
 
@@ -266,6 +271,7 @@ IdentityPool(self, "myidentitypool",
 Using a rule-based approach to role mapping allows roles to be assigned based on custom claims passed from the identity provider:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping, RoleMappingRule, RoleMappingRule
 from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl, RoleMappingMatchType
 
 # admin_role: iam.Role
@@ -297,6 +303,7 @@ Role mappings must be associated with the url of an Identity Provider which can 
 `IdentityPoolProviderUrl`. Supported Providers have static Urls that can be used:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping
 from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl
 
 
@@ -312,6 +319,7 @@ IdentityPool(self, "myidentitypool",
 For identity providers that don't have static Urls, a custom Url can be supplied:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping
 from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl
 
 
@@ -330,6 +338,7 @@ This is because by default, the key in the Cloudformation role mapping hash is t
 cannot be references. For example:
 
 ```python
+from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping
 from aws_cdk.aws_cognito import UserPool, UserPoolClient
 from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl
 
@@ -415,15 +424,24 @@ from ..aws_cognito import (
     IUserPool as _IUserPool_1f1029e2,
     IUserPoolClient as _IUserPoolClient_75623ba4,
 )
-from ..aws_iam import (
-    IOIDCProviderRef as _IOIDCProviderRef_3a3d0e6d,
-    IRole as _IRole_235f5d8e,
-    ISAMLProviderRef as _ISAMLProviderRef_8ee7fc41,
+from ..aws_iam import IRole as _IRole_235f5d8e
+from ..interfaces.aws_cognito import (
+    IIdentityPoolRef as _IIdentityPoolRef_5cf45895,
+    IUserPoolClientRef as _IUserPoolClientRef_4466eeba,
+    IdentityPoolReference as _IdentityPoolReference_3ad34644,
+)
+from ..interfaces.aws_iam import (
+    IOIDCProviderRef as _IOIDCProviderRef_a866c7c8,
+    ISAMLProviderRef as _ISAMLProviderRef_6e369856,
 )
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito_identitypool.IIdentityPool")
-class IIdentityPool(_IResource_c80c4260, typing_extensions.Protocol):
+class IIdentityPool(
+    _IResource_c80c4260,
+    _IIdentityPoolRef_5cf45895,
+    typing_extensions.Protocol,
+):
     '''Represents a Cognito Identity Pool.'''
 
     @builtins.property
@@ -456,6 +474,7 @@ class IIdentityPool(_IResource_c80c4260, typing_extensions.Protocol):
 
 class _IIdentityPoolProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IIdentityPoolRef_5cf45895), # type: ignore[misc]
 ):
     '''Represents a Cognito Identity Pool.'''
 
@@ -505,8 +524,8 @@ class IUserPoolAuthenticationProvider(typing_extensions.Protocol):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        identity_pool: IIdentityPool,
+        scope: "_constructs_77d1e7e8.Construct",
+        identity_pool: "IIdentityPool",
     ) -> "UserPoolAuthenticationProviderBindConfig":
         '''The method called when a given User Pool Authentication Provider is added (for the first time) to an Identity Pool.
 
@@ -528,8 +547,8 @@ class _IUserPoolAuthenticationProviderProxy:
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        identity_pool: IIdentityPool,
+        scope: "_constructs_77d1e7e8.Construct",
+        identity_pool: "IIdentityPool",
     ) -> "UserPoolAuthenticationProviderBindConfig":
         '''The method called when a given User Pool Authentication Provider is added (for the first time) to an Identity Pool.
 
@@ -561,6 +580,7 @@ class IdentityPool(
 
     Example::
 
+        from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolGoogleLoginProvider
         # open_id_connect_provider: iam.OpenIdConnectProvider
         
         IdentityPool(self, "myidentitypool",
@@ -577,16 +597,16 @@ class IdentityPool(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         allow_classic_flow: typing.Optional[builtins.bool] = None,
         allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-        authenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+        authenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
         authentication_providers: typing.Optional[typing.Union["IdentityPoolAuthenticationProviders", typing.Dict[builtins.str, typing.Any]]] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
         role_mappings: typing.Optional[typing.Sequence[typing.Union["IdentityPoolRoleMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unauthenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+        unauthenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -619,10 +639,10 @@ class IdentityPool(
     @builtins.classmethod
     def from_identity_pool_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         identity_pool_arn: builtins.str,
-    ) -> IIdentityPool:
+    ) -> "IIdentityPool":
         '''Import an existing Identity Pool from its ARN.
 
         :param scope: -
@@ -634,16 +654,16 @@ class IdentityPool(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_pool_arn", value=identity_pool_arn, expected_type=type_hints["identity_pool_arn"])
-        return typing.cast(IIdentityPool, jsii.sinvoke(cls, "fromIdentityPoolArn", [scope, id, identity_pool_arn]))
+        return typing.cast("IIdentityPool", jsii.sinvoke(cls, "fromIdentityPoolArn", [scope, id, identity_pool_arn]))
 
     @jsii.member(jsii_name="fromIdentityPoolId")
     @builtins.classmethod
     def from_identity_pool_id(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         identity_pool_id: builtins.str,
-    ) -> IIdentityPool:
+    ) -> "IIdentityPool":
         '''Import an existing Identity Pool from its ID.
 
         :param scope: -
@@ -655,12 +675,12 @@ class IdentityPool(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
-        return typing.cast(IIdentityPool, jsii.sinvoke(cls, "fromIdentityPoolId", [scope, id, identity_pool_id]))
+        return typing.cast("IIdentityPool", jsii.sinvoke(cls, "fromIdentityPoolId", [scope, id, identity_pool_id]))
 
     @jsii.member(jsii_name="addUserPoolAuthentication")
     def add_user_pool_authentication(
         self,
-        user_pool: IUserPoolAuthenticationProvider,
+        user_pool: "IUserPoolAuthenticationProvider",
     ) -> None:
         '''Add a User Pool to the Identity Pool and configure the User Pool client to handle identities.
 
@@ -679,9 +699,9 @@ class IdentityPool(
 
     @builtins.property
     @jsii.member(jsii_name="authenticatedRole")
-    def authenticated_role(self) -> _IRole_235f5d8e:
+    def authenticated_role(self) -> "_IRole_235f5d8e":
         '''Default Role for authenticated users.'''
-        return typing.cast(_IRole_235f5d8e, jsii.get(self, "authenticatedRole"))
+        return typing.cast("_IRole_235f5d8e", jsii.get(self, "authenticatedRole"))
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolArn")
@@ -711,16 +731,22 @@ class IdentityPool(
         return typing.cast(builtins.str, jsii.get(self, "identityPoolName"))
 
     @builtins.property
+    @jsii.member(jsii_name="identityPoolRef")
+    def identity_pool_ref(self) -> "_IdentityPoolReference_3ad34644":
+        '''A reference to a IdentityPool resource.'''
+        return typing.cast("_IdentityPoolReference_3ad34644", jsii.get(self, "identityPoolRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="roleAttachment")
-    def role_attachment(self) -> _CfnIdentityPoolRoleAttachment_6213757a:
+    def role_attachment(self) -> "_CfnIdentityPoolRoleAttachment_6213757a":
         '''Role Provider for the default Role for authenticated users.'''
-        return typing.cast(_CfnIdentityPoolRoleAttachment_6213757a, jsii.get(self, "roleAttachment"))
+        return typing.cast("_CfnIdentityPoolRoleAttachment_6213757a", jsii.get(self, "roleAttachment"))
 
     @builtins.property
     @jsii.member(jsii_name="unauthenticatedRole")
-    def unauthenticated_role(self) -> _IRole_235f5d8e:
+    def unauthenticated_role(self) -> "_IRole_235f5d8e":
         '''Default Role for unauthenticated users.'''
-        return typing.cast(_IRole_235f5d8e, jsii.get(self, "unauthenticatedRole"))
+        return typing.cast("_IRole_235f5d8e", jsii.get(self, "unauthenticatedRole"))
 
 
 @jsii.data_type(
@@ -738,6 +764,7 @@ class IdentityPoolAmazonLoginProvider:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
             IdentityPool(self, "myidentitypool",
                 identity_pool_name="myidentitypool",
                 authentication_providers=IdentityPoolAuthenticationProviders(
@@ -801,6 +828,7 @@ class IdentityPoolAppleLoginProvider:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
             IdentityPool(self, "myidentitypool",
                 identity_pool_name="myidentitypool",
                 authentication_providers=IdentityPoolAuthenticationProviders(
@@ -868,15 +896,15 @@ class IdentityPoolAuthenticationProviders:
     def __init__(
         self,
         *,
-        amazon: typing.Optional[typing.Union[IdentityPoolAmazonLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
-        apple: typing.Optional[typing.Union[IdentityPoolAppleLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
+        amazon: typing.Optional[typing.Union["IdentityPoolAmazonLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
+        apple: typing.Optional[typing.Union["IdentityPoolAppleLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         custom_provider: typing.Optional[builtins.str] = None,
         facebook: typing.Optional[typing.Union["IdentityPoolFacebookLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         google: typing.Optional[typing.Union["IdentityPoolGoogleLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
-        open_id_connect_providers: typing.Optional[typing.Sequence[_IOIDCProviderRef_3a3d0e6d]] = None,
-        saml_providers: typing.Optional[typing.Sequence[_ISAMLProviderRef_8ee7fc41]] = None,
+        open_id_connect_providers: typing.Optional[typing.Sequence["_IOIDCProviderRef_a866c7c8"]] = None,
+        saml_providers: typing.Optional[typing.Sequence["_ISAMLProviderRef_6e369856"]] = None,
         twitter: typing.Optional[typing.Union["IdentityPoolTwitterLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
-        user_pools: typing.Optional[typing.Sequence[IUserPoolAuthenticationProvider]] = None,
+        user_pools: typing.Optional[typing.Sequence["IUserPoolAuthenticationProvider"]] = None,
     ) -> None:
         '''External Authentication Providers for usage in Identity Pool.
 
@@ -895,6 +923,7 @@ class IdentityPoolAuthenticationProviders:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolGoogleLoginProvider
             # open_id_connect_provider: iam.OpenIdConnectProvider
             
             IdentityPool(self, "myidentitypool",
@@ -950,22 +979,22 @@ class IdentityPoolAuthenticationProviders:
             self._values["user_pools"] = user_pools
 
     @builtins.property
-    def amazon(self) -> typing.Optional[IdentityPoolAmazonLoginProvider]:
+    def amazon(self) -> typing.Optional["IdentityPoolAmazonLoginProvider"]:
         '''The Amazon Authentication Provider associated with this Identity Pool.
 
         :default: - No Amazon Authentication Provider used without OpenIdConnect or a User Pool
         '''
         result = self._values.get("amazon")
-        return typing.cast(typing.Optional[IdentityPoolAmazonLoginProvider], result)
+        return typing.cast(typing.Optional["IdentityPoolAmazonLoginProvider"], result)
 
     @builtins.property
-    def apple(self) -> typing.Optional[IdentityPoolAppleLoginProvider]:
+    def apple(self) -> typing.Optional["IdentityPoolAppleLoginProvider"]:
         '''The Apple Authentication Provider associated with this Identity Pool.
 
         :default: - No Apple Authentication Provider used without OpenIdConnect or a User Pool
         '''
         result = self._values.get("apple")
-        return typing.cast(typing.Optional[IdentityPoolAppleLoginProvider], result)
+        return typing.cast(typing.Optional["IdentityPoolAppleLoginProvider"], result)
 
     @builtins.property
     def custom_provider(self) -> typing.Optional[builtins.str]:
@@ -997,24 +1026,24 @@ class IdentityPoolAuthenticationProviders:
     @builtins.property
     def open_id_connect_providers(
         self,
-    ) -> typing.Optional[typing.List[_IOIDCProviderRef_3a3d0e6d]]:
+    ) -> typing.Optional[typing.List["_IOIDCProviderRef_a866c7c8"]]:
         '''The OpenIdConnect Provider associated with this Identity Pool.
 
         :default: - no OpenIdConnectProvider
         '''
         result = self._values.get("open_id_connect_providers")
-        return typing.cast(typing.Optional[typing.List[_IOIDCProviderRef_3a3d0e6d]], result)
+        return typing.cast(typing.Optional[typing.List["_IOIDCProviderRef_a866c7c8"]], result)
 
     @builtins.property
     def saml_providers(
         self,
-    ) -> typing.Optional[typing.List[_ISAMLProviderRef_8ee7fc41]]:
+    ) -> typing.Optional[typing.List["_ISAMLProviderRef_6e369856"]]:
         '''The Security Assertion Markup Language provider associated with this Identity Pool.
 
         :default: - no SamlProvider
         '''
         result = self._values.get("saml_providers")
-        return typing.cast(typing.Optional[typing.List[_ISAMLProviderRef_8ee7fc41]], result)
+        return typing.cast(typing.Optional[typing.List["_ISAMLProviderRef_6e369856"]], result)
 
     @builtins.property
     def twitter(self) -> typing.Optional["IdentityPoolTwitterLoginProvider"]:
@@ -1028,13 +1057,13 @@ class IdentityPoolAuthenticationProviders:
     @builtins.property
     def user_pools(
         self,
-    ) -> typing.Optional[typing.List[IUserPoolAuthenticationProvider]]:
+    ) -> typing.Optional[typing.List["IUserPoolAuthenticationProvider"]]:
         '''The User Pool Authentication Providers associated with this Identity Pool.
 
         :default: - no User Pools associated
         '''
         result = self._values.get("user_pools")
-        return typing.cast(typing.Optional[typing.List[IUserPoolAuthenticationProvider]], result)
+        return typing.cast(typing.Optional[typing.List["IUserPoolAuthenticationProvider"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1063,6 +1092,7 @@ class IdentityPoolFacebookLoginProvider:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
             IdentityPool(self, "myidentitypool",
                 identity_pool_name="myidentitypool",
                 authentication_providers=IdentityPoolAuthenticationProviders(
@@ -1126,6 +1156,7 @@ class IdentityPoolGoogleLoginProvider:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
             IdentityPool(self, "myidentitypool",
                 identity_pool_name="myidentitypool",
                 authentication_providers=IdentityPoolAuthenticationProviders(
@@ -1193,11 +1224,11 @@ class IdentityPoolProps:
         *,
         allow_classic_flow: typing.Optional[builtins.bool] = None,
         allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-        authenticated_role: typing.Optional[_IRole_235f5d8e] = None,
-        authentication_providers: typing.Optional[typing.Union[IdentityPoolAuthenticationProviders, typing.Dict[builtins.str, typing.Any]]] = None,
+        authenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
+        authentication_providers: typing.Optional[typing.Union["IdentityPoolAuthenticationProviders", typing.Dict[builtins.str, typing.Any]]] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
         role_mappings: typing.Optional[typing.Sequence[typing.Union["IdentityPoolRoleMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unauthenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+        unauthenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Props for the Identity Pool construct.
 
@@ -1213,6 +1244,7 @@ class IdentityPoolProps:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolGoogleLoginProvider
             # open_id_connect_provider: iam.OpenIdConnectProvider
             
             IdentityPool(self, "myidentitypool",
@@ -1272,24 +1304,24 @@ class IdentityPoolProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def authenticated_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def authenticated_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The default Role to be assumed by authenticated users.
 
         :default: - A default authenticated Role will be added
         '''
         result = self._values.get("authenticated_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def authentication_providers(
         self,
-    ) -> typing.Optional[IdentityPoolAuthenticationProviders]:
+    ) -> typing.Optional["IdentityPoolAuthenticationProviders"]:
         '''Authentication Providers for using in Identity Pool.
 
         :default: - No Authentication Providers passed directly to Identity Pool
         '''
         result = self._values.get("authentication_providers")
-        return typing.cast(typing.Optional[IdentityPoolAuthenticationProviders], result)
+        return typing.cast(typing.Optional["IdentityPoolAuthenticationProviders"], result)
 
     @builtins.property
     def identity_pool_name(self) -> typing.Optional[builtins.str]:
@@ -1310,13 +1342,13 @@ class IdentityPoolProps:
         return typing.cast(typing.Optional[typing.List["IdentityPoolRoleMapping"]], result)
 
     @builtins.property
-    def unauthenticated_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def unauthenticated_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The default Role to be assumed by unauthenticated users.
 
         :default: - A default unauthenticated Role will be added
         '''
         result = self._values.get("unauthenticated_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1364,6 +1396,7 @@ class IdentityPoolProviderUrl(
 
     Example::
 
+        from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping
         from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl
         
         
@@ -1377,7 +1410,7 @@ class IdentityPoolProviderUrl(
         )
     '''
 
-    def __init__(self, type: IdentityPoolProviderType, value: builtins.str) -> None:
+    def __init__(self, type: "IdentityPoolProviderType", value: builtins.str) -> None:
         '''
         :param type: The type of Identity Pool Provider.
         :param value: The value of the Identity Pool Provider.
@@ -1428,8 +1461,8 @@ class IdentityPoolProviderUrl(
     @builtins.classmethod
     def user_pool(
         cls,
-        user_pool: _IUserPool_1f1029e2,
-        user_pool_client: _IUserPoolClient_75623ba4,
+        user_pool: "_IUserPool_1f1029e2",
+        user_pool_client: "_IUserPoolClient_75623ba4",
     ) -> "IdentityPoolProviderUrl":
         '''User Pool Provider Url.
 
@@ -1474,9 +1507,9 @@ class IdentityPoolProviderUrl(
 
     @builtins.property
     @jsii.member(jsii_name="type")
-    def type(self) -> IdentityPoolProviderType:
+    def type(self) -> "IdentityPoolProviderType":
         '''The type of Identity Pool Provider.'''
-        return typing.cast(IdentityPoolProviderType, jsii.get(self, "type"))
+        return typing.cast("IdentityPoolProviderType", jsii.get(self, "type"))
 
     @builtins.property
     @jsii.member(jsii_name="value")
@@ -1500,7 +1533,7 @@ class IdentityPoolRoleMapping:
     def __init__(
         self,
         *,
-        provider_url: IdentityPoolProviderUrl,
+        provider_url: "IdentityPoolProviderUrl",
         mapping_key: typing.Optional[builtins.str] = None,
         resolve_ambiguous_roles: typing.Optional[builtins.bool] = None,
         rules: typing.Optional[typing.Sequence[typing.Union["RoleMappingRule", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1564,11 +1597,11 @@ class IdentityPoolRoleMapping:
             self._values["use_token"] = use_token
 
     @builtins.property
-    def provider_url(self) -> IdentityPoolProviderUrl:
+    def provider_url(self) -> "IdentityPoolProviderUrl":
         '''The url of the Provider for which the role is mapped.'''
         result = self._values.get("provider_url")
         assert result is not None, "Required property 'provider_url' is missing"
-        return typing.cast(IdentityPoolProviderUrl, result)
+        return typing.cast("IdentityPoolProviderUrl", result)
 
     @builtins.property
     def mapping_key(self) -> typing.Optional[builtins.str]:
@@ -1645,6 +1678,7 @@ class IdentityPoolTwitterLoginProvider:
 
         Example::
 
+            from aws_cdk.aws_cognito_identitypool import IdentityPoolAuthenticationProviders, IdentityPoolAmazonLoginProvider, IdentityPoolFacebookLoginProvider, IdentityPoolGoogleLoginProvider, IdentityPoolAppleLoginProvider, IdentityPoolTwitterLoginProvider
             IdentityPool(self, "myidentitypool",
                 identity_pool_name="myidentitypool",
                 authentication_providers=IdentityPoolAuthenticationProviders(
@@ -1710,6 +1744,7 @@ class RoleMappingMatchType(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_cognito_identitypool import IdentityPoolRoleMapping, RoleMappingRule, RoleMappingRule
         from aws_cdk.aws_cognito_identitypool import IdentityPoolProviderUrl, RoleMappingMatchType
         
         # admin_role: iam.Role
@@ -1761,8 +1796,8 @@ class RoleMappingRule:
         *,
         claim: builtins.str,
         claim_value: builtins.str,
-        mapped_role: _IRole_235f5d8e,
-        match_type: typing.Optional[RoleMappingMatchType] = None,
+        mapped_role: "_IRole_235f5d8e",
+        match_type: typing.Optional["RoleMappingMatchType"] = None,
     ) -> None:
         '''Represents an Identity Pool Role Attachment role mapping rule.
 
@@ -1820,20 +1855,20 @@ class RoleMappingRule:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def mapped_role(self) -> _IRole_235f5d8e:
+    def mapped_role(self) -> "_IRole_235f5d8e":
         '''The role to be assumed when the claim value is matched.'''
         result = self._values.get("mapped_role")
         assert result is not None, "Required property 'mapped_role' is missing"
-        return typing.cast(_IRole_235f5d8e, result)
+        return typing.cast("_IRole_235f5d8e", result)
 
     @builtins.property
-    def match_type(self) -> typing.Optional[RoleMappingMatchType]:
+    def match_type(self) -> typing.Optional["RoleMappingMatchType"]:
         '''How to match with the claim value.
 
         :default: RoleMappingMatchType.EQUALS
         '''
         result = self._values.get("match_type")
-        return typing.cast(typing.Optional[RoleMappingMatchType], result)
+        return typing.cast(typing.Optional["RoleMappingMatchType"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1870,9 +1905,9 @@ class UserPoolAuthenticationProvider(
     def __init__(
         self,
         *,
-        user_pool: _IUserPool_1f1029e2,
+        user_pool: "_IUserPool_1f1029e2",
         disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-        user_pool_client: typing.Optional[_IUserPoolClient_75623ba4] = None,
+        user_pool_client: typing.Optional["_IUserPoolClientRef_4466eeba"] = None,
     ) -> None:
         '''
         :param user_pool: The User Pool of the Associated Identity Providers.
@@ -1890,8 +1925,8 @@ class UserPoolAuthenticationProvider(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        identity_pool: IIdentityPool,
+        scope: "_constructs_77d1e7e8.Construct",
+        identity_pool: "IIdentityPool",
     ) -> "UserPoolAuthenticationProviderBindConfig":
         '''The method called when a given User Pool Authentication Provider is added (for the first time) to an Identity Pool.
 
@@ -2034,9 +2069,9 @@ class UserPoolAuthenticationProviderProps:
     def __init__(
         self,
         *,
-        user_pool: _IUserPool_1f1029e2,
+        user_pool: "_IUserPool_1f1029e2",
         disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-        user_pool_client: typing.Optional[_IUserPoolClient_75623ba4] = None,
+        user_pool_client: typing.Optional["_IUserPoolClientRef_4466eeba"] = None,
     ) -> None:
         '''Props for the User Pool Authentication Provider.
 
@@ -2070,11 +2105,11 @@ class UserPoolAuthenticationProviderProps:
             self._values["user_pool_client"] = user_pool_client
 
     @builtins.property
-    def user_pool(self) -> _IUserPool_1f1029e2:
+    def user_pool(self) -> "_IUserPool_1f1029e2":
         '''The User Pool of the Associated Identity Providers.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast(_IUserPool_1f1029e2, result)
+        return typing.cast("_IUserPool_1f1029e2", result)
 
     @builtins.property
     def disable_server_side_token_check(self) -> typing.Optional[builtins.bool]:
@@ -2088,13 +2123,13 @@ class UserPoolAuthenticationProviderProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def user_pool_client(self) -> typing.Optional[_IUserPoolClient_75623ba4]:
+    def user_pool_client(self) -> typing.Optional["_IUserPoolClientRef_4466eeba"]:
         '''The User Pool Client for the provided User Pool.
 
         :default: - A default user pool client will be added to User Pool
         '''
         result = self._values.get("user_pool_client")
-        return typing.cast(typing.Optional[_IUserPoolClient_75623ba4], result)
+        return typing.cast(typing.Optional["_IUserPoolClientRef_4466eeba"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2197,8 +2232,8 @@ def _typecheckingstub__e5736f06974c68519c1ae6c3b7a96f6631b848c6e335b1b26878af428
     custom_provider: typing.Optional[builtins.str] = None,
     facebook: typing.Optional[typing.Union[IdentityPoolFacebookLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     google: typing.Optional[typing.Union[IdentityPoolGoogleLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
-    open_id_connect_providers: typing.Optional[typing.Sequence[_IOIDCProviderRef_3a3d0e6d]] = None,
-    saml_providers: typing.Optional[typing.Sequence[_ISAMLProviderRef_8ee7fc41]] = None,
+    open_id_connect_providers: typing.Optional[typing.Sequence[_IOIDCProviderRef_a866c7c8]] = None,
+    saml_providers: typing.Optional[typing.Sequence[_ISAMLProviderRef_6e369856]] = None,
     twitter: typing.Optional[typing.Union[IdentityPoolTwitterLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     user_pools: typing.Optional[typing.Sequence[IUserPoolAuthenticationProvider]] = None,
 ) -> None:
@@ -2313,7 +2348,10 @@ def _typecheckingstub__96b0f5e74875a97abd1e74170f934c5a7746bf416d00b5b9a3a2b7956
     *,
     user_pool: _IUserPool_1f1029e2,
     disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-    user_pool_client: typing.Optional[_IUserPoolClient_75623ba4] = None,
+    user_pool_client: typing.Optional[_IUserPoolClientRef_4466eeba] = None,
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IIdentityPool, IUserPoolAuthenticationProvider]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 from urllib.parse import parse_qs, urlencode
 
 import pytest
 
-from crawlee import ConcurrencySettings, Request
+from crawlee import ConcurrencySettings, Request, RequestState
 from crawlee.crawlers import HttpCrawler
 from crawlee.sessions import SessionPool
 from crawlee.statistics import Statistics
+from crawlee.storages import RequestQueue
 from tests.unit.server_endpoints import HELLO_WORLD
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
+    from collections.abc import Awaitable, Callable
 
     from yarl import URL
 
@@ -126,9 +127,9 @@ async def test_handles_client_errors(
         pytest.param([], True, 4, 1, id='default_behavior'),
         # error without retry for all 4xx statuses
         pytest.param([], False, 0, 1, id='default_behavior_without_session_pool'),
-        # take as successful status codes from the `ignore_http_error_status_codes` list with Sessoion Pool
+        # take as successful status codes from the `ignore_http_error_status_codes` list with Session Pool
         pytest.param([403], True, 0, 0, id='ignore_error_status_codes'),
-        # take as successful status codes from the `ignore_http_error_status_codes` list without Sessoion Pool
+        # take as successful status codes from the `ignore_http_error_status_codes` list without Session Pool
         pytest.param([403], False, 0, 0, id='ignore_error_status_codes_without_session_pool'),
     ],
 )
@@ -240,7 +241,7 @@ async def test_sending_payload_as_raw_data(http_client: HttpClient, server_url: 
 
     @crawler.router.default_handler
     async def request_handler(context: HttpCrawlingContext) -> None:
-        response = json.loads(context.http_response.read())
+        response = json.loads(await context.http_response.read())
         # The post endpoint returns the provided payload in the response.
         responses.append(response)
 
@@ -271,7 +272,7 @@ async def test_sending_payload_as_form_data(http_client: HttpClient, server_url:
 
     @crawler.router.default_handler
     async def request_handler(context: HttpCrawlingContext) -> None:
-        response = json.loads(context.http_response.read())
+        response = json.loads(await context.http_response.read())
         # The /post endpoint returns the provided payload in the response.
         responses.append(response)
 
@@ -297,7 +298,7 @@ async def test_sending_payload_as_json(http_client: HttpClient, server_url: URL)
 
     @crawler.router.default_handler
     async def request_handler(context: HttpCrawlingContext) -> None:
-        response = json.loads(context.http_response.read())
+        response = json.loads(await context.http_response.read())
         # The /post endpoint returns the provided payload in the response.
         responses.append(response)
 
@@ -324,7 +325,7 @@ async def test_sending_url_query_params(http_client: HttpClient, server_url: URL
 
     @crawler.router.default_handler
     async def request_handler(context: HttpCrawlingContext) -> None:
-        response = json.loads(context.http_response.read())
+        response = json.loads(await context.http_response.read())
         # The /get endpoint returns the provided query parameters in the response.
         responses.append(response)
 
@@ -381,7 +382,7 @@ async def test_isolation_cookies(http_client: HttpClient, server_url: URL) -> No
         ),
         http_client=http_client,
         max_request_retries=10,
-        concurrency_settings=ConcurrencySettings(max_concurrency=1),
+        concurrency_settings=ConcurrencySettings(desired_concurrency=1, max_concurrency=1),
     )
 
     @crawler.router.default_handler
@@ -397,7 +398,7 @@ async def test_isolation_cookies(http_client: HttpClient, server_url: URL) -> No
         sessions_cookies[context.session.id] = {
             cookie['name']: cookie['value'] for cookie in context.session.cookies.get_cookies_as_dicts()
         }
-        response_data = json.loads(context.http_response.read())
+        response_data = json.loads(await context.http_response.read())
         response_cookies[context.session.id] = response_data.get('cookies')
 
         if context.request.user_data.get('retire_session'):
@@ -512,7 +513,16 @@ async def test_store_complex_cookies(server_url: URL) -> None:
             'http_only': False,
         }
 
+        # Some clients may ignore `.` at the beginning of the domain
+        # https://www.rfc-editor.org/rfc/rfc6265#section-4.1.2.3
         assert session_cookies_dict['domain'] == {
+            'name': 'domain',
+            'value': '6',
+            'domain': {server_url.host},
+            'path': '/',
+            'secure': False,
+            'http_only': False,
+        } or {
             'name': 'domain',
             'value': '6',
             'domain': f'.{server_url.host}',
@@ -544,7 +554,8 @@ async def test_get_snapshot(server_url: URL) -> None:
 
 
 async def test_error_snapshot_through_statistics(server_url: URL) -> None:
-    crawler = HttpCrawler(statistics=Statistics.with_default_state(save_error_snapshots=True))
+    statistics = Statistics.with_default_state(save_error_snapshots=True)
+    crawler = HttpCrawler(statistics=statistics)
 
     @crawler.router.default_handler
     async def request_handler(context: HttpCrawlingContext) -> None:
@@ -555,11 +566,69 @@ async def test_error_snapshot_through_statistics(server_url: URL) -> None:
     kvs = await crawler.get_key_value_store()
     kvs_content = {}
     async for key_info in kvs.iterate_keys():
+        # Skip any non-error snapshot keys, e.g. __RQ_STATE_.
+        if 'ERROR_SNAPSHOT' not in key_info.key:
+            continue
         kvs_content[key_info.key] = await kvs.get_value(key_info.key)
 
     # One error, three time retried.
+    content_key = next(iter(kvs_content))
     assert crawler.statistics.error_tracker.total == 4
     assert crawler.statistics.error_tracker.unique_error_count == 1
     assert len(kvs_content) == 1
-    assert key_info.key.endswith('.html')
-    assert kvs_content[key_info.key] == HELLO_WORLD.decode('utf8')
+    assert content_key.endswith('.html')
+    assert kvs_content[content_key] == HELLO_WORLD.decode('utf8')
+
+
+async def test_request_state(server_url: URL) -> None:
+    queue = await RequestQueue.open(alias='http_request_state')
+    crawler = HttpCrawler(request_manager=queue)
+
+    success_request = Request.from_url(str(server_url))
+    assert success_request.state == RequestState.UNPROCESSED
+
+    error_request = Request.from_url(str(server_url / 'error'), user_data={'cause_error': True})
+
+    requests_states: dict[str, dict[str, RequestState]] = {success_request.unique_key: {}, error_request.unique_key: {}}
+
+    @crawler.pre_navigation_hook
+    async def pre_navigation_hook(context: BasicCrawlingContext) -> None:
+        requests_states[context.request.unique_key]['pre_navigation'] = context.request.state
+
+    @crawler.router.default_handler
+    async def request_handler(context: HttpCrawlingContext) -> None:
+        if context.request.user_data.get('cause_error'):
+            raise ValueError('Caused error as requested')
+        requests_states[context.request.unique_key]['request_handler'] = context.request.state
+
+    @crawler.error_handler
+    async def error_handler(context: BasicCrawlingContext, _error: Exception) -> None:
+        requests_states[context.request.unique_key]['error_handler'] = context.request.state
+
+    @crawler.failed_request_handler
+    async def failed_request_handler(context: BasicCrawlingContext, _error: Exception) -> None:
+        requests_states[context.request.unique_key]['failed_request_handler'] = context.request.state
+
+    await crawler.run([success_request, error_request])
+
+    handled_success_request = await queue.get_request(success_request.unique_key)
+
+    assert handled_success_request is not None
+    assert handled_success_request.state == RequestState.DONE
+
+    assert requests_states[success_request.unique_key] == {
+        'pre_navigation': RequestState.BEFORE_NAV,
+        'request_handler': RequestState.REQUEST_HANDLER,
+    }
+
+    handled_error_request = await queue.get_request(error_request.unique_key)
+    assert handled_error_request is not None
+    assert handled_error_request.state == RequestState.ERROR
+
+    assert requests_states[error_request.unique_key] == {
+        'pre_navigation': RequestState.BEFORE_NAV,
+        'error_handler': RequestState.ERROR_HANDLER,
+        'failed_request_handler': RequestState.ERROR,
+    }
+
+    await queue.drop()

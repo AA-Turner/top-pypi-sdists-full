@@ -30,8 +30,9 @@ class RolloutStrategy(object):
     """
     ROLLOUT = "ROLLOUT"
     IN_PLACE = "IN_PLACE"
+    MULTI_VERSION = "MULTI_VERSION"
 
-    allowable_values = [ROLLOUT, IN_PLACE]  # noqa: E501
+    allowable_values = [ROLLOUT, IN_PLACE, MULTI_VERSION]  # noqa: E501
 
     """
     Attributes:

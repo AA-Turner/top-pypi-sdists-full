@@ -18,14 +18,16 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class QuerySpecification(BaseModel):
     """
     Defines the information that can be used to query a set of data.  # noqa: E501
     """
-    limit: Optional[StrictInt] = Field(None, description="The maximum number of results to be returned in a \"page\"")
+    limit: Optional[StrictInt] = Field(default=None, description="The maximum number of results to be returned in a \"page\"")
     __properties = ["limit"]
 
     class Config:
@@ -80,3 +82,5 @@ class QuerySpecification(BaseModel):
             "limit": obj.get("limit")
         })
         return _obj
+
+QuerySpecification.update_forward_refs()

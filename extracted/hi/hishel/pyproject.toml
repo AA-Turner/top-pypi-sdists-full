@@ -4,13 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hishel"
-dynamic = ["readme", "version"]
-description = "Persistent cache implementation for httpx and httpcore"
+version = "1.1.8"
+dynamic = ["readme"]
+description = " Elegant HTTP Caching for Python"
 license = "BSD-3-Clause"
 requires-python = ">=3.9"
-authors = [
-    { name = "Kar Petrosyan", email = "kar.petrosyanpy@gmail.com" },
-]
+authors = [{ name = "Kar Petrosyan", email = "kar.petrosyanpy@gmail.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
@@ -26,29 +25,32 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
-    "httpx>=0.28.0",
+    "msgpack>=1.1.2",
+    "typing-extensions>=4.14.1",
 ]
 
 [project.optional-dependencies]
 
-yaml = [
-    "pyyaml==6.0.2",
+async = [
+    "anyio>=4.9.0",
+    "anysqlite>=0.0.5",
 ]
 
-redis = [
-    "redis==6.2.0"
+requests = [
+    "requests>=2.32.5",
 ]
-
-sqlite = [
-    "anysqlite>=0.0.5"
+httpx = [
+    "httpx>=0.28.1",
+    # install async extra
+    "anyio>=4.9.0",
+    "anysqlite>=0.0.5",
 ]
-
-s3 = [
-    "boto3>=1.15.0,<=1.15.3; python_version < '3.12'",
-    "boto3>=1.15.3; python_version >= '3.12'"
+fastapi = [
+    "fastapi>=0.119.1",
 ]
 
 [project.urls]
@@ -59,11 +61,7 @@ Source = "https://github.com/karpetrosyan/hishel"
 path = "hishel/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/hishel",
-    "/CHANGELOG.md",
-    "/README.md",
-]
+include = ["/hishel", "/CHANGELOG.md", "/README.md"]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
@@ -83,58 +81,64 @@ exclude = ['venv', '.venv']
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-check_untyped_defs = true
 
+check_untyped_defs = true
+[[tool.mypy.overrides]]
+module = ["time_machine.*", "msgpack.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = ["-rxXs", "--strict-config", "--strict-markers"]
 filterwarnings = []
 
-[tool.coverage.run]
-omit = [
-    "venv/*",
-    "hishel/_sync/*",
-    "hishel/_s3.py"
-]
-include = ["hishel/*", "tests/*"]
-
 [tool.coverage.report]
-exclude_also = [
-  '__repr__',
-  'raise NotImplementedError()'
-]
+exclude_also = ['__repr__', 'raise NotImplementedError()']
 
 [tool.ruff]
 exclude = [
     "hishel/_sync",
     "hishel/__init__.py",
     "tests/_sync",
+    "hishel/_core/_sync",
+    "tests/_core/_sync",
+    "hishel/_sync_cache.py",
+    "tests/test_sync_httpx.py",
+    "hishel/_core/_storages/_sync_sqlite.py",
+    "hishel/_core/_storages/_sync_base.py",
+    "tests/test_sync_httpx.py",
+    "hishel/_sync_httpx.py"
 ]
 line-length = 120
 
 [tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "W",
-    "I"
-]
+select = ["E", "F", "W", "I"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 
 [dependency-groups]
 dev = [
-    "anyio==4.7.0",
-    "coverage==7.6.10",
-    "hatch==1.9.3",
+    "anyio==4.12.0",
+    "anysqlite>=0.0.5",
+    "coverage==7.10.7",
+    "fastapi[standard]>=0.119.1",
+    "hatch==1.15.1",
+    "inline-snapshot>=0.28.0",
+    "mike>=2.1.3",
     "mkdocs==1.6.1",
-    "mkdocs-material==9.5.1",
-    "mypy==1.14.1",
-    "pytest==8.3.4",
-    "ruff==0.11.0",
-    "trio==0.28.0",
-    "types-boto3==1.0.2",
-    "types-pyyaml==6.0.12.20240311",
+    "mkdocs-git-committers-plugin>=0.2.3",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.7",
+    "mkdocs-material==9.7.0",
+    "mypy==1.19.0",
+    "pyright>=1.1.404",
+    "pytest==8.4.2",
+    "pytest-cov>=6.2.1",
+    "pytest-icdiff>=0.9",
+    "ruff==0.14.7",
+    "time-machine>=2.19.0",
+    "trio==0.31.0",
+    "types-boto3==1.41.5",
+    "types-pyyaml==6.0.12.20250915",
+    "types-requests>=2.31.0.6",
     "zipp>=3.19.1",
 ]

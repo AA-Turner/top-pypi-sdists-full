@@ -3,11 +3,15 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import os
 from functools import cached_property
 from typing import TYPE_CHECKING
 
+from dda.user.datadog import User
+
 if TYPE_CHECKING:
     from dda.cli.application import Application
+    from dda.config.model import RootConfig
     from dda.telemetry.writers.log import LogTelemetryWriter
     from dda.telemetry.writers.trace import TraceTelemetryWriter
     from dda.utils.fs import Path
@@ -74,7 +78,7 @@ class TelemetryManager:
 
         from contextlib import suppress
 
-        from dda.telemetry.secrets import fetch_api_key, read_api_key, save_api_key
+        from dda.secrets.api import fetch_api_key, read_api_key, save_api_key
 
         api_key: str | None = None
         with suppress(Exception):
@@ -85,21 +89,9 @@ class TelemetryManager:
 
         return api_key
 
-    @cached_property
-    def user_name(self) -> str:
-        return (
-            self.__app.config.user.name
-            if self.__app.config.user.name != "auto"
-            else self.__app.config.tools.git.author.name
-        )
-
-    @cached_property
-    def user_email(self) -> str:
-        return (
-            self.__app.config.user.email
-            if self.__app.config.user.email != "auto"
-            else self.__app.config.tools.git.author.email
-        )
+    @property
+    def user(self) -> TelemetryUser:
+        return TelemetryUser(self.__app.config)
 
     @cached_property
     def __enabled(self) -> bool:
@@ -126,7 +118,6 @@ class TelemetryManager:
         return Path(mkdtemp(prefix="dda-telemetry-"))
 
     def __start_daemon(self) -> None:
-        import os
         import sys
 
         from dda.telemetry.constants import DaemonEnvVars
@@ -140,3 +131,8 @@ class TelemetryManager:
         })
         self.__app.subprocess.spawn_daemon([sys.executable, "-m", "dda.telemetry.daemon"], env=env_vars)
         self.__started = True
+
+
+class TelemetryUser(User):
+    def __init__(self, config: RootConfig) -> None:
+        super().__init__(config)

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: clr_loader
-Version: 0.2.7.post0
+Version: 0.2.10
 Summary: Generic pure Python loader for .NET runtimes
 Author-email: Benedikt Reinartz <filmor@gmail.com>
 License: MIT

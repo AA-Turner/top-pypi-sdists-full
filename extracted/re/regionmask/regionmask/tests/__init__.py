@@ -1,0 +1,32 @@
+import importlib
+import warnings
+from contextlib import contextmanager
+
+import pytest
+from packaging.version import Version
+
+
+def _importorskip(modname, minversion=None):
+    try:
+        mod = importlib.import_module(modname)
+        has = True
+        if minversion is not None:
+            if Version(mod.__version__) < Version(minversion):
+                raise ImportError("Minimum version not satisfied")
+    except ImportError:  # pragma: no cover
+        has = False
+    func = pytest.mark.skipif(not has, reason=f"requires {modname}")
+    return has, func
+
+
+@contextmanager
+def assert_no_warnings():
+
+    with warnings.catch_warnings(record=True) as record:
+        yield
+        assert len(record) == 0, "got unexpected warning(s)"
+
+
+has_cartopy, requires_cartopy = _importorskip("cartopy")
+has_cf_xarray, requires_cf_xarray = _importorskip("cf_xarray")
+has_matplotlib, requires_matplotlib = _importorskip("matplotlib")

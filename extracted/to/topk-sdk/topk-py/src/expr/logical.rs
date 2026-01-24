@@ -1,6 +1,7 @@
-use crate::data::scalar::Scalar;
+use crate::data::value::Value;
 use crate::expr::flexible::FlexibleExpr;
 use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -103,6 +104,7 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
 #[pyclass(eq, eq_int)]
 pub enum TernaryOperator {
     Choose,
+    RegexpMatch,
 }
 
 impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_op::Op {
@@ -110,6 +112,9 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
         match op {
             TernaryOperator::Choose => {
                 topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+            }
+            TernaryOperator::RegexpMatch => {
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::RegexpMatch
             }
         }
     }
@@ -138,7 +143,7 @@ pub enum LogicalExpr {
         name: String,
     },
     Literal {
-        value: Scalar,
+        value: Value,
     },
     Unary {
         op: UnaryOperator,
@@ -267,6 +272,16 @@ impl PartialEq for LogicalExpr {
 impl LogicalExpr {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
+    }
+
+    /// Logical expressions cannot be used in python boolean expressions,
+    /// since `and` and `or` keywords cannot be overridden via magic methods.
+    ///
+    /// Example: `field("a") and field("b")` evaluates to `field("b")`.
+    fn __bool__(&self) -> PyResult<bool> {
+        Err(PyTypeError::new_err(
+            "Using `and` or `or` keywords with Logical expressions is not supported. Please use `&` or `|` instead.",
+        ))
     }
 
     fn _expr_eq(&self, other: &LogicalExpr) -> bool {
@@ -608,6 +623,22 @@ impl LogicalExpr {
         })
     }
 
+    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Min,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Max,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
     // Ternary operators
 
     fn choose(&self, py: Python<'_>, x: FlexibleExpr, y: FlexibleExpr) -> PyResult<Self> {
@@ -623,25 +654,38 @@ impl LogicalExpr {
     /// Otherwise, the scoring expression is unchanged (multiplied by 1).
     fn boost(&self, py: Python<'_>, condition: FlexibleExpr, boost: Numeric) -> PyResult<Self> {
         let condition_expr = Into::<LogicalExpr>::into(condition);
-        let choose_expr =
-            condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Int(1))?;
+        let choose_expr = condition_expr.choose(
+            py,
+            FlexibleExpr::Expr(boost.into()),
+            FlexibleExpr::Float(1.0),
+        )?;
         let choose_numeric = Numeric::Expr(choose_expr);
         self.mul(py, choose_numeric)
     }
 
-    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Min,
-            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
-        })
-    }
-
-    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Max,
-            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+    /// Filter documents that match the provided regexp pattern.
+    #[pyo3(signature = (pattern, flags=None))]
+    fn regexp_match(
+        &self,
+        py: Python<'_>,
+        pattern: String,
+        flags: Option<String>,
+    ) -> PyResult<Self> {
+        Ok(Self::Ternary {
+            op: TernaryOperator::RegexpMatch,
+            x: Py::new(py, self.clone())?,
+            y: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: Value::String(pattern),
+                },
+            )?,
+            z: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: flags.map(Value::String).unwrap_or(Value::Null()),
+                },
+            )?,
         })
     }
 }

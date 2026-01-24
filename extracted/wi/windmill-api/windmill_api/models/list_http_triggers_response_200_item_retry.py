@@ -20,11 +20,14 @@ T = TypeVar("T", bound="ListHttpTriggersResponse200ItemRetry")
 
 @_attrs_define
 class ListHttpTriggersResponse200ItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, ListHttpTriggersResponse200ItemRetryConstant]):
-        exponential (Union[Unset, ListHttpTriggersResponse200ItemRetryExponential]):
-        retry_if (Union[Unset, ListHttpTriggersResponse200ItemRetryRetryIf]):
+        constant (Union[Unset, ListHttpTriggersResponse200ItemRetryConstant]): Retry with constant delay between
+            attempts
+        exponential (Union[Unset, ListHttpTriggersResponse200ItemRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, ListHttpTriggersResponse200ItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "ListHttpTriggersResponse200ItemRetryConstant"] = UNSET

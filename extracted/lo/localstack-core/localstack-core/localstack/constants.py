@@ -80,6 +80,10 @@ ENV_INTERNAL_TEST_RUN = "LOCALSTACK_INTERNAL_TEST_RUN"
 # environment variable name to tag collect metrics during a test run
 ENV_INTERNAL_TEST_COLLECT_METRIC = "LOCALSTACK_INTERNAL_TEST_COLLECT_METRIC"
 
+# environment variable name to indicate that metrics should be stored within the container
+ENV_INTERNAL_TEST_STORE_METRICS_IN_LOCALSTACK = "LOCALSTACK_INTERNAL_TEST_METRICS_IN_LOCALSTACK"
+ENV_INTERNAL_TEST_STORE_METRICS_PATH = "LOCALSTACK_INTERNAL_TEST_STORE_METRICS_PATH"
+
 # environment variable that flags whether pro was activated. do not use it for security purposes!
 ENV_PRO_ACTIVATED = "PRO_ACTIVATED"
 
@@ -102,32 +106,6 @@ FALSE_STRINGS = ("0", "false", "False")
 # strings with valid log levels for LS_LOG
 LOG_LEVELS = ("trace-internal", "trace", "debug", "info", "warn", "error", "warning")
 
-# the version of elasticsearch that is pre-seeded into the base image (sync with Dockerfile.base)
-ELASTICSEARCH_DEFAULT_VERSION = "Elasticsearch_7.10"
-# See https://docs.aws.amazon.com/ja_jp/elasticsearch-service/latest/developerguide/aes-supported-plugins.html
-ELASTICSEARCH_PLUGIN_LIST = [
-    "analysis-icu",
-    "ingest-attachment",
-    "analysis-kuromoji",
-    "mapper-murmur3",
-    "mapper-size",
-    "analysis-phonetic",
-    "analysis-smartcn",
-    "analysis-stempel",
-    "analysis-ukrainian",
-]
-# Default ES modules to exclude (save apprx 66MB in the final image)
-ELASTICSEARCH_DELETE_MODULES = ["ingest-geoip"]
-
-# the version of opensearch which is used by default
-OPENSEARCH_DEFAULT_VERSION = "OpenSearch_2.11"
-
-# See https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-plugins.html
-OPENSEARCH_PLUGIN_LIST = [
-    "ingest-attachment",
-    "analysis-kuromoji",
-]
-
 # API endpoint for analytics events
 API_ENDPOINT = os.environ.get("API_ENDPOINT") or "https://api.localstack.cloud/v1"
 # new analytics API endpoint
@@ -138,6 +116,9 @@ LOCALSTACK_INFRA_PROCESS = "LOCALSTACK_INFRA_PROCESS"
 
 # AWS region us-east-1
 AWS_REGION_US_EAST_1 = "us-east-1"
+
+# AWS region eu-west-1
+AWS_REGION_EU_WEST_1 = "eu-west-1"
 
 # environment variable to override max pool connections
 try:
@@ -170,9 +151,6 @@ DEFAULT_DEVELOP_PORT = 5678
 # This name should be accepted by all IaC tools, so should respect s3 bucket naming conventions
 DEFAULT_BUCKET_MARKER_LOCAL = "hot-reload"
 LEGACY_DEFAULT_BUCKET_MARKER_LOCAL = "__local__"
-
-# user that starts the opensearch process if the current user is root
-OS_USER_OPENSEARCH = "localstack"
 
 # output string that indicates that the stack is ready
 READY_MARKER_OUTPUT = "Ready."

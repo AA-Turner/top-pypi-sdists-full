@@ -1,7 +1,7 @@
 r'''
 # `github_app_installation_repository`
 
-Refer to the Terraform Registry for docs: [`github_app_installation_repository`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository).
+Refer to the Terraform Registry for docs: [`github_app_installation_repository`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppInstallationRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.appInstallationRepository.AppInstallationRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository github_app_installation_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository github_app_installation_repository}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class AppInstallationRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository github_app_installation_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository github_app_installation_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param installation_id: The GitHub app installation id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
-        :param repository: The repository to install the app on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param installation_id: The GitHub app installation id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
+        :param repository: The repository to install the app on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class AppInstallationRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppInstallationRepository to import.
-        :param import_from_id: The id of the existing AppInstallationRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppInstallationRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppInstallationRepository to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class AppInstallationRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param installation_id: The GitHub app installation id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
-        :param repository: The repository to install the app on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param installation_id: The GitHub app installation id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
+        :param repository: The repository to install the app on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class AppInstallationRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def installation_id(self) -> builtins.str:
         '''The GitHub app installation id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#installation_id AppInstallationRepository#installation_id}
         '''
         result = self._values.get("installation_id")
         assert result is not None, "Required property 'installation_id' is missing"
@@ -350,7 +350,7 @@ class AppInstallationRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The repository to install the app on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#repository AppInstallationRepository#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -358,7 +358,7 @@ class AppInstallationRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/app_installation_repository#id AppInstallationRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

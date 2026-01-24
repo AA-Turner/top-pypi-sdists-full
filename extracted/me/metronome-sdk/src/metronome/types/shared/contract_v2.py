@@ -4,17 +4,17 @@ from typing import Dict, List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypeAlias
 
+from .tier import Tier
 from .discount import Discount
 from ..._models import BaseModel
 from .pro_service import ProService
 from .subscription import Subscription
 from .override_tier import OverrideTier
-from .overwrite_rate import OverwriteRate
 from .commit_specifier import CommitSpecifier
+from .credit_type_data import CreditTypeData
 from .scheduled_charge import ScheduledCharge
 from .schedule_duration import ScheduleDuration
 from .schedule_point_in_time import SchedulePointInTime
-from .hierarchy_configuration import HierarchyConfiguration
 from .commit_hierarchy_configuration import CommitHierarchyConfiguration
 from .spend_threshold_configuration_v2 import SpendThresholdConfigurationV2
 from .recurring_commit_subscription_config import RecurringCommitSubscriptionConfig
@@ -44,6 +44,7 @@ __all__ = [
     "CommitRolledOverFrom",
     "Override",
     "OverrideOverrideSpecifier",
+    "OverrideOverwriteRate",
     "OverrideProduct",
     "Transition",
     "UsageFilter",
@@ -61,6 +62,12 @@ __all__ = [
     "CreditLedgerCreditSeatBasedAdjustmentLedgerEntry",
     "CustomerBillingProviderConfiguration",
     "HasMore",
+    "HierarchyConfiguration",
+    "HierarchyConfigurationParentHierarchyConfiguration",
+    "HierarchyConfigurationParentHierarchyConfigurationChild",
+    "HierarchyConfigurationParentHierarchyConfigurationParentBehavior",
+    "HierarchyConfigurationChildHierarchyConfigurationV2",
+    "HierarchyConfigurationChildHierarchyConfigurationV2Parent",
     "RecurringCommit",
     "RecurringCommitAccessAmount",
     "RecurringCommitCommitDuration",
@@ -88,6 +95,8 @@ class CommitContract(BaseModel):
 
 
 class CommitInvoiceContract(BaseModel):
+    """The contract that this commit will be billed on."""
+
     id: str
 
 
@@ -350,6 +359,9 @@ class Commit(BaseModel):
 
     rate_type: Optional[Literal["COMMIT_RATE", "LIST_RATE"]] = None
 
+    recurring_commit_id: Optional[str] = None
+    """The ID of the recurring commit that created this commit"""
+
     rolled_over_from: Optional[CommitRolledOverFrom] = None
 
     rollover_fraction: Optional[float] = None
@@ -363,6 +375,9 @@ class Commit(BaseModel):
     or credit. A customer's usage needs to meet the condition of at least one of the
     specifiers to contribute to a commit's or credit's drawdown.
     """
+
+    subscription_config: Optional[RecurringCommitSubscriptionConfig] = None
+    """Attach a subscription to the recurring commit/credit."""
 
 
 class OverrideOverrideSpecifier(BaseModel):
@@ -381,6 +396,37 @@ class OverrideOverrideSpecifier(BaseModel):
     recurring_commit_ids: Optional[List[str]] = None
 
     recurring_credit_ids: Optional[List[str]] = None
+
+
+class OverrideOverwriteRate(BaseModel):
+    rate_type: Literal["FLAT", "PERCENTAGE", "SUBSCRIPTION", "TIERED", "CUSTOM"]
+
+    credit_type: Optional[CreditTypeData] = None
+
+    custom_rate: Optional[Dict[str, object]] = None
+    """Only set for CUSTOM rate_type.
+
+    This field is interpreted by custom rate processors.
+    """
+
+    is_prorated: Optional[bool] = None
+    """Default proration configuration.
+
+    Only valid for SUBSCRIPTION rate_type. Must be set to true.
+    """
+
+    price: Optional[float] = None
+    """Default price.
+
+    For FLAT rate_type, this must be >=0. For PERCENTAGE rate_type, this is a
+    decimal fraction, e.g. use 0.1 for 10%; this must be >=0 and <=1.
+    """
+
+    quantity: Optional[float] = None
+    """Default quantity. For SUBSCRIPTION rate_type, this must be >=0."""
+
+    tiers: Optional[List[Tier]] = None
+    """Only set for TIERED rate_type."""
 
 
 class OverrideProduct(BaseModel):
@@ -408,7 +454,7 @@ class Override(BaseModel):
 
     override_tiers: Optional[List[OverrideTier]] = None
 
-    overwrite_rate: Optional[OverwriteRate] = None
+    overwrite_rate: Optional[OverrideOverwriteRate] = None
 
     priority: Optional[float] = None
 
@@ -586,6 +632,13 @@ class Credit(BaseModel):
 
     contract: Optional[CreditContract] = None
 
+    created_at: Optional[datetime] = None
+    """Timestamp of when the credit was created.
+
+    - Recurring credits: latter of credit service period date and parent credit
+      start date
+    """
+
     custom_fields: Optional[Dict[str, str]] = None
     """Custom fields to be added eg. { "key1": "value1", "key2": "value2" }"""
 
@@ -611,6 +664,9 @@ class Credit(BaseModel):
     will apply first.
     """
 
+    recurring_credit_id: Optional[str] = None
+    """The ID of the recurring credit that created this credit"""
+
     salesforce_opportunity_id: Optional[str] = None
     """This field's availability is dependent on your client's configuration."""
 
@@ -621,8 +677,13 @@ class Credit(BaseModel):
     specifiers to contribute to a commit's or credit's drawdown.
     """
 
+    subscription_config: Optional[RecurringCommitSubscriptionConfig] = None
+    """Attach a subscription to the recurring commit/credit."""
+
 
 class CustomerBillingProviderConfiguration(BaseModel):
+    """This field's availability is dependent on your client's configuration."""
+
     id: str
     """ID of Customer's billing provider configuration."""
 
@@ -635,12 +696,18 @@ class CustomerBillingProviderConfiguration(BaseModel):
         "quickbooks_online",
         "workday",
         "gcp_marketplace",
+        "metronome",
     ]
 
     delivery_method: Literal["direct_to_billing_provider", "aws_sqs", "tackle", "aws_sns"]
 
 
 class HasMore(BaseModel):
+    """Indicates whether there are more items than the limit for this endpoint.
+
+    Use the respective list endpoints to get the full lists.
+    """
+
     commits: bool
     """Whether there are more commits on this contract than the limit for this
     endpoint.
@@ -658,7 +725,72 @@ class HasMore(BaseModel):
     """
 
 
+class HierarchyConfigurationParentHierarchyConfigurationChild(BaseModel):
+    contract_id: str
+
+    customer_id: str
+
+
+class HierarchyConfigurationParentHierarchyConfigurationParentBehavior(BaseModel):
+    invoice_consolidation_type: Optional[Literal["CONCATENATE", "NONE"]] = None
+    """
+    Account hierarchy M3 - Indicates the desired behavior of consolidated invoices
+    generated by the parent in a customer hierarchy
+
+    **CONCATENATE**: Statements on the invoices of child customers will be appended
+    to the consolidated invoice
+
+    **NONE**: Do not generate consolidated invoices
+    """
+
+
+class HierarchyConfigurationParentHierarchyConfiguration(BaseModel):
+    children: List[HierarchyConfigurationParentHierarchyConfigurationChild]
+    """List of contracts that belong to this parent."""
+
+    parent_behavior: Optional[HierarchyConfigurationParentHierarchyConfigurationParentBehavior] = None
+
+
+class HierarchyConfigurationChildHierarchyConfigurationV2Parent(BaseModel):
+    """The single parent contract/customer for this child."""
+
+    contract_id: str
+
+    customer_id: str
+
+
+class HierarchyConfigurationChildHierarchyConfigurationV2(BaseModel):
+    parent: HierarchyConfigurationChildHierarchyConfigurationV2Parent
+    """The single parent contract/customer for this child."""
+
+    payer: Optional[Literal["SELF", "PARENT"]] = None
+    """
+    Account hierarchy M3 - Indicates which customer should pay for the child's
+    invoice charges **SELF**: The child pays for its own invoice charges **PARENT**:
+    The parent pays for the child's invoice charges
+    """
+
+    usage_statement_behavior: Optional[Literal["CONSOLIDATE", "SEPARATE"]] = None
+    """
+    Account hierarchy M3 - Indicates the behavior of the child's invoice statements
+    on the parent's invoices.
+
+    **CONSOLIDATE**: Child's invoice statements will be added to parent's
+    consolidated invoices
+
+    **SEPARATE**: Child's invoice statements will appear not appear on parent's
+    consolidated invoices
+    """
+
+
+HierarchyConfiguration: TypeAlias = Union[
+    HierarchyConfigurationParentHierarchyConfiguration, HierarchyConfigurationChildHierarchyConfigurationV2
+]
+
+
 class RecurringCommitAccessAmount(BaseModel):
+    """The amount of commit to grant."""
+
     credit_type_id: str
 
     unit_price: float
@@ -667,6 +799,8 @@ class RecurringCommitAccessAmount(BaseModel):
 
 
 class RecurringCommitCommitDuration(BaseModel):
+    """The amount of time the created commits will be valid for"""
+
     value: float
 
     unit: Optional[Literal["PERIODS"]] = None
@@ -683,6 +817,8 @@ class RecurringCommitContract(BaseModel):
 
 
 class RecurringCommitInvoiceAmount(BaseModel):
+    """The amount the customer should be billed for the commit. Not required."""
+
     credit_type_id: str
 
     quantity: float
@@ -771,6 +907,8 @@ class RecurringCommit(BaseModel):
 
 
 class RecurringCreditAccessAmount(BaseModel):
+    """The amount of commit to grant."""
+
     credit_type_id: str
 
     unit_price: float
@@ -779,6 +917,8 @@ class RecurringCreditAccessAmount(BaseModel):
 
 
 class RecurringCreditCommitDuration(BaseModel):
+    """The amount of time the created commits will be valid for"""
+
     value: float
 
     unit: Optional[Literal["PERIODS"]] = None

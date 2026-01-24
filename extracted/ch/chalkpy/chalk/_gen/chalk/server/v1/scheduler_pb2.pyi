@@ -45,6 +45,7 @@ class CronResolverRun(_message.Message):
         "lower_bound",
         "upper_bound",
         "max_samples",
+        "used_job_queue",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -60,6 +61,7 @@ class CronResolverRun(_message.Message):
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     MAX_SAMPLES_FIELD_NUMBER: _ClassVar[int]
+    USED_JOB_QUEUE_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     resolver_fqn: str
@@ -74,6 +76,7 @@ class CronResolverRun(_message.Message):
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
     max_samples: int
+    used_job_queue: bool
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -90,6 +93,7 @@ class CronResolverRun(_message.Message):
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         max_samples: _Optional[int] = ...,
+        used_job_queue: bool = ...,
     ) -> None: ...
 
 class ManualTriggerCronResolverRequest(_message.Message):
@@ -123,7 +127,15 @@ class ManualTriggerCronResolverResponse(_message.Message):
     def __init__(self, cron_resolver_run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
 
 class ManualTriggerScheduledQueryRequest(_message.Message):
-    __slots__ = ("cron_query_id", "planner_options", "incremental_resolvers", "max_samples", "env_overrides")
+    __slots__ = (
+        "cron_query_id",
+        "planner_options",
+        "incremental_resolvers",
+        "max_samples",
+        "env_overrides",
+        "cron_query_name",
+        "store_plan_stages",
+    )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -147,11 +159,15 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
     INCREMENTAL_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     MAX_SAMPLES_FIELD_NUMBER: _ClassVar[int]
     ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    CRON_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    STORE_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
     cron_query_id: int
     planner_options: _containers.MessageMap[str, _struct_pb2.Value]
     incremental_resolvers: _containers.RepeatedScalarFieldContainer[str]
     max_samples: int
     env_overrides: _containers.ScalarMap[str, str]
+    cron_query_name: str
+    store_plan_stages: bool
     def __init__(
         self,
         cron_query_id: _Optional[int] = ...,
@@ -159,6 +175,8 @@ class ManualTriggerScheduledQueryRequest(_message.Message):
         incremental_resolvers: _Optional[_Iterable[str]] = ...,
         max_samples: _Optional[int] = ...,
         env_overrides: _Optional[_Mapping[str, str]] = ...,
+        cron_query_name: _Optional[str] = ...,
+        store_plan_stages: bool = ...,
     ) -> None: ...
 
 class ManualTriggerScheduledQueryResponse(_message.Message):
@@ -168,3 +186,57 @@ class ManualTriggerScheduledQueryResponse(_message.Message):
     def __init__(
         self, scheduled_query_run: _Optional[_Union[_scheduled_query_run_pb2.ScheduledQueryRun, _Mapping]] = ...
     ) -> None: ...
+
+class GetScheduledResolverRunRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetScheduledResolverRunResponse(_message.Message):
+    __slots__ = ("run",)
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    run: CronResolverRun
+    def __init__(self, run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
+
+class ListScheduledResolverRunsRequest(_message.Message):
+    __slots__ = ("cursor", "resolver_filter", "limit", "start", "end", "status_filter")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FILTER_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FILTER_FIELD_NUMBER: _ClassVar[int]
+    cursor: _timestamp_pb2.Timestamp
+    resolver_filter: str
+    limit: int
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    status_filter: _batch_pb2.OperationStatus
+    def __init__(
+        self,
+        cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        resolver_filter: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_filter: _Optional[_Union[_batch_pb2.OperationStatus, str]] = ...,
+    ) -> None: ...
+
+class ListScheduledResolverRunsResponse(_message.Message):
+    __slots__ = ("runs",)
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    runs: _containers.RepeatedCompositeFieldContainer[CronResolverRun]
+    def __init__(self, runs: _Optional[_Iterable[_Union[CronResolverRun, _Mapping]]] = ...) -> None: ...
+
+class CancelScheduledResolverRunRequest(_message.Message):
+    __slots__ = ("run_id",)
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    def __init__(self, run_id: _Optional[str] = ...) -> None: ...
+
+class CancelScheduledResolverRunResponse(_message.Message):
+    __slots__ = ("cron_run",)
+    CRON_RUN_FIELD_NUMBER: _ClassVar[int]
+    cron_run: CronResolverRun
+    def __init__(self, cron_run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...

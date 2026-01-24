@@ -1,15 +1,26 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .base_vector_store import BaseVectorStore
 from .langchain_vector_store_adapter import LangChainVectorStoreAdapter
 from .vector_store import VectorStore
 from .vector_store_connector import VectorStoreConnector
+
+if TYPE_CHECKING:
+    from .adapters.chroma_adapter import ChromaVectorStore
+    from .adapters.db2_adapter import DB2VectorStore
+    from .adapters.es_adapter import ElasticsearchVectorStore
+    from .adapters.es_utils import HybridStrategyElasticsearch, RetrievalOptions
+    from .adapters.milvus_adapter import MilvusVectorStore
+    from .adapters.milvus_utils import (
+        MilvusBM25BuiltinFunction,
+        MilvusSpladeEmbeddingFunction,
+    )
 
 __all__ = [
     "BaseVectorStore",

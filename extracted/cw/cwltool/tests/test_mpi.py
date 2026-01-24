@@ -7,7 +7,7 @@ from collections.abc import Generator, MutableMapping
 from importlib.resources import files
 from io import StringIO
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import pytest
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
@@ -200,24 +200,25 @@ class TestMpiRun:
     ) -> None:
         stdout = StringIO()
         stderr = StringIO()
-        monkeypatch.setenv("USER", "tester")
-        with working_directory(tmp_path):
-            rc = main(
-                argsl=cwltool_args(fake_mpi_conf) + [get_data("tests/wf/mpi_env.cwl")],
-                stdout=stdout,
-                stderr=stderr,
-            )
-            assert rc == 0
+        with monkeypatch.context() as m:
+            m.setenv("USER", "tester")
+            with working_directory(tmp_path):
+                rc = main(
+                    argsl=cwltool_args(fake_mpi_conf) + [get_data("tests/wf/mpi_env.cwl")],
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+                assert rc == 0
 
-            output = json.loads(stdout.getvalue())
-            env_path = output["environment"]["path"]
-            with open(env_path) as envfile:
-                e = {}
-                for line in envfile:
-                    k, v = line.strip().split("=", 1)
-                    e[k] = v
-            assert e["USER"] == "tester"
-            assert e["TEST_MPI_FOO"] == "bar"
+                output = json.loads(stdout.getvalue())
+                env_path = output["environment"]["path"]
+                with open(env_path) as envfile:
+                    e = {}
+                    for line in envfile:
+                        k, v = line.strip().split("=", 1)
+                        e[k] = v
+                assert e["USER"] == "tester"
+                assert e["TEST_MPI_FOO"] == "bar"
 
 
 def test_env_passing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -306,8 +307,8 @@ basetool = CommentedMap(
 def mk_tool(
     schema: Names,
     opts: list[str],
-    reqs: Optional[list[CommentedMap]] = None,
-    hints: Optional[list[CommentedMap]] = None,
+    reqs: list[CommentedMap] | None = None,
+    hints: list[CommentedMap] | None = None,
 ) -> tuple[RuntimeContext, CommandLineTool]:
     tool = basetool.copy()
 

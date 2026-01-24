@@ -44,10 +44,6 @@ class CatalogItemArgs:
         :param pulumi.Input[_builtins.str] package_type: Config package type Eg: TF_PACKAGE, NON_TF_PACKAGE, CONFIG_FILE.
         :param pulumi.Input['CatalogItemCatalogSourcePayloadArgs'] catalog_source_payload: Catalog source payload.
         :param pulumi.Input[_builtins.int] clone_catalog_item_trigger: (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only. Example: `{"bar-key": "value"}`
         :param pulumi.Input[_builtins.str] listing_id: The catalog listing Id.
@@ -157,10 +153,6 @@ class CatalogItemArgs:
     def clone_catalog_item_trigger(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
         (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "clone_catalog_item_trigger")
 
@@ -284,10 +276,6 @@ class _CatalogItemState:
         :param pulumi.Input[Sequence[pulumi.Input['CatalogItemCatalogResultPayloadArgs']]] catalog_result_payloads: Catalog result payload.
         :param pulumi.Input['CatalogItemCatalogSourcePayloadArgs'] catalog_source_payload: Catalog source payload.
         :param pulumi.Input[_builtins.int] clone_catalog_item_trigger: (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
         :param pulumi.Input[_builtins.str] config_source_type: Config source type Eg: STACK_TEMPLATE_CATALOG_SOURCE, PAR_CATALOG_SOURCE, GIT_CATALOG_SOURCE, MARKETPLACE_CATALOG_SOURCE.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
@@ -385,10 +373,6 @@ class _CatalogItemState:
     def clone_catalog_item_trigger(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
         (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "clone_catalog_item_trigger")
 
@@ -659,10 +643,6 @@ class CatalogItem(pulumi.CustomResource):
                  version_description: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Catalog Item resource in Oracle Cloud Infrastructure Fleet Apps Management service.
-
-        Creates a CatalogItem.
-
         ## Example Usage
 
         ```python
@@ -699,6 +679,7 @@ class CatalogItem(pulumi.CustomResource):
             freeform_tags={
                 "bar-key": "value",
             },
+            is_item_locked=catalog_item_is_item_locked,
             listing_id=test_listing["id"],
             listing_version=catalog_item_listing_version,
             short_description=catalog_item_short_description,
@@ -718,10 +699,6 @@ class CatalogItem(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['CatalogItemCatalogSourcePayloadArgs', 'CatalogItemCatalogSourcePayloadArgsDict']] catalog_source_payload: Catalog source payload.
         :param pulumi.Input[_builtins.int] clone_catalog_item_trigger: (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
         :param pulumi.Input[_builtins.str] config_source_type: Config source type Eg: STACK_TEMPLATE_CATALOG_SOURCE, PAR_CATALOG_SOURCE, GIT_CATALOG_SOURCE, MARKETPLACE_CATALOG_SOURCE.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
@@ -742,10 +719,6 @@ class CatalogItem(pulumi.CustomResource):
                  args: CatalogItemArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Catalog Item resource in Oracle Cloud Infrastructure Fleet Apps Management service.
-
-        Creates a CatalogItem.
-
         ## Example Usage
 
         ```python
@@ -782,6 +755,7 @@ class CatalogItem(pulumi.CustomResource):
             freeform_tags={
                 "bar-key": "value",
             },
+            is_item_locked=catalog_item_is_item_locked,
             listing_id=test_listing["id"],
             listing_version=catalog_item_listing_version,
             short_description=catalog_item_short_description,
@@ -911,10 +885,6 @@ class CatalogItem(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['CatalogItemCatalogResultPayloadArgs', 'CatalogItemCatalogResultPayloadArgsDict']]]] catalog_result_payloads: Catalog result payload.
         :param pulumi.Input[Union['CatalogItemCatalogSourcePayloadArgs', 'CatalogItemCatalogSourcePayloadArgsDict']] catalog_source_payload: Catalog source payload.
         :param pulumi.Input[_builtins.int] clone_catalog_item_trigger: (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
         :param pulumi.Input[_builtins.str] config_source_type: Config source type Eg: STACK_TEMPLATE_CATALOG_SOURCE, PAR_CATALOG_SOURCE, GIT_CATALOG_SOURCE, MARKETPLACE_CATALOG_SOURCE.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
@@ -986,10 +956,6 @@ class CatalogItem(pulumi.CustomResource):
     def clone_catalog_item_trigger(self) -> pulumi.Output[Optional[_builtins.int]]:
         """
         (Updatable) An optional property when incremented triggers Clone Catalog Item. Could be set to any integer value.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "clone_catalog_item_trigger")
 

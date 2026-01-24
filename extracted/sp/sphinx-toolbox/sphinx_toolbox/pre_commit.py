@@ -246,7 +246,7 @@ class Flake8PreCommitDirective(SphinxDirective):
 		config = {
 				"repo": "https://github.com/pycqa/flake8",
 				"rev": flake8_version,
-				"hooks": [{"id": "flake8", "additional_dependencies": [f"{plugin_name}=={self.arguments[0]}"]}]
+				"hooks": [{"id": "flake8", "additional_dependencies": [f"{plugin_name}=={self.arguments[0]}"]}],
 				}
 
 		targetid = f'pre-commit-{self.env.new_serialno("pre-commit"):d}'
@@ -305,7 +305,7 @@ def revert_8345() -> None:  # pragma: no cover  # Only for Sphinx 4+
 	#  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 	#  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-	def lookup_domain_element(self, type: str, name: str) -> Any:  # noqa: A002  # pylint: disable=redefined-builtin
+	def lookup_domain_element(self, type: str, name: str) -> Any:  # noqa: A002,PRM002  # pylint: disable=redefined-builtin
 		"""
 		Lookup a markup element (directive or role), given its name which can be a full name (with domain).
 		"""

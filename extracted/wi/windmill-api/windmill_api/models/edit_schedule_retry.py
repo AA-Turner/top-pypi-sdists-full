@@ -16,12 +16,13 @@ T = TypeVar("T", bound="EditScheduleRetry")
 
 @_attrs_define
 class EditScheduleRetry:
-    """The retry configuration for the schedule
+    """Retry configuration for failed module executions
 
     Attributes:
-        constant (Union[Unset, EditScheduleRetryConstant]):
-        exponential (Union[Unset, EditScheduleRetryExponential]):
-        retry_if (Union[Unset, EditScheduleRetryRetryIf]):
+        constant (Union[Unset, EditScheduleRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, EditScheduleRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, EditScheduleRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "EditScheduleRetryConstant"] = UNSET

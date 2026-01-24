@@ -18,6 +18,11 @@ def load_compiled_model(
 ) -> Tuple[torch.nn.Module, dict]:
     """Load a compiled model from either TorchScript or AOTInductor format.
 
+    This function can load compiled models created with ``nequip-compile``:
+
+    - **TorchScript models** (``.nequip.pth``): legacy compiled format
+    - **AOT Inductor models** (``.nequip.pt2``): modern compiled format with better performance
+
     Args:
         compile_path: path to compiled model file (``.nequip.pth`` or ``.nequip.pt2``)
         device: the device to use
@@ -25,7 +30,7 @@ def load_compiled_model(
         output_keys: output field names for AOTInductor models (required for ``.nequip.pt2``)
 
     Returns:
-        tuple of (model, metadata) with model prepared for inference
+        tuple: ``(model, metadata)`` with model prepared for inference
     """
     compile_fname = Path(compile_path).name
 

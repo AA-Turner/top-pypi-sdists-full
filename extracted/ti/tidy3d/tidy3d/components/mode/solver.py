@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
@@ -18,6 +18,10 @@ from .transforms import angled_transform, radial_transform
 TOL_COMPLEX = 1e-10
 # Tolerance for eigs
 TOL_EIGS = fp_eps / 10
+# Relative tolerance of complex effective index for finding candidate degenerate modes
+TOL_DEGENERATE_CANDIDATE = 1e3 * TOL_EIGS
+# Tolerance used to determine whether possible degenerate modes need manual orthogonalization
+TOL_NEEDS_ORTHOGONALIZATION = 1e2 * TOL_EIGS
 # Tolerance for deciding on the matrix to be diagonal or tensorial
 TOL_TENSORIAL = 1e-6
 # shift target neff by this value, both rel and abs, whichever results in larger shift
@@ -274,6 +278,8 @@ class EigSolver(Tidy3dBaseModel):
             direction,
             enable_incidence_matrices,
             basis_E=basis_E,
+            dls=dls,
+            dmin_pmc=dmin_pmc,
         )
 
         # Transform back to original axes, E = J^T E'
@@ -283,6 +289,7 @@ class EigSolver(Tidy3dBaseModel):
         E = E.reshape((3, Nx, Ny, 1, num_modes))
         H = np.sum(jac_h[..., None] * H[:, None, ...], axis=0)
         H = H.reshape((3, Nx, Ny, 1, num_modes))
+
         fields = np.stack((E, H), axis=0)
 
         neff = neff * np.linalg.norm(kp_to_k)
@@ -308,6 +315,8 @@ class EigSolver(Tidy3dBaseModel):
         direction,
         enable_incidence_matrices,
         basis_E,
+        dls,
+        dmin_pmc=None,
     ):
         """Solve for the electromagnetic modes of a system defined by in-plane permittivity and
         permeability and assuming translational invariance in the normal direction.
@@ -323,7 +332,7 @@ class EigSolver(Tidy3dBaseModel):
         mu_tensor : np.ndarray
             Shape (3, 3, N), the permittivity tensor at every point in the plane.
         der_mats : List[scipy.sparse.csr_matrix]
-            The sparce derivative matrices dxf, dxb, dyf, dyb, including the PML.
+            The sparse derivative matrices dxf, dxb, dyf, dyb, including the PML.
         num_modes : int
             Number of modes to solve for.
         neff_guess : float
@@ -334,6 +343,10 @@ class EigSolver(Tidy3dBaseModel):
             Direction of mode propagation.
         basis_E: np.ndarray
             Basis for mode solving.
+        dls: Tuple[List[np.ndarray], List[np.ndarray]]
+            Primal and dual grid steps along each of the two tangential dimensions.
+        dmin_pmc: List[bool]
+            List of booleans indicating whether to apply PMC at the near end of the grid.
 
         Returns
         -------
@@ -374,11 +387,18 @@ class EigSolver(Tidy3dBaseModel):
         mu_offd = np.abs(mu_tensor[off_diagonals])
         is_tensorial = np.any(eps_offd > TOL_TENSORIAL) or np.any(mu_offd > TOL_TENSORIAL)
 
+        # Determine if ``eps`` and ``mu`` represent reciprocal media
+        is_reciprocal = True
+        if is_tensorial:
+            is_reciprocal = cls._check_reciprocity(
+                eps_tensor, TOL_TENSORIAL
+            ) and cls._check_reciprocity(mu_tensor, TOL_TENSORIAL)
+
         # initial vector for eigensolver in correct data type
         vec_init = cls.set_initial_vec(Nx, Ny, is_tensorial=is_tensorial)
 
-        # call solver
-        kwargs = {
+        # call solver: base kwargs shared by diagonal and tensorial solvers
+        base_kwargs = {
             "eps": eps_tensor,
             "mu": mu_tensor,
             "der_mats": der_mats,
@@ -388,18 +408,19 @@ class EigSolver(Tidy3dBaseModel):
             "mat_precision": mat_precision,
         }
 
-        is_eps_complex = cls.isinstance_complex(eps_tensor)
-
         if basis_E is not None and is_tensorial:
             raise RuntimeError(
                 "Tensorial eps not yet supported in relative mode solver "
                 "(with basis fields provided)."
             )
 
+        # Determine if epsilon has complex values (used to select real vs complex tensorial solver)
+        is_eps_complex = cls.isinstance_complex(eps_tensor)
+
         if not is_tensorial:
             eps_spec = "diagonal"
             E, H, neff, keff = cls.solver_diagonal(
-                **kwargs,
+                **base_kwargs,
                 enable_incidence_matrices=enable_incidence_matrices,
                 basis_E=basis_E,
             )
@@ -410,51 +431,46 @@ class EigSolver(Tidy3dBaseModel):
 
         elif not is_eps_complex:
             eps_spec = "tensorial_real"
-            E, H, neff, keff = cls.solver_tensorial(**kwargs, direction="+")
+            E, H, neff, keff = cls.solver_tensorial(
+                **base_kwargs,
+                direction="+",
+                dls=dls,
+                Nxy=(Nx, Ny),
+                dmin_pmc=dmin_pmc,
+            )
             if direction == "-":
                 E = np.conj(E)
                 H = -np.conj(H)
 
         else:
             eps_spec = "tensorial_complex"
-            E, H, neff, keff = cls.solver_tensorial(**kwargs, direction=direction)
+            E, H, neff, keff = cls.solver_tensorial(
+                **base_kwargs,
+                direction=direction,
+                dls=dls,
+                Nxy=(Nx, Ny),
+                dmin_pmc=dmin_pmc,
+            )
+
+        # We only can orthogonalize reciprocal modes in this manner.
+        if is_reciprocal:
+            dl_f, dl_b = dls
+            # Normalize all modes so self-dot equals 1.0 and find any self-orthogonal modes
+            all_modes = list(range(num_modes))
+            original_shape = E.shape
+            E = E.reshape((3, Nx, Ny, num_modes))
+            H = H.reshape((3, Nx, Ny, num_modes))
+            E, H, self_orthogonal_modes = cls._normalize_modes(
+                E, H, dl_f, dl_b, all_modes, TOL_NEEDS_ORTHOGONALIZATION
+            )
+            # Identify and orthogonalize degenerate modes, excluding self-orthogonal modes
+            E, H = cls._orthogonalize_degenerate_modes(
+                E, H, neff, keff, dl_f, dl_b, self_orthogonal_modes
+            )
+            E = E.reshape(original_shape)
+            H = H.reshape(original_shape)
 
         return E, H, neff, keff, eps_spec
-
-    @classmethod
-    def matrix_data_type(cls, eps, mu, der_mats, mat_precision, is_tensorial):
-        """Determine data type that should be used for the matrix for diagonalization."""
-        mat_dtype = np.float32
-        # In tensorial case, even though the matrix can be real, the
-        # expected eigenvalue is purely imaginary. So for now we enforce
-        # the matrix to be complex type so that it will look for the right eigenvalues.
-        if is_tensorial:
-            mat_dtype = np.complex128 if mat_precision == "double" else np.complex64
-        else:
-            # 1) check if complex or not
-            complex_solver = (
-                cls.isinstance_complex(eps)
-                or cls.isinstance_complex(mu)
-                or np.any([cls.isinstance_complex(f) for f in der_mats])
-            )
-            # 2) determine precision
-            if complex_solver:
-                mat_dtype = np.complex128 if mat_precision == "double" else np.complex64
-            else:
-                if mat_precision == "double":
-                    mat_dtype = np.float64
-
-        return mat_dtype
-
-    @classmethod
-    def trim_small_values(cls, mat: sp.csr_matrix, tol: float) -> sp.csr_matrix:
-        """Eliminate elements of matrix ``mat`` for which ``abs(element) / abs(max_element) < tol``,
-        or ``np.abs(mat_data) < tol``. This operates in-place on mat so there is no return.
-        """
-        max_element = np.amax(np.abs(mat))
-        mat.data *= np.logical_or(np.abs(mat.data) / max_element > tol, np.abs(mat.data) > tol)
-        mat.eliminate_zeros()
-        return mat
 
     @classmethod
     def solver_diagonal(
@@ -685,8 +701,61 @@ class EigSolver(Tidy3dBaseModel):
         return E, H, neff, keff
 
     @classmethod
+    def matrix_data_type(cls, eps, mu, der_mats, mat_precision, is_tensorial):
+        """Determine data type that should be used for the matrix for diagonalization."""
+        mat_dtype = np.float32
+        # In tensorial case, even though the matrix can be real, the
+        # expected eigenvalue is purely imaginary. So for now we enforce
+        # the matrix to be complex type so that it will look for the right eigenvalues.
+        if is_tensorial:
+            mat_dtype = np.complex128 if mat_precision == "double" else np.complex64
+        else:
+            # 1) check if complex or not
+            complex_solver = (
+                cls.isinstance_complex(eps)
+                or cls.isinstance_complex(mu)
+                or np.any([cls.isinstance_complex(f) for f in der_mats])
+            )
+            # 2) determine precision
+            if complex_solver:
+                mat_dtype = np.complex128 if mat_precision == "double" else np.complex64
+            else:
+                if mat_precision == "double":
+                    mat_dtype = np.float64
+
+        return mat_dtype
+
+    @classmethod
+    def trim_small_values(cls, mat: sp.csr_matrix, tol: float) -> sp.csr_matrix:
+        """Eliminate elements of matrix ``mat`` for which ``abs(element) / abs(max_element) < tol``,
+        or ``np.abs(mat_data) < tol``. This operates in-place on mat so there is no return.
+        """
+        max_element = np.amax(np.abs(mat))
+        mat.data *= np.logical_or(np.abs(mat.data) / max_element > tol, np.abs(mat.data) > tol)
+        mat.eliminate_zeros()
+        return mat
+
+    @staticmethod
+    def _check_reciprocity(material_tensor: np.ndarray, tol: float) -> bool:
+        """Check if material tensor is symmetric (reciprocal): tensor[i,j] ≈ tensor[j,i]."""
+        diff = np.abs(material_tensor - material_tensor.transpose(1, 0, 2))
+        max_error = np.max(diff)
+        return max_error <= tol
+
+    @classmethod
     def solver_tensorial(
-        cls, eps, mu, der_mats, num_modes, neff_guess, vec_init, mat_precision, direction
+        cls,
+        eps,
+        mu,
+        der_mats,
+        num_modes,
+        neff_guess,
+        vec_init,
+        mat_precision,
+        direction,
+        dls,
+        Nxy=None,
+        dmin_pmc=None,
     ):
         """EM eigenmode solver assuming ``eps`` or ``mu`` have off-diagonal elements."""
         import scipy.sparse as sp
@@ -823,7 +892,7 @@ class EigSolver(Tidy3dBaseModel):
         vec_init,
         guess_value=1.0,
         M=None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Find ``num_modes`` eigenmodes of ``mat`` cloest to ``guess_value``.
 
@@ -862,7 +931,7 @@ class EigSolver(Tidy3dBaseModel):
         guess_value=1.0,
         M=None,
         basis_vecs=None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Find ``num_modes`` eigenmodes of ``mat`` cloest to ``guess_value``.
 
@@ -1044,7 +1113,7 @@ class EigSolver(Tidy3dBaseModel):
         return new_ten.reshape((3, 3, -1))
 
     @staticmethod
-    def split_curl_field_postprocess_inverse(split_curl, E):
+    def split_curl_field_postprocess_inverse(split_curl, E) -> None:
         """E has the shape (3, N, num_modes)"""
         raise RuntimeError("Split curl not yet implemented for relative mode solver.")
 
@@ -1057,7 +1126,347 @@ class EigSolver(Tidy3dBaseModel):
             return False
         return np.any(np.abs(material_response) > GOOD_CONDUCTOR_THRESHOLD * np.abs(pec_val))
 
+    @staticmethod
+    def _identify_degenerate_modes(
+        n_complex: np.ndarray,
+        tol: float,
+    ) -> list[set[int]]:
+        """Inspects the n_complex of modes to find sets of degenerate modes."""
+        num_modes = len(n_complex)
+        ungrouped = set(range(num_modes))
+        degenerate_sets = []
 
-def compute_modes(*args, **kwargs) -> tuple[Numpy, Numpy, str]:
-    """A wrapper around ``EigSolver.compute_modes``, which is used in ``ModeSolver``."""
+        while ungrouped:
+            # Start a new group with an ungrouped mode
+            seed = ungrouped.pop()
+            current_set = {seed}
+
+            # Find all ungrouped modes similar to the seed
+            to_remove = set()
+            for mode_idx in ungrouped:
+                if np.isclose(n_complex[mode_idx], n_complex[seed], rtol=tol, atol=tol):
+                    current_set.add(mode_idx)
+                    to_remove.add(mode_idx)
+
+            # Remove grouped modes from ungrouped set
+            ungrouped -= to_remove
+
+            # Only keep groups with more than one mode
+            if len(current_set) >= 2:
+                degenerate_sets.append(current_set)
+
+        return degenerate_sets
+
+    @staticmethod
+    def _identify_degenerate_modes_with_dot(
+        degenerate_sets: list[set[int]],
+        E: np.ndarray,
+        H: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        tol: float,
+    ) -> list[set[int]]:
+        """Inspects the biorthogonality condition between modes to filter sets of degenerate modes.
+
+        For each set of modes identified as degenerate by neff similarity, this function computes
+        the overlap matrix and uses connected components to find which modes are truly degenerate
+        (have significant mutual overlap).
+
+        Returns only groups with >= 2 modes that have significant overlap.
+        """
+        import scipy.sparse as sp
+
+        filtered_degenerate_sets = []
+
+        for degenerate_group in degenerate_sets:
+            # Convert set to list for indexing
+            mode_indices = sorted(degenerate_group)
+
+            # S is a symmetric overlap matrix of the degenerate modes
+            S = EigSolver._outer_dot(E, H, dl_primal, dl_dual, mode_indices)
+
+            # Create adjacency matrix
+            # True if overlap is significant, False if orthogonal
+            # Zero out diagonal so a mode doesn't connect to itself
+            adjacency = (np.abs(S) > tol).astype(int)
+            np.fill_diagonal(adjacency, 0)
+
+            # Find connected components
+            # labels: array indicating which group each mode belongs to
+            _, labels = sp.csgraph.connected_components(sp.csr_matrix(adjacency), directed=False)
+
+            # Group modes by their connected component label
+            groups = {}
+            for label_idx, group_id in enumerate(labels):
+                mode_index = mode_indices[label_idx]
+                if group_id not in groups:
+                    groups[group_id] = []
+                groups[group_id].append(mode_index)
+
+            # Convert groups dict to list of sets, keeping only groups with >= 2 modes
+            for group_modes in groups.values():
+                if len(group_modes) >= 2:
+                    filtered_degenerate_sets.append(set(group_modes))
+
+        return filtered_degenerate_sets
+
+    @staticmethod
+    def _dot(
+        E: np.ndarray,
+        H: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        mode_1: int,
+        mode_2: int,
+    ) -> complex:
+        """Dot product based on the bi-orthogonality relationship between E and H."""
+        # Extract field components
+        Ex = E[0, ...]
+        Ey = E[1, ...]
+        Hx = H[0, ...]
+        Hy = H[1, ...]
+
+        # Make the differential area elements
+        Ex_Hy_dS = np.outer(dl_primal[0], dl_dual[1])
+        Ey_Hx_dS = np.outer(dl_dual[0], dl_primal[1])
+
+        term1 = Ex[..., mode_1] * Hy[..., mode_2] + Ex[..., mode_2] * Hy[..., mode_1]
+        term1 *= Ex_Hy_dS
+        term2 = Ey[..., mode_1] * Hx[..., mode_2] + Ey[..., mode_2] * Hx[..., mode_1]
+        term2 *= Ey_Hx_dS
+        return (1 / 4) * np.sum(term1 - term2)
+
+    @staticmethod
+    def _cauchy_schwarz_dot_bound(
+        E: np.ndarray,
+        H: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        mode_idx: int,
+    ) -> complex:
+        """Calculates the upper bound for the self-dot (overlap) using the Cauchy-Schwarz inequality.
+
+        Hard to predict how the normalization of the eigenvectors from the linear algebra solver
+        translates to normalization in terms of the EM overlap integral,
+        so we use this upper bound to determine whether a mode should be considered as self-orthogonal.
+
+        Sketch of derivation for the upper bound:
+        | S (E x H) . z dA |               (Absolute value of the bi-orthogonality overlap integral)
+        <=  S |(E x H) . z| dA             (Triangle Inequality)
+        <=  S |E| * |H|     dA             (Cross Product Magnitude)
+        <= sqrt(S |E|^2) * sqrt(S |H|^2)   (Cauchy-Schwarz)
+        """
+        # Extract all field components
+        Ex = E[0, ...]
+        Ey = E[1, ...]
+        Ez = E[2, ...]
+        Hx = H[0, ...]
+        Hy = H[1, ...]
+        Hz = H[2, ...]
+
+        # Make the differential area elements
+        Ex_Hy_dS = np.outer(dl_primal[0], dl_dual[1])
+        Ey_Hx_dS = np.outer(dl_dual[0], dl_primal[1])
+        Ez_dS = np.outer(dl_dual[0], dl_dual[1])
+        Hz_dS = np.outer(dl_primal[0], dl_primal[1])
+
+        E_int = np.sum(Ex[..., mode_idx] * Ex[..., mode_idx].conj() * Ex_Hy_dS)
+        E_int += np.sum(Ey[..., mode_idx] * Ey[..., mode_idx].conj() * Ey_Hx_dS)
+        E_int += np.sum(Ez[..., mode_idx] * Ez[..., mode_idx].conj() * Ez_dS)
+        E_int = E_int / 2
+
+        H_int = np.sum(Hx[..., mode_idx] * Hx[..., mode_idx].conj() * Ey_Hx_dS)
+        H_int += np.sum(Hy[..., mode_idx] * Hy[..., mode_idx].conj() * Ex_Hy_dS)
+        H_int += np.sum(Hz[..., mode_idx] * Hz[..., mode_idx].conj() * Hz_dS)
+        H_int = H_int / 2
+
+        return np.sqrt(E_int * H_int)
+
+    @staticmethod
+    def _outer_dot(
+        E: np.ndarray,
+        H: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        mode_indices: set[int],
+    ) -> np.ndarray:
+        """Vectorized modal overlap matrix calculation for a set of modes.
+
+        This overlap is based on the bi-orthogonality relationship between E and H.
+        Returns a matrix S where S[i, j] is the overlap between mode i and mode j.
+
+        Note: The overlap matrix is symmetric, so we only compute the upper triangle
+        (including diagonal) and fill the lower triangle by symmetry.
+        """
+        # Convert set to sorted list for consistent indexing
+        mode_list = sorted(mode_indices)
+        n_modes = len(mode_list)
+
+        # Extract field components
+        Ex_sel = E[0][..., mode_list]  # (Nx, Ny, 1, n)
+        Ey_sel = E[1][..., mode_list]
+        Hx_sel = H[0][..., mode_list]
+        Hy_sel = H[1][..., mode_list]
+
+        # Make the differential area elements
+        Ex_Hy_dS = np.outer(dl_primal[0], dl_dual[1])
+        Ey_Hx_dS = np.outer(dl_dual[0], dl_primal[1])
+
+        # Initialize output matrix
+        dtype = Ex_sel.dtype
+        S = np.zeros((n_modes, n_modes), dtype=dtype)
+
+        # Only compute upper triangle (including diagonal)
+        for i in range(n_modes):
+            # Vectorize over j >= i
+            j_indices = np.arange(i, n_modes)
+
+            # Extract mode i fields
+            Ex_i = Ex_sel[..., i : i + 1]  # (Nx, Ny, 1, 1)
+            Ey_i = Ey_sel[..., i : i + 1]
+            Hy_i = Hy_sel[..., i : i + 1]
+            Hx_i = Hx_sel[..., i : i + 1]
+
+            # Extract mode j fields (vectorized for j >= i)
+            Ex_j = Ex_sel[..., j_indices]  # (Nx, Ny, 1, n_j)
+            Ey_j = Ey_sel[..., j_indices]
+            Hy_j = Hy_sel[..., j_indices]
+            Hx_j = Hx_sel[..., j_indices]
+
+            # Compute term1: (Ex[i] * Hy[j] + Ex[j] * Hy[i]) * dS
+            term1 = (Ex_i * Hy_j + Ex_j * Hy_i) * Ex_Hy_dS[..., np.newaxis]
+
+            # Compute term2: (Ey[i] * Hx[j] + Ey[j] * Hx[i]) * dS
+            term2 = (Ey_i * Hx_j + Ey_j * Hx_i) * Ey_Hx_dS[..., np.newaxis]
+
+            # Sum over spatial dimensions to get S[i, j] for j >= i
+            S[i, j_indices] = (1 / 4) * np.sum(term1 - term2, axis=(0, 1))
+
+        # Fill lower triangle by symmetry
+        S = S + S.T - np.diag(np.diag(S))
+
+        return S
+
+    @staticmethod
+    def _normalize_modes(
+        E: np.ndarray,
+        H: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        mode_indices: list[int],
+        self_orthogonal_tol: float,
+    ) -> tuple[np.ndarray, np.ndarray, set[int]]:
+        """Normalize modes so that their self-dot equals 1.0.
+
+        Returns:
+            Tuple of (E, H, self_orthogonal_modes) where self_orthogonal_modes is a set of mode indices
+            that are self-orthogonal and cannot be normalized.
+        """
+        self_orthogonal_modes = set()
+        for mode_idx in mode_indices:
+            self_dot = EigSolver._dot(E, H, dl_primal, dl_dual, mode_idx, mode_idx)
+            self_dot_upper_bound = EigSolver._cauchy_schwarz_dot_bound(
+                E, H, dl_primal, dl_dual, mode_idx
+            )
+            # Check if mode is self-orthogonal or otherwise not suitable for orthogonalization procedure
+            if (
+                np.abs(self_dot) < self_dot_upper_bound * self_orthogonal_tol
+                or np.any(np.isnan(E[..., mode_idx]))
+                or np.any(np.isnan(H[..., mode_idx]))
+            ):
+                self_orthogonal_modes.add(mode_idx)
+                continue
+            norm_factor = 1.0 / np.sqrt(self_dot)
+            E[..., mode_idx] *= norm_factor
+            H[..., mode_idx] *= norm_factor
+
+        return E, H, self_orthogonal_modes
+
+    @classmethod
+    def _orthogonalize_degenerate_modes(
+        cls,
+        E: np.ndarray,
+        H: np.ndarray,
+        neff: np.ndarray,
+        keff: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+        self_orthogonal_modes: set[int],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Identify and orthogonalize degenerate modes, excluding self-orthogonal modes."""
+        # Identify and orthogonalize candidate degenerate modes with a coarser tolerance
+        degenerate_modes = cls._identify_degenerate_modes(
+            neff + keff * 1j, TOL_DEGENERATE_CANDIDATE
+        )
+
+        # Remove self-orthogonal modes from degenerate mode sets since they cannot be orthogonalized
+        degenerate_modes = [
+            mode_set - self_orthogonal_modes
+            for mode_set in degenerate_modes
+            if len(mode_set - self_orthogonal_modes)
+            > 1  # Only keep sets with at least 2 valid modes
+        ]
+
+        # Orthogonalize candidate degenerate modes that result in an overlap greater than
+        # the required tolerance
+        filtered_degenerate_modes = cls._identify_degenerate_modes_with_dot(
+            degenerate_modes, E, H, dl_primal, dl_dual, TOL_NEEDS_ORTHOGONALIZATION
+        )
+
+        E, H = cls._make_orthogonal_basis_for_degenerate_modes(
+            filtered_degenerate_modes, E, H, dl_primal, dl_dual
+        )
+
+        return E, H
+
+    @staticmethod
+    def _make_orthogonal_basis_for_degenerate_modes(
+        degenerate_mode_sets: list[set[int]],
+        E_vec: np.ndarray,
+        H_vec: np.ndarray,
+        dl_primal: np.ndarray,
+        dl_dual: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Ensures that groups of degenerate modes are orthogonal, which is not guaranteed for eigenvectors with degenerate eigenvalues."""
+        dtype = E_vec.dtype
+        for degenerate_group in degenerate_mode_sets:
+            # Convert set to list for indexing
+            mode_indices = sorted(degenerate_group)
+
+            # S is a symmetric overlap matrix of the degenerate modes.
+            S = EigSolver._outer_dot(E_vec, H_vec, dl_primal, dl_dual, mode_indices)
+
+            # 1. Diagonalize
+            # eigenvalues (w) and right eigenvectors (v)
+            eigvals, eigvecs = np.linalg.eig(S)
+            # 2. Normalize Eigenvectors using UNCONJUGATED dot product
+            # Standard np.linalg.eig normalizes so v.conj().T @ v = 1 (Hermitian)
+            # We need v.T @ v = 1 (Complex Symmetric)
+            for i in range(eigvecs.shape[1]):
+                vec = eigvecs[:, i]
+                # Calculate complex self-dot (no conjugation)
+                self_dot = np.dot(vec, vec)
+
+                # Avoid division by zero
+                if np.isclose(self_dot, 0, atol=np.finfo(dtype).tiny):
+                    raise ValueError(f"Eigenvector {i} is self-orthogonal. Cannot orthogonalize.")
+
+                scale_factor = np.sqrt(self_dot)
+                eigvecs[:, i] = vec / scale_factor
+            # 3. Calculate Inverse Square Root of Eigenvalues
+            lambda_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
+            # 4. Construct W
+            # Since V is complex orthogonal (V.T @ V = I), V_inv = V.T
+            # W = V * Lambda^(-1/2) * V.T
+            W = eigvecs @ lambda_inv_sqrt @ eigvecs.T
+            # S_new will be identity
+            # S_new = W.T @ S @ W
+            E_vec[..., mode_indices] = E_vec[..., mode_indices] @ W
+            H_vec[..., mode_indices] = H_vec[..., mode_indices] @ W
+
+        return E_vec, H_vec
+
+
+def compute_modes(*args: Any, **kwargs: Any) -> tuple[Numpy, Numpy, str]:
+    """A wrapper around ``EigSolver.compute_modes``, which is used in :class:`.ModeSolver`."""
     return EigSolver.compute_modes(*args, **kwargs)

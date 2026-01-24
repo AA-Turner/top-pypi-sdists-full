@@ -14,11 +14,10 @@ from typing import ClassVar
 
 class ObservabilityPipelineQuotaProcessorOverflowAction(ModelSimple):
     """
-    The action to take when the quota is exceeded. Options:
+    The action to take when the quota or bucket limit is exceeded. Options:
         - `drop`: Drop the event.
         - `no_action`: Let the event pass through.
         - `overflow_routing`: Route to an overflow destination.
-
 
     :param value: Must be one of ["drop", "no_action", "overflow_routing"].
     :type value: str

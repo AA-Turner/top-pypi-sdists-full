@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meraki
-Version: 2.0.3
+Version: 2.1.0
 Summary: Meraki library for Python
 Home-page: https://github.com/meraki/dashboard-api-python
 Author: Cisco Meraki
@@ -14,9 +14,9 @@ License-File: LICENSE
 Requires-Dist: requests<3.0.0,>=2.32.2
 Requires-Dist: aiohttp<4.0.0,>=3.11.18
 Requires-Dist: jinja2==3.1.6
-Requires-Dist: pytest<9.0.0,>=8.3.5
+Requires-Dist: pytest<10.0.0,>=8.3.5
 Requires-Dist: setuptools<79.0.0,>=78.1.1
-Requires-Dist: build<2.0.0,>=1.2.2.post1
+Requires-Dist: build<2.0.0,>=1.4.0
 Requires-Dist: wheel<0.46.0,>=0.45.1
 Dynamic: author
 Dynamic: home-page

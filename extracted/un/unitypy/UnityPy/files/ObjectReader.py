@@ -21,10 +21,11 @@ from ..exceptions import TypeTreeError
 from ..helpers import TypeTreeHelper
 from ..helpers.Tpk import get_typetree_node
 from ..helpers.TypeTreeNode import TypeTreeNode
+from ..helpers.UnityVersion import UnityVersion
 from ..streams import EndianBinaryReader, EndianBinaryWriter
 
 if TYPE_CHECKING:
-    from ..files.SerializedFile import BuildType, SerializedFile, SerializedType
+    from ..files.SerializedFile import SerializedFile, SerializedType
 
 T = TypeVar("T")
 NodeInput = Union[TypeTreeNode, List[Dict[str, Union[str, int]]]]
@@ -34,10 +35,9 @@ class ObjectReader(Generic[T]):
     assets_file: SerializedFile
     reader: EndianBinaryReader
     data: bytes
-    version: Tuple[int, int, int, int]
+    version: UnityVersion
     version2: int
     platform: BuildTarget
-    build_type: BuildType
     path_id: int
     byte_start_offset: Tuple[int, int]
     byte_start: int
@@ -61,7 +61,6 @@ class ObjectReader(Generic[T]):
         self.version = assets_file.version
         self.version2 = assets_file.header.version
         self.platform = assets_file.target_platform
-        self.build_type = assets_file.build_type
 
         header = assets_file.header
         types = assets_file.types
@@ -284,8 +283,8 @@ class ObjectReader(Generic[T]):
             node = get_typetree_node(self.class_id, self.version)
             if node.m_Type == "MonoBehaviour":
                 try:
-                    node = self._try_monobehaviour_node(node)
-                except Exception:
+                    node = self.generate_monobehaviour_node(node)
+                except ValueError:
                     pass
         if not node:
             raise TypeTreeError("There are no TypeTree nodes for this object.")
@@ -298,15 +297,38 @@ class ObjectReader(Generic[T]):
     def parse_as_dict(self, node: Optional[NodeInput] = None, check_read: bool = True) -> dict[str, Any]:
         return self.read_typetree(nodes=node, wrap=False, check_read=check_read)  # type: ignore
 
-    def _try_monobehaviour_node(self, base_node: TypeTreeNode) -> TypeTreeNode:
+    def patch(
+        self,
+        obj: Union[dict, T],
+        nodes: Optional[NodeInput] = None,
+        writer: Optional[EndianBinaryWriter] = None,
+    ):
+        return self.save_typetree(obj, nodes=nodes, writer=writer)
+
+    # MonoBehaviour specific methods
+    def parse_monobehaviour_head(self, mb_node: Optional[TypeTreeNode] = None) -> MonoBehaviour:
+        if mb_node is None:
+            mb_node = get_typetree_node(ClassIDType.MonoBehaviour, self.version)
+
+        mb = self.read_typetree(nodes=mb_node, wrap=True, check_read=False)
+        return cast(MonoBehaviour, mb)
+
+    def generate_monobehaviour_node(self, mb_node: Optional[TypeTreeNode] = None) -> TypeTreeNode:
         env = self.assets_file.environment
         generator = env.typetree_generator
         if generator is None:
-            raise ValueError("No typetree generator set!")
-        monobehaviour = cast(MonoBehaviour, self.parse_as_object(base_node, check_read=False))
+            raise ValueError("MonoBehaviour detected, but no typetree_generator set to the environment!")
+
+        monobehaviour = self.parse_monobehaviour_head(mb_node)
         script = monobehaviour.m_Script.deref_parse_as_object()
-        node = generator.get_nodes_up(script.m_AssemblyName, f"{script.m_Namespace}.{script.m_ClassName}")
+
+        if script.m_Namespace != "":
+            fullname = f"{script.m_Namespace}.{script.m_ClassName}"
+        else:
+            fullname = script.m_ClassName
+
+        node = generator.get_nodes_up(script.m_AssemblyName, fullname)
         if node:
             return node
         else:
-            raise ValueError("Failed to get custom MonoBehaviour node!")
+            raise ValueError(f"Failed to generate MonoBehaviour node for {fullname} of {script.m_AssemblyName}!")

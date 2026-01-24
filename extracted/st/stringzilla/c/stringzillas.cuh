@@ -883,7 +883,8 @@ SZ_DYNAMIC sz_capability_t szs_capabilities(void) {
     // Preserve the static capabilities
     static sz_capability_t static_caps = sz_caps_none_k;
     if (static_caps == sz_caps_none_k) {
-        sz_capability_t cpu_caps = sz_capabilities_implementation_();
+        sz_capability_t cpu_caps =
+            (sz_capability_t)(sz_capabilities_comptime_implementation_() & sz_capabilities_runtime_implementation_());
 #if SZ_USE_CUDA
         sz_capability_t gpu_caps = sz_caps_none_k;
         sz::gpu_specs_t first_gpu_specs;
@@ -909,6 +910,7 @@ SZ_DYNAMIC sz_status_t sz_memory_allocator_init_unified(sz_memory_allocator_t *a
     alloc->handle = nullptr;
     return propagate_error(sz::status_t::success_k, error_message);
 #else
+    sz_unused_(alloc); // Suppress unused parameter warning when CUDA is not used
     return propagate_error(sz::status_t::missing_gpu_k, error_message);
 #endif
 }
@@ -1072,6 +1074,8 @@ SZ_DYNAMIC sz_status_t szs_levenshtein_distances_init(                          
     sz_memory_allocator_t const *alloc, sz_capability_t capabilities,                              //
     szs_levenshtein_distances_t *engine_punned, char const **error_message) {
 
+    sz_unused_(alloc); // Custom allocator not yet implemented, using default
+    sz_unused_(capabilities); // Optional backends may be compiled out
     sz_assert_(engine_punned != nullptr && *engine_punned == nullptr && "Engine must be uninitialized");
 
     // If the gap opening and extension costs are identical we can use less memory
@@ -1252,6 +1256,7 @@ SZ_DYNAMIC sz_status_t szs_levenshtein_distances_utf8_init(                     
     sz_memory_allocator_t const *alloc, sz_capability_t capabilities,                              //
     szs_levenshtein_distances_utf8_t *engine_punned, char const **error_message) {
 
+    sz_unused_(alloc); // Custom allocator not yet implemented, using default
     sz_assert_(engine_punned != nullptr && *engine_punned == nullptr && "Engine must be uninitialized");
 
     // If the gap opening and extension costs are identical we can use less memory
@@ -1356,6 +1361,8 @@ SZ_DYNAMIC sz_status_t szs_needleman_wunsch_scores_init(                       /
     sz_memory_allocator_t const *alloc, sz_capability_t capabilities,          //
     szs_needleman_wunsch_scores_t *engine_punned, char const **error_message) {
 
+    sz_unused_(alloc); // Custom allocator not yet implemented, using default
+    sz_unused_(capabilities); // Optional backends may be compiled out
     sz_assert_(engine_punned != nullptr && *engine_punned == nullptr && "Engine must be uninitialized");
 
     // If the gap opening and extension costs are identical we can use less memory
@@ -1510,6 +1517,8 @@ SZ_DYNAMIC sz_status_t szs_smith_waterman_scores_init(                         /
     sz_memory_allocator_t const *alloc, sz_capability_t capabilities,          //
     szs_smith_waterman_scores_t *engine_punned, char const **error_message) {
 
+    sz_unused_(alloc); // Custom allocator not yet implemented, using default
+    sz_unused_(capabilities); // Optional backends may be compiled out
     sz_assert_(engine_punned != nullptr && *engine_punned == nullptr && "Engine must be uninitialized");
 
     // If the gap opening and extension costs are identical we can use less memory
@@ -1665,6 +1674,8 @@ SZ_DYNAMIC sz_status_t szs_fingerprints_init(                         //
     sz_memory_allocator_t const *alloc, sz_capability_t capabilities, //
     szs_fingerprints_t *engine_punned, char const **error_message) {
 
+    sz_unused_(alloc); // Custom allocator not yet implemented, using default
+    sz_unused_(capabilities); // Optional backends may be compiled out
     sz_assert_(engine_punned != nullptr && *engine_punned == nullptr && "Engine must be uninitialized");
 
     // Use some default window widths if none are provided

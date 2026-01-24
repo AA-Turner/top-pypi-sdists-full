@@ -8,7 +8,6 @@ from collate_sqllineage.core.models import Column, DataFunction, Path, SubQuery,
 from collate_sqllineage.utils.constant import EdgeTag, EdgeType, NodeTag
 from collate_sqllineage.utils.wildcard_handler import handle_wildcard
 
-
 DATASET_CLASSES = (Path, Table, DataFunction)
 
 
@@ -33,7 +32,14 @@ class ColumnLineageMixin:
             out_degree = column_graph.out_degree(node)
 
             if in_degree == 0:
-                source_columns.add(node)
+                # Exclude SubQuery-qualified source columns when exclude_subquery=True
+                # EXCEPT for wildcard columns (*) which should always be included
+                if (
+                    not exclude_subquery
+                    or isinstance(node.parent, Table)
+                    or node.raw_name == "*"
+                ):
+                    source_columns.add(node)
             if out_degree == 0 and isinstance(node, Column):
                 if not exclude_subquery or isinstance(node.parent, Table):
                     target_columns.add(node)
@@ -112,6 +118,9 @@ class SubQueryLineageHolder(ColumnLineageMixin):
 
     def add_cte(self, value) -> None:
         self._property_setter(value, NodeTag.CTE)
+        # CTEs have aliases too, create the HAS_ALIAS edge
+        if hasattr(value, "alias"):
+            self.graph.add_edge(value, value.alias, type=EdgeType.HAS_ALIAS)
 
     @property
     def target_columns(self) -> List[Column]:

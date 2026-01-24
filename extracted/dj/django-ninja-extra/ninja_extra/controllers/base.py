@@ -4,42 +4,33 @@ Base class for APIController.
 
 import inspect
 import re
+import typing as t
 import uuid
 import warnings
-from abc import ABC
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-)
 
 from django.db.models import Model, QuerySet
 from django.http import HttpResponse
-from django.urls import URLPattern
+from django.urls import URLPattern, URLResolver, include
 from django.urls import path as django_path
 from injector import inject, is_decorated_with_inject
-from ninja import NinjaAPI, Router
+from ninja import Router
 from ninja.constants import NOT_SET, NOT_SET_TYPE
 from ninja.security.base import AuthBase
 from ninja.signature import is_async
 from ninja.throttling import BaseThrottle
 from ninja.utils import normalize_path
 
-from ninja_extra.constants import ROUTE_FUNCTION, THROTTLED_FUNCTION, THROTTLED_OBJECTS
+from ninja_extra.constants import (
+    API_CONTROLLER_INSTANCE,
+    CONTROLLER_WATERMARK,
+    NINJA_EXTRA_API_CONTROLLER_REGISTERED_KEY,
+    OPERATION_ENDPOINT_KEY,
+    ROUTE_OBJECT,
+    THROTTLED_FUNCTION,
+    THROTTLED_OBJECTS,
+)
 from ninja_extra.context import RouteContext
-from ninja_extra.exceptions import APIException, NotFound, PermissionDenied, bad_request
+from ninja_extra.exceptions import APIException, NotFound, PermissionDenied
 from ninja_extra.helper import get_function_name
 from ninja_extra.operation import Operation, PathView
 from ninja_extra.permissions import (
@@ -48,6 +39,7 @@ from ninja_extra.permissions import (
     BasePermission,
     BasePermissionType,
 )
+from ninja_extra.reflect import reflect
 from ninja_extra.shortcuts import (
     aget_object_or_exception,
     aget_object_or_none,
@@ -57,58 +49,51 @@ from ninja_extra.shortcuts import (
 )
 
 from .model import ModelConfig, ModelControllerBuilder, ModelService
-from .registry import ControllerRegistry
-from .response import Detail, Id, Ok
+from .registry import controller_registry
 from .route.route_functions import AsyncRouteFunction, RouteFunction
 
-if TYPE_CHECKING:  # pragma: no cover
+if t.TYPE_CHECKING:  # pragma: no cover
     from ninja_extra import NinjaExtraAPI
     from ninja_extra.controllers.model import ModelConfig
+    from ninja_extra.controllers.route import Route
 
-T = TypeVar("T")
-
-
-class MissingAPIControllerDecoratorException(Exception):
-    pass
+T = t.TypeVar("T")
 
 
-def get_route_functions(cls: Type) -> Iterable[RouteFunction]:
+def get_route_functions(
+    klass: t.Type,
+    api_controller_instance: "APIController",
+) -> t.Iterator[RouteFunction]:
     """
-    Get all route functions from a controller class.
-    This function will recursively search for route functions in the base classes of the controller class
-    in order that they are defined.
+    Get all route functions from a class, creating RouteFunction instances from decorated methods.
 
-    Args:
-        cls (Type): The controller class.
+    This function scans a class for methods decorated with route decorators (e.g., @http_get, @http_post)
+    and yields RouteFunction or AsyncRouteFunction instances for each.
 
-    Returns:
-        Iterable[RouteFunction]: An iterable of route functions.
+    :param klass: The class to scan for route functions
+    :param api_controller_instance: The APIController instance associated with the class
+    :return: An iterator of RouteFunction instances
     """
 
-    bases = inspect.getmro(cls)
-    for base_cls in reversed(bases):
-        if base_cls not in [ControllerBase, ABC, object]:
-            for method in base_cls.__dict__.values():
-                if hasattr(method, ROUTE_FUNCTION):
-                    yield getattr(method, ROUTE_FUNCTION)
-
-
-def get_all_controller_route_function(
-    controller: Union[Type["ControllerBase"], Type],
-) -> List[RouteFunction]:  # pragma: no cover
-    route_functions: List[RouteFunction] = []
-    for item in dir(controller):
-        attr = getattr(controller, item)
-        if isinstance(attr, RouteFunction):
-            route_functions.append(attr)
-    return route_functions
+    for _, method in inspect.getmembers(klass, predicate=inspect.isfunction):
+        if hasattr(method, OPERATION_ENDPOINT_KEY):
+            route_obj: "Route" = reflect.get_metadata_or_raise_exception(
+                ROUTE_OBJECT, method
+            )
+            if route_obj.is_async:
+                yield AsyncRouteFunction(
+                    route_obj, api_controller=api_controller_instance
+                )
+            else:
+                yield RouteFunction(route_obj, api_controller=api_controller_instance)
 
 
 def compute_api_route_function(
-    base_cls: Type, api_controller_instance: "APIController"
+    base_cls: t.Type, api_controller_instance: "APIController"
 ) -> None:
-    for cls_route_function in get_route_functions(base_cls):
-        cls_route_function.api_controller = api_controller_instance
+    controller_routes = list(get_route_functions(base_cls, api_controller_instance))
+    controller_routes.reverse()
+    for cls_route_function in controller_routes:
         api_controller_instance.add_controller_route_function(cls_route_function)
 
 
@@ -139,35 +124,15 @@ class ControllerBase:
     ```
     """
 
-    # `_api_controller` a reference to APIController instance
-    _api_controller: Optional["APIController"] = None
-
-    # `api` a reference to NinjaExtraAPI on APIController registration
-    api: Optional[NinjaAPI] = None
-
     # `context` variable will change based on the route function called on the APIController
     # that way we can get some specific items things that belong the route function during execution
-    context: Optional["RouteContext"] = None
-    throttling_classes: List[Type["BaseThrottle"]] = []
-    throttling_init_kwargs: Optional[Dict[Any, Any]] = None
-
-    Ok = Ok  # TODO: remove soonest
-    Id = Id  # TODO: remove soonest
-    Detail = Detail  # TODO: remove soonest
-    bad_request = bad_request  # TODO: remove soonest
-
-    @classmethod
-    def get_api_controller(cls) -> "APIController":
-        if not cls._api_controller:
-            raise MissingAPIControllerDecoratorException(
-                "api_controller not found. "
-                "Did you forget to use the `api_controller` decorator"
-            )
-        return cls._api_controller
+    context: t.Optional["RouteContext"] = None
+    throttling_classes: t.List[t.Type["BaseThrottle"]] = []
+    throttling_init_kwargs: t.Optional[t.Dict[t.Any, t.Any]] = None
 
     @classmethod
     def permission_denied(
-        cls, permission: Union[BasePermission, AsyncBasePermission]
+        cls, permission: t.Union[BasePermission, AsyncBasePermission]
     ) -> None:
         """
         This method is called when the permission check fails. By default, it raises an exception.
@@ -178,11 +143,11 @@ class ControllerBase:
 
     def get_object_or_exception(
         self,
-        klass: Union[Type[Model], QuerySet],
-        error_message: Optional[str] = None,
-        exception: Type[APIException] = NotFound,
-        **kwargs: Any,
-    ) -> Any:
+        klass: t.Union[t.Type[Model], QuerySet],
+        error_message: t.Optional[str] = None,
+        exception: t.Type[APIException] = NotFound,
+        **kwargs: t.Any,
+    ) -> t.Any:
         obj = get_object_or_exception(
             klass=klass, error_message=error_message, exception=exception, **kwargs
         )
@@ -191,11 +156,11 @@ class ControllerBase:
 
     async def aget_object_or_exception(
         self,
-        klass: Union[Type[Model], QuerySet],
-        error_message: Optional[str] = None,
-        exception: Type[APIException] = NotFound,
-        **kwargs: Any,
-    ) -> Any:
+        klass: t.Union[t.Type[Model], QuerySet],
+        error_message: t.Optional[str] = None,
+        exception: t.Type[APIException] = NotFound,
+        **kwargs: t.Any,
+    ) -> t.Any:
         obj = await aget_object_or_exception(
             klass=klass, error_message=error_message, exception=exception, **kwargs
         )
@@ -203,29 +168,31 @@ class ControllerBase:
         return obj
 
     def get_object_or_none(
-        self, klass: Union[Type[Model], QuerySet], **kwargs: Any
-    ) -> Optional[Any]:
+        self, klass: t.Union[t.Type[Model], QuerySet], **kwargs: t.Any
+    ) -> t.Optional[t.Any]:
         obj = get_object_or_none(klass=klass, **kwargs)
         if obj:
             self.check_object_permissions(obj)
         return obj
 
     async def aget_object_or_none(
-        self, klass: Union[Type[Model], QuerySet], **kwargs: Any
-    ) -> Optional[Any]:
+        self, klass: t.Union[t.Type[Model], QuerySet], **kwargs: t.Any
+    ) -> t.Optional[t.Any]:
         obj = await aget_object_or_none(klass=klass, **kwargs)
         if obj:
             await self.async_check_object_permissions(obj)
         return obj
 
-    def _get_permissions(self) -> Iterable[Union[BasePermission, AsyncBasePermission]]:
+    def _get_permissions(
+        self,
+    ) -> t.Iterable[t.Union[BasePermission, AsyncBasePermission]]:
         """
         Instantiates and returns the list of permissions that this view requires.
         """
         assert self.context
 
         for permission_class in self.context.permission_classes:
-            permission_instance: Union[BasePermission, AsyncBasePermission] = (
+            permission_instance: t.Union[BasePermission, AsyncBasePermission] = (
                 permission_class  # type: ignore[assignment]
             )
             if isinstance(permission_class, type) and issubclass(
@@ -250,7 +217,7 @@ class ControllerBase:
             ):
                 self.permission_denied(permission)
 
-    def check_object_permissions(self, obj: Union[Any, Model]) -> None:
+    def check_object_permissions(self, obj: t.Union[t.Any, Model]) -> None:
         """
         Check if the request should be permitted for a given object.
         Raises an appropriate exception if the request is not permitted.
@@ -291,7 +258,7 @@ class ControllerBase:
             if not has_permission:
                 self.permission_denied(permission)
 
-    async def async_check_object_permissions(self, obj: Union[Any, Model]) -> None:
+    async def async_check_object_permissions(self, obj: t.Union[t.Any, Model]) -> None:
         """
         Asynchronous version of check_object_permissions.
         Check if the request should be permitted for a given object, using async permission checks when available.
@@ -317,14 +284,14 @@ class ControllerBase:
                 self.permission_denied(permission)
 
     def create_response(
-        self, message: Any, status_code: int = 200, **kwargs: Any
+        self, message: t.Any, status_code: int = 200, **kwargs: t.Any
     ) -> HttpResponse:
-        assert self.api and self.context and self.context.request
-        content = self.api.renderer.render(
+        assert self.context and self.context.request
+        content = self.context.api.renderer.render(
             self.context.request, message, response_status=status_code
         )
         content_type = "{}; charset={}".format(
-            self.api.renderer.media_type, self.api.renderer.charset
+            self.context.api.renderer.media_type, self.context.api.renderer.charset
         )
         return HttpResponse(
             content, status=status_code, content_type=content_type, **kwargs
@@ -348,17 +315,17 @@ class ModelControllerBase(ControllerBase):
     ```
     """
 
-    service_type: Type[ModelService] = ModelService
+    service_type: t.Type[ModelService] = ModelService
 
     def __init__(self, service: ModelService):
         self.service = service
 
-    model_config: Optional["ModelConfig"] = None
+    model_config: t.Optional["ModelConfig"] = None
 
 
-ControllerClassType = TypeVar(
+ControllerClassType = t.TypeVar(
     "ControllerClassType",
-    bound=Union[Type[ControllerBase], Type],
+    bound=t.Union[t.Type[ControllerBase], t.Type],
 )
 
 
@@ -404,30 +371,33 @@ class APIController:
         self,
         prefix: str,
         *,
-        auth: Any = NOT_SET,
-        throttle: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
-        tags: Union[Optional[List[str]], str] = None,
-        permissions: Optional[List[BasePermissionType]] = None,
+        auth: t.Any = NOT_SET,
+        throttle: t.Union[BaseThrottle, t.List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
+        tags: t.Union[t.Optional[t.List[str]], str] = None,
+        permissions: t.Optional[t.List[BasePermissionType]] = None,
         auto_import: bool = True,
+        urls_namespace: t.Optional[str] = None,
+        use_unique_op_id: bool = True,
     ) -> None:
         self.prefix = prefix
+        # Optional controller-level URL namespace. Applied to all route paths.
+        self.urls_namespace = urls_namespace or None
         # `auth` primarily defines APIController route function global authentication method.
-        self.auth: Optional[AuthBase] = auth
+        self.auth: t.Optional[AuthBase] = auth
 
         self.tags = tags  # type: ignore
         self.throttle = throttle
+        self.use_unique_op_id = use_unique_op_id
 
         self.auto_import: bool = auto_import  # set to false and it would be ignored when api.auto_discover is called
         # `controller_class` target class that the APIController wraps
-        self._controller_class: Optional[Type["ControllerBase"]] = None
+        self._controller_class: t.Optional[t.Type["ControllerBase"]] = None
         # `_path_operations` a converted dict of APIController route function used by Django-Ninja library
-        self._path_operations: Dict[str, PathView] = {}
-        self._controller_class_route_functions: Dict[str, RouteFunction] = {}
+        self._path_operations: t.Dict[str, PathView] = {}
+        self._controller_class_route_functions: t.Dict[str, RouteFunction] = {}
         # `permission_classes` a collection of BasePermission Types
         # a fallback if route functions has no permissions definition
-        self.permission_classes: List[BasePermissionType] = permissions or [AllowAny]
-        # `registered` prevents controllers from being register twice or exist in two different `api` instances
-        self.registered: bool = False
+        self.permission_classes: t.List[BasePermissionType] = permissions or [AllowAny]
 
         self._prefix_has_route_param = False
 
@@ -436,7 +406,7 @@ class APIController:
 
         self.has_auth_async = False
         if auth and auth is not NOT_SET:
-            auth_callbacks = isinstance(auth, Sequence) and auth or [auth]
+            auth_callbacks = isinstance(auth, t.Sequence) and auth or [auth]
             for _auth in auth_callbacks:
                 _call_back = _auth if inspect.isfunction(_auth) else _auth.__call__
                 if is_async(_call_back):
@@ -453,22 +423,22 @@ class APIController:
                 )
 
     @property
-    def prefix_route_params(self) -> Dict[str, str]:
+    def prefix_route_params(self) -> t.Dict[str, str]:
         return self._prefix_route_params
 
     @property
-    def controller_class(self) -> Type["ControllerBase"]:
+    def controller_class(self) -> t.Type["ControllerBase"]:
         assert self._controller_class, "Controller Class is not available"
         return self._controller_class
 
     @property
-    def tags(self) -> Optional[List[str]]:
+    def tags(self) -> t.Optional[t.List[str]]:
         # `tags` is a property for grouping endpoint in Swagger API docs
         return self._tags
 
     @tags.setter
-    def tags(self, value: Union[str, List[str], None]) -> None:
-        tag: Optional[List[str]] = cast(Optional[List[str]], value)
+    def tags(self, value: t.Union[str, t.List[str], None]) -> None:
+        tag: t.Optional[t.List[str]] = t.cast(t.Optional[t.List[str]], value)
         if tag and isinstance(value, str):
             tag = [value]
         self._tags = tag
@@ -477,17 +447,21 @@ class APIController:
         self.auto_import = getattr(cls, "auto_import", self.auto_import)
         if not issubclass(cls, ControllerBase):
             # We force the cls to inherit from `ControllerBase` by creating another type.
-            cls = type(cls.__name__, (ControllerBase, cls), {"_api_controller": self})  # type:ignore[assignment]
-        else:
-            cls._api_controller = self
+            cls = type(cls.__name__, (ControllerBase, cls), {})  # type:ignore[assignment]
+
+        if reflect.has_metadata(API_CONTROLLER_INSTANCE, cls):
+            raise Exception("Controller is already decorated with @api_controller")
+
+        reflect.define_metadata(API_CONTROLLER_INSTANCE, self, cls)
+        reflect.define_metadata(CONTROLLER_WATERMARK, True, cls)
 
         assert isinstance(cls.throttling_classes, (list, tuple)), (
             f"Controller[{cls.__name__}].throttling_class must be a list or tuple"
         )
 
-        throttling_objects: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = (
-            NOT_SET
-        )
+        throttling_objects: t.Union[
+            BaseThrottle, t.List[BaseThrottle], NOT_SET_TYPE
+        ] = NOT_SET
 
         if self.throttle is not NOT_SET:
             throttling_objects = self.throttle
@@ -497,12 +471,14 @@ class APIController:
                 item(**throttling_init_kwargs) for item in cls.throttling_classes
             ]
 
+        class_name = str(cls.__name__).lower().replace("controller", "")
         if not self.tags:
-            tag = str(cls.__name__).lower().replace("controller", "")
-            self.tags = [tag]
+            self.tags = [class_name]
 
         self._controller_class = cls
-
+        # if not self.urls_namespace:
+        #     # if urls_namespace is not provided, use the class name as the namespace
+        #     self.urls_namespace = class_name
         if issubclass(cls, ModelControllerBase):
             if cls.model_config:
                 assert cls.service_type is not None, (
@@ -520,8 +496,6 @@ class APIController:
                         DeprecationWarning,
                         stacklevel=2,
                     )
-                # if not hasattr(cls, "service"):
-                #     cls.service = ModelService(cls.model_config.model)
 
         compute_api_route_function(cls, self)
 
@@ -538,19 +512,30 @@ class APIController:
         if not is_decorated_with_inject(cls.__init__):
             fail_silently(inject, constructor_or_class=cls)
 
-        ControllerRegistry().add_controller(cls)
+        controller_registry.add_controller(cls)
         return cls
 
     @property
-    def path_operations(self) -> Dict[str, PathView]:
+    def path_operations(self) -> t.Dict[str, PathView]:
         return self._path_operations
 
     def set_api_instance(self, api: "NinjaExtraAPI") -> None:
-        self.controller_class.api = api
+        reflect.define_metadata(
+            NINJA_EXTRA_API_CONTROLLER_REGISTERED_KEY, {id(api)}, self
+        )
         for path_view in self.path_operations.values():
-            path_view.set_api_instance(api, cast(Router, self))
+            path_view.set_api_instance(api, t.cast(Router, self))
 
-    def build_routers(self) -> List[Tuple[str, "APIController"]]:
+    def is_registered(self, api: "NinjaExtraAPI") -> bool:
+        keys = (
+            reflect.get_metadata(NINJA_EXTRA_API_CONTROLLER_REGISTERED_KEY, self)
+            or set()
+        )
+        if id(api) in keys:
+            return True
+        return False
+
+    def build_routers(self) -> t.List[t.Tuple[str, "APIController"]]:
         prefix = self.prefix
         if self._prefix_has_route_param:
             prefix = ""
@@ -561,16 +546,34 @@ class APIController:
             get_function_name(route_function.route.view_func)
         ] = route_function
 
-    def urls_paths(self, prefix: str) -> Iterator[URLPattern]:
+    def urls_paths(self, prefix: str) -> t.Iterator[t.Union[URLPattern, URLResolver]]:
+        namespaced_patterns: t.List[URLPattern] = []
+
         for path, path_view in self.path_operations.items():
             path = path.replace("{", "<").replace("}", ">")
             route = "/".join([i for i in (prefix, path) if i])
             # to skip lot of checks we simply treat double slash as a mistake:
             route = normalize_path(route)
             route = route.lstrip("/")
+
             for op in path_view.operations:
-                op = cast(Operation, op)
-                yield django_path(route, path_view.get_view(), name=op.url_name)
+                op = t.cast(Operation, op)
+                view = path_view.get_view()
+                pattern = django_path(route, view, name=op.url_name)
+
+                if self.urls_namespace:
+                    namespaced_patterns.append(pattern)
+                else:
+                    yield pattern
+
+        if namespaced_patterns and self.urls_namespace:
+            yield django_path(
+                "",
+                include(
+                    (namespaced_patterns, self.urls_namespace),
+                    namespace=self.urls_namespace,
+                ),
+            )
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<controller - {self.controller_class.__name__}>"
@@ -584,7 +587,13 @@ class APIController:
             controller_name = (
                 str(self.controller_class.__name__).lower().replace("controller", "")
             )
-            route_function.route.route_params.operation_id = f"{controller_name}_{route_function.route.view_func.__name__}_{str(uuid.uuid4())[:8]}"
+            route_function.route.route_params.operation_id = (
+                f"{controller_name}_{route_function.route.view_func.__name__}"
+            )
+            if self.use_unique_op_id:
+                route_function.route.route_params.operation_id += (
+                    f"_{uuid.uuid4().hex[:8]}"
+                )
 
         if (
             self.auth
@@ -598,6 +607,8 @@ class APIController:
                 f"endpoint={get_function_name(route_function.route.view_func)}"
             )
         data = route_function.route.route_params.dict()
+        if not data.get("url_name"):
+            data["url_name"] = get_function_name(route_function.route.view_func)
         route_function.operation = self.add_api_operation(
             view_func=route_function.as_view, **data
         )
@@ -605,24 +616,24 @@ class APIController:
     def add_api_operation(
         self,
         path: str,
-        methods: List[str],
-        view_func: Callable,
+        methods: t.List[str],
+        view_func: t.Callable,
         *,
-        auth: Any = NOT_SET,
-        throttle: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
-        response: Any = NOT_SET,
-        operation_id: Optional[str] = None,
-        summary: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        deprecated: Optional[bool] = None,
+        auth: t.Any = NOT_SET,
+        throttle: t.Union[BaseThrottle, t.List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
+        response: t.Any = NOT_SET,
+        operation_id: t.Optional[str] = None,
+        summary: t.Optional[str] = None,
+        description: t.Optional[str] = None,
+        tags: t.Optional[t.List[str]] = None,
+        deprecated: t.Optional[bool] = None,
         by_alias: bool = False,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
         exclude_none: bool = False,
-        url_name: Optional[str] = None,
+        url_name: t.Optional[str] = None,
         include_in_schema: bool = True,
-        openapi_extra: Optional[Dict[str, Any]] = None,
+        openapi_extra: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> Operation:
         auth = self.auth if auth == NOT_SET else auth
 
@@ -656,35 +667,41 @@ class APIController:
         return operation
 
 
-@overload
+@t.overload
 def api_controller(
-    prefix_or_class: Union[ControllerClassType, Type[T]],
-) -> Union[Type[ControllerBase], Type[T]]:  # pragma: no cover
+    prefix_or_class: t.Union[ControllerClassType, t.Type[T]],
+) -> t.Union[t.Type[ControllerBase], t.Type[T]]:  # pragma: no cover
     ...
 
 
-@overload
+@t.overload
 def api_controller(
     prefix_or_class: str = "",
-    auth: Any = NOT_SET,
-    throttle: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
-    tags: Union[Optional[List[str]], str] = None,
-    permissions: Optional[List[BasePermissionType]] = None,
+    auth: t.Any = NOT_SET,
+    throttle: t.Union[BaseThrottle, t.List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
+    tags: t.Union[t.Optional[t.List[str]], str] = None,
+    permissions: t.Optional[t.List[BasePermissionType]] = None,
     auto_import: bool = True,
-) -> Callable[
-    [Union[Type, Type[T]]], Union[Type[ControllerBase], Type[T]]
+    urls_namespace: t.Optional[str] = None,
+    use_unique_op_id: bool = True,
+) -> t.Callable[
+    [t.Union[t.Type, t.Type[T]]], t.Union[t.Type[ControllerBase], t.Type[T]]
 ]:  # pragma: no cover
     ...
 
 
 def api_controller(
-    prefix_or_class: Union[str, Union[ControllerClassType, Type]] = "",
-    auth: Any = NOT_SET,
-    throttle: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
-    tags: Union[Optional[List[str]], str] = None,
-    permissions: Optional[List[BasePermissionType]] = None,
+    prefix_or_class: t.Union[str, ControllerClassType] = "",
+    auth: t.Any = NOT_SET,
+    throttle: t.Union[BaseThrottle, t.List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
+    tags: t.Union[t.Optional[t.List[str]], str] = None,
+    permissions: t.Optional[t.List[BasePermissionType]] = None,
     auto_import: bool = True,
-) -> Union[ControllerClassType, Callable[[ControllerClassType], ControllerClassType]]:
+    urls_namespace: t.Optional[str] = None,
+    use_unique_op_id: bool = True,
+) -> t.Union[
+    ControllerClassType, t.Callable[[ControllerClassType], ControllerClassType]
+]:
     if isinstance(prefix_or_class, type):
         return APIController(
             prefix="",
@@ -693,6 +710,8 @@ def api_controller(
             permissions=permissions,
             auto_import=auto_import,
             throttle=throttle,
+            use_unique_op_id=use_unique_op_id,
+            urls_namespace=urls_namespace,
         )(prefix_or_class)
 
     def _decorator(cls: ControllerClassType) -> ControllerClassType:
@@ -703,6 +722,8 @@ def api_controller(
             permissions=permissions,
             auto_import=auto_import,
             throttle=throttle,
+            use_unique_op_id=use_unique_op_id,
+            urls_namespace=urls_namespace,
         )(cls)
 
     return _decorator

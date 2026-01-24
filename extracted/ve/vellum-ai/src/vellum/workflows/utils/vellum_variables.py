@@ -1,7 +1,10 @@
+from datetime import datetime
+import sys
 import typing
 from typing import Any, List, Tuple, Type, Union, get_args, get_origin
 
 from vellum import (
+    ArrayChatMessageContentItem,
     ChatMessage,
     ChatMessageRequest,
     FunctionCall,
@@ -24,7 +27,7 @@ from vellum import (
 )
 from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
-from vellum.workflows.types.core import Json
+from vellum.workflows.types.core import is_json_type
 
 
 def primitive_type_to_vellum_variable_type(type_: Union[Type, BaseDescriptor]) -> VellumVariableType:
@@ -46,17 +49,7 @@ def primitive_type_to_vellum_variable_type(type_: Union[Type, BaseDescriptor]) -
             return "JSON"
 
         if len(types) != 1:
-            # Check explicitly for our internal JSON type.
-            # Matches the type found at vellum.workflows.utils.vellum_variables.Json
-            actual_types_with_explicit_ref = [
-                bool,
-                int,
-                float,
-                str,
-                typing.List[Json],
-                typing.Dict[str, Json],
-            ]
-            if types == actual_types_with_explicit_ref:
+            if is_json_type(types):
                 return "JSON"
             # Number now supports float and int
             elif types == [float, int]:
@@ -66,11 +59,15 @@ def primitive_type_to_vellum_variable_type(type_: Union[Type, BaseDescriptor]) -
             if len(collapse_types) == 1:
                 return primitive_type_to_vellum_variable_type(collapse_types[0])
 
+            # Handle Union[str, List[ArrayChatMessageContentItem]] for ChatMessageTrigger.message
+            if _is_string_and_array_chat_message_content_union(types):
+                return "ARRAY"
+
             raise ValueError(f"Expected Descriptor to only have one type, got {types}")
 
         type_ = type_.types[0]
 
-    if _is_type_optionally_equal(type_, str):
+    if _is_type_optionally_in(type_, (str, datetime)):
         return "STRING"
     elif _is_type_optionally_in(type_, (int, float)):
         return "NUMBER"
@@ -86,6 +83,9 @@ def primitive_type_to_vellum_variable_type(type_: Union[Type, BaseDescriptor]) -
         return "DOCUMENT"
     elif _is_type_optionally_in(type_, (VellumError, VellumErrorRequest)):
         return "ERROR"
+
+    if type_ is typing.Any:
+        return "JSON"
 
     builtin_list_type = _builtin_list_to_vellum_type(type_)
     if builtin_list_type:
@@ -215,8 +215,91 @@ def _builtin_list_to_vellum_type(type_: Type) -> Union[str, None]:
                 item_type, SearchResultRequest
             ):
                 return "SEARCH_RESULTS"
-            if _is_type_optionally_equal(item_type, VellumValue) or _is_type_optionally_equal(
-                item_type, VellumValueRequest
-            ):
+
+            if _is_vellum_value_subtype(item_type):
                 return "ARRAY"
+
+            if _is_array_chat_message_content_item(item_type):
+                return "ARRAY"
+
     return None
+
+
+def _is_array_chat_message_content_item(type_: Type) -> bool:
+    """Check if the type is ArrayChatMessageContentItem or a union of its subtypes."""
+    array_content_item_types = list(typing.get_args(ArrayChatMessageContentItem))
+
+    origin = get_origin(type_)
+    if not origin:
+        if isinstance(type_, type):
+            return any(issubclass(type_, t) for t in array_content_item_types if isinstance(t, type))
+        return False
+
+    if origin is typing.Union:
+        args = get_args(type_)
+        return all(_is_array_chat_message_content_item(arg) for arg in args)
+
+    return type_ == ArrayChatMessageContentItem
+
+
+def _is_string_and_array_chat_message_content_union(types: List[Type]) -> bool:
+    """Check if types represent Union[str, List[ArrayChatMessageContentItem]]."""
+    if len(types) != 2:
+        return False
+
+    has_str = str in types
+    has_list_array_content = any(
+        get_origin(t) in (list, typing.List)
+        and len(get_args(t)) == 1
+        and _is_array_chat_message_content_item(get_args(t)[0])
+        for t in types
+    )
+
+    return has_str and has_list_array_content
+
+
+def _is_vellum_value_subtype(type_: Type) -> bool:
+    # This logic is here primarily for `ArrayVellumValue`, which is defined recursively.
+    # At class definition time, we invoke some Pydantic helpers to resolve its forward references.
+    vellum_value_types = [
+        (
+            t.__forward_value__
+            if isinstance(t, typing.ForwardRef) and t.__forward_evaluated__ and t.__forward_value__ is not None
+            else t
+        )
+        for t in typing.get_args(VellumValue)
+    ]
+    origin = get_origin(type_)
+    if not origin:
+        if isinstance(type_, type):
+            return any(issubclass(type_, vellum_value_type) for vellum_value_type in vellum_value_types)
+        elif isinstance(type_, typing.ForwardRef):
+            # If the forward ref hasn't been resolved yet, do the simple stupid thing and
+            # assume it's not a VellumValue subtype.
+            # This means user-defined types should use the fully resolved types!
+            if not type_.__forward_evaluated__ or type_.__forward_value__ is None:
+                return False
+
+            type_ = type_.__forward_value__
+            if isinstance(type_, type):
+                return any(issubclass(type_, vellum_value_type) for vellum_value_type in vellum_value_types)
+            else:
+                return False
+        else:
+            return False
+
+    if sys.version_info >= (3, 10) and sys.version_info < (3, 14):
+        # See https://docs.python.org/3/library/types.html#types.UnionType.
+        # In Python 3.10, `types.UnionType` was introduced to support X | Y union type expressions.
+        # In Python 3.14, `types.UnionType` is just an alias for `typing.Union`.
+        from types import UnionType
+
+        union_types = (typing.Union, UnionType)
+    else:
+        union_types = (typing.Union,)
+
+    if origin in union_types:
+        args = get_args(type_)
+        return all(_is_vellum_value_subtype(arg) for arg in args)
+
+    return False

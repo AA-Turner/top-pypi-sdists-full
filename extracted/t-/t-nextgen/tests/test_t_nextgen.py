@@ -5,6 +5,6 @@
 class TestTNextgen:
     """Smoke tests of the package."""
 
-    def test_example(self):
+    def test_example(self) -> None:
         """Smoke test."""
         assert True

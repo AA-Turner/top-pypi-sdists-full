@@ -3,7 +3,7 @@ Type annotations for resource-groups service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resource_groups/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -82,12 +83,6 @@ from .type_defs import (
     UpdateGroupQueryOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -98,14 +93,14 @@ __all__ = ("ResourceGroupsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    MethodNotAllowedException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    MethodNotAllowedException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class ResourceGroupsClient(AioBaseClient):
@@ -283,7 +278,7 @@ class ResourceGroupsClient(AioBaseClient):
 
     async def put_group_configuration(
         self, **kwargs: Unpack[PutGroupConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches a service configuration to the specified group.
 
@@ -432,7 +427,7 @@ class ResourceGroupsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

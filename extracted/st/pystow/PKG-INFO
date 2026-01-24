@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystow
-Version: 0.7.8
+Version: 0.7.15
 Summary: Easily pick a place to store data for your Python code
 Keywords: snekpack,cookiecutter,caching,file management
 Author: Charles Tapley Hoyt
@@ -16,11 +16,11 @@ Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Requires-Dist: click
@@ -40,9 +40,10 @@ Requires-Dist: pytest ; extra == 'tests'
 Requires-Dist: coverage[toml] ; extra == 'tests'
 Requires-Dist: requests-file ; extra == 'tests'
 Requires-Dist: lxml ; extra == 'xml'
+Requires-Dist: pyyaml ; extra == 'yaml'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Bug Tracker, https://github.com/cthoyt/pystow/issues
 Project-URL: Documentation, https://pystow.readthedocs.io
 Project-URL: Funding, https://github.com/sponsors/cthoyt
@@ -56,6 +57,7 @@ Provides-Extra: ratelimit
 Provides-Extra: rdf
 Provides-Extra: tests
 Provides-Extra: xml
+Provides-Extra: yaml
 Description-Content-Type: text/markdown
 
 <h1 align="center">

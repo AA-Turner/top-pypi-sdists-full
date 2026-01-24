@@ -1,11 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hatch-regex-commit
-Version: 0.0.3
+Version: 0.0.4
 Summary: Hatch plugin to create a commit and tag when bumping version
 Project-URL: Documentation, https://github.com/frankie567/hatch-regex-commit#readme
 Project-URL: Issues, https://github.com/frankie567/hatch-regex-commit/issues
 Project-URL: Source, https://github.com/frankie567/hatch-regex-commit
 Author-email: François Voron <fvoron@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Hatch

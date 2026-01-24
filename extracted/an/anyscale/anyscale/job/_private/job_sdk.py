@@ -1,6 +1,8 @@
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import Any, cast, ClassVar, Dict, List, Optional, Union
 import uuid
+import warnings
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
@@ -8,14 +10,25 @@ from anyscale.client.openapi_client.models import (
     InternalProductionJob,
     ProductionJobConfig,
 )
+from anyscale.client.openapi_client.models.archive_status import ArchiveStatus
 from anyscale.client.openapi_client.models.create_job_queue_config import (
     CreateJobQueueConfig,
 )
+from anyscale.client.openapi_client.models.decorated_production_job import (
+    DecoratedProductionJob,
+)
 from anyscale.client.openapi_client.models.job_queue_spec import JobQueueSpec
+from anyscale.client.openapi_client.models.list_response_metadata import (
+    ListResponseMetadata,
+)
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.ray_runtime_env_config import (
     RayRuntimeEnvConfig,
 )
+from anyscale.client.openapi_client.models.resource_tag_resource_type import (
+    ResourceTagResourceType,
+)
+from anyscale.commands.util import flatten_tag_dict_to_api_list
 from anyscale.compute_config.models import (
     ComputeConfig,
     ComputeConfigType,
@@ -46,7 +59,8 @@ HA_JOB_STATE_TO_JOB_STATE = {
     HaJobStates.PENDING: JobState.STARTING,
     HaJobStates.AWAITING_CLUSTER_START: JobState.STARTING,
     HaJobStates.SUCCESS: JobState.SUCCEEDED,
-    HaJobStates.ERRORED: JobState.FAILED,
+    # ERRORED is a transient state that can transition to RESTARTING when retries remain.
+    HaJobStates.ERRORED: JobState.RUNNING,
     HaJobStates.TERMINATED: JobState.FAILED,
     HaJobStates.BROKEN: JobState.FAILED,
     HaJobStates.OUT_OF_RETRIES: JobState.FAILED,
@@ -57,6 +71,51 @@ TERMINAL_HA_JOB_STATES = [
     HaJobStates.TERMINATED,
     HaJobStates.OUT_OF_RETRIES,
 ]
+
+# Reverse mapping from JobState to HaJobStates for filtering in list operations
+JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
+    JobState.SUCCEEDED: [HaJobStates.SUCCESS],
+    JobState.FAILED: [
+        HaJobStates.TERMINATED,
+        HaJobStates.BROKEN,
+        HaJobStates.OUT_OF_RETRIES,
+    ],
+    JobState.RUNNING: [
+        HaJobStates.UPDATING,
+        HaJobStates.RUNNING,
+        HaJobStates.RESTARTING,
+        HaJobStates.CLEANING_UP,
+        HaJobStates.ERRORED,
+    ],
+    JobState.STARTING: [HaJobStates.PENDING, HaJobStates.AWAITING_CLUSTER_START],
+}
+
+
+def _normalize_state_filter(
+    states: Optional[List[Union[JobState, str]]]
+) -> Optional[List[str]]:
+    """Normalize state filter to list of HaJobStates strings.
+
+    Converts JobState enums or string values to backend HaJobStates format.
+    """
+    if states is None:
+        return None
+
+    ha_job_states_filter: List[str] = []
+    for s in states:
+        if isinstance(s, JobState):
+            state_key = s.value
+        elif isinstance(s, str):
+            state_key = s.upper()
+        else:
+            raise TypeError(
+                "'state_filter' entries must be JobState or str, "
+                f"got {type(s).__name__}"
+            )
+        ha_states = JOB_STATE_TO_HA_JOB_STATES.get(state_key, [])
+        ha_job_states_filter.extend(ha_states)
+
+    return ha_job_states_filter if ha_job_states_filter else None
 
 
 class PrivateJobSDK(WorkloadSDK):
@@ -280,6 +339,7 @@ class PrivateJobSDK(WorkloadSDK):
                 workspace_id=self.client.get_current_workspace_id(),
                 config=prod_job_config,
                 job_queue_config=job_queue_config,
+                tags=config.tags,
             )
         )
 
@@ -289,7 +349,9 @@ class PrivateJobSDK(WorkloadSDK):
         )
         return job.id
 
-    _BACKEND_JOB_STATUS_TO_JOB_RUN_STATE = {
+    _BACKEND_JOB_STATUS_TO_JOB_RUN_STATE: ClassVar[
+        Dict[BackendJobStatus, JobRunState]
+    ] = {
         BackendJobStatus.RUNNING: JobRunState.RUNNING,
         BackendJobStatus.COMPLETED: JobRunState.SUCCEEDED,
         BackendJobStatus.PENDING: JobRunState.STARTING,
@@ -316,8 +378,19 @@ class PrivateJobSDK(WorkloadSDK):
         compute_config = self.get_user_facing_compute_config(
             prod_job_config.compute_config_id
         )
+
+        # Get image_uri from build_id
+        image_uri = None
+        if prod_job_config.build_id:
+            image_uri_obj = self.client.get_cluster_env_build_image_uri(
+                prod_job_config.build_id, use_image_alias=True
+            )
+            if image_uri_obj:
+                image_uri = image_uri_obj.image_uri
+
         return JobConfig(
             name=name,
+            image_uri=image_uri,
             compute_config=compute_config,
             requirements=runtime_env_config.pip if runtime_env_config else None,
             working_dir=runtime_env_config.working_dir if runtime_env_config else None,
@@ -357,6 +430,44 @@ class PrivateJobSDK(WorkloadSDK):
             runs=runs,
             config=config,
             creator_id=model.creator_id,
+        )
+
+    def _decorated_job_to_status(
+        self, decorated_job: DecoratedProductionJob, runs: List[Job]
+    ) -> JobStatus:
+        """Convert DecoratedProductionJob to JobStatus without extra API call.
+
+        This method works with DecoratedProductionJob directly, avoiding the need
+        to make an additional get_job() API call since DecoratedProductionJob
+        contains all the necessary fields (including project as MiniProject).
+        """
+        ha_state = decorated_job.state.current_state if decorated_job.state else None
+        state = cast(
+            JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN)
+        )
+
+        # DecoratedProductionJob has project directly as MiniProject
+        project = (
+            decorated_job.project.name
+            if decorated_job.project is not None
+            and decorated_job.project.name != "default"
+            else None
+        )
+
+        prod_job_config: ProductionJobConfig = decorated_job.config
+        config = self.prod_job_config_to_job_config(
+            prod_job_config=prod_job_config, name=decorated_job.name, project=project
+        )
+        runs = [self._job_run_model_to_job_run_status(run) for run in runs]
+
+        return JobStatus(
+            name=decorated_job.name,
+            id=decorated_job.id,
+            state=state,
+            runs=runs,
+            config=config,
+            creator_id=decorated_job.creator_id,
+            created_at=decorated_job.created_at,
         )
 
     def _resolve_to_job_model(
@@ -438,7 +549,35 @@ class PrivateJobSDK(WorkloadSDK):
         self.logger.info(f"Job {job_model.id} is successfully archived.")
         return job_model.id
 
-    def wait(
+    def _stream_logs_for_job_run(
+        self, job_run_id: str, next_page_token: Optional[str] = None,
+    ) -> Optional[str]:
+        """Stream logs for a job run and return updated pagination state.
+
+        Args:
+            job_run_id: The ID of the job run to stream logs for
+            next_page_token: Token for fetching next page of logs
+
+        Returns:
+            next_page_token for the next iteration
+        """
+        try:
+            logs, next_page_token = self.client.stream_logs_for_job_run(
+                job_run_id=job_run_id, next_page_token=next_page_token,
+            )
+
+            # Print logs line by line
+            for line in logs.splitlines():
+                if line:  # Skip empty lines
+                    print(line)
+
+        except Exception as e:  # noqa: BLE001
+            # Don't fail if log streaming fails
+            self.logger.warning(f"Error streaming logs: {e}")
+
+        return next_page_token
+
+    def wait(  # noqa: PLR0912
         self,
         *,
         name: Optional[str] = None,
@@ -448,6 +587,7 @@ class PrivateJobSDK(WorkloadSDK):
         state: Union[str, JobState] = JobState.SUCCEEDED,
         timeout_s: float = 1800,
         interval_s: float = _POLLING_INTERVAL_SECONDS,
+        follow: bool = False,
     ):
         if not isinstance(timeout_s, (int, float)):
             raise TypeError("timeout_s must be a float")
@@ -471,6 +611,11 @@ class PrivateJobSDK(WorkloadSDK):
         self.logger.info(
             f"Waiting for job '{job_id_or_name}' to reach target state {state}, currently in state: {curr_state}"
         )
+
+        next_page_token = None
+        job_run_id = None
+        logs_started = False
+
         for _ in self.timer.poll(timeout_s=timeout_s, interval_s=interval_s):
             job_model = self._resolve_to_job_model(
                 name=name, job_id=job_id, cloud=cloud, project=project
@@ -482,6 +627,18 @@ class PrivateJobSDK(WorkloadSDK):
                     f"Job '{job_id_or_name}' transitioned from {curr_state} to {new_state}"
                 )
                 curr_state = new_state
+
+            # Stream logs if enabled and job has a job run
+            if follow and job_model.last_job_run_id:
+                if not logs_started:
+                    job_run_id = job_model.last_job_run_id
+                    self.logger.info(f"Starting log stream for job run {job_run_id}")
+                    logs_started = True
+
+                if job_run_id:
+                    next_page_token = self._stream_logs_for_job_run(
+                        job_run_id=job_run_id, next_page_token=next_page_token,
+                    )
 
             if curr_state == state:
                 self.logger.info(
@@ -553,4 +710,202 @@ class PrivateJobSDK(WorkloadSDK):
         head = mode == JobLogMode.HEAD
         return self.client.logs_for_job_run(
             job_run_id=job_run_id, head=head, max_lines=max_lines
+        )
+
+    def add_tags(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        tags: Dict[str, str],
+    ) -> None:
+        if not tags:
+            raise ValueError("At least one tag must be provided.")
+
+        if job_id is not None:
+            resource_id = job_id
+        else:
+            if name is None:
+                raise ValueError("Either 'job_id' or 'name' must be provided.")
+            model = self._resolve_to_job_model(
+                job_id=None, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id
+
+        self.client.upsert_resource_tags(ResourceTagResourceType.JOB, resource_id, tags)
+
+    def remove_tags(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        keys: List[str],
+    ) -> None:
+        if not keys:
+            raise ValueError("At least one tag key must be provided.")
+
+        if job_id is not None:
+            resource_id = job_id
+        else:
+            if name is None:
+                raise ValueError("Either 'job_id' or 'name' must be provided.")
+            model = self._resolve_to_job_model(
+                job_id=None, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id
+
+        self.client.delete_resource_tags(ResourceTagResourceType.JOB, resource_id, keys)
+
+    def list_tags(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """List tags for a job as a key/value mapping."""
+        if job_id is not None:
+            resource_id = job_id
+        else:
+            if name is None:
+                raise ValueError("Either 'job_id' or 'name' must be provided.")
+            model = self._resolve_to_job_model(
+                job_id=None, name=name, cloud=cloud, project=project
+            )
+            resource_id = model.id
+        records = self.client.list_resource_tags(
+            ResourceTagResourceType.JOB, resource_id
+        )
+        return {r.key: r.value for r in records if r and r.key is not None}
+
+    def list(  # noqa: PLR0913
+        self,
+        *,
+        name: Optional[str] = None,
+        job_id: Optional[str] = None,
+        project: Optional[str] = None,
+        project_id: Optional[str] = None,
+        cloud: Optional[str] = None,
+        include_all_users: bool = False,
+        include_archived: bool = False,
+        state_filter: Optional[List[Union[JobState, str]]] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
+        page_size: Optional[int] = None,
+        max_items: Optional[int] = None,
+    ) -> ResultIterator[JobStatus]:
+        """List jobs with filtering and pagination.
+
+        Args:
+            name: Filter by job name.
+            job_id: Fetch a specific job by ID.
+            project: Filter by project name.
+            project_id: [DEPRECATED] Filter by project ID. Use 'project' instead.
+            cloud: Filter by cloud name.
+            include_all_users: Include jobs from all users.
+            include_archived: Include archived jobs.
+            state_filter: Filter by job states (list of JobState or str).
+            tags_filter: Filter by tags (dict of key to list of values).
+            page_size: Number of items per page. Defaults to server default.
+            max_items: Maximum total items to return.
+
+        Returns:
+            ResultIterator that lazily fetches pages of JobStatus objects.
+        """
+        # Validate page_size
+        if page_size is not None and (page_size <= 0 or page_size > 100):
+            raise ValueError("page_size must be between 1 and 100.")
+
+        # Handle deprecated project_id parameter
+        if project_id is not None:
+            warnings.warn(
+                "project_id is deprecated and will be removed in 6 months. "
+                "Use project instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if project is None:
+                # Resolve project_id to project name for consistency
+                project_model = self.client.get_project(project_id)
+                if project_model:
+                    project = project_model.name
+
+        # If job_id provided, fetch single job
+        if job_id is not None:
+            job_model = self._resolve_to_job_model(job_id=job_id)
+            runs = self.client.get_job_runs(job_model.id)
+            status = self._job_model_to_status(model=job_model, runs=runs)
+
+            def _fetch_single_page(_token: Optional[str]):
+                class SingleItemResponse:
+                    def __init__(self):
+                        self.results = [status] if _token is None else []
+                        self.metadata = ListResponseMetadata(
+                            total=1, next_paging_token=None
+                        )
+
+                return SingleItemResponse()
+
+            return ResultIterator(
+                page_token=None,
+                max_items=1,
+                fetch_page=_fetch_single_page,
+                parse_fn=lambda x: x,
+            )
+
+        # Resolve cloud and project IDs
+        cloud_id = self.client.get_cloud_id(cloud_name=cloud) if cloud else None
+        resolved_project_id = None
+        if project:
+            resolved_project_id = self.client.get_project_id(
+                parent_cloud_id=cloud_id, name=project
+            )
+
+        # Determine creator_id filter
+        creator_id = None
+        if not include_all_users:
+            user_info = self.client.get_user_info()
+            creator_id = user_info.id
+
+        # Normalize state filter
+        ha_state_filter = _normalize_state_filter(state_filter)
+
+        # Handle archive status
+        archive_status = (
+            ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
+        )
+
+        # Flatten tags for API
+        tags_filter_list = (
+            flatten_tag_dict_to_api_list(tags_filter) if tags_filter else None
+        )
+
+        def _fetch_page(token: Optional[str]):
+            return self.client.list_jobs(
+                name=name,
+                project_id=resolved_project_id,
+                creator_id=creator_id,
+                state_filter=ha_state_filter,
+                archive_status=archive_status,
+                tags_filter=tags_filter_list,
+                count=page_size,
+                paging_token=token,
+            )
+
+        def _parse_job(decorated_job: DecoratedProductionJob) -> JobStatus:
+            # Get job runs for each job
+            # TODO: Consider batching get_job_runs calls once the backend API supports
+            # fetching runs for multiple jobs in a single request.
+            runs = self.client.get_job_runs(decorated_job.id)
+            return self._decorated_job_to_status(decorated_job=decorated_job, runs=runs)
+
+        return ResultIterator(
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch_page,
+            parse_fn=_parse_job,
         )

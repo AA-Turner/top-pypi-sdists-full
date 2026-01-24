@@ -57,6 +57,7 @@ from ._reporting import (
 )
 from ._typing import Any, Dict, List, Optional, Tuple
 from .api_helpers.experiment_key import get_experiment_key
+from .api_objects.model import ModelStatusConfiguration
 from .assets import asset_item
 from .batch_utils import MessageBatch, MessageBatchItem, ParametersBatch
 from .comet_start.start_modes import SUPPORTED_START_MODES
@@ -2560,7 +2561,19 @@ class OfflineSender(object):
         tags: List[str],
         status: str,
         stages: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if status_configuration:
+            LOGGER.debug(
+                "Parsing model's item status configuration: %r", status_configuration
+            )
+            status_configuration = ModelStatusConfiguration.from_parameters_dict(
+                status_configuration
+            )
+        else:
+            status_configuration = None
+
         self._process_rest_api_send(
             sender=self.rest_api_client.register_model_v2,
             rest_fail_prompt=REGISTER_MODEL_MESSAGE_SENDING_ERROR,
@@ -2576,6 +2589,8 @@ class OfflineSender(object):
             tags=tags,
             status=status,
             stages=stages,
+            metadata=metadata,
+            status_configuration=status_configuration,
         )
 
     def _flush_register_model_messages(self) -> None:
@@ -2592,6 +2607,12 @@ class OfflineSender(object):
                     tags=m["tags"],
                     status=m["status"],
                     stages=m["stages"],
+                    metadata=m.get(
+                        "metadata"
+                    ),  # for backwards compatibility with existing messages
+                    status_configuration=m.get(
+                        "status_configuration"
+                    ),  # for backwards compatibility with existing messages
                 )
             else:
                 LOGGER.warning(

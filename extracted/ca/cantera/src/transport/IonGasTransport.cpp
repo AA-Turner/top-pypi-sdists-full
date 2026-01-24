@@ -14,7 +14,7 @@
 namespace Cantera
 {
 
-void IonGasTransport::init(ThermoPhase* thermo, int mode, int log_level)
+void IonGasTransport::init(ThermoPhase* thermo, int mode)
 {
     m_thermo = thermo;
     m_nsp = m_thermo->nSpecies();
@@ -23,13 +23,6 @@ void IonGasTransport::init(ThermoPhase* thermo, int mode, int log_level)
         throw CanteraError("IonGasTransport::init",
                            "mode = CK_Mode, which is an outdated lower-order fit.");
     }
-    if (log_level == -7) {
-        log_level = 0;
-    } else {
-        warn_deprecated("Transport::init", "The log_level parameter "
-            "is deprecated and will be removed after Cantera 3.1.");
-    }
-    m_log_level = log_level;
     // make a local copy of species charge
     for (size_t k = 0; k < m_nsp; k++) {
         m_speciesCharge.push_back(m_thermo->charge(k));
@@ -208,10 +201,10 @@ void IonGasTransport::fitDiffCoeffs(MMCollisionInt& integrals)
                 // Stockmayer-(n,6,4) model is not suitable for collision
                 // between O2/O2- due to resonant charge transfer.
                 // Therefore, the experimental collision data is used instead.
-                if ((k == m_thermo->speciesIndex("O2-") ||
-                     j == m_thermo->speciesIndex("O2-")) &&
-                    (k == m_thermo->speciesIndex("O2") ||
-                     j == m_thermo->speciesIndex("O2"))) {
+                if ((k == m_thermo->speciesIndex("O2-", false) ||
+                     j == m_thermo->speciesIndex("O2-", false)) &&
+                    (k == m_thermo->speciesIndex("O2", false) ||
+                     j == m_thermo->speciesIndex("O2", false))) {
                        om11 = poly5(t, m_om11_O2.data()) / 1e20;
                 }
                 double diffcoeff = 3.0/16.0 * sqrt(2.0 * Pi/m_reducedMass(k,j))
@@ -235,10 +228,6 @@ void IonGasTransport::fitDiffCoeffs(MMCollisionInt& integrals)
             }
             size_t sum = k * (k + 1) / 2;
             m_diffcoeffs[k*m_nsp+j-sum] = c;
-            if (m_log_level >= 2) {
-                writelog(m_thermo->speciesName(k) + "__" +
-                         m_thermo->speciesName(j) + ": [" + vec2str(c) + "]\n");
-            }
         }
     }
     m_fittingErrors["diff-coeff-max-abs-error"] =
@@ -247,13 +236,6 @@ void IonGasTransport::fitDiffCoeffs(MMCollisionInt& integrals)
     m_fittingErrors["diff-coeff-max-rel-error"] =
         std::max(m_fittingErrors.getDouble("diff-coeff-max-rel-error", 0.0),
                  mxrelerr);
-
-    if (m_log_level) {
-        writelogf("Maximum binary diffusion coefficient absolute error:"
-                 "  %12.6g\n", mxerr);
-        writelogf("Maximum binary diffusion coefficient relative error:"
-                 "%12.6g", mxrelerr);
-    }
 }
 
 void IonGasTransport::setupN64()

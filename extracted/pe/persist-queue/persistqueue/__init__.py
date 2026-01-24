@@ -1,12 +1,26 @@
 __author__ = 'Peter Wang'
 __license__ = 'BSD'
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 # Relative imports assuming the current package structure
 from .exceptions import Empty, Full  # noqa: F401
 from .queue import Queue  # noqa: F401
 import logging
 log = logging.getLogger(__name__)
+
+# Async queue imports
+try:
+    from .async_queue import AsyncQueue  # noqa: F401
+    from .async_sqlqueue import (  # noqa: F401
+        AsyncSQLiteQueue,
+        AsyncFIFOSQLiteQueue,
+        AsyncFILOSQLiteQueue,
+        AsyncUniqueQ
+    )
+except ImportError as e:
+    # If async dependencies are not available, log info
+    log.info("Async queues not available, may need to install "
+             "aiofiles and aiosqlite: %s", e)
 
 # Attempt to import optional components, logging if not found.
 try:
@@ -17,6 +31,7 @@ try:
         FILOSQLiteQueue,
         UniqueQ
     )
+    from .priorityqueue import PriorityQueue
     from .sqlackqueue import (  # noqa: F401
         SQLiteAckQueue,
         FIFOSQLiteAckQueue,
@@ -49,6 +64,12 @@ __all__ = [
     "UniqueAckQ",
     "AckStatus",
     "MySQLQueue",
+    "PriorityQueue",
+    "AsyncQueue",
+    "AsyncSQLiteQueue",
+    "AsyncFIFOSQLiteQueue",
+    "AsyncFILOSQLiteQueue",
+    "AsyncUniqueQ",
     "Empty",
     "Full",
     "__author__",

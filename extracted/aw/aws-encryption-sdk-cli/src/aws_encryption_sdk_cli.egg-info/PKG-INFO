@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aws-encryption-sdk-cli
-Version: 4.2.0
+Version: 4.3.0
 Summary: This command line tool can be used to encrypt and decrypt files and directories using the AWS Encryption SDK.
 Home-page: http://aws-encryption-sdk-cli.readthedocs.io/en/latest/
 Author: Amazon Web Services
@@ -8,15 +8,12 @@ Author-email: aws-cryptools@amazon.com
 Maintainer: Amazon Web Services
 License: Apache License 2.0
 Keywords: aws-encryption-sdk aws kms encryption cli command line
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,6 +21,21 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
 License-File: LICENSE
+Requires-Dist: base64io>=1.0.1
+Requires-Dist: aws-encryption-sdk~=3.1
+Requires-Dist: setuptools
+Requires-Dist: attrs>=17.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: requires-dist
+Dynamic: summary
 
 ######################
 aws-encryption-sdk-cli
@@ -71,7 +83,7 @@ Getting Started
 Required Prerequisites
 ======================
 
-* Python 3.8+
+* Python 3.10+
 * aws-encryption-sdk >= 3.1.0
 
 Installation
@@ -570,5 +582,3 @@ targeting a directory, the requested decoding/encoding will be applied to all fi
 .. _key commitment: https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/concepts.html#key-commitment
 .. _Commitment Policy: https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/migrate-commitment-policy.html
 .. _Python.org Virtual Environment Documentation: https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/
-
-

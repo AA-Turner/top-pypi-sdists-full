@@ -33,26 +33,24 @@ def index_select_along_batch(array: np.ndarray, indices: np.ndarray) -> np.ndarr
     Returns:
         The indexed array along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import index_select_along_batch
+        >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+        >>> out = index_select_along_batch(array, np.array([2, 4]))
+        >>> out
+        array([[4, 5],
+               [8, 9]])
+        >>> out = index_select_along_batch(array, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        array([[8, 9],
+               [6, 7],
+               [4, 5],
+               [2, 3],
+               [0, 1]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import index_select_along_batch
-    >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
-    >>> out = index_select_along_batch(array, np.array([2, 4]))
-    >>> out
-    array([[4, 5],
-           [8, 9]])
-    >>> out = index_select_along_batch(array, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    array([[8, 9],
-           [6, 7],
-           [4, 5],
-           [2, 3],
-           [0, 1]])
-
-    ```
+        ```
     """
     return take_along_batch(array, indices)
 
@@ -74,23 +72,21 @@ def index_select_along_seq(array: np.ndarray, indices: np.ndarray) -> np.ndarray
     Returns:
         The indexed array along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import index_select_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = index_select_along_seq(array, np.array([2, 4]))
+        >>> out
+        array([[2, 4],
+               [7, 9]])
+        >>> out = index_select_along_seq(array, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        array([[4, 3, 2, 1, 0],
+               [9, 8, 7, 6, 5]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import index_select_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = index_select_along_seq(array, np.array([2, 4]))
-    >>> out
-    array([[2, 4],
-           [7, 9]])
-    >>> out = index_select_along_seq(array, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    array([[4, 3, 2, 1, 0],
-           [9, 8, 7, 6, 5]])
-
-    ```
+        ```
     """
     return take_along_seq(array, indices)
 
@@ -109,18 +105,16 @@ def masked_select_along_batch(array: np.ndarray, mask: np.ndarray) -> np.ndarray
     Returns:
         The indexed array along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import masked_select_along_batch
+        >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+        >>> out = masked_select_along_batch(array, np.array([False, False, True, False, True]))
+        >>> out
+        array([[4, 5], [8, 9]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import masked_select_along_batch
-    >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
-    >>> out = masked_select_along_batch(array, np.array([False, False, True, False, True]))
-    >>> out
-    array([[4, 5], [8, 9]])
-
-    ```
+        ```
     """
     return array[mask]
 
@@ -130,7 +124,7 @@ def masked_select_along_seq(array: np.ndarray, mask: np.ndarray) -> np.ndarray:
     sequence axis according to the boolean mask ``mask``.
 
     Note:
-        This function assumes the batch axis is the first axis.
+        This function assumes the sequence axis is the second axis.
 
     Args:
         array: The input array.
@@ -139,18 +133,16 @@ def masked_select_along_seq(array: np.ndarray, mask: np.ndarray) -> np.ndarray:
     Returns:
         The indexed array along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import masked_select_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = masked_select_along_seq(array, np.array([False, False, True, False, True]))
+        >>> out
+        array([[2, 4], [7, 9]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import masked_select_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = masked_select_along_seq(array, np.array([False, False, True, False, True]))
-    >>> out
-    array([[2, 4], [7, 9]])
-
-    ```
+        ```
     """
     return array[:, mask]
 
@@ -172,26 +164,24 @@ def take_along_batch(array: np.ndarray, indices: np.ndarray) -> np.ndarray:
     Returns:
         The indexed array along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import take_along_batch
+        >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+        >>> out = take_along_batch(array, np.array([2, 4]))
+        >>> out
+        array([[4, 5],
+               [8, 9]])
+        >>> out = take_along_batch(array, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        array([[8, 9],
+               [6, 7],
+               [4, 5],
+               [2, 3],
+               [0, 1]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import take_along_batch
-    >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
-    >>> out = take_along_batch(array, np.array([2, 4]))
-    >>> out
-    array([[4, 5],
-           [8, 9]])
-    >>> out = take_along_batch(array, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    array([[8, 9],
-           [6, 7],
-           [4, 5],
-           [2, 3],
-           [0, 1]])
-
-    ```
+        ```
     """
     return np.take(array, indices=indices, axis=BATCH_AXIS)
 
@@ -213,23 +203,21 @@ def take_along_seq(array: np.ndarray, indices: np.ndarray) -> np.ndarray:
     Returns:
         The indexed array along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import take_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = take_along_seq(array, np.array([2, 4]))
+        >>> out
+        array([[2, 4],
+               [7, 9]])
+        >>> out = take_along_seq(array, np.array([4, 3, 2, 1, 0]))
+        >>> out
+        array([[4, 3, 2, 1, 0],
+               [9, 8, 7, 6, 5]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import take_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = take_along_seq(array, np.array([2, 4]))
-    >>> out
-    array([[2, 4],
-           [7, 9]])
-    >>> out = take_along_seq(array, np.array([4, 3, 2, 1, 0]))
-    >>> out
-    array([[4, 3, 2, 1, 0],
-           [9, 8, 7, 6, 5]])
-
-    ```
+        ```
     """
     if indices.ndim == 1:
         return np.take(array, indices=indices, axis=SEQ_AXIS)

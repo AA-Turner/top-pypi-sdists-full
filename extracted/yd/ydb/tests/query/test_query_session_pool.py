@@ -7,17 +7,16 @@ from concurrent import futures
 
 from typing import Optional
 
-from tests.conftest import wait_container_ready
 from ydb import QueryExplainResultFormat
 from ydb.query.pool import QuerySessionPool
-from ydb.query.session import QuerySession, QuerySessionStateEnum
+from ydb.query.session import QuerySession
 from ydb.query.transaction import QueryTxContext
 
 
 class TestQuerySessionPool:
     def test_checkout_provides_created_session(self, pool: QuerySessionPool):
         with pool.checkout() as session:
-            assert session._state._state == QuerySessionStateEnum.CREATED
+            assert session.is_active
 
     def test_oneshot_query_normal(self, pool: QuerySessionPool):
         res = pool.execute_with_retries("select 1;")
@@ -39,7 +38,7 @@ class TestQuerySessionPool:
 
     def test_retry_op_uses_created_session(self, pool: QuerySessionPool):
         def callee(session: QuerySession):
-            assert session._state._state == QuerySessionStateEnum.CREATED
+            assert session.is_active
 
         pool.retry_operation_sync(callee)
 
@@ -68,6 +67,7 @@ class TestQuerySessionPool:
             (None),
             (ydb.QuerySerializableReadWrite()),
             (ydb.QuerySnapshotReadOnly()),
+            (ydb.QuerySnapshotReadWrite()),
             (ydb.QueryOnlineReadOnly()),
             (ydb.QueryStaleReadOnly()),
         ],
@@ -105,17 +105,17 @@ class TestQuerySessionPool:
         for i in range(1, target_size + 1):
             session = pool.acquire(timeout=0.1)
             assert pool._current_size == i
-            assert session._state.session_id not in ids
-            ids.add(session._state.session_id)
+            assert session.session_id not in ids
+            ids.add(session.session_id)
 
         with pytest.raises(ydb.SessionPoolEmpty):
             pool.acquire(timeout=0.1)
 
-        last_id = session._state.session_id
+        last_id = session.session_id
         pool.release(session)
 
         session = pool.acquire(timeout=0.1)
-        assert session._state.session_id == last_id
+        assert session.session_id == last_id
         assert pool._current_size == target_size
 
     def test_checkout_do_not_increase_size(self, pool: QuerySessionPool):
@@ -123,17 +123,17 @@ class TestQuerySessionPool:
         for _ in range(10):
             with pool.checkout() as session:
                 if session_id is None:
-                    session_id = session._state.session_id
+                    session_id = session.session_id
                 assert pool._current_size == 1
-                assert session_id == session._state.session_id
+                assert session_id == session.session_id
 
     def test_pool_recreates_bad_sessions(self, pool: QuerySessionPool):
         with pool.checkout() as session:
-            session_id = session._state.session_id
+            session_id = session.session_id
             session.delete()
 
         with pool.checkout() as session:
-            assert session_id != session._state.session_id
+            assert session_id != session.session_id
             assert pool._current_size == 1
 
     def test_acquire_from_closed_pool_raises(self, pool: QuerySessionPool):
@@ -151,7 +151,6 @@ class TestQuerySessionPool:
         assert pool._current_size == 0
 
         docker_project.start()
-        wait_container_ready(driver_sync)
         pool.stop()
 
     def test_execute_with_retries_async(self, pool: QuerySessionPool):

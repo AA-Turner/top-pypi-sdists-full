@@ -199,7 +199,7 @@ def status() -> None:
 
     # Write about the current ZenML client
     cli_utils.declare("-----ZenML Client Status-----")
-    if gc.uses_default_store():
+    if gc.uses_local_store:
         cli_utils.declare(
             f"Connected to the local ZenML database: '{store_cfg.url}'"
         )
@@ -536,7 +536,7 @@ def server() -> None:
         `zenml login --pro` to access these servers.
 
       * ZenML servers that the client has logged in to via
-        `zenml login --url` in the past.
+        `zenml login <server-url>` in the past.
 
       * the local ZenML server started with `zenml login --local`, if one is
         running.
@@ -736,16 +736,13 @@ def server_list(
     cli_utils.print_pydantic_models(  # type: ignore[type-var]
         all_servers,
         columns=columns,
-        rename_columns={
-            "server_name_hyperlink": "name",
-            "server_id_hyperlink": "ID",
-            "organization_hyperlink": "organization",
-            "dashboard_url": "dashboard URL",
-            "api_hyperlink": "API URL",
-            "auth_status": "auth status",
-        },
         active_models=current_server,
         show_active=True,
+        column_aliases={
+            "server_id_hyperlink": "server_id",
+            "server_name_hyperlink": "server_name",
+            "organization_hyperlink": "organization",
+        },
     )
 
 
@@ -780,4 +777,4 @@ def show(local: bool = False, ngrok_token: Optional[str] = None) -> None:
     try:
         zenml.show(ngrok_token=ngrok_token)
     except RuntimeError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)

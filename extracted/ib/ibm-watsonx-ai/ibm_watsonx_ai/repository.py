@@ -1,16 +1,26 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeAlias, cast
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Generator,
+    Literal,
+    TypeAlias,
+    cast,
+)
+from warnings import warn
 
-from requests import Response
+import httpx
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.experiments import Experiments
 from ibm_watsonx_ai.functions import Functions
@@ -28,7 +38,7 @@ from ibm_watsonx_ai.metanames import (
 )
 from ibm_watsonx_ai.models import Models
 from ibm_watsonx_ai.pipelines import Pipelines
-from ibm_watsonx_ai.utils import get_url, get_user_agent_header, inherited_docstring
+from ibm_watsonx_ai.utils import get_user_agent_header, inherited_docstring
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -36,7 +46,7 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 if TYPE_CHECKING:
     import numpy
     import pandas
-    import pyspark
+    import pyspark.sql
 
     from ibm_watsonx_ai import APIClient
 
@@ -44,7 +54,7 @@ if TYPE_CHECKING:
         numpy.ndarray[Any, numpy.dtype[numpy.str_]] | list[str]
     )
     TrainingDataType: TypeAlias = (
-        pandas.DataFrame | numpy.ndarray | pyspark.sql.Dataframe | list
+        pandas.DataFrame | numpy.ndarray | pyspark.sql.DataFrame | list
     )
     TrainingTargetType: TypeAlias = (
         pandas.DataFrame | pandas.Series | numpy.ndarray | list
@@ -126,7 +136,7 @@ class Repository(WMLResource):
 
     def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
-        self._ml_repository_client: MLRepositoryClient | None = None
+        self._ml_repository_client: MLRepositoryClient
 
         self.ExperimentMetaNames = ExperimentMetaNames()
         self.FunctionMetaNames = FunctionMetaNames()
@@ -137,9 +147,9 @@ class Repository(WMLResource):
         self.AIServiceMetaNames = AIServiceMetaNames()
 
         # make sure that old repo client is aware of token changes
-        self._client._auth_method._on_token_set = self._refresh_repo_client
-        self._client._auth_method._on_token_creation = self._refresh_repo_client
-        self._client._auth_method._on_token_refresh = self._refresh_repo_client
+        self._client._auth_method._on_token_set = self._refresh_repo_client  # type: ignore
+        self._client._auth_method._on_token_creation = self._refresh_repo_client  # type: ignore
+        self._client._auth_method._on_token_refresh = self._refresh_repo_client  # type: ignore
 
         self._refresh_repo_client()
 
@@ -151,15 +161,78 @@ class Repository(WMLResource):
         )
         self._ml_repository_client._add_header("User-Agent", get_user_agent_header())
 
+    def _get_artifact_endpoints(self, artifact_id: str) -> dict[str, str]:
+        return {
+            "model": self._client._href_definitions.get_model_last_version_href(
+                artifact_id
+            ),
+            "pipeline": self._client._href_definitions.get_pipeline_href(artifact_id),
+            "experiment": self._client._href_definitions.get_experiment_href(
+                artifact_id
+            ),
+            "function": self._client._href_definitions.get_function_href(artifact_id),
+            "ai_service": self._client._href_definitions.get_ai_service_href(
+                artifact_id
+            ),
+        }
+
+    def _check_artifact_type(self, artifact_id: str) -> dict[str, bool]:
+        self._validate_type(artifact_id, "artifact_id", str, True)
+
+        endpoints = self._get_artifact_endpoints(artifact_id)
+
+        response_by_artifact_type = {
+            artifact: self._client.httpx_client.get(
+                url=url,
+                params=self._client._params(),
+                headers=self._client._get_headers(),
+            )
+            for artifact, url in endpoints.items()
+        }
+
+        return {
+            artifact: (response.status_code == 200)
+            for artifact, response in response_by_artifact_type.items()
+        }
+
+    async def _acheck_artifact_type(self, artifact_id: str) -> dict[str, bool]:
+        self._validate_type(artifact_id, "artifact_id", str, True)
+
+        endpoints = self._get_artifact_endpoints(artifact_id)
+
+        response_by_artifact_type = {
+            artifact: await self._client.async_httpx_client.get(
+                url=url,
+                params=self._client._params(),
+                headers=await self._client._aget_headers(),
+            )
+            for artifact, url in endpoints.items()
+        }
+
+        return {
+            artifact: (response.status_code == 200)
+            for artifact, response in response_by_artifact_type.items()
+        }
+
     @inherited_docstring(
         Experiments.store, {"experiments.get_href": "repository.get_experiment_href"}
     )
     def store_experiment(self, meta_props: dict) -> dict:
         return self._client.experiments.store(meta_props)
 
+    @inherited_docstring(
+        Experiments.astore, {"experiments.get_href": "repository.get_experiment_href"}
+    )
+    async def astore_experiment(self, meta_props: dict) -> dict:
+        return await self._client.experiments.astore(meta_props)
+
     @inherited_docstring(Pipelines.store)
     def store_pipeline(self, meta_props: dict) -> dict:
         return self._client.pipelines.store(meta_props)
+
+    @inherited_docstring(Pipelines.astore)
+    async def astore_pipeline(self, meta_props: dict) -> dict:
+        return await self._client.pipelines.astore(meta_props)
 
     @inherited_docstring(Models.store, {"store()": "store_model()"})
     def store_model(
@@ -172,7 +245,6 @@ class Repository(WMLResource):
         feature_names: FeatureNamesArrayType | None = None,
         label_column_names: LabelColumnNamesType | None = None,
         subtrainingId: str | None = None,
-        round_number: int | None = None,
         experiment_metadata: dict | None = None,
         training_id: str | None = None,
     ) -> dict:
@@ -185,7 +257,33 @@ class Repository(WMLResource):
             feature_names=feature_names,
             label_column_names=label_column_names,
             subtrainingId=subtrainingId,
-            round_number=round_number,
+            experiment_metadata=experiment_metadata,
+            training_id=training_id,
+        )
+
+    @inherited_docstring(Models.astore, {"astore()": "astore_model()"})
+    async def astore_model(
+        self,
+        model: str | object | None = None,
+        meta_props: dict | None = None,
+        training_data: TrainingDataType | None = None,
+        training_target: TrainingTargetType | None = None,
+        pipeline: object | None = None,
+        feature_names: FeatureNamesArrayType | None = None,
+        label_column_names: LabelColumnNamesType | None = None,
+        subtrainingId: str | None = None,
+        experiment_metadata: dict | None = None,
+        training_id: str | None = None,
+    ) -> dict:
+        return await self._client._models.astore(
+            model=model,
+            meta_props=meta_props,
+            training_data=training_data,
+            training_target=training_target,
+            pipeline=pipeline,
+            feature_names=feature_names,
+            label_column_names=label_column_names,
+            subtrainingId=subtrainingId,
             experiment_metadata=experiment_metadata,
             training_id=training_id,
         )
@@ -205,10 +303,20 @@ class Repository(WMLResource):
     ) -> dict:
         return self._client._functions.store(function, meta_props)
 
+    @inherited_docstring(Functions.astore)
+    async def astore_function(
+        self, function: str | Callable, meta_props: str | dict[str, Any]
+    ) -> dict:
+        return await self._client._functions.astore(function, meta_props)
+
     @inherited_docstring(Models.create_revision)
     def create_model_revision(self, model_id: str | None = None, **kwargs: Any) -> dict:
         model_id = _get_id_from_deprecated_uid(kwargs, model_id, "model")
         return self._client._models.create_revision(model_id=model_id)
+
+    @inherited_docstring(Models.acreate_revision)
+    async def acreate_model_revision(self, model_id: str) -> dict:
+        return await self._client._models.acreate_revision(model_id=model_id)
 
     @inherited_docstring(Pipelines.create_revision)
     def create_pipeline_revision(
@@ -216,6 +324,10 @@ class Repository(WMLResource):
     ) -> dict:
         pipeline_id = _get_id_from_deprecated_uid(kwargs, pipeline_id, "pipeline")
         return self._client.pipelines.create_revision(pipeline_id=pipeline_id)
+
+    @inherited_docstring(Pipelines.acreate_revision)
+    async def acreate_pipeline_revision(self, pipeline_id: str) -> dict:
+        return await self._client.pipelines.acreate_revision(pipeline_id=pipeline_id)
 
     @inherited_docstring(Functions.create_revision)
     def create_function_revision(
@@ -225,9 +337,19 @@ class Repository(WMLResource):
             function_id=function_id, **kwargs
         )
 
+    @inherited_docstring(Functions.acreate_revision)
+    async def acreate_function_revision(self, function_id: str) -> dict:
+        return await self._client._functions.acreate_revision(function_id=function_id)
+
     @inherited_docstring(Experiments.create_revision)
     def create_experiment_revision(self, experiment_id: str) -> dict:
         return self._client.experiments.create_revision(experiment_id=experiment_id)
+
+    @inherited_docstring(Experiments.acreate_revision)
+    async def acreate_experiment_revision(self, experiment_id: str) -> dict:
+        return await self._client.experiments.acreate_revision(
+            experiment_id=experiment_id
+        )
 
     @inherited_docstring(Models.update, {"meta_props": "updated_meta_props"})
     def update_model(
@@ -240,6 +362,17 @@ class Repository(WMLResource):
         model_id = _get_id_from_deprecated_uid(kwargs, model_id, "model")
         return self._client._models.update(model_id, updated_meta_props, update_model)
 
+    @inherited_docstring(Models.aupdate, {"meta_props": "updated_meta_props"})
+    async def aupdate_model(
+        self,
+        model_id: str,
+        updated_meta_props: dict | None = None,
+        update_model: Any | None = None,
+    ) -> dict:
+        return await self._client._models.aupdate(
+            model_id, updated_meta_props, update_model
+        )
+
     @inherited_docstring(Experiments.update)
     def update_experiment(
         self,
@@ -248,6 +381,14 @@ class Repository(WMLResource):
         **kwargs: Any,
     ) -> dict:
         return self._client.experiments.update(experiment_id, changes, **kwargs)
+
+    @inherited_docstring(Experiments.aupdate)
+    async def aupdate_experiment(
+        self,
+        experiment_id: str,
+        changes: dict,
+    ) -> dict:
+        return await self._client.experiments.aupdate(experiment_id, changes)
 
     @inherited_docstring(Functions.update)
     def update_function(
@@ -261,6 +402,17 @@ class Repository(WMLResource):
             function_id, changes, update_function, **kwargs
         )
 
+    @inherited_docstring(Functions.aupdate)
+    async def aupdate_function(
+        self,
+        function_id: str,
+        changes: dict | None = None,
+        update_function: str | Callable | None = None,
+    ) -> dict:
+        return await self._client._functions.aupdate(
+            function_id, changes, update_function
+        )
+
     @inherited_docstring(Pipelines.update)
     def update_pipeline(
         self,
@@ -272,32 +424,25 @@ class Repository(WMLResource):
         pipeline_id = _get_id_from_deprecated_uid(kwargs, pipeline_id, "pipeline")
         return self._client.pipelines.update(pipeline_id, changes, rev_id, **kwargs)
 
+    @inherited_docstring(Pipelines.aupdate)
+    async def aupdate_pipeline(
+        self, pipeline_id: str, changes: dict, rev_id: str | None = None
+    ) -> dict:
+        return await self._client.pipelines.aupdate(pipeline_id, changes, rev_id)
+
+    @inherited_docstring(Models.load, actual_type_override="model")
     def load(self, artifact_id: str | None = None, **kwargs: Any) -> object:
-        """Load a model from the repository to object in a local environment.
-
-        .. note::
-            The use of the load() method is restricted and not permitted for AutoAI models.
-
-        :param artifact_id: ID of the stored model
-        :type artifact_id: str
-
-        :return: trained model
-        :rtype: object
-
-        **Example**
-
-        .. code-block:: python
-
-            model = client.repository.load(model_id)
-
-        """
         artifact_id = _get_id_from_deprecated_uid(kwargs, artifact_id, "artifact")
         return self._client._models.load(artifact_id)
+
+    @inherited_docstring(Models.aload, actual_type_override="model")
+    async def aload(self, artifact_id: str) -> object:
+        return await self._client._models.aload(artifact_id)
 
     def download(
         self,
         artifact_id: str | None = None,
-        filename: str = "downloaded_artifact.tar.gz",
+        filename: str | Path = "downloaded_artifact.tar.gz",
         rev_id: str | None = None,
         format: str | None = None,
         **kwargs: Any,
@@ -307,7 +452,7 @@ class Repository(WMLResource):
         :param artifact_id: unique ID of the model or function
         :type artifact_id: str
         :param filename: name of the file to which the artifact content will be downloaded
-        :type filename: str, optional
+        :type filename: str | Path, optional
         :param rev_id: revision ID
         :type rev_id: str, optional
         :param format: format of the content, applicable for models
@@ -320,30 +465,110 @@ class Repository(WMLResource):
 
         .. code-block:: python
 
-            client.repository.download(model_id, 'my_model.tar.gz')
-            client.repository.download(model_id, 'my_model.json') # if original model was saved as json, works only for xgboost 1.3
+            client.repository.download(model_id, "my_model.tar.gz")
+            client.repository.download(
+                model_id, "my_model.json"
+            )  # if original model was saved as json, works only for xgboost 1.3
 
         """
         artifact_id = _get_id_from_deprecated_uid(kwargs, artifact_id, "artifact")
         rev_id = _get_id_from_deprecated_uid(kwargs, rev_id, "rev", can_be_none=True)
 
         self._validate_type(artifact_id, "artifact_id", str, True)
-        self._validate_type(filename, "filename", str, True)
+        self._validate_type(filename, "filename", [str, Path], True, True)
+        if isinstance(filename, str):
+            filename = Path(filename)
 
-        res = self._check_artifact_type(str(artifact_id))
+        is_artifact_type = self._check_artifact_type(str(artifact_id))
 
-        if res["model"] is True:
+        if is_artifact_type["model"]:
             return self._client._models.download(artifact_id, filename, rev_id, format)
-        elif res["function"]:
+        if is_artifact_type["function"]:
             return self._client._functions.download(artifact_id, filename, rev_id)
-        elif res["ai_service"]:
+        if is_artifact_type["ai_service"]:
             return self._client._ai_services.download(artifact_id, filename, rev_id)
-        else:
-            raise WMLClientError(
-                "Unexpected type of artifact to download or Artifact with artifact_id: '{}' does not exist.".format(
-                    artifact_id
-                )
+
+        raise WMLClientError(
+            f"Unexpected type of artifact to download or Artifact with artifact_id: '{artifact_id}' does not exist."
+        )
+
+    async def adownload(
+        self,
+        artifact_id: str,
+        filename: str | Path = "downloaded_artifact.tar.gz",
+        rev_id: str | None = None,
+        format: str | None = None,
+    ) -> str:
+        """Download the configuration file for an artifact with the specified ID asynchronously.
+
+        :param artifact_id: unique ID of the model or function
+        :type artifact_id: str
+        :param filename: name of the file to which the artifact content will be downloaded
+        :type filename: str | Path, optional
+        :param rev_id: revision ID
+        :type rev_id: str, optional
+        :param format: format of the content, applicable for models
+        :type format: str, optional
+
+        :return: path to the downloaded artifact content
+        :rtype: str
+
+        **Examples**
+
+        .. code-block:: python
+
+            await client.repository.adownload(model_id, "my_model.tar.gz")
+            await client.repository.adownload(
+                model_id, "my_model.json"
+            )  # if original model was saved as json, works only for xgboost 1.3
+
+        """
+
+        self._validate_type(artifact_id, "artifact_id", str, True)
+        self._validate_type(filename, "filename", [str, Path], True, True)
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        is_artifact_type_of = await self._acheck_artifact_type(str(artifact_id))
+
+        if is_artifact_type_of["model"]:
+            return await self._client._models.adownload(
+                artifact_id, filename, rev_id, format
             )
+
+        if is_artifact_type_of["function"]:
+            return await self._client._functions.adownload(
+                artifact_id, filename, rev_id
+            )
+
+        if is_artifact_type_of["ai_service"]:
+            return await self._client._ai_services.adownload(
+                artifact_id, filename, rev_id
+            )
+
+        raise WMLClientError(
+            f"Unexpected type of artifact to download or Artifact with artifact_id: '{artifact_id}' does not exist."
+        )
+
+    def _handle_delete_response(
+        self, artifact_id: str, response: httpx.Response
+    ) -> Literal["SUCCESS"]:
+        match response.status_code:
+            case 200 | 204 as success_status_code:
+                return cast(
+                    Literal["SUCCESS"],
+                    self._handle_response(
+                        success_status_code, "delete assets", response
+                    ),
+                )
+            case 404:
+                raise WMLClientError(
+                    f"Artifact with artifact_id: '{artifact_id}' does not exist."
+                )
+            case _:
+                raise WMLClientError(
+                    "Deletion error for the given id : ", response.text
+                )
 
     def delete(
         self, artifact_id: str | None = None, force: bool = False, **kwargs: Any
@@ -358,6 +583,7 @@ class Repository(WMLResource):
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -371,31 +597,62 @@ class Repository(WMLResource):
 
         if not force and self._if_deployment_exist_for_asset(artifact_id):
             raise WMLClientError(
-                "Cannot delete artifact that has existing deployments. Please delete all associated deployments and try again"
+                "Cannot delete artifact that has existing deployments. "
+                "Please delete all associated deployments and try again"
             )
 
         params = self._client._params()
         params["purge_on_delete"] = "true"
 
-        response = requests.delete(
-            self._client._href_definitions.get_asset_href(artifact_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_asset_href(artifact_id),
             params=params,
             headers=self._client._get_headers(),
         )
 
-        match response.status_code:
-            case 200 | 204 as success_status_code:
-                return self._handle_response(
-                    success_status_code, "delete assets", response
-                )
-            case 404:
-                raise WMLClientError(
-                    f"Artifact with artifact_id: '{artifact_id}' does not exist."
-                )
-            case _:
-                raise WMLClientError(
-                    "Deletion error for the given id : ", response.text
-                )
+        return self._handle_delete_response(artifact_id, response)
+
+    async def adelete(
+        self, artifact_id: str, force: bool = False
+    ) -> Literal["SUCCESS"]:
+        """Delete a model, experiment, pipeline, function, or AI service from the repository asynchronously.
+
+        :param artifact_id: unique ID of the stored model, experiment, function, pipeline, or AI service
+        :type artifact_id: str
+
+        :param force: if True, the delete operation will proceed even when the artifact deployment exists, defaults to False
+        :type force: bool, optional
+
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+        :raises WMLClientError: if deletion failed
+
+        **Example:**
+
+        .. code-block:: python
+
+            await client.repository.adelete(artifact_id)
+
+        """
+
+        Repository._validate_type(artifact_id, "artifact_id", str, True)
+
+        if not force and await self._aif_deployment_exist_for_asset(artifact_id):
+            raise WMLClientError(
+                "Cannot delete artifact that has existing deployments. "
+                "Please delete all associated deployments and try again"
+            )
+
+        params = self._client._params()
+        params["purge_on_delete"] = "true"
+
+        response = await self._client.async_httpx_client.delete(
+            url=self._client._href_definitions.get_asset_href(artifact_id),
+            params=params,
+            headers=await self._client._aget_headers(),
+        )
+
+        return self._handle_delete_response(artifact_id, response)
 
     def get_details(
         self,
@@ -403,7 +660,7 @@ class Repository(WMLResource):
         spec_state: SpecStates | None = None,
         artifact_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict | Generator:
         """Get metadata of stored artifacts. If `artifact_id` and `artifact_name` are not specified,
         the metadata of all models, experiments, functions, pipelines, and ai services is returned.
         If only `artifact_name` is specified, metadata of all artifacts with the name is returned.
@@ -428,7 +685,7 @@ class Repository(WMLResource):
         .. code-block:: python
 
             details = client.repository.get_details(artifact_id)
-            details = client.repository.get_details(artifact_name='Sample_model')
+            details = client.repository.get_details(artifact_name="Sample_model")
             details = client.repository.get_details()
 
 
@@ -438,7 +695,9 @@ class Repository(WMLResource):
 
             from ibm_watsonx_ai.lifecycle import SpecStates
 
-            details = client.repository.get_details(spec_state=SpecStates.DEPRECATED)
+            details = client.repository.get_details(
+                spec_state=SpecStates.DEPRECATED
+            )
 
         """
         artifact_id = _get_id_from_deprecated_uid(
@@ -447,84 +706,170 @@ class Repository(WMLResource):
         Repository._validate_type(artifact_id, "artifact_id", str, False)
         Repository._validate_type(artifact_name, "artifact_name", str, False)
 
-        if artifact_id is None:
-            model_details = self._client._models.get_details(
-                spec_state=spec_state, model_name=artifact_name
-            )
-            experiment_details = (
-                self.get_experiment_details(experiment_name=artifact_name)
-                if not spec_state
-                else {"resources": []}
-            )
-            pipeline_details = (
-                self.get_pipeline_details(pipeline_name=artifact_name)
-                if not spec_state
-                else {"resources": []}
-            )
-            function_details = self._client._functions.get_details(
-                spec_state=spec_state, function_name=artifact_name
-            )
-            try:
-                ai_service_details = self._client._ai_services.get_details(
-                    spec_state=spec_state, ai_service_name=artifact_name
-                )
-            except WMLClientError:
-                ai_service_details = None
+        if artifact_id is not None:
+            is_artifact_type_of = self._check_artifact_type(str(artifact_id))
 
-            details = {
-                "models": model_details,
-                "experiments": experiment_details,
-                "pipeline": pipeline_details,
-                "functions": function_details,
-            }
+            if is_artifact_type_of["model"]:
+                return self.get_model_details(artifact_id)
+            if is_artifact_type_of["experiment"]:
+                return self.get_experiment_details(artifact_id)
+            if is_artifact_type_of["pipeline"]:
+                return self.get_pipeline_details(artifact_id)
+            if is_artifact_type_of["function"]:
+                return self.get_function_details(artifact_id)
+            if is_artifact_type_of["ai_service"]:
+                return self.get_ai_service_details(artifact_id)
 
-            if ai_service_details is not None:
-                details["ai_service"] = ai_service_details
+            raise WMLClientError(
+                f"Getting artifact details failed. Artifact id: '{artifact_id}' not found."
+            )
 
-        else:
-            artifact_type = self._check_artifact_type(str(artifact_id))
+        model_details = self.get_model_details(
+            spec_state=spec_state, model_name=artifact_name
+        )
 
-            if artifact_type["model"] is True:
-                details = self.get_model_details(artifact_id)
-            elif artifact_type["experiment"] is True:
-                details = self.get_experiment_details(artifact_id)
-            elif artifact_type["pipeline"] is True:
-                details = self.get_pipeline_details(artifact_id)
-            elif artifact_type["function"] is True:
-                details = self.get_function_details(artifact_id)
-            elif artifact_type["ai_service"] is True:
-                details = self.get_ai_service_details(artifact_id)
-            else:
-                raise WMLClientError(
-                    "Getting artifact details failed. Artifact id: '{}' not found.".format(
-                        artifact_id
-                    )
-                )
+        experiment_details = (
+            self.get_experiment_details(experiment_name=artifact_name)
+            if not spec_state
+            else {"resources": []}
+        )
+
+        pipeline_details = (
+            self.get_pipeline_details(pipeline_name=artifact_name)
+            if not spec_state
+            else {"resources": []}
+        )
+
+        function_details = self.get_function_details(
+            spec_state=spec_state, function_name=artifact_name
+        )
+
+        details = {
+            "models": model_details,
+            "experiments": experiment_details,
+            "pipeline": pipeline_details,
+            "functions": function_details,
+        }
+
+        try:
+            details["ai_service"] = self.get_ai_service_details(
+                spec_state=spec_state, ai_service_name=artifact_name
+            )
+        except WMLClientError:
+            pass
 
         return details
 
-    def get_id_by_name(self, artifact_name: str) -> str:
-        """Get the ID of a stored artifact by name.
+    async def aget_details(
+        self,
+        artifact_id: str | None = None,
+        spec_state: SpecStates | None = None,
+        artifact_name: str | None = None,
+    ) -> dict | AsyncGenerator:
+        """Get metadata of stored artifacts asynchronously. If `artifact_id` and `artifact_name` are not specified,
+        the metadata of all models, experiments, functions, pipelines, and ai services is returned.
+        If only `artifact_name` is specified, metadata of all artifacts with the name is returned.
 
-        :param artifact_name: name of the stored artifact
-        :type artifact_name: str
+        :param artifact_id: unique ID of the stored model, experiment, function, or pipeline
+        :type artifact_id: str, optional
 
-        :return: ID of the stored artifact if exactly one with the 'artifact_name' exists. Otherwise, raise an error.
-        :rtype: str
+        :param spec_state: software specification state, can be used only when `artifact_id` is None
+        :type spec_state: SpecStates, optional
 
-        **Example:**
+        :param artifact_name: name of the stored model, experiment, function, pipeline, or ai service
+            can be used only when `artifact_id` is None
+        :type artifact_name: str, optional
+
+        :return: metadata of the stored artifact(s)
+        :rtype:
+            - dict (if artifact_id is not None)
+            - {"models": dict, "experiments": dict, "pipeline": dict, "functions": dict, "ai_service": dict} (if artifact_id is None)
+
+        **Examples**
 
         .. code-block:: python
 
-            artifact_id = client.repository.get_id_by_name(artifact_name)
+            details = await client.repository.aget_details(artifact_id)
+            details = await client.repository.aget_details(
+                artifact_name="Sample_model"
+            )
+            details = await client.repository.aget_details()
+
+
+        Example of getting all repository assets with deprecated software specifications:
+
+        .. code-block:: python
+
+            from ibm_watsonx_ai.lifecycle import SpecStates
+
+            details = await client.repository.aget_details(
+                spec_state=SpecStates.DEPRECATED
+            )
 
         """
+        Repository._validate_type(artifact_id, "artifact_id", str, False)
+        Repository._validate_type(artifact_name, "artifact_name", str, False)
 
-        details = self.get_details(artifact_name=artifact_name)
+        if artifact_id is not None:
+            is_artifact_type_of = await self._acheck_artifact_type(str(artifact_id))
 
+            if is_artifact_type_of["model"]:
+                return await self.aget_model_details(artifact_id)
+            if is_artifact_type_of["experiment"]:
+                return await self.aget_experiment_details(artifact_id)
+            if is_artifact_type_of["pipeline"]:
+                return await self.aget_pipeline_details(artifact_id)
+            if is_artifact_type_of["function"]:
+                return await self.aget_function_details(artifact_id)
+            if is_artifact_type_of["ai_service"]:
+                return await self.aget_ai_service_details(artifact_id)
+
+            raise WMLClientError(
+                f"Getting artifact details failed. Artifact id: '{artifact_id}' not found."
+            )
+
+        model_details = await self.aget_model_details(
+            spec_state=spec_state, model_name=artifact_name
+        )
+
+        experiment_details = (
+            await self.aget_experiment_details(experiment_name=artifact_name)
+            if not spec_state
+            else {"resources": []}
+        )
+
+        pipeline_details = (
+            await self.aget_pipeline_details(pipeline_name=artifact_name)
+            if not spec_state
+            else {"resources": []}
+        )
+
+        function_details = await self.aget_function_details(
+            spec_state=spec_state, function_name=artifact_name
+        )
+
+        details = {
+            "models": model_details,
+            "experiments": experiment_details,
+            "pipeline": pipeline_details,
+            "functions": function_details,
+        }
+
+        try:
+            details["ai_service"] = await self.aget_ai_service_details(
+                spec_state=spec_state, ai_service_name=artifact_name
+            )
+        except WMLClientError:
+            pass
+
+        return details
+
+    def _get_single_artifact_by_name_from_details(
+        self, details: dict, artifact_name: str
+    ) -> dict:
         # Check whether 0, 1, or more artifacts were found in 'details' results
-        details_by_name = {}
-        for artifact_type, artifact_details in details.items():
+        details_by_name: dict[str, Any] = {}
+        for artifact_details in details.values():
             if len(artifact_details["resources"]) == 1 and not details_by_name:
                 # Found first artifact
                 details_by_name = artifact_details["resources"][0]
@@ -549,6 +894,54 @@ class Repository(WMLResource):
             raise WMLClientError(
                 f"Artifact with artifact_name: '{artifact_name}' does not exist."
             )
+
+        return details_by_name
+
+    def get_id_by_name(self, artifact_name: str) -> str:
+        """Get the ID of a stored artifact by name.
+
+        :param artifact_name: name of the stored artifact
+        :type artifact_name: str
+
+        :return: ID of the stored artifact if exactly one with the 'artifact_name' exists. Otherwise, raise an error.
+        :rtype: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            artifact_id = client.repository.get_id_by_name(artifact_name)
+
+        """
+
+        details = cast(dict, self.get_details(artifact_name=artifact_name))
+        details_by_name = self._get_single_artifact_by_name_from_details(
+            details, artifact_name
+        )
+
+        return details_by_name["metadata"]["id"]
+
+    async def aget_id_by_name(self, artifact_name: str) -> str:
+        """Get the ID of a stored artifact by name asynchronously.
+
+        :param artifact_name: name of the stored artifact
+        :type artifact_name: str
+
+        :return: ID of the stored artifact if exactly one with the 'artifact_name' exists. Otherwise, raise an error.
+        :rtype: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            artifact_id = await client.repository.aget_id_by_name(artifact_name)
+
+        """
+
+        details = cast(dict, await self.aget_details(artifact_name=artifact_name))
+        details_by_name = self._get_single_artifact_by_name_from_details(
+            details, artifact_name
+        )
 
         return details_by_name["metadata"]["id"]
 
@@ -575,6 +968,25 @@ class Repository(WMLResource):
             model_name=model_name,
         )
 
+    @inherited_docstring(Models.aget_details)
+    async def aget_model_details(
+        self,
+        model_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        spec_state: SpecStates | None = None,
+        model_name: str | None = None,
+    ) -> dict | AsyncGenerator:
+        return await self._client._models.aget_details(
+            model_id=model_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            spec_state=spec_state,
+            model_name=model_name,
+        )
+
     @inherited_docstring(Models.get_revision_details)
     def get_model_revision_details(
         self, model_id: str | None = None, rev_id: str | None = None, **kwargs: Any
@@ -582,6 +994,10 @@ class Repository(WMLResource):
         model_id = _get_id_from_deprecated_uid(kwargs, model_id, "model")
         rev_id = _get_id_from_deprecated_uid(kwargs, rev_id, "rev")
         return self._client._models.get_revision_details(model_id, rev_id)
+
+    @inherited_docstring(Models.aget_revision_details)
+    async def aget_model_revision_details(self, model_id: str, rev_id: str) -> dict:
+        return await self._client._models.aget_revision_details(model_id, rev_id)
 
     @inherited_docstring(Experiments.get_details)
     def get_experiment_details(
@@ -602,12 +1018,37 @@ class Repository(WMLResource):
             **kwargs,
         )
 
+    @inherited_docstring(Experiments.aget_details)
+    async def aget_experiment_details(
+        self,
+        experiment_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        experiment_name: str | None = None,
+    ) -> dict:
+        return await self._client.experiments.aget_details(
+            experiment_id=experiment_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            experiment_name=experiment_name,
+        )
+
     @inherited_docstring(Experiments.get_revision_details)
     def get_experiment_revision_details(
         self, experiment_id: str, rev_id: str, **kwargs: Any
     ) -> dict:
         return self._client.experiments.get_revision_details(
             experiment_id, rev_id, **kwargs
+        )
+
+    @inherited_docstring(Experiments.aget_revision_details)
+    async def aget_experiment_revision_details(
+        self, experiment_id: str, rev_id: str
+    ) -> dict:
+        return await self._client.experiments.aget_revision_details(
+            experiment_id, rev_id
         )
 
     @inherited_docstring(Functions.get_details)
@@ -620,7 +1061,7 @@ class Repository(WMLResource):
         spec_state: SpecStates | None = None,
         function_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict | Generator:
         return self._client._functions.get_details(
             function_id=function_id,
             limit=limit,
@@ -631,6 +1072,25 @@ class Repository(WMLResource):
             **kwargs,
         )
 
+    @inherited_docstring(Functions.aget_details)
+    async def aget_function_details(
+        self,
+        function_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        spec_state: SpecStates | None = None,
+        function_name: str | None = None,
+    ) -> dict | AsyncGenerator:
+        return await self._client._functions.aget_details(
+            function_id=function_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            spec_state=spec_state,
+            function_name=function_name,
+        )
+
     @inherited_docstring(Functions.get_revision_details)
     def get_function_revision_details(
         self, function_id: str, rev_id: str, **kwargs: Any
@@ -638,6 +1098,12 @@ class Repository(WMLResource):
         return self._client._functions.get_revision_details(
             function_id, rev_id, **kwargs
         )
+
+    @inherited_docstring(Functions.aget_revision_details)
+    async def aget_function_revision_details(
+        self, function_id: str, rev_id: str
+    ) -> dict:
+        return await self._client._functions.aget_revision_details(function_id, rev_id)
 
     @inherited_docstring(Pipelines.get_details)
     def get_pipeline_details(
@@ -665,6 +1131,27 @@ class Repository(WMLResource):
             **kwargs,
         )
 
+    @inherited_docstring(Pipelines.aget_details)
+    async def aget_pipeline_details(
+        self,
+        pipeline_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        pipeline_name: str | None = None,
+    ) -> dict:
+        Repository._validate_type(pipeline_id, "pipeline_id", str, False)
+        Repository._validate_type(limit, "limit", int, False)
+        Repository._validate_type(asynchronous, "asynchronous", bool, False)
+        Repository._validate_type(get_all, "get_all", bool, False)
+        return await self._client.pipelines.aget_details(
+            pipeline_id=pipeline_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            pipeline_name=pipeline_name,
+        )
+
     @inherited_docstring(Pipelines.get_revision_details)
     def get_pipeline_revision_details(
         self, pipeline_id: str | None = None, rev_id: str | None = None, **kwargs: Any
@@ -673,6 +1160,12 @@ class Repository(WMLResource):
         return self._client.pipelines.get_revision_details(
             pipeline_id, rev_id, **kwargs
         )
+
+    @inherited_docstring(Pipelines.aget_revision_details)
+    async def aget_pipeline_revision_details(
+        self, pipeline_id: str, rev_id: str
+    ) -> dict:
+        return await self._client.pipelines.aget_revision_details(pipeline_id, rev_id)
 
     @staticmethod
     @inherited_docstring(Models.get_href)
@@ -736,13 +1229,9 @@ class Repository(WMLResource):
         .. code-block:: python
 
             client.repository.list()
-            client.repository.list(framework_filter='prompt_tune')
+            client.repository.list(framework_filter="prompt_tune")
 
         """
-
-        params = self._client._params()
-
-        isIcp = self._client.ICP_PLATFORM_SPACES
 
         endpoints = {
             "model": self._client._href_definitions.get_published_models_href(),
@@ -752,12 +1241,14 @@ class Repository(WMLResource):
             "ai_service": self._client._href_definitions.get_ai_services_href(),
         }
 
-        artifact_get = {}
-        for artifact in endpoints:
-            params = self._client._params()
-            artifact_get[artifact] = get_url(
-                endpoints[artifact], self._client._get_headers(), params, isIcp
+        artifact_get = {
+            artifact: self._client.httpx_client.get(
+                url=url,
+                params=self._client._params(),
+                headers=self._client._get_headers(),
             )
+            for artifact, url in endpoints.items()
+        }
 
         resources: dict[str, list] = {artifact: [] for artifact in endpoints}
 
@@ -765,11 +1256,11 @@ class Repository(WMLResource):
             try:
                 response = artifact_get[artifact]
                 response_text = self._handle_response(
-                    200, "getting all {}s".format(artifact), response
+                    200, f"getting all {artifact}s", response
                 )
                 resources[artifact] = response_text["resources"]
             except Exception as e:
-                self._logger.error(e)
+                self._logger.exception("Error getting %s", artifact, exc_info=e)
 
         values = []
         for t in endpoints.keys():
@@ -818,7 +1309,7 @@ class Repository(WMLResource):
         limit: int | None = None,
         asynchronous: bool = False,
         get_all: bool = False,
-    ) -> pandas.DataFrame:
+    ) -> pandas.DataFrame | Generator:
         return self._client._models.list(
             limit=limit, asynchronous=asynchronous, get_all=get_all
         )
@@ -835,65 +1326,6 @@ class Repository(WMLResource):
     def list_pipelines(self, limit: int | None = None) -> pandas.DataFrame:
         return self._client.pipelines.list(limit=limit)
 
-    def _check_artifact_type(self, artifact_id: str) -> dict[str, bool]:
-        Repository._validate_type(artifact_id, "artifact_id", str, True)
-
-        def _artifact_exists(response: Response | None) -> bool:
-            return (
-                (response is not None)
-                and ("status_code" in dir(response))
-                and (response.status_code == 200)
-            )
-
-        isIcp = self._client.ICP_PLATFORM_SPACES
-
-        endpoints = {
-            "model": self._client._href_definitions.get_model_last_version_href(
-                artifact_id
-            ),
-            "pipeline": self._client._href_definitions.get_pipeline_href(artifact_id),
-            "experiment": self._client._href_definitions.get_experiment_href(
-                artifact_id
-            ),
-            "function": self._client._href_definitions.get_function_href(artifact_id),
-            "ai_service": self._client._href_definitions.get_ai_service_href(
-                artifact_id
-            ),
-        }
-
-        artifact_get = {}
-        for artifact in endpoints:
-            params = self._client._params()
-            artifact_get[artifact] = get_url(
-                endpoints[artifact], self._client._get_headers(), params, isIcp
-            )
-
-        response_get: dict[str, Response | None] = {
-            artifact: None for artifact in endpoints
-        }
-
-        for artifact in endpoints:
-            try:
-                response_get[artifact] = artifact_get[artifact]
-                artifact_res = cast(Response, response_get[artifact])
-
-                self._logger.debug(
-                    "Response({})[{}]: {}".format(
-                        endpoints[artifact],
-                        artifact_res.status_code,
-                        artifact_res.text,
-                    )
-                )
-
-            except Exception as e:
-                self._logger.debug("Error during checking artifact type: " + str(e))
-
-        artifact_type = {
-            artifact: _artifact_exists(response_get[artifact])
-            for artifact in response_get
-        }
-        return artifact_type
-
     def create_revision(self, artifact_id: str | None = None, **kwargs: Any) -> dict:
         """Create a revision for passed `artifact_id`.
 
@@ -903,6 +1335,9 @@ class Repository(WMLResource):
         :return: artifact new revision metadata
         :rtype: dict
 
+        .. deprecated:: 1.3.39
+            Use methods corresponding to the artifact type, for example ``create_model_revision()``.
+
         **Example:**
 
         .. code-block:: python
@@ -910,59 +1345,33 @@ class Repository(WMLResource):
             details = client.repository.create_revision(artifact_id)
 
         """
+        create_revision_deprecated_warning = (
+            "The create_revision() method is deprecated. "
+            "Instead, please use the method corresponding to the artifact type, "
+            "for example create_model_revision()."
+        )
+        warn(create_revision_deprecated_warning, DeprecationWarning)
+
         artifact_id = _get_id_from_deprecated_uid(kwargs, artifact_id, "artifact")
 
         Repository._validate_type(artifact_id, "artifact_id", str, True)
 
-        artifact_type = self._check_artifact_type(str(artifact_id))
-        if artifact_type["experiment"] is True:
-            return self._client.experiments.create_revision(artifact_id)
-        elif artifact_type["pipeline"] is True:
-            return self._client.pipelines.create_revision(artifact_id)
-        elif artifact_type["ai_service"] is True:
-            return self._client._ai_services.create_revision(artifact_id)
-        else:
-            raise WMLClientError(
-                "Getting artifact details failed. Artifact id: '{}' not found.".format(
-                    artifact_id
-                )
-            )
+        is_artifact_type_of = self._check_artifact_type(artifact_id)
 
-    def _get_revision_details(
-        self, artifact_id: str | None = None, **kwargs: Any
-    ) -> dict:
-        """Get metadata of the stored artifacts revisions.
+        if is_artifact_type_of["experiment"]:
+            return self.create_experiment_revision(artifact_id)
+        if is_artifact_type_of["model"]:
+            return self.create_model_revision(artifact_id)
+        if is_artifact_type_of["pipeline"]:
+            return self.create_pipeline_revision(artifact_id)
+        if is_artifact_type_of["function"]:
+            return self.create_function_revision(artifact_id)
+        if is_artifact_type_of["ai_service"]:
+            return self.create_ai_service_revision(artifact_id)
 
-        :param artifact_id: unique ID of a stored model, experiment, function, pipelines
-        :type artifact_id: str
-
-        :return: stored artifacts metadata
-        :rtype: dict
-
-        **Example:**
-
-        .. code-block:: python
-
-            details = client.repository.get_revision_details(artifact_id)
-
-        """
-        artifact_id = _get_id_from_deprecated_uid(kwargs, artifact_id, "artifact")
-
-        Repository._validate_type(artifact_id, "artifact_id", str, True)
-
-        artifact_type = self._check_artifact_type(str(artifact_id))
-
-        if artifact_type["experiment"] is True:
-            details = self._client.experiments.get_revision_details(artifact_id)
-        elif artifact_type["pipeline"] is True:
-            details = self._client.pipelines.get_revision_details(artifact_id)
-        else:
-            raise WMLClientError(
-                "Getting artifact details failed. Artifact id: '{}' not found.".format(
-                    artifact_id
-                )
-            )
-        return details
+        raise WMLClientError(
+            f"Getting artifact details failed. Artifact id: '{artifact_id}' not found."
+        )
 
     @inherited_docstring(Models.list_revisions)
     def list_models_revisions(
@@ -1008,6 +1417,12 @@ class Repository(WMLResource):
     ) -> dict:
         return self._client._ai_services.store(ai_service, meta_props)
 
+    @inherited_docstring(AIServices.astore)
+    async def astore_ai_service(
+        self, ai_service: str | Callable, meta_props: dict[str, Any]
+    ) -> dict:
+        return await self._client._ai_services.astore(ai_service, meta_props)
+
     @inherited_docstring(AIServices.get_details)
     def get_ai_service_details(
         self,
@@ -1018,8 +1433,27 @@ class Repository(WMLResource):
         spec_state: SpecStates | None = None,
         ai_service_name: str | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> dict | Generator:
         return self._client._ai_services.get_details(
+            ai_service_id=ai_service_id,
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+            spec_state=spec_state,
+            ai_service_name=ai_service_name,
+        )
+
+    @inherited_docstring(AIServices.aget_details)
+    async def aget_ai_service_details(
+        self,
+        ai_service_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+        spec_state: SpecStates | None = None,
+        ai_service_name: str | None = None,
+    ) -> dict | AsyncGenerator:
+        return await self._client._ai_services.aget_details(
             ai_service_id=ai_service_id,
             limit=limit,
             asynchronous=asynchronous,
@@ -1032,11 +1466,26 @@ class Repository(WMLResource):
     def update_ai_service(
         self,
         ai_service_id: str,
-        changes: dict,
+        changes: dict | None = None,
         update_ai_service: str | Callable | None = None,
     ) -> dict:
         return self._client._ai_services.update(
-            ai_service_id, changes, update_ai_service
+            ai_service_id=ai_service_id,
+            changes=changes,
+            update_ai_service=update_ai_service,
+        )
+
+    @inherited_docstring(AIServices.aupdate)
+    async def aupdate_ai_service(
+        self,
+        ai_service_id: str,
+        changes: dict | None = None,
+        update_ai_service: str | Callable | None = None,
+    ) -> dict:
+        return await self._client._ai_services.aupdate(
+            ai_service_id=ai_service_id,
+            changes=changes,
+            update_ai_service=update_ai_service,
         )
 
     @staticmethod
@@ -1054,12 +1503,26 @@ class Repository(WMLResource):
             ai_service_id=ai_service_id, **kwargs
         )
 
+    @inherited_docstring(AIServices.acreate_revision)
+    async def acreate_ai_service_revision(self, ai_service_id: str) -> dict:
+        return await self._client._ai_services.acreate_revision(
+            ai_service_id=ai_service_id
+        )
+
     @inherited_docstring(AIServices.get_revision_details)
     def get_ai_service_revision_details(
         self, ai_service_id: str, rev_id: str, **kwargs: Any
     ) -> dict:
         return self._client._ai_services.get_revision_details(
             ai_service_id, rev_id, **kwargs
+        )
+
+    @inherited_docstring(AIServices.aget_revision_details)
+    async def aget_ai_service_revision_details(
+        self, ai_service_id: str, rev_id: str
+    ) -> dict:
+        return await self._client._ai_services.aget_revision_details(
+            ai_service_id, rev_id
         )
 
     @inherited_docstring(AIServices.list_revisions)

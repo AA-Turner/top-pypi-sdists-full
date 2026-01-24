@@ -5,7 +5,6 @@ from datetime import datetime
 
 from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import GEN_AI_PROMPT
 from opentelemetry.trace import SpanKind, Status, StatusCode, Tracer
-from lmnr.opentelemetry_lib.decorators import json_dumps
 from lmnr.opentelemetry_lib.litellm.utils import (
     get_tool_definition,
     is_validator_iterator,
@@ -21,6 +20,7 @@ from lmnr.opentelemetry_lib.tracing.context import (
 from lmnr.opentelemetry_lib.tracing.attributes import ASSOCIATION_PROPERTIES
 from lmnr.opentelemetry_lib.utils.package_check import is_package_installed
 from lmnr.sdk.log import get_default_logger
+from lmnr.sdk.utils import json_dumps
 
 logger = get_default_logger(__name__)
 
@@ -48,6 +48,7 @@ try:
         """
 
         logged_openai_responses: set[str]
+        is_litellm_instrumented: bool = False
 
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -65,10 +66,28 @@ try:
                     openai_instrumentor
                     and openai_instrumentor.is_instrumented_by_opentelemetry
                 ):
-                    logger.info(
+                    logger.debug(
                         "Disabling OpenTelemetry instrumentation for OpenAI to avoid double-instrumentation of LiteLLM."
                     )
                     openai_instrumentor.uninstrument()
+            try:
+                from lmnr.opentelemetry_lib.opentelemetry.instrumentation.litellm import (
+                    LitellmInstrumentor,
+                )
+
+                litellm_instrumentor = LitellmInstrumentor()
+                if (
+                    litellm_instrumentor
+                    and litellm_instrumentor.is_instrumented_by_opentelemetry
+                ):
+                    logger.warning(
+                        "Laminar LiteLLM callback is deprecated. "
+                        + "LiteLLM is already instrumented by Laminar. This callback will not have any effect. "
+                        + "You can safely remove the callback from your code.",
+                    )
+                    self.is_litellm_instrumented = True
+            except Exception:
+                self.is_litellm_instrumented = False
 
         def _get_tracer(self) -> Tracer:
             if not hasattr(TracerWrapper, "instance") or TracerWrapper.instance is None:
@@ -78,6 +97,8 @@ try:
         def log_success_event(
             self, kwargs, response_obj, start_time: datetime, end_time: datetime
         ):
+            if self.is_litellm_instrumented:
+                return
             if kwargs.get("call_type") not in SUPPORTED_CALL_TYPES:
                 return
             if kwargs.get("call_type") in ["responses", "aresponses"]:
@@ -98,6 +119,8 @@ try:
         def log_failure_event(
             self, kwargs, response_obj, start_time: datetime, end_time: datetime
         ):
+            if self.is_litellm_instrumented:
+                return
             if kwargs.get("call_type") not in SUPPORTED_CALL_TYPES:
                 return
             try:
@@ -110,11 +133,15 @@ try:
         async def async_log_success_event(
             self, kwargs, response_obj, start_time: datetime, end_time: datetime
         ):
+            if self.is_litellm_instrumented:
+                return
             self.log_success_event(kwargs, response_obj, start_time, end_time)
 
         async def async_log_failure_event(
             self, kwargs, response_obj, start_time: datetime, end_time: datetime
         ):
+            if self.is_litellm_instrumented:
+                return
             self.log_failure_event(kwargs, response_obj, start_time, end_time)
 
         def _create_span(
@@ -406,7 +433,15 @@ try:
                         details.get("cached_tokens"),
                     )
                 # TODO: add audio/image/text token details
-            # TODO: add completion tokens details (reasoning tokens)
+            if usage_dict.get("completion_tokens_details"):
+                details = usage_dict.get("completion_tokens_details", {})
+                details = model_as_dict(details)
+                if details.get("reasoning_tokens"):
+                    set_span_attribute(
+                        span,
+                        "gen_ai.usage.reasoning_tokens",
+                        details.get("reasoning_tokens"),
+                    )
 
         def _process_tool_calls(self, span, tool_calls, choice_index, is_response=True):
             """Process and set tool call attributes on the span"""
@@ -467,17 +502,56 @@ try:
                 content = message.get("content", "")
                 if content is None:
                     continue
+                reasoning_content = message.get("reasoning_content")
+                if reasoning_content:
+                    if isinstance(reasoning_content, str):
+                        reasoning_content = [
+                            {
+                                "type": "text",
+                                "text": reasoning_content,
+                            }
+                        ]
+                    elif not isinstance(reasoning_content, list):
+                        reasoning_content = [
+                            {
+                                "type": "text",
+                                "text": str(reasoning_content),
+                            }
+                        ]
+                else:
+                    reasoning_content = []
                 if isinstance(content, str):
-                    set_span_attribute(span, f"gen_ai.completion.{i}.content", content)
+                    if reasoning_content:
+                        set_span_attribute(
+                            span,
+                            f"gen_ai.completion.{i}.content",
+                            json.dumps(
+                                reasoning_content
+                                + [
+                                    {
+                                        "type": "text",
+                                        "text": content,
+                                    }
+                                ]
+                            ),
+                        )
+                    else:
+                        set_span_attribute(
+                            span,
+                            f"gen_ai.completion.{i}.content",
+                            content,
+                        )
                 elif isinstance(content, list):
                     set_span_attribute(
-                        span, f"gen_ai.completion.{i}.content", json.dumps(content)
+                        span,
+                        f"gen_ai.completion.{i}.content",
+                        json.dumps(reasoning_content + content),
                     )
                 else:
                     set_span_attribute(
                         span,
                         f"gen_ai.completion.{i}.content",
-                        json.dumps(model_as_dict(content)),
+                        json.dumps(reasoning_content + [model_as_dict(content)]),
                     )
 
         def _process_content_part(self, content_part: dict) -> dict:

@@ -22,6 +22,7 @@ import rich.progress
 import rich.table
 from rich.console import RenderableType
 
+from coiled.software_utils import get_lockfile
 from coiled.types import PackageLevelEnum
 
 from ...capture_environment import ResolvedPackageInfo
@@ -289,7 +290,7 @@ class LightRichClusterWidget(ClusterWidget):
             env_name = self._cluster_details["senv_alias"]["name"]
             if env_name.startswith("package-sync-"):
                 env_name = ""
-                local_env_name = Path(sys.prefix).name
+                local_env_name = str(get_lockfile() or Path(sys.prefix).name)
                 env_line = f"[bold green]Synced local Python environment:[/bold green] {local_env_name}"
             else:
                 local_env_name = ""

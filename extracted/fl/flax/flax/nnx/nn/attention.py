@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import functools
 from typing import Any
+from collections.abc import Mapping
+from types import MappingProxyType
 from collections.abc import Callable
 import math
 
@@ -60,6 +62,7 @@ def dot_product_attention_weights(
   precision: PrecisionLike = None,
   module: Module | None = None,
   promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+  is_causal: bool = False,
 ):
   """Computes dot-product attention weights given query and key.
 
@@ -92,6 +95,11 @@ def dot_product_attention_weights(
     promote_dtype: function to promote the dtype of the arrays to the desired
       dtype. The function should accept a tuple of ``(query, key)`` and a ``dtype``
       keyword argument, and return a tuple of arrays with the promoted dtype.
+    is_causal: If true, causal attention will be applied. Note, some
+      implementations like xla will generate a mask tensor and apply it to
+      the logits to mask out the non-causal parts of the attention matrix,
+      but other implementations like cudnn will avoid computing the
+      non-causal regions, providing speedups.
 
   Returns:
     Output of shape `[batch..., num_heads, q_length, kv_length]`.
@@ -116,9 +124,17 @@ def dot_product_attention_weights(
   if bias is not None:
     attn_weights = attn_weights + bias
   # apply attention mask
-  if mask is not None:
+  if mask is not None or is_causal:
     big_neg = jnp.finfo(dtype).min
-    attn_weights = jnp.where(mask, attn_weights, big_neg)
+    masks = [m for m in [mask] if m is not None]
+    if is_causal:
+      T, S = attn_weights.shape[-2:]
+      causal_mask = jnp.tril(jnp.ones((T, S), dtype=dtype))
+      target_shape = mask.shape if mask is not None else attn_weights.shape
+      masks.append(jnp.broadcast_to(causal_mask, target_shape))
+    combined_mask = combine_masks(*masks, dtype=dtype)
+    assert combined_mask is not None
+    attn_weights = jnp.where(combined_mask, attn_weights, big_neg)
 
   # normalize the attention weights
   attn_weights = jax.nn.softmax(attn_weights).astype(dtype)
@@ -155,6 +171,7 @@ def dot_product_attention(
   precision: PrecisionLike = None,
   module: Module | None = None,
   promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+  is_causal: bool = False,
 ):
   """Computes dot-product attention given query, key, and value.
 
@@ -196,6 +213,11 @@ def dot_product_attention(
       dtype. The function should accept a tuple of ``(query, key, value)`` and a
       ``dtype`` keyword argument, and return a tuple of arrays with the promoted
       dtype.
+    is_causal: If true, causal attention will be applied. Note, some
+      implementations like xla will generate a mask tensor and apply it to
+      the logits to mask out the non-causal parts of the attention matrix,
+      but other implementations like cudnn will avoid computing the
+      non-causal regions, providing speedups.
 
   Returns:
     Output of shape `[batch..., q_length, num_heads, v_depth_per_head]`.
@@ -222,7 +244,7 @@ def dot_product_attention(
         reshape_4d, (query, key, value, bias, mask))
     if mask is not None:
       mask = mask.astype(jnp.bool)
-    out = jax.nn.dot_product_attention(query, key, value, bias, mask)
+    out = jax.nn.dot_product_attention(query, key, value, bias, mask, is_causal=is_causal)
     if len(query_shape) > 4:
       out = jnp.reshape(out, query_shape)
     return out
@@ -240,6 +262,8 @@ def dot_product_attention(
     dtype,
     precision,
     module,
+    promote_dtype,
+    is_causal,
   )
 
   # return weighted sum over values for each query position
@@ -301,11 +325,32 @@ class MultiHeadAttention(Module):
       num_heads, value_channels]``
     decode: whether to prepare and use an autoregressive cache.
     normalize_qk: should QK normalization be applied (arxiv.org/abs/2302.05442).
+    qkv_promote_dtype: function to promote the dtype of all input array arguments
+      (including Variables accessed through ``self``) to the desired dtype for the
+      query, key, and value LinearGeneral submodules.
+    out_promote_dtype: function to promote the dtype of all input array arguments
+      (including Variables accessed through ``self``) to the desired dtype for the
+      output LinearGeneral submodule.
+    ln_promote_dtype: function to promote the dtype of all input array arguments
+      (including Variables accessed through ``self``) to the desired dtype for the
+      LayerNorm submodules (query_ln and key_ln) when normalize_qk=True.
     rngs: rng key.
     keep_rngs: whether to store the input rngs as attribute (i.e. `self.rngs = rngs`)
       (default: True). If rngs is stored, we should split the module as
       `graphdef, params, nondiff = nnx.split(module, nnx.Param, ...)` where `nondiff`
       contains RNG object associated with stored `self.rngs`.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the Dense layers.
+    out_kernel_metadata: Optional metadata dictionary to set when initializing
+      the output Dense layers. If None, the kernel_metadata is used.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias of the Dense layers.
+    out_bias_metadata: Optional metadata dictionary to set when initializing
+      the bias of the output Dense layers. If None, the bias_metadata is used.
+    query_ln_scale_metadata: Optional metadata dictionary to set when initializing
+      the scale of the query layer norm layer.
+    key_ln_scale_metadata: Optional metadata dictionary to set when initializing
+      the scale of the key layer norm layer.
   """
 
   def __init__(
@@ -330,6 +375,9 @@ class MultiHeadAttention(Module):
     attention_fn: Callable[..., Array] = dot_product_attention,
     decode: bool | None = None,
     normalize_qk: bool = False,
+    qkv_promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+    out_promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+    ln_promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     # Deprecated, will be removed.
     qkv_dot_general: DotGeneralT | None = None,
     out_dot_general: DotGeneralT | None = None,
@@ -337,6 +385,12 @@ class MultiHeadAttention(Module):
     out_dot_general_cls: Any = None,
     rngs: rnglib.Rngs,
     keep_rngs: bool = True,
+    kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    out_kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    bias_metadata: Mapping[str, Any] = MappingProxyType({}),
+    out_bias_metadata: Mapping[str, Any] = MappingProxyType({}),
+    query_ln_scale_metadata: Mapping[str, Any] = MappingProxyType({}),
+    key_ln_scale_metadata: Mapping[str, Any] = MappingProxyType({}),
   ):
     self.num_heads = num_heads
     self.in_features = in_features
@@ -355,14 +409,13 @@ class MultiHeadAttention(Module):
     self.dropout_rate = dropout_rate
     self.deterministic = deterministic
     self.precision = precision
-    self.kernel_init = kernel_init
-    self.out_kernel_init = out_kernel_init
-    self.bias_init = bias_init
-    self.out_bias_init = out_bias_init
     self.use_bias = use_bias
     self.attention_fn = attention_fn
     self.decode = decode
     self.normalize_qk = normalize_qk
+    self.qkv_promote_dtype = qkv_promote_dtype
+    self.out_promote_dtype = out_promote_dtype
+    self.ln_promote_dtype = ln_promote_dtype
     self.qkv_dot_general = qkv_dot_general
     self.out_dot_general = out_dot_general
     self.qkv_dot_general_cls = qkv_dot_general_cls
@@ -381,12 +434,15 @@ class MultiHeadAttention(Module):
       out_features=(self.num_heads, self.head_dim),
       dtype=self.dtype,
       param_dtype=self.param_dtype,
-      kernel_init=self.kernel_init,
-      bias_init=self.bias_init,
+      kernel_init=kernel_init,
+      bias_init=bias_init,
       use_bias=self.use_bias,
       precision=self.precision,
+      promote_dtype=self.qkv_promote_dtype,
       dot_general=self.qkv_dot_general,
       dot_general_cls=self.qkv_dot_general_cls,
+      kernel_metadata=kernel_metadata,
+      bias_metadata=bias_metadata,
     )
     # project inputs_q to multi-headed q/k/v
     # dimensions are then [batch..., length, n_heads, n_features_per_head]
@@ -404,38 +460,45 @@ class MultiHeadAttention(Module):
         use_bias=False,
         dtype=self.dtype,
         param_dtype=self.param_dtype,
+        promote_dtype=self.ln_promote_dtype,
         rngs=rngs,
+        scale_metadata=query_ln_scale_metadata,
       )
       self.key_ln = LayerNorm(
         self.head_dim,
         use_bias=False,
         dtype=self.dtype,
         param_dtype=self.param_dtype,
+        promote_dtype=self.ln_promote_dtype,
         rngs=rngs,
+        scale_metadata=key_ln_scale_metadata,
       )
     else:
-      self.query_ln = None
-      self.key_ln = None
+      self.query_ln = nnx.data(None)
+      self.key_ln = nnx.data(None)
 
     self.out = LinearGeneral(
       in_features=(self.num_heads, self.head_dim),
       out_features=self.out_features,
       axis=(-2, -1),
-      kernel_init=self.out_kernel_init or self.kernel_init,
-      bias_init=self.out_bias_init or self.bias_init,
+      kernel_init=out_kernel_init or kernel_init,
+      bias_init=out_bias_init or bias_init,
       use_bias=self.use_bias,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
       precision=self.precision,
+      promote_dtype=self.out_promote_dtype,
       dot_general=self.out_dot_general,
       dot_general_cls=self.out_dot_general_cls,
       rngs=rngs,
+      kernel_metadata=out_kernel_metadata or kernel_metadata,
+      bias_metadata=out_bias_metadata or bias_metadata,
     )
     self.rngs = rngs.dropout.fork() if keep_rngs and dropout_rate > 0 else None
 
-    self.cached_key: nnx.Cache[Array] | None = None
-    self.cached_value: nnx.Cache[Array] | None = None
-    self.cache_index: nnx.Cache[Array] | None = None
+    self.cached_key: nnx.Cache[Array] | None = nnx.data(None)
+    self.cached_value: nnx.Cache[Array] | None = nnx.data(None)
+    self.cache_index: nnx.Cache[Array] | None = nnx.data(None)
 
   def __call__(
     self,
@@ -538,7 +601,7 @@ class MultiHeadAttention(Module):
         max_length,
         num_heads,
         depth_per_head,
-      ) = self.cached_key.value.shape
+      ) = self.cached_key.shape
       # shape check of cached keys against query input
       expected_shape = tuple(batch_dims) + (1, num_heads, depth_per_head)
       if expected_shape != query.shape:
@@ -641,6 +704,51 @@ class MultiHeadAttention(Module):
     self.cached_key = nnx.Cache(jnp.zeros(cache_shape, dtype))
     self.cached_value = nnx.Cache(jnp.zeros(cache_shape, dtype))
     self.cache_index = nnx.Cache(jnp.array(0, dtype=jnp.int32))
+
+  def set_mode(
+      self,
+      deterministic: bool | None = None,
+      decode: bool | None = None,
+      batch_size: int | Shape | None = None,
+      max_length: int | None = None,
+      **kwargs,
+  ) -> dict:
+    """Class method used by ``nnx.set_mode``.
+
+    Args:
+      train: if True, the module is set to training mode.
+      deterministic: if True, the module is set to deterministic mode.
+      decode: if True, the module is set to decode mode.
+      batch_size: the batch size to use for the cache.
+      max_length: the max length to use for the cache.
+    """
+    if deterministic is not None:
+      self.deterministic = deterministic
+
+    if decode is not None:
+      self.decode = decode
+      if (
+          not hasattr(self, 'cached_key')
+          or not hasattr(self, 'cached_value')
+          or not hasattr(self, 'cache_index')
+      ):
+        if batch_size is None:
+          raise TypeError(
+              "'batch_size' must be provided when initializing cache."
+          )
+        if max_length is None:
+          raise TypeError(
+              "'max_length' must be provided when initializing cache."
+          )
+        if isinstance(batch_size, int):
+          batch_size = (batch_size,)
+
+        # initialize cache
+        cache_shape = (*batch_size, max_length, self.num_heads, self.head_dim)
+        self.cached_key = nnx.Cache(jnp.zeros(cache_shape, self.dtype))
+        self.cached_value = nnx.Cache(jnp.zeros(cache_shape, self.dtype))
+        self.cache_index = nnx.Cache(jnp.array(0, dtype=jnp.int32))
+    return kwargs
 
 
 # mask-making utility functions

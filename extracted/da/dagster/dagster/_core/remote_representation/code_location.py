@@ -1,10 +1,11 @@
 import sys
 import threading
 from abc import abstractmethod
-from collections.abc import Mapping, Sequence
+from collections import defaultdict
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
-from functools import cached_property
-from typing import TYPE_CHECKING, AbstractSet, Any, Optional, Union, cast  # noqa: UP035
+from functools import cached_property, partial
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from dagster_shared.libraries import DagsterLibraryRegistry
 from dagster_shared.serdes.objects.models.defs_state_info import DefsStateInfo
@@ -12,17 +13,12 @@ from dagster_shared.serdes.objects.models.defs_state_info import DefsStateInfo
 import dagster._check as check
 from dagster._check import checked
 from dagster._core.code_pointer import CodePointer
-from dagster._core.definitions.asset_key import AssetKey
 from dagster._core.definitions.assets.job.asset_job import IMPLICIT_ASSET_JOB_NAME
 from dagster._core.definitions.reconstruct import ReconstructableJob, ReconstructableRepository
 from dagster._core.definitions.repository_definition import RepositoryDefinition
 from dagster._core.definitions.selector import JobSubsetSelector
 from dagster._core.definitions.timestamp import TimestampWithTimezone
-from dagster._core.errors import (
-    DagsterInvalidSubsetError,
-    DagsterInvariantViolationError,
-    DagsterUserCodeProcessError,
-)
+from dagster._core.errors import DagsterInvalidSubsetError, DagsterUserCodeProcessError
 from dagster._core.execution.api import create_execution_plan
 from dagster._core.execution.plan.state import KnownExecutionState
 from dagster._core.instance import DagsterInstance
@@ -43,7 +39,6 @@ from dagster._core.remote_representation.external_data import (
     RepositorySnap,
     ScheduleExecutionErrorSnap,
     SensorExecutionErrorSnap,
-    partition_set_snap_name_for_job_name,
 )
 from dagster._core.remote_representation.grpc_server_registry import GrpcServerRegistry
 from dagster._core.remote_representation.handle import JobHandle, RepositoryHandle
@@ -66,6 +61,8 @@ if TYPE_CHECKING:
     from dagster._core.definitions.schedule_definition import ScheduleExecutionData
     from dagster._core.definitions.sensor_definition import SensorExecutionData
     from dagster._core.remote_representation.external_data import (
+        JobDataSnap,
+        JobRefSnap,
         PartitionConfigSnap,
         PartitionExecutionErrorSnap,
         PartitionSetExecutionParamSnap,
@@ -132,16 +129,23 @@ class CodeLocation(AbstractContextManager):
     ) -> RemoteExecutionPlan: ...
 
     def _get_remote_job_from_subset_result(
-        self, repo_handle: RepositoryHandle, subset_result: RemoteJobSubsetResult
+        self,
+        selector: JobSubsetSelector,
+        subset_result: RemoteJobSubsetResult,
     ) -> RemoteJob:
         if subset_result.repository_python_origin:
             # Prefer the python origin from the result if it is set, in case the code location
             # just updated and any origin information (most frequently the image) has changed
             repo_handle = RepositoryHandle(
-                repository_name=repo_handle.repository_name,
-                code_location_origin=repo_handle.code_location_origin,
+                repository_name=selector.repository_name,
+                code_location_origin=self.origin,
                 repository_python_origin=subset_result.repository_python_origin,
-                display_metadata=repo_handle.display_metadata,
+                display_metadata=self.get_display_metadata(),
+            )
+        else:
+            repo_handle = RepositoryHandle.from_location(
+                repository_name=selector.repository_name,
+                code_location=self,
             )
 
         job_data_snap = subset_result.job_data_snap
@@ -165,27 +169,24 @@ class CodeLocation(AbstractContextManager):
         if not selector.is_subset_selection:
             return self.get_repository(selector.repository_name).get_full_job(selector.job_name)
 
-        repo_handle = self.get_repository(selector.repository_name).handle
-        subset_result = self._get_subset_remote_job_result(selector)
-        return self._get_remote_job_from_subset_result(repo_handle, subset_result)
+        subset_result = self._get_subset_remote_job_result(
+            selector,
+            lambda selector: self.get_repository(selector.repository_name).get_full_job(
+                selector.job_name
+            ),
+        )
+        return self._get_remote_job_from_subset_result(selector, subset_result)
 
-    async def gen_job(self, selector: JobSubsetSelector) -> RemoteJob:
-        """Return the RemoteJob for a specific pipeline. Subclasses only
-        need to implement gen_subset_remote_job_result to handle the case where
-        an op selection is specified, which requires access to the underlying JobDefinition
-        to generate the subsetted pipeline snapshot.
-        """
-        if not selector.is_subset_selection:
-            return self.get_repository(selector.repository_name).get_full_job(selector.job_name)
-
-        repo_handle = self.get_repository(selector.repository_name).handle
-
-        subset_result = await self._gen_subset_remote_job_result(selector)
-
-        return self._get_remote_job_from_subset_result(repo_handle, subset_result)
+    async def gen_subset_job(
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
+    ) -> RemoteJob:
+        subset_result = await self._gen_subset_remote_job_result(selector, get_full_job)
+        return self._get_remote_job_from_subset_result(selector, subset_result)
 
     @abstractmethod
-    def _get_subset_remote_job_result(self, selector: JobSubsetSelector) -> RemoteJobSubsetResult:
+    def _get_subset_remote_job_result(
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
+    ) -> RemoteJobSubsetResult:
         """Returns a snapshot about an RemoteJob with an op selection, which requires
         access to the underlying JobDefinition. Callsites should likely use
         `get_job` instead.
@@ -193,7 +194,7 @@ class CodeLocation(AbstractContextManager):
 
     @abstractmethod
     async def _gen_subset_remote_job_result(
-        self, selector: JobSubsetSelector
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
     ) -> RemoteJobSubsetResult:
         """Returns a snapshot about an RemoteJob with an op selection, which requires
         access to the underlying JobDefinition. Callsites should likely use
@@ -210,41 +211,6 @@ class CodeLocation(AbstractContextManager):
     ) -> Union["PartitionConfigSnap", "PartitionExecutionErrorSnap"]:
         pass
 
-    def get_partition_tags(
-        self,
-        repository_handle: RepositoryHandle,
-        job_name: str,
-        partition_name: str,
-        instance: DagsterInstance,
-        selected_asset_keys: Optional[AbstractSet[AssetKey]],
-    ) -> Union["PartitionTagsSnap", "PartitionExecutionErrorSnap"]:
-        from dagster._core.remote_representation.external_data import PartitionTagsSnap
-
-        if is_implicit_asset_job_name(job_name):
-            # Implicit asset jobs never have custom tag-for-partition functions, and the
-            # PartitionsDefinitions on the assets are always available on the host, so we can just
-            # determine the tags using information on the host.
-            # In addition to the performance benefits, this is convenient in the case where the
-            # implicit asset job has assets with different PartitionsDefinitions, as the gRPC
-            # API for getting partition tags from the code server doesn't support an asset selection.
-            remote_repo = self.get_repository(repository_handle.repository_name)
-            return PartitionTagsSnap(
-                name=partition_name,
-                tags=remote_repo.get_partition_tags_for_implicit_asset_job(
-                    partition_name=partition_name,
-                    job_name=job_name,
-                    selected_asset_keys=selected_asset_keys,
-                    instance=instance,
-                ),
-            )
-        else:
-            return self.get_partition_tags_from_repo(
-                repository_handle=repository_handle,
-                job_name=job_name,
-                partition_name=partition_name,
-                instance=instance,
-            )
-
     @abstractmethod
     def get_partition_tags_from_repo(
         self,
@@ -254,38 +220,6 @@ class CodeLocation(AbstractContextManager):
         instance: DagsterInstance,
     ) -> Union["PartitionTagsSnap", "PartitionExecutionErrorSnap"]:
         pass
-
-    def get_partition_names(
-        self,
-        repository_handle: RepositoryHandle,
-        job_name: str,
-        instance: DagsterInstance,
-        selected_asset_keys: Optional[AbstractSet[AssetKey]],
-    ) -> Union[PartitionNamesSnap, "PartitionExecutionErrorSnap"]:
-        remote_repo = self.get_repository(repository_handle.repository_name)
-        partition_set_name = partition_set_snap_name_for_job_name(job_name)
-
-        if remote_repo.has_partition_set(partition_set_name):
-            partition_set = remote_repo.get_partition_set(partition_set_name)
-
-            # Prefer to return the names without calling out to user code if there's a corresponding
-            # partition set that allows it
-            if partition_set.has_partition_name_data():
-                return PartitionNamesSnap(
-                    partition_names=partition_set.get_partition_names(instance=instance)
-                )
-            else:
-                return self.get_partition_names_from_repo(repository_handle, job_name)
-        else:
-            # Asset jobs might have no corresponding partition set but still have partitioned
-            # assets, so we get the partition names using the assets.
-            return PartitionNamesSnap(
-                partition_names=remote_repo.get_partition_names_for_asset_job(
-                    job_name=job_name,
-                    selected_asset_keys=selected_asset_keys,
-                    instance=instance,
-                )
-            )
 
     @abstractmethod
     def get_partition_names_from_repo(
@@ -380,14 +314,16 @@ class CodeLocation(AbstractContextManager):
 
     @property
     @abstractmethod
-    def repository_code_pointer_dict(self) -> Mapping[str, CodePointer]:
+    def repository_code_pointer_dict(self) -> Mapping[str, Optional[CodePointer]]:
         pass
 
-    def get_repository_python_origin(self, repository_name: str) -> "RepositoryPythonOrigin":
-        if repository_name not in self.repository_code_pointer_dict:
-            raise DagsterInvariantViolationError(f"Unable to find repository {repository_name}.")
+    def get_repository_python_origin(
+        self, repository_name: str
+    ) -> Optional["RepositoryPythonOrigin"]:
+        code_pointer = self.repository_code_pointer_dict.get(repository_name)
+        if not code_pointer:
+            return None
 
-        code_pointer = self.repository_code_pointer_dict[repository_name]
         return RepositoryPythonOrigin(
             executable_path=self.executable_path or sys.executable,
             code_pointer=code_pointer,
@@ -476,7 +412,7 @@ class InProcessCodeLocation(CodeLocation):
         return self._origin.entry_point
 
     @property
-    def repository_code_pointer_dict(self) -> Mapping[str, CodePointer]:
+    def repository_code_pointer_dict(self) -> Mapping[str, Optional[CodePointer]]:
         return self._repository_code_pointer_dict
 
     def _get_reconstructable_repository(self, repository_name: str) -> ReconstructableRepository:
@@ -498,11 +434,13 @@ class InProcessCodeLocation(CodeLocation):
         return self._repositories
 
     async def _gen_subset_remote_job_result(
-        self, selector: JobSubsetSelector
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
     ) -> RemoteJobSubsetResult:
-        return self._get_subset_remote_job_result(selector)
+        return self._get_subset_remote_job_result(selector, get_full_job)
 
-    def _get_subset_remote_job_result(self, selector: JobSubsetSelector) -> RemoteJobSubsetResult:
+    def _get_subset_remote_job_result(
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
+    ) -> RemoteJobSubsetResult:
         check.inst_param(selector, "selector", JobSubsetSelector)
         check.invariant(
             selector.location_name == self.name,
@@ -722,9 +660,7 @@ class GrpcServerCodeLocation(CodeLocation):
     ):
         from dagster._api.get_server_id import sync_get_server_id
         from dagster._api.list_repositories import sync_list_repositories_grpc
-        from dagster._api.snapshot_repository import (
-            sync_get_streaming_external_repositories_data_grpc,
-        )
+        from dagster._api.snapshot_repository import sync_get_external_repositories_data_grpc
         from dagster._grpc.client import DagsterGrpcClient, client_heartbeat_thread
 
         self._origin = check.inst_param(origin, "origin", CodeLocationOrigin)
@@ -752,7 +688,6 @@ class GrpcServerCodeLocation(CodeLocation):
         self._watch_server = check.bool_param(watch_server, "watch_server")
 
         self._server_id = None
-        self._repository_snaps = None
 
         self._executable_path = None
         self._container_image = None
@@ -803,25 +738,49 @@ class GrpcServerCodeLocation(CodeLocation):
 
             self._container_context = list_repositories_response.container_context
 
-            self._repository_snaps = sync_get_streaming_external_repositories_data_grpc(
+            self._job_snaps_by_name = defaultdict(dict)
+            self._job_snaps_by_snapshot_id = {}
+
+            self.remote_repositories = {}
+
+            for repo_name, (repo_data, job_snaps) in sync_get_external_repositories_data_grpc(
                 self.client,
                 self,
-            )
-
-            self.remote_repositories = {
-                repo_name: RemoteRepository(
+                defer_snapshots=True,
+            ).items():
+                self.remote_repositories[repo_name] = RemoteRepository(
                     repo_data,
                     RepositoryHandle.from_location(
                         repository_name=repo_name,
                         code_location=self,
                     ),
                     auto_materialize_use_sensors=instance.auto_materialize_use_sensors,
+                    ref_to_data_fn=partial(self._job_ref_to_snap, repo_name),
                 )
-                for repo_name, repo_data in self._repository_snaps.items()
-            }
+                for job_snap in job_snaps.values():
+                    self._job_snaps_by_name[repo_name][job_snap.name] = job_snap
+                    self._job_snaps_by_snapshot_id[job_snap.snapshot_id] = job_snap
+
         except:
             self.cleanup()
             raise
+
+    def _job_ref_to_snap(self, repository_name: str, job_ref: "JobRefSnap") -> "JobDataSnap":
+        from dagster._core.remote_representation.external_data import JobDataSnap
+
+        # key by name to ensure that we are resilient to snapshot ID instability
+        snapshot = self._job_snaps_by_name[repository_name][job_ref.name]
+        parent_snapshot = (
+            self._job_snaps_by_snapshot_id.get(job_ref.parent_snapshot_id)
+            if job_ref.parent_snapshot_id
+            else None
+        )
+        return JobDataSnap(
+            name=job_ref.name,
+            job=snapshot,
+            parent_job=parent_snapshot,
+            active_presets=job_ref.active_presets,
+        )
 
     @property
     def server_id(self) -> str:
@@ -840,8 +799,8 @@ class GrpcServerCodeLocation(CodeLocation):
         return self._container_context
 
     @property
-    def repository_code_pointer_dict(self) -> Mapping[str, CodePointer]:
-        return cast("Mapping[str, CodePointer]", self._repository_code_pointer_dict)
+    def repository_code_pointer_dict(self) -> Mapping[str, Optional[CodePointer]]:
+        return cast("Mapping[str, Optional[CodePointer]]", self._repository_code_pointer_dict)
 
     @property
     def executable_path(self) -> Optional[str]:
@@ -982,7 +941,9 @@ class GrpcServerCodeLocation(CodeLocation):
 
         return RemoteExecutionPlan(execution_plan_snapshot=execution_plan_snapshot_or_error)
 
-    def _get_subset_remote_job_result(self, selector: JobSubsetSelector) -> RemoteJobSubsetResult:
+    def _get_subset_remote_job_result(
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
+    ) -> RemoteJobSubsetResult:
         from dagster._api.snapshot_job import sync_get_external_job_subset_grpc
 
         check.inst_param(selector, "selector", JobSubsetSelector)
@@ -1002,8 +963,10 @@ class GrpcServerCodeLocation(CodeLocation):
             asset_selection=selector.asset_selection,
             asset_check_selection=selector.asset_check_selection,
         )
-        if subset.job_data_snap:
-            full_job = self.get_repository(selector.repository_name).get_full_job(selector.job_name)
+        # Omit the parent job snapshot for __ASSET_JOB, since it is potentialy very large
+        # and unlikely to be useful (unlike subset selections of other jobs)
+        if subset.job_data_snap and not is_implicit_asset_job_name(selector.job_name):
+            full_job = get_full_job(selector)
             subset = copy(
                 subset,
                 job_data_snap=copy(subset.job_data_snap, parent_job=full_job.job_snapshot),
@@ -1012,7 +975,7 @@ class GrpcServerCodeLocation(CodeLocation):
         return subset
 
     async def _gen_subset_remote_job_result(
-        self, selector: JobSubsetSelector
+        self, selector: JobSubsetSelector, get_full_job: Callable[[JobSubsetSelector], RemoteJob]
     ) -> "RemoteJobSubsetResult":
         from dagster._api.snapshot_job import gen_external_job_subset_grpc
 
@@ -1034,7 +997,7 @@ class GrpcServerCodeLocation(CodeLocation):
             asset_check_selection=selector.asset_check_selection,
         )
         if subset.job_data_snap:
-            full_job = self.get_repository(selector.repository_name).get_full_job(selector.job_name)
+            full_job = get_full_job(selector)
             subset = copy(
                 subset,
                 job_data_snap=copy(subset.job_data_snap, parent_job=full_job.job_snapshot),

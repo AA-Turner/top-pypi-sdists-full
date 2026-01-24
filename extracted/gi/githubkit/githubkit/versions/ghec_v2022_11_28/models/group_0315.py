@@ -12,20 +12,17 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class CodeScanningAutofixCommitsResponse(GitHubModel):
-    """CodeScanningAutofixCommitsResponse"""
+class RateLimit(GitHubModel):
+    """Rate Limit"""
 
-    target_ref: Missing[str] = Field(
-        default=UNSET,
-        description='The Git reference of target branch for the commit. For more information, see "[Git References](https://git-scm.com/book/en/v2/Git-Internals-Git-References)" in the Git documentation.',
-    )
-    sha: Missing[str] = Field(default=UNSET, description="SHA of commit with autofix.")
+    limit: int = Field()
+    remaining: int = Field()
+    reset: int = Field()
+    used: int = Field()
 
 
-model_rebuild(CodeScanningAutofixCommitsResponse)
+model_rebuild(RateLimit)
 
-__all__ = ("CodeScanningAutofixCommitsResponse",)
+__all__ = ("RateLimit",)

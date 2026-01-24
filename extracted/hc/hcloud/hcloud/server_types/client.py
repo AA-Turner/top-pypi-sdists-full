@@ -3,13 +3,42 @@ from __future__ import annotations
 from typing import Any, NamedTuple
 
 from ..core import BoundModelBase, Meta, ResourceClientBase
-from .domain import ServerType
+from ..locations import BoundLocation
+from .domain import ServerType, ServerTypeLocation
+
+__all__ = [
+    "BoundServerType",
+    "ServerTypesPageResult",
+    "ServerTypesClient",
+]
 
 
-class BoundServerType(BoundModelBase, ServerType):
+class BoundServerType(BoundModelBase[ServerType], ServerType):
     _client: ServerTypesClient
 
     model = ServerType
+
+    def __init__(
+        self,
+        client: ServerTypesClient,
+        data: dict[str, Any],
+        complete: bool = True,
+    ):
+        raw = data.get("locations")
+        if raw is not None:
+            data["locations"] = [
+                ServerTypeLocation.from_dict(
+                    {
+                        "location": BoundLocation(
+                            client._parent.locations, o, complete=False
+                        ),
+                        **o,
+                    }
+                )
+                for o in raw
+            ]
+
+        super().__init__(client, data, complete)
 
 
 class ServerTypesPageResult(NamedTuple):
@@ -76,4 +105,4 @@ class ServerTypesClient(ResourceClientBase):
                Used to get Server type by name.
         :return: :class:`BoundServerType <hcloud.server_types.client.BoundServerType>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)

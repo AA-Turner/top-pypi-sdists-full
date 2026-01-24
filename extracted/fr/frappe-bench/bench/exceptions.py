@@ -35,3 +35,6 @@ class FeatureDoesNotExistError(CommandFailedError):
 
 class VersionNotFound(Exception):
 	pass
+
+class AppInstallationError(CommandFailedError):
+    pass

@@ -4,15 +4,29 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/gpu/ganesh/gl/GrGLTexture.h"
 
+#include "include/core/SkString.h"
 #include "include/core/SkTraceMemoryDump.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLFunctions.h"
+#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#include "include/private/base/SkAssert.h"
 #include "src/core/SkTraceEvent.h"
-#include "src/gpu/ganesh/GrSemaphore.h"
-#include "src/gpu/ganesh/GrShaderCaps.h"
+#include "src/gpu/ganesh/GrSurface.h"
 #include "src/gpu/ganesh/GrTexture.h"
+#include "src/gpu/ganesh/gl/GrGLBackendSurfacePriv.h"
+#include "src/gpu/ganesh/gl/GrGLCaps.h"
+#include "src/gpu/ganesh/gl/GrGLDefines.h"
 #include "src/gpu/ganesh/gl/GrGLGpu.h"
+#include "src/gpu/ganesh/gl/GrGLUtil.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <string>
+#include <utility>
 
 #define GPUGL static_cast<GrGLGpu*>(this->getGpu())
 #define GL_CALL(X) GR_GL_CALL(GPUGL->glInterface(), X)
@@ -49,10 +63,10 @@ GrGLTexture::GrGLTexture(GrGLGpu* gpu,
                          const Desc& desc,
                          GrMipmapStatus mipmapStatus,
                          std::string_view label)
-        : GrSurface(gpu, desc.fSize, GrProtected::kNo, label)
-        , INHERITED(gpu,
+        : GrSurface(gpu, desc.fSize, desc.fIsProtected, label)
+        , GrTexture(gpu,
                     desc.fSize,
-                    GrProtected::kNo,
+                    desc.fIsProtected,
                     TextureTypeFromTarget(desc.fTarget),
                     mipmapStatus,
                     label)
@@ -67,10 +81,10 @@ GrGLTexture::GrGLTexture(GrGLGpu* gpu,
 GrGLTexture::GrGLTexture(GrGLGpu* gpu, const Desc& desc, GrMipmapStatus mipmapStatus,
                          sk_sp<GrGLTextureParameters> parameters, GrWrapCacheable cacheable,
                          GrIOType ioType, std::string_view label)
-        : GrSurface(gpu, desc.fSize, GrProtected::kNo, label)
-        , INHERITED(gpu,
+        : GrSurface(gpu, desc.fSize, desc.fIsProtected, label)
+        , GrTexture(gpu,
                     desc.fSize,
-                    GrProtected::kNo,
+                    desc.fIsProtected,
                     TextureTypeFromTarget(desc.fTarget),
                     mipmapStatus,
                     label)
@@ -88,10 +102,10 @@ GrGLTexture::GrGLTexture(GrGLGpu* gpu,
                          sk_sp<GrGLTextureParameters> parameters,
                          GrMipmapStatus mipmapStatus,
                          std::string_view label)
-        : GrSurface(gpu, desc.fSize, GrProtected::kNo, label)
-        , INHERITED(gpu,
+        : GrSurface(gpu, desc.fSize, desc.fIsProtected, label)
+        , GrTexture(gpu,
                     desc.fSize,
-                    GrProtected::kNo,
+                    desc.fIsProtected,
                     TextureTypeFromTarget(desc.fTarget),
                     mipmapStatus,
                     label) {
@@ -133,12 +147,15 @@ GrBackendTexture GrGLTexture::getBackendTexture() const {
     info.fTarget = target_from_texture_type(this->textureType());
     info.fID = fID;
     info.fFormat = GrGLFormatToEnum(fFormat);
-    return GrBackendTexture(this->width(), this->height(), this->mipmapped(), info, fParameters);
+    info.fProtected = skgpu::Protected(this->isProtected());
+
+    return GrBackendTextures::MakeGL(
+            this->width(), this->height(), this->mipmapped(), info, fParameters);
 }
 
 GrBackendFormat GrGLTexture::backendFormat() const {
-    return GrBackendFormat::MakeGL(GrGLFormatToEnum(fFormat),
-                                   target_from_texture_type(this->textureType()));
+    return GrBackendFormats::MakeGL(GrGLFormatToEnum(fFormat),
+                                    target_from_texture_type(this->textureType()));
 }
 
 sk_sp<GrGLTexture> GrGLTexture::MakeWrapped(GrGLGpu* gpu,
@@ -153,7 +170,7 @@ sk_sp<GrGLTexture> GrGLTexture::MakeWrapped(GrGLGpu* gpu,
 }
 
 bool GrGLTexture::onStealBackendTexture(GrBackendTexture* backendTexture,
-                                        SkImage::BackendTextureReleaseProc* releaseProc) {
+                                        SkImages::BackendTextureReleaseProc* releaseProc) {
     *backendTexture = this->getBackendTexture();
     // Set the release proc to a no-op function. GL doesn't require any special cleanup.
     *releaseProc = [](GrBackendTexture){};

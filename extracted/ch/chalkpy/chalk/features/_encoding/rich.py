@@ -8,7 +8,7 @@ import enum
 import ipaddress
 import uuid
 from datetime import date, datetime, time, timedelta
-from typing import Any, FrozenSet, List, Set, Tuple, Type, TypeVar, Union, cast
+from typing import Any, FrozenSet, List, Set, Tuple, Type, TypeVar, Union, cast, get_args, get_origin, is_typeddict
 
 import attrs
 import cattrs
@@ -22,8 +22,6 @@ try:
     from pydantic.v1 import BaseModel as V1BaseModel
 except ImportError:
     V1BaseModel = None
-
-from typing_extensions import get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
 from chalk.utils.cached_type_hints import cached_get_type_hints

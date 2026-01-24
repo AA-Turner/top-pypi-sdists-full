@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dapr
-Version: 1.16.0
+Version: 1.16.1
 Summary: The official release of Dapr Python SDK.
 Home-page: https://dapr.io/
 Author: Dapr Authors
@@ -8,7 +8,6 @@ Author-email: dapr@dapr.io
 License: Apache
 Project-URL: Documentation, https://github.com/dapr/docs
 Project-URL: Source, https://github.com/dapr/python-sdk
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -21,6 +20,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 License-File: LICENSE
+Requires-Dist: protobuf>=4.22
+Requires-Dist: grpcio>=1.37.0
+Requires-Dist: grpcio-status>=1.37.0
+Requires-Dist: aiohttp>=3.9.0b0
+Requires-Dist: python-dateutil>=2.8.1
+Requires-Dist: typing-extensions>=4.4.0
+Dynamic: description
+Dynamic: license-file
+Dynamic: summary
 
 Dapr is a portable, serverless, event-driven runtime that makes it easy for developers to
 build resilient, stateless and stateful microservices that run on the cloud and edge and
@@ -30,5 +38,3 @@ Dapr codifies the best practices for building microservice applications into ope
 independent, building blocks that enable you to build portable applications with the language
 and framework of your choice. Each building block is independent and you can use one, some,
 or all of them in your application.
-
-

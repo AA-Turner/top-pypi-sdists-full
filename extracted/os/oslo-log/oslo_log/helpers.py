@@ -14,17 +14,23 @@
 
 """Log helper functions."""
 
+from collections.abc import Callable
 import functools
 import inspect
 import logging
+from typing import Any
+from typing import TypeVar
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 
-def _get_full_class_name(cls):
-    return '{}.{}'.format(cls.__module__,
-                          getattr(cls, '__qualname__', cls.__name__))
+def _get_full_class_name(cls: type) -> str:
+    return '{}.{}'.format(
+        cls.__module__, getattr(cls, '__qualname__', cls.__name__)
+    )
 
 
-def _is_method(obj, method):
+def _is_method(obj: object, method: Callable[..., Any]) -> bool:
     """Returns True if a given method is obj's method.
 
     You can not simply test a given method like:
@@ -37,7 +43,7 @@ def _is_method(obj, method):
     return inspect.ismethod(getattr(obj, method.__name__, None))
 
 
-def log_method_call(method):
+def log_method_call(method: F) -> F:
     """Decorator helping to log method calls.
 
     :param method: Method to decorate to be logged.
@@ -46,23 +52,33 @@ def log_method_call(method):
     log = logging.getLogger(method.__module__)
 
     @functools.wraps(method)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         args_start_pos = 0
         if args:
             first_arg = args[0]
             if _is_method(first_arg, method):
-                cls = (first_arg if isinstance(first_arg, type)
-                       else first_arg.__class__)
+                cls = (
+                    first_arg
+                    if isinstance(first_arg, type)
+                    else first_arg.__class__
+                )
                 caller = _get_full_class_name(cls)
                 args_start_pos = 1
             else:
                 caller = 'static'
         else:
             caller = 'static'
-        data = {'caller': caller,
-                'method_name': method.__name__,
-                'args': args[args_start_pos:], 'kwargs': kwargs}
-        log.debug('%(caller)s method %(method_name)s '
-                  'called with arguments %(args)s %(kwargs)s', data)
+        data = {
+            'caller': caller,
+            'method_name': method.__name__,
+            'args': args[args_start_pos:],
+            'kwargs': kwargs,
+        }
+        log.debug(
+            '%(caller)s method %(method_name)s '
+            'called with arguments %(args)s %(kwargs)s',
+            data,
+        )
         return method(*args, **kwargs)
-    return wrapper
+
+    return wrapper  # type: ignore[return-value]

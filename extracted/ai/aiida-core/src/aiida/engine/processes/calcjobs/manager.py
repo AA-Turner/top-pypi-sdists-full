@@ -13,7 +13,7 @@ import contextlib
 import contextvars
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Hashable, Iterator, List, Optional
+from typing import TYPE_CHECKING, Dict, Hashable, Iterator, Optional
 
 from aiida.common import lang
 from aiida.orm import AuthInfo
@@ -57,10 +57,11 @@ class JobsList:
         self._loop = transport_queue.loop
         self._logger = logging.getLogger(__name__)
 
-        self._jobs_cache: Dict[Hashable, 'JobInfo'] = {}
-        self._job_update_requests: Dict[Hashable, asyncio.Future] = {}  # Mapping: {job_id: Future}
+        self._jobs_cache: Dict[str, 'JobInfo'] = {}
+        self._job_update_requests: Dict[str, asyncio.Future] = {}  # Mapping: {job_id: Future}
         self._last_updated = last_updated
         self._update_handle: Optional[asyncio.TimerHandle] = None
+        self._polling_jobs: frozenset[str] = frozenset()
 
     @property
     def logger(self) -> logging.Logger:
@@ -87,7 +88,7 @@ class JobsList:
         """
         return self._last_updated
 
-    async def _get_jobs_from_scheduler(self) -> Dict[Hashable, 'JobInfo']:
+    async def _get_jobs_from_scheduler(self) -> Dict[str, 'JobInfo']:
         """Get the current jobs list from the scheduler.
 
         :return: a mapping of job ids to :py:class:`~aiida.schedulers.datastructures.JobInfo` instances
@@ -100,13 +101,12 @@ class JobsList:
             scheduler = self._authinfo.computer.get_scheduler()
             scheduler.set_transport(transport)
 
-            kwargs: Dict[str, Any] = {'as_dict': True}
-            if scheduler.get_feature('can_query_by_user'):
-                kwargs['user'] = '$USER'
-            else:
-                kwargs['jobs'] = self._get_jobs_with_scheduler()
+            self._polling_jobs = frozenset([str(job_id) for job_id in self._job_update_requests.keys()])
 
-            scheduler_response = scheduler.get_jobs(**kwargs)
+            if scheduler.get_feature('can_query_by_user'):
+                scheduler_response = scheduler.get_jobs(user='$USER', as_dict=True)
+            else:
+                scheduler_response = scheduler.get_jobs(jobs=list(self._polling_jobs), as_dict=True)
 
             # Update the last update time and clear the jobs cache
             self._last_updated = time.time()
@@ -119,11 +119,14 @@ class JobsList:
             return jobs_cache
 
     async def _update_job_info(self) -> None:
-        """Update all of the job information objects.
+        """Update job information and resolve pending requests.
 
         This will set the futures for all pending update requests where the corresponding job has a new status compared
         to the last update.
+        Note, _job_update_requests is dynamic, and might get new entries while polling from scheduler.
+        Therefore we only update the jobs actually polled, and the new entries will be handled in the next update.
         """
+
         try:
             if not self._update_requests_outstanding():
                 return
@@ -141,14 +144,24 @@ class JobsList:
             # `_ensure_updating` will falsely conclude we are still updating, since the handle is not `None` and so it
             # will not schedule the next update, causing the job update futures to never be resolved.
             self._update_handle = None
+            self._job_update_requests = {}
 
             raise
         else:
-            for job_id, future in self._job_update_requests.items():
-                if not future.done():
+            for job_id in self._polling_jobs:
+                future = self._job_update_requests.pop(job_id, None)
+                if future is None:
+                    # This should not happen after fixing the mutation bug
+                    # where schedulers could modify _polling_jobs (#7155, now
+                    # immutable frozenset). If this warning fires, there may be
+                    # a race condition or other issue where job_id was removed
+                    # from _job_update_requests.
+                    self.logger.warning(  # type: ignore[unreachable]
+                        f'This should not happen: polled job_id {job_id} '
+                        f'not in _job_update_requests {self._job_update_requests}'
+                    )
+                elif not future.done():
                     future.set_result(self._jobs_cache.get(job_id, None))
-        finally:
-            self._job_update_requests = {}
 
     @contextlib.contextmanager
     def request_job_info_update(self, authinfo: AuthInfo, job_id: Hashable) -> Iterator['asyncio.Future[JobInfo]']:
@@ -161,7 +174,7 @@ class JobsList:
         """
         self._authinfo = authinfo
         # Get or create the future
-        request = self._job_update_requests.setdefault(job_id, asyncio.Future())
+        request = self._job_update_requests.setdefault(str(job_id), asyncio.Future())
         assert not request.done(), 'Expected pending job info future, found in done state.'
 
         try:
@@ -234,14 +247,6 @@ class JobsList:
 
     def _update_requests_outstanding(self) -> bool:
         return any(not request.done() for request in self._job_update_requests.values())
-
-    def _get_jobs_with_scheduler(self) -> List[str]:
-        """Get all the jobs that are currently with scheduler.
-
-        :return: the list of jobs with the scheduler
-        :rtype: list
-        """
-        return [str(job_id) for job_id, _ in self._job_update_requests.items()]
 
 
 class JobManager:

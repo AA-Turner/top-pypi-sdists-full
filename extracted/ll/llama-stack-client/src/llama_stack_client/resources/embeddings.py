@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import List, Union
+from typing import Union, Optional
 
 import httpx
 
 from ..types import embedding_create_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -46,38 +52,25 @@ class EmbeddingsResource(SyncAPIResource):
     def create(
         self,
         *,
-        input: Union[str, List[str]],
+        input: Union[str, SequenceNotStr[str]],
         model: str,
-        dimensions: int | NotGiven = NOT_GIVEN,
-        encoding_format: str | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        dimensions: Optional[int] | Omit = omit,
+        encoding_format: Optional[str] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CreateEmbeddingsResponse:
         """
+        Create embeddings.
+
         Generate OpenAI-compatible embeddings for the given input using the specified
         model.
 
         Args:
-          input: Input text to embed, encoded as a string or array of strings. To embed multiple
-              inputs in a single request, pass an array of strings.
-
-          model: The identifier of the model to use. The model must be an embedding model
-              registered with Llama Stack and available via the /models endpoint.
-
-          dimensions: (Optional) The number of dimensions the resulting output embeddings should have.
-              Only supported in text-embedding-3 and later models.
-
-          encoding_format: (Optional) The format to return the embeddings in. Can be either "float" or
-              "base64". Defaults to "float".
-
-          user: (Optional) A unique identifier representing your end-user, which can help OpenAI
-              to monitor and detect abuse.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -87,7 +80,7 @@ class EmbeddingsResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._post(
-            "/v1/openai/v1/embeddings",
+            "/v1/embeddings",
             body=maybe_transform(
                 {
                     "input": input,
@@ -128,38 +121,25 @@ class AsyncEmbeddingsResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        input: Union[str, List[str]],
+        input: Union[str, SequenceNotStr[str]],
         model: str,
-        dimensions: int | NotGiven = NOT_GIVEN,
-        encoding_format: str | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        dimensions: Optional[int] | Omit = omit,
+        encoding_format: Optional[str] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CreateEmbeddingsResponse:
         """
+        Create embeddings.
+
         Generate OpenAI-compatible embeddings for the given input using the specified
         model.
 
         Args:
-          input: Input text to embed, encoded as a string or array of strings. To embed multiple
-              inputs in a single request, pass an array of strings.
-
-          model: The identifier of the model to use. The model must be an embedding model
-              registered with Llama Stack and available via the /models endpoint.
-
-          dimensions: (Optional) The number of dimensions the resulting output embeddings should have.
-              Only supported in text-embedding-3 and later models.
-
-          encoding_format: (Optional) The format to return the embeddings in. Can be either "float" or
-              "base64". Defaults to "float".
-
-          user: (Optional) A unique identifier representing your end-user, which can help OpenAI
-              to monitor and detect abuse.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -169,7 +149,7 @@ class AsyncEmbeddingsResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._post(
-            "/v1/openai/v1/embeddings",
+            "/v1/embeddings",
             body=await async_maybe_transform(
                 {
                     "input": input,

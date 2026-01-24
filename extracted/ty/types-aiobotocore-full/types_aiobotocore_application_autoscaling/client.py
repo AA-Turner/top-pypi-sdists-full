@@ -3,7 +3,7 @@ Type annotations for application-autoscaling service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_autoscaling/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -59,12 +60,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -75,16 +70,16 @@ __all__ = ("ApplicationAutoScalingClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentUpdateException: Type[BotocoreClientError]
-    FailedResourceAccessException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ObjectNotFoundException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentUpdateException: type[BotocoreClientError]
+    FailedResourceAccessException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ObjectNotFoundException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ApplicationAutoScalingClient(AioBaseClient):
@@ -124,7 +119,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
 
     async def delete_scaling_policy(
         self, **kwargs: Unpack[DeleteScalingPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified scaling policy for an Application Auto Scaling scalable
         target.
@@ -135,7 +130,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
 
     async def delete_scheduled_action(
         self, **kwargs: Unpack[DeleteScheduledActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified scheduled action for an Application Auto Scaling scalable
         target.
@@ -146,7 +141,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
 
     async def deregister_scalable_target(
         self, **kwargs: Unpack[DeregisterScalableTargetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters an Application Auto Scaling scalable target when you have finished
         using it.
@@ -231,7 +226,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
 
     async def put_scheduled_action(
         self, **kwargs: Unpack[PutScheduledActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a scheduled action for an Application Auto Scaling scalable
         target.
@@ -251,7 +246,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_autoscaling/client/#register_scalable_target)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or edits tags on an Application Auto Scaling scalable target.
 
@@ -259,7 +254,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_autoscaling/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes tags from an Application Auto Scaling scalable target.
 
@@ -319,7 +314,7 @@ class ApplicationAutoScalingClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

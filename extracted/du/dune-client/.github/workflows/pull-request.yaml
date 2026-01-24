@@ -2,45 +2,48 @@ name: pull request
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
 jobs:
-  lint-format-types-unit:
+  lint-format-types:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.13"]
+        python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Requirements
-        run: pip install -r requirements/dev.txt
-      - name: Pylint
-        run: pylint dune_client/
-      - name: Black
-        run: black --check ./
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Format Check
+        run: make fmt-check
+      - name: Lint
+        run: make lint
       - name: Type Check (mypy)
-        run: mypy dune_client --strict
-      - name: Unit Tests
-        run: python -m pytest tests/unit
+        run: make types
 
-  e2e-tests:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: 3.12
-
-      - name: Install Requirements
-        run:
-          pip install -r requirements/dev.txt
-      - name: End to End Tests
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install Python versions
+        run: uv python install 3.11 3.12 3.13
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run tests with tox
+        run: uv run tox
+      - name: Run E2E tests (Python 3.13)
         env:
           DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
-        run:
-          python -m pytest tests/e2e
+          DUNE_API_KEY_OWNER_HANDLE: ${{ secrets.DUNE_API_KEY_OWNER_HANDLE }}
+        run: uv run --python 3.13 --dev python -m pytest tests/e2e -v

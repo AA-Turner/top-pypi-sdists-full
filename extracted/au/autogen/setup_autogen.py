@@ -28,6 +28,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     install_requires=["ag2==" + __version__],
     extras_require={
+        "a2a": ["ag2[a2a]==" + __version__],
         "flaml": ["ag2[flaml]==" + __version__],
         "openai": ["ag2[openai]==" + __version__],
         "openai-realtime": ["ag2[openai-realtime]==" + __version__],
@@ -70,6 +71,7 @@ setuptools.setup(
         "long-context": ["ag2[long-context]==" + __version__],
         "anthropic": ["ag2[anthropic]==" + __version__],
         "cerebras": ["ag2[cerebras]==" + __version__],
+        "yepcode": ["ag2[yepcode]==" + __version__],
         "mistral": ["ag2[mistral]==" + __version__],
         "groq": ["ag2[groq]==" + __version__],
         "cohere": ["ag2[cohere]==" + __version__],

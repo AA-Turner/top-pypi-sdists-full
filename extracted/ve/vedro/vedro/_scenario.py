@@ -2,9 +2,10 @@ import inspect
 from functools import partialmethod
 from typing import Any, Dict, Tuple
 
+from ._tags import TagsType, TagType
 from .core._meta_data import MetaData
 
-__all__ = ("Scenario",)
+__all__ = ("Scenario", "TagType", "TagsType",)
 
 
 class _Meta(type):
@@ -24,11 +25,14 @@ class _Meta(type):
                 module = namespace.get("__module__", "")
                 raise TypeError(f"Subclassing is restricted <{module}.{name}>")
 
-        frame = inspect.currentframe()
-        try:
-            lineno = frame.f_back.f_lineno if frame and frame.f_back else None
-        finally:
-            del frame
+        if "__lineno__" in namespace:
+            lineno = namespace["__lineno__"]
+        else:
+            frame = inspect.currentframe()
+            try:
+                lineno = frame.f_back.f_lineno if frame and frame.f_back else None
+            finally:
+                del frame
         namespace["__vedro__lineno__"] = lineno
 
         cls_constructor = namespace.get("__init__")
@@ -76,6 +80,7 @@ class _Meta(type):
 # In v2, consider moving this class to `vedro.core.scenario_provider`
 class Scenario(metaclass=_Meta):
     subject: str
+    tags: TagsType = ()
 
     def __repr__(self) -> str:
         return "<Scenario>"

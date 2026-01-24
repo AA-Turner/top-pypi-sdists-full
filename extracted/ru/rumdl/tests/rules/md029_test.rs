@@ -11,7 +11,7 @@ fn test_md029_valid() {
 1. Item 2
 1. Item 3"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -24,7 +24,7 @@ fn test_md029_ordered_any_valid() {
 2. Item 2
 3. Item 3"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -37,7 +37,7 @@ fn test_md029_ordered_any_invalid() {
 1. Item 2
 1. Item 3"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(!result.is_empty());
 
@@ -53,7 +53,7 @@ fn test_md029_nested() {
    1. Nested first
    1. Nested second
 1. Second item"#;
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -64,7 +64,7 @@ fn test_md029_fix() {
     let content = r#"1. First item
 3. Second item
 5. Third item"#;
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.fix(&ctx).unwrap();
     assert_eq!(result, "1. First item\n2. Second item\n3. Third item");
 }
@@ -74,7 +74,7 @@ fn test_line_index() {
     let content = r#"1. First item
 2. Second item
 3. Third item"#;
-    let index = LineIndex::new(content.to_string());
+    let index = LineIndex::new(content);
 
     // The byte range should be calculated based on the actual content
     // Line 2, Column 1 corresponds to the beginning of "2. Second item" which is at index 14
@@ -85,6 +85,9 @@ fn test_line_index() {
 fn test_md029_with_code_blocks() {
     let rule = MD029OrderedListPrefix::new(rumdl_lib::rules::ListStyle::Ordered);
 
+    // Non-indented code blocks break the list per CommonMark. Each list item
+    // becomes its own list. With CommonMark start value support, each list is
+    // correctly numbered from its own start value (1, 2, 3 respectively).
     let content = r#"1. First step
 ```bash
 some code
@@ -98,18 +101,12 @@ more code
 final code
 ```"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
+    // Each list is correctly numbered from its CommonMark start value.
     assert!(
         result.is_empty(),
-        "List items with code blocks between them should maintain sequence"
-    );
-
-    // Test that it doesn't generate false positives
-    let fixed = rule.fix(&ctx).unwrap();
-    assert_eq!(
-        fixed, content,
-        "Content should remain unchanged as it's already correct"
+        "No warnings - each list is correctly numbered from its start value"
     );
 }
 
@@ -117,6 +114,9 @@ final code
 fn test_md029_nested_with_code_blocks() {
     let rule = MD029OrderedListPrefix::new(rumdl_lib::rules::ListStyle::Ordered);
 
+    // NOTE: The code block after "1. First substep" has insufficient indent.
+    // This breaks the nested list per CommonMark. "2. Second substep" becomes
+    // a new list starting with "2." - which is correctly numbered from its start value.
     let content = r#"1. First step
    ```bash
    some code
@@ -132,19 +132,16 @@ fn test_md029_nested_with_code_blocks() {
    ```
 3. Third step"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    println!("Warnings: {result:?}");
+
+    // With CommonMark start value support, each list is correctly numbered:
+    // - Outer list: 1, 2, 3 (correct)
+    // - Nested list: 1 (correct)
+    // - New list starting at 2: 2 (correct)
     assert!(
         result.is_empty(),
-        "Nested lists with code blocks should maintain correct sequence"
-    );
-
-    // Test that it doesn't generate false positives
-    let fixed = rule.fix(&ctx).unwrap();
-    assert_eq!(
-        fixed, content,
-        "Content should remain unchanged as it's already correct"
+        "No warnings - each list is correctly numbered from its start value"
     );
 }
 
@@ -171,7 +168,7 @@ fn test_md029_code_blocks_in_nested_lists() {
 
    2. Another nested"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let warnings = rule.check(&ctx).unwrap();
 
     // Should handle numbering correctly despite code blocks
@@ -195,7 +192,7 @@ fn test_md029_fenced_vs_indented_in_list() {
 
 3. Final item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let warnings = rule.check(&ctx).unwrap();
 
     assert!(warnings.is_empty(), "Ordered numbering should be accepted");
@@ -216,7 +213,7 @@ fn test_zero_padded_numbers() {
 02. Second item
 05. Wrong number with padding";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should detect that 05 should be 03
@@ -230,20 +227,23 @@ fn test_zero_padded_numbers() {
 #[test]
 fn test_lists_with_inline_html() {
     let rule = MD029OrderedListPrefix::default();
+    // Add blank line after HTML block so "4." becomes a new list item
+    // (without blank line, "4." is consumed by the HTML block per CommonMark)
     let content = "\
 1. First item with <strong>bold</strong> text
 2. Second item
 <div>Some HTML block</div>
+
 4. Wrong number after HTML";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // HTML should not interfere with numbering detection
-    assert!(!result.is_empty(), "Should detect wrong number despite HTML");
+    // HTML block separates the lists, creating [1, 2] and [4].
+    // With CommonMark start value support, both lists are correctly numbered.
     assert!(
-        result.iter().any(|w| w.message.contains("4")),
-        "Should detect that 4 should be 3"
+        result.is_empty(),
+        "No warnings - HTML block separates lists, each correctly numbered: {result:?}"
     );
 }
 
@@ -257,14 +257,15 @@ fn test_lists_with_html_comments() {
 <!-- Another comment -->
 4. Wrong number after comments";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Comments should not break list sequences
-    assert!(!result.is_empty(), "Should detect wrong number despite comments");
+    // HTML comments at column 0 break the list per CommonMark, creating:
+    // [1], [2], [4] - three separate lists, each correctly numbered.
+    // With CommonMark start value support, no warnings.
     assert!(
-        result.iter().any(|w| w.message.contains("4")),
-        "Should detect that 4 should be 3"
+        result.is_empty(),
+        "No warnings - HTML comments break list, each list correctly numbered: {result:?}"
     );
 }
 
@@ -276,7 +277,7 @@ fn test_lists_with_mathematical_expressions() {
 2. The result of 1.5 + 2.3 is 3.8
 4. Wrong number with math: 10.5 / 2.1";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Mathematical expressions shouldn't interfere with list numbering
@@ -295,16 +296,17 @@ fn test_deeply_nested_lists() {
     let rule = MD029OrderedListPrefix::default();
 
     // Generate a deeply nested list (6 levels)
+    // CommonMark requires 3+ space indent per level for proper nesting after "1. " markers
     let content = "\
 1. Level 1 item
-  1. Level 2 item
-    1. Level 3 item
-      1. Level 4 item
-        1. Level 5 item
-          1. Level 6 item
-          3. Wrong number at deep level";
+   1. Level 2 item
+      1. Level 3 item
+         1. Level 4 item
+            1. Level 5 item
+               1. Level 6 item
+               3. Wrong number at deep level";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should handle deep nesting and detect the wrong number
@@ -329,7 +331,7 @@ fn test_analyze_performance_errors() {
 
     println!("Content:\n{content}");
 
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     println!("Found {} warnings:", result.len());
@@ -354,7 +356,7 @@ fn test_performance_with_many_small_lists() {
         content.push_str(&format!("3. List {i} item 3 (wrong)\n\n")); // Wrong number
     }
 
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let start = std::time::Instant::now();
     let result = rule.check(&ctx).unwrap();
@@ -387,7 +389,7 @@ fn test_lists_with_continuation_paragraphs() {
 
    This item has wrong numbering.";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Continuation paragraphs should not break sequences
@@ -407,7 +409,7 @@ fn test_mixed_indentation_patterns() {
      1. Indented 5 spaces total
   3. Back to 2 spaces - wrong number";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should handle non-standard indentation robustly
@@ -428,7 +430,7 @@ fn test_single_item_edge_cases() {
 
     for (style, content, should_have_error) in test_cases {
         let rule = MD029OrderedListPrefix::new(style.clone());
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         if should_have_error {
@@ -445,31 +447,20 @@ fn test_single_item_edge_cases() {
 fn test_md029_multiline_no_indent() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // No indentation - should be treated as lazy continuation
+    // No indentation - lazy continuation per CommonMark
     let content = r#"1. First item first line
 second line of first item
 1. Second item first line
 second line of second item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should have warnings for:
-    // 1. Lazy continuation on line 2
-    // 2. Wrong number on line 3
-    // 3. Lazy continuation on line 4
-    assert!(
-        result.len() >= 3,
-        "Should detect lazy continuations and wrong numbering"
-    );
-
-    // Check for lazy continuation warnings
-    let lazy_warnings = result.iter().filter(|w| w.rule_name == Some("MD029-style")).count();
-    assert_eq!(lazy_warnings, 2, "Should have 2 lazy continuation warnings");
-
-    // Check for numbering warning
-    let numbering_warnings = result.iter().filter(|w| w.rule_name == Some("MD029")).count();
-    assert_eq!(numbering_warnings, 1, "Should have 1 numbering warning");
+    // pulldown-cmark sees this as one list with two items via lazy continuation.
+    // With Ordered style, the second "1." should be "2.".
+    assert_eq!(result.len(), 1, "Should have 1 numbering warning");
+    assert_eq!(result[0].line, 3);
+    assert!(result[0].message.contains("expected 2"));
 }
 
 #[test]
@@ -482,12 +473,12 @@ fn test_md029_multiline_3_space_indent() {
 1. Second item first line
    second line of second item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have warning for second "1." since it should be "2."
     assert_eq!(result.len(), 1, "3-space indentation should be treated as continuation");
-    assert!(result[0].message.contains("1 does not match style (expected 2)"));
+    assert!(result[0].message.contains("1") && result[0].message.contains("expected 2"));
 }
 
 #[test]
@@ -500,37 +491,39 @@ fn test_md029_multiline_4_space_indent() {
 1. Second item first line
     second line of second item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should have warning for second "1." since it should be "2."
     assert_eq!(result.len(), 1);
-    assert!(result[0].message.contains("1 does not match style (expected 2)"));
+    assert!(result[0].message.contains("1") && result[0].message.contains("expected 2"));
 }
 
 #[test]
 fn test_md029_multiline_2_space_indent() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // 2-space indentation - edge case
+    // 2-space indentation with lazy continuation
     let content = r#"1. First item first line
   second line of first item
 1. Second item first line
   second line of second item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // 2 spaces is not enough for ordered list continuation (need 3)
-    // So these should be treated as separate lists
-    assert!(result.is_empty(), "2-space indentation breaks the list");
+    // According to CommonMark (verified with pulldown-cmark), lazy continuation makes this
+    // one list with two items. With ListStyle::Ordered, the second "1." should be "2.".
+    assert_eq!(result.len(), 1, "Second item should be numbered 2");
+    assert_eq!(result[0].line, 3);
+    assert!(result[0].message.contains("expected 2"));
 }
 
 #[test]
 fn test_md029_multiline_mixed_content() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // Test with code blocks between items
+    // Code blocks between items break the list per CommonMark
     let content = r#"1. First item
    continuation line
 ```
@@ -539,9 +532,14 @@ code block
 2. Second item
    continuation line"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert!(result.is_empty(), "Code blocks should not break list numbering");
+    // pulldown-cmark sees two separate lists (code block breaks list)
+    // With CommonMark start value support, each list is correctly numbered.
+    assert!(
+        result.is_empty(),
+        "No warnings - each list correctly numbered from its start value"
+    );
 }
 
 #[test]
@@ -553,7 +551,7 @@ fn test_md029_fix_multiline_3_space() {
 1. Second item first line
    second line of second item"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
 
     let expected = r#"1. First item first line
@@ -569,6 +567,8 @@ fn test_md029_double_digit_marker_width() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
     // Test that continuation indentation respects actual marker width
+    // CommonMark sees this as one list starting at 9, with items 9, 10, 11
+    // Since the numbering is sequential from the start value, no warnings
     let content = r#"9. Ninth item
    continuation with 3 spaces
 10. Tenth item
@@ -576,21 +576,23 @@ fn test_md029_double_digit_marker_width() {
 11. Eleventh item
      continuation with 5 spaces"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // All items should be part of the same list
-    assert_eq!(result.len(), 3, "All items should be flagged for renumbering");
-    assert!(result[0].message.contains("9 does not match style (expected 1)"));
-    assert!(result[1].message.contains("10 does not match style (expected 2)"));
-    assert!(result[2].message.contains("11 does not match style (expected 3)"));
+    // All items form one list starting at 9 with correct sequential numbering
+    assert!(
+        result.is_empty(),
+        "No warnings - list 9, 10, 11 is correctly numbered from start value 9"
+    );
 }
 
 #[test]
 fn test_md029_double_digit_insufficient_indent() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // Test that insufficient indentation breaks the list
+    // Test list with double-digit markers and continuation lines.
+    // CommonMark sees this as one list starting at 9, with items 9, 10, 11.
+    // Since the numbering is sequential from the start value, no warnings.
     let content = r#"9. Ninth item
    continuation
 10. Tenth item
@@ -598,22 +600,14 @@ fn test_md029_double_digit_insufficient_indent() {
 11. Eleventh item
     text"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Line 2 has 3 spaces (OK for "9. ")
-    // Line 4 has 3 spaces (NOT OK for "10. " which needs 4)
-    // Line 6 has 4 spaces (NOT OK for "11. " which needs 5)
-    // So item 10 and 11 should be separate lists
-
-    // Actually, we should have 3 warnings:
-    // - Item 9 should be 1 (first item in first list)
-    // - Item 10 should be 2 (continues first list because line 4 has 3 spaces which is OK for item 9)
-    // - Item 11 should be 1 (starts new list because line 6 has only 4 spaces which is not enough for item 10)
-    assert_eq!(result.len(), 3, "Should have 3 warnings");
-    assert!(result[0].message.contains("9 does not match style (expected 1)"));
-    assert!(result[1].message.contains("10 does not match style (expected 2)"));
-    assert!(result[2].message.contains("11 does not match style (expected 1)"));
+    // CommonMark says list starts at 9, and items 9, 10, 11 are correctly numbered
+    assert!(
+        result.is_empty(),
+        "No warnings - list 9, 10, 11 is correctly numbered from start value 9"
+    );
 }
 
 #[test]
@@ -621,6 +615,7 @@ fn test_md029_triple_digit_marker_width() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
     // Test that continuation indentation works for triple-digit markers
+    // CommonMark sees this as one list starting at 99, with items 99, 100, 101
     let content = r#"99. Ninety-ninth item
     continuation with 4 spaces
 100. One hundredth item
@@ -628,14 +623,14 @@ fn test_md029_triple_digit_marker_width() {
 101. One hundred first item
      continuation with 5 spaces"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // All items should be part of the same list
-    assert_eq!(result.len(), 3, "All items should be flagged for renumbering");
-    assert!(result[0].message.contains("99 does not match style (expected 1)"));
-    assert!(result[1].message.contains("100 does not match style (expected 2)"));
-    assert!(result[2].message.contains("101 does not match style (expected 3)"));
+    // All items form one list starting at 99 with correct sequential numbering
+    assert!(
+        result.is_empty(),
+        "No warnings - list 99, 100, 101 is correctly numbered from start value 99"
+    );
 }
 
 #[test]
@@ -643,6 +638,8 @@ fn test_md029_quadruple_digit_marker_width() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
     // Test that continuation indentation works for quadruple-digit markers
+    // CommonMark sees one list starting at 999
+    // Items 999, 1000, 1111 - 1111 is wrong (should be 1001)
     let content = r#"999. Nine hundred ninety-ninth item
      continuation with 5 spaces
 1000. One thousandth item
@@ -650,21 +647,25 @@ fn test_md029_quadruple_digit_marker_width() {
 1111. Eleven eleven item
       continuation with 6 spaces"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // All items should be part of the same list
-    assert_eq!(result.len(), 3, "All items should be flagged for renumbering");
-    assert!(result[0].message.contains("999 does not match style (expected 1)"));
-    assert!(result[1].message.contains("1000 does not match style (expected 2)"));
-    assert!(result[2].message.contains("1111 does not match style (expected 3)"));
+    // Items 999, 1000 are correct, but 1111 should be 1001
+    assert_eq!(result.len(), 1, "Only item 1111 should be flagged");
+    assert!(
+        result[0].message.contains("1111") && result[0].message.contains("expected 1001"),
+        "Item 1111 should expect 1001: {}",
+        result[0].message
+    );
 }
 
 #[test]
 fn test_md029_large_digit_insufficient_indent() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // Test that insufficient indentation breaks the list for large numbers
+    // With CommonMark lazy continuation, all items stay in one list regardless of
+    // insufficient indentation for continuation lines. pulldown-cmark correctly
+    // parses these as a single ordered list starting at 99.
     let content = r#"99. Item ninety-nine
     continuation with 4 spaces
 100. Item one hundred
@@ -672,97 +673,42 @@ fn test_md029_large_digit_insufficient_indent() {
 1000. Item one thousand
      only 5 spaces (not enough for "1000. " which needs 6)"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // We expect the list to be broken into multiple blocks
-    // Item 99 and 100 should be in one list (since 4 spaces is enough for "99. ")
-    // Item 1000 should start a new list (since 5 spaces is not enough for "100. ")
-    assert_eq!(result.len(), 3, "Should have 3 warnings");
-    assert!(result[0].message.contains("99 does not match style (expected 1)"));
-    assert!(result[1].message.contains("100 does not match style (expected 2)"));
-    assert!(result[2].message.contains("1000 does not match style (expected 1)")); // New list
-}
-
-#[test]
-fn test_md029_lazy_continuation_fix() {
-    let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-
-    // Test that MD029 fixes numbering (not indentation)
-    // Note: lazy continuation breaks the list, so "1. Second item" starts a new list
-    let content = r#"1. First item
-lazy continuation
-1. Second item
-another lazy line"#;
-
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
-    let fixed = rule.fix(&ctx).unwrap();
-
-    // MD029 only fixes numbering, not indentation
-    // The lazy continuation doesn't actually break the list in our implementation,
-    // so "1. Second item" should become "2. Second item"
-    let expected = r#"1. First item
-lazy continuation
-2. Second item
-another lazy line"#;
-
-    assert_eq!(fixed, expected, "MD029 should only fix list numbering");
-}
-
-#[test]
-fn test_md029_mixed_lazy_and_proper_continuation() {
-    let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-
-    let content = r#"1. First item
-lazy line
-   proper continuation
-1. Second item
-  two space indent
-    four space indent"#;
-
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
-    let result = rule.check(&ctx).unwrap();
-
-    // Should detect lazy continuations (0 and 2 space lines)
-    let lazy_warnings = result.iter().filter(|w| w.rule_name == Some("MD029-style")).count();
-    // Note: Only line 2 is detected as lazy continuation because it's within the list block.
-    // Line 5 has 2 spaces but it's after line 4 which starts a new list, so it's not
-    // considered part of the list block and thus not checked for lazy continuation.
-    assert_eq!(lazy_warnings, 1, "Should detect 0-space line as lazy continuation");
-
-    // MD029 fix only fixes list numbering, not indentation
-    let fixed = rule.fix(&ctx).unwrap();
-    // Lazy lines remain unchanged
-    assert!(fixed.contains("\nlazy line"));
-    // The list item numbering is fixed
-    assert!(fixed.contains("1. First item"));
-    assert!(fixed.contains("2. Second item")); // Second item becomes "2." not "1."
-    // Two-space indent line remains unchanged (MD029 doesn't fix indentation)
-    assert!(fixed.contains("  two space indent"));
+    // CommonMark sees list starting at 99. Items 99, 100 are correct.
+    // Item 1000 is wrong (should be 101).
+    assert_eq!(result.len(), 1, "Only item 1000 should be flagged");
+    assert!(
+        result[0].message.contains("1000") && result[0].message.contains("expected 101"),
+        "Item 1000 should expect 101: {}",
+        result[0].message
+    );
 }
 
 #[test]
 fn test_md029_simple_insufficient_indent() {
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
 
-    // Simple test case - second item has insufficient indentation
+    // Simple test case with lazy continuation per CommonMark
     let content = r#"10. Item ten
    not enough spaces
 10. Item ten again"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Line 2 has 3 spaces but needs 4 for "10. "
-    // So item on line 3 should start a new list
-
-    // The list should be split into 2 blocks because line 2 doesn't have enough indentation
-    assert_eq!(ctx.list_blocks.len(), 2, "Should have 2 separate list blocks");
-
-    // And MD029 should flag both "10." items as starting with the wrong number
-    assert_eq!(result.len(), 2, "Both '10.' items should be flagged");
-    assert!(result[0].message.contains("10 does not match style (expected 1)"));
-    assert!(result[1].message.contains("10 does not match style (expected 1)"));
+    // pulldown-cmark sees this as 1 list with 2 items via lazy continuation.
+    // CommonMark says the list starts at 10, so:
+    // - First item "10." is correct (start value)
+    // - Second item "10." should be 11
+    assert_eq!(result.len(), 1, "Only second '10.' should be flagged (expected 11)");
+    assert_eq!(result[0].line, 3);
+    assert!(
+        result[0].message.contains("10") && result[0].message.contains("expected 11"),
+        "Expected message about 10 should be 11: {}",
+        result[0].message
+    );
 }
 
 #[test]
@@ -780,7 +726,7 @@ fn test_md029_nested_ordered_lists_issue_52() {
    1. Sub 3
    1. Sub 4"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should only flag 2 errors (not 3 as the bug produced):
@@ -797,18 +743,12 @@ fn test_md029_nested_ordered_lists_issue_52() {
     assert!(line_8_error.is_some(), "Should have error on line 8");
 
     assert!(
-        line_5_error
-            .unwrap()
-            .message
-            .contains("1 does not match style (expected 2)"),
+        line_5_error.unwrap().message.contains("1") && line_5_error.unwrap().message.contains("expected 2"),
         "Line 5 should expect 2, got: {}",
         line_5_error.unwrap().message
     );
     assert!(
-        line_8_error
-            .unwrap()
-            .message
-            .contains("1 does not match style (expected 2)"),
+        line_8_error.unwrap().message.contains("1") && line_8_error.unwrap().message.contains("expected 2"),
         "Line 8 should expect 2, got: {}",
         line_8_error.unwrap().message
     );
@@ -841,7 +781,7 @@ fn test_md029_nested_ordered_lists_bug() {
    1. Sub 3
    1. Sub 4"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Debug info
     println!("List blocks found:");
@@ -860,7 +800,7 @@ fn test_md029_nested_ordered_lists_bug() {
             println!(
                 "  Line {}: '{}' - marker: '{}', column: {}, ordered: {}",
                 line_num,
-                line_info.content.trim(),
+                line_info.content(ctx.content).trim(),
                 list_item.marker,
                 list_item.marker_column,
                 list_item.is_ordered
@@ -899,13 +839,13 @@ fn test_md029_nested_ordered_lists_bug() {
     assert!(
         result
             .iter()
-            .any(|w| w.line == 5 && w.message.contains("1 does not match style (expected 2)")),
+            .any(|w| w.line == 5 && w.message.contains("1") && w.message.contains("expected 2")),
         "Line 5 (1. Sub 2) should be flagged as needing to be 2"
     );
     assert!(
         result
             .iter()
-            .any(|w| w.line == 8 && w.message.contains("1 does not match style (expected 2)")),
+            .any(|w| w.line == 8 && w.message.contains("1") && w.message.contains("expected 2")),
         "Line 8 (1. Sub 4) should be flagged as needing to be 2"
     );
 
@@ -944,7 +884,7 @@ fn test_md029_triple_nested_ordered_lists() {
       1. Level 3 item 5
       3. Level 3 item 6 - wrong"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should detect 2 errors: lines 7 and 11 (second items at level 3 under different parents)
@@ -957,18 +897,8 @@ fn test_md029_triple_nested_ordered_lists() {
     assert!(line_7_error.is_some(), "Should have error on line 7");
     assert!(line_11_error.is_some(), "Should have error on line 11");
 
-    assert!(
-        line_7_error
-            .unwrap()
-            .message
-            .contains("1 does not match style (expected 2)")
-    );
-    assert!(
-        line_11_error
-            .unwrap()
-            .message
-            .contains("3 does not match style (expected 2)")
-    );
+    assert!(line_7_error.unwrap().message.contains("1") && line_7_error.unwrap().message.contains("expected 2"));
+    assert!(line_11_error.unwrap().message.contains("3") && line_11_error.unwrap().message.contains("expected 2"));
 }
 
 #[test]
@@ -984,7 +914,7 @@ fn test_md029_ordered_under_unordered_parents() {
 - Unordered parent 3
   1. Another sequence starts at 1"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should find 2 errors: second items under each unordered parent
@@ -1017,12 +947,15 @@ fn test_md029_lists_with_code_block_interruptions() {
    ```
    1. Should be 2 after code block"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should find 1 error: the nested "1." that should be "2."
-    assert_eq!(result.len(), 1, "Should find 1 error for nested item after code block");
-    assert!(result[0].message.contains("1 does not match style (expected 2)"));
+    // pulldown-cmark sees this as 3 separate lists, each correctly numbered:
+    // - List 1: items 1 and 2 at lines 1 and 5 (correct sequence)
+    // - List 2: single item "1. Nested item" at line 6 (correct - starts at 1)
+    // - List 3: single item "1. Should be 2..." at line 10 (correct - starts at 1)
+    // Verified with markdownlint-cli: no MD029 errors with ordered style.
+    assert_eq!(result.len(), 0, "All lists are correctly numbered");
 }
 
 #[test]
@@ -1037,7 +970,7 @@ fn test_md029_mixed_indentation_robustness() {
    1. 3-space nested (back to standard)
    5. Should be 2"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should handle mixed indentation gracefully and detect numbering errors
@@ -1065,7 +998,7 @@ fn test_md029_all_styles_with_nesting() {
 
     for style in styles {
         let rule = MD029OrderedListPrefix::new(style.clone());
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx);
 
         // Just verify it doesn't crash and produces some result
@@ -1074,5 +1007,512 @@ fn test_md029_all_styles_with_nesting() {
         // Test that fix works too
         let fixed = rule.fix(&ctx);
         assert!(fixed.is_ok(), "Style {style:?} fix should not crash on nested lists");
+    }
+}
+// ==================== COMPREHENSIVE TEST SUITE ====================
+
+/// Tests for lists starting at different numbers with various styles
+mod starting_numbers {
+    use super::*;
+
+    #[test]
+    fn test_ordered_style_list_starting_at_5() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "5. First item\n6. Second item\n7. Third item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // With CommonMark start value support, list starting at 5 is correctly numbered
+        assert!(
+            result.is_empty(),
+            "No warnings - list is correctly numbered from its start value 5"
+        );
+    }
+
+    #[test]
+    fn test_ordered0_style_accepts_zero_based() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered0);
+        let content = "0. First item\n1. Second item\n2. Third item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Ordered0 style accepts 0-based numbering
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_ordered0_style_rejects_one_based() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered0);
+        let content = "1. First item\n2. Second item\n3. Third item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Expects 0, 1, 2
+        assert_eq!(result.len(), 3);
+        assert!(result[0].message.contains("1") && result[0].message.contains("expected 0"));
+    }
+
+    #[test]
+    fn test_ordered_style_rejects_zero_based() {
+        // NOTE: Ordered style with CommonMark start value support respects start at 0
+        // This list 0, 1, 2 is correctly numbered from its start value 0
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "0. First item\n1. Second item\n2. Third item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // With CommonMark start value support, list is correctly numbered from start 0
+        assert!(
+            result.is_empty(),
+            "No warnings - list is correctly numbered from its start value 0"
+        );
+    }
+
+    #[test]
+    fn test_very_large_starting_number() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "9999. Item at 9999\n10000. Item at 10000\n10001. Item at 10001";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // With CommonMark start value support, list is correctly numbered from start 9999
+        assert!(
+            result.is_empty(),
+            "No warnings - list is correctly numbered from its start value 9999"
+        );
+    }
+}
+
+/// Comprehensive tests for each ListStyle variant
+mod list_style_behaviors {
+    use super::*;
+
+    #[test]
+    fn test_one_style_all_ones_valid() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::One);
+        let content = "1. First\n1. Second\n1. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_one_style_rejects_incrementing() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::One);
+        let content = "1. First\n2. Second\n3. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Expects all 1s
+        assert_eq!(result.len(), 2);
+        assert!(result[0].message.contains("2") && result[0].message.contains("expected 1"));
+        assert!(result[1].message.contains("3") && result[1].message.contains("expected 1"));
+    }
+
+    #[test]
+    fn test_oneone_style_all_ones_valid() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::OneOne);
+        let content = "1. First\n1. Second\n1. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_oneone_style_rejects_incrementing() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::OneOne);
+        let content = "1. First\n2. Second\n3. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Expects all 1s
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_ordered_style_incrementing_valid() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First\n2. Second\n3. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_ordered_style_rejects_all_ones() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First\n1. Second\n1. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Expects 1, 2, 3
+        assert_eq!(result.len(), 2);
+        assert!(result[0].message.contains("1") && result[0].message.contains("expected 2"));
+        assert!(result[1].message.contains("1") && result[1].message.contains("expected 3"));
+    }
+
+    #[test]
+    fn test_ordered0_style_zero_based_valid() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered0);
+        let content = "0. First\n1. Second\n2. Third\n3. Fourth";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+}
+
+/// Tests for fix functionality across all styles
+mod fix_functionality {
+    use super::*;
+
+    #[test]
+    fn test_fix_ordered_style() {
+        // With CommonMark start value support, 5, 6, 7 is correctly numbered
+        // The fix should not change it
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "5. First\n6. Second\n7. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // No fix needed - list is correctly numbered from start value 5
+        assert_eq!(fixed, "5. First\n6. Second\n7. Third");
+    }
+
+    #[test]
+    fn test_fix_one_style() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::One);
+        let content = "1. First\n2. Second\n3. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(fixed, "1. First\n1. Second\n1. Third");
+    }
+
+    #[test]
+    fn test_fix_ordered0_style() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered0);
+        let content = "1. First\n2. Second\n3. Third";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(fixed, "0. First\n1. Second\n2. Third");
+    }
+
+    #[test]
+    fn test_fix_preserves_content() {
+        // With CommonMark start value support, 5, 6, 7 is correctly numbered
+        // The fix should not change it
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "5. **Bold** text\n6. *Italic* text\n7. `Code` text";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // No fix needed - list is correctly numbered from start value 5
+        assert_eq!(fixed, "5. **Bold** text\n6. *Italic* text\n7. `Code` text");
+    }
+
+    #[test]
+    fn test_fix_with_indented_content() {
+        // With CommonMark start value support, 5, 6 is correctly numbered
+        // The fix should not change it
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "5. First item\n   with continuation\n6. Second item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // No fix needed - list is correctly numbered from start value 5
+        assert_eq!(fixed, "5. First item\n   with continuation\n6. Second item");
+    }
+}
+
+/// Tests for list grouping and separation
+mod list_grouping {
+    use super::*;
+
+    #[test]
+    fn test_lists_separated_by_heading_are_independent() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First list\n\n## Heading\n\n1. Second list";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Both lists are valid independently
+        assert!(result.is_empty());
+    }
+}
+
+/// Tests for nested and mixed lists
+mod nested_lists {
+    use super::*;
+
+    #[test]
+    fn test_nested_ordered_in_ordered() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. Top level\n   1. Nested level\n   2. Second nested\n2. Second top";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Both levels should be valid with Ordered style
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_ordered_nested_in_unordered() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "- Unordered item\n  1. Nested ordered\n  2. Second ordered\n- Another unordered";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Nested ordered list should be valid
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_mixed_list_markers() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. Ordered\n- Unordered\n2. Ordered again";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Unordered list separates the two ordered lists.
+        // With CommonMark start value support, both lists are correctly numbered:
+        // First list starts at 1, second list starts at 2.
+        assert!(
+            result.is_empty(),
+            "No warnings - both lists are correctly numbered from their start values"
+        );
+    }
+}
+
+/// Tests for lazy continuation detection
+mod lazy_continuation {
+    use super::*;
+
+    #[test]
+    fn test_lazy_continuation_detected() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First item\ncontinuation without indent\n2. Second item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // With pulldown-cmark, lazy continuation makes this one list with two properly
+        // numbered items (1 and 2). No warnings expected - verified with markdownlint-cli.
+        assert_eq!(
+            result.len(),
+            0,
+            "Lazy continuation is valid CommonMark, no numbering error"
+        );
+    }
+
+    #[test]
+    fn test_proper_indent_not_flagged() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First item\n   properly indented continuation\n2. Second item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Properly indented continuation should not trigger lazy continuation warning
+        let lazy_warnings = result
+            .iter()
+            .filter(|w| w.message.contains("lazy continuation"))
+            .count();
+        assert_eq!(lazy_warnings, 0);
+    }
+}
+
+/// Edge cases and boundary conditions
+mod edge_cases {
+    use super::*;
+
+    #[test]
+    fn test_single_item_list() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. Only one item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Single item starting at 1 is valid
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_single_item_list_starting_at_zero() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered0);
+        let content = "0. Only one item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Single item starting at 0 is valid for Ordered0
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_empty_document() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_no_lists_in_document() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "# Heading\n\nParagraph text.\n\nMore text.";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_unordered_lists_only() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "- Item 1\n- Item 2\n- Item 3";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // No ordered lists to check
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_list_with_formatting() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. **Bold** item\n2. *Italic* item\n3. `Code` item\n4. [Link](url) item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Formatting should not affect validation
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_list_with_blank_lines_between_items() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First item\n\n2. Second item\n\n3. Third item";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Blank lines between items should not affect numbering
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_skipped_numbers() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First\n3. Third\n5. Fifth";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should expect continuous numbering
+        assert_eq!(result.len(), 2);
+        assert!(result[0].message.contains("3") && result[0].message.contains("expected 2"));
+        assert!(result[1].message.contains("5") && result[1].message.contains("expected 3"));
+    }
+
+    #[test]
+    fn test_descending_numbers() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "3. Third\n2. Second\n1. First";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // With CommonMark start value support, list starts at 3.
+        // Items should be 3, 4, 5, so 2 and 1 are wrong.
+        assert_eq!(result.len(), 2);
+        assert!(
+            result[0].message.contains("expected 4"),
+            "2 should expect 4: {}",
+            result[0].message
+        );
+        assert!(
+            result[1].message.contains("expected 5"),
+            "1 should expect 5: {}",
+            result[1].message
+        );
+    }
+}
+
+/// Tests for different number of items
+mod item_counts {
+    use super::*;
+
+    #[test]
+    fn test_two_item_list() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let content = "1. First\n2. Second";
+
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_long_list() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
+        let mut items = Vec::new();
+        for i in 1..=20 {
+            items.push(format!("{i}. Item {i}"));
+        }
+        let content = items.join("\n");
+
+        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_long_list_all_ones() {
+        let rule = MD029OrderedListPrefix::new(ListStyle::One);
+        let mut items = Vec::new();
+        for i in 1..=20 {
+            items.push(format!("1. Item {i}"));
+        }
+        let content = items.join("\n");
+
+        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty());
     }
 }

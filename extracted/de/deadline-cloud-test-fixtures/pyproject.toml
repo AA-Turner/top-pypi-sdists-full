@@ -21,6 +21,8 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: MacOS",
@@ -158,6 +160,7 @@ show_missing = true
 # Can be removed or set to true once we are v1
 major_on_zero = false
 tag_format = "{version}"
+allow_zero_version = true
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = [
@@ -178,6 +181,7 @@ patch_tags = [
   "feat",
   "fix",
   "refactor",
+  "perf",
 ]
 
 [tool.semantic_release.publish]
@@ -191,4 +195,4 @@ trim_blocks = true
 lstrip_blocks = true
 
 [tool.semantic_release.branches.release]
-match = "(mainline|release)"
+match = "(mainline|release|patch_.*)"

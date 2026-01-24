@@ -304,7 +304,13 @@ class BinderVisitor:
             tmp_aggregates, _ = zip(
                 *(inner_binder(aggregate, context) for aggregate in node.aggregates)
             )
-            node.aggregates = list(tmp_aggregates)
+            # Deduplicate aggregates by schema_column.identity
+            aggregates_by_identity = {
+                agg.schema_column.identity: agg
+                for agg in tmp_aggregates
+                if agg.schema_column.identity is not None
+            }
+            node.aggregates = list(aggregates_by_identity.values())
 
         for agg in node.aggregates:
             if agg.condition:
@@ -319,9 +325,10 @@ class BinderVisitor:
         # remove literals in the GROUP BY clause, they form one group
         node.groups = [g for g in node.groups if g.node_type != NodeType.LITERAL]
         # 2) the columns referenced in the SELECT
-        node.columns = get_all_nodes_of_type(
+        identifier_columns = get_all_nodes_of_type(
             node.aggregates + node.groups, select_nodes=(NodeType.IDENTIFIER,)
         )
+        node.columns = list(node.aggregates) + identifier_columns
         all_identifiers = [node.schema_column.identity for node in node.columns]
         columns_to_keep = columns_to_keep.union(all_identifiers)
 
@@ -374,14 +381,7 @@ class BinderVisitor:
         # clear the derived schema
         context.schemas.pop("$derived", None)
 
-        seen = set()
-        needs_qualifier = len(context.schemas) > 1 or any(
-            column.name in seen or seen.add(column.name) is not None  # type: ignore
-            for schema in context.schemas.values()
-            for column in schema.columns
-        )
-
-        def name_column(qualifier, column):
+        def name_column(column):
             for projection_column in node.columns:
                 if (
                     projection_column.schema_column
@@ -390,20 +390,11 @@ class BinderVisitor:
                     if projection_column.alias:
                         return projection_column.alias
 
-                    if len(context.relations) > 1 or needs_qualifier:
-                        if isinstance(projection_column, LogicalColumn):
-                            if qualifier:
-                                projection_column.source = qualifier
-                            return projection_column.qualified_name
-                        return f"{qualifier}.{column.name}"
-
                     if projection_column.query_column:
                         return str(projection_column.query_column)
                     if projection_column.current_name:
                         return projection_column.current_name
 
-            if needs_qualifier:
-                return f"{qualifier}.{column.name}"
             return column.name
 
         def keep_column(column, identities):
@@ -435,18 +426,22 @@ class BinderVisitor:
                 identities.append(column.identity)
 
         columns = []
-        for qualifier, schema in context.schemas.items():
+        seen_identities = set()
+        for _, schema in context.schemas.items():
             for column in schema.columns:
+                if column.identity in seen_identities:
+                    continue
                 if keep_column(column, identities):
-                    column_name = name_column(qualifier=qualifier, column=column)
+                    column_name = name_column(column=column)
                     column_reference = LogicalColumn(
                         node_type=NodeType.IDENTIFIER,
                         source_column=column_name,
                         source=None,
-                        alias=None,
+                        alias=column_name,
                         schema_column=column,
                     )
                     columns.append(column_reference)
+                    seen_identities.add(column.identity)
 
         # we bound as we came across items in schemas, not the order the user wants them
         desired_order = {id: index for index, id in enumerate(identities)}
@@ -507,6 +502,9 @@ class BinderVisitor:
             ]
             schema = RelationSchema(name=relation_name, columns=[c.schema_column for c in columns])
             context.schemas[relation_name] = schema
+            # ensure origin is set so later passes (projection pushdown, etc.)
+            for column in schema.columns:
+                column.origin = [relation_name]
             node.columns = columns
             node.schema = schema
         elif node.function == "GENERATE_SERIES":
@@ -541,6 +539,10 @@ class BinderVisitor:
                 columns=[c.schema_column for c in columns],
             )
             context.schemas[node.relation_name] = schema
+            # tag generated columns with their origin relation name so downstream
+            # binder/optimizer logic can detect their source
+            for column in schema.columns:
+                column.origin = [node.relation_name]
             node.columns = columns
             node.schema = schema
         elif node.function == "HTTP":
@@ -555,7 +557,7 @@ class BinderVisitor:
             response = requests.get(node.url, timeout=60)
 
             response.raise_for_status()
-            row_count, column_count, data = decoder(response.content, force_read=True)
+            row_count, column_count, raw_bytes, data = decoder(response.content, force_read=True)
 
             schema = RelationSchema(
                 name=node.relation_name,
@@ -699,10 +701,12 @@ class BinderVisitor:
         if node.on:
             # All conditions have been mapped to 'on' conditions
             comparisons = get_all_nodes_of_type(node.on, (NodeType.COMPARISON_OPERATOR,))
-            if not all(com.value == "Eq" for com in comparisons):
+            if not all(
+                com.value in ("Eq", "NotEq", "Lt", "Gt", "LtEq", "GtEq") for com in comparisons
+            ):
                 from opteryx.exceptions import UnsupportedSyntaxError
 
-                raise UnsupportedSyntaxError("Only JOINs with equals comparisons supported")
+                raise UnsupportedSyntaxError("Only JOINs with equals comparisons supported.")
 
             node.on, context = inner_binder(node.on, context)
             node.left_columns, node.right_columns = extract_join_fields(
@@ -713,6 +717,17 @@ class BinderVisitor:
                 from opteryx.exceptions import IncompatibleTypesError
 
                 raise IncompatibleTypesError(**mismatches)
+
+            if any(
+                com.left.schema_column.type == OrsoTypes.DECIMAL
+                and com.value not in ("Eq", "NotEq")
+                for com in comparisons
+            ):
+                from opteryx.exceptions import UnsupportedSyntaxError
+
+                raise UnsupportedSyntaxError(
+                    "JOINs on DECIMAL types only supports Equals and Not Equals."
+                )
 
             # we need to put the referenced columns into the columns attribute for the
             # optimizers
@@ -772,6 +787,8 @@ class BinderVisitor:
             from opteryx.exceptions import SqlError
 
             raise SqlError("INNER and NATURAL joins must have a either an ON or USING condition.")
+
+        node.schemas = context.schemas
 
         return node, context
 
@@ -930,11 +947,13 @@ class BinderVisitor:
         from opteryx.connectors import connector_factory
         from opteryx.connectors.capabilities import Asynchronous
         from opteryx.connectors.capabilities import Cacheable
-        from opteryx.connectors.capabilities import Partitionable
+        from opteryx.connectors.capabilities import Diachronic
         from opteryx.connectors.capabilities import Statistics
         from opteryx.connectors.capabilities.cacheable import async_read_thru_cache
         from opteryx.connectors.capabilities.cacheable import read_thru_cache
+        from opteryx.exceptions import DatabaseError
         from opteryx.managers.permissions import can_read_table
+        from opteryx.managers.schemes.mabel_partitions import UnsupportedSegementationError
 
         if node.alias in context.relations:
             raise AmbiguousDatasetError(dataset=node.alias)
@@ -950,7 +969,7 @@ class BinderVisitor:
 
         if hasattr(node.connector, "variables"):
             node.connector.variables = context.connection.variables
-        if Partitionable in connector_capabilities:
+        if Diachronic in connector_capabilities:
             node.connector.start_date = node.start_date
             node.connector.end_date = node.end_date
         if Cacheable in connector_capabilities and "NO_CACHE" not in (node.hints or []):
@@ -963,19 +982,28 @@ class BinderVisitor:
                 original_async_read_blob = node.connector.async_read_blob
                 node.connector.async_read_blob = async_read_thru_cache(original_async_read_blob)
 
-        node.schema = node.connector.get_dataset_schema()
-        node.schema.aliases.append(node.alias)
+        try:
+            node.schema = node.connector.get_dataset_schema()
+            node.schema.aliases.append(node.alias)
 
-        if Statistics in connector_capabilities:
-            node.schema = node.connector.map_statistics(
-                node.connector.relation_statistics, node.schema
-            )
+            if Statistics in connector_capabilities:
+                node.schema = node.connector.map_statistics(
+                    node.connector.relation_statistics, node.schema
+                )
 
-        context.schemas[node.alias] = node.schema
-        for column in node.schema.columns:
-            column.origin = [node.alias]
+            context.schemas[node.alias] = node.schema
+            for column in node.schema.columns:
+                column.origin = [node.alias]
 
-        context.relations[node.alias] = node.connector.__mode__
+            context.relations[node.alias] = node.connector.__mode__
+        except (DatabaseError, UnsupportedSegementationError) as err:
+            raise err
+        except Exception as e:
+            from opteryx.exceptions import DatasetReadError
+
+            raise DatasetReadError(
+                f"Cannot read information for dataset '{node.relation}': {e}"
+            ) from e
 
         return node, context
 
@@ -1003,7 +1031,7 @@ class BinderVisitor:
         node, context = self.visit_exit(node, context)
 
         # Extract the column names to check for duplicates
-        column_names = (n.schema_column.name for n in node.columns)
+        column_names = (n.current_name for n in node.columns)
         seen = set()
         duplicates = [name for name in column_names if name in seen or seen.add(name)]  # type: ignore
 
@@ -1111,9 +1139,8 @@ class BinderVisitor:
 
             # we can only UNNEST an ARRAY type column, we need to find it before we know its type
             if node.unnest_column.schema_column.type not in (
-                OrsoTypes._MISSING_TYPE,
-                OrsoTypes.ARRAY,
                 0,
+                OrsoTypes.ARRAY,
             ):
                 from opteryx.exceptions import IncorrectTypeError
 
@@ -1123,7 +1150,7 @@ class BinderVisitor:
 
             # this is the column that is being created
             element_type = OrsoTypes.VARCHAR
-            if node.unnest_column.schema_column:
+            if node.unnest_column.schema_column and node.unnest_column.schema_column.element_type:
                 element_type = node.unnest_column.schema_column.element_type
 
             schema_column = FlatColumn(name=node.unnest_alias, type=element_type)

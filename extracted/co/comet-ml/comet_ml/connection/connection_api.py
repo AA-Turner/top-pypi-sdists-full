@@ -37,6 +37,7 @@ import requests
 import requests.utils
 
 from .._typing import HeartBeatResponse, PreparedRequest
+from ..api_objects.model.status_configuration import ModelStatusConfiguration
 from ..batch_utils import MessageBatchItem
 from ..config import (
     MAXIMAL_LENGTH_OF_OUTPUT_LINE,
@@ -170,6 +171,7 @@ from ..logging_messages import (
     REPORTING_ERROR,
 )
 from ..messages import UploadFileMessage
+from ..query import QueryExpression
 from ..semantic_version import SemanticVersion
 from ..utils import (
     encode_metadata,
@@ -221,6 +223,7 @@ from .http_session import (
     get_retry_strategy,
     get_retry_strategy_for_get_or_add_run,
 )
+from .offset_counter import OffsetCounter
 
 LOGGER = logging.getLogger("comet_ml.connection")
 
@@ -1377,7 +1380,7 @@ class OptimizerAPI(object):
         return results
 
     def optimizer_update(
-        self, id, pid, trial, status=None, score=None, epoch=None
+        self, id, pid, trial, status=None, score=None, epoch=None, metadata=None
     ) -> Dict[str, Any]:
         """
         Post the status of a search.
@@ -1392,6 +1395,8 @@ class OptimizerAPI(object):
             "score": score,
             "epoch": epoch,
         }
+        if metadata is not None:
+            json["metadata"] = metadata
         results = self.post_request("update", json=json)
         return results
 
@@ -1652,8 +1657,16 @@ class RestApiClient(BaseApiClient):
         self.use_cache = False
         self.backend_version = None
 
+        self._offset_counter = OffsetCounter()
+
         if check_version:
             self._check_version()
+
+    def set_initial_offset(self, offset: int) -> None:
+        self._offset_counter.value = offset
+
+    def get_current_offset(self) -> int:
+        return self._offset_counter.value
 
     def _check_version(self) -> None:
         config_minimal_backend_version = self.config[
@@ -2130,16 +2143,69 @@ class RestApiClient(BaseApiClient):
         return self.get_from_endpoint("workspaces", {})
 
     def get_project_experiments(
-        self, workspace: str, project_name: str, archived: bool = False
+        self,
+        workspace: str,
+        project_name: str,
+        archived: bool = False,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ):
         """
         Return the metadata JSONs of the experiments in a project.
+
+        Args:
+            workspace: The workspace name containing the project
+            project_name: The name of the project
+            archived: Whether to return archived experiments (default: False)
+            page: Page number for pagination (1-indexed). If provided, page_size is required.
+            page_size: Number of experiments per page. Required when page is specified.
+            sort_by: Field to sort by. Must be "startTime" or "endTime" if provided.
+            sort_order: Sort direction. Must be "asc" or "desc" if provided.
+                Required when page, page_size, and sort_by are all specified.
+
+        Returns:
+            List of experiment metadata dictionaries
+
+        Raises:
+            ValueError: If pagination or sorting parameters are invalid
         """
+        # Validate pagination and sorting parameters
+        if page is not None:
+            if page_size is None:
+                raise ValueError("page_size is required when page is specified")
+
+        # Validate sort_by parameter
+        if sort_by is not None:
+            if sort_by not in ["startTime", "endTime"]:
+                raise ValueError("sort_by must be 'startTime' or 'endTime'")
+
+        # Validate sort_order parameter
+        if sort_order is not None:
+            if sort_order not in ["asc", "desc"]:
+                raise ValueError("sort_order must be 'asc' or 'desc'")
+
+        # Validate that sort_order is required when page, page_size, and sort_by are all specified
+        if page is not None and page_size is not None and sort_by is not None:
+            if sort_order is None:
+                raise ValueError(
+                    "sort_order is required when page, page_size, and sort_by are all specified"
+                )
+
         payload = {
             "workspaceName": workspace,
             "projectName": project_name,
             "archived": archived,
         }
+        if page is not None:
+            payload["page"] = page
+        if page_size is not None:
+            payload["size"] = page_size
+        if sort_by is not None:
+            payload["sortBy"] = sort_by
+        if sort_order is not None:
+            payload["sortOrder"] = sort_order
         results = self.get_from_endpoint("experiments", payload)
         # Returns list of experiment dicts
         return results
@@ -2219,6 +2285,37 @@ class RestApiClient(BaseApiClient):
             "archived": archived,
         }
         return self.post_from_endpoint("project/query", payload)
+
+    def search(
+        self,
+        workspace: str,
+        project_id: str,
+        predicates: QueryExpression,
+        archived: bool = False,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ):
+        """
+        Given a workspace, project_id, and new predicates, return matching experiments.
+        """
+        if page is None:
+            page = 1
+        if page_size is None:
+            page_size = 100
+
+        payload = {
+            "projectId": project_id,
+            "viewId": None,
+            "rulesTree": predicates,
+            "limit": page_size,
+            "page": page,
+            "deleted": archived,
+            "ignorePinnedExperimentsFirst": True,
+            "pinnedOnly": None,
+            "multipleSort": None,
+            "chainsQueryRules": None,
+        }
+        return self.post_from_endpoint("experiments/search", payload)
 
     def get_project_columns(self, workspace, project_name):
         """
@@ -2946,6 +3043,7 @@ class RestApiClient(BaseApiClient):
                 experiment_key=experiment_key,
                 stderr=stderr,
                 max_line_length=max_line_length,
+                offset_counter=self._offset_counter,
             )
             if payload is not None:
                 self.post_from_endpoint(
@@ -3356,6 +3454,28 @@ class RestApiClient(BaseApiClient):
         """
         payload = {PAYLOAD_EXPERIMENT_KEY: experiment_key}
         return self.get_from_endpoint("write/experiment/stop", payload)
+
+    def set_experiment_not_throttled(self, experiment_key: str) -> Any:
+        """
+        Unthrottles an experiment, removing a throttling flag from the experiment metadata.
+
+        Args:
+            experiment_key: The unique identifier for the experiment.
+        Returns:
+            The result of the unthrottling operation, depending on the implementation.
+        """
+        try:
+            self._check_api_backend_version(SemanticVersion.parse("4.7.416"))
+
+            url = f"write/experiment/{experiment_key}/mark-not-throttled"
+            response = self.post_from_endpoint(url, {})
+            return response
+        except BackendVersionTooOld as ex:
+            LOGGER.info(
+                "Failed to set experiment as not throttled, backend version '%s' is too old, expected version '%s' or higher",
+                ex.backend_version,
+                ex.minimal_backend_version,
+            )
 
     def get_artifact_lineage(
         self, experiment_key: str, direction: str
@@ -3940,6 +4060,8 @@ class RestApiClient(BaseApiClient):
         tags: List[str],
         status: str,
         stages: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[ModelStatusConfiguration] = None,
     ) -> Optional[requests.Response]:
         # we need to import here to avoid circular imports
         import comet_ml.api_objects.model
@@ -3956,32 +4078,36 @@ class RestApiClient(BaseApiClient):
                     CONNECTION_REGISTER_MODEL_STATUS_IGNORED_WARNING.format(status)
                 )
             return self.register_model(
-                experiment_id,
-                model_name,
-                version,
-                workspace,
-                registry_name,
-                public,
-                description,
-                comment,
-                stages,
+                experiment_id=experiment_id,
+                model_name=model_name,
+                version=version,
+                workspace=workspace,
+                registry_name=registry_name,
+                public=public,
+                description=description,
+                comment=comment,
+                stages=stages,
             )
+
         if stages is not None:
             LOGGER.warning(
                 CONNECTION_REGISTER_MODEL_STAGES_IGNORED_WARNING.format(stages)
             )
+
         comet_ml.api_objects.model.Model.__internal_api__register__(
-            experiment_id,
-            model_name,
-            version,
-            workspace,
-            registry_name,
-            public,
-            description,
-            comment,
-            tags,
-            status,
+            experiment_id=experiment_id,
+            model_name=model_name,
+            version=version,
+            workspace=workspace,
+            registry_name=registry_name,
+            public=public,
+            description=description,
+            comment=comment,
+            tags=tags,
+            status=status,
             api_key=self.api_key,
+            metadata=metadata,
+            status_configuration=status_configuration,
         )
 
         LOGGER.info(

@@ -5,8 +5,9 @@ from ..base.tool import BaseAction
 from pydantic import create_model, BaseModel, ConfigDict, Field
 
 from ..elitea_base import filter_missconfigured_index_tools
-from ..utils import clean_string, TOOLKIT_SPLITTER,get_max_toolkit_length
+from ..utils import clean_string, get_max_toolkit_length
 from ...configurations.salesforce import SalesforceConfiguration
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 name = "salesforce"
 
@@ -19,11 +20,9 @@ def get_tools(tool):
 
 class SalesforceToolkit(BaseToolkit):
     tools: List[BaseTool] = []
-    toolkit_max_length: int = 0
     @staticmethod
     def toolkit_config_schema() -> BaseModel:
         available_tools = {x['name']: x['args_schema'].schema() for x in SalesforceApiWrapper.model_construct().get_available_tools()}
-        SalesforceToolkit.toolkit_max_length = get_max_toolkit_length(available_tools)
         return create_model(
             name,
             api_version=(str, Field(description="Salesforce API Version", default='v59.0')),
@@ -47,18 +46,21 @@ class SalesforceToolkit(BaseToolkit):
             **kwargs.get('salesforce_configuration', {}),
         }
         api_wrapper = SalesforceApiWrapper(**wrapper_payload)
-        prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
         tools = []
 
         for tool in api_wrapper.get_available_tools():
             if selected_tools and tool["name"] not in selected_tools:
                 continue
-
+            description = f"Salesforce Tool: {tool['description']}"
+            if toolkit_name:
+                description = f"{description}\nToolkit: {toolkit_name}"
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=api_wrapper,
-                name=prefix + tool["name"],
-                description=f"Salesforce Tool: {tool['description']}",
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
 
         return cls(tools=tools)

@@ -28,7 +28,6 @@ class CvmClient(AbstractClient):
 
     def AllocateHosts(self, request):
         r"""This API is used to create CDH instances with specified configuration.
-        * When HostChargeType is PREPAID, the HostChargePrepaid parameter must be specified.
 
         :param request: Request instance for AllocateHosts.
         :type request: :class:`tencentcloud.cvm.v20170312.models.AllocateHostsRequest`
@@ -1502,13 +1501,14 @@ class CvmClient(AbstractClient):
 
 
     def ModifyInstancesAttribute(self, request):
-        r"""The API is used to modify the attributes of an instance. Only the name and the associated security groups can be modified for now.
+        r"""This API is used to modify instance attributes.
 
-        * An attribute must be specified in the request.
-        * "Instance name" is a custom name for easier management. Tencent Cloud does not use the name for online support or instance management.
-        * Batch operations are supported. Each request can modify up to 100 instances.
-        * When you modify the security groups associated with an instance is modified, the original security groups are disassociated.
-        * You can use the API [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1#.E7.A4.BA.E4.BE.8B3-.E6.9F.A5.E8.AF.A2.E5.AE.9E.E4.BE.8B.E7.9A.84.E6.9C.80.E6.96.B0.E6.93.8D.E4.BD.9C.E6.83.85.E5.86.B5) to query the instance operation result. If the 'LatestOperationState' in the response is **SUCCESS**, the operation is successful.
+        This API is used to modify one attribute of the instance per request. The attribute must be specified.
+        The instance name is only for user convenience in management. Tencent Cloud does not use this name as the basis for online support or to perform instance management operations.
+        This API is used to support batch operations. The maximum of 100 batch instances per request is supported.
+        This API is used to modify the security group association. The originally associated security group of the instance will be unbound.
+        * You can query the result of the instance operation by calling the API [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1#.E7.A4.BA.E4.BE.8B3-.E6.9F.A5.E8.AF.A2.E5.AE.9E.E4.BE.8B.E7.9A.84.E6.9C.80.E6.96.B0.E6.93.8D.E4.BD.9C.E6.83.85.E5.86.B5). If the latest operation status (LatestOperationState) of the instance is **SUCCESS**, the operation is successful.
+        This API is used to modify the hostname. The instance restarts immediately after hostname modification, and the new hostname takes effect after restart.
 
         :param request: Request instance for ModifyInstancesAttribute.
         :type request: :class:`tencentcloud.cvm.v20170312.models.ModifyInstancesAttributeRequest`
@@ -1813,7 +1813,7 @@ class CvmClient(AbstractClient):
         r"""This API is used to renew annual and monthly subscription instances.
 
         This API is used to operate on monthly subscription instances only.
-        This API is used to ensure your account balance is sufficient for renewal. You can check the balance via the DescribeAccountBalance API (https://www.tencentcloud.comom/document/product/555/20253?from_cn_redirect=1).
+        This API is used to ensure your account balance is sufficient for renewal. You can check the balance via the DescribeAccountBalance API (https://www.tencentcloud.com/document/product/555/20253?from_cn_redirect=1).
         * You can query the result of the instance operation by calling the API [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1#.E7.A4.BA.E4.BE.8B3-.E6.9F.A5.E8.AF.A2.E5.AE.9E.E4.BE.8B.E7.9A.84.E6.9C.80.E6.96.B0.E6.93.8D.E4.BD.9C.E6.83.85.E5.86.B5). If the latest operation status (LatestOperationState) of the instance is **SUCCESS**, the operation is successful.
 
         :param request: Request instance for RenewInstances.
@@ -1976,7 +1976,7 @@ class CvmClient(AbstractClient):
     def RunInstances(self, request):
         r"""This API is used to create one or more instances with a specified configuration.
 
-        * After an instance is created successfully, it will start up automatically, and the [instance status](https://intl.cloud.tencent.com/document/api/213/9452?from_cn_redirect=1#instance_state) will become "Running".
+        * After an instance is created successfully, it will start up automatically, and the [instance status](https://www.tencentcloud.com/document/product/213/15753?has_map=1#instancestatus) will become "Running".
         * If you create a pay-as-you-go instance billed on an hourly basis, an amount equivalent to the hourly rate will be frozen. Make sure your account balance is sufficient before calling this API.
         * The number of instances you can purchase through this API is subject to the [Quota for CVM Instances](https://intl.cloud.tencent.com/document/product/213/2664?from_cn_redirect=1). Instances created through this API and in the CVM console are counted toward the quota.
         * This API is an async API. An instance ID list is returned after the creation request is sent. However, it does not mean the creation has been completed. The status of the instance will be `Creating` during the creation. You can use [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) to query the status of the instance. If the status changes from `Creating` to `Running`, it means that the instance has been created successfully.

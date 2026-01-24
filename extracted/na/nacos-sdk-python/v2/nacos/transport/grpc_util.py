@@ -2,16 +2,21 @@ import json
 
 from google.protobuf.any_pb2 import Any
 
+from v2.nacos.ai.model.ai_response import QueryMcpServerResponse, \
+    ReleaseMcpServerResponse, McpServerEndpointResponse, QueryAgentCardResponse, \
+    ReleaseAgentCardResponse, AgentEndpointResponse
 from v2.nacos.common.nacos_exception import NacosException, SERVER_ERROR
 from v2.nacos.config.model.config_request import ConfigChangeNotifyRequest
 from v2.nacos.config.model.config_response import ConfigPublishResponse, ConfigQueryResponse, \
     ConfigChangeBatchListenResponse, ConfigRemoveResponse
 from v2.nacos.naming.model.naming_request import NotifySubscriberRequest
-from v2.nacos.naming.model.naming_response import InstanceResponse, SubscribeServiceResponse, BatchInstanceResponse, \
-    ServiceListResponse
+from v2.nacos.naming.model.naming_response import InstanceResponse, \
+    SubscribeServiceResponse, BatchInstanceResponse, \
+    ServiceListResponse, QueryServiceResponse
 from v2.nacos.transport.grpcauto.nacos_grpc_service_pb2 import Payload, Metadata
 from v2.nacos.transport.model import ServerCheckResponse
-from v2.nacos.transport.model.internal_request import ClientDetectionRequest
+from v2.nacos.transport.model.internal_request import ClientDetectionRequest, \
+    SetupAckRequest
 from v2.nacos.transport.model.internal_response import ErrorResponse, HealthCheckResponse
 from v2.nacos.transport.model.rpc_request import Request
 from v2.nacos.transport.model.rpc_response import Response
@@ -22,6 +27,7 @@ class GrpcUtils:
     SERVICE_INFO_KEY = "serviceInfo"
 
     remote_type = {
+        "QueryServiceResponse": QueryServiceResponse,
         "ServerCheckResponse": ServerCheckResponse,
         "NotifySubscriberRequest": NotifySubscriberRequest,
         "ErrorResponse": ErrorResponse,
@@ -35,7 +41,14 @@ class GrpcUtils:
         "ConfigQueryResponse": ConfigQueryResponse,
         "ConfigChangeNotifyRequest": ConfigChangeNotifyRequest,
         "ConfigChangeBatchListenResponse": ConfigChangeBatchListenResponse,
-        "ConfigRemoveResponse": ConfigRemoveResponse
+        "ConfigRemoveResponse": ConfigRemoveResponse,
+        "SetupAckRequest": SetupAckRequest,
+        "QueryMcpServerResponse": QueryMcpServerResponse,
+		"McpServerEndpointResponse": McpServerEndpointResponse,
+		"ReleaseMcpServerResponse": ReleaseMcpServerResponse,
+        "QueryAgentCardResponse": QueryAgentCardResponse,
+        "ReleaseAgentCardResponse": ReleaseAgentCardResponse,
+        "AgentEndpointResponse": AgentEndpointResponse,
     }
 
     @staticmethod
@@ -73,6 +86,16 @@ class GrpcUtils:
 
     @staticmethod
     def to_json(obj):
+        # Check if object is a Pydantic BaseModel and use model_dump with aliases
+        if hasattr(obj, 'model_dump'):
+            try:
+                # Use model_dump with by_alias=True to convert snake_case to camelCase
+                return obj.model_dump(by_alias=True, exclude_none=True)
+            except Exception:
+                # Fallback to original method if model_dump fails
+                pass
+        
+        # Fallback for non-Pydantic objects or when model_dump fails
         d = {}
         d.update(obj.__dict__)
         return d

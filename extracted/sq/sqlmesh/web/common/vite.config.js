@@ -22,20 +22,34 @@ export default defineConfig({
           src: 'tailwind.base.config.js',
           dest: 'configs',
         },
+        {
+          src: 'tailwind.lineage.config.js',
+          dest: 'configs',
+        },
       ],
     }),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@sqlmesh-common': path.resolve(__dirname, './src'),
     },
   },
   build: {
     cssMinify: true,
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
+      entry: {
+        'sqlmesh-common': path.resolve(__dirname, 'src/index.ts'),
+        'lineage/index': path.resolve(
+          __dirname,
+          'src/components/Lineage/index.ts',
+        ),
+      },
       name: 'sqlmesh-common',
-      fileName: format => `sqlmesh-common.${format}.js`,
+      fileName: (format, entryName) =>
+        ({
+          'sqlmesh-common': `sqlmesh-common.${format}.js`,
+          'lineage/index': `lineage/index.${format}.js`,
+        })[entryName],
     },
     rollupOptions: {
       external: [
@@ -47,6 +61,7 @@ export default defineConfig({
         '@radix-ui/react-slot',
         'tailwindcss',
         '@tailwindcss/typography',
+        '@xyflow/react',
       ],
       output: {
         globals: {
@@ -56,6 +71,7 @@ export default defineConfig({
           'tailwind-merge': 'tailwindMerge',
           'class-variance-authority': 'classVarianceAuthority',
           '@radix-ui/react-slot': 'radixSlot',
+          '@xyflow/react': 'xyflowReact',
         },
         assetFileNames: assetInfo => {
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {

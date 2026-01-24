@@ -10,8 +10,8 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx._utils import parse_datetime
+from telnyx.pagination import SyncDefaultPaginationForMessagingTollfree, AsyncDefaultPaginationForMessagingTollfree
 from telnyx.types.messaging_tollfree.verification import (
-    RequestListResponse,
     VerificationRequestEgress,
     VerificationRequestStatus,
 )
@@ -77,7 +77,19 @@ class TestRequests:
             production_message_content="Your Telnyx OTP is XXXX",
             use_case="2FA",
             use_case_summary="This is a use case where Telnyx sends out 2FA codes to portal users to verify their identity in order to sign into the portal",
+            age_gated_content=True,
             business_addr2="14th Floor",
+            business_registration_country="US",
+            business_registration_number="12-3456789",
+            business_registration_type="EIN",
+            campaign_verify_authorization_token="cv_token_abc123xyz",
+            doing_business_as="Acme Services",
+            entity_type="SOLE_PROPRIETOR",
+            help_message_response="Reply HELP for assistance or STOP to unsubscribe. Contact: support@example.com",
+            opt_in_confirmation_response="You have successfully opted in to receive messages from Acme Corp",
+            opt_in_keywords="START, YES, SUBSCRIBE",
+            privacy_policy_url="https://example.com/privacy",
+            terms_and_condition_url="https://example.com/terms",
             webhook_url="http://example-webhook.com",
         )
         assert_matches_type(VerificationRequestEgress, request, path=["response"])
@@ -249,7 +261,19 @@ class TestRequests:
             production_message_content="Your Telnyx OTP is XXXX",
             use_case="2FA",
             use_case_summary="This is a use case where Telnyx sends out 2FA codes to portal users to verify their identity in order to sign into the portal",
+            age_gated_content=True,
             business_addr2="14th Floor",
+            business_registration_country="US",
+            business_registration_number="12-3456789",
+            business_registration_type="EIN",
+            campaign_verify_authorization_token="cv_token_abc123xyz",
+            doing_business_as="Acme Services",
+            entity_type="SOLE_PROPRIETOR",
+            help_message_response="Reply HELP for assistance or STOP to unsubscribe. Contact: support@example.com",
+            opt_in_confirmation_response="You have successfully opted in to receive messages from Acme Corp",
+            opt_in_keywords="START, YES, SUBSCRIBE",
+            privacy_policy_url="https://example.com/privacy",
+            terms_and_condition_url="https://example.com/terms",
             webhook_url="http://example-webhook.com",
         )
         assert_matches_type(VerificationRequestEgress, request, path=["response"])
@@ -361,7 +385,9 @@ class TestRequests:
             page=1,
             page_size=1,
         )
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -374,7 +400,9 @@ class TestRequests:
             phone_number="phone_number",
             status="Verified",
         )
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -387,7 +415,9 @@ class TestRequests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         request = response.parse()
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -400,7 +430,9 @@ class TestRequests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             request = response.parse()
-            assert_matches_type(RequestListResponse, request, path=["response"])
+            assert_matches_type(
+                SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -410,7 +442,7 @@ class TestRequests:
         request = client.messaging_tollfree.verification.requests.delete(
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
-        assert_matches_type(object, request, path=["response"])
+        assert request is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -422,7 +454,7 @@ class TestRequests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         request = response.parse()
-        assert_matches_type(object, request, path=["response"])
+        assert request is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -434,7 +466,7 @@ class TestRequests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             request = response.parse()
-            assert_matches_type(object, request, path=["response"])
+            assert request is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -507,7 +539,19 @@ class TestAsyncRequests:
             production_message_content="Your Telnyx OTP is XXXX",
             use_case="2FA",
             use_case_summary="This is a use case where Telnyx sends out 2FA codes to portal users to verify their identity in order to sign into the portal",
+            age_gated_content=True,
             business_addr2="14th Floor",
+            business_registration_country="US",
+            business_registration_number="12-3456789",
+            business_registration_type="EIN",
+            campaign_verify_authorization_token="cv_token_abc123xyz",
+            doing_business_as="Acme Services",
+            entity_type="SOLE_PROPRIETOR",
+            help_message_response="Reply HELP for assistance or STOP to unsubscribe. Contact: support@example.com",
+            opt_in_confirmation_response="You have successfully opted in to receive messages from Acme Corp",
+            opt_in_keywords="START, YES, SUBSCRIBE",
+            privacy_policy_url="https://example.com/privacy",
+            terms_and_condition_url="https://example.com/terms",
             webhook_url="http://example-webhook.com",
         )
         assert_matches_type(VerificationRequestEgress, request, path=["response"])
@@ -679,7 +723,19 @@ class TestAsyncRequests:
             production_message_content="Your Telnyx OTP is XXXX",
             use_case="2FA",
             use_case_summary="This is a use case where Telnyx sends out 2FA codes to portal users to verify their identity in order to sign into the portal",
+            age_gated_content=True,
             business_addr2="14th Floor",
+            business_registration_country="US",
+            business_registration_number="12-3456789",
+            business_registration_type="EIN",
+            campaign_verify_authorization_token="cv_token_abc123xyz",
+            doing_business_as="Acme Services",
+            entity_type="SOLE_PROPRIETOR",
+            help_message_response="Reply HELP for assistance or STOP to unsubscribe. Contact: support@example.com",
+            opt_in_confirmation_response="You have successfully opted in to receive messages from Acme Corp",
+            opt_in_keywords="START, YES, SUBSCRIBE",
+            privacy_policy_url="https://example.com/privacy",
+            terms_and_condition_url="https://example.com/terms",
             webhook_url="http://example-webhook.com",
         )
         assert_matches_type(VerificationRequestEgress, request, path=["response"])
@@ -791,7 +847,9 @@ class TestAsyncRequests:
             page=1,
             page_size=1,
         )
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -804,7 +862,9 @@ class TestAsyncRequests:
             phone_number="phone_number",
             status="Verified",
         )
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -817,7 +877,9 @@ class TestAsyncRequests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         request = await response.parse()
-        assert_matches_type(RequestListResponse, request, path=["response"])
+        assert_matches_type(
+            AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+        )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -830,7 +892,9 @@ class TestAsyncRequests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             request = await response.parse()
-            assert_matches_type(RequestListResponse, request, path=["response"])
+            assert_matches_type(
+                AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus], request, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -840,7 +904,7 @@ class TestAsyncRequests:
         request = await async_client.messaging_tollfree.verification.requests.delete(
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
-        assert_matches_type(object, request, path=["response"])
+        assert request is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -852,7 +916,7 @@ class TestAsyncRequests:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         request = await response.parse()
-        assert_matches_type(object, request, path=["response"])
+        assert request is None
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -864,7 +928,7 @@ class TestAsyncRequests:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             request = await response.parse()
-            assert_matches_type(object, request, path=["response"])
+            assert request is None
 
         assert cast(Any, response.is_closed) is True
 

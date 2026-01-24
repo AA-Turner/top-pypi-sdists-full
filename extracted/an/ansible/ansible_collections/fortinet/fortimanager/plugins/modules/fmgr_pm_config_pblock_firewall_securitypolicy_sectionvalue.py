@@ -16,7 +16,6 @@ short_description: Configure NGFW IPv4/IPv6 application policies.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -123,8 +122,8 @@ EXAMPLES = '''
     - name: Configure NGFW IPv4/IPv6 application policies.
       fortinet.fortimanager.fmgr_pm_config_pblock_firewall_securitypolicy_sectionvalue:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -194,14 +193,14 @@ def main():
         'security_policy': {'type': 'str'},
         'pm_config_pblock_firewall_securitypolicy_sectionvalue': {
             'type': 'dict',
-            'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.9'], ['7.4.2', '']],
+            'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.11'], ['7.4.2', '']],
             'options': {
                 'attr': {
-                    'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.9'], ['7.4.2', '']],
+                    'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.11'], ['7.4.2', '']],
                     'choices': ['label', 'global-label'],
                     'type': 'str'
                 },
-                'name': {'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.9'], ['7.4.2', '']], 'type': 'str'}
+                'name': {'v_range': [['7.0.3', '7.2.2'], ['7.2.4', '7.2.4'], ['7.2.6', '7.2.11'], ['7.4.2', '']], 'type': 'str'}
             }
         }
     }

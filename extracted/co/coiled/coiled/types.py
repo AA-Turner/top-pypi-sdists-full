@@ -154,6 +154,8 @@ class SoftwareEnvSpec(TypedDict):
     packages: List[PackageSchema]
     raw_pip: Optional[List[str]]
     raw_conda: Optional[CondaEnvSchema]
+    lockfile_name: Optional[str]
+    lockfile_content: Optional[str]
 
 
 # KNOWN_SUBDIRS is copied from conda's known subdirs
@@ -182,8 +184,11 @@ KNOWN_SUBDIR_RE = re.compile(r"(?:/|^)(?:" + "|".join(KNOWN_SUBDIRS) + r")(?:/|$
 
 
 # This function is in this module to prevent circular import issues
-def parse_conda_channel(package_name: str, channel: str, subdir: str) -> Tuple[Optional[str], str]:
+def parse_conda_channel(package_name: str, channel: Optional[str], subdir: str) -> Tuple[Optional[str], str]:
     """Return a channel and channel_url for a conda package with any extra information removed."""
+    # Editable packages from pixi may not have a channel
+    if not channel:
+        return None, ""
     # Handle unknown channels
     if channel == "<unknown>":
         logger.warning(f"Channel for {package_name} is unknown, setting to conda-forge")
@@ -432,10 +437,24 @@ class AWSOptions(BackendOptions, total=False):
         If possible, this will attempt to put workers in the same cluster placement group (in theory this can
         result in better network between workers, since they'd be physically close to each other in datacenter,
         though we haven't seen this to have much benefit in practice).
+    use_worker_placement_group:
+        Cluster placement group for only the workers, not the scheduler.
+    use_efa
+        Attach Elastic Fabric Adaptor for faster inter-connect between instances.
+        Only some instance types are supported.
+    use_worker_efa
+        Attach Elastic Fabric Adaptor only on cluster workers, not the scheduler.
+    ami_version
+        Use non-default type of AMI.
+        Supported options include "DL" for the Deep Learning Base OSS Nvidia Driver GPU AMI.
     """
 
     keypair_name: Optional[str]
     use_placement_group: Optional[bool]
+    use_worker_placement_group: Optional[bool]
+    use_efa: Optional[bool]
+    use_worker_efa: Optional[bool]
+    ami_version: Optional[str]
 
 
 class GCPOptions(BackendOptions, total=False):

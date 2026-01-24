@@ -1,9 +1,6 @@
 """Test various algorithmic properties of selectables."""
 
 from itertools import zip_longest
-import random
-import threading
-import time
 
 from sqlalchemy import and_
 from sqlalchemy import bindparam
@@ -3157,6 +3154,48 @@ class AnnotationsTest(fixtures.TestBase):
         t = Table("t", MetaData(), c1)
         is_(c1_a.table, t)
 
+    @testing.variation("use_get_params", [True, False])
+    def test_annotated_cte_params_traverse(self, use_get_params):
+        """test #12915
+
+        this issue attempted to repair some traversal issues found using
+        params() but does not fix the full issue reported in #12915, which
+        is a "wontfix" in favor of #7066.
+
+        """
+        user = Table("user", MetaData(), Column("id", Integer))
+
+        ids_param = bindparam("ids")
+
+        cte = select(user).where(user.c.id == ids_param).cte("cte")
+
+        ca = cte._annotate({"foo": "bar"})
+
+        stmt = select(ca)
+
+        if use_get_params:
+            stmt = stmt.params(ids=17)
+        else:
+            # test without using params(), as the implementation
+            # for params() will be changing
+            def visit_bindparam(bind):
+                if bind.key == "ids":
+                    bind.value = 17
+                    bind.required = False
+
+            stmt = visitors.cloned_traverse(
+                stmt,
+                {"maintain_key": True, "detect_subquery_cols": True},
+                {"bindparam": visit_bindparam},
+            )
+
+        eq_(
+            stmt.selected_columns.id.table.element._where_criteria[
+                0
+            ].right.value,
+            17,
+        )
+
     def test_basic_attrs(self):
         t = Table(
             "t",
@@ -4079,39 +4118,3 @@ class AliasTest(fixtures.TestBase, AssertsCompiledSQL):
         a3 = a2._clone()
         a3._copy_internals()
         is_(a1.corresponding_column(a3.c.c), a1.c.c)
-
-
-class FromClauseConcurrencyTest(fixtures.TestBase):
-    """test for issue 12302"""
-
-    @testing.requires.timing_intensive
-    def test_c_collection(self):
-        dictionary_meta = MetaData()
-        all_indexes_table = Table(
-            "all_indexes",
-            dictionary_meta,
-            *[Column(f"col{i}", Integer) for i in range(50)],
-        )
-
-        fails = 0
-
-        def use_table():
-            nonlocal fails
-            try:
-                for i in range(3):
-                    time.sleep(random.random() * 0.0001)
-                    all_indexes.c.col35
-            except:
-                fails += 1
-                raise
-
-        for j in range(1000):
-            all_indexes = all_indexes_table.alias("a_indexes")
-
-            threads = [threading.Thread(target=use_table) for i in range(5)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
-
-            assert not fails, "one or more runs failed"

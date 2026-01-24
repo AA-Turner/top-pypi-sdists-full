@@ -5,14 +5,17 @@ import shutil
 import sys
 from typing import Any, Dict, Optional
 import tomlkit
+import typer
 
 from rich.console import Console
 from safety.console import main_console
+from safety.tool.auth import build_index_url
 from safety.tool.constants import (
-    ORGANIZATION_REPOSITORY_URL,
-    PUBLIC_REPOSITORY_URL,
-    PROJECT_REPOSITORY_URL,
+    PYPI_ORGANIZATION_REPOSITORY_URL,
+    PYPI_PUBLIC_REPOSITORY_URL,
+    PYPI_PROJECT_REPOSITORY_URL,
 )
+from safety.utils.pyapp_utils import get_path
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -40,7 +43,7 @@ class Uv:
         Returns:
             True if UV is installed on system, or false otherwise
         """
-        return shutil.which("uv") is not None
+        return shutil.which("uv", path=get_path()) is not None
 
     @classmethod
     def is_uv_project_file(cls, file: Path) -> bool:
@@ -75,12 +78,12 @@ class Uv:
             return None
 
         repository_url = (
-            PROJECT_REPOSITORY_URL.format(org_slug, project_id)
+            PYPI_PROJECT_REPOSITORY_URL.format(org_slug, project_id)
             if project_id and org_slug
             else (
-                ORGANIZATION_REPOSITORY_URL.format(org_slug)
+                PYPI_ORGANIZATION_REPOSITORY_URL.format(org_slug)
                 if org_slug
-                else PUBLIC_REPOSITORY_URL
+                else PYPI_PUBLIC_REPOSITORY_URL
             )
         )
         try:
@@ -172,9 +175,9 @@ class Uv:
         """
         try:
             repository_url = (
-                ORGANIZATION_REPOSITORY_URL.format(org_slug)
+                PYPI_ORGANIZATION_REPOSITORY_URL.format(org_slug)
                 if org_slug
-                else PUBLIC_REPOSITORY_URL
+                else PYPI_PUBLIC_REPOSITORY_URL
             )
 
             user_config_path = cls.get_user_config_path()
@@ -230,3 +233,7 @@ class Uv:
         except Exception as e:
             msg = "Failed to reset UV global settings"
             logger.error(f"{msg}: {e}")
+
+    @classmethod
+    def build_index_url(cls, ctx: typer.Context, index_url: Optional[str]) -> str:
+        return build_index_url(ctx, index_url, "pypi")

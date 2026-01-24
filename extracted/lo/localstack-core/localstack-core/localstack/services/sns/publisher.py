@@ -30,6 +30,7 @@ from localstack.services.sns.models import (
     SnsStore,
     SnsSubscription,
 )
+from localstack.services.sns.v2.utils import get_topic_subscriptions
 from localstack.utils.aws.arns import (
     PARTITION_NAMES,
     extract_account_id_from_arn,
@@ -254,9 +255,11 @@ class LambdaTopicPublisher(TopicPublisher):
             "UnsubscribeUrl": unsubscribe_url,
             "MessageAttributes": message_attributes,
         }
-
+        # TODO: remove v1 "signature_version" access once v1 is retired
         signature_version = (
-            topic_attributes.get("signature_version", "1") if topic_attributes else "1"
+            topic_attributes.get("signature_version", topic_attributes.get("SignatureVersion", "1"))
+            if topic_attributes
+            else "1"
         )
         canonical_string = compute_canonical_string(event_payload, message_context.type)
         signature = get_message_signature(canonical_string, signature_version=signature_version)
@@ -558,7 +561,10 @@ class HttpTopicPublisher(TopicPublisher):
             ):
                 return sub_content_type
 
-        if json_topic_delivery_policy := topic_attributes.get("delivery_policy"):
+        # TODO: remove lower case access once legacy v1 provider is removed
+        if json_topic_delivery_policy := topic_attributes.get(
+            "delivery_policy", topic_attributes.get("DeliveryPolicy")
+        ):
             topic_delivery_policy = json.loads(json_topic_delivery_policy)
             if not (
                 topic_content_type := topic_delivery_policy.get(subscriber["Protocol"].lower())
@@ -1009,7 +1015,10 @@ def create_sns_message_body(
     # FIFO topics do not add the signature in the message
     if not subscriber.get("TopicArn", "").endswith(".fifo"):
         signature_version = (
-            topic_attributes.get("signature_version", "1") if topic_attributes else "1"
+            # we allow for both casings, depending on v1 or v2 provider
+            topic_attributes.get("signature_version", topic_attributes.get("SignatureVersion", "1"))
+            if topic_attributes
+            else "1"
         )
         canonical_string = compute_canonical_string(data, message_type)
         signature = get_message_signature(canonical_string, signature_version=signature_version)
@@ -1234,7 +1243,7 @@ class PublishDispatcher:
                 )
 
     def publish_to_topic(self, ctx: SnsPublishContext, topic_arn: str) -> None:
-        subscriptions = ctx.store.get_topic_subscriptions(topic_arn)
+        subscriptions = get_topic_subscriptions(ctx.store, topic_arn)
         for subscriber in subscriptions:
             if self._should_publish(ctx.store.subscription_filter_policy, ctx.message, subscriber):
                 notifier = self.topic_notifiers[subscriber["Protocol"]]
@@ -1249,7 +1258,7 @@ class PublishDispatcher:
                 self._submit_notification(notifier, ctx, subscriber)
 
     def publish_batch_to_topic(self, ctx: SnsBatchPublishContext, topic_arn: str) -> None:
-        subscriptions = ctx.store.get_topic_subscriptions(topic_arn)
+        subscriptions = get_topic_subscriptions(ctx.store, topic_arn)
         for subscriber in subscriptions:
             protocol = subscriber["Protocol"]
             notifier = self.batch_topic_notifiers.get(protocol)

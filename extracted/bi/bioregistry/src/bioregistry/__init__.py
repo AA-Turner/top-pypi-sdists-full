@@ -1,6 +1,11 @@
 """Extract registry information."""
 
-from .collection_api import get_collection, get_context
+from .collection_api import (
+    get_collection,
+    get_collection_prefixes,
+    get_collection_resources,
+    get_context,
+)
 from .metaresource_api import (
     get_registry,
     get_registry_description,
@@ -30,6 +35,7 @@ from .reference import (
 )
 from .resolve import (
     add_resource,
+    add_to_collection,
     count_mappings,
     get_appears_in,
     get_banana,
@@ -53,6 +59,7 @@ from .resolve import (
     get_has_parts,
     get_homepage,
     get_identifiers_org_prefix,
+    get_jskos_download,
     get_json_download,
     get_keywords,
     get_license,
@@ -88,6 +95,7 @@ from .resolve import (
     get_repository,
     get_repository_to_prefix,
     get_resource,
+    get_skos_download,
     get_synonyms,
     get_version,
     get_versions,
@@ -119,10 +127,11 @@ from .resolve_identifier import (
     standardize_identifier,
 )
 from .resource_manager import Manager, manager
-from .schema.struct import (
+from .schema import (
     Author,
     Collection,
     Context,
+    Organization,
     Provider,
     Registry,
     Resource,
@@ -156,6 +165,7 @@ __all__ = [
     "NormalizedNamableReference",
     "NormalizedNamedReference",
     "NormalizedReference",
+    "Organization",
     "Provider",
     "Registry",
     "Resource",
@@ -163,6 +173,7 @@ __all__ = [
     "StandardNamedReference",
     "StandardReference",
     "add_resource",
+    "add_to_collection",
     "count_mappings",
     "curie_from_iri",
     "curie_to_str",
@@ -174,6 +185,8 @@ __all__ = [
     "get_bioregistry_iri",
     "get_canonical_for",
     "get_collection",
+    "get_collection_prefixes",
+    "get_collection_resources",
     "get_contact",
     "get_contact_email",
     "get_contact_github",
@@ -197,6 +210,7 @@ __all__ = [
     "get_identifiers_org_iri",
     "get_identifiers_org_prefix",
     "get_iri",
+    "get_jskos_download",
     "get_json_download",
     "get_keywords",
     "get_license",
@@ -247,6 +261,7 @@ __all__ = [
     "get_repository",
     "get_repository_to_prefix",
     "get_resource",
+    "get_skos_download",
     "get_synonyms",
     "get_uri_format",
     "get_uri_prefix",

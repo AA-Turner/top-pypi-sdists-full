@@ -1,18 +1,19 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from . cimport error_codes
 from . cimport c_ssh2
@@ -81,3 +82,9 @@ LIBSSH2_ERROR_CHANNEL_WINDOW_FULL = \
     error_codes._LIBSSH2_ERROR_CHANNEL_WINDOW_FULL
 LIBSSH2_ERROR_KEYFILE_AUTH_FAILED = \
     error_codes._LIBSSH2_ERROR_KEYFILE_AUTH_FAILED
+LIBSSH2_ERROR_RANDGEN = error_codes._LIBSSH2_ERROR_RANDGEN
+LIBSSH2_ERROR_MISSING_USERAUTH_BANNER = error_codes._LIBSSH2_ERROR_MISSING_USERAUTH_BANNER
+LIBSSH2_ERROR_ALGO_UNSUPPORTED = error_codes._LIBSSH2_ERROR_ALGO_UNSUPPORTED
+LIBSSH2_ERROR_MAC_FAILURE = error_codes._LIBSSH2_ERROR_MAC_FAILURE
+LIBSSH2_ERROR_HASH_INIT = error_codes._LIBSSH2_ERROR_HASH_INIT
+LIBSSH2_ERROR_HASH_CALC = error_codes._LIBSSH2_ERROR_HASH_CALC

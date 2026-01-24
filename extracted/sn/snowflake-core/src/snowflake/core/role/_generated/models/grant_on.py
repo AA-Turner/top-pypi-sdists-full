@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class GrantOn(BaseModel):
@@ -30,23 +30,23 @@ class GrantOn(BaseModel):
     Parameters
     __________
     created_on : datetime, optional
-        Date and time when the grant was created
+        Date and time when the grant was created — **Read-only:** *any user-provided value will be ignored.*
     privilege : str, optional
-        The name of the privilege
+        The name of the privilege — **Read-only:** *any user-provided value will be ignored.*
     granted_on : str, optional
-        The type of of the role
+        The type of of the role — **Read-only:** *any user-provided value will be ignored.*
     name : str, optional
-        The name of the role
+        The name of the role — **Read-only:** *any user-provided value will be ignored.*
     granted_to : str, optional
-        The type of the grantee
+        The type of the grantee — **Read-only:** *any user-provided value will be ignored.*
     grantee_name : str, optional
-        The name of the grantee
+        The name of the grantee — **Read-only:** *any user-provided value will be ignored.*
     grant_option : str, optional
-        If true, allows the recipient role to grant the privileges to other roles.
+        If true, allows the recipient role to grant the privileges to other roles — **Read-only:** *any user-provided value will be ignored.*
     granted_by : str, optional
-        The role that granted this privilege to this grantee
+        The role that granted this privilege to this grantee — **Read-only:** *any user-provided value will be ignored.*
     granted_by_role_type : str, optional
-        Type of the role that granted this privilege to this grantee
+        Type of the role that granted this privilege to this grantee — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[datetime] = None
@@ -79,9 +79,10 @@ class GrantOn(BaseModel):
         "granted_by_role_type",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -118,7 +119,7 @@ class GrantOn(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -133,9 +134,9 @@ class GrantOn(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return GrantOn.parse_obj(obj)
+            return GrantOn.model_validate(obj)
 
-        _obj = GrantOn.parse_obj(
+        _obj = GrantOn.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "privilege": obj.get("privilege"),

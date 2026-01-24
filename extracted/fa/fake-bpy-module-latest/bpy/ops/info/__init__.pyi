@@ -8,44 +8,28 @@ def report_copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy selected reports to clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy selected reports to clipboard"""
 
 def report_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete selected reports
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete selected reports"""
 
 def report_replay(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Replay selected reports
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Replay selected reports"""
 
 def reports_display_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update the display of reports in Blender UI (internal use)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update the display of reports in Blender UI (internal use)"""
 
 def select_all(
     execution_context: int | str | None = None,
@@ -56,8 +40,6 @@ def select_all(
 ) -> None:
     """Change selection of all visible reports
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -71,7 +53,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -88,18 +69,11 @@ def select_box(
 ) -> None:
     """Toggle box selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -110,7 +84,6 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_pick(
@@ -123,10 +96,6 @@ def select_pick(
 ) -> None:
     """Select reports by index
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param report_index: Report, Index of the report
-    :type report_index: int | None
     :param extend: Extend, Extend report selection
-    :type extend: bool | None
     """

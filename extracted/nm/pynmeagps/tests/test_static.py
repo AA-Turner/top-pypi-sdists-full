@@ -22,6 +22,7 @@ from pynmeagps import (
     NMEA_PAYLOADS_GET,
     NMEA_PAYLOADS_POLL,
     NMEA_PAYLOADS_SET,
+    GPSEPOCH0,
 )
 from pynmeagps.nmeahelpers import (
     area,
@@ -39,6 +40,7 @@ from pynmeagps.nmeahelpers import (
     generate_checksum,
     get_gpswnotow,
     get_parts,
+    groupsize,
     haversine,
     knots2spd,
     latlon2dmm,
@@ -49,6 +51,7 @@ from pynmeagps.nmeahelpers import (
     planar,
     time2str,
     time2utc,
+    leapsecond,
 )
 from pynmeagps.nmeatypes_core import GET, POLL
 from pynmeagps.nmeatypes_decodes import (
@@ -413,6 +416,16 @@ class StaticTest(unittest.TestCase):
         self.assertEqual(res, "024523.00")
         res = NMEAMessage.val2str(datetime.datetime(2020, 6, 7, 3, 27, 24), "DT")
         self.assertEqual(res, "070620")
+        res = NMEAMessage.val2str(datetime.datetime(2020, 6, 7, 3, 27, 24), "DTL")
+        self.assertEqual(res, "07062020")
+        res = NMEAMessage.val2str("2020-06-07", "DTL")
+        self.assertEqual(res, "07062020")
+        res = NMEAMessage.val2str("20210708", "DTL")
+        self.assertEqual(res, "08072021")
+        res = NMEAMessage.val2str(datetime.datetime(2020, 6, 7, 3, 27, 24), "DM")
+        self.assertEqual(res, "060720")
+        res = NMEAMessage.val2str("2020-06-07", "DM")
+        self.assertEqual(res, "060720")
 
     def testVal2StrBAD(self):
         EXPECTED_ERROR = "Unknown attribute type XX."
@@ -606,6 +619,24 @@ class StaticTest(unittest.TestCase):
         self.assertEqual(FMI_STATUS[2], ("Ready", "Filter convergence completion flag"))
         self.assertEqual(SIGNALID[("1", "5")], "GPS L2 CM")
         self.assertEqual(SYSTEMID["4"], "Beidou")
+
+    def testleapsecond(self):
+        self.assertEqual(leapsecond(GPSEPOCH0), 0)
+        self.assertEqual(leapsecond(datetime.datetime(1985, 1, 1, 0, 0, 0)), 3)
+        self.assertEqual(leapsecond(datetime.datetime(1997, 8, 1, 0, 0, 0)), 12)
+        self.assertEqual(leapsecond(datetime.datetime(2025, 9, 18, 16, 51, 34)), 18)
+        self.assertEqual(leapsecond(datetime.datetime(1974, 9, 18, 16, 51, 34)), -6)
+        self.assertEqual(leapsecond(datetime.datetime(1971, 9, 18, 16, 51, 34)), 0)
+
+    def testmaxidx(self):
+        PYLD1 = {"svid_01": 7, "svid_02": 8, "elv_03": 15, "svid_04": 23}
+        self.assertEqual(groupsize(**PYLD1), 4)
+        PYLD2 = {"svid_01": 7, "svid_02": 8, "cno_03": 15}
+        self.assertEqual(groupsize(**PYLD2), 3)
+        PYLD3 = {"svid": 7, "elv": 8, "az": 15}
+        self.assertEqual(groupsize(**PYLD3), 0)
+        PYLD4 = {}
+        self.assertEqual(groupsize(**PYLD4), 0)
 
 
 if __name__ == "__main__":

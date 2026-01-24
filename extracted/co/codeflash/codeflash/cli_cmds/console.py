@@ -58,6 +58,19 @@ for level in ("info", "debug", "warning", "error"):
     )
 
 
+class DummyTask:
+    def __init__(self) -> None:
+        self.id = 0
+
+
+class DummyProgress:
+    def __init__(self) -> None:
+        pass
+
+    def advance(self, task_id: TaskID, advance: int = 1) -> None:
+        pass
+
+
 def lsp_log(message: LspMessage) -> None:
     if not is_LSP_enabled():
         return
@@ -80,9 +93,16 @@ def paneled_text(
     console.print(panel)
 
 
-def code_print(code_str: str, file_name: Optional[str] = None, function_name: Optional[str] = None) -> None:
+def code_print(
+    code_str: str,
+    file_name: Optional[str] = None,
+    function_name: Optional[str] = None,
+    lsp_message_id: Optional[str] = None,
+) -> None:
     if is_LSP_enabled():
-        lsp_log(LspCodeMessage(code=code_str, file_name=file_name, function_name=function_name))
+        lsp_log(
+            LspCodeMessage(code=code_str, file_name=file_name, function_name=function_name, message_id=lsp_message_id)
+        )
         return
     """Print code with syntax highlighting."""
     from rich.syntax import Syntax
@@ -113,10 +133,6 @@ def progress_bar(
         logger.info(message)
 
         # Create a fake task ID since we still need to yield something
-        class DummyTask:
-            def __init__(self) -> None:
-                self.id = 0
-
         yield DummyTask().id
     else:
         progress = Progress(
@@ -134,6 +150,13 @@ def progress_bar(
 @contextmanager
 def test_files_progress_bar(total: int, description: str) -> Generator[tuple[Progress, TaskID], None, None]:
     """Progress bar for test files."""
+    if is_LSP_enabled():
+        lsp_log(LspTextMessage(text=description, takes_time=True))
+        dummy_progress = DummyProgress()
+        dummy_task = DummyTask()
+        yield dummy_progress, dummy_task.id
+        return
+
     with Progress(
         SpinnerColumn(next(spinners)),
         TextColumn("[progress.description]{task.description}"),

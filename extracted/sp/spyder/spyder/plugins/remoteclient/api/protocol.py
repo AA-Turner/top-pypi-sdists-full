@@ -44,11 +44,25 @@ class SSHClientOptions(typing.TypedDict):
     known_hosts: str | typing.Sequence[str] | None
     config: typing.Sequence[str] | None
     platform: str | None
+    default_kernel_spec: str | None
+
+
+class JupyterHubClientOptions(typing.TypedDict):
+    url: str
+    token: str
+    default_kernel_spec: str | None
+
+
+class ClientType:
+    SSH = "ssh"
+    JupyterHub = "jupyterhub"
 
 
 class ConnectionStatus:
     Inactive = "inactive"
     Connecting = "connecting"
+    Connected = "connected"
+    Starting = "starting"
     Active = "active"
     Stopping = "stopping"
     Error = "error"
@@ -56,7 +70,7 @@ class ConnectionStatus:
 
 class ConnectionInfo(typing.TypedDict):
     id: str
-    status: ConnectionStatus
+    status: str
     message: str
 
 

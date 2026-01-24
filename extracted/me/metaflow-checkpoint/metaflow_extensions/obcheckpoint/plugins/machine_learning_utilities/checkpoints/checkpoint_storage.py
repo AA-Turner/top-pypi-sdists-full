@@ -11,6 +11,7 @@ from ..datastore.core import (
     DatastoreInterface,
     ObjectStorage,
     STORAGE_FORMATS,
+    warning_message,
 )
 from ..datastore.exceptions import (
     DatastoreReadInitException,
@@ -36,6 +37,8 @@ CheckpointsPathComponents = namedtuple(
     [
         "flow_name",
         "step_name",
+        "run_id",
+        "task_id",
         "scope",
         "task_identifier",
         "pathspec_hash",
@@ -126,6 +129,8 @@ def _decompose_artifact_key(key, data_object):
     return CheckpointsPathComponents(
         flow_name=flowname,
         step_name=stepname,
+        run_id=None,  # Not set for artifact keys
+        task_id=None,  # Not set for artifact keys
         scope=scope,
         task_identifier=task_identifier,
         pathspec_hash=pathspec_hash,
@@ -162,7 +167,7 @@ def decompose_key_metadata_store(
 ) -> CheckpointsPathComponents:
     """
     Convert Key into Path Components.
-    PATH COMPONENTS: mf.checkpoints/artifacts/<flow_name>/<step_name>/<scope>/<task_identifier>/<pathspec_hash>.<attempt>.<name>.<version_id>
+    PATH COMPONENTS: mf.checkpoints/metadata/<flow_name>/<runid>/<stepname>/<taskid>/<pathspec_hash>.<attempt>.<name>.<version_id>.metadata
 
     """
     _data = __decompose_checkpoint_metadata_key(key)
@@ -191,6 +196,8 @@ def decompose_key_metadata_store(
     return CheckpointsPathComponents(
         flow_name=flowname,
         step_name=stepname,
+        run_id=runid,
+        task_id=taskid,
         scope=None,
         task_identifier=None,
         pathspec_hash=pathspec_hash("/".join([flowname, runid, stepname, taskid])),
@@ -245,10 +252,13 @@ class CheckpointDatastore(DatastoreInterface):
         self.ROOT_PREFIX = root_prefix
         if self.metadata_store is not None:
             self.metadata_store.set_full_prefix(root_prefix)
+            self.metadata_store._root_prefix = root_prefix
         if self.artifact_store is not None:
             self.artifact_store.set_full_prefix(root_prefix)
+            self.artifact_store._root_prefix = root_prefix
         if self.artifact_metadatastore is not None:
             self.artifact_metadatastore.set_full_prefix(root_prefix)
+            self.artifact_metadatastore._root_prefix = root_prefix
 
     @classmethod
     def init_read_store(
@@ -586,6 +596,133 @@ class CheckpointDatastore(DatastoreInterface):
             attempt=attempt,
         )
 
+    def delete(
+        self,
+        checkpoint_artifact: "CheckpointArtifact",
+    ) -> bool:
+        """
+        Delete a checkpoint from all stores.
+
+        Deletion order:
+        1. Delete artifact data (files/tarball)
+        2. Delete artifact metadata
+        3. Delete task metadata
+
+        NOTE: This does NOT modify the 'latest' pointer in any store.
+
+        Parameters
+        ----------
+        checkpoint_artifact : CheckpointArtifact
+            The checkpoint artifact to delete.
+
+        Returns
+        -------
+        bool
+            True if all deletions were successful.
+
+        Raises
+        ------
+        DatastoreNotReadyException
+            If the datastore is not properly initialized for delete operations.
+        """
+        if not all(
+            [
+                self.artifact_ready,
+                self.artifact_metadatastore is not None,
+                self.metadata_ready,
+            ]
+        ):
+            raise DatastoreNotReadyException(
+                "Checkpoint datastore is not ready for delete operations. "
+                "All stores (artifact_store, artifact_metadatastore, metadata_store) must be initialized."
+            )
+
+        success = True
+        attempt = checkpoint_artifact.attempt
+        version_id = checkpoint_artifact.version_id
+        name = checkpoint_artifact.name
+
+        # Step 1: Delete actual artifact data (FIRST)
+        artifact_key = self.create_key_name(
+            self._NAME_ENTROPY,
+            attempt,
+            name,
+            version_id,
+        )
+        # If there are exceptions then let them Bubble!
+        self.artifact_store.delete_prefix(artifact_key)
+
+        # Step 2: Delete from artifact_metadatastore
+        art_metadata_key = self.create_key_name(
+            self._NAME_ENTROPY,
+            attempt,
+            name,
+            version_id,
+            "metadata",
+        )
+        self.artifact_metadatastore.delete(art_metadata_key)
+
+        # Step 3: Delete from metadata_store
+        task_metadata_key = self.create_key_name(
+            attempt,
+            name,
+            version_id,
+            "metadata",
+        )
+        self.metadata_store.delete(task_metadata_key)
+
+        return success
+
+    @classmethod
+    def init_delete_store(
+        cls,
+        storage_backend: DataStoreStorage,
+        checkpoint_artifact: "CheckpointArtifact",
+    ):
+        """
+        Initialize datastore for delete operations from a checkpoint artifact.
+
+        This creates a datastore instance with access to all three stores
+        needed for complete checkpoint deletion.
+        """
+        datastore = cls()
+        _key_decomp = cls.decompose_key(checkpoint_artifact.key)
+
+        _path_components = [
+            _key_decomp.flow_name,
+            _key_decomp.step_name,
+            _key_decomp.scope,
+            _key_decomp.task_identifier,
+        ]
+
+        # Initialize artifact store
+        datastore.artifact_store = ObjectStorage(
+            storage_backend,
+            root_prefix=_key_decomp.root_prefix,
+            path_components=["checkpoints", ARTIFACT_STORE_NAME] + _path_components,
+        )
+
+        # Initialize artifact metadata store
+        datastore.artifact_metadatastore = ObjectStorage(
+            storage_backend,
+            root_prefix=_key_decomp.root_prefix,
+            path_components=["checkpoints", ARTIFACT_METADATA_STORE_NAME]
+            + _path_components,
+        )
+
+        # Initialize metadata store using pathspec from artifact
+        datastore.metadata_store = ObjectStorage(
+            storage_backend,
+            root_prefix=_key_decomp.root_prefix,
+            path_components=["checkpoints", METADATA_STORE_NAME]
+            + checkpoint_artifact.pathspec.split("/"),
+        )
+
+        datastore._NAME_ENTROPY = _key_decomp.pathspec_hash
+        datastore.pathspec = checkpoint_artifact.pathspec
+
+        return datastore
+
     @classmethod
     def decompose_key(cls, key) -> CheckpointsPathComponents:
         return decompose_key_artifact_store(key)
@@ -605,6 +742,68 @@ class CheckpointDatastore(DatastoreInterface):
                 [f"{name}\n{str(store)}" for name, store in stores if store is not None]
             )
         )
+
+
+def _search_checkpoints_in_metadata_store(
+    metadata_store: ObjectStorage,
+    pathspec=None,
+):
+    # pathspec should be of form :
+    # flow | flow/run | flow/run/step | flow/run/step/task
+    path_components = []
+    recovery_mode = None
+
+    md_base_path_components = ["checkpoints", METADATA_STORE_NAME]
+
+    if pathspec is not None:
+        path_components = pathspec.split("/")
+        _len_path_comp = len(path_components)
+        if _len_path_comp > 4:
+            raise ValueError(
+                f"Unsupported pathspec form: '{pathspec}'. Expected 'flow', 'flow/run', 'flow/run/step', or 'flow/run/step/task'"
+            )
+        recovery_mode = [
+            j
+            for i, j in zip(range(1, 5), ["flow", "run", "step", "task"])
+            if i == _len_path_comp
+        ]
+        recovery_mode = recovery_mode[0]
+    else:
+        recovery_mode = "global"  # across flow
+
+    current_store = ObjectStorage(
+        metadata_store._backend,
+        metadata_store._root_prefix,
+        path_components=md_base_path_components + path_components,
+    )
+    # recovery_mode is set according to pathspec
+    recursive = False
+    if recovery_mode != "task":
+        recursive = True
+
+    for path_tup in current_store.list_paths([""], recursive=recursive):
+        try:
+            obj_info = decompose_key_metadata_store(path_tup.key)
+        except KeyNotCompatibleWithObjectException as e:
+            # this means that we hit an object that might be a reference but not something we are looking for
+            # Ideally ignore this key since it can be something like the lastest object.
+            continue
+
+        objs_md_store = ObjectStorage(
+            metadata_store._backend,
+            metadata_store._root_prefix,
+            path_components=md_base_path_components
+            + [
+                obj_info.flow_name,
+                obj_info.run_id,
+                obj_info.step_name,
+                obj_info.task_id,
+            ],
+        )
+        metadata = objs_md_store._load_metadata(
+            objs_md_store.create_key_name(obj_info.key_name, "metadata")
+        )
+        yield CheckpointArtifact.from_dict(metadata)
 
 
 def _recover_checkpoints(

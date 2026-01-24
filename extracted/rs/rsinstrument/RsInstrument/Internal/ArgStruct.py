@@ -111,7 +111,7 @@ class ArgStruct(object):
 
 		if self.is_open_list is False and self.repetition > 1:
 			out += f' [{self.repetition}]'
-		elif self.is_open_list is True:
+		elif self.is_open_list:
 			out += f' [{self.repetition}...]'
 		if self.intern_link:
 			out += f", Linking: '{self.intern_link}'"

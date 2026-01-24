@@ -9,9 +9,11 @@ from PyQt5 import QtWidgets
 here = osp.dirname(osp.abspath(__file__))
 
 
-def newIcon(icon):
-    icons_dir = osp.join(here, "../icons")
-    return QtGui.QIcon(osp.join(":/", icons_dir, "%s.png" % icon))
+def newIcon(icon_file_name: str) -> QtGui.QIcon:
+    if osp.splitext(icon_file_name)[1] == "":
+        icon_file_name = f"{icon_file_name}.png"  # XXX: convention
+    icons_dir: str = osp.join(here, "../icons")
+    return QtGui.QIcon(osp.join(":/", icons_dir, icon_file_name))
 
 
 def newButton(text, icon=None, slot=None):
@@ -70,11 +72,6 @@ def labelValidator():
     return QtGui.QRegExpValidator(QtCore.QRegExp(r"^[^ \t].+"), None)
 
 
-class struct(object):
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-
 def distance(p):
     return sqrt(p.x() * p.x() + p.y() * p.y())
 
@@ -95,4 +92,4 @@ def distancetoline(point, line):
 
 def fmtShortcut(text):
     mod, key = text.split("+", 1)
-    return "<b>%s</b>+<b>%s</b>" % (mod, key)
+    return f"<b>{mod}</b>+<b>{key}</b>"

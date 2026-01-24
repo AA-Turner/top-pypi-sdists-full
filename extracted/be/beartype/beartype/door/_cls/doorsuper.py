@@ -31,11 +31,11 @@ from beartype.typing import (
     Tuple,
     overload,
 )
-from beartype._check.convert.convsanify import sanify_hint_any
+from beartype._check.convert.convmain import sanify_hint_any
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
-from beartype._data.hint.datahintpep import T_Hint
+from beartype._data.typing.datatypingport import T_Hint
 from beartype._util.cache.utilcachecall import (
     method_cached_arg_by_id,
     property_cached,
@@ -99,7 +99,7 @@ class TypeHint(Generic[T_Hint], metaclass=_TypeHintMeta):
         (indexing) the low-level parent type hint wrapped by this wrapper.
     _hint : T_Hint
         Low-level type hint wrapped by this wrapper.
-    _hint_sign : beartype._data.hint.pep.sign.datapepsigncls.HintSign | None
+    _hint_sign : beartype._data.hint.sign.datahintsigncls.HintSign | None
         Either:
 
         * If this hint is PEP-compliant and thus uniquely identified by a
@@ -664,7 +664,7 @@ class TypeHint(Generic[T_Hint], metaclass=_TypeHintMeta):
         '''
 
         # One-liners justify their own existence.
-        return is_bearable(obj=obj, hint=self._hint, conf=conf)
+        return is_bearable(obj=obj, hint=self._hint, conf=conf)  # pyright: ignore
 
     # ..................{ TESTERS ~ subhint                  }..................
     # Note that the @method_cached_arg_by_id rather than @callable_cached

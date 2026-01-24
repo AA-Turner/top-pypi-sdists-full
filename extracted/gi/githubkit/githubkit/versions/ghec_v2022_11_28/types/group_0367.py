@@ -10,22 +10,30 @@ See https://github.com/github/rest-api-description for more information.
 from __future__ import annotations
 
 from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class BlobType(TypedDict):
-    """Blob
+class CodeScanningAnalysisDeletionType(TypedDict):
+    """Analysis deletion
 
-    Blob
+    Successful deletion of a code scanning analysis
     """
 
-    content: str
-    encoding: str
-    url: str
-    sha: str
-    size: Union[int, None]
-    node_id: str
-    highlighted_content: NotRequired[str]
+    next_analysis_url: Union[str, None]
+    confirm_delete_url: Union[str, None]
 
 
-__all__ = ("BlobType",)
+class CodeScanningAnalysisDeletionTypeForResponse(TypedDict):
+    """Analysis deletion
+
+    Successful deletion of a code scanning analysis
+    """
+
+    next_analysis_url: Union[str, None]
+    confirm_delete_url: Union[str, None]
+
+
+__all__ = (
+    "CodeScanningAnalysisDeletionType",
+    "CodeScanningAnalysisDeletionTypeForResponse",
+)

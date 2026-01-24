@@ -100,3 +100,24 @@ def test_leading_trailing_characters():
                        ```""")
         == '{"key": "value"}'
     )
+
+
+def test_string_json_llm_block():
+    assert repair_json('{"key": "``"') == '{"key": "``"}'
+    assert repair_json('{"key": "```json"') == '{"key": "```json"}'
+    assert (
+        repair_json('{"key": "```json {"key": [{"key1": 1},{"key2": 2}]}```"}')
+        == '{"key": {"key": [{"key1": 1}, {"key2": 2}]}}'
+    )
+    assert repair_json('{"response": "```json{}"') == '{"response": "```json{}"}'
+
+
+def test_parse_boolean_or_null():
+    assert repair_json("True", return_objects=True) == ""
+    assert repair_json("False", return_objects=True) == ""
+    assert repair_json("Null", return_objects=True) == ""
+    assert repair_json("true", return_objects=True)
+    assert not repair_json("false", return_objects=True)
+    assert repair_json("null", return_objects=True) is None
+    assert repair_json('  {"key": true, "key2": false, "key3": null}') == '{"key": true, "key2": false, "key3": null}'
+    assert repair_json('{"key": TRUE, "key2": FALSE, "key3": Null}   ') == '{"key": true, "key2": false, "key3": null}'

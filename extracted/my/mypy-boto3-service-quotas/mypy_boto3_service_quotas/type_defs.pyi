@@ -17,27 +17,25 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
     AppliedLevelEnumType,
     ErrorCodeType,
+    OptInStatusType,
+    OptInTypeType,
     PeriodUnitType,
     QuotaContextScopeType,
+    ReportStatusType,
     RequestStatusType,
     ServiceQuotaTemplateAssociationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "CreateSupportCaseRequestTypeDef",
@@ -46,6 +44,9 @@ __all__ = (
     "GetAWSDefaultServiceQuotaRequestTypeDef",
     "GetAWSDefaultServiceQuotaResponseTypeDef",
     "GetAssociationForServiceQuotaTemplateResponseTypeDef",
+    "GetAutoManagementConfigurationResponseTypeDef",
+    "GetQuotaUtilizationReportRequestTypeDef",
+    "GetQuotaUtilizationReportResponseTypeDef",
     "GetRequestedServiceQuotaChangeRequestTypeDef",
     "GetRequestedServiceQuotaChangeResponseTypeDef",
     "GetServiceQuotaIncreaseRequestFromTemplateRequestTypeDef",
@@ -77,7 +78,9 @@ __all__ = (
     "PutServiceQuotaIncreaseRequestIntoTemplateRequestTypeDef",
     "PutServiceQuotaIncreaseRequestIntoTemplateResponseTypeDef",
     "QuotaContextInfoTypeDef",
+    "QuotaInfoTypeDef",
     "QuotaPeriodTypeDef",
+    "QuotaUtilizationInfoTypeDef",
     "RequestServiceQuotaIncreaseRequestTypeDef",
     "RequestServiceQuotaIncreaseResponseTypeDef",
     "RequestedServiceQuotaChangeTypeDef",
@@ -85,9 +88,12 @@ __all__ = (
     "ServiceInfoTypeDef",
     "ServiceQuotaIncreaseRequestInTemplateTypeDef",
     "ServiceQuotaTypeDef",
+    "StartAutoManagementRequestTypeDef",
+    "StartQuotaUtilizationReportResponseTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAutoManagementRequestTypeDef",
 )
 
 class CreateSupportCaseRequestTypeDef(TypedDict):
@@ -109,9 +115,33 @@ class GetAWSDefaultServiceQuotaRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class QuotaInfoTypeDef(TypedDict):
+    QuotaCode: NotRequired[str]
+    QuotaName: NotRequired[str]
+
+class GetQuotaUtilizationReportRequestTypeDef(TypedDict):
+    ReportId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+QuotaUtilizationInfoTypeDef = TypedDict(
+    "QuotaUtilizationInfoTypeDef",
+    {
+        "QuotaCode": NotRequired[str],
+        "ServiceCode": NotRequired[str],
+        "QuotaName": NotRequired[str],
+        "Namespace": NotRequired[str],
+        "Utilization": NotRequired[float],
+        "DefaultValue": NotRequired[float],
+        "AppliedValue": NotRequired[float],
+        "ServiceName": NotRequired[str],
+        "Adjustable": NotRequired[bool],
+    },
+)
 
 class GetRequestedServiceQuotaChangeRequestTypeDef(TypedDict):
     RequestId: str
@@ -200,7 +230,7 @@ class TagTypeDef(TypedDict):
 class MetricInfoTypeDef(TypedDict):
     MetricNamespace: NotRequired[str]
     MetricName: NotRequired[str]
-    MetricDimensions: NotRequired[Dict[str, str]]
+    MetricDimensions: NotRequired[dict[str, str]]
     MetricStatisticRecommendation: NotRequired[str]
 
 class PutServiceQuotaIncreaseRequestIntoTemplateRequestTypeDef(TypedDict):
@@ -225,20 +255,56 @@ class RequestServiceQuotaIncreaseRequestTypeDef(TypedDict):
     ContextId: NotRequired[str]
     SupportCaseAllowed: NotRequired[bool]
 
+class StartAutoManagementRequestTypeDef(TypedDict):
+    OptInLevel: Literal["ACCOUNT"]
+    OptInType: OptInTypeType
+    NotificationArn: NotRequired[str]
+    ExclusionList: NotRequired[Mapping[str, Sequence[str]]]
+
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceARN: str
     TagKeys: Sequence[str]
 
+class UpdateAutoManagementRequestTypeDef(TypedDict):
+    OptInType: NotRequired[OptInTypeType]
+    NotificationArn: NotRequired[str]
+    ExclusionList: NotRequired[Mapping[str, Sequence[str]]]
+
 class GetAssociationForServiceQuotaTemplateResponseTypeDef(TypedDict):
     ServiceQuotaTemplateAssociationStatus: ServiceQuotaTemplateAssociationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+class StartQuotaUtilizationReportResponseTypeDef(TypedDict):
+    ReportId: str
+    Status: ReportStatusType
+    Message: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAutoManagementConfigurationResponseTypeDef(TypedDict):
+    OptInLevel: Literal["ACCOUNT"]
+    OptInType: OptInTypeType
+    NotificationArn: str
+    OptInStatus: OptInStatusType
+    ExclusionList: dict[str, list[QuotaInfoTypeDef]]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetQuotaUtilizationReportResponseTypeDef(TypedDict):
+    ReportId: str
+    Status: ReportStatusType
+    GeneratedAt: datetime
+    TotalCount: int
+    Quotas: list[QuotaUtilizationInfoTypeDef]
+    ErrorCode: str
+    ErrorMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class GetServiceQuotaIncreaseRequestFromTemplateResponseTypeDef(TypedDict):
     ServiceQuotaIncreaseRequestInTemplate: ServiceQuotaIncreaseRequestInTemplateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListServiceQuotaIncreaseRequestsInTemplateResponseTypeDef(TypedDict):
-    ServiceQuotaIncreaseRequestInTemplateList: List[ServiceQuotaIncreaseRequestInTemplateTypeDef]
+    ServiceQuotaIncreaseRequestInTemplateList: list[ServiceQuotaIncreaseRequestInTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -278,12 +344,12 @@ class ListServicesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListServicesResponseTypeDef(TypedDict):
-    Services: List[ServiceInfoTypeDef]
+    Services: list[ServiceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -294,6 +360,7 @@ RequestedServiceQuotaChangeTypeDef = TypedDict(
     "RequestedServiceQuotaChangeTypeDef",
     {
         "Id": NotRequired[str],
+        "RequestType": NotRequired[Literal["AutomaticManagement"]],
         "CaseId": NotRequired[str],
         "ServiceCode": NotRequired[str],
         "ServiceName": NotRequired[str],
@@ -337,12 +404,12 @@ class GetRequestedServiceQuotaChangeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRequestedServiceQuotaChangeHistoryByQuotaResponseTypeDef(TypedDict):
-    RequestedQuotas: List[RequestedServiceQuotaChangeTypeDef]
+    RequestedQuotas: list[RequestedServiceQuotaChangeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRequestedServiceQuotaChangeHistoryResponseTypeDef(TypedDict):
-    RequestedQuotas: List[RequestedServiceQuotaChangeTypeDef]
+    RequestedQuotas: list[RequestedServiceQuotaChangeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -359,11 +426,11 @@ class GetServiceQuotaResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAWSDefaultServiceQuotasResponseTypeDef(TypedDict):
-    Quotas: List[ServiceQuotaTypeDef]
+    Quotas: list[ServiceQuotaTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListServiceQuotasResponseTypeDef(TypedDict):
-    Quotas: List[ServiceQuotaTypeDef]
+    Quotas: list[ServiceQuotaTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

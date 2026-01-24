@@ -62,13 +62,29 @@ class TestCodeBuildService:
 
     def test_init(self, mock_session):
         """Test CodeBuildService initialization."""
+
+        # Mock all the clients including STS
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        mock_codebuild = Mock()
+        mock_s3 = Mock()
+        mock_iam = Mock()
+
+        def client_factory(service_name):
+            clients = {"sts": mock_sts, "codebuild": mock_codebuild, "s3": mock_s3, "iam": mock_iam}
+            return clients.get(service_name, Mock())
+
+        mock_session.client = client_factory
+
         service = CodeBuildService(mock_session)
 
         assert service.session == mock_session
-        assert service.client == mock_session.client("codebuild")
-        assert service.s3_client == mock_session.client("s3")
-        assert service.iam_client == mock_session.client("iam")
+        assert service.client == mock_codebuild
+        assert service.s3_client == mock_s3
+        assert service.iam_client == mock_iam
         assert service.source_bucket is None
+        assert service.account_id == "123456789012"  # Verify account_id is stored
 
     def test_get_source_bucket_name(self, codebuild_service):
         """Test S3 bucket name generation."""
@@ -85,11 +101,21 @@ class TestCodeBuildService:
         assert bucket_name == expected
 
         # Verify S3 operations
-        mock_clients["s3"].head_bucket.assert_called_once_with(Bucket=expected)
+        mock_clients["s3"].head_bucket.assert_called_once_with(
+            Bucket=expected,
+            ExpectedBucketOwner="123456789012",
+        )
         mock_clients["s3"].create_bucket.assert_called_once_with(
             Bucket=expected, CreateBucketConfiguration={"LocationConstraint": "us-west-2"}
         )
-        mock_clients["s3"].put_bucket_lifecycle_configuration.assert_called_once()
+
+        mock_clients["s3"].put_bucket_lifecycle_configuration.assert_called_once_with(
+            Bucket=expected,
+            ExpectedBucketOwner="123456789012",
+            LifecycleConfiguration={
+                "Rules": [{"ID": "DeleteOldBuilds", "Status": "Enabled", "Filter": {}, "Expiration": {"Days": 7}}]
+            },
+        )
 
     def test_ensure_source_bucket_existing(self, codebuild_service, mock_clients):
         """Test using existing S3 bucket."""
@@ -102,7 +128,28 @@ class TestCodeBuildService:
         expected = "bedrock-agentcore-codebuild-sources-123456789012-us-west-2"
         assert bucket_name == expected
 
+        mock_clients["s3"].head_bucket.assert_called_once_with(
+            Bucket=expected,
+            ExpectedBucketOwner="123456789012",
+        )
+
         # Should not create bucket
+        mock_clients["s3"].create_bucket.assert_not_called()
+
+    def test_ensure_source_bucket_access_constraints(self, codebuild_service, mock_clients):
+        """Test error handling for bucket access constraints."""
+        # Mock bucket access constraints (403 error)
+        mock_clients["s3"].head_bucket.side_effect = ClientError({"Error": {"Code": "403"}}, "HeadBucket")
+
+        with pytest.raises(RuntimeError, match="Access Error.*permission constraints"):
+            codebuild_service.ensure_source_bucket("123456789012")
+
+        expected = "bedrock-agentcore-codebuild-sources-123456789012-us-west-2"
+
+        # Verify head_bucket was called with ExpectedBucketOwner
+        mock_clients["s3"].head_bucket.assert_called_once_with(Bucket=expected, ExpectedBucketOwner="123456789012")
+
+        # Should NOT create bucket when 403 error occurs
         mock_clients["s3"].create_bucket.assert_not_called()
 
     def test_ensure_source_bucket_us_east_1(self, mock_session, mock_clients):
@@ -144,7 +191,12 @@ class TestCodeBuildService:
         expected_s3_url = f"s3://bedrock-agentcore-codebuild-sources-123456789012-us-west-2/{expected_key}"
 
         assert result == expected_s3_url
-        mock_clients["s3"].upload_file.assert_called_once()
+        mock_clients["s3"].upload_file.assert_called_once_with(
+            "/tmp/test.zip",
+            "bedrock-agentcore-codebuild-sources-123456789012-us-west-2",
+            "test-agent/source.zip",
+            ExtraArgs={"ExpectedBucketOwner": "123456789012"},
+        )
         mock_unlink.assert_called_once_with("/tmp/test.zip")
 
     def test_normalize_s3_location(self, codebuild_service):
@@ -276,8 +328,8 @@ class TestCodeBuildService:
                 codebuild_service.wait_for_completion("test-build-id", timeout=1)
 
     def test_get_arm64_buildspec(self, codebuild_service):
-        """Test ARM64 buildspec generation - native build with parallel ECR auth."""
-        buildspec = codebuild_service._get_arm64_buildspec("test-ecr-uri")
+        """Test ARM64 buildspec generation with provided tag."""
+        buildspec = codebuild_service._get_arm64_buildspec("test-ecr-uri", "20260108-120435-123")
 
         assert "version: 0.2" in buildspec
         assert "test-ecr-uri" in buildspec
@@ -303,12 +355,53 @@ class TestCodeBuildService:
         assert "ECR authentication failed" in buildspec
         assert "Both build and auth completed successfully" in buildspec
 
-        # Verify final steps
-        assert "Tagging image..." in buildspec
-        assert "docker tag bedrock-agentcore-arm64:latest" in buildspec
+        # Verify versioned tagging
+        assert "Tagging image with version" in buildspec
+        assert "docker tag bedrock-agentcore-arm64:latest test-ecr-uri:" in buildspec
+        assert "Pushing versioned image to ECR" in buildspec
+        assert "docker push test-ecr-uri:" in buildspec
+
+    def test_get_arm64_buildspec_with_custom_tag(self, codebuild_service):
+        """Test buildspec with custom image tag."""
+        buildspec = codebuild_service._get_arm64_buildspec("test-ecr-uri", image_tag="v1.2.3")
+
+        assert "test-ecr-uri:v1.2.3" in buildspec
+        assert "docker push test-ecr-uri:v1.2.3" in buildspec
+
+    def test_parse_dockerignore_from_template(self, codebuild_service):
+        """Test parsing .dockerignore patterns from template."""
+        patterns = codebuild_service._parse_dockerignore()
+
+        # Verify patterns from dockerignore.template are loaded
+        assert ".git/" in patterns
+        assert "__pycache__/" in patterns
+        assert "*.py[cod]" in patterns
+        assert ".bedrock_agentcore.yaml" in patterns
+        assert ".venv/" in patterns
+        assert "*.egg-info/" in patterns
+        assert "build/" in patterns
+        assert "tests/" in patterns
+
+        # Verify patterns list is non-empty
+        assert len(patterns) > 0
+
+    def test_parse_dockerignore_template_fallback(self, codebuild_service):
+        """Test fallback patterns when template cannot be loaded."""
+
+        # Mock files() to raise an exception
+        with patch("bedrock_agentcore_starter_toolkit.services.codebuild.files") as mock_files:
+            mock_files.side_effect = Exception("Template not found")
+
+            patterns = codebuild_service._parse_dockerignore()
+
+        # Should fall back to minimal default patterns
+        assert ".git" in patterns
+        assert "__pycache__" in patterns
+        assert "*.pyc" in patterns
+        assert ".bedrock_agentcore.yaml" in patterns
 
     def test_parse_dockerignore_existing_file(self, codebuild_service):
-        """Test parsing existing .dockerignore file."""
+        """Test parsing existing .dockerignore file (legacy test)."""
         dockerignore_content = """
 # Comment
 node_modules
@@ -318,20 +411,16 @@ node_modules
 
         with patch("pathlib.Path.exists", return_value=True):
             with patch("builtins.open", mock_open(read_data=dockerignore_content)):
-                patterns = codebuild_service._parse_dockerignore()
-
-        expected = ["node_modules", "*.pyc", ".git"]
-        assert patterns == expected
+                # Note: This test is now obsolete since we use template, but keeping for reference
+                # _parse_dockerignore() now uses template, not file system
+                pass
 
     def test_parse_dockerignore_no_file(self, codebuild_service):
-        """Test default patterns when no .dockerignore exists."""
+        """Test default patterns when no .dockerignore exists (legacy test)."""
         with patch("pathlib.Path.exists", return_value=False):
-            patterns = codebuild_service._parse_dockerignore()
-
-        assert ".git" in patterns
-        assert "__pycache__" in patterns
-        assert "*.pyc" in patterns
-        assert ".bedrock_agentcore.yaml" in patterns
+            # Note: This test is now obsolete since we use template, but keeping for reference
+            # _parse_dockerignore() now uses template, not file system
+            pass
 
     def test_should_ignore_basic_patterns(self, codebuild_service):
         """Test basic ignore pattern matching."""
@@ -482,6 +571,72 @@ node_modules
             # Verify cleanup was called
             mock_unlink.assert_called_once_with("/tmp/test.zip")
 
+    def test_source_upload_with_separate_dockerfile(self, codebuild_service, mock_clients):
+        """Test source upload with Dockerfile in separate directory (source_path scenario)."""
+        from pathlib import Path
+
+        with (
+            patch("os.walk") as mock_walk,
+            patch("zipfile.ZipFile") as mock_zipfile,
+            patch("tempfile.NamedTemporaryFile") as mock_tempfile,
+            patch("os.unlink") as mock_unlink,
+            patch.object(codebuild_service, "_parse_dockerignore") as mock_parse,
+        ):
+            # Mock file system - source directory contains code only (no Dockerfile)
+            mock_walk.return_value = [("./my_agent", [], ["agent.py", "requirements.txt"])]
+
+            # Mock dockerignore patterns
+            mock_parse.return_value = ["*.pyc", ".git"]
+
+            # Mock temp file and zipfile
+            mock_temp = Mock()
+            mock_temp.name = "/tmp/test.zip"
+            mock_tempfile.return_value.__enter__.return_value = mock_temp
+
+            mock_zip = Mock()
+            mock_zipfile.return_value.__enter__.return_value = mock_zip
+
+            # Create a mock Dockerfile in the dockerfile_dir
+            # We'll mock Path to return the right exists() value
+            original_path = Path
+
+            class MockPath(type(Path())):
+                def __new__(cls, *args, **kwargs):
+                    instance = super().__new__(cls, *args, **kwargs)
+                    return instance
+
+                def exists(self):
+                    path_str = str(self)
+                    if ".bedrock_agentcore/test-agent/Dockerfile" in path_str:
+                        return True  # Dockerfile exists in dockerfile_dir
+                    elif "my_agent/Dockerfile" in path_str:
+                        return False  # No Dockerfile in source_dir
+                    return original_path(str(self)).exists()
+
+            with patch("bedrock_agentcore_starter_toolkit.services.codebuild.Path", MockPath):
+                # Test with separate dockerfile_dir
+                codebuild_service.upload_source(
+                    "test-agent", source_dir="./my_agent", dockerfile_dir=".bedrock_agentcore/test-agent"
+                )
+
+            # Verify files were added to zip
+            zip_calls = mock_zip.write.call_args_list
+            written_files = [call[0][1] for call in zip_calls]  # Second arg is the archive name
+
+            # Should include source files
+            assert "agent.py" in written_files
+            assert "requirements.txt" in written_files
+
+            # Should include Dockerfile from separate directory
+            assert "Dockerfile" in written_files
+
+            # Verify the Dockerfile was added with correct arguments
+            dockerfile_call = [call for call in zip_calls if "Dockerfile" in str(call)]
+            assert len(dockerfile_call) == 1
+
+            # Verify cleanup was called
+            mock_unlink.assert_called_once_with("/tmp/test.zip")
+
     def test_project_config_arm64_settings(self, codebuild_service, mock_clients):
         """Test CodeBuild project uses correct ARM64 settings."""
         codebuild_service.create_or_update_project(
@@ -526,4 +681,12 @@ node_modules
 
         # Verify S3 permissions
         s3_statement = next(stmt for stmt in policy_doc["Statement"] if "s3:GetObject" in stmt["Action"])
-        assert "bedrock-agentcore-codebuild-sources-123456789012-us-west-2" in s3_statement["Resource"]
+        # Look for bucket name inside ARN format
+        bucket_name = "bedrock-agentcore-codebuild-sources-123456789012-us-west-2"
+        assert any(bucket_name in resource for resource in s3_statement["Resource"])
+
+        # Also verify the condition is present
+        assert "Condition" in s3_statement
+        assert "StringEquals" in s3_statement["Condition"]
+        assert "s3:ResourceAccount" in s3_statement["Condition"]["StringEquals"]
+        assert s3_statement["Condition"]["StringEquals"]["s3:ResourceAccount"] == "123456789012"

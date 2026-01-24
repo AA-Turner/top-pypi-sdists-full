@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ class BasePlugin(ABC):
   callback in the chain. For example, if a plugin modifies the tool input with
   before_tool_callback, the modified tool input will be passed to the
   before_tool_callback of the next plugin, and further passed to the agent
-  callbacks if not short circuited.
+  callbacks if not short-circuited.
 
   To use a plugin, implement the desired callback methods and pass an instance
   of your custom plugin class to the ADK Runner.
@@ -173,7 +173,7 @@ class BasePlugin(ABC):
 
   async def after_run_callback(
       self, *, invocation_context: InvocationContext
-  ) -> Optional[None]:
+  ) -> None:
     """Callback executed after an ADK runner run has completed.
 
     This is the final callback in the ADK lifecycle, suitable for cleanup, final
@@ -184,6 +184,14 @@ class BasePlugin(ABC):
 
     Returns:
       None
+    """
+    pass
+
+  async def close(self) -> None:
+    """Method executed when the runner is closed.
+
+    This method is used for cleanup tasks such as closing network connections
+    or releasing resources.
     """
     pass
 
@@ -211,17 +219,14 @@ class BasePlugin(ABC):
   ) -> Optional[types.Content]:
     """Callback executed after an agent's primary logic has completed.
 
-    This callback can be used to inspect, log, or modify the agent's final
-    result before it is returned.
-
     Args:
       agent: The agent that has just run.
       callback_context: The context for the agent invocation.
 
     Returns:
-      An optional `types.Content` object. If a value is returned, it will
-      replace the agent's original result. Returning `None` uses the original,
-      unmodified result.
+      An optional `types.Content` object. The content to return to the user.
+      When the content is present, the provided content will be used as agent
+      response and appended to event history as agent response.
     """
     pass
 

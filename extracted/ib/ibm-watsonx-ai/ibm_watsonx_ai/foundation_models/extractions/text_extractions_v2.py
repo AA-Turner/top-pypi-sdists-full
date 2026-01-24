@@ -1,19 +1,23 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from ibm_watsonx_ai.foundation_models.extractions.text_extractions_v2_result_formats import (
     TextExtractionsV2ResultFormats,
 )
 from ibm_watsonx_ai.helpers import DataConnection
+from ibm_watsonx_ai.helpers.connections.connections import (
+    NFSLocation,
+    RemoteFileStorageLocation,
+)
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
     InvalidValue,
-    UnexpectedType,
     WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -45,14 +49,16 @@ class TextExtractionsV2(WMLResource):
     .. code-block:: python
 
         from ibm_watsonx_ai import Credentials
-        from ibm_watsonx_ai.foundation_models.extractions import TextExtractionsV2
+        from ibm_watsonx_ai.foundation_models.extractions import (
+            TextExtractionsV2,
+        )
 
         extraction = TextExtractionsV2(
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id="*****"
-            )
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id="*****",
+        )
 
     """
 
@@ -85,19 +91,12 @@ class TextExtractionsV2(WMLResource):
                 reason="None of the arguments were provided.",
             )
 
-        if not self._client.CLOUD_PLATFORM_SPACES:
-            cpd_version_error_message: str | None = None
-
-            if self._client.CPD_version < 5.0:
-                cpd_version_error_message = "Operation is unsupported for this release."
-            elif self._client.CPD_version <= 5.1:
-                cpd_version_error_message = (
-                    f"For watsonx.ai software {self._client.CPD_version} release, please use "
-                    "`ibm_watsonx_ai.foundation_models.extractions.TextExtractions` class."
-                )
-
-            if cpd_version_error_message:
-                raise WMLClientError(cpd_version_error_message)
+        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version <= 5.1:
+            cpd_version_error_message = (
+                f"For watsonx.ai software {self._client.CPD_version} release, please use "
+                "`ibm_watsonx_ai.foundation_models.extractions.TextExtractions` class."
+            )
+            raise WMLClientError(cpd_version_error_message)
 
         super().__init__(__name__, self._client)
 
@@ -125,7 +124,7 @@ class TextExtractionsV2(WMLResource):
         :type result_formats: TextExtractionsV2ResultFormats | list[TextExtractionsV2ResultFormats] | list[str], optional
 
         :param parameters: the parameters for the text extraction, defaults to None
-        :type parameters: dict | None, optional
+        :type parameters: dict, optional
 
         :return: raw response from the server with the text extraction job details
         :rtype: dict
@@ -134,19 +133,25 @@ class TextExtractionsV2(WMLResource):
 
         .. code-block:: python
 
-            from ibm_watsonx_ai.foundation_models.extractions import TextExtractionsV2ResultFormats
-            from ibm_watsonx_ai.metanames import TextExtractionsV2ParametersMetaNames
+            from ibm_watsonx_ai.foundation_models.extractions import (
+                TextExtractionsV2ResultFormats,
+            )
+            from ibm_watsonx_ai.metanames import (
+                TextExtractionsV2ParametersMetaNames,
+            )
             from ibm_watsonx_ai.helpers import DataConnection, S3Location
 
             document_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/file"),
-                )
+            )
 
             results_reference = DataConnection(
                 connection_asset_id="<connection_id>",
-                location=S3Location(bucket="<bucket_name>", path="path/to/directory/"),  # Path must end with /
-                )
+                location=S3Location(
+                    bucket="<bucket_name>", path="path/to/directory/"
+                ),  # Path must end with /
+            )
 
             response = extraction.run_job(
                 document_reference=document_reference,
@@ -159,35 +164,28 @@ class TextExtractionsV2(WMLResource):
                     TextExtractionsV2ParametersMetaNames.CREATE_EMBEDDED_IMAGES: "enabled_placeholder",
                     TextExtractionsV2ParametersMetaNames.OUTPUT_DPI: 72,
                     TextExtractionsV2ParametersMetaNames.KVP_MODE: "invoice",
-                    },
+                },
                 result_formats=[
                     TextExtractionsV2ResultFormats.PLAIN_TEXT,
                     TextExtractionsV2ResultFormats.MARKDOWN,
                     TextExtractionsV2ResultFormats.ASSEMBLY_JSON,
-                    ]
-                )
+                ],
+            )
 
         """
-
-        if not isinstance(document_reference, DataConnection):
-            raise UnexpectedType(
-                el_name="document_reference",
-                expected_type=DataConnection,
-                actual_type=type(document_reference),
-            )
-        if not isinstance(results_reference, DataConnection):
-            raise UnexpectedType(
-                el_name="results_reference",
-                expected_type=DataConnection,
-                actual_type=type(results_reference),
-            )
+        TextExtractionsV2._validate_type(
+            document_reference, "document_reference", DataConnection, mandatory=True
+        )
+        TextExtractionsV2._validate_type(
+            results_reference, "results_reference", DataConnection, mandatory=True
+        )
 
         if result_formats is None:
             result_formats = TextExtractionsV2ResultFormats.PLAIN_TEXT
 
         self._validate_type(parameters, "parameters", dict, False)
 
-        payload = {
+        payload: dict[str, Any] = {
             "document_reference": document_reference.to_dict(),
             "results_reference": results_reference.to_dict(),
             "parameters": {
@@ -220,7 +218,7 @@ class TextExtractionsV2(WMLResource):
         """List text extraction jobs. If limit is None, all jobs will be listed.
 
         :param limit: limit number of fetched records, defaults to None
-        :type limit: int | None, optional
+        :type limit: int, optional
 
         :return: text extraction jobs information as a pandas DataFrame
         :rtype: pandas.DataFrame
@@ -260,10 +258,10 @@ class TextExtractionsV2(WMLResource):
         """Return text extraction job details. If `extraction_job_id` is None, return the details of all text extraction jobs.
 
         :param extraction_job_id: ID of the text extraction job, defaults to None
-        :type extraction_job_id: str | None, optional
+        :type extraction_job_id: str, optional
 
         :param limit: limit number of fetched records, defaults to None
-        :type limit: int | None, optional
+        :type limit: int, optional
 
         :return: details of the text extraction job
         :rtype: dict
@@ -312,6 +310,7 @@ class TextExtractionsV2(WMLResource):
 
         :return: "SUCCESS" if the deletion succeeds
         :rtype: str
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -343,6 +342,7 @@ class TextExtractionsV2(WMLResource):
 
         :return: "SUCCESS" if the cancellation succeeds
         :rtype: str
+        :raises WMLClientError: if cancellation failed
 
         **Example:**
 
@@ -376,15 +376,22 @@ class TextExtractionsV2(WMLResource):
 
         .. code-block:: python
 
-            results_reference = extraction.get_results_reference(extraction_job_id="<extraction_job_id>")
+            results_reference = extraction.get_results_reference(
+                extraction_job_id="<extraction_job_id>"
+            )
 
         """
         self._validate_type(extraction_job_id, "extraction_job_id", str, True)
 
         job_details = self.get_job_details(extraction_job_id)
 
-        results_reference = job_details.get("entity", {}).get("results_reference")
-        data_conn = DataConnection._from_dict(results_reference)
+        results_reference = get_from_json(job_details, ["entity", "results_reference"])
+        data_conn = DataConnection.from_dict(results_reference)
+        if isinstance(data_conn.location, NFSLocation):
+            data_conn.location = RemoteFileStorageLocation(
+                path=data_conn.location.get_location()
+            )
+
         data_conn.set_client(self._client)
         return data_conn
 
@@ -409,5 +416,5 @@ class TextExtractionsV2(WMLResource):
         cls._validate_type(extraction_details, "extraction_details", dict, True)
 
         return cls._get_required_element_from_dict(
-            extraction_details, "extraction_details", ["metadata", "id"]
+            extraction_details, "extraction_details", ["metadata", "id"], str
         )

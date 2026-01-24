@@ -1,8 +1,8 @@
 import json
+import logging
 from contextlib import contextmanager
 from typing import Any, Optional
 
-from absl import logging
 from packaging import version
 
 from snowflake.ml import version as snowml_version
@@ -13,8 +13,12 @@ from snowflake.snowpark import (
     session as snowpark_session,
 )
 
+logger = logging.getLogger(__name__)
+
 LIVE_COMMIT_PARAMETER = "ENABLE_LIVE_VERSION_IN_SDK"
 INLINE_DEPLOYMENT_SPEC_PARAMETER = "ENABLE_INLINE_DEPLOYMENT_SPEC_FROM_CLIENT_VERSION"
+SET_MODULE_FUNCTIONS_VOLATILITY_FROM_MANIFEST = "SET_MODULE_FUNCTIONS_VOLATILITY_FROM_MANIFEST"
+ENABLE_MODEL_METHOD_SIGNATURE_PARAMETERS = "ENABLE_MODEL_METHOD_SIGNATURE_PARAMETERS"
 
 
 class PlatformCapabilities:
@@ -60,19 +64,25 @@ class PlatformCapabilities:
     @classmethod  # type: ignore[arg-type]
     @contextmanager
     def mock_features(cls, features: dict[str, Any] = _dummy_features) -> None:  # type: ignore[misc]
-        logging.debug(f"Setting mock features: {features}")
+        logger.debug(f"Setting mock features: {features}")
         cls.set_mock_features(features)
         try:
             yield
         finally:
-            logging.debug(f"Clearing mock features: {features}")
+            logger.debug(f"Clearing mock features: {features}")
             cls.clear_mock_features()
 
     def is_inlined_deployment_spec_enabled(self) -> bool:
         return self._is_version_feature_enabled(INLINE_DEPLOYMENT_SPEC_PARAMETER)
 
+    def is_set_module_functions_volatility_from_manifest(self) -> bool:
+        return self._get_bool_feature(SET_MODULE_FUNCTIONS_VOLATILITY_FROM_MANIFEST, False)
+
     def is_live_commit_enabled(self) -> bool:
         return self._get_bool_feature(LIVE_COMMIT_PARAMETER, False)
+
+    def is_model_method_signature_parameters_enabled(self) -> bool:
+        return self._get_bool_feature(ENABLE_MODEL_METHOD_SIGNATURE_PARAMETERS, False)
 
     @staticmethod
     def _get_features(session: snowpark_session.Session) -> dict[str, Any]:
@@ -98,7 +108,7 @@ class PlatformCapabilities:
                         error_code=error_codes.INTERNAL_SNOWML_ERROR, original_exception=RuntimeError(message)
                     )
         except snowpark_exceptions.SnowparkSQLException as e:
-            logging.debug(f"Failed to retrieve platform capabilities: {e}")
+            logger.debug(f"Failed to retrieve platform capabilities: {e}")
             # This can happen is server side is older than 9.2. That is fine.
         return {}
 
@@ -144,7 +154,7 @@ class PlatformCapabilities:
 
         value = self.features.get(feature_name)
         if value is None:
-            logging.debug(f"Feature {feature_name} not found, returning large version number")
+            logger.debug(f"Feature {feature_name} not found, returning large version number")
             return large_version
 
         try:
@@ -152,7 +162,7 @@ class PlatformCapabilities:
             version_str = str(value)
             return version.Version(version_str)
         except (version.InvalidVersion, ValueError, TypeError) as e:
-            logging.debug(
+            logger.debug(
                 f"Failed to parse version from feature {feature_name} with value '{value}': {e}. "
                 f"Returning large version number"
             )
@@ -171,8 +181,36 @@ class PlatformCapabilities:
         feature_version = self._get_version_feature(feature_name)
 
         result = current_version >= feature_version
-        logging.debug(
+        logger.debug(
             f"Version comparison for feature {feature_name}: "
             f"current={current_version}, feature={feature_version}, enabled={result}"
         )
         return result
+
+    def _is_feature_enabled(self, feature_name: str) -> bool:
+        """Check if the feature parameter value belongs to enabled values.
+
+        Args:
+            feature_name: The name of the feature to retrieve.
+
+        Returns:
+            bool: True if the value is "ENABLED" or "ENABLED_PUBLIC_PREVIEW",
+                  False if the value is "DISABLED", "DISABLED_PRIVATE_PREVIEW", or not set.
+
+        Raises:
+            ValueError: If the feature value is set but not one of the recognized values.
+        """
+        value = self.features.get(feature_name)
+        if value is None:
+            logger.debug(f"Feature {feature_name} not found.")
+            return False
+
+        if isinstance(value, str):
+            value_str = str(value)
+            if value_str.upper() in ["ENABLED", "ENABLED_PUBLIC_PREVIEW"]:
+                return True
+            elif value_str.upper() in ["DISABLED", "DISABLED_PRIVATE_PREVIEW"]:
+                return False
+            else:
+                raise ValueError(f"Invalid feature parameter value: {value} for feature {feature_name}")
+        raise ValueError(f"Invalid feature parameter string value: {value} for feature {feature_name}")

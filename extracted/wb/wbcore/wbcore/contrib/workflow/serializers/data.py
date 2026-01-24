@@ -43,7 +43,7 @@ class DataModelSerializer(wb_serializers.ModelSerializer):
             if data_type:
                 try:
                     Data.cast_value_to_datatype(data_type, default)
-                except ValueError:
+                except ValueError as e:
                     if data_type == Data.DataType.DATE:
                         raise ValidationError(
                             {
@@ -51,7 +51,7 @@ class DataModelSerializer(wb_serializers.ModelSerializer):
                                     "Invalid default value for this data type. Please use a date formatted to 'day.month.year'."
                                 )
                             }
-                        )
+                        ) from None
                     elif data_type == Data.DataType.DATETIME:
                         raise ValidationError(
                             {
@@ -59,8 +59,8 @@ class DataModelSerializer(wb_serializers.ModelSerializer):
                                     "Invalid default value for this data type. Please use a datetime formatted to 'day.month.year hour:minute:second' in the 24h format."
                                 )
                             }
-                        )
-                    raise ValidationError({"default": _("Invalid default value for this data type.")})
+                        ) from None
+                    raise ValidationError({"default": _("Invalid default value for this data type.")}) from e
 
         return data
 
@@ -99,7 +99,7 @@ class DataValueModelSerializer(wb_serializers.ModelSerializer):
         if data_obj and value:
             try:
                 Data.cast_value_to_datatype(data_obj.data_type, value)
-            except ValueError:
+            except ValueError as e:
                 if data_obj.data_type == Data.DataType.DATE:
                     raise ValidationError(
                         {
@@ -107,7 +107,7 @@ class DataValueModelSerializer(wb_serializers.ModelSerializer):
                                 "Invalid value for this data type. Please use a date formatted to 'day.month.year'."
                             )
                         }
-                    )
+                    ) from None
                 elif data_obj.data_type == Data.DataType.DATETIME:
                     raise ValidationError(
                         {
@@ -115,8 +115,8 @@ class DataValueModelSerializer(wb_serializers.ModelSerializer):
                                 "Invalid value for this data type. Please use a datetime formatted to 'day.month.year hour:minute:second' in the 24h format."
                             )
                         }
-                    )
-                raise ValidationError({"value": _("Invalid value for this data type.")})
+                    ) from None
+                raise ValidationError({"value": _("Invalid value for this data type.")}) from e
 
         return data
 

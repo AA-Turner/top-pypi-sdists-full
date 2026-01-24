@@ -34,7 +34,7 @@ from pm4py.utils import __event_log_deprecation_warning
 import pandas as pd
 from typing import Union, Tuple, Dict, Optional
 from pm4py.util import constants
-from pm4py.utils import __rustxes_usage_warning, __rustxes_non_usage_warning
+from pm4py.utils import __rustxes_usage_warning, __rustxes_non_usage_warning, is_polars_lazyframe
 from pm4py.util.pandas_utils import (
     check_is_pandas_dataframe,
     check_pandas_dataframe_columns,
@@ -95,8 +95,11 @@ def write_xes(
         xes_exporter.apply(log, file_path, variant=xes_exporter.Variants.LINE_BY_LINE, parameters=parameters)
     else:
         import pm4py, rustxes, polars
-        log = pm4py.convert_to_dataframe(log)
-        log = polars.DataFrame(log)
+        if not is_polars_lazyframe(log):
+            log = pm4py.convert_to_dataframe(log)
+            log = polars.DataFrame(log)
+        else:
+            log = log.collect()
         rustxes.export_xes(log, file_path)
 
 
@@ -433,7 +436,7 @@ def write_ocel2(
         "xmlocel"
     ):
         write_ocel2_xml(ocel, file_path, encoding=encoding)
-    elif file_path.lower().endswith("jsonocel"):
+    elif file_path.lower().endswith("jsonocel") or file_path.lower().endswith("json"):
         write_ocel2_json(ocel, file_path, encoding=encoding)
     else:
         raise Exception("Unsupported file format for OCEL2.0 export.")

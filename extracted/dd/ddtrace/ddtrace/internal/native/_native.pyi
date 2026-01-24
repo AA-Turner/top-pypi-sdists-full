@@ -1,4 +1,9 @@
-from typing import Dict, List, Optional
+from enum import Enum
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Literal
+from typing import Optional
 
 class DDSketch:
     def __init__(self): ...
@@ -91,7 +96,11 @@ class CrashtrackerStatus:
     FailedToInitialize: "CrashtrackerStatus"
 
 def crashtracker_init(
-    config: CrashtrackerConfiguration, receiver_config: CrashtrackerReceiverConfig, metadata: CrashtrackerMetadata
+    config: CrashtrackerConfiguration,
+    receiver_config: CrashtrackerReceiverConfig,
+    metadata: CrashtrackerMetadata,
+    # TODO: Add this back in post Code Freeze (need to update config registry)
+    # emit_runtime_stacks: bool,
 ) -> None: ...
 def crashtracker_on_fork(
     config: CrashtrackerConfiguration, receiver_config: CrashtrackerReceiverConfig, metadata: CrashtrackerMetadata
@@ -113,6 +122,8 @@ class PyTracerMetadata:
         service_name: Optional[str],
         service_env: Optional[str],
         service_version: Optional[str],
+        process_tags: Optional[str],
+        container_id: Optional[str],
     ):
         """
         Initialize the `PyTracerMetadata`.
@@ -122,6 +133,8 @@ class PyTracerMetadata:
         :param service_name: Name of the service being instrumented.
         :param service_env: Environment of the service being instrumented.
         :param service_version: Version of the service being instrumented.
+        :param process_tags: Process tags of the application being instrumented.
+        :param container_id: Container id seen by the application.
         """
         ...
 
@@ -232,6 +245,12 @@ class TraceExporterBuilder:
         :param version: The version string of the application.
         """
         ...
+    def set_service(self, service: str) -> TraceExporterBuilder:
+        """
+        Set the service name of the TraceExporter.
+        :param version: The version string of the application.
+        """
+        ...
     def set_git_commit_sha(self, git_commit_sha: str) -> TraceExporterBuilder:
         """
         Set the git commit sha of the TraceExporter.
@@ -317,6 +336,11 @@ class TraceExporterBuilder:
         :param runtime_id: The runtime id to use for telemetry.
         """
         ...
+    def enable_health_metrics(self) -> TraceExporterBuilder:
+        """
+        Enable health metrics in the TraceExporter
+        """
+        ...
     def build(self) -> TraceExporter:
         """
         Build and return a TraceExporter instance with the configured settings.
@@ -345,6 +369,57 @@ class BuilderError(Exception):
     """
 
     ...
+
+class logger:
+    """
+    Native logging module for configuring and managing log output.
+    """
+
+    @staticmethod
+    def configure(
+        output: Literal["stdout", "stderr", "file"] = "stdout",
+        path: Optional[str] = None,
+        max_files: Optional[int] = None,
+        max_size_bytes: Optional[int] = None,
+    ) -> None:
+        """
+        Configure the logger with the specified output destination.
+
+        :param output: Output destination ("stdout", "stderr", or "file")
+        :param path: File path (required if output is "file")
+        :param max_files: Maximum number of log files to keep (for file output)
+        :param max_size_bytes: Maximum size of each log file in bytes (for file output)
+        :raises ValueError: If configuration is invalid
+        """
+        ...
+    @staticmethod
+    def disable(output: str) -> None:
+        """
+        Disable logging output by type.
+
+        :param output: Output type to disable ("file", "stdout", or "stderr")
+        :raises ValueError: If output type is invalid
+        """
+        ...
+    @staticmethod
+    def set_log_level(level: str) -> None:
+        """
+        Set the log level for the logger.
+
+        :param level: Log level ("trace", "debug", "info", "warning", or "error")
+        :raises ValueError: If log level is invalid
+        """
+        ...
+    @staticmethod
+    def log(level: str, message: str) -> None:
+        """
+        Logs messages
+
+        :param level: Log level ("trace", "debug", "info", "warn", or "error")
+        :param message: message to be displayed in the log.
+        :raises ValueError: If log level is invalid
+        """
+        ...
 
 class DeserializationError(Exception):
     """
@@ -380,3 +455,59 @@ class SerializationError(Exception):
     """
 
     ...
+
+class ffe:
+    """
+    Native Feature Flags and Experimentation module.
+    """
+
+    class FlagType(Enum):
+        String = ...
+        Integer = ...
+        Float = ...
+        Boolean = ...
+        Object = ...
+
+    class Reason(Enum):
+        Static = ...
+        Default = ...
+        TargetingMatch = ...
+        Split = ...
+        Cached = ...
+        Disabled = ...
+        Unknown = ...
+        Stale = ...
+        Error = ...
+
+    class ErrorCode(Enum):
+        TypeMismatch = ...
+        ParseError = ...
+        FlagNotFound = ...
+        TargetingKeyMissing = ...
+        InvalidContext = ...
+        ProviderNotReady = ...
+        General = ...
+
+    class ResolutionDetails:
+        @property
+        def value(self) -> Optional[Any]: ...
+        @property
+        def error_code(self) -> Optional[ffe.ErrorCode]: ...
+        @property
+        def error_message(self) -> Optional[str]: ...
+        @property
+        def reason(self) -> Optional[ffe.Reason]: ...
+        @property
+        def variant(self) -> Optional[str]: ...
+        @property
+        def allocation_key(self) -> Optional[str]: ...
+        @property
+        def flag_metadata(self) -> dict[str, str]: ...
+        @property
+        def do_log(self) -> bool: ...
+        @property
+        def extra_logging(self) -> Optional[dict[str, str]]: ...
+
+    class Configuration:
+        def __init__(self, config_bytes: bytes) -> None: ...
+        def resolve_value(self, flag_key: str, expected_type: ffe.FlagType, context: dict) -> ffe.ResolutionDetails: ...

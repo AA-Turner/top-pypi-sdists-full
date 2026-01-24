@@ -30,7 +30,7 @@ from sagemaker_studio.projects import ProjectService
 from sagemaker_studio.utils._internal import InternalUtils
 
 DEFAULT_INSTANCE_TYPE = "ml.m6i.xlarge"  # consistent with the default instance in the toolkit
-DEFAULT_IMAGE_VERSION = "2.8"  # consistent with default image version in Space
+DEFAULT_IMAGE_VERSION = "latest"  # default to latest image version
 
 
 class RemoteExecutionClient(ExecutionClient):
@@ -580,9 +580,40 @@ class RemoteExecutionClient(ExecutionClient):
                 kms_key_id = {"KmsKeyId": self.kms_key_identifier}
                 volume_kms_key_id = {"VolumeKmsKeyId": self.kms_key_identifier}
 
-            create_training_job_response = self.sagemaker_client.create_training_job(
-                TrainingJobName=f"{request.execution_name}-{uuid.uuid4()}",
-                AlgorithmSpecification={
+            # Define environment variables for SM Training job
+            environment_variables = {
+                "AWS_DEFAULT_REGION": self.default_tooling_environment["awsAccountRegion"],
+                "SM_EFS_MOUNT_GID": "100",
+                "SM_EFS_MOUNT_PATH": "/home/sagemaker-user",
+                "SM_EFS_MOUNT_UID": "1000",
+                "SM_ENV_NAME": "sagemaker-workflows-default-env",
+                "SM_EXECUTION_INPUT_PATH": "/opt/ml/input/data/sagemaker_workflows",
+                "SM_EXECUTION_SYSTEM_PATH": "/opt/ml/input/data/sagemaker_workflows_system",
+                "SM_INPUT_NOTEBOOK_NAME": input["file"],
+                "SM_JOB_DEF_VERSION": "1.0",
+                "SM_KERNEL_NAME": "python3",
+                "SM_OUTPUT_NOTEBOOK_NAME": output["file"],
+                "SM_SKIP_EFS_SIMULATION": "true",
+                "DataZoneDomainId": self.domain_identifier,
+                "DataZoneProjectId": self.project_identifier,
+                "DataZoneEndpoint": self.datazone_endpoint,
+                "DataZoneDomainRegion": self.datazone_domain_region,
+                "DataZoneStage": self.datazone_stage,
+                "DataZoneEnvironmentId": self.datazone_environment_id,
+                "InputNotebookPath": local_full_input_file_path,
+                "ProjectS3Path": self.project_s3_path,
+                "AWS_REGION": self.default_tooling_environment["awsAccountRegion"],
+                "SM_OUTPUT_FORMATS": (
+                    ",".join(output_formats_lowercase) if output_formats_lowercase else ""
+                ),
+                # Full path got init script in SM training container is `"{SM_EXECUTION_INPUT_PATH}/${SM_INIT_SCRIPT}"`
+                # The `sm_init_script.sh` is provided in SMD
+                "SM_INIT_SCRIPT": "../../../../../etc/sagemaker-ui/workflows/sm_init_script.sh",
+            }
+
+            training_job_params = {
+                "TrainingJobName": f"{request.execution_name}-{uuid.uuid4()}",
+                "AlgorithmSpecification": {
                     "TrainingImage": ecr_uri,
                     "TrainingInputMode": "File",
                     "EnableSageMakerMetricsTimeSeries": False,
@@ -598,15 +629,15 @@ class RemoteExecutionClient(ExecutionClient):
                         },
                     ],
                 },
-                RoleArn=self.user_role_arn,
-                OutputDataConfig={"S3OutputPath": output["path"], **kms_key_id},
-                ResourceConfig={
+                "RoleArn": self.user_role_arn,
+                "OutputDataConfig": {"S3OutputPath": output["path"], **kms_key_id},
+                "ResourceConfig": {
                     "InstanceCount": 1,
                     "InstanceType": request.compute.get("instance_type", ""),
                     "VolumeSizeInGB": request.compute.get("volume_size_in_gb", 30),
                     **volume_kms_key_id,
                 },
-                InputDataConfig=[
+                "InputDataConfig": [
                     {
                         "ChannelName": "sagemaker_workflows",
                         "DataSource": {
@@ -620,53 +651,34 @@ class RemoteExecutionClient(ExecutionClient):
                         "CompressionType": "None",
                     }
                 ],
-                HyperParameters=request.input_config.get("notebook_config", {}).get(
+                "HyperParameters": request.input_config.get("notebook_config", {}).get(
                     "input_parameters", {}
-                ),
-                StoppingCondition={
+                )
+                or {},
+                "StoppingCondition": {
                     "MaxRuntimeInSeconds": request.get("termination_condition", {}).get(
                         "max_runtime_in_seconds", 86400
                     )
                 },
-                EnableManagedSpotTraining=False,
-                EnableNetworkIsolation=False,
-                EnableInterContainerTrafficEncryption=True,
-                Environment={
-                    "AWS_DEFAULT_REGION": self.default_tooling_environment["awsAccountRegion"],
-                    "SM_EFS_MOUNT_GID": "100",
-                    "SM_EFS_MOUNT_PATH": "/home/sagemaker-user",
-                    "SM_EFS_MOUNT_UID": "1000",
-                    "SM_ENV_NAME": "sagemaker-workflows-default-env",
-                    "SM_EXECUTION_INPUT_PATH": "/opt/ml/input/data/sagemaker_workflows",
-                    "SM_EXECUTION_SYSTEM_PATH": "/opt/ml/input/data/sagemaker_workflows_system",
-                    "SM_INPUT_NOTEBOOK_NAME": input["file"],
-                    "SM_JOB_DEF_VERSION": "1.0",
-                    "SM_KERNEL_NAME": "python3",
-                    "SM_OUTPUT_NOTEBOOK_NAME": output["file"],
-                    "SM_SKIP_EFS_SIMULATION": "true",
-                    "DataZoneDomainId": self.domain_identifier,
-                    "DataZoneProjectId": self.project_identifier,
-                    "DataZoneEndpoint": self.datazone_endpoint,
-                    "DataZoneDomainRegion": self.datazone_domain_region,
-                    "DataZoneStage": self.datazone_stage,
-                    "DataZoneEnvironmentId": self.datazone_environment_id,
-                    "InputNotebookPath": local_full_input_file_path,
-                    "ProjectS3Path": self.project_s3_path,
-                    "AWS_REGION": self.default_tooling_environment["awsAccountRegion"],
-                    "SM_OUTPUT_FORMATS": (
-                        ",".join(output_formats_lowercase) if output_formats_lowercase else ""
-                    ),
-                    # Full path got init script in SM training container is `"{SM_EXECUTION_INPUT_PATH}/${SM_INIT_SCRIPT}"`
-                    # The `sm_init_script.sh` is provided in SMD
-                    "SM_INIT_SCRIPT": "../../../../../etc/sagemaker-ui/workflows/sm_init_script.sh",
-                },
-                RetryStrategy={"MaximumRetryAttempts": 1},
-                Tags=execution_tags,
-                VpcConfig={
+                "EnableManagedSpotTraining": False,
+                "EnableNetworkIsolation": False,
+                "EnableInterContainerTrafficEncryption": True,
+                "Environment": environment_variables,
+                "RetryStrategy": {"MaximumRetryAttempts": 1},
+                "Tags": execution_tags,
+            }
+
+            # Add VpcConfig only if both security_group and subnets are available
+            if self.security_group is not None and self.subnets is not None:
+                training_job_params["VpcConfig"] = {
                     "SecurityGroupIds": [self.security_group],
                     "Subnets": self.subnets,
-                },
+                }
+
+            create_training_job_response = self.sagemaker_client.create_training_job(
+                **training_job_params
             )
+
             split_arn = create_training_job_response.get("TrainingJobArn").split(":training-job/")
             if len(split_arn) != 2:
                 raise RuntimeError("Remote executionId not available")
@@ -924,10 +936,6 @@ class RemoteExecutionClient(ExecutionClient):
             raise ValidationError("Client (idempotency) token not supported")
 
     def __validate_stack(self):
-        if self.security_group is None:
-            raise RuntimeError("Default stack security_group not found")
-        if self.subnets is None:
-            raise RuntimeError("Default stack subnets not found")
         if self.user_role_arn is None:
             raise RuntimeError("Default stack use_role_arn not found")
         return
@@ -936,8 +944,9 @@ class RemoteExecutionClient(ExecutionClient):
     def validate_image_version(sem_ver: str):
         from packaging.version import InvalidVersion, Version
 
-        if sem_ver in ("latest"):
-            raise ValidationError(f"Invalid image version {sem_ver}")
+        # Allow "latest" as a valid version
+        if sem_ver == "latest":
+            return True
 
         try:
             # Parse the version using the packaging library
@@ -947,12 +956,9 @@ class RemoteExecutionClient(ExecutionClient):
             if parsed_version.major == 3:
                 return True
 
-            # Since 2025 June, switching to public smd images, valid versions are 2.6.x, 2.7.x, 2.8.x, 2.9.x
+            # Since 2025 June, SMD switched to public images, valid versions are 2.6.x and above
             if parsed_version.major == 2 and (
-                parsed_version.minor == 6
-                or parsed_version.minor == 7
-                or parsed_version.minor == 8
-                or parsed_version.base_version == "2"
+                parsed_version.base_version == "2" or parsed_version.minor >= 6
             ):
                 return True
             return False

@@ -1,10 +1,12 @@
 from collections import defaultdict
-from typing import DefaultDict, Dict, Iterable, Iterator, List, Set, Type, Union
+from typing import Any, DefaultDict, Iterable, Iterator, Optional, Set, Type, Union
 from uuid import UUID
 from sigma.exceptions import SigmaConfigurationError, SigmaValidatorConfigurationParsingError
 from sigma.rule import SigmaRule
 from sigma.validators.base import SigmaRuleValidator, SigmaValidationIssue
 import yaml
+
+from sigma.validators.core import validator_classname_to_identifier
 
 
 class SigmaValidator:
@@ -17,23 +19,25 @@ class SigmaValidator:
     Exclusions can be defined to exclude validators checks for given rule identifiers.
     """
 
-    validators: Set[SigmaRuleValidator]
-    exclusions: DefaultDict[UUID, Set[Type[SigmaRuleValidator]]]
-    config: Dict[str, Dict[str, Union[str, int, float, bool]]]
+    validators: set[SigmaRuleValidator]
+    exclusions: DefaultDict[Optional[UUID], set[Type[SigmaRuleValidator]]]
 
     def __init__(
         self,
         validators: Iterable[Type[SigmaRuleValidator]],
-        exclusions: Dict[UUID, Set[SigmaRuleValidator]] = dict(),
-        config: Dict[str, Dict[str, Union[str, int, float, bool, tuple]]] = dict(),
+        exclusions: dict[Optional[UUID], set[Type[SigmaRuleValidator]]] = dict(),
+        config: dict[str, dict[str, Union[str, int, float, bool]]] = dict(),
     ):
         self.validators = {
-            validator(**config.get(validator.__name__, {})) for validator in validators
+            validator(**config.get(validator_classname_to_identifier(validator.__name__), {}))
+            for validator in validators
         }
         self.exclusions = defaultdict(set, exclusions)
 
     @classmethod
-    def from_dict(cls, d: Dict, validators: Dict[str, SigmaRuleValidator]) -> "SigmaValidator":
+    def from_dict(
+        cls, d: dict[str, Any], validators: dict[str, Type[SigmaRuleValidator]]
+    ) -> "SigmaValidator":
         """
         Instantiate SigmaValidator from dict definition. The dict should have the following
         elements:
@@ -46,9 +50,9 @@ class SigmaValidator:
           keyword arguments to the validator constructor.
 
         :param d: Definition of the SigmaValidator.
-        :type d: Dict
+        :type d: dict
         :param validators: Mapping from string identifiers to validator classes.
-        :type validators: Dict[str, SigmaRuleValidator]
+        :type validators: dict[str, SigmaRuleValidator]
         :return: Instantiated SigmaValidator
         :rtype: SigmaValidator
         """
@@ -76,7 +80,7 @@ class SigmaValidator:
         # Build exclusion dict
         try:
             exclusions = {
-                UUID(rule_id): {
+                (UUID(rule_id) if rule_id is not None else None): {
                     validators[
                         exclusion_name
                     ]  # main purpose of the generators: resolve identifiers into classes
@@ -98,16 +102,13 @@ class SigmaValidator:
                 raise SigmaConfigurationError(
                     f"Configuration for validator '{ validator_name }' is not a dict."
                 )
-            for k, v in params.items():
-                if isinstance(v, list):
-                    params[k] = tuple(v)
-            configuration[validators[validator_name].__name__] = params
+            configuration[validator_name] = params
 
         return cls(validator_classes, exclusions, configuration)
 
     @classmethod
     def from_yaml(
-        cls, validator_config: str, validators: Dict[str, SigmaRuleValidator]
+        cls, validator_config: str, validators: dict[str, Type[SigmaRuleValidator]]
     ) -> "SigmaValidator":
         try:
             return cls.from_dict(yaml.safe_load(validator_config), validators)
@@ -116,7 +117,7 @@ class SigmaValidator:
                 f"Error in parsing of a Sigma validation configuration file: {str(e)}"
             ) from e
 
-    def validate_rule(self, rule: SigmaRule) -> List[SigmaValidationIssue]:
+    def validate_rule(self, rule: SigmaRule) -> list[SigmaValidationIssue]:
         """
         Validate a single rule with all rule validators configured in this SigmaValidator object. A
         rule validator can keep state information across the validation of multiple rules. Therefore
@@ -127,25 +128,25 @@ class SigmaValidator:
         :param rule: Sigma rule that should be validated.
         :type rule: SigmaRule
         :return: A list of SigmaValidationIssue objects describing potential issues.
-        :rtype: List[SigmaValidationIssue]
+        :rtype: list[SigmaValidationIssue]
         """
-        issues: List[SigmaValidationIssue] = []
+        issues: list[SigmaValidationIssue] = []
         exclusions = self.exclusions[rule.id]
         for validator in self.validators:
-            if not validator.__class__ in exclusions:  # Skip if validator is excluded for this rule
+            if validator.__class__ not in exclusions:  # Skip if validator is excluded for this rule
                 issues.extend(validator.validate(rule))
         return issues
 
-    def finalize(self) -> List[SigmaValidationIssue]:
+    def finalize(self) -> list[SigmaValidationIssue]:
         """
         Finalize all rule validators, collect their issues and return them as flat list.
 
         :return: a list of all issues emitted by rule validators on finalization.
-        :rtype: List[SigmaValidationIssue]
+        :rtype: list[SigmaValidationIssue]
         """
         return [issue for validator in self.validators for issue in validator.finalize()]
 
-    def validate_rules(self, rules: Iterator[SigmaRule]) -> List[SigmaValidationIssue]:
+    def validate_rules(self, rules: Iterator[SigmaRule]) -> list[SigmaValidationIssue]:
         """
         Validate Sigma rules. This method runs all validators on all rules and finalizes
         the validators at the end.
@@ -153,6 +154,6 @@ class SigmaValidator:
         :param rules: Rule collection that should be validated.
         :type rules: Iterator[SigmaRule]
         :return: A list of SigmaValidationIssue objects describing potential issues.
-        :rtype: List[SigmaValidationIssue]
+        :rtype: list[SigmaValidationIssue]
         """
         return [issue for rule in rules for issue in self.validate_rule(rule)] + self.finalize()

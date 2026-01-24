@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-webtest
-Version: 1.9.13
+Version: 1.9.14
 Summary: Instant integration of Ian Bicking's WebTest (http://docs.pylonsproject.org/projects/webtest/) with Django's testing framework.
 Home-page: https://github.com/django-webtest/django-webtest
 Author: Mikhail Korobov
@@ -32,6 +32,17 @@ Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE.txt
 License-File: AUTHORS.txt
 Requires-Dist: webtest>=1.3.3
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 ==============
 django-webtest
@@ -242,6 +253,12 @@ from the source checkout.
 
 CHANGES
 =======
+
+1.9.14 (2025-10-06)
+-------------------
+
+- Do not return response from an exception handler, do it after. Fixed #137
+
 
 1.9.13 (2025-04-03)
 -------------------

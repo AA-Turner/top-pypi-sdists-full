@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
-
-from duckdb import DuckDBPyRelation
 
 from splink.internals.input_column import InputColumn
 
@@ -13,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
 if TYPE_CHECKING:
+    from duckdb import DuckDBPyRelation
+
     from splink.internals.database_api import DatabaseAPI
 
 
@@ -35,10 +35,11 @@ class SplinkDataFrame(ABC):
         self.db_api = db_api
         self._target_schema = "splink"
         self.created_by_splink = False
-        self.sql_used_to_create: str | None = None
+        self.sql_used_to_create: str = ""
         self.metadata = metadata or {}
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def columns(self) -> list[InputColumn]:
         pass
 

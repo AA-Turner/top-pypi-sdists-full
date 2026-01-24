@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, List, Iterable, Optional
 from typing_extensions import Literal, Required, TypedDict
 
+from .._types import SequenceNotStr
 from .currency import Currency
 from .country_code import CountryCode
 from .attach_addon_param import AttachAddonParam
@@ -16,6 +17,7 @@ __all__ = [
     "CheckoutSessionCreateParams",
     "ProductCart",
     "BillingAddress",
+    "CustomField",
     "Customization",
     "FeatureFlags",
     "SubscriptionData",
@@ -47,6 +49,9 @@ class CheckoutSessionCreateParams(TypedDict, total=False):
     If required data is missing, an API error is thrown.
     """
 
+    custom_fields: Optional[Iterable[CustomField]]
+    """Custom fields to collect from customer during checkout (max 5 fields)"""
+
     customer: Optional[CustomerRequestParam]
     """Customer details for the session"""
 
@@ -57,14 +62,35 @@ class CheckoutSessionCreateParams(TypedDict, total=False):
 
     feature_flags: FeatureFlags
 
+    force_3ds: Optional[bool]
+    """Override merchant default 3DS behaviour for this session"""
+
     metadata: Optional[Dict[str, str]]
     """Additional metadata associated with the payment.
 
     Defaults to empty if not provided.
     """
 
+    minimal_address: bool
+    """
+    If true, only zipcode is required when confirm is true; other address fields
+    remain optional
+    """
+
+    payment_method_id: Optional[str]
+    """
+    Optional payment method ID to use for this checkout session. Only allowed when
+    `confirm` is true. If provided, existing customer id must also be provided.
+    """
+
+    product_collection_id: Optional[str]
+    """Product collection ID for collection-based checkout flow"""
+
     return_url: Optional[str]
     """The url to redirect after payment failure or success."""
+
+    short_link: bool
+    """If true, returns a shortened checkout URL. Defaults to false if not specified."""
 
     show_saved_payment_methods: bool
     """Display saved payment methods of a returning customer False by default"""
@@ -94,6 +120,8 @@ class ProductCart(TypedDict, total=False):
 
 
 class BillingAddress(TypedDict, total=False):
+    """Billing address information for the session"""
+
     country: Required[CountryCode]
     """Two-letter ISO country code (ISO 3166-1 alpha-2)"""
 
@@ -110,7 +138,34 @@ class BillingAddress(TypedDict, total=False):
     """Postal code or ZIP code"""
 
 
+class CustomField(TypedDict, total=False):
+    """Definition of a custom field for checkout"""
+
+    field_type: Required[Literal["text", "number", "email", "url", "phone", "date", "datetime", "dropdown", "boolean"]]
+    """Type of field determining validation rules"""
+
+    key: Required[str]
+    """Unique identifier for this field (used as key in responses)"""
+
+    label: Required[str]
+    """Display label shown to customer"""
+
+    options: Optional[SequenceNotStr[str]]
+    """Options for dropdown type (required for dropdown, ignored for others)"""
+
+    placeholder: Optional[str]
+    """Placeholder text for the input"""
+
+    required: bool
+    """Whether this field is required"""
+
+
 class Customization(TypedDict, total=False):
+    """Customization for the checkout session page"""
+
+    force_language: Optional[str]
+    """Force the checkout interface to render in a specific language (e.g. `en`, `es`)"""
+
     show_on_demand_tag: bool
     """Show on demand tag
 
@@ -137,6 +192,20 @@ class FeatureFlags(TypedDict, total=False):
     Default is true
     """
 
+    allow_customer_editing_city: bool
+
+    allow_customer_editing_country: bool
+
+    allow_customer_editing_email: bool
+
+    allow_customer_editing_name: bool
+
+    allow_customer_editing_state: bool
+
+    allow_customer_editing_street: bool
+
+    allow_customer_editing_zipcode: bool
+
     allow_discount_code: bool
     """If the customer is allowed to apply discount code, set it to true.
 
@@ -159,6 +228,12 @@ class FeatureFlags(TypedDict, total=False):
     """
     Set to true if a new customer object should be created. By default email is used
     to find an existing customer to attach the session to
+
+    Default is false
+    """
+
+    redirect_immediately: bool
+    """If true, redirects the customer immediately after payment completion
 
     Default is false
     """

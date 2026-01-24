@@ -125,7 +125,9 @@ def import_model(sklearn_model) -> Model:
         from sklearn.ensemble import (
             HistGradientBoostingRegressor as HistGradientBoostingR,
         )
-        from sklearn.ensemble import IsolationForest
+        from sklearn.ensemble import (
+            IsolationForest,
+        )
         from sklearn.ensemble import RandomForestClassifier as RandomForestC
         from sklearn.ensemble import RandomForestRegressor as RandomForestR
     except ImportError as e:
@@ -178,7 +180,7 @@ def import_model(sklearn_model) -> Model:
     n_node_samples = ArrayOfArrays(dtype=np.int64)
     weighted_n_node_samples = ArrayOfArrays(dtype=np.float64)
     impurity = ArrayOfArrays(dtype=np.float64)
-    for estimator in sklearn_model.estimators_:
+    for tree_idx, estimator in enumerate(sklearn_model.estimators_):
         if isinstance(sklearn_model, (GradientBoostingR, GradientBoostingC)):
             estimator_range = estimator
             learning_rate = sklearn_model.learning_rate
@@ -195,12 +197,22 @@ def import_model(sklearn_model) -> Model:
             node_count.append(tree.node_count)
             children_left.add(tree.children_left, expected_shape=(tree.node_count,))
             children_right.add(tree.children_right, expected_shape=(tree.node_count,))
-            feature.add(tree.feature, expected_shape=(tree.node_count,))
             threshold.add(tree.threshold, expected_shape=(tree.node_count,))
             if isinstance(sklearn_model, IsolationForest):
                 value.add(
                     isolation_depths.reshape((-1, 1, 1)),
                     expected_shape=leaf_value_expected_shape(tree.node_count),
+                )
+                # Note: for isolation forest, if max_features != 1.0
+                # the feature index will be subsampled
+                feature_subsample = np.full(tree.feature.shape, -2, dtype=np.int64)
+                mask = tree.feature != -2
+                feature_subsample[mask] = np.array(
+                    sklearn_model.estimators_features_[tree_idx]
+                )[tree.feature[mask]]
+                feature.add(
+                    feature_subsample.astype(np.int64),
+                    expected_shape=(tree.node_count,),
                 )
             else:
                 # Note: for gradient boosted trees, we shrink each leaf output by the
@@ -209,6 +221,7 @@ def import_model(sklearn_model) -> Model:
                     tree.value * learning_rate,
                     expected_shape=leaf_value_expected_shape(tree.node_count),
                 )
+                feature.add(tree.feature, expected_shape=(tree.node_count,))
             n_node_samples.add(tree.n_node_samples, expected_shape=(tree.node_count,))
             weighted_n_node_samples.add(
                 tree.weighted_n_node_samples, expected_shape=(tree.node_count,)
@@ -340,7 +353,7 @@ def import_model(sklearn_model) -> Model:
 
 
 def _import_hist_gradient_boosting(sklearn_model) -> Model:
-    # pylint: disable=R0914,W0212,too-many-branches
+    # pylint: disable=R0914,W0212,too-many-branches,too-many-statements
     """Load HistGradientBoostingClassifier / HistGradientBoostingRegressor"""
     from sklearn.ensemble import HistGradientBoostingClassifier as HistGradientBoostingC
     from sklearn.ensemble import HistGradientBoostingRegressor as HistGradientBoostingR
@@ -360,11 +373,20 @@ def _import_hist_gradient_boosting(sklearn_model) -> Model:
         and getattr(sklearn_model, "_preprocessor", None) is not None
     ):
         # Ensure that the model's internals did not change
-        assert len(sklearn_model._preprocessor.transformers_) == 2
+        assert len(sklearn_model._preprocessor.transformers_) >= 2
         assert len(sklearn_model._preprocessor.transformers_[0]) == 3
         assert len(sklearn_model._preprocessor.transformers_[1]) == 3
         assert sklearn_model._preprocessor.transformers_[0][0] == "encoder"
         assert sklearn_model._preprocessor.transformers_[1][0] == "numerical"
+
+        if parse_version(sklearn_version) >= parse_version("1.7.0"):
+            assert len(sklearn_model._preprocessor.transformers_) == 3
+            assert len(sklearn_model._preprocessor.transformers_[2]) == 3
+            assert sklearn_model._preprocessor.transformers_[2][0] == "remainder"
+            assert sklearn_model._preprocessor.transformers_[2][1] == "drop"
+            assert all(
+                e is False for e in sklearn_model._preprocessor.transformers_[2][2]
+            )
 
         for cats in sklearn_model._preprocessor.transformers_[0][1].categories_:
             if cats.dtype.type is np.str_:

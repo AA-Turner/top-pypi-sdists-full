@@ -1,0 +1,200 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/works?sample=10
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"total-results":10,"items":[{"indexed":{"date-parts":[[2024,8,2]],"date-time":"2024-08-02T05:54:57Z","timestamp":1722578097719},"reference-count":0,"publisher":"Oxford
+      University Press (OUP)","issue":"3","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Social
+      Politics: International Studies in Gender, State &amp; Society"],"published-print":{"date-parts":[[2003,12,1]]},"DOI":"10.1093\/sp\/jxg017","type":"journal-article","created":{"date-parts":[[2004,2,19]],"date-time":"2004-02-19T13:53:14Z","timestamp":1077198794000},"page":"290-313","source":"Crossref","is-referenced-by-count":27,"title":["Sexual
+      Identities and Political Engagements: A Queer Survey"],"prefix":"10.1093","volume":"10","author":[{"given":"J.","family":"Rollins","sequence":"first","affiliation":[]}],"member":"286","container-title":["Social
+      Politics: International Studies in Gender, State &amp; Society"],"language":"en","link":[{"URL":"http:\/\/academic.oup.com\/sp\/article-pdf\/10\/3\/290\/4627370\/jxg017.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2017,8,23]],"date-time":"2017-08-23T20:38:53Z","timestamp":1503520733000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/academic.oup.com\/sp\/article-lookup\/doi\/10.1093\/sp\/jxg017"}},"issued":{"date-parts":[[2003,12,1]]},"references-count":0,"journal-issue":{"issue":"3","published-print":{"date-parts":[[2003,12,1]]}},"URL":"http:\/\/dx.doi.org\/10.1093\/sp\/jxg017","ISSN":["1072-4745","1468-2893"],"issn-type":[{"value":"1072-4745","type":"print"},{"value":"1468-2893","type":"electronic"}],"published":{"date-parts":[[2003,12,1]]}},{"indexed":{"date-parts":[[2022,4,1]],"date-time":"2022-04-01T17:20:30Z","timestamp":1648833630424},"reference-count":0,"publisher":"King
+      Abdulaziz University Scientific Publishing Centre","issue":"1","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["edu"],"published-print":{"date-parts":[[1995]]},"DOI":"10.4197\/edu.8-1.5","type":"journal-article","created":{"date-parts":[[2010,7,12]],"date-time":"2010-07-12T09:43:15Z","timestamp":1278927795000},"page":"3-33","source":"Crossref","is-referenced-by-count":0,"title":["Evaluating
+      the Educational Process of the Scientific Departments in Faculty of Education:
+      Field Study"],"prefix":"10.4197","volume":"8","author":[{"given":"ABDULFATTAH","family":"GHAWANNl","sequence":"first","affiliation":[]}],"member":"2709","container-title":["Journal
+      of King Abdulaziz University-Educational Sciences"],"language":"en","link":[{"URL":"http:\/\/www.kau.edu.sa\/centers\/spc\/jkau\/Doc\/Edu\/8\/1.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2011,1,24]],"date-time":"2011-01-24T00:21:10Z","timestamp":1295828470000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/prod.kau.edu.sa\/centers\/spc\/jkau\/Data\/Review_Artical.aspx?No=1128"}},"issued":{"date-parts":[[1995]]},"references-count":0,"journal-issue":{"issue":"1","published-print":{"date-parts":[[1995]]}},"URL":"http:\/\/dx.doi.org\/10.4197\/edu.8-1.5","ISSN":["1319-0970"],"issn-type":[{"value":"1319-0970","type":"print"}],"published":{"date-parts":[[1995]]}},{"indexed":{"date-parts":[[2023,10,28]],"date-time":"2023-10-28T06:42:07Z","timestamp":1698475327312},"reference-count":19,"publisher":"Wiley","issue":"1","license":[{"start":{"date-parts":[[2008,4,22]],"date-time":"2008-04-22T00:00:00Z","timestamp":1208822400000},"content-version":"vor","delay-in-days":4435,"URL":"http:\/\/onlinelibrary.wiley.com\/termsAndConditions#vor"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["EPPO
+      Bulletin"],"published-print":{"date-parts":[[1996,3]]},"abstract":"<jats:p>Periodic
+      inspections of air\u2010assisted sprayers have been carried out i n Germany
+      since 1984. The inspection follows <jats:bold>BBA<\/jats:bold> Guideline no.
+      44 and includes measurement of pump function and single nozzle output. a check
+      o n pressure gauge operation and other visual checks. Similar systems have been
+      implemented or are under consideration in other countries. There is discussion
+      throughout Europe on the inclusion of a vertical patternator into the inspection
+      procedure, to measure and optimize the vertical liquid distribution pattern
+      with respect to an individual application situation. The original idea of the
+      sprayer inspection was to improve the equipment and to save repair time during
+      the spraying season. Environmental aspects were stressed later. The introduction
+      of the mandatory periodic inspection of field sprayers in Germany was justified
+      by the aim of avoiding chemical pollution due to deficient spraying equipment.
+      <jats:bold>A<\/jats:bold> 4\u2010year test programme with air\u2010assisted
+      sprayers in Germany has now proved that vertical patternators are not appropriate
+      for specific adjustment of sprayer to particular crop situations. It is concluded
+      that this equipment should not be a generally required test stand for periodic
+      sprayer inspections.<\/jats:p>","DOI":"10.1111\/j.1365-2338.1996.tb01531.x","type":"journal-article","created":{"date-parts":[[2008,4,22]],"date-time":"2008-04-22T19:46:15Z","timestamp":1208893575000},"page":"79-86","source":"Crossref","is-referenced-by-count":2,"title":["Periodic
+      inspection of air\u2010assisted sprayers<sup>1<\/sup>"],"prefix":"10.1111","volume":"26","author":[{"given":"H.","family":"KOCH","sequence":"first","affiliation":[]}],"member":"311","published-online":{"date-parts":[[2008,4,22]]},"reference":[{"key":"e_1_2_1_2_1","unstructured":"ANON.(1991)Richtlinien
+      I991 f\u00fcr die Regionale Ueberpr\u00fcfung von Gebl\u00e4sespritzen f\u00fcr
+      Obst\u2010und Weinbau. FAT\u2010T\u00e4nikon FAW\u2010W\u00e4denswil RAC\u2010Chaingins.
+      SVLT\u2010Riniken (CH) (in German)."},{"key":"e_1_2_1_3_1","unstructured":"BBA(1983)
+      [Inspection of plant protection equipment.]BBA MerkblauNr. 44. 2 ed. Biologische
+      Bundesanstalt. Braunschweig (DE) (in German)."},{"key":"e_1_2_1_4_1","unstructured":"BBA(1988)
+      [Spray and misting equipinen1 for space crops.]Richtlinien f\u00fcr die anuliche
+      Pr\u00fcfung von Pflanzenschutzmitteln. Teil VII. (Pflanzenschutzger\u00e4te)no.
+      1\u20101.1.2 Biologische Bundesanstalt. Branunscliweig (DE) (in German)."},{"key":"e_1_2_1_5_1","unstructured":"BBA(1990)
+      [Inspection of plant protection equipment.]BBA Merkblatt Nr. 44. 3. ed. Biologische
+      Bundesanstalt. Braunschweig (DE) (in German)."},{"key":"e_1_2_1_6_1","volume-title":"Check
+      List for Corp Sprayers","author":"Bjugstad N.","year":"1993"},{"key":"e_1_2_1_7_1","doi-asserted-by":"publisher","DOI":"10.1111\/j.1365-2338.1996.tb01528.x"},{"key":"e_1_2_1_8_1","unstructured":"Irla
+      E.(1986) [Comparative testing of air\u2010assisted sprayers.]FAT\u2010Berichte.
+      FAT. T\u00e4nikon. CH (in German)."},{"key":"e_1_2_1_9_1","doi-asserted-by":"publisher","DOI":"10.1111\/j.1365-2338.1996.tb01530.x"},{"key":"e_1_2_1_10_1","unstructured":"Koch
+      H.(1993)Application rate and spray deposit on targets in plant protection. In
+      Proceedings of the Second International Symposium on Pesticide Application Vol.
+      1. PP.175 182. Strasbourg (FR)."},{"key":"e_1_2_1_11_1","first-page":"634","article-title":"Variablity
+      of initial deposits of pesticides in orchards","volume":"96","author":"Koch
+      H.","year":"1994","journal-title":"Zeitschrift f\u00fcr Pftanzenkrankheiten
+      und Pflanzenschutz"},{"key":"e_1_2_1_12_1","first-page":"199","article-title":"Improved
+      inspection of spra) equipment with data from a Iamcllar test stand","volume":"44","author":"K\u00dcMMEL
+      K.","year":"1989","journal-title":"Mitteilungen der Obstbau Versuchsanstalt
+      Jork"},{"key":"e_1_2_1_13_1","first-page":"27","volume-title":"Air\u2010Assisted
+      Sprqirig in Crop Protection","author":"K\u00dcMMEL K.","year":"1991"},{"key":"e_1_2_1_14_1","first-page":"370","article-title":"New
+      test station for spraying equipment from Steiermark","volume":"13","author":"Lind
+      K.","year":"1988","journal-title":"Ohstbuu"},{"key":"e_1_2_1_15_1","unstructured":"Martin.K.(1993)
+      [Water volume and product dose in orchards in relation to registration.]Mittelungen
+      aus der Biologischen Bundesanstalt f\u00fcr Land\u2010 und Forstwirtsehaftno.
+      292 121\u2013129(in German)."},{"key":"e_1_2_1_16_1","first-page":"269","volume-title":"Air\u2010Assisred
+      Sprqing in Crop Protection","author":"Raisigl U.","year":"1991"},{"key":"e_1_2_1_17_1","unstructured":"Schimidt.K.&Koch.H.(1995)
+      [Adjustment of air\u2010blast sprayers and distribution of pesticides in orchards.Nachrichtenblatt
+      des Deutschen Pflanzenschutzdienstes(in press) (in German)."},{"key":"e_1_2_1_18_1","first-page":"185","article-title":"Application
+      technique in orchards \u2010 a comparison of dilffcrent air\u2010assisted sprays","volume":"126","author":"Siegfried
+      W.","year":"1990","journal-title":"Schweizerische Zeitschrift f\u00fcr Obst-
+      und Weinbau"},{"key":"e_1_2_1_19_1","unstructured":"SKL(1994) [General SKL inspections
+      standards for orchards sprayers. 1994\u201001\u201001.]Stichfing Kwaliteitseisen
+      Landbouwtechnik(in Dutch)."},{"issue":"30","key":"e_1_2_1_20_1","first-page":"18","article-title":"A
+      measuring system for controlling sprayer operation","volume":"79","author":"Van
+      Zuydam R.","year":"1989","journal-title":"Fruitteeh"}],"container-title":["EPPO
+      Bulletin"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1111%2Fj.1365-2338.1996.tb01531.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/pdf\/10.1111\/j.1365-2338.1996.tb01531.x","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,10,27]],"date-time":"2023-10-27T07:19:12Z","timestamp":1698391152000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.1365-2338.1996.tb01531.x"}},"issued":{"date-parts":[[1996,3]]},"references-count":19,"journal-issue":{"issue":"1","published-print":{"date-parts":[[1996,3]]}},"alternative-id":["10.1111\/j.1365-2338.1996.tb01531.x"],"URL":"http:\/\/dx.doi.org\/10.1111\/j.1365-2338.1996.tb01531.x","archive":["Portico"],"ISSN":["0250-8052","1365-2338"],"issn-type":[{"value":"0250-8052","type":"print"},{"value":"1365-2338","type":"electronic"}],"published":{"date-parts":[[1996,3]]}},{"indexed":{"date-parts":[[2024,9,19]],"date-time":"2024-09-19T15:03:34Z","timestamp":1726758214385},"reference-count":0,"publisher":"American
+      Psychological Association (APA)","issue":"3","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Journal
+      of Consulting and Clinical Psychology"],"DOI":"10.1037\/0022-006x.60.3.426","type":"journal-article","created":{"date-parts":[[2005,9,21]],"date-time":"2005-09-21T16:41:25Z","timestamp":1127320885000},"page":"426-432","source":"Crossref","is-referenced-by-count":198,"title":["Cognitive-behavioral
+      intervention with aggressive boys: Three-year follow-up and preventive effects."],"prefix":"10.1037","volume":"60","author":[{"given":"John
+      E.","family":"Lochman","sequence":"first","affiliation":[]}],"member":"15","published-online":{"date-parts":[[1992]]},"container-title":["Journal
+      of Consulting and Clinical Psychology"],"language":"en","link":[{"URL":"http:\/\/psycnet.apa.org\/journals\/ccp\/60\/3\/426.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2024,2,6]],"date-time":"2024-02-06T20:39:08Z","timestamp":1707251948000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/doi.apa.org\/doi\/10.1037\/0022-006X.60.3.426"}},"issued":{"date-parts":[[1992]]},"references-count":0,"journal-issue":{"issue":"3","published-online":{"date-parts":[[1992]]}},"alternative-id":["1992-32202-001","1619096"],"URL":"http:\/\/dx.doi.org\/10.1037\/0022-006x.60.3.426","ISSN":["1939-2117","0022-006X"],"issn-type":[{"value":"1939-2117","type":"electronic"},{"value":"0022-006X","type":"print"}],"published":{"date-parts":[[1992]]}},{"indexed":{"date-parts":[[2022,4,3]],"date-time":"2022-04-03T12:58:19Z","timestamp":1648990699064},"reference-count":0,"publisher":"Oxford
+      University Press (OUP)","issue":"259","content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["The
+      Economic Journal"],"published-print":{"date-parts":[[1955,9]]},"DOI":"10.2307\/2227351","type":"journal-article","created":{"date-parts":[[2006,6,19]],"date-time":"2006-06-19T14:32:35Z","timestamp":1150727555000},"page":"545","source":"Crossref","is-referenced-by-count":0,"title":["[Mr.
+      Hahn of Liquidity Preference]: Rejoinder"],"prefix":"10.1093","volume":"65","author":[{"given":"F.
+      H.","family":"H.","sequence":"first","affiliation":[]}],"member":"286","container-title":["The
+      Economic Journal"],"deposited":{"date-parts":[[2019,4,2]],"date-time":"2019-04-02T15:21:37Z","timestamp":1554218497000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/academic.oup.com\/ej\/article\/65\/259\/545-546\/5258878"}},"issued":{"date-parts":[[1955,9]]},"references-count":0,"journal-issue":{"issue":"259","published-print":{"date-parts":[[1955,9]]}},"URL":"http:\/\/dx.doi.org\/10.2307\/2227351","ISSN":["0013-0133"],"issn-type":[{"value":"0013-0133","type":"print"}],"published":{"date-parts":[[1955,9]]}},{"institution":[{"name":"Koninklijke
+      Brill NV","acronym":["BRILL"]}],"indexed":{"date-parts":[[2022,4,3]],"date-time":"2022-04-03T03:01:52Z","timestamp":1648954912560},"reference-count":0,"publisher":"Brill","content-domain":{"domain":[],"crossmark-restriction":false},"DOI":"10.1163\/2210-7975_hrd-0084-0007","type":"dataset","created":{"date-parts":[[2016,1,26]],"date-time":"2016-01-26T10:54:27Z","timestamp":1453805667000},"source":"Crossref","is-referenced-by-count":0,"title":["background-information-1981-no3-the-human-rights-issue-and-the-human-rights-movement-by-jose-zalaquett-1981-65-pp"],"prefix":"10.1163","member":"50","container-title":["Human
+      Rights Documents online"],"deposited":{"date-parts":[[2018,11,20]],"date-time":"2018-11-20T22:57:29Z","timestamp":1542754649000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/primarysources.brillonline.com\/browse\/human-rights-documents-online\/background-information-1981-no3-the-human-rights-issue-and-the-human-rights-movement-by-jose-zalaquett-1981-65-pp;hrdhrd00840007"}},"issued":{"date-parts":[[null]]},"references-count":0,"URL":"http:\/\/dx.doi.org\/10.1163\/2210-7975_hrd-0084-0007"},{"indexed":{"date-parts":[[2022,3,29]],"date-time":"2022-03-29T15:05:59Z","timestamp":1648566359166},"reference-count":0,"publisher":"IEEE","isbn-type":[{"value":"9781509026753","type":"electronic"}],"content-domain":{"domain":[],"crossmark-restriction":false},"published-print":{"date-parts":[[2016,6]]},"DOI":"10.1109\/icws38488.2016","type":"proceedings","created":{"date-parts":[[2020,2,2]],"date-time":"2020-02-02T16:39:26Z","timestamp":1580661566000},"source":"Crossref","is-referenced-by-count":0,"title":["2016
+      IEEE International Conference on Web Services (ICWS)"],"prefix":"10.1109","member":"263","event":{"name":"2016
+      IEEE International Conference on Web Services (ICWS)","location":"San Francisco,
+      CA","start":{"date-parts":[[2016,6,27]]},"end":{"date-parts":[[2016,7,2]]}},"deposited":{"date-parts":[[2020,2,2]],"date-time":"2020-02-02T16:39:27Z","timestamp":1580661567000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/ieeexplore.ieee.org\/xpl\/mostRecentIssue.jsp?punumber=7557851"}},"issued":{"date-parts":[[2016,6]]},"ISBN":["9781509026753"],"references-count":0,"URL":"http:\/\/dx.doi.org\/10.1109\/icws38488.2016","published":{"date-parts":[[2016,6]]}},{"indexed":{"date-parts":[[2024,5,17]],"date-time":"2024-05-17T18:13:45Z","timestamp":1715969625908},"reference-count":3,"publisher":"American
+      Society of Hematology","issue":"3","content-domain":{"domain":["ashpublications.org"],"crossmark-restriction":true},"published-print":{"date-parts":[[2006,2,1]]},"DOI":"10.1182\/blood-2005-11-4606","type":"journal-article","created":{"date-parts":[[2006,1,24]],"date-time":"2006-01-24T16:08:07Z","timestamp":1138118887000},"page":"852-853","update-policy":"http:\/\/dx.doi.org\/10.1182\/blood.2019cm0000","source":"Crossref","is-referenced-by-count":3,"title":["In
+      adult ALL, less is now more"],"prefix":"10.1182","volume":"107","author":[{"given":"Mark
+      A","family":"Weiss","sequence":"first","affiliation":[{"name":"MEMORIAL SLOAN
+      KETTERING CANCER CENTER"}]},{"given":"Nicole","family":"Lamanna","sequence":"additional","affiliation":[{"name":"MEMORIAL
+      SLOAN KETTERING CANCER CENTER"}]}],"member":"234","reference":[{"key":"2019111713281333900_REF1","unstructured":"Scheinberg
+      D, Maslak P, Weiss M. Acute leukemias. In: DeVita V, Hellman S, Rosenberg S,
+      eds. Cancer: Principles and Practice of Oncology. Philadelphia, PA: Lippincott-Raven;
+      2005: 2404-2432."},{"key":"2019111713281333900_REF2","doi-asserted-by":"crossref","unstructured":"Gaynor
+      J, Chapman D, Little C, et al. A cause-specific hazard rate analysis of prognostic
+      factors among 199 adults with acute lymphoblastic leukemia: The Memorial Hospital
+      experience since 1969. J Clin Oncol. 1988;6: 1014-1030.","DOI":"10.1200\/JCO.1988.6.6.1014"},{"key":"2019111713281333900_REF3","doi-asserted-by":"crossref","unstructured":"Hoelzer
+      D, Thiel E, Loffler H, et al. Prognostic factors in a multicenter study for
+      treatment of acute lymphoblastic leukemia in adults. Blood. 1998;71: 123-131.","DOI":"10.1182\/blood.V71.1.123.123"}],"container-title":["Blood"],"language":"en","link":[{"URL":"http:\/\/ashpublications.org\/blood\/article-pdf\/107\/3\/852\/1280768\/zh800306000847g.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"syndication"},{"URL":"http:\/\/ashpublications.org\/blood\/article-pdf\/107\/3\/852\/1280768\/zh800306000847g.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2019,11,17]],"date-time":"2019-11-17T18:28:21Z","timestamp":1574015301000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/ashpublications.org\/blood\/article\/107\/3\/852\/22130\/In-adult-ALL-less-is-now-more"}},"issued":{"date-parts":[[2006,2,1]]},"references-count":3,"journal-issue":{"issue":"3","published-print":{"date-parts":[[2006,2,1]]}},"URL":"http:\/\/dx.doi.org\/10.1182\/blood-2005-11-4606","ISSN":["0006-4971","1528-0020"],"issn-type":[{"value":"0006-4971","type":"print"},{"value":"1528-0020","type":"electronic"}],"published":{"date-parts":[[2006,2,1]]}},{"indexed":{"date-parts":[[2022,11,5]],"date-time":"2022-11-05T04:56:11Z","timestamp":1667624171003},"reference-count":0,"publisher":"International
+      Union of Crystallography (IUCr)","issue":"1","license":[{"start":{"date-parts":[[1973,2,1]],"date-time":"1973-02-01T00:00:00Z","timestamp":97372800000},"content-version":"vor","delay-in-days":0,"URL":"http:\/\/journals.iucr.org\/services\/copyrightpolicy.html"},{"start":{"date-parts":[[1973,2,1]],"date-time":"1973-02-01T00:00:00Z","timestamp":97372800000},"content-version":"tdm","delay-in-days":0,"URL":"http:\/\/journals.iucr.org\/services\/copyrightpolicy.html#TDM"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["J
+      Appl Crystallogr","J Appl Cryst"],"published-print":{"date-parts":[[1973,2,1]]},"DOI":"10.1107\/s0021889873008137","type":"journal-article","created":{"date-parts":[[2009,7,10]],"date-time":"2009-07-10T14:35:02Z","timestamp":1247236502000},"page":"58-58","source":"Crossref","is-referenced-by-count":0,"title":["<i>Handbook
+      of electronic materials. Vol. 7. III-V. Ternary semiconducting compunds - Data
+      tables<\/i>by M. Neuberger"],"prefix":"10.1107","volume":"6","author":[{"given":"M.
+      M.","family":"Woolfson","sequence":"first","affiliation":[]}],"member":"329","container-title":["Journal
+      of Applied Crystallography"],"link":[{"URL":"http:\/\/journals.iucr.org\/j\/issues\/1973\/01\/00\/a10441\/a10441.pdf","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/journals.iucr.org\/j\/issues\/1973\/01\/00\/a10441\/a10441.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,11,4]],"date-time":"2022-11-04T09:28:22Z","timestamp":1667554102000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/scripts.iucr.org\/cgi-bin\/paper?S0021889873008137"}},"issued":{"date-parts":[[1973,2,1]]},"references-count":0,"journal-issue":{"issue":"1","published-print":{"date-parts":[[1973,2]]}},"alternative-id":["S0021889873008137"],"URL":"http:\/\/dx.doi.org\/10.1107\/s0021889873008137","ISSN":["0021-8898"],"issn-type":[{"value":"0021-8898","type":"print"}],"published":{"date-parts":[[1973,2,1]]}},{"indexed":{"date-parts":[[2024,6,11]],"date-time":"2024-06-11T00:01:52Z","timestamp":1718064112275},"reference-count":17,"publisher":"European
+      Mathematical Society - EMS - Publishing House GmbH","issue":"2","license":[{"start":{"date-parts":[[2004,4,1]],"date-time":"2004-04-01T00:00:00Z","timestamp":1080777600000},"content-version":"tdm","delay-in-days":0,"URL":"https:\/\/www.elsevier.com\/tdm\/userlicense\/1.0\/"},{"start":{"date-parts":[[2013,8,22]],"date-time":"2013-08-22T00:00:00Z","timestamp":1377129600000},"content-version":"vor","delay-in-days":3430,"URL":"http:\/\/www.elsevier.com\/open-access\/userlicense\/1.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Ann.
+      Inst. H. Poincar\u00e9 C Anal. Non Lin\u00e9aire"],"published-print":{"date-parts":[[2004,4]]},"DOI":"10.1016\/j.anihpc.2003.01.001","type":"journal-article","created":{"date-parts":[[2004,8,25]],"date-time":"2004-08-25T15:32:12Z","timestamp":1093447932000},"page":"187-207","source":"Crossref","is-referenced-by-count":5,"title":["On
+      planar selfdual Electroweak vortices"],"prefix":"10.4171","volume":"21","author":[{"given":"Dongho","family":"Chae","sequence":"first","affiliation":[{"name":"Department
+      of Mathematics, Seoul National University, Seoul 151-742, South Korea"}]},{"given":"Gabriella","family":"Tarantello","sequence":"additional","affiliation":[{"name":"Dipartimento
+      di Matematica, Universit\u00e0 degli Studi di Roma \u201cTor Vergata\u201d,
+      Via della Ricerca Scientifica, 00133 Roma, Italy"}]}],"member":"2673","reference":[{"key":"10.1016\/j.anihpc.2003.01.001_BIB001","first-page":"1174","article-title":"On
+      the magnetic properties of superconductors of second group","volume":"5","author":"Abrikosov","year":"1957","journal-title":"Sov.
+      Phys. JETP"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB002","doi-asserted-by":"crossref","first-page":"67","DOI":"10.1016\/0370-2693(89)90476-0","article-title":"A
+      magnetic condensate solution of the classical electroweak theory","volume":"218","author":"Ambjorn","year":"1989","journal-title":"Phys.
+      Lett. B"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB003","doi-asserted-by":"crossref","first-page":"606","DOI":"10.1016\/0550-3213(89)90004-7","article-title":"On
+      electroweak magnetis","volume":"315","author":"Ambjorn","year":"1989","journal-title":"Nucl.
+      Phys. B"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB004","doi-asserted-by":"crossref","first-page":"193","DOI":"10.1016\/0550-3213(90)90307-Y","article-title":"A
+      condensate solution of the electroweak theory which interpolates between the
+      broken and symmetry phase","volume":"330","author":"Ambjorn","year":"1990","journal-title":"Nucl.
+      Phys. B"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB005","doi-asserted-by":"crossref","first-page":"3","DOI":"10.1007\/s002200200664","article-title":"The
+      Liouville equations with singular data and their applications to electroweak
+      vortices","volume":"229","author":"Bartolucci","year":"2002","journal-title":"Comm.
+      Math. Phys."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB006","doi-asserted-by":"crossref","unstructured":"H.
+      Brezis, F. Merle, Uniform estimates and blow-up behaviour for solutions of \u2212\u0394u=V(x)eu
+      in two dimensions, Comm. Partial Differential Equations 16, (8,9), 1223\u20131253","DOI":"10.1080\/03605309108820797"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB007","doi-asserted-by":"crossref","first-page":"119","DOI":"10.1007\/s002200000302","article-title":"The
+      existence of non-topological multivortex solutions in the relativistic self-dual
+      Chern\u2013Simons theory","volume":"215","author":"Chae","year":"2000","journal-title":"Comm.
+      Math. Phys."},{"issue":"2","key":"10.1016\/j.anihpc.2003.01.001_BIB008","doi-asserted-by":"crossref","first-page":"427","DOI":"10.1215\/S0012-7094-93-07117-7","article-title":"Qualitative
+      properties of solutions to some nonlinear elliptic equations in \u211d2","volume":"71","author":"Chen","year":"1993","journal-title":"Duke
+      Math. J."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB009","doi-asserted-by":"crossref","first-page":"141","DOI":"10.1016\/0550-3213(79)90595-9","article-title":"A
+      property of electric and magnetic flux in nonabelian gauge theories","volume":"153","author":"''t
+      Hooft","year":"1979","journal-title":"Nucl. Phys. B"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB010","unstructured":"C.H.
+      Lai (Ed.), Selected Papers on Gauge Theory of Weak and Electromagnetic Interactions,
+      World Scientific, Singapore"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB011","article-title":"Topics
+      in Nonlinear Analysis","author":"Nirenberg","year":"2001"},{"issue":"4","key":"10.1016\/j.anihpc.2003.01.001_BIB012","doi-asserted-by":"crossref","first-page":"967","DOI":"10.1017\/S0308210500001219","article-title":"On
+      a class of elliptic problems in \u211d2: symmetry and uniqueness results","volume":"131","author":"Prajapat","year":"2001","journal-title":"Proc.
+      Royal Soc. Edinburgh"},{"key":"10.1016\/j.anihpc.2003.01.001_BIB013","doi-asserted-by":"crossref","first-page":"1","DOI":"10.1007\/BF02099188","article-title":"On
+      multivortices in the electroweak theory I: existence of periodic solutions","volume":"144","author":"Spruck","year":"1992","journal-title":"Comm.
+      Math. Phys."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB014","doi-asserted-by":"crossref","first-page":"215","DOI":"10.1007\/BF02101090","article-title":"On
+      multivortices in the electroweak theory II: existence of Bogomol''nyi solutions
+      in \u211d2","volume":"144","author":"Spruck","year":"1992","journal-title":"Comm.
+      Math. Phys."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB015","doi-asserted-by":"crossref","first-page":"277","DOI":"10.1007\/BF01197552","article-title":"Arbitrary
+      N-vortex solutions to the first order Ginzburg\u2013Landau equation","volume":"72","author":"Taubes","year":"1980","journal-title":"Comm.
+      Math. Phys."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB016","doi-asserted-by":"crossref","first-page":"207","DOI":"10.1007\/BF01212709","article-title":"On
+      the equivalence of first order and second order equations for gauge theories","volume":"75","author":"Taubes","year":"1980","journal-title":"Comm.
+      Math. Phys."},{"key":"10.1016\/j.anihpc.2003.01.001_BIB017","doi-asserted-by":"crossref","article-title":"Solitons
+      in Field Theory and Nonlinear Analysis","author":"Yang","year":"2001","DOI":"10.1007\/978-1-4757-6548-9"}],"container-title":["Annales
+      de l''Institut Henri Poincar\u00e9 C, Analyse non lin\u00e9aire"],"link":[{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0294144903000349?httpAccept=text\/xml","content-type":"text\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0294144903000349?httpAccept=text\/plain","content-type":"text\/plain","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2024,6,10]],"date-time":"2024-06-10T15:15:56Z","timestamp":1718032556000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/ems.press\/doi\/10.1016\/j.anihpc.2003.01.001"}},"issued":{"date-parts":[[2004,4]]},"references-count":17,"journal-issue":{"issue":"2"},"URL":"http:\/\/dx.doi.org\/10.1016\/j.anihpc.2003.01.001","ISSN":["0294-1449","1873-1430"],"issn-type":[{"value":"0294-1449","type":"print"},{"value":"1873-1430","type":"electronic"}],"published":{"date-parts":[[2004,4]]}}],"items-per-page":20,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '8062'
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 04:59:40 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+version: 1

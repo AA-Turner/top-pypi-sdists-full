@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from io import IOBase
 import os
-from typing import Dict, List, Optional, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Type, Union, cast
 
 import dateutil
 from requests import Response
@@ -25,6 +25,7 @@ from datarobot.enums import (
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
     FileLocationType,
+    FilesOverwriteStrategy,
     LocalSourceType,
     StrEnum,
 )
@@ -48,43 +49,40 @@ class CatalogAccessType(StrEnum):
     ANY = "any"
 
 
-_file_schema = t.Dict(
-    {
-        t.Key("file_name") >> "name": String,
-        t.Key("file_type") >> "type": String,
-        t.Key("file_size") >> "size": Int(),
-        t.Key("ingest_errors", optional=True): t.Or(String(allow_blank=True), t.Null),
-    }
-)
+_file_schema = t.Dict({
+    t.Key("file_name") >> "name": String,
+    t.Key("file_type") >> "type": String,
+    t.Key("file_size") >> "size": Int(),
+    t.Key("ingest_errors", optional=True): t.Or(String(allow_blank=True), t.Null),
+})
 
-_files_schema = t.Dict(
-    {
-        t.Key("id"): String,
-        t.Key("name"): String,
-        t.Key("description", optional=True): t.Or(String, t.Null),
-        t.Key("type"): String,
-        t.Key("tags"): t.List(String),
-        t.Key("num_files", optional=True): t.Int,
-        t.Key("from_archive", optional=True): t.Bool(),
-        t.Key("created_at"): t.Call(dateutil.parser.parse),
-        t.Key("created_by", optional=True): t.Or(String, t.Null),
-    }
-)
+_files_schema = t.Dict({
+    t.Key("id"): String,
+    t.Key("name"): String,
+    t.Key("description", optional=True): t.Or(String, t.Null),
+    t.Key("type"): String,
+    t.Key("tags"): t.List(String),
+    t.Key("num_files", optional=True): t.Int,
+    t.Key("from_archive", optional=True): t.Bool(),
+    t.Key("created_at"): t.Call(dateutil.parser.parse),
+    t.Key("created_by", optional=True): t.Or(String, t.Null),
+})
 
-_file_catalog_search_schema = t.Dict(
-    {
-        t.Key("id"): String,
-        t.Key("catalog_name") >> "name": String,
-        t.Key("description", optional=True): t.Or(String, t.Null),
-        t.Key("info_creator_full_name") >> "created_by": String,
-        t.Key("info_creation_date") >> "created_at": t.Call(dateutil.parser.parse),
-        t.Key("last_modification_date") >> "last_modified_at": t.Call(dateutil.parser.parse),
-        t.Key("last_modifier_full_name") >> "last_modified_by": String,
-        t.Key("tags"): t.List(String),
-        t.Key("num_files", optional=True): t.Or(Int, t.Null),
-        t.Key("from_archive", optional=True): t.Or(bool, t.Null),
-    }
-).ignore_extra("*")
+_file_catalog_search_schema = t.Dict({
+    t.Key("id"): String,
+    t.Key("catalog_name") >> "name": String,
+    t.Key("description", optional=True): t.Or(String, t.Null),
+    t.Key("info_creator_full_name") >> "created_by": String,
+    t.Key("info_creation_date") >> "created_at": t.Call(dateutil.parser.parse),
+    t.Key("last_modification_date") >> "last_modified_at": t.Call(dateutil.parser.parse),
+    t.Key("last_modifier_full_name") >> "last_modified_by": String,
+    t.Key("tags"): t.List(String),
+    t.Key("num_files", optional=True): t.Or(Int, t.Null),
+    t.Key("from_archive", optional=True): t.Or(bool, t.Null),
+}).ignore_extra("*")
+
+
+_files_stage_schema = t.Dict({"catalog_id": String, "stage_id": String}).ignore_extra("*")
 
 
 class File(APIObject, HumanReadable):
@@ -119,6 +117,86 @@ class File(APIObject, HumanReadable):
         self.type = type
         self.size = size
         self.ingest_errors = ingest_errors
+
+
+class FilesStage(APIObject, HumanReadable):
+    """A place to accumulate multiple uploaded files
+    before they're added into corresponding files container.
+
+    .. versionadded:: v3.10
+
+    Attributes
+    ----------
+    catalog_id: str
+        The unique identifier for the files container.
+        The `FilesStage` can be applied only to that files container.
+    stage_id: str
+        The unique identifier for the `FilesStage` object.
+    """
+
+    _converter = _files_stage_schema
+
+    def __init__(self, catalog_id: str, stage_id: str):
+        self.catalog_id = catalog_id
+        self.stage_id = stage_id
+
+    def apply(self, overwrite: Optional[FilesOverwriteStrategy] = FilesOverwriteStrategy.RENAME) -> "Files":
+        """
+        Add the files uploaded into this `FilesStage` into the corresponding files container.
+        You can call this method only once for a particular `FilesStage`.
+
+        .. versionadded:: v3.10
+
+        Parameters
+        ----------
+        overwrite: Optional[FilesOverwriteStrategy]
+            How to deal with a name conflict between an existing file and an uploaded one.
+            RENAME (default): rename an uploaded file using "<filename> (n).ext" pattern.'
+            REPLACE: prefer an uploaded file.
+            SKIP: prefer an existing file.'
+            ERROR: return "HTTP 409 Conflict" response in case of a naming conflict. '
+
+        Returns
+        -------
+        response: Files
+            A fully armed and operational Files container
+        """
+        url = f"files/{self.catalog_id}/fromStage/"
+        response = self._client.post(url, json={"stageId": self.stage_id, "overwrite": overwrite})
+        return Files.get(response.json()["catalogId"])
+
+    def upload(self, source: str | IOBase, file_name: str | None = None) -> None:
+        """Upload a file into the `FilesStage`.
+
+        .. versionadded:: v3.10
+
+        Parameters
+        ----------
+        source: str | IOBase
+            Local file path or a file-like object to upload.
+        file_name: str
+            The file name to apply on the server side.
+        """
+        url = f"files/{self.catalog_id}/stages/{self.stage_id}/upload/"
+
+        if isinstance(source, str):
+            fname = file_name or os.path.basename(source)
+            self._client.build_request_with_file(
+                method="post",
+                url=url,
+                fname=fname,
+                file_path=source,
+                read_timeout=DEFAULT_TIMEOUT.UPLOAD,
+            )
+        else:
+            fname = cast(str, getattr(source, "name", file_name))
+            self._client.build_request_with_file(
+                method="post",
+                url=url,
+                fname=fname,
+                filelike=source,
+                read_timeout=DEFAULT_TIMEOUT.UPLOAD,
+            )
 
 
 class Files(APIObject):
@@ -207,6 +285,7 @@ class Files(APIObject):
         file_name: Optional[str] = None,
         file_path: Optional[str] = None,
         filelike: Optional[IOBase] = None,
+        version_id: Optional[str] = None,
     ) -> None:
         """
         Retrieves uploaded file contents.
@@ -231,7 +310,8 @@ class Files(APIObject):
         filelike: Optional[IOBase]
             A file-like object to write to.  The object must be able to write bytes. The user is
             responsible for closing the object.
-
+        version_id: Optional[str]
+            If provided, download from the specified version instead of the latest version.
         Returns
         -------
         None
@@ -241,7 +321,11 @@ class Files(APIObject):
         if file_name:
             data["fileName"] = file_name
 
-        response = self._client.post(f"{self._path}{self.id}/downloads/", json=data, stream=True)
+        if version_id:
+            path = f"{self._path}{self.id}/versions/{version_id}/downloads/"
+        else:
+            path = f"{self._path}{self.id}/downloads/"
+        response = self._client.post(path, json=data, stream=True)
         if file_path:
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=1000):
@@ -376,9 +460,7 @@ class Files(APIObject):
 
         response = cls._client.post(endpoint, data=payload)
 
-        file = cls._get_files_from_async(
-            response, wait_for_completion=wait_for_completion, max_wait=max_wait
-        )
+        file = cls._get_files_from_async(response, wait_for_completion=wait_for_completion, max_wait=max_wait)
 
         if tags:
             file.modify(tags=tags)
@@ -458,9 +540,7 @@ class Files(APIObject):
                 form_data=form_data,
             )
 
-        file = cls._get_files_from_async(
-            response, wait_for_completion=wait_for_completion, max_wait=max_wait
-        )
+        file = cls._get_files_from_async(response, wait_for_completion=wait_for_completion, max_wait=max_wait)
 
         if tags:
             file.modify(tags=tags)
@@ -517,9 +597,7 @@ class Files(APIObject):
         upload_url = f"{cls._path}fromDataSource/"
         response = cls._client.post(upload_url, data=data)
 
-        new_file_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_file_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         file = cls.from_location(new_file_location)
         if tags:
             file.modify(tags=tags)
@@ -707,8 +785,116 @@ class Files(APIObject):
             access_type=access_type,
         )
 
+    def clone(
+        self,
+        *,
+        omit: str | List[str] | None = None,
+        wait_for_completion: bool = True,
+        max_wait: int = DEFAULT_MAX_WAIT,
+    ) -> Files:
+        """Duplicate the files container.
+
+        .. versionadded:: v3.10
+
+        Parameters
+        ----------
+        omit:
+            Don't duplicate some files.
+        wait_for_completion:
+            Set to *False* if you don't want to wait for the operation completion.
+        max_wait:
+            Raise AsyncTimeoutError if wait_for_completion=True
+            and the operation took more than this number of seconds.
+        """
+        url = f"files/{self.id}/clone/"
+
+        if isinstance(omit, str):
+            omit = [omit]
+
+        response = self._client.post(url, data={"omit": omit})
+        return self._get_files_from_async(response, wait_for_completion=wait_for_completion, max_wait=max_wait)
+
+    def create_stage(self) -> "FilesStage":
+        """
+        Create a new `FilesStage` for this files container.
+
+        .. versionadded:: v3.10
+
+        """
+        response = self._client.post(f"files/{self.id}/stages/")
+        return FilesStage.from_server_data(response.json())
+
+    def apply_stage(self, stage: "FilesStage") -> None:
+        """
+        Apply the `FilesStage` for this files container.
+
+        .. versionadded:: v3.10
+
+        """
+        file = stage.apply()
+        self.num_files = file.num_files
+
+    def copy(
+        self,
+        source_path: str | Iterable[str],
+        *,
+        target: str | None = None,
+        target_files: Optional["Files"] = None,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        wait_for_completion: bool = True,
+    ) -> "Files":
+        """Copy file(s) and/or folder(s) within the same or into another files container.
+
+        .. versionadded:: v3.10
+
+        Parameters
+        ----------
+        source_path
+            file(s) and/or folder(s) to copy.
+        target
+            Either a folder to copy file(s) into
+            or a new file name if only one file is being copied.
+        target_files
+            Files collection to copy files into.
+        max_wait
+             Raise TimeoutError if the operation took more than this number of seconds to complete.
+        """
+        if isinstance(source_path, str):
+            sources = [source_path]
+        elif isinstance(source_path, Iterable):
+            sources = list(source_path)
+        else:
+            raise ValueError(source_path)
+
+        url = f"files/{self.id}/copyBatch/"
+        response = self._client.post(
+            url,
+            json={
+                "sources": sources,
+                "target": target,
+                "targetCatalogId": target_files and target_files.id,
+            },
+        )
+        return self._get_files_from_async(response, max_wait=max_wait, wait_for_completion=wait_for_completion)
+
+    def wait_for_completion(self) -> None:
+        """Wait for initial upload completion."""
+        if self._async_status_location is None:
+            return
+
+        location = wait_for_async_resolution(self._client, self._async_status_location)
+
+        new_file = Files.from_location(location)
+        self.num_files = new_file.num_files
+        self.from_archive = new_file.from_archive
+        self._async_status_location = None
+
     def list_contained_files(
-        self, file_type: str = "", limit: int = 100, offset: int = 0
+        self,
+        file_type: str = "",
+        limit: int = 100,
+        offset: int = 0,
+        version_id: Optional[str] = None,
     ) -> List["File"]:
         """
         List all individual files within a Files container.
@@ -727,6 +913,9 @@ class Files(APIObject):
             Maximum number of files to return. Set to 0 for no limit.
         offset: Optional[int] (default: 0)
             Number of files to skip before returning results.
+        version_id: Optional[str]
+            If provided, retrieve from the specified version instead of the latest version.
+
 
         Returns
         -------
@@ -740,7 +929,10 @@ class Files(APIObject):
         ServerError
             If there's a server-side error while retrieving the file list.
         """
-        endpoint = f"{self._path}{self.id}/allFiles/"
+        if version_id:
+            endpoint = f"{self._path}{self.id}/versions/{version_id}/allFiles/"
+        else:
+            endpoint = f"{self._path}{self.id}/allFiles/"
         params: Dict[str, Union[int, str]] = {"offset": offset}
         if file_type:
             params["file_type"] = file_type
@@ -753,9 +945,7 @@ class Files(APIObject):
         return [File.from_server_data(file_data) for file_data in files_data]
 
     @classmethod
-    def _get_files_from_async(
-        cls, response: Response, *, wait_for_completion: bool = True, max_wait: int
-    ) -> "Files":
+    def _get_files_from_async(cls, response: Response, *, wait_for_completion: bool = True, max_wait: int) -> "Files":
         """Get `Files` entity from the response.
         Conditionally wait for an async operation resolution.
 
@@ -770,9 +960,7 @@ class Files(APIObject):
             and the operation took more than this number of seconds.
         """
         if wait_for_completion:
-            new_file_location = wait_for_async_resolution(
-                cls._client, response.headers["Location"], max_wait
-            )
+            new_file_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
             return cls.from_location(new_file_location)
 
         else:

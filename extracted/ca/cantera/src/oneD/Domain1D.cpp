@@ -34,11 +34,19 @@ void Domain1D::setSolution(shared_ptr<Solution> sol)
         throw CanteraError("Domain1D::setSolution",
             "Missing or incomplete Solution object.");
     }
+    warn_deprecated("Domain1D::setSolution",
+        "After Cantera 3.2, a change of domain contents after instantiation "
+        "will be disabled.");
     if (m_solution) {
         m_solution->thermo()->removeSpeciesLock();
     }
     m_solution = sol;
     m_solution->thermo()->addSpeciesLock();
+}
+
+string Domain1D::info(const vector<string>& keys, int rows, int width)
+{
+    return toArray()->info(keys, rows, width);
 }
 
 void Domain1D::resize(size_t nv, size_t np)
@@ -66,22 +74,36 @@ void Domain1D::resize(size_t nv, size_t np)
 
 string Domain1D::componentName(size_t n) const
 {
-    if (m_name[n] != "") {
-        return m_name[n];
-    } else {
-        return fmt::format("component {}", n);
+    if (n < m_nv) {
+        if (m_name[n] != "") {
+            return m_name[n];
+        } else {
+            return fmt::format("component {}", n);
+        }
     }
+    throw IndexError("Domain1D::componentName", "component", n, m_nv);
 }
 
-size_t Domain1D::componentIndex(const string& name) const
+size_t Domain1D::componentIndex(const string& name, bool checkAlias) const
 {
-    for (size_t n = 0; n < nComponents(); n++) {
+    for (size_t n = 0; n < m_nv; n++) {
         if (name == componentName(n)) {
             return n;
         }
     }
     throw CanteraError("Domain1D::componentIndex",
-                       "no component named "+name);
+                       "Component '{}' not found", name);
+}
+
+bool Domain1D::hasComponent(const string& name, bool checkAlias) const
+{
+    for (size_t n = 0; n < m_nv; n++) {
+        if (name == componentName(n)) {
+            return true;
+        }
+    }
+    throw CanteraError("Domain1D::hasComponent",
+                       "Component '{}' not found", name);
 }
 
 void Domain1D::setTransientTolerances(double rtol, double atol, size_t n)
@@ -113,7 +135,7 @@ void Domain1D::setSteadyTolerances(double rtol, double atol, size_t n)
 void Domain1D::needJacUpdate()
 {
     if (m_container) {
-        m_container->jacobian().setAge(10000);
+        m_container->linearSolver()->setAge(10000);
         m_container->saveStats();
     }
 }
@@ -144,30 +166,6 @@ AnyMap Domain1D::getMeta() const
         state["tolerances"]["steady-reltol"] = wrap_tols(m_rtol_ss);
     }
     return state;
-}
-
-shared_ptr<SolutionArray> Domain1D::toArray(bool normalize) const {
-    if (!m_state) {
-        throw CanteraError("Domain1D::toArray",
-            "Domain needs to be installed in a container before calling asArray.");
-    }
-    auto ret = asArray(m_state->data() + m_iloc);
-    if (normalize) {
-        ret->normalize();
-    }
-    return ret;
-}
-
-void Domain1D::fromArray(const shared_ptr<SolutionArray>& arr)
-{
-    if (!m_state) {
-        throw CanteraError("Domain1D::fromArray",
-            "Domain needs to be installed in a container before calling fromArray.");
-    }
-    resize(nComponents(), arr->size());
-    m_container->resize();
-    fromArray(*arr, m_state->data() + m_iloc);
-    _finalize(m_state->data() + m_iloc);
 }
 
 void Domain1D::setMeta(const AnyMap& meta)
@@ -222,6 +220,11 @@ void Domain1D::locate()
     }
 }
 
+void Domain1D::setupGrid(const vector<double>& grid)
+{
+    setupGrid(grid.size(), grid.data());
+}
+
 void Domain1D::setupGrid(size_t n, const double* z)
 {
     if (n > 1) {
@@ -230,6 +233,16 @@ void Domain1D::setupGrid(size_t n, const double* z)
             m_z[j] = z[j];
         }
     }
+}
+
+void Domain1D::setupUniformGrid(size_t points, double length, double start)
+{
+    vector<double> grid(points);
+    double dz = length / static_cast<double>(points - 1);
+    for (size_t iz = 0; iz < points; iz++) {
+        grid[iz] = start + iz * dz;
+    }
+    setupGrid(grid);
 }
 
 void Domain1D::show(const double* x)
@@ -245,8 +258,7 @@ void Domain1D::show(const double* x)
         for (size_t j = 0; j < m_points; j++) {
             writelog("\n {:10.4g} ", m_z[j]);
             for (size_t n = 0; n < 5; n++) {
-                double v = value(x, i*5+n, j);
-                writelog(" {:10.4g} ", v);
+                writelog(" {:10.4g} ", x[index(i*5 + n, j)]);
             }
         }
         writelog("\n");
@@ -261,8 +273,7 @@ void Domain1D::show(const double* x)
     for (size_t j = 0; j < m_points; j++) {
         writelog("\n {:10.4g} ", m_z[j]);
         for (size_t n = 0; n < nrem; n++) {
-            double v = value(x, nn*5+n, j);
-            writelog(" {:10.4g} ", v);
+            writelog(" {:10.4g} ", x[index(nn*5 + n, j)]);
         }
     }
     writelog("\n");
@@ -270,6 +281,9 @@ void Domain1D::show(const double* x)
 
 void Domain1D::setProfile(const string& name, double* values, double* soln)
 {
+    warn_deprecated(
+        "Domain1D::setProfile", "To be removed after Cantera 3.2. Replaceable by "
+        "version using vector arguments.");
     for (size_t n = 0; n < m_nv; n++) {
         if (name == componentName(n)) {
             for (size_t j = 0; j < m_points; j++) {
@@ -279,6 +293,16 @@ void Domain1D::setProfile(const string& name, double* values, double* soln)
         }
     }
     throw CanteraError("Domain1D::setProfile", "unknown component: "+name);
+}
+
+void Domain1D::setRefineCriteria(double ratio, double slope, double curve, double prune)
+{
+    m_refiner->setCriteria(ratio, slope, curve, prune);
+}
+
+vector<double> Domain1D::getRefineCriteria()
+{
+    return m_refiner->getCriteria();
 }
 
 void Domain1D::_getInitialSoln(double* x)

@@ -12,25 +12,25 @@ mod update;
 
 use crate::model::{NamedNode, Term};
 #[expect(deprecated)]
-pub use crate::sparql::algebra::{Query, QueryDataset, Update};
+pub use crate::sparql::algebra::{Query, Update};
 use crate::sparql::dataset::DatasetView;
 pub use crate::sparql::error::UpdateEvaluationError;
 #[cfg(feature = "http-client")]
 use crate::sparql::http::HttpServiceHandler;
 pub use crate::sparql::update::{BoundPreparedSparqlUpdate, PreparedSparqlUpdate};
-use crate::storage::StorageReader;
 use crate::store::{Store, Transaction};
 use oxrdf::IriParseError;
 pub use oxrdf::{Variable, VariableNameParseError};
-use spareval::QueryEvaluator;
 pub use spareval::{
-    AggregateFunctionAccumulator, CancellationToken, DefaultServiceHandler, QueryEvaluationError,
-    QueryExplanation, QueryResults, QuerySolution, QuerySolutionIter, QueryTripleIter,
-    ServiceHandler,
+    AggregateFunctionAccumulator, CancellationToken, DefaultServiceHandler,
+    QueryDatasetSpecification, QueryEvaluationError, QueryExplanation, QueryResults, QuerySolution,
+    QuerySolutionIter, QueryTripleIter, ServiceHandler,
 };
+use spareval::{QueryEvaluator, QueryableDataset};
 use spargebra::SparqlParser;
 pub use spargebra::SparqlSyntaxError;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::mem::take;
 #[cfg(feature = "http-client")]
 use std::time::Duration;
@@ -41,6 +41,8 @@ pub type QueryOptions = SparqlEvaluator;
 pub type UpdateOptions = SparqlEvaluator;
 #[deprecated(note = "Use QueryEvaluationError instead", since = "0.5.0")]
 pub type EvaluationError = QueryEvaluationError;
+
+pub type QueryDataset = QueryDatasetSpecification;
 
 /// SPARQL evaluator.
 ///
@@ -527,7 +529,7 @@ impl Default for SparqlEvaluator {
 pub struct PreparedSparqlQuery {
     evaluator: QueryEvaluator,
     query: spargebra::Query,
-    dataset: QueryDataset,
+    dataset: QueryDatasetSpecification,
     substitutions: HashMap<Variable, Term>,
 }
 
@@ -578,26 +580,33 @@ impl PreparedSparqlQuery {
 
     /// Bind the prepared query to the [`Store`] it should be evaluated on.
     pub fn on_store(self, store: &Store) -> BoundPreparedSparqlQuery<'static> {
-        BoundPreparedSparqlQuery {
-            evaluator: self.evaluator,
-            query: self.query,
-            dataset: self.dataset,
-            substitutions: self.substitutions,
-            reader: store.storage().snapshot(),
-        }
+        let reader = store.storage().snapshot();
+        let queryable_dataset = DatasetView::new(reader);
+        self.on_queryable_dataset(queryable_dataset)
     }
 
     /// Bind the prepared query to the [`Transaction`] it should be evaluated on.
-    pub fn on_transaction<'a>(
+    pub fn on_transaction<'b>(
         self,
-        transaction: &'a Transaction<'_>,
-    ) -> BoundPreparedSparqlQuery<'a> {
+        transaction: &'b Transaction<'_>,
+    ) -> BoundPreparedSparqlQuery<'b> {
+        let reader = transaction.inner().reader();
+        let dataset = DatasetView::new(reader);
+        self.on_queryable_dataset(dataset)
+    }
+
+    /// Bind the prepared query to the [`QueryableDataset`] it should be evaluated on.
+    pub fn on_queryable_dataset<'a, D: QueryableDataset<'a>>(
+        self,
+        queryable_dataset: D,
+    ) -> BoundPreparedSparqlQuery<'a, D> {
         BoundPreparedSparqlQuery {
             evaluator: self.evaluator,
             query: self.query,
-            dataset: self.dataset,
+            queryable_dataset,
             substitutions: self.substitutions,
-            reader: transaction.inner().reader(),
+            dataset: self.dataset,
+            marker: PhantomData,
         }
     }
 }
@@ -625,15 +634,16 @@ impl PreparedSparqlQuery {
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
 #[must_use]
-pub struct BoundPreparedSparqlQuery<'a> {
+pub struct BoundPreparedSparqlQuery<'a, D: QueryableDataset<'a> = DatasetView<'a>> {
     evaluator: QueryEvaluator,
     query: spargebra::Query,
-    dataset: QueryDataset,
+    queryable_dataset: D,
     substitutions: HashMap<Variable, Term>,
-    reader: StorageReader<'a>,
+    dataset: QueryDatasetSpecification,
+    marker: PhantomData<&'a ()>,
 }
 
-impl<'a> BoundPreparedSparqlQuery<'a> {
+impl<'a, D: QueryableDataset<'a>> BoundPreparedSparqlQuery<'a, D> {
     /// Substitute a variable with a given RDF term in the SPARQL query.
     ///
     /// Usage example:
@@ -667,9 +677,12 @@ impl<'a> BoundPreparedSparqlQuery<'a> {
 
     /// Evaluate the query against the given store.
     pub fn execute(self) -> Result<QueryResults<'a>, QueryEvaluationError> {
-        let dataset = DatasetView::new(self.reader, &self.dataset);
-        self.evaluator
-            .execute_with_substituted_variables(dataset, &self.query, self.substitutions)
+        let mut prepared = self.evaluator.prepare(&self.query);
+        for (variable, term) in self.substitutions {
+            prepared = prepared.substitute_variable(variable, term);
+        }
+        *prepared.dataset_mut() = self.dataset;
+        prepared.execute(self.queryable_dataset)
     }
 
     /// Compute statistics during evaluation and fills them in the explanation tree.
@@ -706,12 +719,11 @@ impl<'a> BoundPreparedSparqlQuery<'a> {
         Result<QueryResults<'a>, QueryEvaluationError>,
         QueryExplanation,
     ) {
-        let dataset = DatasetView::new(self.reader, &self.dataset);
-        let (results, explanation) = self.evaluator.explain_with_substituted_variables(
-            dataset,
-            &self.query,
-            self.substitutions,
-        );
-        (results, explanation)
+        let mut prepared = self.evaluator.prepare(&self.query);
+        for (variable, term) in self.substitutions {
+            prepared = prepared.substitute_variable(variable, term);
+        }
+        *prepared.dataset_mut() = self.dataset;
+        prepared.explain(self.queryable_dataset)
     }
 }

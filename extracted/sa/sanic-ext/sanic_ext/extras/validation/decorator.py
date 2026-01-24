@@ -19,6 +19,7 @@ def validate(
     query: Optional[Union[Callable[[Request], bool], type[object]]] = None,
     body_argument: str = "body",
     query_argument: str = "query",
+    strict: bool | None = None,
 ) -> Callable[[T], T]:
     schemas = {
         key: generate_schema(param)
@@ -47,6 +48,7 @@ def validate(
                     body_argument=body_argument,
                     allow_multiple=False,
                     allow_coerce=False,
+                    strict=strict,
                 )
             elif schemas["form"]:
                 await do_validation(
@@ -58,6 +60,7 @@ def validate(
                     body_argument=body_argument,
                     allow_multiple=True,
                     allow_coerce=True,
+                    strict=False,
                 )
             if schemas["query"]:
                 await do_validation(
@@ -69,6 +72,7 @@ def validate(
                     body_argument=query_argument,
                     allow_multiple=True,
                     allow_coerce=True,
+                    strict=False,
                 )
             retval = f(*args, **kwargs)
             if isawaitable(retval):

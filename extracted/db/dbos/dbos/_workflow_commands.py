@@ -1,115 +1,24 @@
-import time
-import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from dbos._context import get_local_dbos_context
+from dbos._utils import generate_uuid
 
-from ._app_db import ApplicationDatabase
-from ._sys_db import (
-    GetQueuedWorkflowsInput,
-    GetWorkflowsInput,
-    StepInfo,
-    SystemDatabase,
-    WorkflowStatus,
-    WorkflowStatusString,
-)
+from ._sys_db import SystemDatabase, WorkflowStatus, WorkflowStatusString
 
 if TYPE_CHECKING:
     from ._dbos import DBOS
 
 
-def list_workflows(
-    sys_db: SystemDatabase,
-    *,
-    workflow_ids: Optional[List[str]] = None,
-    status: Optional[Union[str, List[str]]] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    name: Optional[str] = None,
-    app_version: Optional[str] = None,
-    user: Optional[str] = None,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    sort_desc: bool = False,
-    workflow_id_prefix: Optional[str] = None,
-    load_input: bool = True,
-    load_output: bool = True,
-) -> List[WorkflowStatus]:
-    input = GetWorkflowsInput()
-    input.workflow_ids = workflow_ids
-    input.authenticated_user = user
-    input.start_time = start_time
-    input.end_time = end_time
-    input.status = status if status is None or isinstance(status, list) else [status]
-    input.application_version = app_version
-    input.limit = limit
-    input.name = name
-    input.offset = offset
-    input.sort_desc = sort_desc
-    input.workflow_id_prefix = workflow_id_prefix
-
-    infos: List[WorkflowStatus] = sys_db.get_workflows(
-        input, load_input=load_input, load_output=load_output
-    )
-
-    return infos
-
-
-def list_queued_workflows(
-    sys_db: SystemDatabase,
-    *,
-    queue_name: Optional[str] = None,
-    status: Optional[Union[str, List[str]]] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    name: Optional[str] = None,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    sort_desc: bool = False,
-    load_input: bool = True,
-) -> List[WorkflowStatus]:
-    input: GetQueuedWorkflowsInput = {
-        "queue_name": queue_name,
-        "start_time": start_time,
-        "end_time": end_time,
-        "status": status if status is None or isinstance(status, list) else [status],
-        "limit": limit,
-        "name": name,
-        "offset": offset,
-        "sort_desc": sort_desc,
-    }
-
-    infos: List[WorkflowStatus] = sys_db.get_queued_workflows(
-        input, load_input=load_input
-    )
-    return infos
-
-
 def get_workflow(sys_db: SystemDatabase, workflow_id: str) -> Optional[WorkflowStatus]:
-    input = GetWorkflowsInput()
-    input.workflow_ids = [workflow_id]
-
-    infos: List[WorkflowStatus] = sys_db.get_workflows(input)
+    infos = sys_db.list_workflows(workflow_ids=[workflow_id])
     if not infos:
         return None
-
     return infos[0]
-
-
-def list_workflow_steps(
-    sys_db: SystemDatabase, app_db: ApplicationDatabase, workflow_id: str
-) -> List[StepInfo]:
-    steps = sys_db.get_workflow_steps(workflow_id)
-    transactions = app_db.get_transactions(workflow_id)
-    merged_steps = steps + transactions
-    merged_steps.sort(key=lambda step: step["function_id"])
-    return merged_steps
 
 
 def fork_workflow(
     sys_db: SystemDatabase,
-    app_db: ApplicationDatabase,
     workflow_id: str,
     start_step: int,
     *,
@@ -121,8 +30,7 @@ def fork_workflow(
         forked_workflow_id = ctx.id_assigned_for_next_workflow
         ctx.id_assigned_for_next_workflow = ""
     else:
-        forked_workflow_id = str(uuid.uuid4())
-    app_db.clone_workflow_transactions(workflow_id, forked_workflow_id, start_step)
+        forked_workflow_id = generate_uuid()
     sys_db.fork_workflow(
         workflow_id,
         forked_workflow_id,
@@ -130,6 +38,19 @@ def fork_workflow(
         application_version=application_version,
     )
     return forked_workflow_id
+
+
+def delete_workflow(dbos: "DBOS", workflow_id: str, *, delete_children: bool) -> None:
+    """Delete a workflow and all its associated data.
+
+    If delete_children is True, also deletes all child workflows recursively.
+    """
+    workflow_ids = [workflow_id]
+    if delete_children:
+        workflow_ids.extend(dbos._sys_db.get_workflow_children(workflow_id))
+    dbos._sys_db.delete_workflows(workflow_ids)
+    if dbos._app_db:
+        dbos._app_db.delete_transaction_outputs(workflow_ids)
 
 
 def garbage_collect(
@@ -145,7 +66,10 @@ def garbage_collect(
     )
     if result is not None:
         cutoff_epoch_timestamp_ms, pending_workflow_ids = result
-        dbos._app_db.garbage_collect(cutoff_epoch_timestamp_ms, pending_workflow_ids)
+        if dbos._app_db:
+            dbos._app_db.garbage_collect(
+                cutoff_epoch_timestamp_ms, pending_workflow_ids
+            )
 
 
 def global_timeout(dbos: "DBOS", cutoff_epoch_timestamp_ms: int) -> None:

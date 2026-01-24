@@ -117,7 +117,7 @@ def _get_padding_slices(
 def _constant_pad(
     x: TensorVariable, pad_width: TensorVariable, constant_values: TensorVariable
 ) -> TensorVariable:
-    padded, area_slice, pad_width = _symbolic_pad(x, pad_width)
+    padded, _area_slice, pad_width = _symbolic_pad(x, pad_width)
     values = broadcast_to(constant_values, as_tensor((padded.ndim, 2)))
 
     for axis in range(padded.ndim):
@@ -133,7 +133,7 @@ def _constant_pad(
 
 
 def _edge_pad(x: TensorVariable, pad_width: TensorVariable) -> TensorVariable:
-    padded, area_slice, pad_width = _symbolic_pad(x, pad_width)
+    padded, _area_slice, pad_width = _symbolic_pad(x, pad_width)
     for axis in range(padded.ndim):
         width_pair = pad_width[axis]
         dim_shape = padded.shape[axis]
@@ -219,7 +219,7 @@ def _stat_pad(
     stat_func: Callable,
     stat_length: TensorVariable | None,
 ):
-    padded, area_slice, pad_width = _symbolic_pad(x, pad_width)
+    padded, _area_slice, pad_width = _symbolic_pad(x, pad_width)
     if stat_length is None:
         stat_length = [[None, None]] * padded.ndim  # type: ignore
     else:
@@ -243,7 +243,7 @@ def _stat_pad(
 def _linear_ramp_pad(
     x: TensorVariable, pad_width: TensorVariable, end_values: TensorVariable | int = 0
 ) -> TensorVariable:
-    padded, area_slice, pad_width = _symbolic_pad(x, pad_width)
+    padded, _area_slice, pad_width = _symbolic_pad(x, pad_width)
     end_values = as_tensor(end_values)
     end_values = broadcast_to(end_values, as_tensor((padded.ndim, 2)))
 
@@ -314,11 +314,12 @@ def _wrap_pad(x: TensorVariable, pad_width: TensorVariable) -> TensorVariable:
 
 
 def _build_padding_one_direction(array, array_flipped, repeats, *, inner_func, axis):
-    [_, parts], _ = scan(
+    [_, parts] = scan(
         inner_func,
         non_sequences=[array, array_flipped],
         outputs_info=[0, None],
         n_steps=repeats,
+        return_updates=False,
     )
 
     parts = moveaxis(parts, 0, axis)
@@ -689,4 +690,4 @@ def pad(
     return cast(TensorVariable, op)
 
 
-__all__ = ["pad", "flip"]
+__all__ = ["flip", "pad"]

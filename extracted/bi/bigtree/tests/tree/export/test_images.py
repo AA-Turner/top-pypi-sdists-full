@@ -34,8 +34,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -68,8 +68,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_multiple.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_multiple.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -99,8 +99,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_duplicate_names.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_duplicate_names.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -136,8 +138,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_undirected.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_duplicate_names.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -167,8 +171,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_bg_colour.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_bg_colour.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -201,8 +205,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_fill_colour.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_fill_colour.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -236,8 +240,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_fill_colour.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_fill_colour2.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -250,25 +254,25 @@ class TestTreeToDot:
             "rankdir=TB;\n"
             "a0 [label=a];\n"
             "b0 [label=b];\n"
-            "a0 -> b0  [color=red];\n"
+            "a0 -> b0 [color=red];\n"
             "d0 [label=d];\n"
-            "b0 -> d0  [color=red];\n"
+            "b0 -> d0 [color=red];\n"
             "e0 [label=e];\n"
-            "b0 -> e0  [color=red];\n"
+            "b0 -> e0 [color=red];\n"
             "g0 [label=g];\n"
-            "e0 -> g0  [color=red];\n"
+            "e0 -> g0 [color=red];\n"
             "h0 [label=h];\n"
-            "e0 -> h0  [color=red];\n"
+            "e0 -> h0 [color=red];\n"
             "c0 [label=c];\n"
-            "a0 -> c0  [color=red];\n"
+            "a0 -> c0 [color=red];\n"
             "f0 [label=f];\n"
-            "c0 -> f0  [color=red];\n"
+            "c0 -> f0 [color=red];\n"
             "}\n"
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_edge_colour.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_edge_colour.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -294,8 +298,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_node_shape.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_node_shape.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -327,8 +331,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_node_attr.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_node_attr.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -349,7 +353,7 @@ class TestTreeToDot:
             "d0 [label=d, style=filled, fillcolor=green];\n"
             "b0 -> d0;\n"
             "g0 [label=g, style=filled, fillcolor=red];\n"
-            "d0 -> g0;\n"
+            "e0 -> g0;\n"
             "e0 [label=e, style=filled, fillcolor=green];\n"
             "b0 -> e0;\n"
             "h0 [label=h, style=filled, fillcolor=red];\n"
@@ -362,8 +366,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_node_attr.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_node_attr2.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -392,7 +396,7 @@ class TestTreeToDot:
             "d0 [fillcolor=green, label=d, style=filled];\n"
             "b0 -> d0;\n"
             "g0 [fillcolor=red, label=g, style=filled];\n"
-            "d0 -> g0;\n"
+            "e0 -> g0;\n"
             "e0 [fillcolor=green, label=e, style=filled];\n"
             "b0 -> e0;\n"
             "h0 [fillcolor=red, label=h, style=filled];\n"
@@ -405,8 +409,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_node_attr_callable.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_node_attr_callable.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -436,7 +442,7 @@ class TestTreeToDot:
             "d0 [label=d, style=filled, fillcolor=green];\n"
             "b0 -> d0;\n"
             "g0 [label=g, style=filled, fillcolor=red];\n"
-            "d0 -> g0;\n"
+            "e0 -> g0;\n"
             "e0 [label=e, style=filled, fillcolor=green];\n"
             "b0 -> e0;\n"
             "h0 [label=h, style=filled, fillcolor=red];\n"
@@ -449,8 +455,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_node_attr_callable.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_node_attr_callable2.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -483,8 +491,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_edge_attr.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_edge_attr.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -505,7 +513,7 @@ class TestTreeToDot:
             "d0 [label=d];\n"
             "b0 -> d0 [style=bold, label=1];\n"
             "g0 [label=g];\n"
-            "d0 -> g0 [style=bold, label=4];\n"
+            "e0 -> g0 [style=bold, label=4];\n"
             "e0 [label=e];\n"
             "b0 -> e0 [style=bold, label=2];\n"
             "h0 [label=h];\n"
@@ -518,8 +526,8 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_edge_attr.png")
-        for expected_str in expected.split():
+            graph.write_png(f"{Constants.LOCAL_FILE}/test_tree_to_dot_edge_attr2.png")
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -553,7 +561,7 @@ class TestTreeToDot:
             "d0 [label=d];\n"
             "b0 -> d0  [label=1, style=bold];\n"
             "g0 [label=g];\n"
-            "d0 -> g0  [label=4, style=bold];\n"
+            "e0 -> g0  [label=4, style=bold];\n"
             "e0 [label=e];\n"
             "b0 -> e0  [label=2, style=bold];\n"
             "h0 [label=h];\n"
@@ -566,8 +574,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_edge_attr_callable.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_edge_attr_callable.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -601,7 +611,7 @@ class TestTreeToDot:
             "d0 [label=d];\n"
             "b0 -> d0 [style=bold, label=1];\n"
             "g0 [label=g];\n"
-            "d0 -> g0 [style=bold, label=4];\n"
+            "e0 -> g0 [style=bold, label=4];\n"
             "e0 [label=e];\n"
             "b0 -> e0 [style=bold, label=2];\n"
             "h0 [label=h];\n"
@@ -614,8 +624,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_edge_attr_callable.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_edge_attr_callable2.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -656,8 +668,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_attr_override.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_attr_override.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -696,8 +710,10 @@ class TestTreeToDot:
         )
         actual = graph.to_string()
         if LOCAL:
-            graph.write_png("tests/tree_attr_override.png")
-        for expected_str in expected.split():
+            graph.write_png(
+                f"{Constants.LOCAL_FILE}/test_tree_to_dot_attr_override2.png"
+            )
+        for expected_str in expected.splitlines():
             assert (
                 expected_str in actual
             ), f"Expected {expected_str} not in actual string"
@@ -708,13 +724,15 @@ class TestTreeToPillowGraph:
     def test_tree_to_pillow_graph(tree_node):
         pillow_image = export.tree_to_pillow_graph(tree_node)
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph.png")
+            pillow_image.save(f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph.png")
 
     @staticmethod
     def test_tree_to_pillow_graph_big(tree_node_big):
         pillow_image = export.tree_to_pillow_graph(tree_node_big)
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_big.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_big.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_multiline(tree_node):
@@ -722,7 +740,9 @@ class TestTreeToPillowGraph:
             tree_node, node_content="{node_name}\nAge: {age}"
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_multiline.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_multiline.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_tb_margins(tree_node):
@@ -730,7 +750,9 @@ class TestTreeToPillowGraph:
             tree_node, node_content="{node_name}\nAge: {age}", margin={"t": 60, "b": 60}
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_tb_margins.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_multiline.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_lr_margins(tree_node):
@@ -738,7 +760,9 @@ class TestTreeToPillowGraph:
             tree_node, node_content="{node_name}\nAge: {age}", margin={"l": 60, "r": 60}
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_lr_margins.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_lr_margins.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_buffer(tree_node):
@@ -749,7 +773,9 @@ class TestTreeToPillowGraph:
             width_buffer=60,
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_buffer.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_buffer.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_bg_colour(tree_node):
@@ -757,7 +783,9 @@ class TestTreeToPillowGraph:
             tree_node, node_content="{node_name}\nAge: {age}", bg_colour="beige"
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_bg_colour.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_bg_colour.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_rect_tb_margins(tree_node):
@@ -767,7 +795,9 @@ class TestTreeToPillowGraph:
             rect_margin={"t": 60, "b": 60},
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_rect_tb_margins.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_rect_tb_margins.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_rect_lr_margins(tree_node):
@@ -777,7 +807,9 @@ class TestTreeToPillowGraph:
             rect_margin={"l": 60, "r": 60},
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_rect_lr_margins.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_rect_lr_margins.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_rect_fill(tree_node):
@@ -787,7 +819,9 @@ class TestTreeToPillowGraph:
             rect_fill="beige",
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_rect_fill.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_rect_fill.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_rect_fill_cmap_error(tree_node):
@@ -808,7 +842,9 @@ class TestTreeToPillowGraph:
             rect_cmap_attr="age",
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_rect_fill_cmap.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_rect_fill_cmap.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_graph_rect_width(tree_node):
@@ -818,7 +854,9 @@ class TestTreeToPillowGraph:
             rect_width=3,
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_graph_rect_width.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_graph_rect_width.png"
+            )
 
 
 class TestTreeToPillow:
@@ -826,19 +864,23 @@ class TestTreeToPillow:
     def test_tree_to_pillow(tree_node):
         pillow_image = export.tree_to_pillow(tree_node)
         if LOCAL:
-            pillow_image.save("tests/tree_pillow.png")
+            pillow_image.save(f"{Constants.LOCAL_FILE}/test_tree_to_pillow.png")
 
     @staticmethod
     def test_tree_to_pillow_start_pos(tree_node):
         pillow_image = export.tree_to_pillow(tree_node, start_pos=(100, 50))
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_start_pos.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_start_pos.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_start_pos_small(tree_node):
         pillow_image = export.tree_to_pillow(tree_node, start_pos=(0, 0))
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_start_pos_small.png")
+            pillow_image.save(
+                f"{Constants.LOCAL_FILE}/test_tree_to_pillow_start_pos_small.png"
+            )
 
     @staticmethod
     def test_tree_to_pillow_font(tree_node):
@@ -846,13 +888,13 @@ class TestTreeToPillow:
             tree_node, font_size=20, font_colour="red", bg_colour="lightblue"
         )
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_font.png")
+            pillow_image.save(f"{Constants.LOCAL_FILE}/test_tree_to_pillow_font.png")
 
     @staticmethod
     def test_tree_to_pillow_kwargs(tree_node):
         pillow_image = export.tree_to_pillow(tree_node, max_depth=2, style="const_bold")
         if LOCAL:
-            pillow_image.save("tests/tree_pillow_style.png")
+            pillow_image.save(f"{Constants.LOCAL_FILE}/test_tree_to_pillow_kwargs.png")
 
     @staticmethod
     def test_tree_to_pillow_font_family(tree_node):

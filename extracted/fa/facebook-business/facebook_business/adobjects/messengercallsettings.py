@@ -28,12 +28,14 @@ class MessengerCallSettings(
         call_hours = 'call_hours'
         call_routing = 'call_routing'
         icon_enabled = 'icon_enabled'
+        video = 'video'
 
     _field_types = {
         'audio_enabled': 'bool',
         'call_hours': 'Object',
         'call_routing': 'string',
         'icon_enabled': 'bool',
+        'video': 'string',
     }
     @classmethod
     def _get_field_enum_info(cls):

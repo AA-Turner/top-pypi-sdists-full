@@ -19,7 +19,7 @@ class Folder:
         "created_by_bundle_registration_id": None,  # int64 - ID of the Bundle Registration that created the file/folder
         "created_by_inbox_id": None,  # int64 - ID of the Inbox that created the file/folder
         "created_by_remote_server_id": None,  # int64 - ID of the Remote Server that created the file/folder
-        "created_by_remote_server_sync_id": None,  # int64 - ID of the Remote Server Sync that created the file/folder
+        "created_by_sync_id": None,  # int64 - ID of the Sync that created the file/folder
         "custom_metadata": None,  # object - Custom metadata map of keys and values. Limited to 32 keys, 256 characters per key and 1024 characters per value.
         "display_name": None,  # string - File/Folder display name
         "type": None,  # string - Type: `directory` or `file`.
@@ -30,7 +30,7 @@ class Folder:
         "last_modified_by_automation_id": None,  # int64 - ID of the Automation that last modified the file/folder
         "last_modified_by_bundle_registration_id": None,  # int64 - ID of the Bundle Registration that last modified the file/folder
         "last_modified_by_remote_server_id": None,  # int64 - ID of the Remote Server that last modified the file/folder
-        "last_modified_by_remote_server_sync_id": None,  # int64 - ID of the Remote Server Sync that last modified the file/folder
+        "last_modified_by_sync_id": None,  # int64 - ID of the Sync that last modified the file/folder
         "mtime": None,  # date-time - File last modified date/time, according to the server.  This is the timestamp of the last Files.com operation of the file, regardless of what modified timestamp was sent.
         "provided_mtime": None,  # date-time - File last modified date/time, according to the client who set it.  Files.com allows desktop, FTP, SFTP, and WebDAV clients to set modified at times.  This allows Desktop<->Cloud syncing to preserve modified at times.
         "crc32": None,  # string - File CRC32 checksum. This is sometimes delayed, so if you get a blank response, wait and try again.
@@ -82,7 +82,7 @@ class Folder:
 #   sort_by - object - Search by field and direction. Valid fields are `path`, `size`, `modified_at_datetime`, `provided_modified_at`.  Valid directions are `asc` and `desc`.  Defaults to `{"path":"asc"}`.
 #   search - string - If specified, will search the folders/files list by name. Ignores text before last `/`. This is the same API used by the search bar in the web UI when running 'Search This Folder'.  Search results are a best effort, not real time, and not guaranteed to perfectly match the latest folder listing.  Results may be truncated if more than 1,000 possible matches exist.  This field should only be used for ad-hoc (human) searching, and not as part of an automated process.
 #   search_custom_metadata_key - string - If provided, the search string in `search` will search for files where this custom metadata key matches the value sent in `search`.  Set this to `*` to allow any metadata key to match the value sent in `search`.
-#   search_all - boolean - Search entire site?  If set, we will ignore the folder path provided and search the entire site.  This is the same API used by the search bar in the web UI when running 'Search All Files'.  Search results are a best effort, not real time, and not guaranteed to match every file.  This field should only be used for ad-hoc (human) searching, and not as part of an automated process.
+#   search_all - boolean - Search entire site?  If true, we will search the entire site.  Do not provide a path when using this parameter.  This is the same API used by the search bar in the web UI when running 'Search All Files'.  Search results are a best effort, not real time, and not guaranteed to match every file.  This field should only be used for ad-hoc (human) searching, and not as part of an automated process.
 #   with_previews - boolean - Include file previews?
 #   with_priority_color - boolean - Include file priority color information?
 #   type - string - Type of objects to return.  Can be `folder` or `file`.

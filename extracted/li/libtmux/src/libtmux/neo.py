@@ -13,7 +13,7 @@ from libtmux.formats import FORMAT_SEPARATOR
 
 if t.TYPE_CHECKING:
     ListCmd = t.Literal["list-sessions", "list-windows", "list-panes"]
-    ListExtraArgs = t.Optional[Iterable[str]]
+    ListExtraArgs = Iterable[str] | None
 
     from libtmux.server import Server
 
@@ -22,16 +22,6 @@ logger = logging.getLogger(__name__)
 
 OutputRaw = dict[str, t.Any]
 OutputsRaw = list[OutputRaw]
-
-
-"""
-Quirks:
-
-QUIRK_TMUX_3_1_X_0001:
-
-- tmux 3.1 and 3.1a:
-- server crash with list-panes w/ buffer_created, client_activity, client_created
-"""
 
 
 @dataclasses.dataclass()
@@ -43,14 +33,11 @@ class Obj:
     active_window_index: str | None = None
     alternate_saved_x: str | None = None
     alternate_saved_y: str | None = None
-    # See QUIRK_TMUX_3_1_X_0001
     buffer_name: str | None = None
     buffer_sample: str | None = None
     buffer_size: str | None = None
-    # See QUIRK_TMUX_3_1_X_0001
     client_cell_height: str | None = None
     client_cell_width: str | None = None
-    # See QUIRK_TMUX_3_1_X_0001
     client_discarded: str | None = None
     client_flags: str | None = None
     client_height: str | None = None
@@ -174,7 +161,7 @@ class Obj:
         obj_key: str,
         obj_id: str,
         list_cmd: ListCmd = "list-panes",
-        list_extra_args: ListExtraArgs | None = None,
+        list_extra_args: ListExtraArgs = None,
     ) -> None:
         assert isinstance(obj_id, str)
         obj = fetch_obj(
@@ -193,7 +180,7 @@ class Obj:
 def fetch_objs(
     server: Server,
     list_cmd: ListCmd,
-    list_extra_args: ListExtraArgs | None = None,
+    list_extra_args: ListExtraArgs = None,
 ) -> OutputsRaw:
     """Fetch a listing of raw data from a tmux command."""
     formats = list(Obj.__dataclass_fields__.keys())
@@ -224,7 +211,7 @@ def fetch_objs(
     obj_output = proc.stdout
 
     obj_formatters = [
-        dict(zip(formats, formatter.split(FORMAT_SEPARATOR)))
+        dict(zip(formats, formatter.split(FORMAT_SEPARATOR), strict=False))
         for formatter in obj_output
     ]
 
@@ -237,7 +224,7 @@ def fetch_obj(
     obj_key: str,
     obj_id: str,
     list_cmd: ListCmd = "list-panes",
-    list_extra_args: ListExtraArgs | None = None,
+    list_extra_args: ListExtraArgs = None,
 ) -> OutputRaw:
     """Fetch raw data from tmux command."""
     obj_formatters_filtered = fetch_objs(

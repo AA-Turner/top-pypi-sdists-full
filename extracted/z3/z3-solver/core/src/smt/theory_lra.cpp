@@ -186,10 +186,7 @@ class theory_lra::imp {
         imp & m_th;
         var_value_eq(imp & th):m_th(th) {}
         bool operator()(theory_var v1, theory_var v2) const { 
-            if (m_th.is_int(v1) != m_th.is_int(v2)) {
-                return false;
-            }
-            return m_th.is_eq(v1, v2);
+            return m_th.is_int(v1) == m_th.is_int(v2) && m_th.is_eq(v1, v2);
         }
     };
 
@@ -269,7 +266,7 @@ class theory_lra::imp {
                 return ctx().is_relevant(th.get_enode(u));
             };
             m_nla->set_relevant(is_relevant);
-
+            m_nla->updt_params(ctx().get_params());
         }
     }
 
@@ -469,7 +466,8 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);       
                 }
-                else if (a.is_power(n, n1, n2)) {                    
+                else if (a.is_power(n, n1, n2)) { 
+                    ensure_nla();
                     found_unsupported(n);
                     if (!ctx().relevancy()) mk_power_axiom(n, n1, n2);
                     st.to_ensure_var().push_back(n1);
@@ -598,6 +596,12 @@ class theory_lra::imp {
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
         TRACE(arith, literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_smt2(tout, 3, lits); tout << "\n";);
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
+    }
+
+    void mk_clause(literal l1, literal l2, literal l3, literal l4, unsigned num_params, parameter* params) {
+        literal clause[4] = { l1, l2, l3, l4 };
+        TRACE(arith, ctx().display_literals_smt2(tout, 4, clause); tout << "\n";);
+        ctx().mk_th_axiom(get_id(), 4, clause, num_params, params);
     }
 
 
@@ -1286,20 +1290,27 @@ public:
         }
         else {
 
-            expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
             expr_ref mone(a.mk_int(-1), m);
-            expr_ref modmq(a.mk_sub(mod, abs_q), m);
+            expr_ref minus_q(a.mk_mul(mone, q), m);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
-            literal mod_lt_q = mk_literal(a.mk_le(modmq, mone));
+
             
             // q = 0 or p = (p mod q) + q * (p div q)
             // q = 0 or (p mod q) >= 0
-            // q = 0 or (p mod q) < abs(q)
-            
+            // q >= 0 or (p mod q) + q <= -1
+            // q <= 0 or (p mod q) - q <= -1            
+
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
-            mk_axiom(eqz, mod_lt_q);
+            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, minus_q), mone)));
+            mk_axiom(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, q), mone)));
+
+                
+            expr* x = nullptr, * y = nullptr;
+            if (false && !(a.is_mul(q, x, y) && mone == x))
+                mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_mul(mone, q)))));
+            
             m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
 
             if (a.is_zero(p)) {
@@ -1414,12 +1425,21 @@ public:
         }
     }
 
+    void mk_axiom(literal l1, literal l2, literal l3, literal l4) {
+        mk_clause(l1, l2, l3, l4, 0, nullptr);
+        if (ctx().relevancy()) {
+            ctx().mark_as_relevant(l1);
+            ctx().mark_as_relevant(l2);
+            ctx().mark_as_relevant(l3);
+            ctx().mark_as_relevant(l4);
+        }
+    }
+
     literal mk_literal(expr* e) {
         expr_ref pinned(e, m);
         TRACE(mk_bool_var, tout << pinned << " " << pinned->get_id() << "\n";);
-        if (!ctx().e_internalized(e)) {
-            ctx().internalize(e, false);
-        }
+        if (!ctx().e_internalized(e)) 
+            ctx().internalize(e, false);        
         return ctx().get_literal(e);
     }
 
@@ -1657,6 +1677,8 @@ public:
             if (!int_undef && !check_bv_terms())
                 return FC_CONTINUE;
             
+            if (!m_not_handled.empty())
+                init_variable_values();
             for (expr* e : m_not_handled) {
                 if (!ctx().is_relevant(e))
                     continue;
@@ -2618,12 +2640,12 @@ public:
 
         if (a.is_band(n)) {
                        
-            // x&y <= x
-            // x&y <= y
+            // 0 <= x => x&y <= x
+            // 0 <= y => x&y <= y
             // TODO? x = y => x&y = x
 
-            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, x)));
-            ctx().mk_th_axiom(get_id(), mk_literal(mk_le(n, y)));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(x, a.mk_int(0))), mk_literal(a.mk_le(n, x)));
+            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(0))), mk_literal(a.mk_le(n, y)));
         }
         else if (a.is_shl(n)) {
             // y >= sz => n = 0
@@ -3732,6 +3754,8 @@ public:
         unsigned_vector vars;
         unsigned j = 0;
         for (auto [e, t, g] : solutions) {
+            if (!ctx().e_internalized(e))
+                continue;
             auto n = get_enode(e);
             if (!n) {
                 solutions[j++] = { e, t, g };

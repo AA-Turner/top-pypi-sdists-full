@@ -103,7 +103,7 @@ def patch_torch_compile(debug = False, O3 = False, ignore_errors = True):
             recompiles_verbose = True,
             compiled_autograd_verbose = False, # Produces too much code
             aot_joint_graph = False, # Produces too much code
-            aot_graphs = False,  # Produces too much code
+            aot_graphs = False, # Produces too much code
             perf_hints = True, # Performance improvement hints
         )
         torch._dynamo.config.verbose = True
@@ -169,20 +169,20 @@ def patch_torch_compile(debug = False, O3 = False, ignore_errors = True):
         # when setting to not debug aka True, we get errors on torch2.6
         # TypeError: ValueRangeAnalysis.to_dtype() got an unexpected keyword argument 'use_compute_types'
         # this keyword exists in torch2.7.0 but not in torch2.6.0 so set to False until torch2.6.0 is deprecated.
-        "config.emulate_precision_casts = False", # Force X.to(f32).to(f16) instead of X.to(f16)
     ]
     # Torch dynamo arguments
     torch_dynamo_arguments = [
         "config.accumulated_cache_size_limit = 1024", # Bump up a bit from 256
         f"config.suppress_errors = {not debug and ignore_errors}", # Supress errors for now
         f"config.do_not_emit_runtime_asserts = {not debug}",
-        "config.cache_size_limit = 1024", # Flex Attention
         "config.inline_inbuilt_nn_modules = True", # Torch 2.5 Regional recompilation
         "config.numpy_default_float = 'float32'",
         # FAILS for Gemma!
         "config.compiled_autograd = False", # New Torch 2.4 feature which can compile backwards passes
         # https://pytorch.org/tutorials/intermediate/compiled_autograd_tutorial.html
-        "config.recompile_limit = 32", # Increase recompile amounts to 32 - then will do eager
+        # [NOTE] recompile_limit and cache_size_limit are equivalent!
+        "config.recompile_limit = 1024", # Increase recompile amounts to 1024 - then will do eager
+        "config.cache_size_limit = 1024", # Flex Attention
         # f"config.fail_on_recompile_limit_hit = {not debug and ignore_errors}", # Ignore recompiles CANNOT be used in tandem with suppress_errors
         "config.allow_unspec_int_on_nn_module = True", # Integers in modules will auto wrap torch.tensor(self.vocab_size)
         f"config.optimize_ddp = {not debug}", # Optimizes DDP, but can error out so disable on debug
@@ -243,7 +243,12 @@ pass
 
 def patch_to_dict():
     from functools import wraps
-    from transformers.configuration_utils import PretrainedConfig
+    try:
+        from transformers.configuration_utils import PreTrainedConfig
+        PretrainedConfig = PreTrainedConfig
+    except:
+        from transformers.configuration_utils import PretrainedConfig
+
     from .hf_utils import _normalize_dict_dtypes
     original_to_dict = PretrainedConfig.to_dict
     original_to_diff_dict = PretrainedConfig.to_diff_dict
@@ -252,12 +257,12 @@ def patch_to_dict():
     def wrapped_to_dict(self, *args, **kwargs):
         result = original_to_dict(self, *args, **kwargs)
         return _normalize_dict_dtypes(result)
-    
+
     @wraps(original_to_diff_dict)
     def wrapped_to_diff_dict(self, *args, **kwargs):
         result = original_to_diff_dict(self, *args, **kwargs)
         return _normalize_dict_dtypes(result)
-    
+
     wrapped_to_diff_dict._unsloth_patched = True
     if not getattr(PretrainedConfig, "_unsloth_patched", False):
         setattr(PretrainedConfig, "to_diff_dict", wrapped_to_diff_dict)
@@ -369,7 +374,7 @@ def patch_model_and_tokenizer(
             if key == "torch_dtype" or key == "dtype":
                 setattr(config, key, correct_dtype)
             else:
-                __fix_dtype(getattr(config, key))
+                __fix_dtype(getattr(config, key, None))
     m = model
     while hasattr(m, "model"):
         if hasattr(m, "dtype"):

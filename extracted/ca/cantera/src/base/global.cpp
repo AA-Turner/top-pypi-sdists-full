@@ -33,6 +33,15 @@ void setLogger(Logger* logwriter)
     }
 }
 
+void setLogger(unique_ptr<Logger> logwriter)
+{
+    try {
+        app()->setLogger(std::move(logwriter));
+    } catch (const std::bad_alloc&) {
+        logwriter->error("bad alloc thrown by app()");
+    }
+}
+
 void writelog_direct(const string& msg)
 {
     app()->writelog(msg);
@@ -149,10 +158,17 @@ string version()
 
 string gitCommit()
 {
-    return "6e00275";
+    return "4a8358e";
 }
 
 void addDirectory(const string& dir)
+{
+    warn_deprecated("addDirectory",
+                    "To be removed after Cantera 3.2. Renamed to addDataDirectory.");
+    app()->addDataDirectory(dir);
+}
+
+void addDataDirectory(const string& dir)
 {
     app()->addDataDirectory(dir);
 }

@@ -73,6 +73,7 @@ class ProductItem(
         invalidation_errors = 'invalidation_errors'
         inventory = 'inventory'
         is_bundle_hero = 'is_bundle_hero'
+        live_special_price = 'live_special_price'
         manufacturer_info = 'manufacturer_info'
         manufacturer_part_number = 'manufacturer_part_number'
         marked_for_product_launch = 'marked_for_product_launch'
@@ -96,6 +97,7 @@ class ProductItem(
         retailer_product_group_id = 'retailer_product_group_id'
         review_rejection_reasons = 'review_rejection_reasons'
         review_status = 'review_status'
+        rich_text_description = 'rich_text_description'
         sale_price = 'sale_price'
         sale_price_end_date = 'sale_price_end_date'
         sale_price_start_date = 'sale_price_start_date'
@@ -104,6 +106,7 @@ class ProductItem(
         short_description = 'short_description'
         size = 'size'
         start_date = 'start_date'
+        status = 'status'
         tags = 'tags'
         url = 'url'
         vendor_id = 'vendor_id'
@@ -111,6 +114,7 @@ class ProductItem(
         videos = 'videos'
         visibility = 'visibility'
         wa_compliance_category = 'wa_compliance_category'
+        allow_upsert = 'allow_upsert'
         android_app_name = 'android_app_name'
         android_class = 'android_class'
         android_package = 'android_package'
@@ -196,6 +200,10 @@ class ProductItem(
         kg = 'kg'
         lb = 'lb'
         oz = 'oz'
+
+    class Status:
+        published = 'PUBLISHED'
+        staging = 'STAGING'
 
     class VideoFetchStatus:
         direct_upload = 'DIRECT_UPLOAD'
@@ -439,7 +447,6 @@ class ProductItem(
         commerce_account_not_legally_compliant = 'COMMERCE_ACCOUNT_NOT_LEGALLY_COMPLIANT'
         crawled_availability_mismatch = 'CRAWLED_AVAILABILITY_MISMATCH'
         da_disabled_by_user = 'DA_DISABLED_BY_USER'
-        da_policy_unfit_for_audience = 'DA_POLICY_UNFIT_FOR_AUDIENCE'
         da_policy_violation = 'DA_POLICY_VIOLATION'
         deleted_item = 'DELETED_ITEM'
         digital_goods_not_available_for_checkout = 'DIGITAL_GOODS_NOT_AVAILABLE_FOR_CHECKOUT'
@@ -503,6 +510,7 @@ class ProductItem(
         marketplace_disabled_by_user = 'MARKETPLACE_DISABLED_BY_USER'
         marketplace_partner_auction_no_bid_close_time = 'MARKETPLACE_PARTNER_AUCTION_NO_BID_CLOSE_TIME'
         marketplace_partner_currency_not_valid = 'MARKETPLACE_PARTNER_CURRENCY_NOT_VALID'
+        marketplace_partner_distribution_disabled = 'MARKETPLACE_PARTNER_DISTRIBUTION_DISABLED'
         marketplace_partner_listing_country_not_match_catalog = 'MARKETPLACE_PARTNER_LISTING_COUNTRY_NOT_MATCH_CATALOG'
         marketplace_partner_listing_limit_exceeded = 'MARKETPLACE_PARTNER_LISTING_LIMIT_EXCEEDED'
         marketplace_partner_missing_latlong = 'MARKETPLACE_PARTNER_MISSING_LATLONG'
@@ -561,6 +569,7 @@ class ProductItem(
         quality_item_link_broken = 'QUALITY_ITEM_LINK_BROKEN'
         quality_item_link_redirecting = 'QUALITY_ITEM_LINK_REDIRECTING'
         retailer_id_not_provided = 'RETAILER_ID_NOT_PROVIDED'
+        retailer_id_used_by_group = 'RETAILER_ID_USED_BY_GROUP'
         shopify_invalid_retailer_id = 'SHOPIFY_INVALID_RETAILER_ID'
         shopify_item_missing_shipping_profile = 'SHOPIFY_ITEM_MISSING_SHIPPING_PROFILE'
         shops_policy_violation = 'SHOPS_POLICY_VIOLATION'
@@ -576,6 +585,7 @@ class ProductItem(
         video_fetch_failed_forbidden = 'VIDEO_FETCH_FAILED_FORBIDDEN'
         video_fetch_failed_link_broken = 'VIDEO_FETCH_FAILED_LINK_BROKEN'
         video_fetch_failed_timed_out = 'VIDEO_FETCH_FAILED_TIMED_OUT'
+        video_issue_generic = 'VIDEO_ISSUE_GENERIC'
         video_not_downloadable = 'VIDEO_NOT_DOWNLOADABLE'
         whatsapp_disabled_by_user = 'WHATSAPP_DISABLED_BY_USER'
         whatsapp_marketing_message_disabled_by_user = 'WHATSAPP_MARKETING_MESSAGE_DISABLED_BY_USER'
@@ -971,6 +981,7 @@ class ProductItem(
             'iphone_app_store_id': 'unsigned int',
             'iphone_url': 'string',
             'launch_date': 'string',
+            'live_special_price': 'string',
             'manufacturer_info': 'string',
             'manufacturer_part_number': 'string',
             'marked_for_product_launch': 'marked_for_product_launch_enum',
@@ -990,6 +1001,7 @@ class ProductItem(
             'quantity_to_sell_on_facebook': 'unsigned int',
             'retailer_id': 'string',
             'return_policy_days': 'unsigned int',
+            'rich_text_description': 'string',
             'sale_price': 'unsigned int',
             'sale_price_end_date': 'datetime',
             'sale_price_start_date': 'datetime',
@@ -1210,6 +1222,7 @@ class ProductItem(
         'invalidation_errors': 'list<ProductItemInvalidationError>',
         'inventory': 'int',
         'is_bundle_hero': 'bool',
+        'live_special_price': 'string',
         'manufacturer_info': 'string',
         'manufacturer_part_number': 'string',
         'marked_for_product_launch': 'string',
@@ -1233,6 +1246,7 @@ class ProductItem(
         'retailer_product_group_id': 'string',
         'review_rejection_reasons': 'list<string>',
         'review_status': 'ReviewStatus',
+        'rich_text_description': 'string',
         'sale_price': 'string',
         'sale_price_end_date': 'string',
         'sale_price_start_date': 'string',
@@ -1241,6 +1255,7 @@ class ProductItem(
         'short_description': 'string',
         'size': 'string',
         'start_date': 'string',
+        'status': 'Status',
         'tags': 'list<string>',
         'url': 'string',
         'vendor_id': 'string',
@@ -1248,6 +1263,7 @@ class ProductItem(
         'videos': 'list<ProductItemVideoData>',
         'visibility': 'Visibility',
         'wa_compliance_category': 'string',
+        'allow_upsert': 'bool',
         'android_app_name': 'string',
         'android_class': 'string',
         'android_package': 'string',
@@ -1285,6 +1301,7 @@ class ProductItem(
         field_enum_info['ImageFetchStatus'] = ProductItem.ImageFetchStatus.__dict__.values()
         field_enum_info['ReviewStatus'] = ProductItem.ReviewStatus.__dict__.values()
         field_enum_info['ShippingWeightUnit'] = ProductItem.ShippingWeightUnit.__dict__.values()
+        field_enum_info['Status'] = ProductItem.Status.__dict__.values()
         field_enum_info['VideoFetchStatus'] = ProductItem.VideoFetchStatus.__dict__.values()
         field_enum_info['Visibility'] = ProductItem.Visibility.__dict__.values()
         field_enum_info['CommerceTaxCategory'] = ProductItem.CommerceTaxCategory.__dict__.values()

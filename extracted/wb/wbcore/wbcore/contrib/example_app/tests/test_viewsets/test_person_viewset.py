@@ -29,7 +29,7 @@ from wbcore.contrib.example_app.viewsets import (
 @pytest.mark.django_db
 class TestSportPersonModelViewSet(TestCase):
     def setUp(self):
-        self.user = SuperUserFactory()
+        self.user = SuperUserFactory.create()
         self.client = Client()
         self.client.force_login(user=self.user)
         self.list_url = reverse("example_app:person-list")
@@ -40,19 +40,19 @@ class TestSportPersonModelViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_create_view(self):
-        person = SportPersonFactory()
+        person = SportPersonFactory.create()
         response = get_create_view(self.client, person, self.user, self.list_url, SportPersonModelViewSet)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(SportPerson.objects.filter(last_name=person.last_name).exists())
 
     def test_detail_view(self):
-        instance = SportPersonFactory()
+        instance = SportPersonFactory.create()
         response = get_detail_view(self.client, instance.pk, self.detail_url_str)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_update_view(self):
-        instance = SportPersonFactory()
+        instance = SportPersonFactory.create()
         instance.last_name = "Updated Instance"
         instance.profile_image = None
         response = get_update_view(self.client, instance, SportPersonModelSerializer, self.detail_url_str)
@@ -61,22 +61,22 @@ class TestSportPersonModelViewSet(TestCase):
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_partial_update_view(self):
-        instance = SportPersonFactory()
+        instance = SportPersonFactory.create()
         response = get_partial_view(self.client, instance.id, {"last_name": "Updated Instance"}, self.detail_url_str)
         instance.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_delete_view(self):
-        instance = SportPersonFactory()
+        instance = SportPersonFactory.create()
         response = get_delete_view(self.client, self.detail_url_str, instance.pk)
         self.assertEqual(response.status_code, 204)
         self.assertFalse(SportPerson.objects.filter(pk=instance.pk).exists())
 
     def test_ordering_fields(self):
-        person_a = SportPersonFactory(first_name="Hans", last_name="Brecht")
-        person_b = SportPersonFactory(first_name="Hans", last_name="Ahrens")
-        person_c = SportPersonFactory(first_name="Ralf", last_name="Christ")
+        person_a = SportPersonFactory.create(first_name="Hans", last_name="Brecht")
+        person_b = SportPersonFactory.create(first_name="Hans", last_name="Ahrens")
+        person_c = SportPersonFactory.create(first_name="Ralf", last_name="Christ")
 
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, 200)
@@ -89,7 +89,7 @@ class TestSportPersonModelViewSet(TestCase):
 @pytest.mark.django_db
 class TestPlayerModelViewSet(TestCase):
     def setUp(self):
-        self.user = SuperUserFactory()
+        self.user = SuperUserFactory.create()
         self.client = Client()
         self.client.force_login(user=self.user)
         self.detail_url_str = "example_app:player-detail"
@@ -100,19 +100,19 @@ class TestPlayerModelViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_create_view(self):
-        player = PlayerFactory()
+        player = PlayerFactory.create()
         response = get_create_view(self.client, player, self.user, self.list_url, PlayerModelViewSet)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Player.objects.filter(last_name=player.last_name).exists())
 
     def test_detail_view(self):
-        instance = PlayerFactory()
+        instance = PlayerFactory.create()
         response = get_detail_view(self.client, instance.pk, self.detail_url_str)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_update_view(self):
-        instance = PlayerFactory()
+        instance = PlayerFactory.create()
         instance.last_name = "Updated Instance"
         response = get_update_view(self.client, instance, PlayerModelSerializer, self.detail_url_str)
         instance.refresh_from_db()
@@ -120,20 +120,20 @@ class TestPlayerModelViewSet(TestCase):
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_partial_update_view(self):
-        instance = PlayerFactory()
+        instance = PlayerFactory.create()
         response = get_partial_view(self.client, instance.id, {"last_name": "Updated Instance"}, self.detail_url_str)
         instance.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["last_name"], instance.last_name)
 
     def test_delete_view(self):
-        instance = PlayerFactory()
+        instance = PlayerFactory.create()
         response = get_delete_view(self.client, self.detail_url_str, instance.pk)
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Player.objects.filter(pk=instance.pk).exists())
 
     def test_ordering_fields(self):
-        team_a, team_b = TeamFactory(name="Team A"), TeamFactory(name="Team B")
+        team_a, team_b = TeamFactory.create(name="Team A"), TeamFactory(name="Team B")
         person_a = PlayerFactory(first_name="Hans", last_name="Ahrens", current_team=team_b)
         person_b = PlayerFactory(first_name="Hans", last_name="Ahrens", current_team=team_a)
         person_c = PlayerFactory(first_name="Ralf", last_name="Brecht")

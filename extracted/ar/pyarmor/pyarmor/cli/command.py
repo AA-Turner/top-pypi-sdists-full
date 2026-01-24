@@ -135,16 +135,6 @@ class Commander:
         #     action="store_const", const='std',
         #     help='genetate standard obfuscated scripts'
         # )
-        # group.add_argument(
-        #     '--ecc', dest='target', default='std',
-        #     action="store_const", const='ecc',
-        #     help='genetate scripts with embedded C code'
-        # )
-        # group.add_argument(
-        #     '--vmc', dest='target', default='std',
-        #     action="store_const", const='vmc',
-        #     help='genetate scripts with vm C code'
-        # )
         group.add_argument(
             '--rft', dest='target', default='std',
             action="store_const", const='rft',
@@ -158,7 +148,38 @@ class Commander:
         group.add_argument(
             '--mini-rft', dest='target', default='std',
             action="store_const", const='mini-rft',
-            help='genetate high performance refactor scripts'
+            help='generate scripts by combining --rft and --mini'
+        )
+        group.add_argument(
+            '--vmc', dest='target', default='std',
+            action="store_const", const='vmc',
+            help='genetate scripts with vmc code'
+        )
+        group.add_argument(
+            '--vmc-rft', dest='target', default='std',
+            action="store_const", const='vmc-rft',
+            help='generate scripts by combining --rft and --vmc'
+        )
+        group.add_argument(
+            '--ecc', dest='target', default='std',
+            action="store_const", const='ecc',
+            help='genetate scripts with embedded C code'
+        )
+        group.add_argument(
+            '--ecc-rft', dest='target', default='std',
+            action="store_const", const='ecc-rft',
+            help='generate scripts by combining --rft and --ecc'
+        )
+        group.add_argument(
+            '--ecc-nogil', dest='target', default='std',
+            action="store_const", const='ecc-nogil',
+            help='genetate ECC scripts for free-threading Python'
+        )
+        group.add_argument(
+            '--ecc-rft-nogil', dest='target', default='std',
+            action="store_const", const='ecc-rft-nogil',
+            help=('generate scripts by combining --rft and --ecc'
+                  ' for free-threading Python')
         )
         group.add_argument(
             '--list', dest='target', default='std',
@@ -338,7 +359,7 @@ class Commander:
             logger.info('%-20s: %s', key, value)
 
         makedirs(ctx.local_path, exist_ok=True)
-        with open(ctx.local_config, 'w') as f:
+        with open(ctx.local_config, 'w', encoding=ctx.encoding) as f:
             cfg.write(f)
         logger.info('project saved')
 
@@ -365,6 +386,10 @@ class Commander:
             interpolation=configparser.ExtendedInterpolation(),
         )
         cfg.read([ctx.local_config], encoding=ctx.encoding)
+
+        x, y = ctx.python_version
+        if not (x == 3 and y > 8 and y < 16):
+            raise CliError('`pyarmor build` only works for Python 3.9+')
 
         sectname = 'project'
         if not cfg.has_section(sectname):
@@ -412,6 +437,8 @@ class Commander:
             logger.info('build target %s ...', args.target)
             output = args.output if args.output else 'dist'
             self._build(project, args.target, output)
+            if args.target.startswith('std'):
+                self._cmd_gen(args)
             logger.info('build target %s end', args.target)
 
     def _build(self, project, target, output, value=None):
@@ -419,6 +446,25 @@ class Commander:
         args = [self.ctx, target, project, output, value]
         m = Pytransform3.init(self.ctx)
         m.pre_build(args)
+
+    def _cmd_gen(self, args):
+        """If build target is std, then call `pyarmor gen`
+
+        It will obfuscate the scripts with `pyarmor_runtime.so`
+
+        Most of obfuscated options are got from config file, not from
+        command line
+
+        Option `--pack` may be still got from command line
+        """
+        from .generate import Builder
+        from .plugin import Plugin
+
+        ctx = self.ctx
+        builder = Builder(ctx)
+        Plugin.install(ctx)
+        builder.process(args)
+        Plugin.post_build(ctx)
 
     def cmd_env(self, ctx, args):
         """Check and change pyarmor settings

@@ -32,6 +32,7 @@
 
 cimport cpython
 
+from libc.errno cimport EINVAL, EOVERFLOW
 from libc.stdint cimport uintptr_t
 from libc.string cimport memcpy, memset, strlen, strchr
 from cpython cimport array
@@ -52,5 +53,6 @@ else:
     uint32_template = array.array("L")
 
 include "impl/arrow/utils.pyx"
+include "impl/arrow/schema.pyx"
 include "impl/arrow/array.pyx"
 include "impl/arrow/dataframe.pyx"

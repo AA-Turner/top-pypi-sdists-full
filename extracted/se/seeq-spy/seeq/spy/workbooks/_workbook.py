@@ -3,9 +3,11 @@ from __future__ import annotations
 import copy
 import glob
 import json
+import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
+from urllib.parse import urljoin
 
 import numpy as np
 import pandas as pd
@@ -14,10 +16,10 @@ from seeq.base import util
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy import _metadata
 from seeq.spy import _search as _spy_search
 from seeq.spy import _url
+from seeq.spy import _version
 from seeq.spy._context import WorkbookContext
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely, request_safely
@@ -27,7 +29,8 @@ from seeq.spy.workbooks import _folder
 from seeq.spy.workbooks import _item
 from seeq.spy.workbooks import _render
 from seeq.spy.workbooks import _search
-from seeq.spy.workbooks._context import WorkbookPushContext
+from seeq.spy.workbooks._annotation import Annotation, Journal
+from seeq.spy.workbooks._context import WorkbookPushContext, DatasourceMapList
 from seeq.spy.workbooks._data import Datasource, StoredOrCalculatedItem, ThresholdMetric
 from seeq.spy.workbooks._folder import Folder
 from seeq.spy.workbooks._item import Item, ItemList, Reference, ItemExists
@@ -46,6 +49,7 @@ class ItemJSONEncoder(json.JSONEncoder):
 
 class Workbook(ItemWithOwnerAndAcl):
     NULL_DATASOURCE_STRING = '__null__'
+    _annotation: Optional[Annotation]
     _item_inventory: dict
     _datasource_maps: DatasourceMapList
     _datasource_inventory: dict
@@ -69,6 +73,7 @@ class Workbook(ItemWithOwnerAndAcl):
 
         self.worksheets = WorksheetList(self)
 
+        self._annotation = None  # Currently only Vantage Room workbook objects populate this
         self._push_context = None
         self._item_inventory = dict()
         self._datasource_maps = DatasourceMapList()
@@ -78,6 +83,8 @@ class Workbook(ItemWithOwnerAndAcl):
 
         if 'Workbook Type' not in self._definition:
             self._definition['Workbook Type'] = self.__class__.__name__.replace('Template', '')
+            if self._definition['Workbook Type'] == 'Room':
+                self._definition['Workbook Type'] = 'Vantage'
         if 'Name' not in self._definition:
             self._definition['Name'] = _common.DEFAULT_WORKBOOK_NAME
 
@@ -247,7 +254,7 @@ class Workbook(ItemWithOwnerAndAcl):
                     definition['Workbook Type'] = 'Analysis'
                 else:
                     definition['Workbook Type'] = 'Topic'
-        elif definition['Type'] in ['Analysis', 'Topic']:
+        elif definition['Type'] in ['Analysis', 'Topic', 'Vantage']:
             # This is for backward compatibility with .49 and earlier, which used the same type (Workbook) for both
             # Analysis and Topic. Eventually we may want to deprecate "Workbook Type" and fold it into the "Type"
             # property.
@@ -260,6 +267,8 @@ class Workbook(ItemWithOwnerAndAcl):
             return Analysis(definition, provenance=provenance)
         elif definition['Workbook Type'] == 'Topic':
             return Topic(definition, provenance=provenance)
+        elif definition['Workbook Type'] == 'Vantage':
+            return Room(definition, provenance=provenance)
 
     @staticmethod
     def pull(item_id, *, status: Status = None, extra_workstep_tuples=None, include_inventory=True,
@@ -299,6 +308,9 @@ class Workbook(ItemWithOwnerAndAcl):
     def pull_rendered_content(self, session: Session, status: Status):
         pass
 
+    def item_map_worksteps_key(self):
+        return f'Worksteps for {self.id}'
+
     @staticmethod
     def _get_workbook_output(session: Session, workbook_id: str) -> WorkbookOutputV1:
         workbooks_api = WorkbooksApi(session.client)
@@ -334,6 +346,12 @@ class Workbook(ItemWithOwnerAndAcl):
 
         self._definition['Path'] = _common.path_list_to_string([a.name for a in ancestors])
         self._definition['Workbook Type'] = _common.get_workbook_type(workbook_output)
+
+        for attr, prop in [('locked_metadata', 'Locked Metadata'),
+                           ('evidence_table_definition_id', 'Evidence Table Definition ID')]:
+            value = getattr(workbook_output, attr, None)
+            if value is not None:
+                self._definition[prop] = value
 
         if include_access_control:
             self._pull_owner_and_acl(session, workbook_output.owner, status)
@@ -398,6 +416,10 @@ class Workbook(ItemWithOwnerAndAcl):
         else:
             # Need to at least scrape folders so we know what the path is
             self._scrape_folder_inventory(session, status, item_cache, include_access_control)
+
+        if include_annotations and self._annotation is not None:
+            self._annotation.pull(session, include_images=include_images,
+                                  include_archived=include_archived, status=status)
 
     def _pull_ancestors(self, session: Session, ancestors: List[ItemPreviewV1]):
         super()._pull_ancestors(session, ancestors)
@@ -465,14 +487,20 @@ class Workbook(ItemWithOwnerAndAcl):
 
         try:
             self._push_errors = set()
-            self._push_context.status.on_error = lambda error: self._push_errors.add(str(error))
+
+            def _on_error(_error):
+                self._push_context.status.log(str(_error), level=logging.ERROR)
+                self._push_errors.add(str(_error))
+
+            self._push_context.status.on_error = _on_error
             if item_map is None:
                 item_map = ItemMap()
 
             if len(self.worksheets) == 0:
                 raise SPyValueError('Workbook %s must have at least one worksheet before pushing' % self)
 
-            datasource_output = _metadata.create_datasource(session, self._push_context.datasource)
+            datasource_output = _metadata.create_datasource(session, self._push_context.datasource,
+                                                            status=status, dry_run=context.dry_run)
 
             # When Workbook Templates were originally created, the Data ID was set to the ID of the workbook which has
             # the label appended to it. This made Template pushes incompatible with plain workbooks pushed with a label,
@@ -483,20 +511,24 @@ class Workbook(ItemWithOwnerAndAcl):
 
             if self.__class__.__name__.endswith('Template'):
                 # First try to find the item using the ID directly within the Data ID (pre-v195 style)
+                status.log('Looking for existing workbook using legacy Template Data ID format')
                 workbook_item = Item.find_item(session, self.id, datasource_output.datasource_class,
                                                datasource_output.datasource_id, data_id_with_label_suffix_maybe,
-                                               label=label)
+                                               label=label, status=status)
 
                 if workbook_item is None:
                     # Now try using the new style, which removes the label from the end of the ID and is therefore
                     # compatible with Data IDs pushed in non-template scenarios.
+                    status.log('Looking for existing workbook using newer Template Data ID format')
                     workbook_item = Item.find_item(session, self.id, datasource_output.datasource_class,
                                                    datasource_output.datasource_id, data_id_without_label_suffix,
-                                                   label=label)
+                                                   label=label, status=status)
             else:
-                workbook_item = self.find_me(session, label, datasource_output)
+                status.log('Looking for existing workbook')
+                workbook_item = self.find_me(session, label, datasource_output, status=status)
 
             if workbook_item is None and self.provenance == Item.CONSTRUCTOR:
+                status.log('Looking for existing workbook by name')
                 workbook_item = self.find_by_name(session, self.name, self.definition['Workbook Type'], folder_id,
                                                   status)
 
@@ -505,28 +537,34 @@ class Workbook(ItemWithOwnerAndAcl):
 
             props = list()
             existing_worksheet_identifiers = dict()
+            workbook_output: Optional[WorkbookOutputV1] = None
 
             if not workbook_item:
                 workbook_input = WorkbookInputV1()
                 workbook_input.name = self.definition['Name']
                 workbook_input.description = _common.get(self.definition, 'Description')
                 workbook_input.folder_id = folder_id if folder_id != _common.PATH_ROOT else None
-                workbook_input.owner_id = self.decide_owner(session, self.datasource_maps, item_map,
-                                                            owner=self._push_context.owner)
+                workbook_input.owner_id = self.decide_owner(context, item_map, owner=context.owner)
                 workbook_input.type = self['Workbook Type']
                 workbook_input.branch_from = _common.get(self.definition, 'Branch From')
-                workbook_output = workbooks_api.create_workbook(body=workbook_input)  # type: WorkbookOutputV1
 
-                if session.options.wants_compatibility_with(194):
-                    data_id = data_id_with_label_suffix_maybe
+                if not context.dry_run:
+                    status.log(f'Create new workbook:\n{workbook_input}')
+                    workbook_output = workbooks_api.create_workbook(body=workbook_input)  # type: WorkbookOutputV1
+
+                    if session.options.wants_compatibility_with(194):
+                        data_id = data_id_with_label_suffix_maybe
+                    else:
+                        data_id = data_id_without_label_suffix
+
+                    status.log(f'Set workbook properties for Data ID {data_id}')
+                    items_api.set_properties(id=workbook_output.id, body=[
+                        ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
+                        ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
+                        ScalarPropertyV1(name='Data ID', value=data_id),
+                        ScalarPropertyV1(name='workbookState', value=_common.DEFAULT_WORKBOOK_STATE)])
                 else:
-                    data_id = data_id_without_label_suffix
-
-                items_api.set_properties(id=workbook_output.id, body=[
-                    ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
-                    ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
-                    ScalarPropertyV1(name='Data ID', value=data_id),
-                    ScalarPropertyV1(name='workbookState', value=_common.DEFAULT_WORKBOOK_STATE)])
+                    status.log(f'[Dry Run] Would create new workbook:\n{workbook_input}')
 
             else:
                 workbook_output = Workbook._get_workbook_output(session, workbook_item.id)  # type: WorkbookOutputV1
@@ -534,25 +572,30 @@ class Workbook(ItemWithOwnerAndAcl):
                 if workbook_output.is_archived:
                     # If the workbook happens to be archived, un-archive it. If you're pushing a new copy it seems
                     # likely you're intending to revive it.
-                    items_api.set_properties(id=workbook_output.id,
-                                             body=[ScalarPropertyV1(name='Archived', value=False)])
+                    if not context.dry_run:
+                        status.log(f'Un-archive existing workbook {workbook_output.id}')
+                        items_api.set_properties(id=workbook_output.id,
+                                                 body=[ScalarPropertyV1(name='Archived', value=False)])
+                    else:
+                        status.log(f'[Dry Run] Would un-archive existing workbook {workbook_output.id}')
 
                 if (self._push_context.specific_worksheet_ids is None or
                         len(self._push_context.specific_worksheet_ids) > 0):
                     existing_worksheet_identifiers = self._get_existing_worksheet_identifiers(workbook_output)
 
-                owner_id = self.decide_owner(session, self.datasource_maps, item_map, owner=self._push_context.owner,
+                owner_id = self.decide_owner(context, item_map, owner=context.owner,
                                              current_owner_id=workbook_output.owner.id)
 
-                ItemWithOwnerAndAcl._push_owner_and_location(session, workbook_output, owner_id, folder_id, status)
+                self._push_owner_and_location(session, workbook_output, owner_id, folder_id, status,
+                                              dry_run=context.dry_run)
 
-            status.put('Pushed Workbook ID', workbook_output.id)
+            if workbook_output is not None:
+                status.put('Pushed Workbook ID', workbook_output.id)
 
-            item_map[self.id] = workbook_output.id
+                item_map[self.id] = workbook_output.id
 
-            if self._push_context.access_control:
-                self._push_acl(session, workbook_output.id, self.datasource_maps, item_map,
-                               self._push_context.access_control)
+                if context.access_control:
+                    self._push_acl(context, workbook_output.id, item_map)
 
             if include_inventory:
                 results_df = self._push_inventory(item_map, label, datasource_output, workbook_output)
@@ -564,7 +607,11 @@ class Workbook(ItemWithOwnerAndAcl):
             if _common.present(self.definition, 'workbookState'):
                 props.append(ScalarPropertyV1(name='workbookState', value=json.dumps(self.definition['workbookState'])))
 
-            items_api.set_properties(id=workbook_output.id, body=props)
+            if not context.dry_run:
+                status.log(f'Update workbook properties:\n{props}')
+                items_api.set_properties(id=workbook_output.id, body=props)
+            else:
+                status.log(f'[Dry Run] Would update workbook properties:\n{props}')
 
             if len(set(self.worksheets)) != len(self.worksheets):
                 raise SPyValueError('Worksheet list within Workbook "%s" is not unique: %s' % (self, self.worksheets))
@@ -573,6 +620,10 @@ class Workbook(ItemWithOwnerAndAcl):
             for worksheet in self.worksheets:  # type: Worksheet
                 if (self._push_context.specific_worksheet_ids is not None and
                         worksheet.id not in self._push_context.specific_worksheet_ids):
+                    continue
+
+                if context.dry_run and workbook_output is None:
+                    status.log(f'[Dry Run] Would push worksheet "{worksheet.name}" but workbook was not created')
                     continue
 
                 self.update_status('Pushing worksheet', 1)
@@ -588,60 +639,40 @@ class Workbook(ItemWithOwnerAndAcl):
 
             dependencies_not_found = set()
             if self._push_context.specific_worksheet_ids is None:
-                # Pull the set of worksheets and re-order them
-                maybe_worksheet_ids = Workbook._pull_worksheet_ids(session, workbook_output.id, status)
-                remaining_pushed_worksheet_ids = list() if maybe_worksheet_ids is None else maybe_worksheet_ids
+                if context.dry_run and workbook_output is None:
+                    status.log(f'[Dry Run] Would reorder and archive worksheets but workbook was not created')
+                else:
+                    self._reorder_and_archive_worksheets(context, item_map, workbook_output)
 
-                next_worksheet_id = None
-                for worksheet in reversed(self.worksheets):
-                    pushed_worksheet_id = item_map[worksheet.id]
-                    if next_worksheet_id is None:
-                        safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
-                                                                    worksheet_id=pushed_worksheet_id),
-                               action_description=f'move worksheet {pushed_worksheet_id} to be first in '
-                                                  f'workbook {workbook_output.id}',
-                               status=status)
-                    else:
-                        safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
-                                                                    worksheet_id=pushed_worksheet_id,
-                                                                    next_worksheet_id=item_map[next_worksheet_id]),
-                               action_description=f'move worksheet {pushed_worksheet_id} to be before '
-                                                  f'{item_map[next_worksheet_id]} in workbook {workbook_output.id}',
-                               status=status)
+            # Now go back through all the worksheets to see if any worksteps weren't resolved
+            for worksheet in self.worksheets:
+                if (self._push_context.specific_worksheet_ids is not None and
+                        worksheet.id not in self._push_context.specific_worksheet_ids):
+                    continue
 
-                    if pushed_worksheet_id in remaining_pushed_worksheet_ids:
-                        remaining_pushed_worksheet_ids.remove(pushed_worksheet_id)
+                dependencies_not_found.update(worksheet.find_unresolved_worksteps(item_map))
 
-                    next_worksheet_id = worksheet.id
+            if context.include_annotations and self._annotation is not None:
+                self._annotation.push(context, workbook_output.id, workbook_output.id, item_map,
+                                      datasource_output, context.access_control, push_images=True, label=label)
 
-                # Archive any worksheets that are no longer active
-                for remaining_pushed_worksheet_id in remaining_pushed_worksheet_ids:
-                    safely(
-                        lambda: items_api.archive_item(id=remaining_pushed_worksheet_id,
-                                                       note='Archived by SPy because the worksheet is no longer '
-                                                            'active in the workbook'),
-                        action_description=f'archive Worksheet {remaining_pushed_worksheet_id} from '
-                                           f'Workbook {workbook_output.id}',
-                        status=status)
-
-                # Now go back through all the worksheets to see if any worksteps weren't resolved
-                for worksheet in self.worksheets:
-                    if (self._push_context.specific_worksheet_ids is not None and
-                            worksheet.id not in self._push_context.specific_worksheet_ids):
-                        continue
-
-                    dependencies_not_found.update(worksheet.find_unresolved_worksteps())
-
-            link_url = Workbook.construct_url(
-                session,
-                folder_id,
-                workbook_output.id,
-                first_worksheet_id
-            )
-            status.put('URL', link_url)
+            if workbook_output is not None:
+                link_url = Workbook.construct_url(
+                    session,
+                    folder_id,
+                    workbook_output.id,
+                    first_worksheet_id
+                )
+                status.put('URL', link_url)
 
             if len(dependencies_not_found) > 0:
-                raise SPyDependencyNotFound('\n'.join(dependencies_not_found))
+                if not context.dry_run:
+                    status.warn('Some worksteps could not be resolved during push:\n%s' %
+                                '\n'.join(dependencies_not_found))
+                    raise SPyDependencyNotFound('\n'.join(dependencies_not_found))
+                else:
+                    status.log('[Dry Run] Would warn about unresolved workstep dependencies:\n%s' %
+                               '\n'.join(dependencies_not_found))
 
             return workbook_output
 
@@ -649,14 +680,61 @@ class Workbook(ItemWithOwnerAndAcl):
             self._push_context.status.on_error = None
             self._push_context = None
 
+    def _reorder_and_archive_worksheets(self, context: WorkbookPushContext, item_map: ItemMap,
+                                        workbook_output: WorkbookOutputV1):
+        session = context.session
+        status = context.status
+        workbooks_api = WorkbooksApi(session.client)
+
+        # Pull the set of worksheets and re-order them
+        maybe_worksheet_ids = Workbook._pull_worksheet_ids(session, workbook_output.id, status)
+        remaining_pushed_worksheet_ids = list() if maybe_worksheet_ids is None else maybe_worksheet_ids
+
+        next_worksheet_id = None
+        for worksheet in reversed(self.worksheets):
+            pushed_worksheet_id = item_map[worksheet.id]
+            if next_worksheet_id is None:
+                safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
+                                                            worksheet_id=pushed_worksheet_id),
+                       action_description=f'move worksheet {pushed_worksheet_id} to be last in '
+                                          f'workbook {workbook_output.id}',
+                       status=status, dry_run=context.dry_run)
+            else:
+                safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
+                                                            worksheet_id=pushed_worksheet_id,
+                                                            next_worksheet_id=item_map[next_worksheet_id]),
+                       action_description=f'move worksheet {pushed_worksheet_id} to be before '
+                                          f'{item_map[next_worksheet_id]} in workbook {workbook_output.id}',
+                       status=status, dry_run=context.dry_run)
+
+            if pushed_worksheet_id in remaining_pushed_worksheet_ids:
+                remaining_pushed_worksheet_ids.remove(pushed_worksheet_id)
+
+            next_worksheet_id = worksheet.id
+
+        # Archive any worksheets that are no longer active
+        items_api = ItemsApi(session.client)
+        for remaining_pushed_worksheet_id in remaining_pushed_worksheet_ids:
+            safely(
+                lambda: items_api.archive_item(id=remaining_pushed_worksheet_id,
+                                               note='Archived by SPy because the worksheet is no longer '
+                                                    'active in the workbook'),
+                action_description=f'archive Worksheet {remaining_pushed_worksheet_id} from '
+                                   f'Workbook {workbook_output.id}',
+                status=status, dry_run=context.dry_run)
+
     @staticmethod
     def construct_url(session: Session, folder_id, workbook_id, worksheet_id=None):
-        return ('%s/%sworkbook/%s/worksheet/%s' % (
-            session.public_url,
-            (folder_id + '/') if folder_id is not None else '',
-            workbook_id,
-            worksheet_id if workbook_id is not None else ''
-        ))
+        base_url = session.public_url + '/'
+        url = base_url
+
+        if folder_id is not None:
+            url = urljoin(url, f'{folder_id}/')
+        url = urljoin(url, f'workbook/{workbook_id}/')
+        if worksheet_id is not None:
+            url = urljoin(url, f'worksheet/{worksheet_id}')
+
+        return url
 
     def _get_existing_worksheet_identifiers(self, workbook_output: WorkbookOutputV1) -> dict:
         workbooks_api = WorkbooksApi(self._push_context.session.client)
@@ -690,8 +768,12 @@ class Workbook(ItemWithOwnerAndAcl):
                         # Data ID. (We switched to "SPy ID" because there's no use in using the Datasource Class
                         # / Datasource ID / Data ID triplet when you can't actually search on it.)
                         if len(data_id) != 0:
+                            self._push_context.status.log(
+                                f'Worksheet "{worksheet_output.name}" ({worksheet_output.id}) has Data ID {data_id[0]}')
                             existing_worksheet_identifiers[data_id[0]] = worksheet_output.id
                         elif len(spy_id) != 0:
+                            self._push_context.status.log(
+                                f'Worksheet "{worksheet_output.name}" ({worksheet_output.id}) has SPy ID {spy_id[0]}')
                             existing_worksheet_identifiers[spy_id[0]] = worksheet_output.id
 
                     existing_worksheet_identifiers[worksheet_output.id] = worksheet_output.id
@@ -705,7 +787,7 @@ class Workbook(ItemWithOwnerAndAcl):
 
         return existing_worksheet_identifiers
 
-    def _push_inventory(self, item_map: ItemMap, label, datasource_output, workbook_output):
+    def _push_inventory(self, item_map: ItemMap, label, datasource_output, workbook_output) -> Optional[pd.DataFrame]:
         references_exist = self._do_references_exist()
 
         metadata_to_push = dict()
@@ -719,9 +801,10 @@ class Workbook(ItemWithOwnerAndAcl):
             # noinspection PyBroadException
             try:
                 item_exists, item_search_preview = references_exist.get(item.id, (ItemExists.MAYBE, None))
+                workbook_output_id = workbook_output.id if workbook_output is not None else None
                 to_push = item.get_metadata_to_push(
-                    self._push_context, self.datasource_maps, datasource_output, self.item_inventory,
-                    pushed_workbook_id=workbook_output.id, item_map=item_map, label=label, item_exists=item_exists,
+                    self._push_context, self._push_context.datasource_maps, datasource_output, self.item_inventory,
+                    pushed_workbook_id=workbook_output_id, item_map=item_map, label=label, item_exists=item_exists,
                     item_search_preview=item_search_preview
                 )
 
@@ -738,21 +821,28 @@ class Workbook(ItemWithOwnerAndAcl):
                 #  is kept for backwards compatibility
                 self._push_context.status.on_error(f'Error processing {item}:\n{_common.format_exception()}')
 
-        if len(metadata_to_push) > 0:
-            results_df = self._push_accumulated_inventory_metadata(metadata_to_push, item_map, datasource_output)
-            for index, row in results_df.iterrows():
-                if _common.get(row, 'Push Result') == 'Success':
-                    item_map[index] = row['ID']
-                    if _common.get(row, 'Dummy Item'):
-                        item_map.add_dummy_item(row)
-                    self.update_status('Pushing item inventory', 1)
-            if results_df.spy.friendly_error_string is not None:
-                self._push_context.status.on_error(results_df.spy.friendly_error_string)
-            return results_df
+        if len(metadata_to_push) == 0:
+            return None
+
+        results_df = self._push_accumulated_inventory_metadata(metadata_to_push, item_map, datasource_output)
+        if results_df is None:
+            return None
+
+        for index, row in results_df.iterrows():
+            if _common.get(row, 'Push Result') == 'Success':
+                item_map[index] = row['ID']
+                if _common.get(row, 'Dummy Item'):
+                    item_map.add_dummy_item(row)
+                self.update_status('Pushing item inventory', 1)
+        if results_df.spy.friendly_error_string is not None:
+            self._push_context.status.on_error(results_df.spy.friendly_error_string)
+
+        return results_df
 
     def _do_references_exist(self):
-        references = Workbook._fill_in_item_search_preview_on_references(
-            self._push_context.status, self.referenced_items)
+        raw_references = self.referenced_items
+        self._push_context.status.log(f'Attempting to find {len(raw_references)} existing items by ID')
+        references = Workbook._fill_in_item_search_preview_on_references(self._push_context.status, raw_references)
         items_api = ItemsApi(self._push_context.session.client)
         item_exists: Dict[str, (ItemExists, Optional[ItemSearchPreviewV1])] = dict()
         for reference in references:
@@ -764,20 +854,21 @@ class Workbook(ItemWithOwnerAndAcl):
                 item = self.item_inventory.get(reference.id)
                 if 'Swap Key' in item:
                     try:
+                        self._push_context.status.log(f'Checking existence of swap item {reference.id} explicitly')
                         if items_api.get_item_and_all_properties(id=reference.id) is not None:
                             item_exists[reference.id] = (ItemExists.YES, None)
                             continue
                     except ApiException:
                         pass
 
-            if _login.is_sdk_module_version_at_least(62):
+            if _version.is_sdk_module_version_at_least(62):
                 item_exists[reference.id] = (ItemExists.NO, None)
             else:
                 item_exists[reference.id] = (ItemExists.MAYBE, None)
         return item_exists
 
     def _push_accumulated_inventory_metadata(self, metadata_to_push: Dict[str, Dict],
-                                             item_map: ItemMap, datasource_output) -> pd.DataFrame:
+                                             item_map: ItemMap, datasource_output) -> Optional[pd.DataFrame]:
         new_metadata = dict()
         dependency_problems: Dict[object, SPyDependencyNotFound] = dict()
 
@@ -845,22 +936,42 @@ class Workbook(ItemWithOwnerAndAcl):
         if len(dependency_problems) > 0:
             self._push_context.status.on_error(SPyDependencyNotFound.generate_error_string(dependency_problems))
 
+        metadata_df = pd.DataFrame.from_dict(new_metadata, orient='index')
+
+        if self._push_context.dry_run:
+            self._push_context.status.log(f'[Dry Run] Would push {len(new_metadata)} metadata items:\n'
+                                          f'{metadata_df.to_string()}')
+            return None
+
         workbook_context = WorkbookContext()
         if isinstance(self, Analysis):
             workbook_context.workbook_object = Analysis(copy.deepcopy(self.definition_dict))
         else:
             workbook_context.workbook_object = Topic(copy.deepcopy(self.definition_dict))
         workbook_context.workbook_object['ID'] = item_map[self.id]
+
+        self._push_context.status.log(f'Pushing {len(new_metadata)} metadata item(s):\n'
+                                      f'{metadata_df.to_string()}')
+
         inner_status = self._push_context.status.create_inner('Push accumulated metadata', errors='catalog')
-        metadata_df = pd.DataFrame.from_dict(new_metadata, orient='index')
         return _metadata.push(self._push_context.session, metadata_df, workbook_context, datasource_output,
                               inner_status, cleanse_data_ids=self._push_context.reconcile_inventory_by == 'name',
                               default_to_local=False, validate_ui_configs=False)
 
-    def push_containing_folders(self, session: Session, item_map: ItemMap, datasource_output, use_full_path,
-                                parent_folder_id, owner, label, access_control, status: Status):
+    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
+                                parent_folder_id, owner, label, access_control):
+        session = context.session
+        status = context.status
+
         if 'Ancestors' not in self:
-            return parent_folder_id if parent_folder_id != _folder.ORIGINAL_FOLDER else None
+            if parent_folder_id != _folder.ORIGINAL_FOLDER:
+                status.log('No Ancestors information available to push containing folders; '
+                           'skipping folder creation.')
+                return parent_folder_id
+            else:
+                status.log('No Ancestors information available to push containing folders; '
+                           'preserving existing location.')
+                return None
 
         keep_skipping = parent_folder_id in self['Ancestors']
         create_folders_now = False
@@ -872,35 +983,48 @@ class Workbook(ItemWithOwnerAndAcl):
         for ancestor_id in self['Ancestors']:
             if keep_skipping and parent_folder_id == ancestor_id:
                 keep_skipping = False
+                status.log(f'Skipping creation of ancestor folder {ancestor_id}; it is the existing parent folder.')
                 continue
 
-            if use_full_path or 'Search Folder ID' not in self:
+            if not create_folders_now and (use_full_path or 'Search Folder ID' not in self):
+                status.log(f'Reifying folders from {ancestor_id} down')
                 create_folders_now = True
 
             if create_folders_now:
                 if ancestor_id == _folder.CORPORATE:
                     if not session.corporate_folder:
                         raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
+                    status.log(f'Mapping {ancestor_id} to Corporate folder')
                     parent_folder_id = session.corporate_folder.id
                 elif ancestor_id in (_folder.SHARED, _folder.PUBLIC, _folder.MY_FOLDER):
+                    status.log(f'Root folder is {ancestor_id}; mapping to user home folder')
                     continue
                 elif ancestor_id == _folder.USERS:
                     # We'll fall through to the next clause to map to an actual User home folder
+                    status.log(f"Skipping {ancestor_id} folder level; mapping to user's home folder")
                     continue
                 elif ancestor_id in self.item_inventory:
                     folder = self.item_inventory[ancestor_id]  # type: Folder
 
-                    parent_folder = folder.push(session, parent_folder_id, self.datasource_maps, datasource_output,
-                                                item_map, owner=owner, label=label, access_control=access_control,
-                                                status=status)
+                    status.log(
+                        f'Creating ancestor folder "{folder}" under parent folder ID {parent_folder_id}')
+                    parent_folder = folder.push(context, parent_folder_id, datasource_output,
+                                                item_map, owner=owner, label=label)
+
                     if parent_folder is None:
                         continue
 
                     parent_folder_id = parent_folder.id
 
-            elif self['Search Folder ID'] == ancestor_id:
+            elif not create_folders_now and self['Search Folder ID'] == ancestor_id:
+                status.log(f'Reifying folders from {ancestor_id} down because it is the "Search Folder ID" (a property '
+                           f'on the workbook).')
                 create_folders_now = True
+            else:
+                status.log(f'Skipping creation of ancestor folder {ancestor_id} as it already exists in target '
+                           f'location.')
 
+        status.log(f'Final parent folder ID for workbook is {parent_folder_id}')
         return parent_folder_id
 
     @property
@@ -1020,8 +1144,8 @@ class Workbook(ItemWithOwnerAndAcl):
             datasource_map_file = Workbook._get_datasource_map_json_file(workbook_folder, datasource_map)
             with util.safe_open(datasource_map_file, 'w', encoding='utf-8') as f:
                 map_to_save = datasource_map.copy()
-                if 'File' in map_to_save:
-                    del map_to_save['File']
+                map_to_save.pop('File', None)
+                map_to_save.pop('Override', None)
                 json.dump(map_to_save, f, indent=4)
 
         if len(self._pull_errors) > 0:
@@ -1091,7 +1215,7 @@ class Workbook(ItemWithOwnerAndAcl):
         self._datasource_maps = Workbook.load_datasource_maps(workbook_folder)
 
     @staticmethod
-    def load_datasource_maps(folder, overrides=False) -> DatasourceMapList:
+    def load_datasource_maps(folder, *, overrides: bool = False, status: Optional[Status] = None) -> DatasourceMapList:
         if not util.safe_exists(folder):
             raise SPyRuntimeError('Datasource map folder "%s" does not exist' % folder)
 
@@ -1115,6 +1239,10 @@ class Workbook(ItemWithOwnerAndAcl):
                     raise SPyRuntimeError(f'Duplicate datasource map for Datasource Class '
                                           f'{datasource_map["Datasource Class"]} and {datasource_map["Datasource ID"]}:'
                                           f'\n{datasource_map_file}\n{other_datasource_map["File"]}')
+
+                if status is not None:
+                    status.log(f'Loaded {"override" if overrides else "non-override"} datasource map from '
+                               f'{datasource_map_file}')
 
                 datasource_maps.append(datasource_map)
 
@@ -1287,7 +1415,7 @@ class Workbook(ItemWithOwnerAndAcl):
     def _fill_in_item_search_preview_on_references(
             status: Status, references: Iterable[Reference]) -> List[Reference]:
         new_references = list(references)
-        if not _login.is_sdk_module_version_at_least(62):
+        if not _version.is_sdk_module_version_at_least(62):
             return new_references
 
         filtered_references = [r for r in new_references if r.item_search_preview is None]
@@ -1296,7 +1424,8 @@ class Workbook(ItemWithOwnerAndAcl):
         context = _spy_search.SearchContext(status.session, status)
         context.items_api = ItemsApi(status.session.client)
         context.include_properties = _spy_search.ALL_PROPERTIES
-        search_by_id_helper = _spy_search.SearchByIDHelper(context, [{'ID': r.id} for r in filtered_references])
+        identifiers = [{'ID': r.id} for r in filtered_references]
+        search_by_id_helper = _spy_search.SearchByIDHelper(context, identifiers)
         for i in range(len(filtered_references)):
             reference: Reference = filtered_references[i]
             item_found = search_by_id_helper.get_by_index(i)
@@ -1459,7 +1588,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 'limit': status.session.options.search_page_size
             }
 
-            if _login.is_sdk_module_version_at_least(62):
+            if _version.is_sdk_module_version_at_least(62):
                 kwargs['include_properties'] = [SeeqNames.API.Flags.all_properties]
 
             self.update_status(f'Scraping scope references (search offset: {offset})', 0)
@@ -1524,6 +1653,16 @@ class Workbook(ItemWithOwnerAndAcl):
 
         self.item_inventory[item.id] = item
 
+    def _new_worksheet(self, clazz: Type[Worksheet], name: str, create: bool = True) -> Optional[Worksheet]:
+        existing_worksheet = self._get_worksheet(name)
+        if existing_worksheet:
+            # noinspection PyTypeChecker
+            return existing_worksheet
+        elif not create:
+            return None
+
+        return clazz(self, {'Name': name})
+
     def _get_worksheet(self, name) -> Optional[Worksheet]:
         for worksheet in self.worksheets:
             if worksheet.name == name:
@@ -1558,14 +1697,7 @@ class Workbook(ItemWithOwnerAndAcl):
 class Analysis(Workbook):
 
     def worksheet(self, name: str, create: bool = True) -> Optional[AnalysisWorksheet]:
-        existing_worksheet = self._get_worksheet(name)
-        if existing_worksheet:
-            # noinspection PyTypeChecker
-            return existing_worksheet
-        elif not create:
-            return None
-
-        return AnalysisWorksheet(self, {'Name': name})
+        return self._new_worksheet(AnalysisWorksheet, name, create=create)
 
     def get_workstep_usages(self, use_investigate_range=False, now: pd.Timestamp = None) -> Dict[str, list]:
         usages: Dict[str, list] = super().get_workstep_usages(use_investigate_range=use_investigate_range, now=now)
@@ -1588,14 +1720,7 @@ class Analysis(Workbook):
 class Topic(Workbook):
 
     def document(self, name: str, create: bool = True) -> Optional[TopicDocument]:
-        existing_document = self._get_worksheet(name)
-        if existing_document:
-            # noinspection PyTypeChecker
-            return existing_document
-        elif not create:
-            return None
-
-        return TopicDocument(self, {'Name': name})
+        return self._new_worksheet(TopicDocument, name, create=create)
 
     @property
     def documents(self):
@@ -1659,69 +1784,34 @@ class Topic(Workbook):
 
 class WorkbookList(ItemList):
     # noinspection PyTypeChecker
-    def __getitem__(self, key) -> Union[Analysis, Topic]:
+    def __getitem__(self, key) -> Union[Analysis, Topic, Room]:
         return super().__getitem__(key)
 
     def __setitem__(self, key, val: Workbook):
         return super().__setitem__(key, val)
 
 
-class DatasourceMapList:
-    _maps: List[dict]
+class Room(Workbook):
+    def __init__(self, definition=None, *, provenance=None):
+        super().__init__(definition, provenance=provenance)
 
-    def __init__(self, maps: List[dict] = None):
-        self._maps = maps if maps is not None else list()
+        self._annotation = Journal(self)
 
-    def __getitem__(self, key) -> dict:
-        return self._maps.__getitem__(key)
+    def view(self, name: str, create: bool = True) -> Optional[AnalysisWorksheet]:
+        return self._new_worksheet(RoomView, name, create=create)
 
-    def __setitem__(self, key, val: dict):
-        return self._maps.__setitem__(key, val)
+    @property
+    def journal(self):
+        """
+        Returns the "Journal" object, which is an "Annotation" that houses the HTML and other metadata about the
+        Journal attached to this worksheet.
+        """
+        return self._annotation
 
-    def __len__(self):
-        return self._maps.__len__()
+    @property
+    def views(self):
+        return self.worksheets
 
-    def _find(self, datasource_class: str, datasource_id: str) -> int:
-        for i in range(len(self._maps)):
-            datasource_map = self._maps[i]
-            if (datasource_map['Datasource Class'] == datasource_class and
-                    datasource_map['Datasource ID'] == datasource_id):
-                return i
 
-        return -1
-
-    def __contains__(self, datasource_map: dict) -> bool:
-        return self._find(datasource_map['Datasource Class'], datasource_map['Datasource ID']) >= 0
-
-    def get(self, datasource_class: str, datasource_id: str) -> dict:
-        index = self._find(datasource_class, datasource_id)
-        if index == -1:
-            raise SPyValueError(f'Datasource map for Datasource Class "{datasource_class}" and Datasource ID '
-                                f'"{datasource_id}" not found')
-
-        return self._maps[index]
-
-    def append(self, datasource_map: dict, overwrite=False):
-        if not isinstance(datasource_map, dict):
-            raise SPyTypeError('append() requires a dict argument')
-
-        for key in ['Datasource Class', 'Datasource ID']:
-            if key not in datasource_map:
-                raise SPyValueError(f'append() datasource_map requires a {key}')
-
-        index = self._find(datasource_map['Datasource Class'], datasource_map['Datasource ID'])
-        if index >= 0:
-            if overwrite:
-                self._maps[index] = datasource_map
-        else:
-            self._maps.append(datasource_map)
-
-    def extend(self, datasource_maps: List[dict], overwrite=False):
-        if not isinstance(datasource_maps, (list, DatasourceMapList)):
-            raise SPyTypeError('append() requires a list or DatasourceMapList argument')
-
-        for datasource_map in datasource_maps:
-            self.append(datasource_map, overwrite=overwrite)
-
-    def copy(self) -> DatasourceMapList:
-        return DatasourceMapList(copy.deepcopy(self._maps))
+class RoomView(AnalysisWorksheet):
+    pass

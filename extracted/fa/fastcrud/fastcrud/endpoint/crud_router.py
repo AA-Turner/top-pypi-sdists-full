@@ -1,4 +1,4 @@
-from typing import Type, Optional, Union, Sequence, Callable
+from typing import Sequence, Callable
 from enum import Enum
 
 from fastapi import APIRouter
@@ -12,18 +12,19 @@ from fastcrud.types import (
     SelectSchemaType,
 )
 from .endpoint_creator import EndpointCreator
-from .helper import FilterConfig
+from ..core import FilterConfig, CreateConfig, UpdateConfig, DeleteConfig, JoinConfig
+from ..core.filtering.operators import FilterCallable
 
 
 def crud_router(
     session: Callable,
     model: ModelType,
-    create_schema: Type[CreateSchemaType],
-    update_schema: Type[UpdateSchemaType],
-    crud: Optional[FastCRUD] = None,
-    delete_schema: Optional[Type[DeleteSchemaType]] = None,
+    create_schema: type[CreateSchemaType],
+    update_schema: type[UpdateSchemaType],
+    crud: FastCRUD | None = None,
+    delete_schema: type[DeleteSchemaType] | None = None,
     path: str = "",
-    tags: Optional[list[Union[str, Enum]]] = None,
+    tags: list[str | Enum] | None = None,
     include_in_schema: bool = True,
     create_deps: Sequence[Callable] = [],
     read_deps: Sequence[Callable] = [],
@@ -31,15 +32,24 @@ def crud_router(
     update_deps: Sequence[Callable] = [],
     delete_deps: Sequence[Callable] = [],
     db_delete_deps: Sequence[Callable] = [],
-    included_methods: Optional[list[str]] = None,
-    deleted_methods: Optional[list[str]] = None,
-    endpoint_creator: Optional[Type[EndpointCreator]] = None,
+    included_methods: list[str] | None = None,
+    deleted_methods: list[str] | None = None,
+    endpoint_creator: type[EndpointCreator] | None = None,
     is_deleted_column: str = "is_deleted",
     deleted_at_column: str = "deleted_at",
     updated_at_column: str = "updated_at",
-    endpoint_names: Optional[dict[str, str]] = None,
-    filter_config: Optional[Union[FilterConfig, dict]] = None,
-    select_schema: Optional[Type[SelectSchemaType]] = None,
+    endpoint_names: dict[str, str] | None = None,
+    filter_config: FilterConfig | dict | None = None,
+    select_schema: type[SelectSchemaType] | None = None,
+    create_config: CreateConfig | None = None,
+    update_config: UpdateConfig | None = None,
+    delete_config: DeleteConfig | None = None,
+    custom_filters: dict[str, FilterCallable] | None = None,
+    include_relationships: bool | Sequence[str] = False,
+    joins_config: Sequence[JoinConfig] | None = None,
+    nest_joins: bool = True,
+    default_nested_limit: int | None = None,
+    include_one_to_many: bool = False,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -75,6 +85,22 @@ def crud_router(
                         values are the custom names to use. Unspecified operations will use default names.
         filter_config: Optional `FilterConfig` instance or dictionary to configure filters for the `read_multi` endpoint.
         select_schema: Optional Pydantic schema for selecting an item.
+        custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
+                        values are callables that take a column and return a filter function.
+        include_relationships: Controls automatic relationship detection for read endpoints. Can be:
+            - `False`: No automatic relationships (default)
+            - `True`: Include all auto-detectable relationships
+            - `["rel1", "rel2"]`: Include only the named relationships
+        joins_config: Optional list of `JoinConfig` objects for manual join control.
+            Cannot be used together with `include_relationships`.
+        nest_joins: If `True`, nested data structures will be returned where joined model data are nested as dictionaries or lists. Defaults to `True`.
+        default_nested_limit: Optional limit for nested items in one-to-many relationships.
+            When set, each one-to-many relationship will return at most this many nested items.
+            Note: This only filters results at the application level after the database query.
+            Use `None` for no limit (default).
+        include_one_to_many: If `True`, include one-to-many relationships when auto-detecting.
+            Defaults to `False` for safety since one-to-many JOINs can return unbounded data.
+            This is ignored when specific relationship names are provided via `include_relationships`.
 
     Returns:
         Configured `APIRouter` instance with the CRUD endpoints.
@@ -525,6 +551,7 @@ def crud_router(
         is_deleted_column=is_deleted_column,
         deleted_at_column=deleted_at_column,
         updated_at_column=updated_at_column,
+        custom_filters=custom_filters,
     )
 
     endpoint_creator_class = endpoint_creator or EndpointCreator
@@ -544,6 +571,15 @@ def crud_router(
         endpoint_names=endpoint_names,
         filter_config=filter_config,
         select_schema=select_schema,  # type: ignore
+        create_config=create_config,
+        update_config=update_config,
+        delete_config=delete_config,
+        include_relationships=include_relationships,
+        joins_config=joins_config,
+        nest_joins=nest_joins,
+        default_nested_limit=default_nested_limit,
+        include_one_to_many=include_one_to_many,
+        custom_filters=custom_filters,
     )
 
     endpoint_creator_instance.add_routes_to_router(

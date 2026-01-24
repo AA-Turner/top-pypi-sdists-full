@@ -106,7 +106,7 @@ class IBBytestream(object):
         if self.stream_in_closed:
             return result
 
-        end_future = asyncio.Future()
+        end_future = asyncio.Future(loop=self.xmpp.loop)
 
         def on_close(stream):
             if stream is self:

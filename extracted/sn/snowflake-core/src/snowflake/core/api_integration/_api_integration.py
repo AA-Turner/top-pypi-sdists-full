@@ -44,8 +44,8 @@ class ApiIntegrationCollection(ApiIntegrationCollectionBase):
 class ApiIntegrationResource(ApiIntegrationResourceBase):
     """Represents a reference to a Snowflake api integration.
 
-    With this api integration reference, you can create, update, delete and fetch information about
-    api integrations, as well as perform certain actions on them.
+    With this api integration reference, you can fetch information about an api integration,
+    as well as perform certain actions on it.
     """
 
     _plural_name = "api_integrations"

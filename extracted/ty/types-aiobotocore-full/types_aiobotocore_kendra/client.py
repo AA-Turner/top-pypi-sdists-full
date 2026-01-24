@@ -3,7 +3,7 @@ Type annotations for kendra service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kendra/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -143,12 +144,6 @@ from .type_defs import (
     UpdateThesaurusRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -159,19 +154,19 @@ __all__ = ("KendraClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    FeaturedResultsConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceAlreadyExistException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    FeaturedResultsConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceAlreadyExistException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class KendraClient(AioBaseClient):
@@ -368,7 +363,7 @@ class KendraClient(AioBaseClient):
 
     async def delete_access_control_configuration(
         self, **kwargs: Unpack[DeleteAccessControlConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access control configuration that you created for your documents in
         an index.
@@ -389,7 +384,7 @@ class KendraClient(AioBaseClient):
 
     async def delete_experience(
         self, **kwargs: Unpack[DeleteExperienceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes your Amazon Kendra experience such as a search application.
 
@@ -782,7 +777,7 @@ class KendraClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kendra/client/#submit_feedback)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tag to the specified index, FAQ, data source, or other
         resource.
@@ -791,7 +786,7 @@ class KendraClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kendra/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from an index, FAQ, data source, or other resource.
 
@@ -801,7 +796,7 @@ class KendraClient(AioBaseClient):
 
     async def update_access_control_configuration(
         self, **kwargs: Unpack[UpdateAccessControlConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an access control configuration for your documents in an index.
 
@@ -887,7 +882,7 @@ class KendraClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -28,7 +28,10 @@ from deepeval.evaluate.utils import (
 from deepeval.dataset import Golden
 from deepeval.prompt import Prompt
 from deepeval.test_case.utils import check_valid_test_cases_type
-from deepeval.test_run.hyperparameters import process_hyperparameters
+from deepeval.test_run.hyperparameters import (
+    process_hyperparameters,
+    process_prompts,
+)
 from deepeval.test_run.test_run import TEMP_FILE_PATH
 from deepeval.utils import (
     get_or_create_event_loop,
@@ -43,7 +46,6 @@ from deepeval.telemetry import capture_evaluation_run
 from deepeval.metrics import (
     BaseMetric,
     BaseConversationalMetric,
-    BaseMultimodalMetric,
 )
 from deepeval.metrics.indicator import (
     format_metric_description,
@@ -51,7 +53,6 @@ from deepeval.metrics.indicator import (
 from deepeval.test_case import (
     LLMTestCase,
     ConversationalTestCase,
-    MLLMTestCase,
 )
 from deepeval.test_run import (
     global_test_run_manager,
@@ -68,14 +69,11 @@ from deepeval.evaluate.execute import (
 
 
 def assert_test(
-    test_case: Optional[
-        Union[LLMTestCase, ConversationalTestCase, MLLMTestCase]
-    ] = None,
+    test_case: Optional[Union[LLMTestCase, ConversationalTestCase]] = None,
     metrics: Optional[
         Union[
             List[BaseMetric],
             List[BaseConversationalMetric],
-            List[BaseMultimodalMetric],
         ]
     ] = None,
     golden: Optional[Golden] = None,
@@ -172,7 +170,7 @@ def assert_test(
                 try:
                     if not metric_data.success:
                         failed_metrics_data.append(metric_data)
-                except:
+                except Exception:
                     failed_metrics_data.append(metric_data)
 
         failed_metrics_str = ", ".join(
@@ -185,14 +183,11 @@ def assert_test(
 
 
 def evaluate(
-    test_cases: Union[
-        List[LLMTestCase], List[ConversationalTestCase], List[MLLMTestCase]
-    ],
+    test_cases: Union[List[LLMTestCase], List[ConversationalTestCase]],
     metrics: Optional[
         Union[
             List[BaseMetric],
             List[BaseConversationalMetric],
-            List[BaseMultimodalMetric],
         ]
     ] = None,
     # Evals on Confident AI
@@ -267,12 +262,32 @@ def evaluate(
 
         test_run = global_test_run_manager.get_test_run()
         test_run.hyperparameters = process_hyperparameters(hyperparameters)
+        test_run.prompts = process_prompts(hyperparameters)
         global_test_run_manager.save_test_run(TEMP_FILE_PATH)
-        confident_link = global_test_run_manager.wrap_up_test_run(
+
+        # In CLI mode (`deepeval test run`), the CLI owns finalization and will
+        # call `wrap_up_test_run()` once after pytest finishes. Finalizing here
+        # as well would double finalize the run and consequently result in
+        # duplicate uploads / local saves and temp file races, so only
+        # do it when we're NOT in CLI mode.
+        if get_is_running_deepeval():
+            return EvaluationResult(
+                test_results=test_results,
+                confident_link=None,
+                test_run_id=None,
+            )
+
+        res = global_test_run_manager.wrap_up_test_run(
             run_duration, display_table=False
         )
+        if isinstance(res, tuple):
+            confident_link, test_run_id = res
+        else:
+            confident_link = test_run_id = None
         return EvaluationResult(
-            test_results=test_results, confident_link=confident_link
+            test_results=test_results,
+            confident_link=confident_link,
+            test_run_id=test_run_id,
         )
     elif metric_collection:
         api = Api()

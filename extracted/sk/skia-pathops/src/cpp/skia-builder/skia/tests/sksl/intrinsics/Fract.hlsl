@@ -1,8 +1,8 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_testInputs : packoffset(c0);
-    float4 _10_colorGreen : packoffset(c1);
-    float4 _10_colorRed : packoffset(c2);
+    float4 _11_testInputs : packoffset(c0);
+    float4 _11_colorGreen : packoffset(c1);
+    float4 _11_colorRed : packoffset(c2);
 };
 
 
@@ -13,54 +13,54 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 main(float2 _24)
+float4 main(float2 _25)
 {
-    bool _46 = false;
-    if (frac(_10_testInputs.x) == 0.75f)
+    bool _47 = false;
+    if (frac(_11_testInputs.x) == 0.75f)
     {
-        float2 _38 = frac(_10_testInputs.xy);
-        _46 = all(bool2(_38.x == float2(0.75f, 0.0f).x, _38.y == float2(0.75f, 0.0f).y));
+        float2 _39 = frac(_11_testInputs.xy);
+        _47 = all(bool2(_39.x == float2(0.75f, 0.0f).x, _39.y == float2(0.75f, 0.0f).y));
     }
     else
     {
-        _46 = false;
+        _47 = false;
     }
-    bool _58 = false;
-    if (_46)
+    bool _59 = false;
+    if (_47)
     {
-        float3 _49 = frac(_10_testInputs.xyz);
-        _58 = all(bool3(_49.x == float3(0.75f, 0.0f, 0.75f).x, _49.y == float3(0.75f, 0.0f, 0.75f).y, _49.z == float3(0.75f, 0.0f, 0.75f).z));
+        float3 _50 = frac(_11_testInputs.xyz);
+        _59 = all(bool3(_50.x == float3(0.75f, 0.0f, 0.75f).x, _50.y == float3(0.75f, 0.0f, 0.75f).y, _50.z == float3(0.75f, 0.0f, 0.75f).z));
     }
     else
     {
-        _58 = false;
+        _59 = false;
     }
-    bool _69 = false;
-    if (_58)
+    bool _70 = false;
+    if (_59)
     {
-        float4 _61 = frac(_10_testInputs);
-        _69 = all(bool4(_61.x == float4(0.75f, 0.0f, 0.75f, 0.25f).x, _61.y == float4(0.75f, 0.0f, 0.75f, 0.25f).y, _61.z == float4(0.75f, 0.0f, 0.75f, 0.25f).z, _61.w == float4(0.75f, 0.0f, 0.75f, 0.25f).w));
+        float4 _62 = frac(_11_testInputs);
+        _70 = all(bool4(_62.x == float4(0.75f, 0.0f, 0.75f, 0.25f).x, _62.y == float4(0.75f, 0.0f, 0.75f, 0.25f).y, _62.z == float4(0.75f, 0.0f, 0.75f, 0.25f).z, _62.w == float4(0.75f, 0.0f, 0.75f, 0.25f).w));
     }
     else
     {
-        _69 = false;
+        _70 = false;
     }
-    float4 _70 = 0.0f.xxxx;
-    if (_69)
+    float4 _71 = 0.0f.xxxx;
+    if (_70)
     {
-        _70 = _10_colorGreen;
+        _71 = _11_colorGreen;
     }
     else
     {
-        _70 = _10_colorRed;
+        _71 = _11_colorRed;
     }
-    return _70;
+    return _71;
 }
 
 void frag_main()
 {
-    float2 _20 = 0.0f.xx;
-    sk_FragColor = main(_20);
+    float2 _21 = 0.0f.xx;
+    sk_FragColor = main(_21);
 }
 
 SPIRV_Cross_Output main()

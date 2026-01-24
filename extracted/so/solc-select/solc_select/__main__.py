@@ -1,24 +1,26 @@
 import argparse
 import subprocess
 import sys
+
 from .constants import (
     ARTIFACTS_DIR,
     INSTALL_VERSIONS,
     SHOW_VERSIONS,
-    USE_VERSION,
     UPGRADE,
+    USE_VERSION,
 )
 from .solc_select import (
-    valid_install_arg,
-    valid_version,
-    get_installable_versions,
-    install_artifacts,
-    switch_global_version,
     current_version,
-    installed_versions,
+    get_emulation_prefix,
+    get_installable_versions,
     halt_incompatible_system,
     halt_old_architecture,
+    install_artifacts,
+    installed_versions,
+    switch_global_version,
     upgrade_architecture,
+    valid_install_arg,
+    valid_version,
 )
 from .utils import sort_versions
 
@@ -27,7 +29,8 @@ from .utils import sort_versions
 def solc_select() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(
-        help="Allows users to install and quickly switch between Solidity compiler versions"
+        help="Allows users to install and quickly switch between Solidity compiler versions",
+        dest="command",
     )
     parser_install = subparsers.add_parser(
         "install", help="list and install available solc versions"
@@ -49,28 +52,32 @@ def solc_select() -> None:
     parser_use = subparsers.add_parser("upgrade", help="upgrades solc-select")
     parser_use.add_argument(UPGRADE, nargs="*", help=argparse.SUPPRESS)
 
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
 
-    if args.get(INSTALL_VERSIONS) is not None:
-        versions = args.get(INSTALL_VERSIONS)
+    if args.command == "install":
+        versions = args.INSTALL_VERSIONS
         if not versions:
             print("Available versions to install:")
             for version in get_installable_versions():
                 print(version)
         else:
-            status = install_artifacts(args.get(INSTALL_VERSIONS))
+            status = install_artifacts(versions)
             sys.exit(0 if status else 1)
 
-    elif args.get(USE_VERSION) is not None:
-        switch_global_version(args.get(USE_VERSION), args.get("always_install"), silent=False)
+    elif args.command == "use":
+        switch_global_version(args.USE_VERSION, args.always_install, silent=False)
 
-    elif args.get(SHOW_VERSIONS) is not None:
+    elif args.command == "versions":
         versions_installed = installed_versions()
         if versions_installed:
             (current_ver, source) = (None, None)
-            res = current_version()
-            if res:
-                (current_ver, source) = res
+            try:
+                res = current_version()
+                if res:
+                    (current_ver, source) = res
+            except argparse.ArgumentTypeError:
+                # No version is currently set, that's ok
+                res = None
             for version in sort_versions(versions_installed):
                 if res and version == current_ver:
                     print(f"{version} (current, set by {source})")
@@ -80,7 +87,7 @@ def solc_select() -> None:
             print(
                 "No solc version installed. Run `solc-select install --help` for more information"
             )
-    elif args.get(UPGRADE) is not None:
+    elif args.command == "upgrade":
         upgrade_architecture()
     else:
         parser.parse_args(["--help"])
@@ -96,11 +103,12 @@ def solc() -> None:
         path = ARTIFACTS_DIR.joinpath(f"solc-{version}", f"solc-{version}")
         halt_old_architecture(path)
         halt_incompatible_system(path)
+
+        # Use emulation if needed for ARM64 systems
+        cmd = get_emulation_prefix() + [str(path)] + sys.argv[1:]
+
         try:
-            subprocess.run(
-                [str(path)] + sys.argv[1:],
-                check=True,
-            )
+            subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             sys.exit(e.returncode)
     else:

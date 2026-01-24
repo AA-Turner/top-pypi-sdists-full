@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -109,7 +109,7 @@ class ResourceConflict(TypedDict, total=False):
     resourceType: ResourceType
 
 
-ResourceConflictList = List[ResourceConflict]
+ResourceConflictList = list[ResourceConflict]
 
 
 class ConflictException(ServiceException):
@@ -161,10 +161,10 @@ class ServiceQuotaExceededException(ServiceException):
     code: str = "ServiceQuotaExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    resourceId: Optional[String]
+    resourceId: String | None
     resourceType: ResourceType
-    serviceCode: Optional[String]
-    quotaCode: Optional[String]
+    serviceCode: String | None
+    quotaCode: String | None
 
 
 class ThrottlingException(ServiceException):
@@ -173,8 +173,8 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 400
-    serviceCode: Optional[String]
-    quotaCode: Optional[String]
+    serviceCode: String | None
+    quotaCode: String | None
 
 
 class TooManyTagsException(ServiceException):
@@ -185,7 +185,7 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    resourceName: Optional[AmazonResourceName]
+    resourceName: AmazonResourceName | None
 
 
 class ValidationExceptionField(TypedDict, total=False):
@@ -195,7 +195,7 @@ class ValidationExceptionField(TypedDict, total=False):
     message: String
 
 
-ValidationExceptionFieldList = List[ValidationExceptionField]
+ValidationExceptionFieldList = list[ValidationExceptionField]
 
 
 class ValidationException(ServiceException):
@@ -268,7 +268,7 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = False
     status_code: int = 400
-    fieldList: Optional[ValidationExceptionFieldList]
+    fieldList: ValidationExceptionFieldList | None
 
 
 class ActionIdentifier(TypedDict, total=False):
@@ -289,7 +289,7 @@ class ActionIdentifier(TypedDict, total=False):
     actionId: ActionId
 
 
-ActionIdentifierList = List[ActionIdentifier]
+ActionIdentifierList = list[ActionIdentifier]
 
 
 class AttributeValue(TypedDict, total=False):
@@ -300,7 +300,7 @@ class AttributeValue(TypedDict, total=False):
 
     This data type is used as a member of the
     `ContextDefinition <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_ContextDefinition.html>`__
-    structure which is uses as a request parameter for the
+    structure which is used as a request parameter for the
     `IsAuthorized <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_IsAuthorized.html>`__,
     `BatchIsAuthorized <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_BatchIsAuthorized.html>`__,
     and
@@ -308,20 +308,20 @@ class AttributeValue(TypedDict, total=False):
     operations.
     """
 
-    boolean: Optional["BooleanAttribute"]
-    entityIdentifier: Optional["EntityIdentifier"]
-    long: Optional["LongAttribute"]
-    string: Optional["StringAttribute"]
-    set: Optional["SetAttribute"]
-    record: Optional["RecordAttribute"]
-    ipaddr: Optional["IpAddr"]
-    decimal: Optional["Decimal"]
-    datetime: Optional["DatetimeAttribute"]
-    duration: Optional["Duration"]
+    boolean: "BooleanAttribute | None"
+    entityIdentifier: "EntityIdentifier | None"
+    long: "LongAttribute | None"
+    string: "StringAttribute | None"
+    set: "SetAttribute | None"
+    record: "RecordAttribute | None"
+    ipaddr: "IpAddr | None"
+    decimal: "Decimal | None"
+    datetime: "DatetimeAttribute | None"
+    duration: "Duration | None"
 
 
-RecordAttribute = Dict[String, AttributeValue]
-SetAttribute = List[AttributeValue]
+RecordAttribute = dict[String, AttributeValue]
+SetAttribute = list[AttributeValue]
 LongAttribute = int
 
 
@@ -344,7 +344,7 @@ class EntityIdentifier(TypedDict, total=False):
     entityId: EntityId
 
 
-Audiences = List[Audience]
+Audiences = list[Audience]
 
 
 class BatchGetPolicyErrorItem(TypedDict, total=False):
@@ -358,7 +358,7 @@ class BatchGetPolicyErrorItem(TypedDict, total=False):
     message: String
 
 
-BatchGetPolicyErrorList = List[BatchGetPolicyErrorItem]
+BatchGetPolicyErrorList = list[BatchGetPolicyErrorItem]
 
 
 class BatchGetPolicyInputItem(TypedDict, total=False):
@@ -370,7 +370,7 @@ class BatchGetPolicyInputItem(TypedDict, total=False):
     policyId: PolicyId
 
 
-BatchGetPolicyInputList = List[BatchGetPolicyInputItem]
+BatchGetPolicyInputList = list[BatchGetPolicyInputItem]
 
 
 class BatchGetPolicyInput(ServiceRequest):
@@ -386,8 +386,8 @@ class TemplateLinkedPolicyDefinitionDetail(TypedDict, total=False):
     """
 
     policyTemplateId: PolicyTemplateId
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
 
 
 class StaticPolicyDefinitionDetail(TypedDict, total=False):
@@ -401,7 +401,7 @@ class StaticPolicyDefinitionDetail(TypedDict, total=False):
     operation.
     """
 
-    description: Optional[StaticPolicyDescription]
+    description: StaticPolicyDescription | None
     statement: PolicyStatement
 
 
@@ -414,8 +414,8 @@ class PolicyDefinitionDetail(TypedDict, total=False):
     operation.
     """
 
-    static: Optional[StaticPolicyDefinitionDetail]
-    templateLinked: Optional[TemplateLinkedPolicyDefinitionDetail]
+    static: StaticPolicyDefinitionDetail | None
+    templateLinked: TemplateLinkedPolicyDefinitionDetail | None
 
 
 class BatchGetPolicyOutputItem(TypedDict, total=False):
@@ -431,7 +431,7 @@ class BatchGetPolicyOutputItem(TypedDict, total=False):
     lastUpdatedDate: TimestampFormat
 
 
-BatchGetPolicyOutputList = List[BatchGetPolicyOutputItem]
+BatchGetPolicyOutputList = list[BatchGetPolicyOutputItem]
 
 
 class BatchGetPolicyOutput(TypedDict, total=False):
@@ -439,7 +439,7 @@ class BatchGetPolicyOutput(TypedDict, total=False):
     errors: BatchGetPolicyErrorList
 
 
-ContextMap = Dict[String, AttributeValue]
+ContextMap = dict[String, AttributeValue]
 
 
 class ContextDefinition(TypedDict, total=False):
@@ -463,8 +463,8 @@ class ContextDefinition(TypedDict, total=False):
     ``"context":{"contextMap":{"<KeyName1>":{"boolean":true},"<KeyName2>":{"long":1234}}}``
     """
 
-    contextMap: Optional[ContextMap]
-    cedarJson: Optional[CedarJson]
+    contextMap: ContextMap | None
+    cedarJson: CedarJson | None
 
 
 class BatchIsAuthorizedInputItem(TypedDict, total=False):
@@ -472,15 +472,47 @@ class BatchIsAuthorizedInputItem(TypedDict, total=False):
     request.
     """
 
-    principal: Optional[EntityIdentifier]
-    action: Optional[ActionIdentifier]
-    resource: Optional[EntityIdentifier]
-    context: Optional[ContextDefinition]
+    principal: EntityIdentifier | None
+    action: ActionIdentifier | None
+    resource: EntityIdentifier | None
+    context: ContextDefinition | None
 
 
-BatchIsAuthorizedInputList = List[BatchIsAuthorizedInputItem]
-ParentList = List[EntityIdentifier]
-EntityAttributes = Dict[String, AttributeValue]
+BatchIsAuthorizedInputList = list[BatchIsAuthorizedInputItem]
+
+
+class CedarTagValue(TypedDict, total=False):
+    """The value of an entity's Cedar tag.
+
+    This data type is used as a member of the
+    `EntityItem <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_EntityItem.html>`__
+    structure that forms the body of the ``Entities`` request parameter for
+    the
+    `IsAuthorized <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_IsAuthorized.html>`__,
+    `BatchIsAuthorized <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_BatchIsAuthorized.html>`__,
+    `IsAuthorizedWithToken <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_IsAuthorizedWithToken.html>`__,
+    and
+    `BatchIsAuthorizedWithToken <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_BatchIsAuthorizedWithToken.html>`__
+    operations.
+    """
+
+    boolean: "BooleanAttribute | None"
+    entityIdentifier: "EntityIdentifier | None"
+    long: "LongAttribute | None"
+    string: "StringAttribute | None"
+    set: "CedarTagSetAttribute | None"
+    record: "CedarTagRecordAttribute | None"
+    ipaddr: "IpAddr | None"
+    decimal: "Decimal | None"
+    datetime: "DatetimeAttribute | None"
+    duration: "Duration | None"
+
+
+CedarTagRecordAttribute = dict[String, CedarTagValue]
+CedarTagSetAttribute = list[CedarTagValue]
+EntityCedarTags = dict[String, CedarTagValue]
+ParentList = list[EntityIdentifier]
+EntityAttributes = dict[String, AttributeValue]
 
 
 class EntityItem(TypedDict, total=False):
@@ -495,11 +527,12 @@ class EntityItem(TypedDict, total=False):
     """
 
     identifier: EntityIdentifier
-    attributes: Optional[EntityAttributes]
-    parents: Optional[ParentList]
+    attributes: EntityAttributes | None
+    parents: ParentList | None
+    tags: EntityCedarTags | None
 
 
-EntityList = List[EntityItem]
+EntityList = list[EntityItem]
 
 
 class EntitiesDefinition(TypedDict, total=False):
@@ -514,13 +547,13 @@ class EntitiesDefinition(TypedDict, total=False):
     operations.
     """
 
-    entityList: Optional[EntityList]
-    cedarJson: Optional[CedarJson]
+    entityList: EntityList | None
+    cedarJson: CedarJson | None
 
 
 class BatchIsAuthorizedInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    entities: Optional[EntitiesDefinition]
+    entities: EntitiesDefinition | None
     requests: BatchIsAuthorizedInputList
 
 
@@ -538,7 +571,7 @@ class EvaluationErrorItem(TypedDict, total=False):
     errorDescription: String
 
 
-EvaluationErrorList = List[EvaluationErrorItem]
+EvaluationErrorList = list[EvaluationErrorItem]
 
 
 class DeterminingPolicyItem(TypedDict, total=False):
@@ -559,7 +592,7 @@ class DeterminingPolicyItem(TypedDict, total=False):
     policyId: PolicyId
 
 
-DeterminingPolicyList = List[DeterminingPolicyItem]
+DeterminingPolicyList = list[DeterminingPolicyItem]
 
 
 class BatchIsAuthorizedOutputItem(TypedDict, total=False):
@@ -573,7 +606,7 @@ class BatchIsAuthorizedOutputItem(TypedDict, total=False):
     errors: EvaluationErrorList
 
 
-BatchIsAuthorizedOutputList = List[BatchIsAuthorizedOutputItem]
+BatchIsAuthorizedOutputList = list[BatchIsAuthorizedOutputItem]
 
 
 class BatchIsAuthorizedOutput(TypedDict, total=False):
@@ -585,19 +618,19 @@ class BatchIsAuthorizedWithTokenInputItem(TypedDict, total=False):
     ``BatchIsAuthorizedWithToken`` API request.
     """
 
-    action: Optional[ActionIdentifier]
-    resource: Optional[EntityIdentifier]
-    context: Optional[ContextDefinition]
+    action: ActionIdentifier | None
+    resource: EntityIdentifier | None
+    context: ContextDefinition | None
 
 
-BatchIsAuthorizedWithTokenInputList = List[BatchIsAuthorizedWithTokenInputItem]
+BatchIsAuthorizedWithTokenInputList = list[BatchIsAuthorizedWithTokenInputItem]
 
 
 class BatchIsAuthorizedWithTokenInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    identityToken: Optional[Token]
-    accessToken: Optional[Token]
-    entities: Optional[EntitiesDefinition]
+    identityToken: Token | None
+    accessToken: Token | None
+    entities: EntitiesDefinition | None
     requests: BatchIsAuthorizedWithTokenInputList
 
 
@@ -612,15 +645,15 @@ class BatchIsAuthorizedWithTokenOutputItem(TypedDict, total=False):
     errors: EvaluationErrorList
 
 
-BatchIsAuthorizedWithTokenOutputList = List[BatchIsAuthorizedWithTokenOutputItem]
+BatchIsAuthorizedWithTokenOutputList = list[BatchIsAuthorizedWithTokenOutputItem]
 
 
 class BatchIsAuthorizedWithTokenOutput(TypedDict, total=False):
-    principal: Optional[EntityIdentifier]
+    principal: EntityIdentifier | None
     results: BatchIsAuthorizedWithTokenOutputList
 
 
-ClientIds = List[ClientId]
+ClientIds = list[ClientId]
 
 
 class CognitoGroupConfiguration(TypedDict, total=False):
@@ -646,7 +679,7 @@ class CognitoGroupConfigurationDetail(TypedDict, total=False):
     `GetIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_GetIdentitySource.html>`__.
     """
 
-    groupEntityType: Optional[GroupEntityType]
+    groupEntityType: GroupEntityType | None
 
 
 class CognitoGroupConfigurationItem(TypedDict, total=False):
@@ -659,7 +692,7 @@ class CognitoGroupConfigurationItem(TypedDict, total=False):
     `ListIdentitySources <http://forums.aws.amazon.com/verifiedpermissions/latest/apireference/API_ListIdentitySources.html>`__.
     """
 
-    groupEntityType: Optional[GroupEntityType]
+    groupEntityType: GroupEntityType | None
 
 
 class CognitoUserPoolConfiguration(TypedDict, total=False):
@@ -676,8 +709,8 @@ class CognitoUserPoolConfiguration(TypedDict, total=False):
     """
 
     userPoolArn: UserPoolArn
-    clientIds: Optional[ClientIds]
-    groupConfiguration: Optional[CognitoGroupConfiguration]
+    clientIds: ClientIds | None
+    groupConfiguration: CognitoGroupConfiguration | None
 
 
 class CognitoUserPoolConfigurationDetail(TypedDict, total=False):
@@ -696,7 +729,7 @@ class CognitoUserPoolConfigurationDetail(TypedDict, total=False):
     userPoolArn: UserPoolArn
     clientIds: ClientIds
     issuer: Issuer
-    groupConfiguration: Optional[CognitoGroupConfigurationDetail]
+    groupConfiguration: CognitoGroupConfigurationDetail | None
 
 
 class CognitoUserPoolConfigurationItem(TypedDict, total=False):
@@ -715,7 +748,7 @@ class CognitoUserPoolConfigurationItem(TypedDict, total=False):
     userPoolArn: UserPoolArn
     clientIds: ClientIds
     issuer: Issuer
-    groupConfiguration: Optional[CognitoGroupConfigurationItem]
+    groupConfiguration: CognitoGroupConfigurationItem | None
 
 
 class OpenIdConnectIdentityTokenConfiguration(TypedDict, total=False):
@@ -730,8 +763,8 @@ class OpenIdConnectIdentityTokenConfiguration(TypedDict, total=False):
     `CreateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_CreateIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    clientIds: Optional[ClientIds]
+    principalIdClaim: Claim | None
+    clientIds: ClientIds | None
 
 
 class OpenIdConnectAccessTokenConfiguration(TypedDict, total=False):
@@ -746,8 +779,8 @@ class OpenIdConnectAccessTokenConfiguration(TypedDict, total=False):
     `CreateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_CreateIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    audiences: Optional[Audiences]
+    principalIdClaim: Claim | None
+    audiences: Audiences | None
 
 
 class OpenIdConnectTokenSelection(TypedDict, total=False):
@@ -761,8 +794,8 @@ class OpenIdConnectTokenSelection(TypedDict, total=False):
     `CreateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_CreateIdentitySource.html>`__.
     """
 
-    accessTokenOnly: Optional[OpenIdConnectAccessTokenConfiguration]
-    identityTokenOnly: Optional[OpenIdConnectIdentityTokenConfiguration]
+    accessTokenOnly: OpenIdConnectAccessTokenConfiguration | None
+    identityTokenOnly: OpenIdConnectIdentityTokenConfiguration | None
 
 
 class OpenIdConnectGroupConfiguration(TypedDict, total=False):
@@ -794,8 +827,8 @@ class OpenIdConnectConfiguration(TypedDict, total=False):
     """
 
     issuer: Issuer
-    entityIdPrefix: Optional[EntityIdPrefix]
-    groupConfiguration: Optional[OpenIdConnectGroupConfiguration]
+    entityIdPrefix: EntityIdPrefix | None
+    groupConfiguration: OpenIdConnectGroupConfiguration | None
     tokenSelection: OpenIdConnectTokenSelection
 
 
@@ -808,8 +841,8 @@ class Configuration(TypedDict, total=False):
     operation.
     """
 
-    cognitoUserPoolConfiguration: Optional[CognitoUserPoolConfiguration]
-    openIdConnectConfiguration: Optional[OpenIdConnectConfiguration]
+    cognitoUserPoolConfiguration: CognitoUserPoolConfiguration | None
+    openIdConnectConfiguration: OpenIdConnectConfiguration | None
 
 
 class OpenIdConnectIdentityTokenConfigurationDetail(TypedDict, total=False):
@@ -824,8 +857,8 @@ class OpenIdConnectIdentityTokenConfigurationDetail(TypedDict, total=False):
     `GetIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_GetIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    clientIds: Optional[ClientIds]
+    principalIdClaim: Claim | None
+    clientIds: ClientIds | None
 
 
 class OpenIdConnectAccessTokenConfigurationDetail(TypedDict, total=False):
@@ -840,8 +873,8 @@ class OpenIdConnectAccessTokenConfigurationDetail(TypedDict, total=False):
     `GetIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_GetIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    audiences: Optional[Audiences]
+    principalIdClaim: Claim | None
+    audiences: Audiences | None
 
 
 class OpenIdConnectTokenSelectionDetail(TypedDict, total=False):
@@ -855,8 +888,8 @@ class OpenIdConnectTokenSelectionDetail(TypedDict, total=False):
     `GetIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_GetIdentitySource.html>`__.
     """
 
-    accessTokenOnly: Optional[OpenIdConnectAccessTokenConfigurationDetail]
-    identityTokenOnly: Optional[OpenIdConnectIdentityTokenConfigurationDetail]
+    accessTokenOnly: OpenIdConnectAccessTokenConfigurationDetail | None
+    identityTokenOnly: OpenIdConnectIdentityTokenConfigurationDetail | None
 
 
 class OpenIdConnectGroupConfigurationDetail(TypedDict, total=False):
@@ -888,8 +921,8 @@ class OpenIdConnectConfigurationDetail(TypedDict, total=False):
     """
 
     issuer: Issuer
-    entityIdPrefix: Optional[EntityIdPrefix]
-    groupConfiguration: Optional[OpenIdConnectGroupConfigurationDetail]
+    entityIdPrefix: EntityIdPrefix | None
+    groupConfiguration: OpenIdConnectGroupConfigurationDetail | None
     tokenSelection: OpenIdConnectTokenSelectionDetail
 
 
@@ -901,8 +934,8 @@ class ConfigurationDetail(TypedDict, total=False):
     operation.
     """
 
-    cognitoUserPoolConfiguration: Optional[CognitoUserPoolConfigurationDetail]
-    openIdConnectConfiguration: Optional[OpenIdConnectConfigurationDetail]
+    cognitoUserPoolConfiguration: CognitoUserPoolConfigurationDetail | None
+    openIdConnectConfiguration: OpenIdConnectConfigurationDetail | None
 
 
 class OpenIdConnectIdentityTokenConfigurationItem(TypedDict, total=False):
@@ -917,8 +950,8 @@ class OpenIdConnectIdentityTokenConfigurationItem(TypedDict, total=False):
     `ListIdentitySources <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_ListIdentitySources.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    clientIds: Optional[ClientIds]
+    principalIdClaim: Claim | None
+    clientIds: ClientIds | None
 
 
 class OpenIdConnectAccessTokenConfigurationItem(TypedDict, total=False):
@@ -933,8 +966,8 @@ class OpenIdConnectAccessTokenConfigurationItem(TypedDict, total=False):
     `ListIdentitySources <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_ListIdentitySources.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    audiences: Optional[Audiences]
+    principalIdClaim: Claim | None
+    audiences: Audiences | None
 
 
 class OpenIdConnectTokenSelectionItem(TypedDict, total=False):
@@ -948,8 +981,8 @@ class OpenIdConnectTokenSelectionItem(TypedDict, total=False):
     `ListIdentitySources <http://amazonaws.com/verifiedpermissions/latest/apireference/API_ListIdentitySources.html>`__.
     """
 
-    accessTokenOnly: Optional[OpenIdConnectAccessTokenConfigurationItem]
-    identityTokenOnly: Optional[OpenIdConnectIdentityTokenConfigurationItem]
+    accessTokenOnly: OpenIdConnectAccessTokenConfigurationItem | None
+    identityTokenOnly: OpenIdConnectIdentityTokenConfigurationItem | None
 
 
 class OpenIdConnectGroupConfigurationItem(TypedDict, total=False):
@@ -981,8 +1014,8 @@ class OpenIdConnectConfigurationItem(TypedDict, total=False):
     """
 
     issuer: Issuer
-    entityIdPrefix: Optional[EntityIdPrefix]
-    groupConfiguration: Optional[OpenIdConnectGroupConfigurationItem]
+    entityIdPrefix: EntityIdPrefix | None
+    groupConfiguration: OpenIdConnectGroupConfigurationItem | None
     tokenSelection: OpenIdConnectTokenSelectionItem
 
 
@@ -994,15 +1027,15 @@ class ConfigurationItem(TypedDict, total=False):
     operation.
     """
 
-    cognitoUserPoolConfiguration: Optional[CognitoUserPoolConfigurationItem]
-    openIdConnectConfiguration: Optional[OpenIdConnectConfigurationItem]
+    cognitoUserPoolConfiguration: CognitoUserPoolConfigurationItem | None
+    openIdConnectConfiguration: OpenIdConnectConfigurationItem | None
 
 
 class CreateIdentitySourceInput(ServiceRequest):
-    clientToken: Optional[IdempotencyToken]
+    clientToken: IdempotencyToken | None
     policyStoreId: PolicyStoreId
     configuration: Configuration
-    principalEntityType: Optional[PrincipalEntityType]
+    principalEntityType: PrincipalEntityType | None
 
 
 class CreateIdentitySourceOutput(TypedDict, total=False):
@@ -1018,8 +1051,8 @@ class TemplateLinkedPolicyDefinition(TypedDict, total=False):
     """
 
     policyTemplateId: PolicyTemplateId
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
 
 
 class StaticPolicyDefinition(TypedDict, total=False):
@@ -1030,7 +1063,7 @@ class StaticPolicyDefinition(TypedDict, total=False):
     type.
     """
 
-    description: Optional[StaticPolicyDescription]
+    description: StaticPolicyDescription | None
     statement: PolicyStatement
 
 
@@ -1045,12 +1078,12 @@ class PolicyDefinition(TypedDict, total=False):
     ``templateLinked`` element.
     """
 
-    static: Optional[StaticPolicyDefinition]
-    templateLinked: Optional[TemplateLinkedPolicyDefinition]
+    static: StaticPolicyDefinition | None
+    templateLinked: TemplateLinkedPolicyDefinition | None
 
 
 class CreatePolicyInput(ServiceRequest):
-    clientToken: Optional[IdempotencyToken]
+    clientToken: IdempotencyToken | None
     policyStoreId: PolicyStoreId
     definition: PolicyDefinition
 
@@ -1059,15 +1092,15 @@ class CreatePolicyOutput(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     policyId: PolicyId
     policyType: PolicyType
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
-    actions: Optional[ActionIdentifierList]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
+    actions: ActionIdentifierList | None
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    effect: Optional[PolicyEffect]
+    effect: PolicyEffect | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class ValidationSettings(TypedDict, total=False):
@@ -1087,11 +1120,11 @@ class ValidationSettings(TypedDict, total=False):
 
 
 class CreatePolicyStoreInput(ServiceRequest):
-    clientToken: Optional[IdempotencyToken]
+    clientToken: IdempotencyToken | None
     validationSettings: ValidationSettings
-    description: Optional[PolicyStoreDescription]
-    deletionProtection: Optional[DeletionProtection]
-    tags: Optional[TagMap]
+    description: PolicyStoreDescription | None
+    deletionProtection: DeletionProtection | None
+    tags: TagMap | None
 
 
 class CreatePolicyStoreOutput(TypedDict, total=False):
@@ -1102,9 +1135,9 @@ class CreatePolicyStoreOutput(TypedDict, total=False):
 
 
 class CreatePolicyTemplateInput(ServiceRequest):
-    clientToken: Optional[IdempotencyToken]
+    clientToken: IdempotencyToken | None
     policyStoreId: PolicyStoreId
-    description: Optional[PolicyTemplateDescription]
+    description: PolicyTemplateDescription | None
     statement: PolicyStatement
 
 
@@ -1161,8 +1194,8 @@ class EntityReference(TypedDict, total=False):
     operation..
     """
 
-    unspecified: Optional[Boolean]
-    identifier: Optional[EntityIdentifier]
+    unspecified: Boolean | None
+    identifier: EntityIdentifier | None
 
 
 class GetIdentitySourceInput(ServiceRequest):
@@ -1179,20 +1212,20 @@ class IdentitySourceDetails(TypedDict, total=False):
     `ConfigurationDetail <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_ConfigurationDetail.html>`__.
     """
 
-    clientIds: Optional[ClientIds]
-    userPoolArn: Optional[UserPoolArn]
-    discoveryUrl: Optional[DiscoveryUrl]
-    openIdIssuer: Optional[OpenIdIssuer]
+    clientIds: ClientIds | None
+    userPoolArn: UserPoolArn | None
+    discoveryUrl: DiscoveryUrl | None
+    openIdIssuer: OpenIdIssuer | None
 
 
 class GetIdentitySourceOutput(TypedDict, total=False):
     createdDate: TimestampFormat
-    details: Optional[IdentitySourceDetails]
+    details: IdentitySourceDetails | None
     identitySourceId: IdentitySourceId
     lastUpdatedDate: TimestampFormat
     policyStoreId: PolicyStoreId
     principalEntityType: PrincipalEntityType
-    configuration: Optional[ConfigurationDetail]
+    configuration: ConfigurationDetail | None
 
 
 class GetPolicyInput(ServiceRequest):
@@ -1204,18 +1237,18 @@ class GetPolicyOutput(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     policyId: PolicyId
     policyType: PolicyType
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
-    actions: Optional[ActionIdentifierList]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
+    actions: ActionIdentifierList | None
     definition: PolicyDefinitionDetail
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    effect: Optional[PolicyEffect]
+    effect: PolicyEffect | None
 
 
 class GetPolicyStoreInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    tags: Optional[Boolean]
+    tags: Boolean | None
 
 
 class GetPolicyStoreOutput(TypedDict, total=False):
@@ -1224,10 +1257,10 @@ class GetPolicyStoreOutput(TypedDict, total=False):
     validationSettings: ValidationSettings
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    description: Optional[PolicyStoreDescription]
-    deletionProtection: Optional[DeletionProtection]
-    cedarVersion: Optional[CedarVersion]
-    tags: Optional[TagMap]
+    description: PolicyStoreDescription | None
+    deletionProtection: DeletionProtection | None
+    cedarVersion: CedarVersion | None
+    tags: TagMap | None
 
 
 class GetPolicyTemplateInput(ServiceRequest):
@@ -1238,7 +1271,7 @@ class GetPolicyTemplateInput(ServiceRequest):
 class GetPolicyTemplateOutput(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     policyTemplateId: PolicyTemplateId
-    description: Optional[PolicyTemplateDescription]
+    description: PolicyTemplateDescription | None
     statement: PolicyStatement
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
@@ -1248,7 +1281,7 @@ class GetSchemaInput(ServiceRequest):
     policyStoreId: PolicyStoreId
 
 
-NamespaceList = List[Namespace]
+NamespaceList = list[Namespace]
 
 
 class GetSchemaOutput(TypedDict, total=False):
@@ -1256,7 +1289,7 @@ class GetSchemaOutput(TypedDict, total=False):
     schema: SchemaJson
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    namespaces: Optional[NamespaceList]
+    namespaces: NamespaceList | None
 
 
 class IdentitySourceFilter(TypedDict, total=False):
@@ -1268,10 +1301,10 @@ class IdentitySourceFilter(TypedDict, total=False):
     operation.
     """
 
-    principalEntityType: Optional[PrincipalEntityType]
+    principalEntityType: PrincipalEntityType | None
 
 
-IdentitySourceFilters = List[IdentitySourceFilter]
+IdentitySourceFilters = list[IdentitySourceFilter]
 
 
 class IdentitySourceItemDetails(TypedDict, total=False):
@@ -1283,10 +1316,10 @@ class IdentitySourceItemDetails(TypedDict, total=False):
     `ConfigurationItem <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_ConfigurationItem.html>`__.
     """
 
-    clientIds: Optional[ClientIds]
-    userPoolArn: Optional[UserPoolArn]
-    discoveryUrl: Optional[DiscoveryUrl]
-    openIdIssuer: Optional[OpenIdIssuer]
+    clientIds: ClientIds | None
+    userPoolArn: UserPoolArn | None
+    discoveryUrl: DiscoveryUrl | None
+    openIdIssuer: OpenIdIssuer | None
 
 
 class IdentitySourceItem(TypedDict, total=False):
@@ -1298,24 +1331,24 @@ class IdentitySourceItem(TypedDict, total=False):
     """
 
     createdDate: TimestampFormat
-    details: Optional[IdentitySourceItemDetails]
+    details: IdentitySourceItemDetails | None
     identitySourceId: IdentitySourceId
     lastUpdatedDate: TimestampFormat
     policyStoreId: PolicyStoreId
     principalEntityType: PrincipalEntityType
-    configuration: Optional[ConfigurationItem]
+    configuration: ConfigurationItem | None
 
 
-IdentitySources = List[IdentitySourceItem]
+IdentitySources = list[IdentitySourceItem]
 
 
 class IsAuthorizedInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    principal: Optional[EntityIdentifier]
-    action: Optional[ActionIdentifier]
-    resource: Optional[EntityIdentifier]
-    context: Optional[ContextDefinition]
-    entities: Optional[EntitiesDefinition]
+    principal: EntityIdentifier | None
+    action: ActionIdentifier | None
+    resource: EntityIdentifier | None
+    context: ContextDefinition | None
+    entities: EntitiesDefinition | None
 
 
 class IsAuthorizedOutput(TypedDict, total=False):
@@ -1326,30 +1359,30 @@ class IsAuthorizedOutput(TypedDict, total=False):
 
 class IsAuthorizedWithTokenInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    identityToken: Optional[Token]
-    accessToken: Optional[Token]
-    action: Optional[ActionIdentifier]
-    resource: Optional[EntityIdentifier]
-    context: Optional[ContextDefinition]
-    entities: Optional[EntitiesDefinition]
+    identityToken: Token | None
+    accessToken: Token | None
+    action: ActionIdentifier | None
+    resource: EntityIdentifier | None
+    context: ContextDefinition | None
+    entities: EntitiesDefinition | None
 
 
 class IsAuthorizedWithTokenOutput(TypedDict, total=False):
     decision: Decision
     determiningPolicies: DeterminingPolicyList
     errors: EvaluationErrorList
-    principal: Optional[EntityIdentifier]
+    principal: EntityIdentifier | None
 
 
 class ListIdentitySourcesInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[ListIdentitySourcesMaxResults]
-    filters: Optional[IdentitySourceFilters]
+    nextToken: NextToken | None
+    maxResults: ListIdentitySourcesMaxResults | None
+    filters: IdentitySourceFilters | None
 
 
 class ListIdentitySourcesOutput(TypedDict, total=False):
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
     identitySources: IdentitySources
 
 
@@ -1362,17 +1395,17 @@ class PolicyFilter(TypedDict, total=False):
     operation.
     """
 
-    principal: Optional[EntityReference]
-    resource: Optional[EntityReference]
-    policyType: Optional[PolicyType]
-    policyTemplateId: Optional[PolicyTemplateId]
+    principal: EntityReference | None
+    resource: EntityReference | None
+    policyType: PolicyType | None
+    policyTemplateId: PolicyTemplateId | None
 
 
 class ListPoliciesInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    filter: Optional[PolicyFilter]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    filter: PolicyFilter | None
 
 
 class TemplateLinkedPolicyDefinitionItem(TypedDict, total=False):
@@ -1381,8 +1414,8 @@ class TemplateLinkedPolicyDefinitionItem(TypedDict, total=False):
     """
 
     policyTemplateId: PolicyTemplateId
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
 
 
 class StaticPolicyDefinitionItem(TypedDict, total=False):
@@ -1396,7 +1429,7 @@ class StaticPolicyDefinitionItem(TypedDict, total=False):
     operation.
     """
 
-    description: Optional[StaticPolicyDescription]
+    description: StaticPolicyDescription | None
 
 
 class PolicyDefinitionItem(TypedDict, total=False):
@@ -1412,8 +1445,8 @@ class PolicyDefinitionItem(TypedDict, total=False):
     operations.
     """
 
-    static: Optional[StaticPolicyDefinitionItem]
-    templateLinked: Optional[TemplateLinkedPolicyDefinitionItem]
+    static: StaticPolicyDefinitionItem | None
+    templateLinked: TemplateLinkedPolicyDefinitionItem | None
 
 
 class PolicyItem(TypedDict, total=False):
@@ -1427,26 +1460,26 @@ class PolicyItem(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     policyId: PolicyId
     policyType: PolicyType
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
-    actions: Optional[ActionIdentifierList]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
+    actions: ActionIdentifierList | None
     definition: PolicyDefinitionItem
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    effect: Optional[PolicyEffect]
+    effect: PolicyEffect | None
 
 
-PolicyList = List[PolicyItem]
+PolicyList = list[PolicyItem]
 
 
 class ListPoliciesOutput(TypedDict, total=False):
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
     policies: PolicyList
 
 
 class ListPolicyStoresInput(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class PolicyStoreItem(TypedDict, total=False):
@@ -1460,22 +1493,22 @@ class PolicyStoreItem(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     arn: ResourceArn
     createdDate: TimestampFormat
-    lastUpdatedDate: Optional[TimestampFormat]
-    description: Optional[PolicyStoreDescription]
+    lastUpdatedDate: TimestampFormat | None
+    description: PolicyStoreDescription | None
 
 
-PolicyStoreList = List[PolicyStoreItem]
+PolicyStoreList = list[PolicyStoreItem]
 
 
 class ListPolicyStoresOutput(TypedDict, total=False):
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
     policyStores: PolicyStoreList
 
 
 class ListPolicyTemplatesInput(ServiceRequest):
     policyStoreId: PolicyStoreId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class PolicyTemplateItem(TypedDict, total=False):
@@ -1488,16 +1521,16 @@ class PolicyTemplateItem(TypedDict, total=False):
 
     policyStoreId: PolicyStoreId
     policyTemplateId: PolicyTemplateId
-    description: Optional[PolicyTemplateDescription]
+    description: PolicyTemplateDescription | None
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
 
 
-PolicyTemplatesList = List[PolicyTemplateItem]
+PolicyTemplatesList = list[PolicyTemplateItem]
 
 
 class ListPolicyTemplatesOutput(TypedDict, total=False):
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
     policyTemplates: PolicyTemplatesList
 
 
@@ -1506,7 +1539,7 @@ class ListTagsForResourceInput(ServiceRequest):
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class SchemaDefinition(TypedDict, total=False):
@@ -1517,7 +1550,7 @@ class SchemaDefinition(TypedDict, total=False):
     Permissions and can't be stored in the policy store.
     """
 
-    cedarJson: Optional[SchemaJson]
+    cedarJson: SchemaJson | None
 
 
 class PutSchemaInput(ServiceRequest):
@@ -1532,7 +1565,7 @@ class PutSchemaOutput(TypedDict, total=False):
     lastUpdatedDate: TimestampFormat
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -1567,8 +1600,8 @@ class UpdateCognitoUserPoolConfiguration(TypedDict, total=False):
     """
 
     userPoolArn: UserPoolArn
-    clientIds: Optional[ClientIds]
-    groupConfiguration: Optional[UpdateCognitoGroupConfiguration]
+    clientIds: ClientIds | None
+    groupConfiguration: UpdateCognitoGroupConfiguration | None
 
 
 class UpdateOpenIdConnectIdentityTokenConfiguration(TypedDict, total=False):
@@ -1583,8 +1616,8 @@ class UpdateOpenIdConnectIdentityTokenConfiguration(TypedDict, total=False):
     `UpdateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdateIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    clientIds: Optional[ClientIds]
+    principalIdClaim: Claim | None
+    clientIds: ClientIds | None
 
 
 class UpdateOpenIdConnectAccessTokenConfiguration(TypedDict, total=False):
@@ -1599,8 +1632,8 @@ class UpdateOpenIdConnectAccessTokenConfiguration(TypedDict, total=False):
     `UpdateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdateIdentitySource.html>`__.
     """
 
-    principalIdClaim: Optional[Claim]
-    audiences: Optional[Audiences]
+    principalIdClaim: Claim | None
+    audiences: Audiences | None
 
 
 class UpdateOpenIdConnectTokenSelection(TypedDict, total=False):
@@ -1614,8 +1647,8 @@ class UpdateOpenIdConnectTokenSelection(TypedDict, total=False):
     `UpdateIdentitySource <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdateIdentitySource.html>`__.
     """
 
-    accessTokenOnly: Optional[UpdateOpenIdConnectAccessTokenConfiguration]
-    identityTokenOnly: Optional[UpdateOpenIdConnectIdentityTokenConfiguration]
+    accessTokenOnly: UpdateOpenIdConnectAccessTokenConfiguration | None
+    identityTokenOnly: UpdateOpenIdConnectIdentityTokenConfiguration | None
 
 
 class UpdateOpenIdConnectGroupConfiguration(TypedDict, total=False):
@@ -1647,8 +1680,8 @@ class UpdateOpenIdConnectConfiguration(TypedDict, total=False):
     """
 
     issuer: Issuer
-    entityIdPrefix: Optional[EntityIdPrefix]
-    groupConfiguration: Optional[UpdateOpenIdConnectGroupConfiguration]
+    entityIdPrefix: EntityIdPrefix | None
+    groupConfiguration: UpdateOpenIdConnectGroupConfiguration | None
     tokenSelection: UpdateOpenIdConnectTokenSelection
 
 
@@ -1657,15 +1690,15 @@ class UpdateConfiguration(TypedDict, total=False):
     source.
     """
 
-    cognitoUserPoolConfiguration: Optional[UpdateCognitoUserPoolConfiguration]
-    openIdConnectConfiguration: Optional[UpdateOpenIdConnectConfiguration]
+    cognitoUserPoolConfiguration: UpdateCognitoUserPoolConfiguration | None
+    openIdConnectConfiguration: UpdateOpenIdConnectConfiguration | None
 
 
 class UpdateIdentitySourceInput(ServiceRequest):
     policyStoreId: PolicyStoreId
     identitySourceId: IdentitySourceId
     updateConfiguration: UpdateConfiguration
-    principalEntityType: Optional[PrincipalEntityType]
+    principalEntityType: PrincipalEntityType | None
 
 
 class UpdateIdentitySourceOutput(TypedDict, total=False):
@@ -1678,7 +1711,7 @@ class UpdateIdentitySourceOutput(TypedDict, total=False):
 class UpdateStaticPolicyDefinition(TypedDict, total=False):
     """Contains information about an update to a static policy."""
 
-    description: Optional[StaticPolicyDescription]
+    description: StaticPolicyDescription | None
     statement: PolicyStatement
 
 
@@ -1690,7 +1723,7 @@ class UpdatePolicyDefinition(TypedDict, total=False):
     operation.
     """
 
-    static: Optional[UpdateStaticPolicyDefinition]
+    static: UpdateStaticPolicyDefinition | None
 
 
 class UpdatePolicyInput(ServiceRequest):
@@ -1703,19 +1736,19 @@ class UpdatePolicyOutput(TypedDict, total=False):
     policyStoreId: PolicyStoreId
     policyId: PolicyId
     policyType: PolicyType
-    principal: Optional[EntityIdentifier]
-    resource: Optional[EntityIdentifier]
-    actions: Optional[ActionIdentifierList]
+    principal: EntityIdentifier | None
+    resource: EntityIdentifier | None
+    actions: ActionIdentifierList | None
     createdDate: TimestampFormat
     lastUpdatedDate: TimestampFormat
-    effect: Optional[PolicyEffect]
+    effect: PolicyEffect | None
 
 
 class UpdatePolicyStoreInput(ServiceRequest):
     policyStoreId: PolicyStoreId
     validationSettings: ValidationSettings
-    deletionProtection: Optional[DeletionProtection]
-    description: Optional[PolicyStoreDescription]
+    deletionProtection: DeletionProtection | None
+    description: PolicyStoreDescription | None
 
 
 class UpdatePolicyStoreOutput(TypedDict, total=False):
@@ -1728,7 +1761,7 @@ class UpdatePolicyStoreOutput(TypedDict, total=False):
 class UpdatePolicyTemplateInput(ServiceRequest):
     policyStoreId: PolicyStoreId
     policyTemplateId: PolicyTemplateId
-    description: Optional[PolicyTemplateDescription]
+    description: PolicyTemplateDescription | None
     statement: PolicyStatement
 
 
@@ -1740,8 +1773,8 @@ class UpdatePolicyTemplateOutput(TypedDict, total=False):
 
 
 class VerifiedpermissionsApi:
-    service = "verifiedpermissions"
-    version = "2021-12-01"
+    service: str = "verifiedpermissions"
+    version: str = "2021-12-01"
 
     @handler("BatchGetPolicy")
     def batch_get_policy(

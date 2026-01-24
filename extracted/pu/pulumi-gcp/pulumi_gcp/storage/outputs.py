@@ -38,6 +38,8 @@ __all__ = [
     'BucketLifecycleRuleAction',
     'BucketLifecycleRuleCondition',
     'BucketLogging',
+    'BucketObjectContexts',
+    'BucketObjectContextsCustom',
     'BucketObjectCustomerEncryption',
     'BucketObjectRetention',
     'BucketRetentionPolicy',
@@ -116,6 +118,7 @@ __all__ = [
     'TransferJobTransferSpecObjectConditions',
     'TransferJobTransferSpecPosixDataSink',
     'TransferJobTransferSpecPosixDataSource',
+    'TransferJobTransferSpecTransferManifest',
     'TransferJobTransferSpecTransferOptions',
     'TransferJobTransferSpecTransferOptionsMetadataOptions',
     'GetBucketAutoclassResult',
@@ -130,8 +133,12 @@ __all__ = [
     'GetBucketLifecycleRuleActionResult',
     'GetBucketLifecycleRuleConditionResult',
     'GetBucketLoggingResult',
+    'GetBucketObjectContentContextResult',
+    'GetBucketObjectContentContextCustomResult',
     'GetBucketObjectContentCustomerEncryptionResult',
     'GetBucketObjectContentRetentionResult',
+    'GetBucketObjectContextResult',
+    'GetBucketObjectContextCustomResult',
     'GetBucketObjectCustomerEncryptionResult',
     'GetBucketObjectRetentionResult',
     'GetBucketObjectsBucketObjectResult',
@@ -933,7 +940,11 @@ class BucketIpFilter(dict):
                  public_network_source: Optional['outputs.BucketIpFilterPublicNetworkSource'] = None,
                  vpc_network_sources: Optional[Sequence['outputs.BucketIpFilterVpcNetworkSource']] = None):
         """
-        :param _builtins.str mode: The state of the IP filter configuration. Valid values are `Enabled` and `Disabled`. When set to `Enabled`, IP filtering rules are applied to a bucket and all incoming requests to the bucket are evaluated against these rules. When set to `Disabled`, IP filtering rules are not applied to a bucket. **Note**: `allow_all_service_agent_access` must be supplied when `mode` is set to `Enabled`, it can be ommited for other values.
+        :param _builtins.str mode: The state of the IP filter configuration. Valid values are `Enabled` and `Disabled`. When set to `Enabled`, IP filtering rules are applied to a bucket and all incoming requests to the bucket are evaluated against these rules. When set to `Disabled`, IP filtering rules are not applied to a bucket.
+               
+               **Note**: Once ip_filter is setup, it can either be `Enabled` or `Disabled` and cannot be removed from config.
+               
+               **Note**: `allow_all_service_agent_access` must be supplied when `mode` is set to `Enabled`, it can be ommited for other values.
         :param _builtins.bool allow_all_service_agent_access: While set `true`, allows all service agents to access the bucket regardless of the IP filter configuration.
         :param _builtins.bool allow_cross_org_vpcs: While set `true`, allows cross-org VPCs in the bucket's IP filter configuration.
         :param 'BucketIpFilterPublicNetworkSourceArgs' public_network_source: The public network IP address ranges that can access the bucket and its data. Structure is documented below.
@@ -953,7 +964,11 @@ class BucketIpFilter(dict):
     @pulumi.getter
     def mode(self) -> _builtins.str:
         """
-        The state of the IP filter configuration. Valid values are `Enabled` and `Disabled`. When set to `Enabled`, IP filtering rules are applied to a bucket and all incoming requests to the bucket are evaluated against these rules. When set to `Disabled`, IP filtering rules are not applied to a bucket. **Note**: `allow_all_service_agent_access` must be supplied when `mode` is set to `Enabled`, it can be ommited for other values.
+        The state of the IP filter configuration. Valid values are `Enabled` and `Disabled`. When set to `Enabled`, IP filtering rules are applied to a bucket and all incoming requests to the bucket are evaluated against these rules. When set to `Disabled`, IP filtering rules are not applied to a bucket.
+
+        **Note**: Once ip_filter is setup, it can either be `Enabled` or `Disabled` and cannot be removed from config.
+
+        **Note**: `allow_all_service_agent_access` must be supplied when `mode` is set to `Enabled`, it can be ommited for other values.
         """
         return pulumi.get(self, "mode")
 
@@ -1431,6 +1446,100 @@ class BucketLogging(dict):
 
 
 @pulumi.output_type
+class BucketObjectContexts(dict):
+    def __init__(__self__, *,
+                 customs: Sequence['outputs.BucketObjectContextsCustom']):
+        """
+        :param Sequence['BucketObjectContextsCustomArgs'] customs: A list of custom context key-value pairs.
+        """
+        pulumi.set(__self__, "customs", customs)
+
+    @_builtins.property
+    @pulumi.getter
+    def customs(self) -> Sequence['outputs.BucketObjectContextsCustom']:
+        """
+        A list of custom context key-value pairs.
+        """
+        return pulumi.get(self, "customs")
+
+
+@pulumi.output_type
+class BucketObjectContextsCustom(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "createTime":
+            suggest = "create_time"
+        elif key == "updateTime":
+            suggest = "update_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in BucketObjectContextsCustom. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        BucketObjectContextsCustom.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        BucketObjectContextsCustom.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str,
+                 create_time: Optional[_builtins.str] = None,
+                 update_time: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str key: An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        :param _builtins.str value: The value associated with this context. This field holds the primary information for the given context key.
+        :param _builtins.str create_time: The time when context was first added to the storage object in RFC 3399 format.
+        :param _builtins.str update_time: The time when context was last updated in RFC 3399 format.
+               
+               <a name>
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+        if create_time is not None:
+            pulumi.set(__self__, "create_time", create_time)
+        if update_time is not None:
+            pulumi.set(__self__, "update_time", update_time)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value associated with this context. This field holds the primary information for the given context key.
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> Optional[_builtins.str]:
+        """
+        The time when context was first added to the storage object in RFC 3399 format.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> Optional[_builtins.str]:
+        """
+        The time when context was last updated in RFC 3399 format.
+
+        <a name>
+        """
+        return pulumi.get(self, "update_time")
+
+
+@pulumi.output_type
 class BucketObjectCustomerEncryption(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -1505,7 +1614,7 @@ class BucketObjectRetention(dict):
         :param _builtins.str mode: The retention policy mode. Either `Locked` or `Unlocked`.
         :param _builtins.str retain_until_time: The time to retain the object until in RFC 3339 format, for example 2012-11-15T16:19:00.094Z.
                
-               <a name>
+               <a name="nested_contexts"></a> The `contexts` block supports -
         """
         pulumi.set(__self__, "mode", mode)
         pulumi.set(__self__, "retain_until_time", retain_until_time)
@@ -1524,7 +1633,7 @@ class BucketObjectRetention(dict):
         """
         The time to retain the object until in RFC 3339 format, for example 2012-11-15T16:19:00.094Z.
 
-        <a name>
+        <a name="nested_contexts"></a> The `contexts` block supports -
         """
         return pulumi.get(self, "retain_until_time")
 
@@ -3971,7 +4080,7 @@ class TransferJobReplicationSpecTransferOptions(dict):
         :param _builtins.bool delete_objects_from_source_after_transfer: Whether objects should be deleted from the source after they are transferred to the sink. Note that this option and `delete_objects_unique_in_sink` are mutually exclusive.
         :param _builtins.bool delete_objects_unique_in_sink: Whether objects that exist only in the sink should be deleted. Note that this option and
                `delete_objects_from_source_after_transfer` are mutually exclusive.
-        :param 'TransferJobReplicationSpecTransferOptionsMetadataOptionsArgs' metadata_options: Specifies the metadata options for running a transfer
+        :param 'TransferJobReplicationSpecTransferOptionsMetadataOptionsArgs' metadata_options: Specifies the metadata options for running a transfer. Structure documented below.
         :param _builtins.bool overwrite_objects_already_existing_in_sink: Whether overwriting objects that already exist in the sink is allowed.
         :param _builtins.str overwrite_when: When to overwrite objects that already exist in the sink. If not set, overwrite behavior is determined by `overwrite_objects_already_existing_in_sink`. Possible values: ALWAYS, DIFFERENT, NEVER.
         """
@@ -4007,7 +4116,7 @@ class TransferJobReplicationSpecTransferOptions(dict):
     @pulumi.getter(name="metadataOptions")
     def metadata_options(self) -> Optional['outputs.TransferJobReplicationSpecTransferOptionsMetadataOptions']:
         """
-        Specifies the metadata options for running a transfer
+        Specifies the metadata options for running a transfer. Structure documented below.
         """
         return pulumi.get(self, "metadata_options")
 
@@ -4064,13 +4173,13 @@ class TransferJobReplicationSpecTransferOptionsMetadataOptions(dict):
                  time_created: Optional[_builtins.str] = None,
                  uid: Optional[_builtins.str] = None):
         """
-        :param _builtins.str acl: Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str acl: Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str gid: Specifies how each file's POSIX group ID (GID) attribute should be handled by the transfer.
-        :param _builtins.str kms_key: Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str kms_key: Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str mode: Specifies how each file's mode attribute should be handled by the transfer.
-        :param _builtins.str storage_class: Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets
+        :param _builtins.str storage_class: Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets.
         :param _builtins.str symlink: Specifies how symlinks should be handled by the transfer.
-        :param _builtins.str temporary_hold: SSpecifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str temporary_hold: Specifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str time_created: Specifies how each object's timeCreated metadata is preserved for transfers.
         :param _builtins.str uid: Specifies how each file's POSIX user ID (UID) attribute should be handled by the transfer.
         """
@@ -4097,7 +4206,7 @@ class TransferJobReplicationSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter
     def acl(self) -> Optional[_builtins.str]:
         """
-        Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "acl")
 
@@ -4113,7 +4222,7 @@ class TransferJobReplicationSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="kmsKey")
     def kms_key(self) -> Optional[_builtins.str]:
         """
-        Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "kms_key")
 
@@ -4129,7 +4238,7 @@ class TransferJobReplicationSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="storageClass")
     def storage_class(self) -> Optional[_builtins.str]:
         """
-        Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets
+        Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets.
         """
         return pulumi.get(self, "storage_class")
 
@@ -4145,7 +4254,7 @@ class TransferJobReplicationSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="temporaryHold")
     def temporary_hold(self) -> Optional[_builtins.str]:
         """
-        SSpecifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "temporary_hold")
 
@@ -4403,6 +4512,8 @@ class TransferJobTransferSpec(dict):
             suggest = "sink_agent_pool_name"
         elif key == "sourceAgentPoolName":
             suggest = "source_agent_pool_name"
+        elif key == "transferManifest":
+            suggest = "transfer_manifest"
         elif key == "transferOptions":
             suggest = "transfer_options"
 
@@ -4430,6 +4541,7 @@ class TransferJobTransferSpec(dict):
                  posix_data_source: Optional['outputs.TransferJobTransferSpecPosixDataSource'] = None,
                  sink_agent_pool_name: Optional[_builtins.str] = None,
                  source_agent_pool_name: Optional[_builtins.str] = None,
+                 transfer_manifest: Optional['outputs.TransferJobTransferSpecTransferManifest'] = None,
                  transfer_options: Optional['outputs.TransferJobTransferSpecTransferOptions'] = None):
         """
         :param 'TransferJobTransferSpecAwsS3CompatibleDataSourceArgs' aws_s3_compatible_data_source: An AWS S3 Compatible data source. Structure documented below.
@@ -4444,6 +4556,7 @@ class TransferJobTransferSpec(dict):
         :param 'TransferJobTransferSpecPosixDataSourceArgs' posix_data_source: A POSIX filesystem data source. Structure documented below.
         :param _builtins.str sink_agent_pool_name: Specifies the agent pool name associated with the posix data sink. When unspecified, the default name is used.
         :param _builtins.str source_agent_pool_name: Specifies the agent pool name associated with the posix data source. When unspecified, the default name is used.
+        :param 'TransferJobTransferSpecTransferManifestArgs' transfer_manifest: Use a manifest file to limit which object are transferred. See [Storage Transfer Service manifest file format](https://cloud.google.com/storage-transfer/docs/manifest). Structure documented below.
         :param 'TransferJobTransferSpecTransferOptionsArgs' transfer_options: Characteristics of how to treat files from datasource and sink during job. If the option `delete_objects_unique_in_sink` is true, object conditions based on objects' `last_modification_time` are ignored and do not exclude objects in a data source or a data sink. Structure documented below.
         """
         if aws_s3_compatible_data_source is not None:
@@ -4470,6 +4583,8 @@ class TransferJobTransferSpec(dict):
             pulumi.set(__self__, "sink_agent_pool_name", sink_agent_pool_name)
         if source_agent_pool_name is not None:
             pulumi.set(__self__, "source_agent_pool_name", source_agent_pool_name)
+        if transfer_manifest is not None:
+            pulumi.set(__self__, "transfer_manifest", transfer_manifest)
         if transfer_options is not None:
             pulumi.set(__self__, "transfer_options", transfer_options)
 
@@ -4568,6 +4683,14 @@ class TransferJobTransferSpec(dict):
         Specifies the agent pool name associated with the posix data source. When unspecified, the default name is used.
         """
         return pulumi.get(self, "source_agent_pool_name")
+
+    @_builtins.property
+    @pulumi.getter(name="transferManifest")
+    def transfer_manifest(self) -> Optional['outputs.TransferJobTransferSpecTransferManifest']:
+        """
+        Use a manifest file to limit which object are transferred. See [Storage Transfer Service manifest file format](https://cloud.google.com/storage-transfer/docs/manifest). Structure documented below.
+        """
+        return pulumi.get(self, "transfer_manifest")
 
     @_builtins.property
     @pulumi.getter(name="transferOptions")
@@ -5414,6 +5537,24 @@ class TransferJobTransferSpecPosixDataSource(dict):
 
 
 @pulumi.output_type
+class TransferJobTransferSpecTransferManifest(dict):
+    def __init__(__self__, *,
+                 location: _builtins.str):
+        """
+        :param _builtins.str location: The **GCS URI** to the manifest file (CSV or line-delimited). Example: `gs://my-bucket/manifest.csv`
+        """
+        pulumi.set(__self__, "location", location)
+
+    @_builtins.property
+    @pulumi.getter
+    def location(self) -> _builtins.str:
+        """
+        The **GCS URI** to the manifest file (CSV or line-delimited). Example: `gs://my-bucket/manifest.csv`
+        """
+        return pulumi.get(self, "location")
+
+
+@pulumi.output_type
 class TransferJobTransferSpecTransferOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -5450,7 +5591,7 @@ class TransferJobTransferSpecTransferOptions(dict):
         :param _builtins.bool delete_objects_from_source_after_transfer: Whether objects should be deleted from the source after they are transferred to the sink. Note that this option and `delete_objects_unique_in_sink` are mutually exclusive.
         :param _builtins.bool delete_objects_unique_in_sink: Whether objects that exist only in the sink should be deleted. Note that this option and
                `delete_objects_from_source_after_transfer` are mutually exclusive.
-        :param 'TransferJobTransferSpecTransferOptionsMetadataOptionsArgs' metadata_options: Specifies the metadata options for running a transfer
+        :param 'TransferJobTransferSpecTransferOptionsMetadataOptionsArgs' metadata_options: Specifies the metadata options for running a transfer. Structure documented below.
         :param _builtins.bool overwrite_objects_already_existing_in_sink: Whether overwriting objects that already exist in the sink is allowed.
         :param _builtins.str overwrite_when: When to overwrite objects that already exist in the sink. If not set, overwrite behavior is determined by `overwrite_objects_already_existing_in_sink`. Possible values: ALWAYS, DIFFERENT, NEVER.
         """
@@ -5486,7 +5627,7 @@ class TransferJobTransferSpecTransferOptions(dict):
     @pulumi.getter(name="metadataOptions")
     def metadata_options(self) -> Optional['outputs.TransferJobTransferSpecTransferOptionsMetadataOptions']:
         """
-        Specifies the metadata options for running a transfer
+        Specifies the metadata options for running a transfer. Structure documented below.
         """
         return pulumi.get(self, "metadata_options")
 
@@ -5543,13 +5684,13 @@ class TransferJobTransferSpecTransferOptionsMetadataOptions(dict):
                  time_created: Optional[_builtins.str] = None,
                  uid: Optional[_builtins.str] = None):
         """
-        :param _builtins.str acl: Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str acl: Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str gid: Specifies how each file's POSIX group ID (GID) attribute should be handled by the transfer.
-        :param _builtins.str kms_key: Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str kms_key: Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str mode: Specifies how each file's mode attribute should be handled by the transfer.
-        :param _builtins.str storage_class: Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets
+        :param _builtins.str storage_class: Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets.
         :param _builtins.str symlink: Specifies how symlinks should be handled by the transfer.
-        :param _builtins.str temporary_hold: SSpecifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets
+        :param _builtins.str temporary_hold: Specifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets.
         :param _builtins.str time_created: Specifies how each object's timeCreated metadata is preserved for transfers.
         :param _builtins.str uid: Specifies how each file's POSIX user ID (UID) attribute should be handled by the transfer.
         """
@@ -5576,7 +5717,7 @@ class TransferJobTransferSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter
     def acl(self) -> Optional[_builtins.str]:
         """
-        Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's ACLs should be preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "acl")
 
@@ -5592,7 +5733,7 @@ class TransferJobTransferSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="kmsKey")
     def kms_key(self) -> Optional[_builtins.str]:
         """
-        Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's Cloud KMS customer-managed encryption key (CMEK) is preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "kms_key")
 
@@ -5608,7 +5749,7 @@ class TransferJobTransferSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="storageClass")
     def storage_class(self) -> Optional[_builtins.str]:
         """
-        Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets
+        Specifies the storage class to set on objects being transferred to Google Cloud Storage buckets.
         """
         return pulumi.get(self, "storage_class")
 
@@ -5624,7 +5765,7 @@ class TransferJobTransferSpecTransferOptionsMetadataOptions(dict):
     @pulumi.getter(name="temporaryHold")
     def temporary_hold(self) -> Optional[_builtins.str]:
         """
-        SSpecifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets
+        Specifies how each object's temporary hold status should be preserved for transfers between Google Cloud Storage buckets.
         """
         return pulumi.get(self, "temporary_hold")
 
@@ -6150,6 +6291,75 @@ class GetBucketLoggingResult(dict):
 
 
 @pulumi.output_type
+class GetBucketObjectContentContextResult(dict):
+    def __init__(__self__, *,
+                 customs: Sequence['outputs.GetBucketObjectContentContextCustomResult']):
+        """
+        :param Sequence['GetBucketObjectContentContextCustomArgs'] customs: A list of custom context key-value pairs.
+        """
+        pulumi.set(__self__, "customs", customs)
+
+    @_builtins.property
+    @pulumi.getter
+    def customs(self) -> Sequence['outputs.GetBucketObjectContentContextCustomResult']:
+        """
+        A list of custom context key-value pairs.
+        """
+        return pulumi.get(self, "customs")
+
+
+@pulumi.output_type
+class GetBucketObjectContentContextCustomResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 key: _builtins.str,
+                 update_time: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str create_time: The time when context was first added to the storage#object in RFC 3339 format.
+        :param _builtins.str key: An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        :param _builtins.str update_time: The time when context was last updated in RFC 3339 format.
+        :param _builtins.str value: The value associated with this context. This field holds the primary information for the given context key.
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time when context was first added to the storage#object in RFC 3339 format.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time when context was last updated in RFC 3339 format.
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value associated with this context. This field holds the primary information for the given context key.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
 class GetBucketObjectContentCustomerEncryptionResult(dict):
     def __init__(__self__, *,
                  encryption_algorithm: _builtins.str,
@@ -6205,6 +6415,75 @@ class GetBucketObjectContentRetentionResult(dict):
         Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object.
         """
         return pulumi.get(self, "retain_until_time")
+
+
+@pulumi.output_type
+class GetBucketObjectContextResult(dict):
+    def __init__(__self__, *,
+                 customs: Sequence['outputs.GetBucketObjectContextCustomResult']):
+        """
+        :param Sequence['GetBucketObjectContextCustomArgs'] customs: A list of custom context key-value pairs.
+        """
+        pulumi.set(__self__, "customs", customs)
+
+    @_builtins.property
+    @pulumi.getter
+    def customs(self) -> Sequence['outputs.GetBucketObjectContextCustomResult']:
+        """
+        A list of custom context key-value pairs.
+        """
+        return pulumi.get(self, "customs")
+
+
+@pulumi.output_type
+class GetBucketObjectContextCustomResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 key: _builtins.str,
+                 update_time: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str create_time: The time when context was first added to the storage#object in RFC 3339 format.
+        :param _builtins.str key: An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        :param _builtins.str update_time: The time when context was last updated in RFC 3339 format.
+        :param _builtins.str value: The value associated with this context. This field holds the primary information for the given context key.
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        The time when context was first added to the storage#object in RFC 3339 format.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        An individual object context. Context keys and their corresponding values must start with an alphanumeric character.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        The time when context was last updated in RFC 3339 format.
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value associated with this context. This field holds the primary information for the given context key.
+        """
+        return pulumi.get(self, "value")
 
 
 @pulumi.output_type

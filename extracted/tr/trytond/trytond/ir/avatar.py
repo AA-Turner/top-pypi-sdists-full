@@ -13,8 +13,10 @@ try:
 except ImportError:
     PIL = None
 
-from trytond.config import config
+import trytond.config as config
+from trytond.i18n import gettext
 from trytond.model import ModelSQL, Unique, fields
+from trytond.model.exceptions import ValidationError
 from trytond.pool import Pool
 from trytond.transaction import Transaction
 from trytond.wsgi import Base64Converter
@@ -27,8 +29,11 @@ if config.getboolean('database', 'avatar_filestore', default=False):
 else:
     file_id = None
     store_prefix = None
-URL_BASE = config.get('web', 'avatar_base', default='')
 FONT = os.path.join(os.path.dirname(__file__), 'fonts', 'karla.ttf')
+
+
+class AvatarValidationError(ValidationError):
+    pass
 
 
 class ImageMixin:
@@ -83,8 +88,9 @@ class Avatar(ImageMixin, ResourceMixin, ModelSQL):
     @property
     def url(self):
         if self.image_id or self.image:
+            url_base = config.get('web', 'avatar_base', default='')
             return urljoin(
-                URL_BASE, quote('/avatar/%(database)s/%(uuid)s' % {
+                url_base, quote('/avatar/%(database)s/%(uuid)s' % {
                         'database': Base64Converter(None).to_url(
                             Transaction().database.name),
                         'uuid': self.uuid,
@@ -118,7 +124,11 @@ class Avatar(ImageMixin, ResourceMixin, ModelSQL):
         if not PIL or not image:
             return image
         data = io.BytesIO()
-        img = Image.open(io.BytesIO(image))
+        try:
+            img = Image.open(io.BytesIO(image))
+        except PIL.UnidentifiedImageError as e:
+            raise AvatarValidationError(gettext(
+                    'ir.msg_avatar_image_error'), str(e)) from e
         width, height = img.size
         size = min(width, height)
         img = img.crop((

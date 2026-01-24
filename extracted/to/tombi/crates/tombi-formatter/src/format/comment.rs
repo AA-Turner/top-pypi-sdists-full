@@ -9,8 +9,11 @@ use super::Format;
 impl Format for Vec<Vec<DanglingComment>> {
     #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        if f.skip_comment() {
+            return Ok(());
+        }
         for (i, comments) in self.iter().enumerate() {
-            assert!(!comments.is_empty());
+            debug_assert!(!comments.is_empty());
             if i != 0 {
                 write!(f, "{}{}", f.line_ending(), f.line_ending())?;
             }
@@ -33,8 +36,11 @@ impl Format for Vec<Vec<DanglingComment>> {
 impl Format for Vec<Vec<BeginDanglingComment>> {
     #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        if f.skip_comment() {
+            return Ok(());
+        }
         for comments in self {
-            assert!(!comments.is_empty());
+            debug_assert!(!comments.is_empty());
 
             for (i, comment) in comments.iter().enumerate() {
                 f.write_indent()?;
@@ -55,7 +61,7 @@ impl Format for Vec<Vec<BeginDanglingComment>> {
 impl Format for Vec<Vec<EndDanglingComment>> {
     #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
-        if self.is_empty() {
+        if f.skip_comment() || self.is_empty() {
             return Ok(());
         }
 
@@ -80,6 +86,10 @@ impl Format for Vec<Vec<EndDanglingComment>> {
 
 impl Format for Vec<LeadingComment> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        if f.skip_comment() {
+            return Ok(());
+        }
+
         for (i, comment) in self.iter().enumerate() {
             f.write_indent()?;
             if i == 0 {
@@ -96,6 +106,10 @@ impl Format for Vec<LeadingComment> {
 impl Format for TrailingComment {
     #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        if f.skip_comment() {
+            return Ok(());
+        }
+
         write!(f, "{}", f.trailing_comment_space())?;
         format_comment(f, self.as_ref(), true)
     }
@@ -130,17 +144,29 @@ fn format_comment(
     // write '#' character
     write!(f, "{}", iter.next().unwrap())?;
 
-    if let Some(c) = iter.next() {
-        if c != ' ' && c != '\t' {
-            write!(f, " ")?;
-        }
-        write!(f, "{c}")?;
-    }
-    if strip_leading_spaces {
-        for c in iter.by_ref() {
-            if c != ' ' && c != '\t' {
+    if let Some(mut c) = iter.next() {
+        // For https://crates.io/crates/document-features crate, the comment starts with '#' or '!'.
+        {
+            if matches!(c, '#' | '!') {
                 write!(f, "{c}")?;
-                break;
+                if let Some(next) = iter.next() {
+                    c = next;
+                } else {
+                    return Ok(());
+                }
+            }
+        }
+
+        write!(f, " ")?;
+
+        if c != ' ' && c != '\t' {
+            write!(f, "{c}")?;
+        } else if strip_leading_spaces {
+            for c in iter.by_ref() {
+                if c != ' ' && c != '\t' {
+                    write!(f, "{c}")?;
+                    break;
+                }
             }
         }
     }
@@ -150,58 +176,143 @@ fn format_comment(
 
 #[cfg(test)]
 mod tests {
-    use crate::test_format;
+    use crate::{Formatter, test_format};
 
     test_format! {
-        #[test]
-        fn comment_without_space(r"#comment") -> Ok("# comment");
+        #[tokio::test]
+        async fn test_only_comment1(
+            r#"
+            # comment1
+            # comment2
+            "#,
+            TomlVersion::V1_0_0
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_comment(r"#") -> Ok(source);
+        #[tokio::test]
+        async fn test_only_comment2(
+            r#"
+            # comment1
+            # comment2
+
+            # comment3
+            # comment4
+            "#,
+            TomlVersion::V1_0_0
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn only_space_comment1(r"# ") -> Ok(r"#");
+        #[tokio::test]
+        async fn comment_without_space(r"#comment") -> Ok("# comment")
     }
 
     test_format! {
-        #[test]
-        fn only_space_comment2(r"#      ") -> Ok(r"#");
+        #[tokio::test]
+        async fn empty_comment(r"#") -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn strip_prefix_space(r"#    hello") -> Ok(r"# hello");
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn empty_comment_document_features(r"#!") -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn multiline_comment_with_ident(
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn empty_comment_document_features2(r"##") -> Ok(source)
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn only_space_comment1(r"# ") -> Ok(r"#")
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn only_long_space_comment(r"#      ") -> Ok(r"#")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn only_space_comment_document_features(r"#! ") -> Ok(r"#!")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn only_space_comment_document_features2(r"## ") -> Ok(r"##")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn only_long_space_comment_document_features(r"#!       ") -> Ok(r"#!")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn only_long_space_comment_document_features2(r"##      ") -> Ok(r"##")
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn strip_prefix_space(r"#    hello") -> Ok(r"# hello")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn strip_prefix_space_document_features(r"#!      hello") -> Ok(r"#! hello")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn strip_prefix_space_document_features2(r"##      hello") -> Ok(r"## hello")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn strip_prefix_space_document_features_double_bang(r"#!!  hello") -> Ok(r"#! !  hello")
+    }
+
+    test_format! {
+        // Reference: https://crates.io/crates/document-features
+        #[tokio::test]
+        async fn strip_prefix_space_document_features_double_sharp(r"###  hello") -> Ok(r"## #  hello")
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn multiline_comment_with_ident(
             r#"
             # NOTE: Tombi preserves spaces at the beginning of a comment line.
             #       This allows for multi-line indentation to be preserved.
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn end_dangling_comment(
+        #[tokio::test]
+        async fn end_dangling_comment(
             r#"
             [dependencies]
             serde = "^1.0"
             # serde_json = "^1.0"
             # serde-yaml = "^0.10"
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn end_dangling_comment_starts_with_line_break(
+        #[tokio::test]
+        async fn end_dangling_comment_starts_with_line_break(
             r#"
             key = "value"
 
@@ -211,12 +322,12 @@ mod tests {
             # end dangling comment3
             # end dangling comment4
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn end_dangling_comment_starts_with_multi_line_break(
+        #[tokio::test]
+        async fn end_dangling_comment_starts_with_multi_line_break(
             r#"
             key = "value"
 
@@ -237,27 +348,27 @@ mod tests {
             # end dangling comment3
             # end dangling comment4
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn schema_comment(r"#:schema https://json.schemastore.org/pyproject.json") -> Ok(
-            "#:schema https://json.schemastore.org/pyproject.json"
-        );
+        #[tokio::test]
+        async fn schema_comment(r"#:schema https://www.schemastore.org/pyproject.json") -> Ok(
+            "#:schema https://www.schemastore.org/pyproject.json"
+        )
     }
 
     test_format! {
-        #[test]
-        fn schema_comment_with_space(r"#:schema  https://json.schemastore.org/pyproject.json  ") -> Ok(
-            "#:schema https://json.schemastore.org/pyproject.json"
-        );
+        #[tokio::test]
+        async fn schema_comment_with_space(r"#:schema  https://www.schemastore.org/pyproject.json  ") -> Ok(
+            "#:schema https://www.schemastore.org/pyproject.json"
+        )
     }
 
     test_format! {
-        #[test]
-        fn tombi_comment_directive(r"#:tombi   toml-version   = 'v1.0.0'  ") -> Ok(
+        #[tokio::test]
+        async fn tombi_comment_directive(r"#:tombi   toml-version   = 'v1.0.0'  ") -> Ok(
             "#:tombi toml-version = \"v1.0.0\""
-        );
+        )
     }
 }

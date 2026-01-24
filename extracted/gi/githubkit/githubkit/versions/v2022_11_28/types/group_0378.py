@@ -9,17 +9,154 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class RepositoryRuleDetailedOneof2Type(TypedDict):
-    """RepositoryRuleDetailedOneof2"""
+class TimelineCommittedEventType(TypedDict):
+    """Timeline Committed Event
 
-    type: Literal["deletion"]
-    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
-    ruleset_source: NotRequired[str]
-    ruleset_id: NotRequired[int]
+    Timeline Committed Event
+    """
+
+    event: NotRequired[Literal["committed"]]
+    sha: str
+    node_id: str
+    url: str
+    author: TimelineCommittedEventPropAuthorType
+    committer: TimelineCommittedEventPropCommitterType
+    message: str
+    tree: TimelineCommittedEventPropTreeType
+    parents: list[TimelineCommittedEventPropParentsItemsType]
+    verification: TimelineCommittedEventPropVerificationType
+    html_url: str
 
 
-__all__ = ("RepositoryRuleDetailedOneof2Type",)
+class TimelineCommittedEventTypeForResponse(TypedDict):
+    """Timeline Committed Event
+
+    Timeline Committed Event
+    """
+
+    event: NotRequired[Literal["committed"]]
+    sha: str
+    node_id: str
+    url: str
+    author: TimelineCommittedEventPropAuthorTypeForResponse
+    committer: TimelineCommittedEventPropCommitterTypeForResponse
+    message: str
+    tree: TimelineCommittedEventPropTreeTypeForResponse
+    parents: list[TimelineCommittedEventPropParentsItemsTypeForResponse]
+    verification: TimelineCommittedEventPropVerificationTypeForResponse
+    html_url: str
+
+
+class TimelineCommittedEventPropAuthorType(TypedDict):
+    """TimelineCommittedEventPropAuthor
+
+    Identifying information for the git-user
+    """
+
+    date: _dt.datetime
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropAuthorTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropAuthor
+
+    Identifying information for the git-user
+    """
+
+    date: str
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropCommitterType(TypedDict):
+    """TimelineCommittedEventPropCommitter
+
+    Identifying information for the git-user
+    """
+
+    date: _dt.datetime
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropCommitterTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropCommitter
+
+    Identifying information for the git-user
+    """
+
+    date: str
+    email: str
+    name: str
+
+
+class TimelineCommittedEventPropTreeType(TypedDict):
+    """TimelineCommittedEventPropTree"""
+
+    sha: str
+    url: str
+
+
+class TimelineCommittedEventPropTreeTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropTree"""
+
+    sha: str
+    url: str
+
+
+class TimelineCommittedEventPropParentsItemsType(TypedDict):
+    """TimelineCommittedEventPropParentsItems"""
+
+    sha: str
+    url: str
+    html_url: str
+
+
+class TimelineCommittedEventPropParentsItemsTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropParentsItems"""
+
+    sha: str
+    url: str
+    html_url: str
+
+
+class TimelineCommittedEventPropVerificationType(TypedDict):
+    """TimelineCommittedEventPropVerification"""
+
+    verified: bool
+    reason: str
+    signature: Union[str, None]
+    payload: Union[str, None]
+    verified_at: Union[str, None]
+
+
+class TimelineCommittedEventPropVerificationTypeForResponse(TypedDict):
+    """TimelineCommittedEventPropVerification"""
+
+    verified: bool
+    reason: str
+    signature: Union[str, None]
+    payload: Union[str, None]
+    verified_at: Union[str, None]
+
+
+__all__ = (
+    "TimelineCommittedEventPropAuthorType",
+    "TimelineCommittedEventPropAuthorTypeForResponse",
+    "TimelineCommittedEventPropCommitterType",
+    "TimelineCommittedEventPropCommitterTypeForResponse",
+    "TimelineCommittedEventPropParentsItemsType",
+    "TimelineCommittedEventPropParentsItemsTypeForResponse",
+    "TimelineCommittedEventPropTreeType",
+    "TimelineCommittedEventPropTreeTypeForResponse",
+    "TimelineCommittedEventPropVerificationType",
+    "TimelineCommittedEventPropVerificationTypeForResponse",
+    "TimelineCommittedEventType",
+    "TimelineCommittedEventTypeForResponse",
+)

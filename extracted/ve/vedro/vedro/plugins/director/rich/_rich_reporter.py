@@ -3,11 +3,21 @@ from types import ModuleType
 from typing import Callable, Tuple, Type, Union, final
 
 import vedro
-from vedro.core import Dispatcher, ExcInfo, PluginConfig, ScenarioResult, StepResult
+from vedro.core import (
+    ConfigType,
+    Dispatcher,
+    ExcInfo,
+    PluginConfig,
+    ScenarioResult,
+    ScenarioScheduler,
+    StepResult,
+)
+from vedro.core.exc_info import TracebackFilter
 from vedro.events import (
     ArgParsedEvent,
     ArgParseEvent,
     CleanupEvent,
+    ConfigLoadedEvent,
     ScenarioFailedEvent,
     ScenarioPassedEvent,
     ScenarioReportedEvent,
@@ -19,7 +29,6 @@ from vedro.plugins.director._director_init_event import DirectorInitEvent
 from vedro.plugins.director._reporter import Reporter
 
 from ._rich_printer import RichPrinter
-from .utils import TracebackFilter
 
 __all__ = ("RichReporterPlugin", "RichReporter",)
 
@@ -31,6 +40,7 @@ class RichReporterPlugin(Reporter):
         super().__init__(config)
         self._printer = printer_factory()
         self._verbosity = 0
+        self._reporter_name = config.reporter_name
         self._tb_pretty = config.tb_pretty
         self._tb_show_internal_calls = config.tb_show_internal_calls
         self._tb_show_locals = config.tb_show_locals
@@ -38,14 +48,18 @@ class RichReporterPlugin(Reporter):
         self._tb_max_frames = config.tb_max_frames
         self._tb_width = config.tb_width
         self._tb_suppress_modules = config.tb_suppress_modules
+        self._show_discovery_stats = config.show_discovery_stats
         self._show_scenario_extras = config.show_scenario_extras
         self._show_step_extras = config.show_step_extras
         self._show_skipped = config.show_skipped
         self._show_skip_reason = config.show_skip_reason
         self._show_timings = config.show_timings
         self._show_paths = config.show_paths
+        self._show_ids = config.show_ids
         self._show_steps = config.show_steps
         self._hide_namespaces = config.hide_namespaces
+        self._show_captured_output = config.show_captured_output
+        self._show_captured_output_limit = config.show_captured_output_limit
         self._show_scenario_spinner = config.show_scenario_spinner
         self._show_discovering_spinner = False
         self._show_interrupted_traceback = config.show_interrupted_traceback
@@ -53,12 +67,18 @@ class RichReporterPlugin(Reporter):
         self._show_full_diff = config.show_full_diff
         self._v2_verbosity = config.v2_verbosity
         self._ring_bell = config.ring_bell
+        self._no_color = config.no_color
         self._namespace: Union[str, None] = None
+        self._global_config: Union[ConfigType, None] = None
         self._tb_filter: Union[TracebackFilter, None] = None
 
     def subscribe(self, dispatcher: Dispatcher) -> None:
         super().subscribe(dispatcher)
-        dispatcher.listen(DirectorInitEvent, lambda e: e.director.register("rich", self))
+        dispatcher.listen(ConfigLoadedEvent, self.on_config_loaded) \
+                  .listen(DirectorInitEvent, self.on_director_init)
+
+    def on_director_init(self, event: DirectorInitEvent) -> None:
+        event.director.register(self._reporter_name, self)
 
     def on_chosen(self) -> None:
         assert isinstance(self._dispatcher, Dispatcher)
@@ -72,6 +92,14 @@ class RichReporterPlugin(Reporter):
                         .listen(ScenarioSkippedEvent, self.on_scenario_skipped) \
                         .listen(ScenarioReportedEvent, self.on_scenario_reported) \
                         .listen(CleanupEvent, self.on_cleanup)
+
+    def on_config_loaded(self, event: ConfigLoadedEvent) -> None:
+        """
+        Handle the event when the configuration is loaded.
+
+        :param event: The ConfigLoadedEvent instance containing the configuration.
+        """
+        self._global_config = event.config
 
     def on_arg_parse(self, event: ArgParseEvent) -> None:
         group = event.arg_parser.add_argument_group("Rich Reporter")
@@ -105,7 +133,11 @@ class RichReporterPlugin(Reporter):
         group.add_argument("--show-paths",
                            action="store_true",
                            default=self._show_paths,
-                           help="Show the relative path of each passed/failed scenario")
+                           help="Show the relative path of each scenario")
+        group.add_argument("--show-ids",
+                           action="store_true",
+                           default=self._show_ids,
+                           help="Show the unique ID of each scenario")
         group.add_argument("--show-scenario-spinner",
                            action="store_true",
                            default=self._show_scenario_spinner,
@@ -127,6 +159,10 @@ class RichReporterPlugin(Reporter):
                            default=self._ring_bell,
                            dest="ring_bell",
                            help="Trigger a 'bell' sound at the end of scenario execution")
+        group.add_argument("--no-color",
+                           action="store_true",
+                           default=self._no_color,
+                           help="Disable colored output")
 
     def on_arg_parsed(self, event: ArgParsedEvent) -> None:
         self._verbosity = event.args.verbose
@@ -141,12 +177,14 @@ class RichReporterPlugin(Reporter):
         self._show_full_diff = event.args.show_full_diff
         self._show_timings = event.args.show_timings
         self._show_paths = event.args.show_paths
+        self._show_ids = event.args.show_ids
         self._show_steps = event.args.show_steps
         self._show_scenario_spinner = event.args.show_scenario_spinner
         self._hide_namespaces = event.args.hide_namespaces
         self._tb_show_internal_calls = event.args.tb_show_internal_calls
         self._tb_show_locals = event.args.tb_show_locals
         self._ring_bell = event.args.ring_bell
+        self._no_color = event.args.no_color
 
         if self._tb_max_frames < 4:
             raise ValueError("RichReporter: `tb_max_frames` must be >= 4")
@@ -158,6 +196,10 @@ class RichReporterPlugin(Reporter):
             raise ValueError(
                 "RichReporter: to enable `show_paths` set `show_scenario_extras` to `True`")
 
+        if self._show_ids and (not self._show_scenario_extras):
+            raise ValueError(
+                "RichReporter: to enable `show_ids` set `show_scenario_extras` to `True`")
+
         if self._show_skip_reason and (not self._show_scenario_extras):
             raise ValueError(
                 "RichReporter: to enable `show_skip_reason` set `show_scenario_extras` to `True`")
@@ -165,46 +207,112 @@ class RichReporterPlugin(Reporter):
         if self._show_discovering_spinner:
             self._printer.show_spinner("Discovering scenarios...")
 
+        if self._no_color:
+            self._printer.console.no_color = True
+            self._printer.console._color_system = None
+
         if not self._tb_show_internal_calls:
             self._tb_suppress_modules = tuple(self._tb_suppress_modules) + (vedro,)
         else:
             self._tb_suppress_modules = tuple(self._tb_suppress_modules)
+
+        assert self._global_config  # for type checker
+        tb_filter_factory = self._global_config.Registry.TracebackFilter
         try:
-            self._tb_filter = TracebackFilter(self._tb_suppress_modules)
+            self._tb_filter = tb_filter_factory(self._tb_suppress_modules)
         except (AttributeError, TypeError):
             raise ValueError("RichReporter: `tb_suppress_modules` must be a tuple of modules")
 
     def on_startup(self, event: StartupEvent) -> None:
         if self._show_discovering_spinner:
             self._printer.hide_spinner()
+
+        if self._show_discovery_stats:
+            discovered, scheduled, skipped = self._calculate_discovery_stats(event.scheduler)
+            ignored = discovered - scheduled
+            discovery_stats = f"running: {scheduled-skipped} of {discovered} scenarios"
+            if skipped > 0 and ignored > 0:
+                discovery_stats += f" ({skipped} skipped, {ignored} ignored)"
+            elif skipped > 0:
+                discovery_stats += f" ({skipped} skipped)"
+            elif ignored > 0:
+                discovery_stats += f" ({ignored} ignored)"
+            event.report.add_preamble(discovery_stats)
+
+        self._printer.print_report_preamble(event.report.preamble)
         self._printer.print_header()
+
+    def _calculate_discovery_stats(self, scheduler: ScenarioScheduler) -> Tuple[int, int, int]:
+        """
+        Calculate discovery statistics from the scheduler.
+
+        :param scheduler: The Scheduler instance containing scenario information.
+        :return: A tuple of (discovered, scheduled, skipped) counts.
+        """
+        discovered = sum(1 for _ in scheduler.discovered)
+        scheduled = 0
+        skipped = 0
+        for scenario in scheduler.scheduled:
+            scheduled += 1
+            if scenario.is_skipped():
+                skipped += 1
+
+        return discovered, scheduled, skipped
 
     def on_scenario_run(self, event: ScenarioRunEvent) -> None:
         self._print_namespace(event.scenario_result.scenario.namespace)
         if self._show_scenario_spinner:
             self._printer.show_spinner(f" {event.scenario_result.scenario.subject}")
 
-    def _add_extra_details(self, scenario_result: ScenarioResult) -> None:
+    def _add_scenario_extra_details(self, scenario_result: ScenarioResult) -> None:
         if self._show_skip_reason and scenario_result.is_skipped():
             skip_reason = scenario_result.scenario.skip_reason
             if skip_reason:
                 scenario_result.add_extra_details(f"{skip_reason}")
 
+        if self._show_ids:
+            scenario_result.add_extra_details(f"id: {scenario_result.scenario.unique_id}")
+
         if self._show_paths:
-            scenario_result.add_extra_details(f"{scenario_result.scenario.rel_path}")
+            path = f"{scenario_result.scenario.rel_path}"
+            if scenario_result.scenario.lineno:
+                path += f":{scenario_result.scenario.lineno}"
+            scenario_result.add_extra_details(path)
+
+        if self._show_captured_output:
+            self._add_captured_output(scenario_result)
+            for step_result in scenario_result.step_results:
+                self._add_captured_output(step_result)
+
+    def _add_captured_output(self, result: Union[ScenarioResult, StepResult]) -> None:
+        captured_output = result.captured_output
+        if captured_output:
+            stdout = self._format_captured_output(captured_output.stdout.get_value())
+            if stdout:
+                result.add_extra_details(f"stdout: {stdout}")
+            stderr = self._format_captured_output(captured_output.stderr.get_value())
+            if stderr:
+                result.add_extra_details(f"stderr: {stderr}")
+
+    def _format_captured_output(self, output: str) -> str:
+        output = output.rstrip()
+        if 0 < self._show_captured_output_limit < len(output):
+            truncated = len(output) - self._show_captured_output_limit
+            return f"{output[:self._show_captured_output_limit]}...[{truncated} CHARS TRUNCATED]"
+        return output
 
     def on_scenario_end(self, event: Union[ScenarioPassedEvent, ScenarioFailedEvent]) -> None:
-        self._add_extra_details(event.scenario_result)
+        self._add_scenario_extra_details(event.scenario_result)
 
     def on_scenario_skipped(self, event: ScenarioSkippedEvent) -> None:
-        self._add_extra_details(event.scenario_result)
+        self._add_scenario_extra_details(event.scenario_result)
         if not self._show_skipped:
             return
         self._print_namespace(event.scenario_result.scenario.namespace)
 
     def _print_exception(self, exc_info: ExcInfo) -> None:
         if self._tb_suppress_modules:
-            assert self._tb_filter
+            assert self._tb_filter  # for type checker
             traceback = self._tb_filter.filter_tb(exc_info.traceback)
             exc_info = ExcInfo(exc_info.type, exc_info.value, traceback)
 
@@ -360,75 +468,156 @@ class RichReporter(PluginConfig):
     plugin = RichReporterPlugin
     description = "Enhanced, customizable scenario reporting with rich output"
 
-    # Show scenario extra details
+    show_discovery_stats: bool = True
+    """
+    Show discovery statistics in the preamble (discovered, scheduled, skipped counts).
+    """
+
     show_scenario_extras: bool = True
+    """
+    Show scenario extra details.
+    """
 
-    # Show step extra details
     show_step_extras: bool = True
+    """
+    Show step extra details.
+    """
 
-    # Show skipped scenarios
     show_skipped: bool = True
+    """
+    Show skipped scenarios.
+    """
 
-    # Show reason of skipped scenarios
-    # Available if `show_scenario_extras` and `show_skipped` is True
     show_skip_reason: bool = True
+    """
+    Show reason of skipped scenarios.
 
-    # Show the elapsed time of each scenario
-    show_timings: bool = False
+    Available if `show_scenario_extras` and `show_skipped` is True.
+    """
 
-    # Show the relative path of each executed scenario (passed, failed, or skipped)
-    # Available if `show_scenario_extras` is True
+    show_timings: bool = True
+    """
+    Show the elapsed time of each scenario.
+    """
+
     show_paths: bool = False
+    """
+    Show the relative path of each executed scenario (passed, failed, or skipped).
 
-    # Show scenario step names
+    Available if `show_scenario_extras` is True.
+    """
+
+    show_ids: bool = False
+    """
+    Show the unique ID of each executed scenario (passed, failed, or skipped).
+
+    Available if `show_scenario_extras` is True.
+    """
+
     show_steps: bool = False
+    """
+    Show scenario step names.
+    """
 
-    # Don't show scenario namespaces
     hide_namespaces: bool = False
+    """
+    Don't show scenario namespaces.
+    """
 
-    # Show status indicator of the current running scenario
     show_scenario_spinner: bool = False
+    """
+    Show status indicator of the current running scenario.
+    """
 
-    # Show pretty traceback
+    show_captured_output: bool = True
+    """
+    Show captured output (stdout/stderr) from scenarios and steps.
+    """
+
+    show_captured_output_limit: int = 40
+    """
+    Limit the length of captured output to show in the report.
+    """
+
     tb_pretty: bool = True
+    """
+    Show pretty traceback.
+    """
 
-    # Show internal calls in the traceback output
     tb_show_internal_calls: bool = False
+    """
+    Show internal calls in the traceback output.
+    """
 
-    # Show local variables in the traceback output
-    # Available if `tb_pretty` is True
     tb_show_locals: bool = False
+    """
+    Show local variables in the traceback output.
 
-    # Set the width of the traceback output
-    # If None, terminal width will be used
-    # Available if `tb_pretty` is True
+    Available if `tb_pretty` is True.
+    """
+
     tb_width: Union[int, None] = 100
+    """
+    Set the width of the traceback output.
 
-    # Max stack trace entries to show (min=4)
+    If None, terminal width will be used.
+    Available if `tb_pretty` is True.
+    """
+
     tb_max_frames: int = 8
+    """
+    Max stack trace entries to show (min=4).
+    """
 
-    # Suppress modules in the traceback output
     tb_suppress_modules: Tuple[Union[str, ModuleType], ...] = ()
+    """
+    Suppress modules in the traceback output.
+    """
 
-    # Truncate lines in Scope based on scope_width value.
-    # If scope_width is None, lines are truncated to the terminal's width.
-    # If scope_width is -1, lines aren't truncated.
-    # Otherwise, lines are truncated to the given length.
     scope_width: Union[int, None] = -1
+    """
+    Truncate lines in Scope based on scope_width value.
 
-    # Show traceback if the execution is interrupted
+    If scope_width is None, lines are truncated to the terminal's width.
+    If scope_width is -1, lines aren't truncated.
+    Otherwise, lines are truncated to the given length.
+    """
+
     show_interrupted_traceback: bool = False
+    """
+    Show traceback if the execution is interrupted.
+    """
 
-    # Show a snapshot of crucial variables (Scope) when a test scenario fails
     show_scope: bool = False
+    """
+    Show a snapshot of crucial variables (Scope) when a test scenario fails.
+    """
 
-    # Show full diff in assertion errors
-    # Available if `tb_pretty` is True
     show_full_diff: bool = False
+    """
+    Show full diff in assertion errors.
 
-    # Enable new verbose levels
+    Available if `tb_pretty` is True.
+    """
+
+    no_color: bool = False
+    """
+    Disable colored output.
+    """
+
     v2_verbosity: bool = True
+    """
+    Enable new verbose levels.
+    """
 
-    # Trigger a 'bell' sound at the end of scenario execution
-    # (if supported by the terminal)
     ring_bell: bool = False
+    """
+    Trigger a 'bell' sound at the end of scenario execution.
+
+    (if supported by the terminal)
+    """
+
+    reporter_name: str = "rich"
+    """
+    Name used to register this reporter for CLI selection (e.g., --reporters rich).
+    """

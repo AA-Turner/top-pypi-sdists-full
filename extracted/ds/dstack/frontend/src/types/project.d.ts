@@ -1,0 +1,52 @@
+declare type TCreateWizardProjectParams = {
+    project_name: string;
+    dry?: boolean;
+    is_public?: boolean;
+    config: {
+        base_backends: string[];
+    };
+};
+
+declare type TGetProjectsParams = {
+    only_no_fleets?: boolean;
+    include_not_joined?: boolean;
+};
+
+declare type TProjectBackend = {
+    name: string;
+    config: IBackendAWS | IBackendAzure | IBackendGCP | IBackendLambda | IBackendLocal | IBackendDstack;
+};
+declare interface IProject {
+    project_id: string;
+    project_name: string;
+    members: IProjectMember[];
+    backends: TProjectBackend[];
+    owner: IUser | { username: string };
+    created_at: string;
+    isPublic: boolean;
+}
+
+declare interface IProjectMember {
+    project_role: TProjectRole;
+    user: IUser | { username: string };
+}
+
+declare type TSetProjectMembersParams = {
+    project_name: string;
+    members: Array<{
+        project_role: TProjectRole;
+        username: string;
+    }>;
+};
+
+declare type TProjectRole = TUserRole | 'manager';
+
+declare interface IProjectSecret {
+    id: string;
+    name: string;
+    value?: string;
+}
+
+declare type IProjectCreateRequestParams = Pick<IProject, 'project_name'> & {
+    is_public: boolean;
+};

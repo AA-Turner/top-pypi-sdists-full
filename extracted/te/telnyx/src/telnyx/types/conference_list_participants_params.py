@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Literal, Annotated, TypedDict
+
+from .._utils import PropertyInfo
 
 __all__ = ["ConferenceListParticipantsParams", "Filter", "Page"]
 
@@ -20,8 +22,20 @@ class ConferenceListParticipantsParams(TypedDict, total=False):
     Originally: page[after], page[before], page[limit], page[size], page[number]
     """
 
+    page_number: Annotated[int, PropertyInfo(alias="page[number]")]
+
+    page_size: Annotated[int, PropertyInfo(alias="page[size]")]
+
+    region: Literal["Australia", "Europe", "Middle East", "US"]
+    """Region where the conference data is located"""
+
 
 class Filter(TypedDict, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[muted], filter[on_hold], filter[whispering]
+    """
+
     muted: bool
     """If present, participants will be filtered to those who are/are not muted"""
 
@@ -35,6 +49,11 @@ class Filter(TypedDict, total=False):
 
 
 class Page(TypedDict, total=False):
+    """Consolidated page parameter (deepObject style).
+
+    Originally: page[after], page[before], page[limit], page[size], page[number]
+    """
+
     after: str
     """Opaque identifier of next page"""
 
@@ -43,9 +62,3 @@ class Page(TypedDict, total=False):
 
     limit: int
     """Limit of records per single page"""
-
-    number: int
-    """The page number to load"""
-
-    size: int
-    """The size of the page"""

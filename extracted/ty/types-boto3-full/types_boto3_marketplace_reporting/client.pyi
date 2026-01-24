@@ -3,7 +3,7 @@ Type annotations for marketplace-reporting service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_reporting/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,11 +28,6 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .type_defs import GetBuyerDashboardInputTypeDef, GetBuyerDashboardOutputTypeDef
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -40,11 +36,11 @@ else:
 __all__ = ("MarketplaceReportingServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 class MarketplaceReportingServiceClient(BaseClient):
     """

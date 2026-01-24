@@ -21,6 +21,7 @@ from jax import lax, random
 
 from flax.nnx import rnglib
 from flax.nnx.module import Module, first_from
+from flax import nnx
 
 
 class Dropout(Module):
@@ -86,7 +87,7 @@ class Dropout(Module):
     elif isinstance(rngs, rnglib.RngStream):
       self.rngs = rngs.fork()
     elif rngs is None:
-      self.rngs = None
+      self.rngs = nnx.data(None)
     else:
       raise TypeError(
         f'rngs must be a Rngs, RngStream or None, but got {type(rngs)}.'
@@ -152,3 +153,17 @@ class Dropout(Module):
     mask = random.bernoulli(key, p=keep_prob, shape=broadcast_shape)
     mask = jnp.broadcast_to(mask, inputs.shape)
     return lax.select(mask, inputs / keep_prob, jnp.zeros_like(inputs))
+
+  def set_mode(
+      self,
+      deterministic: bool | None = None,
+      **kwargs,
+  ) -> dict:
+    """Class method used by ``nnx.set_mode``.
+
+    Args:
+      deterministic: if True, disables dropout masking.
+    """
+    if deterministic is not None:
+      self.deterministic = deterministic
+    return kwargs

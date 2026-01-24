@@ -228,9 +228,32 @@ options:
     elements: str
     version_added: 22.6.0
 
+  lambda_config:
+    description:
+      - Configuration parameters for AWS Lambda proxy functionality.
+      - These option and suboptions are only supported with REST.
+    type: dict
+    version_added: 23.2.0
+    suboptions:
+      function_name:
+        description:
+          - The name of the AWS Lambda function to invoke.
+        type: str
+        required: true
+      aws_region:
+        description:
+          - The name of the AWS region.
+        type: str
+        required: true
+      aws_profile:
+        description:
+          - The name of the AWS profile to use for authentication.
+        type: str
+
 notes:
-  - supports check_mode.
-  - support ZAPI and REST.
+  - Supports check_mode.
+  - Supports both ZAPI and REST.
+  - Supports AWS Lambda proxy functionality when using REST. See README for example usage.
 
 '''
 
@@ -365,6 +388,7 @@ class NetAppOntapAggregate:
             encryption=dict(required=False, type='bool'),
             tags=dict(required=False, type='list', elements='str')
         ))
+        self.argument_spec.update(netapp_utils.na_ontap_lambda_argument_spec())
 
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
@@ -377,6 +401,9 @@ class NetAppOntapAggregate:
                 ('disk_size', 'disk_size_with_unit'),
                 ('disk_class', 'disk_type'),
             ],
+            required_if=[
+                ['use_lambda', True, ('lambda_config',)]
+            ],
             supports_check_mode=True
         )
         self.na_helper = NetAppModule()
@@ -388,6 +415,8 @@ class NetAppOntapAggregate:
         partially_supported_rest_properties = [['service_state', (9, 11, 1)], ['tags', (9, 13, 1)]]
         self.use_rest = self.rest_api.is_rest_supported_properties(self.parameters, unsupported_rest_properties, partially_supported_rest_properties)
         if not self.use_rest:
+            if self.parameters.get('use_lambda'):
+                self.module.fail_json(msg="Error: AWS Lambda proxy for ONTAP APIs is only supported with REST.")
             if not netapp_utils.has_netapp_lib():
                 self.module.fail_json(msg=netapp_utils.netapp_lib_is_required())
             if 'tags' in self.parameters:
@@ -734,6 +763,8 @@ class NetAppOntapAggregate:
             self.aggregate_offline()
         if modify.get('raid_type'):
             self.patch_aggr_rest('modify', {'block_storage': {'primary': {'raid_type': modify['raid_type']}}})
+        if modify.get('encryption') is not None:
+            self.patch_aggr_rest('modify encryption for', {'data_encryption': {'software_encryption_enabled': modify['encryption']}})
 
     def attach_object_store_to_aggr(self):
         """
@@ -989,8 +1020,8 @@ class NetAppOntapAggregate:
             block_storage['mirror'] = mirror
         if block_storage:
             body['block_storage'] = block_storage
-        if self.parameters.get('encryption'):
-            body['data_encryption'] = {'software_encryption_enabled': True}
+        if self.parameters.get('encryption') is not None:
+            body['data_encryption'] = {'software_encryption_enabled': self.parameters['encryption']}
         if self.parameters.get('snaplock_type'):
             body['snaplock_type'] = self.parameters['snaplock_type']
         if self.parameters.get('tags') is not None:

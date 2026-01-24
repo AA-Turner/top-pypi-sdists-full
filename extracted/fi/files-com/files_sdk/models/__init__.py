@@ -6,6 +6,7 @@ from files_sdk.models.action_notification_export import (
 from files_sdk.models.action_notification_export_result import (
     ActionNotificationExportResult,
 )
+from files_sdk.models.agent_push_update import AgentPushUpdate
 from files_sdk.models.api_key import ApiKey
 from files_sdk.models.api_request_log import ApiRequestLog
 from files_sdk.models.app import App
@@ -55,12 +56,14 @@ from files_sdk.models.history_export import HistoryExport
 from files_sdk.models.history_export_result import HistoryExportResult
 from files_sdk.models.holiday_region import HolidayRegion
 from files_sdk.models.image import Image
+from files_sdk.models.inbound_s3_log import InboundS3Log
 from files_sdk.models.inbox_recipient import InboxRecipient
 from files_sdk.models.inbox_registration import InboxRegistration
 from files_sdk.models.inbox_upload import InboxUpload
 from files_sdk.models.invoice import Invoice
 from files_sdk.models.invoice_line_item import InvoiceLineItem
 from files_sdk.models.ip_address import IpAddress
+from files_sdk.models.key_lifecycle_rule import KeyLifecycleRule
 from files_sdk.models.lock import Lock
 from files_sdk.models.message import Message
 from files_sdk.models.message_comment import MessageComment
@@ -68,6 +71,9 @@ from files_sdk.models.message_comment_reaction import MessageCommentReaction
 from files_sdk.models.message_reaction import MessageReaction
 from files_sdk.models.notification import Notification
 from files_sdk.models.outbound_connection_log import OutboundConnectionLog
+from files_sdk.models.partner import Partner
+from files_sdk.models.partner_site import PartnerSite
+from files_sdk.models.partner_site_request import PartnerSiteRequest
 from files_sdk.models.payment import Payment
 from files_sdk.models.payment_line_item import PaymentLineItem
 from files_sdk.models.permission import Permission
@@ -83,8 +89,10 @@ from files_sdk.models.remote_server import RemoteServer
 from files_sdk.models.remote_server_configuration_file import (
     RemoteServerConfigurationFile,
 )
+from files_sdk.models.remote_server_credential import RemoteServerCredential
 from files_sdk.models.request import Request
 from files_sdk.models.restore import Restore
+from files_sdk.models.scim_log import ScimLog
 from files_sdk.models.session import Session
 from files_sdk.models.settings_change import SettingsChange
 from files_sdk.models.sftp_action_log import SftpActionLog
@@ -110,3 +118,4 @@ from files_sdk.models.user_request import UserRequest
 from files_sdk.models.user_sftp_client_use import UserSftpClientUse
 from files_sdk.models.web_dav_action_log import WebDavActionLog
 from files_sdk.models.webhook_test import WebhookTest
+from files_sdk.models.workspace import Workspace

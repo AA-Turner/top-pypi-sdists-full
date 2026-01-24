@@ -10,6 +10,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use clap::Parser;
+use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_config::file_kind::ConfigFileKind;
 use pyrefly_config::migration::run::config_migration;
 use pyrefly_config::pyproject::PyProject;
@@ -103,16 +104,14 @@ impl InitArgs {
 
         // Use get to get the filtered globs and config finder
         let (filtered_globs, config_finder) =
-            FilesArgs::get(Vec::new(), config_path, &check_args.config_override)?;
+            FilesArgs::get(Vec::new(), config_path, ConfigOverrideArgs::default())?;
 
         // Run the check directly
-        match check_args.run_once(filtered_globs, config_finder) {
-            Ok((status, errors)) => Ok((status, errors)),
-            Err(e) => {
-                error!("Failed to run pyrefly check: {}", e);
-                Ok((CommandExitStatus::Success, Vec::new())) // Still return success to match original behavior
-            }
+        let res = check_args.run_once(filtered_globs, config_finder);
+        if let Err(e) = &res {
+            error!("Failed to run pyrefly check: {}", e);
         }
+        res
     }
 
     fn prompt_error_suppression(
@@ -121,7 +120,7 @@ impl InitArgs {
         error_count: usize,
     ) -> anyhow::Result<CommandExitStatus> {
         let prompt = format!(
-            "Found {error_count} errors.We can add suppression comments (e.g., `pyrefly: ignore`) to silence them for you. Would you like to suppress them? (y/N): "
+            "Found {error_count} errors. We can add suppression comments (e.g., `pyrefly: ignore`) to silence them for you. Would you like to suppress them? (y/N): "
         );
 
         if Self::prompt_user_confirmation(&prompt) {
@@ -138,7 +137,7 @@ impl InitArgs {
 
             // Use get to get the filtered globs and config finder
             let (suppress_globs, suppress_config_finder) =
-                FilesArgs::get(Vec::new(), config_path, &suppress_args.config_override)?;
+                FilesArgs::get(Vec::new(), config_path, ConfigOverrideArgs::default())?;
 
             // Run the check with suppress-errors flag
             match suppress_args.run_once(suppress_globs, suppress_config_finder) {
@@ -187,7 +186,6 @@ impl InitArgs {
         // This prevents us from simply outputting an empty file, and gives the user somewhere to start if they want to customize.
         let cfg = ConfigFile {
             project_includes: ConfigFile::default_project_includes(),
-            project_excludes: ConfigFile::default_project_excludes(),
             ..Default::default()
         };
 

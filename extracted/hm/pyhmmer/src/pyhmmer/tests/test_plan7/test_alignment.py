@@ -1,10 +1,6 @@
-import io
-import itertools
-import os
-import shutil
+import platform
 import sys
 import unittest
-import tempfile
 
 import pyhmmer
 from pyhmmer.errors import EaselError
@@ -33,12 +29,13 @@ class TestAlignment(unittest.TestCase):
         self.hits = self._hits.copy()
         self.ali = self.hits[0].best_domain.alignment
 
+    @unittest.skipIf(platform.system() == "Windows", "writing to fileobj unsupported on Windows")
     def test_str(self):
         rendered = str(self.ali)
         lines = rendered.splitlines()
         self.assertEqual(len(lines), 5)
-        self.assertTrue(lines[1].strip().startswith(self.hits.query.name.decode()))
-        self.assertTrue(lines[3].strip().startswith(self.hits[0].name.decode()))
+        self.assertTrue(lines[1].strip().startswith(self.hits.query.name))
+        self.assertTrue(lines[3].strip().startswith(self.hits[0].name))
 
     @unittest.skipIf(sys.implementation.name == "pypy", "`getsizeof` not supported on PyPY")
     def test_sizeof(self):

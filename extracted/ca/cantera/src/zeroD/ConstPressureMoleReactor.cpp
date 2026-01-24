@@ -109,13 +109,14 @@ void ConstPressureMoleReactor::eval(double time, double* LHS, double* RHS)
 
 size_t ConstPressureMoleReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + m_sidx;
-    } else if (nm == "enthalpy") {
+    if (nm == "enthalpy") {
         return 0;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + m_sidx;
+    } catch (const CanteraError&) {
+        throw CanteraError("ConstPressureMoleReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -138,8 +139,28 @@ string ConstPressureMoleReactor::componentName(size_t k) {
             }
         }
     }
-    throw CanteraError("ConstPressureMoleReactor::componentName",
-                       "Index is out of bounds.");
+    throw IndexError("ConstPressureMoleReactor::componentName", "component", k, m_nv);
+}
+
+double ConstPressureMoleReactor::upperBound(size_t k) const {
+    // Component is either enthalpy or moles of a bulk or surface species
+    return BigNumber;
+}
+
+double ConstPressureMoleReactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        return -BigNumber; // enthalpy
+    } else if (k >= 1 && k < m_nv) {
+        return -Tiny; // moles of bulk or surface species
+    } else {
+        throw CanteraError("ConstPressureMoleReactor::lowerBound", "Index {} is out of bounds.", k);
+    }
+}
+
+void ConstPressureMoleReactor::resetBadValues(double* y) {
+    for (size_t k = m_sidx; k < m_nv; k++) {
+        y[k] = std::max(y[k], 0.0);
+    }
 }
 
 }

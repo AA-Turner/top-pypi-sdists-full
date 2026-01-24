@@ -1,0 +1,4 @@
+---
+features:
+  - |
+    Add a "Usage" label (rubric) before printing the command's usage format.

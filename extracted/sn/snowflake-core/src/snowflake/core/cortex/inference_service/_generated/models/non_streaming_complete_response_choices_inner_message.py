@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class NonStreamingCompleteResponseChoicesInnerMessage(BaseModel):
@@ -40,9 +40,10 @@ class NonStreamingCompleteResponseChoicesInnerMessage(BaseModel):
 
     __properties = ["content", "content_list"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -67,7 +68,7 @@ class NonStreamingCompleteResponseChoicesInnerMessage(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -82,9 +83,9 @@ class NonStreamingCompleteResponseChoicesInnerMessage(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return NonStreamingCompleteResponseChoicesInnerMessage.parse_obj(obj)
+            return NonStreamingCompleteResponseChoicesInnerMessage.model_validate(obj)
 
-        _obj = NonStreamingCompleteResponseChoicesInnerMessage.parse_obj(
+        _obj = NonStreamingCompleteResponseChoicesInnerMessage.model_validate(
             {
                 "content": obj.get("content"),
                 "content_list": obj.get("content_list"),

@@ -4,6 +4,7 @@ from typing_extensions import Unpack
 import optype.numpy as onp
 import optype.numpy.compat as npc
 
+from ._fast_matrix_market import mminfo, mmread, mmwrite
 from ._typing import FileLike
 from scipy.sparse import coo_array, coo_matrix, sparray, spmatrix
 
@@ -26,6 +27,8 @@ class _MMFileKwargs(TypedDict, total=False):
 ###
 
 class MMFile:
+    __slots__ = "_cols", "_entries", "_field", "_format", "_rows", "_symmetry"
+
     FORMAT_COORDINATE: ClassVar[str] = "coordinate"
     FORMAT_ARRAY: ClassVar[str] = "array"
     FORMAT_VALUES: ClassVar[tuple[str, ...]] = "coordinate", "array"
@@ -91,22 +94,3 @@ class MMFile:
 
 #
 def asstr(s: object) -> str: ...
-
-#
-@overload
-def mmread(source: FileLike[bytes], *, spmatrix: onp.ToTrue = True) -> onp.ArrayND[npc.number] | coo_array: ...
-@overload
-def mmread(source: FileLike[bytes], *, spmatrix: onp.ToFalse) -> onp.ArrayND[npc.number] | coo_matrix: ...
-
-#
-def mmwrite(
-    target: FileLike[bytes],
-    a: spmatrix | sparray | onp.ToArrayND,
-    comment: str = "",
-    field: _Field | None = None,
-    precision: int | None = None,
-    symmetry: _Symmetry | None = None,
-) -> None: ...
-
-#
-def mminfo(source: FileLike[bytes]) -> _Info: ...

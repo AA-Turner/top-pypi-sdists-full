@@ -13,10 +13,13 @@
 import pathlib
 
 import pytest
-
 from PyInstaller import isolated
 from PyInstaller.compat import is_darwin, is_linux, is_py39, is_win
-from PyInstaller.utils.hooks import is_module_satisfies, can_import_module, get_module_attribute
+from PyInstaller.utils.hooks import (
+    can_import_module,
+    get_module_attribute,
+    is_module_satisfies,
+)
 from PyInstaller.utils.tests import importorskip, requires, xfail
 
 
@@ -108,7 +111,10 @@ def test_apscheduler(pyi_builder):
 
 
         async def main():
-            scheduler = AsyncIOScheduler()
+            # Specify the timezone to use, to make the test invariant to TZ environment variable (which might be set
+            # to UCT0 or GMT+12, which is valid but not supported by `tzlocal` that is used by `apscheduler` behind the
+            # scenes.
+            scheduler = AsyncIOScheduler(timezone=datetime.timezone.utc)
             scheduler.add_job(tick, "interval", seconds=1)
             scheduler.start()
 
@@ -1075,6 +1081,7 @@ def test_cv2_highgui(pyi_builder):
     @isolated.decorate
     def _get_cv2_highgui_backend():
         import re
+
         import cv2
 
         # Find `GUI: <type>` line in OpenCV build information dump. This is available only in recent OpenCV versions;
@@ -1958,10 +1965,52 @@ def test_vadersentiment(pyi_builder):
     """)
 
 
-@importorskip('langchain')
+@requires('langchain < 1.0')
 def test_langchain_llm_summarization_checker(pyi_builder):
     pyi_builder.test_source("""
         import langchain.chains.llm_summarization_checker.base
+    """)
+
+
+# In langchain 1.0.0, the old API was moved into langchain-classic package.
+@requires('langchain-classic >= 1.0')
+def test_langchain_classic_llm_summarization_checker(pyi_builder):
+    pyi_builder.test_source("""
+        import langchain_classic.chains.llm_summarization_checker.base
+    """)
+
+
+@requires('langchain >= 1.0')
+@requires('langchain-ollama')
+def test_langchain_with_ollama(pyi_builder):
+    pyi_builder.test_source("""
+        import time
+
+        import httpx  # for httpx.ConnectError
+        from langchain.chat_models import init_chat_model
+
+        model = init_chat_model("ollama:gemma3:1b")  # requires langchain-ollama
+
+        try:
+            start_time = time.time()
+            print("Invoking model...")
+            response = model.invoke("What is LangChain?")
+            elapsed = time.time() - start_time
+            print(f"Answer took {elapsed:.1f} seconds:")
+        except httpx.ConnectError:
+            # Gracefully handle the situation where local instance of ollama is not running - this should be the usual
+            # case with this test running on PyInstaller's CI.
+            #
+            # If you want to set up a local instance for complete test, see:
+            # https://github.com/ollama/ollama?tab=readme-ov-file#ollama
+            print("Local instance of ollama does not seem to be running - exiting!")
+            raise SystemExit(0)
+
+        for block in response.content_blocks:
+            if block["type"] == "reasoning":
+                print(block.get("reasoning"))
+            elif block["type"] == "text":
+                print(block.get("text"))
     """)
 
 
@@ -2044,8 +2093,12 @@ def test_numba_jit(pyi_builder):
 # Basic import test with new type system enabled (numba >= 0.61).
 # Ideally, we would repeat the above `test_numba_jit`, but at the time of writing (numba 0.61.0rc2) it does not seem to
 # work even when unfrozen.
+# In numba 0.62.0, the new type system was removed, so trying to enable it results in an error.
 @importorskip('numba')
-@pytest.mark.skipif(not is_module_satisfies('numba >= 0.61.0rc1'), reason="Requires numba >= 0.61.0.")
+@pytest.mark.skipif(
+    not is_module_satisfies('numba >= 0.61.0rc1, < 0.62.0rc1'),
+    reason="Requires numba >= 0.61.0, < 0.62.0."
+)
 def test_numba_new_type_system(pyi_builder):
     pyi_builder.test_source("""
         import os
@@ -2854,6 +2907,8 @@ def test_pandera(pyi_builder):
 
 @importorskip('tkinterweb')
 def test_tkinterweb(pyi_builder):
+    # NOTE: run_from_path=True prevents `pyi_builder` from completely clearing the `PATH` environment variable. At the
+    # time of writing, `tkinterweb_tkhtml` v1.1.2 raises error if `PATH` is missing from `os.environ`.
     pyi_builder.test_source("""
         import tkinter
         import tkinterweb
@@ -2863,29 +2918,65 @@ def test_tkinterweb(pyi_builder):
 
         # Load a test string that uses all files that should have been bundled
         frame.load_html(
-                            "<img src='this path doesn't exist' alt='Hello, World!'/> \
-                            <p>Hello Again!</p> \
-                            <select><option>Hi...</option></select>"
-                            )
-    """)
+            "<img src='this path doesn't exist' alt='Hello, World!'/>"
+            "<p>Hello Again!</p>"
+            "<select><option>Hi...</option></select>"
+        )
+    """, run_from_path=True)
 
 
 @importorskip('tkinterweb_tkhtml')
 def test_tkinterweb_tkhtml(pyi_builder):
+    # See comment in `test_tkinterweb` as to why `run_from_path=True` is required.
     pyi_builder.test_source("""
         import tkinter
         import tkinterweb_tkhtml
 
         root = tkinter.Tk()
 
-        folder = tkinterweb_tkhtml.get_tkhtml_folder()
-        tkinterweb_tkhtml.load_tkhtml(root, folder)
+        tkhtml_file, tkhtml_version, experimental = tkinterweb_tkhtml.get_tkhtml_file(None, experimental=False)
+        print(f"Loading tkhtml version {tkhtml_version!r}: {tkhtml_file!r}")
+        tkinterweb_tkhtml.load_tkhtml_file(root, tkhtml_file)
 
         frame = tkinter.Widget(root, "html")
 
         # Load a test string
         frame.tk.call(frame._w, "parse", "<p>Hello, World!</p>")
-    """)
+    """, run_from_path=True)
+
+
+@importorskip('tkinterweb_tkhtml')
+@importorskip('tkinterweb_tkhtml_extras')
+def test_tkinterweb_tkhtml_extras(pyi_builder):
+    # See comment in `test_tkinterweb` as to why `run_from_path=True` is required.
+    pyi_builder.test_source("""
+        import pathlib
+
+        import tkinterweb_tkhtml
+        import tkinterweb_tkhtml_extras
+
+        # Print all available tkhtml binaries
+        print("Available tkhtml binaries:", tkinterweb_tkhtml.ALL_TKHTML_BINARIES)
+
+        # Check that at least one binary is available in base and extras package, respectively.
+        base_path = pathlib.Path(tkinterweb_tkhtml.__file__).parent
+        extras_path = pathlib.Path(tkinterweb_tkhtml_extras.__file__).parent
+
+        found_base = False
+        found_extras = False
+
+        for path, name in tkinterweb_tkhtml.ALL_TKHTML_BINARIES:
+            path = pathlib.Path(path)
+            if base_path in path.parents or base_path == path:
+                print(f"Found binary in tkinterweb_tkhtml package: {name!r} in {str(path)!r}")
+                found_base = True
+            if extras_path in path.parents or base_path == path:
+                print(f"Found binary in tkinterweb_tkhtml_extras package: {name!r} in {str(path)!r}")
+                found_extras = True
+
+        assert found_base, "Did not find binary in tkinterweb_tkhtml package!"
+        assert extras_path, "Did not find binary in tkinterweb_tkhtml_extras package!"
+    """, run_from_path=True)
 
 
 @importorskip('narwhals')
@@ -2910,4 +3001,193 @@ def test_uuid6(pyi_builder):
         my_uuid = uuid6.uuid6()
         print(my_uuid)
         assert my_uuid < uuid6.uuid6()
+    """)
+
+
+@importorskip("globus_sdk")
+def test_globus_sdk(pyi_builder):
+    pyi_builder.test_source("""
+        from globus_sdk import (
+            ClientCredentialsAuthorizer,
+            ConfidentialAppAuthClient,
+            IterableTransferResponse,
+            TransferAPIError,
+            TransferClient,
+            TransferData,
+        )
+    """)
+
+
+@importorskip('duckdb')
+def test_duckdb(pyi_builder):
+    pyi_builder.test_source("""
+        import duckdb
+
+        # NOTE: do not try to show the results via `.show()` method
+        # or using `print()`, as it uses characters that are incompatible
+        # with encoding used on Windows for redirected stdout/stderr!
+        r1 = duckdb.sql("SELECT 42 AS i")
+        print(f"r1: {r1.fetchall()}")
+
+        r2 = duckdb.sql("SELECT i * 2 AS k FROM r1")
+        print(f"r2: {r2.fetchall()}")
+    """)
+
+
+@importorskip('dateparser')
+def test_dateparser(pyi_builder):
+    pyi_builder.test_source("""
+        import datetime
+        import os
+        import sys
+
+        import dateparser
+
+        # The test tries to print the date strings it is testing, and some of them contain Unicode characters. On
+        # Windows, when stdout is redirected (for example, by pytest to capture the output), stdout is configured
+        # to use system locale encoding. So for this to work, we need to force it into utf-8 mode.
+        if os.name == "nt" and sys.stdout.encoding != "utf-8":
+            sys.stdout.reconfigure(encoding="utf-8")
+
+        # Couple of examples from dateparser's "Basic Usage"
+        test_cases = (
+            ('12/12/12', datetime.datetime(2012, 12, 12, 0, 0)),
+            ('Fri, 12 Dec 2014 10:55:50', datetime.datetime(2014, 12, 12, 10, 55, 50)),
+            # Spanish (Tuesday 21 October 2014)
+            ('Martes 21 de Octubre de 2014', datetime.datetime(2014, 10, 21, 0, 0)),
+            # French (11 December 2014 at 09:00)
+            ('Le 11 Décembre 2014 à 09:00', datetime.datetime(2014, 12, 11, 9, 0)),
+            # Russian (13 January 2015 at 13:34)
+            ('13 января 2015 г. в 13:34', datetime.datetime(2015, 1, 13, 13, 34)),
+            # Thai (1 October 2005, 1:00 AM)
+            ('1 เดือนตุลาคม 2005, 1:00 AM', datetime.datetime(2005, 10, 1, 1, 0))
+        )
+
+        for date_string, expected_result in test_cases:
+            print(f"Parsing string: {date_string!r}")
+            print(f"Expected: {expected_result}")
+            dt = dateparser.parse(date_string)
+            print(f"Result:   {dt}")
+
+            assert dt == expected_result
+            print("")
+    """)
+
+
+@requires("nicegui >= 3.0")
+def test_nicegui(pyi_builder):
+    pyi_builder.test_source("""
+        import asyncio
+        import multiprocessing
+        import os
+        from contextlib import asynccontextmanager
+
+        import httpx
+        from nicegui import core, ui
+        from nicegui.functions.download import download
+        from nicegui.functions.navigate import Navigate
+        from nicegui.functions.notify import notify
+        from nicegui.testing.user_plugin import User
+
+
+        async def test_button_click():
+            @asynccontextmanager
+            async def user_of(ui_code):
+                try:
+                    # simulate user and keep NiceGUI fully headless for tests
+                    os.environ['NICEGUI_USER_SIMULATION'] = 'true'
+
+                    # don't spawn reloader/native window; don't open browser
+                    ui.run(ui_code, reload=False, native=False, show=False)
+
+                    async with core.app.router.lifespan_context(core.app):
+                        async with httpx.AsyncClient(
+                            transport=httpx.ASGITransport(core.app),
+                            base_url='http://test'
+                        ) as client:
+                            yield User(client)
+                finally:
+                    os.environ.pop('NICEGUI_USER_SIMULATION', None)
+                    ui.navigate = Navigate()
+                    ui.notify = notify
+                    ui.download = download
+
+            def ui_code() -> None:
+                ui.button('Click me', on_click=lambda: ui.notify('Hello World!'))
+
+            async with user_of(ui_code) as user:
+                await user.open('/')
+                await user.should_see('Click me')
+                user.find(ui.button).click()
+                await user.should_see('Hello World!')
+
+
+        if __name__ == '__main__':
+            multiprocessing.freeze_support()  # important for PyInstaller on Windows
+            asyncio.run(test_button_click())
+            print('Test passed.')
+    """)
+
+
+@importorskip("pyecharts")
+def test_pyecharts(pyi_builder):
+    pyi_builder.test_source("""
+        import pyecharts
+
+        assert pyecharts.__version__ is not None
+        bar = pyecharts.charts.Bar()
+        bar.add_xaxis(["shirts", "cardigans", "chiffons", "trousers", "heels", "socks"])
+        bar.add_yaxis("Merchant A", [5, 20, 36, 10, 75, 90])
+        html = bar.render_embed()
+        assert "Merchant A" in html
+    """)
+
+
+@importorskip("pymeshlab")
+def test_pymeshlab(pyi_builder, tmp_path):
+    pyi_builder.test_source(
+        """
+        import sys
+        import pymeshlab
+
+        ms = pymeshlab.MeshSet()
+        ms.create_noisy_isosurface(resolution=16)
+        ms.save_current_mesh(sys.argv[1])
+        """,
+        # macOS wheel for pymeshlab includes a .framework bundle, so build and test an .app bundle as well, to check for
+        # codesign compliance.
+        pyi_args=['--windowed'] if is_darwin else [],
+        app_args=[str(tmp_path / 'output.ply')],
+    )
+
+
+@importorskip("fake_useragent")
+def test_fakeuseragent(pyi_builder):
+    pyi_builder.test_source("""
+        import fake_useragent
+
+        ua = fake_useragent.UserAgent()
+        print(ua.random)
+    """)
+
+
+@importorskip("ddgs")
+def test_ddgs(pyi_builder):
+    pyi_builder.test_source("""
+        import ddgs
+
+        results = ddgs.DDGS().text("PyInstaller", max_results=5)
+
+        # NOTE: do not try to print the results, as they may contain
+        # characters that are incompatible with encoding used on Windows
+        # for redirected stdout/stderr!
+        #for result in results:
+        #    print(result)
+    """)
+
+
+@importorskip("pytokens")
+def test_pytokens(pyi_builder):
+    pyi_builder.test_source("""
+        import pytokens
     """)

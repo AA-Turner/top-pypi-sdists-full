@@ -1,8 +1,4 @@
-# Plum previously exported a number of types. As of recently, the user can use the
-# versions from `typing`. To not break backward compatibility, we still export these
-# types.
 from functools import partial
-from typing import Dict, List, Tuple, Union  # noqa: F401
 
 from beartype import (
     BeartypeConf as _BeartypeConf,
@@ -15,6 +11,7 @@ from .alias import *  # noqa: F401, F403
 from .autoreload import *  # noqa: F401, F403
 from .dispatcher import *  # noqa: F401, F403
 from .function import *  # noqa: F401, F403
+from .method import *  # noqa: F401, F403
 from .overload import *  # noqa: F401, F403
 from .parametric import *  # noqa: F401, F403
 from .promotion import *  # noqa: F401, F403
@@ -27,7 +24,6 @@ from .util import *  # noqa: F401, F403
 # Deprecated
 # isort: split
 from .parametric import Val  # noqa: F401, F403
-from .util import multihash  # noqa: F401, F403
 
 # Ensure that type checking is always entirely correct! The default O(1) strategy
 # is super fast, but might yield unpredictable dispatch behaviour. The O(n) strategy

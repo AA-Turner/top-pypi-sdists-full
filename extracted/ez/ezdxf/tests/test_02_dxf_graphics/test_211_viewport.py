@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020 Manfred Moitzi
+# Copyright (c) 2019-2025 Manfred Moitzi
 # License: MIT License
 import pytest
 
@@ -7,6 +7,7 @@ from ezdxf.entities.viewport import Viewport
 from ezdxf.lldxf.extendedtags import ExtendedTags, DXFTag
 from ezdxf.lldxf.const import DXF12, DXF2000
 from ezdxf.lldxf.tagwriter import TagCollector, basic_tags_from_text
+from ezdxf.math import Z_AXIS
 
 TEST_CLASS = Viewport
 TEST_TYPE = "VIEWPORT"
@@ -255,6 +256,16 @@ def test_default_new():
     assert len(list(entity.frozen_layers)) == 0
 
 
+def test_get_view_direction_vector_defaults_to_z_axis():
+    vp = TEST_CLASS.new(dxfattribs={"view_direction_vector": (0, 0, 0)})
+    assert vp.get_view_direction().isclose(Z_AXIS)
+
+
+def test_get_view_direction_vector_is_normalized():
+    vp = TEST_CLASS.new(dxfattribs={"view_direction_vector": (0, 0, 100)})
+    assert vp.get_view_direction().isclose(Z_AXIS)
+
+
 def test_load_from_text(entity):
     assert entity.dxf.layer == "VIEWPORTS"
     assert entity.dxf.center == (0, 0, 0)
@@ -411,6 +422,6 @@ def test_modelspace_limits_rotated():
     # view_width = 4.0
     x0, y0, x1, y1 = vp.get_modelspace_limits()
     assert x0 == pytest.approx(1.0)
-    assert y0 == pytest.approx(0.0)
+    assert y0 == pytest.approx(-4.0)
     assert x1 == pytest.approx(3.0)
-    assert y1 == pytest.approx(4.0)
+    assert y1 == pytest.approx(0.0)

@@ -94,6 +94,7 @@ class TestCalls:
             link_to="ilditnZK_eVysupV21KzmzN_sM29ygfauQojpm4BgFtfX5hXAcjotg==",
             media_encryption="SRTP",
             media_name="my_media_uploaded_to_media_storage_api",
+            park_after_unbridge="self",
             preferred_codecs="G722,PCMU,PCMA,G729,OPUS,VP8,H264",
             record="record-from-answer",
             record_channels="single",
@@ -112,10 +113,11 @@ class TestCalls:
                     "value": "12345",
                 }
             ],
+            sip_region="Canada",
             sip_transport_protocol="TLS",
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },
@@ -135,10 +137,10 @@ class TestCalls:
             transcription_config={
                 "client_state": "aGF2ZSBhIG5pY2UgZGF5ID1d",
                 "command_id": "891510ac-f3e4-11e8-af5b-de00688a4901",
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "transcription_engine_config": {
                     "enable_speaker_diarization": True,
-                    "hints": ["Telnyx"],
+                    "hints": ["string"],
                     "interim_results": True,
                     "language": "en",
                     "max_speaker_count": 4,
@@ -148,10 +150,10 @@ class TestCalls:
                     "speech_context": [
                         {
                             "boost": 1,
-                            "phrases": ["Telnyx"],
+                            "phrases": ["string"],
                         }
                     ],
-                    "transcription_engine": "A",
+                    "transcription_engine": "Google",
                     "use_enhanced": True,
                 },
                 "transcription_tracks": "both",
@@ -313,6 +315,7 @@ class TestAsyncCalls:
             link_to="ilditnZK_eVysupV21KzmzN_sM29ygfauQojpm4BgFtfX5hXAcjotg==",
             media_encryption="SRTP",
             media_name="my_media_uploaded_to_media_storage_api",
+            park_after_unbridge="self",
             preferred_codecs="G722,PCMU,PCMA,G729,OPUS,VP8,H264",
             record="record-from-answer",
             record_channels="single",
@@ -331,10 +334,11 @@ class TestAsyncCalls:
                     "value": "12345",
                 }
             ],
+            sip_region="Canada",
             sip_transport_protocol="TLS",
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },
@@ -354,10 +358,10 @@ class TestAsyncCalls:
             transcription_config={
                 "client_state": "aGF2ZSBhIG5pY2UgZGF5ID1d",
                 "command_id": "891510ac-f3e4-11e8-af5b-de00688a4901",
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "transcription_engine_config": {
                     "enable_speaker_diarization": True,
-                    "hints": ["Telnyx"],
+                    "hints": ["string"],
                     "interim_results": True,
                     "language": "en",
                     "max_speaker_count": 4,
@@ -367,10 +371,10 @@ class TestAsyncCalls:
                     "speech_context": [
                         {
                             "boost": 1,
-                            "phrases": ["Telnyx"],
+                            "phrases": ["string"],
                         }
                     ],
-                    "transcription_engine": "A",
+                    "transcription_engine": "Google",
                     "use_enhanced": True,
                 },
                 "transcription_tracks": "both",

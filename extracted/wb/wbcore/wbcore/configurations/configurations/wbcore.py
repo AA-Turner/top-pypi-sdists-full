@@ -1,7 +1,6 @@
 from configurations import values
 from django.utils.translation import gettext_lazy as _
 from markdown.extensions.tables import TableExtension
-from markdown_blockdiag.extension import BlockdiagExtension
 
 from wbcore.fsm.markdown_extensions import FSMExtension
 
@@ -25,7 +24,6 @@ class WBCore:
     WBCORE_MARKDOWN_EXTENSIONS = [
         TableExtension(),
         FSMExtension(),
-        BlockdiagExtension(format="svg"),
     ]
 
     WBCORE_NOTIFICATION_TEMPLATE = values.Value("notifications/email_template.html", environ_prefix=None)
@@ -46,7 +44,7 @@ class WBCore:
     MESSAGE_STORAGE = "wbcore.messages.route_message_storage"
 
     @property
-    def FRONTEND_CONTEXT(self):
+    def FRONTEND_CONTEXT(self):  # noqa
         base_url = f"{self.CDN_BASE_ENDPOINT_URL}/{self.FRONTEND_VERSION}/"
         return {
             "TITLE": "Workbench",

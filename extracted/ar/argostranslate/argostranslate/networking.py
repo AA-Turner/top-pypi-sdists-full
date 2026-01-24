@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import random
 import urllib.request
+from os import makedirs
+from pathlib import Path
 
+from spacy import load as spacy_load
+from spacy.cli import download as spacy_download
+
+from argostranslate import settings
 from argostranslate.utils import error, info
 
 USER_AGENT = "ArgosTranslate"
@@ -30,7 +36,7 @@ supported_protocols = {"http", "https"}
 
 
 def get(url: str, retry_count: int = 3) -> bytes | None:
-    """Downloads data from a url and returns it
+    """Downloads data from an url and returns it
 
     Args:
         url: The url to download (http, https)
@@ -76,3 +82,24 @@ def get_from(urls: list[str], retry_count: int = 3) -> bytes | None:
         if attempt is not None:
             return attempt
     return None
+
+
+def cache_spacy() -> Path | None:
+    """Downloads Spacy multilingual model and saves it the cache directory for further use"""
+    spacy_cache = Path(settings.cache_dir / "spacy")
+    makedirs(spacy_cache, exist_ok=True)
+    info("Looking for cached Spacy xx_sent_ud_sm.")
+    spacy_model = Path(spacy_cache / "senter" / "model")
+    if not spacy_model.exists():
+        try:
+            info("Downloading Spacy xx_sent_ud_sm.")
+            spacy_download("xx_sent_ud_sm")
+            nlp = spacy_load("xx_sent_ud_sm", exclude=["parser"])
+            nlp.to_disk(spacy_cache)
+            info("Spacy xx_sent_ud_sm successfully cached.")
+            return spacy_cache
+        except Exception as e:
+            error(str(e))
+            return None
+    else:
+        return spacy_cache

@@ -2,12 +2,22 @@ mod not_implemented;
 #[macro_use]
 mod py_errs;
 
+// #[macro_export]
+// macro_rules! from_for_new_type {
+//     ($new_type:ty, $inner_type:ty) => {
+//         impl From<$inner_type> for $new_type {
+//             fn from(value: $inner_type) -> Self {
+//                 Self(value)
+//             }
+//         }
+//     };
+// }
+
 #[macro_export]
 macro_rules! any_repr {
     ($obj:expr) => {{
         let typ = $obj.get_type();
-        let name = typ
-            .fully_qualified_name()
+        let name = pyo3::types::PyTypeMethods::fully_qualified_name(&typ)
             .unwrap_or_else(|_| pyo3::types::PyString::new($obj.py(), "unknown"));
         match $obj.repr() {
             Ok(repr) => format!("{repr} ({name})"),
@@ -56,5 +66,21 @@ macro_rules! pytodo {
     };
     ($($arg:tt)+) => {
         return $crate::pytodo_err!($($arg)+);
+    };
+}
+
+/// Macro to define a function that returns an interned Python string.
+#[macro_export]
+macro_rules! py_intern_fn {
+    ($name:ident, $lit:literal) => {
+        pub(crate) fn $name(py: Python<'_>) -> &Bound<'_, pyo3::types::PyString> {
+            pyo3::intern!(py, $lit)
+        }
+    };
+
+    ($name:ident) => {
+        pub(crate) fn $name(py: Python<'_>) -> &Bound<'_, pyo3::types::PyString> {
+            pyo3::intern!(py, stringify!($name))
+        }
     };
 }

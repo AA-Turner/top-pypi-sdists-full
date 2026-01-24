@@ -73,6 +73,13 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
     config: cloud_region.CloudRegion
 
+    cache_enabled: bool
+    _cache_expirations: dict[str, int]
+    _cache: 'cache_region.CacheRegion'
+
+    verify: bool | str | None
+    cert: str | tuple[str, str] | None
+
     def __init__(
         self,
         cloud: str | None = None,
@@ -228,7 +235,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         self.default_interface = self.config.get_interface()
         self.force_ipv4 = self.config.force_ipv4
 
-        (self.verify, self.cert) = self.config.get_requests_verify_args()
+        self.verify, self.cert = self.config.get_requests_verify_args()
 
         # Turn off urllib3 warnings about insecure certs if we have
         # explicitly configured requests to tell it we do not want
@@ -600,8 +607,9 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             raise
         except Exception as e:
             raise exceptions.SDKException(
-                f"Error getting {service_key} endpoint on {self.name}:{self.config.get_region_name(service_key)}: "
-                f"{str(e)}"
+                f"Error getting {service_key} endpoint on "
+                f"{self.name}:{self.config.get_region_name(service_key)}: "
+                f"{e!s}"
             )
         return endpoint
 
@@ -610,10 +618,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
     ) -> bool:
         if not self.config.has_service(service_key):
             # TODO(mordred) add a stamp here so that we only report this once
-            if not (
-                service_key in self._disable_warnings
-                and self._disable_warnings[service_key]
-            ):
+            if not (self._disable_warnings.get(service_key)):
                 self.log.debug(
                     "Disabling %(service_key)s entry in catalog per config",
                     {'service_key': service_key},
@@ -675,7 +680,8 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             resource_type = service_proxy._resource_registry[resource_name]
         except KeyError:
             raise exceptions.SDKException(
-                f"Resource {resource_name} is not known in service {service_name}"
+                f"Resource {resource_name} is not known in service "
+                f"{service_name}"
             )
 
         if name_or_id:

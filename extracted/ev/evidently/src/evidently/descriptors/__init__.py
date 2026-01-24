@@ -1,3 +1,32 @@
+"""Row-level descriptors for evaluating text and LLM outputs.
+
+Descriptors compute scores or labels for individual rows in your dataset.
+They are used to assess text quality, LLM output characteristics, and other
+row-level properties. After computing descriptors, you can:
+- View them as columns in your dataset
+- Use them in `TextEvals` preset to summarize across the dataset
+- Add conditions to create descriptor tests
+
+Descriptors range from simple (e.g., `TextLength`) to complex LLM-based
+evaluations (e.g., `LLMEval`, `LLMJudge`).
+
+**Documentation**:
+- [All Descriptors](https://docs.evidentlyai.com/metrics/all_descriptors) for a complete reference
+- [Descriptors Guide](https://docs.evidentlyai.com/docs/library/descriptors) for usage instructions
+
+Example:
+```python
+from evidently import Dataset
+from evidently.descriptors import TextLength, LLMEval
+
+dataset = Dataset.from_pandas(df)
+dataset.add_descriptors([
+    TextLength(column="response"),
+    LLMEval(column="response", prompt="Is this response helpful?")
+])
+```
+"""
+
 from evidently.core.datasets import ColumnTest
 from evidently.core.datasets import TestSummary
 
@@ -10,24 +39,18 @@ from .generated_descriptors import BERTScore
 from .generated_descriptors import BiasLLMEval
 from .generated_descriptors import BinaryClassificationLLMEval
 from .generated_descriptors import CompletenessLLMEval
-from .generated_descriptors import Contains
 from .generated_descriptors import ContainsLink
 from .generated_descriptors import ContextQualityLLMEval
 from .generated_descriptors import CorrectnessLLMEval
 from .generated_descriptors import DeclineLLMEval
-from .generated_descriptors import DoesNotContain
 from .generated_descriptors import EndsWith
 from .generated_descriptors import ExactMatch
-from .generated_descriptors import ExcludesWords
 from .generated_descriptors import FaithfulnessLLMEval
 from .generated_descriptors import HuggingFace
 from .generated_descriptors import HuggingFaceToxicity
-from .generated_descriptors import IncludesWords
 from .generated_descriptors import IsValidJSON
 from .generated_descriptors import IsValidPython
 from .generated_descriptors import IsValidSQL
-from .generated_descriptors import ItemMatch
-from .generated_descriptors import ItemNoMatch
 from .generated_descriptors import JSONMatch
 from .generated_descriptors import JSONSchemaMatch
 from .generated_descriptors import LLMEval
@@ -38,16 +61,23 @@ from .generated_descriptors import NonLetterCharacterPercentage
 from .generated_descriptors import OOVWordsPercentage
 from .generated_descriptors import OpenAI
 from .generated_descriptors import PIILLMEval
-from .generated_descriptors import RegExp
 from .generated_descriptors import SemanticSimilarity
 from .generated_descriptors import SentenceCount
 from .generated_descriptors import Sentiment
 from .generated_descriptors import ToxicityLLMEval
-from .generated_descriptors import TriggerWordsPresent
 from .generated_descriptors import WordCount
-from .generated_descriptors import WordMatch
-from .generated_descriptors import WordNoMatch
-from .generated_descriptors import WordsPresence
+from .text_match import Contains
+from .text_match import DoesNotContain
+from .text_match import ExcludesWords
+from .text_match import IncludesWords
+from .text_match import ItemMatch
+from .text_match import ItemNoMatch
+from .text_match import RegExp
+from .text_match import TextMatch
+from .text_match import TriggerWordsPresent
+from .text_match import WordMatch
+from .text_match import WordNoMatch
+from .text_match import WordsPresence
 
 __all__ = [
     "BERTScore",
@@ -93,10 +123,18 @@ __all__ = [
     "Sentiment",
     "TestSummary",
     "TextLength",
-    "ToxicityLLMEval",
-    "TriggerWordsPresent",
-    "WordCount",
+    "TextMatch",
+    "Contains",
+    "DoesNotContain",
+    "ItemMatch",
+    "ItemNoMatch",
+    "WordsPresence",
+    "IncludesWords",
+    "ExcludesWords",
     "WordMatch",
     "WordNoMatch",
-    "WordsPresence",
+    "TriggerWordsPresent",
+    "RegExp",
+    "ToxicityLLMEval",
+    "WordCount",
 ]

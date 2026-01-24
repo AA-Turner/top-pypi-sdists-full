@@ -25,11 +25,18 @@ __all__ = [
     'AccountIdentity',
     'AccountNetworkAcls',
     'AccountNetworkAclsVirtualNetworkRule',
+    'AccountNetworkInjection',
+    'AccountProjectIdentity',
     'AccountRaiPolicyContentFilter',
     'AccountStorage',
     'DeploymentModel',
     'DeploymentSku',
+    'GetAccountCustomerManagedKeyResult',
     'GetAccountIdentityResult',
+    'GetAccountNetworkAclResult',
+    'GetAccountNetworkAclVirtualNetworkRuleResult',
+    'GetAccountNetworkInjectionResult',
+    'GetAccountStorageResult',
 ]
 
 @pulumi.output_type
@@ -206,7 +213,6 @@ class AIServicesNetworkAcls(dict):
         """
         :param _builtins.str default_action: The Default Action to use when no rules match from `ip_rules` / `virtual_network_rules`. Possible values are `Allow` and `Deny`.
         :param _builtins.str bypass: Whether to allow trusted Azure Services to access the service. Possible values are `None` and `AzureServices`. Defaults to `AzureServices`.
-               *
         :param Sequence[_builtins.str] ip_rules: One or more IP Addresses, or CIDR Blocks which should be able to access the AI Services Account.
         :param Sequence['AIServicesNetworkAclsVirtualNetworkRuleArgs'] virtual_network_rules: A `virtual_network_rules` block as defined below.
         """
@@ -231,7 +237,6 @@ class AIServicesNetworkAcls(dict):
     def bypass(self) -> Optional[_builtins.str]:
         """
         Whether to allow trusted Azure Services to access the service. Possible values are `None` and `AzureServices`. Defaults to `AzureServices`.
-        *
         """
         return pulumi.get(self, "bypass")
 
@@ -377,6 +382,8 @@ class AccountCustomerManagedKey(dict):
         """
         :param _builtins.str key_vault_key_id: The ID of the Key Vault Key which should be used to Encrypt the data in this Cognitive Account.
         :param _builtins.str identity_client_id: The Client ID of the User Assigned Identity that has access to the key. This property only needs to be specified when there're multiple identities attached to the Cognitive Account.
+               
+               > **Note:** When `project_management_enabled` is set to `true`, removing this block forces a new resource to be created.
         """
         pulumi.set(__self__, "key_vault_key_id", key_vault_key_id)
         if identity_client_id is not None:
@@ -395,6 +402,8 @@ class AccountCustomerManagedKey(dict):
     def identity_client_id(self) -> Optional[_builtins.str]:
         """
         The Client ID of the User Assigned Identity that has access to the key. This property only needs to be specified when there're multiple identities attached to the Cognitive Account.
+
+        > **Note:** When `project_management_enabled` is set to `true`, removing this block forces a new resource to be created.
         """
         return pulumi.get(self, "identity_client_id")
 
@@ -510,7 +519,7 @@ class AccountNetworkAcls(dict):
         :param _builtins.str default_action: The Default Action to use when no rules match from `ip_rules` / `virtual_network_rules`. Possible values are `Allow` and `Deny`.
         :param _builtins.str bypass: Whether to allow trusted Azure Services to access the service. Possible values are `None` and `AzureServices`.
                
-               > **Note:** `bypass` can only be set when `kind` is set to `OpenAI`
+               > **Note:** `bypass` can only be set when `kind` is set to `OpenAI`, `AIServices`, or `TextAnalytics`.
         :param Sequence[_builtins.str] ip_rules: One or more IP Addresses, or CIDR Blocks which should be able to access the Cognitive Account.
         :param Sequence['AccountNetworkAclsVirtualNetworkRuleArgs'] virtual_network_rules: A `virtual_network_rules` block as defined below.
         """
@@ -536,7 +545,7 @@ class AccountNetworkAcls(dict):
         """
         Whether to allow trusted Azure Services to access the service. Possible values are `None` and `AzureServices`.
 
-        > **Note:** `bypass` can only be set when `kind` is set to `OpenAI`
+        > **Note:** `bypass` can only be set when `kind` is set to `OpenAI`, `AIServices`, or `TextAnalytics`.
         """
         return pulumi.get(self, "bypass")
 
@@ -583,7 +592,7 @@ class AccountNetworkAclsVirtualNetworkRule(dict):
                  ignore_missing_vnet_service_endpoint: Optional[_builtins.bool] = None):
         """
         :param _builtins.str subnet_id: The ID of the subnet which should be able to access this Cognitive Account.
-        :param _builtins.bool ignore_missing_vnet_service_endpoint: Whether ignore missing vnet service endpoint or not. Default to `false`.
+        :param _builtins.bool ignore_missing_vnet_service_endpoint: Whether ignore missing vnet service endpoint or not. Defaults to `false`.
         """
         pulumi.set(__self__, "subnet_id", subnet_id)
         if ignore_missing_vnet_service_endpoint is not None:
@@ -601,9 +610,134 @@ class AccountNetworkAclsVirtualNetworkRule(dict):
     @pulumi.getter(name="ignoreMissingVnetServiceEndpoint")
     def ignore_missing_vnet_service_endpoint(self) -> Optional[_builtins.bool]:
         """
-        Whether ignore missing vnet service endpoint or not. Default to `false`.
+        Whether ignore missing vnet service endpoint or not. Defaults to `false`.
         """
         return pulumi.get(self, "ignore_missing_vnet_service_endpoint")
+
+
+@pulumi.output_type
+class AccountNetworkInjection(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "subnetId":
+            suggest = "subnet_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkInjection. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkInjection.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkInjection.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scenario: _builtins.str,
+                 subnet_id: _builtins.str):
+        """
+        :param _builtins.str scenario: Specifies what features network injection applies to. The only possible value is `agent`.
+        :param _builtins.str subnet_id: The ID of the subnet which the Agent Client is injected into.
+               
+               > **Note:** The agent subnet must use an address space in the 172.* or 192.* ranges.
+        """
+        pulumi.set(__self__, "scenario", scenario)
+        pulumi.set(__self__, "subnet_id", subnet_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def scenario(self) -> _builtins.str:
+        """
+        Specifies what features network injection applies to. The only possible value is `agent`.
+        """
+        return pulumi.get(self, "scenario")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> _builtins.str:
+        """
+        The ID of the subnet which the Agent Client is injected into.
+
+        > **Note:** The agent subnet must use an address space in the 172.* or 192.* ranges.
+        """
+        return pulumi.get(self, "subnet_id")
+
+
+@pulumi.output_type
+class AccountProjectIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityIds":
+            suggest = "identity_ids"
+        elif key == "principalId":
+            suggest = "principal_id"
+        elif key == "tenantId":
+            suggest = "tenant_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountProjectIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountProjectIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountProjectIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 type: _builtins.str,
+                 identity_ids: Optional[Sequence[_builtins.str]] = None,
+                 principal_id: Optional[_builtins.str] = None,
+                 tenant_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str type: Specifies the type of Managed Service Identity that should be configured on this Cognitive Account Project. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both).
+        :param Sequence[_builtins.str] identity_ids: Specifies a list of User Assigned Managed Identity IDs to be assigned to this Cognitive Account Project.
+        :param _builtins.str principal_id: The Principal ID associated with this Managed Service Identity.
+        :param _builtins.str tenant_id: The Tenant ID associated with this Managed Service Identity.
+        """
+        pulumi.set(__self__, "type", type)
+        if identity_ids is not None:
+            pulumi.set(__self__, "identity_ids", identity_ids)
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if tenant_id is not None:
+            pulumi.set(__self__, "tenant_id", tenant_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Specifies the type of Managed Service Identity that should be configured on this Cognitive Account Project. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both).
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="identityIds")
+    def identity_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Specifies a list of User Assigned Managed Identity IDs to be assigned to this Cognitive Account Project.
+        """
+        return pulumi.get(self, "identity_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        """
+        The Principal ID associated with this Managed Service Identity.
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="tenantId")
+    def tenant_id(self) -> Optional[_builtins.str]:
+        """
+        The Tenant ID associated with this Managed Service Identity.
+        """
+        return pulumi.get(self, "tenant_id")
 
 
 @pulumi.output_type
@@ -850,6 +984,35 @@ class DeploymentSku(dict):
 
 
 @pulumi.output_type
+class GetAccountCustomerManagedKeyResult(dict):
+    def __init__(__self__, *,
+                 identity_client_id: _builtins.str,
+                 key_vault_key_id: _builtins.str):
+        """
+        :param _builtins.str identity_client_id: The client ID of the managed identity associated with the storage resource.
+        :param _builtins.str key_vault_key_id: The ID of the Key Vault Key which is used to encrypt the data in this Cognitive Services Account.
+        """
+        pulumi.set(__self__, "identity_client_id", identity_client_id)
+        pulumi.set(__self__, "key_vault_key_id", key_vault_key_id)
+
+    @_builtins.property
+    @pulumi.getter(name="identityClientId")
+    def identity_client_id(self) -> _builtins.str:
+        """
+        The client ID of the managed identity associated with the storage resource.
+        """
+        return pulumi.get(self, "identity_client_id")
+
+    @_builtins.property
+    @pulumi.getter(name="keyVaultKeyId")
+    def key_vault_key_id(self) -> _builtins.str:
+        """
+        The ID of the Key Vault Key which is used to encrypt the data in this Cognitive Services Account.
+        """
+        return pulumi.get(self, "key_vault_key_id")
+
+
+@pulumi.output_type
 class GetAccountIdentityResult(dict):
     def __init__(__self__, *,
                  identity_ids: Sequence[_builtins.str],
@@ -857,10 +1020,10 @@ class GetAccountIdentityResult(dict):
                  tenant_id: _builtins.str,
                  type: _builtins.str):
         """
-        :param Sequence[_builtins.str] identity_ids: The list of User Assigned Managed Identity IDs assigned to this Cognitive Account.
-        :param _builtins.str principal_id: The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Account.
-        :param _builtins.str tenant_id: The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Account.
-        :param _builtins.str type: The type of Managed Service Identity that is configured on this Cognitive Account.
+        :param Sequence[_builtins.str] identity_ids: The list of User Assigned Managed Identity IDs assigned to this Cognitive Services Account.
+        :param _builtins.str principal_id: The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account.
+        :param _builtins.str tenant_id: The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account.
+        :param _builtins.str type: The type of Managed Service Identity that is configured on this Cognitive Services Account.
         """
         pulumi.set(__self__, "identity_ids", identity_ids)
         pulumi.set(__self__, "principal_id", principal_id)
@@ -871,7 +1034,7 @@ class GetAccountIdentityResult(dict):
     @pulumi.getter(name="identityIds")
     def identity_ids(self) -> Sequence[_builtins.str]:
         """
-        The list of User Assigned Managed Identity IDs assigned to this Cognitive Account.
+        The list of User Assigned Managed Identity IDs assigned to this Cognitive Services Account.
         """
         return pulumi.get(self, "identity_ids")
 
@@ -879,7 +1042,7 @@ class GetAccountIdentityResult(dict):
     @pulumi.getter(name="principalId")
     def principal_id(self) -> _builtins.str:
         """
-        The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Account.
+        The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account.
         """
         return pulumi.get(self, "principal_id")
 
@@ -887,7 +1050,7 @@ class GetAccountIdentityResult(dict):
     @pulumi.getter(name="tenantId")
     def tenant_id(self) -> _builtins.str:
         """
-        The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Account.
+        The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account.
         """
         return pulumi.get(self, "tenant_id")
 
@@ -895,8 +1058,146 @@ class GetAccountIdentityResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of Managed Service Identity that is configured on this Cognitive Account.
+        The type of Managed Service Identity that is configured on this Cognitive Services Account.
         """
         return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetAccountNetworkAclResult(dict):
+    def __init__(__self__, *,
+                 bypass: _builtins.str,
+                 default_action: _builtins.str,
+                 ip_rules: Sequence[_builtins.str],
+                 virtual_network_rules: Sequence['outputs.GetAccountNetworkAclVirtualNetworkRuleResult']):
+        """
+        :param _builtins.str bypass: Whether trusted Azure Services are allowed to access the service.
+        :param _builtins.str default_action: The Default Action to use when no rules match from `ip_rules` / `virtual_network_rules`.
+        :param Sequence[_builtins.str] ip_rules: One or more IP Addresses, or CIDR Blocks that are able to access the Cognitive Services Account.
+        :param Sequence['GetAccountNetworkAclVirtualNetworkRuleArgs'] virtual_network_rules: A `virtual_network_rules` block as defined below.
+        """
+        pulumi.set(__self__, "bypass", bypass)
+        pulumi.set(__self__, "default_action", default_action)
+        pulumi.set(__self__, "ip_rules", ip_rules)
+        pulumi.set(__self__, "virtual_network_rules", virtual_network_rules)
+
+    @_builtins.property
+    @pulumi.getter
+    def bypass(self) -> _builtins.str:
+        """
+        Whether trusted Azure Services are allowed to access the service.
+        """
+        return pulumi.get(self, "bypass")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultAction")
+    def default_action(self) -> _builtins.str:
+        """
+        The Default Action to use when no rules match from `ip_rules` / `virtual_network_rules`.
+        """
+        return pulumi.get(self, "default_action")
+
+    @_builtins.property
+    @pulumi.getter(name="ipRules")
+    def ip_rules(self) -> Sequence[_builtins.str]:
+        """
+        One or more IP Addresses, or CIDR Blocks that are able to access the Cognitive Services Account.
+        """
+        return pulumi.get(self, "ip_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="virtualNetworkRules")
+    def virtual_network_rules(self) -> Sequence['outputs.GetAccountNetworkAclVirtualNetworkRuleResult']:
+        """
+        A `virtual_network_rules` block as defined below.
+        """
+        return pulumi.get(self, "virtual_network_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkAclVirtualNetworkRuleResult(dict):
+    def __init__(__self__, *,
+                 ignore_missing_vnet_service_endpoint: _builtins.bool,
+                 subnet_id: _builtins.str):
+        """
+        :param _builtins.bool ignore_missing_vnet_service_endpoint: Whether missing vnet service endpoint is ignored or not.
+        :param _builtins.str subnet_id: The ID of the subnet which is able to access this Cognitive Services Account.
+        """
+        pulumi.set(__self__, "ignore_missing_vnet_service_endpoint", ignore_missing_vnet_service_endpoint)
+        pulumi.set(__self__, "subnet_id", subnet_id)
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreMissingVnetServiceEndpoint")
+    def ignore_missing_vnet_service_endpoint(self) -> _builtins.bool:
+        """
+        Whether missing vnet service endpoint is ignored or not.
+        """
+        return pulumi.get(self, "ignore_missing_vnet_service_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> _builtins.str:
+        """
+        The ID of the subnet which is able to access this Cognitive Services Account.
+        """
+        return pulumi.get(self, "subnet_id")
+
+
+@pulumi.output_type
+class GetAccountNetworkInjectionResult(dict):
+    def __init__(__self__, *,
+                 scenario: _builtins.str,
+                 subnet_id: _builtins.str):
+        """
+        :param _builtins.str scenario: The feature that network injection is applied to.
+        :param _builtins.str subnet_id: The ID of the subnet which is able to access this Cognitive Services Account.
+        """
+        pulumi.set(__self__, "scenario", scenario)
+        pulumi.set(__self__, "subnet_id", subnet_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def scenario(self) -> _builtins.str:
+        """
+        The feature that network injection is applied to.
+        """
+        return pulumi.get(self, "scenario")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> _builtins.str:
+        """
+        The ID of the subnet which is able to access this Cognitive Services Account.
+        """
+        return pulumi.get(self, "subnet_id")
+
+
+@pulumi.output_type
+class GetAccountStorageResult(dict):
+    def __init__(__self__, *,
+                 identity_client_id: _builtins.str,
+                 storage_account_id: _builtins.str):
+        """
+        :param _builtins.str identity_client_id: The client ID of the managed identity associated with the storage resource.
+        :param _builtins.str storage_account_id: The ID of the Storage Account resource associated with this Cognitive Services Account.
+        """
+        pulumi.set(__self__, "identity_client_id", identity_client_id)
+        pulumi.set(__self__, "storage_account_id", storage_account_id)
+
+    @_builtins.property
+    @pulumi.getter(name="identityClientId")
+    def identity_client_id(self) -> _builtins.str:
+        """
+        The client ID of the managed identity associated with the storage resource.
+        """
+        return pulumi.get(self, "identity_client_id")
+
+    @_builtins.property
+    @pulumi.getter(name="storageAccountId")
+    def storage_account_id(self) -> _builtins.str:
+        """
+        The ID of the Storage Account resource associated with this Cognitive Services Account.
+        """
+        return pulumi.get(self, "storage_account_id")
 
 

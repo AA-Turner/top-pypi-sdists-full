@@ -56,6 +56,7 @@ __all__ = [
     'ComputeCapacityReservationInstanceReservationConfigClusterConfig',
     'ComputeCapacityReservationInstanceReservationConfigInstanceShapeConfig',
     'ComputeCapacityTopologyCapacitySource',
+    'ComputeGpuMemoryFabricMemoryFabricPreferences',
     'ComputeHostConfigurationData',
     'ComputeHostConfigurationDataCheckDetail',
     'ComputeHostGroupConfiguration',
@@ -154,6 +155,10 @@ __all__ = [
     'InstancePlacementConstraintDetails',
     'InstancePlatformConfig',
     'InstancePoolInstanceLoadBalancerBackend',
+    'InstancePoolLifecycleManagement',
+    'InstancePoolLifecycleManagementLifecycleActions',
+    'InstancePoolLifecycleManagementLifecycleActionsPreTermination',
+    'InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout',
     'InstancePoolLoadBalancer',
     'InstancePoolPlacementConfiguration',
     'InstancePoolPlacementConfigurationPrimaryVnicSubnets',
@@ -352,8 +357,10 @@ __all__ = [
     'GetComputeGpuMemoryClustersComputeGpuMemoryClusterCollectionResult',
     'GetComputeGpuMemoryClustersComputeGpuMemoryClusterCollectionItemResult',
     'GetComputeGpuMemoryClustersFilterResult',
+    'GetComputeGpuMemoryFabricMemoryFabricPreferenceResult',
     'GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionResult',
     'GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult',
+    'GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemMemoryFabricPreferenceResult',
     'GetComputeGpuMemoryFabricsFilterResult',
     'GetComputeHostConfigurationDataResult',
     'GetComputeHostConfigurationDataCheckDetailResult',
@@ -395,11 +402,15 @@ __all__ = [
     'GetCrossConnectsFilterResult',
     'GetDedicatedVmHostCapacityBinResult',
     'GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeResult',
+    'GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeSupportedCapabilityResult',
     'GetDedicatedVmHostInstanceShapesFilterResult',
     'GetDedicatedVmHostInstancesDedicatedVmHostInstanceResult',
     'GetDedicatedVmHostInstancesFilterResult',
     'GetDedicatedVmHostPlacementConstraintDetailResult',
     'GetDedicatedVmHostShapesDedicatedVmHostShapeResult',
+    'GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigResult',
+    'GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigCapacityBinResult',
+    'GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigSupportedCapabilityResult',
     'GetDedicatedVmHostShapesFilterResult',
     'GetDedicatedVmHostsDedicatedVmHostResult',
     'GetDedicatedVmHostsDedicatedVmHostCapacityBinResult',
@@ -425,6 +436,15 @@ __all__ = [
     'GetDrgsFilterResult',
     'GetFastConnectProviderServicesFastConnectProviderServiceResult',
     'GetFastConnectProviderServicesFilterResult',
+    'GetFirmwareBundleAllowableTransitionResult',
+    'GetFirmwareBundlePlatformResult',
+    'GetFirmwareBundlePlatformVersionResult',
+    'GetFirmwareBundlesFilterResult',
+    'GetFirmwareBundlesFirmwareBundlesCollectionResult',
+    'GetFirmwareBundlesFirmwareBundlesCollectionItemResult',
+    'GetFirmwareBundlesFirmwareBundlesCollectionItemAllowableTransitionResult',
+    'GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformResult',
+    'GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformVersionResult',
     'GetImageAgentFeatureResult',
     'GetImageImageSourceDetailResult',
     'GetImageLaunchOptionResult',
@@ -569,6 +589,10 @@ __all__ = [
     'GetInstancePoolInstancesFilterResult',
     'GetInstancePoolInstancesInstanceResult',
     'GetInstancePoolInstancesInstanceLoadBalancerBackendResult',
+    'GetInstancePoolLifecycleManagementResult',
+    'GetInstancePoolLifecycleManagementLifecycleActionResult',
+    'GetInstancePoolLifecycleManagementLifecycleActionPreTerminationResult',
+    'GetInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult',
     'GetInstancePoolLoadBalancerResult',
     'GetInstancePoolPlacementConfigurationResult',
     'GetInstancePoolPlacementConfigurationPrimaryVnicSubnetResult',
@@ -577,6 +601,10 @@ __all__ = [
     'GetInstancePoolPlacementConfigurationSecondaryVnicSubnetIpv6addressIpv6subnetCidrPairDetailResult',
     'GetInstancePoolsFilterResult',
     'GetInstancePoolsInstancePoolResult',
+    'GetInstancePoolsInstancePoolLifecycleManagementResult',
+    'GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionResult',
+    'GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationResult',
+    'GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult',
     'GetInstancePoolsInstancePoolLoadBalancerResult',
     'GetInstancePoolsInstancePoolPlacementConfigurationResult',
     'GetInstancePoolsInstancePoolPlacementConfigurationPrimaryVnicSubnetResult',
@@ -3395,6 +3423,64 @@ class ComputeCapacityTopologyCapacitySource(dict):
 
 
 @pulumi.output_type
+class ComputeGpuMemoryFabricMemoryFabricPreferences(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customerDesiredFirmwareBundleId":
+            suggest = "customer_desired_firmware_bundle_id"
+        elif key == "fabricRecycleLevel":
+            suggest = "fabric_recycle_level"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ComputeGpuMemoryFabricMemoryFabricPreferences. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ComputeGpuMemoryFabricMemoryFabricPreferences.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ComputeGpuMemoryFabricMemoryFabricPreferences.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 customer_desired_firmware_bundle_id: Optional[_builtins.str] = None,
+                 fabric_recycle_level: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str customer_desired_firmware_bundle_id: (Updatable) The desired firmware bundle id on the GPU memory fabric.
+        :param _builtins.str fabric_recycle_level: (Updatable) The recycle level of GPU memory fabric. 
+               
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
+        if customer_desired_firmware_bundle_id is not None:
+            pulumi.set(__self__, "customer_desired_firmware_bundle_id", customer_desired_firmware_bundle_id)
+        if fabric_recycle_level is not None:
+            pulumi.set(__self__, "fabric_recycle_level", fabric_recycle_level)
+
+    @_builtins.property
+    @pulumi.getter(name="customerDesiredFirmwareBundleId")
+    def customer_desired_firmware_bundle_id(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The desired firmware bundle id on the GPU memory fabric.
+        """
+        return pulumi.get(self, "customer_desired_firmware_bundle_id")
+
+    @_builtins.property
+    @pulumi.getter(name="fabricRecycleLevel")
+    def fabric_recycle_level(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The recycle level of GPU memory fabric. 
+
+
+        ** IMPORTANT **
+        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
+        return pulumi.get(self, "fabric_recycle_level")
+
+
+@pulumi.output_type
 class ComputeHostConfigurationData(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3474,7 +3560,7 @@ class ComputeHostConfigurationDataCheckDetail(dict):
                  type: Optional[_builtins.str] = None):
         """
         :param _builtins.str configuration_state: Configuration state of the Compute Bare Metal Host.
-        :param _builtins.str firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host Configuration.
+        :param _builtins.str firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
         :param _builtins.str recycle_level: Preferred recycle level for hosts associated with the reservation config.
                * `SKIP_RECYCLE` - Skips host wipe.
                * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
@@ -3501,7 +3587,7 @@ class ComputeHostConfigurationDataCheckDetail(dict):
     @pulumi.getter(name="firmwareBundleId")
     def firmware_bundle_id(self) -> Optional[_builtins.str]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host Configuration.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
         """
         return pulumi.get(self, "firmware_bundle_id")
 
@@ -3548,18 +3634,22 @@ class ComputeHostGroupConfiguration(dict):
     def __init__(__self__, *,
                  firmware_bundle_id: Optional[_builtins.str] = None,
                  recycle_level: Optional[_builtins.str] = None,
+                 state: Optional[_builtins.str] = None,
                  target: Optional[_builtins.str] = None):
         """
         :param _builtins.str firmware_bundle_id: (Updatable) The OCID for firmware bundle
         :param _builtins.str recycle_level: (Updatable) Preferred recycle level for hosts associated with the reservation config.
                * `SKIP_RECYCLE` - Skips host wipe.
                * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
+        :param _builtins.str state: (Updatable) The state of the host group configuration.
         :param _builtins.str target: (Updatable) Either the platform name or compute shape that the configuration is targeting
         """
         if firmware_bundle_id is not None:
             pulumi.set(__self__, "firmware_bundle_id", firmware_bundle_id)
         if recycle_level is not None:
             pulumi.set(__self__, "recycle_level", recycle_level)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
         if target is not None:
             pulumi.set(__self__, "target", target)
 
@@ -3580,6 +3670,14 @@ class ComputeHostGroupConfiguration(dict):
         * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
         """
         return pulumi.get(self, "recycle_level")
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The state of the host group configuration.
+        """
+        return pulumi.get(self, "state")
 
     @_builtins.property
     @pulumi.getter
@@ -4091,12 +4189,12 @@ class DedicatedVmHostPlacementConstraintDetails(dict):
                  type: _builtins.str,
                  compute_bare_metal_host_id: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Determines the type of targeted launch.
+        :param _builtins.str type: The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID. 
                
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
-        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host.
+        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         """
         pulumi.set(__self__, "type", type)
         if compute_bare_metal_host_id is not None:
@@ -4106,7 +4204,7 @@ class DedicatedVmHostPlacementConstraintDetails(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Determines the type of targeted launch.
+        The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID. 
 
 
         ** IMPORTANT **
@@ -4118,7 +4216,7 @@ class DedicatedVmHostPlacementConstraintDetails(dict):
     @pulumi.getter(name="computeBareMetalHostId")
     def compute_bare_metal_host_id(self) -> Optional[_builtins.str]:
         """
-        The OCID of the compute bare metal host.
+        The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         """
         return pulumi.get(self, "compute_bare_metal_host_id")
 
@@ -6397,6 +6495,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetails(dict):
             suggest = "instance_options"
         elif key == "ipxeScript":
             suggest = "ipxe_script"
+        elif key == "isAiEnterpriseEnabled":
+            suggest = "is_ai_enterprise_enabled"
         elif key == "isPvEncryptionInTransitEnabled":
             suggest = "is_pv_encryption_in_transit_enabled"
         elif key == "launchMode":
@@ -6448,6 +6548,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetails(dict):
                  freeform_tags: Optional[Mapping[str, _builtins.str]] = None,
                  instance_options: Optional['outputs.InstanceConfigurationInstanceDetailsLaunchDetailsInstanceOptions'] = None,
                  ipxe_script: Optional[_builtins.str] = None,
+                 is_ai_enterprise_enabled: Optional[_builtins.bool] = None,
                  is_pv_encryption_in_transit_enabled: Optional[_builtins.bool] = None,
                  launch_mode: Optional[_builtins.str] = None,
                  launch_options: Optional['outputs.InstanceConfigurationInstanceDetailsLaunchDetailsLaunchOptions'] = None,
@@ -6500,6 +6601,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetails(dict):
                For more information about the Bring Your Own Image feature of Oracle Cloud Infrastructure, see [Bring Your Own Image](https://docs.cloud.oracle.com/iaas/Content/Compute/References/bringyourownimage.htm).
                
                For more information about iPXE, see http://ipxe.org.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Whether to enable in-transit encryption for the data volume's paravirtualized attachment. The default value is false.
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -6585,6 +6687,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetails(dict):
             pulumi.set(__self__, "instance_options", instance_options)
         if ipxe_script is not None:
             pulumi.set(__self__, "ipxe_script", ipxe_script)
+        if is_ai_enterprise_enabled is not None:
+            pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         if is_pv_encryption_in_transit_enabled is not None:
             pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         if launch_mode is not None:
@@ -6761,6 +6865,14 @@ class InstanceConfigurationInstanceDetailsLaunchDetails(dict):
         For more information about iPXE, see http://ipxe.org.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -7117,6 +7229,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsCreateVnicDetails(dict):
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
 
@@ -7144,6 +7258,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsCreateVnicDetails(dict):
                  private_ip: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -7158,6 +7273,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsCreateVnicDetails(dict):
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         if assign_ipv6ip is not None:
@@ -7184,6 +7300,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsCreateVnicDetails(dict):
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
 
@@ -7282,6 +7400,14 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsCreateVnicDetails(dict):
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -7894,6 +8020,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig(dict):
             suggest = "baseline_ocpu_utilization"
         elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "resourceManagement":
+            suggest = "resource_management"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig. Access the value via the '{suggest}' property getter instead.")
@@ -7911,6 +8039,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig(dict):
                  memory_in_gbs: Optional[_builtins.float] = None,
                  nvmes: Optional[_builtins.int] = None,
                  ocpus: Optional[_builtins.float] = None,
+                 resource_management: Optional[_builtins.str] = None,
                  vcpus: Optional[_builtins.int] = None):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
@@ -7922,6 +8051,7 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig(dict):
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         if baseline_ocpu_utilization is not None:
@@ -7932,6 +8062,8 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig(dict):
             pulumi.set(__self__, "nvmes", nvmes)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if resource_management is not None:
+            pulumi.set(__self__, "resource_management", resource_management)
         if vcpus is not None:
             pulumi.set(__self__, "vcpus", vcpus)
 
@@ -7971,6 +8103,14 @@ class InstanceConfigurationInstanceDetailsLaunchDetailsShapeConfig(dict):
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> Optional[_builtins.str]:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -8826,6 +8966,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetails(dict):
             suggest = "instance_options"
         elif key == "ipxeScript":
             suggest = "ipxe_script"
+        elif key == "isAiEnterpriseEnabled":
+            suggest = "is_ai_enterprise_enabled"
         elif key == "isPvEncryptionInTransitEnabled":
             suggest = "is_pv_encryption_in_transit_enabled"
         elif key == "launchMode":
@@ -8877,6 +9019,7 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetails(dict):
                  freeform_tags: Optional[Mapping[str, _builtins.str]] = None,
                  instance_options: Optional['outputs.InstanceConfigurationInstanceDetailsOptionLaunchDetailsInstanceOptions'] = None,
                  ipxe_script: Optional[_builtins.str] = None,
+                 is_ai_enterprise_enabled: Optional[_builtins.bool] = None,
                  is_pv_encryption_in_transit_enabled: Optional[_builtins.bool] = None,
                  launch_mode: Optional[_builtins.str] = None,
                  launch_options: Optional['outputs.InstanceConfigurationInstanceDetailsOptionLaunchDetailsLaunchOptions'] = None,
@@ -8907,6 +9050,7 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetails(dict):
         :param Mapping[str, _builtins.str] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param 'InstanceConfigurationInstanceDetailsOptionLaunchDetailsInstanceOptionsArgs' instance_options: Optional mutable instance options. As a part of Instance Metadata Service Security Header, This allows user to disable the legacy imds endpoints.
         :param _builtins.str ipxe_script: This is an advanced option.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [InstanceConfigurationLaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/InstanceConfigurationLaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -8958,6 +9102,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetails(dict):
             pulumi.set(__self__, "instance_options", instance_options)
         if ipxe_script is not None:
             pulumi.set(__self__, "ipxe_script", ipxe_script)
+        if is_ai_enterprise_enabled is not None:
+            pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         if is_pv_encryption_in_transit_enabled is not None:
             pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         if launch_mode is not None:
@@ -9112,6 +9258,14 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetails(dict):
         This is an advanced option.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -9462,6 +9616,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsCreateVnicDetails(d
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
 
@@ -9489,6 +9645,7 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsCreateVnicDetails(d
                  private_ip: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -9502,6 +9659,7 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsCreateVnicDetails(d
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         if assign_ipv6ip is not None:
@@ -9528,6 +9686,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsCreateVnicDetails(d
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
 
@@ -9623,6 +9783,14 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsCreateVnicDetails(d
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -10203,6 +10371,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsShapeConfig(dict):
             suggest = "baseline_ocpu_utilization"
         elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "resourceManagement":
+            suggest = "resource_management"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in InstanceConfigurationInstanceDetailsOptionLaunchDetailsShapeConfig. Access the value via the '{suggest}' property getter instead.")
@@ -10220,12 +10390,14 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsShapeConfig(dict):
                  memory_in_gbs: Optional[_builtins.float] = None,
                  nvmes: Optional[_builtins.int] = None,
                  ocpus: Optional[_builtins.float] = None,
+                 resource_management: Optional[_builtins.str] = None,
                  vcpus: Optional[_builtins.int] = None):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         if baseline_ocpu_utilization is not None:
@@ -10236,6 +10408,8 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsShapeConfig(dict):
             pulumi.set(__self__, "nvmes", nvmes)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if resource_management is not None:
+            pulumi.set(__self__, "resource_management", resource_management)
         if vcpus is not None:
             pulumi.set(__self__, "vcpus", vcpus)
 
@@ -10270,6 +10444,14 @@ class InstanceConfigurationInstanceDetailsOptionLaunchDetailsShapeConfig(dict):
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> Optional[_builtins.str]:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -10570,6 +10752,8 @@ class InstanceConfigurationInstanceDetailsOptionSecondaryVnicCreateVnicDetails(d
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
 
@@ -10597,6 +10781,7 @@ class InstanceConfigurationInstanceDetailsOptionSecondaryVnicCreateVnicDetails(d
                  private_ip: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -10610,6 +10795,7 @@ class InstanceConfigurationInstanceDetailsOptionSecondaryVnicCreateVnicDetails(d
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: Security Attributes for this resource. This is unique to ZPR, and helps identify which resources are allowed to be accessed by what permission controls.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         if assign_ipv6ip is not None:
@@ -10636,6 +10822,8 @@ class InstanceConfigurationInstanceDetailsOptionSecondaryVnicCreateVnicDetails(d
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
 
@@ -10731,6 +10919,14 @@ class InstanceConfigurationInstanceDetailsOptionSecondaryVnicCreateVnicDetails(d
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -10872,6 +11068,8 @@ class InstanceConfigurationInstanceDetailsSecondaryVnicCreateVnicDetails(dict):
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
 
@@ -10899,6 +11097,7 @@ class InstanceConfigurationInstanceDetailsSecondaryVnicCreateVnicDetails(dict):
                  private_ip: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -10912,6 +11111,7 @@ class InstanceConfigurationInstanceDetailsSecondaryVnicCreateVnicDetails(dict):
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: Security Attributes for this resource. This is unique to ZPR, and helps identify which resources are allowed to be accessed by what permission controls.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         if assign_ipv6ip is not None:
@@ -10938,6 +11138,8 @@ class InstanceConfigurationInstanceDetailsSecondaryVnicCreateVnicDetails(dict):
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
 
@@ -11035,6 +11237,14 @@ class InstanceConfigurationInstanceDetailsSecondaryVnicCreateVnicDetails(dict):
         return pulumi.get(self, "skip_source_dest_check")
 
     @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
+
+    @_builtins.property
     @pulumi.getter(name="subnetId")
     def subnet_id(self) -> Optional[_builtins.str]:
         """
@@ -11110,6 +11320,8 @@ class InstanceCreateVnicDetails(dict):
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
         elif key == "vlanId":
@@ -11139,6 +11351,7 @@ class InstanceCreateVnicDetails(dict):
                  private_ip: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None,
                  vlan_id: Optional[_builtins.str] = None):
         """
@@ -11181,6 +11394,7 @@ class InstanceCreateVnicDetails(dict):
                If you specify a `vlanId`, the `skipSourceDestCheck` cannot be specified because the source/destination check is always disabled for VNICs in a VLAN. See [Vlan](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/Vlan).
                
                Example: `true`
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28`
         :param _builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create the VNIC in. When launching an instance, use this `subnetId` instead of the deprecated `subnetId` in [LaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/requests/LaunchInstanceDetails). At least one of them is required; if you provide both, the values must match.
                
                If you are an Oracle Cloud VMware Solution customer and creating a secondary VNIC in a VLAN instead of a subnet, provide a `vlanId` instead of a `subnetId`. If you provide both a `vlanId` and `subnetId`, the request fails.
@@ -11212,6 +11426,8 @@ class InstanceCreateVnicDetails(dict):
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
         if vlan_id is not None:
@@ -11339,6 +11555,14 @@ class InstanceCreateVnicDetails(dict):
         Example: `true`
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28`
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -12260,6 +12484,184 @@ class InstancePoolInstanceLoadBalancerBackend(dict):
 
 
 @pulumi.output_type
+class InstancePoolLifecycleManagement(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "lifecycleActions":
+            suggest = "lifecycle_actions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstancePoolLifecycleManagement. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstancePoolLifecycleManagement.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstancePoolLifecycleManagement.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 lifecycle_actions: 'outputs.InstancePoolLifecycleManagementLifecycleActions'):
+        """
+        :param 'InstancePoolLifecycleManagementLifecycleActionsArgs' lifecycle_actions: (Updatable) The lifecycle actions for the instance pool.
+        """
+        pulumi.set(__self__, "lifecycle_actions", lifecycle_actions)
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleActions")
+    def lifecycle_actions(self) -> 'outputs.InstancePoolLifecycleManagementLifecycleActions':
+        """
+        (Updatable) The lifecycle actions for the instance pool.
+        """
+        return pulumi.get(self, "lifecycle_actions")
+
+
+@pulumi.output_type
+class InstancePoolLifecycleManagementLifecycleActions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "preTermination":
+            suggest = "pre_termination"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstancePoolLifecycleManagementLifecycleActions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstancePoolLifecycleManagementLifecycleActions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstancePoolLifecycleManagementLifecycleActions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 pre_termination: Optional['outputs.InstancePoolLifecycleManagementLifecycleActionsPreTermination'] = None):
+        """
+        :param 'InstancePoolLifecycleManagementLifecycleActionsPreTerminationArgs' pre_termination: (Updatable) The data for pre-termination action for an instance pool
+        """
+        if pre_termination is not None:
+            pulumi.set(__self__, "pre_termination", pre_termination)
+
+    @_builtins.property
+    @pulumi.getter(name="preTermination")
+    def pre_termination(self) -> Optional['outputs.InstancePoolLifecycleManagementLifecycleActionsPreTermination']:
+        """
+        (Updatable) The data for pre-termination action for an instance pool
+        """
+        return pulumi.get(self, "pre_termination")
+
+
+@pulumi.output_type
+class InstancePoolLifecycleManagementLifecycleActionsPreTermination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "isEnabled":
+            suggest = "is_enabled"
+        elif key == "onTimeout":
+            suggest = "on_timeout"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstancePoolLifecycleManagementLifecycleActionsPreTermination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstancePoolLifecycleManagementLifecycleActionsPreTermination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstancePoolLifecycleManagementLifecycleActionsPreTermination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 is_enabled: _builtins.bool,
+                 on_timeout: 'outputs.InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout',
+                 timeout: _builtins.int):
+        """
+        :param _builtins.bool is_enabled: (Updatable) Whether pre-termination action is enabled or not.
+        :param 'InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeoutArgs' on_timeout: (Updatable) Options to handle timeout for pre-termination action.
+        :param _builtins.int timeout: (Updatable) The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        pulumi.set(__self__, "is_enabled", is_enabled)
+        pulumi.set(__self__, "on_timeout", on_timeout)
+        pulumi.set(__self__, "timeout", timeout)
+
+    @_builtins.property
+    @pulumi.getter(name="isEnabled")
+    def is_enabled(self) -> _builtins.bool:
+        """
+        (Updatable) Whether pre-termination action is enabled or not.
+        """
+        return pulumi.get(self, "is_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="onTimeout")
+    def on_timeout(self) -> 'outputs.InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout':
+        """
+        (Updatable) Options to handle timeout for pre-termination action.
+        """
+        return pulumi.get(self, "on_timeout")
+
+    @_builtins.property
+    @pulumi.getter
+    def timeout(self) -> _builtins.int:
+        """
+        (Updatable) The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        return pulumi.get(self, "timeout")
+
+
+@pulumi.output_type
+class InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "preserveBlockVolumeMode":
+            suggest = "preserve_block_volume_mode"
+        elif key == "preserveBootVolumeMode":
+            suggest = "preserve_boot_volume_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstancePoolLifecycleManagementLifecycleActionsPreTerminationOnTimeout.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 preserve_block_volume_mode: _builtins.str,
+                 preserve_boot_volume_mode: _builtins.str):
+        """
+        :param _builtins.str preserve_block_volume_mode: (Updatable) Whether the block volume should be preserved after termination.
+        :param _builtins.str preserve_boot_volume_mode: (Updatable) Whether the boot volume should be preserved after termination.
+        """
+        pulumi.set(__self__, "preserve_block_volume_mode", preserve_block_volume_mode)
+        pulumi.set(__self__, "preserve_boot_volume_mode", preserve_boot_volume_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBlockVolumeMode")
+    def preserve_block_volume_mode(self) -> _builtins.str:
+        """
+        (Updatable) Whether the block volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_block_volume_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBootVolumeMode")
+    def preserve_boot_volume_mode(self) -> _builtins.str:
+        """
+        (Updatable) Whether the boot volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_boot_volume_mode")
+
+
+@pulumi.output_type
 class InstancePoolLoadBalancer(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -12801,6 +13203,8 @@ class InstanceShapeConfig(dict):
             suggest = "networking_bandwidth_in_gbps"
         elif key == "processorDescription":
             suggest = "processor_description"
+        elif key == "resourceManagement":
+            suggest = "resource_management"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in InstanceShapeConfig. Access the value via the '{suggest}' property getter instead.")
@@ -12826,6 +13230,7 @@ class InstanceShapeConfig(dict):
                  nvmes: Optional[_builtins.int] = None,
                  ocpus: Optional[_builtins.float] = None,
                  processor_description: Optional[_builtins.str] = None,
+                 resource_management: Optional[_builtins.str] = None,
                  vcpus: Optional[_builtins.int] = None):
         """
         :param _builtins.str baseline_ocpu_utilization: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
@@ -12845,6 +13250,7 @@ class InstanceShapeConfig(dict):
         :param _builtins.int nvmes: (Updatable) The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: (Updatable) The total number of OCPUs available to the instance.
         :param _builtins.str processor_description: A short description of the instance's processor (CPU).
+        :param _builtins.str resource_management: (Updatable) This field is reserved for internal use.
         :param _builtins.int vcpus: (Updatable) The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         if baseline_ocpu_utilization is not None:
@@ -12871,6 +13277,8 @@ class InstanceShapeConfig(dict):
             pulumi.set(__self__, "ocpus", ocpus)
         if processor_description is not None:
             pulumi.set(__self__, "processor_description", processor_description)
+        if resource_management is not None:
+            pulumi.set(__self__, "resource_management", resource_management)
         if vcpus is not None:
             pulumi.set(__self__, "vcpus", vcpus)
 
@@ -12974,6 +13382,14 @@ class InstanceShapeConfig(dict):
         A short description of the instance's processor (CPU).
         """
         return pulumi.get(self, "processor_description")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -15418,6 +15834,8 @@ class VnicAttachmentCreateVnicDetails(dict):
             suggest = "security_attributes"
         elif key == "skipSourceDestCheck":
             suggest = "skip_source_dest_check"
+        elif key == "subnetCidr":
+            suggest = "subnet_cidr"
         elif key == "subnetId":
             suggest = "subnet_id"
         elif key == "vlanId":
@@ -15448,6 +15866,7 @@ class VnicAttachmentCreateVnicDetails(dict):
                  route_table_id: Optional[_builtins.str] = None,
                  security_attributes: Optional[Mapping[str, _builtins.str]] = None,
                  skip_source_dest_check: Optional[_builtins.bool] = None,
+                 subnet_cidr: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None,
                  vlan_id: Optional[_builtins.str] = None):
         """
@@ -15491,6 +15910,7 @@ class VnicAttachmentCreateVnicDetails(dict):
                If you specify a `vlanId`, the `skipSourceDestCheck` cannot be specified because the source/destination check is always disabled for VNICs in a VLAN. See [Vlan](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/Vlan).
                
                Example: `true`
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28`
         :param _builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create the VNIC in. When launching an instance, use this `subnetId` instead of the deprecated `subnetId` in [LaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/requests/LaunchInstanceDetails). At least one of them is required; if you provide both, the values must match.
                
                If you are an Oracle Cloud VMware Solution customer and creating a secondary VNIC in a VLAN instead of a subnet, provide a `vlanId` instead of a `subnetId`. If you provide both a `vlanId` and `subnetId`, the request fails.
@@ -15524,6 +15944,8 @@ class VnicAttachmentCreateVnicDetails(dict):
             pulumi.set(__self__, "security_attributes", security_attributes)
         if skip_source_dest_check is not None:
             pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        if subnet_cidr is not None:
+            pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if subnet_id is not None:
             pulumi.set(__self__, "subnet_id", subnet_id)
         if vlan_id is not None:
@@ -15657,6 +16079,14 @@ class VnicAttachmentCreateVnicDetails(dict):
         Example: `true`
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> Optional[_builtins.str]:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28`
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -24075,6 +24505,35 @@ class GetComputeGpuMemoryClustersFilterResult(dict):
 
 
 @pulumi.output_type
+class GetComputeGpuMemoryFabricMemoryFabricPreferenceResult(dict):
+    def __init__(__self__, *,
+                 customer_desired_firmware_bundle_id: _builtins.str,
+                 fabric_recycle_level: _builtins.str):
+        """
+        :param _builtins.str customer_desired_firmware_bundle_id: The desired firmware bundle id on the GPU memory fabric.
+        :param _builtins.str fabric_recycle_level: The recycle level of GPU memory fabric.
+        """
+        pulumi.set(__self__, "customer_desired_firmware_bundle_id", customer_desired_firmware_bundle_id)
+        pulumi.set(__self__, "fabric_recycle_level", fabric_recycle_level)
+
+    @_builtins.property
+    @pulumi.getter(name="customerDesiredFirmwareBundleId")
+    def customer_desired_firmware_bundle_id(self) -> _builtins.str:
+        """
+        The desired firmware bundle id on the GPU memory fabric.
+        """
+        return pulumi.get(self, "customer_desired_firmware_bundle_id")
+
+    @_builtins.property
+    @pulumi.getter(name="fabricRecycleLevel")
+    def fabric_recycle_level(self) -> _builtins.str:
+        """
+        The recycle level of GPU memory fabric.
+        """
+        return pulumi.get(self, "fabric_recycle_level")
+
+
+@pulumi.output_type
 class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionResult(dict):
     def __init__(__self__, *,
                  items: Sequence['outputs.GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult']):
@@ -24096,14 +24555,21 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
                  compute_hpc_island_id: _builtins.str,
                  compute_local_block_id: _builtins.str,
                  compute_network_block_id: _builtins.str,
+                 current_firmware_bundle_id: _builtins.str,
                  defined_tags: Mapping[str, _builtins.str],
                  display_name: _builtins.str,
                  fabric_health: _builtins.str,
+                 firmware_update_reason: _builtins.str,
+                 firmware_update_state: _builtins.str,
                  freeform_tags: Mapping[str, _builtins.str],
                  healthy_host_count: _builtins.str,
+                 host_platform_name: _builtins.str,
                  id: _builtins.str,
+                 memory_fabric_preferences: Sequence['outputs.GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemMemoryFabricPreferenceResult'],
                  state: _builtins.str,
+                 switch_platform_name: _builtins.str,
                  system_tags: Mapping[str, _builtins.str],
+                 target_firmware_bundle_id: _builtins.str,
                  time_created: _builtins.str,
                  total_host_count: _builtins.str):
         """
@@ -24114,14 +24580,21 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         :param _builtins.str compute_hpc_island_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compute HPC island.
         :param _builtins.str compute_local_block_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for Customer-unique Local Block
         :param _builtins.str compute_network_block_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compute network block.
+        :param _builtins.str current_firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for current firmware bundle
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A filter to return only resources that match the given display name exactly.
         :param _builtins.str fabric_health: The health state of the GPU memory fabric
+        :param _builtins.str firmware_update_reason: The reason for updating firmware bundle version of the GPU memory fabric.
+        :param _builtins.str firmware_update_state: The state of Memory Fabric Firmware update
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param _builtins.str healthy_host_count: The total number of healthy bare metal hosts located in this compute GPU memory fabric.
+        :param _builtins.str host_platform_name: The host platform identifier used for bundle queries
         :param _builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique GPU memory fabric
+        :param Sequence['GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemMemoryFabricPreferenceArgs'] memory_fabric_preferences: The preference object specified by customer. Contains customerDesiredFirmwareBundleId, fabricRecycleLevel.
         :param _builtins.str state: The lifecycle state of the GPU memory fabric
+        :param _builtins.str switch_platform_name: The switch platform identifier used for bundle queries
         :param Mapping[str, _builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        :param _builtins.str target_firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for targeted firmware bundle
         :param _builtins.str time_created: The date and time that the compute GPU memory fabric record was created, in the format defined by [RFC3339] (https://tools.ietf.org/html/rfc3339).  Example: `2016-08-25T21:10:29.600Z`
         :param _builtins.str total_host_count: The total number of bare metal hosts located in this compute GPU memory fabric.
         """
@@ -24132,14 +24605,21 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         pulumi.set(__self__, "compute_hpc_island_id", compute_hpc_island_id)
         pulumi.set(__self__, "compute_local_block_id", compute_local_block_id)
         pulumi.set(__self__, "compute_network_block_id", compute_network_block_id)
+        pulumi.set(__self__, "current_firmware_bundle_id", current_firmware_bundle_id)
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "fabric_health", fabric_health)
+        pulumi.set(__self__, "firmware_update_reason", firmware_update_reason)
+        pulumi.set(__self__, "firmware_update_state", firmware_update_state)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "healthy_host_count", healthy_host_count)
+        pulumi.set(__self__, "host_platform_name", host_platform_name)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "memory_fabric_preferences", memory_fabric_preferences)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "switch_platform_name", switch_platform_name)
         pulumi.set(__self__, "system_tags", system_tags)
+        pulumi.set(__self__, "target_firmware_bundle_id", target_firmware_bundle_id)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "total_host_count", total_host_count)
 
@@ -24200,6 +24680,14 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         return pulumi.get(self, "compute_network_block_id")
 
     @_builtins.property
+    @pulumi.getter(name="currentFirmwareBundleId")
+    def current_firmware_bundle_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for current firmware bundle
+        """
+        return pulumi.get(self, "current_firmware_bundle_id")
+
+    @_builtins.property
     @pulumi.getter(name="definedTags")
     def defined_tags(self) -> Mapping[str, _builtins.str]:
         """
@@ -24224,6 +24712,22 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         return pulumi.get(self, "fabric_health")
 
     @_builtins.property
+    @pulumi.getter(name="firmwareUpdateReason")
+    def firmware_update_reason(self) -> _builtins.str:
+        """
+        The reason for updating firmware bundle version of the GPU memory fabric.
+        """
+        return pulumi.get(self, "firmware_update_reason")
+
+    @_builtins.property
+    @pulumi.getter(name="firmwareUpdateState")
+    def firmware_update_state(self) -> _builtins.str:
+        """
+        The state of Memory Fabric Firmware update
+        """
+        return pulumi.get(self, "firmware_update_state")
+
+    @_builtins.property
     @pulumi.getter(name="freeformTags")
     def freeform_tags(self) -> Mapping[str, _builtins.str]:
         """
@@ -24240,12 +24744,28 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         return pulumi.get(self, "healthy_host_count")
 
     @_builtins.property
+    @pulumi.getter(name="hostPlatformName")
+    def host_platform_name(self) -> _builtins.str:
+        """
+        The host platform identifier used for bundle queries
+        """
+        return pulumi.get(self, "host_platform_name")
+
+    @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique GPU memory fabric
         """
         return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryFabricPreferences")
+    def memory_fabric_preferences(self) -> Sequence['outputs.GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemMemoryFabricPreferenceResult']:
+        """
+        The preference object specified by customer. Contains customerDesiredFirmwareBundleId, fabricRecycleLevel.
+        """
+        return pulumi.get(self, "memory_fabric_preferences")
 
     @_builtins.property
     @pulumi.getter
@@ -24256,12 +24776,28 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="switchPlatformName")
+    def switch_platform_name(self) -> _builtins.str:
+        """
+        The switch platform identifier used for bundle queries
+        """
+        return pulumi.get(self, "switch_platform_name")
+
+    @_builtins.property
     @pulumi.getter(name="systemTags")
     def system_tags(self) -> Mapping[str, _builtins.str]:
         """
         Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
         """
         return pulumi.get(self, "system_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="targetFirmwareBundleId")
+    def target_firmware_bundle_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for targeted firmware bundle
+        """
+        return pulumi.get(self, "target_firmware_bundle_id")
 
     @_builtins.property
     @pulumi.getter(name="timeCreated")
@@ -24278,6 +24814,35 @@ class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemResult(dict)
         The total number of bare metal hosts located in this compute GPU memory fabric.
         """
         return pulumi.get(self, "total_host_count")
+
+
+@pulumi.output_type
+class GetComputeGpuMemoryFabricsComputeGpuMemoryFabricCollectionItemMemoryFabricPreferenceResult(dict):
+    def __init__(__self__, *,
+                 customer_desired_firmware_bundle_id: _builtins.str,
+                 fabric_recycle_level: _builtins.str):
+        """
+        :param _builtins.str customer_desired_firmware_bundle_id: The desired firmware bundle id on the GPU memory fabric.
+        :param _builtins.str fabric_recycle_level: The recycle level of GPU memory fabric.
+        """
+        pulumi.set(__self__, "customer_desired_firmware_bundle_id", customer_desired_firmware_bundle_id)
+        pulumi.set(__self__, "fabric_recycle_level", fabric_recycle_level)
+
+    @_builtins.property
+    @pulumi.getter(name="customerDesiredFirmwareBundleId")
+    def customer_desired_firmware_bundle_id(self) -> _builtins.str:
+        """
+        The desired firmware bundle id on the GPU memory fabric.
+        """
+        return pulumi.get(self, "customer_desired_firmware_bundle_id")
+
+    @_builtins.property
+    @pulumi.getter(name="fabricRecycleLevel")
+    def fabric_recycle_level(self) -> _builtins.str:
+        """
+        The recycle level of GPU memory fabric.
+        """
+        return pulumi.get(self, "fabric_recycle_level")
 
 
 @pulumi.output_type
@@ -24345,7 +24910,7 @@ class GetComputeHostConfigurationDataCheckDetailResult(dict):
                  type: _builtins.str):
         """
         :param _builtins.str configuration_state: Configuration state of the Compute Bare Metal Host.
-        :param _builtins.str firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host Configuration.
+        :param _builtins.str firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
         :param _builtins.str recycle_level: Preferred recycle level for hosts associated with the reservation config.
                * `SKIP_RECYCLE` - Skips host wipe.
                * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
@@ -24368,7 +24933,7 @@ class GetComputeHostConfigurationDataCheckDetailResult(dict):
     @pulumi.getter(name="firmwareBundleId")
     def firmware_bundle_id(self) -> _builtins.str:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host Configuration.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
         """
         return pulumi.get(self, "firmware_bundle_id")
 
@@ -24396,16 +24961,19 @@ class GetComputeHostGroupConfigurationResult(dict):
     def __init__(__self__, *,
                  firmware_bundle_id: _builtins.str,
                  recycle_level: _builtins.str,
+                 state: _builtins.str,
                  target: _builtins.str):
         """
         :param _builtins.str firmware_bundle_id: The OCID for firmware bundle
         :param _builtins.str recycle_level: Preferred recycle level for hosts associated with the reservation config.
                * `SKIP_RECYCLE` - Skips host wipe.
                * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
+        :param _builtins.str state: The lifecycle state of the host group
         :param _builtins.str target: Either the platform name or compute shape that the configuration is targeting
         """
         pulumi.set(__self__, "firmware_bundle_id", firmware_bundle_id)
         pulumi.set(__self__, "recycle_level", recycle_level)
+        pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "target", target)
 
     @_builtins.property
@@ -24425,6 +24993,14 @@ class GetComputeHostGroupConfigurationResult(dict):
         * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
         """
         return pulumi.get(self, "recycle_level")
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> _builtins.str:
+        """
+        The lifecycle state of the host group
+        """
+        return pulumi.get(self, "state")
 
     @_builtins.property
     @pulumi.getter
@@ -24465,6 +25041,7 @@ class GetComputeHostGroupsComputeHostGroupCollectionItemResult(dict):
         """
         :param _builtins.str availability_domain: The availability domain of a host group.  Example: `Uocm:PHX-AD-1`
         :param _builtins.str compartment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
+        :param Sequence['GetComputeHostGroupsComputeHostGroupCollectionItemConfigurationArgs'] configurations: A list of HostGroupConfiguration objects
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A user-friendly name. Does not have to be unique, and it's changeable. Avoid entering confidential information.
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
@@ -24507,6 +25084,9 @@ class GetComputeHostGroupsComputeHostGroupCollectionItemResult(dict):
     @_builtins.property
     @pulumi.getter
     def configurations(self) -> Sequence['outputs.GetComputeHostGroupsComputeHostGroupCollectionItemConfigurationResult']:
+        """
+        A list of HostGroupConfiguration objects
+        """
         return pulumi.get(self, "configurations")
 
     @_builtins.property
@@ -24587,24 +25167,53 @@ class GetComputeHostGroupsComputeHostGroupCollectionItemConfigurationResult(dict
     def __init__(__self__, *,
                  firmware_bundle_id: _builtins.str,
                  recycle_level: _builtins.str,
+                 state: _builtins.str,
                  target: _builtins.str):
+        """
+        :param _builtins.str firmware_bundle_id: The OCID for firmware bundle
+        :param _builtins.str recycle_level: Preferred recycle level for hosts associated with the reservation config.
+               * `SKIP_RECYCLE` - Skips host wipe.
+               * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
+        :param _builtins.str state: The lifecycle state of the host group
+        :param _builtins.str target: Either the platform name or compute shape that the configuration is targeting
+        """
         pulumi.set(__self__, "firmware_bundle_id", firmware_bundle_id)
         pulumi.set(__self__, "recycle_level", recycle_level)
+        pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "target", target)
 
     @_builtins.property
     @pulumi.getter(name="firmwareBundleId")
     def firmware_bundle_id(self) -> _builtins.str:
+        """
+        The OCID for firmware bundle
+        """
         return pulumi.get(self, "firmware_bundle_id")
 
     @_builtins.property
     @pulumi.getter(name="recycleLevel")
     def recycle_level(self) -> _builtins.str:
+        """
+        Preferred recycle level for hosts associated with the reservation config.
+        * `SKIP_RECYCLE` - Skips host wipe.
+        * `FULL_RECYCLE` - Does not skip host wipe. This is the default behavior.
+        """
         return pulumi.get(self, "recycle_level")
 
     @_builtins.property
     @pulumi.getter
+    def state(self) -> _builtins.str:
+        """
+        The lifecycle state of the host group
+        """
+        return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter
     def target(self) -> _builtins.str:
+        """
+        Either the platform name or compute shape that the configuration is targeting
+        """
         return pulumi.get(self, "target")
 
 
@@ -24690,6 +25299,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
                  defined_tags: Mapping[str, _builtins.str],
                  display_name: _builtins.str,
                  fault_domain: _builtins.str,
+                 firmware_bundle_id: _builtins.str,
                  freeform_tags: Mapping[str, _builtins.str],
                  gpu_memory_fabric_id: _builtins.str,
                  has_impacted_components: _builtins.bool,
@@ -24699,6 +25309,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
                  instance_id: _builtins.str,
                  local_block_id: _builtins.str,
                  network_block_id: _builtins.str,
+                 platform: _builtins.str,
                  shape: _builtins.str,
                  state: _builtins.str,
                  time_created: _builtins.str,
@@ -24711,6 +25322,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A filter to return only resources that match the given display name exactly.
         :param _builtins.str fault_domain: A fault domain is a grouping of hardware and infrastructure within an availability domain. Each availability domain contains three fault domains. Fault domains let you distribute your instances so that they are not on the same physical hardware within a single availability domain. A hardware failure or Compute hardware maintenance that affects one fault domain does not affect instances in other fault domains.
+        :param _builtins.str firmware_bundle_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param _builtins.str gpu_memory_fabric_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for Customer-unique GPU Memory Fabric
         :param _builtins.str health: The heathy state of the host
@@ -24719,6 +25331,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         :param _builtins.str instance_id: The public [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Virtual Machine or Bare Metal instance
         :param _builtins.str local_block_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for Customer-unique Local Block
         :param _builtins.str network_block_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for Customer-unique Network Block
+        :param _builtins.str platform: The platform of the host
         :param _builtins.str shape: The shape of host
         :param _builtins.str state: The lifecycle state of the host
         :param _builtins.str time_created: The date and time that the compute host record was created, in the format defined by [RFC3339](https://tools .ietf.org/html/rfc3339).  Example: `2016-08-25T21:10:29.600Z`
@@ -24731,6 +25344,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "fault_domain", fault_domain)
+        pulumi.set(__self__, "firmware_bundle_id", firmware_bundle_id)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "gpu_memory_fabric_id", gpu_memory_fabric_id)
         pulumi.set(__self__, "has_impacted_components", has_impacted_components)
@@ -24740,6 +25354,7 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         pulumi.set(__self__, "instance_id", instance_id)
         pulumi.set(__self__, "local_block_id", local_block_id)
         pulumi.set(__self__, "network_block_id", network_block_id)
+        pulumi.set(__self__, "platform", platform)
         pulumi.set(__self__, "shape", shape)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "time_created", time_created)
@@ -24800,6 +25415,14 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         A fault domain is a grouping of hardware and infrastructure within an availability domain. Each availability domain contains three fault domains. Fault domains let you distribute your instances so that they are not on the same physical hardware within a single availability domain. A hardware failure or Compute hardware maintenance that affects one fault domain does not affect instances in other fault domains.
         """
         return pulumi.get(self, "fault_domain")
+
+    @_builtins.property
+    @pulumi.getter(name="firmwareBundleId")
+    def firmware_bundle_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the Customer-unique firmware bundle associated with the Host.
+        """
+        return pulumi.get(self, "firmware_bundle_id")
 
     @_builtins.property
     @pulumi.getter(name="freeformTags")
@@ -24869,6 +25492,14 @@ class GetComputeHostsComputeHostCollectionItemResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for Customer-unique Network Block
         """
         return pulumi.get(self, "network_block_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def platform(self) -> _builtins.str:
+        """
+        The platform of the host
+        """
+        return pulumi.get(self, "platform")
 
     @_builtins.property
     @pulumi.getter
@@ -26501,13 +27132,16 @@ class GetDedicatedVmHostCapacityBinResult(dict):
 class GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeResult(dict):
     def __init__(__self__, *,
                  availability_domain: _builtins.str,
-                 instance_shape_name: _builtins.str):
+                 instance_shape_name: _builtins.str,
+                 supported_capabilities: Sequence['outputs.GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeSupportedCapabilityResult']):
         """
         :param _builtins.str availability_domain: The name of the availability domain.  Example: `Uocm:PHX-AD-1`
         :param _builtins.str instance_shape_name: The name of the virtual machine instance shapes that can be launched on a dedicated VM host.
+        :param Sequence['GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeSupportedCapabilityArgs'] supported_capabilities: Specifies the capabilities that the Dedicated Virtual Machine Host (DVMH) Shape or Virtual Machine Instance Shape could support.
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
         pulumi.set(__self__, "instance_shape_name", instance_shape_name)
+        pulumi.set(__self__, "supported_capabilities", supported_capabilities)
 
     @_builtins.property
     @pulumi.getter(name="availabilityDomain")
@@ -26524,6 +27158,32 @@ class GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeResult(dict):
         The name of the virtual machine instance shapes that can be launched on a dedicated VM host.
         """
         return pulumi.get(self, "instance_shape_name")
+
+    @_builtins.property
+    @pulumi.getter(name="supportedCapabilities")
+    def supported_capabilities(self) -> Sequence['outputs.GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeSupportedCapabilityResult']:
+        """
+        Specifies the capabilities that the Dedicated Virtual Machine Host (DVMH) Shape or Virtual Machine Instance Shape could support.
+        """
+        return pulumi.get(self, "supported_capabilities")
+
+
+@pulumi.output_type
+class GetDedicatedVmHostInstanceShapesDedicatedVmHostInstanceShapeSupportedCapabilityResult(dict):
+    def __init__(__self__, *,
+                 is_memory_encryption_supported: _builtins.bool):
+        """
+        :param _builtins.bool is_memory_encryption_supported: Whether the DVMH shape could support confidential VMs or the VM instance shape could be confidential.
+        """
+        pulumi.set(__self__, "is_memory_encryption_supported", is_memory_encryption_supported)
+
+    @_builtins.property
+    @pulumi.getter(name="isMemoryEncryptionSupported")
+    def is_memory_encryption_supported(self) -> _builtins.bool:
+        """
+        Whether the DVMH shape could support confidential VMs or the VM instance shape could be confidential.
+        """
+        return pulumi.get(self, "is_memory_encryption_supported")
 
 
 @pulumi.output_type
@@ -26559,18 +27219,21 @@ class GetDedicatedVmHostInstancesDedicatedVmHostInstanceResult(dict):
                  availability_domain: _builtins.str,
                  compartment_id: _builtins.str,
                  instance_id: _builtins.str,
+                 is_memory_encryption_enabled: _builtins.bool,
                  shape: _builtins.str,
                  time_created: _builtins.str):
         """
         :param _builtins.str availability_domain: The name of the availability domain.  Example: `Uocm:PHX-AD-1`
         :param _builtins.str compartment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
         :param _builtins.str instance_id: The OCID of the virtual machine instance.
+        :param _builtins.bool is_memory_encryption_enabled: A filter to return only confidential Dedicated VM hosts (DVMH) or confidential VM instances on DVMH.
         :param _builtins.str shape: The shape of the VM instance.
         :param _builtins.str time_created: The date and time the virtual machine instance was created, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).  Example: `2016-08-25T21:10:29.600Z`
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "instance_id", instance_id)
+        pulumi.set(__self__, "is_memory_encryption_enabled", is_memory_encryption_enabled)
         pulumi.set(__self__, "shape", shape)
         pulumi.set(__self__, "time_created", time_created)
 
@@ -26597,6 +27260,14 @@ class GetDedicatedVmHostInstancesDedicatedVmHostInstanceResult(dict):
         The OCID of the virtual machine instance.
         """
         return pulumi.get(self, "instance_id")
+
+    @_builtins.property
+    @pulumi.getter(name="isMemoryEncryptionEnabled")
+    def is_memory_encryption_enabled(self) -> _builtins.bool:
+        """
+        A filter to return only confidential Dedicated VM hosts (DVMH) or confidential VM instances on DVMH.
+        """
+        return pulumi.get(self, "is_memory_encryption_enabled")
 
     @_builtins.property
     @pulumi.getter
@@ -26648,8 +27319,8 @@ class GetDedicatedVmHostPlacementConstraintDetailResult(dict):
                  compute_bare_metal_host_id: _builtins.str,
                  type: _builtins.str):
         """
-        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host.
-        :param _builtins.str type: Determines the type of targeted launch.
+        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
+        :param _builtins.str type: The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID.
         """
         pulumi.set(__self__, "compute_bare_metal_host_id", compute_bare_metal_host_id)
         pulumi.set(__self__, "type", type)
@@ -26658,7 +27329,7 @@ class GetDedicatedVmHostPlacementConstraintDetailResult(dict):
     @pulumi.getter(name="computeBareMetalHostId")
     def compute_bare_metal_host_id(self) -> _builtins.str:
         """
-        The OCID of the compute bare metal host.
+        The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         """
         return pulumi.get(self, "compute_bare_metal_host_id")
 
@@ -26666,7 +27337,7 @@ class GetDedicatedVmHostPlacementConstraintDetailResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Determines the type of targeted launch.
+        The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID.
         """
         return pulumi.get(self, "type")
 
@@ -26675,12 +27346,15 @@ class GetDedicatedVmHostPlacementConstraintDetailResult(dict):
 class GetDedicatedVmHostShapesDedicatedVmHostShapeResult(dict):
     def __init__(__self__, *,
                  availability_domain: _builtins.str,
+                 capacity_configs: Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigResult'],
                  dedicated_vm_host_shape: _builtins.str):
         """
         :param _builtins.str availability_domain: The name of the availability domain.  Example: `Uocm:PHX-AD-1`
-        :param _builtins.str dedicated_vm_host_shape: The name of the dedicated VM host shape. You can enumerate all available shapes by calling [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/dedicatedVmHostShapes).
+        :param Sequence['GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigArgs'] capacity_configs: A list of capacity configs that are supported by this dedicated VM host shape.
+        :param _builtins.str dedicated_vm_host_shape: The name of the dedicated VM host shape. You can enumerate all available shapes by calling [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/DedicatedVmHostShapeSummary/ListDedicatedVmHostShapes).
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
+        pulumi.set(__self__, "capacity_configs", capacity_configs)
         pulumi.set(__self__, "dedicated_vm_host_shape", dedicated_vm_host_shape)
 
     @_builtins.property
@@ -26692,12 +27366,140 @@ class GetDedicatedVmHostShapesDedicatedVmHostShapeResult(dict):
         return pulumi.get(self, "availability_domain")
 
     @_builtins.property
+    @pulumi.getter(name="capacityConfigs")
+    def capacity_configs(self) -> Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigResult']:
+        """
+        A list of capacity configs that are supported by this dedicated VM host shape.
+        """
+        return pulumi.get(self, "capacity_configs")
+
+    @_builtins.property
     @pulumi.getter(name="dedicatedVmHostShape")
     def dedicated_vm_host_shape(self) -> _builtins.str:
         """
-        The name of the dedicated VM host shape. You can enumerate all available shapes by calling [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/dedicatedVmHostShapes).
+        The name of the dedicated VM host shape. You can enumerate all available shapes by calling [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/DedicatedVmHostShapeSummary/ListDedicatedVmHostShapes).
         """
         return pulumi.get(self, "dedicated_vm_host_shape")
+
+
+@pulumi.output_type
+class GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigResult(dict):
+    def __init__(__self__, *,
+                 capacity_bins: Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigCapacityBinResult'],
+                 capacity_config_name: _builtins.str,
+                 is_default: _builtins.bool,
+                 supported_capabilities: Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigSupportedCapabilityResult']):
+        """
+        :param Sequence['GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigCapacityBinArgs'] capacity_bins: A list of total CPU and memory per capacity bucket.
+        :param _builtins.str capacity_config_name: The name of each capacity config.
+        :param _builtins.bool is_default: Whether this capacity config is the default config.
+        :param Sequence['GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigSupportedCapabilityArgs'] supported_capabilities: Specifies the capabilities that the Dedicated Virtual Machine Host (DVMH) Shape or Virtual Machine Instance Shape could support.
+        """
+        pulumi.set(__self__, "capacity_bins", capacity_bins)
+        pulumi.set(__self__, "capacity_config_name", capacity_config_name)
+        pulumi.set(__self__, "is_default", is_default)
+        pulumi.set(__self__, "supported_capabilities", supported_capabilities)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityBins")
+    def capacity_bins(self) -> Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigCapacityBinResult']:
+        """
+        A list of total CPU and memory per capacity bucket.
+        """
+        return pulumi.get(self, "capacity_bins")
+
+    @_builtins.property
+    @pulumi.getter(name="capacityConfigName")
+    def capacity_config_name(self) -> _builtins.str:
+        """
+        The name of each capacity config.
+        """
+        return pulumi.get(self, "capacity_config_name")
+
+    @_builtins.property
+    @pulumi.getter(name="isDefault")
+    def is_default(self) -> _builtins.bool:
+        """
+        Whether this capacity config is the default config.
+        """
+        return pulumi.get(self, "is_default")
+
+    @_builtins.property
+    @pulumi.getter(name="supportedCapabilities")
+    def supported_capabilities(self) -> Sequence['outputs.GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigSupportedCapabilityResult']:
+        """
+        Specifies the capabilities that the Dedicated Virtual Machine Host (DVMH) Shape or Virtual Machine Instance Shape could support.
+        """
+        return pulumi.get(self, "supported_capabilities")
+
+
+@pulumi.output_type
+class GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigCapacityBinResult(dict):
+    def __init__(__self__, *,
+                 capacity_index: _builtins.int,
+                 supported_shapes: Sequence[_builtins.str],
+                 total_memory_in_gbs: _builtins.float,
+                 total_ocpus: _builtins.float):
+        """
+        :param _builtins.int capacity_index: Zero-based index for the corresponding capacity bucket.
+        :param Sequence[_builtins.str] supported_shapes: List of VMI shapes supported on each capacity bucket.
+        :param _builtins.float total_memory_in_gbs: The total memory of the capacity bucket, in GBs.
+        :param _builtins.float total_ocpus: The total OCPUs of the capacity bucket.
+        """
+        pulumi.set(__self__, "capacity_index", capacity_index)
+        pulumi.set(__self__, "supported_shapes", supported_shapes)
+        pulumi.set(__self__, "total_memory_in_gbs", total_memory_in_gbs)
+        pulumi.set(__self__, "total_ocpus", total_ocpus)
+
+    @_builtins.property
+    @pulumi.getter(name="capacityIndex")
+    def capacity_index(self) -> _builtins.int:
+        """
+        Zero-based index for the corresponding capacity bucket.
+        """
+        return pulumi.get(self, "capacity_index")
+
+    @_builtins.property
+    @pulumi.getter(name="supportedShapes")
+    def supported_shapes(self) -> Sequence[_builtins.str]:
+        """
+        List of VMI shapes supported on each capacity bucket.
+        """
+        return pulumi.get(self, "supported_shapes")
+
+    @_builtins.property
+    @pulumi.getter(name="totalMemoryInGbs")
+    def total_memory_in_gbs(self) -> _builtins.float:
+        """
+        The total memory of the capacity bucket, in GBs.
+        """
+        return pulumi.get(self, "total_memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="totalOcpus")
+    def total_ocpus(self) -> _builtins.float:
+        """
+        The total OCPUs of the capacity bucket.
+        """
+        return pulumi.get(self, "total_ocpus")
+
+
+@pulumi.output_type
+class GetDedicatedVmHostShapesDedicatedVmHostShapeCapacityConfigSupportedCapabilityResult(dict):
+    def __init__(__self__, *,
+                 is_memory_encryption_supported: _builtins.bool):
+        """
+        :param _builtins.bool is_memory_encryption_supported: Whether the DVMH shape could support confidential VMs or the VM instance shape could be confidential.
+        """
+        pulumi.set(__self__, "is_memory_encryption_supported", is_memory_encryption_supported)
+
+    @_builtins.property
+    @pulumi.getter(name="isMemoryEncryptionSupported")
+    def is_memory_encryption_supported(self) -> _builtins.bool:
+        """
+        Whether the DVMH shape could support confidential VMs or the VM instance shape could be confidential.
+        """
+        return pulumi.get(self, "is_memory_encryption_supported")
 
 
 @pulumi.output_type
@@ -26732,6 +27534,7 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
     def __init__(__self__, *,
                  availability_domain: _builtins.str,
                  capacity_bins: Sequence['outputs.GetDedicatedVmHostsDedicatedVmHostCapacityBinResult'],
+                 capacity_config: _builtins.str,
                  compartment_id: _builtins.str,
                  compute_bare_metal_host_id: _builtins.str,
                  dedicated_vm_host_shape: _builtins.str,
@@ -26740,6 +27543,7 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
                  fault_domain: _builtins.str,
                  freeform_tags: Mapping[str, _builtins.str],
                  id: _builtins.str,
+                 is_memory_encryption_enabled: _builtins.bool,
                  placement_constraint_details: Sequence['outputs.GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailResult'],
                  remaining_memory_in_gbs: _builtins.float,
                  remaining_ocpus: _builtins.float,
@@ -26749,15 +27553,18 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
                  total_ocpus: _builtins.float):
         """
         :param _builtins.str availability_domain: The name of the availability domain.  Example: `Uocm:PHX-AD-1`
+        :param Sequence['GetDedicatedVmHostsDedicatedVmHostCapacityBinArgs'] capacity_bins: A list of total and remaining CPU and memory per capacity bucket.
+        :param _builtins.str capacity_config: The capacity configuration selected to be configured for the Dedicated Virtual Machine host.  Run [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/DedicatedVmHostShapeSummary/ListDedicatedVmHostShapes) API to see details of this capacity configuration.
         :param _builtins.str compartment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
-        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host.
+        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         :param _builtins.str dedicated_vm_host_shape: The dedicated virtual machine host shape. The shape determines the number of CPUs and other resources available for VMs.
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A filter to return only resources that match the given display name exactly.
         :param _builtins.str fault_domain: The fault domain for the dedicated virtual machine host's assigned instances. For more information, see [Fault Domains](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/regions.htm#fault).
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param _builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated VM host.
-        :param Sequence['GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailArgs'] placement_constraint_details: Generic placement details field which is overloaded with bare metal host id or host group id based on the resource we are targeting to launch.
+        :param _builtins.bool is_memory_encryption_enabled: A filter to return only confidential Dedicated VM hosts (DVMH) or confidential VM instances on DVMH.
+        :param Sequence['GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailArgs'] placement_constraint_details: The details for providing placement constraints.
         :param _builtins.float remaining_memory_in_gbs: The current available memory of the dedicated VM host, in GBs.
         :param _builtins.float remaining_ocpus: The current available OCPUs of the dedicated VM host.
         :param _builtins.str state: A filter to only return resources that match the given lifecycle state.
@@ -26767,6 +27574,7 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
         pulumi.set(__self__, "capacity_bins", capacity_bins)
+        pulumi.set(__self__, "capacity_config", capacity_config)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "compute_bare_metal_host_id", compute_bare_metal_host_id)
         pulumi.set(__self__, "dedicated_vm_host_shape", dedicated_vm_host_shape)
@@ -26775,6 +27583,7 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
         pulumi.set(__self__, "fault_domain", fault_domain)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_memory_encryption_enabled", is_memory_encryption_enabled)
         pulumi.set(__self__, "placement_constraint_details", placement_constraint_details)
         pulumi.set(__self__, "remaining_memory_in_gbs", remaining_memory_in_gbs)
         pulumi.set(__self__, "remaining_ocpus", remaining_ocpus)
@@ -26794,7 +27603,18 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
     @_builtins.property
     @pulumi.getter(name="capacityBins")
     def capacity_bins(self) -> Sequence['outputs.GetDedicatedVmHostsDedicatedVmHostCapacityBinResult']:
+        """
+        A list of total and remaining CPU and memory per capacity bucket.
+        """
         return pulumi.get(self, "capacity_bins")
+
+    @_builtins.property
+    @pulumi.getter(name="capacityConfig")
+    def capacity_config(self) -> _builtins.str:
+        """
+        The capacity configuration selected to be configured for the Dedicated Virtual Machine host.  Run [ListDedicatedVmHostShapes](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/DedicatedVmHostShapeSummary/ListDedicatedVmHostShapes) API to see details of this capacity configuration.
+        """
+        return pulumi.get(self, "capacity_config")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -26808,7 +27628,7 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
     @pulumi.getter(name="computeBareMetalHostId")
     def compute_bare_metal_host_id(self) -> _builtins.str:
         """
-        The OCID of the compute bare metal host.
+        The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         """
         return pulumi.get(self, "compute_bare_metal_host_id")
 
@@ -26861,10 +27681,18 @@ class GetDedicatedVmHostsDedicatedVmHostResult(dict):
         return pulumi.get(self, "id")
 
     @_builtins.property
+    @pulumi.getter(name="isMemoryEncryptionEnabled")
+    def is_memory_encryption_enabled(self) -> _builtins.bool:
+        """
+        A filter to return only confidential Dedicated VM hosts (DVMH) or confidential VM instances on DVMH.
+        """
+        return pulumi.get(self, "is_memory_encryption_enabled")
+
+    @_builtins.property
     @pulumi.getter(name="placementConstraintDetails")
     def placement_constraint_details(self) -> Sequence['outputs.GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailResult']:
         """
-        Generic placement details field which is overloaded with bare metal host id or host group id based on the resource we are targeting to launch.
+        The details for providing placement constraints.
         """
         return pulumi.get(self, "placement_constraint_details")
 
@@ -26927,8 +27755,10 @@ class GetDedicatedVmHostsDedicatedVmHostCapacityBinResult(dict):
                  total_memory_in_gbs: _builtins.float,
                  total_ocpus: _builtins.float):
         """
+        :param _builtins.int capacity_index: Zero-based index for the corresponding capacity bucket.
         :param _builtins.float remaining_memory_in_gbs: The current available memory of the dedicated VM host, in GBs.
         :param _builtins.float remaining_ocpus: The current available OCPUs of the dedicated VM host.
+        :param Sequence[_builtins.str] supported_shapes: List of VMI shapes supported on each capacity bucket.
         :param _builtins.float total_memory_in_gbs: The current total memory of the dedicated VM host, in GBs.
         :param _builtins.float total_ocpus: The current total OCPUs of the dedicated VM host.
         """
@@ -26942,6 +27772,9 @@ class GetDedicatedVmHostsDedicatedVmHostCapacityBinResult(dict):
     @_builtins.property
     @pulumi.getter(name="capacityIndex")
     def capacity_index(self) -> _builtins.int:
+        """
+        Zero-based index for the corresponding capacity bucket.
+        """
         return pulumi.get(self, "capacity_index")
 
     @_builtins.property
@@ -26963,6 +27796,9 @@ class GetDedicatedVmHostsDedicatedVmHostCapacityBinResult(dict):
     @_builtins.property
     @pulumi.getter(name="supportedShapes")
     def supported_shapes(self) -> Sequence[_builtins.str]:
+        """
+        List of VMI shapes supported on each capacity bucket.
+        """
         return pulumi.get(self, "supported_shapes")
 
     @_builtins.property
@@ -26988,8 +27824,8 @@ class GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailResult(dict):
                  compute_bare_metal_host_id: _builtins.str,
                  type: _builtins.str):
         """
-        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host.
-        :param _builtins.str type: Determines the type of targeted launch.
+        :param _builtins.str compute_bare_metal_host_id: The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
+        :param _builtins.str type: The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID.
         """
         pulumi.set(__self__, "compute_bare_metal_host_id", compute_bare_metal_host_id)
         pulumi.set(__self__, "type", type)
@@ -26998,7 +27834,7 @@ class GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailResult(dict):
     @pulumi.getter(name="computeBareMetalHostId")
     def compute_bare_metal_host_id(self) -> _builtins.str:
         """
-        The OCID of the compute bare metal host.
+        The OCID of the compute bare metal host. This is only available for dedicated capacity customers.
         """
         return pulumi.get(self, "compute_bare_metal_host_id")
 
@@ -27006,7 +27842,7 @@ class GetDedicatedVmHostsDedicatedVmHostPlacementConstraintDetailResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Determines the type of targeted launch.
+        The type for the placement constraints. Use `COMPUTE_BARE_METAL_HOST` when specifying the compute bare metal host OCID. Use `HOST_GROUP` when specifying the compute host group OCID.
         """
         return pulumi.get(self, "type")
 
@@ -28413,6 +29249,321 @@ class GetFastConnectProviderServicesFilterResult(dict):
     @pulumi.getter
     def regex(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "regex")
+
+
+@pulumi.output_type
+class GetFirmwareBundleAllowableTransitionResult(dict):
+    def __init__(__self__, *,
+                 downgrades: Sequence[_builtins.str],
+                 upgrades: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] downgrades: An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle downgrades.
+        :param Sequence[_builtins.str] upgrades: An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle upgrades.
+        """
+        pulumi.set(__self__, "downgrades", downgrades)
+        pulumi.set(__self__, "upgrades", upgrades)
+
+    @_builtins.property
+    @pulumi.getter
+    def downgrades(self) -> Sequence[_builtins.str]:
+        """
+        An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle downgrades.
+        """
+        return pulumi.get(self, "downgrades")
+
+    @_builtins.property
+    @pulumi.getter
+    def upgrades(self) -> Sequence[_builtins.str]:
+        """
+        An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle upgrades.
+        """
+        return pulumi.get(self, "upgrades")
+
+
+@pulumi.output_type
+class GetFirmwareBundlePlatformResult(dict):
+    def __init__(__self__, *,
+                 platform: _builtins.str,
+                 versions: Sequence['outputs.GetFirmwareBundlePlatformVersionResult']):
+        """
+        :param _builtins.str platform: The name of the platform supported by this bundle.
+        :param Sequence['GetFirmwareBundlePlatformVersionArgs'] versions: An array of pinned components and their respective firmware versions.
+        """
+        pulumi.set(__self__, "platform", platform)
+        pulumi.set(__self__, "versions", versions)
+
+    @_builtins.property
+    @pulumi.getter
+    def platform(self) -> _builtins.str:
+        """
+        The name of the platform supported by this bundle.
+        """
+        return pulumi.get(self, "platform")
+
+    @_builtins.property
+    @pulumi.getter
+    def versions(self) -> Sequence['outputs.GetFirmwareBundlePlatformVersionResult']:
+        """
+        An array of pinned components and their respective firmware versions.
+        """
+        return pulumi.get(self, "versions")
+
+
+@pulumi.output_type
+class GetFirmwareBundlePlatformVersionResult(dict):
+    def __init__(__self__, *,
+                 component_type: _builtins.str,
+                 versions: Sequence[_builtins.str]):
+        """
+        :param _builtins.str component_type: The type of component.
+        :param Sequence[_builtins.str] versions: A list of firmware versions associated with this component type.
+        """
+        pulumi.set(__self__, "component_type", component_type)
+        pulumi.set(__self__, "versions", versions)
+
+    @_builtins.property
+    @pulumi.getter(name="componentType")
+    def component_type(self) -> _builtins.str:
+        """
+        The type of component.
+        """
+        return pulumi.get(self, "component_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def versions(self) -> Sequence[_builtins.str]:
+        """
+        A list of firmware versions associated with this component type.
+        """
+        return pulumi.get(self, "versions")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFilterResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFirmwareBundlesCollectionResult(dict):
+    def __init__(__self__, *,
+                 items: Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemResult']):
+        pulumi.set(__self__, "items", items)
+
+    @_builtins.property
+    @pulumi.getter
+    def items(self) -> Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemResult']:
+        return pulumi.get(self, "items")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFirmwareBundlesCollectionItemResult(dict):
+    def __init__(__self__, *,
+                 allowable_transitions: Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemAllowableTransitionResult'],
+                 compartment_id: _builtins.str,
+                 description: _builtins.str,
+                 display_name: _builtins.str,
+                 id: _builtins.str,
+                 lifecycle_state: _builtins.str,
+                 platforms: Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformResult'],
+                 time_created: _builtins.str,
+                 time_updated: _builtins.str):
+        """
+        :param Sequence['GetFirmwareBundlesFirmwareBundlesCollectionItemAllowableTransitionArgs'] allowable_transitions: A map of firmware bundle upgrades/downgrades validated by OCI.
+        :param _builtins.str compartment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
+        :param _builtins.str description: A brief description or metadata about this firmware bundle.
+        :param _builtins.str display_name: The user-friendly name of this firmware bundle.
+        :param _builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of this firmware bundle.
+        :param Sequence['GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformArgs'] platforms: A map of platforms to pinned firmware versions.
+        :param _builtins.str time_created: The date and time the firmware bundle was created, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).  Example: `2016-08-25T21:10:29.600Z`
+        :param _builtins.str time_updated: The date and time the firmware bundle was updated, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339). Example: `2016-08-25T21:10:29.600Z`
+        """
+        pulumi.set(__self__, "allowable_transitions", allowable_transitions)
+        pulumi.set(__self__, "compartment_id", compartment_id)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "lifecycle_state", lifecycle_state)
+        pulumi.set(__self__, "platforms", platforms)
+        pulumi.set(__self__, "time_created", time_created)
+        pulumi.set(__self__, "time_updated", time_updated)
+
+    @_builtins.property
+    @pulumi.getter(name="allowableTransitions")
+    def allowable_transitions(self) -> Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemAllowableTransitionResult']:
+        """
+        A map of firmware bundle upgrades/downgrades validated by OCI.
+        """
+        return pulumi.get(self, "allowable_transitions")
+
+    @_builtins.property
+    @pulumi.getter(name="compartmentId")
+    def compartment_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment.
+        """
+        return pulumi.get(self, "compartment_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        A brief description or metadata about this firmware bundle.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        The user-friendly name of this firmware bundle.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of this firmware bundle.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleState")
+    def lifecycle_state(self) -> _builtins.str:
+        return pulumi.get(self, "lifecycle_state")
+
+    @_builtins.property
+    @pulumi.getter
+    def platforms(self) -> Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformResult']:
+        """
+        A map of platforms to pinned firmware versions.
+        """
+        return pulumi.get(self, "platforms")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> _builtins.str:
+        """
+        The date and time the firmware bundle was created, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).  Example: `2016-08-25T21:10:29.600Z`
+        """
+        return pulumi.get(self, "time_created")
+
+    @_builtins.property
+    @pulumi.getter(name="timeUpdated")
+    def time_updated(self) -> _builtins.str:
+        """
+        The date and time the firmware bundle was updated, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339). Example: `2016-08-25T21:10:29.600Z`
+        """
+        return pulumi.get(self, "time_updated")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFirmwareBundlesCollectionItemAllowableTransitionResult(dict):
+    def __init__(__self__, *,
+                 downgrades: Sequence[_builtins.str],
+                 upgrades: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] downgrades: An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle downgrades.
+        :param Sequence[_builtins.str] upgrades: An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle upgrades.
+        """
+        pulumi.set(__self__, "downgrades", downgrades)
+        pulumi.set(__self__, "upgrades", upgrades)
+
+    @_builtins.property
+    @pulumi.getter
+    def downgrades(self) -> Sequence[_builtins.str]:
+        """
+        An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle downgrades.
+        """
+        return pulumi.get(self, "downgrades")
+
+    @_builtins.property
+    @pulumi.getter
+    def upgrades(self) -> Sequence[_builtins.str]:
+        """
+        An array of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of validated firmware bundle upgrades.
+        """
+        return pulumi.get(self, "upgrades")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformResult(dict):
+    def __init__(__self__, *,
+                 platform: _builtins.str,
+                 versions: Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformVersionResult']):
+        """
+        :param _builtins.str platform: platform name
+        :param Sequence['GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformVersionArgs'] versions: An array of pinned components and their respective firmware versions.
+        """
+        pulumi.set(__self__, "platform", platform)
+        pulumi.set(__self__, "versions", versions)
+
+    @_builtins.property
+    @pulumi.getter
+    def platform(self) -> _builtins.str:
+        """
+        platform name
+        """
+        return pulumi.get(self, "platform")
+
+    @_builtins.property
+    @pulumi.getter
+    def versions(self) -> Sequence['outputs.GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformVersionResult']:
+        """
+        An array of pinned components and their respective firmware versions.
+        """
+        return pulumi.get(self, "versions")
+
+
+@pulumi.output_type
+class GetFirmwareBundlesFirmwareBundlesCollectionItemPlatformVersionResult(dict):
+    def __init__(__self__, *,
+                 component_type: _builtins.str,
+                 versions: Sequence[_builtins.str]):
+        """
+        :param _builtins.str component_type: The type of component.
+        :param Sequence[_builtins.str] versions: A list of firmware versions associated with this component type.
+        """
+        pulumi.set(__self__, "component_type", component_type)
+        pulumi.set(__self__, "versions", versions)
+
+    @_builtins.property
+    @pulumi.getter(name="componentType")
+    def component_type(self) -> _builtins.str:
+        """
+        The type of component.
+        """
+        return pulumi.get(self, "component_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def versions(self) -> Sequence[_builtins.str]:
+        """
+        A list of firmware versions associated with this component type.
+        """
+        return pulumi.get(self, "versions")
 
 
 @pulumi.output_type
@@ -29831,6 +30982,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailResult(dict):
                  freeform_tags: Mapping[str, _builtins.str],
                  instance_options: Sequence['outputs.GetInstanceConfigurationInstanceDetailLaunchDetailInstanceOptionResult'],
                  ipxe_script: _builtins.str,
+                 is_ai_enterprise_enabled: _builtins.bool,
                  is_pv_encryption_in_transit_enabled: _builtins.bool,
                  launch_mode: _builtins.str,
                  launch_options: Sequence['outputs.GetInstanceConfigurationInstanceDetailLaunchDetailLaunchOptionResult'],
@@ -29861,6 +31013,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailResult(dict):
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param Sequence['GetInstanceConfigurationInstanceDetailLaunchDetailInstanceOptionArgs'] instance_options: Optional mutable instance options. As a part of Instance Metadata Service Security Header, This allows user to disable the legacy imds endpoints.
         :param _builtins.str ipxe_script: This is an advanced option.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [InstanceConfigurationLaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/InstanceConfigurationLaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -29896,6 +31049,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailResult(dict):
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "instance_options", instance_options)
         pulumi.set(__self__, "ipxe_script", ipxe_script)
+        pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         pulumi.set(__self__, "launch_mode", launch_mode)
         pulumi.set(__self__, "launch_options", launch_options)
@@ -30037,6 +31191,14 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailResult(dict):
         This is an advanced option.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> _builtins.bool:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -30274,6 +31436,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailCreateVnicDetailResult(d
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -30288,6 +31451,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailCreateVnicDetailResult(d
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -30302,6 +31466,7 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailCreateVnicDetailResult(d
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -30399,6 +31564,14 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailCreateVnicDetailResult(d
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -30814,18 +31987,21 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailShapeConfigResult(dict):
                  memory_in_gbs: _builtins.float,
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -30859,6 +32035,14 @@ class GetInstanceConfigurationInstanceDetailLaunchDetailShapeConfigResult(dict):
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -31442,6 +32626,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailResult(dict):
                  freeform_tags: Mapping[str, _builtins.str],
                  instance_options: Sequence['outputs.GetInstanceConfigurationInstanceDetailOptionLaunchDetailInstanceOptionResult'],
                  ipxe_script: _builtins.str,
+                 is_ai_enterprise_enabled: _builtins.bool,
                  is_pv_encryption_in_transit_enabled: _builtins.bool,
                  launch_mode: _builtins.str,
                  launch_options: Sequence['outputs.GetInstanceConfigurationInstanceDetailOptionLaunchDetailLaunchOptionResult'],
@@ -31472,6 +32657,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailResult(dict):
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param Sequence['GetInstanceConfigurationInstanceDetailOptionLaunchDetailInstanceOptionArgs'] instance_options: Optional mutable instance options. As a part of Instance Metadata Service Security Header, This allows user to disable the legacy imds endpoints.
         :param _builtins.str ipxe_script: This is an advanced option.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [InstanceConfigurationLaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/InstanceConfigurationLaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -31507,6 +32693,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailResult(dict):
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "instance_options", instance_options)
         pulumi.set(__self__, "ipxe_script", ipxe_script)
+        pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         pulumi.set(__self__, "launch_mode", launch_mode)
         pulumi.set(__self__, "launch_options", launch_options)
@@ -31648,6 +32835,14 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailResult(dict):
         This is an advanced option.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> _builtins.bool:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -31885,6 +33080,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailCreateVnicDetailRe
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -31899,6 +33095,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailCreateVnicDetailRe
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -31913,6 +33110,7 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailCreateVnicDetailRe
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -32010,6 +33208,14 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailCreateVnicDetailRe
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -32414,18 +33620,21 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailShapeConfigResult(
                  memory_in_gbs: _builtins.float,
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -32459,6 +33668,14 @@ class GetInstanceConfigurationInstanceDetailOptionLaunchDetailShapeConfigResult(
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -32659,6 +33876,7 @@ class GetInstanceConfigurationInstanceDetailOptionSecondaryVnicCreateVnicDetailR
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -32673,6 +33891,7 @@ class GetInstanceConfigurationInstanceDetailOptionSecondaryVnicCreateVnicDetailR
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -32687,6 +33906,7 @@ class GetInstanceConfigurationInstanceDetailOptionSecondaryVnicCreateVnicDetailR
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -32786,6 +34006,14 @@ class GetInstanceConfigurationInstanceDetailOptionSecondaryVnicCreateVnicDetailR
         return pulumi.get(self, "skip_source_dest_check")
 
     @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
+
+    @_builtins.property
     @pulumi.getter(name="subnetId")
     def subnet_id(self) -> _builtins.str:
         """
@@ -32878,6 +34106,7 @@ class GetInstanceConfigurationInstanceDetailSecondaryVnicCreateVnicDetailResult(
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -32892,6 +34121,7 @@ class GetInstanceConfigurationInstanceDetailSecondaryVnicCreateVnicDetailResult(
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -32906,6 +34136,7 @@ class GetInstanceConfigurationInstanceDetailSecondaryVnicCreateVnicDetailResult(
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -33003,6 +34234,14 @@ class GetInstanceConfigurationInstanceDetailSecondaryVnicCreateVnicDetailResult(
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -33640,6 +34879,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailRe
                  freeform_tags: Mapping[str, _builtins.str],
                  instance_options: Sequence['outputs.GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailInstanceOptionResult'],
                  ipxe_script: _builtins.str,
+                 is_ai_enterprise_enabled: _builtins.bool,
                  is_pv_encryption_in_transit_enabled: _builtins.bool,
                  launch_mode: _builtins.str,
                  launch_options: Sequence['outputs.GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailLaunchOptionResult'],
@@ -33670,6 +34910,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailRe
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param Sequence['GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailInstanceOptionArgs'] instance_options: Optional mutable instance options. As a part of Instance Metadata Service Security Header, This allows user to disable the legacy imds endpoints.
         :param _builtins.str ipxe_script: This is an advanced option.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [InstanceConfigurationLaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/InstanceConfigurationLaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -33705,6 +34946,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailRe
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "instance_options", instance_options)
         pulumi.set(__self__, "ipxe_script", ipxe_script)
+        pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         pulumi.set(__self__, "launch_mode", launch_mode)
         pulumi.set(__self__, "launch_options", launch_options)
@@ -33846,6 +35088,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailRe
         This is an advanced option.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> _builtins.bool:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -34083,6 +35333,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailCr
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -34097,6 +35348,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailCr
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -34111,6 +35363,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailCr
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -34208,6 +35461,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailCr
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -34623,18 +35884,21 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailSh
                  memory_in_gbs: _builtins.float,
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -34668,6 +35932,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailLaunchDetailSh
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -35251,6 +36523,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
                  freeform_tags: Mapping[str, _builtins.str],
                  instance_options: Sequence['outputs.GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDetailInstanceOptionResult'],
                  ipxe_script: _builtins.str,
+                 is_ai_enterprise_enabled: _builtins.bool,
                  is_pv_encryption_in_transit_enabled: _builtins.bool,
                  launch_mode: _builtins.str,
                  launch_options: Sequence['outputs.GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDetailLaunchOptionResult'],
@@ -35281,6 +36554,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param Sequence['GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDetailInstanceOptionArgs'] instance_options: Optional mutable instance options. As a part of Instance Metadata Service Security Header, This allows user to disable the legacy imds endpoints.
         :param _builtins.str ipxe_script: This is an advanced option.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether to enable AI enterprise on the instance.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [InstanceConfigurationLaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/InstanceConfigurationLaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
                * `NATIVE` - VM instances launch with iSCSI boot and VFIO devices. The default value for platform images.
@@ -35316,6 +36590,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "instance_options", instance_options)
         pulumi.set(__self__, "ipxe_script", ipxe_script)
+        pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         pulumi.set(__self__, "launch_mode", launch_mode)
         pulumi.set(__self__, "launch_options", launch_options)
@@ -35457,6 +36732,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         This is an advanced option.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> _builtins.bool:
+        """
+        Whether to enable AI enterprise on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isPvEncryptionInTransitEnabled")
@@ -35694,6 +36977,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -35708,6 +36992,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -35722,6 +37007,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -35819,6 +37105,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -36223,18 +37517,21 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
                  memory_in_gbs: _builtins.float,
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the instance, in gigabytes.
         :param _builtins.int nvmes: The number of NVMe drives to be used for storage. A single drive has 6.8 TB available.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -36268,6 +37565,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionLaunchDe
         The total number of OCPUs available to the instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -36468,6 +37773,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionSecondar
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -36482,6 +37788,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionSecondar
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -36496,6 +37803,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionSecondar
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -36595,6 +37903,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailOptionSecondar
         return pulumi.get(self, "skip_source_dest_check")
 
     @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
+
+    @_builtins.property
     @pulumi.getter(name="subnetId")
     def subnet_id(self) -> _builtins.str:
         """
@@ -36687,6 +38003,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailSecondaryVnicC
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.bool assign_ipv6ip: Whether to allocate an IPv6 address at instance and VNIC creation from an IPv6 enabled subnet. Default: False. When provided you may optionally provide an IPv6 prefix (`ipv6SubnetCidr`) of your choice to assign the IPv6 address from. If `ipv6SubnetCidr` is not provided then an IPv6 prefix is chosen for you.
@@ -36701,6 +38018,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailSecondaryVnicC
         :param _builtins.str private_ip: A private IP address of your choice to assign to the VNIC. See the `privateIp` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param Mapping[str, _builtins.str] security_attributes: [Security attributes](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm#security-attributes) are labels for a resource that can be referenced in a [Zero Trust Packet Routing](https://docs.cloud.oracle.com/iaas/Content/zero-trust-packet-routing/overview.htm) (ZPR) policy to control access to ZPR-supported resources.  Example: `{"Oracle-DataSecurity-ZPR": {"MaxEgressCount": {"value":"42","mode":"audit"}}}`
         :param _builtins.bool skip_source_dest_check: Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        :param _builtins.str subnet_cidr: One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         :param _builtins.str subnet_id: The OCID of the subnet to create the VNIC in. See the `subnetId` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         pulumi.set(__self__, "assign_ipv6ip", assign_ipv6ip)
@@ -36715,6 +38033,7 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailSecondaryVnicC
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
 
     @_builtins.property
@@ -36812,6 +38131,14 @@ class GetInstanceConfigurationsInstanceConfigurationInstanceDetailSecondaryVnicC
         Whether the source/destination check is disabled on the VNIC. See the `skipSourceDestCheck` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
         """
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        """
+        One of the IPv4 CIDR blocks allocated to the subnet. Represents the IP range from which the VNIC's private IP address will be assigned if `privateIp` or `privateIpId` is not specified. Either this field or the `privateIp` (or `privateIpId`, if applicable) field must be provided, but not both simultaneously. Example: `192.168.1.0/28` See the `subnetCidr` attribute of [CreateVnicDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/CreateVnicDetails/) for more information.
+        """
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -37017,6 +38344,7 @@ class GetInstanceCreateVnicDetailResult(dict):
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str,
                  vlan_id: _builtins.str):
         """
@@ -37039,6 +38367,7 @@ class GetInstanceCreateVnicDetailResult(dict):
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
         pulumi.set(__self__, "vlan_id", vlan_id)
 
@@ -37119,6 +38448,11 @@ class GetInstanceCreateVnicDetailResult(dict):
     @pulumi.getter(name="skipSourceDestCheck")
     def skip_source_dest_check(self) -> _builtins.bool:
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -38384,6 +39718,111 @@ class GetInstancePoolInstancesInstanceLoadBalancerBackendResult(dict):
 
 
 @pulumi.output_type
+class GetInstancePoolLifecycleManagementResult(dict):
+    def __init__(__self__, *,
+                 lifecycle_actions: Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionResult']):
+        """
+        :param Sequence['GetInstancePoolLifecycleManagementLifecycleActionArgs'] lifecycle_actions: The lifecycle actions for the instance pool.
+        """
+        pulumi.set(__self__, "lifecycle_actions", lifecycle_actions)
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleActions")
+    def lifecycle_actions(self) -> Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionResult']:
+        """
+        The lifecycle actions for the instance pool.
+        """
+        return pulumi.get(self, "lifecycle_actions")
+
+
+@pulumi.output_type
+class GetInstancePoolLifecycleManagementLifecycleActionResult(dict):
+    def __init__(__self__, *,
+                 pre_terminations: Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionPreTerminationResult']):
+        """
+        :param Sequence['GetInstancePoolLifecycleManagementLifecycleActionPreTerminationArgs'] pre_terminations: The data for pre-termination action for an instance pool
+        """
+        pulumi.set(__self__, "pre_terminations", pre_terminations)
+
+    @_builtins.property
+    @pulumi.getter(name="preTerminations")
+    def pre_terminations(self) -> Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionPreTerminationResult']:
+        """
+        The data for pre-termination action for an instance pool
+        """
+        return pulumi.get(self, "pre_terminations")
+
+
+@pulumi.output_type
+class GetInstancePoolLifecycleManagementLifecycleActionPreTerminationResult(dict):
+    def __init__(__self__, *,
+                 is_enabled: _builtins.bool,
+                 on_timeouts: Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult'],
+                 timeout: _builtins.int):
+        """
+        :param _builtins.bool is_enabled: Whether pre-termination action is enabled or not.
+        :param Sequence['GetInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutArgs'] on_timeouts: Options to handle timeout for pre-termination action.
+        :param _builtins.int timeout: The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        pulumi.set(__self__, "is_enabled", is_enabled)
+        pulumi.set(__self__, "on_timeouts", on_timeouts)
+        pulumi.set(__self__, "timeout", timeout)
+
+    @_builtins.property
+    @pulumi.getter(name="isEnabled")
+    def is_enabled(self) -> _builtins.bool:
+        """
+        Whether pre-termination action is enabled or not.
+        """
+        return pulumi.get(self, "is_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="onTimeouts")
+    def on_timeouts(self) -> Sequence['outputs.GetInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult']:
+        """
+        Options to handle timeout for pre-termination action.
+        """
+        return pulumi.get(self, "on_timeouts")
+
+    @_builtins.property
+    @pulumi.getter
+    def timeout(self) -> _builtins.int:
+        """
+        The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        return pulumi.get(self, "timeout")
+
+
+@pulumi.output_type
+class GetInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult(dict):
+    def __init__(__self__, *,
+                 preserve_block_volume_mode: _builtins.str,
+                 preserve_boot_volume_mode: _builtins.str):
+        """
+        :param _builtins.str preserve_block_volume_mode: Whether the block volume should be preserved after termination.
+        :param _builtins.str preserve_boot_volume_mode: Whether the boot volume should be preserved after termination.
+        """
+        pulumi.set(__self__, "preserve_block_volume_mode", preserve_block_volume_mode)
+        pulumi.set(__self__, "preserve_boot_volume_mode", preserve_boot_volume_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBlockVolumeMode")
+    def preserve_block_volume_mode(self) -> _builtins.str:
+        """
+        Whether the block volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_block_volume_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBootVolumeMode")
+    def preserve_boot_volume_mode(self) -> _builtins.str:
+        """
+        Whether the boot volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_boot_volume_mode")
+
+
+@pulumi.output_type
 class GetInstancePoolLoadBalancerResult(dict):
     def __init__(__self__, *,
                  backend_set_name: _builtins.str,
@@ -38695,6 +40134,7 @@ class GetInstancePoolsInstancePoolResult(dict):
                  instance_configuration_id: _builtins.str,
                  instance_display_name_formatter: _builtins.str,
                  instance_hostname_formatter: _builtins.str,
+                 lifecycle_managements: Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementResult'],
                  load_balancers: Sequence['outputs.GetInstancePoolsInstancePoolLoadBalancerResult'],
                  placement_configurations: Sequence['outputs.GetInstancePoolsInstancePoolPlacementConfigurationResult'],
                  size: _builtins.int,
@@ -38709,6 +40149,7 @@ class GetInstancePoolsInstancePoolResult(dict):
         :param _builtins.str instance_configuration_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the instance configuration associated with the instance pool.
         :param _builtins.str instance_display_name_formatter: A user-friendly formatter for the instance pool's instances. Instance displaynames follow the format. The formatter does not retroactively change instance's displaynames, only instance displaynames in the future follow the format
         :param _builtins.str instance_hostname_formatter: A user-friendly formatter for the instance pool's instances. Instance hostnames follow the format. The formatter does not retroactively change instance's hostnames, only instance hostnames in the future follow the format
+        :param Sequence['GetInstancePoolsInstancePoolLifecycleManagementArgs'] lifecycle_managements: The lifecycle management options for the instance pool.
         :param Sequence['GetInstancePoolsInstancePoolLoadBalancerArgs'] load_balancers: The load balancers attached to the instance pool.
         :param Sequence['GetInstancePoolsInstancePoolPlacementConfigurationArgs'] placement_configurations: The placement configurations for the instance pool.
         :param _builtins.int size: The number of actual instances in the instance pool on the cloud. This attribute will be different when instance pool is used along with autoScaling Configuration.
@@ -38724,6 +40165,7 @@ class GetInstancePoolsInstancePoolResult(dict):
         pulumi.set(__self__, "instance_configuration_id", instance_configuration_id)
         pulumi.set(__self__, "instance_display_name_formatter", instance_display_name_formatter)
         pulumi.set(__self__, "instance_hostname_formatter", instance_hostname_formatter)
+        pulumi.set(__self__, "lifecycle_managements", lifecycle_managements)
         pulumi.set(__self__, "load_balancers", load_balancers)
         pulumi.set(__self__, "placement_configurations", placement_configurations)
         pulumi.set(__self__, "size", size)
@@ -38800,6 +40242,14 @@ class GetInstancePoolsInstancePoolResult(dict):
         return pulumi.get(self, "instance_hostname_formatter")
 
     @_builtins.property
+    @pulumi.getter(name="lifecycleManagements")
+    def lifecycle_managements(self) -> Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementResult']:
+        """
+        The lifecycle management options for the instance pool.
+        """
+        return pulumi.get(self, "lifecycle_managements")
+
+    @_builtins.property
     @pulumi.getter(name="loadBalancers")
     def load_balancers(self) -> Sequence['outputs.GetInstancePoolsInstancePoolLoadBalancerResult']:
         """
@@ -38838,6 +40288,111 @@ class GetInstancePoolsInstancePoolResult(dict):
         The date and time the instance pool was created, in the format defined by [RFC3339](https://tools.ietf.org/html/rfc3339). Example: `2016-08-25T21:10:29.600Z`
         """
         return pulumi.get(self, "time_created")
+
+
+@pulumi.output_type
+class GetInstancePoolsInstancePoolLifecycleManagementResult(dict):
+    def __init__(__self__, *,
+                 lifecycle_actions: Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionResult']):
+        """
+        :param Sequence['GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionArgs'] lifecycle_actions: The lifecycle actions for the instance pool.
+        """
+        pulumi.set(__self__, "lifecycle_actions", lifecycle_actions)
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleActions")
+    def lifecycle_actions(self) -> Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionResult']:
+        """
+        The lifecycle actions for the instance pool.
+        """
+        return pulumi.get(self, "lifecycle_actions")
+
+
+@pulumi.output_type
+class GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionResult(dict):
+    def __init__(__self__, *,
+                 pre_terminations: Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationResult']):
+        """
+        :param Sequence['GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationArgs'] pre_terminations: The data for pre-termination action for an instance pool
+        """
+        pulumi.set(__self__, "pre_terminations", pre_terminations)
+
+    @_builtins.property
+    @pulumi.getter(name="preTerminations")
+    def pre_terminations(self) -> Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationResult']:
+        """
+        The data for pre-termination action for an instance pool
+        """
+        return pulumi.get(self, "pre_terminations")
+
+
+@pulumi.output_type
+class GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationResult(dict):
+    def __init__(__self__, *,
+                 is_enabled: _builtins.bool,
+                 on_timeouts: Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult'],
+                 timeout: _builtins.int):
+        """
+        :param _builtins.bool is_enabled: Whether pre-termination action is enabled or not.
+        :param Sequence['GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutArgs'] on_timeouts: Options to handle timeout for pre-termination action.
+        :param _builtins.int timeout: The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        pulumi.set(__self__, "is_enabled", is_enabled)
+        pulumi.set(__self__, "on_timeouts", on_timeouts)
+        pulumi.set(__self__, "timeout", timeout)
+
+    @_builtins.property
+    @pulumi.getter(name="isEnabled")
+    def is_enabled(self) -> _builtins.bool:
+        """
+        Whether pre-termination action is enabled or not.
+        """
+        return pulumi.get(self, "is_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="onTimeouts")
+    def on_timeouts(self) -> Sequence['outputs.GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult']:
+        """
+        Options to handle timeout for pre-termination action.
+        """
+        return pulumi.get(self, "on_timeouts")
+
+    @_builtins.property
+    @pulumi.getter
+    def timeout(self) -> _builtins.int:
+        """
+        The timeout in seconds for pre-termination action for an instance pool(min = 0 sec, max = 7200 secs).
+        """
+        return pulumi.get(self, "timeout")
+
+
+@pulumi.output_type
+class GetInstancePoolsInstancePoolLifecycleManagementLifecycleActionPreTerminationOnTimeoutResult(dict):
+    def __init__(__self__, *,
+                 preserve_block_volume_mode: _builtins.str,
+                 preserve_boot_volume_mode: _builtins.str):
+        """
+        :param _builtins.str preserve_block_volume_mode: Whether the block volume should be preserved after termination.
+        :param _builtins.str preserve_boot_volume_mode: Whether the boot volume should be preserved after termination.
+        """
+        pulumi.set(__self__, "preserve_block_volume_mode", preserve_block_volume_mode)
+        pulumi.set(__self__, "preserve_boot_volume_mode", preserve_boot_volume_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBlockVolumeMode")
+    def preserve_block_volume_mode(self) -> _builtins.str:
+        """
+        Whether the block volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_block_volume_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="preserveBootVolumeMode")
+    def preserve_boot_volume_mode(self) -> _builtins.str:
+        """
+        Whether the boot volume should be preserved after termination.
+        """
+        return pulumi.get(self, "preserve_boot_volume_mode")
 
 
 @pulumi.output_type
@@ -39175,6 +40730,7 @@ class GetInstanceShapeConfigResult(dict):
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
                  processor_description: _builtins.str,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
@@ -39188,6 +40744,7 @@ class GetInstanceShapeConfigResult(dict):
         :param _builtins.float networking_bandwidth_in_gbps: The networking bandwidth available to the instance, in gigabits per second.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
         :param _builtins.str processor_description: A short description of the instance's processor (CPU).
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
@@ -39202,6 +40759,7 @@ class GetInstanceShapeConfigResult(dict):
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
         pulumi.set(__self__, "processor_description", processor_description)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -39296,6 +40854,14 @@ class GetInstanceShapeConfigResult(dict):
         A short description of the instance's processor (CPU).
         """
         return pulumi.get(self, "processor_description")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -39495,6 +41061,7 @@ class GetInstancesInstanceResult(dict):
                  instance_configuration_id: _builtins.str,
                  instance_options: Sequence['outputs.GetInstancesInstanceInstanceOptionResult'],
                  ipxe_script: _builtins.str,
+                 is_ai_enterprise_enabled: _builtins.bool,
                  is_cross_numa_node: _builtins.bool,
                  is_pv_encryption_in_transit_enabled: _builtins.bool,
                  launch_mode: _builtins.str,
@@ -39541,6 +41108,7 @@ class GetInstancesInstanceResult(dict):
         :param _builtins.str instance_configuration_id: The OCID of the Instance Configuration used to source launch details for this instance. Any other fields supplied in the instance launch request override the details stored in the Instance Configuration for this instance launch.
         :param Sequence['GetInstancesInstanceInstanceOptionArgs'] instance_options: Optional mutable instance options
         :param _builtins.str ipxe_script: When a bare metal or virtual machine instance boots, the iPXE firmware that runs on the instance is configured to run an iPXE script to continue the boot process.
+        :param _builtins.bool is_ai_enterprise_enabled: Whether AI enterprise is enabled on the instance.
         :param _builtins.bool is_cross_numa_node: Whether the instance’s OCPUs and memory are distributed across multiple NUMA nodes.
         :param _builtins.bool is_pv_encryption_in_transit_enabled: Deprecated. Instead use `isPvEncryptionInTransitEnabled` in [LaunchInstanceDetails](https://docs.cloud.oracle.com/iaas/api/#/en/iaas/latest/datatypes/LaunchInstanceDetails).
         :param _builtins.str launch_mode: Specifies the configuration mode for launching virtual machine (VM) instances. The configuration modes are:
@@ -39587,6 +41155,7 @@ class GetInstancesInstanceResult(dict):
         pulumi.set(__self__, "instance_configuration_id", instance_configuration_id)
         pulumi.set(__self__, "instance_options", instance_options)
         pulumi.set(__self__, "ipxe_script", ipxe_script)
+        pulumi.set(__self__, "is_ai_enterprise_enabled", is_ai_enterprise_enabled)
         pulumi.set(__self__, "is_cross_numa_node", is_cross_numa_node)
         pulumi.set(__self__, "is_pv_encryption_in_transit_enabled", is_pv_encryption_in_transit_enabled)
         pulumi.set(__self__, "launch_mode", launch_mode)
@@ -39782,6 +41351,14 @@ class GetInstancesInstanceResult(dict):
         When a bare metal or virtual machine instance boots, the iPXE firmware that runs on the instance is configured to run an iPXE script to continue the boot process.
         """
         return pulumi.get(self, "ipxe_script")
+
+    @_builtins.property
+    @pulumi.getter(name="isAiEnterpriseEnabled")
+    def is_ai_enterprise_enabled(self) -> _builtins.bool:
+        """
+        Whether AI enterprise is enabled on the instance.
+        """
+        return pulumi.get(self, "is_ai_enterprise_enabled")
 
     @_builtins.property
     @pulumi.getter(name="isCrossNumaNode")
@@ -40104,6 +41681,7 @@ class GetInstancesInstanceCreateVnicDetailResult(dict):
                  private_ip: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str,
                  vlan_id: _builtins.str):
         """
@@ -40124,6 +41702,7 @@ class GetInstancesInstanceCreateVnicDetailResult(dict):
         pulumi.set(__self__, "private_ip", private_ip)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
         pulumi.set(__self__, "vlan_id", vlan_id)
 
@@ -40198,6 +41777,11 @@ class GetInstancesInstanceCreateVnicDetailResult(dict):
     @pulumi.getter(name="skipSourceDestCheck")
     def skip_source_dest_check(self) -> _builtins.bool:
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")
@@ -40792,6 +42376,7 @@ class GetInstancesInstanceShapeConfigResult(dict):
                  nvmes: _builtins.int,
                  ocpus: _builtins.float,
                  processor_description: _builtins.str,
+                 resource_management: _builtins.str,
                  vcpus: _builtins.int):
         """
         :param _builtins.str baseline_ocpu_utilization: The baseline OCPU utilization for a subcore burstable VM instance. Leave this attribute blank for a non-burstable instance, or explicitly specify non-burstable with `BASELINE_1_1`.
@@ -40805,6 +42390,7 @@ class GetInstancesInstanceShapeConfigResult(dict):
         :param _builtins.float networking_bandwidth_in_gbps: The networking bandwidth available to the instance, in gigabits per second.
         :param _builtins.float ocpus: The total number of OCPUs available to the instance.
         :param _builtins.str processor_description: A short description of the instance's processor (CPU).
+        :param _builtins.str resource_management: This field is reserved for internal use.
         :param _builtins.int vcpus: The total number of VCPUs available to the instance. This can be used instead of OCPUs, in which case the actual number of OCPUs will be calculated based on this value and the actual hardware. This must be a multiple of 2.
         """
         pulumi.set(__self__, "baseline_ocpu_utilization", baseline_ocpu_utilization)
@@ -40819,6 +42405,7 @@ class GetInstancesInstanceShapeConfigResult(dict):
         pulumi.set(__self__, "nvmes", nvmes)
         pulumi.set(__self__, "ocpus", ocpus)
         pulumi.set(__self__, "processor_description", processor_description)
+        pulumi.set(__self__, "resource_management", resource_management)
         pulumi.set(__self__, "vcpus", vcpus)
 
     @_builtins.property
@@ -40913,6 +42500,14 @@ class GetInstancesInstanceShapeConfigResult(dict):
         A short description of the instance's processor (CPU).
         """
         return pulumi.get(self, "processor_description")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagement")
+    def resource_management(self) -> _builtins.str:
+        """
+        This field is reserved for internal use.
+        """
+        return pulumi.get(self, "resource_management")
 
     @_builtins.property
     @pulumi.getter
@@ -44517,6 +46112,7 @@ class GetPrivateIpsFilterResult(dict):
 class GetPrivateIpsPrivateIpResult(dict):
     def __init__(__self__, *,
                  availability_domain: _builtins.str,
+                 cidr_prefix_length: _builtins.int,
                  compartment_id: _builtins.str,
                  defined_tags: Mapping[str, _builtins.str],
                  display_name: _builtins.str,
@@ -44525,6 +46121,7 @@ class GetPrivateIpsPrivateIpResult(dict):
                  id: _builtins.str,
                  ip_address: _builtins.str,
                  ip_state: _builtins.str,
+                 ipv4subnet_cidr_at_creation: _builtins.str,
                  is_primary: _builtins.bool,
                  is_reserved: _builtins.bool,
                  lifetime: _builtins.str,
@@ -44535,6 +46132,7 @@ class GetPrivateIpsPrivateIpResult(dict):
                  vnic_id: _builtins.str):
         """
         :param _builtins.str availability_domain: The private IP's availability domain. This attribute will be null if this is a *secondary* private IP assigned to a VNIC that is in a *regional* subnet.  Example: `Uocm:PHX-AD-1`
+        :param _builtins.int cidr_prefix_length: The secondary IPv4 CIDR prefix length.
         :param _builtins.str compartment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment containing the private IP.
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A user-friendly name. Does not have to be unique, and it's changeable. Avoid entering confidential information.
@@ -44543,6 +46141,7 @@ class GetPrivateIpsPrivateIpResult(dict):
         :param _builtins.str id: The private IP's Oracle ID ([OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm)).
         :param _builtins.str ip_address: An IP address. This could be either IPv4 or IPv6, depending on the resource. Example: `10.0.3.3`
         :param _builtins.str ip_state: State of the IP address. If an IP address is assigned to a VNIC it is ASSIGNED otherwise AVAILABLE
+        :param _builtins.str ipv4subnet_cidr_at_creation: Ipv4 Subnet CIDR specified whn creating the PrivateIP.
         :param _builtins.bool is_primary: Whether this private IP is the primary one on the VNIC. Primary private IPs are unassigned and deleted automatically when the VNIC is terminated.  Example: `true`
         :param _builtins.str lifetime: Lifetime of the IP address. There are two types of IPs:
                * Ephemeral
@@ -44554,6 +46153,7 @@ class GetPrivateIpsPrivateIpResult(dict):
         :param _builtins.str vnic_id: The OCID of the VNIC.
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
+        pulumi.set(__self__, "cidr_prefix_length", cidr_prefix_length)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "display_name", display_name)
@@ -44562,6 +46162,7 @@ class GetPrivateIpsPrivateIpResult(dict):
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "ip_address", ip_address)
         pulumi.set(__self__, "ip_state", ip_state)
+        pulumi.set(__self__, "ipv4subnet_cidr_at_creation", ipv4subnet_cidr_at_creation)
         pulumi.set(__self__, "is_primary", is_primary)
         pulumi.set(__self__, "is_reserved", is_reserved)
         pulumi.set(__self__, "lifetime", lifetime)
@@ -44578,6 +46179,14 @@ class GetPrivateIpsPrivateIpResult(dict):
         The private IP's availability domain. This attribute will be null if this is a *secondary* private IP assigned to a VNIC that is in a *regional* subnet.  Example: `Uocm:PHX-AD-1`
         """
         return pulumi.get(self, "availability_domain")
+
+    @_builtins.property
+    @pulumi.getter(name="cidrPrefixLength")
+    def cidr_prefix_length(self) -> _builtins.int:
+        """
+        The secondary IPv4 CIDR prefix length.
+        """
+        return pulumi.get(self, "cidr_prefix_length")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -44642,6 +46251,14 @@ class GetPrivateIpsPrivateIpResult(dict):
         State of the IP address. If an IP address is assigned to a VNIC it is ASSIGNED otherwise AVAILABLE
         """
         return pulumi.get(self, "ip_state")
+
+    @_builtins.property
+    @pulumi.getter(name="ipv4subnetCidrAtCreation")
+    def ipv4subnet_cidr_at_creation(self) -> _builtins.str:
+        """
+        Ipv4 Subnet CIDR specified whn creating the PrivateIP.
+        """
+        return pulumi.get(self, "ipv4subnet_cidr_at_creation")
 
     @_builtins.property
     @pulumi.getter(name="isPrimary")
@@ -46425,6 +48042,7 @@ class GetShapeShapeResult(dict):
                  ocpu_options: Sequence['outputs.GetShapeShapeOcpuOptionResult'],
                  ocpus: _builtins.float,
                  platform_config_options: Sequence['outputs.GetShapeShapePlatformConfigOptionResult'],
+                 platform_names: Sequence[_builtins.str],
                  processor_description: _builtins.str,
                  quota_names: Sequence[_builtins.str],
                  rdma_bandwidth_in_gbps: _builtins.int,
@@ -46454,6 +48072,7 @@ class GetShapeShapeResult(dict):
         pulumi.set(__self__, "ocpu_options", ocpu_options)
         pulumi.set(__self__, "ocpus", ocpus)
         pulumi.set(__self__, "platform_config_options", platform_config_options)
+        pulumi.set(__self__, "platform_names", platform_names)
         pulumi.set(__self__, "processor_description", processor_description)
         pulumi.set(__self__, "quota_names", quota_names)
         pulumi.set(__self__, "rdma_bandwidth_in_gbps", rdma_bandwidth_in_gbps)
@@ -46575,6 +48194,11 @@ class GetShapeShapeResult(dict):
     @pulumi.getter(name="platformConfigOptions")
     def platform_config_options(self) -> Sequence['outputs.GetShapeShapePlatformConfigOptionResult']:
         return pulumi.get(self, "platform_config_options")
+
+    @_builtins.property
+    @pulumi.getter(name="platformNames")
+    def platform_names(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "platform_names")
 
     @_builtins.property
     @pulumi.getter(name="processorDescription")
@@ -47082,6 +48706,7 @@ class GetShapesShapeResult(dict):
                  ocpu_options: Sequence['outputs.GetShapesShapeOcpuOptionResult'],
                  ocpus: _builtins.float,
                  platform_config_options: Sequence['outputs.GetShapesShapePlatformConfigOptionResult'],
+                 platform_names: Sequence[_builtins.str],
                  processor_description: _builtins.str,
                  quota_names: Sequence[_builtins.str],
                  rdma_bandwidth_in_gbps: _builtins.int,
@@ -47112,8 +48737,9 @@ class GetShapesShapeResult(dict):
         :param Sequence['GetShapesShapeOcpuOptionArgs'] ocpu_options: For a flexible shape, the number of OCPUs available for instances that use this shape.
         :param _builtins.float ocpus: The default number of OCPUs available for this shape.
         :param Sequence['GetShapesShapePlatformConfigOptionArgs'] platform_config_options: The list of supported platform configuration options for this shape.
+        :param Sequence[_builtins.str] platform_names: The list of platform names that can be used for this shape
         :param _builtins.str processor_description: A short description of the shape's processor (CPU).
-        :param Sequence[_builtins.str] quota_names: The list of of compartment quotas for the shape.
+        :param Sequence[_builtins.str] quota_names: The list of compartment quotas for the shape.
         :param _builtins.int rdma_bandwidth_in_gbps: The networking bandwidth available for the remote direct memory access (RDMA) network for this shape, in gigabits per second.
         :param _builtins.int rdma_ports: The number of networking ports available for the remote direct memory access (RDMA) network between nodes in a high performance computing (HPC) cluster network. If the shape does not support cluster networks, this value is `0`.
         :param Sequence['GetShapesShapeRecommendedAlternativeArgs'] recommended_alternatives: The list of shapes and shape details (if applicable) that Oracle recommends that you use as an alternative to the current shape.
@@ -47142,6 +48768,7 @@ class GetShapesShapeResult(dict):
         pulumi.set(__self__, "ocpu_options", ocpu_options)
         pulumi.set(__self__, "ocpus", ocpus)
         pulumi.set(__self__, "platform_config_options", platform_config_options)
+        pulumi.set(__self__, "platform_names", platform_names)
         pulumi.set(__self__, "processor_description", processor_description)
         pulumi.set(__self__, "quota_names", quota_names)
         pulumi.set(__self__, "rdma_bandwidth_in_gbps", rdma_bandwidth_in_gbps)
@@ -47334,6 +48961,14 @@ class GetShapesShapeResult(dict):
         return pulumi.get(self, "platform_config_options")
 
     @_builtins.property
+    @pulumi.getter(name="platformNames")
+    def platform_names(self) -> Sequence[_builtins.str]:
+        """
+        The list of platform names that can be used for this shape
+        """
+        return pulumi.get(self, "platform_names")
+
+    @_builtins.property
     @pulumi.getter(name="processorDescription")
     def processor_description(self) -> _builtins.str:
         """
@@ -47345,7 +48980,7 @@ class GetShapesShapeResult(dict):
     @pulumi.getter(name="quotaNames")
     def quota_names(self) -> Sequence[_builtins.str]:
         """
-        The list of of compartment quotas for the shape.
+        The list of compartment quotas for the shape.
         """
         return pulumi.get(self, "quota_names")
 
@@ -48061,6 +49696,7 @@ class GetSubnetsSubnetResult(dict):
                  dns_label: _builtins.str,
                  freeform_tags: Mapping[str, _builtins.str],
                  id: _builtins.str,
+                 ipv4cidr_blocks: Sequence[_builtins.str],
                  ipv6cidr_block: _builtins.str,
                  ipv6cidr_blocks: Sequence[_builtins.str],
                  ipv6virtual_router_ip: _builtins.str,
@@ -48084,6 +49720,10 @@ class GetSubnetsSubnetResult(dict):
         :param _builtins.str dns_label: A DNS label for the subnet, used in conjunction with the VNIC's hostname and VCN's DNS label to form a fully qualified domain name (FQDN) for each VNIC within this subnet (for example, `bminstance1.subnet123.vcn1.oraclevcn.com`). Must be an alphanumeric string that begins with a letter and is unique within the VCN. The value cannot be changed.
         :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
         :param _builtins.str id: The subnet's Oracle ID ([OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm)).
+        :param Sequence[_builtins.str] ipv4cidr_blocks: The list of all IPv4 CIDR blocks for the subnet that meets the following criteria:
+               * Ipv4 CIDR blocks must be valid.
+               * Multiple Ipv4 CIDR blocks must not overlap each other or the on-premises network CIDR block.
+               * The number of prefixes must not exceed the limit of IPv4 prefixes allowed to a subnet.
         :param _builtins.str ipv6cidr_block: For an IPv6-enabled subnet, this is the IPv6 prefix for the subnet's IP address space. The subnet size is always /64. See [IPv6 Addresses](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/ipv6.htm).  Example: `2001:0db8:0123:1111::/64`
         :param Sequence[_builtins.str] ipv6cidr_blocks: The list of all IPv6 prefixes (Oracle allocated IPv6 GUA, ULA or private IPv6 prefixes, BYOIPv6 prefixes) for the subnet.
         :param _builtins.str ipv6virtual_router_ip: For an IPv6-enabled subnet, this is the IPv6 address of the virtual router.  Example: `2001:0db8:0123:1111:89ab:cdef:1234:5678`
@@ -48107,6 +49747,7 @@ class GetSubnetsSubnetResult(dict):
         pulumi.set(__self__, "dns_label", dns_label)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "ipv4cidr_blocks", ipv4cidr_blocks)
         pulumi.set(__self__, "ipv6cidr_block", ipv6cidr_block)
         pulumi.set(__self__, "ipv6cidr_blocks", ipv6cidr_blocks)
         pulumi.set(__self__, "ipv6virtual_router_ip", ipv6virtual_router_ip)
@@ -48192,6 +49833,17 @@ class GetSubnetsSubnetResult(dict):
         The subnet's Oracle ID ([OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm)).
         """
         return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="ipv4cidrBlocks")
+    def ipv4cidr_blocks(self) -> Sequence[_builtins.str]:
+        """
+        The list of all IPv4 CIDR blocks for the subnet that meets the following criteria:
+        * Ipv4 CIDR blocks must be valid.
+        * Multiple Ipv4 CIDR blocks must not overlap each other or the on-premises network CIDR block.
+        * The number of prefixes must not exceed the limit of IPv4 prefixes allowed to a subnet.
+        """
+        return pulumi.get(self, "ipv4cidr_blocks")
 
     @_builtins.property
     @pulumi.getter(name="ipv6cidrBlock")
@@ -50076,6 +51728,7 @@ class GetVnicAttachmentsVnicAttachmentCreateVnicDetailResult(dict):
                  route_table_id: _builtins.str,
                  security_attributes: Mapping[str, _builtins.str],
                  skip_source_dest_check: _builtins.bool,
+                 subnet_cidr: _builtins.str,
                  subnet_id: _builtins.str,
                  vlan_id: _builtins.str):
         """
@@ -50096,6 +51749,7 @@ class GetVnicAttachmentsVnicAttachmentCreateVnicDetailResult(dict):
         pulumi.set(__self__, "route_table_id", route_table_id)
         pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "skip_source_dest_check", skip_source_dest_check)
+        pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         pulumi.set(__self__, "subnet_id", subnet_id)
         pulumi.set(__self__, "vlan_id", vlan_id)
 
@@ -50166,6 +51820,11 @@ class GetVnicAttachmentsVnicAttachmentCreateVnicDetailResult(dict):
     @pulumi.getter(name="skipSourceDestCheck")
     def skip_source_dest_check(self) -> _builtins.bool:
         return pulumi.get(self, "skip_source_dest_check")
+
+    @_builtins.property
+    @pulumi.getter(name="subnetCidr")
+    def subnet_cidr(self) -> _builtins.str:
+        return pulumi.get(self, "subnet_cidr")
 
     @_builtins.property
     @pulumi.getter(name="subnetId")

@@ -53,21 +53,45 @@ theme:
     - toc.follow
 
 nav:
+  - Home: index.md
   - UiPath SDK:
         - Getting Started: core/getting_started.md
+        - Release Notes: core/release_notes.md
         - Environment Variables: core/environment_variables.md
         - CLI Reference: cli/index.md
         - Tracing: core/traced.md
         - Services:
-            - Actions: core/actions.md
+            - Action Center: core/action_center.md
             - Assets: core/assets.md
+            - Attachments: core/attachments.md
             - Buckets: core/buckets.md
             - Connections: core/connections.md
             - Context Grounding: core/context_grounding.md
+            - Data Service: core/entities_service.md
+            - Documents: core/documents.md
             - Jobs: core/jobs.md
+            - Guardrails: core/guardrails.md
             - LLM Gateway: core/llm_gateway.md
             - Queues: core/queues.md
             - Processes: core/processes.md
+            - Resource Catalog: core/resource_catalog.md
+        - Models:
+            - Documents: core/documents_models.md
+        - Evaluations:
+            - Overview: eval/index.md
+            - Output Evaluators:
+                - Contains: eval/contains.md
+                - Exact Match: eval/exact_match.md
+                - JSON Similarity: eval/json_similarity.md
+                - LLM Judge Output: eval/llm_judge_output.md
+            - Trajectory Evaluators:
+                - Tool Call Order: eval/tool_call_order.md
+                - Tool Call Count: eval/tool_call_count.md
+                - Tool Call Args: eval/tool_call_args.md
+                - Tool Call Output: eval/tool_call_output.md
+                - LLM Judge Trajectory: eval/llm_judge_trajectory.md
+            - Custom Evaluators: eval/custom_evaluators.md
+
   - UiPath MCP SDK:
       - Getting Started: mcp/quick_start.md
       - How To Pack Binary: mcp/how_to_pack_binary.md
@@ -83,13 +107,28 @@ nav:
       - LLMs and Embeddings: llamaindex/llms_and_embeddings.md
       - Context Grounding: llamaindex/context_grounding.md
       - Human In The Loop: llamaindex/human_in_the_loop.md
-      - Sample Agents: https://github.com/UiPath/uipath-llamaindex-python/tree/main/samples
+      - Sample Agents: https://github.com/UiPath/uipath-integrations-python/tree/main/packages/uipath-llamaindex/samples
   - How To Contribute: CONTRIBUTING.md
   - FAQ: FAQ.md
+  - Automation Suite: AutomationSuite.md
   - Release Policy: release_policy.md
 
 plugins:
   - search
+  - llmstxt:
+      sections:
+        "UiPath SDK":
+          - core/*.md
+          - cli/*.md
+        "UiPath MCP SDK":
+          - mcp/*.md
+        "UiPath LangChain SDK":
+          - langchain/*.md
+        "UiPath LlamaIndex SDK":
+          - llamaindex/*.md
+        "Contributing & Resources":
+          - CONTRIBUTING.md
+          - FAQ.md
   - mkdocstrings:
       default_handler: python
       handlers:

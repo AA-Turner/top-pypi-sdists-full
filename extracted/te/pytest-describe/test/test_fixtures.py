@@ -1,8 +1,8 @@
 """Test with fixtures"""
 
 
-def test_can_access_local_fixture(testdir):
-    testdir.makepyfile(
+def test_can_access_local_fixture(pytester):
+    pytester.makepyfile(
         """
         import pytest
 
@@ -13,14 +13,15 @@ def test_can_access_local_fixture(testdir):
 
             def thing_is_42(thing):
                 assert thing == 42
-        """)
+        """
+    )
 
-    result = testdir.runpytest()
+    result = pytester.runpytest()
     result.assert_outcomes(passed=1)
 
 
-def test_can_access_fixture_from_nested_scope(testdir):
-    testdir.makepyfile(
+def test_can_access_fixture_from_nested_scope(pytester):
+    pytester.makepyfile(
         """
         import pytest
 
@@ -32,14 +33,15 @@ def test_can_access_fixture_from_nested_scope(testdir):
             def describe_a_nested_scope():
                 def thing_is_42(thing):
                     assert thing == 42
-        """)
+        """
+    )
 
-    result = testdir.runpytest()
+    result = pytester.runpytest()
     result.assert_outcomes(passed=1)
 
 
-def test_local_fixture_overrides(testdir):
-    testdir.makepyfile(
+def test_local_fixture_overrides(pytester):
+    pytester.makepyfile(
         """
         import pytest
 
@@ -58,7 +60,8 @@ def test_local_fixture_overrides(testdir):
 
             def thing_is_12(thing):
                 assert thing == 12
-        """)
+        """
+    )
 
-    result = testdir.runpytest()
+    result = pytester.runpytest()
     result.assert_outcomes(passed=2)

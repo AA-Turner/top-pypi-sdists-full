@@ -3,7 +3,7 @@ Type annotations for outposts service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_outposts/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -24,11 +25,13 @@ from .literals import (
     AddressTypeType,
     AssetStateType,
     AWSServiceNameType,
+    BlockingResourceTypeType,
     CapacityTaskFailureTypeType,
     CapacityTaskStatusType,
     CatalogItemClassType,
     CatalogItemStatusType,
     ComputeAssetStateType,
+    DecommissionRequestStatusType,
     FiberOpticCableTypeType,
     LineItemStatusType,
     MaximumSupportedWeightLbsType,
@@ -51,12 +54,6 @@ from .literals import (
     UplinkGbpsType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -155,6 +152,8 @@ __all__ = (
     "StartCapacityTaskOutputTypeDef",
     "StartConnectionRequestTypeDef",
     "StartConnectionResponseTypeDef",
+    "StartOutpostDecommissionInputTypeDef",
+    "StartOutpostDecommissionOutputTypeDef",
     "SubscriptionTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
@@ -247,7 +246,7 @@ class ConnectionDetailsTypeDef(TypedDict):
     ServerEndpoint: NotRequired[str]
     ClientTunnelAddress: NotRequired[str]
     ServerTunnelAddress: NotRequired[str]
-    AllowedIps: NotRequired[List[str]]
+    AllowedIps: NotRequired[list[str]]
 
 
 class LineItemRequestTypeDef(TypedDict):
@@ -258,7 +257,7 @@ class LineItemRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -283,7 +282,7 @@ class OutpostTypeDef(TypedDict):
     LifeCycleStatus: NotRequired[str]
     AvailabilityZone: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     SiteArn: NotRequired[str]
     SupportedHardwareType: NotRequired[SupportedHardwareTypeType]
 
@@ -319,9 +318,9 @@ class InstanceTypeCapacityTypeDef(TypedDict):
 
 
 class InstancesToExcludeOutputTypeDef(TypedDict):
-    Instances: NotRequired[List[str]]
-    AccountIds: NotRequired[List[str]]
-    Services: NotRequired[List[AWSServiceNameType]]
+    Instances: NotRequired[list[str]]
+    AccountIds: NotRequired[list[str]]
+    Services: NotRequired[list[AWSServiceNameType]]
 
 
 class GetCatalogItemInputTypeDef(TypedDict):
@@ -352,7 +351,7 @@ class SubscriptionTypeDef(TypedDict):
     SubscriptionId: NotRequired[str]
     SubscriptionType: NotRequired[SubscriptionTypeType]
     SubscriptionStatus: NotRequired[SubscriptionStatusType]
-    OrderIds: NotRequired[List[str]]
+    OrderIds: NotRequired[list[str]]
     BeginDate: NotRequired[datetime]
     EndDate: NotRequired[datetime]
     MonthlyRecurringPrice: NotRequired[float]
@@ -399,7 +398,7 @@ class InstancesToExcludeTypeDef(TypedDict):
 
 class LineItemAssetInformationTypeDef(TypedDict):
     AssetId: NotRequired[str]
-    MacAddressList: NotRequired[List[str]]
+    MacAddressList: NotRequired[list[str]]
 
 
 class ShipmentInformationTypeDef(TypedDict):
@@ -458,7 +457,7 @@ class OrderSummaryTypeDef(TypedDict):
     OrderId: NotRequired[str]
     OrderType: NotRequired[OrderTypeType]
     Status: NotRequired[OrderStatusType]
-    LineItemCountsByStatus: NotRequired[Dict[LineItemStatusType, int]]
+    LineItemCountsByStatus: NotRequired[dict[LineItemStatusType, int]]
     OrderSubmissionDate: NotRequired[datetime]
     OrderFulfilledDate: NotRequired[datetime]
 
@@ -488,6 +487,11 @@ class StartConnectionRequestTypeDef(TypedDict):
     ClientPublicKey: str
     NetworkInterfaceDeviceIndex: int
     DeviceSerialNumber: NotRequired[str]
+
+
+class StartOutpostDecommissionInputTypeDef(TypedDict):
+    OutpostIdentifier: str
+    ValidateOnly: NotRequired[bool]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -536,25 +540,25 @@ class UpdateSiteAddressInputTypeDef(TypedDict):
 class ComputeAttributesTypeDef(TypedDict):
     HostId: NotRequired[str]
     State: NotRequired[ComputeAssetStateType]
-    InstanceFamilies: NotRequired[List[str]]
-    InstanceTypeCapacities: NotRequired[List[AssetInstanceTypeCapacityTypeDef]]
+    InstanceFamilies: NotRequired[list[str]]
+    InstanceTypeCapacities: NotRequired[list[AssetInstanceTypeCapacityTypeDef]]
     MaxVcpus: NotRequired[int]
 
 
 class CatalogItemTypeDef(TypedDict):
     CatalogItemId: NotRequired[str]
     ItemStatus: NotRequired[CatalogItemStatusType]
-    EC2Capacities: NotRequired[List[EC2CapacityTypeDef]]
+    EC2Capacities: NotRequired[list[EC2CapacityTypeDef]]
     PowerKva: NotRequired[float]
     WeightLbs: NotRequired[int]
-    SupportedUplinkGbps: NotRequired[List[int]]
-    SupportedStorage: NotRequired[List[SupportedStorageEnumType]]
+    SupportedUplinkGbps: NotRequired[list[int]]
+    SupportedStorage: NotRequired[list[SupportedStorageEnumType]]
 
 
 class CreateOrderInputTypeDef(TypedDict):
     OutpostIdentifier: str
-    LineItems: Sequence[LineItemRequestTypeDef]
     PaymentOption: PaymentOptionType
+    LineItems: NotRequired[Sequence[LineItemRequestTypeDef]]
     PaymentTerm: NotRequired[PaymentTermType]
 
 
@@ -572,31 +576,37 @@ class GetSiteAddressOutputTypeDef(TypedDict):
 
 
 class ListAssetInstancesOutputTypeDef(TypedDict):
-    AssetInstances: List[AssetInstanceTypeDef]
+    AssetInstances: list[AssetInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListBlockingInstancesForCapacityTaskOutputTypeDef(TypedDict):
-    BlockingInstances: List[BlockingInstanceTypeDef]
+    BlockingInstances: list[BlockingInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCapacityTasksOutputTypeDef(TypedDict):
-    CapacityTasks: List[CapacityTaskSummaryTypeDef]
+    CapacityTasks: list[CapacityTaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartConnectionResponseTypeDef(TypedDict):
     ConnectionId: str
     UnderlayIpAddress: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartOutpostDecommissionOutputTypeDef(TypedDict):
+    Status: DecommissionRequestStatusType
+    BlockingResourceTypes: list[BlockingResourceTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -617,7 +627,7 @@ class GetOutpostOutputTypeDef(TypedDict):
 
 
 class ListOutpostsOutputTypeDef(TypedDict):
-    Outposts: List[OutpostTypeDef]
+    Outposts: list[OutpostTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -642,7 +652,7 @@ class SiteTypeDef(TypedDict):
     AccountId: NotRequired[str]
     Name: NotRequired[str]
     Description: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     SiteArn: NotRequired[str]
     Notes: NotRequired[str]
     OperatingAddressCountryCode: NotRequired[str]
@@ -656,7 +666,7 @@ class GetCapacityTaskOutputTypeDef(TypedDict):
     OutpostId: str
     OrderId: str
     AssetId: str
-    RequestedInstancePools: List[InstanceTypeCapacityTypeDef]
+    RequestedInstancePools: list[InstanceTypeCapacityTypeDef]
     InstancesToExclude: InstancesToExcludeOutputTypeDef
     DryRun: bool
     CapacityTaskStatus: CapacityTaskStatusType
@@ -673,7 +683,7 @@ class StartCapacityTaskOutputTypeDef(TypedDict):
     OutpostId: str
     OrderId: str
     AssetId: str
-    RequestedInstancePools: List[InstanceTypeCapacityTypeDef]
+    RequestedInstancePools: list[InstanceTypeCapacityTypeDef]
     InstancesToExclude: InstancesToExcludeOutputTypeDef
     DryRun: bool
     CapacityTaskStatus: CapacityTaskStatusType
@@ -757,14 +767,14 @@ class ListSitesInputPaginateTypeDef(TypedDict):
 
 
 class GetOutpostBillingInformationOutputTypeDef(TypedDict):
-    Subscriptions: List[SubscriptionTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
     ContractEndDate: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetOutpostInstanceTypesOutputTypeDef(TypedDict):
-    InstanceTypes: List[InstanceTypeItemTypeDef]
+    InstanceTypes: list[InstanceTypeItemTypeDef]
     OutpostId: str
     OutpostArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -772,7 +782,7 @@ class GetOutpostInstanceTypesOutputTypeDef(TypedDict):
 
 
 class GetOutpostSupportedInstanceTypesOutputTypeDef(TypedDict):
-    InstanceTypes: List[InstanceTypeItemTypeDef]
+    InstanceTypes: list[InstanceTypeItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -786,13 +796,13 @@ class LineItemTypeDef(TypedDict):
     Quantity: NotRequired[int]
     Status: NotRequired[LineItemStatusType]
     ShipmentInformation: NotRequired[ShipmentInformationTypeDef]
-    AssetInformationList: NotRequired[List[LineItemAssetInformationTypeDef]]
+    AssetInformationList: NotRequired[list[LineItemAssetInformationTypeDef]]
     PreviousLineItemId: NotRequired[str]
     PreviousOrderId: NotRequired[str]
 
 
 class ListOrdersOutputTypeDef(TypedDict):
-    Orders: List[OrderSummaryTypeDef]
+    Orders: list[OrderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -811,7 +821,7 @@ class GetCatalogItemOutputTypeDef(TypedDict):
 
 
 class ListCatalogItemsOutputTypeDef(TypedDict):
-    CatalogItems: List[CatalogItemTypeDef]
+    CatalogItems: list[CatalogItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -827,7 +837,7 @@ class GetSiteOutputTypeDef(TypedDict):
 
 
 class ListSitesOutputTypeDef(TypedDict):
-    Sites: List[SiteTypeDef]
+    Sites: list[SiteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -856,7 +866,7 @@ class OrderTypeDef(TypedDict):
     OutpostId: NotRequired[str]
     OrderId: NotRequired[str]
     Status: NotRequired[OrderStatusType]
-    LineItems: NotRequired[List[LineItemTypeDef]]
+    LineItems: NotRequired[list[LineItemTypeDef]]
     PaymentOption: NotRequired[PaymentOptionType]
     OrderSubmissionDate: NotRequired[datetime]
     OrderFulfilledDate: NotRequired[datetime]
@@ -865,7 +875,7 @@ class OrderTypeDef(TypedDict):
 
 
 class ListAssetsOutputTypeDef(TypedDict):
-    Assets: List[AssetInfoTypeDef]
+    Assets: list[AssetInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -1,18 +1,69 @@
+from __future__ import annotations
+
 import contextlib
 import dataclasses
 import inspect
 import logging
 import os
 import pathlib
+import sys
+import tempfile
 import warnings
-from typing import Any, Callable, Collection, Dict, List, Sequence, Set, Tuple, Type, TypeVar, Union
+from collections.abc import Collection, Iterator, Sequence
+from typing import IO, TYPE_CHECKING, Any, Callable, TypeVar
 
-import atomicwrites
 import pytest
 
 from . import yaml
 
-T = TypeVar("T")
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+
+_T = TypeVar("_T")
+
+
+if sys.platform == "win32":
+
+    def _replace_atomic(src: os.PathLike[str], dst: os.PathLike[str]):
+        from ctypes import WinError, windll
+
+        movefile_replace_existing = 0x1
+        movefile_write_through = 0x8
+
+        rv = windll.kernel32.MoveFileExW(
+            str(src),
+            str(dst),
+            movefile_write_through | movefile_replace_existing,
+        )
+        if not rv:
+            raise WinError()
+
+else:
+
+    def _replace_atomic(src: os.PathLike[str], dst: os.PathLike[str]):
+        os.rename(src, dst)
+
+
+@contextlib.contextmanager
+def atomic_write(dest: os.PathLike[str]) -> Iterator[IO[str]]:
+    """Atomically write to the destination file."""
+    dir = os.path.normpath(os.path.dirname(dest))
+    fd, src = tempfile.mkstemp(prefix=os.path.basename(dest), dir=dir)
+    os.close(fd)
+    try:
+        success = False
+        with open(file=src, encoding="utf-8", mode="w") as file:
+            yield file
+            file.flush()
+            os.fsync(file.fileno())
+        path_src = pathlib.Path(src)
+        _replace_atomic(path_src, dest)
+        success = True
+    finally:
+        if not success:
+            with contextlib.suppress(Exception):
+                os.unlink(src)
 
 
 def pytest_addoption(parser):
@@ -78,15 +129,18 @@ class GoldenTestFixtureFactory:
     update_goldens: bool
     assertions_enabled: bool
 
-    _fixtures = ...  # type: List["GoldenTestFixture"]
+    _fixtures: list[GoldenTestFixture] = dataclasses.field(init=False)
 
     def __post_init__(self):
         self._fixtures = []
 
-    def open(self, path: os.PathLike) -> "GoldenTestFixture":
-        kwargs = dataclasses.asdict(self)
-        kwargs["path"] = kwargs["path"].parent / path
-        fixt = GoldenTestFixture(**kwargs)
+    def open(self, path: os.PathLike) -> GoldenTestFixture:
+        fixt = GoldenTestFixture(
+            path=self.path.parent / path,
+            func=self.func,
+            update_goldens=self.update_goldens,
+            assertions_enabled=self.assertions_enabled,
+        )
         self._fixtures.append(fixt)
         return fixt
 
@@ -101,9 +155,9 @@ class GoldenTestFixtureFactory:
 
 @dataclasses.dataclass
 class GoldenTestFixture(GoldenTestFixtureFactory):
-    _used_fields = ...  # type: Set[str]
-    _records = ...  # type: List[Union["_ComparisonRecord", "_AssertionRecord"]]
-    _inputs = ...  # type: Dict[str, Any]
+    _used_fields: set[str] = dataclasses.field(init=False)
+    _records: list[_ComparisonRecord | _AssertionRecord] = dataclasses.field(init=False)
+    _inputs: dict[str, Any] = dataclasses.field(init=False)
 
     def __post_init__(self):
         self._used_fields = set()
@@ -125,21 +179,23 @@ class GoldenTestFixture(GoldenTestFixtureFactory):
         self._used_fields.add(key)
         return self._inputs[key]
 
-    def get(self, key: str, default: T = None) -> Union[Any, T]:
+    def get(self, key: str, default: _T | None = None) -> Any | _T:
         self._used_fields.add(key)
         return self._inputs.get(key, default)
 
     def _add_record(self, r):
         self._records.append(r)
 
-    def teardown(self, item):
+    def teardown(self, item) -> None:
         if not self.update_goldens:
             return
 
-        actual: Dict[str, Union[_AbsentValue, Any]] = {}
-        approved_lines: Set[int] = set()
-        to_warn: List[Tuple[str, _ComparisonRecord]] = []
-        warn = lambda *args: to_warn.append(args)
+        actual: dict[str, _AbsentValue | Any] = {}
+        approved_lines: set[int] = set()
+        to_warn: list[tuple[str, _ComparisonRecord]] = []
+
+        def warn(*args):
+            return to_warn.append(args)
 
         for record in reversed(self._records):
             if isinstance(record, _AssertionRecord):
@@ -190,22 +246,22 @@ class GoldenTestFixture(GoldenTestFixtureFactory):
                 f_code.co_filename,
                 f_code.co_firstlineno,
             )
-        with atomicwrites.atomic_write(self.path, mode="w", encoding="utf-8", overwrite=True) as f:
+        with atomic_write(self.path) as f:
             yaml._rt.dump(outputs, f)
 
     @contextlib.contextmanager
-    def may_raise(self, cls: Type[Exception], *, key: str = "exception"):
+    def may_raise(self, cls: type[Exception], *, key: str = "exception"):
         try:
             yield
         except cls as e:
             assert self.out.get(key) == {type(e).__name__: str(e)}
         else:
-            assert self.out.get(key) == None
+            assert self.out.get(key) is None
 
     @contextlib.contextmanager
     def capture_logs(
         self,
-        loggers: Union[str, Sequence[str]],
+        loggers: str | tuple[str],
         level: int = logging.INFO,
         attributes: Sequence[str] = ("levelname", "getMessage"),
         *,
@@ -223,11 +279,11 @@ class GoldenTestFixture(GoldenTestFixtureFactory):
 class GoldenOutputProxy:
     fixt: GoldenTestFixture
 
-    def __getitem__(self, key: str) -> "GoldenOutput":
+    def __getitem__(self, key: str) -> GoldenOutput:
         self.fixt._used_fields.add(key)
         return GoldenOutput(self.fixt, key)
 
-    def get(self, key: str) -> "GoldenOutput":
+    def get(self, key: str) -> GoldenOutput:
         self.fixt._used_fields.add(key)
         return GoldenOutput(self.fixt, key, optional=True)
 
@@ -242,12 +298,12 @@ class GoldenOutput:
     def value(self):
         return self.fixt[self.key]
 
-    def __eq__(self, other) -> "GoldenComparison":
+    def __eq__(self, other) -> GoldenComparison:  # type: ignore[override]
         if isinstance(other, GoldenOutput):
             raise TypeError("Can't compare two golden output placeholders")
         return GoldenComparison(self.fixt, self.key, other, self.optional)
 
-    def __ne__(self, other) -> "GoldenComparison":
+    def __ne__(self, other) -> GoldenComparison:  # type: ignore[override]
         if isinstance(other, GoldenOutput):
             raise TypeError("Can't compare two golden output placeholders")
         warnings.warn(
@@ -273,8 +329,9 @@ class GoldenComparison:
     def __bool__(self) -> bool:
         stack = inspect.stack()
         approved = [
-            inspect.unwrap(f).__code__
-            for f in (self.fixt.func, GoldenTestFixture.may_raise, GoldenTestFixture.capture_logs)
+            inspect.unwrap(self.fixt.func).__code__,
+            inspect.unwrap(GoldenTestFixture.may_raise).__code__,
+            inspect.unwrap(GoldenTestFixture.capture_logs).__code__,
         ]
         for info in stack:
             if info.frame.f_code in approved:
@@ -286,7 +343,7 @@ class GoldenComparison:
         op = "==" if self.eq else "!="
         return f"{self.other!r} {op} {self.fixt.name}.out[{self.key!r}]"
 
-    def approve(self: T) -> T:
+    def approve(self) -> Self:
         if isinstance(self, GoldenComparison):
             self.approved = True
         return self
@@ -294,7 +351,7 @@ class GoldenComparison:
 
 @dataclasses.dataclass
 class _ComparisonRecord:
-    comparison: "GoldenComparison"
+    comparison: GoldenComparison
     location: inspect.Traceback
 
     @property
@@ -317,7 +374,7 @@ class _AbsentValue:
         return "<absent>"
 
 
-def pytest_generate_tests(metafunc):
+def pytest_generate_tests(metafunc) -> None:
     item = metafunc.definition
     marker = item.get_closest_marker(MARKER_NAME)
     if not marker:
@@ -350,7 +407,7 @@ def pytest_generate_tests(metafunc):
     rel_paths = [path.relative_to(directory) for path in paths]
     skip_parts = None
     if all(
-        _removeprefix("test_", path.parts[0]) == _removeprefix("test_", item.originalname)
+        path.parts[0].removeprefix("test_") == item.originalname.removeprefix("test_")
         for path in rel_paths
     ):
         skip_parts = 1
@@ -362,12 +419,6 @@ def pytest_generate_tests(metafunc):
         ids=ids,
         indirect=True,
     )
-
-
-def _removeprefix(prefix: str, s: str):
-    if s.startswith(prefix):
-        s = s[len(prefix) :]
-    return s
 
 
 def pytest_assertion_pass(item, lineno, orig, expl):

@@ -15,14 +15,17 @@ T = TypeVar("T", bound="PathScript")
 
 @_attrs_define
 class PathScript:
-    """
-    Attributes:
-        input_transforms (PathScriptInputTransforms):
-        path (str):
-        type (PathScriptType):
-        hash_ (Union[Unset, str]):
-        tag_override (Union[Unset, str]):
-        is_trigger (Union[Unset, bool]):
+    """Reference to an existing script by path. Use this when calling a previously saved script instead of writing inline
+    code
+
+        Attributes:
+            input_transforms (PathScriptInputTransforms): Map of parameter names to their values (static or JavaScript
+                expressions). These become the script's input arguments
+            path (str): Path to the script in the workspace (e.g., 'f/scripts/send_email')
+            type (PathScriptType):
+            hash_ (Union[Unset, str]): Optional specific version hash of the script to use
+            tag_override (Union[Unset, str]): Override the script's default worker group tag
+            is_trigger (Union[Unset, bool]): If true, this script is a trigger that can start the flow
     """
 
     input_transforms: "PathScriptInputTransforms"

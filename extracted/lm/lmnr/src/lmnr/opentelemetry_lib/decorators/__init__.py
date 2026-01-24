@@ -1,66 +1,34 @@
+import asyncio
 from functools import wraps
-import pydantic
-import orjson
 import types
-from typing import Any, AsyncGenerator, Callable, Generator, Literal
+from typing import Any, AsyncGenerator, Callable, Generator, Literal, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry.trace import Span, Status, StatusCode
 
 from lmnr.opentelemetry_lib.tracing.context import (
-    CONTEXT_SESSION_ID_KEY,
-    CONTEXT_USER_ID_KEY,
+    CONTEXT_METADATA_KEY,
     attach_context,
     detach_context,
     get_event_attributes_from_context,
 )
+from lmnr.opentelemetry_lib.tracing.span import LaminarSpan
+from lmnr.opentelemetry_lib.tracing.utils import set_association_props_in_context
 from lmnr.sdk.utils import get_input_from_func_args, is_method
-from lmnr.opentelemetry_lib import MAX_MANUAL_SPAN_PAYLOAD_SIZE
 from lmnr.opentelemetry_lib.tracing.tracer import get_tracer_with_context
 from lmnr.opentelemetry_lib.tracing.attributes import (
     ASSOCIATION_PROPERTIES,
-    SPAN_INPUT,
-    SPAN_OUTPUT,
+    METADATA,
+    ROLLOUT_SESSION_ID_ATTR,
     SPAN_TYPE,
 )
 from lmnr.opentelemetry_lib.tracing import TracerWrapper
 from lmnr.sdk.log import get_default_logger
+from lmnr.sdk.utils import is_otel_attribute_value_type, json_dumps
 
 logger = get_default_logger(__name__)
 
-DEFAULT_PLACEHOLDER = {}
-
-
-def default_json(o):
-    if isinstance(o, pydantic.BaseModel):
-        return o.model_dump()
-
-    # Handle various sequence types, but not strings or bytes
-    if isinstance(o, (list, tuple, set, frozenset)):
-        return list(o)
-
-    try:
-        return str(o)
-    except Exception:
-        logger.debug("Failed to serialize data to JSON, inner type: %s", type(o))
-        pass
-    return DEFAULT_PLACEHOLDER
-
-
-def json_dumps(data: dict) -> str:
-    try:
-        return orjson.dumps(
-            data,
-            default=default_json,
-            option=orjson.OPT_SERIALIZE_DATACLASS
-            | orjson.OPT_SERIALIZE_UUID
-            | orjson.OPT_UTC_Z
-            | orjson.OPT_NON_STR_KEYS,
-        ).decode("utf-8")
-    except Exception:
-        # Log the exception and return a placeholder if serialization completely fails
-        logger.info("Failed to serialize data to JSON, type: %s", type(data))
-        return "{}"  # Return an empty JSON object as a fallback
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _setup_span(
@@ -68,6 +36,7 @@ def _setup_span(
     span_type: str,
     association_properties: dict[str, Any] | None,
     preserve_global_context: bool = False,
+    metadata: dict[str, Any] | None = None,
 ):
     """Set up a span with the given name, type, and association properties."""
     with get_tracer_with_context() as (tracer, isolated_context):
@@ -78,9 +47,23 @@ def _setup_span(
             attributes={SPAN_TYPE: span_type},
         )
 
+        ctx_metadata = context_api.get_value(CONTEXT_METADATA_KEY, isolated_context)
+        merged_metadata = {
+            **(ctx_metadata or {}),
+            **(metadata or {}),
+        }
+        for key, value in merged_metadata.items():
+            span.set_attribute(
+                f"{ASSOCIATION_PROPERTIES}.{METADATA}.{key}",
+                (value if is_otel_attribute_value_type(value) else json_dumps(value)),
+            )
+
         if association_properties is not None:
             for key, value in association_properties.items():
                 span.set_attribute(f"{ASSOCIATION_PROPERTIES}.{key}", value)
+                if key == "rollout_session_id":
+                    # special case, rollout session id is stored in a separate attribute
+                    span.set_attribute(ROLLOUT_SESSION_ID_ATTR, value)
 
         return span
 
@@ -101,23 +84,18 @@ def _process_input(
     try:
         if input_formatter is not None:
             inp = input_formatter(*args, **kwargs)
-            if not isinstance(inp, str):
-                inp = json_dumps(inp)
         else:
-            inp = json_dumps(
-                get_input_from_func_args(
-                    fn,
-                    is_method=is_method(fn),
-                    func_args=args,
-                    func_kwargs=kwargs,
-                    ignore_inputs=ignore_inputs,
-                )
+            inp = get_input_from_func_args(
+                fn,
+                is_method=is_method(fn),
+                func_args=args,
+                func_kwargs=kwargs,
+                ignore_inputs=ignore_inputs,
             )
 
-        if len(inp) > MAX_MANUAL_SPAN_PAYLOAD_SIZE:
-            span.set_attribute(SPAN_INPUT, "Laminar: input too large to record")
-        else:
-            span.set_attribute(SPAN_INPUT, inp)
+        if not isinstance(span, LaminarSpan):
+            span = LaminarSpan(span)
+        span.set_input(inp)
     except Exception:
         msg = "Failed to process input, ignoring"
         if input_formatter is not None:
@@ -126,7 +104,6 @@ def _process_input(
             logger.warning(msg, exc_info=True)
         else:
             logger.debug(msg, exc_info=True)
-        pass
 
 
 def _process_output(
@@ -142,15 +119,12 @@ def _process_output(
     try:
         if output_formatter is not None:
             output = output_formatter(result)
-            if not isinstance(output, str):
-                output = json_dumps(output)
         else:
-            output = json_dumps(result)
+            output = result
 
-        if len(output) > MAX_MANUAL_SPAN_PAYLOAD_SIZE:
-            span.set_attribute(SPAN_OUTPUT, "Laminar: output too large to record")
-        else:
-            span.set_attribute(SPAN_OUTPUT, output)
+        if not isinstance(span, LaminarSpan):
+            span = LaminarSpan(span)
+        span.set_output(output)
     except Exception:
         msg = "Failed to process output, ignoring"
         if output_formatter is not None:
@@ -159,7 +133,6 @@ def _process_output(
             logger.warning(msg, exc_info=True)
         else:
             logger.debug(msg, exc_info=True)
-        pass
 
 
 def _cleanup_span(span: Span, wrapper: TracerWrapper):
@@ -175,12 +148,13 @@ def observe_base(
     ignore_inputs: list[str] | None = None,
     ignore_output: bool = False,
     span_type: Literal["DEFAULT", "LLM", "TOOL"] = "DEFAULT",
+    metadata: dict[str, Any] | None = None,
     association_properties: dict[str, Any] | None = None,
     input_formatter: Callable[..., str] | None = None,
     output_formatter: Callable[..., str] | None = None,
     preserve_global_context: bool = False,
-):
-    def decorate(fn):
+) -> Callable[[F], F]:
+    def decorate(fn: F) -> F:
         @wraps(fn)
         def wrap(*args, **kwargs):
             if not TracerWrapper.verify_initialized():
@@ -190,22 +164,31 @@ def observe_base(
             wrapper = TracerWrapper()
 
             span = _setup_span(
-                span_name, span_type, association_properties, preserve_global_context
+                span_name,
+                span_type,
+                association_properties,
+                preserve_global_context,
+                metadata,
             )
+
+            # Set association props in context before push_span_context
+            # so child spans inherit them
+            assoc_props_token = set_association_props_in_context(span)
+            if assoc_props_token and isinstance(span, LaminarSpan):
+                span._lmnr_assoc_props_token = assoc_props_token
+
             new_context = wrapper.push_span_context(span)
-            if session_id := association_properties.get("session_id"):
-                new_context = context_api.set_value(
-                    CONTEXT_SESSION_ID_KEY, session_id, new_context
-                )
-            if user_id := association_properties.get("user_id"):
-                new_context = context_api.set_value(
-                    CONTEXT_USER_ID_KEY, user_id, new_context
-                )
             # Some auto-instrumentations are not under our control, so they
             # don't have access to our isolated context. We attach the context
             # to the OTEL global context, so that spans know their parent
             # span and trace_id.
             ctx_token = context_api.attach(new_context)
+            current_task = None
+            try:
+                current_task = asyncio.current_task()
+            except Exception:
+                current_task = None
+            current_context_id = id(current_task)
             # update our isolated context too
             isolated_ctx_token = attach_context(new_context)
 
@@ -220,12 +203,27 @@ def observe_base(
                 _cleanup_span(span, wrapper)
                 raise
             finally:
-                # Always restore global context
-                context_api.detach(ctx_token)
-                detach_context(isolated_ctx_token)
+                current_task = None
+                try:
+                    current_task = asyncio.current_task()
+                except Exception:
+                    current_task = None
+                # Always restore global context if we are in the same asyncio context
+                if id(current_task) == current_context_id:
+                    context_api.detach(ctx_token)
+                else:
+                    logger.debug(
+                        "Not detaching global context, not in the same context"
+                    )
+                try:
+                    detach_context(isolated_ctx_token)
+                except Exception:
+                    logger.debug("Failed to detach isolated context", exc_info=True)
             # span will be ended in the generator
             if isinstance(res, types.GeneratorType):
-                return _handle_generator(span, ctx_token, res)
+                return _handle_generator(
+                    span, wrapper, res, ignore_output, output_formatter
+                )
             if isinstance(res, types.AsyncGeneratorType):
                 # async def foo() -> AsyncGenerator[int, None]:
                 # is not considered async in a classical sense in Python,
@@ -234,7 +232,9 @@ def observe_base(
                 # Flags are listed from LSB here:
                 # https://docs.python.org/3/library/inspect.html#inspect-module-co-flags
                 # See also: https://groups.google.com/g/python-tulip/c/6rWweGXLutU?pli=1
-                return _ahandle_generator(span, ctx_token, res)
+                return _ahandle_generator(
+                    span, wrapper, res, ignore_output, output_formatter
+                )
 
             _process_output(span, res, ignore_output, output_formatter)
             _cleanup_span(span, wrapper)
@@ -253,12 +253,13 @@ def async_observe_base(
     ignore_inputs: list[str] | None = None,
     ignore_output: bool = False,
     span_type: Literal["DEFAULT", "LLM", "TOOL"] = "DEFAULT",
+    metadata: dict[str, Any] | None = None,
     association_properties: dict[str, Any] | None = None,
     input_formatter: Callable[..., str] | None = None,
     output_formatter: Callable[..., str] | None = None,
     preserve_global_context: bool = False,
-):
-    def decorate(fn):
+) -> Callable[[F], F]:
+    def decorate(fn: F) -> F:
         @wraps(fn)
         async def wrap(*args, **kwargs):
             if not TracerWrapper.verify_initialized():
@@ -268,22 +269,31 @@ def async_observe_base(
             wrapper = TracerWrapper()
 
             span = _setup_span(
-                span_name, span_type, association_properties, preserve_global_context
+                span_name,
+                span_type,
+                association_properties,
+                preserve_global_context,
+                metadata,
             )
+
+            # Set association props in context before push_span_context
+            # so child spans inherit them
+            assoc_props_token = set_association_props_in_context(span)
+            if assoc_props_token and isinstance(span, LaminarSpan):
+                span._lmnr_assoc_props_token = assoc_props_token
+
             new_context = wrapper.push_span_context(span)
-            if session_id := association_properties.get("session_id"):
-                new_context = context_api.set_value(
-                    CONTEXT_SESSION_ID_KEY, session_id, new_context
-                )
-            if user_id := association_properties.get("user_id"):
-                new_context = context_api.set_value(
-                    CONTEXT_USER_ID_KEY, user_id, new_context
-                )
             # Some auto-instrumentations are not under our control, so they
             # don't have access to our isolated context. We attach the context
             # to the OTEL global context, so that spans know their parent
             # span and trace_id.
             ctx_token = context_api.attach(new_context)
+            current_task = None
+            try:
+                current_task = asyncio.current_task()
+            except Exception:
+                current_task = None
+            current_context_id = id(current_task)
             # update our isolated context too
             isolated_ctx_token = attach_context(new_context)
 
@@ -298,15 +308,30 @@ def async_observe_base(
                 _cleanup_span(span, wrapper)
                 raise e
             finally:
-                # Always restore global context
-                context_api.detach(ctx_token)
-                detach_context(isolated_ctx_token)
+                # Always restore global context if we are in the same asyncio context
+                current_task = None
+                try:
+                    current_task = asyncio.current_task()
+                except Exception:
+                    current_task = None
+                if id(current_task) == current_context_id:
+                    context_api.detach(ctx_token)
+                else:
+                    logger.debug(
+                        "Not detaching global context, not in the same context"
+                    )
+                try:
+                    detach_context(isolated_ctx_token)
+                except Exception:
+                    logger.debug("Failed to detach isolated context", exc_info=True)
 
             # span will be ended in the generator
             if isinstance(res, types.AsyncGeneratorType):
                 # probably unreachable, read the comment in the similar
                 # part of the sync wrapper.
-                return await _ahandle_generator(span, ctx_token, res)
+                return _ahandle_generator(
+                    span, wrapper, res, ignore_output, output_formatter
+                )
 
             _process_output(span, res, ignore_output, output_formatter)
             _cleanup_span(span, wrapper)
@@ -317,18 +342,37 @@ def async_observe_base(
     return decorate
 
 
-def _handle_generator(span: Span, wrapper: TracerWrapper, res: Generator):
+def _handle_generator(
+    span: Span,
+    wrapper: TracerWrapper,
+    res: Generator,
+    ignore_output: bool = False,
+    output_formatter: Callable[..., str] | None = None,
+):
+    results = []
     try:
-        yield from res
+        for part in res:
+            results.append(part)
+            yield part
     finally:
+        _process_output(span, results, ignore_output, output_formatter)
         _cleanup_span(span, wrapper)
 
 
-async def _ahandle_generator(span: Span, wrapper: TracerWrapper, res: AsyncGenerator):
+async def _ahandle_generator(
+    span: Span,
+    wrapper: TracerWrapper,
+    res: AsyncGenerator,
+    ignore_output: bool = False,
+    output_formatter: Callable[..., str] | None = None,
+):
+    results = []
     try:
         async for part in res:
+            results.append(part)
             yield part
     finally:
+        _process_output(span, results, ignore_output, output_formatter)
         _cleanup_span(span, wrapper)
 
 

@@ -93,6 +93,7 @@ class ClusterArgs:
                  resource_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  resource_usage_export_config: Optional[pulumi.Input['ClusterResourceUsageExportConfigArgs']] = None,
                  secret_manager_config: Optional[pulumi.Input['ClusterSecretManagerConfigArgs']] = None,
+                 secret_sync_config: Optional[pulumi.Input['ClusterSecretSyncConfigArgs']] = None,
                  security_posture_config: Optional[pulumi.Input['ClusterSecurityPostureConfigArgs']] = None,
                  service_external_ips_config: Optional[pulumi.Input['ClusterServiceExternalIpsConfigArgs']] = None,
                  subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
@@ -311,6 +312,9 @@ class ClusterArgs:
         :param pulumi.Input['ClusterSecretManagerConfigArgs'] secret_manager_config: Configuration for the
                [SecretManagerConfig](https://cloud.google.com/secret-manager/docs/secret-manager-managed-csi-component) feature.
                Structure is documented below.
+        :param pulumi.Input['ClusterSecretSyncConfigArgs'] secret_sync_config: Configuration for the
+               [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+               Structure is documented below.
         :param pulumi.Input['ClusterSecurityPostureConfigArgs'] security_posture_config: Enable/Disable Security Posture API features for the cluster. Structure is documented below.
         :param pulumi.Input['ClusterServiceExternalIpsConfigArgs'] service_external_ips_config: Structure is documented below.
         :param pulumi.Input[_builtins.str] subnetwork: The name or self_link of the Google Compute Engine
@@ -471,6 +475,8 @@ class ClusterArgs:
             pulumi.set(__self__, "resource_usage_export_config", resource_usage_export_config)
         if secret_manager_config is not None:
             pulumi.set(__self__, "secret_manager_config", secret_manager_config)
+        if secret_sync_config is not None:
+            pulumi.set(__self__, "secret_sync_config", secret_sync_config)
         if security_posture_config is not None:
             pulumi.set(__self__, "security_posture_config", security_posture_config)
         if service_external_ips_config is not None:
@@ -1488,6 +1494,20 @@ class ClusterArgs:
         pulumi.set(self, "secret_manager_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="secretSyncConfig")
+    def secret_sync_config(self) -> Optional[pulumi.Input['ClusterSecretSyncConfigArgs']]:
+        """
+        Configuration for the
+        [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "secret_sync_config")
+
+    @secret_sync_config.setter
+    def secret_sync_config(self, value: Optional[pulumi.Input['ClusterSecretSyncConfigArgs']]):
+        pulumi.set(self, "secret_sync_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="securityPostureConfig")
     def security_posture_config(self) -> Optional[pulumi.Input['ClusterSecurityPostureConfigArgs']]:
         """
@@ -1669,6 +1689,7 @@ class _ClusterState:
                  resource_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  resource_usage_export_config: Optional[pulumi.Input['ClusterResourceUsageExportConfigArgs']] = None,
                  secret_manager_config: Optional[pulumi.Input['ClusterSecretManagerConfigArgs']] = None,
+                 secret_sync_config: Optional[pulumi.Input['ClusterSecretSyncConfigArgs']] = None,
                  security_posture_config: Optional[pulumi.Input['ClusterSecurityPostureConfigArgs']] = None,
                  self_link: Optional[pulumi.Input[_builtins.str]] = None,
                  service_external_ips_config: Optional[pulumi.Input['ClusterServiceExternalIpsConfigArgs']] = None,
@@ -1785,9 +1806,7 @@ class _ClusterState:
                nested `cidr_blocks` attribute to disallow external access (except
                the cluster node IPs, which GKE automatically whitelists).
                Structure is documented below.
-        :param pulumi.Input[_builtins.str] master_version: The current version of the master in the cluster. This may
-               be different than the `min_master_version` set in the config if the master
-               has been updated by GKE.
+        :param pulumi.Input[_builtins.str] master_version: The current version of the master in the cluster. This may be different than the min_master_version set in the config if the master has been updated by GKE.
         :param pulumi.Input['ClusterMeshCertificatesArgs'] mesh_certificates: Structure is documented below.
         :param pulumi.Input[_builtins.str] min_master_version: The minimum version of the master. GKE
                will auto-update the master to new versions, so this does not guarantee the
@@ -1897,19 +1916,17 @@ class _ClusterState:
         :param pulumi.Input['ClusterSecretManagerConfigArgs'] secret_manager_config: Configuration for the
                [SecretManagerConfig](https://cloud.google.com/secret-manager/docs/secret-manager-managed-csi-component) feature.
                Structure is documented below.
+        :param pulumi.Input['ClusterSecretSyncConfigArgs'] secret_sync_config: Configuration for the
+               [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+               Structure is documented below.
         :param pulumi.Input['ClusterSecurityPostureConfigArgs'] security_posture_config: Enable/Disable Security Posture API features for the cluster. Structure is documented below.
-        :param pulumi.Input[_builtins.str] self_link: The server-defined URL for the resource.
+        :param pulumi.Input[_builtins.str] self_link: Server-defined URL for the resource.
         :param pulumi.Input['ClusterServiceExternalIpsConfigArgs'] service_external_ips_config: Structure is documented below.
-        :param pulumi.Input[_builtins.str] services_ipv4_cidr: The IP address range of the Kubernetes services in this
-               cluster, in [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-               notation (e.g. `1.2.3.4/29`). Service addresses are typically put in the last
-               `/16` from the container CIDR.
+        :param pulumi.Input[_builtins.str] services_ipv4_cidr: The IP address range of the Kubernetes services in this cluster, in CIDR notation (e.g. 1.2.3.4/29). Service addresses are typically put in the last /16 from the container CIDR.
         :param pulumi.Input[_builtins.str] subnetwork: The name or self_link of the Google Compute Engine
                subnetwork in which the cluster's instances are launched.
         :param pulumi.Input['ClusterTpuConfigArgs'] tpu_config: TPU configuration for the cluster.
-        :param pulumi.Input[_builtins.str] tpu_ipv4_cidr_block: The IP address range of the Cloud TPUs in this cluster, in
-               [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-               notation (e.g. `1.2.3.4/29`).
+        :param pulumi.Input[_builtins.str] tpu_ipv4_cidr_block: The IP address range of the Cloud TPUs in this cluster, in CIDR notation (e.g. 1.2.3.4/29).
         :param pulumi.Input['ClusterUserManagedKeysConfigArgs'] user_managed_keys_config: The custom keys configuration of the cluster Structure is documented below.
         :param pulumi.Input['ClusterVerticalPodAutoscalingArgs'] vertical_pod_autoscaling: Vertical Pod Autoscaling automatically adjusts the resources of pods controlled by it.
                Structure is documented below.
@@ -2077,6 +2094,8 @@ class _ClusterState:
             pulumi.set(__self__, "resource_usage_export_config", resource_usage_export_config)
         if secret_manager_config is not None:
             pulumi.set(__self__, "secret_manager_config", secret_manager_config)
+        if secret_sync_config is not None:
+            pulumi.set(__self__, "secret_sync_config", secret_sync_config)
         if security_posture_config is not None:
             pulumi.set(__self__, "security_posture_config", security_posture_config)
         if self_link is not None:
@@ -2723,9 +2742,7 @@ class _ClusterState:
     @pulumi.getter(name="masterVersion")
     def master_version(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The current version of the master in the cluster. This may
-        be different than the `min_master_version` set in the config if the master
-        has been updated by GKE.
+        The current version of the master in the cluster. This may be different than the min_master_version set in the config if the master has been updated by GKE.
         """
         return pulumi.get(self, "master_version")
 
@@ -3171,6 +3188,20 @@ class _ClusterState:
         pulumi.set(self, "secret_manager_config", value)
 
     @_builtins.property
+    @pulumi.getter(name="secretSyncConfig")
+    def secret_sync_config(self) -> Optional[pulumi.Input['ClusterSecretSyncConfigArgs']]:
+        """
+        Configuration for the
+        [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "secret_sync_config")
+
+    @secret_sync_config.setter
+    def secret_sync_config(self, value: Optional[pulumi.Input['ClusterSecretSyncConfigArgs']]):
+        pulumi.set(self, "secret_sync_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="securityPostureConfig")
     def security_posture_config(self) -> Optional[pulumi.Input['ClusterSecurityPostureConfigArgs']]:
         """
@@ -3186,7 +3217,7 @@ class _ClusterState:
     @pulumi.getter(name="selfLink")
     def self_link(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The server-defined URL for the resource.
+        Server-defined URL for the resource.
         """
         return pulumi.get(self, "self_link")
 
@@ -3210,10 +3241,7 @@ class _ClusterState:
     @pulumi.getter(name="servicesIpv4Cidr")
     def services_ipv4_cidr(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The IP address range of the Kubernetes services in this
-        cluster, in [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-        notation (e.g. `1.2.3.4/29`). Service addresses are typically put in the last
-        `/16` from the container CIDR.
+        The IP address range of the Kubernetes services in this cluster, in CIDR notation (e.g. 1.2.3.4/29). Service addresses are typically put in the last /16 from the container CIDR.
         """
         return pulumi.get(self, "services_ipv4_cidr")
 
@@ -3250,9 +3278,7 @@ class _ClusterState:
     @pulumi.getter(name="tpuIpv4CidrBlock")
     def tpu_ipv4_cidr_block(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The IP address range of the Cloud TPUs in this cluster, in
-        [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-        notation (e.g. `1.2.3.4/29`).
+        The IP address range of the Cloud TPUs in this cluster, in CIDR notation (e.g. 1.2.3.4/29).
         """
         return pulumi.get(self, "tpu_ipv4_cidr_block")
 
@@ -3390,6 +3416,7 @@ class Cluster(pulumi.CustomResource):
                  resource_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  resource_usage_export_config: Optional[pulumi.Input[Union['ClusterResourceUsageExportConfigArgs', 'ClusterResourceUsageExportConfigArgsDict']]] = None,
                  secret_manager_config: Optional[pulumi.Input[Union['ClusterSecretManagerConfigArgs', 'ClusterSecretManagerConfigArgsDict']]] = None,
+                 secret_sync_config: Optional[pulumi.Input[Union['ClusterSecretSyncConfigArgs', 'ClusterSecretSyncConfigArgsDict']]] = None,
                  security_posture_config: Optional[pulumi.Input[Union['ClusterSecurityPostureConfigArgs', 'ClusterSecurityPostureConfigArgsDict']]] = None,
                  service_external_ips_config: Optional[pulumi.Input[Union['ClusterServiceExternalIpsConfigArgs', 'ClusterServiceExternalIpsConfigArgsDict']]] = None,
                  subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
@@ -3487,38 +3514,6 @@ class Cluster(pulumi.CustomResource):
             location="us-central1-a",
             enable_autopilot=True)
         ```
-
-        ## Import
-
-        GKE clusters can be imported using the `project` , `location`, and `name`. If the project is omitted, the default
-
-        provider value will be used. Examples:
-
-        * `projects/{{project_id}}/locations/{{location}}/clusters/{{cluster_id}}`
-
-        * `{{project_id}}/{{location}}/{{cluster_id}}`
-
-        * `{{location}}/{{cluster_id}}`
-
-        When using the `pulumi import` command, GKE clusters can be imported using one of the formats above. For example:
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default projects/{{project_id}}/locations/{{location}}/clusters/{{cluster_id}}
-        ```
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default {{project_id}}/{{location}}/{{cluster_id}}
-        ```
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default {{location}}/{{cluster_id}}
-        ```
-
-        For example, the following fields will show diffs if set in config:
-
-        - `min_master_version`
-
-        - `remove_default_node_pool`
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -3730,6 +3725,9 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[Union['ClusterSecretManagerConfigArgs', 'ClusterSecretManagerConfigArgsDict']] secret_manager_config: Configuration for the
                [SecretManagerConfig](https://cloud.google.com/secret-manager/docs/secret-manager-managed-csi-component) feature.
                Structure is documented below.
+        :param pulumi.Input[Union['ClusterSecretSyncConfigArgs', 'ClusterSecretSyncConfigArgsDict']] secret_sync_config: Configuration for the
+               [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+               Structure is documented below.
         :param pulumi.Input[Union['ClusterSecurityPostureConfigArgs', 'ClusterSecurityPostureConfigArgsDict']] security_posture_config: Enable/Disable Security Posture API features for the cluster. Structure is documented below.
         :param pulumi.Input[Union['ClusterServiceExternalIpsConfigArgs', 'ClusterServiceExternalIpsConfigArgsDict']] service_external_ips_config: Structure is documented below.
         :param pulumi.Input[_builtins.str] subnetwork: The name or self_link of the Google Compute Engine
@@ -3838,38 +3836,6 @@ class Cluster(pulumi.CustomResource):
             enable_autopilot=True)
         ```
 
-        ## Import
-
-        GKE clusters can be imported using the `project` , `location`, and `name`. If the project is omitted, the default
-
-        provider value will be used. Examples:
-
-        * `projects/{{project_id}}/locations/{{location}}/clusters/{{cluster_id}}`
-
-        * `{{project_id}}/{{location}}/{{cluster_id}}`
-
-        * `{{location}}/{{cluster_id}}`
-
-        When using the `pulumi import` command, GKE clusters can be imported using one of the formats above. For example:
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default projects/{{project_id}}/locations/{{location}}/clusters/{{cluster_id}}
-        ```
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default {{project_id}}/{{location}}/{{cluster_id}}
-        ```
-
-        ```sh
-        $ pulumi import gcp:container/cluster:Cluster default {{location}}/{{cluster_id}}
-        ```
-
-        For example, the following fields will show diffs if set in config:
-
-        - `min_master_version`
-
-        - `remove_default_node_pool`
-
         :param str resource_name: The name of the resource.
         :param ClusterArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -3957,6 +3923,7 @@ class Cluster(pulumi.CustomResource):
                  resource_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  resource_usage_export_config: Optional[pulumi.Input[Union['ClusterResourceUsageExportConfigArgs', 'ClusterResourceUsageExportConfigArgsDict']]] = None,
                  secret_manager_config: Optional[pulumi.Input[Union['ClusterSecretManagerConfigArgs', 'ClusterSecretManagerConfigArgsDict']]] = None,
+                 secret_sync_config: Optional[pulumi.Input[Union['ClusterSecretSyncConfigArgs', 'ClusterSecretSyncConfigArgsDict']]] = None,
                  security_posture_config: Optional[pulumi.Input[Union['ClusterSecurityPostureConfigArgs', 'ClusterSecurityPostureConfigArgsDict']]] = None,
                  service_external_ips_config: Optional[pulumi.Input[Union['ClusterServiceExternalIpsConfigArgs', 'ClusterServiceExternalIpsConfigArgsDict']]] = None,
                  subnetwork: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4046,6 +4013,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["resource_labels"] = resource_labels
             __props__.__dict__["resource_usage_export_config"] = resource_usage_export_config
             __props__.__dict__["secret_manager_config"] = secret_manager_config
+            __props__.__dict__["secret_sync_config"] = secret_sync_config
             __props__.__dict__["security_posture_config"] = security_posture_config
             __props__.__dict__["service_external_ips_config"] = service_external_ips_config
             __props__.__dict__["subnetwork"] = subnetwork
@@ -4153,6 +4121,7 @@ class Cluster(pulumi.CustomResource):
             resource_labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             resource_usage_export_config: Optional[pulumi.Input[Union['ClusterResourceUsageExportConfigArgs', 'ClusterResourceUsageExportConfigArgsDict']]] = None,
             secret_manager_config: Optional[pulumi.Input[Union['ClusterSecretManagerConfigArgs', 'ClusterSecretManagerConfigArgsDict']]] = None,
+            secret_sync_config: Optional[pulumi.Input[Union['ClusterSecretSyncConfigArgs', 'ClusterSecretSyncConfigArgsDict']]] = None,
             security_posture_config: Optional[pulumi.Input[Union['ClusterSecurityPostureConfigArgs', 'ClusterSecurityPostureConfigArgsDict']]] = None,
             self_link: Optional[pulumi.Input[_builtins.str]] = None,
             service_external_ips_config: Optional[pulumi.Input[Union['ClusterServiceExternalIpsConfigArgs', 'ClusterServiceExternalIpsConfigArgsDict']]] = None,
@@ -4274,9 +4243,7 @@ class Cluster(pulumi.CustomResource):
                nested `cidr_blocks` attribute to disallow external access (except
                the cluster node IPs, which GKE automatically whitelists).
                Structure is documented below.
-        :param pulumi.Input[_builtins.str] master_version: The current version of the master in the cluster. This may
-               be different than the `min_master_version` set in the config if the master
-               has been updated by GKE.
+        :param pulumi.Input[_builtins.str] master_version: The current version of the master in the cluster. This may be different than the min_master_version set in the config if the master has been updated by GKE.
         :param pulumi.Input[Union['ClusterMeshCertificatesArgs', 'ClusterMeshCertificatesArgsDict']] mesh_certificates: Structure is documented below.
         :param pulumi.Input[_builtins.str] min_master_version: The minimum version of the master. GKE
                will auto-update the master to new versions, so this does not guarantee the
@@ -4386,19 +4353,17 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[Union['ClusterSecretManagerConfigArgs', 'ClusterSecretManagerConfigArgsDict']] secret_manager_config: Configuration for the
                [SecretManagerConfig](https://cloud.google.com/secret-manager/docs/secret-manager-managed-csi-component) feature.
                Structure is documented below.
+        :param pulumi.Input[Union['ClusterSecretSyncConfigArgs', 'ClusterSecretSyncConfigArgsDict']] secret_sync_config: Configuration for the
+               [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+               Structure is documented below.
         :param pulumi.Input[Union['ClusterSecurityPostureConfigArgs', 'ClusterSecurityPostureConfigArgsDict']] security_posture_config: Enable/Disable Security Posture API features for the cluster. Structure is documented below.
-        :param pulumi.Input[_builtins.str] self_link: The server-defined URL for the resource.
+        :param pulumi.Input[_builtins.str] self_link: Server-defined URL for the resource.
         :param pulumi.Input[Union['ClusterServiceExternalIpsConfigArgs', 'ClusterServiceExternalIpsConfigArgsDict']] service_external_ips_config: Structure is documented below.
-        :param pulumi.Input[_builtins.str] services_ipv4_cidr: The IP address range of the Kubernetes services in this
-               cluster, in [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-               notation (e.g. `1.2.3.4/29`). Service addresses are typically put in the last
-               `/16` from the container CIDR.
+        :param pulumi.Input[_builtins.str] services_ipv4_cidr: The IP address range of the Kubernetes services in this cluster, in CIDR notation (e.g. 1.2.3.4/29). Service addresses are typically put in the last /16 from the container CIDR.
         :param pulumi.Input[_builtins.str] subnetwork: The name or self_link of the Google Compute Engine
                subnetwork in which the cluster's instances are launched.
         :param pulumi.Input[Union['ClusterTpuConfigArgs', 'ClusterTpuConfigArgsDict']] tpu_config: TPU configuration for the cluster.
-        :param pulumi.Input[_builtins.str] tpu_ipv4_cidr_block: The IP address range of the Cloud TPUs in this cluster, in
-               [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-               notation (e.g. `1.2.3.4/29`).
+        :param pulumi.Input[_builtins.str] tpu_ipv4_cidr_block: The IP address range of the Cloud TPUs in this cluster, in CIDR notation (e.g. 1.2.3.4/29).
         :param pulumi.Input[Union['ClusterUserManagedKeysConfigArgs', 'ClusterUserManagedKeysConfigArgsDict']] user_managed_keys_config: The custom keys configuration of the cluster Structure is documented below.
         :param pulumi.Input[Union['ClusterVerticalPodAutoscalingArgs', 'ClusterVerticalPodAutoscalingArgsDict']] vertical_pod_autoscaling: Vertical Pod Autoscaling automatically adjusts the resources of pods controlled by it.
                Structure is documented below.
@@ -4489,6 +4454,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["resource_labels"] = resource_labels
         __props__.__dict__["resource_usage_export_config"] = resource_usage_export_config
         __props__.__dict__["secret_manager_config"] = secret_manager_config
+        __props__.__dict__["secret_sync_config"] = secret_sync_config
         __props__.__dict__["security_posture_config"] = security_posture_config
         __props__.__dict__["self_link"] = self_link
         __props__.__dict__["service_external_ips_config"] = service_external_ips_config
@@ -4736,7 +4702,7 @@ class Cluster(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="enableL4IlbSubsetting")
-    def enable_l4_ilb_subsetting(self) -> pulumi.Output[Optional[_builtins.bool]]:
+    def enable_l4_ilb_subsetting(self) -> pulumi.Output[_builtins.bool]:
         """
         Whether L4ILB Subsetting is enabled for this cluster.
         """
@@ -4937,9 +4903,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="masterVersion")
     def master_version(self) -> pulumi.Output[_builtins.str]:
         """
-        The current version of the master in the cluster. This may
-        be different than the `min_master_version` set in the config if the master
-        has been updated by GKE.
+        The current version of the master in the cluster. This may be different than the min_master_version set in the config if the master has been updated by GKE.
         """
         return pulumi.get(self, "master_version")
 
@@ -5261,6 +5225,16 @@ class Cluster(pulumi.CustomResource):
         return pulumi.get(self, "secret_manager_config")
 
     @_builtins.property
+    @pulumi.getter(name="secretSyncConfig")
+    def secret_sync_config(self) -> pulumi.Output[Optional['outputs.ClusterSecretSyncConfig']]:
+        """
+        Configuration for the
+        [SecretSyncConfig](https://cloud.google.com/secret-manager/docs/sync-k8-secrets) feature.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "secret_sync_config")
+
+    @_builtins.property
     @pulumi.getter(name="securityPostureConfig")
     def security_posture_config(self) -> pulumi.Output['outputs.ClusterSecurityPostureConfig']:
         """
@@ -5272,7 +5246,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="selfLink")
     def self_link(self) -> pulumi.Output[_builtins.str]:
         """
-        The server-defined URL for the resource.
+        Server-defined URL for the resource.
         """
         return pulumi.get(self, "self_link")
 
@@ -5288,10 +5262,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="servicesIpv4Cidr")
     def services_ipv4_cidr(self) -> pulumi.Output[_builtins.str]:
         """
-        The IP address range of the Kubernetes services in this
-        cluster, in [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-        notation (e.g. `1.2.3.4/29`). Service addresses are typically put in the last
-        `/16` from the container CIDR.
+        The IP address range of the Kubernetes services in this cluster, in CIDR notation (e.g. 1.2.3.4/29). Service addresses are typically put in the last /16 from the container CIDR.
         """
         return pulumi.get(self, "services_ipv4_cidr")
 
@@ -5316,9 +5287,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="tpuIpv4CidrBlock")
     def tpu_ipv4_cidr_block(self) -> pulumi.Output[_builtins.str]:
         """
-        The IP address range of the Cloud TPUs in this cluster, in
-        [CIDR](http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-        notation (e.g. `1.2.3.4/29`).
+        The IP address range of the Cloud TPUs in this cluster, in CIDR notation (e.g. 1.2.3.4/29).
         """
         return pulumi.get(self, "tpu_ipv4_cidr_block")
 

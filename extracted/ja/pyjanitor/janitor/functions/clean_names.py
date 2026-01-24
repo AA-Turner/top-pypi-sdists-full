@@ -42,11 +42,7 @@ def clean_names(
         >>> import pandas as pd
         >>> import janitor
         >>> df = pd.DataFrame(
-        ...     {
-        ...         "Aloha": range(3),
-        ...         "Bell Chart": range(3),
-        ...         "Animals@#$%^": range(3)
-        ...     }
+        ...     {"Aloha": range(3), "Bell Chart": range(3), "Animals@#$%^": range(3)}
         ... )
         >>> df
            Aloha  Bell Chart  Animals@#$%^
@@ -114,9 +110,7 @@ def clean_names(
             "Kindly provide an argument to `column_names`, if axis is None."
         )
     if axis is None:
-        column_names = get_index_labels(
-            arg=column_names, df=df, axis="columns"
-        )
+        column_names = get_index_labels(arg=column_names, df=df, axis="columns")
         if is_scalar(column_names):
             column_names = [column_names]
         df = df.copy()
@@ -133,7 +127,7 @@ def clean_names(
         return df
 
     assert axis in {"index", "columns"}
-    df = df[:]
+    df = df.copy()
     target_axis = getattr(df, axis)
     if isinstance(target_axis, pd.MultiIndex):
         target_axis = [
@@ -152,6 +146,10 @@ def clean_names(
             )
             for obj in target_axis
         ]
+        # Convert list of arrays back to MultiIndex
+        target_axis = pd.MultiIndex.from_arrays(
+            target_axis, names=getattr(df, axis).names
+        )
     else:
         target_axis = _clean_names(
             obj=target_axis,
@@ -186,9 +184,7 @@ def _clean_names(
     obj = _change_case(obj=obj, case_type=case_type)
     obj = _normalize_1(obj=obj)
     if remove_special:
-        obj = obj.str.replace(
-            pat="[^A-Za-z_\\d]", repl="", regex=True
-        ).str.strip()
+        obj = obj.str.replace(pat="[^A-Za-z_\\d]", repl="", regex=True).str.strip()
     if strip_accents:
         obj = _strip_accents(obj=obj)
     obj = obj.str.replace(pat="_+", repl="_", regex=True)
@@ -228,7 +224,12 @@ def _change_case(
 
 def _normalize_1(obj: pd.Index | pd.Series) -> pd.Index | pd.Series:
     """Perform normalization of labels in obj."""
-    FIXES = [(r"[ /:,?()\.-]", "_"), (r"['’]", ""), (r"[\xa0]", "_")]
+    FIXES = [
+        (r"[ /:,?()\.-]", "_"),
+        (r"['’]", ""),
+        (r"[\xa0]", "_"),
+        (r"(?<=\w)@(?=\w)", "_"),
+    ]
     for search, replace in FIXES:
         obj = obj.str.replace(pat=search, repl=replace, regex=True)
 
@@ -262,9 +263,7 @@ def _strip_underscores_func(
     """Strip underscores."""
     underscore_options = {None, "left", "right", "both", "l", "r", True}
     if strip_underscores not in underscore_options:
-        raise JanitorError(
-            f"strip_underscores must be one of: {underscore_options}"
-        )
+        raise JanitorError(f"strip_underscores must be one of: {underscore_options}")
     if strip_underscores in {"left", "l"}:
         return obj.str.lstrip("_")
     if strip_underscores in {"right", "r"}:

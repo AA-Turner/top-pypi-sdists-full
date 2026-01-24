@@ -9,7 +9,7 @@ use std::fs;
 
 /// Represents a generic markdownlint config (rule keys to values)
 #[derive(Debug, Deserialize)]
-pub struct MarkdownlintConfig(pub HashMap<String, serde_yaml::Value>);
+pub struct MarkdownlintConfig(pub HashMap<String, serde_yml::Value>);
 
 /// Load a markdownlint config file (JSON or YAML) from the given path
 pub fn load_markdownlint_config(path: &str) -> Result<MarkdownlintConfig, String> {
@@ -18,77 +18,20 @@ pub fn load_markdownlint_config(path: &str) -> Result<MarkdownlintConfig, String
     if path.ends_with(".json") || path.ends_with(".jsonc") {
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse JSON: {e}"))
     } else if path.ends_with(".yaml") || path.ends_with(".yml") {
-        serde_yaml::from_str(&content).map_err(|e| format!("Failed to parse YAML: {e}"))
+        serde_yml::from_str(&content).map_err(|e| format!("Failed to parse YAML: {e}"))
     } else {
         serde_json::from_str(&content)
-            .or_else(|_| serde_yaml::from_str(&content))
+            .or_else(|_| serde_yml::from_str(&content))
             .map_err(|e| format!("Failed to parse config as JSON or YAML: {e}"))
     }
 }
 
 /// Mapping table from markdownlint rule keys/aliases to rumdl rule keys
-fn markdownlint_to_rumdl_rule_key(key: &str) -> Option<&'static str> {
-    // Convert key to uppercase and replace underscores with hyphens for normalization
-    let normalized_key = key.to_ascii_uppercase().replace('_', "-");
-    match normalized_key.as_str() {
-        "MD001" | "HEADING-INCREMENT" => Some("MD001"),
-        "MD002" | "FIRST-HEADING-H1" => Some("MD002"),
-        "MD003" | "HEADING-STYLE" => Some("MD003"),
-        "MD004" | "UL-STYLE" => Some("MD004"),
-        "MD005" | "LIST-INDENT" => Some("MD005"),
-        "MD006" | "UL-START-LEFT" => Some("MD006"),
-        "MD007" | "UL-INDENT" => Some("MD007"),
-        "MD008" => Some("MD008"),
-        "MD009" | "NO-TRAILING-SPACES" => Some("MD009"),
-        "MD010" | "NO-HARD-TABS" => Some("MD010"),
-        "MD011" | "NO-REVERSED-LINKS" => Some("MD011"),
-        "MD012" | "NO-MULTIPLE-BLANKS" => Some("MD012"),
-        "MD013" | "LINE-LENGTH" => Some("MD013"),
-        "MD014" | "COMMANDS-SHOW-OUTPUT" => Some("MD014"),
-        "MD015" | "NO-MISSING-SPACE-AFTER-LIST-MARKER" => Some("MD015"),
-        "MD018" | "NO-MISSING-SPACE-ATX" => Some("MD018"),
-        "MD019" | "NO-MULTIPLE-SPACE-ATX" => Some("MD019"),
-        "MD020" | "NO-MISSING-SPACE-CLOSED-ATX" => Some("MD020"),
-        "MD021" | "NO-MULTIPLE-SPACE-CLOSED-ATX" => Some("MD021"),
-        "MD022" | "BLANKS-AROUND-HEADINGS" => Some("MD022"),
-        "MD023" | "HEADING-START-LEFT" => Some("MD023"),
-        "MD024" | "NO-DUPLICATE-HEADING" => Some("MD024"),
-        "MD025" | "SINGLE-TITLE" | "SINGLE-H1" => Some("MD025"),
-        "MD026" | "NO-TRAILING-PUNCTUATION" => Some("MD026"),
-        "MD027" | "NO-MULTIPLE-SPACE-BLOCKQUOTE" => Some("MD027"),
-        "MD028" | "NO-BLANKS-BLOCKQUOTE" => Some("MD028"),
-        "MD029" | "OL-PREFIX" => Some("MD029"),
-        "MD030" | "LIST-MARKER-SPACE" => Some("MD030"),
-        "MD031" | "BLANKS-AROUND-FENCES" => Some("MD031"),
-        "MD032" | "BLANKS-AROUND-LISTS" => Some("MD032"),
-        "MD033" | "NO-INLINE-HTML" => Some("MD033"),
-        "MD034" | "NO-BARE-URLS" => Some("MD034"),
-        "MD035" | "HR-STYLE" => Some("MD035"),
-        "MD036" | "NO-EMPHASIS-AS-HEADING" => Some("MD036"),
-        "MD037" | "NO-SPACE-IN-EMPHASIS" => Some("MD037"),
-        "MD038" | "NO-SPACE-IN-CODE" => Some("MD038"),
-        "MD039" | "NO-SPACE-IN-LINKS" => Some("MD039"),
-        "MD040" | "FENCED-CODE-LANGUAGE" => Some("MD040"),
-        "MD041" | "FIRST-LINE-HEADING" | "FIRST-LINE-H1" => Some("MD041"),
-        "MD042" | "NO-EMPTY-LINKS" => Some("MD042"),
-        "MD043" | "REQUIRED-HEADINGS" => Some("MD043"),
-        "MD044" | "PROPER-NAMES" => Some("MD044"),
-        "MD045" | "NO-ALT-TEXT" => Some("MD045"),
-        "MD046" | "CODE-BLOCK-STYLE" => Some("MD046"),
-        "MD047" | "SINGLE-TRAILING-NEWLINE" => Some("MD047"),
-        "MD048" | "CODE-FENCE-STYLE" => Some("MD048"),
-        "MD049" | "EMPHASIS-STYLE" => Some("MD049"),
-        "MD050" | "STRONG-STYLE" => Some("MD050"),
-        "MD051" | "LINK-FRAGMENTS" => Some("MD051"),
-        "MD052" | "REFERENCE-LINKS-IMAGES" => Some("MD052"),
-        "MD053" | "LINK-IMAGE-REFERENCE-DEFINITIONS" => Some("MD053"),
-        "MD054" | "LINK-IMAGE-STYLE" => Some("MD054"),
-        "MD055" | "TABLE-PIPE-STYLE" => Some("MD055"),
-        "MD056" | "TABLE-COLUMN-COUNT" => Some("MD056"),
-        "MD057" | "EXISTING-RELATIVE-LINKS" => Some("MD057"),
-        "MD058" | "BLANKS-AROUND-TABLES" => Some("MD058"),
-        _ => None,
-    }
+/// Convert a rule name (which may be an alias like "line-length") to the canonical rule ID (like "MD013").
+/// Returns None if the rule name is not recognized.
+pub fn markdownlint_to_rumdl_rule_key(key: &str) -> Option<&'static str> {
+    // Use the shared alias resolution function from config module
+    crate::config::resolve_rule_name_alias(key)
 }
 
 fn normalize_toml_table_keys(val: toml::Value) -> toml::Value {
@@ -106,6 +49,72 @@ fn normalize_toml_table_keys(val: toml::Value) -> toml::Value {
     }
 }
 
+/// Map markdownlint-specific option names to rumdl option names for a given rule.
+/// This handles incompatibilities between markdownlint and rumdl config schemas.
+/// Returns a new table with mapped options, or None if the entire config should be dropped.
+fn map_markdownlint_options_to_rumdl(
+    rule_key: &str,
+    table: toml::map::Map<String, toml::Value>,
+) -> Option<toml::map::Map<String, toml::Value>> {
+    let mut mapped = toml::map::Map::new();
+
+    match rule_key {
+        "MD013" => {
+            // MD013 (line-length) has different option names in markdownlint vs rumdl
+            for (k, v) in table {
+                match k.as_str() {
+                    // Markdownlint uses separate line length limits for different content types
+                    // rumdl uses boolean flags to enable/disable checking for content types
+                    "code-block-line-length" | "code_block_line_length" => {
+                        // Ignore: rumdl doesn't support per-content-type line length limits
+                        // Instead, users should use code-blocks = false to disable entirely
+                        log::warn!(
+                            "Ignoring markdownlint option 'code_block_line_length' for MD013. Use 'code-blocks = false' in rumdl to disable line length checking in code blocks."
+                        );
+                    }
+                    "heading-line-length" | "heading_line_length" => {
+                        // Ignore: rumdl doesn't support per-content-type line length limits
+                        log::warn!(
+                            "Ignoring markdownlint option 'heading_line_length' for MD013. Use 'headings = false' in rumdl to disable line length checking in headings."
+                        );
+                    }
+                    "stern" => {
+                        // Markdownlint uses "stern", rumdl uses "strict"
+                        mapped.insert("strict".to_string(), v);
+                    }
+                    // Pass through all other options
+                    _ => {
+                        mapped.insert(k, v);
+                    }
+                }
+            }
+            Some(mapped)
+        }
+        "MD054" => {
+            // MD054 (link-image-style) has fundamentally different config models
+            // Markdownlint uses style/styles strings, rumdl uses individual boolean flags
+            for (k, v) in table {
+                match k.as_str() {
+                    "style" | "styles" => {
+                        // Ignore: rumdl uses individual boolean flags (autolink, inline, full, etc.)
+                        // Cannot automatically map string style names to boolean flags
+                        log::warn!(
+                            "Ignoring markdownlint option '{k}' for MD054. rumdl uses individual boolean flags (autolink, inline, full, collapsed, shortcut, url-inline) instead. Please configure these directly."
+                        );
+                    }
+                    // Pass through all other options (autolink, inline, full, collapsed, shortcut, url-inline)
+                    _ => {
+                        mapped.insert(k, v);
+                    }
+                }
+            }
+            Some(mapped)
+        }
+        // All other rules: pass through unchanged
+        _ => Some(table),
+    }
+}
+
 /// Map a MarkdownlintConfig to rumdl's internal Config format
 impl MarkdownlintConfig {
     /// Map to a SourcedConfig, tracking provenance as Markdownlint for all values.
@@ -116,11 +125,17 @@ impl MarkdownlintConfig {
             let mapped = markdownlint_to_rumdl_rule_key(key);
             if let Some(rumdl_key) = mapped {
                 let norm_rule_key = rumdl_key.to_ascii_uppercase();
-                let toml_value: Option<toml::Value> = serde_yaml::from_value::<toml::Value>(value.clone()).ok();
+                let toml_value: Option<toml::Value> = serde_yml::from_value::<toml::Value>(value.clone()).ok();
                 let toml_value = toml_value.map(normalize_toml_table_keys);
                 let rule_config = sourced_config.rules.entry(norm_rule_key.clone()).or_default();
                 if let Some(tv) = toml_value {
                     if let toml::Value::Table(mut table) = tv {
+                        // Apply markdownlint-to-rumdl option mapping
+                        table = match map_markdownlint_options_to_rumdl(&norm_rule_key, table) {
+                            Some(mapped) => mapped,
+                            None => continue, // Skip this rule entirely if mapping returns None
+                        };
+
                         // Special handling for MD007: Add style = "fixed" for markdownlint compatibility
                         if norm_rule_key == "MD007" && !table.contains_key("style") {
                             table.insert("style".to_string(), toml::Value::String("fixed".to_string()));
@@ -133,20 +148,20 @@ impl MarkdownlintConfig {
                                 .entry(norm_config_key.clone())
                                 .and_modify(|sv| {
                                     sv.value = v.clone();
-                                    sv.source = ConfigSource::Markdownlint;
+                                    sv.source = ConfigSource::ProjectConfig;
                                     sv.overrides.push(crate::config::ConfigOverride {
                                         value: v.clone(),
-                                        source: ConfigSource::Markdownlint,
+                                        source: ConfigSource::ProjectConfig,
                                         file: file.clone(),
                                         line: None,
                                     });
                                 })
                                 .or_insert_with(|| SourcedValue {
                                     value: v.clone(),
-                                    source: ConfigSource::Markdownlint,
+                                    source: ConfigSource::ProjectConfig,
                                     overrides: vec![crate::config::ConfigOverride {
                                         value: v,
-                                        source: ConfigSource::Markdownlint,
+                                        source: ConfigSource::ProjectConfig,
                                         file: file.clone(),
                                         line: None,
                                     }],
@@ -158,20 +173,20 @@ impl MarkdownlintConfig {
                             .entry("value".to_string())
                             .and_modify(|sv| {
                                 sv.value = tv.clone();
-                                sv.source = ConfigSource::Markdownlint;
+                                sv.source = ConfigSource::ProjectConfig;
                                 sv.overrides.push(crate::config::ConfigOverride {
                                     value: tv.clone(),
-                                    source: ConfigSource::Markdownlint,
+                                    source: ConfigSource::ProjectConfig,
                                     file: file.clone(),
                                     line: None,
                                 });
                             })
                             .or_insert_with(|| SourcedValue {
                                 value: tv.clone(),
-                                source: ConfigSource::Markdownlint,
+                                source: ConfigSource::ProjectConfig,
                                 overrides: vec![crate::config::ConfigOverride {
                                     value: tv,
-                                    source: ConfigSource::Markdownlint,
+                                    source: ConfigSource::ProjectConfig,
                                     file: file.clone(),
                                     line: None,
                                 }],
@@ -183,10 +198,10 @@ impl MarkdownlintConfig {
                                 "style".to_string(),
                                 SourcedValue {
                                     value: toml::Value::String("fixed".to_string()),
-                                    source: ConfigSource::Markdownlint,
+                                    source: ConfigSource::ProjectConfig,
                                     overrides: vec![crate::config::ConfigOverride {
                                         value: toml::Value::String("fixed".to_string()),
-                                        source: ConfigSource::Markdownlint,
+                                        source: ConfigSource::ProjectConfig,
                                         file: file.clone(),
                                         line: None,
                                     }],
@@ -235,7 +250,7 @@ impl MarkdownlintConfig {
                     }
                     continue;
                 }
-                let toml_value: Option<toml::Value> = serde_yaml::from_value::<toml::Value>(value.clone()).ok();
+                let toml_value: Option<toml::Value> = serde_yml::from_value::<toml::Value>(value.clone()).ok();
                 let toml_value = toml_value.map(normalize_toml_table_keys);
                 let rule_config = fragment.rules.entry(norm_rule_key.clone()).or_default();
                 if let Some(tv) = toml_value {
@@ -250,6 +265,12 @@ impl MarkdownlintConfig {
                     };
 
                     if let toml::Value::Table(mut table) = tv {
+                        // Apply markdownlint-to-rumdl option mapping
+                        table = match map_markdownlint_options_to_rumdl(&norm_rule_key, table) {
+                            Some(mapped) => mapped,
+                            None => continue, // Skip this rule entirely if mapping returns None
+                        };
+
                         // Special handling for MD007: Add style = "fixed" for markdownlint compatibility
                         if norm_rule_key == "MD007" && !table.contains_key("style") {
                             table.insert("style".to_string(), toml::Value::String("fixed".to_string()));
@@ -258,9 +279,9 @@ impl MarkdownlintConfig {
                         for (rk, rv) in table {
                             let norm_rk = crate::config::normalize_key(&rk);
                             let sv = rule_config.values.entry(norm_rk.clone()).or_insert_with(|| {
-                                crate::config::SourcedValue::new(rv.clone(), crate::config::ConfigSource::Markdownlint)
+                                crate::config::SourcedValue::new(rv.clone(), crate::config::ConfigSource::ProjectConfig)
                             });
-                            sv.push_override(rv, crate::config::ConfigSource::Markdownlint, file.clone(), None);
+                            sv.push_override(rv, crate::config::ConfigSource::ProjectConfig, file.clone(), None);
                         }
                     } else {
                         rule_config
@@ -268,20 +289,20 @@ impl MarkdownlintConfig {
                             .entry("value".to_string())
                             .and_modify(|sv| {
                                 sv.value = tv.clone();
-                                sv.source = crate::config::ConfigSource::Markdownlint;
+                                sv.source = crate::config::ConfigSource::ProjectConfig;
                                 sv.overrides.push(crate::config::ConfigOverride {
                                     value: tv.clone(),
-                                    source: crate::config::ConfigSource::Markdownlint,
+                                    source: crate::config::ConfigSource::ProjectConfig,
                                     file: file.clone(),
                                     line: None,
                                 });
                             })
                             .or_insert_with(|| crate::config::SourcedValue {
                                 value: tv.clone(),
-                                source: crate::config::ConfigSource::Markdownlint,
+                                source: crate::config::ConfigSource::ProjectConfig,
                                 overrides: vec![crate::config::ConfigOverride {
                                     value: tv,
-                                    source: crate::config::ConfigSource::Markdownlint,
+                                    source: crate::config::ConfigSource::ProjectConfig,
                                     file: file.clone(),
                                     line: None,
                                 }],
@@ -293,10 +314,10 @@ impl MarkdownlintConfig {
                                 "style".to_string(),
                                 crate::config::SourcedValue {
                                     value: toml::Value::String("fixed".to_string()),
-                                    source: crate::config::ConfigSource::Markdownlint,
+                                    source: crate::config::ConfigSource::ProjectConfig,
                                     overrides: vec![crate::config::ConfigOverride {
                                         value: toml::Value::String("fixed".to_string()),
-                                        source: crate::config::ConfigSource::Markdownlint,
+                                        source: crate::config::ConfigSource::ProjectConfig,
                                         file: file.clone(),
                                         line: None,
                                     }],
@@ -312,7 +333,7 @@ impl MarkdownlintConfig {
         if !disabled_rules.is_empty() {
             fragment.global.disable.push_override(
                 disabled_rules,
-                crate::config::ConfigSource::Markdownlint,
+                crate::config::ConfigSource::ProjectConfig,
                 file.clone(),
                 None,
             );
@@ -322,7 +343,7 @@ impl MarkdownlintConfig {
         if !enabled_rules.is_empty() {
             fragment.global.enable.push_override(
                 enabled_rules,
-                crate::config::ConfigSource::Markdownlint,
+                crate::config::ConfigSource::ProjectConfig,
                 file.clone(),
                 None,
             );
@@ -352,7 +373,6 @@ mod tests {
         // Test aliases with hyphens
         assert_eq!(markdownlint_to_rumdl_rule_key("heading-increment"), Some("MD001"));
         assert_eq!(markdownlint_to_rumdl_rule_key("HEADING-INCREMENT"), Some("MD001"));
-        assert_eq!(markdownlint_to_rumdl_rule_key("first-heading-h1"), Some("MD002"));
         assert_eq!(markdownlint_to_rumdl_rule_key("ul-style"), Some("MD004"));
         assert_eq!(markdownlint_to_rumdl_rule_key("no-trailing-spaces"), Some("MD009"));
         assert_eq!(markdownlint_to_rumdl_rule_key("line-length"), Some("MD013"));
@@ -365,7 +385,6 @@ mod tests {
         // Test aliases with underscores (should also work)
         assert_eq!(markdownlint_to_rumdl_rule_key("heading_increment"), Some("MD001"));
         assert_eq!(markdownlint_to_rumdl_rule_key("HEADING_INCREMENT"), Some("MD001"));
-        assert_eq!(markdownlint_to_rumdl_rule_key("first_heading_h1"), Some("MD002"));
         assert_eq!(markdownlint_to_rumdl_rule_key("ul_style"), Some("MD004"));
         assert_eq!(markdownlint_to_rumdl_rule_key("no_trailing_spaces"), Some("MD009"));
         assert_eq!(markdownlint_to_rumdl_rule_key("line_length"), Some("MD013"));
@@ -491,17 +510,17 @@ ul-style:
         let mut config_map = HashMap::new();
         config_map.insert(
             "MD013".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_yml::Value::Mapping({
+                let mut map = serde_yml::Mapping::new();
                 map.insert(
-                    serde_yaml::Value::String("line_length".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(100)),
+                    serde_yml::Value::String("line_length".to_string()),
+                    serde_yml::Value::Number(serde_yml::Number::from(100)),
                 );
                 map
             }),
         );
-        config_map.insert("MD025".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD026".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD025".to_string(), serde_yml::Value::Bool(true));
+        config_map.insert("MD026".to_string(), serde_yml::Value::Bool(false));
 
         let mdl_config = MarkdownlintConfig(config_map);
         let sourced_config = mdl_config.map_to_sourced_rumdl_config(Some("test.json"));
@@ -511,7 +530,7 @@ ul-style:
         let md013_config = &sourced_config.rules["MD013"];
         assert!(md013_config.values.contains_key("line-length"));
         assert_eq!(md013_config.values["line-length"].value, toml::Value::Integer(100));
-        assert_eq!(md013_config.values["line-length"].source, ConfigSource::Markdownlint);
+        assert_eq!(md013_config.values["line-length"].source, ConfigSource::ProjectConfig);
 
         // Check that loaded_files is tracked
         assert_eq!(sourced_config.loaded_files.len(), 1);
@@ -525,23 +544,23 @@ ul-style:
         // Test line-length alias for MD013 with numeric value
         config_map.insert(
             "line-length".to_string(),
-            serde_yaml::Value::Number(serde_yaml::Number::from(120)),
+            serde_yml::Value::Number(serde_yml::Number::from(120)),
         );
 
         // Test rule disable (false)
-        config_map.insert("MD025".to_string(), serde_yaml::Value::Bool(false));
+        config_map.insert("MD025".to_string(), serde_yml::Value::Bool(false));
 
         // Test rule enable (true)
-        config_map.insert("MD026".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("MD026".to_string(), serde_yml::Value::Bool(true));
 
         // Test another rule with configuration
         config_map.insert(
             "MD003".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_yml::Value::Mapping({
+                let mut map = serde_yml::Mapping::new();
                 map.insert(
-                    serde_yaml::Value::String("style".to_string()),
-                    serde_yaml::Value::String("atx".to_string()),
+                    serde_yml::Value::String("style".to_string()),
+                    serde_yml::Value::String("atx".to_string()),
                 );
                 map
             }),
@@ -578,8 +597,8 @@ ul-style:
         assert!(sourced.rules.is_empty());
 
         // Test unknown rule (should be ignored)
-        config_map.insert("unknown-rule".to_string(), serde_yaml::Value::Bool(true));
-        config_map.insert("MD999".to_string(), serde_yaml::Value::Bool(true));
+        config_map.insert("unknown-rule".to_string(), serde_yml::Value::Bool(true));
+        config_map.insert("MD999".to_string(), serde_yml::Value::Bool(true));
 
         let config = MarkdownlintConfig(config_map);
         let sourced = config.map_to_sourced_rumdl_config(None);
@@ -593,13 +612,13 @@ ul-style:
         // Test MD044 with array configuration
         config_map.insert(
             "MD044".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_yml::Value::Mapping({
+                let mut map = serde_yml::Mapping::new();
                 map.insert(
-                    serde_yaml::Value::String("names".to_string()),
-                    serde_yaml::Value::Sequence(vec![
-                        serde_yaml::Value::String("JavaScript".to_string()),
-                        serde_yaml::Value::String("GitHub".to_string()),
+                    serde_yml::Value::String("names".to_string()),
+                    serde_yml::Value::Sequence(vec![
+                        serde_yml::Value::String("JavaScript".to_string()),
+                        serde_yml::Value::String("GitHub".to_string()),
                     ]),
                 );
                 map
@@ -609,11 +628,11 @@ ul-style:
         // Test nested configuration
         config_map.insert(
             "MD003".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_yml::Value::Mapping({
+                let mut map = serde_yml::Mapping::new();
                 map.insert(
-                    serde_yaml::Value::String("style".to_string()),
-                    serde_yaml::Value::String("atx".to_string()),
+                    serde_yml::Value::String("style".to_string()),
+                    serde_yml::Value::String("atx".to_string()),
                 );
                 map
             }),
@@ -644,19 +663,19 @@ ul-style:
         // Test different value types
         config_map.insert(
             "MD007".to_string(),
-            serde_yaml::Value::Number(serde_yaml::Number::from(4)),
+            serde_yml::Value::Number(serde_yml::Number::from(4)),
         ); // Simple number
         config_map.insert(
             "MD009".to_string(),
-            serde_yaml::Value::Mapping({
-                let mut map = serde_yaml::Mapping::new();
+            serde_yml::Value::Mapping({
+                let mut map = serde_yml::Mapping::new();
                 map.insert(
-                    serde_yaml::Value::String("br_spaces".to_string()),
-                    serde_yaml::Value::Number(serde_yaml::Number::from(2)),
+                    serde_yml::Value::String("br_spaces".to_string()),
+                    serde_yml::Value::Number(serde_yml::Number::from(2)),
                 );
                 map.insert(
-                    serde_yaml::Value::String("strict".to_string()),
-                    serde_yaml::Value::Bool(true),
+                    serde_yml::Value::String("strict".to_string()),
+                    serde_yml::Value::Bool(true),
                 );
                 map
             }),
@@ -681,11 +700,9 @@ ul-style:
         // Test that all documented aliases map correctly
         let aliases = vec![
             ("heading-increment", "MD001"),
-            ("first-heading-h1", "MD002"),
             ("heading-style", "MD003"),
             ("ul-style", "MD004"),
             ("list-indent", "MD005"),
-            ("ul-start-left", "MD006"),
             ("ul-indent", "MD007"),
             ("no-trailing-spaces", "MD009"),
             ("no-hard-tabs", "MD010"),
@@ -693,7 +710,7 @@ ul-style:
             ("no-multiple-blanks", "MD012"),
             ("line-length", "MD013"),
             ("commands-show-output", "MD014"),
-            ("no-missing-space-after-list-marker", "MD015"),
+            // MD015-017 don't exist in markdownlint
             ("no-missing-space-atx", "MD018"),
             ("no-multiple-space-atx", "MD019"),
             ("no-missing-space-closed-atx", "MD020"),
@@ -737,6 +754,13 @@ ul-style:
             ("table-column-count", "MD056"),
             ("existing-relative-links", "MD057"),
             ("blanks-around-tables", "MD058"),
+            ("descriptive-link-text", "MD059"),
+            ("table-cell-alignment", "MD060"),
+            ("table-format", "MD060"),
+            ("forbidden-terms", "MD061"),
+            ("nested-code-fence", "MD070"),
+            ("blank-line-after-frontmatter", "MD071"),
+            ("frontmatter-key-sort", "MD072"),
         ];
 
         for (alias, expected) in aliases {

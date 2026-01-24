@@ -47,6 +47,7 @@ from chainlit.message import (
     ErrorMessage,
     Message,
 )
+from chainlit.mode import Mode, ModeOption
 from chainlit.sidebar import ElementSidebar
 from chainlit.step import Step, step
 from chainlit.sync import make_async, run_sync
@@ -77,6 +78,7 @@ from .callbacks import (
     on_message,
     on_settings_update,
     on_shared_thread_view,
+    on_slack_reaction_added,
     on_stop,
     on_window_message,
     password_auth_callback,
@@ -150,6 +152,8 @@ __all__ = [
     "LangchainCallbackHandler",
     "LlamaIndexCallbackHandler",
     "Message",
+    "Mode",
+    "ModeOption",
     "OutputAudioChunk",
     "Pdf",
     "PersistedUser",
@@ -192,6 +196,7 @@ __all__ = [
     "on_message",
     "on_settings_update",
     "on_shared_thread_view",
+    "on_slack_reaction_added",
     "on_stop",
     "on_window_message",
     "password_auth_callback",

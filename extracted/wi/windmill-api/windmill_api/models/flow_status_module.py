@@ -9,6 +9,8 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.flow_status_module_agent_actions_item_type_0 import FlowStatusModuleAgentActionsItemType0
     from ..models.flow_status_module_agent_actions_item_type_1 import FlowStatusModuleAgentActionsItemType1
+    from ..models.flow_status_module_agent_actions_item_type_2 import FlowStatusModuleAgentActionsItemType2
+    from ..models.flow_status_module_agent_actions_item_type_3 import FlowStatusModuleAgentActionsItemType3
     from ..models.flow_status_module_approvers_item import FlowStatusModuleApproversItem
     from ..models.flow_status_module_branch_chosen import FlowStatusModuleBranchChosen
     from ..models.flow_status_module_branchall import FlowStatusModuleBranchall
@@ -38,7 +40,8 @@ class FlowStatusModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['FlowStatusModuleAgentActionsItemType0',
-            'FlowStatusModuleAgentActionsItemType1']]]):
+            'FlowStatusModuleAgentActionsItemType1', 'FlowStatusModuleAgentActionsItemType2',
+            'FlowStatusModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -57,13 +60,23 @@ class FlowStatusModule:
     failed_retries: Union[Unset, List[str]] = UNSET
     skipped: Union[Unset, bool] = UNSET
     agent_actions: Union[
-        Unset, List[Union["FlowStatusModuleAgentActionsItemType0", "FlowStatusModuleAgentActionsItemType1"]]
+        Unset,
+        List[
+            Union[
+                "FlowStatusModuleAgentActionsItemType0",
+                "FlowStatusModuleAgentActionsItemType1",
+                "FlowStatusModuleAgentActionsItemType2",
+                "FlowStatusModuleAgentActionsItemType3",
+            ]
+        ],
     ] = UNSET
     agent_actions_success: Union[Unset, List[bool]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         from ..models.flow_status_module_agent_actions_item_type_0 import FlowStatusModuleAgentActionsItemType0
+        from ..models.flow_status_module_agent_actions_item_type_1 import FlowStatusModuleAgentActionsItemType1
+        from ..models.flow_status_module_agent_actions_item_type_2 import FlowStatusModuleAgentActionsItemType2
 
         type = self.type.value
 
@@ -115,6 +128,12 @@ class FlowStatusModule:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, FlowStatusModuleAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusModuleAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusModuleAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -170,6 +189,8 @@ class FlowStatusModule:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.flow_status_module_agent_actions_item_type_0 import FlowStatusModuleAgentActionsItemType0
         from ..models.flow_status_module_agent_actions_item_type_1 import FlowStatusModuleAgentActionsItemType1
+        from ..models.flow_status_module_agent_actions_item_type_2 import FlowStatusModuleAgentActionsItemType2
+        from ..models.flow_status_module_agent_actions_item_type_3 import FlowStatusModuleAgentActionsItemType3
         from ..models.flow_status_module_approvers_item import FlowStatusModuleApproversItem
         from ..models.flow_status_module_branch_chosen import FlowStatusModuleBranchChosen
         from ..models.flow_status_module_branchall import FlowStatusModuleBranchall
@@ -236,7 +257,12 @@ class FlowStatusModule:
 
             def _parse_agent_actions_item(
                 data: object,
-            ) -> Union["FlowStatusModuleAgentActionsItemType0", "FlowStatusModuleAgentActionsItemType1"]:
+            ) -> Union[
+                "FlowStatusModuleAgentActionsItemType0",
+                "FlowStatusModuleAgentActionsItemType1",
+                "FlowStatusModuleAgentActionsItemType2",
+                "FlowStatusModuleAgentActionsItemType3",
+            ]:
                 try:
                     if not isinstance(data, dict):
                         raise TypeError()
@@ -245,11 +271,27 @@ class FlowStatusModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = FlowStatusModuleAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = FlowStatusModuleAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = FlowStatusModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = FlowStatusModuleAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

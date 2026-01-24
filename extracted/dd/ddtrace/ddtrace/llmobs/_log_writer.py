@@ -1,15 +1,8 @@
 import atexit
+import http.client as httplib
 import json
 from typing import List  # noqa:F401
-
-
-# TypedDict was added to typing in python 3.8
-try:
-    from typing import TypedDict  # noqa:F401
-except ImportError:
-    from typing_extensions import TypedDict
-
-import http.client as httplib
+from typing import TypedDict  # noqa:F401
 
 from ddtrace.internal import forksafe
 from ddtrace.internal.logger import get_logger
@@ -111,10 +104,17 @@ class V2LogWriter(PeriodicService):
                     self._url,
                     resp.status,
                     resp.read(),
+                    extra={"send_to_telemetry": False},
                 )
             else:
                 logger.debug("sent %d logs to %r", num_logs, self._url)
         except Exception:
-            logger.error("failed to send %d logs to %r", num_logs, self._intake, exc_info=True)
+            logger.error(
+                "failed to send %d logs to %r",
+                num_logs,
+                self._intake,
+                exc_info=True,
+                extra={"send_to_telemetry": False},
+            )
         finally:
             conn.close()

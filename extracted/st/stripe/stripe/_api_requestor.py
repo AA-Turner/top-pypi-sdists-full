@@ -42,7 +42,11 @@ from stripe._stripe_response import (
     StripeStreamResponse,
     StripeStreamResponseAsync,
 )
-from stripe._request_options import RequestOptions, merge_options
+from stripe._request_options import (
+    PERSISTENT_OPTIONS_KEYS,
+    RequestOptions,
+    merge_options,
+)
 from stripe._requestor_options import (
     RequestorOptions,
     _GlobalRequestorOptions,
@@ -52,18 +56,22 @@ from stripe._http_client import (
     new_default_http_client,
     new_http_client_async_fallback,
 )
-from stripe._app_info import AppInfo
 
 from stripe._base_address import BaseAddress
 from stripe._api_mode import ApiMode
 
 if TYPE_CHECKING:
+    from stripe._app_info import AppInfo
     from stripe._stripe_object import StripeObject
 
 HttpVerb = Literal["get", "post", "delete"]
 
 # Lazily initialized
 _default_proxy: Optional[str] = None
+
+
+def is_v2_delete_resp(method: str, api_mode: ApiMode) -> bool:
+    return method == "delete" and api_mode == "V2"
 
 
 class _APIRequestor(object):
@@ -117,12 +125,15 @@ class _APIRequestor(object):
             return stripe.default_http_client
         return client
 
-    def _replace_options(
+    def _new_requestor_with_options(
         self, options: Optional[RequestOptions]
     ) -> "_APIRequestor":
+        """
+        Returns a new _APIRequestor instance with the same HTTP client but a (potentially) updated set of options. Useful for ensuring the original isn't modified, but any options the original had are still used.
+        """
         options = options or {}
         new_options = self._options.to_dict()
-        for key in ["api_key", "stripe_account", "stripe_version"]:
+        for key in PERSISTENT_OPTIONS_KEYS:
             if key in options and options[key] is not None:
                 new_options[key] = options[key]
         return _APIRequestor(
@@ -161,7 +172,9 @@ class _APIRequestor(object):
     def _global_with_options(
         **params: Unpack[RequestOptions],
     ) -> "_APIRequestor":
-        return _APIRequestor._global_instance()._replace_options(params)
+        return _APIRequestor._global_instance()._new_requestor_with_options(
+            params
+        )
 
     @classmethod
     def _format_app_info(cls, info):
@@ -183,7 +196,7 @@ class _APIRequestor(object):
         usage: Optional[List[str]] = None,
     ) -> "StripeObject":
         api_mode = get_api_mode(url)
-        requestor = self._replace_options(options)
+        requestor = self._new_requestor_with_options(options)
         rbody, rcode, rheaders = requestor.request_raw(
             method.lower(),
             url,
@@ -201,6 +214,7 @@ class _APIRequestor(object):
             params=params,
             requestor=requestor,
             api_mode=api_mode,
+            is_v2_deleted_object=is_v2_delete_resp(method, api_mode),
         )
 
         return obj
@@ -216,7 +230,7 @@ class _APIRequestor(object):
         usage: Optional[List[str]] = None,
     ) -> "StripeObject":
         api_mode = get_api_mode(url)
-        requestor = self._replace_options(options)
+        requestor = self._new_requestor_with_options(options)
         rbody, rcode, rheaders = await requestor.request_raw_async(
             method.lower(),
             url,
@@ -234,6 +248,7 @@ class _APIRequestor(object):
             params=params,
             requestor=requestor,
             api_mode=api_mode,
+            is_v2_deleted_object=is_v2_delete_resp(method, api_mode),
         )
 
         return obj
@@ -464,7 +479,7 @@ class _APIRequestor(object):
         if stripe.app_info:
             user_agent += " " + self._format_app_info(stripe.app_info)
 
-        ua: Dict[str, Union[str, AppInfo]] = {
+        ua: Dict[str, Union[str, "AppInfo"]] = {
             "bindings_version": VERSION,
             "lang": "python",
             "publisher": "stripe",
@@ -494,8 +509,8 @@ class _APIRequestor(object):
             headers["Stripe-Account"] = stripe_account
 
         stripe_context = options.get("stripe_context")
-        if stripe_context:
-            headers["Stripe-Context"] = stripe_context
+        if stripe_context and str(stripe_context):
+            headers["Stripe-Context"] = str(stripe_context)
 
         idempotency_key = options.get("idempotency_key")
         if idempotency_key:
@@ -585,7 +600,7 @@ class _APIRequestor(object):
                 **params,
             }
 
-        encoded_params = urlencode(list(_api_encode(params or {}, api_mode)))
+        encoded_params = urlencode(list(_api_encode(params or {})))
 
         # Don't use strict form encoding by changing the square bracket control
         # characters back to their literals. This is fine by the server, and
@@ -821,7 +836,7 @@ class _APIRequestor(object):
 
         return rcontent, rcode, rheaders
 
-    def _should_handle_code_as_error(self, rcode):
+    def _should_handle_code_as_error(self, rcode: int) -> bool:
         return not 200 <= rcode < 300
 
     def _interpret_response(

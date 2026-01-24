@@ -16,7 +16,7 @@ from inspect_ai.model import (
     ModelName,
     ModelOutput,
 )
-from inspect_ai.model._call_tools import tools_info
+from inspect_ai.model._call_tools import get_tools_info
 from inspect_ai.model._model import sample_total_tokens
 from inspect_ai.model._prompt import user_prompt
 from inspect_ai.scorer._metric import Score
@@ -152,21 +152,22 @@ class TaskState:
         input: str | list[ChatMessage],
         messages: list[ChatMessage],
         target: Target = Target(""),
-        choices: list[str] | None = [],
+        choices: list[str] | None = None,
         output: ModelOutput | None = None,
         message_limit: int | None = None,
         token_limit: int | None = None,
         completed: bool = False,
-        metadata: dict[str, Any] = {},
+        metadata: dict[str, Any] | None = None,
         store: dict[str, Any] | None = None,
         scores: dict[str, Score] | None = None,
+        sample_uuid: str | None = None,
     ) -> None:
         self._model = model
         self._sample_id = sample_id
         self._epoch = epoch
         self._input = input
         self._target = target
-        self._metadata = metadata
+        self._metadata = metadata if metadata is not None else {}
         self._messages: list[ChatMessage] = ChatMessageList(messages)
         self._tools: list[Tool] = []
         self._output = output if output else ModelOutput(model=str(model))
@@ -174,7 +175,7 @@ class TaskState:
         self._token_limit = create_token_limit(token_limit)
         self._completed = completed
         self._store = Store(store)
-        self._uuid = uuid()
+        self._uuid = sample_uuid or uuid()
         self._scores = scores
 
         if choices:
@@ -435,20 +436,21 @@ def state_jsonable(state: TaskState | None = None) -> dict[str, Any]:
         if state is None:
             return dict()
 
-    def as_jsonable(value: Any) -> Any:
-        return to_jsonable_python(value, exclude_none=True, fallback=lambda _x: None)
-
     state_data = dict(
-        messages=as_jsonable(state.messages),
-        tools=tools_info(state.tools),
+        messages=state.messages,
+        tools=get_tools_info(state.tools),
         tool_choice=state.tool_choice,
         store=store_jsonable(state.store),
         output=state.output,
         completed=state.completed,
-        metadata=as_jsonable(state.metadata),
+        metadata=state.metadata,
     )
-    jsonable = as_jsonable(state_data)
-    return cast(dict[str, Any], deepcopy(jsonable))
+    jsonable = to_jsonable_python(
+        state_data,
+        exclude_none=True,
+        fallback=lambda _x: None,
+    )
+    return cast(dict[str, Any], jsonable)
 
 
 def sample_jsonable(sample: Sample) -> dict[str, Any]:

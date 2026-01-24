@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,14 +17,13 @@
 #
 # ****************************************************************************
 
-import logging
+import functools
 import platform
 import re
 import os
 
+from .logging import LOGGER
 from .utils import force_unix_separator, is_fs_case_insensitive
-
-LOGGER = logging.getLogger("gcovr")
 
 
 class Filter:
@@ -38,7 +37,7 @@ class Filter:
         """Return True if the given path (always with /) matches the regular expression."""
         os_independent_path = force_unix_separator(path)
         if self.pattern.match(os_independent_path):
-            LOGGER.debug(f"  Filter {self} matched for path {os_independent_path}.")
+            LOGGER.debug("  Filter %s matched for path %s.", self, os_independent_path)
             return True
         return False
 
@@ -89,6 +88,7 @@ class AlwaysMatchFilter(Filter):
 
     def match(self, path: str) -> bool:
         """Return always True."""
+        LOGGER.debug("  Filter %s matched.", self)
         return True
 
 
@@ -106,37 +106,57 @@ class DirectoryPrefixFilter(Filter):
         return super().match(path)
 
 
+@functools.cache
+def __is_file_matching_any(filename: str, filters: tuple[Filter, ...]) -> bool:
+    """Check if filename matches any of the given filters.
+
+    The filename is tested against all filters in the list.
+    The first matching filter causes a True result.
+
+    filename (str): the file path to match
+    filters (list of Filter): the filters to test against
+
+    returns:
+        True when filename is matching any filter.
+    """
+
+    if any(f.match(filename) for f in filters):
+        return True
+
+    LOGGER.debug("  No filter matched.")
+    return False
+
+
 def is_file_excluded(
+    filter_type: str,
     filename: str,
-    include_filters: list[Filter],
-    exclude_filters: list[Filter],
+    include_filter: tuple[Filter, ...],
+    exclude_filter: tuple[Filter, ...],
 ) -> bool:
     """Apply inclusion/exclusion filters to filename.
 
-    The include_filters are tested against
+    The include_filter are tested against
     the given (relative) filename.
-    The exclude_filters are tested against
+    The exclude_filter are tested against
     the stripped, given (relative), and absolute filenames.
 
     filename (str): the absolute file path to match
-    include_filters (list of FilterOption): ANY of these filters must match
-    exclude_filters (list of FilterOption): NONE of these filters must match
+    include_filter (list of FilterOption): ANY of these filters must match
+    exclude_filter (list of FilterOption): NONE of these filters must match
 
     returns:
         True when filename is not matching a include filter or matches an exclude filter.
     """
 
-    LOGGER.debug(f"Check if {filename} is included...")
-    if not any(f.match(filename) for f in include_filters):
-        LOGGER.debug("  No filter matched.")
-        return True
+    LOGGER.debug("Check if %s is included (%s)...", filename, filter_type)
+    is_included = __is_file_matching_any(filename, include_filter)
+    if is_included and exclude_filter:
+        LOGGER.debug("Check for exclusion...")
+        is_included = not __is_file_matching_any(filename, exclude_filter)
 
-    if not exclude_filters:
+    if is_included:
+        LOGGER.debug("--> File is included.")
         return False
 
-    LOGGER.debug("Check for exclusion...")
-    if any(f.match(filename) for f in exclude_filters):
-        return True
-
-    LOGGER.debug("  No filter matched.")
-    return False
+    LOGGER.debug("--> File is excluded.")
+    return True

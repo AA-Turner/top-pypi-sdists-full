@@ -121,16 +121,8 @@ std::int32_t OmpGetNumThreads(std::int32_t n_threads) noexcept(true) {
   return n_threads;
 }
 
-[[nodiscard]] bool GetCpuNuma(unsigned int* cpu, unsigned int* numa) {
-#ifdef SYS_getcpu
-  return syscall(SYS_getcpu, cpu, numa, NULL) == 0;
-#else
-  return false;
-#endif
-}
-
 void NameThread(std::thread* t, StringView name) {
-#if defined(__linux__)
+#if defined(__linux__) && (!defined(__ANDROID__) || __ANDROID_API__ >= 26)
   auto handle = t->native_handle();
   char old[16];
   auto ret = pthread_getname_np(handle, old, 16);

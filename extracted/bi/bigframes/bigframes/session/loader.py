@@ -14,26 +14,31 @@
 
 from __future__ import annotations
 
+import concurrent
+import concurrent.futures
 import copy
 import dataclasses
 import datetime
 import io
 import itertools
+import math
 import os
+import threading
 import typing
 from typing import (
     cast,
     Dict,
-    Generator,
     Hashable,
     IO,
     Iterable,
+    Iterator,
     List,
     Literal,
     Optional,
     overload,
     Sequence,
     Tuple,
+    TypeVar,
 )
 
 import bigframes_vendored.constants as constants
@@ -47,9 +52,20 @@ from google.cloud.bigquery_storage_v1 import types as bq_storage_types
 import pandas
 import pyarrow as pa
 
-from bigframes.core import guid, identifiers, local_data, nodes, ordering, utils
+import bigframes._tools
+import bigframes._tools.strings
+from bigframes.core import (
+    bq_data,
+    guid,
+    identifiers,
+    local_data,
+    nodes,
+    ordering,
+    utils,
+)
 import bigframes.core as core
 import bigframes.core.blocks as blocks
+import bigframes.core.events
 import bigframes.core.schema as schemata
 import bigframes.dtypes
 import bigframes.formatting_helpers as formatting_helpers
@@ -262,6 +278,8 @@ class GbqDataLoader:
         scan_index_uniqueness: bool,
         force_total_order: bool,
         metrics: Optional[bigframes.session.metrics.ExecutionMetrics] = None,
+        *,
+        publisher: bigframes.core.events.Publisher,
     ):
         self._bqclient = bqclient
         self._write_client = write_client
@@ -269,10 +287,9 @@ class GbqDataLoader:
         self._default_index_type = default_index_type
         self._scan_index_uniqueness = scan_index_uniqueness
         self._force_total_order = force_total_order
-        self._df_snapshot: Dict[
-            bigquery.TableReference, Tuple[datetime.datetime, bigquery.Table]
-        ] = {}
+        self._df_snapshot: Dict[str, Tuple[datetime.datetime, bigquery.Table]] = {}
         self._metrics = metrics
+        self._publisher = publisher
         # Unfortunate circular reference, but need to pass reference when constructing objects
         self._session = session
         self._clock = session_time.BigQuerySyncedClock(bqclient)
@@ -320,9 +337,7 @@ class GbqDataLoader:
             source=gbq_source,
             scan_list=nodes.ScanList(
                 tuple(
-                    nodes.ScanItem(
-                        identifiers.ColumnId(item.column), item.dtype, item.column
-                    )
+                    nodes.ScanItem(identifiers.ColumnId(item.column), item.column)
                     for item in data.schema.items
                 )
             ),
@@ -333,7 +348,7 @@ class GbqDataLoader:
         self,
         data: local_data.ManagedArrowTable,
         offsets_col: str,
-    ) -> nodes.BigqueryDataSource:
+    ) -> bq_data.BigqueryDataSource:
         """Load managed data into bigquery"""
 
         # JSON support incomplete
@@ -375,8 +390,9 @@ class GbqDataLoader:
         self._start_generic_job(load_job)
         # must get table metadata after load job for accurate metadata
         destination_table = self._bqclient.get_table(load_table_destination)
-        return nodes.BigqueryDataSource(
-            nodes.GbqTable.from_table(destination_table),
+        return bq_data.BigqueryDataSource(
+            bq_data.GbqTable.from_table(destination_table),
+            schema=schema_w_offsets,
             ordering=ordering.TotalOrdering.from_offset_col(offsets_col),
             n_rows=data.metadata.row_count,
         )
@@ -385,8 +401,17 @@ class GbqDataLoader:
         self,
         data: local_data.ManagedArrowTable,
         offsets_col: str,
-    ) -> nodes.BigqueryDataSource:
+    ) -> bq_data.BigqueryDataSource:
         """Load managed data into bigquery"""
+        MAX_BYTES = 10000000  # streaming api has 10MB limit
+        SAFETY_MARGIN = (
+            40  # Perf seems bad for large chunks, so do 40x smaller than max
+        )
+        batch_count = math.ceil(
+            data.metadata.total_bytes / (MAX_BYTES // SAFETY_MARGIN)
+        )
+        rows_per_batch = math.ceil(data.metadata.row_count / batch_count)
+
         schema_w_offsets = data.schema.append(
             schemata.SchemaItem(offsets_col, bigframes.dtypes.INT_DTYPE)
         )
@@ -400,19 +425,28 @@ class GbqDataLoader:
         )
         rows_w_offsets = ((*row, offset) for offset, row in enumerate(rows))
 
-        for errors in self._bqclient.insert_rows(
-            load_table_destination,
-            rows_w_offsets,
-            selected_fields=bq_schema,
-            row_ids=map(str, itertools.count()),  # used to ensure only-once insertion
-        ):
-            if errors:
-                raise ValueError(
-                    f"Problem loading at least one row from DataFrame: {errors}. {constants.FEEDBACK_LINK}"
-                )
+        # TODO: don't use batched
+        batches = _batched(rows_w_offsets, rows_per_batch)
+        ids_iter = map(str, itertools.count())
+
+        for batch in batches:
+            batch_rows = list(batch)
+            row_ids = itertools.islice(ids_iter, len(batch_rows))
+
+            for errors in self._bqclient.insert_rows(
+                load_table_destination,
+                batch_rows,
+                selected_fields=bq_schema,
+                row_ids=row_ids,  # used to ensure only-once insertion
+            ):
+                if errors:
+                    raise ValueError(
+                        f"Problem loading at least one row from DataFrame: {errors}. {constants.FEEDBACK_LINK}"
+                    )
         destination_table = self._bqclient.get_table(load_table_destination)
-        return nodes.BigqueryDataSource(
-            nodes.GbqTable.from_table(destination_table),
+        return bq_data.BigqueryDataSource(
+            bq_data.GbqTable.from_table(destination_table),
+            schema=schema_w_offsets,
             ordering=ordering.TotalOrdering.from_offset_col(offsets_col),
             n_rows=data.metadata.row_count,
         )
@@ -421,52 +455,101 @@ class GbqDataLoader:
         self,
         data: local_data.ManagedArrowTable,
         offsets_col: str,
-    ) -> nodes.BigqueryDataSource:
-        """Load managed data into bigquery"""
+    ) -> bq_data.BigqueryDataSource:
+        """Load managed data into BigQuery using multiple concurrent streams."""
         schema_w_offsets = data.schema.append(
             schemata.SchemaItem(offsets_col, bigframes.dtypes.INT_DTYPE)
         )
         bq_schema = schema_w_offsets.to_bigquery(_STREAM_JOB_TYPE_OVERRIDES)
         bq_table_ref = self._storage_manager.create_temp_table(bq_schema, [offsets_col])
+        parent = bq_table_ref.to_bqstorage()
 
-        requested_stream = bq_storage_types.stream.WriteStream()
-        requested_stream.type_ = bq_storage_types.stream.WriteStream.Type.COMMITTED  # type: ignore
-
-        stream_request = bq_storage_types.CreateWriteStreamRequest(
-            parent=bq_table_ref.to_bqstorage(), write_stream=requested_stream
+        # Some light benchmarking went into the constants here, not definitive
+        TARGET_BATCH_BYTES = (
+            5_000_000  # Must stay under the hard 10MB limit per request
         )
-        stream = self._write_client.create_write_stream(request=stream_request)
+        rows_per_batch = math.ceil(
+            data.metadata.row_count * TARGET_BATCH_BYTES / data.metadata.total_bytes
+        )
+        min_batches = math.ceil(data.metadata.row_count / rows_per_batch)
+        num_streams = min((os.cpu_count() or 4) * 4, min_batches)
 
-        def request_gen() -> Generator[bq_storage_types.AppendRowsRequest, None, None]:
-            schema, batches = data.to_arrow(
-                offsets_col=offsets_col, duration_type="int"
+        schema, all_batches = data.to_arrow(
+            offsets_col=offsets_col,
+            duration_type="int",
+            max_chunksize=rows_per_batch,
+        )
+        serialized_schema = schema.serialize().to_pybytes()
+
+        def stream_worker(work: Iterator[pa.RecordBatch]) -> str:
+            requested_stream = bq_storage_types.WriteStream(
+                type_=bq_storage_types.WriteStream.Type.PENDING
             )
-            offset = 0
-            for batch in batches:
-                request = bq_storage_types.AppendRowsRequest(
-                    write_stream=stream.name, offset=offset
-                )
-                request.arrow_rows.writer_schema.serialized_schema = (
-                    schema.serialize().to_pybytes()
-                )
-                request.arrow_rows.rows.serialized_record_batch = (
-                    batch.serialize().to_pybytes()
-                )
-                offset += batch.num_rows
-                yield request
+            stream = self._write_client.create_write_stream(
+                parent=parent, write_stream=requested_stream
+            )
+            stream_name = stream.name
 
-        for response in self._write_client.append_rows(requests=request_gen()):
-            if response.row_errors:
-                raise ValueError(
-                    f"Problem loading at least one row from DataFrame: {response.row_errors}. {constants.FEEDBACK_LINK}"
-                )
-        # This step isn't strictly necessary in COMMITTED mode, but avoids max active stream limits
-        response = self._write_client.finalize_write_stream(name=stream.name)
-        assert response.row_count == data.data.num_rows
+            def request_generator():
+                current_offset = 0
+                for batch in work:
+                    request = bq_storage_types.AppendRowsRequest(
+                        write_stream=stream.name, offset=current_offset
+                    )
 
-        destination_table = self._bqclient.get_table(bq_table_ref)
-        return nodes.BigqueryDataSource(
-            nodes.GbqTable.from_table(destination_table),
+                    request.arrow_rows.writer_schema.serialized_schema = (
+                        serialized_schema
+                    )
+                    request.arrow_rows.rows.serialized_record_batch = (
+                        batch.serialize().to_pybytes()
+                    )
+
+                    yield request
+                    current_offset += batch.num_rows
+
+            responses = self._write_client.append_rows(requests=request_generator())
+            for resp in responses:
+                if resp.row_errors:
+                    raise ValueError(
+                        f"Errors in stream {stream_name}: {resp.row_errors}"
+                    )
+            self._write_client.finalize_write_stream(name=stream_name)
+            return stream_name
+
+        shared_batches = ThreadSafeIterator(all_batches)
+
+        stream_names = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_streams) as executor:
+            futures = []
+            for _ in range(num_streams):
+                try:
+                    work = next(shared_batches)
+                except StopIteration:
+                    break  # existing workers have consume all work, don't create more workers
+                # Guarantee at least a single piece of work for each worker
+                future = executor.submit(
+                    stream_worker, itertools.chain((work,), shared_batches)
+                )
+                futures.append(future)
+
+            for future in concurrent.futures.as_completed(futures):
+                stream_name = future.result()
+                stream_names.append(stream_name)
+
+        # This makes all data from all streams visible in the table at once
+        commit_request = bq_storage_types.BatchCommitWriteStreamsRequest(
+            parent=parent, write_streams=stream_names
+        )
+        response = self._write_client.batch_commit_write_streams(commit_request)
+        for error in response.stream_errors:
+            raise ValueError(f"Errors commiting stream {error}")
+
+        result_table = bq_data.GbqTable.from_ref_and_schema(
+            bq_table_ref, schema=bq_schema, cluster_cols=[offsets_col]
+        )
+        return bq_data.BigqueryDataSource(
+            result_table,
+            schema=schema_w_offsets,
             ordering=ordering.TotalOrdering.from_offset_col(offsets_col),
             n_rows=data.metadata.row_count,
         )
@@ -499,6 +582,7 @@ class GbqDataLoader:
         force_total_order: Optional[bool] = ...,
         n_rows: Optional[int] = None,
         index_col_in_columns: bool = False,
+        publish_execution: bool = True,
     ) -> dataframe.DataFrame:
         ...
 
@@ -522,6 +606,7 @@ class GbqDataLoader:
         force_total_order: Optional[bool] = ...,
         n_rows: Optional[int] = None,
         index_col_in_columns: bool = False,
+        publish_execution: bool = True,
     ) -> pandas.Series:
         ...
 
@@ -544,6 +629,7 @@ class GbqDataLoader:
         force_total_order: Optional[bool] = None,
         n_rows: Optional[int] = None,
         index_col_in_columns: bool = False,
+        publish_execution: bool = True,
     ) -> dataframe.DataFrame | pandas.Series:
         """Read a BigQuery table into a BigQuery DataFrames DataFrame.
 
@@ -603,8 +689,12 @@ class GbqDataLoader:
                     when the index is selected from the data columns (e.g., in a
                     ``read_csv`` scenario). The column will be used as the
                     DataFrame's index and removed from the list of value columns.
+            publish_execution (bool, optional):
+                If True, sends an execution started and stopped event if this
+                causes a query. Set to False if using read_gbq_table from
+                another function that is reporting execution.
         """
-        import bigframes._tools.strings
+        import bigframes.core.events
         import bigframes.dataframe as dataframe
 
         # ---------------------------------
@@ -618,10 +708,6 @@ class GbqDataLoader:
 
         _check_duplicates("columns", columns)
 
-        table_ref = google.cloud.bigquery.table.TableReference.from_string(
-            table_id, default_project=self._bqclient.project
-        )
-
         columns = list(columns)
         include_all_columns = columns is None or len(columns) == 0
         filters = typing.cast(list, list(filters))
@@ -632,10 +718,12 @@ class GbqDataLoader:
 
         time_travel_timestamp, table = bf_read_gbq_table.get_table_metadata(
             self._bqclient,
-            table_ref=table_ref,
+            table_id=table_id,
+            default_project=self._bqclient.project,
             bq_time=self._clock.get_time(),
             cache=self._df_snapshot,
             use_cache=use_cache,
+            publisher=self._publisher,
         )
 
         if table.location.casefold() != self._storage_manager.location.casefold():
@@ -679,6 +767,7 @@ class GbqDataLoader:
             table=table,
             index_col=index_col,
             rename_to_schema=rename_to_schema,
+            default_index_type=self._default_index_type,
         )
         _check_index_col_param(
             index_cols,
@@ -694,18 +783,23 @@ class GbqDataLoader:
         # Optionally, execute the query
         # -----------------------------
 
-        # max_results introduces non-determinism and limits the cost on
-        # clustered tables, so fallback to a query. We do this here so that
-        # the index is consistent with tables that have primary keys, even
-        # when max_results is set.
-        if max_results is not None:
+        if (
+            # max_results introduces non-determinism and limits the cost on
+            # clustered tables, so fallback to a query. We do this here so that
+            # the index is consistent with tables that have primary keys, even
+            # when max_results is set.
+            max_results is not None
+            # Views such as INFORMATION_SCHEMA can introduce non-determinism.
+            # They can update frequently and don't support time travel.
+            or bf_read_gbq_table.is_information_schema(table_id)
+        ):
             # TODO(b/338111344): If we are running a query anyway, we might as
             # well generate ROW_NUMBER() at the same time.
             all_columns: Iterable[str] = (
                 itertools.chain(index_cols, columns) if columns else ()
             )
             query = bf_io_bigquery.to_query(
-                table_id,
+                f"{table.project}.{table.dataset_id}.{table.table_id}",
                 columns=all_columns,
                 sql_predicate=bf_io_bigquery.compile_filters(filters)
                 if filters
@@ -756,6 +850,7 @@ class GbqDataLoader:
             filter_str,
             should_warn=True,
             should_dry_run=True,
+            publisher=self._publisher,
         )
 
         # ----------------------------
@@ -768,18 +863,31 @@ class GbqDataLoader:
         # TODO(b/338065601): Provide a way to assume uniqueness and avoid this
         # check.
         primary_key = bf_read_gbq_table.infer_unique_columns(
-            bqclient=self._bqclient,
             table=table,
             index_cols=index_cols,
-            # If non in strict ordering mode, don't go through overhead of scanning index column(s) to determine if unique
-            metadata_only=not self._scan_index_uniqueness,
         )
-        schema = schemata.ArraySchema.from_bq_table(table)
-        if not include_all_columns:
-            schema = schema.select(index_cols + columns)
+
+        # If non in strict ordering mode, don't go through overhead of scanning index column(s) to determine if unique
+        if not primary_key and self._scan_index_uniqueness and index_cols:
+            if publish_execution:
+                self._publisher.publish(
+                    bigframes.core.events.ExecutionStarted(),
+                )
+            primary_key = bf_read_gbq_table.check_if_index_columns_are_unique(
+                self._bqclient,
+                table=table,
+                index_cols=index_cols,
+                publisher=self._publisher,
+            )
+            if publish_execution:
+                self._publisher.publish(
+                    bigframes.core.events.ExecutionFinished(),
+                )
+
+        selected_cols = None if include_all_columns else index_cols + columns
         array_value = core.ArrayValue.from_table(
             table,
-            schema=schema,
+            columns=selected_cols,
             predicate=filter_str,
             at_time=time_travel_timestamp if enable_snapshot else None,
             primary_key=primary_key,
@@ -991,6 +1099,12 @@ class GbqDataLoader:
                 query_job, list(columns), index_cols
             )
 
+        # We want to make sure we show progress when we actually do execute a
+        # query. Since we have got this far, we know it's not a dry run.
+        self._publisher.publish(
+            bigframes.core.events.ExecutionStarted(),
+        )
+
         query_job_for_metrics: Optional[bigquery.QueryJob] = None
         destination: Optional[bigquery.TableReference] = None
 
@@ -1046,20 +1160,28 @@ class GbqDataLoader:
         # makes sense to download the results beyond the first page, even if
         # there is a job and destination table available.
         if query_job_for_metrics is None and rows is not None:
-            return bf_read_gbq_query.create_dataframe_from_row_iterator(
+            df = bf_read_gbq_query.create_dataframe_from_row_iterator(
                 rows,
                 session=self._session,
                 index_col=index_col,
                 columns=columns,
             )
+            self._publisher.publish(
+                bigframes.core.events.ExecutionFinished(),
+            )
+            return df
 
         # We already checked rows, so if there's no destination table, then
         # there are no results to return.
         if destination is None:
-            return bf_read_gbq_query.create_dataframe_from_query_job_stats(
+            df = bf_read_gbq_query.create_dataframe_from_query_job_stats(
                 query_job_for_metrics,
                 session=self._session,
             )
+            self._publisher.publish(
+                bigframes.core.events.ExecutionFinished(),
+            )
+            return df
 
         # If the query was DDL or DML, return some job metadata. See
         # https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobStatistics2.FIELDS.statement_type
@@ -1070,10 +1192,14 @@ class GbqDataLoader:
             query_job_for_metrics is not None
             and not bf_read_gbq_query.should_return_query_results(query_job_for_metrics)
         ):
-            return bf_read_gbq_query.create_dataframe_from_query_job_stats(
+            df = bf_read_gbq_query.create_dataframe_from_query_job_stats(
                 query_job_for_metrics,
                 session=self._session,
             )
+            self._publisher.publish(
+                bigframes.core.events.ExecutionFinished(),
+            )
+            return df
 
         # Speed up counts by getting counts from result metadata.
         if rows is not None:
@@ -1083,16 +1209,21 @@ class GbqDataLoader:
         else:
             n_rows = None
 
-        return self.read_gbq_table(
+        df = self.read_gbq_table(
             f"{destination.project}.{destination.dataset_id}.{destination.table_id}",
             index_col=index_col,
             columns=columns,
             use_cache=configuration["query"]["useQueryCache"],
             force_total_order=force_total_order,
             n_rows=n_rows,
+            publish_execution=False,
             # max_results and filters are omitted because they are already
             # handled by to_query(), above.
         )
+        self._publisher.publish(
+            bigframes.core.events.ExecutionFinished(),
+        )
+        return df
 
     def _query_to_destination(
         self,
@@ -1194,6 +1325,8 @@ class GbqDataLoader:
             project=None,
             metrics=None,
             query_with_job=False,
+            publisher=self._publisher,
+            session=self._session,
         )
         return rows
 
@@ -1219,6 +1352,8 @@ class GbqDataLoader:
             project=None,
             metrics=None,
             query_with_job=True,
+            publisher=self._publisher,
+            session=self._session,
         )
         return query_job
 
@@ -1245,22 +1380,6 @@ def _transform_read_gbq_configuration(configuration: Optional[dict]) -> dict:
     return configuration
 
 
-def _has_json_arrow_type(arrow_type: pa.DataType) -> bool:
-    """
-    Searches recursively for JSON array type within a PyArrow DataType.
-    """
-    if arrow_type == bigframes.dtypes.JSON_ARROW_TYPE:
-        return True
-    if pa.types.is_list(arrow_type):
-        return _has_json_arrow_type(arrow_type.value_type)
-    if pa.types.is_struct(arrow_type):
-        for i in range(arrow_type.num_fields):
-            if _has_json_arrow_type(arrow_type.field(i).type):
-                return True
-        return False
-    return False
-
-
 def _validate_dtype_can_load(name: str, column_type: bigframes.dtypes.Dtype):
     """
     Determines whether a datatype is supported by bq load jobs.
@@ -1277,10 +1396,37 @@ def _validate_dtype_can_load(name: str, column_type: bigframes.dtypes.Dtype):
     if column_type == bigframes.dtypes.JSON_DTYPE:
         return
 
-    if isinstance(column_type, pandas.ArrowDtype) and _has_json_arrow_type(
+    if isinstance(
+        column_type, pandas.ArrowDtype
+    ) and bigframes.dtypes.contains_db_dtypes_json_arrow_type(
         column_type.pyarrow_dtype
     ):
         raise NotImplementedError(
             f"Nested JSON types, found in column `{name}`: `{column_type}`', "
             f"are currently unsupported for upload. {constants.FEEDBACK_LINK}"
         )
+
+
+# itertools.batched not available in python <3.12, so we use this instead
+def _batched(iterator: Iterable, n: int) -> Iterable:
+    assert n > 0
+    while batch := tuple(itertools.islice(iterator, n)):
+        yield batch
+
+
+T = TypeVar("T")
+
+
+class ThreadSafeIterator(Iterator[T]):
+    """A wrapper to make an iterator thread-safe."""
+
+    def __init__(self, it: Iterable[T]):
+        self.it = iter(it)
+        self.lock = threading.Lock()
+
+    def __next__(self):
+        with self.lock:
+            return next(self.it)
+
+    def __iter__(self):
+        return self

@@ -28,6 +28,7 @@ class RichTextObjectType(Enum):
     LIST = "rich_text_list"
     PREFORMATTED = "rich_text_preformatted"
     QUOTE = "rich_text_quote"
+    TABLE_CELL = "rich_text_table_cell"
 
 
 class ListType(Enum):

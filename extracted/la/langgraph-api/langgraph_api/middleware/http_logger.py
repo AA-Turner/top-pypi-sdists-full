@@ -97,7 +97,7 @@ class AccessLoggerMiddleware:
                 path=path,
                 status=status,
                 latency_ms=latency,
-                route=route,
+                route=str(route),
                 path_params=scope.get("path_params"),
                 query_string=qs.decode() if qs else "",
                 proto=scope.get("http_version"),

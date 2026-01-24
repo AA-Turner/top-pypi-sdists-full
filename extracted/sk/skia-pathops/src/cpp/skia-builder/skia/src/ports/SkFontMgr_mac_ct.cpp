@@ -42,34 +42,6 @@
 
 using namespace skia_private;
 
-#if (defined(SK_BUILD_FOR_IOS) && defined(__IPHONE_14_0) &&  \
-      __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_14_0) ||  \
-    (defined(SK_BUILD_FOR_MAC) && defined(__MAC_11_0) &&     \
-      __MAC_OS_VERSION_MIN_REQUIRED >= __MAC_11_0)
-
-static uint32_t SkGetCoreTextVersion() {
-    // If compiling for iOS 14.0+ or macOS 11.0+, the CoreText version number
-    // must be derived from the OS version number.
-    static const uint32_t kCoreTextVersionNEWER = 0x000D0000;
-    return kCoreTextVersionNEWER;
-}
-
-#else
-
-static uint32_t SkGetCoreTextVersion() {
-    // Check for CoreText availability before calling CTGetCoreTextVersion().
-    static const bool kCoreTextIsAvailable = (&CTGetCoreTextVersion != nullptr);
-    if (kCoreTextIsAvailable) {
-        return CTGetCoreTextVersion();
-    }
-
-    // Default to a value that's smaller than any known CoreText version.
-    static const uint32_t kCoreTextVersionUNKNOWN = 0;
-    return kCoreTextVersionUNKNOWN;
-}
-
-#endif
-
 static SkUniqueCFRef<CFStringRef> make_CFString(const char s[]) {
     return SkUniqueCFRef<CFStringRef>(CFStringCreateWithCString(nullptr, s, kCFStringEncodingUTF8));
 }
@@ -100,34 +72,7 @@ static SkUniqueCFRef<CTFontDescriptorRef> create_descriptor(const char familyNam
         return nullptr;
     }
 
-    // TODO(crbug.com/1018581) Some CoreText versions have errant behavior when
-    // certain traits set.  Temporary workaround to omit specifying trait for those
-    // versions.
-    // Long term solution will involve serializing typefaces instead of relying upon
-    // this to match between processes.
-    //
-    // Compare CoreText.h in an up to date SDK for where these values come from.
-    static const uint32_t kSkiaLocalCTVersionNumber10_14 = 0x000B0000;
-    static const uint32_t kSkiaLocalCTVersionNumber10_15 = 0x000C0000;
-
-    // CTFontTraits (symbolic)
-    // macOS 14 and iOS 12 seem to behave badly when kCTFontSymbolicTrait is set.
-    // macOS 15 yields LastResort font instead of a good default font when
-    // kCTFontSymbolicTrait is set.
-    if (SkGetCoreTextVersion() < kSkiaLocalCTVersionNumber10_14) {
-        CTFontSymbolicTraits ctFontTraits = 0;
-        if (style.weight() >= SkFontStyle::kBold_Weight) {
-            ctFontTraits |= kCTFontBoldTrait;
-        }
-        if (style.slant() != SkFontStyle::kUpright_Slant) {
-            ctFontTraits |= kCTFontItalicTrait;
-        }
-        SkUniqueCFRef<CFNumberRef> cfFontTraits(
-                CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ctFontTraits));
-        if (cfFontTraits) {
-            CFDictionaryAddValue(cfTraits.get(), kCTFontSymbolicTrait, cfFontTraits.get());
-        }
-    }
+    // Setting both kCTFontSymbolicTrait and the specific WWS traits may lead to strange outcomes.
 
     // CTFontTraits (weight)
     CGFloat ctWeight = SkCTFontCTWeightForCSSWeight(style.weight());
@@ -144,14 +89,13 @@ static SkUniqueCFRef<CTFontDescriptorRef> create_descriptor(const char familyNam
         CFDictionaryAddValue(cfTraits.get(), kCTFontWidthTrait, cfFontWidth.get());
     }
     // CTFontTraits (slant)
-    // macOS 15 behaves badly when kCTFontSlantTrait is set.
-    if (SkGetCoreTextVersion() != kSkiaLocalCTVersionNumber10_15) {
-        CGFloat ctSlant = style.slant() == SkFontStyle::kUpright_Slant ? 0 : 1;
-        SkUniqueCFRef<CFNumberRef> cfFontSlant(
-                CFNumberCreate(kCFAllocatorDefault, kCFNumberCGFloatType, &ctSlant));
-        if (cfFontSlant) {
-            CFDictionaryAddValue(cfTraits.get(), kCTFontSlantTrait, cfFontSlant.get());
-        }
+    // Slope value set to 0.07 based on WebKit's implementation for better font matching
+    static const CGFloat kSystemFontItalicSlope = 0.07;
+    CGFloat ctSlant = style.slant() == SkFontStyle::kUpright_Slant ? 0 : kSystemFontItalicSlope;
+    SkUniqueCFRef<CFNumberRef> cfFontSlant(
+            CFNumberCreate(kCFAllocatorDefault, kCFNumberCGFloatType, &ctSlant));
+    if (cfFontSlant) {
+        CFDictionaryAddValue(cfTraits.get(), kCTFontSlantTrait, cfFontSlant.get());
     }
     // CTFontTraits
     CFDictionaryAddValue(cfAttributes.get(), kCTFontTraitsAttribute, cfTraits.get());
@@ -285,18 +229,18 @@ public:
         }
     }
 
-    SkTypeface* createTypeface(int index) override {
+    sk_sp<SkTypeface> createTypeface(int index) override {
         SkASSERT((unsigned)index < (unsigned)CFArrayGetCount(fArray.get()));
         CTFontDescriptorRef desc = (CTFontDescriptorRef)CFArrayGetValueAtIndex(fArray.get(), index);
 
-        return create_from_desc(desc).release();
+        return create_from_desc(desc);
     }
 
-    SkTypeface* matchStyle(const SkFontStyle& pattern) override {
+    sk_sp<SkTypeface> matchStyle(const SkFontStyle& pattern) override {
         if (0 == fCount) {
             return nullptr;
         }
-        return create_from_desc(findMatchingDesc(pattern)).release();
+        return create_from_desc(findMatchingDesc(pattern));
     }
 
 private:
@@ -387,7 +331,7 @@ class SkFontMgr_Mac : public SkFontMgr {
         return (CFStringRef)CFArrayGetValueAtIndex(fNames.get(), index);
     }
 
-    static SkFontStyleSet* CreateSet(CFStringRef cfFamilyName) {
+    static sk_sp<SkFontStyleSet> CreateSet(CFStringRef cfFamilyName) {
         SkUniqueCFRef<CFMutableDictionaryRef> cfAttr(
                  CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                            &kCFTypeDictionaryKeyCallBacks,
@@ -397,7 +341,7 @@ class SkFontMgr_Mac : public SkFontMgr {
 
         SkUniqueCFRef<CTFontDescriptorRef> desc(
                 CTFontDescriptorCreateWithAttributes(cfAttr.get()));
-        return new SkFontStyleSet_Mac(desc.get());
+        return sk_sp<SkFontStyleSet>(new SkFontStyleSet_Mac(desc.get()));
     }
 
 public:
@@ -423,14 +367,14 @@ protected:
         }
     }
 
-    SkFontStyleSet* onCreateStyleSet(int index) const override {
+    sk_sp<SkFontStyleSet> onCreateStyleSet(int index) const override {
         if ((unsigned)index >= (unsigned)fCount) {
             return nullptr;
         }
         return CreateSet(this->getFamilyNameAt(index));
     }
 
-    SkFontStyleSet* onMatchFamily(const char familyName[]) const override {
+    sk_sp<SkFontStyleSet> onMatchFamily(const char familyName[]) const override {
         if (!familyName) {
             return nullptr;
         }
@@ -438,24 +382,24 @@ protected:
         return CreateSet(cfName.get());
     }
 
-    SkTypeface* onMatchFamilyStyle(const char familyName[],
+    sk_sp<SkTypeface> onMatchFamilyStyle(const char familyName[],
                                    const SkFontStyle& style) const override {
         SkUniqueCFRef<CTFontDescriptorRef> reqDesc = create_descriptor(familyName, style);
         if (!familyName) {
-            return create_from_desc(reqDesc.get()).release();
+            return create_from_desc(reqDesc.get());
         }
         SkUniqueCFRef<CTFontDescriptorRef> resolvedDesc(
             CTFontDescriptorCreateMatchingFontDescriptor(reqDesc.get(), name_required().get()));
         if (!resolvedDesc) {
             return nullptr;
         }
-        return create_from_desc(resolvedDesc.get()).release();
+        return create_from_desc(resolvedDesc.get());
     }
 
-    SkTypeface* onMatchFamilyStyleCharacter(const char familyName[],
-                                            const SkFontStyle& style,
-                                            const char* bcp47[], int bcp47Count,
-                                            SkUnichar character) const override {
+    sk_sp<SkTypeface> onMatchFamilyStyleCharacter(const char familyName[],
+                                                  const SkFontStyle& style,
+                                                  const char* bcp47[], int bcp47Count,
+                                                  SkUnichar character) const override {
         SkUniqueCFRef<CTFontDescriptorRef> desc = create_descriptor(familyName, style);
         SkUniqueCFRef<CTFontRef> familyFont(CTFontCreateWithFontDescriptor(desc.get(), 0, nullptr));
 
@@ -477,7 +421,7 @@ protected:
         CFRange range = CFRangeMake(0, CFStringGetLength(string.get()));  // in UniChar units.
         SkUniqueCFRef<CTFontRef> fallbackFont(
                 CTFontCreateForString(familyFont.get(), string.get(), range));
-        return SkTypeface_Mac::Make(std::move(fallbackFont), OpszVariation(), nullptr).release();
+        return SkTypeface_Mac::Make(std::move(fallbackFont), OpszVariation(), nullptr);
     }
 
     sk_sp<SkTypeface> onMakeFromData(sk_sp<SkData> data, int ttcIndex) const override {

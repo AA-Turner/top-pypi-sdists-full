@@ -17,17 +17,17 @@ def __fill_first_value_with_zero(series: pd.Series) -> pd.Series:
     return series
 
 
-def __apply_clip(data: T, clip: float | None) -> T:
+def __apply_clip[T: (pd.Series, pd.DataFrame)](data: T, clip: float | None) -> T:
     if clip is not None:
         return data.clip(lower=-clip, upper=clip)
     return data
 
 
-def to_log_returns(data: T, clip: float | None) -> T:
+def to_log_returns[T: (pd.Series, pd.DataFrame)](data: T, clip: float | None) -> T:
     return __apply_clip(np.log1p(to_returns(data, clip=None)), clip=clip)
 
 
-def to_returns(data: T, clip: float | None) -> T:
+def to_returns[T: (pd.Series, pd.DataFrame)](data: T, clip: float | None) -> T:
     if isinstance(data, pd.DataFrame):
         return data.apply(partial(to_returns, clip=clip))
     if data.min() < 0:

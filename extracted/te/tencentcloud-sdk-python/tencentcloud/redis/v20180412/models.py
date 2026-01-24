@@ -25,28 +25,22 @@ class Account(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID。
+        :param _InstanceId: <p>实例 ID。</p>
         :type InstanceId: str
-        :param _AccountName: 账号名称。
+        :param _AccountName: <p>账号名称。</p>
         :type AccountName: str
-        :param _Remark: 账号描述信息。
+        :param _Remark: <p>账号描述信息。</p>
         :type Remark: str
-        :param _Privilege: 读写权限策略。
-- r：只读。
-- w：只写。
-- rw：读写。
+        :param _Privilege: <p>读写权限策略。- r：只读。- w：只写。- rw：读写。</p>
         :type Privilege: str
-        :param _ReadonlyPolicy: 只读路由策略。
-- master：主节点。
-- replication：从节点。
+        :param _ReadonlyPolicy: <p>只读路由策略。- master：主节点。- replication：从节点。</p>
         :type ReadonlyPolicy: list of str
-        :param _Status: 子账号状态.
-- 1：账号变更中。
-- 2：账号有效。
-- 4：账号已删除。
+        :param _Status: <p>子账号状态.- 1：账号变更中。- 2：账号有效。- 4：账号已删除。</p>
         :type Status: int
-        :param _CreateTime: 创建时间
+        :param _CreateTime: <p>账号创建时间。</p><p>若该参数为空字符串，说明该账号创建于早期版本，未支持创建时间记录功能。</p>
         :type CreateTime: str
+        :param _PasswordLastModifiedTime: <p>账号最后修改密码的时间。</p><p>若该参数为空字符串，说明该账号创建于早期版本，未支持密码修改时间记录功能。</p>
+        :type PasswordLastModifiedTime: str
         """
         self._InstanceId = None
         self._AccountName = None
@@ -55,10 +49,11 @@ class Account(AbstractModel):
         self._ReadonlyPolicy = None
         self._Status = None
         self._CreateTime = None
+        self._PasswordLastModifiedTime = None
 
     @property
     def InstanceId(self):
-        r"""实例 ID。
+        r"""<p>实例 ID。</p>
         :rtype: str
         """
         return self._InstanceId
@@ -69,7 +64,7 @@ class Account(AbstractModel):
 
     @property
     def AccountName(self):
-        r"""账号名称。
+        r"""<p>账号名称。</p>
         :rtype: str
         """
         return self._AccountName
@@ -80,7 +75,7 @@ class Account(AbstractModel):
 
     @property
     def Remark(self):
-        r"""账号描述信息。
+        r"""<p>账号描述信息。</p>
         :rtype: str
         """
         return self._Remark
@@ -91,10 +86,7 @@ class Account(AbstractModel):
 
     @property
     def Privilege(self):
-        r"""读写权限策略。
-- r：只读。
-- w：只写。
-- rw：读写。
+        r"""<p>读写权限策略。- r：只读。- w：只写。- rw：读写。</p>
         :rtype: str
         """
         return self._Privilege
@@ -105,9 +97,7 @@ class Account(AbstractModel):
 
     @property
     def ReadonlyPolicy(self):
-        r"""只读路由策略。
-- master：主节点。
-- replication：从节点。
+        r"""<p>只读路由策略。- master：主节点。- replication：从节点。</p>
         :rtype: list of str
         """
         return self._ReadonlyPolicy
@@ -118,10 +108,7 @@ class Account(AbstractModel):
 
     @property
     def Status(self):
-        r"""子账号状态.
-- 1：账号变更中。
-- 2：账号有效。
-- 4：账号已删除。
+        r"""<p>子账号状态.- 1：账号变更中。- 2：账号有效。- 4：账号已删除。</p>
         :rtype: int
         """
         return self._Status
@@ -132,7 +119,7 @@ class Account(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""创建时间
+        r"""<p>账号创建时间。</p><p>若该参数为空字符串，说明该账号创建于早期版本，未支持创建时间记录功能。</p>
         :rtype: str
         """
         return self._CreateTime
@@ -140,6 +127,17 @@ class Account(AbstractModel):
     @CreateTime.setter
     def CreateTime(self, CreateTime):
         self._CreateTime = CreateTime
+
+    @property
+    def PasswordLastModifiedTime(self):
+        r"""<p>账号最后修改密码的时间。</p><p>若该参数为空字符串，说明该账号创建于早期版本，未支持密码修改时间记录功能。</p>
+        :rtype: str
+        """
+        return self._PasswordLastModifiedTime
+
+    @PasswordLastModifiedTime.setter
+    def PasswordLastModifiedTime(self, PasswordLastModifiedTime):
+        self._PasswordLastModifiedTime = PasswordLastModifiedTime
 
 
     def _deserialize(self, params):
@@ -150,6 +148,7 @@ class Account(AbstractModel):
         self._ReadonlyPolicy = params.get("ReadonlyPolicy")
         self._Status = params.get("Status")
         self._CreateTime = params.get("CreateTime")
+        self._PasswordLastModifiedTime = params.get("PasswordLastModifiedTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2047,26 +2046,33 @@ class CloneInstancesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DealId: 请求任务 ID。
+        :param _DealId: 交易的ID。
         :type DealId: str
         :param _InstanceIds: 克隆实例的 ID。
         :type InstanceIds: list of str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
         self._InstanceIds = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
-        r"""请求任务 ID。
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
+        r"""交易的ID。
         :rtype: str
         """
         return self._DealId
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
 
     @property
@@ -2079,6 +2085,17 @@ class CloneInstancesResponse(AbstractModel):
     @InstanceIds.setter
     def InstanceIds(self, InstanceIds):
         self._InstanceIds = InstanceIds
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -2095,6 +2112,7 @@ class CloneInstancesResponse(AbstractModel):
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
         self._InstanceIds = params.get("InstanceIds")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -2425,7 +2443,19 @@ class CreateInstancesRequest(AbstractModel):
     def __init__(self):
         r"""
         :param _TypeId: 实例类型。
-<ul><li>2：Redis 2.8 内存版（标准架构）。</li><li>3：CKV 3.2 内存版（标准架构）。</li><li>4：CKV 3.2 内存版（集群架构）。</li><li>6：Redis 4.0 内存版（标准架构）。</li><li>7：Redis 4.0 内存版（集群架构）。</li><li>8：Redis 5.0 内存版（标准架构）。</li><li>9：Redis 5.0 内存版（集群架构）。</li><li>15：Redis 6.2 内存版（标准架构）。</li><li>16：Redis 6.2 内存版（集群架构）。</li><li>17：Redis 7.0 内存版（标准架构）。</li><li>18：Redis 7.0 内存版（集群架构）。</li><li>200：Memcached 1.6 内存版（集群架构）。</li>说明：CKV 版本当前有存量用户使用，暂时保留。</ul>
+- 2：Redis 2.8 内存版（标准架构）。
+- 3：CKV 3.2 内存版（标准架构）。
+- 4：CKV 3.2 内存版（集群架构）。
+- 6：Redis 4.0 内存版（标准架构）。
+- 7：Redis 4.0 内存版（集群架构）。
+- 8：Redis 5.0 内存版（标准架构）。
+- 9：Redis 5.0 内存版（集群架构）。
+- 15：Redis 6.2 内存版（标准架构）。
+- 16：Redis 6.2 内存版（集群架构）。
+- 17：Redis 7.0 内存版（标准架构）。
+- 18：Redis 7.0 内存版（集群架构）。
+- 200：Memcached 1.6 内存版（集群架构）。
+**说明**：CKV 版本当前有存量用户使用，暂时保留。
         :type TypeId: int
         :param _MemSize: 内存容量，单位为MB， 数值需为1024的整数倍。具体规格，请通过 [DescribeProductInfo](https://cloud.tencent.com/document/api/239/30600) 接口查询全地域的售卖规格。
 - **TypeId**为标准架构时，**MemSize**是实例总内存容量；
@@ -2470,7 +2500,7 @@ class CreateInstancesRequest(AbstractModel):
 - 集群版实例，分片数量范围为：[1、3、5、8、12、16、24、32、40、48、64、80、96、128]。
         :type RedisShardNum: int
         :param _RedisReplicasNum: 实例副本数量。
-- Redis 内存版 4.0、5.0、6.2 标准架构和集群架构支持副本数量范围为[1,5]。
+- Redis 内存版 4.0、5.0、6.2、7.0 标准架构和集群架构支持副本数量范围为[1,5]。
 - Redis 2.8标准版、CKV标准版只支持1副本。
         :type RedisReplicasNum: int
         :param _ReplicasReadonly: 标识实例是否需支持副本只读。
@@ -2504,7 +2534,10 @@ class CreateInstancesRequest(AbstractModel):
 - cdc：独享集群。
 - cloud：云原生，当前已暂停售卖。
         :type ProductVersion: str
-        :param _RedisClusterId: 独享集群 ID。当**ProductVersion**设置为**cdc**时，该参数必须设置。
+        :param _RedisClusterId: 独享集群 ID。
+
+- 当 **ProductVersion** 设置为 **cdc** 时，该参数必须设置。
+- 请通过接口[ DescribeRedisClusters](https://cloud.tencent.com/document/product/239/109628) 获取集群 ID。
         :type RedisClusterId: str
         :param _AlarmPolicyList: 告警策略 ID 数组。
 
@@ -2545,7 +2578,19 @@ class CreateInstancesRequest(AbstractModel):
     @property
     def TypeId(self):
         r"""实例类型。
-<ul><li>2：Redis 2.8 内存版（标准架构）。</li><li>3：CKV 3.2 内存版（标准架构）。</li><li>4：CKV 3.2 内存版（集群架构）。</li><li>6：Redis 4.0 内存版（标准架构）。</li><li>7：Redis 4.0 内存版（集群架构）。</li><li>8：Redis 5.0 内存版（标准架构）。</li><li>9：Redis 5.0 内存版（集群架构）。</li><li>15：Redis 6.2 内存版（标准架构）。</li><li>16：Redis 6.2 内存版（集群架构）。</li><li>17：Redis 7.0 内存版（标准架构）。</li><li>18：Redis 7.0 内存版（集群架构）。</li><li>200：Memcached 1.6 内存版（集群架构）。</li>说明：CKV 版本当前有存量用户使用，暂时保留。</ul>
+- 2：Redis 2.8 内存版（标准架构）。
+- 3：CKV 3.2 内存版（标准架构）。
+- 4：CKV 3.2 内存版（集群架构）。
+- 6：Redis 4.0 内存版（标准架构）。
+- 7：Redis 4.0 内存版（集群架构）。
+- 8：Redis 5.0 内存版（标准架构）。
+- 9：Redis 5.0 内存版（集群架构）。
+- 15：Redis 6.2 内存版（标准架构）。
+- 16：Redis 6.2 内存版（集群架构）。
+- 17：Redis 7.0 内存版（标准架构）。
+- 18：Redis 7.0 内存版（集群架构）。
+- 200：Memcached 1.6 内存版（集群架构）。
+**说明**：CKV 版本当前有存量用户使用，暂时保留。
         :rtype: int
         """
         return self._TypeId
@@ -2716,7 +2761,7 @@ class CreateInstancesRequest(AbstractModel):
     @property
     def RedisReplicasNum(self):
         r"""实例副本数量。
-- Redis 内存版 4.0、5.0、6.2 标准架构和集群架构支持副本数量范围为[1,5]。
+- Redis 内存版 4.0、5.0、6.2、7.0 标准架构和集群架构支持副本数量范围为[1,5]。
 - Redis 2.8标准版、CKV标准版只支持1副本。
         :rtype: int
         """
@@ -2840,7 +2885,10 @@ class CreateInstancesRequest(AbstractModel):
 
     @property
     def RedisClusterId(self):
-        r"""独享集群 ID。当**ProductVersion**设置为**cdc**时，该参数必须设置。
+        r"""独享集群 ID。
+
+- 当 **ProductVersion** 设置为 **cdc** 时，该参数必须设置。
+- 请通过接口[ DescribeRedisClusters](https://cloud.tencent.com/document/product/239/109628) 获取集群 ID。
         :rtype: str
         """
         return self._RedisClusterId
@@ -2934,15 +2982,20 @@ class CreateInstancesResponse(AbstractModel):
         :type DealId: str
         :param _InstanceIds: 实例ID。
         :type InstanceIds: list of str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
         self._InstanceIds = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""交易的ID。
         :rtype: str
         """
@@ -2950,6 +3003,8 @@ class CreateInstancesResponse(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
 
     @property
@@ -2962,6 +3017,17 @@ class CreateInstancesResponse(AbstractModel):
     @InstanceIds.setter
     def InstanceIds(self, InstanceIds):
         self._InstanceIds = InstanceIds
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -2978,6 +3044,7 @@ class CreateInstancesResponse(AbstractModel):
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
         self._InstanceIds = params.get("InstanceIds")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -3444,14 +3511,14 @@ class DeleteParamTemplateRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TemplateId: 参数模板 ID。
+        :param _TemplateId: 参数模板 ID。请登录 [Redis 控制台的参数模板](https://console.cloud.tencent.com/redis/templates)页面获取模板 ID。
         :type TemplateId: str
         """
         self._TemplateId = None
 
     @property
     def TemplateId(self):
-        r"""参数模板 ID。
+        r"""参数模板 ID。请登录 [Redis 控制台的参数模板](https://console.cloud.tencent.com/redis/templates)页面获取模板 ID。
         :rtype: str
         """
         return self._TemplateId
@@ -4419,14 +4486,14 @@ class DescribeBandwidthRangeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例 ID，请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
+        :param _InstanceId: <p>实例 ID，请登录<a href="https://console.cloud.tencent.com/redis">Redis控制台</a>在实例列表复制实例 ID。</p>
         :type InstanceId: str
         """
         self._InstanceId = None
 
     @property
     def InstanceId(self):
-        r"""实例 ID，请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
+        r"""<p>实例 ID，请登录<a href="https://console.cloud.tencent.com/redis">Redis控制台</a>在实例列表复制实例 ID。</p>
         :rtype: str
         """
         return self._InstanceId
@@ -4455,13 +4522,13 @@ class DescribeBandwidthRangeResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _BaseBandwidth: 标准带宽。指购买实例时，系统为每个节点分配的带宽。
+        :param _BaseBandwidth: <p>标准带宽。指购买实例时，系统为每个节点分配的带宽。</p>单位： MB/s。
         :type BaseBandwidth: int
-        :param _AddBandwidth: 指实例的附加带宽。标准带宽不满足需求的情况下，用户可自行增加的带宽。<ul><li>开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数 * Max ([只读副本数量, 1])，标准架构的分片数 = 1。</li><li>没有开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数，标准架构的分片数 = 1。</li></ul>
+        :param _AddBandwidth: <p>指实例的附加带宽。标准带宽不满足需求的情况下，用户可自行增加的带宽。</p><ul><li>开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数 * Max ([只读副本数量, 1])，标准架构的分片数 = 1。</li><li>没有开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数，标准架构的分片数 = 1。</li></ul>单位： MB/s。
         :type AddBandwidth: int
-        :param _MinAddBandwidth: 附加带宽设置下限。
+        :param _MinAddBandwidth: <p>附加带宽设置下限。</p>单位： MB/s。
         :type MinAddBandwidth: int
-        :param _MaxAddBandwidth: 附加带宽设置上限。
+        :param _MaxAddBandwidth: <p>附加带宽设置上限。</p>单位： MB/s。
         :type MaxAddBandwidth: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -4474,7 +4541,7 @@ class DescribeBandwidthRangeResponse(AbstractModel):
 
     @property
     def BaseBandwidth(self):
-        r"""标准带宽。指购买实例时，系统为每个节点分配的带宽。
+        r"""<p>标准带宽。指购买实例时，系统为每个节点分配的带宽。</p>单位： MB/s。
         :rtype: int
         """
         return self._BaseBandwidth
@@ -4485,7 +4552,7 @@ class DescribeBandwidthRangeResponse(AbstractModel):
 
     @property
     def AddBandwidth(self):
-        r"""指实例的附加带宽。标准带宽不满足需求的情况下，用户可自行增加的带宽。<ul><li>开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数 * Max ([只读副本数量, 1])，标准架构的分片数 = 1。</li><li>没有开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数，标准架构的分片数 = 1。</li></ul>
+        r"""<p>指实例的附加带宽。标准带宽不满足需求的情况下，用户可自行增加的带宽。</p><ul><li>开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数 * Max ([只读副本数量, 1])，标准架构的分片数 = 1。</li><li>没有开启副本只读时，实例总带宽 = 附加带宽 * 分片数 + 标准带宽 * 分片数，标准架构的分片数 = 1。</li></ul>单位： MB/s。
         :rtype: int
         """
         return self._AddBandwidth
@@ -4496,7 +4563,7 @@ class DescribeBandwidthRangeResponse(AbstractModel):
 
     @property
     def MinAddBandwidth(self):
-        r"""附加带宽设置下限。
+        r"""<p>附加带宽设置下限。</p>单位： MB/s。
         :rtype: int
         """
         return self._MinAddBandwidth
@@ -4507,7 +4574,7 @@ class DescribeBandwidthRangeResponse(AbstractModel):
 
     @property
     def MaxAddBandwidth(self):
-        r"""附加带宽设置上限。
+        r"""<p>附加带宽设置上限。</p>单位： MB/s。
         :rtype: int
         """
         return self._MaxAddBandwidth
@@ -5007,11 +5074,11 @@ class DescribeInstanceAccountRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 指定实例 ID。例如：crs-xjhsdj****。请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
+        :param _InstanceId: <p>指定实例 ID。例如：crs-xjhsdj****。请登录<a href="https://console.cloud.tencent.com/redis">Redis控制台</a>在实例列表复制实例 ID。</p>
         :type InstanceId: str
-        :param _Limit: 分页大小。默认值为20，最小值为1，最大值为100。
+        :param _Limit: <p>分页大小。默认值为20，最小值为1，最大值为100。</p>
         :type Limit: int
-        :param _Offset: 分页偏移量。取Limit整数倍。计算公式：offset=limit*(页码-1)。
+        :param _Offset: <p>分页偏移量。</p><ul><li>参数取值：Limit 的整数倍，offset=limit*(页码-1)。</li><li>默认值：0。</li></ul>
         :type Offset: int
         """
         self._InstanceId = None
@@ -5020,7 +5087,7 @@ class DescribeInstanceAccountRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""指定实例 ID。例如：crs-xjhsdj****。请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
+        r"""<p>指定实例 ID。例如：crs-xjhsdj****。请登录<a href="https://console.cloud.tencent.com/redis">Redis控制台</a>在实例列表复制实例 ID。</p>
         :rtype: str
         """
         return self._InstanceId
@@ -5031,7 +5098,7 @@ class DescribeInstanceAccountRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""分页大小。默认值为20，最小值为1，最大值为100。
+        r"""<p>分页大小。默认值为20，最小值为1，最大值为100。</p>
         :rtype: int
         """
         return self._Limit
@@ -5042,7 +5109,7 @@ class DescribeInstanceAccountRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""分页偏移量。取Limit整数倍。计算公式：offset=limit*(页码-1)。
+        r"""<p>分页偏移量。</p><ul><li>参数取值：Limit 的整数倍，offset=limit*(页码-1)。</li><li>默认值：0。</li></ul>
         :rtype: int
         """
         return self._Offset
@@ -5073,9 +5140,9 @@ class DescribeInstanceAccountResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Accounts: 账号详细信息。
+        :param _Accounts: <p>账号详细信息。</p>
         :type Accounts: list of Account
-        :param _TotalCount: 账号个数。
+        :param _TotalCount: <p>账号个数。</p>
         :type TotalCount: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -5086,7 +5153,7 @@ class DescribeInstanceAccountResponse(AbstractModel):
 
     @property
     def Accounts(self):
-        r"""账号详细信息。
+        r"""<p>账号详细信息。</p>
         :rtype: list of Account
         """
         return self._Accounts
@@ -5097,7 +5164,7 @@ class DescribeInstanceAccountResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""账号个数。
+        r"""<p>账号个数。</p>
         :rtype: int
         """
         return self._TotalCount
@@ -5666,25 +5733,44 @@ class DescribeInstanceDealDetailRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DealIds: 订单交易ID数组，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealId。数组最大长度限制为10
+        :param _DealIds: 订单号，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealId。数组最大长度限制为10
         :type DealIds: list of str
+        :param _DealName: 订单号，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealName。数组最大长度限制为10
+        :type DealName: str
         """
         self._DealIds = None
+        self._DealName = None
 
     @property
     def DealIds(self):
-        r"""订单交易ID数组，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealId。数组最大长度限制为10
+        warnings.warn("parameter `DealIds` is deprecated", DeprecationWarning) 
+
+        r"""订单号，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealId。数组最大长度限制为10
         :rtype: list of str
         """
         return self._DealIds
 
     @DealIds.setter
     def DealIds(self, DealIds):
+        warnings.warn("parameter `DealIds` is deprecated", DeprecationWarning) 
+
         self._DealIds = DealIds
+
+    @property
+    def DealName(self):
+        r"""订单号，即 [CreateInstances](https://cloud.tencent.com/document/api/239/20026) 的输出参数DealName。数组最大长度限制为10
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
 
     def _deserialize(self, params):
         self._DealIds = params.get("DealIds")
+        self._DealName = params.get("DealName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7471,9 +7557,9 @@ class DescribeInstanceShardsRequest(AbstractModel):
         r"""
         :param _InstanceId: 指定实例 ID。例如：crs-xjhsdj****。请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
         :type InstanceId: str
-        :param _FilterSlave: 是否过滤掉从节信息。
+        :param _FilterSlave: 指定是否过滤掉从节信息。
 - true；过滤从节点。
-- false：不过滤。
+- false：不过滤。默认为 false。
         :type FilterSlave: bool
         """
         self._InstanceId = None
@@ -7492,9 +7578,9 @@ class DescribeInstanceShardsRequest(AbstractModel):
 
     @property
     def FilterSlave(self):
-        r"""是否过滤掉从节信息。
+        r"""指定是否过滤掉从节信息。
 - true；过滤从节点。
-- false：不过滤。
+- false：不过滤。默认为 false。
         :rtype: bool
         """
         return self._FilterSlave
@@ -7585,6 +7671,111 @@ class DescribeInstanceSpecBandwidthRequest(AbstractModel):
 
     """
 
+    def __init__(self):
+        r"""
+        :param _InstanceId: <p>指定实例 ID。请登录 <a href="https://console.cloud.tencent.com/redis">Redis控制台</a> 在实例列表复制实例 ID。同时，InstanceId 与规格参数不能同时为空，至少提供一种。</p><ul><li>若仅指定 InstanceId：查询该实例当前规格的带宽。</li><li>若指定 InstanceId + 至少一个规格参数（ShardSize、ShardNum 或 ReplicateNum）：计算变更规格后的带宽。</li><li>若指定部分或所有规格参数（ShardSize、ShardNum、ReplicateNum 与 Type），而不指定 InstanceId：根据规格组合查询理论带宽。</li></ul>
+        :type InstanceId: str
+        :param _ShardSize: <p>分片大小。单位：MB。</p>
+        :type ShardSize: int
+        :param _ShardNum: <p>分片数量。</p>
+        :type ShardNum: int
+        :param _ReplicateNum: <p>复制组数量。</p>
+        :type ReplicateNum: int
+        :param _ReadOnlyWeight: <p>只读权重。- 100：开启从只读。- 0：关闭从只读。</p>
+        :type ReadOnlyWeight: int
+        :param _Type: <p>实例类型，同 <a href="https://cloud.tencent.com/document/api/239/20026">CreateInstances</a> 的Type。</p>
+        :type Type: int
+        """
+        self._InstanceId = None
+        self._ShardSize = None
+        self._ShardNum = None
+        self._ReplicateNum = None
+        self._ReadOnlyWeight = None
+        self._Type = None
+
+    @property
+    def InstanceId(self):
+        r"""<p>指定实例 ID。请登录 <a href="https://console.cloud.tencent.com/redis">Redis控制台</a> 在实例列表复制实例 ID。同时，InstanceId 与规格参数不能同时为空，至少提供一种。</p><ul><li>若仅指定 InstanceId：查询该实例当前规格的带宽。</li><li>若指定 InstanceId + 至少一个规格参数（ShardSize、ShardNum 或 ReplicateNum）：计算变更规格后的带宽。</li><li>若指定部分或所有规格参数（ShardSize、ShardNum、ReplicateNum 与 Type），而不指定 InstanceId：根据规格组合查询理论带宽。</li></ul>
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ShardSize(self):
+        r"""<p>分片大小。单位：MB。</p>
+        :rtype: int
+        """
+        return self._ShardSize
+
+    @ShardSize.setter
+    def ShardSize(self, ShardSize):
+        self._ShardSize = ShardSize
+
+    @property
+    def ShardNum(self):
+        r"""<p>分片数量。</p>
+        :rtype: int
+        """
+        return self._ShardNum
+
+    @ShardNum.setter
+    def ShardNum(self, ShardNum):
+        self._ShardNum = ShardNum
+
+    @property
+    def ReplicateNum(self):
+        r"""<p>复制组数量。</p>
+        :rtype: int
+        """
+        return self._ReplicateNum
+
+    @ReplicateNum.setter
+    def ReplicateNum(self, ReplicateNum):
+        self._ReplicateNum = ReplicateNum
+
+    @property
+    def ReadOnlyWeight(self):
+        r"""<p>只读权重。- 100：开启从只读。- 0：关闭从只读。</p>
+        :rtype: int
+        """
+        return self._ReadOnlyWeight
+
+    @ReadOnlyWeight.setter
+    def ReadOnlyWeight(self, ReadOnlyWeight):
+        self._ReadOnlyWeight = ReadOnlyWeight
+
+    @property
+    def Type(self):
+        r"""<p>实例类型，同 <a href="https://cloud.tencent.com/document/api/239/20026">CreateInstances</a> 的Type。</p>
+        :rtype: int
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ShardSize = params.get("ShardSize")
+        self._ShardNum = params.get("ShardNum")
+        self._ReplicateNum = params.get("ReplicateNum")
+        self._ReadOnlyWeight = params.get("ReadOnlyWeight")
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
 
 class DescribeInstanceSpecBandwidthResponse(AbstractModel):
     r"""DescribeInstanceSpecBandwidth返回参数结构体
@@ -7593,10 +7784,38 @@ class DescribeInstanceSpecBandwidthResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Bandwidth: <p>基础带宽。</p>
+        :type Bandwidth: int
+        :param _ClientLimit: <p>链接限制。</p>
+        :type ClientLimit: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._Bandwidth = None
+        self._ClientLimit = None
         self._RequestId = None
+
+    @property
+    def Bandwidth(self):
+        r"""<p>基础带宽。</p>
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def ClientLimit(self):
+        r"""<p>链接限制。</p>
+        :rtype: int
+        """
+        return self._ClientLimit
+
+    @ClientLimit.setter
+    def ClientLimit(self, ClientLimit):
+        self._ClientLimit = ClientLimit
 
     @property
     def RequestId(self):
@@ -7611,6 +7830,8 @@ class DescribeInstanceSpecBandwidthResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._Bandwidth = params.get("Bandwidth")
+        self._ClientLimit = params.get("ClientLimit")
         self._RequestId = params.get("RequestId")
 
 
@@ -8681,42 +8902,26 @@ class DescribeParamTemplatesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ProductTypes: 产品类型数组。
-- 2：Redis 2.8 内存版（标准架构）。
-- 3：CKV 3.2 内存版（标准架构）。
-- 4：CKV 3.2 内存版（集群架构）。
-- 6：Redis 4.0 内存版（标准架构）。
-- 7：Redis 4.0 内存版（集群架构）。
-- 8：Redis 5.0 内存版（标准架构）。
-- 9：Redis 5.0 内存版（集群架构）。
-- 15：Redis 6.2 内存版（标准架构）。
-- 16：Redis 6.2 内存版（集群架构）。
-- 17：Redis 7.0 内存版（标准架构）。
-- 18：Redis 7.0 内存版（集群架构）。
+        :param _ProductTypes: <p>指定查询的产品版本与架构。</p><ul><li>6：Redis 4.0 标准架构。</li><li>7：Redis 4.0 集群架构。</li><li>8：Redis 5.0 标准架构。</li><li>9：Redis 5.0 集群架构。</li><li>15：Redis 6.2 标准架构。</li><li>16：Redis 6.2 集群架构。</li><li>17：Redis 7.0 标准架构。</li><li>18：Redis 7.0 集群架构。</li><li>19：ValKey 8.0 标准架构。</li><li>20：ValKey 8.0 集群架构。</li></ul>
         :type ProductTypes: list of int
-        :param _TemplateNames: 模板名称数组。数组最大长度限制为50
+        :param _TemplateNames: <p>指定查询的参数模板名称。</p><ul><li>数据类型：字符串数组，最大长度限制为50。</li><li>获取方式：请通过 <a href="https://console.cloud.tencent.com/redis/templates">Redis 控制台的参数模版</a> 页面复制自定义模板或系统默认模板的模板名称。</li></ul>
         :type TemplateNames: list of str
-        :param _TemplateIds: 模板ID数组。数组最大长度限制为50
+        :param _TemplateIds: <p>指定查询的参数模板 ID。</p><ul><li>数据类型：字符串数组，最大长度限制为50。</li><li>获取方式：请通过 <a href="https://console.cloud.tencent.com/redis/templates">Redis 控制台的参数模版</a> 页面复制自定义模板或系统默认模板的模板 ID。</li></ul>
         :type TemplateIds: list of str
+        :param _Limit: <p>指定查询结果的分页大小，即每页返回的记录数量。</p><ul><li>取值范围：0～200。</li><li>默认值：200。</li></ul>
+        :type Limit: int
+        :param _Offset: <p>分页偏移量，用于指定查询结果的起始位置。</p><ul><li>取值：必须为 Limit 的整数倍，默认值为 0。</li><li>计算公式：offset=limit*(页码-1)。</li></ul>
+        :type Offset: int
         """
         self._ProductTypes = None
         self._TemplateNames = None
         self._TemplateIds = None
+        self._Limit = None
+        self._Offset = None
 
     @property
     def ProductTypes(self):
-        r"""产品类型数组。
-- 2：Redis 2.8 内存版（标准架构）。
-- 3：CKV 3.2 内存版（标准架构）。
-- 4：CKV 3.2 内存版（集群架构）。
-- 6：Redis 4.0 内存版（标准架构）。
-- 7：Redis 4.0 内存版（集群架构）。
-- 8：Redis 5.0 内存版（标准架构）。
-- 9：Redis 5.0 内存版（集群架构）。
-- 15：Redis 6.2 内存版（标准架构）。
-- 16：Redis 6.2 内存版（集群架构）。
-- 17：Redis 7.0 内存版（标准架构）。
-- 18：Redis 7.0 内存版（集群架构）。
+        r"""<p>指定查询的产品版本与架构。</p><ul><li>6：Redis 4.0 标准架构。</li><li>7：Redis 4.0 集群架构。</li><li>8：Redis 5.0 标准架构。</li><li>9：Redis 5.0 集群架构。</li><li>15：Redis 6.2 标准架构。</li><li>16：Redis 6.2 集群架构。</li><li>17：Redis 7.0 标准架构。</li><li>18：Redis 7.0 集群架构。</li><li>19：ValKey 8.0 标准架构。</li><li>20：ValKey 8.0 集群架构。</li></ul>
         :rtype: list of int
         """
         return self._ProductTypes
@@ -8727,7 +8932,7 @@ class DescribeParamTemplatesRequest(AbstractModel):
 
     @property
     def TemplateNames(self):
-        r"""模板名称数组。数组最大长度限制为50
+        r"""<p>指定查询的参数模板名称。</p><ul><li>数据类型：字符串数组，最大长度限制为50。</li><li>获取方式：请通过 <a href="https://console.cloud.tencent.com/redis/templates">Redis 控制台的参数模版</a> 页面复制自定义模板或系统默认模板的模板名称。</li></ul>
         :rtype: list of str
         """
         return self._TemplateNames
@@ -8738,7 +8943,7 @@ class DescribeParamTemplatesRequest(AbstractModel):
 
     @property
     def TemplateIds(self):
-        r"""模板ID数组。数组最大长度限制为50
+        r"""<p>指定查询的参数模板 ID。</p><ul><li>数据类型：字符串数组，最大长度限制为50。</li><li>获取方式：请通过 <a href="https://console.cloud.tencent.com/redis/templates">Redis 控制台的参数模版</a> 页面复制自定义模板或系统默认模板的模板 ID。</li></ul>
         :rtype: list of str
         """
         return self._TemplateIds
@@ -8747,11 +8952,35 @@ class DescribeParamTemplatesRequest(AbstractModel):
     def TemplateIds(self, TemplateIds):
         self._TemplateIds = TemplateIds
 
+    @property
+    def Limit(self):
+        r"""<p>指定查询结果的分页大小，即每页返回的记录数量。</p><ul><li>取值范围：0～200。</li><li>默认值：200。</li></ul>
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""<p>分页偏移量，用于指定查询结果的起始位置。</p><ul><li>取值：必须为 Limit 的整数倍，默认值为 0。</li><li>计算公式：offset=limit*(页码-1)。</li></ul>
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
 
     def _deserialize(self, params):
         self._ProductTypes = params.get("ProductTypes")
         self._TemplateNames = params.get("TemplateNames")
         self._TemplateIds = params.get("TemplateIds")
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8769,9 +8998,9 @@ class DescribeParamTemplatesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: 该用户的参数模板数量。
+        :param _TotalCount: <p>该用户的参数模板数量。</p>
         :type TotalCount: int
-        :param _Items: 参数模板详情。
+        :param _Items: <p>参数模板详情。</p>
         :type Items: list of ParamTemplateInfo
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -8782,7 +9011,7 @@ class DescribeParamTemplatesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""该用户的参数模板数量。
+        r"""<p>该用户的参数模板数量。</p>
         :rtype: int
         """
         return self._TotalCount
@@ -8793,7 +9022,7 @@ class DescribeParamTemplatesResponse(AbstractModel):
 
     @property
     def Items(self):
-        r"""参数模板详情。
+        r"""<p>参数模板详情。</p>
         :rtype: list of ParamTemplateInfo
         """
         return self._Items
@@ -10615,11 +10844,11 @@ class DescribeTaskListRequest(AbstractModel):
         r"""
         :param _InstanceId: 指定实例 ID。例如：crs-xjhsdj****。请登录[Redis控制台](https://console.cloud.tencent.com/redis)在实例列表复制实例 ID。
         :type InstanceId: str
-        :param _InstanceName: 实例名称。
+        :param _InstanceName: 实例名称。请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例名称。
         :type InstanceName: str
         :param _Limit: 每页输出的任务列表大小。默认为 20，最多输出100条。
         :type Limit: int
-        :param _Offset: 分页偏移量，取Limit整数倍。计算公式：offset=limit*(页码-1)。
+        :param _Offset: 分页偏移量。取值需为 Limit 的整数倍：offset=limit*(页码-1)，默认值为0。
         :type Offset: int
         :param _ProjectIds: 该字段已废弃, 请忽略, 项目 ID
         :type ProjectIds: list of int
@@ -10724,7 +10953,7 @@ class DescribeTaskListRequest(AbstractModel):
 
     @property
     def InstanceName(self):
-        r"""实例名称。
+        r"""实例名称。请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例名称。
         :rtype: str
         """
         return self._InstanceName
@@ -10746,7 +10975,7 @@ class DescribeTaskListRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""分页偏移量，取Limit整数倍。计算公式：offset=limit*(页码-1)。
+        r"""分页偏移量。取值需为 Limit 的整数倍：offset=limit*(页码-1)，默认值为0。
         :rtype: int
         """
         return self._Offset
@@ -11296,14 +11525,19 @@ class DestroyPrepaidInstanceResponse(AbstractModel):
         r"""
         :param _DealId: 订单Id
         :type DealId: str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""订单Id
         :rtype: str
         """
@@ -11311,7 +11545,20 @@ class DestroyPrepaidInstanceResponse(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -11327,6 +11574,7 @@ class DestroyPrepaidInstanceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -12043,17 +12291,21 @@ TypeId为标准架构时，MemSize是实例总内存容量；TypeId为集群架�
 - 0：按量计费。
 - 1：包年包月。
         :type BillingMode: int
-        :param _ZoneId: 实例所属的可用区ID，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+        :param _ZoneId: 实例所属的可用区 ID，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+**说明**：请在 **ZoneId** 与 **ZoneName** 中至少指定一个参数。
         :type ZoneId: int
-        :param _RedisShardNum: 实例分片数量。2.8 标准架构无需配置分片，其余版本标准架构需要配置分片数量为1。集群架构需指定需购买的分片数量。
+        :param _RedisShardNum: 实例分片数量。
+- 标准架构需要配置分片数量为1。
+- 集群架构分片数量支持设置为1、3、5、8、12、16、24、32、40、48、64、80、96、128。
         :type RedisShardNum: int
-        :param _RedisReplicasNum: 实例副本数量。2.8 标准架构无需配置副本数量。
+        :param _RedisReplicasNum: 实例副本数量。取值范围为：1、2、3、4、5。
         :type RedisReplicasNum: int
         :param _ReplicasReadonly: 是否支持副本只读。Redis2.8标准架构、CKV标准架构无需填写。
 - true：无需支持副本只读。
 - false：需支持。
         :type ReplicasReadonly: bool
         :param _ZoneName: 实例所属的可用区名称，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+**说明**：请在 **ZoneId** 与 **ZoneName** 中至少指定一个参数。
         :type ZoneName: str
         :param _ProductVersion: 部署方式。
 - local：本地盘版，默认为 local。
@@ -12143,7 +12395,8 @@ TypeId为标准架构时，MemSize是实例总内存容量；TypeId为集群架�
 
     @property
     def ZoneId(self):
-        r"""实例所属的可用区ID，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+        r"""实例所属的可用区 ID，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+**说明**：请在 **ZoneId** 与 **ZoneName** 中至少指定一个参数。
         :rtype: int
         """
         return self._ZoneId
@@ -12154,7 +12407,9 @@ TypeId为标准架构时，MemSize是实例总内存容量；TypeId为集群架�
 
     @property
     def RedisShardNum(self):
-        r"""实例分片数量。2.8 标准架构无需配置分片，其余版本标准架构需要配置分片数量为1。集群架构需指定需购买的分片数量。
+        r"""实例分片数量。
+- 标准架构需要配置分片数量为1。
+- 集群架构分片数量支持设置为1、3、5、8、12、16、24、32、40、48、64、80、96、128。
         :rtype: int
         """
         return self._RedisShardNum
@@ -12165,7 +12420,7 @@ TypeId为标准架构时，MemSize是实例总内存容量；TypeId为集群架�
 
     @property
     def RedisReplicasNum(self):
-        r"""实例副本数量。2.8 标准架构无需配置副本数量。
+        r"""实例副本数量。取值范围为：1、2、3、4、5。
         :rtype: int
         """
         return self._RedisReplicasNum
@@ -12190,6 +12445,7 @@ TypeId为标准架构时，MemSize是实例总内存容量；TypeId为集群架�
     @property
     def ZoneName(self):
         r"""实例所属的可用区名称，可参考[地域和可用区](https://cloud.tencent.com/document/product/239/4106)  。
+**说明**：请在 **ZoneId** 与 **ZoneName** 中至少指定一个参数。
         :rtype: str
         """
         return self._ZoneName
@@ -12918,6 +13174,10 @@ class InstanceClusterShard(AbstractModel):
 - 0：down。
 - 1：on。
         :type Connected: int
+        :param _ZoneId: 可用区信息。
+        :type ZoneId: str
+        :param _ReplicasNodeId: 节点组 ID。
+        :type ReplicasNodeId: int
         """
         self._ShardName = None
         self._ShardId = None
@@ -12929,6 +13189,8 @@ class InstanceClusterShard(AbstractModel):
         self._Runid = None
         self._RunId = None
         self._Connected = None
+        self._ZoneId = None
+        self._ReplicasNodeId = None
 
     @property
     def ShardName(self):
@@ -13044,6 +13306,28 @@ class InstanceClusterShard(AbstractModel):
     def Connected(self, Connected):
         self._Connected = Connected
 
+    @property
+    def ZoneId(self):
+        r"""可用区信息。
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def ReplicasNodeId(self):
+        r"""节点组 ID。
+        :rtype: int
+        """
+        return self._ReplicasNodeId
+
+    @ReplicasNodeId.setter
+    def ReplicasNodeId(self, ReplicasNodeId):
+        self._ReplicasNodeId = ReplicasNodeId
+
 
     def _deserialize(self, params):
         self._ShardName = params.get("ShardName")
@@ -13056,6 +13340,8 @@ class InstanceClusterShard(AbstractModel):
         self._Runid = params.get("Runid")
         self._RunId = params.get("RunId")
         self._Connected = params.get("Connected")
+        self._ZoneId = params.get("ZoneId")
+        self._ReplicasNodeId = params.get("ReplicasNodeId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14014,6 +14300,8 @@ class InstanceSet(AbstractModel):
         :param _CloseTime: 实例隔离开始的时间。
         :type CloseTime: str
         :param _SlaveReadWeight: 从节点读取权重。
+- 0：表示关闭副本只读。
+- 100：表示开启副本只读。
         :type SlaveReadWeight: int
         :param _InstanceTags: 实例关联的标签信息。
         :type InstanceTags: list of InstanceTagInfo
@@ -14510,6 +14798,8 @@ class InstanceSet(AbstractModel):
     @property
     def SlaveReadWeight(self):
         r"""从节点读取权重。
+- 0：表示关闭副本只读。
+- 100：表示开启副本只读。
         :rtype: int
         """
         return self._SlaveReadWeight
@@ -16039,7 +16329,7 @@ class ModifyAutoBackupConfigRequest(AbstractModel):
         :type TimePeriod: str
         :param _AutoBackupType: 自动备份类型。目前仅能配置为：1 ，指定时备份。
         :type AutoBackupType: int
-        :param _BackupStorageDays: 全量备份文件保存天数。单位：天。
+        :param _BackupStorageDays: 全量备份文件保存天数。 仅支持设置为 7，单位：天。如需更长天数，请[提交工单](https://console.cloud.tencent.com/workorder/category)申请。
         :type BackupStorageDays: int
         """
         self._InstanceId = None
@@ -16095,7 +16385,7 @@ class ModifyAutoBackupConfigRequest(AbstractModel):
 
     @property
     def BackupStorageDays(self):
-        r"""全量备份文件保存天数。单位：天。
+        r"""全量备份文件保存天数。 仅支持设置为 7，单位：天。如需更长天数，请[提交工单](https://console.cloud.tencent.com/workorder/category)申请。
         :rtype: int
         """
         return self._BackupStorageDays
@@ -20648,11 +20938,15 @@ class RenewInstanceRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Period: 购买时长，单位：月。
+        :param _Period: 购买时长。
+- 单位：月。
+- 取值范围 [1,2,3,4,5,6,7,8,9,10,11,12,24,36]。
         :type Period: int
-        :param _InstanceId: 实例 ID，请登录[Redis控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
+        :param _InstanceId: 实例 ID，请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
         :type InstanceId: str
-        :param _ModifyPayMode: 标识是否修改计费模式。<ul><li>当前实例计费模式为按量计费方式，预转换为包年包月而续费，请指定该参数为 <b>prepaid</b>。</li><li>当前实例计费模式为包年包月方式，可不设置该参数。</li></ul>
+        :param _ModifyPayMode: 标识是否修改计费模式。
+- 当前实例计费模式为按量计费方式，预转换为包年包月而续费，请指定该参数为 <b>prepaid</b>。
+- 当前实例计费模式为包年包月方式，可不设置该参数。
         :type ModifyPayMode: str
         """
         self._Period = None
@@ -20661,7 +20955,9 @@ class RenewInstanceRequest(AbstractModel):
 
     @property
     def Period(self):
-        r"""购买时长，单位：月。
+        r"""购买时长。
+- 单位：月。
+- 取值范围 [1,2,3,4,5,6,7,8,9,10,11,12,24,36]。
         :rtype: int
         """
         return self._Period
@@ -20672,7 +20968,7 @@ class RenewInstanceRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""实例 ID，请登录[Redis控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
+        r"""实例 ID，请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
         :rtype: str
         """
         return self._InstanceId
@@ -20683,7 +20979,9 @@ class RenewInstanceRequest(AbstractModel):
 
     @property
     def ModifyPayMode(self):
-        r"""标识是否修改计费模式。<ul><li>当前实例计费模式为按量计费方式，预转换为包年包月而续费，请指定该参数为 <b>prepaid</b>。</li><li>当前实例计费模式为包年包月方式，可不设置该参数。</li></ul>
+        r"""标识是否修改计费模式。
+- 当前实例计费模式为按量计费方式，预转换为包年包月而续费，请指定该参数为 <b>prepaid</b>。
+- 当前实例计费模式为包年包月方式，可不设置该参数。
         :rtype: str
         """
         return self._ModifyPayMode
@@ -20716,14 +21014,19 @@ class RenewInstanceResponse(AbstractModel):
         r"""
         :param _DealId: 交易ID。
         :type DealId: str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""交易ID。
         :rtype: str
         """
@@ -20731,7 +21034,20 @@ class RenewInstanceResponse(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -20747,6 +21063,7 @@ class RenewInstanceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -22626,6 +22943,8 @@ class TradeDealDetail(AbstractModel):
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""订单号ID，调用云API时使用此ID
         :rtype: str
         """
@@ -22633,6 +22952,8 @@ class TradeDealDetail(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
 
     @property
@@ -22789,11 +23110,18 @@ class UpgradeInstanceRequest(AbstractModel):
         r"""
         :param _InstanceId: 待变更实例 ID。请登录[Redis控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
         :type InstanceId: str
-        :param _MemSize: 指实例每个分片内存变更后的大小。<ul><li>单位 MB。</li><li>每次只能修改参数MemSize、RedisShardNum和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li><li>缩容时，缩容后的规格务必要大于等于使用容量的1.3倍，否则将执行失败。</li></ul>
+        :param _MemSize: 指实例每个分片内存变更后的大小。
+- 单位 MB。
+- 每次只能修改参数MemSize、RedisShardNum和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
+- 缩容时，缩容后的规格务必要大于等于使用容量的1.3倍，否则将执行失败。
         :type MemSize: int
-        :param _RedisShardNum: 指实例变更后的分片数量。<ul><li>标准架构不需要配置该参数，集群架构为必填参数。</li><li>集群架构，每次只能修改参数RedisShardNum、MemSize和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li></ul>
+        :param _RedisShardNum: 指实例变更后的分片数量。
+- 标准架构不需要配置该参数，集群架构为必填参数。
+- 集群架构，每次只能修改参数RedisShardNum、MemSize和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
         :type RedisShardNum: int
-        :param _RedisReplicasNum: 指实例变更后的副本数量。<ul><li>每次只能修改参数RedisReplicasNum、MemSize和RedisShardNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li><li>多AZ实例修改副本时必须要传入NodeSet。</li></ul>
+        :param _RedisReplicasNum: 指实例变更后的副本数量。
+- 每次只能修改参数 RedisReplicasNum、MemSize 和 RedisShardNum 其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
+- 多AZ实例修改副本时必须要传入 NodeSet。
         :type RedisReplicasNum: int
         :param _NodeSet: 多AZ实例，增加副本时的节点信息，包括副本的 ID 编号及可用区信息。非多AZ实例不需要配置该参数。
         :type NodeSet: list of RedisNodeInfo
@@ -22822,7 +23150,10 @@ class UpgradeInstanceRequest(AbstractModel):
 
     @property
     def MemSize(self):
-        r"""指实例每个分片内存变更后的大小。<ul><li>单位 MB。</li><li>每次只能修改参数MemSize、RedisShardNum和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li><li>缩容时，缩容后的规格务必要大于等于使用容量的1.3倍，否则将执行失败。</li></ul>
+        r"""指实例每个分片内存变更后的大小。
+- 单位 MB。
+- 每次只能修改参数MemSize、RedisShardNum和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
+- 缩容时，缩容后的规格务必要大于等于使用容量的1.3倍，否则将执行失败。
         :rtype: int
         """
         return self._MemSize
@@ -22833,7 +23164,9 @@ class UpgradeInstanceRequest(AbstractModel):
 
     @property
     def RedisShardNum(self):
-        r"""指实例变更后的分片数量。<ul><li>标准架构不需要配置该参数，集群架构为必填参数。</li><li>集群架构，每次只能修改参数RedisShardNum、MemSize和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li></ul>
+        r"""指实例变更后的分片数量。
+- 标准架构不需要配置该参数，集群架构为必填参数。
+- 集群架构，每次只能修改参数RedisShardNum、MemSize和RedisReplicasNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
         :rtype: int
         """
         return self._RedisShardNum
@@ -22844,7 +23177,9 @@ class UpgradeInstanceRequest(AbstractModel):
 
     @property
     def RedisReplicasNum(self):
-        r"""指实例变更后的副本数量。<ul><li>每次只能修改参数RedisReplicasNum、MemSize和RedisShardNum其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。</li><li>多AZ实例修改副本时必须要传入NodeSet。</li></ul>
+        r"""指实例变更后的副本数量。
+- 每次只能修改参数 RedisReplicasNum、MemSize 和 RedisShardNum 其中的一个，不能同时修改。且修改其中一个参数时，其他两个参数需输入实例原有的配置规格。
+- 多AZ实例修改副本时必须要传入 NodeSet。
         :rtype: int
         """
         return self._RedisReplicasNum
@@ -22909,14 +23244,19 @@ class UpgradeInstanceResponse(AbstractModel):
         r"""
         :param _DealId: 订单ID。
         :type DealId: str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""订单ID。
         :rtype: str
         """
@@ -22924,7 +23264,20 @@ class UpgradeInstanceResponse(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -22940,6 +23293,7 @@ class UpgradeInstanceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -23032,14 +23386,19 @@ class UpgradeInstanceVersionResponse(AbstractModel):
         r"""
         :param _DealId: 订单ID
         :type DealId: str
+        :param _DealName: 订单号。
+        :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._DealId = None
+        self._DealName = None
         self._RequestId = None
 
     @property
     def DealId(self):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         r"""订单ID
         :rtype: str
         """
@@ -23047,7 +23406,20 @@ class UpgradeInstanceVersionResponse(AbstractModel):
 
     @DealId.setter
     def DealId(self, DealId):
+        warnings.warn("parameter `DealId` is deprecated", DeprecationWarning) 
+
         self._DealId = DealId
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
 
     @property
     def RequestId(self):
@@ -23063,6 +23435,7 @@ class UpgradeInstanceVersionResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._DealId = params.get("DealId")
+        self._DealName = params.get("DealName")
         self._RequestId = params.get("RequestId")
 
 
@@ -23329,11 +23702,9 @@ class UpgradeVersionToMultiAvailabilityZonesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: 实例ID，请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
+        :param _InstanceId: <p>实例ID，请登录 <a href="https://console.cloud.tencent.com/redis/instance/list">Redis 控制台</a>在实例列表复制实例 ID。</p>
         :type InstanceId: str
-        :param _UpgradeProxyAndRedisServer: 升级多可用区之后是否支持就近访问功能。
-- true：支持就近访问功能。升级过程，需同时升级 Proxy 版本和 Redis 内核小版本，涉及数据搬迁，可能会长达数小时。
-- false：无需支持就近访问功能。升级多可用区仅涉及管理元数据迁移，对服务没有影响，升级过程通常在3分钟内完成。默认为 false。
+        :param _UpgradeProxyAndRedisServer: <p>升级多可用区之后是否支持就近访问功能。- true：支持就近访问功能。升级过程，需同时升级 Proxy 版本和 Redis 内核小版本，涉及数据搬迁，可能会长达数小时。- false：无需支持就近访问功能。升级多可用区仅涉及管理元数据迁移，对服务没有影响，升级过程通常在3分钟内完成。默认为 false。</p>
         :type UpgradeProxyAndRedisServer: bool
         """
         self._InstanceId = None
@@ -23341,7 +23712,7 @@ class UpgradeVersionToMultiAvailabilityZonesRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""实例ID，请登录 [Redis 控制台](https://console.cloud.tencent.com/redis/instance/list)在实例列表复制实例 ID。
+        r"""<p>实例ID，请登录 <a href="https://console.cloud.tencent.com/redis/instance/list">Redis 控制台</a>在实例列表复制实例 ID。</p>
         :rtype: str
         """
         return self._InstanceId
@@ -23352,9 +23723,7 @@ class UpgradeVersionToMultiAvailabilityZonesRequest(AbstractModel):
 
     @property
     def UpgradeProxyAndRedisServer(self):
-        r"""升级多可用区之后是否支持就近访问功能。
-- true：支持就近访问功能。升级过程，需同时升级 Proxy 版本和 Redis 内核小版本，涉及数据搬迁，可能会长达数小时。
-- false：无需支持就近访问功能。升级多可用区仅涉及管理元数据迁移，对服务没有影响，升级过程通常在3分钟内完成。默认为 false。
+        r"""<p>升级多可用区之后是否支持就近访问功能。- true：支持就近访问功能。升级过程，需同时升级 Proxy 版本和 Redis 内核小版本，涉及数据搬迁，可能会长达数小时。- false：无需支持就近访问功能。升级多可用区仅涉及管理元数据迁移，对服务没有影响，升级过程通常在3分钟内完成。默认为 false。</p>
         :rtype: bool
         """
         return self._UpgradeProxyAndRedisServer
@@ -23384,7 +23753,7 @@ class UpgradeVersionToMultiAvailabilityZonesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _FlowId: 任务ID
+        :param _FlowId: <p>任务ID</p>
         :type FlowId: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -23394,7 +23763,7 @@ class UpgradeVersionToMultiAvailabilityZonesResponse(AbstractModel):
 
     @property
     def FlowId(self):
-        r"""任务ID
+        r"""<p>任务ID</p>
         :rtype: int
         """
         return self._FlowId

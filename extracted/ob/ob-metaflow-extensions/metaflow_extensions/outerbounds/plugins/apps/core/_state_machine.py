@@ -205,14 +205,14 @@ class DEPLOYMENT_READY_CONDITIONS:
         - Some users might want a cluster of workers ready before serving traffic while others might want just one worker ready to start serving traffic.
 
     Some readiness conditions include:
-            1) [at_least_one_running] At least min(min_replicas, 1) workers of the current deployment instance's version have started running.
-        - Usecase: Some endpoints may be deployed ephemerally and are considered ready when at least one instance is running; additional instances are for load management.
+        1) [at_least_one_running] At least min(min_replicas, 1) workers of the current deployment instance's version have started running.
+            - Usecase: Some endpoints may be deployed ephemerally and are considered ready when at least one instance is running; additional instances are for load management.
         2) [all_running] At least min_replicas number of workers are running for the deployment to be considered ready.
-        - Usecase: Operators may require that all replicas are available before traffic is routed. Needed when inference endpoints maybe under some SLA or require a larger load
+            - Usecase: Operators may require that all replicas are available before traffic is routed. Needed when inference endpoints maybe under some SLA or require a larger load
         3) [fully_finished] At least min_replicas number of workers are running for the deployment and there are no pending or crashlooping workers from previous versions lying around.
-        - Usecase: Ensuring endpoint is fully available and no other versions are running or endpoint has been fully scaled down.
-    4) [async] The deployment will be assumed ready as soon as the server responds with a 200.
-        - Usecase: Operators may only care that the URL is minted for the deployment or the deployment eventually scales down to 0.
+            - Usecase: Ensuring endpoint is fully available and no other versions are running or endpoint has been fully scaled down.
+        4) [async] The deployment will be assumed ready as soon as the server acknowledges its registered the app in the backend.
+            - Usecase: Operators may only care that the URL is minted for the deployment or the operator wants the deployment to eventually scales down to 0.
     """
 
     # `ATLEAST_ONE_RUNNING` implies that at least one worker of the current deployment instance's version has started running.

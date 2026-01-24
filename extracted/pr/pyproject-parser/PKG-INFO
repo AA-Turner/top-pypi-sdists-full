@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-parser
-Version: 0.13.0
+Version: 0.14.0
 Summary: Parser for 'pyproject.toml'
 Project-URL: Homepage, https://github.com/repo-helper/pyproject-parser
 Project-URL: Issue Tracker, https://github.com/repo-helper/pyproject-parser/issues
@@ -34,23 +34,24 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Packaging
 Classifier: Typing :: Typed
-Requires-Python: >=3.6.1
+Requires-Python: >=3.7
 Requires-Dist: apeye-core>=1.0.0
 Requires-Dist: attrs>=20.3.0
 Requires-Dist: dom-toml>=2.0.0
 Requires-Dist: domdf-python-tools>=2.8.0
+Requires-Dist: license-expression>=30.0.0
 Requires-Dist: natsort>=7.1.1
 Requires-Dist: packaging>=20.9
 Requires-Dist: shippinglabel>=1.0.0
@@ -58,7 +59,7 @@ Requires-Dist: typing-extensions!=4.7.0,>=3.7.4.3
 Provides-Extra: all
 Requires-Dist: click>=7.1.2; extra == 'all'
 Requires-Dist: consolekit>=1.4.1; extra == 'all'
-Requires-Dist: docutils>=0.16; extra == 'all'
+Requires-Dist: docutils<0.22,>=0.16; extra == 'all'
 Requires-Dist: readme-renderer[md]>=27.0; extra == 'all'
 Requires-Dist: sdjson>=0.3.1; extra == 'all'
 Provides-Extra: cli
@@ -66,7 +67,7 @@ Requires-Dist: click>=7.1.2; extra == 'cli'
 Requires-Dist: consolekit>=1.4.1; extra == 'cli'
 Requires-Dist: sdjson>=0.3.1; extra == 'cli'
 Provides-Extra: readme
-Requires-Dist: docutils>=0.16; extra == 'readme'
+Requires-Dist: docutils<0.22,>=0.16; extra == 'readme'
 Requires-Dist: readme-renderer[md]>=27.0; extra == 'readme'
 Description-Content-Type: text/x-rst
 
@@ -173,7 +174,7 @@ pyproject-parser
 .. |language| image:: https://img.shields.io/github/languages/top/repo-helper/pyproject-parser
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/pyproject-parser/v0.13.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/pyproject-parser/v0.14.0
 	:target: https://github.com/repo-helper/pyproject-parser/pulse
 	:alt: GitHub commits since tagged version
 

@@ -231,15 +231,21 @@ class ReservationArgs:
 @pulumi.input_type
 class _ReservationState:
     def __init__(__self__, *,
+                 block_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  commitment: Optional[pulumi.Input[_builtins.str]] = None,
                  creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
                  delete_after_duration: Optional[pulumi.Input['ReservationDeleteAfterDurationArgs']] = None,
                  delete_at_time: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_emergent_maintenance: Optional[pulumi.Input[_builtins.bool]] = None,
+                 kind: Optional[pulumi.Input[_builtins.str]] = None,
+                 linked_commitments: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
+                 reservation_block_count: Optional[pulumi.Input[_builtins.int]] = None,
                  reservation_sharing_policy: Optional[pulumi.Input['ReservationReservationSharingPolicyArgs']] = None,
+                 resource_statuses: Optional[pulumi.Input[Sequence[pulumi.Input['ReservationResourceStatusArgs']]]] = None,
+                 satisfies_pzs: Optional[pulumi.Input[_builtins.bool]] = None,
                  self_link: Optional[pulumi.Input[_builtins.str]] = None,
                  share_settings: Optional[pulumi.Input['ReservationShareSettingsArgs']] = None,
                  specific_reservation: Optional[pulumi.Input['ReservationSpecificReservationArgs']] = None,
@@ -248,6 +254,7 @@ class _ReservationState:
                  zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Reservation resources.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] block_names: List of all reservation block names in the parent reservation.
         :param pulumi.Input[_builtins.str] commitment: Full or partial URL to a parent commitment. This field displays for
                reservations that are tied to a commitment.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
@@ -257,6 +264,8 @@ class _ReservationState:
                Cannot be used with delete_after_duration.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.bool] enable_emergent_maintenance: Indicates if this group of VMs have emergent maintenance enabled.
+        :param pulumi.Input[_builtins.str] kind: Type of the resource. Always compute#reservations for reservations.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] linked_commitments: Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource is
                created. The name must be 1-63 characters long, and comply with
                RFC1035. Specifically, the name must be 1-63 characters long and match
@@ -266,8 +275,13 @@ class _ReservationState:
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
+        :param pulumi.Input[_builtins.int] reservation_block_count: (Output)
+               The number of reservation blocks associated with this reservation.
         :param pulumi.Input['ReservationReservationSharingPolicyArgs'] reservation_sharing_policy: Sharing policy for reservations with Google Cloud managed services.
                Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['ReservationResourceStatusArgs']]] resource_statuses: Status information for Reservation resource.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.bool] satisfies_pzs: Reserved for future use.
         :param pulumi.Input[_builtins.str] self_link: The URI of the created resource.
         :param pulumi.Input['ReservationShareSettingsArgs'] share_settings: The share setting for reservations.
                Structure is documented below.
@@ -279,6 +293,8 @@ class _ReservationState:
         :param pulumi.Input[_builtins.str] status: The status of the reservation.
         :param pulumi.Input[_builtins.str] zone: The zone where the reservation is made.
         """
+        if block_names is not None:
+            pulumi.set(__self__, "block_names", block_names)
         if commitment is not None:
             pulumi.set(__self__, "commitment", commitment)
         if creation_timestamp is not None:
@@ -291,12 +307,22 @@ class _ReservationState:
             pulumi.set(__self__, "description", description)
         if enable_emergent_maintenance is not None:
             pulumi.set(__self__, "enable_emergent_maintenance", enable_emergent_maintenance)
+        if kind is not None:
+            pulumi.set(__self__, "kind", kind)
+        if linked_commitments is not None:
+            pulumi.set(__self__, "linked_commitments", linked_commitments)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if project is not None:
             pulumi.set(__self__, "project", project)
+        if reservation_block_count is not None:
+            pulumi.set(__self__, "reservation_block_count", reservation_block_count)
         if reservation_sharing_policy is not None:
             pulumi.set(__self__, "reservation_sharing_policy", reservation_sharing_policy)
+        if resource_statuses is not None:
+            pulumi.set(__self__, "resource_statuses", resource_statuses)
+        if satisfies_pzs is not None:
+            pulumi.set(__self__, "satisfies_pzs", satisfies_pzs)
         if self_link is not None:
             pulumi.set(__self__, "self_link", self_link)
         if share_settings is not None:
@@ -309,6 +335,18 @@ class _ReservationState:
             pulumi.set(__self__, "status", status)
         if zone is not None:
             pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="blockNames")
+    def block_names(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of all reservation block names in the parent reservation.
+        """
+        return pulumi.get(self, "block_names")
+
+    @block_names.setter
+    def block_names(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "block_names", value)
 
     @_builtins.property
     @pulumi.getter
@@ -387,6 +425,30 @@ class _ReservationState:
 
     @_builtins.property
     @pulumi.getter
+    def kind(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Type of the resource. Always compute#reservations for reservations.
+        """
+        return pulumi.get(self, "kind")
+
+    @kind.setter
+    def kind(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "kind", value)
+
+    @_builtins.property
+    @pulumi.getter(name="linkedCommitments")
+    def linked_commitments(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.
+        """
+        return pulumi.get(self, "linked_commitments")
+
+    @linked_commitments.setter
+    def linked_commitments(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "linked_commitments", value)
+
+    @_builtins.property
+    @pulumi.getter
     def name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Name of the resource. Provided by the client when the resource is
@@ -417,6 +479,19 @@ class _ReservationState:
         pulumi.set(self, "project", value)
 
     @_builtins.property
+    @pulumi.getter(name="reservationBlockCount")
+    def reservation_block_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        (Output)
+        The number of reservation blocks associated with this reservation.
+        """
+        return pulumi.get(self, "reservation_block_count")
+
+    @reservation_block_count.setter
+    def reservation_block_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "reservation_block_count", value)
+
+    @_builtins.property
     @pulumi.getter(name="reservationSharingPolicy")
     def reservation_sharing_policy(self) -> Optional[pulumi.Input['ReservationReservationSharingPolicyArgs']]:
         """
@@ -428,6 +503,31 @@ class _ReservationState:
     @reservation_sharing_policy.setter
     def reservation_sharing_policy(self, value: Optional[pulumi.Input['ReservationReservationSharingPolicyArgs']]):
         pulumi.set(self, "reservation_sharing_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceStatuses")
+    def resource_statuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ReservationResourceStatusArgs']]]]:
+        """
+        Status information for Reservation resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "resource_statuses")
+
+    @resource_statuses.setter
+    def resource_statuses(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ReservationResourceStatusArgs']]]]):
+        pulumi.set(self, "resource_statuses", value)
+
+    @_builtins.property
+    @pulumi.getter(name="satisfiesPzs")
+    def satisfies_pzs(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Reserved for future use.
+        """
+        return pulumi.get(self, "satisfies_pzs")
+
+    @satisfies_pzs.setter
+    def satisfies_pzs(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "satisfies_pzs", value)
 
     @_builtins.property
     @pulumi.getter(name="selfLink")
@@ -980,8 +1080,14 @@ class Reservation(pulumi.CustomResource):
             if zone is None and not opts.urn:
                 raise TypeError("Missing required property 'zone'")
             __props__.__dict__["zone"] = zone
+            __props__.__dict__["block_names"] = None
             __props__.__dict__["commitment"] = None
             __props__.__dict__["creation_timestamp"] = None
+            __props__.__dict__["kind"] = None
+            __props__.__dict__["linked_commitments"] = None
+            __props__.__dict__["reservation_block_count"] = None
+            __props__.__dict__["resource_statuses"] = None
+            __props__.__dict__["satisfies_pzs"] = None
             __props__.__dict__["self_link"] = None
             __props__.__dict__["status"] = None
         super(Reservation, __self__).__init__(
@@ -994,15 +1100,21 @@ class Reservation(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
+            block_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             commitment: Optional[pulumi.Input[_builtins.str]] = None,
             creation_timestamp: Optional[pulumi.Input[_builtins.str]] = None,
             delete_after_duration: Optional[pulumi.Input[Union['ReservationDeleteAfterDurationArgs', 'ReservationDeleteAfterDurationArgsDict']]] = None,
             delete_at_time: Optional[pulumi.Input[_builtins.str]] = None,
             description: Optional[pulumi.Input[_builtins.str]] = None,
             enable_emergent_maintenance: Optional[pulumi.Input[_builtins.bool]] = None,
+            kind: Optional[pulumi.Input[_builtins.str]] = None,
+            linked_commitments: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             project: Optional[pulumi.Input[_builtins.str]] = None,
+            reservation_block_count: Optional[pulumi.Input[_builtins.int]] = None,
             reservation_sharing_policy: Optional[pulumi.Input[Union['ReservationReservationSharingPolicyArgs', 'ReservationReservationSharingPolicyArgsDict']]] = None,
+            resource_statuses: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ReservationResourceStatusArgs', 'ReservationResourceStatusArgsDict']]]]] = None,
+            satisfies_pzs: Optional[pulumi.Input[_builtins.bool]] = None,
             self_link: Optional[pulumi.Input[_builtins.str]] = None,
             share_settings: Optional[pulumi.Input[Union['ReservationShareSettingsArgs', 'ReservationShareSettingsArgsDict']]] = None,
             specific_reservation: Optional[pulumi.Input[Union['ReservationSpecificReservationArgs', 'ReservationSpecificReservationArgsDict']]] = None,
@@ -1016,6 +1128,7 @@ class Reservation(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] block_names: List of all reservation block names in the parent reservation.
         :param pulumi.Input[_builtins.str] commitment: Full or partial URL to a parent commitment. This field displays for
                reservations that are tied to a commitment.
         :param pulumi.Input[_builtins.str] creation_timestamp: Creation timestamp in RFC3339 text format.
@@ -1025,6 +1138,8 @@ class Reservation(pulumi.CustomResource):
                Cannot be used with delete_after_duration.
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[_builtins.bool] enable_emergent_maintenance: Indicates if this group of VMs have emergent maintenance enabled.
+        :param pulumi.Input[_builtins.str] kind: Type of the resource. Always compute#reservations for reservations.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] linked_commitments: Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.
         :param pulumi.Input[_builtins.str] name: Name of the resource. Provided by the client when the resource is
                created. The name must be 1-63 characters long, and comply with
                RFC1035. Specifically, the name must be 1-63 characters long and match
@@ -1034,8 +1149,13 @@ class Reservation(pulumi.CustomResource):
                character, which cannot be a dash.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
+        :param pulumi.Input[_builtins.int] reservation_block_count: (Output)
+               The number of reservation blocks associated with this reservation.
         :param pulumi.Input[Union['ReservationReservationSharingPolicyArgs', 'ReservationReservationSharingPolicyArgsDict']] reservation_sharing_policy: Sharing policy for reservations with Google Cloud managed services.
                Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ReservationResourceStatusArgs', 'ReservationResourceStatusArgsDict']]]] resource_statuses: Status information for Reservation resource.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.bool] satisfies_pzs: Reserved for future use.
         :param pulumi.Input[_builtins.str] self_link: The URI of the created resource.
         :param pulumi.Input[Union['ReservationShareSettingsArgs', 'ReservationShareSettingsArgsDict']] share_settings: The share setting for reservations.
                Structure is documented below.
@@ -1051,15 +1171,21 @@ class Reservation(pulumi.CustomResource):
 
         __props__ = _ReservationState.__new__(_ReservationState)
 
+        __props__.__dict__["block_names"] = block_names
         __props__.__dict__["commitment"] = commitment
         __props__.__dict__["creation_timestamp"] = creation_timestamp
         __props__.__dict__["delete_after_duration"] = delete_after_duration
         __props__.__dict__["delete_at_time"] = delete_at_time
         __props__.__dict__["description"] = description
         __props__.__dict__["enable_emergent_maintenance"] = enable_emergent_maintenance
+        __props__.__dict__["kind"] = kind
+        __props__.__dict__["linked_commitments"] = linked_commitments
         __props__.__dict__["name"] = name
         __props__.__dict__["project"] = project
+        __props__.__dict__["reservation_block_count"] = reservation_block_count
         __props__.__dict__["reservation_sharing_policy"] = reservation_sharing_policy
+        __props__.__dict__["resource_statuses"] = resource_statuses
+        __props__.__dict__["satisfies_pzs"] = satisfies_pzs
         __props__.__dict__["self_link"] = self_link
         __props__.__dict__["share_settings"] = share_settings
         __props__.__dict__["specific_reservation"] = specific_reservation
@@ -1067,6 +1193,14 @@ class Reservation(pulumi.CustomResource):
         __props__.__dict__["status"] = status
         __props__.__dict__["zone"] = zone
         return Reservation(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="blockNames")
+    def block_names(self) -> pulumi.Output[Sequence[_builtins.str]]:
+        """
+        List of all reservation block names in the parent reservation.
+        """
+        return pulumi.get(self, "block_names")
 
     @_builtins.property
     @pulumi.getter
@@ -1121,6 +1255,22 @@ class Reservation(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
+    def kind(self) -> pulumi.Output[_builtins.str]:
+        """
+        Type of the resource. Always compute#reservations for reservations.
+        """
+        return pulumi.get(self, "kind")
+
+    @_builtins.property
+    @pulumi.getter(name="linkedCommitments")
+    def linked_commitments(self) -> pulumi.Output[Sequence[_builtins.str]]:
+        """
+        Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.
+        """
+        return pulumi.get(self, "linked_commitments")
+
+    @_builtins.property
+    @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
         Name of the resource. Provided by the client when the resource is
@@ -1143,6 +1293,15 @@ class Reservation(pulumi.CustomResource):
         return pulumi.get(self, "project")
 
     @_builtins.property
+    @pulumi.getter(name="reservationBlockCount")
+    def reservation_block_count(self) -> pulumi.Output[_builtins.int]:
+        """
+        (Output)
+        The number of reservation blocks associated with this reservation.
+        """
+        return pulumi.get(self, "reservation_block_count")
+
+    @_builtins.property
     @pulumi.getter(name="reservationSharingPolicy")
     def reservation_sharing_policy(self) -> pulumi.Output['outputs.ReservationReservationSharingPolicy']:
         """
@@ -1150,6 +1309,23 @@ class Reservation(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "reservation_sharing_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceStatuses")
+    def resource_statuses(self) -> pulumi.Output[Sequence['outputs.ReservationResourceStatus']]:
+        """
+        Status information for Reservation resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "resource_statuses")
+
+    @_builtins.property
+    @pulumi.getter(name="satisfiesPzs")
+    def satisfies_pzs(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Reserved for future use.
+        """
+        return pulumi.get(self, "satisfies_pzs")
 
     @_builtins.property
     @pulumi.getter(name="selfLink")

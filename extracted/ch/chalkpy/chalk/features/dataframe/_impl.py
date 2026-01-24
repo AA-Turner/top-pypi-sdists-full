@@ -32,7 +32,6 @@ from typing import (
     overload,
 )
 
-import packaging.version
 import pyarrow as pa
 
 from chalk.features._chalkop import Aggregation
@@ -56,6 +55,13 @@ from chalk.utils.df_utils import (
 )
 from chalk.utils.duration import Duration, parse_chalk_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import (
+    polars_group_by_instead_of_groupby,
+    polars_lazy_frame_collect_schema,
+    polars_name_dot_suffix_instead_of_suffix,
+    polars_uses_schema_overrides,
+    schema_compat,
+)
 from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 
 if TYPE_CHECKING:
@@ -473,7 +479,12 @@ class DataFrame(metaclass=DataFrameMeta):
             raise ValueError(f"Unable to convert data of type {type(data).__name__} into a DataFrame")
         # Rename / validate that all column names are root fqns
         if self._pydantic_model is None:
-            self.columns = tuple(Feature.from_root_fqn(str(c)) for c in underlying.columns)
+            self.columns = tuple(
+                Feature.from_root_fqn(str(c))
+                for c in (
+                    underlying.collect_schema().names() if polars_lazy_frame_collect_schema else underlying.columns
+                )
+            )
         else:
             self.columns = ()
 
@@ -505,7 +516,13 @@ class DataFrame(metaclass=DataFrameMeta):
         """
         import polars as pl
 
-        rename_map = {x: Distance.fqn for x in underlying.columns if x in self._distance_feature_fqns}
+        rename_map = {
+            x: Distance.fqn
+            for x in (
+                underlying.collect_schema().names() if polars_lazy_frame_collect_schema else underlying.columns
+            )  # pyright: ignore
+            if x in self._distance_feature_fqns
+        }
 
         underlying = underlying.rename(rename_map)
         if len(rename_map) > 0:
@@ -620,7 +637,14 @@ class DataFrame(metaclass=DataFrameMeta):
             )
         elif all(isinstance(col, str) for col in ensure_tuple(item)):
             # Select the columns with `.select()` since they're by name.
-            key_error_or_none = dataframe_missing_key_error(ensure_tuple(item), self._underlying.columns)
+            key_error_or_none = dataframe_missing_key_error(
+                ensure_tuple(item),
+                (
+                    self._underlying.collect_schema().names()
+                    if polars_lazy_frame_collect_schema
+                    else self._underlying.columns
+                ),
+            )
             if key_error_or_none is not None:
                 raise key_error_or_none
             materialized = self._materialize()
@@ -700,7 +724,7 @@ class DataFrame(metaclass=DataFrameMeta):
             if len(operation.filters) > 0:
                 f = convert_filters_to_pl_expr(
                     operation.filters,
-                    self._underlying.schema,
+                    schema_compat(self._underlying),
                     timestamp_feature,
                     now,
                 )
@@ -711,10 +735,10 @@ class DataFrame(metaclass=DataFrameMeta):
 
         data = self._underlying.lazy()
 
-        if packaging.version.parse(pl.__version__) <= packaging.version.parse("0.19.0"):
-            data = data.groupby(groupby)
-        else:
+        if polars_group_by_instead_of_groupby:
             data = data.group_by(groupby)
+        else:
+            data = data.groupby(groupby)  # pyright: ignore
 
         data = data.agg(cols).collect()
 
@@ -778,7 +802,7 @@ class DataFrame(metaclass=DataFrameMeta):
 
         col_str = str(column)
 
-        col_dtype = self._underlying.schema[col_str]
+        col_dtype = schema_compat(self._underlying)[col_str]
         underlying = self._underlying
         if col_dtype != pl.Float64() and col_dtype != pl.Float32():
             underlying = underlying.select(pl.col(col_str).cast(pl.Float32))
@@ -965,7 +989,7 @@ class DataFrame(metaclass=DataFrameMeta):
             if len(operation.filters) > 0:
                 f = convert_filters_to_pl_expr(
                     operation.filters,
-                    self._underlying.schema,
+                    schema_compat(self._underlying),
                     timestamp_feature,
                     now,
                 )
@@ -974,22 +998,40 @@ class DataFrame(metaclass=DataFrameMeta):
 
             cols.append(operation.fn(c).alias(str(alias)))
 
-        return DataFrame(
-            self._underlying.lazy()
-            .sort(str(index), descending=False)
-            .groupby_dynamic(
-                index_column=str(index),
-                by=groupby,
-                offset=offset,
-                every=every,
-                period=period,
-                start_by=start_by,
+        if polars_group_by_instead_of_groupby:
+            return DataFrame(
+                self._underlying.lazy()
+                .sort(str(index), descending=False)
+                .group_by_dynamic(
+                    index_column=str(index),
+                    group_by=groupby,
+                    offset=offset,
+                    every=every,
+                    period=period,
+                    start_by=start_by,
+                )
+                .agg(cols)
+                .collect(),
+                convert_dtypes=self._convert_dtypes,
+                pydantic_model=self._pydantic_model,
             )
-            .agg(cols)
-            .collect(),
-            convert_dtypes=self._convert_dtypes,
-            pydantic_model=self._pydantic_model,
-        )
+        else:
+            return DataFrame(
+                self._underlying.lazy()
+                .sort(str(index), descending=False)
+                .groupby_dynamic(  # pyright: ignore
+                    index_column=str(index),
+                    by=groupby,
+                    offset=offset,
+                    every=every,
+                    period=period,
+                    start_by=start_by,
+                )
+                .agg(cols)
+                .collect(),
+                convert_dtypes=self._convert_dtypes,
+                pydantic_model=self._pydantic_model,
+            )
 
     def join(
         self,
@@ -1200,7 +1242,7 @@ class DataFrame(metaclass=DataFrameMeta):
                 if len(operation.filters) > 0:
                     f = convert_filters_to_pl_expr(
                         operation.filters,
-                        self._underlying.schema,
+                        schema_compat(self._underlying),
                         timestamp_feature,
                         now,
                     )
@@ -1424,15 +1466,25 @@ class DataFrame(metaclass=DataFrameMeta):
         else:
             cols_to_select, dtypes, new_columns = cls._parse_columns(columns)
 
-        # 'dtypes' deprecated for 'schema_overrides' in polars 0.20+, but parameter renamed without breaking
-        data = pl.read_csv(
-            source=path,
-            has_header=has_header,
-            columns=cols_to_select,
-            dtypes=dtypes,  # pyright: ignore[reportCallIssue]
-            new_columns=new_columns,
-            storage_options=DataFrame._get_storage_options(),
-        )
+        # 'dtypes' deprecated for 'schema_overrides' in polars 0.20.31+
+        if polars_uses_schema_overrides:
+            data = pl.read_csv(
+                source=path,
+                has_header=has_header,
+                columns=cols_to_select,
+                schema_overrides=dtypes,  # pyright: ignore[reportCallIssue]
+                new_columns=new_columns,
+                storage_options=DataFrame._get_storage_options(),
+            )
+        else:
+            data = pl.read_csv(
+                source=path,
+                has_header=has_header,
+                columns=cols_to_select,
+                dtypes=dtypes,  # pyright: ignore[reportCallIssue]
+                new_columns=new_columns,
+                storage_options=DataFrame._get_storage_options(),
+            )
         return cls(data)
 
     @classmethod
@@ -1922,7 +1974,10 @@ class DataFrame(metaclass=DataFrameMeta):
             raise ValueError("DataFrame dimensions do not match")
 
         suffix = "__POLARS_CMP_OTHER"
-        other_renamed = other.select(pl.all().suffix(suffix))
+        if polars_name_dot_suffix_instead_of_suffix:
+            other_renamed = other.select(pl.all().name.suffix(suffix))
+        else:
+            other_renamed = other.select(pl.all().suffix(suffix))  # pyright: ignore
         combined = pl.concat([materialized, other_renamed], how="horizontal")
 
         if op == "eq":

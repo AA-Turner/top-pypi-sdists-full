@@ -287,7 +287,10 @@ def quickstart(args):
     # Python file
     if not args.server:
         with open(os.path.join(project_path, project_name + ".py"), "w") as f:
-            f.write("import xlwings as xw\n\n\n")
+            f.write("import xlwings as xw\n")
+            if sys.platform.startswith("win"):
+                f.write("from xlwings import func\n")
+            f.write("\n\n")
             f.write("def main():\n")
             f.write("    wb = xw.Book.caller()\n")
             f.write("    sheet = wb.sheets[0]\n")
@@ -296,7 +299,7 @@ def quickstart(args):
             f.write("    else:\n")
             f.write('        sheet["A1"].value = "Hello xlwings!"\n\n\n')
             if sys.platform.startswith("win"):
-                f.write("@xw.func\n")
+                f.write("@func\n")
                 f.write("def hello(name):\n")
                 f.write('    return f"Hello {name}!"\n\n\n')
             f.write('if __name__ == "__main__":\n')
@@ -938,6 +941,9 @@ def py_edit(args):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"xlwings {xw.__version__}"
+    )
     subparsers = parser.add_subparsers(dest="command")
     subparsers.required = True
 

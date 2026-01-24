@@ -71,7 +71,7 @@ class TestCountriesObject(BaseTest):
                 raise ValueError("Can't evaluate lazy_gettext yet")
 
         with self.settings(COUNTRIES_OVERRIDE={"AU": FakeLazyGetText()}):
-            countries.countries
+            countries.countries  # noqa: B018
 
     def test_ioc_countries(self):
         from ..ioc_data import check_ioc_countries
@@ -144,6 +144,32 @@ class TestCountriesObject(BaseTest):
         with self.settings(COUNTRIES_OVERRIDE={"XX": "Neverland"}):
             self.assertEqual(countries.alpha2("XX"), "XX")
 
+    def test_alpha2_override_three_char_code(self):
+        """Test that 3-character custom country codes work correctly.
+
+        This reproduces issue #474 where a custom country code "IND" would be
+        incorrectly resolved to "IN" (India) because it matched India's alpha3 code.
+        """
+        with self.settings(
+            COUNTRIES_OVERRIDE={
+                "ID": None,  # Remove Indonesia
+                "IND": {  # Add custom 3-char code
+                    "names": ["Indonesia"],
+                    "ioc_code": "INA",
+                    "flag_code": "id",
+                },
+            }
+        ):
+            # IND should be treated as a direct country code, not as India's alpha3
+            self.assertEqual(countries.alpha2("IND"), "IND")
+            self.assertEqual(countries.name("IND"), "Indonesia")
+            # ID should be removed
+            self.assertEqual(countries.alpha2("ID"), "")
+            self.assertEqual(countries.name("ID"), "")
+            # IN (India) should still work normally
+            self.assertEqual(countries.alpha2("IN"), "IN")
+            self.assertEqual(countries.name("IN"), "India")
+
     def test_ioc_code(self):
         self.assertEqual(countries.ioc_code("BS"), "BAH")
 
@@ -185,6 +211,52 @@ class TestCountriesObject(BaseTest):
                 countries.ioc_code("XK"),
                 "KOS",
                 "Should use IOC code for a custom country that provides a code",
+            )
+
+    def test_flag_url_override(self):
+        with self.settings(
+            COUNTRIES_OVERRIDE={
+                "BS": "Bahamas in Pajamas",
+                "AU": None,
+                "NZ": {"flag_url": "custom/nz.png"},
+                "XX": "Neverland",
+                "US": {"flag_url": "flags/usa.gif"},
+                "IND": {
+                    "names": ["Indonesia"],
+                    "ioc_code": "INA",
+                    "flag_url": "flags/id.gif",
+                },
+            }
+        ):
+            self.assertEqual(
+                countries.flag_url("BS"),
+                "",
+                "Should be empty if only name changed",
+            )
+            self.assertEqual(
+                countries.flag_url("AU"),
+                "",
+                "Should be empty since country was marked not present",
+            )
+            self.assertEqual(
+                countries.flag_url("NZ"),
+                "custom/nz.png",
+                "Should use custom flag_url",
+            )
+            self.assertEqual(
+                countries.flag_url("XX"),
+                "",
+                "Should be empty for a custom country with no flag_url",
+            )
+            self.assertEqual(
+                countries.flag_url("US"),
+                "flags/usa.gif",
+                "Should use provided custom flag_url",
+            )
+            self.assertEqual(
+                countries.flag_url("IND"),
+                "flags/id.gif",
+                "Should use flag_url for a custom country code",
             )
 
     def test_fetch_by_name(self):
@@ -398,7 +470,6 @@ class CountriesFirstTest(BaseTest):
                 }
             }
         ):
-
             lang = translation.get_language()
             try:
                 translation.activate("eo")
@@ -427,6 +498,61 @@ class CountriesFirstTest(BaseTest):
                 ("NV", "Neverland"),
             ],
         )
+
+
+class TestCountriesPerformance(BaseTest):
+    def test_iter_caching(self):
+        """Test that Countries.__iter__ caches results per language (issue #454)."""
+        import time
+
+        # First iteration should build and cache results
+        start = time.time()
+        first_result = list(countries)
+        first_time = time.time() - start
+
+        # Second iteration should be much faster (using cache)
+        start = time.time()
+        second_result = list(countries)
+        second_time = time.time() - start
+
+        # Results should be identical
+        self.assertEqual(first_result, second_result)
+
+        # Second call should be at least 5x faster (realistically >10x)
+        # Use a conservative threshold to avoid flaky tests
+        speedup = first_time / second_time if second_time > 0 else float("inf")
+        self.assertGreater(
+            speedup,
+            5.0,
+            f"Caching not working: speedup was only {speedup:.1f}x "
+            f"(first: {first_time:.4f}s, second: {second_time:.4f}s)",
+        )
+
+    @pytest.mark.skipif(not settings.USE_I18N, reason="No i18n")
+    def test_iter_caching_per_language(self):
+        """Test that cache is per-language, not global (issue #454)."""
+        # Get countries in English (should cache for 'en')
+        lang = translation.get_language()
+        try:
+            translation.activate("en")
+            countries_en = list(countries)
+            de_name_en = [name for code, name in countries_en if code == "DE"][0]
+
+            # Get countries in German (should cache separately for 'de')
+            translation.activate("de")
+            countries_de = list(countries)
+            de_name_de = [name for code, name in countries_de if code == "DE"][0]
+
+            # Names should be different (translated)
+            self.assertNotEqual(
+                de_name_en,
+                de_name_de,
+                "Cache should be per-language, but got same name in both languages",
+            )
+            self.assertEqual(de_name_en, "Germany")
+            self.assertEqual(de_name_de, "Deutschland")
+        finally:
+            translation.activate(lang)
 
 
 class TestCountriesCustom(BaseTest):

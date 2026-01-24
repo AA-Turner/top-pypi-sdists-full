@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 import autograd.numpy as anp
 import pydantic.v1 as pd
@@ -128,8 +128,8 @@ class AbstractSimulation(Box, ABC):
         title="Structure Priority Setting",
         description="This field only affects structures of `priority=None`. "
         "If `equal`, the priority of those structures is set to 0; if `conductor`, "
-        "the priority of structures made of `LossyMetalMedium` is set to 90, "
-        "`PECMedium` to 100, and others to 0.",
+        "the priority of structures made of :class:`LossyMetalMedium` is set to 90, "
+        ":class:`PECMedium` to 100, and others to 0.",
     )
 
     """ Validating setup """
@@ -251,7 +251,7 @@ class AbstractSimulation(Box, ABC):
         hlim: Optional[tuple[float, float]] = None,
         vlim: Optional[tuple[float, float]] = None,
         fill_structures: bool = True,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot each of simulation's components on a plane defined by one nonzero x,y,z coordinate.
 
@@ -482,7 +482,7 @@ class AbstractSimulation(Box, ABC):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Ax:
         """Plot the simulation boundary conditions as lines on a plane
            defined by one nonzero x,y,z coordinate.
@@ -685,7 +685,7 @@ class AbstractSimulation(Box, ABC):
         )
 
     @classmethod
-    def from_scene(cls, scene: Scene, **kwargs) -> AbstractSimulation:
+    def from_scene(cls, scene: Scene, **kwargs: Any) -> AbstractSimulation:
         """Create a simulation from a :class:`.Scene` instance. Must provide additional parameters
         to define a valid simulation (for example, ``size``, ``run_time``, ``grid_spec``, etc).
 
@@ -702,3 +702,15 @@ class AbstractSimulation(Box, ABC):
             medium=scene.medium,
             **kwargs,
         )
+
+    def plot_3d(self, width=800, height=800) -> None:
+        """Render 3D plot of ``AbstractSimulation`` (in jupyter notebook only).
+        Parameters
+        ----------
+        width : float = 800
+            width of the 3d view dom's size
+        height : float = 800
+            height of the 3d view dom's size
+
+        """
+        return self.scene.plot_3d(width=width, height=height)

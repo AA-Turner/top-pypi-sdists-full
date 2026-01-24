@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime
 import logging
 import os
-from typing import DefaultDict, Dict, Generator, List, Optional, Tuple
+from typing import Any, DefaultDict, Dict, Generator, List, Optional, Tuple, Union
 from unittest.mock import Mock
 import uuid
 
@@ -16,7 +16,10 @@ from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
     AdminCreateUser,
     AnyscaleServiceAccount,
+    ApplyProductionServiceMultiVersionV2Model,
+    Binding,
     Cloud,
+    CloudListResponse,
     CloudProviders,
     ClusterOperation,
     ClusteroperationResponse,
@@ -28,9 +31,11 @@ from anyscale.client.openapi_client.models import (
     CreateInternalProductionJob,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
+    DecoratedCloudResource,
     DecoratedComputeTemplate,
     DecoratedlistserviceapimodelListResponse,
     DecoratedProductionServiceV2APIModel,
+    DecoratedProductionServiceV2VersionAPIModel,
     DeletedPlatformFineTunedModel,
     ExperimentalWorkspace,
     FineTunedModel,
@@ -41,23 +46,52 @@ from anyscale.client.openapi_client.models import (
     ListResponseMetadata,
     MiniCloud,
     MiniUser,
+    OrganizationBaseRole,
     OrganizationCollaborator,
+    OrganizationcollaboratorListResponse,
     OrganizationInvitation,
     OrganizationPermissionLevel,
+    PolicyResponse,
     ProductionJob,
     ProductionJobStateTransition,
     Project,
     ProjectBase,
     ProjectListResponse,
+    ResourcePolicyItem,
+    ResourcepolicyitemListResponse,
     ResourceQuota,
+    ResourceTagRecord,
+    ResourceTagResourceType,
     ServerSessionToken,
+    UpdatePolicyRequest,
+    UserGroup,
+    UsergroupListResponse,
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.decorated_application_template import (
+    DecoratedApplicationTemplate,
+)
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
 from anyscale.client.openapi_client.models.decorated_schedule import DecoratedSchedule
 from anyscale.client.openapi_client.models.decorated_session import DecoratedSession
+from anyscale.client.openapi_client.models.decoratedapplicationtemplate_list_response import (
+    DecoratedapplicationtemplateListResponse,
+)
+from anyscale.client.openapi_client.models.decoratedjobqueue_list_response import (
+    DecoratedjobqueueListResponse,
+)
+from anyscale.client.openapi_client.models.decoratedproductionjob_list_response import (
+    DecoratedproductionjobListResponse,
+)
+from anyscale.client.openapi_client.models.decoratedschedule_list_response import (
+    DecoratedscheduleListResponse,
+)
+from anyscale.client.openapi_client.models.job_queue_sort_directive import (
+    JobQueueSortDirective,
+)
+from anyscale.client.openapi_client.models.mini_build import MiniBuild
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.sdk.anyscale_client.configuration import Configuration
@@ -71,11 +105,15 @@ from anyscale.sdk.anyscale_client.models import (
     ComputeNodeType,
     Job as APIJobRun,
     ProductionServiceV2VersionModel,
+    Resources as ComputeConfigResources,
     ServiceEventCurrentState,
     ServiceVersionState,
     SessionState,
 )
 from anyscale.sdk.anyscale_client.models.cluster_environment import ClusterEnvironment
+from anyscale.sdk.anyscale_client.models.list_response_metadata import (
+    ListResponseMetadata as SDKListResponseMetadata,
+)
 from anyscale.shared_anyscale_utils.latest_ray_version import LATEST_RAY_VERSION
 from anyscale.utils.workspace_notification import WorkspaceNotification
 
@@ -87,7 +125,40 @@ OPENAPI_NO_VALIDATION = Configuration()
 OPENAPI_NO_VALIDATION.client_side_validation = False
 
 
+def _matches_tag_filter(workspace, tag_filter: List[str]) -> bool:
+    """Check if workspace matches tag filter (backend format: List["key:value"]).
+
+    Tags with the same key are ORed, different keys are ANDed.
+    """
+    if not tag_filter:
+        return True
+
+    # Parse tag filter into dict
+    filter_dict: Dict[str, List[str]] = {}
+    for tag_str in tag_filter:
+        if ":" not in tag_str:
+            continue
+        key, value = tag_str.split(":", 1)
+        filter_dict.setdefault(key, []).append(value)
+
+    # Get workspace tags
+    workspace_tags = getattr(workspace, "tags", {}) or {}
+
+    # Check each key (ANDed)
+    for key, required_values in filter_dict.items():
+        workspace_values = workspace_tags.get(key, [])
+        if isinstance(workspace_values, str):
+            workspace_values = [workspace_values]
+
+        # At least one value must match (ORed)
+        if not any(val in workspace_values for val in required_values):
+            return False
+
+    return True
+
+
 class FakeAnyscaleClient(AnyscaleClientInterface):
+    OPENAPI_NO_VALIDATION = OPENAPI_NO_VALIDATION
     BASE_UI_URL = "http://fake.com"
     CLOUD_BUCKET = "s3://fake-bucket/{cloud_id}"
     DEFAULT_CLOUD_ID = "fake-default-cloud-id"
@@ -144,6 +215,24 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 local_vars_configuration=OPENAPI_NO_VALIDATION,
             ),
         }
+        self._archived_images: Dict[str, ClusterEnvironment] = {}
+        self._application_template_metadata: Dict[str, Dict[str, Any]] = {}
+        self._ensure_application_template_metadata(
+            "default-cluster-env-id",
+            name="default-cluster-env",
+            creator_id=self.DEFAULT_USER_ID,
+            creator_email=self.DEFAULT_USER_EMAIL,
+            anonymous=True,
+            is_default=True,
+        )
+        self._ensure_application_template_metadata(
+            "workspace-cluster-env-id",
+            name="default-workspace-cluster-env",
+            creator_id=self.DEFAULT_USER_ID,
+            creator_email=self.DEFAULT_USER_EMAIL,
+            anonymous=True,
+            is_default=True,
+        )
         self._compute_config_name_to_ids: DefaultDict[str, List[str]] = defaultdict(
             list
         )
@@ -153,6 +242,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._workspace_cluster: Optional[Cluster] = None
         self._workspace_dependency_tracking_enabled: bool = False
         self._services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
+        self._versions: Dict[
+            str, Dict[str, ProductionServiceV2VersionModel]
+        ] = defaultdict(dict)
         self._archived_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
         self._deleted_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
         self._jobs: Dict[str, ProductionJob] = {}
@@ -188,6 +280,13 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._organization_invitations: Dict[str, OrganizationInvitation] = {}
         self._resource_quotas: Dict[str, ResourceQuota] = {}
         self._system_cluster_status: Dict[str, str] = {}
+        self.upsert_resource_tags_calls: List[Tuple[str, str, Dict[str, str]]] = []
+        self.delete_resource_tags_calls: List[Tuple[str, str, List[str]]] = []
+        # Store resource tags in-memory for list operations
+        self._resource_tags_store: Dict[Tuple[str, str], Dict[str, str]] = {}
+
+        # Cloud resource ID -> DecoratedCloudResource
+        self._cloud_resources: Dict[str, DecoratedCloudResource] = {}
 
         # Cloud ID -> Cloud.
         self._clouds: Dict[str, Cloud] = {
@@ -210,7 +309,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 head_node_type=ComputeNodeType(
                     name="default-head-node",
                     instance_type="m5.2xlarge",
-                    resources={"CPU": 8, "GPU": 1},
+                    resources=ComputeConfigResources(
+                        cpu=8, gpu=1, local_vars_configuration=OPENAPI_NO_VALIDATION
+                    ),
                 ),
                 local_vars_configuration=OPENAPI_NO_VALIDATION,
             ),
@@ -225,19 +326,80 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 head_node_type=ComputeNodeType(
                     name="default-head-node",
                     instance_type="m5.2xlarge",
-                    resources={"CPU": 8, "GPU": 1},
+                    resources=ComputeConfigResources(
+                        cpu=8, gpu=1, local_vars_configuration=OPENAPI_NO_VALIDATION
+                    ),
                 ),
                 local_vars_configuration=OPENAPI_NO_VALIDATION,
             ),
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
 
-        self._default_compute_configs: Dict[str, ClusterCompute] = {
-            self.DEFAULT_CLOUD_ID: compute_config,
-            self.WORKSPACE_CLOUD_ID: workspace_compute_config,
+        # Key is (cloud_id, cloud_resource_id) where cloud_resource_id can be None
+        self._default_compute_configs: Dict[
+            Tuple[str, Optional[str]], ClusterCompute
+        ] = {
+            (self.DEFAULT_CLOUD_ID, None): compute_config,
+            (self.WORKSPACE_CLOUD_ID, None): workspace_compute_config,
         }
         self.add_compute_config(compute_config)
         self.add_compute_config(workspace_compute_config)
+
+        # Add mock internal API client for list_workspaces
+        self._internal_api_client = Mock()
+        self._internal_api_client.list_workspaces_api_v2_experimental_workspaces_get = (
+            self._fake_list_workspaces
+        )
+
+    def _fake_list_workspaces(  # noqa: PLR0913, PLR0917
+        self,
+        project_id=None,
+        cloud_id=None,
+        name=None,
+        creator_id=None,
+        state_filter=None,
+        tag_filter=None,
+        count=50,  # noqa: ARG002
+        paging_token=None,  # noqa: ARG002
+        sort_field=None,  # noqa: ARG002
+        sort_order=None,  # noqa: ARG002
+    ):
+        """Mock implementation of list_workspaces API for testing."""
+        results = list(self._workspaces.values())
+
+        # Filter by name (substring match)
+        if name:
+            results = [w for w in results if name in w.name]
+
+        # Filter by project
+        if project_id:
+            results = [w for w in results if w.project_id == project_id]
+
+        # Filter by cloud
+        if cloud_id:
+            results = [w for w in results if w.cloud_id == cloud_id]
+
+        # Filter by creator
+        if creator_id:
+            results = [w for w in results if w.creator_id == creator_id]
+
+        # Filter by state
+        if state_filter is not None:
+            results = [w for w in results if w.state and w.state in state_filter]
+
+        # Filter by tags (tag_filter is List[str] in "key:value" format)
+        if tag_filter:
+            results = [w for w in results if _matches_tag_filter(w, tag_filter)]
+
+        # Return a mock response with results and metadata
+        return Mock(results=results, metadata=Mock(next_paging_token=None))
+
+    def get_user_info(self) -> Dict[str, str]:
+        """Return mock user information for testing."""
+        return {
+            "id": self.DEFAULT_USER_ID,
+            "email": self.DEFAULT_USER_EMAIL,
+        }
 
     def get_job_ui_url(self, job_id: str) -> str:
         return f"{self.BASE_UI_URL}/jobs/{job_id}"
@@ -392,13 +554,172 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def add_build(self, build: ClusterEnvironmentBuild):
         self._builds[build.id] = build
+        self._touch_application_template(build.cluster_environment_id)
 
     def add_image(self, image: ClusterEnvironment):
         self._images[image.id] = image
+        self._ensure_application_template_metadata(
+            image.id,
+            name=image.name,
+            creator_id=getattr(image, "creator_id", None),
+            anonymous=getattr(image, "anonymous", False),
+            is_default=getattr(image, "is_default", False),
+        )
+
+    def _ensure_application_template_metadata(
+        self,
+        env_id: str,
+        *,
+        name: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        creator_email: Optional[str] = None,
+        creator_name: Optional[str] = None,
+        anonymous: Optional[bool] = None,
+        is_default: Optional[bool] = None,
+        project_id: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        last_modified_at: Optional[datetime] = None,
+    ) -> None:
+        meta = self._application_template_metadata.setdefault(
+            env_id,
+            {
+                "name": name or env_id,
+                "creator_id": creator_id or self.DEFAULT_USER_ID,
+                "creator_email": creator_email or self.DEFAULT_USER_EMAIL,
+                "creator_name": creator_name or (creator_id or self.DEFAULT_USER_ID),
+                "anonymous": anonymous if anonymous is not None else False,
+                "is_default": is_default if is_default is not None else False,
+                "project_id": project_id,
+                "created_at": created_at or datetime.utcnow(),
+                "last_modified_at": last_modified_at or datetime.utcnow(),
+                "deleted_at": None,
+            },
+        )
+
+        if name is not None:
+            meta["name"] = name
+        if creator_id is not None:
+            meta["creator_id"] = creator_id
+        if creator_email is not None:
+            meta["creator_email"] = creator_email
+        if creator_name is not None:
+            meta["creator_name"] = creator_name
+        if anonymous is not None:
+            meta["anonymous"] = anonymous
+        if is_default is not None:
+            meta["is_default"] = is_default
+        if project_id is not None:
+            meta["project_id"] = project_id
+        if created_at is not None:
+            meta["created_at"] = created_at
+        if last_modified_at is not None:
+            meta["last_modified_at"] = last_modified_at
+
+    def _touch_application_template(self, env_id: str) -> None:
+        meta = self._application_template_metadata.get(env_id)
+        if meta is not None:
+            meta["last_modified_at"] = datetime.utcnow()
+
+    def _get_latest_build_for_env(
+        self, env_id: str
+    ) -> Optional[ClusterEnvironmentBuild]:
+        latest: Optional[ClusterEnvironmentBuild] = None
+        for build in self._builds.values():
+            if build.cluster_environment_id == env_id:
+                build_revision = build.revision or 0
+                if latest is None or build_revision > (latest.revision or 0):
+                    latest = build
+        return latest
+
+    def _build_application_template_model(
+        self, env_id: str
+    ) -> Optional[DecoratedApplicationTemplate]:
+        env = self._images.get(env_id)
+        meta = self._application_template_metadata.get(env_id)
+        if env is None or meta is None:
+            return None
+
+        latest_build = self._get_latest_build_for_env(env_id)
+        mini_build = None
+        docker_image_name = None
+        if latest_build is not None:
+            docker_image_name = latest_build.docker_image_name
+            if docker_image_name is None:
+                image_uri = self.get_cluster_env_build_image_uri(
+                    latest_build.id, use_image_alias=True
+                )
+                docker_image_name = image_uri.image_uri if image_uri else None
+
+            status_value = None
+            if latest_build.status is not None:
+                status_value = (
+                    latest_build.status.value.lower()
+                    if hasattr(latest_build.status, "value")
+                    else str(latest_build.status).lower()
+                )
+
+            mini_build = MiniBuild(
+                id=latest_build.id,
+                revision=latest_build.revision,
+                status=status_value,
+                application_template_name=meta.get("name"),
+                application_template_id=env_id,
+                docker_image_name=docker_image_name,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+
+        creator = MiniUser(
+            id=meta.get("creator_id"),
+            name=meta.get("creator_name"),
+            username=meta.get("creator_name"),
+            email=meta.get("creator_email"),
+            lastname=None,
+            deleted_at=None,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+        return DecoratedApplicationTemplate(
+            id=env_id,
+            name=meta.get("name"),
+            project_id=meta.get("project_id"),
+            organization_id=self.DEFAULT_ORGANIZATION_ID,
+            creator_id=meta.get("creator_id"),
+            created_at=meta.get("created_at"),
+            last_modified_at=meta.get("last_modified_at"),
+            deleted_at=meta.get("deleted_at"),
+            archiver_id=None,
+            archived_at=None,
+            is_default=meta.get("is_default", False),
+            anonymous=meta.get("anonymous", False),
+            creator=creator,
+            latest_build=mini_build,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
 
     def add_cloud(self, cloud: Cloud):
         self._clouds[cloud.id] = cloud
         self._system_cluster_status[cloud.id] = ClusterState.RUNNING
+
+        # Create a default compute config for this cloud
+        if cloud.id not in self._default_compute_configs:
+            default_compute_config = ClusterCompute(
+                id=f"default-compute-config-{cloud.id}",
+                name=f"default-compute-config-{cloud.name}",
+                config=ClusterComputeConfig(
+                    cloud_id=cloud.id,
+                    head_node_type=ComputeNodeType(
+                        name="default-head-node",
+                        instance_type="m5.2xlarge",
+                        resources=ComputeConfigResources(
+                            cpu=8, gpu=1, local_vars_configuration=OPENAPI_NO_VALIDATION
+                        ),
+                    ),
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                ),
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+            self._default_compute_configs[cloud.id] = default_compute_config
+            self.add_compute_config(default_compute_config)
 
     def get_cloud(self, *, cloud_id: str) -> Optional[Cloud]:
         return self._clouds.get(cloud_id, None)
@@ -409,8 +730,38 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 return c
         return None
 
+    def get_cloud_resource_by_name(
+        self, cloud_id: str, cloud_resource_name: str
+    ) -> Optional[DecoratedCloudResource]:
+        for cloud_resource in self._cloud_resources.values():
+            if (
+                cloud_resource.cloud_deployment_id == cloud_id
+                and cloud_resource.name == cloud_resource_name
+            ):
+                return cloud_resource
+        return None
+
+    def add_cloud_resource(self, cloud_resource: DecoratedCloudResource) -> None:
+        self._cloud_resources[cloud_resource.cloud_resource_id] = cloud_resource
+
     def get_default_cloud(self) -> Optional[Cloud]:
         return self._clouds.get(self.DEFAULT_CLOUD_ID, None)
+
+    def list_clouds(
+        self, *, paging_token: Optional[str] = None, count: Optional[int] = None
+    ) -> CloudListResponse:
+        # Simple fake: ignore paging_token and just return up to `count` items
+        clouds = list(self._clouds.values())
+        if count is not None:
+            clouds = clouds[:count]
+        return CloudListResponse(
+            results=clouds,
+            metadata=ListResponseMetadata(
+                next_paging_token=paging_token,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
 
     def add_cloud_collaborators(
         self, cloud_id: str, collaborators: List[CreateCloudCollaborator]
@@ -476,6 +827,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 name=name,
                 config=config,
                 anonymous=anonymous,
+                creator_id=self.DEFAULT_USER_ID,
+                created_at=datetime.utcnow(),
+                last_modified_at=datetime.utcnow(),
                 local_vars_configuration=OPENAPI_NO_VALIDATION,
             ),
         )
@@ -528,16 +882,111 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         archived_config.archived_at = datetime.utcnow()
         self._archived_compute_configs[compute_config_id] = archived_config
 
+    def search_cluster_computes(self, query: Dict[str, Any]):  # noqa: PLR0912
+        """Search for cluster computes matching the provided query.
+
+        Implements filtering, sorting, and pagination for testing purposes.
+        """
+        # Create a mock response object that matches the expected structure
+        class MockSearchResponse:
+            def __init__(self, results_list, next_token=None):
+                self.results = results_list
+                self.metadata = Mock()
+                self.metadata.next_paging_token = next_token
+
+        # Start with all compute configs
+        results = list(self._compute_configs.values())
+
+        # Apply filtering
+        if "name" in query and "equals" in query["name"]:
+            target_name = query["name"]["equals"]
+            results = [cc for cc in results if cc.name == target_name]
+
+        if "creator_id" in query:
+            creator_id = query["creator_id"]
+            results = [cc for cc in results if cc.creator_id == creator_id]
+
+        if "cloud_id" in query:
+            cloud_id = query["cloud_id"]
+            results = [
+                cc for cc in results if cc.config and cc.config.cloud_id == cloud_id
+            ]
+
+        # Apply sorting
+        if "sort_by_clauses" in query:
+            for sort_clause in reversed(query["sort_by_clauses"]):
+                sort_field = (
+                    sort_clause.get("sort_field")
+                    if isinstance(sort_clause, dict)
+                    else getattr(sort_clause, "sort_field", None)
+                )
+                sort_order = (
+                    sort_clause.get("sort_order")
+                    if isinstance(sort_clause, dict)
+                    else getattr(sort_clause, "sort_order", None)
+                )
+
+                # Convert enum to string if needed
+                if sort_field is not None and hasattr(sort_field, "value"):
+                    sort_field = sort_field.value  # type: ignore
+                if sort_order is not None and hasattr(sort_order, "value"):
+                    sort_order = sort_order.value  # type: ignore
+
+                reverse = sort_order == "DESC"
+
+                if sort_field == "NAME":
+                    results.sort(key=lambda x: x.name or "", reverse=reverse)
+                elif sort_field == "CREATED_AT":
+                    results.sort(
+                        key=lambda x: x.created_at or datetime.min, reverse=reverse
+                    )
+                elif sort_field == "LAST_MODIFIED_AT":
+                    results.sort(
+                        key=lambda x: x.last_modified_at or datetime.min,
+                        reverse=reverse,
+                    )
+
+        # Apply pagination
+        paging = query.get("paging", {})
+        max_items = paging.get("count", len(results))
+        paging_token = paging.get("paging_token")
+
+        start_index = 0
+        if paging_token:
+            try:
+                start_index = int(paging_token)
+            except (ValueError, TypeError):
+                start_index = 0
+
+        paginated_results = results[start_index : start_index + max_items]
+
+        # Calculate next token
+        next_token = None
+        if start_index + max_items < len(results):
+            next_token = str(start_index + max_items)
+
+        return MockSearchResponse(paginated_results, next_token)
+
     def is_archived_compute_config(self, compute_config_id: str) -> bool:
         return compute_config_id in self._archived_compute_configs
 
     def set_default_compute_config(
-        self, compute_config: ClusterCompute, *, cloud_id: str
+        self,
+        compute_config: ClusterCompute,
+        *,
+        cloud_id: str,
+        cloud_resource_id: Optional[str] = None,
     ):
-        self._default_compute_configs[cloud_id] = compute_config
+        self._default_compute_configs[(cloud_id, cloud_resource_id)] = compute_config
 
-    def get_default_compute_config(self, *, cloud_id: str) -> ClusterCompute:
-        return self._default_compute_configs[cloud_id]
+    def get_default_compute_config(
+        self, *, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> ClusterCompute:
+        key = (cloud_id, cloud_resource_id)
+        if key in self._default_compute_configs:
+            return self._default_compute_configs[key]
+        # Fallback to default cloud's config if specific cloud doesn't have one
+        return self._default_compute_configs[(self.DEFAULT_CLOUD_ID, None)]
 
     def list_cluster_env_builds(
         self, cluster_env_id: str,
@@ -592,12 +1041,15 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             anonymous=anonymous,
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
+        self._ensure_application_template_metadata(
+            cluster_env_id, name=cluster_env_name, anonymous=anonymous,
+        )
         latest_build = None
         for build in self._builds.values():
             if build.cluster_environment_id == cluster_env_id and (latest_build is None or build.revision > latest_build.revision):  # type: ignore
                 latest_build = build
         build_id = f"cluster-env-build-id-{uuid.uuid4()!s}"
-        self._builds[build_id] = ClusterEnvironmentBuild(
+        build = ClusterEnvironmentBuild(
             id=build_id,
             cluster_environment_id=cluster_env_id,
             containerfile=containerfile,
@@ -606,6 +1058,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             ray_version=ray_version,
             revision=latest_build.revision + 1 if latest_build is not None else 1,  # type: ignore
         )
+        self.add_build(build)
         return build_id
 
     def get_cluster_env_build_id_from_image_uri(
@@ -631,8 +1084,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             anonymous=False,
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
+        self._ensure_application_template_metadata(
+            cluster_env_id, name=cluster_env_name, anonymous=False,
+        )
         build_id = f"cluster-env-build-id-{uuid.uuid4()!s}"
-        self._builds[build_id] = ClusterEnvironmentBuild(
+        build = ClusterEnvironmentBuild(
             id=build_id,
             cluster_environment_id=cluster_env_id,
             docker_image_name=image_uri.image_uri,
@@ -641,6 +1097,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             ray_version=ray_version if ray_version else LATEST_RAY_VERSION,
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
+        self.add_build(build)
         return build_id
 
     def get_cluster_env_build_image_uri(
@@ -649,15 +1106,117 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         build = self._builds.get(cluster_env_build_id, None)
         if build is None:
             return None
+        if build.docker_image_name is not None and not use_image_alias:
+            return ImageURI.from_str(build.docker_image_name)
+        cluster_env = self._images[build.cluster_environment_id]
+        return ImageURI.from_cluster_env_build(cluster_env, build)
+
+    def archive_image(self, *, image_id: str) -> None:
+        """Archive an image (cluster environment) by ID."""
+        if image_id not in self._images:
+            raise ValueError(f"Image '{image_id}' not found.")
+        image = self._images[image_id]
+        image.archived_at = datetime.utcnow()
+        self._archived_images[image_id] = self._images.pop(image_id)
+
+    def get_application_template(
+        self, application_template_id: str
+    ) -> Optional[DecoratedApplicationTemplate]:
+        return self._build_application_template_model(application_template_id)
+
+    def list_application_templates(  # noqa: PLR0912
+        self,
+        *,
+        name: Optional[str],
+        image_name: Optional[str],
+        creator_id: Optional[str],
+        project: Optional[str],
+        include_archived: bool,
+        defaults_first: bool,
+        count: Optional[int],
+        paging_token: Optional[str],
+    ) -> DecoratedapplicationtemplateListResponse:
+        templates: List[DecoratedApplicationTemplate] = []
+        for env_id in list(self._application_template_metadata.keys()):
+            template = self._build_application_template_model(env_id)
+            if template is None:
+                continue
+
+            meta = self._application_template_metadata.get(env_id, {})
+            if not include_archived and meta.get("deleted_at") is not None:
+                continue
+            if name and (template.name or "").find(name) == -1:
+                continue
+            if creator_id and template.creator_id != creator_id:
+                continue
+
+            if project:
+                try:
+                    project_id_filter = self.get_project_id(name=project)
+                except Exception:  # noqa: BLE001
+                    project_id_filter = project
+                if project_id_filter and template.project_id != project_id_filter:
+                    continue
+
+            if image_name:
+                latest_build = template.latest_build
+                docker_name = (
+                    latest_build.docker_image_name if latest_build is not None else None
+                )
+                if not docker_name or image_name not in docker_name:
+                    continue
+
+            templates.append(template)
+
+        if defaults_first:
+            templates.sort(
+                key=lambda tpl: (
+                    0 if tpl.is_default else 1,
+                    -(
+                        tpl.created_at.timestamp()
+                        if tpl.created_at is not None
+                        else 0.0
+                    ),
+                )
+            )
         else:
-            if build.docker_image_name is not None and not use_image_alias:
-                return ImageURI.from_str(build.docker_image_name)
-            else:
-                cluster_env = self._images[build.cluster_environment_id]
-                return ImageURI.from_cluster_env_build(cluster_env, build)
+            templates.sort(
+                key=lambda tpl: tpl.created_at or datetime.fromtimestamp(0),
+                reverse=True,
+            )
+
+        total = len(templates)
+        start_index = 0
+        if paging_token:
+            try:
+                start_index = int(paging_token)
+            except ValueError:
+                start_index = 0
+
+        page_count = count if count is not None else total
+        page = templates[start_index : start_index + page_count]
+        next_token = (
+            str(start_index + page_count)
+            if (start_index + page_count) < total
+            else None
+        )
+
+        metadata = SDKListResponseMetadata(
+            total=total,
+            next_paging_token=next_token,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        return DecoratedapplicationtemplateListResponse(
+            results=page,
+            metadata=metadata,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
 
     def update_service(self, model: DecoratedProductionServiceV2APIModel):
         self._services[model.id] = model
+        if model.versions is not None:
+            for version in model.versions:
+                self._versions[model.id][version.id] = version
 
     def get_service(
         self,
@@ -868,8 +1427,62 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def update_job_run(self, prod_job_id: str, model: APIJobRun):
         self._job_runs[prod_job_id].append(model)
 
-    def list_job_queues(self) -> List[DecoratedJobQueue]:
-        return list(self._job_queues.values())
+    def list_job_queues(  # noqa: PLR0913, PLR0917
+        self,
+        *,
+        name: Optional[str] = None,
+        creator_id: Optional[str] = None,  # noqa: ARG002
+        cluster_status: Optional[SessionState] = None,  # noqa: ARG002
+        project: Optional[str] = None,  # noqa: ARG002
+        cloud: Optional[str] = None,  # noqa: ARG002
+        tags_filter: Optional[Dict[str, List[str]]] = None,  # noqa: ARG002
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002
+        _sorting_directives: Optional[
+            List[JobQueueSortDirective]
+        ] = None,  # noqa: ARG002
+    ) -> DecoratedjobqueueListResponse:
+        """Mock implementation of list_job_queues API for testing.
+
+        Returns a DecoratedjobqueueListResponse object to match the real API.
+        """
+        results = list(self._job_queues.values())
+        if name:
+            results = [jq for jq in results if jq.name == name]
+        if count is not None:
+            results = results[:count]
+
+        return DecoratedjobqueueListResponse(
+            results=results,
+            metadata=ListResponseMetadata(total=len(results), next_paging_token=None),
+        )
+
+    def list_jobs(  # noqa: PLR0913, PLR0917
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,  # noqa: ARG002
+        creator_id: Optional[str] = None,  # noqa: ARG002
+        state_filter: Optional[List[str]] = None,  # noqa: ARG002
+        archive_status: Optional[str] = None,  # noqa: ARG002
+        tags_filter: Optional[List[str]] = None,  # noqa: ARG002
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002
+    ) -> DecoratedproductionjobListResponse:
+        """Mock implementation of list_jobs API for testing.
+
+        Returns a DecoratedproductionjobListResponse object to match the real API.
+        """
+        results = list(self._jobs.values())
+        if name:
+            results = [job for job in results if job.name == name]
+        if count is not None:
+            results = results[:count]
+
+        return DecoratedproductionjobListResponse(
+            results=results,
+            metadata=ListResponseMetadata(total=len(results), next_paging_token=None),
+        )
 
     def get_job_queue(self, job_queue_id: str) -> Optional[DecoratedJobQueue]:
         return self._job_queues.get(job_queue_id, None)
@@ -890,14 +1503,17 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         cloud_project_dict = self._project_to_id[cloud_id]
         if name in cloud_project_dict:
             return cloud_project_dict[name]
-        else:
-            if project_id is None:
-                project_id = f"project-id-{uuid.uuid4()!s}"
-            cloud_project_dict[name] = project_id
-            return project_id
+        if project_id is None:
+            project_id = f"project-id-{uuid.uuid4()!s}"
+        cloud_project_dict[name] = project_id
+        return project_id
 
     @property
-    def rolled_out_model(self) -> Optional[ApplyProductionServiceV2Model]:
+    def rolled_out_model(
+        self,
+    ) -> Optional[
+        Union[ApplyProductionServiceV2Model, ApplyProductionServiceMultiVersionV2Model]
+    ]:
         return self._rolled_out_model
 
     def rollout_service(
@@ -917,6 +1533,18 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             service_id = f"service-id-{uuid.uuid4()!s}"
 
+        primary_version = ProductionServiceV2VersionModel(
+            id=str(uuid.uuid4()),
+            created_at=datetime.now(),
+            version=model.version,
+            current_state=ServiceVersionState.RUNNING,
+            weight=100,
+            build_id=model.build_id,
+            compute_config_id=model.compute_config_id,
+            ray_serve_config=model.ray_serve_config,
+            ray_gcs_external_storage_config=model.ray_gcs_external_storage_config,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
         service = DecoratedProductionServiceV2APIModel(
             id=service_id,
             name=model.name,
@@ -925,18 +1553,56 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             current_state=ServiceEventCurrentState.STARTING,
             base_url=f"http://{model.name}.fake.url",
             auth_token="fake-auth-token",
-            primary_version=ProductionServiceV2VersionModel(
+            primary_version=primary_version,
+            versions=[primary_version],
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        self.update_service(service)
+        return service
+
+    def rollout_service_multi_version(
+        self, model: ApplyProductionServiceMultiVersionV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
+        self._rolled_out_model = model
+        version = model.service_versions[0]
+        project_model = self.get_project(version.project_id)
+        project = project_model.name if project_model else None
+        compute_config = self.get_compute_config(version.compute_config_id)
+        cloud_id = compute_config.config.cloud_id if compute_config else None
+        cloud_model = self.get_cloud(cloud_id=cloud_id)
+        cloud = cloud_model.name if cloud_model else None
+        existing_service = self.get_service(version.name, project=project, cloud=cloud)
+        if existing_service is not None:
+            service_id = existing_service.id
+        else:
+            service_id = f"service-id-{uuid.uuid4()!s}"
+
+        service_versions = []
+        for version in model.service_versions:
+            service_version = ProductionServiceV2VersionModel(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
-                version="primary",
+                version=version.version,
                 current_state=ServiceVersionState.RUNNING,
-                weight=100,
-                build_id=model.build_id,
-                compute_config_id=model.compute_config_id,
-                ray_serve_config=model.ray_serve_config,
-                ray_gcs_external_storage_config=model.ray_gcs_external_storage_config,
+                weight=version.traffic_percent,
+                build_id=version.build_id,
+                compute_config_id=version.compute_config_id,
+                ray_serve_config=version.ray_serve_config,
+                ray_gcs_external_storage_config=version.ray_gcs_external_storage_config,
                 local_vars_configuration=OPENAPI_NO_VALIDATION,
-            ),
+            )
+            service_versions.append(service_version)
+
+        service = DecoratedProductionServiceV2APIModel(
+            id=service_id,
+            name=version.name,
+            project_id=version.project_id,
+            cloud_id=self.get_cloud_id(compute_config_id=version.compute_config_id),
+            current_state=ServiceEventCurrentState.STARTING,
+            base_url=f"http://{version.name}.fake.url",
+            auth_token="fake-auth-token",
+            primary_version="",
+            versions=service_versions,
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         self.update_service(service)
@@ -1028,7 +1694,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if local_dir not in self._upload_uri_mapping:
             self._upload_uri_mapping[
                 local_dir
-            ] = f"{bucket}/fake_pkg_{str(uuid.uuid4())}.zip"
+            ] = f"{bucket}/fake_pkg_{uuid.uuid4()!s}.zip"
 
         return self._upload_uri_mapping[local_dir]
 
@@ -1045,7 +1711,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if local_dir not in self._upload_bucket_path_mapping:
             self._upload_bucket_path_mapping[local_dir] = (
                 cloud_resource_names,
-                f"{bucket}/fake_pkg_{str(uuid.uuid4())}.zip",
+                f"{bucket}/fake_pkg_{uuid.uuid4()!s}.zip",
             )
         return self._upload_bucket_path_mapping[local_dir][1]
 
@@ -1146,6 +1812,31 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def trigger_counts(self, id: str):  # noqa: A002
         return self._schedule_trigger_counts[id]
+
+    def list_schedules(
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,  # noqa: ARG002
+        cloud_id: Optional[str] = None,  # noqa: ARG002
+        creator_id: Optional[str] = None,  # noqa: ARG002
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002
+    ) -> DecoratedscheduleListResponse:
+        """Mock implementation of list_schedules API for testing.
+
+        Returns a DecoratedscheduleListResponse object to match the real API.
+        """
+        results = list(self._schedules.values())
+        if name:
+            results = [schedule for schedule in results if schedule.name == name]
+        total = len(results)
+        if count is not None:
+            results = results[:count]
+        return DecoratedscheduleListResponse(
+            results=results,
+            metadata=ListResponseMetadata(total=total, next_paging_token=None),
+        )
 
     def create_workspace(self, model: CreateExperimentalWorkspace) -> str:
         workspace_id = uuid.uuid4()
@@ -1335,10 +2026,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         hide_progress_bar: bool = False,  # noqa: ARG002
     ) -> str:
         filename = f"aggregated_instance_usage_{start_date}_{end_date}.zip"
-        if directory:
-            filepath = os.path.join(directory, filename)
-        else:
-            filepath = filename
+        filepath = os.path.join(directory, filename) if directory else filename
 
         return filepath
 
@@ -1412,6 +2100,38 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         return self._organization_invitations.pop(email)
 
+    def list_organization_collaborators(
+        self,
+        *,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        collaborator_type: Optional[CollaboratorType] = None,  # noqa: ARG002
+        is_service_account: Optional[bool] = None,  # noqa: ARG002
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002
+    ) -> OrganizationcollaboratorListResponse:
+        filtered_results: List[OrganizationCollaborator] = []
+        for organization_collaborator in self._organization_collaborators:
+            if email and organization_collaborator.email != email:
+                continue
+            if name and organization_collaborator.name != name:
+                continue
+
+            filtered_results.append(organization_collaborator)
+
+        effective_count = count if count is not None else len(filtered_results)
+        results = filtered_results[:effective_count]
+
+        return OrganizationcollaboratorListResponse(
+            results=results,
+            metadata=ListResponseMetadata(
+                total=len(filtered_results),
+                next_paging_token=None,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
     def get_organization_collaborators(
         self,
         email: Optional[str] = None,
@@ -1419,18 +2139,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         collaborator_type: Optional[CollaboratorType] = None,  # noqa: ARG002
         is_service_account: Optional[bool] = None,  # noqa: ARG002
     ) -> List[OrganizationCollaborator]:
-        """Give the list of collaborators for the organization."""
-        # Since organization collaborator doesn't include whether it's a service account or not, we'll just return all
-        results = []
-        for organization_collaborator in self._organization_collaborators:
-            if email and organization_collaborator.email != email:
-                continue
-            if name and organization_collaborator.name != name:
-                continue
+        response = self.list_organization_collaborators(
+            email=email,
+            name=name,
+            collaborator_type=collaborator_type,
+            is_service_account=is_service_account,
+        )
 
-            results.append(organization_collaborator)
-
-        return results
+        return list(response.results)
 
     def delete_organization_collaborator(self, identity_id: str) -> None:
         for organization_collaborator in self._organization_collaborators:
@@ -1451,6 +2167,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         user_id = f"usr_{uuid.uuid4()!s}"
         organization_collaborator = OrganizationCollaborator(
             permission_level=OrganizationPermissionLevel.COLLABORATOR,
+            base_role=OrganizationBaseRole.COLLABORATOR,
+            additional_roles=[],
             id=identity_id,
             name=name,
             email=f"{name}@service-account.com",
@@ -1551,6 +2269,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         *,
         name: Optional[str] = None,
         state_filter: Optional[List[str]] = None,
+        tag_filter: Optional[List[str]] = None,  # noqa: ARG002
         creator_id: Optional[str] = None,  # noqa: ARG002
         cloud: Optional[str] = None,
         project: Optional[str] = None,
@@ -1603,3 +2322,259 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         return response
+
+    def get_service_versions(
+        self, service_id: str, read_all_versions: bool = False  # noqa: ARG002
+    ) -> List[DecoratedProductionServiceV2VersionAPIModel]:
+        return list(self._versions[service_id].values())
+
+    def upsert_resource_tags(
+        self,
+        resource_type: ResourceTagResourceType,
+        resource_id: str,
+        tags: Dict[str, str],
+    ) -> None:
+        self.upsert_resource_tags_calls.append((resource_type, resource_id, tags))
+        key = (str(resource_type), resource_id)
+        current = self._resource_tags_store.get(key, {})
+        current.update(tags)
+        self._resource_tags_store[key] = current
+
+    def delete_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str, keys: List[str],
+    ) -> None:
+        self.delete_resource_tags_calls.append((resource_type, resource_id, keys))
+        key = (str(resource_type), resource_id)
+        current = self._resource_tags_store.get(key, {})
+        for k in keys:
+            current.pop(k, None)
+        self._resource_tags_store[key] = current
+
+    def list_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str
+    ) -> List[ResourceTagRecord]:
+        key = (str(resource_type), resource_id)
+        tags = self._resource_tags_store.get(key, {})
+        now = datetime.utcnow()
+        records: List[ResourceTagRecord] = []
+        for k, v in tags.items():
+            records.append(
+                ResourceTagRecord(
+                    id=f"tag_{uuid.uuid4()}",
+                    organization_id=self.DEFAULT_ORGANIZATION_ID,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    key=k,
+                    value=v,
+                    created_at=now,
+                    updated_at=now,
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                )
+            )
+        return records
+
+    def list_user_groups(
+        self, *, count: int = 50, paging_token: Optional[str] = None,  # noqa: ARG002
+    ) -> UsergroupListResponse:
+        now = datetime.utcnow()
+        fake_groups = [
+            UserGroup(
+                id="ug_fake_001",
+                name="Engineering",
+                org_id=self.DEFAULT_ORGANIZATION_ID,
+                created_at=now,
+                updated_at=now,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            UserGroup(
+                id="ug_fake_002",
+                name="Data Science",
+                org_id=self.DEFAULT_ORGANIZATION_ID,
+                created_at=now,
+                updated_at=now,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+        ]
+        return UsergroupListResponse(
+            results=fake_groups[:count],
+            metadata=ListResponseMetadata(
+                total=len(fake_groups),
+                next_paging_token=None,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def get_user_group(self, group_id: str) -> UserGroup:
+        now = datetime.utcnow()
+        # Return consistent data with list_user_groups
+        fake_groups = {
+            "ug_fake_001": "Engineering",
+            "ug_fake_002": "Data Science",
+        }
+        group_name = fake_groups.get(group_id, "Fake User Group")
+
+        return UserGroup(
+            id=group_id,
+            name=group_name,
+            org_id=self.DEFAULT_ORGANIZATION_ID,
+            created_at=now,
+            updated_at=now,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def list_user_group_memberships(self) -> Dict:
+        """List all user groups with their members."""
+        return {
+            "result": {
+                "groups": [
+                    {
+                        "group_id": "ug_fake_001",
+                        "group_name": "Engineering",
+                        "members": [
+                            {"user_id": "usr_001", "user_email": "alice@example.com",},
+                            {
+                                "user_id": "usr_002",
+                                "user_email": "charlie@example.com",
+                            },
+                        ],
+                    },
+                    {
+                        "group_id": "ug_fake_002",
+                        "group_name": "Data Science",
+                        "members": [
+                            {"user_id": "usr_003", "user_email": "bob@example.com",},
+                        ],
+                    },
+                ]
+            }
+        }
+
+    def update_resource_policy(
+        self,
+        resource_type: str,  # noqa: ARG002
+        resource_id: str,  # noqa: ARG002
+        policy: UpdatePolicyRequest,  # noqa: ARG002
+    ) -> None:
+        pass
+
+    def get_resource_policy(
+        self, resource_type: str, resource_id: str,  # noqa: ARG002
+    ) -> PolicyResponse:
+        return PolicyResponse(
+            bindings=[
+                Binding(
+                    role_name="write",
+                    principals=["ug_fake_001"],
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                ),
+                Binding(
+                    role_name="readonly",
+                    principals=["ug_fake_002"],
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                ),
+            ],
+            sync_status="success",
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def list_resource_policies(
+        self, resource_type: str,
+    ) -> ResourcepolicyitemListResponse:
+        return ResourcepolicyitemListResponse(
+            results=[
+                ResourcePolicyItem(
+                    resource_id="cld_fake_001",
+                    resource_type=resource_type,
+                    bindings=[
+                        Binding(
+                            role_name="write",
+                            principals=["ug_fake_001"],
+                            local_vars_configuration=OPENAPI_NO_VALIDATION,
+                        ),
+                    ],
+                    sync_status="success",
+                    local_vars_configuration=OPENAPI_NO_VALIDATION,
+                ),
+            ],
+            metadata=ListResponseMetadata(
+                total=1,
+                next_paging_token=None,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+        """Fake implementation of SCIM permission migration."""
+        return {
+            "result": {
+                "organization_id": "org_fake_001",
+                "total_users_processed": 2,
+                "users_migrated": [
+                    {
+                        "user_id": "usr_fake_001",
+                        "user_email": "user1@example.com",
+                        "identity_id": "id_fake_001",
+                        "org_owner_demoted": True,
+                        "cloud_permissions_to_remove": [
+                            {
+                                "cloud_id": "cld_001",
+                                "action": "read_group",
+                                "is_admin": False,
+                            },
+                        ],
+                        "project_permissions_to_remove": [],
+                        "readonly_overrides_to_remove": [],
+                        "org_permission_changes": [],
+                    },
+                    {
+                        "user_id": "usr_fake_002",
+                        "user_email": "user2@example.com",
+                        "identity_id": "id_fake_002",
+                        "org_owner_demoted": False,
+                        "cloud_permissions_to_remove": [],
+                        "project_permissions_to_remove": [],
+                        "readonly_overrides_to_remove": [],
+                        "org_permission_changes": [],
+                    },
+                ],
+                "errors": [],
+                "dry_run": dry_run,
+            }
+        }
+
+    def list_scim_user_permissions(self, user_id: Optional[str] = None) -> Dict:
+        """Fake implementation of listing effective user permissions."""
+        all_users = [
+            {
+                "user_id": "usr_fake_001",
+                "user_email": "user1@example.com",
+                "clouds": [
+                    {
+                        "cloud_id": "cld_fake_001",
+                        "cloud_name": "prod-cloud",
+                        "role": "collaborator",
+                        "projects": [
+                            {
+                                "project_id": "prj_fake_001",
+                                "project_name": "prod-project",
+                                "role": "readonly",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        users = all_users
+        if user_id:
+            users = [u for u in all_users if u["user_id"] == user_id]
+        return {
+            "result": {
+                "organization_id": "org_fake_001",
+                "org_owners": [
+                    {"user_id": "usr_owner_001", "user_email": "owner1@example.com"},
+                ],
+                "users": users,
+            }
+        }

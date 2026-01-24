@@ -54,30 +54,24 @@ class ShapImpact(APIObject):
     """
 
     _path = "projects/{}/models/{}/shapImpact/"
-    _converter = t.Dict(
-        {
-            t.Key("count"): Int(),
-            t.Key("row_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("shap_impacts"): t.List(
-                t.Dict(
-                    {
-                        t.Key("feature_name"): String(),
-                        t.Key("impact_normalized"): t.Float(),
-                        t.Key("impact_unnormalized"): t.Float(),
-                    }
-                ).allow_extra("*")
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("count"): Int(),
+        t.Key("row_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("shap_impacts"): t.List(
+            t.Dict({
+                t.Key("feature_name"): String(),
+                t.Key("impact_normalized"): t.Float(),
+                t.Key("impact_unnormalized"): t.Float(),
+            }).allow_extra("*")
+        ),
+    }).allow_extra("*")
 
     @deprecation.deprecated(
         deprecated_since_version="v3.4",
         will_remove_version="v3.7",
         message="This class is deprecated, please use 'datarobot.insights.ShapImpact' instead.",
     )
-    def __init__(
-        self, count: int, shap_impacts: List[ShapImpactType], row_count: Optional[int] = None
-    ) -> None:
+    def __init__(self, count: int, shap_impacts: List[ShapImpactType], row_count: Optional[int] = None) -> None:
         self.count = count
         self.shap_impacts = shap_impacts
         self.row_count = row_count

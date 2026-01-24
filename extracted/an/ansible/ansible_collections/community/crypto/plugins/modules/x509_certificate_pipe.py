@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: x509_certificate_pipe
 short_description: Generate and/or check OpenSSL certificates
@@ -134,9 +133,9 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.module_ba
     add_selfsigned_provider_to_argument_spec,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.certificate import (  # pragma: no cover
         CertificateBackend,
     )

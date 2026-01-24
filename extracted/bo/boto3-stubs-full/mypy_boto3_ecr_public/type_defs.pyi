@@ -3,7 +3,7 @@ Type annotations for ecr-public service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr_public/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -29,12 +30,6 @@ from .literals import (
     RegistryAliasStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -131,7 +126,7 @@ class LayerTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -153,8 +148,8 @@ class TagTypeDef(TypedDict):
 
 class RepositoryCatalogDataTypeDef(TypedDict):
     description: NotRequired[str]
-    architectures: NotRequired[List[str]]
-    operatingSystems: NotRequired[List[str]]
+    architectures: NotRequired[list[str]]
+    operatingSystems: NotRequired[list[str]]
     logoUrl: NotRequired[str]
     aboutText: NotRequired[str]
     usageText: NotRequired[str]
@@ -191,7 +186,7 @@ class ImageDetailTypeDef(TypedDict):
     registryId: NotRequired[str]
     repositoryName: NotRequired[str]
     imageDigest: NotRequired[str]
-    imageTags: NotRequired[List[str]]
+    imageTags: NotRequired[list[str]]
     imageSizeInBytes: NotRequired[int]
     imagePushedAt: NotRequired[datetime]
     imageManifestMediaType: NotRequired[str]
@@ -260,8 +255,8 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 class BatchCheckLayerAvailabilityResponseTypeDef(TypedDict):
-    layers: List[LayerTypeDef]
-    failures: List[LayerFailureTypeDef]
+    layers: list[LayerTypeDef]
+    failures: list[LayerFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CompleteLayerUploadResponseTypeDef(TypedDict):
@@ -346,7 +341,7 @@ class UploadLayerPartRequestTypeDef(TypedDict):
     registryId: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -371,7 +366,7 @@ class DeleteRepositoryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeRepositoriesResponseTypeDef(TypedDict):
-    repositories: List[RepositoryTypeDef]
+    repositories: list[RepositoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -395,7 +390,7 @@ class DescribeRepositoriesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeImagesResponseTypeDef(TypedDict):
-    imageDetails: List[ImageDetailTypeDef]
+    imageDetails: list[ImageDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -417,11 +412,11 @@ class RegistryTypeDef(TypedDict):
     registryArn: str
     registryUri: str
     verified: bool
-    aliases: List[RegistryAliasTypeDef]
+    aliases: list[RegistryAliasTypeDef]
 
 class BatchDeleteImageResponseTypeDef(TypedDict):
-    imageIds: List[ImageIdentifierTypeDef]
-    failures: List[ImageFailureTypeDef]
+    imageIds: list[ImageIdentifierTypeDef]
+    failures: list[ImageFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutImageResponseTypeDef(TypedDict):
@@ -439,11 +434,11 @@ class PutRepositoryCatalogDataRequestTypeDef(TypedDict):
     registryId: NotRequired[str]
 
 class DescribeImageTagsResponseTypeDef(TypedDict):
-    imageTagDetails: List[ImageTagDetailTypeDef]
+    imageTagDetails: list[ImageTagDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeRegistriesResponseTypeDef(TypedDict):
-    registries: List[RegistryTypeDef]
+    registries: list[RegistryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

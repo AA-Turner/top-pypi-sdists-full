@@ -57,8 +57,10 @@ class TestWorkflowB(BaseWorkflowTest):
         ]
 
         update_dto = {
-            "stages": stages,
-            "transitions": transitions,
+            "state": {
+                "stages": stages,
+                "transitions": transitions,
+            }
         }
 
         put_response = self.client.put("/_editor/api/workflows", json=update_dto)
@@ -77,21 +79,27 @@ class TestWorkflowB(BaseWorkflowTest):
                 "stages": [
                     {
                         "id": "job_a",
-                        "position": {"x": 0.0, "y": 0.0},
+                        "position": {"x": 0, "y": 0},
                         "props": {
                             "filename": "job_a.py",
                         },
                         "title": "Job A",
                         "type": "jobs",
+                        "input": False,
+                        "output": False,
+                        "module": None,
                     },
                     {
                         "id": "script_b",
-                        "position": {"x": 20.0, "y": 20.0},
+                        "position": {"x": 20, "y": 20},
                         "props": {
                             "filename": "script_b.py",
                         },
                         "title": "Script B",
                         "type": "scripts",
+                        "input": False,
+                        "output": False,
+                        "module": None,
                     },
                 ],
                 "transitions": [
@@ -130,14 +138,15 @@ class TestWorkflowB(BaseWorkflowTest):
             )
 
             tasks = response.get_json()["tasks"]
+
             if (
                 len(tasks) == 1
                 and tasks[0]["targetStageId"] == "script_b"
-                and tasks[0]["status"] == "pending"
+                and tasks[0]["status"] == "completed"
             ):
                 break
 
-            time.sleep(0.1)
+            time.sleep(0.2)
         else:
             self.fail("Script did not completed task")
 
@@ -152,7 +161,7 @@ class TestWorkflowB(BaseWorkflowTest):
                                 "_id": ANY,
                             },
                             "type": "success",
-                            "status": "pending",
+                            "status": "completed",
                             "sourceStageType": "job",
                             "sourceStageTitle": "Job A",
                             "targetStageId": "script_b",
@@ -163,7 +172,11 @@ class TestWorkflowB(BaseWorkflowTest):
                                 "byExecutionId": ANY,
                                 "byStageId": "job_a",
                             },
-                            "completed": None,
+                            "completed": {
+                                "at": ANY,
+                                "byExecutionId": ANY,
+                                "byStageId": "script_b",
+                            },
                             "locked": None,
                         }
                     ],

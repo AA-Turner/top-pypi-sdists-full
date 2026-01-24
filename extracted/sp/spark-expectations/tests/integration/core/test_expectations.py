@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from pyspark.sql import DataFrame, SparkSession
 from spark_expectations.config.user_config import Constants as SeUserConfig
-from spark_expectations.examples.base_setup import RULES_TABLE_SCHEMA, set_up_delta
+from examples.scripts.base_setup import RULES_TABLE_SCHEMA, set_up_delta
 
 
 try:
@@ -14,13 +14,14 @@ try:
 except ImportError:
     pass
 
-from pyspark.sql.functions import lit, to_timestamp, col
+from pyspark.sql.functions import lit, to_timestamp, col, array, create_map
 from pyspark.sql.types import StringType, IntegerType, StructField, StructType
 
 from spark_expectations.core.context import SparkExpectationsContext
 from spark_expectations.core.expectations import (
     SparkExpectations,
     WrappedDataFrameWriter,
+    WrappedDataFrameStreamWriter,
     check_if_pyspark_connect_is_supported,
     get_spark_minor_version,
 )
@@ -40,15 +41,15 @@ def fixture_setup_local_kafka_topic():
 
     if os.getenv("UNIT_TESTING_ENV") != "spark_expectations_unit_testing_on_github_actions":
         # remove if docker container is running
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_stop_script.sh")
+        os.system(f"sh {current_dir}/../../../containers/kafka/scripts/docker_kafka_stop_script.sh")
 
         # start docker container and create the topic
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_start_script.sh")
+        os.system(f"sh {current_dir}/../../../containers/kafka/scripts/docker_kafka_start_script.sh")
 
         yield "docker container started"
 
         # remove docker container
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_stop_script.sh")
+        os.system(f"sh {current_dir}/../../../containers/kafka/scripts/docker_kafka_stop_script.sh")
 
     else:
         yield (
@@ -229,29 +230,18 @@ def test_spark_session_initialization():
         )
         assert type(se.spark) == SparkSession
 
-    # Test if exception is raised if sparkSession.getActiveSession() returns None
-    with patch.object(DataFrame, "sparkSession", new_callable=PropertyMock) as mock_sparkSession:
-        mock_sparkSession.side_effect = AttributeError("The 'sparkSession' attribute is not accessible")
-        with patch.object(SparkSession, "getActiveSession", return_value=None):
-            rules_df = spark.createDataFrame([("Alice", 32)], ["name", "age"])
-
-            writer = WrappedDataFrameWriter().mode("append").format("parquet")
-
-            # expect it to raise an exception SparkExpectationsMiscException as spark session is not available
-            with pytest.raises(SparkExpectationsMiscException) as e:
-                se = SparkExpectations(
-                    product_id="product1",
-                    rules_df=rules_df,
-                    stats_table="dq_spark.test_dq_stats_table",
-                    stats_table_writer=writer,
-                    target_and_error_table_writer=writer,
-                    debugger=False,
-                )
-                assert se.spark is None
-                assert (
-                    str(e.value)
-                    == "Spark session is not available, please initialize a spark session before calling SE"
-                )
+    # Test if exception is raised when rules_df is not a DataFrame type
+    writer = WrappedDataFrameWriter().mode("append").format("parquet")
+    with pytest.raises(SparkExpectationsMiscException) as e:
+        se = SparkExpectations(
+            product_id="product1",
+            rules_df="not_a_dataframe",  # type: ignore
+            stats_table="dq_spark.test_dq_stats_table",
+            stats_table_writer=writer,
+            target_and_error_table_writer=writer,
+            debugger=False,
+        )
+    assert "Input rules_df is not of dataframe type" in str(e.value)
 
 
 @pytest.mark.parametrize(
@@ -994,11 +984,12 @@ def test_spark_session_initialization():
             0,  # output count
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "sum col3 value must be greater than 20",  # source_ag_result
+                    "priority": "medium",
                     "rule": "sum_col3_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -1067,11 +1058,12 @@ def test_spark_session_initialization():
             0,  # output count
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "avg col3 value must be greater than 25",  # source_agg_result
+                    "priority": "medium",
                     "rule": "avg_col3_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -1163,11 +1155,12 @@ def test_spark_session_initialization():
             None,  # source_agg-result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "min col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "min_col1_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -1258,11 +1251,12 @@ def test_spark_session_initialization():
             None,  # source_agg_result
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "std col3 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "std_col3_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -1444,11 +1438,12 @@ def test_spark_session_initialization():
             3,  # output count
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col2",
                     "description": "distinct of col2 value must be greater than 4",
+                    "priority": "medium",
                     "rule": "distinct_col2_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col2",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "validity",
                 }
@@ -1561,11 +1556,12 @@ def test_spark_session_initialization():
             2,  # output count
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
+                    "priority": "medium",
                     "description": "avg of col1 value must be greater than 4",
                     "rule": "avg_col1_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "accuracy",
                 }
@@ -1573,11 +1569,12 @@ def test_spark_session_initialization():
             # source_agg_dq
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "avg of col1 value must be greater than 4",
+                    "priority": "medium",
                     "rule": "avg_col1_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "accuracy",
                 }
@@ -1708,20 +1705,22 @@ def test_spark_session_initialization():
             2,  # output count
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "avg of col1 value must be greater than 4",
+                    "priority": "medium",
                     "rule": "avg_col1_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "validity",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "stddev of col3 value must be greater than one",
+                    "priority": "medium",
                     "rule": "stddev_col3_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -1730,19 +1729,21 @@ def test_spark_session_initialization():
             [
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "avg of col1 value must be greater than 4",
+                    "priority": "medium",
                     "rule": "avg_col1_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col1",
                     "status": "fail",
                     "tag": "validity",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "stddev of col3 value must be greater than one",
+                    "priority": "medium",
                     "rule": "stddev_col3_threshold",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
                     "status": "fail",
                     "tag": "validity",
                 },
@@ -1836,20 +1837,22 @@ def test_spark_session_initialization():
             # final_agg_result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "sum of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "sum_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "validity",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "stddev of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "stddev_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -1964,20 +1967,22 @@ def test_spark_session_initialization():
             None,  # source_query_dq_res
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "max of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "max_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "min of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "min_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -2069,19 +2074,21 @@ def test_spark_session_initialization():
             [
                 {
                     "action_if_failed": "fail",
+                    "column_name": "col1",
                     "description": "min of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "min_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
                     "status": "fail",
                     "tag": "validity",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "stddev of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "stddev_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "fail",
                     "tag": "validity",
                 },
@@ -2191,20 +2198,22 @@ def test_spark_session_initialization():
             None,  # source_query_dq_res
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col1",
                     "description": "max of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "max_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "min of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "min_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -2337,11 +2346,12 @@ def test_spark_session_initialization():
             # final_agg_result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "min of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "min_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -2349,20 +2359,22 @@ def test_spark_session_initialization():
             # source_query_dq_res
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "max of col1 value must be greater than 100",
+                    "priority": "medium",
                     "rule": "max_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 },
                 {
                     "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "min of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "min_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -2490,11 +2502,12 @@ def test_spark_session_initialization():
             # final_agg_result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "min of col1 value must be greater than 10",
+                    'priority': 'medium',
                     "rule": "min_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -2502,20 +2515,22 @@ def test_spark_session_initialization():
             # source_query_dq_res
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col1",
                     "description": "max of col1 value must be greater than 100",
+                    'priority': 'medium',
                     "rule": "max_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "min of col3 value must be greater than 0",
+                    'priority': 'medium',
                     "rule": "min_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -2647,10 +2662,11 @@ def test_spark_session_initialization():
             [
                 {
                     "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "col3 mod must equals to 0",
+                    "priority": "medium",
                     "rule": "col3_max_value",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 }
@@ -2658,10 +2674,11 @@ def test_spark_session_initialization():
             [
                 {
                     "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "col3 mod must equals to 0",
+                    "priority": "medium",
                     "rule": "col3_max_value",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 }
@@ -2669,11 +2686,12 @@ def test_spark_session_initialization():
             # final_agg_result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "count of col1 value must be greater than 3",
+                    "priority": "medium",
                     "rule": "count_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -2681,11 +2699,12 @@ def test_spark_session_initialization():
             # source_query_dq_res
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "count of col3 positive value must be greater than 10",
+                    "priority": "medium",
                     "rule": "col3_positive_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -2777,20 +2796,22 @@ def test_spark_session_initialization():
             # final_agg_result
             [
                 {
+                    "action_if_failed": "ignore",
+                    "column_name": "col1",
                     "description": "sum of col1 value must be greater than 10",
+                    "priority": "medium",
                     "rule": "sum_col1_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col1",
-                    "action_if_failed": "ignore",
                     "status": "fail",
                     "tag": "validity",
                 },
                 {
                     "action_if_failed": "ignore",
+                    "column_name": "col3",
                     "description": "stddev of col3 value must be greater than 0",
+                    "priority": "medium",
                     "rule": "stddev_col3_threshold",
                     "rule_type": "query_dq",
-                    "column_name": "col3",
                     "status": "pass",
                     "tag": "validity",
                 },
@@ -2859,11 +2880,12 @@ def test_spark_session_initialization():
             0,  # output count
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "avg col3 value must be greater than 18 and less than 25",  # source_agg_result
+                    "priority": "medium",
                     "rule": "avg_col3_range",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -2933,11 +2955,12 @@ def test_spark_session_initialization():
             0,  # output count
             [
                 {
+                    "action_if_failed": "fail",
+                    "column_name": "col3",
                     "description": "avg col3 value must be greater than 18 and less than 25",  # source_agg_result
+                    "priority": "medium",
                     "rule": "avg_col3_range",
                     "rule_type": "agg_dq",
-                    "column_name": "col3",
-                    "action_if_failed": "fail",
                     "status": "fail",
                     "tag": "strict",
                 }
@@ -3005,10 +3028,10 @@ def test_with_expectations(
     )
     se._context._run_date = "2022-12-27 10:00:00"
     se._context._env = "local"
-    se._context.set_input_count(100)
-    se._context.set_output_count(100)
-    se._context.set_error_count(0)
     se._context._run_id = "product1_run_test"
+    se._context.set_input_count(input_count)
+    se._context.set_error_count(error_count)
+    se._context.set_output_count(output_count)
 
     # Decorate the mock function with required args
     @se.with_expectations(
@@ -3038,6 +3061,7 @@ def test_with_expectations(
                 assert False
             except Exception as e:
                 assert True
+        
 
     else:
         get_dataset()  # decorated_func()
@@ -3054,7 +3078,7 @@ def test_with_expectations(
                 error_table = spark.table("dq_spark.test_final_table_error")
                 assert error_table.count() == error_count
 
-    stats_table = spark.table("test_dq_stats_table")
+    stats_table = spark.table("dq_spark.test_dq_stats_table")
     row = stats_table.first()
     assert stats_table.count() == 1
     assert row.product_id == "product1"
@@ -3142,28 +3166,30 @@ def test_with_expectations_overwrite_writers(
     assert _fixture_spark_expectations._context.get_target_and_error_table_writer_config == modified_writer.build()
 
 
-def test_with_expectations_dataframe_not_returned_exception(
+def test_with_expectations_invalid_rules_do_not_raise_exception(
     _fixture_create_database,
     _fixture_spark_expectations,
     _fixture_df,
     _fixture_rules_df,
     _fixture_local_kafka_topic,
 ):
+    """
+    Test that invalid rules do not raise exceptions - validation is non-blocking.
+    Invalid rules are logged as warnings but execution continues.
+    """
     partial_func = _fixture_spark_expectations.with_expectations(
         "dq_spark.test_final_table",
         user_conf={user_config.se_notifications_on_fail: False},
     )
 
-    with pytest.raises(
-        SparkExpectationsMiscException,
-        match=r"error occurred while processing spark expectations Validation failed for rules: \['col1_threshold'\]",
-    ):  
-        # Create a mock object with a rdd return value
-        mock_func = Mock(return_value=_fixture_df.rdd)
-
-        # Decorate the mock function with required args
-        decorated_func = partial_func(mock_func)
-        decorated_func()
+    mock_func = Mock(return_value=_fixture_df)
+    decorated_func = partial_func(mock_func)
+    
+    # Should NOT raise an exception for invalid rules - validation is non-blocking
+    result = decorated_func()
+    
+    assert result is not None
+        
     for db in spark.catalog.listDatabases():
         if db.name != "default":
             spark.sql(f"DROP DATABASE {db.name} CASCADE")
@@ -3503,6 +3529,7 @@ def test_se_notifications_on_rules_action_if_failed_set_ignore_sends_notificatio
                 {
                     "rule_type": "row_dq",
                     "rule": "value_must_be_greater_than_10",
+                    "priority": "medium",
                     "description": "value must be greater than 10",
                     "column_name": "value",
                     "tag": "strict",
@@ -3512,6 +3539,7 @@ def test_se_notifications_on_rules_action_if_failed_set_ignore_sends_notificatio
                 {
                     "rule": "count_of_records_must_be_greater_than_10",
                     "description": "count of records must be greater than 10",
+                    "priority": "medium",
                     "rule_type": "query_dq",
                     "column_name": "col3",
                     "tag": "strict",
@@ -3521,6 +3549,7 @@ def test_se_notifications_on_rules_action_if_failed_set_ignore_sends_notificatio
                 {
                     "rule": "sum_of_value_should_be_less_than_60",
                     "description": "desc_sum_of_value_should_be_less_than_60",
+                    "priority": "medium",
                     "rule_type": "agg_dq",
                     "column_name": "value",
                     "tag": "strict",
@@ -3530,6 +3559,7 @@ def test_se_notifications_on_rules_action_if_failed_set_ignore_sends_notificatio
                 {
                     "rule": "count_of_records_must_be_greater_than_10",
                     "description": "count of records must be greater than 10",
+                    "priority": "medium",
                     "rule_type": "query_dq",
                     "column_name": "col3",
                     "tag": "strict",
@@ -3539,6 +3569,7 @@ def test_se_notifications_on_rules_action_if_failed_set_ignore_sends_notificatio
                 {
                     "rule": "sum_of_value_should_be_less_than_60",
                     "description": "desc_sum_of_value_should_be_less_than_60",
+                    "priority": "medium",
                     "rule_type": "agg_dq",
                     "column_name": "value",
                     "tag": "strict",
@@ -3813,7 +3844,7 @@ def test_agg_rule_for_non_int_column():
         stats_table_writer=writer,
         target_and_error_table_writer=writer,
         stats_streaming_options={SeUserConfig.se_enable_streaming: False},
-        spark = spark
+        #spark = spark
     )
 
     se_user_conf={
@@ -3840,3 +3871,513 @@ def test_agg_rule_for_non_int_column():
         assert True  # Assert that the method runs without exceptions
     except Exception as e:
         assert False, f"Method raised an exception: {e}"
+
+
+# [Unit Tests for WrappedDataFrameStreamWriter class]
+
+
+def test_stream_writer_output_mode():
+    assert WrappedDataFrameStreamWriter().outputMode("append")._output_mode == "append"
+
+
+def test_stream_writer_format():
+    assert WrappedDataFrameStreamWriter().format("delta")._format == "delta"
+
+
+def test_stream_writer_query_name():
+    assert WrappedDataFrameStreamWriter().queryName("test_query")._query_name == "test_query"
+
+
+def test_stream_writer_trigger():
+    writer = WrappedDataFrameStreamWriter().trigger(processingTime="10 seconds")
+    assert writer._trigger == {"processingTime": "10 seconds"}
+
+
+def test_stream_writer_partition_by():
+    assert WrappedDataFrameStreamWriter().partitionBy("date", "region")._partition_by == [
+        "date",
+        "region",
+    ]
+
+
+def test_stream_writer_partition_by_with_list():
+    """Test partitionBy with a list argument"""
+    assert WrappedDataFrameStreamWriter().partitionBy(["date", "region"])._partition_by == [
+        "date",
+        "region",
+    ]
+
+
+def test_stream_writer_partition_by_chained():
+    """Test partitionBy can be chained and handles both string args and list args"""
+    writer = (
+        WrappedDataFrameStreamWriter()
+        .partitionBy("date")
+        .partitionBy(["region", "country"])
+    )
+    assert writer._partition_by == ["date", "region", "country"]
+
+
+def test_stream_writer_option():
+    assert WrappedDataFrameStreamWriter().option("checkpointLocation", "/path/to/checkpoint")._options == {
+        "checkpointLocation": "/path/to/checkpoint"
+    }
+
+
+def test_stream_writer_options():
+    assert WrappedDataFrameStreamWriter().options(
+        checkpointLocation="/path/to/checkpoint", maxFilesPerTrigger="100"
+    )._options == {
+        "checkpointLocation": "/path/to/checkpoint",
+        "maxFilesPerTrigger": "100",
+    }
+
+
+def test_stream_writer_build():
+    writer = (
+        WrappedDataFrameStreamWriter()
+        .outputMode("append")
+        .format("delta")
+        .queryName("test_query")
+        .trigger(processingTime="10 seconds")
+        .option("checkpointLocation", "/path/to/checkpoint")
+        .options(maxFilesPerTrigger="100")
+        .partitionBy("date", "region")
+    )
+    expected_config = {
+        "outputMode": "append",
+        "format": "delta",
+        "queryName": "test_query",
+        "trigger": {"processingTime": "10 seconds"},
+        "partitionBy": ["date", "region"],
+        "options": {
+            "checkpointLocation": "/path/to/checkpoint",
+            "maxFilesPerTrigger": "100",
+        },
+    }
+    assert writer.build() == expected_config
+
+
+def test_stream_writer_build_some_values():
+    writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta")
+
+    expected_config = {
+        "outputMode": "append",
+        "format": "delta",
+        "queryName": None,
+        "trigger": None,
+        "partitionBy": [],
+        "options": {},
+    }
+    assert writer.build() == expected_config
+
+
+# [Unit Tests for SparkExpectations writer type initialization]
+
+
+def test_spark_expectations_with_batch_writers(_fixture_rules_df):
+    """Test SparkExpectations initialization with WrappedDataFrameWriter for both writers"""
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats",
+        stats_table_writer=batch_writer,
+        target_and_error_table_writer=batch_writer,
+        debugger=False,
+    )
+    
+    # Verify that streaming type is not set for batch writers
+    # The context should have default (non-streaming) configuration
+    assert se._context.get_target_and_error_table_writer_config == batch_writer.build()
+    assert se._context.get_stats_table_writer_config == batch_writer.build()
+
+
+def test_spark_expectations_with_streaming_target_and_error_writer(_fixture_rules_df):
+    """Test SparkExpectations initialization with WrappedDataFrameStreamWriter for target_and_error_table_writer"""
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint1")
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats",
+        stats_table_writer=batch_writer,
+        target_and_error_table_writer=stream_writer,
+        debugger=False,
+    )
+    
+    expected_stream_writer_build = {'outputMode': "append",
+                                    'format': 'delta',
+                                    'queryName': None,
+                                    'trigger': None,
+                                    'partitionBy': [],
+                                    'options': {'checkpointLocation': "/tmp/checkpoint1"}}
+    
+    expected_batch_writer_build = {'mode': "append",
+                                   'format': 'delta',
+                                   "partitionBy": [],
+                                    "options": {},
+                                    "bucketBy": {},
+                                    "sortBy": []
+                                    }
+
+    # Verify that streaming type is set for target_and_error_table_writer
+    assert se._context.get_target_and_error_table_writer_config == expected_stream_writer_build
+    assert se._context.get_stats_table_writer_config == expected_batch_writer_build
+    # Verify the writer type was set to streaming
+    assert isinstance(se.target_and_error_table_writer, WrappedDataFrameStreamWriter)
+
+
+def test_spark_expectations_with_streaming_stats_writer(_fixture_rules_df):
+    """Test SparkExpectations initialization with WrappedDataFrameStreamWriter for stats_table_writer"""
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint2")
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats",
+        stats_table_writer=stream_writer,
+        target_and_error_table_writer=batch_writer,
+        debugger=False,
+    )
+    
+    # Verify that streaming type is set for stats_table_writer
+    assert se._context.get_target_and_error_table_writer_config == batch_writer.build()
+    assert se._context.get_stats_table_writer_config == stream_writer.build()
+    # Verify the writer type was set to streaming
+    assert isinstance(se.stats_table_writer, WrappedDataFrameStreamWriter)
+
+
+def test_spark_expectations_with_both_streaming_writers(_fixture_rules_df):
+    """Test SparkExpectations initialization with WrappedDataFrameStreamWriter for both writers"""
+    stream_writer_target = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint3")
+    stream_writer_stats = WrappedDataFrameStreamWriter().outputMode("complete").format("delta").option("checkpointLocation", "/tmp/checkpoint4")
+    
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats",
+        stats_table_writer=stream_writer_stats,
+        target_and_error_table_writer=stream_writer_target,
+        debugger=False,
+    )
+    
+    # Verify that streaming type is set for both writers
+    assert se._context.get_target_and_error_table_writer_config == stream_writer_target.build()
+    assert se._context.get_stats_table_writer_config == stream_writer_stats.build()
+    # Verify both writer types were set to streaming
+    assert isinstance(se.target_and_error_table_writer, WrappedDataFrameStreamWriter)
+    assert isinstance(se.stats_table_writer, WrappedDataFrameStreamWriter)
+
+
+def test_spark_expectations_writer_type_mixed_configurations(_fixture_rules_df):
+    """Test SparkExpectations with different writer configurations"""
+    # Test case 1: Stream target, batch stats
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta")
+    batch_writer = WrappedDataFrameWriter().mode("overwrite").format("parquet")
+    
+    se1 = SparkExpectations(
+        product_id="test_product_1",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats_1",
+        stats_table_writer=batch_writer,
+        target_and_error_table_writer=stream_writer,
+        debugger=False,
+    )
+    
+    assert se1._context.get_target_and_error_table_writer_config["outputMode"] == "append"
+    assert se1._context.get_stats_table_writer_config["mode"] == "overwrite"
+    
+    # Test case 2: Batch target, stream stats
+    se2 = SparkExpectations(
+        product_id="test_product_2",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats_2",
+        stats_table_writer=stream_writer,
+        target_and_error_table_writer=batch_writer,
+        debugger=False,
+    )
+    
+    assert se2._context.get_target_and_error_table_writer_config["mode"] == "overwrite"
+    assert se2._context.get_stats_table_writer_config["outputMode"] == "append"
+
+
+def test_spark_expectations_writer_configs_are_correctly_set(_fixture_rules_df):
+    """Test that writer configurations are properly stored in context during initialization"""
+    # Create writers with specific configurations
+    target_writer = WrappedDataFrameWriter().mode("append").format("delta").partitionBy("date", "region")
+    stats_writer = WrappedDataFrameStreamWriter().outputMode("complete").format("kafka").option("topic", "test-topic")
+    
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=_fixture_rules_df,
+        stats_table="dq_spark.test_stats",
+        stats_table_writer=stats_writer,
+        target_and_error_table_writer=target_writer,
+        debugger=False,
+    )
+    
+    # Verify target writer config
+    target_config = se._context.get_target_and_error_table_writer_config
+    assert target_config["mode"] == "append"
+    assert target_config["format"] == "delta"
+    assert target_config["partitionBy"] == ["date", "region"]
+    
+    # Verify stats writer config
+    stats_config = se._context.get_stats_table_writer_config
+    assert stats_config["outputMode"] == "complete"
+    assert stats_config["format"] == "kafka"
+    assert stats_config["options"]["topic"] == "test-topic"
+    
+    # Verify detailed stats writer config is also set
+    detailed_stats_config = se._context.get_detailed_stats_table_writer_config
+    assert detailed_stats_config["outputMode"] == "complete"
+    assert detailed_stats_config["format"] == "kafka"
+
+
+def test_streaming_dataframe_detection_log_agg_dq():
+    """Test that streaming DataFrame detection logs the appropriate message"""
+    
+    # Create a streaming DataFrame
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    streaming_df = streaming_df.withColumn(
+        "meta_row_dq_results", array(create_map(lit("status"), lit("pass"), lit("action_if_failed"), lit("ignore")))
+    ).withColumn("col1", lit(1))
+
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint1")
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    spark.sql("create database if not exists dq_spark")
+    spark.sql("use dq_spark")
+    
+    rules_df = spark.createDataFrame([
+        {
+            "product_id": "test_product",
+            "table_name": "dq_spark.test_target_table",
+            "rule_type": "agg_dq",
+            "rule": "data_existing",
+            "column_name": "sales",
+            "expectation": "count(*) > 0",
+            "action_if_failed": "fail",
+            "tag": "completeness",
+            "description": "Data should be present",
+            "enable_for_source_dq_validation": True,
+            "enable_for_target_dq_validation": True,
+            "is_active": True,
+            "enable_error_drop_alert": False,
+            "error_drop_threshold": 0,
+        }
+    ])
+        
+    # Create SparkExpectations instance
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=rules_df,
+        stats_table="dq_spark.test_stats_table",
+        target_and_error_table_writer=stream_writer,
+        stats_table_writer= batch_writer
+    )
+
+    se._context.set_table_name("dq_spark.test_target_table")
+    se._context.set_final_table_name("dq_spark.test_target_table")
+    se._context.set_error_table_name("dq_spark.test_target_table_error")
+    se._context.set_dq_stats_table_name("dq_spark.test_stats_table")
+
+    with patch.object(se.reader, 'get_rules_from_df',
+                      return_value=({}, [], {
+                          'row_dq': False,
+                          'source_agg_dq': True,
+                          'target_agg_dq': True,
+                          'source_query_dq': False,
+                          'target_query_dq': False
+                      })), \
+        patch('spark_expectations.core.expectations._log') as mock_log,\
+        patch.object(se._process, 'execute_dq_process', return_value=(streaming_df, [], 0, {})), \
+        patch('spark_expectations.sinks.utils.writer.SparkExpectationsWriter.write_error_stats', return_value=None):
+            
+        @se.with_expectations(
+            target_table="test_target_table",
+            write_to_table=False
+        )
+        def streaming_data_function():
+            return streaming_df
+    
+        streaming_data_function()
+    
+        logged = [args[0] for args, _ in mock_log.info.call_args_list]
+
+        # Assert presence only (ignores other logs)
+        assert "Streaming dataframe detected. Only row_dq checks applicable." in logged
+        assert "agg_dq expectations provided. Not applicable for streaming dataframe." in logged
+
+
+def test_streaming_dataframe_detection_log_query_dq():
+    """Test that streaming DataFrame detection logs the appropriate message"""
+    
+    # Create a streaming DataFrame
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    streaming_df = streaming_df.withColumn(
+        "meta_row_dq_results", array(create_map(lit("status"), lit("pass"), lit("action_if_failed"), lit("ignore")))
+    ).withColumn("col1", lit(1))
+
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint1")
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    spark.sql("create database if not exists dq_spark")
+    spark.sql("use dq_spark")
+    
+    rules_df = spark.createDataFrame([
+        {
+            "product_id": "test_product",
+            "table_name": "dq_spark.test_target_table",
+            "rule_type": "query_dq",
+            "rule": "data_existing",
+            "column_name": "sales",
+            "expectation": "(select count(*) from dq_spark.test_target_table) > 0",
+            "action_if_failed": "fail",
+            "tag": "completeness",
+            "description": "Data should be present",
+            "enable_for_source_dq_validation": True,
+            "enable_for_target_dq_validation": True,
+            "is_active": True,
+            "enable_error_drop_alert": False,
+            "error_drop_threshold": 0,
+        }
+    ])
+        
+    # Create SparkExpectations instance
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=rules_df,
+        stats_table="dq_spark.test_stats_table",
+        target_and_error_table_writer=stream_writer,
+        stats_table_writer= batch_writer
+    )
+
+    se._context.set_table_name("dq_spark.test_target_table")
+    se._context.set_final_table_name("dq_spark.test_target_table")
+    se._context.set_error_table_name("dq_spark.test_target_table_error")
+    se._context.set_dq_stats_table_name("dq_spark.test_stats_table")
+
+    with patch.object(se.reader, 'get_rules_from_df',
+                      return_value=({}, [], {
+                          'row_dq': False,
+                          'source_agg_dq': False,
+                          'target_agg_dq': False,
+                          'source_query_dq': True,
+                          'target_query_dq': True
+                      })), \
+        patch('spark_expectations.core.expectations._log') as mock_log,\
+        patch.object(se._process, 'execute_dq_process', return_value=(streaming_df, [], 0, {})), \
+        patch('spark_expectations.sinks.utils.writer.SparkExpectationsWriter.write_error_stats', return_value=None):
+            
+        @se.with_expectations(
+            target_table="test_target_table",
+            write_to_table=False
+        )
+        def streaming_data_function():
+            return streaming_df
+    
+        streaming_data_function()
+    
+        logged = [args[0] for args, _ in mock_log.info.call_args_list]
+
+        # Assert presence only (ignores other logs)
+        assert "Streaming dataframe detected. Only row_dq checks applicable." in logged
+        assert "query_dq expectations provided. Not applicable for streaming dataframe." in logged
+
+
+def test_streaming_dataframe_detection_log_agg_query_dq():
+    """Test that streaming DataFrame detection logs the appropriate message"""
+    
+    # Create a streaming DataFrame
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    streaming_df = streaming_df.withColumn(
+        "meta_row_dq_results", array(create_map(lit("status"), lit("pass"), lit("action_if_failed"), lit("ignore")))
+    ).withColumn("col1", lit(1))
+
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append").format("delta").option("checkpointLocation", "/tmp/checkpoint1")
+    batch_writer = WrappedDataFrameWriter().mode("append").format("delta")
+    
+    spark.sql("create database if not exists dq_spark")
+    spark.sql("use dq_spark")
+    
+    rules_df = spark.createDataFrame([
+        {
+            "product_id": "test_product",
+            "table_name": "dq_spark.test_target_table",
+            "rule_type": "query_dq",
+            "rule": "data_existing",
+            "column_name": "sales",
+            "expectation": "(select count(*) from dq_spark.test_target_table) > 0",
+            "action_if_failed": "fail",
+            "tag": "completeness",
+            "description": "Data should be present",
+            "enable_for_source_dq_validation": True,
+            "enable_for_target_dq_validation": True,
+            "is_active": True,
+            "enable_error_drop_alert": False,
+            "error_drop_threshold": 0,
+        },
+        {
+           "product_id": "test_product",
+            "table_name": "dq_spark.test_target_table",
+            "rule_type": "agg_dq",
+            "rule": "data_existing",
+            "column_name": "sales",
+            "expectation": "count(*) > 0",
+            "action_if_failed": "fail",
+            "tag": "completeness",
+            "description": "Data should be present",
+            "enable_for_source_dq_validation": True,
+            "enable_for_target_dq_validation": True,
+            "is_active": True,
+            "enable_error_drop_alert": False,
+            "error_drop_threshold": 0, 
+        }
+    ])
+        
+    # Create SparkExpectations instance
+    se = SparkExpectations(
+        product_id="test_product",
+        rules_df=rules_df,
+        stats_table="dq_spark.test_stats_table",
+        target_and_error_table_writer=stream_writer,
+        stats_table_writer= batch_writer
+    )
+
+    se._context.set_table_name("dq_spark.test_target_table")
+    se._context.set_final_table_name("dq_spark.test_target_table")
+    se._context.set_error_table_name("dq_spark.test_target_table_error")
+    se._context.set_dq_stats_table_name("dq_spark.test_stats_table")
+
+    with patch.object(se.reader, 'get_rules_from_df',
+                      return_value=({}, [], {
+                          'row_dq': False,
+                          'source_agg_dq': True,
+                          'target_agg_dq': True,
+                          'source_query_dq': True,
+                          'target_query_dq': True
+                      })), \
+        patch('spark_expectations.core.expectations._log') as mock_log,\
+        patch.object(se._process, 'execute_dq_process', return_value=(streaming_df, [], 0, {})), \
+        patch('spark_expectations.sinks.utils.writer.SparkExpectationsWriter.write_error_stats', return_value=None):
+            
+        @se.with_expectations(
+            target_table="test_target_table",
+            write_to_table=False
+        )
+        def streaming_data_function():
+            return streaming_df
+    
+        streaming_data_function()
+    
+        logged = [args[0] for args, _ in mock_log.info.call_args_list]
+
+        # Assert presence only (ignores other logs)
+        assert "Streaming dataframe detected. Only row_dq checks applicable." in logged
+        assert "agg_dq expectations provided. Not applicable for streaming dataframe." in logged
+        assert "query_dq expectations provided. Not applicable for streaming dataframe." in logged

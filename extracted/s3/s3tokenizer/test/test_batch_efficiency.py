@@ -5,9 +5,10 @@ Test the efficiency improvement of new batch processing functionality for mixed 
 """
 
 import time
-import torch
+
 import pytest
 import s3tokenizer
+import torch
 
 
 def create_test_audio(duration_seconds=20, sample_rate=16000):
@@ -49,7 +50,7 @@ def long_audios():
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1_25hz", "speech_tokenizer_v1",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_batch_efficiency(test_audios, model_name):
     """Test batch processing efficiency for different models"""
@@ -164,7 +165,7 @@ def test_batch_efficiency(test_audios, model_name):
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1_25hz", "speech_tokenizer_v1",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_pure_long_audio_batch(long_audios, model_name):
     """Test pure long audio batch processing for different models"""
@@ -214,7 +215,7 @@ def test_pure_long_audio_batch(long_audios, model_name):
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1_25hz", "speech_tokenizer_v1",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_model_loading(model_name):
     """Test that all models can be loaded successfully"""
@@ -230,7 +231,7 @@ def test_model_loading(model_name):
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1_25hz", "speech_tokenizer_v1",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_single_audio_processing(model_name):
     """Test single audio processing for different models"""

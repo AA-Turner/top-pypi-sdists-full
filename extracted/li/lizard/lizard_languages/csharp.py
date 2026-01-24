@@ -11,8 +11,11 @@ class CSharpReader(CLikeReader):
     ext = ['cs']
     language_names = ['csharp']
 
-    _conditions = set(['if', 'for', 'while', '&&', '||', '?', 'catch',
-                      'case', '??'])
+    # Separated condition categories
+    _control_flow_keywords = {'if', 'for', 'while', 'catch'}
+    _logical_operators = {'&&', '||'}
+    _case_keywords = {'case'}
+    _ternary_operators = {'?', '??'}  # C# has both ?: and ?? (null-coalescing)
 
     def __init__(self, context):
         super(CSharpReader, self).__init__(context)
@@ -38,6 +41,22 @@ class CSharpStates(CLikeStates):
             super(CSharpStates, self).try_new_function(name)
             if self.class_name and self.context.current_function:
                 self.context.current_function.name = f"{self.class_name}::{name}"
+
+    def _state_dec_to_imp(self, token):
+        """Override to handle C# expression-bodied members (=>)"""
+        if token == '=>':
+            # Expression-bodied member: confirm function and enter expression body
+            self.context.confirm_new_function()
+            self._state = self._state_expression_body
+        else:
+            super(CSharpStates, self)._state_dec_to_imp(token)
+
+    def _state_expression_body(self, token):
+        """Read the expression body until semicolon, processing tokens for complexity"""
+        if token == ';':
+            # End of expression-bodied method, finalize function and return to global state
+            self.context.end_of_function()
+            self._state = self._state_global
 
     def _state_global(self, token):
         if token in ("class", "struct", "record"):

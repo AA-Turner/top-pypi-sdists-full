@@ -1,18 +1,19 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """SFTP handle, attributes and stat VFS classes."""
 
@@ -27,6 +28,7 @@ from . cimport c_sftp
 cdef object PySFTPHandle(c_sftp.LIBSSH2_SFTP_HANDLE *handle, SFTP sftp):
     cdef SFTPHandle _handle = SFTPHandle.__new__(SFTPHandle, sftp)
     _handle._handle = handle
+    _handle._closed = 0
     return _handle
 
 
@@ -113,13 +115,18 @@ cdef class SFTPHandle:
     def __cinit__(self, sftp):
         self._handle = NULL
         self._sftp = sftp
-        self.closed = 0
+        self._closed = 0
 
     def __dealloc__(self):
-        if self.closed == 0:
+        if self._closed == 0:
             with nogil:
                 c_sftp.libssh2_sftp_close_handle(self._handle)
-            self.closed = 1
+            self._closed = 1
+
+    @property
+    def closed(self):
+        """Indicates whether :py:func:`SFTPHandle.close()` was called on the file handle or not."""
+        return self._closed
 
     def __iter__(self):
         return self
@@ -139,17 +146,20 @@ cdef class SFTPHandle:
         self.close()
 
     def close(self):
-        """Close handle. Called automatically when object is deleted
-        and/or garbage collected.
+        """
+        Close handle. Called automatically when object is deallocated or when context manager exits
+        if file handle is used in a `with` statement block.
 
-        :rtype: int"""
+        Calling close multiple times or on an already closed file handle is safe, but unecessary.
+
+        :rtype: int
+        """
         cdef int rc
-        if self.closed == 0:
-            with nogil:
-                rc = c_sftp.libssh2_sftp_close_handle(self._handle)
-            self.closed = 1
-        else:
+        if self._closed == 1:
             return
+        with nogil:
+            rc = c_sftp.libssh2_sftp_close_handle(self._handle)
+        self._closed = 1
         return rc
 
     def read(self, size_t buffer_maxlen=c_ssh2.LIBSSH2_CHANNEL_WINDOW_DEFAULT):

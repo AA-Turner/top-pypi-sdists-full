@@ -74,6 +74,13 @@ apprise_url_tests = (
         },
     ),
     (
+        "slack://T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/?mode=invalid",
+        {
+            # invalid Mode provided
+            "instance": TypeError,
+        },
+    ),
+    (
         "slack://T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/#hmm/#-invalid-",
         {
             # No username specified; this is still okay as we sub in
@@ -170,7 +177,9 @@ apprise_url_tests = (
     ),
     # Test using a bot-token (also test footer set to no flag)
     (
-        "slack://username@xoxb-1234-1234-abc124/#nuxref?footer=no",
+        (
+            "slack://username@xoxb-1234-1234-abc124/#nuxref?footer=no"
+            "&timestamp=yes"),
         {
             "instance": NotifySlack,
             "requests_response_text": {
@@ -179,18 +188,87 @@ apprise_url_tests = (
             },
         },
     ),
-    # Test blocks mode
     (
         (
-            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
-            "&to=#chan&blocks=yes&footer=yes"
-        ),
-        {"instance": NotifySlack, "requests_response_text": "ok"},
+            "slack://username@xoxb-1234-1234-abc124/#nuxref?footer=yes"
+            "&timestamp=yes"),
+        {
+            "instance": NotifySlack,
+            "requests_response_text": {
+                "ok": True,
+                "message": "",
+            },
+        },
     ),
     (
         (
+            "slack://username@xoxb-1234-1234-abc124/#nuxref?footer=yes"
+            "&timestamp=no"),
+        {
+            "instance": NotifySlack,
+            "requests_response_text": {
+                "ok": True,
+                "message": "",
+            },
+        },
+    ),
+    (
+        (
+            "slack://username@xoxb-1234-1234-abc124/#nuxref?footer=yes"
+            "&timestamp=no"),
+        {
+            "instance": NotifySlack,
+            "requests_response_text": {
+                "ok": True,
+                "message": "",
+            },
+        },
+    ),
+    # Testing modes
+    (
+        (
             "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
-            "&to=#chan&blocks=yes&footer=no"
+            "&to=#chan&mode=hook"
+        ),
+        {"instance": NotifySlack, "requests_response_text": "ok"},
+    ),
+    # Forced mode on a url that does not have enough details to accommodate
+    (
+        (
+            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
+            "&to=#chan&mode=bot"
+        ),
+        {"instance": TypeError},
+    ),
+    # Test blocks mode with timestamp variation
+    (
+        (
+            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
+            "&to=#chan&blocks=yes&footer=yes&timestamp=no"
+        ),
+        {"instance": NotifySlack, "requests_response_text": "ok"},
+    ),
+    # Test blocks mode with another timestamp
+    (
+        (
+            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
+            "&to=#chan&blocks=yes&footer=yes&timestamp=yes"
+        ),
+        {"instance": NotifySlack, "requests_response_text": "ok"},
+    ),
+    # footer being disabled means timestamp isn't shown
+    (
+        (
+            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
+            "&to=#chan&blocks=yes&footer=no&timestamp=yes"
+        ),
+        {"instance": NotifySlack, "requests_response_text": "ok"},
+    ),
+    # footer and timestamp disabled
+    (
+        (
+            "slack://?token=T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/"
+            "&to=#chan&blocks=yes&footer=no&timestamp=no"
         ),
         {"instance": NotifySlack, "requests_response_text": "ok"},
     ),
@@ -270,6 +348,17 @@ apprise_url_tests = (
         {
             "instance": NotifySlack,
             "requests_response_text": "ok",
+            "url_matches": "mode=hook",
+        },
+    ),
+    (
+        "https://hooks.slack-gov.com/services/{}/{}/{}".format(
+            "A" * 9, "B" * 9, "c" * 24
+        ),
+        {
+            "instance": NotifySlack,
+            "requests_response_text": "ok",
+            "url_matches": "mode=gov-hook",
         },
     ),
     # Native URL Support with arguments
@@ -317,7 +406,7 @@ apprise_url_tests = (
         "slack://respect@T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/#a",
         {
             "instance": NotifySlack,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
             "requests_response_text": "ok",
@@ -328,7 +417,7 @@ apprise_url_tests = (
         {
             "instance": NotifySlack,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
             "requests_response_text": "ok",
         },

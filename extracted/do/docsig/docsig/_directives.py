@@ -49,12 +49,12 @@ class Comment(_Messages):
 
     @property
     def enable(self) -> bool:
-        """Whether this is an enable directive or not."""
+        """Whether this is an `enable` directive or not."""
         return self._kind == self._valid_kinds[0]
 
     @property
     def disable(self) -> bool:
-        """Whether this is a disable directive or not."""
+        """Whether this is a `disable` directive or not."""
         return self._kind == self._valid_kinds[1]
 
     @classmethod
@@ -79,11 +79,11 @@ class Comments(_t.List[Comment]):
 class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
     """Data for directives:
 
-    Dict like object with the line number of directive as the key a
+    Dict-like object with the line number of directive as the key a
     tuple containing comments and messages.
 
-    Comments can be either disable or enable comments, and messages are
-    what messages are to be disabled.
+    Comments can be either `disable` or `enable` comments, and messages
+    are what messages are to be disabled.
 
     Comments influence what messages can be added to the list, but are
     different in that they communicate the directive, but the messages
@@ -94,7 +94,7 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
 
     @classmethod
     def from_text(cls, text: str, messages: _Messages) -> Directives:
-        """Create directives from text.
+        """Create directives from a string.
 
         :param text: Python code.
         :param messages: List of checks to disable.
@@ -104,7 +104,7 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
         fin = _StringIO(text)
         comments = Comments()
         for line in _tokenize.generate_tokens(fin.readline):
-            # do nothing for these lines types
+            # do nothing for these line types
             if line.type in (_tokenize.NAME, _tokenize.OP, _tokenize.DEDENT):
                 continue
 
@@ -126,7 +126,7 @@ class Directives(_t.Dict[int, _t.Tuple[Comments, _Messages]]):
                             i for i in messages if i not in comment
                         )
 
-                    # if module level directive then make changes
+                    # if module level directive, then make changes
                     # globally
                     if comment.ismodule:
                         messages = scoped_messages

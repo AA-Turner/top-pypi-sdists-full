@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar, overload
+from typing import Any, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, Field
-from typing_extensions import Never, Self, TypeAlias
+from typing_extensions import Never, Self
 
-from .api import Converter, Reference, ReferenceTuple
+from .api import (
+    RETURN_NONE_ERROR_TEXT,
+    Converter,
+    Reference,
+    ReferenceTuple,
+)
 
 __all__ = [
     "BlockAction",
@@ -354,8 +360,8 @@ class PreprocessingConverter(Converter):
         self,
         uri: str,
         *,
-        strict: Literal[False] = False,
-        return_none: Literal[False] = False,
+        strict: Literal[False] = ...,
+        return_none: Literal[False] = ...,
         context: str | None = ...,
         block_action: BlockAction = ...,
     ) -> Never: ...
@@ -366,8 +372,8 @@ class PreprocessingConverter(Converter):
         self,
         uri: str,
         *,
-        strict: Literal[False] = False,
-        return_none: Literal[True] = True,
+        strict: Literal[False] = ...,
+        return_none: Literal[True] | None = ...,
         context: str | None = ...,
         block_action: BlockAction = ...,
     ) -> ReferenceTuple | None: ...
@@ -379,7 +385,7 @@ class PreprocessingConverter(Converter):
         uri: str,
         *,
         strict: Literal[True] = True,
-        return_none: bool = False,
+        return_none: bool | None = ...,
         context: str | None = ...,
         block_action: BlockAction = ...,
     ) -> ReferenceTuple: ...
@@ -389,10 +395,10 @@ class PreprocessingConverter(Converter):
         uri: str,
         *,
         strict: bool = False,
-        return_none: bool = True,
+        return_none: bool | None = None,
         context: str | None = None,
         block_action: BlockAction = "raise",
-    ) -> ReferenceTuple | tuple[None, None] | None:
+    ) -> ReferenceTuple | None:
         """Parse and standardize a URI.
 
         :param uri: The URI to parse and standardize
@@ -412,8 +418,8 @@ class PreprocessingConverter(Converter):
         :raises BlocklistError: If the URI is blocked
         :raises NotImplementedError: If return_none is given as False
         """
-        if not return_none:
-            raise NotImplementedError
+        if return_none is False:
+            raise NotImplementedError(RETURN_NONE_ERROR_TEXT)
 
         uri = self._preclean(uri)
 
@@ -426,8 +432,8 @@ class PreprocessingConverter(Converter):
         if self.rules.str_is_blocked(uri, context=context):
             if block_action == "raise":
                 raise BlocklistError
-            elif return_none:
+            else:
                 return None
 
-        rv = super().parse_uri(uri, strict=strict, return_none=True)  # type:ignore[call-overload]
+        rv: ReferenceTuple | None = super().parse_uri(uri, strict=strict)  # type:ignore[call-overload]
         return self._post_process(rv)

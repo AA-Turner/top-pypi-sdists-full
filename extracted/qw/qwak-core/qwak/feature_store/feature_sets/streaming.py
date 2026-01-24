@@ -2,7 +2,7 @@ import collections
 import functools
 import inspect
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from _qwak_proto.qwak.feature_store.features.execution_pb2 import (
@@ -21,6 +21,7 @@ from _qwak_proto.qwak.feature_store.sources.streaming_pb2 import (
     StreamingSource,
     StreamingSource as ProtoStreamingSource,
 )
+from google.protobuf.timestamp_pb2 import Timestamp as ProtoTimestamp
 from qwak.clients.feature_store import FeatureRegistryClient
 from qwak.exceptions import QwakException
 from qwak.feature_store._common.artifact_utils import ArtifactSpec, ArtifactsUploader
@@ -34,7 +35,7 @@ from qwak.feature_store.feature_sets.metadata import (
     set_metadata_on_function,
 )
 from qwak.feature_store.feature_sets.streaming_backfill import (
-    BackfillBatchDataSourceSpec,
+    BackfillDataSource,
     StreamingBackfill,
 )
 from qwak.feature_store.feature_sets.transformations import (
@@ -75,6 +76,7 @@ def feature_set(
     key: Optional[str] = None,
     auxiliary_sinks: List[BaseSink] = [],
     repository: Optional[str] = None,
+    backfill_max_timestamp: Optional[datetime] = None,
 ):
     """
     Creates a streaming feature set for the specified entity using the given streaming data sources.
@@ -110,6 +112,11 @@ def feature_set(
     """
 
     def decorator(function):
+        if isinstance(function, StreamingBackfill):
+            raise QwakException(
+                "Backfill can no longer be defined as a decorator on the feature set, it must be triggered after feature set creation."
+            )
+
         user_transformation = function()
         FeaturesetUtils.validate_base_featureset_decorator(
             user_transformation=user_transformation, entity=entity, key=key
@@ -118,10 +125,6 @@ def feature_set(
         FeaturesetUtils.validate_streaming_featureset_decorator(
             online_trigger_interval=online_trigger_interval,
             offline_scheduling_policy=offline_scheduling_policy,
-        )
-
-        streaming_backfill: Optional[StreamingBackfill] = (
-            StreamingBackfill.get_streaming_backfill_from_function(function=function)
         )
 
         fs_name = name or function.__name__
@@ -150,7 +153,7 @@ def feature_set(
             online_cluster_template=getattr(
                 function, _ONLINE_CLUSTER_SPEC, ClusterTemplate.SMALL
             ),
-            backfill=streaming_backfill,
+            backfill_max_timestamp=backfill_max_timestamp,
             __instance_module_path__=inspect.stack()[1].filename,
             auxiliary_sinks=auxiliary_sinks,
         )
@@ -197,55 +200,68 @@ def execution_specification(
 @typechecked
 def backfill(
     *,
-    start_date: datetime,
-    end_date: datetime,
-    data_sources: Union[List[str], List[BackfillBatchDataSourceSpec]],
-    backfill_transformation: SparkSqlTransformation,
+    feature_set_name: str,
+    start_date: Optional[datetime],
+    end_date: Optional[datetime],
+    data_sources: Union[List[str], List[BackfillDataSource]],
     backfill_cluster_template: Optional[ClusterTemplate] = ClusterTemplate.SMALL,
 ):
     """
-    Configures optional backfill specification for a streaming featureset. Currently available for streaming
+    Triggers a backfill execution for an existing streaming featureset. Currently available for streaming
     aggregation featuresets only.
 
-    :param start_date: backfill start date
-    :param end_date: backfill end date
-    :param data_sources: a list of dict representations connecting each batch source name to its requested time range
-    :param backfill_transformation: a backfill SQL transformation. Only SQL transformations are supported for backfill
-    :param backfill_cluster_template: an optional cluster specification for the backfill job. Defaults to SMALL.
+    Args:
+        feature_set_name (str): Name of the FeatureSet to trigger a backfill for.
+        start_date (datetime): Backfill start date, on Streaming Aggregation Feature Sets,
+            needs to align with the FeatureSet tiles.
+        end_date (datetime): Backfill end date, on Streaming Aggregation Feature Sets,
+            needs to align with the FeatureSet tiles and be smaller than the Feature Set's backfill_max_timestamp.
+        data_sources (list[BackfillDataSource] | list[str]): A list of BackfillDataSource objects containing
+            batch source name and optional time range, or a list of batch source names (with no time range limits).
+        backfill_cluster_template (ClusterTemplate, optional): An optional cluster specification for the backfill job.
+            Defaults to SMALL.
 
-    Example:
-
-    ... code-block:: python
-
-        @streaming.feature_set(
-            entity="users",
-            data_sources=["users_registration_stream"],
-            timestamp_column_name="reg_date"
-        )
+    Examples:
         @streaming.backfill(
-            start_date=start_date=(2022,01,01,0,0,0),
-            end_date=start_date=(2023,09,01,0,0,0),
-            data_sources=[{"batch_backfill_source_name": BackfillSourceRange(start_date=(2023,01,01,0,0,0),
-                                                                             end_date=(2023,08,01,0,0,0))}],
+            feature_set_name="user_streaming_agg_features",
+            start_date=datetime(2022,1,1,0,0,0),
+            end_date=datetime(2023,9,1,0,0,0),
+            data_sources=[BackfillDataSource(data_source_name="backfill_data_source",
+                                             start_datetime=datetime(2023,1,1,0,0,0),
+                                             end_datetime=datetime(2023,8,1,0,0,0))],
             backfill_cluster_template=ClusterTemplate.SMALL
-            backfill_transformation=SparkSqlTransformation("SELECT user_id, reg_country, reg_date FROM backfill_data_source")
         )
-        def user_streaming_features():
-            return SparkSqlTransformation("SELECT user_id, reg_country, reg_date FROM data_source")
+        def backfill_transformation():
+            return SparkSqlTransformation("SELECT user_id, reg_country, reg_date FROM backfill_data_source")
     """
 
     def decorator(function):
-        _validate_decorator_ordering(function)
-        StreamingBackfill.set_streaming_backfill_on_function(
-            function=function,
-            start_date=start_date,
-            end_date=end_date,
-            data_sources=data_sources,
-            backfill_transformation=backfill_transformation,
-            backfill_cluster_template=backfill_cluster_template,
+        if isinstance(function, StreamingFeatureSet):
+            raise QwakException(
+                "Backfill can no longer be defined as a decorator on the feature set, it must be triggered after feature set creation."
+            )
+
+        backfill_transformation: SparkSqlTransformation = function()
+
+        if not isinstance(backfill_transformation, SparkSqlTransformation):
+            raise QwakException(
+                "Backfill must defined on a method returning a SparkSqlTransformation"
+            )
+
+        streaming_backfill = StreamingBackfill(
+            featureset_name=feature_set_name,
+            start_datetime=start_date,
+            end_datetime=end_date,
+            data_sources=StreamingBackfill._get_normalized_backfill_sources_spec(
+                data_sources
+            ),
+            transform=backfill_transformation,
+            cluster_template=backfill_cluster_template,
         )
 
-        return function
+        functools.update_wrapper(streaming_backfill, backfill_transformation)
+
+        return streaming_backfill
 
     return decorator
 
@@ -316,7 +332,7 @@ class StreamingFeatureSet(BaseFeatureSet):
     offline_cluster_template: Optional[ClusterTemplate] = None
     online_cluster_template: Optional[ClusterTemplate] = None
     metadata: Optional[Metadata] = None
-    backfill: Optional[StreamingBackfill] = None
+    backfill_max_timestamp: Optional[datetime] = None
     auxiliary_sinks: List[BaseSink] = field(default_factory=lambda: [])
 
     def __post_init__(self):
@@ -399,7 +415,6 @@ class StreamingFeatureSet(BaseFeatureSet):
             proto_featureset_type = self._get_streaming_aggregation_featureset_proto(
                 artifact_url=artifact_url,
                 streaming_sources=data_sources,
-                feature_registry=feature_registry,
                 initial_tile_size=maybe_initial_tile_size,
             )
 
@@ -453,10 +468,9 @@ class StreamingFeatureSet(BaseFeatureSet):
                 "Auxiliary Sinks Are not supported in Streaming Aggregation Feature Sets"
             )
 
-        # streaming backfill not yet supported for row-level streaming
-        if self.backfill and not is_streaming_agg:
+        if self.backfill_max_timestamp and not is_streaming_agg:
             raise QwakException(
-                "Streaming backfill is only supported for streaming aggregation feature sets at the moment"
+                "backfill_max_timestamp can only be set for Streaming Aggregation FeatureSet."
             )
 
         # Validate transformation is PySpark when multiple data sources are used
@@ -515,18 +529,29 @@ class StreamingFeatureSet(BaseFeatureSet):
                 )
             raise QwakException(error_message_str)
 
-        # Validate the backfill, if defined
-        if self.backfill:
-            self.backfill._validate_tile_size(initial_tile_size)
+        if not self.backfill_max_timestamp:
+            raise QwakException(
+                """
+                backfill_max_timestamp must be set for Streaming Aggregation FeatureSet.
+                 Events earlier than this timestamp can only be processed by triggering backfill,
+                 the Streaming job will not process events that are earlier than this timestamp.
+            """
+            )
+
+        self._validate_streaming_aggregation_backfill_max_timestamp()
 
         return initial_tile_size
 
-    def _validate_streaming_aggregation_backfill(self):
+    def _validate_streaming_aggregation_backfill_max_timestamp(self):
         initial_tile_size, _ = StreamingFeatureSet._get_default_slide_period(
             self.transformation.windows
         )
 
-        self.backfill._validate_tile_size(initial_tile_size)
+        if self.backfill_max_timestamp.timestamp() % initial_tile_size != 0:
+            raise QwakException(
+                f"Chosen backfill max timestamp is invalid,"
+                f" it has to be exactly dividable by slice size of {initial_tile_size} seconds."
+            )
 
     @staticmethod
     def _get_default_slide_period(
@@ -596,9 +621,12 @@ class StreamingFeatureSet(BaseFeatureSet):
         self,
         artifact_url: Optional[str],
         streaming_sources: List[StreamingSource],
-        feature_registry: FeatureRegistryClient,
         initial_tile_size: int,
     ) -> ProtoFeatureSetType:
+        backfill_max_timestamp = ProtoTimestamp()
+        backfill_max_timestamp.FromDatetime(
+            self.backfill_max_timestamp.astimezone(timezone.utc)
+        )
         return ProtoFeatureSetType(
             streaming_aggregation_feature_set=ProtoStreamingAggregationFeatureSet(
                 transformation=self.transformation._to_proto(
@@ -621,14 +649,7 @@ class StreamingFeatureSet(BaseFeatureSet):
                     allowed_late_arrival_seconds=60 * 10,
                     aggregations=self.transformation._get_aggregations_proto(),
                 ),
-                backfill_spec=(
-                    self.backfill._to_proto(
-                        feature_registry=feature_registry,
-                        original_instance_module_path=self.__instance_module_path__,
-                        featureset_name=self.name,
-                    )
-                    if self.backfill
-                    else None
-                ),
+                backfill_spec=None,
+                backfill_max_timestamp=backfill_max_timestamp,
             )
         )

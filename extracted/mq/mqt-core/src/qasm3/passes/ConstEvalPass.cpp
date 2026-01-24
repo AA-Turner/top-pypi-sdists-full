@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -120,9 +120,8 @@ std::shared_ptr<Constant> ConstEvalValue::toExpr() const {
     return std::make_shared<Constant>(Constant(std::get<1>(value)));
   case ConstBool:
     return std::make_shared<Constant>(Constant(std::get<2>(value)));
-  default:
-    qc::unreachable();
   }
+  qc::unreachable();
 }
 
 bool ConstEvalValue::operator==(const ConstEvalValue& rhs) const {

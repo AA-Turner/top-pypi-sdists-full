@@ -42,6 +42,7 @@ import requests.sessions
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.cookies import create_cookie
+from requests.exceptions import RequestException
 from requests.utils import default_headers
 from urllib3 import Retry
 
@@ -130,12 +131,17 @@ class ArchiveSession(requests.sessions.Session):
 
         logging_config = self.config.get('logging', {})
         if logging_config.get('level'):
-            self.set_file_logger(logging_config.get('level', 'NOTSET'),
-                                 logging_config.get('file', 'internetarchive.log'))
-            if debug or (logger.level <= 10):
+            if logging_config.get('log_to_stdout'):
+                self.set_stream_logger(logging_config.get('level', 'NOTSET'))
+                if debug or (logger.level <= 10):
+                    self.set_stream_logger(logging_config.get('level', 'NOTSET'), "urllib3")
+            else:
                 self.set_file_logger(logging_config.get('level', 'NOTSET'),
-                                     logging_config.get('file', 'internetarchive.log'),
-                                     'urllib3')
+                                     logging_config.get('file', 'internetarchive.log'))
+                if debug or (logger.level <= 10):
+                    self.set_file_logger(logging_config.get('level', 'NOTSET'),
+                                         logging_config.get('file', 'internetarchive.log'),
+                                         'urllib3')
 
     def _get_user_agent_string(self) -> str:
         """Generate a User-Agent string to be sent with every request."""
@@ -176,15 +182,18 @@ class ArchiveSession(requests.sessions.Session):
         if max_retries is None:
             max_retries = self.http_adapter_kwargs.get('max_retries', 3)
 
-        status_forcelist = status_forcelist or [500, 501, 502, 503, 504]
+        status_forcelist = status_forcelist or [429, 500, 501, 502, 503, 504]
         if max_retries and isinstance(max_retries, (int, float)):
-            self.http_adapter_kwargs['max_retries'] = Retry(total=max_retries,
-                                connect=max_retries,
-                                read=max_retries,
-                                redirect=False,
-                                allowed_methods=Retry.DEFAULT_ALLOWED_METHODS,
-                                status_forcelist=status_forcelist,
-                                backoff_factor=1)
+            self.http_adapter_kwargs['max_retries'] = Retry(
+                total=max_retries,
+                connect=max_retries,
+                read=max_retries,
+                redirect=False,
+                allowed_methods=["POST", "HEAD", "GET", "OPTIONS"],
+                status_forcelist=status_forcelist,
+                backoff_factor=1,
+                respect_retry_after_header=True
+            )
 
         else:
             self.http_adapter_kwargs['max_retries'] = max_retries
@@ -231,6 +240,40 @@ class ArchiveSession(requests.sessions.Session):
         fh.setFormatter(formatter)
 
         _log.addHandler(fh)
+
+    def set_stream_logger(
+        self,
+        log_level: str,
+        logger_name: str = 'internetarchive'
+    ) -> None:
+        """Convenience function to quickly configure any level of
+        logging to a stream (stdout).
+
+        :param log_level: A log level as specified in the `logging` module.
+
+        :param logger_name: The name of the logger.
+        """
+        _log_level = {
+            'CRITICAL': 50,
+            'ERROR': 40,
+            'WARNING': 30,
+            'INFO': 20,
+            'DEBUG': 10,
+            'NOTSET': 0,
+        }
+
+        log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+        _log = logging.getLogger(logger_name)
+        _log.setLevel(logging.DEBUG)
+
+        sh = logging.StreamHandler(stream=sys.stdout)
+        sh.setLevel(_log_level[log_level])
+
+        formatter = logging.Formatter(log_format)
+        sh.setFormatter(formatter)
+
+        _log.addHandler(sh)
 
     def whoami(self) -> str:
         """Return the logged-in user email address.
@@ -561,7 +604,6 @@ class ArchiveSession(requests.sessions.Session):
                         insecure = True
                         break
         if insecure:
-            from requests.exceptions import RequestException
             msg = ('You are attempting to make an HTTPS request on an insecure platform,'
                    ' please see:\n\n\thttps://archive.org/services/docs/api'
                    '/internetarchive/troubleshooting.html#https-issues\n')

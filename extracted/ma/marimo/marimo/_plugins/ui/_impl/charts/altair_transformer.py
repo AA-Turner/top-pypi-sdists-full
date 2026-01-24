@@ -1,10 +1,10 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import base64
 from typing import Any, Literal, TypedDict, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 from narwhals.typing import IntoDataFrame
 
 import marimo._output.data.data as mo_data
@@ -15,7 +15,10 @@ from marimo._plugins.ui._impl.tables.utils import (
     get_table_manager_or_none,
 )
 from marimo._utils.data_uri import build_data_url
-from marimo._utils.narwhals_utils import can_narwhalify
+from marimo._utils.narwhals_utils import (
+    can_narwhalify,
+    make_lazy,
+)
 
 LOGGER = _loggers.marimo_logger()
 
@@ -102,7 +105,7 @@ def _data_to_json_string(data: _DataType) -> str:
 
     tm = get_table_manager_or_none(data)
     if tm:
-        return tm.to_json().decode("utf-8")
+        return tm.to_json(ensure_ascii=True).decode("utf-8")
 
     raise NotImplementedError(
         "to_marimo_json only works with data expressed as a DataFrame "
@@ -137,7 +140,9 @@ def _maybe_sanitize_dataframe(data: Any) -> Any:
     ):
         narwhals_data = nw.from_native(data)
         try:
-            res: nw.DataFrame[Any] = alt.utils.sanitize_narwhals_dataframe(
+            import narwhals.stable.v1 as nw1
+
+            res: nw1.DataFrame[Any] = alt.utils.sanitize_narwhals_dataframe(
                 narwhals_data  # type: ignore[arg-type]
             )
             return res.to_native()  # type: ignore[return-value]
@@ -151,17 +156,22 @@ def _maybe_sanitize_dataframe(data: Any) -> Any:
 def sanitize_nan_infs(data: Any) -> Any:
     """Sanitize NaN and Inf values in Dataframes for JSON serialization."""
     if can_narwhalify(data):
-        narwhals_data = nw.from_native(data)
-        for col, dtype in narwhals_data.schema.items():
+        df, undo = make_lazy(data)
+
+        # Get schema without collecting
+        schema = df.collect_schema()
+
+        for col, dtype in schema.items():
             # Only numeric columns can have NaN or Inf values
             if dtype.is_numeric():
-                narwhals_data = narwhals_data.with_columns(
+                df = df.with_columns(
                     nw.when(nw.col(col).is_nan() | ~nw.col(col).is_finite())
                     .then(None)
                     .otherwise(nw.col(col))
                     .name.keep()
                 )
-        return narwhals_data.to_native()
+
+        return undo(df)
     return data
 
 

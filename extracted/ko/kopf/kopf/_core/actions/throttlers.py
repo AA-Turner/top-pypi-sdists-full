@@ -1,9 +1,7 @@
 import asyncio
 import contextlib
 import dataclasses
-import time
 from collections.abc import AsyncGenerator, Iterable, Iterator
-from typing import Optional, Union
 
 from kopf._cogs.aiokits import aiotime
 from kopf._cogs.helpers import typedefs
@@ -12,9 +10,9 @@ from kopf._cogs.helpers import typedefs
 @dataclasses.dataclass(frozen=False)
 class Throttler:
     """ A state of throttling for one specific purpose (there can be a few). """
-    source_of_delays: Optional[Iterator[float]] = None
-    last_used_delay: Optional[float] = None
-    active_until: Optional[float] = None  # internal clock
+    source_of_delays: Iterator[float] | None = None
+    last_used_delay: float | None = None
+    active_until: float | None = None  # internal clock
 
 
 @contextlib.asynccontextmanager
@@ -22,18 +20,19 @@ async def throttled(
         *,
         throttler: Throttler,
         delays: Iterable[float],
-        wakeup: Optional[asyncio.Event] = None,
+        wakeup: asyncio.Event | None = None,
         logger: typedefs.Logger,
-        errors: Union[type[BaseException], tuple[type[BaseException], ...]] = Exception,
+        errors: type[BaseException] | tuple[type[BaseException], ...] = Exception,
 ) -> AsyncGenerator[bool, None]:
     """
     A helper to throttle any arbitrary operation.
     """
+    clock = asyncio.get_running_loop().time
 
     # The 1st sleep: if throttling is already active, but was interrupted by a queue replenishment.
     # It is needed to properly process the latest known event after the successful sleep.
     if throttler.active_until is not None:
-        remaining_time = throttler.active_until - time.monotonic()
+        remaining_time = throttler.active_until - clock()
         unslept_time = await aiotime.sleep(remaining_time, wakeup=wakeup)
         if unslept_time is None:
             logger.info("Throttling is over. Switching back to normal operations.")
@@ -62,7 +61,7 @@ async def throttled(
         delay = next(throttler.source_of_delays, throttler.last_used_delay)
         if delay is not None:
             throttler.last_used_delay = delay
-            throttler.active_until = time.monotonic() + delay
+            throttler.active_until = clock() + delay
             logger.exception(f"Throttling for {delay} seconds due to an unexpected error: {e!r}")
 
     else:
@@ -73,7 +72,7 @@ async def throttled(
     # The 2nd sleep: if throttling has been just activated (i.e. there was a fresh error).
     # It is needed to have better logging/sleeping without workers exiting for "no events".
     if throttler.active_until is not None and should_run:
-        remaining_time = throttler.active_until - time.monotonic()
+        remaining_time = throttler.active_until - clock()
         unslept_time = await aiotime.sleep(remaining_time, wakeup=wakeup)
         if unslept_time is None:
             throttler.active_until = None

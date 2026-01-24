@@ -46,7 +46,7 @@ class Inngest:
         return self._api_origin
 
     @property
-    def env(self) -> typing.Optional[str]:
+    def env(self) -> str | None:
         return self._env
 
     @property
@@ -54,33 +54,31 @@ class Inngest:
         return self._event_api_origin
 
     @property
-    def event_key(self) -> typing.Optional[str]:
+    def event_key(self) -> str | None:
         return self._event_key
 
     @property
-    def signing_key(self) -> typing.Optional[str]:
+    def signing_key(self) -> str | None:
         return self._signing_key
 
     @property
-    def signing_key_fallback(self) -> typing.Optional[str]:
+    def signing_key_fallback(self) -> str | None:
         return self._signing_key_fallback
 
     def __init__(
         self,
         *,
-        api_base_url: typing.Optional[str] = None,
+        api_base_url: str | None = None,
         app_id: str,
-        env: typing.Optional[str] = None,
-        event_api_base_url: typing.Optional[str] = None,
-        event_key: typing.Optional[str] = None,
-        is_production: typing.Optional[bool] = None,
-        logger: typing.Optional[types.Logger] = None,
-        middleware: typing.Optional[
-            list[middleware_lib.UninitializedMiddleware]
-        ] = None,
+        env: str | None = None,
+        event_api_base_url: str | None = None,
+        event_key: str | None = None,
+        is_production: bool | None = None,
+        logger: types.Logger | None = None,
+        middleware: list[middleware_lib.UninitializedMiddleware] | None = None,
         request_timeout: int | datetime.timedelta | None = None,
         serializer: serializer_lib.Serializer | None = None,
-        signing_key: typing.Optional[str] = None,
+        signing_key: str | None = None,
     ) -> None:
         """
         Args:
@@ -147,9 +145,12 @@ class Inngest:
             raise maybe_str
         self._event_api_origin = maybe_str
 
-        self._http_client = net.ThreadAwareAsyncHTTPClient().initialize()
-        self._http_client_sync = httpx.Client()
         self._serializer = serializer
+        self._http_client = net.AuthenticatedHTTPClient(
+            env=self._env,
+            signing_key=self._signing_key,
+            signing_key_fallback=self._signing_key_fallback,
+        )
 
     def _build_send_request(
         self,
@@ -192,7 +193,7 @@ class Inngest:
                 d["ts"] = int(time.time() * 1000)
             body.append(d)
 
-        return self._http_client_sync.build_request(
+        return self._http_client.build_httpx_request(
             "POST", url, headers=headers, json=body, timeout=self._httpx_timeout
         )
 
@@ -205,39 +206,31 @@ class Inngest:
     def create_function(
         self,
         *,
-        batch_events: typing.Optional[server_lib.Batch] = None,
-        cancel: typing.Optional[list[server_lib.Cancel]] = None,
-        concurrency: typing.Optional[list[server_lib.Concurrency]] = None,
-        debounce: typing.Optional[server_lib.Debounce] = None,
+        batch_events: server_lib.Batch | None = None,
+        cancel: list[server_lib.Cancel] | None = None,
+        concurrency: list[server_lib.Concurrency] | None = None,
+        debounce: server_lib.Debounce | None = None,
         fn_id: str,
-        idempotency: typing.Optional[str] = None,
-        middleware: typing.Optional[
-            list[middleware_lib.UninitializedMiddleware]
-        ] = None,
-        name: typing.Optional[str] = None,
-        on_failure: typing.Union[
-            execution_lib.FunctionHandlerAsync[typing.Any],
-            execution_lib.FunctionHandlerSync[typing.Any],
-            None,
-        ] = None,
+        idempotency: str | None = None,
+        middleware: list[middleware_lib.UninitializedMiddleware] | None = None,
+        name: str | None = None,
+        on_failure: execution_lib.FunctionHandlerAsync[typing.Any]
+        | execution_lib.FunctionHandlerSync[typing.Any]
+        | None = None,
         output_type: object = types.EmptySentinel,
-        priority: typing.Optional[server_lib.Priority] = None,
-        rate_limit: typing.Optional[server_lib.RateLimit] = None,
-        retries: typing.Optional[int] = None,
-        throttle: typing.Optional[server_lib.Throttle] = None,
-        timeouts: typing.Optional[server_lib.Timeouts] = None,
-        singleton: typing.Optional[server_lib.Singleton] = None,
-        trigger: typing.Union[
-            server_lib.TriggerCron,
-            server_lib.TriggerEvent,
-            list[typing.Union[server_lib.TriggerCron, server_lib.TriggerEvent]],
-        ],
+        priority: server_lib.Priority | None = None,
+        rate_limit: server_lib.RateLimit | None = None,
+        retries: int | None = None,
+        throttle: server_lib.Throttle | None = None,
+        timeouts: server_lib.Timeouts | None = None,
+        singleton: server_lib.Singleton | None = None,
+        trigger: server_lib.TriggerCron
+        | server_lib.TriggerEvent
+        | list[server_lib.TriggerCron | server_lib.TriggerEvent],
     ) -> typing.Callable[
         [
-            typing.Union[
-                execution_lib.FunctionHandlerAsync[types.T],
-                execution_lib.FunctionHandlerSync[types.T],
-            ]
+            execution_lib.FunctionHandlerAsync[types.T]
+            | execution_lib.FunctionHandlerSync[types.T]
         ],
         function.Function[types.T],
     ]:
@@ -268,12 +261,11 @@ class Inngest:
         fully_qualified_fn_id = f"{self.app_id}-{fn_id}"
 
         def decorator(
-            func: typing.Union[
-                execution_lib.FunctionHandlerAsync[types.T],
-                execution_lib.FunctionHandlerSync[types.T],
-            ],
+            func: execution_lib.FunctionHandlerAsync[types.T]
+            | execution_lib.FunctionHandlerSync[types.T],
         ) -> function.Function[types.T]:
             triggers = trigger if isinstance(trigger, list) else [trigger]
+
             return function.Function(
                 function.FunctionOpts(
                     batch_events=batch_events,
@@ -300,65 +292,6 @@ class Inngest:
 
         return decorator
 
-    async def _get(self, url: str) -> types.MaybeError[httpx.Response]:
-        """
-        Perform an asynchronous HTTP GET request. Handles authn
-        """
-
-        req = self._http_client_sync.build_request(
-            "GET",
-            url,
-            headers=net.create_headers(
-                env=self._env,
-                framework=None,
-                server_kind=None,
-            ),
-        )
-
-        res = await net.fetch_with_auth_fallback(
-            self._http_client,
-            self._http_client_sync,
-            req,
-            signing_key=self._signing_key,
-            signing_key_fallback=self._signing_key_fallback,
-        )
-        if isinstance(res, Exception):
-            return res
-
-        if res.status_code >= 400:
-            return Exception(f"HTTP error: {res.status_code} {res.text}")
-
-        return res
-
-    def _get_sync(self, url: str) -> types.MaybeError[httpx.Response]:
-        """
-        Perform a synchronous HTTP GET request. Handles authn
-        """
-
-        req = self._http_client_sync.build_request(
-            "GET",
-            url,
-            headers=net.create_headers(
-                env=self._env,
-                framework=None,
-                server_kind=None,
-            ),
-        )
-
-        res = net.fetch_with_auth_fallback_sync(
-            self._http_client_sync,
-            req,
-            signing_key=self._signing_key,
-            signing_key_fallback=self._signing_key_fallback,
-        )
-        if isinstance(res, Exception):
-            return res
-
-        if res.status_code >= 400:
-            return Exception(f"HTTP error: {res.status_code} {res.text}")
-
-        return res
-
     async def _get_batch(
         self, run_id: str
     ) -> types.MaybeError[list[server_lib.Event]]:
@@ -370,7 +303,7 @@ class Inngest:
             self._api_origin,
             f"/v0/runs/{run_id}/batch",
         )
-        res = await self._get(url)
+        res = await self._http_client.get(url, auth=True)
         if isinstance(res, Exception):
             return res
 
@@ -394,7 +327,7 @@ class Inngest:
             self._api_origin,
             f"/v0/runs/{run_id}/batch",
         )
-        res = self._get_sync(url)
+        res = self._http_client.get_sync(url, auth=True)
         if isinstance(res, Exception):
             return res
 
@@ -418,7 +351,7 @@ class Inngest:
             self._api_origin,
             f"/v0/runs/{run_id}/actions",
         )
-        res = await self._get(url)
+        res = await self._http_client.get(url, auth=True)
         if isinstance(res, Exception):
             return res
 
@@ -439,7 +372,7 @@ class Inngest:
             self._api_origin,
             f"/v0/runs/{run_id}/actions",
         )
-        res = self._get_sync(url)
+        res = self._http_client.get_sync(url, auth=True)
         if isinstance(res, Exception):
             return res
 
@@ -451,7 +384,7 @@ class Inngest:
 
     async def send(
         self,
-        events: typing.Union[server_lib.Event, list[server_lib.Event]],
+        events: server_lib.Event | list[server_lib.Event],
         *,
         skip_middleware: bool = False,
     ) -> list[str]:
@@ -472,6 +405,7 @@ class Inngest:
             middleware = middleware_lib.MiddlewareManager.from_client(
                 self,
                 raw_request=None,
+                timings=None,
             )
             await middleware.before_send_events(events)
 
@@ -479,12 +413,13 @@ class Inngest:
         if isinstance(req, Exception):
             raise req
 
+        # TODO: Migrate this to HTTPClient.post
         resp = None
         for attempt in range(MAX_SEND_ATTEMPTS):
             try:
                 resp = await net.fetch_with_thready_safety(
-                    self._http_client,
-                    self._http_client_sync,
+                    self._http_client._http_client,
+                    self._http_client._http_client_sync,
                     req,
                 )
             except httpx.RequestError:
@@ -519,7 +454,7 @@ class Inngest:
 
     def send_sync(
         self,
-        events: typing.Union[server_lib.Event, list[server_lib.Event]],
+        events: server_lib.Event | list[server_lib.Event],
         *,
         skip_middleware: bool = False,
     ) -> list[str]:
@@ -540,6 +475,7 @@ class Inngest:
             middleware = middleware_lib.MiddlewareManager.from_client(
                 self,
                 raw_request=None,
+                timings=None,
             )
             err = middleware.before_send_events_sync(events)
             if isinstance(err, Exception):
@@ -549,10 +485,11 @@ class Inngest:
         if isinstance(req, Exception):
             raise req
 
+        # TODO: Migrate this to HTTPClient.post_sync
         resp = None
         for attempt in range(MAX_SEND_ATTEMPTS):
             try:
-                resp = self._http_client_sync.send(req)
+                resp = self._http_client._http_client_sync.send(req)
             except httpx.RequestError:
                 pass  # we will retry with delay
 
@@ -616,7 +553,7 @@ class Inngest:
 
 def _get_mode(
     logger: types.Logger,
-    is_production: typing.Optional[bool],
+    is_production: bool | None,
 ) -> server_lib.ServerKind:
     if is_production is not None:
         if is_production:

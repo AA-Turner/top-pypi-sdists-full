@@ -6,6 +6,7 @@ from .models import Tag, TagGroup
 class TagFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Tag
+        skip_postgeneration_save = True
 
     title = factory.Faker("name")
     description = factory.Faker("paragraph")

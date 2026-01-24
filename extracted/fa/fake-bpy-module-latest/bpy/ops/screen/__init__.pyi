@@ -13,10 +13,7 @@ def actionzone(
 ) -> None:
     """Handle area action zones for mouse actions/gestures
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param modifier: Modifier, Modifier state
-    :type modifier: int | None
     """
 
 def animation_cancel(
@@ -28,10 +25,7 @@ def animation_cancel(
 ) -> None:
     """Cancel animation, returning to the original frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param restore_frame: Restore Frame, Restore the frame when animation was initialized
-    :type restore_frame: bool | None
     """
 
 def animation_play(
@@ -44,12 +38,8 @@ def animation_play(
 ) -> None:
     """Play animation
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param reverse: Play in Reverse, Animation is played backwards
-    :type reverse: bool | None
     :param sync: Sync, Drop frames to maintain framerate
-    :type sync: bool | None
     """
 
 def animation_step(
@@ -57,33 +47,21 @@ def animation_step(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Step through animation by position
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Step through animation by position"""
 
 def area_close(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Close selected area
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Close selected area"""
 
 def area_dupli(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Duplicate selected area into new window
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Duplicate selected area into new window"""
 
 def area_join(
     execution_context: int | str | None = None,
@@ -95,12 +73,8 @@ def area_join(
 ) -> None:
     """Join selected areas into new window
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param source_xy: Source location
-    :type source_xy: collections.abc.Iterable[int] | None
     :param target_xy: Target location
-    :type target_xy: collections.abc.Iterable[int] | None
     """
 
 def area_move(
@@ -111,17 +85,14 @@ def area_move(
     x: int | None = 0,
     y: int | None = 0,
     delta: int | None = 0,
+    snap: bool | None = False,
 ) -> None:
     """Move selected area edges
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param x: X
-    :type x: int | None
     :param y: Y
-    :type y: int | None
     :param delta: Delta
-    :type delta: int | None
+    :param snap: Snapping, Enable snapping
     """
 
 def area_options(
@@ -129,11 +100,7 @@ def area_options(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Operations for splitting and merging
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Operations for splitting and merging"""
 
 def area_split(
     execution_context: int | str | None = None,
@@ -146,14 +113,9 @@ def area_split(
 ) -> None:
     """Split selected area into new windows
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction
-    :type direction: typing.Literal['HORIZONTAL','VERTICAL'] | None
     :param factor: Factor
-    :type factor: float | None
     :param cursor: Cursor
-    :type cursor: collections.abc.Iterable[int] | None
     """
 
 def area_swap(
@@ -165,10 +127,7 @@ def area_swap(
 ) -> None:
     """Swap selected areas screen positions
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param cursor: Cursor
-    :type cursor: collections.abc.Iterable[int] | None
     """
 
 def back_to_previous(
@@ -176,33 +135,21 @@ def back_to_previous(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Revert back to the original screen layout, before fullscreen area overlay
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Revert back to the original screen layout, before fullscreen area overlay"""
 
 def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete active screen
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete active screen"""
 
 def drivers_editor_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Show drivers editor in a separate window
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Show drivers editor in a separate window"""
 
 def frame_jump(
     execution_context: int | str | None = None,
@@ -213,10 +160,7 @@ def frame_jump(
 ) -> None:
     """Jump to first/last frame in frame range
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param end: Last Frame, Jump to the last frame of the frame range
-    :type end: bool | None
     """
 
 def frame_offset(
@@ -228,10 +172,7 @@ def frame_offset(
 ) -> None:
     """Move current frame forward/backward by a given number
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delta: Delta
-    :type delta: int | None
     """
 
 def header_toggle_menus(
@@ -239,22 +180,14 @@ def header_toggle_menus(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Expand or collapse the header pull-down menus
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Expand or collapse the header pull-down menus"""
 
 def info_log_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Show info log in a separate window
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Show info log in a separate window"""
 
 def keyframe_jump(
     execution_context: int | str | None = None,
@@ -265,10 +198,7 @@ def keyframe_jump(
 ) -> None:
     """Jump to previous/next keyframe
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param next: Next Keyframe
-    :type next: bool | None
     """
 
 def marker_jump(
@@ -280,10 +210,7 @@ def marker_jump(
 ) -> None:
     """Jump to previous/next marker
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param next: Next Marker
-    :type next: bool | None
     """
 
 def new(
@@ -291,77 +218,56 @@ def new(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new screen
+    """Add a new screen"""
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+def quadview_size(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Resize Quad View areas"""
 
 def redo_last(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Display parameters for last action performed
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Display parameters for last action performed"""
 
 def region_blend(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Blend in and out overlapping region
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Blend in and out overlapping region"""
 
 def region_context_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Display region context menu
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Display region context menu"""
 
 def region_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle the regions alignment (left/right or top/bottom)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle the regions alignment (left/right or top/bottom)"""
 
 def region_quadview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Split selected area into camera, front, right, and top views
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Split selected area into camera, front, right, and top views"""
 
 def region_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Scale selected area
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Scale selected area"""
 
 def region_toggle(
     execution_context: int | str | None = None,
@@ -372,10 +278,7 @@ def region_toggle(
 ) -> None:
     """Hide or unhide the region
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param region_type: Region Type, Type of the region to toggle
-    :type region_type: bpy.stub_internal.rna_enums.RegionTypeItems | None
     """
 
 def repeat_history(
@@ -387,10 +290,7 @@ def repeat_history(
 ) -> None:
     """Display menu for previous actions performed
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index
-    :type index: int | None
     """
 
 def repeat_last(
@@ -398,11 +298,7 @@ def repeat_last(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Repeat last action
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Repeat last action"""
 
 def screen_full_area(
     execution_context: int | str | None = None,
@@ -413,10 +309,7 @@ def screen_full_area(
 ) -> None:
     """Toggle display selected area as fullscreen/maximized
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_hide_panels: Hide Panels, Hide all the panels (Focus Mode)
-    :type use_hide_panels: bool | None
     """
 
 def screen_set(
@@ -428,10 +321,7 @@ def screen_set(
 ) -> None:
     """Cycle through available screens
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delta: Delta
-    :type delta: int | None
     """
 
 def screenshot(
@@ -469,52 +359,28 @@ def screenshot(
 ) -> None:
     """Capture a picture of the whole Blender window
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -528,9 +394,7 @@ def screenshot(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def screenshot_area(
@@ -568,52 +432,28 @@ def screenshot_area(
 ) -> None:
     """Capture a picture of an editor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -627,9 +467,7 @@ def screenshot_area(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def space_context_cycle(
@@ -641,10 +479,7 @@ def space_context_cycle(
 ) -> None:
     """Cycle through the editor context by activating the next/previous one
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to cycle through
-    :type direction: typing.Literal['PREV','NEXT'] | None
     """
 
 def space_type_set_or_cycle(
@@ -656,10 +491,7 @@ def space_type_set_or_cycle(
 ) -> None:
     """Set the space type or cycle subtype
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param space_type: Type
-    :type space_type: bpy.stub_internal.rna_enums.SpaceTypeItems | None
     """
 
 def spacedata_cleanup(
@@ -667,10 +499,18 @@ def spacedata_cleanup(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove unused settings for invisible editors
+    """Remove unused settings for invisible editors"""
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+def time_jump(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    backward: bool | None = False,
+) -> None:
+    """Jump forward/backward by a given number of frames or seconds
+
+    :param backward: Backwards, Jump backwards in time
     """
 
 def userpref_show(
@@ -682,10 +522,7 @@ def userpref_show(
 ) -> None:
     """Edit user preferences and system settings
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param section: Section to activate in the Preferences
-    :type section: bpy.stub_internal.rna_enums.PreferenceSectionItems | None
     """
 
 def workspace_cycle(
@@ -697,8 +534,5 @@ def workspace_cycle(
 ) -> None:
     """Cycle through workspaces
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to cycle through
-    :type direction: typing.Literal['PREV','NEXT'] | None
     """

@@ -149,7 +149,7 @@ class Option(ScaleType):
         option_byte = self.get_next_bytes(1)
 
         if self.sub_type and option_byte != b'\x00':
-            self.value_object = self.process_type(self.sub_type)
+            self.value_object = self.process_type(self.sub_type, metadata=self.metadata)
             return self.value_object.value
 
         return None

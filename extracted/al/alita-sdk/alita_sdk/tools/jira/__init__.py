@@ -6,13 +6,14 @@ from pydantic import create_model, BaseModel, ConfigDict, Field
 import requests
 
 from ..elitea_base import filter_missconfigured_index_tools
-from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, parse_list, check_connection_response
+from ..utils import clean_string, get_max_toolkit_length, parse_list, check_connection_response
 from ...configurations.jira import JiraConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOLKIT_TYPE_META, TOOL_NAME_META
 
 name = "jira"
 
-def get_tools(tool):
+def get_toolkit(tool):
     return JiraToolkit().get_toolkit(
         selected_tools=tool['settings'].get('selected_tools', []),
         base_url=tool['settings'].get('base_url'),
@@ -32,17 +33,18 @@ def get_tools(tool):
         embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector",
         toolkit_name=tool.get('toolkit_name')
-    ).get_tools()
+    )
+
+def get_tools(tool):
+    return get_toolkit(tool).get_tools()
             
 
 class JiraToolkit(BaseToolkit):
     tools: List[BaseTool] = []
-    toolkit_max_length: int = 0
 
     @staticmethod
     def toolkit_config_schema() -> BaseModel:
         selected_tools = {x['name']: x['args_schema'].schema() for x in JiraApiWrapper.model_construct().get_available_tools()}
-        JiraToolkit.toolkit_max_length = get_max_toolkit_length(selected_tools)
 
         @check_connection_response
         def check_connection(self):
@@ -68,7 +70,7 @@ class JiraToolkit(BaseToolkit):
             name,
             cloud=(bool, Field(description="Hosting Option", json_schema_extra={'configuration': True})),
             limit=(int, Field(description="Limit issues. Default is 5", gt=0, default=5)),
-            api_version=(Optional[str], Field(description="Rest API version: optional. Default is 2", default="2")),
+            api_version=(Literal['2', '3'], Field(description="Rest API version: optional. Default is 2", default="3")),
             labels=(Optional[str], Field(
                 description="List of comma separated labels used for labeling of agent's created or updated entities",
                 default=None,
@@ -109,18 +111,23 @@ class JiraToolkit(BaseToolkit):
             **(kwargs.get('pgvector_configuration') or {}),
         }
         jira_api_wrapper = JiraApiWrapper(**wrapper_payload)
-        prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
         available_tools = jira_api_wrapper.get_available_tools()
         tools = []
         for tool in available_tools:
             if selected_tools:
                 if tool["name"] not in selected_tools:
                     continue
+            description = tool["description"]
+            if toolkit_name:
+                description = f"Toolkit: {toolkit_name}\n{description}"
+            description = f"Jira instance: {jira_api_wrapper.base_url}\n{description}"
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=jira_api_wrapper,
-                name=prefix + tool["name"],
-                description=f"Tool for Jira: '{jira_api_wrapper.base_url}'\n{tool['description']}",
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
         return cls(tools=tools)
 

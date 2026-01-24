@@ -10,12 +10,13 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    CustomerServiceRecordListResponse,
+    CustomerServiceRecord,
     CustomerServiceRecordCreateResponse,
     CustomerServiceRecordRetrieveResponse,
     CustomerServiceRecordVerifyPhoneNumberCoverageResponse,
 )
 from telnyx._utils import parse_datetime
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -27,7 +28,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_method_create(self, client: Telnyx) -> None:
         customer_service_record = client.customer_service_records.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         )
         assert_matches_type(CustomerServiceRecordCreateResponse, customer_service_record, path=["response"])
 
@@ -35,7 +36,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_method_create_with_all_params(self, client: Telnyx) -> None:
         customer_service_record = client.customer_service_records.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
             additional_data={
                 "account_number": "123456789",
                 "address_line_1": "123 Main St",
@@ -56,7 +57,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_raw_response_create(self, client: Telnyx) -> None:
         response = client.customer_service_records.with_raw_response.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         )
 
         assert response.is_closed is True
@@ -68,7 +69,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_streaming_response_create(self, client: Telnyx) -> None:
         with client.customer_service_records.with_streaming_response.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -126,7 +127,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         customer_service_record = client.customer_service_records.list()
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -152,7 +153,7 @@ class TestCustomerServiceRecords:
             },
             sort={"value": "created_at"},
         )
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -162,7 +163,7 @@ class TestCustomerServiceRecords:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         customer_service_record = response.parse()
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -172,7 +173,9 @@ class TestCustomerServiceRecords:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             customer_service_record = response.parse()
-            assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+            assert_matches_type(
+                SyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -180,7 +183,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_method_verify_phone_number_coverage(self, client: Telnyx) -> None:
         customer_service_record = client.customer_service_records.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         )
         assert_matches_type(
             CustomerServiceRecordVerifyPhoneNumberCoverageResponse, customer_service_record, path=["response"]
@@ -190,7 +193,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_raw_response_verify_phone_number_coverage(self, client: Telnyx) -> None:
         response = client.customer_service_records.with_raw_response.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         )
 
         assert response.is_closed is True
@@ -204,7 +207,7 @@ class TestCustomerServiceRecords:
     @parametrize
     def test_streaming_response_verify_phone_number_coverage(self, client: Telnyx) -> None:
         with client.customer_service_records.with_streaming_response.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -226,7 +229,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_method_create(self, async_client: AsyncTelnyx) -> None:
         customer_service_record = await async_client.customer_service_records.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         )
         assert_matches_type(CustomerServiceRecordCreateResponse, customer_service_record, path=["response"])
 
@@ -234,7 +237,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncTelnyx) -> None:
         customer_service_record = await async_client.customer_service_records.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
             additional_data={
                 "account_number": "123456789",
                 "address_line_1": "123 Main St",
@@ -255,7 +258,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.customer_service_records.with_raw_response.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         )
 
         assert response.is_closed is True
@@ -267,7 +270,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncTelnyx) -> None:
         async with async_client.customer_service_records.with_streaming_response.create(
-            phone_number="+1234567890",
+            phone_number="+13035553000",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -325,7 +328,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         customer_service_record = await async_client.customer_service_records.list()
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -351,7 +354,7 @@ class TestAsyncCustomerServiceRecords:
             },
             sort={"value": "created_at"},
         )
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -361,7 +364,7 @@ class TestAsyncCustomerServiceRecords:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         customer_service_record = await response.parse()
-        assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -371,7 +374,9 @@ class TestAsyncCustomerServiceRecords:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             customer_service_record = await response.parse()
-            assert_matches_type(CustomerServiceRecordListResponse, customer_service_record, path=["response"])
+            assert_matches_type(
+                AsyncDefaultPagination[CustomerServiceRecord], customer_service_record, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -379,7 +384,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_method_verify_phone_number_coverage(self, async_client: AsyncTelnyx) -> None:
         customer_service_record = await async_client.customer_service_records.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         )
         assert_matches_type(
             CustomerServiceRecordVerifyPhoneNumberCoverageResponse, customer_service_record, path=["response"]
@@ -389,7 +394,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_raw_response_verify_phone_number_coverage(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.customer_service_records.with_raw_response.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         )
 
         assert response.is_closed is True
@@ -403,7 +408,7 @@ class TestAsyncCustomerServiceRecords:
     @parametrize
     async def test_streaming_response_verify_phone_number_coverage(self, async_client: AsyncTelnyx) -> None:
         async with async_client.customer_service_records.with_streaming_response.verify_phone_number_coverage(
-            phone_numbers=["+1234567890"],
+            phone_numbers=["+13035553000"],
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

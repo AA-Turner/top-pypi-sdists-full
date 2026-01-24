@@ -1,11 +1,12 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias, cast, overload
 
 if TYPE_CHECKING:
@@ -19,9 +20,7 @@ import inspect
 import pandas
 
 from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.foundation_models.prompts.base_prompt import (
-    BasePrompt,
-)
+from ibm_watsonx_ai.foundation_models.prompts.base_prompt import BasePrompt
 from ibm_watsonx_ai.foundation_models.prompts.base_prompt_template import (
     BasePromptTemplate,
 )
@@ -105,8 +104,8 @@ class FreeformPromptTemplate(BasePromptTemplate):
         prompt_template = FreeformPromptTemplate(
             name="My freeform prompt",
             model_id="ibm/granite-13b-chat-v2",
-            input_text='What are the most famous monuments in ?',
-            input_variables=['country']
+            input_text="What are the most famous monuments in ?",
+            input_variables=["country"],
         )
 
         # Traceback (most recent call last):
@@ -423,15 +422,15 @@ class DetachedPromptTemplate(BasePromptTemplate):
         prompt_template = DetachedPromptTemplate(
             name="My detached prompt",
             model_id="<some model>",
-            input_text='What are the most famous monuments in ?',
-            input_variables=['country'],
+            input_text="What are the most famous monuments in ?",
+            input_variables=["country"],
             detached_prompt_id="<prompt id>",
             detached_model_id="<model id>",
             detached_model_provider="<provider>",
             detached_prompt_url="<url>",
-            detached_prompt_additional_information=[{"key":"value"}],
+            detached_prompt_additional_information=[{"key": "value"}],
             detached_model_name="<model name>",
-            detached_model_url ="<model url>"
+            detached_model_url="<model url>",
         )
 
         # Traceback (most recent call last):
@@ -445,15 +444,15 @@ class DetachedPromptTemplate(BasePromptTemplate):
         prompt_template = DetachedPromptTemplate(
             name="My detached prompt",
             model_id="<some model>",
-            input_text='What are the most famous monuments in {country}?',
-            input_variables=['country'],
+            input_text="What are the most famous monuments in {country}?",
+            input_variables=["country"],
             detached_prompt_id="<prompt id>",
             detached_model_id="<model id>",
             detached_model_provider="<provider>",
             detached_prompt_url="<url>",
-            detached_prompt_additional_information=[{"key":"value"}],
+            detached_prompt_additional_information=[{"key": "value"}],
             detached_model_name="<model name>",
-            detached_model_url ="<model url>"
+            detached_model_url="<model url>",
         )
 
     """
@@ -549,7 +548,7 @@ class PromptTemplateManager(WMLResource):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     .. note::
         One of these parameters is required: ['project_id ', 'space_id']
@@ -560,27 +559,35 @@ class PromptTemplateManager(WMLResource):
 
         from ibm_watsonx_ai import Credentials
 
-        from ibm_watsonx_ai.foundation_models.prompts import PromptTemplate, PromptTemplateManager
+        from ibm_watsonx_ai.foundation_models.prompts import (
+            PromptTemplate,
+            PromptTemplateManager,
+        )
 
         prompt_mgr = PromptTemplateManager(
-                        credentials=Credentials(
-                            api_key=IAM_API_KEY,
-                            url="https://us-south.ml.cloud.ibm.com"
-                        ),
-                        project_id="*****"
-                        )
+            credentials=Credentials(
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id="*****",
+        )
 
-        prompt_template = PromptTemplate(name="My prompt",
-                                         model_id='meta-llama/llama-3-3-70b-instruct',
-                                         input_prefix="Human:",
-                                         output_prefix="Assistant:",
-                                         input_text="What is {object} and how does it work?",
-                                         input_variables=['object'],
-                                         examples=[['What is the Stock Market?',
-                                                    'A stock market is a place where investors buy and sell shares of publicly traded companies.']])
+        prompt_template = PromptTemplate(
+            name="My prompt",
+            model_id="meta-llama/llama-3-3-70b-instruct",
+            input_prefix="Human:",
+            output_prefix="Assistant:",
+            input_text="What is {object} and how does it work?",
+            input_variables=["object"],
+            examples=[
+                [
+                    "What is the Stock Market?",
+                    "A stock market is a place where investors buy and sell shares of publicly traded companies.",
+                ]
+            ],
+        )
 
         stored_prompt_template = prompt_mgr.store_prompt(prompt_template)
-        print(stored_prompt_template.prompt_id)   # id of prompt template asset
+        print(stored_prompt_template.prompt_id)  # id of prompt template asset
 
     .. note::
         Here's an example of how you can pass variables to your deployed prompt template:
@@ -592,18 +599,18 @@ class PromptTemplateManager(WMLResource):
             meta_props = {
                 client.deployments.ConfigurationMetaNames.NAME: "SAMPLE DEPLOYMENT PROMPT TEMPLATE",
                 client.deployments.ConfigurationMetaNames.ONLINE: {},
-                client.deployments.ConfigurationMetaNames.BASE_MODEL_ID: 'meta-llama/llama-3-3-70b-instruct'
-                }
+                client.deployments.ConfigurationMetaNames.BASE_MODEL_ID: "meta-llama/llama-3-3-70b-instruct",
+            }
 
-            deployment_details = client.deployments.create(stored_prompt_template.prompt_id, meta_props)
+            deployment_details = client.deployments.create(
+                stored_prompt_template.prompt_id, meta_props
+            )
 
             client.deployments.generate_text(
                 deployment_id=deployment_details["metadata"]["id"],
                 params={
-                    GenTextParamsMetaNames.PROMPT_VARIABLES: {
-                        "object": "brain"
-                    }
-                }
+                    GenTextParamsMetaNames.PROMPT_VARIABLES: {"object": "brain"}
+                },
             )
 
     """
@@ -614,11 +621,14 @@ class PromptTemplateManager(WMLResource):
         *,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: str | bool | None = None,
+        verify: str | Path | bool | None = None,
         api_client: APIClient | None = None,
     ) -> None:
         self.project_id = project_id
         self.space_id = space_id
+        if isinstance(verify, str):
+            verify = Path(verify)
+
         if credentials:
             self._client = APIClient(credentials, verify=verify)
         elif api_client is not None:
@@ -650,9 +660,6 @@ class PromptTemplateManager(WMLResource):
                 params_names_list=["space_id", "project_id"],
                 reason="None of the arguments were provided.",
             )
-
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 4.8:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
 
         WMLResource.__init__(self, __name__, self._client)
 
@@ -1034,12 +1041,7 @@ class PromptTemplateManager(WMLResource):
         }
         json_data = {"locked": locked}
 
-        url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
-            + f"/{prompt_id}/lock"
-        )
+        url = self._client._href_definitions.get_prompt_lock_href(prompt_id=prompt_id)
         response = self._client.httpx_client.put(
             url=url, json=json_data, headers=headers, params=params
         )
@@ -1129,17 +1131,16 @@ class PromptTemplateManager(WMLResource):
         .. code-block:: python
 
             loaded_prompt_template = prompt_mgr.load_prompt(prompt_id)
-            loaded_prompt_template_lc = prompt_mgr.load_prompt(prompt_id, PromptTemplateFormats.LANGCHAIN)
-            loaded_prompt_template_string = prompt_mgr.load_prompt(prompt_id, PromptTemplateFormats.STRING)
+            loaded_prompt_template_lc = prompt_mgr.load_prompt(
+                prompt_id, PromptTemplateFormats.LANGCHAIN
+            )
+            loaded_prompt_template_string = prompt_mgr.load_prompt(
+                prompt_id, PromptTemplateFormats.STRING
+            )
         """
         headers = self._client._get_headers()
         params = self._params | {"prompt_id": prompt_id}
-        url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
-            + f"/{prompt_id}"
-        )
+        url = self._client._href_definitions.get_prompt_href(prompt_id)
 
         if isinstance(astype, PromptTemplateFormats):
             astype = astype.value
@@ -1205,7 +1206,9 @@ class PromptTemplateManager(WMLResource):
 
         .. code-block:: python
 
-            prompt_mgr.list(limit=5)    # list of 5 recent created prompt template assets
+            prompt_mgr.list(
+                limit=5
+            )  # list of 5 recent created prompt template assets
 
         .. hint::
             Additionally you can sort available prompt templates by "LAST MODIFIED" field.
@@ -1488,9 +1491,7 @@ class PromptTemplateManager(WMLResource):
 
         json_data.update(self._create_request_body(prompt_template))
 
-        url = self._client._href_definitions.get_prompts_href(
-            ga_api=self._client._use_pta_ga_api
-        )
+        url = self._client._href_definitions.get_prompts_href()
         response = self._client.httpx_client.post(
             url=url, json=json_data, headers=headers, params=self._params
         )
@@ -1522,12 +1523,7 @@ class PromptTemplateManager(WMLResource):
         headers = self._client._get_headers()
         params = self._params | {"prompt_id": prompt_id}
 
-        url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
-            + f"/{prompt_id}"
-        )
+        url = self._client._href_definitions.get_prompt_href(prompt_id)
         response = self._client.httpx_client.delete(
             url=url, headers=headers, params=params
         )
@@ -1560,7 +1556,9 @@ class PromptTemplateManager(WMLResource):
         .. code-block:: python
 
             updated_prompt_template = PromptTemplate(name="New name")
-            prompt_mgr.update_prompt(prompt_id, prompt_template)  # {'name': 'New name'} in metadata
+            prompt_mgr.update_prompt(
+                prompt_id, prompt_template
+            )  # {'name': 'New name'} in metadata
 
         """
         headers = self._client._get_headers()
@@ -1592,12 +1590,7 @@ class PromptTemplateManager(WMLResource):
 
         new_body.update(self._create_request_body(current_prompt_template))
 
-        url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
-            + f"/{prompt_id}"
-        )
+        url = self._client._href_definitions.get_prompt_href(prompt_id)
 
         response = self._client.httpx_client.patch(
             url=url, json=new_body, headers=headers, params=params
@@ -1621,12 +1614,7 @@ class PromptTemplateManager(WMLResource):
         """
         headers = self._client._get_headers()
         params = self._params | {"prompt_id": prompt_id}
-        url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
-            + f"/{prompt_id}/lock"
-        )
+        url = self._client._href_definitions.get_prompt_lock_href(prompt_id=prompt_id)
 
         response = self._client.httpx_client.get(
             url=url, headers=headers, params=params
@@ -1716,9 +1704,7 @@ class PromptTemplateManager(WMLResource):
         params = self._params
 
         url = (
-            self._client._href_definitions.get_prompts_href(
-                ga_api=self._client._use_pta_ga_api
-            )
+            self._client._href_definitions.get_prompts_href()
             + f"/{prompt_id}/chat_items"
         )
 

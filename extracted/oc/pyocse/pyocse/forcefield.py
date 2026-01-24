@@ -7,7 +7,6 @@ from pyocse.interchange_parmed import _to_parmed
 from pyocse.interfaces.parmed import ParmEdStructure, ommffs_to_paramedstruc
 from pyocse.interfaces.rdkit import smiles_to_ase_and_pmg
 from pyocse.lmp import LAMMPSStructure
-import numpy as np
 from pyxtal.constants import single_smiles
 import re
 
@@ -20,16 +19,21 @@ class forcefield:
         - 2. generate the structures with multiple molecules and force fields
     """
 
-    def __init__(self, smiles=None, style="gaff", chargemethod="am1bcc"):
+    def __init__(self, smiles, style="gaff", chargemethod="am1bcc", workdir="."):
         """
         Args:
             smiles (list): molecular smiles
             style (str): 'gaff' or 'openff'
             chargemethod (str): 'mmff94', 'am1bcc', 'am1-mulliken', 'gasteiger'
+            workdir (str): '.'
         """
         self.dics = []
         self.smiles = smiles
         self.chargemethod = chargemethod
+        if max([len(s) for s in smiles]) > 180:
+            self.chargemethod = "gasteiger" #chargemethod
+            print("Use gasteiger chargemethod to save time for large molecule")
+        self.workdir = workdir
         self.set_partial_charges()
 
         # setup converter
@@ -40,6 +44,7 @@ class forcefield:
             residuename = "U{:02d}".format(i)
             ffdic = converter(smi, chargemethod).ffdic
             # print(ffdic, ffdic.keys())
+
             # Pass the partial charge
             molecule = ommffs_to_paramedstruc(
                 ffdic["omm_forcefield"], ffdic["mol2"], cls=ParmEdStructure
@@ -65,7 +70,6 @@ class forcefield:
             if smi in single_smiles:
                 pattern = r'([A-Za-z]+)([+\-]?\d*)'
                 matches = re.search(pattern, smi)
-                #print(smi, matches)
                 if matches:
                     charge_str = matches.group(2)
                     if charge_str == '+':
@@ -140,7 +144,7 @@ class forcefield:
         atoms.set_pbc(pbc)
         atoms.title = '.'.join(self.smiles)
 
-        return atoms._write_input(lmp_dat)
+        return atoms._write_input(self.workdir + '/' + lmp_dat)
 
     def reset_lammps_cell(self, atoms0):
         """
@@ -226,14 +230,13 @@ def get_gaff(smiles, chargemethod="gas", base="ff"):
     Get gaff parameters from smiles
     """
     from pathlib import Path
-
     from pyocse.interfaces.ambertools import run_antechamber
     from pyocse.interfaces.parmed import amber_to_pdstruc
     from pyocse.utils import temporary_directory_change
 
     # with temporary_directory_change(cleanup=False, prefix='tmp'):
     with temporary_directory_change(cleanup=True, prefix="tmp"):
-        ase_atoms, pmgmol, charge, spin, _ = smiles_to_ase_and_pmg(smiles, "test")
+        _, pmgmol, charge, spin, _ = smiles_to_ase_and_pmg(smiles, "test")
         path = Path(f"{base}_init.mol2")
         pmgmol.to(filename=str(path), fmt="mol2")
 

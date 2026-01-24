@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from typing_extensions import TypedDict
@@ -22,7 +22,7 @@ from agents import (
     function_tool,
     handoff,
 )
-from agents.items import RunItem
+from agents.items import HandoffOutputItem, RunItem, ToolCallOutputItem
 from agents.run import RunConfig
 from agents.stream_events import AgentUpdatedStreamEvent
 
@@ -35,6 +35,7 @@ from .test_responses import (
     get_text_input_item,
     get_text_message,
 )
+from .utils.simple_session import SimpleListSession
 
 
 @pytest.mark.asyncio
@@ -175,14 +176,78 @@ async def test_handoffs():
     assert result.final_output == "done"
     assert len(result.raw_responses) == 3, "should have three model responses"
     assert len(result.to_input_list()) == 7, (
-        "should have 7 inputs: orig input, tool call, tool result, message, handoff, handoff"
-        "result, and done message"
+        "should have 7 inputs: summary message, tool call, tool result, message, handoff, "
+        "handoff result, and done message"
     )
     assert result.last_agent == agent_1, "should have handed off to agent_1"
 
 
 class Foo(TypedDict):
     bar: str
+
+
+@pytest.mark.asyncio
+async def test_nested_handoff_filters_model_input_streamed():
+    model = FakeModel()
+    delegate = Agent(
+        name="delegate",
+        model=model,
+    )
+    triage = Agent(
+        name="triage",
+        model=model,
+        handoffs=[delegate],
+        tools=[get_function_tool("some_function", "result")],
+    )
+
+    model.add_multiple_turn_outputs(
+        [
+            [get_function_tool_call("some_function", json.dumps({"a": "b"}))],
+            [get_text_message("a_message"), get_handoff_tool_call(delegate)],
+            [get_text_message("done")],
+        ]
+    )
+
+    model_input_types: list[list[str]] = []
+
+    def capture_model_input(data):
+        types: list[str] = []
+        for item in data.model_data.input:
+            if isinstance(item, dict):
+                item_type = item.get("type")
+                if isinstance(item_type, str):
+                    types.append(item_type)
+        model_input_types.append(types)
+        return data.model_data
+
+    session = SimpleListSession()
+    result = Runner.run_streamed(
+        triage,
+        input="user_message",
+        run_config=RunConfig(
+            nest_handoff_history=True,
+            call_model_input_filter=capture_model_input,
+        ),
+        session=session,
+    )
+    async for _ in result.stream_events():
+        pass
+
+    assert result.final_output == "done"
+    assert len(model_input_types) >= 3
+    handoff_input_types = model_input_types[2]
+    assert "function_call" not in handoff_input_types
+    assert "function_call_output" not in handoff_input_types
+
+    assert any(isinstance(item, ToolCallOutputItem) for item in result.new_items)
+    assert any(isinstance(item, HandoffOutputItem) for item in result.new_items)
+
+    session_items = await session.get_items()
+    has_function_call_output = any(
+        isinstance(item, dict) and item.get("type") == "function_call_output"
+        for item in session_items
+    )
+    assert has_function_call_output
 
 
 @pytest.mark.asyncio
@@ -224,15 +289,16 @@ async def test_structured_output():
             get_text_input_item("user_message"),
             get_text_input_item("another_message"),
         ],
+        run_config=RunConfig(nest_handoff_history=True),
     )
     async for _ in result.stream_events():
         pass
 
     assert result.final_output == Foo(bar="baz")
     assert len(result.raw_responses) == 4, "should have four model responses"
-    assert len(result.to_input_list()) == 11, (
-        "should have input: 2 orig inputs, function call, function call result, message, handoff, "
-        "handoff output, preamble message, tool call, tool call result, final output"
+    assert len(result.to_input_list()) == 10, (
+        "should have input: conversation summary, function call, function call result, message, "
+        "handoff, handoff output, preamble message, tool call, tool call result, final output"
     )
 
     assert result.last_agent == agent_1, "should have handed off to agent_1"
@@ -525,6 +591,38 @@ async def test_input_guardrail_tripwire_triggered_causes_exception_streamed():
 
 
 @pytest.mark.asyncio
+async def test_input_guardrail_streamed_does_not_save_assistant_message_to_session():
+    async def guardrail_function(
+        context: RunContextWrapper[Any], agent: Agent[Any], input: Any
+    ) -> GuardrailFunctionOutput:
+        await asyncio.sleep(0.01)
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
+
+    session = SimpleListSession()
+
+    model = FakeModel()
+    model.set_next_output([get_text_message("should_not_be_saved")])
+
+    agent = Agent(
+        name="test",
+        model=model,
+        input_guardrails=[InputGuardrail(guardrail_function=guardrail_function)],
+    )
+
+    with pytest.raises(InputGuardrailTripwireTriggered):
+        result = Runner.run_streamed(agent, input="user_message", session=session)
+        async for _ in result.stream_events():
+            pass
+
+    items = await session.get_items()
+
+    assert len(items) == 1
+    first_item = cast(dict[str, Any], items[0])
+    assert "role" in first_item
+    assert first_item["role"] == "user"
+
+
+@pytest.mark.asyncio
 async def test_slow_input_guardrail_still_raises_exception_streamed():
     async def guardrail_function(
         context: RunContextWrapper[Any], agent: Agent[Any], input: Any
@@ -674,6 +772,7 @@ async def test_streaming_events():
             get_text_input_item("user_message"),
             get_text_input_item("another_message"),
         ],
+        run_config=RunConfig(nest_handoff_history=True),
     )
     async for event in result.stream_events():
         event_counts[event.type] = event_counts.get(event.type, 0) + 1
@@ -684,9 +783,9 @@ async def test_streaming_events():
 
     assert result.final_output == Foo(bar="baz")
     assert len(result.raw_responses) == 4, "should have four model responses"
-    assert len(result.to_input_list()) == 10, (
-        "should have input: 2 orig inputs, function call, function call result, message, handoff, "
-        "handoff output, tool call, tool call result, final output"
+    assert len(result.to_input_list()) == 9, (
+        "should have input: conversation summary, function call, function call result, message, "
+        "handoff, handoff output, tool call, tool call result, final output"
     )
 
     assert result.last_agent == agent_1, "should have handed off to agent_1"
@@ -695,10 +794,16 @@ async def test_streaming_events():
     # Now lets check the events
 
     expected_item_type_map = {
-        "tool_call": 2,
+        # 3 tool_call_item events:
+        #   1. get_function_tool_call("foo", ...)
+        #   2. get_handoff_tool_call(agent_1) because handoffs are implemented via tool calls too
+        #   3. get_function_tool_call("bar", ...)
+        "tool_call": 3,
+        # Only 2 outputs, handoff tool call doesn't have corresponding tool_call_output event
         "tool_call_output": 2,
-        "message": 2,
-        "handoff": 1,
+        "message": 2,  # get_text_message("a_message") + get_final_output_message(...)
+        "handoff": 1,  # get_handoff_tool_call(agent_1)
+        # Handoff output is now emitted as a streamed item for observability.
         "handoff_output": 1,
     }
 

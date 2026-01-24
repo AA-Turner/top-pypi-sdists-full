@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -18,70 +18,150 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-
-class SecretScanningScanHistory(GitHubModel):
-    """SecretScanningScanHistory"""
-
-    incremental_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    pattern_update_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    backfill_scans: Missing[list[SecretScanningScan]] = Field(default=UNSET)
-    custom_pattern_backfill_scans: Missing[
-        list[SecretScanningScanHistoryPropCustomPatternBackfillScansItems]
-    ] = Field(default=UNSET)
+from .group_0003 import SimpleUser
+from .group_0199 import ReactionRollup
 
 
-class SecretScanningScan(GitHubModel):
-    """SecretScanningScan
+class PullRequestReviewComment(GitHubModel):
+    """Pull Request Review Comment
 
-    Information on a single scan performed by secret scanning on the repository
+    Pull Request Review Comments are comments on a portion of the Pull Request's
+    diff.
     """
 
-    type: Missing[str] = Field(default=UNSET, description="The type of scan")
-    status: Missing[str] = Field(
-        default=UNSET,
-        description='The state of the scan. Either "completed", "running", or "pending"',
+    url: str = Field(description="URL for the pull request review comment")
+    pull_request_review_id: Union[int, None] = Field(
+        description="The ID of the pull request review to which the comment belongs."
     )
-    completed_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was completed. Empty if the scan is running",
+    id: int = Field(description="The ID of the pull request review comment.")
+    node_id: str = Field(description="The node ID of the pull request review comment.")
+    diff_hunk: str = Field(
+        description="The diff of the line that the comment refers to."
     )
-    started_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was started. Empty if the scan is pending",
+    path: str = Field(
+        description="The relative path of the file to which the comment applies."
     )
+    position: Missing[int] = Field(
+        default=UNSET,
+        description="The line index in the diff to which the comment applies. This field is closing down; use `line` instead.",
+    )
+    original_position: Missing[int] = Field(
+        default=UNSET,
+        description="The index of the original line in the diff to which the comment applies. This field is closing down; use `original_line` instead.",
+    )
+    commit_id: str = Field(
+        description="The SHA of the commit to which the comment applies."
+    )
+    original_commit_id: str = Field(
+        description="The SHA of the original commit to which the comment applies."
+    )
+    in_reply_to_id: Missing[int] = Field(
+        default=UNSET, description="The comment ID to reply to."
+    )
+    user: Union[None, SimpleUser] = Field()
+    body: str = Field(description="The text of the comment.")
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    html_url: str = Field(description="HTML URL for the pull request review comment.")
+    pull_request_url: str = Field(
+        description="URL for the pull request that the review comment belongs to."
+    )
+    author_association: Literal[
+        "COLLABORATOR",
+        "CONTRIBUTOR",
+        "FIRST_TIMER",
+        "FIRST_TIME_CONTRIBUTOR",
+        "MANNEQUIN",
+        "MEMBER",
+        "NONE",
+        "OWNER",
+    ] = Field(
+        title="author_association",
+        description="How the author is associated with the repository.",
+    )
+    links: PullRequestReviewCommentPropLinks = Field(alias="_links")
+    start_line: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The first line of the range for a multi-line comment.",
+    )
+    original_start_line: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The first line of the range for a multi-line comment.",
+    )
+    start_side: Missing[Union[None, Literal["LEFT", "RIGHT"]]] = Field(
+        default=UNSET,
+        description="The side of the first line of the range for a multi-line comment.",
+    )
+    line: Missing[int] = Field(
+        default=UNSET,
+        description="The line of the blob to which the comment applies. The last line of the range for a multi-line comment",
+    )
+    original_line: Missing[int] = Field(
+        default=UNSET,
+        description="The line of the blob to which the comment applies. The last line of the range for a multi-line comment",
+    )
+    side: Missing[Literal["LEFT", "RIGHT"]] = Field(
+        default=UNSET,
+        description="The side of the diff to which the comment applies. The side of the last line of the range for a multi-line comment",
+    )
+    subject_type: Missing[Literal["line", "file"]] = Field(
+        default=UNSET,
+        description="The level at which the comment is targeted, can be a diff line or a file.",
+    )
+    reactions: Missing[ReactionRollup] = Field(default=UNSET, title="Reaction Rollup")
+    body_html: Missing[str] = Field(default=UNSET)
+    body_text: Missing[str] = Field(default=UNSET)
 
 
-class SecretScanningScanHistoryPropCustomPatternBackfillScansItems(GitHubModel):
-    """SecretScanningScanHistoryPropCustomPatternBackfillScansItems"""
+class PullRequestReviewCommentPropLinks(GitHubModel):
+    """PullRequestReviewCommentPropLinks"""
 
-    type: Missing[str] = Field(default=UNSET, description="The type of scan")
-    status: Missing[str] = Field(
-        default=UNSET,
-        description='The state of the scan. Either "completed", "running", or "pending"',
-    )
-    completed_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was completed. Empty if the scan is running",
-    )
-    started_at: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time that the scan was started. Empty if the scan is pending",
-    )
-    pattern_name: Missing[str] = Field(
-        default=UNSET, description="Name of the custom pattern for custom pattern scans"
-    )
-    pattern_scope: Missing[str] = Field(
-        default=UNSET,
-        description='Level at which the custom pattern is defined, one of "repository", "organization", or "enterprise"',
-    )
+    self_: PullRequestReviewCommentPropLinksPropSelf = Field(alias="self")
+    html: PullRequestReviewCommentPropLinksPropHtml = Field()
+    pull_request: PullRequestReviewCommentPropLinksPropPullRequest = Field()
 
 
-model_rebuild(SecretScanningScanHistory)
-model_rebuild(SecretScanningScan)
-model_rebuild(SecretScanningScanHistoryPropCustomPatternBackfillScansItems)
+class PullRequestReviewCommentPropLinksPropSelf(GitHubModel):
+    """PullRequestReviewCommentPropLinksPropSelf"""
+
+    href: str = Field()
+
+
+class PullRequestReviewCommentPropLinksPropHtml(GitHubModel):
+    """PullRequestReviewCommentPropLinksPropHtml"""
+
+    href: str = Field()
+
+
+class PullRequestReviewCommentPropLinksPropPullRequest(GitHubModel):
+    """PullRequestReviewCommentPropLinksPropPullRequest"""
+
+    href: str = Field()
+
+
+class TimelineLineCommentedEvent(GitHubModel):
+    """Timeline Line Commented Event
+
+    Timeline Line Commented Event
+    """
+
+    event: Missing[Literal["line_commented"]] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    comments: Missing[list[PullRequestReviewComment]] = Field(default=UNSET)
+
+
+model_rebuild(PullRequestReviewComment)
+model_rebuild(PullRequestReviewCommentPropLinks)
+model_rebuild(PullRequestReviewCommentPropLinksPropSelf)
+model_rebuild(PullRequestReviewCommentPropLinksPropHtml)
+model_rebuild(PullRequestReviewCommentPropLinksPropPullRequest)
+model_rebuild(TimelineLineCommentedEvent)
 
 __all__ = (
-    "SecretScanningScan",
-    "SecretScanningScanHistory",
-    "SecretScanningScanHistoryPropCustomPatternBackfillScansItems",
+    "PullRequestReviewComment",
+    "PullRequestReviewCommentPropLinks",
+    "PullRequestReviewCommentPropLinksPropHtml",
+    "PullRequestReviewCommentPropLinksPropPullRequest",
+    "PullRequestReviewCommentPropLinksPropSelf",
+    "TimelineLineCommentedEvent",
 )

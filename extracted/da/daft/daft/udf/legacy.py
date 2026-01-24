@@ -3,13 +3,9 @@ from __future__ import annotations
 import dataclasses
 import functools
 import inspect
-import sys
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
+import warnings
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeAlias, Union, cast
 
 import daft
 from daft.daft import PyDataType, PySeries, ResourceRequest
@@ -18,28 +14,34 @@ from daft.dependencies import np, pa
 from daft.errors import UDFException
 from daft.expressions import Expression
 from daft.series import Series
-from daft.udf._internal import check_fn_serializable
+
+from .udf_v2 import check_serializable
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-InitArgsType: TypeAlias = Optional[tuple[tuple[Any, ...], dict[str, Any]]]
+InitArgsType: TypeAlias = tuple[tuple[Any, ...], dict[str, Any]] | None
 UdfReturnType: TypeAlias = Union[Series, list[Any], "np.ndarray[Any, Any]", "pa.Array", "pa.ChunkedArray"]
 UserDefinedPyFunc: TypeAlias = Callable[..., UdfReturnType]
-UserDefinedPyFuncLike: TypeAlias = Union[UserDefinedPyFunc, type]
+UserDefinedPyFuncLike: TypeAlias = UserDefinedPyFunc | type
 
 
 @dataclasses.dataclass(frozen=True)
 class UninitializedUdf:
     inner: Callable[..., UserDefinedPyFunc]
+    name: str
 
     def initialize(self, init_args: InitArgsType) -> UserDefinedPyFunc:
-        if init_args is None:
-            return self.inner()
-        else:
-            args, kwargs = init_args
-            return self.inner(*args, **kwargs)
+        try:
+            if init_args is None:
+                return self.inner()
+            else:
+                args, kwargs = init_args
+                return self.inner(*args, **kwargs)
+        except Exception as init_exc:
+            error_note = f"User-defined function `{self.name}` failed to initialize"
+            raise UDFException(error_note) from init_exc
 
 
 @dataclasses.dataclass(frozen=True)
@@ -113,9 +115,9 @@ def run_udf(
     function_parameter_name_to_arg_order = {name: i for i, name in enumerate(expression_args)}
 
     input_series_length = len(input_series_list[0])
-    assert all(
-        len(input_series) == input_series_length for input_series in input_series_list
-    ), "All input series must be of the same length"
+    assert all(len(input_series) == input_series_length for input_series in input_series_list), (
+        "All input series must be of the same length"
+    )
 
     # For each call to the UDF, get the arguments to pass to the UDF in the order that they should be passed
     def get_args_for_slice(start: int, end: int) -> tuple[list[Series | Any], dict[str, Any]]:
@@ -258,6 +260,7 @@ class UDF:
     resource_request: ResourceRequest | None = None
     batch_size: int | None = None
     use_process: bool | None = None
+    ray_options: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         # Analogous to the @functools.wraps(self.inner) pattern
@@ -267,14 +270,18 @@ class UDF:
 
         # construct the UninitializedUdf here so that the constructed expressions can maintain equality
         if isinstance(self.inner, type):
-            self.wrapped_inner = UninitializedUdf(self.inner)
+            self.wrapped_inner = UninitializedUdf(self.inner, self.name)
         else:
-            self.wrapped_inner = UninitializedUdf(lambda: self.inner)
+            self.wrapped_inner = UninitializedUdf(lambda: self.inner, self.name)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Expression:
         self._validate_init_args()
 
-        check_fn_serializable(self.inner, "@daft.udf")
+        check_serializable(
+            self.inner,
+            "`@daft.udf` requires that the UDF is serializable. Please double-check that the function does not use any global variables.\n\nIf it does, please use the legacy `@daft.udf` with a class UDF instead and initialize the global in the `__init__` method.",
+        )
+
         bound_args = self._bind_args(*args, **kwargs)
         expressions = list(bound_args.expressions().values())
 
@@ -289,6 +296,7 @@ class UDF:
             batch_size=self.batch_size,
             concurrency=self.concurrency,
             use_process=self.use_process,
+            ray_options=self.ray_options,
         )
 
     def override_options(
@@ -297,6 +305,7 @@ class UDF:
         num_cpus: float | None = _UnsetMarker,
         num_gpus: float | None = _UnsetMarker,
         memory_bytes: int | None = _UnsetMarker,
+        ray_options: dict[str, Any] | None = None,
         batch_size: int | None = _UnsetMarker,
     ) -> UDF:
         """Replace the resource requests for running each instance of your UDF.
@@ -308,6 +317,7 @@ class UDF:
                 the appropriate GPU to each UDF using `CUDA_VISIBLE_DEVICES`.
             memory_bytes: Amount of memory to allocate each running instance of your UDF in bytes. If your UDF is experiencing out-of-memory errors,
                 this parameter can help hint Daft that each UDF requires a certain amount of heap memory for execution.
+            ray_options: Ray options to pass to the UDF. see more  https://docs.ray.io/en/latest/ray-core/api/doc/ray.actor.ActorClass.options.html#ray.actor.ActorClass.options
             batch_size: Enables batching of the input into batches of at most this size. Results between batches are concatenated.
 
         Examples:
@@ -332,9 +342,12 @@ class UDF:
         if memory_bytes is not _UnsetMarker:
             new_resource_request = new_resource_request.with_memory_bytes(memory_bytes)
 
+        new_ray_options = ray_options if ray_options is not None else self.ray_options
         new_batch_size = self.batch_size if batch_size is _UnsetMarker else batch_size
 
-        return dataclasses.replace(self, resource_request=new_resource_request, batch_size=new_batch_size)
+        return dataclasses.replace(
+            self, resource_request=new_resource_request, batch_size=new_batch_size, ray_options=new_ray_options
+        )
 
     def _validate_init_args(self) -> None:
         if isinstance(self.inner, type):
@@ -425,17 +438,17 @@ class UDF:
             >>> df = df.with_column("bar_world", MyUdfWithInit(df["foo"]))
             >>> df = df.with_column("bar_custom", MyUdfWithInit_CustomInitArgs(df["foo"]))
             >>> df.show()
-            ╭───────┬─────────────┬─────────────────────╮
-            │ foo   ┆ bar_world   ┆ bar_custom          │
-            │ ---   ┆ ---         ┆ ---                 │
-            │ Utf8  ┆ Utf8        ┆ Utf8                │
-            ╞═══════╪═════════════╪═════════════════════╡
-            │ hello ┆ hello world ┆ hello my old friend │
-            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-            │ hello ┆ hello world ┆ hello my old friend │
-            ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-            │ hello ┆ hello world ┆ hello my old friend │
-            ╰───────┴─────────────┴─────────────────────╯
+            ╭────────┬─────────────┬─────────────────────╮
+            │ foo    ┆ bar_world   ┆ bar_custom          │
+            │ ---    ┆ ---         ┆ ---                 │
+            │ String ┆ String      ┆ String              │
+            ╞════════╪═════════════╪═════════════════════╡
+            │ hello  ┆ hello world ┆ hello my old friend │
+            ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ hello  ┆ hello world ┆ hello my old friend │
+            ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ hello  ┆ hello world ┆ hello my old friend │
+            ╰────────┴─────────────┴─────────────────────╯
             <BLANKLINE>
             (Showing first 3 of 3 rows)
         """
@@ -461,11 +474,12 @@ def udf(
     num_cpus: float | None = None,
     num_gpus: float | None = None,
     memory_bytes: int | None = None,
+    ray_options: dict[str, Any] | None = None,
     batch_size: int | None = None,
     concurrency: int | None = None,
     use_process: bool | None = None,
 ) -> Callable[[UserDefinedPyFuncLike], UDF]:
-    """`@udf` Decorator to convert a Python function/class into a `UDF`.
+    """(DEPRECATED) `@udf` Decorator to convert a Python function/class into a `UDF`.
 
     UDFs allow users to run arbitrary Python code on the outputs of Expressions.
 
@@ -478,6 +492,7 @@ def udf(
             the appropriate GPU to each UDF using `CUDA_VISIBLE_DEVICES`.
         memory_bytes: Amount of memory to allocate each running instance of your UDF in bytes. If your UDF is experiencing out-of-memory errors,
             this parameter can help hint Daft that each UDF requires a certain amount of heap memory for execution.
+        ray_options: Extra Ray options, e.g. {"label_selector": {...}}. see more https://docs.ray.io/en/latest/ray-core/api/doc/ray.actor.ActorClass.options.html#ray.actor.ActorClass.options
         batch_size: Enables batching of the input into batches of at most this size. Results between batches are concatenated.
         concurrency: Spin up `N` number of persistent replicas of the UDF to process all partitions. Defaults to `None` which will spin up one
             UDF per partition. This is especially useful for expensive initializations that need to be amortized across partitions such as
@@ -603,7 +618,13 @@ def udf(
         ...         return self.model(data.to_pylist())
 
     """
-    inferred_return_dtype = DataType._infer_type(return_dtype)
+    warnings.warn(
+        "The `@daft.udf` decorator is deprecated since Daft version >= 0.7.0 and will be removed in >= 0.8.0. Please use `@daft.func` and `@daft.cls` instead.\nSee the migration guide for more details: https://docs.daft.ai/en/stable/custom-code/migration/",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+
+    inferred_return_dtype = DataType._infer(return_dtype)
 
     def _udf(f: UserDefinedPyFuncLike) -> UDF:
         # Grab a name for the UDF. It **should** be unique.
@@ -632,6 +653,7 @@ def udf(
             batch_size=batch_size,
             concurrency=concurrency,
             use_process=use_process,
+            ray_options=ray_options,
         )
 
         daft.attach_function(udf)

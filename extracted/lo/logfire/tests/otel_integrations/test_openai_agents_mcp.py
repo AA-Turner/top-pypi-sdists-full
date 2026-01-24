@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict
+from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -19,20 +20,19 @@ from tests.otel_integrations.test_openai_agents import simplify_spans
 try:
     from agents import Agent, Runner, trace
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
-    from inline_snapshot import snapshot
     from mcp import types
     from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
 except ImportError:
-    pytestmark = [
-        pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
-        pytest.mark.skipif(
-            get_version(pydantic.__version__) < get_version('2.7'), reason='Requires Pydantic 2.7 or higher'
-        ),
-    ]
     if TYPE_CHECKING:
         assert False
 
+pytestmark = [
+    pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
+    ),
+]
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
@@ -103,17 +103,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
-                        'params': {
-                            'meta': None,
-                            'protocolVersion': IsStr(),
-                            'capabilities': {
-                                'experimental': None,
-                                'sampling': None,
-                                'elicitation': None,
-                                'roots': None,
-                            },
-                            'clientInfo': {'name': 'mcp', 'title': None, 'version': '0.1.0'},
-                        },
+                        'params': IsPartialDict(),
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -121,20 +111,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP request: initialize',
                     'logfire.msg': 'MCP request: initialize',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'protocolVersion': IsStr(),
-                        'capabilities': {
-                            'experimental': {},
-                            'logging': None,
-                            'prompts': {'listChanged': False},
-                            'resources': {'subscribe': False, 'listChanged': False},
-                            'tools': {'listChanged': False},
-                            'completions': None,
-                        },
-                        'serverInfo': {'name': 'FastMCP', 'title': None, 'version': IsStr()},
-                        'instructions': None,
-                    },
+                    'response': IsPartialDict(),
                 },
             },
             {
@@ -147,6 +124,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000007-01',
@@ -162,22 +140,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -204,22 +167,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -313,6 +261,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/call',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000011-01',
@@ -343,7 +292,7 @@ async def test_mcp(exporter: TestExporter):
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
-                        'params': {'meta': None, 'name': 'random_number', 'arguments': {}},
+                        'params': {'task': None, 'meta': None, 'name': 'random_number', 'arguments': {}},
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -386,6 +335,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000019-01',
@@ -401,22 +351,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -440,22 +375,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -574,6 +494,7 @@ async def test_mcp(exporter: TestExporter):
                     'name': 'my_trace',
                     'group_id': 'null',
                     'metadata': 'null',
+                    'tracing': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
@@ -590,11 +511,12 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'ping',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000003-000000000000001f-01',
                                 'foo': 'bar1',
-                            }
+                            },
                         },
                         'jsonrpc': '2.0',
                         'id': 4,
@@ -615,7 +537,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': "\"PingRequest(method='ping', params=RequestParams(meta={'foo': 'bar1'}))\"",
+                    'request': "\"PingRequest(method='ping', params=RequestParams(task=None, meta={'foo': 'bar1'}))\"",
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'ping',
@@ -635,11 +557,12 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'ping',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000004-0000000000000023-01',
                                 'foo': 'bar2',
-                            }
+                            },
                         },
                         'jsonrpc': '2.0',
                         'id': 5,
@@ -660,7 +583,10 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': {'method': 'ping', 'params': {'meta': {'progressToken': None, 'foo': 'bar2'}}},
+                    'request': {
+                        'method': 'ping',
+                        'params': {'task': None, 'meta': {'progressToken': None, 'foo': 'bar2'}},
+                    },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'ping',

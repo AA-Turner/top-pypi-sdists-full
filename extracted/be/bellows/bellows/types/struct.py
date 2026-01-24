@@ -169,20 +169,20 @@ class EmberRouteTableEntry(EzspStruct):
     # entry is unused.
     destination: named.EmberNodeId
     # The short id of the next hop to this destination.
-    nextHop: basic.uint16_t
+    nextHop: named.EmberNodeId
     # Indicates whether this entry is active (0), being discovered (1)),
     # unused (3), or validating (4).
-    status: basic.uint8_t
+    status: named.RouteRecordStatus
     # The number of seconds since this route entry was last used to send a
     # packet.
     age: basic.uint8_t
     # Indicates whether this destination is a High RAM Concentrator (2), a
     # Low RAM Concentrator (1), or not a concentrator (0).
-    concentratorType: basic.uint8_t
+    concentratorType: named.RouteRecordConcentratortype
     # For a High RAM Concentrator, indicates whether a route record is
     # needed (2), has been sent (1), or is no long needed (0) because a
     # source routed message from the concentrator has been received.
-    routeRecordState: basic.uint8_t
+    routeRecordState: named.RouteRecordState
 
 
 class EmberInitialSecurityState(EzspStruct):
@@ -374,6 +374,18 @@ class NV3StackTrustCenterToken(EzspStruct):
     mode: basic.uint16_t
     eui64: named.EUI64
     key: named.KeyData
+
+
+class NV3StackNodeData(EzspStruct):
+    """NV3 stack node data token value."""
+
+    panId: named.EmberPanId
+    radioTxPower: basic.int8s
+    radioFreqChannel: basic.uint8_t
+    stackProfile: basic.uint8_t  # Always 0x02
+    nodeType: named.EmberNodeType
+    zigbeeNodeId: named.EmberNodeId
+    extendedPanId: named.ExtendedPanId
 
 
 class EmberKeyStruct(EzspStruct):

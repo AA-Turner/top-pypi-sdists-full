@@ -3,6 +3,12 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Type
 
+from vellum import (
+    ReleaseEnvironment,
+    WorkflowDeploymentRelease,
+    WorkflowDeploymentReleaseWorkflowDeployment,
+    WorkflowDeploymentReleaseWorkflowVersion,
+)
 from vellum.workflows import BaseWorkflow
 from vellum.workflows.nodes.displayable.subworkflow_deployment_node.node import SubworkflowDeploymentNode
 from vellum_ee.workflows.display.nodes.vellum.subworkflow_deployment_node import BaseSubworkflowDeploymentNodeDisplay
@@ -29,34 +35,38 @@ def _display_class_with_node_input_ids_by_name_with_inputs_prefix(Node: Type[Sub
 
 @pytest.fixture
 def mock_fetch_deployment(mocker):
-    # Create a mock deployment response
-    mock_deployment = mocker.Mock(
-        id="test-id",
-        name="test-deployment",
-        label="Test Deployment",
-        status="ACTIVE",
-        environment="DEVELOPMENT",
+    # Create a mock deployment release response
+    deployment_release = WorkflowDeploymentRelease(
+        id=str(uuid4()),
         created=datetime.now(),
-        last_deployed_on=datetime.now(),
-        last_deployed_history_item_id=str(uuid4()),
-        input_variables=[],
-        output_variables=[],
-        description="Test deployment description",
+        environment=ReleaseEnvironment(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=WorkflowDeploymentReleaseWorkflowVersion(
+            id=str(uuid4()),
+            input_variables=[],
+            output_variables=[],
+        ),
+        deployment=WorkflowDeploymentReleaseWorkflowDeployment(
+            id="test-id",
+            name="test-deployment",
+        ),
+        release_tags=[],
+        reviews=[],
     )
 
-    # Patch the create_vellum_client function to return our mock client
-    mocker.patch(
-        "vellum.client.resources.workflow_deployments.client.WorkflowDeploymentsClient.retrieve",
-        return_value=mock_deployment,
+    # Patch the retrieve_workflow_deployment_release method
+    patch_path = (
+        "vellum.client.resources.workflow_deployments.client."
+        "WorkflowDeploymentsClient.retrieve_workflow_deployment_release"
     )
+    mocker.patch(patch_path, return_value=deployment_release)
 
-    return mock_deployment
+    return deployment_release
 
 
 @pytest.mark.parametrize(
     ["GetDisplayClass", "expected_input_id"],
     [
-        (_no_display_class, "394132c2-1817-455e-9f3f-b7073eb63a2b"),
+        (_no_display_class, "b35e4da6-7810-4d93-ab84-3ad1cbd71251"),
         (_display_class_with_node_input_ids_by_name, "aff4f838-577e-44b9-ac5c-6d8213abbb9c"),
         (_display_class_with_node_input_ids_by_name_with_inputs_prefix, "aff4f838-577e-44b9-ac5c-6d8213abbb9c"),
     ],

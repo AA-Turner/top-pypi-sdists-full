@@ -56,6 +56,38 @@ class CloudSecurityAssets(ServiceClass):
     """
 
     @force_default(defaults=["parameters"], default_types=["dict"])
+    def combined_application_findings(self: object,
+                                      parameters: dict = None,
+                                      **kwargs
+                                      ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Get findings for an application resource with pagination.
+
+        Keyword arguments:
+        crn -- Application CRN. String.
+        type -- Finding type. String.
+        filter -- FQL string to filter findings. String.
+        offset -- Pagination offset. Integer.
+        limit -- Page size. Integer.
+        parameters -- Full parameters payload dictionary. Not required if using other keywords.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: GET
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/cloud-security-assets/cloud-security-assets-combined-application-findings
+        """
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="cloud_security_assets_combined_application_findings",
+            keywords=kwargs,
+            params=parameters
+            )
+
+    @force_default(defaults=["parameters"], default_types=["dict"])
     def get_combined_compliance_by_account(self: object,
                                            parameters: dict = None,
                                            **kwargs
@@ -79,7 +111,7 @@ class CloudSecurityAssets(ServiceClass):
                     compliant                       service
                     control.benchmark.name          service_category
                     control.benchmark.version       severities
-                    control.framework
+                    control.framework               control.extension.status
         sort -- FQL formatted sort expression. String.
                     Sort expression in format: field|direction (e.g., last_evaluated|desc).
                     Allowed sort fields:
@@ -198,9 +230,13 @@ class CloudSecurityAssets(ServiceClass):
                     instance_id                        vmware.vm_host_name
                     instance_state                     vmware.vm_tools_status
                     ioa_count                          zone
-                    iom_count                          application_security.business_applications
-                    tags                               application_security.business_criticality
-                    application_security.service_names
+                    iom_count                          control.benchmark.version
+                    tags                               control.framework
+                    control.benchmark.name             control.requirement
+                    control.type                       control.version
+                    non_compliant.rule_name            aspm.deployment_cloud_resource_id
+                    aspm.deployment_provider           aspm.deployment_type
+                    aspm.technologies
         sort -- The field to sort on. String.
                 Use `|asc` or `|desc` suffix to specify sort direction.
                 Sortable fields include:
@@ -226,7 +262,9 @@ class CloudSecurityAssets(ServiceClass):
                     service_category                tenancy_name
                     compartment_name                tenancy_ocid
                     compartment_ocid                tenancy_type
-                    compartment_path
+                    compartment_path                aspm.deployment_cloud_resource_id
+                    aspm.deployment_provider        aspm.deployment_type
+                    aspm.technologies
         limit -- The maximum number of items to return. Integer.
                  When not specified or 0, 500 is used. When larger than 1000, 1000 is used.
         offset -- Offset returned assets. Use only one of 'offset' and 'after' parameter for paginating. Integer.
@@ -251,6 +289,7 @@ class CloudSecurityAssets(ServiceClass):
             params=parameters
             )
 
+    cloud_security_assets_combined_application_findings = combined_application_findings
     cloud_security_assets_combined_compliance_by_account = get_combined_compliance_by_account
     cloud_security_assets_entities_get = get_assets
     cloud_security_assets_queries = query_assets

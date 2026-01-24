@@ -15,7 +15,7 @@ use statsig_rust::output_logger::OutputLogProvider;
 use statsig_rust::statsig_options::DEFAULT_INIT_TIMEOUT_MS;
 use statsig_rust::{log_w, ConfigCompressionMode, PersistentStorage, SpecAdapterConfig};
 use statsig_rust::{output_logger::LogLevel, ObservabilityClient, StatsigOptions};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 
 const TAG: &str = stringify!(StatsigOptionsPy);
@@ -129,8 +129,6 @@ pub struct StatsigOptionsPy {
     #[pyo3(get, set)]
     pub wait_for_country_lookup_init: Option<bool>,
     #[pyo3(get, set)]
-    pub disable_user_agent_parsing: Option<bool>,
-    #[pyo3(get, set)]
     pub disable_country_lookup: Option<bool>,
     #[pyo3(get, set)]
     pub id_lists_url: Option<String>,
@@ -158,6 +156,12 @@ pub struct StatsigOptionsPy {
     pub proxy_config: Option<Py<ProxyConfigPy>>,
     #[pyo3(get, set)]
     pub spec_adapter_configs: Option<Py<PyList>>,
+    #[pyo3(get, set)]
+    pub use_third_party_ua_parser: Option<bool>,
+    #[pyo3(get, set)]
+    pub disable_disk_access: Option<bool>,
+    #[pyo3(get, set)]
+    pub experimental_flags: Option<HashSet<String>>,
 }
 
 #[gen_stub_pymethods]
@@ -177,7 +181,6 @@ impl StatsigOptionsPy {
         enable_id_lists=None,
         wait_for_user_agent_init=None,
         wait_for_country_lookup_init=None,
-        disable_user_agent_parsing=None,
         disable_country_lookup=None,
         id_lists_url=None,
         id_lists_sync_interval_ms=None,
@@ -192,6 +195,9 @@ impl StatsigOptionsPy {
         proxy_config=None,
         output_logger_provider=None,
         spec_adapter_configs=None,
+        use_third_party_ua_parser=None,
+        disable_disk_access=None,
+        experimental_flags=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -207,7 +213,6 @@ impl StatsigOptionsPy {
         enable_id_lists: Option<bool>,
         wait_for_user_agent_init: Option<bool>,
         wait_for_country_lookup_init: Option<bool>,
-        disable_user_agent_parsing: Option<bool>,
         disable_country_lookup: Option<bool>,
         id_lists_url: Option<String>,
         id_lists_sync_interval_ms: Option<u32>,
@@ -222,6 +227,9 @@ impl StatsigOptionsPy {
         proxy_config: Option<Py<ProxyConfigPy>>,
         output_logger_provider: Option<Py<OutputLoggerProviderBasePy>>,
         spec_adapter_configs: Option<Py<PyList>>,
+        use_third_party_ua_parser: Option<bool>,
+        disable_disk_access: Option<bool>,
+        experimental_flags: Option<HashSet<String>>,
     ) -> Self {
         Self {
             specs_url,
@@ -236,7 +244,6 @@ impl StatsigOptionsPy {
             wait_for_user_agent_init,
             wait_for_country_lookup_init,
             disable_country_lookup,
-            disable_user_agent_parsing,
             id_lists_url,
             id_lists_sync_interval_ms,
             fallback_to_statsig_api,
@@ -251,6 +258,9 @@ impl StatsigOptionsPy {
             proxy_config,
             output_logger_provider,
             spec_adapter_configs,
+            use_third_party_ua_parser,
+            disable_disk_access,
+            experimental_flags,
         }
     }
 }
@@ -329,7 +339,6 @@ fn create_inner_statsig_options(
         global_custom_fields,
         disable_network: opts.disable_network,
         disable_country_lookup: opts.disable_country_lookup,
-        disable_user_agent_parsing: opts.disable_user_agent_parsing,
         persistent_storage: opts.persistent_storage.as_ref().map(|s| {
             Arc::new(StatsigPersistentStorageOverrideAdapter::new(
                 s.extract(py).unwrap_or_default(),
@@ -366,7 +375,10 @@ fn create_inner_statsig_options(
                     .unwrap_or_default(),
             ) as Arc<dyn OutputLogProvider>
         }),
-        __experimental_ua_parsing_enabled: None,
+        console_capture_options: None,
+        use_third_party_ua_parser: opts.use_third_party_ua_parser,
+        disable_disk_access: opts.disable_disk_access,
+        experimental_flags: opts.experimental_flags,
     }
 }
 

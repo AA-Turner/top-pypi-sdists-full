@@ -22,6 +22,7 @@ setup(
     license='BSD-3-Clause',
     platforms=['any'],
     packages=['voluptuous'],
+    setup_requires=['wheel'],
     package_data={
         'voluptuous': ['py.typed'],
     },
@@ -39,5 +40,4 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
     ],
-    setup_requires=['wheel']
 )

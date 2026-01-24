@@ -1,3 +1,4 @@
+import json
 import time
 import traceback
 from collections import defaultdict
@@ -5,11 +6,14 @@ from collections.abc import Mapping, Set
 from datetime import datetime as Datetime
 from decimal import Decimal, InvalidOperation
 
+
 from dateutil.relativedelta import relativedelta
 
 from flask import Response, request
 
 from jinja2 import Environment
+
+from markdown_it import MarkdownIt
 
 from pytz import timezone, utc
 
@@ -29,16 +33,40 @@ def req_str(name):
         raise BadRequest(f"The field {name} is required.")
 
 
-def req_bool(name):
+def req_strs(name):
     try:
-        return request.values[name] == "true"
+        return request.values.getlist(name)
     except KeyError:
+        raise BadRequest(f"The field {name} is required.")
+
+
+def req_bool(name):
+    val = req_str(name)
+    if val == "true":
+        return True
+    elif val == "false":
         return False
+    else:
+        raise BadRequest(
+            f"Problem parsing the field {name} with values {val} as a boolean: "
+            f"expected 'true' or 'false'."
+        )
+
+
+def req_checkbox(name):
+    return name in request.values
 
 
 def req_int(name):
     try:
         return int(req_str(name))
+    except ValueError as e:
+        raise BadRequest(f"Problem parsing the field {name} as an integer: {e}")
+
+
+def req_ints(name):
+    try:
+        return [int(v) for v in req_strs(name)]
     except ValueError as e:
         raise BadRequest(f"Problem parsing the field {name} as an integer: {e}")
 
@@ -62,6 +90,13 @@ def req_zish(name):
         return loads(req_str(name))
     except ZishException as e:
         raise BadRequest(f"Problem parsing the field {name} as Zish: {e}")
+
+
+def req_json(name):
+    try:
+        return json.loads(req_str(name))
+    except json.decoder.JSONDecodeError as e:
+        raise BadRequest(f"Problem parsing the field {name} as JSON: {e}")
 
 
 def req_date(prefix, resolution="minute"):
@@ -97,6 +132,13 @@ def req_file(name):
         return request.files[name]
     except KeyError:
         raise BadRequest(f"The file {name} is required.")
+
+
+def req_markdown(name):
+    md = MarkdownIt()
+    markdown = req_str(name)
+    md.parse(markdown)
+    return markdown
 
 
 def prev_hh(dt):
@@ -164,7 +206,7 @@ def parse_hh_start(start_date_str):
 
 
 def parse_mpan_core(mcore):
-    mcore = mcore.strip().replace(" ", "")
+    mcore = "".join(c for c in mcore if not c.isspace())
     if len(mcore) != 13:
         raise BadRequest(f"The MPAN core '{mcore}' must contain exactly 13 digits.")
 

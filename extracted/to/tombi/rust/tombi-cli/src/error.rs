@@ -2,18 +2,26 @@ use std::path::PathBuf;
 
 use nu_ansi_term::Style;
 use tombi_diagnostic::{
-    printer::{Pretty, Simple},
     Level, Print,
+    printer::{Pretty, Simple},
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     NotFormatted(#[from] NotFormattedError),
+
     #[error(transparent)]
     TombiGlob(#[from] tombi_glob::Error),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error("stdin failed to parse")]
+    StdinParseFailed,
+
+    #[error("{0:?} failed to parse")]
+    FileParseFailed(PathBuf),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -60,14 +68,22 @@ impl std::fmt::Display for NotFormattedError {
 }
 
 impl Print<Pretty> for Error {
-    fn print(&self, _printer: &mut Pretty) {
-        self.print(&mut Simple);
+    fn print(&self, printer: &mut Pretty) {
+        self.print(&mut Simple {
+            use_ansi_color: printer.use_ansi_color,
+        });
     }
 }
 
 impl Print<Simple> for Error {
     fn print(&self, printer: &mut Simple) {
+        let message_style = if printer.use_ansi_color {
+            Style::new().bold()
+        } else {
+            Style::new()
+        };
+
         Level::ERROR.print(printer);
-        println!(": {}", Style::new().bold().paint(self.to_string()));
+        println!(": {}", message_style.paint(self.to_string()));
     }
 }

@@ -8,6 +8,7 @@ on:
     branches: [main]
 
 env:
+  CIBW_ENABLE: pypy
   CIBW_TEST_REQUIRES: "sympy pytest"
   CIBW_TEST_COMMAND: pytest {package}/tests -v
 
@@ -43,32 +44,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 runners are still x86_64, macos-14 (latest) are arm64; we want to build
-        # the x86_64 wheel on/for x86_64 macs
-        os: [macos-13, windows-latest]
+        # macos-15-intel is x86_64; macos-latest is arm64
+        os: [macos-15-intel, windows-latest]
         arch: [auto64]
         build: ["*"]
         skip: ["pp*"]
         include:
-          # the manylinux1 docker images only contain from python3.6 to 3.9
-          - os: ubuntu-latest
-            type: manylinux1
-            arch: auto64
-            build: "cp{36,37,38,39}-manylinux*"
-            CIBW_MANYLINUX_X86_64_IMAGE: manylinux1
-            CIBW_MANYLINUX_I686_IMAGE: manylinux1
-          # the manylinux2010 image also contains python 3.10
-          - os: ubuntu-latest
-            arch: auto64
-            type: manylinux2010
-            build: "pp37-manylinux* pp38-manylinux* cp310-manylinux*"
-            CIBW_MANYLINUX_X86_64_IMAGE: manylinux2010
-            CIBW_MANYLINUX_I686_IMAGE: manylinux2010
-          # the manylinux2014 image also contains pypy3.9, and CPython 3.11, 3.12 and 3.13
+          # the manylinux2014 image also contains pypy3.9, and CPython 3.10-3.14
           - os: ubuntu-latest
             arch: auto64
             type: manylinux2014
-            build: "pp39-manylinux* cp311-manylinux* cp312-manylinux* cp313-manylinux*"
+            build: "pp311-manylinux* cp310-manylinux* cp311-manylinux* cp312-manylinux* cp313-manylinux* cp314-manylinux*"
             CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
             CIBW_MANYLINUX_I686_IMAGE: manylinux2014
 
@@ -105,31 +91,26 @@ jobs:
         name: wheels-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.type }}
 
   build_arch_wheels:
-    name: py${{ matrix.python }} on ${{ matrix.arch }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # aarch64 uses qemu so it's slow, build each py version in parallel jobs
-        python: [36, 37, 38, 39, 310, 311, 312, 313]
-        arch: [aarch64]
+    name: Build wheels on Linux ARM64
+    runs-on: ubuntu-24.04-arm
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - uses: docker/setup-qemu-action@v1.2.0
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        platforms: all
+        python-version: "3.x"
     - name: Install dependencies
       run: pip install cibuildwheel
     - name: Build Wheels
       run: python -m cibuildwheel --output-dir wheelhouse .
       env:
-        CIBW_BUILD: cp${{ matrix.python }}-manylinux*
-        CIBW_ARCHS: ${{ matrix.arch }}
+        CIBW_BUILD: "cp310-manylinux* cp311-manylinux* cp312-manylinux* cp313-manylinux* cp314-manylinux*"
     - uses: actions/upload-artifact@v4
       with:
         path: wheelhouse/*.whl
-        name: wheels-${{ matrix.arch }}-${{ matrix.python }}
+        name: wheels-linux-arm64
 
   deploy:
     name: Upload if tagged commit
@@ -137,6 +118,9 @@ jobs:
     # but only if all build jobs completed successfully
     needs: [build_wheels, build_arch_wheels, build_sdist]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -176,7 +160,5 @@ jobs:
         draft: false
         prerelease: ${{ env.IS_PRERELEASE }}
 
-    - uses: pypa/gh-action-pypi-publish@v1.4.2
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_PASSWORD }}
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

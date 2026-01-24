@@ -237,8 +237,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         libc=None,
         use_event_loop=None,
         telemetry=None,
+        exception_factory=None,
     ):
-
         if isinstance(family, str):
             family = NlProtosFile().get_rt_id(family)
 
@@ -280,6 +280,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         self.marshal = self.marshal_class()
         self.request_proxy = None
         self.batch = None
+        self.exception_factory = exception_factory
 
     async def setup_endpoint(self):
         if getattr(self.local, 'transport', None) is not None:
@@ -468,9 +469,14 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         terminate=None,
         callback=None,
         parser=None,
+        exception_factory=None,
     ):
         request = NetlinkRequest(
-            self, msg, terminate=terminate, callback=callback
+            self,
+            msg,
+            terminate=terminate,
+            callback=callback,
+            exception_factory=exception_factory,
         )
         request.msg['header']['type'] = msg_type
         request.msg['header']['flags'] = msg_flags
@@ -506,6 +512,7 @@ class NetlinkRequest:
         msg_flags=None,
         msg_seq=None,
         msg_pid=None,
+        exception_factory=None,
     ):
         self.sock = sock
         self.addr_pool = sock.addr_pool
@@ -513,6 +520,9 @@ class NetlinkRequest:
         self.epid = sock.epid if msg_pid is None else msg_pid
         self.marshal = sock.marshal
         self.parser = parser
+        self.exception_factory = exception_factory or getattr(
+            sock, "exception_factory", None
+        )
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
@@ -648,6 +658,7 @@ class NetlinkRequest:
             msg_seq=self.msg_seq,
             terminate=self.terminate,
             callback=self.callback,
+            exception_factory=self.exception_factory,
         )
         try:
             async for msg in coro:
@@ -669,7 +680,6 @@ class NetlinkRequest:
 
 
 class NetlinkSocket(SyncAPI):
-
     async_class = AsyncNetlinkSocket
 
     def __init__(
@@ -783,7 +793,6 @@ class NetlinkSocket(SyncAPI):
         return tuple(ret)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-
         async def collect_data():
             return [
                 i

@@ -56,12 +56,6 @@ class AssistantFileModel(ModelNormal):
     """
 
     allowed_values = {
-        ('status',): {
-            'PROCESSING': "Processing",
-            'AVAILABLE': "Available",
-            'DELETING': "Deleting",
-            'PROCESSINGFAILED': "ProcessingFailed",
-        },
     }
 
     validations = {

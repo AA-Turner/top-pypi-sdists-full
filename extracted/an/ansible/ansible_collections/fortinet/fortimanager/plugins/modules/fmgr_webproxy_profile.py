@@ -16,7 +16,6 @@ short_description: Configure web proxy profiles.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -225,6 +227,10 @@ options:
                     - 'pass'
                     - 'add'
                     - 'remove'
+            max_cache_object_size:
+                aliases: ['max-cache-object-size']
+                type: int
+                description: Max cache object size.
 '''
 
 EXAMPLES = '''
@@ -240,8 +246,8 @@ EXAMPLES = '''
     - name: Configure web proxy profiles.
       fortinet.fortimanager.fmgr_webproxy_profile:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -270,6 +276,7 @@ EXAMPLES = '''
           # log_header_change: <value in [disable, enable]>
           # strip_encoding: <value in [disable, enable]>
           # header_x_forwarded_client_cert: <value in [pass, add, remove]>
+          # max_cache_object_size: <integer>
 '''
 
 RETURN = '''
@@ -326,6 +333,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webproxy_profile': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -365,7 +373,8 @@ def main():
                 'log-header-change': {'choices': ['disable', 'enable'], 'type': 'str'},
                 'name': {'required': True, 'type': 'str'},
                 'strip-encoding': {'choices': ['disable', 'enable'], 'type': 'str'},
-                'header-x-forwarded-client-cert': {'v_range': [['7.0.1', '']], 'choices': ['pass', 'add', 'remove'], 'type': 'str'}
+                'header-x-forwarded-client-cert': {'v_range': [['7.0.1', '']], 'choices': ['pass', 'add', 'remove'], 'type': 'str'},
+                'max-cache-object-size': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'int'}
             }
         }
     }

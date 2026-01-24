@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import abc
 import hashlib
+import inspect
 import json
-import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
@@ -124,8 +124,10 @@ class ComponentBase(ABC, metaclass=ComponentMeta):
 
     @classmethod
     def get_component_class_id(cls) -> str:
-        module_name = cls.__module__
-        module_path = sys.modules[module_name].__file__
+        try:
+            module_path = inspect.getfile(cls)
+        except TypeError:
+            module_path = cls.__module__
         module_hash = hashlib.sha256(
             f"{cls.__name__}_{module_path}".encode()
         ).hexdigest()
@@ -168,6 +170,7 @@ class Component(ComponentBase, Block):
         every: Timer | float | None = None,
         inputs: Component | Sequence[Component] | set[Component] | None = None,
     ):
+        self._api_info_cache = None
         self.server_fns = [
             getattr(self, value)
             for value in dir(self.__class__)
@@ -250,8 +253,8 @@ class Component(ComponentBase, Block):
     TEMPLATE_DIR = DeveloperPath("./templates/")
     FRONTEND_DIR = "../../frontend/"
 
-    def get_config(self):
-        config = super().get_config()
+    def get_config(self, cls: type[Block] | None = None) -> dict[str, Any]:
+        config = super().get_config(cls)
         if self.info:
             config["info"] = self.info
         if len(self.server_fns):
@@ -340,10 +343,13 @@ class Component(ComponentBase, Block):
         The typing information for this component as a dictionary whose values are a list of 2 strings: [Python type, language-agnostic description].
         Keys of the dictionary are: raw_input, raw_output, serialized_input, serialized_output
         """
+        if self._api_info_cache is not None:
+            return self._api_info_cache
         if self.data_model is not None:
             schema = self.data_model.model_json_schema()
             desc = schema.pop("description", None)
             schema["additional_description"] = desc
+            self._api_info_cache = schema
             return schema
         raise NotImplementedError(
             f"The api_info method has not been implemented for {self.get_block_name()}"
@@ -467,9 +473,9 @@ def get_component_instance(
     if isinstance(comp, str):
         component_obj = component(comp, render=render)
     elif isinstance(comp, dict):
-        name = comp.pop("name")
+        name = comp.pop("name")  # type: ignore
         component_cls = utils.component_or_layout_class(name)
-        component_obj = component_cls(**comp, render=render)
+        component_obj = component_cls(**comp, render=render)  # type: ignore
         if isinstance(component_obj, BlockContext):
             raise ValueError(f"Invalid component: {name}")
     elif isinstance(comp, Component):

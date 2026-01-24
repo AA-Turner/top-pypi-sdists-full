@@ -1,30 +1,29 @@
+from __future__ import annotations
+
 import random
 import re
 import string
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
-from uuid import UUID
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Self
 
 from sigma import exceptions as sigma_exceptions
 from sigma.correlations import SigmaCorrelationRule, SigmaRuleReference
-from sigma.exceptions import SigmaRuleLocation
-from sigma.rule import (
-    SigmaLogSource,
-    SigmaDetections,
-    SigmaDetection,
-    SigmaRule,
-    SigmaRuleBase,
-)
+from sigma.rule import SigmaDetection, SigmaDetections, SigmaLogSource, SigmaRule, SigmaRuleBase
+
+if TYPE_CHECKING:
+    from sigma.exceptions import SigmaRuleLocation
 
 
 @dataclass
 class SigmaGlobalFilter(SigmaDetections):
-    rules: List[SigmaRuleReference] = field(default_factory=list)
+    rules: list[SigmaRuleReference] | str = field(default_factory=list)
 
     @classmethod
     def from_dict(
-        cls, detections: dict, source: Optional[SigmaRuleLocation] = None
-    ) -> "SigmaGlobalFilter":
+        cls: type[Self], detections: dict[str, Any], source: SigmaRuleLocation | None = None
+    ) -> Self:
         try:
             if isinstance(detections["condition"], str):
                 condition = [detections["condition"]]
@@ -38,18 +37,30 @@ class SigmaGlobalFilter(SigmaDetections):
             )
 
         try:
-            if isinstance(detections["rules"], list):
-                rules = [SigmaRuleReference(detection) for detection in detections["rules"]]
-            elif isinstance(detections["rules"], str):
-                rules = [SigmaRuleReference(detections["rules"])]
+            rules: list[SigmaRuleReference] | str
+            if isinstance(detections["rules"], str):
+                # Check if it's "any" keyword
+                if detections["rules"].lower() == "any":
+                    rules = detections["rules"].lower()
+                else:
+                    # Single rule reference
+                    rules = [SigmaRuleReference(detections["rules"])]
+            elif isinstance(detections["rules"], list):
+                # Empty list is treated as "any"
+                if not detections["rules"]:
+                    rules = "any"
+                else:
+                    rules = [SigmaRuleReference(detection) for detection in detections["rules"]]
             else:
                 raise sigma_exceptions.SigmaFilterRuleReferenceError(
-                    "Sigma filter rules field must be a list of Sigma rule IDs or rule names",
+                    "Sigma filter rules field must be 'any', a rule ID/name, or a list of rule IDs/names",
                     source=source,
                 )
         except KeyError:
+            # Rules field is required - must explicitly specify "any" or specific rule references
             raise sigma_exceptions.SigmaFilterRuleReferenceError(
-                "Sigma filter must contain at least a rules section", source=source
+                "Sigma filter must have a 'rules' field (use 'any' to apply to all rules matching the logsource)",
+                source=source,
             )
 
         return cls(
@@ -67,11 +78,15 @@ class SigmaGlobalFilter(SigmaDetections):
             source=source,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self: Self) -> dict[str, Any]:
         d = super().to_dict()
         d.update(
             {
-                "rules": self.rules,
+                "rules": (
+                    self.rules
+                    if isinstance(self.rules, str)
+                    else [ref.reference for ref in self.rules]
+                ),
             }
         )
 
@@ -85,22 +100,23 @@ class SigmaFilter(SigmaRuleBase):
     """
 
     logsource: SigmaLogSource = field(default_factory=SigmaLogSource)
-    filter: SigmaGlobalFilter = field(default_factory=SigmaGlobalFilter)
+    filter: SigmaGlobalFilter = field(
+        default_factory=lambda: SigmaGlobalFilter({}, []),
+    )
 
     @classmethod
     def from_dict(
-        cls,
-        sigma_filter: dict,
+        cls: type[Self],
+        sigma_filter: dict[str, Any],
         collect_errors: bool = False,
-        source: Optional[SigmaRuleLocation] = None,
-    ) -> "SigmaFilter":
+        source: SigmaRuleLocation | None = None,
+    ) -> Self:
         """
         Converts from a dictionary object to a SigmaFilter object.
         """
-        kwargs, errors = super().from_dict(sigma_filter, collect_errors, source)
+        kwargs, errors = super().from_dict_common_params(sigma_filter, collect_errors, source)
 
         # parse log source
-        filter_logsource = None
         try:
             filter_logsource = SigmaLogSource.from_dict(sigma_filter["logsource"], source)
         except KeyError:
@@ -119,7 +135,6 @@ class SigmaFilter(SigmaRuleBase):
             errors.append(e)
 
         # parse detections
-        filter_global_filter = None
         try:
             filter_global_filter = SigmaGlobalFilter.from_dict(sigma_filter["filter"], source)
         except KeyError:
@@ -147,7 +162,7 @@ class SigmaFilter(SigmaRuleBase):
             **kwargs,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self: Self) -> dict[str, Any]:
         """Convert filter object into dict."""
         d = super().to_dict()
         d.update(
@@ -159,11 +174,23 @@ class SigmaFilter(SigmaRuleBase):
 
         return d
 
-    def _should_apply_on_rule(self, rule: Union[SigmaRule, SigmaCorrelationRule]) -> bool:
+    def _should_apply_on_rule(self: Self, rule: SigmaRule | SigmaCorrelationRule) -> bool:
         from sigma.collection import SigmaCollection
 
-        if not self.filter.rules:
+        # Don't apply filters to correlation rules
+        if isinstance(rule, SigmaCorrelationRule):
             return False
+
+        # Check if logsource matches
+        if rule.logsource not in self.logsource:
+            return False
+
+        # If rules is "any", apply to all rules matching the logsource
+        if isinstance(self.filter.rules, str) and self.filter.rules.lower() == "any":
+            return True
+
+        # At this point, rules must be a list (not a string)
+        assert isinstance(self.filter.rules, list)
 
         # For each rule ID/title in the filter.rules, add the rule to the reference using the resolve method,
         # then filter each reference to see if the rule is in the reference
@@ -174,18 +201,15 @@ class SigmaFilter(SigmaRuleBase):
             except sigma_exceptions.SigmaRuleNotFoundError:
                 pass
 
-        if all([match is None for match in matches]):
-            return False
-
-        if rule.logsource not in self.logsource:
+        if not matches:
             return False
 
         return True
 
     def apply_on_rule(
-        self, rule: Union[SigmaRule, SigmaCorrelationRule]
-    ) -> Union[SigmaRule, SigmaCorrelationRule]:
-        if not self._should_apply_on_rule(rule):
+        self: Self, rule: SigmaRule | SigmaCorrelationRule
+    ) -> SigmaRule | SigmaCorrelationRule:
+        if not self._should_apply_on_rule(rule) or isinstance(rule, SigmaCorrelationRule):
             return rule
 
         filter_condition = self.filter.condition[0]
@@ -200,10 +224,15 @@ class SigmaFilter(SigmaRuleBase):
             )
             rule.detection.detections[cond_name] = condition
 
-        for i, condition in enumerate(rule.detection.condition):
-            rule.detection.condition[i] = f"({condition}) and " + f"({filter_condition})"
+        for i, condition_str in enumerate(rule.detection.condition):
+            rule.detection.condition[i] = f"({condition_str}) and " + f"({filter_condition})"
 
         # Reparse the rule to update the parsed conditions
         rule.detection.__post_init__()
 
         return rule
+
+    @classmethod
+    def from_yaml(cls: type[Self], rule: str, collect_errors: bool = False) -> Self:
+        """Convert YAML input string with single document into SigmaFilter object."""
+        return super().from_yaml(rule, collect_errors)

@@ -25,26 +25,23 @@ jobs:
       # Select full matrix when scheduled or when releasing, and normal matrix
       # otherwise. The matrix is defined as a JSON string.
       # TODO: Find a way to define this with less escapes.
-      # TODO: Python 3.13 was pinned to 3.13.0 to work around a pylint issue
-      #       https://github.com/pylint-dev/pylint/issues/10112 on Python 3.13.1.
-      #       Remove that pinning again when it is fixed.
       run: |
         if [[ "${{ github.event_name }}" == "schedule" || "${{ github.head_ref }}" =~ ^release_ ]]; then \
           echo "matrix={ \
             \"os\": [ \"ubuntu-latest\", \"macos-latest\", \"windows-latest\" ], \
-            \"python-version\": [ \"3.8\", \"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13.0\" ], \
+            \"python-version\": [ \"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\", \"3.14\" ], \
             \"package_level\": [ \"minimum\", \"latest\" ] \
           }" >> $GITHUB_OUTPUT; \
         else \
           echo "matrix={ \
             \"os\": [ \"ubuntu-latest\" ], \
-            \"python-version\": [ \"3.8\", \"3.13.0\" ], \
+            \"python-version\": [ \"3.9\", \"3.14\" ], \
             \"package_level\": [ \"minimum\", \"latest\" ], \
             \"include\": [ \
               { \
                 \"os\": \"ubuntu-latest\", \
-                \"python-version\": \"3.10\", \
-                \"package_level\": \"minimum\" \
+                \"python-version\": \"3.9\", \
+                \"package_level\": \"latest\" \
               }, \
               { \
                 \"os\": \"ubuntu-latest\", \
@@ -53,27 +50,22 @@ jobs:
               }, \
               { \
                 \"os\": \"macos-latest\", \
-                \"python-version\": \"3.8\", \
+                \"python-version\": \"3.9\", \
                 \"package_level\": \"latest\" \
               }, \
               { \
                 \"os\": \"macos-latest\", \
-                \"python-version\": \"3.11\", \
-                \"package_level\": \"latest\" \
-              }, \
-              { \
-                \"os\": \"macos-latest\", \
-                \"python-version\": \"3.13.0\", \
+                \"python-version\": \"3.14\", \
                 \"package_level\": \"minimum\" \
               }, \
               { \
                 \"os\": \"windows-latest\", \
-                \"python-version\": \"3.8\", \
+                \"python-version\": \"3.9\", \
                 \"package_level\": \"latest\" \
               }, \
               { \
                 \"os\": \"windows-latest\", \
-                \"python-version\": \"3.13.0\", \
+                \"python-version\": \"3.14\", \
                 \"package_level\": \"minimum\" \
               } \
             ] \
@@ -208,8 +200,12 @@ jobs:
         COVERALLS_SERVICE_NAME: github
         COVERALLS_SERVICE_JOB_ID: "${{ github.run_id }}"
         COVERALLS_SERVICE_NUMBER: "${{ github.workflow }}-${{ github.run_number }}"
-      run: |
-        coveralls
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 30
+        max_attempts: 3
+        retry_wait_seconds: 15
+        command: coveralls
     - name: Run installtest
       env:
         PACKAGE_LEVEL: ${{ matrix.package_level }}
@@ -241,5 +237,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_SERVICE_NUMBER: "${{ github.workflow }}-${{ github.run_number }}"
-      run: |
-        coveralls --finish
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 30
+        max_attempts: 3
+        retry_wait_seconds: 15
+        command: coveralls --finish

@@ -139,6 +139,7 @@ IS_MP3_SUPPORTED = True
 TORCHCODEC_AVAILABLE = importlib.util.find_spec("torchcodec") is not None
 TORCHVISION_AVAILABLE = importlib.util.find_spec("torchvision") is not None
 PDFPLUMBER_AVAILABLE = importlib.util.find_spec("pdfplumber") is not None
+NIBABEL_AVAILABLE = importlib.util.find_spec("nibabel") is not None
 
 # Optional compression tools
 RARFILE_AVAILABLE = importlib.util.find_spec("rarfile") is not None
@@ -165,6 +166,9 @@ DOWNLOADED_DATASETS_PATH = Path(os.getenv("HF_DATASETS_DOWNLOADED_DATASETS_PATH"
 EXTRACTED_DATASETS_DIR = "extracted"
 DEFAULT_EXTRACTED_DATASETS_PATH = os.path.join(DEFAULT_DOWNLOADED_DATASETS_PATH, EXTRACTED_DATASETS_DIR)
 EXTRACTED_DATASETS_PATH = Path(os.getenv("HF_DATASETS_EXTRACTED_DATASETS_PATH", DEFAULT_EXTRACTED_DATASETS_PATH))
+
+# Cached dataset info options
+SAVE_ORIGINAL_SHARD_LENGTHS = False
 
 # Download count for the website
 HF_UPDATE_DOWNLOAD_COUNTS = (
@@ -247,6 +251,10 @@ TEMP_CACHE_DIR_PREFIX = "hf_datasets-"
 # Streaming
 STREAMING_READ_MAX_RETRIES = 20
 STREAMING_READ_RETRY_INTERVAL = 5
+STREAMING_READ_SERVER_UNAVAILABLE_RETRY_INTERVAL = 20
+STREAMING_READ_RATE_LIMIT_RETRY_INTERVAL = 60
+STREAMING_OPEN_MAX_RETRIES = 20
+STREAMING_OPEN_RETRY_INTERVAL = 5
 
 # Datasets repositories exploration
 DATA_FILES_MAX_NUMBER_FOR_MODULE_INFERENCE = 200

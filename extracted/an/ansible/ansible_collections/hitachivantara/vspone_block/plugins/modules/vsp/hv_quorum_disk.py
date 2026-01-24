@@ -52,10 +52,14 @@ options:
     suboptions:
       id:
         description: Quorum Disk ID, it will be auto-selected if omitted.
+          Optional for the Register Quorum Disk task.
+          Required for the Deregister Quorum Disk task.
         type: int
         required: false
       remote_storage_serial_number:
         description: The remote storage serial number to register.
+          Optional for the Register Quorum Disk task.
+          Required for the Register ldev-less Quorum Disk and auto select free id task.
         type: str
         required: false
       remote_storage_type:
@@ -64,14 +68,16 @@ options:
           M8: VSP One B20, VSP E series, VSP Gx00 models or VSP Fx00 models.
           R8: VSP G1000, VSP G1500, or VSP F1500.
           R9: VSP 5000 series.
+          Optional for the Register Quorum Disk task.
+          Required for the Register ldev-less Quorum Disk and auto select free id task.
         type: str
-        choices: ['M8', 'R8', 'R9']
+        choices: ['M8', 'R8', 'R9', 'RH20ETP']
         required: false
       ldev_id:
         description: Local LDEV ID for the external volume.
-        type: int
+          Required for the Register Quorum Disk task.
+        type: str
         required: false
-
 """
 
 EXAMPLES = """
@@ -103,6 +109,10 @@ quorum_disk:
       description: Local volume LDEV ID.
       type: int
       sample: 123
+    ldev_id_hex:
+      description: Local volume LDEV ID in Hexadecimal.
+      type: str
+      sample: "00:00:7B"
     read_response_guaranteed_time:
       description: Copy pace track size.
       type: int

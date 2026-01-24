@@ -13,8 +13,10 @@
 # limitations under the License.
 
 """RNN modules for Flax."""
-
+import warnings
 from typing import Any, TypeVar
+from collections.abc import Mapping
+from types import MappingProxyType
 from collections.abc import Mapping
 from collections.abc import Callable
 from functools import partial
@@ -27,16 +29,12 @@ import jax.numpy as jnp
 from flax import nnx
 from flax.nnx import filterlib, rnglib
 from flax.nnx.module import Module
-from flax.nnx.nn import initializers
+from flax.nnx.nn import initializers, dtypes
 from flax.nnx.nn.linear import Linear
 from flax.nnx.nn.activations import sigmoid
 from flax.nnx.nn.activations import tanh
 from flax.nnx.transforms import iteration
-from flax.typing import (
-    Dtype,
-    Initializer,
-    Shape
-)
+from flax.typing import Dtype, Initializer, PromoteDtypeFn, Shape
 
 default_kernel_init = initializers.lecun_normal()
 default_bias_init = initializers.zeros_init()
@@ -53,12 +51,14 @@ class RNNCellBase(Module):
       self,
       input_shape: tuple[int, ...],
       rngs: rnglib.Rngs | rnglib.RngStream | None = None,
+      carry_init: Initializer | None = None,
     ) -> Carry:
         """Initialize the RNN cell carry.
 
         Args:
-          rng: random number generator passed to the init_fn.
           input_shape: a tuple providing the shape of the input to the cell.
+          rngs: random number generator passed to the init_fn.
+          carry_init: optional carry initializer.
 
         Returns:
           An initialized carry for the given RNN cell.
@@ -123,25 +123,26 @@ class LSTMCell(RNNCellBase):
     bias_init: Initializer = initializers.zeros_init(),
     dtype: Dtype | None = None,
     param_dtype: Dtype = jnp.float32,
-    carry_init: Initializer = initializers.zeros_init(),
+    carry_init: Initializer | None = None,
+    promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     keep_rngs: bool = False,
     rngs: rnglib.Rngs,
+    kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    recurrent_kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    bias_metadata: Mapping[str, Any] = MappingProxyType({}),
   ):
     self.in_features = in_features
     self.hidden_features = hidden_features
     self.gate_fn = gate_fn
     self.activation_fn = activation_fn
-    self.kernel_init = kernel_init
-    self.recurrent_kernel_init = recurrent_kernel_init
-    self.bias_init = bias_init
     self.dtype = dtype
     self.param_dtype = param_dtype
-    self.carry_init = carry_init
+    self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
       self.rngs = rngs.carry.fork()
     else:
-      self.rngs = None
+      self.rngs = nnx.data(None)
 
     # input and recurrent layers are summed so only one needs a bias.
     dense_i = partial(
@@ -149,10 +150,12 @@ class LSTMCell(RNNCellBase):
       in_features=in_features,
       out_features=hidden_features,
       use_bias=False,
-      kernel_init=self.kernel_init,
+      kernel_init=kernel_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=kernel_metadata,
     )
 
     dense_h = partial(
@@ -160,11 +163,14 @@ class LSTMCell(RNNCellBase):
       in_features=hidden_features,
       out_features=hidden_features,
       use_bias=True,
-      kernel_init=self.recurrent_kernel_init,
-      bias_init=self.bias_init,
+      kernel_init=recurrent_kernel_init,
+      bias_init=bias_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=recurrent_kernel_metadata,
+      bias_metadata=bias_metadata,
     )
 
     self.ii = dense_i()
@@ -175,6 +181,16 @@ class LSTMCell(RNNCellBase):
     self.hf = dense_h()
     self.hg = dense_h()
     self.ho = dense_h()
+
+    if carry_init:
+      warnings.warn(
+        "carry_init is provided in __init__. "
+        "Please, use carry_init argument in `initialize_carry` method instead to initialize the carry. "
+        "Otherwise, two instances with same configuration but different carry_init "
+        "functions will have different graphdefs."
+      )
+
+    self.carry_init = carry_init
 
   def __call__(
     self, carry: tuple[Array, Array], inputs: Array
@@ -203,6 +219,7 @@ class LSTMCell(RNNCellBase):
     self,
     input_shape: tuple[int, ...],
     rngs: rnglib.Rngs | rnglib.RngStream | None = None,
+    carry_init: Initializer | None = None,
   ) -> tuple[Array, Array]:  # type: ignore[override]
     """Initialize the RNN cell carry.
 
@@ -220,9 +237,15 @@ class LSTMCell(RNNCellBase):
     if rngs is None:
       raise ValueError('RNGs must be provided to initialize the cell carry.')
 
+    if self.carry_init is None and carry_init is None:
+      carry_init = initializers.zeros_init()
+    elif carry_init is None:
+      carry_init = self.carry_init
+    assert carry_init is not None  # just to please mypy
+
     mem_shape = batch_dims + (self.hidden_features,)
-    c = self.carry_init(rngs(), mem_shape, self.param_dtype)
-    h = self.carry_init(rngs(), mem_shape, self.param_dtype)
+    c = carry_init(rngs(), mem_shape, self.param_dtype)
+    h = carry_init(rngs(), mem_shape, self.param_dtype)
     return (c, h)
 
   @property
@@ -264,6 +287,17 @@ class OptimizedLSTMCell(RNNCellBase):
         bias_init: initializer for the bias parameters (default: initializers.zeros_init()).
         dtype: the dtype of the computation (default: infer from inputs and params).
         param_dtype: the dtype passed to parameter initializers (default: float32).
+        keep_rngs: whether to store the input rngs as attribute (i.e. `self.rngs = rngs`)
+          (default: True). If rngs is stored, we should split the module as
+          `graphdef, params, nondiff = nnx.split(module, nnx.Param, ...)` where `nondiff`
+          contains RNG object associated with stored `self.rngs`.
+        rngs: rng key.
+        kernel_metadata: Optional metadata dictionary to set when initializing
+          the kernels that transform the input.
+        recurrent_kernel_metadata: Optional metadata dictionary to set when initializing
+          the kernels that transform the hidden state.
+        bias_metadata: Optional metadata dictionary to set when initializing
+          the bias of layers that transform the hidden state.
     """
 
   def __init__(
@@ -278,47 +312,63 @@ class OptimizedLSTMCell(RNNCellBase):
     bias_init: Initializer = initializers.zeros_init(),
     dtype: Dtype | None = None,
     param_dtype: Dtype = jnp.float32,
-    carry_init: Initializer = initializers.zeros_init(),
+    carry_init: Initializer | None = None,
+    promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     keep_rngs: bool = False,
     rngs: rnglib.Rngs,
+    kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    recurrent_kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    bias_metadata: Mapping[str, Any] = MappingProxyType({}),
   ):
     self.in_features = in_features
     self.hidden_features = hidden_features
     self.gate_fn = gate_fn
     self.activation_fn = activation_fn
-    self.kernel_init = kernel_init
-    self.recurrent_kernel_init = recurrent_kernel_init
-    self.bias_init = bias_init
     self.dtype = dtype
     self.param_dtype = param_dtype
-    self.carry_init = carry_init
+    self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
       self.rngs = rngs.carry.fork()
     else:
-      self.rngs = None
+      self.rngs = nnx.data(None)
 
     # input and recurrent layers are summed so only one needs a bias.
     self.dense_i = Linear(
       in_features=in_features,
       out_features=4 * hidden_features,
       use_bias=False,
-      kernel_init=self.kernel_init,
+      kernel_init=kernel_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=kernel_metadata,
     )
 
     self.dense_h = Linear(
       in_features=hidden_features,
       out_features=4 * hidden_features,
       use_bias=True,
-      kernel_init=self.recurrent_kernel_init,
-      bias_init=self.bias_init,
+      kernel_init=recurrent_kernel_init,
+      bias_init=bias_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=recurrent_kernel_metadata,
+      bias_metadata=bias_metadata,
     )
+
+    if carry_init:
+      warnings.warn(
+        "carry_init is provided in __init__. "
+        "Please, use carry_init argument in `initialize_carry` method instead to initialize the carry. "
+        "Otherwise, two instances with same configuration but different carry_init "
+        "functions will have different graphdefs."
+      )
+
+    self.carry_init = carry_init
 
   def __call__(
     self, carry: tuple[Array, Array], inputs: Array
@@ -357,6 +407,7 @@ class OptimizedLSTMCell(RNNCellBase):
     self,
     input_shape: tuple[int, ...],
     rngs: rnglib.Rngs | rnglib.RngStream | None = None,
+    carry_init: Initializer | None = None,
   ) -> tuple[Array, Array]:  # type: ignore[override]
     """Initialize the RNN cell carry.
 
@@ -375,8 +426,15 @@ class OptimizedLSTMCell(RNNCellBase):
     if rngs is None:
       raise ValueError('RNGs must be provided to initialize the cell carry.')
     mem_shape = batch_dims + (self.hidden_features,)
-    c = self.carry_init(rngs(), mem_shape, self.param_dtype)
-    h = self.carry_init(rngs(), mem_shape, self.param_dtype)
+
+    if self.carry_init is None and carry_init is None:
+      carry_init = initializers.zeros_init()
+    elif carry_init is None:
+      carry_init = self.carry_init
+    assert carry_init is not None  # just to please mypy
+
+    c = carry_init(rngs(), mem_shape, self.param_dtype)
+    h = carry_init(rngs(), mem_shape, self.param_dtype)
     return (c, h)
 
   @property
@@ -413,30 +471,31 @@ class SimpleCell(RNNCellBase):
     *,
     dtype: Dtype = jnp.float32,
     param_dtype: Dtype = jnp.float32,
-    carry_init: Initializer = initializers.zeros_init(),
+    carry_init: Initializer | None = None,
     residual: bool = False,
     activation_fn: Callable[..., Any] = tanh,
     kernel_init: Initializer = initializers.lecun_normal(),
     recurrent_kernel_init: Initializer = initializers.orthogonal(),
     bias_init: Initializer = initializers.zeros_init(),
+    promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     keep_rngs: bool = False,
     rngs: rnglib.Rngs,
+    kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    recurrent_kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    bias_metadata: Mapping[str, Any] = MappingProxyType({}),
   ):
     self.in_features = in_features
     self.hidden_features = hidden_features
     self.dtype = dtype
     self.param_dtype = param_dtype
-    self.carry_init = carry_init
     self.residual = residual
     self.activation_fn = activation_fn
-    self.kernel_init = kernel_init
-    self.recurrent_kernel_init = recurrent_kernel_init
-    self.bias_init = bias_init
+    self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
       self.rngs = rngs.carry.fork()
     else:
-      self.rngs = None
+      self.rngs = nnx.data(None)
 
     # self.hidden_features = carry.shape[-1]
     # input and recurrent layers are summed so only one needs a bias.
@@ -446,8 +505,10 @@ class SimpleCell(RNNCellBase):
       use_bias=False,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
-      kernel_init=self.recurrent_kernel_init,
+      kernel_init=recurrent_kernel_init,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=recurrent_kernel_metadata,
     )
     self.dense_i = Linear(
       in_features=self.in_features,
@@ -455,10 +516,23 @@ class SimpleCell(RNNCellBase):
       use_bias=True,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
-      kernel_init=self.kernel_init,
-      bias_init=self.bias_init,
+      kernel_init=kernel_init,
+      bias_init=bias_init,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=kernel_metadata,
+      bias_metadata=bias_metadata,
     )
+
+    if carry_init:
+      warnings.warn(
+        "carry_init is provided in __init__. "
+        "Please, use carry_init argument in `initialize_carry` method instead to initialize the carry. "
+        "Otherwise, two instances with same configuration but different carry_init "
+        "functions will have different graphdefs."
+      )
+
+    self.carry_init = carry_init
 
   def __call__(self, carry: Array, inputs: Array) -> tuple[Array, Array]:  # type: ignore[override]
     new_carry = self.dense_i(inputs) + self.dense_h(carry)
@@ -471,6 +545,7 @@ class SimpleCell(RNNCellBase):
     self,
     input_shape: tuple[int, ...],
     rngs: rnglib.Rngs | rnglib.RngStream | None = None,
+    carry_init: Initializer | None = None,
   ) -> Array:  # type: ignore[override]
     """Initialize the RNN cell carry.
 
@@ -490,7 +565,14 @@ class SimpleCell(RNNCellBase):
 
     batch_dims = input_shape[:-1]
     mem_shape = batch_dims + (self.hidden_features,)
-    return self.carry_init(rngs(), mem_shape, self.param_dtype)
+
+    if self.carry_init is None and carry_init is None:
+      carry_init = initializers.zeros_init()
+    elif carry_init is None:
+      carry_init = self.carry_init
+    assert carry_init is not None  # just to please mypy
+
+    return carry_init(rngs(), mem_shape, self.param_dtype)
 
   @property
   def num_feature_axes(self) -> int:
@@ -526,6 +608,17 @@ class GRUCell(RNNCellBase):
         bias_init: initializer for the bias parameters (default: initializers.zeros_init()).
         dtype: the dtype of the computation (default: None).
         param_dtype: the dtype passed to parameter initializers (default: float32).
+        keep_rngs: whether to store the input rngs as attribute (i.e. `self.rngs = rngs`)
+          (default: True). If rngs is stored, we should split the module as
+          `graphdef, params, nondiff = nnx.split(module, nnx.Param, ...)` where `nondiff`
+          contains RNG object associated with stored `self.rngs`.
+        rngs: rng key.
+        kernel_metadata: Optional metadata dictionary to set when initializing
+          the kernels that transform the input.
+        recurrent_kernel_metadata: Optional metadata dictionary to set when initializing
+          the kernels that transform the hidden state.
+        bias_metadata: Optional metadata dictionary to set when initializing
+          the bias of layers that transform the input.
     """
 
   def __init__(
@@ -540,47 +633,63 @@ class GRUCell(RNNCellBase):
     bias_init: Initializer = initializers.zeros_init(),
     dtype: Dtype | None = None,
     param_dtype: Dtype = jnp.float32,
-    carry_init: Initializer = initializers.zeros_init(),
+    carry_init: Initializer | None = None,
+    promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     keep_rngs: bool = False,
     rngs: rnglib.Rngs,
+    kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    recurrent_kernel_metadata: Mapping[str, Any] = MappingProxyType({}),
+    bias_metadata: Mapping[str, Any] = MappingProxyType({}),
   ):
     self.in_features = in_features
     self.hidden_features = hidden_features
     self.gate_fn = gate_fn
     self.activation_fn = activation_fn
-    self.kernel_init = kernel_init
-    self.recurrent_kernel_init = recurrent_kernel_init
-    self.bias_init = bias_init
     self.dtype = dtype
     self.param_dtype = param_dtype
-    self.carry_init = carry_init
+    self.promote_dtype = promote_dtype
     self.rngs: rnglib.RngStream | None
     if keep_rngs:
       self.rngs = rngs.carry.fork()
     else:
-      self.rngs = None
+      self.rngs = nnx.data(None)
 
     # Combine input transformations into a single linear layer
     self.dense_i = Linear(
       in_features=in_features,
       out_features=3 * hidden_features,  # r, z, n
       use_bias=True,
-      kernel_init=self.kernel_init,
-      bias_init=self.bias_init,
+      kernel_init=kernel_init,
+      bias_init=bias_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=kernel_metadata,
+      bias_metadata=bias_metadata,
     )
 
     self.dense_h = Linear(
       in_features=hidden_features,
       out_features=3 * hidden_features,  # r, z, n
       use_bias=False,
-      kernel_init=self.recurrent_kernel_init,
+      kernel_init=recurrent_kernel_init,
       dtype=self.dtype,
       param_dtype=self.param_dtype,
+      promote_dtype=self.promote_dtype,
       rngs=rngs,
+      kernel_metadata=recurrent_kernel_metadata,
     )
+
+    if carry_init:
+      warnings.warn(
+        "carry_init is provided in __init__. "
+        "Please, use carry_init argument in `initialize_carry` method instead to initialize the carry. "
+        "Otherwise, two instances with same configuration but different carry_init "
+        "functions will have different graphdefs."
+      )
+
+    self.carry_init = carry_init
 
   def __call__(self, carry: Array, inputs: Array) -> tuple[Array, Array]:  # type: ignore[override]
     """Gated recurrent unit (GRU) cell.
@@ -619,6 +728,7 @@ class GRUCell(RNNCellBase):
     self,
     input_shape: tuple[int, ...],
     rngs: rnglib.Rngs | rnglib.RngStream | None = None,
+    carry_init: Initializer | None = None,
   ) -> Array:  # type: ignore[override]
     """Initialize the RNN cell carry.
 
@@ -638,7 +748,14 @@ class GRUCell(RNNCellBase):
       raise ValueError('RNGs must be provided to initialize the cell carry.')
 
     mem_shape = batch_dims + (self.hidden_features,)
-    h = self.carry_init(rngs(), mem_shape, self.param_dtype)
+
+    if self.carry_init is None and carry_init is None:
+      carry_init = initializers.zeros_init()
+    elif carry_init is None:
+      carry_init = self.carry_init
+    assert carry_init is not None  # just to please mypy
+
+    h = carry_init(rngs(), mem_shape, self.param_dtype)
     return h
 
   @property
@@ -679,13 +796,13 @@ class RNN(Module):
     elif isinstance(rngs, rnglib.Rngs):
       self.rngs = rngs.carry.fork()
     elif rngs is False:
-      self.rngs = None
+      self.rngs = nnx.data(None)
     else:
       raise ValueError(
         'Expected rngs to be a jax.Array, int, Rngs, or bool. '
         f'Got {type(rngs)}.'
       )
-    self.state_axes = state_axes or {...: iteration.Carry}  # type: ignore
+    self.state_axes = state_axes or nnx.StateAxes({...: iteration.Carry})  # type: ignore
     self.broadcast_rngs = broadcast_rngs
 
   def __call__(

@@ -2,25 +2,25 @@ import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class FTRL(BaseOptimizer):
-    r"""Follow The Regularized Leader.
+    """Follow The Regularized Leader.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param lr_power: float. controls how the learning rate decreases during training. use zero for a fixed learning
-        rate.
-    :param beta: float. beta value in the paper.
-    :param lambda_1: float. L1 regularization parameter.
-    :param lambda_2: float. L2 regularization parameter.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        lr_power (float): Controls how the learning rate decreases during training. Use zero for a fixed learning rate.
+        beta (float): Beta value as described in the paper.
+        lambda_1 (float): L1 regularization parameter.
+        lambda_2 (float): L2 regularization parameter.
+        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
         lr_power: float = -0.5,
         beta: float = 0.0,
@@ -37,14 +37,17 @@ class FTRL(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'lr': lr, 'lr_power': lr_power, 'beta': beta, 'lambda_1': lambda_1, 'lambda_2': lambda_2}
+        defaults: Defaults = {'lr': lr, 'lr_power': lr_power, 'beta': beta, 'lambda_1': lambda_1, 'lambda_2': lambda_2}
 
         super().__init__(params, defaults)
 
     def __str__(self) -> str:
         return 'FTRL'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -60,18 +63,15 @@ class FTRL(BaseOptimizer):
                 state['n'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             for p in group['params']:
                 if p.grad is None:

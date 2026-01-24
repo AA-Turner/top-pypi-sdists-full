@@ -6,17 +6,19 @@ import platform
 import shutil
 import pytest
 from datetime import datetime
-from numba.core.utils import PYVERSION
-from numba.cuda.cuda_paths import get_conda_ctk
+from numba.cuda.utils import PYVERSION
+from numba.cuda.cuda_paths import get_conda_ctk_libdir
 from numba.cuda.cudadrv import driver, devices, libs
 from numba.cuda.dispatcher import CUDADispatcher
-from numba.core import config
+from numba.cuda import config
 from numba.cuda.tests.support import TestCase
 from pathlib import Path
 
 from typing import Iterable, Union
 from io import StringIO
 import unittest
+import numpy as np
+from numba.cuda import HAS_NUMBA
 
 if PYVERSION >= (3, 10):
     from filecheck.matcher import Matcher
@@ -31,10 +33,7 @@ test_data_dir = numba_cuda_dir / "tests" / "data"
 @pytest.mark.usefixtures("initialize_from_pytest_config")
 class CUDATestCase(TestCase):
     """
-    For tests that use a CUDA device. Test methods in a CUDATestCase must not
-    be run out of module order, because the ContextResettingTestCase may reset
-    the context and destroy resources used by a normal CUDATestCase if any of
-    its tests are run between tests from a CUDATestCase.
+    For tests that use a CUDA device.
 
     Methods assertFileCheckAsm and assertFileCheckLLVM will inspect a
     CUDADispatcher and assert that the compilation artifacts match the
@@ -43,6 +42,8 @@ class CUDATestCase(TestCase):
     Method assertFileCheckMatches can be used to assert that a given string
     matches FileCheck checks, and is not specific to CUDADispatcher.
     """
+
+    FLOAT16_RTOL = np.finfo(np.float16).eps
 
     def setUp(self):
         self._low_occupancy_warnings = config.CUDA_LOW_OCCUPANCY_WARNINGS
@@ -184,59 +185,69 @@ class CUDATestCase(TestCase):
             )
 
 
-class ContextResettingTestCase(CUDATestCase):
-    """
-    For tests where the context needs to be reset after each test. Typically
-    these inspect or modify parts of the context that would usually be expected
-    to be internal implementation details (such as the state of allocations and
-    deallocations, etc.).
-    """
-
-    def tearDown(self):
-        super().tearDown()
-        from numba.cuda.cudadrv.devices import reset
-
-        reset()
-
-
 def skip_on_cudasim(reason):
     """Skip this test if running on the CUDA simulator"""
+    assert isinstance(reason, str)
     return unittest.skipIf(config.ENABLE_CUDASIM, reason)
+
+
+skip_on_standalone_numba_cuda = unittest.skipUnless(
+    HAS_NUMBA, "requires base numba install"
+)
 
 
 def skip_unless_cudasim(reason):
     """Skip this test if running on CUDA hardware"""
+    assert isinstance(reason, str)
     return unittest.skipUnless(config.ENABLE_CUDASIM, reason)
 
 
 def skip_unless_conda_cudatoolkit(reason):
     """Skip test if the CUDA toolkit was not installed by Conda"""
-    return unittest.skipUnless(get_conda_ctk() is not None, reason)
+    assert isinstance(reason, str)
+    return unittest.skipUnless(get_conda_ctk_libdir() is not None, reason)
 
 
 def skip_if_external_memmgr(reason):
     """Skip test if an EMM Plugin is in use"""
+    assert isinstance(reason, str)
     return unittest.skipIf(config.CUDA_MEMORY_MANAGER != "default", reason)
 
 
 def skip_under_cuda_memcheck(reason):
+    assert isinstance(reason, str)
     return unittest.skipIf(os.environ.get("CUDA_MEMCHECK") is not None, reason)
 
 
 def skip_without_nvdisasm(reason):
+    assert isinstance(reason, str)
     nvdisasm_path = shutil.which("nvdisasm")
     return unittest.skipIf(nvdisasm_path is None, reason)
 
 
 def skip_with_nvdisasm(reason):
+    assert isinstance(reason, str)
     nvdisasm_path = shutil.which("nvdisasm")
     return unittest.skipIf(nvdisasm_path is not None, reason)
 
 
 def skip_on_arm(reason):
+    assert isinstance(reason, str)
     cpu = platform.processor()
     is_arm = cpu.startswith("arm") or cpu.startswith("aarch")
     return unittest.skipIf(is_arm, reason)
+
+
+def skip_on_wsl2(reason):
+    """Skip test when running under WSL2.
+
+    Detection is based on the kernel release string, which typically contains
+    "microsoft-standard-WSL2" on WSL2 systems.
+    """
+    assert isinstance(reason, str)
+    rel = platform.release().lower()
+    is_wsl2 = ("microsoft-standard-wsl2" in rel) or ("wsl2" in rel)
+    return unittest.skipIf(is_wsl2, reason)
 
 
 def skip_if_cuda_includes_missing(fn):
@@ -265,28 +276,6 @@ def skip_if_curand_kernel_missing(fn):
     return unittest.skipUnless(curand_kernel_h_file, reason)(fn)
 
 
-def skip_if_mvc_enabled(reason):
-    """Skip a test if Minor Version Compatibility is enabled"""
-    return unittest.skipIf(
-        config.CUDA_ENABLE_MINOR_VERSION_COMPATIBILITY, reason
-    )
-
-
-def skip_if_mvc_libraries_unavailable(fn):
-    libs_available = False
-    try:
-        import cubinlinker  # noqa: F401 # type: ignore
-        import ptxcompiler  # noqa: F401 # type: ignore
-
-        libs_available = True
-    except ImportError:
-        pass
-
-    return unittest.skipUnless(
-        libs_available, "Requires cubinlinker and ptxcompiler"
-    )(fn)
-
-
 def cc_X_or_above(major, minor):
     if not config.ENABLE_CUDASIM:
         cc = devices.get_context().device.compute_capability
@@ -311,15 +300,15 @@ def skip_unless_cc_75(fn):
     return unittest.skipUnless(cc_X_or_above(7, 5), "requires cc >= 7.5")(fn)
 
 
+def skip_unless_cc_90(fn):
+    return unittest.skipUnless(cc_X_or_above(9, 0), "requires cc >= 9.0")(fn)
+
+
 def xfail_unless_cudasim(fn):
     if config.ENABLE_CUDASIM:
         return fn
     else:
         return unittest.expectedFailure(fn)
-
-
-def skip_with_cuda_python(reason):
-    return unittest.skipIf(driver.USE_NV_BINDING, reason)
 
 
 def cudadevrt_missing():
@@ -338,6 +327,7 @@ def skip_if_cudadevrt_missing(fn):
 
 
 def skip_if_nvjitlink_missing(reason):
+    assert isinstance(reason, str)
     return unittest.skipIf(not driver._have_nvjitlink(), reason)
 
 

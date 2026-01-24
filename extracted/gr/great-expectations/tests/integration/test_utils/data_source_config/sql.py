@@ -21,8 +21,6 @@ from great_expectations.compatibility.sqlalchemy import (
     insert,
     sqltypes,
 )
-from great_expectations.data_context import AbstractDataContext
-from great_expectations.datasource.fluent.interfaces import Batch
 from great_expectations.datasource.fluent.sql_datasource import TableAsset
 from great_expectations.execution_engine.sqlalchemy_dialect import GXSqlDialect
 from tests.integration.sql_session_manager import (
@@ -34,7 +32,13 @@ from tests.integration.test_utils.data_source_config.base import BatchTestSetup,
 if TYPE_CHECKING:
     import sqlalchemy as sa
 
+    from great_expectations.data_context import AbstractDataContext
+    from great_expectations.datasource.fluent.interfaces import Batch
+
 logger = logging.getLogger(__name__)
+
+# Dialects that auto-commit and may not have active transactions
+_AUTO_COMMIT_DIALECTS = {GXSqlDialect.DATABRICKS}
 
 
 @dataclass(frozen=True)
@@ -150,6 +154,22 @@ class SQLBatchTestSetup(BatchTestSetup[_ConfigT, TableAsset], ABC, Generic[_Conf
             return engine, engine.dispose
 
     @staticmethod
+    def _safe_commit(conn: sa.Connection) -> None:
+        """Safely commit a connection, skipping auto-commit databases.
+
+        Some databases like Databricks auto-commit and don't support explicit transactions.
+        For these dialects, we skip the commit call entirely.
+
+        Args:
+            conn: SQLAlchemy connection to commit
+        """
+        dialect_name = GXSqlDialect(conn.dialect.name)
+
+        # Skip commit for auto-commit databases (they commit automatically)
+        if dialect_name not in _AUTO_COMMIT_DIALECTS:
+            conn.commit()
+
+    @staticmethod
     def _safe_bulk_insert(
         conn: sa.Connection, table: Table, values: list[tuple], max_params: int | None = None
     ) -> None:
@@ -180,7 +200,7 @@ class SQLBatchTestSetup(BatchTestSetup[_ConfigT, TableAsset], ABC, Generic[_Conf
         engine, cleanup = self._get_engine()
         dialect = engine.dialect.name.lower()
 
-        with engine.connect() as conn, conn.begin():
+        with engine.connect() as conn:
             # create schema if needed
 
             if self.schema:
@@ -189,7 +209,7 @@ class SQLBatchTestSetup(BatchTestSetup[_ConfigT, TableAsset], ABC, Generic[_Conf
 
             # create tables
             all_table_data = self._ensure_all_table_data_created()
-            self.metadata.create_all(engine)
+            self.metadata.create_all(conn)
 
             # insert data
             for table_data in all_table_data:
@@ -201,18 +221,23 @@ class SQLBatchTestSetup(BatchTestSetup[_ConfigT, TableAsset], ABC, Generic[_Conf
                 df = table_data.df.replace(np.nan, None)
                 values = list(df.to_dict("index").values())
                 max_params = 250 if dialect == GXSqlDialect.DATABRICKS else None
-                self._safe_bulk_insert(conn, table_data.table, values, max_params)
+                self._safe_bulk_insert(conn, table_data.table, values, max_params)  # type: ignore[arg-type] # FIXME
+
+            # Commit transaction (safe for databases without transaction support)
+            self._safe_commit(conn)
         cleanup()
 
     @override
     def teardown(self) -> None:
         engine, cleanup = self._get_engine()
-        for table in self.tables:
-            table.drop(engine)
-        if self.schema:
-            with engine.connect() as conn, conn.begin():
+        with engine.connect() as conn:
+            for table in self.tables:
+                table.drop(conn)
+            if self.schema:
                 logger.info(f"DROPPING SCHEMA {self.schema}")
                 conn.execute(TextClause(f"DROP SCHEMA {self.schema}"))
+            # Commit transaction (safe for databases without transaction support)
+            self._safe_commit(conn)
         cleanup()
 
     def _create_table_name(self, label: Optional[str] = None) -> str:

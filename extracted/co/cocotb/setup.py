@@ -19,6 +19,7 @@ if sys.version_info[:3] < (3, 6, 2):  # noqa: UP036 | bug in ruff
     raise SystemExit("\n".join(msg))
 
 import logging
+import os
 import subprocess
 from io import StringIO
 from os import path, walk
@@ -30,6 +31,19 @@ from setuptools import find_packages, setup
 # The below line is necessary for PEP517 support
 sys.path.append(path.dirname(__file__))
 from cocotb_build_libs import build_ext, get_ext
+
+__version__ = "2.0.1"
+
+max_python3_minor_version = 13
+if "COCOTB_IGNORE_PYTHON_REQUIRES" not in os.environ and sys.version_info >= (
+    3,
+    max_python3_minor_version + 1,
+):
+    raise RuntimeError(
+        f"cocotb {__version__} only supports a maximum Python version of 3.{max_python3_minor_version}.\n"
+        "You can suppress this error by defining the environment variable COCOTB_IGNORE_PYTHON_REQUIRES\n"
+        "There is no guarantee this will work and no support will be provided."
+    )
 
 
 def read_file(fname):
@@ -46,7 +60,6 @@ def package_files(directory):
 
 
 version_file_path = path.join("src", "cocotb", "_version.py")
-__version__ = "2.0.0"
 if "dev" in __version__:
     try:
         rev = subprocess.check_output(
@@ -70,7 +83,7 @@ with open(version_file_path, "w") as f:
 # see https://github.com/pypa/pip/issues/6634
 log_stream = StringIO()
 handler = logging.StreamHandler(log_stream)
-log = logging.getLogger("cocotb._build_libs")
+log = logging.getLogger("cocotb_build_libs")
 log.setLevel(logging.INFO)
 log.addHandler(handler)
 

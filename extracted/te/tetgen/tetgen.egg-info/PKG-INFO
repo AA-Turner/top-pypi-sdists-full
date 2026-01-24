@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tetgen
-Version: 0.6.7
+Version: 0.7.0
 Summary: Python interface to tetgen
 Home-page: https://github.com/pyvista/tetgen
 Author: PyVista Developers

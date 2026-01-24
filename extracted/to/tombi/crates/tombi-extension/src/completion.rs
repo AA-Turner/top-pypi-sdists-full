@@ -4,10 +4,11 @@ mod completion_kind;
 
 use std::ops::Deref;
 
-pub use completion_edit::CompletionEdit;
+pub use completion_edit::{CompletionEdit, CompletionTextEdit, InsertReplaceEdit};
 pub use completion_hint::{AddLeadingComma, AddTrailingComma, CommaHint, CompletionHint};
 pub use completion_kind::CompletionKind;
-use tombi_schema_store::{get_schema_name, SchemaUri};
+use tombi_schema_store::{SchemaUri, get_schema_name};
+use tombi_text::{FromLsp, IntoLsp};
 
 use crate::get_tombi_github_uri;
 
@@ -18,6 +19,7 @@ pub enum CompletionContentPriority {
     Default,
     Const,
     Enum,
+    Example,
     Key,
     OptionalKey,
     AdditionalKey,
@@ -31,18 +33,19 @@ impl CompletionContentPriority {
     pub fn as_prefix(&self) -> String {
         match self {
             CompletionContentPriority::Custom(value) => value.to_string(),
-            // NOTE: 30 is the prefix for completion items from extensions
-            //       that should be prioritized over basic features.
+            // NOTE: Completion candidates provided by extensions are assigned priority numbers starting from 50,
+            //       allowing them to be placed above basic features.
             CompletionContentPriority::Default => "50".to_string(),
             CompletionContentPriority::Const => "51".to_string(),
             CompletionContentPriority::Enum => "52".to_string(),
-            CompletionContentPriority::Key => "53".to_string(),
-            CompletionContentPriority::OptionalKey => "54".to_string(),
-            CompletionContentPriority::AdditionalKey => "55".to_string(),
-            CompletionContentPriority::TypeHint => "56".to_string(),
-            CompletionContentPriority::TypeHintKey => "57".to_string(),
-            CompletionContentPriority::TypeHintTrue => "58".to_string(),
-            CompletionContentPriority::TypeHintFalse => "59".to_string(),
+            CompletionContentPriority::Example => "53".to_string(),
+            CompletionContentPriority::Key => "54".to_string(),
+            CompletionContentPriority::OptionalKey => "55".to_string(),
+            CompletionContentPriority::AdditionalKey => "56".to_string(),
+            CompletionContentPriority::TypeHint => "57".to_string(),
+            CompletionContentPriority::TypeHintKey => "58".to_string(),
+            CompletionContentPriority::TypeHintTrue => "59".to_string(),
+            CompletionContentPriority::TypeHintFalse => "60".to_string(),
         }
     }
 }
@@ -72,7 +75,6 @@ pub struct CompletionContent {
 
 impl CompletionContent {
     pub fn new_const_value(
-        kind: CompletionKind,
         label: String,
         detail: Option<String>,
         documentation: Option<String>,
@@ -82,7 +84,7 @@ impl CompletionContent {
     ) -> Self {
         Self {
             label: label.clone(),
-            kind,
+            kind: CompletionKind::Enum,
             emoji_icon: None,
             priority: CompletionContentPriority::Const,
             detail,
@@ -96,8 +98,7 @@ impl CompletionContent {
         }
     }
 
-    pub fn new_enumerate_value(
-        kind: CompletionKind,
+    pub fn new_enum_value(
         label: String,
         detail: Option<String>,
         documentation: Option<String>,
@@ -107,7 +108,7 @@ impl CompletionContent {
     ) -> Self {
         Self {
             label: label.clone(),
-            kind,
+            kind: CompletionKind::Enum,
             emoji_icon: None,
             priority: CompletionContentPriority::Enum,
             detail,
@@ -122,7 +123,6 @@ impl CompletionContent {
     }
 
     pub fn new_default_value(
-        kind: CompletionKind,
         label: String,
         detail: Option<String>,
         documentation: Option<String>,
@@ -132,7 +132,7 @@ impl CompletionContent {
     ) -> Self {
         Self {
             label,
-            kind,
+            kind: CompletionKind::Enum,
             emoji_icon: None,
             priority: CompletionContentPriority::Default,
             detail,
@@ -142,6 +142,30 @@ impl CompletionContent {
             edit,
             deprecated,
             preselect: Some(true),
+            in_comment: false,
+        }
+    }
+
+    pub fn new_example_value(
+        label: String,
+        detail: Option<String>,
+        documentation: Option<String>,
+        edit: Option<CompletionEdit>,
+        schema_uri: Option<&SchemaUri>,
+        deprecated: Option<bool>,
+    ) -> Self {
+        Self {
+            label: label.clone(),
+            kind: CompletionKind::Enum,
+            emoji_icon: None,
+            priority: CompletionContentPriority::Example,
+            detail,
+            documentation,
+            filter_text: None,
+            schema_uri: schema_uri.cloned(),
+            edit,
+            deprecated,
+            preselect: None,
             in_comment: false,
         }
     }
@@ -156,7 +180,7 @@ impl CompletionContent {
         Self {
             label: label.into(),
             kind,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::TypeHint,
             detail: Some(detail.into()),
             documentation: None,
@@ -177,7 +201,7 @@ impl CompletionContent {
         Self {
             label: value.to_string(),
             kind: CompletionKind::Boolean,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: if value {
                 CompletionContentPriority::TypeHintTrue
             } else {
@@ -204,7 +228,7 @@ impl CompletionContent {
         Self {
             label: format!("{quote}{quote}"),
             kind,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::TypeHint,
             detail: Some(detail.into()),
             documentation: None,
@@ -225,7 +249,7 @@ impl CompletionContent {
         Self {
             label: "{}".to_string(),
             kind: CompletionKind::Table,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::TypeHint,
             detail: Some("InlineTable".to_string()),
             documentation: None,
@@ -249,7 +273,7 @@ impl CompletionContent {
         Self {
             label: "$key".to_string(),
             kind: CompletionKind::Table,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::TypeHintKey,
             detail: Some("Key".to_string()),
             documentation: None,
@@ -270,7 +294,7 @@ impl CompletionContent {
         Self {
             label: "$key".to_string(),
             kind: CompletionKind::Key,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::TypeHintKey,
             detail: Some("Key".to_string()),
             documentation: None,
@@ -330,13 +354,15 @@ impl CompletionContent {
     }
 
     pub fn new_pattern_key(
+        key_label: Option<&str>,
         patterns: &[String],
         position: tombi_text::Position,
         schema_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
+        let key_label = key_label.unwrap_or("key");
         Self {
-            label: "$key".to_string(),
+            label: format!("${key_label}"),
             kind: CompletionKind::Key,
             emoji_icon: None,
             priority: CompletionContentPriority::AdditionalKey,
@@ -352,7 +378,7 @@ impl CompletionContent {
             },
             filter_text: None,
             edit: CompletionEdit::new_additional_key(
-                "key",
+                key_label,
                 tombi_text::Range::at(position),
                 completion_hint,
             ),
@@ -364,13 +390,15 @@ impl CompletionContent {
     }
 
     pub fn new_additional_key(
+        key_label: Option<&str>,
         position: tombi_text::Position,
         schema_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
+        let key_label = key_label.unwrap_or("key");
         Self {
-            label: "$key".to_string(),
+            label: format!("${key_label}"),
             kind: CompletionKind::Key,
             emoji_icon: None,
             priority: CompletionContentPriority::AdditionalKey,
@@ -378,7 +406,7 @@ impl CompletionContent {
             documentation: None,
             filter_text: None,
             edit: CompletionEdit::new_additional_key(
-                "key",
+                key_label,
                 tombi_text::Range::at(position),
                 completion_hint,
             ),
@@ -399,7 +427,7 @@ impl CompletionContent {
             .map(|(trigger, detail)| Self {
                 label: trigger.to_string(),
                 kind: CompletionKind::MagicTrigger,
-                emoji_icon: Some('🦅'),
+                emoji_icon: None,
                 priority: CompletionContentPriority::TypeHint,
                 detail: Some(detail.to_string()),
                 documentation: None,
@@ -432,7 +460,7 @@ impl CompletionContent {
         Self {
             label: directive_name.to_string(),
             kind: CompletionKind::CommentDirective,
-            emoji_icon: Some('🦅'),
+            emoji_icon: None,
             priority: CompletionContentPriority::Key,
             detail: Some(detail.into()),
             documentation: Some(documentation.into()),
@@ -451,18 +479,17 @@ impl CompletionContent {
     }
 }
 
-impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
-    fn from(completion_content: CompletionContent) -> Self {
+impl FromLsp<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
+    fn from_lsp(
+        source: CompletionContent,
+        line_index: &tombi_text::LineIndex,
+    ) -> tower_lsp::lsp_types::CompletionItem {
         const SECTION_SEPARATOR: &str = "-----";
 
-        let sorted_text = format!(
-            "{}_{}",
-            completion_content.priority.as_prefix(),
-            &completion_content.label
-        );
+        let sorted_text = format!("{}_{}", source.priority.as_prefix(), &source.label);
 
         let mut schema_text = None;
-        if let Some(schema_uri) = &completion_content.schema_uri {
+        if let Some(schema_uri) = &source.schema_uri {
             let schema_uri = match get_tombi_github_uri(schema_uri) {
                 Some(schema_uri) => schema_uri,
                 None => schema_uri.deref().clone(),
@@ -471,7 +498,7 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
                 schema_text = Some(format!("Schema: [{schema_filename}]({schema_uri})\n"));
             }
         }
-        let documentation = match completion_content.documentation {
+        let documentation = match source.documentation {
             Some(documentation) => {
                 let mut documentation = documentation;
                 if let Some(schema_text) = schema_text {
@@ -483,26 +510,31 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             None => schema_text,
         };
 
-        let (insert_text_format, text_edit, additional_text_edits) = match completion_content.edit {
+        let (insert_text_format, text_edit, additional_text_edits) = match source.edit {
             Some(edit) => (
                 edit.insert_text_format,
-                Some(edit.text_edit),
-                edit.additional_text_edits,
+                Some(edit.text_edit.into_lsp(line_index)),
+                edit.additional_text_edits.map(|edits| {
+                    edits
+                        .into_iter()
+                        .map(|edit| edit.into_lsp(line_index))
+                        .collect()
+                }),
             ),
             None => (None, None, None),
         };
 
-        let label_details = match completion_content.priority {
+        let label_details = match source.priority {
             CompletionContentPriority::Custom(_) => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: completion_content.detail.clone(),
+                    description: source.detail.clone(),
                 })
             }
             CompletionContentPriority::Default => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some(match &completion_content.detail {
+                    description: Some(match &source.detail {
                         Some(detail) => format!("[Default] {detail}"),
                         None => "Default".to_string(),
                     }),
@@ -511,7 +543,7 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             CompletionContentPriority::Const => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some(match &completion_content.detail {
+                    description: Some(match &source.detail {
                         Some(detail) => detail.to_string(),
                         None => "Const".to_string(),
                     }),
@@ -520,22 +552,31 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             CompletionContentPriority::Enum => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some(match &completion_content.detail {
+                    description: Some(match &source.detail {
                         Some(detail) => detail.to_string(),
                         None => "Enum".to_string(),
+                    }),
+                })
+            }
+            CompletionContentPriority::Example => {
+                Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
+                    detail: None,
+                    description: Some(match &source.detail {
+                        Some(detail) => detail.to_string(),
+                        None => "Example".to_string(),
                     }),
                 })
             }
             CompletionContentPriority::Key => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: completion_content.detail.clone(),
+                    description: source.detail.clone(),
                 })
             }
             CompletionContentPriority::OptionalKey | CompletionContentPriority::AdditionalKey => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: Some("?".to_string()),
-                    description: completion_content.detail.clone(),
+                    description: source.detail.clone(),
                 })
             }
             CompletionContentPriority::TypeHint
@@ -544,7 +585,7 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             | CompletionContentPriority::TypeHintFalse => {
                 Some(tower_lsp::lsp_types::CompletionItemLabelDetails {
                     detail: None,
-                    description: Some(match &completion_content.detail {
+                    description: Some(match &source.detail {
                         Some(detail) if !detail.trim().is_empty() => detail.clone(),
                         _ => "Type Hint".to_string(),
                     }),
@@ -552,7 +593,7 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
             }
         }
         .map(|mut details| {
-            if let Some(emoji_icon) = completion_content.emoji_icon {
+            if let Some(emoji_icon) = source.emoji_icon {
                 details.description = Some(format!(
                     "{} {}",
                     emoji_icon,
@@ -563,11 +604,11 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
         });
 
         tower_lsp::lsp_types::CompletionItem {
-            label: completion_content.label,
+            label: source.label,
             label_details,
-            kind: Some(completion_content.kind.into()),
-            detail: completion_content.detail.map(|detail| {
-                if let Some(emoji_icon) = completion_content.emoji_icon {
+            kind: Some(source.kind.into()),
+            detail: source.detail.map(|detail| {
+                if let Some(emoji_icon) = source.emoji_icon {
                     format!("{emoji_icon} {detail}")
                 } else {
                     detail
@@ -582,13 +623,13 @@ impl From<CompletionContent> for tower_lsp::lsp_types::CompletionItem {
                 )
             }),
             sort_text: Some(sorted_text),
-            filter_text: completion_content.filter_text,
+            filter_text: source.filter_text,
             insert_text_format,
             text_edit,
             insert_text_mode: Some(tower_lsp::lsp_types::InsertTextMode::ADJUST_INDENTATION),
             additional_text_edits,
-            preselect: completion_content.preselect,
-            deprecated: completion_content.deprecated,
+            preselect: source.preselect,
+            deprecated: source.deprecated,
             ..Default::default()
         }
     }

@@ -11,7 +11,7 @@ from hypothesis.stateful import RuleBasedStateMachine
 
 from schemathesis.checks import CheckFunction
 from schemathesis.core import DEFAULT_STATEFUL_STEP_COUNT
-from schemathesis.core.errors import NoLinksFound
+from schemathesis.core.errors import STATEFUL_TESTING_GUIDE_URL, NoLinksFound
 from schemathesis.core.result import Result
 from schemathesis.core.transport import Response
 from schemathesis.generation.case import Case
@@ -37,12 +37,23 @@ class StepInput:
 
     case: Case
     transition: Transition | None  # None for initial steps
+    # What parameters were actually applied
+    # Data extraction failures can prevent it, as well as transitions can be skipped in some cases
+    # to improve discovery of bugs triggered by non-stateful inputs during stateful testing
+    applied_parameters: list[str]
 
-    __slots__ = ("case", "transition")
+    __slots__ = ("case", "transition", "applied_parameters")
 
     @classmethod
     def initial(cls, case: Case) -> StepInput:
-        return cls(case=case, transition=None)
+        return cls(case=case, transition=None, applied_parameters=[])
+
+    @property
+    def is_applied(self) -> bool:
+        # If the transition has no parameters or body, count it as applied
+        if self.transition is not None and not self.transition.parameters and self.transition.request_body is None:
+            return True
+        return bool(self.applied_parameters)
 
 
 @dataclass
@@ -52,10 +63,11 @@ class Transition:
     # ID of the transition (e.g. link name)
     id: str
     parent_id: str
+    is_inferred: bool
     parameters: dict[str, dict[str, ExtractedParam]]
     request_body: ExtractedParam | None
 
-    __slots__ = ("id", "parent_id", "parameters", "request_body")
+    __slots__ = ("id", "parent_id", "is_inferred", "parameters", "request_body")
 
 
 @dataclass
@@ -64,8 +76,9 @@ class ExtractedParam:
 
     definition: Any
     value: Result[Any, Exception]
+    is_required: bool
 
-    __slots__ = ("definition", "value")
+    __slots__ = ("definition", "value", "is_required")
 
 
 @dataclass
@@ -138,18 +151,19 @@ class APIStateMachine(RuleBasedStateMachine):
     # This is a convenience attribute, which happened to clash with `RuleBasedStateMachine` instance level attribute
     # They don't interfere, since it is properly overridden on the Hypothesis side, but it is likely that this
     # attribute will be renamed in the future
-    bundles: ClassVar[dict[str, CaseInsensitiveDict]]  # type: ignore
+    bundles: ClassVar[dict[str, CaseInsensitiveDict]]
     schema: BaseSchema
 
     def __init__(self) -> None:
         try:
-            super().__init__()  # type: ignore
+            super().__init__()
         except InvalidDefinition as exc:
             if "defines no rules" in str(exc):
                 if not self.schema.statistic.links.total:
                     message = "Schema contains no link definitions required for stateful testing"
                 else:
                     message = "All link definitions required for stateful testing are excluded by filters"
+                message += f"\n\nLearn how to define links: {STATEFUL_TESTING_GUIDE_URL}"
                 raise NoLinksFound(message) from None
             raise
         self.setup()
@@ -173,7 +187,7 @@ class APIStateMachine(RuleBasedStateMachine):
 
     def _new_name(self, target: str) -> str:
         target = _normalize_name(target)
-        return super()._new_name(target)  # type: ignore
+        return super()._new_name(target)
 
     def _get_target_for_result(self, result: StepOutput) -> str | None:
         raise NotImplementedError

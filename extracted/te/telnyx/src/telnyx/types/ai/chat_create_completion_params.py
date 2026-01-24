@@ -6,7 +6,7 @@ from typing import Dict, Union, Iterable
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from ..._types import SequenceNotStr
-from .inference_embedding_bucket_ids_param import InferenceEmbeddingBucketIDsParam
+from .bucket_ids_param import BucketIDsParam
 
 __all__ = [
     "ChatCreateCompletionParams",
@@ -14,8 +14,8 @@ __all__ = [
     "MessageContentTextAndImageArray",
     "ResponseFormat",
     "Tool",
-    "ToolChatCompletionToolParam",
-    "ToolChatCompletionToolParamFunction",
+    "ToolFunction",
+    "ToolFunctionFunction",
     "ToolRetrieval",
 ]
 
@@ -82,13 +82,7 @@ class ChatCreateCompletionParams(TypedDict, total=False):
     """
 
     model: str
-    """The language model to chat with.
-
-    If you are optimizing for speed + price, try
-    `meta-llama/Meta-Llama-3.1-8B-Instruct`. For quality, try
-    `meta-llama/Meta-Llama-3.1-70B-Instruct`. Or explore our
-    [LLM Library](https://telnyx.com/products/llm-library).
-    """
+    """The language model to chat with."""
 
     n: float
     """This will return multiple choices for you instead of a single chat completion."""
@@ -119,7 +113,7 @@ class ChatCreateCompletionParams(TypedDict, total=False):
     The `function` tool type follows the same schema as the
     [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat).
     The `retrieval` tool type is unique to Telnyx. You may pass a list of
-    [embedded storage buckets](https://developers.telnyx.com/api/inference/inference-embedding/post-embedding)
+    [embedded storage buckets](https://developers.telnyx.com/api-reference/embeddings/embed-documents)
     for retrieval-augmented generation.
     """
 
@@ -159,10 +153,15 @@ class Message(TypedDict, total=False):
 
 
 class ResponseFormat(TypedDict, total=False):
+    """Use this is you want to guarantee a JSON output without defining a schema.
+
+    For control over the schema, use `guided_json`.
+    """
+
     type: Required[Literal["text", "json_object"]]
 
 
-class ToolChatCompletionToolParamFunction(TypedDict, total=False):
+class ToolFunctionFunction(TypedDict, total=False):
     name: Required[str]
 
     description: str
@@ -170,16 +169,16 @@ class ToolChatCompletionToolParamFunction(TypedDict, total=False):
     parameters: Dict[str, object]
 
 
-class ToolChatCompletionToolParam(TypedDict, total=False):
-    function: Required[ToolChatCompletionToolParamFunction]
+class ToolFunction(TypedDict, total=False):
+    function: Required[ToolFunctionFunction]
 
     type: Required[Literal["function"]]
 
 
 class ToolRetrieval(TypedDict, total=False):
-    retrieval: Required[InferenceEmbeddingBucketIDsParam]
+    retrieval: Required[BucketIDsParam]
 
     type: Required[Literal["retrieval"]]
 
 
-Tool: TypeAlias = Union[ToolChatCompletionToolParam, ToolRetrieval]
+Tool: TypeAlias = Union[ToolFunction, ToolRetrieval]

@@ -1,14 +1,28 @@
 """Module with helper functions for extrinsics."""
 
-from typing import TYPE_CHECKING, Optional
+import hashlib
+import logging
+from typing import TYPE_CHECKING, Optional, Union
 
+from bittensor_drand import encrypt_mlkem768
+
+from bittensor.core.extrinsics.pallets import Sudo
+from bittensor.core.types import ExtrinsicResponse
 from bittensor.utils.balance import Balance
 
+
+# TODO: Michael/Roman add the link to the docs once it's ready.'
+MEV_HOTKEY_USAGE_WARNING = (
+    "MeV Shield cannot be used with hotkey-signed extrinsics. The transaction will fail because the hotkey cannot pay "
+    "the required extrinsic deposit fee. If you still want to use the hot key, please top up your balance before making"
+    " the transaction."
+)
+
 if TYPE_CHECKING:
-    from scalecodec import GenericCall
-    from bittensor_wallet import Wallet, Keypair
+    from bittensor_wallet import Wallet
     from bittensor.core.chain_data import StakeInfo
     from bittensor.core.subtensor import Subtensor
+    from scalecodec.types import GenericExtrinsic
 
 
 def get_old_stakes(
@@ -24,14 +38,14 @@ def get_old_stakes(
     netuids associated with the wallet's coldkey. If no match is found for a particular hotkey and netuid combination,
     a default balance of zero is returned.
 
-    Args:
+    Parameters:
         wallet: The wallet containing the coldkey to compare with stake data.
         hotkey_ss58s: List of hotkey SS58 addresses for which stakes are retrieved.
         netuids: List of network unique identifiers (netuids) corresponding to the hotkeys.
         all_stakes: A collection of all staking information to search through.
 
     Returns:
-        list[Balance]: A list of Balances, each representing the stake for a given hotkey and netuid.
+        A list of Balances, each representing the stake for a given hotkey and netuid.
     """
     stake_lookup = {
         (stake.hotkey_ss58, stake.coldkey_ss58, stake.netuid): stake.stake
@@ -46,25 +60,230 @@ def get_old_stakes(
     ]
 
 
-def get_extrinsic_fee(
-    call: "GenericCall",
-    keypair: "Keypair",
-    subtensor: "Subtensor",
-    netuid: Optional[int] = None,
-):
+def get_transfer_fn_params(
+    amount: Optional["Balance"], destination_ss58: str, keep_alive: bool
+) -> tuple[str, dict[str, Union[str, int, bool]]]:
     """
-    Get extrinsic fee for a given extrinsic call and keypair for a given SN's netuid.
+    Helper function to get the transfer call function and call params, depending on the value and keep_alive flag
+    provided.
 
-    Arguments:
-        subtensor: The Subtensor instance.
-        call: The extrinsic call.
-        keypair: The keypair associated with the extrinsic.
-        netuid: The SN's netuid.
+    Parameters:
+        amount: the amount of Tao to transfer. `None` if transferring all.
+        destination_ss58: the destination SS58 of the transfer
+        keep_alive: whether to enforce a retention of the existential deposit in the account after transfer.
 
     Returns:
-        Balance object representing the extrinsic fee in RAO.
+        tuple[call function, call params]
     """
-    payment_info = subtensor.substrate.get_payment_info(call=call, keypair=keypair)
-    return Balance.from_rao(amount=payment_info["partial_fee"]).set_unit(
-        netuid=netuid or 0
+    call_params: dict[str, Union[str, int, bool]] = {"dest": destination_ss58}
+    if amount is None:
+        call_function = "transfer_all"
+        if keep_alive:
+            call_params["keep_alive"] = True
+        else:
+            call_params["keep_alive"] = False
+    else:
+        call_params["value"] = amount.rao
+        if keep_alive:
+            call_function = "transfer_keep_alive"
+        else:
+            call_function = "transfer_allow_death"
+    return call_function, call_params
+
+
+def sudo_call_extrinsic(
+    subtensor: "Subtensor",
+    wallet: "Wallet",
+    call_function: str,
+    call_params: dict,
+    call_module: str = "AdminUtils",
+    sign_with: str = "coldkey",
+    use_nonce: bool = False,
+    nonce_key: str = "hotkey",
+    *,
+    period: Optional[int] = None,
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    root_call: bool = False,
+) -> ExtrinsicResponse:
+    """Execute a sudo call extrinsic.
+
+    Parameters:
+        subtensor: The Subtensor instance.
+        wallet: The wallet instance.
+        call_function: The call function to execute.
+        call_params: The call parameters.
+        call_module: The call module.
+        sign_with: The keypair to sign the extrinsic with.
+        use_nonce: Whether to use a nonce.
+        nonce_key: The key to use for the nonce.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        root_call: False, if the subnet owner makes a call.
+
+    Returns:
+        ExtrinsicResponse: The result object of the extrinsic execution.
+    """
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(
+                wallet, raise_error, unlock_type=sign_with
+            )
+        ).success:
+            return unlocked
+
+        call = subtensor.compose_call(
+            call_module=call_module,
+            call_function=call_function,
+            call_params=call_params,
+        )
+        if not root_call:
+            call = Sudo(subtensor).sudo(call)
+
+        return subtensor.sign_and_send_extrinsic(
+            call=call,
+            wallet=wallet,
+            sign_with=sign_with,
+            use_nonce=use_nonce,
+            nonce_key=nonce_key,
+            period=period,
+            raise_error=raise_error,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+        )
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
+
+
+def apply_pure_proxy_data(
+    response: ExtrinsicResponse,
+    triggered_events: list,
+    block_number: int,
+    extrinsic_idx: int,
+    raise_error: bool,
+) -> ExtrinsicResponse:
+    """Apply pure proxy data to the response object.
+
+    Parameters:
+        response: The response object to update.
+        triggered_events: The triggered events of the transaction.
+        block_number: The block number of the transaction.
+        extrinsic_idx: The index of the extrinsic in the transaction.
+        raise_error: Whether to raise an error if the data cannot be applied successfully.
+
+    Returns:
+        True if the data was applied successfully, False otherwise.
+    """
+    # Extract pure proxy address from PureCreated triggered event if wait_for_inclusion is True.
+    for event in triggered_events:
+        if event.get("event_id") == "PureCreated":
+            # Event structure: PureProxyCreated { disambiguation_index, proxy_type, pure, who }
+            attributes = event.get("attributes", [])
+            if attributes:
+                response.data = {
+                    "pure_account": attributes.get("pure"),
+                    "spawner": attributes.get("who"),
+                    "proxy_type": attributes.get("proxy_type"),
+                    "index": attributes.get("disambiguation_index"),
+                    "height": block_number,
+                    "ext_index": extrinsic_idx,
+                }
+            return response
+
+    # If triggered events are not available or event PureCreated does not exist in the response, return the response
+    # with warning message ot raise the error if raise_error is True.
+    message = (
+        f"The ExtrinsicResponse doesn't contain pure_proxy data (`pure_account`, `spawner`, `proxy_type`, etc.) "
+        f"because the extrinsic receipt doesn't have triggered events. This typically happens when "
+        f"`wait_for_inclusion=False` or when `block_hash` is not available. To get this data, either pass "
+        f"`wait_for_inclusion=True` when calling this function, or retrieve the data manually from the blockchain "
+        f"using the extrinsic hash."
     )
+    if response.extrinsic is not None and hasattr(response.extrinsic, "extrinsic_hash"):
+        extrinsic_hash = response.extrinsic.extrinsic_hash
+        hash_str = (
+            extrinsic_hash.hex()
+            if hasattr(extrinsic_hash, "hex")
+            else str(extrinsic_hash)
+        )
+        message += f" Extrinsic hash: `{hash_str}`"
+
+    response.success = False
+    response.message = message
+
+    if raise_error:
+        raise RuntimeError(message)
+
+    return response.with_log("warning")
+
+
+def get_mev_commitment_and_ciphertext(
+    signed_ext: "GenericExtrinsic",
+    ml_kem_768_public_key: bytes,
+) -> tuple[str, bytes, bytes]:
+    """
+    Builds MEV Shield payload and encrypts it using ML-KEM-768 + XChaCha20Poly1305.
+
+    This function constructs the payload structure required for MEV Shield encryption and performs the encryption
+    process. The payload binds the transaction to a specific key epoch using the key_hash, which replaces nonce-based
+    replay protection.
+
+    Parameters:
+        signed_ext: The signed GenericExtrinsic object representing the inner call to be encrypted and executed.
+        ml_kem_768_public_key: The ML-KEM-768 public key bytes (1184 bytes) from NextKey storage. This key is used for
+            encryption and its hash binds the transaction to the key epoch.
+
+    Returns:
+        A tuple containing:
+            - commitment_hex: Hex string of the Blake2-256 hash of payload_core (32 bytes).
+            - ciphertext: Encrypted blob containing plaintext.
+            - payload_core: Raw payload bytes before encryption.
+    """
+    payload_core = signed_ext.data.data
+
+    plaintext = bytes(payload_core)
+
+    # Getting ciphertext (encrypting plaintext using ML-KEM-768)
+    ciphertext = encrypt_mlkem768(ml_kem_768_public_key, plaintext)
+
+    # Compute commitment: blake2_256(payload_core)
+    commitment_hash = hashlib.blake2b(payload_core, digest_size=32).digest()
+    commitment_hex = "0x" + commitment_hash.hex()
+
+    return commitment_hex, ciphertext, payload_core
+
+
+def get_event_data_by_event_name(events: list, event_name: str) -> Optional[dict]:
+    """
+    Extracts event data from triggered events by event ID.
+
+    Searches through a list of triggered events and returns the attributes dictionary for the first event matching the
+    specified event_id.
+
+    Parameters:
+        events: List of event dictionaries, typically from ExtrinsicReceipt.triggered_events. Each event should have an
+            "module_id". "event_id" key and an "attributes" key.
+        event_name: The events identifier to search for (e.g. "mevShield.EncryptedSubmitted", etc).
+
+    Returns:
+        The attributes dictionary of the matching event, or None if no matching event is found."""
+    for event in events:
+        try:
+            module_id, event_id = event_name.split(".")
+        except (ValueError, AttributeError):
+            logging.debug(
+                "Invalid event_name. Should be string as `module_id.event_id` e.g. `mevShield.EncryptedSubmitted`."
+            )
+            return None
+        if (
+            event["module_id"].lower() == module_id.lower()
+            and event["event_id"].lower() == event_id.lower()
+        ):
+            return event
+    return None

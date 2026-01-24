@@ -410,6 +410,7 @@ class BurnInDestinationSettings(AWSProperty):
         "ShadowOpacity": (integer, False),
         "ShadowXOffset": (integer, False),
         "ShadowYOffset": (integer, False),
+        "SubtitleRows": (str, False),
         "TeletextGridControl": (str, False),
         "XPosition": (integer, False),
         "YPosition": (integer, False),
@@ -436,6 +437,7 @@ class DvbSubDestinationSettings(AWSProperty):
         "ShadowOpacity": (integer, False),
         "ShadowXOffset": (integer, False),
         "ShadowYOffset": (integer, False),
+        "SubtitleRows": (str, False),
         "TeletextGridControl": (str, False),
         "XPosition": (integer, False),
         "YPosition": (integer, False),
@@ -1170,6 +1172,16 @@ class ArchiveGroupSettings(AWSProperty):
     }
 
 
+class AdditionalDestinations(AWSProperty):
+    """
+    `AdditionalDestinations <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-additionaldestinations.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destination": (OutputLocationRef, False),
+    }
+
+
 class CmafIngestCaptionLanguageMapping(AWSProperty):
     """
     `CmafIngestCaptionLanguageMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestcaptionlanguagemapping.html>`__
@@ -1187,6 +1199,7 @@ class CmafIngestGroupSettings(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AdditionalDestinations": ([AdditionalDestinations], False),
         "CaptionLanguageMappings": ([CmafIngestCaptionLanguageMapping], False),
         "Destination": (OutputLocationRef, False),
         "Id3Behavior": (str, False),
@@ -1410,6 +1423,15 @@ class MediaPackageV2GroupSettings(AWSProperty):
 
     props: PropsDictType = {
         "CaptionLanguageMappings": ([CaptionLanguageMapping], False),
+        "Id3Behavior": (str, False),
+        "KlvBehavior": (str, False),
+        "NielsenId3Behavior": (str, False),
+        "Scte35Type": (str, False),
+        "SegmentLength": (integer, False),
+        "SegmentLengthUnits": (str, False),
+        "TimedMetadataId3Frame": (str, False),
+        "TimedMetadataId3Period": (integer, False),
+        "TimedMetadataPassthrough": (str, False),
     }
 
 
@@ -1629,6 +1651,7 @@ class Av1Settings(AWSProperty):
         "Level": (str, False),
         "LookAheadRateControl": (str, False),
         "MaxBitrate": (integer, False),
+        "MinBitrate": (integer, False),
         "MinIInterval": (integer, False),
         "ParDenominator": (integer, False),
         "ParNumerator": (integer, False),
@@ -1725,6 +1748,7 @@ class H264Settings(AWSProperty):
         "Level": (str, False),
         "LookAheadRateControl": (str, False),
         "MaxBitrate": (integer, False),
+        "MinBitrate": (integer, False),
         "MinIInterval": (integer, False),
         "MinQp": (integer, False),
         "NumRefFrames": (integer, False),
@@ -1800,12 +1824,15 @@ class H265Settings(AWSProperty):
         "FlickerAq": (str, False),
         "FramerateDenominator": (integer, False),
         "FramerateNumerator": (integer, False),
+        "GopBReference": (str, False),
         "GopClosedCadence": (integer, False),
+        "GopNumBFrames": (integer, False),
         "GopSize": (double, False),
         "GopSizeUnits": (str, False),
         "Level": (str, False),
         "LookAheadRateControl": (str, False),
         "MaxBitrate": (integer, False),
+        "MinBitrate": (integer, False),
         "MinIInterval": (integer, False),
         "MinQp": (integer, False),
         "MvOverPictureBoundaries": (str, False),
@@ -1818,6 +1845,7 @@ class H265Settings(AWSProperty):
         "ScanType": (str, False),
         "SceneChangeDetect": (str, False),
         "Slices": (integer, False),
+        "SubgopLength": (str, False),
         "Tier": (str, False),
         "TileHeight": (integer, False),
         "TilePadding": (str, False),

@@ -1,20 +1,19 @@
 Metadata-Version: 2.4
 Name: OpenFisca-Core
-Version: 43.3.11
+Version: 44.2.1
 Summary: A versatile microsimulation free software
 Home-page: https://github.com/openfisca/openfisca-core
 Author: OpenFisca Team
 Author-email: contact@openfisca.org
-License: https://www.fsf.org/licensing/licenses/agpl-3.0.html
+License: License-Expression :: AGPL-3.0-or-later
 Keywords: benefit microsimulation social tax
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -22,17 +21,19 @@ Requires-Dist: PyYAML<7.0,>=6.0
 Requires-Dist: StrEnum<0.5.0,>=0.4.8
 Requires-Dist: dpath<3.0,>=2.2.0
 Requires-Dist: numexpr<3.0,>=2.10.1
-Requires-Dist: numpy<2.0,>=1.24.2
+Requires-Dist: numpy<2.0,>=1.24.2; python_version < "3.11"
+Requires-Dist: numpy<=3,>=1.26.0; python_version <= "3.12"
+Requires-Dist: numpy<=3,>=2.1.0; python_version >= "3.13"
 Requires-Dist: pendulum<4.0.0,>=3.0.0
 Requires-Dist: psutil<6.0,>=5.9.4
 Requires-Dist: pytest<9.0,>=8.3.3
 Requires-Dist: sortedcontainers<3.0,>=2.4.0
 Requires-Dist: typing_extensions<5.0,>=4.5.0
 Provides-Extra: web-api
-Requires-Dist: Flask<3.0,>=2.2.3; extra == "web-api"
+Requires-Dist: Flask<4.0,>=2.2.3; extra == "web-api"
 Requires-Dist: Flask-Cors<4.0,>=3.0.10; extra == "web-api"
 Requires-Dist: gunicorn<22.0,>=21.0; extra == "web-api"
-Requires-Dist: Werkzeug<3.0,>=2.2.3; extra == "web-api"
+Requires-Dist: Werkzeug<4.0,>=2.2.3; extra == "web-api"
 Provides-Extra: dev
 Requires-Dist: black<25.0,>=24.8.0; extra == "dev"
 Requires-Dist: codespell<3.0,>=2.3.0; extra == "dev"
@@ -52,16 +53,19 @@ Requires-Dist: pylint-per-file-ignores<2.0,>=1.3.2; extra == "dev"
 Requires-Dist: pyright<2.0,>=1.1.382; extra == "dev"
 Requires-Dist: ruff<1.0,>=0.6.9; extra == "dev"
 Requires-Dist: ruff-lsp<1.0,>=0.0.57; extra == "dev"
-Requires-Dist: Flask<3.0,>=2.2.3; extra == "dev"
+Requires-Dist: Flask<4.0,>=2.2.3; extra == "dev"
 Requires-Dist: Flask-Cors<4.0,>=3.0.10; extra == "dev"
 Requires-Dist: gunicorn<22.0,>=21.0; extra == "dev"
-Requires-Dist: Werkzeug<3.0,>=2.2.3; extra == "dev"
+Requires-Dist: Werkzeug<4.0,>=2.2.3; extra == "dev"
+Requires-Dist: openpyxl<4.0,>=3.1.2; extra == "dev"
 Provides-Extra: ci
 Requires-Dist: build<0.11.0,>=0.10.0; extra == "ci"
 Requires-Dist: twine<7.0,>=6.0; extra == "ci"
 Requires-Dist: wheel<0.41.0,>=0.40.0; extra == "ci"
 Provides-Extra: tracker
 Requires-Dist: OpenFisca-Tracker<0.5.0,>=0.4.0; extra == "tracker"
+Provides-Extra: excel
+Requires-Dist: openpyxl<4.0,>=3.1.2; extra == "excel"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -95,7 +99,7 @@ This package contains the core features of OpenFisca, which are meant to be used
 
 ## Environment
 
-OpenFisca runs on Python 3.7. More recent versions should work but are not tested.
+OpenFisca runs on Python. See [setup.py](setup.py) for supported versions.
 
 OpenFisca also relies strongly on NumPy. The last four minor versions should work, but only the latest/stable is tested.
 
@@ -109,7 +113,7 @@ To install it locally you can use one of these two options:
 
 ### Installing `openfisca-core` with `pip`
 
-This installation requires [Python](https://www.python.org/downloads/) 3.7+ and [GIT](https://git-scm.com) installations.
+This installation requires [Python](https://www.python.org/downloads/) and [GIT](https://git-scm.com) installations.
 
 To install `openfisca-core` locally in development mode run the following commands in a shell terminal:
 
@@ -134,7 +138,7 @@ Conda is the easiest way to use OpenFisca under Windows as by installing Anacond
 If you are familiar with the command line you could use [Miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html), which needs very much less disk space than Anaconda.
 
 After installing conda, run these commands in an `Anaconda Powershell Prompt`:
-- `conda create --name openfisca python=3.7` to create an `openfisca` environment.
+- `conda create --name openfisca python=3.11` to create an `openfisca` environment.
 - `conda activate openfisca` to use your new environment.
 
 Then, choose one of the following options according to your use case:
@@ -163,6 +167,15 @@ To run the entire test suite:
 ```sh
 make test
 ```
+
+If you have many tests, you could run them in parallel :
+```sh
+make test-core openfisca_args="--in-parallel"
+```
+
+You could add an option  `--num-workers=4` to limit to 4 threads. Default is your CPU Core number minus 1.
+
+Be aware that this add overhead so use it only for huge test suite.
 
 To run all the tests defined on a test file:
 
@@ -211,10 +224,13 @@ touch .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 
 tee -a .git/hooks/pre-commit << END
-#!/bin/sh
+#!/bin/bash
 #
 # Automatically format your code before committing.
+# Change .venv/bin/activate if your virtual environment is located elsewhere.
+source .venv/bin/activate
 exec make format-style
+exec make check-style
 END
 ```
 

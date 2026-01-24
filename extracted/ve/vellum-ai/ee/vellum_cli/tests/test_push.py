@@ -2,18 +2,21 @@ import pytest
 import io
 import json
 import os
+import pathlib
 import tarfile
 from unittest import mock
 from uuid import uuid4
 
 from click.testing import CliRunner
 from httpx import Response
+from pydantic import ValidationError
 
 from vellum.client.core.api_error import ApiError
 from vellum.client.types.workflow_push_response import WorkflowPushResponse
 from vellum.utils.uuid import is_valid_uuid
 from vellum_cli import main as cli_main
 from vellum_ee.workflows.display.nodes.utils import to_kebab_case
+from vellum_ee.workflows.display.workflows.base_workflow_display import BaseWorkflowDisplay, WorkflowSerializationResult
 
 
 def _extract_tar_gz(tar_gz_bytes: bytes) -> dict[str, str]:
@@ -45,9 +48,15 @@ def _ensure_file(temp_dir: str, module: str, file_name: str, content: str) -> st
 def _ensure_workflow_py(temp_dir: str, module: str) -> str:
     workflow_py_file_content = """\
 from vellum.workflows import BaseWorkflow
+from vellum.workflows.nodes.bases.base import BaseNode
+
+
+class ExampleNode(BaseNode):
+    pass
+
 
 class ExampleWorkflow(BaseWorkflow):
-    pass
+    graph = ExampleNode
 """
     return _ensure_file(temp_dir, module, "workflow.py", workflow_py_file_content)
 
@@ -62,8 +71,41 @@ def test_push__no_config(mock_module):
 
     # THEN it should fail
     assert result.exit_code == 1
-    assert result.exception
-    assert str(result.exception) == "No Workflows found in project to push."
+    assert "No workflows found in project to push" in result.output
+    assert "No workflow configurations were found in vellum.lock.json" in result.output
+
+
+def test_push__no_matching_config_with_workflow_sandbox_id(mock_module):
+    # GIVEN a workflow was pulled with a specific sandbox ID
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+    original_workflow_sandbox_id = mock_module.workflow_sandbox_id
+
+    # AND we have a valid project config from a pulled workflow
+    mock_module.set_pyproject_toml(
+        {
+            "workflows": [
+                {
+                    "module": module,
+                    "workflow_sandbox_id": original_workflow_sandbox_id,
+                }
+            ]
+        }
+    )
+
+    # AND a workflow exists in the module successfully
+    _ensure_workflow_py(temp_dir, module)
+
+    # WHEN the user tries to push with a different workflow sandbox ID via --workflow-sandbox-id
+    different_workflow_sandbox_id = str(uuid4())
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["workflows", "push", "--workflow-sandbox-id", different_workflow_sandbox_id])
+
+    # THEN it should fail with a helpful error message
+    assert result.exit_code == 1
+    assert "No workflows found in project to push" in result.output
+    assert "No workflow configurations were found in vellum.lock.json" in result.output
+    assert "vellum workflows push" in result.output
 
 
 def test_push__multiple_workflows_configured__no_module_specified(mock_module):
@@ -138,6 +180,61 @@ def test_push__happy_path(mock_module, vellum_client, base_command):
 
     extracted_files = _extract_tar_gz(call_args["artifact"].read())
     assert extracted_files["workflow.py"] == workflow_py_file_content
+
+
+def test_push__forwards_dataset_to_client(mock_module, vellum_client, mocker):
+    """
+    Tests that the push command forwards the serialized dataset (scenarios)
+    to the API client when present.
+    """
+
+    # GIVEN a single workflow configured
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+
+    # AND a workflow exists in the module successfully
+    _ensure_workflow_py(temp_dir, module)
+
+    # AND serialize_module returns an exec_config and a dataset with a workflow_trigger_id
+    fake_exec_config = {
+        "workflow_raw_data": {
+            "definition": {"name": "ExampleWorkflow"},
+        }
+    }
+    fake_dataset = [
+        {
+            "label": "Scenario 1",
+            "inputs": {},
+            "workflow_trigger_id": "trigger-123",
+        }
+    ]
+    mocker.patch.object(
+        BaseWorkflowDisplay,
+        "serialize_module",
+        return_value=WorkflowSerializationResult(
+            exec_config=fake_exec_config,
+            errors=[],
+            dataset=fake_dataset,
+        ),
+    )
+
+    # AND the push API call returns successfully
+    vellum_client.workflows.push.return_value = WorkflowPushResponse(
+        workflow_sandbox_id=str(uuid4()),
+    )
+
+    # WHEN calling `vellum workflows push`
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["workflows", "push", module])
+
+    # THEN it should succeed
+    assert result.exit_code == 0
+
+    # AND we should have called the push API with the dataset argument
+    vellum_client.workflows.push.assert_called_once()
+    call_args = vellum_client.workflows.push.call_args.kwargs
+    assert "dataset" in call_args
+    assert json.loads(call_args["dataset"]) == fake_dataset
 
 
 @pytest.mark.usefixtures("info_log_level")
@@ -589,6 +686,87 @@ def test_push__push_fails_due_to_400_error(mock_module, vellum_client):
     assert "Pushing the Workflow failed because you did something wrong" in result.output
 
     # AND the stack trace should not be
+    assert "Traceback" not in result.output
+
+
+def test_push__push_fails_due_to_404_error_with_id(mock_module, vellum_client):
+    """
+    Tests that a 404 error with a workflow sandbox ID shows a helpful error message.
+    """
+
+    # GIVEN a single workflow configured with a workflow_sandbox_id
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+
+    # AND a workflow exists in the module successfully
+    _ensure_workflow_py(temp_dir, module)
+
+    # AND the push API call returns a 404 response
+    vellum_client.workflows.push.side_effect = ApiError(
+        status_code=404,
+        body={},
+    )
+
+    # WHEN calling `vellum push`
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module])
+
+    # THEN it should fail with a user error code
+    assert result.exit_code == 1
+
+    # AND the error message should be in the error message
+    assert "Workflow Sandbox not found" in result.output
+    assert mock_module.workflow_sandbox_id in result.output
+    assert "workspace" in result.output
+
+    # AND the stack trace should not be present
+    assert "Traceback" not in result.output
+
+
+def test_push__push_fails_due_to_404_error_without_id(
+    tmp_path: pathlib.Path, vellum_client, monkeypatch: pytest.MonkeyPatch
+):
+    """
+    Tests that a 404 error without a workflow sandbox ID shows a helpful error message.
+    """
+
+    # GIVEN a workflow module exists but has no workflow_sandbox_id configured
+    module = "examples.mock.test_push__404_without_id"
+    module_dir = tmp_path / "examples" / "mock" / "test_push__404_without_id"
+    module_dir.mkdir(parents=True)
+
+    # AND a workflow.py file exists
+    workflow_file = module_dir / "workflow.py"
+    workflow_file.write_text(
+        "from vellum.workflows import BaseWorkflow\n\nclass ExampleWorkflow(BaseWorkflow):\n    pass\n"
+    )
+
+    # AND the pyproject.toml file exists without workflow_sandbox_id
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(f'[tool.vellum]\n[[tool.vellum.workflows]]\nmodule = "{module}"\n')
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("VELLUM_API_KEY", "abcdef123456")
+
+    # AND the push API call returns a 404 response
+    vellum_client.workflows.push.side_effect = ApiError(
+        status_code=404,
+        body={},
+    )
+
+    # WHEN calling `vellum push`
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module])
+
+    # THEN it should fail with a user error code
+    assert result.exit_code == 1
+
+    # AND the error message should be in the output
+    assert "Workflow Sandbox not found" in result.output
+    assert "/workflows/push" in result.output
+    assert "404 response" in result.output
+
+    # AND the stack trace should not be present
     assert "Traceback" not in result.output
 
 
@@ -1134,3 +1312,315 @@ def test_push__deploy_stores_deployment_config_in_lock_file(mock_module, vellum_
     deployment_config_str = call_args["deployment_config"]
     deployment_config = json.loads(deployment_config_str)
     assert deployment_config["name"] == "test-push-deploy-stores-deployment-config-in-lock-file"
+
+
+def test_push__custom_workspace_in_lockfile__uses_custom_workspace_without_flag(mock_module, vellum_client_class):
+    """
+    Tests that push respects the custom workspace from the lockfile when no --workspace flag is provided.
+    """
+
+    # GIVEN a workflow already configured in the lockfile with a custom workspace
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+    workflow_sandbox_id = mock_module.workflow_sandbox_id
+    set_pyproject_toml = mock_module.set_pyproject_toml
+
+    # AND the lockfile has the workflow with a custom workspace
+    with open(os.path.join(temp_dir, "vellum.lock.json"), "w") as f:
+        json.dump(
+            {
+                "version": "1.0",
+                "workflows": [
+                    {
+                        "module": module,
+                        "workflow_sandbox_id": workflow_sandbox_id,
+                        "workspace": "my_custom_workspace",
+                        "container_image_name": None,
+                        "container_image_tag": None,
+                        "deployments": [],
+                        "ignore": None,
+                        "target_directory": None,
+                    }
+                ],
+                "workspaces": [],
+            },
+            f,
+            indent=2,
+        )
+
+    # AND the custom workspace is defined in pyproject.toml
+    set_pyproject_toml(
+        {
+            "workflows": [],
+            "workspaces": [
+                {
+                    "name": "my_custom_workspace",
+                    "api_key": "MY_CUSTOM_VELLUM_API_KEY",
+                }
+            ],
+        }
+    )
+
+    # AND the .env file has the custom api key
+    with open(os.path.join(temp_dir, ".env"), "w") as f:
+        f.write(
+            """\
+VELLUM_API_KEY=abcdef123456
+MY_CUSTOM_VELLUM_API_KEY=custom-key-xyz
+"""
+        )
+
+    # AND a workflow exists in the module
+    _ensure_workflow_py(temp_dir, module)
+
+    # AND the push API returns successfully
+    vellum_client_class.return_value.workflows.push.return_value = WorkflowPushResponse(
+        workflow_sandbox_id=workflow_sandbox_id,
+    )
+    vellum_client_class.return_value._client_wrapper._environment.default = "https://api.vellum.ai/v1"
+
+    # WHEN calling `vellum push` WITHOUT the --workspace flag
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module])
+
+    # THEN it should succeed
+    assert result.exit_code == 0, result.output
+
+    # AND the custom workspace API key should have been used
+    vellum_client_class.assert_called_once_with(
+        api_key="custom-key-xyz",
+        environment=mock.ANY,
+        api_version=None,
+    )
+
+    with open(os.path.join(temp_dir, "vellum.lock.json")) as f:
+        lock_file_content = json.load(f)
+        assert len(lock_file_content["workflows"]) == 1
+        assert lock_file_content["workflows"][0]["workspace"] == "my_custom_workspace"
+        assert lock_file_content["workflows"][0]["workflow_sandbox_id"] == workflow_sandbox_id
+
+
+def test_push__workspace_option__nonexistent_workspace_should_fail(mock_module):
+    """
+    Tests that pushing with a nonexistent workspace that isn't default should fail.
+    """
+
+    # GIVEN a single workflow configured
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+    set_pyproject_toml = mock_module.set_pyproject_toml
+
+    # AND a custom workspace is configured
+    set_pyproject_toml(
+        {
+            "workflows": [
+                {
+                    "module": module,
+                }
+            ],
+            "workspaces": [
+                {
+                    "name": "my_custom_workspace",
+                    "api_key": "MY_CUSTOM_VELLUM_API_KEY",
+                }
+            ],
+        }
+    )
+
+    # AND a workflow exists in the module successfully
+    _ensure_workflow_py(temp_dir, module)
+
+    # WHEN calling `vellum push` with a nonexistent workspace
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module, "--workspace", "nonexistent_workspace"])
+
+    # THEN it should exit with an error
+    assert result.exit_code == 1
+
+    # AND the error message should indicate the workspace doesn't exist
+    assert "Workspace 'nonexistent_workspace' not found in config" in result.output
+    assert "Available workspaces:" in result.output
+    assert "default" in result.output
+    assert "my_custom_workspace" in result.output
+
+
+def test_push__validation_error_during_serialization(mock_module, mocker):
+    """
+    Tests that a ValidationError raised during workflow serialization is handled gracefully
+    with a user-friendly error message.
+    """
+    # GIVEN a single workflow configured
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+
+    # AND a workflow exists in the module successfully
+    _ensure_workflow_py(temp_dir, module)
+
+    # AND BaseWorkflowDisplay.serialize_module raises a ValidationError
+    mock_serialize_module = mocker.patch(
+        "vellum_ee.workflows.display.workflows.base_workflow_display.BaseWorkflowDisplay.serialize_module",
+        side_effect=ValidationError.from_exception_data(
+            "WorkflowConfig",
+            [
+                {
+                    "type": "missing",
+                    "loc": ("field",),
+                    "msg": "Field required",  # type: ignore[typeddict-item]
+                    "input": {"invalid": "data"},
+                }
+            ],
+        ),
+    )
+
+    # WHEN calling `vellum push`
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module])
+
+    # THEN it should exit with an error
+    assert result.exit_code == 1
+
+    # AND serialize_module should have been called
+    mock_serialize_module.assert_called_once()
+
+    # AND the error message should contain the validation error title
+    assert f"Validation error while trying to push {module}" in result.output
+
+    # AND the error message should contain the validation error details
+    assert "Field required" in result.output
+
+
+def test_push__includes_metadata_json_in_artifact(mock_module, vellum_client):
+    """
+    Tests that the push command includes metadata.json in the artifact.
+    """
+
+    # GIVEN a single workflow configured
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+
+    # AND a workflow exists in the module successfully
+    workflow_py_file_content = _ensure_workflow_py(temp_dir, module)
+
+    # AND a metadata.json file exists in the module
+    metadata_json_content = _ensure_file(temp_dir, module, "metadata.json", '{"key": "value"}')
+
+    # AND the push API call returns successfully
+    vellum_client.workflows.push.return_value = WorkflowPushResponse(
+        workflow_sandbox_id=str(uuid4()),
+    )
+
+    # WHEN calling `vellum workflows push`
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["workflows", "push", module])
+
+    # THEN it should succeed
+    assert result.exit_code == 0
+
+    # AND we should have called the push API with the correct args
+    vellum_client.workflows.push.assert_called_once()
+    call_args = vellum_client.workflows.push.call_args.kwargs
+
+    # AND the artifact should contain both workflow.py and metadata.json
+    extracted_files = _extract_tar_gz(call_args["artifact"].read())
+    assert extracted_files["workflow.py"] == workflow_py_file_content
+    assert extracted_files["metadata.json"] == metadata_json_content
+
+    # AND metadata.json should NOT be in the exec_config's module_data additional_files
+    exec_config = json.loads(call_args["exec_config"])
+    module_data = exec_config.get("module_data") or {}
+    additional_files = module_data.get("additional_files") or {}
+    assert "metadata.json" not in additional_files
+
+
+def test_push__workspace_option__same_module_different_workspaces_in_lockfile_uses_correct_sandbox_id(
+    mock_module, vellum_client_class
+):
+    """
+    Tests that when pushing with --workspace flag, the correct workflow_sandbox_id
+    is used based on the workspace when configs are in the lockfile.
+    """
+
+    # GIVEN a module configured for two different workspaces with the same sandbox ID in the lockfile
+    temp_dir = mock_module.temp_dir
+    module = mock_module.module
+    workflow_sandbox_id = str(uuid4())
+
+    # AND the lockfile has the same module and sandbox ID configured for two workspaces
+    with open(os.path.join(temp_dir, "vellum.lock.json"), "w") as f:
+        json.dump(
+            {
+                "version": "1.0",
+                "workflows": [
+                    {
+                        "module": module,
+                        "workflow_sandbox_id": workflow_sandbox_id,
+                        "workspace": "default",
+                        "container_image_name": None,
+                        "container_image_tag": None,
+                        "deployments": [],
+                        "ignore": None,
+                        "target_directory": None,
+                    },
+                    {
+                        "module": module,
+                        "workflow_sandbox_id": workflow_sandbox_id,
+                        "workspace": "other",
+                        "container_image_name": None,
+                        "container_image_tag": None,
+                        "deployments": [],
+                        "ignore": None,
+                        "target_directory": None,
+                    },
+                ],
+                "workspaces": [],
+            },
+            f,
+            indent=2,
+        )
+
+    # AND the pyproject.toml has the first workflow config and workspace config
+    mock_module.set_pyproject_toml(
+        {
+            "workflows": [
+                {
+                    "module": module,
+                    "workflow_sandbox_id": workflow_sandbox_id,
+                }
+            ],
+            "workspaces": [
+                {
+                    "name": "other",
+                    "api_key": "OTHER_VELLUM_API_KEY",
+                }
+            ],
+        }
+    )
+
+    # AND the .env file has both api keys stored
+    with open(os.path.join(temp_dir, ".env"), "w") as f:
+        f.write(
+            """\
+VELLUM_API_KEY=default_api_key_123
+OTHER_VELLUM_API_KEY=other_api_key_456
+"""
+        )
+
+    # AND a workflow exists in the module
+    _ensure_workflow_py(temp_dir, module)
+
+    # AND the push API call returns successfully
+    vellum_client_class.return_value.workflows.push.return_value = WorkflowPushResponse(
+        workflow_sandbox_id=workflow_sandbox_id,
+    )
+
+    # WHEN calling `vellum push` with --workspace other
+    runner = CliRunner()
+    result = runner.invoke(cli_main, ["push", module, "--workspace", "other"])
+
+    # THEN it should succeed
+    assert result.exit_code == 0, result.output
+
+    # AND we should have called the push API with the correct workflow_sandbox_id
+    vellum_client_class.return_value.workflows.push.assert_called_once()
+    call_args = vellum_client_class.return_value.workflows.push.call_args.kwargs
+    assert call_args["workflow_sandbox_id"] == workflow_sandbox_id

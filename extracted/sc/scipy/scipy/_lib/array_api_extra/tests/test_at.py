@@ -40,7 +40,7 @@ def at_op(
     just a workaround for when one wants to apply jax.jit to `at()` directly,
     which is not a common use case.
     """
-    meth = cast(Callable[..., Array], getattr(at(x, idx), op.value))  # type: ignore[explicit-any]
+    meth = cast(Callable[..., Array], getattr(at(x, idx), op.value))
     return meth(y, copy=copy, xp=xp)
 
 
@@ -157,7 +157,7 @@ def test_copy_default(xp: ModuleType, library: Backend, op: _AtOp):
     """
     x = xp.asarray([1.0, 10.0, 20.0])
     expect_copy = not is_writeable_array(x)
-    meth = cast(Callable[..., Array], getattr(at(x)[:2], op.value))  # type: ignore[explicit-any]
+    meth = cast(Callable[..., Array], getattr(at(x)[:2], op.value))
     with assert_copy(x, None, expect_copy):
         _ = meth(2.0)
 
@@ -166,7 +166,7 @@ def test_copy_default(xp: ModuleType, library: Backend, op: _AtOp):
     # even if the arrays are writeable.
     expect_copy = not is_writeable_array(x) or library is Backend.DASK
     idx = xp.asarray([True, True, False])
-    meth = cast(Callable[..., Array], getattr(at(x, idx), op.value))  # type: ignore[explicit-any]
+    meth = cast(Callable[..., Array], getattr(at(x, idx), op.value))
     with assert_copy(x, None, expect_copy):
         _ = meth(2.0)
 
@@ -178,7 +178,7 @@ def test_copy_invalid():
 
 
 def test_xp():
-    a = cast(Array, np.asarray([1, 2, 3]))  # type: ignore[bad-cast]
+    a = cast(Array, np.asarray([1, 2, 3]))  # pyright: ignore[reportInvalidCast]
     _ = at(a, 0).set(4, xp=np)
     _ = at(a, 0).add(4, xp=np)
     _ = at(a, 0).subtract(4, xp=np)
@@ -190,7 +190,7 @@ def test_xp():
 
 
 def test_alternate_index_syntax():
-    xp = cast(ModuleType, np)  # pyright: ignore[reportInvalidCast]
+    xp = cast(ModuleType, np)  # type: ignore[redundant-cast]  # pyright: ignore[reportInvalidCast]
     a = cast(Array, xp.asarray([1, 2, 3]))
     xp_assert_equal(at(a, 0).set(4, copy=True), xp.asarray([4, 2, 3]))
     xp_assert_equal(at(a)[0].set(4, copy=True), xp.asarray([4, 2, 3]))
@@ -246,12 +246,16 @@ def test_incompatible_dtype(
     elif library.like(Backend.DASK):
         z = at_op(x, idx, op, 1.1, copy=copy)
 
-    elif library.like(Backend.ARRAY_API_STRICT) and op is not _AtOp.SET:
+    elif library.like(Backend.ARRAY_API_STRICT):
         with pytest.raises(Exception, match=r"cast|promote|dtype"):
             _ = at_op(x, idx, op, 1.1, copy=copy)
 
     elif op in (_AtOp.SET, _AtOp.MIN, _AtOp.MAX):
-        # There is no __i<op>__ version of these operations
+        # There is no __i<op>__ version of min/max.
+        # libraries other than array-api-strict are happy with
+        # int[:] = float
+        # int[:] = min(int[:], float)
+        # int[:] = max(int[:], float)
         z = at_op(x, idx, op, 1.1, copy=copy)
 
     else:

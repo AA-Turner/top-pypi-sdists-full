@@ -33,23 +33,28 @@ from apache_beam.testing.util import equal_to
 
 # pylint: disable=ungrouped-imports
 try:
+  from sqlalchemy import VARCHAR
+  from sqlalchemy import Column
+  from sqlalchemy import Engine
+  from sqlalchemy import Integer
+  from sqlalchemy import MetaData
+  from sqlalchemy import Table
+  from sqlalchemy import create_engine
   from testcontainers.core.generic import DbContainer
-  from testcontainers.postgres import PostgresContainer
-  from testcontainers.mysql import MySqlContainer
   from testcontainers.mssql import SqlServerContainer
+  from testcontainers.mysql import MySqlContainer
+  from testcontainers.postgres import PostgresContainer
   from testcontainers.redis import RedisContainer
-  from sqlalchemy import (
-      create_engine, MetaData, Table, Column, Integer, VARCHAR, Engine)
+
   from apache_beam.transforms.enrichment import Enrichment
-  from apache_beam.transforms.enrichment_handlers.cloudsql import (
-      CloudSQLEnrichmentHandler,
-      DatabaseTypeAdapter,
-      CustomQueryConfig,
-      TableFieldsQueryConfig,
-      TableFunctionQueryConfig,
-      CloudSQLConnectionConfig,
-      ExternalSQLDBConnectionConfig,
-      ConnectionConfig)
+  from apache_beam.transforms.enrichment_handlers.cloudsql import CloudSQLConnectionConfig
+  from apache_beam.transforms.enrichment_handlers.cloudsql import CloudSQLEnrichmentHandler
+  from apache_beam.transforms.enrichment_handlers.cloudsql import ConnectionConfig
+  from apache_beam.transforms.enrichment_handlers.cloudsql import CustomQueryConfig
+  from apache_beam.transforms.enrichment_handlers.cloudsql import DatabaseTypeAdapter
+  from apache_beam.transforms.enrichment_handlers.cloudsql import ExternalSQLDBConnectionConfig
+  from apache_beam.transforms.enrichment_handlers.cloudsql import TableFieldsQueryConfig
+  from apache_beam.transforms.enrichment_handlers.cloudsql import TableFunctionQueryConfig
 except ImportError as e:
   raise unittest.SkipTest(f'CloudSQL dependencies not installed: {str(e)}')
 
@@ -208,8 +213,8 @@ class SQLEnrichmentTestHelper:
         raise Exception(f"Failed to insert table data: {e}")
 
 
-@pytest.mark.uses_testcontainer
 class BaseTestSQLEnrichment(unittest.TestCase):
+  _cache_client_retries = 3
   _table_data = [
       {
           "id": 1, "name": "A", 'quantity': 2, 'distribution_center_id': 3
@@ -260,8 +265,6 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         table_data=cls._table_data,
         metadata=cls._metadata)
 
-    cls._cache_client_retries = 3
-
   @classmethod
   def get_columns(cls):
     """Returns fresh column objects each time it's called."""
@@ -303,7 +306,18 @@ class BaseTestSQLEnrichment(unittest.TestCase):
 
   @classmethod
   def tearDownClass(cls):
+    # Drop all tables using metadata as the primary approach.
     cls._metadata.drop_all(cls._engine)
+
+    # Fallback to raw SQL drop if needed.
+    try:
+      with cls._engine.connect() as conn:
+        conn.execute(f"DROP TABLE IF EXISTS {cls._table_id}")
+        conn.commit()
+        _LOGGER.info("Dropped table %s", cls._table_id)
+    except Exception as e:
+      _LOGGER.warning("Failed to drop table %s: %s", cls._table_id, e)
+
     cls._engine.dispose(close=True)
     cls._engine = None
 
@@ -320,7 +334,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
 
     query_config = TableFieldsQueryConfig(
         table_id=self._table_id,
-        where_clause_template="id = :id",
+        where_clause_template="id = :id_param",
         where_clause_fields=fields)
 
     handler = CloudSQLEnrichmentHandler(
@@ -330,7 +344,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         max_batch_size=100,
     )
 
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll = (test_pipeline | beam.Create(requests) | Enrichment(handler))
 
       assert_that(pcoll, equal_to(expected_rows))
@@ -357,7 +371,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         min_batch_size=2,
         max_batch_size=100,
     )
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll = (test_pipeline | beam.Create(requests) | Enrichment(handler))
 
       assert_that(pcoll, equal_to(expected_rows))
@@ -384,7 +398,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         min_batch_size=8,
         max_batch_size=100,
     )
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll = (test_pipeline | beam.Create(requests) | Enrichment(handler))
 
       assert_that(pcoll, equal_to(expected_rows))
@@ -404,7 +418,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
 
     handler = CloudSQLEnrichmentHandler(
         connection_config=self._connection_config, query_config=query_config)
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll = (test_pipeline | beam.Create(requests) | Enrichment(handler))
 
       assert_that(pcoll, equal_to(expected_rows))
@@ -429,7 +443,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         query_config=query_config,
         min_batch_size=2,
         max_batch_size=100)
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll = (test_pipeline | beam.Create(requests) | Enrichment(handler))
 
       assert_that(pcoll, equal_to(expected_rows))
@@ -481,7 +495,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         query_config=query_config,
         min_batch_size=2,
         max_batch_size=100)
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll_populate_cache = (
           test_pipeline
           | beam.Create(requests)
@@ -506,7 +520,7 @@ class BaseTestSQLEnrichment(unittest.TestCase):
         side_effect=Exception("Database should not be called on a cache hit."))
 
     # Run a second pipeline to verify cache is being used.
-    with TestPipeline(is_integration_test=True) as test_pipeline:
+    with TestPipeline() as test_pipeline:
       pcoll_cached = (
           test_pipeline
           | beam.Create(requests)
@@ -553,7 +567,8 @@ class TestCloudSQLPostgresEnrichment(BaseCloudSQLDBEnrichment):
   _db_adapter = DatabaseTypeAdapter.POSTGRESQL
 
   # Configuration required for locating the CloudSQL instance.
-  _table_id = "product_details_cloudsql_pg_enrichment"
+  _unique_suffix = str(uuid.uuid4())[:8]
+  _table_id = f"product_details_cloudsql_pg_enrichment_{_unique_suffix}"
   _gcp_project_id = "apache-beam-testing"
   _region = "us-central1"
   _instance_name = "beam-integration-tests"
@@ -567,7 +582,6 @@ class TestCloudSQLPostgresEnrichment(BaseCloudSQLDBEnrichment):
   _metadata = MetaData()
 
 
-@pytest.mark.uses_testcontainer
 class BaseExternalSQLDBEnrichment(BaseTestSQLEnrichment):
   @classmethod
   def setUpClass(cls):
@@ -595,7 +609,6 @@ class BaseExternalSQLDBEnrichment(BaseTestSQLEnrichment):
     cls._db = None
 
 
-@pytest.mark.uses_testcontainer
 class TestExternalPostgresEnrichment(BaseExternalSQLDBEnrichment):
   _db_adapter = DatabaseTypeAdapter.POSTGRESQL
   _unique_suffix = str(uuid.uuid4())[:8]
@@ -603,7 +616,6 @@ class TestExternalPostgresEnrichment(BaseExternalSQLDBEnrichment):
   _metadata = MetaData()
 
 
-@pytest.mark.uses_testcontainer
 class TestExternalMySQLEnrichment(BaseExternalSQLDBEnrichment):
   _db_adapter = DatabaseTypeAdapter.MYSQL
   _unique_suffix = str(uuid.uuid4())[:8]
@@ -611,7 +623,6 @@ class TestExternalMySQLEnrichment(BaseExternalSQLDBEnrichment):
   _metadata = MetaData()
 
 
-@pytest.mark.uses_testcontainer
 class TestExternalSQLServerEnrichment(BaseExternalSQLDBEnrichment):
   _db_adapter = DatabaseTypeAdapter.SQLSERVER
   _unique_suffix = str(uuid.uuid4())[:8]

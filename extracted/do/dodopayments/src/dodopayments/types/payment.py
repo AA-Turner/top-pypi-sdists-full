@@ -12,7 +12,7 @@ from .refund_status import RefundStatus
 from .billing_address import BillingAddress
 from .customer_limited_details import CustomerLimitedDetails
 
-__all__ = ["Payment", "Refund", "ProductCart"]
+__all__ = ["Payment", "Refund", "CustomFieldResponse", "ProductCart"]
 
 
 class Refund(BaseModel):
@@ -42,6 +42,16 @@ class Refund(BaseModel):
 
     reason: Optional[str] = None
     """The reason provided for the refund, if any. Optional."""
+
+
+class CustomFieldResponse(BaseModel):
+    """Customer's response to a custom field"""
+
+    key: str
+    """Key matching the custom field definition"""
+
+    value: str
+    """Value provided by customer"""
 
 
 class ProductCart(BaseModel):
@@ -104,6 +114,9 @@ class Payment(BaseModel):
     (e.g. cents)
     """
 
+    card_holder_name: Optional[str] = None
+    """Cardholder name"""
+
     card_issuing_country: Optional[CountryCode] = None
     """ISO2 country code of the card"""
 
@@ -122,6 +135,9 @@ class Payment(BaseModel):
     session.
     """
 
+    custom_field_responses: Optional[List[CustomFieldResponse]] = None
+    """Customer's responses to custom fields collected during checkout"""
+
     discount_id: Optional[str] = None
     """The discount id if discount is applied"""
 
@@ -130,6 +146,12 @@ class Payment(BaseModel):
 
     error_message: Optional[str] = None
     """An error message if the payment failed"""
+
+    invoice_id: Optional[str] = None
+    """Invoice ID for this payment. Uses India-specific invoice ID if available."""
+
+    invoice_url: Optional[str] = None
+    """URL to download the invoice PDF for this payment."""
 
     payment_link: Optional[str] = None
     """Checkout URL"""

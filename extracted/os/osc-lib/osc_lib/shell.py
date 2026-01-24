@@ -83,6 +83,7 @@ class OpenStackShell(app.App):
 
     log = logging.getLogger(__name__)
     timing_data: list[ty.Any] = []
+    api_version: dict[str, str]
 
     def __init__(
         self,
@@ -124,11 +125,11 @@ class OpenStackShell(app.App):
         self.dump_stack_trace = True
 
         # Set in subclasses
-        self.api_version = None
+        self.api_version = {}
 
         self.command_options: list[str] = []
 
-        self.do_profile = False
+        self.do_profile: bool = False
 
     def configure_logging(self) -> None:
         """Configure logging for the app."""
@@ -378,7 +379,7 @@ class OpenStackShell(app.App):
         # Set the default plugin to None
         # NOTE(dtroyer): This is here to set up for setting it to a default
         #                in the calling CLI
-        self._auth_type = None
+        self._auth_type: str | None = None
 
         # Converge project/tenant options
         project_id = getattr(self.options, 'project_id', None)
@@ -431,7 +432,11 @@ class OpenStackShell(app.App):
             if self.command_options
             else "",
         )
-        self.log.debug("options: %s", strutils.mask_password(self.options))
+        # https://review.opendev.org/c/openstack/oslo.utils/+/967979
+        self.log.debug(
+            "options: %s",
+            strutils.mask_password(self.options),  # type: ignore
+        )
 
         # Callout for stuff between superclass init and o-c-c
         self._final_defaults()
@@ -466,8 +471,10 @@ class OpenStackShell(app.App):
         self.log_configurator.configure(self.cloud)
         self.dump_stack_trace = self.log_configurator.dump_trace
         self.log.debug("defaults: %s", self.cloud_config.defaults)
+        # https://review.opendev.org/c/openstack/oslo.utils/+/967979
         self.log.debug(
-            "cloud cfg: %s", strutils.mask_password(self.cloud.config)
+            "cloud cfg: %s",
+            strutils.mask_password(self.cloud.config),  # type: ignore
         )
 
         self._load_plugins()

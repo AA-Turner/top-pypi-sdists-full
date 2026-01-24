@@ -1,7 +1,7 @@
 [package]
 name = "resvg_py"
-version = "0.2.3"
-edition = "2021"
+version = "0.2.6"
+edition = "2024"
 authors = ['baseplate-admin']
 readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,10 +11,10 @@ path = "src/rust/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-log = "0.4.27"
-pyo3 = "0.25.0"
-resvg = { version = "0.45.1", features = ["raster-images", "text"] }
-svgtypes = "0.15.3"
+log = "0.4.29"
+pyo3 = "0.27.2"
+resvg = { version = "0.46.0", features = ["raster-images", "text"] }
+svgtypes = "0.16.0"
 
 
 [profile.release.package."*"]

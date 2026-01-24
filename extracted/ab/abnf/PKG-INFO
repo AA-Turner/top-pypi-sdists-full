@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.4.0
+Version: 2.4.1
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Keywords: abnf,generator,parser
@@ -9,16 +9,26 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Interpreters
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Provides-Extra: dev
+Requires-Dist: check-manifest==0.51; extra == "dev"
+Requires-Dist: pre-commit==4.3.0; extra == "dev"
+Requires-Dist: pyright[nodejs]==1.1.407; extra == "dev"
+Requires-Dist: pytest==8.4.2; extra == "dev"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev"
+Requires-Dist: ruff==0.14.2; extra == "dev"
+Requires-Dist: setuptools==80.9.0; extra == "dev"
+Requires-Dist: setuptools_scm==9.2.2; extra == "dev"
+Requires-Dist: tox==4.31.0; extra == "dev"
 Dynamic: license-file
 
 # ABNF
@@ -39,7 +49,7 @@ The code herein has been in use in production here and there on the internet sin
 
 ## Requirements
 
-ABNF is tested with Python 3.9-13.
+ABNF is tested with Python 3.10-14.
 
 
 ## Installation
@@ -326,8 +336,10 @@ limit cache size.
         
 ## Development, Testing, etc.
 
-Should you wish to tinker with the code, install in a virtual environment and have at it.
-The file requirements.txt contains the packages I use for testing and such.
+Should you wish to tinker with the code, install in a virtual environment and have at it. The requirements for a dev environment
+are specifed in pyproject.toml.  To install using pip:
+
+    pip install .[dev]
 
 A good starting point would be to run pytest and see that all tests pass.
 
@@ -347,7 +359,7 @@ to resolve any problems found, then
 
     tox
     
-to execute tests for python 3.9-3.13.
+to execute tests for python 3.10-3.14.
 
 
 The code is formatted using black.

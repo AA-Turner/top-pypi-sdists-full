@@ -60,7 +60,7 @@ Command line options.
 
 # stdlib
 import inspect
-from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 # 3rd party
 import click
@@ -77,9 +77,13 @@ __all__ = (
 		"colour_option",
 		"force_option",
 		"no_pager_option",
+		"PromptOption",
+		"ChoiceOption",
+		"LazyChoice",
 		"MultiValueOption",
 		"flag_option",
 		"auto_default_option",
+		"VerboseVersionCountType",
 		"auto_default_argument",
 		"DescribedArgument",
 		"_A",
@@ -231,7 +235,7 @@ def flag_option(*args, default: Optional[bool] = False, **kwargs) -> Callable[[_
 			)
 
 
-def auto_default_option(*param_decls, **attrs) -> Callable[[_C], _C]:
+def auto_default_option(*param_decls, **attrs) -> Callable[[_C], _C]:  # noqa: PRM002
 	"""
 	Attaches an option to the command, with a default value determined from the decorated function's signature.
 
@@ -279,7 +283,7 @@ def _get_default_from_callback_and_set(command: click.Command, param: click.Para
 			param.required = False
 
 
-def auto_default_argument(*param_decls, **attrs) -> Callable[[_C], _C]:
+def auto_default_argument(*param_decls, **attrs) -> Callable[[_C], _C]:  # noqa: PRM002
 	"""
 	Attaches an argument to the command, with a default value determined from the decorated function's signature.
 
@@ -457,13 +461,20 @@ class MultiValueOption(click.Option):
 			return ret
 
 
-class _Option(click.Option):
+class PromptOption(click.Option):
+	"""
+	:class:`click.Option` subclass that prompts for a value if none is provided on the command line.
+
+	Supports boolean, string or numeric values.
+
+	.. versionadded:: 1.11.0
+	"""
 
 	def prompt_for_value(self, ctx: click.Context):  # noqa: MAN002
 		"""
-		This is an alternative flow that can be activated in the full value processing if a value does not exist.
+		Prompt the user until a valid value exists and then returns the processed value as result.
 
-		It will prompt the user until a valid value exists and then returns the processed value as result.
+		:param ctx:
 		"""
 
 		# Calculate the default before prompting anything to be stable.
@@ -489,7 +500,73 @@ class _Option(click.Option):
 				)
 
 
-class DescribedArgument(click.Argument):
+class ChoiceOption(click.Option):  # noqa: PRM002
+	"""
+	:class:`click.Option` subclass for a string choice.
+
+	If a value is not provided a prompt (where the user chooses the corresponding number) is shown.
+
+	:param param_decls: The parameter declarations for this option.
+	:param type: The type that should be used.
+	:param show_default: Show the default value for this option in its help text.
+		Values are not shown by default, unless :attr:`Context.show_default` is :py:obj:`True`.
+		If this value is a string, it shows that string in parentheses instead of the actual value.
+		This is particularly useful for dynamic options.
+		For single option boolean flags, the default remains hidden if its value is :py:obj:`False`.
+	:param prompt: The prompt text. Defaults to the option name (capitalised and with spaces) if unset.
+	:param help: The help text.
+	:param hidden: Hide this option from help outputs.
+	:param show_choices:
+	:param deprecated: If :py:obj:`True` or a non-empty string, issues a message indicating that the argument is deprecated
+		and highlights its deprecation in --help.
+		The message can be customized by using a string as the value.
+		A deprecated parameter cannot be required, a ValueError will be raised otherwise.
+
+	.. versionadded:: 1.11.0
+	"""
+
+	# TODO: type: click.Choice[str]
+	type: click.Choice
+	prompt: str
+
+	def __init__(
+			self,
+			param_decls: Sequence[str],
+			# TODO: type: click.Choice[str],  # noqa: A002  # pylint: disable=redefined-builtin
+			type: click.Choice,  # noqa: A002  # pylint: disable=redefined-builtin
+			show_default: Union[bool, str, None] = None,
+			prompt: str = '',
+			help: Optional[str] = None,  # noqa: A002  # pylint: disable=redefined-builtin
+			hidden: bool = False,
+			show_choices: bool = True,
+			# deprecated: Union[bool, str] = False,
+			**kwargs,
+			) -> None:
+
+		super().__init__(
+				param_decls=param_decls,
+				show_default=show_default,
+				prompt=prompt or True,
+				help=help,
+				hidden=hidden,
+				show_choices=show_choices,
+				# deprecated=deprecated,
+				type=type,
+				default=None,
+				)
+
+	def prompt_for_value(self, ctx: click.Context) -> str:
+		"""
+		Show the prompt if a value was not provided.
+
+		:param ctx:
+		"""
+
+		choices = list(self.type.choices)
+		return choices[consolekit.input.choice(choices, text=self.prompt, start_index=1)]
+
+
+class DescribedArgument(click.Argument):  # noqa: PRM002
 	r"""
 	:class:`click.Argument` with an additional keyword argument and attribute giving a short description.
 
@@ -514,3 +591,40 @@ class DescribedArgument(click.Argument):
 		super().__init__(*args, **kwargs)
 
 		self.description: Optional[str] = description
+
+
+# class LazyChoice(click.Choice[str]):
+class LazyChoice(click.Choice):
+	"""
+	Modified choice type that lazily loads the data.
+
+	Useful for expensive operations that need not happen if the option is not provided or the help text is not being displayed.
+
+	:param getter: Function that returns the actual choices.
+	:param case_sensitive: Set to :py:obj:`False` to make choices case insensitive.
+
+	.. versionadded:: 1.11.0
+	"""
+
+	_choices: Optional[Sequence[str]] = None
+
+	def __init__(
+			self,
+			getter: Callable[[], Iterable[str]],
+			case_sensitive: bool = True,
+			) -> None:
+		self._getter = getter
+
+		self.case_sensitive = case_sensitive
+
+	@property
+	def choices(self) -> Sequence[str]:  # type: ignore[override]
+		"""
+		The choices, obtained from the getter function and cached.
+		"""
+
+		if self._choices is None:
+			choices = tuple(self._getter())
+			self._choices = choices
+
+		return self._choices

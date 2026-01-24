@@ -20,7 +20,7 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,24 +30,25 @@ class Organization(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="Organization ID")
     name: StrictStr = Field(description="Organization name")
-    created_by: StrictStr = Field(description="User ID of the organization creator", alias="createdBy")
+    created_by: StrictStr = Field(description="User ID of the organization creator", serialization_alias="createdBy")
     personal: StrictBool = Field(description="Personal organization flag")
-    created_at: datetime = Field(description="Creation timestamp", alias="createdAt")
-    updated_at: datetime = Field(description="Last update timestamp", alias="updatedAt")
+    created_at: datetime = Field(description="Creation timestamp", serialization_alias="createdAt")
+    updated_at: datetime = Field(description="Last update timestamp", serialization_alias="updatedAt")
     suspended: StrictBool = Field(description="Suspended flag")
-    suspended_at: datetime = Field(description="Suspended at", alias="suspendedAt")
-    suspension_reason: StrictStr = Field(description="Suspended reason", alias="suspensionReason")
-    suspended_until: datetime = Field(description="Suspended until", alias="suspendedUntil")
-    suspension_cleanup_grace_period_hours: Union[StrictFloat, StrictInt] = Field(description="Suspension cleanup grace period hours", alias="suspensionCleanupGracePeriodHours")
-    total_cpu_quota: Union[StrictFloat, StrictInt] = Field(description="Total CPU quota", alias="totalCpuQuota")
-    total_memory_quota: Union[StrictFloat, StrictInt] = Field(description="Total memory quota", alias="totalMemoryQuota")
-    total_disk_quota: Union[StrictFloat, StrictInt] = Field(description="Total disk quota", alias="totalDiskQuota")
-    max_cpu_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max CPU per sandbox", alias="maxCpuPerSandbox")
-    max_memory_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max memory per sandbox", alias="maxMemoryPerSandbox")
-    max_disk_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max disk per sandbox", alias="maxDiskPerSandbox")
-    sandbox_limited_network_egress: StrictBool = Field(description="Sandbox default network block all", alias="sandboxLimitedNetworkEgress")
+    suspended_at: datetime = Field(description="Suspended at", serialization_alias="suspendedAt")
+    suspension_reason: StrictStr = Field(description="Suspended reason", serialization_alias="suspensionReason")
+    suspended_until: datetime = Field(description="Suspended until", serialization_alias="suspendedUntil")
+    suspension_cleanup_grace_period_hours: Union[StrictFloat, StrictInt] = Field(description="Suspension cleanup grace period hours", serialization_alias="suspensionCleanupGracePeriodHours")
+    max_cpu_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max CPU per sandbox", serialization_alias="maxCpuPerSandbox")
+    max_memory_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max memory per sandbox", serialization_alias="maxMemoryPerSandbox")
+    max_disk_per_sandbox: Union[StrictFloat, StrictInt] = Field(description="Max disk per sandbox", serialization_alias="maxDiskPerSandbox")
+    sandbox_limited_network_egress: StrictBool = Field(description="Sandbox default network block all", serialization_alias="sandboxLimitedNetworkEgress")
+    default_region_id: Optional[StrictStr] = Field(default=None, description="Default region ID", serialization_alias="defaultRegionId")
+    authenticated_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(description="Authenticated rate limit per minute", serialization_alias="authenticatedRateLimit")
+    sandbox_create_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(description="Sandbox create rate limit per minute", serialization_alias="sandboxCreateRateLimit")
+    sandbox_lifecycle_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(description="Sandbox lifecycle rate limit per minute", serialization_alias="sandboxLifecycleRateLimit")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["id", "name", "createdBy", "personal", "createdAt", "updatedAt", "suspended", "suspendedAt", "suspensionReason", "suspendedUntil", "suspensionCleanupGracePeriodHours", "totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "sandboxLimitedNetworkEgress"]
+    __properties: ClassVar[List[str]] = ["id", "name", "createdBy", "personal", "createdAt", "updatedAt", "suspended", "suspendedAt", "suspensionReason", "suspendedUntil", "suspensionCleanupGracePeriodHours", "maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "sandboxLimitedNetworkEgress", "defaultRegionId", "authenticatedRateLimit", "sandboxCreateRateLimit", "sandboxLifecycleRateLimit"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +96,21 @@ class Organization(BaseModel):
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
 
+        # set to None if authenticated_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.authenticated_rate_limit is None and "authenticated_rate_limit" in self.model_fields_set:
+            _dict['authenticatedRateLimit'] = None
+
+        # set to None if sandbox_create_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.sandbox_create_rate_limit is None and "sandbox_create_rate_limit" in self.model_fields_set:
+            _dict['sandboxCreateRateLimit'] = None
+
+        # set to None if sandbox_lifecycle_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.sandbox_lifecycle_rate_limit is None and "sandbox_lifecycle_rate_limit" in self.model_fields_set:
+            _dict['sandboxLifecycleRateLimit'] = None
+
         return _dict
 
     @classmethod
@@ -109,22 +125,23 @@ class Organization(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "name": obj.get("name"),
-            "createdBy": obj.get("createdBy"),
+            "created_by": obj.get("createdBy"),
             "personal": obj.get("personal"),
-            "createdAt": obj.get("createdAt"),
-            "updatedAt": obj.get("updatedAt"),
+            "created_at": obj.get("createdAt"),
+            "updated_at": obj.get("updatedAt"),
             "suspended": obj.get("suspended"),
-            "suspendedAt": obj.get("suspendedAt"),
-            "suspensionReason": obj.get("suspensionReason"),
-            "suspendedUntil": obj.get("suspendedUntil"),
-            "suspensionCleanupGracePeriodHours": obj.get("suspensionCleanupGracePeriodHours"),
-            "totalCpuQuota": obj.get("totalCpuQuota"),
-            "totalMemoryQuota": obj.get("totalMemoryQuota"),
-            "totalDiskQuota": obj.get("totalDiskQuota"),
-            "maxCpuPerSandbox": obj.get("maxCpuPerSandbox"),
-            "maxMemoryPerSandbox": obj.get("maxMemoryPerSandbox"),
-            "maxDiskPerSandbox": obj.get("maxDiskPerSandbox"),
-            "sandboxLimitedNetworkEgress": obj.get("sandboxLimitedNetworkEgress")
+            "suspended_at": obj.get("suspendedAt"),
+            "suspension_reason": obj.get("suspensionReason"),
+            "suspended_until": obj.get("suspendedUntil"),
+            "suspension_cleanup_grace_period_hours": obj.get("suspensionCleanupGracePeriodHours"),
+            "max_cpu_per_sandbox": obj.get("maxCpuPerSandbox"),
+            "max_memory_per_sandbox": obj.get("maxMemoryPerSandbox"),
+            "max_disk_per_sandbox": obj.get("maxDiskPerSandbox"),
+            "sandbox_limited_network_egress": obj.get("sandboxLimitedNetworkEgress"),
+            "default_region_id": obj.get("defaultRegionId"),
+            "authenticated_rate_limit": obj.get("authenticatedRateLimit"),
+            "sandbox_create_rate_limit": obj.get("sandboxCreateRateLimit"),
+            "sandbox_lifecycle_rate_limit": obj.get("sandboxLifecycleRateLimit")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

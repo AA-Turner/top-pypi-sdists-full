@@ -685,3 +685,11 @@ def test_field2property_with_non_string_metadata_keys(spec_fixture):
     field.metadata[_DesertSentinel()] = "to be ignored"
     result = spec_fixture.openapi.field2property(field)
     assert result == {"description": "A description", "type": "boolean"}
+
+
+def test_field2property_examples(spec_fixture):
+    field = fields.Raw(metadata={"examples": ["foo", "bar"]})
+    res = spec_fixture.openapi.field2property(field)
+    assert res == {
+        "examples": ["foo", "bar"],
+    }

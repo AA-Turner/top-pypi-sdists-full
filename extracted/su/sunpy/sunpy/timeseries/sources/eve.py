@@ -1,5 +1,4 @@
 import os
-import codecs
 from os.path import basename
 from collections import OrderedDict
 
@@ -14,7 +13,6 @@ import sunpy.io
 import sunpy.io._file_tools
 from sunpy.time import parse_time
 from sunpy.timeseries.timeseriesbase import GenericTimeSeries
-from sunpy.util.exceptions import warn_deprecated
 from sunpy.util.metadata import MetaDict
 from sunpy.visualization import peek_show
 
@@ -49,14 +47,14 @@ class ESPTimeSeries(GenericTimeSeries):
     References
     ----------
     * `SDO Mission Homepage <https://sdo.gsfc.nasa.gov/>`__
-    * `EVE Homepage <http://lasp.colorado.edu/home/eve/>`__
-    * `README ESP data <http://lasp.colorado.edu/eve/data_access/evewebdata/products/level1/esp/EVE_ESP_L1_V6_README.pdf>`__
-    * `ESP lvl1 data <http://lasp.colorado.edu/eve/data_access/evewebdata/misc/eve_calendars/calendar_level1_2018.html>`__
+    * `EVE Homepage <https://lasp.colorado.edu/eve/>`__
+    * `README ESP data <https://lasp.colorado.edu/eve/data_access/evewebdata/products/level1/esp/EVE_ESP_L1_V6_README.pdf>`__
+    * `ESP lvl1 data <https://lasp.colorado.edu/eve/data_access/evewebdata/misc/eve_calendars/calendar_level1_2018.html>`__
     * ESP instrument paper: :cite:t:`didkovsky_euv_2012`
     """
 
     _source = 'esp'
-    _url = "http://lasp.colorado.edu/home/eve/"
+    _url = "https://lasp.colorado.edu/eve/"
 
     def plot(self, axes=None, columns=None, **kwargs):
         """
@@ -181,20 +179,20 @@ class EVESpWxTimeSeries(GenericTimeSeries):
     >>> import sunpy.timeseries
     >>> import sunpy.data.sample  # doctest: +REMOTE_DATA
     >>> eve = sunpy.timeseries.TimeSeries(sunpy.data.sample.EVE_TIMESERIES, source='EVE')  # doctest: +REMOTE_DATA
-    >>> eve = sunpy.timeseries.TimeSeries("http://lasp.colorado.edu/eve/data_access/evewebdata/quicklook/L0CS/LATEST_EVE_L0CS_DIODES_1m.txt", source='EVE')  # doctest: +SKIP
+    >>> eve = sunpy.timeseries.TimeSeries("https://lasp.colorado.edu/eve/data_access/evewebdata/quicklook/L0CS/LATEST_EVE_L0CS_DIODES_1m.txt", source='EVE')  # doctest: +SKIP
     >>> eve.peek(subplots=True)  # doctest: +SKIP
 
     References
     ----------
     * `SDO Mission Homepage <https://sdo.gsfc.nasa.gov/>`__
-    * `EVE Homepage <http://lasp.colorado.edu/home/eve/>`__
-    * `Level 0CS Definition <http://lasp.colorado.edu/home/eve/data/>`__
-    * `EVE Data Access <http://lasp.colorado.edu/home/eve/data/data-access/>`__
+    * `EVE Homepage <https://lasp.colorado.edu/eve/>`__
+    * `Level 0CS Definition <https://lasp.colorado.edu/eve/data/>`__
+    * `EVE Data Access <https://lasp.colorado.edu/eve/data_access/index.html>`__
     * Instrument Paper :cite:t:`woods_extreme_2012`.
     """
     # Class attribute used to specify the source class of the TimeSeries.
     _source = 'eve'
-    _url = "http://lasp.colorado.edu/home/eve/"
+    _url = "https://lasp.colorado.edu/eve/"
 
     @peek_show
     def peek(self, *, columns=None, **kwargs):
@@ -252,27 +250,14 @@ class EVESpWxTimeSeries(GenericTimeSeries):
         Parses an EVE CSV file.
         """
         cls._filename = basename(filepath)
-        with codecs.open(filepath, mode='rb', encoding='ascii') as fp:
+        with open(filepath, encoding='ascii') as fp:
             # Determine type of EVE CSV file and parse
             line1 = fp.readline()
 
         if line1.startswith("Date"):
-            return cls._parse_average_csv(filepath)
+            raise NotImplementedError("Reading SDO/EVE level 0CS average files is not implemented.")
         elif line1.startswith(";"):
             return cls._parse_level_0cs(filepath)
-
-    @staticmethod
-    def _parse_average_csv(filepath):
-        """
-        Parses an EVE Averages file.
-        """
-        warn_deprecated(
-            "Parsing SDO/EVE level 0CS average files is deprecated, and will be removed in "
-            "sunpy 6.0. Parsing this data is untested, and we cannot find a file to test it with. "
-            "If you know where level 0CS 'averages' files can be found, please get in touch at "
-            "https://community.openastronomy.org/c/sunpy/5."
-        )
-        return "", read_csv(filepath, sep=",", index_col=0, parse_dates=True)
 
     @staticmethod
     def _parse_level_0cs(filepath):
@@ -283,7 +268,7 @@ class EVESpWxTimeSeries(GenericTimeSeries):
         missing_data_val = np.nan
         header = []
         fields = []
-        with codecs.open(filepath, mode='rb', encoding='ascii') as fp:
+        with open(filepath, encoding='ascii') as fp:
             line = fp.readline()
             # Read header at top of file
             while line.startswith(";"):

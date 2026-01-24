@@ -376,7 +376,7 @@ cdef void schandrasekhar_recursion(sKalmanFilter kfilter, sStatespace model, int
 cdef void sloglikelihood(sKalmanFilter kfilter, sStatespace model, int i, np.float32_t forecast_error_cov, np.float32_t forecast_error_cov_inv):
     kfilter._loglikelihood[0] = (
         kfilter._loglikelihood[0] - 0.5*(
-            dlog(2 * NPY_PI * forecast_error_cov)
+            dlog(2 * M_PI * forecast_error_cov)
         )
     )
     if kfilter.filter_method & FILTER_CONCENTRATED:
@@ -913,7 +913,7 @@ cdef void dchandrasekhar_recursion(dKalmanFilter kfilter, dStatespace model, int
 cdef void dloglikelihood(dKalmanFilter kfilter, dStatespace model, int i, np.float64_t forecast_error_cov, np.float64_t forecast_error_cov_inv):
     kfilter._loglikelihood[0] = (
         kfilter._loglikelihood[0] - 0.5*(
-            dlog(2 * NPY_PI * forecast_error_cov)
+            dlog(2 * M_PI * forecast_error_cov)
         )
     )
     if kfilter.filter_method & FILTER_CONCENTRATED:
@@ -1449,7 +1449,7 @@ cdef void cchandrasekhar_recursion(cKalmanFilter kfilter, cStatespace model, int
 cdef void cloglikelihood(cKalmanFilter kfilter, cStatespace model, int i, np.complex64_t forecast_error_cov, np.complex64_t forecast_error_cov_inv):
     kfilter._loglikelihood[0] = (
         kfilter._loglikelihood[0] - 0.5*(
-            zlog(2 * NPY_PI * forecast_error_cov)
+            zlog(2 * M_PI * forecast_error_cov)
         )
     )
     if kfilter.filter_method & FILTER_CONCENTRATED:
@@ -1985,7 +1985,7 @@ cdef void zchandrasekhar_recursion(zKalmanFilter kfilter, zStatespace model, int
 cdef void zloglikelihood(zKalmanFilter kfilter, zStatespace model, int i, np.complex128_t forecast_error_cov, np.complex128_t forecast_error_cov_inv):
     kfilter._loglikelihood[0] = (
         kfilter._loglikelihood[0] - 0.5*(
-            zlog(2 * NPY_PI * forecast_error_cov)
+            zlog(2 * M_PI * forecast_error_cov)
         )
     )
     if kfilter.filter_method & FILTER_CONCENTRATED:

@@ -5,7 +5,7 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.applications.augment import HyperImageAugment
-from keras_tuner.src.applications.efficientnet import HyperEfficientNet
-from keras_tuner.src.applications.resnet import HyperResNet
-from keras_tuner.src.applications.xception import HyperXception
+from keras_tuner.src.applications.augment import HyperImageAugment as HyperImageAugment
+from keras_tuner.src.applications.efficientnet import HyperEfficientNet as HyperEfficientNet
+from keras_tuner.src.applications.resnet import HyperResNet as HyperResNet
+from keras_tuner.src.applications.xception import HyperXception as HyperXception

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyroma
-Version: 5.0
+Version: 5.0.1
 Summary: Test your project's packaging friendliness
 Home-page: https://github.com/regebro/pyroma
 Author: Lennart Regebro
@@ -37,6 +37,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: setuptools>=60; extra == "test"
 Requires-Dist: zest.releaser[recommended]; extra == "test"
 Requires-Dist: flit_core<4,>=3.4; extra == "test"
+Requires-Dist: tox; extra == "test"
 
 pyroma
 ======
@@ -172,9 +173,18 @@ Contributors:
   * RuRo
   * Wesley Barroso Lopes
   * Alexander Bessman
+  * Matt Norton
 
 Changelog
 =========
+
+5.0.1 (2025-12-09)
+------------------
+
+- check-manifest was missing from the requirements list.
+
+- Passing in multiple tests to be skipped now actually works  [Matt Norton]
+
 
 5.0 (2025-07-15)
 ----------------

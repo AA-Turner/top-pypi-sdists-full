@@ -1,28 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: taskflow
-Version: 6.0.2
+Version: 6.1.0
 Summary: Taskflow structured state management library.
-Home-page: https://docs.openstack.org/taskflow/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
-Keywords: reliable,tasks,execution,parallel,dataflow,workflows,distributed
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/taskflow
+Project-URL: Repository, https://opendev.org/openstack/taskflow
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: OpenStack
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Distributed Computing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: debtcollector>=1.2.0
@@ -53,40 +51,23 @@ Requires-Dist: alembic>=0.8.10; extra == "database"
 Requires-Dist: SQLAlchemy-Utils>=0.30.11; extra == "database"
 Requires-Dist: PyMySQL>=0.7.6; extra == "database"
 Requires-Dist: psycopg2>=2.8.0; extra == "database"
-Provides-Extra: test
-Requires-Dist: kazoo>=2.6.0; extra == "test"
-Requires-Dist: redis>=4.0.0; extra == "test"
-Requires-Dist: etcd3gw>=2.0.0; extra == "test"
-Requires-Dist: kombu>=4.3.0; extra == "test"
-Requires-Dist: eventlet>=0.18.2; extra == "test"
-Requires-Dist: SQLAlchemy>=1.0.10; extra == "test"
-Requires-Dist: alembic>=0.8.10; extra == "test"
-Requires-Dist: SQLAlchemy-Utils>=0.30.11; extra == "test"
-Requires-Dist: PyMySQL>=0.7.6; extra == "test"
-Requires-Dist: psycopg2>=2.8.0; extra == "test"
-Requires-Dist: zake>=0.1.6; extra == "test"
-Requires-Dist: pydotplus>=2.0.2; extra == "test"
-Requires-Dist: oslotest>=3.2.0; extra == "test"
-Requires-Dist: testtools>=2.2.0; extra == "test"
-Requires-Dist: testscenarios>=0.4; extra == "test"
-Requires-Dist: stestr>=2.0.0; extra == "test"
-Requires-Dist: pifpaf>=0.10.0; extra == "test"
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/taskflow.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
+Dynamic: license-file
+Dynamic: requires-dist
 
 TaskFlow
 ========
 
+.. image:: https://governance.openstack.org/tc/badges/taskflow.svg
+
+.. Change things from this point on
+
 .. image:: https://img.shields.io/pypi/v/taskflow.svg
     :target: https://pypi.org/project/taskflow/
     :alt: Latest Version
+
+.. image:: https://img.shields.io/pypi/dm/taskflow.svg
+    :target: https://pypi.org/project/taskflow/
+    :alt: Downloads
 
 A library to do [jobs, tasks, flows] in a highly available, easy to understand
 and declarative manner (and more!) to be used with OpenStack and other
@@ -145,4 +126,3 @@ We also have sphinx documentation in ``docs/source``.
 .. _kombu: https://kombu.readthedocs.io/en/latest/
 .. _eventlet: http://eventlet.net/
 .. _tox: https://tox.testrun.org/
-

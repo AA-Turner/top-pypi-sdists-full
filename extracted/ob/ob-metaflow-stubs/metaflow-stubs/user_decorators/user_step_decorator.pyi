@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.671051                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.832355                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,12 +9,12 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.decorators
     import metaflow.flowspec
     import metaflow.user_decorators.mutable_step
+    import metaflow.decorators
     import typing
-    import metaflow.user_decorators.user_step_decorator
     import metaflow.datastore.inputs
+    import metaflow.user_decorators.user_step_decorator
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import resolve_delayed_evaluator as resolve_delayed_evaluator
@@ -237,7 +237,7 @@ def user_step_decorator(*args, **kwargs):
     
     ```
     @user_step_decorator
-    def timing(step_name, flow, inputs):
+    def timing(step_name, flow, inputs, attributes):
         start_time = time.time()
         yield
         end_time = time.time()
@@ -254,16 +254,28 @@ def user_step_decorator(*args, **kwargs):
     ```
     
     Your generator should:
+      - take 3 or 4 arguments: step_name, flow, inputs, and attributes (optional)
+        - step_name: the name of the step
+        - flow: the flow object
+        - inputs: the inputs to the step
+        - attributes: the kwargs passed in when initializing the decorator. In the
+          example above, something like `@timing(arg1="foo", arg2=42)` would make
+          `attributes = {"arg1": "foo", "arg2": 42}`. If you choose to pass arguments
+          to the decorator when you apply it to the step, your function *must* take
+          4 arguments (step_name, flow, inputs, attributes).
       - yield at most once -- if you do not yield, the step will not execute.
       - yield:
           - None
           - a callable that will replace whatever is being wrapped (it
             should have the same parameters as the wrapped function, namely, it should
             be a
-            Callable[[FlowSpec, Inputs], Optional[Union[Dict[str, Any]]]]).
+            Callable[[FlowSpec, Inputs], Optional[Union[Dict[str, Any], bool]]]).
             Note that the return type is a bit different -- you can return:
-              - None: no special behavior;
+              - None or False: no special behavior, your callable called `self.next()` as
+                usual.
               - A dictionary containing parameters for `self.next()`.
+              - True to instruct Metaflow to call the `self.next()` statement that
+                would have been called normally by the step function you replaced.
           - a dictionary to skip the step. An empty dictionary is equivalent
             to just skipping the step. A full dictionary will pass the arguments
             to the `self.next()` call -- this allows you to modify the behavior

@@ -6,15 +6,15 @@
 
 from typing import Iterator, Optional
 
-from uniseg import Unicode_Property
-from uniseg.breaking import (Breakable, Breakables, Run, TailorBreakables, boundaries,
+from uniseg.breaking import (Breakable, Breakables, Run, TailorFunction, boundaries,
                              break_units)
 from uniseg.db import get_handle, get_value
 from uniseg.derived import InCB, indic_conjunct_break
 from uniseg.emoji import extended_pictographic
+from uniseg.unicodeproperty import EnumProperty, PropertyFunction, character_property
 
 __all__ = [
-    'Grapheme_Cluster_Break',
+    'GraphemeClusterBreak',
     'GCB',
     'grapheme_cluster_break',
     'grapheme_cluster_breakables',
@@ -23,67 +23,89 @@ __all__ = [
 ]
 
 
-H_GRAPHEME_CLUSTER_BREAK = get_handle('Grapheme_Cluster_Break')
-
-
-class Grapheme_Cluster_Break(Unicode_Property):
+class GraphemeClusterBreak(EnumProperty):
     """Grapheme_Cluster_Break property values in UAX #29."""
-    Other = 'Other'
+
+    __propname__ = 'Grapheme_Cluster_Break'
+
+    OTHER = 'Other'
     """Grapheme_Cluster_Break property value Other"""
+
     CR = 'CR'
     """Grapheme_Cluster_Break property value CR"""
+
     LF = 'LF'
     """Grapheme_Cluster_Break property value LF"""
-    Control = 'Control'
+
+    CONTROL = 'Control'
     """Grapheme_Cluster_Break property value Control"""
-    Extend = 'Extend'
+
+    EXTEND = 'Extend'
     """Grapheme_Cluster_Break property value Extend"""
+
     ZWJ = 'ZWJ'
     """Grapheme_Cluster_Break property value ZWJ"""
-    Regional_Indicator = 'Regional_Indicator'
+
+    REGIONAL_INDICATOR = 'Regional_Indicator'
     """Grapheme_Cluster_Break property value Regional_Indicator"""
-    Prepend = 'Prepend'
+
+    PREPEND = 'Prepend'
     """Grapheme_Cluster_Break property value Prepend"""
-    SpacingMark = 'SpacingMark'
+
+    PACINGMARK = 'SpacingMark'
     """Grapheme_Cluster_Break property value SpacingMark"""
+
     L = 'L'
     """Grapheme_Cluster_Break property value L"""
+
     V = 'V'
     """Grapheme_Cluster_Break property value V"""
+
     T = 'T'
     """Grapheme_Cluster_Break property value T"""
+
     LV = 'LV'
     """Grapheme_Cluster_Break property value LV"""
+
     LVT = 'LVT'
     """Grapheme_Cluster_Break property value LVT"""
 
 
 # type alias for `GraphemeClusterBreak`
-GCB = Grapheme_Cluster_Break
+GCB = GraphemeClusterBreak
 
 
-def _ep(c: Optional[str], /) -> Optional[bool]:
-    return False if c is None else extended_pictographic(c)
+_H_GCB = get_handle('Grapheme_Cluster_Break')
 
 
-def grapheme_cluster_break(c: str, /) -> Grapheme_Cluster_Break:
-    R"""Return the Grapheme_Cluster_Break property of `c`.
+@character_property
+def grapheme_cluster_break(c: str, /) -> GraphemeClusterBreak:
+    R"""Return the Grapheme_Cluster_Break value assigned to the code point `c`.
 
-    `c` must be a single Unicode string.
+    `c` must be a single Unicode character (code point).
 
     >>> grapheme_cluster_break('a')
-    Grapheme_Cluster_Break.Other
+    GraphemeClusterBreak.OTHER
     >>> grapheme_cluster_break('\r')
-    Grapheme_Cluster_Break.CR
+    GraphemeClusterBreak.CR
     >>> print(grapheme_cluster_break('\n'))
     LF
     """
-    return Grapheme_Cluster_Break[
-        get_value(H_GRAPHEME_CLUSTER_BREAK, ord(c)) or 'Other'
-    ]
+    return GraphemeClusterBreak(get_value(_H_GCB, ord(c)) or 'Other')
 
 
-def grapheme_cluster_breakables(s: str, /) -> Breakables:
+def _ep(c: Optional[str], /) -> Optional[bool]:
+    """(internal) Same as `extended_pictographic` but also accepts `None` as an
+    argument, which returns `None` in that case."""
+    return False if c is None else extended_pictographic(c)
+
+
+def grapheme_cluster_breakables(
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[GraphemeClusterBreak] = grapheme_cluster_break
+) -> Breakables:
     R"""Iterate grapheme cluster breaking opportunities for every
     position of `s`.
 
@@ -103,23 +125,24 @@ def grapheme_cluster_breakables(s: str, /) -> Breakables:
     run = Run(s, indic_conjunct_break)
     while run.walk():
         if (
-            run.is_following((InCB.Extend, InCB.Linker),
-                             greedy=True).prev == InCB.Consonant
-            and run.is_following(InCB.Extend, greedy=True).prev != InCB.Consonant
-            and run.curr == InCB.Consonant
+            run.is_following(
+                (InCB.EXTEND, InCB.LINKER), greedy=True
+            ).prev == InCB.CONSONANT
+            and run.is_following(InCB.EXTEND, greedy=True).prev != InCB.CONSONANT
+            and run.curr == InCB.CONSONANT
         ):
             run.do_not_break_here()
     incb_breakables = run.breakables()
 
-    run = Run(s, grapheme_cluster_break)
+    run = Run(s, property)
     while run.walk():
         # GB3
         if run.prev == GCB.CR and run.curr == GCB.LF:
             run.do_not_break_here()
         # GB4, GB5
         elif (
-            run.prev in (GCB.Control, GCB.CR, GCB.LF)
-            or run.curr in (GCB.Control, GCB.CR, GCB.LF)
+            run.prev in (GCB.CONTROL, GCB.CR, GCB.LF)
+            or run.curr in (GCB.CONTROL, GCB.CR, GCB.LF)
         ):
             run.break_here()
         # GB6, GB7, GB8
@@ -129,30 +152,29 @@ def grapheme_cluster_breakables(s: str, /) -> Breakables:
             or (run.prev in (GCB.LVT, GCB.T) and run.curr == GCB.T)
         ):
             run.do_not_break_here()
-        elif run.curr in (GCB.Extend, GCB.ZWJ):
+        elif run.curr in (GCB.EXTEND, GCB.ZWJ):
             run.do_not_break_here()
         # GB9a, GB9b
-        elif run.curr == GCB.SpacingMark or run.prev == GCB.Prepend:
+        elif run.curr == GCB.PACINGMARK or run.prev == GCB.PREPEND:
             run.do_not_break_here()
         # GB9c
         elif incb_breakables[run.position] is Breakable.DoNotBreak:
             run.do_not_break_here()
         # GB11
         elif (
-            _ep(run.is_following(GCB.ZWJ).is_following(
-                GCB.Extend, greedy=True).pc)
+            _ep(run.is_following(GCB.ZWJ).is_following(GCB.EXTEND, greedy=True).pc)
             and _ep(run.cc)
         ):
             run.do_not_break_here()
     # GB12, GB13
     run.head()
     while 1:
-        while run.curr != GCB.Regional_Indicator:
+        while run.curr != GCB.REGIONAL_INDICATOR:
             if not run.walk():
                 break
         if not run.walk():
             break
-        while run.prev == run.curr == GCB.Regional_Indicator:
+        while run.prev == run.curr == GCB.REGIONAL_INDICATOR:
             run.do_not_break_here()
             if not run.walk():
                 break
@@ -163,7 +185,11 @@ def grapheme_cluster_breakables(s: str, /) -> Breakables:
 
 
 def grapheme_cluster_boundaries(
-    s: str, /, tailor: Optional[TailorBreakables] = None
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[GraphemeClusterBreak] = grapheme_cluster_break,
+    tailor: Optional[TailorFunction] = None,
 ) -> Iterator[int]:
     R"""Iterate indices of the grapheme cluster boundaries of `s`.
 
@@ -176,14 +202,18 @@ def grapheme_cluster_boundaries(
     >>> list(grapheme_cluster_boundaries(''))
     []
     """
-    breakables = grapheme_cluster_breakables(s)
+    breakables = grapheme_cluster_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return boundaries(breakables)
 
 
 def grapheme_clusters(
-    s: str, /, tailor: Optional[TailorBreakables] = None
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[GraphemeClusterBreak] = grapheme_cluster_break,
+    tailor: Optional[TailorFunction] = None,
 ) -> Iterator[str]:
     R"""Iterate every grapheme cluster token of `s`.
 
@@ -213,7 +243,7 @@ def grapheme_clusters(
     `s` and its default breaking sequence (iterator) as its arguments and
     returns the sequence of customized breaking opportunities:
 
-    >>> def tailor_grapheme_cluster_breakables(s, breakables):
+    >>> def tailor_gcb_breakables(s, breakables) -> Breakables:
     ...     for i, breakable in enumerate(breakables):
     ...         # don't break between 'c' and 'h'
     ...         if s.endswith('c', 0, i) and s.startswith('h', i):
@@ -223,10 +253,10 @@ def grapheme_clusters(
     ...
     >>> list(grapheme_clusters('Czech'))
     ['C', 'z', 'e', 'c', 'h']
-    >>> list(grapheme_clusters('Czech', tailor_grapheme_cluster_breakables))
+    >>> list(grapheme_clusters('Czech', tailor=tailor_gcb_breakables))
     ['C', 'z', 'e', 'ch']
     """
-    breakables = grapheme_cluster_breakables(s)
+    breakables = grapheme_cluster_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return break_units(s, breakables)

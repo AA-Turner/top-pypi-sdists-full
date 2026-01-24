@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Dict
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from ...call_builder.base import BaseDataCallBuilder
 from ...call_builder.call_builder_async.base_call_builder import BaseCallBuilder
@@ -11,7 +12,7 @@ class DataCallBuilder(BaseCallBuilder, BaseDataCallBuilder):
     """Creates a new :class:`DataCallBuilder` pointed to server defined by horizon_url.
     Do not create this object directly, use :func:`stellar_sdk.ServerAsync.data`.
 
-    See `Retrieve an Account's Data <https://developers.stellar.org/api/resources/accounts/data/>`__ for more information.
+    See `Retrieve an Account's Data <https://developers.stellar.org/docs/data/apis/horizon/api-reference/get-data-by-account-id>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -35,7 +36,7 @@ class DataCallBuilder(BaseCallBuilder, BaseDataCallBuilder):
 
     def stream(
         self,
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Creates an EventSource that listens for events from the `Account Data` endpoint.
 
         See `Streaming <https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming>`__ for more information.

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -36,20 +36,12 @@ class Guardian(WMLResource):
         from ibm_watsonx_ai import APIClient, Credentials
         from ibm_watsonx_ai.foundation_models.moderations import Guardian
 
-        credentials = Credentials(
-            url = "<url>",
-            api_key = IAM_API_KEY
-        )
+        credentials = Credentials(url="<url>", api_key=IAM_API_KEY)
         api_client = APIClient(credentials)
 
-        detectors = {
-            "granite_guardian": {"threshold": 0.4}
-        }
+        detectors = {"granite_guardian": {"threshold": 0.4}}
 
-        guardian = Guardian(
-            api_client=api_client,
-            detectors=detectors
-        )
+        guardian = Guardian(api_client=api_client, detectors=detectors)
 
     """
 

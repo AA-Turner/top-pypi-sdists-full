@@ -55,8 +55,13 @@ class ResmokeProxy:
             cmd.append(f"multiversion-config --config-file-output={file_name}")
             try:
                 subprocess.run(" ".join(cmd), capture_output=True, check=True, shell=True)
-            except subprocess.CalledProcessError:
-                LOGGER.error("Error invoking resmoke", exc_info=True)
+            except subprocess.CalledProcessError as e:
+                LOGGER.error(
+                    "Error invoking resmoke",
+                    exc_info=True,
+                    stderr=e.stderr.decode(),
+                    stdout=e.stdout.decode(),
+                )
                 LOGGER.error(
                     "This command should be run from the root of the mongo repo and the resmoke "
                     "virtualenv should be activated."

@@ -4,9 +4,11 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk._types import ScopeCollectionType
+from globus_sdk._missing import MISSING, MissingType
 from globus_sdk.authorizers import NullAuthorizer
 from globus_sdk.response import GlobusHTTPResponse
+from globus_sdk.scopes import Scope
+from globus_sdk.transport import RequestsTransport, RetryConfig
 
 from ..flow_managers import GlobusNativeAppFlowManager
 from ..response import OAuthRefreshTokenResponse
@@ -38,7 +40,8 @@ class NativeAppAuthClient(AuthLoginClient):
         environment: str | None = None,
         base_url: str | None = None,
         app_name: str | None = None,
-        transport_params: dict[str, t.Any] | None = None,
+        transport: RequestsTransport | None = None,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         super().__init__(
             client_id=client_id,
@@ -46,18 +49,19 @@ class NativeAppAuthClient(AuthLoginClient):
             environment=environment,
             base_url=base_url,
             app_name=app_name,
-            transport_params=transport_params,
+            transport=transport,
+            retry_config=retry_config,
         )
 
     def oauth2_start_flow(
         self,
-        requested_scopes: ScopeCollectionType | None = None,
+        requested_scopes: str | Scope | t.Iterable[str | Scope],
         *,
-        redirect_uri: str | None = None,
+        redirect_uri: str | MissingType = MISSING,
         state: str = "_default",
-        verifier: str | None = None,
+        verifier: str | MissingType = MISSING,
         refresh_tokens: bool = False,
-        prefill_named_grant: str | None = None,
+        prefill_named_grant: str | MissingType = MISSING,
     ) -> GlobusNativeAppFlowManager:
         """
         Starts a Native App OAuth2 flow.

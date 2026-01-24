@@ -14,28 +14,24 @@ import pytest
 from numpy_groupies.aggregate_numpy import aggregate
 
 import flox
+import flox.dask
 from flox import set_options, xrutils
 from flox import xrdtypes as dtypes
 from flox.aggregations import Aggregation, _initialize_aggregation
+from flox.cohorts import find_group_cohorts
 from flox.core import (
     HAS_NUMBAGG,
-    ReindexArrayType,
-    ReindexStrategy,
     _choose_engine,
     _convert_expected_groups_to_index,
-    _get_optimal_chunks_for_groups,
-    _is_sparse_supported_reduction,
-    _normalize_indexes,
     _validate_reindex,
-    factorize_,
-    find_group_cohorts,
     groupby_reduce,
-    groupby_scan,
-    rechunk_for_blockwise,
-    rechunk_for_cohorts,
-    reindex_,
-    subset_to_blocks,
 )
+from flox.dask import _normalize_indexes, subset_to_blocks
+from flox.factorize import factorize_
+from flox.lib import _is_sparse_supported_reduction
+from flox.rechunk import _get_optimal_chunks_for_groups, rechunk_for_blockwise, rechunk_for_cohorts
+from flox.reindex import ReindexArrayType, ReindexStrategy, reindex_
+from flox.scan import groupby_scan
 
 from . import (
     ALL_FUNCS,
@@ -376,7 +372,7 @@ def test_groupby_reduce_all(to_sparse, nby, size, chunks, func, add_nan_by, engi
                 else:
                     mocks = {"_simple_combine": MagicMock(side_effect=combine_error)}
 
-            with patch.multiple(flox.core, **mocks):
+            with patch.multiple(flox.dask, **mocks):
                 actual, *groups = call()
             for actual_group, expect in zip(groups, expected_groups):
                 assert_equal(actual_group, expect, tolerance)
@@ -553,7 +549,7 @@ def test_groupby_agg_dask(func, shape, array_chunks, group_chunks, add_nan, dtyp
 def test_groupby_agg_cubed(func, shape, array_chunks, group_chunks, add_nan, engine, reindex):
     """Tests groupby_reduce with cubed arrays against groupby_reduce with numpy arrays"""
 
-    if func in ["first", "last"] or func in BLOCKWISE_FUNCS:
+    if func in ["first", "last", "var", "nanvar", "std", "nanstd"] or func in BLOCKWISE_FUNCS:
         pytest.skip()
 
     if "arg" in func and (engine in ["flox", "numbagg"] or reindex):
@@ -2076,6 +2072,52 @@ def test_blockwise_nans() -> None:
     assert_equal(expected, actual)
 
 
+@requires_dask
+@pytest.mark.parametrize("func", ["nancumsum", "ffill", "bfill"])
+@pytest.mark.parametrize("method", ["blockwise", "blelloch"])
+def test_groupby_scan_method(func, method) -> None:
+    """Test that groupby_scan works correctly with explicit method parameter."""
+    # Create array where groups fit within chunks (suitable for blockwise)
+    # Include NaN values for ffill/bfill to actually test gap filling
+    if "fill" in func:
+        data = [1.0, np.nan, 3.0, 4.0, np.nan, 6.0]
+    else:
+        data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    array = dask.array.from_array(data, chunks=3)
+    by = np.array([0, 0, 0, 1, 1, 1])
+
+    expected = groupby_scan(array.compute(), by, func=func, axis=-1)
+    actual = groupby_scan(array, by, func=func, axis=-1, method=method)
+
+    assert_equal(expected, actual)
+
+
+@requires_dask
+def test_groupby_scan_blockwise_auto_rechunk() -> None:
+    """Test that blockwise scan auto-rechunks when groups are sorted but span chunks."""
+    from flox import scan
+    from flox.rechunk import rechunk_for_blockwise as real_rechunk
+
+    # Create array with sorted groups that span chunk boundaries
+    array = dask.array.from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], chunks=2)
+    by = np.array([0, 0, 0, 1, 1, 1])  # sorted, but group 0 spans chunks 0 and 1
+
+    expected = groupby_scan(array.compute(), by, func="nancumsum", axis=-1)
+
+    # This should auto-rechunk to enable blockwise
+    with patch.object(scan, "rechunk_for_blockwise", wraps=real_rechunk) as rechunk_spy:
+        actual = groupby_scan(array, by, func="nancumsum", axis=-1)
+        assert_equal(expected, actual)
+        # Verify rechunk_for_blockwise was called
+        assert rechunk_spy.call_count >= 1
+
+    # Explicit method="blockwise" should also rechunk and produce correct results
+    with patch.object(scan, "rechunk_for_blockwise", wraps=real_rechunk) as rechunk_spy:
+        actual_explicit = groupby_scan(array, by, func="nancumsum", axis=-1, method="blockwise")
+        assert_equal(expected, actual_explicit)
+        assert rechunk_spy.call_count >= 1
+
+
 @pytest.mark.parametrize("func", ["sum", "prod", "count", "nansum"])
 @pytest.mark.parametrize("engine", ["flox", "numpy"])
 def test_agg_dtypes(func, engine) -> None:
@@ -2240,3 +2282,85 @@ def test_sparse_nan_fill_value_reductions(chunks, fill_value, shape, func):
         expected = np.expand_dims(npfunc(numpy_array, axis=-1), axis=-1)
         actual, *_ = groupby_reduce(array, by, func=func, axis=-1)
     assert_equal(actual, expected)
+
+
+@pytest.mark.parametrize("func", ("nanvar", "var"))
+@pytest.mark.parametrize(
+    # Should fail at 10e8 for old algorithm, and survive 10e12 for current
+    "exponent",
+    (2, 4, 6, 8, 10, 12),
+)
+def test_std_var_precision(func, exponent, engine):
+    # Generate a dataset with small variance and big mean
+    # Check that func with engine gives you the same answer as numpy
+
+    size = 1000
+    offset = 10**exponent
+    array = np.linspace(-1, 1, size)  # has zero mean
+    labels = np.arange(size) % 2  # Ideally we'd parametrize this too.
+
+    # These two need to be the same function, but with the offset added and not added
+    no_offset, _ = groupby_reduce(array, labels, engine=engine, func=func)
+    with_offset, _ = groupby_reduce(array + offset, labels, engine=engine, func=func)
+
+    expected = np.concatenate([np.nanvar(array[::2], keepdims=True), np.nanvar(array[1::2], keepdims=True)])
+    expected_offset = np.concatenate(
+        [np.nanvar(array[::2] + offset, keepdims=True), np.nanvar(array[1::2] + offset, keepdims=True)]
+    )
+
+    tol = {"rtol": 3e-8, "atol": 1e-9}  # Not sure how stringent to be here
+
+    assert_equal(expected, no_offset, tol)
+    assert_equal(expected_offset, with_offset, tol)
+    if exponent < 10:
+        # TODO: figure this exponent limit
+        # TODO: Failure threshold in my external tests is dependent on dask chunksize,
+        #       maybe needs exploring better?
+        assert_equal(no_offset, with_offset, tol)
+
+
+@requires_sparse
+def test_sparse_is_supported_aggregation():
+    import sparse
+
+    array = sparse.COO.from_numpy(np.array([1, 2, 3]))
+    assert flox.is_supported_aggregation(array, "sum")
+    assert not flox.is_supported_aggregation(array, "cumsum")
+    assert not flox.is_supported_aggregation(array, "ffill")
+
+
+@requires_dask
+def test_dask_is_supported_aggregation():
+    # Test dask array wrapping numpy
+    array = da.from_array(np.array([1, 2, 3]), chunks=2)
+    assert flox.is_supported_aggregation(array, "sum")
+    assert flox.is_supported_aggregation(array, "cumsum")
+    assert flox.is_supported_aggregation(array, "ffill")
+
+    # Test dask array wrapping sparse
+    if has_sparse:
+        import sparse
+
+        sparse_array = sparse.COO.from_numpy(np.array([1, 2, 3]))
+        dask_sparse = da.from_array(sparse_array, chunks=2)
+        assert flox.is_supported_aggregation(dask_sparse, "sum")
+        assert not flox.is_supported_aggregation(dask_sparse, "cumsum")
+        assert not flox.is_supported_aggregation(dask_sparse, "ffill")
+
+
+@requires_cubed
+def test_cubed_is_supported_aggregation():
+    array = cubed.from_array(np.array([1, 2, 3]), chunks=2)
+    assert flox.is_supported_aggregation(array, "sum")
+    assert not flox.is_supported_aggregation(array, "cumsum")
+    assert not flox.is_supported_aggregation(array, "ffill")
+
+
+def test_is_supported_aggregation_quantile_method():
+    array = np.array([1, 2, 3])
+    assert flox.is_supported_aggregation(array, "quantile")
+    assert flox.is_supported_aggregation(array, "quantile", method="linear")
+    assert not flox.is_supported_aggregation(array, "quantile", method="nearest")
+    assert flox.is_supported_aggregation(array, "nanquantile")
+    assert flox.is_supported_aggregation(array, "nanquantile", method="linear")
+    assert not flox.is_supported_aggregation(array, "nanquantile", method="nearest")

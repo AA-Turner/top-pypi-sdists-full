@@ -41,6 +41,7 @@ def exception_wrapper():
             ("key already exists" not in str(e)) and
             ("Keys in request don't hash to the same slot" not in str(e)) and
             (not ("TS." in str(e) and "the key does not exist" in str(e))) and
+            (not ("TS." in str(e) and "timestamp must be equal to or higher than the maximum existing timestamp" in str(e))) and
             (not ("BF." in str(e) and "received bad data" in str(e))) and
             (not ("CF." in str(e) and "Invalid header" in str(e))) and
             (not ("CMS." in str(e) and "width/depth is not equal" in str(e))) and
@@ -52,7 +53,8 @@ def exception_wrapper():
             (not ("RENAME" in str(e) and "no such key" in str(e))) and
             (not ("RESTORE" in str(e))) and
             (not ("LSET" in str(e) and "index out of range" in str(e))) and
-            (not ("LSET" in str(e) and "no such key" in str(e)))):
+            (not ("LSET" in str(e) and "no such key" in str(e))) and
+            (not ("MOVE" in str(e) and "source and destination objects are the same" in str(e)))):
             raise e
 
 class KeyedLimitedRandomQueue:
@@ -122,6 +124,7 @@ class BaseGen():
     identical_values_across_hosts: bool = False  # Generate identical commands across connections, or allow value conflicts
     max_generated_values_per_type: int = 100  # Maximum number of values to generate for each type
     keyed_limited_random_queue: Optional[KeyedLimitedRandomQueue] = None
+    crdt_mode: bool = True
     
     ttl_low: int = 15
     ttl_high: int = 300
@@ -130,7 +133,10 @@ class BaseGen():
     ######## Internal use methods ##########
     ########################################
     
-    UNSCANNABLE_TYPES = ["hll", "bit", "geo"]
+    # Altough string is not 'unscannable', we use same prefix mechanism instead of finding it with complex exclude pattern.
+    # This ensures you wouldn't get, for e.g., 'hll:' prefixed key in the scan search for string.
+    UNSCANNABLE_TYPES = ["string", "hll", "bit", "geo"]
+    REDIS_DBNUM = 1
 
     def _rand_str(self, str_size: int) -> str:
         return "".join(random.choices(string.ascii_letters + string.digits, k = str_size))
@@ -237,6 +243,9 @@ class BaseGen():
                 
                 rl.append(r)
                 redis_pipes.append(r.pipeline(transaction=False))
+            
+            if not self.crdt_mode:
+                self.REDIS_DBNUM = int(rl[0].config_get("databases")['databases'])
             
             i = 1
             while self.max_cmd_cnt == 0 or i <= self.max_cmd_cnt:
@@ -519,7 +528,7 @@ class BaseGen():
         kwargs = {}
         # Sometimes copy to different database
         if random.random() < 0.2:
-            kwargs['destination_db'] = random.randint(1, 15)
+            kwargs['destination_db'] = random.randint(0, self.REDIS_DBNUM - 1)
         
         # Sometimes replace existing destination
         if random.random() < 0.3:
@@ -530,7 +539,7 @@ class BaseGen():
     @cg_method("base", False)
     def move(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Move key to different Redis database
-        db_number = random.randint(1, 15)
+        db_number = random.randint(0, self.REDIS_DBNUM - 1)
         pipe.move(key, db_number)
     
     @cg_method("base", False)

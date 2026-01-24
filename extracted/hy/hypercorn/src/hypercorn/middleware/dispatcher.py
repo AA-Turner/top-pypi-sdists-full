@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, Dict
 
 from ..asyncio.task_group import TaskGroup
-from ..typing import ASGIFramework, Scope
+from ..typing import ASGIFramework, ASGIReceiveEvent, Scope
 
 MAX_QUEUE_SIZE = 10
 
 
 class _DispatcherMiddleware:
-    def __init__(self, mounts: Dict[str, ASGIFramework]) -> None:
+    def __init__(self, mounts: dict[str, ASGIFramework]) -> None:
         self.mounts = mounts
 
     async def __call__(self, scope: Scope, receive: Callable, send: Callable) -> None:
@@ -20,8 +20,9 @@ class _DispatcherMiddleware:
         else:
             for path, app in self.mounts.items():
                 if scope["path"].startswith(path):
-                    scope["path"] = scope["path"][len(path) :] or "/"
-                    return await app(scope, receive, send)
+                    local_scope = scope.copy()
+                    local_scope["root_path"] += path
+                    return await app(local_scope, receive, send)
             await send(
                 {
                     "type": "http.response.start",
@@ -37,7 +38,7 @@ class _DispatcherMiddleware:
 
 class AsyncioDispatcherMiddleware(_DispatcherMiddleware):
     async def _handle_lifespan(self, scope: Scope, receive: Callable, send: Callable) -> None:
-        self.app_queues: Dict[str, asyncio.Queue] = {
+        self.app_queues: dict[str, asyncio.Queue] = {
             path: asyncio.Queue(MAX_QUEUE_SIZE) for path in self.mounts
         }
         self.startup_complete = {path: False for path in self.mounts}
@@ -74,7 +75,9 @@ class TrioDispatcherMiddleware(_DispatcherMiddleware):
     async def _handle_lifespan(self, scope: Scope, receive: Callable, send: Callable) -> None:
         import trio
 
-        self.app_queues = {path: trio.open_memory_channel(MAX_QUEUE_SIZE) for path in self.mounts}
+        self.app_queues = {
+            path: trio.open_memory_channel[ASGIReceiveEvent](MAX_QUEUE_SIZE) for path in self.mounts
+        }
         self.startup_complete = {path: False for path in self.mounts}
         self.shutdown_complete = {path: False for path in self.mounts}
 

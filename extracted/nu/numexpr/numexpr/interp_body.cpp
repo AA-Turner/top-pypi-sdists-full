@@ -220,6 +220,7 @@
         case OP_INVERT_BB: VEC_ARG1(b_dest = !b1);
         case OP_AND_BBB: VEC_ARG2(b_dest = (b1 && b2));
         case OP_OR_BBB: VEC_ARG2(b_dest = (b1 || b2));
+        case OP_XOR_BBB: VEC_ARG2(b_dest = (b1 || b2) && !(b1 && b2) );
 
         case OP_EQ_BBB: VEC_ARG2(b_dest = (b1 == b2));
         case OP_NE_BBB: VEC_ARG2(b_dest = (b1 != b2));
@@ -264,10 +265,16 @@
         case OP_DIV_III: VEC_ARG2(i_dest = i2 ? (i1 / i2) : 0);
         case OP_POW_III: VEC_ARG2(i_dest = (i2 < 0) ? (1 / i1) : (int)pow((double)i1, i2));
         case OP_MOD_III: VEC_ARG2(i_dest = i2 == 0 ? 0 :((i1 % i2) + i2) % i2);
+        case OP_FLOORDIV_III: VEC_ARG2(i_dest = i2 ? (i1 / i2) - ((i1 % i2 != 0) && (i1 < 0 != i2 < 0)) : 0);
         case OP_LSHIFT_III: VEC_ARG2(i_dest = i1 << i2);
         case OP_RSHIFT_III: VEC_ARG2(i_dest = i1 >> i2);
 
         case OP_WHERE_IBII: VEC_ARG3(i_dest = b1 ? i2 : i3);
+        //Bitwise ops
+        case OP_INVERT_II: VEC_ARG1(i_dest = ~i1);
+        case OP_AND_III: VEC_ARG2(i_dest = (i1 & i2));
+        case OP_OR_III: VEC_ARG2(i_dest = (i1 | i2));
+        case OP_XOR_III: VEC_ARG2(i_dest = (i1 ^ i2));
 
         /* Long */
         case OP_CAST_LI: VEC_ARG1(l_dest = (long long)(i1));
@@ -284,10 +291,16 @@
         case OP_POW_LLL: VEC_ARG2(l_dest = (l2 < 0) ? (1 / l1) : (long long)llround(pow((long double)l1, (long double)l2)));
 #endif
         case OP_MOD_LLL: VEC_ARG2(l_dest = l2 == 0 ? 0 :((l1 % l2) + l2) % l2);
+        case OP_FLOORDIV_LLL: VEC_ARG2(l_dest = l2 ? (l1 / l2) - ((l1 % l2 != 0) && (l1 < 0 != l2 < 0)): 0);
         case OP_LSHIFT_LLL: VEC_ARG2(l_dest = l1 << l2);
         case OP_RSHIFT_LLL: VEC_ARG2(l_dest = l1 >> l2);
 
         case OP_WHERE_LBLL: VEC_ARG3(l_dest = b1 ? l2 : l3);
+        //Bitwise ops
+        case OP_INVERT_LL: VEC_ARG1(l_dest = ~l1);
+        case OP_AND_LLL: VEC_ARG2(l_dest = (l1 & l2));
+        case OP_OR_LLL: VEC_ARG2(l_dest = (l1 | l2));
+        case OP_XOR_LLL: VEC_ARG2(l_dest = (l1 ^ l2));
 
         /* Float */
         case OP_CAST_FI: VEC_ARG1(f_dest = (float)(i1));
@@ -313,6 +326,7 @@
             VEC_ARG2(f_dest = powf(f1, f2));
 #endif
         case OP_MOD_FFF: VEC_ARG2(f_dest = f1 - floorf(f1/f2) * f2);
+        case OP_FLOORDIV_FFF: VEC_ARG2(f_dest = floorf(f1/f2));
 
         case OP_SQRT_FF:
 #ifdef USE_VML
@@ -364,6 +378,7 @@
             VEC_ARG2(d_dest = pow(d1, d2));
 #endif
         case OP_MOD_DDD: VEC_ARG2(d_dest = d1 - floor(d1/d2) * d2);
+        case OP_FLOORDIV_DDD: VEC_ARG2(d_dest = floor(d1/d2));
 
         case OP_SQRT_DD:
 #ifdef USE_VML
@@ -479,6 +494,21 @@
                      b_dest = functions_bc[arg2](&ca));
 #endif
 
+        /* Integer return types */
+         case OP_FUNC_IIN:
+#ifdef USE_VML
+            VEC_ARG1_VML(functions_ii_vml[arg2](BLOCK_SIZE,
+                                                (int*)x1, (int*)dest));
+#else
+            VEC_ARG1(i_dest = functions_ii[arg2](i1));
+#endif
+         case OP_FUNC_LLN:
+#ifdef USE_VML
+            VEC_ARG1_VML(functions_ll_vml[arg2](BLOCK_SIZE,
+                                                (long*)x1, (long*)dest));
+#else
+            VEC_ARG1(l_dest = functions_ll[arg2](l1));
+#endif
 
         /* Reductions */
         case OP_SUM_IIN: VEC_ARG1(i_reduce += i1);

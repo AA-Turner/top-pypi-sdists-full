@@ -1,0 +1,61 @@
+[build-system]
+build-backend = "hatchling.build"
+
+requires = [ "hatchling" ]
+
+[project]
+name = "environment-client"
+version = "0.5.15"
+description = "Python client for DEFRA's environment.data.gov.uk APIs (typed, async-friendly)"
+readme = "README.md"
+keywords = [
+  "api",
+  "defra",
+  "environment",
+  "environment.data.gov.uk",
+  "flood",
+  "hydrology",
+  "uk",
+]
+license = { file = "LICENSE" }
+authors = [ { name = "Cogna.co", email = "engineering@cogna.co" } ]
+requires-python = ">=3.12"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP",
+  "Typing :: Typed",
+]
+dependencies = [
+  "httpx>=0.28.1",
+  "pydantic>=2.11.7",
+  "pyyaml>=6.0.2",
+]
+
+urls."Bug Tracker" = "https://github.com/cogna-public/environment-client/issues"
+urls."Homepage" = "https://github.com/cogna-public/environment-client"
+
+[tool.hatch.build.targets.sdist]
+include = [ "/environment" ]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "environment" ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [ "tests" ]
+pythonpath = "."
+
+[tool.uv]
+dev-dependencies = [
+  "pytest>=8.4.2",
+  "pytest-asyncio>=1.1.0",
+  "pytest-httpx>=0.35.0",
+  "pytest-vcr>=1.0.2",
+]

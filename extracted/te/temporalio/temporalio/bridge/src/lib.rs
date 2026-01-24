@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
 mod client;
+mod client_rpc_generated;
 mod envconfig;
 mod metric;
 mod runtime;
@@ -60,10 +61,7 @@ fn temporal_sdk_bridge(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     let envconfig_module = PyModule::new(py, "envconfig")?;
     envconfig_module.add("ConfigError", py.get_type::<envconfig::ConfigError>())?;
     envconfig_module.add_function(wrap_pyfunction!(envconfig::load_client_config, m)?)?;
-    envconfig_module.add_function(wrap_pyfunction!(
-        envconfig::load_client_connect_config,
-        m
-    )?)?;
+    envconfig_module.add_function(wrap_pyfunction!(envconfig::load_client_connect_config, m)?)?;
     m.add_submodule(&envconfig_module)?;
 
     Ok(())
@@ -84,8 +82,8 @@ fn new_metric_meter(runtime_ref: &runtime::RuntimeRef) -> Option<metric::MetricM
 }
 
 #[pyfunction]
-fn init_runtime(telemetry_config: runtime::TelemetryConfig) -> PyResult<runtime::RuntimeRef> {
-    runtime::init_runtime(telemetry_config)
+fn init_runtime(options: runtime::RuntimeOptions) -> PyResult<runtime::RuntimeRef> {
+    runtime::init_runtime(options)
 }
 
 #[pyfunction]

@@ -1,15 +1,20 @@
 
+from typing import ClassVar
+
+from typing_extensions import override
+
 from ._head_base import HeadComponent
 
 
 __all__ = ['MjHtmlAttributes']
 
 class MjHtmlAttributes(HeadComponent):
-    component_name = 'mj-html-attributes'
+    component_name: ClassVar[str] = 'mj-html-attributes'
 
-    def handler(self):
+    @override
+    def handler(self) -> None:
         add = self.context['add']
-        _children = self.props.children
+        _children = self.props.get("children")
 
         for child in _children:
             tagName = child['tagName']

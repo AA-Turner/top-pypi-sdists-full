@@ -1,4 +1,6 @@
+from multiprocessing import Pipe
 from unittest.mock import ANY
+from uuid import uuid4
 
 from abstra.forms import ListItemSchema, Page
 from abstra_internals.controllers.execution.execution_client_form import FormClient
@@ -6,6 +8,7 @@ from abstra_internals.controllers.sdk.sdk_context import SDKContext
 from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import FormContext, Request
 from abstra_internals.interface.sdk.forms.deprecated.widgets.library import ListInput
+from abstra_internals.utils.websockets import MockWS, bind_ws_with_connection
 from tests.fixtures import BaseTest
 
 default_text_input = {
@@ -33,15 +36,16 @@ class TestListInput(BaseTest):
         context = FormContext(
             request=Request(body="", query_params={}, headers={}, method="GET"),
         )
-
+        parent_conn, child_conn = Pipe()
+        bind_ws_with_connection(MockWS(), parent_conn, block=False)
         self.client = FormClient(
-            context=context,
-            production_mode=False,
-            ws=None,  # type: ignore
+            context=context, production_mode=False, conn=child_conn
         )
         execution = Execution.create(
+            id=uuid4().__str__(),
             context=context,
-            stage_id="mock_stage_id",
+            stage_id="mock-stage-id",
+            worker_id="mock-worker-id",
         )
         self.context = SDKContext(execution, self.client, self.repositories).__enter__()
 

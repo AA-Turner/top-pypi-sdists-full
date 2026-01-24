@@ -34,46 +34,54 @@ class ObservabilityPipelineParseGrokProcessor(ModelNormal):
 
         return {
             "disable_library_rules": (bool,),
+            "display_name": (str,),
+            "enabled": (bool,),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "rules": ([ObservabilityPipelineParseGrokProcessorRule],),
             "type": (ObservabilityPipelineParseGrokProcessorType,),
         }
 
     attribute_map = {
         "disable_library_rules": "disable_library_rules",
+        "display_name": "display_name",
+        "enabled": "enabled",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "rules": "rules",
         "type": "type",
     }
 
     def __init__(
         self_,
+        enabled: bool,
         id: str,
         include: str,
-        inputs: List[str],
         rules: List[ObservabilityPipelineParseGrokProcessorRule],
         type: ObservabilityPipelineParseGrokProcessorType,
         disable_library_rules: Union[bool, UnsetType] = unset,
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``parse_grok`` processor extracts structured fields from unstructured log messages using Grok patterns.
 
+        **Supported pipeline types:** logs
+
         :param disable_library_rules: If set to ``true`` , disables the default Grok rules provided by Datadog.
         :type disable_library_rules: bool, optional
+
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
 
         :param id: A unique identifier for this processor.
         :type id: str
 
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
-
-        :param inputs: A list of component IDs whose output is used as the ``input`` for this component.
-        :type inputs: [str]
 
         :param rules: The list of Grok parsing rules. If multiple matching rules are provided, they are evaluated in order. The first successful match is applied.
         :type rules: [ObservabilityPipelineParseGrokProcessorRule]
@@ -83,10 +91,12 @@ class ObservabilityPipelineParseGrokProcessor(ModelNormal):
         """
         if disable_library_rules is not unset:
             kwargs["disable_library_rules"] = disable_library_rules
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
+        self_.enabled = enabled
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.rules = rules
         self_.type = type

@@ -1,21 +1,20 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import datetime
 import functools
 import io
+import math
 from functools import cached_property
-from typing import Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 import msgspec
-import narwhals.stable.v1 as nw
-from narwhals.stable.v1.typing import IntoFrameT
+import narwhals.stable.v2 as nw
+from narwhals.typing import IntoDataFrameT, IntoLazyFrameT
 
 from marimo import _loggers
 from marimo._data.models import BinValue, ColumnStats, ExternalDataType
-from marimo._dependencies.dependencies import DependencyManager
 from marimo._output.data.data import sanitize_json_bigint
-from marimo._plugins.core.media import io_to_data_url
 from marimo._plugins.ui._impl.tables.format import (
     FormatMapping,
     format_value,
@@ -32,35 +31,45 @@ from marimo._plugins.ui._impl.tables.table_manager import (
 from marimo._utils.narwhals_utils import (
     can_narwhalify,
     dataframe_to_csv,
+    downgrade_narwhals_df_to_v1,
     is_narwhals_integer_type,
     is_narwhals_lazyframe,
     is_narwhals_string_type,
     is_narwhals_temporal_type,
     is_narwhals_time_type,
     unwrap_py_scalar,
-    upgrade_narwhals_df,
 )
+
+if TYPE_CHECKING:
+    from marimo._plugins.ui._impl.table import SortArgs
 
 LOGGER = _loggers.marimo_logger()
 UNSTABLE_API_WARNING = "`Series.hist` is being called from the stable API although considered an unstable feature."
 
+# Standardize this across libraries
+# It should match the table value as closely as possible
+NAN_VALUE = "NaN"
+POSITIVE_INF = str(float("inf"))
+NEGATIVE_INF = str(float("-inf"))
+
 
 class NarwhalsTableManager(
-    TableManager[Union[nw.DataFrame[IntoFrameT], nw.LazyFrame[IntoFrameT]]]
+    TableManager[
+        Union[nw.DataFrame[IntoDataFrameT], nw.LazyFrame[IntoLazyFrameT]]
+    ]
 ):
     type = "narwhals"
 
     @staticmethod
-    def from_dataframe(data: IntoFrameT) -> NarwhalsTableManager[IntoFrameT]:
+    def from_dataframe(
+        data: Union[IntoDataFrameT, IntoLazyFrameT],
+    ) -> NarwhalsTableManager[IntoDataFrameT, IntoLazyFrameT]:
         return NarwhalsTableManager(nw.from_native(data, pass_through=False))
 
     def as_frame(self) -> nw.DataFrame[Any]:
         if is_narwhals_lazyframe(self.data):
             return self.data.collect()
         return self.data
-
-    def upgrade(self) -> NarwhalsTableManager[Any]:
-        return NarwhalsTableManager(upgrade_narwhals_df(self.data))
 
     def as_lazy_frame(self) -> nw.LazyFrame[Any]:
         if is_narwhals_lazyframe(self.data):
@@ -84,10 +93,16 @@ class NarwhalsTableManager(
         return dataframe_to_csv(_data)
 
     def to_json_str(
-        self, format_mapping: Optional[FormatMapping] = None
+        self,
+        format_mapping: Optional[FormatMapping] = None,
+        strict_json: bool = False,
+        ensure_ascii: bool = True,
     ) -> str:
-        frame = self.upgrade().apply_formatting(format_mapping).as_frame()
-        return sanitize_json_bigint(frame.rows(named=True))
+        del strict_json
+        frame = self.apply_formatting(format_mapping).as_frame()
+        return sanitize_json_bigint(
+            frame.rows(named=True), ensure_ascii=ensure_ascii
+        )
 
     def to_parquet(self) -> bytes:
         stream = io.BytesIO()
@@ -96,11 +111,11 @@ class NarwhalsTableManager(
 
     def apply_formatting(
         self, format_mapping: Optional[FormatMapping]
-    ) -> NarwhalsTableManager[Any]:
+    ) -> NarwhalsTableManager[IntoDataFrameT, IntoLazyFrameT]:
         if not format_mapping:
             return self
 
-        frame = self.upgrade().as_frame()
+        frame = self.as_frame()
         _data = frame.to_dict(as_series=False).copy()
         for col in _data.keys():
             if col in format_mapping:
@@ -114,7 +129,9 @@ class NarwhalsTableManager(
     def supports_filters(self) -> bool:
         return True
 
-    def select_rows(self, indices: list[int]) -> TableManager[Any]:
+    def select_rows(
+        self, indices: list[int]
+    ) -> TableManager[Union[IntoDataFrameT, IntoLazyFrameT]]:
         if not indices:
             return self.with_new_data(self.data.head(0))
 
@@ -185,7 +202,7 @@ class NarwhalsTableManager(
                 )
                 .head(k)
             )
-            if isinstance(result, nw.LazyFrame):
+            if is_narwhals_lazyframe(result):
                 return result.collect()
             return result
 
@@ -214,10 +231,22 @@ class NarwhalsTableManager(
                 ]
 
         result = _calculate_top_k_rows(frame)
-        return [
-            (unwrap_py_scalar(row[0]), int(unwrap_py_scalar(row[1])))
-            for row in result.rows()
-        ]
+        value_counts: list[tuple[Any, int]] = []
+
+        # NaNs and Infs serialize to null, which isn't distingushable from normal nulls
+        # so instead we set to string values
+        for row in result.rows():
+            value = unwrap_py_scalar(row[0])
+            count = int(unwrap_py_scalar(row[1]))
+            if isinstance(value, float) and math.isnan(value):
+                value = NAN_VALUE
+            elif isinstance(value, float) and math.isinf(value) and value > 0:
+                value = POSITIVE_INF
+            elif isinstance(value, float) and math.isinf(value) and value < 0:
+                value = NEGATIVE_INF
+            value_counts.append((value, count))
+
+        return value_counts
 
     @staticmethod
     def is_type(value: Any) -> bool:
@@ -277,8 +306,11 @@ class NarwhalsTableManager(
         for column, dtype in self.nw_schema.items():
             if column == INDEX_COLUMN_NAME:
                 continue
-            if dtype == nw.String:
-                expressions.append(nw.col(column).str.contains(f"(?i){query}"))
+            if is_narwhals_string_type(dtype):
+                # Cast to string as pandas may fail for certain values
+                expressions.append(
+                    nw.col(column).cast(nw.String).str.contains(f"(?i){query}")
+                )
             elif dtype == nw.List(nw.String):
                 # TODO: Narwhals doesn't support list.contains
                 # expressions.append(
@@ -339,6 +371,22 @@ class NarwhalsTableManager(
             "nulls": col.null_count(),
         }
 
+        # As of Oct 2025, pyarrow and ibis do not support quantiles
+        # through narwhals
+        supports_numeric_quantiles = (
+            not frame.implementation.is_pyarrow()
+            and not frame.implementation.is_ibis()
+        )
+        supports_temporal_quantiles = (
+            not frame.implementation.is_pyarrow()
+            and not frame.implementation.is_ibis()
+        )
+
+        quantile_interpolation: Literal["nearest", "linear"] = "nearest"
+        if frame.implementation.is_duckdb():
+            # As of Oct 2025, DuckDB does not support "nearest" interpolation
+            quantile_interpolation = "linear"
+
         if is_narwhals_string_type(dtype):
             exprs["unique"] = col.n_unique()
         elif dtype == nw.Boolean:
@@ -391,16 +439,25 @@ class NarwhalsTableManager(
                     "max": col.max(),
                 }
             )
-            # Arrow does not support mean or quantile
-            if not frame.implementation.is_pyarrow():
+            if supports_temporal_quantiles:
                 exprs.update(
                     {
                         "mean": col.mean(),
-                        "median": col.quantile(0.5, interpolation="nearest"),
-                        "p5": col.quantile(0.05, interpolation="nearest"),
-                        "p25": col.quantile(0.25, interpolation="nearest"),
-                        "p75": col.quantile(0.75, interpolation="nearest"),
-                        "p95": col.quantile(0.95, interpolation="nearest"),
+                        "median": col.quantile(
+                            0.5, interpolation=quantile_interpolation
+                        ),
+                        "p5": col.quantile(
+                            0.05, interpolation=quantile_interpolation
+                        ),
+                        "p25": col.quantile(
+                            0.25, interpolation=quantile_interpolation
+                        ),
+                        "p75": col.quantile(
+                            0.75, interpolation=quantile_interpolation
+                        ),
+                        "p95": col.quantile(
+                            0.95, interpolation=quantile_interpolation
+                        ),
                     }
                 )
         elif is_narwhals_integer_type(dtype):
@@ -410,28 +467,55 @@ class NarwhalsTableManager(
                     "min": col.min(),
                     "max": col.max(),
                     "mean": col.mean(),
-                    "median": col.quantile(0.5, interpolation="nearest"),
                     "std": col.std(),
-                    "p5": col.quantile(0.05, interpolation="nearest"),
-                    "p25": col.quantile(0.25, interpolation="nearest"),
-                    "p75": col.quantile(0.75, interpolation="nearest"),
-                    "p95": col.quantile(0.95, interpolation="nearest"),
+                    "median": col.median(),
                 }
             )
+            if supports_numeric_quantiles:
+                exprs.update(
+                    {
+                        "p5": col.quantile(
+                            0.05, interpolation=quantile_interpolation
+                        ),
+                        "p25": col.quantile(
+                            0.25, interpolation=quantile_interpolation
+                        ),
+                        "p75": col.quantile(
+                            0.75, interpolation=quantile_interpolation
+                        ),
+                        "p95": col.quantile(
+                            0.95, interpolation=quantile_interpolation
+                        ),
+                    }
+                )
         elif dtype.is_numeric():
             exprs.update(
                 {
+                    "unique": col.n_unique(),
                     "min": col.min(),
                     "max": col.max(),
                     "mean": col.mean(),
-                    "median": col.quantile(0.5, interpolation="nearest"),
                     "std": col.std(),
-                    "p5": col.quantile(0.05, interpolation="nearest"),
-                    "p25": col.quantile(0.25, interpolation="nearest"),
-                    "p75": col.quantile(0.75, interpolation="nearest"),
-                    "p95": col.quantile(0.95, interpolation="nearest"),
+                    "median": col.median(),
                 }
             )
+            if supports_numeric_quantiles:
+                exprs.update(
+                    {
+                        "p5": col.quantile(
+                            0.05, interpolation=quantile_interpolation
+                        ),
+                        "p25": col.quantile(
+                            0.25, interpolation=quantile_interpolation
+                        ),
+                        "p75": col.quantile(
+                            0.75, interpolation=quantile_interpolation
+                        ),
+                        "p95": col.quantile(
+                            0.95, interpolation=quantile_interpolation
+                        ),
+                    }
+                )
 
         stats = frame.select(**exprs)
         stats_dict = stats.collect().rows(named=True)[0]
@@ -440,6 +524,10 @@ class NarwhalsTableManager(
         for key, value in stats_dict.items():
             if key in units:
                 stats_dict[key] = f"{value} {units[key]}"
+
+        # Maybe coerce null count to int
+        if stats_dict["nulls"] is not None:
+            stats_dict["nulls"] = int(stats_dict["nulls"])
 
         return ColumnStats(**stats_dict)
 
@@ -456,7 +544,16 @@ class NarwhalsTableManager(
         if not dtype.is_numeric():
             return []
 
-        col = self.as_frame().get_column(column)
+        # Downgrade to v1 since v2 does not support the hist() method yet
+        downgraded_df = downgrade_narwhals_df_to_v1(self.as_frame())
+        col = downgraded_df.get_column(column)
+
+        # If the column is decimal, we need to convert it to float
+        if dtype.is_decimal():
+            import narwhals.stable.v1 as nw1
+
+            col = col.cast(nw1.Float64)
+
         bin_start = col.min()
         bin_values: list[BinValue] = []
 
@@ -484,10 +581,12 @@ class NarwhalsTableManager(
         nw.hist does not support temporal columns, so we convert to numeric
         and then convert back to temporal values.
         """
-        # Convert to timestamp in ms
-        col = self.as_frame().get_column(column)
+        # Downgrade to v1 since v2 does not support the hist() method yet
+        downgraded_df = downgrade_narwhals_df_to_v1(self.as_frame())
+        col = downgraded_df.get_column(column)
 
         if dtype == nw.Time:
+            # Convert to timestamp in ms
             col_in_ms = (
                 col.dt.hour().cast(nw.Int64) * 3600000
                 + col.dt.minute().cast(nw.Int64) * 60000
@@ -520,9 +619,36 @@ class NarwhalsTableManager(
                     int(hours), int(minutes), int(seconds), int(microseconds)
                 )
             elif dtype == nw.Date:
-                bin_end = datetime.date.fromtimestamp(bin_end / ms_time)
+                # Use timedelta to handle dates before Unix epoch (1970)
+                # which cause OSError on Windows with fromtimestamp
+                try:
+                    bin_end = datetime.date.fromtimestamp(bin_end / ms_time)
+                except (OSError, OverflowError, ValueError):
+                    # Fall back to timedelta calculation for old dates
+                    epoch = datetime.datetime(
+                        1970, 1, 1, tzinfo=datetime.timezone.utc
+                    )
+                    bin_end_dt = epoch + datetime.timedelta(
+                        seconds=bin_end / ms_time
+                    )
+                    bin_end = bin_end_dt.date()
             else:
-                bin_end = datetime.datetime.fromtimestamp(bin_end / ms_time)
+                # Use timedelta to handle datetimes before Unix epoch (1970)
+                # which cause OSError on Windows with fromtimestamp
+                try:
+                    bin_end = datetime.datetime.fromtimestamp(
+                        bin_end / ms_time
+                    )
+                except (OSError, OverflowError, ValueError):
+                    # Fall back to timedelta calculation for old dates
+                    epoch = datetime.datetime(
+                        1970, 1, 1, tzinfo=datetime.timezone.utc
+                    )
+                    bin_end = epoch + datetime.timedelta(
+                        seconds=bin_end / ms_time
+                    )
+                    # Remove timezone to match fromtimestamp behavior
+                    bin_end = bin_end.replace(tzinfo=None)
 
             # Only append if the count is greater than 0
             if count > 0:
@@ -565,7 +691,7 @@ class NarwhalsTableManager(
 
     def get_unique_column_values(self, column: str) -> list[str | int | float]:
         frame = self.data.select(nw.col(column))
-        if isinstance(frame, nw.LazyFrame):
+        if is_narwhals_lazyframe(frame):
             frame = frame.collect()
         try:
             return frame[column].unique().to_list()
@@ -616,17 +742,17 @@ class NarwhalsTableManager(
             # May be metadata-only frame
             return []
 
-    def sort_values(
-        self, by: ColumnName, descending: bool
-    ) -> TableManager[Any]:
-        if is_narwhals_lazyframe(self.data):
-            return self.with_new_data(
-                self.data.sort(by, descending=descending, nulls_last=True)
-            )
-        else:
-            return self.with_new_data(
-                self.data.sort(by, descending=descending, nulls_last=True)
-            )
+    def sort_values(self, by: list[SortArgs]) -> TableManager[Any]:
+        if not by:
+            return self
+
+        # Extract columns and descending flags for Narwhals/Polars
+        columns = [sort_arg.by for sort_arg in by]
+        descending = [sort_arg.descending for sort_arg in by]
+
+        return self.with_new_data(
+            self.data.sort(columns, descending=descending, nulls_last=True)
+        )
 
     def __repr__(self) -> str:
         rows = self.get_num_rows(force=False)
@@ -635,22 +761,3 @@ class NarwhalsTableManager(
         if rows is None:
             return f"{df_type}: {columns:,} columns"
         return f"{df_type}: {rows:,} rows x {columns:,} columns"
-
-    def _sanitize_table_value(self, value: Any) -> Any:
-        """
-        Sanitize a value for display in a table cell.
-
-        Most values are unchanged, but some values are for better
-        display such as Images.
-        """
-        if value is None:
-            return None
-
-        # Handle Pillow images
-        if DependencyManager.pillow.imported():
-            from PIL import Image
-
-            if isinstance(value, Image.Image):
-                return io_to_data_url(value, "image/png")
-
-        return value

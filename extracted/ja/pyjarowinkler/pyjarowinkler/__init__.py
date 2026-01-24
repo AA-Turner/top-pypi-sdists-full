@@ -5,20 +5,26 @@ Finds the Jaro Winkler Distance indicating a distance or similarity score betwee
 :license: Apache 2.0, see :file:`LICENSE` for more details.
 """
 
-__author__ = "Jean-Bernard Ratte - jean.bernard.ratte@unary.ca"
+from typing import Final
+
+__author__: Final[str] = "Jean-Bernard Ratte - jean.bernard.ratte@unary.ca"
 
 
-class JaroDistanceError(Exception):
+class JaroDistanceError(ValueError):
     """
     Exception raised for errors encountered during Jaro-Winkler distance calculations.
 
-    param: message (str): Explanation of the error.
+    Args:
+        message (str, optional): Explanation of the error.
+
     """
 
-    def __init__(self, message) -> None:
+    def __init__(self, message: str | None = None) -> None:
         """
         Initialize the JaroDistanceError exception.
 
-        param: message (str): Explanation of the error.
+        Args:
+            message (str): Explanation of the error.
+
         """
-        super(Exception, self).__init__(message)
+        super(ValueError, self).__init__(message)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, Dict, List
 
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
@@ -30,6 +30,7 @@ class Catalog:
     id: str = field()
     type: str = field()
     resource_arn: str = field()
+    federated_catalog: Dict[str, Any] = field(default_factory=dict)
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class Catalog:
         type: str,
         spark_catalog_name: str,
         resource_arn: str,
+        federated_catalog: Dict[str, Any],
         domain_id: str,
         project_id: str,
         glue_api: BaseClient,
@@ -60,6 +62,7 @@ class Catalog:
         self.type = type
         self.spark_catalog_name = spark_catalog_name
         self.resource_arn = resource_arn
+        self.federated_catalog = federated_catalog
         self.domain_id = domain_id
         self.project_id = project_id
         self._glue_api = glue_api

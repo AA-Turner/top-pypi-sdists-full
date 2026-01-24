@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: gemmi
-Version: 0.7.3
+Version: 0.7.4
 Summary: library for structural biology
 Keywords: structural bioinformatics,structural biology,crystallography,CIF,mmCIF,PDB,CCP4,MTZ
 Author-Email: Marcin Wojdyr <wojdyr@gmail.com>

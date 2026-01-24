@@ -54,14 +54,12 @@ class Image(APIObject):
 
     _get_path = "projects/{project_id}/images/{image_id}/"
     _bytes_path = "projects/{project_id}/images/{image_id}/file/"
-    _converter = t.Dict(
-        {
-            t.Key("image_id"): String(),
-            t.Key("height"): Int(),
-            t.Key("width"): Int(),
-            t.Key("project_id"): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("image_id"): String(),
+        t.Key("height"): Int(),
+        t.Key("width"): Int(),
+        t.Key("project_id"): String(),
+    }).ignore_extra("*")
 
     def __init__(self, image_id: str, project_id: str, height: int = 0, width: int = 0) -> None:
         self.id = image_id
@@ -136,17 +134,13 @@ class SampleImage(APIObject):
 
     _list_pre_eda2_path = "projects/{project_id}/imageSamples/"
     _list_post_eda2_path = "projects/{project_id}/images/"
-    _converter = t.Dict(
-        {
-            t.Key("image_id"): String(),
-            t.Key("height"): Int(),
-            t.Key("width"): Int(),
-            t.Key("target_value", optional=True): t.Or(
-                t.String(), t.Int(), t.Float(), t.List(String)
-            ),
-            t.Key("project_id"): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("image_id"): String(),
+        t.Key("height"): Int(),
+        t.Key("width"): Int(),
+        t.Key("target_value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.List(String)),
+        t.Key("project_id"): String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -221,11 +215,7 @@ class SampleImage(APIObject):
         else:
             path = cls._list_pre_eda2_path.format(project_id=project_id)
             list_params["featureName"] = feature_name
-            if (
-                target_value is not None
-                or target_bin_start is not None
-                or target_bin_end is not None
-            ):
+            if target_value is not None or target_bin_start is not None or target_bin_end is not None:
                 # This class uses different routes depending on the project stage. Images with
                 # target information are stored as part of the EDA2 workflow. Only the post EDA2
                 # route can query for certain targets.
@@ -256,9 +246,11 @@ class DuplicateImage(APIObject):
     """
 
     _list_path = "projects/{project_id}/duplicateImages/{feature_name}/"
-    _converter = t.Dict(
-        {t.Key("image_id"): String(), t.Key("row_count"): Int(), t.Key("project_id"): String()}
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("image_id"): String(),
+        t.Key("row_count"): Int(),
+        t.Key("project_id"): String(),
+    }).ignore_extra("*")
 
     def __init__(self, image_id: str, row_count: int, project_id: str):
         self.image = Image(project_id=project_id, image_id=image_id, height=0, width=0)

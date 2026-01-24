@@ -3,7 +3,7 @@ Type annotations for iotwireless service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -198,12 +199,6 @@ from .type_defs import (
     UpdateWirelessGatewayRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -212,14 +207,14 @@ else:
 __all__ = ("IoTWirelessClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class IoTWirelessClient(BaseClient):
     """
@@ -268,7 +263,7 @@ class IoTWirelessClient(BaseClient):
 
     def associate_multicast_group_with_fuota_task(
         self, **kwargs: Unpack[AssociateMulticastGroupWithFuotaTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate a multicast group with a FUOTA task.
 
@@ -278,7 +273,7 @@ class IoTWirelessClient(BaseClient):
 
     def associate_wireless_device_with_fuota_task(
         self, **kwargs: Unpack[AssociateWirelessDeviceWithFuotaTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate a wireless device with a FUOTA task.
 
@@ -288,7 +283,7 @@ class IoTWirelessClient(BaseClient):
 
     def associate_wireless_device_with_multicast_group(
         self, **kwargs: Unpack[AssociateWirelessDeviceWithMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a wireless device with a multicast group.
 
@@ -298,7 +293,7 @@ class IoTWirelessClient(BaseClient):
 
     def associate_wireless_device_with_thing(
         self, **kwargs: Unpack[AssociateWirelessDeviceWithThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a wireless device with a thing.
 
@@ -318,7 +313,7 @@ class IoTWirelessClient(BaseClient):
 
     def associate_wireless_gateway_with_thing(
         self, **kwargs: Unpack[AssociateWirelessGatewayWithThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a wireless gateway with a thing.
 
@@ -328,7 +323,7 @@ class IoTWirelessClient(BaseClient):
 
     def cancel_multicast_group_session(
         self, **kwargs: Unpack[CancelMulticastGroupSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an existing multicast group session.
 
@@ -438,7 +433,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_destination(
         self, **kwargs: Unpack[DeleteDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a destination.
 
@@ -448,7 +443,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_device_profile(
         self, **kwargs: Unpack[DeleteDeviceProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a device profile.
 
@@ -456,7 +451,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#delete_device_profile)
         """
 
-    def delete_fuota_task(self, **kwargs: Unpack[DeleteFuotaTaskRequestTypeDef]) -> Dict[str, Any]:
+    def delete_fuota_task(self, **kwargs: Unpack[DeleteFuotaTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a FUOTA task.
 
@@ -466,7 +461,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_multicast_group(
         self, **kwargs: Unpack[DeleteMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a multicast group if it is not in use by a FUOTA task.
 
@@ -476,7 +471,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_network_analyzer_configuration(
         self, **kwargs: Unpack[DeleteNetworkAnalyzerConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a network analyzer configuration.
 
@@ -486,7 +481,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_queued_messages(
         self, **kwargs: Unpack[DeleteQueuedMessagesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove queued messages from the downlink queue.
 
@@ -496,7 +491,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_service_profile(
         self, **kwargs: Unpack[DeleteServiceProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a service profile.
 
@@ -506,7 +501,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_wireless_device(
         self, **kwargs: Unpack[DeleteWirelessDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a wireless device.
 
@@ -516,7 +511,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_wireless_device_import_task(
         self, **kwargs: Unpack[DeleteWirelessDeviceImportTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an import task.
 
@@ -526,7 +521,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_wireless_gateway(
         self, **kwargs: Unpack[DeleteWirelessGatewayRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a wireless gateway.
 
@@ -536,7 +531,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_wireless_gateway_task(
         self, **kwargs: Unpack[DeleteWirelessGatewayTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a wireless gateway task.
 
@@ -546,7 +541,7 @@ class IoTWirelessClient(BaseClient):
 
     def delete_wireless_gateway_task_definition(
         self, **kwargs: Unpack[DeleteWirelessGatewayTaskDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a wireless gateway task definition.
 
@@ -556,7 +551,7 @@ class IoTWirelessClient(BaseClient):
 
     def deregister_wireless_device(
         self, **kwargs: Unpack[DeregisterWirelessDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregister a wireless device from AWS IoT Wireless.
 
@@ -566,7 +561,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_aws_account_from_partner_account(
         self, **kwargs: Unpack[DisassociateAwsAccountFromPartnerAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates your AWS account from a partner account.
 
@@ -576,7 +571,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_multicast_group_from_fuota_task(
         self, **kwargs: Unpack[DisassociateMulticastGroupFromFuotaTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a multicast group from a FUOTA task.
 
@@ -586,7 +581,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_wireless_device_from_fuota_task(
         self, **kwargs: Unpack[DisassociateWirelessDeviceFromFuotaTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a wireless device from a FUOTA task.
 
@@ -596,7 +591,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_wireless_device_from_multicast_group(
         self, **kwargs: Unpack[DisassociateWirelessDeviceFromMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a wireless device from a multicast group.
 
@@ -606,7 +601,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_wireless_device_from_thing(
         self, **kwargs: Unpack[DisassociateWirelessDeviceFromThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a wireless device from its currently associated thing.
 
@@ -616,7 +611,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_wireless_gateway_from_certificate(
         self, **kwargs: Unpack[DisassociateWirelessGatewayFromCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a wireless gateway from its currently associated certificate.
 
@@ -626,7 +621,7 @@ class IoTWirelessClient(BaseClient):
 
     def disassociate_wireless_gateway_from_thing(
         self, **kwargs: Unpack[DisassociateWirelessGatewayFromThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a wireless gateway from its currently associated thing.
 
@@ -1047,7 +1042,8 @@ class IoTWirelessClient(BaseClient):
         self, **kwargs: Unpack[ListWirelessDeviceImportTasksRequestTypeDef]
     ) -> ListWirelessDeviceImportTasksResponseTypeDef:
         """
-        List wireless devices that have been added to an import task.
+        List of import tasks and summary information of onboarding status of devices in
+        each import task.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotwireless/client/list_wireless_device_import_tasks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#list_wireless_device_import_tasks)
@@ -1085,7 +1081,7 @@ class IoTWirelessClient(BaseClient):
 
     def put_position_configuration(
         self, **kwargs: Unpack[PutPositionConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Put position configuration for a given resource.
 
@@ -1095,7 +1091,7 @@ class IoTWirelessClient(BaseClient):
 
     def put_resource_log_level(
         self, **kwargs: Unpack[PutResourceLogLevelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the log-level override for a resource ID and resource type.
 
@@ -1103,7 +1099,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#put_resource_log_level)
         """
 
-    def reset_all_resource_log_levels(self) -> Dict[str, Any]:
+    def reset_all_resource_log_levels(self) -> dict[str, Any]:
         """
         Removes the log-level overrides for all resources; wireless devices, wireless
         gateways, and FUOTA tasks.
@@ -1114,7 +1110,7 @@ class IoTWirelessClient(BaseClient):
 
     def reset_resource_log_level(
         self, **kwargs: Unpack[ResetResourceLogLevelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the log-level override, if any, for a specific resource ID and resource
         type.
@@ -1145,7 +1141,7 @@ class IoTWirelessClient(BaseClient):
 
     def start_bulk_associate_wireless_device_with_multicast_group(
         self, **kwargs: Unpack[StartBulkAssociateWirelessDeviceWithMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts a bulk association of all qualifying wireless devices with a multicast
         group.
@@ -1156,7 +1152,7 @@ class IoTWirelessClient(BaseClient):
 
     def start_bulk_disassociate_wireless_device_from_multicast_group(
         self, **kwargs: Unpack[StartBulkDisassociateWirelessDeviceFromMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts a bulk disassociatin of all qualifying wireless devices from a multicast
         group.
@@ -1165,7 +1161,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#start_bulk_disassociate_wireless_device_from_multicast_group)
         """
 
-    def start_fuota_task(self, **kwargs: Unpack[StartFuotaTaskRequestTypeDef]) -> Dict[str, Any]:
+    def start_fuota_task(self, **kwargs: Unpack[StartFuotaTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Starts a FUOTA task.
 
@@ -1175,7 +1171,7 @@ class IoTWirelessClient(BaseClient):
 
     def start_multicast_group_session(
         self, **kwargs: Unpack[StartMulticastGroupSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts a multicast group session.
 
@@ -1204,7 +1200,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#start_wireless_device_import_task)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -1223,7 +1219,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#test_wireless_device)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a resource.
 
@@ -1233,7 +1229,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_destination(
         self, **kwargs: Unpack[UpdateDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates properties of a destination.
 
@@ -1243,7 +1239,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_event_configuration_by_resource_types(
         self, **kwargs: Unpack[UpdateEventConfigurationByResourceTypesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the event configuration based on resource types.
 
@@ -1251,7 +1247,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#update_event_configuration_by_resource_types)
         """
 
-    def update_fuota_task(self, **kwargs: Unpack[UpdateFuotaTaskRequestTypeDef]) -> Dict[str, Any]:
+    def update_fuota_task(self, **kwargs: Unpack[UpdateFuotaTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Updates properties of a FUOTA task.
 
@@ -1261,7 +1257,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_log_levels_by_resource_types(
         self, **kwargs: Unpack[UpdateLogLevelsByResourceTypesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Set default log level, or log levels by resource types.
 
@@ -1271,7 +1267,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_metric_configuration(
         self, **kwargs: Unpack[UpdateMetricConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the summary metric configuration.
 
@@ -1281,7 +1277,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_multicast_group(
         self, **kwargs: Unpack[UpdateMulticastGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates properties of a multicast group session.
 
@@ -1291,7 +1287,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_network_analyzer_configuration(
         self, **kwargs: Unpack[UpdateNetworkAnalyzerConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update network analyzer configuration.
 
@@ -1301,7 +1297,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_partner_account(
         self, **kwargs: Unpack[UpdatePartnerAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates properties of a partner account.
 
@@ -1309,7 +1305,7 @@ class IoTWirelessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotwireless/client/#update_partner_account)
         """
 
-    def update_position(self, **kwargs: Unpack[UpdatePositionRequestTypeDef]) -> Dict[str, Any]:
+    def update_position(self, **kwargs: Unpack[UpdatePositionRequestTypeDef]) -> dict[str, Any]:
         """
         Update the position information of a resource.
 
@@ -1319,7 +1315,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_resource_event_configuration(
         self, **kwargs: Unpack[UpdateResourceEventConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the event configuration for a particular resource identifier.
 
@@ -1329,7 +1325,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_resource_position(
         self, **kwargs: Unpack[UpdateResourcePositionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the position information of a given wireless device or a wireless
         gateway resource.
@@ -1340,7 +1336,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_wireless_device(
         self, **kwargs: Unpack[UpdateWirelessDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates properties of a wireless device.
 
@@ -1350,7 +1346,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_wireless_device_import_task(
         self, **kwargs: Unpack[UpdateWirelessDeviceImportTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update an import task to add more devices to the task.
 
@@ -1360,7 +1356,7 @@ class IoTWirelessClient(BaseClient):
 
     def update_wireless_gateway(
         self, **kwargs: Unpack[UpdateWirelessGatewayRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates properties of a wireless gateway.
 

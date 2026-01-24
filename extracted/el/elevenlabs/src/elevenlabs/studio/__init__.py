@@ -7,38 +7,42 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization,
         BodyCreatePodcastV1StudioPodcastsPostDurationScale,
         BodyCreatePodcastV1StudioPodcastsPostMode,
         BodyCreatePodcastV1StudioPodcastsPostMode_Bulletin,
         BodyCreatePodcastV1StudioPodcastsPostMode_Conversation,
         BodyCreatePodcastV1StudioPodcastsPostQualityPreset,
         BodyCreatePodcastV1StudioPodcastsPostSource,
-        BodyCreatePodcastV1StudioPodcastsPostSourceItem,
-        BodyCreatePodcastV1StudioPodcastsPostSourceItem_Text,
-        BodyCreatePodcastV1StudioPodcastsPostSourceItem_Url,
+        BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem,
+        BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Text,
+        BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Url,
     )
     from . import projects
     from .projects import (
         ProjectsCreateRequestApplyTextNormalization,
         ProjectsCreateRequestFiction,
+        ProjectsCreateRequestQualityPreset,
         ProjectsCreateRequestSourceType,
         ProjectsCreateRequestTargetAudience,
     )
 _dynamic_imports: typing.Dict[str, str] = {
+    "BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostDurationScale": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostMode": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostMode_Bulletin": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostMode_Conversation": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostQualityPreset": ".types",
     "BodyCreatePodcastV1StudioPodcastsPostSource": ".types",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem": ".types",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem_Text": ".types",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem_Url": ".types",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem": ".types",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Text": ".types",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Url": ".types",
     "ProjectsCreateRequestApplyTextNormalization": ".projects",
     "ProjectsCreateRequestFiction": ".projects",
+    "ProjectsCreateRequestQualityPreset": ".projects",
     "ProjectsCreateRequestSourceType": ".projects",
     "ProjectsCreateRequestTargetAudience": ".projects",
-    "projects": ".",
+    "projects": ".projects",
 }
 
 
@@ -48,8 +52,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -62,17 +68,19 @@ def __dir__():
 
 
 __all__ = [
+    "BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization",
     "BodyCreatePodcastV1StudioPodcastsPostDurationScale",
     "BodyCreatePodcastV1StudioPodcastsPostMode",
     "BodyCreatePodcastV1StudioPodcastsPostMode_Bulletin",
     "BodyCreatePodcastV1StudioPodcastsPostMode_Conversation",
     "BodyCreatePodcastV1StudioPodcastsPostQualityPreset",
     "BodyCreatePodcastV1StudioPodcastsPostSource",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem_Text",
-    "BodyCreatePodcastV1StudioPodcastsPostSourceItem_Url",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Text",
+    "BodyCreatePodcastV1StudioPodcastsPostSourceTwoItem_Url",
     "ProjectsCreateRequestApplyTextNormalization",
     "ProjectsCreateRequestFiction",
+    "ProjectsCreateRequestQualityPreset",
     "ProjectsCreateRequestSourceType",
     "ProjectsCreateRequestTargetAudience",
     "projects",

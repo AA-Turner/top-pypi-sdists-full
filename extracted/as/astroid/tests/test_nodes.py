@@ -13,6 +13,7 @@ import random
 import sys
 import textwrap
 import unittest
+import warnings
 from typing import Any
 
 import pytest
@@ -28,34 +29,33 @@ from astroid import (
     transforms,
     util,
 )
-from astroid.const import IS_PYPY, PY310_PLUS, PY311_PLUS, PY312_PLUS, Context
+from astroid.const import (
+    IS_PYPY,
+    PY311_PLUS,
+    PY312_PLUS,
+    PY313_PLUS,
+    PY314_PLUS,
+    Context,
+)
 from astroid.context import InferenceContext
 from astroid.exceptions import (
     AstroidBuildingError,
     AstroidSyntaxError,
     AttributeInferenceError,
-    ParentMissingError,
     StatementMissing,
 )
-from astroid.nodes.node_classes import (
-    AssignAttr,
-    AssignName,
-    Attribute,
-    Call,
-    ImportFrom,
-    Tuple,
-)
-from astroid.nodes.scoped_nodes import ClassDef, FunctionDef, GeneratorExp, Module
+from astroid.nodes.node_classes import UNATTACHED_UNKNOWN
+from astroid.nodes.scoped_nodes import SYNTHETIC_ROOT
 from tests.testdata.python3.recursion_error import LONG_CHAINED_METHOD_CALL
 
 from . import resources
 
-abuilder = builder.AstroidBuilder()
+abuilder = builder.AstroidBuilder(astroid.MANAGER)
 
 
 class AsStringTest(resources.SysPathSetup, unittest.TestCase):
     def test_tuple_as_string(self) -> None:
-        def build(string: str) -> Tuple:
+        def build(string: str) -> nodes.Tuple:
             return abuilder.string_build(string).body[0].value
 
         self.assertEqual(build("1,").as_string(), "(1, )")
@@ -109,11 +109,31 @@ class AsStringTest(resources.SysPathSetup, unittest.TestCase):
         ast = abuilder.string_build("raise_string(*args, **kwargs)").body[0]
         self.assertEqual(ast.as_string(), "raise_string(*args, **kwargs)")
 
-    def test_module_as_string(self) -> None:
-        """Check as_string on a whole module prepared to be returned identically."""
+    @pytest.mark.skipif(PY314_PLUS, reason="return in finally is now a syntax error")
+    def test_module_as_string_pre_3_14(self) -> None:
+        """Check as_string on a whole module prepared to be returned identically for py < 3.14."""
+        self.maxDiff = None
         module = resources.build_file("data/module.py", "data.module")
         with open(resources.find("data/module.py"), encoding="utf-8") as fobj:
-            self.assertMultiLineEqual(module.as_string(), fobj.read())
+            # Ignore comments in python file
+            data_str = "\n".join(
+                [s for s in fobj.read().split("\n") if not s.lstrip().startswith("# ")]
+            )
+            self.assertMultiLineEqual(module.as_string(), data_str)
+
+    @pytest.mark.skipif(
+        not PY314_PLUS, reason="return in finally is now a syntax error"
+    )
+    def test_module_as_string(self) -> None:
+        """Check as_string on a whole module prepared to be returned identically for py > 3.14."""
+        self.maxDiff = None
+        module = resources.build_file("data/module3.14.py", "data.module3.14")
+        with open(resources.find("data/module3.14.py"), encoding="utf-8") as fobj:
+            # Ignore comments in python file
+            data_str = "\n".join(
+                [s for s in fobj.read().split("\n") if not s.lstrip().startswith("# ")]
+            )
+            self.assertMultiLineEqual(module.as_string(), data_str)
 
     def test_module2_as_string(self) -> None:
         """Check as_string on a whole module prepared to be returned identically."""
@@ -276,8 +296,10 @@ everything = f""" " \' \r \t \\ {{ }} {'x' + x!r:a} {["'"]!s:{a}}"""
 
     @staticmethod
     def test_as_string_unknown() -> None:
-        assert nodes.Unknown().as_string() == "Unknown.Unknown()"
-        assert nodes.Unknown(lineno=1, col_offset=0).as_string() == "Unknown.Unknown()"
+        unknown1 = nodes.Unknown(parent=SYNTHETIC_ROOT)
+        unknown2 = nodes.Unknown(lineno=1, col_offset=0, parent=SYNTHETIC_ROOT)
+        assert unknown1.as_string() == "Unknown.Unknown()"
+        assert unknown2.as_string() == "Unknown.Unknown()"
 
     @staticmethod
     @pytest.mark.skipif(
@@ -298,15 +320,34 @@ everything = f""" " \' \r \t \\ {{ }} {'x' + x!r:a} {["'"]!s:{a}}"""
 class AsStringTypeParamNodes(unittest.TestCase):
     @staticmethod
     def test_as_string_type_alias() -> None:
-        ast = abuilder.string_build("type Point = tuple[float, float]")
-        type_alias = ast.body[0]
-        assert type_alias.as_string().strip() == "Point"
+        ast1 = abuilder.string_build("type Point = tuple[float, float]")
+        type_alias1 = ast1.body[0]
+        assert type_alias1.as_string().strip() == "type Point = tuple[float, float]"
+        ast2 = abuilder.string_build(
+            "type Point[T, **P] = tuple[float, T, Callable[P, None]]"
+        )
+        type_alias2 = ast2.body[0]
+        assert (
+            type_alias2.as_string().strip()
+            == "type Point[T, **P] = tuple[float, T, Callable[P, None]]"
+        )
 
     @staticmethod
     def test_as_string_type_var() -> None:
-        ast = abuilder.string_build("type Point[T] = tuple[float, float]")
+        ast = abuilder.string_build("type Point[T: int | str] = tuple[float, float]")
         type_var = ast.body[0].type_params[0]
-        assert type_var.as_string().strip() == "T"
+        assert type_var.as_string().strip() == "T: int | str"
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not PY313_PLUS, reason="Type parameter defaults were added in 313"
+    )
+    def test_as_string_type_var_default() -> None:
+        ast = abuilder.string_build(
+            "type Point[T: int | str = int] = tuple[float, float]"
+        )
+        type_var = ast.body[0].type_params[0]
+        assert type_var.as_string().strip() == "T: int | str = int"
 
     @staticmethod
     def test_as_string_type_var_tuple() -> None:
@@ -315,10 +356,40 @@ class AsStringTypeParamNodes(unittest.TestCase):
         assert type_var_tuple.as_string().strip() == "*Ts"
 
     @staticmethod
+    @pytest.mark.skipif(
+        not PY313_PLUS, reason="Type parameter defaults were added in 313"
+    )
+    def test_as_string_type_var_tuple_defaults() -> None:
+        ast = abuilder.string_build("type Alias[*Ts = tuple[int, str]] = tuple[*Ts]")
+        type_var_tuple = ast.body[0].type_params[0]
+        assert type_var_tuple.as_string().strip() == "*Ts = tuple[int, str]"
+
+    @staticmethod
     def test_as_string_param_spec() -> None:
         ast = abuilder.string_build("type Alias[**P] = Callable[P, int]")
         param_spec = ast.body[0].type_params[0]
-        assert param_spec.as_string().strip() == "P"
+        assert param_spec.as_string().strip() == "**P"
+
+    @staticmethod
+    @pytest.mark.skipif(
+        not PY313_PLUS, reason="Type parameter defaults were added in 313"
+    )
+    def test_as_string_param_spec_defaults() -> None:
+        ast = abuilder.string_build("type Alias[**P = [str, int]] = Callable[P, int]")
+        param_spec = ast.body[0].type_params[0]
+        assert param_spec.as_string().strip() == "**P = [str, int]"
+
+    @staticmethod
+    def test_as_string_class_type_params() -> None:
+        code = abuilder.string_build("class A[T, **P]: ...")
+        cls_node = code.body[0]
+        assert cls_node.as_string().strip() == "class A[T, **P]:\n    ..."
+
+    @staticmethod
+    def test_as_string_function_type_params() -> None:
+        code = abuilder.string_build("def func[T, **P](): ...")
+        func_node = code.body[0]
+        assert func_node.as_string().strip() == "def func[T, **P]():\n    ..."
 
 
 class _NodeTest(unittest.TestCase):
@@ -327,7 +398,7 @@ class _NodeTest(unittest.TestCase):
     CODE = ""
 
     @property
-    def astroid(self) -> Module:
+    def astroid(self) -> nodes.Module:
         try:
             return self.__class__.__dict__["CODE_Astroid"]
         except KeyError:
@@ -522,9 +593,7 @@ class ImportNodeTest(resources.SysPathSetup, unittest.TestCase):
         ast = self.module["modutils"]
         self.assertEqual(ast.as_string(), "from astroid import modutils")
         ast = self.module["NameNode"]
-        self.assertEqual(
-            ast.as_string(), "from astroid.nodes.node_classes import Name as NameNode"
-        )
+        self.assertEqual(ast.as_string(), "from astroid.nodes import Name as NameNode")
         ast = self.module["os"]
         self.assertEqual(ast.as_string(), "import os.path")
         code = """from . import here
@@ -616,18 +685,8 @@ class ConstNodeTest(unittest.TestCase):
         self.assertTrue(node._proxied.parent)
         self.assertEqual(node._proxied.root().name, value.__class__.__module__)
         with self.assertRaises(StatementMissing):
-            with pytest.warns(DeprecationWarning) as records:
-                node.statement(future=True)
-                assert len(records) == 1
-        with self.assertRaises(StatementMissing):
             node.statement()
-
-        with self.assertRaises(ParentMissingError):
-            with pytest.warns(DeprecationWarning) as records:
-                node.frame(future=True)
-                assert len(records) == 1
-        with self.assertRaises(ParentMissingError):
-            node.frame()
+        assert node.frame() is SYNTHETIC_ROOT
 
     def test_none(self) -> None:
         self._test(None)
@@ -834,8 +893,8 @@ class AnnAssignNodeTest(unittest.TestCase):
         assign = builder.extract_node(code)
         self.assertIsInstance(assign, nodes.AnnAssign)
         self.assertEqual(assign.target.name, "test")
-        self.assertIsInstance(assign.annotation, astroid.Subscript)
-        self.assertIsInstance(assign.value, astroid.Dict)
+        self.assertIsInstance(assign.annotation, nodes.Subscript)
+        self.assertIsInstance(assign.value, nodes.Dict)
 
     def test_as_string(self) -> None:
         code = textwrap.dedent(
@@ -1203,30 +1262,30 @@ class AliasesTest(unittest.TestCase):
     def setUp(self) -> None:
         self.transformer = transforms.TransformVisitor()
 
-    def parse_transform(self, code: str) -> Module:
+    def parse_transform(self, code: str) -> nodes.Module:
         module = parse(code, apply_transforms=False)
         return self.transformer.visit(module)
 
     def test_aliases(self) -> None:
-        def test_from(node: ImportFrom) -> ImportFrom:
+        def test_from(node: nodes.ImportFrom) -> nodes.ImportFrom:
             node.names = [*node.names, ("absolute_import", None)]
             return node
 
-        def test_class(node: ClassDef) -> ClassDef:
+        def test_class(node: nodes.ClassDef) -> nodes.ClassDef:
             node.name = "Bar"
             return node
 
-        def test_function(node: FunctionDef) -> FunctionDef:
+        def test_function(node: nodes.FunctionDef) -> nodes.FunctionDef:
             node.name = "another_test"
             return node
 
-        def test_callfunc(node: Call) -> Call | None:
+        def test_callfunc(node: nodes.Call) -> nodes.Call | None:
             if node.func.name == "Foo":
                 node.func.name = "Bar"
                 return node
             return None
 
-        def test_assname(node: AssignName) -> AssignName | None:
+        def test_assname(node: nodes.AssignName) -> nodes.AssignName | None:
             if node.name == "foo":
                 return nodes.AssignName(
                     "bar",
@@ -1238,19 +1297,19 @@ class AliasesTest(unittest.TestCase):
                 )
             return None
 
-        def test_assattr(node: AssignAttr) -> AssignAttr:
+        def test_assattr(node: nodes.AssignAttr) -> nodes.AssignAttr:
             if node.attrname == "a":
                 node.attrname = "b"
                 return node
             return None
 
-        def test_getattr(node: Attribute) -> Attribute:
+        def test_getattr(node: nodes.Attribute) -> nodes.Attribute:
             if node.attrname == "a":
                 node.attrname = "b"
                 return node
             return None
 
-        def test_genexpr(node: GeneratorExp) -> GeneratorExp:
+        def test_genexpr(node: nodes.GeneratorExp) -> nodes.GeneratorExp:
             if node.elt.value == 1:
                 node.elt = nodes.Const(2, node.lineno, node.col_offset, node.parent)
                 return node
@@ -1443,9 +1502,9 @@ class ContextTest(unittest.TestCase):
 
 def test_unknown() -> None:
     """Test Unknown node."""
-    assert isinstance(next(nodes.Unknown().infer()), type(util.Uninferable))
-    assert isinstance(nodes.Unknown().name, str)
-    assert isinstance(nodes.Unknown().qname(), str)
+    assert isinstance(next(UNATTACHED_UNKNOWN.infer()), type(util.Uninferable))
+    assert isinstance(UNATTACHED_UNKNOWN.name, str)
+    assert isinstance(UNATTACHED_UNKNOWN.qname(), str)
 
 
 def test_type_comments_with() -> None:
@@ -1459,7 +1518,7 @@ def test_type_comments_with() -> None:
     )
     node = module.body[0]
     ignored_node = module.body[1]
-    assert isinstance(node.type_annotation, astroid.Name)
+    assert isinstance(node.type_annotation, nodes.Name)
 
     assert ignored_node.type_annotation is None
 
@@ -1475,7 +1534,7 @@ def test_type_comments_for() -> None:
     )
     node = module.body[0]
     ignored_node = module.body[1]
-    assert isinstance(node.type_annotation, astroid.Subscript)
+    assert isinstance(node.type_annotation, nodes.Subscript)
     assert node.type_annotation.as_string() == "List[int]"
 
     assert ignored_node.type_annotation is None
@@ -1490,7 +1549,7 @@ def test_type_coments_assign() -> None:
     )
     node = module.body[0]
     ignored_node = module.body[1]
-    assert isinstance(node.type_annotation, astroid.Subscript)
+    assert isinstance(node.type_annotation, nodes.Subscript)
     assert node.type_annotation.as_string() == "List[int]"
 
     assert ignored_node.type_annotation is None
@@ -1546,9 +1605,9 @@ def test_type_comments_function() -> None:
     """
     )
     expected_annotations = [
-        (["int"], astroid.Name, "str"),
-        (["int", "int", "int"], astroid.Tuple, "(str, str)"),
-        (["int", "int", "str", "List[int]"], astroid.Subscript, "List[int]"),
+        (["int"], nodes.Name, "str"),
+        (["int", "int", "int"], nodes.Tuple, "(str, str)"),
+        (["int", "int", "str", "List[int]"], nodes.Subscript, "List[int]"),
     ]
     for node, (expected_args, expected_returns_type, expected_returns_string) in zip(
         module.body, expected_annotations
@@ -1593,7 +1652,7 @@ def test_type_comments_arguments() -> None:
     ]
     for node, expected_args in zip(module.body, expected_annotations):
         assert len(node.type_comment_args) == 1
-        assert isinstance(node.type_comment_args[0], astroid.Const)
+        assert isinstance(node.type_comment_args[0], nodes.Const)
         assert node.type_comment_args[0].value == Ellipsis
         assert len(node.args.type_comment_args) == len(expected_args)
         for expected_arg, actual_arg in zip(expected_args, node.args.type_comment_args):
@@ -1622,7 +1681,7 @@ def test_type_comments_posonly_arguments() -> None:
     ]
     for node, expected_types in zip(module.body, expected_annotations):
         assert len(node.type_comment_args) == 1
-        assert isinstance(node.type_comment_args[0], astroid.Const)
+        assert isinstance(node.type_comment_args[0], nodes.Const)
         assert node.type_comment_args[0].value == Ellipsis
         type_comments = [
             node.args.type_comment_posonlyargs,
@@ -1665,7 +1724,7 @@ def test_is_generator_for_yield_assignments() -> None:
     assert bool(inferred.is_generator())
 
 
-class AsyncGeneratorTest:
+class AsyncGeneratorTest(unittest.TestCase):
     def test_async_generator(self):
         node = astroid.extract_node(
             """
@@ -1682,23 +1741,6 @@ class AsyncGeneratorTest:
         assert inferred.getattr("__anext__")
         assert inferred.pytype() == "builtins.async_generator"
         assert inferred.display_type() == "AsyncGenerator"
-
-    def test_async_generator_is_generator_on_older_python(self):
-        node = astroid.extract_node(
-            """
-        async def a_iter(n):
-            for i in range(1, n + 1):
-                yield i
-                await asyncio.sleep(1)
-        a_iter(2) #@
-        """
-        )
-        inferred = next(node.infer())
-        assert isinstance(inferred, bases.Generator)
-        assert inferred.getattr("__iter__")
-        assert inferred.getattr("__next__")
-        assert inferred.pytype() == "builtins.generator"
-        assert inferred.display_type() == "Generator"
 
 
 def test_f_string_correct_line_numbering() -> None:
@@ -1860,15 +1902,15 @@ def test_parse_type_comments_with_proper_parent() -> None:
     assert len(type_comments) == 1
 
     type_comment = type_comments[0]
-    assert isinstance(type_comment, astroid.Attribute)
-    assert isinstance(type_comment.parent, astroid.Expr)
-    assert isinstance(type_comment.parent.parent, astroid.Arguments)
+    assert isinstance(type_comment, nodes.Attribute)
+    assert isinstance(type_comment.parent, nodes.Expr)
+    assert isinstance(type_comment.parent.parent, nodes.Arguments)
 
 
 def test_const_itered() -> None:
     code = 'a = "string"'
     node = astroid.extract_node(code).value
-    assert isinstance(node, astroid.Const)
+    assert isinstance(node, nodes.Const)
     itered = node.itered()
     assert len(itered) == 6
     assert [elem.value for elem in itered] == list("string")
@@ -1910,7 +1952,6 @@ def test_is_generator_for_yield_in_aug_assign() -> None:
     assert bool(node.is_generator())
 
 
-@pytest.mark.skipif(not PY310_PLUS, reason="pattern matching was added in PY310")
 class TestPatternMatching:
     @staticmethod
     def test_match_simple():
@@ -1938,12 +1979,12 @@ class TestPatternMatching:
 
         assert isinstance(case0.pattern, nodes.MatchValue)
         assert (
-            isinstance(case0.pattern.value, astroid.Const)
+            isinstance(case0.pattern.value, nodes.Const)
             and case0.pattern.value.value == 200
         )
         assert list(case0.pattern.get_children()) == [case0.pattern.value]
         assert case0.guard is None
-        assert isinstance(case0.body[0], astroid.Pass)
+        assert isinstance(case0.body[0], nodes.Pass)
         assert list(case0.get_children()) == [case0.pattern, case0.body[0]]
 
         assert isinstance(case1.pattern, nodes.MatchOr)
@@ -2167,6 +2208,41 @@ class TestPatternMatching:
         assert [inf.value for inf in inferred] == [10, -1]
 
 
+@pytest.mark.skipif(not PY314_PLUS, reason="TemplateStr was added in PY314")
+class TestTemplateString:
+    @staticmethod
+    def test_template_string_simple() -> None:
+        code = textwrap.dedent(
+            """
+        name = "Foo"
+        place = 3
+        t"{name} finished {place!r:ordinal}"  #@
+        """
+        ).strip()
+        node = builder.extract_node(code)
+        assert node.as_string() == "t'{name} finished {place!r:ordinal}'"
+        assert isinstance(node, nodes.TemplateStr)
+        assert len(node.values) == 3
+        value = node.values[0]
+        assert isinstance(value, nodes.Interpolation)
+        assert isinstance(value.value, nodes.Name)
+        assert value.value.name == "name"
+        assert value.str == "name"
+        assert value.conversion == -1
+        assert value.format_spec is None
+        value = node.values[1]
+        assert isinstance(value, nodes.Const)
+        assert value.pytype() == "builtins.str"
+        assert value.value == " finished "
+        value = node.values[2]
+        assert isinstance(value, nodes.Interpolation)
+        assert isinstance(value.value, nodes.Name)
+        assert value.value.name == "place"
+        assert value.str == "place"
+        assert value.conversion == ord("r")
+        assert isinstance(value.format_spec, nodes.JoinedStr)
+
+
 @pytest.mark.parametrize(
     "node",
     [
@@ -2184,13 +2260,15 @@ def test_str_repr_no_warnings(node):
         if name == "self":
             continue
 
-        if "int" in param_type.annotation:
+        if name == "parent" and "NodeNG" in param_type.annotation:
+            args[name] = SYNTHETIC_ROOT
+        elif "int" in param_type.annotation:
             args[name] = random.randint(0, 50)
         elif (
             "NodeNG" in param_type.annotation
             or "SuccessfulInferenceResult" in param_type.annotation
         ):
-            args[name] = nodes.Unknown()
+            args[name] = UNATTACHED_UNKNOWN
         elif "str" in param_type.annotation:
             args[name] = ""
         else:
@@ -2234,3 +2312,21 @@ def test_arguments_default_value():
 
     node = extract_node("def fruit(seeds, flavor='good', *, peel='maybe'): ...")
     assert node.args.default_value("flavor").value == "good"
+
+
+def test_deprecated_nodes_import_from_toplevel():
+    # pylint: disable=import-outside-toplevel,no-name-in-module
+    with pytest.raises(
+        DeprecationWarning, match="importing 'For' from 'astroid' is deprecated"
+    ):
+        from astroid import For
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from astroid import For
+
+        assert For is nodes.For
+
+    # This should not raise a DeprecationWarning
+    # pylint: disable-next=unused-import
+    from astroid import builtin_lookup

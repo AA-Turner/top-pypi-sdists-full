@@ -1,6 +1,7 @@
 """Module for BatchMaintenance class."""
 import contextlib
 import re
+from pywinauto.application import WindowSpecification
 
 from t_desktop.t_desktop import PywinTimeout
 
@@ -20,7 +21,7 @@ class BatchMaintenanceWindow(NextGenWindow):
     """Batch Maintenance class with methods to interact with batch maintenance window."""
 
     @property
-    def window(self):
+    def window(self) -> WindowSpecification:
         """Return the AMBatches window element."""
         return self.desktop_app.dialog.child_window(title="AMBatches", control_type="Window")
 

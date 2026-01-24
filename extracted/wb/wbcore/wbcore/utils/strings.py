@@ -15,7 +15,7 @@ def enumerated_string_join(array):
     return ""
 
 
-def format_number(number, decimal: int = 2, **kwargs) -> float | None:
+def format_number(number, decimal: int = 2, **kwargs) -> float | str:
     """
     utility function used to serialize an aggregate to a json compatible value
     Args:
@@ -28,7 +28,7 @@ def format_number(number, decimal: int = 2, **kwargs) -> float | None:
     try:
         return float(round(number, decimal))
     except TypeError:
-        return None
+        return ""
 
 
 class ReferenceIDMixin:

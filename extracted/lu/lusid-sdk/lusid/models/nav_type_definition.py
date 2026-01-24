@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.resource_id import ResourceId
 
 class NavTypeDefinition(BaseModel):
@@ -29,17 +31,19 @@ class NavTypeDefinition(BaseModel):
     code:  Optional[StrictStr] = Field(None,alias="code") 
     display_name:  Optional[StrictStr] = Field(None,alias="displayName") 
     description:  Optional[StrictStr] = Field(None,alias="description") 
-    chart_of_accounts_id: ResourceId = Field(..., alias="chartOfAccountsId")
-    posting_module_codes: Optional[conlist(StrictStr)] = Field(None, alias="postingModuleCodes")
-    cleardown_module_codes: Optional[conlist(StrictStr)] = Field(None, alias="cleardownModuleCodes")
-    valuation_recipe_id: ResourceId = Field(..., alias="valuationRecipeId")
-    holding_recipe_id: ResourceId = Field(..., alias="holdingRecipeId")
+    chart_of_accounts_id: ResourceId = Field(alias="chartOfAccountsId")
+    posting_module_codes: Optional[List[StrictStr]] = Field(default=None, alias="postingModuleCodes")
+    cleardown_module_codes: Optional[List[StrictStr]] = Field(default=None, alias="cleardownModuleCodes")
+    valuation_recipe_id: ResourceId = Field(alias="valuationRecipeId")
+    holding_recipe_id: ResourceId = Field(alias="holdingRecipeId")
     accounting_method:  StrictStr = Field(...,alias="accountingMethod") 
-    sub_holding_keys: Optional[conlist(StrictStr)] = Field(None, alias="subHoldingKeys", description="Set of unique holding identifiers, e.g. trader, desk, strategy.")
+    sub_holding_keys: Optional[List[StrictStr]] = Field(default=None, description="Set of unique holding identifiers, e.g. trader, desk, strategy.", alias="subHoldingKeys")
     amortisation_method:  StrictStr = Field(...,alias="amortisationMethod") 
     transaction_type_scope:  StrictStr = Field(...,alias="transactionTypeScope") 
     cash_gain_loss_calculation_date:  StrictStr = Field(...,alias="cashGainLossCalculationDate") 
-    __properties = ["code", "displayName", "description", "chartOfAccountsId", "postingModuleCodes", "cleardownModuleCodes", "valuationRecipeId", "holdingRecipeId", "accountingMethod", "subHoldingKeys", "amortisationMethod", "transactionTypeScope", "cashGainLossCalculationDate"]
+    amortisation_rule_set_id: Optional[ResourceId] = Field(default=None, alias="amortisationRuleSetId")
+    leader_nav_type_code:  Optional[StrictStr] = Field(None,alias="leaderNavTypeCode") 
+    __properties = ["code", "displayName", "description", "chartOfAccountsId", "postingModuleCodes", "cleardownModuleCodes", "valuationRecipeId", "holdingRecipeId", "accountingMethod", "subHoldingKeys", "amortisationMethod", "transactionTypeScope", "cashGainLossCalculationDate", "amortisationRuleSetId", "leaderNavTypeCode"]
 
     class Config:
         """Pydantic configuration"""
@@ -82,6 +86,9 @@ class NavTypeDefinition(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of holding_recipe_id
         if self.holding_recipe_id:
             _dict['holdingRecipeId'] = self.holding_recipe_id.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of amortisation_rule_set_id
+        if self.amortisation_rule_set_id:
+            _dict['amortisationRuleSetId'] = self.amortisation_rule_set_id.to_dict()
         # set to None if code (nullable) is None
         # and __fields_set__ contains the field
         if self.code is None and "code" in self.__fields_set__:
@@ -112,6 +119,11 @@ class NavTypeDefinition(BaseModel):
         if self.sub_holding_keys is None and "sub_holding_keys" in self.__fields_set__:
             _dict['subHoldingKeys'] = None
 
+        # set to None if leader_nav_type_code (nullable) is None
+        # and __fields_set__ contains the field
+        if self.leader_nav_type_code is None and "leader_nav_type_code" in self.__fields_set__:
+            _dict['leaderNavTypeCode'] = None
+
         return _dict
 
     @classmethod
@@ -136,6 +148,10 @@ class NavTypeDefinition(BaseModel):
             "sub_holding_keys": obj.get("subHoldingKeys"),
             "amortisation_method": obj.get("amortisationMethod"),
             "transaction_type_scope": obj.get("transactionTypeScope"),
-            "cash_gain_loss_calculation_date": obj.get("cashGainLossCalculationDate")
+            "cash_gain_loss_calculation_date": obj.get("cashGainLossCalculationDate"),
+            "amortisation_rule_set_id": ResourceId.from_dict(obj.get("amortisationRuleSetId")) if obj.get("amortisationRuleSetId") is not None else None,
+            "leader_nav_type_code": obj.get("leaderNavTypeCode")
         })
         return _obj
+
+NavTypeDefinition.update_forward_refs()

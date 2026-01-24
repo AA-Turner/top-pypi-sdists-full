@@ -3,7 +3,7 @@ Type annotations for ssm service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -113,12 +114,6 @@ from .literals import (
     StopTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -689,7 +684,7 @@ class AssociateOpsItemRelatedItemRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -697,7 +692,7 @@ class ResponseMetadataTypeDef(TypedDict):
 class AssociationOverviewTypeDef(TypedDict):
     Status: NotRequired[str]
     DetailedStatus: NotRequired[str]
-    AssociationStatusAggregatedCount: NotRequired[Dict[str, int]]
+    AssociationStatusAggregatedCount: NotRequired[dict[str, int]]
 
 
 class AssociationStatusOutputTypeDef(TypedDict):
@@ -709,7 +704,7 @@ class AssociationStatusOutputTypeDef(TypedDict):
 
 class TargetOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 AssociationExecutionFilterTypeDef = TypedDict(
@@ -764,7 +759,7 @@ class AutomationExecutionFilterTypeDef(TypedDict):
 
 
 class ResolvedTargetsTypeDef(TypedDict):
-    ParameterValues: NotRequired[List[str]]
+    ParameterValues: NotRequired[list[str]]
     Truncated: NotRequired[bool]
 
 
@@ -820,7 +815,7 @@ class CommandPluginTypeDef(TypedDict):
 
 class NotificationConfigOutputTypeDef(TypedDict):
     NotificationArn: NotRequired[str]
-    NotificationEvents: NotRequired[List[NotificationEventType]]
+    NotificationEvents: NotRequired[list[NotificationEventType]]
     NotificationType: NotRequired[NotificationTypeType]
 
 
@@ -1018,9 +1013,9 @@ class PatchTypeDef(TypedDict):
     KbNumber: NotRequired[str]
     MsrcNumber: NotRequired[str]
     Language: NotRequired[str]
-    AdvisoryIds: NotRequired[List[str]]
-    BugzillaIds: NotRequired[List[str]]
-    CVEIds: NotRequired[List[str]]
+    AdvisoryIds: NotRequired[list[str]]
+    BugzillaIds: NotRequired[list[str]]
+    CVEIds: NotRequired[list[str]]
     Name: NotRequired[str]
     Epoch: NotRequired[int]
     Version: NotRequired[str]
@@ -1313,7 +1308,7 @@ class PatchStatusTypeDef(TypedDict):
 class FailureDetailsTypeDef(TypedDict):
     FailureStage: NotRequired[str]
     FailureType: NotRequired[str]
-    Details: NotRequired[Dict[str, List[str]]]
+    Details: NotRequired[dict[str, list[str]]]
 
 
 class GetAccessTokenRequestTypeDef(TypedDict):
@@ -1397,7 +1392,7 @@ class GetMaintenanceWindowExecutionTaskRequestTypeDef(TypedDict):
 
 
 class MaintenanceWindowTaskParameterValueExpressionOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class GetMaintenanceWindowRequestTypeDef(TypedDict):
@@ -1484,7 +1479,7 @@ class GetPatchBaselineRequestTypeDef(TypedDict):
 
 class PatchSourceOutputTypeDef(TypedDict):
     Name: str
-    Products: List[str]
+    Products: list[str]
     Configuration: str
 
 
@@ -1515,7 +1510,7 @@ class ServiceSettingTypeDef(TypedDict):
 
 class InstanceAggregatedAssociationOverviewTypeDef(TypedDict):
     DetailedStatus: NotRequired[str]
-    InstanceAssociationStatusAggregatedCount: NotRequired[Dict[str, int]]
+    InstanceAssociationStatusAggregatedCount: NotRequired[dict[str, int]]
 
 
 class S3OutputLocationTypeDef(TypedDict):
@@ -1564,7 +1559,7 @@ class InventoryItemTypeDef(TypedDict):
 class InventoryResultItemTypeDef(TypedDict):
     TypeName: str
     SchemaVersion: str
-    Content: List[Dict[str, str]]
+    Content: list[dict[str, str]]
     CaptureTime: NotRequired[str]
     ContentHash: NotRequired[str]
 
@@ -1657,7 +1652,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 class MaintenanceWindowAutomationParametersOutputTypeDef(TypedDict):
     DocumentVersion: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
 
 
 class MaintenanceWindowAutomationParametersTypeDef(TypedDict):
@@ -1702,7 +1697,7 @@ class NodeOwnerInfoTypeDef(TypedDict):
 
 class OpsEntityItemTypeDef(TypedDict):
     CaptureTime: NotRequired[str]
-    Content: NotRequired[List[Dict[str, str]]]
+    Content: NotRequired[list[dict[str, str]]]
 
 
 class OpsItemIdentityTypeDef(TypedDict):
@@ -1725,7 +1720,7 @@ class ParentStepDetailsTypeDef(TypedDict):
 
 class PatchFilterOutputTypeDef(TypedDict):
     Key: PatchFilterKeyType
-    Values: List[str]
+    Values: list[str]
 
 
 class PatchFilterTypeDef(TypedDict):
@@ -1864,7 +1859,7 @@ class ActivationTypeDef(TypedDict):
     ExpirationDate: NotRequired[datetime]
     Expired: NotRequired[bool]
     CreatedDate: NotRequired[datetime]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class AddTagsToResourceRequestTypeDef(TypedDict):
@@ -1907,7 +1902,7 @@ PutParameterRequestTypeDef = TypedDict(
 
 
 class AlarmConfigurationOutputTypeDef(TypedDict):
-    Alarms: List[AlarmTypeDef]
+    Alarms: list[AlarmTypeDef]
     IgnorePollAlarmFailure: NotRequired[bool]
 
 
@@ -1959,8 +1954,8 @@ class DeleteMaintenanceWindowResultTypeDef(TypedDict):
 
 
 class DeleteParametersResultTypeDef(TypedDict):
-    DeletedParameters: List[str]
-    InvalidParameters: List[str]
+    DeletedParameters: list[str]
+    InvalidParameters: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1988,8 +1983,8 @@ class DeregisterTaskFromMaintenanceWindowResultTypeDef(TypedDict):
 
 
 class DescribeDocumentPermissionResponseTypeDef(TypedDict):
-    AccountIds: List[str]
-    AccountSharingInfoList: List[AccountSharingInfoTypeDef]
+    AccountIds: list[str]
+    AccountSharingInfoList: list[AccountSharingInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2012,7 +2007,7 @@ class DescribePatchGroupStateResultTypeDef(TypedDict):
 
 
 class DescribePatchPropertiesResultTypeDef(TypedDict):
-    Properties: List[Dict[str, str]]
+    Properties: list[dict[str, str]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2046,7 +2041,7 @@ class GetDeployablePatchSnapshotForInstanceResultTypeDef(TypedDict):
 
 class GetMaintenanceWindowExecutionResultTypeDef(TypedDict):
     WindowExecutionId: str
-    TaskIds: List[str]
+    TaskIds: list[str]
     Status: MaintenanceWindowExecutionStatusType
     StatusDetails: str
     StartTime: datetime
@@ -2097,7 +2092,7 @@ class GetPatchBaselineForPatchGroupResultTypeDef(TypedDict):
 
 
 class LabelParameterVersionResultTypeDef(TypedDict):
-    InvalidLabels: List[str]
+    InvalidLabels: list[str]
     ParameterVersion: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2107,19 +2102,19 @@ class ListInventoryEntriesResultTypeDef(TypedDict):
     InstanceId: str
     SchemaVersion: str
     CaptureTime: str
-    Entries: List[Dict[str, str]]
+    Entries: list[dict[str, str]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNodesSummaryResultTypeDef(TypedDict):
-    Summary: List[Dict[str, str]]
+    Summary: list[dict[str, str]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2201,8 +2196,8 @@ class TerminateSessionResponseTypeDef(TypedDict):
 
 
 class UnlabelParameterVersionResultTypeDef(TypedDict):
-    RemovedLabels: List[str]
-    InvalidLabels: List[str]
+    RemovedLabels: list[str]
+    InvalidLabels: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2233,21 +2228,21 @@ class AssociationTypeDef(TypedDict):
     AssociationId: NotRequired[str]
     AssociationVersion: NotRequired[str]
     DocumentVersion: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     LastExecutionDate: NotRequired[datetime]
     Overview: NotRequired[AssociationOverviewTypeDef]
     ScheduleExpression: NotRequired[str]
     AssociationName: NotRequired[str]
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
 
 
 class MaintenanceWindowTargetTypeDef(TypedDict):
     WindowId: NotRequired[str]
     WindowTargetId: NotRequired[str]
     ResourceType: NotRequired[MaintenanceWindowResourceTypeType]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     OwnerInformation: NotRequired[str]
     Name: NotRequired[str]
     Description: NotRequired[str]
@@ -2256,7 +2251,7 @@ class MaintenanceWindowTargetTypeDef(TypedDict):
 class UpdateMaintenanceWindowTargetResultTypeDef(TypedDict):
     WindowId: str
     WindowTargetId: str
-    Targets: List[TargetOutputTypeDef]
+    Targets: list[TargetOutputTypeDef]
     OwnerInformation: str
     Name: str
     Description: str
@@ -2327,9 +2322,9 @@ class DescribeAutomationExecutionsRequestTypeDef(TypedDict):
 
 
 class AutomationExecutionPreviewTypeDef(TypedDict):
-    StepPreviews: NotRequired[Dict[ImpactTypeType, int]]
-    Regions: NotRequired[List[str]]
-    TargetPreviews: NotRequired[List[TargetPreviewTypeDef]]
+    StepPreviews: NotRequired[dict[ImpactTypeType, int]]
+    Regions: NotRequired[list[str]]
+    TargetPreviews: NotRequired[list[TargetPreviewTypeDef]]
     TotalAccounts: NotRequired[int]
 
 
@@ -2390,7 +2385,7 @@ class CommandInvocationTypeDef(TypedDict):
     TraceOutput: NotRequired[str]
     StandardOutputUrl: NotRequired[str]
     StandardErrorUrl: NotRequired[str]
-    CommandPlugins: NotRequired[List[CommandPluginTypeDef]]
+    CommandPlugins: NotRequired[list[CommandPluginTypeDef]]
     ServiceRole: NotRequired[str]
     NotificationConfig: NotRequired[NotificationConfigOutputTypeDef]
     CloudWatchOutputConfig: NotRequired[CloudWatchOutputConfigTypeDef]
@@ -2405,7 +2400,7 @@ class MaintenanceWindowRunCommandParametersOutputTypeDef(TypedDict):
     NotificationConfig: NotRequired[NotificationConfigOutputTypeDef]
     OutputS3BucketName: NotRequired[str]
     OutputS3KeyPrefix: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
     ServiceRoleArn: NotRequired[str]
     TimeoutSeconds: NotRequired[int]
 
@@ -2419,7 +2414,7 @@ class ComplianceItemTypeDef(TypedDict):
     Status: NotRequired[ComplianceStatusType]
     Severity: NotRequired[ComplianceSeverityType]
     ExecutionSummary: NotRequired[ComplianceExecutionSummaryOutputTypeDef]
-    Details: NotRequired[Dict[str, str]]
+    Details: NotRequired[dict[str, str]]
 
 
 class ListComplianceItemsRequestTypeDef(TypedDict):
@@ -2481,14 +2476,14 @@ class DocumentIdentifierTypeDef(TypedDict):
     DisplayName: NotRequired[str]
     Owner: NotRequired[str]
     VersionName: NotRequired[str]
-    PlatformTypes: NotRequired[List[PlatformTypeType]]
+    PlatformTypes: NotRequired[list[PlatformTypeType]]
     DocumentVersion: NotRequired[str]
     DocumentType: NotRequired[DocumentTypeType]
     SchemaVersion: NotRequired[str]
     DocumentFormat: NotRequired[DocumentFormatType]
     TargetType: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
-    Requires: NotRequired[List[DocumentRequiresTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    Requires: NotRequired[list[DocumentRequiresTypeDef]]
     ReviewStatus: NotRequired[ReviewStatusType]
     Author: NotRequired[str]
 
@@ -2504,8 +2499,8 @@ class GetDocumentResultTypeDef(TypedDict):
     Content: str
     DocumentType: DocumentTypeType
     DocumentFormat: DocumentFormatType
-    Requires: List[DocumentRequiresTypeDef]
-    AttachmentsContent: List[AttachmentContentTypeDef]
+    Requires: list[DocumentRequiresTypeDef]
+    AttachmentsContent: list[AttachmentContentTypeDef]
     ReviewStatus: ReviewStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2520,7 +2515,7 @@ class OpsItemSummaryTypeDef(TypedDict):
     Status: NotRequired[OpsItemStatusType]
     OpsItemId: NotRequired[str]
     Title: NotRequired[str]
-    OperationalData: NotRequired[Dict[str, OpsItemDataValueTypeDef]]
+    OperationalData: NotRequired[dict[str, OpsItemDataValueTypeDef]]
     Category: NotRequired[str]
     Severity: NotRequired[str]
     OpsItemType: NotRequired[str]
@@ -2556,15 +2551,15 @@ class OpsItemTypeDef(TypedDict):
     Description: NotRequired[str]
     LastModifiedBy: NotRequired[str]
     LastModifiedTime: NotRequired[datetime]
-    Notifications: NotRequired[List[OpsItemNotificationTypeDef]]
+    Notifications: NotRequired[list[OpsItemNotificationTypeDef]]
     Priority: NotRequired[int]
-    RelatedOpsItems: NotRequired[List[RelatedOpsItemTypeDef]]
+    RelatedOpsItems: NotRequired[list[RelatedOpsItemTypeDef]]
     Status: NotRequired[OpsItemStatusType]
     OpsItemId: NotRequired[str]
     Version: NotRequired[str]
     Title: NotRequired[str]
     Source: NotRequired[str]
-    OperationalData: NotRequired[Dict[str, OpsItemDataValueTypeDef]]
+    OperationalData: NotRequired[dict[str, OpsItemDataValueTypeDef]]
     Category: NotRequired[str]
     Severity: NotRequired[str]
     ActualStartTime: NotRequired[datetime]
@@ -2601,7 +2596,7 @@ class CreateOpsMetadataRequestTypeDef(TypedDict):
 
 class GetOpsMetadataResultTypeDef(TypedDict):
     ResourceId: str
-    Metadata: Dict[str, MetadataValueTypeDef]
+    Metadata: dict[str, MetadataValueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2811,13 +2806,13 @@ class DescribePatchGroupsRequestTypeDef(TypedDict):
 
 
 class DescribeAvailablePatchesResultTypeDef(TypedDict):
-    Patches: List[PatchTypeDef]
+    Patches: list[PatchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeEffectiveInstanceAssociationsResultTypeDef(TypedDict):
-    Associations: List[InstanceAssociationTypeDef]
+    Associations: list[InstanceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2849,19 +2844,19 @@ class DescribeInstancePatchStatesForPatchGroupRequestTypeDef(TypedDict):
 
 
 class DescribeInstancePatchStatesForPatchGroupResultTypeDef(TypedDict):
-    InstancePatchStates: List[InstancePatchStateTypeDef]
+    InstancePatchStates: list[InstancePatchStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeInstancePatchStatesResultTypeDef(TypedDict):
-    InstancePatchStates: List[InstancePatchStateTypeDef]
+    InstancePatchStates: list[InstancePatchStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeInstancePatchesResultTypeDef(TypedDict):
-    Patches: List[PatchComplianceDataTypeDef]
+    Patches: list[PatchComplianceDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2958,7 +2953,7 @@ class DescribeMaintenanceWindowsRequestTypeDef(TypedDict):
 
 
 class DescribeMaintenanceWindowExecutionTaskInvocationsResultTypeDef(TypedDict):
-    WindowExecutionTaskInvocationIdentities: List[
+    WindowExecutionTaskInvocationIdentities: list[
         MaintenanceWindowExecutionTaskInvocationIdentityTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2966,25 +2961,25 @@ class DescribeMaintenanceWindowExecutionTaskInvocationsResultTypeDef(TypedDict):
 
 
 class DescribeMaintenanceWindowExecutionsResultTypeDef(TypedDict):
-    WindowExecutions: List[MaintenanceWindowExecutionTypeDef]
+    WindowExecutions: list[MaintenanceWindowExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMaintenanceWindowScheduleResultTypeDef(TypedDict):
-    ScheduledWindowExecutions: List[ScheduledWindowExecutionTypeDef]
+    ScheduledWindowExecutions: list[ScheduledWindowExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMaintenanceWindowsForTargetResultTypeDef(TypedDict):
-    WindowIdentities: List[MaintenanceWindowIdentityForTargetTypeDef]
+    WindowIdentities: list[MaintenanceWindowIdentityForTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMaintenanceWindowsResultTypeDef(TypedDict):
-    WindowIdentities: List[MaintenanceWindowIdentityTypeDef]
+    WindowIdentities: list[MaintenanceWindowIdentityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3033,7 +3028,7 @@ class DescribeParametersRequestTypeDef(TypedDict):
 
 
 class DescribePatchBaselinesResultTypeDef(TypedDict):
-    BaselineIdentities: List[PatchBaselineIdentityTypeDef]
+    BaselineIdentities: list[PatchBaselineIdentityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3074,24 +3069,24 @@ class DocumentDescriptionTypeDef(TypedDict):
     StatusInformation: NotRequired[str]
     DocumentVersion: NotRequired[str]
     Description: NotRequired[str]
-    Parameters: NotRequired[List[DocumentParameterTypeDef]]
-    PlatformTypes: NotRequired[List[PlatformTypeType]]
+    Parameters: NotRequired[list[DocumentParameterTypeDef]]
+    PlatformTypes: NotRequired[list[PlatformTypeType]]
     DocumentType: NotRequired[DocumentTypeType]
     SchemaVersion: NotRequired[str]
     LatestVersion: NotRequired[str]
     DefaultVersion: NotRequired[str]
     DocumentFormat: NotRequired[DocumentFormatType]
     TargetType: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
-    AttachmentsInformation: NotRequired[List[AttachmentInformationTypeDef]]
-    Requires: NotRequired[List[DocumentRequiresTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    AttachmentsInformation: NotRequired[list[AttachmentInformationTypeDef]]
+    Requires: NotRequired[list[DocumentRequiresTypeDef]]
     Author: NotRequired[str]
-    ReviewInformation: NotRequired[List[ReviewInformationTypeDef]]
+    ReviewInformation: NotRequired[list[ReviewInformationTypeDef]]
     ApprovedVersion: NotRequired[str]
     PendingReviewVersion: NotRequired[str]
     ReviewStatus: NotRequired[ReviewStatusType]
-    Category: NotRequired[List[str]]
-    CategoryEnum: NotRequired[List[str]]
+    Category: NotRequired[list[str]]
+    CategoryEnum: NotRequired[list[str]]
 
 
 class ListDocumentsRequestPaginateTypeDef(TypedDict):
@@ -3111,7 +3106,7 @@ class DocumentReviewerResponseSourceTypeDef(TypedDict):
     CreateTime: NotRequired[datetime]
     UpdatedTime: NotRequired[datetime]
     ReviewStatus: NotRequired[ReviewStatusType]
-    Comment: NotRequired[List[DocumentReviewCommentSourceTypeDef]]
+    Comment: NotRequired[list[DocumentReviewCommentSourceTypeDef]]
     Reviewer: NotRequired[str]
 
 
@@ -3121,7 +3116,7 @@ class DocumentReviewsTypeDef(TypedDict):
 
 
 class ListDocumentVersionsResultTypeDef(TypedDict):
-    DocumentVersions: List[DocumentVersionInfoTypeDef]
+    DocumentVersions: list[DocumentVersionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3175,19 +3170,19 @@ class GetParameterResultTypeDef(TypedDict):
 
 
 class GetParametersByPathResultTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetParametersResultTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
-    InvalidParameters: List[str]
+    Parameters: list[ParameterTypeDef]
+    InvalidParameters: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetResourcePoliciesResponseTypeDef(TypedDict):
-    Policies: List[GetResourcePoliciesResponseEntryTypeDef]
+    Policies: list[GetResourcePoliciesResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3270,12 +3265,12 @@ class NodeTypeTypeDef(TypedDict):
 class InventoryDeletionSummaryTypeDef(TypedDict):
     TotalCount: NotRequired[int]
     RemainingCount: NotRequired[int]
-    SummaryItems: NotRequired[List[InventoryDeletionSummaryItemTypeDef]]
+    SummaryItems: NotRequired[list[InventoryDeletionSummaryItemTypeDef]]
 
 
 class InventoryItemSchemaTypeDef(TypedDict):
     TypeName: str
-    Attributes: List[InventoryItemAttributeTypeDef]
+    Attributes: list[InventoryItemAttributeTypeDef]
     Version: NotRequired[str]
     DisplayName: NotRequired[str]
 
@@ -3287,7 +3282,7 @@ class PutInventoryRequestTypeDef(TypedDict):
 
 class InventoryResultEntityTypeDef(TypedDict):
     Id: NotRequired[str]
-    Data: NotRequired[Dict[str, InventoryResultItemTypeDef]]
+    Data: NotRequired[dict[str, InventoryResultItemTypeDef]]
 
 
 class ListNodesRequestPaginateTypeDef(TypedDict):
@@ -3354,7 +3349,7 @@ class ListOpsMetadataRequestTypeDef(TypedDict):
 
 
 class ListOpsMetadataResultTypeDef(TypedDict):
-    OpsMetadataList: List[OpsMetadataTypeDef]
+    OpsMetadataList: list[OpsMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3382,7 +3377,7 @@ MaintenanceWindowTaskParameterValueExpressionUnionTypeDef = Union[
 
 class OpsEntityTypeDef(TypedDict):
     Id: NotRequired[str]
-    Data: NotRequired[Dict[str, OpsEntityItemTypeDef]]
+    Data: NotRequired[dict[str, OpsEntityItemTypeDef]]
 
 
 class OpsItemEventSummaryTypeDef(TypedDict):
@@ -3419,9 +3414,9 @@ ParameterHistoryTypeDef = TypedDict(
         "Value": NotRequired[str],
         "AllowedPattern": NotRequired[str],
         "Version": NotRequired[int],
-        "Labels": NotRequired[List[str]],
+        "Labels": NotRequired[list[str]],
         "Tier": NotRequired[ParameterTierType],
-        "Policies": NotRequired[List[ParameterInlinePolicyTypeDef]],
+        "Policies": NotRequired[list[ParameterInlinePolicyTypeDef]],
         "DataType": NotRequired[str],
     },
 )
@@ -3438,14 +3433,14 @@ ParameterMetadataTypeDef = TypedDict(
         "AllowedPattern": NotRequired[str],
         "Version": NotRequired[int],
         "Tier": NotRequired[ParameterTierType],
-        "Policies": NotRequired[List[ParameterInlinePolicyTypeDef]],
+        "Policies": NotRequired[list[ParameterInlinePolicyTypeDef]],
         "DataType": NotRequired[str],
     },
 )
 
 
 class PatchFilterGroupOutputTypeDef(TypedDict):
-    PatchFilters: List[PatchFilterOutputTypeDef]
+    PatchFilters: list[PatchFilterOutputTypeDef]
 
 
 PatchFilterUnionTypeDef = Union[PatchFilterTypeDef, PatchFilterOutputTypeDef]
@@ -3454,7 +3449,7 @@ PatchSourceUnionTypeDef = Union[PatchSourceTypeDef, PatchSourceOutputTypeDef]
 
 class ResourceDataSyncAwsOrganizationsSourceOutputTypeDef(TypedDict):
     OrganizationSourceType: str
-    OrganizationalUnits: NotRequired[List[ResourceDataSyncOrganizationalUnitTypeDef]]
+    OrganizationalUnits: NotRequired[list[ResourceDataSyncOrganizationalUnitTypeDef]]
 
 
 class ResourceDataSyncAwsOrganizationsSourceTypeDef(TypedDict):
@@ -3490,7 +3485,7 @@ TargetUnionTypeDef = Union[TargetTypeDef, TargetOutputTypeDef]
 
 
 class DescribeActivationsResultTypeDef(TypedDict):
-    ActivationList: List[ActivationTypeDef]
+    ActivationList: list[ActivationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3505,7 +3500,7 @@ class AssociationExecutionTypeDef(TypedDict):
     LastExecutionDate: NotRequired[datetime]
     ResourceCountByStatus: NotRequired[str]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
 
 
 class CommandTypeDef(TypedDict):
@@ -3514,9 +3509,9 @@ class CommandTypeDef(TypedDict):
     DocumentVersion: NotRequired[str]
     Comment: NotRequired[str]
     ExpiresAfter: NotRequired[datetime]
-    Parameters: NotRequired[Dict[str, List[str]]]
-    InstanceIds: NotRequired[List[str]]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Parameters: NotRequired[dict[str, list[str]]]
+    InstanceIds: NotRequired[list[str]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     RequestedDateTime: NotRequired[datetime]
     Status: NotRequired[CommandStatusType]
     StatusDetails: NotRequired[str]
@@ -3534,7 +3529,7 @@ class CommandTypeDef(TypedDict):
     CloudWatchOutputConfig: NotRequired[CloudWatchOutputConfigTypeDef]
     TimeoutSeconds: NotRequired[int]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
 
 
 GetMaintenanceWindowExecutionTaskResultTypeDef = TypedDict(
@@ -3545,8 +3540,8 @@ GetMaintenanceWindowExecutionTaskResultTypeDef = TypedDict(
         "TaskArn": str,
         "ServiceRole": str,
         "Type": MaintenanceWindowTaskTypeType,
-        "TaskParameters": List[
-            Dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
+        "TaskParameters": list[
+            dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
         ],
         "Priority": int,
         "MaxConcurrency": str,
@@ -3556,7 +3551,7 @@ GetMaintenanceWindowExecutionTaskResultTypeDef = TypedDict(
         "StartTime": datetime,
         "EndTime": datetime,
         "AlarmConfiguration": AlarmConfigurationOutputTypeDef,
-        "TriggeredAlarms": List[AlarmStateInformationTypeDef],
+        "TriggeredAlarms": list[AlarmStateInformationTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3572,7 +3567,7 @@ class MaintenanceWindowExecutionTaskIdentityTypeDef(TypedDict):
     TaskArn: NotRequired[str]
     TaskType: NotRequired[MaintenanceWindowTaskTypeType]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
 
 
 MaintenanceWindowTaskTypeDef = TypedDict(
@@ -3582,9 +3577,9 @@ MaintenanceWindowTaskTypeDef = TypedDict(
         "WindowTaskId": NotRequired[str],
         "TaskArn": NotRequired[str],
         "Type": NotRequired[MaintenanceWindowTaskTypeType],
-        "Targets": NotRequired[List[TargetOutputTypeDef]],
+        "Targets": NotRequired[list[TargetOutputTypeDef]],
         "TaskParameters": NotRequired[
-            Dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
+            dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
         ],
         "Priority": NotRequired[int],
         "LoggingInfo": NotRequired[LoggingInfoTypeDef],
@@ -3600,15 +3595,15 @@ MaintenanceWindowTaskTypeDef = TypedDict(
 
 
 class TargetLocationOutputTypeDef(TypedDict):
-    Accounts: NotRequired[List[str]]
-    Regions: NotRequired[List[str]]
+    Accounts: NotRequired[list[str]]
+    Regions: NotRequired[list[str]]
     TargetLocationMaxConcurrency: NotRequired[str]
     TargetLocationMaxErrors: NotRequired[str]
     ExecutionRoleName: NotRequired[str]
     TargetLocationAlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     IncludeChildOrganizationUnits: NotRequired[bool]
-    ExcludeAccounts: NotRequired[List[str]]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    ExcludeAccounts: NotRequired[list[str]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     TargetsMaxConcurrency: NotRequired[str]
     TargetsMaxErrors: NotRequired[str]
 
@@ -3617,19 +3612,19 @@ AlarmConfigurationUnionTypeDef = Union[AlarmConfigurationTypeDef, AlarmConfigura
 
 
 class ListAssociationsResultTypeDef(TypedDict):
-    Associations: List[AssociationTypeDef]
+    Associations: list[AssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMaintenanceWindowTargetsResultTypeDef(TypedDict):
-    Targets: List[MaintenanceWindowTargetTypeDef]
+    Targets: list[MaintenanceWindowTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeAssociationExecutionTargetsResultTypeDef(TypedDict):
-    AssociationExecutionTargets: List[AssociationExecutionTargetTypeDef]
+    AssociationExecutionTargets: list[AssociationExecutionTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3645,7 +3640,7 @@ class ExecutionPreviewTypeDef(TypedDict):
 
 
 class ListCommandInvocationsResultTypeDef(TypedDict):
-    CommandInvocations: List[CommandInvocationTypeDef]
+    CommandInvocations: list[CommandInvocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3658,7 +3653,7 @@ class MaintenanceWindowTaskInvocationParametersOutputTypeDef(TypedDict):
 
 
 class ListComplianceItemsResultTypeDef(TypedDict):
-    ComplianceItems: List[ComplianceItemTypeDef]
+    ComplianceItems: list[ComplianceItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3681,13 +3676,13 @@ class ResourceComplianceSummaryItemTypeDef(TypedDict):
 
 
 class ListDocumentsResultTypeDef(TypedDict):
-    DocumentIdentifiers: List[DocumentIdentifierTypeDef]
+    DocumentIdentifiers: list[DocumentIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeOpsItemsResponseTypeDef(TypedDict):
-    OpsItemSummaries: List[OpsItemSummaryTypeDef]
+    OpsItemSummaries: list[OpsItemSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3698,7 +3693,7 @@ class GetOpsItemResponseTypeDef(TypedDict):
 
 
 class DescribePatchGroupsResultTypeDef(TypedDict):
-    Mappings: List[PatchGroupPatchBaselineMappingTypeDef]
+    Mappings: list[PatchGroupPatchBaselineMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3719,7 +3714,7 @@ class UpdateDocumentResultTypeDef(TypedDict):
 
 
 class DocumentMetadataResponseInfoTypeDef(TypedDict):
-    ReviewerResponse: NotRequired[List[DocumentReviewerResponseSourceTypeDef]]
+    ReviewerResponse: NotRequired[list[DocumentReviewerResponseSourceTypeDef]]
 
 
 class UpdateDocumentMetadataRequestTypeDef(TypedDict):
@@ -3729,7 +3724,7 @@ class UpdateDocumentMetadataRequestTypeDef(TypedDict):
 
 
 class DescribeEffectivePatchesForPatchBaselineResultTypeDef(TypedDict):
-    EffectivePatches: List[EffectivePatchTypeDef]
+    EffectivePatches: list[EffectivePatchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3764,13 +3759,13 @@ class GetOpsSummaryRequestTypeDef(TypedDict):
 
 
 class DescribeInstanceInformationResultTypeDef(TypedDict):
-    InstanceInformationList: List[InstanceInformationTypeDef]
+    InstanceInformationList: list[InstanceInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeInstancePropertiesResultTypeDef(TypedDict):
-    InstanceProperties: List[InstancePropertyTypeDef]
+    InstanceProperties: list[InstancePropertyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3816,13 +3811,13 @@ class InventoryDeletionStatusItemTypeDef(TypedDict):
 
 
 class GetInventorySchemaResultTypeDef(TypedDict):
-    Schemas: List[InventoryItemSchemaTypeDef]
+    Schemas: list[InventoryItemSchemaTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetInventoryResultTypeDef(TypedDict):
-    Entities: List[InventoryResultEntityTypeDef]
+    Entities: list[InventoryResultEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3835,31 +3830,31 @@ class MaintenanceWindowTaskInvocationParametersTypeDef(TypedDict):
 
 
 class GetOpsSummaryResultTypeDef(TypedDict):
-    Entities: List[OpsEntityTypeDef]
+    Entities: list[OpsEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOpsItemEventsResponseTypeDef(TypedDict):
-    Summaries: List[OpsItemEventSummaryTypeDef]
+    Summaries: list[OpsItemEventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOpsItemRelatedItemsResponseTypeDef(TypedDict):
-    Summaries: List[OpsItemRelatedItemSummaryTypeDef]
+    Summaries: list[OpsItemRelatedItemSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetParameterHistoryResultTypeDef(TypedDict):
-    Parameters: List[ParameterHistoryTypeDef]
+    Parameters: list[ParameterHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeParametersResultTypeDef(TypedDict):
-    Parameters: List[ParameterMetadataTypeDef]
+    Parameters: list[ParameterMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3879,7 +3874,7 @@ class PatchFilterGroupTypeDef(TypedDict):
 class ResourceDataSyncSourceWithStateTypeDef(TypedDict):
     SourceType: NotRequired[str]
     AwsOrganizationsSource: NotRequired[ResourceDataSyncAwsOrganizationsSourceOutputTypeDef]
-    SourceRegions: NotRequired[List[str]]
+    SourceRegions: NotRequired[list[str]]
     IncludeFutureRegions: NotRequired[bool]
     State: NotRequired[str]
     EnableAllOpsDataSources: NotRequired[bool]
@@ -3892,7 +3887,7 @@ ResourceDataSyncAwsOrganizationsSourceUnionTypeDef = Union[
 
 
 class DescribeSessionsResponseTypeDef(TypedDict):
-    Sessions: List[SessionTypeDef]
+    Sessions: list[SessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3954,13 +3949,13 @@ class UpdateMaintenanceWindowTargetRequestTypeDef(TypedDict):
 
 
 class DescribeAssociationExecutionsResultTypeDef(TypedDict):
-    AssociationExecutions: List[AssociationExecutionTypeDef]
+    AssociationExecutions: list[AssociationExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCommandsResultTypeDef(TypedDict):
-    Commands: List[CommandTypeDef]
+    Commands: list[CommandTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3971,13 +3966,13 @@ class SendCommandResultTypeDef(TypedDict):
 
 
 class DescribeMaintenanceWindowExecutionTasksResultTypeDef(TypedDict):
-    WindowExecutionTaskIdentities: List[MaintenanceWindowExecutionTaskIdentityTypeDef]
+    WindowExecutionTaskIdentities: list[MaintenanceWindowExecutionTaskIdentityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMaintenanceWindowTasksResultTypeDef(TypedDict):
-    Tasks: List[MaintenanceWindowTaskTypeDef]
+    Tasks: list[MaintenanceWindowTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -3992,9 +3987,9 @@ class AssociationDescriptionTypeDef(TypedDict):
     Overview: NotRequired[AssociationOverviewTypeDef]
     DocumentVersion: NotRequired[str]
     AutomationTargetParameterName: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
     AssociationId: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     ScheduleExpression: NotRequired[str]
     OutputLocation: NotRequired[InstanceAssociationOutputLocationTypeDef]
     LastExecutionDate: NotRequired[datetime]
@@ -4005,13 +4000,13 @@ class AssociationDescriptionTypeDef(TypedDict):
     ComplianceSeverity: NotRequired[AssociationComplianceSeverityType]
     SyncCompliance: NotRequired[AssociationSyncComplianceType]
     ApplyOnlyAtCronInterval: NotRequired[bool]
-    CalendarNames: NotRequired[List[str]]
-    TargetLocations: NotRequired[List[TargetLocationOutputTypeDef]]
+    CalendarNames: NotRequired[list[str]]
+    TargetLocations: NotRequired[list[TargetLocationOutputTypeDef]]
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
 
 
 class AssociationVersionInfoTypeDef(TypedDict):
@@ -4020,8 +4015,8 @@ class AssociationVersionInfoTypeDef(TypedDict):
     CreatedDate: NotRequired[datetime]
     Name: NotRequired[str]
     DocumentVersion: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Parameters: NotRequired[dict[str, list[str]]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     ScheduleExpression: NotRequired[str]
     OutputLocation: NotRequired[InstanceAssociationOutputLocationTypeDef]
     AssociationName: NotRequired[str]
@@ -4030,20 +4025,20 @@ class AssociationVersionInfoTypeDef(TypedDict):
     ComplianceSeverity: NotRequired[AssociationComplianceSeverityType]
     SyncCompliance: NotRequired[AssociationSyncComplianceType]
     ApplyOnlyAtCronInterval: NotRequired[bool]
-    CalendarNames: NotRequired[List[str]]
-    TargetLocations: NotRequired[List[TargetLocationOutputTypeDef]]
+    CalendarNames: NotRequired[list[str]]
+    TargetLocations: NotRequired[list[TargetLocationOutputTypeDef]]
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
 
 
 class CreateAssociationBatchRequestEntryOutputTypeDef(TypedDict):
     Name: str
     InstanceId: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
     AutomationTargetParameterName: NotRequired[str]
     DocumentVersion: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     ScheduleExpression: NotRequired[str]
     OutputLocation: NotRequired[InstanceAssociationOutputLocationTypeDef]
     AssociationName: NotRequired[str]
@@ -4052,24 +4047,24 @@ class CreateAssociationBatchRequestEntryOutputTypeDef(TypedDict):
     ComplianceSeverity: NotRequired[AssociationComplianceSeverityType]
     SyncCompliance: NotRequired[AssociationSyncComplianceType]
     ApplyOnlyAtCronInterval: NotRequired[bool]
-    CalendarNames: NotRequired[List[str]]
-    TargetLocations: NotRequired[List[TargetLocationOutputTypeDef]]
+    CalendarNames: NotRequired[list[str]]
+    TargetLocations: NotRequired[list[TargetLocationOutputTypeDef]]
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
 
 
 class RunbookOutputTypeDef(TypedDict):
     DocumentName: str
     DocumentVersion: NotRequired[str]
-    Parameters: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
     TargetParameterName: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
     MaxConcurrency: NotRequired[str]
     MaxErrors: NotRequired[str]
-    TargetLocations: NotRequired[List[TargetLocationOutputTypeDef]]
+    TargetLocations: NotRequired[list[TargetLocationOutputTypeDef]]
 
 
 class StepExecutionTypeDef(TypedDict):
@@ -4082,20 +4077,20 @@ class StepExecutionTypeDef(TypedDict):
     ExecutionEndTime: NotRequired[datetime]
     StepStatus: NotRequired[AutomationExecutionStatusType]
     ResponseCode: NotRequired[str]
-    Inputs: NotRequired[Dict[str, str]]
-    Outputs: NotRequired[Dict[str, List[str]]]
+    Inputs: NotRequired[dict[str, str]]
+    Outputs: NotRequired[dict[str, list[str]]]
     Response: NotRequired[str]
     FailureMessage: NotRequired[str]
     FailureDetails: NotRequired[FailureDetailsTypeDef]
     StepExecutionId: NotRequired[str]
-    OverriddenParameters: NotRequired[Dict[str, List[str]]]
+    OverriddenParameters: NotRequired[dict[str, list[str]]]
     IsEnd: NotRequired[bool]
     NextStep: NotRequired[str]
     IsCritical: NotRequired[bool]
-    ValidNextSteps: NotRequired[List[str]]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
+    ValidNextSteps: NotRequired[list[str]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
     TargetLocation: NotRequired[TargetLocationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
     ParentStepDetails: NotRequired[ParentStepDetailsTypeDef]
 
 
@@ -4162,11 +4157,11 @@ class GetExecutionPreviewResponseTypeDef(TypedDict):
 class GetMaintenanceWindowTaskResultTypeDef(TypedDict):
     WindowId: str
     WindowTaskId: str
-    Targets: List[TargetOutputTypeDef]
+    Targets: list[TargetOutputTypeDef]
     TaskArn: str
     ServiceRoleArn: str
     TaskType: MaintenanceWindowTaskTypeType
-    TaskParameters: Dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
+    TaskParameters: dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
     TaskInvocationParameters: MaintenanceWindowTaskInvocationParametersOutputTypeDef
     Priority: int
     MaxConcurrency: str
@@ -4182,10 +4177,10 @@ class GetMaintenanceWindowTaskResultTypeDef(TypedDict):
 class UpdateMaintenanceWindowTaskResultTypeDef(TypedDict):
     WindowId: str
     WindowTaskId: str
-    Targets: List[TargetOutputTypeDef]
+    Targets: list[TargetOutputTypeDef]
     TaskArn: str
     ServiceRoleArn: str
-    TaskParameters: Dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
+    TaskParameters: dict[str, MaintenanceWindowTaskParameterValueExpressionOutputTypeDef]
     TaskInvocationParameters: MaintenanceWindowTaskInvocationParametersOutputTypeDef
     Priority: int
     MaxConcurrency: str
@@ -4199,13 +4194,13 @@ class UpdateMaintenanceWindowTaskResultTypeDef(TypedDict):
 
 
 class ListComplianceSummariesResultTypeDef(TypedDict):
-    ComplianceSummaryItems: List[ComplianceSummaryItemTypeDef]
+    ComplianceSummaryItems: list[ComplianceSummaryItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourceComplianceSummariesResultTypeDef(TypedDict):
-    ResourceComplianceSummaryItems: List[ResourceComplianceSummaryItemTypeDef]
+    ResourceComplianceSummaryItems: list[ResourceComplianceSummaryItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4235,19 +4230,19 @@ class GetInventoryRequestTypeDef(TypedDict):
 
 
 class DescribeInstanceAssociationsStatusResultTypeDef(TypedDict):
-    InstanceAssociationStatusInfos: List[InstanceAssociationStatusInfoTypeDef]
+    InstanceAssociationStatusInfos: list[InstanceAssociationStatusInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNodesResultTypeDef(TypedDict):
-    Nodes: List[NodeTypeDef]
+    Nodes: list[NodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeInventoryDeletionsResultTypeDef(TypedDict):
-    InventoryDeletions: List[InventoryDeletionStatusItemTypeDef]
+    InventoryDeletions: list[InventoryDeletionStatusItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4259,7 +4254,7 @@ MaintenanceWindowTaskInvocationParametersUnionTypeDef = Union[
 
 
 class PatchRuleGroupOutputTypeDef(TypedDict):
-    PatchRules: List[PatchRuleOutputTypeDef]
+    PatchRules: list[PatchRuleOutputTypeDef]
 
 
 PatchFilterGroupUnionTypeDef = Union[PatchFilterGroupTypeDef, PatchFilterGroupOutputTypeDef]
@@ -4307,7 +4302,7 @@ class UpdateAssociationStatusResultTypeDef(TypedDict):
 
 
 class ListAssociationVersionsResultTypeDef(TypedDict):
-    AssociationVersions: List[AssociationVersionInfoTypeDef]
+    AssociationVersions: list[AssociationVersionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4327,26 +4322,26 @@ class AutomationExecutionMetadataTypeDef(TypedDict):
     ExecutionEndTime: NotRequired[datetime]
     ExecutedBy: NotRequired[str]
     LogFile: NotRequired[str]
-    Outputs: NotRequired[Dict[str, List[str]]]
+    Outputs: NotRequired[dict[str, list[str]]]
     Mode: NotRequired[ExecutionModeType]
     ParentAutomationExecutionId: NotRequired[str]
     CurrentStepName: NotRequired[str]
     CurrentAction: NotRequired[str]
     FailureMessage: NotRequired[str]
     TargetParameterName: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
     ResolvedTargets: NotRequired[ResolvedTargetsTypeDef]
     MaxConcurrency: NotRequired[str]
     MaxErrors: NotRequired[str]
     Target: NotRequired[str]
     AutomationType: NotRequired[AutomationTypeType]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
     TargetLocationsURL: NotRequired[str]
     AutomationSubtype: NotRequired[AutomationSubtypeType]
     ScheduledTime: NotRequired[datetime]
-    Runbooks: NotRequired[List[RunbookOutputTypeDef]]
+    Runbooks: NotRequired[list[RunbookOutputTypeDef]]
     OpsItemId: NotRequired[str]
     AssociationId: NotRequired[str]
     ChangeRequestName: NotRequired[str]
@@ -4359,10 +4354,10 @@ class AutomationExecutionTypeDef(TypedDict):
     ExecutionStartTime: NotRequired[datetime]
     ExecutionEndTime: NotRequired[datetime]
     AutomationExecutionStatus: NotRequired[AutomationExecutionStatusType]
-    StepExecutions: NotRequired[List[StepExecutionTypeDef]]
+    StepExecutions: NotRequired[list[StepExecutionTypeDef]]
     StepExecutionsTruncated: NotRequired[bool]
-    Parameters: NotRequired[Dict[str, List[str]]]
-    Outputs: NotRequired[Dict[str, List[str]]]
+    Parameters: NotRequired[dict[str, list[str]]]
+    Outputs: NotRequired[dict[str, list[str]]]
     FailureMessage: NotRequired[str]
     Mode: NotRequired[ExecutionModeType]
     ParentAutomationExecutionId: NotRequired[str]
@@ -4370,28 +4365,28 @@ class AutomationExecutionTypeDef(TypedDict):
     CurrentStepName: NotRequired[str]
     CurrentAction: NotRequired[str]
     TargetParameterName: NotRequired[str]
-    Targets: NotRequired[List[TargetOutputTypeDef]]
-    TargetMaps: NotRequired[List[Dict[str, List[str]]]]
+    Targets: NotRequired[list[TargetOutputTypeDef]]
+    TargetMaps: NotRequired[list[dict[str, list[str]]]]
     ResolvedTargets: NotRequired[ResolvedTargetsTypeDef]
     MaxConcurrency: NotRequired[str]
     MaxErrors: NotRequired[str]
     Target: NotRequired[str]
-    TargetLocations: NotRequired[List[TargetLocationOutputTypeDef]]
+    TargetLocations: NotRequired[list[TargetLocationOutputTypeDef]]
     ProgressCounters: NotRequired[ProgressCountersTypeDef]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
-    TriggeredAlarms: NotRequired[List[AlarmStateInformationTypeDef]]
+    TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
     TargetLocationsURL: NotRequired[str]
     AutomationSubtype: NotRequired[AutomationSubtypeType]
     ScheduledTime: NotRequired[datetime]
-    Runbooks: NotRequired[List[RunbookOutputTypeDef]]
+    Runbooks: NotRequired[list[RunbookOutputTypeDef]]
     OpsItemId: NotRequired[str]
     AssociationId: NotRequired[str]
     ChangeRequestName: NotRequired[str]
-    Variables: NotRequired[Dict[str, List[str]]]
+    Variables: NotRequired[dict[str, list[str]]]
 
 
 class DescribeAutomationStepExecutionsResultTypeDef(TypedDict):
-    StepExecutions: List[StepExecutionTypeDef]
+    StepExecutions: list[StepExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4447,16 +4442,16 @@ class GetPatchBaselineResultTypeDef(TypedDict):
     OperatingSystem: OperatingSystemType
     GlobalFilters: PatchFilterGroupOutputTypeDef
     ApprovalRules: PatchRuleGroupOutputTypeDef
-    ApprovedPatches: List[str]
+    ApprovedPatches: list[str]
     ApprovedPatchesComplianceLevel: PatchComplianceLevelType
     ApprovedPatchesEnableNonSecurity: bool
-    RejectedPatches: List[str]
+    RejectedPatches: list[str]
     RejectedPatchesAction: PatchActionType
-    PatchGroups: List[str]
+    PatchGroups: list[str]
     CreatedDate: datetime
     ModifiedDate: datetime
     Description: str
-    Sources: List[PatchSourceOutputTypeDef]
+    Sources: list[PatchSourceOutputTypeDef]
     AvailableSecurityUpdatesComplianceStatus: PatchComplianceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4467,15 +4462,15 @@ class UpdatePatchBaselineResultTypeDef(TypedDict):
     OperatingSystem: OperatingSystemType
     GlobalFilters: PatchFilterGroupOutputTypeDef
     ApprovalRules: PatchRuleGroupOutputTypeDef
-    ApprovedPatches: List[str]
+    ApprovedPatches: list[str]
     ApprovedPatchesComplianceLevel: PatchComplianceLevelType
     ApprovedPatchesEnableNonSecurity: bool
-    RejectedPatches: List[str]
+    RejectedPatches: list[str]
     RejectedPatchesAction: PatchActionType
     CreatedDate: datetime
     ModifiedDate: datetime
     Description: str
-    Sources: List[PatchSourceOutputTypeDef]
+    Sources: list[PatchSourceOutputTypeDef]
     AvailableSecurityUpdatesComplianceStatus: PatchComplianceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4489,7 +4484,7 @@ class PatchRuleTypeDef(TypedDict):
 
 
 class ListResourceDataSyncResultTypeDef(TypedDict):
-    ResourceDataSyncItems: List[ResourceDataSyncItemTypeDef]
+    ResourceDataSyncItems: list[ResourceDataSyncItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -4508,13 +4503,13 @@ class UpdateResourceDataSyncRequestTypeDef(TypedDict):
 
 
 class CreateAssociationBatchResultTypeDef(TypedDict):
-    Successful: List[AssociationDescriptionTypeDef]
-    Failed: List[FailedCreateAssociationTypeDef]
+    Successful: list[AssociationDescriptionTypeDef]
+    Failed: list[FailedCreateAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeAutomationExecutionsResultTypeDef(TypedDict):
-    AutomationExecutionMetadataList: List[AutomationExecutionMetadataTypeDef]
+    AutomationExecutionMetadataList: list[AutomationExecutionMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

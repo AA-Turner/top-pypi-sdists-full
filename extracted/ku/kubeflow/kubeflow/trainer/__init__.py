@@ -13,50 +13,70 @@
 # limitations under the License.
 
 
-# Import the Kubeflow Trainer client.
-from kubeflow.trainer.api.trainer_client import TrainerClient  # noqa: F401
+# Import common types.
+from kubeflow.common.types import KubernetesBackendConfig
 
-# import backends and its associated configs
-from kubeflow.trainer.backends.kubernetes.types import KubernetesBackendConfig
+# Import the Kubeflow Trainer client.
+from kubeflow.trainer.api.trainer_client import TrainerClient
+from kubeflow.trainer.backends.container.types import (
+    ContainerBackendConfig,
+    TrainingRuntimeSource,
+)
 from kubeflow.trainer.backends.localprocess.types import LocalProcessBackendConfig
 
 # Import the Kubeflow Trainer constants.
-from kubeflow.trainer.constants.constants import DATASET_PATH, MODEL_PATH  # noqa: F401
+from kubeflow.trainer.constants.constants import DATASET_PATH, MODEL_PATH
 
 # Import the Kubeflow Trainer types.
 from kubeflow.trainer.types.types import (
     BuiltinTrainer,
     CustomTrainer,
+    CustomTrainerContainer,
+    DataCacheInitializer,
     DataFormat,
     DataType,
+    Event,
     HuggingFaceDatasetInitializer,
     HuggingFaceModelInitializer,
     Initializer,
+    LoraConfig,
     Loss,
     Runtime,
     RuntimeTrainer,
+    S3DatasetInitializer,
+    S3ModelInitializer,
     TorchTuneConfig,
     TorchTuneInstructDataset,
     TrainerType,
+    TrainJobTemplate,
 )
 
 __all__ = [
     "BuiltinTrainer",
     "CustomTrainer",
+    "CustomTrainerContainer",
+    "DataCacheInitializer",
     "DataFormat",
     "DATASET_PATH",
     "DataType",
+    "Event",
     "HuggingFaceDatasetInitializer",
     "HuggingFaceModelInitializer",
     "Initializer",
+    "LoraConfig",
     "Loss",
     "MODEL_PATH",
     "Runtime",
     "TorchTuneConfig",
     "TorchTuneInstructDataset",
     "RuntimeTrainer",
+    "S3DatasetInitializer",
+    "S3ModelInitializer",
+    "TrainJobTemplate",
     "TrainerClient",
     "TrainerType",
     "LocalProcessBackendConfig",
+    "ContainerBackendConfig",
     "KubernetesBackendConfig",
+    "TrainingRuntimeSource",
 ]

@@ -3,11 +3,10 @@ from __future__ import annotations
 from linearmodels.compat.pandas import ANNUAL_FREQ
 
 from collections import defaultdict
-from typing import NamedTuple, TypeVar, cast
+from typing import Literal, NamedTuple, TypeVar, cast
 
 import numpy as np
 import numpy.random
-import pandas
 from pandas import DataFrame, concat, date_range
 import scipy.sparse as sp
 
@@ -20,6 +19,22 @@ try:
     HAS_CYTHON = True
 except ImportError:
     HAS_CYTHON = False
+
+
+__all__ = [
+    "AbsorbingEffectError",
+    "AbsorbingEffectWarning",
+    "_drop_singletons",
+    "_py_drop_singletons",
+    "_remove_node",
+    "check_absorbed",
+    "dummy_matrix",
+    "generate_panel_data",
+    "in_2core_graph",
+    "in_2core_graph_slow",
+    "not_absorbed",
+    "preconditioner",
+]
 
 
 class AbsorbingEffectError(Exception):
@@ -88,7 +103,7 @@ def preconditioner(
         d = np.asarray(d)
         if id(d) == d_id or copy:
             d = d.copy()
-        cond = cast(linearmodels.typing.data.Float64Array, np.sqrt((d**2).sum(0)))
+        cond = cast("linearmodels.typing.data.Float64Array", np.sqrt((d**2).sum(0)))
         d /= cond
         if klass is not None:
             d = d.view(klass)
@@ -97,33 +112,38 @@ def preconditioner(
     klass = None
     if not isinstance(d, sp.csc_matrix):
         klass = d.__class__
-        d = sp.csc_matrix(d)
-    elif copy:
-        d = d.copy()
+        d_csc = sp.csc_matrix(d)
+    else:
+        assert isinstance(d, sp.csc_matrix)
+        d_csc = d
+        if copy:
+            d_csc = d.copy()
 
-    cond = cast(linearmodels.typing.data.Float64Array, np.sqrt(d.multiply(d).sum(0)).A1)
-    locs = np.zeros_like(d.indices)
-    locs[d.indptr[1:-1]] = 1
+    cond = cast(
+        "linearmodels.typing.data.Float64Array",
+        np.sqrt(d_csc.multiply(d_csc).sum(0)).A1,
+    )
+    locs = np.zeros_like(d_csc.indices)
+    locs[d_csc.indptr[1:-1]] = 1
     locs = np.cumsum(locs)
-    d.data /= np.take(cond, locs)
+    d_csc.data /= np.take(cond, locs)
     if klass is not None:
-        d = klass(d)
+        d_out = klass(d_csc)
+    else:
+        d_out = d_csc
 
-    return d, cond
+    return d_out, cond
 
 
 def dummy_matrix(
     cats: linearmodels.typing.data.ArrayLike,
     *,
-    output_format: str = "csc",
-    drop: str = "first",
+    output_format: Literal["csc", "csr", "coo"] = "csc",
+    drop: Literal["first", "last"] = "first",
     drop_all: bool = False,
     precondition: bool = True,
 ) -> tuple[
-    sp.csc_matrix
-    | sp.csr_matrix
-    | sp.coo_matrix
-    | linearmodels.typing.data.Float64Array,
+    sp.csc_matrix | sp.csr_matrix | sp.coo_matrix,
     linearmodels.typing.data.Float64Array,
 ]:
     """
@@ -139,7 +159,6 @@ def dummy_matrix(
         * "csc" - sparse matrix in compressed column form
         * "csr" - sparse matrix in compressed row form
         * "coo" - sparse matrix in coordinate form
-        * "array" - dense numpy ndarray
 
     drop: {"first", "last"}
         Exclude either the first or last category. This only applies when
@@ -192,7 +211,7 @@ def dummy_matrix(
         data["cols"].append(cols)
         total_dummies += ncategories - (i > 0)
 
-    if output_format in ("csc", "array"):
+    if output_format == "csc":
         fmt = sp.csc_matrix
     elif output_format == "csr":
         fmt = sp.csr_matrix
@@ -206,9 +225,6 @@ def dummy_matrix(
             (np.concatenate(data["rows"]), np.concatenate(data["cols"])),
         )
     )
-    if output_format == "array":
-        out = out.toarray()
-
     if precondition:
         out, cond = preconditioner(out, copy=False)
     else:
@@ -301,7 +317,7 @@ def _py_drop_singletons(
 
 
 if not HAS_CYTHON:
-    _drop_singletons = _py_drop_singletons  # noqa: F811
+    _drop_singletons = _py_drop_singletons
 
 
 def in_2core_graph(
@@ -345,7 +361,7 @@ def in_2core_graph(
     for i in range(ncats):
         col_order = list(range(ncats))
         col_order.remove(i)
-        col_order = [i] + col_order
+        col_order = [i, *col_order]
         temp = zero_cats[:, col_order]
         idx = np.argsort(temp[:, 0])
         orig_dest_lst.append(temp[idx])
@@ -537,10 +553,10 @@ class PanelModelData(NamedTuple):
         DataFrame containing cluster ids.
     """
 
-    data: pandas.DataFrame
-    weights: pandas.DataFrame
-    other_effects: pandas.DataFrame
-    clusters: pandas.DataFrame
+    data: DataFrame
+    weights: DataFrame
+    other_effects: DataFrame
+    clusters: DataFrame
 
 
 def generate_panel_data(
@@ -639,7 +655,7 @@ def generate_panel_data(
         x.flat[locs] = np.nan
 
     entities = [f"firm{i}" for i in range(n)]
-    time = [dt for dt in date_range("1-1-1900", periods=t, freq=ANNUAL_FREQ)]
+    time = list(date_range("1-1-1900", periods=t, freq=ANNUAL_FREQ))
     var_names = [f"x{i}" for i in range(k)]
     if const:
         var_names[1:] = var_names[:-1]

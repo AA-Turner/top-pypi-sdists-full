@@ -16,7 +16,7 @@ Visit https://[::1]:8080/path for local testing
 Access https://[2001:db8::1]/test for IPv6
 Connect to http://[fe80::1%eth0]:3000 for link-local";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 3, "Should detect all IPv6 URLs");
 
@@ -40,7 +40,7 @@ Go to https://example.com; it's great
 (https://example.com) is in parentheses
 \"https://example.com\" is in quotes";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 6, "Should detect all URLs");
 
@@ -72,7 +72,7 @@ https://example.com in code block
 ```
 [![badge](https://example.com/badge.svg)](https://example.com)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     for warning in &result {
         let line = warning.line;
@@ -93,7 +93,7 @@ Email john.doe+filter@company.co.uk
 Reach out to user_name@sub.domain.com
 Complex: firstname.lastname+tag@really.long.domain.example.org";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 4, "Should detect all email addresses");
 
@@ -116,7 +116,7 @@ HTTPS: https://example.com
 FTP: ftp://files.example.com
 FTPS: ftps://secure.example.com";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 4, "Should detect all URL schemes including ftps");
 }
@@ -132,7 +132,7 @@ Anchor: https://example.com/docs#section-2.3.4
 Both: https://example.com/api?key=abc123&v=2#response-format
 Special chars: https://example.com/path?data=%7B%22test%22%3A%20true%7D";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 4, "Should detect all complex URLs");
 }
@@ -147,7 +147,7 @@ Visit https://example.com or https://backup.com
 Check http://old.com, http://new.com, and http://beta.com
 Both email@example.com and https://example.com are available";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 7, "Should detect all URLs and emails");
 
@@ -169,7 +169,7 @@ Chinese: https://例え.jp
 Emoji: https://👍.ws
 Email: contact@münchen.de";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     // Note: Emoji domains are not currently supported due to regex limitations
     // This is acceptable as emoji domains are extremely rare in practice
@@ -192,7 +192,7 @@ fn test_md039_various_whitespace() {
 [ \t\nMixed whitespace\n\t ](url4)
 [　Full-width space　](url5)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 5, "Should detect all whitespace variations");
 
@@ -216,15 +216,22 @@ fn test_md039_whitespace_only_links() {
 [\n\n\n](url3)
 [ \t\n ](url4)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert_eq!(result.len(), 4, "Should detect whitespace-only links");
+    // CommonMark-compliant: [\n\n\n](url3) is NOT a valid link (blank lines break syntax)
+    // Valid links: [   ](url1), [\t\t\t](url2), [ \t\n ](url4)
+    assert_eq!(
+        result.len(),
+        3,
+        "Should detect 3 CommonMark-compliant whitespace-only links"
+    );
 
     // These should be trimmed to empty
     let fixed = rule.fix(&ctx).unwrap();
     assert!(fixed.contains("[](url1)"));
     assert!(fixed.contains("[](url2)"));
-    assert!(fixed.contains("[](url3)"));
+    // [\n\n\n](url3) is not a link, so it remains unchanged
+    assert!(fixed.contains("[\n\n\n](url3)"));
     assert!(fixed.contains("[](url4)"));
 }
 
@@ -239,7 +246,7 @@ fn test_md039_escaped_characters() {
 [ link\\  ](url3)
 [ \\tlink ](url4)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     // All four are valid links and should have spaces detected
     assert_eq!(result.len(), 4, "Should detect spaces in all links with escaped chars");
@@ -266,7 +273,7 @@ fn test_md039_reference_links() {
 [ref]: https://example.com
 [ref2]: https://example.com";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should skip reference-style links");
 }
@@ -282,7 +289,7 @@ fn test_md039_images() {
 ![\tTabbed alt\t](img.png)
 ![ ](empty-alt.png)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 4, "Should detect spaces in image alt text");
 
@@ -306,7 +313,7 @@ spanning lines ](url)
   multiline
   link ](url2)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2, "Should detect multiline links with spaces");
 }
@@ -320,7 +327,7 @@ fn test_md039_multiple_links_per_line() {
 [ First ]( url1 ) and [ Second ](url2) and [ Third ](url3)
 Mix of [ good](url) and [bad ](url) links";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 5, "Should detect all links with spaces");
 }
@@ -335,7 +342,7 @@ fn test_md039_internal_spaces_preserved() {
 [  Leading and trailing  ](url)
 [\tTab\tseparated\twords\t](url)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 3, "Should detect leading/trailing spaces");
 
@@ -356,7 +363,7 @@ fn test_md039_unicode_spaces() {
 [\u{2003}Em space\u{2003}](url2)
 [\u{200B}Zero-width space\u{200B}](url3)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let _result = rule.check(&ctx).unwrap();
     // Note: Current implementation only detects ASCII whitespace
     // This test documents current behavior
@@ -364,9 +371,11 @@ fn test_md039_unicode_spaces() {
 
 #[test]
 fn test_md042_empty_text_variations() {
+    // MD042 only flags empty URLs, not empty text
+    // Empty text with valid URL is an accessibility concern, not an "empty link"
     let rule = MD042NoEmptyLinks::new();
 
-    // Test 1: Various empty text scenarios
+    // Test 1: Various empty text scenarios - all have valid URLs
     let content = "\
 [](https://example.com)
 [   ](https://example.com)
@@ -374,15 +383,9 @@ fn test_md042_empty_text_variations() {
 [\n](https://example.com)
 [ \t\n ](https://example.com)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert_eq!(result.len(), 5, "Should detect all empty text variations");
-
-    // Verify fix suggestions
-    let fixed = rule.fix(&ctx).unwrap();
-    assert!(fixed.contains("[Link text](https://example.com)"));
-    assert!(!fixed.contains("[](https://example.com)"));
-    assert!(!fixed.contains("[   ](https://example.com)"));
+    assert!(result.is_empty(), "Empty text with valid URL should not be flagged");
 }
 
 #[test]
@@ -397,14 +400,15 @@ fn test_md042_empty_url_variations() {
 [More text](\n)
 [Text]( \t\n )";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 5, "Should detect all empty URL variations");
 
-    // Verify fix suggestions
+    // Verify that non-URL text with empty URLs are NOT fixable
+    // (we can't guess what the URL should be)
     let fixed = rule.fix(&ctx).unwrap();
-    assert!(fixed.contains("[Click here](https://example.com)"));
-    assert!(!fixed.contains("[Click here]()"));
+    // Content should remain unchanged since these are not fixable
+    assert_eq!(fixed, content);
 }
 
 #[test]
@@ -418,14 +422,15 @@ fn test_md042_both_empty() {
 [\t](\t)
 [\n](\n)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 4, "Should detect all double-empty variations");
 
-    // Verify fix
+    // Verify that both empty text and URL are NOT fixable
+    // (we can't guess either the text or the URL)
     let fixed = rule.fix(&ctx).unwrap();
-    assert!(fixed.contains("[Link text](https://example.com)"));
-    assert!(!fixed.contains("[]()"));
+    // Content should remain unchanged since these are not fixable
+    assert_eq!(fixed, content);
 }
 
 #[test]
@@ -442,7 +447,7 @@ fn test_md042_reference_links() {
 
 [ref1]: https://example.com";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let _result = rule.check(&ctx).unwrap();
     // Reference links are handled differently - test current behavior
     // Empty text reference links might be flagged
@@ -460,7 +465,7 @@ fn test_md042_formatting_without_text() {
 [<span></span>](url)
 [<!--comment-->](url)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let _result = rule.check(&ctx).unwrap();
     // First three should pass (have content), last two might be flagged
 }
@@ -477,7 +482,7 @@ fn test_md042_images() {
 ![alt]()
 ![](   )";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should ignore image syntax");
 }
@@ -492,7 +497,7 @@ fn test_md042_escaped_brackets() {
 \\[text\\]()
 Not a link \\[\\]()";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     // Document current behavior: The link parser doesn't handle leading escaped brackets
     // \\[\\](url) is not parsed as a link
@@ -504,9 +509,11 @@ Not a link \\[\\]()";
 
 #[test]
 fn test_md042_links_in_context() {
+    // MD042 only flags empty URLs, not empty text
     let rule = MD042NoEmptyLinks::new();
 
     // Test 8: Empty links in various contexts
+    // Only []() with empty URL should be flagged
     let content = "\
 - List item with [](url)
 > Blockquote with []()
@@ -519,9 +526,10 @@ fn test_md042_links_in_context() {
 1. Ordered list []()
 2. Another item";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert_eq!(result.len(), 5, "Should detect empty links in all contexts");
+    // Only []() links (empty URL) should be flagged - lines 2 and 9
+    assert_eq!(result.len(), 2, "Should only flag empty URLs, not empty text");
 }
 
 #[test]
@@ -535,26 +543,35 @@ fn test_md042_unicode_empty() {
 [\u{200B}](url)
 [\u{FEFF}](url)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let _result = rule.check(&ctx).unwrap();
     // Document current behavior with Unicode whitespace
 }
 
 #[test]
 fn test_md042_nested_links() {
+    // MD042 only flags empty URLs, not empty text
     let rule = MD042NoEmptyLinks::new();
 
     // Test 10: Nested link-like structures
+    // With ENABLE_WIKILINKS: [[text]] is parsed as a wiki-link
+    // [[Double brackets]](url) becomes a wiki-link pointing to "Double brackets" followed by "(url)" as plain text
+    // Wiki-links with valid page names (even with spaces) are VALID and should not be flagged
     let content = "\
 [Link [with] brackets](url)
 [Link (with) parens](url)
 [[Double brackets]](url)
-[](url [not a link])";
+[](url)";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Last one has empty text
-    assert!(!result.is_empty(), "Should detect empty text in last link");
+
+    // [](url) has a valid URL (empty text only) - not flagged
+    // All links in this test have valid URLs, so none should be flagged
+    assert!(
+        result.is_empty(),
+        "Empty text with valid URL should not be flagged. Got: {result:?}"
+    );
 }
 
 #[test]
@@ -571,7 +588,7 @@ Empty link: []()
 Email: contact@example.com
 Another [ spaced link ](  )";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Each rule should detect its issues
     let result034 = md034.check(&ctx).unwrap();
@@ -584,18 +601,26 @@ Another [ spaced link ](  )";
 
     // Apply fixes sequentially
     let step1 = md034.fix(&ctx).unwrap();
-    let ctx1 = LintContext::new(&step1, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx1 = LintContext::new(&step1, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let step2 = md039.fix(&ctx1).unwrap();
-    let ctx2 = LintContext::new(&step2, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx2 = LintContext::new(&step2, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let step3 = md042.fix(&ctx2).unwrap();
-    let ctx_final = LintContext::new(&step3, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_final = LintContext::new(&step3, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
-    // All issues should be resolved
+    // MD034 and MD039 issues should be resolved
     assert!(md034.check(&ctx_final).unwrap().is_empty());
     assert!(md039.check(&ctx_final).unwrap().is_empty());
-    assert!(md042.check(&ctx_final).unwrap().is_empty());
+
+    // MD042: The empty links []() and [spaced link](  ) cannot be auto-fixed
+    // because they have no content to infer a URL from (empty text/whitespace-only URL)
+    let md042_remaining = md042.check(&ctx_final).unwrap();
+    assert_eq!(md042_remaining.len(), 2, "Two unfixable empty links should remain");
+
+    // Verify the unfixable links are correctly identified
+    assert!(md042_remaining[0].message.contains("Empty link found"));
+    assert!(md042_remaining[1].message.contains("Empty link found"));
 }
 
 #[test]
@@ -615,7 +640,7 @@ contact@example.com
 
 `https://inline.com` and `[ inline ](url)` and `[]()`";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // No rule should detect issues in code
     assert!(md034.check(&ctx).unwrap().is_empty());
@@ -637,7 +662,7 @@ fn test_link_rules_html_handling() {
 <!-- https://comment.com -->
 <script>var url = 'https://script.com';</script>";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Rules should ignore HTML contexts
     // MD034 might still detect some URLs in HTML

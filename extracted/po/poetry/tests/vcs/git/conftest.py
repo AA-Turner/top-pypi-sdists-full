@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 @pytest.fixture()
 def temp_repo(tmp_path: Path) -> TempRepoFixture:
     """Temporary repository with 2 commits"""
-    repo = dulwich.repo.Repo.init(str(tmp_path))
+    repo = dulwich.repo.Repo.init(str(tmp_path), default_branch=b"main")
     worktree = repo.get_worktree()
 
     # init commit
@@ -27,6 +27,7 @@ def temp_repo(tmp_path: Path) -> TempRepoFixture:
         author=b"User <user@example.com>",
         message=b"init",
         no_verify=True,
+        sign=False,
     )
 
     # one commit which is not "head"
@@ -37,6 +38,7 @@ def temp_repo(tmp_path: Path) -> TempRepoFixture:
         author=b"User <user@example.com>",
         message=b"extra",
         no_verify=True,
+        sign=False,
     )
 
     # extra commit
@@ -48,6 +50,7 @@ def temp_repo(tmp_path: Path) -> TempRepoFixture:
         author=b"User <user@example.com>",
         message=b"extra",
         no_verify=True,
+        sign=False,
     )
 
     repo[b"refs/tags/v1"] = head_commit

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: certificate_complete_chain
 author: "Felix Fontein (@felixfontein)"
@@ -125,6 +124,7 @@ import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.pem import (
     split_pem_list,
 )
@@ -132,7 +132,6 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION,
     assert_required_cryptography_version,
 )
-
 
 try:
     import cryptography
@@ -205,11 +204,10 @@ def is_parent(
             )
         elif isinstance(
             public_key,
-            cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PublicKey,
-        ):
-            public_key.verify(cert.cert.signature, cert.cert.tbs_certificate_bytes)
-        elif isinstance(
-            public_key, cryptography.hazmat.primitives.asymmetric.ed448.Ed448PublicKey
+            (
+                cryptography.hazmat.primitives.asymmetric.ed25519.Ed25519PublicKey,
+                cryptography.hazmat.primitives.asymmetric.ed448.Ed448PublicKey,
+            ),
         ):
             public_key.verify(cert.cert.signature, cert.cert.tbs_certificate_bytes)
         else:
@@ -364,13 +362,12 @@ def main() -> t.NoReturn:
 
     # Check chain
     for i, parent in enumerate(chain):
-        if i > 0:
-            if not is_parent(module, chain[i - 1], parent):
-                module.fail_json(
-                    msg=(
-                        f"Cannot verify input chain: certificate #{i + 1}: {format_cert(parent)} is not issuer of certificate #{i}: {format_cert(chain[i - 1])}"
-                    )
+        if i > 0 and not is_parent(module, chain[i - 1], parent):
+            module.fail_json(
+                msg=(
+                    f"Cannot verify input chain: certificate #{i + 1}: {format_cert(parent)} is not issuer of certificate #{i}: {format_cert(chain[i - 1])}"
                 )
+            )
 
     # Load intermediate certificates
     intermediates = CertificateSet(module)

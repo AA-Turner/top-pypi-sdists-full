@@ -27,6 +27,12 @@ from sphinx.addnodes import (
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 
+from tests.utils import extract_node
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
+
 
 @pytest.mark.sphinx('html', testroot='_blank')
 def test_pyfunction(app):
@@ -132,7 +138,7 @@ def test_pyfunction_signature(app):
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -182,7 +188,7 @@ def test_pyfunction_signature_full(app):
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -256,7 +262,7 @@ def test_pyfunction_signature_full(app):
     text = '.. py:function:: hello(*, a)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -270,7 +276,7 @@ def test_pyfunction_signature_full(app):
     text = '.. py:function:: hello(a, /, b, *, c)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -287,7 +293,7 @@ def test_pyfunction_signature_full(app):
     text = '.. py:function:: hello(a, /, *, b)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -303,7 +309,7 @@ def test_pyfunction_signature_full(app):
     text = '.. py:function:: hello(a, /)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -319,7 +325,7 @@ def test_pyfunction_with_unary_operators(app):
     text = '.. py:function:: menu(egg=+1, bacon=-1, sausage=~1, spam=not spam)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -365,7 +371,7 @@ def test_pyfunction_with_binary_operators(app):
     text = '.. py:function:: menu(spam=2**64)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             ([
@@ -385,7 +391,7 @@ def test_pyfunction_with_number_literals(app):
     text = '.. py:function:: hello(age=0x10, height=1_6_0)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             (
@@ -415,7 +421,7 @@ def test_pyfunction_with_union_type_operator(app):
     text = '.. py:function:: hello(age: int | None)'
     doctree = restructuredtext.parse(app, text)
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             ([
@@ -473,7 +479,7 @@ def test_optional_pyfunction_signature(app):
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         (
             [desc_parameter, ([desc_sig_name, 'source'])],
             [
@@ -481,6 +487,58 @@ def test_optional_pyfunction_signature(app):
                 (
                     [desc_parameter, ([desc_sig_name, 'filename'])],
                     [desc_optional, desc_parameter, ([desc_sig_name, 'symbol'])],
+                ),
+            ],
+        ),
+    )
+
+
+@pytest.mark.sphinx('html', testroot='_blank')
+def test_pyfunction_signature_with_bracket(app: Sphinx) -> None:
+    text = '.. py:function:: hello(a : ~typing.Any = <b>) -> None'
+    doctree = restructuredtext.parse(app, text)
+    assert_node(
+        doctree,
+        (
+            addnodes.index,
+            [
+                desc,
+                (
+                    [
+                        desc_signature,
+                        (
+                            [desc_name, 'hello'],
+                            desc_parameterlist,
+                            [desc_returns, pending_xref, 'None'],
+                        ),
+                    ],
+                    desc_content,
+                ),
+            ],
+        ),
+    )
+    assert_node(
+        doctree[1],
+        addnodes.desc,
+        desctype='function',
+        domain='py',
+        objtype='function',
+        no_index=False,
+    )
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        (
+            [
+                desc_parameter,
+                (
+                    [desc_sig_name, 'a'],
+                    [desc_sig_punctuation, ':'],
+                    desc_sig_space,
+                    [desc_sig_name, pending_xref, 'Any'],
+                    desc_sig_space,
+                    [desc_sig_operator, '='],
+                    desc_sig_space,
+                    [nodes.inline, '<b>'],
                 ),
             ],
         ),
@@ -526,7 +584,7 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_equal(ap
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -538,7 +596,11 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_equal(ap
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=False)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=False,
+    )
 
 
 @pytest.mark.sphinx(
@@ -582,7 +644,7 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_force_si
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -594,7 +656,11 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_force_si
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=False)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=False,
+    )
 
 
 @pytest.mark.sphinx(
@@ -636,7 +702,7 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_break(ap
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -648,7 +714,11 @@ def test_pyfunction_signature_with_python_maximum_signature_line_length_break(ap
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=True)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=True,
+    )
 
 
 @pytest.mark.sphinx(
@@ -690,7 +760,7 @@ def test_pyfunction_signature_with_maximum_signature_line_length_equal(app):
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -702,7 +772,11 @@ def test_pyfunction_signature_with_maximum_signature_line_length_equal(app):
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=False)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=False,
+    )
 
 
 @pytest.mark.sphinx(
@@ -744,7 +818,7 @@ def test_pyfunction_signature_with_maximum_signature_line_length_force_single(ap
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -756,7 +830,11 @@ def test_pyfunction_signature_with_maximum_signature_line_length_force_single(ap
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=False)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=False,
+    )
 
 
 @pytest.mark.sphinx(
@@ -798,7 +876,7 @@ def test_pyfunction_signature_with_maximum_signature_line_length_break(app):
         no_index=False,
     )
     assert_node(
-        doctree[1][0][1],
+        extract_node(doctree, 1, 0, 1),
         [
             desc_parameterlist,
             desc_parameter,
@@ -810,4 +888,8 @@ def test_pyfunction_signature_with_maximum_signature_line_length_break(app):
             ),
         ],
     )
-    assert_node(doctree[1][0][1], desc_parameterlist, multi_line_parameter_list=True)
+    assert_node(
+        extract_node(doctree, 1, 0, 1),
+        desc_parameterlist,
+        multi_line_parameter_list=True,
+    )

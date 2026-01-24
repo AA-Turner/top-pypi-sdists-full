@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: b2luigi
-Version: 1.2.5
+Version: 1.2.6
 Summary: b2luigi - bringing batch 2 luigi
 Home-page: https://github.com/belle2/b2luigi
 Keywords: luigi, workflow management, belle2
 Author: Nils Braun, Michael Eliachevitch, The Belle II Collaboration
 Author-email: software-b2luigi@belle2.org
-Requires-Python: >=3.8, <3.12
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License: GNU General Public License v3 or later (GPLv3+)
 Classifier: Development Status :: 5 - Production/Stable
@@ -25,7 +25,8 @@ Requires-Dist: GitPython>=2.1.11
 Requires-Dist: colorama>=0.3.9
 Requires-Dist: cachetools>=2.1.0
 Requires-Dist: jinja2
-Requires-Dist: retry2>=0.9.3
+Requires-Dist: setuptools
+Requires-Dist: tenacity>=8,<9
 Requires-Dist: pre_commit ; extra == "dev"
 Requires-Dist: pytest ; extra == "dev"
 Requires-Dist: pytest-cov ; extra == "dev"
@@ -52,17 +53,17 @@ b2luigi - bringing batch 2 luigi
 ================================
 
 .. image:: https://img.shields.io/badge/sphinx-latest-009682
-           :target: https://b2luigi.belle2.org//
+   :target: https://b2luigi.belle2.org/
 .. image:: https://img.shields.io/github/license/belle2/b2luigi
-           :target: https://github.com/belle2/b2luigi/blob/main/LICENSE
+   :target: https://github.com/belle2/b2luigi/blob/main/LICENSE
 .. image:: https://img.shields.io/pypi/v/b2luigi?logo=pypi
-           :target: https://pypi.python.org/pypi/b2luigi/
+   :target: https://pypi.python.org/pypi/b2luigi/
 .. image:: https://zenodo.org/badge/726161674.svg
-	   :target: https://zenodo.org/doi/10.5281/zenodo.10853220
+   :target: https://zenodo.org/doi/10.5281/zenodo.10853220
 
-.. image:: https://raw.githubusercontent.com/belle2/b2luigi/main/docs/b2luigi.png
+.. figure:: https://raw.githubusercontent.com/belle2/b2luigi/main/docs/b2luigi_200px.png
    :alt: b2luigi logo
-   :height: 100px
+   :height: 200px
 
 ``b2luigi`` is a helper package constructed around ``luigi`` that helps you schedule working packages (so-called
 tasks) locally or on a batch system.

@@ -31,14 +31,9 @@ py::list domainish_to_list(ArrowArray* arrow_array, ArrowSchema* arrow_schema) {
         // "_import_from_c" implements Arrow move semantics, meaning
         // release is set to NULL for each array imported. Release
         // should be called on the parent array.
-        auto array = pa_array_import(
-            py::capsule(arrow_array->children[i]),
-            py::capsule(arrow_schema->children[i]));
+        auto array = pa_array_import(py::capsule(arrow_array->children[i]), py::capsule(arrow_schema->children[i]));
         array_list.append(array);
     }
-
-    arrow_array->release(arrow_array);
-    arrow_schema->release(arrow_schema);
 
     return array_list;
 }
@@ -46,16 +41,12 @@ py::list domainish_to_list(ArrowArray* arrow_array, ArrowSchema* arrow_schema) {
 void load_soma_array(py::module& m) {
     py::class_<SOMAArray, SOMAObject>(m, "SOMAArray")
         .def(
-            py::init(
-                [](std::string_view uri,
-                   std::map<std::string, std::string> platform_config,
-                   std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
-                    return SOMAArray::open(
-                        OpenMode::read,
-                        uri,
-                        std::make_shared<SOMAContext>(platform_config),
-                        timestamp);
-                }),
+            py::init([](std::string_view uri,
+                        std::map<std::string, std::string> platform_config,
+                        std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
+                return SOMAArray::open(
+                    OpenMode::soma_read, uri, std::make_shared<SOMAContext>(platform_config), timestamp);
+            }),
             "uri"_a,
             py::kw_only(),
             "platform_config"_a = py::dict(),
@@ -64,89 +55,39 @@ void load_soma_array(py::module& m) {
         .def("__enter__", [](SOMAArray& array) { return array; })
         .def(
             "__exit__",
-            [](SOMAArray& array,
-               py::object exc_type,
-               py::object exc_value,
-               py::object traceback) { array.close(); })
+            [](SOMAArray& array, py::object exc_type, py::object exc_value, py::object traceback) { array.close(); })
 
-        .def(
-            "reopen",
-            [](SOMAArray& array,
-               OpenMode mode,
-               std::optional<TimestampRange> timestamp) -> py::object {
-                auto new_array = array.reopen(mode, timestamp);
-
-                std::optional<std::string> soma_obj_type;
-                try {
-                    soma_obj_type = new_array->type();
-                } catch (const std::exception& e) {
-                    TPY_ERROR_LOC(e.what());
-                }
-
-                if (!soma_obj_type) {
-                    throw TileDBSOMAError(
-                        "Unreachable code: The missing soma_object_type case "
-                        "is already handled. This indicates an "
-                        "unexpected failure to catch exceptions by "
-                        "SOMAArray::reopen");
-                }
-
-                std::transform(
-                    soma_obj_type->begin(),
-                    soma_obj_type->end(),
-                    soma_obj_type->begin(),
-                    [](unsigned char c) { return std::tolower(c); });
-
-                if (soma_obj_type == "somadataframe")
-                    return py::cast(SOMADataFrame(*new_array));
-                else if (soma_obj_type == "somapointclouddataframe")
-                    return py::cast(SOMAPointCloudDataFrame(*new_array));
-                else if (soma_obj_type == "somageometrydataframe")
-                    return py::cast(SOMAGeometryDataFrame(*new_array));
-                else if (soma_obj_type == "somasparsendarray")
-                    return py::cast(SOMASparseNDArray(*new_array));
-                else if (soma_obj_type == "somadensendarray")
-                    return py::cast(SOMADenseNDArray(*new_array));
-
-                throw TileDBSOMAError(
-                    "Unreachable code: All possible SOMA object types are "
-                    "already handled. This indicates a logic error or an "
-                    "unexpected failure to catch exceptions by "
-                    "SOMAArray::reopen");
-
-                return py::none();  // Unreached, but appeases a compiler
-                                    // warning
-            },
-            "mode"_a,
-            "timestamp"_a = py::none())
-
+        .def_property_readonly("type", &SOMAArray::type)
         .def("close", &SOMAArray::close)
-        .def_property_readonly(
-            "closed",
-            [](SOMAArray& array) -> bool { return not array.is_open(); })
+        .def_property_readonly("closed", [](SOMAArray& array) -> bool { return not array.is_open(); })
         .def_property_readonly(
             "mode",
             [](SOMAArray& array) {
-                return array.mode() == OpenMode::read ? "r" : "w";
+                OpenMode soma_mode = array.mode();
+                switch (soma_mode) {
+                    case OpenMode::soma_read:
+                        return "r";
+                    case OpenMode::soma_write:
+                        return "w";
+                    case OpenMode::soma_delete:
+                        return "d";
+                    default:
+                        throw TileDBSOMAError("Internal error: unrecognized mode.");
+                }
             })
         .def_property_readonly(
             "schema",
             [](SOMAArray& array) -> py::object {
                 auto pa = py::module::import("pyarrow");
-                auto pa_schema_import = pa.attr("Schema").attr(
-                    "_import_from_c");
+                auto pa_schema_import = pa.attr("Schema").attr("_import_from_c");
 
                 try {
-                    return pa_schema_import(
-                        py::capsule(array.arrow_schema().get()));
+                    return pa_schema_import(py::capsule(array.arrow_schema().get()));
                 } catch (const std::exception& e) {
                     TPY_ERROR_LOC(e.what());
                 }
             })
         .def("schema_config_options", &SOMAArray::schema_config_options)
-        .def(
-            "config_options_from_schema",
-            &SOMAArray::config_options_from_schema)
         .def("context", &SOMAArray::ctx)
 
         .def(
@@ -191,8 +132,7 @@ void load_soma_array(py::module& m) {
             "non_empty_domain",
             [](SOMAArray& array) {
                 ArrowTable arrow_table = array.get_non_empty_domain();
-                return domainish_to_list(
-                    arrow_table.first.get(), arrow_table.second.get());
+                return domainish_to_list(arrow_table.first.get(), arrow_table.second.get());
             })
 
         .def(
@@ -200,8 +140,7 @@ void load_soma_array(py::module& m) {
             [](SOMAArray& array) {
                 auto pa = py::module::import("pyarrow");
                 ArrowTable arrow_table = array.get_soma_domain();
-                return domainish_to_list(
-                    arrow_table.first.get(), arrow_table.second.get());
+                return domainish_to_list(arrow_table.first.get(), arrow_table.second.get());
             })
 
         .def(
@@ -209,8 +148,7 @@ void load_soma_array(py::module& m) {
             [](SOMAArray& array) {
                 auto pa = py::module::import("pyarrow");
                 ArrowTable arrow_table = array.get_soma_maxdomain();
-                return domainish_to_list(
-                    arrow_table.first.get(), arrow_table.second.get());
+                return domainish_to_list(arrow_table.first.get(), arrow_table.second.get());
             })
 
         .def(
@@ -218,8 +156,7 @@ void load_soma_array(py::module& m) {
             [](SOMAArray& array, std::string name, py::dtype dtype) {
                 switch (np_to_tdb_dtype(dtype)) {
                     case TILEDB_UINT64:
-                        return py::cast(
-                            array.non_empty_domain_slot<uint64_t>(name));
+                        return py::cast(array.non_empty_domain_slot<uint64_t>(name));
                     case TILEDB_DATETIME_YEAR:
                     case TILEDB_DATETIME_MONTH:
                     case TILEDB_DATETIME_WEEK:
@@ -234,39 +171,28 @@ void load_soma_array(py::module& m) {
                     case TILEDB_DATETIME_FS:
                     case TILEDB_DATETIME_AS:
                     case TILEDB_INT64:
-                        return py::cast(
-                            array.non_empty_domain_slot<int64_t>(name));
+                        return py::cast(array.non_empty_domain_slot<int64_t>(name));
                     case TILEDB_UINT32:
-                        return py::cast(
-                            array.non_empty_domain_slot<uint32_t>(name));
+                        return py::cast(array.non_empty_domain_slot<uint32_t>(name));
                     case TILEDB_INT32:
-                        return py::cast(
-                            array.non_empty_domain_slot<int32_t>(name));
+                        return py::cast(array.non_empty_domain_slot<int32_t>(name));
                     case TILEDB_UINT16:
-                        return py::cast(
-                            array.non_empty_domain_slot<uint16_t>(name));
+                        return py::cast(array.non_empty_domain_slot<uint16_t>(name));
                     case TILEDB_INT16:
-                        return py::cast(
-                            array.non_empty_domain_slot<int16_t>(name));
+                        return py::cast(array.non_empty_domain_slot<int16_t>(name));
                     case TILEDB_UINT8:
-                        return py::cast(
-                            array.non_empty_domain_slot<uint8_t>(name));
+                        return py::cast(array.non_empty_domain_slot<uint8_t>(name));
                     case TILEDB_INT8:
-                        return py::cast(
-                            array.non_empty_domain_slot<int8_t>(name));
+                        return py::cast(array.non_empty_domain_slot<int8_t>(name));
                     case TILEDB_FLOAT64:
-                        return py::cast(
-                            array.non_empty_domain_slot<double>(name));
+                        return py::cast(array.non_empty_domain_slot<double>(name));
                     case TILEDB_FLOAT32:
-                        return py::cast(
-                            array.non_empty_domain_slot<float>(name));
+                        return py::cast(array.non_empty_domain_slot<float>(name));
                     case TILEDB_STRING_UTF8:
                     case TILEDB_STRING_ASCII:
-                        return py::cast(
-                            array.non_empty_domain_slot<std::string>(name));
+                        return py::cast(array.non_empty_domain_slot<std::string>(name));
                     default:
-                        throw TileDBSOMAError(
-                            "Unsupported dtype for nonempty domain.");
+                        throw TileDBSOMAError("Unsupported dtype for nonempty domain.");
                 }
             })
 
@@ -275,8 +201,7 @@ void load_soma_array(py::module& m) {
             [](SOMAArray& array, std::string name, py::dtype dtype) {
                 switch (np_to_tdb_dtype(dtype)) {
                     case TILEDB_UINT64:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<uint64_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<uint64_t>(name));
                     case TILEDB_DATETIME_YEAR:
                     case TILEDB_DATETIME_MONTH:
                     case TILEDB_DATETIME_WEEK:
@@ -291,39 +216,28 @@ void load_soma_array(py::module& m) {
                     case TILEDB_DATETIME_FS:
                     case TILEDB_DATETIME_AS:
                     case TILEDB_INT64:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<int64_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<int64_t>(name));
                     case TILEDB_UINT32:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<uint32_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<uint32_t>(name));
                     case TILEDB_INT32:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<int32_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<int32_t>(name));
                     case TILEDB_UINT16:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<uint16_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<uint16_t>(name));
                     case TILEDB_INT16:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<int16_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<int16_t>(name));
                     case TILEDB_UINT8:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<uint8_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<uint8_t>(name));
                     case TILEDB_INT8:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<int8_t>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<int8_t>(name));
                     case TILEDB_FLOAT64:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<double>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<double>(name));
                     case TILEDB_FLOAT32:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<float>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<float>(name));
                     case TILEDB_STRING_UTF8:
                     case TILEDB_STRING_ASCII:
-                        return py::cast(
-                            array.non_empty_domain_slot_opt<std::string>(name));
+                        return py::cast(array.non_empty_domain_slot_opt<std::string>(name));
                     default:
-                        throw TileDBSOMAError(
-                            "Unsupported dtype for nonempty domain.");
+                        throw TileDBSOMAError("Unsupported dtype for nonempty domain.");
                 }
             })
 
@@ -370,8 +284,7 @@ void load_soma_array(py::module& m) {
                         return py::cast(std::make_pair("", ""));
                     }
                     default:
-                        throw TileDBSOMAError(
-                            "Unsupported dtype for Dimension's domain");
+                        throw TileDBSOMAError("Unsupported dtype for Dimension's domain");
                 }
             })
 
@@ -380,8 +293,7 @@ void load_soma_array(py::module& m) {
             [](SOMAArray& array, std::string name, py::dtype dtype) {
                 switch (np_to_tdb_dtype(dtype)) {
                     case TILEDB_UINT64:
-                        return py::cast(
-                            array.soma_maxdomain_slot<uint64_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<uint64_t>(name));
                     case TILEDB_DATETIME_YEAR:
                     case TILEDB_DATETIME_MONTH:
                     case TILEDB_DATETIME_WEEK:
@@ -396,29 +308,21 @@ void load_soma_array(py::module& m) {
                     case TILEDB_DATETIME_FS:
                     case TILEDB_DATETIME_AS:
                     case TILEDB_INT64:
-                        return py::cast(
-                            array.soma_maxdomain_slot<int64_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<int64_t>(name));
                     case TILEDB_UINT32:
-                        return py::cast(
-                            array.soma_maxdomain_slot<uint32_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<uint32_t>(name));
                     case TILEDB_INT32:
-                        return py::cast(
-                            array.soma_maxdomain_slot<int32_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<int32_t>(name));
                     case TILEDB_UINT16:
-                        return py::cast(
-                            array.soma_maxdomain_slot<uint16_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<uint16_t>(name));
                     case TILEDB_INT16:
-                        return py::cast(
-                            array.soma_maxdomain_slot<int16_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<int16_t>(name));
                     case TILEDB_UINT8:
-                        return py::cast(
-                            array.soma_maxdomain_slot<uint8_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<uint8_t>(name));
                     case TILEDB_INT8:
-                        return py::cast(
-                            array.soma_maxdomain_slot<int8_t>(name));
+                        return py::cast(array.soma_maxdomain_slot<int8_t>(name));
                     case TILEDB_FLOAT64:
-                        return py::cast(
-                            array.soma_maxdomain_slot<double>(name));
+                        return py::cast(array.soma_maxdomain_slot<double>(name));
                     case TILEDB_FLOAT32:
                         return py::cast(array.soma_maxdomain_slot<float>(name));
                     case TILEDB_STRING_UTF8:
@@ -427,8 +331,7 @@ void load_soma_array(py::module& m) {
                         return py::cast(std::make_pair("", ""));
                     }
                     default:
-                        throw TileDBSOMAError(
-                            "Unsupported dtype for Dimension's domain");
+                        throw TileDBSOMAError("Unsupported dtype for Dimension's domain");
                 }
             })
 
@@ -437,31 +340,15 @@ void load_soma_array(py::module& m) {
         .def(
             "consolidate_and_vacuum",
             &SOMAArray::consolidate_and_vacuum,
-            py::arg(
-                "modes") = std::vector<std::string>{"fragment_meta", "commits"})
+            py::arg("modes") = std::vector<std::string>{"fragment_meta", "commits"})
 
-        .def_property_readonly(
-            "meta",
-            [](SOMAArray& array) -> py::dict {
-                return meta(array.get_metadata());
-            })
+        .def_property_readonly("meta", [](SOMAArray& array) -> py::dict { return meta(array.get_metadata()); })
 
-        .def(
-            "set_metadata",
-            set_metadata,
-            py::arg("key"),
-            py::arg("value"),
-            py::arg("force") = false)
+        .def("set_metadata", set_metadata, py::arg("key"), py::arg("value"), py::arg("force") = false)
 
-        .def(
-            "delete_metadata",
-            &SOMAArray::delete_metadata,
-            py::arg("key"),
-            py::arg("force") = false)
+        .def("delete_metadata", &SOMAArray::delete_metadata, py::arg("key"), py::arg("force") = false)
 
-        .def(
-            "get_metadata",
-            py::overload_cast<const std::string&>(&SOMAArray::get_metadata))
+        .def("get_metadata", py::overload_cast<const std::string&>(&SOMAArray::get_metadata))
 
         .def("has_metadata", &SOMAArray::has_metadata)
 
@@ -476,8 +363,7 @@ void load_soma_array(py::module& m) {
         // We don't have CommonNDArray base class in pybind11, and it's probably
         // not worth it.  These are exposed to the user-facing API only for
         // SparseNDArray and DenseNDArray and not for DataFrame.
-        .def_property_readonly(
-            "tiledbsoma_has_upgraded_shape", &SOMAArray::has_current_domain)
+        .def_property_readonly("tiledbsoma_has_upgraded_shape", &SOMAArray::has_current_domain)
 
         .def(
             "resize",
@@ -514,8 +400,7 @@ void load_soma_array(py::module& m) {
             "tiledbsoma_can_upgrade_shape",
             [](SOMAArray& array, const std::vector<int64_t>& newshape) {
                 try {
-                    return array.can_upgrade_shape(
-                        newshape, "tiledbsoma_can_upgrade_shape");
+                    return array.can_upgrade_shape(newshape, "tiledbsoma_can_upgrade_shape");
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }

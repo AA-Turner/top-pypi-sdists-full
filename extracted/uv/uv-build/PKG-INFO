@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uv-build
-Version: 0.8.22
+Version: 0.9.26
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -27,11 +27,11 @@ Author-email: "Astral Software Inc." <hey@astral.sh>
 License-Expression: MIT OR Apache-2.0
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Repository, https://github.com/astral-sh/uv
-Project-URL: Documentation, https://docs.astral.sh/uv
 Project-URL: Changelog, https://github.com/astral-sh/uv/blob/main/CHANGELOG.md
-Project-URL: Releases, https://github.com/astral-sh/uv/releases
 Project-URL: Discord, https://discord.gg/astral-sh
+Project-URL: Documentation, https://docs.astral.sh/uv
+Project-URL: Releases, https://github.com/astral-sh/uv/releases
+Project-URL: Repository, https://github.com/astral-sh/uv
 
 # Build backend for uv
 

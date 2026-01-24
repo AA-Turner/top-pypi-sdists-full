@@ -8,7 +8,7 @@ import time
 import uuid
 from calendar import Calendar, TextCalendar
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
@@ -125,6 +125,12 @@ def test_str_edge_cases(parser):
     assert parser.parse_args([f"--val={val}"]).val == val
 
 
+def test_str_union_default_comment_like(parser):
+    parser.add_argument("--val", type=Union[str, int], default="#default")
+    assert "#default" == parser.get_defaults().val
+    assert "#default" == parser.parse_args([]).val
+
+
 def test_bool_parse(parser):
     parser.add_argument("--val", type=bool)
     assert None is parser.get_defaults().val
@@ -183,6 +189,8 @@ def test_union_of_literals(parser):
     parser.add_argument("--literal", type=Union[Literal[1, 2], Literal["a", "b"]])
     assert "a" == parser.parse_args(["--literal=a"]).literal
     assert 2 == parser.parse_args(["--literal=2"]).literal
+    with pytest.raises(ArgumentError, match=r"Expected a typing.Literal\['a', 'b']"):
+        parser.parse_args(["--literal=x"])
 
 
 @parser_modes
@@ -572,6 +580,33 @@ def test_dict_command_line_set_items(parser):
     assert cfg.dict == {"one": 1, "two": 2}
 
 
+@dataclass
+class _Vals:
+    val_0: int = 0
+    val_1: int = 0
+
+
+@dataclass
+class _Cfg:
+    """Needs to be defined outside of test_nested_dict_command_line_set_items"""
+
+    vals: dict[str, _Vals] = field(default_factory=dict)
+
+
+def test_nested_dict_command_line_set_items(parser):
+    parser.add_class_arguments(_Cfg, nested_key="cfg")
+
+    # works before #824
+    args = ["--cfg", '{"vals": {"a": {"val_0": 0, "val_1": 1}}}', "--cfg.vals.a", '{"val_0": 100}']
+    cfg = parser.parse_args(args).cfg
+    assert (cfg.vals["a"].val_0, cfg.vals["a"].val_1) == (100, 1)
+
+    # does not work before #824
+    args = ["--cfg", '{"vals": {"a": {"val_0": 0, "val_1": 1}}}', "--cfg.vals.a.val_0", "100"]
+    cfg = parser.parse_args(args).cfg
+    assert (cfg.vals["a"].val_0, cfg.vals["a"].val_1) == (100, 1)
+
+
 def test_dict_command_line_set_items_with_space(parser):
     parser.add_argument("--dict", type=dict)
     cfg = parser.parse_args(["--dict.a=x y"])
@@ -720,7 +755,7 @@ def test_valid_unpack_typeddict(parser, init_args):
     if test_config["test"]["init_args"].get("b") is None:
         # parser.dump does not dump null b
         test_config["test"]["init_args"].pop("b", None)
-    assert json.dumps({"testclass": test_config}).replace(" ", "") == parser.dump(cfg, format="json")
+    assert test_config == json.loads(parser.dump(cfg, format="json"))["testclass"]
 
 
 @pytest.mark.skipif(not Unpack, reason="Unpack introduced in python 3.11 or backported in typing_extensions")
@@ -743,7 +778,7 @@ def test_valid_inherited_unpack_typeddict(parser, init_args):
     if test_config["init_args"].get("b") is None:
         # parser.dump does not dump null b
         test_config["init_args"].pop("b", None)
-    assert json.dumps({"testclass": test_config}).replace(" ", "") == parser.dump(cfg, format="json")
+    assert test_config == json.loads(parser.dump(cfg, format="json"))["testclass"]
 
 
 @pytest.mark.skipif(not Unpack, reason="Unpack introduced in python 3.11 or backported in typing_extensions")
@@ -1590,3 +1625,9 @@ def test_get_all_subclass_paths_import_error():
             subclass_paths = get_all_subclass_paths(ImportClass)
     assert "Failed to import ImportClass" in str(w[0].message)
     assert subclass_paths == []
+
+
+def test_non_path_dump(parser):
+    parser.add_argument("--data", type=Union[Path_fr, Dict[str, List[str]]])
+    cfg = parser.parse_args(['--data={"key": ["value"]}'])
+    assert json_or_yaml_load(parser.dump(cfg)) == {"data": {"key": ["value"]}}

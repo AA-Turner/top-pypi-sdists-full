@@ -1,7 +1,7 @@
-import types
+import base64
+import pickle
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple, TypedDict
-
-import jsonpickle  # type: ignore
 
 from ._logger import dbos_logger
 
@@ -11,58 +11,35 @@ class WorkflowInputs(TypedDict):
     kwargs: Dict[str, Any]
 
 
-def _validate_item(data: Any) -> None:
-    if isinstance(data, (types.MethodType)):
-        raise TypeError("Serialized data item should not be a class method")
-    if isinstance(data, (types.FunctionType)):
-        if jsonpickle.decode(jsonpickle.encode(data, unpicklable=True)) is None:
-            raise TypeError(
-                "Serialized function should be defined at the top level of a module"
-            )
+class Serializer(ABC):
+
+    @abstractmethod
+    def serialize(self, data: Any) -> str:
+        pass
+
+    @abstractmethod
+    def deserialize(cls, serialized_data: str) -> Any:
+        pass
 
 
-def serialize(data: Any) -> str:
-    """Serialize an object to a JSON string using jsonpickle."""
-    _validate_item(data)
-    encoded_data: str = jsonpickle.encode(data, unpicklable=True)
-    return encoded_data
+class DefaultSerializer(Serializer):
 
+    def serialize(self, data: Any) -> str:
+        try:
+            pickled_data: bytes = pickle.dumps(data)
+            encoded_data: str = base64.b64encode(pickled_data).decode("utf-8")
+            return encoded_data
+        except Exception as e:
+            dbos_logger.error(f"Error serializing object: {data}", exc_info=e)
+            raise
 
-def serialize_args(data: WorkflowInputs) -> str:
-    """Serialize args to a JSON string using jsonpickle."""
-    arg: Any
-    for arg in data["args"]:
-        _validate_item(arg)
-    for arg in data["kwargs"].values():
-        _validate_item(arg)
-    encoded_data: str = jsonpickle.encode(data, unpicklable=True)
-    return encoded_data
-
-
-def serialize_exception(data: Exception) -> str:
-    """Serialize an Exception object to a JSON string using jsonpickle."""
-    encoded_data: str = jsonpickle.encode(data, unpicklable=True)
-    return encoded_data
-
-
-def deserialize(serialized_data: str) -> Any:
-    """Deserialize a JSON string back to a Python object using jsonpickle."""
-    return jsonpickle.decode(serialized_data)
-
-
-def deserialize_args(serialized_data: str) -> WorkflowInputs:
-    """Deserialize a JSON string back to a Python object list using jsonpickle."""
-    args: WorkflowInputs = jsonpickle.decode(serialized_data)
-    return args
-
-
-def deserialize_exception(serialized_data: str) -> Exception:
-    """Deserialize JSON string back to a Python Exception using jsonpickle."""
-    exc: Exception = jsonpickle.decode(serialized_data)
-    return exc
+    def deserialize(cls, serialized_data: str) -> Any:
+        pickled_data: bytes = base64.b64decode(serialized_data)
+        return pickle.loads(pickled_data)
 
 
 def safe_deserialize(
+    serializer: Serializer,
     workflow_id: str,
     *,
     serialized_input: Optional[str],
@@ -79,7 +56,9 @@ def safe_deserialize(
     input: Optional[WorkflowInputs]
     try:
         input = (
-            deserialize_args(serialized_input) if serialized_input is not None else None
+            serializer.deserialize(serialized_input)
+            if serialized_input is not None
+            else None
         )
     except Exception as e:
         dbos_logger.warning(
@@ -89,7 +68,9 @@ def safe_deserialize(
     output: Optional[Any]
     try:
         output = (
-            deserialize(serialized_output) if serialized_output is not None else None
+            serializer.deserialize(serialized_output)
+            if serialized_output is not None
+            else None
         )
     except Exception as e:
         dbos_logger.warning(
@@ -99,7 +80,7 @@ def safe_deserialize(
     exception: Optional[Exception]
     try:
         exception = (
-            deserialize_exception(serialized_exception)
+            serializer.deserialize(serialized_exception)
             if serialized_exception is not None
             else None
         )

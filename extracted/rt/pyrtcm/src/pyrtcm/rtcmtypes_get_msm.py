@@ -5,8 +5,8 @@ Information sourced from RTCM STANDARD 10403.3 © 2016 RTCM
 
 Created on 14 Feb 2022
 
-:author: semuadmin
-:copyright: SEMU Consulting © 2022
+:author: semuadmin (Steve Smith)
+:copyright: semuadmin © 2022
 :license: BSD 3-Clause
 """
 

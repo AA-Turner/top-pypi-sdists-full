@@ -3,7 +3,7 @@ Type annotations for sagemaker-a2i-runtime service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_a2i_runtime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -37,12 +38,6 @@ from .type_defs import (
     StopHumanLoopRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -53,13 +48,13 @@ __all__ = ("AugmentedAIRuntimeClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class AugmentedAIRuntimeClient(BaseClient):
@@ -97,7 +92,7 @@ class AugmentedAIRuntimeClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_a2i_runtime/client/#generate_presigned_url)
         """
 
-    def delete_human_loop(self, **kwargs: Unpack[DeleteHumanLoopRequestTypeDef]) -> Dict[str, Any]:
+    def delete_human_loop(self, **kwargs: Unpack[DeleteHumanLoopRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified human loop for a flow definition.
 
@@ -135,7 +130,7 @@ class AugmentedAIRuntimeClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_a2i_runtime/client/#start_human_loop)
         """
 
-    def stop_human_loop(self, **kwargs: Unpack[StopHumanLoopRequestTypeDef]) -> Dict[str, Any]:
+    def stop_human_loop(self, **kwargs: Unpack[StopHumanLoopRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the specified human loop.
 

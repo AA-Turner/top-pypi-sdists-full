@@ -61,6 +61,17 @@ class Port:
         return iter(self._edges)
 
     def __rshift__(self, other: GraphTarget) -> Graph:
+        # Check for trigger target (class-level only)
+        from vellum.workflows.triggers.base import BaseTrigger
+
+        # Check if other is a trigger class
+        if isinstance(other, type) and issubclass(other, BaseTrigger):
+            raise TypeError(
+                f"Cannot create edge targeting trigger {other.__name__}. "
+                f"Triggers must be at the start of a graph path, not as targets. "
+                f"Did you mean: {other.__name__} >> {self.node_class.__name__}?"
+            )
+
         if isinstance(other, set) or isinstance(other, Graph):
             return Graph.from_port(self) >> other
 
@@ -96,7 +107,10 @@ class Port:
             if self._condition is None:
                 return False
 
-            value = self._condition.resolve(state)
+            if isinstance(self._condition, BaseDescriptor):
+                value = self._condition.resolve(state)
+            else:
+                value = self._condition
             return bool(value)
         except InvalidExpressionException as e:
             raise NodeException(
@@ -108,6 +122,10 @@ class Port:
         return {
             "name": self.name,
         }
+
+    def __vellum_encode__(self) -> dict:
+        """Return a JSON-serializable representation of this port."""
+        return self.serialize()
 
     @classmethod
     def __get_pydantic_core_schema__(

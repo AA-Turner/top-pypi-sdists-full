@@ -262,12 +262,20 @@ def map2alm(
                     "is missing at {}".format(pixel_weights_filename)
                 )
         if pixel_weights_filename is None:
-            with data.conf.set_temp("dataurl", DATAURL), data.conf.set_temp(
-                "dataurl_mirror", DATAURL_MIRROR
-            ), data.conf.set_temp("remote_timeout", 30):
-                pixel_weights_filename = data.get_pkg_data_filename(
-                    filename, package="healpy"
+            try:
+                with data.conf.set_temp("dataurl", DATAURL), data.conf.set_temp(
+                    "dataurl_mirror", DATAURL_MIRROR
+                ), data.conf.set_temp("remote_timeout", 30):
+                    pixel_weights_filename = data.get_pkg_data_filename(
+                        filename, package="healpy"
+                    )
+            except Exception as e:
+                log.warning(
+                    "Could not download pixel weights for nside %d: %s. "
+                    "Proceeding without pixel weights.", nside, e
                 )
+                use_pixel_weights = False
+                pixel_weights_filename = None # Ensure it's None so it doesn't try to use a non-existent file
 
     if pol or info in (0, 1):
         alms = _sphtools.map2alm(
@@ -498,6 +506,9 @@ def alm2map(
             alms_new.append(almxfl(alm, pixelwindow, inplace=inplace))
     else:
         alms_new = alms
+
+    # Ensure alms are complex128 for C++ backend
+    alms_new = [np.ascontiguousarray(alm, dtype=np.complex128) for alm in alms_new]
 
     if lmax is None:
         lmax = -1
@@ -1133,7 +1144,7 @@ def smoothing(
     return output_map
 
 
-def pixwin(nside, pol=False, lmax=None):
+def pixwin(nside, pol=False, lmax=None, datapath=None):
     """Return the pixel window function for the given nside.
 
     Parameters
@@ -1144,6 +1155,10 @@ def pixwin(nside, pol=False, lmax=None):
       If True, return also the polar pixel window. Default: False
     lmax : int, optional
         Maximum l of the power spectrum (default: 3*nside-1)
+    datapath : None or str, optional
+        If given, the directory where to find the pixel window function file.
+        If not found locally, will be downloaded and cached using astropy.
+        See the docstring of `map2alm` for details on how to set it up
 
     Returns
     -------
@@ -1155,13 +1170,22 @@ def pixwin(nside, pol=False, lmax=None):
     if lmax is None:
         lmax = 3 * nside - 1
 
-    datapath = DATAPATH
     if not pixelfunc.isnsideok(nside):
         raise ValueError("Wrong nside value (must be a power of two).")
-    fname = os.path.join(datapath, "pixel_window_n%04d.fits" % nside)
-    if not os.path.isfile(fname):
-        raise ValueError("No pixel window for this nside " "or data files missing")
-    # return hfitslib._pixwin(nside,datapath,pol)  ## BROKEN -> seg fault...
+
+    filename = f"pixel_window_functions/pixel_window_n{nside:04d}.fits"
+    if datapath is not None:
+        fname = os.path.join(datapath, filename)
+        if not os.path.isfile(fname):
+            raise ValueError(f"Pixel window file not found at {fname}")
+    else:
+        # Use astropy to download/cache the file
+        with (
+            data.conf.set_temp("dataurl", DATAURL),
+            data.conf.set_temp("remote_timeout", 30),
+        ):
+            fname = data.get_pkg_data_filename(filename, package="healpy")
+
     pw = pf.getdata(fname)
     pw_temp, pw_pol = pw.field(0), pw.field(1)
     if pol:
@@ -1199,6 +1223,8 @@ def alm2map_der1(alm, nside, lmax=None, mmax=None):
         lmax = -1
     if mmax is None:
         mmax = -1
+    # Ensure alm is complex128 for C++ backend
+    alm = np.ascontiguousarray(alm, dtype=np.complex128)
     return np.array(sphtlib._alm2map_der1(alm, nside, lmax=lmax, mmax=mmax))
 
 
@@ -1392,6 +1418,16 @@ def blm_gauss(fwhm, lmax, pol=False):
     """Computes spherical harmonic coefficients of a circular Gaussian beam
     pointing towards the North Pole
 
+    The beam window function computed from these coefficients is consistent
+    with the output of :func:`gauss_beam`, following the formalism described
+    in Challinor et al. 2000 (astro-ph/0008228).
+
+    .. versionchanged:: 1.19.0
+        The formula was changed from ``exp(-0.5 * l^2 * sigma^2)`` to 
+        ``exp(-0.5 * l*(l+1) * sigma^2)`` to be consistent with :func:`gauss_beam`
+        and the Challinor et al. 2000 paper. This is a **breaking change** that 
+        affects the computed spherical harmonic coefficients.
+
     See an example of usage
     `in the documentation <https://healpy.readthedocs.io/en/latest/blm_gauss_plot.html>`_
 
@@ -1425,14 +1461,14 @@ def blm_gauss(fwhm, lmax, pol=False):
 
     for l in range(0, lmax + 1):
         blm[0, Alm.getidx(lmax, l, 0)] = np.sqrt((2 * l + 1) / (4.0 * np.pi)) * np.exp(
-            -0.5 * sigmasq * l * l
+            -0.5 * sigmasq * l * (l + 1)
         )
 
     if pol:
         for l in range(2, lmax + 1):
             blm[1, Alm.getidx(lmax, l, 2)] = np.sqrt(
                 (2 * l + 1) / (32 * np.pi)
-            ) * np.exp(-0.5 * sigmasq * l * l)
+            ) * np.exp(-0.5 * sigmasq * l * (l + 1))
         blm[2] = 1j * blm[1]
 
     return blm

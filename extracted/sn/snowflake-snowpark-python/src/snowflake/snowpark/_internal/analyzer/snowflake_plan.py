@@ -588,10 +588,15 @@ class SnowflakePlan(LogicalPlan):
         assert (
             self.schema_query is not None
         ), "No schema query is available for the SnowflakePlan"
+        query_params = getattr(self.source_plan, "query_params", None)
         if self.session.reduce_describe_query_enabled:
-            return cached_analyze_attributes(self.schema_query, self.session, self.uuid)
+            return cached_analyze_attributes(
+                self.schema_query, self.session, self.uuid, query_params
+            )
         else:
-            return analyze_attributes(self.schema_query, self.session, self.uuid)
+            return analyze_attributes(
+                self.schema_query, self.session, self.uuid, query_params
+            )
 
     @property
     def attributes(self) -> List[Attribute]:
@@ -803,6 +808,7 @@ class SnowflakePlan(LogicalPlan):
 
     def add_aliases(self, to_add: Dict) -> None:
         if self.session._join_alias_fix:
+            self.expr_to_alias = self.expr_to_alias.copy()
             self.expr_to_alias.update(to_add)
         else:
             self.expr_to_alias = {**self.expr_to_alias, **to_add}
@@ -1261,6 +1267,7 @@ class SnowflakePlanBuilder:
         child_attributes: Optional[List[Attribute]],
         iceberg_config: Optional[dict] = None,
         table_exists: Optional[bool] = None,
+        overwrite_condition: Optional[str] = None,
     ) -> SnowflakePlan:
         """Returns a SnowflakePlan to materialize the child plan into a table.
 
@@ -1292,6 +1299,8 @@ class SnowflakePlanBuilder:
                     the Iceberg table stores its metadata files and data in Parquet format
                 catalog: specifies either Snowflake or a catalog integration to use for this table
                 base_location: the base directory that snowflake can write iceberg metadata and files to
+                target_file_size: specifies a target Parquet file size for the table.
+                    Valid values: 'AUTO' (default), '16MB', '32MB', '64MB', '128MB'
                 catalog_sync: optionally sets the catalog integration configured for Polaris Catalog
                 storage_serialization_policy: specifies the storage serialization policy for the table
                 iceberg_version: Overrides the version of iceberg to use. Defaults to 2 when unset.
@@ -1409,6 +1418,47 @@ class SnowflakePlanBuilder:
                 referenced_ctes=child.referenced_ctes,
             )
 
+        def get_overwrite_delete_insert_plan(child: SnowflakePlan):
+            """Build a plan for targeted delete + insert with transaction.
+
+            Deletes rows matching the overwrite_condition condition, then inserts
+            all rows from the source DataFrame. Wrapped in a transaction for atomicity.
+            """
+            child = self.add_result_scan_if_not_select(child)
+
+            return SnowflakePlan(
+                [
+                    *child.queries[:-1],
+                    Query("BEGIN TRANSACTION"),
+                    Query(
+                        delete_statement(
+                            table_name=full_table_name,
+                            condition=overwrite_condition,
+                            source_data=None,
+                        ),
+                        params=child.queries[-1].params,
+                        is_ddl_on_temp_object=is_temp_table_type,
+                    ),
+                    Query(
+                        insert_into_statement(
+                            table_name=full_table_name,
+                            child=child.queries[-1].sql,
+                            column_names=column_names,
+                        ),
+                        params=child.queries[-1].params,
+                        is_ddl_on_temp_object=is_temp_table_type,
+                    ),
+                    Query("COMMIT"),
+                ],
+                schema_query=None,
+                post_actions=child.post_actions,
+                expr_to_alias={},
+                source_plan=source_plan,
+                api_calls=child.api_calls,
+                session=self.session,
+                referenced_ctes=child.referenced_ctes,
+            )
+
         if mode == SaveMode.APPEND:
             assert table_exists is not None
             if table_exists:
@@ -1438,7 +1488,12 @@ class SnowflakePlanBuilder:
                 return get_create_table_as_select_plan(child, replace=True, error=True)
 
         elif mode == SaveMode.OVERWRITE:
-            return get_create_table_as_select_plan(child, replace=True, error=True)
+            if overwrite_condition is not None and table_exists:
+                # Selective overwrite: delete matching rows, then insert
+                return get_overwrite_delete_insert_plan(child)
+            else:
+                # Default overwrite: drop and recreate table
+                return get_create_table_as_select_plan(child, replace=True, error=True)
 
         elif mode == SaveMode.IGNORE:
             return get_create_table_as_select_plan(child, replace=False, error=False)

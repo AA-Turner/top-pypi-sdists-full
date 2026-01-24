@@ -9,7 +9,6 @@ from ... import vault
 from ...discovery_common.record_link import RecordLink
 from ... import utils
 import logging
-import requests
 import hmac
 import hashlib
 import os
@@ -93,7 +92,9 @@ class SaasCatalog(BaseModel):
 
     @property
     def file_name(self):
-        return self.file.split(os.sep)[-1] if self.file else None
+        # `file` will be either a file name or URL to a file.
+        # This will just get the file name.
+        return self.file.split("/")[-1] if self.file else None
 
 
 def get_gateway_saas_schema(params: KeeperParams, gateway_context: GatewayContext) -> Optional[List[dict]]:

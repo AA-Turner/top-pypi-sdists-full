@@ -40,16 +40,13 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_relative_time_option,
 )
 
-
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
 
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._argspec import (  # pragma: no cover
         ArgumentSpec,
-    )
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
-        CertificateIssuerPrivateKeyTypes,
     )
 
 

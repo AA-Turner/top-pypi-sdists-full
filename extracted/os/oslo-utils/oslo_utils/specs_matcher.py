@@ -14,52 +14,62 @@
 #    under the License.
 
 import ast
+from collections.abc import Callable
 import operator
+from typing import Any
 
 import pyparsing
 
 
-def _all_in(x, *y):
+def _all_in(x: str, *y: str) -> bool:
     x = ast.literal_eval(x)
     if not isinstance(x, list):
-        raise TypeError("<all-in> must compare with a list literal"
-                        " string, EG \"%s\"" % (['aes', 'mmx'],))
+        raise TypeError(
+            "<all-in> must compare with a list literal"
+            " string, EG \"{}\"".format(['aes', 'mmx'])
+        )
     return all(val in x for val in y)
 
 
-def _range_in(x, *y):
+def _range_in(x: str, *y: str) -> bool:
     x = ast.literal_eval(x)
     if len(y) != 4:
-        raise TypeError("<range-in> operator has to be followed by 2 "
-                        "space separated numeric value surrounded by "
-                        "brackets \"range_in [ 10 20 ] \"")
+        raise TypeError(
+            "<range-in> operator has to be followed by 2 "
+            "space separated numeric value surrounded by "
+            "brackets \"range_in [ 10 20 ] \""
+        )
     num_x = float(x)
     num_y = float(y[1])
     num_z = float(y[2])
     if num_y > num_z:
-        raise TypeError("<range-in> operator's first argument has to be "
-                        "smaller or equal to the second argument EG"
-                        "\"range_in  ( 10 20 ] \"")
+        raise TypeError(
+            "<range-in> operator's first argument has to be "
+            "smaller or equal to the second argument EG"
+            "\"range_in  ( 10 20 ] \""
+        )
 
     if y[0] == '[':
         lower = num_x >= num_y
     elif y[0] == '(':
         lower = num_x > num_y
     else:
-        raise TypeError("The first element should be an opening bracket "
-                        "(\"(\" or \"[\")")
+        raise TypeError(
+            "The first element should be an opening bracket (\"(\" or \"[\")"
+        )
 
     if y[3] == ']':
         upper = num_x <= num_z
     elif y[3] == ')':
         upper = num_x < num_z
     else:
-        raise TypeError("The last element should be a closing bracket "
-                        "(\")\" or \"]\")")
+        raise TypeError(
+            "The last element should be a closing bracket (\")\" or \"]\")"
+        )
     return lower and upper
 
 
-op_methods = {
+op_methods: dict[str, Callable[..., bool]] = {
     # This one is special/odd,
     # TODO(harlowja): fix it so that it's not greater than or
     # equal, see here for the original @ https://review.openstack.org/#/c/8089/
@@ -87,52 +97,52 @@ op_methods = {
 }
 
 
-def make_grammar():
+def make_grammar() -> pyparsing.ParserElement:
     """Creates the grammar to be used by a spec matcher.
 
-The grammar created supports the following operations.
+    The grammar created supports the following operations.
 
-Numerical values:
-  * ``=  :`` equal to or greater than. This is equivalent to ``>=`` and is
-    supported for `legacy reasons
-    <http://docs.openstack.org/developer/nova/filter_scheduler.html#ComputeCapabilitiesFilter>`_
-  * ``!= :`` Float/integer value not equal
-  * ``<= :`` Float/integer value less than or equal
-  * ``<  :`` Float/integer value less than
-  * ``== :`` Float/integer value equal
-  * ``>= :`` Float/integer value greater than or equal
-  * ``>  :`` Float/integer value greater
+    Numerical values:
+      * ``=  :`` equal to or greater than. This is equivalent to ``>=`` and is
+        supported for `legacy reasons
+        <http://docs.openstack.org/developer/nova/filter_scheduler.html#ComputeCapabilitiesFilter>`_
+      * ``!= :`` Float/integer value not equal
+      * ``<= :`` Float/integer value less than or equal
+      * ``<  :`` Float/integer value less than
+      * ``== :`` Float/integer value equal
+      * ``>= :`` Float/integer value greater than or equal
+      * ``>  :`` Float/integer value greater
 
-String operations:
-  * ``s!= :`` Not equal
-  * ``s<  :`` Less than
-  * ``s<= :`` Less than or equal
-  * ``s== :`` Equal
-  * ``s>  :`` Greater than
-  * ``s>= :`` Greater than or equal
+    String operations:
+      * ``s!= :`` Not equal
+      * ``s<  :`` Less than
+      * ``s<= :`` Less than or equal
+      * ``s== :`` Equal
+      * ``s>  :`` Greater than
+      * ``s>= :`` Greater than or equal
 
-Other operations:
-  * ``<all-in>  :`` All items 'in' value
-  * ``<in>      :`` Item 'in' value, like a substring in a string.
-  * ``<or>      :`` Logical 'or'
-  * ``<range-in>:`` Range tester with customizable boundary conditions, tests
-                    whether value is in the range, boundary condition could be
-                    inclusve \'[\' or exclusive \'(\'.
+    Other operations:
+      * ``<all-in>  :`` All items 'in' value
+      * ``<in>      :`` Item 'in' value, like a substring in a string.
+      * ``<or>      :`` Logical 'or'
+      * ``<range-in>:`` Range tester with customizable boundary conditions, tests
+                        whether value is in the range, boundary condition could be
+                        inclusve \'[\' or exclusive \'(\'.
 
-If no operator is specified the default is ``s==`` (string equality comparison)
+    If no operator is specified the default is ``s==`` (string equality comparison)
 
-Example operations:
- * ``">= 60"`` Is the numerical value greater than or equal to 60
- * ``"<or> spam <or> eggs"`` Does the value contain ``spam`` or ``eggs``
- * ``"s== 2.1.0"`` Is the string value equal to ``2.1.0``
- * ``"<in> gcc"`` Is the string ``gcc`` contained in the value string
- * ``"<all-in> aes mmx"`` Are both ``aes`` and ``mmx`` in the value
- * ``"<range-in> [ 10 20 ]"`` float(value) >= 10 and float(value) <= 20
- * ``"<range-in> ( 10 20 ]"`` float(value) > 10 and float(value) <= 20
- * ``"<range-in> ( 10 20 )"`` float(value) > 10 and float(value) < 20
+    Example operations:
+     * ``">= 60"`` Is the numerical value greater than or equal to 60
+     * ``"<or> spam <or> eggs"`` Does the value contain ``spam`` or ``eggs``
+     * ``"s== 2.1.0"`` Is the string value equal to ``2.1.0``
+     * ``"<in> gcc"`` Is the string ``gcc`` contained in the value string
+     * ``"<all-in> aes mmx"`` Are both ``aes`` and ``mmx`` in the value
+     * ``"<range-in> [ 10 20 ]"`` float(value) >= 10 and float(value) <= 20
+     * ``"<range-in> ( 10 20 ]"`` float(value) > 10 and float(value) <= 20
+     * ``"<range-in> ( 10 20 )"`` float(value) > 10 and float(value) < 20
 
-:returns: A pyparsing.MatchFirst object. See
-          https://pythonhosted.org/pyparsing/ for details on pyparsing.
+    :returns: A pyparsing.MatchFirst object. See
+              https://pythonhosted.org/pyparsing/ for details on pyparsing.
     """
     # This is apparently how pyparsing recommends to be used,
     # as http://pyparsing.wikispaces.com/share/view/644825 states that
@@ -140,23 +150,34 @@ Example operations:
 
     unary_ops = (
         # Order matters here (so that '=' doesn't match before '==')
-        pyparsing.Literal("==") | pyparsing.Literal("=") |
-        pyparsing.Literal("!=") | pyparsing.Literal("<in>") |
-        pyparsing.Literal(">=") | pyparsing.Literal("<=") |
-        pyparsing.Literal(">") | pyparsing.Literal("<") |
-        pyparsing.Literal("s==") | pyparsing.Literal("s!=") |
+        pyparsing.Literal("==")
+        | pyparsing.Literal("=")
+        | pyparsing.Literal("!=")
+        | pyparsing.Literal("<in>")
+        | pyparsing.Literal(">=")
+        | pyparsing.Literal("<=")
+        | pyparsing.Literal(">")
+        | pyparsing.Literal("<")
+        | pyparsing.Literal("s==")
+        | pyparsing.Literal("s!=")
+        |
         # Order matters here (so that '<' doesn't match before '<=')
-        pyparsing.Literal("s<=") | pyparsing.Literal("s<") |
+        pyparsing.Literal("s<=")
+        | pyparsing.Literal("s<")
+        |
         # Order matters here (so that '>' doesn't match before '>=')
-        pyparsing.Literal("s>=") | pyparsing.Literal("s>"))
+        pyparsing.Literal("s>=")
+        | pyparsing.Literal("s>")
+    )
 
     all_in_nary_op = pyparsing.Literal("<all-in>")
     or_ = pyparsing.Literal("<or>")
     range_in_binary_op = pyparsing.Literal("<range-in>")
 
     # An atom is anything not an keyword followed by anything but whitespace
-    atom = ~(unary_ops | all_in_nary_op | or_ | range_in_binary_op) + \
-        pyparsing.Regex(r"\S+")
+    atom = ~(
+        unary_ops | all_in_nary_op | or_ | range_in_binary_op
+    ) + pyparsing.Regex(r"\S+")
 
     unary = unary_ops + atom
     range_op = range_in_binary_op + atom + atom + atom + atom
@@ -170,7 +191,7 @@ Example operations:
     return expr
 
 
-def match(cmp_value, spec):
+def match(cmp_value: Any, spec: str) -> bool:
     """Match a given value to a given spec DSL.
 
     This uses the grammar defined by make_grammar()
@@ -182,6 +203,7 @@ def match(cmp_value, spec):
     :returns: True if cmp_value is a match for spec. False otherwise.
     """
     expr = make_grammar()
+    tree: pyparsing.ParseResults | list[str]
     try:
         # As of 2018-01-29 documentation on parseString()
         # https://pythonhosted.org/pyparsing/pyparsing.ParserElement-class.html#parseString
@@ -193,7 +215,7 @@ def match(cmp_value, spec):
         # If an exception then we will just check if the value matches the spec
         tree = [spec]
     if len(tree) == 1:
-        return tree[0] == cmp_value
+        return bool(tree[0] == cmp_value)
 
     # tree[0] will contain a string representation of a comparison operation
     # such as '>=', we then convert that string to a comparison function

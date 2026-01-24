@@ -16,11 +16,13 @@ T = TypeVar("T", bound="GetScheduleResponse200Retry")
 
 @_attrs_define
 class GetScheduleResponse200Retry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetScheduleResponse200RetryConstant]):
-        exponential (Union[Unset, GetScheduleResponse200RetryExponential]):
-        retry_if (Union[Unset, GetScheduleResponse200RetryRetryIf]):
+        constant (Union[Unset, GetScheduleResponse200RetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, GetScheduleResponse200RetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, GetScheduleResponse200RetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "GetScheduleResponse200RetryConstant"] = UNSET

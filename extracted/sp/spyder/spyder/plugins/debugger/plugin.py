@@ -95,6 +95,16 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
             ]
         }
 
+        self.pyw_editor_run_configuration = {
+            'origin': self.NAME,
+            'extension': 'pyw',
+            'contexts': [
+                {'name': 'File'},
+                {'name': 'Cell'},
+                {'name': 'Selection'},
+            ]
+        }
+
         self.executor_configuration = [
             {
                 'input_extension': 'py',
@@ -113,6 +123,14 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
                 'priority': 10
             },
             {
+                'input_extension': 'pyw',
+                'context': {'name': 'File'},
+                'output_formats': [],
+                'configuration_widget': IPythonConfigOptions,
+                'requires_cwd': True,
+                'priority': 10
+            },
+            {
                 'input_extension': 'py',
                 'context': {'name': 'Cell'},
                 'output_formats': [],
@@ -122,6 +140,14 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
             },
             {
                 'input_extension': 'ipy',
+                'context': {'name': 'Cell'},
+                'output_formats': [],
+                'configuration_widget': None,
+                'requires_cwd': True,
+                'priority': 10
+            },
+            {
+                'input_extension': 'pyw',
                 'context': {'name': 'Cell'},
                 'output_formats': [],
                 'configuration_widget': None,
@@ -138,6 +164,14 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
             },
             {
                 'input_extension': 'ipy',
+                'context': {'name': 'Selection'},
+                'output_formats': [],
+                'configuration_widget': None,
+                'requires_cwd': True,
+                'priority': 10
+            },
+            {
+                'input_extension': 'pyw',
                 'context': {'name': 'Selection'},
                 'output_formats': [],
                 'configuration_widget': None,
@@ -196,8 +230,8 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
         run.create_run_in_executor_button(
             RunContext.Selection,
             self.NAME,
-            text=_("Debug selection or current line"),
-            tip=_("Debug selection or current line"),
+            text=_("Debug the current line or selection"),
+            tip=_("Debug the current line or selection"),
             icon=self.create_icon('debug_selection'),
             shortcut_context=self.NAME,
             register_shortcut=True,
@@ -239,7 +273,8 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
 
         for run_config in [
             self.python_editor_run_configuration,
-            self.ipython_editor_run_configuration
+            self.ipython_editor_run_configuration,
+            self.pyw_editor_run_configuration
         ]:
             editor.add_supported_run_configuration(run_config)
 
@@ -267,7 +302,8 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
 
         for run_config in [
             self.python_editor_run_configuration,
-            self.ipython_editor_run_configuration
+            self.ipython_editor_run_configuration,
+            self.pyw_editor_run_configuration
         ]:
             editor.remove_supported_run_configuration(run_config)
 
@@ -504,7 +540,7 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
 
     @Slot()
     def _set_or_clear_breakpoint(self):
-        """Set/Clear breakpoint"""
+        """Toggle breakpoint."""
         codeeditor = self._get_current_editor()
         if codeeditor is None or codeeditor.breakpoints_manager is None:
             return
@@ -512,7 +548,7 @@ class Debugger(SpyderDockablePlugin, ShellConnectPluginMixin, RunExecutor):
 
     @Slot()
     def _set_or_edit_conditional_breakpoint(self):
-        """Set/Edit conditional breakpoint"""
+        """Set/edit conditional breakpoint."""
         codeeditor = self._get_current_editor()
         if codeeditor is None or codeeditor.breakpoints_manager is None:
             return

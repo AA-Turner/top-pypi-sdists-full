@@ -32,16 +32,14 @@ from datarobot.utils.waiters import wait_for_async_resolution
 
 DEFAULT_BATCH_SIZE = 1000
 
-RecordMetadataTrafaret = t.Dict(
-    {
-        t.Key("record_id"): String,
-        t.Key("project_id"): String,
-        t.Key("model_id"): String,
-        t.Key("backtest"): t.Or(String(), Int),
-        t.Key("source"): t.Enum(*SOURCE_TYPE.ALL),  # type: ignore[attr-defined]
-        t.Key("series_id"): t.Or(String(), t.Null),
-    }
-)
+RecordMetadataTrafaret = t.Dict({
+    t.Key("record_id"): String,
+    t.Key("project_id"): String,
+    t.Key("model_id"): String,
+    t.Key("backtest"): t.Or(String(), Int),
+    t.Key("source"): t.Enum(*SOURCE_TYPE.ALL),  # type: ignore[attr-defined]
+    t.Key("series_id"): t.Or(String(), t.Null),
+})
 
 
 class BaseAPIObject(APIObject):  # pylint: disable=missing-class-docstring
@@ -50,9 +48,7 @@ class BaseAPIObject(APIObject):  # pylint: disable=missing-class-docstring
         self.project_id: str = record_kwargs["project_id"]
         self.model_id: str = record_kwargs["model_id"]
         self.backtest: Union[str, int] = record_kwargs["backtest"]
-        self.source: Union[Literal[SOURCE_TYPE.TRAINING], Literal[SOURCE_TYPE.VALIDATION]] = (
-            record_kwargs["source"]
-        )
+        self.source: Union[Literal[SOURCE_TYPE.TRAINING], Literal[SOURCE_TYPE.VALIDATION]] = record_kwargs["source"]
         self.series_id: Optional[str] = record_kwargs["series_id"]
 
     def __repr__(self) -> str:
@@ -145,18 +141,17 @@ class AnomalyAssessmentRecord(BaseAPIObject):
     _create_path = "projects/{project_id}/models/{model_id}/anomalyAssessmentInitialization/"
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("status"): t.Enum(*AnomalyAssessmentStatus.ALL),
-                t.Key("status_details"): String,
-                t.Key("start_date"): t.Or(String(), t.Null),
-                t.Key("end_date"): t.Or(String(), t.Null),
-                t.Key("prediction_threshold"): t.Or(t.Float, t.Null),
-                t.Key("preview_location"): t.Or(String(), t.Null),
-                t.Key("delete_location"): String(),
-                t.Key("latest_explanations_location"): t.Or(String(), t.Null),
-            }
-        )
+        t
+        .Dict({
+            t.Key("status"): t.Enum(*AnomalyAssessmentStatus.ALL),
+            t.Key("status_details"): String,
+            t.Key("start_date"): t.Or(String(), t.Null),
+            t.Key("end_date"): t.Or(String(), t.Null),
+            t.Key("prediction_threshold"): t.Or(t.Float, t.Null),
+            t.Key("preview_location"): t.Or(String(), t.Null),
+            t.Key("delete_location"): String(),
+            t.Key("latest_explanations_location"): t.Or(String(), t.Null),
+        })
         .merge(RecordMetadataTrafaret)
         .ignore_extra("*")
     )
@@ -189,9 +184,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         project_id: str,
         model_id: str,
         backtest: Optional[Union[int, Literal[DATA_SUBSET.HOLDOUT]]] = None,
-        source: Optional[
-            Union[Literal[SOURCE_TYPE.TRAINING], Literal[SOURCE_TYPE.VALIDATION]]
-        ] = None,
+        source: Optional[Union[Literal[SOURCE_TYPE.TRAINING], Literal[SOURCE_TYPE.VALIDATION]]] = None,
         series_id: Optional[str] = None,
         limit: Optional[int] = 100,
         offset: Optional[int] = 0,
@@ -248,9 +241,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
                 [cls.from_server_data(item) for item in r_data["data"]],
             )
         if with_data_only:
-            records = [
-                record for record in records if record.status == AnomalyAssessmentStatus.COMPLETED
-            ]
+            records = [record for record in records if record.status == AnomalyAssessmentStatus.COMPLETED]
         return records
 
     @classmethod
@@ -380,9 +371,7 @@ class AnomalyAssessmentRecord(BaseAPIObject):
         explanations: List[AnomalyAssessmentDataPoint] = []
         shap_base_value: Optional[float] = None
         for region in regions:
-            response = self.get_explanations(
-                start_date=region["start_date"], end_date=region["end_date"]
-            )
+            response = self.get_explanations(start_date=region["start_date"], end_date=region["end_date"])
             shap_base_value = response.shap_base_value
             for item in response.data:
                 if item["prediction"] >= prediction_threshold:
@@ -440,24 +429,21 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
 
     _path = "projects/{project_id}/anomalyAssessmentRecords/{record_id}/predictionsPreview/"
 
-    PreviewBinTrafaret = t.Dict(
-        {
-            t.Key("avg_predicted"): t.Or(t.Float(), t.Null),
-            t.Key("max_predicted"): t.Or(t.Float(), t.Null),
-            t.Key("start_date"): String,
-            t.Key("end_date"): String,
-            t.Key("frequency"): Int,
-        }
-    )
+    PreviewBinTrafaret = t.Dict({
+        t.Key("avg_predicted"): t.Or(t.Float(), t.Null),
+        t.Key("max_predicted"): t.Or(t.Float(), t.Null),
+        t.Key("start_date"): String,
+        t.Key("end_date"): String,
+        t.Key("frequency"): Int,
+    })
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("start_date"): String,
-                t.Key("end_date"): String,
-                t.Key("preview_bins"): t.List(PreviewBinTrafaret),
-            }
-        )
+        t
+        .Dict({
+            t.Key("start_date"): String,
+            t.Key("end_date"): String,
+            t.Key("preview_bins"): t.List(PreviewBinTrafaret),
+        })
         .merge(RecordMetadataTrafaret)
         .ignore_extra("*")
     )
@@ -494,9 +480,7 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
         r_data = cls._client.get(url).json()
         return cast("AnomalyAssessmentPredictionsPreview", cls.from_server_data(r_data))
 
-    def find_anomalous_regions(
-        self, max_prediction_threshold: float = 0.0
-    ) -> List[AnomalyAssessmentPreviewBin]:
+    def find_anomalous_regions(self, max_prediction_threshold: float = 0.0) -> List[AnomalyAssessmentPreviewBin]:
         """Sort preview bins by max_predicted value and select those with max predicted value
          greater or equal to max prediction threshold.
          Sort the result by max predicted value in descending order.
@@ -513,11 +497,7 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
 
         """
         no_empty_bins = [bin for bin in self.preview_bins if bin["frequency"]]
-        filtered_bins = [
-            bin
-            for bin in no_empty_bins
-            if cast(float, bin["max_predicted"]) >= max_prediction_threshold
-        ]
+        filtered_bins = [bin for bin in no_empty_bins if cast(float, bin["max_predicted"]) >= max_prediction_threshold]
         sorted_bins = list(sorted(filtered_bins, key=itemgetter("max_predicted"), reverse=True))
         return sorted_bins
 
@@ -577,28 +557,27 @@ class AnomalyAssessmentExplanations(BaseAPIObject):
 
     _path = "projects/{project_id}/anomalyAssessmentRecords/{record_id}/explanations/"
 
-    _ShapContributionTrafaret = t.Dict(
-        {t.Key("feature_value"): String, t.Key("strength"): t.Float, t.Key("feature"): String}
-    )
+    _ShapContributionTrafaret = t.Dict({
+        t.Key("feature_value"): String,
+        t.Key("strength"): t.Float,
+        t.Key("feature"): String,
+    })
 
-    _RowTrafaret = t.Dict(
-        {
-            t.Key("shap_explanation"): t.Or(t.List(_ShapContributionTrafaret), t.Null),
-            t.Key("timestamp"): String,
-            t.Key("prediction"): t.Float,
-        }
-    )
+    _RowTrafaret = t.Dict({
+        t.Key("shap_explanation"): t.Or(t.List(_ShapContributionTrafaret), t.Null),
+        t.Key("timestamp"): String,
+        t.Key("prediction"): t.Float,
+    })
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("count"): Int,
-                t.Key("shap_base_value"): t.Float,
-                t.Key("data"): t.List(_RowTrafaret),
-                t.Key("start_date"): t.Or(String(), t.Null),
-                t.Key("end_date"): t.Or(String(), t.Null),
-            }
-        )
+        t
+        .Dict({
+            t.Key("count"): Int,
+            t.Key("shap_base_value"): t.Float,
+            t.Key("data"): t.List(_RowTrafaret),
+            t.Key("start_date"): t.Or(String(), t.Null),
+            t.Key("end_date"): t.Or(String(), t.Null),
+        })
         .merge(RecordMetadataTrafaret)
         .ignore_extra("*")
     )

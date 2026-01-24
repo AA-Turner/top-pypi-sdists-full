@@ -19,7 +19,6 @@ class FormComponent(RadixPrimitiveComponentWithClassName):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -52,7 +51,6 @@ class FormComponent(RadixPrimitiveComponentWithClassName):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -71,7 +69,16 @@ class FormRoot(FormComponent, HTMLForm):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Var | Any] | None = None,
         accept: Var[str] | str | None = None,
         accept_charset: Var[str] | str | None = None,
         action: Var[str] | str | None = None,
@@ -83,194 +90,6 @@ class FormRoot(FormComponent, HTMLForm):
         target: Var[str] | str | None = None,
         reset_on_submit: Var[bool] | bool | None = None,
         handle_submit_unique_name: Var[str] | str | None = None,
-        access_key: Var[str] | str | None = None,
-        auto_capitalize: Literal[
-            "characters", "none", "off", "on", "sentences", "words"
-        ]
-        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
-        | None = None,
-        content_editable: Literal["inherit", "plaintext-only", False, True]
-        | Var[Literal["inherit", "plaintext-only", False, True]]
-        | None = None,
-        context_menu: Var[str] | str | None = None,
-        dir: Var[str] | str | None = None,
-        draggable: Var[bool] | bool | None = None,
-        enter_key_hint: Literal[
-            "done", "enter", "go", "next", "previous", "search", "send"
-        ]
-        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
-        | None = None,
-        hidden: Var[bool] | bool | None = None,
-        input_mode: Literal[
-            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-        ]
-        | Var[
-            Literal[
-                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-            ]
-        ]
-        | None = None,
-        item_prop: Var[str] | str | None = None,
-        lang: Var[str] | str | None = None,
-        role: Literal[
-            "alert",
-            "alertdialog",
-            "application",
-            "article",
-            "banner",
-            "button",
-            "cell",
-            "checkbox",
-            "columnheader",
-            "combobox",
-            "complementary",
-            "contentinfo",
-            "definition",
-            "dialog",
-            "directory",
-            "document",
-            "feed",
-            "figure",
-            "form",
-            "grid",
-            "gridcell",
-            "group",
-            "heading",
-            "img",
-            "link",
-            "list",
-            "listbox",
-            "listitem",
-            "log",
-            "main",
-            "marquee",
-            "math",
-            "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "navigation",
-            "none",
-            "note",
-            "option",
-            "presentation",
-            "progressbar",
-            "radio",
-            "radiogroup",
-            "region",
-            "row",
-            "rowgroup",
-            "rowheader",
-            "scrollbar",
-            "search",
-            "searchbox",
-            "separator",
-            "slider",
-            "spinbutton",
-            "status",
-            "switch",
-            "tab",
-            "table",
-            "tablist",
-            "tabpanel",
-            "term",
-            "textbox",
-            "timer",
-            "toolbar",
-            "tooltip",
-            "tree",
-            "treegrid",
-            "treeitem",
-        ]
-        | Var[
-            Literal[
-                "alert",
-                "alertdialog",
-                "application",
-                "article",
-                "banner",
-                "button",
-                "cell",
-                "checkbox",
-                "columnheader",
-                "combobox",
-                "complementary",
-                "contentinfo",
-                "definition",
-                "dialog",
-                "directory",
-                "document",
-                "feed",
-                "figure",
-                "form",
-                "grid",
-                "gridcell",
-                "group",
-                "heading",
-                "img",
-                "link",
-                "list",
-                "listbox",
-                "listitem",
-                "log",
-                "main",
-                "marquee",
-                "math",
-                "menu",
-                "menubar",
-                "menuitem",
-                "menuitemcheckbox",
-                "menuitemradio",
-                "navigation",
-                "none",
-                "note",
-                "option",
-                "presentation",
-                "progressbar",
-                "radio",
-                "radiogroup",
-                "region",
-                "row",
-                "rowgroup",
-                "rowheader",
-                "scrollbar",
-                "search",
-                "searchbox",
-                "separator",
-                "slider",
-                "spinbutton",
-                "status",
-                "switch",
-                "tab",
-                "table",
-                "tablist",
-                "tabpanel",
-                "term",
-                "textbox",
-                "timer",
-                "toolbar",
-                "tooltip",
-                "tree",
-                "treegrid",
-                "treeitem",
-            ]
-        ]
-        | None = None,
-        slot: Var[str] | str | None = None,
-        spell_check: Var[bool] | bool | None = None,
-        tab_index: Var[int] | int | None = None,
-        title: Var[str] | str | None = None,
-        style: Sequence[Mapping[str, Any]]
-        | Mapping[str, Any]
-        | Var[Mapping[str, Any]]
-        | Breakpoints
-        | None = None,
-        key: Any | None = None,
-        id: Any | None = None,
-        ref: Var | None = None,
-        class_name: Any | None = None,
-        custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_clear_server_errors: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -299,7 +118,6 @@ class FormRoot(FormComponent, HTMLForm):
         Args:
             *children: The children of the form.
             on_clear_server_errors: Fired when the errors are cleared.
-            as_child: Change the default rendered element for the one passed as a child.
             accept: MIME types the server accepts for file upload
             accept_charset: Character encodings to be used for form submission
             action: URL where the form's data should be submitted
@@ -312,22 +130,6 @@ class FormRoot(FormComponent, HTMLForm):
             reset_on_submit: If true, the form will be cleared after submit.
             handle_submit_unique_name: The name used to make this form's submit handler function unique.
             on_submit: Fired when the form is submitted
-            access_key: Provides a hint for generating a keyboard shortcut for the current element.
-            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
-            content_editable: Indicates whether the element's content is editable.
-            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
-            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
-            draggable: Defines whether the element can be dragged.
-            enter_key_hint: Hints what media types the media element is able to play.
-            hidden: Defines whether the element is hidden.
-            input_mode: Defines the type of the element.
-            item_prop: Defines the name of the element for metadata purposes.
-            lang: Defines the language used in the element.
-            role: Defines the role of the element.
-            slot: Assigns a slot in a shadow DOM shadow tree to an element.
-            spell_check: Defines whether the element may be checked for spelling errors.
-            tab_index: Defines the position of the current element in the tabbing order.
-            title: Defines a tooltip for the element.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -348,7 +150,6 @@ class FormField(FormComponent):
         *children,
         name: Var[str] | str | None = None,
         server_invalid: Var[bool] | bool | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -383,7 +184,6 @@ class FormField(FormComponent):
             *children: The children of the component.
             name: The name of the form field, that is passed down to the control and used to match with validation messages.
             server_invalid: Flag to mark the form field as invalid, for server side validation.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -402,7 +202,6 @@ class FormLabel(FormComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -435,7 +234,6 @@ class FormLabel(FormComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -453,7 +251,6 @@ class FormControl(FormComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -486,7 +283,6 @@ class FormControl(FormComponent):
 
         Args:
             *children: The children of the form.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -551,7 +347,6 @@ class FormMessage(FormComponent):
         ]
         | None = None,
         force_match: Var[bool] | bool | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -587,7 +382,6 @@ class FormMessage(FormComponent):
             name: Used to target a specific field by name when rendering outside of a Field part.
             match: Used to indicate on which condition the message should be visible.
             force_match: Forces the message to be shown. This is useful when using server-side validation.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -605,7 +399,6 @@ class FormValidityState(FormComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -638,7 +431,6 @@ class FormValidityState(FormComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -656,7 +448,6 @@ class FormSubmit(FormComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -689,7 +480,6 @@ class FormSubmit(FormComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -707,7 +497,16 @@ class Form(FormRoot):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Var | Any] | None = None,
         accept: Var[str] | str | None = None,
         accept_charset: Var[str] | str | None = None,
         action: Var[str] | str | None = None,
@@ -719,194 +518,6 @@ class Form(FormRoot):
         target: Var[str] | str | None = None,
         reset_on_submit: Var[bool] | bool | None = None,
         handle_submit_unique_name: Var[str] | str | None = None,
-        access_key: Var[str] | str | None = None,
-        auto_capitalize: Literal[
-            "characters", "none", "off", "on", "sentences", "words"
-        ]
-        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
-        | None = None,
-        content_editable: Literal["inherit", "plaintext-only", False, True]
-        | Var[Literal["inherit", "plaintext-only", False, True]]
-        | None = None,
-        context_menu: Var[str] | str | None = None,
-        dir: Var[str] | str | None = None,
-        draggable: Var[bool] | bool | None = None,
-        enter_key_hint: Literal[
-            "done", "enter", "go", "next", "previous", "search", "send"
-        ]
-        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
-        | None = None,
-        hidden: Var[bool] | bool | None = None,
-        input_mode: Literal[
-            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-        ]
-        | Var[
-            Literal[
-                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-            ]
-        ]
-        | None = None,
-        item_prop: Var[str] | str | None = None,
-        lang: Var[str] | str | None = None,
-        role: Literal[
-            "alert",
-            "alertdialog",
-            "application",
-            "article",
-            "banner",
-            "button",
-            "cell",
-            "checkbox",
-            "columnheader",
-            "combobox",
-            "complementary",
-            "contentinfo",
-            "definition",
-            "dialog",
-            "directory",
-            "document",
-            "feed",
-            "figure",
-            "form",
-            "grid",
-            "gridcell",
-            "group",
-            "heading",
-            "img",
-            "link",
-            "list",
-            "listbox",
-            "listitem",
-            "log",
-            "main",
-            "marquee",
-            "math",
-            "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "navigation",
-            "none",
-            "note",
-            "option",
-            "presentation",
-            "progressbar",
-            "radio",
-            "radiogroup",
-            "region",
-            "row",
-            "rowgroup",
-            "rowheader",
-            "scrollbar",
-            "search",
-            "searchbox",
-            "separator",
-            "slider",
-            "spinbutton",
-            "status",
-            "switch",
-            "tab",
-            "table",
-            "tablist",
-            "tabpanel",
-            "term",
-            "textbox",
-            "timer",
-            "toolbar",
-            "tooltip",
-            "tree",
-            "treegrid",
-            "treeitem",
-        ]
-        | Var[
-            Literal[
-                "alert",
-                "alertdialog",
-                "application",
-                "article",
-                "banner",
-                "button",
-                "cell",
-                "checkbox",
-                "columnheader",
-                "combobox",
-                "complementary",
-                "contentinfo",
-                "definition",
-                "dialog",
-                "directory",
-                "document",
-                "feed",
-                "figure",
-                "form",
-                "grid",
-                "gridcell",
-                "group",
-                "heading",
-                "img",
-                "link",
-                "list",
-                "listbox",
-                "listitem",
-                "log",
-                "main",
-                "marquee",
-                "math",
-                "menu",
-                "menubar",
-                "menuitem",
-                "menuitemcheckbox",
-                "menuitemradio",
-                "navigation",
-                "none",
-                "note",
-                "option",
-                "presentation",
-                "progressbar",
-                "radio",
-                "radiogroup",
-                "region",
-                "row",
-                "rowgroup",
-                "rowheader",
-                "scrollbar",
-                "search",
-                "searchbox",
-                "separator",
-                "slider",
-                "spinbutton",
-                "status",
-                "switch",
-                "tab",
-                "table",
-                "tablist",
-                "tabpanel",
-                "term",
-                "textbox",
-                "timer",
-                "toolbar",
-                "tooltip",
-                "tree",
-                "treegrid",
-                "treeitem",
-            ]
-        ]
-        | None = None,
-        slot: Var[str] | str | None = None,
-        spell_check: Var[bool] | bool | None = None,
-        tab_index: Var[int] | int | None = None,
-        title: Var[str] | str | None = None,
-        style: Sequence[Mapping[str, Any]]
-        | Mapping[str, Any]
-        | Var[Mapping[str, Any]]
-        | Breakpoints
-        | None = None,
-        key: Any | None = None,
-        id: Any | None = None,
-        ref: Var | None = None,
-        class_name: Any | None = None,
-        custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_clear_server_errors: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -935,7 +546,6 @@ class Form(FormRoot):
         Args:
             *children: The children of the form.
             on_clear_server_errors: Fired when the errors are cleared.
-            as_child: Change the default rendered element for the one passed as a child.
             accept: MIME types the server accepts for file upload
             accept_charset: Character encodings to be used for form submission
             action: URL where the form's data should be submitted
@@ -948,22 +558,6 @@ class Form(FormRoot):
             reset_on_submit: If true, the form will be cleared after submit.
             handle_submit_unique_name: The name used to make this form's submit handler function unique.
             on_submit: Fired when the form is submitted
-            access_key: Provides a hint for generating a keyboard shortcut for the current element.
-            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
-            content_editable: Indicates whether the element's content is editable.
-            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
-            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
-            draggable: Defines whether the element can be dragged.
-            enter_key_hint: Hints what media types the media element is able to play.
-            hidden: Defines whether the element is hidden.
-            input_mode: Defines the type of the element.
-            item_prop: Defines the name of the element for metadata purposes.
-            lang: Defines the language used in the element.
-            role: Defines the role of the element.
-            slot: Assigns a slot in a shadow DOM shadow tree to an element.
-            spell_check: Defines whether the element may be checked for spelling errors.
-            tab_index: Defines the position of the current element in the tabbing order.
-            title: Defines a tooltip for the element.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -988,7 +582,16 @@ class FormNamespace(ComponentNamespace):
     @staticmethod
     def __call__(
         *children,
-        as_child: Var[bool] | bool | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Var | Any] | None = None,
         accept: Var[str] | str | None = None,
         accept_charset: Var[str] | str | None = None,
         action: Var[str] | str | None = None,
@@ -1000,194 +603,6 @@ class FormNamespace(ComponentNamespace):
         target: Var[str] | str | None = None,
         reset_on_submit: Var[bool] | bool | None = None,
         handle_submit_unique_name: Var[str] | str | None = None,
-        access_key: Var[str] | str | None = None,
-        auto_capitalize: Literal[
-            "characters", "none", "off", "on", "sentences", "words"
-        ]
-        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
-        | None = None,
-        content_editable: Literal["inherit", "plaintext-only", False, True]
-        | Var[Literal["inherit", "plaintext-only", False, True]]
-        | None = None,
-        context_menu: Var[str] | str | None = None,
-        dir: Var[str] | str | None = None,
-        draggable: Var[bool] | bool | None = None,
-        enter_key_hint: Literal[
-            "done", "enter", "go", "next", "previous", "search", "send"
-        ]
-        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
-        | None = None,
-        hidden: Var[bool] | bool | None = None,
-        input_mode: Literal[
-            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-        ]
-        | Var[
-            Literal[
-                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-            ]
-        ]
-        | None = None,
-        item_prop: Var[str] | str | None = None,
-        lang: Var[str] | str | None = None,
-        role: Literal[
-            "alert",
-            "alertdialog",
-            "application",
-            "article",
-            "banner",
-            "button",
-            "cell",
-            "checkbox",
-            "columnheader",
-            "combobox",
-            "complementary",
-            "contentinfo",
-            "definition",
-            "dialog",
-            "directory",
-            "document",
-            "feed",
-            "figure",
-            "form",
-            "grid",
-            "gridcell",
-            "group",
-            "heading",
-            "img",
-            "link",
-            "list",
-            "listbox",
-            "listitem",
-            "log",
-            "main",
-            "marquee",
-            "math",
-            "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "navigation",
-            "none",
-            "note",
-            "option",
-            "presentation",
-            "progressbar",
-            "radio",
-            "radiogroup",
-            "region",
-            "row",
-            "rowgroup",
-            "rowheader",
-            "scrollbar",
-            "search",
-            "searchbox",
-            "separator",
-            "slider",
-            "spinbutton",
-            "status",
-            "switch",
-            "tab",
-            "table",
-            "tablist",
-            "tabpanel",
-            "term",
-            "textbox",
-            "timer",
-            "toolbar",
-            "tooltip",
-            "tree",
-            "treegrid",
-            "treeitem",
-        ]
-        | Var[
-            Literal[
-                "alert",
-                "alertdialog",
-                "application",
-                "article",
-                "banner",
-                "button",
-                "cell",
-                "checkbox",
-                "columnheader",
-                "combobox",
-                "complementary",
-                "contentinfo",
-                "definition",
-                "dialog",
-                "directory",
-                "document",
-                "feed",
-                "figure",
-                "form",
-                "grid",
-                "gridcell",
-                "group",
-                "heading",
-                "img",
-                "link",
-                "list",
-                "listbox",
-                "listitem",
-                "log",
-                "main",
-                "marquee",
-                "math",
-                "menu",
-                "menubar",
-                "menuitem",
-                "menuitemcheckbox",
-                "menuitemradio",
-                "navigation",
-                "none",
-                "note",
-                "option",
-                "presentation",
-                "progressbar",
-                "radio",
-                "radiogroup",
-                "region",
-                "row",
-                "rowgroup",
-                "rowheader",
-                "scrollbar",
-                "search",
-                "searchbox",
-                "separator",
-                "slider",
-                "spinbutton",
-                "status",
-                "switch",
-                "tab",
-                "table",
-                "tablist",
-                "tabpanel",
-                "term",
-                "textbox",
-                "timer",
-                "toolbar",
-                "tooltip",
-                "tree",
-                "treegrid",
-                "treeitem",
-            ]
-        ]
-        | None = None,
-        slot: Var[str] | str | None = None,
-        spell_check: Var[bool] | bool | None = None,
-        tab_index: Var[int] | int | None = None,
-        title: Var[str] | str | None = None,
-        style: Sequence[Mapping[str, Any]]
-        | Mapping[str, Any]
-        | Var[Mapping[str, Any]]
-        | Breakpoints
-        | None = None,
-        key: Any | None = None,
-        id: Any | None = None,
-        ref: Var | None = None,
-        class_name: Any | None = None,
-        custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_clear_server_errors: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -1216,7 +631,6 @@ class FormNamespace(ComponentNamespace):
         Args:
             *children: The children of the form.
             on_clear_server_errors: Fired when the errors are cleared.
-            as_child: Change the default rendered element for the one passed as a child.
             accept: MIME types the server accepts for file upload
             accept_charset: Character encodings to be used for form submission
             action: URL where the form's data should be submitted
@@ -1229,22 +643,6 @@ class FormNamespace(ComponentNamespace):
             reset_on_submit: If true, the form will be cleared after submit.
             handle_submit_unique_name: The name used to make this form's submit handler function unique.
             on_submit: Fired when the form is submitted
-            access_key: Provides a hint for generating a keyboard shortcut for the current element.
-            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
-            content_editable: Indicates whether the element's content is editable.
-            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
-            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
-            draggable: Defines whether the element can be dragged.
-            enter_key_hint: Hints what media types the media element is able to play.
-            hidden: Defines whether the element is hidden.
-            input_mode: Defines the type of the element.
-            item_prop: Defines the name of the element for metadata purposes.
-            lang: Defines the language used in the element.
-            role: Defines the role of the element.
-            slot: Assigns a slot in a shadow DOM shadow tree to an element.
-            spell_check: Defines whether the element may be checked for spelling errors.
-            tab_index: Defines the position of the current element in the tabbing order.
-            title: Defines a tooltip for the element.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: tablib
-Version: 3.8.0
+Version: 3.9.0
 Summary: Format agnostic tabular data library (XLS, JSON, YAML, CSV, etc.)
 Author-email: Kenneth Reitz <me@kennethreitz.org>
 Maintainer: Hugo van Kemenade
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -48,6 +49,7 @@ Provides-Extra: xlsx
 Requires-Dist: openpyxl>=2.6.0; extra == "xlsx"
 Provides-Extra: yaml
 Requires-Dist: pyyaml; extra == "yaml"
+Dynamic: license-file
 
 # Tablib: format-agnostic tabular dataset library
 
@@ -81,6 +83,7 @@ Output formats supported:
 - ODS (Sets)
 - CSV (Sets)
 - DBF (Sets)
+- SQL (Sets)
 
 Note that tablib *purposefully* excludes XML support. It always will. (Note: This is a
 joke. Pull requests are welcome.)

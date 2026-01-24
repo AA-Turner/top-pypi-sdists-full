@@ -69,10 +69,7 @@ from pathlib import Path
 import re
 import sys
 
-if sys.version_info < (3, 9):
-    from typing import Match, Pattern
-else:
-    from re import Match, Pattern
+from re import Match, Pattern
 
 if sys.version_info < (3, 11):
     try:
@@ -84,15 +81,30 @@ if sys.version_info < (3, 11):
 else:
     typing_extensions = None
 
-# Exclude various standard elements found in modules, classes, etc.
 SKIP_LIST = [
+    # Various standard attributes found in modules, classes, etc.
     "__doc__", "__module__", "__name__", "__new__", "__builtins__",
     "__cached__", "__path__", "__version__", "__spec__", "__loader__",
     "__package__", "__nb_signature__", "__class_getitem__", "__orig_bases__",
     "__file__", "__dict__", "__weakref__", "__format__", "__nb_enum__",
     "__firstlineno__", "__static_attributes__", "__annotations__", "__annotate__",
-    "__annotate_func__"
+    "__annotate_func__",
+
+    # Auto-generated enum attributes. Type checkers synthesize these, so they
+    # shouldn't appear in the stubs.
+    "_new_member_", "_use_args_", "_member_names_", "_member_map_",
+    "_value2member_map_", "_unhashable_values_", "_value_repr_",
 ]
+
+# Interpreter-internal types.
+TYPES_TYPES = {
+    getattr(types, name): name for name in [
+        "MethodDescriptorType",
+        "MemberDescriptorType",
+        "ModuleType",
+    ]
+}
+
 # fmt: on
 
 # This type is used to track per-module imports (``import name as desired_name``)
@@ -552,8 +564,10 @@ class StubGen:
                 self.put_docstr(docstr)
                 if len(tp_dict):
                     self.write("\n")
+            self.apply_pattern(self.prefix + ".__prefix__", None)
             for k, v in tp_dict.items():
                 self.put(v, k, tp)
+            self.apply_pattern(self.prefix + ".__suffix__", None)
             if output_len == len(self.output):
                 self.write_ln("pass\n")
             self.depth -= 1
@@ -627,12 +641,24 @@ class StubGen:
             self.write_ln(f"{name}{types} = {value_str}\n")
 
     def is_type_var(self, tp: type) -> bool:
-        return (issubclass(tp, typing.TypeVar)
-            or (sys.version_info >= (3, 11) and issubclass(tp, typing.TypeVarTuple))
-            or (typing_extensions is not None
-            and (
-                issubclass(tp, typing_extensions.TypeVar)
-                or issubclass(tp, typing_extensions.TypeVarTuple))))
+        if issubclass(tp, typing.TypeVar):
+            return True
+        if sys.version_info >= (3, 10) and issubclass(tp, typing.ParamSpec):
+            return True
+        if sys.version_info >= (3, 11) and issubclass(tp, typing.TypeVarTuple):
+            return True
+        if typing_extensions is not None:
+            if issubclass(
+                tp,
+                (
+                    typing_extensions.TypeVar,
+                    typing_extensions.ParamSpec,
+                    typing_extensions.TypeVarTuple
+                )
+            ):
+                return True
+        return False
+
 
     def simplify_types(self, s: str) -> str:
         """
@@ -661,8 +687,7 @@ class StubGen:
         # Process nd-array type annotations so that MyPy accepts them
         s = self.ndarray_re.sub(lambda m: self._format_ndarray(m.group(2)), s)
 
-        if sys.version_info >= (3, 9, 0):
-            s = self.abc_re.sub(r'collections.abc.\1', s)
+        s = self.abc_re.sub(r'collections.abc.\1', s)
 
         # Process other type names and add suitable import statements
         def process_general(m: Match[str]) -> str:
@@ -718,6 +743,7 @@ class StubGen:
 
         if m:
             dtype = "numpy."+ m.group(1)
+            dtype = dtype.replace('bool', 'bool_')
             annotation = re.sub(r"dtype=\w+,?\s*", "", annotation).rstrip(", ")
 
         # Turn shape notation into a valid Python type expression
@@ -987,14 +1013,15 @@ class StubGen:
         complicated.
         """
         tp = type(e)
-        for t in [bool, int, type(None), type(builtins.Ellipsis)]:
-            if issubclass(tp, t):
-                return repr(e)
-        if issubclass(tp, float):
+        if issubclass(tp, (bool, int, type(None), type(builtins.Ellipsis))):
+            s = repr(e)
+            if len(s) < self.max_expr_length or not abbrev:
+                return s
+        elif issubclass(tp, float):
             s = repr(e)
             if "inf" in s or "nan" in s:
-                return f"float('{s}')"
-            else:
+                s = f"float('{s}')"
+            if len(s) < self.max_expr_length or not abbrev:
                 return s
         elif issubclass(tp, type) or typing.get_origin(e):
             return self.type_str(e)
@@ -1002,6 +1029,10 @@ class StubGen:
             return f'"{e.__forward_arg__}"'
         elif issubclass(tp, enum.Enum):
             return self.type_str(tp) + '.' + e.name
+        elif (sys.version_info >= (3, 10) and issubclass(tp, typing.ParamSpec)) \
+            or (typing_extensions is not None and issubclass(tp, typing_extensions.ParamSpec)):
+            tv = self.import_object(tp.__module__, "ParamSpec")
+            return f'{tv}("{e.__name__}")'
         elif (sys.version_info >= (3, 11) and issubclass(tp, typing.TypeVarTuple)) \
             or (typing_extensions is not None and issubclass(tp, typing_extensions.TypeVarTuple)):
             tv = self.import_object(tp.__module__, "TypeVarTuple")
@@ -1010,13 +1041,17 @@ class StubGen:
             tv = self.import_object("typing", "TypeVar")
             s = f'{tv}("{e.__name__}"'
             for v in getattr(e, "__constraints__", ()):
-                v = self.expr_str(v)
+                v = self.type_str(v)
                 assert v
                 s += ", " + v
-            for k in ["contravariant", "covariant", "bound", "infer_variance"]:
+            if v := getattr(e, "__bound__", None):
+                v = self.type_str(v)
+                assert v
+                s += ", bound=" + v
+            for k in ["contravariant", "covariant", "infer_variance"]:
                 v = getattr(e, f"__{k}__", None)
                 if v:
-                    v = self.expr_str(v)
+                    v = self.expr_str(v, abbrev=False)
                     if v is None:
                         return None
                     s += f", {k}=" + v
@@ -1139,8 +1174,10 @@ class StubGen:
                 + ", ".join(args_gen)
                 + "]"
             )
-        elif tp is types.ModuleType:
-            result = "types.ModuleType"
+        elif tp in TYPES_TYPES:
+            result = f"types.{TYPES_TYPES[tp]}"
+        elif tp is Ellipsis:
+            result = "..."
         elif isinstance(tp, type):
             result = tp.__module__ + "." + tp.__qualname__
         else:
@@ -1303,6 +1340,14 @@ def parse_options(args: List[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--exclude-values",
+        dest="exclude_values",
+        default=False,
+        action="store_true",
+        help="force the use of ... for values",
+    )
+
+    parser.add_argument(
         "-q",
         "--quiet",
         default=False,
@@ -1446,6 +1491,7 @@ def main(args: Optional[List[str]] = None) -> None:
             recursive=opt.recursive,
             include_docstrings=opt.include_docstrings,
             include_private=opt.include_private,
+            max_expr_length=0 if opt.exclude_values else 50,
             patterns=patterns,
             output_file=file
         )

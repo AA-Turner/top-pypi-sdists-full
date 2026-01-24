@@ -3,7 +3,7 @@ Type annotations for ssm-contacts service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -107,12 +108,6 @@ from .type_defs import (
     UpdateRotationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -123,15 +118,15 @@ __all__ = ("SSMContactsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DataEncryptionException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DataEncryptionException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SSMContactsClient(AioBaseClient):
@@ -169,7 +164,7 @@ class SSMContactsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#generate_presigned_url)
         """
 
-    async def accept_page(self, **kwargs: Unpack[AcceptPageRequestTypeDef]) -> Dict[str, Any]:
+    async def accept_page(self, **kwargs: Unpack[AcceptPageRequestTypeDef]) -> dict[str, Any]:
         """
         Used to acknowledge an engagement to a contact channel during an incident.
 
@@ -179,7 +174,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def activate_contact_channel(
         self, **kwargs: Unpack[ActivateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Activates a contact's contact channel.
 
@@ -232,7 +227,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def deactivate_contact_channel(
         self, **kwargs: Unpack[DeactivateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         To no longer receive Incident Manager engagements to a contact channel, you can
         deactivate the channel.
@@ -241,7 +236,7 @@ class SSMContactsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#deactivate_contact_channel)
         """
 
-    async def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> dict[str, Any]:
         """
         To remove a contact from Incident Manager, you can delete the contact.
 
@@ -251,7 +246,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def delete_contact_channel(
         self, **kwargs: Unpack[DeleteContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         To stop receiving engagements on a contact channel, you can delete the channel
         from a contact.
@@ -262,7 +257,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def delete_rotation(
         self, **kwargs: Unpack[DeleteRotationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a rotation from the system.
 
@@ -272,7 +267,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def delete_rotation_override(
         self, **kwargs: Unpack[DeleteRotationOverrideRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing override for an on-call rotation.
 
@@ -474,7 +469,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def put_contact_policy(
         self, **kwargs: Unpack[PutContactPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a resource policy to the specified contact or escalation plan.
 
@@ -484,7 +479,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def send_activation_code(
         self, **kwargs: Unpack[SendActivationCodeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sends an activation code to a contact channel.
 
@@ -504,7 +499,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def stop_engagement(
         self, **kwargs: Unpack[StopEngagementRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an engagement before it finishes the final stage of the escalation plan
         or engagement plan.
@@ -513,7 +508,7 @@ class SSMContactsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#stop_engagement)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a contact or escalation plan.
 
@@ -521,7 +516,7 @@ class SSMContactsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified resource.
 
@@ -529,7 +524,7 @@ class SSMContactsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_contacts/client/#untag_resource)
         """
 
-    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> Dict[str, Any]:
+    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the contact or escalation plan specified.
 
@@ -539,7 +534,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def update_contact_channel(
         self, **kwargs: Unpack[UpdateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a contact's contact channel.
 
@@ -549,7 +544,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def update_rotation(
         self, **kwargs: Unpack[UpdateRotationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the information specified for an on-call rotation.
 
@@ -686,7 +681,7 @@ class SSMContactsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

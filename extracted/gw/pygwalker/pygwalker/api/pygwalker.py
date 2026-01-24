@@ -1,6 +1,10 @@
+import base64
 from typing import List, Dict, Any, Optional, Union
 import urllib
 import json
+import os, sys, subprocess
+import urllib.parse
+import zlib
 
 from typing_extensions import Literal
 from duckdb import ParserException
@@ -270,7 +274,7 @@ class PygWalker:
         """
         return list(self._chart_map.keys())
 
-    def save_chart_to_file(self, chart_name: str, path: str, save_type: Literal["html", "png"] = "png"):
+    def save_chart_to_file(self, chart_name: str, path: str, save_type: Literal["html", "png", "svg"] = "png"):
         """
         Save the chart to a file.
         """
@@ -282,8 +286,12 @@ class PygWalker:
             content = self.export_chart_png(chart_name)
             write_mode = "wb"
             encoding = None
+        elif save_type == "svg":
+            content = self.export_chart_svg(chart_name)
+            write_mode = "wb"
+            encoding = None
         else:
-            raise ValueError(f"save_type must be html or png, but got {save_type}")
+            raise ValueError(f"save_type must be html, png or svg, but got {save_type}")
 
         with open(path, write_mode, encoding=encoding) as f:
             f.write(content)
@@ -306,6 +314,20 @@ class PygWalker:
 
         with urllib.request.urlopen(chart_data.single_chart) as png_string:
             return png_string.read()
+
+    def export_chart_svg(self, chart_name: str) -> bytes:
+        """Export the chart as svg bytes."""
+        chart_data = self._get_chart_by_name(chart_name)
+        if len(chart_data.charts) == 0:
+            raise ValueError(f"chart_name: {chart_name} has no svg data")
+        svg_str = chart_data.charts[0].data
+        prefix = "data:image/svg+xml;base64,"
+        if isinstance(svg_str, str) and svg_str.startswith(prefix):
+            import base64
+            return base64.b64decode(svg_str[len(prefix):])
+        if isinstance(svg_str, str):
+            return svg_str.encode("utf-8")
+        return svg_str
 
     def display_chart(self, chart_name: str, *, title: Optional[str] = None, desc: str = ""):
         """
@@ -482,9 +504,29 @@ class PygWalker:
             )
             return {"dashboardId": result["dashboard_id"], "datasetId": result["dataset_id"]}
 
+        def _open_protocol(link):
+            if sys.platform == "win32":
+                os.startfile(link)
+            else:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.call([opener, link])
+
+        def compress_data(data: str) -> str:
+            compress = zlib.compressobj(zlib.Z_BEST_COMPRESSION, zlib.DEFLATED, 15, 8, 0)
+            compressed_data = compress.compress(data.encode())
+            compressed_data += compress.flush()
+            return urllib.parse.quote(base64.b64encode(compressed_data).decode())
+
+        def open_in_desktop(data: Dict[str, Any]):
+            spec = json.dumps(data['spec'])
+            fields = json.dumps(data['fields'])
+            data = json.dumps(self.data_parser.to_records(), default=lambda obj: obj.isoformat() if hasattr(obj, 'isoformat') else str(obj))
+            _open_protocol(f"gw://import?data={compress_data(data)}&spec={compress_data(spec)}&fields={compress_data(fields)}")
+
         comm.register("get_latest_vis_spec", get_latest_vis_spec)
         comm.register("request_data", reuqest_data_callback)
         comm.register("ping", lambda _: {})
+        comm.register("open_in_desktop", open_in_desktop)
 
         if self.use_save_tool:
             comm.register("upload_spec_to_cloud", upload_spec_to_cloud)
@@ -553,6 +595,8 @@ class PygWalker:
             "specType": self.spec_type,
             "needLoadDatas": not self.kernel_computation and need_load_datas,
             "showCloudTool": self.show_cloud_tool,
+            "enableAskViz": GlobalVarManager.enable_askviz,
+            "enableVlChat": GlobalVarManager.enable_vlchat,
             "needInitChart": not self._chart_map,
             "useKernelCalc": self.kernel_computation,
             "useSaveTool": self.use_save_tool,

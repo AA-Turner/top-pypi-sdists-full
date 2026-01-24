@@ -7,10 +7,8 @@ import asyncio
 from azure.cosmos import exceptions, PartitionKey
 from azure.cosmos.aio import CosmosClient
 
+import json
 import os
-
-url = os.environ["ACCOUNT_URI"]
-key = os.environ["ACCOUNT_KEY"]
 
 
 async def examples_async():
@@ -23,6 +21,8 @@ async def examples_async():
     # create a context manager that automatically warms up, initializes, and cleans up the client, so you don't have to.
 
     # [START create_client]
+    url = os.environ["ACCOUNT_URI"]
+    key = os.environ["ACCOUNT_KEY"]
     async with CosmosClient(url, key) as client:
         # [END create_client]
 
@@ -68,13 +68,13 @@ async def examples_async():
         # if no container with the specified ID was found in the database.
         # [START get_container]
         database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
+        container_client = database.get_container_client(container_name)
         # [END get_container]
 
         # [START list_containers]
         database = client.get_database_client(database_name)
-        async for container in database.list_containers():
-            print("Container ID: {}".format(container['id']))
+        async for container_c in database.list_containers():
+            print("Container ID: {}".format(container_c['id']))
         # [END list_containers]
 
         # Insert new items by defining a dict and calling Container.upsert_item
@@ -98,12 +98,10 @@ async def examples_async():
         # The asynchronous client returns asynchronous iterators for its query methods;
         # as such, we iterate over it by using an async for loop
         # [START query_items]
-        import json
-
-        async for item in container.query_items(
+        async for queried_item in container.query_items(
                 query='SELECT * FROM products p WHERE p.productModel <> "DISCONTINUED"'
         ):
-            print(json.dumps(item, indent=True))
+            print(json.dumps(queried_item, indent=True))
         # [END query_items]
 
         # Parameterized queries are also supported. This example
@@ -113,8 +111,8 @@ async def examples_async():
             query='SELECT * FROM products p WHERE p.productModel = @model AND p.productName="Widget"',
             parameters=[dict(name="@model", value="DISCONTINUED")],
         )
-        async for item in discontinued_items:
-            print(json.dumps(item, indent=True))
+        async for discontinued_item in discontinued_items:
+            print(json.dumps(discontinued_item, indent=True))
         # [END query_items_param]
 
         # [START priority_level option]
@@ -124,27 +122,84 @@ async def examples_async():
         # then Azure Cosmos DB will throttle low priority requests to allow high priority requests to execute.
         # Can be used for Read, Write, and Query operations. This is specified with the `priority` keyword.
         # the value can either be low or high.
-        async for item in container.query_items(
+        
+        async for queried_item in container.query_items(
                 query='SELECT * FROM products p WHERE p.productModel <> "DISCONTINUED"', priority="High"
         ):
-            print(json.dumps(item, indent=True))
+            print(json.dumps(queried_item, indent=True))
         # [END priority_level option]
+
+        # [START client_level_priority]
+        # Priority can also be set at the client level, which will apply to all requests made by that client.
+        # This is useful when you want all operations from a particular client to have the same priority.
+        # The client-level priority is set during client initialization with the `priority` parameter.
+
+        # Create a client with Low priority for all requests
+        async with CosmosClient(url, key, priority="Low") as low_priority_client:
+            low_priority_database = low_priority_client.get_database_client(database_name)
+            low_priority_container = low_priority_database.get_container_client(container_name)
+
+            # Add some items to query
+            for i in range(1, 4):
+                await low_priority_container.upsert_item(
+                    dict(id="low_priority_item{}".format(i), productName="Widget", productModel="Model {}".format(i))
+                )
+
+            # All requests from this client will have Low priority by default
+            async for queried_item in low_priority_container.query_items(
+                query='SELECT * FROM products p WHERE p.productName = "Widget"'
+            ):
+                print(json.dumps(queried_item, indent=True))
+
+        # [END client_level_priority]
+
+        # [START request_priority_precedence]
+        # Request-level priority takes precedence over client-level priority.
+        # This allows you to override the default priority for specific operations.
+
+        # Create a client with Low priority
+        async with CosmosClient(url, key, priority="Low") as client_with_default_priority:
+            database_with_priority = client_with_default_priority.get_database_client(database_name)
+            container_with_priority = database_with_priority.get_container_client(container_name)
+
+            # Add items with different priority levels to the container
+            await container_with_priority.upsert_item(
+                dict(id="urgent_item1", productName="Widget", priority="Low", productModel="Low Priority Model")
+            )
+            await container_with_priority.upsert_item(
+                dict(id="normal_item1", productName="Widget", priority="High", productModel="High Priority Model")
+            )
+
+            # This query will use High priority, overriding the client's Low priority setting
+            async for important_item in container_with_priority.query_items(
+                query='SELECT * FROM products p WHERE p.priority = "High"',
+                priority="High"  # Request-level priority overrides client-level priority
+            ):
+                print(json.dumps(important_item, indent=True))
+
+            # This query will use the client's default Low priority
+            async for normal_item in container_with_priority.query_items(
+                query='SELECT * FROM products p WHERE p.priority = "Low"'
+            ):
+                print(json.dumps(normal_item, indent=True))
+
+        # [END request_priority_precedence]
 
         # Delete items from the container.
         # The Cosmos DB SQL API does not support 'DELETE' queries,
         # so deletes must be done with the delete_item method
         # on the container.
         # [START delete_items]
-        async for item in container.query_items(
+        async for queried_item in container.query_items(
                 query='SELECT * FROM products p WHERE p.productModel = "DISCONTINUED" AND p.productName="Widget"'
         ):
-            await container.delete_item(item, partition_key="Widget")
+            await container.delete_item(queried_item, partition_key="Widget")
         # [END delete_items]
 
         # Retrieve the properties of a database
         # [START get_database_properties]
-        properties = await database.read()
-        print(json.dumps(properties, indent=True))
+        read_properties = await database.read()
+        print(json.dumps(read_properties, indent=True))
         # [END get_database_properties]
 
         # Retrieve the properties of a container
@@ -209,13 +264,13 @@ async def examples_async():
                 dict(id="item{}".format(i), productName="Gadget", productModel="Model {}".format(i))
             )
         items = container.read_all_items()
-        async for item in items:
-            print(json.dumps(item, indent=True))
+        async for item_dict in items:
+            print(json.dumps(item_dict, indent=True))
         await container.delete_all_items_by_partition_key("Gadget")
         print("All items in partition {} deleted.".format("Gadget"))
         items = container.read_all_items()
-        async for item in items:
-            print(json.dumps(item, indent=True))
+        async for item_dict in items:
+            print(json.dumps(item_dict, indent=True))
         # [END delete_all_items_by_partition_key]
 
         # insert items in a subpartitioned container
@@ -248,20 +303,28 @@ async def examples_async():
         # Query the items in a container using SQL-like syntax. This example
         # gets all items whose product model hasn't been discontinued.
         # [START query_items]
-        import json
-
-        async for item in container.query_items(
+        async for queried_item in container.query_items(
                 query='SELECT * FROM location l WHERE l.state = "WA"'
         ):
-            print(json.dumps(item, indent=True))
+            print(json.dumps(queried_item, indent=True))
         # [END query_items]
 
          # [START delete_items]
-        async for item in container.query_items(
+        async for item_dict in container.query_items(
                 query='SELECT * FROM location p WHERE p.state = "GA"'
         ):
-            await container.delete_item(item, partition_key=["GA", "Atlanta", 30363])
+            await container.delete_item(item_dict, partition_key=["GA", "Atlanta", 30363])
         # [END delete_items]
+
+        # Query items with feed range is also supported. This example
+        # gets all items within the feed range.
+        # [START query_items_feed_range]
+        async for feed_range in container.read_feed_ranges():
+            async for queried_item in container.query_items(
+                    query='SELECT * from c',
+                    feed_range=feed_range):
+                print(json.dumps(queried_item, indent=True))
+        # [END query_items_param]
 
         # Get the feed ranges list from container.
         # [START read_feed_ranges]
@@ -288,16 +351,16 @@ async def examples_async():
         # The asynchronous client returns asynchronous iterators for its query methods;
         # as such, we iterate over it by using an async for loop
         # [START query_items_change_feed]
-        async for item in container.query_items_change_feed(feed_range=feed_ranges[0]):
-            print(json.dumps(item, indent=True))
+        async for queried_item in container.query_items_change_feed(feed_range=feed_ranges[0]):
+            print(json.dumps(queried_item, indent=True))
         # [END query_items_change_feed]
 
         # Query a sorted list of items that were changed for one feed range from beginning.
         # The asynchronous client returns asynchronous iterators for its query methods;
         # as such, we iterate over it by using an async for loop
         # [START query_items_change_feed_from_beginning]
-        async for item in container.query_items_change_feed(feed_range=feed_ranges[0], start_time="Beginning"):
-            print(json.dumps(item, indent=True))
+        async for queried_item in container.query_items_change_feed(feed_range=feed_ranges[0], start_time="Beginning"):
+            print(json.dumps(queried_item, indent=True))
         # [END query_items_change_feed_from_beginning]
 
         await client.delete_database(database_name)

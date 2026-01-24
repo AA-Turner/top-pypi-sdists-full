@@ -12,22 +12,22 @@
 #![expect(clippy::missing_errors_doc)]
 extern crate core;
 
-pub mod pydatetime_conversions;
-
 mod api;
 mod civil;
 mod constants;
 mod deprecations;
 mod dev;
 mod difference;
-mod errors;
+mod from;
+mod from_str;
 mod functions;
 mod interns;
-mod into_span_arithmetic;
 mod isoformat;
 mod jiff_types;
+mod py_temporal_like;
 #[cfg(feature = "pydantic")]
 mod pydantic;
+pub mod pydatetime_conversions;
 mod round;
 mod ry_date;
 mod ry_datetime;
@@ -44,7 +44,6 @@ mod ry_zoned;
 #[cfg(feature = "serde")]
 mod serde;
 mod series;
-mod span_relative_to;
 mod spanish;
 mod test;
 mod tz;

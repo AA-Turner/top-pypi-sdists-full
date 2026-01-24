@@ -18,26 +18,21 @@ from .auth import (
 )
 from .authorization_request import (
     AuthorizationRequest,
-    AuthorizationRequestSerializer,
     AuthorizationResponse,
-    CodeChallengeMethods,
     InvalidCodeVerifierParam,
     InvalidMaxAgeParam,
     MissingIssuerParam,
     PkceUtils,
     RequestParameterAuthorizationRequest,
     RequestUriParameterAuthorizationRequest,
-    ResponseTypes,
     UnsupportedCodeChallengeMethod,
     UnsupportedResponseTypeParam,
 )
 from .backchannel_authentication import (
-    BackChannelAuthenticationPoolingJob,
+    BackChannelAuthenticationPollingJob,
     BackChannelAuthenticationResponse,
 )
 from .client import (
-    Endpoints,
-    GrantTypes,
     InvalidAcrValuesParam,
     InvalidBackchannelAuthenticationRequestHintParam,
     InvalidDiscoveryDocument,
@@ -67,8 +62,13 @@ from .client_authentication import (
     PublicApp,
     UnsupportedClientCredentials,
 )
-from .device_authorization import (
+from .deprecated import (  # type: ignore[attr-defined]
+    BackChannelAuthenticationPoolingJob,
+    BaseTokenEndpointPoolingJob,
     DeviceAuthorizationPoolingJob,
+)
+from .device_authorization import (
+    DeviceAuthorizationPollingJob,
     DeviceAuthorizationResponse,
 )
 from .discovery import (
@@ -88,6 +88,7 @@ from .dpop import (
     RepeatedDPoPNonce,
     validate_dpop_proof,
 )
+from .enums import CodeChallengeMethods, Endpoints, GrantTypes, ResponseTypes
 from .exceptions import (
     AccessDenied,
     AccountSelectionRequired,
@@ -127,12 +128,12 @@ from .exceptions import (
     UnsupportedTokenType,
     UseDPoPNonce,
 )
-from .pooling import (
-    BaseTokenEndpointPoolingJob,
+from .polling import (
+    BaseTokenEndpointPollingJob,
 )
+from .serializers import AuthorizationRequestSerializer, TokenSerializer
 from .tokens import (
     BearerToken,
-    BearerTokenSerializer,
     ExpiredAccessToken,
     ExpiredIdToken,
     IdToken,
@@ -161,13 +162,14 @@ __all__ = [
     "AuthorizationResponse",
     "AuthorizationResponseError",
     "BackChannelAuthenticationError",
+    "BackChannelAuthenticationPollingJob",
     "BackChannelAuthenticationPoolingJob",
     "BackChannelAuthenticationResponse",
     "BaseClientAssertionAuthenticationMethod",
     "BaseClientAuthenticationMethod",
+    "BaseTokenEndpointPollingJob",
     "BaseTokenEndpointPoolingJob",
     "BearerToken",
-    "BearerTokenSerializer",
     "ClientSecretBasic",
     "ClientSecretJwt",
     "ClientSecretPost",
@@ -176,6 +178,7 @@ __all__ = [
     "DPoPKey",
     "DPoPToken",
     "DeviceAuthorizationError",
+    "DeviceAuthorizationPollingJob",
     "DeviceAuthorizationPoolingJob",
     "DeviceAuthorizationResponse",
     "EncryptionAlgs",
@@ -259,6 +262,7 @@ __all__ = [
     "SignatureAlgs",
     "SlowDown",
     "TokenEndpointError",
+    "TokenSerializer",
     "UnauthorizedClient",
     "UnknownActorTokenType",
     "UnknownIntrospectionError",

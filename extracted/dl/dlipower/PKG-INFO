@@ -1,0 +1,121 @@
+Metadata-Version: 1.1
+Name: dlipower
+Version: 1.0.176
+Summary: Control digital loggers web power switch
+Home-page: https://github.com/dwighthubbard/python-dlipower/
+Author: Dwight Hubbard
+Author-email: dwight@dwighthubbard.com
+License: BSD
+Description: Digital Loggers Network Power Switch Python Module
+        **************************************************
+        
+        .. image:: https://img.shields.io/travis/dwighthubbard/python-dlipower.svg
+            :target: https://travis-ci.org/dwighthubbard/python-dlipower
+        
+        .. image:: https://img.shields.io/coveralls/dwighthubbard/python-dlipower.svg
+          :target: https://coveralls.io/r/dwighthubbard/python-dlipower
+        
+        .. image:: https://img.shields.io/pypi/v/dlipower.svg
+            :target: https://pypi.python.org/pypi/dlipower/
+        
+        .. image:: https://img.shields.io/badge/python-3.4,3.5,3.6-blue.svg
+            :target: https://pypi.python.org/pypi/dlipower/
+        
+        .. image:: https://img.shields.io/pypi/l/dlipower.svg
+            :target: https://pypi.python.org/pypi/dlipower/
+        
+        .. image:: https://readthedocs.org/projects/dlipower/badge/?version=latest
+            :target: http://dlipower.readthedocs.org/en/latest/
+            :alt: Documentation Status
+        
+        
+        DESCRIPTION
+        ===========
+        This is a python module and a script to mange the 
+        Digital Loggers Web Power switch.
+                      
+        The module provides a python class named
+        PowerSwitch that allows managing the web power
+        switch from python programs.
+        
+        When run as a script this acts as a command
+        line utility to manage the DLI Power switch.
+        
+        
+        SUPPORTED DEVICES
+        =================
+        This module has been tested against the following 
+        Digital Loggers Power network power switches:
+        
+        * ProSwitch
+        * WebPowerSwitch II
+        * WebPowerSwitch III
+        * WebPowerSwitch IV
+        * WebPowerSwitch V
+        * Ethernet Power Controller III
+        
+        
+        Example
+        =======
+        
+        .. code-block:: python
+        
+            import dlipower
+        
+            print('Connecting to a DLI PowerSwitch at lpc.digital-loggers.com')
+            switch = dlipower.PowerSwitch(hostname="lpc.digital-loggers.com", userid="admin")
+        
+            print('Turning off the first outlet')
+            switch.off(1)
+        
+            print('The powerstate of the first outlet is currently', switch[0].state)
+        
+            print('Renaming the first outlet as "Traffic light"')
+            switch[0].name = 'Traffic light'
+        
+            print('The current status of the powerswitch is:')
+            print(switch)
+        
+            Connecting to a DLI PowerSwitch at lpc.digital-loggers.com
+            Turning off the first outlet
+            The powerstate of the first outlet is currently OFF
+            Renaming the first outlet as "Traffic light"
+            The current status of the powerswitch is:
+            DLIPowerSwitch at lpc.digital-loggers.com
+            Outlet	Hostname       	State
+            1	Traffic light  	OFF
+            2	killer robot   	ON
+            3	Buiten verlicti	ON
+            4	Meeting Room Li	OFF
+            5	Brocade LVM123 	ON
+            6	Shoretel ABC123	ON
+            7	Shortel 24V - T	ON
+            8	Shortel 24V - T	ON
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: POSIX :: SunOS/Solaris
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Hardware :: Hardware Drivers
+Classifier: Topic :: System :: Power (UPS)
+Requires: six
+Requires: requests
+Requires: beautifulsoup4

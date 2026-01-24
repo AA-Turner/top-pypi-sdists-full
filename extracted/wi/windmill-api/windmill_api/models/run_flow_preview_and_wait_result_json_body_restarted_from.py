@@ -15,17 +15,20 @@ class RunFlowPreviewAndWaitResultJsonBodyRestartedFrom:
         flow_job_id (Union[Unset, str]):
         step_id (Union[Unset, str]):
         branch_or_iteration_n (Union[Unset, int]):
+        flow_version (Union[Unset, int]):
     """
 
     flow_job_id: Union[Unset, str] = UNSET
     step_id: Union[Unset, str] = UNSET
     branch_or_iteration_n: Union[Unset, int] = UNSET
+    flow_version: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         flow_job_id = self.flow_job_id
         step_id = self.step_id
         branch_or_iteration_n = self.branch_or_iteration_n
+        flow_version = self.flow_version
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,6 +39,8 @@ class RunFlowPreviewAndWaitResultJsonBodyRestartedFrom:
             field_dict["step_id"] = step_id
         if branch_or_iteration_n is not UNSET:
             field_dict["branch_or_iteration_n"] = branch_or_iteration_n
+        if flow_version is not UNSET:
+            field_dict["flow_version"] = flow_version
 
         return field_dict
 
@@ -48,10 +53,13 @@ class RunFlowPreviewAndWaitResultJsonBodyRestartedFrom:
 
         branch_or_iteration_n = d.pop("branch_or_iteration_n", UNSET)
 
+        flow_version = d.pop("flow_version", UNSET)
+
         run_flow_preview_and_wait_result_json_body_restarted_from = cls(
             flow_job_id=flow_job_id,
             step_id=step_id,
             branch_or_iteration_n=branch_or_iteration_n,
+            flow_version=flow_version,
         )
 
         run_flow_preview_and_wait_result_json_body_restarted_from.additional_properties = d

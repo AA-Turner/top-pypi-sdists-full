@@ -9,7 +9,6 @@ def bmesh_linked_uv_islands(bm, uv_layer) -> list[list[int]]:
     :param bm: the bmesh used to group with.
     :param uv_layer: the UV layer to source UVs from.
     :return: list of lists containing polygon indices
-    :rtype: list[list[int]]
     """
 
 def match_uv(face, vert, uv, uv_layer) -> None: ...

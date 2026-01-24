@@ -12,7 +12,7 @@ import time
 import pytest
 from pyshortcuts import (make_shortcut, platform, Shortcut, get_folders,
                         fix_filename, fix_varname, gformat, isotime,
-                        get_homedir, get_desktop)
+                        get_homedir, get_desktop, pathname, read_textfile)
 
 folders = get_folders()
 root = Path(__file__).parent.parent.as_posix()
@@ -66,7 +66,6 @@ def test_isotime():
     assert len(isotime(t1)) > 13
 
 def test_gformat():
-
     base = 7.54562
     ntest, nfail = 0, 0
     xmin, xmax  = 1.e300, -1e300
@@ -86,7 +85,26 @@ def test_gformat():
                 for xlen in LVALUES:
                     ntest += 1
                     assert xlen == len(gformat(x, length=xlen))
-    print(f"GFORMAT tested {ntest} cases")
+
+def test_pathname():
+    path1 = b"filename.001"
+    path2 = "xλ.002"
+    path3 = Path('filename.002')
+    for p in (path1, path2, path3):
+        assert len(pathname(p)) > 3
+
+def test_read_textfile():
+    fname = 'textfile.dat'
+    out = read_textfile(fname)
+    assert len(out) > 15
+    assert isinstance(out, str)
+
+    fstream = open('textfile.dat', 'r')
+    out = read_textfile(fstream)
+    assert len(out) > 15
+    assert isinstance(out, str)
+
+
 
 
 if __name__ == '__main__':
@@ -98,3 +116,5 @@ if __name__ == '__main__':
     test_get_desktop()
     test_isotime()
     test_gformat()
+    test_pathname()
+    test_read_textfile()

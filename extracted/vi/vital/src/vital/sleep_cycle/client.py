@@ -57,8 +57,16 @@ class SleepCycleClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.sleep_cycle.get(user_id='user_id', start_date='start_date', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.sleep_cycle.get(
+            user_id="user_id",
+            start_date="start_date",
+            end_date="end_date",
+            provider="provider",
+        )
         """
         _response = self._raw_client.get(
             user_id, start_date=start_date, end_date=end_date, provider=provider, request_options=request_options
@@ -114,11 +122,24 @@ class AsyncSleepCycleClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.sleep_cycle.get(user_id='user_id', start_date='start_date', )
+            await client.sleep_cycle.get(
+                user_id="user_id",
+                start_date="start_date",
+                end_date="end_date",
+                provider="provider",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get(

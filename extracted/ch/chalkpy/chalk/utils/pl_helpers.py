@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import itertools
+import zoneinfo
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Iterator, TypeVar
+from typing import TYPE_CHECKING, Any, Iterator, TypeGuard, TypeVar, overload
 
 import pyarrow as pa
-import zoneinfo
 from packaging.version import parse
-from typing_extensions import TypeGuard
 
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
@@ -27,6 +26,13 @@ except ImportError:
     json_loads = json.loads
 
 
+def json_loads_as_str(x: str | None):
+    if x is None:
+        return None
+    x = json_loads(x)
+    return x if x is None else str(x)
+
+
 def is_version_gte(version: str, target: str) -> bool:
     return parse(version) >= parse(target)
 
@@ -36,9 +42,46 @@ try:
 
     is_new_polars = is_version_gte(pl.__version__, "0.18.0")
     polars_has_pad_start = is_version_gte(pl.__version__, "0.19.12")
+    polars_array_uses_shape = is_version_gte(pl.__version__, "1.0.0")
+    polars_uses_schema_overrides = is_version_gte(pl.__version__, "0.20.31")
+    polars_join_ignores_nulls = is_version_gte(pl.__version__, "0.20.0")
+    polars_broken_concat_on_nested_list = is_version_gte(pl.__version__, "1.0.0")
+    polars_group_by_instead_of_groupby = is_version_gte(pl.__version__, "1.0.0")
+    polars_name_dot_suffix_instead_of_suffix = is_version_gte(pl.__version__, "1.0.0")
+    polars_lazy_frame_collect_schema = is_version_gte(pl.__version__, "1.0.0")
+    polars_allow_lit_empty_struct = is_version_gte(pl.__version__, "1.0.0")
 except ImportError:
     is_new_polars = False
     polars_has_pad_start = False
+    polars_array_uses_shape = False
+    polars_uses_schema_overrides = False
+    polars_join_ignores_nulls = False
+    polars_broken_concat_on_nested_list = False
+    polars_group_by_instead_of_groupby = False
+    polars_name_dot_suffix_instead_of_suffix = False
+    polars_lazy_frame_collect_schema = False
+    polars_allow_lit_empty_struct = False
+
+
+def pl_array(inner: pl.PolarsDataType, size: int) -> pl.Array:
+    """Create a Polars Array type with version-compatible parameter names.
+
+    Args:
+        inner: The inner data type of the array
+        size: The fixed size of the array
+
+    Returns:
+        A Polars Array type
+    """
+    try:
+        import polars as pl
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+
+    if polars_array_uses_shape:
+        return pl.Array(inner=inner, shape=size)
+    else:
+        return pl.Array(inner=inner, width=size)  # type: ignore[call-arg]
 
 
 def chunked_df_slices(df: pl.LazyFrame | pl.DataFrame, chunk_size: int) -> Iterator[pl.DataFrame]:
@@ -100,13 +143,13 @@ def pl_datetime_to_iso_string(expr: pl.Expr, tz_key: str | None) -> pl.Expr:
     else:
         return pl.format(
             "{}-{}-{}T{}:{}:{}.{}" + timezone,
-            expr.dt.year().cast(pl.Utf8).str.rjust(4, "0"),
-            expr.dt.month().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.day().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.hour().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.minute().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.second().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.microsecond().cast(pl.Utf8).str.rjust(6, "0"),
+            expr.dt.year().cast(pl.Utf8).str.rjust(4, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.month().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.day().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.hour().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.minute().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.second().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.microsecond().cast(pl.Utf8).str.rjust(6, "0"),  # pyright: ignore -- polars backcompat
         )
 
 
@@ -126,9 +169,9 @@ def pl_date_to_iso_string(expr: pl.Expr) -> pl.Expr:
     else:
         return pl.format(
             "{}-{}-{}",
-            expr.dt.year().cast(pl.Utf8).str.rjust(4, "0"),
-            expr.dt.month().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.day().cast(pl.Utf8).str.rjust(2, "0"),
+            expr.dt.year().cast(pl.Utf8).str.rjust(4, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.month().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.day().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
         )
 
 
@@ -149,21 +192,39 @@ def pl_time_to_iso_string(expr: pl.Expr) -> pl.Expr:
     else:
         return pl.format(
             "{}:{}:{}.{}",
-            expr.dt.hour().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.minute().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.second().cast(pl.Utf8).str.rjust(2, "0"),
-            expr.dt.microsecond().cast(pl.Utf8).str.rjust(6, "0"),
+            expr.dt.hour().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.minute().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.second().cast(pl.Utf8).str.rjust(2, "0"),  # pyright: ignore -- polars backcompat
+            expr.dt.microsecond().cast(pl.Utf8).str.rjust(6, "0"),  # pyright: ignore -- polars backcompat
         )
 
 
-def pl_json_decode(series: pl.Series, dtype: pl.PolarsDataType | None = None) -> pl.Series:
+def pl_dtype_swap(dtype: pl.PolarsDataType, _from: pl.PolarsDataType, to: pl.PolarsDataType) -> pl.PolarsDataType:
+    if isinstance(dtype, _from):
+        return to
+    if isinstance(dtype, pl.List):
+        return pl.List(inner=pl_dtype_swap(dtype.inner, _from, to))
+    if isinstance(dtype, pl.Struct):
+        return pl.Struct(
+            {field_name: pl_dtype_swap(field_dtype, _from, to) for field_name, field_dtype in dtype.to_schema().items()}
+        )
+    return dtype
+
+
+def pl_json_decode(series: pl.Series, dtype: pl.PolarsDataType) -> pl.Series:
     if is_new_polars:
-        decoded_series = series.map_elements(json_loads, return_dtype=dtype)  # pyright: ignore -- polars backcompat
+        swapped_dtype = pl_dtype_swap(dtype, pl.Binary, pl.Utf8)
+        if swapped_dtype == pl.Utf8:
+            decoded_series = series.map_elements(json_loads_as_str, return_dtype=swapped_dtype).cast(
+                dtype
+            )  # pyright: ignore -- polars backcompat
+        else:
+            decoded_series = series.map_elements(json_loads, return_dtype=swapped_dtype).cast(
+                dtype
+            )  # pyright: ignore -- polars backcompat
     else:
-        decoded_series = series.apply(json_loads, return_dtype=dtype)
-    if dtype is not None:
-        # Special case -- for nested dtypes polars doesn't always respect the return_dtype
-        decoded_series = decoded_series.cast(dtype)
+        decoded_series = series.apply(json_loads, return_dtype=dtype)  # pyright: ignore -- polars backcompat
+    decoded_series = decoded_series.cast(dtype)
     return decoded_series
 
 
@@ -174,19 +235,33 @@ def pl_duration_to_iso_string(expr: pl.Expr) -> pl.Expr:
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
-    return pl.format(
-        "{}P{}DT{}H{}M{}.{}S",
-        pl.when(expr.dt.microseconds() < 0).then(pl.lit("-")).otherwise(pl.lit("")),
-        expr.dt.days().abs().cast(pl.Utf8),
-        (expr.dt.hours().abs() % 24).cast(pl.Utf8),
-        (expr.dt.minutes().abs() % 60).cast(pl.Utf8),
-        (expr.dt.seconds().abs() % 60).cast(pl.Utf8),
-        (expr.dt.microseconds().abs() % 1_000_000)
-        .cast(pl.Utf8)
-        .str.pad_start(6, "0")  # pyright: ignore -- polars backcompat
-        if is_new_polars
-        else (expr.dt.microseconds().abs() % 1_000_000).cast(pl.Utf8).str.rjust(6, "0"),
-    )
+    try:
+        return pl.format(
+            "{}P{}DT{}H{}M{}.{}S",
+            pl.when(expr.dt.microseconds() < 0)  # pyright: ignore -- polars backcompat
+            .then(pl.lit("-"))
+            .otherwise(pl.lit("")),  # pyright: ignore -- polars backcompat
+            expr.dt.days().abs().cast(pl.Utf8),  # pyright: ignore -- polars backcompat
+            (expr.dt.hours().abs() % 24).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
+            (expr.dt.minutes().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
+            (expr.dt.seconds().abs() % 60).cast(pl.Utf8),  # pyright: ignore -- polars backcompat
+            (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
+            .cast(pl.Utf8)
+            .str.pad_start(6, "0")  # pyright: ignore -- polars backcompat
+            if is_new_polars
+            else (expr.dt.microseconds().abs() % 1_000_000)  # pyright: ignore -- polars backcompat
+            .cast(pl.Utf8)
+            .str.rjust(6, "0"),  # pyright: ignore -- polars backcompat
+        )
+    except AttributeError:
+        return (
+            pl.format("{}P{}DT{}H{}M{}.{}S", expr.dt.total_microseconds().abs() % 1_000_000)
+            .cast(pl.Utf8)
+            .str.pad_start(
+                6,
+                "0",
+            )
+        )
 
 
 def pl_json_encode(expr: pl.Expr, dtype: pl.PolarsDataType):
@@ -374,7 +449,7 @@ def _json_encode_inner(expr: pl.Expr, dtype: pl.PolarsDataType) -> pl.Expr:
                     _backup_json_encode, return_dtype=pl.Utf8
                 )
             else:
-                return expr.apply(_backup_json_encode, return_dtype=pl.Utf8)
+                return expr.apply(_backup_json_encode, return_dtype=pl.Utf8)  # pyright: ignore -- polars backcompat
         expr = expr.fill_null([])
         lists_with_extra_none = (
             expr.list.concat(pl.lit(None))  # pyright: ignore -- back compat
@@ -469,3 +544,81 @@ def recursively_has_struct(dtype: pa.DataType) -> bool:
         assert isinstance(dtype, pa.MapType)
         return recursively_has_struct(dtype.key_type) or recursively_has_struct(dtype.item_type)
     return False
+
+
+def apply_compat(
+    expr: "pl.Expr",
+    function: Any,
+    return_dtype: "pl.PolarsDataType | None" = None,
+    **kwargs: Any,
+) -> "pl.Expr":
+    """
+    Apply a custom function to an expression in a version-compatible way.
+
+    In Polars >= 0.19, expr.apply() was deprecated in favor of expr.map_elements().
+    This function provides compatibility between versions.
+
+    Args:
+        expr: The Polars expression to apply the function to
+        function: The function to apply to each element
+        return_dtype: The return data type for the expression (optional)
+        **kwargs: Additional keyword arguments to pass to the underlying method
+
+    Returns:
+        A Polars expression with the function applied
+
+    Example:
+        >>> import polars as pl
+        >>> from chalkengine.utils.polars_compat_util import apply_compat
+        >>> df = pl.DataFrame({"a": [1, 2, 3]})
+        >>> df.select(apply_compat(pl.col("a"), lambda x: x * 2))
+    """
+    # Build kwargs for the call
+    call_kwargs = kwargs.copy()
+    if return_dtype is not None:
+        call_kwargs["return_dtype"] = return_dtype
+
+    try:
+        # Try newer API first: map_elements()
+        return expr.map_elements(function, **call_kwargs)  # type: ignore
+    except AttributeError:
+        # Fall back to older API: apply()
+        return expr.apply(function, **call_kwargs)  # type: ignore
+
+
+@overload
+def str_json_decode_compat(expr: "pl.Expr", dtype: "pl.PolarsDataType") -> "pl.Expr":
+    ...
+
+
+@overload
+def str_json_decode_compat(expr: "pl.Series", dtype: "pl.PolarsDataType") -> "pl.Series":
+    ...
+
+
+def str_json_decode_compat(expr: "pl.Expr | pl.Series", dtype: "pl.PolarsDataType") -> "pl.Expr | pl.Series":
+    """
+    Parse/decode JSON strings in a version-compatible way.
+
+    In newer Polars versions (>= 1.0), str.json_extract() was renamed to str.json_decode().
+    This function provides compatibility between versions.
+
+    Args:
+        expr: The Polars expression containing JSON strings to parse
+        dtype: The Polars data type to extract to
+
+    Returns:
+        A Polars expression that parses the JSON strings
+    """
+    try:
+        # Try newer API first: str.json_decode()
+        return expr.str.json_decode(dtype=dtype)  # type: ignore
+    except AttributeError:
+        # Fall back to older API: str.json_extract()
+        return expr.str.json_extract(dtype=dtype)  # type: ignore
+
+
+def schema_compat(df: "pl.DataFrame | pl.LazyFrame"):
+    if polars_lazy_frame_collect_schema and isinstance(df, pl.LazyFrame):
+        return df.collect_schema()
+    return df.schema

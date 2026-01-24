@@ -440,7 +440,7 @@ class TaskApi:
         # process the body parameter
         _body_params = None
 
-        if _params["task"]:
+        if _params["task"] is not None:
             _body_params = _params["task"]
 
         # set the HTTP header `Accept`
@@ -751,7 +751,7 @@ class TaskApi:
         # process the body parameter
         _body_params = None
 
-        if _params["task"]:
+        if _params["task"] is not None:
             _body_params = _params["task"]
 
         # set the HTTP header `Accept`

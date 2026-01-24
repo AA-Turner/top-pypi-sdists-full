@@ -18,7 +18,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.table import Table
+from rich.table import Column, Table
 
 from anyscale.cli_logger import LogsLogger
 from anyscale.client.openapi_client.models import (
@@ -283,7 +283,7 @@ class CloudFunctionalVerificationController(BaseController):
                     False, f"[bold red]Failed to create workspace: {e}"
                 )
                 return False
-            url = get_endpoint(f"/workspaces/{workspace.id}/{workspace.cluster_id}")
+            url = get_endpoint(f"/workspaces/{workspace.id}")
             create_workspace_task.update(
                 True, f"[bold green]Workspace created at {url}"
             )
@@ -756,7 +756,10 @@ class CloudFunctionalVerificationController(BaseController):
         for function in functions_to_verify:
             progress_table = Table.grid(expand=True)
             step_progress = Progress(
-                TimeElapsedColumn(), TextColumn("{task.description}"),
+                TextColumn(
+                    "{task.description}",
+                    table_column=Column(no_wrap=False, overflow="fold"),
+                ),
             )
             self.step_progress[function] = step_progress
             event_log_table = Table(box=None)

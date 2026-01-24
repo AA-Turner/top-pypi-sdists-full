@@ -41,207 +41,179 @@ class V1Job(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'cloudspace_id': 'str',
-        'cluster_id': 'str',
-        'command': 'str',
         'created_at': 'datetime',
+        'deleted_at': 'datetime',
+        'deployment_id': 'str',
         'endpoint': 'V1Endpoint',
-        'entrypoint': 'str',
-        'env': 'list[V1EnvVar]',
         'id': 'str',
-        'image': 'str',
-        'instance_name': 'str',
-        'instance_type': 'str',
+        'interruption_notice_received': 'bool',
+        'interruption_notice_received_at': 'datetime',
+        'is_healthy': 'bool',
         'message': 'str',
+        'multi_machine_job_id': 'str',
         'name': 'str',
+        'overprovisioned': 'bool',
+        'pipeline_id': 'str',
+        'private_ip_address': 'str',
         'project_id': 'str',
-        'resources': 'V1Resources',
-        'restart_policy': 'str',
-        'run_id': 'str',
-        'skip_data_connections_setup': 'bool',
-        'skip_filesystem_setup': 'bool',
-        'spot': 'bool',
+        'public_ip_address': 'str',
+        'ready_at': 'datetime',
+        'release_id': 'str',
+        'restart_count': 'int',
+        'restart_timings': 'list[V1RestartTiming]',
+        'server_error': 'str',
+        'spec': 'V1JobSpec',
         'started_at': 'datetime',
         'state': 'str',
         'stopped_at': 'datetime',
+        'timings': 'dict(str, V1JobTiming)',
+        'total_cost': 'float',
+        'total_size_bytes': 'str',
         'updated_at': 'datetime',
         'urls': 'list[str]',
-        'user_id': 'str'
+        'user_id': 'str',
+        'user_logs_started_at': 'datetime',
+        'visibility': 'V1ResourceVisibility'
     }
 
     attribute_map = {
-        'cloudspace_id': 'cloudspaceId',
-        'cluster_id': 'clusterId',
-        'command': 'command',
         'created_at': 'createdAt',
+        'deleted_at': 'deletedAt',
+        'deployment_id': 'deploymentId',
         'endpoint': 'endpoint',
-        'entrypoint': 'entrypoint',
-        'env': 'env',
         'id': 'id',
-        'image': 'image',
-        'instance_name': 'instanceName',
-        'instance_type': 'instanceType',
+        'interruption_notice_received': 'interruptionNoticeReceived',
+        'interruption_notice_received_at': 'interruptionNoticeReceivedAt',
+        'is_healthy': 'isHealthy',
         'message': 'message',
+        'multi_machine_job_id': 'multiMachineJobId',
         'name': 'name',
+        'overprovisioned': 'overprovisioned',
+        'pipeline_id': 'pipelineId',
+        'private_ip_address': 'privateIpAddress',
         'project_id': 'projectId',
-        'resources': 'resources',
-        'restart_policy': 'restartPolicy',
-        'run_id': 'runId',
-        'skip_data_connections_setup': 'skipDataConnectionsSetup',
-        'skip_filesystem_setup': 'skipFilesystemSetup',
-        'spot': 'spot',
+        'public_ip_address': 'publicIpAddress',
+        'ready_at': 'readyAt',
+        'release_id': 'releaseId',
+        'restart_count': 'restartCount',
+        'restart_timings': 'restartTimings',
+        'server_error': 'serverError',
+        'spec': 'spec',
         'started_at': 'startedAt',
         'state': 'state',
         'stopped_at': 'stoppedAt',
+        'timings': 'timings',
+        'total_cost': 'totalCost',
+        'total_size_bytes': 'totalSizeBytes',
         'updated_at': 'updatedAt',
         'urls': 'urls',
-        'user_id': 'userId'
+        'user_id': 'userId',
+        'user_logs_started_at': 'userLogsStartedAt',
+        'visibility': 'visibility'
     }
 
-    def __init__(self, cloudspace_id: 'str' =None, cluster_id: 'str' =None, command: 'str' =None, created_at: 'datetime' =None, endpoint: 'V1Endpoint' =None, entrypoint: 'str' =None, env: 'list[V1EnvVar]' =None, id: 'str' =None, image: 'str' =None, instance_name: 'str' =None, instance_type: 'str' =None, message: 'str' =None, name: 'str' =None, project_id: 'str' =None, resources: 'V1Resources' =None, restart_policy: 'str' =None, run_id: 'str' =None, skip_data_connections_setup: 'bool' =None, skip_filesystem_setup: 'bool' =None, spot: 'bool' =None, started_at: 'datetime' =None, state: 'str' =None, stopped_at: 'datetime' =None, updated_at: 'datetime' =None, urls: 'list[str]' =None, user_id: 'str' =None):  # noqa: E501
+    def __init__(self, created_at: 'datetime' =None, deleted_at: 'datetime' =None, deployment_id: 'str' =None, endpoint: 'V1Endpoint' =None, id: 'str' =None, interruption_notice_received: 'bool' =None, interruption_notice_received_at: 'datetime' =None, is_healthy: 'bool' =None, message: 'str' =None, multi_machine_job_id: 'str' =None, name: 'str' =None, overprovisioned: 'bool' =None, pipeline_id: 'str' =None, private_ip_address: 'str' =None, project_id: 'str' =None, public_ip_address: 'str' =None, ready_at: 'datetime' =None, release_id: 'str' =None, restart_count: 'int' =None, restart_timings: 'list[V1RestartTiming]' =None, server_error: 'str' =None, spec: 'V1JobSpec' =None, started_at: 'datetime' =None, state: 'str' =None, stopped_at: 'datetime' =None, timings: 'dict(str, V1JobTiming)' =None, total_cost: 'float' =None, total_size_bytes: 'str' =None, updated_at: 'datetime' =None, urls: 'list[str]' =None, user_id: 'str' =None, user_logs_started_at: 'datetime' =None, visibility: 'V1ResourceVisibility' =None):  # noqa: E501
         """V1Job - a model defined in Swagger"""  # noqa: E501
-        self._cloudspace_id = None
-        self._cluster_id = None
-        self._command = None
         self._created_at = None
+        self._deleted_at = None
+        self._deployment_id = None
         self._endpoint = None
-        self._entrypoint = None
-        self._env = None
         self._id = None
-        self._image = None
-        self._instance_name = None
-        self._instance_type = None
+        self._interruption_notice_received = None
+        self._interruption_notice_received_at = None
+        self._is_healthy = None
         self._message = None
+        self._multi_machine_job_id = None
         self._name = None
+        self._overprovisioned = None
+        self._pipeline_id = None
+        self._private_ip_address = None
         self._project_id = None
-        self._resources = None
-        self._restart_policy = None
-        self._run_id = None
-        self._skip_data_connections_setup = None
-        self._skip_filesystem_setup = None
-        self._spot = None
+        self._public_ip_address = None
+        self._ready_at = None
+        self._release_id = None
+        self._restart_count = None
+        self._restart_timings = None
+        self._server_error = None
+        self._spec = None
         self._started_at = None
         self._state = None
         self._stopped_at = None
+        self._timings = None
+        self._total_cost = None
+        self._total_size_bytes = None
         self._updated_at = None
         self._urls = None
         self._user_id = None
+        self._user_logs_started_at = None
+        self._visibility = None
         self.discriminator = None
-        if cloudspace_id is not None:
-            self.cloudspace_id = cloudspace_id
-        if cluster_id is not None:
-            self.cluster_id = cluster_id
-        if command is not None:
-            self.command = command
         if created_at is not None:
             self.created_at = created_at
+        if deleted_at is not None:
+            self.deleted_at = deleted_at
+        if deployment_id is not None:
+            self.deployment_id = deployment_id
         if endpoint is not None:
             self.endpoint = endpoint
-        if entrypoint is not None:
-            self.entrypoint = entrypoint
-        if env is not None:
-            self.env = env
         if id is not None:
             self.id = id
-        if image is not None:
-            self.image = image
-        if instance_name is not None:
-            self.instance_name = instance_name
-        if instance_type is not None:
-            self.instance_type = instance_type
+        if interruption_notice_received is not None:
+            self.interruption_notice_received = interruption_notice_received
+        if interruption_notice_received_at is not None:
+            self.interruption_notice_received_at = interruption_notice_received_at
+        if is_healthy is not None:
+            self.is_healthy = is_healthy
         if message is not None:
             self.message = message
+        if multi_machine_job_id is not None:
+            self.multi_machine_job_id = multi_machine_job_id
         if name is not None:
             self.name = name
+        if overprovisioned is not None:
+            self.overprovisioned = overprovisioned
+        if pipeline_id is not None:
+            self.pipeline_id = pipeline_id
+        if private_ip_address is not None:
+            self.private_ip_address = private_ip_address
         if project_id is not None:
             self.project_id = project_id
-        if resources is not None:
-            self.resources = resources
-        if restart_policy is not None:
-            self.restart_policy = restart_policy
-        if run_id is not None:
-            self.run_id = run_id
-        if skip_data_connections_setup is not None:
-            self.skip_data_connections_setup = skip_data_connections_setup
-        if skip_filesystem_setup is not None:
-            self.skip_filesystem_setup = skip_filesystem_setup
-        if spot is not None:
-            self.spot = spot
+        if public_ip_address is not None:
+            self.public_ip_address = public_ip_address
+        if ready_at is not None:
+            self.ready_at = ready_at
+        if release_id is not None:
+            self.release_id = release_id
+        if restart_count is not None:
+            self.restart_count = restart_count
+        if restart_timings is not None:
+            self.restart_timings = restart_timings
+        if server_error is not None:
+            self.server_error = server_error
+        if spec is not None:
+            self.spec = spec
         if started_at is not None:
             self.started_at = started_at
         if state is not None:
             self.state = state
         if stopped_at is not None:
             self.stopped_at = stopped_at
+        if timings is not None:
+            self.timings = timings
+        if total_cost is not None:
+            self.total_cost = total_cost
+        if total_size_bytes is not None:
+            self.total_size_bytes = total_size_bytes
         if updated_at is not None:
             self.updated_at = updated_at
         if urls is not None:
             self.urls = urls
         if user_id is not None:
             self.user_id = user_id
-
-    @property
-    def cloudspace_id(self) -> 'str':
-        """Gets the cloudspace_id of this V1Job.  # noqa: E501
-
-
-        :return: The cloudspace_id of this V1Job.  # noqa: E501
-        :rtype: str
-        """
-        return self._cloudspace_id
-
-    @cloudspace_id.setter
-    def cloudspace_id(self, cloudspace_id: 'str'):
-        """Sets the cloudspace_id of this V1Job.
-
-
-        :param cloudspace_id: The cloudspace_id of this V1Job.  # noqa: E501
-        :type: str
-        """
-
-        self._cloudspace_id = cloudspace_id
-
-    @property
-    def cluster_id(self) -> 'str':
-        """Gets the cluster_id of this V1Job.  # noqa: E501
-
-
-        :return: The cluster_id of this V1Job.  # noqa: E501
-        :rtype: str
-        """
-        return self._cluster_id
-
-    @cluster_id.setter
-    def cluster_id(self, cluster_id: 'str'):
-        """Sets the cluster_id of this V1Job.
-
-
-        :param cluster_id: The cluster_id of this V1Job.  # noqa: E501
-        :type: str
-        """
-
-        self._cluster_id = cluster_id
-
-    @property
-    def command(self) -> 'str':
-        """Gets the command of this V1Job.  # noqa: E501
-
-
-        :return: The command of this V1Job.  # noqa: E501
-        :rtype: str
-        """
-        return self._command
-
-    @command.setter
-    def command(self, command: 'str'):
-        """Sets the command of this V1Job.
-
-
-        :param command: The command of this V1Job.  # noqa: E501
-        :type: str
-        """
-
-        self._command = command
+        if user_logs_started_at is not None:
+            self.user_logs_started_at = user_logs_started_at
+        if visibility is not None:
+            self.visibility = visibility
 
     @property
     def created_at(self) -> 'datetime':
@@ -265,6 +237,48 @@ class V1Job(object):
         self._created_at = created_at
 
     @property
+    def deleted_at(self) -> 'datetime':
+        """Gets the deleted_at of this V1Job.  # noqa: E501
+
+
+        :return: The deleted_at of this V1Job.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._deleted_at
+
+    @deleted_at.setter
+    def deleted_at(self, deleted_at: 'datetime'):
+        """Sets the deleted_at of this V1Job.
+
+
+        :param deleted_at: The deleted_at of this V1Job.  # noqa: E501
+        :type: datetime
+        """
+
+        self._deleted_at = deleted_at
+
+    @property
+    def deployment_id(self) -> 'str':
+        """Gets the deployment_id of this V1Job.  # noqa: E501
+
+
+        :return: The deployment_id of this V1Job.  # noqa: E501
+        :rtype: str
+        """
+        return self._deployment_id
+
+    @deployment_id.setter
+    def deployment_id(self, deployment_id: 'str'):
+        """Sets the deployment_id of this V1Job.
+
+
+        :param deployment_id: The deployment_id of this V1Job.  # noqa: E501
+        :type: str
+        """
+
+        self._deployment_id = deployment_id
+
+    @property
     def endpoint(self) -> 'V1Endpoint':
         """Gets the endpoint of this V1Job.  # noqa: E501
 
@@ -284,48 +298,6 @@ class V1Job(object):
         """
 
         self._endpoint = endpoint
-
-    @property
-    def entrypoint(self) -> 'str':
-        """Gets the entrypoint of this V1Job.  # noqa: E501
-
-
-        :return: The entrypoint of this V1Job.  # noqa: E501
-        :rtype: str
-        """
-        return self._entrypoint
-
-    @entrypoint.setter
-    def entrypoint(self, entrypoint: 'str'):
-        """Sets the entrypoint of this V1Job.
-
-
-        :param entrypoint: The entrypoint of this V1Job.  # noqa: E501
-        :type: str
-        """
-
-        self._entrypoint = entrypoint
-
-    @property
-    def env(self) -> 'list[V1EnvVar]':
-        """Gets the env of this V1Job.  # noqa: E501
-
-
-        :return: The env of this V1Job.  # noqa: E501
-        :rtype: list[V1EnvVar]
-        """
-        return self._env
-
-    @env.setter
-    def env(self, env: 'list[V1EnvVar]'):
-        """Sets the env of this V1Job.
-
-
-        :param env: The env of this V1Job.  # noqa: E501
-        :type: list[V1EnvVar]
-        """
-
-        self._env = env
 
     @property
     def id(self) -> 'str':
@@ -349,67 +321,67 @@ class V1Job(object):
         self._id = id
 
     @property
-    def image(self) -> 'str':
-        """Gets the image of this V1Job.  # noqa: E501
+    def interruption_notice_received(self) -> 'bool':
+        """Gets the interruption_notice_received of this V1Job.  # noqa: E501
 
 
-        :return: The image of this V1Job.  # noqa: E501
-        :rtype: str
+        :return: The interruption_notice_received of this V1Job.  # noqa: E501
+        :rtype: bool
         """
-        return self._image
+        return self._interruption_notice_received
 
-    @image.setter
-    def image(self, image: 'str'):
-        """Sets the image of this V1Job.
+    @interruption_notice_received.setter
+    def interruption_notice_received(self, interruption_notice_received: 'bool'):
+        """Sets the interruption_notice_received of this V1Job.
 
 
-        :param image: The image of this V1Job.  # noqa: E501
-        :type: str
+        :param interruption_notice_received: The interruption_notice_received of this V1Job.  # noqa: E501
+        :type: bool
         """
 
-        self._image = image
+        self._interruption_notice_received = interruption_notice_received
 
     @property
-    def instance_name(self) -> 'str':
-        """Gets the instance_name of this V1Job.  # noqa: E501
+    def interruption_notice_received_at(self) -> 'datetime':
+        """Gets the interruption_notice_received_at of this V1Job.  # noqa: E501
 
 
-        :return: The instance_name of this V1Job.  # noqa: E501
-        :rtype: str
+        :return: The interruption_notice_received_at of this V1Job.  # noqa: E501
+        :rtype: datetime
         """
-        return self._instance_name
+        return self._interruption_notice_received_at
 
-    @instance_name.setter
-    def instance_name(self, instance_name: 'str'):
-        """Sets the instance_name of this V1Job.
+    @interruption_notice_received_at.setter
+    def interruption_notice_received_at(self, interruption_notice_received_at: 'datetime'):
+        """Sets the interruption_notice_received_at of this V1Job.
 
 
-        :param instance_name: The instance_name of this V1Job.  # noqa: E501
-        :type: str
+        :param interruption_notice_received_at: The interruption_notice_received_at of this V1Job.  # noqa: E501
+        :type: datetime
         """
 
-        self._instance_name = instance_name
+        self._interruption_notice_received_at = interruption_notice_received_at
 
     @property
-    def instance_type(self) -> 'str':
-        """Gets the instance_type of this V1Job.  # noqa: E501
+    def is_healthy(self) -> 'bool':
+        """Gets the is_healthy of this V1Job.  # noqa: E501
 
 
-        :return: The instance_type of this V1Job.  # noqa: E501
-        :rtype: str
+        :return: The is_healthy of this V1Job.  # noqa: E501
+        :rtype: bool
         """
-        return self._instance_type
+        return self._is_healthy
 
-    @instance_type.setter
-    def instance_type(self, instance_type: 'str'):
-        """Sets the instance_type of this V1Job.
+    @is_healthy.setter
+    def is_healthy(self, is_healthy: 'bool'):
+        """Sets the is_healthy of this V1Job.
 
 
-        :param instance_type: The instance_type of this V1Job.  # noqa: E501
-        :type: str
+        :param is_healthy: The is_healthy of this V1Job.  # noqa: E501
+        :type: bool
         """
 
-        self._instance_type = instance_type
+        self._is_healthy = is_healthy
 
     @property
     def message(self) -> 'str':
@@ -433,6 +405,27 @@ class V1Job(object):
         self._message = message
 
     @property
+    def multi_machine_job_id(self) -> 'str':
+        """Gets the multi_machine_job_id of this V1Job.  # noqa: E501
+
+
+        :return: The multi_machine_job_id of this V1Job.  # noqa: E501
+        :rtype: str
+        """
+        return self._multi_machine_job_id
+
+    @multi_machine_job_id.setter
+    def multi_machine_job_id(self, multi_machine_job_id: 'str'):
+        """Sets the multi_machine_job_id of this V1Job.
+
+
+        :param multi_machine_job_id: The multi_machine_job_id of this V1Job.  # noqa: E501
+        :type: str
+        """
+
+        self._multi_machine_job_id = multi_machine_job_id
+
+    @property
     def name(self) -> 'str':
         """Gets the name of this V1Job.  # noqa: E501
 
@@ -452,6 +445,71 @@ class V1Job(object):
         """
 
         self._name = name
+
+    @property
+    def overprovisioned(self) -> 'bool':
+        """Gets the overprovisioned of this V1Job.  # noqa: E501
+
+        Whether the job started from an overprovisioned machine.  # noqa: E501
+
+        :return: The overprovisioned of this V1Job.  # noqa: E501
+        :rtype: bool
+        """
+        return self._overprovisioned
+
+    @overprovisioned.setter
+    def overprovisioned(self, overprovisioned: 'bool'):
+        """Sets the overprovisioned of this V1Job.
+
+        Whether the job started from an overprovisioned machine.  # noqa: E501
+
+        :param overprovisioned: The overprovisioned of this V1Job.  # noqa: E501
+        :type: bool
+        """
+
+        self._overprovisioned = overprovisioned
+
+    @property
+    def pipeline_id(self) -> 'str':
+        """Gets the pipeline_id of this V1Job.  # noqa: E501
+
+
+        :return: The pipeline_id of this V1Job.  # noqa: E501
+        :rtype: str
+        """
+        return self._pipeline_id
+
+    @pipeline_id.setter
+    def pipeline_id(self, pipeline_id: 'str'):
+        """Sets the pipeline_id of this V1Job.
+
+
+        :param pipeline_id: The pipeline_id of this V1Job.  # noqa: E501
+        :type: str
+        """
+
+        self._pipeline_id = pipeline_id
+
+    @property
+    def private_ip_address(self) -> 'str':
+        """Gets the private_ip_address of this V1Job.  # noqa: E501
+
+
+        :return: The private_ip_address of this V1Job.  # noqa: E501
+        :rtype: str
+        """
+        return self._private_ip_address
+
+    @private_ip_address.setter
+    def private_ip_address(self, private_ip_address: 'str'):
+        """Sets the private_ip_address of this V1Job.
+
+
+        :param private_ip_address: The private_ip_address of this V1Job.  # noqa: E501
+        :type: str
+        """
+
+        self._private_ip_address = private_ip_address
 
     @property
     def project_id(self) -> 'str':
@@ -475,130 +533,153 @@ class V1Job(object):
         self._project_id = project_id
 
     @property
-    def resources(self) -> 'V1Resources':
-        """Gets the resources of this V1Job.  # noqa: E501
+    def public_ip_address(self) -> 'str':
+        """Gets the public_ip_address of this V1Job.  # noqa: E501
 
 
-        :return: The resources of this V1Job.  # noqa: E501
-        :rtype: V1Resources
-        """
-        return self._resources
-
-    @resources.setter
-    def resources(self, resources: 'V1Resources'):
-        """Sets the resources of this V1Job.
-
-
-        :param resources: The resources of this V1Job.  # noqa: E501
-        :type: V1Resources
-        """
-
-        self._resources = resources
-
-    @property
-    def restart_policy(self) -> 'str':
-        """Gets the restart_policy of this V1Job.  # noqa: E501
-
-
-        :return: The restart_policy of this V1Job.  # noqa: E501
+        :return: The public_ip_address of this V1Job.  # noqa: E501
         :rtype: str
         """
-        return self._restart_policy
+        return self._public_ip_address
 
-    @restart_policy.setter
-    def restart_policy(self, restart_policy: 'str'):
-        """Sets the restart_policy of this V1Job.
+    @public_ip_address.setter
+    def public_ip_address(self, public_ip_address: 'str'):
+        """Sets the public_ip_address of this V1Job.
 
 
-        :param restart_policy: The restart_policy of this V1Job.  # noqa: E501
+        :param public_ip_address: The public_ip_address of this V1Job.  # noqa: E501
         :type: str
         """
 
-        self._restart_policy = restart_policy
+        self._public_ip_address = public_ip_address
 
     @property
-    def run_id(self) -> 'str':
-        """Gets the run_id of this V1Job.  # noqa: E501
+    def ready_at(self) -> 'datetime':
+        """Gets the ready_at of this V1Job.  # noqa: E501
 
 
-        :return: The run_id of this V1Job.  # noqa: E501
+        :return: The ready_at of this V1Job.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._ready_at
+
+    @ready_at.setter
+    def ready_at(self, ready_at: 'datetime'):
+        """Sets the ready_at of this V1Job.
+
+
+        :param ready_at: The ready_at of this V1Job.  # noqa: E501
+        :type: datetime
+        """
+
+        self._ready_at = ready_at
+
+    @property
+    def release_id(self) -> 'str':
+        """Gets the release_id of this V1Job.  # noqa: E501
+
+
+        :return: The release_id of this V1Job.  # noqa: E501
         :rtype: str
         """
-        return self._run_id
+        return self._release_id
 
-    @run_id.setter
-    def run_id(self, run_id: 'str'):
-        """Sets the run_id of this V1Job.
+    @release_id.setter
+    def release_id(self, release_id: 'str'):
+        """Sets the release_id of this V1Job.
 
 
-        :param run_id: The run_id of this V1Job.  # noqa: E501
+        :param release_id: The release_id of this V1Job.  # noqa: E501
         :type: str
         """
 
-        self._run_id = run_id
+        self._release_id = release_id
 
     @property
-    def skip_data_connections_setup(self) -> 'bool':
-        """Gets the skip_data_connections_setup of this V1Job.  # noqa: E501
+    def restart_count(self) -> 'int':
+        """Gets the restart_count of this V1Job.  # noqa: E501
 
 
-        :return: The skip_data_connections_setup of this V1Job.  # noqa: E501
-        :rtype: bool
+        :return: The restart_count of this V1Job.  # noqa: E501
+        :rtype: int
         """
-        return self._skip_data_connections_setup
+        return self._restart_count
 
-    @skip_data_connections_setup.setter
-    def skip_data_connections_setup(self, skip_data_connections_setup: 'bool'):
-        """Sets the skip_data_connections_setup of this V1Job.
+    @restart_count.setter
+    def restart_count(self, restart_count: 'int'):
+        """Sets the restart_count of this V1Job.
 
 
-        :param skip_data_connections_setup: The skip_data_connections_setup of this V1Job.  # noqa: E501
-        :type: bool
+        :param restart_count: The restart_count of this V1Job.  # noqa: E501
+        :type: int
         """
 
-        self._skip_data_connections_setup = skip_data_connections_setup
+        self._restart_count = restart_count
 
     @property
-    def skip_filesystem_setup(self) -> 'bool':
-        """Gets the skip_filesystem_setup of this V1Job.  # noqa: E501
+    def restart_timings(self) -> 'list[V1RestartTiming]':
+        """Gets the restart_timings of this V1Job.  # noqa: E501
 
 
-        :return: The skip_filesystem_setup of this V1Job.  # noqa: E501
-        :rtype: bool
+        :return: The restart_timings of this V1Job.  # noqa: E501
+        :rtype: list[V1RestartTiming]
         """
-        return self._skip_filesystem_setup
+        return self._restart_timings
 
-    @skip_filesystem_setup.setter
-    def skip_filesystem_setup(self, skip_filesystem_setup: 'bool'):
-        """Sets the skip_filesystem_setup of this V1Job.
+    @restart_timings.setter
+    def restart_timings(self, restart_timings: 'list[V1RestartTiming]'):
+        """Sets the restart_timings of this V1Job.
 
 
-        :param skip_filesystem_setup: The skip_filesystem_setup of this V1Job.  # noqa: E501
-        :type: bool
+        :param restart_timings: The restart_timings of this V1Job.  # noqa: E501
+        :type: list[V1RestartTiming]
         """
 
-        self._skip_filesystem_setup = skip_filesystem_setup
+        self._restart_timings = restart_timings
 
     @property
-    def spot(self) -> 'bool':
-        """Gets the spot of this V1Job.  # noqa: E501
+    def server_error(self) -> 'str':
+        """Gets the server_error of this V1Job.  # noqa: E501
 
+        If the job failed, the server error message  # noqa: E501
 
-        :return: The spot of this V1Job.  # noqa: E501
-        :rtype: bool
+        :return: The server_error of this V1Job.  # noqa: E501
+        :rtype: str
         """
-        return self._spot
+        return self._server_error
 
-    @spot.setter
-    def spot(self, spot: 'bool'):
-        """Sets the spot of this V1Job.
+    @server_error.setter
+    def server_error(self, server_error: 'str'):
+        """Sets the server_error of this V1Job.
 
+        If the job failed, the server error message  # noqa: E501
 
-        :param spot: The spot of this V1Job.  # noqa: E501
-        :type: bool
+        :param server_error: The server_error of this V1Job.  # noqa: E501
+        :type: str
         """
 
-        self._spot = spot
+        self._server_error = server_error
+
+    @property
+    def spec(self) -> 'V1JobSpec':
+        """Gets the spec of this V1Job.  # noqa: E501
+
+
+        :return: The spec of this V1Job.  # noqa: E501
+        :rtype: V1JobSpec
+        """
+        return self._spec
+
+    @spec.setter
+    def spec(self, spec: 'V1JobSpec'):
+        """Sets the spec of this V1Job.
+
+
+        :param spec: The spec of this V1Job.  # noqa: E501
+        :type: V1JobSpec
+        """
+
+        self._spec = spec
 
     @property
     def started_at(self) -> 'datetime':
@@ -625,6 +706,7 @@ class V1Job(object):
     def state(self) -> 'str':
         """Gets the state of this V1Job.  # noqa: E501
 
+        pending, running, stopped, completed, failed  # noqa: E501
 
         :return: The state of this V1Job.  # noqa: E501
         :rtype: str
@@ -635,6 +717,7 @@ class V1Job(object):
     def state(self, state: 'str'):
         """Sets the state of this V1Job.
 
+        pending, running, stopped, completed, failed  # noqa: E501
 
         :param state: The state of this V1Job.  # noqa: E501
         :type: str
@@ -662,6 +745,71 @@ class V1Job(object):
         """
 
         self._stopped_at = stopped_at
+
+    @property
+    def timings(self) -> 'dict(str, V1JobTiming)':
+        """Gets the timings of this V1Job.  # noqa: E501
+
+
+        :return: The timings of this V1Job.  # noqa: E501
+        :rtype: dict(str, V1JobTiming)
+        """
+        return self._timings
+
+    @timings.setter
+    def timings(self, timings: 'dict(str, V1JobTiming)'):
+        """Sets the timings of this V1Job.
+
+
+        :param timings: The timings of this V1Job.  # noqa: E501
+        :type: dict(str, V1JobTiming)
+        """
+
+        self._timings = timings
+
+    @property
+    def total_cost(self) -> 'float':
+        """Gets the total_cost of this V1Job.  # noqa: E501
+
+        The total cost of the job  # noqa: E501
+
+        :return: The total_cost of this V1Job.  # noqa: E501
+        :rtype: float
+        """
+        return self._total_cost
+
+    @total_cost.setter
+    def total_cost(self, total_cost: 'float'):
+        """Sets the total_cost of this V1Job.
+
+        The total cost of the job  # noqa: E501
+
+        :param total_cost: The total_cost of this V1Job.  # noqa: E501
+        :type: float
+        """
+
+        self._total_cost = total_cost
+
+    @property
+    def total_size_bytes(self) -> 'str':
+        """Gets the total_size_bytes of this V1Job.  # noqa: E501
+
+
+        :return: The total_size_bytes of this V1Job.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_size_bytes
+
+    @total_size_bytes.setter
+    def total_size_bytes(self, total_size_bytes: 'str'):
+        """Sets the total_size_bytes of this V1Job.
+
+
+        :param total_size_bytes: The total_size_bytes of this V1Job.  # noqa: E501
+        :type: str
+        """
+
+        self._total_size_bytes = total_size_bytes
 
     @property
     def updated_at(self) -> 'datetime':
@@ -725,6 +873,48 @@ class V1Job(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def user_logs_started_at(self) -> 'datetime':
+        """Gets the user_logs_started_at of this V1Job.  # noqa: E501
+
+
+        :return: The user_logs_started_at of this V1Job.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._user_logs_started_at
+
+    @user_logs_started_at.setter
+    def user_logs_started_at(self, user_logs_started_at: 'datetime'):
+        """Sets the user_logs_started_at of this V1Job.
+
+
+        :param user_logs_started_at: The user_logs_started_at of this V1Job.  # noqa: E501
+        :type: datetime
+        """
+
+        self._user_logs_started_at = user_logs_started_at
+
+    @property
+    def visibility(self) -> 'V1ResourceVisibility':
+        """Gets the visibility of this V1Job.  # noqa: E501
+
+
+        :return: The visibility of this V1Job.  # noqa: E501
+        :rtype: V1ResourceVisibility
+        """
+        return self._visibility
+
+    @visibility.setter
+    def visibility(self, visibility: 'V1ResourceVisibility'):
+        """Sets the visibility of this V1Job.
+
+
+        :param visibility: The visibility of this V1Job.  # noqa: E501
+        :type: V1ResourceVisibility
+        """
+
+        self._visibility = visibility
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

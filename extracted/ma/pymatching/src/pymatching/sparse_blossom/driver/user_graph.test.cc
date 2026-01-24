@@ -308,7 +308,8 @@ TEST(IterDemInstructionsTest, ThreeDetectorErrorThrowsInvalidArgument) {
     stim::DetectorErrorModel dem("error(0.1) D0 D1 D2");
     TestHandler handler;
     std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>> joint_probabilities;
-    ASSERT_THROW(pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities), std::invalid_argument);
+    ASSERT_THROW(
+        pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities), std::invalid_argument);
 }
 
 // Test a decomposed error instruction. The handler should be called for each component.
@@ -353,20 +354,37 @@ TEST(IterDemInstructionsTest, DecomposedErrorWithHyperedgeThrows) {
         pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities), std::invalid_argument);
 }
 
+// Test that a decomposed error with an undetectable component throws an exception.
+TEST(IterDemInstructionsTest, DecomposedErrorWithUndetectableErrorThrows) {
+    stim::DetectorErrorModel dem("error(0.15) L0 ^ D2 D4 ^ D5 D6 L2");
+    TestHandler handler;
+    std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>> joint_probabilities;
+
+    // Assert that the function throws std::invalid_argument when processing the DEM.
+    ASSERT_THROW(
+        pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities), std::invalid_argument);
+
+    stim::DetectorErrorModel dem2("error(0.15) D2 D4 ^ D5 D6 L2 ^ L1");
+    // Assert that the function throws std::invalid_argument when processing the DEM.
+    ASSERT_THROW(
+        pm::iter_dem_instructions_include_correlations(dem2, handler, joint_probabilities), std::invalid_argument);
+}
+
 // Test a complex DEM with multiple instruction types and edge cases combined.
 TEST(IterDemInstructionsTest, CombinedComplexDem) {
     stim::DetectorErrorModel dem(R"DEM(
         error(0.1) D0            # Instruction 1: Simple
+        error(0.3) L0            # Instruction 2: Undetectable error, ignored
         error(0.2) D1 D2 L0      # Instruction 2: Two detectors, one observable
-        error(0.0) D7            # Instruction 4: Zero probability, ignored
-        error(0.4) D8 ^ D9 L1    # Instruction 5: Decomposed
+        error(0.0) D7            # Instruction 3: Zero probability, ignored
+        error(0.4) D8 ^ D9 L1    # Instruction 4: Decomposed
     )DEM");
     TestHandler handler;
     std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>> joint_probabilities;
     pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities);
 
     ASSERT_EQ(handler.handled_errors.size(), 4);
-
+    
     std::vector<HandledError> expected = {
         {0.1, 0, SIZE_MAX, {}}, {0.2, 1, 2, {0}}, {0.4, 8, SIZE_MAX, {}}, {0.4, 9, SIZE_MAX, {1}}};
     EXPECT_EQ(handler.handled_errors, expected);
@@ -393,6 +411,13 @@ TEST(IterDemInstructionsTest, CombinedComplexDem) {
 
 double bernoulli_xor(double p1, double p2) {
     return p1 * (1 - p2) + p2 * (1 - p1);
+}
+
+TEST(IterDemInstructionsTest, MoreThanEightComponents) {
+    stim::DetectorErrorModel dem("error(0.1) D0 ^ D1 ^ D2 ^ D3 ^ D4 ^ D5 ^ D6 ^ D7 ^ D8");
+    TestHandler handler;
+    std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>> joint_probabilities;
+    pm::iter_dem_instructions_include_correlations(dem, handler, joint_probabilities);
 }
 
 // Tests that multiple error instructions on the same edge correctly combine their probabilities.
@@ -460,14 +485,6 @@ TEST(UserGraph, PopulateImpliedEdgeWeights) {
 
     graph.populate_implied_edge_weights(joint_probabilities);
 
-    auto to_weight = [](double p) {
-        if (p == 1.0)
-            return -std::numeric_limits<double>::infinity();
-        if (p == 0.0)
-            return std::numeric_limits<double>::infinity();
-        return std::log((1 - p) / p);
-    };
-
     auto it_01 = std::find_if(graph.edges.begin(), graph.edges.end(), [](const pm::UserEdge& edge) {
         return edge.node1 == 0 && edge.node2 == 1;
     });
@@ -478,7 +495,7 @@ TEST(UserGraph, PopulateImpliedEdgeWeights) {
     ASSERT_EQ(implied_01.node2, 3);
 
     double p_01 = 0.1 / 0.26;
-    double w_01 = to_weight(p_01);
+    double w_01 = pm::to_weight_for_correlations(p_01);
     ASSERT_EQ(implied_01.implied_weight, w_01);
 
     auto it_23 = std::find_if(graph.edges.begin(), graph.edges.end(), [](const pm::UserEdge& edge) {
@@ -490,7 +507,7 @@ TEST(UserGraph, PopulateImpliedEdgeWeights) {
     const auto& implied_23 = it_23->implied_weights_for_other_edges[0];
     ASSERT_EQ(implied_23.node1, 0);
     ASSERT_EQ(implied_23.node2, 1);
-    ASSERT_EQ(implied_23.implied_weight, 0);
+    ASSERT_NEAR(implied_23.implied_weight, 0.0, 0.00001);
 }
 
 TEST(UserGraph, ConvertImpliedWeights) {

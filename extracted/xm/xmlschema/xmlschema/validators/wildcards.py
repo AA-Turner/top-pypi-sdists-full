@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2020, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -13,18 +13,17 @@ from typing import Any, Optional, Union
 
 from elementpath import SchemaElementNode, build_schema_node_tree
 
+import xmlschema.names as nm
 from xmlschema.exceptions import XMLSchemaValueError
-from xmlschema.names import XSI_NAMESPACE, XSD_ANY, XSD_ANY_ATTRIBUTE, \
-    XSD_OPEN_CONTENT, XSD_DEFAULT_OPEN_CONTENT, XSI_TYPE
-
 from xmlschema.aliases import ElementType, SchemaType, SchemaElementType, SchemaAttributeType, \
     ModelGroupType, ModelParticleType, AtomicValueType, DecodedValueType, OccursCounterType
 from xmlschema.translation import gettext as _
 from xmlschema.utils.qnames import get_namespace
 from xmlschema.utils.decoding import EmptyType, Empty, raw_encode_value
 from xmlschema.xpath import XMLSchemaProxy, ElementPathMixin
+from xmlschema.caching import schema_cache
 
-from .validation import DecodeContext, EncodeContext, ValidationMixin
+from .validation import ValidationContext, EncodeContext, ValidationMixin
 from .xsdbase import XsdComponent
 
 from .particles import ParticleMixin
@@ -71,28 +70,27 @@ class XsdWildcard(XsdComponent):
 
     def _parse(self) -> None:
         # Parse namespace and processContents
-        namespace = self.elem.attrib.get('namespace', '##any').strip()
-
-        if namespace in ('##any', '##other'):
-            self.namespace = {namespace}
-        elif not namespace:
-            self.namespace = set()  # an empty value means no namespace allowed!
-        elif namespace == '##local':
-            self.namespace = {''}
-        elif namespace == '##targetNamespace':
-            self.namespace = {self.target_namespace}
-        else:
-            self.namespace = set()
-            for ns in namespace.split():
-                if ns == '##local':
-                    self.namespace.add('')
-                elif ns == '##targetNamespace':
-                    self.namespace.add(self.target_namespace)
-                elif ns.startswith('##'):
-                    msg = _("wrong value %r in 'namespace' attribute")
-                    self.parse_error(msg % ns)
-                else:
-                    self.namespace.add(ns)
+        match namespace := self.elem.attrib.get('namespace', '##any').strip():
+            case '##any' | '##other':
+                self.namespace = {namespace}
+            case '':
+                self.namespace = set()  # an empty value means no namespace allowed!
+            case '##local':
+                self.namespace = {''}
+            case '##targetNamespace':
+                self.namespace = {self.target_namespace}
+            case _:
+                self.namespace = set()
+                for ns in namespace.split():
+                    if ns == '##local':
+                        self.namespace.add('')
+                    elif ns == '##targetNamespace':
+                        self.namespace.add(self.target_namespace)
+                    elif ns.startswith('##'):
+                        msg = _("wrong value %r in 'namespace' attribute")
+                        self.parse_error(msg % ns)
+                    else:
+                        self.namespace.add(ns)
 
         self.process_contents = self.elem.attrib.get('processContents', 'strict')
         if self.process_contents not in ('strict', 'lax', 'skip'):
@@ -178,7 +176,7 @@ class XsdWildcard(XsdComponent):
     def is_namespace_allowed(self, namespace: str) -> bool:
         if self.not_namespace:
             return namespace not in self.not_namespace
-        elif '##any' in self.namespace or namespace == XSI_NAMESPACE:
+        elif '##any' in self.namespace or namespace == nm.XSI_NAMESPACE:
             return True
         elif '##other' in self.namespace:
             if not namespace:
@@ -213,6 +211,7 @@ class XsdWildcard(XsdComponent):
     def _has_occurs_restriction(self, other: 'XsdWildcard') -> bool:
         return True
 
+    @schema_cache
     def is_restriction(self, other: Union[ModelParticleType, 'XsdAnyAttribute'],
                        check_occurs: bool = True) -> bool:
         if not isinstance(other, self.__class__):
@@ -405,7 +404,7 @@ class XsdAnyElement(XsdWildcard, ParticleMixin,
           Content: (annotation?)
         </any>
     """
-    _ADMITTED_TAGS = XSD_ANY,
+    _ADMITTED_TAGS = nm.XSD_ANY,
     precedences: dict[ModelGroupType, list[ModelParticleType]]
     copy: Callable[['XsdAnyElement'], 'XsdAnyElement']
 
@@ -496,7 +495,7 @@ class XsdAnyElement(XsdWildcard, ParticleMixin,
     def iter_substitutes() -> Iterator[Any]:
         return iter(())
 
-    def raw_decode(self, obj: ElementType, validation: str, context: DecodeContext) -> Any:
+    def raw_decode(self, obj: ElementType, validation: str, context: ValidationContext) -> Any:
 
         if not self.is_matching(obj.tag):
             reason = _("element {!r} is not allowed here").format(obj)
@@ -516,7 +515,7 @@ class XsdAnyElement(XsdWildcard, ParticleMixin,
             else:
                 return xsd_element.raw_decode(obj, validation, context)
 
-        if XSI_TYPE in obj.attrib:
+        if nm.XSI_TYPE in obj.attrib:
             if self.process_contents == 'strict':
                 xsd_element = self.builders.create_element(
                     obj.tag, self.maps.validator, parent=self, form='unqualified'
@@ -575,14 +574,15 @@ class XsdAnyElement(XsdWildcard, ParticleMixin,
             if validation != 'skip' and self.process_contents == 'strict':
                 context.validation_error(validation, self, err, value)
         else:
-            if XSI_TYPE in element_data.attributes:
+            if nm.XSI_TYPE in element_data.attributes:
                 return xsd_element.raw_encode(value, validation, context)
 
         if validation != 'skip' and self.process_contents == 'strict':
             context.validation_error(validation, self, reason)
 
-        return self.any_type.raw_encode(obj, validation, context)
+        return self.maps.any_type.raw_encode(obj, validation, context)
 
+    @schema_cache
     def is_overlap(self, other: ModelParticleType) -> bool:
         if not isinstance(other, XsdAnyElement):
             if isinstance(other, elements.XsdElement):
@@ -633,7 +633,7 @@ class XsdAnyAttribute(XsdWildcard, ValidationMixin[tuple[str, str], DecodedValue
         </anyAttribute>
     """
     copy: Callable[['XsdAnyAttribute'], 'XsdAnyAttribute']
-    _ADMITTED_TAGS = XSD_ANY_ATTRIBUTE,
+    _ADMITTED_TAGS = nm.XSD_ANY_ATTRIBUTE,
 
     # Added for compatibility with protocol of XSD attributes
     use = None
@@ -666,7 +666,7 @@ class XsdAnyAttribute(XsdWildcard, ValidationMixin[tuple[str, str], DecodedValue
             return None
 
     def raw_decode(self, obj: tuple[str, str], validation: str,
-                   context: DecodeContext) -> Union[DecodedValueType, EmptyType]:
+                   context: ValidationContext) -> Union[DecodedValueType, EmptyType]:
         name, value = obj
 
         if not self.is_matching(name):
@@ -706,7 +706,7 @@ class XsdAnyAttribute(XsdWildcard, ValidationMixin[tuple[str, str], DecodedValue
         if self.process_contents == 'skip' and not context.process_skipped:
             return Empty
 
-        if self.maps.loader.load_namespace(namespace):
+        if self.maps.validator.load_namespace(namespace):
             try:
                 xsd_attribute = self.maps.attributes[name]
             except KeyError:
@@ -855,7 +855,7 @@ class XsdOpenContent(XsdComponent):
           Content: (annotation?), (any?)
         </openContent>
     """
-    _ADMITTED_TAGS = XSD_OPEN_CONTENT,
+    _ADMITTED_TAGS = nm.XSD_OPEN_CONTENT,
     mode = 'interleave'
     any_element = None  # type: Xsd11AnyElement
 
@@ -877,15 +877,16 @@ class XsdOpenContent(XsdComponent):
 
         child = self._parse_child_component(self.elem)
         if self.mode == 'none':
-            if child is not None and child.tag == XSD_ANY:
+            if child is not None and child.tag == nm.XSD_ANY:
                 msg = _("an openContent with mode='none' cannot "
                         "have an <xs:any> child declaration")
                 self.parse_error(msg)
-        elif child is None or child.tag != XSD_ANY:
+        elif child is None or child.tag != nm.XSD_ANY:
             self.parse_error(_("an <xs:any> child declaration is required"))
         else:
             self.any_element = Xsd11AnyElement(child, self.schema, self)
 
+    @schema_cache
     def is_restriction(self, other: 'XsdOpenContent') -> bool:
         if other is None or other.mode == 'none':
             return self.mode == 'none'
@@ -907,7 +908,7 @@ class XsdDefaultOpenContent(XsdOpenContent):
           Content: (annotation?, any)
         </defaultOpenContent>
     """
-    _ADMITTED_TAGS = XSD_DEFAULT_OPEN_CONTENT,
+    _ADMITTED_TAGS = nm.XSD_DEFAULT_OPEN_CONTENT,
     applies_to_empty = False
 
     def __init__(self, elem: ElementType, schema: SchemaType) -> None:

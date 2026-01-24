@@ -15,6 +15,7 @@
 #include "MultiSpeciesThermo.h"
 #include "cantera/base/Units.h"
 #include "cantera/base/AnyMap.h"
+#include "cantera/base/Solution.h"
 
 namespace Cantera
 {
@@ -395,6 +396,11 @@ public:
     //! so this constructor should not be called explicitly.
     ThermoPhase() = default;
 
+    //! Create a new ThermoPhase object using the same species definitions,
+    //! thermodynamic parameters, and state as this one.
+    //! @since New in %Cantera 3.2.
+    shared_ptr<ThermoPhase> clone() const;
+
     //! @name  Information Methods
     //! @{
 
@@ -524,8 +530,16 @@ public:
     //! @{
 
     //! Molar enthalpy. Units: J/kmol.
+    /**
+     * Returns the amount of enthalpy per mole,
+     * @f[
+     * \hat{h} = \sum_k X_k \hat{h}_k
+     * @f]
+     * @see getPartialMolarEnthalpies()
+     */
     virtual double enthalpy_mole() const {
-        throw NotImplementedError("ThermoPhase::enthalpy_mole");
+        getPartialMolarEnthalpies(m_workS.data());
+        return mean_X(m_workS);
     }
 
     //! Molar internal energy. Units: J/kmol.
@@ -534,23 +548,47 @@ public:
     }
 
     //! Molar entropy. Units: J/kmol/K.
+    /**
+     * Returns the amount of entropy per mole,
+     * @f[
+     * \hat{s} = \sum_k X_k \hat{s}_k
+     * @f]
+     * @see getPartialMolarEnthalpies()
+     */
     virtual double entropy_mole() const {
-        throw NotImplementedError("ThermoPhase::entropy_mole");
+        getPartialMolarEntropies(m_workS.data());
+        return mean_X(m_workS);
     }
 
     //! Molar Gibbs function. Units: J/kmol.
+    /*!
+     * Returns the Gibbs free energy per mole,
+     * @f[
+     * \hat{g} = \sum_k X_k \mu_k
+     * @f]
+     * @see getChemPotentials()
+     */
     virtual double gibbs_mole() const {
-        return enthalpy_mole() - temperature()*entropy_mole();
+        getChemPotentials(m_workS.data());
+        return mean_X(m_workS);
     }
 
-    //! Molar heat capacity at constant pressure. Units: J/kmol/K.
+    //! Molar heat capacity at constant pressure and composition [J/kmol/K].
+    /*!
+     * @f[
+     * \hat{c}_p = \sum_k X_k \hat{c}_{p,k}
+     * @f]
+     * @see getPartialMolarCp()
+     */
     virtual double cp_mole() const {
-        throw NotImplementedError("ThermoPhase::cp_mole");
+        getPartialMolarCp(m_workS.data());
+        return mean_X(m_workS);
     }
 
-    //! Molar heat capacity at constant volume. Units: J/kmol/K.
+    //! Molar heat capacity at constant volume and composition [J/kmol/K].
     virtual double cv_mole() const {
-        throw NotImplementedError("ThermoPhase::cv_mole");
+        throw NotImplementedError("ThermoPhase::cv_mole",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! @}
@@ -569,7 +607,8 @@ public:
      * @f]
      */
     virtual double isothermalCompressibility() const {
-        throw NotImplementedError("ThermoPhase::isothermalCompressibility");
+        throw NotImplementedError("ThermoPhase::isothermalCompressibility",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return the volumetric thermal expansion coefficient. Units: 1/K.
@@ -580,7 +619,8 @@ public:
      * @f]
      */
     virtual double thermalExpansionCoeff() const {
-        throw NotImplementedError("ThermoPhase::thermalExpansionCoeff");
+        throw NotImplementedError("ThermoPhase::thermalExpansionCoeff",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return the speed of sound. Units: m/s.
@@ -591,7 +631,8 @@ public:
      * @f]
      */
     virtual double soundSpeed() const {
-        throw NotImplementedError("ThermoPhase::soundSpeed");
+        throw NotImplementedError("ThermoPhase::soundSpeed",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! @}
@@ -697,7 +738,8 @@ public:
      *           the phase.
      */
     virtual void getActivityConcentrations(double* c) const {
-        throw NotImplementedError("ThermoPhase::getActivityConcentrations");
+        throw NotImplementedError("ThermoPhase::getActivityConcentrations",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return the standard concentration for the kth species
@@ -718,7 +760,8 @@ public:
      *   dependent on the ThermoPhase and kinetics manager representation.
      */
     virtual double standardConcentration(size_t k=0) const {
-        throw NotImplementedError("ThermoPhase::standardConcentration");
+        throw NotImplementedError("ThermoPhase::standardConcentration",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Natural logarithm of the standard concentration of the kth species.
@@ -750,7 +793,8 @@ public:
         if (m_kk == 1) {
             ac[0] = 1.0;
         } else {
-            throw NotImplementedError("ThermoPhase::getActivityCoefficients");
+            throw NotImplementedError("ThermoPhase::getActivityCoefficients",
+                                      "Not implemented for phase type '{}'", type());
         }
     }
 
@@ -775,7 +819,8 @@ public:
      *            potentials. Length: m_kk. Units: J/kmol
      */
     virtual void getChemPotentials(double* mu) const {
-        throw NotImplementedError("ThermoPhase::getChemPotentials");
+        throw NotImplementedError("ThermoPhase::getChemPotentials",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //!  Get the species electrochemical potentials.
@@ -801,7 +846,8 @@ public:
      *                Length: m_kk. units are J/kmol.
      */
     virtual void getPartialMolarEnthalpies(double* hbar) const {
-        throw NotImplementedError("ThermoPhase::getPartialMolarEnthalpies");
+        throw NotImplementedError("ThermoPhase::getPartialMolarEnthalpies",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns an array of partial molar entropies of the species in the
@@ -811,7 +857,8 @@ public:
      *                Length = m_kk. units are J/kmol/K.
      */
     virtual void getPartialMolarEntropies(double* sbar) const {
-        throw NotImplementedError("ThermoPhase::getPartialMolarEntropies");
+        throw NotImplementedError("ThermoPhase::getPartialMolarEntropies",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return an array of partial molar internal energies for the
@@ -821,7 +868,8 @@ public:
      *                Length = m_kk. units are J/kmol.
      */
     virtual void getPartialMolarIntEnergies(double* ubar) const {
-        throw NotImplementedError("ThermoPhase::getPartialMolarIntEnergies");
+        throw NotImplementedError("ThermoPhase::getPartialMolarIntEnergies",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return an array of partial molar heat capacities for the
@@ -832,7 +880,8 @@ public:
      *                Length = m_kk. units are J/kmol/K.
      */
     virtual void getPartialMolarCp(double* cpbar) const {
-        throw NotImplementedError("ThermoPhase::getPartialMolarCp");
+        throw NotImplementedError("ThermoPhase::getPartialMolarCp",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Return an array of partial molar volumes for the
@@ -842,7 +891,8 @@ public:
      *                Length = m_kk. units are m^3/kmol.
      */
     virtual void getPartialMolarVolumes(double* vbar) const {
-        throw NotImplementedError("ThermoPhase::getPartialMolarVolumes");
+        throw NotImplementedError("ThermoPhase::getPartialMolarVolumes",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! @}
@@ -860,7 +910,8 @@ public:
      *                Length: m_kk.
      */
     virtual void getStandardChemPotentials(double* mu) const {
-        throw NotImplementedError("ThermoPhase::getStandardChemPotentials");
+        throw NotImplementedError("ThermoPhase::getStandardChemPotentials",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the nondimensional Enthalpy functions for the species at their
@@ -870,7 +921,8 @@ public:
      *                 Length: m_kk.
      */
     virtual void getEnthalpy_RT(double* hrt) const {
-        throw NotImplementedError("ThermoPhase::getEnthalpy_RT");
+        throw NotImplementedError("ThermoPhase::getEnthalpy_RT",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the array of nondimensional Entropy functions for the standard state
@@ -880,7 +932,8 @@ public:
      *             Length: m_kk.
      */
     virtual void getEntropy_R(double* sr) const {
-        throw NotImplementedError("ThermoPhase::getEntropy_R");
+        throw NotImplementedError("ThermoPhase::getEntropy_R",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the nondimensional Gibbs functions for the species in their standard
@@ -890,7 +943,8 @@ public:
      *             energies. Length: m_kk.
      */
     virtual void getGibbs_RT(double* grt) const {
-        throw NotImplementedError("ThermoPhase::getGibbs_RT");
+        throw NotImplementedError("ThermoPhase::getGibbs_RT",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the Gibbs functions for the standard state of the species at the
@@ -899,9 +953,12 @@ public:
      * Units are Joules/kmol
      * @param gpure  Output vector of standard state Gibbs free energies.
      *               Length: m_kk.
+     * @deprecated  To be removed after %Cantera 3.2. Use getStandardChemPotentials()
+     *     instead.
      */
     virtual void getPureGibbs(double* gpure) const {
-        throw NotImplementedError("ThermoPhase::getPureGibbs");
+        throw NotImplementedError("ThermoPhase::getPureGibbs",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of nondimensional Internal Energies of the standard
@@ -911,7 +968,8 @@ public:
      *             of the species. Length: m_kk.
      */
     virtual void getIntEnergy_RT(double* urt) const {
-        throw NotImplementedError("ThermoPhase::getIntEnergy_RT");
+        throw NotImplementedError("ThermoPhase::getIntEnergy_RT",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the nondimensional Heat Capacities at constant pressure for the
@@ -922,7 +980,8 @@ public:
      *              capacities. Length: m_kk.
      */
     virtual void getCp_R(double* cpr) const {
-        throw NotImplementedError("ThermoPhase::getCp_R");
+        throw NotImplementedError("ThermoPhase::getCp_R",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //!  Get the molar volumes of the species standard states at the current
@@ -934,7 +993,8 @@ public:
      *                Length: m_kk.
      */
     virtual void getStandardVolumes(double* vol) const {
-        throw NotImplementedError("ThermoPhase::getStandardVolumes");
+        throw NotImplementedError("ThermoPhase::getStandardVolumes",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! @}
@@ -949,7 +1009,8 @@ public:
      *                state enthalpies. Length: m_kk.
      */
     virtual void getEnthalpy_RT_ref(double* hrt) const {
-        throw NotImplementedError("ThermoPhase::getEnthalpy_RT_ref");
+        throw NotImplementedError("ThermoPhase::getEnthalpy_RT_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of nondimensional Gibbs Free Energies of the
@@ -960,7 +1021,8 @@ public:
      *                Gibbs Free energies.  Length: m_kk.
      */
     virtual void getGibbs_RT_ref(double* grt) const {
-        throw NotImplementedError("ThermoPhase::getGibbs_RT_ref");
+        throw NotImplementedError("ThermoPhase::getGibbs_RT_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of the Gibbs function of the reference state at the
@@ -971,7 +1033,8 @@ public:
      *                Gibbs Free energies. Length: m_kk. Units: J/kmol.
      */
     virtual void getGibbs_ref(double* g) const {
-        throw NotImplementedError("ThermoPhase::getGibbs_ref");
+        throw NotImplementedError("ThermoPhase::getGibbs_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of nondimensional entropies of the reference state at
@@ -982,7 +1045,8 @@ public:
      *                state entropies. Length: m_kk.
      */
     virtual void getEntropy_R_ref(double* er) const {
-        throw NotImplementedError("ThermoPhase::getEntropy_R_ref");
+        throw NotImplementedError("ThermoPhase::getEntropy_R_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of nondimensional internal Energies of the reference
@@ -993,7 +1057,8 @@ public:
      *               energies of the species. Length: m_kk
      */
     virtual void getIntEnergy_RT_ref(double* urt) const {
-        throw NotImplementedError("ThermoPhase::getIntEnergy_RT_ref");
+        throw NotImplementedError("ThermoPhase::getIntEnergy_RT_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Returns the vector of nondimensional constant pressure heat capacities
@@ -1005,7 +1070,8 @@ public:
      *               Length: m_kk
      */
     virtual void getCp_R_ref(double* cprt) const {
-        throw NotImplementedError("ThermoPhase::getCp_R_ref");
+        throw NotImplementedError("ThermoPhase::getCp_R_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Get the molar volumes of the species reference states at the current
@@ -1017,7 +1083,8 @@ public:
      *                Length: m_kk.
      */
     virtual void getStandardVolumes_ref(double* vol) const {
-        throw NotImplementedError("ThermoPhase::getStandardVolumes_ref");
+        throw NotImplementedError("ThermoPhase::getStandardVolumes_ref",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     // The methods below are not virtual, and should not be overloaded.
@@ -1046,12 +1113,12 @@ public:
         return gibbs_mole()/meanMolecularWeight();
     }
 
-    //! Specific heat at constant pressure. Units: J/kg/K.
+    //! Specific heat at constant pressure and composition [J/kg/K].
     double cp_mass() const {
         return cp_mole()/meanMolecularWeight();
     }
 
-    //! Specific heat at constant volume. Units: J/kg/K.
+    //! Specific heat at constant volume and composition [J/kg/K].
     double cv_mass() const {
         return cv_mole()/meanMolecularWeight();
     }
@@ -1221,7 +1288,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_ST(double s, double t, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_ST");
+        throw NotImplementedError("ThermoPhase::setState_ST",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the temperature (K) and specific volume (m^3/kg).
@@ -1237,7 +1305,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_TV(double t, double v, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_TV");
+        throw NotImplementedError("ThermoPhase::setState_TV",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the pressure (Pa) and specific volume (m^3/kg).
@@ -1253,7 +1322,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_PV(double p, double v, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_PV");
+        throw NotImplementedError("ThermoPhase::setState_PV",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the specific internal energy (J/kg) and pressure (Pa).
@@ -1269,7 +1339,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_UP(double u, double p, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_UP");
+        throw NotImplementedError("ThermoPhase::setState_UP",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the specific volume (m^3/kg) and the specific enthalpy (J/kg)
@@ -1285,7 +1356,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_VH(double v, double h, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_VH");
+        throw NotImplementedError("ThermoPhase::setState_VH",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the temperature (K) and the specific enthalpy (J/kg)
@@ -1301,7 +1373,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_TH(double t, double h, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_TH");
+        throw NotImplementedError("ThermoPhase::setState_TH",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the specific entropy (J/kg/K) and the specific enthalpy (J/kg)
@@ -1317,7 +1390,8 @@ public:
      *              are being calculated.
      */
     virtual void setState_SH(double s, double h, double tol=1e-9) {
-        throw NotImplementedError("ThermoPhase::setState_SH");
+        throw NotImplementedError("ThermoPhase::setState_SH",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the density (kg/m**3) and pressure (Pa) at constant composition
@@ -1335,7 +1409,8 @@ public:
      * @since New in %Cantera 3.0.
      */
     virtual void setState_DP(double rho, double p) {
-        throw NotImplementedError("ThermoPhase::setState_DP");
+        throw NotImplementedError("ThermoPhase::setState_DP",
+                                  "Not implemented for phase type '{}'", type());
     }
 
     //! Set the state using an AnyMap containing any combination of properties
@@ -1557,7 +1632,7 @@ public:
     //! @}
 
     //! Return intermediate or model-specific parameters used by particular
-    //! derived classes. Specific parameters are described in overidden
+    //! derived classes. Specific parameters are described in overridden
     //! methods of classes that derive from the base class.
     virtual AnyMap getAuxiliaryData()
     {
@@ -1957,6 +2032,19 @@ public:
 
     //! @}
 
+    //! Set the link to the Solution object that owns this ThermoPhase
+    //! @param soln Weak pointer to the parent Solution object
+    virtual void setSolution(std::weak_ptr<Solution> soln) {
+        m_soln = soln;
+    }
+
+    //! Get the Solution object containing this ThermoPhase object and linked
+    //! Kinetics and Transport objects.
+    //! @since New in %Cantera 3.2.
+    shared_ptr<Solution> root() const {
+        return m_soln.lock();
+    }
+
 protected:
     //! Store the parameters of a ThermoPhase object such that an identical
     //! one could be reconstructed using the newThermo(AnyMap&) function. This
@@ -1993,6 +2081,9 @@ protected:
 
     //! last value of the temperature processed by reference state
     mutable double m_tlast = 0.0;
+
+    //! reference to Solution
+    std::weak_ptr<Solution> m_soln;
 };
 
 }

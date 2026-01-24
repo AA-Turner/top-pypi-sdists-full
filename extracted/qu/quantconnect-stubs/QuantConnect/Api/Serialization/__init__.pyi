@@ -1,15 +1,13 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Api
 import QuantConnect.Api.Serialization
 import System
 
-JsonConverter = typing.Any
 
-
-class ProductJsonConverter(JsonConverter):
+class ProductJsonConverter:
     """Provides an implementation of JsonConverter that can deserialize Product"""
 
     @property
@@ -30,6 +28,7 @@ class ProductJsonConverter(JsonConverter):
         """
         Create an order from a simple JObject
         
+        :param j_object: 
         :returns: Order Object.
         """
         ...

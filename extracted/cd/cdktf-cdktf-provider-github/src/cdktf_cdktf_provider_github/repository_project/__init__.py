@@ -1,7 +1,7 @@
 r'''
 # `github_repository_project`
 
-Refer to the Terraform Registry for docs: [`github_repository_project`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project).
+Refer to the Terraform Registry for docs: [`github_repository_project`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryProject(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryProject.RepositoryProject",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project github_repository_project}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project github_repository_project}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class RepositoryProject(
         name: builtins.str,
         repository: builtins.str,
         body: typing.Optional[builtins.str] = None,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -63,14 +64,15 @@ class RepositoryProject(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project github_repository_project} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project github_repository_project} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#name RepositoryProject#name}
-        :param repository: The repository of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#repository RepositoryProject#repository}
-        :param body: The body of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#body RepositoryProject#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#id RepositoryProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#name RepositoryProject#name}
+        :param repository: The repository of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#repository RepositoryProject#repository}
+        :param body: The body of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#body RepositoryProject#body}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#etag RepositoryProject#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#id RepositoryProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -87,6 +89,7 @@ class RepositoryProject(
             name=name,
             repository=repository,
             body=body,
+            etag=etag,
             id=id,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class RepositoryProject(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryProject to import.
-        :param import_from_id: The id of the existing RepositoryProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryProject that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryProject to import is found.
         '''
         if __debug__:
@@ -126,6 +129,10 @@ class RepositoryProject(
     @jsii.member(jsii_name="resetBody")
     def reset_body(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetBody", []))
+
+    @jsii.member(jsii_name="resetEtag")
+    def reset_etag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEtag", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -145,11 +152,6 @@ class RepositoryProject(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
-    @jsii.member(jsii_name="etag")
-    def etag(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "etag"))
-
-    @builtins.property
     @jsii.member(jsii_name="url")
     def url(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "url"))
@@ -158,6 +160,11 @@ class RepositoryProject(
     @jsii.member(jsii_name="bodyInput")
     def body_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bodyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="etagInput")
+    def etag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "etagInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -185,6 +192,18 @@ class RepositoryProject(
             type_hints = typing.get_type_hints(_typecheckingstub__338516443c131b4c8426af7c545970cc4b211941cb79f1a5650263dedc32ea55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="etag")
+    def etag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "etag"))
+
+    @etag.setter
+    def etag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65155ae98444bc35feb0e03b5515bca78aa7a5c8cd2eddd0fbd160a3e11cc8a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "etag", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -237,6 +256,7 @@ class RepositoryProject(
         "name": "name",
         "repository": "repository",
         "body": "body",
+        "etag": "etag",
         "id": "id",
     },
 )
@@ -254,6 +274,7 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: builtins.str,
         repository: builtins.str,
         body: typing.Optional[builtins.str] = None,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -264,10 +285,11 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#name RepositoryProject#name}
-        :param repository: The repository of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#repository RepositoryProject#repository}
-        :param body: The body of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#body RepositoryProject#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#id RepositoryProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#name RepositoryProject#name}
+        :param repository: The repository of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#repository RepositoryProject#repository}
+        :param body: The body of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#body RepositoryProject#body}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#etag RepositoryProject#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#id RepositoryProject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -283,6 +305,7 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+            check_type(argname="argument etag", value=etag, expected_type=type_hints["etag"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -304,6 +327,8 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if body is not None:
             self._values["body"] = body
+        if etag is not None:
+            self._values["etag"] = etag
         if id is not None:
             self._values["id"] = id
 
@@ -375,7 +400,7 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#name RepositoryProject#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#name RepositoryProject#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -385,7 +410,7 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The repository of the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#repository RepositoryProject#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#repository RepositoryProject#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -395,14 +420,20 @@ class RepositoryProjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def body(self) -> typing.Optional[builtins.str]:
         '''The body of the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#body RepositoryProject#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#body RepositoryProject#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def etag(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#etag RepositoryProject#etag}.'''
+        result = self._values.get("etag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_project#id RepositoryProject#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_project#id RepositoryProject#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -436,6 +467,7 @@ def _typecheckingstub__4b627a6246c2e106a25922a58e56cb802d34c5a4ff1e333d7b9e4976d
     name: builtins.str,
     repository: builtins.str,
     body: typing.Optional[builtins.str] = None,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -458,6 +490,12 @@ def _typecheckingstub__ad5c83e8dc8e9519745d8beceb1a1128834a9790983b629aaab198c54
     pass
 
 def _typecheckingstub__338516443c131b4c8426af7c545970cc4b211941cb79f1a5650263dedc32ea55(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65155ae98444bc35feb0e03b5515bca78aa7a5c8cd2eddd0fbd160a3e11cc8a1(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -493,6 +531,7 @@ def _typecheckingstub__5e2cb7a8a98f9517d433a495c421b82247c4044fc1ac0cd3249a8e96b
     name: builtins.str,
     repository: builtins.str,
     body: typing.Optional[builtins.str] = None,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

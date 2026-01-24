@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebook
-Version: 7.4.5
+Version: 7.5.2
 Summary: Jupyter Notebook - A web-based notebook environment for interactive computing
 Project-URL: Documentation, https://jupyter-notebook.readthedocs.io/
 Project-URL: Homepage, https://github.com/jupyter/notebook
@@ -52,10 +52,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: jupyter-server<3,>=2.4.0
-Requires-Dist: jupyterlab-server<3,>=2.27.1
-Requires-Dist: jupyterlab<4.5,>=4.4.5
+Requires-Dist: jupyterlab-server<3,>=2.28.0
+Requires-Dist: jupyterlab<4.6,>=4.5.2
 Requires-Dist: notebook-shim<0.3,>=0.2
 Requires-Dist: tornado>=6.2.0
 Provides-Extra: dev
@@ -72,7 +72,7 @@ Provides-Extra: test
 Requires-Dist: importlib-resources>=5.0; (python_version < '3.10') and extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
 Requires-Dist: jupyter-server[test]<3,>=2.4.0; extra == 'test'
-Requires-Dist: jupyterlab-server[test]<3,>=2.27.1; extra == 'test'
+Requires-Dist: jupyterlab-server[test]<3,>=2.28.0; extra == 'test'
 Requires-Dist: nbval; extra == 'test'
 Requires-Dist: pytest-console-scripts; extra == 'test'
 Requires-Dist: pytest-timeout; extra == 'test'
@@ -86,7 +86,6 @@ Description-Content-Type: text/markdown
 ![Github Actions Status](https://github.com/jupyter/notebook/workflows/Build/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/jupyter-notebook/badge/?version=latest)](https://jupyter-notebook.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/jupyter/notebook/main?urlpath=tree)
-[![Gitpod](https://img.shields.io/badge/gitpod_editor-open-blue.svg)](https://gitpod.io/#https://github.com/jupyter/notebook)
 
 The Jupyter notebook is a web-based notebook environment for interactive
 computing.

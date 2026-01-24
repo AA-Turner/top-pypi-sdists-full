@@ -1,6 +1,8 @@
 import collections.abc
 import modal._functions
+import modal._load_context
 import modal._partial_function
+import modal._server
 import modal._utils.function_utils
 import modal.client
 import modal.cloud_bucket_mount
@@ -16,6 +18,7 @@ import modal.running_app
 import modal.schedule
 import modal.scheduler_placement
 import modal.secret
+import modal.server
 import modal.volume
 import pathlib
 import synchronicity.combined_types
@@ -74,6 +77,42 @@ class _FunctionDecoratorType:
         self, func: collections.abc.Callable[P, ReturnType]
     ) -> modal.functions.Function[P, ReturnType, ReturnType]: ...
 
+class _LocalAppState:
+    """All state for apps that's part of the local/definition state"""
+
+    functions: dict[str, modal._functions._Function]
+    classes: dict[str, modal.cls._Cls]
+    image_default: typing.Optional[modal.image._Image]
+    web_endpoints: list[str]
+    local_entrypoints: dict[str, _LocalEntrypoint]
+    tags: dict[str, str]
+    include_source_default: bool
+    secrets_default: collections.abc.Sequence[modal.secret._Secret]
+    volumes_default: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume]
+
+    def __init__(
+        self,
+        functions: dict[str, modal._functions._Function],
+        classes: dict[str, modal.cls._Cls],
+        image_default: typing.Optional[modal.image._Image],
+        web_endpoints: list[str],
+        local_entrypoints: dict[str, _LocalEntrypoint],
+        tags: dict[str, str],
+        include_source_default: bool,
+        secrets_default: collections.abc.Sequence[modal.secret._Secret],
+        volumes_default: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume],
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
 class _App:
     """A Modal App is a group of functions and classes that are deployed together.
 
@@ -110,22 +149,22 @@ class _App:
     _container_app: typing.ClassVar[typing.Optional[_App]]
     _name: typing.Optional[str]
     _description: typing.Optional[str]
-    _functions: dict[str, modal._functions._Function]
-    _classes: dict[str, modal.cls._Cls]
-    _image: typing.Optional[modal.image._Image]
-    _secrets: collections.abc.Sequence[modal.secret._Secret]
-    _volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume]
-    _web_endpoints: list[str]
-    _local_entrypoints: dict[str, _LocalEntrypoint]
+    _local_state_attr: typing.Optional[_LocalAppState]
     _app_id: typing.Optional[str]
     _running_app: typing.Optional[modal.running_app.RunningApp]
     _client: typing.Optional[modal.client._Client]
-    _include_source_default: typing.Optional[bool]
+    _root_load_context: modal._load_context.LoadContext
+
+    @property
+    def _local_state(self) -> _LocalAppState:
+        """For internal use only. Do not use this property directly."""
+        ...
 
     def __init__(
         self,
         name: typing.Optional[str] = None,
         *,
+        tags: typing.Optional[dict[str, str]] = None,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = [],
         volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume] = {},
@@ -149,7 +188,11 @@ class _App:
 
     @property
     def is_interactive(self) -> bool:
-        """Whether the current app for the app is running in interactive mode."""
+        """mdmd:hidden
+        Whether the current app for the app is running in interactive mode.
+
+        Note: this method will likely be deprecated in the future.
+        """
         ...
 
     @property
@@ -183,12 +226,30 @@ class _App:
         """
         ...
 
-    def set_description(self, description: str): ...
+    def set_description(self, description: str):
+        """mdmd:hidden
+        Set the description of the App before it starts running.
+
+        Note: we don't recommend using the method and may deprecate it in the future.
+        """
+        ...
+
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
     @property
-    def image(self) -> modal.image._Image: ...
+    def image(self) -> modal.image._Image:
+        """mdmd:hidden
+        Retrieve the Image that will be used as the default for any Functions registered to the App.
+
+        Note: This property is only relevant in the build phase and won't be populated on a deployed
+        App that is retrieved via `modal.App.lookup`. It is likely to be deprecated in the future.
+        """
+        ...
+
     @image.setter
-    def image(self, value): ...
+    def image(self, value):
+        """mdmd:hidden"""
+        ...
+
     def _uncreate_all_objects(self): ...
     def _set_local_app(
         self, client: modal.client._Client, running_app: modal.running_app.RunningApp
@@ -251,7 +312,7 @@ class _App:
     ) -> typing_extensions.Self:
         """Deploy the App so that it is available persistently.
 
-        Deployed Apps will be avaible for lookup or web-based invocations until they are stopped.
+        Deployed Apps will be available for lookup or web-based invocations until they are stopped.
         Unlike with `App.run`, this method will return as soon as the deployment completes.
 
         This method is a programmatic alternative to the `modal deploy` CLI command.
@@ -299,37 +360,48 @@ class _App:
     def _init_container(self, client: modal.client._Client, running_app: modal.running_app.RunningApp): ...
     @property
     def registered_functions(self) -> dict[str, modal._functions._Function]:
-        """All modal.Function objects registered on the app.
+        """mdmd:hidden
+        All modal.Function objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
     @property
     def registered_classes(self) -> dict[str, modal.cls._Cls]:
-        """All modal.Cls objects registered on the app.
+        """mdmd:hidden
+        All modal.Cls objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
     @property
     def registered_entrypoints(self) -> dict[str, _LocalEntrypoint]:
-        """All local CLI entrypoints registered on the app.
+        """mdmd:hidden
+        All local CLI entrypoints registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future.
         """
         ...
 
     @property
     def registered_web_endpoints(self) -> list[str]:
-        """Names of web endpoint (ie. webhook) functions registered on the app.
+        """mdmd:hidden
+        Names of web endpoint (ie. webhook) functions registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
@@ -391,7 +463,8 @@ class _App:
         *,
         image: typing.Optional[modal.image._Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         serialized: bool = False,
         network_file_systems: dict[
@@ -416,22 +489,24 @@ class _App:
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
-        max_inputs: typing.Optional[int] = None,
+        single_use_containers: bool = False,
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
+        _experimental_restrict_output: bool = False,
         keep_warm: typing.Optional[int] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
-        allow_cross_region_volumes: typing.Optional[bool] = None,
+        max_inputs: typing.Optional[int] = None,
         _experimental_buffer_containers: typing.Optional[int] = None,
+        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -445,7 +520,8 @@ class _App:
         _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image._Image] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         serialized: bool = False,
         network_file_systems: dict[
@@ -468,27 +544,88 @@ class _App:
         startup_timeout: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
-        max_inputs: typing.Optional[int] = None,
+        single_use_containers: bool = False,
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
+        _experimental_restrict_output: bool = False,
         keep_warm: typing.Optional[int] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
+        max_inputs: typing.Optional[int] = None,
         _experimental_buffer_containers: typing.Optional[int] = None,
-        allow_cross_region_volumes: typing.Optional[bool] = None,
+        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App."""
         ...
 
-    def include(self, /, other_app: _App) -> typing_extensions.Self:
+    def _experimental_server(
+        self,
+        _warn_parentheses_missing=None,
+        *,
+        image: typing.Optional[modal.image._Image] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        serialized: bool = False,
+        volumes: dict[
+            typing.Union[str, pathlib.PurePosixPath],
+            typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
+        ] = {},
+        cpu: typing.Union[float, tuple[float, float], None] = None,
+        memory: typing.Union[int, tuple[int, int], None] = None,
+        ephemeral_disk: typing.Optional[int] = None,
+        min_containers: typing.Optional[int] = None,
+        max_containers: typing.Optional[int] = None,
+        buffer_containers: typing.Optional[int] = None,
+        scaledown_window: typing.Optional[int] = None,
+        proxy: typing.Optional[modal.proxy._Proxy] = None,
+        port: int = 8000,
+        startup_timeout: int = 30,
+        exit_grace_period: int = 0,
+        proxy_regions: typing.Optional[collections.abc.Sequence[str]] = ["us-east"],
+        h2_enabled: bool = False,
+        target_concurrency: typing.Optional[int] = None,
+        cloud: typing.Optional[str] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
+        enable_memory_snapshot: bool = False,
+        i6pn: typing.Optional[bool] = None,
+        include_source: typing.Optional[bool] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
+    ) -> collections.abc.Callable[
+        [typing.Union[CLS_T, modal._partial_function._PartialFunction]], modal._server._Server
+    ]:
+        """Decorator to register a new Modal Server with this App.
+
+        Servers run HTTP servers that are started in an `@enter` method.
+        Unlike `@app.cls()`, servers only expose HTTP endpoints and do not
+        support `.remote()` method calls.
+
+        Example:
+
+        ```python
+        @app._experimental_server(port=8000, proxy_regions=["us-east"])
+        class MyServer:
+            @modal.enter()
+            def start(self):
+                self.proc = subprocess.Popen(["python3", "-m", "http.server", "8000"])
+
+            @modal.exit()
+            def stop(self):
+                self.proc.terminate()
+        ```
+        """
+        ...
+
+    def include(self, /, other_app: _App, inherit_tags: bool = True) -> typing_extensions.Self:
         """Include another App's objects in this one.
 
         Useful for splitting up Modal Apps across different self-contained files.
@@ -511,7 +648,28 @@ class _App:
             # use function declared on the included app
             bar.remote()
         ```
+
+        When `inherit_tags=True` any tags set on the other App will be inherited by this App
+        (with this App's tags taking precedence in the case of conflicts).
         """
+        ...
+
+    async def set_tags(
+        self, tags: collections.abc.Mapping[str, str], *, client: typing.Optional[modal.client._Client] = None
+    ) -> None:
+        """Attach key-value metadata to the App.
+
+        Tag metadata can be used to add organization-specific context to the App and can be
+        included in billing reports and other informational APIs. Tags can also be set in
+        the App constructor.
+
+        Any tags set on the App before calling this method will be removed if they are not
+        included in the argument (i.e., this method does not have `.update()` semantics).
+        """
+        ...
+
+    async def get_tags(self, *, client: typing.Optional[modal.client._Client] = None) -> dict[str, str]:
+        """Get the tags that are currently attached to the App."""
         ...
 
     def _logs(self, client: typing.Optional[modal.client._Client] = None) -> collections.abc.AsyncGenerator[str, None]:
@@ -572,22 +730,17 @@ class App:
     _container_app: typing.ClassVar[typing.Optional[App]]
     _name: typing.Optional[str]
     _description: typing.Optional[str]
-    _functions: dict[str, modal.functions.Function]
-    _classes: dict[str, modal.cls.Cls]
-    _image: typing.Optional[modal.image.Image]
-    _secrets: collections.abc.Sequence[modal.secret.Secret]
-    _volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume.Volume]
-    _web_endpoints: list[str]
-    _local_entrypoints: dict[str, LocalEntrypoint]
+    _local_state_attr: typing.Optional[_LocalAppState]
     _app_id: typing.Optional[str]
     _running_app: typing.Optional[modal.running_app.RunningApp]
     _client: typing.Optional[modal.client.Client]
-    _include_source_default: typing.Optional[bool]
+    _root_load_context: modal._load_context.LoadContext
 
     def __init__(
         self,
         name: typing.Optional[str] = None,
         *,
+        tags: typing.Optional[dict[str, str]] = None,
         image: typing.Optional[modal.image.Image] = None,
         secrets: collections.abc.Sequence[modal.secret.Secret] = [],
         volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume.Volume] = {},
@@ -605,13 +758,22 @@ class App:
         ...
 
     @property
+    def _local_state(self) -> _LocalAppState:
+        """For internal use only. Do not use this property directly."""
+        ...
+
+    @property
     def name(self) -> typing.Optional[str]:
         """The user-provided name of the App."""
         ...
 
     @property
     def is_interactive(self) -> bool:
-        """Whether the current app for the app is running in interactive mode."""
+        """mdmd:hidden
+        Whether the current app for the app is running in interactive mode.
+
+        Note: this method will likely be deprecated in the future.
+        """
         ...
 
     @property
@@ -669,17 +831,35 @@ class App:
             """
             ...
 
-    lookup: __lookup_spec
+    lookup: typing.ClassVar[__lookup_spec]
 
-    def set_description(self, description: str): ...
+    def set_description(self, description: str):
+        """mdmd:hidden
+        Set the description of the App before it starts running.
+
+        Note: we don't recommend using the method and may deprecate it in the future.
+        """
+        ...
+
     def _validate_blueprint_value(self, key: str, value: typing.Any): ...
     @property
-    def image(self) -> modal.image.Image: ...
+    def image(self) -> modal.image.Image:
+        """mdmd:hidden
+        Retrieve the Image that will be used as the default for any Functions registered to the App.
+
+        Note: This property is only relevant in the build phase and won't be populated on a deployed
+        App that is retrieved via `modal.App.lookup`. It is likely to be deprecated in the future.
+        """
+        ...
+
     @image.setter
-    def image(self, value): ...
+    def image(self, value):
+        """mdmd:hidden"""
+        ...
+
     def _uncreate_all_objects(self): ...
 
-    class ___set_local_app_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___set_local_app_spec(typing_extensions.Protocol):
         def __call__(
             self, /, client: modal.client.Client, running_app: modal.running_app.RunningApp
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
@@ -687,9 +867,9 @@ class App:
             self, /, client: modal.client.Client, running_app: modal.running_app.RunningApp
         ) -> typing.AsyncContextManager[None]: ...
 
-    _set_local_app: ___set_local_app_spec[typing_extensions.Self]
+    _set_local_app: ___set_local_app_spec
 
-    class __run_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __run_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -788,7 +968,7 @@ class App:
             """
             ...
 
-    run: __run_spec[typing_extensions.Self]
+    run: __run_spec
 
     class __deploy_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
@@ -802,7 +982,7 @@ class App:
         ) -> SUPERSELF:
             """Deploy the App so that it is available persistently.
 
-            Deployed Apps will be avaible for lookup or web-based invocations until they are stopped.
+            Deployed Apps will be available for lookup or web-based invocations until they are stopped.
             Unlike with `App.run`, this method will return as soon as the deployment completes.
 
             This method is a programmatic alternative to the `modal deploy` CLI command.
@@ -854,7 +1034,7 @@ class App:
         ) -> SUPERSELF:
             """Deploy the App so that it is available persistently.
 
-            Deployed Apps will be avaible for lookup or web-based invocations until they are stopped.
+            Deployed Apps will be available for lookup or web-based invocations until they are stopped.
             Unlike with `App.run`, this method will return as soon as the deployment completes.
 
             This method is a programmatic alternative to the `modal deploy` CLI command.
@@ -904,37 +1084,48 @@ class App:
     def _init_container(self, client: modal.client.Client, running_app: modal.running_app.RunningApp): ...
     @property
     def registered_functions(self) -> dict[str, modal.functions.Function]:
-        """All modal.Function objects registered on the app.
+        """mdmd:hidden
+        All modal.Function objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
     @property
     def registered_classes(self) -> dict[str, modal.cls.Cls]:
-        """All modal.Cls objects registered on the app.
+        """mdmd:hidden
+        All modal.Cls objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
     @property
     def registered_entrypoints(self) -> dict[str, LocalEntrypoint]:
-        """All local CLI entrypoints registered on the app.
+        """mdmd:hidden
+        All local CLI entrypoints registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future.
         """
         ...
 
     @property
     def registered_web_endpoints(self) -> list[str]:
-        """Names of web endpoint (ie. webhook) functions registered on the app.
+        """mdmd:hidden
+        Names of web endpoint (ie. webhook) functions registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
         expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        This method is likely to be deprecated in the future in favor of a different
+        approach for retrieving the layout of a deployed App.
         """
         ...
 
@@ -996,7 +1187,8 @@ class App:
         *,
         image: typing.Optional[modal.image.Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
-        secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         serialized: bool = False,
         network_file_systems: dict[
@@ -1021,22 +1213,24 @@ class App:
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
-        max_inputs: typing.Optional[int] = None,
+        single_use_containers: bool = False,
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
+        _experimental_restrict_output: bool = False,
         keep_warm: typing.Optional[int] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
-        allow_cross_region_volumes: typing.Optional[bool] = None,
+        max_inputs: typing.Optional[int] = None,
         _experimental_buffer_containers: typing.Optional[int] = None,
+        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -1050,7 +1244,8 @@ class App:
         _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
-        secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         serialized: bool = False,
         network_file_systems: dict[
@@ -1073,27 +1268,86 @@ class App:
         startup_timeout: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
-        max_inputs: typing.Optional[int] = None,
+        single_use_containers: bool = False,
         i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
+        _experimental_restrict_output: bool = False,
         keep_warm: typing.Optional[int] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
+        max_inputs: typing.Optional[int] = None,
         _experimental_buffer_containers: typing.Optional[int] = None,
-        allow_cross_region_volumes: typing.Optional[bool] = None,
+        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
         """Decorator to register a new Modal [Cls](https://modal.com/docs/reference/modal.Cls) with this App."""
         ...
 
-    def include(self, /, other_app: App) -> typing_extensions.Self:
+    def _experimental_server(
+        self,
+        _warn_parentheses_missing=None,
+        *,
+        image: typing.Optional[modal.image.Image] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+        gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
+        serialized: bool = False,
+        volumes: dict[
+            typing.Union[str, pathlib.PurePosixPath],
+            typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+        ] = {},
+        cpu: typing.Union[float, tuple[float, float], None] = None,
+        memory: typing.Union[int, tuple[int, int], None] = None,
+        ephemeral_disk: typing.Optional[int] = None,
+        min_containers: typing.Optional[int] = None,
+        max_containers: typing.Optional[int] = None,
+        buffer_containers: typing.Optional[int] = None,
+        scaledown_window: typing.Optional[int] = None,
+        proxy: typing.Optional[modal.proxy.Proxy] = None,
+        port: int = 8000,
+        startup_timeout: int = 30,
+        exit_grace_period: int = 0,
+        proxy_regions: typing.Optional[collections.abc.Sequence[str]] = ["us-east"],
+        h2_enabled: bool = False,
+        target_concurrency: typing.Optional[int] = None,
+        cloud: typing.Optional[str] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
+        enable_memory_snapshot: bool = False,
+        i6pn: typing.Optional[bool] = None,
+        include_source: typing.Optional[bool] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
+    ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], modal.server.Server]:
+        """Decorator to register a new Modal Server with this App.
+
+        Servers run HTTP servers that are started in an `@enter` method.
+        Unlike `@app.cls()`, servers only expose HTTP endpoints and do not
+        support `.remote()` method calls.
+
+        Example:
+
+        ```python
+        @app._experimental_server(port=8000, proxy_regions=["us-east"])
+        class MyServer:
+            @modal.enter()
+            def start(self):
+                self.proc = subprocess.Popen(["python3", "-m", "http.server", "8000"])
+
+            @modal.exit()
+            def stop(self):
+                self.proc.terminate()
+        ```
+        """
+        ...
+
+    def include(self, /, other_app: App, inherit_tags: bool = True) -> typing_extensions.Self:
         """Include another App's objects in this one.
 
         Useful for splitting up Modal Apps across different self-contained files.
@@ -1116,10 +1370,55 @@ class App:
             # use function declared on the included app
             bar.remote()
         ```
+
+        When `inherit_tags=True` any tags set on the other App will be inherited by this App
+        (with this App's tags taking precedence in the case of conflicts).
         """
         ...
 
-    class ___logs_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __set_tags_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, tags: collections.abc.Mapping[str, str], *, client: typing.Optional[modal.client.Client] = None
+        ) -> None:
+            """Attach key-value metadata to the App.
+
+            Tag metadata can be used to add organization-specific context to the App and can be
+            included in billing reports and other informational APIs. Tags can also be set in
+            the App constructor.
+
+            Any tags set on the App before calling this method will be removed if they are not
+            included in the argument (i.e., this method does not have `.update()` semantics).
+            """
+            ...
+
+        async def aio(
+            self, /, tags: collections.abc.Mapping[str, str], *, client: typing.Optional[modal.client.Client] = None
+        ) -> None:
+            """Attach key-value metadata to the App.
+
+            Tag metadata can be used to add organization-specific context to the App and can be
+            included in billing reports and other informational APIs. Tags can also be set in
+            the App constructor.
+
+            Any tags set on the App before calling this method will be removed if they are not
+            included in the argument (i.e., this method does not have `.update()` semantics).
+            """
+            ...
+
+    set_tags: __set_tags_spec
+
+    class __get_tags_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, client: typing.Optional[modal.client.Client] = None) -> dict[str, str]:
+            """Get the tags that are currently attached to the App."""
+            ...
+
+        async def aio(self, /, *, client: typing.Optional[modal.client.Client] = None) -> dict[str, str]:
+            """Get the tags that are currently attached to the App."""
+            ...
+
+    get_tags: __get_tags_spec
+
+    class ___logs_spec(typing_extensions.Protocol):
         def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> typing.Generator[str, None, None]:
             """Stream logs from the app.
 
@@ -1136,7 +1435,7 @@ class App:
             """
             ...
 
-    _logs: ___logs_spec[typing_extensions.Self]
+    _logs: ___logs_spec
 
     @classmethod
     def _get_container_app(cls) -> typing.Optional[App]:

@@ -3,12 +3,12 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class PaymentRefundStatus(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -48,8 +48,42 @@ class PaymentRefund(BaseModel):
 
     reference: Optional[str] = None
 
-    status: Annotated[
-        Optional[PaymentRefundStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    status: Optional[PaymentRefundStatus] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.PaymentRefundStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "created_at",
+                "currency",
+                "id",
+                "notes",
+                "raw",
+                "reference",
+                "status",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

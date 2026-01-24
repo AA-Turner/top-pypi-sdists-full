@@ -3,7 +3,7 @@ Type annotations for route53 service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -160,6 +161,7 @@ from .type_defs import (
     UpdateHealthCheckResponseTypeDef,
     UpdateHostedZoneCommentRequestTypeDef,
     UpdateHostedZoneCommentResponseTypeDef,
+    UpdateHostedZoneFeaturesRequestTypeDef,
     UpdateTrafficPolicyCommentRequestTypeDef,
     UpdateTrafficPolicyCommentResponseTypeDef,
     UpdateTrafficPolicyInstanceRequestTypeDef,
@@ -167,12 +169,6 @@ from .type_defs import (
 )
 from .waiter import ResourceRecordSetsChangedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -181,76 +177,76 @@ else:
 __all__ = ("Route53Client",)
 
 class Exceptions(BaseClientExceptions):
-    CidrBlockInUseException: Type[BotocoreClientError]
-    CidrCollectionAlreadyExistsException: Type[BotocoreClientError]
-    CidrCollectionInUseException: Type[BotocoreClientError]
-    CidrCollectionVersionMismatchException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModification: Type[BotocoreClientError]
-    ConflictingDomainExists: Type[BotocoreClientError]
-    ConflictingTypes: Type[BotocoreClientError]
-    DNSSECNotFound: Type[BotocoreClientError]
-    DelegationSetAlreadyCreated: Type[BotocoreClientError]
-    DelegationSetAlreadyReusable: Type[BotocoreClientError]
-    DelegationSetInUse: Type[BotocoreClientError]
-    DelegationSetNotAvailable: Type[BotocoreClientError]
-    DelegationSetNotReusable: Type[BotocoreClientError]
-    HealthCheckAlreadyExists: Type[BotocoreClientError]
-    HealthCheckInUse: Type[BotocoreClientError]
-    HealthCheckVersionMismatch: Type[BotocoreClientError]
-    HostedZoneAlreadyExists: Type[BotocoreClientError]
-    HostedZoneNotEmpty: Type[BotocoreClientError]
-    HostedZoneNotFound: Type[BotocoreClientError]
-    HostedZoneNotPrivate: Type[BotocoreClientError]
-    HostedZonePartiallyDelegated: Type[BotocoreClientError]
-    IncompatibleVersion: Type[BotocoreClientError]
-    InsufficientCloudWatchLogsResourcePolicy: Type[BotocoreClientError]
-    InvalidArgument: Type[BotocoreClientError]
-    InvalidChangeBatch: Type[BotocoreClientError]
-    InvalidDomainName: Type[BotocoreClientError]
-    InvalidInput: Type[BotocoreClientError]
-    InvalidKMSArn: Type[BotocoreClientError]
-    InvalidKeySigningKeyName: Type[BotocoreClientError]
-    InvalidKeySigningKeyStatus: Type[BotocoreClientError]
-    InvalidPaginationToken: Type[BotocoreClientError]
-    InvalidSigningStatus: Type[BotocoreClientError]
-    InvalidTrafficPolicyDocument: Type[BotocoreClientError]
-    InvalidVPCId: Type[BotocoreClientError]
-    KeySigningKeyAlreadyExists: Type[BotocoreClientError]
-    KeySigningKeyInParentDSRecord: Type[BotocoreClientError]
-    KeySigningKeyInUse: Type[BotocoreClientError]
-    KeySigningKeyWithActiveStatusNotFound: Type[BotocoreClientError]
-    LastVPCAssociation: Type[BotocoreClientError]
-    LimitsExceeded: Type[BotocoreClientError]
-    NoSuchChange: Type[BotocoreClientError]
-    NoSuchCidrCollectionException: Type[BotocoreClientError]
-    NoSuchCidrLocationException: Type[BotocoreClientError]
-    NoSuchCloudWatchLogsLogGroup: Type[BotocoreClientError]
-    NoSuchDelegationSet: Type[BotocoreClientError]
-    NoSuchGeoLocation: Type[BotocoreClientError]
-    NoSuchHealthCheck: Type[BotocoreClientError]
-    NoSuchHostedZone: Type[BotocoreClientError]
-    NoSuchKeySigningKey: Type[BotocoreClientError]
-    NoSuchQueryLoggingConfig: Type[BotocoreClientError]
-    NoSuchTrafficPolicy: Type[BotocoreClientError]
-    NoSuchTrafficPolicyInstance: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    PriorRequestNotComplete: Type[BotocoreClientError]
-    PublicZoneVPCAssociation: Type[BotocoreClientError]
-    QueryLoggingConfigAlreadyExists: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyHealthChecks: Type[BotocoreClientError]
-    TooManyHostedZones: Type[BotocoreClientError]
-    TooManyKeySigningKeys: Type[BotocoreClientError]
-    TooManyTrafficPolicies: Type[BotocoreClientError]
-    TooManyTrafficPolicyInstances: Type[BotocoreClientError]
-    TooManyTrafficPolicyVersionsForCurrentPolicy: Type[BotocoreClientError]
-    TooManyVPCAssociationAuthorizations: Type[BotocoreClientError]
-    TrafficPolicyAlreadyExists: Type[BotocoreClientError]
-    TrafficPolicyInUse: Type[BotocoreClientError]
-    TrafficPolicyInstanceAlreadyExists: Type[BotocoreClientError]
-    VPCAssociationAuthorizationNotFound: Type[BotocoreClientError]
-    VPCAssociationNotFound: Type[BotocoreClientError]
+    CidrBlockInUseException: type[BotocoreClientError]
+    CidrCollectionAlreadyExistsException: type[BotocoreClientError]
+    CidrCollectionInUseException: type[BotocoreClientError]
+    CidrCollectionVersionMismatchException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModification: type[BotocoreClientError]
+    ConflictingDomainExists: type[BotocoreClientError]
+    ConflictingTypes: type[BotocoreClientError]
+    DNSSECNotFound: type[BotocoreClientError]
+    DelegationSetAlreadyCreated: type[BotocoreClientError]
+    DelegationSetAlreadyReusable: type[BotocoreClientError]
+    DelegationSetInUse: type[BotocoreClientError]
+    DelegationSetNotAvailable: type[BotocoreClientError]
+    DelegationSetNotReusable: type[BotocoreClientError]
+    HealthCheckAlreadyExists: type[BotocoreClientError]
+    HealthCheckInUse: type[BotocoreClientError]
+    HealthCheckVersionMismatch: type[BotocoreClientError]
+    HostedZoneAlreadyExists: type[BotocoreClientError]
+    HostedZoneNotEmpty: type[BotocoreClientError]
+    HostedZoneNotFound: type[BotocoreClientError]
+    HostedZoneNotPrivate: type[BotocoreClientError]
+    HostedZonePartiallyDelegated: type[BotocoreClientError]
+    IncompatibleVersion: type[BotocoreClientError]
+    InsufficientCloudWatchLogsResourcePolicy: type[BotocoreClientError]
+    InvalidArgument: type[BotocoreClientError]
+    InvalidChangeBatch: type[BotocoreClientError]
+    InvalidDomainName: type[BotocoreClientError]
+    InvalidInput: type[BotocoreClientError]
+    InvalidKMSArn: type[BotocoreClientError]
+    InvalidKeySigningKeyName: type[BotocoreClientError]
+    InvalidKeySigningKeyStatus: type[BotocoreClientError]
+    InvalidPaginationToken: type[BotocoreClientError]
+    InvalidSigningStatus: type[BotocoreClientError]
+    InvalidTrafficPolicyDocument: type[BotocoreClientError]
+    InvalidVPCId: type[BotocoreClientError]
+    KeySigningKeyAlreadyExists: type[BotocoreClientError]
+    KeySigningKeyInParentDSRecord: type[BotocoreClientError]
+    KeySigningKeyInUse: type[BotocoreClientError]
+    KeySigningKeyWithActiveStatusNotFound: type[BotocoreClientError]
+    LastVPCAssociation: type[BotocoreClientError]
+    LimitsExceeded: type[BotocoreClientError]
+    NoSuchChange: type[BotocoreClientError]
+    NoSuchCidrCollectionException: type[BotocoreClientError]
+    NoSuchCidrLocationException: type[BotocoreClientError]
+    NoSuchCloudWatchLogsLogGroup: type[BotocoreClientError]
+    NoSuchDelegationSet: type[BotocoreClientError]
+    NoSuchGeoLocation: type[BotocoreClientError]
+    NoSuchHealthCheck: type[BotocoreClientError]
+    NoSuchHostedZone: type[BotocoreClientError]
+    NoSuchKeySigningKey: type[BotocoreClientError]
+    NoSuchQueryLoggingConfig: type[BotocoreClientError]
+    NoSuchTrafficPolicy: type[BotocoreClientError]
+    NoSuchTrafficPolicyInstance: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    PriorRequestNotComplete: type[BotocoreClientError]
+    PublicZoneVPCAssociation: type[BotocoreClientError]
+    QueryLoggingConfigAlreadyExists: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyHealthChecks: type[BotocoreClientError]
+    TooManyHostedZones: type[BotocoreClientError]
+    TooManyKeySigningKeys: type[BotocoreClientError]
+    TooManyTrafficPolicies: type[BotocoreClientError]
+    TooManyTrafficPolicyInstances: type[BotocoreClientError]
+    TooManyTrafficPolicyVersionsForCurrentPolicy: type[BotocoreClientError]
+    TooManyVPCAssociationAuthorizations: type[BotocoreClientError]
+    TrafficPolicyAlreadyExists: type[BotocoreClientError]
+    TrafficPolicyInUse: type[BotocoreClientError]
+    TrafficPolicyInstanceAlreadyExists: type[BotocoreClientError]
+    VPCAssociationAuthorizationNotFound: type[BotocoreClientError]
+    VPCAssociationNotFound: type[BotocoreClientError]
 
 class Route53Client(BaseClient):
     """
@@ -330,7 +326,7 @@ class Route53Client(BaseClient):
 
     def change_tags_for_resource(
         self, **kwargs: Unpack[ChangeTagsForResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds, edits, or deletes tags for a health check or a hosted zone.
 
@@ -458,7 +454,7 @@ class Route53Client(BaseClient):
 
     def delete_cidr_collection(
         self, **kwargs: Unpack[DeleteCidrCollectionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a CIDR collection in the current Amazon Web Services account.
 
@@ -468,7 +464,7 @@ class Route53Client(BaseClient):
 
     def delete_health_check(
         self, **kwargs: Unpack[DeleteHealthCheckRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a health check.
 
@@ -498,7 +494,7 @@ class Route53Client(BaseClient):
 
     def delete_query_logging_config(
         self, **kwargs: Unpack[DeleteQueryLoggingConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configuration for DNS query logging.
 
@@ -508,7 +504,7 @@ class Route53Client(BaseClient):
 
     def delete_reusable_delegation_set(
         self, **kwargs: Unpack[DeleteReusableDelegationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a reusable delegation set.
 
@@ -518,7 +514,7 @@ class Route53Client(BaseClient):
 
     def delete_traffic_policy(
         self, **kwargs: Unpack[DeleteTrafficPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a traffic policy.
 
@@ -528,7 +524,7 @@ class Route53Client(BaseClient):
 
     def delete_traffic_policy_instance(
         self, **kwargs: Unpack[DeleteTrafficPolicyInstanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a traffic policy instance and all of the resource record sets that
         Amazon Route 53 created when you created the instance.
@@ -539,7 +535,7 @@ class Route53Client(BaseClient):
 
     def delete_vpc_association_authorization(
         self, **kwargs: Unpack[DeleteVPCAssociationAuthorizationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes authorization to submit an <code>AssociateVPCWithHostedZone</code>
         request to associate a specified VPC with a hosted zone that was created by a
@@ -993,6 +989,16 @@ class Route53Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/update_hosted_zone_comment.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#update_hosted_zone_comment)
+        """
+
+    def update_hosted_zone_features(
+        self, **kwargs: Unpack[UpdateHostedZoneFeaturesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the features configuration for a hosted zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53/client/update_hosted_zone_features.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53/client/#update_hosted_zone_features)
         """
 
     def update_traffic_policy_comment(

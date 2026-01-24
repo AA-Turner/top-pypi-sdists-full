@@ -24,11 +24,9 @@ class UserLimits(APIObject):
     _llm_path = "api/v2/genai/userLimits/llmApiCalls/"
     _vector_db_path = "api/v2/genai/userLimits/vectorDatabases/"
 
-    _converter = t.Dict(
-        {
-            t.Key("counter"): t.Int(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("counter"): t.Int(),
+    }).ignore_extra("*")
 
     def __init__(self, counter: int):
         self.counter = counter

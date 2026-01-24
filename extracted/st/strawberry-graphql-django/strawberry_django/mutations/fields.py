@@ -32,6 +32,7 @@ from . import resolvers
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import Literal
 
     from graphql.pyutils import AwaitableOrValue
     from strawberry.types import Info
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
         StrawberryType,
         WithStrawberryObjectDefinition,
     )
-    from typing_extensions import Literal, Self
+    from typing_extensions import Self
 
     from .types import FullCleanOptions
 
@@ -143,7 +144,7 @@ class DjangoMutationBase(StrawberryDjangoFieldBase):
 
                 name = capitalize_first(to_camel_case(self.python_name))
                 resolved = Annotated[
-                    Union[types_],
+                    Union[types_],  # noqa: UP007
                     strawberry.union(f"{name}Payload"),
                 ]
                 self.type_annotation = StrawberryAnnotation(

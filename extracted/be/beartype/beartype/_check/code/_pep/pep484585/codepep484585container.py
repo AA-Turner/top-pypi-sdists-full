@@ -17,7 +17,7 @@ from beartype._check.metadata.hint.hintsmeta import HintsMeta
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
 from beartype._check.logic.logmap import (
     HINT_SIGN_PEP484585_CONTAINER_TO_LOGIC_get)
-from beartype._data.hint.pep.sign.datapepsigns import HintSignTuple
+from beartype._data.hint.sign.datahintsigns import HintSignTuple
 from beartype._util.hint.pep.proposal.pep484585.pep484585 import (
     get_hint_pep484585_arg)
 from beartype._util.hint.pep.utilpepget import (
@@ -83,7 +83,7 @@ def make_hint_pep484585_container_check_expr(hints_meta: HintsMeta) -> None:
             hint=hint, exception_prefix=hints_meta.exception_prefix)
     )
     # print(f'Sanifying container hint {repr(hint_curr)} child hint {repr(hint_child)}...')
-    # print(f'...with type variable lookup table {repr(hint_curr_meta.typevar_to_hint)}.')
+    # print(f'...with type variable lookup table {repr(hint_curr_meta.typearg_to_hint)}.')
 
     # Metadata encapsulating the sanification of this child hint.
     hint_child_sane = hints_meta.sanify_hint_child(hint_child)

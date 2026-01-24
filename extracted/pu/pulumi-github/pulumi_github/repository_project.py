@@ -21,6 +21,7 @@ class RepositoryProjectArgs:
     def __init__(__self__, *,
                  repository: pulumi.Input[_builtins.str],
                  body: Optional[pulumi.Input[_builtins.str]] = None,
+                 etag: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a RepositoryProject resource.
@@ -31,6 +32,8 @@ class RepositoryProjectArgs:
         pulumi.set(__self__, "repository", repository)
         if body is not None:
             pulumi.set(__self__, "body", body)
+        if etag is not None:
+            pulumi.set(__self__, "etag", etag)
         if name is not None:
             pulumi.set(__self__, "name", name)
 
@@ -57,6 +60,15 @@ class RepositoryProjectArgs:
     @body.setter
     def body(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "body", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def etag(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "etag")
+
+    @etag.setter
+    def etag(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "etag", value)
 
     @_builtins.property
     @pulumi.getter
@@ -162,10 +174,13 @@ class RepositoryProject(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  body: Optional[pulumi.Input[_builtins.str]] = None,
+                 etag: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  repository: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        !> **Warning:** This resource no longer works as the [Projects (classic) REST API](https://docs.github.com/en/rest/projects/projects?apiVersion=2022-11-28) has been [removed](https://github.blog/changelog/2024-05-23-sunset-notice-projects-classic/) and as such has been deprecated. It will be removed in a future release.
+
         This resource allows you to create and manage projects for GitHub repository.
 
         ## Example Usage
@@ -197,6 +212,8 @@ class RepositoryProject(pulumi.CustomResource):
                  args: RepositoryProjectArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        !> **Warning:** This resource no longer works as the [Projects (classic) REST API](https://docs.github.com/en/rest/projects/projects?apiVersion=2022-11-28) has been [removed](https://github.blog/changelog/2024-05-23-sunset-notice-projects-classic/) and as such has been deprecated. It will be removed in a future release.
+
         This resource allows you to create and manage projects for GitHub repository.
 
         ## Example Usage
@@ -231,6 +248,7 @@ class RepositoryProject(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  body: Optional[pulumi.Input[_builtins.str]] = None,
+                 etag: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  repository: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
@@ -243,11 +261,11 @@ class RepositoryProject(pulumi.CustomResource):
             __props__ = RepositoryProjectArgs.__new__(RepositoryProjectArgs)
 
             __props__.__dict__["body"] = body
+            __props__.__dict__["etag"] = etag
             __props__.__dict__["name"] = name
             if repository is None and not opts.urn:
                 raise TypeError("Missing required property 'repository'")
             __props__.__dict__["repository"] = repository
-            __props__.__dict__["etag"] = None
             __props__.__dict__["url"] = None
         super(RepositoryProject, __self__).__init__(
             'github:index/repositoryProject:RepositoryProject',

@@ -3,7 +3,7 @@ Type annotations for pinpoint service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pinpoint/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -53,12 +54,6 @@ from .literals import (
     TypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -773,7 +768,7 @@ class ActivityResponseTypeDef(TypedDict):
     TimezonesTotalCount: NotRequired[int]
     TotalEndpointCount: NotRequired[int]
     TreatmentId: NotRequired[str]
-    ExecutionMetrics: NotRequired[Dict[str, str]]
+    ExecutionMetrics: NotRequired[dict[str, str]]
 
 
 class ContactCenterActivityTypeDef(TypedDict):
@@ -810,7 +805,7 @@ class ApplicationResponseTypeDef(TypedDict):
     Arn: str
     Id: str
     Name: str
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     CreationDate: NotRequired[str]
 
 
@@ -839,7 +834,7 @@ class QuietTimeTypeDef(TypedDict):
 
 
 class AttributeDimensionOutputTypeDef(TypedDict):
-    Values: List[str]
+    Values: list[str]
     AttributeType: NotRequired[AttributeTypeType]
 
 
@@ -851,7 +846,7 @@ class AttributeDimensionTypeDef(TypedDict):
 class AttributesResourceTypeDef(TypedDict):
     ApplicationId: str
     AttributeType: str
-    Attributes: NotRequired[List[str]]
+    Attributes: NotRequired[list[str]]
 
 
 class BaiduChannelRequestTypeDef(TypedDict):
@@ -909,7 +904,7 @@ class CampaignStateTypeDef(TypedDict):
 
 class CustomDeliveryConfigurationOutputTypeDef(TypedDict):
     DeliveryUri: str
-    EndpointTypes: NotRequired[List[EndpointTypesElementType]]
+    EndpointTypes: NotRequired[list[EndpointTypesElementType]]
 
 
 class CampaignSmsMessageTypeDef(TypedDict):
@@ -952,7 +947,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -1005,7 +1000,7 @@ class RecommenderConfigurationResponseTypeDef(TypedDict):
     LastModifiedDate: str
     RecommendationProviderRoleArn: str
     RecommendationProviderUri: str
-    Attributes: NotRequired[Dict[str, str]]
+    Attributes: NotRequired[dict[str, str]]
     Description: NotRequired[str]
     Name: NotRequired[str]
     RecommendationProviderIdType: NotRequired[str]
@@ -1346,7 +1341,7 @@ class EndpointMessageResultTypeDef(TypedDict):
 
 
 class EndpointUserOutputTypeDef(TypedDict):
-    UserAttributes: NotRequired[Dict[str, List[str]]]
+    UserAttributes: NotRequired[dict[str, list[str]]]
     UserId: NotRequired[str]
 
 
@@ -1369,7 +1364,7 @@ class MetricDimensionTypeDef(TypedDict):
 
 
 class SetDimensionOutputTypeDef(TypedDict):
-    Values: List[str]
+    Values: list[str]
     DimensionType: NotRequired[DimensionTypeType]
 
 
@@ -1547,7 +1542,7 @@ class JourneyExecutionActivityMetricsResponseTypeDef(TypedDict):
     JourneyActivityId: str
     JourneyId: str
     LastEvaluatedTime: str
-    Metrics: Dict[str, str]
+    Metrics: dict[str, str]
 
 
 class GetJourneyExecutionMetricsRequestTypeDef(TypedDict):
@@ -1561,7 +1556,7 @@ class JourneyExecutionMetricsResponseTypeDef(TypedDict):
     ApplicationId: str
     JourneyId: str
     LastEvaluatedTime: str
-    Metrics: Dict[str, str]
+    Metrics: dict[str, str]
 
 
 class GetJourneyRequestTypeDef(TypedDict):
@@ -1584,7 +1579,7 @@ class JourneyRunExecutionActivityMetricsResponseTypeDef(TypedDict):
     JourneyActivityId: str
     JourneyId: str
     LastEvaluatedTime: str
-    Metrics: Dict[str, str]
+    Metrics: dict[str, str]
     RunId: str
 
 
@@ -1600,7 +1595,7 @@ class JourneyRunExecutionMetricsResponseTypeDef(TypedDict):
     ApplicationId: str
     JourneyId: str
     LastEvaluatedTime: str
-    Metrics: Dict[str, str]
+    Metrics: dict[str, str]
     RunId: str
 
 
@@ -1681,7 +1676,7 @@ class SMSTemplateResponseTypeDef(TypedDict):
     Body: NotRequired[str]
     DefaultSubstitutions: NotRequired[str]
     RecommenderId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     Version: NotRequired[str]
 
@@ -1709,7 +1704,7 @@ class VoiceTemplateResponseTypeDef(TypedDict):
     Body: NotRequired[str]
     DefaultSubstitutions: NotRequired[str]
     LanguageCode: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     Version: NotRequired[str]
     VoiceId: NotRequired[str]
@@ -1788,7 +1783,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class TagsModelOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
 
 
 class ListTemplateVersionsRequestTypeDef(TypedDict):
@@ -1905,7 +1900,7 @@ class SegmentImportResourceTypeDef(TypedDict):
     RoleArn: str
     S3Url: str
     Size: int
-    ChannelCounts: NotRequired[Dict[str, int]]
+    ChannelCounts: NotRequired[dict[str, int]]
 
 
 class SendOTPMessageRequestParametersTypeDef(TypedDict):
@@ -1952,7 +1947,7 @@ class TemplateResponseTypeDef(TypedDict):
     TemplateType: TemplateTypeType
     Arn: NotRequired[str]
     DefaultSubstitutions: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     Version: NotRequired[str]
 
@@ -2024,12 +2019,12 @@ class UpdateApnsVoipSandboxChannelRequestTypeDef(TypedDict):
 
 
 class ActivitiesResponseTypeDef(TypedDict):
-    Item: List[ActivityResponseTypeDef]
+    Item: list[ActivityResponseTypeDef]
     NextToken: NotRequired[str]
 
 
 class ApplicationsResponseTypeDef(TypedDict):
-    Item: NotRequired[List[ApplicationResponseTypeDef]]
+    Item: NotRequired[list[ApplicationResponseTypeDef]]
     NextToken: NotRequired[str]
 
 
@@ -2063,7 +2058,7 @@ class RawEmailTypeDef(TypedDict):
 class CampaignEmailMessageOutputTypeDef(TypedDict):
     Body: NotRequired[str]
     FromAddress: NotRequired[str]
-    Headers: NotRequired[List[MessageHeaderTypeDef]]
+    Headers: NotRequired[list[MessageHeaderTypeDef]]
     HtmlBody: NotRequired[str]
     Title: NotRequired[str]
 
@@ -2097,23 +2092,23 @@ class EmailTemplateResponseTypeDef(TypedDict):
     HtmlPart: NotRequired[str]
     RecommenderId: NotRequired[str]
     Subject: NotRequired[str]
-    Headers: NotRequired[List[MessageHeaderTypeDef]]
-    tags: NotRequired[Dict[str, str]]
+    Headers: NotRequired[list[MessageHeaderTypeDef]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     TextPart: NotRequired[str]
     Version: NotRequired[str]
 
 
 class ChannelsResponseTypeDef(TypedDict):
-    Channels: Dict[str, ChannelResponseTypeDef]
+    Channels: dict[str, ChannelResponseTypeDef]
 
 
 class ClosedDaysOutputTypeDef(TypedDict):
-    EMAIL: NotRequired[List[ClosedDaysRuleTypeDef]]
-    SMS: NotRequired[List[ClosedDaysRuleTypeDef]]
-    PUSH: NotRequired[List[ClosedDaysRuleTypeDef]]
-    VOICE: NotRequired[List[ClosedDaysRuleTypeDef]]
-    CUSTOM: NotRequired[List[ClosedDaysRuleTypeDef]]
+    EMAIL: NotRequired[list[ClosedDaysRuleTypeDef]]
+    SMS: NotRequired[list[ClosedDaysRuleTypeDef]]
+    PUSH: NotRequired[list[ClosedDaysRuleTypeDef]]
+    VOICE: NotRequired[list[ClosedDaysRuleTypeDef]]
+    CUSTOM: NotRequired[list[ClosedDaysRuleTypeDef]]
 
 
 class ClosedDaysTypeDef(TypedDict):
@@ -2302,7 +2297,7 @@ class GetRecommenderConfigurationResponseTypeDef(TypedDict):
 
 
 class ListRecommenderConfigurationsResponseTypeDef(TypedDict):
-    Item: List[RecommenderConfigurationResponseTypeDef]
+    Item: list[RecommenderConfigurationResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -2342,7 +2337,7 @@ CustomDeliveryConfigurationUnionTypeDef = Union[
 
 class CustomMessageActivityOutputTypeDef(TypedDict):
     DeliveryUri: NotRequired[str]
-    EndpointTypes: NotRequired[List[EndpointTypesElementType]]
+    EndpointTypes: NotRequired[list[EndpointTypesElementType]]
     MessageConfig: NotRequired[JourneyCustomMessageTypeDef]
     NextActivity: NotRequired[str]
     TemplateName: NotRequired[str]
@@ -2383,7 +2378,7 @@ class PushNotificationTemplateResponseTypeDef(TypedDict):
     DefaultSubstitutions: NotRequired[str]
     GCM: NotRequired[AndroidPushNotificationTemplateTypeDef]
     RecommenderId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     Version: NotRequired[str]
 
@@ -2543,13 +2538,13 @@ class EmailMessageActivityTypeDef(TypedDict):
 class SendUsersMessageResponseTypeDef(TypedDict):
     ApplicationId: str
     RequestId: NotRequired[str]
-    Result: NotRequired[Dict[str, Dict[str, EndpointMessageResultTypeDef]]]
+    Result: NotRequired[dict[str, dict[str, EndpointMessageResultTypeDef]]]
 
 
 class EndpointResponseTypeDef(TypedDict):
     Address: NotRequired[str]
     ApplicationId: NotRequired[str]
-    Attributes: NotRequired[Dict[str, List[str]]]
+    Attributes: NotRequired[dict[str, list[str]]]
     ChannelType: NotRequired[ChannelTypeType]
     CohortId: NotRequired[str]
     CreationDate: NotRequired[str]
@@ -2558,7 +2553,7 @@ class EndpointResponseTypeDef(TypedDict):
     EndpointStatus: NotRequired[str]
     Id: NotRequired[str]
     Location: NotRequired[EndpointLocationTypeDef]
-    Metrics: NotRequired[Dict[str, float]]
+    Metrics: NotRequired[dict[str, float]]
     OptOut: NotRequired[str]
     RequestId: NotRequired[str]
     User: NotRequired[EndpointUserOutputTypeDef]
@@ -2568,9 +2563,9 @@ EndpointUserUnionTypeDef = Union[EndpointUserTypeDef, EndpointUserOutputTypeDef]
 
 
 class EventDimensionsOutputTypeDef(TypedDict):
-    Attributes: NotRequired[Dict[str, AttributeDimensionOutputTypeDef]]
+    Attributes: NotRequired[dict[str, AttributeDimensionOutputTypeDef]]
     EventType: NotRequired[SetDimensionOutputTypeDef]
-    Metrics: NotRequired[Dict[str, MetricDimensionTypeDef]]
+    Metrics: NotRequired[dict[str, MetricDimensionTypeDef]]
 
 
 class SegmentDemographicsOutputTypeDef(TypedDict):
@@ -2584,7 +2579,7 @@ class SegmentDemographicsOutputTypeDef(TypedDict):
 
 class ItemResponseTypeDef(TypedDict):
     EndpointItemResponse: NotRequired[EndpointItemResponseTypeDef]
-    EventsItemResponse: NotRequired[Dict[str, EventItemResponseTypeDef]]
+    EventsItemResponse: NotRequired[dict[str, EventItemResponseTypeDef]]
 
 
 class EventTypeDef(TypedDict):
@@ -2612,7 +2607,7 @@ ExportJobResponseTypeDef = TypedDict(
         "CompletedPieces": NotRequired[int],
         "CompletionDate": NotRequired[str],
         "FailedPieces": NotRequired[int],
-        "Failures": NotRequired[List[str]],
+        "Failures": NotRequired[list[str]],
         "TotalFailures": NotRequired[int],
         "TotalPieces": NotRequired[int],
         "TotalProcessed": NotRequired[int],
@@ -2707,7 +2702,7 @@ ImportJobResponseTypeDef = TypedDict(
         "CompletedPieces": NotRequired[int],
         "CompletionDate": NotRequired[str],
         "FailedPieces": NotRequired[int],
-        "Failures": NotRequired[List[str]],
+        "Failures": NotRequired[list[str]],
         "TotalFailures": NotRequired[int],
         "TotalPieces": NotRequired[int],
         "TotalProcessed": NotRequired[int],
@@ -2730,7 +2725,7 @@ class PushMessageActivityTypeDef(TypedDict):
 
 
 class JourneyRunsResponseTypeDef(TypedDict):
-    Item: List[JourneyRunResponseTypeDef]
+    Item: list[JourneyRunResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -2754,9 +2749,9 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class MessageResponseTypeDef(TypedDict):
     ApplicationId: str
-    EndpointResult: NotRequired[Dict[str, EndpointMessageResultTypeDef]]
+    EndpointResult: NotRequired[dict[str, EndpointMessageResultTypeDef]]
     RequestId: NotRequired[str]
-    Result: NotRequired[Dict[str, MessageResultTypeDef]]
+    Result: NotRequired[dict[str, MessageResultTypeDef]]
 
 
 class PhoneNumberValidateRequestTypeDef(TypedDict):
@@ -2769,11 +2764,11 @@ class PhoneNumberValidateResponseTypeDef(TypedDict):
 
 
 class OpenHoursOutputTypeDef(TypedDict):
-    EMAIL: NotRequired[Dict[DayOfWeekType, List[OpenHoursRuleTypeDef]]]
-    SMS: NotRequired[Dict[DayOfWeekType, List[OpenHoursRuleTypeDef]]]
-    PUSH: NotRequired[Dict[DayOfWeekType, List[OpenHoursRuleTypeDef]]]
-    VOICE: NotRequired[Dict[DayOfWeekType, List[OpenHoursRuleTypeDef]]]
-    CUSTOM: NotRequired[Dict[DayOfWeekType, List[OpenHoursRuleTypeDef]]]
+    EMAIL: NotRequired[dict[DayOfWeekType, list[OpenHoursRuleTypeDef]]]
+    SMS: NotRequired[dict[DayOfWeekType, list[OpenHoursRuleTypeDef]]]
+    PUSH: NotRequired[dict[DayOfWeekType, list[OpenHoursRuleTypeDef]]]
+    VOICE: NotRequired[dict[DayOfWeekType, list[OpenHoursRuleTypeDef]]]
+    CUSTOM: NotRequired[dict[DayOfWeekType, list[OpenHoursRuleTypeDef]]]
 
 
 class OpenHoursTypeDef(TypedDict):
@@ -2790,7 +2785,7 @@ class PutEventStreamRequestTypeDef(TypedDict):
 
 
 class RandomSplitActivityOutputTypeDef(TypedDict):
-    Branches: NotRequired[List[RandomSplitEntryTypeDef]]
+    Branches: NotRequired[list[RandomSplitEntryTypeDef]]
 
 
 class RandomSplitActivityTypeDef(TypedDict):
@@ -2808,8 +2803,8 @@ class RemoveAttributesRequestTypeDef(TypedDict):
 
 
 class ResultRowTypeDef(TypedDict):
-    GroupedBys: List[ResultRowValueTypeDef]
-    Values: List[ResultRowValueTypeDef]
+    GroupedBys: list[ResultRowValueTypeDef]
+    Values: list[ResultRowValueTypeDef]
 
 
 class UpdateSmsChannelRequestTypeDef(TypedDict):
@@ -2850,12 +2845,12 @@ class TemplateConfigurationTypeDef(TypedDict):
 
 
 class TemplatesResponseTypeDef(TypedDict):
-    Item: List[TemplateResponseTypeDef]
+    Item: list[TemplateResponseTypeDef]
     NextToken: NotRequired[str]
 
 
 class TemplateVersionsResponseTypeDef(TypedDict):
-    Item: List[TemplateVersionResponseTypeDef]
+    Item: list[TemplateVersionResponseTypeDef]
     Message: NotRequired[str]
     NextToken: NotRequired[str]
     RequestID: NotRequired[str]
@@ -2977,7 +2972,7 @@ class DeleteEndpointResponseTypeDef(TypedDict):
 
 
 class EndpointsResponseTypeDef(TypedDict):
-    Item: List[EndpointResponseTypeDef]
+    Item: list[EndpointResponseTypeDef]
 
 
 class GetEndpointResponseTypeDef(TypedDict):
@@ -3044,7 +3039,7 @@ class EventFilterOutputTypeDef(TypedDict):
 
 
 class EventsResponseTypeDef(TypedDict):
-    Results: NotRequired[Dict[str, ItemResponseTypeDef]]
+    Results: NotRequired[dict[str, ItemResponseTypeDef]]
 
 
 class CreateExportJobResponseTypeDef(TypedDict):
@@ -3053,7 +3048,7 @@ class CreateExportJobResponseTypeDef(TypedDict):
 
 
 class ExportJobsResponseTypeDef(TypedDict):
-    Item: List[ExportJobResponseTypeDef]
+    Item: list[ExportJobResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -3081,7 +3076,7 @@ class GetImportJobResponseTypeDef(TypedDict):
 
 
 class ImportJobsResponseTypeDef(TypedDict):
-    Item: List[ImportJobResponseTypeDef]
+    Item: list[ImportJobResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -3116,7 +3111,7 @@ RandomSplitActivityUnionTypeDef = Union[
 
 
 class BaseKpiResultTypeDef(TypedDict):
-    Rows: List[ResultRowTypeDef]
+    Rows: list[ResultRowTypeDef]
 
 
 class EventDimensionsTypeDef(TypedDict):
@@ -3241,12 +3236,12 @@ class GetSegmentExportJobsResponseTypeDef(TypedDict):
 
 
 class SegmentDimensionsOutputTypeDef(TypedDict):
-    Attributes: NotRequired[Dict[str, AttributeDimensionOutputTypeDef]]
+    Attributes: NotRequired[dict[str, AttributeDimensionOutputTypeDef]]
     Behavior: NotRequired[SegmentBehaviorsTypeDef]
     Demographic: NotRequired[SegmentDemographicsOutputTypeDef]
     Location: NotRequired[SegmentLocationOutputTypeDef]
-    Metrics: NotRequired[Dict[str, MetricDimensionTypeDef]]
-    UserAttributes: NotRequired[Dict[str, AttributeDimensionOutputTypeDef]]
+    Metrics: NotRequired[dict[str, MetricDimensionTypeDef]]
+    UserAttributes: NotRequired[dict[str, AttributeDimensionOutputTypeDef]]
 
 
 class GetImportJobsResponseTypeDef(TypedDict):
@@ -3261,8 +3256,8 @@ class GetSegmentImportJobsResponseTypeDef(TypedDict):
 
 class CampaignInAppMessageOutputTypeDef(TypedDict):
     Body: NotRequired[str]
-    Content: NotRequired[List[InAppMessageContentTypeDef]]
-    CustomConfig: NotRequired[Dict[str, str]]
+    Content: NotRequired[list[InAppMessageContentTypeDef]]
+    CustomConfig: NotRequired[dict[str, str]]
     Layout: NotRequired[LayoutType]
 
 
@@ -3274,8 +3269,8 @@ class CampaignInAppMessageTypeDef(TypedDict):
 
 
 class InAppMessageTypeDef(TypedDict):
-    Content: NotRequired[List[InAppMessageContentTypeDef]]
-    CustomConfig: NotRequired[Dict[str, str]]
+    Content: NotRequired[list[InAppMessageContentTypeDef]]
+    CustomConfig: NotRequired[dict[str, str]]
     Layout: NotRequired[LayoutType]
 
 
@@ -3293,10 +3288,10 @@ class InAppTemplateResponseTypeDef(TypedDict):
     TemplateName: str
     TemplateType: TemplateTypeType
     Arn: NotRequired[str]
-    Content: NotRequired[List[InAppMessageContentTypeDef]]
-    CustomConfig: NotRequired[Dict[str, str]]
+    Content: NotRequired[list[InAppMessageContentTypeDef]]
+    CustomConfig: NotRequired[dict[str, str]]
     Layout: NotRequired[LayoutType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateDescription: NotRequired[str]
     Version: NotRequired[str]
 
@@ -3367,8 +3362,8 @@ class StartConditionOutputTypeDef(TypedDict):
 SegmentGroupOutputTypeDef = TypedDict(
     "SegmentGroupOutputTypeDef",
     {
-        "Dimensions": NotRequired[List[SegmentDimensionsOutputTypeDef]],
-        "SourceSegments": NotRequired[List[SegmentReferenceTypeDef]],
+        "Dimensions": NotRequired[list[SegmentDimensionsOutputTypeDef]],
+        "SourceSegments": NotRequired[list[SegmentReferenceTypeDef]],
         "SourceType": NotRequired[SourceTypeType],
         "Type": NotRequired[TypeType],
     },
@@ -3488,12 +3483,12 @@ class PutEventsRequestTypeDef(TypedDict):
 
 
 class SegmentGroupListOutputTypeDef(TypedDict):
-    Groups: NotRequired[List[SegmentGroupOutputTypeDef]]
+    Groups: NotRequired[list[SegmentGroupOutputTypeDef]]
     Include: NotRequired[IncludeType]
 
 
 class ConditionOutputTypeDef(TypedDict):
-    Conditions: NotRequired[List[SimpleConditionOutputTypeDef]]
+    Conditions: NotRequired[list[SimpleConditionOutputTypeDef]]
     Operator: NotRequired[OperatorType]
 
 
@@ -3527,7 +3522,7 @@ class MessageConfigurationTypeDef(TypedDict):
 
 
 class InAppMessagesResponseTypeDef(TypedDict):
-    InAppMessageCampaigns: NotRequired[List[InAppMessageCampaignTypeDef]]
+    InAppMessageCampaigns: NotRequired[list[InAppMessageCampaignTypeDef]]
 
 
 CampaignEventFilterUnionTypeDef = Union[
@@ -3559,7 +3554,7 @@ class SegmentResponseTypeDef(TypedDict):
     LastModifiedDate: NotRequired[str]
     Name: NotRequired[str]
     SegmentGroups: NotRequired[SegmentGroupListOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     Version: NotRequired[int]
 
 
@@ -3571,7 +3566,7 @@ class ConditionalSplitActivityOutputTypeDef(TypedDict):
 
 
 class MultiConditionalSplitActivityOutputTypeDef(TypedDict):
-    Branches: NotRequired[List[MultiConditionalBranchOutputTypeDef]]
+    Branches: NotRequired[list[MultiConditionalBranchOutputTypeDef]]
     DefaultActivity: NotRequired[str]
     EvaluationWaitTime: NotRequired[WaitTimeTypeDef]
 
@@ -3584,7 +3579,7 @@ class CampaignResponseTypeDef(TypedDict):
     LastModifiedDate: str
     SegmentId: str
     SegmentVersion: int
-    AdditionalTreatments: NotRequired[List[TreatmentResourceTypeDef]]
+    AdditionalTreatments: NotRequired[list[TreatmentResourceTypeDef]]
     CustomDeliveryConfiguration: NotRequired[CustomDeliveryConfigurationOutputTypeDef]
     DefaultState: NotRequired[CampaignStateTypeDef]
     Description: NotRequired[str]
@@ -3596,7 +3591,7 @@ class CampaignResponseTypeDef(TypedDict):
     Name: NotRequired[str]
     Schedule: NotRequired[ScheduleOutputTypeDef]
     State: NotRequired[CampaignStateTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     TemplateConfiguration: NotRequired[TemplateConfigurationTypeDef]
     TreatmentDescription: NotRequired[str]
     TreatmentName: NotRequired[str]
@@ -3667,7 +3662,7 @@ class GetSegmentVersionResponseTypeDef(TypedDict):
 
 
 class SegmentsResponseTypeDef(TypedDict):
-    Item: List[SegmentResponseTypeDef]
+    Item: list[SegmentResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -3691,7 +3686,7 @@ class ActivityOutputTypeDef(TypedDict):
 
 
 class CampaignsResponseTypeDef(TypedDict):
-    Item: List[CampaignResponseTypeDef]
+    Item: list[CampaignResponseTypeDef]
     NextToken: NotRequired[str]
 
 
@@ -3742,7 +3737,7 @@ class JourneyResponseTypeDef(TypedDict):
     ApplicationId: str
     Id: str
     Name: str
-    Activities: NotRequired[Dict[str, ActivityOutputTypeDef]]
+    Activities: NotRequired[dict[str, ActivityOutputTypeDef]]
     CreationDate: NotRequired[str]
     LastModifiedDate: NotRequired[str]
     Limits: NotRequired[JourneyLimitsTypeDef]
@@ -3753,14 +3748,14 @@ class JourneyResponseTypeDef(TypedDict):
     StartActivity: NotRequired[str]
     StartCondition: NotRequired[StartConditionOutputTypeDef]
     State: NotRequired[StateType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     WaitForQuietTime: NotRequired[bool]
     RefreshOnSegmentUpdate: NotRequired[bool]
     JourneyChannelSettings: NotRequired[JourneyChannelSettingsTypeDef]
     SendingSchedule: NotRequired[bool]
     OpenHours: NotRequired[OpenHoursOutputTypeDef]
     ClosedDays: NotRequired[ClosedDaysOutputTypeDef]
-    TimezoneEstimationMethods: NotRequired[List[TimezoneEstimationMethodsElementType]]
+    TimezoneEstimationMethods: NotRequired[list[TimezoneEstimationMethodsElementType]]
 
 
 class GetCampaignVersionsResponseTypeDef(TypedDict):
@@ -3820,7 +3815,7 @@ class GetJourneyResponseTypeDef(TypedDict):
 
 
 class JourneysResponseTypeDef(TypedDict):
-    Item: List[JourneyResponseTypeDef]
+    Item: list[JourneyResponseTypeDef]
     NextToken: NotRequired[str]
 
 

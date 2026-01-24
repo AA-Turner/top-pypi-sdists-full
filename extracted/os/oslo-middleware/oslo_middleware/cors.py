@@ -18,7 +18,6 @@ import copy
 import logging
 import typing as ty
 
-import debtcollector
 from oslo_config import cfg
 from oslo_middleware import base
 import webob.exc
@@ -225,21 +224,6 @@ class CORS(base.ConfigurableMiddleware):
             allow_headers=allow_headers,
         )
 
-        # Iterate through all the loaded config sections, looking for ones
-        # prefixed with 'cors.'
-        for section in self.oslo_conf.list_all_sections():
-            if section.startswith('cors.'):
-                debtcollector.deprecate(
-                    'Multiple configuration blocks are '
-                    'deprecated and will be removed in '
-                    'future versions. Please consolidate '
-                    'your configuration in the [cors] '
-                    'configuration block.'
-                )
-                # Register with the preconstructed defaults
-                self.oslo_conf.register_opts(subgroup_opts, section)
-                self.add_origin(**self.oslo_conf[section])
-
     def add_origin(
         self,
         allowed_origin: str | list[str],
@@ -313,9 +297,7 @@ class CORS(base.ConfigurableMiddleware):
             return response
 
         # Doublecheck for an OPTIONS request.
-        # TODO(stephenfin): typeshed typing is incomplete and doesn't include
-        # OPTIONS
-        if request.method == 'OPTIONS':  # type: ignore
+        if request.method == 'OPTIONS':
             return self._apply_cors_preflight_headers(
                 request=request, response=response
             )

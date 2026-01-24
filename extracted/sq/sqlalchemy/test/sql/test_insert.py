@@ -123,7 +123,7 @@ class InsertTest(_InsertTestBase, fixtures.TablesTest, AssertsCompiledSQL):
             if sort_by_parameter_order:
                 with expect_raises_message(
                     exc.CompileError,
-                    "RETURNING cannot be determinstically sorted "
+                    "RETURNING cannot be deterministically sorted "
                     "when using an INSERT",
                 ):
                     stmt.compile()
@@ -1252,7 +1252,7 @@ class InsertImplicitReturningTest(
                 expected = "INSERT INTO t (x, q) VALUES (%(x)s, %(q)s)"
             params = None
         elif paramtype == "params":
-            # for params, compiler doesnt have the value available to look
+            # for params, compiler doesn't have the value available to look
             # at.  we assume non-NULL
             stmt = t.insert()
             if insert_null_still_autoincrements:

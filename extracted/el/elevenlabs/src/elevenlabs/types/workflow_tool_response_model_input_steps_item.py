@@ -8,7 +8,9 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
-from .conversation_history_transcript_tool_call_common_model import ConversationHistoryTranscriptToolCallCommonModel
+from .conversation_history_transcript_tool_call_common_model_input import (
+    ConversationHistoryTranscriptToolCallCommonModelInput,
+)
 
 
 class WorkflowToolResponseModelInputStepsItem_Edge(UncheckedBaseModel):
@@ -46,7 +48,7 @@ class WorkflowToolResponseModelInputStepsItem_NestedTools(UncheckedBaseModel):
     type: typing.Literal["nested_tools"] = "nested_tools"
     step_latency_secs: float
     node_id: str
-    requests: typing.List[ConversationHistoryTranscriptToolCallCommonModel]
+    requests: typing.List[ConversationHistoryTranscriptToolCallCommonModelInput]
     results: typing.List["WorkflowToolNestedToolsStepModelInputResultsItem"]
     is_successful: bool
 
@@ -60,12 +62,6 @@ class WorkflowToolResponseModelInputStepsItem_NestedTools(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .conversation_history_transcript_workflow_tools_result_common_model_input import (
-    ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput,
-)  # noqa: E402, F401, I001
-from .workflow_tool_nested_tools_step_model_input import WorkflowToolNestedToolsStepModelInput  # noqa: E402, F401, I001
-from .workflow_tool_response_model_input import WorkflowToolResponseModelInput  # noqa: E402, F401, I001
-
 WorkflowToolResponseModelInputStepsItem = typing_extensions.Annotated[
     typing.Union[
         WorkflowToolResponseModelInputStepsItem_Edge,
@@ -74,6 +70,12 @@ WorkflowToolResponseModelInputStepsItem = typing_extensions.Annotated[
     ],
     UnionMetadata(discriminant="type"),
 ]
-from .workflow_tool_nested_tools_step_model_input_results_item import WorkflowToolNestedToolsStepModelInputResultsItem  # noqa: E402, F401, I001
+from .conversation_history_transcript_workflow_tools_result_common_model_input import (
+    ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput,
+)  # noqa: E402, I001
+from .workflow_tool_nested_tools_step_model_input_results_item import WorkflowToolNestedToolsStepModelInputResultsItem  # noqa: E402, I001
 
-update_forward_refs(WorkflowToolResponseModelInputStepsItem_NestedTools)
+update_forward_refs(
+    WorkflowToolResponseModelInputStepsItem_NestedTools,
+    ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput=ConversationHistoryTranscriptWorkflowToolsResultCommonModelInput,
+)

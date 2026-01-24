@@ -18,6 +18,112 @@ import warnings
 from tencentcloud.common.abstract_model import AbstractModel
 
 
+class AIAgentInfo(AbstractModel):
+    r"""Intelligent agent info.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AIAgentId: Intelligent agent ID.
+        :type AIAgentId: int
+        :param _AIAgentName: Intelligent agent name.
+        :type AIAgentName: str
+        """
+        self._AIAgentId = None
+        self._AIAgentName = None
+
+    @property
+    def AIAgentId(self):
+        r"""Intelligent agent ID.
+        :rtype: int
+        """
+        return self._AIAgentId
+
+    @AIAgentId.setter
+    def AIAgentId(self, AIAgentId):
+        self._AIAgentId = AIAgentId
+
+    @property
+    def AIAgentName(self):
+        r"""Intelligent agent name.
+        :rtype: str
+        """
+        return self._AIAgentName
+
+    @AIAgentName.setter
+    def AIAgentName(self, AIAgentName):
+        self._AIAgentName = AIAgentName
+
+
+    def _deserialize(self, params):
+        self._AIAgentId = params.get("AIAgentId")
+        self._AIAgentName = params.get("AIAgentName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AIAnalysisResult(AbstractModel):
+    r"""AI conversation analytics result.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Summary: describes the session summary.
+mood: specifies the emotion analysis.
+intention extraction.
+        :type Type: str
+        :param _Result: AI session analysis result.
+        :type Result: str
+        """
+        self._Type = None
+        self._Result = None
+
+    @property
+    def Type(self):
+        r"""Summary: describes the session summary.
+mood: specifies the emotion analysis.
+intention extraction.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Result(self):
+        r"""AI session analysis result.
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._Result = params.get("Result")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AICallExtractConfigElement(AbstractModel):
     r"""AI call extraction configuration item.
 
@@ -1199,10 +1305,13 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
         :type Number: str
         :param _CallInInterface: Specifies the callback url to be bound.
         :type CallInInterface: :class:`tencentcloud.ccc.v20200210.models.Interface`
+        :param _NumberType: Bind number type. specifies the type of the bind number. inner: internal number | number: line number.
+        :type NumberType: str
         """
         self._SdkAppId = None
         self._Number = None
         self._CallInInterface = None
+        self._NumberType = None
 
     @property
     def SdkAppId(self):
@@ -1237,6 +1346,17 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
     def CallInInterface(self, CallInInterface):
         self._CallInInterface = CallInInterface
 
+    @property
+    def NumberType(self):
+        r"""Bind number type. specifies the type of the bind number. inner: internal number | number: line number.
+        :rtype: str
+        """
+        return self._NumberType
+
+    @NumberType.setter
+    def NumberType(self, NumberType):
+        self._NumberType = NumberType
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -1244,6 +1364,7 @@ class BindNumberCallInInterfaceRequest(AbstractModel):
         if params.get("CallInInterface") is not None:
             self._CallInInterface = Interface()
             self._CallInInterface._deserialize(params.get("CallInInterface"))
+        self._NumberType = params.get("NumberType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1954,17 +2075,21 @@ class ControlAIConversationRequest(AbstractModel):
         :type SessionId: str
         :param _SdkAppId: App ID (required). can be used to view https://console.cloud.tencent.com/ccc.
         :type SdkAppId: int
-        :param _Command: Control command. currently supports the following commands:.
+        :param _Command: Control command. currently supported commands are as follows:.
 
--ServerPushText. specifies the text sent by the server to the AI robot. the AI robot will broadcast the text.
+-ServerPushText. specifies the text sent by the server to the AI robot for broadcast.
+-InvokeLLM. specifies the server sends text to the large model to trigger a dialogue.
         :type Command: str
         :param _ServerPushText: Specifies the server-sent broadcast text Command. required when Command is ServerPushText.
         :type ServerPushText: :class:`tencentcloud.ccc.v20200210.models.ServerPushText`
+        :param _InvokeLLM: The server sends a Command to proactively request the large model. when Command is InvokeLLM, it sends the content to the large model and adds X-Invoke-LLM="1" to the header.
+        :type InvokeLLM: :class:`tencentcloud.ccc.v20200210.models.InvokeLLM`
         """
         self._SessionId = None
         self._SdkAppId = None
         self._Command = None
         self._ServerPushText = None
+        self._InvokeLLM = None
 
     @property
     def SessionId(self):
@@ -1990,9 +2115,10 @@ class ControlAIConversationRequest(AbstractModel):
 
     @property
     def Command(self):
-        r"""Control command. currently supports the following commands:.
+        r"""Control command. currently supported commands are as follows:.
 
--ServerPushText. specifies the text sent by the server to the AI robot. the AI robot will broadcast the text.
+-ServerPushText. specifies the text sent by the server to the AI robot for broadcast.
+-InvokeLLM. specifies the server sends text to the large model to trigger a dialogue.
         :rtype: str
         """
         return self._Command
@@ -2012,6 +2138,17 @@ class ControlAIConversationRequest(AbstractModel):
     def ServerPushText(self, ServerPushText):
         self._ServerPushText = ServerPushText
 
+    @property
+    def InvokeLLM(self):
+        r"""The server sends a Command to proactively request the large model. when Command is InvokeLLM, it sends the content to the large model and adds X-Invoke-LLM="1" to the header.
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.InvokeLLM`
+        """
+        return self._InvokeLLM
+
+    @InvokeLLM.setter
+    def InvokeLLM(self, InvokeLLM):
+        self._InvokeLLM = InvokeLLM
+
 
     def _deserialize(self, params):
         self._SessionId = params.get("SessionId")
@@ -2020,6 +2157,9 @@ class ControlAIConversationRequest(AbstractModel):
         if params.get("ServerPushText") is not None:
             self._ServerPushText = ServerPushText()
             self._ServerPushText._deserialize(params.get("ServerPushText"))
+        if params.get("InvokeLLM") is not None:
+            self._InvokeLLM = InvokeLLM()
+            self._InvokeLLM._deserialize(params.get("InvokeLLM"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2405,56 +2545,80 @@ Currently, the supported languages are as follows. The English name of the langu
         :type NotifyMessage: str
         :param _NotifyMaxCount: Maximum number of times to trigger ai prompt sound, unlimited by default.
         :type NotifyMaxCount: int
-        :param _CustomTTSConfig: <p>And VoiceType field needs to select one, here is to use your own custom TTS, VoiceType is some built-in sound qualities</p>
+        :param _CustomTTSConfig: <p>Either the VoiceType field or a custom TTS is required. this uses your own custom TTS, while VoiceType provides some built-in voice types.</p>.
 <ul>
 <li>Tencent TTS<br>
-For configuration, please refer to <a href="https://intl.cloud.tencent.com/document/product/1073/92668?from_cn_redirect=1#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">Tencent Cloud TTS documentation link</a></li>
+For configuration, see <a href="https://www.tencentcloud.comom/document/product/1073/92668?from_cn_redirect=1#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">tencent cloud TTS documentation link</a></li>.
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-    &quot;TTSType&quot;: &quot;tencent&quot;, // String TTS type, currently supports &quot;tencent&quot; and "minixmax", other vendors support in progress
-    &quot;AppId&quot;: &quot;Your application ID&quot;, // String required
-    &quot;SecretId&quot;: &quot;Your Secret ID&quot;, // String Required
-    &quot;SecretKey&quot;:  &quot;Your Secret Key&quot;, // String Required
-    &quot;VoiceType&quot;: 101001, // Integer Required, Sound quality ID, includes standard and premium sound quality. Premium sound quality is more realistic and differently priced than standard sound quality. See TTS billing overview for details. For the full list of sound quality IDs, see the TTS sound quality list.
-    "Speed": 1.25, // Integer Optional, speech speed, range: [-2,6], corresponding to different speeds: -2: represents 0.6x -1: represents 0.8x 0: represents 1.0x (default) 1: represents 1.2x 2: represents 1.5x 6: represents 2.5x For more precise speed control, you can retain two decimal places, such as 0.5/1.25/2.81, etc. For parameter value to actual speed conversion, refer to Speed Conversion
-    &quot;Volume&quot;: 5, // Integer Optional, Volume level, range: [0,10], corresponding to 11 levels of volume, default is 0, which represents normal volume.
-    &quot;PrimaryLanguage&quot;: 1, // Integer Optional, Primary language 1- Chinese (default) 2- English 3- Japanese
-    &quot;FastVoiceType&quot;: &quot;xxxx&quot;   // Optional parameter, Fast VRS parameter
-  }
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
+"TTSType": "tencent", // String TTS type. currently supports "tencent" and "minixmax". the rest manufacturers are under support.
+  "AppId": "your application ID", // String required.
+  "SecretId": "your key ID", // String required.
+  "SecretKey": "your Key", // String required.
+  "VoiceType": 101001, // Integer  required. the voice ID, including standard timbre and premium timbre. premium timbre has higher fidelity and different pricing from standard timbre. please refer to the text to speech billing overview. for the complete supported timbre list, see the text to speech timbre list.
+  "Speed": 1.25, // Integer optional, speaking rate, value range: [-2,6], respectively represent different speaking rates: -2: 0.6x -1: 0.8x 0: 1.0x (default) 1: 1.2x 2: 1.5x 6: 2.5x. if more refined speaking rates are needed, up to 2 decimal places can be retained, such as 0.5, 1.25, or 2.81. for parameter value to actual speech Speed conversion, refer to speech Speed switch.
+  "Volume": 5, // Integer optional. specifies the Volume level. value range: [0,10], corresponding to 11 severity levels respectively. default value: 0, which represents normal Volume.
+  "PrimaryLanguage": 1, // Integer option primary language 1-chinese (default) 2-english 3-japanese.
+"FastVoiceType": "xxxx"   //  optional parameter. parameters for quick voice clone. 
+  }
 </code></pre>
-
-  </div></div><ul>
-
-</div></div><ul>
+ </div><ul>
+<li>Minimax TTS<br>
+For configuration, refer to the <a href="https://platform.minimaxi.com/document/T2a%20V2?key=66719005a427f0c8a5701643" target="_blank">Minimax TTS documentation link</a>. note that Minimax TTS has frequency limits. overfrequency may result in response delays. see the <a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS frequency limit documentation link</a>.</li>.
+</ul>
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "minimax",  // String TTS type. 
+        &quot;Model&quot;: &quot;speech-01-turbo&quot;,
+        &quot;APIUrl&quot;: &quot;https://api.minimax.chat/v1/t2a_v2&quot;,
+        &quot;APIKey&quot;: &quot;eyxxxx&quot;,
+        &quot;GroupId&quot;: &quot;181000000000000&quot;,
+        &quot;VoiceType&quot;:&quot;female-tianmei&quot;,
+        &quot;Speed&quot;: 1.2
+}
+</code></pre>
+</div><ul>
+<li>Volcano TTS</li>.
+</ul>
+<p>Configure the timbre type. see <a href="https://www.volcengine.com/docs/6561/162929" target="_blank">volcano TTS documentation link</a><br>.
+Text to speech timbre list - voice technology - volcano engine.
+Large model TTS timbre list - voice technology - volcano engine</p>.
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "volcengine",  // required: String TTS type.
+"AppId": "xxxxxxxx",   // required: String AppId assigned by volcano engine.
+"Token": "TY9d4sQXHxxxxxxx", // required: String type, access Token for volcano engine.
+"Speed": 1.0,            // optional parameter. speaking rate, defaults to 1.0.
+"Volume": 1.0,            // optional parameter, Volume, defaults to 1.0.
+"Cluster": "volcano_tts", // optional parameter, business Cluster, is selected by default.
+"VoiceType": "zh_male_aojiaobazong_moon_bigtts" // timbre type, defaults to the TTS voice type of the large model. if using ordinary text to speech, you need to fill in the corresponding voice type. input errors in voice type can cause no sound.
+}
+</code></pre>
+</div><ul>
 <li>Azure TTS<br>
-For configuration, refer to the<a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">Azure TTS documentation</a></li>
+For configuration, refer to the <a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">AzureTTS documentation link</a></li>.
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-    &quot;TTSType&quot;: &quot;azure&quot;, // Required: String TTS type
-    &quot;SubscriptionKey&quot;: &quot;xxxxxxxx&quot;, // Required: String subscription key
-    &quot;Region&quot;: &quot;chinanorth3&quot;,  // Required: String subscription region
-    &quot;VoiceName&quot;: &quot;zh-CN-XiaoxiaoNeural&quot;, // Required: String Timbre Name required
-    &quot;Language&quot;: &quot;zh-CN&quot;, // Required: String Language for synthesis
-    &quot;Rate&quot;: 1 // Optional: float Playback Speed 0.5-2 default is 1
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "azure", // required: String TTS type.
+"SubscriptionKey": "xxxxxxxx", // required: String subscription Key.
+"Region": "chinanorth3",  // required: String the Region to subscribe to.
+"VoiceName": "zh-CN-XiaoxiaoNeural", // required: String specifies the required VoiceName.
+"Language": "zh-CN", // required: String specifies the synthesis Language.  
+"Rate": 1 // optional: float, speech speed. value range: 0.5–2. default is 1.
 }
 </code></pre>
-
-</div></div><ul>
-<li>Custom</li>
+</div><ul>
+<li>Custom TTS</li>.
 </ul>
-<p>TTS<br>
-Please refer to the specific protocol standards in the <a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">Tencent documentation</a></p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-  &quot;TTSType&quot;: &quot;custom&quot;, // Required String
-  &quot;APIKey&quot;: &quot;ApiKey&quot;, // Required String for Authentication
-  &quot;APIUrl&quot;: &quot;http://0.0.0.0:8080/stream-audio&quot; // Required String, TTS API URL
-  &quot;AudioFormat&quot;: &quot;wav&quot;, // String, optional, expected audio format, such as mp3, ogg_opus, pcm, wav, default is wav, currently only pcm and wav are supported,
-  &quot;SampleRate&quot;: 16000,  // Integer, optional, audio sample rate, default is 16000 (16k), recommended value is 16000
-  &quot;AudioChannel&quot;: 1,    // Integer, optional, number of audio channels, values: 1 or 2, default is 1
+<p>For the specific protocol specification, refer to <a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">tencent documentation</a></p>.
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "custom", // String required.
+"APIKey": "APIKey", // String required. be used to authenticate.
+"APIUrl": "http://0.0.0.0:8080/stream-audio" // String, required, TTS API URL.
+"AudioFormat": "wav", // String, optional, specifies the desired audio format, such as mp3, ogg_opus, pcm, wav. defaults to wav. currently only support pcm and wav.
+"SampleRate": 16000,  // Integer, optional, audio sample rate, defaults to 16000 (16k), recommended value is 16000.
+"AudioChannel": 1,    // Integer, optional, audio channel quantity. valid values: 1 or 2. default is 1.  
 }
 </code></pre>
-
-</div></div>
+</div>
         :type CustomTTSConfig: str
         :param _PromptVariables: Prompt word variable.
         :type PromptVariables: list of Variable
@@ -2476,11 +2640,22 @@ dify-inputs-xxx specifies the inputs variable for dify.
         :type VadLevel: int
         :param _ToneWord: Transition.
         :type ToneWord: :class:`tencentcloud.ccc.v20200210.models.ToneWordInfo`
-        :param _EnableComplianceAudio: Compliance prompt sound. 
-This parameter specifies whether to play morse code during call initiation (default: true), indicating the conversation content is AI-generated.
-This parameter signifies disabled when set to false. the parameter indicates you understand and agree to the following protocol:.
-Our side fully acknowledges and understands that according to the laws and regulations including the "cybersecurity law" (https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm), "provision on administration of deep synthesis of internet-based information service" (https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm), "interim measures for the management of generative artificial intelligence services" (https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm), and "measures for the identification of artificial intelligence-generated synthetic content" (https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm), explicit and implicit identification shall be added to ai-generated synthetic content. based on business needs, we request tencent cloud not to add explicit identification to generated synthetic content. we commit to lawful and compliant use of such content to avoid confusion or misunderstanding. if the ai-generated synthetic content is used to provide services to the public or spread over networks, we will proactively add explicit identification compliant with legal provisions and national standard requirements and bear the legal obligations for ai-generated synthetic content identification. if we fail to properly fulfill the identification obligations for ai-generated content, resulting in adverse consequences or penalties from the competent department, we will fully assume all related responsibilities.
+        :param _EnableComplianceAudio: Compliant prompt sound. 
+This parameter set to true (default) means call initiation plays morse code, with a Note that the conversation content is AI-generated.
+Passing 'false' to this parameter disables the compliance prompt sound. passing 'false' signifies you have read and agree to the following agreement:.
+Our side fully acknowledges and understands that according to the laws and regulations specified in the "cybersecurity law" (https://www.cac.gov.cn/2016-11/07/c_1119867116.htm), "provision on administration of deep synthesis of internet-based information service" (https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm), "interim measures for the management of generative artificial intelligence services" (https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm), and "measures for the identification of artificial intelligence-generated synthetic content" (https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm), explicit and implicit identification should be added to ai-generated synthetic content. based on business requirements, we request tencent cloud not to add explicit identification to generated synthetic content. we commit to lawful and compliant use of generated synthetic content to avoid causing confusion or misunderstanding. if the generated synthetic content is used to provide services to the public or spread over networks, we will proactively add explicit identification that complies with legal provisions and national standards, and bear the legal obligation for identifying ai-generated synthetic content. our side will fully assume all related responsibilities if adverse consequences arise from failure to appropriately and reasonably fulfill the obligation of ai content identification, or if penalties are imposed by the competent department.
         :type EnableComplianceAudio: bool
+        :param _EnableVoicemailDetection: Whether to enable voice mail recognition.
+        :type EnableVoicemailDetection: bool
+        :param _VoicemailAction: Detect behavior when the peer is voice mail. this parameter is valid only when EnableVoicemailDetection is True.
+0: hang up the phone (default).
+        :type VoicemailAction: int
+        :param _LLMExtraBody: Large model extended parameter, format is json string.
+        :type LLMExtraBody: str
+        :param _MaxCallDurationMs: Maximum call duration, default not limited. unit: milliseconds (ms).
+        :type MaxCallDurationMs: int
+        :param _MaxRingTimeoutSecond: Maximum ringing duration. auto hang up when the duration threshold is reached. **only own number supports current parameter.**.
+        :type MaxRingTimeoutSecond: int
         """
         self._SdkAppId = None
         self._Callee = None
@@ -2515,6 +2690,11 @@ Our side fully acknowledges and understands that according to the laws and regul
         self._VadLevel = None
         self._ToneWord = None
         self._EnableComplianceAudio = None
+        self._EnableVoicemailDetection = None
+        self._VoicemailAction = None
+        self._LLMExtraBody = None
+        self._MaxCallDurationMs = None
+        self._MaxRingTimeoutSecond = None
 
     @property
     def SdkAppId(self):
@@ -2889,56 +3069,80 @@ Currently, the supported languages are as follows. The English name of the langu
 
     @property
     def CustomTTSConfig(self):
-        r"""<p>And VoiceType field needs to select one, here is to use your own custom TTS, VoiceType is some built-in sound qualities</p>
+        r"""<p>Either the VoiceType field or a custom TTS is required. this uses your own custom TTS, while VoiceType provides some built-in voice types.</p>.
 <ul>
 <li>Tencent TTS<br>
-For configuration, please refer to <a href="https://intl.cloud.tencent.com/document/product/1073/92668?from_cn_redirect=1#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">Tencent Cloud TTS documentation link</a></li>
+For configuration, see <a href="https://www.tencentcloud.comom/document/product/1073/92668?from_cn_redirect=1#55924b56-1a73-4663-a7a1-a8dd82d6e823" target="_blank">tencent cloud TTS documentation link</a></li>.
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-    &quot;TTSType&quot;: &quot;tencent&quot;, // String TTS type, currently supports &quot;tencent&quot; and "minixmax", other vendors support in progress
-    &quot;AppId&quot;: &quot;Your application ID&quot;, // String required
-    &quot;SecretId&quot;: &quot;Your Secret ID&quot;, // String Required
-    &quot;SecretKey&quot;:  &quot;Your Secret Key&quot;, // String Required
-    &quot;VoiceType&quot;: 101001, // Integer Required, Sound quality ID, includes standard and premium sound quality. Premium sound quality is more realistic and differently priced than standard sound quality. See TTS billing overview for details. For the full list of sound quality IDs, see the TTS sound quality list.
-    "Speed": 1.25, // Integer Optional, speech speed, range: [-2,6], corresponding to different speeds: -2: represents 0.6x -1: represents 0.8x 0: represents 1.0x (default) 1: represents 1.2x 2: represents 1.5x 6: represents 2.5x For more precise speed control, you can retain two decimal places, such as 0.5/1.25/2.81, etc. For parameter value to actual speed conversion, refer to Speed Conversion
-    &quot;Volume&quot;: 5, // Integer Optional, Volume level, range: [0,10], corresponding to 11 levels of volume, default is 0, which represents normal volume.
-    &quot;PrimaryLanguage&quot;: 1, // Integer Optional, Primary language 1- Chinese (default) 2- English 3- Japanese
-    &quot;FastVoiceType&quot;: &quot;xxxx&quot;   // Optional parameter, Fast VRS parameter
-  }
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{ 
+"TTSType": "tencent", // String TTS type. currently supports "tencent" and "minixmax". the rest manufacturers are under support.
+  "AppId": "your application ID", // String required.
+  "SecretId": "your key ID", // String required.
+  "SecretKey": "your Key", // String required.
+  "VoiceType": 101001, // Integer  required. the voice ID, including standard timbre and premium timbre. premium timbre has higher fidelity and different pricing from standard timbre. please refer to the text to speech billing overview. for the complete supported timbre list, see the text to speech timbre list.
+  "Speed": 1.25, // Integer optional, speaking rate, value range: [-2,6], respectively represent different speaking rates: -2: 0.6x -1: 0.8x 0: 1.0x (default) 1: 1.2x 2: 1.5x 6: 2.5x. if more refined speaking rates are needed, up to 2 decimal places can be retained, such as 0.5, 1.25, or 2.81. for parameter value to actual speech Speed conversion, refer to speech Speed switch.
+  "Volume": 5, // Integer optional. specifies the Volume level. value range: [0,10], corresponding to 11 severity levels respectively. default value: 0, which represents normal Volume.
+  "PrimaryLanguage": 1, // Integer option primary language 1-chinese (default) 2-english 3-japanese.
+"FastVoiceType": "xxxx"   //  optional parameter. parameters for quick voice clone. 
+  }
 </code></pre>
-
-  </div></div><ul>
-
-</div></div><ul>
+ </div><ul>
+<li>Minimax TTS<br>
+For configuration, refer to the <a href="https://platform.minimaxi.com/document/T2a%20V2?key=66719005a427f0c8a5701643" target="_blank">Minimax TTS documentation link</a>. note that Minimax TTS has frequency limits. overfrequency may result in response delays. see the <a href="https://platform.minimaxi.com/document/Rate%20limits?key=66b19417290299a26b234572" target="_blank">Minimax TTS frequency limit documentation link</a>.</li>.
+</ul>
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "minimax",  // String TTS type. 
+        &quot;Model&quot;: &quot;speech-01-turbo&quot;,
+        &quot;APIUrl&quot;: &quot;https://api.minimax.chat/v1/t2a_v2&quot;,
+        &quot;APIKey&quot;: &quot;eyxxxx&quot;,
+        &quot;GroupId&quot;: &quot;181000000000000&quot;,
+        &quot;VoiceType&quot;:&quot;female-tianmei&quot;,
+        &quot;Speed&quot;: 1.2
+}
+</code></pre>
+</div><ul>
+<li>Volcano TTS</li>.
+</ul>
+<p>Configure the timbre type. see <a href="https://www.volcengine.com/docs/6561/162929" target="_blank">volcano TTS documentation link</a><br>.
+Text to speech timbre list - voice technology - volcano engine.
+Large model TTS timbre list - voice technology - volcano engine</p>.
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "volcengine",  // required: String TTS type.
+"AppId": "xxxxxxxx",   // required: String AppId assigned by volcano engine.
+"Token": "TY9d4sQXHxxxxxxx", // required: String type, access Token for volcano engine.
+"Speed": 1.0,            // optional parameter. speaking rate, defaults to 1.0.
+"Volume": 1.0,            // optional parameter, Volume, defaults to 1.0.
+"Cluster": "volcano_tts", // optional parameter, business Cluster, is selected by default.
+"VoiceType": "zh_male_aojiaobazong_moon_bigtts" // timbre type, defaults to the TTS voice type of the large model. if using ordinary text to speech, you need to fill in the corresponding voice type. input errors in voice type can cause no sound.
+}
+</code></pre>
+</div><ul>
 <li>Azure TTS<br>
-For configuration, refer to the<a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">Azure TTS documentation</a></li>
+For configuration, refer to the <a href="https://docs.azure.cn/zh-cn/ai-services/speech-service/speech-synthesis-markup-voice" target="_blank">AzureTTS documentation link</a></li>.
 </ul>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-    &quot;TTSType&quot;: &quot;azure&quot;, // Required: String TTS type
-    &quot;SubscriptionKey&quot;: &quot;xxxxxxxx&quot;, // Required: String subscription key
-    &quot;Region&quot;: &quot;chinanorth3&quot;,  // Required: String subscription region
-    &quot;VoiceName&quot;: &quot;zh-CN-XiaoxiaoNeural&quot;, // Required: String Timbre Name required
-    &quot;Language&quot;: &quot;zh-CN&quot;, // Required: String Language for synthesis
-    &quot;Rate&quot;: 1 // Optional: float Playback Speed 0.5-2 default is 1
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "azure", // required: String TTS type.
+"SubscriptionKey": "xxxxxxxx", // required: String subscription Key.
+"Region": "chinanorth3",  // required: String the Region to subscribe to.
+"VoiceName": "zh-CN-XiaoxiaoNeural", // required: String specifies the required VoiceName.
+"Language": "zh-CN", // required: String specifies the synthesis Language.  
+"Rate": 1 // optional: float, speech speed. value range: 0.5–2. default is 1.
 }
 </code></pre>
-
-</div></div><ul>
-<li>Custom</li>
+</div><ul>
+<li>Custom TTS</li>.
 </ul>
-<p>TTS<br>
-Please refer to the specific protocol standards in the <a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">Tencent documentation</a></p>
-<div><div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
-  &quot;TTSType&quot;: &quot;custom&quot;, // Required String
-  &quot;APIKey&quot;: &quot;ApiKey&quot;, // Required String for Authentication
-  &quot;APIUrl&quot;: &quot;http://0.0.0.0:8080/stream-audio&quot; // Required String, TTS API URL
-  &quot;AudioFormat&quot;: &quot;wav&quot;, // String, optional, expected audio format, such as mp3, ogg_opus, pcm, wav, default is wav, currently only pcm and wav are supported,
-  &quot;SampleRate&quot;: 16000,  // Integer, optional, audio sample rate, default is 16000 (16k), recommended value is 16000
-  &quot;AudioChannel&quot;: 1,    // Integer, optional, number of audio channels, values: 1 or 2, default is 1
+<p>For the specific protocol specification, refer to <a href="https://doc.weixin.qq.com/doc/w3_ANQAiAbdAFwHILbJBmtSqSbV1WZ3L?scode=AJEAIQdfAAo5a1xajYANQAiAbdAFw" target="_blank">tencent documentation</a></p>.
+<div class="v-md-pre-wrapper copy-code-mode v-md-pre-wrapper- extra-class"><pre class="v-md-prism-"><code>{
+"TTSType": "custom", // String required.
+"APIKey": "APIKey", // String required. be used to authenticate.
+"APIUrl": "http://0.0.0.0:8080/stream-audio" // String, required, TTS API URL.
+"AudioFormat": "wav", // String, optional, specifies the desired audio format, such as mp3, ogg_opus, pcm, wav. defaults to wav. currently only support pcm and wav.
+"SampleRate": 16000,  // Integer, optional, audio sample rate, defaults to 16000 (16k), recommended value is 16000.
+"AudioChannel": 1,    // Integer, optional, audio channel quantity. valid values: 1 or 2. default is 1.  
 }
 </code></pre>
-
-</div></div>
+</div>
         :rtype: str
         """
         return self._CustomTTSConfig
@@ -3045,10 +3249,10 @@ dify-inputs-xxx specifies the inputs variable for dify.
 
     @property
     def EnableComplianceAudio(self):
-        r"""Compliance prompt sound. 
-This parameter specifies whether to play morse code during call initiation (default: true), indicating the conversation content is AI-generated.
-This parameter signifies disabled when set to false. the parameter indicates you understand and agree to the following protocol:.
-Our side fully acknowledges and understands that according to the laws and regulations including the "cybersecurity law" (https://www.gov.cn/xinwen/2016-11/07/content_5129723.htm), "provision on administration of deep synthesis of internet-based information service" (https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm), "interim measures for the management of generative artificial intelligence services" (https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm), and "measures for the identification of artificial intelligence-generated synthetic content" (https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm), explicit and implicit identification shall be added to ai-generated synthetic content. based on business needs, we request tencent cloud not to add explicit identification to generated synthetic content. we commit to lawful and compliant use of such content to avoid confusion or misunderstanding. if the ai-generated synthetic content is used to provide services to the public or spread over networks, we will proactively add explicit identification compliant with legal provisions and national standard requirements and bear the legal obligations for ai-generated synthetic content identification. if we fail to properly fulfill the identification obligations for ai-generated content, resulting in adverse consequences or penalties from the competent department, we will fully assume all related responsibilities.
+        r"""Compliant prompt sound. 
+This parameter set to true (default) means call initiation plays morse code, with a Note that the conversation content is AI-generated.
+Passing 'false' to this parameter disables the compliance prompt sound. passing 'false' signifies you have read and agree to the following agreement:.
+Our side fully acknowledges and understands that according to the laws and regulations specified in the "cybersecurity law" (https://www.cac.gov.cn/2016-11/07/c_1119867116.htm), "provision on administration of deep synthesis of internet-based information service" (https://www.gov.cn/zhengce/zhengceku/2022-12/12/content_5731431.htm), "interim measures for the management of generative artificial intelligence services" (https://www.gov.cn/zhengce/zhengceku/202307/content_6891752.htm), and "measures for the identification of artificial intelligence-generated synthetic content" (https://www.gov.cn/zhengce/zhengceku/202503/content_7014286.htm), explicit and implicit identification should be added to ai-generated synthetic content. based on business requirements, we request tencent cloud not to add explicit identification to generated synthetic content. we commit to lawful and compliant use of generated synthetic content to avoid causing confusion or misunderstanding. if the generated synthetic content is used to provide services to the public or spread over networks, we will proactively add explicit identification that complies with legal provisions and national standards, and bear the legal obligation for identifying ai-generated synthetic content. our side will fully assume all related responsibilities if adverse consequences arise from failure to appropriately and reasonably fulfill the obligation of ai content identification, or if penalties are imposed by the competent department.
         :rtype: bool
         """
         return self._EnableComplianceAudio
@@ -3056,6 +3260,62 @@ Our side fully acknowledges and understands that according to the laws and regul
     @EnableComplianceAudio.setter
     def EnableComplianceAudio(self, EnableComplianceAudio):
         self._EnableComplianceAudio = EnableComplianceAudio
+
+    @property
+    def EnableVoicemailDetection(self):
+        r"""Whether to enable voice mail recognition.
+        :rtype: bool
+        """
+        return self._EnableVoicemailDetection
+
+    @EnableVoicemailDetection.setter
+    def EnableVoicemailDetection(self, EnableVoicemailDetection):
+        self._EnableVoicemailDetection = EnableVoicemailDetection
+
+    @property
+    def VoicemailAction(self):
+        r"""Detect behavior when the peer is voice mail. this parameter is valid only when EnableVoicemailDetection is True.
+0: hang up the phone (default).
+        :rtype: int
+        """
+        return self._VoicemailAction
+
+    @VoicemailAction.setter
+    def VoicemailAction(self, VoicemailAction):
+        self._VoicemailAction = VoicemailAction
+
+    @property
+    def LLMExtraBody(self):
+        r"""Large model extended parameter, format is json string.
+        :rtype: str
+        """
+        return self._LLMExtraBody
+
+    @LLMExtraBody.setter
+    def LLMExtraBody(self, LLMExtraBody):
+        self._LLMExtraBody = LLMExtraBody
+
+    @property
+    def MaxCallDurationMs(self):
+        r"""Maximum call duration, default not limited. unit: milliseconds (ms).
+        :rtype: int
+        """
+        return self._MaxCallDurationMs
+
+    @MaxCallDurationMs.setter
+    def MaxCallDurationMs(self, MaxCallDurationMs):
+        self._MaxCallDurationMs = MaxCallDurationMs
+
+    @property
+    def MaxRingTimeoutSecond(self):
+        r"""Maximum ringing duration. auto hang up when the duration threshold is reached. **only own number supports current parameter.**.
+        :rtype: int
+        """
+        return self._MaxRingTimeoutSecond
+
+    @MaxRingTimeoutSecond.setter
+    def MaxRingTimeoutSecond(self, MaxRingTimeoutSecond):
+        self._MaxRingTimeoutSecond = MaxRingTimeoutSecond
 
 
     def _deserialize(self, params):
@@ -3114,6 +3374,11 @@ Our side fully acknowledges and understands that according to the laws and regul
             self._ToneWord = ToneWordInfo()
             self._ToneWord._deserialize(params.get("ToneWord"))
         self._EnableComplianceAudio = params.get("EnableComplianceAudio")
+        self._EnableVoicemailDetection = params.get("EnableVoicemailDetection")
+        self._VoicemailAction = params.get("VoicemailAction")
+        self._LLMExtraBody = params.get("LLMExtraBody")
+        self._MaxCallDurationMs = params.get("MaxCallDurationMs")
+        self._MaxRingTimeoutSecond = params.get("MaxRingTimeoutSecond")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3500,9 +3765,9 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
         :type NotAfter: int
         :param _Tries: Maximum attempts, 1-3 times.
         :type Tries: int
-        :param _Variables: Custom variables (supported only in advanced versions).
+        :param _Variables: Custom variable (advanced edition support). using the same variable in the CalleeAttributes field will overwrite here.
         :type Variables: list of Variable
-        :param _UUI: UUI
+        :param _UUI: User-Defined data. specifies that using UUI in the CalleeAttributes field will overwrite here.
         :type UUI: str
         :param _CalleeAttributes: Property of the called.
         :type CalleeAttributes: list of CalleeAttribute
@@ -3630,7 +3895,7 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
 
     @property
     def Variables(self):
-        r"""Custom variables (supported only in advanced versions).
+        r"""Custom variable (advanced edition support). using the same variable in the CalleeAttributes field will overwrite here.
         :rtype: list of Variable
         """
         return self._Variables
@@ -3641,7 +3906,7 @@ class CreateAutoCalloutTaskRequest(AbstractModel):
 
     @property
     def UUI(self):
-        r"""UUI
+        r"""User-Defined data. specifies that using UUI in the CalleeAttributes field will overwrite here.
         :rtype: str
         """
         return self._UUI
@@ -4391,11 +4656,17 @@ class CreateOwnNumberApplyRequest(AbstractModel):
         :type DetailList: list of OwnNumberApplyDetailItem
         :param _Prefix: Prefix for sending numbers.
         :type Prefix: str
+        :param _MobileNddPrefix: Domestic long-distance mobile phone prefix.
+        :type MobileNddPrefix: str
+        :param _LocalNumberTrimAC: Removes the area code for local calls.
+        :type LocalNumberTrimAC: bool
         """
         self._SdkAppId = None
         self._SipTrunkId = None
         self._DetailList = None
         self._Prefix = None
+        self._MobileNddPrefix = None
+        self._LocalNumberTrimAC = None
 
     @property
     def SdkAppId(self):
@@ -4441,6 +4712,28 @@ class CreateOwnNumberApplyRequest(AbstractModel):
     def Prefix(self, Prefix):
         self._Prefix = Prefix
 
+    @property
+    def MobileNddPrefix(self):
+        r"""Domestic long-distance mobile phone prefix.
+        :rtype: str
+        """
+        return self._MobileNddPrefix
+
+    @MobileNddPrefix.setter
+    def MobileNddPrefix(self, MobileNddPrefix):
+        self._MobileNddPrefix = MobileNddPrefix
+
+    @property
+    def LocalNumberTrimAC(self):
+        r"""Removes the area code for local calls.
+        :rtype: bool
+        """
+        return self._LocalNumberTrimAC
+
+    @LocalNumberTrimAC.setter
+    def LocalNumberTrimAC(self, LocalNumberTrimAC):
+        self._LocalNumberTrimAC = LocalNumberTrimAC
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -4452,6 +4745,8 @@ class CreateOwnNumberApplyRequest(AbstractModel):
                 obj._deserialize(item)
                 self._DetailList.append(obj)
         self._Prefix = params.get("Prefix")
+        self._MobileNddPrefix = params.get("MobileNddPrefix")
+        self._LocalNumberTrimAC = params.get("LocalNumberTrimAC")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4526,7 +4821,7 @@ class CreatePredictiveDialingCampaignRequest(AbstractModel):
         :type SkillGroupId: int
         :param _Priority: Running priority of multiple tasks in the same application, from high to low 1 - 5.
         :type Priority: int
-        :param _ExpectedAbandonRate: Expected call drop rate, percentage, 5 - 50.
+        :param _ExpectedAbandonRate: Expected call drop rate. value range: 0-50%.
         :type ExpectedAbandonRate: int
         :param _RetryInterval: Call retry interval, in seconds, [60 - 86,400].
         :type RetryInterval: int
@@ -4647,7 +4942,7 @@ class CreatePredictiveDialingCampaignRequest(AbstractModel):
 
     @property
     def ExpectedAbandonRate(self):
-        r"""Expected call drop rate, percentage, 5 - 50.
+        r"""Expected call drop rate. value range: 0-50%.
         :rtype: int
         """
         return self._ExpectedAbandonRate
@@ -5564,6 +5859,264 @@ class DeleteStaffResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._OnlineStaffList = params.get("OnlineStaffList")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAIAgentInfoListRequest(AbstractModel):
+    r"""DescribeAIAgentInfoList request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: App ID (required). can be viewed at https://console.cloud.tencent.com/ccc.
+        :type SdkAppId: int
+        :param _PageSize: Pagination size, upper limit 100.
+        :type PageSize: int
+        :param _PageNumber: Page number, starting from 0.
+        :type PageNumber: int
+        """
+        self._SdkAppId = None
+        self._PageSize = None
+        self._PageNumber = None
+
+    @property
+    def SdkAppId(self):
+        r"""App ID (required). can be viewed at https://console.cloud.tencent.com/ccc.
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def PageSize(self):
+        r"""Pagination size, upper limit 100.
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+    @property
+    def PageNumber(self):
+        r"""Page number, starting from 0.
+        :rtype: int
+        """
+        return self._PageNumber
+
+    @PageNumber.setter
+    def PageNumber(self, PageNumber):
+        self._PageNumber = PageNumber
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._PageSize = params.get("PageSize")
+        self._PageNumber = params.get("PageNumber")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAIAgentInfoListResponse(AbstractModel):
+    r"""DescribeAIAgentInfoList response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AIAgentInfoList: Intelligent agent information list.
+        :type AIAgentInfoList: list of AIAgentInfo
+        :param _TotalCount: Total number of intelligent agents.
+        :type TotalCount: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._AIAgentInfoList = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def AIAgentInfoList(self):
+        r"""Intelligent agent information list.
+        :rtype: list of AIAgentInfo
+        """
+        return self._AIAgentInfoList
+
+    @AIAgentInfoList.setter
+    def AIAgentInfoList(self, AIAgentInfoList):
+        self._AIAgentInfoList = AIAgentInfoList
+
+    @property
+    def TotalCount(self):
+        r"""Total number of intelligent agents.
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("AIAgentInfoList") is not None:
+            self._AIAgentInfoList = []
+            for item in params.get("AIAgentInfoList"):
+                obj = AIAgentInfo()
+                obj._deserialize(item)
+                self._AIAgentInfoList.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAIAnalysisResultRequest(AbstractModel):
+    r"""DescribeAIAnalysisResult request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: App ID (required). can be viewed at https://console.cloud.tencent.com/ccc.
+        :type SdkAppId: int
+        :param _SessionId: Specifies the conversation ID.
+        :type SessionId: str
+        :param _StartTime: Specifies the search start time.	
+        :type StartTime: int
+        :param _EndTime: 1737350008
+        :type EndTime: int
+        """
+        self._SdkAppId = None
+        self._SessionId = None
+        self._StartTime = None
+        self._EndTime = None
+
+    @property
+    def SdkAppId(self):
+        r"""App ID (required). can be viewed at https://console.cloud.tencent.com/ccc.
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def SessionId(self):
+        r"""Specifies the conversation ID.
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def StartTime(self):
+        r"""Specifies the search start time.	
+        :rtype: int
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""1737350008
+        :rtype: int
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._SessionId = params.get("SessionId")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAIAnalysisResultResponse(AbstractModel):
+    r"""DescribeAIAnalysisResult response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResultList: AI session analysis result.
+        :type ResultList: list of AIAnalysisResult
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._ResultList = None
+        self._RequestId = None
+
+    @property
+    def ResultList(self):
+        r"""AI session analysis result.
+        :rtype: list of AIAnalysisResult
+        """
+        return self._ResultList
+
+    @ResultList.setter
+    def ResultList(self, ResultList):
+        self._ResultList = ResultList
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ResultList") is not None:
+            self._ResultList = []
+            for item in params.get("ResultList"):
+                obj = AIAnalysisResult()
+                obj._deserialize(item)
+                self._ResultList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -9660,18 +10213,18 @@ class DescribeTelCdrRequest(AbstractModel):
         :type StartTimeStamp: int
         :param _EndTimeStamp: End timestamp, unix timestamp in seconds. the range between the end time and start time is less than 90 days.
         :type EndTimeStamp: int
-        :param _InstanceId: Instance id (deprecated).
-        :type InstanceId: int
-        :param _Limit: Maximum number of returned entries (deprecated).
-        :type Limit: int
-        :param _Offset: Offset (deprecated).
-        :type Offset: int
         :param _SdkAppId: Application id (required) can be found at https://console.cloud.tencent.com/ccc.
         :type SdkAppId: int
         :param _PageSize: Page size (required), up to 100.
         :type PageSize: int
         :param _PageNumber: <Page number (required), starting from 0.>.
         :type PageNumber: int
+        :param _InstanceId: Instance id (deprecated).
+        :type InstanceId: int
+        :param _Limit: Maximum number of returned entries (deprecated).
+        :type Limit: int
+        :param _Offset: Offset (deprecated).
+        :type Offset: int
         :param _Phones: Filter by phone number.
         :type Phones: list of str
         :param _SessionIds: Filter by sessionid.
@@ -9679,12 +10232,12 @@ class DescribeTelCdrRequest(AbstractModel):
         """
         self._StartTimeStamp = None
         self._EndTimeStamp = None
-        self._InstanceId = None
-        self._Limit = None
-        self._Offset = None
         self._SdkAppId = None
         self._PageSize = None
         self._PageNumber = None
+        self._InstanceId = None
+        self._Limit = None
+        self._Offset = None
         self._Phones = None
         self._SessionIds = None
 
@@ -9709,6 +10262,39 @@ class DescribeTelCdrRequest(AbstractModel):
     @EndTimeStamp.setter
     def EndTimeStamp(self, EndTimeStamp):
         self._EndTimeStamp = EndTimeStamp
+
+    @property
+    def SdkAppId(self):
+        r"""Application id (required) can be found at https://console.cloud.tencent.com/ccc.
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def PageSize(self):
+        r"""Page size (required), up to 100.
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+    @property
+    def PageNumber(self):
+        r"""<Page number (required), starting from 0.>.
+        :rtype: int
+        """
+        return self._PageNumber
+
+    @PageNumber.setter
+    def PageNumber(self, PageNumber):
+        self._PageNumber = PageNumber
 
     @property
     def InstanceId(self):
@@ -9748,39 +10334,6 @@ class DescribeTelCdrRequest(AbstractModel):
         self._Offset = Offset
 
     @property
-    def SdkAppId(self):
-        r"""Application id (required) can be found at https://console.cloud.tencent.com/ccc.
-        :rtype: int
-        """
-        return self._SdkAppId
-
-    @SdkAppId.setter
-    def SdkAppId(self, SdkAppId):
-        self._SdkAppId = SdkAppId
-
-    @property
-    def PageSize(self):
-        r"""Page size (required), up to 100.
-        :rtype: int
-        """
-        return self._PageSize
-
-    @PageSize.setter
-    def PageSize(self, PageSize):
-        self._PageSize = PageSize
-
-    @property
-    def PageNumber(self):
-        r"""<Page number (required), starting from 0.>.
-        :rtype: int
-        """
-        return self._PageNumber
-
-    @PageNumber.setter
-    def PageNumber(self, PageNumber):
-        self._PageNumber = PageNumber
-
-    @property
     def Phones(self):
         r"""Filter by phone number.
         :rtype: list of str
@@ -9806,12 +10359,12 @@ class DescribeTelCdrRequest(AbstractModel):
     def _deserialize(self, params):
         self._StartTimeStamp = params.get("StartTimeStamp")
         self._EndTimeStamp = params.get("EndTimeStamp")
-        self._InstanceId = params.get("InstanceId")
-        self._Limit = params.get("Limit")
-        self._Offset = params.get("Offset")
         self._SdkAppId = params.get("SdkAppId")
         self._PageSize = params.get("PageSize")
         self._PageNumber = params.get("PageNumber")
+        self._InstanceId = params.get("InstanceId")
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
         self._Phones = params.get("Phones")
         self._SessionIds = params.get("SessionIds")
         memeber_set = set(params.keys())
@@ -10998,6 +11551,57 @@ class Interface(AbstractModel):
         
 
 
+class InvokeLLM(AbstractModel):
+    r"""Service invocation actively initiates requests to the LLM.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Content: Specifies the content of the LLM request.
+        :type Content: str
+        :param _Interrupt: Whether the text is allowed to interrupt the robot speaking.
+        :type Interrupt: bool
+        """
+        self._Content = None
+        self._Interrupt = None
+
+    @property
+    def Content(self):
+        r"""Specifies the content of the LLM request.
+        :rtype: str
+        """
+        return self._Content
+
+    @Content.setter
+    def Content(self, Content):
+        self._Content = Content
+
+    @property
+    def Interrupt(self):
+        r"""Whether the text is allowed to interrupt the robot speaking.
+        :rtype: bool
+        """
+        return self._Interrupt
+
+    @Interrupt.setter
+    def Interrupt(self, Interrupt):
+        self._Interrupt = Interrupt
+
+
+    def _deserialize(self, params):
+        self._Content = params.get("Content")
+        self._Interrupt = params.get("Interrupt")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ModifyExtensionRequest(AbstractModel):
     r"""ModifyExtension request structure.
 
@@ -11137,11 +11741,17 @@ class ModifyOwnNumberApplyRequest(AbstractModel):
         :type ApplyId: int
         :param _Prefix: Prefix for sending numbers.
         :type Prefix: str
+        :param _MobileNddPrefix: Domestic long-distance mobile phone prefix.
+        :type MobileNddPrefix: str
+        :param _LocalNumberTrimAC: Removes the area code for local calls.
+        :type LocalNumberTrimAC: bool
         """
         self._SdkAppId = None
         self._DetailList = None
         self._ApplyId = None
         self._Prefix = None
+        self._MobileNddPrefix = None
+        self._LocalNumberTrimAC = None
 
     @property
     def SdkAppId(self):
@@ -11187,6 +11797,28 @@ class ModifyOwnNumberApplyRequest(AbstractModel):
     def Prefix(self, Prefix):
         self._Prefix = Prefix
 
+    @property
+    def MobileNddPrefix(self):
+        r"""Domestic long-distance mobile phone prefix.
+        :rtype: str
+        """
+        return self._MobileNddPrefix
+
+    @MobileNddPrefix.setter
+    def MobileNddPrefix(self, MobileNddPrefix):
+        self._MobileNddPrefix = MobileNddPrefix
+
+    @property
+    def LocalNumberTrimAC(self):
+        r"""Removes the area code for local calls.
+        :rtype: bool
+        """
+        return self._LocalNumberTrimAC
+
+    @LocalNumberTrimAC.setter
+    def LocalNumberTrimAC(self, LocalNumberTrimAC):
+        self._LocalNumberTrimAC = LocalNumberTrimAC
+
 
     def _deserialize(self, params):
         self._SdkAppId = params.get("SdkAppId")
@@ -11198,6 +11830,8 @@ class ModifyOwnNumberApplyRequest(AbstractModel):
                 self._DetailList.append(obj)
         self._ApplyId = params.get("ApplyId")
         self._Prefix = params.get("Prefix")
+        self._MobileNddPrefix = params.get("MobileNddPrefix")
+        self._LocalNumberTrimAC = params.get("LocalNumberTrimAC")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11629,12 +12263,15 @@ class OwnNumberApplyDetailItem(AbstractModel):
         :type MaxCallPSec: int
         :param _OutboundCalleeFormat: Outbound called number format, use {+e.164} or {e.164}. 
         :type OutboundCalleeFormat: str
+        :param _CarrierPhoneNumber: Specifies the carrier number.
+        :type CarrierPhoneNumber: str
         """
         self._CallType = None
         self._PhoneNumber = None
         self._MaxCallCount = None
         self._MaxCallPSec = None
         self._OutboundCalleeFormat = None
+        self._CarrierPhoneNumber = None
 
     @property
     def CallType(self):
@@ -11691,6 +12328,17 @@ class OwnNumberApplyDetailItem(AbstractModel):
     def OutboundCalleeFormat(self, OutboundCalleeFormat):
         self._OutboundCalleeFormat = OutboundCalleeFormat
 
+    @property
+    def CarrierPhoneNumber(self):
+        r"""Specifies the carrier number.
+        :rtype: str
+        """
+        return self._CarrierPhoneNumber
+
+    @CarrierPhoneNumber.setter
+    def CarrierPhoneNumber(self, CarrierPhoneNumber):
+        self._CarrierPhoneNumber = CarrierPhoneNumber
+
 
     def _deserialize(self, params):
         self._CallType = params.get("CallType")
@@ -11698,6 +12346,7 @@ class OwnNumberApplyDetailItem(AbstractModel):
         self._MaxCallCount = params.get("MaxCallCount")
         self._MaxCallPSec = params.get("MaxCallPSec")
         self._OutboundCalleeFormat = params.get("OutboundCalleeFormat")
+        self._CarrierPhoneNumber = params.get("CarrierPhoneNumber")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13521,6 +14170,302 @@ class SessionEvent(AbstractModel):
         
 
 
+class SetStaffStatusItem(AbstractModel):
+    r"""Describes the information item for creating a staff.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffUserId: Agent account.
+        :type StaffUserId: str
+        :param _Status: Status. specifies the instance status. valid values: free (idle), notReady (busy), rest (short break).	
+        :type Status: str
+        :param _Reason: Specifies the reason if the break state is set.
+        :type Reason: str
+        """
+        self._StaffUserId = None
+        self._Status = None
+        self._Reason = None
+
+    @property
+    def StaffUserId(self):
+        r"""Agent account.
+        :rtype: str
+        """
+        return self._StaffUserId
+
+    @StaffUserId.setter
+    def StaffUserId(self, StaffUserId):
+        self._StaffUserId = StaffUserId
+
+    @property
+    def Status(self):
+        r"""Status. specifies the instance status. valid values: free (idle), notReady (busy), rest (short break).	
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Reason(self):
+        r"""Specifies the reason if the break state is set.
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+
+    def _deserialize(self, params):
+        self._StaffUserId = params.get("StaffUserId")
+        self._Status = params.get("Status")
+        self._Reason = params.get("Reason")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetStaffStatusRequest(AbstractModel):
+    r"""SetStaffStatus request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: App ID (required). can be checked at https://console.cloud.tencent.com/ccc.
+        :type SdkAppId: int
+        :param _StaffStatusList: Sets the agent status list. maximum number 10.
+        :type StaffStatusList: list of SetStaffStatusItem
+        """
+        self._SdkAppId = None
+        self._StaffStatusList = None
+
+    @property
+    def SdkAppId(self):
+        r"""App ID (required). can be checked at https://console.cloud.tencent.com/ccc.
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def StaffStatusList(self):
+        r"""Sets the agent status list. maximum number 10.
+        :rtype: list of SetStaffStatusItem
+        """
+        return self._StaffStatusList
+
+    @StaffStatusList.setter
+    def StaffStatusList(self, StaffStatusList):
+        self._StaffStatusList = StaffStatusList
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        if params.get("StaffStatusList") is not None:
+            self._StaffStatusList = []
+            for item in params.get("StaffStatusList"):
+                obj = SetStaffStatusItem()
+                obj._deserialize(item)
+                self._StaffStatusList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetStaffStatusResponse(AbstractModel):
+    r"""SetStaffStatus response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffStatusList: Specifies the agent status response list.
+        :type StaffStatusList: list of SetStaffStatusRspItem
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._StaffStatusList = None
+        self._RequestId = None
+
+    @property
+    def StaffStatusList(self):
+        r"""Specifies the agent status response list.
+        :rtype: list of SetStaffStatusRspItem
+        """
+        return self._StaffStatusList
+
+    @StaffStatusList.setter
+    def StaffStatusList(self, StaffStatusList):
+        self._StaffStatusList = StaffStatusList
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("StaffStatusList") is not None:
+            self._StaffStatusList = []
+            for item in params.get("StaffStatusList"):
+                obj = SetStaffStatusRspItem()
+                obj._deserialize(item)
+                self._StaffStatusList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class SetStaffStatusRspItem(AbstractModel):
+    r"""Specifies the staff status response item.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StaffUserId: Agent account.
+        :type StaffUserId: str
+        :param _ErrorCode: Error code. see the overall error code in the protocol.
+        :type ErrorCode: str
+        :param _ErrorMessage: Error message.
+        :type ErrorMessage: str
+        :param _Status: Current status.
+        :type Status: str
+        :param _Reason: Status if it is on break. specifies the reason.
+        :type Reason: str
+        :param _PreviousStatus: Previous status.
+        :type PreviousStatus: str
+        :param _PreviousReason: If the earlier status is on break, this is the reason.
+        :type PreviousReason: str
+        """
+        self._StaffUserId = None
+        self._ErrorCode = None
+        self._ErrorMessage = None
+        self._Status = None
+        self._Reason = None
+        self._PreviousStatus = None
+        self._PreviousReason = None
+
+    @property
+    def StaffUserId(self):
+        r"""Agent account.
+        :rtype: str
+        """
+        return self._StaffUserId
+
+    @StaffUserId.setter
+    def StaffUserId(self, StaffUserId):
+        self._StaffUserId = StaffUserId
+
+    @property
+    def ErrorCode(self):
+        r"""Error code. see the overall error code in the protocol.
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMessage(self):
+        r"""Error message.
+        :rtype: str
+        """
+        return self._ErrorMessage
+
+    @ErrorMessage.setter
+    def ErrorMessage(self, ErrorMessage):
+        self._ErrorMessage = ErrorMessage
+
+    @property
+    def Status(self):
+        r"""Current status.
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Reason(self):
+        r"""Status if it is on break. specifies the reason.
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
+    def PreviousStatus(self):
+        r"""Previous status.
+        :rtype: str
+        """
+        return self._PreviousStatus
+
+    @PreviousStatus.setter
+    def PreviousStatus(self, PreviousStatus):
+        self._PreviousStatus = PreviousStatus
+
+    @property
+    def PreviousReason(self):
+        r"""If the earlier status is on break, this is the reason.
+        :rtype: str
+        """
+        return self._PreviousReason
+
+    @PreviousReason.setter
+    def PreviousReason(self, PreviousReason):
+        self._PreviousReason = PreviousReason
+
+
+    def _deserialize(self, params):
+        self._StaffUserId = params.get("StaffUserId")
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMessage = params.get("ErrorMessage")
+        self._Status = params.get("Status")
+        self._Reason = params.get("Reason")
+        self._PreviousStatus = params.get("PreviousStatus")
+        self._PreviousReason = params.get("PreviousReason")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class SkillGroupInfoItem(AbstractModel):
     r"""Skill group information.
 
@@ -14136,11 +15081,20 @@ class StaffStatus(AbstractModel):
         :type Status: str
         :param _SessionId: Specifies the session Id for status association.
         :type SessionId: str
+        :param _Reason: Reason for break.
+        :type Reason: str
+        :param _StaffEmail: Agent email.
+        :type StaffEmail: str
+        :param _StaffNo: Agent id.
+        :type StaffNo: str
         """
         self._Cursor = None
         self._Timestamp = None
         self._Status = None
         self._SessionId = None
+        self._Reason = None
+        self._StaffEmail = None
+        self._StaffNo = None
 
     @property
     def Cursor(self):
@@ -14186,12 +15140,48 @@ class StaffStatus(AbstractModel):
     def SessionId(self, SessionId):
         self._SessionId = SessionId
 
+    @property
+    def Reason(self):
+        r"""Reason for break.
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+    @property
+    def StaffEmail(self):
+        r"""Agent email.
+        :rtype: str
+        """
+        return self._StaffEmail
+
+    @StaffEmail.setter
+    def StaffEmail(self, StaffEmail):
+        self._StaffEmail = StaffEmail
+
+    @property
+    def StaffNo(self):
+        r"""Agent id.
+        :rtype: str
+        """
+        return self._StaffNo
+
+    @StaffNo.setter
+    def StaffNo(self, StaffNo):
+        self._StaffNo = StaffNo
+
 
     def _deserialize(self, params):
         self._Cursor = params.get("Cursor")
         self._Timestamp = params.get("Timestamp")
         self._Status = params.get("Status")
         self._SessionId = params.get("SessionId")
+        self._Reason = params.get("Reason")
+        self._StaffEmail = params.get("StaffEmail")
+        self._StaffNo = params.get("StaffNo")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14646,58 +15636,79 @@ class TelCdrInfo(AbstractModel):
         :type SeatUser: :class:`tencentcloud.ccc.v20200210.models.SeatUserInfo`
         :param _EndStatus: EndStatus corresponds one-to-one with EndStatusString. the specific enumeration is as follows:.
 
-**Scenario         EndStatus         EndStatusString         status description**.
+**Scenario**	EndStatus	EndStatusString	Status description.
 
-Incoming and outgoing calls.
+Incoming & outgoing calls. 1. ok. normal call.
 
-Incoming and outgoing calls	0	error	exception termination.
+IVR period user give up.
 
-Inbound call 102 ivrGiveUp user hang up during IVR.
+**User give up while in queue**.
 
-Inbound call 103 waitingGiveUp user gives up while queuing.
+Inbound call 104 ringingGiveUp. specifies the user gives up during ringing.
 
-Inbound call 104 ringingGiveUp user give up during ringing.
+Inbound call 105. specifies no agent online.
 
-Inbound call 105 no agent online.
+Inbound call notWorkTime **off hours**.   
 
-Inbound call 106 notWorkTime outside working hours.   
+IVR ends automatically (no manual intervention).
 
-Inbound call 107 ivrEnd ends after IVR.
+Inbound call. 100. blocklist (system side).
 
-Inbound call 100 blackList. 
+restrictedCallee. specifies the global outbound call risk number interception (system side).
 
-Outbound call 2 unconnected unanswered.
+Outbound call 109 tooManyRequest **outbound call frequency control interception (system side)**.
 
-Outgoing call        108        restrictedCallee    the callee is restricted due to high risk.
+Outbound call 110 restrictedArea **block outgoing calls by region (system side)**.
 
-Outbound call 109 too many requests outbound over-frequency limit.
-
-Outgoing call             110	        restrictedArea	    valid values for the area where outgoing calls are restricted.
-
-Outbound call 111 restrictedTime outgoing call time limit.
+restrictedTime. specifies the outbound call interception period on the system side.
                          
-Outbound call 201 unknown unknown status.
+202 notAnswer **callee unanswered**.
 
-Outgoing call 202 not answered the callee did not answer.
+Outbound call 203 userReject **callee reject hangup**.
 
-Outgoing call            203	    userReject	callee rejects and hangs up.
+Power off. **callee powered off**.
 
-Outbound call 204 powerOff callee is powered off.
+205            numberNotExist	**callee nonexistent number**.
 
-Outbound call 205 number does not exist the callee's number is non - existent.
+Busy. specifies the callee is busy.
 
-Outbound call 206 busy callee is busy.
+Outbound call 207 outOfCredit **callee in arrears**.
 
-Outbound call 207 arrears callee in arrears.
+208 operatorError indicates operator channel exception.
 
-Outbound call 208 operator channel exception.
+Outgoing call caller cancellation.
 
-Outbound call 209 callerCancel call cancellation by the caller.
+Outgoing call	        210	           notInService	**callee out of service area**.
 
-Outgoing call 210 notInService callee out of service area.
+Phone call in/out 211 clientError **client error**.
 
-Incoming and outgoing calls 211 clientError client errors.
-Outbound call 212 carrier blocked.
+Outgoing call 212 carrierBlocked **carrier blocklist**.
+
+Note: call reminder.
+
+Outbound call 215 numberInvalid **called number is invalid**.
+
+Outbound call 216 callRestricted. note: call restricted.
+
+Callee restricted by blocklist.
+
+Outbound call 218 areaRestricted. **callee area restricted**.
+
+Prompt call forwarding.
+
+Caller cancellation during ringing.
+
+Caller cancel without ring.
+
+Audio dial-in 501 call conflict **VoIP user call termination**.
+
+VoIP user client timeout.
+
+Audio dial-in 503 VoIP user client error.
+
+Chinese version please go domestic site (https://cloud.tencent.com/document/product/679/123938).
+
+English version please go international site (https://www.tencentcloud.com/document/product/1229/71847?lang=en).
         :type EndStatus: int
         :param _SkillGroup: Skill group name.
         :type SkillGroup: str
@@ -14719,60 +15730,7 @@ Outbound call 212 carrier blocked.
         :type ServeParticipants: list of ServeParticipant
         :param _SkillGroupId: Skill group id.
         :type SkillGroupId: int
-        :param _EndStatusString: EndStatus corresponds one-to-one with EndStatusString. the specific enumeration is as follows:.
-
-**Scenario         EndStatus         EndStatusString         status description**.
-
-Incoming and outgoing calls.
-
-Incoming and outgoing calls	0	error	exception termination.
-
-Inbound call 102 ivrGiveUp user hang up during IVR.
-
-Inbound call 103 waitingGiveUp user gives up while queuing.
-
-Inbound call 104 ringingGiveUp user give up during ringing.
-
-Inbound call 105 no agent online.
-
-Inbound call 106 notWorkTime outside working hours.   
-
-Inbound call 107 ivrEnd ends after IVR.
-
-Inbound call 100 blackList. 
-
-Outbound call 2 unconnected unanswered.
-
-Outgoing call        108        restrictedCallee    the callee is restricted due to high risk.
-
-Outbound call 109 too many requests outbound over-frequency limit.
-
-Outgoing call             110	        restrictedArea	    valid values for the area where outgoing calls are restricted.
-
-Outbound call 111 restrictedTime outgoing call time limit.
-                         
-Outgoing call 201 unknown unknown status.
-
-Outgoing call 202 notAnswer callee not answered.
-
-Outgoing call            203	    userReject	callee rejects and hangs up.
-
-Outbound call 204 powerOff callee is powered off.
-
-Outbound call 205 number does not exist the callee's number is non - existent.
-
-Outgoing call 206 busy callee is busy.
-
-Outbound call 207 out of credit callee in arrears.
-
-Outbound call 208 operator channel exception.
-
-Outgoing call 209 callerCancel call cancellation by the caller.
-
-Outgoing call 210 notInService callee out of service area.
-
-Incoming and outgoing calls 211 clientError client errors.
-Outbound call 212 carrier blocked.
+        :param _EndStatusString: Refers to the EndStatus field.
         :type EndStatusString: str
         :param _StartTimestamp: Session start timestamp. unix second-level timestamp.
         :type StartTimestamp: int
@@ -14957,58 +15915,79 @@ No record (offline asr generation is not enabled or no package is available).
     def EndStatus(self):
         r"""EndStatus corresponds one-to-one with EndStatusString. the specific enumeration is as follows:.
 
-**Scenario         EndStatus         EndStatusString         status description**.
+**Scenario**	EndStatus	EndStatusString	Status description.
 
-Incoming and outgoing calls.
+Incoming & outgoing calls. 1. ok. normal call.
 
-Incoming and outgoing calls	0	error	exception termination.
+IVR period user give up.
 
-Inbound call 102 ivrGiveUp user hang up during IVR.
+**User give up while in queue**.
 
-Inbound call 103 waitingGiveUp user gives up while queuing.
+Inbound call 104 ringingGiveUp. specifies the user gives up during ringing.
 
-Inbound call 104 ringingGiveUp user give up during ringing.
+Inbound call 105. specifies no agent online.
 
-Inbound call 105 no agent online.
+Inbound call notWorkTime **off hours**.   
 
-Inbound call 106 notWorkTime outside working hours.   
+IVR ends automatically (no manual intervention).
 
-Inbound call 107 ivrEnd ends after IVR.
+Inbound call. 100. blocklist (system side).
 
-Inbound call 100 blackList. 
+restrictedCallee. specifies the global outbound call risk number interception (system side).
 
-Outbound call 2 unconnected unanswered.
+Outbound call 109 tooManyRequest **outbound call frequency control interception (system side)**.
 
-Outgoing call        108        restrictedCallee    the callee is restricted due to high risk.
+Outbound call 110 restrictedArea **block outgoing calls by region (system side)**.
 
-Outbound call 109 too many requests outbound over-frequency limit.
-
-Outgoing call             110	        restrictedArea	    valid values for the area where outgoing calls are restricted.
-
-Outbound call 111 restrictedTime outgoing call time limit.
+restrictedTime. specifies the outbound call interception period on the system side.
                          
-Outbound call 201 unknown unknown status.
+202 notAnswer **callee unanswered**.
 
-Outgoing call 202 not answered the callee did not answer.
+Outbound call 203 userReject **callee reject hangup**.
 
-Outgoing call            203	    userReject	callee rejects and hangs up.
+Power off. **callee powered off**.
 
-Outbound call 204 powerOff callee is powered off.
+205            numberNotExist	**callee nonexistent number**.
 
-Outbound call 205 number does not exist the callee's number is non - existent.
+Busy. specifies the callee is busy.
 
-Outbound call 206 busy callee is busy.
+Outbound call 207 outOfCredit **callee in arrears**.
 
-Outbound call 207 arrears callee in arrears.
+208 operatorError indicates operator channel exception.
 
-Outbound call 208 operator channel exception.
+Outgoing call caller cancellation.
 
-Outbound call 209 callerCancel call cancellation by the caller.
+Outgoing call	        210	           notInService	**callee out of service area**.
 
-Outgoing call 210 notInService callee out of service area.
+Phone call in/out 211 clientError **client error**.
 
-Incoming and outgoing calls 211 clientError client errors.
-Outbound call 212 carrier blocked.
+Outgoing call 212 carrierBlocked **carrier blocklist**.
+
+Note: call reminder.
+
+Outbound call 215 numberInvalid **called number is invalid**.
+
+Outbound call 216 callRestricted. note: call restricted.
+
+Callee restricted by blocklist.
+
+Outbound call 218 areaRestricted. **callee area restricted**.
+
+Prompt call forwarding.
+
+Caller cancellation during ringing.
+
+Caller cancel without ring.
+
+Audio dial-in 501 call conflict **VoIP user call termination**.
+
+VoIP user client timeout.
+
+Audio dial-in 503 VoIP user client error.
+
+Chinese version please go domestic site (https://cloud.tencent.com/document/product/679/123938).
+
+English version please go international site (https://www.tencentcloud.com/document/product/1229/71847?lang=en).
         :rtype: int
         """
         return self._EndStatus
@@ -15129,60 +16108,7 @@ Outbound call 212 carrier blocked.
 
     @property
     def EndStatusString(self):
-        r"""EndStatus corresponds one-to-one with EndStatusString. the specific enumeration is as follows:.
-
-**Scenario         EndStatus         EndStatusString         status description**.
-
-Incoming and outgoing calls.
-
-Incoming and outgoing calls	0	error	exception termination.
-
-Inbound call 102 ivrGiveUp user hang up during IVR.
-
-Inbound call 103 waitingGiveUp user gives up while queuing.
-
-Inbound call 104 ringingGiveUp user give up during ringing.
-
-Inbound call 105 no agent online.
-
-Inbound call 106 notWorkTime outside working hours.   
-
-Inbound call 107 ivrEnd ends after IVR.
-
-Inbound call 100 blackList. 
-
-Outbound call 2 unconnected unanswered.
-
-Outgoing call        108        restrictedCallee    the callee is restricted due to high risk.
-
-Outbound call 109 too many requests outbound over-frequency limit.
-
-Outgoing call             110	        restrictedArea	    valid values for the area where outgoing calls are restricted.
-
-Outbound call 111 restrictedTime outgoing call time limit.
-                         
-Outgoing call 201 unknown unknown status.
-
-Outgoing call 202 notAnswer callee not answered.
-
-Outgoing call            203	    userReject	callee rejects and hangs up.
-
-Outbound call 204 powerOff callee is powered off.
-
-Outbound call 205 number does not exist the callee's number is non - existent.
-
-Outgoing call 206 busy callee is busy.
-
-Outbound call 207 out of credit callee in arrears.
-
-Outbound call 208 operator channel exception.
-
-Outgoing call 209 callerCancel call cancellation by the caller.
-
-Outgoing call 210 notInService callee out of service area.
-
-Incoming and outgoing calls 211 clientError client errors.
-Outbound call 212 carrier blocked.
+        r"""Refers to the EndStatus field.
         :rtype: str
         """
         return self._EndStatusString

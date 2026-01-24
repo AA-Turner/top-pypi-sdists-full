@@ -1,25 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ixnetwork_restpy
-Version: 1.8.0
+Version: 1.9.0
 Summary: The IxNetwork Python Client
-Home-page: https://github.com/OpenIxia/ixnetwork_restpy
-Author: Keysight ISG IxNetwork team
-Author-email: andy.balogh@keysight.com
+Author-email: Keysight ISG IxNetwork team <andy.balogh@keysight.com>
 License: MIT
-Keywords: ixnetwork performance traffic generator real world ixia automation
+Project-URL: Repository, https://github.com/OpenIxia/ixnetwork_restpy
+Keywords: ixnetwork,performance,traffic generator,real world,ixia,automation
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=2.7, <4
+Requires-Python: <4,>=2.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: websocket-client
 Requires-Dist: setuptools
 Requires-Dist: packaging
+Provides-Extra: test
+Requires-Dist: mock; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 ## The IxNetwork Python Client 
 

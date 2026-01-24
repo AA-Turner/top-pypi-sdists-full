@@ -1,5 +1,7 @@
 import logging
+from collections import OrderedDict
 from contextlib import suppress
+from copy import copy
 
 from django.contrib.postgres.fields import DateRangeField, DateTimeRangeField
 from django.core.exceptions import FieldError
@@ -28,8 +30,8 @@ def _is_number(field):
 
 
 class CustomFilterSetMetaClass(FilterSetMetaclass):
-    def __new__(cls, name, bases, attrs):
-        new_class = super().__new__(cls, name, bases, attrs)
+    def __new__(cls, *args, **kwargs):
+        new_class = super().__new__(cls, *args, **kwargs)
         if _meta := getattr(new_class, "Meta", None):
             for parent_field_name, child_fields in getattr(_meta, "flatten_fields", dict()).items():
                 if remote_field := getattr(_meta.model._meta.get_field(parent_field_name), "remote_field", None):
@@ -65,6 +67,7 @@ class CustomFilterSetMetaClass(FilterSetMetaclass):
 
 
 class FilterSet(DjangoFilterSet, metaclass=CustomFilterSetMetaClass):
+    DEFAULT_EXCLUDE_FILTER_LOOKUP: str = "exclude"
     FILTER_DEFAULTS = {
         models.BooleanField: {"filter_class": fields.BooleanFilter},
         models.NullBooleanField: {"filter_class": fields.BooleanFilter},
@@ -168,7 +171,7 @@ class FilterSet(DjangoFilterSet, metaclass=CustomFilterSetMetaClass):
         for _, res in remote_filters:
             if res:
                 for remote_filter_key, remote_filter in res.items():
-                    setattr(remote_filter, "column_field_name", remote_filter_key)
+                    remote_filter.column_field_name = remote_filter_key
                     self.filters[remote_filter_key] = remote_filter
 
     @classmethod
@@ -196,12 +199,12 @@ class FilterSet(DjangoFilterSet, metaclass=CustomFilterSetMetaClass):
 
     @classmethod
     def get_filters(cls):
-        filters = super().get_filters()
+        filters = dict(super().get_filters())
         remote_filters = add_filters.send(sender=cls.filter_class_for_remote_filter())
         for _, res in remote_filters:
             if res:
                 for remote_filter_key, remote_filter in res.items():
-                    setattr(remote_filter, "column_field_name", remote_filter_key)
+                    remote_filter.column_field_name = remote_filter_key
                     filters[remote_filter_key] = remote_filter
 
         for field, help_text in getattr(cls, "help_texts", {}).items():
@@ -211,7 +214,20 @@ class FilterSet(DjangoFilterSet, metaclass=CustomFilterSetMetaClass):
         for field, values in cls.get_dependency_map():
             for value in values:
                 filters[field].depends_on.append({"field": value, "options": {}})
-        return filters
+
+        excluding_fields = {}
+        for name, field in filters.items():
+            # if allow_exclude is true, we add a copy of the field with the parameter exclude=True
+            # (to use `exclude` queryset method instead of `filter`) and add this with the suffix __{cls.DEFAULT_EXCLUDE_FILTER_LOOKUP}
+            if field.allow_exclude:
+                excluding_field = copy(field)
+                excluding_field.exclude = True
+                excluding_field.excluded_filter = True
+                excluding_field.hidden = True
+                excluding_field.required = False
+                excluding_fields[f"{name}__{cls.DEFAULT_EXCLUDE_FILTER_LOOKUP}"] = excluding_field
+        filters.update(excluding_fields)
+        return OrderedDict(filters)
 
     def extract_required_field_labels(self):
         return [label for label, filter in self.base_filters.items() if getattr(filter, "required", False)]

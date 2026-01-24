@@ -410,7 +410,7 @@ class ComputePoolApi:
         # process the body parameter
         _body_params = None
 
-        if _params["compute_pool"]:
+        if _params["compute_pool"] is not None:
             _body_params = _params["compute_pool"]
 
         # set the HTTP header `Accept`
@@ -616,7 +616,7 @@ class ComputePoolApi:
         # process the body parameter
         _body_params = None
 
-        if _params["compute_pool"]:
+        if _params["compute_pool"] is not None:
             _body_params = _params["compute_pool"]
 
         # set the HTTP header `Accept`

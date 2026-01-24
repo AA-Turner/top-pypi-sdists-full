@@ -15,13 +15,13 @@ from inspect_ai._eval.score import (
     score_async,
 )
 from inspect_ai.dataset import Sample
+from inspect_ai.event._event import Event
+from inspect_ai.event._input import InputEvent
+from inspect_ai.event._model import ModelEvent
+from inspect_ai.event._sample_init import SampleInitEvent
+from inspect_ai.event._score import ScoreEvent
 from inspect_ai.log import (
     EvalSample,
-    Event,
-    InputEvent,
-    ModelEvent,
-    SampleInitEvent,
-    ScoreEvent,
     Transcript,
 )
 from inspect_ai.log._file import read_eval_log_async
@@ -235,7 +235,11 @@ async def test_get_updated_events(test_case: UpdatedEventsTestCase):
         events.extend(transcript.events)
 
     sample = EvalSample(
-        id="1", events=existing_events, epoch=1, input="input", target="target"
+        id="1",
+        events=existing_events,
+        epoch=1,
+        input="input",
+        target="target",
     )
 
     updated_events = _get_updated_events(sample, new_events, action=test_case.action)
@@ -326,8 +330,8 @@ def adds_to_state() -> Scorer:
             "append",
             [("f1", {"stop_words": ["woah"]})],
             {
-                "f1": {"num_metrics": 2, "stop_words": ["woah"]},
                 "match": {"num_metrics": 2},
+                "f1": {"num_metrics": 2, "stop_words": ["woah"]},
             },
             None,
             id="scored-append",
@@ -345,9 +349,9 @@ def adds_to_state() -> Scorer:
             "append",
             [("f1", dict[str, Any]()), ("choice", dict[str, Any]())],
             {
+                "match": {"num_metrics": 2},
                 "f1": {"num_metrics": 2},
                 "choice": {"num_metrics": 2},
-                "match": {"num_metrics": 2},
             },
             None,
             id="multiple-scorers",

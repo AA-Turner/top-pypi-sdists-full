@@ -15,12 +15,20 @@ from docling.datamodel.vlm_model_specs import (
     SMOLDOCLING_MLX,
     SMOLDOCLING_TRANSFORMERS,
 )
-from docling.models.code_formula_model import CodeFormulaModel
-from docling.models.document_picture_classifier import DocumentPictureClassifier
-from docling.models.easyocr_model import EasyOcrModel
-from docling.models.layout_model import LayoutModel
-from docling.models.picture_description_vlm_model import PictureDescriptionVlmModel
-from docling.models.table_structure_model import TableStructureModel
+from docling.models.stages.code_formula.code_formula_model import CodeFormulaModel
+from docling.models.stages.layout.layout_model import LayoutModel
+from docling.models.stages.ocr.easyocr_model import EasyOcrModel
+from docling.models.stages.ocr.rapid_ocr_model import RapidOcrModel
+from docling.models.stages.picture_classifier.document_picture_classifier import (
+    DocumentPictureClassifier,
+    DocumentPictureClassifierOptions,
+)
+from docling.models.stages.picture_description.picture_description_vlm_model import (
+    PictureDescriptionVlmModel,
+)
+from docling.models.stages.table_structure.table_structure_model import (
+    TableStructureModel,
+)
 from docling.models.utils.hf_model_download import download_hf_model
 
 _log = logging.getLogger(__name__)
@@ -41,7 +49,8 @@ def download_models(
     with_smoldocling: bool = False,
     with_smoldocling_mlx: bool = False,
     with_granite_vision: bool = False,
-    with_easyocr: bool = True,
+    with_rapidocr: bool = True,
+    with_easyocr: bool = False,
 ):
     if output_dir is None:
         output_dir = settings.cache_dir / "models"
@@ -67,8 +76,11 @@ def download_models(
 
     if with_picture_classifier:
         _log.info("Downloading picture classifier model...")
+        pic_opts = DocumentPictureClassifierOptions()
         DocumentPictureClassifier.download_models(
-            local_dir=output_dir / DocumentPictureClassifier._model_repo_folder,
+            repo_id=pic_opts.repo_id,
+            revision=pic_opts.revision,
+            local_dir=output_dir / pic_opts.repo_cache_folder,
             force=force,
             progress=progress,
         )
@@ -134,6 +146,16 @@ def download_models(
             force=force,
             progress=progress,
         )
+
+    if with_rapidocr:
+        for backend in ("torch", "onnxruntime"):
+            _log.info(f"Downloading rapidocr {backend} models...")
+            RapidOcrModel.download_models(
+                backend=backend,
+                local_dir=output_dir / RapidOcrModel._model_repo_folder,
+                force=force,
+                progress=progress,
+            )
 
     if with_easyocr:
         _log.info("Downloading easyocr models...")

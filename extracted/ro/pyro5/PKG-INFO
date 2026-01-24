@@ -1,16 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Pyro5
-Version: 5.15
+Version: 5.16
 Summary: Remote object communication library, fifth major version
 Home-page: https://github.com/irmen/Pyro5
 Author: Irmen de Jong
 Author-email: irmen@razorvine.net
 License: MIT
 Keywords: distributed objects,RPC,remote method call,IPC
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Natural Language :: Dutch
 Classifier: Operating System :: OS Independent
@@ -22,6 +20,8 @@ Classifier: Topic :: System :: Networking
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: serpent>=1.41
+Dynamic: license-file
 
 Pyro5
 =====
@@ -33,6 +33,8 @@ Pyro5
 
 .. image:: https://anaconda.org/conda-forge/pyro5/badges/version.svg
     :target: https://anaconda.org/conda-forge/pyro5
+
+**Project status: super low maintenance mode. Not really worked on anymore, only reported bugs will be looked at.**
 
 
 Info
@@ -60,7 +62,7 @@ New code should use Pyro5 if at all possible.
 Features
 --------
 
-- written in 100% Python so extremely portable, supported on Python 3.8 and newer, and Pypy3
+- written in 100% Python so extremely portable, supported on Python 3.9 and newer, and Pypy3
 - works between different system architectures and operating systems.
 - able to communicate between different Python versions transparently.
 - defaults to a safe serializer (`serpent <https://pypi.python.org/pypi/serpent>`_) that supports many Python data types.
@@ -86,6 +88,4 @@ Features
 - many simple examples included to show various features and techniques.
 - large amount of unit tests and high test coverage.
 - reliable and established: built upon more than 20 years of existing Pyro history, with ongoing support and development.
-
-
 

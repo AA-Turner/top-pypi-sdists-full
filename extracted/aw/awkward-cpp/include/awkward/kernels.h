@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2025-09-20 AT 15:57:04
+// AUTO GENERATED ON 2025-12-15 AT 13:53:47
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -1326,24 +1326,64 @@ extern "C" {
     int64_t* tolength);
 
   EXPORT_SYMBOL ERROR
-  awkward_NumpyArray_prepare_utf8_to_utf32_padded(
+  awkward_NumpyArray_prepare_utf8_to_utf32_padded_int32(
+    const uint8_t* fromptr,
+    const int32_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t* outmaxcodepoints);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_prepare_utf8_to_utf32_padded_int64(
     const uint8_t* fromptr,
     const int64_t* fromoffsets,
     int64_t offsetslength,
     int64_t* outmaxcodepoints);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_prepare_utf8_to_utf32_padded_uint32(
+    const uint8_t* fromptr,
+    const uint32_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t* outmaxcodepoints);
 
   EXPORT_SYMBOL ERROR
-  awkward_NumpyArray_utf8_to_utf32_padded(
+  awkward_NumpyArray_utf8_to_utf32_padded_int32(
+    const uint8_t* fromptr,
+    const int32_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t maxcodepoints,
+    uint32_t* toptr);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_utf8_to_utf32_padded_int64(
     const uint8_t* fromptr,
     const int64_t* fromoffsets,
     int64_t offsetslength,
     int64_t maxcodepoints,
     uint32_t* toptr);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_utf8_to_utf32_padded_uint32(
+    const uint8_t* fromptr,
+    const uint32_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t maxcodepoints,
+    uint32_t* toptr);
 
   EXPORT_SYMBOL ERROR
-  awkward_NumpyArray_pad_zero_to_length_uint8(
+  awkward_NumpyArray_pad_zero_to_length_uint8_int32(
+    const uint8_t* fromptr,
+    const int32_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t target,
+    uint8_t* toptr);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_pad_zero_to_length_uint8_int64(
     const uint8_t* fromptr,
     const int64_t* fromoffsets,
+    int64_t offsetslength,
+    int64_t target,
+    uint8_t* toptr);
+  EXPORT_SYMBOL ERROR
+  awkward_NumpyArray_pad_zero_to_length_uint8_uint32(
+    const uint8_t* fromptr,
+    const uint32_t* fromoffsets,
     int64_t offsetslength,
     int64_t target,
     uint8_t* toptr);

@@ -1,6 +1,7 @@
 from .concat_reshape import *
 from .convadd import *
 from .convbn import *
+from .convmul import *
 from .gelu import *
 from .gemm import *
 from .padconv import *

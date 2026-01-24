@@ -5,6 +5,7 @@
 #distutils: language=c++
 
 from libcpp.unordered_map cimport unordered_map
+from libcpp.memory cimport unique_ptr, make_unique
 
 from .ctcxx cimport *
 from .units cimport UnitSystem, CxxUnits
@@ -55,6 +56,7 @@ cdef extern from "cantera/base/AnyMap.h" namespace "Cantera":
         void setQuantity(vector[double]&, string&) except +translate_exception
         void setQuantity(double, CxxUnits&) except +translate_exception
         T& asType "as" [T]() except +translate_exception
+        void setKey(string)
         vector[T]& asVector[T]() except +translate_exception
         string type_str()
         cbool empty()
@@ -70,7 +72,7 @@ cdef extern from "cantera/base/stringUtils.h" namespace "Cantera":
 
 
 cdef extern from "cantera/base/global.h" namespace "Cantera":
-    cdef void CxxAddDirectory "Cantera::addDirectory" (string)
+    cdef void CxxAddDataDirectory "Cantera::addDataDirectory" (string)
     cdef string CxxGetDataDirectories "Cantera::getDataDirectories" (string)
     cdef void CxxAppdelete "Cantera::appdelete" ()
     cdef void Cxx_make_deprecation_warnings_fatal "Cantera::make_deprecation_warnings_fatal" ()
@@ -95,10 +97,11 @@ cdef extern from "cantera/cython/utils_utils.h":
     cdef string get_cantera_version_py()
     cdef string get_cantera_git_commit_py()
     cdef string get_sundials_version()
+
     cdef cppclass CxxPythonLogger "PythonLogger":
         pass
 
-    cdef void CxxSetLogger "setLogger" (CxxPythonLogger*)
+    cdef void CxxSetLogger "setLogger" (unique_ptr[CxxPythonLogger])
 
 cdef class AnyMap(dict):
     cdef _set_CxxUnitSystem(self, shared_ptr[CxxUnitSystem] units)

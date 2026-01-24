@@ -30,6 +30,7 @@ For more information on the resources and properties available for this service,
 Here is an example of creating a glue table and putting lakeformation tags on it. Note: this example uses deprecated constructs and overly permissive IAM roles. This example is meant to give a general idea of using the L1s; it is not production level.
 
 ```python
+from aws_cdk.aws_glue_alpha import Column, Column
 import aws_cdk as cdk
 from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
 from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -142,1951 +143,25 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataCellsFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "database_name": "databaseName",
-        "name": "name",
-        "table_catalog_id": "tableCatalogId",
-        "table_name": "tableName",
-        "column_names": "columnNames",
-        "column_wildcard": "columnWildcard",
-        "row_filter": "rowFilter",
-    },
+from ..interfaces.aws_lakeformation import (
+    DataCellsFilterReference as _DataCellsFilterReference_1943354f,
+    DataLakeSettingsReference as _DataLakeSettingsReference_5b5097ba,
+    IDataCellsFilterRef as _IDataCellsFilterRef_ab07b737,
+    IDataLakeSettingsRef as _IDataLakeSettingsRef_ebb6da67,
+    IPermissionsRef as _IPermissionsRef_36016707,
+    IPrincipalPermissionsRef as _IPrincipalPermissionsRef_dffaf2ff,
+    IResourceRef as _IResourceRef_8c770b78,
+    ITagAssociationRef as _ITagAssociationRef_44c9c652,
+    ITagRef as _ITagRef_2e4c8000,
+    PermissionsReference as _PermissionsReference_6a285a6e,
+    PrincipalPermissionsReference as _PrincipalPermissionsReference_a01708bf,
+    ResourceReference as _ResourceReference_b2b6af26,
+    TagAssociationReference as _TagAssociationReference_14f51cb8,
+    TagReference as _TagReference_a11c7075,
 )
-class CfnDataCellsFilterProps:
-    def __init__(
-        self,
-        *,
-        database_name: builtins.str,
-        name: builtins.str,
-        table_catalog_id: builtins.str,
-        table_name: builtins.str,
-        column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataCellsFilter``.
 
-        :param database_name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . A database in the Data Catalog .
-        :param name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The name given by the user to the data filter cell.
-        :param table_catalog_id: Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The ID of the catalog to which the table belongs.
-        :param table_name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . A table in the database.
-        :param column_names: An array of UTF-8 strings. A list of column names.
-        :param column_wildcard: A wildcard with exclusions. You must specify either a ``ColumnNames`` list or the ``ColumnWildCard`` .
-        :param row_filter: A PartiQL predicate.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            # all_rows_wildcard: Any
-            
-            cfn_data_cells_filter_props = lakeformation.CfnDataCellsFilterProps(
-                database_name="databaseName",
-                name="name",
-                table_catalog_id="tableCatalogId",
-                table_name="tableName",
-            
-                # the properties below are optional
-                column_names=["columnNames"],
-                column_wildcard=lakeformation.CfnDataCellsFilter.ColumnWildcardProperty(
-                    excluded_column_names=["excludedColumnNames"]
-                ),
-                row_filter=lakeformation.CfnDataCellsFilter.RowFilterProperty(
-                    all_rows_wildcard=all_rows_wildcard,
-                    filter_expression="filterExpression"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8)
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-            check_type(argname="argument column_names", value=column_names, expected_type=type_hints["column_names"])
-            check_type(argname="argument column_wildcard", value=column_wildcard, expected_type=type_hints["column_wildcard"])
-            check_type(argname="argument row_filter", value=row_filter, expected_type=type_hints["row_filter"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "database_name": database_name,
-            "name": name,
-            "table_catalog_id": table_catalog_id,
-            "table_name": table_name,
-        }
-        if column_names is not None:
-            self._values["column_names"] = column_names
-        if column_wildcard is not None:
-            self._values["column_wildcard"] = column_wildcard
-        if row_filter is not None:
-            self._values["row_filter"] = row_filter
-
-    @builtins.property
-    def database_name(self) -> builtins.str:
-        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        A database in the Data Catalog .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-databasename
-        '''
-        result = self._values.get("database_name")
-        assert result is not None, "Required property 'database_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        The name given by the user to the data filter cell.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_catalog_id(self) -> builtins.str:
-        '''Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        The ID of the catalog to which the table belongs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-tablecatalogid
-        '''
-        result = self._values.get("table_catalog_id")
-        assert result is not None, "Required property 'table_catalog_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_name(self) -> builtins.str:
-        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        A table in the database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-tablename
-        '''
-        result = self._values.get("table_name")
-        assert result is not None, "Required property 'table_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def column_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of UTF-8 strings.
-
-        A list of column names.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-columnnames
-        '''
-        result = self._values.get("column_names")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def column_wildcard(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.ColumnWildcardProperty"]]:
-        '''A wildcard with exclusions.
-
-        You must specify either a ``ColumnNames`` list or the ``ColumnWildCard`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-columnwildcard
-        '''
-        result = self._values.get("column_wildcard")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.ColumnWildcardProperty"]], result)
-
-    @builtins.property
-    def row_filter(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.RowFilterProperty"]]:
-        '''A PartiQL predicate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-rowfilter
-        '''
-        result = self._values.get("row_filter")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.RowFilterProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataCellsFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataLakeSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "admins": "admins",
-        "allow_external_data_filtering": "allowExternalDataFiltering",
-        "allow_full_table_external_data_access": "allowFullTableExternalDataAccess",
-        "authorized_session_tag_value_list": "authorizedSessionTagValueList",
-        "create_database_default_permissions": "createDatabaseDefaultPermissions",
-        "create_table_default_permissions": "createTableDefaultPermissions",
-        "external_data_filtering_allow_list": "externalDataFilteringAllowList",
-        "mutation_type": "mutationType",
-        "parameters": "parameters",
-        "trusted_resource_owners": "trustedResourceOwners",
-    },
-)
-class CfnDataLakeSettingsProps:
-    def __init__(
-        self,
-        *,
-        admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mutation_type: typing.Optional[builtins.str] = None,
-        parameters: typing.Any = None,
-        trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataLakeSettings``.
-
-        :param admins: A list of AWS Lake Formation principals.
-        :param allow_external_data_filtering: Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation . If set to true, you allow Amazon EMR clusters or other third-party engines to access data in Amazon S3 locations that are registered with Lake Formation . If false or null, no third-party query engines will be able to access data in Amazon S3 locations that are registered with Lake Formation. For more information, see `External data filtering setting <https://docs.aws.amazon.com/lake-formation/latest/dg/initial-LF-setup.html#external-data-filter>`_ .
-        :param allow_full_table_external_data_access: Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access. It provides query engines and applications performance benefits as well as simplifies data access. Amazon EMR on Amazon EC2 is able to leverage this setting. For more information, see ` <https://docs.aws.amazon.com/lake-formation/latest/dg/using-cred-vending.html>`_
-        :param authorized_session_tag_value_list: Lake Formation relies on a privileged process secured by Amazon EMR or the third party integrator to tag the user's role while assuming it. Lake Formation will publish the acceptable key-value pair, for example key = "LakeFormationTrustedCaller" and value = "TRUE" and the third party integrator must properly tag the temporary security credentials that will be used to call Lake Formation 's administrative API operations.
-        :param create_database_default_permissions: Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions. A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicates that the user's IAM permissions determine the access to the database. This is referred to as the setting "Use only IAM access control," and is to support backward compatibility with the AWS Glue permission model implemented by IAM permissions. The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` to ``IAM_ALLOWED_PRINCIPALS`` . For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
-        :param create_table_default_permissions: Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions. A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicate that the user's IAM permissions determine the access to the table. This is referred to as the setting "Use only IAM access control," and is to support the backward compatibility with the AWS Glue permission model implemented by IAM permissions. The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` permissions to ``IAM_ALLOWED_PRINCIPALS`` . For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
-        :param external_data_filtering_allow_list: A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
-        :param mutation_type: Specifies whether the data lake settings are updated by adding new values to the current settings ( ``APPEND`` ) or by replacing the current settings with new settings ( ``REPLACE`` ). .. epigraph:: If you choose ``REPLACE`` , your current data lake settings will be replaced with the new values in your template.
-        :param parameters: A key-value map that provides an additional configuration on your data lake. ``CrossAccountVersion`` is the key you can configure in the ``Parameters`` field. Accepted values for the ``CrossAccountVersion`` key are 1, 2, 3, and 4.
-        :param trusted_resource_owners: An array of UTF-8 strings. A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
-            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
-            
-            # stack: cdk.Stack
-            # account_id: str
-            
-            
-            tag_key = "aws"
-            tag_values = ["dev"]
-            
-            database = Database(self, "Database")
-            
-            table = S3Table(self, "Table",
-                database=database,
-                columns=[Column(
-                    name="col1",
-                    type=Schema.STRING
-                ), Column(
-                    name="col2",
-                    type=Schema.STRING
-                )
-                ],
-                data_format=DataFormat.CSV
-            )
-            
-            synthesizer = stack.synthesizer
-            CfnDataLakeSettings(self, "DataLakeSettings",
-                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
-                    data_lake_principal_identifier=stack.format_arn(
-                        service="iam",
-                        resource="role",
-                        region="",
-                        account=account_id,
-                        resource_name="Admin"
-                    )
-                ), CfnDataLakeSettings.DataLakePrincipalProperty(
-                    # The CDK cloudformation execution role.
-                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
-                )
-                ]
-            )
-            
-            tag = CfnTag(self, "Tag",
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            tag_association = CfnTagAssociation(self, "TagAssociation",
-                lf_tags=[lf_tag_pair_property],
-                resource=CfnTagAssociation.ResourceProperty(
-                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
-                        database_name=database.database_name,
-                        column_names=["col1", "col2"],
-                        catalog_id=account_id,
-                        name=table.table_name
-                    )
-                )
-            )
-            
-            tag_association.node.add_dependency(tag)
-            tag_association.node.add_dependency(table)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d)
-            check_type(argname="argument admins", value=admins, expected_type=type_hints["admins"])
-            check_type(argname="argument allow_external_data_filtering", value=allow_external_data_filtering, expected_type=type_hints["allow_external_data_filtering"])
-            check_type(argname="argument allow_full_table_external_data_access", value=allow_full_table_external_data_access, expected_type=type_hints["allow_full_table_external_data_access"])
-            check_type(argname="argument authorized_session_tag_value_list", value=authorized_session_tag_value_list, expected_type=type_hints["authorized_session_tag_value_list"])
-            check_type(argname="argument create_database_default_permissions", value=create_database_default_permissions, expected_type=type_hints["create_database_default_permissions"])
-            check_type(argname="argument create_table_default_permissions", value=create_table_default_permissions, expected_type=type_hints["create_table_default_permissions"])
-            check_type(argname="argument external_data_filtering_allow_list", value=external_data_filtering_allow_list, expected_type=type_hints["external_data_filtering_allow_list"])
-            check_type(argname="argument mutation_type", value=mutation_type, expected_type=type_hints["mutation_type"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument trusted_resource_owners", value=trusted_resource_owners, expected_type=type_hints["trusted_resource_owners"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if admins is not None:
-            self._values["admins"] = admins
-        if allow_external_data_filtering is not None:
-            self._values["allow_external_data_filtering"] = allow_external_data_filtering
-        if allow_full_table_external_data_access is not None:
-            self._values["allow_full_table_external_data_access"] = allow_full_table_external_data_access
-        if authorized_session_tag_value_list is not None:
-            self._values["authorized_session_tag_value_list"] = authorized_session_tag_value_list
-        if create_database_default_permissions is not None:
-            self._values["create_database_default_permissions"] = create_database_default_permissions
-        if create_table_default_permissions is not None:
-            self._values["create_table_default_permissions"] = create_table_default_permissions
-        if external_data_filtering_allow_list is not None:
-            self._values["external_data_filtering_allow_list"] = external_data_filtering_allow_list
-        if mutation_type is not None:
-            self._values["mutation_type"] = mutation_type
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if trusted_resource_owners is not None:
-            self._values["trusted_resource_owners"] = trusted_resource_owners
-
-    @builtins.property
-    def admins(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
-        '''A list of AWS Lake Formation principals.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-admins
-        '''
-        result = self._values.get("admins")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
-
-    @builtins.property
-    def allow_external_data_filtering(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation .
-
-        If set to true, you allow Amazon EMR clusters or other third-party engines to access data in Amazon S3 locations that are registered with Lake Formation .
-
-        If false or null, no third-party query engines will be able to access data in Amazon S3 locations that are registered with Lake Formation.
-
-        For more information, see `External data filtering setting <https://docs.aws.amazon.com/lake-formation/latest/dg/initial-LF-setup.html#external-data-filter>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowexternaldatafiltering
-        '''
-        result = self._values.get("allow_external_data_filtering")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def allow_full_table_external_data_access(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access.
-
-        It provides query engines and applications performance benefits as well as simplifies data access. Amazon EMR on Amazon EC2 is able to leverage this setting.
-
-        For more information, see ` <https://docs.aws.amazon.com/lake-formation/latest/dg/using-cred-vending.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowfulltableexternaldataaccess
-        '''
-        result = self._values.get("allow_full_table_external_data_access")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def authorized_session_tag_value_list(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Lake Formation relies on a privileged process secured by Amazon EMR or the third party integrator to tag the user's role while assuming it.
-
-        Lake Formation will publish the acceptable key-value pair, for example key = "LakeFormationTrustedCaller" and value = "TRUE" and the third party integrator must properly tag the temporary security credentials that will be used to call Lake Formation 's administrative API operations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-authorizedsessiontagvaluelist
-        '''
-        result = self._values.get("authorized_session_tag_value_list")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def create_database_default_permissions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
-        '''Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions.
-
-        A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicates that the user's IAM permissions determine the access to the database. This is referred to as the setting "Use only IAM access control," and is to support backward compatibility with the AWS Glue permission model implemented by IAM permissions.
-
-        The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` to ``IAM_ALLOWED_PRINCIPALS`` .
-
-        For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createdatabasedefaultpermissions
-        '''
-        result = self._values.get("create_database_default_permissions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
-
-    @builtins.property
-    def create_table_default_permissions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
-        '''Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions.
-
-        A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicate that the user's IAM permissions determine the access to the table. This is referred to as the setting "Use only IAM access control," and is to support the backward compatibility with the AWS Glue permission model implemented by IAM permissions.
-
-        The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` permissions to ``IAM_ALLOWED_PRINCIPALS`` .
-
-        For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createtabledefaultpermissions
-        '''
-        result = self._values.get("create_table_default_permissions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
-
-    @builtins.property
-    def external_data_filtering_allow_list(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
-        '''A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-externaldatafilteringallowlist
-        '''
-        result = self._values.get("external_data_filtering_allow_list")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
-
-    @builtins.property
-    def mutation_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether the data lake settings are updated by adding new values to the current settings ( ``APPEND`` ) or by replacing the current settings with new settings ( ``REPLACE`` ).
-
-        .. epigraph::
-
-           If you choose ``REPLACE`` , your current data lake settings will be replaced with the new values in your template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-mutationtype
-        '''
-        result = self._values.get("mutation_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Any:
-        '''A key-value map that provides an additional configuration on your data lake.
-
-        ``CrossAccountVersion`` is the key you can configure in the ``Parameters`` field. Accepted values for the ``CrossAccountVersion`` key are 1, 2, 3, and 4.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def trusted_resource_owners(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of UTF-8 strings.
-
-        A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-trustedresourceowners
-        '''
-        result = self._values.get("trusted_resource_owners")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataLakeSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnPermissionsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_lake_principal": "dataLakePrincipal",
-        "resource": "resource",
-        "permissions": "permissions",
-        "permissions_with_grant_option": "permissionsWithGrantOption",
-    },
-)
-class CfnPermissionsProps:
-    def __init__(
-        self,
-        *,
-        data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
-        permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPermissions``.
-
-        :param data_lake_principal: The AWS Lake Formation principal.
-        :param resource: A structure for the resource.
-        :param permissions: The permissions granted or revoked.
-        :param permissions_with_grant_option: Indicates the ability to grant permissions (as a subset of permissions granted).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            cfn_permissions_props = lakeformation.CfnPermissionsProps(
-                data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
-                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
-                ),
-                resource=lakeformation.CfnPermissions.ResourceProperty(
-                    database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
-                        catalog_id="catalogId",
-                        name="name"
-                    ),
-                    data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
-                        catalog_id="catalogId",
-                        s3_resource="s3Resource"
-                    ),
-                    table_resource=lakeformation.CfnPermissions.TableResourceProperty(
-                        catalog_id="catalogId",
-                        database_name="databaseName",
-                        name="name",
-                        table_wildcard=lakeformation.CfnPermissions.TableWildcardProperty()
-                    ),
-                    table_with_columns_resource=lakeformation.CfnPermissions.TableWithColumnsResourceProperty(
-                        catalog_id="catalogId",
-                        column_names=["columnNames"],
-                        column_wildcard=lakeformation.CfnPermissions.ColumnWildcardProperty(
-                            excluded_column_names=["excludedColumnNames"]
-                        ),
-                        database_name="databaseName",
-                        name="name"
-                    )
-                ),
-            
-                # the properties below are optional
-                permissions=["permissions"],
-                permissions_with_grant_option=["permissionsWithGrantOption"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1)
-            check_type(argname="argument data_lake_principal", value=data_lake_principal, expected_type=type_hints["data_lake_principal"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
-            check_type(argname="argument permissions_with_grant_option", value=permissions_with_grant_option, expected_type=type_hints["permissions_with_grant_option"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_lake_principal": data_lake_principal,
-            "resource": resource,
-        }
-        if permissions is not None:
-            self._values["permissions"] = permissions
-        if permissions_with_grant_option is not None:
-            self._values["permissions_with_grant_option"] = permissions_with_grant_option
-
-    @builtins.property
-    def data_lake_principal(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLakePrincipalProperty"]:
-        '''The AWS Lake Formation principal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-datalakeprincipal
-        '''
-        result = self._values.get("data_lake_principal")
-        assert result is not None, "Required property 'data_lake_principal' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLakePrincipalProperty"], result)
-
-    @builtins.property
-    def resource(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPermissions.ResourceProperty"]:
-        '''A structure for the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-resource
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPermissions.ResourceProperty"], result)
-
-    @builtins.property
-    def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The permissions granted or revoked.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-permissions
-        '''
-        result = self._values.get("permissions")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def permissions_with_grant_option(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Indicates the ability to grant permissions (as a subset of permissions granted).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-permissionswithgrantoption
-        '''
-        result = self._values.get("permissions_with_grant_option")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPermissionsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnPrincipalPermissionsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "permissions": "permissions",
-        "permissions_with_grant_option": "permissionsWithGrantOption",
-        "principal": "principal",
-        "resource": "resource",
-        "catalog": "catalog",
-    },
-)
-class CfnPrincipalPermissionsProps:
-    def __init__(
-        self,
-        *,
-        permissions: typing.Sequence[builtins.str],
-        permissions_with_grant_option: typing.Sequence[builtins.str],
-        principal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
-        catalog: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPrincipalPermissions``.
-
-        :param permissions: The permissions granted or revoked.
-        :param permissions_with_grant_option: Indicates the ability to grant permissions (as a subset of permissions granted).
-        :param principal: The principal to be granted a permission.
-        :param resource: The resource to be granted or revoked permissions.
-        :param catalog: The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your Lake Formation environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            # catalog: Any
-            # table_wildcard: Any
-            
-            cfn_principal_permissions_props = lakeformation.CfnPrincipalPermissionsProps(
-                permissions=["permissions"],
-                permissions_with_grant_option=["permissionsWithGrantOption"],
-                principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
-                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
-                ),
-                resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
-                    catalog=catalog,
-                    database=lakeformation.CfnPrincipalPermissions.DatabaseResourceProperty(
-                        catalog_id="catalogId",
-                        name="name"
-                    ),
-                    data_cells_filter=lakeformation.CfnPrincipalPermissions.DataCellsFilterResourceProperty(
-                        database_name="databaseName",
-                        name="name",
-                        table_catalog_id="tableCatalogId",
-                        table_name="tableName"
-                    ),
-                    data_location=lakeformation.CfnPrincipalPermissions.DataLocationResourceProperty(
-                        catalog_id="catalogId",
-                        resource_arn="resourceArn"
-                    ),
-                    lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
-                        catalog_id="catalogId",
-                        tag_key="tagKey",
-                        tag_values=["tagValues"]
-                    ),
-                    lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
-                        catalog_id="catalogId",
-                        expression=[lakeformation.CfnPrincipalPermissions.LFTagProperty(
-                            tag_key="tagKey",
-                            tag_values=["tagValues"]
-                        )],
-                        resource_type="resourceType"
-                    ),
-                    table=lakeformation.CfnPrincipalPermissions.TableResourceProperty(
-                        catalog_id="catalogId",
-                        database_name="databaseName",
-            
-                        # the properties below are optional
-                        name="name",
-                        table_wildcard=table_wildcard
-                    ),
-                    table_with_columns=lakeformation.CfnPrincipalPermissions.TableWithColumnsResourceProperty(
-                        catalog_id="catalogId",
-                        database_name="databaseName",
-                        name="name",
-            
-                        # the properties below are optional
-                        column_names=["columnNames"],
-                        column_wildcard=lakeformation.CfnPrincipalPermissions.ColumnWildcardProperty(
-                            excluded_column_names=["excludedColumnNames"]
-                        )
-                    )
-                ),
-            
-                # the properties below are optional
-                catalog="catalog"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89)
-            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
-            check_type(argname="argument permissions_with_grant_option", value=permissions_with_grant_option, expected_type=type_hints["permissions_with_grant_option"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "permissions": permissions,
-            "permissions_with_grant_option": permissions_with_grant_option,
-            "principal": principal,
-            "resource": resource,
-        }
-        if catalog is not None:
-            self._values["catalog"] = catalog
-
-    @builtins.property
-    def permissions(self) -> typing.List[builtins.str]:
-        '''The permissions granted or revoked.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-permissions
-        '''
-        result = self._values.get("permissions")
-        assert result is not None, "Required property 'permissions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def permissions_with_grant_option(self) -> typing.List[builtins.str]:
-        '''Indicates the ability to grant permissions (as a subset of permissions granted).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-permissionswithgrantoption
-        '''
-        result = self._values.get("permissions_with_grant_option")
-        assert result is not None, "Required property 'permissions_with_grant_option' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def principal(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
-        '''The principal to be granted a permission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLakePrincipalProperty"], result)
-
-    @builtins.property
-    def resource(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ResourceProperty"]:
-        '''The resource to be granted or revoked permissions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-resource
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ResourceProperty"], result)
-
-    @builtins.property
-    def catalog(self) -> typing.Optional[builtins.str]:
-        '''The identifier for the Data Catalog .
-
-        By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your Lake Formation environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-catalog
-        '''
-        result = self._values.get("catalog")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPrincipalPermissionsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnResourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_arn": "resourceArn",
-        "use_service_linked_role": "useServiceLinkedRole",
-        "hybrid_access_enabled": "hybridAccessEnabled",
-        "role_arn": "roleArn",
-        "with_federation": "withFederation",
-    },
-)
-class CfnResourceProps:
-    def __init__(
-        self,
-        *,
-        resource_arn: builtins.str,
-        use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResource``.
-
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource.
-        :param use_service_linked_role: Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .
-        :param hybrid_access_enabled: Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
-        :param role_arn: The IAM role that registered a resource.
-        :param with_federation: Allows Lake Formation to assume a role to access tables in a federated database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            cfn_resource_props = lakeformation.CfnResourceProps(
-                resource_arn="resourceArn",
-                use_service_linked_role=False,
-            
-                # the properties below are optional
-                hybrid_access_enabled=False,
-                role_arn="roleArn",
-                with_federation=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument use_service_linked_role", value=use_service_linked_role, expected_type=type_hints["use_service_linked_role"])
-            check_type(argname="argument hybrid_access_enabled", value=hybrid_access_enabled, expected_type=type_hints["hybrid_access_enabled"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument with_federation", value=with_federation, expected_type=type_hints["with_federation"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-            "use_service_linked_role": use_service_linked_role,
-        }
-        if hybrid_access_enabled is not None:
-            self._values["hybrid_access_enabled"] = hybrid_access_enabled
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if with_federation is not None:
-            self._values["with_federation"] = with_federation
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def use_service_linked_role(
-        self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-useservicelinkedrole
-        '''
-        result = self._values.get("use_service_linked_role")
-        assert result is not None, "Required property 'use_service_linked_role' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def hybrid_access_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-hybridaccessenabled
-        '''
-        result = self._values.get("hybrid_access_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM role that registered a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def with_federation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Allows Lake Formation to assume a role to access tables in a federated database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-withfederation
-        '''
-        result = self._values.get("with_federation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnTagAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"lf_tags": "lfTags", "resource": "resource"},
-)
-class CfnTagAssociationProps:
-    def __init__(
-        self,
-        *,
-        lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnTagAssociation``.
-
-        :param lf_tags: A structure containing an LF-tag key-value pair.
-        :param resource: UTF-8 string (valid values: ``DATABASE | TABLE`` ). The resource for which the LF-tag policy applies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
-            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
-            
-            # stack: cdk.Stack
-            # account_id: str
-            
-            
-            tag_key = "aws"
-            tag_values = ["dev"]
-            
-            database = Database(self, "Database")
-            
-            table = S3Table(self, "Table",
-                database=database,
-                columns=[Column(
-                    name="col1",
-                    type=Schema.STRING
-                ), Column(
-                    name="col2",
-                    type=Schema.STRING
-                )
-                ],
-                data_format=DataFormat.CSV
-            )
-            
-            synthesizer = stack.synthesizer
-            CfnDataLakeSettings(self, "DataLakeSettings",
-                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
-                    data_lake_principal_identifier=stack.format_arn(
-                        service="iam",
-                        resource="role",
-                        region="",
-                        account=account_id,
-                        resource_name="Admin"
-                    )
-                ), CfnDataLakeSettings.DataLakePrincipalProperty(
-                    # The CDK cloudformation execution role.
-                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
-                )
-                ]
-            )
-            
-            tag = CfnTag(self, "Tag",
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            tag_association = CfnTagAssociation(self, "TagAssociation",
-                lf_tags=[lf_tag_pair_property],
-                resource=CfnTagAssociation.ResourceProperty(
-                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
-                        database_name=database.database_name,
-                        column_names=["col1", "col2"],
-                        catalog_id=account_id,
-                        name=table.table_name
-                    )
-                )
-            )
-            
-            tag_association.node.add_dependency(tag)
-            tag_association.node.add_dependency(table)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c)
-            check_type(argname="argument lf_tags", value=lf_tags, expected_type=type_hints["lf_tags"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "lf_tags": lf_tags,
-            "resource": resource,
-        }
-
-    @builtins.property
-    def lf_tags(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.LFTagPairProperty"]]]:
-        '''A structure containing an LF-tag key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html#cfn-lakeformation-tagassociation-lftags
-        '''
-        result = self._values.get("lf_tags")
-        assert result is not None, "Required property 'lf_tags' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.LFTagPairProperty"]]], result)
-
-    @builtins.property
-    def resource(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.ResourceProperty"]:
-        '''UTF-8 string (valid values: ``DATABASE | TABLE`` ).
-
-        The resource for which the LF-tag policy applies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html#cfn-lakeformation-tagassociation-resource
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.ResourceProperty"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTagAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.CfnTagProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "tag_key": "tagKey",
-        "tag_values": "tagValues",
-        "catalog_id": "catalogId",
-    },
-)
-class CfnTagProps:
-    def __init__(
-        self,
-        *,
-        tag_key: builtins.str,
-        tag_values: typing.Sequence[builtins.str],
-        catalog_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTag``.
-
-        :param tag_key: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The key-name for the LF-tag.
-        :param tag_values: An array of UTF-8 strings, not less than 1 or more than 50 strings. A list of possible values of the corresponding ``TagKey`` of an LF-tag key-value pair.
-        :param catalog_id: Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your AWS Lake Formation environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
-            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
-            
-            # stack: cdk.Stack
-            # account_id: str
-            
-            
-            tag_key = "aws"
-            tag_values = ["dev"]
-            
-            database = Database(self, "Database")
-            
-            table = S3Table(self, "Table",
-                database=database,
-                columns=[Column(
-                    name="col1",
-                    type=Schema.STRING
-                ), Column(
-                    name="col2",
-                    type=Schema.STRING
-                )
-                ],
-                data_format=DataFormat.CSV
-            )
-            
-            synthesizer = stack.synthesizer
-            CfnDataLakeSettings(self, "DataLakeSettings",
-                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
-                    data_lake_principal_identifier=stack.format_arn(
-                        service="iam",
-                        resource="role",
-                        region="",
-                        account=account_id,
-                        resource_name="Admin"
-                    )
-                ), CfnDataLakeSettings.DataLakePrincipalProperty(
-                    # The CDK cloudformation execution role.
-                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
-                )
-                ]
-            )
-            
-            tag = CfnTag(self, "Tag",
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
-                catalog_id=account_id,
-                tag_key=tag_key,
-                tag_values=tag_values
-            )
-            
-            tag_association = CfnTagAssociation(self, "TagAssociation",
-                lf_tags=[lf_tag_pair_property],
-                resource=CfnTagAssociation.ResourceProperty(
-                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
-                        database_name=database.database_name,
-                        column_names=["col1", "col2"],
-                        catalog_id=account_id,
-                        name=table.table_name
-                    )
-                )
-            )
-            
-            tag_association.node.add_dependency(tag)
-            tag_association.node.add_dependency(table)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6)
-            check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
-            check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
-            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "tag_key": tag_key,
-            "tag_values": tag_values,
-        }
-        if catalog_id is not None:
-            self._values["catalog_id"] = catalog_id
-
-    @builtins.property
-    def tag_key(self) -> builtins.str:
-        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        The key-name for the LF-tag.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-tagkey
-        '''
-        result = self._values.get("tag_key")
-        assert result is not None, "Required property 'tag_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tag_values(self) -> typing.List[builtins.str]:
-        '''An array of UTF-8 strings, not less than 1 or more than 50 strings.
-
-        A list of possible values of the corresponding ``TagKey`` of an LF-tag key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-tagvalues
-        '''
-        result = self._values.get("tag_values")
-        assert result is not None, "Required property 'tag_values' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def catalog_id(self) -> typing.Optional[builtins.str]:
-        '''Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
-
-        The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your AWS Lake Formation environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-catalogid
-        '''
-        result = self._values.get("catalog_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTagProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.DataCellsFilterReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "database_name": "databaseName",
-        "data_cells_filter_name": "dataCellsFilterName",
-        "table_catalog_id": "tableCatalogId",
-        "table_name": "tableName",
-    },
-)
-class DataCellsFilterReference:
-    def __init__(
-        self,
-        *,
-        database_name: builtins.str,
-        data_cells_filter_name: builtins.str,
-        table_catalog_id: builtins.str,
-        table_name: builtins.str,
-    ) -> None:
-        '''A reference to a DataCellsFilter resource.
-
-        :param database_name: The DatabaseName of the DataCellsFilter resource.
-        :param data_cells_filter_name: The Name of the DataCellsFilter resource.
-        :param table_catalog_id: The TableCatalogId of the DataCellsFilter resource.
-        :param table_name: The TableName of the DataCellsFilter resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            data_cells_filter_reference = lakeformation.DataCellsFilterReference(
-                database_name="databaseName",
-                data_cells_filter_name="dataCellsFilterName",
-                table_catalog_id="tableCatalogId",
-                table_name="tableName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c10d4e7a380761610ff6748d5b357ba5f17b18eff239eb692f02362a9d640f2f)
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument data_cells_filter_name", value=data_cells_filter_name, expected_type=type_hints["data_cells_filter_name"])
-            check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "database_name": database_name,
-            "data_cells_filter_name": data_cells_filter_name,
-            "table_catalog_id": table_catalog_id,
-            "table_name": table_name,
-        }
-
-    @builtins.property
-    def database_name(self) -> builtins.str:
-        '''The DatabaseName of the DataCellsFilter resource.'''
-        result = self._values.get("database_name")
-        assert result is not None, "Required property 'database_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_cells_filter_name(self) -> builtins.str:
-        '''The Name of the DataCellsFilter resource.'''
-        result = self._values.get("data_cells_filter_name")
-        assert result is not None, "Required property 'data_cells_filter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_catalog_id(self) -> builtins.str:
-        '''The TableCatalogId of the DataCellsFilter resource.'''
-        result = self._values.get("table_catalog_id")
-        assert result is not None, "Required property 'table_catalog_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_name(self) -> builtins.str:
-        '''The TableName of the DataCellsFilter resource.'''
-        result = self._values.get("table_name")
-        assert result is not None, "Required property 'table_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataCellsFilterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.DataLakeSettingsReference",
-    jsii_struct_bases=[],
-    name_mapping={"data_lake_settings_id": "dataLakeSettingsId"},
-)
-class DataLakeSettingsReference:
-    def __init__(self, *, data_lake_settings_id: builtins.str) -> None:
-        '''A reference to a DataLakeSettings resource.
-
-        :param data_lake_settings_id: The Id of the DataLakeSettings resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            data_lake_settings_reference = lakeformation.DataLakeSettingsReference(
-                data_lake_settings_id="dataLakeSettingsId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99bfa0355d7f00b6fb29f2e7f93375075722b9c2ec533cbaa7585c07329d5ed7)
-            check_type(argname="argument data_lake_settings_id", value=data_lake_settings_id, expected_type=type_hints["data_lake_settings_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_lake_settings_id": data_lake_settings_id,
-        }
-
-    @builtins.property
-    def data_lake_settings_id(self) -> builtins.str:
-        '''The Id of the DataLakeSettings resource.'''
-        result = self._values.get("data_lake_settings_id")
-        assert result is not None, "Required property 'data_lake_settings_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataLakeSettingsReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.IDataCellsFilterRef")
-class IDataCellsFilterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DataCellsFilter.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="dataCellsFilterRef")
-    def data_cells_filter_ref(self) -> DataCellsFilterReference:
-        '''(experimental) A reference to a DataCellsFilter resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDataCellsFilterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataCellsFilter.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.IDataCellsFilterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="dataCellsFilterRef")
-    def data_cells_filter_ref(self) -> DataCellsFilterReference:
-        '''(experimental) A reference to a DataCellsFilter resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DataCellsFilterReference, jsii.get(self, "dataCellsFilterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDataCellsFilterRef).__jsii_proxy_class__ = lambda : _IDataCellsFilterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.IDataLakeSettingsRef")
-class IDataLakeSettingsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DataLakeSettings.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="dataLakeSettingsRef")
-    def data_lake_settings_ref(self) -> DataLakeSettingsReference:
-        '''(experimental) A reference to a DataLakeSettings resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDataLakeSettingsRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataLakeSettings.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.IDataLakeSettingsRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="dataLakeSettingsRef")
-    def data_lake_settings_ref(self) -> DataLakeSettingsReference:
-        '''(experimental) A reference to a DataLakeSettings resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DataLakeSettingsReference, jsii.get(self, "dataLakeSettingsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDataLakeSettingsRef).__jsii_proxy_class__ = lambda : _IDataLakeSettingsRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.IPermissionsRef")
-class IPermissionsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Permissions.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsRef")
-    def permissions_ref(self) -> "PermissionsReference":
-        '''(experimental) A reference to a Permissions resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPermissionsRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Permissions.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.IPermissionsRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsRef")
-    def permissions_ref(self) -> "PermissionsReference":
-        '''(experimental) A reference to a Permissions resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PermissionsReference", jsii.get(self, "permissionsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPermissionsRef).__jsii_proxy_class__ = lambda : _IPermissionsRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.IPrincipalPermissionsRef")
-class IPrincipalPermissionsRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a PrincipalPermissions.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="principalPermissionsRef")
-    def principal_permissions_ref(self) -> "PrincipalPermissionsReference":
-        '''(experimental) A reference to a PrincipalPermissions resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPrincipalPermissionsRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a PrincipalPermissions.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.IPrincipalPermissionsRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="principalPermissionsRef")
-    def principal_permissions_ref(self) -> "PrincipalPermissionsReference":
-        '''(experimental) A reference to a PrincipalPermissions resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PrincipalPermissionsReference", jsii.get(self, "principalPermissionsRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPrincipalPermissionsRef).__jsii_proxy_class__ = lambda : _IPrincipalPermissionsRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.IResourceRef")
-class IResourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Resource.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceRef")
-    def resource_ref(self) -> "ResourceReference":
-        '''(experimental) A reference to a Resource resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Resource.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.IResourceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceRef")
-    def resource_ref(self) -> "ResourceReference":
-        '''(experimental) A reference to a Resource resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourceReference", jsii.get(self, "resourceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceRef).__jsii_proxy_class__ = lambda : _IResourceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.ITagAssociationRef")
-class ITagAssociationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a TagAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="tagAssociationRef")
-    def tag_association_ref(self) -> "TagAssociationReference":
-        '''(experimental) A reference to a TagAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITagAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a TagAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.ITagAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="tagAssociationRef")
-    def tag_association_ref(self) -> "TagAssociationReference":
-        '''(experimental) A reference to a TagAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TagAssociationReference", jsii.get(self, "tagAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITagAssociationRef).__jsii_proxy_class__ = lambda : _ITagAssociationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lakeformation.ITagRef")
-class ITagRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Tag.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="tagRef")
-    def tag_ref(self) -> "TagReference":
-        '''(experimental) A reference to a Tag resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITagRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Tag.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lakeformation.ITagRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="tagRef")
-    def tag_ref(self) -> "TagReference":
-        '''(experimental) A reference to a Tag resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TagReference", jsii.get(self, "tagRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITagRef).__jsii_proxy_class__ = lambda : _ITagRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.PermissionsReference",
-    jsii_struct_bases=[],
-    name_mapping={"permissions_id": "permissionsId"},
-)
-class PermissionsReference:
-    def __init__(self, *, permissions_id: builtins.str) -> None:
-        '''A reference to a Permissions resource.
-
-        :param permissions_id: The Id of the Permissions resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            permissions_reference = lakeformation.PermissionsReference(
-                permissions_id="permissionsId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f56e2879aa262a90b54721e5f5a09255ad8f523a5632a5d7f35cd519cf33247b)
-            check_type(argname="argument permissions_id", value=permissions_id, expected_type=type_hints["permissions_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "permissions_id": permissions_id,
-        }
-
-    @builtins.property
-    def permissions_id(self) -> builtins.str:
-        '''The Id of the Permissions resource.'''
-        result = self._values.get("permissions_id")
-        assert result is not None, "Required property 'permissions_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PermissionsReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.PrincipalPermissionsReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "principal_identifier": "principalIdentifier",
-        "resource_identifier": "resourceIdentifier",
-    },
-)
-class PrincipalPermissionsReference:
-    def __init__(
-        self,
-        *,
-        principal_identifier: builtins.str,
-        resource_identifier: builtins.str,
-    ) -> None:
-        '''A reference to a PrincipalPermissions resource.
-
-        :param principal_identifier: The PrincipalIdentifier of the PrincipalPermissions resource.
-        :param resource_identifier: The ResourceIdentifier of the PrincipalPermissions resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            principal_permissions_reference = lakeformation.PrincipalPermissionsReference(
-                principal_identifier="principalIdentifier",
-                resource_identifier="resourceIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__801d629eaaa3f97f0e289b28141b88fdb7952230641232c9ca2afb59e0840f27)
-            check_type(argname="argument principal_identifier", value=principal_identifier, expected_type=type_hints["principal_identifier"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "principal_identifier": principal_identifier,
-            "resource_identifier": resource_identifier,
-        }
-
-    @builtins.property
-    def principal_identifier(self) -> builtins.str:
-        '''The PrincipalIdentifier of the PrincipalPermissions resource.'''
-        result = self._values.get("principal_identifier")
-        assert result is not None, "Required property 'principal_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_identifier(self) -> builtins.str:
-        '''The ResourceIdentifier of the PrincipalPermissions resource.'''
-        result = self._values.get("resource_identifier")
-        assert result is not None, "Required property 'resource_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PrincipalPermissionsReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.ResourceReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_id": "resourceId"},
-)
-class ResourceReference:
-    def __init__(self, *, resource_id: builtins.str) -> None:
-        '''A reference to a Resource resource.
-
-        :param resource_id: The Id of the Resource resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            resource_reference = lakeformation.ResourceReference(
-                resource_id="resourceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d127f2c50981fce21d8326c7e4934de0a84bb78f9b6ad5e4aa88faa2904b0b9)
-            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_id": resource_id,
-        }
-
-    @builtins.property
-    def resource_id(self) -> builtins.str:
-        '''The Id of the Resource resource.'''
-        result = self._values.get("resource_id")
-        assert result is not None, "Required property 'resource_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.TagAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_identifier": "resourceIdentifier",
-        "tags_identifier": "tagsIdentifier",
-    },
-)
-class TagAssociationReference:
-    def __init__(
-        self,
-        *,
-        resource_identifier: builtins.str,
-        tags_identifier: builtins.str,
-    ) -> None:
-        '''A reference to a TagAssociation resource.
-
-        :param resource_identifier: The ResourceIdentifier of the TagAssociation resource.
-        :param tags_identifier: The TagsIdentifier of the TagAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            tag_association_reference = lakeformation.TagAssociationReference(
-                resource_identifier="resourceIdentifier",
-                tags_identifier="tagsIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3584962de1b40fb39860bd4b2653e2fe9408bbb7f5fa7f1246e938ae3ed39cd)
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument tags_identifier", value=tags_identifier, expected_type=type_hints["tags_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_identifier": resource_identifier,
-            "tags_identifier": tags_identifier,
-        }
-
-    @builtins.property
-    def resource_identifier(self) -> builtins.str:
-        '''The ResourceIdentifier of the TagAssociation resource.'''
-        result = self._values.get("resource_identifier")
-        assert result is not None, "Required property 'resource_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags_identifier(self) -> builtins.str:
-        '''The TagsIdentifier of the TagAssociation resource.'''
-        result = self._values.get("tags_identifier")
-        assert result is not None, "Required property 'tags_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TagAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lakeformation.TagReference",
-    jsii_struct_bases=[],
-    name_mapping={"tag_key": "tagKey"},
-)
-class TagReference:
-    def __init__(self, *, tag_key: builtins.str) -> None:
-        '''A reference to a Tag resource.
-
-        :param tag_key: The TagKey of the Tag resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lakeformation as lakeformation
-            
-            tag_reference = lakeformation.TagReference(
-                tag_key="tagKey"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af4d75ad448ce6e7b4db5d3418508b0241d59127ab0d809dbacf13a5c3043c31)
-            check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "tag_key": tag_key,
-        }
-
-    @builtins.property
-    def tag_key(self) -> builtins.str:
-        '''The TagKey of the Tag resource.'''
-        result = self._values.get("tag_key")
-        assert result is not None, "Required property 'tag_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TagReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IDataCellsFilterRef)
+@jsii.implements(_IInspectable_c2943556, _IDataCellsFilterRef_ab07b737)
 class CfnDataCellsFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2128,7 +203,7 @@ class CfnDataCellsFilter(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         database_name: builtins.str,
@@ -2136,10 +211,11 @@ class CfnDataCellsFilter(
         table_catalog_id: builtins.str,
         table_name: builtins.str,
         column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        row_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::DataCellsFilter``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param database_name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . A database in the Data Catalog .
@@ -2166,8 +242,20 @@ class CfnDataCellsFilter(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnDataCellsFilter")
+    @builtins.classmethod
+    def is_cfn_data_cells_filter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataCellsFilter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__064e96a955388eac684f181d198f459ef59fd2eadf5408df858fc22c20dc1dca)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataCellsFilter", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2203,9 +291,9 @@ class CfnDataCellsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="dataCellsFilterRef")
-    def data_cells_filter_ref(self) -> DataCellsFilterReference:
+    def data_cells_filter_ref(self) -> "_DataCellsFilterReference_1943354f":
         '''A reference to a DataCellsFilter resource.'''
-        return typing.cast(DataCellsFilterReference, jsii.get(self, "dataCellsFilterRef"))
+        return typing.cast("_DataCellsFilterReference_1943354f", jsii.get(self, "dataCellsFilterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -2276,14 +364,14 @@ class CfnDataCellsFilter(
     @jsii.member(jsii_name="columnWildcard")
     def column_wildcard(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.ColumnWildcardProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
         '''A wildcard with exclusions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.ColumnWildcardProperty"]], jsii.get(self, "columnWildcard"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]], jsii.get(self, "columnWildcard"))
 
     @column_wildcard.setter
     def column_wildcard(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.ColumnWildcardProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24e7504a12b1b5d7e26809268009dbec0ff8e5b821de877742f07891ecfccf10)
@@ -2294,14 +382,14 @@ class CfnDataCellsFilter(
     @jsii.member(jsii_name="rowFilter")
     def row_filter(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.RowFilterProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]]:
         '''A PartiQL predicate.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.RowFilterProperty"]], jsii.get(self, "rowFilter"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]], jsii.get(self, "rowFilter"))
 
     @row_filter.setter
     def row_filter(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataCellsFilter.RowFilterProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9f504934d13512b5f3bc876387b568ad7594bcf89c9905c5e36a7ab25137e38)
@@ -2441,7 +529,187 @@ class CfnDataCellsFilter(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IDataLakeSettingsRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataCellsFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_name": "databaseName",
+        "name": "name",
+        "table_catalog_id": "tableCatalogId",
+        "table_name": "tableName",
+        "column_names": "columnNames",
+        "column_wildcard": "columnWildcard",
+        "row_filter": "rowFilter",
+    },
+)
+class CfnDataCellsFilterProps:
+    def __init__(
+        self,
+        *,
+        database_name: builtins.str,
+        name: builtins.str,
+        table_catalog_id: builtins.str,
+        table_name: builtins.str,
+        column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        row_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataCellsFilter``.
+
+        :param database_name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . A database in the Data Catalog .
+        :param name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The name given by the user to the data filter cell.
+        :param table_catalog_id: Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The ID of the catalog to which the table belongs.
+        :param table_name: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . A table in the database.
+        :param column_names: An array of UTF-8 strings. A list of column names.
+        :param column_wildcard: A wildcard with exclusions. You must specify either a ``ColumnNames`` list or the ``ColumnWildCard`` .
+        :param row_filter: A PartiQL predicate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lakeformation as lakeformation
+            
+            # all_rows_wildcard: Any
+            
+            cfn_data_cells_filter_props = lakeformation.CfnDataCellsFilterProps(
+                database_name="databaseName",
+                name="name",
+                table_catalog_id="tableCatalogId",
+                table_name="tableName",
+            
+                # the properties below are optional
+                column_names=["columnNames"],
+                column_wildcard=lakeformation.CfnDataCellsFilter.ColumnWildcardProperty(
+                    excluded_column_names=["excludedColumnNames"]
+                ),
+                row_filter=lakeformation.CfnDataCellsFilter.RowFilterProperty(
+                    all_rows_wildcard=all_rows_wildcard,
+                    filter_expression="filterExpression"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8)
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+            check_type(argname="argument column_names", value=column_names, expected_type=type_hints["column_names"])
+            check_type(argname="argument column_wildcard", value=column_wildcard, expected_type=type_hints["column_wildcard"])
+            check_type(argname="argument row_filter", value=row_filter, expected_type=type_hints["row_filter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_name": database_name,
+            "name": name,
+            "table_catalog_id": table_catalog_id,
+            "table_name": table_name,
+        }
+        if column_names is not None:
+            self._values["column_names"] = column_names
+        if column_wildcard is not None:
+            self._values["column_wildcard"] = column_wildcard
+        if row_filter is not None:
+            self._values["row_filter"] = row_filter
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        A database in the Data Catalog .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-databasename
+        '''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        The name given by the user to the data filter cell.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_catalog_id(self) -> builtins.str:
+        '''Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        The ID of the catalog to which the table belongs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-tablecatalogid
+        '''
+        result = self._values.get("table_catalog_id")
+        assert result is not None, "Required property 'table_catalog_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        A table in the database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-tablename
+        '''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def column_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of UTF-8 strings.
+
+        A list of column names.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-columnnames
+        '''
+        result = self._values.get("column_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def column_wildcard(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
+        '''A wildcard with exclusions.
+
+        You must specify either a ``ColumnNames`` list or the ``ColumnWildCard`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-columnwildcard
+        '''
+        result = self._values.get("column_wildcard")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]], result)
+
+    @builtins.property
+    def row_filter(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]]:
+        '''A PartiQL predicate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-rowfilter
+        '''
+        result = self._values.get("row_filter")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataCellsFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDataLakeSettingsRef_ebb6da67)
 class CfnDataLakeSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2455,6 +723,7 @@ class CfnDataLakeSettings(
 
     Example::
 
+        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
         from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -2528,21 +797,23 @@ class CfnDataLakeSettings(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         mutation_type: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
+        read_only_admins: typing.Any = None,
         trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::DataLakeSettings``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param admins: A list of AWS Lake Formation principals.
@@ -2554,6 +825,7 @@ class CfnDataLakeSettings(
         :param external_data_filtering_allow_list: A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
         :param mutation_type: Specifies whether the data lake settings are updated by adding new values to the current settings ( ``APPEND`` ) or by replacing the current settings with new settings ( ``REPLACE`` ). .. epigraph:: If you choose ``REPLACE`` , your current data lake settings will be replaced with the new values in your template.
         :param parameters: A key-value map that provides an additional configuration on your data lake. ``CrossAccountVersion`` is the key you can configure in the ``Parameters`` field. Accepted values for the ``CrossAccountVersion`` key are 1, 2, 3, and 4.
+        :param read_only_admins: 
         :param trusted_resource_owners: An array of UTF-8 strings. A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
         '''
         if __debug__:
@@ -2570,13 +842,26 @@ class CfnDataLakeSettings(
             external_data_filtering_allow_list=external_data_filtering_allow_list,
             mutation_type=mutation_type,
             parameters=parameters,
+            read_only_admins=read_only_admins,
             trusted_resource_owners=trusted_resource_owners,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnDataLakeSettings")
+    @builtins.classmethod
+    def is_cfn_data_lake_settings(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataLakeSettings.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8183d65f16c9622dd0f9f4baf30d0cc013e74660077cd751fe435b4e17410ed5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataLakeSettings", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2620,22 +905,22 @@ class CfnDataLakeSettings(
 
     @builtins.property
     @jsii.member(jsii_name="dataLakeSettingsRef")
-    def data_lake_settings_ref(self) -> DataLakeSettingsReference:
+    def data_lake_settings_ref(self) -> "_DataLakeSettingsReference_5b5097ba":
         '''A reference to a DataLakeSettings resource.'''
-        return typing.cast(DataLakeSettingsReference, jsii.get(self, "dataLakeSettingsRef"))
+        return typing.cast("_DataLakeSettingsReference_5b5097ba", jsii.get(self, "dataLakeSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="admins")
     def admins(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of AWS Lake Formation principals.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "admins"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "admins"))
 
     @admins.setter
     def admins(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df68ab1ab5b6831a2e0f48c47e111909fcae53ceb431cf9876b2a6b3ee4895a8)
@@ -2646,14 +931,14 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="allowExternalDataFiltering")
     def allow_external_data_filtering(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "allowExternalDataFiltering"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowExternalDataFiltering"))
 
     @allow_external_data_filtering.setter
     def allow_external_data_filtering(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad4d063925881a74c4f1073af94f569441bb4b8f7c58ee42383196bbb4e64aad)
@@ -2664,14 +949,14 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="allowFullTableExternalDataAccess")
     def allow_full_table_external_data_access(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "allowFullTableExternalDataAccess"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowFullTableExternalDataAccess"))
 
     @allow_full_table_external_data_access.setter
     def allow_full_table_external_data_access(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd742952d98269b8002ba10662034f93cd9f5539a1e7f5e8835e8ab1b222c85d)
@@ -2700,14 +985,14 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="createDatabaseDefaultPermissions")
     def create_database_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createDatabaseDefaultPermissions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createDatabaseDefaultPermissions"))
 
     @create_database_default_permissions.setter
     def create_database_default_permissions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__436b96d2708f96f391be82ba6eaa6481bbecd3b17c06354069035866187d1b45)
@@ -2718,14 +1003,14 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="createTableDefaultPermissions")
     def create_table_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createTableDefaultPermissions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createTableDefaultPermissions"))
 
     @create_table_default_permissions.setter
     def create_table_default_permissions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60f9c70a917c1c3ef84f9fe5f53041f2cdd59022a7255ab1c017bbfc4891f92f)
@@ -2736,14 +1021,14 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="externalDataFilteringAllowList")
     def external_data_filtering_allow_list(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "externalDataFilteringAllowList"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "externalDataFilteringAllowList"))
 
     @external_data_filtering_allow_list.setter
     def external_data_filtering_allow_list(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eeb2f0e282d2dada4492c1a03ccdd85cb8e0865b8f5fc9d4efeee92270845ca4)
@@ -2775,6 +1060,18 @@ class CfnDataLakeSettings(
             type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readOnlyAdmins")
+    def read_only_admins(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "readOnlyAdmins"))
+
+    @read_only_admins.setter
+    def read_only_admins(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readOnlyAdmins", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="trustedResourceOwners")
@@ -2854,7 +1151,7 @@ class CfnDataLakeSettings(
             self,
             *,
             permissions: typing.Sequence[builtins.str],
-            principal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+            principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Permissions granted to a principal.
 
@@ -2899,14 +1196,14 @@ class CfnDataLakeSettings(
         @builtins.property
         def principal(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]:
             '''The principal who is granted permissions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-datalakesettings-principalpermissions.html#cfn-lakeformation-datalakesettings-principalpermissions-principal
             '''
             result = self._values.get("principal")
             assert result is not None, "Required property 'principal' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDataLakeSettings.DataLakePrincipalProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2920,7 +1217,323 @@ class CfnDataLakeSettings(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IPermissionsRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataLakeSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "admins": "admins",
+        "allow_external_data_filtering": "allowExternalDataFiltering",
+        "allow_full_table_external_data_access": "allowFullTableExternalDataAccess",
+        "authorized_session_tag_value_list": "authorizedSessionTagValueList",
+        "create_database_default_permissions": "createDatabaseDefaultPermissions",
+        "create_table_default_permissions": "createTableDefaultPermissions",
+        "external_data_filtering_allow_list": "externalDataFilteringAllowList",
+        "mutation_type": "mutationType",
+        "parameters": "parameters",
+        "read_only_admins": "readOnlyAdmins",
+        "trusted_resource_owners": "trustedResourceOwners",
+    },
+)
+class CfnDataLakeSettingsProps:
+    def __init__(
+        self,
+        *,
+        admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mutation_type: typing.Optional[builtins.str] = None,
+        parameters: typing.Any = None,
+        read_only_admins: typing.Any = None,
+        trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataLakeSettings``.
+
+        :param admins: A list of AWS Lake Formation principals.
+        :param allow_external_data_filtering: Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation . If set to true, you allow Amazon EMR clusters or other third-party engines to access data in Amazon S3 locations that are registered with Lake Formation . If false or null, no third-party query engines will be able to access data in Amazon S3 locations that are registered with Lake Formation. For more information, see `External data filtering setting <https://docs.aws.amazon.com/lake-formation/latest/dg/initial-LF-setup.html#external-data-filter>`_ .
+        :param allow_full_table_external_data_access: Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access. It provides query engines and applications performance benefits as well as simplifies data access. Amazon EMR on Amazon EC2 is able to leverage this setting. For more information, see ` <https://docs.aws.amazon.com/lake-formation/latest/dg/using-cred-vending.html>`_
+        :param authorized_session_tag_value_list: Lake Formation relies on a privileged process secured by Amazon EMR or the third party integrator to tag the user's role while assuming it. Lake Formation will publish the acceptable key-value pair, for example key = "LakeFormationTrustedCaller" and value = "TRUE" and the third party integrator must properly tag the temporary security credentials that will be used to call Lake Formation 's administrative API operations.
+        :param create_database_default_permissions: Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions. A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicates that the user's IAM permissions determine the access to the database. This is referred to as the setting "Use only IAM access control," and is to support backward compatibility with the AWS Glue permission model implemented by IAM permissions. The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` to ``IAM_ALLOWED_PRINCIPALS`` . For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
+        :param create_table_default_permissions: Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions. A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicate that the user's IAM permissions determine the access to the table. This is referred to as the setting "Use only IAM access control," and is to support the backward compatibility with the AWS Glue permission model implemented by IAM permissions. The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` permissions to ``IAM_ALLOWED_PRINCIPALS`` . For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
+        :param external_data_filtering_allow_list: A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
+        :param mutation_type: Specifies whether the data lake settings are updated by adding new values to the current settings ( ``APPEND`` ) or by replacing the current settings with new settings ( ``REPLACE`` ). .. epigraph:: If you choose ``REPLACE`` , your current data lake settings will be replaced with the new values in your template.
+        :param parameters: A key-value map that provides an additional configuration on your data lake. ``CrossAccountVersion`` is the key you can configure in the ``Parameters`` field. Accepted values for the ``CrossAccountVersion`` key are 1, 2, 3, and 4.
+        :param read_only_admins: 
+        :param trusted_resource_owners: An array of UTF-8 strings. A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_glue_alpha import Column, Column
+            import aws_cdk as cdk
+            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
+            
+            # stack: cdk.Stack
+            # account_id: str
+            
+            
+            tag_key = "aws"
+            tag_values = ["dev"]
+            
+            database = Database(self, "Database")
+            
+            table = S3Table(self, "Table",
+                database=database,
+                columns=[Column(
+                    name="col1",
+                    type=Schema.STRING
+                ), Column(
+                    name="col2",
+                    type=Schema.STRING
+                )
+                ],
+                data_format=DataFormat.CSV
+            )
+            
+            synthesizer = stack.synthesizer
+            CfnDataLakeSettings(self, "DataLakeSettings",
+                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
+                    data_lake_principal_identifier=stack.format_arn(
+                        service="iam",
+                        resource="role",
+                        region="",
+                        account=account_id,
+                        resource_name="Admin"
+                    )
+                ), CfnDataLakeSettings.DataLakePrincipalProperty(
+                    # The CDK cloudformation execution role.
+                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
+                )
+                ]
+            )
+            
+            tag = CfnTag(self, "Tag",
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            tag_association = CfnTagAssociation(self, "TagAssociation",
+                lf_tags=[lf_tag_pair_property],
+                resource=CfnTagAssociation.ResourceProperty(
+                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
+                        database_name=database.database_name,
+                        column_names=["col1", "col2"],
+                        catalog_id=account_id,
+                        name=table.table_name
+                    )
+                )
+            )
+            
+            tag_association.node.add_dependency(tag)
+            tag_association.node.add_dependency(table)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d)
+            check_type(argname="argument admins", value=admins, expected_type=type_hints["admins"])
+            check_type(argname="argument allow_external_data_filtering", value=allow_external_data_filtering, expected_type=type_hints["allow_external_data_filtering"])
+            check_type(argname="argument allow_full_table_external_data_access", value=allow_full_table_external_data_access, expected_type=type_hints["allow_full_table_external_data_access"])
+            check_type(argname="argument authorized_session_tag_value_list", value=authorized_session_tag_value_list, expected_type=type_hints["authorized_session_tag_value_list"])
+            check_type(argname="argument create_database_default_permissions", value=create_database_default_permissions, expected_type=type_hints["create_database_default_permissions"])
+            check_type(argname="argument create_table_default_permissions", value=create_table_default_permissions, expected_type=type_hints["create_table_default_permissions"])
+            check_type(argname="argument external_data_filtering_allow_list", value=external_data_filtering_allow_list, expected_type=type_hints["external_data_filtering_allow_list"])
+            check_type(argname="argument mutation_type", value=mutation_type, expected_type=type_hints["mutation_type"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument read_only_admins", value=read_only_admins, expected_type=type_hints["read_only_admins"])
+            check_type(argname="argument trusted_resource_owners", value=trusted_resource_owners, expected_type=type_hints["trusted_resource_owners"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if admins is not None:
+            self._values["admins"] = admins
+        if allow_external_data_filtering is not None:
+            self._values["allow_external_data_filtering"] = allow_external_data_filtering
+        if allow_full_table_external_data_access is not None:
+            self._values["allow_full_table_external_data_access"] = allow_full_table_external_data_access
+        if authorized_session_tag_value_list is not None:
+            self._values["authorized_session_tag_value_list"] = authorized_session_tag_value_list
+        if create_database_default_permissions is not None:
+            self._values["create_database_default_permissions"] = create_database_default_permissions
+        if create_table_default_permissions is not None:
+            self._values["create_table_default_permissions"] = create_table_default_permissions
+        if external_data_filtering_allow_list is not None:
+            self._values["external_data_filtering_allow_list"] = external_data_filtering_allow_list
+        if mutation_type is not None:
+            self._values["mutation_type"] = mutation_type
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if read_only_admins is not None:
+            self._values["read_only_admins"] = read_only_admins
+        if trusted_resource_owners is not None:
+            self._values["trusted_resource_owners"] = trusted_resource_owners
+
+    @builtins.property
+    def admins(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+        '''A list of AWS Lake Formation principals.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-admins
+        '''
+        result = self._values.get("admins")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
+
+    @builtins.property
+    def allow_external_data_filtering(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation .
+
+        If set to true, you allow Amazon EMR clusters or other third-party engines to access data in Amazon S3 locations that are registered with Lake Formation .
+
+        If false or null, no third-party query engines will be able to access data in Amazon S3 locations that are registered with Lake Formation.
+
+        For more information, see `External data filtering setting <https://docs.aws.amazon.com/lake-formation/latest/dg/initial-LF-setup.html#external-data-filter>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowexternaldatafiltering
+        '''
+        result = self._values.get("allow_external_data_filtering")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def allow_full_table_external_data_access(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access.
+
+        It provides query engines and applications performance benefits as well as simplifies data access. Amazon EMR on Amazon EC2 is able to leverage this setting.
+
+        For more information, see ` <https://docs.aws.amazon.com/lake-formation/latest/dg/using-cred-vending.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowfulltableexternaldataaccess
+        '''
+        result = self._values.get("allow_full_table_external_data_access")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def authorized_session_tag_value_list(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''Lake Formation relies on a privileged process secured by Amazon EMR or the third party integrator to tag the user's role while assuming it.
+
+        Lake Formation will publish the acceptable key-value pair, for example key = "LakeFormationTrustedCaller" and value = "TRUE" and the third party integrator must properly tag the temporary security credentials that will be used to call Lake Formation 's administrative API operations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-authorizedsessiontagvaluelist
+        '''
+        result = self._values.get("authorized_session_tag_value_list")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def create_database_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+        '''Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions.
+
+        A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicates that the user's IAM permissions determine the access to the database. This is referred to as the setting "Use only IAM access control," and is to support backward compatibility with the AWS Glue permission model implemented by IAM permissions.
+
+        The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` to ``IAM_ALLOWED_PRINCIPALS`` .
+
+        For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createdatabasedefaultpermissions
+        '''
+        result = self._values.get("create_database_default_permissions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
+
+    @builtins.property
+    def create_table_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+        '''Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions.
+
+        A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicate that the user's IAM permissions determine the access to the table. This is referred to as the setting "Use only IAM access control," and is to support the backward compatibility with the AWS Glue permission model implemented by IAM permissions.
+
+        The only permitted values are an empty array or an array that contains a single JSON object that grants ``ALL`` permissions to ``IAM_ALLOWED_PRINCIPALS`` .
+
+        For more information, see `Changing the default security settings for your data lake <https://docs.aws.amazon.com/lake-formation/latest/dg/change-settings.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createtabledefaultpermissions
+        '''
+        result = self._values.get("create_table_default_permissions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
+
+    @builtins.property
+    def external_data_filtering_allow_list(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+        '''A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-externaldatafilteringallowlist
+        '''
+        result = self._values.get("external_data_filtering_allow_list")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
+
+    @builtins.property
+    def mutation_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the data lake settings are updated by adding new values to the current settings ( ``APPEND`` ) or by replacing the current settings with new settings ( ``REPLACE`` ).
+
+        .. epigraph::
+
+           If you choose ``REPLACE`` , your current data lake settings will be replaced with the new values in your template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-mutationtype
+        '''
+        result = self._values.get("mutation_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Any:
+        '''A key-value map that provides an additional configuration on your data lake.
+
+        ``CrossAccountVersion`` is the key you can configure in the ``Parameters`` field. Accepted values for the ``CrossAccountVersion`` key are 1, 2, 3, and 4.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def read_only_admins(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-readonlyadmins
+        '''
+        result = self._values.get("read_only_admins")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def trusted_resource_owners(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of UTF-8 strings.
+
+        A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-trustedresourceowners
+        '''
+        result = self._values.get("trusted_resource_owners")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataLakeSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPermissionsRef_36016707)
 class CfnPermissions(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2981,15 +1594,16 @@ class CfnPermissions(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        data_lake_principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::Permissions``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_lake_principal: The AWS Lake Formation principal.
@@ -3010,8 +1624,20 @@ class CfnPermissions(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPermissions")
+    @builtins.classmethod
+    def is_cfn_permissions(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPermissions.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30e9daa976fe3c57815179bba7587796a9ab833ef0acec30f955639019073981)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPermissions", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3056,22 +1682,22 @@ class CfnPermissions(
 
     @builtins.property
     @jsii.member(jsii_name="permissionsRef")
-    def permissions_ref(self) -> PermissionsReference:
+    def permissions_ref(self) -> "_PermissionsReference_6a285a6e":
         '''A reference to a Permissions resource.'''
-        return typing.cast(PermissionsReference, jsii.get(self, "permissionsRef"))
+        return typing.cast("_PermissionsReference_6a285a6e", jsii.get(self, "permissionsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataLakePrincipal")
     def data_lake_principal(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"]:
         '''The AWS Lake Formation principal.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLakePrincipalProperty"], jsii.get(self, "dataLakePrincipal"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"], jsii.get(self, "dataLakePrincipal"))
 
     @data_lake_principal.setter
     def data_lake_principal(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLakePrincipalProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b52466eba74fe39a155b91afd467a62a59fd8b7da0cdf280f844dfae547c7e88)
@@ -3082,14 +1708,14 @@ class CfnPermissions(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPermissions.ResourceProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"]:
         '''A structure for the resource.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPermissions.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnPermissions.ResourceProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a8d760390e3b2e9ed402ee340c7169bf72a75fca3b15a45103c7e0e6e61a5b9)
@@ -3399,10 +2025,10 @@ class CfnPermissions(
         def __init__(
             self,
             *,
-            database_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_location_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_location_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -3465,29 +2091,29 @@ class CfnPermissions(
         @builtins.property
         def database_resource(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DatabaseResourceProperty"]]:
             '''A structure for the database object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-databaseresource
             '''
             result = self._values.get("database_resource")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def data_location_resource(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLocationResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLocationResourceProperty"]]:
             '''A structure for a data location object where permissions are granted or revoked.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-datalocationresource
             '''
             result = self._values.get("data_location_resource")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.DataLocationResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLocationResourceProperty"]], result)
 
         @builtins.property
         def table_resource(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableResourceProperty"]]:
             '''A structure for the table object.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -3495,12 +2121,12 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-tableresource
             '''
             result = self._values.get("table_resource")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns_resource(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWithColumnsResourceProperty"]]:
             '''A structure for a table with columns object.
 
             This object is only used when granting a SELECT permission.
@@ -3508,7 +2134,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-tablewithcolumnsresource
             '''
             result = self._values.get("table_with_columns_resource")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3538,7 +2164,7 @@ class CfnPermissions(
             catalog_id: typing.Optional[builtins.str] = None,
             database_name: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
-            table_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.TableWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the table object.
 
@@ -3615,7 +2241,7 @@ class CfnPermissions(
         @builtins.property
         def table_wildcard(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWildcardProperty"]]:
             '''An empty object representing all tables under a database.
 
             If this field is specified instead of the ``Name`` field, all tables under ``DatabaseName`` will have permission changes applied.
@@ -3623,7 +2249,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-tableresource.html#cfn-lakeformation-permissions-tableresource-tablewildcard
             '''
             result = self._values.get("table_wildcard")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.TableWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWildcardProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3685,7 +2311,7 @@ class CfnPermissions(
             *,
             catalog_id: typing.Optional[builtins.str] = None,
             column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             database_name: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3762,7 +2388,7 @@ class CfnPermissions(
         @builtins.property
         def column_wildcard(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.ColumnWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.ColumnWildcardProperty"]]:
             '''A wildcard specified by a ``ColumnWildcard`` object.
 
             At least one of ``ColumnNames`` or ``ColumnWildcard`` is required.
@@ -3770,7 +2396,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-tablewithcolumnsresource.html#cfn-lakeformation-permissions-tablewithcolumnsresource-columnwildcard
             '''
             result = self._values.get("column_wildcard")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissions.ColumnWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.ColumnWildcardProperty"]], result)
 
         @builtins.property
         def database_name(self) -> typing.Optional[builtins.str]:
@@ -3806,7 +2432,148 @@ class CfnPermissions(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IPrincipalPermissionsRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnPermissionsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_lake_principal": "dataLakePrincipal",
+        "resource": "resource",
+        "permissions": "permissions",
+        "permissions_with_grant_option": "permissionsWithGrantOption",
+    },
+)
+class CfnPermissionsProps:
+    def __init__(
+        self,
+        *,
+        data_lake_principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPermissions``.
+
+        :param data_lake_principal: The AWS Lake Formation principal.
+        :param resource: A structure for the resource.
+        :param permissions: The permissions granted or revoked.
+        :param permissions_with_grant_option: Indicates the ability to grant permissions (as a subset of permissions granted).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lakeformation as lakeformation
+            
+            cfn_permissions_props = lakeformation.CfnPermissionsProps(
+                data_lake_principal=lakeformation.CfnPermissions.DataLakePrincipalProperty(
+                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                ),
+                resource=lakeformation.CfnPermissions.ResourceProperty(
+                    database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                        catalog_id="catalogId",
+                        name="name"
+                    ),
+                    data_location_resource=lakeformation.CfnPermissions.DataLocationResourceProperty(
+                        catalog_id="catalogId",
+                        s3_resource="s3Resource"
+                    ),
+                    table_resource=lakeformation.CfnPermissions.TableResourceProperty(
+                        catalog_id="catalogId",
+                        database_name="databaseName",
+                        name="name",
+                        table_wildcard=lakeformation.CfnPermissions.TableWildcardProperty()
+                    ),
+                    table_with_columns_resource=lakeformation.CfnPermissions.TableWithColumnsResourceProperty(
+                        catalog_id="catalogId",
+                        column_names=["columnNames"],
+                        column_wildcard=lakeformation.CfnPermissions.ColumnWildcardProperty(
+                            excluded_column_names=["excludedColumnNames"]
+                        ),
+                        database_name="databaseName",
+                        name="name"
+                    )
+                ),
+            
+                # the properties below are optional
+                permissions=["permissions"],
+                permissions_with_grant_option=["permissionsWithGrantOption"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1)
+            check_type(argname="argument data_lake_principal", value=data_lake_principal, expected_type=type_hints["data_lake_principal"])
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
+            check_type(argname="argument permissions_with_grant_option", value=permissions_with_grant_option, expected_type=type_hints["permissions_with_grant_option"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_lake_principal": data_lake_principal,
+            "resource": resource,
+        }
+        if permissions is not None:
+            self._values["permissions"] = permissions
+        if permissions_with_grant_option is not None:
+            self._values["permissions_with_grant_option"] = permissions_with_grant_option
+
+    @builtins.property
+    def data_lake_principal(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"]:
+        '''The AWS Lake Formation principal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-datalakeprincipal
+        '''
+        result = self._values.get("data_lake_principal")
+        assert result is not None, "Required property 'data_lake_principal' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"], result)
+
+    @builtins.property
+    def resource(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"]:
+        '''A structure for the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-resource
+        '''
+        result = self._values.get("resource")
+        assert result is not None, "Required property 'resource' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"], result)
+
+    @builtins.property
+    def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The permissions granted or revoked.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-permissions
+        '''
+        result = self._values.get("permissions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def permissions_with_grant_option(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''Indicates the ability to grant permissions (as a subset of permissions granted).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-permissionswithgrantoption
+        '''
+        result = self._values.get("permissions_with_grant_option")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPermissionsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPrincipalPermissionsRef_dffaf2ff)
 class CfnPrincipalPermissions(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3892,16 +2659,17 @@ class CfnPrincipalPermissions(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         permissions: typing.Sequence[builtins.str],
         permissions_with_grant_option: typing.Sequence[builtins.str],
-        principal: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         catalog: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::PrincipalPermissions``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param permissions: The permissions granted or revoked.
@@ -3924,8 +2692,20 @@ class CfnPrincipalPermissions(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPrincipalPermissions")
+    @builtins.classmethod
+    def is_cfn_principal_permissions(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPrincipalPermissions.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__480d6886b3d44eb0c73f8c7acfff55c7f4d10c20fe05abd284e8787102e77ddd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrincipalPermissions", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3983,9 +2763,9 @@ class CfnPrincipalPermissions(
 
     @builtins.property
     @jsii.member(jsii_name="principalPermissionsRef")
-    def principal_permissions_ref(self) -> PrincipalPermissionsReference:
+    def principal_permissions_ref(self) -> "_PrincipalPermissionsReference_a01708bf":
         '''A reference to a PrincipalPermissions resource.'''
-        return typing.cast(PrincipalPermissionsReference, jsii.get(self, "principalPermissionsRef"))
+        return typing.cast("_PrincipalPermissionsReference_a01708bf", jsii.get(self, "principalPermissionsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="permissions")
@@ -4017,14 +2797,14 @@ class CfnPrincipalPermissions(
     @jsii.member(jsii_name="principal")
     def principal(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
         '''The principal to be granted a permission.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLakePrincipalProperty"], jsii.get(self, "principal"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"], jsii.get(self, "principal"))
 
     @principal.setter
     def principal(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLakePrincipalProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1a6247a71b5100a75980e912dd96720cd90892a708b86881a36004028079dd5)
@@ -4035,14 +2815,14 @@ class CfnPrincipalPermissions(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ResourceProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"]:
         '''The resource to be granted or revoked permissions.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ResourceProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2cdd4778f3b42b1dbeec69000654d251230f2d8c9b50b55439c66ca17567ad3)
@@ -4525,7 +3305,7 @@ class CfnPrincipalPermissions(
             self,
             *,
             catalog_id: builtins.str,
-            expression: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.LFTagProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            expression: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagProperty", typing.Dict[builtins.str, typing.Any]]]]],
             resource_type: builtins.str,
         ) -> None:
             '''A list of LF-tag conditions that define a resource's LF-tag policy.
@@ -4580,14 +3360,14 @@ class CfnPrincipalPermissions(
         @builtins.property
         def expression(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagProperty"]]]:
             '''A list of LF-tag conditions that apply to the resource's LF-tag policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-lftagpolicyresource.html#cfn-lakeformation-principalpermissions-lftagpolicyresource-expression
             '''
             result = self._values.get("expression")
             assert result is not None, "Required property 'expression' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagProperty"]]], result)
 
         @builtins.property
         def resource_type(self) -> builtins.str:
@@ -4699,13 +3479,13 @@ class CfnPrincipalPermissions(
             self,
             *,
             catalog: typing.Any = None,
-            database: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_cells_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.DataCellsFilterResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lf_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.LFTagKeyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lf_tag_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.LFTagPolicyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_cells_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataCellsFilterResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lf_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagKeyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lf_tag_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagPolicyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -4822,7 +3602,7 @@ class CfnPrincipalPermissions(
         @builtins.property
         def database(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DatabaseResourceProperty"]]:
             '''The database for the resource.
 
             Unique to the Data Catalog. A database is a set of associated table definitions organized into a logical group. You can Grant and Revoke database permissions to a principal.
@@ -4830,56 +3610,56 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-database
             '''
             result = self._values.get("database")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def data_cells_filter(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]]:
             '''A data cell filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-datacellsfilter
             '''
             result = self._values.get("data_cells_filter")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]], result)
 
         @builtins.property
         def data_location(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLocationResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLocationResourceProperty"]]:
             '''The location of an Amazon S3 path where permissions are granted or revoked.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-datalocation
             '''
             result = self._values.get("data_location")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.DataLocationResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLocationResourceProperty"]], result)
 
         @builtins.property
         def lf_tag(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagKeyResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]]:
             '''The LF-tag key and values attached to a resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-lftag
             '''
             result = self._values.get("lf_tag")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagKeyResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]], result)
 
         @builtins.property
         def lf_tag_policy(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]]:
             '''A list of LF-tag conditions that define a resource's LF-tag policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-lftagpolicy
             '''
             result = self._values.get("lf_tag_policy")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]], result)
 
         @builtins.property
         def table(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableResourceProperty"]]:
             '''The table for the resource.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -4887,12 +3667,12 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-table
             '''
             result = self._values.get("table")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]]:
             '''The table with columns for the resource.
 
             A principal with permissions to this resource can select metadata from the columns of a table in the Data Catalog and the underlying data in Amazon S3.
@@ -4900,7 +3680,7 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-tablewithcolumns
             '''
             result = self._values.get("table_with_columns")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5050,7 +3830,7 @@ class CfnPrincipalPermissions(
             database_name: builtins.str,
             name: builtins.str,
             column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPrincipalPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for a table with columns object. This object is only used when granting a SELECT permission.
 
@@ -5148,7 +3928,7 @@ class CfnPrincipalPermissions(
         @builtins.property
         def column_wildcard(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ColumnWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ColumnWildcardProperty"]]:
             '''A wildcard specified by a ``ColumnWildcard`` object.
 
             At least one of ``ColumnNames`` or ``ColumnWildcard`` is required.
@@ -5156,7 +3936,7 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-tablewithcolumnsresource.html#cfn-lakeformation-principalpermissions-tablewithcolumnsresource-columnwildcard
             '''
             result = self._values.get("column_wildcard")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrincipalPermissions.ColumnWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ColumnWildcardProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5170,7 +3950,191 @@ class CfnPrincipalPermissions(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResourceRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnPrincipalPermissionsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "permissions": "permissions",
+        "permissions_with_grant_option": "permissionsWithGrantOption",
+        "principal": "principal",
+        "resource": "resource",
+        "catalog": "catalog",
+    },
+)
+class CfnPrincipalPermissionsProps:
+    def __init__(
+        self,
+        *,
+        permissions: typing.Sequence[builtins.str],
+        permissions_with_grant_option: typing.Sequence[builtins.str],
+        principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        catalog: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPrincipalPermissions``.
+
+        :param permissions: The permissions granted or revoked.
+        :param permissions_with_grant_option: Indicates the ability to grant permissions (as a subset of permissions granted).
+        :param principal: The principal to be granted a permission.
+        :param resource: The resource to be granted or revoked permissions.
+        :param catalog: The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your Lake Formation environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lakeformation as lakeformation
+            
+            # catalog: Any
+            # table_wildcard: Any
+            
+            cfn_principal_permissions_props = lakeformation.CfnPrincipalPermissionsProps(
+                permissions=["permissions"],
+                permissions_with_grant_option=["permissionsWithGrantOption"],
+                principal=lakeformation.CfnPrincipalPermissions.DataLakePrincipalProperty(
+                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                ),
+                resource=lakeformation.CfnPrincipalPermissions.ResourceProperty(
+                    catalog=catalog,
+                    database=lakeformation.CfnPrincipalPermissions.DatabaseResourceProperty(
+                        catalog_id="catalogId",
+                        name="name"
+                    ),
+                    data_cells_filter=lakeformation.CfnPrincipalPermissions.DataCellsFilterResourceProperty(
+                        database_name="databaseName",
+                        name="name",
+                        table_catalog_id="tableCatalogId",
+                        table_name="tableName"
+                    ),
+                    data_location=lakeformation.CfnPrincipalPermissions.DataLocationResourceProperty(
+                        catalog_id="catalogId",
+                        resource_arn="resourceArn"
+                    ),
+                    lf_tag=lakeformation.CfnPrincipalPermissions.LFTagKeyResourceProperty(
+                        catalog_id="catalogId",
+                        tag_key="tagKey",
+                        tag_values=["tagValues"]
+                    ),
+                    lf_tag_policy=lakeformation.CfnPrincipalPermissions.LFTagPolicyResourceProperty(
+                        catalog_id="catalogId",
+                        expression=[lakeformation.CfnPrincipalPermissions.LFTagProperty(
+                            tag_key="tagKey",
+                            tag_values=["tagValues"]
+                        )],
+                        resource_type="resourceType"
+                    ),
+                    table=lakeformation.CfnPrincipalPermissions.TableResourceProperty(
+                        catalog_id="catalogId",
+                        database_name="databaseName",
+            
+                        # the properties below are optional
+                        name="name",
+                        table_wildcard=table_wildcard
+                    ),
+                    table_with_columns=lakeformation.CfnPrincipalPermissions.TableWithColumnsResourceProperty(
+                        catalog_id="catalogId",
+                        database_name="databaseName",
+                        name="name",
+            
+                        # the properties below are optional
+                        column_names=["columnNames"],
+                        column_wildcard=lakeformation.CfnPrincipalPermissions.ColumnWildcardProperty(
+                            excluded_column_names=["excludedColumnNames"]
+                        )
+                    )
+                ),
+            
+                # the properties below are optional
+                catalog="catalog"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89)
+            check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
+            check_type(argname="argument permissions_with_grant_option", value=permissions_with_grant_option, expected_type=type_hints["permissions_with_grant_option"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+            check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "permissions": permissions,
+            "permissions_with_grant_option": permissions_with_grant_option,
+            "principal": principal,
+            "resource": resource,
+        }
+        if catalog is not None:
+            self._values["catalog"] = catalog
+
+    @builtins.property
+    def permissions(self) -> typing.List[builtins.str]:
+        '''The permissions granted or revoked.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-permissions
+        '''
+        result = self._values.get("permissions")
+        assert result is not None, "Required property 'permissions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def permissions_with_grant_option(self) -> typing.List[builtins.str]:
+        '''Indicates the ability to grant permissions (as a subset of permissions granted).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-permissionswithgrantoption
+        '''
+        result = self._values.get("permissions_with_grant_option")
+        assert result is not None, "Required property 'permissions_with_grant_option' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def principal(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
+        '''The principal to be granted a permission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"], result)
+
+    @builtins.property
+    def resource(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"]:
+        '''The resource to be granted or revoked permissions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-resource
+        '''
+        result = self._values.get("resource")
+        assert result is not None, "Required property 'resource' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"], result)
+
+    @builtins.property
+    def catalog(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the Data Catalog .
+
+        By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your Lake Formation environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-catalog
+        '''
+        result = self._values.get("catalog")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPrincipalPermissionsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourceRef_8c770b78)
 class CfnResource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5203,16 +4167,17 @@ class CfnResource(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         resource_arn: builtins.str,
-        use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        use_service_linked_role: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        with_federation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::Resource``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_arn: The Amazon Resource Name (ARN) of the resource.
@@ -5235,8 +4200,20 @@ class CfnResource(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnResource")
+    @builtins.classmethod
+    def is_cfn_resource(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResource.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__196331f54ce54a6ea74da954f3089c80351010d1404d3319fefae91a372dd5b6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResource", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5281,9 +4258,9 @@ class CfnResource(
 
     @builtins.property
     @jsii.member(jsii_name="resourceRef")
-    def resource_ref(self) -> ResourceReference:
+    def resource_ref(self) -> "_ResourceReference_b2b6af26":
         '''A reference to a Resource resource.'''
-        return typing.cast(ResourceReference, jsii.get(self, "resourceRef"))
+        return typing.cast("_ResourceReference_b2b6af26", jsii.get(self, "resourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -5302,14 +4279,14 @@ class CfnResource(
     @jsii.member(jsii_name="useServiceLinkedRole")
     def use_service_linked_role(
         self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
         '''Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .'''
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], jsii.get(self, "useServiceLinkedRole"))
+        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "useServiceLinkedRole"))
 
     @use_service_linked_role.setter
     def use_service_linked_role(
         self,
-        value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__323f8924235b86ebffca643b12a93c3311bed500c9739d5c3c0662d0382eb023)
@@ -5320,14 +4297,14 @@ class CfnResource(
     @jsii.member(jsii_name="hybridAccessEnabled")
     def hybrid_access_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "hybridAccessEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "hybridAccessEnabled"))
 
     @hybrid_access_enabled.setter
     def hybrid_access_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24ac80235487ae39163a3d93180bbbb5f30ecf3b622cccd507708e1d1dc5f3ae)
@@ -5351,14 +4328,14 @@ class CfnResource(
     @jsii.member(jsii_name="withFederation")
     def with_federation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Allows Lake Formation to assume a role to access tables in a federated database.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "withFederation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "withFederation"))
 
     @with_federation.setter
     def with_federation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd1781c80)
@@ -5366,7 +4343,138 @@ class CfnResource(
         jsii.set(self, "withFederation", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ITagRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnResourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_arn": "resourceArn",
+        "use_service_linked_role": "useServiceLinkedRole",
+        "hybrid_access_enabled": "hybridAccessEnabled",
+        "role_arn": "roleArn",
+        "with_federation": "withFederation",
+    },
+)
+class CfnResourceProps:
+    def __init__(
+        self,
+        *,
+        resource_arn: builtins.str,
+        use_service_linked_role: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        with_federation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResource``.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource.
+        :param use_service_linked_role: Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .
+        :param hybrid_access_enabled: Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
+        :param role_arn: The IAM role that registered a resource.
+        :param with_federation: Allows Lake Formation to assume a role to access tables in a federated database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lakeformation as lakeformation
+            
+            cfn_resource_props = lakeformation.CfnResourceProps(
+                resource_arn="resourceArn",
+                use_service_linked_role=False,
+            
+                # the properties below are optional
+                hybrid_access_enabled=False,
+                role_arn="roleArn",
+                with_federation=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument use_service_linked_role", value=use_service_linked_role, expected_type=type_hints["use_service_linked_role"])
+            check_type(argname="argument hybrid_access_enabled", value=hybrid_access_enabled, expected_type=type_hints["hybrid_access_enabled"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument with_federation", value=with_federation, expected_type=type_hints["with_federation"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+            "use_service_linked_role": use_service_linked_role,
+        }
+        if hybrid_access_enabled is not None:
+            self._values["hybrid_access_enabled"] = hybrid_access_enabled
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if with_federation is not None:
+            self._values["with_federation"] = with_federation
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def use_service_linked_role(
+        self,
+    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        '''Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-useservicelinkedrole
+        '''
+        result = self._values.get("use_service_linked_role")
+        assert result is not None, "Required property 'use_service_linked_role' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+    @builtins.property
+    def hybrid_access_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-hybridaccessenabled
+        '''
+        result = self._values.get("hybrid_access_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role that registered a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def with_federation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Allows Lake Formation to assume a role to access tables in a federated database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-withfederation
+        '''
+        result = self._values.get("with_federation")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITagRef_2e4c8000)
 class CfnTag(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5382,6 +4490,7 @@ class CfnTag(
 
     Example::
 
+        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
         from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -5455,14 +4564,15 @@ class CfnTag(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         tag_key: builtins.str,
         tag_values: typing.Sequence[builtins.str],
         catalog_id: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::Tag``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param tag_key: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The key-name for the LF-tag.
@@ -5479,8 +4589,20 @@ class CfnTag(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnTag")
+    @builtins.classmethod
+    def is_cfn_tag(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTag.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8b275cf4c632524587effe92142678987a325e631bbbaa33aefdd13e8123e35)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTag", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5516,9 +4638,9 @@ class CfnTag(
 
     @builtins.property
     @jsii.member(jsii_name="tagRef")
-    def tag_ref(self) -> TagReference:
+    def tag_ref(self) -> "_TagReference_a11c7075":
         '''A reference to a Tag resource.'''
-        return typing.cast(TagReference, jsii.get(self, "tagRef"))
+        return typing.cast("_TagReference_a11c7075", jsii.get(self, "tagRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tagKey")
@@ -5560,7 +4682,7 @@ class CfnTag(
         jsii.set(self, "catalogId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ITagAssociationRef)
+@jsii.implements(_IInspectable_c2943556, _ITagAssociationRef_44c9c652)
 class CfnTagAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5576,6 +4698,7 @@ class CfnTagAssociation(
 
     Example::
 
+        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
         from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -5649,13 +4772,14 @@ class CfnTagAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resource: typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        lf_tags: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''
+        '''Create a new ``AWS::LakeFormation::TagAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param lf_tags: A structure containing an LF-tag key-value pair.
@@ -5669,8 +4793,20 @@ class CfnTagAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnTagAssociation")
+    @builtins.classmethod
+    def is_cfn_tag_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTagAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc193ffcf90f7f7be9090bc5c9e0fac2d65710bfa79c78714967a74ca8c9303d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTagAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5731,22 +4867,22 @@ class CfnTagAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="tagAssociationRef")
-    def tag_association_ref(self) -> TagAssociationReference:
+    def tag_association_ref(self) -> "_TagAssociationReference_14f51cb8":
         '''A reference to a TagAssociation resource.'''
-        return typing.cast(TagAssociationReference, jsii.get(self, "tagAssociationRef"))
+        return typing.cast("_TagAssociationReference_14f51cb8", jsii.get(self, "tagAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="lfTags")
     def lf_tags(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.LFTagPairProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]]:
         '''A structure containing an LF-tag key-value pair.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.LFTagPairProperty"]]], jsii.get(self, "lfTags"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]], jsii.get(self, "lfTags"))
 
     @lf_tags.setter
     def lf_tags(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.LFTagPairProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6d1db075ec83dde76f00266e6cddc3b420dada457caaa5e255b18058750a857)
@@ -5757,14 +4893,14 @@ class CfnTagAssociation(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.ResourceProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"]:
         '''UTF-8 string (valid values: ``DATABASE | TABLE`` ).'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.ResourceProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45383055be449cd404e72feac8314eeb81ef7af09ed2a6c6e17e69427732ffaf)
@@ -5869,6 +5005,7 @@ class CfnTagAssociation(
 
             Example::
 
+                from aws_cdk.aws_glue_alpha import Column, Column
                 import aws_cdk as cdk
                 from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
                 from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
@@ -6008,9 +5145,9 @@ class CfnTagAssociation(
             self,
             *,
             catalog: typing.Any = None,
-            database: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTagAssociation.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -6083,7 +5220,7 @@ class CfnTagAssociation(
         @builtins.property
         def database(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.DatabaseResourceProperty"]]:
             '''The database for the resource.
 
             Unique to the Data Catalog. A database is a set of associated table definitions organized into a logical group. You can Grant and Revoke database permissions to a principal.
@@ -6091,12 +5228,12 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-database
             '''
             result = self._values.get("database")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def table(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableResourceProperty"]]:
             '''The table for the resource.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -6104,12 +5241,12 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-table
             '''
             result = self._values.get("table")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableWithColumnsResourceProperty"]]:
             '''The table with columns for the resource.
 
             A principal with permissions to this resource can select metadata from the columns of a table in the Data Catalog and the underlying data in Amazon S3.
@@ -6117,7 +5254,7 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-tablewithcolumns
             '''
             result = self._values.get("table_with_columns")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTagAssociation.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6365,6 +5502,304 @@ class CfnTagAssociation(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnTagAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"lf_tags": "lfTags", "resource": "resource"},
+)
+class CfnTagAssociationProps:
+    def __init__(
+        self,
+        *,
+        lf_tags: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnTagAssociation``.
+
+        :param lf_tags: A structure containing an LF-tag key-value pair.
+        :param resource: UTF-8 string (valid values: ``DATABASE | TABLE`` ). The resource for which the LF-tag policy applies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_glue_alpha import Column, Column
+            import aws_cdk as cdk
+            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
+            
+            # stack: cdk.Stack
+            # account_id: str
+            
+            
+            tag_key = "aws"
+            tag_values = ["dev"]
+            
+            database = Database(self, "Database")
+            
+            table = S3Table(self, "Table",
+                database=database,
+                columns=[Column(
+                    name="col1",
+                    type=Schema.STRING
+                ), Column(
+                    name="col2",
+                    type=Schema.STRING
+                )
+                ],
+                data_format=DataFormat.CSV
+            )
+            
+            synthesizer = stack.synthesizer
+            CfnDataLakeSettings(self, "DataLakeSettings",
+                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
+                    data_lake_principal_identifier=stack.format_arn(
+                        service="iam",
+                        resource="role",
+                        region="",
+                        account=account_id,
+                        resource_name="Admin"
+                    )
+                ), CfnDataLakeSettings.DataLakePrincipalProperty(
+                    # The CDK cloudformation execution role.
+                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
+                )
+                ]
+            )
+            
+            tag = CfnTag(self, "Tag",
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            tag_association = CfnTagAssociation(self, "TagAssociation",
+                lf_tags=[lf_tag_pair_property],
+                resource=CfnTagAssociation.ResourceProperty(
+                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
+                        database_name=database.database_name,
+                        column_names=["col1", "col2"],
+                        catalog_id=account_id,
+                        name=table.table_name
+                    )
+                )
+            )
+            
+            tag_association.node.add_dependency(tag)
+            tag_association.node.add_dependency(table)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c)
+            check_type(argname="argument lf_tags", value=lf_tags, expected_type=type_hints["lf_tags"])
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lf_tags": lf_tags,
+            "resource": resource,
+        }
+
+    @builtins.property
+    def lf_tags(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]]:
+        '''A structure containing an LF-tag key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html#cfn-lakeformation-tagassociation-lftags
+        '''
+        result = self._values.get("lf_tags")
+        assert result is not None, "Required property 'lf_tags' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]], result)
+
+    @builtins.property
+    def resource(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"]:
+        '''UTF-8 string (valid values: ``DATABASE | TABLE`` ).
+
+        The resource for which the LF-tag policy applies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html#cfn-lakeformation-tagassociation-resource
+        '''
+        result = self._values.get("resource")
+        assert result is not None, "Required property 'resource' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTagAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lakeformation.CfnTagProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "tag_key": "tagKey",
+        "tag_values": "tagValues",
+        "catalog_id": "catalogId",
+    },
+)
+class CfnTagProps:
+    def __init__(
+        self,
+        *,
+        tag_key: builtins.str,
+        tag_values: typing.Sequence[builtins.str],
+        catalog_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTag``.
+
+        :param tag_key: UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The key-name for the LF-tag.
+        :param tag_values: An array of UTF-8 strings, not less than 1 or more than 50 strings. A list of possible values of the corresponding ``TagKey`` of an LF-tag key-value pair.
+        :param catalog_id: Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your AWS Lake Formation environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_glue_alpha import Column, Column
+            import aws_cdk as cdk
+            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
+            
+            # stack: cdk.Stack
+            # account_id: str
+            
+            
+            tag_key = "aws"
+            tag_values = ["dev"]
+            
+            database = Database(self, "Database")
+            
+            table = S3Table(self, "Table",
+                database=database,
+                columns=[Column(
+                    name="col1",
+                    type=Schema.STRING
+                ), Column(
+                    name="col2",
+                    type=Schema.STRING
+                )
+                ],
+                data_format=DataFormat.CSV
+            )
+            
+            synthesizer = stack.synthesizer
+            CfnDataLakeSettings(self, "DataLakeSettings",
+                admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
+                    data_lake_principal_identifier=stack.format_arn(
+                        service="iam",
+                        resource="role",
+                        region="",
+                        account=account_id,
+                        resource_name="Admin"
+                    )
+                ), CfnDataLakeSettings.DataLakePrincipalProperty(
+                    # The CDK cloudformation execution role.
+                    data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
+                )
+                ]
+            )
+            
+            tag = CfnTag(self, "Tag",
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
+                catalog_id=account_id,
+                tag_key=tag_key,
+                tag_values=tag_values
+            )
+            
+            tag_association = CfnTagAssociation(self, "TagAssociation",
+                lf_tags=[lf_tag_pair_property],
+                resource=CfnTagAssociation.ResourceProperty(
+                    table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
+                        database_name=database.database_name,
+                        column_names=["col1", "col2"],
+                        catalog_id=account_id,
+                        name=table.table_name
+                    )
+                )
+            )
+            
+            tag_association.node.add_dependency(tag)
+            tag_association.node.add_dependency(table)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6)
+            check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
+            check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tag_key": tag_key,
+            "tag_values": tag_values,
+        }
+        if catalog_id is not None:
+            self._values["catalog_id"] = catalog_id
+
+    @builtins.property
+    def tag_key(self) -> builtins.str:
+        '''UTF-8 string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        The key-name for the LF-tag.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-tagkey
+        '''
+        result = self._values.get("tag_key")
+        assert result is not None, "Required property 'tag_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tag_values(self) -> typing.List[builtins.str]:
+        '''An array of UTF-8 strings, not less than 1 or more than 50 strings.
+
+        A list of possible values of the corresponding ``TagKey`` of an LF-tag key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-tagvalues
+        '''
+        result = self._values.get("tag_values")
+        assert result is not None, "Required property 'tag_values' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def catalog_id(self) -> typing.Optional[builtins.str]:
+        '''Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ .
+
+        The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your AWS Lake Formation environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tag.html#cfn-lakeformation-tag-catalogid
+        '''
+        result = self._values.get("catalog_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTagProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDataCellsFilter",
     "CfnDataCellsFilterProps",
@@ -6380,155 +5815,9 @@ __all__ = [
     "CfnTagAssociation",
     "CfnTagAssociationProps",
     "CfnTagProps",
-    "DataCellsFilterReference",
-    "DataLakeSettingsReference",
-    "IDataCellsFilterRef",
-    "IDataLakeSettingsRef",
-    "IPermissionsRef",
-    "IPrincipalPermissionsRef",
-    "IResourceRef",
-    "ITagAssociationRef",
-    "ITagRef",
-    "PermissionsReference",
-    "PrincipalPermissionsReference",
-    "ResourceReference",
-    "TagAssociationReference",
-    "TagReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8(
-    *,
-    database_name: builtins.str,
-    name: builtins.str,
-    table_catalog_id: builtins.str,
-    table_name: builtins.str,
-    column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d(
-    *,
-    admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mutation_type: typing.Optional[builtins.str] = None,
-    parameters: typing.Any = None,
-    trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1(
-    *,
-    data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89(
-    *,
-    permissions: typing.Sequence[builtins.str],
-    permissions_with_grant_option: typing.Sequence[builtins.str],
-    principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    catalog: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb(
-    *,
-    resource_arn: builtins.str,
-    use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c(
-    *,
-    lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6(
-    *,
-    tag_key: builtins.str,
-    tag_values: typing.Sequence[builtins.str],
-    catalog_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c10d4e7a380761610ff6748d5b357ba5f17b18eff239eb692f02362a9d640f2f(
-    *,
-    database_name: builtins.str,
-    data_cells_filter_name: builtins.str,
-    table_catalog_id: builtins.str,
-    table_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__99bfa0355d7f00b6fb29f2e7f93375075722b9c2ec533cbaa7585c07329d5ed7(
-    *,
-    data_lake_settings_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f56e2879aa262a90b54721e5f5a09255ad8f523a5632a5d7f35cd519cf33247b(
-    *,
-    permissions_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__801d629eaaa3f97f0e289b28141b88fdb7952230641232c9ca2afb59e0840f27(
-    *,
-    principal_identifier: builtins.str,
-    resource_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2d127f2c50981fce21d8326c7e4934de0a84bb78f9b6ad5e4aa88faa2904b0b9(
-    *,
-    resource_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3584962de1b40fb39860bd4b2653e2fe9408bbb7f5fa7f1246e938ae3ed39cd(
-    *,
-    resource_identifier: builtins.str,
-    tags_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__af4d75ad448ce6e7b4db5d3418508b0241d59127ab0d809dbacf13a5c3043c31(
-    *,
-    tag_key: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__4a9e0f2e2c8572da6300632b42930370bb203310961a1d82af3036a8c04fd788(
     scope: _constructs_77d1e7e8.Construct,
@@ -6541,6 +5830,12 @@ def _typecheckingstub__4a9e0f2e2c8572da6300632b42930370bb203310961a1d82af3036a8c
     column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__064e96a955388eac684f181d198f459ef59fd2eadf5408df858fc22c20dc1dca(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6614,6 +5909,19 @@ def _typecheckingstub__e7b949fde25ae1b3b377b26570479963a5dec16b47fe2674ce47b5ea0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8(
+    *,
+    database_name: builtins.str,
+    name: builtins.str,
+    table_catalog_id: builtins.str,
+    table_name: builtins.str,
+    column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f54d92319(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6627,7 +5935,14 @@ def _typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f5
     external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     mutation_type: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
+    read_only_admins: typing.Any = None,
     trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8183d65f16c9622dd0f9f4baf30d0cc013e74660077cd751fe435b4e17410ed5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6698,6 +6013,12 @@ def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d115
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__674387b8d4744b1214561eb77053527136809ff4a2e9cd1a69f2ab7af63d2bce(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -6719,6 +6040,23 @@ def _typecheckingstub__71d0279f7a0c8de462002223da529999b8cfab83d83a4f5d4c771f0df
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d(
+    *,
+    admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mutation_type: typing.Optional[builtins.str] = None,
+    parameters: typing.Any = None,
+    read_only_admins: typing.Any = None,
+    trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66f9b8220129009f27ac675ce32ccf618706bd509a2bdf99308bcd0b7a7ecb36(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6727,6 +6065,12 @@ def _typecheckingstub__66f9b8220129009f27ac675ce32ccf618706bd509a2bdf99308bcd0b7
     resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30e9daa976fe3c57815179bba7587796a9ab833ef0acec30f955639019073981(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6828,6 +6172,16 @@ def _typecheckingstub__fd66e1173aa0d6dbdb98124297f83efdbc21cf4278fca711775ba212a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1(
+    *,
+    data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2eb5d81db38bf28121ba5fc7c8223b5f9b99138c19ff95a360f576c85eee776b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6837,6 +6191,12 @@ def _typecheckingstub__2eb5d81db38bf28121ba5fc7c8223b5f9b99138c19ff95a360f576c85
     principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
     resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     catalog: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__480d6886b3d44eb0c73f8c7acfff55c7f4d10c20fe05abd284e8787102e77ddd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6984,6 +6344,17 @@ def _typecheckingstub__03b5f72824b5f84378a1881d387545e376b17c9fad070955cb027ed54
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89(
+    *,
+    permissions: typing.Sequence[builtins.str],
+    permissions_with_grant_option: typing.Sequence[builtins.str],
+    principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    catalog: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__77f160cc137d98ca347392fcb58c5f304f21bc0d6002a000296781efbc738d18(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6993,6 +6364,12 @@ def _typecheckingstub__77f160cc137d98ca347392fcb58c5f304f21bc0d6002a000296781efb
     hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__196331f54ce54a6ea74da954f3089c80351010d1404d3319fefae91a372dd5b6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7039,6 +6416,17 @@ def _typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb(
+    *,
+    resource_arn: builtins.str,
+    use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6ab4580d70a54262a22e42ccbe6c6594abcec37e5afe9b1cbfd0fd0418c59431(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7046,6 +6434,12 @@ def _typecheckingstub__6ab4580d70a54262a22e42ccbe6c6594abcec37e5afe9b1cbfd0fd041
     tag_key: builtins.str,
     tag_values: typing.Sequence[builtins.str],
     catalog_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8b275cf4c632524587effe92142678987a325e631bbbaa33aefdd13e8123e35(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7086,6 +6480,12 @@ def _typecheckingstub__8acf5bb30936a1aadf20248378b13173f88c413c53b86f2704c297fa9
     *,
     lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
     resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc193ffcf90f7f7be9090bc5c9e0fac2d65710bfa79c78714967a74ca8c9303d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7157,6 +6557,23 @@ def _typecheckingstub__dbfafd4ff73d1cb58139774825c816ddf21d5913087c696e01ca730ed
     column_names: typing.Sequence[builtins.str],
     database_name: builtins.str,
     name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c(
+    *,
+    lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6(
+    *,
+    tag_key: builtins.str,
+    tag_values: typing.Sequence[builtins.str],
+    catalog_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

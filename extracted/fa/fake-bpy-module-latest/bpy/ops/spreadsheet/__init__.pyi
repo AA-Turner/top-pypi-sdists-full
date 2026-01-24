@@ -8,11 +8,7 @@ def add_row_filter_rule(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a filter to remove rows from the displayed data
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a filter to remove rows from the displayed data"""
 
 def change_spreadsheet_data_source(
     execution_context: int | str | None = None,
@@ -24,12 +20,8 @@ def change_spreadsheet_data_source(
 ) -> None:
     """Change visible data source in the spreadsheet
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param component_type: Component Type
-    :type component_type: int | None
     :param attribute_domain_type: Attribute Domain Type
-    :type attribute_domain_type: int | None
     """
 
 def fit_column(
@@ -37,11 +29,7 @@ def fit_column(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Resize a spreadsheet column to the width of the data
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Resize a spreadsheet column to the width of the data"""
 
 def remove_row_filter_rule(
     execution_context: int | str | None = None,
@@ -52,10 +40,7 @@ def remove_row_filter_rule(
 ) -> None:
     """Remove a row filter from the rules
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index
-    :type index: int | None
     """
 
 def reorder_columns(
@@ -63,30 +48,18 @@ def reorder_columns(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Change the order of columns
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Change the order of columns"""
 
 def resize_column(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Resize a spreadsheet column
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Resize a spreadsheet column"""
 
 def toggle_pin(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Turn on or off pinning
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Turn on or off pinning"""

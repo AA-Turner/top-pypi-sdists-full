@@ -116,10 +116,10 @@ linkcheck_ignore = [
     # Too many links to GitHub so they cause
     # "429 Client Error: too many requests for url"
     # Ref: https://github.com/sphinx-doc/sphinx/issues/7388
-    r'https://github\.com/cherrypy/cheroot/commit'
+    r'https://github\.com/cherrypy/cheroot/commit',
     r'https://github\.com/cherrypy/cheroot/issues',
     r'https://github\.com/cherrypy/cheroot/pull',
-    r'https://github\.com/cherrypy/cherrypy/commit'
+    r'https://github\.com/cherrypy/cherrypy/commit',
     r'https://github\.com/cherrypy/cherrypy/issues',
     r'https://github\.com/cherrypy/cherrypy/pull',
     # Has an ephemeral anchor (line-range) but actual HTML has separate per-
@@ -140,6 +140,8 @@ linkcheck_anchors_ignore = [
     r'\/.*',
     r'issuecomment-\d+',  # GitHub comments
 ]
+# FIXME: fossa timeout?
+linkcheck_timeout = 2  # default: 30
 linkcheck_workers = 25
 
 # -- Options for sphinx.ext.autosectionlabel extension -----------------------

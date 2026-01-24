@@ -10,6 +10,7 @@ from inngest._internal import (
     async_lib,
     execution_lib,
     middleware_lib,
+    net,
     server_lib,
     step_lib,
 )
@@ -21,10 +22,10 @@ from .errors import UnstubbedStepError
 
 def trigger(
     fn: inngest.Function[typing.Any],
-    event: typing.Union[inngest.Event, list[inngest.Event]],
+    event: inngest.Event | list[inngest.Event],
     client: Inngest,
     *,
-    step_stubs: typing.Optional[dict[str, object]] = None,
+    step_stubs: dict[str, object] | None = None,
 ) -> _Result:
     """
     Trigger a function.
@@ -45,6 +46,7 @@ def trigger(
     if step_stubs is None:
         step_stubs = {}
 
+    timings = net.ServerTimings()
     stack: list[str] = []
     steps: dict[str, object] = {}
     planned = set[str]()
@@ -55,7 +57,7 @@ def trigger(
         max_attempt = fn._opts.retries
 
     while True:
-        step_id: typing.Optional[str] = None
+        step_id: str | None = None
         if len(planned) > 0:
             step_id = planned.pop()
 
@@ -75,6 +77,7 @@ def trigger(
         middleware = middleware_lib.MiddlewareManager.from_client(
             client,
             {},
+            timings,
         )
 
         memos = step_lib.StepMemos.from_raw(steps)
@@ -95,6 +98,7 @@ def trigger(
                         middleware,
                         request,
                         step_id,
+                        timings,
                     ),
                     middleware,
                     step_lib.StepIDCounter(),
@@ -129,6 +133,7 @@ def trigger(
                         middleware,
                         request,
                         step_id,
+                        timings,
                     ),
                     middleware,
                     step_lib.StepIDCounter(),
@@ -202,6 +207,6 @@ def trigger(
 
 @dataclasses.dataclass
 class _Result:
-    error: typing.Optional[Exception]
+    error: Exception | None
     output: object
     status: Status

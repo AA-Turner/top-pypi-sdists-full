@@ -77,11 +77,6 @@ class Platforms(BaseModel):
 
     @computed_field
     @property
-    def cisco_vdc_devices(self) -> Table:
-        return Table(client=self.client, endpoint="tables/platforms/vdc/devices", sn=self.sn)
-
-    @computed_field
-    @property
     def platform_cisco_vss(self) -> Table:
         return Table(client=self.client, endpoint="tables/platforms/vss/overview", sn=self.sn)
 

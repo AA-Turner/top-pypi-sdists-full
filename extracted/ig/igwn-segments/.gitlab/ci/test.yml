@@ -1,7 +1,7 @@
 # -- igwn-segments test configuration
 
 include:
-  - component: git.ligo.org/computing/gitlab/components/python/test@1
+  - component: git.ligo.org/computing/gitlab/components/python/test@2
     inputs:
       job_name: .pytest
       coverage: false
@@ -84,3 +84,8 @@ python_test_manylinux_x86_64_3.13:
   extends: .python_test_without_lal
   image: "python:3.13"
   needs: ["wheel_manylinux_x86_64: [3.13]"]
+
+python_test_manylinux_x86_64_3.14:
+  extends: .python_test_without_lal
+  image: "python:3.14"
+  needs: ["wheel_manylinux_x86_64: [3.14]"]

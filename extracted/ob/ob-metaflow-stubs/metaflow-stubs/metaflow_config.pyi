@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.664111                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.825120                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 from .exception import MetaflowException as MetaflowException
 
 DATASTORE_LOCAL_DIR: str
+
+DATASTORE_SPIN_LOCAL_DIR: str
 
 LOCAL_CONFIG_FILE: str
 
@@ -37,9 +39,17 @@ DEFAULT_SECRETS_ROLE: None
 
 DEFAULT_FROM_DEPLOYMENT_IMPL: str
 
+SPIN_ALLOWED_DECORATORS: list
+
+SPIN_DISALLOWED_DECORATORS: list
+
+SPIN_PERSIST: bool
+
 USER: None
 
 DATASTORE_SYSROOT_LOCAL: None
+
+DATASTORE_SYSROOT_SPIN: None
 
 DATASTORE_SYSROOT_S3: None
 
@@ -67,6 +77,8 @@ S3_WORKER_COUNT: int
 
 S3_TRANSIENT_RETRY_COUNT: int
 
+S3_LOG_TRANSIENT_RETRIES: bool
+
 S3_CLIENT_RETRY_CONFIG: dict
 
 RETRY_WARNING_THRESHOLD: int
@@ -88,6 +100,8 @@ DATATOOLS_GSROOT: None
 DATATOOLS_LOCALROOT: None
 
 AWS_SECRETS_MANAGER_DEFAULT_REGION: None
+
+AWS_SECRETS_MANAGER_DEFAULT_ROLE: None
 
 GCP_SECRET_MANAGER_PREFIX: None
 
@@ -225,6 +239,8 @@ KUBERNETES_JOBSET_GROUP: str
 
 KUBERNETES_JOBSET_VERSION: str
 
+KUBERNETES_JOB_TERMINATE_MODE: str
+
 ARGO_EVENTS_SERVICE_ACCOUNT: None
 
 ARGO_EVENTS_EVENT_BUS: str
@@ -264,6 +280,8 @@ CONDA_USE_FAST_INIT: bool
 ESCAPE_HATCH_WARNING: bool
 
 FEAT_ALWAYS_UPLOAD_CODE_PACKAGE: bool
+
+PROFILE_FROM_START: bool
 
 DEBUG_OPTIONS: list
 

@@ -3,7 +3,7 @@ Type annotations for osis service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_osis/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -67,12 +68,6 @@ from .type_defs import (
     ValidatePipelineResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -83,16 +78,16 @@ __all__ = ("OpenSearchIngestionClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DisabledOperationException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DisabledOperationException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OpenSearchIngestionClient(BaseClient):
@@ -150,7 +145,7 @@ class OpenSearchIngestionClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_osis/client/#create_pipeline_endpoint)
         """
 
-    def delete_pipeline(self, **kwargs: Unpack[DeletePipelineRequestTypeDef]) -> Dict[str, Any]:
+    def delete_pipeline(self, **kwargs: Unpack[DeletePipelineRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an OpenSearch Ingestion pipeline.
 
@@ -160,7 +155,7 @@ class OpenSearchIngestionClient(BaseClient):
 
     def delete_pipeline_endpoint(
         self, **kwargs: Unpack[DeletePipelineEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a VPC endpoint for an OpenSearch Ingestion pipeline.
 
@@ -170,7 +165,7 @@ class OpenSearchIngestionClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource-based policy from an OpenSearch Ingestion resource.
 
@@ -309,7 +304,7 @@ class OpenSearchIngestionClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_osis/client/#stop_pipeline)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags an OpenSearch Ingestion pipeline.
 
@@ -317,7 +312,7 @@ class OpenSearchIngestionClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_osis/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from an OpenSearch Ingestion pipeline.
 

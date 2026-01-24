@@ -4,9 +4,11 @@ pub mod python;
 mod azure;
 mod config;
 mod gcs;
+mod gravitino;
 mod http;
 mod huggingface;
 mod s3;
+mod tos;
 mod unity;
 
 use std::{
@@ -21,9 +23,11 @@ pub use crate::{
     azure::AzureConfig,
     config::IOConfig,
     gcs::GCSConfig,
+    gravitino::GravitinoConfig,
     http::HTTPConfig,
     huggingface::HuggingFaceConfig,
     s3::{S3Config, S3Credentials},
+    tos::TosConfig,
     unity::UnityConfig,
 };
 

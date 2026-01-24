@@ -9,7 +9,9 @@ See https://github.com/github/rest-api-description for more information.
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
+from githubkit.lazy_module import is_lazy_disabled
+
+if TYPE_CHECKING or is_lazy_disabled():
     from ._namespace import VALID_EVENT_NAMES as VALID_EVENT_NAMES
     from ._namespace import EventNameType as EventNameType
     from ._namespace import WebhookNamespace as WebhookNamespace
@@ -88,6 +90,12 @@ if TYPE_CHECKING:
     from .dismissal_request_code_scanning import (
         dismissal_request_code_scanning_action_types as dismissal_request_code_scanning_action_types,
     )
+    from .dismissal_request_dependabot import (
+        DismissalRequestDependabotEvent as DismissalRequestDependabotEvent,
+    )
+    from .dismissal_request_dependabot import (
+        dismissal_request_dependabot_action_types as dismissal_request_dependabot_action_types,
+    )
     from .dismissal_request_secret_scanning import (
         DismissalRequestSecretScanningEvent as DismissalRequestSecretScanningEvent,
     )
@@ -158,6 +166,18 @@ if TYPE_CHECKING:
     from .org_block import org_block_action_types as org_block_action_types
     from .organization import OrganizationEvent as OrganizationEvent
     from .organization import organization_action_types as organization_action_types
+    from .organization_custom_property import (
+        OrganizationCustomPropertyEvent as OrganizationCustomPropertyEvent,
+    )
+    from .organization_custom_property import (
+        organization_custom_property_action_types as organization_custom_property_action_types,
+    )
+    from .organization_custom_property_values import (
+        OrganizationCustomPropertyValuesEvent as OrganizationCustomPropertyValuesEvent,
+    )
+    from .organization_custom_property_values import (
+        organization_custom_property_values_action_types as organization_custom_property_values_action_types,
+    )
     from .package import PackageEvent as PackageEvent
     from .package import package_action_types as package_action_types
     from .page_build import PageBuildEvent as PageBuildEvent
@@ -300,10 +320,6 @@ else:
             "BranchProtectionRuleEvent",
             "branch_protection_rule_action_types",
         ),
-        ".exemption_request_push_ruleset": (
-            "ExemptionRequestPushRulesetEvent",
-            "exemption_request_push_ruleset_action_types",
-        ),
         ".exemption_request_secret_scanning": (
             "ExemptionRequestSecretScanningEvent",
             "exemption_request_secret_scanning_action_types",
@@ -346,9 +362,17 @@ else:
             "DismissalRequestCodeScanningEvent",
             "dismissal_request_code_scanning_action_types",
         ),
+        ".dismissal_request_dependabot": (
+            "DismissalRequestDependabotEvent",
+            "dismissal_request_dependabot_action_types",
+        ),
         ".dismissal_request_secret_scanning": (
             "DismissalRequestSecretScanningEvent",
             "dismissal_request_secret_scanning_action_types",
+        ),
+        ".exemption_request_push_ruleset": (
+            "ExemptionRequestPushRulesetEvent",
+            "exemption_request_push_ruleset_action_types",
         ),
         ".fork": ("ForkEvent", "fork_action_types"),
         ".github_app_authorization": (
@@ -382,6 +406,14 @@ else:
         ".meta": ("MetaEvent", "meta_action_types"),
         ".milestone": ("MilestoneEvent", "milestone_action_types"),
         ".org_block": ("OrgBlockEvent", "org_block_action_types"),
+        ".organization_custom_property": (
+            "OrganizationCustomPropertyEvent",
+            "organization_custom_property_action_types",
+        ),
+        ".organization_custom_property_values": (
+            "OrganizationCustomPropertyValuesEvent",
+            "organization_custom_property_values_action_types",
+        ),
         ".organization": ("OrganizationEvent", "organization_action_types"),
         ".package": ("PackageEvent", "package_action_types"),
         ".page_build": ("PageBuildEvent", "page_build_action_types"),

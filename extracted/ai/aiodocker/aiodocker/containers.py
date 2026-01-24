@@ -19,11 +19,9 @@ from typing import (
     overload,
 )
 
-from aiohttp import ClientResponse, ClientWebSocketResponse
+from aiohttp import ClientResponse, ClientTimeout, ClientWebSocketResponse
 from multidict import MultiDict
 from yarl import URL
-
-from aiodocker.types import JSONObject
 
 from .exceptions import DockerContainerError, DockerError
 from .execs import Exec
@@ -31,7 +29,7 @@ from .jsonstream import json_stream_list, json_stream_stream
 from .logs import DockerLog
 from .multiplexed import multiplexed_result_list, multiplexed_result_stream
 from .stream import Stream
-from .types import PortInfo
+from .types import SENTINEL, JSONObject, MutableJSONObject, PortInfo, Sentinel
 from .utils import identical, parse_result
 
 
@@ -117,9 +115,7 @@ class DockerContainers:
         try:
             await container.start()
         except DockerError as err:
-            raise DockerContainerError(
-                err.status, {"message": err.message}, container["id"]
-            )
+            raise DockerContainerError(err.status, err.message, container["id"])
 
         return container
 
@@ -143,13 +139,19 @@ class DockerContainers:
 
 class DockerContainer:
     _container: Dict[str, Any]
+    _id: str
 
     def __init__(self, docker: Docker, **kwargs) -> None:
         self.docker = docker
         self._container = kwargs
-        self._id = self._container.get(
+        _id = self._container.get(
             "id", self._container.get("ID", self._container.get("Id"))
         )
+        if _id is None:
+            raise ValueError(
+                "DockerContainer should be initialized with explicit container ID."
+            )
+        self._id = _id
         self.logs = DockerLog(docker, self)
 
     @property
@@ -163,6 +165,7 @@ class DockerContainer:
         stdout: bool = False,
         stderr: bool = False,
         follow: Literal[False] = False,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
         **kwargs,
     ) -> List[str]: ...
 
@@ -173,6 +176,7 @@ class DockerContainer:
         stdout: bool = False,
         stderr: bool = False,
         follow: Literal[True],
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
         **kwargs,
     ) -> AsyncIterator[str]: ...
 
@@ -182,6 +186,7 @@ class DockerContainer:
         stdout: bool = False,
         stderr: bool = False,
         follow: bool = False,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
         **kwargs,
     ) -> Any:
         if stdout is False and stderr is False:
@@ -189,8 +194,15 @@ class DockerContainer:
 
         params = {"stdout": stdout, "stderr": stderr, "follow": follow}
         params.update(kwargs)
+
+        # Default to infinite timeout for log operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         cm = self.docker._query(
-            f"containers/{self._id}/logs", method="GET", params=params
+            f"containers/{self._id}/logs",
+            method="GET",
+            params=params,
+            timeout=timeout_config,
         )
         if follow:
             return self._logs_stream(cm)
@@ -250,9 +262,40 @@ class DockerContainer:
         self._container = data
         return data
 
-    async def stop(self, **kwargs) -> None:
+    async def stop(
+        self,
+        *,
+        t: int | None = None,
+        signal: str | None = None,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
+    ) -> None:
+        """Stop the container.
+
+        Args:
+            t: Number of seconds to wait for the container to stop before killing it.
+                If None, uses the container's configured stop timeout (default 10 seconds).
+                This is a Docker API parameter that controls the graceful shutdown period.
+            signal: Signal to send to the container (e.g., "SIGTERM", "SIGKILL").
+                If None, uses the default SIGTERM signal.
+                This parameter may not be supported in older Docker API versions.
+            timeout: HTTP request timeout for the stop operation (infinite by default).
+                This controls how long to wait for the Docker daemon to respond,
+                not the container stop duration.
+        """
+        params: Dict[str, Any] = {}
+        if t is not None:
+            params["t"] = t
+        if signal is not None:
+            params["signal"] = signal
+
+        # Default to infinite timeout for stop operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         async with self.docker._query(
-            f"containers/{self._id}/stop", method="POST", params=kwargs
+            f"containers/{self._id}/stop",
+            method="POST",
+            params=params,
+            timeout=timeout_config,
         ):
             pass
 
@@ -265,35 +308,116 @@ class DockerContainer:
         ):
             pass
 
-    async def restart(self, timeout=None) -> None:
+    async def restart(
+        self,
+        *,
+        t: int | None = None,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
+    ) -> None:
+        """Restart the container.
+
+        Args:
+            t: Number of seconds to wait for the container to stop before killing it.
+                If None, uses the container's configured stop timeout (default 10 seconds).
+                This is a Docker API parameter that controls the graceful shutdown period.
+            timeout: HTTP request timeout for the restart operation (infinite by default).
+                This controls how long to wait for the Docker daemon to respond,
+                not the container restart duration.
+        """
         params = {}
-        if timeout is not None:
-            params["t"] = timeout
+        if t is not None:
+            params["t"] = t
+
+        # Default to infinite timeout for restart operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         async with self.docker._query(
             f"containers/{self._id}/restart",
             method="POST",
             params=params,
+            timeout=timeout_config,
         ):
             pass
 
-    async def kill(self, **kwargs) -> None:
+    async def kill(
+        self,
+        *,
+        signal: str | None = None,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
+    ) -> None:
+        """Kill the container by sending a signal.
+
+        Args:
+            signal: Signal to send to the container (e.g., "SIGKILL", "SIGTERM", "SIGHUP").
+                Can be a signal name (with or without SIG prefix) or a signal number.
+                If None, uses the default SIGKILL signal.
+            timeout: HTTP request timeout for the kill operation.
+        """
+        params: Dict[str, Any] = {}
+        if signal is not None:
+            params["signal"] = signal
+
+        # Use standard timeout resolution
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         async with self.docker._query(
-            f"containers/{self._id}/kill", method="POST", params=kwargs
+            f"containers/{self._id}/kill",
+            method="POST",
+            params=params,
+            timeout=timeout_config,
         ):
             pass
 
-    async def wait(self, *, timeout=None, **kwargs) -> Dict[str, Any]:
+    async def wait(
+        self,
+        *,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        # Default to infinite timeout for wait operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         data = await self.docker._query_json(
             f"containers/{self._id}/wait",
             method="POST",
             params=kwargs,
-            timeout=timeout,
+            timeout=timeout_config,
         )
         return data
 
-    async def delete(self, **kwargs) -> None:
+    async def delete(
+        self,
+        *,
+        force: bool = False,
+        v: bool = False,
+        link: bool = False,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
+    ) -> None:
+        """Remove the container.
+
+        Args:
+            force: If True, kill the container before removing it (using SIGKILL).
+                If False, the container must be stopped before it can be removed.
+            v: If True, remove anonymous volumes associated with the container.
+            link: If True, remove the specified link (legacy networking feature).
+            timeout: HTTP request timeout for the delete operation.
+        """
+        params: Dict[str, Any] = {}
+        if force:
+            params["force"] = force
+        if v:
+            params["v"] = v
+        if link:
+            params["link"] = link
+
+        # Use standard timeout resolution
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         async with self.docker._query(
-            f"containers/{self._id}", method="DELETE", params=kwargs
+            f"containers/{self._id}",
+            method="DELETE",
+            params=params,
+            timeout=timeout_config,
         ):
             pass
 
@@ -321,6 +445,7 @@ class DockerContainer:
         stdin: bool = False,
         detach_keys: Optional[str] = None,
         logs: bool = False,
+        timeout: ClientTimeout | Sentinel | None = SENTINEL,
     ) -> Stream:
         async def setup() -> Tuple[URL, Optional[bytes], bool]:
             params: MultiDict[Union[str, int]] = MultiDict()
@@ -340,7 +465,10 @@ class DockerContainer:
                 inspect_info["Config"]["Tty"],
             )
 
-        return Stream(self.docker, setup, None)
+        # Default to infinite timeout for attach operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
+        return Stream(self.docker, setup, timeout_config)
 
     async def port(self, private_port: int | str) -> List[PortInfo] | None:
         if "NetworkSettings" not in self._container:
@@ -369,6 +497,7 @@ class DockerContainer:
         self,
         *,
         stream: Literal[True] = True,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
     ) -> AsyncIterator[Dict[str, Any]]: ...
 
     @overload
@@ -376,16 +505,22 @@ class DockerContainer:
         self,
         *,
         stream: Literal[False],
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
     ) -> List[Dict[str, Any]]: ...
 
     def stats(
         self,
         *,
         stream: bool = True,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
     ) -> Any:
+        # Default to infinite timeout for stats operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         cm = self.docker._query(
             f"containers/{self._id}/stats",
             params={"stream": "1" if stream else "0"},
+            timeout=timeout_config,
         )
         if stream:
             return self._stats_stream(cm)
@@ -467,12 +602,13 @@ class DockerContainer:
         changes: Optional[Union[str, Sequence[str]]] = None,
         config: Optional[Dict[str, Any]] = None,
         pause: bool = True,
+        timeout: float | ClientTimeout | Sentinel | None = SENTINEL,
     ) -> Dict[str, Any]:
         """
         Commit a container to an image. Similar to the ``docker commit``
         command.
         """
-        params = {"container": self._id, "pause": pause}
+        params: MutableJSONObject = {"container": self._id, "pause": pause}
         if repository is not None:
             params["repo"] = repository
         if tag is not None:
@@ -486,8 +622,11 @@ class DockerContainer:
                 changes = "\n".join(changes)
             params["changes"] = changes
 
+        # Default to infinite timeout for commit operations
+        timeout_config = self.docker._resolve_long_running_timeout(timeout)
+
         return await self.docker._query_json(
-            "commit", method="POST", params=params, data=config
+            "commit", method="POST", params=params, data=config, timeout=timeout_config
         )
 
     async def pause(self) -> None:

@@ -3,7 +3,7 @@ Type annotations for cloudtrail service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -31,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListImportFailuresPaginator,
     ListImportsPaginator,
+    ListInsightsDataPaginator,
     ListPublicKeysPaginator,
     ListTagsPaginator,
     ListTrailsPaginator,
@@ -96,6 +98,8 @@ from .type_defs import (
     ListImportFailuresResponseTypeDef,
     ListImportsRequestTypeDef,
     ListImportsResponseTypeDef,
+    ListInsightsDataRequestTypeDef,
+    ListInsightsDataResponseTypeDef,
     ListInsightsMetricDataRequestTypeDef,
     ListInsightsMetricDataResponseTypeDef,
     ListPublicKeysRequestTypeDef,
@@ -144,12 +148,6 @@ from .type_defs import (
     UpdateTrailResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -160,93 +158,93 @@ __all__ = ("CloudTrailClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AccountHasOngoingImportException: Type[BotocoreClientError]
-    AccountNotFoundException: Type[BotocoreClientError]
-    AccountNotRegisteredException: Type[BotocoreClientError]
-    AccountRegisteredException: Type[BotocoreClientError]
-    CannotDelegateManagementAccountException: Type[BotocoreClientError]
-    ChannelARNInvalidException: Type[BotocoreClientError]
-    ChannelAlreadyExistsException: Type[BotocoreClientError]
-    ChannelExistsForEDSException: Type[BotocoreClientError]
-    ChannelMaxLimitExceededException: Type[BotocoreClientError]
-    ChannelNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CloudTrailARNInvalidException: Type[BotocoreClientError]
-    CloudTrailAccessNotEnabledException: Type[BotocoreClientError]
-    CloudTrailInvalidClientTokenIdException: Type[BotocoreClientError]
-    CloudWatchLogsDeliveryUnavailableException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DelegatedAdminAccountLimitExceededException: Type[BotocoreClientError]
-    EventDataStoreARNInvalidException: Type[BotocoreClientError]
-    EventDataStoreAlreadyExistsException: Type[BotocoreClientError]
-    EventDataStoreFederationEnabledException: Type[BotocoreClientError]
-    EventDataStoreHasOngoingImportException: Type[BotocoreClientError]
-    EventDataStoreMaxLimitExceededException: Type[BotocoreClientError]
-    EventDataStoreNotFoundException: Type[BotocoreClientError]
-    EventDataStoreTerminationProtectedException: Type[BotocoreClientError]
-    GenerateResponseException: Type[BotocoreClientError]
-    ImportNotFoundException: Type[BotocoreClientError]
-    InactiveEventDataStoreException: Type[BotocoreClientError]
-    InactiveQueryException: Type[BotocoreClientError]
-    InsightNotEnabledException: Type[BotocoreClientError]
-    InsufficientDependencyServiceAccessPermissionException: Type[BotocoreClientError]
-    InsufficientEncryptionPolicyException: Type[BotocoreClientError]
-    InsufficientIAMAccessPermissionException: Type[BotocoreClientError]
-    InsufficientS3BucketPolicyException: Type[BotocoreClientError]
-    InsufficientSnsTopicPolicyException: Type[BotocoreClientError]
-    InvalidCloudWatchLogsLogGroupArnException: Type[BotocoreClientError]
-    InvalidCloudWatchLogsRoleArnException: Type[BotocoreClientError]
-    InvalidDateRangeException: Type[BotocoreClientError]
-    InvalidEventCategoryException: Type[BotocoreClientError]
-    InvalidEventDataStoreCategoryException: Type[BotocoreClientError]
-    InvalidEventDataStoreStatusException: Type[BotocoreClientError]
-    InvalidEventSelectorsException: Type[BotocoreClientError]
-    InvalidHomeRegionException: Type[BotocoreClientError]
-    InvalidImportSourceException: Type[BotocoreClientError]
-    InvalidInsightSelectorsException: Type[BotocoreClientError]
-    InvalidKmsKeyIdException: Type[BotocoreClientError]
-    InvalidLookupAttributesException: Type[BotocoreClientError]
-    InvalidMaxResultsException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidQueryStatementException: Type[BotocoreClientError]
-    InvalidQueryStatusException: Type[BotocoreClientError]
-    InvalidS3BucketNameException: Type[BotocoreClientError]
-    InvalidS3PrefixException: Type[BotocoreClientError]
-    InvalidSnsTopicNameException: Type[BotocoreClientError]
-    InvalidSourceException: Type[BotocoreClientError]
-    InvalidTagParameterException: Type[BotocoreClientError]
-    InvalidTimeRangeException: Type[BotocoreClientError]
-    InvalidTokenException: Type[BotocoreClientError]
-    InvalidTrailNameException: Type[BotocoreClientError]
-    KmsException: Type[BotocoreClientError]
-    KmsKeyDisabledException: Type[BotocoreClientError]
-    KmsKeyNotFoundException: Type[BotocoreClientError]
-    MaxConcurrentQueriesException: Type[BotocoreClientError]
-    MaximumNumberOfTrailsExceededException: Type[BotocoreClientError]
-    NoManagementAccountSLRExistsException: Type[BotocoreClientError]
-    NotOrganizationManagementAccountException: Type[BotocoreClientError]
-    NotOrganizationMasterAccountException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    OrganizationNotInAllFeaturesModeException: Type[BotocoreClientError]
-    OrganizationsNotInUseException: Type[BotocoreClientError]
-    QueryIdNotFoundException: Type[BotocoreClientError]
-    ResourceARNNotValidException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourcePolicyNotFoundException: Type[BotocoreClientError]
-    ResourcePolicyNotValidException: Type[BotocoreClientError]
-    ResourceTypeNotSupportedException: Type[BotocoreClientError]
-    S3BucketDoesNotExistException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TagsLimitExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TrailAlreadyExistsException: Type[BotocoreClientError]
-    TrailNotFoundException: Type[BotocoreClientError]
-    TrailNotProvidedException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccountHasOngoingImportException: type[BotocoreClientError]
+    AccountNotFoundException: type[BotocoreClientError]
+    AccountNotRegisteredException: type[BotocoreClientError]
+    AccountRegisteredException: type[BotocoreClientError]
+    CannotDelegateManagementAccountException: type[BotocoreClientError]
+    ChannelARNInvalidException: type[BotocoreClientError]
+    ChannelAlreadyExistsException: type[BotocoreClientError]
+    ChannelExistsForEDSException: type[BotocoreClientError]
+    ChannelMaxLimitExceededException: type[BotocoreClientError]
+    ChannelNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CloudTrailARNInvalidException: type[BotocoreClientError]
+    CloudTrailAccessNotEnabledException: type[BotocoreClientError]
+    CloudTrailInvalidClientTokenIdException: type[BotocoreClientError]
+    CloudWatchLogsDeliveryUnavailableException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DelegatedAdminAccountLimitExceededException: type[BotocoreClientError]
+    EventDataStoreARNInvalidException: type[BotocoreClientError]
+    EventDataStoreAlreadyExistsException: type[BotocoreClientError]
+    EventDataStoreFederationEnabledException: type[BotocoreClientError]
+    EventDataStoreHasOngoingImportException: type[BotocoreClientError]
+    EventDataStoreMaxLimitExceededException: type[BotocoreClientError]
+    EventDataStoreNotFoundException: type[BotocoreClientError]
+    EventDataStoreTerminationProtectedException: type[BotocoreClientError]
+    GenerateResponseException: type[BotocoreClientError]
+    ImportNotFoundException: type[BotocoreClientError]
+    InactiveEventDataStoreException: type[BotocoreClientError]
+    InactiveQueryException: type[BotocoreClientError]
+    InsightNotEnabledException: type[BotocoreClientError]
+    InsufficientDependencyServiceAccessPermissionException: type[BotocoreClientError]
+    InsufficientEncryptionPolicyException: type[BotocoreClientError]
+    InsufficientIAMAccessPermissionException: type[BotocoreClientError]
+    InsufficientS3BucketPolicyException: type[BotocoreClientError]
+    InsufficientSnsTopicPolicyException: type[BotocoreClientError]
+    InvalidCloudWatchLogsLogGroupArnException: type[BotocoreClientError]
+    InvalidCloudWatchLogsRoleArnException: type[BotocoreClientError]
+    InvalidDateRangeException: type[BotocoreClientError]
+    InvalidEventCategoryException: type[BotocoreClientError]
+    InvalidEventDataStoreCategoryException: type[BotocoreClientError]
+    InvalidEventDataStoreStatusException: type[BotocoreClientError]
+    InvalidEventSelectorsException: type[BotocoreClientError]
+    InvalidHomeRegionException: type[BotocoreClientError]
+    InvalidImportSourceException: type[BotocoreClientError]
+    InvalidInsightSelectorsException: type[BotocoreClientError]
+    InvalidKmsKeyIdException: type[BotocoreClientError]
+    InvalidLookupAttributesException: type[BotocoreClientError]
+    InvalidMaxResultsException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidQueryStatementException: type[BotocoreClientError]
+    InvalidQueryStatusException: type[BotocoreClientError]
+    InvalidS3BucketNameException: type[BotocoreClientError]
+    InvalidS3PrefixException: type[BotocoreClientError]
+    InvalidSnsTopicNameException: type[BotocoreClientError]
+    InvalidSourceException: type[BotocoreClientError]
+    InvalidTagParameterException: type[BotocoreClientError]
+    InvalidTimeRangeException: type[BotocoreClientError]
+    InvalidTokenException: type[BotocoreClientError]
+    InvalidTrailNameException: type[BotocoreClientError]
+    KmsException: type[BotocoreClientError]
+    KmsKeyDisabledException: type[BotocoreClientError]
+    KmsKeyNotFoundException: type[BotocoreClientError]
+    MaxConcurrentQueriesException: type[BotocoreClientError]
+    MaximumNumberOfTrailsExceededException: type[BotocoreClientError]
+    NoManagementAccountSLRExistsException: type[BotocoreClientError]
+    NotOrganizationManagementAccountException: type[BotocoreClientError]
+    NotOrganizationMasterAccountException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    OrganizationNotInAllFeaturesModeException: type[BotocoreClientError]
+    OrganizationsNotInUseException: type[BotocoreClientError]
+    QueryIdNotFoundException: type[BotocoreClientError]
+    ResourceARNNotValidException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourcePolicyNotFoundException: type[BotocoreClientError]
+    ResourcePolicyNotValidException: type[BotocoreClientError]
+    ResourceTypeNotSupportedException: type[BotocoreClientError]
+    S3BucketDoesNotExistException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TagsLimitExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TrailAlreadyExistsException: type[BotocoreClientError]
+    TrailNotFoundException: type[BotocoreClientError]
+    TrailNotProvidedException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 
 class CloudTrailClient(AioBaseClient):
@@ -284,7 +282,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#generate_presigned_url)
         """
 
-    async def add_tags(self, **kwargs: Unpack[AddTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def add_tags(self, **kwargs: Unpack[AddTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a trail, event data store, dashboard, or channel, up
         to a limit of 50.
@@ -347,7 +345,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#create_trail)
         """
 
-    async def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a channel.
 
@@ -357,7 +355,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def delete_dashboard(
         self, **kwargs: Unpack[DeleteDashboardRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified dashboard.
 
@@ -367,7 +365,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def delete_event_data_store(
         self, **kwargs: Unpack[DeleteEventDataStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables the event data store specified by <code>EventDataStore</code>, which
         accepts an event data store ARN.
@@ -378,7 +376,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the resource-based policy attached to the CloudTrail event data store,
         dashboard, or channel.
@@ -387,7 +385,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#delete_resource_policy)
         """
 
-    async def delete_trail(self, **kwargs: Unpack[DeleteTrailRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_trail(self, **kwargs: Unpack[DeleteTrailRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a trail.
 
@@ -397,7 +395,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def deregister_organization_delegated_admin(
         self, **kwargs: Unpack[DeregisterOrganizationDelegatedAdminRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes CloudTrail delegated administrator permissions from a member account in
         an organization.
@@ -483,8 +481,7 @@ class CloudTrailClient(AioBaseClient):
     ) -> GetEventConfigurationResponseTypeDef:
         """
         Retrieves the current event configuration settings for the specified event data
-        store, including details about maximum event size and context key selectors
-        configured for the event data store.
+        store or trail.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_event_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#get_event_configuration)
@@ -624,6 +621,16 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#list_imports)
         """
 
+    async def list_insights_data(
+        self, **kwargs: Unpack[ListInsightsDataRequestTypeDef]
+    ) -> ListInsightsDataResponseTypeDef:
+        """
+        Returns Insights events generated on a trail that logs data events.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/list_insights_data.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#list_insights_data)
+        """
+
     async def list_insights_metric_data(
         self, **kwargs: Unpack[ListInsightsMetricDataRequestTypeDef]
     ) -> ListInsightsMetricDataResponseTypeDef:
@@ -691,7 +698,8 @@ class CloudTrailClient(AioBaseClient):
         self, **kwargs: Unpack[PutEventConfigurationRequestTypeDef]
     ) -> PutEventConfigurationResponseTypeDef:
         """
-        Updates the event configuration settings for the specified event data store.
+        Updates the event configuration settings for the specified event data store or
+        trail.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/put_event_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#put_event_configuration)
@@ -712,8 +720,9 @@ class CloudTrailClient(AioBaseClient):
         self, **kwargs: Unpack[PutInsightSelectorsRequestTypeDef]
     ) -> PutInsightSelectorsResponseTypeDef:
         """
-        Lets you enable Insights event logging by specifying the Insights selectors
-        that you want to enable on an existing trail or event data store.
+        Lets you enable Insights event logging on specific event categories by
+        specifying the Insights selectors that you want to enable on an existing trail
+        or event data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/put_insight_selectors.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#put_insight_selectors)
@@ -732,7 +741,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def register_organization_delegated_admin(
         self, **kwargs: Unpack[RegisterOrganizationDelegatedAdminRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers an organization's member account as the CloudTrail <a
         href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-delegated-administrator.html">delegated
@@ -742,7 +751,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#register_organization_delegated_admin)
         """
 
-    async def remove_tags(self, **kwargs: Unpack[RemoveTagsRequestTypeDef]) -> Dict[str, Any]:
+    async def remove_tags(self, **kwargs: Unpack[RemoveTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from a trail, event data store, dashboard, or
         channel.
@@ -785,7 +794,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def start_event_data_store_ingestion(
         self, **kwargs: Unpack[StartEventDataStoreIngestionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the ingestion of live events on an event data store specified as either
         an ARN or the ID portion of the ARN.
@@ -805,7 +814,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#start_import)
         """
 
-    async def start_logging(self, **kwargs: Unpack[StartLoggingRequestTypeDef]) -> Dict[str, Any]:
+    async def start_logging(self, **kwargs: Unpack[StartLoggingRequestTypeDef]) -> dict[str, Any]:
         """
         Starts the recording of Amazon Web Services API calls and log file delivery for
         a trail.
@@ -826,7 +835,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def stop_event_data_store_ingestion(
         self, **kwargs: Unpack[StopEventDataStoreIngestionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the ingestion of live events on an event data store specified as either
         an ARN or the ID portion of the ARN.
@@ -845,7 +854,7 @@ class CloudTrailClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#stop_import)
         """
 
-    async def stop_logging(self, **kwargs: Unpack[StopLoggingRequestTypeDef]) -> Dict[str, Any]:
+    async def stop_logging(self, **kwargs: Unpack[StopLoggingRequestTypeDef]) -> dict[str, Any]:
         """
         Suspends the recording of Amazon Web Services API calls and log file delivery
         for the specified trail.
@@ -919,6 +928,17 @@ class CloudTrailClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_insights_data"]
+    ) -> ListInsightsDataPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudtrail/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudtrail/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_public_keys"]
     ) -> ListPublicKeysPaginator:
         """
@@ -969,7 +989,7 @@ class CloudTrailClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -35,7 +35,7 @@ from ctypes import (
 from . import base
 
 # Don't typecheck this file on Windows
-assert sys.platform != "win32"  # nosec
+assert sys.platform != "win32"  # noqa: S101
 
 from fcntl import ioctl  # noqa: E402
 
@@ -126,7 +126,7 @@ def get_descriptor(path):
         ioctl(fd, USB_GET_DEVICE_INFO, devinfo)
         ucrd = usb_ctl_report_desc()
         ioctl(fd, USB_GET_REPORT_DESC, ucrd)
-        report_desc = bytearray(ucrd.ucrd_data[: ucrd.ucrd_size])
+        report_desc = bytes(ucrd.ucrd_data[: ucrd.ucrd_size])
         maxin, maxout = base.parse_report_descriptor(report_desc)
         vid = devinfo.udi_vendorNo
         pid = devinfo.udi_productNo
@@ -158,7 +158,7 @@ class NetBSDCtapHidConnection(base.FileCtapHidConnection):
             ping = bytearray(64)
             ping[0:7] = bytearray([0xFF, 0xFF, 0xFF, 0xFF, 0x81, 0, 1])
             for i in range(10):
-                self.write_packet(ping)
+                self.write_packet(bytes(ping))
                 poll = select.poll()
                 poll.register(self.handle, select.POLLIN)
                 if poll.poll(100):

@@ -20,19 +20,20 @@ use chroma_tracing::OtelFilter;
 use chroma_tracing::OtelFilterLevel;
 use chroma_types::chroma_proto::{
     garbage_collect_phase2_request::LogToCollect, log_service_server::LogService,
-    purge_from_cache_request::EntryToEvict, scrub_log_request::LogToScrub, CollectionInfo,
-    GarbageCollectPhase2Request, GarbageCollectPhase2Response,
-    GetAllCollectionInfoToCompactRequest, GetAllCollectionInfoToCompactResponse,
-    InspectDirtyLogRequest, InspectDirtyLogResponse, InspectLogStateRequest,
-    InspectLogStateResponse, LogRecord, MigrateLogRequest, MigrateLogResponse, OperationRecord,
-    PullLogsRequest, PullLogsResponse, PurgeDirtyForCollectionRequest,
-    PurgeDirtyForCollectionResponse, PurgeFromCacheRequest, PurgeFromCacheResponse,
-    PushLogsRequest, PushLogsResponse, ScoutLogsRequest, ScoutLogsResponse, ScrubLogRequest,
-    ScrubLogResponse, SealLogRequest, SealLogResponse, UpdateCollectionLogOffsetRequest,
-    UpdateCollectionLogOffsetResponse,
+    purge_from_cache_request::EntryToEvict, CollectionInfo, GarbageCollectPhase2Request,
+    GarbageCollectPhase2Response, GetAllCollectionInfoToCompactRequest,
+    GetAllCollectionInfoToCompactResponse, InspectDirtyLogRequest, InspectDirtyLogResponse,
+    InspectLogStateRequest, InspectLogStateResponse, LogRecord, MigrateLogRequest,
+    MigrateLogResponse, OperationRecord, PullLogsRequest, PullLogsResponse,
+    PurgeDirtyForCollectionRequest, PurgeDirtyForCollectionResponse, PurgeFromCacheRequest,
+    PurgeFromCacheResponse, PushLogsRequest, PushLogsResponse, ScoutLogsRequest, ScoutLogsResponse,
+    ScrubLogRequest, ScrubLogResponse, SealLogRequest, SealLogResponse,
+    UpdateCollectionLogOffsetRequest, UpdateCollectionLogOffsetResponse,
 };
 use chroma_types::chroma_proto::{ForkLogsRequest, ForkLogsResponse};
-use chroma_types::CollectionUuid;
+use chroma_types::dirty_log_path_from_hostname;
+use chroma_types::Cmek;
+use chroma_types::{CollectionUuid, DirtyMarker};
 use figment::providers::{Env, Format, Yaml};
 use futures::stream::StreamExt;
 use opentelemetry::metrics::Meter;
@@ -45,11 +46,22 @@ use tonic::{transport::Server, Request, Response, Status};
 use tracing::{Instrument, Level};
 use uuid::Uuid;
 use wal3::{
-    Cursor, CursorName, CursorStore, CursorStoreOptions, Fragment, GarbageCollectionOptions,
-    Limits, LogPosition, LogReader, LogReaderOptions, LogWriter, LogWriterOptions, Manifest,
-    ManifestAndETag, MarkDirty as MarkDirtyTrait, Witness,
+    create_s3_factories, scan_from_manifest, Cursor, CursorName, CursorStore, CursorStoreOptions,
+    CursorWitness, Fragment, FragmentConsumer, FragmentManagerFactory, FragmentSeqNo,
+    GarbageCollectionOptions, Limits, LogPosition, LogReader, LogReaderOptions, LogWriter,
+    LogWriterOptions, Manifest, ManifestAndWitness, ManifestManagerFactory, ManifestReader,
+    MarkDirty as MarkDirtyTrait, S3FragmentManagerFactory, S3FragmentPuller,
+    S3ManifestManagerFactory, Snapshot, SnapshotCache, SnapshotPointer,
 };
 
+/// Concrete type alias for the LogWriter with S3 factories.
+type S3LogWriter =
+    LogWriter<(FragmentSeqNo, LogPosition), S3FragmentManagerFactory, S3ManifestManagerFactory>;
+
+/// Concrete type alias for the LogReader with S3 consumers.
+type S3LogReader = LogReader<(FragmentSeqNo, LogPosition), S3FragmentPuller, ManifestReader>;
+
+mod scrub;
 pub mod state_hash_table;
 
 use crate::state_hash_table::StateHashTable;
@@ -78,6 +90,12 @@ pub struct Metrics {
     dirty_log_records_read: opentelemetry::metrics::Counter<u64>,
     /// A gauge for the number of dirty log collections as of the last rollup.
     dirty_log_collections: opentelemetry::metrics::Gauge<u64>,
+    /// The number of cache get errors.
+    snapshot_cache_get_errors: opentelemetry::metrics::Counter<u64>,
+    /// The number of cache serialization errors during put.
+    snapshot_cache_serialization_errors: opentelemetry::metrics::Counter<u64>,
+    /// The number of cache deserialization errors during get.
+    snapshot_cache_deserialization_errors: opentelemetry::metrics::Counter<u64>,
 }
 
 impl Metrics {
@@ -92,6 +110,13 @@ impl Metrics {
             log_likely_needs_purge_dirty: meter.f64_gauge("log_likely_needs_purge_dirty").build(),
             dirty_log_records_read: meter.u64_counter("dirty_log_records_read").build(),
             dirty_log_collections: meter.u64_gauge("dirty_log_collections").build(),
+            snapshot_cache_get_errors: meter.u64_counter("snapshot_cache_get_errors").build(),
+            snapshot_cache_serialization_errors: meter
+                .u64_counter("snapshot_cache_serialization_errors")
+                .build(),
+            snapshot_cache_deserialization_errors: meter
+                .u64_counter("snapshot_cache_deserialization_errors")
+                .build(),
         }
     }
 }
@@ -108,6 +133,16 @@ pub enum Error {
     CouldNotGetDirtyLogReader,
     #[error("Dirty log writer failed to provide a cursor store")]
     CouldNotGetDirtyLogCursors,
+}
+
+///////////////////////////////////////// InspectedLogState ////////////////////////////////////////
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct InspectedLogState {
+    manifest: Option<Manifest>,
+    witness: Option<CursorWitness>,
+    start: u64,
+    limit: u64,
 }
 
 ///////////////////////////////////////// state maintenance ////////////////////////////////////////
@@ -150,7 +185,7 @@ struct ActiveLog {
     /// writer in sync, every time a writer is created here, a background task that watches
     /// collect_after will set this to None and exit itself.  Thus, we should spawn one background
     /// task for each None->Some transition on this field.
-    log: Option<Arc<LogWriter>>,
+    log: Option<Arc<S3LogWriter>>,
     /// An instant in time after which the background task will set the log to None and exit.
     /// Writers to the log should bump this to be into the future to "heartbeat" the log.  The
     /// method for this is called `keep_alive`.
@@ -218,12 +253,12 @@ impl From<LogKey> for LogStub {
 /// makes sure that it won't be allowed to exist past the lifetime of the handle.  Alternatively,
 /// it keeps the handle alive as long as you have a log-writer reference.
 struct LogRef<'a> {
-    log: Arc<LogWriter>,
+    log: Arc<S3LogWriter>,
     _phantom: std::marker::PhantomData<&'a ()>,
 }
 
 impl std::ops::Deref for LogRef<'_> {
-    type Target = LogWriter;
+    type Target = S3LogWriter;
 
     fn deref(&self) -> &Self::Target {
         &self.log
@@ -236,11 +271,24 @@ async fn get_log_from_handle<'a>(
     storage: &Arc<Storage>,
     prefix: &str,
     mark_dirty: MarkDirty,
+    snapshot_cache: Arc<dyn SnapshotCache>,
+    cmek: Option<Cmek>,
 ) -> Result<LogRef<'a>, wal3::Error> {
     let active = handle.active.lock().await;
-    get_log_from_handle_with_mutex_held(handle, active, options, storage, prefix, mark_dirty).await
+    get_log_from_handle_with_mutex_held(
+        handle,
+        active,
+        options,
+        storage,
+        prefix,
+        mark_dirty,
+        snapshot_cache,
+        cmek,
+    )
+    .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn get_log_from_handle_with_mutex_held<'a>(
     handle: &'a crate::state_hash_table::Handle<LogKey, LogStub>,
     mut active: tokio::sync::MutexGuard<'_, ActiveLog>,
@@ -248,6 +296,8 @@ async fn get_log_from_handle_with_mutex_held<'a>(
     storage: &Arc<Storage>,
     prefix: &str,
     mark_dirty: MarkDirty,
+    snapshot_cache: Arc<dyn SnapshotCache>,
+    cmek: Option<Cmek>,
 ) -> Result<LogRef<'a>, wal3::Error> {
     if active.log.is_some() {
         active.keep_alive(Duration::from_secs(60));
@@ -258,13 +308,25 @@ async fn get_log_from_handle_with_mutex_held<'a>(
             _phantom: std::marker::PhantomData,
         });
     }
-    let opened = LogWriter::open_or_initialize(
+    let mark_dirty_arc: Arc<dyn MarkDirtyTrait> = Arc::new(mark_dirty);
+    let (fragment_publisher_factory, manifest_publisher_factory) = create_s3_factories(
+        options.clone(),
+        LogReaderOptions::default(),
+        Arc::clone(storage),
+        prefix.to_string(),
+        "log writer".to_string(),
+        mark_dirty_arc,
+        snapshot_cache,
+    );
+    let opened = S3LogWriter::open_or_initialize(
         options.clone(),
         Arc::clone(storage),
         prefix,
         // TODO(rescrv):  Configurable params.
         "log writer",
-        mark_dirty.clone(),
+        fragment_publisher_factory,
+        manifest_publisher_factory,
+        cmek,
     )
     .await?;
     active.keep_alive(Duration::from_secs(60));
@@ -326,6 +388,61 @@ impl chroma_cache::Weighted for CachedBytes {
     }
 }
 
+//////////////////////////////////////// PersistentSnapshotCache ////////////////////////////////////
+
+/// A wrapper that adapts `PersistentCache<String, CachedBytes>` to the `SnapshotCache` trait.
+struct PersistentSnapshotCache {
+    collection_id: CollectionUuid,
+    cache: Arc<dyn chroma_cache::PersistentCache<String, CachedBytes>>,
+    get_errors: opentelemetry::metrics::Counter<u64>,
+    serialization_errors: opentelemetry::metrics::Counter<u64>,
+    deserialization_errors: opentelemetry::metrics::Counter<u64>,
+}
+
+impl PersistentSnapshotCache {
+    fn cache_key(&self, ptr: &SnapshotPointer) -> String {
+        format!("{}::snapshot::{}", self.collection_id, ptr.path_to_snapshot)
+    }
+}
+
+#[async_trait::async_trait]
+impl SnapshotCache for PersistentSnapshotCache {
+    async fn get(&self, ptr: &SnapshotPointer) -> Result<Option<Snapshot>, wal3::Error> {
+        let key = self.cache_key(ptr);
+        match self.cache.get(&key).await {
+            Ok(Some(cached)) => match serde_json::from_slice(&cached.bytes) {
+                Ok(snapshot) => Ok(Some(snapshot)),
+                Err(err) => {
+                    self.deserialization_errors.add(1, &[]);
+                    tracing::warn!("failed to deserialize snapshot from cache: {err:?}");
+                    Ok(None)
+                }
+            },
+            Ok(None) => Ok(None),
+            Err(err) => {
+                self.get_errors.add(1, &[]);
+                tracing::warn!("failed to get snapshot from cache: {err:?}");
+                Ok(None)
+            }
+        }
+    }
+
+    async fn put(&self, ptr: &SnapshotPointer, snapshot: &Snapshot) -> Result<(), wal3::Error> {
+        let key = self.cache_key(ptr);
+        let bytes = match serde_json::to_vec(snapshot) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                self.serialization_errors.add(1, &[]);
+                tracing::warn!("failed to serialize snapshot for cache: {err:?}");
+                return Ok(());
+            }
+        };
+        let cached = CachedBytes { bytes };
+        self.cache.insert(key, cached).await;
+        Ok(())
+    }
+}
+
 //////////////////////////////////////// RollupPerCollection ///////////////////////////////////////
 
 /// A summary of the data on the log for a single collection.
@@ -374,7 +491,7 @@ impl RollupPerCollection {
             std::cmp::min(self.initial_insertion_epoch_us, initial_insertion_epoch_us);
     }
 
-    fn witness_cursor(&mut self, witness: Option<&Witness>) {
+    fn witness_cursor(&mut self, witness: Option<&CursorWitness>) {
         // NOTE(rescrv):  There's an easy dance here to justify this as correct.  For the start log
         // position to advance, there must have been at least one GC cycle with a cursor that was
         // something other than 1.  That cursor should never get deleted, therefore we have a
@@ -403,7 +520,7 @@ impl RollupPerCollection {
     fn dirty_marker(&self, collection_id: CollectionUuid) -> DirtyMarker {
         DirtyMarker::MarkDirty {
             collection_id,
-            log_position: self.start_log_position,
+            log_position: self.start_log_position.offset(),
             num_records: self
                 .limit_log_position
                 .offset()
@@ -424,7 +541,7 @@ impl RollupPerCollection {
 ////////////////////////////////////////////// Rollups /////////////////////////////////////////////
 
 struct Rollup {
-    witness: Option<Witness>,
+    witness: Option<CursorWitness>,
     cursor: Cursor,
     last_record_witnessed: LogPosition,
     rollups: HashMap<CollectionUuid, RollupPerCollection>,
@@ -432,89 +549,44 @@ struct Rollup {
 
 //////////////////////////////////////////// DirtyMarker ///////////////////////////////////////////
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-// NOTE(rescrv):  This is intentionally an enum for easy forwards/backwards compatibility.  Add a
-// new variant, handle both variants, cycle logs, stop handling old variant.
-pub enum DirtyMarker {
-    #[serde(rename = "mark_dirty")]
-    MarkDirty {
-        collection_id: CollectionUuid,
-        log_position: LogPosition,
-        num_records: u64,
-        reinsert_count: u64,
-        initial_insertion_epoch_us: u64,
-    },
-    #[serde(rename = "purge")]
-    Purge { collection_id: CollectionUuid },
-    // A Cleared marker is a no-op.  It exists so that a log consisting of mark-dirty markers that
-    // map onto purge markers will be cleared and can be erased.
-    #[serde(rename = "clear")]
-    Cleared,
-}
-
-impl DirtyMarker {
-    /// The collection ID for a given dirty marker.
-    pub fn collection_id(&self) -> CollectionUuid {
-        match self {
-            DirtyMarker::MarkDirty { collection_id, .. } => *collection_id,
-            DirtyMarker::Purge { collection_id } => *collection_id,
-            DirtyMarker::Cleared => CollectionUuid::default(),
-        }
-    }
-
-    /// Increment any reinsert counter on the variant.
-    pub fn reinsert(&mut self) {
-        if let DirtyMarker::MarkDirty {
-            collection_id: _,
-            log_position: _,
-            num_records: _,
-            reinsert_count,
-            initial_insertion_epoch_us: _,
-        } = self
-        {
-            *reinsert_count = reinsert_count.saturating_add(1);
-        }
-    }
-
-    fn coalesce_markers(
-        markers: &[(LogPosition, DirtyMarker)],
-        rollups: &mut HashMap<CollectionUuid, RollupPerCollection>,
-        forget: &mut HashSet<CollectionUuid>,
-    ) -> Result<(), wal3::Error> {
-        for (_, marker) in markers {
-            match marker {
-                DirtyMarker::MarkDirty {
-                    collection_id,
-                    log_position,
-                    num_records,
-                    reinsert_count,
-                    initial_insertion_epoch_us,
-                } => {
-                    let position = rollups.entry(*collection_id).or_insert_with(|| {
-                        RollupPerCollection::new(
-                            *log_position,
-                            *num_records,
-                            *initial_insertion_epoch_us,
-                        )
-                    });
-                    position.observe_dirty_marker(
-                        *log_position,
+fn coalesce_markers(
+    markers: &[(LogPosition, DirtyMarker)],
+    rollups: &mut HashMap<CollectionUuid, RollupPerCollection>,
+    forget: &mut HashSet<CollectionUuid>,
+) -> Result<(), wal3::Error> {
+    for (_, marker) in markers {
+        match marker {
+            DirtyMarker::MarkDirty {
+                collection_id,
+                log_position,
+                num_records,
+                reinsert_count,
+                initial_insertion_epoch_us,
+            } => {
+                let position = rollups.entry(*collection_id).or_insert_with(|| {
+                    RollupPerCollection::new(
+                        LogPosition::from_offset(*log_position),
                         *num_records,
-                        *reinsert_count,
                         *initial_insertion_epoch_us,
-                    );
-                }
-                DirtyMarker::Purge { collection_id } => {
-                    forget.insert(*collection_id);
-                }
-                DirtyMarker::Cleared => {}
+                    )
+                });
+                position.observe_dirty_marker(
+                    LogPosition::from_offset(*log_position),
+                    *num_records,
+                    *reinsert_count,
+                    *initial_insertion_epoch_us,
+                );
             }
+            DirtyMarker::Purge { collection_id } => {
+                forget.insert(*collection_id);
+            }
+            DirtyMarker::Cleared => {}
         }
-        for collection_id in forget.iter() {
-            rollups.remove(collection_id);
-        }
-        Ok(())
     }
+    for collection_id in forget.iter() {
+        rollups.remove(collection_id);
+    }
+    Ok(())
 }
 
 ///////////////////////////////////////////// MarkDirty ////////////////////////////////////////////
@@ -522,12 +594,12 @@ impl DirtyMarker {
 #[derive(Clone, Debug)]
 pub struct MarkDirty {
     collection_id: CollectionUuid,
-    dirty_log: Arc<LogWriter>,
+    dirty_log: Option<Arc<S3LogWriter>>,
 }
 
 impl MarkDirty {
     pub fn path_for_hostname(hostname: &str) -> String {
-        format!("dirty-{}", hostname)
+        dirty_log_path_from_hostname(hostname)
     }
 }
 
@@ -538,24 +610,29 @@ impl wal3::MarkDirty for MarkDirty {
         log_position: LogPosition,
         num_records: usize,
     ) -> Result<(), wal3::Error> {
-        let num_records = num_records as u64;
-        let initial_insertion_epoch_us = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|_| wal3::Error::Internal)?
-            .as_micros() as u64;
-        let dirty_marker = DirtyMarker::MarkDirty {
-            collection_id: self.collection_id,
-            log_position,
-            num_records,
-            reinsert_count: 0,
-            initial_insertion_epoch_us,
-        };
-        let dirty_marker_json = serde_json::to_string(&dirty_marker).map_err(|err| {
-            tracing::error!("Failed to serialize dirty marker: {}", err);
-            wal3::Error::Internal
-        })?;
-        self.dirty_log.append(Vec::from(dirty_marker_json)).await?;
-        Ok(())
+        if let Some(dirty_log) = self.dirty_log.as_ref() {
+            let num_records = num_records as u64;
+            let initial_insertion_epoch_us = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map_err(|_| wal3::Error::internal(file!(), line!()))?
+                .as_micros() as u64;
+            let dirty_marker = DirtyMarker::MarkDirty {
+                collection_id: self.collection_id,
+                log_position: log_position.offset(),
+                num_records,
+                reinsert_count: 0,
+                initial_insertion_epoch_us,
+            };
+            let dirty_marker_json = serde_json::to_string(&dirty_marker).map_err(|err| {
+                tracing::error!("Failed to serialize dirty marker: {}", err);
+                wal3::Error::internal(file!(), line!())
+            })?;
+            dirty_log.append(Vec::from(dirty_marker_json)).await?;
+            Ok(())
+        } else {
+            tracing::error!("asked to mark dirty with no dirty log");
+            Err(wal3::Error::internal(file!(), line!()))
+        }
     }
 }
 
@@ -572,21 +649,83 @@ pub struct LogServer {
     config: LogServerConfig,
     storage: Arc<Storage>,
     open_logs: Arc<StateHashTable<LogKey, LogStub>>,
-    dirty_log: Arc<LogWriter>,
+    dirty_log: Option<Arc<S3LogWriter>>,
     rolling_up: tokio::sync::Mutex<()>,
     backpressure: Mutex<Arc<HashSet<CollectionUuid>>>,
     need_to_compact: Mutex<HashMap<CollectionUuid, RollupPerCollection>>,
-    cache: Option<Box<dyn chroma_cache::PersistentCache<String, CachedBytes>>>,
+    cache: Option<Arc<dyn chroma_cache::PersistentCache<String, CachedBytes>>>,
     metrics: Metrics,
 }
 
 impl LogServer {
+    fn snapshot_cache_for_collection(
+        &self,
+        collection_id: CollectionUuid,
+    ) -> Arc<dyn SnapshotCache> {
+        match &self.cache {
+            Some(cache) => Arc::new(PersistentSnapshotCache {
+                collection_id,
+                cache: Arc::clone(cache),
+                get_errors: self.metrics.snapshot_cache_get_errors.clone(),
+                serialization_errors: self.metrics.snapshot_cache_serialization_errors.clone(),
+                deserialization_errors: self.metrics.snapshot_cache_deserialization_errors.clone(),
+            }),
+            None => Arc::new(()),
+        }
+    }
+
+    /// Creates a LogReader for the given prefix with default (no-op) mark_dirty and snapshot_cache.
+    async fn make_log_reader(&self, prefix: String) -> Result<S3LogReader, wal3::Error> {
+        let (fragment_factory, manifest_factory) = create_s3_factories(
+            self.config.writer.clone(),
+            self.config.reader.clone(),
+            Arc::clone(&self.storage),
+            prefix.clone(),
+            String::new(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let fragment_consumer = fragment_factory.make_consumer().await?;
+        let manifest_consumer = manifest_factory.make_consumer().await?;
+        Ok(LogReader::new(
+            self.config.reader.clone(),
+            fragment_consumer,
+            manifest_consumer,
+        ))
+    }
+
+    /// Creates a LogReader with default options for the given storage and prefix.
+    async fn make_log_reader_with_defaults(
+        storage: Arc<Storage>,
+        prefix: String,
+    ) -> Result<S3LogReader, wal3::Error> {
+        let writer_options = LogWriterOptions::default();
+        let reader_options = LogReaderOptions::default();
+        let (fragment_factory, manifest_factory) = create_s3_factories(
+            writer_options,
+            reader_options.clone(),
+            Arc::clone(&storage),
+            prefix.clone(),
+            String::new(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let fragment_consumer = fragment_factory.make_consumer().await?;
+        let manifest_consumer = manifest_factory.make_consumer().await?;
+        Ok(LogReader::new(
+            reader_options,
+            fragment_consumer,
+            manifest_consumer,
+        ))
+    }
+
     fn set_backpressure(&self, to_pressure: &[CollectionUuid]) {
         let mut new_backpressure = Arc::new(HashSet::from_iter(to_pressure.iter().cloned()));
         let mut backpressure = self.backpressure.lock();
         std::mem::swap(&mut *backpressure, &mut new_backpressure);
     }
 
+    #[allow(clippy::result_large_err)]
     fn check_for_backpressure(&self, collection_id: CollectionUuid) -> Result<(), Status> {
         let backpressure = {
             let backpressure = self.backpressure.lock();
@@ -598,6 +737,26 @@ impl LogServer {
         Ok(())
     }
 
+    /// Verify that the service is not in read-only mode.
+    #[allow(clippy::result_large_err)]
+    fn ensure_write_mode(&self) -> Result<(), Status> {
+        if self.dirty_log.is_none() {
+            // NOTE(rescrv):  This should NEVER happen in production.
+            //
+            // If it does happen, it is better to reject writes than to silently write data that
+            // will never be accounted for by billing or compaction.
+            Err(Status::permission_denied(
+                "service is in read-only mode because it has no dirty log",
+            ))
+        } else if self.config.is_read_only() {
+            Err(Status::permission_denied(
+                "service is in read-only mode because of operator configuration",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     #[tracing::instrument(skip(self, request), err(Display))]
     async fn _update_collection_log_offset(
         &self,
@@ -605,6 +764,7 @@ impl LogServer {
         active: tokio::sync::MutexGuard<'_, ActiveLog>,
         allow_rollback: bool,
     ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
+        self.ensure_write_mode()?;
         let request = request.into_inner();
         let adjusted_log_offset = request.log_offset + 1;
         let collection_id = Uuid::parse_str(&request.collection_id)
@@ -619,13 +779,14 @@ impl LogServer {
         let handle = self.open_logs.get_or_create_state(key);
         let mark_dirty = MarkDirty {
             collection_id,
-            dirty_log: Arc::clone(&self.dirty_log),
+            dirty_log: self.dirty_log.clone(),
         };
         // NOTE(rescrv):  We use the writer and fall back to constructing a local reader in order
         // to force a read-repair of the collection when things partially fail.
         //
         // The writer will read the manifest, and try to read the next fragment.  This adds
         // latency, but improves correctness.
+        let snapshot_cache = self.snapshot_cache_for_collection(collection_id);
         let log = get_log_from_handle_with_mutex_held(
             &handle,
             active,
@@ -633,17 +794,19 @@ impl LogServer {
             &self.storage,
             &storage_prefix,
             mark_dirty,
+            snapshot_cache,
+            None, // Offset updates don't use CMEK
         )
         .await
         .map_err(|err| Status::unknown(err.to_string()))?;
 
-        let log_reader = log
-            .reader(self.config.reader.clone())
-            .unwrap_or(LogReader::new(
-                self.config.reader.clone(),
-                Arc::clone(&self.storage),
-                storage_prefix.clone(),
-            ));
+        let log_reader = match log.reader(self.config.reader.clone()).await {
+            Some(reader) => reader,
+            None => self
+                .make_log_reader(storage_prefix.clone())
+                .await
+                .map_err(|err| Status::unknown(err.to_string()))?,
+        };
 
         let res = log_reader.next_write_timestamp().await;
         if let Err(wal3::Error::UninitializedLog) = res {
@@ -672,7 +835,7 @@ impl LogServer {
             position: LogPosition::from_offset(adjusted_log_offset as u64),
             epoch_us: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
-                .map_err(|_| wal3::Error::Internal)
+                .map_err(|_| wal3::Error::internal(file!(), line!()))
                 .unwrap()
                 .as_micros() as u64,
             writer: "TODO".to_string(),
@@ -710,7 +873,7 @@ impl LogServer {
         if allow_rollback {
             let mark_dirty = MarkDirty {
                 collection_id,
-                dirty_log: Arc::clone(&self.dirty_log),
+                dirty_log: self.dirty_log.clone(),
             };
             let _ = mark_dirty
                 .mark_dirty(LogPosition::from_offset(adjusted_log_offset as u64), 1usize)
@@ -795,7 +958,11 @@ impl LogServer {
     async fn roll_dirty_log(&self) -> Result<(), Error> {
         // Ensure at most one request at a time.
         let _guard = self.rolling_up.lock().await;
-        let mut rollup = self.read_and_coalesce_dirty_log().await?;
+        let Some(dirty_log) = self.dirty_log.as_ref() else {
+            tracing::error!("roll dirty log called with no dirty log configured");
+            return Err(Error::CouldNotGetDirtyLogReader);
+        };
+        let mut rollup = self.read_and_coalesce_dirty_log(dirty_log).await?;
         if rollup.rollups.is_empty() {
             tracing::info!("rollups is empty");
             let backpressure = vec![];
@@ -814,10 +981,14 @@ impl LogServer {
             .dirty_log_collections
             .record(collections as u64, &[]);
         self.enrich_dirty_log(&mut rollup.rollups).await?;
-        self.save_dirty_log(rollup).await
+        self.save_dirty_log(rollup, dirty_log).await
     }
 
-    async fn save_dirty_log(&self, mut rollup: Rollup) -> Result<(), Error> {
+    async fn save_dirty_log(
+        &self,
+        mut rollup: Rollup,
+        dirty_log: &S3LogWriter,
+    ) -> Result<(), Error> {
         let mut markers = vec![];
         let mut backpressure = vec![];
         let mut total_uncompacted = 0;
@@ -839,12 +1010,12 @@ impl LogServer {
             markers.push(serde_json::to_string(&DirtyMarker::Cleared).map(Vec::from)?);
         }
         let mut new_cursor = rollup.cursor.clone();
-        match self.dirty_log.append_many(markers).await {
+        match dirty_log.append_many(markers).await {
             Ok(_) | Err(wal3::Error::LogContentionDurable) => Ok(()),
             Err(err) => Err(err),
         }?;
         new_cursor.position = rollup.last_record_witnessed + 1u64;
-        let Some(cursors) = self.dirty_log.cursors(CursorStoreOptions::default()) else {
+        let Some(cursors) = dirty_log.cursors(CursorStoreOptions::default()) else {
             return Err(Error::CouldNotGetDirtyLogCursors);
         };
         tracing::info!(
@@ -861,19 +1032,47 @@ impl LogServer {
             .log_total_uncompacted_records_count
             .record(total_uncompacted as f64, &[]);
         self.set_backpressure(&backpressure);
-        let mut need_to_compact = self.need_to_compact.lock();
-        std::mem::swap(&mut *need_to_compact, &mut rollup.rollups);
+        let after = rollup.rollups.clone();
+        {
+            let mut need_to_compact = self.need_to_compact.lock();
+            std::mem::swap(&mut *need_to_compact, &mut rollup.rollups);
+        }
+        // NOTE(rescrv):  This is protection against a collection hopping from one log to another
+        // permanently.  Every reinsert_threshold reinserts it will remove the cached compaction
+        // cursor, which will, on the next dirty log rollup, update the lower bound on the cursor,
+        // restoring order to the dirty log.
+        if let Some(cache) = self.cache.as_ref() {
+            let mut cache_collections_to_purge = Vec::with_capacity(after.len());
+            let before = rollup.rollups;
+            // Guard against division by zero if reinsert_threshold is misconfigured to 0.
+            if self.config.reinsert_threshold > 0 {
+                for (collection_id, after_state) in after.into_iter() {
+                    let Some(before_state) = before.get(&collection_id) else {
+                        continue;
+                    };
+                    if before_state.reinsert_count / self.config.reinsert_threshold
+                        != after_state.reinsert_count / self.config.reinsert_threshold
+                    {
+                        cache_collections_to_purge.push(collection_id);
+                    }
+                }
+            }
+            for collection_id in cache_collections_to_purge {
+                let cache_key = cache_key_for_cursor(collection_id, &COMPACTION);
+                cache.remove(&cache_key).await;
+            }
+        }
         Ok(())
     }
 
     /// Read the entirety of a prefix of the dirty log.
     #[tracing::instrument(skip(self), err(Display))]
     #[allow(clippy::type_complexity)]
-    async fn read_and_coalesce_dirty_log(&self) -> Result<Rollup, Error> {
-        let Some(reader) = self.dirty_log.reader(LogReaderOptions::default()) else {
+    async fn read_and_coalesce_dirty_log(&self, dirty_log: &S3LogWriter) -> Result<Rollup, Error> {
+        let Some(reader) = dirty_log.reader(LogReaderOptions::default()).await else {
             return Err(Error::CouldNotGetDirtyLogReader);
         };
-        let Some(cursors) = self.dirty_log.cursors(CursorStoreOptions::default()) else {
+        let Some(cursors) = dirty_log.cursors(CursorStoreOptions::default()) else {
             return Err(Error::CouldNotGetDirtyLogCursors);
         };
         let witness = cursors.load(&STABLE_PREFIX).await?;
@@ -932,7 +1131,7 @@ impl LogServer {
         let dirty_futures = dirty_fragments
             .iter()
             .map(|fragment| async {
-                let (_, records, _) = reader.read_parquet(fragment).await?;
+                let (_, records, _, _) = reader.read_parquet(fragment).await?;
                 let records = records
                     .into_iter()
                     .flat_map(|x| match serde_json::from_slice::<DirtyMarker>(&x.1) {
@@ -956,7 +1155,7 @@ impl LogServer {
                 // twice.  Further, we need to track every forget call to remove down below before
                 // we return the rollup.
                 let mut forget = HashSet::default();
-                DirtyMarker::coalesce_markers(&records, &mut rollup.rollups, &mut forget)?;
+                coalesce_markers(&records, &mut rollup.rollups, &mut forget)?;
                 rollup.forget.extend(forget);
                 Ok::<(), Error>(())
             })
@@ -1008,7 +1207,7 @@ impl LogServer {
                 let mut _active = handle.active.lock().await;
                 let cache_key = cache_key_for_cursor(collection_id, cursor);
                 if let Ok(Some(json_witness)) = cache.get(&cache_key).await {
-                    let witness: Witness = serde_json::from_slice(&json_witness.bytes)?;
+                    let witness: CursorWitness = serde_json::from_slice(&json_witness.bytes)?;
                     return Ok((Some(witness), None));
                 }
                 let load_span = tracing::info_span!("cursor load");
@@ -1028,17 +1227,14 @@ impl LogServer {
             // NOTE(rescrv):  This may turn out to be a bad idea, but do not load the manifest from
             // cache in order to prevent a stale cache from perpetually returning a stale result.
             let manifest = if witness.is_none() {
-                let reader = LogReader::open(
-                    LogReaderOptions::default(),
-                    Arc::clone(storage),
-                    collection_id.storage_prefix_for_log(),
-                )
-                .await?;
+                let prefix = collection_id.storage_prefix_for_log();
+                let reader =
+                    Self::make_log_reader_with_defaults(Arc::clone(storage), prefix).await?;
                 reader.manifest().await?
             } else {
                 None
             };
-            Ok::<(Option<Witness>, Option<Manifest>), Error>((witness, manifest))
+            Ok::<(Option<CursorWitness>, Option<Manifest>), Error>((witness, manifest))
         };
         let mut futures = Vec::with_capacity(rollups.len());
         for (collection_id, mut rollup) in std::mem::take(rollups) {
@@ -1084,6 +1280,9 @@ impl LogServer {
     }
 
     pub async fn background_task(&self) {
+        if self.config.is_read_only() {
+            return;
+        }
         loop {
             tokio::time::sleep(self.config.rollup_interval).await;
             if let Err(err) = self.roll_dirty_log().await {
@@ -1096,6 +1295,7 @@ impl LogServer {
         &self,
         request: Request<PushLogsRequest>,
     ) -> Result<Response<PushLogsResponse>, Status> {
+        self.ensure_write_mode()?;
         let push_logs = request.into_inner();
         let collection_id = Uuid::parse_str(&push_logs.collection_id)
             .map(CollectionUuid)
@@ -1108,20 +1308,33 @@ impl LogServer {
         }
         self.check_for_backpressure(collection_id)?;
 
+        // Extract CMEK from request
+        let cmek = push_logs
+            .cmek
+            .map(Cmek::try_from)
+            .transpose()
+            .map_err(|e| {
+                tracing::error!("Failed to convert CMEK: {}", e);
+                Status::invalid_argument("Invalid CMEK configuration")
+            })?;
+
         tracing::info!("Pushing logs for collection {}", collection_id);
         let prefix = collection_id.storage_prefix_for_log();
         let key = LogKey { collection_id };
         let handle = self.open_logs.get_or_create_state(key);
         let mark_dirty = MarkDirty {
             collection_id,
-            dirty_log: Arc::clone(&self.dirty_log),
+            dirty_log: self.dirty_log.clone(),
         };
+        let snapshot_cache = self.snapshot_cache_for_collection(collection_id);
         let log = match get_log_from_handle(
             &handle,
             &self.config.writer,
             &self.storage,
             &prefix,
             mark_dirty,
+            snapshot_cache,
+            cmek,
         )
         .await
         {
@@ -1156,7 +1369,7 @@ impl LogServer {
         };
         if let Some(cache) = self.cache.as_ref() {
             let cache_key = cache_key_for_manifest_and_etag(collection_id);
-            if let Some(manifest_and_etag) = log.manifest_and_etag() {
+            if let Ok(manifest_and_etag) = log.manifest_and_witness().await {
                 if let Ok(manifest_and_etag_bytes) = serde_json::to_vec(&manifest_and_etag) {
                     let cache_value = CachedBytes {
                         bytes: manifest_and_etag_bytes,
@@ -1180,16 +1393,15 @@ impl LogServer {
             .map(CollectionUuid)
             .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
         let prefix = collection_id.storage_prefix_for_log();
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&self.storage),
-            prefix,
-        );
+        let log_reader = self
+            .make_log_reader(prefix)
+            .await
+            .map_err(|err| Status::unknown(err.to_string()))?;
         let cache_key = cache_key_for_manifest_and_etag(collection_id);
         let mut cached_manifest_and_e_tag = None;
         if let Some(cache) = self.cache.as_ref() {
             if let Some(cache_bytes) = cache.get(&cache_key).await.ok().flatten() {
-                let met = serde_json::from_slice::<ManifestAndETag>(&cache_bytes.bytes).ok();
+                let met = serde_json::from_slice::<ManifestAndWitness>(&cache_bytes.bytes).ok();
                 cached_manifest_and_e_tag = met;
             }
         }
@@ -1207,43 +1419,44 @@ impl LogServer {
                 cached_manifest_and_e_tag.take();
             }
         }
-        let (start_position, limit_position) =
-            if let Some(manifest_and_e_tag) = cached_manifest_and_e_tag {
-                (
-                    manifest_and_e_tag.manifest.oldest_timestamp(),
-                    manifest_and_e_tag.manifest.next_write_timestamp(),
-                )
-            } else {
-                let (start_position, limit_position) = match log_reader.manifest_and_e_tag().await {
-                    Ok(Some(manifest_and_e_tag)) => {
-                        if let Some(cache) = self.cache.as_ref() {
-                            let json = serde_json::to_string(&manifest_and_e_tag)
-                                .map_err(|err| Status::unknown(err.to_string()))?;
-                            let cached_bytes = CachedBytes {
-                                bytes: Vec::from(json),
-                            };
-                            cache.insert(cache_key, cached_bytes).await;
-                        }
-                        (
-                            manifest_and_e_tag.manifest.oldest_timestamp(),
-                            manifest_and_e_tag.manifest.next_write_timestamp(),
-                        )
+        let (start_position, limit_position) = if let Some(manifest_and_e_tag) =
+            cached_manifest_and_e_tag
+        {
+            (
+                manifest_and_e_tag.manifest.oldest_timestamp(),
+                manifest_and_e_tag.manifest.next_write_timestamp(),
+            )
+        } else {
+            let (start_position, limit_position) = match log_reader.manifest_and_witness().await {
+                Ok(Some(manifest_and_e_tag)) => {
+                    if let Some(cache) = self.cache.as_ref() {
+                        let json = serde_json::to_string(&manifest_and_e_tag)
+                            .map_err(|err| Status::unknown(err.to_string()))?;
+                        let cached_bytes = CachedBytes {
+                            bytes: Vec::from(json),
+                        };
+                        cache.insert(cache_key, cached_bytes).await;
                     }
-                    Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
-                    Err(wal3::Error::UninitializedLog) => {
-                        return Err(Status::not_found(format!(
-                            "collection {collection_id} not found"
-                        )));
-                    }
-                    Err(err) => {
-                        return Err(Status::new(
-                            err.code().into(),
-                            format!("could not scout logs: {err:?}"),
-                        ));
-                    }
-                };
-                (start_position, limit_position)
+                    (
+                        manifest_and_e_tag.manifest.oldest_timestamp(),
+                        manifest_and_e_tag.manifest.next_write_timestamp(),
+                    )
+                }
+                Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
+                Err(wal3::Error::UninitializedLog) => {
+                    return Err(Status::not_found(format!(
+                        "collection {collection_id} not found"
+                    )));
+                }
+                Err(err) => {
+                    return Err(Status::new(
+                        err.code().into(),
+                        format!("could not scout logs: {err:?}"),
+                    ));
+                }
             };
+            (start_position, limit_position)
+        };
         let start_offset = start_position.offset() as i64;
         let limit_offset = limit_position.offset() as i64;
         Ok(Response::new(ScoutLogsResponse {
@@ -1277,14 +1490,14 @@ impl LogServer {
         if let Some(cache) = self.cache.as_ref() {
             let cache_key = cache_key_for_manifest_and_etag(collection_id);
             let cached_bytes = cache.get(&cache_key).await.ok().flatten()?;
-            let manifest_and_etag: ManifestAndETag =
+            let manifest_and_etag: ManifestAndWitness =
                 serde_json::from_slice(&cached_bytes.bytes).ok()?;
             let limits = Limits {
                 max_files: Some(pull_logs.batch_size as u64 + 1),
                 max_bytes: None,
                 max_records: Some(pull_logs.batch_size as u64),
             };
-            LogReader::scan_from_manifest(
+            scan_from_manifest(
                 &manifest_and_etag.manifest,
                 LogPosition::from_offset(pull_logs.start_from_offset as u64),
                 limits,
@@ -1300,11 +1513,7 @@ impl LogServer {
         pull_logs: &PullLogsRequest,
     ) -> Result<Vec<Fragment>, wal3::Error> {
         let prefix = collection_id.storage_prefix_for_log();
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&self.storage),
-            prefix,
-        );
+        let log_reader = self.make_log_reader(prefix).await?;
         let limits = Limits {
             max_files: Some(pull_logs.batch_size as u64 + 1),
             max_bytes: None,
@@ -1345,20 +1554,26 @@ impl LogServer {
             .iter()
             .map(|fragment| async {
                 let prefix = collection_id.storage_prefix_for_log();
+                let puller = S3FragmentPuller::new(
+                    self.config.reader.clone(),
+                    Arc::clone(&self.storage),
+                    prefix.clone(),
+                );
                 if let Some(cache) = self.cache.as_ref() {
                     let cache_key = cache_key_for_fragment(collection_id, &fragment.path);
                     if let Ok(Some(answer)) = cache.get(&cache_key).await {
                         return Ok(Arc::new(answer.bytes));
                     }
-                    let answer =
-                        LogReader::stateless_fetch(&self.storage, &prefix, fragment).await?;
+                    let answer = puller
+                        .read_raw_bytes(&fragment.path, fragment.start)
+                        .await?;
                     let cache_value = CachedBytes {
                         bytes: Clone::clone(&*answer),
                     };
                     cache.insert(cache_key, cache_value).await;
                     Ok(answer)
                 } else {
-                    LogReader::stateless_fetch(&self.storage, &prefix, fragment).await
+                    puller.read_raw_bytes(&fragment.path, fragment.start).await
                 }
             })
             .collect::<Vec<_>>();
@@ -1398,6 +1613,7 @@ impl LogServer {
         &self,
         request: Request<ForkLogsRequest>,
     ) -> Result<Response<ForkLogsResponse>, Status> {
+        self.ensure_write_mode()?;
         let request = request.into_inner();
         let source_collection_id = Uuid::parse_str(&request.source_collection_id)
             .map(CollectionUuid)
@@ -1415,11 +1631,10 @@ impl LogServer {
             source_collection_id = source_collection_id.to_string(),
             target_collection_id = target_collection_id.to_string(),
         );
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&storage),
-            source_prefix.clone(),
-        );
+        let log_reader = self
+            .make_log_reader(source_prefix.clone())
+            .await
+            .map_err(|err| Status::unknown(err.to_string()))?;
         let cursors = CursorStore::new(
             CursorStoreOptions::default(),
             Arc::clone(&storage),
@@ -1431,52 +1646,92 @@ impl LogServer {
             Status::new(err.code().into(), format!("Failed to load cursor: {}", err))
         })?;
         // This is the existing compaction_offset, which is the next record to compact.
-        let offset = witness
-            .map(|x| x.cursor.position)
-            .unwrap_or(LogPosition::from_offset(1));
-        tracing::event!(Level::INFO, offset = ?offset);
-        wal3::copy(
-            &storage,
-            &options,
-            &log_reader,
-            offset,
+        let cursor = witness.map(|x| x.cursor.position);
+        tracing::event!(Level::INFO, offset = ?cursor);
+        let (target_fragment_factory, target_manifest_factory) = create_s3_factories(
+            options,
+            self.config.reader.clone(),
+            Arc::clone(&storage),
             target_prefix.clone(),
+            "copy".to_string(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let target_fragment_publisher =
+            target_fragment_factory
+                .make_publisher()
+                .await
+                .map_err(|err| {
+                    Status::new(
+                        err.code().into(),
+                        format!("Failed to create fragment publisher: {}", err),
+                    )
+                })?;
+        wal3::copy(
+            &log_reader,
+            cursor.unwrap_or(LogPosition::from_offset(1)),
+            &target_fragment_publisher,
+            target_manifest_factory,
+            None,
         )
         .await
         .map_err(|err| Status::new(err.code().into(), format!("Failed to copy log: {}", err)))?;
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&storage),
-            target_prefix,
-        );
+        let log_reader = self
+            .make_log_reader(target_prefix)
+            .await
+            .map_err(|err| Status::unknown(err.to_string()))?;
+        let new_manifest = log_reader
+            .manifest()
+            .await
+            .map_err(|err| {
+                Status::new(
+                    err.code().into(),
+                    format!("Unable to read copied manifest: {}", err),
+                )
+            })?
+            .ok_or_else(|| Status::internal("Unable to find copied manifest"))?;
+        let first_copied_offset = new_manifest.oldest_timestamp();
         // This is the next record to insert, so we'll have to adjust downwards.
-        let max_offset = log_reader.next_write_timestamp().await.map_err(|err| {
-            Status::new(
-                err.code().into(),
-                format!("Failed to read copied log: {}", err),
-            )
-        })?;
-        if max_offset < offset {
-            return Err(Status::new(
-                chroma_error::ErrorCodes::Internal.into(),
-                format!("max_offset={:?} < offset={:?}", max_offset, offset),
-            ));
+        let max_offset = new_manifest.next_write_timestamp();
+        if let Some(cursor) = cursor {
+            if cursor < first_copied_offset {
+                return Err(Status::internal(format!(
+                    "Compaction cursor {} is behind start of manifest {}",
+                    cursor.offset(),
+                    first_copied_offset.offset()
+                )));
+            }
+            if max_offset < cursor {
+                return Err(Status::new(
+                    chroma_error::ErrorCodes::Internal.into(),
+                    format!(
+                        "Compaction cursor {} is after end of manifest {}",
+                        cursor.offset(),
+                        max_offset.offset()
+                    ),
+                ));
+            }
         }
-        if offset != max_offset {
+
+        let cursor = cursor.unwrap_or(LogPosition::from_offset(1));
+        if cursor != max_offset {
             let mark_dirty = MarkDirty {
                 collection_id: target_collection_id,
-                dirty_log: Arc::clone(&self.dirty_log),
+                dirty_log: self.dirty_log.clone(),
             };
             let _ = mark_dirty
-                .mark_dirty(offset, (max_offset - offset) as usize)
+                .mark_dirty(cursor, (max_offset - cursor) as usize)
                 .await;
         }
-        tracing::event!(Level::INFO, compaction_offset =? offset.offset() - 1, enumeration_offset =? (max_offset - 1u64).offset());
+
+        let compaction_offset = (cursor - 1u64).offset();
+        let enumeration_offset = (max_offset - 1u64).offset();
+        tracing::event!(Level::INFO, compaction_offset, enumeration_offset);
         Ok(Response::new(ForkLogsResponse {
             // NOTE: The upstream service expects the last compacted offset as compaction offset
-            compaction_offset: (offset - 1u64).offset(),
+            compaction_offset,
             // NOTE: The upstream service expects the last uncompacted offset as enumeration offset
-            enumeration_offset: (max_offset - 1u64).offset(),
+            enumeration_offset,
         }))
     }
 
@@ -1492,6 +1747,7 @@ impl LogServer {
         &self,
         request: Request<UpdateCollectionLogOffsetRequest>,
     ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
+        self.ensure_write_mode()?;
         let request = request.into_inner();
         let collection_id = Uuid::parse_str(&request.collection_id)
             .map(CollectionUuid)
@@ -1509,6 +1765,7 @@ impl LogServer {
         &self,
         request: Request<UpdateCollectionLogOffsetRequest>,
     ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
+        self.ensure_write_mode()?;
         let request = request.into_inner();
         let collection_id = Uuid::parse_str(&request.collection_id)
             .map(CollectionUuid)
@@ -1527,6 +1784,7 @@ impl LogServer {
         &self,
         request: Request<PurgeDirtyForCollectionRequest>,
     ) -> Result<Response<PurgeDirtyForCollectionResponse>, Status> {
+        self.ensure_write_mode()?;
         let request = request.into_inner();
         let collection_ids = request
             .collection_ids
@@ -1544,11 +1802,16 @@ impl LogServer {
             })
             .collect::<Result<_, _>>()
             .map_err(|err| Status::internal(format!("Failed to serialize dirty marker: {err}")))?;
-        self.dirty_log
-            .append_many(dirty_marker_json_blobs)
-            .await
-            .map_err(|err| Status::new(err.code().into(), err.to_string()))?;
-        Ok(Response::new(PurgeDirtyForCollectionResponse {}))
+        if let Some(dirty_log) = self.dirty_log.as_ref() {
+            dirty_log
+                .append_many(dirty_marker_json_blobs)
+                .await
+                .map_err(|err| Status::new(err.code().into(), err.to_string()))?;
+            Ok(Response::new(PurgeDirtyForCollectionResponse {}))
+        } else {
+            tracing::error!("dirty log not set and purge dirty received");
+            Err(Status::failed_precondition("dirty log not configured"))
+        }
     }
 
     #[tracing::instrument(skip(self, _request))]
@@ -1556,10 +1819,13 @@ impl LogServer {
         &self,
         _request: Request<InspectDirtyLogRequest>,
     ) -> Result<Response<InspectDirtyLogResponse>, Status> {
-        let Some(reader) = self.dirty_log.reader(LogReaderOptions::default()) else {
+        let Some(dirty_log) = self.dirty_log.as_ref() else {
+            return Err(Status::unavailable("dirty log not configured"));
+        };
+        let Some(reader) = dirty_log.reader(LogReaderOptions::default()).await else {
             return Err(Status::unavailable("Failed to get dirty log reader"));
         };
-        let Some(cursors) = self.dirty_log.cursors(CursorStoreOptions::default()) else {
+        let Some(cursors) = dirty_log.cursors(CursorStoreOptions::default()) else {
             return Err(Status::unavailable("Failed to get dirty log cursors"));
         };
         let witness = match cursors.load(&STABLE_PREFIX).await {
@@ -1595,7 +1861,7 @@ impl LogServer {
                 )
             })?;
         let mut markers = vec![];
-        for (_, records, _) in dirty_raw {
+        for (_, records, _, _) in dirty_raw {
             let records = records
                 .into_iter()
                 .map(|x| String::from_utf8(x.1))
@@ -1637,17 +1903,17 @@ impl LogServer {
             .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
         tracing::info!("inspect_log_state for {collection_id}");
         let storage_prefix = collection_id.storage_prefix_for_log();
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&self.storage),
-            storage_prefix.clone(),
-        );
+        let log_reader = self
+            .make_log_reader(storage_prefix.clone())
+            .await
+            .map_err(|err| Status::unknown(err.to_string()))?;
         let mani = log_reader.manifest().await;
         if let Err(wal3::Error::UninitializedLog) = mani {
             return Ok(Response::new(InspectLogStateResponse {
                 debug: "log uninitialized\n".to_string(),
                 start: 0,
                 limit: 0,
+                json: "{}".to_string(),
             }));
         }
         let mani = mani.map_err(|err| Status::unknown(err.to_string()))?;
@@ -1672,70 +1938,28 @@ impl LogServer {
         } else {
             (0, 0)
         };
-        Ok(Response::new(InspectLogStateResponse {
-            debug: format!("manifest: {mani:#?}\ncompaction cursor: {witness:?}"),
+        let debug = format!("manifest: {mani:#?}\ncompaction cursor: {witness:?}");
+        let inspected = InspectedLogState {
+            manifest: mani,
+            witness,
             start,
             limit,
+        };
+        let json =
+            serde_json::to_string(&inspected).map_err(|err| Status::internal(err.to_string()))?;
+        Ok(Response::new(InspectLogStateResponse {
+            debug,
+            start,
+            limit,
+            json,
         }))
-    }
-
-    async fn scrub_log(
-        &self,
-        request: Request<ScrubLogRequest>,
-    ) -> Result<Response<ScrubLogResponse>, Status> {
-        let scrub_log = request.into_inner();
-
-        let path = match scrub_log.log_to_scrub {
-            Some(LogToScrub::CollectionId(x)) => {
-                let collection_id = Uuid::parse_str(&x)
-                    .map(CollectionUuid)
-                    .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
-                collection_id.storage_prefix_for_log()
-            }
-            Some(LogToScrub::DirtyLog(host)) => MarkDirty::path_for_hostname(&host),
-            None => {
-                return Err(Status::not_found("log not found because it's null"));
-            }
-        };
-        let reader = LogReader::open(LogReaderOptions::default(), Arc::clone(&self.storage), path)
-            .await
-            .map_err(|err| Status::new(err.code().into(), err.to_string()))?;
-        let limits = Limits {
-            max_files: Some(scrub_log.max_files_to_read.into()),
-            max_bytes: Some(scrub_log.max_bytes_to_read),
-            max_records: None,
-        };
-        let result = reader.scrub(limits).await;
-        match result {
-            Ok(success) => {
-                let mut errors = vec![];
-                if success.short_read {
-                    errors.push("short read".to_string())
-                }
-                Ok(Response::new(ScrubLogResponse {
-                    calculated_setsum: success.calculated_setsum.hexdigest(),
-                    bytes_read: success.bytes_read,
-                    errors,
-                }))
-            }
-            Err(errors) => {
-                let errors = errors
-                    .into_iter()
-                    .map(|err| err.to_string())
-                    .collect::<Vec<_>>();
-                Ok(Response::new(ScrubLogResponse {
-                    calculated_setsum: "<not calculated; bytes_read will be off>".to_string(),
-                    bytes_read: 0,
-                    errors,
-                }))
-            }
-        }
     }
 
     async fn garbage_collect_phase2(
         &self,
         request: Request<GarbageCollectPhase2Request>,
     ) -> Result<Response<GarbageCollectPhase2Response>, Status> {
+        self.ensure_write_mode()?;
         let gc2 = request.into_inner();
 
         fn handle_error_properly(err: wal3::Error) -> Status {
@@ -1755,15 +1979,18 @@ impl LogServer {
                 let key = LogKey { collection_id };
                 let mark_dirty = MarkDirty {
                     collection_id,
-                    dirty_log: Arc::clone(&self.dirty_log),
+                    dirty_log: self.dirty_log.clone(),
                 };
                 let handle = self.open_logs.get_or_create_state(key);
+                let snapshot_cache = self.snapshot_cache_for_collection(collection_id);
                 let log = get_log_from_handle(
                     &handle,
                     &self.config.writer,
                     &self.storage,
                     &prefix,
                     mark_dirty,
+                    snapshot_cache,
+                    None, // GC doesn't use CMEK
                 )
                 .await
                 .map_err(handle_error_properly)?;
@@ -1779,10 +2006,17 @@ impl LogServer {
                         ));
                 }
                 tracing::event!(Level::INFO, host =? host);
-                self.dirty_log
+                if let Some(dirty_log) = self.dirty_log.as_ref() {
+                    dirty_log
                     .garbage_collect_phase2_update_manifest(&GarbageCollectionOptions::default())
                     .await
                     .map_err(|err| Status::unknown(err.to_string()))?;
+                } else {
+                    tracing::error!("Could not garbage collect dirty log.");
+                    return Err(Status::failed_precondition(
+                        "no dirty log configured for garbage collection".to_string(),
+                    ));
+                }
                 Ok(Response::new(GarbageCollectPhase2Response {}))
             }
             None => Err(Status::not_found("log not found because it's null")),
@@ -1793,6 +2027,7 @@ impl LogServer {
         &self,
         request: Request<PurgeFromCacheRequest>,
     ) -> Result<Response<PurgeFromCacheResponse>, Status> {
+        self.ensure_write_mode()?;
         let purge = request.into_inner();
 
         let key = match purge.entry_to_evict {
@@ -1941,6 +2176,7 @@ impl LogService for LogServerWrapper {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn parquet_to_records(parquet: Arc<Vec<u8>>) -> Result<Vec<(LogPosition, Vec<u8>)>, Status> {
     let parquet = match Arc::try_unwrap(parquet) {
         Ok(parquet) => parquet,
@@ -2011,13 +2247,14 @@ impl LogServerWrapper {
         let addr = format!("[::]:{}", log_server.config.port).parse().unwrap();
         println!("Log listening on {}", addr);
 
-        let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+        let (health_reporter, health_service) = tonic_health::server::health_reporter();
         health_reporter
             .set_serving::<chroma_types::chroma_proto::log_service_server::LogServiceServer<Self>>()
             .await;
 
         let max_encoding_message_size = log_server.config.max_encoding_message_size;
         let max_decoding_message_size = log_server.config.max_decoding_message_size;
+        let max_concurrent_streams = log_server.config.grpc_max_concurrent_streams;
         let shutdown_grace_period = log_server.config.grpc_shutdown_grace_period;
 
         let wrapper = LogServerWrapper {
@@ -2027,6 +2264,7 @@ impl LogServerWrapper {
         let background =
             tokio::task::spawn(async move { background_server.background_task().await });
         let server = Server::builder()
+            .max_concurrent_streams(Some(max_concurrent_streams))
             .layer(chroma_tracing::GrpcServerTraceLayer)
             .add_service(health_service)
             .add_service(
@@ -2099,7 +2337,7 @@ impl RootConfig {
     /// # Notes
     /// The default location is the current working directory, with the filename chroma_config.yaml.
     /// The environment variables are prefixed with CHROMA_ and are uppercase.
-    /// Values in the envionment variables take precedence over values in the YAML file.
+    /// Values in the environment variables take precedence over values in the YAML file.
     pub fn load() -> Self {
         Self::load_from_path(DEFAULT_CONFIG_PATH)
     }
@@ -2118,7 +2356,7 @@ impl RootConfig {
     /// - If the environment variables contain invalid values.
     /// # Notes
     /// The environment variables are prefixed with CHROMA_ and are uppercase.
-    /// Values in the envionment variables take precedence over values in the YAML file.
+    /// Values in the environment variables take precedence over values in the YAML file.
     // NOTE:  Copied to ../load/src/config.rs.
     pub fn load_from_path(path: &str) -> Self {
         println!("loading config from {path}");
@@ -2171,6 +2409,8 @@ pub struct LogServerConfig {
     #[serde(default = "LogServerConfig::default_my_member_id")]
     pub my_member_id: String,
     #[serde(default)]
+    pub read_only: bool,
+    #[serde(default)]
     pub opentelemetry: Option<OpenTelemetryConfig>,
     #[serde(default)]
     pub storage: StorageConfig,
@@ -2178,6 +2418,8 @@ pub struct LogServerConfig {
     pub writer: LogWriterOptions,
     #[serde(default)]
     pub reader: LogReaderOptions,
+    #[serde(default)]
+    pub dirty: Option<LogWriterOptions>,
     #[serde(default)]
     pub cache: Option<CacheConfig>,
     #[serde(default = "LogServerConfig::default_record_count_threshold")]
@@ -2203,9 +2445,16 @@ pub struct LogServerConfig {
         default = "LogServerConfig::default_grpc_shutdown_grace_period"
     )]
     pub grpc_shutdown_grace_period: Duration,
+    #[serde(default = "LogServerConfig::default_grpc_max_concurrent_streams")]
+    pub grpc_max_concurrent_streams: u32,
 }
 
 impl LogServerConfig {
+    /// Should the log service allow mutable log operations?
+    fn is_read_only(&self) -> bool {
+        self.read_only
+    }
+
     /// one hundred records on the log.
     fn default_record_count_threshold() -> u64 {
         100
@@ -2246,6 +2495,9 @@ impl LogServerConfig {
     fn default_grpc_shutdown_grace_period() -> Duration {
         Duration::from_secs(1)
     }
+    fn default_grpc_max_concurrent_streams() -> u32 {
+        1000
+    }
 }
 
 impl Default for LogServerConfig {
@@ -2253,10 +2505,12 @@ impl Default for LogServerConfig {
         Self {
             port: default_port(),
             my_member_id: LogServerConfig::default_my_member_id(),
+            read_only: false,
             opentelemetry: None,
             storage: StorageConfig::default(),
             writer: LogWriterOptions::default(),
             reader: LogReaderOptions::default(),
+            dirty: None,
             cache: None,
             record_count_threshold: Self::default_record_count_threshold(),
             num_records_before_backpressure: Self::default_num_records_before_backpressure(),
@@ -2267,6 +2521,7 @@ impl Default for LogServerConfig {
             max_encoding_message_size: Self::default_max_encoding_message_size(),
             max_decoding_message_size: Self::default_max_decoding_message_size(),
             grpc_shutdown_grace_period: Self::default_grpc_shutdown_grace_period(),
+            grpc_max_concurrent_streams: Self::default_grpc_max_concurrent_streams(),
         }
     }
 }
@@ -2277,29 +2532,46 @@ impl Configurable<LogServerConfig> for LogServer {
         config: &LogServerConfig,
         registry: &chroma_config::registry::Registry,
     ) -> Result<Self, Box<dyn ChromaError>> {
-        let cache = if let Some(cache_config) = &config.cache {
-            match chroma_cache::from_config_persistent::<String, CachedBytes>(cache_config).await {
-                Ok(cache) => Some(cache),
-                Err(err) => {
-                    tracing::error!("cache not configured: {err:?}");
-                    None
+        let cache: Option<Arc<dyn chroma_cache::PersistentCache<String, CachedBytes>>> =
+            if let Some(cache_config) = &config.cache {
+                match chroma_cache::from_config_persistent::<String, CachedBytes>(cache_config)
+                    .await
+                {
+                    Ok(cache) => Some(cache.into()),
+                    Err(err) => {
+                        tracing::error!("cache not configured: {err:?}");
+                        None
+                    }
                 }
-            }
-        } else {
-            None
-        };
+            } else {
+                None
+            };
         let storage = Storage::try_from_config(&config.storage, registry).await?;
         let storage = Arc::new(storage);
+        let dirty_log_prefix = MarkDirty::path_for_hostname(&config.my_member_id);
+        // Dirty log doesn't mark anything dirty (it is itself the dirty log).
+        let (dirty_log_fragment_publisher_factory, dirty_log_manifest_publisher_factory) =
+            create_s3_factories(
+                config.writer.clone(),
+                config.reader.clone(),
+                Arc::clone(&storage),
+                dirty_log_prefix.clone(),
+                "dirty log writer".to_string(),
+                Arc::new(()),
+                Arc::new(()),
+            );
         let dirty_log = LogWriter::open_or_initialize(
-            config.writer.clone(),
+            config.dirty.as_ref().unwrap_or(&config.writer).clone(),
             Arc::clone(&storage),
-            &MarkDirty::path_for_hostname(&config.my_member_id),
+            &dirty_log_prefix,
             "dirty log writer",
-            (),
+            dirty_log_fragment_publisher_factory,
+            dirty_log_manifest_publisher_factory,
+            None, // Dirty log doesn't use CMEK
         )
         .await
         .map_err(|err| -> Box<dyn ChromaError> { Box::new(err) as _ })?;
-        let dirty_log = Arc::new(dirty_log);
+        let dirty_log = Some(Arc::new(dirty_log));
         let rolling_up = tokio::sync::Mutex::new(());
         let metrics = Metrics::new(opentelemetry::global::meter("chroma"));
         let backpressure = Mutex::new(Arc::new(HashSet::default()));
@@ -2370,7 +2642,7 @@ mod tests {
     use proptest::prelude::*;
     use tokio::{runtime::Runtime, sync::mpsc::unbounded_channel, time::sleep};
     use tonic::{Code, IntoRequest};
-    use wal3::{GarbageCollector, SnapshotOptions, ThrottleOptions};
+    use wal3::{SnapshotOptions, ThrottleOptions};
 
     #[test]
     fn unsafe_constants() {
@@ -2383,7 +2655,7 @@ mod tests {
         let collection_id = CollectionUuid::new();
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|_| wal3::Error::Internal)
+            .map_err(|_| wal3::Error::internal(file!(), line!()))
             .unwrap()
             .as_micros() as u64;
         let markers = vec![
@@ -2391,7 +2663,7 @@ mod tests {
                 LogPosition::from_offset(45),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 1,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -2401,7 +2673,7 @@ mod tests {
                 LogPosition::from_offset(46),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(2),
+                    log_position: 2,
                     num_records: 1,
                     reinsert_count: 2,
                     initial_insertion_epoch_us: now,
@@ -2410,7 +2682,7 @@ mod tests {
         ];
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         assert_eq!(1, rollups.len());
         let rollup = rollups.get(&collection_id).unwrap();
@@ -2425,7 +2697,7 @@ mod tests {
         // Test that a collection without enough records won't induce head-of-line blocking.
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|_| wal3::Error::Internal)
+            .map_err(|_| wal3::Error::internal(file!(), line!()))
             .unwrap()
             .as_micros() as u64;
         let collection_id_blocking = CollectionUuid::new();
@@ -2435,7 +2707,7 @@ mod tests {
                 LogPosition::from_offset(0),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id_blocking,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 1,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -2445,7 +2717,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id_acting,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 100,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now,
@@ -2454,7 +2726,7 @@ mod tests {
         ];
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         assert_eq!(2, rollups.len());
         let rollup_blocking = rollups.get(&collection_id_blocking).unwrap();
@@ -2492,7 +2764,7 @@ mod tests {
         // Test MarkDirty serialization
         let mark_dirty = DirtyMarker::MarkDirty {
             collection_id,
-            log_position: LogPosition::from_offset(42),
+            log_position: 42,
             num_records: 100,
             reinsert_count: 5,
             initial_insertion_epoch_us: now,
@@ -2519,7 +2791,7 @@ mod tests {
 
         let mark_dirty = DirtyMarker::MarkDirty {
             collection_id,
-            log_position: LogPosition::from_offset(1),
+            log_position: 1,
             num_records: 1,
             reinsert_count: 0,
             initial_insertion_epoch_us: now,
@@ -2540,7 +2812,7 @@ mod tests {
 
         let mut mark_dirty = DirtyMarker::MarkDirty {
             collection_id,
-            log_position: LogPosition::from_offset(1),
+            log_position: 1,
             num_records: 1,
             reinsert_count: 0,
             initial_insertion_epoch_us: now,
@@ -2572,7 +2844,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 10,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -2586,7 +2858,7 @@ mod tests {
                 LogPosition::from_offset(3),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(20),
+                    log_position: 20,
                     num_records: 5,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now + 1000,
@@ -2596,7 +2868,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         // The purge should remove all markers for the collection, even ones that come after
         assert_eq!(1, forget.len());
         assert!(forget.contains(&collection_id));
@@ -2621,7 +2893,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id1,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 10,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -2631,7 +2903,7 @@ mod tests {
                 LogPosition::from_offset(2),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id2,
-                    log_position: LogPosition::from_offset(10),
+                    log_position: 10,
                     num_records: 5,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now,
@@ -2647,7 +2919,7 @@ mod tests {
                 LogPosition::from_offset(4),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id1,
-                    log_position: LogPosition::from_offset(20),
+                    log_position: 20,
                     num_records: 3,
                     reinsert_count: 2,
                     initial_insertion_epoch_us: now + 1000,
@@ -2657,7 +2929,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         // collection_id1 should be completely removed due to purge
         // collection_id2 should remain
         assert_eq!(1, forget.len());
@@ -2747,7 +3019,7 @@ mod tests {
                 initial_insertion_epoch_us,
             } => {
                 assert_eq!(collection_id, cid);
-                assert_eq!(LogPosition::from_offset(10), log_position);
+                assert_eq!(10, log_position);
                 assert_eq!(5, num_records);
                 assert_eq!(3, reinsert_count);
                 assert_eq!(now, initial_insertion_epoch_us);
@@ -2764,7 +3036,7 @@ mod tests {
         // Test extending keep alive time
         let keep_alive_duration = Duration::from_secs(30);
         active_log.keep_alive(keep_alive_duration);
-        assert!(active_log.collect_after > initial_time + Duration::from_secs(30));
+        assert!(active_log.collect_after >= initial_time + Duration::from_secs(30));
 
         // Test that shorter duration doesn't reduce time
         let long_time = active_log.collect_after;
@@ -2799,7 +3071,7 @@ mod tests {
         // Create the expected marker manually
         let expected_marker = DirtyMarker::MarkDirty {
             collection_id,
-            log_position,
+            log_position: log_position.offset(),
             num_records: num_records as u64,
             reinsert_count: 0,
             initial_insertion_epoch_us: SystemTime::now()
@@ -2826,7 +3098,7 @@ mod tests {
         } = deserialized
         {
             assert_eq!(collection_id, cid);
-            assert_eq!(log_position, pos);
+            assert_eq!(42, pos);
             assert_eq!(100, count);
             assert_eq!(0, reinsert_count);
         } else {
@@ -2838,7 +3110,7 @@ mod tests {
     fn dirty_marker_coalesce_empty_markers() {
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&[], &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&[], &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         assert!(rollups.is_empty());
     }
@@ -2857,7 +3129,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id1,
-                    log_position: LogPosition::from_offset(10),
+                    log_position: 10,
                     num_records: 5,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now,
@@ -2867,7 +3139,7 @@ mod tests {
                 LogPosition::from_offset(2),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id2,
-                    log_position: LogPosition::from_offset(20),
+                    log_position: 20,
                     num_records: 10,
                     reinsert_count: 2,
                     initial_insertion_epoch_us: now + 1000,
@@ -2877,7 +3149,7 @@ mod tests {
                 LogPosition::from_offset(3),
                 DirtyMarker::MarkDirty {
                     collection_id: collection_id1,
-                    log_position: LogPosition::from_offset(30),
+                    log_position: 30,
                     num_records: 3,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now - 1000,
@@ -2887,7 +3159,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         assert_eq!(2, rollups.len());
 
@@ -2908,10 +3180,10 @@ mod tests {
 
     #[test]
     fn error_enum_conversion_from_wal3() {
-        let wal3_error = wal3::Error::Internal;
+        let wal3_error = wal3::Error::internal(file!(), line!());
         let service_error = Error::from(wal3_error);
         match service_error {
-            Error::Wal3(wal3::Error::Internal) => {}
+            Error::Wal3(wal3::Error::Internal { .. }) => {}
             _ => panic!("Expected Wal3 error variant"),
         }
     }
@@ -2928,7 +3200,7 @@ mod tests {
 
     #[test]
     fn error_enum_display_messages() {
-        let wal3_error = Error::Wal3(wal3::Error::Internal);
+        let wal3_error = Error::Wal3(wal3::Error::internal(file!(), line!()));
         assert!(wal3_error.to_string().contains("wal3"));
 
         let json_error =
@@ -2960,7 +3232,7 @@ mod tests {
             LogPosition::from_offset(1),
             DirtyMarker::MarkDirty {
                 collection_id,
-                log_position: LogPosition::from_offset(u64::MAX - 1),
+                log_position: u64::MAX - 1,
                 num_records: 100,
                 reinsert_count: 0,
                 initial_insertion_epoch_us: now,
@@ -2969,7 +3241,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         let collection_rollup = rollups.get(&collection_id).unwrap();
         assert_eq!(
@@ -2994,7 +3266,7 @@ mod tests {
             LogPosition::from_offset(1),
             DirtyMarker::MarkDirty {
                 collection_id,
-                log_position: LogPosition::from_offset(10),
+                log_position: 10,
                 num_records: 0,
                 reinsert_count: 0,
                 initial_insertion_epoch_us: now,
@@ -3003,7 +3275,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         let collection_rollup = rollups.get(&collection_id).unwrap();
         assert_eq!(
@@ -3030,7 +3302,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(10),
+                    log_position: 10,
                     num_records: 1,
                     reinsert_count: u64::MAX,
                     initial_insertion_epoch_us: now,
@@ -3040,7 +3312,7 @@ mod tests {
                 LogPosition::from_offset(2),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(11),
+                    log_position: 11,
                     num_records: 1,
                     reinsert_count: 5,
                     initial_insertion_epoch_us: now,
@@ -3050,7 +3322,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         let collection_rollup = rollups.get(&collection_id).unwrap();
         assert_eq!(u64::MAX, collection_rollup.reinsert_count);
@@ -3160,7 +3432,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 10,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -3170,7 +3442,7 @@ mod tests {
                 LogPosition::from_offset(2),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(11),
+                    log_position: 11,
                     num_records: 10,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now + 1000,
@@ -3180,7 +3452,7 @@ mod tests {
                 LogPosition::from_offset(3),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(21),
+                    log_position: 21,
                     num_records: 10,
                     reinsert_count: 2,
                     initial_insertion_epoch_us: now + 2000,
@@ -3194,7 +3466,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert_eq!(1, forget.len());
         assert!(forget.contains(&collection_id));
         for collection_id in &forget {
@@ -3213,7 +3485,7 @@ mod tests {
 
         let mut mark_dirty = DirtyMarker::MarkDirty {
             collection_id,
-            log_position: LogPosition::from_offset(1),
+            log_position: 1,
             num_records: 1,
             reinsert_count: u64::MAX - 1,
             initial_insertion_epoch_us: now,
@@ -3278,7 +3550,7 @@ mod tests {
                 LogPosition::from_offset(i),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(i * 10),
+                    log_position: i * 10,
                     num_records: 1,
                     reinsert_count: i % 100,
                     initial_insertion_epoch_us: now + i,
@@ -3288,7 +3560,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert!(forget.is_empty());
         assert_eq!(1, rollups.len());
         let collection_rollup = rollups.get(&collection_id).unwrap();
@@ -3317,7 +3589,7 @@ mod tests {
                 LogPosition::from_offset(1),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(1),
+                    log_position: 1,
                     num_records: 10,
                     reinsert_count: 0,
                     initial_insertion_epoch_us: now,
@@ -3331,7 +3603,7 @@ mod tests {
                 LogPosition::from_offset(3),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(20),
+                    log_position: 20,
                     num_records: 5,
                     reinsert_count: 1,
                     initial_insertion_epoch_us: now + 1000,
@@ -3345,7 +3617,7 @@ mod tests {
                 LogPosition::from_offset(5),
                 DirtyMarker::MarkDirty {
                     collection_id,
-                    log_position: LogPosition::from_offset(30),
+                    log_position: 30,
                     num_records: 3,
                     reinsert_count: 2,
                     initial_insertion_epoch_us: now + 2000,
@@ -3355,7 +3627,7 @@ mod tests {
 
         let mut rollups = HashMap::new();
         let mut forget = HashSet::new();
-        DirtyMarker::coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
+        coalesce_markers(&markers, &mut rollups, &mut forget).unwrap();
         assert_eq!(1, forget.len());
         assert!(forget.contains(&collection_id));
         for collection_id in &forget {
@@ -3385,7 +3657,7 @@ mod tests {
 
     #[test]
     fn error_chain_verification() {
-        let wal3_error = wal3::Error::Internal;
+        let wal3_error = wal3::Error::internal(file!(), line!());
         let service_error: Box<dyn std::error::Error> = Box::new(Error::from(wal3_error));
 
         assert!(service_error.source().is_some());
@@ -3501,17 +3773,28 @@ mod tests {
             },
             ..Default::default()
         };
-        let dirty_log = Arc::new(
-            LogWriter::open_or_initialize(
+        let (fragment_publisher_factory, manifest_publisher_factory) = create_s3_factories(
+            writer_options.clone(),
+            LogReaderOptions::default(),
+            Arc::clone(&storage),
+            "test-rust-log-service".to_string(),
+            "test-dirty-log-writer".to_string(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let dirty_log = Some(Arc::new(
+            S3LogWriter::open_or_initialize(
                 writer_options.clone(),
                 storage.clone(),
                 "test-rust-log-service",
                 "test-dirty-log-writer",
-                (),
+                fragment_publisher_factory,
+                manifest_publisher_factory,
+                None, // Test doesn't use CMEK
             )
             .await
             .expect("Dirty log should be initializable"),
-        );
+        ));
         let config = LogServerConfig {
             writer: writer_options,
             ..Default::default()
@@ -3544,6 +3827,7 @@ mod tests {
                     .map(TryInto::try_into)
                     .collect::<Result<_, _>>()
                     .expect("Logs should be valid"),
+                cmek: None,
             });
             if let Err(err) = server.push_logs(proto_push_log_req).await {
                 if err.code() == Code::Unavailable {
@@ -3681,11 +3965,26 @@ mod tests {
         first_log_position_to_keep: u64,
     ) {
         'to_the_top: loop {
-            let writer = GarbageCollector::open(
+            let prefix = collection_id.storage_prefix_for_log();
+            let (fragment_publisher_factory, manifest_publisher_factory) = create_s3_factories(
+                server.config.writer.clone(),
+                server.config.reader.clone(),
+                Arc::clone(&server.storage),
+                prefix.clone(),
+                "proptest garbage collection service".to_string(),
+                Arc::new(()),
+                Arc::new(()),
+            );
+            let writer = wal3::GarbageCollector::<
+                (FragmentSeqNo, LogPosition),
+                S3FragmentManagerFactory,
+                S3ManifestManagerFactory,
+            >::open(
                 server.config.writer.clone(),
                 server.storage.clone(),
-                &collection_id.storage_prefix_for_log(),
-                "proptest garbage collection service",
+                fragment_publisher_factory,
+                manifest_publisher_factory,
+                &prefix,
             )
             .await
             .expect("Garbage collector should be initializable");
@@ -3888,7 +4187,7 @@ mod tests {
 
         runtime.block_on(async move {
             for (offset, log) in operations.iter().enumerate() {
-                push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+                push_log_to_server(&log_server, collection_id, std::slice::from_ref(log)).await;
                 tx.send(offset as i64 + 1)
                     .expect("Should be able to send compaction signal");
             }
@@ -3899,13 +4198,11 @@ mod tests {
                 .await
                 .expect("The background GC task should finish");
 
-            let reader = LogReader::open(
-                log_server.config.reader.clone(),
-                log_server.storage.clone(),
-                collection_id.storage_prefix_for_log(),
-            )
-            .await
-            .expect("Log reader should be initializable");
+            let prefix = collection_id.storage_prefix_for_log();
+            let reader = log_server
+                .make_log_reader(prefix)
+                .await
+                .expect("Log reader should be creatable");
             reader
                 .scrub(Limits::UNLIMITED)
                 .await
@@ -3930,23 +4227,21 @@ mod tests {
             .collect::<Vec<_>>();
 
         for log in &logs[..=25] {
-            push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+            push_log_to_server(&log_server, collection_id, std::slice::from_ref(log)).await;
         }
 
         update_compact_offset_on_server(&log_server, collection_id, 6).await;
         garbage_collect_unused_logs(&log_server, collection_id, 7).await;
 
         for log in &logs[26..] {
-            push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+            push_log_to_server(&log_server, collection_id, std::slice::from_ref(log)).await;
         }
 
-        let reader = LogReader::open(
-            log_server.config.reader.clone(),
-            log_server.storage.clone(),
-            collection_id.storage_prefix_for_log(),
-        )
-        .await
-        .expect("Log reader should be initializable");
+        let prefix = collection_id.storage_prefix_for_log();
+        let reader = log_server
+            .make_log_reader(prefix)
+            .await
+            .expect("Log reader should be creatable");
         reader
             .scrub(Limits::UNLIMITED)
             .await
@@ -4046,22 +4341,34 @@ mod tests {
         use chroma_types::chroma_proto::UpdateCollectionLogOffsetRequest;
         use std::collections::HashMap;
         use tonic::Request;
-        use wal3::{LogWriter, LogWriterOptions};
+        use wal3::LogWriterOptions;
 
         // Set up test storage using S3 (minio)
         let storage = Arc::new(s3_client_for_test_with_new_bucket().await);
 
         // Create the dirty log writer
-        let dirty_log = LogWriter::open_or_initialize(
-            LogWriterOptions::default(),
+        let options = LogWriterOptions::default();
+        let (fragment_publisher_factory, manifest_publisher_factory) = create_s3_factories(
+            options.clone(),
+            LogReaderOptions::default(),
+            Arc::clone(&storage),
+            "dirty-test".to_string(),
+            "dirty log writer".to_string(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let dirty_log = S3LogWriter::open_or_initialize(
+            options,
             Arc::clone(&storage),
             "dirty-test",
             "dirty log writer",
-            (),
+            fragment_publisher_factory,
+            manifest_publisher_factory,
+            None, // Test doesn't use CMEK
         )
         .await
         .expect("Failed to create dirty log");
-        let dirty_log = Arc::new(dirty_log);
+        let dirty_log = Some(Arc::new(dirty_log));
 
         // Create LogServer manually
         let config = LogServerConfig::default();
@@ -4082,12 +4389,24 @@ mod tests {
 
         // Manually initialize a log for this collection to avoid "proxy not initialized" error
         let storage_prefix = collection_id.storage_prefix_for_log();
-        let _log_writer = LogWriter::open_or_initialize(
-            LogWriterOptions::default(),
+        let options2 = LogWriterOptions::default();
+        let (fragment_publisher_factory2, manifest_publisher_factory2) = create_s3_factories(
+            options2.clone(),
+            LogReaderOptions::default(),
+            Arc::clone(&log_server.storage),
+            storage_prefix.clone(),
+            "test log writer".to_string(),
+            Arc::new(()),
+            Arc::new(()),
+        );
+        let _log_writer = S3LogWriter::open_or_initialize(
+            options2,
             Arc::clone(&log_server.storage),
             &storage_prefix,
             "test log writer",
-            (),
+            fragment_publisher_factory2,
+            manifest_publisher_factory2,
+            None, // Test doesn't use CMEK
         )
         .await
         .expect("Failed to initialize collection log");

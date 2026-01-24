@@ -145,6 +145,34 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -310,12 +338,8 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = GlobalOperationsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -323,7 +347,7 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -355,20 +379,14 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = GlobalOperationsClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -701,8 +719,9 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.AggregatedListPager:
-        r"""Retrieves an aggregated list of all operations. To prevent
-        failure, Google recommends that you set the
+        r"""Retrieves an aggregated list of all operations.
+
+        To prevent failure, Google recommends that you set the
         ``returnPartialSuccess`` parameter to ``true``.
 
         .. code-block:: python
@@ -1006,23 +1025,30 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
 
         Returns:
             google.cloud.compute_v1.types.Operation:
-                Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                [Global](/compute/docs/reference/rest/v1/globalOperations)
-                \*
-                [Regional](/compute/docs/reference/rest/v1/regionOperations)
-                \*
-                [Zonal](/compute/docs/reference/rest/v1/zoneOperations)
-                You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the globalOperations
-                resource. - For regional operations, use the
-                regionOperations resource. - For zonal operations, use
-                the zoneOperations resource. For more information, read
-                Global, Regional, and Zonal Resources. Note that
-                completed Operation resources have a limited retention
-                period.
+                Represents an Operation resource.
+
+                   Google Compute Engine has three Operation resources:
+
+                   - [Global](/compute/docs/reference/rest/v1/globalOperations)
+                   - [Regional](/compute/docs/reference/rest/v1/regionOperations)
+                   - [Zonal](/compute/docs/reference/rest/v1/zoneOperations)
+
+                   You can use an operation resource to manage
+                   asynchronous API requests. For more information,
+                   readHandling API responses.
+
+                   Operations can be global, regional or zonal.
+
+                      - For global operations, use the globalOperations
+                      resource. - For regional operations, use the
+                      regionOperations resource. - For zonal operations,
+                      use the zoneOperations resource.
+
+                   For more information, read Global, Regional, and
+                   Zonal Resources.
+
+                   Note that completed Operation resources have a
+                   limited retention period.
 
         """
         # Create or coerce a protobuf request object.
@@ -1217,13 +1243,17 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
         from the ``GET`` method in that it waits for no more than the
         default deadline (2 minutes) and then returns the current state
         of the operation, which might be ``DONE`` or still in progress.
-        This method is called on a best-effort basis. Specifically: - In
-        uncommon cases, when the server is overloaded, the request might
-        return before the default deadline is reached, or might return
-        after zero seconds. - If the default deadline is reached, there
-        is no guarantee that the operation is actually done when the
-        method returns. Be prepared to retry if the operation is not
-        ``DONE``.
+
+        This method is called on a best-effort basis. Specifically:
+
+        ::
+
+            - In uncommon cases, when the server is overloaded, the request might
+            return before the default deadline is reached, or might return after zero
+            seconds.
+           - If the default deadline is reached, there is no guarantee that the
+            operation is actually done when the method returns. Be prepared to retry
+            if the operation is not `DONE`.
 
         .. code-block:: python
 
@@ -1280,23 +1310,30 @@ class GlobalOperationsClient(metaclass=GlobalOperationsClientMeta):
 
         Returns:
             google.cloud.compute_v1.types.Operation:
-                Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                [Global](/compute/docs/reference/rest/v1/globalOperations)
-                \*
-                [Regional](/compute/docs/reference/rest/v1/regionOperations)
-                \*
-                [Zonal](/compute/docs/reference/rest/v1/zoneOperations)
-                You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the globalOperations
-                resource. - For regional operations, use the
-                regionOperations resource. - For zonal operations, use
-                the zoneOperations resource. For more information, read
-                Global, Regional, and Zonal Resources. Note that
-                completed Operation resources have a limited retention
-                period.
+                Represents an Operation resource.
+
+                   Google Compute Engine has three Operation resources:
+
+                   - [Global](/compute/docs/reference/rest/v1/globalOperations)
+                   - [Regional](/compute/docs/reference/rest/v1/regionOperations)
+                   - [Zonal](/compute/docs/reference/rest/v1/zoneOperations)
+
+                   You can use an operation resource to manage
+                   asynchronous API requests. For more information,
+                   readHandling API responses.
+
+                   Operations can be global, regional or zonal.
+
+                      - For global operations, use the globalOperations
+                      resource. - For regional operations, use the
+                      regionOperations resource. - For zonal operations,
+                      use the zoneOperations resource.
+
+                   For more information, read Global, Regional, and
+                   Zonal Resources.
+
+                   Note that completed Operation resources have a
+                   limited retention period.
 
         """
         # Create or coerce a protobuf request object.

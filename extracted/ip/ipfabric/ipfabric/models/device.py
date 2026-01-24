@@ -15,9 +15,9 @@ import re
 import logging
 from datetime import timedelta, datetime
 from ipfabric.settings.attributes import Attributes
-from httpx import HTTPStatusError
+from niquests import HTTPError
 from typing import Optional, Union, overload, Literal, Any
-from ipaddress import IPv4Interface, IPv4Address, IPv6Address
+from ipaddress import IPv4Interface, IPv4Address, IPv6Address, IPv6Interface
 from collections import defaultdict
 from case_insensitive_dict import CaseInsensitiveDict
 from ipfabric.models.technology import Technology
@@ -50,7 +50,8 @@ class Device(BaseModel):
     processor: Optional[str] = None
     reload: Optional[str] = None
     sn: str
-    uptime: Optional[timedelta] = None
+    uptime: Union[timedelta, None, str] = None
+    # uptime: Optional[timedelta, str] = None  # TODO NIM-22170
     vendor: str
     version: Optional[str] = None
     blob_key: Optional[str] = Field(None, alias="blobKey")
@@ -59,7 +60,7 @@ class Device(BaseModel):
     stack: Optional[bool] = None
     hostname_original: Optional[str] = Field(None, alias="hostnameOriginal")
     hostname_processed: Optional[str] = Field(None, alias="hostnameProcessed")
-    login_ip: Optional[IPv4Interface] = Field(None, alias="loginIp")  # TODO: 8.0 change to ipv4 or ipv6 property
+    login_ip: Optional[Union[IPv4Interface, IPv6Interface]] = Field(None, alias="loginIp")
     login_ipv4: Optional[IPv4Address] = Field(None, alias="loginIpv4")
     login_ipv6: Optional[IPv6Address] = Field(None, alias="loginIpv6")
     login_port: Optional[int] = Field(None, alias="loginPort")
@@ -111,7 +112,7 @@ class Device(BaseModel):
 
     @property
     def technology(self) -> Technology:
-        if not hasattr(self, "_technology"):
+        if not self._technology:
             self._technology = Technology(client=self.client, sn=self.sn)
         return self._technology
 
@@ -139,7 +140,7 @@ class Device(BaseModel):
 
     def get_security_model(self, snapshot_id: str = None) -> SecurityModel:
         _ = snapshot_id if snapshot_id else self.client.snapshot_id
-        data = raise_for_status(self.client.get("security/", params=dict(sn=self.sn, snapshot=_))).json()
+        data = raise_for_status(self.client.get("security/", params={"sn": self.sn, "snapshot": _})).json()
         return SecurityModel(**data)
 
     def get_config(self) -> Union[None, DeviceConfig]:
@@ -186,12 +187,13 @@ class Device(BaseModel):
     def fetch_all(
         self,
         url: str,
-        export: Literal["csv"],
+        export: Literal["json"] = ...,
         columns: list[str] = None,
         filters: Optional[Union[dict, str]] = None,
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -205,6 +207,7 @@ class Device(BaseModel):
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -217,6 +220,7 @@ class Device(BaseModel):
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def fetch_all(
@@ -229,6 +233,7 @@ class Device(BaseModel):
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from IP Fabric for specified endpoint filtered on the `sn` of the device
 
@@ -242,10 +247,13 @@ class Device(BaseModel):
             sort: Optional dictionary to apply sorting: {"order": "desc", "column": "lastChange"}
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pandas.DataFrame]: List of dict if json, bytes string if CSV, DataFrame is df
         """
-        all_columns, f = create_filter(self.client, url, filters, self.sn)
+        all_columns, f = create_filter(self.client, self.client._check_url(url), filters, self.sn)
         return self.client.fetch_all(
             url,
             filters=f,
@@ -255,6 +263,7 @@ class Device(BaseModel):
             reports=reports,
             sort=sort,
             csv_tz=csv_tz,
+            api_version=api_version,
         )
 
 
@@ -316,7 +325,7 @@ class DeviceDict(CaseInsensitiveDict):
         return new_dict
 
     def _flatten_devs(self) -> list[Device]:
-        devices = list()
+        devices = []
         for value in self.values():
             if isinstance(value, list):
                 devices.extend(value)
@@ -355,20 +364,15 @@ class DeviceDict(CaseInsensitiveDict):
 class Devices(BaseModel):
     snapshot_id: str
     client: Any = Field(None, exclude=True)
+    devices: Optional[list[dict]] = None
+    device_filters: Optional[dict] = None
+    device_attr_filters: Optional[dict] = None
     _attrs: Optional[defaultdict[str, set[str]]] = PrivateAttr()
     _global_attrs: Optional[defaultdict[str, set[str]]] = PrivateAttr()
-    _all: list[Device] = PrivateAttr()
+    _all: list[Device] = PrivateAttr(default_factory=list)
 
-    def __init__(
-        self,
-        snapshot_id: str,
-        client: Any,
-        devices: Optional[list[dict]] = None,
-        device_filters: Optional[dict] = None,
-        device_attr_filters: Optional[dict] = None,
-    ):
-        super().__init__(snapshot_id=snapshot_id, client=client)
-        self.update(devices, device_filters, device_attr_filters)
+    def model_post_init(self, context: Any, /) -> None:
+        self.update(self.devices, self.device_filters, self.device_attr_filters)
 
     def update(self, devices: list[dict] = None, device_filters: dict = None, device_attr_filters: dict = None):
         devices = devices if devices else self._load_devices(device_filters, device_attr_filters)
@@ -378,36 +382,36 @@ class Devices(BaseModel):
             self._attrs, lcl_attr = self._parse_attrs(
                 Attributes(client=self.client, snapshot_id=self.client.snapshot_id).all()
             )
-        except HTTPStatusError:
+        except HTTPError:
             logger.warning(
                 self.client._api_insuf_rights
                 + 'on POST "/tables/snapshot-attributes". Cannot load Local (snapshot) Attributes in Devices.'
             )
-            lcl_attr = dict()
+            lcl_attr = {}
         try:
             self._global_attrs, glb_attr = self._parse_attrs(Attributes(client=self.client).all())
-        except HTTPStatusError:
+        except HTTPError:
             logger.warning(
                 self.client._api_insuf_rights
                 + 'on POST "/tables/global-attributes". Cannot load Global Attributes in Devices.'
             )
-            glb_attr = dict()
+            glb_attr = {}
         try:
             blob_keys = {
                 b["sn"]: b["blobKey"]
                 for b in self.client.fetch_all("/tables/management/configuration/saved", columns=["sn", "blobKey"])
             }
-        except HTTPStatusError:
+        except HTTPError:
             logger.warning(
                 self.client._api_insuf_rights + 'on POST "/tables/management/configuration/saved". '
                 "You will not be able to pull device config from Device model."
             )
-            blob_keys = dict()
+            blob_keys = {}
         self._all = [
             Device(
                 **d,
-                attributes=lcl_attr.get(d["sn"], dict()),
-                global_attributes=glb_attr.get(d["sn"], dict()),
+                attributes=lcl_attr.get(d["sn"], {}),
+                global_attributes=glb_attr.get(d["sn"], {}),
                 blobKey=blob_keys.get(d["sn"], None),
                 client=self.client,
             )
@@ -417,18 +421,21 @@ class Devices(BaseModel):
     def _load_devices(self, device_filters: dict = None, device_attr_filters: dict = None):
         if self.client._no_loaded_snapshots:
             logger.warning("No loaded snapshots, cannot load devices.")
-            return list()
+            return []
         if not device_attr_filters and self.client.attribute_filters:
             logger.warning(
                 f"Global `attribute_filters` is set; only pulling devices matching:\n{self.client.attribute_filters}."
             )
         try:
             return self.client.inventory.devices.all(filters=device_filters, attr_filters=device_attr_filters)
-        except HTTPStatusError:
-            logger.warning(
-                self.client._api_insuf_rights + 'on POST "/tables/inventory/devices". Will not load Devices.'
-            )
-        return list()
+        except HTTPError as err:
+            if err.response.status_code == 401:
+                logger.warning(
+                    self.client._api_insuf_rights + 'on POST "/tables/inventory/devices". Will not load Devices.'
+                )
+            else:
+                raise err
+        return []
 
     @staticmethod
     def _parse_attrs(attributes: list[dict] = None):
@@ -494,7 +501,7 @@ class Devices(BaseModel):
         Returns:
             list[Device]
         """
-        return [d for d in self.all if d.attributes.get(name, None)] if self._check_attr_name(name) else list()
+        return [d for d in self.all if d.attributes.get(name, None)] if self._check_attr_name(name) else []
 
     def does_not_have_attr(self, name: str) -> list[Device]:
         """
@@ -504,7 +511,7 @@ class Devices(BaseModel):
         Returns:
             list[Device]
         """
-        return [d for d in self.all if not d.attributes.get(name, None)] if self._check_attr_name(name) else list()
+        return [d for d in self.all if not d.attributes.get(name, None)] if self._check_attr_name(name) else []
 
     def _group_dev_by_attr(self, attribute: str) -> DeviceDict[str, list[Device]]:
         return self.group_dev_by_attr(self._all, attribute)

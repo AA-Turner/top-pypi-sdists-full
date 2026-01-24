@@ -42,7 +42,7 @@ from chellow.utils import (
     hh_range,
     make_val,
     parse_mpan_core,
-    req_bool,
+    req_checkbox,
     req_hh_date,
     req_int,
     req_str,
@@ -50,7 +50,6 @@ from chellow.utils import (
     to_utc,
     utc_datetime_now,
 )
-
 
 CATEGORY_ORDER = {None: 0, "unmetered": 1, "nhh": 2, "amr": 3, "hh": 4}
 
@@ -1011,7 +1010,7 @@ def content(
 
 def do_post(sess):
     base_name = ["duration"]
-    compression = req_bool("compression")
+    compression = req_checkbox("compression")
 
     try:
         if "scenario_id" in request.values:

@@ -23,12 +23,15 @@ See: http://docs.translatehouse.org/projects/translate-toolkit/en/latest/command
 for examples and usage instructions.
 """
 
+from translate.convert import convert
 from translate.lang import factory as lang_factory
 from translate.storage import factory, poheader
 
 
 class segment:
-    def __init__(self, sourcelang, targetlang, stripspaces=True, onlyaligned=False):
+    def __init__(
+        self, sourcelang, targetlang, stripspaces=True, onlyaligned=False
+    ) -> None:
         self.sourcelang = sourcelang
         self.targetlang = targetlang
         self.stripspaces = stripspaces
@@ -47,9 +50,9 @@ class segment:
         # certain quality checks are passed, etc.  But for now this is a good
         # start.
         units = []
-        for i in range(len(sourcesegments)):
+        for i, source in enumerate(sourcesegments):
             newunit = unit.copy()
-            newunit.source = sourcesegments[i]
+            newunit.source = source
             if not unit.istranslated():
                 newunit.target = ""
             else:
@@ -59,11 +62,10 @@ class segment:
 
     def convertstore(self, fromstore):
         tostore = type(fromstore)()
-        if isinstance(fromstore, poheader.poheader):
-            # We don't want the default header in the case of PO, but rather the
-            # one from `fromstore`.
-            if fromstore.header() is not None:
-                tostore.units = []
+        # We don't want the default header in the case of PO, but rather the
+        # one from `fromstore`.
+        if isinstance(fromstore, poheader.poheader) and fromstore.header() is not None:
+            tostore.units = []
         for unit in fromstore.units:
             newunits = self.segmentunit(unit)
             if newunits:
@@ -80,7 +82,7 @@ def segmentfile(
     targetlanguage=None,
     stripspaces=True,
     onlyaligned=False,
-):
+) -> int:
     """Reads in inputfile, segments it then, writes to outputfile."""
     # note that templatefile is not used, but it is required by the converter...
     inputstore = factory.getobject(inputfile)
@@ -96,9 +98,7 @@ def segmentfile(
     return 1
 
 
-def main():
-    from translate.convert import convert
-
+def main() -> None:
     formats = {
         "po": ("po", segmentfile),
         "xlf": ("xlf", segmentfile),

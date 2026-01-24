@@ -1,7 +1,7 @@
 r'''
 # `datadog_agentless_scanning_aws_scan_options`
 
-Refer to the Terraform Registry for docs: [`datadog_agentless_scanning_aws_scan_options`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options).
+Refer to the Terraform Registry for docs: [`datadog_agentless_scanning_aws_scan_options`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AgentlessScanningAwsScanOptions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.agentlessScanningAwsScanOptions.AgentlessScanningAwsScanOptions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options datadog_agentless_scanning_aws_scan_options}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options datadog_agentless_scanning_aws_scan_options}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AgentlessScanningAwsScanOptions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options datadog_agentless_scanning_aws_scan_options} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options datadog_agentless_scanning_aws_scan_options} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
-        :param lambda_: Indicates if scanning of Lambda functions is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
-        :param sensitive_data: Indicates if scanning for sensitive data is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
-        :param vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
-        :param vuln_host_os: Indicates if scanning for vulnerabilities in hosts is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
+        :param aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
+        :param lambda_: Indicates if scanning of Lambda functions is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
+        :param sensitive_data: Indicates if scanning for sensitive data is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
+        :param vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
+        :param vuln_host_os: Indicates if scanning for vulnerabilities in hosts is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AgentlessScanningAwsScanOptions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AgentlessScanningAwsScanOptions to import.
-        :param import_from_id: The id of the existing AgentlessScanningAwsScanOptions that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AgentlessScanningAwsScanOptions that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AgentlessScanningAwsScanOptions to import is found.
         '''
         if __debug__:
@@ -297,11 +297,11 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
-        :param lambda_: Indicates if scanning of Lambda functions is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
-        :param sensitive_data: Indicates if scanning for sensitive data is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
-        :param vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
-        :param vuln_host_os: Indicates if scanning for vulnerabilities in hosts is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
+        :param aws_account_id: The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
+        :param lambda_: Indicates if scanning of Lambda functions is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
+        :param sensitive_data: Indicates if scanning for sensitive data is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
+        :param vuln_containers_os: Indicates if scanning for vulnerabilities in containers is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
+        :param vuln_host_os: Indicates if scanning for vulnerabilities in hosts is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -409,7 +409,7 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def aws_account_id(self) -> builtins.str:
         '''The AWS account ID for which agentless scanning is configured. Must be a valid AWS account ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#aws_account_id AgentlessScanningAwsScanOptions#aws_account_id}
         '''
         result = self._values.get("aws_account_id")
         assert result is not None, "Required property 'aws_account_id' is missing"
@@ -419,7 +419,7 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def lambda_(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates if scanning of Lambda functions is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#lambda AgentlessScanningAwsScanOptions#lambda}
         '''
         result = self._values.get("lambda_")
         assert result is not None, "Required property 'lambda_' is missing"
@@ -431,7 +431,7 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates if scanning for sensitive data is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#sensitive_data AgentlessScanningAwsScanOptions#sensitive_data}
         '''
         result = self._values.get("sensitive_data")
         assert result is not None, "Required property 'sensitive_data' is missing"
@@ -443,7 +443,7 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates if scanning for vulnerabilities in containers is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_containers_os AgentlessScanningAwsScanOptions#vuln_containers_os}
         '''
         result = self._values.get("vuln_containers_os")
         assert result is not None, "Required property 'vuln_containers_os' is missing"
@@ -453,7 +453,7 @@ class AgentlessScanningAwsScanOptionsConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def vuln_host_os(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates if scanning for vulnerabilities in hosts is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/agentless_scanning_aws_scan_options#vuln_host_os AgentlessScanningAwsScanOptions#vuln_host_os}
         '''
         result = self._values.get("vuln_host_os")
         assert result is not None, "Required property 'vuln_host_os' is missing"

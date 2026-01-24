@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """OSCD datamodule."""
@@ -7,12 +7,10 @@ from typing import Any
 
 import kornia.augmentation as K
 import torch
-from torch import Tensor
 from torch.utils.data import random_split
 
 from ..datasets import OSCD
 from ..samplers.utils import _to_tuple
-from ..transforms.transforms import _ExtractPatches
 from .geo import NonGeoDataModule
 
 MEAN = {
@@ -85,18 +83,10 @@ class OSCDDataModule(NonGeoDataModule):
         self.mean = torch.tensor([MEAN[b] for b in self.bands])
         self.std = torch.tensor([STD[b] for b in self.bands])
 
-        self.train_aug = K.AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std),
-            K.RandomCrop(self.patch_size, pad_if_needed=True),
-            data_keys=None,
-            keepdim=True,
-        )
         self.aug = K.AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std),
-            _ExtractPatches(window_size=self.patch_size),
+            K.VideoSequential(K.Normalize(mean=self.mean, std=self.std)),
             data_keys=None,
             keepdim=True,
-            same_on_batch=True,
         )
 
     def setup(self, stage: str) -> None:
@@ -106,32 +96,20 @@ class OSCDDataModule(NonGeoDataModule):
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
         if stage in ['fit', 'validate']:
-            self.dataset = OSCD(split='train', **self.kwargs)
+            transforms = K.AugmentationSequential(
+                K.VideoSequential(K.RandomCrop(self.patch_size)),
+                data_keys=None,
+                keepdim=True,
+            )
+            self.dataset = OSCD(split='train', transforms=transforms, **self.kwargs)
             generator = torch.Generator().manual_seed(0)
             self.train_dataset, self.val_dataset = random_split(
                 self.dataset, [1 - self.val_split_pct, self.val_split_pct], generator
             )
         if stage in ['test']:
-            self.test_dataset = OSCD(split='test', **self.kwargs)
-
-    def on_after_batch_transfer(
-        self, batch: dict[str, Tensor], dataloader_idx: int
-    ) -> dict[str, Tensor]:
-        """Apply batch augmentations to the batch after it is transferred to the device.
-
-        Args:
-            batch: A batch of data that needs to be altered or augmented.
-            dataloader_idx: The index of the dataloader to which the batch belongs.
-
-        Returns:
-            A batch of data.
-
-        .. versionadded:: 0.7
-        """
-        # This solves a special case where if batch_size=1 the mask won't be stacked correctly
-        if batch['mask'].ndim == 3:
-            batch['mask'] = batch['mask'].unsqueeze(dim=0)
-
-        batch = super().on_after_batch_transfer(batch, dataloader_idx)
-        batch['mask'] = batch['mask'].squeeze(dim=1)
-        return batch
+            transforms = K.AugmentationSequential(
+                K.VideoSequential(K.CenterCrop(self.patch_size)),
+                data_keys=None,
+                keepdim=True,
+            )
+            self.test_dataset = OSCD(split='test', transforms=transforms, **self.kwargs)

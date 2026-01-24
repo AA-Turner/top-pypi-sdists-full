@@ -32,7 +32,7 @@ class AccountTokenArgs:
         The set of arguments for constructing a AccountToken resource.
         :param pulumi.Input[_builtins.str] account_id: Account identifier tag.
         :param pulumi.Input[_builtins.str] name: Token name.
-        :param pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]] policies: List of access policies assigned to the token.
+        :param pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]] policies: Set of access policies assigned to the token.
         :param pulumi.Input[_builtins.str] expires_on: The expiration time on or after which the JWT MUST NOT be accepted for processing.
         :param pulumi.Input[_builtins.str] not_before: The time before which the token MUST NOT be accepted for processing.
         :param pulumi.Input[_builtins.str] status: Status of the token.
@@ -78,7 +78,7 @@ class AccountTokenArgs:
     @pulumi.getter
     def policies(self) -> pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]]:
         """
-        List of access policies assigned to the token.
+        Set of access policies assigned to the token.
         """
         return pulumi.get(self, "policies")
 
@@ -156,7 +156,7 @@ class _AccountTokenState:
         :param pulumi.Input[_builtins.str] modified_on: Last time the token was modified.
         :param pulumi.Input[_builtins.str] name: Token name.
         :param pulumi.Input[_builtins.str] not_before: The time before which the token MUST NOT be accepted for processing.
-        :param pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]] policies: List of access policies assigned to the token.
+        :param pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]] policies: Set of access policies assigned to the token.
         :param pulumi.Input[_builtins.str] status: Status of the token.
                Available values: "active", "disabled", "expired".
         :param pulumi.Input[_builtins.str] value: The token value.
@@ -281,7 +281,7 @@ class _AccountTokenState:
     @pulumi.getter
     def policies(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AccountTokenPolicyArgs']]]]:
         """
-        List of access policies assigned to the token.
+        Set of access policies assigned to the token.
         """
         return pulumi.get(self, "policies")
 
@@ -344,7 +344,7 @@ class AccountToken(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] expires_on: The expiration time on or after which the JWT MUST NOT be accepted for processing.
         :param pulumi.Input[_builtins.str] name: Token name.
         :param pulumi.Input[_builtins.str] not_before: The time before which the token MUST NOT be accepted for processing.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AccountTokenPolicyArgs', 'AccountTokenPolicyArgsDict']]]] policies: List of access policies assigned to the token.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AccountTokenPolicyArgs', 'AccountTokenPolicyArgsDict']]]] policies: Set of access policies assigned to the token.
         :param pulumi.Input[_builtins.str] status: Status of the token.
                Available values: "active", "disabled", "expired".
         """
@@ -448,7 +448,7 @@ class AccountToken(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] modified_on: Last time the token was modified.
         :param pulumi.Input[_builtins.str] name: Token name.
         :param pulumi.Input[_builtins.str] not_before: The time before which the token MUST NOT be accepted for processing.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AccountTokenPolicyArgs', 'AccountTokenPolicyArgsDict']]]] policies: List of access policies assigned to the token.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AccountTokenPolicyArgs', 'AccountTokenPolicyArgsDict']]]] policies: Set of access policies assigned to the token.
         :param pulumi.Input[_builtins.str] status: Status of the token.
                Available values: "active", "disabled", "expired".
         :param pulumi.Input[_builtins.str] value: The token value.
@@ -535,7 +535,7 @@ class AccountToken(pulumi.CustomResource):
     @pulumi.getter
     def policies(self) -> pulumi.Output[Sequence['outputs.AccountTokenPolicy']]:
         """
-        List of access policies assigned to the token.
+        Set of access policies assigned to the token.
         """
         return pulumi.get(self, "policies")
 

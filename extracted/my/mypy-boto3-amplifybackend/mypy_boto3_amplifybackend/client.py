@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -91,11 +92,6 @@ from .type_defs import (
     UpdateBackendStorageResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -106,11 +102,11 @@ __all__ = ("AmplifyBackendClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    GatewayTimeoutException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    GatewayTimeoutException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 
 class AmplifyBackendClient(BaseClient):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_system_certs
-Version: 5.2
+Version: 5.3
 Summary: Automatically configures Python to use system certificates via truststore
 Author-email: Andrew Leech <andrew@alelec.net>
 License-Expression: BSD-3-Clause

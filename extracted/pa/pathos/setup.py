@@ -2,15 +2,15 @@
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
 # Copyright (c) 1997-2016 California Institute of Technology.
-# Copyright (c) 2016-2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2016-2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/pathos/blob/master/LICENSE
 
 import os
 import sys
 # drop support for older python
-if sys.version_info < (3, 8):
-    unsupported = 'Versions of Python before 3.8 are not supported'
+if sys.version_info < (3, 9):
+    unsupported = 'Versions of Python before 3.9 are not supported'
     raise ValueError(unsupported)
 
 # get distribution meta info
@@ -55,19 +55,19 @@ setup_kwds = dict(
         'Source Code':'https://github.com/uqfoundation/pathos',
         'Bug Tracker':'https://github.com/uqfoundation/pathos/issues',
     },
-    python_requires = '>=3.8',
+    python_requires = '>=3.9',
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Scientific/Engineering',
@@ -90,12 +90,12 @@ class BinaryDistribution(Distribution):
         return True
 
 # define dependencies
-ppft_version = 'ppft>=1.7.7'
-dill_version = 'dill>=0.4.0'
-pox_version = 'pox>=0.3.6'
-mp_version = 'multiprocess>=0.70.18'
-pyina_version = 'pyina>=0.3.0'
-mystic_version = 'mystic>=0.4.3'
+ppft_version = 'ppft>=1.7.8'
+dill_version = 'dill>=0.4.1'
+pox_version = 'pox>=0.3.7'
+mp_version = 'multiprocess>=0.70.19'
+pyina_version = 'pyina>=0.3.1'
+mystic_version = 'mystic>=0.4.4'
 # add dependencies
 depend = [ppft_version, dill_version, pox_version, mp_version]
 extras = {'examples': [mystic_version, pyina_version]}

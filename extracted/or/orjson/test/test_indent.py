@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
+# Copyright ijl (2020-2025)
 
 import datetime
 import json
@@ -55,6 +56,30 @@ class TestIndentedOutput:
         obj = [{}, [[[]]], {"key": []}]
         ref = b'[\n  {},\n  [\n    [\n      []\n    ]\n  ],\n  {\n    "key": []\n  }\n]'
         assert orjson.dumps(obj, option=orjson.OPT_INDENT_2) == ref
+
+    def test_list_max(self):
+        fixture = b"".join(
+            (b"".join(b"[" for _ in range(254)), b"".join(b"]" for _ in range(254))),
+        )
+        obj = orjson.loads(fixture)
+        serialized = orjson.dumps(
+            obj,
+            option=orjson.OPT_INDENT_2,
+        )
+        assert orjson.loads(serialized) == obj
+
+    def test_dict_max(self):
+        fixture = {"key": None}
+        target = fixture
+        for _ in range(253):
+            target["key"] = {"key": None}  # type:ignore
+            target = target["key"]  # type: ignore
+
+        serialized = orjson.dumps(
+            fixture,
+            option=orjson.OPT_INDENT_2,
+        )
+        assert orjson.loads(serialized) == fixture
 
     def test_twitter_pretty(self):
         """

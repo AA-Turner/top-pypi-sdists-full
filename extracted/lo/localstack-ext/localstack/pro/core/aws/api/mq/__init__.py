@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -82,7 +82,7 @@ class BadRequestException(ServiceException):
     code: str = "BadRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class ConflictException(ServiceException):
@@ -91,7 +91,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class ForbiddenException(ServiceException):
@@ -100,7 +100,7 @@ class ForbiddenException(ServiceException):
     code: str = "ForbiddenException"
     sender_fault: bool = False
     status_code: int = 403
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class InternalServerErrorException(ServiceException):
@@ -109,7 +109,7 @@ class InternalServerErrorException(ServiceException):
     code: str = "InternalServerErrorException"
     sender_fault: bool = False
     status_code: int = 500
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class NotFoundException(ServiceException):
@@ -118,7 +118,7 @@ class NotFoundException(ServiceException):
     code: str = "NotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class UnauthorizedException(ServiceException):
@@ -127,84 +127,84 @@ class UnauthorizedException(ServiceException):
     code: str = "UnauthorizedException"
     sender_fault: bool = False
     status_code: int = 401
-    ErrorAttribute: Optional[_string]
+    ErrorAttribute: _string | None
 
 
 class ActionRequired(TypedDict, total=False):
     """Action required for a broker."""
 
-    ActionRequiredCode: Optional[_string]
-    ActionRequiredInfo: Optional[_string]
+    ActionRequiredCode: _string | None
+    ActionRequiredInfo: _string | None
 
 
 class AvailabilityZone(TypedDict, total=False):
     """Name of the availability zone."""
 
-    Name: Optional[_string]
+    Name: _string | None
 
 
 class EngineVersion(TypedDict, total=False):
     """Id of the engine version."""
 
-    Name: Optional[_string]
+    Name: _string | None
 
 
-_listOfEngineVersion = List[EngineVersion]
+_listOfEngineVersion = list[EngineVersion]
 
 
 class BrokerEngineType(TypedDict, total=False):
     """Types of broker engines."""
 
-    EngineType: Optional[EngineType]
-    EngineVersions: Optional[_listOfEngineVersion]
+    EngineType: EngineType | None
+    EngineVersions: _listOfEngineVersion | None
 
 
-_listOfBrokerEngineType = List[BrokerEngineType]
+_listOfBrokerEngineType = list[BrokerEngineType]
 
 
 class BrokerEngineTypeOutput(TypedDict, total=False):
     """Returns a list of broker engine type."""
 
-    BrokerEngineTypes: Optional[_listOfBrokerEngineType]
+    BrokerEngineTypes: _listOfBrokerEngineType | None
     MaxResults: _integerMin5Max100
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
-_listOf__string = List[_string]
+_listOf__string = list[_string]
 
 
 class BrokerInstance(TypedDict, total=False):
     """Returns information about all brokers."""
 
-    ConsoleURL: Optional[_string]
-    Endpoints: Optional[_listOf__string]
-    IpAddress: Optional[_string]
+    ConsoleURL: _string | None
+    Endpoints: _listOf__string | None
+    IpAddress: _string | None
 
 
-_listOfDeploymentMode = List[DeploymentMode]
-_listOfAvailabilityZone = List[AvailabilityZone]
+_listOfDeploymentMode = list[DeploymentMode]
+_listOfAvailabilityZone = list[AvailabilityZone]
 
 
 class BrokerInstanceOption(TypedDict, total=False):
     """Option for host instance type."""
 
-    AvailabilityZones: Optional[_listOfAvailabilityZone]
-    EngineType: Optional[EngineType]
-    HostInstanceType: Optional[_string]
-    StorageType: Optional[BrokerStorageType]
-    SupportedDeploymentModes: Optional[_listOfDeploymentMode]
-    SupportedEngineVersions: Optional[_listOf__string]
+    AvailabilityZones: _listOfAvailabilityZone | None
+    EngineType: EngineType | None
+    HostInstanceType: _string | None
+    StorageType: BrokerStorageType | None
+    SupportedDeploymentModes: _listOfDeploymentMode | None
+    SupportedEngineVersions: _listOf__string | None
 
 
-_listOfBrokerInstanceOption = List[BrokerInstanceOption]
+_listOfBrokerInstanceOption = list[BrokerInstanceOption]
 
 
 class BrokerInstanceOptionsOutput(TypedDict, total=False):
     """Returns a list of broker instance options."""
 
-    BrokerInstanceOptions: Optional[_listOfBrokerInstanceOption]
+    BrokerInstanceOptions: _listOfBrokerInstanceOption | None
     MaxResults: _integerMin5Max100
-    NextToken: Optional[_string]
+    NextToken: _string | None
 
 
 _timestampIso8601 = datetime
@@ -213,24 +213,24 @@ _timestampIso8601 = datetime
 class BrokerSummary(TypedDict, total=False):
     """Returns information about all brokers."""
 
-    BrokerArn: Optional[_string]
-    BrokerId: Optional[_string]
-    BrokerName: Optional[_string]
-    BrokerState: Optional[BrokerState]
-    Created: Optional[_timestampIso8601]
+    BrokerArn: _string | None
+    BrokerId: _string | None
+    BrokerName: _string | None
+    BrokerState: BrokerState | None
+    Created: _timestampIso8601 | None
     DeploymentMode: DeploymentMode
     EngineType: EngineType
-    HostInstanceType: Optional[_string]
+    HostInstanceType: _string | None
 
 
-_mapOf__string = Dict[_string, _string]
+_mapOf__string = dict[_string, _string]
 
 
 class ConfigurationRevision(TypedDict, total=False):
     """Returns information about the specified configuration revision."""
 
     Created: _timestampIso8601
-    Description: Optional[_string]
+    Description: _string | None
     Revision: _integer
 
 
@@ -246,25 +246,25 @@ class Configuration(TypedDict, total=False):
     Id: _string
     LatestRevision: ConfigurationRevision
     Name: _string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class ConfigurationId(TypedDict, total=False):
     """A list of information about the configuration."""
 
     Id: _string
-    Revision: Optional[_integer]
+    Revision: _integer | None
 
 
-_listOfConfigurationId = List[ConfigurationId]
+_listOfConfigurationId = list[ConfigurationId]
 
 
 class Configurations(TypedDict, total=False):
     """Broker configuration information"""
 
-    Current: Optional[ConfigurationId]
-    History: Optional[_listOfConfigurationId]
-    Pending: Optional[ConfigurationId]
+    Current: ConfigurationId | None
+    History: _listOfConfigurationId | None
+    Pending: ConfigurationId | None
 
 
 class User(TypedDict, total=False):
@@ -275,14 +275,14 @@ class User(TypedDict, total=False):
     console.
     """
 
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
     Password: _string
     Username: _string
-    ReplicationUser: Optional[_boolean]
+    ReplicationUser: _boolean | None
 
 
-_listOfUser = List[User]
+_listOfUser = list[User]
 
 
 class WeeklyStartTime(TypedDict, total=False):
@@ -292,7 +292,7 @@ class WeeklyStartTime(TypedDict, total=False):
 
     DayOfWeek: DayOfWeek
     TimeOfDay: _string
-    TimeZone: Optional[_string]
+    TimeZone: _string | None
 
 
 class Logs(TypedDict, total=False):
@@ -300,8 +300,8 @@ class Logs(TypedDict, total=False):
     broker.
     """
 
-    Audit: Optional[_boolean]
-    General: Optional[_boolean]
+    Audit: _boolean | None
+    General: _boolean | None
 
 
 class LdapServerMetadataInput(TypedDict, total=False):
@@ -313,86 +313,86 @@ class LdapServerMetadataInput(TypedDict, total=False):
 
     Hosts: _listOf__string
     RoleBase: _string
-    RoleName: Optional[_string]
+    RoleName: _string | None
     RoleSearchMatching: _string
-    RoleSearchSubtree: Optional[_boolean]
+    RoleSearchSubtree: _boolean | None
     ServiceAccountPassword: _string
     ServiceAccountUsername: _string
     UserBase: _string
-    UserRoleName: Optional[_string]
+    UserRoleName: _string | None
     UserSearchMatching: _string
-    UserSearchSubtree: Optional[_boolean]
+    UserSearchSubtree: _boolean | None
 
 
 class EncryptionOptions(TypedDict, total=False):
     """Encryption options for the broker."""
 
-    KmsKeyId: Optional[_string]
+    KmsKeyId: _string | None
     UseAwsOwnedKey: _boolean
 
 
 class CreateBrokerInput(TypedDict, total=False):
     """Creates a broker."""
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
     BrokerName: _string
-    Configuration: Optional[ConfigurationId]
-    CreatorRequestId: Optional[_string]
+    Configuration: ConfigurationId | None
+    CreatorRequestId: _string | None
     DeploymentMode: DeploymentMode
-    DataReplicationMode: Optional[DataReplicationMode]
-    DataReplicationPrimaryBrokerArn: Optional[_string]
-    EncryptionOptions: Optional[EncryptionOptions]
+    DataReplicationMode: DataReplicationMode | None
+    DataReplicationPrimaryBrokerArn: _string | None
+    EncryptionOptions: EncryptionOptions | None
     EngineType: EngineType
-    EngineVersion: Optional[_string]
+    EngineVersion: _string | None
     HostInstanceType: _string
-    LdapServerMetadata: Optional[LdapServerMetadataInput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
+    LdapServerMetadata: LdapServerMetadataInput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
     PubliclyAccessible: _boolean
-    SecurityGroups: Optional[_listOf__string]
-    StorageType: Optional[BrokerStorageType]
-    SubnetIds: Optional[_listOf__string]
-    Tags: Optional[_mapOf__string]
-    Users: Optional[_listOfUser]
+    SecurityGroups: _listOf__string | None
+    StorageType: BrokerStorageType | None
+    SubnetIds: _listOf__string | None
+    Tags: _mapOf__string | None
+    Users: _listOfUser | None
 
 
 class CreateBrokerOutput(TypedDict, total=False):
     """Returns information about the created broker."""
 
-    BrokerArn: Optional[_string]
-    BrokerId: Optional[_string]
+    BrokerArn: _string | None
+    BrokerId: _string | None
 
 
 class CreateBrokerRequest(ServiceRequest):
     """Creates a broker using the specified properties."""
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
     BrokerName: _string
-    Configuration: Optional[ConfigurationId]
-    CreatorRequestId: Optional[_string]
+    Configuration: ConfigurationId | None
+    CreatorRequestId: _string | None
     DeploymentMode: DeploymentMode
-    EncryptionOptions: Optional[EncryptionOptions]
+    EncryptionOptions: EncryptionOptions | None
     EngineType: EngineType
-    EngineVersion: Optional[_string]
+    EngineVersion: _string | None
     HostInstanceType: _string
-    LdapServerMetadata: Optional[LdapServerMetadataInput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
+    LdapServerMetadata: LdapServerMetadataInput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
     PubliclyAccessible: _boolean
-    SecurityGroups: Optional[_listOf__string]
-    StorageType: Optional[BrokerStorageType]
-    SubnetIds: Optional[_listOf__string]
-    Tags: Optional[_mapOf__string]
-    Users: Optional[_listOfUser]
-    DataReplicationMode: Optional[DataReplicationMode]
-    DataReplicationPrimaryBrokerArn: Optional[_string]
+    SecurityGroups: _listOf__string | None
+    StorageType: BrokerStorageType | None
+    SubnetIds: _listOf__string | None
+    Tags: _mapOf__string | None
+    Users: _listOfUser | None
+    DataReplicationMode: DataReplicationMode | None
+    DataReplicationPrimaryBrokerArn: _string | None
 
 
 class CreateBrokerResponse(TypedDict, total=False):
-    BrokerArn: Optional[_string]
-    BrokerId: Optional[_string]
+    BrokerArn: _string | None
+    BrokerId: _string | None
 
 
 class CreateConfigurationInput(TypedDict, total=False):
@@ -400,11 +400,11 @@ class CreateConfigurationInput(TypedDict, total=False):
     MQ uses the default configuration (the engine type and version).
     """
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
+    AuthenticationStrategy: AuthenticationStrategy | None
     EngineType: EngineType
-    EngineVersion: Optional[_string]
+    EngineVersion: _string | None
     Name: _string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class CreateConfigurationOutput(TypedDict, total=False):
@@ -414,7 +414,7 @@ class CreateConfigurationOutput(TypedDict, total=False):
     AuthenticationStrategy: AuthenticationStrategy
     Created: _timestampIso8601
     Id: _string
-    LatestRevision: Optional[ConfigurationRevision]
+    LatestRevision: ConfigurationRevision | None
     Name: _string
 
 
@@ -423,47 +423,47 @@ class CreateConfigurationRequest(ServiceRequest):
     MQ uses the default configuration (the engine type and version).
     """
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
+    AuthenticationStrategy: AuthenticationStrategy | None
     EngineType: EngineType
-    EngineVersion: Optional[_string]
+    EngineVersion: _string | None
     Name: _string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class CreateConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    Created: Optional[_timestampIso8601]
-    Id: Optional[_string]
-    LatestRevision: Optional[ConfigurationRevision]
-    Name: Optional[_string]
+    Arn: _string | None
+    AuthenticationStrategy: AuthenticationStrategy | None
+    Created: _timestampIso8601 | None
+    Id: _string | None
+    LatestRevision: ConfigurationRevision | None
+    Name: _string | None
 
 
 class CreateTagsRequest(ServiceRequest):
     """A map of the key-value pairs for the resource tag."""
 
     ResourceArn: _string
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class CreateUserInput(TypedDict, total=False):
     """Creates a new ActiveMQ user."""
 
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
     Password: _string
-    ReplicationUser: Optional[_boolean]
+    ReplicationUser: _boolean | None
 
 
 class CreateUserRequest(ServiceRequest):
     """Creates a new ActiveMQ user."""
 
     BrokerId: _string
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
     Password: _string
     Username: _string
-    ReplicationUser: Optional[_boolean]
+    ReplicationUser: _boolean | None
 
 
 class CreateUserResponse(TypedDict, total=False):
@@ -483,14 +483,14 @@ class DataReplicationMetadataOutput(TypedDict, total=False):
     CRDR.
     """
 
-    DataReplicationCounterpart: Optional[DataReplicationCounterpart]
+    DataReplicationCounterpart: DataReplicationCounterpart | None
     DataReplicationRole: _string
 
 
 class DeleteBrokerOutput(TypedDict, total=False):
     """Returns information about the deleted broker."""
 
-    BrokerId: Optional[_string]
+    BrokerId: _string | None
 
 
 class DeleteBrokerRequest(ServiceRequest):
@@ -498,13 +498,13 @@ class DeleteBrokerRequest(ServiceRequest):
 
 
 class DeleteBrokerResponse(TypedDict, total=False):
-    BrokerId: Optional[_string]
+    BrokerId: _string | None
 
 
 class DeleteConfigurationOutput(TypedDict, total=False):
     """Returns information about the deleted configuration."""
 
-    ConfigurationId: Optional[_string]
+    ConfigurationId: _string | None
 
 
 class DeleteConfigurationRequest(ServiceRequest):
@@ -512,7 +512,7 @@ class DeleteConfigurationRequest(ServiceRequest):
 
 
 class DeleteConfigurationResponse(TypedDict, total=False):
-    ConfigurationId: Optional[_string]
+    ConfigurationId: _string | None
 
 
 class DeleteTagsRequest(ServiceRequest):
@@ -530,39 +530,39 @@ class DeleteUserResponse(TypedDict, total=False):
 
 
 class DescribeBrokerEngineTypesRequest(ServiceRequest):
-    EngineType: Optional[_string]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    EngineType: _string | None
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class DescribeBrokerEngineTypesResponse(TypedDict, total=False):
-    BrokerEngineTypes: Optional[_listOfBrokerEngineType]
-    MaxResults: Optional[_integerMin5Max100]
-    NextToken: Optional[_string]
+    BrokerEngineTypes: _listOfBrokerEngineType | None
+    MaxResults: _integerMin5Max100 | None
+    NextToken: _string | None
 
 
 class DescribeBrokerInstanceOptionsRequest(ServiceRequest):
-    EngineType: Optional[_string]
-    HostInstanceType: Optional[_string]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
-    StorageType: Optional[_string]
+    EngineType: _string | None
+    HostInstanceType: _string | None
+    MaxResults: MaxResults | None
+    NextToken: _string | None
+    StorageType: _string | None
 
 
 class DescribeBrokerInstanceOptionsResponse(TypedDict, total=False):
-    BrokerInstanceOptions: Optional[_listOfBrokerInstanceOption]
-    MaxResults: Optional[_integerMin5Max100]
-    NextToken: Optional[_string]
+    BrokerInstanceOptions: _listOfBrokerInstanceOption | None
+    MaxResults: _integerMin5Max100 | None
+    NextToken: _string | None
 
 
 class UserSummary(TypedDict, total=False):
     """Returns a list of all broker users. Does not apply to RabbitMQ brokers."""
 
-    PendingChange: Optional[ChangeType]
+    PendingChange: ChangeType | None
     Username: _string
 
 
-_listOfUserSummary = List[UserSummary]
+_listOfUserSummary = list[UserSummary]
 
 
 class LdapServerMetadataOutput(TypedDict, total=False):
@@ -572,14 +572,14 @@ class LdapServerMetadataOutput(TypedDict, total=False):
 
     Hosts: _listOf__string
     RoleBase: _string
-    RoleName: Optional[_string]
+    RoleName: _string | None
     RoleSearchMatching: _string
-    RoleSearchSubtree: Optional[_boolean]
+    RoleSearchSubtree: _boolean | None
     ServiceAccountUsername: _string
     UserBase: _string
-    UserRoleName: Optional[_string]
+    UserRoleName: _string | None
     UserSearchMatching: _string
-    UserSearchSubtree: Optional[_boolean]
+    UserSearchSubtree: _boolean | None
 
 
 class PendingLogs(TypedDict, total=False):
@@ -587,8 +587,8 @@ class PendingLogs(TypedDict, total=False):
     broker.
     """
 
-    Audit: Optional[_boolean]
-    General: Optional[_boolean]
+    Audit: _boolean | None
+    General: _boolean | None
 
 
 class LogsSummary(TypedDict, total=False):
@@ -596,53 +596,53 @@ class LogsSummary(TypedDict, total=False):
     deployed for the specified broker.
     """
 
-    Audit: Optional[_boolean]
-    AuditLogGroup: Optional[_string]
+    Audit: _boolean | None
+    AuditLogGroup: _string | None
     General: _boolean
     GeneralLogGroup: _string
-    Pending: Optional[PendingLogs]
+    Pending: PendingLogs | None
 
 
-_listOfBrokerInstance = List[BrokerInstance]
-_listOfActionRequired = List[ActionRequired]
+_listOfBrokerInstance = list[BrokerInstance]
+_listOfActionRequired = list[ActionRequired]
 
 
 class DescribeBrokerOutput(TypedDict, total=False):
     """Returns information about the specified broker."""
 
-    ActionsRequired: Optional[_listOfActionRequired]
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
+    ActionsRequired: _listOfActionRequired | None
+    AuthenticationStrategy: AuthenticationStrategy | None
     AutoMinorVersionUpgrade: _boolean
-    BrokerArn: Optional[_string]
-    BrokerId: Optional[_string]
-    BrokerInstances: Optional[_listOfBrokerInstance]
-    BrokerName: Optional[_string]
-    BrokerState: Optional[BrokerState]
-    Configurations: Optional[Configurations]
-    Created: Optional[_timestampIso8601]
+    BrokerArn: _string | None
+    BrokerId: _string | None
+    BrokerInstances: _listOfBrokerInstance | None
+    BrokerName: _string | None
+    BrokerState: BrokerState | None
+    Configurations: Configurations | None
+    Created: _timestampIso8601 | None
     DeploymentMode: DeploymentMode
-    DataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    DataReplicationMode: Optional[DataReplicationMode]
-    EncryptionOptions: Optional[EncryptionOptions]
+    DataReplicationMetadata: DataReplicationMetadataOutput | None
+    DataReplicationMode: DataReplicationMode | None
+    EncryptionOptions: EncryptionOptions | None
     EngineType: EngineType
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataOutput]
-    Logs: Optional[LogsSummary]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    PendingAuthenticationStrategy: Optional[AuthenticationStrategy]
-    PendingDataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    PendingDataReplicationMode: Optional[DataReplicationMode]
-    PendingEngineVersion: Optional[_string]
-    PendingHostInstanceType: Optional[_string]
-    PendingLdapServerMetadata: Optional[LdapServerMetadataOutput]
-    PendingSecurityGroups: Optional[_listOf__string]
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataOutput | None
+    Logs: LogsSummary | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    PendingAuthenticationStrategy: AuthenticationStrategy | None
+    PendingDataReplicationMetadata: DataReplicationMetadataOutput | None
+    PendingDataReplicationMode: DataReplicationMode | None
+    PendingEngineVersion: _string | None
+    PendingHostInstanceType: _string | None
+    PendingLdapServerMetadata: LdapServerMetadataOutput | None
+    PendingSecurityGroups: _listOf__string | None
     PubliclyAccessible: _boolean
-    SecurityGroups: Optional[_listOf__string]
-    StorageType: Optional[BrokerStorageType]
-    SubnetIds: Optional[_listOf__string]
-    Tags: Optional[_mapOf__string]
-    Users: Optional[_listOfUserSummary]
+    SecurityGroups: _listOf__string | None
+    StorageType: BrokerStorageType | None
+    SubnetIds: _listOf__string | None
+    Tags: _mapOf__string | None
+    Users: _listOfUserSummary | None
 
 
 class DescribeBrokerRequest(ServiceRequest):
@@ -650,39 +650,39 @@ class DescribeBrokerRequest(ServiceRequest):
 
 
 class DescribeBrokerResponse(TypedDict, total=False):
-    ActionsRequired: Optional[_listOfActionRequired]
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
-    BrokerArn: Optional[_string]
-    BrokerId: Optional[_string]
-    BrokerInstances: Optional[_listOfBrokerInstance]
-    BrokerName: Optional[_string]
-    BrokerState: Optional[BrokerState]
-    Configurations: Optional[Configurations]
-    Created: Optional[_timestampIso8601]
-    DeploymentMode: Optional[DeploymentMode]
-    EncryptionOptions: Optional[EncryptionOptions]
-    EngineType: Optional[EngineType]
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataOutput]
-    Logs: Optional[LogsSummary]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    PendingAuthenticationStrategy: Optional[AuthenticationStrategy]
-    PendingEngineVersion: Optional[_string]
-    PendingHostInstanceType: Optional[_string]
-    PendingLdapServerMetadata: Optional[LdapServerMetadataOutput]
-    PendingSecurityGroups: Optional[_listOf__string]
-    PubliclyAccessible: Optional[_boolean]
-    SecurityGroups: Optional[_listOf__string]
-    StorageType: Optional[BrokerStorageType]
-    SubnetIds: Optional[_listOf__string]
-    Tags: Optional[_mapOf__string]
-    Users: Optional[_listOfUserSummary]
-    DataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    DataReplicationMode: Optional[DataReplicationMode]
-    PendingDataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    PendingDataReplicationMode: Optional[DataReplicationMode]
+    ActionsRequired: _listOfActionRequired | None
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
+    BrokerArn: _string | None
+    BrokerId: _string | None
+    BrokerInstances: _listOfBrokerInstance | None
+    BrokerName: _string | None
+    BrokerState: BrokerState | None
+    Configurations: Configurations | None
+    Created: _timestampIso8601 | None
+    DeploymentMode: DeploymentMode | None
+    EncryptionOptions: EncryptionOptions | None
+    EngineType: EngineType | None
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataOutput | None
+    Logs: LogsSummary | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    PendingAuthenticationStrategy: AuthenticationStrategy | None
+    PendingEngineVersion: _string | None
+    PendingHostInstanceType: _string | None
+    PendingLdapServerMetadata: LdapServerMetadataOutput | None
+    PendingSecurityGroups: _listOf__string | None
+    PubliclyAccessible: _boolean | None
+    SecurityGroups: _listOf__string | None
+    StorageType: BrokerStorageType | None
+    SubnetIds: _listOf__string | None
+    Tags: _mapOf__string | None
+    Users: _listOfUserSummary | None
+    DataReplicationMetadata: DataReplicationMetadataOutput | None
+    DataReplicationMode: DataReplicationMode | None
+    PendingDataReplicationMetadata: DataReplicationMetadataOutput | None
+    PendingDataReplicationMode: DataReplicationMode | None
 
 
 class DescribeConfigurationRequest(ServiceRequest):
@@ -690,16 +690,16 @@ class DescribeConfigurationRequest(ServiceRequest):
 
 
 class DescribeConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    Created: Optional[_timestampIso8601]
-    Description: Optional[_string]
-    EngineType: Optional[EngineType]
-    EngineVersion: Optional[_string]
-    Id: Optional[_string]
-    LatestRevision: Optional[ConfigurationRevision]
-    Name: Optional[_string]
-    Tags: Optional[_mapOf__string]
+    Arn: _string | None
+    AuthenticationStrategy: AuthenticationStrategy | None
+    Created: _timestampIso8601 | None
+    Description: _string | None
+    EngineType: EngineType | None
+    EngineVersion: _string | None
+    Id: _string | None
+    LatestRevision: ConfigurationRevision | None
+    Name: _string | None
+    Tags: _mapOf__string | None
 
 
 class DescribeConfigurationRevisionOutput(TypedDict, total=False):
@@ -710,7 +710,7 @@ class DescribeConfigurationRevisionOutput(TypedDict, total=False):
     ConfigurationId: _string
     Created: _timestampIso8601
     Data: _string
-    Description: Optional[_string]
+    Description: _string | None
 
 
 class DescribeConfigurationRevisionRequest(ServiceRequest):
@@ -719,10 +719,10 @@ class DescribeConfigurationRevisionRequest(ServiceRequest):
 
 
 class DescribeConfigurationRevisionResponse(TypedDict, total=False):
-    ConfigurationId: Optional[_string]
-    Created: Optional[_timestampIso8601]
-    Data: Optional[_string]
-    Description: Optional[_string]
+    ConfigurationId: _string | None
+    Created: _timestampIso8601 | None
+    Data: _string | None
+    Description: _string | None
 
 
 class UserPendingChanges(TypedDict, total=False):
@@ -730,8 +730,8 @@ class UserPendingChanges(TypedDict, total=False):
     ActiveMQ user.
     """
 
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
     PendingChange: ChangeType
 
 
@@ -739,10 +739,10 @@ class DescribeUserOutput(TypedDict, total=False):
     """Returns information about an ActiveMQ user."""
 
     BrokerId: _string
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
-    Pending: Optional[UserPendingChanges]
-    ReplicationUser: Optional[_boolean]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
+    Pending: UserPendingChanges | None
+    ReplicationUser: _boolean | None
     Username: _string
 
 
@@ -752,86 +752,86 @@ class DescribeUserRequest(ServiceRequest):
 
 
 class DescribeUserResponse(TypedDict, total=False):
-    BrokerId: Optional[_string]
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
-    Pending: Optional[UserPendingChanges]
-    Username: Optional[_string]
-    ReplicationUser: Optional[_boolean]
+    BrokerId: _string | None
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
+    Pending: UserPendingChanges | None
+    Username: _string | None
+    ReplicationUser: _boolean | None
 
 
 class Error(TypedDict, total=False):
     """Returns information about an error."""
 
-    ErrorAttribute: Optional[_string]
-    Message: Optional[_string]
+    ErrorAttribute: _string | None
+    Message: _string | None
 
 
-_listOfBrokerSummary = List[BrokerSummary]
+_listOfBrokerSummary = list[BrokerSummary]
 
 
 class ListBrokersOutput(TypedDict, total=False):
     """A list of information about all brokers."""
 
-    BrokerSummaries: Optional[_listOfBrokerSummary]
-    NextToken: Optional[_string]
+    BrokerSummaries: _listOfBrokerSummary | None
+    NextToken: _string | None
 
 
 class ListBrokersRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListBrokersResponse(TypedDict, total=False):
-    BrokerSummaries: Optional[_listOfBrokerSummary]
-    NextToken: Optional[_string]
+    BrokerSummaries: _listOfBrokerSummary | None
+    NextToken: _string | None
 
 
-_listOfConfigurationRevision = List[ConfigurationRevision]
+_listOfConfigurationRevision = list[ConfigurationRevision]
 
 
 class ListConfigurationRevisionsOutput(TypedDict, total=False):
     """Returns a list of all revisions for the specified configuration."""
 
-    ConfigurationId: Optional[_string]
-    MaxResults: Optional[_integer]
-    NextToken: Optional[_string]
-    Revisions: Optional[_listOfConfigurationRevision]
+    ConfigurationId: _string | None
+    MaxResults: _integer | None
+    NextToken: _string | None
+    Revisions: _listOfConfigurationRevision | None
 
 
 class ListConfigurationRevisionsRequest(ServiceRequest):
     ConfigurationId: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListConfigurationRevisionsResponse(TypedDict, total=False):
-    ConfigurationId: Optional[_string]
-    MaxResults: Optional[_integer]
-    NextToken: Optional[_string]
-    Revisions: Optional[_listOfConfigurationRevision]
+    ConfigurationId: _string | None
+    MaxResults: _integer | None
+    NextToken: _string | None
+    Revisions: _listOfConfigurationRevision | None
 
 
-_listOfConfiguration = List[Configuration]
+_listOfConfiguration = list[Configuration]
 
 
 class ListConfigurationsOutput(TypedDict, total=False):
     """Returns a list of all configurations."""
 
-    Configurations: Optional[_listOfConfiguration]
-    MaxResults: Optional[_integer]
-    NextToken: Optional[_string]
+    Configurations: _listOfConfiguration | None
+    MaxResults: _integer | None
+    NextToken: _string | None
 
 
 class ListConfigurationsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListConfigurationsResponse(TypedDict, total=False):
-    Configurations: Optional[_listOfConfiguration]
-    MaxResults: Optional[_integer]
-    NextToken: Optional[_string]
+    Configurations: _listOfConfiguration | None
+    MaxResults: _integer | None
+    NextToken: _string | None
 
 
 class ListTagsRequest(ServiceRequest):
@@ -839,7 +839,7 @@ class ListTagsRequest(ServiceRequest):
 
 
 class ListTagsResponse(TypedDict, total=False):
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class ListUsersOutput(TypedDict, total=False):
@@ -847,21 +847,21 @@ class ListUsersOutput(TypedDict, total=False):
 
     BrokerId: _string
     MaxResults: _integerMin5Max100
-    NextToken: Optional[_string]
+    NextToken: _string | None
     Users: _listOfUserSummary
 
 
 class ListUsersRequest(ServiceRequest):
     BrokerId: _string
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[_string]
+    MaxResults: MaxResults | None
+    NextToken: _string | None
 
 
 class ListUsersResponse(TypedDict, total=False):
-    BrokerId: Optional[_string]
-    MaxResults: Optional[_integerMin5Max100]
-    NextToken: Optional[_string]
-    Users: Optional[_listOfUserSummary]
+    BrokerId: _string | None
+    MaxResults: _integerMin5Max100 | None
+    NextToken: _string | None
+    Users: _listOfUserSummary | None
 
 
 class PromoteInput(TypedDict, total=False):
@@ -873,7 +873,7 @@ class PromoteInput(TypedDict, total=False):
 class PromoteOutput(TypedDict, total=False):
     """Returns information about the updated broker."""
 
-    BrokerId: Optional[_string]
+    BrokerId: _string | None
 
 
 class PromoteRequest(ServiceRequest):
@@ -884,7 +884,7 @@ class PromoteRequest(ServiceRequest):
 
 
 class PromoteResponse(TypedDict, total=False):
-    BrokerId: Optional[_string]
+    BrokerId: _string | None
 
 
 class RebootBrokerRequest(ServiceRequest):
@@ -900,92 +900,92 @@ class SanitizationWarning(TypedDict, total=False):
     was sanitized in the configuration.
     """
 
-    AttributeName: Optional[_string]
-    ElementName: Optional[_string]
+    AttributeName: _string | None
+    ElementName: _string | None
     Reason: SanitizationWarningReason
 
 
 class Tags(TypedDict, total=False):
     """A map of the key-value pairs for the resource tag."""
 
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class UpdateBrokerInput(TypedDict, total=False):
     """Updates the broker using the specified properties."""
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
-    Configuration: Optional[ConfigurationId]
-    DataReplicationMode: Optional[DataReplicationMode]
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataInput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    SecurityGroups: Optional[_listOf__string]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
+    Configuration: ConfigurationId | None
+    DataReplicationMode: DataReplicationMode | None
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataInput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    SecurityGroups: _listOf__string | None
 
 
 class UpdateBrokerOutput(TypedDict, total=False):
     """Returns information about the updated broker."""
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
     BrokerId: _string
-    Configuration: Optional[ConfigurationId]
-    DataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    DataReplicationMode: Optional[DataReplicationMode]
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataOutput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    PendingDataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    PendingDataReplicationMode: Optional[DataReplicationMode]
-    SecurityGroups: Optional[_listOf__string]
+    Configuration: ConfigurationId | None
+    DataReplicationMetadata: DataReplicationMetadataOutput | None
+    DataReplicationMode: DataReplicationMode | None
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataOutput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    PendingDataReplicationMetadata: DataReplicationMetadataOutput | None
+    PendingDataReplicationMode: DataReplicationMode | None
+    SecurityGroups: _listOf__string | None
 
 
 class UpdateBrokerRequest(ServiceRequest):
     """Updates the broker using the specified properties."""
 
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
     BrokerId: _string
-    Configuration: Optional[ConfigurationId]
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataInput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    SecurityGroups: Optional[_listOf__string]
-    DataReplicationMode: Optional[DataReplicationMode]
+    Configuration: ConfigurationId | None
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataInput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    SecurityGroups: _listOf__string | None
+    DataReplicationMode: DataReplicationMode | None
 
 
 class UpdateBrokerResponse(TypedDict, total=False):
-    AuthenticationStrategy: Optional[AuthenticationStrategy]
-    AutoMinorVersionUpgrade: Optional[_boolean]
-    BrokerId: Optional[_string]
-    Configuration: Optional[ConfigurationId]
-    EngineVersion: Optional[_string]
-    HostInstanceType: Optional[_string]
-    LdapServerMetadata: Optional[LdapServerMetadataOutput]
-    Logs: Optional[Logs]
-    MaintenanceWindowStartTime: Optional[WeeklyStartTime]
-    SecurityGroups: Optional[_listOf__string]
-    DataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    DataReplicationMode: Optional[DataReplicationMode]
-    PendingDataReplicationMetadata: Optional[DataReplicationMetadataOutput]
-    PendingDataReplicationMode: Optional[DataReplicationMode]
+    AuthenticationStrategy: AuthenticationStrategy | None
+    AutoMinorVersionUpgrade: _boolean | None
+    BrokerId: _string | None
+    Configuration: ConfigurationId | None
+    EngineVersion: _string | None
+    HostInstanceType: _string | None
+    LdapServerMetadata: LdapServerMetadataOutput | None
+    Logs: Logs | None
+    MaintenanceWindowStartTime: WeeklyStartTime | None
+    SecurityGroups: _listOf__string | None
+    DataReplicationMetadata: DataReplicationMetadataOutput | None
+    DataReplicationMode: DataReplicationMode | None
+    PendingDataReplicationMetadata: DataReplicationMetadataOutput | None
+    PendingDataReplicationMode: DataReplicationMode | None
 
 
 class UpdateConfigurationInput(TypedDict, total=False):
     """Updates the specified configuration."""
 
     Data: _string
-    Description: Optional[_string]
+    Description: _string | None
 
 
-_listOfSanitizationWarning = List[SanitizationWarning]
+_listOfSanitizationWarning = list[SanitizationWarning]
 
 
 class UpdateConfigurationOutput(TypedDict, total=False):
@@ -994,9 +994,9 @@ class UpdateConfigurationOutput(TypedDict, total=False):
     Arn: _string
     Created: _timestampIso8601
     Id: _string
-    LatestRevision: Optional[ConfigurationRevision]
+    LatestRevision: ConfigurationRevision | None
     Name: _string
-    Warnings: Optional[_listOfSanitizationWarning]
+    Warnings: _listOfSanitizationWarning | None
 
 
 class UpdateConfigurationRequest(ServiceRequest):
@@ -1004,36 +1004,36 @@ class UpdateConfigurationRequest(ServiceRequest):
 
     ConfigurationId: _string
     Data: _string
-    Description: Optional[_string]
+    Description: _string | None
 
 
 class UpdateConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[_string]
-    Created: Optional[_timestampIso8601]
-    Id: Optional[_string]
-    LatestRevision: Optional[ConfigurationRevision]
-    Name: Optional[_string]
-    Warnings: Optional[_listOfSanitizationWarning]
+    Arn: _string | None
+    Created: _timestampIso8601 | None
+    Id: _string | None
+    LatestRevision: ConfigurationRevision | None
+    Name: _string | None
+    Warnings: _listOfSanitizationWarning | None
 
 
 class UpdateUserInput(TypedDict, total=False):
     """Updates the information for an ActiveMQ user."""
 
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
-    Password: Optional[_string]
-    ReplicationUser: Optional[_boolean]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
+    Password: _string | None
+    ReplicationUser: _boolean | None
 
 
 class UpdateUserRequest(ServiceRequest):
     """Updates the information for an ActiveMQ user."""
 
     BrokerId: _string
-    ConsoleAccess: Optional[_boolean]
-    Groups: Optional[_listOf__string]
-    Password: Optional[_string]
+    ConsoleAccess: _boolean | None
+    Groups: _listOf__string | None
+    Password: _string | None
     Username: _string
-    ReplicationUser: Optional[_boolean]
+    ReplicationUser: _boolean | None
 
 
 class UpdateUserResponse(TypedDict, total=False):
@@ -1045,8 +1045,8 @@ _timestampUnix = datetime
 
 
 class MqApi:
-    service = "mq"
-    version = "2017-11-27"
+    service: str = "mq"
+    version: str = "2017-11-27"
 
     @handler("CreateBroker")
     def create_broker(

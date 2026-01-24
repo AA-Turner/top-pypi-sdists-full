@@ -14,6 +14,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
+use pyrefly_types::callable::Deprecation;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_util::display::commas_iter;
 use pyrefly_util::visit::VisitMut;
@@ -33,7 +34,7 @@ use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::display::ClassDisplayContext;
 use crate::types::keywords::DataclassKeywords;
-use crate::types::keywords::DataclassTransformKeywords;
+use crate::types::keywords::DataclassTransformMetadata;
 use crate::types::stdlib::Stdlib;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
@@ -47,16 +48,21 @@ pub struct ClassMetadata {
     enum_metadata: Option<EnumMetadata>,
     protocol_metadata: Option<ProtocolMetadata>,
     dataclass_metadata: Option<DataclassMetadata>,
+    extends_abc: bool,
     bases: Vec<Class>,
     has_generic_base_class: bool,
     has_base_any: bool,
     is_new_type: bool,
     is_final: bool,
+    deprecation: Option<Deprecation>,
+    is_disjoint_base: bool,
     total_ordering_metadata: Option<TotalOrderingMetadata>,
     /// If this class is decorated with `typing.dataclass_transform(...)`, the keyword arguments
     /// that were passed to the `dataclass_transform` call.
-    dataclass_transform_metadata: Option<DataclassTransformKeywords>,
+    dataclass_transform_metadata: Option<DataclassTransformMetadata>,
     pydantic_model_kind: Option<PydanticModelKind>,
+    django_model_metadata: Option<DjangoModelMetadata>,
+    is_marshmallow_schema: bool,
 }
 
 impl VisitMut<Type> for ClassMetadata {
@@ -75,37 +81,47 @@ impl Display for ClassMetadata {
 impl ClassMetadata {
     pub fn new(
         bases: Vec<Class>,
-        metaclass: Option<ClassType>,
+        metaclass: Metaclass,
         keywords: Vec<(Name, Type)>,
         typed_dict_metadata: Option<TypedDictMetadata>,
         named_tuple_metadata: Option<NamedTupleMetadata>,
         enum_metadata: Option<EnumMetadata>,
         protocol_metadata: Option<ProtocolMetadata>,
         dataclass_metadata: Option<DataclassMetadata>,
+        extends_abc: bool,
         has_generic_base_class: bool,
         has_base_any: bool,
         is_new_type: bool,
         is_final: bool,
+        deprecation: Option<Deprecation>,
+        is_disjoint_base: bool,
         total_ordering_metadata: Option<TotalOrderingMetadata>,
-        dataclass_transform_metadata: Option<DataclassTransformKeywords>,
+        dataclass_transform_metadata: Option<DataclassTransformMetadata>,
         pydantic_model_kind: Option<PydanticModelKind>,
+        django_model_metadata: Option<DjangoModelMetadata>,
+        is_marshmallow_schema: bool,
     ) -> ClassMetadata {
         ClassMetadata {
-            metaclass: Metaclass(metaclass),
+            metaclass,
             keywords: Keywords(keywords),
             typed_dict_metadata,
             named_tuple_metadata,
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
+            extends_abc,
             bases,
             has_generic_base_class,
             has_base_any,
             is_new_type,
             is_final,
+            deprecation,
+            is_disjoint_base,
             total_ordering_metadata,
             dataclass_transform_metadata,
             pydantic_model_kind,
+            django_model_metadata,
+            is_marshmallow_schema,
         }
     }
 
@@ -118,19 +134,35 @@ impl ClassMetadata {
             enum_metadata: None,
             protocol_metadata: None,
             dataclass_metadata: None,
+            extends_abc: false,
             bases: Vec::new(),
             has_generic_base_class: false,
             has_base_any: false,
             is_new_type: false,
             is_final: false,
+            deprecation: None,
+            is_disjoint_base: false,
             total_ordering_metadata: None,
             dataclass_transform_metadata: None,
             pydantic_model_kind: None,
+            django_model_metadata: None,
+            is_marshmallow_schema: false,
         }
     }
 
-    pub fn metaclass(&self) -> Option<&ClassType> {
-        self.metaclass.0.as_ref()
+    /// The class's custom (non-`type`) metaclass, if it has one.
+    pub fn custom_metaclass(&self) -> Option<&ClassType> {
+        self.metaclass.get()
+    }
+
+    pub fn custom_metaclass_raw(&self) -> &Metaclass {
+        &self.metaclass
+    }
+
+    /// The class's metaclass.
+    pub fn metaclass<'a>(&'a self, stdlib: &'a Stdlib) -> &'a ClassType {
+        self.custom_metaclass()
+            .unwrap_or_else(|| stdlib.builtins_type())
     }
 
     #[allow(dead_code)] // This is used in tests now, and will be needed later in production.
@@ -142,8 +174,17 @@ impl ClassMetadata {
         self.typed_dict_metadata.is_some()
     }
 
-    pub fn is_pydantic_base_model(&self) -> bool {
+    /// Returns true if this class is a pydantic model (BaseModel, RootModel, or BaseSettings).
+    pub fn is_pydantic_model(&self) -> bool {
         self.pydantic_model_kind.is_some()
+    }
+
+    pub fn is_django_model(&self) -> bool {
+        self.django_model_metadata.is_some()
+    }
+
+    pub fn is_marshmallow_schema(&self) -> bool {
+        self.is_marshmallow_schema
     }
 
     pub fn pydantic_model_kind(&self) -> Option<PydanticModelKind> {
@@ -152,6 +193,35 @@ impl ClassMetadata {
 
     pub fn is_final(&self) -> bool {
         self.is_final
+    }
+
+    pub fn extends_abc(&self) -> bool {
+        self.extends_abc
+    }
+
+    pub fn is_explicitly_abstract(&self) -> bool {
+        for base in self.base_class_objects() {
+            if base.has_toplevel_qname("abc", "ABC") {
+                return true;
+            }
+        }
+        // Only check the metaclass if it's directly specified on this class
+        if let Metaclass::Direct(metaclass) = self.custom_metaclass_raw()
+            && metaclass
+                .class_object()
+                .has_toplevel_qname("abc", "ABCMeta")
+        {
+            return true;
+        }
+        false
+    }
+
+    pub fn deprecation(&self) -> Option<&Deprecation> {
+        self.deprecation.as_ref()
+    }
+
+    pub fn is_disjoint_base(&self) -> bool {
+        self.is_disjoint_base
     }
 
     pub fn has_generic_base_class(&self) -> bool {
@@ -212,11 +282,19 @@ impl ClassMetadata {
         self.dataclass_metadata.as_ref()
     }
 
-    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformKeywords> {
+    pub fn dataclass_transform_metadata(&self) -> Option<&DataclassTransformMetadata> {
         self.dataclass_transform_metadata.as_ref()
+    }
+
+    pub fn django_model_metadata(&self) -> Option<&DjangoModelMetadata> {
+        self.django_model_metadata.as_ref()
     }
 }
 
+/// A field that we synthesize and add to a class. Note that if a non-synthesized field already
+/// exists on the class, it will take precedence over the synthesized field in attribute lookup.
+/// If you want to modify the type of a non-synthesized field, see
+/// AnswersSolver::get_special_class_field_type() in class_field.rs.
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
 pub struct ClassSynthesizedField {
     pub inner: Arc<ClassField>,
@@ -245,16 +323,8 @@ impl ClassSynthesizedField {
 }
 
 /// A class's synthesized fields, such as a dataclass's `__init__` method.
-#[derive(Clone, Debug, TypeEq, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq, Default, VisitMut)]
 pub struct ClassSynthesizedFields(SmallMap<Name, ClassSynthesizedField>);
-
-impl VisitMut<Type> for ClassSynthesizedFields {
-    fn recurse_mut(&mut self, f: &mut dyn FnMut(&mut Type)) {
-        for field in self.0.values_mut() {
-            field.visit_mut(f);
-        }
-    }
-}
 
 impl ClassSynthesizedFields {
     pub fn new(fields: SmallMap<Name, ClassSynthesizedField>) -> Self {
@@ -274,6 +344,10 @@ impl ClassSynthesizedFields {
         }
         self
     }
+
+    pub fn fields(&self) -> impl ExactSizeIterator<Item = (&Name, &ClassSynthesizedField)> {
+        self.0.iter()
+    }
 }
 
 impl Display for ClassSynthesizedFields {
@@ -292,13 +366,30 @@ impl Display for ClassSynthesizedFields {
 /// A struct representing a class's metaclass. A value of `None` indicates
 /// no explicit metaclass, in which case the default metaclass is `type`.
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq, Default)]
-struct Metaclass(Option<ClassType>);
+pub enum Metaclass {
+    Direct(ClassType),
+    Inherited(ClassType),
+    #[default]
+    None,
+}
 
 impl Display for Metaclass {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match &self.0 {
-            Some(metaclass) => write!(f, "{metaclass}"),
-            None => write!(f, "type"),
+        match &self {
+            Self::Direct(metaclass) => write!(f, "{metaclass}"),
+            Self::Inherited(metaclass) => write!(f, "inherited({metaclass})"),
+            Self::None => write!(f, "type"),
+        }
+    }
+}
+
+impl Metaclass {
+    /// Convenience function to get the metaclass as a ClassType, regardless of its origin
+    pub fn get(&self) -> Option<&ClassType> {
+        match self {
+            Self::Direct(metaclass) => Some(metaclass),
+            Self::Inherited(metaclass) => Some(metaclass),
+            Self::None => None,
         }
     }
 }
@@ -335,6 +426,8 @@ pub struct EnumMetadata {
     pub is_flag: bool,
     /// Is there any `_value_` field present.
     pub has_value: bool,
+    /// Whether this is a special Django enum.
+    pub is_django: bool,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
@@ -342,10 +435,21 @@ pub struct NamedTupleMetadata {
     pub elements: SmallSet<Name>,
 }
 
+/// Defaults for `init_by_name` and `init_by_default`, per-field flags that control the name of
+/// a field's corresponding `__init__` parameter. See DataclassFieldKeywords for more information.
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
-pub struct ClassValidationFlags {
-    pub validate_by_name: bool,
-    pub validate_by_alias: bool,
+pub struct InitDefaults {
+    pub init_by_name: bool,
+    pub init_by_alias: bool,
+}
+
+impl Default for InitDefaults {
+    fn default() -> Self {
+        Self {
+            init_by_name: false,
+            init_by_alias: true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
@@ -355,8 +459,16 @@ pub struct DataclassMetadata {
     pub kws: DataclassKeywords,
     pub field_specifiers: Vec<CalleeKind>,
     pub alias_keyword: Name,
-    // a tuple to indicate whether we should validate by name or alias
-    pub class_validation_flags: ClassValidationFlags,
+    pub init_defaults: InitDefaults,
+    /// Whether a default can be passed positionally to field specifier calls
+    pub default_can_be_positional: bool,
+}
+
+#[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
+pub struct DjangoModelMetadata {
+    /// The name of the field that has primary_key=True, if any.
+    /// If None, the model uses the default auto-generated `id` field.
+    pub custom_primary_key_field: Option<Name>,
 }
 
 #[derive(Clone, Debug, TypeEq, PartialEq, Eq)]
@@ -389,7 +501,7 @@ pub struct TotalOrderingMetadata {
 /// If a class is present in multiple places of the inheritance tree (and is
 /// linearizable using C3 linearization), it is possible it appears with
 /// different type arguments. The type arguments computed here will always be
-/// those coming from the instance that was selected during lineariation.
+/// those coming from the instance that was selected during linearization.
 #[derive(Clone, Debug, VisitMut, TypeEq, PartialEq, Eq)]
 pub enum ClassMro {
     Resolved(Vec<ClassType>),

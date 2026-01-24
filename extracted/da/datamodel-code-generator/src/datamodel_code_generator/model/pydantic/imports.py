@@ -1,3 +1,8 @@
+"""Import definitions for Pydantic v1 types.
+
+Provides pre-defined Import objects for Pydantic v1 types (constr, AnyUrl, etc.).
+"""
+
 from __future__ import annotations
 
 from datamodel_code_generator.imports import Import
@@ -34,4 +39,3 @@ IMPORT_STRICT_FLOAT = Import.from_full_path("pydantic.StrictFloat")
 IMPORT_STRICT_STR = Import.from_full_path("pydantic.StrictStr")
 IMPORT_STRICT_BOOL = Import.from_full_path("pydantic.StrictBool")
 IMPORT_STRICT_BYTES = Import.from_full_path("pydantic.StrictBytes")
-IMPORT_DATACLASS = Import.from_full_path("pydantic.dataclasses.dataclass")

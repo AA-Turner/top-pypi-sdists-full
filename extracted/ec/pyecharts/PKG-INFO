@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyecharts
-Version: 2.0.8
+Version: 2.0.9
 Summary: Python options, make charting easier
 Home-page: https://github.com/pyecharts/pyecharts
 Author: chenjiandongx
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 License-File: LICENSE
 Requires-Dist: jinja2

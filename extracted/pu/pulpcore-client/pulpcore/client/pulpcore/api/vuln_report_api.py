@@ -17,7 +17,7 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictInt, StrictStr
+from pydantic import Field, StrictInt, StrictStr, field_validator
 from typing import List, Optional
 from typing_extensions import Annotated
 from pulpcore.client.pulpcore.models.paginated_vulnerability_report_response_list import PaginatedVulnerabilityReportResponseList
@@ -318,6 +318,12 @@ class VulnReportApi:
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
+        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -343,6 +349,18 @@ class VulnReportApi:
         :type limit: int
         :param offset: The initial index from which to return the results.
         :type offset: int
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :type ordering: List[str]
+        :param prn__in: Multiple values may be separated by commas.
+        :type prn__in: List[str]
+        :param pulp_href__in: Multiple values may be separated by commas.
+        :type pulp_href__in: List[str]
+        :param pulp_id__in: Multiple values may be separated by commas.
+        :type pulp_id__in: List[str]
+        :param q: Filter results by using NOT, AND and OR operations on other filters
+        :type q: str
+        :param repo_versions: Filter results where repo_versions matches value
+        :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -373,6 +391,12 @@ class VulnReportApi:
             x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
+            ordering=ordering,
+            prn__in=prn__in,
+            pulp_href__in=pulp_href__in,
+            pulp_id__in=pulp_id__in,
+            q=q,
+            repo_versions=repo_versions,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -401,6 +425,12 @@ class VulnReportApi:
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
+        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -426,6 +456,18 @@ class VulnReportApi:
         :type limit: int
         :param offset: The initial index from which to return the results.
         :type offset: int
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :type ordering: List[str]
+        :param prn__in: Multiple values may be separated by commas.
+        :type prn__in: List[str]
+        :param pulp_href__in: Multiple values may be separated by commas.
+        :type pulp_href__in: List[str]
+        :param pulp_id__in: Multiple values may be separated by commas.
+        :type pulp_id__in: List[str]
+        :param q: Filter results by using NOT, AND and OR operations on other filters
+        :type q: str
+        :param repo_versions: Filter results where repo_versions matches value
+        :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -456,6 +498,12 @@ class VulnReportApi:
             x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
+            ordering=ordering,
+            prn__in=prn__in,
+            pulp_href__in=pulp_href__in,
+            pulp_id__in=pulp_id__in,
+            q=q,
+            repo_versions=repo_versions,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -484,6 +532,12 @@ class VulnReportApi:
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
+        q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
+        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -509,6 +563,18 @@ class VulnReportApi:
         :type limit: int
         :param offset: The initial index from which to return the results.
         :type offset: int
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `vulns` - Vulns * `-vulns` - Vulns (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :type ordering: List[str]
+        :param prn__in: Multiple values may be separated by commas.
+        :type prn__in: List[str]
+        :param pulp_href__in: Multiple values may be separated by commas.
+        :type pulp_href__in: List[str]
+        :param pulp_id__in: Multiple values may be separated by commas.
+        :type pulp_id__in: List[str]
+        :param q: Filter results by using NOT, AND and OR operations on other filters
+        :type q: str
+        :param repo_versions: Filter results where repo_versions matches value
+        :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -539,6 +605,12 @@ class VulnReportApi:
             x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
+            ordering=ordering,
+            prn__in=prn__in,
+            pulp_href__in=pulp_href__in,
+            pulp_id__in=pulp_id__in,
+            q=q,
+            repo_versions=repo_versions,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -562,6 +634,12 @@ class VulnReportApi:
         x_task_diagnostics,
         limit,
         offset,
+        ordering,
+        prn__in,
+        pulp_href__in,
+        pulp_id__in,
+        q,
+        repo_versions,
         fields,
         exclude_fields,
         _request_auth,
@@ -574,6 +652,10 @@ class VulnReportApi:
 
         _collection_formats: Dict[str, str] = {
             'X-Task-Diagnostics': 'csv',
+            'ordering': 'csv',
+            'prn__in': 'csv',
+            'pulp_href__in': 'csv',
+            'pulp_id__in': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -596,6 +678,30 @@ class VulnReportApi:
         if offset is not None:
             
             _query_params.append(('offset', offset))
+            
+        if ordering is not None:
+            
+            _query_params.append(('ordering', ordering))
+            
+        if prn__in is not None:
+            
+            _query_params.append(('prn__in', prn__in))
+            
+        if pulp_href__in is not None:
+            
+            _query_params.append(('pulp_href__in', pulp_href__in))
+            
+        if pulp_id__in is not None:
+            
+            _query_params.append(('pulp_id__in', pulp_id__in))
+            
+        if q is not None:
+            
+            _query_params.append(('q', q))
+            
+        if repo_versions is not None:
+            
+            _query_params.append(('repo_versions', repo_versions))
             
         if fields is not None:
             

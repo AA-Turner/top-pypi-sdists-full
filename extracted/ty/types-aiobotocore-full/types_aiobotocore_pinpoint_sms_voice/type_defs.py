@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import EventTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -44,6 +39,8 @@ __all__ = (
     "GetConfigurationSetEventDestinationsRequestTypeDef",
     "GetConfigurationSetEventDestinationsResponseTypeDef",
     "KinesisFirehoseDestinationTypeDef",
+    "ListConfigurationSetsRequestTypeDef",
+    "ListConfigurationSetsResponseTypeDef",
     "PlainTextMessageTypeTypeDef",
     "ResponseMetadataTypeDef",
     "SSMLMessageTypeTypeDef",
@@ -96,9 +93,14 @@ class GetConfigurationSetEventDestinationsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class ListConfigurationSetsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    PageSize: NotRequired[str]
 
 
 PlainTextMessageTypeTypeDef = TypedDict(
@@ -131,9 +133,15 @@ class EventDestinationTypeDef(TypedDict):
     CloudWatchLogsDestination: NotRequired[CloudWatchLogsDestinationTypeDef]
     Enabled: NotRequired[bool]
     KinesisFirehoseDestination: NotRequired[KinesisFirehoseDestinationTypeDef]
-    MatchingEventTypes: NotRequired[List[EventTypeType]]
+    MatchingEventTypes: NotRequired[list[EventTypeType]]
     Name: NotRequired[str]
     SnsDestination: NotRequired[SnsDestinationTypeDef]
+
+
+class ListConfigurationSetsResponseTypeDef(TypedDict):
+    ConfigurationSets: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class SendVoiceMessageResponseTypeDef(TypedDict):
@@ -160,7 +168,7 @@ class UpdateConfigurationSetEventDestinationRequestTypeDef(TypedDict):
 
 
 class GetConfigurationSetEventDestinationsResponseTypeDef(TypedDict):
-    EventDestinations: List[EventDestinationTypeDef]
+    EventDestinations: list[EventDestinationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

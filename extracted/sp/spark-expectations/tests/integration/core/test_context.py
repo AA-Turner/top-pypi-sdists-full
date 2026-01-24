@@ -50,6 +50,13 @@ def test_context_properties():
     context._dq_project_env_name = "APLAD-5063"
     context._dq_config_file_name = "dq_spark_expectations_config.ini"
     context._dq_config_abs_path = "sparkexpectations/config.ini"
+
+    context._min_priority_email = "low"
+    context._min_priority_pagerduty = "low"
+    context._min_priority_slack = "low"
+    context._min_priority_teams = "low"
+    context._min_priority_zoom = "low"
+
     context._mail_smtp_server = "abc"
     context._mail_smtp_port = 25
     context._mail_smtp_password = "test_password"
@@ -666,6 +673,27 @@ def test_set_zoom_token():
     assert context.get_zoom_token == "abcdefghi"
 
 
+def test_set_enable_pagerduty():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_enable_pagerduty(True)
+    assert context._enable_pagerduty is True
+    assert context.get_enable_pagerduty is True
+
+
+def test_set_pagerduty_webhook_url():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_pagerduty_webhook_url("abcdefghi")
+    assert context._pagerduty_webhook_url == "abcdefghi"
+    assert context.get_pagerduty_webhook_url == "abcdefghi"
+
+
+def test_set_pagerduty_integration_key():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_pagerduty_integration_key("abcdefghi")
+    assert context._pagerduty_integration_key == "abcdefghi"
+    assert context.get_pagerduty_integration_key == "abcdefghi"
+
+
 def test_table_name():
     context = SparkExpectationsContext(product_id="product1", spark=spark)
     context.set_table_name("test_table")
@@ -855,6 +883,17 @@ def test_get_zoom_webhook_url_exception():
         "'_zoom_webhook_url' before \n            accessing it",
     ):
         context.get_zoom_webhook_url
+
+
+def test_get_pagerduty_webhook_url_exception():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context._pagerduty_webhook_url = False
+    with pytest.raises(
+        SparkExpectationsMiscException,
+        match="The spark expectations context is not set completely, please assign "
+        "'_pagerduty_webhook_url' before \n            accessing it",
+    ):
+        context.get_pagerduty_webhook_url
 
 
 def test_get_zoom_token():
@@ -1734,32 +1773,32 @@ def test_get_topic_name_exception():
     ):
         context.get_topic_name
 
-
-def test_set_se_streaming_stats_topic_name():
+def test_set_se_streaming_stats_kafka_custom_config_enable():
     context = SparkExpectationsContext(product_id="product1", spark=spark)
-    context.set_se_streaming_stats_topic_name("test_topic")
+    context.set_se_streaming_stats_kafka_custom_config_enable(True)
+    assert context.get_se_streaming_stats_kafka_custom_config_enable is True
 
-    assert context.get_se_streaming_stats_topic_name == "test_topic"
-
-
-def test_get_se_streaming_stats_topic_name():
+def test_get_se_streaming_stats_kafka_custom_config_enable_default():
     context = SparkExpectationsContext(product_id="product1", spark=spark)
-    context.set_se_streaming_stats_topic_name("test_topic")
-
-    assert context.get_se_streaming_stats_topic_name == context.get_se_streaming_stats_topic_name
+    assert context.get_se_streaming_stats_kafka_custom_config_enable is False
 
 
-def test_get_se_streaming_stats_topic_name_exception():
+def test_get_se_streaming_stats_kafka_bootstrap_server():
     context = SparkExpectationsContext(product_id="product1", spark=spark)
-    context.set_se_streaming_stats_topic_name("")
+    context.set_se_streaming_stats_kafka_bootstrap_server("test-kafka-server")
+    assert context.get_se_streaming_stats_kafka_bootstrap_server == "test-kafka-server"
+
+
+def test_get_se_streaming_stats_kafka_bootstrap_server_exception():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
 
     with pytest.raises(
         SparkExpectationsMiscException,
         match="""The spark expectations context is not set completely, please assign 
-            '_se_streaming_stats_topic_name' before 
+            'se_streaming_stats_kafka_bootstrap_server' before 
             accessing it""",
     ):
-        context.get_se_streaming_stats_topic_name
+        context.get_se_streaming_stats_kafka_bootstrap_server
 
 
 def test_set_rules_exceeds_threshold():
@@ -2352,3 +2391,277 @@ def test_get_df_dq_obs_report_dataframe():
         assert context.get_df_dq_obs_report_dataframe is None
     else:
         assert context.get_df_dq_obs_report_dataframe.collect() == df.collect()
+
+
+# [Unit Tests for writer type and config methods]
+
+
+def test_set_target_and_error_table_writer_type():
+    """Test setting target and error table writer type"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    context.set_target_and_error_table_writer_type("streaming")
+    assert context.get_target_and_error_table_writer_type == "streaming"
+
+
+def test_get_target_and_error_table_writer_type_default():
+    """Test getting default target and error table writer type"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    # Default should be "batch"
+    assert context.get_target_and_error_table_writer_type == "batch"
+
+
+def test_set_stats_table_writer_type():
+    """Test setting stats table writer type"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    context.set_stats_table_writer_type("streaming")
+    assert context.get_stats_table_writer_type == "streaming"
+
+
+def test_get_stats_table_writer_type_default():
+    """Test getting default stats table writer type"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    # Default should be "batch"
+    assert context.get_stats_table_writer_type == "batch"
+
+
+def test_set_target_and_error_table_writer_config():
+    """Test setting target and error table writer config"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    config = {
+        "mode": "append",
+        "format": "delta",
+        "partitionBy": ["date"],
+        "options": {"checkpointLocation": "/path/to/checkpoint"},
+    }
+    context.set_target_and_error_table_writer_config(config)
+    assert context.get_target_and_error_table_writer_config == config
+
+
+def test_get_target_and_error_table_writer_config_default():
+    """Test getting default target and error table writer config"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    # Default should be empty dict
+    assert context.get_target_and_error_table_writer_config == {}
+
+
+def test_set_stats_table_writer_config():
+    """Test setting stats table writer config"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    config = {
+        "outputMode": "append",
+        "format": "delta",
+        "queryName": "test_query",
+        "trigger": {"processingTime": "10 seconds"},
+        "partitionBy": ["date"],
+        "options": {"checkpointLocation": "/path/to/checkpoint"},
+    }
+    context.set_stats_table_writer_config(config)
+    assert context.get_stats_table_writer_config == config
+
+
+def test_get_stats_table_writer_config_default():
+    """Test getting default stats table writer config"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    # Default should be empty dict
+    assert context.get_stats_table_writer_config == {}
+
+
+def test_writer_type_batch_to_streaming_transition():
+    """Test transitioning writer type from batch to streaming"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    # Default is batch
+    assert context.get_target_and_error_table_writer_type == "batch"
+    assert context.get_stats_table_writer_type == "batch"
+    
+    # Change to streaming
+    context.set_target_and_error_table_writer_type("streaming")
+    context.set_stats_table_writer_type("streaming")
+    
+    assert context.get_target_and_error_table_writer_type == "streaming"
+    assert context.get_stats_table_writer_type == "streaming"
+
+
+def test_writer_config_update():
+    """Test updating writer config"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    
+    # Set initial config
+    initial_config = {
+        "mode": "append",
+        "format": "delta",
+    }
+    context.set_target_and_error_table_writer_config(initial_config)
+    assert context.get_target_and_error_table_writer_config == initial_config
+    
+    # Update config
+    updated_config = {
+        "mode": "overwrite",
+        "format": "parquet",
+        "partitionBy": ["date", "region"],
+    }
+    context.set_target_and_error_table_writer_config(updated_config)
+    assert context.get_target_and_error_table_writer_config == updated_config
+
+
+def test_streaming_writer_config():
+    """Test setting streaming writer config with all options"""
+    context = SparkExpectationsContext(
+        product_id="product1",
+        spark=spark,
+    )
+    
+    streaming_config = {
+        "outputMode": "append",
+        "format": "delta",
+        "queryName": "my_streaming_query",
+        "trigger": {"processingTime": "10 seconds"},
+        "partitionBy": ["date", "hour"],
+        "options": {
+            "checkpointLocation": "/path/to/checkpoint",
+            "maxFilesPerTrigger": "100",
+        },
+    }
+    
+    context.set_stats_table_writer_config(streaming_config)
+    retrieved_config = context.get_stats_table_writer_config
+    
+    assert retrieved_config["outputMode"] == "append"
+    assert retrieved_config["format"] == "delta"
+    assert retrieved_config["queryName"] == "my_streaming_query"
+    assert retrieved_config["trigger"]["processingTime"] == "10 seconds"
+    assert retrieved_config["partitionBy"] == ["date", "hour"]
+    assert retrieved_config["options"]["checkpointLocation"] == "/path/to/checkpoint"
+    assert retrieved_config["options"]["maxFilesPerTrigger"] == "100"
+def test_set_min_priority_email():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_email("high")
+    assert context._min_priority_email == "high"
+    assert context.get_min_priority_email == "high"
+
+
+def test_get_min_priority_email():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_email("low")
+    assert context.get_min_priority_email == "low"  # default value
+
+
+def test_set_min_priority_pagerduty():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_pagerduty("medium")
+    assert context._min_priority_pagerduty == "medium"
+    assert context.get_min_priority_pagerduty == "medium"
+
+
+def test_get_min_priority_pagerduty():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_pagerduty("low")
+    assert context.get_min_priority_pagerduty == "low"  # default value
+
+
+def test_set_min_priority_slack():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_slack("high")
+    assert context._min_priority_slack == "high"
+    assert context.get_min_priority_slack == "high"
+
+
+def test_get_min_priority_slack():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_slack("low")
+    assert context.get_min_priority_slack == "low"  # default value
+
+
+def test_set_min_priority_teams():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_teams("medium")
+    assert context._min_priority_teams == "medium"
+    assert context.get_min_priority_teams == "medium"
+
+
+def test_get_min_priority_teams():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_teams("low")
+    assert context.get_min_priority_teams == "low"  # default value
+
+
+def test_set_min_priority_zoom():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_zoom("high")
+    assert context._min_priority_zoom == "high"
+    assert context.get_min_priority_zoom == "high"
+
+
+def test_get_min_priority_zoom():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_min_priority_zoom("low")
+    assert context.get_min_priority_zoom == "low"  # default value
+
+
+def test_set_kafka_write_status():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_kafka_write_status("Success")
+    assert context._kafka_write_status == "Success"
+    assert context.get_kafka_write_status == "Success"
+
+
+def test_get_kafka_write_status():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    context.set_kafka_write_status("Failed")
+    assert context.get_kafka_write_status == "Failed"
+
+
+def test_get_kafka_write_status_default():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    # Test default value when attribute not set
+    assert context.get_kafka_write_status == "Disabled"
+
+
+def test_set_kafka_write_error_message():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    error_msg = "Connection refused: kafka broker not available"
+    context.set_kafka_write_error_message(error_msg)
+    assert context._kafka_write_error_message == error_msg
+    assert context.get_kafka_write_error_message == error_msg
+
+
+def test_get_kafka_write_error_message():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    error_msg = "Kafka write timeout"
+    context.set_kafka_write_error_message(error_msg)
+    assert context.get_kafka_write_error_message == error_msg
+
+
+def test_get_kafka_write_error_message_default():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    # Test default value when attribute not set
+    assert context.get_kafka_write_error_message == ""

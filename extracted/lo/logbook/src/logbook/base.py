@@ -1,11 +1,11 @@
 """
-    logbook.base
-    ~~~~~~~~~~~~
+logbook.base
+~~~~~~~~~~~~
 
-    Base implementation for logbook.
+Base implementation for logbook.
 
-    :copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
+:license: BSD, see LICENSE for more details.
 """
 
 import os
@@ -15,6 +15,8 @@ from collections import defaultdict
 from datetime import datetime
 from itertools import chain
 from weakref import ref as weakref
+
+from typing_extensions import deprecated
 
 from logbook.concurrency import greenlet_get_ident, thread_get_ident, thread_get_name
 from logbook.helpers import (
@@ -32,7 +34,6 @@ try:
     from logbook._speedups import (
         ContextStackManager,
         StackedObject,
-        _missing,
         group_reflected_property,
     )
 
@@ -41,7 +42,6 @@ except ImportError:
     from logbook._fallback import (
         ContextStackManager,
         StackedObject,
-        _missing,
         group_reflected_property,
     )
 
@@ -84,6 +84,7 @@ def set_datetime_format(datetime_format):
 
        import logbook
        from datetime import datetime
+
        logbook.set_datetime_format("local")
 
     Other uses rely on your supplied :py:obj:`datetime_format`.
@@ -93,8 +94,10 @@ def set_datetime_format(datetime_format):
         import logbook
         import pytz
 
+
         def utc_tz():
             return datetime.now(tz=pytz.utc)
+
 
         logbook.set_datetime_format(utc_tz)
     """
@@ -107,14 +110,14 @@ def set_datetime_format(datetime_format):
         inst = datetime_format()
         if not isinstance(inst, datetime):
             raise ValueError(
-                "Invalid callable value, valid callable "
+                "Invalid callable value, valid callable "  # noqa: UP031
                 "should return datetime.datetime instances, "
                 "not %r" % (type(inst),)
             )
         _datetime_factory = datetime_format
     else:
         raise ValueError(
-            "Invalid value %r.  Valid values are 'utc' and "
+            "Invalid value %r.  Valid values are 'utc' and "  # noqa: UP031
             "'local'." % (datetime_format,)
         )
 
@@ -167,7 +170,7 @@ def lookup_level(level):
     try:
         return _reverse_level_names[level]
     except KeyError:
-        raise LookupError("unknown level name %s" % level)
+        raise LookupError("unknown level name %s" % level)  # noqa: UP031
 
 
 def get_level_name(level):
@@ -201,18 +204,28 @@ class ContextObject(StackedObject):
     """An object that can be bound to a context.  It is managed by the
     :class:`ContextStackManager`"""
 
-    #: subclasses have to instanciate a :class:`ContextStackManager`
+    #: subclasses have to instantiate a :class:`ContextStackManager`
     #: object on this attribute which is then shared for all the
     #: subclasses of it.
     stack_manager = None
 
+    @deprecated("Use push_context instead")
     def push_greenlet(self):
-        """Pushes the context object to the greenlet stack."""
-        self.stack_manager.push_greenlet(self)
+        """Pushes the context object to the greenlet stack.
 
+        .. deprecated:: 1.9
+           Use :meth:`push_context` instead.
+        """
+        self.stack_manager.push_context(self)
+
+    @deprecated("Use pop_context instead")
     def pop_greenlet(self):
-        """Pops the context object from the stack."""
-        popped = self.stack_manager.pop_greenlet()
+        """Pops the context object from the stack.
+
+        .. deprecated:: 1.9
+           Use :meth:`pop_context` instead.
+        """
+        popped = self.stack_manager.pop_context()
         assert popped is self, "popped unexpected object"
 
     def push_context(self):
@@ -224,13 +237,23 @@ class ContextObject(StackedObject):
         popped = self.stack_manager.pop_context()
         assert popped is self, "popped unexpected object"
 
+    @deprecated("Use push_context instead")
     def push_thread(self):
-        """Pushes the context object to the thread stack."""
-        self.stack_manager.push_thread(self)
+        """Pushes the context object to the thread stack.
 
+        .. deprecated:: 1.9
+           Use :meth:`push_context` instead.
+        """
+        self.stack_manager.push_context(self)
+
+    @deprecated("Use pop_context instead")
     def pop_thread(self):
-        """Pops the context object from the stack."""
-        popped = self.stack_manager.pop_thread()
+        """Pops the context object from the stack.
+
+        .. deprecated:: 1.9
+           Use :meth:`pop_context` instead.
+        """
+        popped = self.stack_manager.pop_context()
         assert popped is self, "popped unexpected object"
 
     def push_application(self):
@@ -241,6 +264,18 @@ class ContextObject(StackedObject):
         """Pops the context object from the stack."""
         popped = self.stack_manager.pop_application()
         assert popped is self, "popped unexpected object"
+
+    @deprecated("`with obj.greenletbound()` is deprecated, use `with obj:` instead")
+    def greenletbound(self):
+        return self
+
+    @deprecated("`with obj.contextbound()` is deprecated, use `with obj:` instead")
+    def contextbound(self):
+        return self
+
+    @deprecated("`with obj.threadbound()` is deprecated, use `with obj:` instead")
+    def threadbound(self):
+        return self
 
 
 class NestedSetup(StackedObject):
@@ -259,21 +294,25 @@ class NestedSetup(StackedObject):
         for obj in reversed(self.objects):
             obj.pop_application()
 
+    @deprecated("Use push_context instead")
     def push_thread(self):
         for obj in self.objects:
-            obj.push_thread()
+            obj.push_context()
 
+    @deprecated("Use pop_context instead")
     def pop_thread(self):
         for obj in reversed(self.objects):
-            obj.pop_thread()
+            obj.pop_context()
 
+    @deprecated("Use push_context instead")
     def push_greenlet(self):
         for obj in self.objects:
-            obj.push_greenlet()
+            obj.push_context()
 
+    @deprecated("Use pop_context instead")
     def pop_greenlet(self):
         for obj in reversed(self.objects):
-            obj.pop_greenlet()
+            obj.pop_context()
 
     def push_context(self):
         for obj in self.objects:
@@ -283,13 +322,26 @@ class NestedSetup(StackedObject):
         for obj in reversed(self.objects):
             obj.pop_context()
 
+    @deprecated("`with obj.greenletbound()` is deprecated, use `with obj:` instead")
+    def greenletbound(self):
+        return self
+
+    @deprecated("`with obj.contextbound()` is deprecated, use `with obj:` instead")
+    def contextbound(self):
+        return self
+
+    @deprecated("`with obj.threadbound()` is deprecated, use `with obj:` instead")
+    def threadbound(self):
+        return self
+
 
 class Processor(ContextObject):
     """Can be pushed to a stack to inject additional information into
     a log record as necessary::
 
         def inject_ip(record):
-            record.extra['ip'] = '127.0.0.1'
+            record.extra["ip"] = "127.0.0.1"
+
 
         with Processor(inject_ip):
             ...
@@ -348,7 +400,7 @@ class Flags(ContextObject):
 
     Example usage::
 
-        with Flags(errors='silent'):
+        with Flags(errors="silent"):
             ...
     """
 
@@ -611,16 +663,9 @@ class LogRecord:
             e = sys.exc_info()[1]
             errormsg = (
                 "Could not format message with provided "
-                "arguments: {err}\n  msg={msg!r}\n  "
-                "args={args!r} \n  kwargs={kwargs!r}.\n"
-                "Happened in file {file}, line {lineno}"
-            ).format(
-                err=e,
-                msg=self.msg,
-                args=self.args,
-                kwargs=self.kwargs,
-                file=self.filename,
-                lineno=self.lineno,
+                f"arguments: {e}\n  msg={self.msg!r}\n  "
+                f"args={self.args!r} \n  kwargs={self.kwargs!r}.\n"
+                f"Happened in file {self.filename}, line {self.lineno}"
             )
             raise TypeError(errormsg)
 
@@ -796,17 +841,21 @@ class LoggerMixin:
         if not self.disabled and INFO >= self.level:
             self._log(INFO, args, kwargs)
 
+    @deprecated("Use warning instead")
     def warn(self, *args, **kwargs):
+        """Alias for :meth:`warning`.
+
+        .. deprecated:: 1.9
+           Use :meth:`warning` instead.
+        """
+        return self.warning(*args, **kwargs)
+
+    def warning(self, *args, **kwargs):
         """Logs a :class:`~logbook.LogRecord` with the level set
-        to :data:`~logbook.WARNING`.  This function has an alias
-        named :meth:`warning`.
+        to :data:`~logbook.WARNING`.
         """
         if not self.disabled and WARNING >= self.level:
             self._log(WARNING, args, kwargs)
-
-    def warning(self, *args, **kwargs):
-        """Alias for :meth:`warn`."""
-        return self.warn(*args, **kwargs)
 
     def notice(self, *args, **kwargs):
         """Logs a :class:`~logbook.LogRecord` with the level set
@@ -921,8 +970,8 @@ class RecordDispatcher:
         #: the level of the record dispatcher as integer
         self.level = level
 
-    disabled = group_reflected_property("disabled", False)
-    level = group_reflected_property("level", NOTSET, fallback=NOTSET)
+    disabled = group_reflected_property(False)
+    level = group_reflected_property(NOTSET, fallback=NOTSET)
 
     def handle(self, record):
         """Call the handlers for the specified record.  This is
@@ -1162,4 +1211,4 @@ def dispatch_record(record):
 
 
 # at that point we are safe to import handler
-from logbook.handlers import Handler  # isort:skip
+from logbook.handlers import Handler  # isort:skip  # noqa: E402

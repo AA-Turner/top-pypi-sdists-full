@@ -9,7 +9,7 @@ class Base:
     SITE_ID = values.IntegerValue(1, environ_prefix=None)
 
     @property
-    def PROJECT_NAME(self):
+    def PROJECT_NAME(self):  # noqa
         if settings_module := os.environ.get("DJANGO_SETTINGS_MODULE", None):
             return settings_module.split(".")[0]
         return None

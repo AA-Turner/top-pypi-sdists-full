@@ -16,7 +16,6 @@ short_description: Configure FortiSwitch devices that are managed by this FortiG
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -1562,6 +1564,10 @@ options:
                         choices:
                             - 'disable'
                             - 'enable'
+                    burst_size_level:
+                        aliases: ['burst-size-level']
+                        type: int
+                        description: Increase level to handle bursty traffic
             stp_instance:
                 aliases: ['stp-instance']
                 type: list
@@ -1690,6 +1696,242 @@ options:
                 choices:
                     - 'disable'
                     - 'enable'
+            router_static:
+                aliases: ['router-static']
+                type: list
+                elements: dict
+                description: Router static.
+                suboptions:
+                    blackhole:
+                        type: str
+                        description: Enable/disable blackhole on this route.
+                        choices:
+                            - 'disable'
+                            - 'enable'
+                    comment:
+                        type: str
+                        description: Comment.
+                    device:
+                        type: raw
+                        description: (list) Gateway out interface.
+                    distance:
+                        type: int
+                        description: Administrative distance for the route
+                    dst:
+                        type: raw
+                        description: (list) Destination ip and mask for this route.
+                    dynamic_gateway:
+                        aliases: ['dynamic-gateway']
+                        type: str
+                        description: Enable/disable dynamic gateway.
+                        choices:
+                            - 'disable'
+                            - 'enable'
+                    gateway:
+                        type: str
+                        description: Gateway ip for this route.
+                    id:
+                        type: int
+                        description: Entry sequence number.
+                    status:
+                        type: str
+                        description: Enable/disable route status.
+                        choices:
+                            - 'disable'
+                            - 'enable'
+                    switch_id:
+                        aliases: ['switch-id']
+                        type: raw
+                        description: (list) Switch ID.
+                    vrf:
+                        type: raw
+                        description: (list) VRF for this route.
+            router_vrf:
+                aliases: ['router-vrf']
+                type: list
+                elements: dict
+                description: Router vrf.
+                suboptions:
+                    name:
+                        type: str
+                        description: VRF entry name.
+                    switch_id:
+                        aliases: ['switch-id']
+                        type: raw
+                        description: (list) Switch ID.
+                    vrfid:
+                        type: int
+                        description: VRF ID.
+            system_dhcp_server:
+                aliases: ['system-dhcp-server']
+                type: list
+                elements: dict
+                description: System dhcp server.
+                suboptions:
+                    default_gateway:
+                        aliases: ['default-gateway']
+                        type: str
+                        description: Default gateway IP address assigned by the DHCP server.
+                    dns_server1:
+                        aliases: ['dns-server1']
+                        type: str
+                        description: DNS server 1.
+                    dns_server2:
+                        aliases: ['dns-server2']
+                        type: str
+                        description: DNS server 2.
+                    dns_server3:
+                        aliases: ['dns-server3']
+                        type: str
+                        description: DNS server 3.
+                    dns_service:
+                        aliases: ['dns-service']
+                        type: str
+                        description: Options for assigning DNS servers to DHCP clients.
+                        choices:
+                            - 'default'
+                            - 'specify'
+                            - 'local'
+                    id:
+                        type: int
+                        description: ID.
+                    interface:
+                        type: raw
+                        description: (list) DHCP server can assign IP configurations to clients connected to this interface.
+                    ip_range:
+                        aliases: ['ip-range']
+                        type: list
+                        elements: dict
+                        description: Ip range.
+                        suboptions:
+                            end_ip:
+                                aliases: ['end-ip']
+                                type: str
+                                description: End of IP range.
+                            id:
+                                type: int
+                                description: ID.
+                            start_ip:
+                                aliases: ['start-ip']
+                                type: str
+                                description: Start of IP range.
+                    lease_time:
+                        aliases: ['lease-time']
+                        type: int
+                        description: Lease time in seconds, 0 means unlimited.
+                    netmask:
+                        type: str
+                        description: Netmask assigned by the DHCP server.
+                    ntp_server1:
+                        aliases: ['ntp-server1']
+                        type: str
+                        description: NTP server 1.
+                    ntp_server2:
+                        aliases: ['ntp-server2']
+                        type: str
+                        description: NTP server 2.
+                    ntp_server3:
+                        aliases: ['ntp-server3']
+                        type: str
+                        description: NTP server 3.
+                    ntp_service:
+                        aliases: ['ntp-service']
+                        type: str
+                        description: Options for assigning Network Time Protocol
+                        choices:
+                            - 'default'
+                            - 'specify'
+                            - 'local'
+                    options:
+                        type: list
+                        elements: dict
+                        description: Options.
+                        suboptions:
+                            code:
+                                type: int
+                                description: DHCP option code.
+                            id:
+                                type: int
+                                description: ID.
+                            ip:
+                                type: str
+                                description: DHCP option IPs.
+                            type:
+                                type: str
+                                description: DHCP option type.
+                                choices:
+                                    - 'hex'
+                                    - 'string'
+                                    - 'ip'
+                                    - 'fqdn'
+                            value:
+                                type: str
+                                description: DHCP option value.
+                    status:
+                        type: str
+                        description: Enable/disable this DHCP configuration.
+                        choices:
+                            - 'disable'
+                            - 'enable'
+                    switch_id:
+                        aliases: ['switch-id']
+                        type: raw
+                        description: (list) Switch ID.
+            system_interface:
+                aliases: ['system-interface']
+                type: list
+                elements: dict
+                description: System interface.
+                suboptions:
+                    allowaccess:
+                        type: list
+                        elements: str
+                        description: Permitted types of management access to this interface.
+                        choices:
+                            - 'https'
+                            - 'ping'
+                            - 'ssh'
+                            - 'snmp'
+                            - 'http'
+                            - 'telnet'
+                            - 'radius-acct'
+                    interface:
+                        type: raw
+                        description: (list) Interface name.
+                    ip:
+                        type: raw
+                        description: (list) IP and mask for this interface.
+                    mode:
+                        type: str
+                        description: Interface addressing mode.
+                        choices:
+                            - 'static'
+                            - 'dhcp'
+                    name:
+                        type: str
+                        description: Interface name.
+                    status:
+                        type: str
+                        description: Enable/disable interface status.
+                        choices:
+                            - 'disable'
+                            - 'enable'
+                    switch_id:
+                        aliases: ['switch-id']
+                        type: raw
+                        description: (list) Switch ID.
+                    type:
+                        type: str
+                        description: Interface type.
+                        choices:
+                            - 'physical'
+                            - 'vlan'
+                    vlan:
+                        type: raw
+                        description: (list) VLAN name.
+                    vrf:
+                        type: raw
+                        description: (list) VRF for this route.
 '''
 
 EXAMPLES = '''
@@ -1705,8 +1947,8 @@ EXAMPLES = '''
     - name: Configure FortiSwitch devices that are managed by this FortiGate.
       fortinet.fortimanager.fmgr_switchcontroller_managedswitch:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -1990,6 +2232,7 @@ EXAMPLES = '''
           #   rate: <integer>
           #   unknown_multicast: <value in [disable, enable]>
           #   unknown_unicast: <value in [disable, enable]>
+          #   burst_size_level: <integer>
           # stp_instance:
           #   - id: <string>
           #     priority: <value in [0, 4096, 8192, ...]>
@@ -2012,6 +2255,66 @@ EXAMPLES = '''
           # type: <value in [physical, virtual]>
           # version: <integer>
           # poe_lldp_detection: <value in [disable, enable]>
+          # router_static:
+          #   - blackhole: <value in [disable, enable]>
+          #     comment: <string>
+          #     device: <list or string>
+          #     distance: <integer>
+          #     dst: <list or string>
+          #     dynamic_gateway: <value in [disable, enable]>
+          #     gateway: <string>
+          #     id: <integer>
+          #     status: <value in [disable, enable]>
+          #     switch_id: <list or string>
+          #     vrf: <list or string>
+          # router_vrf:
+          #   - name: <string>
+          #     switch_id: <list or string>
+          #     vrfid: <integer>
+          # system_dhcp_server:
+          #   - default_gateway: <string>
+          #     dns_server1: <string>
+          #     dns_server2: <string>
+          #     dns_server3: <string>
+          #     dns_service: <value in [default, specify, local]>
+          #     id: <integer>
+          #     interface: <list or string>
+          #     ip_range:
+          #       - end_ip: <string>
+          #         id: <integer>
+          #         start_ip: <string>
+          #     lease_time: <integer>
+          #     netmask: <string>
+          #     ntp_server1: <string>
+          #     ntp_server2: <string>
+          #     ntp_server3: <string>
+          #     ntp_service: <value in [default, specify, local]>
+          #     options:
+          #       - code: <integer>
+          #         id: <integer>
+          #         ip: <string>
+          #         type: <value in [hex, string, ip, ...]>
+          #         value: <string>
+          #     status: <value in [disable, enable]>
+          #     switch_id: <list or string>
+          # system_interface:
+          #   - allowaccess:
+          #       - "https"
+          #       - "ping"
+          #       - "ssh"
+          #       - "snmp"
+          #       - "http"
+          #       - "telnet"
+          #       - "radius-acct"
+          #     interface: <list or string>
+          #     ip: <list or string>
+          #     mode: <value in [static, dhcp]>
+          #     name: <string>
+          #     status: <value in [disable, enable]>
+          #     switch_id: <list or string>
+          #     type: <value in [physical, vlan]>
+          #     vlan: <list or string>
+          #     vrf: <list or string>
 '''
 
 RETURN = '''
@@ -2068,6 +2371,7 @@ def main():
     module_primary_key = 'switch-id'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'switchcontroller_managedswitch': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -2120,12 +2424,12 @@ def main():
                         'type': {'choices': ['physical', 'trunk'], 'type': 'str'},
                         'untagged-vlans': {'type': 'raw'},
                         'vlan': {'type': 'str'},
-                        'export-to-pool-flag': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'mac-addr': {'v_range': [['6.2.1', '6.2.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                        'export-to-pool-flag': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'mac-addr': {'v_range': [['6.2.1', '6.2.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                         'packet-sample-rate': {'v_range': [['6.2.0', '']], 'type': 'int'},
                         'packet-sampler': {'v_range': [['6.2.0', '']], 'choices': ['disabled', 'enabled'], 'type': 'str'},
                         'sticky-mac': {'v_range': [['6.2.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'storm-control-policy': {'v_range': [['6.2.0', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                        'storm-control-policy': {'v_range': [['6.2.0', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                         'dot1x-enable': {'v_range': [['6.2.0', '6.2.13']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'max-miss-heartbeats': {'v_range': [['6.2.0', '6.2.13']], 'type': 'int'},
                         'access-mode': {'v_range': [['6.4.0', '']], 'choices': ['normal', 'nac', 'dynamic', 'static'], 'type': 'str'},
@@ -2182,23 +2486,23 @@ def main():
                         'ptp-status': {'v_range': [['7.4.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'restricted-auth-port': {'v_range': [['7.4.1', '']], 'type': 'int'},
                         'allow-arp-monitor': {'v_range': [['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'export-to': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                        'export-to-pool': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
+                        'export-to': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                        'export-to-pool': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
                         'fallback-port': {'v_range': [['7.4.3', '']], 'type': 'str'},
-                        'fgt-peer-device-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'fgt-peer-port-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'fiber-port': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'flags': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'fortilink-port': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'isl-local-trunk-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'isl-peer-device-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'isl-peer-port-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'poe-capable': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'port-number': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'port-prefix-type': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'ptp-policy': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
+                        'fgt-peer-device-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'fgt-peer-port-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'fiber-port': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'flags': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'fortilink-port': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'isl-local-trunk-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'isl-peer-device-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'isl-peer-port-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'poe-capable': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'port-number': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'port-prefix-type': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'ptp-policy': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
                         'speed': {
-                            'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': [
                                 'auto', '10full', '10half', '100full', '100half', '1000full', '10000full', '1000auto', '40000full', '1000fiber', '10000',
                                 '40000', 'auto-module', '100FX-half', '100FX-full', '100000full', '2500full', '25000full', '50000full', '40000auto',
@@ -2207,11 +2511,11 @@ def main():
                             ],
                             'type': 'str'
                         },
-                        'speed-mask': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'stacking-port': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'switch-id': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'virtual-port': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'export-tags': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
+                        'speed-mask': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'stacking-port': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'switch-id': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'virtual-port': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'export-tags': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
                         'log-mac-event': {'v_range': [['7.6.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'pd-capable': {'v_range': [['7.4.4', '']], 'type': 'int'},
                         'qnq': {'v_range': [['7.6.0', '']], 'type': 'raw'}
@@ -2225,75 +2529,75 @@ def main():
                 'override-snmp-user': {'v_range': [['6.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'poe-detection-type': {'v_range': [['6.2.0', '']], 'type': 'int'},
                 'remote-log': {
-                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
-                        'csv': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'csv': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'facility': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': [
                                 'kernel', 'user', 'mail', 'daemon', 'auth', 'syslog', 'lpr', 'news', 'uucp', 'cron', 'authpriv', 'ftp', 'ntp', 'audit',
                                 'alert', 'clock', 'local0', 'local1', 'local2', 'local3', 'local4', 'local5', 'local6', 'local7'
                             ],
                             'type': 'str'
                         },
-                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'server': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'server': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                         'severity': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['emergency', 'alert', 'critical', 'error', 'warning', 'notification', 'information', 'debug'],
                             'type': 'str'
                         },
-                        'status': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'status': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
                 'snmp-community': {
-                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
                         'events': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'type': 'list',
                             'choices': ['cpu-high', 'mem-low', 'log-full', 'intf-ip', 'ent-conf-change', 'l2mac'],
                             'elements': 'str'
                         },
                         'hosts': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'type': 'list',
                             'options': {
-                                'id': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                                'ip': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'}
+                                'id': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                                'ip': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'}
                             },
                             'elements': 'dict'
                         },
-                        'id': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'query-v1-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                        'id': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'query-v1-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                         'query-v1-status': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['disable', 'enable'],
                             'type': 'str'
                         },
-                        'query-v2c-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                        'query-v2c-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                         'query-v2c-status': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['disable', 'enable'],
                             'type': 'str'
                         },
-                        'status': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'trap-v1-lport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'trap-v1-rport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                        'status': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'trap-v1-lport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'trap-v1-rport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                         'trap-v1-status': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['disable', 'enable'],
                             'type': 'str'
                         },
-                        'trap-v2c-lport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'trap-v2c-rport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                        'trap-v2c-lport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'trap-v2c-rport': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                         'trap-v2c-status': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['disable', 'enable'],
                             'type': 'str'
                         }
@@ -2301,26 +2605,26 @@ def main():
                     'elements': 'dict'
                 },
                 'snmp-user': {
-                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
                         'auth-proto': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['md5', 'sha', 'sha1', 'sha256', 'sha384', 'sha512', 'sha224'],
                             'type': 'str'
                         },
-                        'auth-pwd': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                        'auth-pwd': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                        'name': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                         'priv-proto': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['des', 'aes', 'aes128', 'aes192', 'aes256', 'aes192c', 'aes256c'],
                             'type': 'str'
                         },
-                        'priv-pwd': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                        'queries': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'query-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                        'priv-pwd': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                        'queries': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'query-port': {'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                         'security-level': {
-                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.2.1', '6.2.3'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['no-auth-no-priv', 'auth-no-priv', 'auth-priv'],
                             'type': 'str'
                         }
@@ -2329,21 +2633,21 @@ def main():
                 },
                 'mclag-igmp-snooping-aware': {'v_range': [['6.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'ip-source-guard': {
-                    'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
                         'binding-entry': {
-                            'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'type': 'list',
                             'options': {
-                                'entry-name': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                                'ip': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                                'mac': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'}
+                                'entry-name': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                                'ip': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                                'mac': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'}
                             },
                             'elements': 'dict'
                         },
-                        'description': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'port': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'}
+                        'description': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'port': {'v_range': [['6.4.0', '6.4.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
@@ -2386,8 +2690,8 @@ def main():
                 },
                 'mgmt-mode': {'v_range': [['7.4.2', '']], 'type': 'int'},
                 'purdue-level': {'v_range': [['7.4.2', '']], 'choices': ['1', '2', '3', '4', '5', '1.5', '2.5', '3.5', '5.5'], 'type': 'str'},
-                'radius-nas-ip': {'v_range': [['7.2.6', '7.2.9'], ['7.4.2', '']], 'type': 'str'},
-                'radius-nas-ip-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'radius-nas-ip': {'v_range': [['7.2.6', '7.2.11'], ['7.4.2', '']], 'type': 'str'},
+                'radius-nas-ip-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'tunnel-discovered': {'v_range': [['7.4.2', '']], 'type': 'int'},
                 'vlan': {
                     'v_range': [['7.4.2', '']],
@@ -2399,12 +2703,12 @@ def main():
                     'elements': 'dict'
                 },
                 '802-1X-settings': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'link-down-auth': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['set-unauth', 'no-action'], 'type': 'str'},
-                        'local-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'mab-reauth': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'link-down-auth': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['set-unauth', 'no-action'], 'type': 'str'},
+                        'local-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'mab-reauth': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'mac-called-station-delimiter': {
                             'v_range': [['7.4.3', '']],
                             'choices': ['hyphen', 'single-hyphen', 'colon', 'none'],
@@ -2418,112 +2722,113 @@ def main():
                         'mac-case': {'v_range': [['7.4.3', '']], 'choices': ['uppercase', 'lowercase'], 'type': 'str'},
                         'mac-password-delimiter': {'v_range': [['7.4.3', '']], 'choices': ['hyphen', 'single-hyphen', 'colon', 'none'], 'type': 'str'},
                         'mac-username-delimiter': {'v_range': [['7.4.3', '']], 'choices': ['hyphen', 'single-hyphen', 'colon', 'none'], 'type': 'str'},
-                        'max-reauth-attempt': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'reauth-period': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'tx-period': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'}
+                        'max-reauth-attempt': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'reauth-period': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'tx-period': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'}
                     }
                 },
-                'access-profile': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                'delayed-restart-trigger': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                'directly-connected': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                'dynamic-capability': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                'dynamically-discovered': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                'flow-identity': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                'fsw-wan1-admin': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'discovered'], 'type': 'str'},
-                'fsw-wan1-peer': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                'fsw-wan2-admin': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'discovered'], 'type': 'str'},
-                'fsw-wan2-peer': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                'access-profile': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                'delayed-restart-trigger': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                'directly-connected': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                'dynamic-capability': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                'dynamically-discovered': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                'flow-identity': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                'fsw-wan1-admin': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'discovered'], 'type': 'str'},
+                'fsw-wan1-peer': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                'fsw-wan2-admin': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'discovered'], 'type': 'str'},
+                'fsw-wan2-peer': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                 'igmp-snooping': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'aging-time': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'flood-unknown-multicast': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'local-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'aging-time': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'flood-unknown-multicast': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'local-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'vlans': {
-                            'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'type': 'list',
                             'options': {
-                                'proxy': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'global'], 'type': 'str'},
-                                'querier': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                                'querier-addr': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                                'version': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                                'vlan-name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'}
+                                'proxy': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable', 'global'], 'type': 'str'},
+                                'querier': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                                'querier-addr': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                                'version': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                                'vlan-name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'}
                             },
                             'elements': 'dict'
                         }
                     }
                 },
-                'max-allowed-trunk-members': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                'max-allowed-trunk-members': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                 'mirror': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
-                        'dst': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'src-egress': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                        'src-ingress': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                        'status': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['inactive', 'active'], 'type': 'str'},
-                        'switching-packet': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'dst': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'src-egress': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                        'src-ingress': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                        'status': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['inactive', 'active'], 'type': 'str'},
+                        'switching-packet': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
-                'owner-vdom': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                'poe-pre-standard-detection': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'pre-provisioned': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
+                'owner-vdom': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                'poe-pre-standard-detection': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'pre-provisioned': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
                 'sn': {'v_range': [['7.4.3', '']], 'type': 'str'},
                 'snmp-sysinfo': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'contact-info': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'description': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'engine-id': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'location': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'status': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'contact-info': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'description': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'engine-id': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'location': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'status': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     }
                 },
                 'snmp-trap-threshold': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'trap-high-cpu-threshold': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'trap-log-full-threshold': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'trap-low-memory-threshold': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'}
+                        'trap-high-cpu-threshold': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'trap-log-full-threshold': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'trap-low-memory-threshold': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'}
                     }
                 },
-                'staged-image-version': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                'staged-image-version': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                 'static-mac': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
-                        'description': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'id': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'interface': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'mac': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'type': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['static', 'sticky'], 'type': 'str'},
-                        'vlan': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'}
+                        'description': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'id': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'interface': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'mac': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'type': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['static', 'sticky'], 'type': 'str'},
+                        'vlan': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'}
                     },
                     'elements': 'dict'
                 },
                 'storm-control': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'broadcast': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'local-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'rate': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'unknown-multicast': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'unknown-unicast': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'broadcast': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'local-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'rate': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'unknown-multicast': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'unknown-unicast': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'burst-size-level': {'v_range': [['7.6.4', '']], 'type': 'int'}
                     }
                 },
                 'stp-instance': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'list',
                     'options': {
-                        'id': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                        'id': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                         'priority': {
-                            'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': [
                                 '0', '4096', '8192', '12288', '12328', '16384', '20480', '24576', '28672', '32768', '36864', '40960', '45056', '49152',
                                 '53248', '57344', '61440'
@@ -2534,38 +2839,132 @@ def main():
                     'elements': 'dict'
                 },
                 'stp-settings': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'forward-time': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'hello-time': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'local-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'max-age': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'max-hops': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'name': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
-                        'pending-timer': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'revision': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                        'status': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'forward-time': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'hello-time': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'local-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'max-age': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'max-hops': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'name': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
+                        'pending-timer': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'revision': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                        'status': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     }
                 },
-                'switch-device-tag': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'str'},
+                'switch-device-tag': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'str'},
                 'switch-log': {
-                    'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'type': 'dict',
                     'options': {
-                        'local-override': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'local-override': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'severity': {
-                            'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']],
+                            'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']],
                             'choices': ['emergency', 'alert', 'critical', 'error', 'warning', 'notification', 'information', 'debug'],
                             'type': 'str'
                         },
-                        'status': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'status': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     }
                 },
-                'switch-profile': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'raw'},
-                'type': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'choices': ['physical', 'virtual'], 'type': 'str'},
-                'version': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '']], 'type': 'int'},
-                'poe-lldp-detection': {'v_range': [['7.2.6', '7.2.9'], ['7.4.3', '7.6.2']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'switch-profile': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'raw'},
+                'type': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'choices': ['physical', 'virtual'], 'type': 'str'},
+                'version': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '']], 'type': 'int'},
+                'poe-lldp-detection': {'v_range': [['7.2.6', '7.2.11'], ['7.4.3', '7.6.2']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'router-static': {
+                    'v_range': [['7.6.4', '']],
+                    'type': 'list',
+                    'options': {
+                        'blackhole': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'comment': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'device': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'distance': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                        'dst': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'dynamic-gateway': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'gateway': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'id': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                        'status': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'switch-id': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'vrf': {'v_range': [['7.6.4', '']], 'type': 'raw'}
+                    },
+                    'elements': 'dict'
+                },
+                'router-vrf': {
+                    'v_range': [['7.6.4', '']],
+                    'type': 'list',
+                    'options': {
+                        'name': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'switch-id': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'vrfid': {'v_range': [['7.6.4', '']], 'type': 'int'}
+                    },
+                    'elements': 'dict'
+                },
+                'system-dhcp-server': {
+                    'v_range': [['7.6.4', '']],
+                    'type': 'list',
+                    'options': {
+                        'default-gateway': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'dns-server1': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'dns-server2': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'dns-server3': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'dns-service': {'v_range': [['7.6.4', '']], 'choices': ['default', 'specify', 'local'], 'type': 'str'},
+                        'id': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                        'interface': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'ip-range': {
+                            'v_range': [['7.6.4', '']],
+                            'type': 'list',
+                            'options': {
+                                'end-ip': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                                'id': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                                'start-ip': {'v_range': [['7.6.4', '']], 'type': 'str'}
+                            },
+                            'elements': 'dict'
+                        },
+                        'lease-time': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                        'netmask': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'ntp-server1': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'ntp-server2': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'ntp-server3': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'ntp-service': {'v_range': [['7.6.4', '']], 'choices': ['default', 'specify', 'local'], 'type': 'str'},
+                        'options': {
+                            'v_range': [['7.6.4', '']],
+                            'type': 'list',
+                            'options': {
+                                'code': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                                'id': {'v_range': [['7.6.4', '']], 'type': 'int'},
+                                'ip': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                                'type': {'v_range': [['7.6.4', '']], 'choices': ['hex', 'string', 'ip', 'fqdn'], 'type': 'str'},
+                                'value': {'v_range': [['7.6.4', '']], 'type': 'str'}
+                            },
+                            'elements': 'dict'
+                        },
+                        'status': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'switch-id': {'v_range': [['7.6.4', '']], 'type': 'raw'}
+                    },
+                    'elements': 'dict'
+                },
+                'system-interface': {
+                    'v_range': [['7.6.4', '']],
+                    'type': 'list',
+                    'options': {
+                        'allowaccess': {
+                            'v_range': [['7.6.4', '']],
+                            'type': 'list',
+                            'choices': ['https', 'ping', 'ssh', 'snmp', 'http', 'telnet', 'radius-acct'],
+                            'elements': 'str'
+                        },
+                        'interface': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'ip': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'mode': {'v_range': [['7.6.4', '']], 'choices': ['static', 'dhcp'], 'type': 'str'},
+                        'name': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                        'status': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'switch-id': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'type': {'v_range': [['7.6.4', '']], 'choices': ['physical', 'vlan'], 'type': 'str'},
+                        'vlan': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'vrf': {'v_range': [['7.6.4', '']], 'type': 'raw'}
+                    },
+                    'elements': 'dict'
+                }
             }
         }
     }

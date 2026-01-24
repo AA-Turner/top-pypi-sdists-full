@@ -6,16 +6,12 @@ import pathlib
 import shutil
 import sys
 import textwrap
+from importlib import resources
 
 from . import _path
 from ._path import FilesSpec
 from .compat.py39 import os_helper
 from .compat.py312 import import_helper
-
-if sys.version_info >= (3, 9):
-    from importlib import resources
-else:
-    import importlib_resources as resources
 
 
 @contextlib.contextmanager

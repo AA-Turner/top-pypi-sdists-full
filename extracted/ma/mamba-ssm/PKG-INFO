@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mamba_ssm
-Version: 2.2.5
+Version: 2.3.0
 Summary: Mamba state-space model
 Home-page: https://github.com/state-spaces/mamba
 Author: Tri Dao, Albert Gu
@@ -214,10 +214,23 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Unix
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: causal-conv1d
-Provides-Extra: dev
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: torch
+Requires-Dist: triton
+Requires-Dist: ninja
+Requires-Dist: einops
+Requires-Dist: transformers
+Requires-Dist: packaging
+Requires-Dist: setuptools>=61.0.0
+Provides-Extra: causal-conv1d
+Requires-Dist: causal-conv1d>=1.2.0; extra == "causal-conv1d"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 # Mamba
 

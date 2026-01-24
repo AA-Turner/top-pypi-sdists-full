@@ -16,35 +16,23 @@
 
 from __future__ import annotations
 
-import typing as t
 from abc import (
     ABC,
     abstractmethod,
 )
-from collections.abc import (
-    Mapping,
-    Sequence,
-    Set,
-)
 from functools import reduce
 from operator import xor as xor_operator
 
+from . import _typing as t
 from ._codec.hydration import BrokenHydrationObject
 from ._conf import iter_items
-
-
-if t.TYPE_CHECKING:
-    from typing_extensions import deprecated
-else:
-    from ._meta import deprecated
-
-from ._spatial import Point
 from .exceptions import BrokenRecordError
 from .graph import (
     Node,
     Path,
     Relationship,
 )
+from .spatial import Point
 from .time import (
     Date,
     DateTime,
@@ -54,10 +42,10 @@ from .time import (
 
 
 _T = t.TypeVar("_T")
-_K = t.Union[int, str]
+_K: t.TypeAlias = int | str
 
 
-class Record(tuple, Mapping):
+class Record(tuple, t.Mapping):
     """
     Immutable, ordered collection of key-value pairs.
 
@@ -92,7 +80,9 @@ class Record(tuple, Mapping):
     def __repr__(self) -> str:
         fields = " ".join(
             f"{field}={value!r}"
-            for field, value in zip(self.__keys, super().__iter__())
+            for field, value in zip(
+                self.__keys, super().__iter__(), strict=True
+            )
         )
         return f"<{self.__class__.__name__} {fields}>"
 
@@ -108,8 +98,8 @@ class Record(tuple, Mapping):
         :param other:
         :returns:
         """
-        compare_as_sequence = isinstance(other, Sequence)
-        compare_as_mapping = isinstance(other, Mapping)
+        compare_as_sequence = isinstance(other, t.Sequence)
+        compare_as_mapping = isinstance(other, t.Mapping)
         if compare_as_sequence and compare_as_mapping:
             other = t.cast(t.Mapping, other)
             return list(self) == list(other) and dict(self) == dict(other)
@@ -120,10 +110,7 @@ class Record(tuple, Mapping):
             other = t.cast(t.Mapping, other)
             return dict(self) == dict(other)
         else:
-            return False
-
-    def __ne__(self, other: object) -> bool:
-        return not self.__eq__(other)
+            return NotImplemented
 
     def __hash__(self):
         return reduce(xor_operator, map(hash, self.items()))
@@ -140,21 +127,13 @@ class Record(tuple, Mapping):
         if isinstance(key, slice):
             keys = self.__keys[key]
             values = super().__getitem__(key)
-            return self.__class__(zip(keys, values))
+            return self.__class__(zip(keys, values, strict=True))
         try:
             index = self.index(key)
         except IndexError:
             return None
         else:
             return self._super_getitem_single(index)
-
-    # TODO: 6.0 - remove
-    @deprecated("This method is deprecated and will be removed in the future.")
-    def __getslice__(self, start, stop):  # noqa: PLW3201 will be removed
-        key = slice(start, stop)
-        keys = self.__keys[key]
-        values = tuple(self)[key]
-        return self.__class__(zip(keys, values))
 
     def get(self, key: str, default: object = None) -> t.Any:
         """
@@ -356,10 +335,10 @@ class RecordExporter(DataTransformer):
             return path
         elif isinstance(x, (str, Point, Date, Time, DateTime, Duration)):
             return x
-        elif isinstance(x, (Sequence, Set)):
+        elif isinstance(x, (t.Sequence, t.Set)):
             typ = type(x)
             return typ(map(self.transform, x))
-        elif isinstance(x, Mapping):
+        elif isinstance(x, t.Mapping):
             typ = type(x)
             return typ((k, self.transform(v)) for k, v in x.items())
         else:
@@ -374,7 +353,7 @@ class RecordTableRowExporter(DataTransformer):
         return key.replace("\\", "\\\\").replace(".", "\\.")
 
     def transform(self, x):
-        assert isinstance(x, Mapping)
+        assert isinstance(x, t.Mapping)
         typ = type(x)
         return typ(
             item
@@ -403,7 +382,7 @@ class RecordTableRowExporter(DataTransformer):
             return res
         elif isinstance(x, (Path, str)):
             return {prefix: x}
-        elif isinstance(x, Sequence):
+        elif isinstance(x, t.Sequence):
             return dict(
                 item
                 for i, v in enumerate(x)
@@ -411,7 +390,7 @@ class RecordTableRowExporter(DataTransformer):
                     v, prefix=f"{prefix}[].{i}"
                 ).items()
             )
-        elif isinstance(x, Mapping):
+        elif isinstance(x, t.Mapping):
             typ = type(x)
             return typ(
                 item

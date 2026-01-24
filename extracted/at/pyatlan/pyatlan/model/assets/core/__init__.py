@@ -16,8 +16,6 @@ from .adf_pipeline import AdfPipeline
 from .airflow import Airflow
 from .airflow_dag import AirflowDag
 from .airflow_task import AirflowTask
-from .alpha__d_q_rule import alpha_DQRule
-from .alpha__d_q_rule_template import alpha_DQRuleTemplate
 from .anomalo import Anomalo
 from .anomalo_check import AnomaloCheck
 from .app import App
@@ -30,6 +28,7 @@ from .atlas_glossary_term import AtlasGlossaryTerm
 from .auth_policy import AuthPolicy
 from .b_i import BI
 from .b_i_process import BIProcess
+from .bigquery_routine import BigqueryRoutine
 from .calculation_view import CalculationView
 from .catalog import Catalog
 from .column import Column
@@ -43,10 +42,16 @@ from .data_domain import DataDomain
 from .data_mesh import DataMesh
 from .data_product import DataProduct
 from .data_quality import DataQuality
+from .data_quality_rule import DataQualityRule
+from .data_quality_rule_template import DataQualityRuleTemplate
 from .database import Database
+from .databricks import Databricks
 from .databricks_a_i_model_context import DatabricksAIModelContext
 from .databricks_a_i_model_version import DatabricksAIModelVersion
+from .databricks_metric_view import DatabricksMetricView
 from .databricks_unity_catalog_tag import DatabricksUnityCatalogTag
+from .databricks_volume import DatabricksVolume
+from .databricks_volume_path import DatabricksVolumePath
 from .dbt import Dbt
 from .dbt_metric import DbtMetric
 from .dbt_model import DbtModel
@@ -58,6 +63,19 @@ from .document_d_b import DocumentDB
 from .document_d_b_collection import DocumentDBCollection
 from .document_d_b_database import DocumentDBDatabase
 from .dynamo_d_b_secondary_index import DynamoDBSecondaryIndex
+from .fabric import Fabric
+from .fabric_activity import FabricActivity
+from .fabric_dashboard import FabricDashboard
+from .fabric_data_pipeline import FabricDataPipeline
+from .fabric_dataflow import FabricDataflow
+from .fabric_dataflow_entity_column import FabricDataflowEntityColumn
+from .fabric_page import FabricPage
+from .fabric_report import FabricReport
+from .fabric_semantic_model import FabricSemanticModel
+from .fabric_semantic_model_table import FabricSemanticModelTable
+from .fabric_semantic_model_table_column import FabricSemanticModelTableColumn
+from .fabric_visual import FabricVisual
+from .fabric_workspace import FabricWorkspace
 from .file import File
 from .fivetran import Fivetran
 from .fivetran_connector import FivetranConnector
@@ -93,6 +111,14 @@ from .mongo_d_b_database import MongoDBDatabase
 from .monte_carlo import MonteCarlo
 from .namespace import Namespace
 from .no_s_q_l import NoSQL
+from .partial import Partial
+from .partial_field import PartialField
+from .partial_object import PartialObject
+from .partial_v01 import PartialV01
+from .partial_v01_field import PartialV01Field
+from .partial_v02 import PartialV02
+from .partial_v02_field import PartialV02Field
+from .partial_v02_object import PartialV02Object
 from .persona import Persona
 from .power_b_i import PowerBI
 from .power_b_i_app import PowerBIApp
@@ -117,6 +143,7 @@ from .s_q_l import SQL
 from .schema import Schema
 from .schema_registry import SchemaRegistry
 from .schema_registry_subject import SchemaRegistrySubject
+from .semantic import Semantic
 from .snowflake_a_i_model_context import SnowflakeAIModelContext
 from .snowflake_a_i_model_version import SnowflakeAIModelVersion
 from .snowflake_dynamic_table import SnowflakeDynamicTable
@@ -157,12 +184,16 @@ App.Attributes.update_forward_refs(**localns)
 Airflow.Attributes.update_forward_refs(**localns)
 ADF.Attributes.update_forward_refs(**localns)
 BI.Attributes.update_forward_refs(**localns)
+Semantic.Attributes.update_forward_refs(**localns)
 FlowDataset.Attributes.update_forward_refs(**localns)
 NoSQL.Attributes.update_forward_refs(**localns)
+Partial.Attributes.update_forward_refs(**localns)
 Dbt.Attributes.update_forward_refs(**localns)
 Fivetran.Attributes.update_forward_refs(**localns)
 DataContract.Attributes.update_forward_refs(**localns)
 DataQuality.Attributes.update_forward_refs(**localns)
+PartialV01.Attributes.update_forward_refs(**localns)
+PartialV02.Attributes.update_forward_refs(**localns)
 AI.Attributes.update_forward_refs(**localns)
 Resource.Attributes.update_forward_refs(**localns)
 FlowField.Attributes.update_forward_refs(**localns)
@@ -188,21 +219,27 @@ AdfPipeline.Attributes.update_forward_refs(**localns)
 AdfLinkedservice.Attributes.update_forward_refs(**localns)
 AdfActivity.Attributes.update_forward_refs(**localns)
 PowerBI.Attributes.update_forward_refs(**localns)
+Fabric.Attributes.update_forward_refs(**localns)
 CosmosMongoDB.Attributes.update_forward_refs(**localns)
 DocumentDB.Attributes.update_forward_refs(**localns)
+PartialField.Attributes.update_forward_refs(**localns)
+PartialObject.Attributes.update_forward_refs(**localns)
 DbtModelColumn.Attributes.update_forward_refs(**localns)
 DbtTest.Attributes.update_forward_refs(**localns)
 DbtModel.Attributes.update_forward_refs(**localns)
+DbtSeed.Attributes.update_forward_refs(**localns)
 DbtMetric.Attributes.update_forward_refs(**localns)
 DbtSource.Attributes.update_forward_refs(**localns)
-DbtSeed.Attributes.update_forward_refs(**localns)
 FivetranConnector.Attributes.update_forward_refs(**localns)
 Anomalo.Attributes.update_forward_refs(**localns)
-alpha_DQRuleTemplate.Attributes.update_forward_refs(**localns)
 MonteCarlo.Attributes.update_forward_refs(**localns)
+DataQualityRuleTemplate.Attributes.update_forward_refs(**localns)
 Metric.Attributes.update_forward_refs(**localns)
-alpha_DQRule.Attributes.update_forward_refs(**localns)
+DataQualityRule.Attributes.update_forward_refs(**localns)
 Soda.Attributes.update_forward_refs(**localns)
+PartialV01Field.Attributes.update_forward_refs(**localns)
+PartialV02Field.Attributes.update_forward_refs(**localns)
+PartialV02Object.Attributes.update_forward_refs(**localns)
 AIApplication.Attributes.update_forward_refs(**localns)
 AIModelVersion.Attributes.update_forward_refs(**localns)
 AIModel.Attributes.update_forward_refs(**localns)
@@ -223,9 +260,10 @@ Column.Attributes.update_forward_refs(**localns)
 SnowflakeStage.Attributes.update_forward_refs(**localns)
 DatabricksUnityCatalogTag.Attributes.update_forward_refs(**localns)
 SnowflakeStream.Attributes.update_forward_refs(**localns)
-Database.Attributes.update_forward_refs(**localns)
 CalculationView.Attributes.update_forward_refs(**localns)
+Database.Attributes.update_forward_refs(**localns)
 Procedure.Attributes.update_forward_refs(**localns)
+Databricks.Attributes.update_forward_refs(**localns)
 SnowflakeTag.Attributes.update_forward_refs(**localns)
 MatillionGroup.Attributes.update_forward_refs(**localns)
 MatillionJob.Attributes.update_forward_refs(**localns)
@@ -252,6 +290,18 @@ PowerBITile.Attributes.update_forward_refs(**localns)
 PowerBIDataset.Attributes.update_forward_refs(**localns)
 PowerBIApp.Attributes.update_forward_refs(**localns)
 PowerBIPage.Attributes.update_forward_refs(**localns)
+FabricVisual.Attributes.update_forward_refs(**localns)
+FabricDashboard.Attributes.update_forward_refs(**localns)
+FabricDataflow.Attributes.update_forward_refs(**localns)
+FabricActivity.Attributes.update_forward_refs(**localns)
+FabricPage.Attributes.update_forward_refs(**localns)
+FabricWorkspace.Attributes.update_forward_refs(**localns)
+FabricDataPipeline.Attributes.update_forward_refs(**localns)
+FabricSemanticModelTable.Attributes.update_forward_refs(**localns)
+FabricSemanticModelTableColumn.Attributes.update_forward_refs(**localns)
+FabricDataflowEntityColumn.Attributes.update_forward_refs(**localns)
+FabricReport.Attributes.update_forward_refs(**localns)
+FabricSemanticModel.Attributes.update_forward_refs(**localns)
 CosmosMongoDBCollection.Attributes.update_forward_refs(**localns)
 CosmosMongoDBAccount.Attributes.update_forward_refs(**localns)
 CosmosMongoDBDatabase.Attributes.update_forward_refs(**localns)
@@ -269,3 +319,7 @@ SnowflakeAIModelVersion.Attributes.update_forward_refs(**localns)
 SnowflakeAIModelContext.Attributes.update_forward_refs(**localns)
 DatabricksAIModelContext.Attributes.update_forward_refs(**localns)
 SnowflakeDynamicTable.Attributes.update_forward_refs(**localns)
+DatabricksMetricView.Attributes.update_forward_refs(**localns)
+BigqueryRoutine.Attributes.update_forward_refs(**localns)
+DatabricksVolume.Attributes.update_forward_refs(**localns)
+DatabricksVolumePath.Attributes.update_forward_refs(**localns)

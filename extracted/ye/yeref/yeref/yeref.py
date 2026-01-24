@@ -2,6 +2,17 @@
 # region data
 import ast
 import asyncio
+
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except Exception:
+        pass
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 import base64
 import gzip
 import binascii
@@ -14,6 +25,9 @@ import math
 import mimetypes
 import os
 import random
+
+import transliterate
+import httpx
 import regex
 import re
 import csv
@@ -28,15 +42,15 @@ import shlex
 import shutil
 import sqlite3
 import string
-import time
 import urllib.parse
 import zipfile
-from html import unescape
+# from html import unescape
 from calendar import monthrange
 from collections import defaultdict
 # language=bash
 # pip install openai-whisper
 from datetime import datetime, timezone, timedelta
+from time import time
 # import whisper
 # from contextlib import closing
 from math import radians, cos, sin, asin, sqrt
@@ -122,12 +136,13 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_payment_success, l_payment_hashtag, l_inline_codex, l_permissions_add_members, l_admin_closed_group_reject, \
     l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required
 
+
 # region group links
 payment_link = 'http://bagazhznaniy.ru/wp-content/uploads/2014/03/zhivaya-priroda.jpg'
 # channel_library_ru_link = 'https://t.me/+f-0AbTALTOg4ODBk'
 # channel_library_en_link = 'https://t.me/+CHIMCacxEZw4YjA8'
-channel_library_ru_link = 'https://t.me/+KUyJAnkLu8g4ODk0'
-channel_library_en_link = 'https://t.me/+iM5BLUu5V6RkMjY0'
+channel_library_ru_link = 'https://t.me/+iT_CHta-S1NhMGNk'
+channel_library_en_link = 'https://t.me/+kr9D75znZwowYzJk'
 channel_library_ru = -1001484489131
 channel_library_en = -1001481302043
 # -1001481302043
@@ -160,6 +175,26 @@ post_photo = 'https://telegra.ph/file/fceb60dfdc58efccf9585.jpg'
 template1_png = 'https://fereysitnerya.github.io/ferey/template1.png'
 template2_png = 'https://fereysitnerya.github.io/ferey/template2.png'
 
+anti_crisys = 'https://telegra.ph/first-page-03-02-2'
+link_tgp = "https://telegra.ph/Ferey-Blog-07-03"
+link_teletype = "https://teletype.in/@ferey"
+link_instagram = "https://www.instagram.com/ferey_page"
+link_youtube = "https://www.youtube.com/@ferey_channel"
+link_notion = "https://www.notion.so/ferey/Ferey-a67eaf6389dc4e6c86832c9a41b64bba"
+link_discord = "https://discord.com/channels/1125505716011155608/1125505716694810676"
+link_taplink = "https://taplink.cc/ferey"
+link_git = "https://fereysitnerya.github.io/ferey"
+link_pinterest = "https://www.pinterest.com/ferey_pinterest"
+link_habr = "https://habr.com/en/users/fereysitnerya"
+link_devto = "https://dev.to/ferey"
+link_medium = "https://medium.com/@ferey.sitner.ya"
+link_facebook = "https://www.facebook.com/ferey.fb"
+link_reddit = "https://www.reddit.com/user/ferey_reddit"
+link_twitter = "https://twitter.com/ferey_page"
+link_tiktok = "https://www.tiktok.com/@ferey_page"
+link_vimeo = "https://vimeo.com/ferey"
+link_wordpress = "https://fereyblog.wordpress.com"
+
 photo_jpg = 'https://telegra.ph/file/d39e358971fc050e4fc88.jpg'
 gif_jpg = 'https://telegra.ph/file/e147d6798a43fb1fc4bea.jpg'
 video_jpg = 'https://telegra.ph/file/692d65420f9801d757b0c.jpg'
@@ -170,33 +205,35 @@ sticker_jpg = 'https://telegra.ph/file/986323df1836577cbe55d.jpg'
 document_jpg = 'https://telegra.ph/file/28b6c218157833c0f4030.jpg'
 web_jpg = 'https://fereysitnerya.github.io/ferey/web-jpg.jpg'
 
-bot_instruction_ru = 'https://telegra.ph/FereyBotBot-11-13'
-user_instruction_ru = 'https://telegra.ph/FereyUserBot-11-15'
-channel_instruction_ru = 'https://telegra.ph/FereyChannelBot-10-21'
-group_instruction_ru = 'https://telegra.ph/FereyGroupBot-11-13'
-demo_instruction_ru = 'https://telegra.ph/FereyDemoBot-11-15'
-tools_instruction_ru = 'https://telegra.ph/FereyToolsBot-11-15'
-sticker_instruction_ru = 'https://telegra.ph/FereyPostBot-11-15'
-post_instruction_ru = 'https://telegra.ph/FereyPostBot-11-15'
-media_instruction_ru = 'https://telegra.ph/FereyMediaBot-11-15'
-find_instruction_ru = 'https://telegra.ph/FereyFindBot-11-15'
-ai_instruction_ru = 'https://telegra.ph/FereyAIBot-11-15'
-codex_instruction_ru = 'https://telegra.ph/Kodeks-04-12'
-tonest_instruction_ru = 'https://telegra.ph/FereyTONestBot-05-20'
+demo_instruction_ru = 'https://telegra.ph/FereyDemoBot-10-18'
+bot_instruction_ru = 'https://telegra.ph/FereyBotBot-10-18'
+user_instruction_ru = 'https://telegra.ph/FereyUserBot-10-22'
+channel_instruction_ru = 'https://telegra.ph/FereyChannelBot-10-20'
+group_instruction_ru = 'https://telegra.ph/FereyGroupBot-10-21'
+post_instruction_ru = 'https://telegra.ph/FereyPostBot-10-23'
+media_instruction_ru = 'https://telegra.ph/FereyMediaBot-10-23'
+find_instruction_ru = 'https://telegra.ph/FereyFindBot-10-24'
+ai_instruction_ru = 'https://telegra.ph/FereyAIBot-10-24'
+tools_instruction_ru = 'https://telegra.ph/FereyToolsBot-10-27'
+sticker_instruction_ru = 'https://telegra.ph/FereyStickerBot-10-27'
 
-bot_instruction_en = 'https://telegra.ph/FereyBotBot-11-13'
-user_instruction_en = 'https://telegra.ph/FereyUserBot-11-15'
-channel_instruction_en = 'https://telegra.ph/FereyChannelBot-10-21'
-group_instruction_en = 'https://telegra.ph/FereyGroupBot-11-13'
-demo_instruction_en = 'https://telegra.ph/FereyDemoBot-11-15'
-tools_instruction_en = 'https://telegra.ph/FereyToolsBot-11-15'
-sticker_instruction_en = 'https://telegra.ph/FereyPostBot-11-15'
-post_instruction_en = 'https://telegra.ph/FereyPostBot-11-15'
-media_instruction_en = 'https://telegra.ph/FereyMediaBot-11-15'
-find_instruction_en = 'https://telegra.ph/FereyFindBot-11-15'
-ai_instruction_en = 'https://telegra.ph/FereyAIBot-11-15'
-codex_instruction_en = 'https://telegra.ph/Codex-04-12-6'
-tonest_instruction_en = 'https://telegra.ph/FereyTONestBot-05-20'
+codex_instruction_ru = 'https://telegra.ph/FereyCodexBot-10-28'
+tonest_instruction_ru = 'https://telegra.ph/FereyCodexBot-10-28-3'
+
+demo_instruction_en = 'https://telegra.ph/FereyDemoBot-10-22'
+bot_instruction_en = 'https://telegra.ph/FereyBotBot-10-19'
+user_instruction_en = 'https://telegra.ph/FereyUserBot-10-22-2'
+channel_instruction_en = 'https://telegra.ph/FereyChannelBot-10-20-2'
+group_instruction_en = 'https://telegra.ph/FereyGroupBot-10-21-2'
+post_instruction_en = 'https://telegra.ph/FereyPostBot-10-23-2'
+media_instruction_en = 'https://telegra.ph/FereyMediaBot-10-23-2'
+find_instruction_en = 'https://telegra.ph/FereyFindBot-10-24-2'
+ai_instruction_en = 'https://telegra.ph/FereyAIBot-10-24-2'
+tools_instruction_en = 'https://telegra.ph/FereyToolsBot-10-27-2'
+sticker_instruction_en = 'https://telegra.ph/FereyStickerBot-10-27-2'
+
+codex_instruction_en = 'https://telegra.ph/FereyCodexBot-10-28-2'
+tonest_instruction_en = 'https://telegra.ph/FereyTONestBot-10-28'
 
 bot_app_jpg = 'https://ddejfvww7sqtk.cloudfront.net/user-media/09-06-2025/75565/1425201.jpg'
 channel_app_jpg = 'https://ddejfvww7sqtk.cloudfront.net/user-media/09-06-2025/75565/1425202.jpg'
@@ -219,7 +256,9 @@ demo_other3_jpg = 'https://ddejfvww7sqtk.cloudfront.net/user-media/09-06-2025/75
 
 
 # region default
-BOT_CBAN_ = '☐☐☑☐☐'
+BOT_CAGENT_ = '☐☐☐☐'
+BOT_CAGENTPARAMS_ = '{"mission": "", "prompt": "", "chain": "all"}'
+BOT_CBAN_ = '☐☐☐☐☐' 
 BOT_CTRANSLATE_ = '☐'
 BOT_CPAY_ = '☐☐☐☐☐'
 BOT_CINTEGRATION_ = '☐☐'
@@ -229,7 +268,7 @@ BOT_CADMIN_ = '☐☑'
 
 BOT_VARS_ = '{"BOT_PROMO": "#911", "BOT_CHANNEL": 0, "BOT_CHANNELTID": 0, "BOT_GROUP": 0, "BOT_GROUPTID": 0, "BOT_CHATGPT": "", "BOT_GEO": 0, "BOT_TZ": "+00:00", "BOT_DT": "", "BOT_LZ": "en", "BOT_LC": "en", "BOT_ISSTARTED": 0, "BOT_ISMENTIONED": 0}'
 BOT_LSTS_ = '{"BOT_ADMINS": [], "BOT_COMMANDS": ["/start"]}'
-USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_TASK": 0, "USER_DICE": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
+USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_TASK": 0, "USER_DICE": 0, "USER_KARMA": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
 USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": [], "USER_TEXTS": [], "USER_LIMITS": {}}'
 
 UB_CONFIG_ = '☑☑☑☐☐☑☑☐☐☐☐☐☐'
@@ -247,20 +286,20 @@ UB_CSENDCNT_ = 1
 UB_VARS_ = '{"UB_PROMO": "#911", "UB_CHANNEL": 0, "UB_CHANNELTID": 0, "UB_GROUP": 0, "UB_GROUPTID": 0, "USER_COMMENT": "","UB_TZ": "+00:00", "UB_DT": "", "UB_LZ": "en", "UB_LC": "en"}'
 UB_LSTS_ = '{}'
 
-GROUPP_CCHECK_ = '☑☐☐☐☐'
-GROUPP_CBAN_ = '☐☐☑☐☐'
+GROUPP_CCHECK_ = '☑☐☐☐☐☐'
+GROUPP_CBAN_ = '☐☐☐☐☐'
 GROUPP_CDIALOG_ = '☑☑☑'
 
 GROUPP_CSYSTEM_ = '☑'
 GROUPP_CCHANNEL_ = '☑☑'
-GROUPP_CLINKS_ = '☑☑☑☑'
+GROUPP_CLINKS_ = '☑☑☑☑☑'
 GROUPP_CSYMBOLS_ = '☑☑☑'
 GROUPP_CWORDS_ = '☐☐'
 
 GROUPP_CPAY_ = '☐☐☐'
-GROUPP_CVOTE_ = '☑☑'
+GROUPP_CVOTE_ = '☐☑'
 GROUPP_CUSER_ = '☑☐☑'
-GROUPP_CADMIN_ = '☑☑'
+GROUPP_CADMIN_ = '☑☐'
 
 GROUPP_CFLOOD_ = 0
 GROUPP_CTIMER_ = 0
@@ -269,1860 +308,12 @@ GROUPP_CINVITECNT_ = 1
 GROUPP_CUSERDELAY_ = 1
 
 CHANNEL_CONFIG_ = '☑☑☑☐☐☐☐'
-CHANNEL_CCHECK_ = '☑☐☐☐☐'
-CHANNEL_CBAN_ = '☐☐☑☐☐'
+CHANNEL_CCHECK_ = '☑☐☐☐'
+CHANNEL_CBAN_ = '☐☐☐☐☐'
 CHANNEL_CDECOR_ = '☐☐☐'
-CHANNEL_CSYSTEM_ = '☑'
+CHANNEL_CSYSTEM_ = '☐'
 CHANNEL_CPAY_ = '☐☐☐'
 CHANNEL_CUSER_ = '☐☑'
-# endregion
-
-
-# region html
-html_404 = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8"><script src="https://telegram.org/js/telegram-web-app.js"></script><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>​</title>
-    <style>
-        body {{ background-image: url('https://telegra.ph/file/4b093c7e2b68f9f2915b0.jpg'); background-size: cover; background-position: center; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-        .container {{ text-align: center; padding: 30px; background-color: rgba(255, 255, 255, 0.8); border-radius: 10px; }}
-        .error-code {{ font-size: 100px; color: #2c3e50; margin: 0; }}
-        .go-back {{ margin-top: 20px; text-decoration: none; color: #3498db; }}
-    </style>
-</head>
-<body>
-    <div class="container"><h1 class="error-code">404</h1><a href="https://t.me/FereyBotBot?start=error" class="go-back">@FereyBotBot</a></div>
-    <script>
-        let tg = window.Telegram.WebApp
-        tg.SettingsButton.isVisible = true
-        tg.SettingsButton.onClick(async () => {{ tg.openTelegramLink('https://t.me/FereyDemoBot') }})
-    </script>
-</body>
-</html>
-"""
-html_template = """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>​</title>
-
-    <style>
-        html {{ box-sizing: border-box; }}
-        *,*::before, *::after {{ box-sizing: inherit; font-family: Arial, sans-serif; font-weight: 100;}}
-        a {{ text-decoration: none; }}
-        span {{ color: #007bff; }}
-        body {{ margin: 0; padding: 0; overflow-x: hidden; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }}
-
-        .text b, .text u, .text i, .text a, .text code, .text span {{ display: inline; }}
-        .text code {{ font-family: 'Courier New', monospace; background-color: #f5f5f5; }}
-        .text {{ width: 100%; text-align: justify; color: var(--tg-theme-section-header-text-color); }}   
-        .text span {{ margin: -1px; }}
-
-        .container-wrapper {{ max-width: 768px; height: 100vh;  padding: 4px; margin: 0 auto; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; }}
-        .container {{ display: flex; flex-direction: column; align-items: center; justify-content: flex-start; font-size: 14px; gap: 4px; }}
-
-        .media-wrapper {{ -webkit-text-stroke: 0.5px rgba(50, 50, 50, 0.99); position: relative; width: 100%; min-height: 33vh; display: flex; justify-content: center; align-items: flex-start; max-width: 100%; overflow: hidden; }}
-        .media {{ width: 100%; max-height: 33vh; object-fit: cover; height: auto; }}
-        .media:not(.rounded-media) {{ border-radius: 4px; }}
-        .rounded-media {{ border-radius: 50%; }}
-
-        .buttons-wrapper {{
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 4px;
-        }}
-        .buttons-row {{
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            gap: 4px;
-        }}
-        .button {{
-            width: 100%;
-            height: 35px;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            
-            border: 0.1px solid rgba(50, 50, 50, 0.99) !important;
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            text-align: center;
-            border-radius: 4px;
-            cursor: pointer;
-        }}        
-        #media-number {{
-            position: absolute;
-            top: 1%;
-            left: 1%;
-            padding: 16px;
-            padding-top: 19px;
-            font-size: 10px;
-
-            cursor: pointer;
-            color: rgba(254, 254, 254, 1.0);
-        }}
-        #media-prev {{
-            position: absolute;
-            top: 45%;
-            left: 1%;
-            padding: 16px;
-            cursor: pointer;
-            color: rgba(254, 254, 254, 1.0);
-        }}
-        #media-next {{
-            position: absolute;
-            top: 45%;
-            right: 1%;
-            padding: 16px;
-            cursor: pointer;
-            color: rgba(254, 254, 254, 1.0);
-        }}
-        .dot {{
-            cursor: pointer;
-            height: 10px;
-            width: 10px;
-            margin: 0 2px;
-
-            background-color: rgba(254, 254, 254, 1.0);
-            border-radius: 50%;
-            border: 0.5px solid rgba(50, 50, 50, 0.99);
-            display: inline-block;
-            transition: background-color 0.6s ease;
-            opacity: 0.2;
-        }}
-
-        #media-dots {{ position: absolute; bottom: 1%;  text-align: center; padding: 16px; }}
-        .active, .dot:hover {{ opacity: 1; }}
-        #media-prev:hover {{ opacity: 0.6; }}
-        #media-next:hover {{ opacity: 0.6; }}
-
-        .footer {{
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 4px;
-            font-size: 10px;
-            gap: 20px;
-            user-select: none;
-            -webkit-user-select: none;
-        }}
-
-        .footer-inner {{ display: flex; justify-content: space-between; align-items: center; }}
-        #footer-view {{ color: var(--tg-theme-hint-color); }}
-        #footer-link {{ color: var(--tg-theme-link-color); }}
-        .happy-container {{ display: flex; flex-direction: column; gap: 5px; }}
-        .happy {{ display: flex; justify-content: space-between; }}
-        .happy-inner {{ display: flex; align-items: center; }}
-        #link {{ text-decoration: underline; color: var(--tg-theme-hint-color); cursor: pointer; }}
-
-        .round-button {{
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-image: url(https://fereysitnerya.github.io/ferey/red-button.png);
-            background-size: cover;
-            border: none;
-            cursor: pointer;
-            margin: 0 5px;
-            background-color: rgba(255, 255, 255, 0);
-        }}
-
-        .info {{ text-align: center; color: var(--tg-theme-hint-color); }}
-    </style>
-</head>
-<body>
-    <div class="container-wrapper">
-        <div class="container">{0}{1}{2}</div>
-        <div class="footer">
-            <div class="happy-container">
-                <div class="happy">
-                    <div class="happy-inner">
-                        <div><a id="link">Click on</a></div>
-                        <div><button class="round-button" onclick="transaction()"></button></div>
-                    </div>
-                    <div id="connect"></div>
-                </div>
-                <div class="info">and 1 random person in the world will become happy</div>
-            </div>
-
-            <div class="footer-inner"><div id="footer-view">👁 {3}</div><div><a id="footer-link" href="{4}">{5}</a></div></div>
-        </div>
-    </div>
-    <script>
-        let tg = window.Telegram.WebApp
-        tg.ready()
-        console.log('script start', tg.initData)
-        if (tg.initData === '') throw new Error('404')
-        console.log(tg.initDataUnsafe['start_param'])
-        let lang = (tg.initData === '') ? 'en' : tg.initDataUnsafe['user']['language_code']
-        let theme = tg.colorScheme.toUpperCase()
-        let addressContractFriendly = "{9}"
-        let owner = "{10}"
-        let stateInit = "{11}"
-        let shade = "{12}"
-        if (addressContractFriendly == '') document.querySelector('.happy-container').style.display = 'none'
-        
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({{
-            manifestUrl: 'https://fereysitnerya.github.io/ferey/tonconnect-manifest.json',
-            buttonRootId: 'connect',
-            language: lang,
-            twaReturnUrl: 'https://t.me/FereyDemoBot',
-            uiPreferences: {{ theme: theme, borderRadius: 's' }}
-        }})
-
-        document.addEventListener("DOMContentLoaded", async () => {{
-            let mediaElement = document.querySelector('.media')
-            const mediaList = {8}
-            let currentIndex = 0
-
-            async function updateMedia() {{
-                let mediaNumber = document.getElementById('media-number');
-
-                if (mediaElement && mediaNumber) {{
-                    let currentMedia = mediaList[currentIndex];
-
-                    let newMediaElement;
-                    if (currentMedia.endsWith('.mp4')) {{
-                        newMediaElement = document.createElement('video');
-                        newMediaElement.className = 'media';
-                        newMediaElement.src = currentMedia;
-                        newMediaElement.controls = true;
-                        newMediaElement.autoplay = true;
-                        newMediaElement.loop = true;
-                        newMediaElement.muted = true;
-                    }} 
-                    else {{
-                        newMediaElement = document.createElement('img');
-                        newMediaElement.className = 'media';
-                        newMediaElement.src = currentMedia;
-                        newMediaElement.alt = 'Media';
-                    }}
-                    mediaElement.replaceWith(newMediaElement);
-                    mediaElement = newMediaElement;
-
-                    mediaNumber.textContent = (currentIndex + 1) + '/' + mediaList.length;
-                    const dots = document.getElementsByClassName('dot');
-                    for (let i = 0; i < dots.length; i++) dots[i].classList.remove('active');
-                    dots[currentIndex].classList.add('active');
-                }}
-            }}
-
-            let mediaPrev = document.getElementById('media-prev');
-            if (mediaPrev) {{
-                mediaPrev.addEventListener('click', async () => {{
-                    currentIndex = (currentIndex - 1 + mediaList.length) % mediaList.length;
-                    await updateMedia()
-                }})
-            }}
-
-            let mediaNext = document.getElementById('media-next');
-            if (mediaNext) {{
-                mediaNext.addEventListener('click', async () => {{
-                    currentIndex = (currentIndex + 1) % mediaList.length;
-                    await updateMedia()
-                }})
-            }}
-
-            await updateMedia();
-            const roundedMedia = document.querySelectorAll('.rounded-media');
-            for (let i = 0; i < roundedMedia.length; i++) roundedMedia[i].style.width = "auto";
-
-            tonConnectUI.uiOptions = {{ language: lang, uiPreferences: {{ theme: theme }} }}
-            tg.SettingsButton.isVisible = true
-            tg.SettingsButton.onClick(async () => {{ tg.openTelegramLink('https://t.me/FereyDemoBot') }})
-            
-            let [linkText, hintText] = await translateClick()
-            document.getElementById("link").textContent = linkText
-            document.querySelector(".info").textContent = hintText
-
-            document.getElementById("link").addEventListener("click", async (event) => {{
-                event.preventDefault()
-                tg.openLink(`https://tonviewer.com/${{addressContractFriendly}}`, {{try_instant_view: true}})
-            }})  
-            document.querySelector('[data-tc-button="true"]').style.height = "35px";
-            
-            if (shade !== "0") {{
-                if (shade === "white") {{
-                    document.querySelectorAll('.button').forEach(button => {{
-                        button.style.backgroundColor = 'white'
-                        button.style.color = 'black'
-                    }})
-                }}
-                else if (shade === "black") {{
-                    document.querySelectorAll('.button').forEach(button => {{
-                        button.style.backgroundColor = 'black'
-                    }})
-                }}
-                else if (shade === "orange") {{
-                    document.querySelectorAll('.button').forEach(button => {{
-                        button.style.backgroundColor = 'orange'
-                    }})
-                }}
-                else if (shade === "green") {{
-                    document.querySelectorAll('.button').forEach(button => {{
-                        button.style.backgroundColor = 'green'
-                    }})
-                }}
-                else if (shade === "purple") {{
-                    document.querySelectorAll('.button').forsticker_instruction_ruEach(button => {{
-                        button.style.backgroundColor = 'purple'
-                    }})
-                }}
-                else if (shade === "blue") {{
-                    document.querySelectorAll('.button').forEach(button => {{
-                        button.style.backgroundColor = 'var(--tg-theme-button-color)';
-                    }})
-                }}
-            }}
-            
-            let currentMonth = (new Date()).getMonth()
-            if (currentMonth === 10 || currentMonth === 11 || currentMonth === 0) {{
-                var link = document.createElement('link')
-                link.href = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/snow.min.css'
-                link.rel = 'stylesheet'
-                document.head.appendChild(link)
-
-                var script = document.createElement('script')
-                script.src = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/Snow.min.js'
-                document.body.appendChild(script)
-                script.onload = function () {{ new Snow() }}
-            }}
-        }})
-
-        async function transaction() {{
-            let message = [{{
-                address: addressContractFriendly,
-                amount: 50000000,
-                payload: "",
-                stateInit: stateInit,
-            }}]
-            console.log('transcation', message);
-
-            try {{
-                console.log(`https://tonviewer.com/${{addressContractFriendly}}`);
-                const result = await tonConnectUI.sendTransaction({{ validUntil: Math.round(Date.now() / 1000) + 5*60, messages: message, }});
-            }} catch (e) {{
-                console.log(e)
-                if (!tonConnectUI.connected) {{ tg.showAlert(await translateAlert()); }}
-            }}
-        }}
-        async function translateAlert() {{
-            result = "First, you need to connect a TON wallet"
-            if (lang === "zh") {{ result = "首先，你需要连接一吨钱包"; }}
-            else if (lang === "ar") {{ result = "أولا ، تحتاج إلى توصيل محفظة طن" }}
-            return result;
-        }}
-        async function translateClick() {{
-            let linkText = "Click on"
-            let hintText = "and 1 random person in the world will become happy"
-
-            if (lang === "zh") {{
-                linkText = "点击"
-                hintText = "世界上有一个随机的人会变得快乐"
-            }}
-            else if (lang === "ar") {{
-                linkText = "انقر على"
-                hintText = "و 1 شخص عشوائي في العالم سوف تصبح سعيدة"
-            }}
-            return [linkText, hintText];
-        }}
-
-        async function fetchData(url) {{
-            try {{
-                const response = await fetch(url);
-                console.log('response:', response)
-            }} catch (error) {{
-                console.log('Error fetching data:', error);
-                return null;
-            }}
-        }}
-
-        async function handleButtonClick(button) {{
-            const url = button.dataset.url;
-            const idArr = button.id.split("-");
-
-            let getUrl;
-            if (idArr[1] === 'payment') {{
-                tg.openInvoice(url, async (status) => {{
-                    getUrl = `/{6}?msg_id={7}&btn_id=${{idArr[2]}}&cnt_id=${{idArr[3]}}&kind=${{idArr[1]}}&status=${{status}}&${{tg.initData}}`;
-                    await fetchData(getUrl);
-                    location.reload();
-                }});
-            }} else if (idArr[1] === 'contact') {{
-                tg.requestContact(async (status) => {{
-                    getUrl = `/{6}?msg_id={7}&btn_id=${{idArr[2]}}&cnt_id=${{idArr[3]}}&kind=${{idArr[1]}}&status=${{status}}&${{tg.initData}}`;
-                    await fetchData(getUrl);
-                    location.reload();
-                    console.log(getUrl);
-                }});
-            }} else if (idArr[1] === 'like') {{
-                getUrl = `/{6}?msg_id={7}&btn_id=${{idArr[2]}}&cnt_id=${{idArr[3]}}&kind=${{idArr[1]}}&status=click&${{tg.initData}}`;
-                await fetchData(getUrl);
-                location.reload();
-            }} else if (url.startsWith('https://t.me/')) {{
-                tg.openTelegramLink(url);
-                getUrl = `/{6}?msg_id={7}&btn_id=${{idArr[2]}}&cnt_id=${{idArr[3]}}&kind=${{idArr[1]}}&status=link&${{tg.initData}}`;
-                await fetchData(getUrl);
-                location.reload();
-            }} else {{
-                tg.openLink(url, {{try_instant_view: true}});
-                getUrl = `/{6}?msg_id={7}&btn_id=${{idArr[2]}}&cnt_id=${{idArr[3]}}&kind=${{idArr[1]}}&status=link&${{tg.initData}}`;
-                await fetchData(getUrl);
-                location.reload();
-            }}
-        }}
-
-        let buttonsClass = document.getElementsByClassName('button');
-        let startUrl = `/web?tgWebAppStartParam={6}_{7}&${{tg.initData}}`;
-        console.log('startUrl = ', startUrl);
-        fetchData(startUrl);
-        for (let i = 0; i < buttonsClass.length; i++)  buttonsClass[i].addEventListener('click', async () => {{ await handleButtonClick(buttonsClass[i]); }});
-    </script>
-</body>
-</html>
-"""
-html_donations = """<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    <script src="{0}"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web3</title>
-
-    <style>
-        html {{
-            box-sizing: border-box;
-        }}
-
-        *,
-        *::before,
-        *::after {{
-            box-sizing: inherit;
-            font-family: Arial, sans-serif;
-            font-weight: 100;
-            user-select: none;
-            -webkit-user-select: none;
-        }}
-
-        body {{
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-        }}
-
-        .container {{
-            position: relative;
-            max-width: 768px;
-            height: 100vh;
-            padding: 4px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }}
-
-        .container-inner {{
-            max-width: 768px;
-            height: 100vh;
-            padding: 4px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            gap: 12px;
-        }}
-        
-        #languageSelect, #themeSelect {{
-            border-radius: 4px !important;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            font-size: 10px;
-            background: var(--tg-theme-bg-color);
-        }}
-        
-        #connect {{
-            position: absolute;
-            top: 4px;
-            right: 4px;
-        }}
-
-        .counter,
-        .invoice,
-        .main,
-        .comment,
-        .action {{
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            text-align: center;
-            font-size: 16px;
-            cursor: auto;
-        }}
-
-        .comment {{
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }}
-
-        .counter-before,
-        .counter-after,
-        .invoice-before,
-        .invoice-after,
-        .main-before,
-        .main-after,
-        .comment-before,
-        .comment-after {{
-            flex: 1;
-            font-size: 16px;
-            color: var(--tg-theme-section-header-text-color);
-        }}
-
-        .counter-inner {{
-            min-width: 120px;
-            max-width: 120px;
-        }}
-
-        #segments {{
-            font-size: 20px;
-            color: rgba(222, 222, 222, 1.0);
-            background-color: rgba(22, 22, 22, 1.0);
-            padding: 9px 9px 9px 9px;
-            border-radius: 24px;
-            text-align: center;
-        }}
-
-        .invoice-inner {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            cursor: pointer;
-        }}
-
-        .invoice-inner input[type="number"] {{
-            border-radius: 24px;
-            padding: 9px 9px 9px 9px;
-            text-align: center;
-            color: rgba(140, 150, 160, 0.99);
-            font-size: 16px
-            min-width: 120px;
-            max-width: 120px;
-            min-height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        .round-button {{
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background-image: url(https://fereysitnerya.github.io/ferey/red-button.png);
-            background-size: cover;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            margin: 0;
-            background-color: rgba(255, 255, 255, 0);
-        }}
-
-        .comment-inner input[type="text"] {{
-            border-radius: 24px;
-            padding: 9px 9px 9px 9px;
-            text-align: center;
-            color: rgba(140, 150, 160, 0.99);
-            min-width: 120px;
-            max-width: 120px;
-            min-height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        .comment-after-button {{
-            border-radius: 24px;
-            padding: 9px;
-            background-color: rgba(65, 160, 240, 1.0);
-            color: rgba(250, 250, 250, 1.0);
-            border: none;
-            max-width: 95%;
-            min-height: 40px;
-            font-size: 16px;
-            cursor: pointer;
-        }}
-
-        #link {{
-            text-align: center;
-            color: #aaaaaa;
-            cursor: pointer;
-        }}
-
-        .action {{
-            display: none;
-        }}
-
-        .comment-before-button,
-        .action-ton-button {{
-            border-radius: 24px;
-            min-height: 40px;
-            padding: 9px;
-            font-size: 16px;
-            white-space: nowrap;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        .action-get-button {{
-            border-radius: 24px;
-            border: none;
-            background-color: rgba(65, 160, 240, 1.0);
-            color: rgba(250, 250, 250, 1.0);
-
-            min-height: 40px;
-            padding: 9px;
-            font-size: 16px;
-            cursor: pointer;
-            white-space: nowrap;
-        }}
-
-        .action-del-button {{
-            border-radius: 24px;
-            background-color: rgba(250, 250, 250, 1.0);
-            color: rgba(65, 160, 240, 1.0);
-
-            min-height: 40px;
-            padding: 9px;
-            font-size: 16px;
-            cursor: pointer;
-            white-space: nowrap; 
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        .comment-before,
-        .action-before {{
-            position: absolute;
-            left: calc(0% + 4px);
-        }}
-
-        .comment-inner,
-        .action-inner {{
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 0 5px;
-        }}
-
-        .comment-after,
-        .action-after {{
-            position: absolute;
-            right: calc(0% + 4px);
-        }}
-        #balance {{
-            font-size: 14px;
-        }}
-        .footer {{
-            display: flex;
-            flex-direction: column;
-
-            margin-bottom: 4px;
-            font-size: 10px;
-            gap: 16px;
-        }}
-
-        .footer-inner {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-        }}
-
-        #footer-view {{
-            color: rgba(140, 150, 160, 0.99);
-        }}
-
-        #footer-link {{
-            color: rgba(140, 150, 160, 0.99);
-            text-decoration: none;
-        }}
-        
-        .owner-text {{
-            width: 100%;
-            text-align: justify;
-            display: none;
-            color: var(--tg-theme-section-header-text-color);
-        }}
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="container-inner">
-            <div class="header">
-                <div class="theme">
-                    <select id="themeSelect">
-                        <option value="LIGHT">🌖</option>
-                        <option value="DARK">🌒</option>
-                    </select>
-                </div>
-                <div class="language">
-                    <select id="languageSelect">
-                        <option value="en">🇬🇧</option>
-                        <option value="zh">🇨🇳</option>
-                        <option value="ar">🇦🇪</option>
-                        <option value="es">🇪🇸</option>
-                        <option value="ru">🇷🇺</option>
-                        <option value="fr">🇫🇷</option>
-                    </select>
-                </div>
-                <div id="connect"></div>
-            </div>
-
-            <div class="counter">
-                <div class="counter-before">Made happy</div>
-                <div id="segments" class="counter-inner">000000</div>
-                <div class="counter-after">people</div>
-            </div>
-
-            <div class="invoice">
-                <div class="invoice-before">Make happy:</div>
-                <div class="invoice-inner">
-                    <input type="number" id="invoice-input" step="0.1" min="0" value="0.05">
-                </div>
-                <div class="invoice-after">people</div>
-            </div>
-
-            <div class="main">
-                <div class="main-before">Click on the smart contract button</div>
-                <div><button class="round-button" onclick="transaction()"></button></div>
-                <div class="main-after">and somewhere in the world, 1 random person will become happy</div>
-            </div>
-
-            <div class="comment">
-                <div class="comment-before"><button disabled class="comment-before-button">A wish:</button></div>
-                <div class="comment-inner"><input type="text" id="comment-input" maxlength="64" placeholder="..."></div>
-                <div class="comment-after"><button class="comment-after-button" onclick="comment()">Generate</button>
-                </div>
-            </div>
-
-            <a id="link">View the transaction</a>
-
-            <div class="owner-text">
-                You are logged in as the owner: you can withdraw funds to the balance of the connected wallet or delete
-                the
-                smart
-                contract:
-            </div>
-
-            <div class="action">
-                <div class="action-before"><button disabled id="balance" class="action-ton-button">0.000000 TON</button>
-                </div>
-                <div class="action-inner"><button class="action-get-button" onclick="get()">Withdraw</button></div>
-                <div class="action-after"><button class="action-del-button" onclick="del()">Delete</button></div>
-            </div>
-        </div>
-        <div class="footer-inner">
-            <div id="footer-view">👁 0</div>
-            <div><a id="footer-link" href="{1}">{2}</a></div>
-        </div>
-    </div>
-    <script>
-        let c = 0
-        let b = 0
-        let isInit = 0
-        let tg = window.Telegram.WebApp;
-        tg.ready()
-        console.log('start', tg)
-        if (tg.initData === '') throw new Error('404');
-        let lang = (tg.initData === '') ? 'en' : tg.initDataUnsafe['user']['language_code']
-        let theme = tg.colorScheme.toUpperCase();
-        let payload_get = 'te6cckEBAQEABgAACAAAA48mr63n';
-        let payload_del = 'te6cckEBAQEABgAACAAAA5BtVOCp';
-        let addressContractFriendly = "{3}"
-        let owner = "{4}"
-        let stateInit = "{5}"
-        
-        let tonConnectUI = new TON_CONNECT_UI.TonConnectUI({{
-            manifestUrl: 'https://fereysitnerya.github.io/ferey/tonconnect-manifest.json',
-            buttonRootId: 'connect',
-            language: lang,
-            twaReturnUrl: 'https://t.me/FereyDemoBot',
-            uiPreferences: {{ theme: theme, borderRadius: 'm' }} 
-        }})
-
-        document.addEventListener("DOMContentLoaded", async () => {{
-            document.getElementById("link").href = `https://tonviewer.com/${{addressContractFriendly}}`;
-            document.getElementById("link").style.display = "none";
-            document.getElementById("invoice-input").value = "1.5";
-
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {{
-                await applyTheme(savedTheme);
-                document.getElementById('themeSelect').value = savedTheme;
-            }}
-
-            document.getElementById('themeSelect').addEventListener('change', async () => {{
-                const selectedTheme = event.target.value;
-                await applyTheme(selectedTheme);
-                localStorage.setItem('theme', selectedTheme);
-            }})
-
-            const savedLang = localStorage.getItem('lang');
-            if (savedLang) {{
-                await applyLang(savedLang);
-                document.getElementById('languageSelect').value = savedLang;
-            }}
-
-            document.getElementById('languageSelect').addEventListener('change', async () => {{
-                const selectedLang = event.target.value;
-                await applyLang(selectedLang);
-                localStorage.setItem('lang', selectedLang);
-            }})
-
-            await comment()
-            c = await getCounter(addressContractFriendly);
-            isInit = c ? 1 : 0
-            let tmp = parseInt(c, 16).toString().padStart(6, '0');
-            document.getElementById("segments").textContent = tmp;
-            localStorage.setItem('counter', tmp); 
-            document.getElementById("footer-view").textContent = `👁 ${{parseInt(c, 16).toString()}}`;
-            
-            let currentMonth = (new Date()).getMonth()
-            if (currentMonth === 10 || currentMonth === 11 || currentMonth === 0) {{
-                var link = document.createElement('link')
-                link.href = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/snow.min.css'
-                link.rel = 'stylesheet'
-                document.head.appendChild(link)
-
-                var script = document.createElement('script')
-                script.src = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/Snow.min.js'
-                document.body.appendChild(script)
-                script.onload = function () {{ new Snow() }}
-            }}
-        }})
-
-        async function applyTheme(theme) {{
-            if (theme === 'DARK') {{
-                document.querySelector("body").style.background = "#1E2337";
-                document.querySelector("body").style.color = "#F7F9FB";
-
-                document.querySelector(".comment-before-button").style.background = "#1E2337";
-                document.querySelector(".comment-before-button").style.color = "rgba(140, 150, 160, 0.99)";
-                document.querySelector(".action-ton-button").style.background = "#1E2337";
-                document.querySelector(".action-ton-button").style.color = "rgba(140, 150, 160, 0.99)";
-            }}
-            else {{
-                document.querySelector("body").style.background = "#F7F9FB";
-                document.querySelector("body").style.color = "#1E2337";
-
-                document.querySelector(".comment-before-button").style.background = "#F7F9FB";
-                document.querySelector(".comment-before-button").style.color = "rgba(140, 150, 160, 0.99)";
-                document.querySelector(".action-ton-button").style.background = "#F7F9FB";
-                document.querySelector(".action-ton-button").style.color = "rgba(140, 150, 160, 0.99)";
-            }}
-            tonConnectUI.uiOptions = {{ uiPreferences: {{ theme: theme }} }}
-        }}
-
-        async function applyLang(lang) {{
-            tg.SettingsButton.isVisible = true
-            tg.SettingsButton.onClick(async () => {{ tg.openTelegramLink('https://t.me/FereyDemoBot') }})
-            
-            if (lang === 'zh') {{
-                document.querySelector(".counter-before").textContent = "快乐";
-                document.querySelector(".counter-after").textContent = "人";
-                document.querySelector(".invoice-before").textContent = "快乐:";
-                document.querySelector(".invoice-after").textContent = "人";
-
-                document.querySelector(".main-before").textContent = "点击智能合约按钮";
-                document.querySelector(".main-after").textContent = "而在世界的某个地方, 1随机的人会变得快乐";
-                document.querySelector(".comment-before-button").textContent = "一个愿望:";
-                document.querySelector(".comment-after-button").textContent = "生成";
-
-                document.getElementById("link").textContent = "查看交易";
-                document.querySelector(".owner-text").textContent = "您以所有者身份登录：您可以将资金提取到连接的钱包的余额或删除智能合约:";
-                document.querySelector(".action-get-button").textContent = "带出来";
-                document.querySelector(".action-del-button").textContent = "移走";
-            }}
-            else if (lang === 'ar') {{
-                document.querySelector(".counter-before").textContent = "جعل سعيد:";
-                document.querySelector(".counter-after").textContent = "الإنسان";
-                document.querySelector(".invoice-before").textContent = "اجعلهم سعداء:";
-                document.querySelector(".invoice-after").textContent = "الإنسان";
-
-                document.querySelector(".main-before").textContent = "انقر على زر العقد الذكي";
-                document.querySelector(".main-after").textContent = "وفي مكان ما في العالم ، 1 شخص عشوائي سوف تصبح سعيدة";
-                document.querySelector(".comment-before-button").textContent = "أمنية:";
-                document.querySelector(".comment-after-button").textContent = "توليد";
-
-                document.getElementById("link").textContent = "عرض المعاملة";
-                document.querySelector(".owner-text").textContent = "لقد قمت بتسجيل الدخول كمالك: يمكنك سحب الأموال إلى رصيد المحفظة المتصلة أو حذف العقد الذكي:";
-                document.querySelector(".action-get-button").textContent = "أخرج";
-                document.querySelector(".action-del-button").textContent = "إزالة";
-            }}
-            else {{
-                document.querySelector(".counter-before").textContent = "Made happy";
-                document.querySelector(".counter-after").textContent = "people";
-                document.querySelector(".invoice-before").textContent = "Make happy:";
-                document.querySelector(".invoice-after").textContent = "people";
-
-                document.querySelector(".main-before").textContent = "Click on the smart contract button";
-                document.querySelector(".main-after").textContent = "and somewhere in the world, 1 random person will become happy";
-                document.querySelector(".comment-before-button").textContent = "A wish:";
-                document.querySelector(".comment-after-button").textContent = "Generate";
-
-                document.getElementById("link").textContent = "View the transaction";
-                document.querySelector(".owner-text").textContent = "You are logged in as the owner: you can withdraw funds to the balance of the connected wallet or delete the smart contract:";
-                document.querySelector(".action-get-button").textContent = "Withdraw";
-                document.querySelector(".action-del-button").textContent = "Delete";
-            }}
-            tonConnectUI.uiOptions = {{ language: lang }}
-        }}
-
-        tonConnectUI.onStatusChange(async (wallet) => {{
-            console.log('onStatusChange');
-            console.log(wallet);
-            if (tonConnectUI.connected) {{
-                document.getElementById("link").style.display = "block";
-
-                if (owner === tonConnectUI.account.address) {{
-                    document.querySelector(".owner-text").style.display = "block";
-                    document.querySelector(".action").style.display = "block";
-                    await sleep(2222)
-                    b = await balance(addressContractFriendly);
-                    document.getElementById("balance").innerText = `${{b.toFixed(6)}} TON`;
-                }}
-                else {{
-                    document.querySelector(".owner-text").style.display = "none";
-                    document.querySelector(".action").style.display = "none";
-                }}
-            }}
-            else {{
-                document.getElementById("link").style.display = "none";
-                document.querySelector(".owner-text").style.display = "none";
-                document.querySelector(".action").style.display = "none";
-            }}
-        }})
-
-        document.getElementById('invoice-input').addEventListener('input', async () => {{
-            let cnt = parseFloat(document.getElementById('invoice-input').value)
-            if (isNaN(cnt)) {{
-                cnt = 1
-                document.getElementById('invoice-input').value = cnt
-            }}
-        }})
-
-        async function transaction(tx_type = 0) {{
-            console.log('transcation', "tx_type = ", tx_type)
-            let amount = document.getElementById("invoice-input").value * 1000000000;
-            let payload = "";
-
-            if (tx_type === 1) {{
-                amount = 50000000;
-                payload = payload_get;
-            }}
-            else if (tx_type === 2) {{
-                amount = 50000000;
-                payload = payload_del;
-            }}
-            else {{
-                console.log('isInit = ', isInit)
-                if (isInit == 0 && amount < 50000000) {{ amount = 50000000; }}
-
-                if (document.getElementById('comment-input').value !== "") {{
-                    const tonweb = new window.TonWeb();
-                    let cell = new tonweb.boc.Cell();
-                    cell.bits.writeUint(0, 32);
-                    cell.bits.writeString(document.getElementById('comment-input').value);
-
-                    try {{
-                        let cellBoc = await cell.toBoc();
-                        payload = tonweb.utils.bytesToBase64(cellBoc);
-                    }} catch (e) {{
-                        payload = "te6cckEBAQEAJgAASAAAAAB0b24tc2l0ZSBkb2Vzbid0IHN1cHBvcnQgY29tbWVudB+DAXw="
-                    }}
-                }}
-            }}
-
-            let message = [{{
-                address: addressContractFriendly,
-                amount: amount,
-                payload: payload,
-                stateInit: stateInit,
-            }}]
-            console.log(message);
-
-            try {{
-                console.log(`https://tonviewer.com/${{addressContractFriendly}}`);
-                const result = await tonConnectUI.sendTransaction({{ validUntil: Math.round(Date.now() / 1000) + 5*60, messages: message, }});
-                // tonConnectUI.uiOptions = {{ twaReturnUrl: 'https://t.me/durov'}};
-                document.getElementById("link").style.display = "block";
-
-                if (tx_type === 2) {{
-                    document.getElementById("segments").textContent = "000000";
-                }}
-                else {{
-                    c = await getCounter(addressContractFriendly);
-                    let tmp = parseInt(c, 16).toString().padStart(6, '0');
-                    document.getElementById("segments").textContent = tmp;
-                    localStorage.setItem('counter', tmp);
-                }}
-            }} catch (e) {{
-                document.getElementById("link").style.display = "none";
-                console.log(e)
-
-                if (!tonConnectUI.connected) {{
-                    alert(await translateAlert());
-                }}
-            }}
-        }}
-
-        async function comment() {{
-            console.log('comment');
-            const words = ['aesthetic', 'air', 'alpha', 'boost', 'bravo', 'care', 'cascade', 'change', 'charm', 'cloud', 'codex', 'color', 'connect', 'day', 'demo', 'dream', 'dzen', 'echo', 'element', 'event', 'fest', 'festival', 'field', 'first', 'fit', 'fix', 'flow', 'fly', 'focus', 'forest', 'free', 'fresh', 'fun', 'future', 'gift', 'go', 'grade', 'grape', 'have', 'here', 'high', 'hill', 'hot', 'infinite', 'intensive', 'landing', 'lead', 'league', 'learn', 'level', 'life', 'like', 'lime', 'load', 'look', 'marathon', 'master', 'max', 'medium', 'mind', 'mix', 'mobile', 'more', 'neuro', 'new', 'night', 'note', 'nova', 'ocean', 'omega', 'one', 'orange', 'paint', 'plane', 'platform', 'play', 'podcast', 'portal', 'present', 'pro', 'promo', 'puzzle', 'ready', 'real', 'reality', 'realm', 'round', 'run', 'safe', 'salute', 'scale', 'school', 'sea', 'seminar', 'share', 'sky', 'smart', 'snow', 'social', 'soundcloud', 'special', 'spotify', 'spring', 'star', 'stellar', 'stone', 'subscribe', 'summer', 'sun', 'symposium', 'target', 'team', 'technology', 'telegraph', 'telescope', 'testdrive', 'time', 'top', 'training', 'trend', 'trigger', 'true', 'try', 'turbo', 'unity', 'up', 'vip', 'wait', 'wave', 'win', 'winter', 'wow', 'yes', 'you', 'gracias'];
-            const word1 = words[Math.floor(Math.random() * words.length)];
-            const word2 = words[Math.floor(Math.random() * words.length)];
-            document.getElementById('comment-input').value = word1 + ' ' + word2;
-        }}
-
-        async function translateAlert() {{
-            let result = "First, you need to connect a TON wallet";
-            const savedLang = localStorage.getItem('lang');
-            if (savedLang === null) {{
-                result = "First, you need to connect a TON wallet"
-            }}
-            else if (savedLang === "zh") {{
-                result = "首先，你需要连接一吨钱包"
-            }}
-            else if (savedLang === "ar") {{
-                result = "أولا ، تحتاج إلى توصيل محفظة طن"
-            }}
-            return result;
-        }}
-
-        async function balance(addressContractFriendly) {{
-            try {{
-                console.log('balance', addressContractFriendly);
-                // const tonweb = new window.TonWeb(new TonWeb.HttpProvider('https://testnet.toncenter.com/api/v2/jsonRPC'));
-                const tonweb = new window.TonWeb(new TonWeb.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
-                b = await tonweb.getBalance(addressContractFriendly);
-                b = b / 1000000000;
-            }} catch (error) {{
-                console.error('async function balance:', error);
-            }} finally {{
-                console.log(b);
-                return b;
-            }}
-        }}
-        async function getCounter(addressContractFriendly) {{
-            try {{
-                console.log('getCounter', addressContractFriendly);
-                // const tonweb = new window.TonWeb(new TonWeb.HttpProvider('https://testnet.toncenter.com/api/v2/jsonRPC'));
-                const tonweb = new window.TonWeb(new TonWeb.HttpProvider('https://toncenter.com/api/v2/jsonRPC'));
-                const result = await tonweb.provider.call(addressContractFriendly, 'get_counter', []);
-                console.log('GET method result:', result);
-                c = (result.exit_code != 0) ? 0 : result.stack[0][1];
-            }} catch (error) {{
-                console.error('async function getCounter:', error);
-            }} finally {{
-                console.log(c);
-                return c;
-            }}
-        }}
-
-        async function get() {{
-            console.log('get');
-            await transaction(1);
-        }}
-        async function del() {{
-            console.log('del');
-            await transaction(2);
-        }}
-        async function sleep(ms) {{
-            return new Promise(resolve => {{
-                setTimeout(resolve, ms)
-            }}
-            )
-        }}
-    </script>
-</body>
-
-</html>"""
-html_cpay = """<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/tgs-player.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web3</title>
-
-    <style>
-        html {{ box-sizing: border-box; }}
-
-        *,
-        *::before,
-        *::after {{
-            box-sizing: inherit;
-            font-family: Arial, sans-serif;
-            font-weight: 100;
-            user-select: none;
-            -webkit-user-select: none;
-        }}
-
-        body {{
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: 16px;
-        }}
-
-        .container {{
-            max-width: 768px;
-            height: 100vh;
-            padding: 4px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            justify-content: flex-start;
-            gap: 5px;
-        }}
-
-        .header {{
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            gap: 5px;
-        }}
-
-        #link {{
-            text-align: center;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 14px;
-            color: var(--tg-theme-section-header-text-color);
-        }}
-
-        .subscribe {{
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            gap: 5px;
-            color: var(--tg-theme-section-header-text-color);
-            font-size: 14px;
-            width: 100%;
-        }}
-
-        .subscribe-link, .subscribe-text, .subscribe-datalist, .subscribe-input, .address-wallet-input, .address-collection-input {{ width: 50%; }}
-
-        .subscribe-input input[type="number"] {{
-            border-radius: 8px;
-            text-align: center;
-            width: 100%;
-            height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        #subscribe-datalist-id {{
-            border-radius: 8px;
-            text-align: center;
-            width: 100%;
-            height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            color: var(--tg-theme-section-header-text-color);
-        }}
-
-        .subscribe-inner {{
-            width: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 5px;
-        }}
-
-        .address-wallet-input input[type="text"] {{
-            border-radius: 8px;
-            text-align: center;
-            width: 100%;
-            height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            font-size: 12px;
-            padding: 8px;
-        }}
-
-        .address-collection-input input[type="text"] {{
-            border-radius: 8px;
-            text-align: center;
-            width: 100%;
-            height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            font-size: 12px;
-            padding: 8px;
-        }}
-
-        #period {{
-            border-radius: 8px;
-            text-align: center;
-            width: 50%;
-            height: 40px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            font-size: 12px;
-        }}
-
-        .address-wallet {{
-            display: none;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 14px;
-            gap: 5px;
-        }}
-        
-        .address-collection {{
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 14px;
-            gap: 5px;
-        }}
-
-        .address-wallet-text,
-        .address-collection-text {{
-            white-space: nowrap;
-            color: var(--tg-theme-section-header-text-color);
-            width: 50%;
-        }}
-
-        .optional {{
-            color: var(--tg-theme-hint-color);
-            color: rgba(140, 150, 160, 0.99);
-            font-size: 10px;
-            align-items: center;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }}
-
-        #lottie {{
-            width: 100%;
-            height: 190px;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }}
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="subscribe-link"><a id="link" href="{0}">{1}</a></div>
-            <div id="connect"></div>
-        </div>
-        <div class="subscribe">
-            <div class="subscribe-inner">
-                <div class="subscribe-text">Subscription:</div>
-                <div class="subscribe-input">
-                    <input type="number" id="invoice-input" step="0.1" min="0.05" value="1.0">
-                </div>
-            </div>
-            <div class="subscribe-inner">
-                <div class="subscribe-datalist">
-                    <input list="subscribe-datalist-list" id="subscribe-datalist-id" value="TON">
-                    <datalist id="subscribe-datalist-list">
-                        <option value="TON">TON</option>
-                        <option value="USDT">USDT</option>
-                    </datalist>
-                </div>
-
-                <select id="period">
-                    <option value="once" selected>Once</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                    <option value="year">Year</option>
-                </select>
-            </div>
-        </div>
-
-    </div>
-    <script>
-        let tg = window.Telegram.WebApp
-        tg.ready()
-        console.log('start', tg)
-        let lang = (tg.initData === '') ? 'en' : tg.initDataUnsafe['user']['language_code']
-        let theme = tg.colorScheme.toUpperCase()
-        let tid = "{2}"
-        let owner = "{3}"
-        let amount = "{4}"
-        let currency = "{5}"
-        let period = "{6}"
-        let wallet = "{7}"
-        let collection = "{8}"
-        let addrCollectText = "{22}"
-        let argument = window.location.href.split("/").pop().split("?")[0]
-        
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({{
-            manifestUrl: 'https://fereysitnerya.github.io/ferey/tonconnect-manifest.json',
-            buttonRootId: 'connect',
-            language: lang,
-            twaReturnUrl: 'https://t.me/FereyDemoBot',
-            uiPreferences: {{ theme: theme, borderRadius: 's' }}
-        }})
-        document.querySelector('[data-tc-button="true"]').style.minWidth = window.getComputedStyle(document.getElementById('address-collection-input-id')).getPropertyValue('width')
-        tonConnectUI.onStatusChange(async (wallet) => {{
-            document.querySelector('[data-tc-button="true"]').style.minWidth = window.getComputedStyle(document.getElementById('address-collection-input-id')).getPropertyValue('width')
-            console.log('onStatusChange', wallet)
-            if (tonConnectUI.connected) {{ owner = tonConnectUI.account.address; }}
-        }})
-
-        document.addEventListener("DOMContentLoaded", async () => {{            
-            document.querySelector('.subscribe-text').textContent = "{9}"
-            if (argument === 'cpay') {{
-                document.getElementById('period').querySelector('option[value="once"]').textContent = "{10}"
-                document.getElementById('period').querySelector('option[value="week"]').textContent = "{11}"
-                document.getElementById('period').querySelector('option[value="month"]').textContent = "{12}"
-                document.getElementById('period').querySelector('option[value="year"]').textContent = "{13}"
-            }}
-            else {{
-                document.getElementById('period').querySelector('option[value="once"]').textContent = "{10}"
-                document.getElementById('period').querySelector('option[value="week"]').remove()
-                document.getElementById('period').querySelector('option[value="month"]').remove()
-                document.getElementById('period').querySelector('option[value="year"]').remove()
-                document.getElementById('period').getElementsByTagName('option')[0].selected = true
-            }}
-            document.querySelector('.address-collection-text').textContent = "{16}"
-            document.getElementById('address-collection-input-id').setAttribute('placeholder', "{17}")
-            document.querySelector('.optional').textContent = "{18}"            
-            tg.MainButton.show().setParams({{ text: "{19}", is_active: true, is_visible: true }})
-            tg.SettingsButton.isVisible = true
-            tg.SettingsButton.onClick(async () => {{ tg.openTelegramLink('https://t.me/FereyDemoBot') }})
-
-            document.getElementById("invoice-input").value = amount;
-            document.getElementById("subscribe-datalist-id").value = currency;
-            document.getElementById("period").value = period;
-            document.getElementById("address-collection-input-id").value = collection;
-                        
-            document.querySelector('[data-tc-button="true"]').style.minWidth = window.getComputedStyle(document.getElementById('address-collection-input-id')).getPropertyValue('width')
-            await sleep(333)
-            document.querySelector('[data-tc-button="true"]').style.minWidth = window.getComputedStyle(document.getElementById('address-collection-input-id')).getPropertyValue('width')
-        }})
-
-        tg.MainButton.onClick(async () => {{
-            amount = document.getElementById("invoice-input").value
-            currency = document.getElementById("subscribe-datalist-id").value
-            period = document.getElementById("period").value
-            collection = document.getElementById("address-collection-input-id").value
-
-            if (!(tonConnectUI.connected)) {{ tg.showAlert("{20}"); return }}
-            if (collection.length && (collection.length !== 48 || (!collection.startsWith("UQ") && !collection.startsWith("EQ")))) {{ tg.showAlert("{23}"); return }}
-            if (amount === 0 || amount === "0" || amount === "" || amount === undefined) {{ tg.showAlert("{24}"); return }}
-            if (currency === 0 || currency === "0" || currency === "" || currency === undefined) {{ tg.showAlert("{24}"); return }}
-            
-            let body = {{
-                'tid': tid,
-                'owner': owner,
-                'amount': amount,
-                'currency': currency,
-                'period': period,
-                'wallet': "",
-                'collection': collection,
-                'initData': tg.initData,
-            }}
-            
-            await sendRequest("POST", `/${{argument}}save`, body)
-            await sleep(333)
-            tg.close()
-        }})
-
-        async function sleep(ms) {{ return new Promise(resolve => {{ setTimeout(resolve, ms) }} ) }}
-        async function sendRequest(method, url, body = null, isFormData = false) {{
-            let res = {{}}
-            try {{
-                const headers = new Headers({{
-                    'Cache-Control': 'no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0'
-                }})
-                if (!isFormData) headers.append('Content-Type', 'application/json')
-        
-                let response
-                if (method === 'GET') {{
-                    response = await fetch(url, {{
-                        method: method
-                    }})
-                }} else {{
-                    response = await fetch(url, {{
-                        method: method,
-                        body: isFormData ? body : JSON.stringify(body),
-                        headers: headers
-                    }})
-                }}
-        
-                res = (method === 'POST') ? await response.json() : {{}}
-                return res
-            }}
-            catch (e) {{ console.log(e) }}
-            finally {{ return res }}
-        }}
-    </script>
-</body>
-
-</html>"""
-html_upay = """<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/tgs-player.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
-    <script src="{18}"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web3</title>
-
-    <style>
-        html {{ box-sizing: border-box; }}
-
-        *,
-        *::before,
-        *::after {{
-            box-sizing: inherit;
-            font-family: Arial, sans-serif;
-            font-weight: 100;
-            user-select: none;
-            -webkit-user-select: none;
-        }}
-
-        body {{
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: 16px;
-        }}
-
-        .container {{
-            max-width: 468px;
-            height: 100vh;
-            padding: 4px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            justify-content: flex-start;
-            gap: 10px;
-        }}
-
-        .header {{
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            gap: 5px;
-        }}
-
-        .subscribe-text {{ width: 50%; }}
-
-        #link {{
-            text-align: center;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 14px;
-            color: var(--tg-theme-section-header-text-color);
-        }}
-
-        .subscribe {{
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--tg-theme-section-header-text-color);
-            font-size: 14px;
-            width: 100%;
-            gap: 10px;
-        }}
-
-        .optional {{
-            color: var(--tg-theme-hint-color);
-            color: rgba(140, 150, 160, 0.99);
-            font-size: 10px;
-            align-items: center;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }}
-
-        #invoice-input {{
-            display: none;
-            width: 100%;
-            height: 40px;
-            
-            border-radius: 8px;
-            padding: 9px 9px 9px 9px;
-            text-align: center;
-            color: rgba(140, 150, 160, 0.99);
-            color: var(--tg-theme-section-header-text-color);
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-        }}
-
-        #ft-send,
-        #nft-get,
-        #nft-check {{
-            width: 100%;
-            height: 40px;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            border-radius: 8px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            
-            font-size: 14px;
-            cursor: pointer;
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-        }}
-
-        #ft-link,
-        #nft-link {{
-            text-align: center;
-            font-size: 14px;
-            color: var(--tg-theme-hint-color);
-            text-decoration: underline;
-            cursor: pointer;
-            font-size: 10px;
-        }}
-        
-        .subscribe-ft {{
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 5px;
-            width: 100%;
-            text-align: center;
-        }}
-        
-        .subscribe-nft {{
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 5px;
-            width: 100%;
-            text-align: center;
-        }}
-        
-        #nft-address {{
-            width: 100%;
-            height: 40px;
-            border-radius: 8px;
-            border: 0.5px solid rgba(50, 50, 50, 0.99) !important;
-            align-items: center;
-            text-align: center;
-            cursor: pointer;
-        }}
-        
-        #lottie {{
-            width: 100%;
-            height: 190px;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }}
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="subscribe-link"><a id="link" href="{0}">{1}</a></div>
-            <div id="connect"></div>
-        </div>
-        <div class="subscribe">
-            <div class="subscribe-ft">
-                <div class="subscribe-ft-text">{11} {4} {5} {20}</div>
-                <input type="number" id="invoice-input" step="1" min="1" value="2">
-                <div id="ft-send">{12} {4} {5}</div>
-                <a class="optional" id="ft-link">{5}</a>
-            </div>
-            <div class="subscribe-nft">
-                <div class="subscribe-nft-text">{13}</div>
-                <div id="nft-get">{14}</div>
-                <div id="nft-check">{15}</div>
-                <input type="text" id="nft-address" minlength="48" maxlength="48" placeholder="{16}">
-                <a class="optional" id="nft-link">no</a>
-            </div>
-        </div>
-        <div class="sticker">
-            <tgs-player id="lottie" autoplay loop mode="normal"
-                src="https://raw.githubusercontent.com/fereysitnerya/ferey/main/AnimatedSticker.tgs">
-            </tgs-player>
-        </div>
-    </div>
-    <script>
-        let tg = window.Telegram.WebApp
-        tg.ready()
-        console.log('start', tg)
-        if (tg.initData === '') throw new Error('404')
-        console.log(tg.initDataUnsafe['start_param'])
-        let lang = (tg.initData === '') ? 'en' : tg.initDataUnsafe['user']['language_code']
-        let theme = tg.colorScheme.toUpperCase()
-        let tid = "{2}"
-        let owner = "{3}"
-        let amount = "{4}"
-        let currency = "{5}"
-        let period = "{6}"
-        let wallet = "{7}"
-        let collection = "{8}"
-        let display_ft = "{9}"
-        let display_nft = "{10}"
-        let period_txt = "{20}"
-        let uinfo = {{}}
-        let argument = "{24}"
-        let comments = "{25}"
-        let wallet_currency = wallet
-        
-        let tonConnectUI = new TON_CONNECT_UI.TonConnectUI({{
-            manifestUrl: 'https://fereysitnerya.github.io/ferey/tonconnect-manifest.json',
-            buttonRootId: 'connect',
-            language: lang,
-            twaReturnUrl: 'https://t.me/FereyDemoBot',
-            uiPreferences: {{ theme: theme, borderRadius: 's' }}
-        }})
-        tonConnectUI.onStatusChange(async () => {{
-            if (tonConnectUI.connected && wallet_currency === wallet) {{ 
-                console.log('wallet_currency', wallet_currency)
-                
-                let wallet_res = await sendRequest("POST", `uwalletcurrency`, {{ 'tid': tid, 'address': tonConnectUI.account.address, 'currency': currency, 'initData': tg.initData }})
-                if (wallet_res['wallet'] !== "") {{
-                    wallet_currency = wallet_res['wallet']
-                    console.log('wallet_currency', wallet_currency, wallet_res)
-                }}
-            }}
-        }})
-
-        document.addEventListener("DOMContentLoaded", async () => {{
-            document.querySelector('.subscribe-ft').style.display = display_ft
-            document.querySelector('.subscribe-nft').style.display = display_nft
-            tg.MainButton.show().setParams({{ text: "{17}", is_active: true, is_visible: true }})
-            tg.SettingsButton.isVisible = true
-            tg.SettingsButton.onClick(async () => {{ tg.openTelegramLink('https://t.me/FereyDemoBot') }})
-            document.getElementById("ft-link").addEventListener("click", async (event) => {{  tg.openLink(`https://tonviewer.com/${{owner}}`, {{ try_instant_view: true }}) }})
-            document.getElementById("nft-link").addEventListener("click", async (event) => {{ tg.openLink(`https://tonviewer.com/${{collection}}`, {{ try_instant_view: true }}) }})    
-            document.getElementById("nft-get").addEventListener("click", async (event) => {{  tg.openLink(`https://getgems.io/collection/${{collection}}`, {{ try_instant_view: true }}) }})            
-            console.log('argument', argument)
-            document.getElementById('invoice-input').style.display = (argument === 'ucomment') ? 'block' : 'none'
-            
-            uinfo = await sendRequest("POST", `${{argument}}info`, {{ 'tid': tid, 'initData': tg.initData }})
-            await setParameters()
-            
-            let currentMonth = (new Date()).getMonth()
-            if (currentMonth === 10 || currentMonth === 11 || currentMonth === 0) {{
-                var link = document.createElement('link')
-                link.href = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/snow.min.css'
-                link.rel = 'stylesheet'
-                document.head.appendChild(link)
-
-                var script = document.createElement('script')
-                script.src = 'https://cdn.jsdelivr.net/gh/Alaev-Co/snowflakes/dist/Snow.min.js'
-                document.body.appendChild(script)
-                script.onload = function () {{ new Snow() }}
-            }}
-        }})
-        
-        async function setParameters() {{
-            if (Object.keys(uinfo).length > 0) {{
-                console.log('uinfo', uinfo)
-                document.getElementById('ft-link').textContent = uinfo['uft']
-                document.getElementById('nft-link').textContent = uinfo['unft']
-                document.getElementById('nft-address').value = uinfo['nft']
-                
-                if (uinfo['is_uft']) document.getElementById('ft-send').textContent = '✔️ {12} {4} {5}'
-                else document.getElementById('ft-send').textContent = '{12} {4} {5}'
-                if (uinfo['is_unft']) document.getElementById('nft-get').textContent = '✔️ {15}'
-                else document.getElementById('nft-get').textContent = '{15}'
-                
-                if (argument === 'ucomment') {{
-                    document.getElementById('invoice-input').value = uinfo['cnt']
-                    console.log('joke', document.getElementById('invoice-input').value)
-                    console.log('joke2', uinfo['cnt'])
-                    
-                    if (uinfo['is_uft']) document.getElementById('ft-send').textContent = `✔️ {12} ${{uinfo['cnt']}} ${{comments}}`
-                    else document.getElementById('ft-send').textContent = `{12} ${{uinfo['cnt']}} ${{comments}}`
-                }}
-            }}
-        }}
-
-        if (argument === 'ucomment') {{
-            document.getElementById('invoice-input').addEventListener('input', async () => {{
-                let cnt = parseInt(document.getElementById('invoice-input').value)
-                if (isNaN(cnt) || cnt % 1 !== 0) {{
-                    cnt = 1
-                    document.getElementById('invoice-input').value = cnt
-                }}
-                
-                document.getElementById('ft-send').textContent = `{12} ${{cnt}} ${{comments}}`
-            }})
-        }}
-        
-        document.getElementById('ft-send').addEventListener('click', async () => {{
-            try {{
-                console.log('click ft-send')
-                if (!(tonConnectUI.connected)) {{ tg.showAlert("{19}"); return }}
-                let end = (argument === 'upay') ? period : 'comment'
-                let nft = document.getElementById('nft-address').value.trim()
-                nft = (nft === undefined) ? "" : nft
-                const tonweb = new window.TonWeb()
-                let cell = new tonweb.boc.Cell()
-                let payload = ""
-                let message = []
-                let amt = amount
-                let cnt = 1
-                    
-                if (argument === 'ucomment') {{
-                    cnt = parseInt(document.getElementById('invoice-input').value)
-                    amt = (cnt * parseFloat(amount)).toString()
-                    console.log(cnt, amt)
-                }}
-                
-                if (wallet_currency !== "") {{
-                    let cell2 = new tonweb.boc.Cell();
-                    cell2.bits.writeUint(0, 32);
-                    cell2.bits.writeString(`${{tid}}_${{tg.initDataUnsafe['user']['id']}}_${{end}}`);
-                          
-                    cell.bits.writeUint(0xf8a7ea5, 32)
-                    cell.bits.writeUint(Date.now(), 64)
-                    cell.bits.writeCoins(tonweb.utils.toNano(amt))
-                    cell.bits.writeAddress(new tonweb.utils.Address(owner))
-                    cell.bits.writeAddress(new tonweb.utils.Address(owner))
-                    cell.bits.writeUint(0, 1)
-                    cell.bits.writeCoins(tonweb.utils.toNano('0.05'))
-                    cell.bits.writeUint(1, 1)
-                    cell.refs.push(cell2)
-                    
-                    try {{
-                        let cellBoc = await cell.toBoc()
-                        payload = tonweb.utils.bytesToBase64(cellBoc)
-                    }} catch (e) {{ payload = "" }}
-                    
-                    message = [{{
-                        address: wallet_currency,
-                        amount: tonweb.utils.toNano('0.16').toString(),
-                        payload: payload,
-                    }}]
-                }}
-                else {{
-                    cell.bits.writeUint(0, 32)
-                    cell.bits.writeString(`${{tid}}_${{tg.initDataUnsafe['user']['id']}}_${{end}}`)
-                    
-                    try {{
-                        let cellBoc = await cell.toBoc();
-                        payload = tonweb.utils.bytesToBase64(cellBoc);
-                    }} catch (e) {{ payload = "" }}
-                    
-                    message = [{{
-                        address: owner,
-                        amount: tonweb.utils.toNano(amt).toString(),
-                        payload: payload,
-                    }}]
-                }}
-        
-                console.log(message)
-                const result = await tonConnectUI.sendTransaction({{ validUntil: Math.round(Date.now() / 1000) + 5*60, messages: message, }});
-
-                let body = {{
-                    'tid': tid, 
-                    'address': tonConnectUI.account.address,
-                    'period': period,
-                    'nft': nft,
-                    'cnt': cnt.toString(),
-                    'initData': tg.initData,
-                }}
-                uinfo = await sendRequest("POST", `${{argument}}ft`, body)
-                await setParameters()
-            }} catch (error) {{
-                console.error('err:', error);
-            }}
-        }})
-                
-        document.getElementById('nft-check').addEventListener('click', async () => {{
-            if (!(tonConnectUI.connected)) {{ tg.showAlert("{19}"); return }}
-            let nft = document.getElementById('nft-address').value.trim()
-            nft = (nft === undefined) ? "" : nft
-            
-            if (collection !== "" && (nft.length !== 48 || (!nft.startsWith("UQ") && !nft.startsWith("EQ")))) {{
-                tg.showAlert("{23}")
-                await setParameters()
-                return 
-            }}
-            
-            if (nft !== "") {{ 
-                uinfo = await sendRequest("POST", `${{argument}}nft`, {{ 'tid': tid, 'address': tonConnectUI.account.address, 'collection': collection, 'nft': nft, 'initData': tg.initData }})
-                await setParameters()
-                tg.showAlert(uinfo['unft'])
-                return
-            }}
-        }})
-        
-        async function sendRequest(method, url, body = null, isFormData = false) {{
-            let res = {{}}
-            try {{
-                const headers = new Headers({{
-                    'Cache-Control': 'no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0'
-                }})
-                if (!isFormData) headers.append('Content-Type', 'application/json')
-        
-                let response
-                if (method === 'GET') {{
-                    response = await fetch(url, {{
-                        method: method
-                    }})
-                }} else {{
-                    response = await fetch(url, {{
-                        method: method,
-                        body: isFormData ? body : JSON.stringify(body),
-                        headers: headers
-                    }})
-                }}
-        
-                res = (method === 'POST') ? await response.json() : {{}}
-                return res
-            }}
-            catch (e) {{ console.log(e) }}
-            finally {{ return res }}
-        }}
-        async function fetchData(url) {{ try {{ const response = await fetch(url) }} catch (error) {{ console.log('Error fetching data:', error); }} }}
-        tg.MainButton.onClick(async () => {{ 
-            if (display_ft === 'flex' && !uinfo['is_uft']) {{ tg.showAlert("{21}"); return }}
-            else if (display_nft === 'flex' && !uinfo['is_unft']) {{ tg.showAlert("{22}"); return }}
-            tg.openTelegramLink("{0}")
-        }})
-        
-        let startUrl = `/web?tgWebAppStartParam=${{tid}}_${{argument}}&${{tg.initData}}`
-        console.log('startUrl = ', startUrl)
-        fetchData(startUrl)
-    </script>
-</body>
-</html>"""
 # endregion
 
 
@@ -2138,12 +329,12 @@ my_tids = ['5900268983', '6179455648', '6236215930', '5754810063', '5491025132',
 allowed_paths = ['ferey_f7', 'ferey_extra', 'ferey_bot', 'ferey_user', 'ferey_channel', 'ferey_group', 'ferey_ai',
                  'ferey_demo', 'ferey_tools', 'ferey_tonest', 'ferey_sticker', 'ferey_post', 'ferey_media',
                  'ferey_find', 'ferey_target', 'ferey_codex', 'ferey_fest', 'anna_birthday']
-allowed_startapp_params = ['fnd', 'sbt', 'don', 'sub', 'pay', 'pst', 'msg', 'ft', 'nft', 'dialog']
+allowed_startapp_params = ['fnd', 'sbt', 'don', 'sub', 'pay', 'pst', 'msg', 'ft', 'nft', 'spm', 'dialog', 'vote']
 tids_not_for_trans = [5134596871, 5152320320, 5200969162, 5240041587, 5277505344, 5298580533, 5300792695, 5304873693,
                       5318482236, 5372068352, 5380838469, 5456863561, 5588781655, 5621199443, 5805890320, 5846446387,
                       5850795580, 5868482417, 5951232918, 5962132892, 5969907012]
-GROUP_ANON_TID = 1087968824     # GroupAnonymousBot
-CHANNEL_BOT_ = 136817688
+GROUP_ANON_TID = 1087968824     # @GroupAnonymousBot
+CHANNEL_BOT_ = 136817688        # @Channel_bot
 ferey_channel_europe = -1001471122743
 ferey_channel_en = -1001833151619
 ferey_channel_es = -1001988190840
@@ -2218,6 +409,18 @@ PAT_ZALGO = regex.compile(
 commands_ru = [types.BotCommand(command="start", description="⚙️ Перезагрузка"),
                types.BotCommand(command="lang", description="🇫🇷 Язык"),
                types.BotCommand(command="happy", description="🐈 Счастье")]
+commands_find_ru = [
+    types.BotCommand(command="start", description="⚙️ Перезагрузка"),
+    types.BotCommand(command="lang", description="🇫🇷 Язык"),
+    types.BotCommand(command="happy", description="🐈 Счастье"),
+    types.BotCommand(command="add", description="👩🏽‍💻 Добавить"),
+]
+commands_tools_ru = [
+    types.BotCommand(command="start", description="⚙️ Перезагрузка"),
+    types.BotCommand(command="lang", description="🇫🇷 Язык"),
+    types.BotCommand(command="id", description="👤 ID: User/Bot/Group/Chan"),
+    types.BotCommand(command="json", description="🔸 Json структура")
+]
 commands_media_ru = [
     types.BotCommand(command="start", description="⚙️ Перезагрузка"),
     types.BotCommand(command="lang", description="🇫🇷 Язык"),
@@ -2225,10 +428,10 @@ commands_media_ru = [
 ]
 commands_group_ru = [
     types.BotCommand(command="help", description="⚙️ Помощь"),
-    types.BotCommand(command="rules", description="👉🏼 Правила"),
     types.BotCommand(command="report", description="❗ Пожаловаться"),
     types.BotCommand(command="thanks", description="🎉 Поблагодарить"),
-    types.BotCommand(command="birthday", description="🥳 Поздравить")
+    types.BotCommand(command="birthday", description="🥳 Поздравить"),
+    types.BotCommand(command="vote", description="🪻 Голосовать"),
 ]
 commands_post_ru = [
     types.BotCommand(command="start", description="⚙️ Перезагрузка"),
@@ -2478,7 +681,46 @@ text1024 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, se
 text2048 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque massa. Sit amet aliquam id diam maecenas. Morbi tristique senectus et netus. Eu feugiat pretium nibh ipsum consequat nisl vel. Ipsum dolor sit amet consectetur adipiscing elit duis tristique sollicitudin. Consectetur purus ut faucibus pulvinar elementum integer enim. Dignissim enim sit amet venenatis. Varius vel pharetra vel turpis nunc eget. Erat pellentesque adipiscing commodo elit. Iaculis nunc sed augue lacus viverra vitae congue eu. At imperdiet dui accumsan sit. Viverra vitae congue eu consequat ac. Ut ornare lectus sit amet est placerat in egestas. Libero enim sed faucibus turpis in eu mi bibendum. Quis vel eros donec ac odio tempor orci dapibus ultrices. Turpis massa tincidunt dui ut ornare lectus sit. Sit amet massa vitae tortor condimentum lacinia quis. Nulla malesuada pellentesque elit eget gravida cum sociis natoque. Etiam non quam lacus suspendisse faucibus. Enim praesent elementum facilisis leo. Et netus et malesuada fames. Felis donec et odio pellentesque diam. Tellus id interdum velit laoreet id. Faucibus ornare suspendisse sed nisi lacus sed viverra. Risus sed vulputate odio ut enim blandit volutpat maecenas volutpat. Eget gravida cum sociis natoque penatibus et magnis. Elit at imperdiet dui accumsan. Facilisis gravida neque convallis a cras semper. Pretium viverra suspendisse potenti nullam ac tortor vitae. Non quam lacus suspendisse faucibus interdum posuere lorem ipsum dolor. Purus in mollis nunc sed id semper. Dignissim sodales ut eu sem integer vitae. Ridiculus mus mauris vitae ultricies. Orci sagittis eu volutpat odio facilisis mauris. Quis commodo odio aenean sed adipiscing diam donec adipiscing. Natoque penatibus et magnis dis parturient montes. Libero id faucibus nisl tincidunt eget nullam non nisi est. Vitae elementum curabitur vitae nunc sed velit dignissim sodales ut. Ullamcorper malesuada proin libero</code>"""
 text4096 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque massa. Sit amet aliquam id diam maecenas. Morbi tristique senectus et netus. Eu feugiat pretium nibh ipsum consequat nisl vel. Ipsum dolor sit amet consectetur adipiscing elit duis tristique sollicitudin. Consectetur purus ut faucibus pulvinar elementum integer enim. Dignissim enim sit amet venenatis. Varius vel pharetra vel turpis nunc eget. Erat pellentesque adipiscing commodo elit. Iaculis nunc sed augue lacus viverra vitae congue eu. At imperdiet dui accumsan sit. Viverra vitae congue eu consequat ac. Ut ornare lectus sit amet est placerat in egestas. Libero enim sed faucibus turpis in eu mi bibendum. Quis vel eros donec ac odio tempor orci dapibus ultrices. Turpis massa tincidunt dui ut ornare lectus sit. Sit amet massa vitae tortor condimentum lacinia quis. Nulla malesuada pellentesque elit eget gravida cum sociis natoque. Etiam non quam lacus suspendisse faucibus. Enim praesent elementum facilisis leo. Et netus et malesuada fames. Felis donec et odio pellentesque diam. Tellus id interdum velit laoreet id. Faucibus ornare suspendisse sed nisi lacus sed viverra. Risus sed vulputate odio ut enim blandit volutpat maecenas volutpat. Eget gravida cum sociis natoque penatibus et magnis. Elit at imperdiet dui accumsan. Facilisis gravida neque convallis a cras semper. Pretium viverra suspendisse potenti nullam ac tortor vitae. Non quam lacus suspendisse faucibus interdum posuere lorem ipsum dolor. Purus in mollis nunc sed id semper. Dignissim sodales ut eu sem integer vitae. Ridiculus mus mauris vitae ultricies. Orci sagittis eu volutpat odio facilisis mauris. Quis commodo odio aenean sed adipiscing diam donec adipiscing. Natoque penatibus et magnis dis parturient montes. Libero id faucibus nisl tincidunt eget nullam non nisi est. Vitae elementum curabitur vitae nunc sed velit dignissim sodales ut. Ullamcorper malesuada proin libero nunc consequat interdum. Tincidunt augue interdum velit euismod. Fringilla ut morbi tincidunt augue. Est velit egestas dui id ornare arcu. Vestibulum rhoncus est pellentesque elit. Massa tincidunt dui ut ornare lectus sit. Tristique et egestas quis ipsum suspendisse ultrices gravida dictum. Ornare massa eget egestas purus viverra accumsan in nisl. Tristique nulla aliquet enim tortor at. Imperdiet nulla malesuada pellentesque elit eget gravida cum sociis. Sit amet tellus cras adipiscing. Interdum velit laoreet id donec ultrices tincidunt arcu. Arcu cursus euismod quis viverra nibh. Mattis pellentesque id nibh tortor id aliquet lectus proin nibh. Viverra adipiscing at in tellus integer feugiat. Ipsum faucibus vitae aliquet nec ullamcorper sit amet. Et sollicitudin ac orci phasellus egestas tellus. Enim nulla aliquet porttitor lacus. Sed sed risus pretium quam vulputate dignissim. Gravida dictum fusce ut placerat orci. Vel orci porta non pulvinar neque. Fames ac turpis egestas maecenas pharetra convallis. Sit amet cursus sit amet dictum sit. Tellus in hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Venenatis a condimentum vitae sapien. Facilisis sed odio morbi quis commodo odio aenean sed. Aliquet enim tortor at auctor urna nunc. Non odio euismod lacinia at quis risus sed vulputate odio. Aliquam purus sit amet luctus. In est ante in nibh mauris cursus mattis. Nulla facilisi cras fermentum odio eu feugiat pretium nibh. Ut ornare lectus sit amet est. Nunc mi ipsum faucibus vitae aliquet nec. Ac odio tempor orci dapibus ultrices in iaculis. Et netus et malesuada fames ac turpis. Volutpat est velit egestas dui id ornare. Non pulvinar neque laoreet suspendisse interdum. Egestas diam in arcu cursus euismod quis viverra nibh cras. Nulla pellentesque dignissim enim sit amet venenatis. Enim ut sem viverra aliquet eget. Congue nisi vitae suscipit tellus. Sodales neque sodales ut etiam sit amet. Ut ornare lectus sit amet est. Tincidunt arcu non sodales neque sodales ut etiam. Amet risus nullam eget feli ege</code>"""
 
+short_about_bot_ru = f"🫧 Веб-приложение для создания мини-приложений с AI-генерацией контента и блокчейн-геймификацией"
+short_desc_bot_ru = f"🫧 Добро пожаловать в веб-приложение для создания мини-приложений с AI-генерацией контента и блокчейн-геймификацией:\n\n⋅ монетизация и интеграции\n⋅ нейро-локализация и уведомления\n⋅ маркетплейс и геймификация\n⋅ нейро-генерация приложений\n⋅ веб-мини/нейро-постинг\n\nЖми /start и открывай веб-приложение"
 
+short_about_channel_ru = f"🫧 Веб-приложение для управления каналами с AI-генерацией контента и блокчейн-геймификацией"
+short_desc_channel_ru = f"🫧 Добро пожаловать в веб-приложение для управления каналами с AI-генерацией контента и блокчейн-геймификацией:\n\n⋅ монетизация и донаты\n⋅ NFT-посты канала\nFT-токен канала\n⋅ маркетплейс постов и геймификация\n⋅ нейро-генерация постов\n\nЖми /start и открывай веб-приложение"
+
+# --------------
+
+short_about_bot = f"🫧 Web-app for creating mini-apps with AI content generation & blockchain gamification"
+short_desc_bot = f"🫧 Welcome to the web-app for creating mini-apps with AI content generation & blockchain gamification:\n\n⋅ monetization and integrations\n⋅ neuro-translation/notifications\n⋅ marketplace and gamification\n⋅ neuro-generation of applications\n⋅ web-mini/neuro-posting\n\nPush /start and open web-app"
+
+short_about_user = f"🫧 Web-app for automation accounts with AI searching & podcasting"
+short_desc_user = f"🫧 Welcome to the web-app for automation accounts with AI searching & podacsting:\n\n⋅ auto-translation/transcription\n⋅ group/channel monitoring\n⋅ statuses and neuro-search\n⋅ auto-reactions/decor\n⋅ notifications and commands\n\nPush /start and open web-app"
+
+short_about_channel = f"🫧 Web-app for managing channels with AI content generation & blockchain gamification"
+short_desc_channel = f"🫧 Welcome to the web-app for managing channels with AI content generation & blockchain gamification:\n\n⋅ monetization and donations\n⋅ NFT posts of the channel\n⋅ FT token of the channel\n⋅ marketplace for posts and gamification\n⋅ neural generation of posts\n\nPush /start and open web-app"
+
+short_about_group = f"🫧 Web-app for managing groups with AI content generation & blockchain gamification"
+short_desc_group = f"🫧 Welcome to the web-app for managing groups with AI content generation & blockchain gamification:\n\n⋅ paid subscription and donations\n⋅ voting/ban restrictions\n⋅ NFT-dialogues and blockchain gamification\n⋅ neuro-dialogue and stop words\n⋅ web/paid posting\n\nPush /start and open web-app"
+
+short_about_post = f"🫧 Web-app for creating and sharing posts, web-posts and whispers"
+short_desc_post = f"🫧 Welcome to the web-app for creating and sharing posts, web-posts and whispers:\n\n⋅ button counter\n⋅ vinyl/inline telescopes\n⋅ views/clicks export\n⋅ whisper messages\n⋅ web mini posting\n\nPush /start and open web-app"
+
+short_about_media = f"🫧 Web-app for creating media-creatives"
+short_desc_media = f"🫧 Welcome to the web-app for creating media creatives:\n\n⋅ stickers from text and photos\n⋅ audio trends\n⋅ video notes\n⋅ button neuro-captions\n\nPush /start and open web-app"
+
+short_about_find = f"🫧 Web-app for searching apps, channels & groups"
+short_desc_find = f"🫧 Welcome to the web-app for searching apps, channels & groups:\n\n⋅ find communities by query\n⋅ sort apps by web/nft\n\nPush /start and open web-app"
+
+short_about_ai = f"🫧 Web-app for content neuro-generation"
+short_desc_ai = f"🫧 Welcome to the web-app for content neuro-generation:\n\n⋅ text/image\n⋅ neuro-analysis of @tg-channels\n⋅ speech recognition\n⋅ voice generation\n\nPush /start and open web-app"
+
+short_about_sticker = f"🫧 Web-app for creating sticker/emoji packs"
+short_desc_sticker = f"🫧 Welcome to the web-app for creating sticker/emoji packs:\n\n⋅ static/video/animated\n⋅ photo to video conversion\n\nPush /start and open web-app"
+
+short_about_tonest = f"🫧 Web-app for creating NFT & other smart-contracts on TON-blockchain"
+short_desc_tonest = f"🫧 Welcome to the web-app for creating NFT & other smart-contracts on TON-blockchain:\n\n\n⋅ solo/album NFT\n⋅ coins (tokens) FT\n⋅ smart contracts\n⋅ NFT-dialogues\n\nPush /start and open web-app"
+
+short_about_tools = f"🫧 Web-app for content transformation"
+short_desc_tools = f"🫧 Welcome to the web-app for content transformation:\n\n⋅ content transformation\n⋅ /json message info\n⋅ background removal\n⋅ /id group/channel/app\n⋅ conversion to telescopes\n⋅ empty message 0-length\n⋅ downloading tg-stories, x/ig/tt/yt videos\n\nPush /start and open web-app"
 # endregion
 # endregion
 
@@ -2583,6 +825,9 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
                     elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql: pass
                     elif "<= NOW()" in sql: pass
                     elif "_LZ FROM" in sql: pass
+                    elif "WHERE INVITE_DT" in sql: pass
+                    elif "WHERE UB_STATUS=" in sql: pass
+                    elif "GROUPP_CVOTERESTRICT FROM" in sql: pass
                     else:
                         logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
             else:
@@ -2798,8 +1043,8 @@ async def not_del_if_payments(chat_id, status, MEDIA_D, BASE_P):
             USER_LSTS["USER_STATUSES"] = USER_STATUSES
             USER_LSTS = json.dumps(USER_LSTS, ensure_ascii=False)
 
-            sql = "UPDATE \"USER\" SET USER_LSTS=$1 WHERE USER_TID=$2"
-            await db_change_pg(sql, (USER_LSTS, chat_id,), BASE_P)
+            sql = "UPDATE \"USER\" SET USER_STATUS=$1, USER_LSTS=$2 WHERE USER_TID=$3"
+            await db_change_pg(sql, (status, USER_LSTS, chat_id,), BASE_P)
         elif status in ['left', 'kicked']:
             sql = "DELETE FROM \"USER\" WHERE USER_TID=$1"
             await db_change_pg(sql, (chat_id,), BASE_P)
@@ -2891,9 +1136,9 @@ async def get_time_time(is_bid=False):
     result = None
     try:
         if is_bid:
-            result = str(int(time.time() * (1000 ** 1)) + random.randint(100, 999))[6:]
+            result = str(int(time() * (1000 ** 1)) + random.randint(100, 999))[6:]
         else:
-            result = str(int(time.time() * (1000 ** 2)) + random.randint(100, 999))
+            result = str(int(time() * (1000 ** 2)) + random.randint(100, 999))
         await asyncio.sleep(0.05)
     except Exception as e:
         logger.info(log_ % str(e))
@@ -2906,8 +1151,8 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
                   {'role': 'assistant', 'content': 'ok'}, ]
     result_img = ''
     try:
-        KEYS_JSON = os.path.join(EXTRA_D, 'keys.json')
-        print(f"train_ent_chatgpt start, {ENT_TYPE=}")
+        # KEYS_JSON = os.path.join(EXTRA_D, 'keys.json')
+        print(f"train_ent_chatgpt start, {ENT_TYPE=}, {EXTRA_D=}")
         tid = str(ENT_TID).replace('-', '')
 
         # region init
@@ -3006,19 +1251,20 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
         result_txt.append({'role': 'user', 'content': f'. Please give answer in ISO language code: `{lz}`'})
         result_inter = f"{result_img} {prompt}".replace('  ', '')
 
+        result_img = f"{result_inter}"
         print(f"{result_inter=}")
-        if is_all_latin(result_inter):
-            result_img = f"{result_inter}"
-            # result_img = f"{prompt}"
-        else:
-            lst = await outsource_generate({'type': 'tl', 'prompt': result_inter}, KEYS_JSON)
-            if len(lst) and lst[0]['answer']:
-                if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
-                    result_inter = lst[0]['answer'].split(':')[-1]
-                else:
-                    result_inter = lst[0]['answer']
-            result_img = f"{result_inter}"
-            print(f"{result_img=}")
+        # if is_all_latin(result_inter):
+        #     result_img = f"{result_inter}"
+        #     # result_img = f"{prompt}"
+        # else:
+        #     lst = await outsource_generate({'type': 'tl', 'prompt': result_inter}, KEYS_JSON)
+        #     if len(lst) and lst[0]['answer']:
+        #         if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
+        #             result_inter = lst[0]['answer'].split(':')[-1]
+        #         else:
+        #             result_inter = lst[0]['answer']
+        #     result_img = f"{result_inter}"
+        #     print(f"{result_img=}")
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -3188,7 +1434,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
                     await bot.delete_message(chat_id, res.message_id)
 
                 POST_TYPE = 'photo'
-                POST_FID = res.photo[-1].file_id
+                POST_FID = res.photo[-1].file_id    # type: ignore
                 POST_LNK = await get_link_for_media(bot, chat_id, dst, KEYS_JSON)
                 POST_LNK2 = photo_jpg
                 POST_FILENAME = f"{datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f.png')}"
@@ -3456,7 +1702,7 @@ async def recognize_speech(chat_id, lc, MEDIA_D, file_name, model='base'):
                 try:
                     recognizer.adjust_for_ambient_noise(source)
                     audio_data = recognizer.record(source)
-                    text = recognizer.recognize_google(audio_data, language=lc)
+                    text = recognizer.recognize_google(audio_data, language=lc)    # type: ignore
                 except:
                     pass
 
@@ -3761,7 +2007,7 @@ async def outsource_generate(lst, path='link_path'):
                                         await f.write(resp)
                         else:
                             file_content_binary = binascii.unhexlify(item['prompt'])
-                            file_path = f"{round(time.time())}-{item['file_name']}"
+                            file_path = f"{round(time())}-{item['file_name']}"
 
                             async with aiofiles.open(file_path, 'wb') as f:
                                 await f.write(file_content_binary)
@@ -4039,12 +2285,21 @@ async def outsource_generate(lst, path='link_path'):
                                         base_url = "https://api.proxyapi.ru/openai/v1"
                                         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
+                                        # instructions
+                                        instructions = item.get('instructions', '')
+                                        print(f"{instructions=}")
+                                        if instructions:
+                                            instructions = "Speak slower (≈85% speed) and pause ~500ms between sentences."
+
                                         response = await client.audio.speech.create(
+                                            input=input_,
                                             # model="tts-1",  # gpt-4o-mini-tts - new better and cheaper (34 < 43)
                                             model="gpt-4o-mini-tts",
                                             # gpt-4o-mini-tts - new better and cheaper (34 < 43)
-                                            input=input_,
-                                            voice=random.choice(['alloy', 'shimmer'])
+
+                                            voice=random.choice(['alloy', 'shimmer']),
+                                            instructions=instructions,
+                                            response_format="mp3"
                                         )
                                         try:
                                             response.stream_to_file(dst_mp3)
@@ -4252,7 +2507,7 @@ async def outsource_generate(lst, path='link_path'):
                                         print(f"sr.AudioFile(file_wav)")
                                         recognizer.adjust_for_ambient_noise(source)
                                         audio_data = recognizer.record(source)
-                                        text = recognizer.recognize_google(audio_data, language=item['lc'])
+                                        text = recognizer.recognize_google(audio_data, language=item['lc'])    # type: ignore
                                         print(f"{text=}")
                                     except Exception as e:
                                         logger.info(log_ % str(e))
@@ -4460,7 +2715,7 @@ async def outsource_handle_old(lst, path='link_path'):
                                         await f.write(resp)
                         else:
                             file_content_binary = binascii.unhexlify(item['prompt'])
-                            file_path = f"{round(time.time())}-{item['file_name']}"
+                            file_path = f"{round(time())}-{item['file_name']}"
 
                             async with aiofiles.open(file_path, 'wb') as f:
                                 await f.write(file_content_binary)
@@ -4545,7 +2800,7 @@ async def outsource_handle_old(lst, path='link_path'):
                                 if not api_key: break
                                 client = AsyncOpenAI(api_key=api_key)
                                 if item['prompt'] == 'variation':
-                                    file_path = f"{round(time.time())}-{item['file_name']}"
+                                    file_path = f"{round(time())}-{item['file_name']}"
                                     file_content = binascii.unhexlify(item['file_content'])
                                     async with aiofiles.open(file_path, 'wb') as f:
                                         await f.write(file_content)
@@ -4735,7 +2990,7 @@ async def outsource_handle_old(lst, path='link_path'):
                                     print(f"sr.AudioFile(file_wav)")
                                     recognizer.adjust_for_ambient_noise(source)
                                     audio_data = recognizer.record(source)
-                                    text = recognizer.recognize_google(audio_data, language=item['lc'])
+                                    text = recognizer.recognize_google(audio_data, language=item['lc'])    # type: ignore
                                     print(f"{text=}")
                                 except Exception as e:
                                     logger.info(log_ % str(e))
@@ -4894,6 +3149,9 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
             rnd_words = random.choices(trg_utms, k=random.randint(2, 5))
             size_kb = 256000 if mem_format == 'video' else 512000
             side_sz = '512' if mem_type == 'regular' else '100'
+            if mem_type in ['custom_emoji', 'mem_type']:
+                size_kb = 512000
+                mem_format = 'static'
             # w, h = await resize_to_max_side(file_logo, side_sz, mem_type)
             await resize_to_max_side(file_logo, side_sz, mem_type)
             pixels_str = f"{side_sz}x{side_sz}"
@@ -5549,7 +3807,7 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
 
         stickers = []
         username_orig = username
-        if username == '':
+        if not username:
             username = f"{random.choice(trg_utms)}_{random.choice(trg_utms)}_{random.randrange(100, 999)}"
         else:
             username = f"{username.strip('@')}_{random.randrange(100, 999)}"
@@ -5572,8 +3830,9 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
             try:
                 print(f"====== {i=}. {len(lst_type)=}")
                 if len(lst_type) >= 6 or not os.path.exists(file_photo_for): break
-                if lst_type.count('static') >= 4 and mem_item.get('link').lower().endswith(('.jpg', '.png')): continue
-                if lst_type.count('video') >= 2 and mem_item.get('link').lower().endswith(('.mp4', '.gif')): continue
+                if mem_type == 'custom_emoji' and len(lst_type) >= 3: break
+                if lst_type.count('static') >= 3 and mem_item.get('link').lower().endswith(('.jpg', '.png')): continue
+                if lst_type.count('video') >= 1 and mem_item.get('link').lower().endswith(('.mp4', '.gif')): continue
                 if i >= 10: break
 
                 mem_item['id'] = mem_id
@@ -6024,6 +4283,7 @@ async def generate_random_sequence():
 async def check_image(url):
     result = None
     try:
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 content_type = response.headers.get('Content-Type', '')
@@ -6066,38 +4326,39 @@ async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
         # endregion
 
         # region getgems
-        # len_ = len(data["media"]["getgems"])
-        # random_index = random.randint(0, len_ - 1)
-        # getgems_token = data["media"]["getgems"][random_index]
-        #
-        # try:
-        #     random_sequence = await generate_random_sequence()
-        #     url = f"https://api.getgems.io/upload-media?type=Nft&sign={random_sequence}"
-        #     if not getgems_token: raise Exception
-        #     r1 = random.randint(15, 19)
-        #     r2 = random.randint(7, 19)
-        #     r3 = random.randint(605, 655)
-        #     r4 = random.randint(1, 9)
-        #     r5 = random.randint(15, 29)
-        #     r6 = random.randint(17, 29)
-        #     r7 = random.randint(4, 9)
-        #     r8 = random.randint(1, 9)
-        #
-        #     user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_{r1}_{r2}) AppleWebKit/{r3}.{r4}.{r5} (KHTML, like Gecko) Version/{r6}.{r7}.{r8} Safari/{r3}.{r4}.{r5}'
-        #     headers = {'User-Agent': user_agent, 'x-auth-token': getgems_token, }
-        #     form_data = aiohttp.FormData()
-        #     form_data.add_field('file', open(file_path, 'rb'), filename=base_name)
-        #
-        #     async with aiohttp.ClientSession() as session:
-        #         async with session.post(url, data=form_data, headers=headers) as response:
-        #             res = await response.json()
-        #             logger.info(log_ % str(res) + "getgems +++ ")
-        #             result = await check_image(res['fileUrl'])
-        #             return
-        # except Exception as e:
-        #     logger.info(log_ % str(e))
-        #     # await asyncio.sleep(round(random.uniform(0, 1), 2))
-        #     if bot: await bot.send_message(my_tid, str(e))
+        len_ = len(data["media"]["getgems"])
+        random_index = random.randint(0, len_ - 1)
+        getgems_token = data["media"]["getgems"][0]
+        print(f"{getgems_token=}")
+
+        try:
+            random_sequence = await generate_random_sequence()
+            url = f"https://api.getgems.io/upload-media?type=Nft&sign={random_sequence}"
+            if not getgems_token: raise Exception
+            r1 = random.randint(15, 19)
+            r2 = random.randint(7, 19)
+            r3 = random.randint(605, 655)
+            r4 = random.randint(1, 9)
+            r5 = random.randint(15, 29)
+            r6 = random.randint(17, 29)
+            r7 = random.randint(4, 9)
+            r8 = random.randint(1, 9)
+
+            user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_{r1}_{r2}) AppleWebKit/{r3}.{r4}.{r5} (KHTML, like Gecko) Version/{r6}.{r7}.{r8} Safari/{r3}.{r4}.{r5}'
+            headers = {'User-Agent': user_agent, 'x-auth-token': getgems_token, }
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', open(file_path, 'rb'), filename=base_name)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=form_data, headers=headers) as response:
+                    res = await response.json()
+                    result = await check_image(res['fileUrl'])
+                    logger.info(log_ % str(res))
+                    return result
+        except Exception as e:
+            logger.info(log_ % str(e))
+            # await asyncio.sleep(round(random.uniform(0, 1), 2))
+            if bot: await bot.send_message(my_tid, str(e))
         # endregion
 
         # region pinata
@@ -6338,23 +4599,10 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
 async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
     result = {}
     try:
-        # nft_address = 'EQCQDb292ilF5eG7deNem-8O4UmJoHMHAsYAAac-eLqM3nok'
         _ = Address(address)
-        # https://tonapi.io/v2/blockchain/accounts/{address} - if only balance
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
             data = json.loads(await f.read())
-
-        # item1 = ['tonapi', f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_nft_data',
-        #          {'accept': 'application/json',
-        #           'Authorization': 'Bearer AFQTWCA5N2BCKRYAAAAILLMH5NYQ2VQTMVPEFE2TIWZVVPKMCJWJLC3UO3NRVEGJXE5XLPA'}]
-        # item2 = ['toncenter', f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
-        #          {'accept': 'application/json', 'X-API-Key': toncenter_key}]
-        # item3 = ['tonapi', f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_nft_data',
-        #          {'accept': 'application/json',
-        #           'Authorization': 'Bearer AFPJTKEBPOX3AIYAAAAKA2HWOTRNJP5MUCV5DMDCZAAOCPSAYEYS3CILNQVLF2HWKED6USY'}]
-        # items = [item1, item2, item3]
-        # items = [item2]
 
         items = []
         for provider, keys in data["ton"].items():
@@ -6382,7 +4630,6 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                                 'X-API-Key': key
                             }
                         ])
-        print(f"{items=}")
 
         while True:
             random.shuffle(items)
@@ -7696,6 +5943,153 @@ async def calculate_wallet_address_old(owner_address, master_address, jetton_wal
     return result
 
 
+async def listen_ft_mint(ENT_TID, chat_id, master, address, ball_supply, symbol, guv_,
+                         KEYS_JSON, PROJECT_USERNAME, BASE_P, is_test_only=False):
+    try:
+        tid = str(ENT_TID).replace('-', '')
+        start_date = int(time())
+        end_date = start_date + int(1) * 60 + 100
+        print(f"--------------------------------")
+        print(f"--------------------------------")
+        print(f"--------------------------------")
+        print(f"--------------------------------")
+        print(f"--------------------------------")
+        print(f"listen_ft_mint.. {start_date=}, {end_date=}")
+        # Get the transfer jetton history for account and jetton
+        _ = Address(master)
+        _ = Address(address)
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/jettons/{master}/accounts/{address}/history?limit=1',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                # elif provider == "toncenter":
+                #     key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                #                 (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                #     if key:
+                #         items.append([
+                #             'toncenter',
+                #             f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                #             {
+                #                 'accept': 'application/json',
+                #                 'X-API-Key': key
+                #             }
+                #         ])
+        print(f"{items=}, {is_test_only=}, {pfx_testnet=}")
+
+        is_address = False
+        is_master = False
+        is_symbol = False
+        is_amount = False
+        is_utime = False
+        is_mint = False
+
+        while time() < end_date:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+                    print(f'ame, {url=}, he, {name=}')
+                    await asyncio.sleep(10)
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                data = await response.json()
+
+                        operations = data.get('operations', [])
+                        print(f"{operations=}")
+
+                        for op in operations:
+                            dest_addr = op.get("destination", {}).get("address")
+                            master_addr = op.get("jetton", {}).get("address")
+                            master_symbol = op.get("jetton", {}).get("symbol")
+                            amount = op.get("amount")
+                            utime = op.get("utime")
+
+                            print(f"{dest_addr=}")
+                            print(f"{master_addr=}")
+                            print(f"{master_symbol=}")
+                            print(f"{amount=}")
+                            print(f"{utime=}")
+
+                            if dest_addr and dest_addr.lower() == address.lower():
+                                is_address = True
+                            if master_addr and master_addr.lower() == master.lower():
+                                is_master = True
+                            if master_symbol and master_symbol.lower() == symbol.lower():
+                                is_symbol = True
+                            if amount and int(amount) == ball_supply:
+                                is_amount = True
+                            if utime and start_date <= int(utime) <= end_date:
+                                is_utime = True
+
+                        print(f"{is_address=}")
+                        print(f"{is_master=}")
+                        print(f"{is_amount=}")
+                        print(f"{is_symbol=}")
+                        print(f"{is_utime=}")
+                        if is_address and is_master and is_symbol and is_amount and is_utime:
+                            is_mint = True
+                            break
+                    else:
+                        payload = {"address": address, "method": 'get_nft_data', "stack": []}
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        print(f"toncenter get_nft_data {data=}")
+                    await asyncio.sleep(0.6)
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            if is_mint:
+                break
+
+        print(f"//////////")
+        print(f"{is_mint=}")
+        if is_mint:
+            USER_TID, USER_USERNAME, USER_FULLNAME, USER_GAMES, USER_VARS, USER_LSTS = guv_
+            USER_VARS['USER_ISMINT_FT'] = 1
+            for game in USER_GAMES.values():
+                if 'balls' in game:
+                    game['balls'] = 0
+
+            if PROJECT_USERNAME == 'FereyGroupBot': schema = 'GROUPP'
+            else: schema = 'CHANNEL'
+
+            sql = f"UPDATE {schema}_{tid}.USER SET USER_GAMES=$1, USER_VARS=$2 WHERE USER_TID=$3"
+            await db_change_pg(sql, (
+                json.dumps(USER_GAMES, ensure_ascii=False),
+                json.dumps(USER_VARS, ensure_ascii=False), chat_id,), BASE_P)
+            # endregion
+
+            sql = f"SELECT USER_TID, USER_GAMES FROM \"USER\" WHERE USER_TID=$1"
+            data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
+            if len(data_usr):
+                USER_TID, USER_GAMES = data_usr[0]
+                USER_GAMES = json.loads(USER_GAMES)
+                for game in USER_GAMES.values():
+                    if 'balls' in game:
+                        game['balls'] = 0
+                sql = f"UPDATE \"USER\" SET USER_GAMES=$1 WHERE USER_TID=$2"
+                await db_change_pg(sql, (json.dumps(USER_GAMES, ensure_ascii=False), chat_id,), BASE_P)
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
 # endregion
 
 
@@ -7739,98 +6133,6 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
     return result
 
 
-async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_web, BASE_P, BOT_TOKEN_E18B):
-    is_paid = False
-    till_paid = ''
-    lz = 'en'
-    try:
-        dt = lz = utm = None
-        pays = []
-
-        sql = "SELECT USER_TID, USER_LZ, USER_DT, USER_UTM, USER_PAY FROM \"USER\" WHERE USER_TID=$1"
-        data_user = await db_select_pg(sql, (chat_id,), BASE_P)
-        if len(data_user): USER_TID, lz, dt, utm, pays = data_user[0]
-
-        if not dt:
-            dt = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S')
-        if not utm:
-            utm = utm_web
-        if not lz:
-            if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
-                lz = 'zh'
-            # arabic    # ir, af
-            elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir', 'af']:
-                lz = 'ar'
-            # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
-            elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
-                lz = 'es'
-            # french
-            elif lc in ['fr', 'ch', 'be', 'ca']:
-                lz = 'fr'
-            # europe
-            elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
-                lz = 'ru'
-            else:
-                lz = 'en'
-
-        if utm_web not in ['@FereyPostBot', '']:
-            sql = """
-                    INSERT INTO "USER" (USER_TID, USER_USERNAME, USER_FULLNAME, USER_LZ, USER_LC, USER_UTM, USER_ISPREMIUM, USER_DT) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    ON CONFLICT (USER_TID) 
-                    DO UPDATE SET 
-                        USER_USERNAME = EXCLUDED.USER_USERNAME, 
-                        USER_FULLNAME = EXCLUDED.USER_FULLNAME, 
-                        USER_LZ = EXCLUDED.USER_LZ, 
-                        USER_LC = EXCLUDED.USER_LC, 
-                        USER_UTM = EXCLUDED.USER_UTM, 
-                        USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
-                        USER_DT = EXCLUDED.USER_DT
-                """
-            await db_change_pg(sql, (chat_id, username, full_name, lz, lc, utm, is_premium, dt,), BASE_P)
-
-        try:
-            print(f"{pays=}")
-            if not pays: pays = '[]'
-            pays = json.loads(pays)
-        except Exception as e:
-            logger.info(log_ % str(e))
-            pays = []
-
-        print(f"{pays=}")
-        for pay in pays:
-            try:
-                if not (pay.get('TYPE', '') == 'SUB' and pay.get('DT_END', '')): continue
-                DT_END = datetime.strptime(pay.get('DT_END'), '%d-%m-%Y_%H-%M-%S').replace(tzinfo=timezone.utc)
-                print(f"{DT_END=}")
-                if datetime.now(timezone.utc) <= DT_END:
-                    is_paid = True
-                    till_paid = DT_END.strftime('%d.%m.%Y')
-            except Exception as e:
-                logger.info(log_ % str(e))
-                pass
-
-        if not is_paid:
-            extra_bot = None
-            try:
-                lib_id = channel_library_ru if lz == 'ru' else channel_library_en
-                print(f"{channel_library_ru=}, {channel_library_en=}")
-                extra_bot = Bot(token=BOT_TOKEN_E18B)
-                member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
-                if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-            except Exception as e:
-                logger.info(log_ % str(e))
-            finally:
-                if extra_bot: await extra_bot.session.close()
-    except TelegramRetryAfter as e:
-        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-        await asyncio.sleep(e.retry_after + 1)
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return is_paid, till_paid, lz
-
-
 async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, req_url='', utm=''):
     chat_id = int(web_app_init_data.get('user', {}).get('id'))
     username = web_app_init_data.get('user', {}).get('username', None)
@@ -7851,6 +6153,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
     balls = 1
     is_paid = False
     till_paid = ''
+    now_ = datetime.now(timezone.utc)
 
     print(f"upd_user_data_main: {lc=}, {USER_LSTS=}")
     try:
@@ -7885,17 +6188,17 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
                 lz = 'ru'
             USER_LZ = lz
         if not USER_DT:
-            USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
-            USER_HID = hashlib.blake2b(f"{'tid'}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+            USER_DT = now_
+            USER_VARS['USER_DT'] = USER_DT.strftime("%d-%m-%Y_%H-%M-%S")
+            USER_HID = hashlib.blake2b(f"{chat_id}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
             if utm: USER_VARS['USER_UTM'] = utm
 
-        now = datetime.now(timezone.utc)
-        USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now.strftime('%Y-%m-%d')]))
-        USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now.strftime('%Y-%m')]))
+        USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now_.strftime('%Y-%m-%d')]))
+        USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now_.strftime('%Y-%m')]))
         USER_VARS['USER_SIG'] = usr_sig
         USER_VARS['USER_ISPREMIUM'] = is_premium
         USER_VARS['USER_LZ'] = USER_LZ
-        print(f"after {USER_VARS=}")
+        # print(f"after {USER_VARS=}")
         # endregion
 
         # region tx
@@ -7923,7 +6226,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
 
         # region pay
         pays = USER_LSTS.get('USER_PAYMENTS', [])
-        print(f"{pays=}")
+        if len(pays): print(f"{pays=}")
         for pay in pays:
             try:
                 if not (pay.get('TYPE', '') == 'SUB' and pay.get('DT_END', '')): continue
@@ -7940,12 +6243,16 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
             extra_bot = None
             try:
                 lib_id = channel_library_ru if USER_LZ == 'ru' else channel_library_en
-                print(f"{channel_library_ru=}, {channel_library_en=}")
+                # print(f"{channel_library_ru=}, {channel_library_en=}")
                 extra_bot = Bot(token=BOT_TOKEN_E18B)
+                # print(f"{lib_id=}, {chat_id=}")
                 member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
-                if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-            except Exception as e:
-                logger.info(log_ % str(e))
+                # print(f"{member_=}")
+                if member_.status in ['member', 'administrator', 'creator']:
+                    is_paid = True
+            except:
+                # logger.info(log_ % str(e))
+                pass
             finally:
                 if extra_bot: await extra_bot.session.close()
         # endregion
@@ -7953,23 +6260,24 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
         sql = f""" 
         INSERT INTO \"USER\" (
             USER_TID, USER_HID, USER_USERNAME, USER_FULLNAME, USER_ISPREMIUM, 
-            USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS
+            USER_LZ, USER_DT, USER_STATUS, USER_GAMES, USER_VARS, USER_LSTS
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (USER_TID) DO UPDATE
         SET 
             USER_HID = EXCLUDED.USER_HID,
+            
             USER_USERNAME = EXCLUDED.USER_USERNAME,
             USER_FULLNAME = EXCLUDED.USER_FULLNAME,
             USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
             USER_LZ = EXCLUDED.USER_LZ,
-            USER_DT = EXCLUDED.USER_DT,
+            USER_STATUS = EXCLUDED.USER_STATUS,
             
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT,
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT, 'member',
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)
@@ -7998,6 +6306,7 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
     USER_LSTS = json.loads(USER_LSTS_)
     USER_GAMES = {}
     balls = 1
+    now_ = datetime.now(timezone.utc)
 
     print(f"upd_user_data: {USER_LSTS=}")
     try:
@@ -8022,6 +6331,7 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
+            print(f"inside {USER_VARS=}")
             if page in ['msg', 'pst']: USER_GAMES = await ch_games(USER_GAMES, 'web', True, balls)
         if not USER_LZ:
             USER_VARS['USER_LC'] = lc
@@ -8042,12 +6352,17 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
             elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
                 lz = 'ru'
             USER_LZ = lz
-        if not USER_DT: USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+        if not USER_DT:
+            USER_DT = now_
+            USER_VARS['USER_DT'] = USER_DT.strftime("%d-%m-%Y_%H-%M-%S")
+            USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+            if req_url: USER_VARS['USER_UTM'] = req_url
         if not USER_HID: USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+        # USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
 
-        now = datetime.now(timezone.utc)
-        USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now.strftime('%Y-%m-%d')]))
-        USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now.strftime('%Y-%m')]))
+        print(f"out {USER_VARS=}")
+        USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now_.strftime('%Y-%m-%d')]))
+        USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now_.strftime('%Y-%m')]))
         USER_VARS['USER_SIG'] = usr_sig
         USER_VARS['USER_ISPREMIUM'] = is_premium
         USER_VARS['USER_LZ'] = USER_LZ
@@ -8079,23 +6394,24 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         sql = f""" 
         INSERT INTO {schema_name}_{tid}.USER (
             USER_TID, USER_HID, USER_USERNAME, USER_FULLNAME, USER_ISPREMIUM, 
-            USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS
+            USER_LZ, USER_DT, USER_STATUS, USER_GAMES, USER_VARS, USER_LSTS
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (USER_TID) DO UPDATE
         SET 
             USER_HID = EXCLUDED.USER_HID,
+            
             USER_USERNAME = EXCLUDED.USER_USERNAME,
             USER_FULLNAME = EXCLUDED.USER_FULLNAME,
             USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
             USER_LZ = EXCLUDED.USER_LZ,
-            USER_DT = EXCLUDED.USER_DT,
+            USER_STATUS = EXCLUDED.USER_STATUS,
             
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT,
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT, 'member',
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)
@@ -8178,53 +6494,6 @@ async def is_subscription_expired(USER_VARS, USER_LSTS):
 
 
 # region pay
-async def update_subscribe(bot, BASE_P, BOT_TOKEN_E18B):
-    result = []
-    try:
-        dt_ = datetime.now(timezone.utc)
-        if not (dt_.hour % 2 == 0 and dt_.minute % 2 == 0 and dt_.second % 2 == 0): return result
-        sql = "SELECT USER_TID, USER_LZ, USER_DTPAID, USER_ISPAID FROM USER"
-        data = await db_select_pg(sql, (), BASE_P)
-
-        for item in data:
-            try:
-                USER_TID, USER_LZ, USER_DTPAID, USER_ISPAID = item
-                dtpt_ = datetime.strptime(USER_DTPAID, '%d-%m-%Y_%H-%M-%S').replace(tzinfo=timezone.utc)
-
-                if USER_ISPAID == 1 and USER_DTPAID and (dt_ - dtpt_).days > 31:
-                    await asyncio.sleep(round(random.uniform(0, 1), 2))
-                    get_ = await bot.get_chat(chat_id=USER_TID)
-                    chan_private_donate = channel_library_ru if USER_LZ == 'ru' else channel_library_en
-                    extra_bot = Bot(token=BOT_TOKEN_E18B)
-                    get_chat_member_ = await extra_bot.get_chat_member(chat_id=chan_private_donate, user_id=USER_TID)
-                    await extra_bot.session.close()
-
-                    if get_chat_member_.status in ['member', 'administrator', 'creator']:
-                        USER_DTPAID = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S')
-                        sql = "UPDATE USER SET USER_ISPAID=1, USER_USERNAME=$1, USER_FULLNAME=$2, USER_DTPAID=$3 " \
-                              "WHERE USER_TID=$4"
-                        await db_change_pg(sql, (get_.username, get_.full_name, USER_DTPAID, USER_TID,), BASE_P)
-                    else:
-                        sql = "UPDATE USER SET USER_ISPAID=0, USER_USERNAME=$1, USER_FULLNAME=$2 WHERE USER_TID=$3"
-                        await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_P)
-                elif USER_ISPAID == -1 and USER_DTPAID and (dt_ - dtpt_).days > 31:
-                    result.append(
-                        item)  # else:  #     sql = "UPDATE USER SET USER_USERNAME=$1, USER_FULLNAME=$2 WHERE USER_TID=$3"  #     await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_P)
-            except TelegramRetryAfter as e:
-                logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-                await asyncio.sleep(e.retry_after + 1)
-            except Exception as e:
-                logger.info(log_ % str(e))
-                await asyncio.sleep(round(random.uniform(0, 1), 2))
-    except TelegramRetryAfter as e:
-        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-        await asyncio.sleep(e.retry_after + 1)
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return result
-
-
 async def convert_domain_to_currency(domain):
     result = 'EUR'
     try:
@@ -8460,62 +6729,6 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
     return result
 
 
-async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_P):
-    is_paid = False
-    till_paid = ''
-    try:
-        USER_ISPAID = 0
-        USER_DTPAID = ''
-        dt_now = datetime.now(timezone.utc)
-        USER_DT = dt_now.strftime('%d-%m-%Y_%H-%M-%S')
-        extra_bot = None
-        try:
-            lib_id = channel_library_ru if lz == 'ru' else channel_library_en
-            extra_bot = Bot(token=BOT_TOKEN_E18B)
-            member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
-            if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-            print(f"check_sub_pay {is_paid=}")
-        except Exception as e:
-            logger.info(log_ % str(e))
-        finally:
-            if extra_bot: await extra_bot.session.close()
-
-        sql = "SELECT USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, USER_LZ FROM USER WHERE USER_TID=$1"
-        data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
-
-        if not len(data_usr):
-            sql = "INSERT INTO USER (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (chat_id, USER_DT,), BASE_P)
-        else:
-            USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, lz = data_usr[0]
-
-        if is_paid:
-            sql = "UPDATE USER SET USER_ISPAID=1, USER_DTPAID='', USER_TYPAID='all' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_P)
-        elif USER_ISPAID and USER_DTPAID:
-            till_paid = dt_now.strptime(USER_DTPAID, "%d-%m-%Y_%H-%M-%S").replace(tzinfo=timezone.utc)
-            print(f"{till_paid=}")
-
-            if dt_now > till_paid:
-                sql = "UPDATE USER SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-                await db_change_pg(sql, (chat_id,), BASE_P)
-                till_paid = ''
-            else:
-                is_paid = True
-                till_paid = till_paid.strftime('%d.%m.%Y')
-        else:
-            sql = "UPDATE USER SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_P)
-        print(f"check_sub_pay {is_paid=}, {till_paid=}")
-    except TelegramRetryAfter as e:
-        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-        await asyncio.sleep(e.retry_after + 1)
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return is_paid, till_paid
-
-
 async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME, EXTRA_D, BASE_P):
     try:
         successful_payment_data = {k: v for k, v in message.successful_payment.model_dump().items() if v is not None}
@@ -8551,9 +6764,6 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
         sql = "SELECT USER_TID, USER_VARS, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
         data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
         if not len(data_usr):
-            dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S')
-            sql = "INSERT INTO \"USER\" (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (chat_id, dt_,), BASE_P)
             USER_LSTS = json.loads(USER_LSTS_)
             USER_VARS = json.loads(USER_VARS_)
             if payload == 'gift': USER_VARS['USER_UTM'] = 'gift'
@@ -8624,8 +6834,14 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
         USER_LSTS = json.dumps(USER_LSTS, ensure_ascii=False)
         USER_VARS = json.dumps(USER_VARS, ensure_ascii=False)
 
-        sql = f"UPDATE \"USER\" SET USER_VARS=$1, USER_LSTS=$2 WHERE USER_TID=$3"
-        await db_change_pg(sql, (USER_VARS, USER_LSTS, chat_id,), BASE_P)
+        sql = """
+            INSERT INTO "USER" (USER_TID, USER_VARS, USER_LSTS)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (USER_TID) DO UPDATE
+            SET USER_VARS = EXCLUDED.USER_VARS,
+                USER_LSTS = EXCLUDED.USER_LSTS
+        """
+        await db_change_pg(sql, (chat_id, USER_VARS, USER_LSTS,), BASE_P)
 
         # , {payload_txt}
         text = f"{l_payment_success[lz]} ★{total_amount}\n\n♥️ @{PROJECT_USERNAME} {l_payment_hashtag[lz]}"
@@ -8844,7 +7060,7 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
         sql = f"SELECT {schema_name}_TID FROM \"{schema_name}\""
         data_ents = await db_select_pg(sql, (), BASE_P)
 
-        # sql = 'SELECT USER_TID, USER_VARS, USER_LSTS FROM "USER"'
+        # sql = 'SELECT USER_TID, USER_DT, USER_VARS, USER_LSTS FROM "USER"'
         # data_users = await db_select_pg(sql, (), BASE_P)
 
         months = ["2025-06", "2025-07", "2025-08", "2025-09"]
@@ -8901,6 +7117,7 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
 
             data_users.append((
                 random.randint(100000, 999999),
+                entry_dt_obj,
                 json.dumps({"USER_WALLET": wallet, "USER_UTM": utm, "USER_DT": entry_dt}),
                 json.dumps({"USER_DAU": user_dau, "USER_MAU": user_mau, "USER_TXS": txs,
                             "USER_PAYMENTS": payments, "USER_STATUSES": USER_STATUSES})
@@ -9027,12 +7244,11 @@ async def return_activity_metrics(bot, data_users, EXTRA_D, BASE_P, data_ents, s
         users_set = set()
 
         def process_user_rows(rows):
-            for USER_TID, USER_VARS, USER_LSTS in rows:
+            for USER_TID, USER_DT, USER_VARS, USER_LSTS in rows:
                 USER_VARS = json.loads(USER_VARS or "{}")
                 USER_LSTS = json.loads(USER_LSTS or "{}")
                 USER_WALLET = USER_VARS.get('USER_WALLET', '')
                 USER_UTM = USER_VARS.get('USER_UTM', '')
-                USER_DT = USER_VARS.get('USER_DT', '')
                 USER_DAU = USER_LSTS.get("USER_DAU", [])
                 USER_MAU = USER_LSTS.get("USER_MAU", [])
                 USER_TXS = USER_LSTS.get("USER_TXS", [])
@@ -9076,17 +7292,16 @@ async def return_activity_metrics(bot, data_users, EXTRA_D, BASE_P, data_ents, s
                     month_key = dt_tx.strftime("%Y-%m")
                     metrics_by_month[month_key]["pay"] += 1
 
-                if USER_DT:
-                    dt_obj = datetime.strptime(USER_DT, "%d-%m-%Y_%H-%M-%S")
-                    month_key = dt_obj.strftime("%Y-%m")
-                    key = "/startapp" if USER_UTM == "/startapp" else "/start"
-                    metrics_by_month[month_key][key] += 1
+                month_key = USER_DT.strftime("%Y-%m")
+                key = "/startapp" if USER_UTM == "/startapp" else "/start"
+                metrics_by_month[month_key][key] += 1
 
         process_user_rows(data_users)
 
         for item in data_ents:
             ENT_TID = item[0]
-            sql = f'SELECT USER_TID, USER_VARS, USER_LSTS FROM {schema_name}_{ENT_TID}.USER'
+            tid = str(ENT_TID).replace('-', '')
+            sql = f'SELECT USER_TID, USER_VARS, USER_LSTS FROM {schema_name}_{tid}.USER'
             data_users = await db_select_pg(sql, (), BASE_P)
             print(f"schema_name {data_users=}")
             process_user_rows(data_users)
@@ -9133,18 +7348,16 @@ async def return_unit_metrics(bot, data_users, EXTRA_D):
         })
         seen_new = set()
 
-        for USER_TID, USER_VARS, USER_LSTS in data_users:
-            USER_VARS = json.loads(USER_VARS or "{}")
+        for USER_TID, USER_DT, USER_VARS, USER_LSTS in data_users:
+            # USER_VARS = json.loads(USER_VARS or "{}")
             USER_LSTS = json.loads(USER_LSTS or "{}")
-            USER_DT = USER_VARS.get("USER_DT", "")
             USER_PAYMENTS = USER_LSTS.get("USER_PAYMENTS", [])
             USER_STATUSES = USER_LSTS.get("USER_STATUSES", [])
 
-            if USER_DT:
-                mo = datetime.strptime(USER_DT, "%d-%m-%Y_%H-%M-%S").strftime("%Y-%m")
-                if (USER_TID, mo) not in seen_new:
-                    seen_new.add((USER_TID, mo))
-                    metrics[mo]["new_users"] += 1
+            mo = USER_DT.strftime("%Y-%m")
+            if (USER_TID, mo) not in seen_new:
+                seen_new.add((USER_TID, mo))
+                metrics[mo]["new_users"] += 1
 
             for pay in USER_PAYMENTS:
                 dt_p = datetime.strptime(pay.get("DT_START", ""), "%d-%m-%Y_%H-%M-%S")
@@ -9248,13 +7461,12 @@ async def return_cohort_metrics(bot, data_users, EXTRA_D):
         cohorts = defaultdict(set)
         activity_months = defaultdict(set)
 
-        for USER_TID, USER_VARS, USER_LSTS in data_users:
-            USER_VARS = json.loads(USER_VARS or "{}")
+        for USER_TID, USER_DT, USER_VARS, USER_LSTS in data_users:
+            # USER_VARS = json.loads(USER_VARS or "{}")
             USER_LSTS = json.loads(USER_LSTS or "{}")
-            USER_DT = USER_VARS.get("USER_DT", "")
             USER_DAU = USER_LSTS.get("USER_DAU", [])
 
-            entry_mo = datetime.strptime(USER_DT, "%d-%m-%Y_%H-%M-%S").strftime("%Y-%m")
+            entry_mo = USER_DT.strftime("%Y-%m")
             cohorts[entry_mo].add(USER_TID)
 
             for day_str in USER_DAU:
@@ -9337,13 +7549,11 @@ async def return_retention_metrics(bot, data_users, EXTRA_D):
         rev_by_cohort = defaultdict(lambda: defaultdict(float))
         cohort_users = defaultdict(set)
 
-        for USER_TID, USER_VARS, USER_LSTS in data_users:
-            USER_VARS = json.loads(USER_VARS or "{}")
+        for USER_TID, USER_DT, USER_VARS, USER_LSTS in data_users:
+            # USER_VARS = json.loads(USER_VARS or "{}")
             USER_LSTS = json.loads(USER_LSTS or "{}")
-            dt_entry_raw = USER_VARS.get("USER_DT", "").split("_")[0]
-            if not dt_entry_raw:
-                continue
-            cohort_mo = datetime.strptime(dt_entry_raw, "%d-%m-%Y").strftime("%Y-%m")
+
+            cohort_mo = USER_DT.strftime("%Y-%m")
             cohort_users[cohort_mo].add(USER_TID)
 
             for pay in USER_LSTS.get("USER_PAYMENTS", []):
@@ -9430,15 +7640,11 @@ async def return_acquisition_retention_metrics(bot, data_users, EXTRA_D):
         user_signup = {}
         user_activity = defaultdict(set)
 
-        for USER_TID, USER_VARS, USER_LSTS in data_users:
-            vars_ = json.loads(USER_VARS or "{}")
+        for USER_TID, USER_DT, USER_VARS, USER_LSTS in data_users:
+            # vars_ = json.loads(USER_VARS or "{}")
             lsts = json.loads(USER_LSTS or "{}")
-            dt0_str = vars_.get("USER_DT", "").split("_")[0]
-            if not dt0_str:
-                print(f"Skip USER_TID={USER_TID}, no signup date")
-                continue
-            dt0 = datetime.strptime(dt0_str, "%d-%m-%Y")
-            user_signup[USER_TID] = dt0
+
+            user_signup[USER_TID] = USER_DT
             for day in lsts.get("USER_DAU", []):
                 try:
                     d = datetime.strptime(day, "%Y-%m-%d")
@@ -9453,8 +7659,8 @@ async def return_acquisition_retention_metrics(bot, data_users, EXTRA_D):
 
         # group by cohort month
         cohorts = defaultdict(list)
-        for uid, dt0 in user_signup.items():
-            mo = dt0.strftime("%Y-%m")
+        for uid, USER_DT in user_signup.items():
+            mo = USER_DT.strftime("%Y-%m")
             cohorts[mo].append(uid)
         print("Cohorts by month:", {k: len(v) for k, v in cohorts.items()})
 
@@ -9494,7 +7700,7 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
     try:
         metrics = defaultdict(lambda: {"sum_amount": 0.0})
 
-        for USER_TID, USER_VARS, USER_LSTS in data_users:
+        for USER_TID, USER_DT, USER_VARS, USER_LSTS in data_users:
             USER_LSTS = json.loads(USER_LSTS or "{}")
             USER_PAYMENTS = USER_LSTS.get("USER_PAYMENTS", [])
 
@@ -9566,14 +7772,13 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
 
 
 # region pst
-async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_UN, is_paid=False):
+async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_UN, is_paid=False, is_pub=False):
     result = {'result': True, 'bot': True, 'post': data_web['post']}
     try:
         chat_id = int(data_user['user']['id'])
         username = data_user.get('user', {}).get('username', None)
         is_premium = data_user.get('user', {}).get('is_premium', None)
 
-        print(f"{data_web=}")
         lz = data_web['lz']
         post = data_web['post']
         ENT_TID = str(data_web['ENT_TID'])
@@ -9608,7 +7813,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_TARGET = post.get('POST_TARGET', '')
         POST_ISPRIVATE = post.get('POST_ISPRIVATE', False)  # why not POST_CHKBOX?
 
-        targets = []
+        # targets = []
         if POST_TARGETTYPE == 'ids' and PROJECT_UN == 'FereyBotBot':
             targets = list({t.strip() for t in POST_TARGET.split() if t.strip().isdigit() and len(t.strip()) >= 7})
             POST_TARGET = ' '.join(targets)
@@ -9619,15 +7824,18 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_DT = await get_utc_from_local(POST_DT, POST_TZ)
         POST_DT = datetime.strptime(POST_DT, "%Y-%m-%dT%H:%M") if POST_DT else None
 
-        if not POST_DT and PROJECT_UN == 'FereyBotBot' and (POST_TARGETTYPE == 'all' or len(targets) > 1):
-            POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-        elif not POST_DT and PROJECT_UN == 'FereyUserBot' and POST_TARGETTYPE == 'me':
+        # if not POST_DT and PROJECT_UN == 'FereyBotBot' and (POST_TARGETTYPE == 'all' or len(targets) > 1):
+        #     POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        # elif not POST_DT and PROJECT_UN == 'FereyUserBot' and POST_TARGETTYPE == 'me':
+        #     POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        print(f"{POST_DT=}, {is_pub=}")
+        if not POST_DT and is_pub:
             POST_DT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
         POST_TR = post['POST_TR'] if 'POST_TR' in post else ''
         POST_TR = await get_utc_from_local(POST_TR, POST_TZ)
         POST_TR_ = POST_TR = datetime.strptime(POST_TR, "%Y-%m-%dT%H:%M") if POST_TR else None
         POST_DT_ = POST_DT
-        print(f"{POST_DT=}, {POST_TARGET=}, {ENT_TOKEN=}")
+        print(f"{POST_DT=}, {POST_TARGET=},")
 
         try:
             if POST_TZ:
@@ -9645,7 +7853,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
             sql = "INSERT INTO \"HASH\" (HASH_STR, HASH_VAL) VALUES ($1, $2) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
-            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}&mode=fullscreen"
+            POST_WEB = f"https://t.me/{PROJECT_UN}/web?startapp=pst-{HASH_VAL}"     # &mode=fullscreen
         else:
             web_val = f"pst-{tid}-{POST_TID}"
             print(f"{web_val=}")
@@ -9659,7 +7867,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                 extra_bot = Bot(token=ENT_TOKEN)
                 try:
                     if not ENT_USERNAME: ENT_USERNAME = (await extra_bot.get_me()).username
-                    print(f"{chat_id=}, {ENT_USERNAME=}, {ENT_TOKEN=}")
+                    print(f"{chat_id=}, {ENT_USERNAME=}")
                     r = await extra_bot.send_message(chat_id=chat_id, text=str_empty, disable_notification=True)
                     await extra_bot.delete_message(chat_id=chat_id, message_id=r.message_id)
                     member_ = await extra_bot.get_chat_member(chat_id=int(ENT_TID), user_id=chat_id)
@@ -9677,7 +7885,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                     await extra_bot.session.close()
             # endregion
 
-            print(f"before {POST_ISWATER=}, {POST_WATER=}, {ENT_TOKEN=}, {POST_MEDIA=}")
+            print(f"before {POST_ISWATER=}, {POST_WATER=},, {POST_MEDIA=}")
             if POST_TYPE == 'photo' and POST_ISWATER and POST_WATER and ENT_TOKEN:
                 for it in POST_MEDIA:
                     if 'filew_id' in it: continue
@@ -9702,7 +7910,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                             r_ = await bot.send_photo(chat_id=chat_id,
                                                     photo=types.FSInputFile(POST_FNAME_COPY),
                                                     disable_notification=True)
-                            filew_id = r_.photo[-1].file_id
+                            filew_id = r_.photo[-1].file_id    # type: ignore
                         except Exception as e:
                             logger.info(log_ % str(e))
                             # await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -9711,7 +7919,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                             rb_ = await extra_bot.send_photo(chat_id=chat_id,
                                                             photo=types.FSInputFile(POST_FNAME_COPY),
                                                             disable_notification=True)
-                            filebw_id = rb_.photo[-1].file_id
+                            filebw_id = rb_.photo[-1].file_id    # type: ignore
                             await extra_bot.delete_message(chat_id, rb_.message_id)
                         except Exception as e:
                             logger.info(log_ % str(e))
@@ -9799,8 +8007,8 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
                 await bot.send_message(chat_id, l_bot_need_restart_extra_bot[lz].format(ENT_USERNAME))
 
         if ENT_TOKEN:
-            print(f" = = = = = =  ={ENT_TOKEN=}")
-            if PROJECT_UN == 'FereyChannelBot':
+            print(f" = = = = = =  =")
+            if PROJECT_UN == 'FereyChannelBot' and int(ENT_TID) not in [ferey_channel_europe, ferey_channel_en]:
                 sql = "UPDATE \"CHANNEL\" SET CHANNEL_CPAYTOKEN=$1 WHERE CHANNEL_TID=$2"
                 await db_change_pg(sql, (ENT_TOKEN, int(ENT_TID),), BASE_P)
             elif PROJECT_UN == 'FereyGroupBot':
@@ -9814,7 +8022,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         if any(item['knd'] == 'nft' for item in POST_BUTTONS):
             HASH_STR = f"nft-{tid}-{POST_TID}"
             HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
-            POST_NFT = f'https://t.me/{PROJECT_UN}/web?startapp=nft-{HASH_VAL}-{tid}'
+            POST_NFT = f'https://t.me/{PROJECT_UN}/nft?startapp=nft-{HASH_VAL}-{tid}'
         print(f"{POST_NFT=}")
         # endregion
 
@@ -9864,7 +8072,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
 
         result['post'] = {
             'POST_TID': post['POST_TID'], 'POST_USERTID': chat_id, 'POST_USERTUN': username,
-            'POST_TYPE': post['POST_TYPE'], 'POST_TEXT': unescape(POST_TEXT),
+            'POST_TYPE': post['POST_TYPE'], 'POST_TEXT': POST_TEXT,
             'POST_MEDIA': POST_MEDIA, 'POST_BUTTONS': POST_BUTTONS, 'POST_CHKBOX': post['POST_CHKBOX'],
             'POST_TARGETTYPE': POST_TARGETTYPE, 'POST_TARGET': POST_TARGET,
             'POST_WEB': POST_WEB, 'POST_PAY': POST_PAY, 'POST_INVOICE': POST_INVOICE, 'POST_NFT': POST_NFT,
@@ -9949,14 +8157,13 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         # POST_MEDIA_COPY = copy.deepcopy(POST_MEDIA)
         # EXTRA_D = os.path.join(os.path.dirname(MEDIA_D), "EXTRA")
 
-        POST_ISTAG = POST_CHKBOX['POST_ISTAG'] if 'POST_ISTAG' in POST_CHKBOX else False
-        POST_ISCOLLAPSE = POST_CHKBOX['POST_ISCOLLAPSE'] if 'POST_ISCOLLAPSE' in POST_CHKBOX else False
-        POST_ISGALLERY = POST_CHKBOX['POST_ISGALLERY'] if 'POST_ISGALLERY' in POST_CHKBOX else False
-
-        POST_ISWATER = POST_CHKBOX['POST_ISWATER'] if 'POST_ISWATER' in POST_CHKBOX else False
-        POST_WATER = POST_CHKBOX['POST_WATER'] if 'POST_WATER' in POST_CHKBOX else ''
-        POST_ISPAY = POST_CHKBOX['POST_ISPAY'] if 'POST_ISPAY' in POST_CHKBOX else False
-        POST_STARS = POST_CHKBOX['POST_STARS'] if 'POST_STARS' in POST_CHKBOX else 1
+        POST_ISTAG = POST_CHKBOX.get('POST_ISTAG', False)
+        POST_ISCOLLAPSE = POST_CHKBOX.get('POST_ISCOLLAPSE', False)
+        POST_ISGALLERY = POST_CHKBOX.get('POST_ISGALLERY', False)
+        POST_ISWATER = POST_CHKBOX.get('POST_ISWATER', False)
+        POST_WATER = POST_CHKBOX.get('POST_WATER', '')
+        POST_ISPAY = POST_CHKBOX.get('POST_ISPAY', False)
+        POST_STARS = POST_CHKBOX.get('POST_STARS', 1)
 
         if not is_priv:
             chat_id = int(ENT_TID)
@@ -10015,7 +8222,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         # endregion
 
         # region reply_markup
-        print(f"========================")
+        print(f"========================, {len(POST_MEDIA)=}")
         is_cond = POST_ISGALLERY and not POST_ISCOLLAPSE and not POST_ISPAY
         if len(POST_MEDIA) > 1 and is_cond and POST_TYPE not in ['sticker']:
             POST_TEXT = '' if POST_TEXT == str_empty and POST_TYPE != 'text' else POST_TEXT
@@ -10036,7 +8243,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         # endregion
 
         # region send
-        print(f"send ======================== {chat_id=}, {POST_TYPE=}")
+        print(f"send ======================== {chat_id=}, {POST_TYPE=}, {POST_ISGALLERY=}")
         if POST_ISPAY and POST_TYPE in ['photo', 'video']:
             if PROJECT_UN in ['FereyChannelBot']:
                 sql = f"SELECT CHANNEL_CPAYTOKEN FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
@@ -10055,7 +8262,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                 ENT_TOKEN = data_ent[0][0]
 
             media = []
-            print(f"POST_ISPAY {chat_id=}, {ENT_TOKEN=}, {POST_MEDIA=}")
+            print(f"POST_ISPAY {chat_id=}, , {POST_MEDIA=}")
 
             for i in range(0, len(POST_MEDIA)):
                 try:
@@ -10133,7 +8340,8 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                 POST_MINTLINK_, POST_ISPRIVATE_, POST_TZ_, POST_DT_, POST_TR_, POST_STATUS_ = post
 
             file_id = POST_MEDIA[index]['file_id']
-            print(f"before {file_id=}, {POST_ISWATER=}, {POST_WATER=}")
+            print(f"before {len(POST_TEXT)=}, {POST_ISWATER=}, {POST_WATER=}")
+            POST_TEXT_ = await correct_txt_tags_for_tg(POST_TEXT_)
             if POST_ISWATER and POST_WATER and 'filew_id' in POST_MEDIA[index]:
                 file_id = POST_MEDIA[index]['filew_id']
 
@@ -10142,7 +8350,6 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
                 # else:
                 #     file_id = POST_MEDIA[index]['filebw_id']
             elif index == 0 and POST_MEDIA[index]['file_link'] not in [photo_jpg] and len(POST_TEXT_) > 1024:
-                POST_TEXT_ = await correct_txt_tags_for_tg(POST_TEXT_)
                 print(f"{POST_TEXT_=}")
 
                 result = await bot.send_message(chat_id=chat_id, text=POST_TEXT_, parse_mode=ParseMode.HTML,
@@ -10160,8 +8367,8 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
             if not result:
                 print(f"after {file_id=}")
-                get_me_ = await bot.get_me()
-                print(f"{get_me_=}")
+                # get_me_ = await bot.get_me()
+                # print(f"{get_me_=}")
                 try:
                     result = await bot.send_photo(chat_id=chat_id, photo=file_id, caption=POST_TEXT,
                                                   parse_mode=ParseMode.HTML,
@@ -10311,8 +8518,10 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region msgid
         print(chat_id, ENT_TID)
-        if result and (int(chat_id) == int(ENT_TID) or PROJECT_UN in ['FereyChannelBot',
-                                                                            'FereyGroupBot'] and not is_priv):
+        if (
+            result and
+            (int(chat_id) == int(ENT_TID) or PROJECT_UN in ['FereyChannelBot', 'FereyGroupBot'] and not is_priv)
+        ):
             print('indeid')
             if isinstance(result, list):
                 POST_MSGID = ' '.join([str(it.message_id) for it in result if it.message_id])
@@ -10325,9 +8534,10 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         # region story
         try:
-            if result and BASE_S and POST_TYPE == 'text' and POST_CHKBOX.get('POST_ISSTORY', False) and int(
-                    chat_id) == int(
-                ENT_TID):
+            if (
+                result and BASE_S and POST_TYPE == 'text'
+                and POST_CHKBOX.get('POST_ISSTORY', False) and int(chat_id) == int(ENT_TID)
+            ):
                 member_ = await bot.get_chat_member(chat_id=int(ENT_TID), user_id=bot.id)
 
                 if member_.can_post_stories and member_.can_promote_members:
@@ -10460,11 +8670,239 @@ async def balance_html_tags_async(txt, self_closing=None):
     return result
 
 
+# async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN):
+#     result = None
+#     try:
+#         POST_TEXT = str(POST_TEXT or '').strip()
+#         if not POST_TEXT: return
+#
+#         POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else (POST_MEDIA or [])
+#         if isinstance(POST_MEDIA, dict):
+#             POST_MEDIA = [POST_MEDIA]
+#
+#         placeholders = []
+#
+#         def sanitize_pre_content(tag_html):
+#             m = re.match(r'(?is)^<pre\b[^>]*>(.*?)</pre>$', tag_html)
+#             if not m:
+#                 return tag_html
+#             inner = m.group(1)
+#             # если внутри есть <div> — превратим каждую в <blockquote>, оставшийся текст — в <pre>
+#             if re.search(r'(?is)<\s*div\b', inner):
+#                 # извлечь все дивы
+#                 divs = re.findall(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', inner)
+#                 parts = []
+#                 # текст вне дивов
+#                 outside = re.sub(r'(?is)<\s*div\b[^>]*>.*?</\s*div\s*>', '', inner).strip()
+#                 if outside:
+#                     outside_clean = re.sub(r'\s+', ' ', outside)
+#                     parts.append(f'<pre>{outside_clean}</pre>')
+#                 for d in divs:
+#                     d_clean = re.sub(r'\s+', ' ', d.strip())
+#                     # удалить span внутри дивов
+#                     d_clean = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', d_clean)
+#                     parts.append(f'<blockquote>{d_clean}</blockquote>')
+#                 return ''.join(parts)
+#             else:
+#                 # просто удалить любые div/span/tg-spoiler внутри pre и вернуть текст в pre
+#                 inner_no_div = re.sub(r'(?is)<\s*div\b[^>]*>', '', inner)
+#                 inner_no_div = re.sub(r'(?is)</\s*div\s*>', '', inner_no_div)
+#                 inner_no_span = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', inner_no_div)
+#                 inner_no_spoiler = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', inner_no_span)
+#                 inner_clean = inner_no_spoiler.strip()
+#                 return f'<pre>{inner_clean}</pre>'
+#
+#         def sanitize_code_content(tag_html):
+#             m = re.match(r'(?is)^<code\b[^>]*>(.*?)</code>$', tag_html)
+#             if not m:
+#                 return tag_html
+#             inner_ = m.group(1)
+#             # удалить теги внутри code — оставить только текст
+#             inner_ = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', inner_)
+#             inner_ = re.sub(r'(?is)<[^>]+>', '', inner_)
+#             inner_ = inner_.strip()
+#             return f'<code>{inner_}</code>'
+#
+#         def hide_pre_code(text):
+#             def repl(m):
+#                 tag = m.group(0)
+#                 if tag.lower().startswith('<pre'):
+#                     safe_ = sanitize_pre_content(tag)
+#                 else:
+#                     safe_ = sanitize_code_content(tag)
+#                 i = len(placeholders)
+#                 placeholders.append(safe_)
+#                 return f"__PRECODE_PLACEHOLDER_{i}__"
+#             # сначала pre затем code
+#             text = re.sub(r'(?is)(<pre\b[^>]*>.*?</pre>)', repl, text)
+#             text = re.sub(r'(?is)(<code\b[^>]*>.*?</code>)', repl, text)
+#             return text
+#
+#         def restore_pre_code(text):
+#             for i, val in enumerate(placeholders):
+#                 text = text.replace(f"__PRECODE_PLACEHOLDER_{i}__", val)
+#             return text
+#
+#         safe_ = hide_pre_code(POST_TEXT)
+#
+#         safe_ = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe_)
+#
+#         safe_ = safe_.replace('&nbsp;', ' ').replace('<br>', '\n')
+#
+#         safe_ = safe_.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
+#
+#         safe_ = re.sub(r'(?is)<span[^>]*style="[^"]*background-color:[^"]*"[^>]*>(.*?)</span>', r'\1', safe_)
+#
+#         safe_ = re.sub(r'(?is)<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>\s*(#[^<\s]+)\s*</span>', r'\1', safe_)
+#
+#         prev = None
+#         while prev != safe_:
+#             prev = safe_
+#             safe_ = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe_)
+#
+#         safe_ = safe_.replace('<strike>', '<s>').replace('</strike>', '</s>')
+#
+#         inline_tags = r'(?:b|i|u|strong|em|a)'
+#         block_tags = r'(?:blockquote|pre|figure|aside|div|code)'
+#         pattern_unwrap = re.compile(rf'(?is)<\s*({inline_tags})\b[^>]*>\s*(<(?:{block_tags})\b[^>]*>.*?</(?:{block_tags})>)\s*</\1\s*>')
+#         while True:
+#             new = pattern_unwrap.sub(r'\2', safe_)
+#             if new == safe_:
+#                 break
+#             safe_ = new
+#
+#         # Обработка специфичных tgui-div'ов:
+#         # tgui-79024... — если border-left -> blockquote, если display:inline* -> unwrap inner, иначе blockquote
+#         def replace_tgui_790(m):
+#             attrs = m.group(1) or ''
+#             inner_ = m.group(2) or ''
+#             if re.search(r'display\s*:\s*(?:inline|inline-block)', attrs, flags=re.IGNORECASE):
+#                 return inner_
+#             if re.search(r'border-left', attrs, flags=re.IGNORECASE):
+#                 return f'<blockquote>{inner_}</blockquote>'
+#             return f'<blockquote>{inner_}</blockquote>'
+#
+#         safe_ = re.sub(r'(?is)<div\s+class="tgui-79024fcb6d81ad79"([^>]*)>(.*?)</div>', lambda m: replace_tgui_790(m), safe_)
+#
+#         safe_ = re.sub(r'(?is)<div\s+class="tgui-86f452d8e92a2075[^"]*"[^>]*>(.*?)</div>', r'<blockquote>\1</blockquote>', safe_)
+#
+#         safe_ = re.sub(r'(?is)</\s*div\s*>', '\n', safe_)
+#         safe_ = re.sub(r'(?is)<\s*div\b[^>]*>', '\n', safe_)
+#
+#         safe_ = re.sub(r'\r', '\n', safe_)
+#         safe_ = re.sub(r'\n\s*\n+', '\n\n', safe_)
+#         safe_ = safe_.strip()
+#
+#         safe_ = restore_pre_code(safe_)
+#
+#         safe_ = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe_)
+#         safe_ = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe_)
+#         safe_ = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe_)
+#
+#         blocks = []
+#         for raw in safe_.split('\n\n'):
+#             b = raw.strip()
+#             if not b:
+#                 continue
+#             blocks.append(b)
+#
+#         figure_html = ''
+#         for item in POST_MEDIA:
+#             if not isinstance(item, dict):
+#                 continue
+#             tgph_ph = str(item.get('file_link', '')).replace('https://telegra.ph', '')
+#             if str(item.get('file_type')) in ['video', 'video_note']:
+#                 figure_html += f'<figure><video src="{tgph_ph}" preload="auto" autoplay="autoplay" loop="loop" muted="muted"></video><figcaption>Video: {{ENT_LINK}}</figcaption></figure>'
+#             else:
+#                 figure_html += f'<figure><img src="{tgph_ph}"/><figcaption>Photo: {{ENT_LINK}}</figcaption></figure>'
+#
+#         p_html = ''
+#         for blk in blocks:
+#             s = blk.strip()
+#             if re.match(r'(?is)^<(?:blockquote|pre|figure|aside|code)\b', s):
+#                 p_html += s
+#             else:
+#                 inner = re.sub(r'\n+', ' ', s)
+#                 p_html += f'<p>{inner}</p>'
+#
+#         def keep_a(m):
+#             href = m.group(1)
+#             inner = m.group(2) or ''
+#             return f'<a href="{href}">{inner}</a>'
+#         p_html = re.sub(r'(?is)<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', keep_a, p_html)
+#
+#         def keep_img(m):
+#             src = m.group(1)
+#             return f'<img src="{src}"/>'
+#         p_html = re.sub(r'(?is)<img\b[^>]*src=["\']([^"\']+)["\'][^>]*\/?>', keep_img, p_html)
+#
+#         def keep_video(m):
+#             src = m.group(1)
+#             inner = m.group(2) or ''
+#             return f'<video src="{src}">{inner}</video>'
+#         p_html = re.sub(r'(?is)<video\b[^>]*src=["\']([^"\']+)["\'][^>]*>(.*?)</video>', keep_video, p_html)
+#
+#         p_html = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', p_html)
+#         p_html = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', p_html)
+#         p_html = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', p_html)
+#
+#         p_html = re.sub(r'(?is)<(\w+)(?:\s+[^>]*)>', r'<\1>', p_html)
+#
+#         p_html = re.sub(r'(?is)</?(?:span|tg-spoiler|div)\b[^>]*>', '', p_html)
+#
+#         ENT_NAME = ENT_TID
+#         ENT_USERNAME = ''
+#         ENT_LINK = ''
+#         try:
+#             if PROJECT_UN == 'FereyBotBot':
+#                 sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
+#                 data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
+#                 if not len(data_bot):
+#                     return result
+#                 BOT_USERNAME, BOT_FIRSTNAME = data_bot[0]
+#                 ENT_USERNAME = f"@{BOT_USERNAME}"
+#                 ENT_NAME = BOT_FIRSTNAME
+#                 ENT_LINK = f"https://t.me/{BOT_USERNAME}"
+#             elif PROJECT_UN == 'FereyPostBot':
+#                 ENT_USERNAME = '@FereyPostBot'
+#                 ENT_NAME = '🫧 Ferey Post App'
+#                 ENT_LINK = 'https://t.me/FereyPostBot'
+#             else:
+#                 get_chat_ = await bot.get_chat(int(ENT_TID))
+#                 ENT_USERNAME = get_chat_.title
+#                 ENT_NAME = ENT_USERNAME
+#                 ENT_LINK = f"https://t.me/{get_chat_.username}" if get_chat_.username else 'https://t.me'
+#         except Exception as e:
+#             logger.info(log_ % f"region_blog2 ENT lookup error: {e}")
+#
+#         if figure_html:
+#             figure_html = figure_html.replace('{ENT_LINK}', ENT_LINK)
+#
+#         html_ = f"{figure_html}{p_html}"
+#
+#         try:
+#             telegraph_ = Telegraph()
+#             await telegraph_.create_account(short_name=short_name, author_name=ENT_USERNAME or ENT_NAME, author_url=ENT_LINK or '')
+#             page_blog = await telegraph_.create_page(title=f"📰 {ENT_NAME}", html_content=html_,
+#                                                      author_name=str(ENT_USERNAME or ENT_NAME), author_url=ENT_LINK or '')
+#             result = page_blog.get('url')
+#             logger.info(log_ % f"{ENT_TID}: {result}")
+#             return result
+#         except Exception as e:
+#             logger.info(log_ % str(e) + f"{POST_TEXT=}")
+#             await asyncio.sleep(round(random.uniform(3, 5), 2))
+#             return result
+#     except Exception as e:
+#         logger.info(log_ % str(e))
+#         await asyncio.sleep(round(random.uniform(0, 1), 2))
+#     return result
+
+
 async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN):
     result = None
     try:
         POST_TEXT = str(POST_TEXT or '').strip()
-        if not POST_TEXT: return
+        if not POST_TEXT: return result
 
         POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else (POST_MEDIA or [])
         if isinstance(POST_MEDIA, dict):
@@ -10476,14 +8914,14 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             m = re.match(r'(?is)^<pre\b[^>]*>(.*?)</pre>$', tag_html)
             if not m:
                 return tag_html
-            inner = m.group(1)
+            inner_ = m.group(1)
             # если внутри есть <div> — превратим каждую в <blockquote>, оставшийся текст — в <pre>
-            if re.search(r'(?is)<\s*div\b', inner):
+            if re.search(r'(?is)<\s*div\b', inner_):
                 # извлечь все дивы
-                divs = re.findall(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', inner)
+                divs = re.findall(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', inner_)
                 parts = []
                 # текст вне дивов
-                outside = re.sub(r'(?is)<\s*div\b[^>]*>.*?</\s*div\s*>', '', inner).strip()
+                outside = re.sub(r'(?is)<\s*div\b[^>]*>.*?</\s*div\s*>', '', inner_).strip()
                 if outside:
                     outside_clean = re.sub(r'\s+', ' ', outside)
                     parts.append(f'<pre>{outside_clean}</pre>')
@@ -10495,7 +8933,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 return ''.join(parts)
             else:
                 # просто удалить любые div/span/tg-spoiler внутри pre и вернуть текст в pre
-                inner_no_div = re.sub(r'(?is)<\s*div\b[^>]*>', '', inner)
+                inner_no_div = re.sub(r'(?is)<\s*div\b[^>]*>', '', inner_)
                 inner_no_div = re.sub(r'(?is)</\s*div\s*>', '', inner_no_div)
                 inner_no_span = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', inner_no_div)
                 inner_no_spoiler = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', inner_no_span)
@@ -10517,11 +8955,11 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             def repl(m):
                 tag = m.group(0)
                 if tag.lower().startswith('<pre'):
-                    safe_ = sanitize_pre_content(tag)
+                    safe2_ = sanitize_pre_content(tag)
                 else:
-                    safe_ = sanitize_code_content(tag)
+                    safe2_ = sanitize_code_content(tag)
                 i = len(placeholders)
-                placeholders.append(safe_)
+                placeholders.append(safe2_)
                 return f"__PRECODE_PLACEHOLDER_{i}__"
             # сначала pre затем code
             text = re.sub(r'(?is)(<pre\b[^>]*>.*?</pre>)', repl, text)
@@ -10532,6 +8970,53 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             for i, val in enumerate(placeholders):
                 text = text.replace(f"__PRECODE_PLACEHOLDER_{i}__", val)
             return text
+
+        # --- добавленная функция для балансировки простых тегов (чтобы не было закрытия неправильного тега) ---
+        def balance_tags(html2_):
+            # простой стековый парсер для inline/block тегов — минимально инвазивный
+            token_re = re.compile(r'(?is)(</?([a-z0-9]+)(?:\s+[^>]*)?>)|([^<>]+)')
+            stack = []
+            out = []
+            for m in token_re.finditer(html2_):
+                full_tag = m.group(1)
+                tag_name = m.group(2)
+                text_chunk = m.group(3)
+                if full_tag:
+                    # закрывающий тег
+                    if full_tag.startswith('</'):
+                        name = (tag_name or '').lower()
+                        if not name:
+                            continue
+                        if name in stack:
+                            # закрыть все незакрытые теги до найденного
+                            while stack and stack[-1] != name:
+                                t = stack.pop()
+                                out.append(f'</{t}>')
+                            # теперь закрыть сам matching
+                            if stack and stack[-1] == name:
+                                stack.pop()
+                                out.append(full_tag)
+                            else:
+                                # не найден — пропустить
+                                pass
+                        else:
+                            # closing для тега, который не открыт — пропустить
+                            pass
+                    else:
+                        # открывающий тег (включая self-closing)
+                        name = (tag_name or '').lower()
+                        out.append(full_tag)
+                        if not full_tag.endswith('/>') and name:
+                            # добавить в стек, чтобы потом можно было корректно закрыть
+                            stack.append(name)
+                else:
+                    out.append(text_chunk)
+            # в конце закрыть оставшиеся открытые теги
+            while stack:
+                t = stack.pop()
+                out.append(f'</{t}>')
+            return ''.join(out)
+        # --- /добавлено ---
 
         safe_ = hide_pre_code(POST_TEXT)
 
@@ -10589,6 +9074,76 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
         safe_ = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe_)
         safe_ = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe_)
 
+        def fix_closing_inside_words(text):
+            # повторяем, пока есть такие случаи (иногда несколько подряд)
+            pattern = re.compile(r'(?is)(\w)</(i|b|u|strong|em)>(\w+)')
+            while True:
+                new_ = pattern.sub(r'\1\3</\2>', text)
+                if new_ == text:
+                    break
+                text = new_
+            return text
+
+        def close_inline_before_blocks_and_paragraphs(html3_):
+            inline_allowed = {'i', 'b', 'u', 'strong', 'em', 'a'}
+            token_re = re.compile(r'(?is)(</?[^>]+?>)|([^<>]+)')
+            out = []
+            stack = []
+
+            for tag, txt in token_re.findall(html3_):
+                if tag:
+                    m = re.match(r'(?is)</?\s*([a-z0-9]+)', tag)
+                    name = m.group(1).lower() if m else None
+                    is_closing = tag.strip().startswith('</')
+                    # inline tags handling
+                    if name in inline_allowed:
+                        if is_closing:
+                            # корректно закрываем стек (если есть) — если не найден, игнорируем
+                            if stack and stack[-1] == name:
+                                stack.pop()
+                                out.append(tag)
+                            elif name in stack:
+                                # закроем все до нужного
+                                while stack and stack[-1] != name:
+                                    out.append(f'</{stack.pop()}>')
+                                if stack and stack[-1] == name:
+                                    stack.pop()
+                                    out.append(tag)
+                            else:
+                                # лишний закрывающий — пропускаем
+                                pass
+                        else:
+                            out.append(tag)
+                            if not tag.strip().endswith('/>'):
+                                stack.append(name)
+                    else:
+                        # блоковый тег — перед ним закрываем все открытые inline
+                        if stack:
+                            while stack:
+                                out.append(f'</{stack.pop()}>')
+                        out.append(tag)
+                else:
+                    # текст — учитываем параграфные разрывы
+                    parts = re.split(r'(\n\s*\n)', txt)
+                    for part in parts:
+                        if re.match(r'\n\s*\n', part):
+                            if stack:
+                                while stack:
+                                    out.append(f'</{stack.pop()}>')
+                            out.append(part)
+                        else:
+                            out.append(part)
+
+            # в конце — закрыть оставшиеся inline теги
+            if stack:
+                while stack:
+                    out.append(f'</{stack.pop()}>')
+            return ''.join(out)
+
+        safe_ = fix_closing_inside_words(safe_)  # у тебя уже есть — оставляем
+        safe_ = close_inline_before_blocks_and_paragraphs(safe_)
+        safe_ = balance_tags(safe_)
+
         blocks = []
         for raw in safe_.split('\n\n'):
             b = raw.strip()
@@ -10617,8 +9172,8 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
 
         def keep_a(m):
             href = m.group(1)
-            inner = m.group(2) or ''
-            return f'<a href="{href}">{inner}</a>'
+            inner_ = m.group(2) or ''
+            return f'<a href="{href}">{inner_}</a>'
         p_html = re.sub(r'(?is)<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', keep_a, p_html)
 
         def keep_img(m):
@@ -10628,8 +9183,8 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
 
         def keep_video(m):
             src = m.group(1)
-            inner = m.group(2) or ''
-            return f'<video src="{src}">{inner}</video>'
+            inner_ = m.group(2) or ''
+            return f'<video src="{src}">{inner_}</video>'
         p_html = re.sub(r'(?is)<video\b[^>]*src=["\']([^"\']+)["\'][^>]*>(.*?)</video>', keep_video, p_html)
 
         p_html = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', p_html)
@@ -10683,7 +9238,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             await asyncio.sleep(round(random.uniform(3, 5), 2))
             return result
     except Exception as e:
-        logger.info(log_ % str(e))
+        logger.info(log_ % str(e) + f"{POST_TYPE=}")
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
 
@@ -10726,7 +9281,7 @@ async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D
 
                     if media['file_type'] == 'photo':
                         r = await extra_bot.send_photo(chat_id=chat_id, photo=types.FSInputFile(file_name))
-                        media['fileb_id'] = r.photo[-1].file_id
+                        media['fileb_id'] = r.photo[-1].file_id    # type: ignore
                     elif media['file_type'] == 'video':
                         r = await extra_bot.send_video(chat_id=chat_id, video=types.FSInputFile(file_name))
                         media['fileb_id'] = r.video.file_id
@@ -10845,22 +9400,42 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
                     rows[row_index].append(btn)
                 elif button['knd'] == 'share':
-                    # get_chat_ = await bot.get_chat(int(ENT_TID))
-                    # language=python
-                    # noinspection GrammarCheckingInspection,SentenceFragment,MissingPronoun
-                    # get_link_ = f"https://t.me/{get_chat_.username}" if get_chat_.username else get_chat_.invite_link
-                    # txt = urllib.parse.quote(button['lnk'].strip(), safe="")
-                    # url = f"https://t.me/share/url?url={get_link_}&text={txt}"
-                    #
-                    # btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
-                    # rows[row_index].append(btn)
+                    if PROJECT_USERNAME in ['FereyChannelBot']:
+                        # get_chat_ = await bot.get_chat(int(ENT_TID))
+                        # language=python
+                        # noinspection GrammarCheckingInspection,SentenceFragment,MissingPronoun
+                        # get_link_ = f"https://t.me/{get_chat_.username}" if get_chat_.username else get_chat_.invite_link
+                        get_link_ = f"{PROJECT_USERNAME}.t.me"
+                        txt = urllib.parse.quote(button['lnk'].strip(), safe="")
+                        url = f"https://t.me/share/url?url={get_link_}&text={txt}"
+                        btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                        # rows[row_index].append(btn)
+                    elif PROJECT_USERNAME in ['FereyPostBot']:
+                        print(f"9412 ===============================")
+                        # KeyboardButtonRequestChat ChatAdministratorRights
+                        # switch_inline_query
 
-                    print(f"===============================")
-                    print(f"===============================")
-                    print(f"===============================")
-                    print(f"{button=}")
-                    btn = types.InlineKeyboardButton(text=button['lbl'],
-                                                     switch_inline_query=f"{ENT_TID} {str(POST_TID)} ~")
+                        HASH_STR = f"pst-{chat_id}-{POST_TID}"
+                        print(f"{HASH_STR=}")
+                        HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
+                        print(f"{HASH_VAL=}")
+
+                        switch_in_query_chosen_chat = types.SwitchInlineQueryChosenChat(
+                            query=HASH_VAL,
+                            allow_user_chats=True,
+                            allow_bot_chats=True,
+                            allow_group_chats=True,
+                            allow_channel_chats=True,
+                        )
+                        btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                         switch_inline_query_chosen_chat=switch_in_query_chosen_chat)
+                    else:
+                        print(f"===============================")
+                        print(f"===============================")
+                        print(f"===============================")
+                        print(f"{button=}")
+                        btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                         switch_inline_query=f"{ENT_TID} {str(POST_TID)} ~")
                     rows[row_index].append(btn)
                 elif button['knd'] == 'web':
                     print(f"{button['lnk']=}")
@@ -10875,7 +9450,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                         #     continue
 
                     print(f"{NEXT_POST_TID=}")
-                    HASH_STR = f"pst-{tid}-{tid}"
+                    HASH_STR = f"pst-{tid}-{NEXT_POST_TID}"
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
                     # if PROJECT_USERNAME == 'FereyPostBot':
                     #     sql = "INSERT INTO \"HASH\" (HASH_STR, HASH_VAL) VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -10889,7 +9464,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     HASH_STR = f"nft-{tid}-{POST_TID}"
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
 
-                    url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=nft-{HASH_VAL}-{tid}'
+                    url = f'https://t.me/{PROJECT_USERNAME}/nft?startapp=nft-{HASH_VAL}-{tid}'
                     btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
                     rows[row_index].append(btn)
                 elif button['knd'] == 'copy':
@@ -11544,7 +10119,7 @@ async def pst_inline(chat_id, POST_TID, data_bot, BASE_P, PROJECT_USERNAME, is_m
     return result
 
 
-async def delete_from_ipfs(MSG_VID, KEYS_JSON):
+async def delete_from_ipfs(ENT_VID, KEYS_JSON):
     try:
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
             data_keys = json.loads(await f.read())
@@ -11553,13 +10128,15 @@ async def delete_from_ipfs(MSG_VID, KEYS_JSON):
             pinata_secret_key = pinata["SECRET_KEY"]
             pinata_headers = {"Authorization": f"Bearer {pinata_secret_key}"}
 
+            # https://coral-secure-cardinal-536.mypinata.cloud/ipfs/QmSgPMDFqaEuUNJnuf9r7ZzXckRtmcUNqQGzAyuwxpx5Ub?filename=r078740_19-10-202508-11-26-958699.jpg
             url = "https://api.pinata.cloud/v3/files/public"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=pinata_headers) as response:
                     response_json = await response.json()
                     f_ = response_json.get("data", {}).get("files", [])
-                    res_ids = [f["id"] for f in f_ if f.get("keyvalues", {}).get("tid") == MSG_VID]
+                    res_ids = [f["id"] for f in f_ if f.get("keyvalues", {}).get("tid") == ENT_VID]
 
+                    print(f"{res_ids=}")
                     for res_id in res_ids:
                         url_ = f"https://api.pinata.cloud/v3/files/public/{res_id}"
                         async with session.delete(url_, headers=pinata_headers) as resp:
@@ -11572,40 +10149,55 @@ async def delete_from_ipfs(MSG_VID, KEYS_JSON):
 
 async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN_APP, PROJECT_USERNAME):
     call_py = PyTgCalls(app)
-    peer_chan = None
+    # peer_chan = None
     result = {'answer': False, 'param': ''}
     try:
         # region data
         ENT_TID = int(ENT_TID) if str(ENT_TID).startswith('-') else str(ENT_TID)
+        if 'https' in str(ENT_TID):
+            ENT_TID = str(ENT_TID).replace('https://t.me/', '')
+            ENT_TID = f"@{ENT_TID}"
         print(f"podcast_start_app start..{ENT_TID=}")
         peer = await app.resolve_peer(UB_TID)
         peer_chan = await app.resolve_peer(ENT_TID)
-        # try:
-        #     get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
-        #     get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
-        #     print(f"{get_join_as_lst=}")
-        #     if not len(get_join_as_lst):
-        #         title = f"👩🏽‍💻 Landing Channel #{random.randrange(100, 999)}"
-        #         res = await app.create_channel(title=title, description=f"verified chan 💙{random.randrange(100, 999)}")
-        #         peer_chan = await app.resolve_peer(res.id)
-        #         newusername_ = ''.join(random.choice(string.ascii_letters) for _ in range(random.randrange(10, 20)))
-        #         username_chan = f"{newusername_}_{random.randrange(100, 999)}_chan"[0:31]
-        #         _ = await app.invoke(UpdateUsername(channel=peer_chan, username=username_chan))
-        #         print(f"@{username_chan}: {title}")
-        #         get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer))
-        #         get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
-        #
-        #     if len(get_join_as_lst):
-        #         peer_chan = await app.resolve_peer(int(f"-100{get_join_as_lst[-1].channel_id}"))
-        #         await app.invoke(SaveDefaultGroupCallJoinAs(peer=peer, join_as=peer_chan))
-        # except Exception as e:
-        #     logger.info(log_ % str(e))
-        #     await asyncio.sleep(round(random.uniform(0, 1), 2))
+        peer_chan_as = peer_chan
+
+        try:
+            print(f"11897   {peer=}")
+            get_join_as = await app.invoke(GetGroupCallJoinAs(peer=peer_chan))  # do not change!
+            print(11899)
+            get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
+            print(f"{get_join_as_lst=}")
+
+            if not len(get_join_as_lst):
+                title = f"👩🏽‍💻 Landing Channel #{random.randrange(100, 999)}"
+                res = await app.create_channel(title=title, description=f"verified chan 💙{random.randrange(100, 999)}")
+                peer_chan_as = await app.resolve_peer(res.id)
+                newusername_ = ''.join(random.choice(string.ascii_letters) for _ in range(random.randrange(10, 20)))
+                username_chan = f"{newusername_}_{random.randrange(100, 999)}_chan"[0:31]
+                _ = await app.invoke(UpdateUsername(channel=peer_chan_as, username=username_chan))
+                print(f"@{username_chan}: {title}")
+                p_ = await app.resolve_peer(peer_id=username_chan)
+                print(f"{p_=}")
+                get_join_as = await app.invoke(GetGroupCallJoinAs(peer=p_))
+                get_join_as_lst = [it for it in get_join_as.peers if it.QUALNAME == 'types.PeerChannel']
+                print(f"{get_join_as_lst=}")
+
+            # optional
+            if len(get_join_as_lst):
+                peer_chan_as = await app.resolve_peer(int(f"-100{get_join_as_lst[-1].channel_id}"))
+                print(f"11921 {peer_chan_as=}")
+                await app.invoke(SaveDefaultGroupCallJoinAs(peer=peer, join_as=peer_chan_as))
+        except Exception as e:
+            logger.info(log_ % str(e))
+            await asyncio.sleep(round(random.uniform(0, 1), 2))
 
         try:
             dt_ = utils.datetime_to_timestamp(datetime.now(timezone.utc) + timedelta(minutes=1))
             call = await app.invoke(
-                CreateGroupCall(peer=peer, random_id=dt_, rtmp_stream=False,
+                CreateGroupCall(peer=peer_chan,     # do not change!
+                                random_id=dt_,
+                                rtmp_stream=False,
                                 title=l_podcast_start[lz], schedule_date=dt_))
             await asyncio.sleep(10)
             call = InputGroupCall(id=call.updates[0].call.id, access_hash=call.updates[0].call.access_hash)
@@ -11626,7 +10218,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
         # endregion
 
         await call_py.start()
-        max_cnt = 256
+        max_cnt = 500
         while max_cnt > 0:
             max_cnt -= 1
             # region begins of POCAST_TID
@@ -11669,7 +10261,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                     try:
                         POST_TYPE = item['file_type']
                         POSTB_FID = item['fileb_id']
-                        POST_FILENAME = os.path.join(MEDIA_D, str(UB_TID), item['file_name'])
+                        POST_FILENAME = os.path.join(MEDIA_D, str(UB_TID), str(item['file_name']))
                         print(f"{POST_TYPE=}, {POSTB_FID=}, {POST_FILENAME=}")
                         is_audio = POST_TYPE in ['document'] and POST_FILENAME.lower().endswith(('.mp3', '.ogg'))
                         is_video_ = POST_TYPE in ['document'] and POST_FILENAME.lower().endswith(('.mp4', '.mov'))
@@ -11677,7 +10269,15 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                         if POST_TYPE in ['audio', 'voice'] or is_audio:
                             file = await extra_bot.get_file(POSTB_FID)
                             await extra_bot.download_file(file.file_path, str(POST_FILENAME))
-                            stream = MediaStream(POST_FILENAME, AudioQuality.HIGH)
+
+                            extract_links_ = await extract_links(POST_TEXT)
+                            print(f"{extract_links_=}")
+                            if not len(extract_links_):
+                                stream = MediaStream(media_path=POST_FILENAME, audio_parameters=AudioQuality.HIGH)
+                            else:
+                                lnk_ = extract_links_[0]
+                                print(f"{lnk_=}, {POST_FILENAME}")
+                                stream = MediaStream(media_path=lnk_, audio_path=POST_FILENAME)     # , video_parameters=VideoQuality.HD_720p
 
                             duration = await get_media_duration(POST_FILENAME)
                         elif POST_TYPE in ['video', 'video_note'] or is_video_:
@@ -11704,15 +10304,33 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                         # await tgcalls_app(app, lz, ENT_TID, stream, duration)
 
                         duration = 7200 if duration > 7200 else duration
-                        print(f"{duration=}, {peer_chan=}, {ENT_TID=}, {stream=}")
+                        print(f"{duration=}, {peer_chan_as=}, {ENT_TID=}, {stream=}")
                         await call_py.play(chat_id=ENT_TID,
                                            stream=stream,
-                                           config=GroupCallConfig(join_as=peer_chan, auto_start=True))
+                                           config=GroupCallConfig(join_as=peer_chan_as, auto_start=True)    # !!!
+                                           )
                         await asyncio.sleep(duration)
                         logger.info(log_ % f"podcast_start_app finishing... {item=}")
                     except Exception as e:
                         logger.info(log_ % str(e))
                         await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+                        if 'CHAT_ADMIN_REQUIRED' in str(e):
+                            sql = "SELECT UB_TID, UB_CPODCAST FROM \"UB\" WHERE UB_TID=$1"
+                            data_config = await db_select_pg(sql, (UB_TID,), BASE_P)
+                            if not len(data_config): return result
+                            UB_TID, UB_CPODCAST = data_config[0]
+
+                            UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"
+                            print(f"10296 loop: {UB_CPODCAST=}")
+                            sql = "UPDATE \"UB\" SET UB_CPODCAST=$1 WHERE UB_TID=$2"
+                            await db_change_pg(sql, (UB_CPODCAST, UB_TID,), BASE_P)
+                            result = {'answer': 'loop', 'param': UB_CPODCAST}
+
+                            if POST_FILENAME and os.path.exists(POST_FILENAME): os.remove(POST_FILENAME)
+                            await extra_bot.session.close()
+
+                            return result
                     finally:
                         if POST_FILENAME and os.path.exists(POST_FILENAME): os.remove(POST_FILENAME)
                         await extra_bot.session.close()
@@ -11731,6 +10349,19 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN
                 result = {'answer': 'loop', 'param': UB_CPODCAST}
                 return result
             # endregion
+
+        if max_cnt <= 0:
+            sql = "SELECT UB_TID, UB_CPODCAST FROM \"UB\" WHERE UB_TID=$1"
+            data_config = await db_select_pg(sql, (UB_TID,), BASE_P)
+            if not len(data_config): return result
+            UB_TID, UB_CPODCAST = data_config[0]
+
+            UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"
+            print(f"loop: {UB_CPODCAST=}")
+            sql = "UPDATE \"UB\" SET UB_CPODCAST=$1 WHERE UB_TID=$2"
+            await db_change_pg(sql, (UB_CPODCAST, UB_TID,), BASE_P)
+            result = {'answer': 'loop', 'param': UB_CPODCAST}
+            return result
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
@@ -12255,7 +10886,7 @@ async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_P):
 
             if media_type == 'photo':
                 res = await bot.send_photo(chat_id=chat_id, photo=media)
-                result = res.photo[-1].file_id
+                result = res.photo[-1].file_id    # type: ignore
             elif media_type == 'video':
                 width = height = duration = None
                 try:
@@ -12327,7 +10958,7 @@ async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_P):
 async def show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id=1, call=None):
     try:
         sql = "SELECT OFFER_ID, OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_BUTTON, OFFER_ISBUTTON, " \
-              "OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT FROM OFFER"
+              "OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT FROM \"OFFER\""
         data_offers = await db_select_pg(sql, (), BASE_P)
         if not data_offers:
             if call: await call.message.delete()
@@ -12533,18 +11164,20 @@ async def get_current_page_number(call):
 
 async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids):
     try:
+        print(f"broadcast_send_admin {chat_id}, {offer_id}. {ids}")
         if ids == 'me':
             user_ids = [chat_id]
         elif not ids or ids == 'all':
-            sql = "SELECT USER_TID FROM USER"
+            sql = "SELECT USER_TID FROM \"USER\""
             data = await db_select_pg(sql, (), BASE_P)
             user_ids = [item[0] for item in data]
         else:
-            sql = "SELECT USER_TID FROM USER"
+            sql = "SELECT USER_TID FROM \"USER\""
             data = await db_select_pg(sql, (), BASE_P)
             user_ids = [item[0] for item in data]
             user_ids = [item for item in user_ids if str(item) in ids]
 
+        print(f"{chat_id=} {user_ids=}, {offer_id=}")
         duration = 0 if len(user_ids) < 50 else int(len(user_ids) / 50)
         if str(chat_id) in my_tids:
             text = l_broadcast_start[lz].format(duration)
@@ -12556,12 +11189,14 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids):
 
         sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
               "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
-              "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-        data = await db_select_pg(sql, (offer_id,), BASE_P)
+              "OFFER_DT FROM \"OFFER\" WHERE OFFER_ID=$1"
+        data = await db_select_pg(sql, (int(offer_id),), BASE_P)
         if not len(data): return
 
         while True:
             try:
+                print(f"{user_ids=}")
+                print(f"{data=}")
                 random.shuffle(user_ids)
                 await asyncio.sleep(0.05)
                 tmp_user_ids = [user_ids.pop() for _ in range(0, max_size) if len(user_ids)]
@@ -12583,8 +11218,8 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids):
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
 
         if str(chat_id) not in my_tids:
-            sql = "DELETE FROM OFFER WHERE OFFER_ID=$1"
-            await db_change_pg(sql, (offer_id,), BASE_P)
+            sql = "DELETE FROM \"OFFER\" WHERE OFFER_ID=$1"
+            await db_change_pg(sql, (int(offer_id),), BASE_P)
 
         text = l_broadcast_finish[lz].format(fact_len)
         await bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
@@ -12596,7 +11231,8 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids):
 async def send_user(bot, chat_id, offer_id, item, message_id=None, cur_=1):
     result = None
     try:
-        OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT = item
+        (OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK,
+         OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT) = item
 
         len_ = 1
         if OFFER_ISBUTTON:
@@ -12698,7 +11334,7 @@ async def send_user(bot, chat_id, offer_id, item, message_id=None, cur_=1):
                                             reply_markup=reply_markup.as_markup())
 
         if result and OFFER_ISPIN and not message_id and isinstance(result, list):
-            await bot.pin_chat_message(chat_id=chat_id, message_id=result[0].message_id, disable_notification=False)
+            await bot.pin_chat_message(chat_id=chat_id, message_id=result[0].message_id, disable_notification=False)    # type: ignore
         elif result and OFFER_ISPIN and not message_id:
             await bot.pin_chat_message(chat_id=chat_id, message_id=result.message_id, disable_notification=False)
     except TelegramRetryAfter as e:
@@ -12789,8 +11425,8 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_P, bot_un):
         elif cmd == 'del':
             await state.clear()
 
-            sql = "DELETE FROM OFFER WHERE OFFER_ID=$1"
-            await db_change_pg(sql, (offer_id,), BASE_P)
+            sql = "DELETE FROM \"OFFER\" WHERE OFFER_ID=$1"
+            await db_change_pg(sql, (int(offer_id),), BASE_P)
 
             await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id - 1,
                                     call)
@@ -12802,50 +11438,50 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_P, bot_un):
 
             await bot.send_message(call.from_user.id, l_post_text[lz], reply_markup=markupAdmin)
         elif cmd == 'isbtn':
-            sql = "SELECT OFFER_BUTTON, OFFER_ISBUTTON FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_BUTTON, OFFER_ISBUTTON FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_BUTTON, OFFER_ISBUTTON = data[0]
 
             if OFFER_BUTTON:
                 OFFER_ISBUTTON = 0 if OFFER_ISBUTTON else 1
-                sql = "UPDATE OFFER SET OFFER_ISBUTTON=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISBUTTON, offer_id,), BASE_P)
+                sql = "UPDATE \"OFFER\" SET OFFER_ISBUTTON=$1 WHERE OFFER_ID=$2"
+                await db_change_pg(sql, (bool(OFFER_ISBUTTON), offer_id,), BASE_P)
                 await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
                 text = l_buttons_text[lz]
                 await call.answer(text=text, show_alert=True)
         elif cmd == 'ispin':
-            sql = "SELECT OFFER_ISPIN FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_ISPIN FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_ISPIN = 0 if data[0][0] else 1
-            sql = "UPDATE OFFER SET OFFER_ISPIN=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISPIN, offer_id,), BASE_P)
+            sql = "UPDATE \"OFFER\" SET OFFER_ISPIN=$1 WHERE OFFER_ID=$2"
+            await db_change_pg(sql, (bool(OFFER_ISPIN), offer_id,), BASE_P)
             await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'issilence':
-            sql = "SELECT OFFER_ISSILENCE FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_ISSILENCE FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_ISSILENCE = 0 if data[0][0] else 1
-            sql = "UPDATE OFFER SET OFFER_ISSILENCE=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISSILENCE, offer_id,), BASE_P)
+            sql = "UPDATE \"OFFER\" SET OFFER_ISSILENCE=$1 WHERE OFFER_ID=$2"
+            await db_change_pg(sql, (bool(OFFER_ISSILENCE), offer_id,), BASE_P)
             await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'isgallery':
-            sql = "SELECT OFFER_ISGALLERY, OFFER_FILEID FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_ISGALLERY, OFFER_FILEID FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_ISGALLERY, OFFER_FILEID = data[0]
 
             if OFFER_FILEID and '[' in OFFER_FILEID:
                 OFFER_ISGALLERY = 0 if data[0][0] else 1
-                sql = "UPDATE OFFER SET OFFER_ISGALLERY=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISGALLERY, offer_id,), BASE_P)
+                sql = "UPDATE \"OFFER\" SET OFFER_ISGALLERY=$1 WHERE OFFER_ID=$2"
+                await db_change_pg(sql, (bool(OFFER_ISGALLERY), offer_id,), BASE_P)
                 await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
                 text = l_gallery_text[lz]
                 await call.answer(text=text, show_alert=True)
         elif cmd == 'ispreview':
-            sql = "SELECT OFFER_ISTGPH, OFFER_TGPHLINK FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_ISTGPH, OFFER_TGPHLINK FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_ISTGPH, OFFER_TGPHLINK = data[0]
 
             if not OFFER_TGPHLINK:
@@ -12853,18 +11489,18 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_P, bot_un):
                 await call.answer(text=text, show_alert=True)
 
             OFFER_ISTGPH = 0 if OFFER_ISTGPH else 1
-            sql = "UPDATE OFFER SET OFFER_ISTGPH=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISTGPH, offer_id,), BASE_P)
+            sql = "UPDATE \"OFFER\" SET OFFER_ISTGPH=$1 WHERE OFFER_ID=$2"
+            await db_change_pg(sql, (bool(OFFER_ISTGPH), offer_id,), BASE_P)
             await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'isspoiler':
-            sql = "SELECT OFFER_ISSPOILER, OFFER_MEDIATYPE FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+            sql = "SELECT OFFER_ISSPOILER, OFFER_MEDIATYPE FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             OFFER_ISSPOILER, OFFER_MEDIATYPE = data[0]
 
             if OFFER_MEDIATYPE and OFFER_MEDIATYPE in ['photo', 'animation', 'video'] or '[' in OFFER_MEDIATYPE:
                 OFFER_ISSPOILER = 0 if data[0][0] else 1
-                sql = "UPDATE OFFER SET OFFER_ISSPOILER=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISSPOILER, offer_id,), BASE_P)
+                sql = "UPDATE \"OFFER\" SET OFFER_ISSPOILER=$1 WHERE OFFER_ID=$2"
+                await db_change_pg(sql, (bool(OFFER_ISSPOILER), offer_id,), BASE_P)
                 await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
@@ -12951,8 +11587,11 @@ async def fsm_text_admin(bot, FsmOffer, message, state, BASE_P):
                 return
 
             await state.update_data(offer_text=message.html_text)
-            await bot.send_message(chat_id=chat_id, text=l_post_media[lz])
-            await state.set_state(FsmOffer.media)
+            # await bot.send_message(chat_id=chat_id, text=l_post_media[lz])
+            # await state.set_state(FsmOffer.media)
+
+            await bot.send_message(chat_id, l_post_finish[lz])
+            await state.set_state(FsmOffer.finish)
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
@@ -12986,7 +11625,7 @@ async def fsm_album_admin(bot, FsmOffer, message, album, state, KEYS_JSON, MEDIA
 
             for obj in album:
                 if obj.photo:
-                    media_id = obj.photo[-1].file_id if len(obj.photo) == 1 else obj.photo[-2].file_id
+                    media_id = obj.photo[-1].file_id if len(obj.photo) == 1 else obj.photo[-2].file_id    # type: ignore
                     media_type = 'photo'
                     dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f.jpg')
                     file_name_part_new = f"{dt_}"
@@ -13065,7 +11704,7 @@ async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BAS
                 await bot.send_message(chat_id=chat_id, text=l_post_media[lz])
                 return
             elif message.photo:
-                file_id = message.photo[-1].file_id if len(message.photo) == 1 else message.photo[-2].file_id
+                file_id = message.photo[-1].file_id if len(message.photo) == 1 else message.photo[-2].file_id    # type: ignore
                 file_name_part = f"{datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f.jpg')}"
                 file_name = os.path.join(MEDIA_D, file_name_part)
                 file = await bot.get_file(file_id)
@@ -13243,7 +11882,7 @@ async def fsm_date_cb_admin(bot, FsmOffer, call, state, BASE_P):
         dt_user = dt_user.strftime("%d-%m-%Y")
         await state.update_data(offer_date=offer_date)
 
-        sql = "SELECT USER_TZ FROM USER WHERE USER_TID=$1"
+        sql = "SELECT USER_TZ FROM \"USER\" WHERE USER_TID=$1"
         data = await db_select_pg(sql, (chat_id,), BASE_P)
         USER_TZ = data[0][0] if data[0][0] else "+00:00"
         offer_tz = USER_TZ
@@ -13334,7 +11973,7 @@ async def fsm_time_admin(bot, FsmOffer, message, state, BASE_P):
             await bot.send_message(chat_id, l_post_finish[lz])
             await state.set_state(FsmOffer.finish)
         else:
-            sql = "SELECT USER_TZ FROM USER WHERE USER_TID=$1"
+            sql = "SELECT USER_TZ FROM \"USER\" WHERE USER_TID=$1"
             data = await db_select_pg(sql, (chat_id,), BASE_P)
             USER_TZ = data[0][0] if data[0][0] else "+00:00"
             offer_tz = USER_TZ
@@ -13407,22 +12046,22 @@ async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_P, bot_u
             offer_dt = data.get('offer_dt', None)
 
             if offer_id:
-                sql = "UPDATE OFFER SET OFFER_USERTID=$1, OFFER_TEXT=$2, OFFER_MEDIATYPE=$3, OFFER_FILENAME=$4, " \
+                sql = "UPDATE \"OFFER\" SET OFFER_USERTID=$1, OFFER_TEXT=$2, OFFER_MEDIATYPE=$3, OFFER_FILENAME=$4, " \
                       "OFFER_FILEID=$5, OFFER_FILEIDNOTE=$6, OFFER_BUTTON=$7, OFFER_ISBUTTON=$8, OFFER_TGPHLINK=$9, " \
                       "OFFER_ISTGPH=$10, OFFER_DT=$11, OFFER_TZ=$12, OFFER_STATUS=$13 WHERE OFFER_ID=$14"
                 await db_change_pg(sql, (
                     chat_id, offer_text, offer_file_type, file_name_part, offer_file_id, offer_file_id_note,
-                    offer_button, offer_isbutton, offer_tgph_link, offer_istgph, offer_dt, offer_tz, 1, offer_id,),
+                    offer_button, bool(offer_isbutton), offer_tgph_link, bool(offer_istgph), offer_dt, offer_tz, bool(1), int(offer_id),),
                                    BASE_P)
             else:
-                sql = "INSERT INTO OFFER (OFFER_USERTID, OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILENAME, " \
+                sql = "INSERT INTO \"OFFER\" (OFFER_USERTID, OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILENAME, " \
                       "OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK, OFFER_ISTGPH, " \
                       "OFFER_DT, OFFER_TZ, OFFER_STATUS) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT DO NOTHING"
                 await db_change_pg(sql, (
                     chat_id, offer_text, offer_file_type, file_name_part, offer_file_id, offer_file_id_note,
-                    offer_button, offer_isbutton, offer_tgph_link, offer_istgph, offer_dt, offer_tz, 1,), BASE_P)
+                    offer_button, bool(offer_isbutton), offer_tgph_link, bool(offer_istgph), offer_dt, offer_tz, bool(1),), BASE_P)
 
-            sql = "SELECT * FROM OFFER"
+            sql = "SELECT * FROM \"OFFER\""
             data = await db_select_pg(sql, (), BASE_P)
             items = [item[0] for item in data]
             view_post_id = items.index(offer_id) + 1 if offer_id else len(data)
@@ -13481,8 +12120,8 @@ async def gallery_handler_admin(bot, call, state, BASE_P):
         if option == 'prev':
             sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
                   "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
-                  "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+                  "OFFER_DT FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             if not len(data): return
 
             cur_ = len_ if cur_ == 1 and option == 'prev' else cur_ - 1
@@ -13490,8 +12129,8 @@ async def gallery_handler_admin(bot, call, state, BASE_P):
         elif option == 'next':
             sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
                   "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
-                  "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_P)
+                  "OFFER_DT FROM \"OFFER\" WHERE OFFER_ID=$1"
+            data = await db_select_pg(sql, (int(offer_id),), BASE_P)
             if not len(data): return
 
             cur_ = 1 if cur_ == len_ and option == 'next' else cur_ + 1
@@ -13732,9 +12371,52 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
+async def record_malicious_ip(ip_, path_, EXTRA_D, _malicious_lock):
+    filename_ = os.path.join(EXTRA_D, "malicious_ips.txt")
+    try:
+        async with _malicious_lock:
+            lst = set()
+            if os.path.exists(filename_):
+                async with aiofiles.open(filename_, "r") as rf:
+                    async for line in rf:
+                        line = line.strip()
+                        if line: lst.add(line)
+
+            if ip_ not in lst:
+                logger.info(log_ % f"{ip_}: new IP for {path_}")
+                async with aiofiles.open(filename_, "a") as af:
+                    await af.write(ip_ + "\n")
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
+async def create_default_symbol(title, username):
+    result = "j"
+    try:
+        if username:
+            result += username[:5].upper()
+        else:
+            if transliterate.detect_language(title) == "ru":
+                transliterated_title = transliterate.translit(title, reversed=True)
+            else:
+                transliterated_title = ''.join([char if char.isascii() else '' for char in title])
+
+            result += transliterated_title[:5].upper()
+
+        result = result[:7]
+        if len(result) < 3:
+            result = result.ljust(3, random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
 async def is_reason(user_id, user_username, user_full_name, ENT_CBAN):
     result = None
     try:
+        if not ENT_CBAN: return
         new_, nousername_, cas_, symbols_, zalgo_ = list(ENT_CBAN)
 
         if nousername_ == '☑' and not user_username:
@@ -13755,11 +12437,11 @@ async def is_reason(user_id, user_username, user_full_name, ENT_CBAN):
                 url = f"https://api.cas.chat/check?user_id={user_id}"
                 resp = await client.get(url)
 
-                print(f"? JSON: {url}")
+                # print(f"? JSON: {url}")
                 if resp.status_code == 200 and resp.headers.get("Content-Type", "").startswith("application/json"):
                     data = resp.json()
 
-                    print(f"? JSON: {data}")
+                    # print(f"? JSON: {data}")
                     if data.get("ok") is True:
                         print(f"✅ JSON: {data}")
                         result = f"cas: {url}"
@@ -13893,8 +12575,8 @@ async def post_offer(bot, data, BASE_P):
                 timedelta_ = (dt_cur - datetime.strptime(OFFER_DT, "%d-%m-%Y %H:%M").replace(tzinfo=timezone.utc))
 
                 if timedelta_.days >= 0 and timedelta_.seconds >= 0:
-                    sql = "UPDATE OFFER SET OFFER_DT=NULL, OFFER_STATUS=0 WHERE OFFER_ID=$1"
-                    await db_change_pg(sql, (OFFER_ID,), BASE_P)
+                    sql = "UPDATE \"OFFER\" SET OFFER_DT=NULL, OFFER_STATUS=$1 WHERE OFFER_ID=$2"
+                    await db_change_pg(sql, (False, OFFER_ID,), BASE_P)
 
                     asyncio.create_task(
                         broadcast_send_admin(bot, OFFER_USERTID, 'en', OFFER_ID, BASE_P, []))
@@ -13961,14 +12643,19 @@ async def bots_by_inline(chat_id, message, BASE_P):
 async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
-        url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
+        # url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
+        # url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
         # url_share = f"https://t.me/FereySupportBot?profile"
-        if random.choice([True, False]):
-            url_share = f"https://t.me/FereySupportBot?profile"
-        else:
-            url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
+        # if random.choice([True, False]):
+        #     url_share = f"https://t.me/FereySupportBot?profile"
+        # else:
+        #     url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
+
+        url_usr = f"https://t.me/FereySupportBot?profile"
+        url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
         web_app_ = types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')   # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
-        text_like = await read_likes(BASE_P) if random.choice([True, True, True, False]) else '⁰⁰⁰'
+        # text_like = await read_likes(BASE_P) if random.choice([True, True, True, False]) else '⁰⁰⁰'
+        text_like = await read_likes(BASE_P)
 
         result = [
             types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),
@@ -13993,24 +12680,21 @@ async def send_request_chat(bot, chat_id, lz, is_group=False):
             # print(f"{is_group=}")
 
             user_administrator_rights = ChatAdministratorRights(is_anonymous=False,  # !
-                                                                can_manage_chat=True, can_delete_messages=True,
-                                                                can_manage_video_chats=True, can_restrict_members=True,
+                                                                can_manage_chat=True,
+                                                                can_delete_messages=True,
+                                                                can_manage_video_chats=False,
+                                                                can_restrict_members=True,
                                                                 can_promote_members=False,  # can_promote_members=True,
-                                                                can_change_info=False, can_invite_users=True,
-                                                                can_post_stories=True, can_edit_stories=False,
-                                                                can_delete_stories=False, can_post_messages=True,
-                                                                can_edit_messages=True, can_pin_messages=True,
-                                                                can_manage_topics=None)
-
-            bot_administrator_rights = ChatAdministratorRights(is_anonymous=True,  # !
-                                                                can_manage_chat=True, can_delete_messages=True,
-                                                                can_manage_video_chats=True, can_restrict_members=True,
-                                                                can_promote_members=False,  # can_promote_members=True,
-                                                                can_change_info=False, can_invite_users=True,
-                                                                can_post_stories=True, can_edit_stories=False,
-                                                                can_delete_stories=False, can_post_messages=True,
-                                                                can_edit_messages=True, can_pin_messages=True,
-                                                                can_manage_topics=None)
+                                                                can_change_info=False,
+                                                                can_invite_users=True,
+                                                                can_post_stories=False,
+                                                                can_edit_stories=False,
+                                                                can_delete_stories=False,
+                                                                can_post_messages=True,
+                                                                can_edit_messages=True,
+                                                                can_pin_messages=True,
+                                                                can_manage_topics=None,
+                                                                can_manage_direct_messages=None)
 
             kb_entity = KeyboardButtonRequestChat(request_id=1, chat_is_channel=False, chat_is_forum=None,
                                                   chat_has_username=None, chat_is_created=None,
@@ -14021,15 +12705,22 @@ async def send_request_chat(bot, chat_id, lz, is_group=False):
             reply_markup.add(*[types.KeyboardButton(text=l_grp_btn1[lz], request_chat=kb_entity),
                                types.KeyboardButton(text=l_grp_btn2[lz])])
         else:
-            user_administrator_rights = ChatAdministratorRights(is_anonymous=True, can_manage_chat=True,
-                                                                can_delete_messages=True, can_manage_video_chats=True,
-                                                                can_restrict_members=True, can_promote_members=False,
-                                                                # can_promote_members=True,
-                                                                can_change_info=False, can_invite_users=True,
-                                                                can_post_stories=True, can_edit_stories=False,
-                                                                can_delete_stories=False, can_post_messages=True,
-                                                                can_edit_messages=True, can_pin_messages=True,
-                                                                can_manage_topics=True)
+            user_administrator_rights = ChatAdministratorRights(is_anonymous=True,
+                                                                can_manage_chat=True,
+                                                                can_delete_messages=True,
+                                                                can_manage_video_chats=False,
+                                                                can_restrict_members=True,
+                                                                can_promote_members=False,  # can_promote_members=True,
+                                                                can_change_info=False,
+                                                                can_invite_users=True,
+                                                                can_post_stories=False,
+                                                                can_edit_stories=False,
+                                                                can_delete_stories=False,
+                                                                can_post_messages=True,
+                                                                can_edit_messages=True,
+                                                                can_pin_messages=True,
+                                                                can_manage_topics=True,
+                                                                can_manage_direct_messages=True)
 
             kb_entity = KeyboardButtonRequestChat(request_id=1, chat_is_channel=True, chat_is_forum=False,
                                                   chat_has_username=None, chat_is_created=None,
@@ -14282,7 +12973,7 @@ async def get_lz_by_entity_id(ENTITY_TID, BASE_P):
         if not len(data): return result
         OWNER_TID = data[0][0]
 
-        sql = "SELECT USER_LZ FROM USER WHERE USER_TID=$1"
+        sql = "SELECT USER_LZ FROM \"USER\" WHERE USER_TID=$1"
         data = await db_select_pg(sql, (OWNER_TID,), BASE_P)
         if not len(data): return result
         result = data[0][0]
@@ -14416,7 +13107,7 @@ async def get_lz_code(lc):
 async def lz_code(chat_id, lan, BASE_P):
     result = 'en'
     try:
-        sql = "SELECT USER_LZ FROM USER WHERE USER_TID=$1"
+        sql = "SELECT USER_LZ FROM \"USER\" WHERE USER_TID=$1"
         data = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # first enter before DB
@@ -14437,7 +13128,7 @@ async def lz_code(chat_id, lan, BASE_P):
             elif lan in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
                 result = 'ru'
 
-            sql = "UPDATE USER SET USER_LZ=$1 WHERE USER_TID=$2"
+            sql = "UPDATE \"USER\" SET USER_LZ=$1 WHERE USER_TID=$2"
             await db_change_pg(sql, (result, chat_id,), BASE_P)
         else:
             result = data[0][0]
@@ -14471,70 +13162,14 @@ async def lz_code_pg(chat_id, lan, BASE_P):
             elif lan in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
                 result = 'ru'
 
-            sql = "UPDATE \"USER\" SET USER_LZ=$1 WHERE USER_TID=$2"
-            await db_change_pg(sql, (result, chat_id,), BASE_P)
+            # sql = "UPDATE \"USER\" SET USER_LZ=$1 WHERE USER_TID=$2"
+            # await db_change_pg(sql, (result, chat_id,), BASE_P)
         else:
             result = data[0][0]
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
     return result
-
-
-async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_P):
-    is_paid = False
-    till_paid = ''
-    try:
-        USER_ISPAID = 0
-        USER_DTPAID = ''
-        dt_now = datetime.now(timezone.utc)
-        USER_DT = dt_now.strftime('%d-%m-%Y_%H-%M-%S')
-        extra_bot = None
-        try:
-            lib_id = channel_library_ru if lz == 'ru' else channel_library_en
-            extra_bot = Bot(token=BOT_TOKEN_E18B)
-            member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
-            if member_.status in ['member', 'administrator', 'creator']: is_paid = True
-            print(f"check_sub_pay {is_paid=}")
-        except Exception as e:
-            logger.info(log_ % str(e))
-        finally:
-            if extra_bot: await extra_bot.session.close()
-
-        sql = "SELECT USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, USER_LZ FROM \"USER\" WHERE USER_TID=$1"
-        data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
-
-        if not len(data_usr):
-            sql = "INSERT INTO \"USER\" (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (chat_id, USER_DT,), BASE_P)
-        else:
-            USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, lz = data_usr[0]
-
-        if is_paid:
-            sql = "UPDATE \"USER\" SET USER_ISPAID=1, USER_DTPAID='', USER_TYPAID='all' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_P)
-        elif USER_ISPAID and USER_DTPAID:
-            till_paid = dt_now.strptime(USER_DTPAID, "%d-%m-%Y_%H-%M-%S").replace(tzinfo=timezone.utc)
-            print(f"{till_paid=}")
-
-            if dt_now > till_paid:
-                sql = "UPDATE \"USER\" SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-                await db_change_pg(sql, (chat_id,), BASE_P)
-                till_paid = ''
-            else:
-                is_paid = True
-                till_paid = till_paid.strftime('%d.%m.%Y')
-        else:
-            sql = "UPDATE \"USER\" SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_P)
-        print(f"check_sub_pay {is_paid=}, {till_paid=}")
-    except TelegramRetryAfter as e:
-        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-        await asyncio.sleep(e.retry_after + 1)
-    except Exception as e:
-        logger.info(log_ % str(e))
-        await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return is_paid, till_paid
 
 
 async def no_new_text(txt):
@@ -14740,7 +13375,7 @@ async def save_fileid(message, src, BASE_P):
     file_id = usr_id = ''
     if message is None: return usr_id
     if message.photo:
-        file_id = message.photo[-1].file_id
+        file_id = message.photo[-1].file_id    # type: ignore
     elif message.animation:  # giff
         file_id = message.animation.file_id
     elif message.video:
@@ -14810,7 +13445,7 @@ async def get_photo_file_id(bot, chat_id, file_id_text, BASE_P):
         data2 = await db_select_pg(sql, (), BASE_P)
         if not len(data2):
             res = await bot.send_photo(chat_id, text_jpeg)
-            result = res.photo[-1].file_id
+            result = res.photo[-1].file_id    # type: ignore
             sql = "INSERT INTO \"FILE\" (FILE_FILEID, FILE_FILENAME) VALUES ($1, $2) ON CONFLICT DO NOTHING"
             await db_change_pg(sql, (file_id_text, 'text.jpg',), BASE_P)
         else:
@@ -15042,7 +13677,7 @@ async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BAS
         for k, v in dic_btns.items():
             try:
                 if v[0]:
-                    sql = f"SELECT * FROM OFFER WHERE {COLUMN_OWNER}=$1"
+                    sql = f"SELECT * FROM \"OFFER\" WHERE {COLUMN_OWNER}=$1"
                     data = await db_select_pg(sql, (owner_id,), BASE_P)
                     items = [item[0] for item in data]
                     view_post_id = items.index(offer_id) + 1 if offer_id else len(data)
@@ -15432,6 +14067,20 @@ async def del_extra_files(UNKNOWN_ERRORS_TXT, EXTRA_D):
         UNKNOWN_ERRORS_TXT2 = os.path.join(os.path.dirname(os.path.dirname(UNKNOWN_ERRORS_TXT)), 'unknown_errors.txt')
         if os.path.exists(UNKNOWN_ERRORS_TXT2): os.remove(UNKNOWN_ERRORS_TXT2)
 
+        try:
+            parent_two_up = os.path.abspath(os.path.join(EXTRA_D, '..', '..'))
+            for fname in os.listdir(parent_two_up):
+                if fname.startswith('<asyncpg.pool.Pool'):
+                    fpath = os.path.join(parent_two_up, fname)
+                    if os.path.exists(fpath):
+                        try:
+                            os.remove(fpath)
+                            logger.info(f"removed extra file: {fpath}")
+                        except Exception as e:
+                            logger.info(log_ % f"failed remove {fpath}: {e}")
+        except Exception as e:
+            logger.info(log_ % f"listing {parent_two_up} failed: {e}")
+
         max_dt = datetime(2020, 1, 1, tzinfo=timezone.utc)
         arr = [it for it in os.listdir(EXTRA_D) if it.startswith('debug.') and it != 'debug.log']
 
@@ -15685,9 +14334,8 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
         try:
             image = await correct_orientation(image)
             print("[ok] correct_orientation returned image")
-        except Exception as e:
+        except:
             print("[warn] correct_orientation raised exception, will continue with original image")
-            
 
         print("[step] Converting to RGB...")
         image = image.convert('RGB')
@@ -15699,7 +14347,6 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] intermediate save done")
         except Exception as e:
             print(f"[warn] failed to save intermediate JPEG to {POST_FNAME}: {e}")
-            
 
         width, height = image.size
         print(f"[info] image width={width}, height={height}")
@@ -15709,7 +14356,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
         print(f"[info] Trying to load font from path: {truetype_}")
 
         font_sz = 25
-        font = None
+        # font = None
         try:
             if os.path.exists(truetype_):
                 font = ImageFont.truetype(truetype_, font_sz)
@@ -15723,7 +14370,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
                 font = ImageFont.load_default()
                 print("[ok] fallback font loaded (ImageFont.load_default())")
             except Exception as e2:
-                print("[error] fallback font load failed!")
+                print(f"[error] fallback font load failed! {e2}")
                 
                 font = None
 
@@ -15737,7 +14384,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             text_h = y1 - y0
             print(f"[ok] textbbox: {bbox} -> text_w={text_w}, text_h={text_h}")
         except Exception as e:
-            print(f"[warn] textbbox failed: {e} — попробуем textsize")
+            print(f"[warn] textbbox failed: {e} — trying textsize")
             try:
                 text_w, text_h = draw.textsize(text, font=font)
                 print(f"[ok] textsize -> text_w={text_w}, text_h={text_h}")
@@ -15784,7 +14431,6 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
                 print("[warn] bg is None, skipping paste")
         except Exception as e:
             print(f"[error] paste bg failed: {e}")
-            
 
         try:
             print(f"[step] Drawing text at {(x, y)} ...")
@@ -15792,7 +14438,6 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] text drawn")
         except Exception as e:
             print(f"[error] draw.text failed: {e}")
-            
 
         try:
             print(f"[step] Saving final image to {POST_FNAME_COPY} ...")
@@ -15911,7 +14556,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_P, EXT
                     MEDIA = FILE_NAME if IS_LINK else types.FSInputFile(FILE_NAME)
                     if MSG_TYPE == 'photo':
                         res = await extra_bot.send_photo(OWNER_TID, MEDIA, disable_notification=True)
-                        file_id = res.photo[-1].file_id
+                        file_id = res.photo[-1].file_id    # type: ignore
                         file_type = 'photo'
                     elif MSG_TYPE in ['gif', 'animation']:
                         res = await extra_bot.send_animation(OWNER_TID, MEDIA, disable_notification=True)
@@ -16216,7 +14861,7 @@ async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
             frame = clip.get_frame(frame_at_second)
             new_image = Image.fromarray(frame)
             new_image.save(destination2)
-        except Exception as e:
+        except:
             # logger.info(log_ % str(e) + str(file_link))
             # await asyncio.sleep(round(random.uniform(0, 1), 2))
 
@@ -16570,7 +15215,7 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
                         print(f"17595 {w_=}, {h_=}")
                         if w_ <= 1024 and h_ <= 1024:
                             file_link2 = file_link
-                except Exception as e:
+                except:
                     # logger.info(log_ % str(e))
                     pass
 
@@ -17198,7 +15843,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
             if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
             result = result.sticker.file_id
 
-            # upl = await bot.upload_sticker_file(user_id=chat_id, sticker=types.FSInputFile(file_webm),  #                                     sticker_format=sticker_format)  # result_upl = upl.file_id  #  # tmp_name = f"by_{chat_id}_{str(time.time()).split('.')[-1]}_by_{bot_username}"  # sticker = types.InputSticker(sticker=result_upl, emoji_list=['👩🏽‍💻'], format='video')  # await bot.create_new_sticker_set(user_id=chat_id,  #                                  name=tmp_name,  #                                  title=str_empty,  #                                  stickers=[sticker],  #                                  sticker_type=PACK_TYPE,  #                                  # sticker_format=sticker_format,  #                                  needs_repainting=None)  # get_sticker_set_ = await bot.get_sticker_set(name=tmp_name)  # result = await bot.send_sticker(chat_id, get_sticker_set_.stickers[0].file_id)  # await bot.delete_sticker_set(tmp_name)  # result = result.sticker.file_id
+            # upl = await bot.upload_sticker_file(user_id=chat_id, sticker=types.FSInputFile(file_webm),  #                                     sticker_format=sticker_format)  # result_upl = upl.file_id  #  # tmp_name = f"by_{chat_id}_{str(time()).split('.')[-1]}_by_{bot_username}"  # sticker = types.InputSticker(sticker=result_upl, emoji_list=['👩🏽‍💻'], format='video')  # await bot.create_new_sticker_set(user_id=chat_id,  #                                  name=tmp_name,  #                                  title=str_empty,  #                                  stickers=[sticker],  #                                  sticker_type=PACK_TYPE,  #                                  # sticker_format=sticker_format,  #                                  needs_repainting=None)  # get_sticker_set_ = await bot.get_sticker_set(name=tmp_name)  # result = await bot.send_sticker(chat_id, get_sticker_set_.stickers[0].file_id)  # await bot.delete_sticker_set(tmp_name)  # result = result.sticker.file_id
         print(f"result_upl ok")
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -18159,7 +16804,7 @@ async def correct_tag(txt, orig_txt=''):
 #         subprocess.run(command)
 #
 #         sticker = types.InputSticker(sticker=types.FSInputFile(file_webm), emoji_list=['❤️'])
-#         name = f"by_{user_id}_{str(time.time()).split('.')[-1]}_by_{bot_username}"
+#         name = f"by_{user_id}_{str(time()).split('.')[-1]}_by_{bot_username}"
 #         print(f"{name=}, {len(name)}")
 #         await bot.create_new_sticker_set(user_id=user_id, name=name, title=f"{user_id}", stickers=[sticker],
 #                                          sticker_format='video')
@@ -18202,7 +16847,7 @@ async def correct_tag(txt, orig_txt=''):
 #         subprocess.run(command)
 #
 #         sticker = types.InputSticker(sticker=types.FSInputFile(file_webm), emoji_list=['❤️'])
-#         name = f"by_{user_id}_{str(time.time()).split('.')[-1]}_by_{bot_username}"
+#         name = f"by_{user_id}_{str(time()).split('.')[-1]}_by_{bot_username}"
 #         print(f"{name=}, {len(name)}")
 #         await bot.create_new_sticker_set(user_id=user_id, name=name, title=f"{user_id}", stickers=[sticker],
 #                                          sticker_format='video')
@@ -18664,7 +17309,7 @@ async def get_session(SESSION_TID, SESSION_D, BASE_S, EXTRA_D, CONF_P, is_proxy=
     res = proxy = None
     try:
         sql = "SELECT SESSION_NAME, SESSION_APIID, SESSION_APIHASH, SESSION_PHONE FROM SESSION WHERE SESSION_TID = ?"
-        data = await db_select_pg(sql, (SESSION_TID,), BASE_S)
+        data = await db_select(sql, (SESSION_TID,), BASE_S)
         if not len(data): return res
         SESSION_NAME, SESSION_APIID, SESSION_APIHASH, SESSION_PHONE = data[0]
 
@@ -18990,13 +17635,13 @@ async def delete_account(bot, SESSION_TID, SESSIONS_D, CONF_P, BASE_S):
 
 
 async def delete_invalid_chat(chat, BASE_E):
-    sql = "DELETE FROM CHANNEL WHERE CHANNEL_USERNAME=$1"
+    sql = "DELETE FROM \"CHANNEL\" WHERE CHANNEL_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
-    sql = "DELETE FROM CHAT WHERE CHAT_USERNAME=$1"
+    sql = "DELETE FROM \"CHAT\" WHERE CHAT_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
-    sql = "DELETE FROM USER WHERE USER_USERNAME=$1"
+    sql = "DELETE FROM \"USER\" WHERE USER_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
     sql = "DELETE FROM \"BOT\" WHERE BOT_USERNAME=$1"
@@ -19004,13 +17649,13 @@ async def delete_invalid_chat(chat, BASE_E):
 
     chat = chat.strip('@')
 
-    sql = "DELETE FROM CHANNEL WHERE CHANNEL_USERNAME=$1"
+    sql = "DELETE FROM \"CHANNEL\" WHERE CHANNEL_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
-    sql = "DELETE FROM CHAT WHERE CHAT_USERNAME=$1"
+    sql = "DELETE FROM \"CHAT\" WHERE CHAT_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
-    sql = "DELETE FROM USER WHERE USER_USERNAME=$1"
+    sql = "DELETE FROM \"USER\" WHERE USER_USERNAME=$1"
     await db_change_pg(sql, (chat,), BASE_E)
 
     sql = "DELETE FROM \"BOT\" WHERE BOT_USERNAME=$1"
@@ -19148,6 +17793,24 @@ async def set_privacy(app):
 
 
 # region google
+async def normalize_rows(rows):
+    out = []
+    for row in rows:
+        new_row = []
+        iterable = row.values() if hasattr(row, "values") else row
+        for c in iterable:
+            if isinstance(c, datetime):
+                new_row.append(c.isoformat())
+            elif isinstance(c, (dict, list)):
+                new_row.append(json.dumps(c, ensure_ascii=False))
+            elif c is None:
+                new_row.append("")
+            else:
+                new_row.append(str(c))
+        out.append(new_row)
+    return out
+
+
 async def api_sync_all(value_many, spreadsheet_id, CONF_P, EXTRA_D, range_many='A2', sheet_id='Sheet1',
                        value_input_option='USER_ENTERED', major_dimension="ROWS"):
     scopes = r_conf('scopes', CONF_P)
@@ -19156,12 +17819,23 @@ async def api_sync_all(value_many, spreadsheet_id, CONF_P, EXTRA_D, range_many='
     http_auth = credentials.authorize(httplib2.Http())
     sheets_service = build('sheets', 'v4', http=http_auth, cache_discovery=False)
 
-    convert_value = []
-    for item in value_many:
-        convert_value.append(list(item))
+    # convert_value = []
+    # for item in value_many:
+    #     convert_value.append(list(item))
+    #
+    # await api_write_cells(sheets_service, convert_value, range_many, spreadsheet_id, sheet_id, value_input_option, major_dimension)
+    convert_value = await normalize_rows([list(item) for item in value_many])
+    # print(f"{convert_value=}")
 
-    await api_write_cells(sheets_service, convert_value, range_many, spreadsheet_id, sheet_id, value_input_option,
-                          major_dimension)
+    await api_write_cells(
+        sheets_service,
+        convert_value,
+        range_many,
+        spreadsheet_id,
+        sheet_id,
+        value_input_option,
+        major_dimension
+    )
 
 
 async def api_sync_update(value_many, spreadsheet_id, range_many, CONF_P, EXTRA_D, sheet_id='Sheet1',
@@ -19849,7 +18523,7 @@ async def check_tgph_posts(bot_username, BASE_P):
                 for OFFER_USERTID, v in content_json.items():
                     OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT, OFFER_TZ = v
 
-                    sql = "INSERT INTO OFFER (OFFER_USERTID, OFFER_TEXT, OFFER_MEDIATYPE, " \
+                    sql = "INSERT INTO \"OFFER\" (OFFER_USERTID, OFFER_TEXT, OFFER_MEDIATYPE, " \
                           "OFFER_FILEID, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK, OFFER_ISTGPH, " \
                           "OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT, " \
                           "OFFER_TZ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT DO NOTHING"
@@ -19878,8 +18552,8 @@ async def check_tgph_posts(bot_username, BASE_P):
 async def in_ban_list(tid, username=None):
     result = False
     try:
-        b_ids = [68728482,  # @yagupov
-                 201960795,  # @korsdp
+        b_ids = [68728482,    # @yagupov
+                 201960795,   # @korsdp
                  6084199556,  # 👩🏽‍💻 User: Chris023, @None, 6084199556 blocks @FereyDemoBot
                  7227211988,  # Berto Silva
                  2066375437,  # Leslie Mccarthy
@@ -19889,6 +18563,12 @@ async def in_ban_list(tid, username=None):
                  5152639222,  # 彩虹代发 看我主页 None, en
                  7535872701,  # @KEDA1SIEMON
                  7702609726,  # Wubersit Neba
+                 5712445232,  # doan Hm.. [5712445232, en]
+                 5398229968,  # dot Lang [5398229968, en]
+                 5360208719,  # huhu john [5360208719, en]
+                 8400036732,  # Gethun Melike [8400036732, en]
+                 # 126101198,  # Dr Azi None [126101198, en]
+                 5055238562,  # Zheng 8 [5055238562, en]
                  ]
 
         if username and username.startswith('kwprod'):
@@ -19946,7 +18626,7 @@ async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, EN
         #     profile_photos_ = await bot.get_user_profile_photos(user_id=USER_ID, limit=1)
         #
         #     if len(profile_photos_.photos):
-        #         photo_id = profile_photos_.photos[-1][-1].file_id
+        #         photo_id = profile_photos_.photos[-1][-1].file_id    # type: ignore
         #         file = await bot.get_file(photo_id)
         #         await bot.download_file(file.file_path, file_name)
         #         tgph_ph = await get_link_for_media(bot, chat_id, file_name, KEYS_JSON)

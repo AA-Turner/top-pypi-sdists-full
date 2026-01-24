@@ -52,6 +52,7 @@ from supervisely.io.json import dump_json_file, load_json_file
 from supervisely.project.project_meta import ProjectMeta
 from supervisely.project.project_meta import ProjectMetaJsonFields as MetaJsonF
 from supervisely.project.project_settings import (
+    LabelingInterface,
     ProjectSettings,
     ProjectSettingsJsonFields,
 )
@@ -691,6 +692,7 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         type: ProjectType = ProjectType.IMAGES,
         description: Optional[str] = "",
         change_name_if_conflict: Optional[bool] = False,
+        readme: Optional[str] = None,
     ) -> ProjectInfo:
         """
         Create Project with given name in the given Workspace ID.
@@ -705,6 +707,8 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         :type description: str
         :param change_name_if_conflict: Checks if given name already exists and adds suffix to the end of the name.
         :type change_name_if_conflict: bool, optional
+        :param readme: Project readme.
+        :type readme: str, optional
         :return: Information about Project. See :class:`info_sequence<info_sequence>`
         :rtype: :class:`ProjectInfo`
         :Usage example:
@@ -745,15 +749,15 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
             name=name,
             change_name_if_conflict=change_name_if_conflict,
         )
-        response = self._api.post(
-            "projects.add",
-            {
-                ApiField.WORKSPACE_ID: workspace_id,
-                ApiField.NAME: effective_name,
-                ApiField.DESCRIPTION: description,
-                ApiField.TYPE: str(type),
-            },
-        )
+        payload = {
+            ApiField.NAME: effective_name,
+            ApiField.WORKSPACE_ID: workspace_id,
+            ApiField.DESCRIPTION: description,
+            ApiField.TYPE: str(type),
+        }
+        if readme is not None:
+            payload[ApiField.README] = readme
+        response = self._api.post("projects.add", payload)
         return self._convert_json_info(response.json())
 
     def _get_update_method(self):
@@ -1368,6 +1372,8 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
 
     def get_settings(self, id: int) -> Dict[str, str]:
         info = self._get_info_by_id(id, "projects.info")
+        if info is None:
+            raise ProjectNotFound(f"Project with id={id} not found")
         return info.settings
 
     def update_settings(self, id: int, settings: Dict[str, str]) -> None:
@@ -1993,8 +1999,11 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         )
 
     def set_multiview_settings(self, project_id: int) -> None:
-        """Sets the project settings for multiview images.
-        Images will be grouped by tag and have synchronized view and labeling.
+        """Sets the project settings for multiview mode.
+        Automatically detects project type and applies appropriate settings:
+
+        - For IMAGE projects: Images are grouped by tag with synchronized view and labeling.
+        - For VIDEO projects: Videos are grouped by datasets (each dataset = one group).
 
         :param project_id: Project ID to set multiview settings.
         :type project_id: int
@@ -2015,16 +2024,50 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
             load_dotenv(os.path.expanduser("~/supervisely.env"))
             api = sly.Api.from_env()
 
-            api.project.set_multiview_settings(project_id=123)
-        """
+            # For images project - will enable grouping by tags
+            api.project.set_multiview_settings(image_project_id)
 
-        self._set_custom_grouping_settings(
-            id=project_id,
-            group_images=True,
-            tag_name=_MULTIVIEW_TAG_NAME,
-            sync=False,
-            label_group_tag_name=_LABEL_GROUP_TAG_NAME,
+            # For videos project - will enable grouping by datasets
+            api.project.set_multiview_settings(video_project_id)
+        """
+        project_info = self.get_info_by_id(project_id)
+        if project_info.type == ProjectType.IMAGES.value:
+            self._set_custom_grouping_settings(
+                id=project_id,
+                group_images=True,
+                tag_name=_MULTIVIEW_TAG_NAME,
+                sync=False,
+                label_group_tag_name=_LABEL_GROUP_TAG_NAME,
+            )
+        elif project_info.type == ProjectType.VIDEOS.value:
+            self._set_custom_grouping_settings_video(project_id, sync=True)
+        else:
+            raise ValueError("Multiview settings can only be set for image or video projects")
+
+    def _set_custom_grouping_settings_video(self, project_id: int, sync: bool = True) -> None:
+        """Sets the project settings for multiview videos (private method).
+        For video projects, videos are grouped by datasets (not by tags).
+        Each dataset represents a group of videos that will be displayed together in multiview mode.
+
+        :param project_id: Project ID to set video multiview settings.
+        :type project_id: int
+        :param sync: If True, enables synchronized playback across video views.
+        :type sync: bool
+        :return: None
+        :rtype: :class:`NoneType`
+        """
+        meta = ProjectMeta.from_json(self.get_meta(project_id, with_settings=True))
+
+        new_settings = ProjectSettings(
+            multiview_enabled=True,
+            multiview_tag_name=None,  # Not used for videos
+            multiview_tag_id=None,  # Not used for videos
+            multiview_is_synced=sync,
+            labeling_interface=LabelingInterface.MULTIVIEW,
         )
+
+        meta = meta.clone(project_settings=new_settings)
+        self.update_meta(id=project_id, meta=meta)
 
     def remove_permanently(
         self, ids: Union[int, List], batch_size: int = 50, progress_cb=None
@@ -2327,7 +2370,7 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         """
         info = self.get_info_by_id(id, extra_fields=[ApiField.EMBEDDINGS_IN_PROGRESS])
         if info is None:
-            raise RuntimeError(f"Project with ID {id} not found.")
+            raise ProjectNotFound(f"Project with ID {id} not found.")
         if not hasattr(info, "embeddings_in_progress"):
             raise RuntimeError(
                 f"Project with ID {id} does not have 'embeddings_in_progress' field in its info."
@@ -2392,7 +2435,7 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         """
         info = self.get_info_by_id(id, extra_fields=[ApiField.EMBEDDINGS_UPDATED_AT])
         if info is None:
-            raise RuntimeError(f"Project with ID {id} not found.")
+            raise ProjectNotFound(f"Project with ID {id} not found.")
         if not hasattr(info, "embeddings_updated_at"):
             raise RuntimeError(
                 f"Project with ID {id} does not have 'embeddings_updated_at' field in its info."
@@ -2606,7 +2649,9 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
             )
             dst_project_id = dst_project_info.id
 
-        datasets = self._api.dataset.get_list(src_project_id, recursive=True, include_custom_data=True)
+        datasets = self._api.dataset.get_list(
+            src_project_id, recursive=True, include_custom_data=True
+        )
         src_to_dst_ids = {}
 
         for src_dataset_info in datasets:
@@ -2626,7 +2671,7 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         src_project_id: int,
         dst_project_id: Optional[int] = None,
         dst_project_name: Optional[str] = None,
-    ) -> Tuple[List[DatasetInfo], List[DatasetInfo]]:
+    ) -> List[Tuple[DatasetInfo, DatasetInfo]]:
         """This method can be used to recreate a project with hierarchial datasets (without the data itself).
 
         :param src_project_id: Source project ID
@@ -2636,8 +2681,8 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
         :param dst_project_name: Name of the destination project. If `dst_project_id` is None, a new project will be created with this name. If `dst_project_id` is provided, this parameter will be ignored.
         :type dst_project_name: str, optional
 
-        :return: Destination project ID
-        :rtype: int
+        :return: List of tuples of source and destination DatasetInfo objects
+        :rtype: List[Tuple[DatasetInfo, DatasetInfo]]
 
         :Usage example:
 
@@ -2650,8 +2695,8 @@ class ProjectApi(CloneableModuleApi, UpdateableModule, RemoveableModuleApi):
             src_project_id = 123
             dst_project_name = "New Project"
 
-            dst_project_id = api.project.recreate_structure(src_project_id, dst_project_name=dst_project_name)
-            print(f"Recreated project {src_project_id} -> {dst_project_id}")
+            infos = api.project.recreate_structure(src_project_id, dst_project_name=dst_project_name)
+            print(f"Recreated project {src_project_id}")
         """
         infos = []
         for src_info, dst_info in self.recreate_structure_generator(

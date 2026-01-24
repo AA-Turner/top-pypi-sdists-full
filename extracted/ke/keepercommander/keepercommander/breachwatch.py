@@ -16,7 +16,7 @@ from typing import Iterator, Tuple, Optional, List, Callable, Dict, Iterable, Un
 from .commands.helpers.enterprise import user_has_privilege, is_addon_enabled
 from .constants import KEEPER_PUBLIC_HOSTS
 from . import api, crypto, utils, rest_api, vault
-from .proto import breachwatch_pb2, client_pb2, APIRequest_pb2, enterprise_pb2
+from .proto import breachwatch_pb2, client_pb2, APIRequest_pb2
 from .error import KeeperApiError, CommandError
 from .params import KeeperParams
 from .security_audit import needs_security_audit, update_security_audit_data
@@ -87,7 +87,7 @@ class BreachWatch(object):
                     status.breachDetected = True
                     results[password] = status
         if len(bw_hashes) > 0:
-            logging.info('Breachwatch: %d passwords to scan', len(bw_hashes))
+            logging.info('Breachwatch: %d %s to scan', len(bw_hashes), 'password' if len(bw_hashes) == 1 else 'passwords')
             hashes = []     # type: List[breachwatch_pb2.HashCheck]
             for bw_hash in bw_hashes:
                 check = breachwatch_pb2.HashCheck()

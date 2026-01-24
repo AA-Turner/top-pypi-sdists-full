@@ -201,7 +201,7 @@ SPG_API int spg_get_minor_version(void);
 SPG_API int spg_get_micro_version(void);
 
 SPG_API SpglibError spg_get_error_code(void);
-SPG_API char *spg_get_error_message(SpglibError spglib_error);
+SPG_API const char *spg_get_error_message(SpglibError spglib_error);
 
 SPG_API SpglibDataset *spg_get_dataset(double const lattice[3][3],
                                        double const position[][3],

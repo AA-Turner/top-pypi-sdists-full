@@ -11,6 +11,7 @@ __all__ = [
     "CallCost",
     "CallCostProductCost",
     "Latency",
+    "LatencyAsr",
     "LatencyE2E",
     "LatencyKnowledgeBase",
     "LatencyLlm",
@@ -23,6 +24,7 @@ __all__ = [
     "ScrubbedTranscriptWithToolCallUtteranceWord",
     "ScrubbedTranscriptWithToolCallToolCallInvocationUtterance",
     "ScrubbedTranscriptWithToolCallToolCallResultUtterance",
+    "ScrubbedTranscriptWithToolCallNodeTransitionUtterance",
     "ScrubbedTranscriptWithToolCallDtmfUtterance",
     "TranscriptObject",
     "TranscriptObjectWord",
@@ -31,11 +33,16 @@ __all__ = [
     "TranscriptWithToolCallUtteranceWord",
     "TranscriptWithToolCallToolCallInvocationUtterance",
     "TranscriptWithToolCallToolCallResultUtterance",
+    "TranscriptWithToolCallNodeTransitionUtterance",
     "TranscriptWithToolCallDtmfUtterance",
 ]
 
 
 class CallAnalysis(BaseModel):
+    """
+    Post call analysis that includes information such as sentiment, status, summary, and custom defined data to extract. Available after call ends. Subscribe to `call_analyzed` webhook event type to receive it once ready.
+    """
+
     call_successful: Optional[bool] = None
     """
     Whether the agent seems to have a successful call with the user, where the agent
@@ -65,11 +72,13 @@ class CallCostProductCost(BaseModel):
     product: str
     """Product name that has a cost associated with it."""
 
-    unit_price: float
+    unit_price: Optional[float] = None
     """Unit price of the product in cents per second."""
 
 
 class CallCost(BaseModel):
+    """Cost of the call, including all the products and their costs and discount."""
+
     combined_cost: float
     """Combined cost of all individual costs in cents"""
 
@@ -83,7 +92,41 @@ class CallCost(BaseModel):
     """Total unit duration price of all products in cents per second"""
 
 
+class LatencyAsr(BaseModel):
+    """
+    Transcription latency (diff between the duration of the chunks streamed and the durations of the transcribed part) tracking of the call.
+    """
+
+    max: Optional[float] = None
+    """Maximum latency in the call, measured in milliseconds."""
+
+    min: Optional[float] = None
+    """Minimum latency in the call, measured in milliseconds."""
+
+    num: Optional[float] = None
+    """Number of data points (number of times latency is tracked)."""
+
+    p50: Optional[float] = None
+    """50 percentile of latency, measured in milliseconds."""
+
+    p90: Optional[float] = None
+    """90 percentile of latency, measured in milliseconds."""
+
+    p95: Optional[float] = None
+    """95 percentile of latency, measured in milliseconds."""
+
+    p99: Optional[float] = None
+    """99 percentile of latency, measured in milliseconds."""
+
+    values: Optional[List[float]] = None
+    """All the latency data points in the call, measured in milliseconds."""
+
+
 class LatencyE2E(BaseModel):
+    """
+    End to end latency (from user stops talking to agent start talking) tracking of the call. This latency does not account for the network trip time from Retell server to user frontend. The latency is tracked every time turn change between user and agent.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -110,6 +153,10 @@ class LatencyE2E(BaseModel):
 
 
 class LatencyKnowledgeBase(BaseModel):
+    """
+    Knowledge base latency (from the triggering of knowledge base retrival to all relevant context received) tracking of the call. Only populated when using knowledge base feature for the agent of the call.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -136,6 +183,10 @@ class LatencyKnowledgeBase(BaseModel):
 
 
 class LatencyLlm(BaseModel):
+    """
+    LLM latency (from issue of LLM call to first speakable chunk received) tracking of the call. When using custom LLM. this latency includes LLM websocket roundtrip time between user server and Retell server.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -162,6 +213,10 @@ class LatencyLlm(BaseModel):
 
 
 class LatencyLlmWebsocketNetworkRtt(BaseModel):
+    """
+    LLM websocket roundtrip latency (between user server and Retell server) tracking of the call. Only populated for calls using custom LLM.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -188,6 +243,10 @@ class LatencyLlmWebsocketNetworkRtt(BaseModel):
 
 
 class LatencyS2s(BaseModel):
+    """
+    Speech-to-speech latency (from requesting responses of a S2S model to first byte received) tracking of the call. Only populated for calls that uses S2S model like Realtime API.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -214,6 +273,10 @@ class LatencyS2s(BaseModel):
 
 
 class LatencyTts(BaseModel):
+    """
+    Text-to-speech latency (from the triggering of TTS to first byte received) tracking of the call.
+    """
+
     max: Optional[float] = None
     """Maximum latency in the call, measured in milliseconds."""
 
@@ -240,6 +303,17 @@ class LatencyTts(BaseModel):
 
 
 class Latency(BaseModel):
+    """Latency tracking of the call, available after call ends.
+
+    Not all fields here will be available, as it depends on the type of call and feature used.
+    """
+
+    asr: Optional[LatencyAsr] = None
+    """
+    Transcription latency (diff between the duration of the chunks streamed and the
+    durations of the transcribed part) tracking of the call.
+    """
+
     e2e: Optional[LatencyE2E] = None
     """
     End to end latency (from user stops talking to agent start talking) tracking of
@@ -283,6 +357,11 @@ class Latency(BaseModel):
 
 
 class LlmTokenUsage(BaseModel):
+    """LLM token usage of the call, available after call ends.
+
+    Not populated if using custom LLM, realtime API, or no LLM call is made.
+    """
+
     average: float
     """Average token count of the call."""
 
@@ -338,16 +417,40 @@ class ScrubbedTranscriptWithToolCallToolCallInvocationUtterance(BaseModel):
     tool_call_id: str
     """Tool call id, globally unique."""
 
+    thought_signature: Optional[str] = None
+    """Optional thought signature from Google Gemini thinking models.
+
+    This is used internally to maintain reasoning chain in multi-turn function
+    calling.
+    """
+
 
 class ScrubbedTranscriptWithToolCallToolCallResultUtterance(BaseModel):
     content: str
     """Result of the tool call, can be a string, a stringified json, etc."""
 
     role: Literal["tool_call_result"]
-    """This is result of a tool call."""
+    """This is the result of a tool call."""
 
     tool_call_id: str
     """Tool call id, globally unique."""
+
+
+class ScrubbedTranscriptWithToolCallNodeTransitionUtterance(BaseModel):
+    former_node_id: str
+    """Former node id"""
+
+    former_node_name: str
+    """Former node name"""
+
+    new_node_id: str
+    """New node id"""
+
+    new_node_name: str
+    """New node name"""
+
+    role: Literal["node_transition"]
+    """This is result of a node transition"""
 
 
 class ScrubbedTranscriptWithToolCallDtmfUtterance(BaseModel):
@@ -358,13 +461,14 @@ class ScrubbedTranscriptWithToolCallDtmfUtterance(BaseModel):
     """
 
     role: Literal["dtmf"]
-    """This is user pressed digit from their phone keypad."""
+    """Digit pressed by the user from their phone keypad."""
 
 
 ScrubbedTranscriptWithToolCall: TypeAlias = Union[
     ScrubbedTranscriptWithToolCallUtterance,
     ScrubbedTranscriptWithToolCallToolCallInvocationUtterance,
     ScrubbedTranscriptWithToolCallToolCallResultUtterance,
+    ScrubbedTranscriptWithToolCallNodeTransitionUtterance,
     ScrubbedTranscriptWithToolCallDtmfUtterance,
 ]
 
@@ -446,16 +550,40 @@ class TranscriptWithToolCallToolCallInvocationUtterance(BaseModel):
     tool_call_id: str
     """Tool call id, globally unique."""
 
+    thought_signature: Optional[str] = None
+    """Optional thought signature from Google Gemini thinking models.
+
+    This is used internally to maintain reasoning chain in multi-turn function
+    calling.
+    """
+
 
 class TranscriptWithToolCallToolCallResultUtterance(BaseModel):
     content: str
     """Result of the tool call, can be a string, a stringified json, etc."""
 
     role: Literal["tool_call_result"]
-    """This is result of a tool call."""
+    """This is the result of a tool call."""
 
     tool_call_id: str
     """Tool call id, globally unique."""
+
+
+class TranscriptWithToolCallNodeTransitionUtterance(BaseModel):
+    former_node_id: str
+    """Former node id"""
+
+    former_node_name: str
+    """Former node name"""
+
+    new_node_id: str
+    """New node id"""
+
+    new_node_name: str
+    """New node name"""
+
+    role: Literal["node_transition"]
+    """This is result of a node transition"""
 
 
 class TranscriptWithToolCallDtmfUtterance(BaseModel):
@@ -466,13 +594,14 @@ class TranscriptWithToolCallDtmfUtterance(BaseModel):
     """
 
     role: Literal["dtmf"]
-    """This is user pressed digit from their phone keypad."""
+    """Digit pressed by the user from their phone keypad."""
 
 
 TranscriptWithToolCall: TypeAlias = Union[
     TranscriptWithToolCallUtterance,
     TranscriptWithToolCallToolCallInvocationUtterance,
     TranscriptWithToolCallToolCallResultUtterance,
+    TranscriptWithToolCallNodeTransitionUtterance,
     TranscriptWithToolCallDtmfUtterance,
 ]
 
@@ -493,24 +622,25 @@ class WebCallResponse(BaseModel):
     call_id: str
     """Unique id of the call.
 
-    Used to identify in LLM websocket and used to authenticate in audio websocket.
+    Used to identify the call in the LLM websocket and used to authenticate in the
+    audio websocket.
     """
 
     call_status: Literal["registered", "not_connected", "ongoing", "ended", "error"]
     """Status of call.
 
     - `registered`: Call id issued, starting to make a call using this id.
-
     - `ongoing`: Call connected and ongoing.
-
     - `ended`: The underlying websocket has ended for the call. Either user or agent
-      hanged up, or call transferred.
-
+      hung up, or call transferred.
     - `error`: Call encountered error.
     """
 
     call_type: Literal["web_call"]
     """Type of the call. Used to distinguish between web call and phone call."""
+
+    agent_name: Optional[str] = None
+    """Name of the agent."""
 
     call_analysis: Optional[CallAnalysis] = None
     """
@@ -569,7 +699,7 @@ class WebCallResponse(BaseModel):
     ] = None
     """The reason for the disconnection of the call.
 
-    Read details desciption about reasons listed here at
+    Read detailed description about reasons listed here at
     [Disconnection Reason Doc](/reliability/debug-call-disconnect#understanding-disconnection-reasons).
     """
 
@@ -628,7 +758,7 @@ class WebCallResponse(BaseModel):
     """
 
     recording_multi_channel_url: Optional[str] = None
-    """Recording of the call, with each party’s audio stored in a separate channel.
+    """Recording of the call, with each party's audio stored in a separate channel.
 
     Available after the call ends.
     """
@@ -645,7 +775,7 @@ class WebCallResponse(BaseModel):
 
     scrubbed_recording_multi_channel_url: Optional[str] = None
     """
-    Recording of the call without PII, with each party’s audio stored in a separate
+    Recording of the call without PII, with each party's audio stored in a separate
     channel. Available after the call ends.
     """
 
@@ -680,4 +810,13 @@ class WebCallResponse(BaseModel):
 
     It precisely captures when (at what utterance, which word) the tool was invoked
     and what was the result. Available after call ends.
+    """
+
+    transfer_destination: Optional[str] = None
+    """The destination number or identifier where the call was transferred to.
+
+    Only populated when the disconnection reason was `call_transfer`. Can be a phone
+    number or a SIP URI. SIP URIs are prefixed with "sip:" and may include a
+    ";transport=..." portion (if transport is known) where the transport type can be
+    "tls", "tcp" or "udp".
     """

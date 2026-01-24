@@ -53,8 +53,7 @@ except ImportError:
     gevent = None
 
 
-def _normalize_distribution_name(name):
-    # type: (str) -> str
+def _normalize_distribution_name(name: str) -> str:
     """Normalize distribution name according to PEP-0503.
 
     See:
@@ -196,9 +195,9 @@ def test_datetime_from_isoformat_with_py_36_or_lower(input_str, expected_output)
     ],
 )
 def test_env_to_bool(env_var_value, strict, expected):
-    assert (
-        env_to_bool(env_var_value, strict=strict) == expected
-    ), f"Value: {env_var_value}, strict: {strict}"
+    assert env_to_bool(env_var_value, strict=strict) == expected, (
+        f"Value: {env_var_value}, strict: {strict}"
+    )
 
 
 @pytest.mark.parametrize(

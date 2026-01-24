@@ -285,7 +285,7 @@ class Activity(object, metaclass=abc.ABCMeta):
             if name is None or thread_name == name:
                 LOG.debug('%s: Stopping child thread %s',
                           self.name, thread_name)
-                thread.kill()
+                hub.kill(thread)
                 self._child_thread_map.pop(thread_name, None)
 
     def _close_asso_sockets(self):
@@ -386,16 +386,8 @@ class Activity(object, metaclass=abc.ABCMeta):
         for sa in listen_sockets:
             name = self.name + '_server@' + str(sa[0])
             self._asso_socket_map[name] = listen_sockets[sa]
-            if count == 0:
-                import eventlet
-                server = eventlet.spawn(self._listen_socket_loop,
-                                        listen_sockets[sa], conn_handle)
-
-                self._child_thread_map[name] = server
-                count += 1
-            else:
-                server = self._spawn(name, self._listen_socket_loop,
-                                     listen_sockets[sa], conn_handle)
+            server = self._spawn(name, self._listen_socket_loop,
+                                 listen_sockets[sa], conn_handle)
         return server, listen_sockets
 
     def _connect_tcp(self, peer_addr, conn_handler, time_out=None,

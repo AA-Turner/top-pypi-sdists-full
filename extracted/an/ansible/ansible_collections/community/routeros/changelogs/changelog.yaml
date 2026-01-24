@@ -1012,3 +1012,146 @@ releases:
       - 392-sys-note-cli-login.yml
       - 394-iface-list-defaults.yml
     release_date: '2025-08-31'
+  3.11.0:
+    changes:
+      bugfixes:
+        - api - allow querying for keys containing ``id``, as long as the key itself
+          is not ``id`` (https://github.com/ansible-collections/community.routeros/issues/396,
+          https://github.com/ansible-collections/community.routeros/pull/398).
+      minor_changes:
+        - api_find_and_modify, api_modify - instead of comparing supplied values as-is
+          to values retrieved from the API and converted to some types (int, bool)
+          by librouteros, instead compare values by converting them to strings first,
+          using similar conversion rules that librouteros uses (https://github.com/ansible-collections/community.routeros/issues/389,
+          https://github.com/ansible-collections/community.routeros/issues/370, https://github.com/ansible-collections/community.routeros/issues/325,
+          https://github.com/ansible-collections/community.routeros/issues/169, https://github.com/ansible-collections/community.routeros/pull/397).
+      release_summary: Bugfix and feature release.
+    fragments:
+      - 3.11.0.yml
+      - 397-compare-by-value.yml
+      - 398-api-id.yml
+    release_date: '2025-09-21'
+  3.12.0:
+    changes:
+      bugfixes:
+        - Avoid using ``ansible.module_utils.six`` to avoid deprecation warnings with
+          ansible-core 2.20 (https://github.com/ansible-collections/community.routeros/pull/405).
+      minor_changes:
+        - api_modify - add ``vrf`` for ``system logging action`` with a default of
+          ``main`` for RouterOS 7.19 and newer (https://github.com/ansible-collections/community.routeros/pull/401).
+        - api_modify, api_info - field ``instance`` in ``routing bgp connection``
+          path is required, and ``router-id`` has been moved to ``routing bgp instance``
+          by RouterOS 7.20 and newer (https://github.com/ansible-collections/community.routeros/pull/404).
+        - api_modify, api_info - support for field ``new-priority`` in API path ``ipv6
+          firewall mangle``` (https://github.com/ansible-collections/community.routeros/pull/402).
+      release_summary: Bugfix and feature release.
+    fragments:
+      - 3.12.0.yml
+      - 401-vrf-logging.yml
+      - 402-ipv6-firewall-mangle-new-priority.yml
+      - 404-bgp-connection-instance.yml
+      - 405-six.yml
+    release_date: '2025-10-03'
+  3.12.1:
+    changes:
+      bugfixes:
+        - Fix accidental type extensions (https://github.com/ansible-collections/community.routeros/pull/406).
+      release_summary: Maintenance release.
+    fragments:
+      - 3.12.1.yml
+      - 406-fix.yml
+    release_date: '2025-10-05'
+  3.13.0:
+    changes:
+      minor_changes:
+        - api_modify - add ``vrf`` for ``snmp`` with a default of ``main`` for RouterOS
+          7.3 and newer (https://github.com/ansible-collections/community.routeros/pull/411).
+      release_summary: Feature release.
+    fragments:
+      - 3.13.0.yml
+      - 411-vrf-snmp.yml
+    release_date: '2025-10-29'
+  3.14.0:
+    changes:
+      bugfixes:
+        - api_modify, api_info - in the ``routing bgp connection`` and ``bgp templates``
+          paths, fix spelling of the ``output.remove-private-as`` parameter (https://github.com/ansible-collections/community.routeros/issues/415,
+          https://github.com/ansible-collections/community.routeros/pull/416).
+        - api_modify, api_info - in the ``routing bgp instance`` path, fix 'Cannot
+          add new entry to this path' error (https://github.com/ansible-collections/community.routeros/issues/409,
+          https://github.com/ansible-collections/community.routeros/pull/420).
+        - api_modify, api_info - in the ``routing bgp templates`` path, remove ``address-families``
+          for RouterOS 7.19+ (https://github.com/ansible-collections/community.routeros/issues/415,
+          https://github.com/ansible-collections/community.routeros/pull/416).
+        - api_modify, api_info - in the ``routing bgp templates`` path, remove ``router-id``
+          for RouterOS 7.20+ (https://github.com/ansible-collections/community.routeros/issues/415,
+          https://github.com/ansible-collections/community.routeros/pull/416).
+        - api_modify, api_info - in the ``routing bgp templates`` path, support ``afi``
+          (RouterOS 7.19+) (RouterOS 7.19 and before) (https://github.com/ansible-collections/community.routeros/issues/415,
+          https://github.com/ansible-collections/community.routeros/pull/416).
+      minor_changes:
+        - api_info, api_modify - add missing attribute ``radsec-timeout`` for the
+          ``radius`` path which exists since RouterOS version 7.19.6 (https://github.com/ansible-collections/community.routeros/pull/412).
+        - api_info, api_modify - add support for path ``interface dot1x client`` (https://github.com/ansible-collections/community.routeros/pull/414).
+        - api_info, api_modify - add support for path ``interface dot1x server`` (https://github.com/ansible-collections/community.routeros/pull/413).
+        - api_info, api_modify - add support for paths ``ip hotspot``, ``ip hotspot
+          profile``, ``ip hotspot user``, ``ip hotspot user profile``, ``ip hotspot
+          walled-garden``, and ``ip hotspot walled-garden ip`` (https://github.com/ansible-collections/community.routeros/pull/418).
+        - api_info, api_modify - allow the ``fib`` parameter to be disabled for the
+          ``routing table`` path (https://github.com/ansible-collections/community.routeros/issues/368,
+          https://github.com/ansible-collections/community.routeros/pull/417).
+        - api_info, api_modify - remove primary key constraint on 'peer' for path
+          ``ip ipsec identity`` (https://github.com/ansible-collections/community.routeros/pull/421).
+      release_summary: Bugfix and feature release.
+    fragments:
+      - 3.14.0.yml
+      - 412_add_radius_radsec-timeout.yml
+      - 413_add_path_interface_dot1x_server.yml
+      - 414_add_path_interface_dot1x_client.yml
+      - 416-fixes-to-bgp-parameters.yml
+      - 417_set_can_disable_for_fib_in_path_routing_table.yml
+      - 418-support-path-ip-hotspot.yml
+      - 420_fix_routing_bgp_instance.yml
+      - 421_fix_ip_ipsec_identity.yml
+    release_date: '2025-11-30'
+  3.15.0:
+    changes:
+      deprecated_features:
+        - api_find_and_modify - the current defaults for ``ignore_dynamic`` and ``ignore_builtin``
+          (both ``false``) have been deprecated and will change to ``true`` in community.routeros
+          4.0.0. To avoid deprecation messages, please set the value explicitly to
+          ``true`` or ``false``, if you have not already done so. We recommend to
+          set them to ``true``, unless you have a good reason to set them to ``false``
+          (https://github.com/ansible-collections/community.routeros/pull/399).
+      minor_changes:
+        - api_info, api_modify - add ``2g-probe-delay`` field to path ``interface
+          wifi steering`` (https://github.com/ansible-collections/community.routeros/pull/428).
+        - api_info, api_modify - add ``aaa.*``, ``channel.*``, ``datapath.*``, ``interworking.*``,
+          ``security.*``, ``steering.*`` sub-fields to path ``interface wifi configuration``
+          (https://github.com/ansible-collections/community.routeros/pull/428).
+        - api_info, api_modify - add ``deprioritize-unii-3-4``, ``reselect-interval``,
+          ``reselect-time`` fields to path ``interface wifi channel`` (https://github.com/ansible-collections/community.routeros/pull/428).
+        - api_info, api_modify - add ``multi-passphrase-group`` field to path ``interface
+          wifi security`` (https://github.com/ansible-collections/community.routeros/pull/428).
+        - api_info, api_modify - add ``send-email-from``, ``send-email-to`` and ``send-smtp-server``
+          to ``system watchdog`` (https://github.com/ansible-collections/community.routeros/pull/429).
+        - api_info, api_modify - add ``traffic-processing`` field to path ``interface
+          wifi datapath`` and ``interface wifi configuration`` (https://github.com/ansible-collections/community.routeros/pull/424).
+        - api_info, api_modify - add ``use-bfd`` to ``routing ospf interface-template``
+          path (https://github.com/ansible-collections/community.routeros/pull/425).
+        - api_info, api_modify - add ``vrf`` to ``ip service`` (https://github.com/ansible-collections/community.routeros/pull/426).
+        - api_info, api_modify - add missing parameters to path ``interface bridge``
+          and ``interface bridge port`` (https://github.com/ansible-collections/community.routeros/pull/423).
+        - api_info, api_modify - add support for path ``disk settings`` (https://github.com/ansible-collections/community.routeros/pull/422).
+      release_summary: Feature release.
+    fragments:
+      - 3.15.0.yml
+      - 399-builtin-dynamic.yml
+      - 422_add_path_disk_settings.yml
+      - 423_add_missing_parameters_for_interface_bridge.yml
+      - 424_add_traffic_processing_field.yml
+      - 425_ospf-use-bfd.yml
+      - 426_ip_service_vrf.yml
+      - 428_added_missing_fields_for_several_wifi_paths.yml
+      - 429_add_missing_system_watchdog_options.yml
+    release_date: '2025-12-29'

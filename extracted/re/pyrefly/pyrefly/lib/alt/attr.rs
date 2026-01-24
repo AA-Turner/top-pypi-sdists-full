@@ -13,12 +13,19 @@ use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::literal::LitEnum;
 use pyrefly_types::special_form::SpecialForm;
+use pyrefly_types::typed_dict::TypedDictInner;
+use pyrefly_types::types::Forall;
+use pyrefly_types::types::Forallable;
 use pyrefly_types::types::TArgs;
+use pyrefly_types::types::Union;
 use pyrefly_types::types::Var;
+use pyrefly_util::suggest::best_suggestion;
+use ruff_python_ast::helpers::is_dunder;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -33,14 +40,19 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::export::exports::Export;
+use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::solver::solver::SubsetError;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
+use crate::types::callable::PropertyMetadata;
+use crate::types::callable::PropertyRole;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
+use crate::types::literal::Literal;
 use crate::types::module::ModuleType;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
@@ -48,6 +60,7 @@ use crate::types::read_only::ReadOnlyReason;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
+use crate::types::types::BoundMethodType;
 use crate::types::types::Overload;
 use crate::types::types::SuperObj;
 use crate::types::types::Type;
@@ -66,7 +79,7 @@ struct LookupResult {
     pub internal_error: Vec<InternalError>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttrSubsetError {
     // `got` is not accessible, but `want` is
     NoAccess,
@@ -234,9 +247,8 @@ pub enum NoAccessReason {
     SettingReadOnlyProperty(Class),
     /// A descriptor that only has `__get__` should be treated as read-only on instances.
     SettingReadOnlyDescriptor(Class),
-    /// We do not allow class-level mutation of descriptors (this is conservative,
-    /// it is unspecified whether monkey-patching descriptors should be permitted).
-    SettingDescriptorOnClass(Class),
+    /// Calling a method via `super()` when no implementation is available (e.g. abstract protocol or abstract base method).
+    SuperMethodNeedsImplementation(Class),
 }
 
 #[derive(Debug)]
@@ -280,16 +292,16 @@ impl NoAccessReason {
                     "Attribute `{attr_name}` of class `{class_name}` is a read-only property and cannot be set"
                 )
             }
-            NoAccessReason::SettingDescriptorOnClass(class) => {
-                let class_name = class.name();
-                format!(
-                    "Attribute `{attr_name}` of class `{class_name}` is a descriptor, which may not be overwritten"
-                )
-            }
             NoAccessReason::SettingReadOnlyDescriptor(class) => {
                 let class_name = class.name();
                 format!(
                     "Attribute `{attr_name}` of class `{class_name}` is a read-only descriptor with no `__set__` and cannot be set"
+                )
+            }
+            NoAccessReason::SuperMethodNeedsImplementation(class) => {
+                let class_name = class.name();
+                format!(
+                    "Method `{attr_name}` inherited from class `{class_name}` has no implementation and cannot be accessed via `super()`"
                 )
             }
         }
@@ -373,14 +385,21 @@ impl NotFoundOn {
 }
 
 impl InternalError {
-    pub fn to_error_msg(self, attr_name: &Name, todo_ctx: &str) -> String {
-        match self {
+    pub fn add_to(
+        self,
+        errors: &ErrorCollector,
+        range: TextRange,
+        attr_name: &Name,
+        todo_ctx: &str,
+    ) {
+        let msg = match self {
             InternalError::AttributeBaseUndefined(ty) => format!(
                 "TODO: {todo_ctx} attribute base undefined for type: {} (trying to access {})",
                 ty.deterministic_printing(),
                 attr_name
             ),
-        }
+        };
+        errors.internal_error(range, vec1![msg]);
     }
 }
 
@@ -392,11 +411,19 @@ impl InternalError {
 #[derive(Clone, Debug)]
 struct AttributeBase(Vec1<AttributeBase1>);
 
+#[derive(Clone, Debug)]
+struct PropertyAttr {
+    getter: Type,
+    setter: Option<Type>,
+    deleter: bool,
+}
+
 /// A single, "atomic" attribute base, not coming from a union or an intersection.
 /// An attribute is either found or not found by a search on this.
 #[derive(Clone, Debug)]
 enum AttributeBase1 {
     EnumLiteral(LitEnum),
+    LiteralString,
     ClassInstance(ClassType),
     ClassObject(ClassBase),
     Module(ModuleType),
@@ -408,24 +435,29 @@ enum AttributeBase1 {
     /// bound, which may be the original bound on `T` or a decomposition of
     /// it (e.g. if the original bound is a union).
     Quantified(Quantified, ClassType),
-    /// Attribute access on a value explicitly typed as `type[T]` where `T` is
-    /// an in-scope type variable. We will resolve it as class object attribute
-    /// access against the bounds of `T`.
-    TypeQuantified(Quantified, ClassType),
     Any(AnyStyle),
     Never,
     /// type[Any] is a special case where attribute lookups first check the
     /// builtin `type` class before falling back to `Any`.
     TypeAny(AnyStyle),
+    /// type[Never] is a special case where attribute lookups first check the builtin `type` class
+    /// before falling back to `Never`.
+    TypeNever,
     /// Properties are handled via a special case so that we can understand
-    /// setter decorators.
-    Property(Type),
+    /// setter/deleter decorators.
+    Property(PropertyAttr),
     /// Attribute access on `Self` from inside a class
     SelfType(ClassType),
     /// Result of a super() call. See Type::SuperInstance for details on what these fields are.
     SuperInstance(ClassType, SuperObj),
     /// Typed dictionaries have similar properties to dict and Mapping, with some exceptions
-    TypedDict(TypedDict),
+    TypedDict(TypedDictInner),
+    /// Attribute lookup on a base as part of a subset check against a protocol.
+    ProtocolSubset(Box<AttributeBase1>),
+    Intersect(Vec<AttributeBase1>, Vec<AttributeBase1>),
+    /// Bound methods prefer exposing builtin `types.MethodType` attributes but fall back to the
+    /// underlying function's attributes when the builtin ones are missing.
+    BoundMethod(BoundMethodType),
 }
 
 impl AttributeBase1 {
@@ -447,14 +479,18 @@ pub enum ClassBase {
 }
 
 impl ClassBase {
-    pub fn class_object(&self) -> &Class {
+    pub fn class_type(&self) -> &ClassType {
         match self {
-            ClassBase::ClassDef(c) => c.class_object(),
-            ClassBase::ClassType(c) => c.class_object(),
-            ClassBase::Quantified(_, c) => c.class_object(),
-            ClassBase::SelfType(c) => c.class_object(),
-            ClassBase::Protocol(c, _) => c.class_object(),
+            ClassBase::ClassDef(c)
+            | ClassBase::ClassType(c)
+            | ClassBase::Quantified(_, c)
+            | ClassBase::SelfType(c)
+            | ClassBase::Protocol(c, _) => c,
         }
+    }
+
+    pub fn class_object(&self) -> &Class {
+        self.class_type().class_object()
     }
 
     pub fn targs(&self) -> Option<&TArgs> {
@@ -501,40 +537,118 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         todo_ctx: &str,
     ) -> Type {
         let attr_base = self.as_attribute_base(base.clone());
-        let lookup_result = attr_base.map_or_else(
+        let lookup_result = attr_base.clone().map_or_else(
             || LookupResult::internal_error(InternalError::AttributeBaseUndefined(base.clone())),
             |attr_base| self.lookup_attr_from_base(attr_base, attr_name),
         );
         let mut types = Vec::new();
         let mut error_messages = Vec::new();
+        let mut success = true;
         let (found, not_found, error) = lookup_result.decompose();
         for (attr, _) in found {
-            match self.resolve_get_access(attr, range, errors, context) {
+            match self.resolve_get_access(attr_name, attr, range, errors, context) {
                 Ok(ty) => types.push(ty),
-                Err(err) => error_messages.push(err.to_error_msg(attr_name)),
+                Err(err) => {
+                    error_messages.push(err.to_error_msg(attr_name));
+                    success = false;
+                }
             }
         }
         for err in not_found {
-            error_messages.push(err.to_error_msg(attr_name))
+            error_messages.push(err.to_error_msg(attr_name));
+            success = false;
         }
         for err in error {
-            error_messages.push(err.to_error_msg(attr_name, todo_ctx))
+            err.add_to(errors, range, attr_name, todo_ctx);
+            success = false;
         }
 
         // Both types and error messages can be duplicated if elements in `attr_base` gets duplicated (can happen with
         // if base type contain vars). Make sure that dedup logic applies to both branches.
-        if error_messages.is_empty() {
+        if success {
             self.unions(types)
-        } else {
+        } else if !error_messages.is_empty() {
             error_messages.sort();
             error_messages.dedup();
-            self.error(
-                errors,
+            let mut msg = vec1![error_messages.join("\n")];
+            if let Some(suggestion) = attr_base
+                .as_ref()
+                .and_then(|attr_base| self.suggest_attribute_name(attr_name, attr_base))
+            {
+                msg.push(format!("Did you mean `{suggestion}`?"));
+            }
+            errors.add(
                 range,
                 ErrorInfo::new(ErrorKind::MissingAttribute, context),
-                error_messages.join("\n"),
-            )
+                msg,
+            );
+            Type::any_error()
+        } else {
+            Type::any_error() // we've encountered internal errors (already logged above)
         }
+    }
+
+    fn add_class_fields(&self, class: &Class, candidates: &mut SmallSet<Name>) {
+        let mut add_fields_for = |cls: &Class| {
+            for name in cls.fields() {
+                candidates.insert(name.clone());
+            }
+        };
+        add_fields_for(class);
+        let mro = self.get_mro_for_class(class);
+        for ancestor in mro.ancestors_no_object() {
+            add_fields_for(ancestor.class_object());
+        }
+    }
+
+    fn collect_attribute_candidates_from_base(
+        &self,
+        base: &AttributeBase1,
+        candidates: &mut SmallSet<Name>,
+    ) {
+        match base {
+            AttributeBase1::ClassInstance(class) => {
+                self.add_class_fields(class.class_object(), candidates);
+            }
+            AttributeBase1::ClassObject(class_base) => {
+                self.add_class_fields(class_base.class_object(), candidates);
+            }
+            AttributeBase1::LiteralString => {
+                self.add_class_fields(self.stdlib.str().class_object(), candidates);
+            }
+            AttributeBase1::TypedDict(td) => {
+                self.add_class_fields(td.class_object(), candidates);
+            }
+            AttributeBase1::SuperInstance(class, ..) => {
+                self.add_class_fields(class.class_object(), candidates);
+            }
+            AttributeBase1::Quantified(_, class_type) => {
+                self.add_class_fields(class_type.class_object(), candidates);
+            }
+            AttributeBase1::SelfType(class_type) => {
+                self.add_class_fields(class_type.class_object(), candidates);
+            }
+            AttributeBase1::ProtocolSubset(inner) => {
+                self.collect_attribute_candidates_from_base(inner, candidates);
+            }
+            AttributeBase1::Intersect(options, fallback) => {
+                for b in options {
+                    self.collect_attribute_candidates_from_base(b, candidates);
+                }
+                for b in fallback {
+                    self.collect_attribute_candidates_from_base(b, candidates);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn suggest_attribute_name(&self, missing: &Name, attr_base: &AttributeBase) -> Option<Name> {
+        let mut candidates = SmallSet::new();
+        for base in attr_base.0.iter() {
+            self.collect_attribute_candidates_from_base(base, &mut candidates);
+        }
+        best_suggestion(missing, candidates.iter().map(|candidate| (candidate, 0)))
     }
 
     /// Can the attribute be successfully looked up in all cases?
@@ -565,6 +679,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         todo_ctx: &str,
+        allow_getattr_fallback: bool,
     ) -> Option<Type> {
         let mut not_found = false;
         let mut attr_tys = Vec::new();
@@ -574,12 +689,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Some(base) => {
                 let direct_lookup_result = self.lookup_magic_dunder_attr(base.clone(), attr_name);
-                self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
+                if allow_getattr_fallback {
+                    self.lookup_attr_from_base_getattr_fallback(attr_name, direct_lookup_result)
+                } else {
+                    direct_lookup_result
+                }
             }
         };
         for (attr, _) in lookup_result.found {
             attr_tys.push(
-                self.resolve_get_access(attr, range, errors, context)
+                self.resolve_get_access(attr_name, attr, range, errors, context)
                     .unwrap_or_else(|e| {
                         self.error(
                             errors,
@@ -594,12 +713,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             not_found = true;
         }
         for internal_error in lookup_result.internal_error {
-            attr_tys.push(self.error(
-                errors,
-                range,
-                ErrorInfo::new(ErrorKind::InternalError, context),
-                internal_error.to_error_msg(attr_name, todo_ctx),
-            ))
+            internal_error.add_to(errors, range, attr_name, todo_ctx);
+            attr_tys.push(Type::any_error());
         }
         if not_found {
             return None;
@@ -617,6 +732,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         base: &Type,
         name: &Name,
         got: &ExprOrBinding,
+        allow_assign_to_final: bool,
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
@@ -632,6 +748,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             base,
             name,
             got,
+            allow_assign_to_final,
             range,
             errors,
             None,
@@ -654,7 +771,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .decompose();
         for (setattr_attr, _) in setattr_found {
             let result = self
-                .resolve_get_access(setattr_attr, range, errors, context)
+                .resolve_get_access(attr_name, setattr_attr, range, errors, context)
                 .map(|setattr_ty| {
                     self.call_setattr(
                         setattr_ty,
@@ -701,7 +818,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .decompose();
         for (delattr_attr, _) in delattr_found {
             let result = self
-                .resolve_get_access(delattr_attr, range, errors, context)
+                .resolve_get_access(attr_name, delattr_attr, range, errors, context)
                 .map(|delattr_ty| {
                     self.call_getattr_or_delattr(
                         delattr_ty,
@@ -738,6 +855,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         base: &Type,
         attr_name: &Name,
         got: TypeOrExpr,
+        allow_assign_to_final: bool,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
@@ -748,25 +866,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut should_narrow = true;
         let mut narrowed_types = Vec::new();
         let Some(attr_base) = self.as_attribute_base(base.clone()) else {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::new(ErrorKind::InternalError, context),
-                InternalError::AttributeBaseUndefined(base.clone())
-                    .to_error_msg(attr_name, todo_ctx),
-            );
+            InternalError::AttributeBaseUndefined(base.clone())
+                .add_to(errors, range, attr_name, todo_ctx);
             return None;
         };
         let (lookup_found, lookup_not_found, lookup_error) = self
             .lookup_attr_from_base(attr_base.clone(), attr_name)
             .decompose();
         for e in lookup_error {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::new(ErrorKind::InternalError, context),
-                e.to_error_msg(attr_name, todo_ctx),
-            );
+            e.add_to(errors, range, attr_name, todo_ctx);
             should_narrow = false;
         }
         for not_found in lookup_not_found {
@@ -813,15 +921,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Attribute::ClassAttribute(class_attr) => {
                     // If we are writing to an instance, we may need access to
                     // the class to special-case dataclass converters.
-                    let instance_class = match found_on {
+                    let instance_class = match &found_on {
                         AttributeBase1::ClassInstance(cls) => Some(cls),
+                        _ => None,
+                    };
+                    let class_base = match &found_on {
+                        AttributeBase1::ClassObject(cls_base) => Some(cls_base),
                         _ => None,
                     };
                     self.check_class_attr_set_and_infer_narrow(
                         class_attr,
                         instance_class,
+                        class_base,
                         attr_name,
                         got,
+                        allow_assign_to_final,
                         range,
                         errors,
                         context,
@@ -881,13 +995,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         todo_ctx: &str,
     ) {
         let Some(attr_base) = self.as_attribute_base(base.clone()) else {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::new(ErrorKind::InternalError, context),
-                InternalError::AttributeBaseUndefined(base.clone())
-                    .to_error_msg(attr_name, todo_ctx),
-            );
+            InternalError::AttributeBaseUndefined(base.clone())
+                .add_to(errors, range, attr_name, todo_ctx);
             return;
         };
         let (lookup_found, lookup_not_found, lookup_error) = self
@@ -904,12 +1013,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         for error in lookup_error {
-            self.error(
-                errors,
-                range,
-                ErrorInfo::new(ErrorKind::InternalError, context),
-                error.to_error_msg(attr_name, todo_ctx),
-            );
+            error.add_to(errors, range, attr_name, todo_ctx);
         }
         for (attr, _) in lookup_found {
             match attr {
@@ -927,7 +1031,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 Attribute::Simple(_) => {
-                    // Allow deleting most attributes for now, for compatbility with mypy.
+                    // Allow deleting most attributes for now, for compatibility with mypy.
                 }
                 Attribute::ClassAttribute(class_attr) => {
                     self.check_class_attr_delete(class_attr, attr_name, range, errors, context);
@@ -946,12 +1050,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         got: &Type,
         protocol: &ClassType,
-        name: &Name,
+        attr_name: &Name,
         is_subset: &mut dyn FnMut(&Type, &Type) -> Result<(), SubsetError>,
     ) -> Result<(), SubsetError> {
         if let Some(got_attrs) = self
             .as_attribute_base(got.clone())
-            .map(|got_base| self.lookup_attr_from_base(got_base, name))
+            .map(|got_base| {
+                let got_base = AttributeBase(
+                    got_base
+                        .0
+                        .mapped(|base| AttributeBase1::ProtocolSubset(Box::new(base))),
+                );
+                self.lookup_attr_from_base(got_base, attr_name)
+            })
             .and_then(|lookup_result| {
                 if lookup_result.not_found.is_empty() && lookup_result.internal_error.is_empty() {
                     Some(lookup_result.found)
@@ -960,21 +1071,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             })
         {
+            // `as_attribute_base` promotes literals, so we should promote here too
+            // In the future, we should refactor `get_protocol_attribute` to reuse the `AttributeBase`, to ensure the logic is identical
+            let got = got.clone().promote_implicit_literals(self.stdlib);
             if (!got_attrs.is_empty())
-                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), name)
+                && let Some(want) = self.get_protocol_attribute(protocol, got.clone(), attr_name)
             {
                 for (got_attr, _) in got_attrs.iter() {
                     self.is_attribute_subset(got_attr, &want, &mut |got, want| {
                         is_subset(got, want)
                     })
-                    .map_err(|_| SubsetError::Other)?;
+                    .map_err(|err| {
+                        SubsetError::IncompatibleAttribute(Box::new((
+                            protocol.name().clone(),
+                            self.for_display(got.clone()),
+                            attr_name.clone(),
+                            err,
+                        )))
+                    })?;
                 }
                 Ok(())
             } else {
-                Err(SubsetError::Other)
+                Err(SubsetError::MissingAttribute(
+                    protocol.name().clone(),
+                    attr_name.clone(),
+                ))
             }
         } else {
-            Err(SubsetError::Other)
+            Err(SubsetError::MissingAttribute(
+                protocol.name().clone(),
+                attr_name.clone(),
+            ))
         }
     }
 
@@ -1006,6 +1133,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn resolve_get_access(
         &self,
+        attr_name: &Name,
         attr: Attribute,
         range: TextRange,
         errors: &ErrorCollector,
@@ -1013,7 +1141,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Result<Type, NoAccessReason> {
         match attr {
             Attribute::ClassAttribute(class_attr) => {
-                self.resolve_get_class_attr(class_attr, range, errors, context)
+                self.resolve_get_class_attr(attr_name, class_attr, range, errors, context)
             }
             Attribute::Simple(ty) => Ok(ty),
             Attribute::ModuleFallback(_, name, ty) => {
@@ -1026,7 +1154,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Ok(ty)
             }
             Attribute::GetAttr(_, getattr_attr, name) => self
-                .resolve_get_access(*getattr_attr, range, errors, context)
+                .resolve_get_access(attr_name, *getattr_attr, range, errors, context)
                 .map(|getattr_ty| {
                     self.call_getattr_or_delattr(getattr_ty, name, range, errors, context)
                 }),
@@ -1044,6 +1172,54 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         acc
     }
 
+    /// Try looking up this attribute as a magic dunder method that follows special attribute
+    /// lookup rules, returning the attribute if we succeed.
+    fn try_get_magic_dunder_attr(
+        &self,
+        cls: &ClassBase,
+        attr_name: &Name,
+    ) -> Option<ClassAttribute> {
+        if !is_dunder(attr_name)
+            // Constructors and the dataclass __post_init__ method are special-cased elsewhere and
+            // should not go through magic dunder lookup.
+            || [dunder::NEW, dunder::INIT, dunder::POST_INIT]
+                .iter()
+                .any(|constructor| constructor == attr_name)
+        {
+            return None;
+        }
+        let metadata = self.get_metadata_for_class(cls.class_object());
+        let metaclass = metadata.metaclass(self.stdlib);
+        let attr = self.get_metaclass_attribute(cls, metaclass, attr_name)?;
+        attr.clone().as_instance_method().map(|_| attr)
+    }
+
+    /// Helper for looking up attributes on `type[T]` wrappers.
+    /// First checks the builtin `type` class, then falls back to the provided fallback.
+    fn lookup_attr_from_type_wrapper(
+        &self,
+        attr_name: &Name,
+        fallback: impl FnOnce() -> Type,
+    ) -> Type {
+        let builtins_type_classtype = self.stdlib.builtins_type();
+        self.get_instance_attribute(builtins_type_classtype, attr_name)
+            .and_then(|attr| match attr {
+                ClassAttribute::Property(getter, _, _) => {
+                    let error_swallower = self.error_swallower();
+                    let fake_range = TextRange::default();
+                    let ty = self.call_property_getter(getter, fake_range, &error_swallower, None);
+                    if error_swallower.is_empty() {
+                        Some(ty)
+                    } else {
+                        // Should not happen here, but just in case
+                        None
+                    }
+                }
+                _ => attr.as_instance_method(),
+            })
+            .unwrap_or_else(fallback)
+    }
+
     fn lookup_attr_from_attribute_base1(
         &self,
         base: AttributeBase1,
@@ -1053,26 +1229,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &base {
             AttributeBase1::Any(style) => acc.found_type(style.propagate(), base),
             AttributeBase1::TypeAny(style) => {
-                let builtins_type_classtype = self.stdlib.builtins_type();
-                let ty = self
-                    .get_instance_attribute(builtins_type_classtype, attr_name)
-                    .and_then(|attr| attr.as_instance_method())
-                    .unwrap_or_else(|| style.propagate());
+                let ty = self.lookup_attr_from_type_wrapper(attr_name, || style.propagate());
+                acc.found_type(ty, base);
+            }
+            AttributeBase1::TypeNever => {
+                let ty = self.lookup_attr_from_type_wrapper(attr_name, Type::never);
                 acc.found_type(ty, base);
             }
             AttributeBase1::Never => acc.found_type(Type::never(), base),
             AttributeBase1::EnumLiteral(e) if matches!(attr_name.as_str(), "name" | "_name_") => {
-                acc.found_type(Type::Literal(Lit::Str(e.member.as_str().into())), base)
+                acc.found_type(Lit::Str(e.member.as_str().into()).to_implicit_type(), base)
             }
-            AttributeBase1::EnumLiteral(e) if matches!(attr_name.as_str(), "value" | "_value_") => {
-                acc.found_type(e.ty.clone(), base)
-            }
-            AttributeBase1::ClassInstance(class)
-            | AttributeBase1::EnumLiteral(LitEnum { class, .. }) => {
+            AttributeBase1::LiteralString => match self.get_literal_string_attribute(attr_name) {
+                Some(attr) => acc.found_class_attribute(attr, base),
+                None => acc.not_found(NotFoundOn::ClassInstance(
+                    self.stdlib.str().class_object().dupe(),
+                    base,
+                )),
+            },
+            AttributeBase1::ClassInstance(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
-                let attr_lookup_result = self
-                    .special_case_enum_attr_lookup(class, &metadata, attr_name)
-                    .or_else(|| self.get_instance_attribute(class, attr_name));
+                let attr_lookup_result =
+                    self.get_enum_or_instance_attribute(class, &metadata, attr_name);
+                match attr_lookup_result {
+                    Some(attr) => acc.found_class_attribute(attr, base),
+                    None if metadata.has_base_any() => {
+                        acc.found_type(Type::Any(AnyStyle::Implicit), base)
+                    }
+                    None => {
+                        acc.not_found(NotFoundOn::ClassInstance(class.class_object().dupe(), base))
+                    }
+                }
+            }
+            AttributeBase1::EnumLiteral(lit @ LitEnum { class, .. }) => {
+                let metadata = self.get_metadata_for_class(class.class_object());
+                let attr_lookup_result =
+                    self.get_enum_literal_or_instance_attribute(lit, &metadata, attr_name);
                 match attr_lookup_result {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None if metadata.has_base_any() => {
@@ -1131,19 +1323,49 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                 }
             }
-            AttributeBase1::TypeQuantified(quantified, class) => {
-                if let Some(attr) = self.get_bounded_quantified_class_attribute(
-                    quantified.clone(),
-                    class,
-                    attr_name,
-                ) {
-                    acc.found_class_attribute(attr, base);
+            AttributeBase1::ProtocolSubset(protocol_base) => {
+                if let AttributeBase1::ClassObject(class) = &**protocol_base
+                    && let Some(attr) = self.try_get_magic_dunder_attr(class, attr_name)
+                {
+                    // When looking up a magic dunder method as part of checking a class object
+                    // against a protocol, we prefer methods on the metaclass over methods on the
+                    // class object. See test::enums::test_iterate for why we need to do this.
+                    acc.found_class_attribute(attr, base)
                 } else {
-                    acc.not_found(NotFoundOn::ClassObject(class.class_object().dupe(), base));
+                    self.lookup_attr_from_attribute_base1((**protocol_base).clone(), attr_name, acc)
+                }
+            }
+            AttributeBase1::BoundMethod(bound_func) => {
+                let method_type_base =
+                    AttributeBase1::ClassInstance(self.stdlib.method_type().clone());
+                let found_len = acc.found.len();
+                let not_found_len = acc.not_found.len();
+                let error_len = acc.internal_error.len();
+                self.lookup_attr_from_attribute_base1(method_type_base, attr_name, acc);
+                if acc.found.len() == found_len {
+                    acc.not_found.truncate(not_found_len);
+                    acc.internal_error.truncate(error_len);
+                    let mut func_bases = Vec::new();
+                    self.as_attribute_base1(bound_func.clone().as_type(), &mut func_bases);
+                    for base1 in func_bases {
+                        self.lookup_attr_from_attribute_base1(base1, attr_name, acc);
+                    }
+                } else {
+                    acc.not_found.truncate(not_found_len);
+                    acc.internal_error.truncate(error_len);
                 }
             }
             AttributeBase1::ClassObject(class) => {
-                match self.get_class_attribute(class, attr_name) {
+                let attr = match class {
+                    ClassBase::Quantified(quantified, class) => self
+                        .get_bounded_quantified_class_attribute(
+                            quantified.clone(),
+                            class,
+                            attr_name,
+                        ),
+                    _ => self.get_class_attribute(class, attr_name),
+                };
+                match attr {
                     Some(attr) => acc.found_class_attribute(attr, base),
                     None => {
                         // Classes are instances of their metaclass, which defaults to `builtins.type`.
@@ -1151,29 +1373,36 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // attributes, but for magic dunder methods it needs to supersede normal class attribute lookup.
                         // See `lookup_magic_dunder_attr()`.
                         let metadata = self.get_metadata_for_class(class.class_object());
-                        let instance_attr = match metadata.metaclass() {
-                            Some(meta) => self.get_metaclass_attribute(class, meta, attr_name),
-                            None => self.get_metaclass_attribute(
-                                class,
-                                self.stdlib.builtins_type(),
+                        if metadata.is_new_type() {
+                            // NewType values are runtime Python objects (functions). They should behave like ordinary
+                            // objects for attribute access even though they don't expose class-level APIs such as `mro`.
+                            self.lookup_attr_from_attribute_base1(
+                                AttributeBase1::ClassInstance(self.stdlib.object().clone()),
                                 attr_name,
-                            ),
-                        };
-                        match instance_attr {
-                            Some(attr) => acc.found_class_attribute(attr, base),
-                            None if metadata.has_base_any() => {
-                                // We can't immediately fall back to Any in this case -- `type[Any]` is actually a special
-                                // AttributeBase which requires additional lookup on `type` itself before the Any fallback.
-                                self.lookup_attr_from_attribute_base1(
-                                    AttributeBase1::TypeAny(AnyStyle::Implicit),
-                                    attr_name,
-                                    acc,
-                                )
+                                acc,
+                            );
+                        } else {
+                            let instance_attr = self.get_metaclass_attribute(
+                                class,
+                                metadata.metaclass(self.stdlib),
+                                attr_name,
+                            );
+                            match instance_attr {
+                                Some(attr) => acc.found_class_attribute(attr, base),
+                                None if metadata.has_base_any() => {
+                                    // We can't immediately fall back to Any in this case -- `type[Any]` is actually a special
+                                    // AttributeBase which requires additional lookup on `type` itself before the Any fallback.
+                                    self.lookup_attr_from_attribute_base1(
+                                        AttributeBase1::TypeAny(AnyStyle::Implicit),
+                                        attr_name,
+                                        acc,
+                                    )
+                                }
+                                None => acc.not_found(NotFoundOn::ClassObject(
+                                    class.class_object().dupe(),
+                                    base,
+                                )),
                             }
-                            None => acc.not_found(NotFoundOn::ClassObject(
-                                class.class_object().dupe(),
-                                base,
-                            )),
                         }
                     }
                 }
@@ -1191,7 +1420,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
             }
-            AttributeBase1::Property(getter) => {
+            AttributeBase1::Property(property) => {
                 if attr_name == "setter" {
                     // When given a decorator `@some_property.setter`, instead of modeling the setter
                     // directly at the type level we just return the getter (the raw `some_property`)
@@ -1206,14 +1435,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     //
                     // TODO(stroxler): it is probably possible to synthesize a forall type here
                     // that uses a type var to propagate the setter. Investigate this option later.
-                    let mut getter = getter.clone();
+                    let mut getter = property.getter.clone();
+                    let metadata_getter = property.getter.without_property_metadata();
+                    let metadata_setter = property
+                        .setter
+                        .as_ref()
+                        .map(|setter| setter.without_property_metadata());
                     getter.transform_toplevel_func_metadata(|meta: &mut FuncMetadata| {
-                        meta.flags.is_property_setter_decorator = true;
+                        meta.flags.property_metadata = Some(PropertyMetadata {
+                            role: PropertyRole::SetterDecorator,
+                            getter: metadata_getter.clone(),
+                            setter: metadata_setter.clone(),
+                            has_deleter: property.deleter,
+                        });
                     });
                     acc.found_type(
                         // TODO(samzhou19815): Support go-to-definition for @property applied symbols
                         getter, base,
                     )
+                } else if attr_name == "deleter" {
+                    let mut getter = property.getter.clone();
+                    getter.transform_toplevel_func_metadata(|meta: &mut FuncMetadata| {
+                        meta.flags.property_metadata = Some(PropertyMetadata {
+                            role: PropertyRole::DeleterDecorator,
+                            getter: property.getter.clone(),
+                            setter: property.setter.clone(),
+                            has_deleter: true,
+                        });
+                    });
+                    acc.found_type(getter, base)
                 } else {
                     let class = self.stdlib.property();
                     match self.get_instance_attribute(class, attr_name) {
@@ -1238,6 +1488,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(attr) => acc.found_class_attribute(attr, base),
                 None => acc.not_found(NotFoundOn::ClassInstance(cls.class_object().dupe(), base)),
             },
+            AttributeBase1::Intersect(bases, fallback) => {
+                // For now, only handle the simplest case: if exactly one base has a successful lookup, use it.
+                let mut candidates = Vec::new();
+                for b in bases {
+                    let mut acc_candidate = LookupResult::empty();
+                    self.lookup_attr_from_attribute_base1(b.clone(), attr_name, &mut acc_candidate);
+                    if acc_candidate.not_found.is_empty() && acc_candidate.internal_error.is_empty()
+                    {
+                        candidates.push(acc_candidate.found);
+                    }
+                }
+                if candidates.len() == 1 {
+                    acc.found.extend(candidates.into_iter().next().unwrap());
+                } else {
+                    // TODO: Intersect the candidates instead of using the fallback.
+                    for b in fallback {
+                        self.lookup_attr_from_attribute_base1(b.clone(), attr_name, acc);
+                    }
+                }
+            }
         }
     }
 
@@ -1262,9 +1532,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match &base {
             AttributeBase1::ClassObject(class) => {
                 let metadata = self.get_metadata_for_class(class.class_object());
-                let metaclass = metadata.metaclass().unwrap_or(self.stdlib.builtins_type());
+                let metaclass = metadata.metaclass(self.stdlib);
                 if *dunder_name == dunder::GETATTRIBUTE
-                    && self.field_is_inherited_from_object(metaclass.class_object(), dunder_name)
+                    && self.field_is_inherited_from(
+                        metaclass.class_object(),
+                        dunder_name,
+                        (ModuleName::builtins().as_str(), "object"),
+                    )
                 {
                     acc.not_found(NotFoundOn::ClassInstance(
                         metaclass.class_object().clone(),
@@ -1288,9 +1562,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if (*dunder_name == dunder::SETATTR
                     || *dunder_name == dunder::DELATTR
                     || *dunder_name == dunder::GETATTRIBUTE)
-                    && self.field_is_inherited_from_object(cls.class_object(), dunder_name) =>
+                    && self.field_is_inherited_from(
+                        cls.class_object(),
+                        dunder_name,
+                        (ModuleName::builtins().as_str(), "object"),
+                    ) =>
             {
                 acc.not_found(NotFoundOn::ClassInstance(cls.class_object().clone(), base))
+            }
+            AttributeBase1::LiteralString
+                if *dunder_name == dunder::SETATTR
+                    || *dunder_name == dunder::DELATTR
+                    || *dunder_name == dunder::GETATTRIBUTE =>
+            {
+                acc.not_found(NotFoundOn::ClassInstance(
+                    self.stdlib.str().class_object().clone(),
+                    base,
+                ))
             }
             AttributeBase1::TypedDict(typed_dict) if *dunder_name == dunder::GETATTRIBUTE => acc
                 .not_found(NotFoundOn::ClassInstance(
@@ -1360,7 +1648,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     fn get_module_exports(&self, module_name: ModuleName) -> Option<Exports> {
-        self.exports.get(module_name).ok()
+        self.exports.get(module_name).finding()
     }
 
     fn get_module_attr(&self, module: &ModuleType, attr_name: &Name) -> Option<Attribute> {
@@ -1414,13 +1702,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn force_var_for_attribute_base(&self, var: Var) -> Type {
-        if let Some(_guard) = self.recurser.recurse(var) {
-            self.solver().force_var(var)
+    fn force_var_for_attribute_base(&self, var: Var, f: impl FnOnce(Type)) {
+        if let Some(_guard) = self.recurse(var) {
+            // Ensure that the guard is still held when we call `f`, to avoid
+            // non-termination when the var appears inside itself.
+            f(self.solver().force_var(var))
         } else {
-            Type::any_implicit()
+            f(Type::any_implicit())
         }
     }
+
     fn as_attribute_base(&self, ty: Type) -> Option<AttributeBase> {
         let mut acc = Vec::new();
         self.as_attribute_base1(ty, &mut acc);
@@ -1437,18 +1728,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::SelfType(class_type)) => {
                 acc.push(AttributeBase1::ClassObject(ClassBase::SelfType(class_type)))
             }
-            Type::TypedDict(td) | Type::PartialTypedDict(td) => {
+            Type::TypedDict(TypedDict::TypedDict(td))
+            | Type::PartialTypedDict(TypedDict::TypedDict(td)) => {
                 acc.push(AttributeBase1::TypedDict(td.clone()))
+            }
+            Type::TypedDict(td @ TypedDict::Anonymous(_))
+            | Type::PartialTypedDict(td @ TypedDict::Anonymous(_)) => {
+                let value_ty = self.get_typed_dict_value_type(&td);
+                acc.push(AttributeBase1::ClassInstance(
+                    self.stdlib
+                        .dict(self.stdlib.str().clone().to_type(), value_ty),
+                ))
+            }
+            Type::Type(box (Type::TypedDict(_) | Type::PartialTypedDict(_))) => {
+                acc.push(AttributeBase1::ClassObject(ClassBase::ClassDef(
+                    self.stdlib.typed_dict_fallback().clone(),
+                )))
             }
             Type::Tuple(tuple) => {
                 acc.push(AttributeBase1::ClassInstance(self.erase_tuple_type(tuple)))
             }
-            Type::LiteralString => {
-                acc.push(AttributeBase1::ClassInstance(self.stdlib.str().clone()))
-            }
-            Type::Literal(Lit::Enum(lit_enum)) => acc.push(AttributeBase1::EnumLiteral(*lit_enum)),
+            Type::LiteralString(_)
+            | Type::Literal(box Literal {
+                value: Lit::Str(_), ..
+            }) => acc.push(AttributeBase1::LiteralString),
+            Type::Type(box Type::LiteralString(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.str().clone()),
+            )),
+            Type::Type(box Type::Literal(lit)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(lit.value.general_class_type(self.stdlib).clone()),
+            )),
+            Type::Literal(box Literal {
+                value: Lit::Enum(lit_enum),
+                ..
+            }) => acc.push(AttributeBase1::EnumLiteral(*lit_enum)),
             Type::Literal(lit) => acc.push(AttributeBase1::ClassInstance(
-                lit.general_class_type(self.stdlib).clone(),
+                lit.value.general_class_type(self.stdlib).clone(),
             )),
             Type::TypeGuard(_) | Type::TypeIs(_) => {
                 acc.push(AttributeBase1::ClassInstance(self.stdlib.bool().clone()))
@@ -1467,20 +1782,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if let Some(base) = self.as_attribute_base(ty.clone()) {
                         for base1 in base.0 {
                             if let AttributeBase1::ClassInstance(cls) = base1 {
-                                acc.push(AttributeBase1::TypeQuantified(
+                                acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                                     (*quantified).clone(),
                                     cls,
-                                ));
+                                )));
                             } else {
                                 use_fallback = true;
                             }
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::TypeQuantified(
+                        acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
-                        ));
+                        )));
                     }
                 }
                 Restriction::Constraints(constraints) => {
@@ -1489,10 +1804,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         if let Some(base) = self.as_attribute_base(ty.clone()) {
                             for base1 in base.0 {
                                 if let AttributeBase1::ClassInstance(cls) = base1 {
-                                    acc.push(AttributeBase1::TypeQuantified(
+                                    acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                                         (*quantified).clone(),
                                         cls,
-                                    ));
+                                    )));
                                 } else {
                                     use_fallback = true;
                                 }
@@ -1500,18 +1815,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                     if use_fallback {
-                        acc.push(AttributeBase1::TypeQuantified(
+                        acc.push(AttributeBase1::ClassObject(ClassBase::Quantified(
                             (*quantified).clone(),
                             self.stdlib.object().clone(),
-                        ));
+                        )));
                     }
                 }
-                Restriction::Unrestricted => acc.push(AttributeBase1::TypeQuantified(
-                    (*quantified).clone(),
-                    self.stdlib.object().clone(),
+                Restriction::Unrestricted => acc.push(AttributeBase1::ClassObject(
+                    ClassBase::Quantified((*quantified).clone(), self.stdlib.object().clone()),
                 )),
             },
             Type::Type(box Type::Any(style)) => acc.push(AttributeBase1::TypeAny(style)),
+            Type::Type(box Type::Never(_)) => acc.push(AttributeBase1::TypeNever),
             // At runtime, these special forms are classes. This has been tested with Python
             // versions 3.11-3.13. Note that other special forms are classes in some versions, but
             // their representations aren't stable across versions.
@@ -1578,8 +1893,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::None => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.none_type().clone(),
             )),
+            Type::Type(box Type::None) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.none_type().clone()),
+            )),
+            Type::Type(
+                box (Type::Function(_)
+                | Type::Callable(_)
+                | Type::Overload(_)
+                | Type::Forall(box Forall {
+                    tparams: _,
+                    body: Forallable::Function(_) | Forallable::Callable(_),
+                })),
+            ) => acc.push(AttributeBase1::ClassObject(ClassBase::ClassType(
+                self.stdlib.function_type().clone(),
+            ))),
+            Type::Type(box Type::BoundMethod(_)) => acc.push(AttributeBase1::ClassObject(
+                ClassBase::ClassType(self.stdlib.method_type().clone()),
+            )),
             Type::Never(_) => acc.push(AttributeBase1::Never),
-            _ if ty.is_property_getter() => acc.push(AttributeBase1::Property(ty)),
+            _ if ty.is_property_getter() => {
+                let deleter = ty
+                    .property_metadata()
+                    .map(|meta| meta.has_deleter)
+                    .unwrap_or(false);
+                acc.push(AttributeBase1::Property(PropertyAttr {
+                    getter: ty.clone(),
+                    setter: None,
+                    deleter,
+                }));
+            }
+            _ if let Some(metadata) = ty.property_metadata()
+                && matches!(metadata.role, PropertyRole::Setter) =>
+            {
+                acc.push(AttributeBase1::Property(PropertyAttr {
+                    getter: metadata.getter.clone(),
+                    setter: Some(ty.clone()),
+                    deleter: metadata.has_deleter,
+                }));
+            }
             Type::Callable(_) => acc.push(AttributeBase1::ClassInstance(
                 self.stdlib.function_type().clone(),
             )),
@@ -1598,31 +1949,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.function_type().clone()
                 },
             )),
-            Type::BoundMethod(_) => acc.push(AttributeBase1::ClassInstance(
-                self.stdlib.method_type().clone(),
-            )),
+            Type::BoundMethod(bound_method) => {
+                acc.push(AttributeBase1::BoundMethod(bound_method.func.clone()));
+            }
             Type::Ellipsis => {
                 if let Some(cls) = self.stdlib.ellipsis_type() {
                     acc.push(AttributeBase1::ClassInstance(cls.clone()))
                 }
             }
             Type::Forall(forall) => self.as_attribute_base1(forall.body.as_type(), acc),
-            Type::Var(v) => self.as_attribute_base1(self.force_var_for_attribute_base(v), acc),
-            Type::Type(box Type::Var(v)) => {
-                self.as_attribute_base1(Type::type_form(self.force_var_for_attribute_base(v)), acc)
+            Type::Var(v) => {
+                self.force_var_for_attribute_base(v, |ty| self.as_attribute_base1(ty, acc))
             }
+            Type::Type(box Type::Var(v)) => self.force_var_for_attribute_base(v, |ty| {
+                self.as_attribute_base1(Type::type_form(ty), acc)
+            }),
             Type::SuperInstance(box (cls, obj)) => {
                 acc.push(AttributeBase1::SuperInstance(cls, obj))
             }
-            Type::Union(members) => {
+            Type::Union(box Union { members, .. }) => {
                 for ty in members {
                     self.as_attribute_base1(ty, acc)
                 }
             }
-            Type::Type(box Type::Union(members)) => {
+            Type::Type(box Type::Union(box Union { members, .. })) => {
                 for ty in members {
                     self.as_attribute_base1(Type::type_form(ty), acc)
                 }
+            }
+            Type::Type(box Type::Intersect(box (_, fallback))) => {
+                // TODO(rechen): implement attribute access on `type[A & B]`
+                self.as_attribute_base1(Type::type_form(fallback), acc)
             }
             Type::Quantified(quantified) => match quantified.restriction() {
                 Restriction::Bound(ty) => {
@@ -1671,13 +2028,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.stdlib.object().clone(),
                 )),
             },
+            Type::Intersect(x) => {
+                let mut acc_intersect = Vec::new();
+                for t in x.0 {
+                    self.as_attribute_base1(t, &mut acc_intersect);
+                }
+                let mut acc_fallback = Vec::new();
+                self.as_attribute_base1(x.1, &mut acc_fallback);
+                acc.push(AttributeBase1::Intersect(acc_intersect, acc_fallback));
+            }
+            Type::ElementOfTypeVarTuple(_) => {
+                acc.push(AttributeBase1::ClassInstance(self.stdlib.object().clone()))
+            }
             // TODO: check to see which ones should have class representations
             Type::SpecialForm(_)
             | Type::Type(_)
-            | Type::Intersect(_)
             | Type::Unpack(_)
             | Type::Concatenate(_, _)
-            | Type::ParamSpecValue(_) => {}
+            | Type::ParamSpecValue(_)
+            | Type::Materialization => {}
         }
     }
 
@@ -1697,7 +2066,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (found, not_found, internal_errors) = self.lookup_attr(base, attr_name).decompose();
         let mut results = Vec::new();
         for (attr, _) in found {
-            let found_ty = match self.resolve_get_access(attr, range, errors, None) {
+            let found_ty = match self.resolve_get_access(attr_name, attr, range, errors, None) {
                 Err(..) => fall_back_to_object(),
                 Ok(ty) => ty,
             };
@@ -1709,42 +2078,53 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(results)
     }
 
-    // When coercing an instance of condition_type to bool, check that either it does not override
-    // __bool__, or that condition_type.__bool__ is callable.
+    // When determining the boolean value of some term used in a boolean context
+    // to bool, check that either it does not override __bool__, or the
+    // condition_type.__bool__ is callable.
+    //
+    // This allows users to mark a class as not allowing truthiness checks by
+    // explicitly setting `__bool__` to any non-callable type.
     pub fn check_dunder_bool_is_callable(
         &self,
-        condition_type: &Type,
+        type_of_term_used_as_bool: &Type,
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let cond_bool_ty = self.type_of_magic_dunder_attr(
-            condition_type,
-            &dunder::BOOL,
-            range,
-            errors,
-            None,
-            "__bool__",
-        );
-
-        if let Some(ty) = cond_bool_ty
-            && !ty.is_never()
-            && self.as_call_target(ty.clone()).is_none()
-        {
-            self.error(
-                errors,
+        // TODO(stroxler): Ideally, we would collect up the error messages and produce a single
+        // error here. But non-callable `__bool__` failures are likely to be rare in most
+        // codebases so this is not urgent unless we get complaints.
+        let f = |union_member_ty: &Type| {
+            let dunder_bool_ty = self.type_of_magic_dunder_attr(
+                union_member_ty,
+                &dunder::BOOL,
                 range,
-                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                format!(
-                    "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
-                    self.for_display(condition_type.clone()),
-                    self.for_display(ty.clone()),
-                ),
+                errors,
+                None,
+                "__bool__",
+                false,
             );
-        }
+
+            if let Some(dunder_bool_ty) = dunder_bool_ty
+                && !dunder_bool_ty.is_never()
+                && self.as_call_target(dunder_bool_ty.clone()).is_error()
+            {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                    format!(
+                        "The `__bool__` attribute of `{}` has type `{}`, which is not callable",
+                        self.for_display(union_member_ty.clone()),
+                        self.for_display(dunder_bool_ty.clone()),
+                    ),
+                );
+            }
+        };
+        self.map_over_union(type_of_term_used_as_bool, f)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttrDefinition {
     FullyResolved(TextRangeWithModule),
     PartiallyResolvedImportedModuleAttribute { module_name: ModuleName },
@@ -1754,7 +2134,11 @@ pub enum AttrDefinition {
 pub struct AttrInfo {
     pub name: Name,
     pub ty: Option<Type>,
+    pub is_deprecated: bool,
     pub definition: Option<AttrDefinition>,
+    pub docstring_range: Option<TextRange>,
+    /// is this defined in another module (true) or in this module (false)?
+    pub is_reexport: bool,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -1777,9 +2161,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             res.push(AttrInfo {
                                 name: fld.clone(),
                                 ty: None,
+                                is_deprecated: false,
                                 definition: Some(AttrDefinition::FullyResolved(
                                     TextRangeWithModule::new(c.module().dupe(), range),
                                 )),
+                                docstring_range: c.field_docstring_range(fld),
+                                is_reexport: false,
                             });
                         }
                     }
@@ -1789,9 +2176,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
+                            is_deprecated: false,
                             definition: Some(AttrDefinition::FullyResolved(
                                 TextRangeWithModule::new(c.module().dupe(), range),
                             )),
+                            docstring_range: c.field_docstring_range(expected_attribute_name),
+                            is_reexport: false,
                         });
                     }
                 }
@@ -1847,30 +2237,64 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(exports) = self.get_module_exports(module_name) {
             match expected_attribute_name {
                 None => {
-                    res.extend(exports.exports(self.exports).iter().map(|(x, _)| AttrInfo {
-                        name: x.clone(),
-                        ty: None,
-                        definition: Some(
-                            AttrDefinition::PartiallyResolvedImportedModuleAttribute {
-                                module_name,
-                            },
-                        ),
-                    }));
+                    res.extend(
+                        exports
+                            .exports(self.exports)
+                            .iter()
+                            .map(|(x, export_location)| AttrInfo {
+                                name: x.clone(),
+                                ty: None,
+                                is_deprecated: matches!(
+                                    export_location,
+                                    ExportLocation::ThisModule(Export {
+                                        deprecation: Some(_),
+                                        ..
+                                    })
+                                ),
+                                definition: Some(
+                                    AttrDefinition::PartiallyResolvedImportedModuleAttribute {
+                                        module_name,
+                                    },
+                                ),
+                                docstring_range: match export_location {
+                                    ExportLocation::ThisModule(Export {
+                                        docstring_range, ..
+                                    }) => *docstring_range,
+                                    _ => None,
+                                },
+                                is_reexport: matches!(
+                                    export_location,
+                                    ExportLocation::OtherModule(..)
+                                ),
+                            }),
+                    );
                 }
                 Some(expected_attribute_name) => {
-                    if exports
-                        .exports(self.exports)
-                        .get(expected_attribute_name)
-                        .is_some()
+                    if let Some(export_location) =
+                        exports.exports(self.exports).get(expected_attribute_name)
                     {
                         res.push(AttrInfo {
                             name: expected_attribute_name.clone(),
                             ty: None,
+                            is_deprecated: matches!(
+                                export_location,
+                                ExportLocation::ThisModule(Export {
+                                    deprecation: Some(_),
+                                    ..
+                                })
+                            ),
                             definition: Some(
                                 AttrDefinition::PartiallyResolvedImportedModuleAttribute {
                                     module_name,
                                 },
                             ),
+                            docstring_range: match export_location {
+                                ExportLocation::ThisModule(Export {
+                                    docstring_range, ..
+                                }) => *docstring_range,
+                                _ => None,
+                            },
+                            is_reexport: matches!(export_location, ExportLocation::OtherModule(..)),
                         });
                     }
                 }
@@ -1886,50 +2310,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         res: &mut Vec<AttrInfo>,
     ) {
         for base1 in &base.0 {
-            match base1 {
-                AttributeBase1::ClassInstance(class)
-                | AttributeBase1::SelfType(class)
-                | AttributeBase1::EnumLiteral(LitEnum { class, .. })
-                | AttributeBase1::Quantified(_, class) => {
-                    self.completions_class_type(class, expected_attribute_name, res)
-                }
-                AttributeBase1::TypedDict(_) => self.completions_class_type(
-                    self.stdlib.typed_dict_fallback(),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::SuperInstance(start_lookup_cls, obj) => {
-                    let cls = match obj {
-                        SuperObj::Instance(c) | SuperObj::Class(c) => c.class_object(),
-                    };
-                    self.completions_super(cls, start_lookup_cls, expected_attribute_name, res)
-                }
-                AttributeBase1::QuantifiedValue(q) => self.completions_class_type(
-                    q.class_type(self.stdlib),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::ClassObject(class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, res)
-                }
-                AttributeBase1::TypeQuantified(_, class) => {
-                    self.completions_class(class.class_object(), expected_attribute_name, res)
-                }
-                AttributeBase1::TypeAny(_) => self.completions_class_type(
-                    self.stdlib.builtins_type(),
-                    expected_attribute_name,
-                    res,
-                ),
-                AttributeBase1::Module(module) => {
-                    self.completions_module(module, expected_attribute_name, res);
-                }
-                AttributeBase1::Any(_) => {}
-                AttributeBase1::Never => {}
-                AttributeBase1::Property(_) => {
-                    // TODO(samzhou19815): Support autocomplete for properties
-                    {}
-                }
-            }
+            self.completions_inner1(base1, expected_attribute_name, res);
         }
         if include_types {
             for info in res {
@@ -1939,34 +2320,111 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     let found_attrs = self
                         .lookup_attr_from_attribute_base(base.clone(), &info.name)
                         .found;
+                    let mut is_deprecated = false;
                     let found_types: Vec<_> = found_attrs
                         .into_iter()
                         .filter_map(|(attr, _)| {
-                            let result = self
-                                .resolve_get_access(
-                                    attr,
-                                    // Important we do not use the resolved TextRange, as it might be in a different module.
-                                    // Whereas the empty TextRange is valid for all modules.
-                                    TextRange::default(),
-                                    &self.error_swallower(),
-                                    None,
-                                )
-                                .ok();
-                            if matches!(&result, Some(Type::Any(_))) {
-                                None
-                            } else {
-                                result
+                            match &attr {
+                                Attribute::ClassAttribute(ClassAttribute::ReadWrite(ty))
+                                | Attribute::ClassAttribute(ClassAttribute::ReadOnly(ty, _))
+                                | Attribute::Simple(ty)
+                                | Attribute::ClassAttribute(ClassAttribute::Property(ty, _, _))
+                                    if ty.function_deprecation().is_some() =>
+                                {
+                                    is_deprecated = true;
+                                }
+                                _ => {}
                             }
+                            self.resolve_get_access(
+                                &info.name,
+                                attr,
+                                // Important we do not use the resolved TextRange, as it might be in a different module.
+                                // Whereas the empty TextRange is valid for all modules.
+                                TextRange::default(),
+                                &self.error_swallower(),
+                                None,
+                            )
+                            .ok()
                         })
                         .collect();
                     if !found_types.is_empty() {
                         info.ty = Some(self.unions(found_types));
                     }
+                    info.is_deprecated = is_deprecated;
                 }
             }
         }
     }
 
+    fn completions_inner1(
+        &self,
+        base1: &AttributeBase1,
+        expected_attribute_name: Option<&Name>,
+        res: &mut Vec<AttrInfo>,
+    ) {
+        match base1 {
+            AttributeBase1::ClassInstance(class)
+            | AttributeBase1::SelfType(class)
+            | AttributeBase1::EnumLiteral(LitEnum { class, .. })
+            | AttributeBase1::Quantified(_, class) => {
+                self.completions_class_type(class, expected_attribute_name, res)
+            }
+            AttributeBase1::LiteralString => {
+                self.completions_class_type(self.stdlib.str(), expected_attribute_name, res)
+            }
+            AttributeBase1::TypedDict(_) => self.completions_class_type(
+                self.stdlib.typed_dict_fallback(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase1::SuperInstance(start_lookup_cls, obj) => {
+                let cls = match obj {
+                    SuperObj::Instance(c) | SuperObj::Class(c) => c.class_object(),
+                };
+                self.completions_super(cls, start_lookup_cls, expected_attribute_name, res)
+            }
+            AttributeBase1::QuantifiedValue(q) => {
+                self.completions_class_type(q.class_type(self.stdlib), expected_attribute_name, res)
+            }
+            AttributeBase1::ClassObject(class) => {
+                self.completions_class(class.class_object(), expected_attribute_name, res)
+            }
+            AttributeBase1::BoundMethod(bound_func) => {
+                self.completions_class_type(
+                    self.stdlib.method_type(),
+                    expected_attribute_name,
+                    res,
+                );
+                let mut func_bases = Vec::new();
+                self.as_attribute_base1(bound_func.clone().as_type(), &mut func_bases);
+                for base1 in func_bases {
+                    self.completions_inner1(&base1, expected_attribute_name, res);
+                }
+            }
+            AttributeBase1::TypeAny(_) | AttributeBase1::TypeNever => self.completions_class_type(
+                self.stdlib.builtins_type(),
+                expected_attribute_name,
+                res,
+            ),
+            AttributeBase1::Module(module) => {
+                self.completions_module(module, expected_attribute_name, res);
+            }
+            AttributeBase1::ProtocolSubset(protocol_base) => {
+                self.completions_inner1(protocol_base, expected_attribute_name, res)
+            }
+            AttributeBase1::Any(_) => {}
+            AttributeBase1::Never => {}
+            AttributeBase1::Property(_) => {
+                // TODO(samzhou19815): Support autocomplete for properties
+                {}
+            }
+            AttributeBase1::Intersect(bases, _) => {
+                for b in bases {
+                    self.completions_inner1(b, expected_attribute_name, res);
+                }
+            }
+        }
+    }
     /// List all the attributes available from a type. Used to power completion.
     /// Not all usages need types, so we can skip type computation with `include_types=false`.
     pub fn completions(

@@ -551,8 +551,8 @@ void update_mmcif_block(const Structure& st, cif::Block& block, MmcifOutputGroup
                                   {"id", "entity_id", "db_name", "db_code",
                                    "pdbx_db_accession", "pdbx_db_isoform"});
     cif::Loop& seq_loop = block.init_mmcif_loop("_struct_ref_seq.", {
-        "align_id", "ref_id", "pdbx_strand_id",
-        "seq_align_beg", "seq_align_end",
+        "align_id", "ref_id", "pdbx_strand_id", "pdbx_PDB_id_code",
+        "seq_align_beg", "seq_align_end", "pdbx_db_accession",
         "db_align_beg", "db_align_end",
         "pdbx_auth_seq_align_beg", "pdbx_seq_align_beg_ins_code",
         "pdbx_auth_seq_align_end", "pdbx_seq_align_end_ins_code"});
@@ -581,17 +581,28 @@ void update_mmcif_block(const Structure& st, cif::Block& block, MmcifOutputGroup
               label_end = span.auth_seq_id_to_label(dbref.seq_end);
             } catch (const std::out_of_range&) {}
           }
+          SeqId begin = dbref.seq_begin;
+          SeqId end = dbref.seq_end;
+          if (!begin.num || !end.num) {
+            if (const Chain* chain = st.models[0].find_chain(strand_id->second))
+              if (ConstResidueGroup polymer = chain->get_polymer()) {
+                begin = polymer.label_seq_id_to_auth(dbref.label_seq_begin);
+                end = polymer.label_seq_id_to_auth(dbref.label_seq_end);
+              }
+          }
           seq_loop.add_row({std::to_string(++counter2),
                             std::to_string(counter),
                             strand_id->second,  // pdbx_strand_id
+                            id,
                             label_begin.str(),
                             label_end.str(),
+                            string_or_qmark(dbref.accession_code),
                             dbref.db_begin.num.str(),
                             dbref.db_end.num.str(),
-                            dbref.seq_begin.num.str(),
-                            pdbx_icode(dbref.seq_begin),
-                            dbref.seq_end.num.str(),
-                            pdbx_icode(dbref.seq_end)});
+                            begin.num.str(),
+                            pdbx_icode(begin),
+                            end.num.str(),
+                            pdbx_icode(end)});
         }
       }
   }

@@ -1,0 +1,91 @@
+[build-system]
+requires = [
+    "setuptools>=75.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mozilla-django-oidc"
+dynamic = ["version", "readme"]
+description = "A lightweight authentication and access management library for integration with OpenID Connect enabled authentication services."
+authors = [
+    { name = "Tasos Katsoulas", email = "akatsoulas@mozilla.com" },
+    { name = "John Giannelos", email = "jgiannelos@mozilla.com" }
+]
+license = "MPL-2.0"
+requires-python = ">=3.10"
+keywords = ["mozilla-django-oidc"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+dependencies = [
+    "Django >= 4.2",
+    "pyjwt",
+    "requests",
+    "cryptography",
+]
+
+[project.urls]
+Homepage = "https://github.com/mozilla/mozilla-django-oidc"
+Documentation = "https://mozilla-django-oidc.readthedocs.io"
+Changelog = "https://github.com/mozilla/mozilla-django-oidc/releases"
+
+[project.optional-dependencies]
+drf = [
+    "djangorestframework>=3.14",
+]
+test = [
+    "bumpversion",
+    "ipython",
+    "ipdb",
+    "djangorestframework>=3.14",
+    "pre-commit",
+    "responses",
+    "importlib-metadata; python_version < '3.10'",
+    "splinter[selenium]>=0.21.0",
+    "coverage",
+    "tox",
+]
+lint = [
+    "flake8",
+]
+build = [
+    "build",
+]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+]
+dev = [
+    "mozilla-django-oidc[test,docs,drf,lint,build]",
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.dynamic]
+version = { attr = "mozilla_django_oidc.__version__" }
+readme = { file = ["README.rst"], content-type = "text/x-rst" }
+
+[tool.setuptools.packages.find]
+include = ["mozilla_django_oidc", "mozilla_django_oidc.*"]
+exclude = ["build*", "dist*", "*.egg-info*"]

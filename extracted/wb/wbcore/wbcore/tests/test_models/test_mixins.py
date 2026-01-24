@@ -3,7 +3,7 @@ from django.db import models
 from wbcore.models.orderable import OrderableModel
 
 
-class ForeignKeyClass(models.Model):
+class ForeignKeyClass(models.Model):  # noqa
     @classmethod
     def get_endpoint_basename(cls) -> str:
         return "wbcore:foreignkeyclass"

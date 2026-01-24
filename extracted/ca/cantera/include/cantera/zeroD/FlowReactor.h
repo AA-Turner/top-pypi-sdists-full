@@ -48,6 +48,15 @@ public:
     void evalDae(double t, double* y, double* ydot, double* residual) override;
 
     void getConstraints(double* constraints) override;
+    vector<size_t> steadyConstraints() const override {
+        throw CanteraError("FlowReactor::steadyConstraints",
+            "FlowReactor is not compatible with time-dependent steady-state solver.");
+    }
+
+    //! Mass flow rate through the reactor [kg/s]
+    double massFlowRate() {
+        return m_u * m_rho * m_area;
+    }
 
     //! Set the mass flow rate through the reactor [kg/s]
     void setMassFlowRate(double mdot);
@@ -57,13 +66,13 @@ public:
         return m_u;
     }
 
-    //! The cross-sectional area of the reactor [m^2]
-    double area() const {
+    //! The cross-sectional area of the reactor [m²]
+    double area() const override {
         return m_area;
     }
 
-    //! Sets the area of the reactor [m^2]
-    void setArea(double area);
+    //! Sets the area of the reactor [m²]
+    void setArea(double area) override;
 
     //! The ratio of the reactor's surface area to volume ratio [m^-1]
     //! @note If the surface area to volume ratio is unspecified by the user,

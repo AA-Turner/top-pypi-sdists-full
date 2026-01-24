@@ -2,7 +2,7 @@
 name = "pdoc"
 description = "API Documentation for Python Projects"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text="MIT-0" }
 authors = [{name = "Maximilian Hils", email = "pdoc@maximilianhils.com"}]
 dynamic = ["version"]
@@ -11,6 +11,7 @@ dependencies = [
     "Jinja2 >= 2.11.0",
     "pygments >= 2.12.0",
     "MarkupSafe >= 1.1.1",
+    "markdown2>=2.5.4",
 ]
 
 classifiers = [
@@ -22,11 +23,11 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 
@@ -51,6 +52,7 @@ dev-dependencies = [
     "pytest-timeout>=2.3.1",
     "hypothesis>=6.113.0",
     "pdoc-pyo3-sample-library>=1.0.11",
+    "pydantic>=2.12.0",
 ]
 
 [build-system]
@@ -62,12 +64,6 @@ version = {attr = "pdoc.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["pdoc*"]
-
-[tool.coverage.run]
-branch = false
-omit = [
-    "pdoc/markdown2/*",
-]
 
 # continue exclude: https://github.com/nedbat/coveragepy/issues/198
 [tool.coverage.report]
@@ -96,6 +92,10 @@ ignore_missing_imports = true
 module = "demopackage2"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "markdown2"
+ignore_missing_imports = true
+
 [tool.ruff]
 extend-exclude = ["test/testdata/demo.py"]
 
@@ -103,6 +103,11 @@ extend-exclude = ["test/testdata/demo.py"]
 select = ["E", "F", "I"]
 ignore = ["E501"]
 isort = { force-single-line = true, force-sort-within-sections = true }
+
+[tool.ruff.per-file-target-version]
+"test/testdata/misc_py312.py" = "py312"
+"test/testdata/misc_py313.py" = "py313"
+"test/testdata/misc_py314.py" = "py314"
 
 [tool.tox]
 legacy_tox_ini = """

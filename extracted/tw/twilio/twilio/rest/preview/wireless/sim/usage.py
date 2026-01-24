@@ -14,6 +14,7 @@ r"""
 
 from typing import Any, Dict, Optional, Union
 from twilio.base import values
+from twilio.base.api_response import ApiResponse
 from twilio.base.instance_context import InstanceContext
 from twilio.base.instance_resource import InstanceResource
 from twilio.base.list_resource import ListResource
@@ -102,6 +103,42 @@ class UsageInstance(InstanceResource):
             start=start,
         )
 
+    def fetch_with_http_info(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> ApiResponse:
+        """
+        Fetch the UsageInstance with HTTP info
+
+        :param end:
+        :param start:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return self._proxy.fetch_with_http_info(
+            end=end,
+            start=start,
+        )
+
+    async def fetch_with_http_info_async(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the UsageInstance with HTTP info
+
+        :param end:
+        :param start:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return await self._proxy.fetch_with_http_info_async(
+            end=end,
+            start=start,
+        )
+
     def __repr__(self) -> str:
         """
         Provide a friendly representation
@@ -129,6 +166,33 @@ class UsageContext(InstanceContext):
         }
         self._uri = "/Sims/{sim_sid}/Usage".format(**self._solution)
 
+    def _fetch(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> tuple:
+        """
+        Internal helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        params = values.of(
+            {
+                "End": end,
+                "Start": start,
+            }
+        )
+
+        headers = values.of({})
+
+        headers["Accept"] = "application/json"
+
+        return self._version.fetch_with_response_info(
+            method="GET", uri=self._uri, params=params, headers=headers
+        )
+
     def fetch(
         self,
         end: Union[str, object] = values.unset,
@@ -142,8 +206,47 @@ class UsageContext(InstanceContext):
 
         :returns: The fetched UsageInstance
         """
+        payload, _, _ = self._fetch(end=end, start=start)
+        return UsageInstance(
+            self._version,
+            payload,
+            sim_sid=self._solution["sim_sid"],
+        )
 
-        data = values.of(
+    def fetch_with_http_info(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> ApiResponse:
+        """
+        Fetch the UsageInstance and return response metadata
+
+        :param end:
+        :param start:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = self._fetch(end=end, start=start)
+        instance = UsageInstance(
+            self._version,
+            payload,
+            sim_sid=self._solution["sim_sid"],
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
+
+    async def _fetch_async(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> tuple:
+        """
+        Internal async helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        params = values.of(
             {
                 "End": end,
                 "Start": start,
@@ -154,14 +257,8 @@ class UsageContext(InstanceContext):
 
         headers["Accept"] = "application/json"
 
-        payload = self._version.fetch(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
-        return UsageInstance(
-            self._version,
-            payload,
-            sim_sid=self._solution["sim_sid"],
+        return await self._version.fetch_with_response_info_async(
+            method="GET", uri=self._uri, params=params, headers=headers
         )
 
     async def fetch_async(
@@ -177,27 +274,33 @@ class UsageContext(InstanceContext):
 
         :returns: The fetched UsageInstance
         """
-
-        data = values.of(
-            {
-                "End": end,
-                "Start": start,
-            }
-        )
-
-        headers = values.of({})
-
-        headers["Accept"] = "application/json"
-
-        payload = await self._version.fetch_async(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
+        payload, _, _ = await self._fetch_async(end=end, start=start)
         return UsageInstance(
             self._version,
             payload,
             sim_sid=self._solution["sim_sid"],
         )
+
+    async def fetch_with_http_info_async(
+        self,
+        end: Union[str, object] = values.unset,
+        start: Union[str, object] = values.unset,
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the UsageInstance and return response metadata
+
+        :param end:
+        :param start:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = await self._fetch_async(end=end, start=start)
+        instance = UsageInstance(
+            self._version,
+            payload,
+            sim_sid=self._solution["sim_sid"],
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
 
     def __repr__(self) -> str:
         """

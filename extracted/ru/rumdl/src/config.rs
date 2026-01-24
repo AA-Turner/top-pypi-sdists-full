@@ -4,17 +4,35 @@
 
 use crate::rule::Rule;
 use crate::rules;
-use lazy_static::lazy_static;
+use crate::types::LineLength;
+use globset::{Glob, GlobBuilder, GlobMatcher, GlobSet, GlobSetBuilder};
+use indexmap::IndexMap;
 use log;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::{Arc, OnceLock};
 use toml_edit::DocumentMut;
+
+// ============================================================================
+// Typestate markers for configuration pipeline
+// ============================================================================
+
+/// Marker type for configuration that has been loaded but not yet validated.
+/// This is the initial state after `load_with_discovery()`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ConfigLoaded;
+
+/// Marker type for configuration that has been validated.
+/// Only validated configs can be converted to `Config`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ConfigValidated;
 
 /// Markdown flavor/dialect enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -27,9 +45,31 @@ pub enum MarkdownFlavor {
     /// MkDocs flavor with auto-reference support
     #[serde(rename = "mkdocs")]
     MkDocs,
-    // Future flavors can be added here when they have actual implementation differences
-    // Planned: GFM (GitHub Flavored Markdown) - for GitHub-specific features like tables, strikethrough
-    // Planned: CommonMark - for strict CommonMark compliance
+    /// MDX flavor with JSX and ESM support (.mdx files)
+    #[serde(rename = "mdx")]
+    MDX,
+    /// Quarto/RMarkdown flavor for scientific publishing (.qmd, .Rmd files)
+    #[serde(rename = "quarto")]
+    Quarto,
+}
+
+/// Custom JSON schema for MarkdownFlavor that includes all accepted values and aliases
+fn markdown_flavor_schema(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({
+        "description": "Markdown flavor/dialect. Accepts: standard, gfm, mkdocs, mdx, quarto. Aliases: commonmark/github map to standard, qmd/rmd/rmarkdown map to quarto.",
+        "type": "string",
+        "enum": ["standard", "gfm", "github", "commonmark", "mkdocs", "mdx", "quarto", "qmd", "rmd", "rmarkdown"]
+    })
+}
+
+impl schemars::JsonSchema for MarkdownFlavor {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("MarkdownFlavor")
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        markdown_flavor_schema(generator)
+    }
 }
 
 impl fmt::Display for MarkdownFlavor {
@@ -37,6 +77,8 @@ impl fmt::Display for MarkdownFlavor {
         match self {
             MarkdownFlavor::Standard => write!(f, "standard"),
             MarkdownFlavor::MkDocs => write!(f, "mkdocs"),
+            MarkdownFlavor::MDX => write!(f, "mdx"),
+            MarkdownFlavor::Quarto => write!(f, "quarto"),
         }
     }
 }
@@ -48,33 +90,60 @@ impl FromStr for MarkdownFlavor {
         match s.to_lowercase().as_str() {
             "standard" | "" | "none" => Ok(MarkdownFlavor::Standard),
             "mkdocs" => Ok(MarkdownFlavor::MkDocs),
-            // Accept but warn about unimplemented flavors
-            "gfm" | "github" => {
-                eprintln!("Warning: GFM flavor not yet implemented, using standard");
-                Ok(MarkdownFlavor::Standard)
-            }
-            "commonmark" => {
-                eprintln!("Warning: CommonMark flavor not yet implemented, using standard");
-                Ok(MarkdownFlavor::Standard)
-            }
+            "mdx" => Ok(MarkdownFlavor::MDX),
+            "quarto" | "qmd" | "rmd" | "rmarkdown" => Ok(MarkdownFlavor::Quarto),
+            // GFM and CommonMark are aliases for Standard since the base parser
+            // (pulldown-cmark) already supports GFM extensions (tables, task lists,
+            // strikethrough, autolinks, etc.) which are a superset of CommonMark
+            "gfm" | "github" | "commonmark" => Ok(MarkdownFlavor::Standard),
             _ => Err(format!("Unknown markdown flavor: {s}")),
         }
     }
 }
 
-lazy_static! {
-    // Map common markdownlint config keys to rumdl rule names
-    static ref MARKDOWNLINT_KEY_MAP: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        // Add mappings based on common markdownlint config names
-        // From https://github.com/DavidAnson/markdownlint/blob/main/schema/.markdownlint.jsonc
-        m.insert("ul-style", "md004");
-        m.insert("code-block-style", "md046");
-        m.insert("ul-indent", "md007"); // Example
-        m.insert("line-length", "md013"); // Example of a common one that might be top-level
-        // Add more mappings as needed based on markdownlint schema or observed usage
-        m
-    };
+impl MarkdownFlavor {
+    /// Detect flavor from file extension
+    pub fn from_extension(ext: &str) -> Self {
+        match ext.to_lowercase().as_str() {
+            "mdx" => Self::MDX,
+            "qmd" => Self::Quarto,
+            "rmd" => Self::Quarto,
+            _ => Self::Standard,
+        }
+    }
+
+    /// Detect flavor from file path
+    pub fn from_path(path: &std::path::Path) -> Self {
+        path.extension()
+            .and_then(|e| e.to_str())
+            .map(Self::from_extension)
+            .unwrap_or(Self::Standard)
+    }
+
+    /// Check if this flavor supports ESM imports/exports (MDX-specific)
+    pub fn supports_esm_blocks(self) -> bool {
+        matches!(self, Self::MDX)
+    }
+
+    /// Check if this flavor supports JSX components (MDX-specific)
+    pub fn supports_jsx(self) -> bool {
+        matches!(self, Self::MDX)
+    }
+
+    /// Check if this flavor supports auto-references (MkDocs-specific)
+    pub fn supports_auto_references(self) -> bool {
+        matches!(self, Self::MkDocs)
+    }
+
+    /// Get a human-readable name for this flavor
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Standard => "Standard",
+            Self::MkDocs => "MkDocs",
+            Self::MDX => "MDX",
+            Self::Quarto => "Quarto",
+        }
+    }
 }
 
 /// Normalizes configuration keys (rule names, option names) to lowercase kebab-case.
@@ -87,24 +156,105 @@ pub fn normalize_key(key: &str) -> String {
     }
 }
 
+/// Warns if a per-file-ignores pattern contains a comma but no braces.
+/// This is a common mistake where users expect "A.md,B.md" to match both files,
+/// but glob syntax requires "{A.md,B.md}" for brace expansion.
+fn warn_comma_without_brace_in_pattern(pattern: &str, config_file: &str) {
+    if pattern.contains(',') && !pattern.contains('{') {
+        eprintln!("Warning: Pattern \"{pattern}\" in {config_file} contains a comma but no braces.");
+        eprintln!("  To match multiple files, use brace expansion: \"{{{pattern}}}\"");
+        eprintln!("  Or use separate entries for each file.");
+    }
+}
+
 /// Represents a rule-specific configuration
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, schemars::JsonSchema)]
 pub struct RuleConfig {
+    /// Severity override for this rule (Error, Warning, or Info)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub severity: Option<crate::rule::Severity>,
+
     /// Configuration values for the rule
     #[serde(flatten)]
+    #[schemars(schema_with = "arbitrary_value_schema")]
     pub values: BTreeMap<String, toml::Value>,
 }
 
+/// Generate a JSON schema for arbitrary configuration values
+fn arbitrary_value_schema(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({
+        "type": "object",
+        "additionalProperties": true
+    })
+}
+
 /// Represents the complete configuration loaded from rumdl.toml
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, schemars::JsonSchema)]
+#[schemars(
+    description = "rumdl configuration for linting Markdown files. Rules can be configured individually using [MD###] sections with rule-specific options."
+)]
 pub struct Config {
     /// Global configuration options
     #[serde(default)]
     pub global: GlobalConfig,
 
-    /// Rule-specific configurations
+    /// Per-file rule ignores: maps file patterns to lists of rules to ignore
+    /// Example: { "README.md": ["MD033"], "docs/**/*.md": ["MD013"] }
+    #[serde(default, rename = "per-file-ignores")]
+    pub per_file_ignores: HashMap<String, Vec<String>>,
+
+    /// Per-file flavor overrides: maps file patterns to Markdown flavors
+    /// Example: { "docs/**/*.md": MkDocs, "**/*.mdx": MDX }
+    /// Uses IndexMap to preserve config file order for "first match wins" semantics
+    #[serde(default, rename = "per-file-flavor")]
+    #[schemars(with = "HashMap<String, MarkdownFlavor>")]
+    pub per_file_flavor: IndexMap<String, MarkdownFlavor>,
+
+    /// Rule-specific configurations (e.g., MD013, MD007, MD044)
+    /// Each rule section can contain options specific to that rule.
+    ///
+    /// Common examples:
+    /// - MD013: line_length, code_blocks, tables, headings
+    /// - MD007: indent
+    /// - MD003: style ("atx", "atx_closed", "setext")
+    /// - MD044: names (array of proper names to check)
+    ///
+    /// See https://github.com/rvben/rumdl for full rule documentation.
     #[serde(flatten)]
     pub rules: BTreeMap<String, RuleConfig>,
+
+    /// Project root directory, used for resolving relative paths in per-file-ignores
+    #[serde(skip)]
+    pub project_root: Option<std::path::PathBuf>,
+
+    #[serde(skip)]
+    #[schemars(skip)]
+    per_file_ignores_cache: Arc<OnceLock<PerFileIgnoreCache>>,
+
+    #[serde(skip)]
+    #[schemars(skip)]
+    per_file_flavor_cache: Arc<OnceLock<PerFileFlavorCache>>,
+}
+
+impl PartialEq for Config {
+    fn eq(&self, other: &Self) -> bool {
+        self.global == other.global
+            && self.per_file_ignores == other.per_file_ignores
+            && self.per_file_flavor == other.per_file_flavor
+            && self.rules == other.rules
+            && self.project_root == other.project_root
+    }
+}
+
+#[derive(Debug)]
+struct PerFileIgnoreCache {
+    globset: GlobSet,
+    rules: Vec<Vec<String>>,
+}
+
+#[derive(Debug)]
+struct PerFileFlavorCache {
+    matchers: Vec<(GlobMatcher, MarkdownFlavor)>,
 }
 
 impl Config {
@@ -126,11 +276,154 @@ impl Config {
     pub fn is_mkdocs_project(&self) -> bool {
         self.is_mkdocs_flavor()
     }
+
+    /// Get the severity override for a specific rule, if configured
+    pub fn get_rule_severity(&self, rule_name: &str) -> Option<crate::rule::Severity> {
+        self.rules.get(rule_name).and_then(|r| r.severity)
+    }
+
+    /// Get the set of rules that should be ignored for a specific file based on per-file-ignores configuration
+    /// Returns a HashSet of rule names (uppercase, e.g., "MD033") that match the given file path
+    pub fn get_ignored_rules_for_file(&self, file_path: &Path) -> HashSet<String> {
+        let mut ignored_rules = HashSet::new();
+
+        if self.per_file_ignores.is_empty() {
+            return ignored_rules;
+        }
+
+        // Normalize the file path to be relative to project_root for pattern matching
+        // This ensures patterns like ".github/file.md" work with absolute paths
+        let path_for_matching: std::borrow::Cow<'_, Path> = if let Some(ref root) = self.project_root {
+            if let Ok(canonical_path) = file_path.canonicalize() {
+                if let Ok(canonical_root) = root.canonicalize() {
+                    if let Ok(relative) = canonical_path.strip_prefix(&canonical_root) {
+                        std::borrow::Cow::Owned(relative.to_path_buf())
+                    } else {
+                        std::borrow::Cow::Borrowed(file_path)
+                    }
+                } else {
+                    std::borrow::Cow::Borrowed(file_path)
+                }
+            } else {
+                std::borrow::Cow::Borrowed(file_path)
+            }
+        } else {
+            std::borrow::Cow::Borrowed(file_path)
+        };
+
+        let cache = self
+            .per_file_ignores_cache
+            .get_or_init(|| PerFileIgnoreCache::new(&self.per_file_ignores));
+
+        // Match the file path against all patterns
+        for match_idx in cache.globset.matches(path_for_matching.as_ref()) {
+            if let Some(rules) = cache.rules.get(match_idx) {
+                for rule in rules.iter() {
+                    // Normalize rule names to uppercase (MD033, md033 -> MD033)
+                    ignored_rules.insert(rule.clone());
+                }
+            }
+        }
+
+        ignored_rules
+    }
+
+    /// Get the MarkdownFlavor for a specific file based on per-file-flavor configuration.
+    /// Returns the first matching pattern's flavor, or falls back to global flavor,
+    /// or auto-detects from extension, or defaults to Standard.
+    pub fn get_flavor_for_file(&self, file_path: &Path) -> MarkdownFlavor {
+        // If no per-file patterns, use fallback logic
+        if self.per_file_flavor.is_empty() {
+            return self.resolve_flavor_fallback(file_path);
+        }
+
+        // Normalize path for matching (same logic as get_ignored_rules_for_file)
+        let path_for_matching: std::borrow::Cow<'_, Path> = if let Some(ref root) = self.project_root {
+            if let Ok(canonical_path) = file_path.canonicalize() {
+                if let Ok(canonical_root) = root.canonicalize() {
+                    if let Ok(relative) = canonical_path.strip_prefix(&canonical_root) {
+                        std::borrow::Cow::Owned(relative.to_path_buf())
+                    } else {
+                        std::borrow::Cow::Borrowed(file_path)
+                    }
+                } else {
+                    std::borrow::Cow::Borrowed(file_path)
+                }
+            } else {
+                std::borrow::Cow::Borrowed(file_path)
+            }
+        } else {
+            std::borrow::Cow::Borrowed(file_path)
+        };
+
+        let cache = self
+            .per_file_flavor_cache
+            .get_or_init(|| PerFileFlavorCache::new(&self.per_file_flavor));
+
+        // Iterate in config order and return first match (IndexMap preserves order)
+        for (matcher, flavor) in &cache.matchers {
+            if matcher.is_match(path_for_matching.as_ref()) {
+                return *flavor;
+            }
+        }
+
+        // No pattern matched, use fallback
+        self.resolve_flavor_fallback(file_path)
+    }
+
+    /// Fallback flavor resolution: global flavor → auto-detect → Standard
+    fn resolve_flavor_fallback(&self, file_path: &Path) -> MarkdownFlavor {
+        // If global flavor is explicitly set to non-Standard, use it
+        if self.global.flavor != MarkdownFlavor::Standard {
+            return self.global.flavor;
+        }
+        // Auto-detect from extension
+        MarkdownFlavor::from_path(file_path)
+    }
+}
+
+impl PerFileIgnoreCache {
+    fn new(per_file_ignores: &HashMap<String, Vec<String>>) -> Self {
+        let mut builder = GlobSetBuilder::new();
+        let mut rules = Vec::new();
+
+        for (pattern, rules_list) in per_file_ignores {
+            if let Ok(glob) = Glob::new(pattern) {
+                builder.add(glob);
+                rules.push(rules_list.iter().map(|rule| normalize_key(rule)).collect());
+            } else {
+                log::warn!("Invalid glob pattern in per-file-ignores: {pattern}");
+            }
+        }
+
+        let globset = builder.build().unwrap_or_else(|e| {
+            log::error!("Failed to build globset for per-file-ignores: {e}");
+            GlobSetBuilder::new().build().unwrap()
+        });
+
+        Self { globset, rules }
+    }
+}
+
+impl PerFileFlavorCache {
+    fn new(per_file_flavor: &IndexMap<String, MarkdownFlavor>) -> Self {
+        let mut matchers = Vec::new();
+
+        for (pattern, flavor) in per_file_flavor {
+            if let Ok(glob) = GlobBuilder::new(pattern).literal_separator(true).build() {
+                matchers.push((glob.compile_matcher(), *flavor));
+            } else {
+                log::warn!("Invalid glob pattern in per-file-flavor: {pattern}");
+            }
+        }
+
+        Self { matchers }
+    }
 }
 
 /// Global configuration options
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+#[serde(default, rename_all = "kebab-case")]
 pub struct GlobalConfig {
     /// Enabled rules
     #[serde(default)]
@@ -149,15 +442,15 @@ pub struct GlobalConfig {
     pub include: Vec<String>,
 
     /// Respect .gitignore files when scanning directories
-    #[serde(default = "default_respect_gitignore")]
+    #[serde(default = "default_respect_gitignore", alias = "respect_gitignore")]
     pub respect_gitignore: bool,
 
     /// Global line length setting (used by MD013 and other rules if not overridden)
-    #[serde(default = "default_line_length")]
-    pub line_length: u64,
+    #[serde(default, alias = "line_length")]
+    pub line_length: LineLength,
 
     /// Output format for linting results (e.g., "text", "json", "pylint", etc.)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "output_format")]
     pub output_format: Option<String>,
 
     /// Rules that are allowed to be fixed when --fix is used
@@ -175,24 +468,36 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub flavor: MarkdownFlavor,
 
-    /// Whether to enforce exclude and extend-exclude patterns even for paths that are passed explicitly.
-    /// By default (false), rumdl will lint any paths passed in directly, even if they would typically be excluded.
-    /// Setting this to true will cause rumdl to respect exclusions unequivocally.
-    /// This is useful for pre-commit, which explicitly passes all changed files.
-    #[serde(default)]
+    /// [DEPRECATED] Whether to enforce exclude patterns for explicitly passed paths.
+    /// This option is deprecated as of v0.0.156 and has no effect.
+    /// Exclude patterns are now always respected, even for explicitly provided files.
+    /// This prevents duplication between rumdl config and tool configs like pre-commit.
+    #[serde(default, alias = "force_exclude")]
+    #[deprecated(since = "0.0.156", note = "Exclude patterns are now always respected")]
     pub force_exclude: bool,
+
+    /// Directory to store cache files (default: .rumdl_cache)
+    /// Can also be set via --cache-dir CLI flag or RUMDL_CACHE_DIR environment variable
+    #[serde(default, alias = "cache_dir", skip_serializing_if = "Option::is_none")]
+    pub cache_dir: Option<String>,
+
+    /// Whether caching is enabled (default: true)
+    /// Can also be disabled via --no-cache CLI flag
+    #[serde(default = "default_true")]
+    pub cache: bool,
 }
 
 fn default_respect_gitignore() -> bool {
     true
 }
 
-fn default_line_length() -> u64 {
-    80
+fn default_true() -> bool {
+    true
 }
 
 // Add the Default impl
 impl Default for GlobalConfig {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self {
             enable: Vec::new(),
@@ -200,12 +505,14 @@ impl Default for GlobalConfig {
             exclude: Vec::new(),
             include: Vec::new(),
             respect_gitignore: true,
-            line_length: 80,
+            line_length: LineLength::default(),
             output_format: None,
             fixable: Vec::new(),
             unfixable: Vec::new(),
             flavor: MarkdownFlavor::default(),
             force_exclude: false,
+            cache_dir: None,
+            cache: true,
         }
     }
 }
@@ -262,10 +569,10 @@ exclude = [
 ]
 
 # Respect .gitignore files when scanning directories (default: true)
-respect_gitignore = true
+respect-gitignore = true
 
 # Markdown flavor/dialect (uncomment to enable)
-# Options: mkdocs, gfm, commonmark
+# Options: standard (default), gfm, commonmark, mkdocs, mdx, quarto
 # flavor = "mkdocs"
 
 # Rule-specific configurations (uncomment and modify as needed)
@@ -280,14 +587,14 @@ respect_gitignore = true
 # indent = 4  # Unordered list indentation
 
 # [MD013]
-# line_length = 100  # Line length
-# code_blocks = false  # Exclude code blocks from line length check
+# line-length = 100  # Line length
+# code-blocks = false  # Exclude code blocks from line length check
 # tables = false  # Exclude tables from line length check
 # headings = true  # Include headings in line length check
 
 # [MD044]
 # names = ["rumdl", "Markdown", "GitHub"]  # Proper names that should be capitalized correctly
-# code_blocks_excluded = true  # Exclude code blocks from proper name check
+# code-blocks = false  # Check code blocks for proper names (default: false, skips code blocks)
 "#;
 
     // Write the default configuration to the file
@@ -374,14 +681,14 @@ respect-gitignore = true
 # indent = 4  # Unordered list indentation
 
 # [tool.rumdl.MD013]
-# line_length = 100  # Line length
-# code_blocks = false  # Exclude code blocks from line length check
+# line-length = 100  # Line length
+# code-blocks = false  # Exclude code blocks from line length check
 # tables = false  # Exclude tables from line length check
 # headings = true  # Include headings in line length check
 
 # [tool.rumdl.MD044]
 # names = ["rumdl", "Markdown", "GitHub"]  # Proper names that should be capitalized correctly
-# code_blocks_excluded = true  # Exclude code blocks from proper name check
+# code-blocks = false  # Check code blocks for proper names (default: false, skips code blocks)
 "#;
 
     config_content.to_string()
@@ -406,7 +713,7 @@ disable = ["MD001"]
 
         // Load the config
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // Check that flavor was loaded
         assert_eq!(config.global.flavor, MarkdownFlavor::MkDocs);
@@ -435,7 +742,7 @@ respect-gitignore = true
 
         // Load the config with skip_auto_discovery to avoid environment config files
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into(); // Convert to plain config for assertions
+        let config: Config = sourced.into_validated_unchecked().into(); // Convert to plain config for assertions
 
         // Check global settings
         assert_eq!(config.global.disable, vec!["MD033".to_string()]);
@@ -466,7 +773,7 @@ respect_gitignore = true
 
         // Load the config with skip_auto_discovery to avoid environment config files
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into(); // Convert to plain config for assertions
+        let config: Config = sourced.into_validated_unchecked().into(); // Convert to plain config for assertions
 
         // Check settings were correctly loaded
         assert!(config.global.respect_gitignore);
@@ -493,7 +800,7 @@ line-length = 222
         let val = &rule_cfg.values["line-length"].value;
         assert_eq!(val.as_integer(), Some(222));
         // get_rule_config_value should retrieve the value for both snake_case and kebab-case
-        let config: Config = sourced.clone().into();
+        let config: Config = sourced.clone().into_validated_unchecked().into();
         let v1 = get_rule_config_value::<usize>(&config, "MD013", "line_length");
         let v2 = get_rule_config_value::<usize>(&config, "MD013", "line-length");
         assert_eq!(v1, Some(222));
@@ -517,7 +824,7 @@ line-length = 103
         fs::write(&config_path, config_content).unwrap();
         // Load the config with skip_auto_discovery to avoid environment config files
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.clone().into();
+        let config: Config = sourced.clone().into_validated_unchecked().into();
         // Only the last section should win, and be present
         let rule_cfg = sourced.rules.get("MD013").expect("MD013 rule config should exist");
         let keys: Vec<_> = rule_cfg.values.keys().cloned().collect();
@@ -540,7 +847,7 @@ line-length = 202
         fs::write(&config_path, config_content).unwrap();
         // Load the config with skip_auto_discovery to avoid environment config files
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.clone().into();
+        let config: Config = sourced.clone().into_validated_unchecked().into();
         let rule_cfg = sourced.rules.get("MD013").expect("MD013 rule config should exist");
         let keys: Vec<_> = rule_cfg.values.keys().cloned().collect();
         assert_eq!(keys, vec!["line-length"]);
@@ -566,7 +873,7 @@ line-length = 303
         fs::write(&config_path, config_content).unwrap();
         // Load the config with skip_auto_discovery to avoid environment config files
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.clone().into();
+        let config: Config = sourced.clone().into_validated_unchecked().into();
         // MD999 should not be present
         assert!(!sourced.rules.contains_key("MD999"));
         // MD013 should be present and correct
@@ -610,7 +917,7 @@ line-length = "not a number"
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // The value should be loaded as a string, not converted
         let rule_config = config.rules.get("MD013").unwrap();
@@ -627,10 +934,10 @@ line-length = "not a number"
         fs::write(&config_path, "").unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // Should have default values
-        assert_eq!(config.global.line_length, 80);
+        assert_eq!(config.global.line_length.get(), 80);
         assert!(config.global.respect_gitignore);
         assert!(config.rules.is_empty());
     }
@@ -665,11 +972,11 @@ disable = ["MD013"]
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
-        // Both should be present - resolution happens at runtime
+        // Conflict resolution: enable wins over disable
         assert!(config.global.enable.contains(&"MD013".to_string()));
-        assert!(config.global.disable.contains(&"MD013".to_string()));
+        assert!(!config.global.disable.contains(&"MD013".to_string()));
     }
 
     #[test]
@@ -685,7 +992,7 @@ disable = ["MD-001", "MD_002"]
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // All values should be preserved as-is
         assert_eq!(config.global.enable.len(), 4);
@@ -707,7 +1014,7 @@ value = 42
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         let rule_config = config.rules.get("MD013").unwrap();
         assert_eq!(
@@ -735,7 +1042,7 @@ message = "行太长了 🚨"
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         assert_eq!(config.global.include.len(), 2);
         assert_eq!(config.global.exclude.len(), 2);
@@ -769,7 +1076,7 @@ line-length = 999999999
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         assert_eq!(config.global.exclude[0].len(), 10000);
         let line_length = get_rule_config_value::<usize>(&config, "MD013", "line-length");
@@ -794,7 +1101,7 @@ line-length = 100 # Set to 100 characters
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         assert_eq!(config.global.enable, vec!["MD001"]);
         assert!(config.global.disable.is_empty()); // Commented out
@@ -810,7 +1117,7 @@ line-length = 100 # Set to 100 characters
         let config_path = temp_dir.path().join(".rumdl.toml");
 
         let config_content = r#"
-[MD002]
+[MD003]
 levels = [1, 2, 3]
 tags = ["important", "critical"]
 mixed = [1, "two", true]
@@ -818,10 +1125,10 @@ mixed = [1, "two", true]
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // Arrays should now be properly parsed
-        let rule_config = config.rules.get("MD002").expect("MD002 config should exist");
+        let rule_config = config.rules.get("MD003").expect("MD003 config should exist");
 
         // Check that arrays are present and correctly parsed
         assert!(rule_config.values.contains_key("levels"));
@@ -938,7 +1245,7 @@ mixed = [1, "two", true]
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         let rule_config = config.rules.get("MD001").unwrap();
         assert_eq!(rule_config.values.len(), 100);
@@ -961,7 +1268,7 @@ local_time = 07:32:00
         fs::write(&config_path, config_content).unwrap();
 
         let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
-        let config: Config = sourced.into();
+        let config: Config = sourced.into_validated_unchecked().into();
 
         // Some values might not be parsed due to parser limitations
         if let Some(rule_config) = config.rules.get("MD001") {
@@ -1023,16 +1330,1438 @@ local_time = 07:32:00
             "Default config from rumdl init should pass validation without warnings"
         );
     }
+
+    #[test]
+    fn test_per_file_ignores_config_parsing() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-ignores]
+"README.md" = ["MD033"]
+"docs/**/*.md" = ["MD013", "MD033"]
+"test/*.md" = ["MD041"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Verify per-file-ignores was loaded
+        assert_eq!(config.per_file_ignores.len(), 3);
+        assert_eq!(
+            config.per_file_ignores.get("README.md"),
+            Some(&vec!["MD033".to_string()])
+        );
+        assert_eq!(
+            config.per_file_ignores.get("docs/**/*.md"),
+            Some(&vec!["MD013".to_string(), "MD033".to_string()])
+        );
+        assert_eq!(
+            config.per_file_ignores.get("test/*.md"),
+            Some(&vec!["MD041".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_per_file_ignores_glob_matching() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-ignores]
+"README.md" = ["MD033"]
+"docs/**/*.md" = ["MD013"]
+"**/test_*.md" = ["MD041"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Test exact match
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("README.md"));
+        assert!(ignored.contains("MD033"));
+        assert_eq!(ignored.len(), 1);
+
+        // Test glob pattern matching
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("docs/api/overview.md"));
+        assert!(ignored.contains("MD013"));
+        assert_eq!(ignored.len(), 1);
+
+        // Test recursive glob pattern
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("tests/fixtures/test_example.md"));
+        assert!(ignored.contains("MD041"));
+        assert_eq!(ignored.len(), 1);
+
+        // Test non-matching path
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("other/file.md"));
+        assert!(ignored.is_empty());
+    }
+
+    #[test]
+    fn test_per_file_ignores_pyproject_toml() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("pyproject.toml");
+        let config_content = r#"
+[tool.rumdl]
+[tool.rumdl.per-file-ignores]
+"README.md" = ["MD033", "MD013"]
+"generated/*.md" = ["MD041"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Verify per-file-ignores was loaded from pyproject.toml
+        assert_eq!(config.per_file_ignores.len(), 2);
+        assert_eq!(
+            config.per_file_ignores.get("README.md"),
+            Some(&vec!["MD033".to_string(), "MD013".to_string()])
+        );
+        assert_eq!(
+            config.per_file_ignores.get("generated/*.md"),
+            Some(&vec!["MD041".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_per_file_ignores_multiple_patterns_match() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-ignores]
+"docs/**/*.md" = ["MD013"]
+"**/api/*.md" = ["MD033"]
+"docs/api/overview.md" = ["MD041"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // File matches multiple patterns - should get union of all rules
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("docs/api/overview.md"));
+        assert_eq!(ignored.len(), 3);
+        assert!(ignored.contains("MD013"));
+        assert!(ignored.contains("MD033"));
+        assert!(ignored.contains("MD041"));
+    }
+
+    #[test]
+    fn test_per_file_ignores_rule_name_normalization() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-ignores]
+"README.md" = ["md033", "MD013", "Md041"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // All rule names should be normalized to uppercase
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("README.md"));
+        assert_eq!(ignored.len(), 3);
+        assert!(ignored.contains("MD033"));
+        assert!(ignored.contains("MD013"));
+        assert!(ignored.contains("MD041"));
+    }
+
+    #[test]
+    fn test_per_file_ignores_invalid_glob_pattern() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-ignores]
+"[invalid" = ["MD033"]
+"valid/*.md" = ["MD013"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Invalid pattern should be skipped, valid pattern should work
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("valid/test.md"));
+        assert!(ignored.contains("MD013"));
+
+        // Invalid pattern should not cause issues
+        let ignored2 = config.get_ignored_rules_for_file(&PathBuf::from("[invalid"));
+        assert!(ignored2.is_empty());
+    }
+
+    #[test]
+    fn test_per_file_ignores_empty_section() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[global]
+disable = ["MD001"]
+
+[per-file-ignores]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Empty per-file-ignores should work fine
+        assert_eq!(config.per_file_ignores.len(), 0);
+        let ignored = config.get_ignored_rules_for_file(&PathBuf::from("README.md"));
+        assert!(ignored.is_empty());
+    }
+
+    #[test]
+    fn test_per_file_ignores_with_underscores_in_pyproject() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("pyproject.toml");
+        let config_content = r#"
+[tool.rumdl]
+[tool.rumdl.per_file_ignores]
+"README.md" = ["MD033"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Should support both per-file-ignores and per_file_ignores
+        assert_eq!(config.per_file_ignores.len(), 1);
+        assert_eq!(
+            config.per_file_ignores.get("README.md"),
+            Some(&vec!["MD033".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_per_file_ignores_absolute_path_matching() {
+        // Regression test for issue #208: per-file-ignores should work with absolute paths
+        // This is critical for GitHub Actions which uses absolute paths like $GITHUB_WORKSPACE
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+
+        // Create a subdirectory and file to match against
+        let github_dir = temp_dir.path().join(".github");
+        fs::create_dir_all(&github_dir).unwrap();
+        let test_file = github_dir.join("pull_request_template.md");
+        fs::write(&test_file, "Test content").unwrap();
+
+        let config_content = r#"
+[per-file-ignores]
+".github/pull_request_template.md" = ["MD041"]
+"docs/**/*.md" = ["MD013"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Test with absolute path (like GitHub Actions would use)
+        let absolute_path = test_file.canonicalize().unwrap();
+        let ignored = config.get_ignored_rules_for_file(&absolute_path);
+        assert!(
+            ignored.contains("MD041"),
+            "Should match absolute path {absolute_path:?} against relative pattern"
+        );
+        assert_eq!(ignored.len(), 1);
+
+        // Also verify relative path still works
+        let relative_path = PathBuf::from(".github/pull_request_template.md");
+        let ignored = config.get_ignored_rules_for_file(&relative_path);
+        assert!(ignored.contains("MD041"), "Should match relative path");
+    }
+
+    // ==========================================
+    // Per-File-Flavor Tests
+    // ==========================================
+
+    #[test]
+    fn test_per_file_flavor_config_parsing() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+"**/*.mdx" = "mdx"
+"**/*.qmd" = "quarto"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Verify per-file-flavor was loaded
+        assert_eq!(config.per_file_flavor.len(), 3);
+        assert_eq!(
+            config.per_file_flavor.get("docs/**/*.md"),
+            Some(&MarkdownFlavor::MkDocs)
+        );
+        assert_eq!(config.per_file_flavor.get("**/*.mdx"), Some(&MarkdownFlavor::MDX));
+        assert_eq!(config.per_file_flavor.get("**/*.qmd"), Some(&MarkdownFlavor::Quarto));
+    }
+
+    #[test]
+    fn test_per_file_flavor_glob_matching() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+"**/*.mdx" = "mdx"
+"components/**/*.md" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Test mkdocs flavor for docs directory
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/api/overview.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Test mdx flavor for .mdx extension
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/components/Button.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        // Test mdx flavor for components directory
+        let flavor = config.get_flavor_for_file(&PathBuf::from("components/Button/README.md"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        // Test non-matching path falls back to standard
+        let flavor = config.get_flavor_for_file(&PathBuf::from("README.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_pyproject_toml() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("pyproject.toml");
+        let config_content = r#"
+[tool.rumdl]
+[tool.rumdl.per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+"**/*.mdx" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Verify per-file-flavor was loaded from pyproject.toml
+        assert_eq!(config.per_file_flavor.len(), 2);
+        assert_eq!(
+            config.per_file_flavor.get("docs/**/*.md"),
+            Some(&MarkdownFlavor::MkDocs)
+        );
+        assert_eq!(config.per_file_flavor.get("**/*.mdx"), Some(&MarkdownFlavor::MDX));
+    }
+
+    #[test]
+    fn test_per_file_flavor_first_match_wins() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Order matters - first match wins (IndexMap preserves order)
+        let config_content = r#"
+[per-file-flavor]
+"docs/internal/**/*.md" = "quarto"
+"docs/**/*.md" = "mkdocs"
+"**/*.md" = "standard"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // More specific pattern should match first
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/internal/secret.md"));
+        assert_eq!(flavor, MarkdownFlavor::Quarto);
+
+        // Less specific pattern for other docs
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/public/readme.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Fallback to least specific pattern
+        let flavor = config.get_flavor_for_file(&PathBuf::from("other/file.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_overrides_global_flavor() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[global]
+flavor = "mkdocs"
+
+[per-file-flavor]
+"**/*.mdx" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Per-file-flavor should override global flavor
+        let flavor = config.get_flavor_for_file(&PathBuf::from("components/Button.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        // Non-matching files should use global flavor
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/readme.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+    }
+
+    #[test]
+    fn test_per_file_flavor_empty_map() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[global]
+disable = ["MD001"]
+
+[per-file-flavor]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Empty per-file-flavor should fall back to auto-detection
+        let flavor = config.get_flavor_for_file(&PathBuf::from("README.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+
+        // MDX files should auto-detect
+        let flavor = config.get_flavor_for_file(&PathBuf::from("test.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+    }
+
+    #[test]
+    fn test_per_file_flavor_with_underscores() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("pyproject.toml");
+        let config_content = r#"
+[tool.rumdl]
+[tool.rumdl.per_file_flavor]
+"docs/**/*.md" = "mkdocs"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Should support both per-file-flavor and per_file_flavor
+        assert_eq!(config.per_file_flavor.len(), 1);
+        assert_eq!(
+            config.per_file_flavor.get("docs/**/*.md"),
+            Some(&MarkdownFlavor::MkDocs)
+        );
+    }
+
+    #[test]
+    fn test_per_file_flavor_absolute_path_matching() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+
+        // Create a subdirectory and file to match against
+        let docs_dir = temp_dir.path().join("docs");
+        fs::create_dir_all(&docs_dir).unwrap();
+        let test_file = docs_dir.join("guide.md");
+        fs::write(&test_file, "Test content").unwrap();
+
+        let config_content = r#"
+[per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Test with absolute path
+        let absolute_path = test_file.canonicalize().unwrap();
+        let flavor = config.get_flavor_for_file(&absolute_path);
+        assert_eq!(
+            flavor,
+            MarkdownFlavor::MkDocs,
+            "Should match absolute path {absolute_path:?} against relative pattern"
+        );
+
+        // Also verify relative path still works
+        let relative_path = PathBuf::from("docs/guide.md");
+        let flavor = config.get_flavor_for_file(&relative_path);
+        assert_eq!(flavor, MarkdownFlavor::MkDocs, "Should match relative path");
+    }
+
+    #[test]
+    fn test_per_file_flavor_all_flavors() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-flavor]
+"standard/**/*.md" = "standard"
+"mkdocs/**/*.md" = "mkdocs"
+"mdx/**/*.md" = "mdx"
+"quarto/**/*.md" = "quarto"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // All four flavors should be loadable
+        assert_eq!(config.per_file_flavor.len(), 4);
+        assert_eq!(
+            config.per_file_flavor.get("standard/**/*.md"),
+            Some(&MarkdownFlavor::Standard)
+        );
+        assert_eq!(
+            config.per_file_flavor.get("mkdocs/**/*.md"),
+            Some(&MarkdownFlavor::MkDocs)
+        );
+        assert_eq!(config.per_file_flavor.get("mdx/**/*.md"), Some(&MarkdownFlavor::MDX));
+        assert_eq!(
+            config.per_file_flavor.get("quarto/**/*.md"),
+            Some(&MarkdownFlavor::Quarto)
+        );
+    }
+
+    #[test]
+    fn test_per_file_flavor_invalid_glob_pattern() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Include an invalid glob pattern with unclosed bracket
+        let config_content = r#"
+[per-file-flavor]
+"[invalid" = "mkdocs"
+"valid/**/*.md" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Invalid pattern should be skipped, valid pattern should still work
+        let flavor = config.get_flavor_for_file(&PathBuf::from("valid/test.md"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        // Non-matching should fall back to Standard
+        let flavor = config.get_flavor_for_file(&PathBuf::from("other/test.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_paths_with_spaces() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-flavor]
+"my docs/**/*.md" = "mkdocs"
+"src/**/*.md" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Paths with spaces should match
+        let flavor = config.get_flavor_for_file(&PathBuf::from("my docs/guide.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Regular path
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/README.md"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+    }
+
+    #[test]
+    fn test_per_file_flavor_deeply_nested_paths() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        let config_content = r#"
+[per-file-flavor]
+"a/b/c/d/e/**/*.md" = "quarto"
+"a/b/**/*.md" = "mkdocs"
+"**/*.md" = "standard"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // 5-level deep path should match most specific pattern first
+        let flavor = config.get_flavor_for_file(&PathBuf::from("a/b/c/d/e/f/deep.md"));
+        assert_eq!(flavor, MarkdownFlavor::Quarto);
+
+        // 3-level deep path
+        let flavor = config.get_flavor_for_file(&PathBuf::from("a/b/c/test.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Root level
+        let flavor = config.get_flavor_for_file(&PathBuf::from("root.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_complex_overlapping_patterns() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Complex pattern order testing - tests that IndexMap preserves TOML order
+        let config_content = r#"
+[per-file-flavor]
+"docs/api/*.md" = "mkdocs"
+"docs/**/*.mdx" = "mdx"
+"docs/**/*.md" = "quarto"
+"**/*.md" = "standard"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // docs/api/*.md should match first
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/api/reference.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // docs/api/nested/file.md should NOT match docs/api/*.md (no **), but match docs/**/*.md
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/api/nested/file.md"));
+        assert_eq!(flavor, MarkdownFlavor::Quarto);
+
+        // .mdx in docs should match docs/**/*.mdx
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/components/Button.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        // .md outside docs should match **/*.md
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/README.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_extension_detection_interaction() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test that per-file-flavor pattern can override extension-based auto-detection
+        let config_content = r#"
+[per-file-flavor]
+"legacy/**/*.mdx" = "standard"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // .mdx file in legacy dir should use pattern override (standard), not auto-detect (mdx)
+        let flavor = config.get_flavor_for_file(&PathBuf::from("legacy/old.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+
+        // .mdx file elsewhere should auto-detect as MDX
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/component.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+    }
+
+    #[test]
+    fn test_per_file_flavor_standard_alias_none() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test that "none" works as alias for "standard"
+        let config_content = r#"
+[per-file-flavor]
+"plain/**/*.md" = "none"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // "none" should resolve to Standard
+        let flavor = config.get_flavor_for_file(&PathBuf::from("plain/test.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_brace_expansion() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test brace expansion in glob patterns
+        let config_content = r#"
+[per-file-flavor]
+"docs/**/*.{md,mdx}" = "mkdocs"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Should match .md files
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/guide.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Should match .mdx files
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/component.mdx"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+    }
+
+    #[test]
+    fn test_per_file_flavor_single_star_vs_double_star() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test difference between * (single level) and ** (recursive)
+        let config_content = r#"
+[per-file-flavor]
+"docs/*.md" = "mkdocs"
+"src/**/*.md" = "mdx"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Single * matches only direct children
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/README.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Single * does NOT match nested files
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/api/index.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard); // fallback
+
+        // Double ** matches recursively
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/components/Button.md"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+
+        let flavor = config.get_flavor_for_file(&PathBuf::from("src/README.md"));
+        assert_eq!(flavor, MarkdownFlavor::MDX);
+    }
+
+    #[test]
+    fn test_per_file_flavor_question_mark_wildcard() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test ? wildcard (matches single character)
+        let config_content = r#"
+[per-file-flavor]
+"docs/v?.md" = "mkdocs"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // ? matches single character
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/v1.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/v2.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // ? does NOT match multiple characters
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/v10.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+
+        // ? does NOT match zero characters
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/v.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_per_file_flavor_character_class() {
+        use std::path::PathBuf;
+
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join(".rumdl.toml");
+        // Test character class [abc]
+        let config_content = r#"
+[per-file-flavor]
+"docs/[abc].md" = "mkdocs"
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // Should match a, b, or c
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/a.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/b.md"));
+        assert_eq!(flavor, MarkdownFlavor::MkDocs);
+
+        // Should NOT match d
+        let flavor = config.get_flavor_for_file(&PathBuf::from("docs/d.md"));
+        assert_eq!(flavor, MarkdownFlavor::Standard);
+    }
+
+    #[test]
+    fn test_generate_json_schema() {
+        use schemars::schema_for;
+        use std::env;
+
+        let schema = schema_for!(Config);
+        let schema_json = serde_json::to_string_pretty(&schema).expect("Failed to serialize schema");
+
+        // Write schema to file if RUMDL_UPDATE_SCHEMA env var is set
+        if env::var("RUMDL_UPDATE_SCHEMA").is_ok() {
+            let schema_path = env::current_dir().unwrap().join("rumdl.schema.json");
+            fs::write(&schema_path, &schema_json).expect("Failed to write schema file");
+            println!("Schema written to: {}", schema_path.display());
+        }
+
+        // Basic validation that schema was generated
+        assert!(schema_json.contains("\"title\": \"Config\""));
+        assert!(schema_json.contains("\"global\""));
+        assert!(schema_json.contains("\"per-file-ignores\""));
+    }
+
+    #[test]
+    fn test_markdown_flavor_schema_matches_fromstr() {
+        // Extract enum values from the actual generated schema
+        // This ensures the test stays in sync with the schema automatically
+        use schemars::schema_for;
+
+        let schema = schema_for!(MarkdownFlavor);
+        let schema_json = serde_json::to_value(&schema).expect("Failed to serialize schema");
+
+        // Extract enum values from schema
+        let enum_values = schema_json
+            .get("enum")
+            .expect("Schema should have 'enum' field")
+            .as_array()
+            .expect("enum should be an array");
+
+        assert!(!enum_values.is_empty(), "Schema enum should not be empty");
+
+        // Verify all schema enum values are parseable by FromStr
+        for value in enum_values {
+            let str_value = value.as_str().expect("enum value should be a string");
+            let result = str_value.parse::<MarkdownFlavor>();
+            assert!(
+                result.is_ok(),
+                "Schema value '{str_value}' should be parseable by FromStr but got: {:?}",
+                result.err()
+            );
+        }
+
+        // Also verify the aliases in FromStr that aren't in schema (empty string, none)
+        for alias in ["", "none"] {
+            let result = alias.parse::<MarkdownFlavor>();
+            assert!(result.is_ok(), "FromStr alias '{alias}' should be parseable");
+        }
+    }
+
+    #[test]
+    fn test_project_config_is_standalone() {
+        // Ruff model: Project config is standalone, user config is NOT merged
+        // This ensures reproducibility across machines and CI/local consistency
+        let temp_dir = tempdir().unwrap();
+
+        // Create a fake user config directory
+        // Note: user_configuration_path_impl adds /rumdl to the config dir
+        let user_config_dir = temp_dir.path().join("user_config");
+        let rumdl_config_dir = user_config_dir.join("rumdl");
+        fs::create_dir_all(&rumdl_config_dir).unwrap();
+        let user_config_path = rumdl_config_dir.join("rumdl.toml");
+
+        // User config disables MD013 and MD041
+        let user_config_content = r#"
+[global]
+disable = ["MD013", "MD041"]
+line-length = 100
+"#;
+        fs::write(&user_config_path, user_config_content).unwrap();
+
+        // Create a project config that enables MD001
+        let project_config_path = temp_dir.path().join("project").join("pyproject.toml");
+        fs::create_dir_all(project_config_path.parent().unwrap()).unwrap();
+        let project_config_content = r#"
+[tool.rumdl]
+enable = ["MD001"]
+"#;
+        fs::write(&project_config_path, project_config_content).unwrap();
+
+        // Load config with explicit project path, passing user_config_dir
+        let sourced = SourcedConfig::load_with_discovery_impl(
+            Some(project_config_path.to_str().unwrap()),
+            None,
+            false,
+            Some(&user_config_dir),
+        )
+        .unwrap();
+
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // User config settings should NOT be present (Ruff model: project is standalone)
+        assert!(
+            !config.global.disable.contains(&"MD013".to_string()),
+            "User config should NOT be merged with project config"
+        );
+        assert!(
+            !config.global.disable.contains(&"MD041".to_string()),
+            "User config should NOT be merged with project config"
+        );
+
+        // Project config settings should be applied
+        assert!(
+            config.global.enable.contains(&"MD001".to_string()),
+            "Project config enabled rules should be applied"
+        );
+    }
+
+    #[test]
+    fn test_user_config_as_fallback_when_no_project_config() {
+        // Ruff model: User config is used as fallback when no project config exists
+        use std::env;
+
+        let temp_dir = tempdir().unwrap();
+        let original_dir = env::current_dir().unwrap();
+
+        // Create a fake user config directory
+        let user_config_dir = temp_dir.path().join("user_config");
+        let rumdl_config_dir = user_config_dir.join("rumdl");
+        fs::create_dir_all(&rumdl_config_dir).unwrap();
+        let user_config_path = rumdl_config_dir.join("rumdl.toml");
+
+        // User config with specific settings
+        let user_config_content = r#"
+[global]
+disable = ["MD013", "MD041"]
+line-length = 88
+"#;
+        fs::write(&user_config_path, user_config_content).unwrap();
+
+        // Create a project directory WITHOUT any config
+        let project_dir = temp_dir.path().join("project_no_config");
+        fs::create_dir_all(&project_dir).unwrap();
+
+        // Change to project directory
+        env::set_current_dir(&project_dir).unwrap();
+
+        // Load config - should use user config as fallback
+        let sourced = SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir)).unwrap();
+
+        let config: Config = sourced.into_validated_unchecked().into();
+
+        // User config should be loaded as fallback
+        assert!(
+            config.global.disable.contains(&"MD013".to_string()),
+            "User config should be loaded as fallback when no project config"
+        );
+        assert!(
+            config.global.disable.contains(&"MD041".to_string()),
+            "User config should be loaded as fallback when no project config"
+        );
+        assert_eq!(
+            config.global.line_length.get(),
+            88,
+            "User config line-length should be loaded as fallback"
+        );
+
+        env::set_current_dir(original_dir).unwrap();
+    }
+
+    #[test]
+    fn test_typestate_validate_method() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let config_path = temp_dir.path().join("test.toml");
+
+        // Create config with an unknown rule option to trigger a validation warning
+        let config_content = r#"
+[global]
+enable = ["MD001"]
+
+[MD013]
+line_length = 80
+unknown_option = true
+"#;
+        std::fs::write(&config_path, config_content).expect("Failed to write config");
+
+        // Load config - this returns SourcedConfig<ConfigLoaded>
+        let loaded = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true)
+            .expect("Should load config");
+
+        // Create a rule registry for validation
+        let default_config = Config::default();
+        let all_rules = crate::rules::all_rules(&default_config);
+        let registry = RuleRegistry::from_rules(&all_rules);
+
+        // Validate - this transitions to SourcedConfig<ConfigValidated>
+        let validated = loaded.validate(&registry).expect("Should validate config");
+
+        // Check that validation warnings were captured for the unknown option
+        // Note: The validation checks rule options against the rule's schema
+        let has_unknown_option_warning = validated
+            .validation_warnings
+            .iter()
+            .any(|w| w.message.contains("unknown_option") || w.message.contains("Unknown option"));
+
+        // Print warnings for debugging if assertion fails
+        if !has_unknown_option_warning {
+            for w in &validated.validation_warnings {
+                eprintln!("Warning: {}", w.message);
+            }
+        }
+        assert!(
+            has_unknown_option_warning,
+            "Should have warning for unknown option. Got {} warnings: {:?}",
+            validated.validation_warnings.len(),
+            validated
+                .validation_warnings
+                .iter()
+                .map(|w| &w.message)
+                .collect::<Vec<_>>()
+        );
+
+        // Now we can convert to Config (this would be a compile error with ConfigLoaded)
+        let config: Config = validated.into();
+
+        // Verify the config values are correct
+        assert!(config.global.enable.contains(&"MD001".to_string()));
+    }
+
+    #[test]
+    fn test_typestate_validate_into_convenience_method() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let config_path = temp_dir.path().join("test.toml");
+
+        let config_content = r#"
+[global]
+enable = ["MD022"]
+
+[MD022]
+lines_above = 2
+"#;
+        std::fs::write(&config_path, config_content).expect("Failed to write config");
+
+        let loaded = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true)
+            .expect("Should load config");
+
+        let default_config = Config::default();
+        let all_rules = crate::rules::all_rules(&default_config);
+        let registry = RuleRegistry::from_rules(&all_rules);
+
+        // Use the convenience method that validates and converts in one step
+        let (config, warnings) = loaded.validate_into(&registry).expect("Should validate and convert");
+
+        // Should have no warnings for valid config
+        assert!(warnings.is_empty(), "Should have no warnings for valid config");
+
+        // Config should be usable
+        assert!(config.global.enable.contains(&"MD022".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_rule_name_canonical() {
+        // Canonical IDs should resolve to themselves
+        assert_eq!(resolve_rule_name("MD001"), "MD001");
+        assert_eq!(resolve_rule_name("MD013"), "MD013");
+        assert_eq!(resolve_rule_name("MD069"), "MD069");
+    }
+
+    #[test]
+    fn test_resolve_rule_name_aliases() {
+        // Aliases should resolve to canonical IDs
+        assert_eq!(resolve_rule_name("heading-increment"), "MD001");
+        assert_eq!(resolve_rule_name("line-length"), "MD013");
+        assert_eq!(resolve_rule_name("no-bare-urls"), "MD034");
+        assert_eq!(resolve_rule_name("ul-style"), "MD004");
+    }
+
+    #[test]
+    fn test_resolve_rule_name_case_insensitive() {
+        // Case should not matter
+        assert_eq!(resolve_rule_name("HEADING-INCREMENT"), "MD001");
+        assert_eq!(resolve_rule_name("Heading-Increment"), "MD001");
+        assert_eq!(resolve_rule_name("md001"), "MD001");
+        assert_eq!(resolve_rule_name("MD001"), "MD001");
+    }
+
+    #[test]
+    fn test_resolve_rule_name_underscore_to_hyphen() {
+        // Underscores should be converted to hyphens
+        assert_eq!(resolve_rule_name("heading_increment"), "MD001");
+        assert_eq!(resolve_rule_name("line_length"), "MD013");
+        assert_eq!(resolve_rule_name("no_bare_urls"), "MD034");
+    }
+
+    #[test]
+    fn test_resolve_rule_name_unknown() {
+        // Unknown names should fall back to normalization
+        assert_eq!(resolve_rule_name("custom-rule"), "custom-rule");
+        assert_eq!(resolve_rule_name("CUSTOM_RULE"), "custom-rule");
+        assert_eq!(resolve_rule_name("md999"), "MD999"); // Looks like an MD rule
+    }
+
+    #[test]
+    fn test_resolve_rule_names_basic() {
+        let result = resolve_rule_names("MD001,line-length,heading-increment");
+        assert!(result.contains("MD001"));
+        assert!(result.contains("MD013")); // line-length
+        // Note: heading-increment also resolves to MD001, so set should contain MD001 and MD013
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_resolve_rule_names_with_whitespace() {
+        let result = resolve_rule_names("  MD001 , line-length , MD034  ");
+        assert!(result.contains("MD001"));
+        assert!(result.contains("MD013"));
+        assert!(result.contains("MD034"));
+        assert_eq!(result.len(), 3);
+    }
+
+    #[test]
+    fn test_resolve_rule_names_empty_entries() {
+        let result = resolve_rule_names("MD001,,MD013,");
+        assert!(result.contains("MD001"));
+        assert!(result.contains("MD013"));
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_resolve_rule_names_empty_string() {
+        let result = resolve_rule_names("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_rule_names_mixed() {
+        // Mix of canonical IDs, aliases, and unknown
+        let result = resolve_rule_names("MD001,line-length,custom-rule");
+        assert!(result.contains("MD001"));
+        assert!(result.contains("MD013"));
+        assert!(result.contains("custom-rule"));
+        assert_eq!(result.len(), 3);
+    }
+
+    // =========================================================================
+    // Unit tests for is_valid_rule_name() and validate_cli_rule_names()
+    // =========================================================================
+
+    #[test]
+    fn test_is_valid_rule_name_canonical() {
+        // Valid canonical rule IDs
+        assert!(is_valid_rule_name("MD001"));
+        assert!(is_valid_rule_name("MD013"));
+        assert!(is_valid_rule_name("MD041"));
+        assert!(is_valid_rule_name("MD069"));
+
+        // Case insensitive
+        assert!(is_valid_rule_name("md001"));
+        assert!(is_valid_rule_name("Md001"));
+        assert!(is_valid_rule_name("mD001"));
+    }
+
+    #[test]
+    fn test_is_valid_rule_name_aliases() {
+        // Valid aliases
+        assert!(is_valid_rule_name("line-length"));
+        assert!(is_valid_rule_name("heading-increment"));
+        assert!(is_valid_rule_name("no-bare-urls"));
+        assert!(is_valid_rule_name("ul-style"));
+
+        // Case insensitive
+        assert!(is_valid_rule_name("LINE-LENGTH"));
+        assert!(is_valid_rule_name("Line-Length"));
+
+        // Underscore variant
+        assert!(is_valid_rule_name("line_length"));
+        assert!(is_valid_rule_name("ul_style"));
+    }
+
+    #[test]
+    fn test_is_valid_rule_name_special_all() {
+        assert!(is_valid_rule_name("all"));
+        assert!(is_valid_rule_name("ALL"));
+        assert!(is_valid_rule_name("All"));
+        assert!(is_valid_rule_name("aLl"));
+    }
+
+    #[test]
+    fn test_is_valid_rule_name_invalid() {
+        // Non-existent rules
+        assert!(!is_valid_rule_name("MD000"));
+        assert!(!is_valid_rule_name("MD002")); // gap in numbering
+        assert!(!is_valid_rule_name("MD006")); // gap in numbering
+        assert!(!is_valid_rule_name("MD999"));
+        assert!(!is_valid_rule_name("MD100"));
+
+        // Invalid formats
+        assert!(!is_valid_rule_name(""));
+        assert!(!is_valid_rule_name("INVALID"));
+        assert!(!is_valid_rule_name("not-a-rule"));
+        assert!(!is_valid_rule_name("random-text"));
+        assert!(!is_valid_rule_name("abc"));
+
+        // Edge cases
+        assert!(!is_valid_rule_name("MD"));
+        assert!(!is_valid_rule_name("MD1"));
+        assert!(!is_valid_rule_name("MD12"));
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_valid() {
+        // All valid - should return no warnings
+        let warnings = validate_cli_rule_names(
+            Some("MD001,MD013"),
+            Some("line-length"),
+            Some("heading-increment"),
+            Some("all"),
+        );
+        assert!(warnings.is_empty(), "Expected no warnings for valid rules");
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_invalid() {
+        // Invalid rule in --enable
+        let warnings = validate_cli_rule_names(Some("abc"), None, None, None);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("Unknown rule in --enable: abc"));
+
+        // Invalid rule in --disable
+        let warnings = validate_cli_rule_names(None, Some("xyz"), None, None);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("Unknown rule in --disable: xyz"));
+
+        // Invalid rule in --extend-enable
+        let warnings = validate_cli_rule_names(None, None, Some("nonexistent"), None);
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0]
+                .message
+                .contains("Unknown rule in --extend-enable: nonexistent")
+        );
+
+        // Invalid rule in --extend-disable
+        let warnings = validate_cli_rule_names(None, None, None, Some("fake-rule"));
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0]
+                .message
+                .contains("Unknown rule in --extend-disable: fake-rule")
+        );
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_mixed() {
+        // Mix of valid and invalid
+        let warnings = validate_cli_rule_names(Some("MD001,abc,MD003"), None, None, None);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("abc"));
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_suggestions() {
+        // Typo should suggest correction
+        let warnings = validate_cli_rule_names(Some("line-lenght"), None, None, None);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("did you mean"));
+        assert!(warnings[0].message.contains("line-length"));
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_none() {
+        // All None - should return no warnings
+        let warnings = validate_cli_rule_names(None, None, None, None);
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_empty_string() {
+        // Empty strings should produce no warnings
+        let warnings = validate_cli_rule_names(Some(""), Some(""), Some(""), Some(""));
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_validate_cli_rule_names_whitespace() {
+        // Whitespace handling
+        let warnings = validate_cli_rule_names(Some("  MD001  ,  MD013  "), None, None, None);
+        assert!(warnings.is_empty(), "Whitespace should be trimmed");
+    }
+
+    #[test]
+    fn test_all_implemented_rules_have_aliases() {
+        // This test ensures we don't forget to add aliases when adding new rules.
+        // If this test fails, add the missing rule to RULE_ALIAS_MAP in config.rs
+        // with both the canonical entry (e.g., "MD071" => "MD071") and an alias
+        // (e.g., "BLANK-LINE-AFTER-FRONTMATTER" => "MD071").
+
+        // Get all implemented rules from the rules module
+        let config = crate::config::Config::default();
+        let all_rules = crate::rules::all_rules(&config);
+
+        let mut missing_rules = Vec::new();
+        for rule in &all_rules {
+            let rule_name = rule.name();
+            // Check if the canonical entry exists in RULE_ALIAS_MAP
+            if resolve_rule_name_alias(rule_name).is_none() {
+                missing_rules.push(rule_name.to_string());
+            }
+        }
+
+        assert!(
+            missing_rules.is_empty(),
+            "The following rules are missing from RULE_ALIAS_MAP: {:?}\n\
+             Add entries like:\n\
+             - Canonical: \"{}\" => \"{}\"\n\
+             - Alias: \"RULE-NAME-HERE\" => \"{}\"",
+            missing_rules,
+            missing_rules.first().unwrap_or(&"MDxxx".to_string()),
+            missing_rules.first().unwrap_or(&"MDxxx".to_string()),
+            missing_rules.first().unwrap_or(&"MDxxx".to_string()),
+        );
+    }
+
+    // ==================== to_relative_display_path Tests ====================
+
+    #[test]
+    fn test_relative_path_in_cwd() {
+        // Create a temp file in the current directory
+        let cwd = std::env::current_dir().unwrap();
+        let test_path = cwd.join("test_file.md");
+        fs::write(&test_path, "test").unwrap();
+
+        let result = super::to_relative_display_path(test_path.to_str().unwrap());
+
+        // Should be relative (just the filename)
+        assert_eq!(result, "test_file.md");
+
+        // Cleanup
+        fs::remove_file(&test_path).unwrap();
+    }
+
+    #[test]
+    fn test_relative_path_in_subdirectory() {
+        // Create a temp file in a subdirectory
+        let cwd = std::env::current_dir().unwrap();
+        let subdir = cwd.join("test_subdir_for_relative_path");
+        fs::create_dir_all(&subdir).unwrap();
+        let test_path = subdir.join("test_file.md");
+        fs::write(&test_path, "test").unwrap();
+
+        let result = super::to_relative_display_path(test_path.to_str().unwrap());
+
+        // Should be relative path with subdirectory
+        assert_eq!(result, "test_subdir_for_relative_path/test_file.md");
+
+        // Cleanup
+        fs::remove_file(&test_path).unwrap();
+        fs::remove_dir(&subdir).unwrap();
+    }
+
+    #[test]
+    fn test_relative_path_outside_cwd_returns_original() {
+        // Use a path that's definitely outside CWD (root level)
+        let outside_path = "/tmp/definitely_not_in_cwd_test.md";
+
+        let result = super::to_relative_display_path(outside_path);
+
+        // Can't make relative to CWD, should return original
+        // (unless CWD happens to be /tmp, which is unlikely in tests)
+        let cwd = std::env::current_dir().unwrap();
+        if !cwd.starts_with("/tmp") {
+            assert_eq!(result, outside_path);
+        }
+    }
+
+    #[test]
+    fn test_relative_path_already_relative() {
+        // Already relative path that doesn't exist
+        let relative_path = "some/relative/path.md";
+
+        let result = super::to_relative_display_path(relative_path);
+
+        // Should return original since it can't be canonicalized
+        assert_eq!(result, relative_path);
+    }
+
+    #[test]
+    fn test_relative_path_with_dot_components() {
+        // Path with . and .. components
+        let cwd = std::env::current_dir().unwrap();
+        let test_path = cwd.join("test_dot_component.md");
+        fs::write(&test_path, "test").unwrap();
+
+        // Create path with redundant ./
+        let dotted_path = cwd.join(".").join("test_dot_component.md");
+        let result = super::to_relative_display_path(dotted_path.to_str().unwrap());
+
+        // Should resolve to clean relative path
+        assert_eq!(result, "test_dot_component.md");
+
+        // Cleanup
+        fs::remove_file(&test_path).unwrap();
+    }
+
+    #[test]
+    fn test_relative_path_empty_string() {
+        let result = super::to_relative_display_path("");
+
+        // Empty string should return empty string
+        assert_eq!(result, "");
+    }
 }
 
+/// Configuration source with clear precedence hierarchy.
+///
+/// Precedence order (lower values override higher values):
+/// - Default (0): Built-in defaults
+/// - UserConfig (1): User-level ~/.config/rumdl/rumdl.toml
+/// - PyprojectToml (2): Project-level pyproject.toml
+/// - ProjectConfig (3): Project-level .rumdl.toml (most specific)
+/// - Cli (4): Command-line flags (highest priority)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigSource {
+    /// Built-in default configuration
     Default,
-    RumdlToml,
+    /// User-level configuration from ~/.config/rumdl/rumdl.toml
+    UserConfig,
+    /// Project-level configuration from pyproject.toml
     PyprojectToml,
+    /// Project-level configuration from .rumdl.toml or rumdl.toml
+    ProjectConfig,
+    /// Command-line flags (highest precedence)
     Cli,
-    /// Value was loaded from a markdownlint config file (e.g. .markdownlint.json, .markdownlint.yaml)
-    Markdownlint,
 }
 
 #[derive(Debug, Clone)]
@@ -1078,9 +2807,9 @@ impl<T: Clone> SourcedValue<T> {
         fn source_precedence(src: ConfigSource) -> u8 {
             match src {
                 ConfigSource::Default => 0,
-                ConfigSource::PyprojectToml => 1,
-                ConfigSource::Markdownlint => 2,
-                ConfigSource::RumdlToml => 3,
+                ConfigSource::UserConfig => 1,
+                ConfigSource::PyprojectToml => 2,
+                ConfigSource::ProjectConfig => 3,
                 ConfigSource::Cli => 4,
             }
         }
@@ -1111,6 +2840,47 @@ impl<T: Clone> SourcedValue<T> {
     }
 }
 
+impl<T: Clone + Eq + std::hash::Hash> SourcedValue<Vec<T>> {
+    /// Merges a new value using union semantics (for arrays like `disable`)
+    /// Values from both sources are combined, with deduplication
+    pub fn merge_union(
+        &mut self,
+        new_value: Vec<T>,
+        new_source: ConfigSource,
+        new_file: Option<String>,
+        new_line: Option<usize>,
+    ) {
+        fn source_precedence(src: ConfigSource) -> u8 {
+            match src {
+                ConfigSource::Default => 0,
+                ConfigSource::UserConfig => 1,
+                ConfigSource::PyprojectToml => 2,
+                ConfigSource::ProjectConfig => 3,
+                ConfigSource::Cli => 4,
+            }
+        }
+
+        if source_precedence(new_source) >= source_precedence(self.source) {
+            // Union: combine values from both sources with deduplication
+            let mut combined = self.value.clone();
+            for item in new_value.iter() {
+                if !combined.contains(item) {
+                    combined.push(item.clone());
+                }
+            }
+
+            self.value = combined;
+            self.source = new_source;
+            self.overrides.push(ConfigOverride {
+                value: new_value,
+                source: new_source,
+                file: new_file,
+                line: new_line,
+            });
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SourcedGlobalConfig {
     pub enable: SourcedValue<Vec<String>>,
@@ -1118,12 +2888,14 @@ pub struct SourcedGlobalConfig {
     pub exclude: SourcedValue<Vec<String>>,
     pub include: SourcedValue<Vec<String>>,
     pub respect_gitignore: SourcedValue<bool>,
-    pub line_length: SourcedValue<u64>,
+    pub line_length: SourcedValue<LineLength>,
     pub output_format: Option<SourcedValue<String>>,
     pub fixable: SourcedValue<Vec<String>>,
     pub unfixable: SourcedValue<Vec<String>>,
     pub flavor: SourcedValue<MarkdownFlavor>,
     pub force_exclude: SourcedValue<bool>,
+    pub cache_dir: Option<SourcedValue<String>>,
+    pub cache: SourcedValue<bool>,
 }
 
 impl Default for SourcedGlobalConfig {
@@ -1134,55 +2906,124 @@ impl Default for SourcedGlobalConfig {
             exclude: SourcedValue::new(Vec::new(), ConfigSource::Default),
             include: SourcedValue::new(Vec::new(), ConfigSource::Default),
             respect_gitignore: SourcedValue::new(true, ConfigSource::Default),
-            line_length: SourcedValue::new(80, ConfigSource::Default),
+            line_length: SourcedValue::new(LineLength::default(), ConfigSource::Default),
             output_format: None,
             fixable: SourcedValue::new(Vec::new(), ConfigSource::Default),
             unfixable: SourcedValue::new(Vec::new(), ConfigSource::Default),
             flavor: SourcedValue::new(MarkdownFlavor::default(), ConfigSource::Default),
             force_exclude: SourcedValue::new(false, ConfigSource::Default),
+            cache_dir: None,
+            cache: SourcedValue::new(true, ConfigSource::Default),
         }
     }
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct SourcedRuleConfig {
+    pub severity: Option<SourcedValue<crate::rule::Severity>>,
     pub values: BTreeMap<String, SourcedValue<toml::Value>>,
 }
 
 /// Represents configuration loaded from a single source file, with provenance.
 /// Used as an intermediate step before merging into the final SourcedConfig.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SourcedConfigFragment {
     pub global: SourcedGlobalConfig,
+    pub per_file_ignores: SourcedValue<HashMap<String, Vec<String>>>,
+    pub per_file_flavor: SourcedValue<IndexMap<String, MarkdownFlavor>>,
     pub rules: BTreeMap<String, SourcedRuleConfig>,
-    // Note: Does not include loaded_files or unknown_keys, as those are tracked globally.
+    pub unknown_keys: Vec<(String, String, Option<String>)>, // (section, key, file_path)
+                                                             // Note: loaded_files is tracked globally in SourcedConfig.
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct SourcedConfig {
+impl Default for SourcedConfigFragment {
+    fn default() -> Self {
+        Self {
+            global: SourcedGlobalConfig::default(),
+            per_file_ignores: SourcedValue::new(HashMap::new(), ConfigSource::Default),
+            per_file_flavor: SourcedValue::new(IndexMap::new(), ConfigSource::Default),
+            rules: BTreeMap::new(),
+            unknown_keys: Vec::new(),
+        }
+    }
+}
+
+/// Configuration with provenance tracking for values.
+///
+/// The `State` type parameter encodes the validation state:
+/// - `ConfigLoaded`: Config has been loaded but not validated
+/// - `ConfigValidated`: Config has been validated and can be converted to `Config`
+///
+/// # Typestate Pattern
+///
+/// This uses the typestate pattern to ensure validation happens before conversion:
+///
+/// ```ignore
+/// let loaded: SourcedConfig<ConfigLoaded> = SourcedConfig::load_with_discovery(...)?;
+/// let validated: SourcedConfig<ConfigValidated> = loaded.validate(&registry)?;
+/// let config: Config = validated.into();  // Only works on ConfigValidated!
+/// ```
+///
+/// Attempting to convert a `ConfigLoaded` config directly to `Config` is a compile error.
+#[derive(Debug, Clone)]
+pub struct SourcedConfig<State = ConfigLoaded> {
     pub global: SourcedGlobalConfig,
+    pub per_file_ignores: SourcedValue<HashMap<String, Vec<String>>>,
+    pub per_file_flavor: SourcedValue<IndexMap<String, MarkdownFlavor>>,
     pub rules: BTreeMap<String, SourcedRuleConfig>,
     pub loaded_files: Vec<String>,
-    pub unknown_keys: Vec<(String, String)>, // (section, key)
+    pub unknown_keys: Vec<(String, String, Option<String>)>, // (section, key, file_path)
+    /// Project root directory (parent of config file), used for resolving relative paths
+    pub project_root: Option<std::path::PathBuf>,
+    /// Validation warnings (populated after validate() is called)
+    pub validation_warnings: Vec<ConfigValidationWarning>,
+    /// Phantom data for the state type parameter
+    _state: PhantomData<State>,
 }
 
-impl SourcedConfig {
+impl Default for SourcedConfig<ConfigLoaded> {
+    fn default() -> Self {
+        Self {
+            global: SourcedGlobalConfig::default(),
+            per_file_ignores: SourcedValue::new(HashMap::new(), ConfigSource::Default),
+            per_file_flavor: SourcedValue::new(IndexMap::new(), ConfigSource::Default),
+            rules: BTreeMap::new(),
+            loaded_files: Vec::new(),
+            unknown_keys: Vec::new(),
+            project_root: None,
+            validation_warnings: Vec::new(),
+            _state: PhantomData,
+        }
+    }
+}
+
+impl SourcedConfig<ConfigLoaded> {
     /// Merges another SourcedConfigFragment into this SourcedConfig.
     /// Uses source precedence to determine which values take effect.
     fn merge(&mut self, fragment: SourcedConfigFragment) {
         // Merge global config
+        // Enable uses replace semantics (project can enforce rules)
         self.global.enable.merge_override(
             fragment.global.enable.value,
             fragment.global.enable.source,
             fragment.global.enable.overrides.first().and_then(|o| o.file.clone()),
             fragment.global.enable.overrides.first().and_then(|o| o.line),
         );
-        self.global.disable.merge_override(
+
+        // Disable uses union semantics (user can add to project disables)
+        self.global.disable.merge_union(
             fragment.global.disable.value,
             fragment.global.disable.source,
             fragment.global.disable.overrides.first().and_then(|o| o.file.clone()),
             fragment.global.disable.overrides.first().and_then(|o| o.line),
         );
+
+        // Conflict resolution: Enable overrides disable
+        // Remove any rules from disable that appear in enable
+        self.global
+            .disable
+            .value
+            .retain(|rule| !self.global.enable.value.contains(rule));
         self.global.include.merge_override(
             fragment.global.include.value,
             fragment.global.include.source,
@@ -1265,10 +3106,66 @@ impl SourcedConfig {
             }
         }
 
+        // Merge cache_dir if present
+        if let Some(cache_dir_fragment) = fragment.global.cache_dir {
+            if let Some(ref mut cache_dir) = self.global.cache_dir {
+                cache_dir.merge_override(
+                    cache_dir_fragment.value,
+                    cache_dir_fragment.source,
+                    cache_dir_fragment.overrides.first().and_then(|o| o.file.clone()),
+                    cache_dir_fragment.overrides.first().and_then(|o| o.line),
+                );
+            } else {
+                self.global.cache_dir = Some(cache_dir_fragment);
+            }
+        }
+
+        // Merge cache if not default (only override when explicitly set)
+        if fragment.global.cache.source != ConfigSource::Default {
+            self.global.cache.merge_override(
+                fragment.global.cache.value,
+                fragment.global.cache.source,
+                fragment.global.cache.overrides.first().and_then(|o| o.file.clone()),
+                fragment.global.cache.overrides.first().and_then(|o| o.line),
+            );
+        }
+
+        // Merge per_file_ignores
+        self.per_file_ignores.merge_override(
+            fragment.per_file_ignores.value,
+            fragment.per_file_ignores.source,
+            fragment.per_file_ignores.overrides.first().and_then(|o| o.file.clone()),
+            fragment.per_file_ignores.overrides.first().and_then(|o| o.line),
+        );
+
+        // Merge per_file_flavor
+        self.per_file_flavor.merge_override(
+            fragment.per_file_flavor.value,
+            fragment.per_file_flavor.source,
+            fragment.per_file_flavor.overrides.first().and_then(|o| o.file.clone()),
+            fragment.per_file_flavor.overrides.first().and_then(|o| o.line),
+        );
+
         // Merge rule configs
         for (rule_name, rule_fragment) in fragment.rules {
             let norm_rule_name = rule_name.to_ascii_uppercase(); // Normalize to uppercase for case-insensitivity
             let rule_entry = self.rules.entry(norm_rule_name).or_default();
+
+            // Merge severity if present in fragment
+            if let Some(severity_fragment) = rule_fragment.severity {
+                if let Some(ref mut existing_severity) = rule_entry.severity {
+                    existing_severity.merge_override(
+                        severity_fragment.value,
+                        severity_fragment.source,
+                        severity_fragment.overrides.first().and_then(|o| o.file.clone()),
+                        severity_fragment.overrides.first().and_then(|o| o.line),
+                    );
+                } else {
+                    rule_entry.severity = Some(severity_fragment);
+                }
+            }
+
+            // Merge values
             for (key, sourced_value_fragment) in rule_fragment.values {
                 let sv_entry = rule_entry
                     .values
@@ -1284,6 +3181,14 @@ impl SourcedConfig {
                 );
             }
         }
+
+        // Merge unknown_keys from fragment
+        for (section, key, file_path) in fragment.unknown_keys {
+            // Deduplicate: only add if not already present
+            if !self.unknown_keys.iter().any(|(s, k, _)| s == &section && k == &key) {
+                self.unknown_keys.push((section, key, file_path));
+            }
+        }
     }
 
     /// Load and merge configurations from files and CLI overrides.
@@ -1291,12 +3196,48 @@ impl SourcedConfig {
         Self::load_with_discovery(config_path, cli_overrides, false)
     }
 
+    /// Finds project root by walking up from start_dir looking for .git directory.
+    /// Falls back to start_dir if no .git found.
+    fn find_project_root_from(start_dir: &Path) -> std::path::PathBuf {
+        // Convert relative paths to absolute to ensure correct traversal
+        let mut current = if start_dir.is_relative() {
+            std::env::current_dir()
+                .map(|cwd| cwd.join(start_dir))
+                .unwrap_or_else(|_| start_dir.to_path_buf())
+        } else {
+            start_dir.to_path_buf()
+        };
+        const MAX_DEPTH: usize = 100;
+
+        for _ in 0..MAX_DEPTH {
+            if current.join(".git").exists() {
+                log::debug!("[rumdl-config] Found .git at: {}", current.display());
+                return current;
+            }
+
+            match current.parent() {
+                Some(parent) => current = parent.to_path_buf(),
+                None => break,
+            }
+        }
+
+        // No .git found, use start_dir as project root
+        log::debug!(
+            "[rumdl-config] No .git found, using config location as project root: {}",
+            start_dir.display()
+        );
+        start_dir.to_path_buf()
+    }
+
     /// Discover configuration file by traversing up the directory tree.
     /// Returns the first configuration file found.
-    fn discover_config_upward() -> Option<std::path::PathBuf> {
+    /// Discovers config file and returns both the config path and project root.
+    /// Returns: (config_file_path, project_root_path)
+    /// Project root is the directory containing .git, or config parent as fallback.
+    fn discover_config_upward() -> Option<(std::path::PathBuf, std::path::PathBuf)> {
         use std::env;
 
-        const CONFIG_FILES: &[&str] = &[".rumdl.toml", "rumdl.toml", "pyproject.toml"];
+        const CONFIG_FILES: &[&str] = &[".rumdl.toml", "rumdl.toml", ".config/rumdl.toml", "pyproject.toml"];
         const MAX_DEPTH: usize = 100; // Prevent infinite traversal
 
         let start_dir = match env::current_dir() {
@@ -1309,6 +3250,7 @@ impl SourcedConfig {
 
         let mut current_dir = start_dir.clone();
         let mut depth = 0;
+        let mut found_config: Option<(std::path::PathBuf, std::path::PathBuf)> = None;
 
         loop {
             if depth >= MAX_DEPTH {
@@ -1318,24 +3260,30 @@ impl SourcedConfig {
 
             log::debug!("[rumdl-config] Searching for config in: {}", current_dir.display());
 
-            // Check for config files in order of precedence
-            for config_name in CONFIG_FILES {
-                let config_path = current_dir.join(config_name);
+            // Check for config files in order of precedence (only if not already found)
+            if found_config.is_none() {
+                for config_name in CONFIG_FILES {
+                    let config_path = current_dir.join(config_name);
 
-                if config_path.exists() {
-                    // For pyproject.toml, verify it contains [tool.rumdl] section
-                    if *config_name == "pyproject.toml" {
-                        if let Ok(content) = std::fs::read_to_string(&config_path) {
-                            if content.contains("[tool.rumdl]") || content.contains("tool.rumdl") {
-                                log::debug!("[rumdl-config] Found config file: {}", config_path.display());
-                                return Some(config_path);
+                    if config_path.exists() {
+                        // For pyproject.toml, verify it contains [tool.rumdl] section
+                        if *config_name == "pyproject.toml" {
+                            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                                if content.contains("[tool.rumdl]") || content.contains("tool.rumdl") {
+                                    log::debug!("[rumdl-config] Found config file: {}", config_path.display());
+                                    // Store config, but continue looking for .git
+                                    found_config = Some((config_path.clone(), current_dir.clone()));
+                                    break;
+                                }
+                                log::debug!("[rumdl-config] Found pyproject.toml but no [tool.rumdl] section");
+                                continue;
                             }
-                            log::debug!("[rumdl-config] Found pyproject.toml but no [tool.rumdl] section");
-                            continue;
+                        } else {
+                            log::debug!("[rumdl-config] Found config file: {}", config_path.display());
+                            // Store config, but continue looking for .git
+                            found_config = Some((config_path.clone(), current_dir.clone()));
+                            break;
                         }
-                    } else {
-                        log::debug!("[rumdl-config] Found config file: {}", config_path.display());
-                        return Some(config_path);
                     }
                 }
             }
@@ -1359,55 +3307,126 @@ impl SourcedConfig {
             }
         }
 
+        // If config found, determine project root by walking up from config location
+        if let Some((config_path, config_dir)) = found_config {
+            let project_root = Self::find_project_root_from(&config_dir);
+            return Some((config_path, project_root));
+        }
+
+        None
+    }
+
+    /// Discover markdownlint configuration file by traversing up the directory tree.
+    /// Similar to discover_config_upward but for .markdownlint.yaml/json files.
+    /// Returns the path to the config file if found.
+    fn discover_markdownlint_config_upward() -> Option<std::path::PathBuf> {
+        use std::env;
+
+        const MAX_DEPTH: usize = 100;
+
+        let start_dir = match env::current_dir() {
+            Ok(dir) => dir,
+            Err(e) => {
+                log::debug!("[rumdl-config] Failed to get current directory for markdownlint discovery: {e}");
+                return None;
+            }
+        };
+
+        let mut current_dir = start_dir.clone();
+        let mut depth = 0;
+
+        loop {
+            if depth >= MAX_DEPTH {
+                log::debug!("[rumdl-config] Maximum traversal depth reached for markdownlint discovery");
+                break;
+            }
+
+            log::debug!(
+                "[rumdl-config] Searching for markdownlint config in: {}",
+                current_dir.display()
+            );
+
+            // Check for markdownlint config files in order of precedence
+            for config_name in MARKDOWNLINT_CONFIG_FILES {
+                let config_path = current_dir.join(config_name);
+                if config_path.exists() {
+                    log::debug!("[rumdl-config] Found markdownlint config: {}", config_path.display());
+                    return Some(config_path);
+                }
+            }
+
+            // Check for .git directory (stop boundary)
+            if current_dir.join(".git").exists() {
+                log::debug!("[rumdl-config] Stopping markdownlint search at .git directory");
+                break;
+            }
+
+            // Move to parent directory
+            match current_dir.parent() {
+                Some(parent) => {
+                    current_dir = parent.to_owned();
+                    depth += 1;
+                }
+                None => {
+                    log::debug!("[rumdl-config] Reached filesystem root during markdownlint search");
+                    break;
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Internal implementation that accepts config directory for testing
+    fn user_configuration_path_impl(config_dir: &Path) -> Option<std::path::PathBuf> {
+        let config_dir = config_dir.join("rumdl");
+
+        // Check for config files in precedence order (same as project discovery)
+        const USER_CONFIG_FILES: &[&str] = &[".rumdl.toml", "rumdl.toml", "pyproject.toml"];
+
+        log::debug!(
+            "[rumdl-config] Checking for user configuration in: {}",
+            config_dir.display()
+        );
+
+        for filename in USER_CONFIG_FILES {
+            let config_path = config_dir.join(filename);
+
+            if config_path.exists() {
+                // For pyproject.toml, verify it contains [tool.rumdl] section
+                if *filename == "pyproject.toml" {
+                    if let Ok(content) = std::fs::read_to_string(&config_path) {
+                        if content.contains("[tool.rumdl]") || content.contains("tool.rumdl") {
+                            log::debug!("[rumdl-config] Found user configuration at: {}", config_path.display());
+                            return Some(config_path);
+                        }
+                        log::debug!("[rumdl-config] Found user pyproject.toml but no [tool.rumdl] section");
+                        continue;
+                    }
+                } else {
+                    log::debug!("[rumdl-config] Found user configuration at: {}", config_path.display());
+                    return Some(config_path);
+                }
+            }
+        }
+
+        log::debug!(
+            "[rumdl-config] No user configuration found in: {}",
+            config_dir.display()
+        );
         None
     }
 
     /// Discover user-level configuration file from platform-specific config directory.
     /// Returns the first configuration file found in the user config directory.
+    #[cfg(feature = "native")]
     fn user_configuration_path() -> Option<std::path::PathBuf> {
         use etcetera::{BaseStrategy, choose_base_strategy};
 
         match choose_base_strategy() {
             Ok(strategy) => {
-                let config_dir = strategy.config_dir().join("rumdl");
-
-                // Check for config files in precedence order (same as project discovery)
-                const USER_CONFIG_FILES: &[&str] = &[".rumdl.toml", "rumdl.toml", "pyproject.toml"];
-
-                log::debug!(
-                    "[rumdl-config] Checking for user configuration in: {}",
-                    config_dir.display()
-                );
-
-                for filename in USER_CONFIG_FILES {
-                    let config_path = config_dir.join(filename);
-
-                    if config_path.exists() {
-                        // For pyproject.toml, verify it contains [tool.rumdl] section
-                        if *filename == "pyproject.toml" {
-                            if let Ok(content) = std::fs::read_to_string(&config_path) {
-                                if content.contains("[tool.rumdl]") || content.contains("tool.rumdl") {
-                                    log::debug!(
-                                        "[rumdl-config] Found user configuration at: {}",
-                                        config_path.display()
-                                    );
-                                    return Some(config_path);
-                                }
-                                log::debug!("[rumdl-config] Found user pyproject.toml but no [tool.rumdl] section");
-                                continue;
-                            }
-                        } else {
-                            log::debug!("[rumdl-config] Found user configuration at: {}", config_path.display());
-                            return Some(config_path);
-                        }
-                    }
-                }
-
-                log::debug!(
-                    "[rumdl-config] No user configuration found in: {}",
-                    config_dir.display()
-                );
-                None
+                let config_dir = strategy.config_dir();
+                Self::user_configuration_path_impl(&config_dir)
             }
             Err(e) => {
                 log::debug!("[rumdl-config] Failed to determine user config directory: {e}");
@@ -1416,111 +3435,160 @@ impl SourcedConfig {
         }
     }
 
-    /// Load and merge configurations from files and CLI overrides.
-    /// If skip_auto_discovery is true, only explicit config paths are loaded.
-    pub fn load_with_discovery(
-        config_path: Option<&str>,
-        cli_overrides: Option<&SourcedGlobalConfig>,
-        skip_auto_discovery: bool,
-    ) -> Result<Self, ConfigError> {
-        use std::env;
-        log::debug!("[rumdl-config] Current working directory: {:?}", env::current_dir());
-        if config_path.is_none() {
-            if skip_auto_discovery {
-                log::debug!("[rumdl-config] Skipping auto-discovery due to --no-config flag");
-            } else {
-                log::debug!("[rumdl-config] No explicit config_path provided, will search default locations");
-            }
-        } else {
-            log::debug!("[rumdl-config] Explicit config_path provided: {config_path:?}");
-        }
-        let mut sourced_config = SourcedConfig::default();
+    /// Stub for WASM builds - user config not supported
+    #[cfg(not(feature = "native"))]
+    fn user_configuration_path() -> Option<std::path::PathBuf> {
+        None
+    }
 
-        // 1. Load explicit config path if provided
-        if let Some(path) = config_path {
-            let path_obj = Path::new(path);
-            let filename = path_obj.file_name().and_then(|name| name.to_str()).unwrap_or("");
-            log::debug!("[rumdl-config] Trying to load config file: {filename}");
-            let path_str = path.to_string();
+    /// Load an explicit config file (standalone, no user config merging)
+    fn load_explicit_config(sourced_config: &mut Self, path: &str) -> Result<(), ConfigError> {
+        let path_obj = Path::new(path);
+        let filename = path_obj.file_name().and_then(|name| name.to_str()).unwrap_or("");
+        let path_str = path.to_string();
 
-            // Known markdownlint config files
-            const MARKDOWNLINT_FILENAMES: &[&str] = &[".markdownlint.json", ".markdownlint.yaml", ".markdownlint.yml"];
+        log::debug!("[rumdl-config] Loading explicit config file: {filename}");
 
-            if filename == "pyproject.toml" || filename == ".rumdl.toml" || filename == "rumdl.toml" {
-                let content = std::fs::read_to_string(path).map_err(|e| ConfigError::IoError {
-                    source: e,
-                    path: path_str.clone(),
-                })?;
-                if filename == "pyproject.toml" {
-                    if let Some(fragment) = parse_pyproject_toml(&content, &path_str)? {
-                        sourced_config.merge(fragment);
-                        sourced_config.loaded_files.push(path_str.clone());
-                    }
-                } else {
-                    let fragment = parse_rumdl_toml(&content, &path_str)?;
-                    sourced_config.merge(fragment);
-                    sourced_config.loaded_files.push(path_str.clone());
-                }
-            } else if MARKDOWNLINT_FILENAMES.contains(&filename)
-                || path_str.ends_with(".json")
-                || path_str.ends_with(".jsonc")
-                || path_str.ends_with(".yaml")
-                || path_str.ends_with(".yml")
-            {
-                // Parse as markdownlint config (JSON/YAML)
-                let fragment = load_from_markdownlint(&path_str)?;
-                sourced_config.merge(fragment);
-                sourced_config.loaded_files.push(path_str.clone());
-                // markdownlint is fallback only
-            } else {
-                // Try TOML only
-                let content = std::fs::read_to_string(path).map_err(|e| ConfigError::IoError {
-                    source: e,
-                    path: path_str.clone(),
-                })?;
-                let fragment = parse_rumdl_toml(&content, &path_str)?;
-                sourced_config.merge(fragment);
-                sourced_config.loaded_files.push(path_str.clone());
-            }
+        // Find project root by walking up from config location looking for .git
+        if let Some(config_parent) = path_obj.parent() {
+            let project_root = Self::find_project_root_from(config_parent);
+            log::debug!(
+                "[rumdl-config] Project root (from explicit config): {}",
+                project_root.display()
+            );
+            sourced_config.project_root = Some(project_root);
         }
 
-        // Only perform auto-discovery if not skipped AND no explicit config path provided
-        if !skip_auto_discovery && config_path.is_none() {
-            // Step 1: Load user configuration first (as a base)
-            if let Some(user_config_path) = Self::user_configuration_path() {
-                let path_str = user_config_path.display().to_string();
-                let filename = user_config_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        // Known markdownlint config files
+        const MARKDOWNLINT_FILENAMES: &[&str] = &[".markdownlint.json", ".markdownlint.yaml", ".markdownlint.yml"];
 
-                log::debug!("[rumdl-config] Loading user configuration file: {path_str}");
-
-                if filename == "pyproject.toml" {
-                    let content = std::fs::read_to_string(&user_config_path).map_err(|e| ConfigError::IoError {
-                        source: e,
-                        path: path_str.clone(),
-                    })?;
-                    if let Some(fragment) = parse_pyproject_toml(&content, &path_str)? {
-                        sourced_config.merge(fragment);
-                        sourced_config.loaded_files.push(path_str);
-                    }
-                } else {
-                    let content = std::fs::read_to_string(&user_config_path).map_err(|e| ConfigError::IoError {
-                        source: e,
-                        path: path_str.clone(),
-                    })?;
-                    let fragment = parse_rumdl_toml(&content, &path_str)?;
+        if filename == "pyproject.toml" || filename == ".rumdl.toml" || filename == "rumdl.toml" {
+            let content = std::fs::read_to_string(path).map_err(|e| ConfigError::IoError {
+                source: e,
+                path: path_str.clone(),
+            })?;
+            if filename == "pyproject.toml" {
+                if let Some(fragment) = parse_pyproject_toml(&content, &path_str)? {
                     sourced_config.merge(fragment);
                     sourced_config.loaded_files.push(path_str);
                 }
             } else {
-                log::debug!("[rumdl-config] No user configuration file found");
+                let fragment = parse_rumdl_toml(&content, &path_str, ConfigSource::ProjectConfig)?;
+                sourced_config.merge(fragment);
+                sourced_config.loaded_files.push(path_str);
             }
+        } else if MARKDOWNLINT_FILENAMES.contains(&filename)
+            || path_str.ends_with(".json")
+            || path_str.ends_with(".jsonc")
+            || path_str.ends_with(".yaml")
+            || path_str.ends_with(".yml")
+        {
+            // Parse as markdownlint config (JSON/YAML)
+            let fragment = load_from_markdownlint(&path_str)?;
+            sourced_config.merge(fragment);
+            sourced_config.loaded_files.push(path_str);
+        } else {
+            // Try TOML only
+            let content = std::fs::read_to_string(path).map_err(|e| ConfigError::IoError {
+                source: e,
+                path: path_str.clone(),
+            })?;
+            let fragment = parse_rumdl_toml(&content, &path_str, ConfigSource::ProjectConfig)?;
+            sourced_config.merge(fragment);
+            sourced_config.loaded_files.push(path_str);
+        }
 
-            // Step 2: Look for project configuration files (override user config)
-            if let Some(config_file) = Self::discover_config_upward() {
+        Ok(())
+    }
+
+    /// Load user config as fallback when no project config exists
+    fn load_user_config_as_fallback(
+        sourced_config: &mut Self,
+        user_config_dir: Option<&Path>,
+    ) -> Result<(), ConfigError> {
+        let user_config_path = if let Some(dir) = user_config_dir {
+            Self::user_configuration_path_impl(dir)
+        } else {
+            Self::user_configuration_path()
+        };
+
+        if let Some(user_config_path) = user_config_path {
+            let path_str = user_config_path.display().to_string();
+            let filename = user_config_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+            log::debug!("[rumdl-config] Loading user config as fallback: {path_str}");
+
+            if filename == "pyproject.toml" {
+                let content = std::fs::read_to_string(&user_config_path).map_err(|e| ConfigError::IoError {
+                    source: e,
+                    path: path_str.clone(),
+                })?;
+                if let Some(fragment) = parse_pyproject_toml(&content, &path_str)? {
+                    sourced_config.merge(fragment);
+                    sourced_config.loaded_files.push(path_str);
+                }
+            } else {
+                let content = std::fs::read_to_string(&user_config_path).map_err(|e| ConfigError::IoError {
+                    source: e,
+                    path: path_str.clone(),
+                })?;
+                let fragment = parse_rumdl_toml(&content, &path_str, ConfigSource::UserConfig)?;
+                sourced_config.merge(fragment);
+                sourced_config.loaded_files.push(path_str);
+            }
+        } else {
+            log::debug!("[rumdl-config] No user configuration file found");
+        }
+
+        Ok(())
+    }
+
+    /// Internal implementation that accepts user config directory for testing
+    #[doc(hidden)]
+    pub fn load_with_discovery_impl(
+        config_path: Option<&str>,
+        cli_overrides: Option<&SourcedGlobalConfig>,
+        skip_auto_discovery: bool,
+        user_config_dir: Option<&Path>,
+    ) -> Result<Self, ConfigError> {
+        use std::env;
+        log::debug!("[rumdl-config] Current working directory: {:?}", env::current_dir());
+
+        let mut sourced_config = SourcedConfig::default();
+
+        // Ruff model: Project config is standalone, user config is fallback only
+        //
+        // Priority order:
+        // 1. If explicit config path provided → use ONLY that (standalone)
+        // 2. Else if project config discovered → use ONLY that (standalone)
+        // 3. Else if user config exists → use it as fallback
+        // 4. CLI overrides always apply last
+        //
+        // This ensures project configs are reproducible across machines and
+        // CI/local runs behave identically.
+
+        // Explicit config path always takes precedence
+        if let Some(path) = config_path {
+            // Explicit config path provided - use ONLY this config (standalone)
+            log::debug!("[rumdl-config] Explicit config_path provided: {path:?}");
+            Self::load_explicit_config(&mut sourced_config, path)?;
+        } else if skip_auto_discovery {
+            log::debug!("[rumdl-config] Skipping config discovery due to --no-config/--isolated flag");
+            // No config loading, just apply CLI overrides at the end
+        } else {
+            // No explicit path - try auto-discovery
+            log::debug!("[rumdl-config] No explicit config_path, searching default locations");
+
+            // Try to discover project config first
+            if let Some((config_file, project_root)) = Self::discover_config_upward() {
+                // Project config found - use ONLY this (standalone, no user config)
                 let path_str = config_file.display().to_string();
                 let filename = config_file.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-                log::debug!("[rumdl-config] Loading discovered config file: {path_str}");
+                log::debug!("[rumdl-config] Found project config: {path_str}");
+                log::debug!("[rumdl-config] Project root: {}", project_root.display());
+
+                sourced_config.project_root = Some(project_root);
 
                 if filename == "pyproject.toml" {
                     let content = std::fs::read_to_string(&config_file).map_err(|e| ConfigError::IoError {
@@ -1536,38 +3604,36 @@ impl SourcedConfig {
                         source: e,
                         path: path_str.clone(),
                     })?;
-                    let fragment = parse_rumdl_toml(&content, &path_str)?;
+                    let fragment = parse_rumdl_toml(&content, &path_str, ConfigSource::ProjectConfig)?;
                     sourced_config.merge(fragment);
                     sourced_config.loaded_files.push(path_str);
                 }
             } else {
-                log::debug!("[rumdl-config] No configuration file found via upward traversal");
+                // No rumdl project config - try markdownlint config
+                log::debug!("[rumdl-config] No rumdl config found, checking markdownlint config");
 
-                // Step 3: If no project config found, fallback to markdownlint config in current directory
-                let mut found_markdownlint = false;
-                for filename in MARKDOWNLINT_CONFIG_FILES {
-                    if std::path::Path::new(filename).exists() {
-                        match load_from_markdownlint(filename) {
-                            Ok(fragment) => {
-                                sourced_config.merge(fragment);
-                                sourced_config.loaded_files.push(filename.to_string());
-                                found_markdownlint = true;
-                                break; // Load only the first one found
-                            }
-                            Err(_e) => {
-                                // Log error but continue (it's just a fallback)
-                            }
+                if let Some(markdownlint_path) = Self::discover_markdownlint_config_upward() {
+                    let path_str = markdownlint_path.display().to_string();
+                    log::debug!("[rumdl-config] Found markdownlint config: {path_str}");
+                    match load_from_markdownlint(&path_str) {
+                        Ok(fragment) => {
+                            sourced_config.merge(fragment);
+                            sourced_config.loaded_files.push(path_str);
+                        }
+                        Err(_e) => {
+                            log::debug!("[rumdl-config] Failed to load markdownlint config, trying user config");
+                            Self::load_user_config_as_fallback(&mut sourced_config, user_config_dir)?;
                         }
                     }
-                }
-
-                if !found_markdownlint {
-                    log::debug!("[rumdl-config] No markdownlint configuration file found");
+                } else {
+                    // No project config at all - use user config as fallback
+                    log::debug!("[rumdl-config] No project config found, using user config as fallback");
+                    Self::load_user_config_as_fallback(&mut sourced_config, user_config_dir)?;
                 }
             }
         }
 
-        // 5. Apply CLI overrides (highest precedence)
+        // Apply CLI overrides (highest precedence)
         if let Some(cli) = cli_overrides {
             sourced_config
                 .global
@@ -1602,24 +3668,103 @@ impl SourcedConfig {
             // No rule-specific CLI overrides implemented yet
         }
 
-        // TODO: Handle unknown keys collected during parsing/merging
+        // Unknown keys are now collected during parsing and validated via validate_config_sourced()
 
         Ok(sourced_config)
     }
+
+    /// Load and merge configurations from files and CLI overrides.
+    /// If skip_auto_discovery is true, only explicit config paths are loaded.
+    pub fn load_with_discovery(
+        config_path: Option<&str>,
+        cli_overrides: Option<&SourcedGlobalConfig>,
+        skip_auto_discovery: bool,
+    ) -> Result<Self, ConfigError> {
+        Self::load_with_discovery_impl(config_path, cli_overrides, skip_auto_discovery, None)
+    }
+
+    /// Validate the configuration against a rule registry.
+    ///
+    /// This method transitions the config from `ConfigLoaded` to `ConfigValidated` state,
+    /// enabling conversion to `Config`. Validation warnings are stored in the config
+    /// and can be displayed to the user.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let loaded = SourcedConfig::load_with_discovery(path, None, false)?;
+    /// let validated = loaded.validate(&registry)?;
+    /// let config: Config = validated.into();
+    /// ```
+    pub fn validate(self, registry: &RuleRegistry) -> Result<SourcedConfig<ConfigValidated>, ConfigError> {
+        let warnings = validate_config_sourced_internal(&self, registry);
+
+        Ok(SourcedConfig {
+            global: self.global,
+            per_file_ignores: self.per_file_ignores,
+            per_file_flavor: self.per_file_flavor,
+            rules: self.rules,
+            loaded_files: self.loaded_files,
+            unknown_keys: self.unknown_keys,
+            project_root: self.project_root,
+            validation_warnings: warnings,
+            _state: PhantomData,
+        })
+    }
+
+    /// Validate and convert to Config in one step (convenience method).
+    ///
+    /// This combines `validate()` and `into()` for callers who want the
+    /// validation warnings separately.
+    pub fn validate_into(self, registry: &RuleRegistry) -> Result<(Config, Vec<ConfigValidationWarning>), ConfigError> {
+        let validated = self.validate(registry)?;
+        let warnings = validated.validation_warnings.clone();
+        Ok((validated.into(), warnings))
+    }
+
+    /// Skip validation and convert directly to ConfigValidated state.
+    ///
+    /// # Safety
+    ///
+    /// This method bypasses validation. Use only when:
+    /// - You've already validated via `validate_config_sourced()`
+    /// - You're in test code that doesn't need validation
+    /// - You're migrating legacy code and will add proper validation later
+    ///
+    /// Prefer `validate()` for new code.
+    pub fn into_validated_unchecked(self) -> SourcedConfig<ConfigValidated> {
+        SourcedConfig {
+            global: self.global,
+            per_file_ignores: self.per_file_ignores,
+            per_file_flavor: self.per_file_flavor,
+            rules: self.rules,
+            loaded_files: self.loaded_files,
+            unknown_keys: self.unknown_keys,
+            project_root: self.project_root,
+            validation_warnings: Vec::new(),
+            _state: PhantomData,
+        }
+    }
 }
 
-impl From<SourcedConfig> for Config {
-    fn from(sourced: SourcedConfig) -> Self {
+/// Convert a validated configuration to the final Config type.
+///
+/// This implementation only exists for `SourcedConfig<ConfigValidated>`,
+/// ensuring that validation must occur before conversion.
+impl From<SourcedConfig<ConfigValidated>> for Config {
+    fn from(sourced: SourcedConfig<ConfigValidated>) -> Self {
         let mut rules = BTreeMap::new();
         for (rule_name, sourced_rule_cfg) in sourced.rules {
             // Normalize rule name to uppercase for case-insensitive lookup
             let normalized_rule_name = rule_name.to_ascii_uppercase();
+            let severity = sourced_rule_cfg.severity.map(|sv| sv.value);
             let mut values = BTreeMap::new();
             for (key, sourced_val) in sourced_rule_cfg.values {
                 values.insert(key, sourced_val.value);
             }
-            rules.insert(normalized_rule_name, RuleConfig { values });
+            rules.insert(normalized_rule_name, RuleConfig { severity, values });
         }
+        #[allow(deprecated)]
         let global = GlobalConfig {
             enable: sourced.global.enable.value,
             disable: sourced.global.disable.value,
@@ -1632,8 +3777,18 @@ impl From<SourcedConfig> for Config {
             unfixable: sourced.global.unfixable.value,
             flavor: sourced.global.flavor.value,
             force_exclude: sourced.global.force_exclude.value,
+            cache_dir: sourced.global.cache_dir.as_ref().map(|v| v.value.clone()),
+            cache: sourced.global.cache.value,
         };
-        Config { global, rules }
+        Config {
+            global,
+            per_file_ignores: sourced.per_file_ignores.value,
+            per_file_flavor: sourced.per_file_flavor.value,
+            rules,
+            project_root: sourced.project_root,
+            per_file_ignores_cache: Arc::new(OnceLock::new()),
+            per_file_flavor_cache: Arc::new(OnceLock::new()),
+        }
     }
 }
 
@@ -1683,6 +3838,9 @@ impl RuleRegistry {
     pub fn config_keys_for(&self, rule: &str) -> Option<std::collections::BTreeSet<String>> {
         self.rule_schemas.get(rule).map(|schema| {
             let mut all_keys = std::collections::BTreeSet::new();
+
+            // Always allow 'severity' for any rule
+            all_keys.insert("severity".to_string());
 
             // Add original keys from schema
             for key in schema.keys() {
@@ -1747,6 +3905,269 @@ impl RuleRegistry {
         }
         None
     }
+
+    /// Resolve any rule name (canonical or alias) to its canonical form
+    /// Returns None if the rule name is not recognized
+    ///
+    /// Resolution order:
+    /// 1. Direct canonical name match
+    /// 2. Static aliases (built-in markdownlint aliases)
+    pub fn resolve_rule_name(&self, name: &str) -> Option<String> {
+        // Try normalized canonical name first
+        let normalized = normalize_key(name);
+        if self.rule_schemas.contains_key(&normalized) {
+            return Some(normalized);
+        }
+
+        // Try static alias resolution (O(1) perfect hash lookup)
+        resolve_rule_name_alias(name).map(|s| s.to_string())
+    }
+}
+
+/// Compile-time perfect hash map for O(1) rule alias lookups
+/// Uses phf for zero-cost abstraction - compiles to direct jumps
+pub static RULE_ALIAS_MAP: phf::Map<&'static str, &'static str> = phf::phf_map! {
+    // Canonical names (identity mapping for consistency)
+    "MD001" => "MD001",
+    "MD003" => "MD003",
+    "MD004" => "MD004",
+    "MD005" => "MD005",
+    "MD007" => "MD007",
+    "MD009" => "MD009",
+    "MD010" => "MD010",
+    "MD011" => "MD011",
+    "MD012" => "MD012",
+    "MD013" => "MD013",
+    "MD014" => "MD014",
+    "MD018" => "MD018",
+    "MD019" => "MD019",
+    "MD020" => "MD020",
+    "MD021" => "MD021",
+    "MD022" => "MD022",
+    "MD023" => "MD023",
+    "MD024" => "MD024",
+    "MD025" => "MD025",
+    "MD026" => "MD026",
+    "MD027" => "MD027",
+    "MD028" => "MD028",
+    "MD029" => "MD029",
+    "MD030" => "MD030",
+    "MD031" => "MD031",
+    "MD032" => "MD032",
+    "MD033" => "MD033",
+    "MD034" => "MD034",
+    "MD035" => "MD035",
+    "MD036" => "MD036",
+    "MD037" => "MD037",
+    "MD038" => "MD038",
+    "MD039" => "MD039",
+    "MD040" => "MD040",
+    "MD041" => "MD041",
+    "MD042" => "MD042",
+    "MD043" => "MD043",
+    "MD044" => "MD044",
+    "MD045" => "MD045",
+    "MD046" => "MD046",
+    "MD047" => "MD047",
+    "MD048" => "MD048",
+    "MD049" => "MD049",
+    "MD050" => "MD050",
+    "MD051" => "MD051",
+    "MD052" => "MD052",
+    "MD053" => "MD053",
+    "MD054" => "MD054",
+    "MD055" => "MD055",
+    "MD056" => "MD056",
+    "MD057" => "MD057",
+    "MD058" => "MD058",
+    "MD059" => "MD059",
+    "MD060" => "MD060",
+    "MD061" => "MD061",
+    "MD062" => "MD062",
+    "MD063" => "MD063",
+    "MD064" => "MD064",
+    "MD065" => "MD065",
+    "MD066" => "MD066",
+    "MD067" => "MD067",
+    "MD068" => "MD068",
+    "MD069" => "MD069",
+    "MD070" => "MD070",
+    "MD071" => "MD071",
+    "MD072" => "MD072",
+
+    // Aliases (hyphen format)
+    "HEADING-INCREMENT" => "MD001",
+    "HEADING-STYLE" => "MD003",
+    "UL-STYLE" => "MD004",
+    "LIST-INDENT" => "MD005",
+    "UL-INDENT" => "MD007",
+    "NO-TRAILING-SPACES" => "MD009",
+    "NO-HARD-TABS" => "MD010",
+    "NO-REVERSED-LINKS" => "MD011",
+    "NO-MULTIPLE-BLANKS" => "MD012",
+    "LINE-LENGTH" => "MD013",
+    "COMMANDS-SHOW-OUTPUT" => "MD014",
+    "NO-MISSING-SPACE-ATX" => "MD018",
+    "NO-MULTIPLE-SPACE-ATX" => "MD019",
+    "NO-MISSING-SPACE-CLOSED-ATX" => "MD020",
+    "NO-MULTIPLE-SPACE-CLOSED-ATX" => "MD021",
+    "BLANKS-AROUND-HEADINGS" => "MD022",
+    "HEADING-START-LEFT" => "MD023",
+    "NO-DUPLICATE-HEADING" => "MD024",
+    "SINGLE-TITLE" => "MD025",
+    "SINGLE-H1" => "MD025",
+    "NO-TRAILING-PUNCTUATION" => "MD026",
+    "NO-MULTIPLE-SPACE-BLOCKQUOTE" => "MD027",
+    "NO-BLANKS-BLOCKQUOTE" => "MD028",
+    "OL-PREFIX" => "MD029",
+    "LIST-MARKER-SPACE" => "MD030",
+    "BLANKS-AROUND-FENCES" => "MD031",
+    "BLANKS-AROUND-LISTS" => "MD032",
+    "NO-INLINE-HTML" => "MD033",
+    "NO-BARE-URLS" => "MD034",
+    "HR-STYLE" => "MD035",
+    "NO-EMPHASIS-AS-HEADING" => "MD036",
+    "NO-SPACE-IN-EMPHASIS" => "MD037",
+    "NO-SPACE-IN-CODE" => "MD038",
+    "NO-SPACE-IN-LINKS" => "MD039",
+    "FENCED-CODE-LANGUAGE" => "MD040",
+    "FIRST-LINE-HEADING" => "MD041",
+    "FIRST-LINE-H1" => "MD041",
+    "NO-EMPTY-LINKS" => "MD042",
+    "REQUIRED-HEADINGS" => "MD043",
+    "PROPER-NAMES" => "MD044",
+    "NO-ALT-TEXT" => "MD045",
+    "CODE-BLOCK-STYLE" => "MD046",
+    "SINGLE-TRAILING-NEWLINE" => "MD047",
+    "CODE-FENCE-STYLE" => "MD048",
+    "EMPHASIS-STYLE" => "MD049",
+    "STRONG-STYLE" => "MD050",
+    "LINK-FRAGMENTS" => "MD051",
+    "REFERENCE-LINKS-IMAGES" => "MD052",
+    "LINK-IMAGE-REFERENCE-DEFINITIONS" => "MD053",
+    "LINK-IMAGE-STYLE" => "MD054",
+    "TABLE-PIPE-STYLE" => "MD055",
+    "TABLE-COLUMN-COUNT" => "MD056",
+    "EXISTING-RELATIVE-LINKS" => "MD057",
+    "BLANKS-AROUND-TABLES" => "MD058",
+    "DESCRIPTIVE-LINK-TEXT" => "MD059",
+    "TABLE-CELL-ALIGNMENT" => "MD060",
+    "TABLE-FORMAT" => "MD060",
+    "FORBIDDEN-TERMS" => "MD061",
+    "LINK-DESTINATION-WHITESPACE" => "MD062",
+    "HEADING-CAPITALIZATION" => "MD063",
+    "NO-MULTIPLE-CONSECUTIVE-SPACES" => "MD064",
+    "BLANKS-AROUND-HORIZONTAL-RULES" => "MD065",
+    "FOOTNOTE-VALIDATION" => "MD066",
+    "FOOTNOTE-DEFINITION-ORDER" => "MD067",
+    "EMPTY-FOOTNOTE-DEFINITION" => "MD068",
+    "NO-DUPLICATE-LIST-MARKERS" => "MD069",
+    "NESTED-CODE-FENCE" => "MD070",
+    "BLANK-LINE-AFTER-FRONTMATTER" => "MD071",
+    "FRONTMATTER-KEY-SORT" => "MD072",
+};
+
+/// Resolve a rule name alias to its canonical form with O(1) perfect hash lookup
+/// Converts rule aliases (like "ul-style", "line-length") to canonical IDs (like "MD004", "MD013")
+/// Returns None if the rule name is not recognized
+pub fn resolve_rule_name_alias(key: &str) -> Option<&'static str> {
+    // Normalize: uppercase and replace underscores with hyphens
+    let normalized_key = key.to_ascii_uppercase().replace('_', "-");
+
+    // O(1) perfect hash lookup
+    RULE_ALIAS_MAP.get(normalized_key.as_str()).copied()
+}
+
+/// Resolves a rule name to its canonical ID, supporting both rule IDs and aliases.
+/// Returns the canonical ID (e.g., "MD001") for any valid input:
+/// - "MD001" → "MD001" (canonical)
+/// - "heading-increment" → "MD001" (alias)
+/// - "HEADING_INCREMENT" → "MD001" (case-insensitive, underscore variant)
+///
+/// For unknown names, falls back to normalization (uppercase for MDxxx pattern, otherwise kebab-case).
+pub fn resolve_rule_name(name: &str) -> String {
+    resolve_rule_name_alias(name)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| normalize_key(name))
+}
+
+/// Resolves a comma-separated list of rule names to canonical IDs.
+/// Handles CLI input like "MD001,line-length,heading-increment".
+/// Empty entries and whitespace are filtered out.
+pub fn resolve_rule_names(input: &str) -> std::collections::HashSet<String> {
+    input
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(resolve_rule_name)
+        .collect()
+}
+
+/// Validates rule names from CLI flags against the known rule set.
+/// Returns warnings for unknown rules with "did you mean" suggestions.
+///
+/// This provides consistent validation between config files and CLI flags.
+/// Unknown rules are warned about but don't cause failures.
+pub fn validate_cli_rule_names(
+    enable: Option<&str>,
+    disable: Option<&str>,
+    extend_enable: Option<&str>,
+    extend_disable: Option<&str>,
+) -> Vec<ConfigValidationWarning> {
+    let mut warnings = Vec::new();
+    let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(|s| s.to_string()).collect();
+
+    let validate_list = |input: &str, flag_name: &str, warnings: &mut Vec<ConfigValidationWarning>| {
+        for name in input.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            // Check for special "all" value (case-insensitive)
+            if name.eq_ignore_ascii_case("all") {
+                continue;
+            }
+            if resolve_rule_name_alias(name).is_none() {
+                let message = if let Some(suggestion) = suggest_similar_key(name, &all_rule_names) {
+                    let formatted = if suggestion.starts_with("MD") {
+                        suggestion
+                    } else {
+                        suggestion.to_lowercase()
+                    };
+                    format!("Unknown rule in {flag_name}: {name} (did you mean: {formatted}?)")
+                } else {
+                    format!("Unknown rule in {flag_name}: {name}")
+                };
+                warnings.push(ConfigValidationWarning {
+                    message,
+                    rule: Some(name.to_string()),
+                    key: None,
+                });
+            }
+        }
+    };
+
+    if let Some(e) = enable {
+        validate_list(e, "--enable", &mut warnings);
+    }
+    if let Some(d) = disable {
+        validate_list(d, "--disable", &mut warnings);
+    }
+    if let Some(ee) = extend_enable {
+        validate_list(ee, "--extend-enable", &mut warnings);
+    }
+    if let Some(ed) = extend_disable {
+        validate_list(ed, "--extend-disable", &mut warnings);
+    }
+
+    warnings
+}
+
+/// Checks if a rule name (or alias) is valid.
+/// Returns true if the name resolves to a known rule.
+/// Handles the special "all" value and all aliases.
+pub fn is_valid_rule_name(name: &str) -> bool {
+    // Check for special "all" value (case-insensitive)
+    if name.eq_ignore_ascii_case("all") {
+        return true;
+    }
+    resolve_rule_name_alias(name).is_some()
 }
 
 /// Represents a config validation warning or error
@@ -1757,27 +4178,104 @@ pub struct ConfigValidationWarning {
     pub key: Option<String>,
 }
 
-/// Validate a loaded config against the rule registry, using SourcedConfig for unknown key tracking
-pub fn validate_config_sourced(sourced: &SourcedConfig, registry: &RuleRegistry) -> Vec<ConfigValidationWarning> {
+/// Internal validation function that works with any SourcedConfig state.
+/// This is used by both the public `validate_config_sourced` and the typestate `validate()` method.
+fn validate_config_sourced_internal<S>(
+    sourced: &SourcedConfig<S>,
+    registry: &RuleRegistry,
+) -> Vec<ConfigValidationWarning> {
+    let mut warnings = validate_config_sourced_impl(&sourced.rules, &sourced.unknown_keys, registry);
+
+    // Validate enable/disable arrays in [global] section
+    let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(|s| s.to_string()).collect();
+
+    for rule_name in &sourced.global.enable.value {
+        if !is_valid_rule_name(rule_name) {
+            let message = if let Some(suggestion) = suggest_similar_key(rule_name, &all_rule_names) {
+                let formatted = if suggestion.starts_with("MD") {
+                    suggestion
+                } else {
+                    suggestion.to_lowercase()
+                };
+                format!("Unknown rule in global.enable: {rule_name} (did you mean: {formatted}?)")
+            } else {
+                format!("Unknown rule in global.enable: {rule_name}")
+            };
+            warnings.push(ConfigValidationWarning {
+                message,
+                rule: Some(rule_name.clone()),
+                key: None,
+            });
+        }
+    }
+
+    for rule_name in &sourced.global.disable.value {
+        if !is_valid_rule_name(rule_name) {
+            let message = if let Some(suggestion) = suggest_similar_key(rule_name, &all_rule_names) {
+                let formatted = if suggestion.starts_with("MD") {
+                    suggestion
+                } else {
+                    suggestion.to_lowercase()
+                };
+                format!("Unknown rule in global.disable: {rule_name} (did you mean: {formatted}?)")
+            } else {
+                format!("Unknown rule in global.disable: {rule_name}")
+            };
+            warnings.push(ConfigValidationWarning {
+                message,
+                rule: Some(rule_name.clone()),
+                key: None,
+            });
+        }
+    }
+
+    warnings
+}
+
+/// Core validation implementation that doesn't depend on SourcedConfig type parameter.
+fn validate_config_sourced_impl(
+    rules: &BTreeMap<String, SourcedRuleConfig>,
+    unknown_keys: &[(String, String, Option<String>)],
+    registry: &RuleRegistry,
+) -> Vec<ConfigValidationWarning> {
     let mut warnings = Vec::new();
     let known_rules = registry.rule_names();
     // 1. Unknown rules
-    for rule in sourced.rules.keys() {
+    for rule in rules.keys() {
         if !known_rules.contains(rule) {
+            // Include both canonical names AND aliases for fuzzy matching
+            let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(|s| s.to_string()).collect();
+            let message = if let Some(suggestion) = suggest_similar_key(rule, &all_rule_names) {
+                // Convert alias suggestions to lowercase for better UX (MD001 stays uppercase, ul-style becomes lowercase)
+                let formatted_suggestion = if suggestion.starts_with("MD") {
+                    suggestion
+                } else {
+                    suggestion.to_lowercase()
+                };
+                format!("Unknown rule in config: {rule} (did you mean: {formatted_suggestion}?)")
+            } else {
+                format!("Unknown rule in config: {rule}")
+            };
             warnings.push(ConfigValidationWarning {
-                message: format!("Unknown rule in config: {rule}"),
+                message,
                 rule: Some(rule.clone()),
                 key: None,
             });
         }
     }
     // 2. Unknown options and type mismatches
-    for (rule, rule_cfg) in &sourced.rules {
+    for (rule, rule_cfg) in rules {
         if let Some(valid_keys) = registry.config_keys_for(rule) {
             for key in rule_cfg.values.keys() {
                 if !valid_keys.contains(key) {
+                    let valid_keys_vec: Vec<String> = valid_keys.iter().cloned().collect();
+                    let message = if let Some(suggestion) = suggest_similar_key(key, &valid_keys_vec) {
+                        format!("Unknown option for rule {rule}: {key} (did you mean: {suggestion}?)")
+                    } else {
+                        format!("Unknown option for rule {rule}: {key}")
+                    };
                     warnings.push(ConfigValidationWarning {
-                        message: format!("Unknown option for rule {rule}: {key}"),
+                        message,
                         rule: Some(rule.clone()),
                         key: Some(key.clone()),
                     });
@@ -1804,16 +4302,123 @@ pub fn validate_config_sourced(sourced: &SourcedConfig, registry: &RuleRegistry)
         }
     }
     // 3. Unknown global options (from unknown_keys)
-    for (section, key) in &sourced.unknown_keys {
-        if section.contains("[global]") {
+    let known_global_keys = vec![
+        "enable".to_string(),
+        "disable".to_string(),
+        "include".to_string(),
+        "exclude".to_string(),
+        "respect-gitignore".to_string(),
+        "line-length".to_string(),
+        "fixable".to_string(),
+        "unfixable".to_string(),
+        "flavor".to_string(),
+        "force-exclude".to_string(),
+        "output-format".to_string(),
+        "cache-dir".to_string(),
+        "cache".to_string(),
+    ];
+
+    for (section, key, file_path) in unknown_keys {
+        // Convert file path to relative for cleaner output
+        let display_path = file_path.as_ref().map(|p| to_relative_display_path(p));
+
+        if section.contains("[global]") || section.contains("[tool.rumdl]") {
+            let message = if let Some(suggestion) = suggest_similar_key(key, &known_global_keys) {
+                if let Some(ref path) = display_path {
+                    format!("Unknown global option in {path}: {key} (did you mean: {suggestion}?)")
+                } else {
+                    format!("Unknown global option: {key} (did you mean: {suggestion}?)")
+                }
+            } else if let Some(ref path) = display_path {
+                format!("Unknown global option in {path}: {key}")
+            } else {
+                format!("Unknown global option: {key}")
+            };
             warnings.push(ConfigValidationWarning {
-                message: format!("Unknown global option: {key}"),
+                message,
                 rule: None,
                 key: Some(key.clone()),
+            });
+        } else if !key.is_empty() {
+            // This is an unknown rule section (key is empty means it's a section header)
+            continue;
+        } else {
+            // Unknown rule section - suggest similar rule names
+            let rule_name = section.trim_matches(|c| c == '[' || c == ']');
+            let all_rule_names: Vec<String> = RULE_ALIAS_MAP.keys().map(|s| s.to_string()).collect();
+            let message = if let Some(suggestion) = suggest_similar_key(rule_name, &all_rule_names) {
+                // Convert alias suggestions to lowercase for better UX (MD001 stays uppercase, ul-style becomes lowercase)
+                let formatted_suggestion = if suggestion.starts_with("MD") {
+                    suggestion
+                } else {
+                    suggestion.to_lowercase()
+                };
+                if let Some(ref path) = display_path {
+                    format!("Unknown rule in {path}: {rule_name} (did you mean: {formatted_suggestion}?)")
+                } else {
+                    format!("Unknown rule in config: {rule_name} (did you mean: {formatted_suggestion}?)")
+                }
+            } else if let Some(ref path) = display_path {
+                format!("Unknown rule in {path}: {rule_name}")
+            } else {
+                format!("Unknown rule in config: {rule_name}")
+            };
+            warnings.push(ConfigValidationWarning {
+                message,
+                rule: None,
+                key: None,
             });
         }
     }
     warnings
+}
+
+/// Convert a file path to a display-friendly relative path.
+///
+/// Tries to make the path relative to the current working directory.
+/// If that fails, returns the original path unchanged.
+fn to_relative_display_path(path: &str) -> String {
+    let file_path = Path::new(path);
+
+    // Try to make relative to CWD
+    if let Ok(cwd) = std::env::current_dir() {
+        // Try with canonicalized paths first (handles symlinks)
+        if let (Ok(canonical_file), Ok(canonical_cwd)) = (file_path.canonicalize(), cwd.canonicalize())
+            && let Ok(relative) = canonical_file.strip_prefix(&canonical_cwd)
+        {
+            return relative.to_string_lossy().to_string();
+        }
+
+        // Fall back to non-canonicalized comparison
+        if let Ok(relative) = file_path.strip_prefix(&cwd) {
+            return relative.to_string_lossy().to_string();
+        }
+    }
+
+    // Return original if we can't make it relative
+    path.to_string()
+}
+
+/// Validate a loaded config against the rule registry, using SourcedConfig for unknown key tracking.
+///
+/// This is the legacy API that works with `SourcedConfig<ConfigLoaded>`.
+/// For new code, prefer using `sourced.validate(&registry)` which returns a
+/// `SourcedConfig<ConfigValidated>` that can be converted to `Config`.
+pub fn validate_config_sourced(
+    sourced: &SourcedConfig<ConfigLoaded>,
+    registry: &RuleRegistry,
+) -> Vec<ConfigValidationWarning> {
+    validate_config_sourced_internal(sourced, registry)
+}
+
+/// Validate a config that has already been validated (no-op, returns stored warnings).
+///
+/// This exists for API consistency - validated configs already have their warnings stored.
+pub fn validate_config_sourced_validated(
+    sourced: &SourcedConfig<ConfigValidated>,
+    _registry: &RuleRegistry,
+) -> Vec<ConfigValidationWarning> {
+    sourced.validation_warnings.clone()
 }
 
 fn toml_type_name(val: &toml::Value) -> &'static str {
@@ -1826,6 +4431,63 @@ fn toml_type_name(val: &toml::Value) -> &'static str {
         toml::Value::Table(_) => "table",
         toml::Value::Datetime(_) => "datetime",
     }
+}
+
+/// Calculate Levenshtein distance between two strings (simple implementation)
+fn levenshtein_distance(s1: &str, s2: &str) -> usize {
+    let len1 = s1.len();
+    let len2 = s2.len();
+
+    if len1 == 0 {
+        return len2;
+    }
+    if len2 == 0 {
+        return len1;
+    }
+
+    let s1_chars: Vec<char> = s1.chars().collect();
+    let s2_chars: Vec<char> = s2.chars().collect();
+
+    let mut prev_row: Vec<usize> = (0..=len2).collect();
+    let mut curr_row = vec![0; len2 + 1];
+
+    for i in 1..=len1 {
+        curr_row[0] = i;
+        for j in 1..=len2 {
+            let cost = if s1_chars[i - 1] == s2_chars[j - 1] { 0 } else { 1 };
+            curr_row[j] = (prev_row[j] + 1)          // deletion
+                .min(curr_row[j - 1] + 1)            // insertion
+                .min(prev_row[j - 1] + cost); // substitution
+        }
+        std::mem::swap(&mut prev_row, &mut curr_row);
+    }
+
+    prev_row[len2]
+}
+
+/// Suggest a similar key from a list of valid keys using fuzzy matching
+pub fn suggest_similar_key(unknown: &str, valid_keys: &[String]) -> Option<String> {
+    let unknown_lower = unknown.to_lowercase();
+    let max_distance = 2.max(unknown.len() / 3); // Allow up to 2 edits or 30% of string length
+
+    let mut best_match: Option<(String, usize)> = None;
+
+    for valid in valid_keys {
+        let valid_lower = valid.to_lowercase();
+        let distance = levenshtein_distance(&unknown_lower, &valid_lower);
+
+        if distance <= max_distance {
+            if let Some((_, best_dist)) = &best_match {
+                if distance < *best_dist {
+                    best_match = Some((valid.clone(), distance));
+                }
+            } else {
+                best_match = Some((valid.clone(), distance));
+            }
+        }
+    }
+
+    best_match.map(|(key, _)| key)
 }
 
 fn toml_value_type_matches(expected: &toml::Value, actual: &toml::Value) -> bool {
@@ -1846,11 +4508,16 @@ fn toml_value_type_matches(expected: &toml::Value, actual: &toml::Value) -> bool
 
 /// Parses pyproject.toml content and extracts the [tool.rumdl] section if present.
 fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfigFragment>, ConfigError> {
-    let doc: toml::Value =
-        toml::from_str(content).map_err(|e| ConfigError::ParseError(format!("{path}: Failed to parse TOML: {e}")))?;
+    let display_path = to_relative_display_path(path);
+    let doc: toml::Value = toml::from_str(content)
+        .map_err(|e| ConfigError::ParseError(format!("{display_path}: Failed to parse TOML: {e}")))?;
     let mut fragment = SourcedConfigFragment::default();
     let source = ConfigSource::PyprojectToml;
     let file = Some(path.to_string());
+
+    // Create rule registry for alias resolution
+    let all_rules = rules::all_rules(&Config::default());
+    let registry = RuleRegistry::from_rules(&all_rules);
 
     // 1. Handle [tool.rumdl] and [tool.rumdl.global] sections
     if let Some(rumdl_config) = doc.get("tool").and_then(|t| t.get("rumdl"))
@@ -1862,8 +4529,11 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
             if let Some(enable) = table.get("enable")
                 && let Ok(values) = Vec::<String>::deserialize(enable.clone())
             {
-                // Normalize rule names in the list
-                let normalized_values = values.into_iter().map(|s| normalize_key(&s)).collect();
+                // Resolve rule name aliases (e.g., "ul-style" -> "MD004")
+                let normalized_values = values
+                    .into_iter()
+                    .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                    .collect();
                 fragment
                     .global
                     .enable
@@ -1873,8 +4543,11 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
             if let Some(disable) = table.get("disable")
                 && let Ok(values) = Vec::<String>::deserialize(disable.clone())
             {
-                // Re-enable normalization
-                let normalized_values: Vec<String> = values.into_iter().map(|s| normalize_key(&s)).collect();
+                // Resolve rule name aliases
+                let normalized_values: Vec<String> = values
+                    .into_iter()
+                    .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                    .collect();
                 fragment
                     .global
                     .disable
@@ -1937,7 +4610,10 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
             if let Some(fixable) = table.get("fixable")
                 && let Ok(values) = Vec::<String>::deserialize(fixable.clone())
             {
-                let normalized_values = values.into_iter().map(|s| normalize_key(&s)).collect();
+                let normalized_values = values
+                    .into_iter()
+                    .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                    .collect();
                 fragment
                     .global
                     .fixable
@@ -1947,7 +4623,10 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
             if let Some(unfixable) = table.get("unfixable")
                 && let Ok(values) = Vec::<String>::deserialize(unfixable.clone())
             {
-                let normalized_values = values.into_iter().map(|s| normalize_key(&s)).collect();
+                let normalized_values = values
+                    .into_iter()
+                    .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                    .collect();
                 fragment
                     .global
                     .unfixable
@@ -1967,7 +4646,7 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
                 fragment
                     .global
                     .line_length
-                    .push_override(value, source, file.clone(), None);
+                    .push_override(LineLength::new(value as usize), source, file.clone(), None);
 
                 // Also add to MD013 rule config for backward compatibility
                 let norm_md013_key = normalize_key("MD013");
@@ -1979,6 +4658,27 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
                     .or_insert_with(|| SourcedValue::new(line_length.clone(), ConfigSource::Default));
                 sv.push_override(line_length.clone(), source, file.clone(), None);
             }
+
+            if let Some(cache_dir) = table.get("cache-dir").or_else(|| table.get("cache_dir"))
+                && let Ok(value) = String::deserialize(cache_dir.clone())
+            {
+                if fragment.global.cache_dir.is_none() {
+                    fragment.global.cache_dir = Some(SourcedValue::new(value.clone(), source));
+                } else {
+                    fragment
+                        .global
+                        .cache_dir
+                        .as_mut()
+                        .unwrap()
+                        .push_override(value, source, file.clone(), None);
+                }
+            }
+
+            if let Some(cache) = table.get("cache")
+                && let Ok(value) = bool::deserialize(cache.clone())
+            {
+                fragment.global.cache.push_override(value, source, file.clone(), None);
+            }
         };
 
         // First, check for [tool.rumdl.global] section
@@ -1989,60 +4689,138 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
         // Also extract global options from [tool.rumdl] directly (for flat structure)
         extract_global_config(&mut fragment, rumdl_table);
 
+        // --- Extract per-file-ignores configurations ---
+        // Check both hyphenated and underscored versions for compatibility
+        let per_file_ignores_key = rumdl_table
+            .get("per-file-ignores")
+            .or_else(|| rumdl_table.get("per_file_ignores"));
+
+        if let Some(per_file_ignores_value) = per_file_ignores_key
+            && let Some(per_file_table) = per_file_ignores_value.as_table()
+        {
+            let mut per_file_map = HashMap::new();
+            for (pattern, rules_value) in per_file_table {
+                warn_comma_without_brace_in_pattern(pattern, &display_path);
+                if let Ok(rules) = Vec::<String>::deserialize(rules_value.clone()) {
+                    let normalized_rules = rules
+                        .into_iter()
+                        .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                        .collect();
+                    per_file_map.insert(pattern.clone(), normalized_rules);
+                } else {
+                    log::warn!(
+                        "[WARN] Expected array for per-file-ignores pattern '{pattern}' in {display_path}, found {rules_value:?}"
+                    );
+                }
+            }
+            fragment
+                .per_file_ignores
+                .push_override(per_file_map, source, file.clone(), None);
+        }
+
+        // --- Extract per-file-flavor configurations ---
+        // Check both hyphenated and underscored versions for compatibility
+        let per_file_flavor_key = rumdl_table
+            .get("per-file-flavor")
+            .or_else(|| rumdl_table.get("per_file_flavor"));
+
+        if let Some(per_file_flavor_value) = per_file_flavor_key
+            && let Some(per_file_table) = per_file_flavor_value.as_table()
+        {
+            let mut per_file_map = IndexMap::new();
+            for (pattern, flavor_value) in per_file_table {
+                if let Ok(flavor) = MarkdownFlavor::deserialize(flavor_value.clone()) {
+                    per_file_map.insert(pattern.clone(), flavor);
+                } else {
+                    log::warn!(
+                        "[WARN] Invalid flavor for per-file-flavor pattern '{pattern}' in {display_path}, found {flavor_value:?}. Valid values: standard, mkdocs, mdx, quarto"
+                    );
+                }
+            }
+            fragment
+                .per_file_flavor
+                .push_override(per_file_map, source, file.clone(), None);
+        }
+
         // --- Extract rule-specific configurations ---
         for (key, value) in rumdl_table {
             let norm_rule_key = normalize_key(key);
 
             // Skip keys already handled as global or special cases
-            if [
+            // Note: Only skip these if they're NOT tables (rule sections are tables)
+            let is_global_key = [
                 "enable",
                 "disable",
                 "include",
                 "exclude",
                 "respect_gitignore",
-                "respect-gitignore", // Added kebab-case here too
+                "respect-gitignore",
                 "force_exclude",
                 "force-exclude",
-                "line_length",
-                "line-length",
                 "output_format",
                 "output-format",
                 "fixable",
                 "unfixable",
+                "per-file-ignores",
+                "per_file_ignores",
+                "per-file-flavor",
+                "per_file_flavor",
+                "global",
+                "flavor",
+                "cache_dir",
+                "cache-dir",
+                "cache",
             ]
-            .contains(&norm_rule_key.as_str())
-            {
+            .contains(&norm_rule_key.as_str());
+
+            // Special handling for line-length: could be global config OR rule section
+            let is_line_length_global =
+                (norm_rule_key == "line-length" || norm_rule_key == "line_length") && !value.is_table();
+
+            if is_global_key || is_line_length_global {
                 continue;
             }
 
-            // Explicitly check if the key looks like a rule name (e.g., starts with 'md')
-            // AND if the value is actually a TOML table before processing as rule config.
-            // This prevents misinterpreting other top-level keys under [tool.rumdl]
-            let norm_rule_key_upper = norm_rule_key.to_ascii_uppercase();
-            if norm_rule_key_upper.len() == 5
-                && norm_rule_key_upper.starts_with("MD")
-                && norm_rule_key_upper[2..].chars().all(|c| c.is_ascii_digit())
+            // Try to resolve as a rule name (handles both canonical names and aliases)
+            if let Some(resolved_rule_name) = registry.resolve_rule_name(key)
                 && value.is_table()
+                && let Some(rule_config_table) = value.as_table()
             {
-                if let Some(rule_config_table) = value.as_table() {
-                    // Get the entry for this rule (e.g., "md013")
-                    let rule_entry = fragment.rules.entry(norm_rule_key_upper).or_default();
-                    for (rk, rv) in rule_config_table {
-                        let norm_rk = normalize_key(rk); // Normalize the config key itself
+                let rule_entry = fragment.rules.entry(resolved_rule_name.clone()).or_default();
+                for (rk, rv) in rule_config_table {
+                    let norm_rk = normalize_key(rk);
 
-                        let toml_val = rv.clone();
-
-                        let sv = rule_entry
-                            .values
-                            .entry(norm_rk.clone())
-                            .or_insert_with(|| SourcedValue::new(toml_val.clone(), ConfigSource::Default));
-                        sv.push_override(toml_val, source, file.clone(), None);
+                    // Special handling for severity - store in rule_entry.severity
+                    if norm_rk == "severity" {
+                        if let Ok(severity) = crate::rule::Severity::deserialize(rv.clone()) {
+                            if rule_entry.severity.is_none() {
+                                rule_entry.severity = Some(SourcedValue::new(severity, source));
+                            } else {
+                                rule_entry.severity.as_mut().unwrap().push_override(
+                                    severity,
+                                    source,
+                                    file.clone(),
+                                    None,
+                                );
+                            }
+                        }
+                        continue; // Skip regular value processing for severity
                     }
+
+                    let toml_val = rv.clone();
+
+                    let sv = rule_entry
+                        .values
+                        .entry(norm_rk.clone())
+                        .or_insert_with(|| SourcedValue::new(toml_val.clone(), ConfigSource::Default));
+                    sv.push_override(toml_val, source, file.clone(), None);
                 }
-            } else {
-                // Key is not a global/special key, doesn't start with 'md', or isn't a table.
-                // TODO: Track unknown keys/sections if necessary for validation later.
-                // eprintln!("[DEBUG parse_pyproject] Skipping key '{}' as it's not a recognized rule table.", key);
+            } else if registry.resolve_rule_name(key).is_none() {
+                // Key is not a global/special key and not a recognized rule name
+                // Track unknown keys under [tool.rumdl] for validation
+                fragment
+                    .unknown_keys
+                    .push(("[tool.rumdl]".to_string(), key.to_string(), Some(path.to_string())));
             }
         }
     }
@@ -2051,47 +4829,97 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
     if let Some(tool_table) = doc.get("tool").and_then(|t| t.as_table()) {
         for (key, value) in tool_table.iter() {
             if let Some(rule_name) = key.strip_prefix("rumdl.") {
-                let norm_rule_name = normalize_key(rule_name);
-                if norm_rule_name.len() == 5
-                    && norm_rule_name.to_ascii_uppercase().starts_with("MD")
-                    && norm_rule_name[2..].chars().all(|c| c.is_ascii_digit())
-                    && let Some(rule_table) = value.as_table()
-                {
-                    let rule_entry = fragment.rules.entry(norm_rule_name.to_ascii_uppercase()).or_default();
-                    for (rk, rv) in rule_table {
-                        let norm_rk = normalize_key(rk);
-                        let toml_val = rv.clone();
-                        let sv = rule_entry
-                            .values
-                            .entry(norm_rk.clone())
-                            .or_insert_with(|| SourcedValue::new(toml_val.clone(), source));
-                        sv.push_override(toml_val, source, file.clone(), None);
+                // Try to resolve as a rule name (handles both canonical names and aliases)
+                if let Some(resolved_rule_name) = registry.resolve_rule_name(rule_name) {
+                    if let Some(rule_table) = value.as_table() {
+                        let rule_entry = fragment.rules.entry(resolved_rule_name.clone()).or_default();
+                        for (rk, rv) in rule_table {
+                            let norm_rk = normalize_key(rk);
+
+                            // Special handling for severity - store in rule_entry.severity
+                            if norm_rk == "severity" {
+                                if let Ok(severity) = crate::rule::Severity::deserialize(rv.clone()) {
+                                    if rule_entry.severity.is_none() {
+                                        rule_entry.severity = Some(SourcedValue::new(severity, source));
+                                    } else {
+                                        rule_entry.severity.as_mut().unwrap().push_override(
+                                            severity,
+                                            source,
+                                            file.clone(),
+                                            None,
+                                        );
+                                    }
+                                }
+                                continue; // Skip regular value processing for severity
+                            }
+
+                            let toml_val = rv.clone();
+                            let sv = rule_entry
+                                .values
+                                .entry(norm_rk.clone())
+                                .or_insert_with(|| SourcedValue::new(toml_val.clone(), source));
+                            sv.push_override(toml_val, source, file.clone(), None);
+                        }
                     }
+                } else if rule_name.to_ascii_uppercase().starts_with("MD")
+                    || rule_name.chars().any(|c| c.is_alphabetic())
+                {
+                    // Track unknown rule sections like [tool.rumdl.MD999] or [tool.rumdl.unknown-rule]
+                    fragment.unknown_keys.push((
+                        format!("[tool.rumdl.{rule_name}]"),
+                        String::new(),
+                        Some(path.to_string()),
+                    ));
                 }
             }
         }
     }
 
-    // 3. Handle [tool.rumdl.MDxxx] sections as top-level keys (e.g., [tool.rumdl.MD007])
+    // 3. Handle [tool.rumdl.MDxxx] sections as top-level keys (e.g., [tool.rumdl.MD007] or [tool.rumdl.line-length])
     if let Some(doc_table) = doc.as_table() {
         for (key, value) in doc_table.iter() {
             if let Some(rule_name) = key.strip_prefix("tool.rumdl.") {
-                let norm_rule_name = normalize_key(rule_name);
-                if norm_rule_name.len() == 5
-                    && norm_rule_name.to_ascii_uppercase().starts_with("MD")
-                    && norm_rule_name[2..].chars().all(|c| c.is_ascii_digit())
-                    && let Some(rule_table) = value.as_table()
-                {
-                    let rule_entry = fragment.rules.entry(norm_rule_name.to_ascii_uppercase()).or_default();
-                    for (rk, rv) in rule_table {
-                        let norm_rk = normalize_key(rk);
-                        let toml_val = rv.clone();
-                        let sv = rule_entry
-                            .values
-                            .entry(norm_rk.clone())
-                            .or_insert_with(|| SourcedValue::new(toml_val.clone(), source));
-                        sv.push_override(toml_val, source, file.clone(), None);
+                // Try to resolve as a rule name (handles both canonical names and aliases)
+                if let Some(resolved_rule_name) = registry.resolve_rule_name(rule_name) {
+                    if let Some(rule_table) = value.as_table() {
+                        let rule_entry = fragment.rules.entry(resolved_rule_name.clone()).or_default();
+                        for (rk, rv) in rule_table {
+                            let norm_rk = normalize_key(rk);
+
+                            // Special handling for severity - store in rule_entry.severity
+                            if norm_rk == "severity" {
+                                if let Ok(severity) = crate::rule::Severity::deserialize(rv.clone()) {
+                                    if rule_entry.severity.is_none() {
+                                        rule_entry.severity = Some(SourcedValue::new(severity, source));
+                                    } else {
+                                        rule_entry.severity.as_mut().unwrap().push_override(
+                                            severity,
+                                            source,
+                                            file.clone(),
+                                            None,
+                                        );
+                                    }
+                                }
+                                continue; // Skip regular value processing for severity
+                            }
+
+                            let toml_val = rv.clone();
+                            let sv = rule_entry
+                                .values
+                                .entry(norm_rk.clone())
+                                .or_insert_with(|| SourcedValue::new(toml_val.clone(), source));
+                            sv.push_override(toml_val, source, file.clone(), None);
+                        }
                     }
+                } else if rule_name.to_ascii_uppercase().starts_with("MD")
+                    || rule_name.chars().any(|c| c.is_alphabetic())
+                {
+                    // Track unknown rule sections like [tool.rumdl.MD999] or [tool.rumdl.unknown-rule]
+                    fragment.unknown_keys.push((
+                        format!("[tool.rumdl.{rule_name}]"),
+                        String::new(),
+                        Some(path.to_string()),
+                    ));
                 }
             }
         }
@@ -2105,27 +4933,27 @@ fn parse_pyproject_toml(content: &str, path: &str) -> Result<Option<SourcedConfi
         || !fragment.global.fixable.value.is_empty()
         || !fragment.global.unfixable.value.is_empty()
         || fragment.global.output_format.is_some()
+        || fragment.global.cache_dir.is_some()
+        || !fragment.global.cache.value
+        || !fragment.per_file_ignores.value.is_empty()
+        || !fragment.per_file_flavor.value.is_empty()
         || !fragment.rules.is_empty();
     if has_any { Ok(Some(fragment)) } else { Ok(None) }
 }
 
 /// Parses rumdl.toml / .rumdl.toml content.
-fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, ConfigError> {
+fn parse_rumdl_toml(content: &str, path: &str, source: ConfigSource) -> Result<SourcedConfigFragment, ConfigError> {
+    let display_path = to_relative_display_path(path);
     let doc = content
         .parse::<DocumentMut>()
-        .map_err(|e| ConfigError::ParseError(format!("{path}: Failed to parse TOML: {e}")))?;
+        .map_err(|e| ConfigError::ParseError(format!("{display_path}: Failed to parse TOML: {e}")))?;
     let mut fragment = SourcedConfigFragment::default();
-    let source = ConfigSource::RumdlToml;
+    // source parameter provided by caller
     let file = Some(path.to_string());
 
     // Define known rules before the loop
     let all_rules = rules::all_rules(&Config::default());
     let registry = RuleRegistry::from_rules(&all_rules);
-    let known_rule_names: BTreeSet<String> = registry
-        .rule_names()
-        .into_iter()
-        .map(|s| s.to_ascii_uppercase())
-        .collect();
 
     // Handle [global] section
     if let Some(global_item) = doc.get("global")
@@ -2143,10 +4971,12 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                                 .map(|s| s.to_string())
                                 .collect();
 
-                        // Normalize rule names for enable/disable
+                        // Resolve rule name aliases for enable/disable (e.g., "ul-style" -> "MD004")
                         let final_values = if norm_key == "enable" || norm_key == "disable" {
-                            // Corrected: Pass &str to normalize_key
-                            values.into_iter().map(|s| normalize_key(&s)).collect()
+                            values
+                                .into_iter()
+                                .map(|s| registry.resolve_rule_name(&s).unwrap_or_else(|| normalize_key(&s)))
+                                .collect()
                         } else {
                             values
                         };
@@ -2174,13 +5004,13 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                                     .exclude
                                     .push_override(final_values, source, file.clone(), None)
                             }
-                            _ => unreachable!(), // Should not happen due to outer match
+                            _ => unreachable!("Outer match guarantees only enable/disable/include/exclude"),
                         }
                     } else {
                         log::warn!(
                             "[WARN] Expected array for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2197,7 +5027,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected boolean for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2214,7 +5044,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected boolean for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2222,7 +5052,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                 "line_length" | "line-length" => {
                     // Handle both cases
                     if let Some(toml_edit::Value::Integer(formatted_int)) = value_item.as_value() {
-                        let val = *formatted_int.value() as u64;
+                        let val = LineLength::new(*formatted_int.value() as usize);
                         fragment
                             .global
                             .line_length
@@ -2231,7 +5061,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected integer for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2254,7 +5084,43 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected string for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
+                            value_item.type_name()
+                        );
+                    }
+                }
+                "cache_dir" | "cache-dir" => {
+                    // Handle both cases
+                    if let Some(toml_edit::Value::String(formatted_string)) = value_item.as_value() {
+                        let val = formatted_string.value().clone();
+                        if fragment.global.cache_dir.is_none() {
+                            fragment.global.cache_dir = Some(SourcedValue::new(val.clone(), source));
+                        } else {
+                            fragment
+                                .global
+                                .cache_dir
+                                .as_mut()
+                                .unwrap()
+                                .push_override(val, source, file.clone(), None);
+                        }
+                    } else {
+                        log::warn!(
+                            "[WARN] Expected string for global key '{}' in {}, found {}",
+                            key,
+                            display_path,
+                            value_item.type_name()
+                        );
+                    }
+                }
+                "cache" => {
+                    if let Some(toml_edit::Value::Boolean(b)) = value_item.as_value() {
+                        let val = *b.value();
+                        fragment.global.cache.push_override(val, source, file.clone(), None);
+                    } else {
+                        log::warn!(
+                            "[WARN] Expected boolean for global key '{}' in {}, found {}",
+                            key,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2274,7 +5140,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected array for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2284,7 +5150,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         let values: Vec<String> = formatted_array
                             .iter()
                             .filter_map(|item| item.as_str())
-                            .map(normalize_key)
+                            .map(|s| registry.resolve_rule_name(s).unwrap_or_else(|| normalize_key(s)))
                             .collect();
                         fragment
                             .global
@@ -2294,7 +5160,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         log::warn!(
                             "[WARN] Expected array for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
@@ -2305,36 +5171,134 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                         if let Ok(flavor) = MarkdownFlavor::from_str(val) {
                             fragment.global.flavor.push_override(flavor, source, file.clone(), None);
                         } else {
-                            log::warn!("[WARN] Unknown markdown flavor '{val}' in {path}");
+                            log::warn!("[WARN] Unknown markdown flavor '{val}' in {display_path}");
                         }
                     } else {
                         log::warn!(
                             "[WARN] Expected string for global key '{}' in {}, found {}",
                             key,
-                            path,
+                            display_path,
                             value_item.type_name()
                         );
                     }
                 }
                 _ => {
-                    // Add to unknown_keys for potential validation later
-                    // fragment.unknown_keys.push(("[global]".to_string(), key.to_string()));
-                    log::warn!("[WARN] Unknown key in [global] section of {path}: {key}");
+                    // Track unknown global keys for validation
+                    fragment
+                        .unknown_keys
+                        .push(("[global]".to_string(), key.to_string(), Some(path.to_string())));
+                    log::warn!("[WARN] Unknown key in [global] section of {display_path}: {key}");
                 }
             }
         }
     }
 
+    // Handle [per-file-ignores] section
+    if let Some(per_file_item) = doc.get("per-file-ignores")
+        && let Some(per_file_table) = per_file_item.as_table()
+    {
+        let mut per_file_map = HashMap::new();
+        for (pattern, value_item) in per_file_table.iter() {
+            warn_comma_without_brace_in_pattern(pattern, &display_path);
+            if let Some(toml_edit::Value::Array(formatted_array)) = value_item.as_value() {
+                let rules: Vec<String> = formatted_array
+                    .iter()
+                    .filter_map(|item| item.as_str())
+                    .map(|s| registry.resolve_rule_name(s).unwrap_or_else(|| normalize_key(s)))
+                    .collect();
+                per_file_map.insert(pattern.to_string(), rules);
+            } else {
+                let type_name = value_item.type_name();
+                log::warn!(
+                    "[WARN] Expected array for per-file-ignores pattern '{pattern}' in {display_path}, found {type_name}"
+                );
+            }
+        }
+        fragment
+            .per_file_ignores
+            .push_override(per_file_map, source, file.clone(), None);
+    }
+
+    // Handle [per-file-flavor] section
+    if let Some(per_file_item) = doc.get("per-file-flavor")
+        && let Some(per_file_table) = per_file_item.as_table()
+    {
+        let mut per_file_map = IndexMap::new();
+        for (pattern, value_item) in per_file_table.iter() {
+            if let Some(toml_edit::Value::String(formatted_string)) = value_item.as_value() {
+                let flavor_str = formatted_string.value();
+                match MarkdownFlavor::deserialize(toml::Value::String(flavor_str.to_string())) {
+                    Ok(flavor) => {
+                        per_file_map.insert(pattern.to_string(), flavor);
+                    }
+                    Err(_) => {
+                        log::warn!(
+                            "[WARN] Invalid flavor '{flavor_str}' for pattern '{pattern}' in {display_path}. Valid values: standard, mkdocs, mdx, quarto"
+                        );
+                    }
+                }
+            } else {
+                let type_name = value_item.type_name();
+                log::warn!(
+                    "[WARN] Expected string for per-file-flavor pattern '{pattern}' in {display_path}, found {type_name}"
+                );
+            }
+        }
+        fragment
+            .per_file_flavor
+            .push_override(per_file_map, source, file.clone(), None);
+    }
+
     // Rule-specific: all other top-level tables
     for (key, item) in doc.iter() {
-        let norm_rule_name = key.to_ascii_uppercase();
-        if !known_rule_names.contains(&norm_rule_name) {
+        // Skip known special sections
+        if key == "global" || key == "per-file-ignores" || key == "per-file-flavor" {
             continue;
         }
+
+        // Resolve rule name (handles both canonical names like "MD004" and aliases like "ul-style")
+        let norm_rule_name = if let Some(resolved) = registry.resolve_rule_name(key) {
+            resolved
+        } else {
+            // Unknown rule - always track it for validation and suggestions
+            fragment
+                .unknown_keys
+                .push((format!("[{key}]"), String::new(), Some(path.to_string())));
+            continue;
+        };
+
         if let Some(tbl) = item.as_table() {
             let rule_entry = fragment.rules.entry(norm_rule_name.clone()).or_default();
             for (rk, rv_item) in tbl.iter() {
                 let norm_rk = normalize_key(rk);
+
+                // Special handling for severity - store in rule_entry.severity
+                if norm_rk == "severity" {
+                    if let Some(toml_edit::Value::String(formatted_string)) = rv_item.as_value() {
+                        let severity_str = formatted_string.value();
+                        match crate::rule::Severity::deserialize(toml::Value::String(severity_str.to_string())) {
+                            Ok(severity) => {
+                                if rule_entry.severity.is_none() {
+                                    rule_entry.severity = Some(SourcedValue::new(severity, source));
+                                } else {
+                                    rule_entry.severity.as_mut().unwrap().push_override(
+                                        severity,
+                                        source,
+                                        file.clone(),
+                                        None,
+                                    );
+                                }
+                            }
+                            Err(_) => {
+                                log::warn!(
+                                    "[WARN] Invalid severity '{severity_str}' for rule {norm_rule_name} in {display_path}. Valid values: error, warning"
+                                );
+                            }
+                        }
+                    }
+                    continue; // Skip regular value processing for severity
+                }
+
                 let maybe_toml_val: Option<toml::Value> = match rv_item.as_value() {
                     Some(toml_edit::Value::String(formatted)) => Some(toml::Value::String(formatted.value().clone())),
                     Some(toml_edit::Value::Integer(formatted)) => Some(toml::Value::Integer(*formatted.value())),
@@ -2363,7 +5327,7 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                                 }
                                 _ => {
                                     log::warn!(
-                                        "[WARN] Skipping unsupported array element type in key '{norm_rule_name}.{norm_rk}' in {path}"
+                                        "[WARN] Skipping unsupported array element type in key '{norm_rule_name}.{norm_rk}' in {display_path}"
                                     );
                                 }
                             }
@@ -2372,13 +5336,13 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                     }
                     Some(toml_edit::Value::InlineTable(_)) => {
                         log::warn!(
-                            "[WARN] Skipping inline table value for key '{norm_rule_name}.{norm_rk}' in {path}. Table conversion not yet fully implemented in parser."
+                            "[WARN] Skipping inline table value for key '{norm_rule_name}.{norm_rk}' in {display_path}. Table conversion not yet fully implemented in parser."
                         );
                         None
                     }
                     None => {
                         log::warn!(
-                            "[WARN] Skipping non-value item for key '{norm_rule_name}.{norm_rk}' in {path}. Expected simple value."
+                            "[WARN] Skipping non-value item for key '{norm_rule_name}.{norm_rk}' in {display_path}. Expected simple value."
                         );
                         None
                     }
@@ -2392,7 +5356,9 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
                 }
             }
         } else if item.is_value() {
-            log::warn!("[WARN] Ignoring top-level value key in {path}: '{key}'. Expected a table like [{key}].");
+            log::warn!(
+                "[WARN] Ignoring top-level value key in {display_path}: '{key}'. Expected a table like [{key}]."
+            );
         }
     }
 
@@ -2401,8 +5367,13 @@ fn parse_rumdl_toml(content: &str, path: &str) -> Result<SourcedConfigFragment, 
 
 /// Loads and converts a markdownlint config file (.json or .yaml) into a SourcedConfigFragment.
 fn load_from_markdownlint(path: &str) -> Result<SourcedConfigFragment, ConfigError> {
+    let display_path = to_relative_display_path(path);
     // Use the unified loader from markdownlint_config.rs
     let ml_config = crate::markdownlint_config::load_markdownlint_config(path)
-        .map_err(|e| ConfigError::ParseError(format!("{path}: {e}")))?;
+        .map_err(|e| ConfigError::ParseError(format!("{display_path}: {e}")))?;
     Ok(ml_config.map_to_sourced_rumdl_config_fragment(Some(path)))
 }
+
+#[cfg(test)]
+#[path = "config_intelligent_merge_tests.rs"]
+mod config_intelligent_merge_tests;

@@ -5,7 +5,7 @@
  * found in the LICENSE file.
  */
 
-// This test only works with the GPU backend.
+// This test only works with the Ganesh backend.
 
 #include "gm/gm.h"
 #include "include/core/SkBlendMode.h"
@@ -18,11 +18,12 @@
 #include "include/core/SkString.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkCanvasPriv.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrFragmentProcessor.h"
 #include "src/gpu/ganesh/GrPaint.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "src/gpu/ganesh/effects/GrPorterDuffXferProcessor.h"
-#include "tools/gpu/TestOps.h"
+#include "tools/ganesh/TestOps.h"
 
 #include <memory>
 #include <utility>
@@ -39,14 +40,14 @@ public:
     AARectEffect() { this->setBGColor(0xFFFFFFFF); }
 
 protected:
-    SkString onShortName() override { return SkString("aa_rect_effect"); }
+    SkString getName() const override { return SkString("aa_rect_effect"); }
 
-    SkISize onISize() override { return SkISize::Make(210, 250); }
+    SkISize getISize() override { return SkISize::Make(210, 250); }
 
     void onOnceBeforeDraw() override {}
 
     DrawResult onDraw(GrRecordingContext* rContext, SkCanvas* canvas, SkString* errorMsg) override {
-        auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+        auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
         if (!sdc) {
             *errorMsg = kErrorMsg_DrawSkippedGpuOnly;
             return DrawResult::kSkip;

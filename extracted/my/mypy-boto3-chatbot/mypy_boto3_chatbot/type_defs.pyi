@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import CustomActionAttachmentCriteriaOperatorType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -142,7 +137,7 @@ class ConfiguredTeamTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -303,10 +298,10 @@ class ChimeWebhookConfigurationTypeDef(TypedDict):
     WebhookDescription: str
     ChatConfigurationArn: str
     IamRoleArn: str
-    SnsTopicArns: List[str]
+    SnsTopicArns: list[str]
     ConfigurationName: NotRequired[str]
     LoggingLevel: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     State: NotRequired[str]
     StateReason: NotRequired[str]
 
@@ -352,12 +347,12 @@ class SlackChannelConfigurationTypeDef(TypedDict):
     SlackChannelName: str
     ChatConfigurationArn: str
     IamRoleArn: str
-    SnsTopicArns: List[str]
+    SnsTopicArns: list[str]
     ConfigurationName: NotRequired[str]
     LoggingLevel: NotRequired[str]
-    GuardrailPolicyArns: NotRequired[List[str]]
+    GuardrailPolicyArns: NotRequired[list[str]]
     UserAuthorizationRequired: NotRequired[bool]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     State: NotRequired[str]
     StateReason: NotRequired[str]
 
@@ -371,14 +366,14 @@ class TeamsChannelConfigurationTypeDef(TypedDict):
     TenantId: str
     ChatConfigurationArn: str
     IamRoleArn: str
-    SnsTopicArns: List[str]
+    SnsTopicArns: list[str]
     ChannelName: NotRequired[str]
     TeamName: NotRequired[str]
     ConfigurationName: NotRequired[str]
     LoggingLevel: NotRequired[str]
-    GuardrailPolicyArns: NotRequired[List[str]]
+    GuardrailPolicyArns: NotRequired[list[str]]
     UserAuthorizationRequired: NotRequired[bool]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     State: NotRequired[str]
     StateReason: NotRequired[str]
 
@@ -391,22 +386,22 @@ class GetAccountPreferencesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssociationsResultTypeDef(TypedDict):
-    Associations: List[AssociationListingTypeDef]
+    Associations: list[AssociationListingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCustomActionsResultTypeDef(TypedDict):
-    CustomActions: List[str]
+    CustomActions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMicrosoftTeamsConfiguredTeamsResultTypeDef(TypedDict):
-    ConfiguredTeams: List[ConfiguredTeamTypeDef]
+    ConfiguredTeams: list[ConfiguredTeamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAccountPreferencesResultTypeDef(TypedDict):
@@ -420,8 +415,8 @@ class UpdateCustomActionResultTypeDef(TypedDict):
 class CustomActionAttachmentOutputTypeDef(TypedDict):
     NotificationType: NotRequired[str]
     ButtonText: NotRequired[str]
-    Criteria: NotRequired[List[CustomActionAttachmentCriteriaTypeDef]]
-    Variables: NotRequired[Dict[str, str]]
+    Criteria: NotRequired[list[CustomActionAttachmentCriteriaTypeDef]]
+    Variables: NotRequired[dict[str, str]]
 
 class CustomActionAttachmentTypeDef(TypedDict):
     NotificationType: NotRequired[str]
@@ -463,17 +458,17 @@ class ListTeamsChannelConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSlackUserIdentitiesResultTypeDef(TypedDict):
-    SlackUserIdentities: List[SlackUserIdentityTypeDef]
+    SlackUserIdentities: list[SlackUserIdentityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeSlackWorkspacesResultTypeDef(TypedDict):
-    SlackWorkspaces: List[SlackWorkspaceTypeDef]
+    SlackWorkspaces: list[SlackWorkspaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMicrosoftTeamsUserIdentitiesResultTypeDef(TypedDict):
-    TeamsUserIdentities: List[TeamsUserIdentityTypeDef]
+    TeamsUserIdentities: list[TeamsUserIdentityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -482,7 +477,7 @@ class CreateChimeWebhookConfigurationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeChimeWebhookConfigurationsResultTypeDef(TypedDict):
-    WebhookConfigurations: List[ChimeWebhookConfigurationTypeDef]
+    WebhookConfigurations: list[ChimeWebhookConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -495,7 +490,7 @@ class CreateSlackChannelConfigurationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeSlackChannelConfigurationsResultTypeDef(TypedDict):
-    SlackChannelConfigurations: List[SlackChannelConfigurationTypeDef]
+    SlackChannelConfigurations: list[SlackChannelConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -512,7 +507,7 @@ class GetTeamsChannelConfigurationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTeamsChannelConfigurationsResultTypeDef(TypedDict):
-    TeamChannelConfigurations: List[TeamsChannelConfigurationTypeDef]
+    TeamChannelConfigurations: list[TeamsChannelConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -524,7 +519,7 @@ class CustomActionTypeDef(TypedDict):
     CustomActionArn: str
     Definition: CustomActionDefinitionTypeDef
     AliasName: NotRequired[str]
-    Attachments: NotRequired[List[CustomActionAttachmentOutputTypeDef]]
+    Attachments: NotRequired[list[CustomActionAttachmentOutputTypeDef]]
     ActionName: NotRequired[str]
 
 CustomActionAttachmentUnionTypeDef = Union[

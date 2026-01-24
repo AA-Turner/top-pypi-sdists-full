@@ -1,8 +1,11 @@
-import json
+from typing import Union
+
 import requests
-from .. import exceptions, config, core
+
+from .. import config, core, exceptions
 from ..const.service import VERB
 from ..utils import soap
+from ..utils.misc import join_path
 
 
 class _Service:
@@ -14,42 +17,23 @@ class _Service:
     def _setup(self):
         pass
 
-    def _format_url(self, uri: str = None) -> str:
-        parts = [self.connection.instance_url, self.base_uri]
-        if uri is not None:
-            parts.append(uri)
-        return str('/'.join([
-            x.strip('/')
-            for x in parts
-            if x is not None and x != ''
-        ])).format(
-            version=self.connection.version
-        )
-
-    def request(self, verb: VERB, **kwargs) -> requests.Response:
-        if 'uri' in kwargs:
-            kwargs['url'] = self._format_url(kwargs['uri'] or '')
-            del kwargs['uri']
-        return self.connection.request(verb, **kwargs)
+    def request(self, verb: VERB, uri: Union[str, None] = None, **kwargs) -> requests.Response:
+        return self.connection.request(verb, join_path(self.base_uri, uri), **kwargs)
 
 
 class RestService(_Service):
     def __init__(self, connection: core.Connection, base_uri: str = None):
-        super().__init__(connection, 'services/data/v{version}/' + (base_uri or ''))
+        super().__init__(connection, join_path('services/data/v{version}', base_uri))
 
     def _setup(self):
         self._setup_session()
 
     def _setup_session(self) -> None:
-        self.connection.session.headers['Authorization'] = 'Bearer ' + self.connection.access_token
+        self.connection.session.headers['Authorization'] = f'Bearer {self.connection.access_token}'
 
-    def _request(self, verb: VERB, **kwargs):
-        if 'headers' not in kwargs:
-            kwargs['headers'] = {
-                'Accept': 'application/json',
-                'Content-type': 'application/json'
-            }
-        return self._parse_response(self.request(verb, **kwargs))
+    def _request(self, verb: VERB, uri: Union[str, None] = None, **kwargs):
+        response = self.request(verb, uri, **kwargs)
+        return self._parse_response(response)
 
     def _response_is_json(self, response):
         return 'Content-Type' in response.headers and \
@@ -80,31 +64,28 @@ class RestService(_Service):
         self._handle_status_codes(response)
         try:
             return response.json()
-        except:
+        except requests.JSONDecodeError:
             return response.text
 
-    def _get_url(self, url: str, params: dict = None):
-        return self._request(VERB.GET, url=url, params=params)
+    def _get(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.GET, uri, **kwargs)
 
-    def _get(self, uri: str = None, params: dict = None):
-        return self._request(VERB.GET, uri=uri, params=params)
+    def _post(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.POST, uri, **kwargs)
 
-    def _post(self, uri: str = None, json: dict = None):
-        return self._request(VERB.POST, uri=uri, json=json)
+    def _put(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.PUT, uri, **kwargs)
 
-    def _put(self, uri: str = None, json: dict = None, data: str = None, **kwargs):
-        return self._request(VERB.PUT, uri=uri, json=json, data=data, **kwargs)
+    def _patch(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.PATCH, uri, **kwargs)
 
-    def _patch(self, uri: str = None, json: dict = None, data: str = None):
-        return self._request(VERB.PATCH, uri=uri, json=json, data=data)
-
-    def _delete(self, uri: str = None):
-        return self._request(VERB.DELETE, uri=uri)
+    def _delete(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.DELETE, uri, **kwargs)
 
 
 class AsyncService(_Service):
     def __init__(self, connection: core.Connection, base_uri: str = None):
-        super().__init__(connection, 'services/async/{version}/' + (base_uri or ''))
+        super().__init__(connection, join_path('services/async/{version}', base_uri))
 
     def _setup(self):
         self._setup_session()
@@ -112,32 +93,26 @@ class AsyncService(_Service):
     def _setup_session(self) -> None:
         self.connection.session.headers['X-SFDC-Session'] = self.connection.access_token
 
-    def _request(self, verb: VERB, **kwargs):
-        if 'headers' not in kwargs:
-            kwargs['headers'] = {
-                'Accept': 'application/json',
-                'Content-type': 'application/json'
-            }
-        return self._parse_response(self.request(verb, **kwargs))
+    def _request(self, verb: VERB, uri: Union[str, None] = None, **kwargs):
+        response = self.request(verb, uri, **kwargs)
+        return self._parse_response(response)
 
     def _parse_response(self, response: requests.Response):
         try:
             return response.json()
-        except:
+        except requests.JSONDecodeError:
             return response.text
 
-    def _get(self, uri: str = None, params: dict = None):
-        return self._request(VERB.GET, uri=uri, params=params)
+    def _get(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.GET, uri, **kwargs)
 
-    def _post(self, uri: str = None, data = None):
-        if not isinstance(data, str):
-            data = json.dumps(data, default=str)
-        return self._request(VERB.POST, uri=uri, data=data)
+    def _post(self, uri: Union[str, None] = None, **kwargs):
+        return self._request(VERB.POST, uri, **kwargs)
 
 
 class SoapService(_Service):
     def __init__(self, connection: core.Connection):
-        super().__init__(connection, 'services/Soap/m/{version}/')
+        super().__init__(connection, 'services/Soap/m/{version}')
 
     def _extend_attributes(self, attributes: dict) -> dict:
         return {**attributes, **{
@@ -151,7 +126,7 @@ class SoapService(_Service):
 
     def _post(self, action=None, message_path=None, message_attributes=None) -> soap.Result:
         data = self._prepare_message(message_path, message_attributes or {})
-        result = self.request(VERB.POST, url=self._format_url(''), data=data, headers={
+        result = self.request(VERB.POST, data=data, headers={
             'Content-type': 'text/xml',
             'SOAPAction': action
         })

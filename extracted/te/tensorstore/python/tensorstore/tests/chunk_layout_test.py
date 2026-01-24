@@ -14,13 +14,16 @@
 """Tests for tensorstore.ChunkLayout."""
 
 import pickle
+import threading
+import time
+from typing import Callable
 
 import numpy as np
 import pytest
 import tensorstore as ts
 
 
-def test_grid_json():
+def test_grid_json() -> None:
   json_grid = dict(
       shape=[5, None, 20],
       shape_soft_constraint=[None, 17, None],
@@ -38,7 +41,7 @@ def test_grid_json():
   assert grid.to_json() == json_grid
 
 
-def test_grid_update():
+def test_grid_update() -> None:
   grid = ts.ChunkLayout.Grid()
   assert grid.rank is None
   assert grid.ndim is None
@@ -49,12 +52,12 @@ def test_grid_update():
     grid.update(shape=[4, None, None])
 
 
-def test_pickle_grid():
+def test_pickle_grid() -> None:
   x = ts.ChunkLayout.Grid(shape=[10, 12])
   assert pickle.loads(pickle.dumps(x)) == x
 
 
-def test_json():
+def test_json() -> None:
   json_layout = {
       'inner_order': [1, 0],
       'grid_origin': [1, 2],
@@ -65,7 +68,7 @@ def test_json():
   assert json_layout == ts.ChunkLayout(json_layout).to_json()
 
 
-def test_init():
+def test_init() -> None:
   layout = ts.ChunkLayout(
       write_chunk=ts.ChunkLayout.Grid(shape=[10, 12]),
       read_chunk=ts.ChunkLayout.Grid(shape=[0, 6]),
@@ -79,54 +82,60 @@ def test_init():
   assert layout.write_chunk.shape == (10, 12)
   assert layout.read_chunk.shape == (10, 6)
   assert layout.codec_chunk.shape == (None, 3)
-  assert layout.read_chunk_template == ts.IndexDomain(inclusive_min=[1, 2],
-                                                      shape=[10, 6])
-  assert layout.write_chunk_template == ts.IndexDomain(inclusive_min=[1, 2],
-                                                       shape=[10, 12])
+  assert layout.read_chunk_template == ts.IndexDomain(
+      inclusive_min=[1, 2], shape=[10, 6]
+  )
+  assert layout.write_chunk_template == ts.IndexDomain(
+      inclusive_min=[1, 2], shape=[10, 12]
+  )
   assert layout.rank == 2
   np.testing.assert_array_equal(layout.inner_order, [1, 0])
 
 
-def test_chunk_shape():
+def test_chunk_shape() -> None:
   layout = ts.ChunkLayout(chunk_shape=[10, None, None])
   assert layout.read_chunk.shape == (10, None, None)
   assert layout.write_chunk.shape == (10, None, None)
 
 
-def test_chunk_aspect_ratio():
+def test_chunk_aspect_ratio() -> None:
   layout = ts.ChunkLayout(chunk_aspect_ratio=[None, 2, 1])
   assert layout.read_chunk.aspect_ratio == (None, 2, 1)
   assert layout.write_chunk.aspect_ratio == (None, 2, 1)
 
 
-def test_chunk_elements():
+def test_chunk_elements() -> None:
   layout = ts.ChunkLayout(chunk_elements=100000)
   assert layout.read_chunk.elements == 100000
   assert layout.write_chunk.elements == 100000
 
 
-def test_lifetime():
+def test_lifetime() -> None:
   shape = ts.ChunkLayout.Grid(shape=[1, 2, 3]).shape
   np.testing.assert_array_equal(shape, [1, 2, 3])
 
 
-def test_tensorstore_layout():
-  layout = ts.open(
-      {
-          'driver': 'zarr',
-          'kvstore': {
-              'driver': 'memory'
+def test_tensorstore_layout() -> None:
+  layout = (
+      ts.open(
+          {
+              'driver': 'zarr',
+              'kvstore': {'driver': 'memory'},
+              'metadata': {
+                  'chunks': [10, 11],
+                  'shape': [100, 200],
+                  'fill_value': None,
+                  'dtype': '<u2',
+                  'compressor': None,
+                  'filters': None,
+                  'order': 'C',
+              },
           },
-          'metadata': {
-              'chunks': [10, 11],
-              'shape': [100, 200],
-              'fill_value': None,
-              'dtype': '<u2',
-              'compressor': None,
-              'filters': None,
-              'order': 'C'
-          },
-      }, create=True).result().chunk_layout
+          create=True,
+      )
+      .result()
+      .chunk_layout
+  )
   assert layout == ts.ChunkLayout(
       grid_origin=[0, 0],
       chunk=ts.ChunkLayout.Grid(shape=[10, 11]),
@@ -134,7 +143,7 @@ def test_tensorstore_layout():
   )
 
 
-def test_pickle_chunk_layout():
+def test_pickle_chunk_layout() -> None:
   x = ts.ChunkLayout(
       write_chunk=ts.ChunkLayout.Grid(shape=[10, 12]),
       read_chunk=ts.ChunkLayout.Grid(shape=[0, 6]),
@@ -143,3 +152,80 @@ def test_pickle_chunk_layout():
       grid_origin=[1, 2],
   )
   assert pickle.loads(pickle.dumps(x)) == x
+
+
+def _run_threads(
+    stop: threading.Event,
+    read_props: Callable[[], None],
+    update_props: Callable[[], None],
+) -> None:
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_chunk_layout_concurrent() -> None:
+  """Tests concurrent access to ChunkLayout properties."""
+  layout = ts.ChunkLayout(chunk_shape=[10, 20], rank=2)
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = layout.rank
+      _ = layout.ndim
+      _ = layout.inner_order
+      _ = layout.write_chunk
+      _ = layout.read_chunk
+      _ = layout == ts.ChunkLayout(rank=2)
+      _ = f'{layout}'
+      _ = repr(layout)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        layout.update(chunk_shape=[10, 20])
+      else:
+        layout.update(rank=2)
+      i += 1
+
+  _run_threads(stop, read_props, update_props)
+
+
+def test_grid_concurrent() -> None:
+  """Tests concurrent access to ChunkLayout.Grid properties."""
+  grid = ts.ChunkLayout.Grid(shape=[10, 10])
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = grid.rank
+      _ = grid.ndim
+      _ = grid.shape
+      _ = grid.elements
+      _ = grid == ts.ChunkLayout.Grid(rank=2)
+      _ = f'{grid}'
+      _ = repr(grid)
+
+  def update_props() -> None:
+    time.sleep(0.01)
+    i = 0
+    while not stop.is_set():
+      if (i % 2) == 0:
+        grid.update(shape=[10, 10])
+      else:
+        grid.update(rank=2, elements=100)
+      i += 1
+
+  _run_threads(stop, read_props, update_props)

@@ -1,7 +1,9 @@
-import os
 import json
+import os
+from typing import Any
 
-def main():
+
+def main() -> None:
     diff_path = "pytest_benchmark_diff.json"
     results_dir = os.path.join("benchmarks", "results")
     os.makedirs(results_dir, exist_ok=True)
@@ -10,8 +12,8 @@ def main():
     repo = os.environ.get("GITHUB_REPOSITORY", "unknown/unknown")
     branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF", "main").replace("refs/heads/", "")
 
-    with open(diff_path, "r", encoding="utf-8") as f:
-        diff = json.load(f)
+    with open(diff_path, encoding="utf-8") as f:
+        diff: dict[str, dict[str, dict[str, Any]]] = json.load(f)
 
     for submodule, groupDiffs in diff.items():
         # Convert submodule name to submodule file path (e.g., faster_eth_utils.abi -> faster_eth_utils/abi.py)

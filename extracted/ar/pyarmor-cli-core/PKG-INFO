@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyarmor.cli.core
-Version: 7.6.8
+Version: 8.1.0
 Summary: Provide extension module pytransform3 for Pyarmor
 Home-page: https://github.com/dashingsoft/pyarmor
 Author: Jondy Zhao

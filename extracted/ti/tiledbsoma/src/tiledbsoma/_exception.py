@@ -13,8 +13,6 @@ class SOMAError(Exception):
     Lifecycle: Maturing.
     """
 
-    pass
-
 
 class DoesNotExistError(SOMAError):
     """Raised when attempting to open a non-existent or inaccessible SOMA object.
@@ -22,12 +20,9 @@ class DoesNotExistError(SOMAError):
     Lifecycle: Maturing.
     """
 
-    pass
 
-
-def is_does_not_exist_error(e: RuntimeError | SOMAError) -> bool:
-    """Given a RuntimeError or SOMAError, return true if it indicates the object
-    does not exist.
+def is_does_not_exist_error(e: Exception) -> bool:
+    """Given an Exception, return true if it indicates the object does not exist.
 
     Lifecycle: Maturing.
 
@@ -43,16 +38,14 @@ def is_does_not_exist_error(e: RuntimeError | SOMAError) -> bool:
     stre = str(e)
     # Local-disk/S3 does-not-exist exceptions say 'Group does not exist'; TileDB Cloud
     # does-not-exist exceptions are worded less clearly.
-    if (
+    return bool(
         "does not exist" in stre
         or "Unrecognized array" in stre
         or "HTTP code 401" in stre
         or "HTTP code 404" in stre
-        or "[SOMAObject::open] " in stre
-    ):
-        return True
-
-    return False
+        or "not a valid TileDB" in stre
+        or "Unable to open" in stre
+    )
 
 
 class AlreadyExistsError(SOMAError):
@@ -60,8 +53,6 @@ class AlreadyExistsError(SOMAError):
 
     Lifecycle: Maturing.
     """
-
-    pass
 
 
 def is_already_exists_error(e: SOMAError) -> bool:
@@ -86,12 +77,12 @@ def is_already_exists_error(e: SOMAError) -> bool:
 
 
 class NotCreateableError(SOMAError):
-    """Raised when attempting to create an already existing SOMA object.
+    """Raised when an URI is malformed for a particular storage backend.
 
-    Lifecycle: Maturing
+    This error is deprecated. Check for :class:`AlreadyExistsError` instead.
+
+    Lifecycle: Deprecated
     """
-
-    pass
 
 
 def is_duplicate_group_key_error(e: SOMAError) -> bool:
@@ -118,3 +109,13 @@ def map_exception_for_create(e: SOMAError, uri: str) -> Exception:
     if is_domain_setting_error(e):
         return ValueError(e)
     return e
+
+
+class UnsupportedOperationError(SOMAError):
+    """Raised when a operation is unsupported on the current data model.
+
+    For example, Collection.__setitem__ is unsupported on the TileDB Carrara data model, and
+    will raise this error.
+
+    Lifecycle: Experimental
+    """

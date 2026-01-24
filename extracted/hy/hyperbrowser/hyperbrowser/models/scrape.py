@@ -21,6 +21,25 @@ class ScreenshotOptions(BaseModel):
     format: Optional[ScrapeScreenshotFormat] = Field(
         default=None, serialization_alias="format"
     )
+    crop_to_content: Optional[bool] = Field(
+        default=None, serialization_alias="cropToContent"
+    )
+    crop_to_content_max_height: Optional[int] = Field(
+        default=None, serialization_alias="cropToContentMaxHeight"
+    )
+    crop_to_content_min_height: Optional[int] = Field(
+        default=None, serialization_alias="cropToContentMinHeight"
+    )
+    wait_for: Optional[int] = Field(default=None, serialization_alias="waitFor")
+
+
+class StorageStateOptions(BaseModel):
+    local_storage: Optional[dict[str, str]] = Field(
+        default=None, serialization_alias="localStorage"
+    )
+    session_storage: Optional[dict[str, str]] = Field(
+        default=None, serialization_alias="sessionStorage"
+    )
 
 
 class ScrapeOptions(BaseModel):
@@ -45,6 +64,9 @@ class ScrapeOptions(BaseModel):
     )
     screenshot_options: Optional[ScreenshotOptions] = Field(
         default=None, serialization_alias="screenshotOptions"
+    )
+    storage_state: Optional[StorageStateOptions] = Field(
+        default=None, serialization_alias="storageState"
     )
 
 

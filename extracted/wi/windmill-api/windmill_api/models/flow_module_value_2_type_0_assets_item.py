@@ -15,10 +15,10 @@ T = TypeVar("T", bound="FlowModuleValue2Type0AssetsItem")
 class FlowModuleValue2Type0AssetsItem:
     """
     Attributes:
-        path (str):
-        kind (FlowModuleValue2Type0AssetsItemKind):
-        access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAccessType]):
-        alt_access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAltAccessType]):
+        path (str): Path to the asset
+        kind (FlowModuleValue2Type0AssetsItemKind): Type of asset
+        access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAccessType]): Access level for this asset
+        alt_access_type (Union[Unset, FlowModuleValue2Type0AssetsItemAltAccessType]): Alternative access level
     """
 
     path: str

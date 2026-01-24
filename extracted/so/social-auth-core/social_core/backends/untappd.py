@@ -1,3 +1,5 @@
+from typing import Any
+
 import requests
 
 from social_core.exceptions import AuthFailed
@@ -17,7 +19,6 @@ class UntappdOAuth2(BaseOAuth2):
     ACCESS_TOKEN_METHOD = "GET"
     STATE_PARAMETER = False
     REDIRECT_STATE = False
-    SEND_USER_AGENT = True
     EXTRA_DATA = [
         ("id", "id"),
         ("bio", "bio"),
@@ -30,7 +31,7 @@ class UntappdOAuth2(BaseOAuth2):
     ]
 
     def auth_params(self, state=None):
-        client_id, client_secret = self.get_key_and_secret()
+        client_id, _client_secret = self.get_key_and_secret()
         return {
             "client_id": client_id,
             "redirect_url": self.get_redirect_uri(),
@@ -74,8 +75,8 @@ class UntappdOAuth2(BaseOAuth2):
         # buried in the 'response' key
         return self.do_auth(
             response["response"]["access_token"],
-            response=response["response"],
             *args,
+            response=response["response"],
             **kwargs,
         )
 
@@ -103,9 +104,9 @@ class UntappdOAuth2(BaseOAuth2):
         Return a unique ID for the current user, by default from
         server response.
         """
-        return response["user"].get(self.ID_KEY)
+        return response["user"].get(self.id_key())
 
-    def user_data(self, access_token, *args, **kwargs):
+    def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Loads user data from service"""
         response = self.get_json(
             self.USER_INFO_URL, params={"access_token": access_token, "compact": "true"}

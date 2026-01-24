@@ -1,7 +1,7 @@
 # (c) Copyright IBM Corp. 2025
 
 try:
-    import aio_pika
+    import aio_pika  # noqa: F401
     import wrapt
     from typing import (
         TYPE_CHECKING,
@@ -15,8 +15,8 @@ try:
 
     from instana.log import logger
     from instana.propagators.format import Format
-    from instana.util.traceutils import get_tracer_tuple, tracing_is_off
-    from instana.singletons import tracer
+    from instana.util.traceutils import get_tracer_tuple
+    from instana.singletons import get_tracer
 
     if TYPE_CHECKING:
         from instana.span.span import InstanaSpan
@@ -41,20 +41,26 @@ try:
         args: Tuple[object],
         kwargs: Dict[str, Any],
     ) -> Optional["ConfirmationFrameType"]:
-        if tracing_is_off():
+        tracer, parent_span, _ = get_tracer_tuple()
+        if not tracer:
             return await wrapped(*args, **kwargs)
 
-        tracer, parent_span, _ = get_tracer_tuple()
         parent_context = parent_span.get_span_context() if parent_span else None
+
+        def _bind_args(
+            message: Type["AbstractMessage"],
+            routing_key: str,
+            *args: object,
+            **kwargs: object,
+        ) -> Tuple[object, ...]:
+            return (message, routing_key, args, kwargs)
+
+        (message, routing_key, args, kwargs) = _bind_args(*args, **kwargs)
 
         with tracer.start_as_current_span(
             "rabbitmq", span_context=parent_context
         ) as span:
             connection = instance.channel._connection
-            message = kwargs["message"] if kwargs.get("message") else args[0]
-            routing_key = (
-                kwargs["routing_key"] if kwargs.get("routing_key") else args[1]
-            )
 
             _extract_span_attributes(
                 span, connection, "publish", routing_key, instance.name
@@ -66,6 +72,9 @@ try:
                 message.properties.headers,
                 disable_w3c_trace_context=True,
             )
+
+            args = (message, routing_key) + args
+
             try:
                 response = await wrapped(*args, **kwargs)
             except Exception as exc:
@@ -91,6 +100,7 @@ try:
             kwargs: Dict[str, Any],
         ) -> Callable[[Type["AbstractMessage"]], Any]:
             message = args[0]
+            tracer = get_tracer()
             parent_context = tracer.extract(
                 Format.HTTP_HEADERS, message.headers, disable_w3c_trace_context=True
             )

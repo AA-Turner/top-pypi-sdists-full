@@ -1,4 +1,4 @@
-# Copyright 2024 The mediapy Authors.
+# Copyright 2025 The mediapy Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ with VideoReader(VIDEO) as r:
 from __future__ import annotations
 
 __docformat__ = 'google'
-__version__ = '1.2.4'
+__version__ = '1.2.5'
 __version_info__ = tuple(int(num) for num in __version__.split('.'))
 
 import base64
@@ -127,6 +127,7 @@ import tempfile
 import typing
 from typing import Any
 import urllib.request
+import warnings
 
 import IPython.display
 import matplotlib.pyplot
@@ -186,7 +187,7 @@ else:
   _NDArray = typing.TypeVar('_NDArray')
   _DType = typing.TypeVar('_DType')  # pylint: disable=invalid-name
 
-_IPYTHON_HTML_SIZE_LIMIT = 20_000_000
+_IPYTHON_HTML_SIZE_LIMIT = 10**10  # Unlimited seems to be OK now.
 _T = typing.TypeVar('_T')
 _Path = typing.Union[str, 'os.PathLike[str]']
 
@@ -680,7 +681,9 @@ def read_contents(path_or_url: _Path) -> bytes:
   data: bytes
   if _is_url(path_or_url):
     assert isinstance(path_or_url, str)
-    with urllib.request.urlopen(path_or_url) as response:
+    headers = {'User-Agent': 'Chrome'}
+    request = urllib.request.Request(path_or_url, headers=headers)
+    with urllib.request.urlopen(request) as response:
       data = response.read()
   else:
     with _open(path_or_url, 'rb') as f:
@@ -845,7 +848,7 @@ def to_rgb(
       rgb_from_scalar = matplotlib.pyplot.cm.get_cmap(cmap)  # pylint: disable=no-member
   else:
     rgb_from_scalar = cmap
-  a = rgb_from_scalar(a)
+  a = typing.cast(_NDArray, rgb_from_scalar(a))
   # If there is a fully opaque alpha channel, remove it.
   if a.shape[-1] == 4 and np.all(to_float01(a[..., 3])) == 1.0:
     a = a[..., :3]
@@ -1067,7 +1070,7 @@ def show_images(
   ]
 
   def maybe_downsample(image: _NDArray) -> _NDArray:
-    shape: tuple[int, int] = image.shape[:2]
+    shape = image.shape[0], image.shape[1]
     w, h = _get_width_height(width, height, shape)
     if w < shape[1] or h < shape[0]:
       image = resize_image(image, (h, w))
@@ -1110,6 +1113,7 @@ def show_images(
 
   s = html_from_compressed_images()
   while len(s) > _IPYTHON_HTML_SIZE_LIMIT * 0.5:
+    warnings.warn('mediapy: subsampling images to reduce HTML size')
     list_images = [image[::2, ::2] for image in list_images]
     png_datas = [compress_image(to_uint8(image)) for image in list_images]
     s = html_from_compressed_images()
@@ -1161,7 +1165,12 @@ def compare_images(
 
 
 def _filename_suffix_from_codec(codec: str) -> str:
-  return '.gif' if codec == 'gif' else '.mp4'
+  if codec == 'gif':
+    return '.gif'
+  if codec == 'vp9':
+    return '.webm'
+
+  return '.mp4'
 
 
 def _get_ffmpeg_path() -> str:
@@ -1172,6 +1181,76 @@ def _get_ffmpeg_path() -> str:
         " perhaps install ffmpeg using 'apt install ffmpeg'."
     )
   return path
+
+
+@typing.overload
+def _run_ffmpeg(
+    ffmpeg_args: Sequence[str],
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    encoding: None = None,  # No encoding -> bytes
+    allowed_input_files: Sequence[str] | None = None,
+    allowed_output_files: Sequence[str] | None = None,
+) -> subprocess.Popen[bytes]:
+  ...
+
+
+@typing.overload
+def _run_ffmpeg(
+    ffmpeg_args: Sequence[str],
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    encoding: str = ...,  # Encoding -> str
+    allowed_input_files: Sequence[str] | None = None,
+    allowed_output_files: Sequence[str] | None = None,
+) -> subprocess.Popen[str]:
+  ...
+
+
+def _run_ffmpeg(
+    ffmpeg_args: Sequence[str],
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    encoding: str | None = None,
+    allowed_input_files: Sequence[str] | None = None,
+    allowed_output_files: Sequence[str] | None = None,
+) -> subprocess.Popen[bytes] | subprocess.Popen[str]:
+  """Runs ffmpeg with the given args.
+
+  Args:
+    ffmpeg_args: The args to pass to ffmpeg.
+    stdin: Same as in `subprocess.Popen`.
+    stdout: Same as in `subprocess.Popen`.
+    stderr: Same as in `subprocess.Popen`.
+    encoding: Same as in `subprocess.Popen`.
+    allowed_input_files: The input files to allow for ffmpeg.
+    allowed_output_files: The output files to allow for ffmpeg.
+
+  Returns:
+    The subprocess.Popen object with running ffmpeg process.
+  """
+  argv = []
+  env: Any = {}
+  ffmpeg_path = _get_ffmpeg_path()
+
+  # Allowed input and output files are not supported in open source.
+  del allowed_input_files
+  del allowed_output_files
+
+  argv.append(ffmpeg_path)
+  argv.extend(ffmpeg_args)
+
+  return subprocess.Popen(
+      argv,
+      stdin=stdin,
+      stdout=stdout,
+      stderr=stderr,
+      encoding=encoding,
+      env=env,
+  )
 
 
 def video_is_available() -> bool:
@@ -1206,8 +1285,8 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
   """Returns attributes of video stored in the specified local file."""
   if not pathlib.Path(path).is_file():
     raise RuntimeError(f"Video file '{path}' is not found.")
+
   command = [
-      _get_ffmpeg_path(),
       '-nostdin',
       '-i',
       str(path),
@@ -1223,8 +1302,11 @@ def _get_video_metadata(path: _Path) -> VideoMetadata:
       'null',
       '-',
   ]
-  with subprocess.Popen(
-      command, stderr=subprocess.PIPE, encoding='utf-8'
+  with _run_ffmpeg(
+      command,
+      allowed_input_files=[str(path)],
+      stderr=subprocess.PIPE,
+      encoding='utf-8',
   ) as proc:
     _, err = proc.communicate()
   bps = fps = num_images = width = height = rotation = None
@@ -1317,6 +1399,7 @@ class VideoReader(_VideoIO):
     fps: The framerate in frames per second.
     bps: The estimated bitrate of the video stream in bits per second, retrieved
       from the video header.
+    stream_index: The stream index to read from. The default is 0.
   """
 
   path_or_url: _Path
@@ -1327,12 +1410,14 @@ class VideoReader(_VideoIO):
   shape: tuple[int, int]
   fps: float
   bps: int | None
+  stream_index: int
   _num_bytes_per_image: int
 
   def __init__(
       self,
       path_or_url: _Path,
       *,
+      stream_index: int = 0,
       output_format: str = 'rgb',
       dtype: _DTypeLike = np.uint8,
   ):
@@ -1342,6 +1427,7 @@ class VideoReader(_VideoIO):
       )
     self.path_or_url = path_or_url
     self.output_format = output_format
+    self.stream_index = stream_index
     self.dtype = np.dtype(dtype)
     if self.dtype.type not in (np.uint8, np.uint16):
       raise ValueError(f'Type {dtype} is not np.uint8 or np.uint16.')
@@ -1350,7 +1436,6 @@ class VideoReader(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoReader':
-    ffmpeg_path = _get_ffmpeg_path()
     try:
       self._read_via_local_file = _read_via_local_file(self.path_or_url)
       # pylint: disable-next=no-member
@@ -1366,7 +1451,6 @@ class VideoReader(_VideoIO):
       )
 
       command = [
-          ffmpeg_path,
           '-v',
           'panic',
           '-nostdin',
@@ -1376,14 +1460,19 @@ class VideoReader(_VideoIO):
           'rawvideo',
           '-f',
           'image2pipe',
+          '-map',
+          f'0:v:{self.stream_index}',
           '-pix_fmt',
           pix_fmt,
           '-vsync',
           'vfr',
           '-',
       ]
-      self._popen = subprocess.Popen(
-          command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+      self._popen = _run_ffmpeg(
+          command,
+          stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          allowed_input_files=[tmp_name],
       )
       self._proc = self._popen.__enter__()
     except Exception:
@@ -1513,9 +1602,10 @@ class VideoWriter(_VideoIO):
     bps = int(bps) if bps is not None else None
     if bps is not None and bps <= 0:
       raise ValueError(f'Bitrate value {bps} is invalid.')
-    if qp is not None and (not isinstance(qp, int) or qp <= 0):
+    if qp is not None and (not isinstance(qp, int) or qp < 0):
       raise ValueError(
-          f'Quantization parameter {qp} is not a positive integer.'
+          f'Quantization parameter {qp} cannot be negative. It must be a'
+          ' non-negative integer.'
       )
     num_rate_specifications = sum(x is not None for x in (bps, qp, crf))
     if num_rate_specifications > 1:
@@ -1575,7 +1665,6 @@ class VideoWriter(_VideoIO):
     self._proc: subprocess.Popen[bytes] | None = None
 
   def __enter__(self) -> 'VideoWriter':
-    ffmpeg_path = _get_ffmpeg_path()
     input_pix_fmt = self._get_pix_fmt(self.dtype, self.input_format)
     try:
       self._write_via_local_file = _write_via_local_file(self.path)
@@ -1587,7 +1676,6 @@ class VideoWriter(_VideoIO):
       height, width = self.shape
       command = (
           [
-              ffmpeg_path,
               '-v',
               'error',
               '-f',
@@ -1612,8 +1700,11 @@ class VideoWriter(_VideoIO):
           + self.ffmpeg_args
           + ['-y', tmp_name]
       )
-      self._popen = subprocess.Popen(
-          command, stdin=subprocess.PIPE, stderr=subprocess.PIPE
+      self._popen = _run_ffmpeg(
+          command,
+          stdin=subprocess.PIPE,
+          stderr=subprocess.PIPE,
+          allowed_output_files=[tmp_name],
       )
       self._proc = self._popen.__enter__()
     except Exception:
@@ -1748,7 +1839,7 @@ def write_video(path: _Path, images: Iterable[_NDArray], **kwargs: Any) -> None:
     **kwargs: Additional parameters for `VideoWriter`.
   """
   first_image, images = _peek_first(images)
-  shape: tuple[int, int] = first_image.shape[:2]
+  shape = first_image.shape[0], first_image.shape[1]
   dtype = first_image.dtype
   if dtype == bool:
     dtype = np.dtype(np.uint8)
@@ -1765,7 +1856,8 @@ def compress_video(
 ) -> bytes:
   """Returns a buffer containing a compressed video.
 
-  The video container is 'mp4' except when `codec` is 'gif'.
+  The video container is 'gif' for 'gif' codec, 'webm' for 'vp9' codec,
+  and mp4 otherwise.
 
   >>> video = read_video('/tmp/river.mp4')
   >>> data = compress_video(video, bps=10_000_000)

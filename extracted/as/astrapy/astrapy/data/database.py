@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, overload
 
@@ -41,11 +42,14 @@ from astrapy.exceptions import (
     _TimeoutContext,
 )
 from astrapy.info import (
+    AlterTypeOperation,
     AstraDBDatabaseInfo,
     CollectionDefinition,
     CollectionDescriptor,
     CreateTableDefinition,
+    CreateTypeDefinition,
     ListTableDescriptor,
+    ListTypeDescriptor,
 )
 from astrapy.settings.defaults import (
     DEFAULT_ASTRA_DB_KEYSPACE,
@@ -666,7 +670,7 @@ class Database:
 
         Args:
             name: the name of the collection.
-            definition: a complete collection definition for the table. This can be an
+            definition: a complete collection definition. This can be an
                 instance of `CollectionDefinition` or an equivalent (nested) dictionary,
                 in which case it will be parsed into a `CollectionDefinition`.
                 See the `astrapy.info.CollectionDefinition` class and the
@@ -725,7 +729,7 @@ class Database:
             ...     "my_events",
             ...     definition=collection_definition,
             ... )
-
+            >>>
             >>>
             >>> # Create a collection with the definition as object
             >>> from astrapy.info import CollectionVectorOptions
@@ -742,7 +746,7 @@ class Database:
             ...     definition=collection_definition_1,
             ... )
             >>>
-
+            >>>
             >>> # Create a collection with the definition as plain dictionary
             >>> collection_definition_2 = {
             ...     "indexing": {"deny": ["annotations", "logs"]},
@@ -755,6 +759,43 @@ class Database:
             ...     "my_events",
             ...     definition=collection_definition_2,
             ... )
+            >>>
+            >>>
+            >>> # Examples with an embedding service ('vectorize'):
+            >>>
+            >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
+            >>> collection_definition_vz1 = (
+            ...     CollectionDefinition.builder()
+            ...     .set_vector_service(
+            ...         "openai",
+            ...         "text-embedding-3-small",
+            ...     )
+            ...     .build()
+            ... )
+            >>> my_collection_vz1 = database.create_collection(
+            ...     "my_entries",
+            ...     definition=collection_definition_vz1,
+            ...     embedding_api_key="sk-...",
+            ... )
+            >>>
+            >>>
+            >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+            >>> collection_definition_vz2 = (
+            ...     CollectionDefinition.builder()
+            ...     .set_vector_service(
+            ...         "openai",
+            ...         "text-embedding-3-small",
+            ...         authentication={
+            ...             "providerKey": "EMB_AUTH_KEY",
+            ...         },
+            ...     )
+            ...     .build()
+            ... )
+            >>> my_collection_vz2 = database.create_collection(
+            ...     "my_kms_entries",
+            ...     definition=collection_definition_vz2,
+            ... )
+            >>>
         """
 
         cc_definition: dict[str, Any] = CollectionDefinition.coerce(
@@ -858,7 +899,6 @@ class Database:
                 raw_response=dc_response,
             )
         logger.info(f"finished deleteCollection('{name}')")
-        return dc_response.get("status", {})  # type: ignore[no-any-return]
 
     def list_collections(
         self,
@@ -1173,7 +1213,7 @@ class Database:
 
         Args:
             name: the name of the table.
-            definition: a complete table definition for the table. This can be an
+            definition: a complete table definition. This can be an
                 instance of `CreateTableDefinition` or an equivalent (nested) dictionary,
                 in which case it will be parsed into a `CreateTableDefinition`.
                 See the `astrapy.info.CreateTableDefinition` class and the
@@ -1315,6 +1355,63 @@ class Database:
             ...     "games",
             ...     definition=table_definition_2,
             ...     if_not_exists=True,
+            ... )
+            >>>
+            >>> # Examples with an embedding service ('vectorize'):
+            >>> (An index is needed for vector search: see table `create_vector_index` method)
+            >>>
+            >>> # Create a table with 'vectorize' and on-the-fly authentication (by headers)
+            >>> from astrapy.info import (
+            ...     CreateTableDefinition,
+            ...     ColumnType,
+            ...     VectorServiceOptions,
+            ... )
+            >>> table_definition_vz1 = (
+            ...     CreateTableDefinition.builder()
+            ...     .add_column("motto_id", ColumnType.TEXT)
+            ...     .add_column("motto_text", ColumnType.TEXT)
+            ...     .add_vector_column(
+            ...         "motto_vector",
+            ...         service=VectorServiceOptions(
+            ...             provider="openai",
+            ...             model_name="text-embedding-3-small",
+            ...         ),
+            ...     )
+            ...     .add_partition_by(["motto_id"])
+            ...     .build()
+            ... )
+            >>> my_table_vz1 = database.create_table(
+            ...     "mottos_vz1",
+            ...     definition=table_definition_vz1,
+            ...     embedding_api_key="sk-...",
+            ... )
+            >>>
+            >>> # Create a 'vectorize' table, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+            >>> from astrapy.info import (
+            ...     CreateTableDefinition,
+            ...     ColumnType,
+            ...     VectorServiceOptions,
+            ... )
+            >>> table_definition_vz2 = (
+            ...     CreateTableDefinition.builder()
+            ...     .add_column("motto_id", ColumnType.TEXT)
+            ...     .add_column("motto_text", ColumnType.TEXT)
+            ...     .add_vector_column(
+            ...         "motto_vector",
+            ...         service=VectorServiceOptions(
+            ...             provider="openai",
+            ...             model_name="text-embedding-3-small",
+            ...             authentication={
+            ...                 "providerKey": "EMB_AUTH_KEY",
+            ...             },
+            ...         ),
+            ...     )
+            ...     .add_partition_by(["motto_id"])
+            ...     .build()
+            ... )
+            >>> my_table_vz2 = database.create_table(
+            ...     "mottos_vz2",
+            ...     definition=table_definition_vz2,
             ... )
         """
 
@@ -1478,8 +1575,8 @@ class Database:
             >>> database.drop_table("fighters")
             >>> database.list_table_names()
             ['games']
-            >>> # not erroring because of if_not_exists:
-            >>> database.drop_table("fighters", if_not_exists=True)
+            >>> # not erroring because of if_exists:
+            >>> database.drop_table("fighters", if_exists=True)
         """
 
         _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
@@ -1519,7 +1616,6 @@ class Database:
                 raw_response=dt_response,
             )
         logger.info(f"finished dropTable('{name}')")
-        return dt_response.get("status", {})  # type: ignore[no-any-return]
 
     def list_tables(
         self,
@@ -1652,6 +1748,366 @@ class Database:
         else:
             logger.info("finished listTables")
             return lt_response["status"]["tables"]  # type: ignore[no-any-return]
+
+    def create_type(
+        self,
+        name: str,
+        *,
+        definition: CreateTypeDefinition | dict[str, Any],
+        keyspace: str | None = None,
+        if_not_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Creates a user-defined type (UDT) on the database.
+
+        A user-defined type is scoped to a keyspace: unless otherwise specified,
+        the UDT creation targets the database's working keyspace.
+
+        Args:
+            name: the name of the type to create. This will be subsequently used
+                e.g. for defining UDT-valued columns when creating a table.
+            definition: a complete type definition. This can be an
+                instance of `CreateTypeDefinition` or an equivalent (nested) dictionary,
+                in which case it will be parsed into a `CreateTypeDefinition`.
+                See the `astrapy.info.CreateTypeDefinition` class for more details.
+            keyspace: the keyspace where the type is to be created.
+                If not specified, the general setting for this database is used.
+            if_not_exists: if set to True, the command will succeed even if a type
+                with the specified name already exists (in which case no actual
+                creation takes place on the database). Defaults to False,
+                i.e. an error is raised by the API in case of type-name collision.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> from astrapy.info import CreateTypeDefinition
+            >>> type_definition = CreateTypeDefinition.coerce(
+            ...     {"fields": {"genus": "text", "species": "text"}}
+            ... )
+            >>> database.create_type("sci_name", definition=type_definition)
+        """
+        cty_options: dict[str, bool]
+        if if_not_exists is not None:
+            cty_options = {"ifNotExists": if_not_exists}
+        else:
+            cty_options = {}
+        cty_definition: dict[str, Any] = CreateTypeDefinition.coerce(
+            definition
+        ).as_dict()
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        cty_payload = {
+            "createType": {
+                k: v
+                for k, v in {
+                    "name": name,
+                    "definition": cty_definition,
+                    "options": cty_options,
+                }.items()
+                if v is not None
+                if v != {}
+            }
+        }
+        logger.info(f"createType('{name}')")
+        cty_response = driver_commander.request(
+            payload=cty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if cty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from createType API command.",
+                raw_response=cty_response,
+            )
+        logger.info(f"finished createType('{name}')")
+
+    def list_type_names(
+        self,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> list[str]:
+        """
+        List the names of all user-defined types (UDTs) in a keyspace of this database.
+
+        Args:
+            keyspace: the keyspace to be inspected. If not specified,
+                the general setting for this database is assumed.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Returns:
+            a list of the user-defined type names as strings, in no particular order.
+
+        Example:
+            >>> database.list_type_names()
+            ['player', 'venue']
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        lt_payload: dict[str, Any] = {"listTypes": {}}
+        logger.info("listTypes")
+        lt_response = driver_commander.request(
+            payload=lt_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if "types" not in lt_response.get("status", {}):
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from listTypes API command.",
+                raw_response=lt_response,
+            )
+        else:
+            logger.info("finished listTypes")
+            return lt_response["status"]["types"]  # type: ignore[no-any-return]
+
+    def list_types(
+        self,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> list[ListTypeDescriptor]:
+        """
+        List all user-defined types (UDTs) in a keyspace of this database.
+
+        Args:
+            keyspace: the keyspace to be inspected. If not specified,
+                the general setting for this database is assumed.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Returns:
+            a list of the user-defined types, in no particular order, in the form
+            of as many `ListTypeDescriptor` objects.
+
+        Example:
+            >>> database.list_types()
+            [ListTypeDescriptor(player: CreateTypeDefinition(fields=[age,name])), ListTypeDescriptor(venue: CreateTypeDefinition(fields=[lat,lon,name,venue_id]))]
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        lt_payload: dict[str, Any] = {"listTypes": {"options": {"explain": True}}}
+        logger.info("listTypes")
+        lt_response = driver_commander.request(
+            payload=lt_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if "types" not in lt_response.get("status", {}):
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from listTypes API command.",
+                raw_response=lt_response,
+            )
+        else:
+            logger.info("finished listTypes")
+            all_types_json = lt_response["status"]["types"]
+            lt_descriptors: list[ListTypeDescriptor] = []
+            for type_json in all_types_json:
+                if ListTypeDescriptor._is_valid_dict(type_json):
+                    lt_descriptors.append(ListTypeDescriptor._from_dict(type_json))
+                else:
+                    warnings.warn(
+                        "Unexpected item encountered while reading the response of "
+                        "listTypes. the offending item will be skipped from the "
+                        f"return value of `list_types`. Its value is: '{type_json}'."
+                    )
+            return lt_descriptors
+
+    def alter_type(
+        self,
+        name: str,
+        operation: AlterTypeOperation,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Apply a change to a user-defined type (UDT), e.g. add fields.
+
+        The UDT must be already present on the database, in the targeted keyspace.
+        If not specified, the keyspace is the database's working keyspace.
+
+        Args:
+            name: the name of the user-defined type to modify. The type must be
+                found on the database, in the keyspace targeted by this call.
+            operation: an `astrapy.info.AlterTypeOperation` object representing
+                the desired change to apply to the UDT.
+            keyspace: the keyspace where the type scoped.
+                If not specified, the general setting for this database is used.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Examples:
+            >>> from astrapy.info import AlterTypeAddFields, AlterTypeRenameFields
+            >>> from astrapy.info import ColumnType, TableScalarColumnTypeDescriptor
+            >>>
+            >>> # add two fields to the type:
+            >>> database.alter_type(
+            ...     "sci_name",
+            ...     AlterTypeAddFields(fields={
+            ...         "observations": TableScalarColumnTypeDescriptor(
+            ...             ColumnType.INT,
+            ...         ),
+            ...         "family": TableScalarColumnTypeDescriptor(
+            ...             ColumnType.TEXT,
+            ...         ),
+            ...     }),
+            ... )
+            >>> # rename an existing field in the type:
+            >>> database.alter_type(
+            ...     "sci_name",
+            ...     AlterTypeRenameFields(fields={"family": "species_family"}),
+            ... )
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+
+        op_dict = {operation._name: operation.as_dict()}
+        aty_payload = {
+            "alterType": {
+                "name": name,
+                **op_dict,
+            }
+        }
+        logger.info(f"alterType('{name}')")
+        aty_response = driver_commander.request(
+            payload=aty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if aty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from alterType API command.",
+                raw_response=aty_response,
+            )
+        logger.info(f"finished alterType('{name}')")
+
+    def drop_type(
+        self,
+        name: str,
+        *,
+        keyspace: str | None = None,
+        if_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Drop a user-defined type (UDT) from the database
+
+        User-defined types are scoped to a keyspace: the drop operation always
+        targets a specific keyspace, which if not explicitly provided is the
+        database's working keyspace.
+
+        Args:
+            name: the name of the UDT to drop.
+            keyspace: the keyspace where the type resides. If not specified,
+                the database working keyspace is assumed.
+            if_exists: if passed as True, trying to drop a non-existing type
+                will not error, just silently do nothing instead. If not provided,
+                the API default behaviour will hold.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> database.drop_type("sci_name")
+            >>> # not erroring because of if_exists:
+            >>> database.drop_type("sci_name", if_exists=True)
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        _keyspace = keyspace or self.keyspace
+        dty_options: dict[str, bool]
+        if if_exists is not None:
+            dty_options = {"ifExists": if_exists}
+        else:
+            dty_options = {}
+        driver_commander = self._get_driver_commander(keyspace=_keyspace)
+        dty_payload = {
+            "dropType": {
+                k: v
+                for k, v in {
+                    "name": name,
+                    "options": dty_options,
+                }.items()
+                if v is not None
+                if v != {}
+            }
+        }
+        logger.info(f"dropType('{name}')")
+        dty_response = driver_commander.request(
+            payload=dty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if dty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from dropType API command.",
+                raw_response=dty_response,
+            )
+        logger.info(f"finished dropType('{name}')")
 
     def command(
         self,
@@ -2445,7 +2901,7 @@ class AsyncDatabase:
 
         Args:
             name: the name of the collection.
-            definition: a complete collection definition for the table. This can be an
+            definition: a complete collection definition. This can be an
                 instance of `CollectionDefinition` or an equivalent (nested) dictionary,
                 in which case it will be parsed into a `CollectionDefinition`.
                 See the `astrapy.info.CollectionDefinition` class and the
@@ -2506,6 +2962,7 @@ class AsyncDatabase:
             ...     definition=collection_definition,
             ... ))
             >>>
+            >>>
             >>> # Create a collection with the definition as object
             >>> from astrapy.info import CollectionVectorOptions
             >>>
@@ -2534,6 +2991,43 @@ class AsyncDatabase:
             ...     "my_events",
             ...     definition=collection_definition_2,
             ... ))
+            >>>
+            >>>
+            >>> # Examples with an embedding service ('vectorize'):
+            >>>
+            >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
+            >>> collection_definition_vz1 = (
+            ...     CollectionDefinition.builder()
+            ...     .set_vector_service(
+            ...         "openai",
+            ...         "text-embedding-3-small",
+            ...     )
+            ...     .build()
+            ... )
+            >>> my_collection_vz1 = asyncio.run(async_database.create_collection(
+            ...     "my_entries",
+            ...     definition=collection_definition_vz1,
+            ...     embedding_api_key="sk-...",
+            ... ))
+            >>>
+            >>>
+            >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+            >>> collection_definition_vz2 = (
+            ...     CollectionDefinition.builder()
+            ...     .set_vector_service(
+            ...         "openai",
+            ...         "text-embedding-3-small",
+            ...         authentication={
+            ...             "providerKey": "EMB_AUTH_KEY",
+            ...         },
+            ...     )
+            ...     .build()
+            ... )
+            >>> my_collection_vz2 = asyncio.run(async_database.create_collection(()
+            ...     "my_kms_entries",
+            ...     definition=collection_definition_vz2,
+            ... ))
+            >>>
         """
 
         cc_definition: dict[str, Any] = CollectionDefinition.coerce(
@@ -2589,7 +3083,7 @@ class AsyncDatabase:
         collection_admin_timeout_ms: int | None = None,
         request_timeout_ms: int | None = None,
         timeout_ms: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> None:
         """
         Drop a collection from the database, along with all documents therein.
 
@@ -2636,7 +3130,6 @@ class AsyncDatabase:
                 raw_response=dc_response,
             )
         logger.info(f"finished deleteCollection('{name}')")
-        return dc_response.get("status", {})  # type: ignore[no-any-return]
 
     async def list_collections(
         self,
@@ -2959,7 +3452,7 @@ class AsyncDatabase:
 
         Args:
             name: the name of the table.
-            definition: a complete table definition for the table. This can be an
+            definition: a complete table definition. This can be an
                 instance of `CreateTableDefinition` or an equivalent (nested) dictionary,
                 in which case it will be parsed into a `CreateTableDefinition`.
                 See the `astrapy.info.CreateTableDefinition` class and the
@@ -3105,6 +3598,63 @@ class AsyncDatabase:
             ...     definition=table_definition_2,
             ...     if_not_exists=True,
             ... ))
+             >>>
+            >>> # Examples with an embedding service ('vectorize'):
+            >>> (An index is needed for vector search: see table `create_vector_index` method)
+            >>>
+            >>> # Create a table with 'vectorize' and on-the-fly authentication (by headers)
+            >>> from astrapy.info import (
+            ...     CreateTableDefinition,
+            ...     ColumnType,
+            ...     VectorServiceOptions,
+            ... )
+            >>> table_definition_vz1 = (
+            ...     CreateTableDefinition.builder()
+            ...     .add_column("motto_id", ColumnType.TEXT)
+            ...     .add_column("motto_text", ColumnType.TEXT)
+            ...     .add_vector_column(
+            ...         "motto_vector",
+            ...         service=VectorServiceOptions(
+            ...             provider="openai",
+            ...             model_name="text-embedding-3-small",
+            ...         ),
+            ...     )
+            ...     .add_partition_by(["motto_id"])
+            ...     .build()
+            ... )
+            >>> my_table_vz1 = asyncio.run(async_database.create_table(
+            ...     "mottos_vz1",
+            ...     definition=table_definition_vz1,
+            ...     embedding_api_key="sk-...",
+            ... ))
+            >>>
+            >>> # Create a 'vectorize' table, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+            >>> from astrapy.info import (
+            ...     CreateTableDefinition,
+            ...     ColumnType,
+            ...     VectorServiceOptions,
+            ... )
+            >>> table_definition_vz2 = (
+            ...     CreateTableDefinition.builder()
+            ...     .add_column("motto_id", ColumnType.TEXT)
+            ...     .add_column("motto_text", ColumnType.TEXT)
+            ...     .add_vector_column(
+            ...         "motto_vector",
+            ...         service=VectorServiceOptions(
+            ...             provider="openai",
+            ...             model_name="text-embedding-3-small",
+            ...             authentication={
+            ...                 "providerKey": "EMB_AUTH_KEY",
+            ...             },
+            ...         ),
+            ...     )
+            ...     .add_partition_by(["motto_id"])
+            ...     .build()
+            ... )
+            >>> my_table_vz2 = asyncio.run(async_database.create_table(
+            ...     "mottos_vz2",
+            ...     definition=table_definition_vz2,
+            ... ))
         """
 
         ct_options: dict[str, bool]
@@ -3245,7 +3795,7 @@ class AsyncDatabase:
         table_admin_timeout_ms: int | None = None,
         request_timeout_ms: int | None = None,
         timeout_ms: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> None:
         """
         Drop a table from the database, along with all rows therein and related indexes.
 
@@ -3271,8 +3821,8 @@ class AsyncDatabase:
             >>> asyncio.run(async_database.drop_table("fighters"))
             >>> asyncio.run(async_database.list_table_names())
             ['games']
-            >>> # not erroring because of if_not_exists:
-            >>> asyncio.run(async_database.drop_table("fighters", if_not_exists=True))
+            >>> # not erroring because of if_exists:
+            >>> asyncio.run(async_database.drop_table("fighters", if_exists=True))
         """
 
         _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
@@ -3312,7 +3862,6 @@ class AsyncDatabase:
                 raw_response=dt_response,
             )
         logger.info(f"finished dropTable('{name}')")
-        return dt_response.get("status", {})  # type: ignore[no-any-return]
 
     async def list_tables(
         self,
@@ -3453,6 +4002,376 @@ class AsyncDatabase:
         else:
             logger.info("finished listTables")
             return lt_response["status"]["tables"]  # type: ignore[no-any-return]
+
+    async def create_type(
+        self,
+        name: str,
+        *,
+        definition: CreateTypeDefinition | dict[str, Any],
+        keyspace: str | None = None,
+        if_not_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Creates a user-defined type (UDT) on the database.
+
+        A user-defined type is scoped to a keyspace: unless otherwise specified,
+        the UDT creation targets the database's working keyspace.
+
+        Args:
+            name: the name of the type to create. This will be subsequently used
+                e.g. for defining UDT-valued columns when creating a table.
+            definition: a complete type definition. This can be an
+                instance of `CreateTypeDefinition` or an equivalent (nested) dictionary,
+                in which case it will be parsed into a `CreateTypeDefinition`.
+                See the `astrapy.info.CreateTypeDefinition` class for more details.
+            keyspace: the keyspace where the type is to be created.
+                If not specified, the general setting for this database is used.
+            if_not_exists: if set to True, the command will succeed even if a type
+                with the specified name already exists (in which case no actual
+                creation takes place on the database). Defaults to False,
+                i.e. an error is raised by the API in case of type-name collision.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> from astrapy.info import CreateTypeDefinition
+            >>> type_definition = CreateTypeDefinition.coerce(
+            ...     {"fields": {"genus": "text", "species": "text"}}
+            ... )
+            >>> await async_database.create_type("sci_name", definition=type_definition)
+        """
+        cty_options: dict[str, bool]
+        if if_not_exists is not None:
+            cty_options = {"ifNotExists": if_not_exists}
+        else:
+            cty_options = {}
+        cty_definition: dict[str, Any] = CreateTypeDefinition.coerce(
+            definition
+        ).as_dict()
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        cty_payload = {
+            "createType": {
+                k: v
+                for k, v in {
+                    "name": name,
+                    "definition": cty_definition,
+                    "options": cty_options,
+                }.items()
+                if v is not None
+                if v != {}
+            }
+        }
+        logger.info(f"createType('{name}')")
+        cty_response = await driver_commander.async_request(
+            payload=cty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if cty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from createType API command.",
+                raw_response=cty_response,
+            )
+        logger.info(f"finished createType('{name}')")
+
+    async def list_type_names(
+        self,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> list[str]:
+        """
+        List the names of all user-defined types (UDTs) in a keyspace of this database.
+
+        Args:
+            keyspace: the keyspace to be inspected. If not specified,
+                the general setting for this database is assumed.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Returns:
+            a list of the user-defined type names as strings, in no particular order.
+
+        Example:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> await async_database.list_type_names()
+            ['player', 'venue']
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        lt_payload: dict[str, Any] = {"listTypes": {}}
+        logger.info("listTypes")
+        lt_response = await driver_commander.async_request(
+            payload=lt_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if "types" not in lt_response.get("status", {}):
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from listTypes API command.",
+                raw_response=lt_response,
+            )
+        else:
+            logger.info("finished listTypes")
+            return lt_response["status"]["types"]  # type: ignore[no-any-return]
+
+    async def list_types(
+        self,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> list[ListTypeDescriptor]:
+        """
+        List all user-defined types (UDTs) in a keyspace of this database.
+
+        Args:
+            keyspace: the keyspace to be inspected. If not specified,
+                the general setting for this database is assumed.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Returns:
+            a list of the user-defined types, in no particular order, in the form
+            of as many `ListTypeDescriptor` objects.
+
+        Example:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> await async_database.list_types()
+            [ListTypeDescriptor(player: CreateTypeDefinition(fields=[age,name])), ListTypeDescriptor(venue: CreateTypeDefinition(fields=[lat,lon,name,venue_id]))]
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+        lt_payload: dict[str, Any] = {"listTypes": {"options": {"explain": True}}}
+        logger.info("listTypes")
+        lt_response = await driver_commander.async_request(
+            payload=lt_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if "types" not in lt_response.get("status", {}):
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from listTypes API command.",
+                raw_response=lt_response,
+            )
+        else:
+            logger.info("finished listTypes")
+            all_types_json = lt_response["status"]["types"]
+            lt_descriptors: list[ListTypeDescriptor] = []
+            for type_json in all_types_json:
+                if ListTypeDescriptor._is_valid_dict(type_json):
+                    lt_descriptors.append(ListTypeDescriptor._from_dict(type_json))
+                else:
+                    warnings.warn(
+                        "Unexpected item encountered while reading the response of "
+                        "listTypes. the offending item will be skipped from the "
+                        f"return value of `list_types`. Its value is: '{type_json}'."
+                    )
+            return lt_descriptors
+
+    async def alter_type(
+        self,
+        name: str,
+        operation: AlterTypeOperation,
+        *,
+        keyspace: str | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Apply a change to a user-defined type (UDT), e.g. add fields.
+
+        The UDT must be already present on the database, in the targeted keyspace.
+        If not specified, the keyspace is the database's working keyspace.
+
+        Args:
+            name: the name of the user-defined type to modify. The type must be
+                found on the database, in the keyspace targeted by this call.
+            operation: an `astrapy.info.AlterTypeOperation` object representing
+                the desired change to apply to the UDT.
+            keyspace: the keyspace where the type scoped.
+                If not specified, the general setting for this database is used.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Examples:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> from astrapy.info import AlterTypeAddFields, AlterTypeRenameFields
+            >>> from astrapy.info import ColumnType, TableScalarColumnTypeDescriptor
+            >>>
+            >>> # add two fields to the type:
+            >>> await async_database.alter_type(
+            ...     "sci_name",
+            ...     AlterTypeAddFields(fields={
+            ...         "observations": TableScalarColumnTypeDescriptor(
+            ...             ColumnType.INT,
+            ...         ),
+            ...         "family": TableScalarColumnTypeDescriptor(
+            ...             ColumnType.TEXT,
+            ...         ),
+            ...     }),
+            ... )
+            >>> # rename an existing field in the type:
+            >>> await async_database.alter_type(
+            ...     "sci_name",
+            ...     AlterTypeRenameFields(fields={"family": "species_family"}),
+            ... )
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        driver_commander = self._get_driver_commander(keyspace=keyspace)
+
+        op_dict = {operation._name: operation.as_dict()}
+        aty_payload = {
+            "alterType": {
+                "name": name,
+                **op_dict,
+            }
+        }
+        logger.info(f"alterType('{name}')")
+        aty_response = await driver_commander.async_request(
+            payload=aty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if aty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from alterType API command.",
+                raw_response=aty_response,
+            )
+        logger.info(f"finished alterType('{name}')")
+
+    async def drop_type(
+        self,
+        name: str,
+        *,
+        keyspace: str | None = None,
+        if_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Drop a user-defined type (UDT) from the database
+
+        User-defined types are scoped to a keyspace: the drop operation always
+        targets a specific keyspace, which if not explicitly provided is the
+        database's working keyspace.
+
+        Args:
+            name: the name of the UDT to drop.
+            keyspace: the keyspace where the type resides. If not specified,
+                the database working keyspace is assumed.
+            if_exists: if passed as True, trying to drop a non-existing type
+                will not error, just silently do nothing instead. If not provided,
+                the API default behaviour will hold.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> await async_database.drop_type("sci_name")
+            >>> # not erroring because of if_exists:
+            >>> await async_database.drop_type("sci_name", if_exists=True)
+        """
+
+        _table_admin_timeout_ms, _ta_label = _select_singlereq_timeout_ta(
+            timeout_options=self.api_options.timeout_options,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+        _keyspace = keyspace or self.keyspace
+        dty_options: dict[str, bool]
+        if if_exists is not None:
+            dty_options = {"ifExists": if_exists}
+        else:
+            dty_options = {}
+        driver_commander = self._get_driver_commander(keyspace=_keyspace)
+        dty_payload = {
+            "dropType": {
+                k: v
+                for k, v in {
+                    "name": name,
+                    "options": dty_options,
+                }.items()
+                if v is not None
+                if v != {}
+            }
+        }
+        logger.info(f"dropType('{name}')")
+        dty_response = await driver_commander.async_request(
+            payload=dty_payload,
+            timeout_context=_TimeoutContext(
+                request_ms=_table_admin_timeout_ms, label=_ta_label
+            ),
+        )
+        if dty_response.get("status") != {"ok": 1}:
+            raise UnexpectedDataAPIResponseException(
+                text="Faulty response from dropType API command.",
+                raw_response=dty_response,
+            )
+        logger.info(f"finished dropType('{name}')")
 
     async def command(
         self,

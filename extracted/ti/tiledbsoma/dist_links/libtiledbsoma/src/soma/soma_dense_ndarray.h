@@ -15,6 +15,7 @@
 
 #include <filesystem>
 
+#include "../tiledb_adapter/platform_config.h"
 #include "soma_array.h"
 
 namespace tiledbsoma {
@@ -70,7 +71,9 @@ class SOMADenseNDArray : public SOMAArray {
      * @param uri URI to create the SOMADenseNDArray
      * @param ctx SOMAContext
      */
-    static bool exists(std::string_view uri, std::shared_ptr<SOMAContext> ctx);
+    static inline bool exists(std::string_view uri, std::shared_ptr<SOMAContext> ctx) {
+        return SOMAArray::_exists(uri, "SOMADenseNDArray", ctx);
+    }
 
     //===================================================================
     //= public non-static
@@ -85,10 +88,7 @@ class SOMADenseNDArray : public SOMAArray {
      * @param timestamp Timestamp
      */
     SOMADenseNDArray(
-        OpenMode mode,
-        std::string_view uri,
-        std::shared_ptr<SOMAContext> ctx,
-        std::optional<TimestampRange> timestamp)
+        OpenMode mode, std::string_view uri, std::shared_ptr<SOMAContext> ctx, std::optional<TimestampRange> timestamp)
         : SOMAArray(mode, uri, ctx, timestamp) {
     }
 
@@ -117,7 +117,7 @@ class SOMADenseNDArray : public SOMAArray {
      *
      * @return std::unique_ptr<ArrowSchema>
      */
-    std::unique_ptr<ArrowSchema> schema() const;
+    managed_unique_ptr<ArrowSchema> schema() const;
 
     /**
      * @brief Get the soma_data's dtype in the form of an Arrow

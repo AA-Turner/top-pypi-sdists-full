@@ -19,14 +19,7 @@ from typing import (
 )
 
 import cchecksum
-import hexbytes
-from faster_eth_abi import decode
-from faster_eth_abi.exceptions import (
-    InsufficientDataBytes,
-    InvalidPointer,
-    NoEntriesFound,
-    NonEmptyPaddingBytes,
-)
+import faster_hexbytes
 from eth_hash import auto
 from eth_typing import (
     ABIComponent,
@@ -37,6 +30,13 @@ from eth_typing import (
     ChecksumAddress,
     HexAddress,
     HexStr,
+)
+from faster_eth_abi import decode
+from faster_eth_abi.exceptions import (
+    InsufficientDataBytes,
+    InvalidPointer,
+    NoEntriesFound,
+    NonEmptyPaddingBytes,
 )
 from typing_extensions import NotRequired
 
@@ -92,7 +92,7 @@ Event = Union[DecodedEvent, NonDecodedEvent]
 
 ADD_LOG_ENTRIES: Final = "logIndex", "blockNumber", "transactionIndex"
 
-HexBytes: Final = hexbytes.HexBytes
+HexBytes: Final = faster_hexbytes.HexBytes
 
 to_checksum_address: Final = cchecksum.to_checksum_address
 keccak: Final = auto.keccak
@@ -163,7 +163,10 @@ def get_topic_map(abi: List[ABIElement]) -> Dict[HexStr, TopicMapData]:
     """
     try:
         return {
-            get_log_topic(i): {"name": i["name"], "inputs": i["inputs"]}  # type: ignore [typeddict-item]
+            get_log_topic(i): {
+                "name": i["name"],
+                "inputs": i["inputs"],  # type: ignore [typeddict-item]
+            }
             for i in abi
             if i["type"] == "event" and not i.get("anonymous")
         }
@@ -240,18 +243,20 @@ def decode_log(
 
 
 @overload
-def decode_logs(
+def decode_logs(  # noqa: E704
     logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[True]
 ) -> List[DecodedEvent]: ...
 
 
 @overload
-def decode_logs(
+def decode_logs(  # noqa: E704
     logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[False]
 ) -> List[Event]: ...
 
 
-def decode_logs(logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: bool = False) -> List[Event]:  # type: ignore [misc]
+def decode_logs(  # type: ignore [misc]
+    logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: bool = False
+) -> List[Event]:
     """
     Decode a list of event logs from a transaction receipt.
 
@@ -427,7 +432,7 @@ def decode_traceTransaction(
 
 
 def _0xstring(value: Any) -> HexStr:
-    return f"0x{HexBytes(value).hex()}"  # type: ignore [return-value]
+    return HexStr(f"0x{HexBytes(value).hex()}")
 
 
 def _params(abi_params: List[Dict[str, Any]]) -> List[str]:
@@ -440,14 +445,16 @@ def _params(abi_params: List[Dict[str, Any]]) -> List[str]:
         if tuple_match := _tuple_match(i_type):
             _array, _size = tuple_match.group(1, 2)  # unpack the captured info
             tuple_type_tail = f"[{_size}]" if _array is not None else ""
-            types.append(f"({','.join(x for x in _params(i['components']))}){tuple_type_tail}")
+            types.append(f"({','.join(_params(i['components']))}){tuple_type_tail}")
             continue
         types.append(i_type)
 
     return types
 
 
-def _decode(inputs: List[ABIComponentIndexed], topics: List, data: Any) -> List[EventData]:  # type: ignore[type-arg]
+def _decode(
+    inputs: List[ABIComponentIndexed], topics: List, data: Any  # type: ignore[type-arg]
+) -> List[EventData]:
     unindexed_types = []
     indexed_count = 0
     for i in inputs:
@@ -461,9 +468,10 @@ def _decode(inputs: List[ABIComponentIndexed], topics: List, data: Any) -> List[
         # we should still be able to decode the data
         unindexed_types = inputs
     else:
-        if indexed_count == len(topics):
+        topics_count = len(topics)
+        if indexed_count == topics_count:
             pass
-        elif indexed_count < len(topics):
+        elif indexed_count < topics_count:
             raise EventError(
                 "Event log does not contain enough topics for the given ABI - this"
                 " is usually because an event argument is not marked as indexed"
@@ -502,10 +510,9 @@ def _decode(inputs: List[ABIComponentIndexed], topics: List, data: Any) -> List[
     for i in inputs:
         i_type = i["type"]
 
+        element = {"name": i["name"], "type": i_type}
         if "components" in i:
-            element = {"name": i["name"], "type": i_type, "components": i["components"]}
-        else:
-            element = {"name": i["name"], "type": i_type}
+            element["components"] = i["components"]
 
         if topics and i["indexed"]:
             encoded = HexBytes(topics.pop())

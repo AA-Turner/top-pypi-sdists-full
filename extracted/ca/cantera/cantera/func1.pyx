@@ -1,7 +1,7 @@
 # This file is part of Cantera. See License.txt in the top-level directory or
 # at https://cantera.org/license.txt for license and copyright information.
 
-import sys
+import sys as _sys
 cimport numpy as np
 import numpy as np
 import warnings
@@ -19,7 +19,7 @@ cdef double func_callback(double t, void* obj, void** err) except? 0.0:
     try:
         return (<Func1>obj).callable(t)
     except BaseException as e:
-        exc_type, exc_value = sys.exc_info()[:2]
+        exc_type, exc_value = _sys.exc_info()[:2]
 
         # Stash the exception info to prevent it from being garbage collected
         (<Func1>obj).exception = exc_type, exc_value
@@ -219,26 +219,6 @@ cdef class Func1:
         out._func = func
         out.func = out._func.get()
         return out
-
-    @staticmethod
-    def cxx_functor(functor_type, *args):
-        """
-        Retrieve a C++ `Func1` functor (advanced feature).
-
-        For implemented functor types, see the Cantera C++ ``Func1`` documentation.
-
-        .. versionadded:: 3.0
-
-        .. deprecated:: 3.1
-
-            To be removed after Cantera 3.1; replaced by alternative constructor.
-        """
-        warnings.warn(
-            "To be removed after Cantera 3.1; use alternative constructor instead.",
-            DeprecationWarning)
-        cdef shared_ptr[CxxFunc1] func
-        func = Func1._make_cxx_func1(stringify(functor_type), args)
-        return Func1._make_func1(func)
 
     def __add__(self, other):
         if not isinstance(other, Func1):

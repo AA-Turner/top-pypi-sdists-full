@@ -49,42 +49,6 @@ void MargulesVPSSTP::getChemPotentials(double* mu) const
     }
 }
 
-double MargulesVPSSTP::enthalpy_mole() const
-{
-    size_t kk = nSpecies();
-    double h = 0;
-    vector<double> hbar(kk);
-    getPartialMolarEnthalpies(&hbar[0]);
-    for (size_t i = 0; i < kk; i++) {
-        h += moleFractions_[i]*hbar[i];
-    }
-    return h;
-}
-
-double MargulesVPSSTP::entropy_mole() const
-{
-    size_t kk = nSpecies();
-    double s = 0;
-    vector<double> sbar(kk);
-    getPartialMolarEntropies(&sbar[0]);
-    for (size_t i = 0; i < kk; i++) {
-        s += moleFractions_[i]*sbar[i];
-    }
-    return s;
-}
-
-double MargulesVPSSTP::cp_mole() const
-{
-    size_t kk = nSpecies();
-    double cp = 0;
-    vector<double> cpbar(kk);
-    getPartialMolarCp(&cpbar[0]);
-    for (size_t i = 0; i < kk; i++) {
-        cp += moleFractions_[i]*cpbar[i];
-    }
-    return cp;
-}
-
 double MargulesVPSSTP::cv_mole() const
 {
     return cp_mole() - GasConstant;
@@ -240,8 +204,8 @@ void MargulesVPSSTP::addBinaryInteraction(const string& speciesA,
     const string& speciesB, double h0, double h1, double s0, double s1,
     double vh0, double vh1, double vs0, double vs1)
 {
-    size_t kA = speciesIndex(speciesA);
-    size_t kB = speciesIndex(speciesB);
+    size_t kA = speciesIndex(speciesA, false);
+    size_t kB = speciesIndex(speciesB, false);
     // The interaction is silently ignored if either species is not defined in
     // the current phase.
     if (kA == npos || kB == npos) {

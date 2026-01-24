@@ -1,6 +1,6 @@
 [project]
 name = "port-for"
-version = "0.7.4"
+version = "1.0.0"
 description = "Utility that helps with local TCP ports management. It can find an unused TCP localhost port and remember the association."
 readme = "README.rst"
 keywords = ["port", "posix"]
@@ -18,23 +18,23 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
     "Topic :: System :: Installation/Setup",
     "Topic :: System :: Systems Administration",
     "Topic :: Internet :: WWW/HTTP :: Site Management",
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 
 [project.urls]
-"Source" = "https://github.com/kmike/port-for/"
-"Bug Tracker" = "https://github.com/kmike/port-for/issues"
-"Changelog" = "https://github.com/kmike/port-for/blob/v0.7.4/CHANGES.rst"
+"Source" = "https://github.com/fizyk/port-for/"
+"Bug Tracker" = "https://github.com/fizyk/port-for/issues"
+"Changelog" = "https://github.com/fizyk/port-for/blob/v1.0.0/CHANGES.rst"
 
 [project.scripts]
 port-for = "port_for.cmd:main"
@@ -59,7 +59,7 @@ filterwarnings = "error"
 directory = "newsfragments"
 single_file=true
 filename="CHANGES.rst"
-issue_format="`#{issue} <https://github.com/kmike/port-for/issues/{issue}>`__"
+issue_format="`#{issue} <https://github.com/fizyk/port-for/issues/{issue}>`__"
 
 [[tool.towncrier.type]]
 directory = "break"
@@ -86,13 +86,11 @@ directory = "misc"
 name = "Miscellaneus"
 showcontent = false
 
-[tool.black]
-line-length = 80
-target-version = ['py39']
-include = '.*\.pyi?$'
-
 [tool.ruff]
-line-length = 80
+line-length = 100
+target-version = 'py310'
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle
     "F",   # pyflakes
@@ -100,7 +98,6 @@ select = [
     "D",   # pydocstyle
 ]
 exclude = [
-    "port_for/docopt.py",
     "port_for/_download_ranges.py"
 ]
 
@@ -110,7 +107,7 @@ exclude = [
 # github_url = "https://github.com/<user or organization>/<project>/"
 
 [tool.tbump.version]
-current = "0.7.4"
+current = "1.0.0"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before
@@ -149,7 +146,7 @@ search = 'version = "{current_version}"'
 
 [[tool.tbump.file]]
 src = "pyproject.toml"
-search = '"Changelog" = "https://github.com/kmike/port-for/blob/v{current_version}/CHANGES.rst"'
+search = '"Changelog" = "https://github.com/fizyk/port-for/blob/v{current_version}/CHANGES.rst"'
 
 # You can specify a list of commands to
 # run after the files have been patched

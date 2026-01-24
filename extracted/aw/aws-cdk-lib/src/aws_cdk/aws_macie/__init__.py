@@ -68,71 +68,430 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.AllowListReference",
-    jsii_struct_bases=[],
-    name_mapping={"allow_list_arn": "allowListArn", "allow_list_id": "allowListId"},
+from ..interfaces.aws_macie import (
+    AllowListReference as _AllowListReference_4251ebe6,
+    CustomDataIdentifierReference as _CustomDataIdentifierReference_833fb30b,
+    FindingsFilterReference as _FindingsFilterReference_120c88a0,
+    IAllowListRef as _IAllowListRef_966cd924,
+    ICustomDataIdentifierRef as _ICustomDataIdentifierRef_a9132897,
+    IFindingsFilterRef as _IFindingsFilterRef_4f285375,
+    ISessionRef as _ISessionRef_96c5473a,
+    SessionReference as _SessionReference_0a005ceb,
 )
-class AllowListReference:
+
+
+@jsii.implements(_IInspectable_c2943556, _IAllowListRef_966cd924, _ITaggable_36806126)
+class CfnAllowList(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_macie.CfnAllowList",
+):
+    '''The ``AWS::Macie::AllowList`` resource specifies an allow list.
+
+    In Amazon Macie , an allow list defines specific text or a text pattern for Macie to ignore when it inspects data sources for sensitive data. If data matches text or a text pattern in an allow list, Macie doesn’t report the data in sensitive data findings or sensitive data discovery results, even if the data matches the criteria of a custom data identifier or a managed data identifier. You can create and use allow lists in all the AWS Regions where Macie is currently available except the Asia Pacific (Osaka) Region.
+
+    Macie supports two types of allow lists:
+
+    - *Predefined text* - For this type of list ( ``S3WordsList`` ), you create a line-delimited plaintext file that lists specific text to ignore, and you store the file in an Amazon Simple Storage Service ( Amazon S3 ) bucket. You then configure settings for Macie to access the list in the bucket.
+
+    This type of list typically contains specific words, phrases, and other kinds of character sequences that aren’t sensitive, aren't likely to change, and don’t necessarily adhere to a common pattern. If you use this type of list, Macie doesn't report occurrences of text that exactly match a complete entry in the list. Macie treats each entry in the list as a string literal value. Matches aren't case sensitive.
+
+    - *Regular expression* - For this type of list ( ``Regex`` ), you specify a regular expression that defines a text pattern to ignore. Unlike an allow list with predefined text, you store the regex and all other list settings in Macie .
+
+    This type of list is helpful if you want to specify text that isn’t sensitive but varies or is likely to change while also adhering to a common pattern. If you use this type of list, Macie doesn't report occurrences of text that completely match the pattern defined by the list.
+
+    For more information, see `Defining sensitive data exceptions with allow lists <https://docs.aws.amazon.com/macie/latest/user/allow-lists.html>`_ in the *Amazon Macie User Guide* .
+
+    An ``AWS::Macie::Session`` resource must exist for an AWS account before you can create an ``AWS::Macie::AllowList`` resource for the account. Use a `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to ensure that an ``AWS::Macie::Session`` resource is created before other Macie resources are created for an account. For example, ``"DependsOn": "Session"`` .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-allowlist.html
+    :cloudformationResource: AWS::Macie::AllowList
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_macie as macie
+        
+        cfn_allow_list = macie.CfnAllowList(self, "MyCfnAllowList",
+            criteria=macie.CfnAllowList.CriteriaProperty(
+                regex="regex",
+                s3_words_list=macie.CfnAllowList.S3WordsListProperty(
+                    bucket_name="bucketName",
+                    object_key="objectKey"
+                )
+            ),
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
     def __init__(
         self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
         *,
-        allow_list_arn: builtins.str,
-        allow_list_id: builtins.str,
+        criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAllowList.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''A reference to a AllowList resource.
+        '''Create a new ``AWS::Macie::AllowList``.
 
-        :param allow_list_arn: The ARN of the AllowList resource.
-        :param allow_list_id: The Id of the AllowList resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            allow_list_reference = macie.AllowListReference(
-                allow_list_arn="allowListArn",
-                allow_list_id="allowListId"
-            )
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param criteria: The criteria that specify the text or text pattern to ignore. The criteria can be the location and name of an Amazon S3 object that lists specific text to ignore ( ``S3WordsList`` ), or a regular expression ( ``Regex`` ) that defines a text pattern to ignore.
+        :param name: A custom name for the allow list. The name can contain 1-128 characters.
+        :param description: A custom description of the allow list. The description can contain 1-512 characters.
+        :param tags: An array of key-value pairs to apply to the allow list. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eee216d217b47ed0489f2d524878a1df4b9a0b79360a2d4142a4c6dee8d8907b)
-            check_type(argname="argument allow_list_arn", value=allow_list_arn, expected_type=type_hints["allow_list_arn"])
-            check_type(argname="argument allow_list_id", value=allow_list_id, expected_type=type_hints["allow_list_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "allow_list_arn": allow_list_arn,
-            "allow_list_id": allow_list_id,
-        }
-
-    @builtins.property
-    def allow_list_arn(self) -> builtins.str:
-        '''The ARN of the AllowList resource.'''
-        result = self._values.get("allow_list_arn")
-        assert result is not None, "Required property 'allow_list_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allow_list_id(self) -> builtins.str:
-        '''The Id of the AllowList resource.'''
-        result = self._values.get("allow_list_id")
-        assert result is not None, "Required property 'allow_list_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AllowListReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+            type_hints = typing.get_type_hints(_typecheckingstub__ef55cb8aaca32dcf264ac0e8768dc1c5a0b1471c41c8de3c9575f20000ca4bd9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAllowListProps(
+            criteria=criteria, name=name, description=description, tags=tags
         )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAllowList")
+    @builtins.classmethod
+    def arn_for_allow_list(cls, resource: "_IAllowListRef_966cd924") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fedad2a68eb91135625e77bd721cd53f201572e319c0c53b4833459f3277f4c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAllowList", [resource]))
+
+    @jsii.member(jsii_name="isCfnAllowList")
+    @builtins.classmethod
+    def is_cfn_allow_list(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAllowList.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ae8835289876b4748f999905f3083a259f0290f77205e9ed79bf8975f47b218)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAllowList", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de89a42feae1bdccf1b7fb468bda2c5700b1aa71c5c523cb2c69a8c666ae8e2a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7369f7a4bca5c49d764dbf34faf902a40c52828d8fba955e4eca05e9adcaff7a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allowListRef")
+    def allow_list_ref(self) -> "_AllowListReference_4251ebe6":
+        '''A reference to a AllowList resource.'''
+        return typing.cast("_AllowListReference_4251ebe6", jsii.get(self, "allowListRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the allow list.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier for the allow list.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the allow list, which indicates whether Amazon Macie can access and use the list's criteria.
+
+        If the list's criteria specify a regular expression ( ``Regex`` ), this value is typically ``OK`` . Macie can compile the expression. If the list's criteria specify an Amazon S3 object ( ``S3WordsList`` ), possible values are:
+
+        - ``OK`` - Macie can retrieve and parse the contents of the object.
+        - ``S3_OBJECT_ACCESS_DENIED`` - Macie isn't allowed to access the object or the object is encrypted with a customer managed AWS  key that Macie isn't allowed to use. Check the bucket policy and other permissions settings for the bucket and the object. If the object is encrypted, also ensure that it's encrypted with a key that Macie is allowed to use.
+        - ``S3_OBJECT_EMPTY`` - Macie can retrieve the object but the object doesn't contain any content. Ensure that the object contains the correct entries. Also ensure that the list's criteria specify the correct bucket and object names.
+        - ``S3_OBJECT_NOT_FOUND`` - The object doesn't exist in Amazon S3 . Ensure that the list's criteria specify the correct bucket and object names.
+        - ``S3_OBJECT_OVERSIZE`` - Macie can retrieve the object. However, the object contains too many entries or its storage size exceeds the quota for an allow list. Try breaking the list into multiple files and ensure that each file doesn't exceed any quotas. Then configure list settings in Macie for each file.
+        - ``S3_THROTTLED`` - Amazon S3 throttled the request to retrieve the object. Wait a few minutes and then try again.
+        - ``S3_USER_ACCESS_DENIED`` - Amazon S3 denied the request to retrieve the object. If the specified object exists, you're not allowed to access it or it's encrypted with an AWS  key that you're not allowed to use. Work with your AWS administrator to ensure that the list's criteria specify the correct bucket and object names, and you have read access to the bucket and the object. If the object is encrypted, also ensure that it's encrypted with a key that you're allowed to use.
+        - ``UNKNOWN_ERROR`` - A transient or internal error occurred when Macie attempted to retrieve or parse the object. Wait a few minutes and then try again. A list can also have this status if it's encrypted with a key that Amazon S3 and Macie can't access or use.
+
+        For more information, see `Allow list options and requirements <https://docs.aws.amazon.com/macie/latest/user/allow-lists-options.html>`_ in the *Amazon Macie User Guide* .
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="criteria")
+    def criteria(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnAllowList.CriteriaProperty"]:
+        '''The criteria that specify the text or text pattern to ignore.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAllowList.CriteriaProperty"], jsii.get(self, "criteria"))
+
+    @criteria.setter
+    def criteria(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnAllowList.CriteriaProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e4ae58b4636b7db31b0fa3adc3410ae3d14049fa02c2bd307123f1749460647)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "criteria", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A custom name for the allow list.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d690571d1b7ea81f4eaac91920c04dab927cd0ddc18b3539a84afdcb50cfdc4c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the allow list.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eff0733233420991a19ec573286f220cf810fc8bd281a542a9fa2c82daf4c241)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to the allow list.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__142a3b637b387ca2f41ecc60f7492ab453fed61355af5abfd8c68c74fc8f0c16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_macie.CfnAllowList.CriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"regex": "regex", "s3_words_list": "s3WordsList"},
+    )
+    class CriteriaProperty:
+        def __init__(
+            self,
+            *,
+            regex: typing.Optional[builtins.str] = None,
+            s3_words_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAllowList.S3WordsListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Specifies the criteria for an allow list, which is a list that defines specific text or a text pattern to ignore when inspecting data sources for sensitive data.
+
+            The criteria can be:
+
+            - The location and name of an Amazon Simple Storage Service ( Amazon S3 ) object that lists specific predefined text to ignore ( ``S3WordsList`` ), or
+            - A regular expression ( ``Regex`` ) that defines a text pattern to ignore.
+
+            The criteria must specify either an S3 object or a regular expression. It can't specify both.
+
+            :param regex: The regular expression ( *regex* ) that defines the text pattern to ignore. The expression can contain 1-512 characters.
+            :param s3_words_list: The location and name of an Amazon S3 object that lists specific text to ignore.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_macie as macie
+                
+                criteria_property = macie.CfnAllowList.CriteriaProperty(
+                    regex="regex",
+                    s3_words_list=macie.CfnAllowList.S3WordsListProperty(
+                        bucket_name="bucketName",
+                        object_key="objectKey"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__916c849be567db5e8b2d28b4262b1b5e6cc4efa0cc6749b882394480f94b0f1a)
+                check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
+                check_type(argname="argument s3_words_list", value=s3_words_list, expected_type=type_hints["s3_words_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if regex is not None:
+                self._values["regex"] = regex
+            if s3_words_list is not None:
+                self._values["s3_words_list"] = s3_words_list
+
+        @builtins.property
+        def regex(self) -> typing.Optional[builtins.str]:
+            '''The regular expression ( *regex* ) that defines the text pattern to ignore.
+
+            The expression can contain 1-512 characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html#cfn-macie-allowlist-criteria-regex
+            '''
+            result = self._values.get("regex")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_words_list(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAllowList.S3WordsListProperty"]]:
+            '''The location and name of an Amazon S3 object that lists specific text to ignore.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html#cfn-macie-allowlist-criteria-s3wordslist
+            '''
+            result = self._values.get("s3_words_list")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAllowList.S3WordsListProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_macie.CfnAllowList.S3WordsListProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_name": "bucketName", "object_key": "objectKey"},
+    )
+    class S3WordsListProperty:
+        def __init__(
+            self,
+            *,
+            bucket_name: builtins.str,
+            object_key: builtins.str,
+        ) -> None:
+            '''Specifies the location and name of an Amazon Simple Storage Service ( Amazon S3 ) object that lists specific, predefined text to ignore when inspecting data sources for sensitive data.
+
+            :param bucket_name: The full name of the S3 bucket that contains the object. This value correlates to the ``Name`` field of a bucket's properties in Amazon S3 . This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
+            :param object_key: The full name of the S3 object. This value correlates to the ``Key`` field of an object's properties in Amazon S3 . If the name includes a path, include the complete path. For example, ``AllowLists/Macie/MyList.txt`` . This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_macie as macie
+                
+                s3_words_list_property = macie.CfnAllowList.S3WordsListProperty(
+                    bucket_name="bucketName",
+                    object_key="objectKey"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6728338d9836f378990a221bfcb5d4ebc176286721060379316cb044250d5933)
+                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+                check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_name": bucket_name,
+                "object_key": object_key,
+            }
+
+        @builtins.property
+        def bucket_name(self) -> builtins.str:
+            '''The full name of the S3 bucket that contains the object.
+
+            This value correlates to the ``Name`` field of a bucket's properties in Amazon S3 .
+
+            This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html#cfn-macie-allowlist-s3wordslist-bucketname
+            '''
+            result = self._values.get("bucket_name")
+            assert result is not None, "Required property 'bucket_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def object_key(self) -> builtins.str:
+            '''The full name of the S3 object.
+
+            This value correlates to the ``Key`` field of an object's properties in Amazon S3 . If the name includes a path, include the complete path. For example, ``AllowLists/Macie/MyList.txt`` .
+
+            This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html#cfn-macie-allowlist-s3wordslist-objectkey
+            '''
+            result = self._values.get("object_key")
+            assert result is not None, "Required property 'object_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3WordsListProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -149,10 +508,10 @@ class CfnAllowListProps:
     def __init__(
         self,
         *,
-        criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAllowList.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAllowList.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAllowList``.
 
@@ -166,6 +525,7 @@ class CfnAllowListProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_macie as macie
@@ -206,7 +566,7 @@ class CfnAllowListProps:
     @builtins.property
     def criteria(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnAllowList.CriteriaProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnAllowList.CriteriaProperty"]:
         '''The criteria that specify the text or text pattern to ignore.
 
         The criteria can be the location and name of an Amazon S3 object that lists specific text to ignore ( ``S3WordsList`` ), or a regular expression ( ``Regex`` ) that defines a text pattern to ignore.
@@ -215,7 +575,7 @@ class CfnAllowListProps:
         '''
         result = self._values.get("criteria")
         assert result is not None, "Required property 'criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAllowList.CriteriaProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAllowList.CriteriaProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -241,7 +601,7 @@ class CfnAllowListProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to the allow list.
 
         For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -249,7 +609,7 @@ class CfnAllowListProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-allowlist.html#cfn-macie-allowlist-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -261,6 +621,280 @@ class CfnAllowListProps:
         return "CfnAllowListProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICustomDataIdentifierRef_a9132897, _ITaggableV2_4e6798f8)
+class CfnCustomDataIdentifier(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_macie.CfnCustomDataIdentifier",
+):
+    '''The ``AWS::Macie::CustomDataIdentifier`` resource specifies a custom data identifier.
+
+    A *custom data identifier* is a set of custom criteria for Amazon Macie to use when it inspects data sources for sensitive data. The criteria consist of a regular expression ( *regex* ) that defines a text pattern to match and, optionally, character sequences and a proximity rule that refine the results. The character sequences can be:
+
+    - *Keywords* , which are words or phrases that must be in proximity of text that matches the regex, or
+    - *Ignore words* , which are words or phrases to exclude from the results.
+
+    By using custom data identifiers, you can supplement the managed data identifiers that Macie provides and detect sensitive data that reflects your particular scenarios, intellectual property, or proprietary data. For more information, see `Building custom data identifiers <https://docs.aws.amazon.com/macie/latest/user/custom-data-identifiers.html>`_ in the *Amazon Macie User Guide* .
+
+    An ``AWS::Macie::Session`` resource must exist for an AWS account before you can create an ``AWS::Macie::CustomDataIdentifier`` resource for the account. Use a `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to ensure that an ``AWS::Macie::Session`` resource is created before other Macie resources are created for an account. For example, ``"DependsOn": "Session"`` .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-customdataidentifier.html
+    :cloudformationResource: AWS::Macie::CustomDataIdentifier
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_macie as macie
+        
+        cfn_custom_data_identifier = macie.CfnCustomDataIdentifier(self, "MyCfnCustomDataIdentifier",
+            name="name",
+            regex="regex",
+        
+            # the properties below are optional
+            description="description",
+            ignore_words=["ignoreWords"],
+            keywords=["keywords"],
+            maximum_match_distance=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        regex: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        ignore_words: typing.Optional[typing.Sequence[builtins.str]] = None,
+        keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
+        maximum_match_distance: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Macie::CustomDataIdentifier``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: A custom name for the custom data identifier. The name can contain 1-128 characters. Avoid including sensitive data in the name of a custom data identifier. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
+        :param regex: The regular expression ( *regex* ) that defines the text pattern to match. The expression can contain 1-512 characters.
+        :param description: A custom description of the custom data identifier. The description can contain 1-512 characters. Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
+        :param ignore_words: An array of character sequences ( *ignore words* ) to exclude from the results. If text matches the regular expression ( ``Regex`` ) but it contains a string in this array, Amazon Macie ignores the text and doesn't include it in the results. The array can contain 1-10 ignore words. Each ignore word can contain 4-90 UTF-8 characters. Ignore words are case sensitive.
+        :param keywords: An array of character sequences ( *keywords* ), one of which must precede and be in proximity ( ``MaximumMatchDistance`` ) of the regular expression ( ``Regex`` ) to match. The array can contain 1-50 keywords. Each keyword can contain 3-90 UTF-8 characters. Keywords aren't case sensitive.
+        :param maximum_match_distance: The maximum number of characters that can exist between the end of at least one complete character sequence specified by the ``Keywords`` array and the end of text that matches the regular expression ( ``Regex`` ). If a complete keyword precedes all the text that matches the regular expression and the keyword is within the specified distance, Amazon Macie includes the result. The distance can be 1-300 characters. The default value is 50.
+        :param tags: An array of key-value pairs to apply to the custom data identifier. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8462f70ed2396867e691499b8338ee06166375569e4774b35cad18418587284c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCustomDataIdentifierProps(
+            name=name,
+            regex=regex,
+            description=description,
+            ignore_words=ignore_words,
+            keywords=keywords,
+            maximum_match_distance=maximum_match_distance,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCustomDataIdentifier")
+    @builtins.classmethod
+    def arn_for_custom_data_identifier(
+        cls,
+        resource: "_ICustomDataIdentifierRef_a9132897",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70ba3e65c40801f92045549f95de020360fa376de498b4b455198bd88b16f5ba)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomDataIdentifier", [resource]))
+
+    @jsii.member(jsii_name="isCfnCustomDataIdentifier")
+    @builtins.classmethod
+    def is_cfn_custom_data_identifier(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCustomDataIdentifier.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ab9e5b769107e10259b1614f394b384eb37138089bca9bccd83fbfcfe51163b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomDataIdentifier", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75e9300d86a3080fc43c5b9e06f708ec6e0be23ca1a8b8c548c28f04d4a38b47)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c2273c82378b08a1921a6584b6eafca3f9442f8236c8797614cdc38e93f50a4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the custom data identifier.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier for the custom data identifier.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customDataIdentifierRef")
+    def custom_data_identifier_ref(self) -> "_CustomDataIdentifierReference_833fb30b":
+        '''A reference to a CustomDataIdentifier resource.'''
+        return typing.cast("_CustomDataIdentifierReference_833fb30b", jsii.get(self, "customDataIdentifierRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A custom name for the custom data identifier.
+
+        The name can contain 1-128 characters.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56bafc0e98388f95c36a25cdb08ac16d1b32e9b68fc70fc559070e909e26043f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regex")
+    def regex(self) -> builtins.str:
+        '''The regular expression ( *regex* ) that defines the text pattern to match.'''
+        return typing.cast(builtins.str, jsii.get(self, "regex"))
+
+    @regex.setter
+    def regex(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1a88698a8e31c22c8a96936b106ec14252c0df95a0c621ffc59448549cfe4f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regex", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the custom data identifier.
+
+        The description can contain 1-512 characters.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f4eac22a0be7a58617fc706b4a6f4df1d7c10d4fd1bcb1bc7c87ecb091280ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ignoreWords")
+    def ignore_words(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of character sequences ( *ignore words* ) to exclude from the results.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ignoreWords"))
+
+    @ignore_words.setter
+    def ignore_words(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35dff10296c96b79146377714bebc3cb572a5fc32fda7088add5e2e9c20cfb52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ignoreWords", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keywords")
+    def keywords(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of character sequences ( *keywords* ), one of which must precede and be in proximity ( ``MaximumMatchDistance`` ) of the regular expression ( ``Regex`` ) to match.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "keywords"))
+
+    @keywords.setter
+    def keywords(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1910816738c1d222482ca791d3639f1eb091753a7bef0627a18c8298817c4083)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keywords", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maximumMatchDistance")
+    def maximum_match_distance(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of characters that can exist between the end of at least one complete character sequence specified by the ``Keywords`` array and the end of text that matches the regular expression ( ``Regex`` ).'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMatchDistance"))
+
+    @maximum_match_distance.setter
+    def maximum_match_distance(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baadf50a05df72179523cc44ce07f1d05939df835131681e825e51b9a74778eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maximumMatchDistance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to the custom data identifier.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbcbca5473de6420ab12d74134f837e4e6f3d3129ac85bc0de56282369f01984)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -286,7 +920,7 @@ class CfnCustomDataIdentifierProps:
         ignore_words: typing.Optional[typing.Sequence[builtins.str]] = None,
         keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
         maximum_match_distance: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCustomDataIdentifier``.
 
@@ -303,6 +937,7 @@ class CfnCustomDataIdentifierProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_macie as macie
@@ -419,7 +1054,7 @@ class CfnCustomDataIdentifierProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to the custom data identifier.
 
         For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -427,7 +1062,7 @@ class CfnCustomDataIdentifierProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-customdataidentifier.html#cfn-macie-customdataidentifier-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -441,1244 +1076,7 @@ class CfnCustomDataIdentifierProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.CfnFindingsFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "finding_criteria": "findingCriteria",
-        "name": "name",
-        "action": "action",
-        "description": "description",
-        "position": "position",
-        "tags": "tags",
-    },
-)
-class CfnFindingsFilterProps:
-    def __init__(
-        self,
-        *,
-        finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFindingsFilter.FindingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        action: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        position: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFindingsFilter``.
-
-        :param finding_criteria: The criteria to use to filter findings.
-        :param name: A custom name for the findings filter. The name can contain 3-64 characters. Avoid including sensitive data in the name. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
-        :param action: The action to perform on findings that match the filter criteria ( ``FindingCriteria`` ). Valid values are:. - ``ARCHIVE`` - Suppress (automatically archive) the findings. - ``NOOP`` - Don't perform any action on the findings.
-        :param description: A custom description of the findings filter. The description can contain 1-512 characters. Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
-        :param position: The position of the findings filter in the list of saved filter rules on the Amazon Macie console. This value also determines the order in which the filter is applied to findings, relative to other filters that are also applied to findings.
-        :param tags: An array of key-value pairs to apply to the findings filter. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            cfn_findings_filter_props = macie.CfnFindingsFilterProps(
-                finding_criteria=macie.CfnFindingsFilter.FindingCriteriaProperty(
-                    criterion={
-                        "criterion_key": macie.CfnFindingsFilter.CriterionAdditionalPropertiesProperty(
-                            eq=["eq"],
-                            gt=123,
-                            gte=123,
-                            lt=123,
-                            lte=123,
-                            neq=["neq"]
-                        )
-                    }
-                ),
-                name="name",
-            
-                # the properties below are optional
-                action="action",
-                description="description",
-                position=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4769b70b8b409b7293b4cfb98a775272d6996bc39a6b96c3ad8c76c7aae51f1)
-            check_type(argname="argument finding_criteria", value=finding_criteria, expected_type=type_hints["finding_criteria"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument position", value=position, expected_type=type_hints["position"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "finding_criteria": finding_criteria,
-            "name": name,
-        }
-        if action is not None:
-            self._values["action"] = action
-        if description is not None:
-            self._values["description"] = description
-        if position is not None:
-            self._values["position"] = position
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def finding_criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.FindingCriteriaProperty"]:
-        '''The criteria to use to filter findings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-findingcriteria
-        '''
-        result = self._values.get("finding_criteria")
-        assert result is not None, "Required property 'finding_criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.FindingCriteriaProperty"], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A custom name for the findings filter. The name can contain 3-64 characters.
-
-        Avoid including sensitive data in the name. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action(self) -> typing.Optional[builtins.str]:
-        '''The action to perform on findings that match the filter criteria ( ``FindingCriteria`` ). Valid values are:.
-
-        - ``ARCHIVE`` - Suppress (automatically archive) the findings.
-        - ``NOOP`` - Don't perform any action on the findings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-action
-        '''
-        result = self._values.get("action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the findings filter. The description can contain 1-512 characters.
-
-        Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def position(self) -> typing.Optional[jsii.Number]:
-        '''The position of the findings filter in the list of saved filter rules on the Amazon Macie console.
-
-        This value also determines the order in which the filter is applied to findings, relative to other filters that are also applied to findings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-position
-        '''
-        result = self._values.get("position")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the findings filter.
-
-        For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFindingsFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.CfnSessionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "finding_publishing_frequency": "findingPublishingFrequency",
-        "status": "status",
-    },
-)
-class CfnSessionProps:
-    def __init__(
-        self,
-        *,
-        finding_publishing_frequency: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSession``.
-
-        :param finding_publishing_frequency: Specifies how often Amazon Macie publishes updates to policy findings for the account. This includes publishing updates to AWS Security Hub and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are: - FIFTEEN_MINUTES - ONE_HOUR - SIX_HOURS Default: - "SIX_HOURS"
-        :param status: The status of Amazon Macie for the account. Valid values are: ``ENABLED`` , start or resume Macie activities for the account; and, ``PAUSED`` , suspend Macie activities for the account. Default: - "ENABLED"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            cfn_session_props = macie.CfnSessionProps(
-                finding_publishing_frequency="findingPublishingFrequency",
-                status="status"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b2377975304db82e025e7e966713f33964f9e33889db82b2e26a095d3fb3f14)
-            check_type(argname="argument finding_publishing_frequency", value=finding_publishing_frequency, expected_type=type_hints["finding_publishing_frequency"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if finding_publishing_frequency is not None:
-            self._values["finding_publishing_frequency"] = finding_publishing_frequency
-        if status is not None:
-            self._values["status"] = status
-
-    @builtins.property
-    def finding_publishing_frequency(self) -> typing.Optional[builtins.str]:
-        '''Specifies how often Amazon Macie publishes updates to policy findings for the account.
-
-        This includes publishing updates to AWS Security Hub and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are:
-
-        - FIFTEEN_MINUTES
-        - ONE_HOUR
-        - SIX_HOURS
-
-        :default: - "SIX_HOURS"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html#cfn-macie-session-findingpublishingfrequency
-        '''
-        result = self._values.get("finding_publishing_frequency")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of Amazon Macie for the account.
-
-        Valid values are: ``ENABLED`` , start or resume Macie activities for the account; and, ``PAUSED`` , suspend Macie activities for the account.
-
-        :default: - "ENABLED"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html#cfn-macie-session-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSessionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.CustomDataIdentifierReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "custom_data_identifier_arn": "customDataIdentifierArn",
-        "custom_data_identifier_id": "customDataIdentifierId",
-    },
-)
-class CustomDataIdentifierReference:
-    def __init__(
-        self,
-        *,
-        custom_data_identifier_arn: builtins.str,
-        custom_data_identifier_id: builtins.str,
-    ) -> None:
-        '''A reference to a CustomDataIdentifier resource.
-
-        :param custom_data_identifier_arn: The ARN of the CustomDataIdentifier resource.
-        :param custom_data_identifier_id: The Id of the CustomDataIdentifier resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            custom_data_identifier_reference = macie.CustomDataIdentifierReference(
-                custom_data_identifier_arn="customDataIdentifierArn",
-                custom_data_identifier_id="customDataIdentifierId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c688d05152c4c7de9a1dc836a9e5620ab26f1d978a6cb4f41194a59f0ce779e)
-            check_type(argname="argument custom_data_identifier_arn", value=custom_data_identifier_arn, expected_type=type_hints["custom_data_identifier_arn"])
-            check_type(argname="argument custom_data_identifier_id", value=custom_data_identifier_id, expected_type=type_hints["custom_data_identifier_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "custom_data_identifier_arn": custom_data_identifier_arn,
-            "custom_data_identifier_id": custom_data_identifier_id,
-        }
-
-    @builtins.property
-    def custom_data_identifier_arn(self) -> builtins.str:
-        '''The ARN of the CustomDataIdentifier resource.'''
-        result = self._values.get("custom_data_identifier_arn")
-        assert result is not None, "Required property 'custom_data_identifier_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_data_identifier_id(self) -> builtins.str:
-        '''The Id of the CustomDataIdentifier resource.'''
-        result = self._values.get("custom_data_identifier_id")
-        assert result is not None, "Required property 'custom_data_identifier_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CustomDataIdentifierReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.FindingsFilterReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "findings_filter_arn": "findingsFilterArn",
-        "findings_filter_id": "findingsFilterId",
-    },
-)
-class FindingsFilterReference:
-    def __init__(
-        self,
-        *,
-        findings_filter_arn: builtins.str,
-        findings_filter_id: builtins.str,
-    ) -> None:
-        '''A reference to a FindingsFilter resource.
-
-        :param findings_filter_arn: The ARN of the FindingsFilter resource.
-        :param findings_filter_id: The Id of the FindingsFilter resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            findings_filter_reference = macie.FindingsFilterReference(
-                findings_filter_arn="findingsFilterArn",
-                findings_filter_id="findingsFilterId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b01f8f20e805c5da19eb3131ac38ce5c218c4d2e298d59b14754401884c7be3)
-            check_type(argname="argument findings_filter_arn", value=findings_filter_arn, expected_type=type_hints["findings_filter_arn"])
-            check_type(argname="argument findings_filter_id", value=findings_filter_id, expected_type=type_hints["findings_filter_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "findings_filter_arn": findings_filter_arn,
-            "findings_filter_id": findings_filter_id,
-        }
-
-    @builtins.property
-    def findings_filter_arn(self) -> builtins.str:
-        '''The ARN of the FindingsFilter resource.'''
-        result = self._values.get("findings_filter_arn")
-        assert result is not None, "Required property 'findings_filter_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def findings_filter_id(self) -> builtins.str:
-        '''The Id of the FindingsFilter resource.'''
-        result = self._values.get("findings_filter_id")
-        assert result is not None, "Required property 'findings_filter_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FindingsFilterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_macie.IAllowListRef")
-class IAllowListRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a AllowList.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="allowListRef")
-    def allow_list_ref(self) -> AllowListReference:
-        '''(experimental) A reference to a AllowList resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAllowListRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AllowList.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_macie.IAllowListRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="allowListRef")
-    def allow_list_ref(self) -> AllowListReference:
-        '''(experimental) A reference to a AllowList resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AllowListReference, jsii.get(self, "allowListRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAllowListRef).__jsii_proxy_class__ = lambda : _IAllowListRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_macie.ICustomDataIdentifierRef")
-class ICustomDataIdentifierRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CustomDataIdentifier.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="customDataIdentifierRef")
-    def custom_data_identifier_ref(self) -> CustomDataIdentifierReference:
-        '''(experimental) A reference to a CustomDataIdentifier resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICustomDataIdentifierRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CustomDataIdentifier.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_macie.ICustomDataIdentifierRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="customDataIdentifierRef")
-    def custom_data_identifier_ref(self) -> CustomDataIdentifierReference:
-        '''(experimental) A reference to a CustomDataIdentifier resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CustomDataIdentifierReference, jsii.get(self, "customDataIdentifierRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICustomDataIdentifierRef).__jsii_proxy_class__ = lambda : _ICustomDataIdentifierRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_macie.IFindingsFilterRef")
-class IFindingsFilterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a FindingsFilter.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="findingsFilterRef")
-    def findings_filter_ref(self) -> FindingsFilterReference:
-        '''(experimental) A reference to a FindingsFilter resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFindingsFilterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a FindingsFilter.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_macie.IFindingsFilterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="findingsFilterRef")
-    def findings_filter_ref(self) -> FindingsFilterReference:
-        '''(experimental) A reference to a FindingsFilter resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(FindingsFilterReference, jsii.get(self, "findingsFilterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFindingsFilterRef).__jsii_proxy_class__ = lambda : _IFindingsFilterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_macie.ISessionRef")
-class ISessionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Session.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> "SessionReference":
-        '''(experimental) A reference to a Session resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISessionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Session.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_macie.ISessionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> "SessionReference":
-        '''(experimental) A reference to a Session resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SessionReference", jsii.get(self, "sessionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISessionRef).__jsii_proxy_class__ = lambda : _ISessionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_macie.SessionReference",
-    jsii_struct_bases=[],
-    name_mapping={"aws_account_id": "awsAccountId"},
-)
-class SessionReference:
-    def __init__(self, *, aws_account_id: builtins.str) -> None:
-        '''A reference to a Session resource.
-
-        :param aws_account_id: The AwsAccountId of the Session resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_macie as macie
-            
-            session_reference = macie.SessionReference(
-                aws_account_id="awsAccountId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0e72b62029f065559f7910eade34dbbe61f82ce5b10a36e191597c67c108ef6)
-            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "aws_account_id": aws_account_id,
-        }
-
-    @builtins.property
-    def aws_account_id(self) -> builtins.str:
-        '''The AwsAccountId of the Session resource.'''
-        result = self._values.get("aws_account_id")
-        assert result is not None, "Required property 'aws_account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SessionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAllowListRef, _ITaggable_36806126)
-class CfnAllowList(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_macie.CfnAllowList",
-):
-    '''The ``AWS::Macie::AllowList`` resource specifies an allow list.
-
-    In Amazon Macie , an allow list defines specific text or a text pattern for Macie to ignore when it inspects data sources for sensitive data. If data matches text or a text pattern in an allow list, Macie doesn’t report the data in sensitive data findings or sensitive data discovery results, even if the data matches the criteria of a custom data identifier or a managed data identifier. You can create and use allow lists in all the AWS Regions where Macie is currently available except the Asia Pacific (Osaka) Region.
-
-    Macie supports two types of allow lists:
-
-    - *Predefined text* - For this type of list ( ``S3WordsList`` ), you create a line-delimited plaintext file that lists specific text to ignore, and you store the file in an Amazon Simple Storage Service ( Amazon S3 ) bucket. You then configure settings for Macie to access the list in the bucket.
-
-    This type of list typically contains specific words, phrases, and other kinds of character sequences that aren’t sensitive, aren't likely to change, and don’t necessarily adhere to a common pattern. If you use this type of list, Macie doesn't report occurrences of text that exactly match a complete entry in the list. Macie treats each entry in the list as a string literal value. Matches aren't case sensitive.
-
-    - *Regular expression* - For this type of list ( ``Regex`` ), you specify a regular expression that defines a text pattern to ignore. Unlike an allow list with predefined text, you store the regex and all other list settings in Macie .
-
-    This type of list is helpful if you want to specify text that isn’t sensitive but varies or is likely to change while also adhering to a common pattern. If you use this type of list, Macie doesn't report occurrences of text that completely match the pattern defined by the list.
-
-    For more information, see `Defining sensitive data exceptions with allow lists <https://docs.aws.amazon.com/macie/latest/user/allow-lists.html>`_ in the *Amazon Macie User Guide* .
-
-    An ``AWS::Macie::Session`` resource must exist for an AWS account before you can create an ``AWS::Macie::AllowList`` resource for the account. Use a `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to ensure that an ``AWS::Macie::Session`` resource is created before other Macie resources are created for an account. For example, ``"DependsOn": "Session"`` .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-allowlist.html
-    :cloudformationResource: AWS::Macie::AllowList
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_macie as macie
-        
-        cfn_allow_list = macie.CfnAllowList(self, "MyCfnAllowList",
-            criteria=macie.CfnAllowList.CriteriaProperty(
-                regex="regex",
-                s3_words_list=macie.CfnAllowList.S3WordsListProperty(
-                    bucket_name="bucketName",
-                    object_key="objectKey"
-                )
-            ),
-            name="name",
-        
-            # the properties below are optional
-            description="description",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAllowList.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param criteria: The criteria that specify the text or text pattern to ignore. The criteria can be the location and name of an Amazon S3 object that lists specific text to ignore ( ``S3WordsList`` ), or a regular expression ( ``Regex`` ) that defines a text pattern to ignore.
-        :param name: A custom name for the allow list. The name can contain 1-128 characters.
-        :param description: A custom description of the allow list. The description can contain 1-512 characters.
-        :param tags: An array of key-value pairs to apply to the allow list. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef55cb8aaca32dcf264ac0e8768dc1c5a0b1471c41c8de3c9575f20000ca4bd9)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAllowListProps(
-            criteria=criteria, name=name, description=description, tags=tags
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de89a42feae1bdccf1b7fb468bda2c5700b1aa71c5c523cb2c69a8c666ae8e2a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7369f7a4bca5c49d764dbf34faf902a40c52828d8fba955e4eca05e9adcaff7a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="allowListRef")
-    def allow_list_ref(self) -> AllowListReference:
-        '''A reference to a AllowList resource.'''
-        return typing.cast(AllowListReference, jsii.get(self, "allowListRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the allow list.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The unique identifier for the allow list.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''The current status of the allow list, which indicates whether Amazon Macie can access and use the list's criteria.
-
-        If the list's criteria specify a regular expression ( ``Regex`` ), this value is typically ``OK`` . Macie can compile the expression. If the list's criteria specify an Amazon S3 object ( ``S3WordsList`` ), possible values are:
-
-        - ``OK`` - Macie can retrieve and parse the contents of the object.
-        - ``S3_OBJECT_ACCESS_DENIED`` - Macie isn't allowed to access the object or the object is encrypted with a customer managed AWS KMS key that Macie isn't allowed to use. Check the bucket policy and other permissions settings for the bucket and the object. If the object is encrypted, also ensure that it's encrypted with a key that Macie is allowed to use.
-        - ``S3_OBJECT_EMPTY`` - Macie can retrieve the object but the object doesn't contain any content. Ensure that the object contains the correct entries. Also ensure that the list's criteria specify the correct bucket and object names.
-        - ``S3_OBJECT_NOT_FOUND`` - The object doesn't exist in Amazon S3 . Ensure that the list's criteria specify the correct bucket and object names.
-        - ``S3_OBJECT_OVERSIZE`` - Macie can retrieve the object. However, the object contains too many entries or its storage size exceeds the quota for an allow list. Try breaking the list into multiple files and ensure that each file doesn't exceed any quotas. Then configure list settings in Macie for each file.
-        - ``S3_THROTTLED`` - Amazon S3 throttled the request to retrieve the object. Wait a few minutes and then try again.
-        - ``S3_USER_ACCESS_DENIED`` - Amazon S3 denied the request to retrieve the object. If the specified object exists, you're not allowed to access it or it's encrypted with an AWS KMS key that you're not allowed to use. Work with your AWS administrator to ensure that the list's criteria specify the correct bucket and object names, and you have read access to the bucket and the object. If the object is encrypted, also ensure that it's encrypted with a key that you're allowed to use.
-        - ``UNKNOWN_ERROR`` - A transient or internal error occurred when Macie attempted to retrieve or parse the object. Wait a few minutes and then try again. A list can also have this status if it's encrypted with a key that Amazon S3 and Macie can't access or use.
-
-        For more information, see `Allow list options and requirements <https://docs.aws.amazon.com/macie/latest/user/allow-lists-options.html>`_ in the *Amazon Macie User Guide* .
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="criteria")
-    def criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnAllowList.CriteriaProperty"]:
-        '''The criteria that specify the text or text pattern to ignore.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAllowList.CriteriaProperty"], jsii.get(self, "criteria"))
-
-    @criteria.setter
-    def criteria(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnAllowList.CriteriaProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e4ae58b4636b7db31b0fa3adc3410ae3d14049fa02c2bd307123f1749460647)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "criteria", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A custom name for the allow list.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d690571d1b7ea81f4eaac91920c04dab927cd0ddc18b3539a84afdcb50cfdc4c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the allow list.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eff0733233420991a19ec573286f220cf810fc8bd281a542a9fa2c82daf4c241)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the allow list.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__142a3b637b387ca2f41ecc60f7492ab453fed61355af5abfd8c68c74fc8f0c16)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_macie.CfnAllowList.CriteriaProperty",
-        jsii_struct_bases=[],
-        name_mapping={"regex": "regex", "s3_words_list": "s3WordsList"},
-    )
-    class CriteriaProperty:
-        def __init__(
-            self,
-            *,
-            regex: typing.Optional[builtins.str] = None,
-            s3_words_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAllowList.S3WordsListProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Specifies the criteria for an allow list, which is a list that defines specific text or a text pattern to ignore when inspecting data sources for sensitive data.
-
-            The criteria can be:
-
-            - The location and name of an Amazon Simple Storage Service ( Amazon S3 ) object that lists specific predefined text to ignore ( ``S3WordsList`` ), or
-            - A regular expression ( ``Regex`` ) that defines a text pattern to ignore.
-
-            The criteria must specify either an S3 object or a regular expression. It can't specify both.
-
-            :param regex: The regular expression ( *regex* ) that defines the text pattern to ignore. The expression can contain 1-512 characters.
-            :param s3_words_list: The location and name of an Amazon S3 object that lists specific text to ignore.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_macie as macie
-                
-                criteria_property = macie.CfnAllowList.CriteriaProperty(
-                    regex="regex",
-                    s3_words_list=macie.CfnAllowList.S3WordsListProperty(
-                        bucket_name="bucketName",
-                        object_key="objectKey"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__916c849be567db5e8b2d28b4262b1b5e6cc4efa0cc6749b882394480f94b0f1a)
-                check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
-                check_type(argname="argument s3_words_list", value=s3_words_list, expected_type=type_hints["s3_words_list"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if regex is not None:
-                self._values["regex"] = regex
-            if s3_words_list is not None:
-                self._values["s3_words_list"] = s3_words_list
-
-        @builtins.property
-        def regex(self) -> typing.Optional[builtins.str]:
-            '''The regular expression ( *regex* ) that defines the text pattern to ignore.
-
-            The expression can contain 1-512 characters.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html#cfn-macie-allowlist-criteria-regex
-            '''
-            result = self._values.get("regex")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_words_list(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAllowList.S3WordsListProperty"]]:
-            '''The location and name of an Amazon S3 object that lists specific text to ignore.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-criteria.html#cfn-macie-allowlist-criteria-s3wordslist
-            '''
-            result = self._values.get("s3_words_list")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAllowList.S3WordsListProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CriteriaProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_macie.CfnAllowList.S3WordsListProperty",
-        jsii_struct_bases=[],
-        name_mapping={"bucket_name": "bucketName", "object_key": "objectKey"},
-    )
-    class S3WordsListProperty:
-        def __init__(
-            self,
-            *,
-            bucket_name: builtins.str,
-            object_key: builtins.str,
-        ) -> None:
-            '''Specifies the location and name of an Amazon Simple Storage Service ( Amazon S3 ) object that lists specific, predefined text to ignore when inspecting data sources for sensitive data.
-
-            :param bucket_name: The full name of the S3 bucket that contains the object. This value correlates to the ``Name`` field of a bucket's properties in Amazon S3 . This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
-            :param object_key: The full name of the S3 object. This value correlates to the ``Key`` field of an object's properties in Amazon S3 . If the name includes a path, include the complete path. For example, ``AllowLists/Macie/MyList.txt`` . This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_macie as macie
-                
-                s3_words_list_property = macie.CfnAllowList.S3WordsListProperty(
-                    bucket_name="bucketName",
-                    object_key="objectKey"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6728338d9836f378990a221bfcb5d4ebc176286721060379316cb044250d5933)
-                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-                check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "bucket_name": bucket_name,
-                "object_key": object_key,
-            }
-
-        @builtins.property
-        def bucket_name(self) -> builtins.str:
-            '''The full name of the S3 bucket that contains the object.
-
-            This value correlates to the ``Name`` field of a bucket's properties in Amazon S3 .
-
-            This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html#cfn-macie-allowlist-s3wordslist-bucketname
-            '''
-            result = self._values.get("bucket_name")
-            assert result is not None, "Required property 'bucket_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def object_key(self) -> builtins.str:
-            '''The full name of the S3 object.
-
-            This value correlates to the ``Key`` field of an object's properties in Amazon S3 . If the name includes a path, include the complete path. For example, ``AllowLists/Macie/MyList.txt`` .
-
-            This value is case sensitive. In addition, don't use wildcard characters or specify partial values for the name.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-allowlist-s3wordslist.html#cfn-macie-allowlist-s3wordslist-objectkey
-            '''
-            result = self._values.get("object_key")
-            assert result is not None, "Required property 'object_key' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3WordsListProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, ICustomDataIdentifierRef, _ITaggableV2_4e6798f8)
-class CfnCustomDataIdentifier(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_macie.CfnCustomDataIdentifier",
-):
-    '''The ``AWS::Macie::CustomDataIdentifier`` resource specifies a custom data identifier.
-
-    A *custom data identifier* is a set of custom criteria for Amazon Macie to use when it inspects data sources for sensitive data. The criteria consist of a regular expression ( *regex* ) that defines a text pattern to match and, optionally, character sequences and a proximity rule that refine the results. The character sequences can be:
-
-    - *Keywords* , which are words or phrases that must be in proximity of text that matches the regex, or
-    - *Ignore words* , which are words or phrases to exclude from the results.
-
-    By using custom data identifiers, you can supplement the managed data identifiers that Macie provides and detect sensitive data that reflects your particular scenarios, intellectual property, or proprietary data. For more information, see `Building custom data identifiers <https://docs.aws.amazon.com/macie/latest/user/custom-data-identifiers.html>`_ in the *Amazon Macie User Guide* .
-
-    An ``AWS::Macie::Session`` resource must exist for an AWS account before you can create an ``AWS::Macie::CustomDataIdentifier`` resource for the account. Use a `DependsOn attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-dependson.html>`_ to ensure that an ``AWS::Macie::Session`` resource is created before other Macie resources are created for an account. For example, ``"DependsOn": "Session"`` .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-customdataidentifier.html
-    :cloudformationResource: AWS::Macie::CustomDataIdentifier
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_macie as macie
-        
-        cfn_custom_data_identifier = macie.CfnCustomDataIdentifier(self, "MyCfnCustomDataIdentifier",
-            name="name",
-            regex="regex",
-        
-            # the properties below are optional
-            description="description",
-            ignore_words=["ignoreWords"],
-            keywords=["keywords"],
-            maximum_match_distance=123,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        regex: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        ignore_words: typing.Optional[typing.Sequence[builtins.str]] = None,
-        keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
-        maximum_match_distance: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: A custom name for the custom data identifier. The name can contain 1-128 characters. Avoid including sensitive data in the name of a custom data identifier. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
-        :param regex: The regular expression ( *regex* ) that defines the text pattern to match. The expression can contain 1-512 characters.
-        :param description: A custom description of the custom data identifier. The description can contain 1-512 characters. Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
-        :param ignore_words: An array of character sequences ( *ignore words* ) to exclude from the results. If text matches the regular expression ( ``Regex`` ) but it contains a string in this array, Amazon Macie ignores the text and doesn't include it in the results. The array can contain 1-10 ignore words. Each ignore word can contain 4-90 UTF-8 characters. Ignore words are case sensitive.
-        :param keywords: An array of character sequences ( *keywords* ), one of which must precede and be in proximity ( ``MaximumMatchDistance`` ) of the regular expression ( ``Regex`` ) to match. The array can contain 1-50 keywords. Each keyword can contain 3-90 UTF-8 characters. Keywords aren't case sensitive.
-        :param maximum_match_distance: The maximum number of characters that can exist between the end of at least one complete character sequence specified by the ``Keywords`` array and the end of text that matches the regular expression ( ``Regex`` ). If a complete keyword precedes all the text that matches the regular expression and the keyword is within the specified distance, Amazon Macie includes the result. The distance can be 1-300 characters. The default value is 50.
-        :param tags: An array of key-value pairs to apply to the custom data identifier. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8462f70ed2396867e691499b8338ee06166375569e4774b35cad18418587284c)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCustomDataIdentifierProps(
-            name=name,
-            regex=regex,
-            description=description,
-            ignore_words=ignore_words,
-            keywords=keywords,
-            maximum_match_distance=maximum_match_distance,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75e9300d86a3080fc43c5b9e06f708ec6e0be23ca1a8b8c548c28f04d4a38b47)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c2273c82378b08a1921a6584b6eafca3f9442f8236c8797614cdc38e93f50a4)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the custom data identifier.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The unique identifier for the custom data identifier.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="customDataIdentifierRef")
-    def custom_data_identifier_ref(self) -> CustomDataIdentifierReference:
-        '''A reference to a CustomDataIdentifier resource.'''
-        return typing.cast(CustomDataIdentifierReference, jsii.get(self, "customDataIdentifierRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A custom name for the custom data identifier.
-
-        The name can contain 1-128 characters.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56bafc0e98388f95c36a25cdb08ac16d1b32e9b68fc70fc559070e909e26043f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="regex")
-    def regex(self) -> builtins.str:
-        '''The regular expression ( *regex* ) that defines the text pattern to match.'''
-        return typing.cast(builtins.str, jsii.get(self, "regex"))
-
-    @regex.setter
-    def regex(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1a88698a8e31c22c8a96936b106ec14252c0df95a0c621ffc59448549cfe4f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regex", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A custom description of the custom data identifier.
-
-        The description can contain 1-512 characters.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f4eac22a0be7a58617fc706b4a6f4df1d7c10d4fd1bcb1bc7c87ecb091280ab)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ignoreWords")
-    def ignore_words(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of character sequences ( *ignore words* ) to exclude from the results.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ignoreWords"))
-
-    @ignore_words.setter
-    def ignore_words(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35dff10296c96b79146377714bebc3cb572a5fc32fda7088add5e2e9c20cfb52)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ignoreWords", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keywords")
-    def keywords(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of character sequences ( *keywords* ), one of which must precede and be in proximity ( ``MaximumMatchDistance`` ) of the regular expression ( ``Regex`` ) to match.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "keywords"))
-
-    @keywords.setter
-    def keywords(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1910816738c1d222482ca791d3639f1eb091753a7bef0627a18c8298817c4083)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keywords", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maximumMatchDistance")
-    def maximum_match_distance(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of characters that can exist between the end of at least one complete character sequence specified by the ``Keywords`` array and the end of text that matches the regular expression ( ``Regex`` ).'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maximumMatchDistance"))
-
-    @maximum_match_distance.setter
-    def maximum_match_distance(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__baadf50a05df72179523cc44ce07f1d05939df835131681e825e51b9a74778eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumMatchDistance", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the custom data identifier.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbcbca5473de6420ab12d74134f837e4e6f3d3129ac85bc0de56282369f01984)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IFindingsFilterRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IFindingsFilterRef_4f285375, _ITaggableV2_4e6798f8)
 class CfnFindingsFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1696,6 +1094,7 @@ class CfnFindingsFilter(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_macie as macie
@@ -1728,17 +1127,18 @@ class CfnFindingsFilter(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFindingsFilter.FindingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        finding_criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFindingsFilter.FindingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         action: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         position: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Macie::FindingsFilter``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param finding_criteria: The criteria to use to filter findings.
@@ -1763,8 +1163,34 @@ class CfnFindingsFilter(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForFindingsFilter")
+    @builtins.classmethod
+    def arn_for_findings_filter(
+        cls,
+        resource: "_IFindingsFilterRef_4f285375",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4958ec0cd32d45b8bf4be7ecdb8e1d43b577eb97fa9a3eadd789d91afbf176d0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFindingsFilter", [resource]))
+
+    @jsii.member(jsii_name="isCfnFindingsFilter")
+    @builtins.classmethod
+    def is_cfn_findings_filter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFindingsFilter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0315a5358c8799ac8823a652fe9ef84e8fd122047f640dddf09cc2cfc76bbecc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFindingsFilter", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1804,11 +1230,11 @@ class CfnFindingsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="attrFindingsFilterListItems")
-    def attr_findings_filter_list_items(self) -> _IResolvable_da3f097b:
+    def attr_findings_filter_list_items(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: FindingsFilterListItems
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrFindingsFilterListItems"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrFindingsFilterListItems"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1821,9 +1247,9 @@ class CfnFindingsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1832,22 +1258,22 @@ class CfnFindingsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="findingsFilterRef")
-    def findings_filter_ref(self) -> FindingsFilterReference:
+    def findings_filter_ref(self) -> "_FindingsFilterReference_120c88a0":
         '''A reference to a FindingsFilter resource.'''
-        return typing.cast(FindingsFilterReference, jsii.get(self, "findingsFilterRef"))
+        return typing.cast("_FindingsFilterReference_120c88a0", jsii.get(self, "findingsFilterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="findingCriteria")
     def finding_criteria(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.FindingCriteriaProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.FindingCriteriaProperty"]:
         '''The criteria to use to filter findings.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.FindingCriteriaProperty"], jsii.get(self, "findingCriteria"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.FindingCriteriaProperty"], jsii.get(self, "findingCriteria"))
 
     @finding_criteria.setter
     def finding_criteria(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.FindingCriteriaProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.FindingCriteriaProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dca4bea48d84a530685d7cefc7aab036a382728b48d306044f2a518d375e31af)
@@ -1917,12 +1343,12 @@ class CfnFindingsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to the findings filter.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2938166140c0d9bc3b00ec9416a0d2ded3ffa13f976a15913539bd9cfb21bc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2080,7 +1506,7 @@ class CfnFindingsFilter(
         def __init__(
             self,
             *,
-            criterion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnFindingsFilter.CriterionAdditionalPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            criterion: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnFindingsFilter.CriterionAdditionalPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies, as a map, one or more property-based conditions for a findings filter.
 
@@ -2120,13 +1546,13 @@ class CfnFindingsFilter(
         @builtins.property
         def criterion(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.CriterionAdditionalPropertiesProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.CriterionAdditionalPropertiesProperty"]]]]:
             '''Specifies a condition that defines the property, operator, and one or more values to use to filter the results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-macie-findingsfilter-findingcriteria.html#cfn-macie-findingsfilter-findingcriteria-criterion
             '''
             result = self._values.get("criterion")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnFindingsFilter.CriterionAdditionalPropertiesProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.CriterionAdditionalPropertiesProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2207,7 +1633,176 @@ class CfnFindingsFilter(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ISessionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_macie.CfnFindingsFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "finding_criteria": "findingCriteria",
+        "name": "name",
+        "action": "action",
+        "description": "description",
+        "position": "position",
+        "tags": "tags",
+    },
+)
+class CfnFindingsFilterProps:
+    def __init__(
+        self,
+        *,
+        finding_criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFindingsFilter.FindingCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        action: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        position: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFindingsFilter``.
+
+        :param finding_criteria: The criteria to use to filter findings.
+        :param name: A custom name for the findings filter. The name can contain 3-64 characters. Avoid including sensitive data in the name. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
+        :param action: The action to perform on findings that match the filter criteria ( ``FindingCriteria`` ). Valid values are:. - ``ARCHIVE`` - Suppress (automatically archive) the findings. - ``NOOP`` - Don't perform any action on the findings.
+        :param description: A custom description of the findings filter. The description can contain 1-512 characters. Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
+        :param position: The position of the findings filter in the list of saved filter rules on the Amazon Macie console. This value also determines the order in which the filter is applied to findings, relative to other filters that are also applied to findings.
+        :param tags: An array of key-value pairs to apply to the findings filter. For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_macie as macie
+            
+            cfn_findings_filter_props = macie.CfnFindingsFilterProps(
+                finding_criteria=macie.CfnFindingsFilter.FindingCriteriaProperty(
+                    criterion={
+                        "criterion_key": macie.CfnFindingsFilter.CriterionAdditionalPropertiesProperty(
+                            eq=["eq"],
+                            gt=123,
+                            gte=123,
+                            lt=123,
+                            lte=123,
+                            neq=["neq"]
+                        )
+                    }
+                ),
+                name="name",
+            
+                # the properties below are optional
+                action="action",
+                description="description",
+                position=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4769b70b8b409b7293b4cfb98a775272d6996bc39a6b96c3ad8c76c7aae51f1)
+            check_type(argname="argument finding_criteria", value=finding_criteria, expected_type=type_hints["finding_criteria"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument position", value=position, expected_type=type_hints["position"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "finding_criteria": finding_criteria,
+            "name": name,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if description is not None:
+            self._values["description"] = description
+        if position is not None:
+            self._values["position"] = position
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def finding_criteria(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.FindingCriteriaProperty"]:
+        '''The criteria to use to filter findings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-findingcriteria
+        '''
+        result = self._values.get("finding_criteria")
+        assert result is not None, "Required property 'finding_criteria' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFindingsFilter.FindingCriteriaProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A custom name for the findings filter. The name can contain 3-64 characters.
+
+        Avoid including sensitive data in the name. Users of the account might be able to see the name, depending on the actions that they're allowed to perform in Amazon Macie .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action(self) -> typing.Optional[builtins.str]:
+        '''The action to perform on findings that match the filter criteria ( ``FindingCriteria`` ). Valid values are:.
+
+        - ``ARCHIVE`` - Suppress (automatically archive) the findings.
+        - ``NOOP`` - Don't perform any action on the findings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-action
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A custom description of the findings filter. The description can contain 1-512 characters.
+
+        Avoid including sensitive data in the description. Users of the account might be able to see the description, depending on the actions that they're allowed to perform in Amazon Macie .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def position(self) -> typing.Optional[jsii.Number]:
+        '''The position of the findings filter in the list of saved filter rules on the Amazon Macie console.
+
+        This value also determines the order in which the filter is applied to findings, relative to other filters that are also applied to findings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-position
+        '''
+        result = self._values.get("position")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to the findings filter.
+
+        For more information, see `Resource tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-findingsfilter.html#cfn-macie-findingsfilter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFindingsFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISessionRef_96c5473a)
 class CfnSession(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2237,16 +1832,17 @@ class CfnSession(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         finding_publishing_frequency: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Macie::Session``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param finding_publishing_frequency: Specifies how often Amazon Macie publishes updates to policy findings for the account. This includes publishing updates to AWS Security Hub and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are: - FIFTEEN_MINUTES - ONE_HOUR - SIX_HOURS Default: - "SIX_HOURS"
+        :param finding_publishing_frequency: Specifies how often Amazon Macie publishes updates to policy findings for the account. This includes publishing updates to AWS Security Hub CSPM and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are: - FIFTEEN_MINUTES - ONE_HOUR - SIX_HOURS Default: - "SIX_HOURS"
         :param status: The status of Amazon Macie for the account. Valid values are: ``ENABLED`` , start or resume Macie activities for the account; and, ``PAUSED`` , suspend Macie activities for the account. Default: - "ENABLED"
         '''
         if __debug__:
@@ -2259,8 +1855,20 @@ class CfnSession(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnSession")
+    @builtins.classmethod
+    def is_cfn_session(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSession.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c543c37f01be54c7311450cab15395c4ebb49adfffe8437a38ac184db5aa6bb2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSession", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2325,9 +1933,9 @@ class CfnSession(
 
     @builtins.property
     @jsii.member(jsii_name="sessionRef")
-    def session_ref(self) -> SessionReference:
+    def session_ref(self) -> "_SessionReference_0a005ceb":
         '''A reference to a Session resource.'''
-        return typing.cast(SessionReference, jsii.get(self, "sessionRef"))
+        return typing.cast("_SessionReference_0a005ceb", jsii.get(self, "sessionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="findingPublishingFrequency")
@@ -2359,8 +1967,93 @@ class CfnSession(
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_macie.CfnSessionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "finding_publishing_frequency": "findingPublishingFrequency",
+        "status": "status",
+    },
+)
+class CfnSessionProps:
+    def __init__(
+        self,
+        *,
+        finding_publishing_frequency: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSession``.
+
+        :param finding_publishing_frequency: Specifies how often Amazon Macie publishes updates to policy findings for the account. This includes publishing updates to AWS Security Hub CSPM and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are: - FIFTEEN_MINUTES - ONE_HOUR - SIX_HOURS Default: - "SIX_HOURS"
+        :param status: The status of Amazon Macie for the account. Valid values are: ``ENABLED`` , start or resume Macie activities for the account; and, ``PAUSED`` , suspend Macie activities for the account. Default: - "ENABLED"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_macie as macie
+            
+            cfn_session_props = macie.CfnSessionProps(
+                finding_publishing_frequency="findingPublishingFrequency",
+                status="status"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b2377975304db82e025e7e966713f33964f9e33889db82b2e26a095d3fb3f14)
+            check_type(argname="argument finding_publishing_frequency", value=finding_publishing_frequency, expected_type=type_hints["finding_publishing_frequency"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if finding_publishing_frequency is not None:
+            self._values["finding_publishing_frequency"] = finding_publishing_frequency
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def finding_publishing_frequency(self) -> typing.Optional[builtins.str]:
+        '''Specifies how often Amazon Macie publishes updates to policy findings for the account.
+
+        This includes publishing updates to AWS Security Hub CSPM and Amazon EventBridge (formerly Amazon CloudWatch Events ). Valid values are:
+
+        - FIFTEEN_MINUTES
+        - ONE_HOUR
+        - SIX_HOURS
+
+        :default: - "SIX_HOURS"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html#cfn-macie-session-findingpublishingfrequency
+        '''
+        result = self._values.get("finding_publishing_frequency")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of Amazon Macie for the account.
+
+        Valid values are: ``ENABLED`` , start or resume Macie activities for the account; and, ``PAUSED`` , suspend Macie activities for the account.
+
+        :default: - "ENABLED"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-macie-session.html#cfn-macie-session-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSessionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AllowListReference",
     "CfnAllowList",
     "CfnAllowListProps",
     "CfnCustomDataIdentifier",
@@ -2369,90 +2062,9 @@ __all__ = [
     "CfnFindingsFilterProps",
     "CfnSession",
     "CfnSessionProps",
-    "CustomDataIdentifierReference",
-    "FindingsFilterReference",
-    "IAllowListRef",
-    "ICustomDataIdentifierRef",
-    "IFindingsFilterRef",
-    "ISessionRef",
-    "SessionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__eee216d217b47ed0489f2d524878a1df4b9a0b79360a2d4142a4c6dee8d8907b(
-    *,
-    allow_list_arn: builtins.str,
-    allow_list_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4cde4980d3f47e6973fbc0136f9a40cf0f5706f781fb45f3cc0aad4b99e96d39(
-    *,
-    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAllowList.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b153bc4a75175074214978bb8d0954e3d477b6896260fae9394ce3a3f3ef2463(
-    *,
-    name: builtins.str,
-    regex: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    ignore_words: typing.Optional[typing.Sequence[builtins.str]] = None,
-    keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
-    maximum_match_distance: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e4769b70b8b409b7293b4cfb98a775272d6996bc39a6b96c3ad8c76c7aae51f1(
-    *,
-    finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFindingsFilter.FindingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    action: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    position: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7b2377975304db82e025e7e966713f33964f9e33889db82b2e26a095d3fb3f14(
-    *,
-    finding_publishing_frequency: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1c688d05152c4c7de9a1dc836a9e5620ab26f1d978a6cb4f41194a59f0ce779e(
-    *,
-    custom_data_identifier_arn: builtins.str,
-    custom_data_identifier_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b01f8f20e805c5da19eb3131ac38ce5c218c4d2e298d59b14754401884c7be3(
-    *,
-    findings_filter_arn: builtins.str,
-    findings_filter_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e0e72b62029f065559f7910eade34dbbe61f82ce5b10a36e191597c67c108ef6(
-    *,
-    aws_account_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__ef55cb8aaca32dcf264ac0e8768dc1c5a0b1471c41c8de3c9575f20000ca4bd9(
     scope: _constructs_77d1e7e8.Construct,
@@ -2462,6 +2074,18 @@ def _typecheckingstub__ef55cb8aaca32dcf264ac0e8768dc1c5a0b1471c41c8de3c9575f2000
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fedad2a68eb91135625e77bd721cd53f201572e319c0c53b4833459f3277f4c(
+    resource: _IAllowListRef_966cd924,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ae8835289876b4748f999905f3083a259f0290f77205e9ed79bf8975f47b218(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2518,6 +2142,16 @@ def _typecheckingstub__6728338d9836f378990a221bfcb5d4ebc176286721060379316cb0442
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4cde4980d3f47e6973fbc0136f9a40cf0f5706f781fb45f3cc0aad4b99e96d39(
+    *,
+    criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAllowList.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8462f70ed2396867e691499b8338ee06166375569e4774b35cad18418587284c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2529,6 +2163,18 @@ def _typecheckingstub__8462f70ed2396867e691499b8338ee06166375569e4774b35cad18418
     keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
     maximum_match_distance: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70ba3e65c40801f92045549f95de020360fa376de498b4b455198bd88b16f5ba(
+    resource: _ICustomDataIdentifierRef_a9132897,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ab9e5b769107e10259b1614f394b384eb37138089bca9bccd83fbfcfe51163b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2587,6 +2233,19 @@ def _typecheckingstub__cbcbca5473de6420ab12d74134f837e4e6f3d3129ac85bc0de5628236
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b153bc4a75175074214978bb8d0954e3d477b6896260fae9394ce3a3f3ef2463(
+    *,
+    name: builtins.str,
+    regex: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    ignore_words: typing.Optional[typing.Sequence[builtins.str]] = None,
+    keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
+    maximum_match_distance: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__11b08ade332eec06142e65a0667c3f977a9418dbb1685fc4d53acba74840039e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2597,6 +2256,18 @@ def _typecheckingstub__11b08ade332eec06142e65a0667c3f977a9418dbb1685fc4d53acba74
     description: typing.Optional[builtins.str] = None,
     position: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4958ec0cd32d45b8bf4be7ecdb8e1d43b577eb97fa9a3eadd789d91afbf176d0(
+    resource: _IFindingsFilterRef_4f285375,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0315a5358c8799ac8823a652fe9ef84e8fd122047f640dddf09cc2cfc76bbecc(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2676,12 +2347,30 @@ def _typecheckingstub__b7156e20d45f08aa3f36cbd419e31b5c99ba4fc02173fd094581cde0d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e4769b70b8b409b7293b4cfb98a775272d6996bc39a6b96c3ad8c76c7aae51f1(
+    *,
+    finding_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFindingsFilter.FindingCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    action: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    position: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__459832705822182508c6f2e0693fc53e3b0d82a4e148ecfdd93f163e3afc3417(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     finding_publishing_frequency: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c543c37f01be54c7311450cab15395c4ebb49adfffe8437a38ac184db5aa6bb2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2706,6 +2395,14 @@ def _typecheckingstub__bbab990e35f30e653778479d30de4521365d972399b5f819c47f60195
 
 def _typecheckingstub__8e25551195a36935d5b88ee54046aee0f17d2de93fdfb0eaa1a2571fd568ef3f(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b2377975304db82e025e7e966713f33964f9e33889db82b2e26a095d3fb3f14(
+    *,
+    finding_publishing_frequency: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

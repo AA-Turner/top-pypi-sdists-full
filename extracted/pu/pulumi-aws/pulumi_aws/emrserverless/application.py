@@ -30,9 +30,12 @@ class ApplicationArgs:
                  initial_capacities: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationInitialCapacityArgs']]]] = None,
                  interactive_configuration: Optional[pulumi.Input['ApplicationInteractiveConfigurationArgs']] = None,
                  maximum_capacity: Optional[pulumi.Input['ApplicationMaximumCapacityArgs']] = None,
+                 monitoring_configuration: Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_configuration: Optional[pulumi.Input['ApplicationNetworkConfigurationArgs']] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_configurations: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]] = None,
+                 scheduler_configuration: Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Application resource.
@@ -45,9 +48,12 @@ class ApplicationArgs:
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationInitialCapacityArgs']]] initial_capacities: The capacity to initialize when the application is created.
         :param pulumi.Input['ApplicationInteractiveConfigurationArgs'] interactive_configuration: Enables the interactive use cases to use when running an application.
         :param pulumi.Input['ApplicationMaximumCapacityArgs'] maximum_capacity: The maximum capacity to allocate when the application is created. This is cumulative across all workers at any given point in time, not just when an application is created. No new resources will be created once any one of the defined limits is hit.
+        :param pulumi.Input['ApplicationMonitoringConfigurationArgs'] monitoring_configuration: The configuration setting for monitoring.
         :param pulumi.Input[_builtins.str] name: The name of the application.
         :param pulumi.Input['ApplicationNetworkConfigurationArgs'] network_configuration: The network configuration for customer VPC connectivity.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
+        :param pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]] runtime_configurations: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param pulumi.Input['ApplicationSchedulerConfigurationArgs'] scheduler_configuration: Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value mapping of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         pulumi.set(__self__, "release_label", release_label)
@@ -66,12 +72,18 @@ class ApplicationArgs:
             pulumi.set(__self__, "interactive_configuration", interactive_configuration)
         if maximum_capacity is not None:
             pulumi.set(__self__, "maximum_capacity", maximum_capacity)
+        if monitoring_configuration is not None:
+            pulumi.set(__self__, "monitoring_configuration", monitoring_configuration)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if network_configuration is not None:
             pulumi.set(__self__, "network_configuration", network_configuration)
         if region is not None:
             pulumi.set(__self__, "region", region)
+        if runtime_configurations is not None:
+            pulumi.set(__self__, "runtime_configurations", runtime_configurations)
+        if scheduler_configuration is not None:
+            pulumi.set(__self__, "scheduler_configuration", scheduler_configuration)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
 
@@ -184,6 +196,18 @@ class ApplicationArgs:
         pulumi.set(self, "maximum_capacity", value)
 
     @_builtins.property
+    @pulumi.getter(name="monitoringConfiguration")
+    def monitoring_configuration(self) -> Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']]:
+        """
+        The configuration setting for monitoring.
+        """
+        return pulumi.get(self, "monitoring_configuration")
+
+    @monitoring_configuration.setter
+    def monitoring_configuration(self, value: Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']]):
+        pulumi.set(self, "monitoring_configuration", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -220,6 +244,30 @@ class ApplicationArgs:
         pulumi.set(self, "region", value)
 
     @_builtins.property
+    @pulumi.getter(name="runtimeConfigurations")
+    def runtime_configurations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]]:
+        """
+        A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        """
+        return pulumi.get(self, "runtime_configurations")
+
+    @runtime_configurations.setter
+    def runtime_configurations(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]]):
+        pulumi.set(self, "runtime_configurations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schedulerConfiguration")
+    def scheduler_configuration(self) -> Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']]:
+        """
+        Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
+        """
+        return pulumi.get(self, "scheduler_configuration")
+
+    @scheduler_configuration.setter
+    def scheduler_configuration(self, value: Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']]):
+        pulumi.set(self, "scheduler_configuration", value)
+
+    @_builtins.property
     @pulumi.getter
     def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
         """
@@ -243,10 +291,13 @@ class _ApplicationState:
                  initial_capacities: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationInitialCapacityArgs']]]] = None,
                  interactive_configuration: Optional[pulumi.Input['ApplicationInteractiveConfigurationArgs']] = None,
                  maximum_capacity: Optional[pulumi.Input['ApplicationMaximumCapacityArgs']] = None,
+                 monitoring_configuration: Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_configuration: Optional[pulumi.Input['ApplicationNetworkConfigurationArgs']] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  release_label: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_configurations: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]] = None,
+                 scheduler_configuration: Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None):
@@ -260,10 +311,13 @@ class _ApplicationState:
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationInitialCapacityArgs']]] initial_capacities: The capacity to initialize when the application is created.
         :param pulumi.Input['ApplicationInteractiveConfigurationArgs'] interactive_configuration: Enables the interactive use cases to use when running an application.
         :param pulumi.Input['ApplicationMaximumCapacityArgs'] maximum_capacity: The maximum capacity to allocate when the application is created. This is cumulative across all workers at any given point in time, not just when an application is created. No new resources will be created once any one of the defined limits is hit.
+        :param pulumi.Input['ApplicationMonitoringConfigurationArgs'] monitoring_configuration: The configuration setting for monitoring.
         :param pulumi.Input[_builtins.str] name: The name of the application.
         :param pulumi.Input['ApplicationNetworkConfigurationArgs'] network_configuration: The network configuration for customer VPC connectivity.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] release_label: The EMR release version associated with the application.
+        :param pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]] runtime_configurations: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param pulumi.Input['ApplicationSchedulerConfigurationArgs'] scheduler_configuration: Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value mapping of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         :param pulumi.Input[_builtins.str] type: The type of application you want to start, such as `spark` or `hive`.
@@ -284,6 +338,8 @@ class _ApplicationState:
             pulumi.set(__self__, "interactive_configuration", interactive_configuration)
         if maximum_capacity is not None:
             pulumi.set(__self__, "maximum_capacity", maximum_capacity)
+        if monitoring_configuration is not None:
+            pulumi.set(__self__, "monitoring_configuration", monitoring_configuration)
         if name is not None:
             pulumi.set(__self__, "name", name)
         if network_configuration is not None:
@@ -292,6 +348,10 @@ class _ApplicationState:
             pulumi.set(__self__, "region", region)
         if release_label is not None:
             pulumi.set(__self__, "release_label", release_label)
+        if runtime_configurations is not None:
+            pulumi.set(__self__, "runtime_configurations", runtime_configurations)
+        if scheduler_configuration is not None:
+            pulumi.set(__self__, "scheduler_configuration", scheduler_configuration)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
         if tags_all is not None:
@@ -396,6 +456,18 @@ class _ApplicationState:
         pulumi.set(self, "maximum_capacity", value)
 
     @_builtins.property
+    @pulumi.getter(name="monitoringConfiguration")
+    def monitoring_configuration(self) -> Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']]:
+        """
+        The configuration setting for monitoring.
+        """
+        return pulumi.get(self, "monitoring_configuration")
+
+    @monitoring_configuration.setter
+    def monitoring_configuration(self, value: Optional[pulumi.Input['ApplicationMonitoringConfigurationArgs']]):
+        pulumi.set(self, "monitoring_configuration", value)
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -442,6 +514,30 @@ class _ApplicationState:
     @release_label.setter
     def release_label(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "release_label", value)
+
+    @_builtins.property
+    @pulumi.getter(name="runtimeConfigurations")
+    def runtime_configurations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]]:
+        """
+        A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        """
+        return pulumi.get(self, "runtime_configurations")
+
+    @runtime_configurations.setter
+    def runtime_configurations(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationRuntimeConfigurationArgs']]]]):
+        pulumi.set(self, "runtime_configurations", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schedulerConfiguration")
+    def scheduler_configuration(self) -> Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']]:
+        """
+        Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
+        """
+        return pulumi.get(self, "scheduler_configuration")
+
+    @scheduler_configuration.setter
+    def scheduler_configuration(self, value: Optional[pulumi.Input['ApplicationSchedulerConfigurationArgs']]):
+        pulumi.set(self, "scheduler_configuration", value)
 
     @_builtins.property
     @pulumi.getter
@@ -493,10 +589,13 @@ class Application(pulumi.CustomResource):
                  initial_capacities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationInitialCapacityArgs', 'ApplicationInitialCapacityArgsDict']]]]] = None,
                  interactive_configuration: Optional[pulumi.Input[Union['ApplicationInteractiveConfigurationArgs', 'ApplicationInteractiveConfigurationArgsDict']]] = None,
                  maximum_capacity: Optional[pulumi.Input[Union['ApplicationMaximumCapacityArgs', 'ApplicationMaximumCapacityArgsDict']]] = None,
+                 monitoring_configuration: Optional[pulumi.Input[Union['ApplicationMonitoringConfigurationArgs', 'ApplicationMonitoringConfigurationArgsDict']]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_configuration: Optional[pulumi.Input[Union['ApplicationNetworkConfigurationArgs', 'ApplicationNetworkConfigurationArgsDict']]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  release_label: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationRuntimeConfigurationArgs', 'ApplicationRuntimeConfigurationArgsDict']]]]] = None,
+                 scheduler_configuration: Optional[pulumi.Input[Union['ApplicationSchedulerConfigurationArgs', 'ApplicationSchedulerConfigurationArgsDict']]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
@@ -555,9 +654,76 @@ class Application(pulumi.CustomResource):
             })
         ```
 
+        ### Monitoring Configuration Usage
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.emrserverless.Application("example",
+            name="example",
+            release_label="emr-7.1.0",
+            type="spark",
+            monitoring_configuration={
+                "cloudwatch_logging_configuration": {
+                    "enabled": True,
+                    "log_group_name": "/aws/emr-serverless/example",
+                    "log_stream_name_prefix": "spark-logs",
+                    "log_types": [
+                        {
+                            "name": "SPARK_DRIVER",
+                            "values": [
+                                "STDOUT",
+                                "STDERR",
+                            ],
+                        },
+                        {
+                            "name": "SPARK_EXECUTOR",
+                            "values": ["STDOUT"],
+                        },
+                    ],
+                },
+                "managed_persistence_monitoring_configuration": {
+                    "enabled": True,
+                },
+                "prometheus_monitoring_configuration": {
+                    "remote_write_url": "https://prometheus-remote-write-endpoint.example.com/api/v1/write",
+                },
+            })
+        ```
+
+        ### Runtime Configuration Usage
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.emrserverless.Application("example",
+            name="example",
+            release_label="emr-6.8.0",
+            type="spark",
+            runtime_configurations=[
+                {
+                    "classification": "spark-executor-log4j2",
+                    "properties": {
+                        "rootLogger.level": "error",
+                        "logger.IdentifierForClass.name": "classpathForSettingLogger",
+                        "logger.IdentifierForClass.level": "info",
+                    },
+                },
+                {
+                    "classification": "spark-defaults",
+                    "properties": {
+                        "spark.executor.memory": "1g",
+                        "spark.executor.cores": "1",
+                    },
+                },
+            ])
+        ```
+
         ## Import
 
-        Using `pulumi import`, import EMR Severless applications using the `id`. For example:
+        Using `pulumi import`, import EMR Serverless applications using the `id`. For example:
 
         ```sh
         $ pulumi import aws:emrserverless/application:Application example id
@@ -572,10 +738,13 @@ class Application(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationInitialCapacityArgs', 'ApplicationInitialCapacityArgsDict']]]] initial_capacities: The capacity to initialize when the application is created.
         :param pulumi.Input[Union['ApplicationInteractiveConfigurationArgs', 'ApplicationInteractiveConfigurationArgsDict']] interactive_configuration: Enables the interactive use cases to use when running an application.
         :param pulumi.Input[Union['ApplicationMaximumCapacityArgs', 'ApplicationMaximumCapacityArgsDict']] maximum_capacity: The maximum capacity to allocate when the application is created. This is cumulative across all workers at any given point in time, not just when an application is created. No new resources will be created once any one of the defined limits is hit.
+        :param pulumi.Input[Union['ApplicationMonitoringConfigurationArgs', 'ApplicationMonitoringConfigurationArgsDict']] monitoring_configuration: The configuration setting for monitoring.
         :param pulumi.Input[_builtins.str] name: The name of the application.
         :param pulumi.Input[Union['ApplicationNetworkConfigurationArgs', 'ApplicationNetworkConfigurationArgsDict']] network_configuration: The network configuration for customer VPC connectivity.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] release_label: The EMR release version associated with the application.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationRuntimeConfigurationArgs', 'ApplicationRuntimeConfigurationArgsDict']]]] runtime_configurations: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param pulumi.Input[Union['ApplicationSchedulerConfigurationArgs', 'ApplicationSchedulerConfigurationArgsDict']] scheduler_configuration: Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value mapping of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[_builtins.str] type: The type of application you want to start, such as `spark` or `hive`.
         """
@@ -640,9 +809,76 @@ class Application(pulumi.CustomResource):
             })
         ```
 
+        ### Monitoring Configuration Usage
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.emrserverless.Application("example",
+            name="example",
+            release_label="emr-7.1.0",
+            type="spark",
+            monitoring_configuration={
+                "cloudwatch_logging_configuration": {
+                    "enabled": True,
+                    "log_group_name": "/aws/emr-serverless/example",
+                    "log_stream_name_prefix": "spark-logs",
+                    "log_types": [
+                        {
+                            "name": "SPARK_DRIVER",
+                            "values": [
+                                "STDOUT",
+                                "STDERR",
+                            ],
+                        },
+                        {
+                            "name": "SPARK_EXECUTOR",
+                            "values": ["STDOUT"],
+                        },
+                    ],
+                },
+                "managed_persistence_monitoring_configuration": {
+                    "enabled": True,
+                },
+                "prometheus_monitoring_configuration": {
+                    "remote_write_url": "https://prometheus-remote-write-endpoint.example.com/api/v1/write",
+                },
+            })
+        ```
+
+        ### Runtime Configuration Usage
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.emrserverless.Application("example",
+            name="example",
+            release_label="emr-6.8.0",
+            type="spark",
+            runtime_configurations=[
+                {
+                    "classification": "spark-executor-log4j2",
+                    "properties": {
+                        "rootLogger.level": "error",
+                        "logger.IdentifierForClass.name": "classpathForSettingLogger",
+                        "logger.IdentifierForClass.level": "info",
+                    },
+                },
+                {
+                    "classification": "spark-defaults",
+                    "properties": {
+                        "spark.executor.memory": "1g",
+                        "spark.executor.cores": "1",
+                    },
+                },
+            ])
+        ```
+
         ## Import
 
-        Using `pulumi import`, import EMR Severless applications using the `id`. For example:
+        Using `pulumi import`, import EMR Serverless applications using the `id`. For example:
 
         ```sh
         $ pulumi import aws:emrserverless/application:Application example id
@@ -670,10 +906,13 @@ class Application(pulumi.CustomResource):
                  initial_capacities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationInitialCapacityArgs', 'ApplicationInitialCapacityArgsDict']]]]] = None,
                  interactive_configuration: Optional[pulumi.Input[Union['ApplicationInteractiveConfigurationArgs', 'ApplicationInteractiveConfigurationArgsDict']]] = None,
                  maximum_capacity: Optional[pulumi.Input[Union['ApplicationMaximumCapacityArgs', 'ApplicationMaximumCapacityArgsDict']]] = None,
+                 monitoring_configuration: Optional[pulumi.Input[Union['ApplicationMonitoringConfigurationArgs', 'ApplicationMonitoringConfigurationArgsDict']]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_configuration: Optional[pulumi.Input[Union['ApplicationNetworkConfigurationArgs', 'ApplicationNetworkConfigurationArgsDict']]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  release_label: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationRuntimeConfigurationArgs', 'ApplicationRuntimeConfigurationArgsDict']]]]] = None,
+                 scheduler_configuration: Optional[pulumi.Input[Union['ApplicationSchedulerConfigurationArgs', 'ApplicationSchedulerConfigurationArgsDict']]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
@@ -692,12 +931,15 @@ class Application(pulumi.CustomResource):
             __props__.__dict__["initial_capacities"] = initial_capacities
             __props__.__dict__["interactive_configuration"] = interactive_configuration
             __props__.__dict__["maximum_capacity"] = maximum_capacity
+            __props__.__dict__["monitoring_configuration"] = monitoring_configuration
             __props__.__dict__["name"] = name
             __props__.__dict__["network_configuration"] = network_configuration
             __props__.__dict__["region"] = region
             if release_label is None and not opts.urn:
                 raise TypeError("Missing required property 'release_label'")
             __props__.__dict__["release_label"] = release_label
+            __props__.__dict__["runtime_configurations"] = runtime_configurations
+            __props__.__dict__["scheduler_configuration"] = scheduler_configuration
             __props__.__dict__["tags"] = tags
             if type is None and not opts.urn:
                 raise TypeError("Missing required property 'type'")
@@ -722,10 +964,13 @@ class Application(pulumi.CustomResource):
             initial_capacities: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationInitialCapacityArgs', 'ApplicationInitialCapacityArgsDict']]]]] = None,
             interactive_configuration: Optional[pulumi.Input[Union['ApplicationInteractiveConfigurationArgs', 'ApplicationInteractiveConfigurationArgsDict']]] = None,
             maximum_capacity: Optional[pulumi.Input[Union['ApplicationMaximumCapacityArgs', 'ApplicationMaximumCapacityArgsDict']]] = None,
+            monitoring_configuration: Optional[pulumi.Input[Union['ApplicationMonitoringConfigurationArgs', 'ApplicationMonitoringConfigurationArgsDict']]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             network_configuration: Optional[pulumi.Input[Union['ApplicationNetworkConfigurationArgs', 'ApplicationNetworkConfigurationArgsDict']]] = None,
             region: Optional[pulumi.Input[_builtins.str]] = None,
             release_label: Optional[pulumi.Input[_builtins.str]] = None,
+            runtime_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationRuntimeConfigurationArgs', 'ApplicationRuntimeConfigurationArgsDict']]]]] = None,
+            scheduler_configuration: Optional[pulumi.Input[Union['ApplicationSchedulerConfigurationArgs', 'ApplicationSchedulerConfigurationArgsDict']]] = None,
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             type: Optional[pulumi.Input[_builtins.str]] = None) -> 'Application':
@@ -744,10 +989,13 @@ class Application(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationInitialCapacityArgs', 'ApplicationInitialCapacityArgsDict']]]] initial_capacities: The capacity to initialize when the application is created.
         :param pulumi.Input[Union['ApplicationInteractiveConfigurationArgs', 'ApplicationInteractiveConfigurationArgsDict']] interactive_configuration: Enables the interactive use cases to use when running an application.
         :param pulumi.Input[Union['ApplicationMaximumCapacityArgs', 'ApplicationMaximumCapacityArgsDict']] maximum_capacity: The maximum capacity to allocate when the application is created. This is cumulative across all workers at any given point in time, not just when an application is created. No new resources will be created once any one of the defined limits is hit.
+        :param pulumi.Input[Union['ApplicationMonitoringConfigurationArgs', 'ApplicationMonitoringConfigurationArgsDict']] monitoring_configuration: The configuration setting for monitoring.
         :param pulumi.Input[_builtins.str] name: The name of the application.
         :param pulumi.Input[Union['ApplicationNetworkConfigurationArgs', 'ApplicationNetworkConfigurationArgsDict']] network_configuration: The network configuration for customer VPC connectivity.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] release_label: The EMR release version associated with the application.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationRuntimeConfigurationArgs', 'ApplicationRuntimeConfigurationArgsDict']]]] runtime_configurations: A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        :param pulumi.Input[Union['ApplicationSchedulerConfigurationArgs', 'ApplicationSchedulerConfigurationArgsDict']] scheduler_configuration: Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value mapping of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         :param pulumi.Input[_builtins.str] type: The type of application you want to start, such as `spark` or `hive`.
@@ -764,10 +1012,13 @@ class Application(pulumi.CustomResource):
         __props__.__dict__["initial_capacities"] = initial_capacities
         __props__.__dict__["interactive_configuration"] = interactive_configuration
         __props__.__dict__["maximum_capacity"] = maximum_capacity
+        __props__.__dict__["monitoring_configuration"] = monitoring_configuration
         __props__.__dict__["name"] = name
         __props__.__dict__["network_configuration"] = network_configuration
         __props__.__dict__["region"] = region
         __props__.__dict__["release_label"] = release_label
+        __props__.__dict__["runtime_configurations"] = runtime_configurations
+        __props__.__dict__["scheduler_configuration"] = scheduler_configuration
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
         __props__.__dict__["type"] = type
@@ -838,6 +1089,14 @@ class Application(pulumi.CustomResource):
         return pulumi.get(self, "maximum_capacity")
 
     @_builtins.property
+    @pulumi.getter(name="monitoringConfiguration")
+    def monitoring_configuration(self) -> pulumi.Output[Optional['outputs.ApplicationMonitoringConfiguration']]:
+        """
+        The configuration setting for monitoring.
+        """
+        return pulumi.get(self, "monitoring_configuration")
+
+    @_builtins.property
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
@@ -868,6 +1127,22 @@ class Application(pulumi.CustomResource):
         The EMR release version associated with the application.
         """
         return pulumi.get(self, "release_label")
+
+    @_builtins.property
+    @pulumi.getter(name="runtimeConfigurations")
+    def runtime_configurations(self) -> pulumi.Output[Optional[Sequence['outputs.ApplicationRuntimeConfiguration']]]:
+        """
+        A configuration specification to be used when provisioning an application. A configuration consists of a classification, properties, and optional nested configurations. A classification refers to an application-specific configuration file. Properties are the settings you want to change in that file.
+        """
+        return pulumi.get(self, "runtime_configurations")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulerConfiguration")
+    def scheduler_configuration(self) -> pulumi.Output[Optional['outputs.ApplicationSchedulerConfiguration']]:
+        """
+        Scheduler configuration for batch and streaming jobs running on this application. Supported with release labels `emr-7.0.0` and above. See scheduler_configuration Arguments below.
+        """
+        return pulumi.get(self, "scheduler_configuration")
 
     @_builtins.property
     @pulumi.getter

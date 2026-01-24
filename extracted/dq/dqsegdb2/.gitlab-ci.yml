@@ -1,0 +1,67 @@
+include:
+  # -- Python ------------------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/all@1
+    inputs:
+      code_quality_analyzer: ruff
+      python_versions:
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+      install_extra: "test"
+      extra_test_commands: &test_commands
+        # test module execution and command-line interface
+        - python3 -m coverage run --append --source dqsegdb2 --module dqsegdb2 --help
+        - dqsegdb2 --help
+        - dqsegdb2 query --help
+
+  # -- Debian packaging --------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/debian/all@2
+    inputs:
+      needs: [sdist]
+      debian_versions:
+        - bullseye
+        - bookworm
+      test_install: &system_test_install >-
+        dqsegdb2
+        python3-pytest
+        python3-pytest-cov
+        python3-requests-mock
+      test_script: &system_test_script
+        - python3 -m pytest
+            -ra
+            --cov dqsegdb2
+            --durations 0
+            --junit-xml junit.xml
+            --pyargs dqsegdb2
+            --verbose
+        - *test_commands
+        - python3 -m coverage xml
+
+  # -- Red Hat packaging -------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/redhat/all@2
+    inputs:
+      needs: [sdist]
+      redhat_versions:
+        - 8
+        - 9
+      rpmlint_options: "--config .rpmlint.toml"
+      test_install: *system_test_install
+      test_script: *system_test_script
+
+  # -- Documentation -----------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sphinx/build@~latest
+    inputs:
+      requirements: ".[docs]"
+
+# -- customisations ------------------
+
+# skip tests on old pytest
+redhat_test_el8:
+  variables:
+    PYTEST_ADDOPTS: "-ra -v --pyargs dqsegdb2.tests -k 'not test_query_mock'"

@@ -19,7 +19,7 @@ def test_handler_exception(activation_strategy, logger):
 
     with capturing_stderr_context() as stderr:
         with activation_strategy(ErroringHandler()):
-            logger.warn("I warn you.")
+            logger.warning("I warn you.")
     assert "something bad happened" in stderr.getvalue()
     assert "I warn you" not in stderr.getvalue()
 
@@ -36,7 +36,7 @@ def test_formatting_exception():
 
     record = make_record()
     with pytest.raises(TypeError) as caught:
-        record.message
+        record.message  # noqa: B018
 
     errormsg = str(caught.value)
     assert re.search(
@@ -49,7 +49,7 @@ def test_formatting_exception():
     assert "args=()" in errormsg
     assert "kwargs={'foo': 42}" in errormsg
     assert re.search(
-        r"Happened in file .*%s, line \d+" % re.escape(__file_without_pyc__),
+        r"Happened in file .*%s, line \d+" % re.escape(__file_without_pyc__),  # noqa: UP031
         errormsg,
         re.M | re.S,
     )

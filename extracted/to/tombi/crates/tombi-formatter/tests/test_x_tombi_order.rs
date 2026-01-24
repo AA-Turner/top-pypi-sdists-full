@@ -1,8 +1,8 @@
 mod table_keys_order {
-    use super::*;
+    use tombi_formatter::{Formatter, test_format};
 
     mod pyproject {
-        use super::test_format;
+        use super::*;
         use tombi_test_lib::pyproject_schema_path;
 
         test_format! {
@@ -19,7 +19,7 @@ mod table_keys_order {
                     {name = "Test Author", email = "test@example.com"}
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -44,7 +44,7 @@ mod table_keys_order {
                 requires-python = ">=3.10"
                 dependencies = ["tombi-cli>=0.0.0", "maturin>=1.5,<2.0"]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -53,7 +53,7 @@ mod table_keys_order {
                 description = "Reserved package for tombi"
                 requires-python = ">=3.10"
                 dependencies = ["maturin>=1.5,<2.0", "tombi-cli>=0.0.0"]
-                "#,
+                "#
             )
         }
 
@@ -68,7 +68,7 @@ mod table_keys_order {
                 requires-python = ">=3.10"
                 dependencies = ["tombi-cli>=0.0.0", "maturin>=1.5,<2.0",]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -80,7 +80,7 @@ mod table_keys_order {
                   "maturin>=1.5,<2.0",
                   "tombi-cli>=0.0.0",
                 ]
-                "#,
+                "#
             )
         }
 
@@ -100,7 +100,7 @@ mod table_keys_order {
                   "tombi-cli>=0.0.0"
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -112,9 +112,9 @@ mod table_keys_order {
                   "maturin>=1.5,<2.0",
                   "tombi-cli>=0.0.0",
                   "tombi-formatter>=0.0.0",
-                  "tombi-linter>=0.0.0",
+                  "tombi-linter>=0.0.0"
                 ]
-                "#,
+                "#
             )
         }
 
@@ -139,7 +139,7 @@ mod table_keys_order {
                   ,
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -157,7 +157,7 @@ mod table_keys_order {
                   "tombi-formatter>=0.0.0",
                   "tombi-linter>=0.0.0",
                 ]
-                "#,
+                "#
             )
         }
 
@@ -177,7 +177,7 @@ mod table_keys_order {
                   "ruff>=0.7.4"
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -189,9 +189,9 @@ mod table_keys_order {
                 [dependency-groups]
                 dev = [
                   "pytest>=8.3.3",  # pytest trailing comment
-                  "ruff>=0.7.4",
+                  "ruff>=0.7.4"
                 ]
-                "#,
+                "#
             )
         }
 
@@ -220,7 +220,7 @@ mod table_keys_order {
                   "pytest-stub>=1.1.0",
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -243,7 +243,7 @@ mod table_keys_order {
                 stub = [
                   "pytest-stub>=1.1.0",
                 ]
-                "#,
+                "#
             )
         }
 
@@ -267,7 +267,7 @@ mod table_keys_order {
                   "pytest-stub>=1.1.0",
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [dependency-groups]
@@ -285,7 +285,7 @@ mod table_keys_order {
                 stub = [
                   "pytest-stub>=1.1.0",
                 ]
-                "#,
+                "#
             )
         }
 
@@ -305,7 +305,7 @@ mod table_keys_order {
                 pydantic = "^2.5"
                 pandas = "^2.2.0"
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [project]
@@ -340,7 +340,7 @@ mod table_keys_order {
                 ]
                 ignore_errors = true
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [[tool.mypy.overrides]]
@@ -365,17 +365,17 @@ mod table_keys_order {
                 r#"
                 [tool.maturin]
                 include = [
-                  { path = "json.schemastore.org/**/*.json", format = "sdist" },
-                  { path = "json.tombi.dev/**/*.json", format = "sdist" },
+                  { path = "www.schemastore.org/**/*.json", format = "sdist" },
+                  { path = "www.schemastore.tombi/**/*.json", format = "sdist" },
                 ]
                 "#,
-                pyproject_schema_path(),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(
                 r#"
                 [tool.maturin]
                 include = [
-                  { format = "sdist", path = "json.schemastore.org/**/*.json" },
-                  { format = "sdist", path = "json.tombi.dev/**/*.json" },
+                  { format = "sdist", path = "www.schemastore.org/**/*.json" },
+                  { format = "sdist", path = "www.schemastore.tombi/**/*.json" },
                 ]
                 "#
             )
@@ -399,7 +399,7 @@ mod table_keys_order {
                 repository.workspace = true
                 version.workspace = true
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [package]
@@ -425,7 +425,7 @@ mod table_keys_order {
                 repository = { workspace = true }
                 version = { workspace = true }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [package]
@@ -452,7 +452,7 @@ mod table_keys_order {
                 repository = { workspace = true }
                 version = { workspace = true }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 # tombi: format.rules.table-keys-order.disabled = true
@@ -480,7 +480,7 @@ mod table_keys_order {
                 repository = { workspace = true }
                 version = { workspace = true }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 # tombi: format.rules.table-keys-order = "ascending"
@@ -507,7 +507,7 @@ mod table_keys_order {
                 serde = { features = ["derive"], version = "^1.0.0" }
                 clap = { version = "4.5.0" }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
@@ -531,7 +531,7 @@ mod table_keys_order {
                 default = ["clap", "native"]
                 native = ["tombi-schema-store/native"]
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [features]
@@ -550,7 +550,7 @@ mod table_keys_order {
                 [dependencies]
                 serde = { features = ["derive"], version = "^1.0.0" }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
@@ -566,7 +566,7 @@ mod table_keys_order {
                 [dependencies]
                 serde = { features = ["std", "derive",], version = "^1.0.0" }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
@@ -589,7 +589,7 @@ mod table_keys_order {
                   "std", "derive",
                 ], version = "^1.0.0" }
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
@@ -612,7 +612,7 @@ mod table_keys_order {
                 serde.features = ["derive"]
                 serde.workspace = true
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [workspace.dependencies]
@@ -637,7 +637,7 @@ mod table_keys_order {
                 reqwest.version = "0.12.9"
                 reqwest.features = ["json", "rustls-tls"]
                 "#,
-                cargo_schema_path(),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [workspace.dependencies]
@@ -655,23 +655,49 @@ mod table_keys_order {
     }
 
     mod tombi {
-        use super::test_format;
+        use super::*;
         use tombi_test_lib::tombi_schema_path;
 
         test_format! {
             #[tokio::test]
-            async fn test_tombi(
+            async fn test_tombi_schemas(
                 r#"
                 [[schemas]]
-                include = ["*.toml"]
-                path = "pyproject.toml"
+                include = ["type-test.toml"]
+                path = "schemas/type-test.schema.json"
                 "#,
-              tombi_schema_path(),
+                SchemaPath(tombi_schema_path()),
             ) -> Ok(
                 r#"
                 [[schemas]]
-                path = "pyproject.toml"
-                include = ["*.toml"]
+                path = "schemas/type-test.schema.json"
+                include = ["type-test.toml"]
+                "#
+            )
+        }
+
+        test_format! {
+            #[tokio::test]
+            async fn test_tombi_schemas_multiple(
+                r#"
+                [[schemas]]
+                include = ["type-test.toml"]
+                path = "schemas/type-test.schema.json"
+
+                [[schemas]]
+                include = ["type-test.toml"]
+                path = "schemas/type-test.schema.json"
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [[schemas]]
+                path = "schemas/type-test.schema.json"
+                include = ["type-test.toml"]
+
+                [[schemas]]
+                path = "schemas/type-test.schema.json"
+                include = ["type-test.toml"]
                 "#
             )
         }
@@ -680,7 +706,7 @@ mod table_keys_order {
     mod type_test {
         use tombi_test_lib::type_test_schema_path;
 
-        use super::test_format;
+        use super::*;
 
         test_format! {
             #[tokio::test]
@@ -698,7 +724,7 @@ mod table_keys_order {
                 [[array]]
                 integer = 3
                 "#,
-                type_test_schema_path(),
+                SchemaPath(type_test_schema_path()),
             ) -> Ok(source)
         }
 
@@ -727,13 +753,13 @@ mod table_keys_order {
                 [[array1]]
                 integer = 3
                 "#,
-                type_test_schema_path(),
+                SchemaPath(type_test_schema_path()),
             ) -> Ok(source)
         }
     }
 
     mod non_schema {
-        use super::test_format;
+        use super::*;
 
         test_format! {
             #[tokio::test]
@@ -892,7 +918,7 @@ mod table_keys_order {
 
                   3,
                   4,
-                  5,
+                  5
                 ]
                 "#
             )
@@ -975,7 +1001,7 @@ mod table_keys_order {
                   key5 = 5, key4 = 4, key3 = 3
                 }
                 "#,
-                TomlVersion(TomlVersion::V1_1_0_Preview),
+                TomlVersion::V1_1_0,
             ) -> Ok(
                 r#"
                 key = {
@@ -983,7 +1009,7 @@ mod table_keys_order {
 
                   key3 = 3,
                   key4 = 4,
-                  key5 = 5,
+                  key5 = 5
                 }
                 "#
             )
@@ -997,7 +1023,7 @@ mod table_keys_order {
                   key5 = 5, key4 = 4, key3 = 3,
                 }  # tombi: format.rules.table-keys-order = "ascending"
                 "#,
-                TomlVersion(TomlVersion::V1_1_0_Preview),
+                TomlVersion::V1_1_0,
             ) -> Ok(
                 r#"
                 key = {
@@ -1025,7 +1051,7 @@ mod table_keys_order {
                   key3 = 3 # trailing comment4
                 }
                 "#,
-                TomlVersion(TomlVersion::V1_1_0_Preview),
+                TomlVersion::V1_1_0,
             ) -> Ok(
                 r#"
                 key = {
@@ -1044,7 +1070,7 @@ mod table_keys_order {
     }
 
     mod file_schema {
-        use super::test_format;
+        use super::*;
 
         test_format! {
             #[tokio::test]
@@ -1430,202 +1456,5 @@ mod table_keys_order {
                 "#
             )
         }
-    }
-
-    #[macro_export]
-    macro_rules! test_format {
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                TomlVersion($toml_version:expr),
-                $schema_path:expr$(,)?
-            ) -> Ok(source)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    $toml_version,
-                    Some($schema_path),
-                ) -> Ok($source)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                TomlVersion($toml_version:expr),
-            ) -> Ok(source)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    $toml_version,
-                    Option::<&std::path::Path>::None,
-                ) -> Ok($source)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                $schema_path:expr$(,)?
-            ) -> Ok(source)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    TomlVersion::default(),
-                    Some($schema_path),
-                ) -> Ok($source)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                TomlVersion($toml_version:expr),
-                $schema_path:expr$(,)?
-            ) -> Ok($expected:expr$(,)?)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    $toml_version,
-                    Some($schema_path),
-                ) -> Ok($expected)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                TomlVersion($toml_version:expr),
-            ) -> Ok($expected:expr$(,)?)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    $toml_version,
-                    Option::<&std::path::Path>::None,
-                ) -> Ok($expected)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-                $schema_path:expr$(,)?
-            ) -> Ok($expected:expr$(,)?)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    TomlVersion::default(),
-                    Some($schema_path),
-                ) -> Ok($expected)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-            ) -> Ok(source)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    TomlVersion::default(),
-                    Option::<&std::path::Path>::None,
-                ) -> Ok($source)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn $name:ident(
-                $source:expr,
-            ) -> Ok($expected:expr$(,)?)
-        ) => {
-            test_format! {
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    TomlVersion::default(),
-                    Option::<&std::path::Path>::None,
-                ) -> Ok($expected)
-            }
-        };
-
-        (
-            #[tokio::test]
-            async fn _$name:ident(
-                $source:expr,
-                $toml_version:expr,
-                $schema_path:expr,
-            ) -> Ok($expected:expr$(,)?)
-        ) => {
-            #[tokio::test]
-            async fn $name() {
-                use textwrap::dedent;
-                use tombi_config::TomlVersion;
-                use tombi_formatter::{FormatDefinitions, FormatOptions, Formatter};
-                use tombi_schema_store::SchemaStore;
-
-                tombi_test_lib::init_tracing();
-
-                // Initialize schema store
-                let schema_store = SchemaStore::new();
-
-                if let Some(schema_path) = $schema_path {
-                    let path = tombi_uri::Uri::from_file_path(schema_path)
-                        .unwrap()
-                        .to_string();
-                    // Load schemas
-                    schema_store
-                        .load_config_schemas(
-                            &[tombi_config::Schema::Root(tombi_config::RootSchema {
-                                toml_version: None,
-                                path,
-                                include: vec!["*.toml".to_string()],
-                            })],
-                            None,
-                        )
-                        .await;
-                }
-
-                // Initialize formatter
-                let format_definitions = &FormatDefinitions::default();
-                let format_options = FormatOptions::default();
-                let source_path = tombi_test_lib::project_root_path().join("test.toml");
-                let formatter = Formatter::new(
-                    $toml_version,
-                    format_definitions,
-                    &format_options,
-                    Some(itertools::Either::Right(source_path.as_path())),
-                    &schema_store,
-                );
-
-                // Test that keys are reordered according to schema order
-                let source = dedent($source).trim().to_string();
-                let expected = dedent($expected).trim().to_string() + "\n";
-
-                let formatted = formatter.format(&source).await.unwrap();
-                pretty_assertions::assert_eq!(formatted, expected);
-            }
-        };
     }
 }

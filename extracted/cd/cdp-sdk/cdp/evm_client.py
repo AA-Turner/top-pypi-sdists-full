@@ -38,6 +38,9 @@ from cdp.openapi_client.models.evm_call import EvmCall
 from cdp.openapi_client.models.evm_user_operation import EvmUserOperation as EvmUserOperationModel
 from cdp.openapi_client.models.export_evm_account_request import ExportEvmAccountRequest
 from cdp.openapi_client.models.import_evm_account_request import ImportEvmAccountRequest
+from cdp.openapi_client.models.prepare_and_send_user_operation_request import (
+    PrepareAndSendUserOperationRequest,
+)
 from cdp.openapi_client.models.prepare_user_operation_request import (
     PrepareUserOperationRequest,
 )
@@ -587,6 +590,7 @@ class EvmClient:
         calls: list[EncodedCall],
         network: str,
         paymaster_url: str | None = None,
+        data_suffix: str | None = None,
     ) -> EvmUserOperationModel:
         """Prepare a user operation for a smart account.
 
@@ -595,6 +599,7 @@ class EvmClient:
             calls (list[EncodedCall]): The calls to prepare the user operation for.
             network (str): The network.
             paymaster_url (str, optional): The paymaster URL. Defaults to None.
+            data_suffix (str, optional): Optional data suffix (EIP-8021) to enable transaction attribution. Defaults to None.
 
         Returns:
             EvmUserOperationModel: The user operation model.
@@ -607,6 +612,7 @@ class EvmClient:
                 to=call.to,
                 data=call.data if call.data else "0x",
                 value=str(call.value) if call.value else "0",
+                override_gas_limit=call.override_gas_limit if call.override_gas_limit else None,
             )
             for call in calls
         ]
@@ -617,7 +623,39 @@ class EvmClient:
                 calls=evm_calls,
                 network=network,
                 paymaster_url=paymaster_url,
+                data_suffix=data_suffix,
             ),
+        )
+
+    async def prepare_and_send_user_operation(
+        self,
+        smart_account: EvmSmartAccount,
+        calls: list[EncodedCall],
+        network: str,
+        paymaster_url: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> EvmUserOperationModel:
+        """Prepare and send a user operation for a smart account."""
+        track_action(action="prepare_and_send_user_operation", properties={"network": network})
+
+        evm_calls = [
+            EvmCall(
+                to=call.to,
+                data=call.data if call.data else "0x",
+                value=str(call.value) if call.value else "0",
+                override_gas_limit=call.override_gas_limit if call.override_gas_limit else None,
+            )
+            for call in calls
+        ]
+
+        return await self.api_clients.evm_smart_accounts.prepare_and_send_user_operation(
+            address=smart_account.address,
+            prepare_and_send_user_operation_request=PrepareAndSendUserOperationRequest(
+                calls=evm_calls,
+                network=network,
+                paymaster_url=paymaster_url,
+            ),
+            x_idempotency_key=idempotency_key,
         )
 
     async def request_faucet(

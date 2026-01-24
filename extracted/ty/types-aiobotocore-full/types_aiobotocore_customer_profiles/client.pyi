@@ -3,7 +3,7 @@ Type annotations for customer-profiles service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -31,9 +32,12 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     GetSimilarProfilesPaginator,
     ListDomainLayoutsPaginator,
+    ListDomainObjectTypesPaginator,
     ListEventStreamsPaginator,
     ListEventTriggersPaginator,
     ListObjectTypeAttributesPaginator,
+    ListRecommenderRecipesPaginator,
+    ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
     ListSegmentDefinitionsPaginator,
     ListUploadJobsPaginator,
@@ -59,6 +63,8 @@ from .type_defs import (
     CreateIntegrationWorkflowResponseTypeDef,
     CreateProfileRequestTypeDef,
     CreateProfileResponseTypeDef,
+    CreateRecommenderRequestTypeDef,
+    CreateRecommenderResponseTypeDef,
     CreateSegmentDefinitionRequestTypeDef,
     CreateSegmentDefinitionResponseTypeDef,
     CreateSegmentEstimateRequestTypeDef,
@@ -70,6 +76,7 @@ from .type_defs import (
     DeleteCalculatedAttributeDefinitionRequestTypeDef,
     DeleteDomainLayoutRequestTypeDef,
     DeleteDomainLayoutResponseTypeDef,
+    DeleteDomainObjectTypeRequestTypeDef,
     DeleteDomainRequestTypeDef,
     DeleteDomainResponseTypeDef,
     DeleteEventStreamRequestTypeDef,
@@ -85,6 +92,7 @@ from .type_defs import (
     DeleteProfileObjectTypeResponseTypeDef,
     DeleteProfileRequestTypeDef,
     DeleteProfileResponseTypeDef,
+    DeleteRecommenderRequestTypeDef,
     DeleteSegmentDefinitionRequestTypeDef,
     DeleteSegmentDefinitionResponseTypeDef,
     DeleteWorkflowRequestTypeDef,
@@ -98,6 +106,8 @@ from .type_defs import (
     GetCalculatedAttributeForProfileResponseTypeDef,
     GetDomainLayoutRequestTypeDef,
     GetDomainLayoutResponseTypeDef,
+    GetDomainObjectTypeRequestTypeDef,
+    GetDomainObjectTypeResponseTypeDef,
     GetDomainRequestTypeDef,
     GetDomainResponseTypeDef,
     GetEventStreamRequestTypeDef,
@@ -110,10 +120,18 @@ from .type_defs import (
     GetIntegrationResponseTypeDef,
     GetMatchesRequestTypeDef,
     GetMatchesResponseTypeDef,
+    GetObjectTypeAttributeStatisticsRequestTypeDef,
+    GetObjectTypeAttributeStatisticsResponseTypeDef,
+    GetProfileHistoryRecordRequestTypeDef,
+    GetProfileHistoryRecordResponseTypeDef,
     GetProfileObjectTypeRequestTypeDef,
     GetProfileObjectTypeResponseTypeDef,
     GetProfileObjectTypeTemplateRequestTypeDef,
     GetProfileObjectTypeTemplateResponseTypeDef,
+    GetProfileRecommendationsRequestTypeDef,
+    GetProfileRecommendationsResponseTypeDef,
+    GetRecommenderRequestTypeDef,
+    GetRecommenderResponseTypeDef,
     GetSegmentDefinitionRequestTypeDef,
     GetSegmentDefinitionResponseTypeDef,
     GetSegmentEstimateRequestTypeDef,
@@ -140,6 +158,8 @@ from .type_defs import (
     ListCalculatedAttributesForProfileResponseTypeDef,
     ListDomainLayoutsRequestTypeDef,
     ListDomainLayoutsResponseTypeDef,
+    ListDomainObjectTypesRequestTypeDef,
+    ListDomainObjectTypesResponseTypeDef,
     ListDomainsRequestTypeDef,
     ListDomainsResponseTypeDef,
     ListEventStreamsRequestTypeDef,
@@ -152,12 +172,20 @@ from .type_defs import (
     ListIntegrationsResponseTypeDef,
     ListObjectTypeAttributesRequestTypeDef,
     ListObjectTypeAttributesResponseTypeDef,
+    ListObjectTypeAttributeValuesRequestTypeDef,
+    ListObjectTypeAttributeValuesResponseTypeDef,
+    ListProfileHistoryRecordsRequestTypeDef,
+    ListProfileHistoryRecordsResponseTypeDef,
     ListProfileObjectsRequestTypeDef,
     ListProfileObjectsResponseTypeDef,
     ListProfileObjectTypesRequestTypeDef,
     ListProfileObjectTypesResponseTypeDef,
     ListProfileObjectTypeTemplatesRequestTypeDef,
     ListProfileObjectTypeTemplatesResponseTypeDef,
+    ListRecommenderRecipesRequestTypeDef,
+    ListRecommenderRecipesResponseTypeDef,
+    ListRecommendersRequestTypeDef,
+    ListRecommendersResponseTypeDef,
     ListRuleBasedMatchesRequestTypeDef,
     ListRuleBasedMatchesResponseTypeDef,
     ListSegmentDefinitionsRequestTypeDef,
@@ -172,6 +200,8 @@ from .type_defs import (
     MergeProfilesResponseTypeDef,
     ProfileAttributeValuesRequestTypeDef,
     ProfileAttributeValuesResponseTypeDef,
+    PutDomainObjectTypeRequestTypeDef,
+    PutDomainObjectTypeResponseTypeDef,
     PutIntegrationRequestTypeDef,
     PutIntegrationResponseTypeDef,
     PutProfileObjectRequestTypeDef,
@@ -180,7 +210,9 @@ from .type_defs import (
     PutProfileObjectTypeResponseTypeDef,
     SearchProfilesRequestTypeDef,
     SearchProfilesResponseTypeDef,
+    StartRecommenderRequestTypeDef,
     StartUploadJobRequestTypeDef,
+    StopRecommenderRequestTypeDef,
     StopUploadJobRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
@@ -194,14 +226,10 @@ from .type_defs import (
     UpdateEventTriggerResponseTypeDef,
     UpdateProfileRequestTypeDef,
     UpdateProfileResponseTypeDef,
+    UpdateRecommenderRequestTypeDef,
+    UpdateRecommenderResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -210,12 +238,12 @@ else:
 __all__ = ("CustomerProfilesClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class CustomerProfilesClient(AioBaseClient):
     """
@@ -356,6 +384,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#create_profile)
         """
 
+    async def create_recommender(
+        self, **kwargs: Unpack[CreateRecommenderRequestTypeDef]
+    ) -> CreateRecommenderResponseTypeDef:
+        """
+        Creates a recommender.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#create_recommender)
+        """
+
     async def create_segment_definition(
         self, **kwargs: Unpack[CreateSegmentDefinitionRequestTypeDef]
     ) -> CreateSegmentDefinitionResponseTypeDef:
@@ -398,7 +436,7 @@ class CustomerProfilesClient(AioBaseClient):
 
     async def delete_calculated_attribute_definition(
         self, **kwargs: Unpack[DeleteCalculatedAttributeDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing calculated attribute definition.
 
@@ -427,9 +465,19 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_domain_layout)
         """
 
+    async def delete_domain_object_type(
+        self, **kwargs: Unpack[DeleteDomainObjectTypeRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Delete a DomainObjectType for the given Domain and ObjectType name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_domain_object_type.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_domain_object_type)
+        """
+
     async def delete_event_stream(
         self, **kwargs: Unpack[DeleteEventStreamRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables and deletes the specified event stream.
 
@@ -498,6 +546,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_profile_object_type)
         """
 
+    async def delete_recommender(
+        self, **kwargs: Unpack[DeleteRecommenderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a recommender.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_recommender)
+        """
+
     async def delete_segment_definition(
         self, **kwargs: Unpack[DeleteSegmentDefinitionRequestTypeDef]
     ) -> DeleteSegmentDefinitionResponseTypeDef:
@@ -510,7 +568,7 @@ class CustomerProfilesClient(AioBaseClient):
 
     async def delete_workflow(
         self, **kwargs: Unpack[DeleteWorkflowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified workflow and all its corresponding resources.
 
@@ -580,6 +638,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_domain_layout)
         """
 
+    async def get_domain_object_type(
+        self, **kwargs: Unpack[GetDomainObjectTypeRequestTypeDef]
+    ) -> GetDomainObjectTypeResponseTypeDef:
+        """
+        Return a DomainObjectType for the input Domain and ObjectType names.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_domain_object_type.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_domain_object_type)
+        """
+
     async def get_event_stream(
         self, **kwargs: Unpack[GetEventStreamRequestTypeDef]
     ) -> GetEventStreamResponseTypeDef:
@@ -634,6 +702,28 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_matches)
         """
 
+    async def get_object_type_attribute_statistics(
+        self, **kwargs: Unpack[GetObjectTypeAttributeStatisticsRequestTypeDef]
+    ) -> GetObjectTypeAttributeStatisticsResponseTypeDef:
+        """
+        The GetObjectTypeAttributeValues API delivers statistical insights about
+        attributes within a specific object type, but is exclusively available for
+        domains with data store enabled.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_object_type_attribute_statistics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_object_type_attribute_statistics)
+        """
+
+    async def get_profile_history_record(
+        self, **kwargs: Unpack[GetProfileHistoryRecordRequestTypeDef]
+    ) -> GetProfileHistoryRecordResponseTypeDef:
+        """
+        Returns a history record for a specific profile, for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_profile_history_record.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_profile_history_record)
+        """
+
     async def get_profile_object_type(
         self, **kwargs: Unpack[GetProfileObjectTypeRequestTypeDef]
     ) -> GetProfileObjectTypeResponseTypeDef:
@@ -652,6 +742,26 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_profile_object_type_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_profile_object_type_template)
+        """
+
+    async def get_profile_recommendations(
+        self, **kwargs: Unpack[GetProfileRecommendationsRequestTypeDef]
+    ) -> GetProfileRecommendationsResponseTypeDef:
+        """
+        Fetches the recommendations for a profile in the input Customer Profiles domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_profile_recommendations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_profile_recommendations)
+        """
+
+    async def get_recommender(
+        self, **kwargs: Unpack[GetRecommenderRequestTypeDef]
+    ) -> GetRecommenderResponseTypeDef:
+        """
+        Retrieves a recommender.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_recommender)
         """
 
     async def get_segment_definition(
@@ -786,6 +896,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_domain_layouts)
         """
 
+    async def list_domain_object_types(
+        self, **kwargs: Unpack[ListDomainObjectTypesRequestTypeDef]
+    ) -> ListDomainObjectTypesResponseTypeDef:
+        """
+        List all DomainObjectType(s) in a Customer Profiles domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_domain_object_types.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_domain_object_types)
+        """
+
     async def list_domains(
         self, **kwargs: Unpack[ListDomainsRequestTypeDef]
     ) -> ListDomainsResponseTypeDef:
@@ -836,6 +956,18 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_integrations)
         """
 
+    async def list_object_type_attribute_values(
+        self, **kwargs: Unpack[ListObjectTypeAttributeValuesRequestTypeDef]
+    ) -> ListObjectTypeAttributeValuesResponseTypeDef:
+        """
+        The ListObjectTypeAttributeValues API provides access to the most recent
+        distinct values for any specified attribute, making it valuable for real-time
+        data validation and consistency checks within your object types.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_object_type_attribute_values.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_object_type_attribute_values)
+        """
+
     async def list_object_type_attributes(
         self, **kwargs: Unpack[ListObjectTypeAttributesRequestTypeDef]
     ) -> ListObjectTypeAttributesResponseTypeDef:
@@ -854,6 +986,16 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_profile_attribute_values.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_profile_attribute_values)
+        """
+
+    async def list_profile_history_records(
+        self, **kwargs: Unpack[ListProfileHistoryRecordsRequestTypeDef]
+    ) -> ListProfileHistoryRecordsResponseTypeDef:
+        """
+        Returns a list of history records for a specific profile, for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_profile_history_records.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_profile_history_records)
         """
 
     async def list_profile_object_type_templates(
@@ -885,6 +1027,27 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_profile_objects.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_profile_objects)
+        """
+
+    async def list_recommender_recipes(
+        self, **kwargs: Unpack[ListRecommenderRecipesRequestTypeDef]
+    ) -> ListRecommenderRecipesResponseTypeDef:
+        """
+        Returns a list of available recommender recipes that can be used to create
+        recommenders.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_recommender_recipes.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_recommender_recipes)
+        """
+
+    async def list_recommenders(
+        self, **kwargs: Unpack[ListRecommendersRequestTypeDef]
+    ) -> ListRecommendersResponseTypeDef:
+        """
+        Returns a list of recommenders in the specified domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_recommenders.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_recommenders)
         """
 
     async def list_rule_based_matches(
@@ -947,6 +1110,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#merge_profiles)
         """
 
+    async def put_domain_object_type(
+        self, **kwargs: Unpack[PutDomainObjectTypeRequestTypeDef]
+    ) -> PutDomainObjectTypeResponseTypeDef:
+        """
+        Create/Update a DomainObjectType in a Customer Profiles domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/put_domain_object_type.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#put_domain_object_type)
+        """
+
     async def put_integration(
         self, **kwargs: Unpack[PutIntegrationRequestTypeDef]
     ) -> PutIntegrationResponseTypeDef:
@@ -990,9 +1163,19 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#search_profiles)
         """
 
+    async def start_recommender(
+        self, **kwargs: Unpack[StartRecommenderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Starts a recommender that was previously stopped.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/start_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#start_recommender)
+        """
+
     async def start_upload_job(
         self, **kwargs: Unpack[StartUploadJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API starts the processing of an upload job to ingest profile data.
 
@@ -1000,9 +1183,19 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#start_upload_job)
         """
 
+    async def stop_recommender(
+        self, **kwargs: Unpack[StopRecommenderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a recommender, suspending its ability to generate recommendations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/stop_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#stop_recommender)
+        """
+
     async def stop_upload_job(
         self, **kwargs: Unpack[StopUploadJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API stops the processing of an upload job.
 
@@ -1010,7 +1203,7 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#stop_upload_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified Amazon Connect
         Customer Profiles resource.
@@ -1019,7 +1212,7 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified Amazon Connect Customer Profiles
         resource.
@@ -1079,6 +1272,17 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#update_profile)
         """
 
+    async def update_recommender(
+        self, **kwargs: Unpack[UpdateRecommenderRequestTypeDef]
+    ) -> UpdateRecommenderResponseTypeDef:
+        """
+        Updates the properties of an existing recommender, allowing you to modify its
+        configuration and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/update_recommender.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#update_recommender)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_similar_profiles"]
@@ -1094,6 +1298,17 @@ class CustomerProfilesClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_domain_layouts"]
     ) -> ListDomainLayoutsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_domain_object_types"]
+    ) -> ListDomainObjectTypesPaginator:
         """
         Create a paginator for an operation.
 
@@ -1127,6 +1342,28 @@ class CustomerProfilesClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_object_type_attributes"]
     ) -> ListObjectTypeAttributesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recommender_recipes"]
+    ) -> ListRecommenderRecipesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recommenders"]
+    ) -> ListRecommendersPaginator:
         """
         Create a paginator for an operation.
 
@@ -1175,7 +1412,7 @@ class CustomerProfilesClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

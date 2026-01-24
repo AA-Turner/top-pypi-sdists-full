@@ -372,6 +372,8 @@ class TrinoOfflineStore(OfflineStore):
         )
 
         # Generate the Trino SQL query from the query context
+        if type(entity_df) is str:
+            table_reference = f"({entity_df})"
         query = offline_utils.build_point_in_time_query(
             query_context,
             left_table_query_string=table_reference,
@@ -422,11 +424,16 @@ class TrinoOfflineStore(OfflineStore):
         )
 
         timestamp_filter = get_timestamp_filter_sql(
-            start_date, end_date, timestamp_field, quote_fields=False
+            start_date,
+            end_date,
+            timestamp_field,
+            quote_fields=False,
+            cast_style="timestamp",
+            date_time_separator=" ",
         )
         query = f"""
             SELECT {field_string}
-            FROM {from_expression}
+            FROM ( {from_expression} )
             WHERE {timestamp_filter}
         """
         return TrinoRetrievalJob(
@@ -454,9 +461,7 @@ def _upload_entity_df_and_get_entity_schema(
 ) -> Dict[str, np.dtype]:
     """Uploads a Pandas entity dataframe into a Trino table and returns the resulting table"""
     if type(entity_df) is str:
-        client.execute_query(f"CREATE TABLE {table_name} AS ({entity_df})")
-
-        results = client.execute_query(f"SELECT * FROM {table_name} LIMIT 1")
+        results = client.execute_query(f"SELECT * FROM ({entity_df}) LIMIT 1")
 
         limited_entity_df = pd.DataFrame(
             data=results.data, columns=results.columns_names

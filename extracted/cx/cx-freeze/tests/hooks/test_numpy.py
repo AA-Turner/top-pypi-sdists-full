@@ -18,9 +18,9 @@ from cx_Freeze._compat import (
     IS_WINDOWS,
 )
 
-TIMEOUT = 10
-TIMEOUT_SLOW = 60 if IS_CONDA else 20
-TIMEOUT_VERY_SLOW = 90 if IS_CONDA else 30
+TIMEOUT = 15
+TIMEOUT_SLOW = 60 if IS_CONDA else 30
+TIMEOUT_VERY_SLOW = 120 if IS_CONDA else 60
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -46,14 +46,10 @@ pyproject.toml
     name = "test_matplotlib"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "numpy<2;python_version == '3.11'",
-        "numpy>=2;python_version >= '3.12'",
-        "matplotlib<3.4;python_version == '3.9' and sys_platform == 'linux'",
-        "matplotlib<3.6;python_version == '3.9' and sys_platform != 'linux'",
-        "matplotlib<3.6;python_version == '3.10'",
-        "matplotlib<3.7;python_version == '3.11'",
-        "matplotlib>=3.7;python_version >= '3.12'",
+        "numpy<2;python_version < '3.11'",
+        "numpy>=2;python_version >= '3.11'",
+        "matplotlib<3.7;python_version < '3.11'",
+        "matplotlib>=3.7;python_version >= '3.11'",
     ]
 
     [tool.cxfreeze]
@@ -67,15 +63,16 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
+    IS_WINDOWS and sys.version_info[:2] == (3, 13) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
-    reason="matplotlib does not support Windows arm64",
-    strict=True,
+    reason="matplotlib depends on kiwisolver that does not support "
+    "Python 3.13t on Windows",
 )
 @pytest.mark.venv
 @zip_packages
 def test_matplotlib(tmp_package, zip_packages: bool) -> None:
     """Test if matplotlib hook is working correctly."""
+    tmp_package.map_package_to_conda["matplotlib"] = "matplotlib-base"
     tmp_package.create(SOURCE_TEST_MATPLOTLIB)
     if zip_packages:
         pyproject = tmp_package.path / "pyproject.toml"
@@ -97,6 +94,12 @@ def test_matplotlib(tmp_package, zip_packages: bool) -> None:
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
     reason="pandas does not support Windows arm64",
+    strict=True,
+)
+@pytest.mark.xfail(
+    IS_WINDOWS and sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="pandas does not support Python 3.13t/3.14t on Windows",
     strict=True,
 )
 @pytest.mark.venv
@@ -143,9 +146,8 @@ pyproject.toml
     name = "test_rasterio"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "numpy<2;python_version == '3.11'",
-        "numpy>=2;python_version >= '3.12'",
+        "numpy<2;python_version < '3.11'",
+        "numpy>=2;python_version >= '3.11'",
         "rasterio",
     ]
 
@@ -160,21 +162,9 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    (IS_LINUX or IS_WINDOWS) and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="rasterio not supported in windows/linux arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
     IS_MINGW,
     raises=ModuleNotFoundError,
     reason="rasterio not supported in mingw",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
-    raises=ModuleNotFoundError,
-    reason="rasterio does not support Python 3.13t",
     strict=True,
 )
 @pytest.mark.venv
@@ -182,6 +172,8 @@ pyproject.toml
 def test_rasterio(tmp_package, zip_packages: bool) -> None:
     """Test if rasterio hook is working correctly."""
     tmp_package.create(SOURCE_TEST_RASTERIO)
+    if IS_MACOS and zip_packages:
+        pytest.xfail("rasterio 1.4.4 fails in macOS using zipfile")
     if zip_packages:
         pyproject = tmp_package.path / "pyproject.toml"
         buf = pyproject.read_bytes().decode().splitlines()
@@ -192,47 +184,13 @@ def test_rasterio(tmp_package, zip_packages: bool) -> None:
     executable = tmp_package.executable("test_rasterio")
     assert executable.is_file()
     result = tmp_package.run(executable, timeout=TIMEOUT_SLOW)
+
     result.stdout.fnmatch_lines(
         ["Hello from cx_Freeze", "numpy version *", "rasterio version *"]
     )
 
 
 SOURCE_TEST_SHAPELY = """
-test_shapely.py
-    import numpy as np
-    import shapely
-    import shapely.geos
-    from shapely.geometry import box, Point
-
-    print("Hello from cx_Freeze")
-    print("numpy version", np.__version__)
-    print("shapely version", shapely.__version__)
-    print("shapely geos version", shapely.geos.geos_version)
-    print("shapely geos version string", shapely.geos.geos_version_string)
-
-    patch = Point(0.0, 0.0).buffer(10.0)
-    polygon = box(0, 0, 2, 2)
-    print(patch)
-    print(polygon)
-pyproject.toml
-    [project]
-    name = "test_shapely"
-    version = "0.1.2.3"
-    dependencies = [
-        "numpy<1.26",
-        "shapely",
-    ]
-
-    [tool.cxfreeze]
-    executables = ["test_shapely.py"]
-
-    [tool.cxfreeze.build_exe]
-    include_msvcr = true
-    excludes = ["tkinter", "unittest"]
-    silent = true
-"""
-
-SOURCE_TEST_SHAPELY2 = """
 test_shapely.py
     import numpy as np
     import shapely
@@ -253,11 +211,10 @@ pyproject.toml
     name = "test_shapely"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "numpy<2;python_version == '3.11'",
-        "numpy>=2;python_version >= '3.12'",
-        "shapely<2.1;python_version == '3.10'",
-        "shapely>=2.1;python_version > '3.10'",
+        "numpy<2;python_version < '3.11'",
+        "numpy>=2;python_version >= '3.11'",
+        "shapely<2.1;python_version < '3.11'",
+        "shapely>=2.1;python_version >= '3.11'",
     ]
 
     [tool.cxfreeze]
@@ -281,10 +238,7 @@ pyproject.toml
 def test_shapely(tmp_package, zip_packages: bool) -> None:
     """Test if shapely hook is working correctly."""
     # shapely 1.8.5 supports Python <= 3.11
-    if sys.version_info[:2] < (3, 10):
-        tmp_package.create(SOURCE_TEST_SHAPELY)
-    else:
-        tmp_package.create(SOURCE_TEST_SHAPELY2)
+    tmp_package.create(SOURCE_TEST_SHAPELY)
     if zip_packages:
         pyproject = tmp_package.path / "pyproject.toml"
         buf = pyproject.read_bytes().decode().splitlines()
@@ -338,14 +292,7 @@ pyproject.toml
     [project]
     name = "test_vtk"
     version = "0.1.2.3"
-    dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "numpy<2;python_version == '3.11'",
-        "numpy>=2;python_version >= '3.12'",
-        "vtk<9.3;python_version <= '3.10'",
-        "vtk<9.4;python_version == '3.11'",
-        "vtk>=9.4;python_version >= '3.12'",
-    ]
+    dependencies = ["vtk"]
 
     [tool.cxfreeze]
     executables = ["test_vtk.py"]
@@ -362,21 +309,27 @@ pyproject.toml
     reason="vtkmodules (vtk) is too slow in conda-forge (Linux and OSX_ARM64)",
 )
 @pytest.mark.xfail(
-    (IS_LINUX or IS_WINDOWS) and IS_ARM_64,
+    IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
-    reason="vtkmodules (vtk) does not support Windows/Linux arm64",
+    reason="vtkmodules (vtk) does not support Windows arm64",
     strict=True,
 )
 @pytest.mark.xfail(
     IS_MINGW,
     raises=ModuleNotFoundError,
-    reason="vtkmodules (vtk) does not support mingw",
+    reason="vtkmodules (vtk) not supported in mingw",
     strict=True,
 )
 @pytest.mark.xfail(
     sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
-    reason="vtkmodules (vtk) does not support Python 3.13t",
+    reason="vtkmodules (vtk) does not support Python 3.13t/3.14t",
+    strict=True,
+)
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 14),
+    raises=ModuleNotFoundError,
+    reason="vtkmodules (vtk) does not support Python 3.14+",
     strict=True,
 )
 @pytest.mark.venv

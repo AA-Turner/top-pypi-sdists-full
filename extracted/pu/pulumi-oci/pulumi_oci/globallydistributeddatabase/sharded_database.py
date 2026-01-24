@@ -1400,13 +1400,71 @@ class ShardedDatabase(pulumi.CustomResource):
                  validate_network_trigger: Optional[pulumi.Input[_builtins.int]] = None,
                  __props__=None):
         """
-        This resource provides the Sharded Database resource in Oracle Cloud Infrastructure Globally Distributed Database service.
+        ## Example Usage
 
-        Creates a Sharded Database.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
 
-          Patch operation to add, remove or update shards to the sharded database topology. In single patch
-        operation, multiple shards can be either added, or removed or updated. Combination of inserts, update
-        and remove in single operation is not allowed.
+        test_sharded_database = oci.globallydistributeddatabase.ShardedDatabase("test_sharded_database",
+            catalog_details=[{
+                "admin_password": sharded_database_catalog_details_admin_password,
+                "cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "compute_count": sharded_database_catalog_details_compute_count,
+                "data_storage_size_in_gbs": sharded_database_catalog_details_data_storage_size_in_gbs,
+                "is_auto_scaling_enabled": sharded_database_catalog_details_is_auto_scaling_enabled,
+                "encryption_key_details": {
+                    "kms_key_id": test_key["id"],
+                    "vault_id": test_vault["id"],
+                    "kms_key_version_id": test_key_version["id"],
+                },
+                "peer_cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+            }],
+            character_set=sharded_database_character_set,
+            compartment_id=compartment_id,
+            db_deployment_type=sharded_database_db_deployment_type,
+            db_version=sharded_database_db_version,
+            db_workload=sharded_database_db_workload,
+            display_name=sharded_database_display_name,
+            listener_port=sharded_database_listener_port,
+            listener_port_tls=sharded_database_listener_port_tls,
+            ncharacter_set=sharded_database_ncharacter_set,
+            ons_port_local=sharded_database_ons_port_local,
+            ons_port_remote=sharded_database_ons_port_remote,
+            prefix=sharded_database_prefix,
+            shard_details=[{
+                "admin_password": sharded_database_shard_details_admin_password,
+                "cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "compute_count": sharded_database_shard_details_compute_count,
+                "data_storage_size_in_gbs": sharded_database_shard_details_data_storage_size_in_gbs,
+                "is_auto_scaling_enabled": sharded_database_shard_details_is_auto_scaling_enabled,
+                "encryption_key_details": {
+                    "kms_key_id": test_key["id"],
+                    "vault_id": test_vault["id"],
+                    "kms_key_version_id": test_key_version["id"],
+                },
+                "peer_cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "shard_space": sharded_database_shard_details_shard_space,
+            }],
+            sharded_database_id=sharded_database_sharded_database_id,
+            sharding_method=sharded_database_sharding_method,
+            chunks=sharded_database_chunks,
+            cluster_certificate_common_name=sharded_database_cluster_certificate_common_name,
+            defined_tags={
+                "foo-namespace.bar-key": "value",
+            },
+            freeform_tags={
+                "bar-key": "value",
+            },
+            patch_operations=[{
+                "operation": sharded_database_patch_operations_operation,
+                "selection": sharded_database_patch_operations_selection,
+                "value": sharded_database_patch_operations_value,
+            }],
+            replication_factor=sharded_database_replication_factor,
+            replication_method=sharded_database_replication_method,
+            replication_unit=sharded_database_replication_unit)
+        ```
 
         ## Import
 
@@ -1463,13 +1521,71 @@ class ShardedDatabase(pulumi.CustomResource):
                  args: ShardedDatabaseArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Sharded Database resource in Oracle Cloud Infrastructure Globally Distributed Database service.
+        ## Example Usage
 
-        Creates a Sharded Database.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
 
-          Patch operation to add, remove or update shards to the sharded database topology. In single patch
-        operation, multiple shards can be either added, or removed or updated. Combination of inserts, update
-        and remove in single operation is not allowed.
+        test_sharded_database = oci.globallydistributeddatabase.ShardedDatabase("test_sharded_database",
+            catalog_details=[{
+                "admin_password": sharded_database_catalog_details_admin_password,
+                "cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "compute_count": sharded_database_catalog_details_compute_count,
+                "data_storage_size_in_gbs": sharded_database_catalog_details_data_storage_size_in_gbs,
+                "is_auto_scaling_enabled": sharded_database_catalog_details_is_auto_scaling_enabled,
+                "encryption_key_details": {
+                    "kms_key_id": test_key["id"],
+                    "vault_id": test_vault["id"],
+                    "kms_key_version_id": test_key_version["id"],
+                },
+                "peer_cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+            }],
+            character_set=sharded_database_character_set,
+            compartment_id=compartment_id,
+            db_deployment_type=sharded_database_db_deployment_type,
+            db_version=sharded_database_db_version,
+            db_workload=sharded_database_db_workload,
+            display_name=sharded_database_display_name,
+            listener_port=sharded_database_listener_port,
+            listener_port_tls=sharded_database_listener_port_tls,
+            ncharacter_set=sharded_database_ncharacter_set,
+            ons_port_local=sharded_database_ons_port_local,
+            ons_port_remote=sharded_database_ons_port_remote,
+            prefix=sharded_database_prefix,
+            shard_details=[{
+                "admin_password": sharded_database_shard_details_admin_password,
+                "cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "compute_count": sharded_database_shard_details_compute_count,
+                "data_storage_size_in_gbs": sharded_database_shard_details_data_storage_size_in_gbs,
+                "is_auto_scaling_enabled": sharded_database_shard_details_is_auto_scaling_enabled,
+                "encryption_key_details": {
+                    "kms_key_id": test_key["id"],
+                    "vault_id": test_vault["id"],
+                    "kms_key_version_id": test_key_version["id"],
+                },
+                "peer_cloud_autonomous_vm_cluster_id": test_cloud_autonomous_vm_cluster["id"],
+                "shard_space": sharded_database_shard_details_shard_space,
+            }],
+            sharded_database_id=sharded_database_sharded_database_id,
+            sharding_method=sharded_database_sharding_method,
+            chunks=sharded_database_chunks,
+            cluster_certificate_common_name=sharded_database_cluster_certificate_common_name,
+            defined_tags={
+                "foo-namespace.bar-key": "value",
+            },
+            freeform_tags={
+                "bar-key": "value",
+            },
+            patch_operations=[{
+                "operation": sharded_database_patch_operations_operation,
+                "selection": sharded_database_patch_operations_selection,
+                "value": sharded_database_patch_operations_value,
+            }],
+            replication_factor=sharded_database_replication_factor,
+            replication_method=sharded_database_replication_method,
+            replication_unit=sharded_database_replication_unit)
+        ```
 
         ## Import
 

@@ -17,23 +17,37 @@
 #include "include/core/SkImage.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTextureCompressionType.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
 #include "src/core/SkCompressedDataUtils.h"
 #include "src/core/SkMipmap.h"
+#include "src/image/SkImage_Base.h"
+#include "third_party/etc1/etc1.h"
+#include "tools/gpu/CompressedTexture.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
 #include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/GrDataUtils.h"
 #include "src/gpu/ganesh/GrImageContextPriv.h"
 #include "src/gpu/ganesh/GrRecordingContextPriv.h"
-#include "src/image/SkImage_Base.h"
-#include "src/image/SkImage_GpuBase.h"
-#include "third_party/etc1/etc1.h"
-#include "tools/gpu/ProxyUtils.h"
+#include "src/gpu/ganesh/image/SkImage_GaneshBase.h"
+#include "tools/ganesh/ProxyUtils.h"
+#endif
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Image.h"
+#include "include/gpu/graphite/Recorder.h"
+#include "src/gpu/GpuTypesPriv.h"
+#include "src/gpu/graphite/Caps.h"
+#include "src/gpu/graphite/RecorderPriv.h"
+#include "tools/gpu/ManagedBackendTexture.h"
+#endif
 
 static SkPoint gen_pt(float angle, const SkVector& scale) {
     SkScalar s = SkScalarSin(angle);
@@ -50,8 +64,7 @@ static SkPath make_gear(SkISize dimensions, int numTeeth) {
 
     float angle = 0.0f;
 
-    SkPath tmp;
-    tmp.setFillType(SkPathFillType::kWinding);
+    SkPathBuilder tmp(SkPathFillType::kWinding);
 
     tmp.moveTo(gen_pt(angle, outerRad));
 
@@ -69,7 +82,7 @@ static SkPath make_gear(SkISize dimensions, int numTeeth) {
         tmp.addCircle(0.0f, 0.0f, fInnerRad, SkPathDirection::kCCW);
     }
 
-    return tmp;
+    return tmp.detach();
 }
 
 // Render one level of a mipmap
@@ -96,21 +109,30 @@ SkBitmap render_level(SkISize dimensions, SkColor color, SkColorType colorType, 
     return bm;
 }
 
+struct CompressedImageObjects {
+    sk_sp<SkImage> fImage;
+#if defined(SK_GRAPHITE)
+    sk_sp<sk_gpu_test::ManagedGraphiteTexture> fGraphiteTexture;
+#else
+    void* fGraphiteTexture = nullptr;
+#endif
+};
+
 // Create the compressed data blob needed to represent a mipmapped 2-color texture of the specified
 // compression format. In this case 2-color means either opaque black or transparent black plus
 // one other color.
 // Note that ETC1/ETC2_RGB8_UNORM only supports 565 opaque textures.
-static sk_sp<SkImage> make_compressed_image(GrDirectContext* dContext,
-                                            const SkISize dimensions,
-                                            SkColorType colorType,
-                                            bool opaque,
-                                            SkTextureCompressionType compression) {
+static CompressedImageObjects make_compressed_image(SkCanvas* canvas,
+                                                    const SkISize dimensions,
+                                                    SkColorType colorType,
+                                                    bool opaque,
+                                                    SkTextureCompressionType compression) {
     size_t totalSize = SkCompressedDataSize(compression, dimensions, nullptr, true);
 
     sk_sp<SkData> tmp = SkData::MakeUninitialized(totalSize);
     char* pixels = (char*) tmp->writable_data();
 
-    int numMipLevels = SkMipmap::ComputeLevelCount(dimensions.width(), dimensions.height()) + 1;
+    int numMipLevels = SkMipmap::ComputeLevelCount(dimensions) + 1;
 
     size_t offset = 0;
 
@@ -137,10 +159,10 @@ static sk_sp<SkImage> make_compressed_image(GrDirectContext* dContext,
             if (etc1_encode_image((unsigned char*)bm.getAddr16(0, 0),
                                   bm.width(), bm.height(), 2, bm.rowBytes(),
                                   (unsigned char*) &pixels[offset])) {
-                return nullptr;
+                return {nullptr, nullptr};
             }
         } else {
-            GrTwoColorBC1Compress(bm.pixmap(), kColors[i%7], &pixels[offset]);
+            sk_gpu_test::TwoColorBC1Compress(bm.pixmap(), kColors[i%7], &pixels[offset]);
         }
 
         offset += levelSize;
@@ -148,18 +170,42 @@ static sk_sp<SkImage> make_compressed_image(GrDirectContext* dContext,
     }
 
     sk_sp<SkImage> image;
-    if (dContext) {
-        image = SkImage::MakeTextureFromCompressed(dContext, std::move(tmp),
-                                                   dimensions.width(),
-                                                   dimensions.height(),
-                                                   compression, GrMipmapped::kYes);
-    } else {
-        image = SkImage::MakeRasterFromCompressed(std::move(tmp),
-                                                  dimensions.width(),
-                                                  dimensions.height(),
-                                                  compression);
+#if defined(SK_GRAPHITE)
+    skgpu::graphite::Recorder* recorder = canvas->recorder();
+    if (recorder) {
+        sk_sp<sk_gpu_test::ManagedGraphiteTexture> texture =
+                sk_gpu_test::ManagedGraphiteTexture::MakeFromCompressedData(recorder,
+                                                                            dimensions,
+                                                                            compression,
+                                                                            tmp,
+                                                                            skgpu::Mipmapped::kYes);
+        if (texture) {
+            image = SkImages::WrapTexture(recorder,
+                                          texture->texture(),
+                                          skgpu::CompressionTypeToSkColorType(compression),
+                                          kPremul_SkAlphaType,
+                                          /*colorSpace=*/nullptr);
+            if (image) {
+                return {image, texture};
+            }
+        }
     }
-    return image;
+#endif
+#if defined(SK_GANESH)
+    if (auto dContext = GrAsDirectContext(canvas->recordingContext())) {
+        image = SkImages::TextureFromCompressedTextureData(dContext,
+                                                           std::move(tmp),
+                                                           dimensions.width(),
+                                                           dimensions.height(),
+                                                           compression,
+                                                           skgpu::Mipmapped::kYes);
+    } else
+#endif
+    {
+        image = SkImages::RasterFromCompressedTextureData(
+                std::move(tmp), dimensions.width(), dimensions.height(), compression);
+    }
+    return {image, nullptr};
 }
 
 // Basic test of Ganesh's ETC1 and BC1 support
@@ -200,7 +246,7 @@ public:
     }
 
 protected:
-    SkString onShortName() override {
+    SkString getName() const override {
         SkString name("compressed_textures");
 
         if (fType == Type::kNonPowerOfTwo) {
@@ -212,37 +258,52 @@ protected:
         return name;
     }
 
-    SkISize onISize() override {
+    SkISize getISize() override {
         return SkISize::Make(2*kCellWidth + 3*kPad, 2*kBaseTexHeight + 3*kPad);
     }
 
-    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg) override {
+    DrawResult onGpuSetup(SkCanvas* canvas, SkString* errorMsg,
+                          GraphiteTestContext* graphiteTestContext) override {
+#if defined(SK_GANESH)
         auto dContext = GrAsDirectContext(canvas->recordingContext());
         if (dContext && dContext->abandoned()) {
             // This isn't a GpuGM so a null 'context' is okay but an abandoned context
             // if forbidden.
             return DrawResult::kSkip;
         }
+#endif
 
-        if (dContext &&
-            dContext->backend() == GrBackendApi::kDirect3D && fType == Type::kNonMultipleOfFour) {
-            // skbug.com/10541 - Are non-multiple-of-four BC1 textures supported in D3D?
-            return DrawResult::kSkip;
+        if (fType == Type::kNonMultipleOfFour) {
+#if defined(SK_GANESH)
+            if (dContext && dContext->backend() == GrBackendApi::kDirect3D) {
+                // skbug.com/40041877 - Are non-multiple-of-four BC1 textures supported in D3D?
+                return DrawResult::kSkip;
+            }
+#endif
+#if defined(SK_GRAPHITE)
+            skgpu::graphite::Recorder* recorder = canvas->recorder();
+            if (recorder && recorder->backend() == skgpu::BackendApi::kDawn) {
+                // Dawn does not support non-multiple-of-four textures at all. For the same reason
+                // we can't support it on older D3D devices above, neither can Dawn. However, Dawn
+                // disables support for all devices to keep functionality uniform.
+                return DrawResult::kSkip;
+            }
+#endif
         }
 
-        fOpaqueETC2Image = make_compressed_image(dContext, fImgDimensions,
+        fOpaqueETC2Image = make_compressed_image(canvas, fImgDimensions,
                                                  kRGB_565_SkColorType, true,
                                                  SkTextureCompressionType::kETC2_RGB8_UNORM);
 
-        fOpaqueBC1Image = make_compressed_image(dContext, fImgDimensions,
+        fOpaqueBC1Image = make_compressed_image(canvas, fImgDimensions,
                                                 kRGBA_8888_SkColorType, true,
                                                 SkTextureCompressionType::kBC1_RGB8_UNORM);
 
-        fTransparentBC1Image = make_compressed_image(dContext, fImgDimensions,
+        fTransparentBC1Image = make_compressed_image(canvas, fImgDimensions,
                                                      kRGBA_8888_SkColorType, false,
                                                      SkTextureCompressionType::kBC1_RGBA8_UNORM);
 
-        if (!fOpaqueETC2Image || !fOpaqueBC1Image || !fTransparentBC1Image) {
+        if (!fOpaqueETC2Image.fImage || !fOpaqueBC1Image.fImage || !fTransparentBC1Image.fImage) {
             *errorMsg = "Failed to create compressed images.";
             return DrawResult::kFail;
         }
@@ -251,17 +312,20 @@ protected:
     }
 
     void onGpuTeardown() override {
-        fOpaqueETC2Image = nullptr;
-        fOpaqueBC1Image = nullptr;
-        fTransparentBC1Image = nullptr;
+        fOpaqueETC2Image.fImage = nullptr;
+        fOpaqueBC1Image.fImage = nullptr;
+        fTransparentBC1Image.fImage = nullptr;
+        fOpaqueETC2Image.fGraphiteTexture = nullptr;
+        fOpaqueBC1Image.fGraphiteTexture = nullptr;
+        fTransparentBC1Image.fGraphiteTexture = nullptr;
     }
 
     void onDraw(SkCanvas* canvas) override {
-        this->drawCell(canvas, fOpaqueETC2Image.get(), { kPad, kPad });
+        this->drawCell(canvas, fOpaqueETC2Image.fImage.get(), { kPad, kPad });
 
-        this->drawCell(canvas, fOpaqueBC1Image.get(), { 2*kPad + kCellWidth, kPad });
+        this->drawCell(canvas, fOpaqueBC1Image.fImage.get(), { 2*kPad + kCellWidth, kPad });
 
-        this->drawCell(canvas, fTransparentBC1Image.get(),
+        this->drawCell(canvas, fTransparentBC1Image.fImage.get(),
                        { 2*kPad + kCellWidth, 2*kPad + kBaseTexHeight });
     }
 
@@ -269,17 +333,25 @@ private:
     void drawCell(SkCanvas* canvas, SkImage* image, SkIVector offset) {
 
         SkISize levelDimensions = fImgDimensions;
-        int numMipLevels = SkMipmap::ComputeLevelCount(levelDimensions.width(),
-                                                       levelDimensions.height()) + 1;
+        int numMipLevels = SkMipmap::ComputeLevelCount(levelDimensions) + 1;
 
         SkSamplingOptions sampling(SkCubicResampler::Mitchell());
 
         bool isCompressed = false;
         if (image->isTextureBacked()) {
-            const GrCaps* caps = as_IB(image)->context()->priv().caps();
-            GrTextureProxy* proxy = sk_gpu_test::GetTextureImageProxy(image,
-                                                                      canvas->recordingContext());
-            isCompressed = caps->isFormatCompressed(proxy->backendFormat());
+#if defined(SK_GANESH)
+            if (auto dContext = GrAsDirectContext(canvas->recordingContext())) {
+                const GrCaps* caps = as_IB(image)->context()->priv().caps();
+                GrTextureProxy* proxy = sk_gpu_test::GetTextureImageProxy(image, dContext);
+                isCompressed = caps->isFormatCompressed(proxy->backendFormat());
+            } else
+#endif
+            {
+                // Graphite has no fallback to upload the compressed data to a non-compressed
+                // format. So if the image is texture backed and graphite then it will be a
+                // compressed format.
+                isCompressed = true;
+            }
         }
 
         SkPaint redStrokePaint;
@@ -315,9 +387,10 @@ private:
     Type           fType;
     SkISize        fImgDimensions;
 
-    sk_sp<SkImage> fOpaqueETC2Image;
-    sk_sp<SkImage> fOpaqueBC1Image;
-    sk_sp<SkImage> fTransparentBC1Image;
+
+    CompressedImageObjects fOpaqueETC2Image;
+    CompressedImageObjects fOpaqueBC1Image;
+    CompressedImageObjects fTransparentBC1Image;
 
     using INHERITED = GM;
 };

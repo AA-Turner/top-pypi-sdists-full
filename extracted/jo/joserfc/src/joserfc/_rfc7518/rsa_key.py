@@ -1,6 +1,6 @@
 from __future__ import annotations
 import warnings
-from typing import TypedDict, Any
+import typing as t
 from functools import cached_property
 from cryptography.hazmat.primitives.asymmetric.rsa import (
     generate_private_key,
@@ -13,16 +13,15 @@ from cryptography.hazmat.primitives.asymmetric.rsa import (
     rsa_crt_dmq1,
     rsa_crt_iqmp,
 )
-from cryptography.hazmat.backends import default_backend
 from ..registry import KeyParameter
-from ..errors import SecurityWarning
+from ..errors import SecurityWarning, KeyParameterError
 from .._rfc7517.models import AsymmetricKey
 from .._rfc7517.pem import CryptographyBinding
 from .._rfc7517.types import KeyParameters, AnyKey
 from ..util import int_to_base64, base64_to_int
 
 
-RSADictKey = TypedDict(
+RSADictKey = t.TypedDict(
     "RSADictKey",
     {
         "n": str,
@@ -39,10 +38,16 @@ RSADictKey = TypedDict(
 
 
 class RSABinding(CryptographyBinding):
+    key_type = "RSA"
     ssh_type = b"ssh-rsa"
+    _cryptography_key_types = (RSAPrivateKey, RSAPublicKey)
 
     @staticmethod
-    def import_private_key(obj: RSADictKey) -> RSAPrivateKey:
+    def generate_private_key(size: int) -> RSAPrivateKey:
+        return generate_private_key(public_exponent=65537, key_size=size)
+
+    @classmethod
+    def import_private_key(cls, obj: RSADictKey) -> RSAPrivateKey:
         if "oth" in obj:  # pragma: no cover
             # https://tools.ietf.org/html/rfc7518#section-6.3.2.7
             raise ValueError('"oth" is not supported yet')
@@ -72,10 +77,10 @@ class RSABinding(CryptographyBinding):
                 public_numbers=public_numbers,
             )
 
-        return numbers.private_key(default_backend())
+        return numbers.private_key()
 
-    @staticmethod
-    def export_private_key(key: RSAPrivateKey) -> RSADictKey:
+    @classmethod
+    def export_private_key(cls, key: RSAPrivateKey) -> RSADictKey:
         numbers = key.private_numbers()
         return {
             "n": int_to_base64(numbers.public_numbers.n),
@@ -88,13 +93,13 @@ class RSABinding(CryptographyBinding):
             "qi": int_to_base64(numbers.iqmp),
         }
 
-    @staticmethod
-    def import_public_key(obj: RSADictKey) -> RSAPublicKey:
+    @classmethod
+    def import_public_key(cls, obj: RSADictKey) -> RSAPublicKey:
         numbers = RSAPublicNumbers(base64_to_int(obj["e"]), base64_to_int(obj["n"]))
-        return numbers.public_key(default_backend())
+        return numbers.public_key()
 
-    @staticmethod
-    def export_public_key(key: RSAPublicKey) -> dict[str, str]:
+    @classmethod
+    def export_public_key(cls, key: RSAPublicKey) -> dict[str, str]:
         numbers = key.public_numbers()
         return {"n": int_to_base64(numbers.n), "e": int_to_base64(numbers.e)}
 
@@ -134,16 +139,24 @@ class RSAKey(AsymmetricKey[RSAPrivateKey, RSAPublicKey]):
 
     @classmethod
     def import_key(
-        cls: Any,
-        value: AnyKey,
+        cls: t.Any,
+        value: AnyKey | RSAPrivateKey | RSAPublicKey,
         parameters: KeyParameters | None = None,
-        password: Any = None,
+        password: t.Any = None,
     ) -> "RSAKey":
-        return super(RSAKey, cls).import_key(value, parameters, password)
+        key: RSAKey
+        if isinstance(value, (RSAPrivateKey, RSAPublicKey)):
+            key = cls(value, value, parameters)
+        else:
+            key = super(RSAKey, cls).import_key(value, parameters, password)
+        if key.raw_value.key_size < 2048:
+            # https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
+            warnings.warn("Key size should be >= 2048 bits", SecurityWarning)
+        return key
 
     @classmethod
     def generate_key(
-        cls,
+        cls: t.Type["RSAKey"],
         key_size: int | None = 2048,
         parameters: KeyParameters | None = None,
         private: bool = True,
@@ -160,17 +173,13 @@ class RSAKey(AsymmetricKey[RSAPrivateKey, RSAPublicKey]):
             key_size = 2048
 
         if key_size % 8 != 0:
-            raise ValueError("Invalid key_size for RSAKey")
+            raise ValueError("A bit size must be a multiple of 8")
 
         if key_size < 2048:
             # https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
             warnings.warn("Key size should be >= 2048 bits", SecurityWarning)
 
-        raw_key = generate_private_key(
-            public_exponent=65537,
-            key_size=key_size,
-            backend=default_backend(),
-        )
+        raw_key = cls.binding.generate_private_key(key_size)
         if private:
             key = cls(raw_key, raw_key, parameters)
         else:
@@ -188,6 +197,6 @@ def has_all_prime_factors(obj: RSADictKey) -> bool:
         return True
 
     if any(props_found):
-        raise ValueError("RSA key must include all parameters if any are present besides d")
+        raise KeyParameterError("RSA key must include all parameters if any are present besides d")
 
     return False

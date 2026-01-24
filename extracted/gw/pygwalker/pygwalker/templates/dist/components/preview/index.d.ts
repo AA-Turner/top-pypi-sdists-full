@@ -2,6 +2,7 @@ import React from "react";
 import { IRow } from '@kanaries/graphic-walker';
 import type { IDarkMode } from '@kanaries/graphic-walker/interfaces';
 interface IPreviewProps {
+    gid: string;
     themeKey: string;
     dark: IDarkMode;
     charts: {

@@ -20,7 +20,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomain]:
+    ) -> models.OrganizationDomain:
         r"""Create a new organization domain.
 
         Creates a new organization domain. By default the domain is verified, but can be optionally set to unverified.
@@ -73,6 +73,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 "json",
                 models.CreateOrganizationDomainRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -93,7 +94,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -103,9 +104,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomain], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomain, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -131,7 +130,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomain]:
+    ) -> models.OrganizationDomain:
         r"""Create a new organization domain.
 
         Creates a new organization domain. By default the domain is verified, but can be optionally set to unverified.
@@ -184,6 +183,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 "json",
                 models.CreateOrganizationDomainRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -204,7 +204,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -214,9 +214,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomain], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomain, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -243,7 +241,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomains]:
+    ) -> models.OrganizationDomains:
         r"""Get a list of all domains of an organization.
 
         Get a list of all domains of an organization.
@@ -251,8 +249,11 @@ class OrganizationDomainsSDK(BaseSDK):
         :param organization_id: The organization ID.
         :param verified: Filter domains by their verification status. `true` or `false`
         :param enrollment_mode: Filter domains by their enrollment mode
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -289,6 +290,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -309,7 +311,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizationDomains",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -319,9 +321,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomains], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomains, http_res)
         if utils.match_response(http_res, ["401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -346,7 +346,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomains]:
+    ) -> models.OrganizationDomains:
         r"""Get a list of all domains of an organization.
 
         Get a list of all domains of an organization.
@@ -354,8 +354,11 @@ class OrganizationDomainsSDK(BaseSDK):
         :param organization_id: The organization ID.
         :param verified: Filter domains by their verification status. `true` or `false`
         :param enrollment_mode: Filter domains by their enrollment mode
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -392,6 +395,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -412,7 +416,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizationDomains",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -422,9 +426,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomains], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomains, http_res)
         if utils.match_response(http_res, ["401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -448,12 +450,12 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomain]:
+    ) -> models.OrganizationDomain:
         r"""Update an organization domain.
 
         Updates the properties of an existing organization domain.
 
-        :param organization_id: The ID of the organization the domain belongs to
+        :param organization_id: The ID of the organization to which the domain belongs
         :param domain_id: The ID of the domain
         :param enrollment_mode: The enrollment_mode for the new domain. This can be `automatic_invitation`, `automatic_suggestion` or `manual_invitation`
         :param verified: The status of the domain's verification
@@ -501,6 +503,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 "json",
                 models.UpdateOrganizationDomainRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -521,7 +524,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -531,9 +534,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomain], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomain, http_res)
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -557,12 +558,12 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomain]:
+    ) -> models.OrganizationDomain:
         r"""Update an organization domain.
 
         Updates the properties of an existing organization domain.
 
-        :param organization_id: The ID of the organization the domain belongs to
+        :param organization_id: The ID of the organization to which the domain belongs
         :param domain_id: The ID of the domain
         :param enrollment_mode: The enrollment_mode for the new domain. This can be `automatic_invitation`, `automatic_suggestion` or `manual_invitation`
         :param verified: The status of the domain's verification
@@ -610,6 +611,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 "json",
                 models.UpdateOrganizationDomainRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -630,7 +632,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -640,9 +642,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomain], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomain, http_res)
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -664,12 +664,12 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Remove a domain from an organization.
 
         Removes the given domain from the organization.
 
-        :param organization_id: The ID of the organization the domain belongs to
+        :param organization_id: The ID of the organization to which the domain belongs
         :param domain_id: The ID of the domain
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -704,6 +704,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -724,7 +725,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -734,7 +735,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -756,12 +757,12 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Remove a domain from an organization.
 
         Removes the given domain from the organization.
 
-        :param organization_id: The ID of the organization the domain belongs to
+        :param organization_id: The ID of the organization to which the domain belongs
         :param domain_id: The ID of the domain
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -796,6 +797,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -816,7 +818,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganizationDomain",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -826,7 +828,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -853,7 +855,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomains]:
+    ) -> models.OrganizationDomains:
         r"""List all organization domains
 
         Retrieves a list of all organization domains within the current instance.
@@ -867,10 +869,24 @@ class OrganizationDomainsSDK(BaseSDK):
         :param organization_id: The ID of the organization to filter domains by
         :param verified: Filter by verification status
         :param enrollment_mode: Filter by enrollment mode
-        :param query: Search domains by name or organization ID. If the query starts with \"org_\", it will search by exact organization ID match. Otherwise, it performs a case-insensitive partial match on the domain name.  Note: An empty string or whitespace-only value is not allowed and will result in a validation error.
-        :param order_by: Allows to return organization domains in a particular order. At the moment, you can order the returned domains by their `name` or `created_at`. In order to specify the direction, you can use the `+/-` symbols prepended to the property to order by. For example, if you want domains to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
+        :param query: Search domains by name or organization ID.
+            If the query starts with \"org_\", it will search by exact organization ID match.
+            Otherwise, it performs a case-insensitive partial match on the domain name.
+
+            Note: An empty string or whitespace-only value is not allowed and will result in a validation error.
+
+        :param order_by: Allows to return organization domains in a particular order.
+            At the moment, you can order the returned domains by their `name` or `created_at`.
+            In order to specify the direction, you can use the `+/-` symbols prepended to the property to order by.
+            For example, if you want domains to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -909,6 +925,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -929,7 +946,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListAllOrganizationDomains",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -939,9 +956,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomains], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomains, http_res)
         if utils.match_response(http_res, ["401", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -968,7 +983,7 @@ class OrganizationDomainsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationDomains]:
+    ) -> models.OrganizationDomains:
         r"""List all organization domains
 
         Retrieves a list of all organization domains within the current instance.
@@ -982,10 +997,24 @@ class OrganizationDomainsSDK(BaseSDK):
         :param organization_id: The ID of the organization to filter domains by
         :param verified: Filter by verification status
         :param enrollment_mode: Filter by enrollment mode
-        :param query: Search domains by name or organization ID. If the query starts with \"org_\", it will search by exact organization ID match. Otherwise, it performs a case-insensitive partial match on the domain name.  Note: An empty string or whitespace-only value is not allowed and will result in a validation error.
-        :param order_by: Allows to return organization domains in a particular order. At the moment, you can order the returned domains by their `name` or `created_at`. In order to specify the direction, you can use the `+/-` symbols prepended to the property to order by. For example, if you want domains to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
+        :param query: Search domains by name or organization ID.
+            If the query starts with \"org_\", it will search by exact organization ID match.
+            Otherwise, it performs a case-insensitive partial match on the domain name.
+
+            Note: An empty string or whitespace-only value is not allowed and will result in a validation error.
+
+        :param order_by: Allows to return organization domains in a particular order.
+            At the moment, you can order the returned domains by their `name` or `created_at`.
+            In order to specify the direction, you can use the `+/-` symbols prepended to the property to order by.
+            For example, if you want domains to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1024,6 +1053,7 @@ class OrganizationDomainsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1044,7 +1074,7 @@ class OrganizationDomainsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListAllOrganizationDomains",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1054,9 +1084,7 @@ class OrganizationDomainsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationDomains], http_res
-            )
+            return unmarshal_json_response(models.OrganizationDomains, http_res)
         if utils.match_response(http_res, ["401", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

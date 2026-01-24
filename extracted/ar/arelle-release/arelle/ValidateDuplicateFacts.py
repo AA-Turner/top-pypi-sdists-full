@@ -207,6 +207,8 @@ class DuplicateFactSet:
         :return: A subset of the facts where the fact of lower precision in every consistent pair has been removed.
         """
         facts = self.deduplicateCompleteSubsets()
+        if len(facts) < 2:
+            return facts
         if not self.areNumeric:
             # Consistency is equivalent to completeness for non-numeric facts
             return facts
@@ -528,11 +530,13 @@ def getFactValueEqualityKey(fact: ModelFact) -> TypeFactValueEqualityKey:
 def getHashEquivalentFactGroups(facts: list[ModelFact]) -> list[list[ModelFact]]:
     """
     Given a list of facts in an instance, returns a list of lists of facts
-    that are concept/context/unit hash-equivalent.
+    that are concept/context/unit hash-equivalent.  Return unhashable facts
+    in singleton lists.
     :param facts:
     :return: List of hash-equivalent fact lists
     """
     hashDict = defaultdict(list)
+    unhashableGroups = []
     for f in facts:
         if (
             (
@@ -545,7 +549,9 @@ def getHashEquivalentFactGroups(facts: list[ModelFact]) -> list[list[ModelFact]]
             and f.concept.type is not None
         ):
             hashDict[f.conceptContextUnitHash].append(f)
-    return list(hashDict.values())
+        else:
+            unhashableGroups.append([f])
+    return list(hashDict.values()) + unhashableGroups
 
 
 def logDeduplicatedFact(modelXbrl: ModelXbrl, fact: ModelFact) -> None:

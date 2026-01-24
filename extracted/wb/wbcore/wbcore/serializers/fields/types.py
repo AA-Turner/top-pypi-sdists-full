@@ -31,6 +31,7 @@ class WBCoreType(Enum):
     URL = "url"
     SPARKLINE = "sparkline"
     LANGUAGE = "language"
+    HYPERLINK = "hyperlink"
 
 
 class ReturnContentType(Enum):

@@ -1,5 +1,7 @@
+import linecache
 import re
 import sys
+from unittest import mock
 
 import pytest
 
@@ -156,8 +158,7 @@ class TestDebugRepr:
                 raise Exception("broken!")
 
         assert debug_repr(Foo()) == (
-            '<span class="brokenrepr">&lt;broken repr (Exception: '
-            "broken!)&gt;</span>"
+            '<span class="brokenrepr">&lt;broken repr (Exception: broken!)&gt;</span>'
         )
 
 
@@ -291,3 +292,32 @@ def test_exception_without_traceback():
         # filter_hidden_frames should skip this since it has no traceback
         e.__context__ = Exception("msg2")
         DebugTraceback(e)
+
+
+@mock.patch.object(linecache, "getlines", autospec=True)
+def test_missing_source_lines(mock_getlines: mock.Mock) -> None:
+    """Rendering doesn't fail when the line number is beyond the available
+    source lines.
+    """
+    mock_getlines.return_value = ["truncated"]
+
+    try:
+        raise ValueError()
+    except ValueError as e:
+        tb = DebugTraceback(e)
+
+    html = tb.render_traceback_html()
+    assert "test_debug.py" in html
+    assert "truncated" not in html
+
+
+def test_debugged_application_pin_security_false():
+    """Test that DebuggedApplication can be initialized with pin_security=False."""
+
+    @Request.application
+    def app(request):
+        return "OK"
+
+    # This should not raise AttributeError
+    debugged = DebuggedApplication(app, evalex=True, pin_security=False)
+    assert debugged.pin is None

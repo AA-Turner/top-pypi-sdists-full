@@ -12,7 +12,6 @@
 
 """Integration tests for account management."""
 
-from typing import Dict
 import requests
 from ibm_cloud_sdk_core.authenticators import (  # pylint: disable=import-error
     IAMAuthenticator,
@@ -35,7 +34,7 @@ from ..decorators import IntegrationTestDependencies
 
 def _get_service_instance_name_for_crn(
     dependencies: IntegrationTestDependencies,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Retrieves the service instance name and account id for a given CRN.
 
     Note: production code computes the inverse mapping. This function is needed for integration test
@@ -51,7 +50,7 @@ def _get_service_instance_name_for_crn(
 
 def _get_instance_tags(
     dependencies: IntegrationTestDependencies,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Retrieves the service instance tags for a given crn."""
     authenticator = IAMAuthenticator(dependencies.token, url=get_iam_api_url(dependencies.url))
     client = GlobalSearchV2(authenticator=authenticator)
@@ -70,11 +69,44 @@ class TestQuantumPlatform(IBMIntegrationTestCase):
 
     def test_initializing_service_no_instance(self):
         """Test initializing without an instance."""
-        service = QiskitRuntimeService(
-            token=self.dependencies.token, channel="ibm_quantum_platform", url=self.dependencies.url
-        )
-        self.assertTrue(service)
-        self.assertTrue(service.backends())
+
+        # no default instance and no filters
+        with self.assertLogs("qiskit_ibm_runtime", level="WARNING") as logs:
+            service = QiskitRuntimeService(
+                token=self.dependencies.token,
+                channel="ibm_quantum_platform",
+                url=self.dependencies.url,
+            )
+            self.assertTrue(service)
+            message = logs.output[1]
+            self.assertIn("Free and trial", message)
+
+        # no defualt instance and plans_preference
+        with self.assertLogs("qiskit_ibm_runtime", level="WARNING") as logs:
+            service = QiskitRuntimeService(
+                token=self.dependencies.token,
+                channel="ibm_quantum_platform",
+                url=self.dependencies.url,
+                plans_preference=["internal"],
+            )
+            self.assertTrue(service)
+            message = logs.output[1]
+            self.assertNotIn("Free and trial", message)
+            self.assertIn("available account instances are", message)
+
+        # no defualt instance and region
+        region = "us-east"
+        with self.assertLogs("qiskit_ibm_runtime", level="WARNING") as logs:
+            service = QiskitRuntimeService(
+                token=self.dependencies.token,
+                channel="ibm_quantum_platform",
+                url=self.dependencies.url,
+                region=region,
+            )
+            self.assertTrue(service)
+            message = logs.output[1]
+            self.assertIn("Free and trial", message)
+            self.assertIn(f"region: {region}", message)
 
     def test_backends_default_instance(self):
         """Test that default instance returns the correct backends."""

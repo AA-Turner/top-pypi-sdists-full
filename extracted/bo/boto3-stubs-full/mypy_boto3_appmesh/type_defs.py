@@ -3,7 +3,7 @@ Type annotations for appmesh service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appmesh/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -42,12 +43,6 @@ from .literals import (
     VirtualServiceStatusCodeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -361,7 +356,7 @@ class TagRefTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -710,7 +705,7 @@ class RouteStatusTypeDef(TypedDict):
 
 
 class SubjectAlternativeNameMatchersOutputTypeDef(TypedDict):
-    exact: List[str]
+    exact: list[str]
 
 
 class SubjectAlternativeNameMatchersTypeDef(TypedDict):
@@ -722,7 +717,7 @@ class TcpRouteMatchTypeDef(TypedDict):
 
 
 class TlsValidationContextAcmTrustOutputTypeDef(TypedDict):
-    certificateAuthorityArns: List[str]
+    certificateAuthorityArns: list[str]
 
 
 class TlsValidationContextAcmTrustTypeDef(TypedDict):
@@ -788,7 +783,7 @@ class VirtualGatewayTlsValidationContextSdsTrustTypeDef(TypedDict):
 
 
 class VirtualGatewayTlsValidationContextAcmTrustOutputTypeDef(TypedDict):
-    certificateAuthorityArns: List[str]
+    certificateAuthorityArns: list[str]
 
 
 class VirtualGatewayTlsValidationContextAcmTrustTypeDef(TypedDict):
@@ -835,7 +830,7 @@ class VirtualServiceStatusTypeDef(TypedDict):
 class AwsCloudMapServiceDiscoveryOutputTypeDef(TypedDict):
     namespaceName: str
     serviceName: str
-    attributes: NotRequired[List[AwsCloudMapInstanceAttributeTypeDef]]
+    attributes: NotRequired[list[AwsCloudMapInstanceAttributeTypeDef]]
     ipPreference: NotRequired[IpPreferenceType]
 
 
@@ -857,7 +852,7 @@ class TagResourceInputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: List[TagRefTypeDef]
+    tags: list[TagRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -865,9 +860,9 @@ class ListTagsForResourceOutputTypeDef(TypedDict):
 class GrpcRetryPolicyOutputTypeDef(TypedDict):
     maxRetries: int
     perRetryTimeout: DurationTypeDef
-    grpcRetryEvents: NotRequired[List[GrpcRetryPolicyEventType]]
-    httpRetryEvents: NotRequired[List[str]]
-    tcpRetryEvents: NotRequired[List[Literal["connection-error"]]]
+    grpcRetryEvents: NotRequired[list[GrpcRetryPolicyEventType]]
+    httpRetryEvents: NotRequired[list[str]]
+    tcpRetryEvents: NotRequired[list[Literal["connection-error"]]]
 
 
 class GrpcRetryPolicyTypeDef(TypedDict):
@@ -886,8 +881,8 @@ class GrpcTimeoutTypeDef(TypedDict):
 class HttpRetryPolicyOutputTypeDef(TypedDict):
     maxRetries: int
     perRetryTimeout: DurationTypeDef
-    httpRetryEvents: NotRequired[List[str]]
-    tcpRetryEvents: NotRequired[List[Literal["connection-error"]]]
+    httpRetryEvents: NotRequired[list[str]]
+    tcpRetryEvents: NotRequired[list[Literal["connection-error"]]]
 
 
 class HttpRetryPolicyTypeDef(TypedDict):
@@ -918,7 +913,7 @@ class GrpcGatewayRouteRewriteTypeDef(TypedDict):
 
 
 class ListGatewayRoutesOutputTypeDef(TypedDict):
-    gatewayRoutes: List[GatewayRouteRefTypeDef]
+    gatewayRoutes: list[GatewayRouteRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -961,7 +956,7 @@ HeaderMatchMethodTypeDef = TypedDict(
 
 
 class GrpcRouteActionOutputTypeDef(TypedDict):
-    weightedTargets: List[WeightedTargetTypeDef]
+    weightedTargets: list[WeightedTargetTypeDef]
 
 
 class GrpcRouteActionTypeDef(TypedDict):
@@ -969,7 +964,7 @@ class GrpcRouteActionTypeDef(TypedDict):
 
 
 class HttpRouteActionOutputTypeDef(TypedDict):
-    weightedTargets: List[WeightedTargetTypeDef]
+    weightedTargets: list[WeightedTargetTypeDef]
 
 
 class HttpRouteActionTypeDef(TypedDict):
@@ -977,7 +972,7 @@ class HttpRouteActionTypeDef(TypedDict):
 
 
 class TcpRouteActionOutputTypeDef(TypedDict):
-    weightedTargets: List[WeightedTargetTypeDef]
+    weightedTargets: list[WeightedTargetTypeDef]
 
 
 class TcpRouteActionTypeDef(TypedDict):
@@ -996,7 +991,7 @@ class HttpQueryParameterTypeDef(TypedDict):
 
 
 class LoggingFormatOutputTypeDef(TypedDict):
-    json: NotRequired[List[JsonFormatRefTypeDef]]
+    json: NotRequired[list[JsonFormatRefTypeDef]]
     text: NotRequired[str]
 
 
@@ -1053,37 +1048,37 @@ class ListVirtualServicesInputPaginateTypeDef(TypedDict):
 
 
 class ListMeshesOutputTypeDef(TypedDict):
-    meshes: List[MeshRefTypeDef]
+    meshes: list[MeshRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRoutesOutputTypeDef(TypedDict):
-    routes: List[RouteRefTypeDef]
+    routes: list[RouteRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVirtualGatewaysOutputTypeDef(TypedDict):
-    virtualGateways: List[VirtualGatewayRefTypeDef]
+    virtualGateways: list[VirtualGatewayRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVirtualNodesOutputTypeDef(TypedDict):
-    virtualNodes: List[VirtualNodeRefTypeDef]
+    virtualNodes: list[VirtualNodeRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVirtualRoutersOutputTypeDef(TypedDict):
-    virtualRouters: List[VirtualRouterRefTypeDef]
+    virtualRouters: list[VirtualRouterRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVirtualServicesOutputTypeDef(TypedDict):
-    virtualServices: List[VirtualServiceRefTypeDef]
+    virtualServices: list[VirtualServiceRefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1268,7 +1263,7 @@ VirtualGatewayFileAccessLogTypeDef = TypedDict(
 
 
 class VirtualRouterSpecOutputTypeDef(TypedDict):
-    listeners: NotRequired[List[VirtualRouterListenerTypeDef]]
+    listeners: NotRequired[list[VirtualRouterListenerTypeDef]]
 
 
 class VirtualRouterSpecTypeDef(TypedDict):
@@ -1341,7 +1336,7 @@ class VirtualServiceSpecTypeDef(TypedDict):
 
 class GrpcGatewayRouteMatchOutputTypeDef(TypedDict):
     hostname: NotRequired[GatewayRouteHostnameMatchTypeDef]
-    metadata: NotRequired[List[GrpcGatewayRouteMetadataTypeDef]]
+    metadata: NotRequired[list[GrpcGatewayRouteMetadataTypeDef]]
     port: NotRequired[int]
     serviceName: NotRequired[str]
 
@@ -1354,7 +1349,7 @@ class GrpcGatewayRouteMatchTypeDef(TypedDict):
 
 
 class GrpcRouteMatchOutputTypeDef(TypedDict):
-    metadata: NotRequired[List[GrpcRouteMetadataTypeDef]]
+    metadata: NotRequired[list[GrpcRouteMetadataTypeDef]]
     methodName: NotRequired[str]
     port: NotRequired[int]
     serviceName: NotRequired[str]
@@ -1368,13 +1363,13 @@ class GrpcRouteMatchTypeDef(TypedDict):
 
 
 class HttpGatewayRouteMatchOutputTypeDef(TypedDict):
-    headers: NotRequired[List[HttpGatewayRouteHeaderTypeDef]]
+    headers: NotRequired[list[HttpGatewayRouteHeaderTypeDef]]
     hostname: NotRequired[GatewayRouteHostnameMatchTypeDef]
     method: NotRequired[HttpMethodType]
     path: NotRequired[HttpPathMatchTypeDef]
     port: NotRequired[int]
     prefix: NotRequired[str]
-    queryParameters: NotRequired[List[HttpQueryParameterTypeDef]]
+    queryParameters: NotRequired[list[HttpQueryParameterTypeDef]]
 
 
 class HttpGatewayRouteMatchTypeDef(TypedDict):
@@ -1388,12 +1383,12 @@ class HttpGatewayRouteMatchTypeDef(TypedDict):
 
 
 class HttpRouteMatchOutputTypeDef(TypedDict):
-    headers: NotRequired[List[HttpRouteHeaderTypeDef]]
+    headers: NotRequired[list[HttpRouteHeaderTypeDef]]
     method: NotRequired[HttpMethodType]
     path: NotRequired[HttpPathMatchTypeDef]
     port: NotRequired[int]
     prefix: NotRequired[str]
-    queryParameters: NotRequired[List[HttpQueryParameterTypeDef]]
+    queryParameters: NotRequired[list[HttpQueryParameterTypeDef]]
     scheme: NotRequired[HttpSchemeType]
 
 
@@ -1470,7 +1465,7 @@ class ClientPolicyTlsOutputTypeDef(TypedDict):
     validation: TlsValidationContextOutputTypeDef
     certificate: NotRequired[ClientTlsCertificateTypeDef]
     enforce: NotRequired[bool]
-    ports: NotRequired[List[int]]
+    ports: NotRequired[list[int]]
 
 
 class ClientPolicyTlsTypeDef(TypedDict):
@@ -1496,7 +1491,7 @@ class VirtualGatewayClientPolicyTlsOutputTypeDef(TypedDict):
     validation: VirtualGatewayTlsValidationContextOutputTypeDef
     certificate: NotRequired[VirtualGatewayClientTlsCertificateTypeDef]
     enforce: NotRequired[bool]
-    ports: NotRequired[List[int]]
+    ports: NotRequired[list[int]]
 
 
 class VirtualGatewayClientPolicyTlsTypeDef(TypedDict):
@@ -1789,7 +1784,7 @@ class BackendTypeDef(TypedDict):
 
 
 class VirtualGatewaySpecOutputTypeDef(TypedDict):
-    listeners: List[VirtualGatewayListenerOutputTypeDef]
+    listeners: list[VirtualGatewayListenerOutputTypeDef]
     backendDefaults: NotRequired[VirtualGatewayBackendDefaultsOutputTypeDef]
     logging: NotRequired[VirtualGatewayLoggingOutputTypeDef]
 
@@ -1880,8 +1875,8 @@ class UpdateRouteInputTypeDef(TypedDict):
 
 class VirtualNodeSpecOutputTypeDef(TypedDict):
     backendDefaults: NotRequired[BackendDefaultsOutputTypeDef]
-    backends: NotRequired[List[BackendOutputTypeDef]]
-    listeners: NotRequired[List[ListenerOutputTypeDef]]
+    backends: NotRequired[list[BackendOutputTypeDef]]
+    listeners: NotRequired[list[ListenerOutputTypeDef]]
     logging: NotRequired[LoggingOutputTypeDef]
     serviceDiscovery: NotRequired[ServiceDiscoveryOutputTypeDef]
 

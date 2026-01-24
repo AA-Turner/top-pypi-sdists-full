@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def _1977(im):
+def _1977(im: Image.Image) -> Image.Image:
     """Applies 1977 filter.
 
     Arguments:
@@ -26,9 +27,9 @@ def _1977(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs = util.fill(cb.size, [243, 106, 188, .3])
+    cs = util.fill(cb.size, (243, 106, 188, 0.3))
     cr = css.blending.screen(cb, cs)
 
     cr = css.contrast(cr, 1.1)

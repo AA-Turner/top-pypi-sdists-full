@@ -3,7 +3,7 @@ import re  # noqa: F401
 
 from yookassa.domain.models import Amount
 from yookassa.domain.models.payment_data.payment_order.payment_order import PaymentOrder
-from yookassa.domain.models.payment_data.payment_order.payment_order_recipient import PaymentOrderRecipient
+from yookassa.domain.models.payment_data.payment_order.payment_order_recipient_utilities import PaymentOrderRecipientUtilities
 from yookassa.domain.models.payment_data.payment_order.payment_order_type import PaymentOrderType
 from yookassa.domain.models.payment_data.payment_order.payment_period import PaymentPeriod
 
@@ -95,7 +95,7 @@ class PaymentOrderUtilities(PaymentOrder):
         """Возвращает recipient модели PaymentOrderUtilities.
 
         :return: recipient модели PaymentOrderUtilities.
-        :rtype: PaymentOrderRecipient
+        :rtype: PaymentOrderRecipientUtilities
         """
         return self.__recipient
 
@@ -104,11 +104,11 @@ class PaymentOrderUtilities(PaymentOrder):
         """Устанавливает recipient модели PaymentOrderUtilities.
 
         :param value: recipient модели PaymentOrderUtilities.
-        :type value: PaymentOrderRecipient
+        :type value: PaymentOrderRecipientUtilities
         """
         if isinstance(value, dict):
-            self.__recipient = PaymentOrderRecipient(value)
-        elif isinstance(value, PaymentOrderRecipient):
+            self.__recipient = PaymentOrderRecipientUtilities(value)
+        elif isinstance(value, PaymentOrderRecipientUtilities):
             self.__recipient = value
         else:
             raise TypeError('Invalid recipient data type in PaymentOrderUtilities.recipient')

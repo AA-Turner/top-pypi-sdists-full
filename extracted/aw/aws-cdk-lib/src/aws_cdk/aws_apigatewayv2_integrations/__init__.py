@@ -9,6 +9,7 @@ r'''
   * [HTTP Proxy Integration](#http-proxy)
   * [StepFunctions Integration](#stepfunctions-integration)
   * [SQS Integration](#sqs-integration)
+  * [EventBridge Integration](#eventbridge-integration)
   * [Private Integration](#private-integration)
   * [Request Parameters](#request-parameters)
 * [WebSocket APIs](#websocket-apis)
@@ -51,6 +52,42 @@ http_api.add_routes(
     integration=books_integration
 )
 ```
+
+#### Lambda Integration Permissions
+
+By default, creating a `HttpLambdaIntegration` will add a permission for API Gateway to invoke your AWS Lambda function, scoped to the specific route which uses the integration.
+
+If you reuse the same AWS Lambda function for many integrations, the AWS Lambda permission policy size can be exceeded by adding a separate policy statement for each route which invokes the AWS Lambda function. To avoid this, you can opt to scope permissions to any route on the API by setting `scopePermissionToRoute` to `false`, and this will ensure only a single policy statement is added to the AWS Lambda permission policy.
+
+```python
+from aws_cdk.aws_apigatewayv2_integrations import HttpLambdaIntegration
+
+# books_default_fn: lambda.Function
+
+
+http_api = apigwv2.HttpApi(self, "HttpApi")
+
+get_books_integration = HttpLambdaIntegration("GetBooksIntegration", books_default_fn,
+    scope_permission_to_route=False
+)
+create_book_integration = HttpLambdaIntegration("CreateBookIntegration", books_default_fn,
+    scope_permission_to_route=False
+)
+
+http_api.add_routes(
+    path="/books",
+    methods=[apigwv2.HttpMethod.GET],
+    integration=get_books_integration
+)
+
+http_api.add_routes(
+    path="/books",
+    methods=[apigwv2.HttpMethod.POST],
+    integration=create_book_integration
+)
+```
+
+In the above example, a single permission is added, shared by both `getBookIntegration` and `createBookIntegration`.
 
 ### HTTP Proxy
 
@@ -212,6 +249,55 @@ apigwv2.ParameterMapping().custom("QueueUrl", queue.queue_url).custom("ReceiptHa
 
 # SQS_PURGE_QUEUE
 apigwv2.ParameterMapping().custom("QueueUrl", queue.queue_url)
+```
+
+### EventBridge Integration
+
+EventBridge integrations enable integrating an HTTP API route with Amazon EventBridge using the PutEvents API.
+This allows the HTTP API to forward requests as events to an EventBridge event bus.
+
+The following code configures EventBridge integrations:
+
+```python
+import aws_cdk.aws_events as events
+from aws_cdk.aws_apigatewayv2_integrations import HttpEventBridgeIntegration
+
+# bus: events.IEventBus
+# http_api: apigwv2.HttpApi
+
+
+# default integration (PutEvents)
+http_api.add_routes(
+    path="/default",
+    methods=[apigwv2.HttpMethod.POST],
+    integration=HttpEventBridgeIntegration("DefaultEventBridgeIntegration",
+        event_bus_ref=bus.event_bus_ref
+    )
+)
+
+# explicit subtype
+http_api.add_routes(
+    path="/put-events",
+    methods=[apigwv2.HttpMethod.POST],
+    integration=HttpEventBridgeIntegration("ExplicitSubtypeIntegration",
+        event_bus_ref=bus.event_bus_ref,
+        subtype=apigwv2.HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+    )
+)
+```
+
+#### EventBridge integration parameter mappings
+
+You can configure the custom parameter mappings of the EventBridge integration using the `parameterMapping` property of the `HttpEventBridgeIntegration` object.
+
+By default, the integration expects the request body to contain `Detail`, `DetailType`, and `Source` fields.
+
+```python
+import aws_cdk.aws_events as events
+# bus: events.IEventBus
+
+
+apigwv2.ParameterMapping().custom("Detail", "$request.body.Detail").custom("DetailType", "$request.body.DetailType").custom("Source", "$request.body.Source")
 ```
 
 ### Private Integration
@@ -515,9 +601,10 @@ from ..aws_elasticloadbalancingv2 import (
 )
 from ..aws_iam import IRole as _IRole_235f5d8e
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_servicediscovery import IService as _IService_46860ae1
 from ..aws_sqs import IQueue as _IQueue_7ed6f679
 from ..aws_stepfunctions import StateMachine as _StateMachine_a256d24f
+from ..interfaces.aws_events import EventBusReference as _EventBusReference_f9e830e1
+from ..interfaces.aws_servicediscovery import IServiceRef as _IServiceRef_687c8f74
 
 
 class HttpAlbIntegration(
@@ -549,13 +636,13 @@ class HttpAlbIntegration(
     def __init__(
         self,
         id: builtins.str,
-        listener: _IApplicationListener_60f2beb6,
+        listener: "_IApplicationListener_60f2beb6",
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -584,9 +671,9 @@ class HttpAlbIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -594,15 +681,15 @@ class HttpAlbIntegration(
         '''
         options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> _HttpConnectionType_02a8b6fb:
-        return typing.cast(_HttpConnectionType_02a8b6fb, jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
+        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: _HttpConnectionType_02a8b6fb) -> None:
+    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ddd81275967dd8f82fea61a7accd8241f873539fe596998c66af3c580e913284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -610,11 +697,11 @@ class HttpAlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> _HttpMethod_4c4f3090:
-        return typing.cast(_HttpMethod_4c4f3090, jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_HttpMethod_4c4f3090":
+        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: _HttpMethod_4c4f3090) -> None:
+    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49d2707c331ffacddcce15a9f8462f5b4bd86acafca4f99ffac86d61fdd968c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -622,11 +709,11 @@ class HttpAlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> _HttpIntegrationType_aee0d440:
-        return typing.cast(_HttpIntegrationType_aee0d440, jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
+        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: _HttpIntegrationType_aee0d440) -> None:
+    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68d6f772e2a89442556f1760d95c537293e8868e69f39350b976830ea7c5d7c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -634,15 +721,211 @@ class HttpAlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> _PayloadFormatVersion_a469cb03:
-        return typing.cast(_PayloadFormatVersion_a469cb03, jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
+        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: _PayloadFormatVersion_a469cb03) -> None:
+    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c78203b26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
+
+
+class HttpEventBridgeIntegration(
+    _HttpRouteIntegration_d3ee7c34,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpEventBridgeIntegration",
+):
+    '''The EventBridge PutEvents integration resource for HTTP API.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_events as events
+        from aws_cdk.aws_apigatewayv2_integrations import HttpEventBridgeIntegration
+        
+        # bus: events.IEventBus
+        # http_api: apigwv2.HttpApi
+        
+        
+        # default integration (PutEvents)
+        http_api.add_routes(
+            path="/default",
+            methods=[apigwv2.HttpMethod.POST],
+            integration=HttpEventBridgeIntegration("DefaultEventBridgeIntegration",
+                event_bus_ref=bus.event_bus_ref
+            )
+        )
+        
+        # explicit subtype
+        http_api.add_routes(
+            path="/put-events",
+            methods=[apigwv2.HttpMethod.POST],
+            integration=HttpEventBridgeIntegration("ExplicitSubtypeIntegration",
+                event_bus_ref=bus.event_bus_ref,
+                subtype=apigwv2.HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        id: builtins.str,
+        *,
+        event_bus_ref: typing.Union["_EventBusReference_f9e830e1", typing.Dict[builtins.str, typing.Any]],
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+    ) -> None:
+        '''
+        :param id: id of the underlying integration construct.
+        :param event_bus_ref: EventBridge event bus that integrates with API Gateway.
+        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+        :param subtype: The subtype of the HTTP integration. Only subtypes starting with EVENTBRIDGE_ can be specified. Default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__609af0872658996b1dce86a297d0ff58f1ab3aefbe3d96cefe78de4451616435)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = HttpEventBridgeIntegrationProps(
+            event_bus_ref=event_bus_ref,
+            parameter_mapping=parameter_mapping,
+            subtype=subtype,
+        )
+
+        jsii.create(self.__class__, self, [id, props])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        *,
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
+        '''Bind this integration to the route.
+
+        :param route: The route to which this is being bound.
+        :param scope: The current scope in which the bind is occurring. If the ``HttpRouteIntegration`` being bound creates additional constructs, this will be used as their parent scope.
+        '''
+        options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
+
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_apigatewayv2_integrations.HttpEventBridgeIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_bus_ref": "eventBusRef",
+        "parameter_mapping": "parameterMapping",
+        "subtype": "subtype",
+    },
+)
+class HttpEventBridgeIntegrationProps:
+    def __init__(
+        self,
+        *,
+        event_bus_ref: typing.Union["_EventBusReference_f9e830e1", typing.Dict[builtins.str, typing.Any]],
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
+    ) -> None:
+        '''Properties to initialize ``HttpEventBridgeIntegration``.
+
+        :param event_bus_ref: EventBridge event bus that integrates with API Gateway.
+        :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. When not provided, a default mapping will be used that expects the incoming request body to contain the fields ``Detail``, ``DetailType``, and ``Source``. Default: - set ``Detail`` to ``$request.body.Detail``, ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+        :param subtype: The subtype of the HTTP integration. Only subtypes starting with EVENTBRIDGE_ can be specified. Default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_events as events
+            from aws_cdk.aws_apigatewayv2_integrations import HttpEventBridgeIntegration
+            
+            # bus: events.IEventBus
+            # http_api: apigwv2.HttpApi
+            
+            
+            # default integration (PutEvents)
+            http_api.add_routes(
+                path="/default",
+                methods=[apigwv2.HttpMethod.POST],
+                integration=HttpEventBridgeIntegration("DefaultEventBridgeIntegration",
+                    event_bus_ref=bus.event_bus_ref
+                )
+            )
+            
+            # explicit subtype
+            http_api.add_routes(
+                path="/put-events",
+                methods=[apigwv2.HttpMethod.POST],
+                integration=HttpEventBridgeIntegration("ExplicitSubtypeIntegration",
+                    event_bus_ref=bus.event_bus_ref,
+                    subtype=apigwv2.HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+                )
+            )
+        '''
+        if isinstance(event_bus_ref, dict):
+            event_bus_ref = _EventBusReference_f9e830e1(**event_bus_ref)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44a0ff213f971757eba3fb6cb3f1b6ae080190a2af293a1bc01e8798d084e611)
+            check_type(argname="argument event_bus_ref", value=event_bus_ref, expected_type=type_hints["event_bus_ref"])
+            check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
+            check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_bus_ref": event_bus_ref,
+        }
+        if parameter_mapping is not None:
+            self._values["parameter_mapping"] = parameter_mapping
+        if subtype is not None:
+            self._values["subtype"] = subtype
+
+    @builtins.property
+    def event_bus_ref(self) -> "_EventBusReference_f9e830e1":
+        '''EventBridge event bus that integrates with API Gateway.'''
+        result = self._values.get("event_bus_ref")
+        assert result is not None, "Required property 'event_bus_ref' is missing"
+        return typing.cast("_EventBusReference_f9e830e1", result)
+
+    @builtins.property
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
+        '''Specifies how to transform HTTP requests before sending them to the backend.
+
+        When not provided, a default mapping will be used that expects the
+        incoming request body to contain the fields ``Detail``, ``DetailType``, and
+        ``Source``.
+
+        :default:
+
+        - set ``Detail`` to ``$request.body.Detail``,
+        ``DetailType`` to ``$request.body.DetailType``, and ``Source`` to ``$request.body.Source``.
+
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-aws-services-reference.html
+        '''
+        result = self._values.get("parameter_mapping")
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
+
+    @builtins.property
+    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
+        '''The subtype of the HTTP integration.
+
+        Only subtypes starting with EVENTBRIDGE_ can be specified.
+
+        :default: HttpIntegrationSubtype.EVENTBRIDGE_PUT_EVENTS
+        '''
+        result = self._values.get("subtype")
+        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpEventBridgeIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class HttpLambdaIntegration(
@@ -656,35 +939,44 @@ class HttpLambdaIntegration(
 
     Example::
 
-        from aws_cdk.aws_apigatewayv2_integrations import HttpLambdaIntegration
+        from aws_cdk.aws_apigatewayv2_integrations import HttpUrlIntegration, HttpLambdaIntegration
         
-        # books_default_fn: lambda.Function
+        # book_store_default_fn: lambda.Function
         
-        books_integration = HttpLambdaIntegration("BooksIntegration", books_default_fn)
+        
+        get_books_integration = HttpUrlIntegration("GetBooksIntegration", "https://get-books-proxy.example.com")
+        book_store_default_integration = HttpLambdaIntegration("BooksIntegration", book_store_default_fn)
         
         http_api = apigwv2.HttpApi(self, "HttpApi")
         
         http_api.add_routes(
             path="/books",
             methods=[apigwv2.HttpMethod.GET],
-            integration=books_integration
+            integration=get_books_integration
+        )
+        http_api.add_routes(
+            path="/books",
+            methods=[apigwv2.HttpMethod.ANY],
+            integration=book_store_default_integration
         )
     '''
 
     def __init__(
         self,
         id: builtins.str,
-        handler: _IFunction_6adb0ab8,
+        handler: "_IFunction_6adb0ab8",
         *,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        payload_format_version: typing.Optional["_PayloadFormatVersion_a469cb03"] = None,
+        scope_permission_to_route: typing.Optional[builtins.bool] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
         :param handler: the Lambda handler to integrate with.
         :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. Default: undefined requests are sent to the backend unmodified
         :param payload_format_version: Version of the payload sent to the lambda handler. Default: PayloadFormatVersion.VERSION_2_0
+        :param scope_permission_to_route: Scope the permission for invoking the AWS Lambda down to the specific route associated with this integration. If this is set to ``false``, the permission will allow invoking the AWS Lambda from any route. This is useful for reducing the AWS Lambda policy size for cases where the same AWS Lambda function is reused for many integrations. Default: true
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
         '''
         if __debug__:
@@ -694,6 +986,7 @@ class HttpLambdaIntegration(
         props = HttpLambdaIntegrationProps(
             parameter_mapping=parameter_mapping,
             payload_format_version=payload_format_version,
+            scope_permission_to_route=scope_permission_to_route,
             timeout=timeout,
         )
 
@@ -703,9 +996,9 @@ class HttpLambdaIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -713,14 +1006,14 @@ class HttpLambdaIntegration(
         '''
         _options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [_options]))
 
     @jsii.member(jsii_name="completeBind")
     def _complete_bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
     ) -> None:
         '''Complete the binding of the integration to the route.
 
@@ -745,6 +1038,7 @@ class HttpLambdaIntegration(
     name_mapping={
         "parameter_mapping": "parameterMapping",
         "payload_format_version": "payloadFormatVersion",
+        "scope_permission_to_route": "scopePermissionToRoute",
         "timeout": "timeout",
     },
 )
@@ -752,50 +1046,66 @@ class HttpLambdaIntegrationProps:
     def __init__(
         self,
         *,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        payload_format_version: typing.Optional["_PayloadFormatVersion_a469cb03"] = None,
+        scope_permission_to_route: typing.Optional[builtins.bool] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Lambda Proxy integration properties.
 
         :param parameter_mapping: Specifies how to transform HTTP requests before sending them to the backend. Default: undefined requests are sent to the backend unmodified
         :param payload_format_version: Version of the payload sent to the lambda handler. Default: PayloadFormatVersion.VERSION_2_0
+        :param scope_permission_to_route: Scope the permission for invoking the AWS Lambda down to the specific route associated with this integration. If this is set to ``false``, the permission will allow invoking the AWS Lambda from any route. This is useful for reducing the AWS Lambda policy size for cases where the same AWS Lambda function is reused for many integrations. Default: true
         :param timeout: The maximum amount of time an integration will run before it returns without a response. Must be between 50 milliseconds and 29 seconds. Default: Duration.seconds(29)
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_apigatewayv2 as apigatewayv2
-            from aws_cdk import aws_apigatewayv2_integrations as apigatewayv2_integrations
+            from aws_cdk.aws_apigatewayv2_integrations import HttpLambdaIntegration
             
-            # parameter_mapping: apigatewayv2.ParameterMapping
-            # payload_format_version: apigatewayv2.PayloadFormatVersion
+            # books_default_fn: lambda.Function
             
-            http_lambda_integration_props = apigatewayv2_integrations.HttpLambdaIntegrationProps(
-                parameter_mapping=parameter_mapping,
-                payload_format_version=payload_format_version,
-                timeout=cdk.Duration.minutes(30)
+            
+            http_api = apigwv2.HttpApi(self, "HttpApi")
+            
+            get_books_integration = HttpLambdaIntegration("GetBooksIntegration", books_default_fn,
+                scope_permission_to_route=False
+            )
+            create_book_integration = HttpLambdaIntegration("CreateBookIntegration", books_default_fn,
+                scope_permission_to_route=False
+            )
+            
+            http_api.add_routes(
+                path="/books",
+                methods=[apigwv2.HttpMethod.GET],
+                integration=get_books_integration
+            )
+            
+            http_api.add_routes(
+                path="/books",
+                methods=[apigwv2.HttpMethod.POST],
+                integration=create_book_integration
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7494501e4bf220385c831472b8042a561df79a565c497e77d41cfc10427bce41)
             check_type(argname="argument parameter_mapping", value=parameter_mapping, expected_type=type_hints["parameter_mapping"])
             check_type(argname="argument payload_format_version", value=payload_format_version, expected_type=type_hints["payload_format_version"])
+            check_type(argname="argument scope_permission_to_route", value=scope_permission_to_route, expected_type=type_hints["scope_permission_to_route"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if parameter_mapping is not None:
             self._values["parameter_mapping"] = parameter_mapping
         if payload_format_version is not None:
             self._values["payload_format_version"] = payload_format_version
+        if scope_permission_to_route is not None:
+            self._values["scope_permission_to_route"] = scope_permission_to_route
         if timeout is not None:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -803,10 +1113,12 @@ class HttpLambdaIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
-    def payload_format_version(self) -> typing.Optional[_PayloadFormatVersion_a469cb03]:
+    def payload_format_version(
+        self,
+    ) -> typing.Optional["_PayloadFormatVersion_a469cb03"]:
         '''Version of the payload sent to the lambda handler.
 
         :default: PayloadFormatVersion.VERSION_2_0
@@ -814,10 +1126,23 @@ class HttpLambdaIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
         '''
         result = self._values.get("payload_format_version")
-        return typing.cast(typing.Optional[_PayloadFormatVersion_a469cb03], result)
+        return typing.cast(typing.Optional["_PayloadFormatVersion_a469cb03"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def scope_permission_to_route(self) -> typing.Optional[builtins.bool]:
+        '''Scope the permission for invoking the AWS Lambda down to the specific route associated with this integration.
+
+        If this is set to ``false``, the permission will allow invoking the AWS Lambda
+        from any route. This is useful for reducing the AWS Lambda policy size
+        for cases where the same AWS Lambda function is reused for many integrations.
+
+        :default: true
+        '''
+        result = self._values.get("scope_permission_to_route")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -825,7 +1150,7 @@ class HttpLambdaIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -868,13 +1193,13 @@ class HttpNlbIntegration(
     def __init__(
         self,
         id: builtins.str,
-        listener: _INetworkListener_fccca3bd,
+        listener: "_INetworkListener_fccca3bd",
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -903,9 +1228,9 @@ class HttpNlbIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -913,15 +1238,15 @@ class HttpNlbIntegration(
         '''
         options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> _HttpConnectionType_02a8b6fb:
-        return typing.cast(_HttpConnectionType_02a8b6fb, jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
+        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: _HttpConnectionType_02a8b6fb) -> None:
+    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d360e4b817e6fc6c8ae4e1350d9dd6b3d69b40c54401465c6ef888953f765e38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -929,11 +1254,11 @@ class HttpNlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> _HttpMethod_4c4f3090:
-        return typing.cast(_HttpMethod_4c4f3090, jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_HttpMethod_4c4f3090":
+        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: _HttpMethod_4c4f3090) -> None:
+    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c789ab75d5a6290c76fe8fce0b824cd0926bb50f6f9fb91ff77ef01e82a1ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -941,11 +1266,11 @@ class HttpNlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> _HttpIntegrationType_aee0d440:
-        return typing.cast(_HttpIntegrationType_aee0d440, jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
+        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: _HttpIntegrationType_aee0d440) -> None:
+    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__585857799e486703df2825ecce003717b9e731a7928c8409a6da811435c79165)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -953,11 +1278,11 @@ class HttpNlbIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> _PayloadFormatVersion_a469cb03:
-        return typing.cast(_PayloadFormatVersion_a469cb03, jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
+        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: _PayloadFormatVersion_a469cb03) -> None:
+    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36f10890866a2476ef7a837c18a7bab079976e4adf47e736ccebe3fc7ec980ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -979,11 +1304,11 @@ class HttpPrivateIntegrationOptions:
     def __init__(
         self,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''Base options for private integration.
 
@@ -1034,16 +1359,16 @@ class HttpPrivateIntegrationOptions:
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional[_HttpMethod_4c4f3090]:
+    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional[_HttpMethod_4c4f3090], result)
+        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1051,7 +1376,7 @@ class HttpPrivateIntegrationOptions:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -1065,7 +1390,7 @@ class HttpPrivateIntegrationOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1073,16 +1398,16 @@ class HttpPrivateIntegrationOptions:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional[_IVpcLink_adecf0e2]:
+    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional[_IVpcLink_adecf0e2], result)
+        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1129,13 +1454,13 @@ class HttpServiceDiscoveryIntegration(
     def __init__(
         self,
         id: builtins.str,
-        service: _IService_46860ae1,
+        service: "_IServiceRef_687c8f74",
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1164,9 +1489,9 @@ class HttpServiceDiscoveryIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -1174,15 +1499,15 @@ class HttpServiceDiscoveryIntegration(
         '''
         options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="connectionType")
-    def _connection_type(self) -> _HttpConnectionType_02a8b6fb:
-        return typing.cast(_HttpConnectionType_02a8b6fb, jsii.get(self, "connectionType"))
+    def _connection_type(self) -> "_HttpConnectionType_02a8b6fb":
+        return typing.cast("_HttpConnectionType_02a8b6fb", jsii.get(self, "connectionType"))
 
     @_connection_type.setter
-    def _connection_type(self, value: _HttpConnectionType_02a8b6fb) -> None:
+    def _connection_type(self, value: "_HttpConnectionType_02a8b6fb") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88fa11bc73bf44288cb7467c39d6aa21cc34611adb58ae52dbcb42fe2150a266)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1190,11 +1515,11 @@ class HttpServiceDiscoveryIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
-    def _http_method(self) -> _HttpMethod_4c4f3090:
-        return typing.cast(_HttpMethod_4c4f3090, jsii.get(self, "httpMethod"))
+    def _http_method(self) -> "_HttpMethod_4c4f3090":
+        return typing.cast("_HttpMethod_4c4f3090", jsii.get(self, "httpMethod"))
 
     @_http_method.setter
-    def _http_method(self, value: _HttpMethod_4c4f3090) -> None:
+    def _http_method(self, value: "_HttpMethod_4c4f3090") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cc3ee501484e0e7058df9083bcfc3e410c2de2357a283e797038514e45bae8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1202,11 +1527,11 @@ class HttpServiceDiscoveryIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
-    def _integration_type(self) -> _HttpIntegrationType_aee0d440:
-        return typing.cast(_HttpIntegrationType_aee0d440, jsii.get(self, "integrationType"))
+    def _integration_type(self) -> "_HttpIntegrationType_aee0d440":
+        return typing.cast("_HttpIntegrationType_aee0d440", jsii.get(self, "integrationType"))
 
     @_integration_type.setter
-    def _integration_type(self, value: _HttpIntegrationType_aee0d440) -> None:
+    def _integration_type(self, value: "_HttpIntegrationType_aee0d440") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5909d37808307699be7a07730689164f1e138383252eae1d7c68420302f2e9c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1214,11 +1539,11 @@ class HttpServiceDiscoveryIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
-    def _payload_format_version(self) -> _PayloadFormatVersion_a469cb03:
-        return typing.cast(_PayloadFormatVersion_a469cb03, jsii.get(self, "payloadFormatVersion"))
+    def _payload_format_version(self) -> "_PayloadFormatVersion_a469cb03":
+        return typing.cast("_PayloadFormatVersion_a469cb03", jsii.get(self, "payloadFormatVersion"))
 
     @_payload_format_version.setter
-    def _payload_format_version(self, value: _PayloadFormatVersion_a469cb03) -> None:
+    def _payload_format_version(self, value: "_PayloadFormatVersion_a469cb03") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2db70ce1255fd6ff4a3b0a88a1c0a0096c5eb165bf1ce3544bee82d10bcc54d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1240,11 +1565,11 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''Properties to initialize ``HttpServiceDiscoveryIntegration``.
 
@@ -1296,16 +1621,16 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional[_HttpMethod_4c4f3090]:
+    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional[_HttpMethod_4c4f3090], result)
+        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1313,7 +1638,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -1327,7 +1652,7 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1335,16 +1660,16 @@ class HttpServiceDiscoveryIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional[_IVpcLink_adecf0e2]:
+    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional[_IVpcLink_adecf0e2], result)
+        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1426,9 +1751,9 @@ class HttpSqsIntegration(
         self,
         id: builtins.str,
         *,
-        queue: _IQueue_7ed6f679,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+        queue: "_IQueue_7ed6f679",
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1449,9 +1774,9 @@ class HttpSqsIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -1459,7 +1784,7 @@ class HttpSqsIntegration(
         '''
         options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -1475,9 +1800,9 @@ class HttpSqsIntegrationProps:
     def __init__(
         self,
         *,
-        queue: _IQueue_7ed6f679,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+        queue: "_IQueue_7ed6f679",
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
     ) -> None:
         '''Properties to initialize ``HttpSqsIntegration``.
 
@@ -1555,14 +1880,14 @@ class HttpSqsIntegrationProps:
             self._values["subtype"] = subtype
 
     @builtins.property
-    def queue(self) -> _IQueue_7ed6f679:
+    def queue(self) -> "_IQueue_7ed6f679":
         '''SQS queue that Integrates with API Gateway.'''
         result = self._values.get("queue")
         assert result is not None, "Required property 'queue' is missing"
-        return typing.cast(_IQueue_7ed6f679, result)
+        return typing.cast("_IQueue_7ed6f679", result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default:
@@ -1573,10 +1898,10 @@ class HttpSqsIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-aws-services-reference.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
-    def subtype(self) -> typing.Optional[_HttpIntegrationSubtype_beb63b59]:
+    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
         '''The subtype of the HTTP integration.
 
         Only subtypes starting with SQS_ can be specified.
@@ -1584,7 +1909,7 @@ class HttpSqsIntegrationProps:
         :default: HttpIntegrationSubtype.SQS_SEND_MESSAGE
         '''
         result = self._values.get("subtype")
-        return typing.cast(typing.Optional[_HttpIntegrationSubtype_beb63b59], result)
+        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1650,9 +1975,9 @@ class HttpStepFunctionsIntegration(
         self,
         id: builtins.str,
         *,
-        state_machine: _StateMachine_a256d24f,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+        state_machine: "_StateMachine_a256d24f",
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1675,9 +2000,9 @@ class HttpStepFunctionsIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -1685,7 +2010,7 @@ class HttpStepFunctionsIntegration(
         '''
         options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -1701,9 +2026,9 @@ class HttpStepFunctionsIntegrationProps:
     def __init__(
         self,
         *,
-        state_machine: _StateMachine_a256d24f,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+        state_machine: "_StateMachine_a256d24f",
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        subtype: typing.Optional["_HttpIntegrationSubtype_beb63b59"] = None,
     ) -> None:
         '''Properties to initialize ``HttpStepFunctionsIntegration``.
 
@@ -1765,14 +2090,14 @@ class HttpStepFunctionsIntegrationProps:
             self._values["subtype"] = subtype
 
     @builtins.property
-    def state_machine(self) -> _StateMachine_a256d24f:
+    def state_machine(self) -> "_StateMachine_a256d24f":
         '''Statemachine that Integrates with API Gateway.'''
         result = self._values.get("state_machine")
         assert result is not None, "Required property 'state_machine' is missing"
-        return typing.cast(_StateMachine_a256d24f, result)
+        return typing.cast("_StateMachine_a256d24f", result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         When the subtype is either ``START_EXECUTION`` or ``START_SYNC_EXECUTION``,
@@ -1784,10 +2109,10 @@ class HttpStepFunctionsIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
-    def subtype(self) -> typing.Optional[_HttpIntegrationSubtype_beb63b59]:
+    def subtype(self) -> typing.Optional["_HttpIntegrationSubtype_beb63b59"]:
         '''The subtype of the HTTP integration.
 
         Only subtypes starting with STEPFUNCTIONS_ can be specified.
@@ -1795,7 +2120,7 @@ class HttpStepFunctionsIntegrationProps:
         :default: HttpIntegrationSubtype.STEPFUNCTIONS_START_EXECUTION
         '''
         result = self._values.get("subtype")
-        return typing.cast(typing.Optional[_HttpIntegrationSubtype_beb63b59], result)
+        return typing.cast(typing.Optional["_HttpIntegrationSubtype_beb63b59"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1845,9 +2170,9 @@ class HttpUrlIntegration(
         id: builtins.str,
         url: builtins.str,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -1870,9 +2195,9 @@ class HttpUrlIntegration(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteIntegrationConfig_aafc4b76:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteIntegrationConfig_aafc4b76":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -1880,7 +2205,7 @@ class HttpUrlIntegration(
         '''
         _options = _HttpRouteIntegrationBindOptions_f870a39e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteIntegrationConfig_aafc4b76, jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_HttpRouteIntegrationConfig_aafc4b76", jsii.invoke(self, "bind", [_options]))
 
 
 @jsii.data_type(
@@ -1896,9 +2221,9 @@ class HttpUrlIntegrationProps:
     def __init__(
         self,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties to initialize a new ``HttpProxyIntegration``.
 
@@ -1938,16 +2263,16 @@ class HttpUrlIntegrationProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def method(self) -> typing.Optional[_HttpMethod_4c4f3090]:
+    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional[_HttpMethod_4c4f3090], result)
+        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -1955,10 +2280,10 @@ class HttpUrlIntegrationProps:
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -1966,7 +2291,7 @@ class HttpUrlIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2030,13 +2355,13 @@ class WebSocketAwsIntegration(
         *,
         integration_method: builtins.str,
         integration_uri: builtins.str,
-        content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-        credentials_role: typing.Optional[_IRole_235f5d8e] = None,
-        passthrough_behavior: typing.Optional[_PassthroughBehavior_379b8a9e] = None,
+        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
+        credentials_role: typing.Optional["_IRole_235f5d8e"] = None,
+        passthrough_behavior: typing.Optional["_PassthroughBehavior_379b8a9e"] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         template_selection_expression: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -2071,9 +2396,9 @@ class WebSocketAwsIntegration(
     def bind(
         self,
         *,
-        route: _IWebSocketRoute_006c2390,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _WebSocketRouteIntegrationConfig_7402c18a:
+        route: "_IWebSocketRoute_006c2390",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -2083,7 +2408,7 @@ class WebSocketAwsIntegration(
             route=route, scope=scope
         )
 
-        return typing.cast(_WebSocketRouteIntegrationConfig_7402c18a, jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [_options]))
 
 
 @jsii.data_type(
@@ -2107,13 +2432,13 @@ class WebSocketAwsIntegrationProps:
         *,
         integration_method: builtins.str,
         integration_uri: builtins.str,
-        content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-        credentials_role: typing.Optional[_IRole_235f5d8e] = None,
-        passthrough_behavior: typing.Optional[_PassthroughBehavior_379b8a9e] = None,
+        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
+        credentials_role: typing.Optional["_IRole_235f5d8e"] = None,
+        passthrough_behavior: typing.Optional["_PassthroughBehavior_379b8a9e"] = None,
         request_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         template_selection_expression: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Props for AWS type integration for a WebSocket Api.
 
@@ -2208,7 +2533,7 @@ class WebSocketAwsIntegrationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def content_handling(self) -> typing.Optional[_ContentHandling_1512a7da]:
+    def content_handling(self) -> typing.Optional["_ContentHandling_1512a7da"]:
         '''Specifies how to handle response payload content type conversions.
 
         :default:
@@ -2217,19 +2542,19 @@ class WebSocketAwsIntegrationProps:
         the route response or method response without modification.
         '''
         result = self._values.get("content_handling")
-        return typing.cast(typing.Optional[_ContentHandling_1512a7da], result)
+        return typing.cast(typing.Optional["_ContentHandling_1512a7da"], result)
 
     @builtins.property
-    def credentials_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def credentials_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Specifies the credentials role required for the integration.
 
         :default: - No credential role provided.
         '''
         result = self._values.get("credentials_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def passthrough_behavior(self) -> typing.Optional[_PassthroughBehavior_379b8a9e]:
+    def passthrough_behavior(self) -> typing.Optional["_PassthroughBehavior_379b8a9e"]:
         '''Specifies the pass-through behavior for incoming requests based on the Content-Type header in the request, and the available mapping templates specified as the requestTemplates property on the Integration resource.
 
         There are three valid values: WHEN_NO_MATCH, WHEN_NO_TEMPLATES, and
@@ -2238,7 +2563,7 @@ class WebSocketAwsIntegrationProps:
         :default: - No passthrough behavior required.
         '''
         result = self._values.get("passthrough_behavior")
-        return typing.cast(typing.Optional[_PassthroughBehavior_379b8a9e], result)
+        return typing.cast(typing.Optional["_PassthroughBehavior_379b8a9e"], result)
 
     @builtins.property
     def request_parameters(
@@ -2279,7 +2604,7 @@ class WebSocketAwsIntegrationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2287,7 +2612,7 @@ class WebSocketAwsIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2331,10 +2656,10 @@ class WebSocketLambdaIntegration(
     def __init__(
         self,
         id: builtins.str,
-        handler: _IFunction_6adb0ab8,
+        handler: "_IFunction_6adb0ab8",
         *,
-        content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
         :param id: id of the underlying integration construct.
@@ -2356,9 +2681,9 @@ class WebSocketLambdaIntegration(
     def bind(
         self,
         *,
-        route: _IWebSocketRoute_006c2390,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _WebSocketRouteIntegrationConfig_7402c18a:
+        route: "_IWebSocketRoute_006c2390",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -2368,7 +2693,7 @@ class WebSocketLambdaIntegration(
             route=route, scope=scope
         )
 
-        return typing.cast(_WebSocketRouteIntegrationConfig_7402c18a, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -2380,8 +2705,8 @@ class WebSocketLambdaIntegrationProps:
     def __init__(
         self,
         *,
-        content_handling: typing.Optional[_ContentHandling_1512a7da] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
+        content_handling: typing.Optional["_ContentHandling_1512a7da"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Props for Lambda type integration for a WebSocket Api.
 
@@ -2414,7 +2739,7 @@ class WebSocketLambdaIntegrationProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def content_handling(self) -> typing.Optional[_ContentHandling_1512a7da]:
+    def content_handling(self) -> typing.Optional["_ContentHandling_1512a7da"]:
         '''Specifies how to handle response payload content type conversions.
 
         :default:
@@ -2423,10 +2748,10 @@ class WebSocketLambdaIntegrationProps:
         the route response or method response without modification.
         '''
         result = self._values.get("content_handling")
-        return typing.cast(typing.Optional[_ContentHandling_1512a7da], result)
+        return typing.cast(typing.Optional["_ContentHandling_1512a7da"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2434,7 +2759,7 @@ class WebSocketLambdaIntegrationProps:
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2504,9 +2829,9 @@ class WebSocketMockIntegration(
     def bind(
         self,
         *,
-        route: _IWebSocketRoute_006c2390,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _WebSocketRouteIntegrationConfig_7402c18a:
+        route: "_IWebSocketRoute_006c2390",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_WebSocketRouteIntegrationConfig_7402c18a":
         '''Bind this integration to the route.
 
         :param route: The route to which this is being bound.
@@ -2516,7 +2841,7 @@ class WebSocketMockIntegration(
             route=route, scope=scope
         )
 
-        return typing.cast(_WebSocketRouteIntegrationConfig_7402c18a, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_WebSocketRouteIntegrationConfig_7402c18a", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(
@@ -2624,11 +2949,11 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''Properties to initialize ``HttpAlbIntegration``.
 
@@ -2677,16 +3002,16 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional[_HttpMethod_4c4f3090]:
+    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional[_HttpMethod_4c4f3090], result)
+        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -2694,7 +3019,7 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -2708,7 +3033,7 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2716,16 +3041,16 @@ class HttpAlbIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional[_IVpcLink_adecf0e2]:
+    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional[_IVpcLink_adecf0e2], result)
+        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2754,11 +3079,11 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
     def __init__(
         self,
         *,
-        method: typing.Optional[_HttpMethod_4c4f3090] = None,
-        parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+        method: typing.Optional["_HttpMethod_4c4f3090"] = None,
+        parameter_mapping: typing.Optional["_ParameterMapping_c11a48e0"] = None,
         secure_server_name: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        vpc_link: typing.Optional[_IVpcLink_adecf0e2] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc_link: typing.Optional["_IVpcLink_adecf0e2"] = None,
     ) -> None:
         '''Properties to initialize ``HttpNlbIntegration``.
 
@@ -2809,16 +3134,16 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
             self._values["vpc_link"] = vpc_link
 
     @builtins.property
-    def method(self) -> typing.Optional[_HttpMethod_4c4f3090]:
+    def method(self) -> typing.Optional["_HttpMethod_4c4f3090"]:
         '''The HTTP method that must be used to invoke the underlying HTTP proxy.
 
         :default: HttpMethod.ANY
         '''
         result = self._values.get("method")
-        return typing.cast(typing.Optional[_HttpMethod_4c4f3090], result)
+        return typing.cast(typing.Optional["_HttpMethod_4c4f3090"], result)
 
     @builtins.property
-    def parameter_mapping(self) -> typing.Optional[_ParameterMapping_c11a48e0]:
+    def parameter_mapping(self) -> typing.Optional["_ParameterMapping_c11a48e0"]:
         '''Specifies how to transform HTTP requests before sending them to the backend.
 
         :default: undefined requests are sent to the backend unmodified
@@ -2826,7 +3151,7 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-parameter-mapping.html
         '''
         result = self._values.get("parameter_mapping")
-        return typing.cast(typing.Optional[_ParameterMapping_c11a48e0], result)
+        return typing.cast(typing.Optional["_ParameterMapping_c11a48e0"], result)
 
     @builtins.property
     def secure_server_name(self) -> typing.Optional[builtins.str]:
@@ -2840,7 +3165,7 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum amount of time an integration will run before it returns without a response.
 
         Must be between 50 milliseconds and 29 seconds.
@@ -2848,16 +3173,16 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
         :default: Duration.seconds(29)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc_link(self) -> typing.Optional[_IVpcLink_adecf0e2]:
+    def vpc_link(self) -> typing.Optional["_IVpcLink_adecf0e2"]:
         '''The vpc link to be used for the private integration.
 
         :default: - a new VpcLink is created
         '''
         result = self._values.get("vpc_link")
-        return typing.cast(typing.Optional[_IVpcLink_adecf0e2], result)
+        return typing.cast(typing.Optional["_IVpcLink_adecf0e2"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2874,6 +3199,8 @@ class HttpNlbIntegrationProps(HttpPrivateIntegrationOptions):
 __all__ = [
     "HttpAlbIntegration",
     "HttpAlbIntegrationProps",
+    "HttpEventBridgeIntegration",
+    "HttpEventBridgeIntegrationProps",
     "HttpLambdaIntegration",
     "HttpLambdaIntegrationProps",
     "HttpNlbIntegration",
@@ -2934,12 +3261,32 @@ def _typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__609af0872658996b1dce86a297d0ff58f1ab3aefbe3d96cefe78de4451616435(
+    id: builtins.str,
+    *,
+    event_bus_ref: typing.Union[_EventBusReference_f9e830e1, typing.Dict[builtins.str, typing.Any]],
+    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44a0ff213f971757eba3fb6cb3f1b6ae080190a2af293a1bc01e8798d084e611(
+    *,
+    event_bus_ref: typing.Union[_EventBusReference_f9e830e1, typing.Dict[builtins.str, typing.Any]],
+    parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
+    subtype: typing.Optional[_HttpIntegrationSubtype_beb63b59] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__186fcdf4e12ad29dbad06f4ae566e815dd0e4855b4b9ffd6626f945f2a4aee19(
     id: builtins.str,
     handler: _IFunction_6adb0ab8,
     *,
     parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
     payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
+    scope_permission_to_route: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2949,6 +3296,7 @@ def _typecheckingstub__7494501e4bf220385c831472b8042a561df79a565c497e77d41cfc104
     *,
     parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,
     payload_format_version: typing.Optional[_PayloadFormatVersion_a469cb03] = None,
+    scope_permission_to_route: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3004,7 +3352,7 @@ def _typecheckingstub__d60e74e57400fa0f9757a69ecb53197543ad6fd054f8168eaa56d7cd0
 
 def _typecheckingstub__dc876ae5ee3ca1141486563e7214d682fb6d2e3b3b1ab6b4f91e525d7a19b53e(
     id: builtins.str,
-    service: _IService_46860ae1,
+    service: _IServiceRef_687c8f74,
     *,
     method: typing.Optional[_HttpMethod_4c4f3090] = None,
     parameter_mapping: typing.Optional[_ParameterMapping_c11a48e0] = None,

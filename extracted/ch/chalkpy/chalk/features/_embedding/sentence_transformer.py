@@ -111,7 +111,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
                     raise ValueError(
                         f"Expected to find an embedding for input at position {idx}, but the response data was exhausted."
                     )
-            yield create_fixedsize_with_nulls(response, self.dimensions)
+            yield create_fixedsize_with_nulls(values_with_nulls, self.dimensions)
 
     def get_vector_class(self) -> Type[Vector]:
         return Vector[self.dimensions]

@@ -3,7 +3,7 @@ Main interface for kinesis-video-archived-media service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis_video_archived_media/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

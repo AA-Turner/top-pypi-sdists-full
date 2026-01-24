@@ -1281,6 +1281,9 @@ DEFINE_bool(
 DEFINE_bool(paranoid_memory_checks, false,
             "Sets CF option paranoid_memory_checks");
 
+DEFINE_bool(memtable_veirfy_per_key_checksum_on_seek, false,
+            "Sets CF option memtable_veirfy_per_key_checksum_on_seek");
+
 DEFINE_bool(
     auto_refresh_iterator_with_snapshot, false,
     "When set to true, RocksDB iterator will automatically refresh itself "
@@ -1846,6 +1849,18 @@ DEFINE_bool(universal_reduce_file_locking,
             ROCKSDB_NAMESPACE::Options()
                 .compaction_options_universal.reduce_file_locking,
             "See Options().compaction_options_universal.reduce_file_locking");
+
+DEFINE_uint64(
+    multiscan_coalesce_threshold,
+    ROCKSDB_NAMESPACE::MultiScanArgs(ROCKSDB_NAMESPACE::BytewiseComparator())
+        .io_coalesce_threshold,
+    "Configures io coalescing threshold for multiscans");
+
+DEFINE_bool(
+    multiscan_use_async_io,
+    ROCKSDB_NAMESPACE::MultiScanArgs(ROCKSDB_NAMESPACE::BytewiseComparator())
+        .use_async_io,
+    "Sets MultiScanArgs::use_async_io");
 
 namespace ROCKSDB_NAMESPACE {
 namespace {
@@ -4838,6 +4853,8 @@ class Benchmark {
     options.block_protection_bytes_per_key =
         FLAGS_block_protection_bytes_per_key;
     options.paranoid_memory_checks = FLAGS_paranoid_memory_checks;
+    options.memtable_veirfy_per_key_checksum_on_seek =
+        FLAGS_memtable_veirfy_per_key_checksum_on_seek;
     options.memtable_op_scan_flush_trigger =
         FLAGS_memtable_op_scan_flush_trigger;
     options.compaction_options_universal.reduce_file_locking =
@@ -6410,9 +6427,12 @@ class Benchmark {
     options.readahead_size = readahead;
 
     Duration duration(FLAGS_duration, reads_);
-    while (!duration.Done(1)) {
+    int64_t num_keys = 1;
+    while (!duration.Done(num_keys)) {
       DB* db = SelectDB(thread);
-      std::vector<ScanOptions> opts;
+      MultiScanArgs opts(open_options_.comparator);
+      opts.io_coalesce_threshold = FLAGS_multiscan_coalesce_threshold;
+      opts.use_async_io = FLAGS_multiscan_use_async_io;
       std::vector<std::unique_ptr<const char[]>> guards;
       opts.reserve(multiscan_size);
       // We create 1 random start, and then multiscan will start from that
@@ -6433,19 +6453,20 @@ class Benchmark {
         uint64_t end_key = start_key + scan_size;
         GenerateKeyFromInt(end_key, FLAGS_num, &ekey);
 
-        opts.emplace_back(skey, ekey);
+        opts.insert(skey, ekey);
         start_key += scan_size + FLAGS_multiscan_stride;
       }
 
       auto iter =
           db->NewMultiScan(read_options_, db->DefaultColumnFamily(), opts);
+      int64_t keys = 0;
       for (auto rng : *iter) {
-        size_t keys = 0;
-        for (auto it __attribute__((__unused__)) : rng) {
+        for ([[maybe_unused]] auto it : rng) {
           keys++;
         }
         assert(keys > 0);
       }
+      num_keys = std::max<int64_t>(1, keys);
 
       if (thread->shared->read_rate_limiter.get() != nullptr) {
         thread->shared->read_rate_limiter->Request(

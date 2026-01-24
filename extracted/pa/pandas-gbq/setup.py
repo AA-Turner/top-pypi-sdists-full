@@ -24,18 +24,21 @@ dependencies = [
     "setuptools",
     "db-dtypes >=1.0.4,<2.0.0",
     "numpy >=1.18.1",
-    "pandas >=1.1.4",
-    "pyarrow >=4.0.0",
+    "pandas >=1.1.4, <3.0.0",
+    "pyarrow >= 4.0.0",
+    # See https://arrow.apache.org/release/22.0.0.html
+    "pyarrow >= 22.0.0; python_version >= '3.14'",
     "pydata-google-auth >=1.5.0",
+    "psutil >=5.9.8",
     # Note: google-api-core and google-auth are also included via transitive
     # dependency on google-cloud-bigquery, but this library also uses them
     # directly.
-    "google-api-core >= 2.10.2, <3.0.0",
-    "google-auth >=2.13.0",
+    "google-api-core >= 2.15.0, <3.0.0",
+    "google-auth >=2.14.1",
     "google-auth-oauthlib >=0.7.0",
     # Please also update the minimum version in pandas_gbq/features.py to
     # allow pandas-gbq to detect invalid package versions at runtime.
-    "google-cloud-bigquery >=3.4.2,<4.0.0",
+    "google-cloud-bigquery >=3.20.0,<4.0.0",
     "packaging >=22.0.0",
 ]
 extras = {
@@ -90,6 +93,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Operating System :: OS Independent",
         "Topic :: Internet",
         "Topic :: Scientific/Engineering",

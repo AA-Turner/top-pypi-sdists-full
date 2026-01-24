@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -35,17 +36,13 @@ from .type_defs import (
     DeleteConfigurationSetRequestTypeDef,
     GetConfigurationSetEventDestinationsRequestTypeDef,
     GetConfigurationSetEventDestinationsResponseTypeDef,
+    ListConfigurationSetsRequestTypeDef,
+    ListConfigurationSetsResponseTypeDef,
     SendVoiceMessageRequestTypeDef,
     SendVoiceMessageResponseTypeDef,
     UpdateConfigurationSetEventDestinationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -54,13 +51,13 @@ else:
 __all__ = ("PinpointSMSVoiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class PinpointSMSVoiceClient(AioBaseClient):
     """
@@ -99,7 +96,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def create_configuration_set(
         self, **kwargs: Unpack[CreateConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new configuration set.
 
@@ -109,7 +106,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def create_configuration_set_event_destination(
         self, **kwargs: Unpack[CreateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new event destination in a configuration set.
 
@@ -119,7 +116,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing configuration set.
 
@@ -129,7 +126,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def delete_configuration_set_event_destination(
         self, **kwargs: Unpack[DeleteConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an event destination in a configuration set.
 
@@ -149,6 +146,17 @@ class PinpointSMSVoiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice/client/#get_configuration_set_event_destinations)
         """
 
+    async def list_configuration_sets(
+        self, **kwargs: Unpack[ListConfigurationSetsRequestTypeDef]
+    ) -> ListConfigurationSetsResponseTypeDef:
+        """
+        List all of the configuration sets associated with your Amazon Pinpoint account
+        in the current region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice/client/list_configuration_sets.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice/client/#list_configuration_sets)
+        """
+
     async def send_voice_message(
         self, **kwargs: Unpack[SendVoiceMessageRequestTypeDef]
     ) -> SendVoiceMessageResponseTypeDef:
@@ -161,7 +169,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update an event destination in a configuration set.
 
@@ -177,7 +185,7 @@ class PinpointSMSVoiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

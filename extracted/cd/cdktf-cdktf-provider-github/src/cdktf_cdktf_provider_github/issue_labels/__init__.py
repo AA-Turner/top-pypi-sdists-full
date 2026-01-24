@@ -1,7 +1,7 @@
 r'''
 # `github_issue_labels`
 
-Refer to the Terraform Registry for docs: [`github_issue_labels`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels).
+Refer to the Terraform Registry for docs: [`github_issue_labels`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IssueLabels(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.issueLabels.IssueLabels",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels github_issue_labels}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels github_issue_labels}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class IssueLabels(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels github_issue_labels} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels github_issue_labels} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#repository IssueLabels#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#id IssueLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label: label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#label IssueLabels#label}
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#repository IssueLabels#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#id IssueLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label: label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#label IssueLabels#label}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class IssueLabels(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IssueLabels to import.
-        :param import_from_id: The id of the existing IssueLabels that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IssueLabels that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IssueLabels to import is found.
         '''
         if __debug__:
@@ -240,9 +240,9 @@ class IssueLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#repository IssueLabels#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#id IssueLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param label: label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#label IssueLabels#label}
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#repository IssueLabels#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#id IssueLabels#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param label: label block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#label IssueLabels#label}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -348,7 +348,7 @@ class IssueLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The GitHub repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#repository IssueLabels#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#repository IssueLabels#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -356,7 +356,7 @@ class IssueLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#id IssueLabels#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#id IssueLabels#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -370,7 +370,7 @@ class IssueLabelsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IssueLabelsLabel"]]]:
         '''label block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#label IssueLabels#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#label IssueLabels#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IssueLabelsLabel"]]], result)
@@ -401,9 +401,9 @@ class IssueLabelsLabel:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: A 6 character hex code, without the leading '#', identifying the color of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#color IssueLabels#color}
-        :param name: The name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#name IssueLabels#name}
-        :param description: A short description of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#description IssueLabels#description}
+        :param color: A 6 character hex code, without the leading '#', identifying the color of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#color IssueLabels#color}
+        :param name: The name of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#name IssueLabels#name}
+        :param description: A short description of the label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#description IssueLabels#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0cbc5e1da18ae88bd0d17add6e97a4dad2b4ff3a2c63e71bf493740d8aa8c38f)
@@ -421,7 +421,7 @@ class IssueLabelsLabel:
     def color(self) -> builtins.str:
         '''A 6 character hex code, without the leading '#', identifying the color of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#color IssueLabels#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#color IssueLabels#color}
         '''
         result = self._values.get("color")
         assert result is not None, "Required property 'color' is missing"
@@ -431,7 +431,7 @@ class IssueLabelsLabel:
     def name(self) -> builtins.str:
         '''The name of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#name IssueLabels#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#name IssueLabels#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -441,7 +441,7 @@ class IssueLabelsLabel:
     def description(self) -> typing.Optional[builtins.str]:
         '''A short description of the label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/issue_labels#description IssueLabels#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/issue_labels#description IssueLabels#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)

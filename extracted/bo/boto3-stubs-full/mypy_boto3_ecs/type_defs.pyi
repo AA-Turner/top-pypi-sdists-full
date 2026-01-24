@@ -3,29 +3,38 @@ Type annotations for ecs service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_ecs.type_defs import AdvancedConfigurationTypeDef
+    from mypy_boto3_ecs.type_defs import AcceleratorCountRequestTypeDef
 
-    data: AdvancedConfigurationTypeDef = ...
+    data: AcceleratorCountRequestTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AcceleratorManufacturerType,
+    AcceleratorNameType,
+    AcceleratorTypeType,
+    AccessTypeType,
     AgentUpdateStatusType,
     ApplicationProtocolType,
     AssignPublicIpType,
     AvailabilityZoneRebalancingType,
+    BareMetalType,
+    BurstablePerformanceType,
+    CapacityOptionTypeType,
     CapacityProviderStatusType,
+    CapacityProviderTypeType,
     CapacityProviderUpdateStatusType,
     ClusterFieldType,
     CompatibilityType,
@@ -34,6 +43,7 @@ from .literals import (
     ContainerInstanceFieldType,
     ContainerInstanceStatusType,
     CPUArchitectureType,
+    CpuManufacturerType,
     DeploymentControllerTypeType,
     DeploymentLifecycleHookStageType,
     DeploymentRolloutStateType,
@@ -43,13 +53,20 @@ from .literals import (
     EFSAuthorizationConfigIAMType,
     EFSTransitEncryptionType,
     ExecuteCommandLoggingType,
+    ExpressGatewayServiceScalingMetricType,
+    ExpressGatewayServiceStatusCodeType,
     FirelensConfigurationTypeType,
     HealthStatusType,
+    InstanceGenerationType,
     InstanceHealthCheckStateType,
     IpcModeType,
     LaunchTypeType,
+    LocalStorageType,
+    LocalStorageTypeType,
     LogDriverType,
     ManagedDrainingType,
+    ManagedInstancesMonitoringOptionsType,
+    ManagedResourceStatusType,
     ManagedScalingStatusType,
     ManagedTerminationProtectionType,
     NetworkModeType,
@@ -57,10 +74,14 @@ from .literals import (
     PidModeType,
     PlacementConstraintTypeType,
     PlacementStrategyTypeType,
+    PropagateMITagsType,
     PropagateTagsType,
+    ResourceManagementTypeType,
     ResourceTypeType,
     SchedulingStrategyType,
     ScopeType,
+    ServiceConnectAccessLoggingFormatType,
+    ServiceConnectIncludeQueryParametersType,
     ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
     ServiceDeploymentStatusType,
@@ -78,18 +99,14 @@ from .literals import (
     VersionConsistencyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AcceleratorCountRequestTypeDef",
+    "AcceleratorTotalMemoryMiBRequestTypeDef",
     "AdvancedConfigurationTypeDef",
     "AttachmentStateChangeTypeDef",
     "AttachmentTypeDef",
@@ -98,6 +115,8 @@ __all__ = (
     "AutoScalingGroupProviderUpdateTypeDef",
     "AwsVpcConfigurationOutputTypeDef",
     "AwsVpcConfigurationTypeDef",
+    "BaselineEbsBandwidthMbpsRequestTypeDef",
+    "CanaryConfigurationTypeDef",
     "CapacityProviderStrategyItemTypeDef",
     "CapacityProviderTypeDef",
     "ClusterConfigurationTypeDef",
@@ -123,6 +142,9 @@ __all__ = (
     "CreateCapacityProviderResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
+    "CreateExpressGatewayServiceRequestTypeDef",
+    "CreateExpressGatewayServiceResponseTypeDef",
+    "CreateManagedInstancesProviderConfigurationTypeDef",
     "CreateServiceRequestTypeDef",
     "CreateServiceResponseTypeDef",
     "CreateTaskSetRequestTypeDef",
@@ -136,6 +158,8 @@ __all__ = (
     "DeleteCapacityProviderResponseTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
+    "DeleteExpressGatewayServiceRequestTypeDef",
+    "DeleteExpressGatewayServiceResponseTypeDef",
     "DeleteServiceRequestTypeDef",
     "DeleteServiceResponseTypeDef",
     "DeleteTaskDefinitionsRequestTypeDef",
@@ -163,6 +187,8 @@ __all__ = (
     "DescribeClustersResponseTypeDef",
     "DescribeContainerInstancesRequestTypeDef",
     "DescribeContainerInstancesResponseTypeDef",
+    "DescribeExpressGatewayServiceRequestTypeDef",
+    "DescribeExpressGatewayServiceResponseTypeDef",
     "DescribeServiceDeploymentsRequestTypeDef",
     "DescribeServiceDeploymentsResponseTypeDef",
     "DescribeServiceRevisionsRequestTypeDef",
@@ -190,6 +216,8 @@ __all__ = (
     "EBSTagSpecificationOutputTypeDef",
     "EBSTagSpecificationTypeDef",
     "EBSTagSpecificationUnionTypeDef",
+    "ECSExpressGatewayServiceTypeDef",
+    "ECSManagedResourcesTypeDef",
     "EFSAuthorizationConfigTypeDef",
     "EFSVolumeConfigurationTypeDef",
     "EnvironmentFileTypeDef",
@@ -198,6 +226,17 @@ __all__ = (
     "ExecuteCommandLogConfigurationTypeDef",
     "ExecuteCommandRequestTypeDef",
     "ExecuteCommandResponseTypeDef",
+    "ExpressGatewayContainerOutputTypeDef",
+    "ExpressGatewayContainerTypeDef",
+    "ExpressGatewayContainerUnionTypeDef",
+    "ExpressGatewayRepositoryCredentialsTypeDef",
+    "ExpressGatewayScalingTargetTypeDef",
+    "ExpressGatewayServiceAwsLogsConfigurationTypeDef",
+    "ExpressGatewayServiceConfigurationTypeDef",
+    "ExpressGatewayServiceNetworkConfigurationOutputTypeDef",
+    "ExpressGatewayServiceNetworkConfigurationTypeDef",
+    "ExpressGatewayServiceNetworkConfigurationUnionTypeDef",
+    "ExpressGatewayServiceStatusTypeDef",
     "FSxWindowsFileServerAuthorizationConfigTypeDef",
     "FSxWindowsFileServerVolumeConfigurationTypeDef",
     "FailureTypeDef",
@@ -213,11 +252,21 @@ __all__ = (
     "HostVolumePropertiesTypeDef",
     "InferenceAcceleratorOverrideTypeDef",
     "InferenceAcceleratorTypeDef",
+    "InfrastructureOptimizationTypeDef",
+    "IngressPathSummaryTypeDef",
     "InstanceHealthCheckResultTypeDef",
+    "InstanceLaunchTemplateOutputTypeDef",
+    "InstanceLaunchTemplateTypeDef",
+    "InstanceLaunchTemplateUnionTypeDef",
+    "InstanceLaunchTemplateUpdateTypeDef",
+    "InstanceRequirementsRequestOutputTypeDef",
+    "InstanceRequirementsRequestTypeDef",
+    "InstanceRequirementsRequestUnionTypeDef",
     "KernelCapabilitiesOutputTypeDef",
     "KernelCapabilitiesTypeDef",
     "KernelCapabilitiesUnionTypeDef",
     "KeyValuePairTypeDef",
+    "LinearConfigurationTypeDef",
     "LinuxParametersOutputTypeDef",
     "LinuxParametersTypeDef",
     "LinuxParametersUnionTypeDef",
@@ -258,13 +307,34 @@ __all__ = (
     "LogConfigurationUnionTypeDef",
     "ManagedAgentStateChangeTypeDef",
     "ManagedAgentTypeDef",
+    "ManagedApplicationAutoScalingPolicyTypeDef",
+    "ManagedAutoScalingTypeDef",
+    "ManagedCertificateTypeDef",
+    "ManagedIngressPathTypeDef",
+    "ManagedInstancesNetworkConfigurationOutputTypeDef",
+    "ManagedInstancesNetworkConfigurationTypeDef",
+    "ManagedInstancesNetworkConfigurationUnionTypeDef",
+    "ManagedInstancesProviderTypeDef",
+    "ManagedInstancesStorageConfigurationTypeDef",
+    "ManagedListenerRuleTypeDef",
+    "ManagedListenerTypeDef",
+    "ManagedLoadBalancerTypeDef",
+    "ManagedLogGroupTypeDef",
+    "ManagedMetricAlarmTypeDef",
+    "ManagedScalableTargetTypeDef",
     "ManagedScalingTypeDef",
+    "ManagedSecurityGroupTypeDef",
     "ManagedStorageConfigurationTypeDef",
+    "ManagedTargetGroupTypeDef",
+    "MemoryGiBPerVCpuRequestTypeDef",
+    "MemoryMiBRequestTypeDef",
     "MountPointTypeDef",
+    "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkBindingTypeDef",
     "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
+    "NetworkInterfaceCountRequestTypeDef",
     "NetworkInterfaceTypeDef",
     "PaginatorConfigTypeDef",
     "PlacementConstraintTypeDef",
@@ -300,6 +370,7 @@ __all__ = (
     "RuntimePlatformTypeDef",
     "ScaleTypeDef",
     "SecretTypeDef",
+    "ServiceConnectAccessLogConfigurationTypeDef",
     "ServiceConnectClientAliasTypeDef",
     "ServiceConnectConfigurationOutputTypeDef",
     "ServiceConnectConfigurationTypeDef",
@@ -312,6 +383,7 @@ __all__ = (
     "ServiceConnectTestTrafficRulesTypeDef",
     "ServiceConnectTlsCertificateAuthorityTypeDef",
     "ServiceConnectTlsConfigurationTypeDef",
+    "ServiceCurrentRevisionSummaryTypeDef",
     "ServiceDeploymentAlarmsTypeDef",
     "ServiceDeploymentBriefTypeDef",
     "ServiceDeploymentCircuitBreakerTypeDef",
@@ -361,6 +433,7 @@ __all__ = (
     "TmpfsOutputTypeDef",
     "TmpfsTypeDef",
     "TmpfsUnionTypeDef",
+    "TotalLocalStorageGBRequestTypeDef",
     "UlimitTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateCapacityProviderRequestTypeDef",
@@ -373,6 +446,9 @@ __all__ = (
     "UpdateContainerAgentResponseTypeDef",
     "UpdateContainerInstancesStateRequestTypeDef",
     "UpdateContainerInstancesStateResponseTypeDef",
+    "UpdateExpressGatewayServiceRequestTypeDef",
+    "UpdateExpressGatewayServiceResponseTypeDef",
+    "UpdateManagedInstancesProviderConfigurationTypeDef",
     "UpdateServicePrimaryTaskSetRequestTypeDef",
     "UpdateServicePrimaryTaskSetResponseTypeDef",
     "UpdateServiceRequestTypeDef",
@@ -381,6 +457,8 @@ __all__ = (
     "UpdateTaskProtectionResponseTypeDef",
     "UpdateTaskSetRequestTypeDef",
     "UpdateTaskSetResponseTypeDef",
+    "UpdatedExpressGatewayServiceTypeDef",
+    "VCpuCountRangeRequestTypeDef",
     "VersionInfoTypeDef",
     "VolumeFromTypeDef",
     "VolumeOutputTypeDef",
@@ -388,6 +466,21 @@ __all__ = (
     "VolumeUnionTypeDef",
     "VpcLatticeConfigurationTypeDef",
     "WaiterConfigTypeDef",
+)
+
+AcceleratorCountRequestTypeDef = TypedDict(
+    "AcceleratorCountRequestTypeDef",
+    {
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
+)
+AcceleratorTotalMemoryMiBRequestTypeDef = TypedDict(
+    "AcceleratorTotalMemoryMiBRequestTypeDef",
+    {
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
 )
 
 class AdvancedConfigurationTypeDef(TypedDict):
@@ -418,14 +511,26 @@ class ManagedScalingTypeDef(TypedDict):
     instanceWarmupPeriod: NotRequired[int]
 
 class AwsVpcConfigurationOutputTypeDef(TypedDict):
-    subnets: List[str]
-    securityGroups: NotRequired[List[str]]
+    subnets: list[str]
+    securityGroups: NotRequired[list[str]]
     assignPublicIp: NotRequired[AssignPublicIpType]
 
 class AwsVpcConfigurationTypeDef(TypedDict):
     subnets: Sequence[str]
     securityGroups: NotRequired[Sequence[str]]
     assignPublicIp: NotRequired[AssignPublicIpType]
+
+BaselineEbsBandwidthMbpsRequestTypeDef = TypedDict(
+    "BaselineEbsBandwidthMbpsRequestTypeDef",
+    {
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
+)
+
+class CanaryConfigurationTypeDef(TypedDict):
+    canaryPercent: NotRequired[float]
+    canaryBakeTimeInMinutes: NotRequired[int]
 
 class CapacityProviderStrategyItemTypeDef(TypedDict):
     capacityProvider: str
@@ -456,7 +561,7 @@ class ContainerDependencyTypeDef(TypedDict):
 
 class ContainerRestartPolicyOutputTypeDef(TypedDict):
     enabled: bool
-    ignoredExitCodes: NotRequired[List[int]]
+    ignoredExitCodes: NotRequired[list[int]]
     restartAttemptPeriod: NotRequired[int]
 
 EnvironmentFileTypeDef = TypedDict(
@@ -470,12 +575,12 @@ FirelensConfigurationOutputTypeDef = TypedDict(
     "FirelensConfigurationOutputTypeDef",
     {
         "type": FirelensConfigurationTypeType,
-        "options": NotRequired[Dict[str, str]],
+        "options": NotRequired[dict[str, str]],
     },
 )
 
 class HealthCheckOutputTypeDef(TypedDict):
-    command: List[str]
+    command: list[str]
     interval: NotRequired[int]
     timeout: NotRequired[int]
     retries: NotRequired[int]
@@ -548,7 +653,7 @@ ResourceOutputTypeDef = TypedDict(
         "doubleValue": NotRequired[float],
         "longValue": NotRequired[int],
         "integerValue": NotRequired[int],
-        "stringSetValue": NotRequired[List[str]],
+        "stringSetValue": NotRequired[list[str]],
     },
 )
 
@@ -584,9 +689,18 @@ class NetworkInterfaceTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class ExpressGatewayScalingTargetTypeDef(TypedDict):
+    minTaskCount: NotRequired[int]
+    maxTaskCount: NotRequired[int]
+    autoScalingMetric: NotRequired[ExpressGatewayServiceScalingMetricType]
+    autoScalingTargetValue: NotRequired[int]
+
+class InfrastructureOptimizationTypeDef(TypedDict):
+    scaleInAfter: NotRequired[int]
 
 DeploymentControllerTypeDef = TypedDict(
     "DeploymentControllerTypeDef",
@@ -642,9 +756,13 @@ SettingTypeDef = TypedDict(
 
 class DeleteCapacityProviderRequestTypeDef(TypedDict):
     capacityProvider: str
+    cluster: NotRequired[str]
 
 class DeleteClusterRequestTypeDef(TypedDict):
     cluster: str
+
+class DeleteExpressGatewayServiceRequestTypeDef(TypedDict):
+    serviceArn: str
 
 class DeleteServiceRequestTypeDef(TypedDict):
     service: str
@@ -666,7 +784,7 @@ class DeleteTaskSetRequestTypeDef(TypedDict):
     force: NotRequired[bool]
 
 class DeploymentAlarmsOutputTypeDef(TypedDict):
-    alarmNames: List[str]
+    alarmNames: list[str]
     rollback: bool
     enable: bool
 
@@ -682,8 +800,12 @@ class DeploymentCircuitBreakerTypeDef(TypedDict):
 class DeploymentLifecycleHookOutputTypeDef(TypedDict):
     hookTargetArn: NotRequired[str]
     roleArn: NotRequired[str]
-    lifecycleStages: NotRequired[List[DeploymentLifecycleHookStageType]]
-    hookDetails: NotRequired[Dict[str, Any]]
+    lifecycleStages: NotRequired[list[DeploymentLifecycleHookStageType]]
+    hookDetails: NotRequired[dict[str, Any]]
+
+class LinearConfigurationTypeDef(TypedDict):
+    stepPercent: NotRequired[float]
+    stepBakeTimeInMinutes: NotRequired[int]
 
 class DeploymentLifecycleHookTypeDef(TypedDict):
     hookTargetArn: NotRequired[str]
@@ -708,6 +830,7 @@ class DeregisterTaskDefinitionRequestTypeDef(TypedDict):
 
 class DescribeCapacityProvidersRequestTypeDef(TypedDict):
     capacityProviders: NotRequired[Sequence[str]]
+    cluster: NotRequired[str]
     include: NotRequired[Sequence[Literal["TAGS"]]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -720,6 +843,10 @@ class DescribeContainerInstancesRequestTypeDef(TypedDict):
     containerInstances: Sequence[str]
     cluster: NotRequired[str]
     include: NotRequired[Sequence[ContainerInstanceFieldType]]
+
+class DescribeExpressGatewayServiceRequestTypeDef(TypedDict):
+    serviceArn: str
+    include: NotRequired[Sequence[Literal["TAGS"]]]
 
 class DescribeServiceDeploymentsRequestTypeDef(TypedDict):
     serviceDeploymentArns: Sequence[str]
@@ -754,7 +881,7 @@ class DescribeTasksRequestTypeDef(TypedDict):
 class DeviceOutputTypeDef(TypedDict):
     hostPath: str
     containerPath: NotRequired[str]
-    permissions: NotRequired[List[DeviceCgroupPermissionType]]
+    permissions: NotRequired[list[DeviceCgroupPermissionType]]
 
 class DeviceTypeDef(TypedDict):
     hostPath: str
@@ -769,8 +896,8 @@ class DockerVolumeConfigurationOutputTypeDef(TypedDict):
     scope: NotRequired[ScopeType]
     autoprovision: NotRequired[bool]
     driver: NotRequired[str]
-    driverOpts: NotRequired[Dict[str, str]]
-    labels: NotRequired[Dict[str, str]]
+    driverOpts: NotRequired[dict[str, str]]
+    labels: NotRequired[dict[str, str]]
 
 class DockerVolumeConfigurationTypeDef(TypedDict):
     scope: NotRequired[ScopeType]
@@ -778,6 +905,29 @@ class DockerVolumeConfigurationTypeDef(TypedDict):
     driver: NotRequired[str]
     driverOpts: NotRequired[Mapping[str, str]]
     labels: NotRequired[Mapping[str, str]]
+
+class ExpressGatewayServiceStatusTypeDef(TypedDict):
+    statusCode: NotRequired[ExpressGatewayServiceStatusCodeType]
+    statusReason: NotRequired[str]
+
+class ManagedLogGroupTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    logGroupName: str
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedMetricAlarmTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedSecurityGroupTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
 
 class EFSAuthorizationConfigTypeDef(TypedDict):
     accessPointId: NotRequired[str]
@@ -804,6 +954,25 @@ class SessionTypeDef(TypedDict):
     sessionId: NotRequired[str]
     streamUrl: NotRequired[str]
     tokenValue: NotRequired[str]
+
+class ExpressGatewayRepositoryCredentialsTypeDef(TypedDict):
+    credentialsParameter: NotRequired[str]
+
+class ExpressGatewayServiceAwsLogsConfigurationTypeDef(TypedDict):
+    logGroup: str
+    logStreamPrefix: str
+
+class ExpressGatewayServiceNetworkConfigurationOutputTypeDef(TypedDict):
+    securityGroups: NotRequired[list[str]]
+    subnets: NotRequired[list[str]]
+
+class IngressPathSummaryTypeDef(TypedDict):
+    accessType: AccessTypeType
+    endpoint: str
+
+class ExpressGatewayServiceNetworkConfigurationTypeDef(TypedDict):
+    securityGroups: NotRequired[Sequence[str]]
+    subnets: NotRequired[Sequence[str]]
 
 class FSxWindowsFileServerAuthorizationConfigTypeDef(TypedDict):
     credentialsParameter: str
@@ -844,9 +1013,59 @@ class InferenceAcceleratorTypeDef(TypedDict):
     deviceName: str
     deviceType: str
 
+class ManagedInstancesNetworkConfigurationOutputTypeDef(TypedDict):
+    subnets: NotRequired[list[str]]
+    securityGroups: NotRequired[list[str]]
+
+class ManagedInstancesStorageConfigurationTypeDef(TypedDict):
+    storageSizeGiB: NotRequired[int]
+
+MemoryGiBPerVCpuRequestTypeDef = TypedDict(
+    "MemoryGiBPerVCpuRequestTypeDef",
+    {
+        "min": NotRequired[float],
+        "max": NotRequired[float],
+    },
+)
+MemoryMiBRequestTypeDef = TypedDict(
+    "MemoryMiBRequestTypeDef",
+    {
+        "min": int,
+        "max": NotRequired[int],
+    },
+)
+NetworkBandwidthGbpsRequestTypeDef = TypedDict(
+    "NetworkBandwidthGbpsRequestTypeDef",
+    {
+        "min": NotRequired[float],
+        "max": NotRequired[float],
+    },
+)
+NetworkInterfaceCountRequestTypeDef = TypedDict(
+    "NetworkInterfaceCountRequestTypeDef",
+    {
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
+)
+TotalLocalStorageGBRequestTypeDef = TypedDict(
+    "TotalLocalStorageGBRequestTypeDef",
+    {
+        "min": NotRequired[float],
+        "max": NotRequired[float],
+    },
+)
+VCpuCountRangeRequestTypeDef = TypedDict(
+    "VCpuCountRangeRequestTypeDef",
+    {
+        "min": int,
+        "max": NotRequired[int],
+    },
+)
+
 class KernelCapabilitiesOutputTypeDef(TypedDict):
-    add: NotRequired[List[str]]
-    drop: NotRequired[List[str]]
+    add: NotRequired[list[str]]
+    drop: NotRequired[list[str]]
 
 class KernelCapabilitiesTypeDef(TypedDict):
     add: NotRequired[Sequence[str]]
@@ -855,7 +1074,7 @@ class KernelCapabilitiesTypeDef(TypedDict):
 class TmpfsOutputTypeDef(TypedDict):
     containerPath: str
     size: int
-    mountOptions: NotRequired[List[str]]
+    mountOptions: NotRequired[list[str]]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -915,6 +1134,7 @@ class ListServicesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     launchType: NotRequired[LaunchTypeType]
     schedulingStrategy: NotRequired[SchedulingStrategyType]
+    resourceManagementType: NotRequired[ResourceManagementTypeType]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -948,6 +1168,64 @@ class ManagedAgentStateChangeTypeDef(TypedDict):
     managedAgentName: Literal["ExecuteCommandAgent"]
     status: str
     reason: NotRequired[str]
+
+class ManagedApplicationAutoScalingPolicyTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    policyType: str
+    targetValue: float
+    metric: str
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedScalableTargetTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    minCapacity: int
+    maxCapacity: int
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedCertificateTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    domainName: str
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedListenerRuleTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedListenerTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedLoadBalancerTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    scheme: str
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
+
+class ManagedTargetGroupTypeDef(TypedDict):
+    status: ManagedResourceStatusType
+    updatedAt: datetime
+    healthCheckPath: str
+    healthCheckPort: int
+    port: int
+    arn: NotRequired[str]
+    statusReason: NotRequired[str]
+
+class ManagedInstancesNetworkConfigurationTypeDef(TypedDict):
+    subnets: NotRequired[Sequence[str]]
+    securityGroups: NotRequired[Sequence[str]]
 
 PlatformDeviceTypeDef = TypedDict(
     "PlatformDeviceTypeDef",
@@ -999,6 +1277,14 @@ class RollbackTypeDef(TypedDict):
     startedAt: NotRequired[datetime]
     serviceRevisionArn: NotRequired[str]
 
+ServiceConnectAccessLogConfigurationTypeDef = TypedDict(
+    "ServiceConnectAccessLogConfigurationTypeDef",
+    {
+        "format": ServiceConnectAccessLoggingFormatType,
+        "includeQueryParameters": NotRequired[ServiceConnectIncludeQueryParametersType],
+    },
+)
+
 class TimeoutConfigurationTypeDef(TypedDict):
     idleTimeoutSeconds: NotRequired[int]
     perRequestTimeoutSeconds: NotRequired[int]
@@ -1009,10 +1295,16 @@ class ServiceConnectTestTrafficHeaderMatchRulesTypeDef(TypedDict):
 class ServiceConnectTlsCertificateAuthorityTypeDef(TypedDict):
     awsPcaAuthorityArn: NotRequired[str]
 
+class ServiceCurrentRevisionSummaryTypeDef(TypedDict):
+    arn: NotRequired[str]
+    requestedTaskCount: NotRequired[int]
+    runningTaskCount: NotRequired[int]
+    pendingTaskCount: NotRequired[int]
+
 class ServiceDeploymentAlarmsTypeDef(TypedDict):
     status: NotRequired[ServiceDeploymentRollbackMonitorsStatusType]
-    alarmNames: NotRequired[List[str]]
-    triggeredAlarmNames: NotRequired[List[str]]
+    alarmNames: NotRequired[list[str]]
+    triggeredAlarmNames: NotRequired[list[str]]
 
 class ServiceDeploymentCircuitBreakerTypeDef(TypedDict):
     status: NotRequired[ServiceDeploymentRollbackMonitorsStatusType]
@@ -1024,6 +1316,8 @@ class ServiceRevisionSummaryTypeDef(TypedDict):
     requestedTaskCount: NotRequired[int]
     runningTaskCount: NotRequired[int]
     pendingTaskCount: NotRequired[int]
+    requestedTestTrafficWeight: NotRequired[float]
+    requestedProductionTrafficWeight: NotRequired[float]
 
 ServiceEventTypeDef = TypedDict(
     "ServiceEventTypeDef",
@@ -1096,7 +1390,7 @@ AttachmentTypeDef = TypedDict(
         "id": NotRequired[str],
         "type": NotRequired[str],
         "status": NotRequired[str],
-        "details": NotRequired[List[KeyValuePairTypeDef]],
+        "details": NotRequired[list[KeyValuePairTypeDef]],
     },
 )
 ProxyConfigurationOutputTypeDef = TypedDict(
@@ -1104,7 +1398,7 @@ ProxyConfigurationOutputTypeDef = TypedDict(
     {
         "containerName": str,
         "type": NotRequired[Literal["APPMESH"]],
-        "properties": NotRequired[List[KeyValuePairTypeDef]],
+        "properties": NotRequired[list[KeyValuePairTypeDef]],
     },
 )
 ProxyConfigurationTypeDef = TypedDict(
@@ -1148,7 +1442,7 @@ class PutClusterCapacityProvidersRequestTypeDef(TypedDict):
 
 class EBSTagSpecificationOutputTypeDef(TypedDict):
     resourceType: Literal["volume"]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     propagateTags: NotRequired[PropagateTagsType]
 
 class EBSTagSpecificationTypeDef(TypedDict):
@@ -1166,13 +1460,13 @@ class UpdateClusterSettingsRequestTypeDef(TypedDict):
 
 class ContainerOverrideOutputTypeDef(TypedDict):
     name: NotRequired[str]
-    command: NotRequired[List[str]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[List[EnvironmentFileTypeDef]]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
     cpu: NotRequired[int]
     memory: NotRequired[int]
     memoryReservation: NotRequired[int]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
 
 class ContainerOverrideTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1186,8 +1480,8 @@ class ContainerOverrideTypeDef(TypedDict):
 
 class LogConfigurationOutputTypeDef(TypedDict):
     logDriver: LogDriverType
-    options: NotRequired[Dict[str, str]]
-    secretOptions: NotRequired[List[SecretTypeDef]]
+    options: NotRequired[dict[str, str]]
+    secretOptions: NotRequired[list[SecretTypeDef]]
 
 class LogConfigurationTypeDef(TypedDict):
     logDriver: LogDriverType
@@ -1196,7 +1490,7 @@ class LogConfigurationTypeDef(TypedDict):
 
 class ContainerInstanceHealthStatusTypeDef(TypedDict):
     overallStatus: NotRequired[InstanceHealthCheckStateType]
-    details: NotRequired[List[InstanceHealthCheckResultTypeDef]]
+    details: NotRequired[list[InstanceHealthCheckResultTypeDef]]
 
 ContainerRestartPolicyUnionTypeDef = Union[
     ContainerRestartPolicyTypeDef, ContainerRestartPolicyOutputTypeDef
@@ -1231,17 +1525,17 @@ class ContainerTypeDef(TypedDict):
     lastStatus: NotRequired[str]
     exitCode: NotRequired[int]
     reason: NotRequired[str]
-    networkBindings: NotRequired[List[NetworkBindingTypeDef]]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
+    networkBindings: NotRequired[list[NetworkBindingTypeDef]]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     healthStatus: NotRequired[HealthStatusType]
-    managedAgents: NotRequired[List[ManagedAgentTypeDef]]
+    managedAgents: NotRequired[list[ManagedAgentTypeDef]]
     cpu: NotRequired[str]
     memory: NotRequired[str]
     memoryReservation: NotRequired[str]
-    gpuIds: NotRequired[List[str]]
+    gpuIds: NotRequired[list[str]]
 
 class DeleteAttributesResponseTypeDef(TypedDict):
-    attributes: List[AttributeTypeDef]
+    attributes: list[AttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DiscoverPollEndpointResponseTypeDef(TypedDict):
@@ -1251,51 +1545,51 @@ class DiscoverPollEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAttributesResponseTypeDef(TypedDict):
-    attributes: List[AttributeTypeDef]
+    attributes: list[AttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListClustersResponseTypeDef(TypedDict):
-    clusterArns: List[str]
+    clusterArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListContainerInstancesResponseTypeDef(TypedDict):
-    containerInstanceArns: List[str]
+    containerInstanceArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServicesByNamespaceResponseTypeDef(TypedDict):
-    serviceArns: List[str]
+    serviceArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServicesResponseTypeDef(TypedDict):
-    serviceArns: List[str]
+    serviceArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTaskDefinitionFamiliesResponseTypeDef(TypedDict):
-    families: List[str]
+    families: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTaskDefinitionsResponseTypeDef(TypedDict):
-    taskDefinitionArns: List[str]
+    taskDefinitionArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTasksResponseTypeDef(TypedDict):
-    taskArns: List[str]
+    taskArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class PutAttributesResponseTypeDef(TypedDict):
-    attributes: List[AttributeTypeDef]
+    attributes: list[AttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StopServiceDeploymentResponseTypeDef(TypedDict):
@@ -1329,7 +1623,7 @@ class DeleteAccountSettingResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccountSettingsResponseTypeDef(TypedDict):
-    settings: List[SettingTypeDef]
+    settings: list[SettingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1348,7 +1642,9 @@ class DeploymentConfigurationOutputTypeDef(TypedDict):
     alarms: NotRequired[DeploymentAlarmsOutputTypeDef]
     strategy: NotRequired[DeploymentStrategyType]
     bakeTimeInMinutes: NotRequired[int]
-    lifecycleHooks: NotRequired[List[DeploymentLifecycleHookOutputTypeDef]]
+    lifecycleHooks: NotRequired[list[DeploymentLifecycleHookOutputTypeDef]]
+    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
+    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
 
 class DeploymentConfigurationTypeDef(TypedDict):
     deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
@@ -1358,6 +1654,8 @@ class DeploymentConfigurationTypeDef(TypedDict):
     strategy: NotRequired[DeploymentStrategyType]
     bakeTimeInMinutes: NotRequired[int]
     lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
+    linearConfiguration: NotRequired[LinearConfigurationTypeDef]
+    canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
 
 class DescribeServicesRequestWaitExtraTypeDef(TypedDict):
     services: Sequence[str]
@@ -1409,6 +1707,29 @@ class ExecuteCommandResponseTypeDef(TypedDict):
     taskArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ExpressGatewayContainerOutputTypeDef(TypedDict):
+    image: str
+    containerPort: NotRequired[int]
+    awsLogsConfiguration: NotRequired[ExpressGatewayServiceAwsLogsConfigurationTypeDef]
+    repositoryCredentials: NotRequired[ExpressGatewayRepositoryCredentialsTypeDef]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+
+class ExpressGatewayContainerTypeDef(TypedDict):
+    image: str
+    containerPort: NotRequired[int]
+    awsLogsConfiguration: NotRequired[ExpressGatewayServiceAwsLogsConfigurationTypeDef]
+    repositoryCredentials: NotRequired[ExpressGatewayRepositoryCredentialsTypeDef]
+    command: NotRequired[Sequence[str]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    secrets: NotRequired[Sequence[SecretTypeDef]]
+
+ExpressGatewayServiceNetworkConfigurationUnionTypeDef = Union[
+    ExpressGatewayServiceNetworkConfigurationTypeDef,
+    ExpressGatewayServiceNetworkConfigurationOutputTypeDef,
+]
+
 class FSxWindowsFileServerVolumeConfigurationTypeDef(TypedDict):
     fileSystemId: str
     rootDirectory: str
@@ -1419,24 +1740,77 @@ FirelensConfigurationUnionTypeDef = Union[
 ]
 
 class GetTaskProtectionResponseTypeDef(TypedDict):
-    protectedTasks: List[ProtectedTaskTypeDef]
-    failures: List[FailureTypeDef]
+    protectedTasks: list[ProtectedTaskTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTaskProtectionResponseTypeDef(TypedDict):
-    protectedTasks: List[ProtectedTaskTypeDef]
-    failures: List[FailureTypeDef]
+    protectedTasks: list[ProtectedTaskTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 HealthCheckUnionTypeDef = Union[HealthCheckTypeDef, HealthCheckOutputTypeDef]
+
+class InstanceRequirementsRequestOutputTypeDef(TypedDict):
+    vCpuCount: VCpuCountRangeRequestTypeDef
+    memoryMiB: MemoryMiBRequestTypeDef
+    cpuManufacturers: NotRequired[list[CpuManufacturerType]]
+    memoryGiBPerVCpu: NotRequired[MemoryGiBPerVCpuRequestTypeDef]
+    excludedInstanceTypes: NotRequired[list[str]]
+    instanceGenerations: NotRequired[list[InstanceGenerationType]]
+    spotMaxPricePercentageOverLowestPrice: NotRequired[int]
+    onDemandMaxPricePercentageOverLowestPrice: NotRequired[int]
+    bareMetal: NotRequired[BareMetalType]
+    burstablePerformance: NotRequired[BurstablePerformanceType]
+    requireHibernateSupport: NotRequired[bool]
+    networkInterfaceCount: NotRequired[NetworkInterfaceCountRequestTypeDef]
+    localStorage: NotRequired[LocalStorageType]
+    localStorageTypes: NotRequired[list[LocalStorageTypeType]]
+    totalLocalStorageGB: NotRequired[TotalLocalStorageGBRequestTypeDef]
+    baselineEbsBandwidthMbps: NotRequired[BaselineEbsBandwidthMbpsRequestTypeDef]
+    acceleratorTypes: NotRequired[list[AcceleratorTypeType]]
+    acceleratorCount: NotRequired[AcceleratorCountRequestTypeDef]
+    acceleratorManufacturers: NotRequired[list[AcceleratorManufacturerType]]
+    acceleratorNames: NotRequired[list[AcceleratorNameType]]
+    acceleratorTotalMemoryMiB: NotRequired[AcceleratorTotalMemoryMiBRequestTypeDef]
+    networkBandwidthGbps: NotRequired[NetworkBandwidthGbpsRequestTypeDef]
+    allowedInstanceTypes: NotRequired[list[str]]
+    maxSpotPriceAsPercentageOfOptimalOnDemandPrice: NotRequired[int]
+
+class InstanceRequirementsRequestTypeDef(TypedDict):
+    vCpuCount: VCpuCountRangeRequestTypeDef
+    memoryMiB: MemoryMiBRequestTypeDef
+    cpuManufacturers: NotRequired[Sequence[CpuManufacturerType]]
+    memoryGiBPerVCpu: NotRequired[MemoryGiBPerVCpuRequestTypeDef]
+    excludedInstanceTypes: NotRequired[Sequence[str]]
+    instanceGenerations: NotRequired[Sequence[InstanceGenerationType]]
+    spotMaxPricePercentageOverLowestPrice: NotRequired[int]
+    onDemandMaxPricePercentageOverLowestPrice: NotRequired[int]
+    bareMetal: NotRequired[BareMetalType]
+    burstablePerformance: NotRequired[BurstablePerformanceType]
+    requireHibernateSupport: NotRequired[bool]
+    networkInterfaceCount: NotRequired[NetworkInterfaceCountRequestTypeDef]
+    localStorage: NotRequired[LocalStorageType]
+    localStorageTypes: NotRequired[Sequence[LocalStorageTypeType]]
+    totalLocalStorageGB: NotRequired[TotalLocalStorageGBRequestTypeDef]
+    baselineEbsBandwidthMbps: NotRequired[BaselineEbsBandwidthMbpsRequestTypeDef]
+    acceleratorTypes: NotRequired[Sequence[AcceleratorTypeType]]
+    acceleratorCount: NotRequired[AcceleratorCountRequestTypeDef]
+    acceleratorManufacturers: NotRequired[Sequence[AcceleratorManufacturerType]]
+    acceleratorNames: NotRequired[Sequence[AcceleratorNameType]]
+    acceleratorTotalMemoryMiB: NotRequired[AcceleratorTotalMemoryMiBRequestTypeDef]
+    networkBandwidthGbps: NotRequired[NetworkBandwidthGbpsRequestTypeDef]
+    allowedInstanceTypes: NotRequired[Sequence[str]]
+    maxSpotPriceAsPercentageOfOptimalOnDemandPrice: NotRequired[int]
+
 KernelCapabilitiesUnionTypeDef = Union[KernelCapabilitiesTypeDef, KernelCapabilitiesOutputTypeDef]
 
 class LinuxParametersOutputTypeDef(TypedDict):
     capabilities: NotRequired[KernelCapabilitiesOutputTypeDef]
-    devices: NotRequired[List[DeviceOutputTypeDef]]
+    devices: NotRequired[list[DeviceOutputTypeDef]]
     initProcessEnabled: NotRequired[bool]
     sharedMemorySize: NotRequired[int]
-    tmpfs: NotRequired[List[TmpfsOutputTypeDef]]
+    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
     maxSwap: NotRequired[int]
     swappiness: NotRequired[int]
 
@@ -1475,6 +1849,7 @@ class ListServicesRequestPaginateTypeDef(TypedDict):
     cluster: NotRequired[str]
     launchType: NotRequired[LaunchTypeType]
     schedulingStrategy: NotRequired[SchedulingStrategyType]
+    resourceManagementType: NotRequired[ResourceManagementTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTaskDefinitionFamiliesRequestPaginateTypeDef(TypedDict):
@@ -1499,12 +1874,30 @@ class ListTasksRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListServiceDeploymentsResponseTypeDef(TypedDict):
-    serviceDeployments: List[ServiceDeploymentBriefTypeDef]
+    serviceDeployments: list[ServiceDeploymentBriefTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ManagedAutoScalingTypeDef(TypedDict):
+    scalableTarget: NotRequired[ManagedScalableTargetTypeDef]
+    applicationAutoScalingPolicies: NotRequired[list[ManagedApplicationAutoScalingPolicyTypeDef]]
+
+class ManagedIngressPathTypeDef(TypedDict):
+    accessType: AccessTypeType
+    endpoint: str
+    loadBalancer: NotRequired[ManagedLoadBalancerTypeDef]
+    loadBalancerSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
+    certificate: NotRequired[ManagedCertificateTypeDef]
+    listener: NotRequired[ManagedListenerTypeDef]
+    rule: NotRequired[ManagedListenerRuleTypeDef]
+    targetGroups: NotRequired[list[ManagedTargetGroupTypeDef]]
+
+ManagedInstancesNetworkConfigurationUnionTypeDef = Union[
+    ManagedInstancesNetworkConfigurationTypeDef, ManagedInstancesNetworkConfigurationOutputTypeDef
+]
+
 class ResolvedConfigurationTypeDef(TypedDict):
-    loadBalancers: NotRequired[List[ServiceRevisionLoadBalancerTypeDef]]
+    loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
 
@@ -1519,25 +1912,6 @@ class ServiceConnectTlsConfigurationTypeDef(TypedDict):
 
 TmpfsUnionTypeDef = Union[TmpfsTypeDef, TmpfsOutputTypeDef]
 ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigurationOutputTypeDef]
-
-class CapacityProviderTypeDef(TypedDict):
-    capacityProviderArn: NotRequired[str]
-    name: NotRequired[str]
-    status: NotRequired[CapacityProviderStatusType]
-    autoScalingGroupProvider: NotRequired[AutoScalingGroupProviderTypeDef]
-    updateStatus: NotRequired[CapacityProviderUpdateStatusType]
-    updateStatusReason: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
-
-class CreateCapacityProviderRequestTypeDef(TypedDict):
-    name: str
-    autoScalingGroupProvider: AutoScalingGroupProviderTypeDef
-    tags: NotRequired[Sequence[TagTypeDef]]
-
-class UpdateCapacityProviderRequestTypeDef(TypedDict):
-    name: str
-    autoScalingGroupProvider: AutoScalingGroupProviderUpdateTypeDef
-
 TaskSetTypeDef = TypedDict(
     "TaskSetTypeDef",
     {
@@ -1555,16 +1929,16 @@ TaskSetTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
         "launchType": NotRequired[LaunchTypeType],
-        "capacityProviderStrategy": NotRequired[List[CapacityProviderStrategyItemTypeDef]],
+        "capacityProviderStrategy": NotRequired[list[CapacityProviderStrategyItemTypeDef]],
         "platformVersion": NotRequired[str],
         "platformFamily": NotRequired[str],
         "networkConfiguration": NotRequired[NetworkConfigurationOutputTypeDef],
-        "loadBalancers": NotRequired[List[LoadBalancerTypeDef]],
-        "serviceRegistries": NotRequired[List[ServiceRegistryTypeDef]],
+        "loadBalancers": NotRequired[list[LoadBalancerTypeDef]],
+        "serviceRegistries": NotRequired[list[ServiceRegistryTypeDef]],
         "scale": NotRequired[ScaleTypeDef],
         "stabilityStatus": NotRequired[StabilityStatusType],
         "stabilityStatusAt": NotRequired[datetime],
-        "tags": NotRequired[List[TagTypeDef]],
+        "tags": NotRequired[list[TagTypeDef]],
         "fargateEphemeralStorage": NotRequired[DeploymentEphemeralStorageTypeDef],
     },
 )
@@ -1582,7 +1956,7 @@ class ServiceManagedEBSVolumeConfigurationOutputTypeDef(TypedDict):
     volumeInitializationRate: NotRequired[int]
     iops: NotRequired[int]
     throughput: NotRequired[int]
-    tagSpecifications: NotRequired[List[EBSTagSpecificationOutputTypeDef]]
+    tagSpecifications: NotRequired[list[EBSTagSpecificationOutputTypeDef]]
     filesystemType: NotRequired[TaskFilesystemTypeType]
 
 EBSTagSpecificationUnionTypeDef = Union[
@@ -1590,9 +1964,9 @@ EBSTagSpecificationUnionTypeDef = Union[
 ]
 
 class TaskOverrideOutputTypeDef(TypedDict):
-    containerOverrides: NotRequired[List[ContainerOverrideOutputTypeDef]]
+    containerOverrides: NotRequired[list[ContainerOverrideOutputTypeDef]]
     cpu: NotRequired[str]
-    inferenceAcceleratorOverrides: NotRequired[List[InferenceAcceleratorOverrideTypeDef]]
+    inferenceAcceleratorOverrides: NotRequired[list[InferenceAcceleratorOverrideTypeDef]]
     executionRoleArn: NotRequired[str]
     memory: NotRequired[str]
     taskRoleArn: NotRequired[str]
@@ -1615,18 +1989,18 @@ class ContainerInstanceTypeDef(TypedDict):
     capacityProviderName: NotRequired[str]
     version: NotRequired[int]
     versionInfo: NotRequired[VersionInfoTypeDef]
-    remainingResources: NotRequired[List[ResourceOutputTypeDef]]
-    registeredResources: NotRequired[List[ResourceOutputTypeDef]]
+    remainingResources: NotRequired[list[ResourceOutputTypeDef]]
+    registeredResources: NotRequired[list[ResourceOutputTypeDef]]
     status: NotRequired[str]
     statusReason: NotRequired[str]
     agentConnected: NotRequired[bool]
     runningTasksCount: NotRequired[int]
     pendingTasksCount: NotRequired[int]
     agentUpdateStatus: NotRequired[AgentUpdateStatusType]
-    attributes: NotRequired[List[AttributeTypeDef]]
+    attributes: NotRequired[list[AttributeTypeDef]]
     registeredAt: NotRequired[datetime]
-    attachments: NotRequired[List[AttachmentTypeDef]]
-    tags: NotRequired[List[TagTypeDef]]
+    attachments: NotRequired[list[AttachmentTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     healthStatus: NotRequired[ContainerInstanceHealthStatusTypeDef]
 
 class SubmitTaskStateChangeRequestTypeDef(TypedDict):
@@ -1658,7 +2032,7 @@ class ServiceDeploymentTypeDef(TypedDict):
     finishedAt: NotRequired[datetime]
     stoppedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
-    sourceServiceRevisions: NotRequired[List[ServiceRevisionSummaryTypeDef]]
+    sourceServiceRevisions: NotRequired[list[ServiceRevisionSummaryTypeDef]]
     targetServiceRevision: NotRequired[ServiceRevisionSummaryTypeDef]
     status: NotRequired[ServiceDeploymentStatusType]
     statusReason: NotRequired[str]
@@ -1675,6 +2049,23 @@ DeploymentConfigurationUnionTypeDef = Union[
 class ClusterConfigurationTypeDef(TypedDict):
     executeCommandConfiguration: NotRequired[ExecuteCommandConfigurationTypeDef]
     managedStorageConfiguration: NotRequired[ManagedStorageConfigurationTypeDef]
+
+class ExpressGatewayServiceConfigurationTypeDef(TypedDict):
+    serviceRevisionArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationOutputTypeDef]
+    healthCheckPath: NotRequired[str]
+    primaryContainer: NotRequired[ExpressGatewayContainerOutputTypeDef]
+    scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
+    ingressPaths: NotRequired[list[IngressPathSummaryTypeDef]]
+    createdAt: NotRequired[datetime]
+
+ExpressGatewayContainerUnionTypeDef = Union[
+    ExpressGatewayContainerTypeDef, ExpressGatewayContainerOutputTypeDef
+]
 
 class VolumeOutputTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1696,6 +2087,19 @@ class VolumeTypeDef(TypedDict):
     ]
     configuredAtLaunch: NotRequired[bool]
 
+class InstanceLaunchTemplateOutputTypeDef(TypedDict):
+    ec2InstanceProfileArn: str
+    networkConfiguration: ManagedInstancesNetworkConfigurationOutputTypeDef
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
+    capacityOptionType: NotRequired[CapacityOptionTypeType]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestOutputTypeDef]
+    fipsEnabled: NotRequired[bool]
+
+InstanceRequirementsRequestUnionTypeDef = Union[
+    InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
+]
+
 class ContainerDefinitionOutputTypeDef(TypedDict):
     name: NotRequired[str]
     image: NotRequired[str]
@@ -1703,19 +2107,19 @@ class ContainerDefinitionOutputTypeDef(TypedDict):
     cpu: NotRequired[int]
     memory: NotRequired[int]
     memoryReservation: NotRequired[int]
-    links: NotRequired[List[str]]
-    portMappings: NotRequired[List[PortMappingTypeDef]]
+    links: NotRequired[list[str]]
+    portMappings: NotRequired[list[PortMappingTypeDef]]
     essential: NotRequired[bool]
     restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
-    entryPoint: NotRequired[List[str]]
-    command: NotRequired[List[str]]
-    environment: NotRequired[List[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[List[EnvironmentFileTypeDef]]
-    mountPoints: NotRequired[List[MountPointTypeDef]]
-    volumesFrom: NotRequired[List[VolumeFromTypeDef]]
+    entryPoint: NotRequired[list[str]]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    volumesFrom: NotRequired[list[VolumeFromTypeDef]]
     linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
-    secrets: NotRequired[List[SecretTypeDef]]
-    dependsOn: NotRequired[List[ContainerDependencyTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
     startTimeout: NotRequired[int]
     stopTimeout: NotRequired[int]
     versionConsistency: NotRequired[VersionConsistencyType]
@@ -1725,20 +2129,27 @@ class ContainerDefinitionOutputTypeDef(TypedDict):
     disableNetworking: NotRequired[bool]
     privileged: NotRequired[bool]
     readonlyRootFilesystem: NotRequired[bool]
-    dnsServers: NotRequired[List[str]]
-    dnsSearchDomains: NotRequired[List[str]]
-    extraHosts: NotRequired[List[HostEntryTypeDef]]
-    dockerSecurityOptions: NotRequired[List[str]]
+    dnsServers: NotRequired[list[str]]
+    dnsSearchDomains: NotRequired[list[str]]
+    extraHosts: NotRequired[list[HostEntryTypeDef]]
+    dockerSecurityOptions: NotRequired[list[str]]
     interactive: NotRequired[bool]
     pseudoTerminal: NotRequired[bool]
-    dockerLabels: NotRequired[Dict[str, str]]
-    ulimits: NotRequired[List[UlimitTypeDef]]
+    dockerLabels: NotRequired[dict[str, str]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
     healthCheck: NotRequired[HealthCheckOutputTypeDef]
-    systemControls: NotRequired[List[SystemControlTypeDef]]
-    resourceRequirements: NotRequired[List[ResourceRequirementTypeDef]]
+    systemControls: NotRequired[list[SystemControlTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
     firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
-    credentialSpecs: NotRequired[List[str]]
+    credentialSpecs: NotRequired[list[str]]
+
+class ECSManagedResourcesTypeDef(TypedDict):
+    ingressPaths: NotRequired[list[ManagedIngressPathTypeDef]]
+    autoScaling: NotRequired[ManagedAutoScalingTypeDef]
+    metricAlarms: NotRequired[list[ManagedMetricAlarmTypeDef]]
+    serviceSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
+    logGroups: NotRequired[list[ManagedLogGroupTypeDef]]
 
 class RegisterContainerInstanceRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
@@ -1763,24 +2174,6 @@ class LinuxParametersTypeDef(TypedDict):
     maxSwap: NotRequired[int]
     swappiness: NotRequired[int]
 
-class CreateCapacityProviderResponseTypeDef(TypedDict):
-    capacityProvider: CapacityProviderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeleteCapacityProviderResponseTypeDef(TypedDict):
-    capacityProvider: CapacityProviderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeCapacityProvidersResponseTypeDef(TypedDict):
-    capacityProviders: List[CapacityProviderTypeDef]
-    failures: List[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class UpdateCapacityProviderResponseTypeDef(TypedDict):
-    capacityProvider: CapacityProviderTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateTaskSetResponseTypeDef(TypedDict):
     taskSet: TaskSetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1790,8 +2183,8 @@ class DeleteTaskSetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTaskSetsResponseTypeDef(TypedDict):
-    taskSets: List[TaskSetTypeDef]
-    failures: List[FailureTypeDef]
+    taskSets: list[TaskSetTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateServicePrimaryTaskSetResponseTypeDef(TypedDict):
@@ -1849,15 +2242,15 @@ class TaskManagedEBSVolumeConfigurationTypeDef(TypedDict):
     filesystemType: NotRequired[TaskFilesystemTypeType]
 
 class TaskTypeDef(TypedDict):
-    attachments: NotRequired[List[AttachmentTypeDef]]
-    attributes: NotRequired[List[AttributeTypeDef]]
+    attachments: NotRequired[list[AttachmentTypeDef]]
+    attributes: NotRequired[list[AttributeTypeDef]]
     availabilityZone: NotRequired[str]
     capacityProviderName: NotRequired[str]
     clusterArn: NotRequired[str]
     connectivity: NotRequired[ConnectivityType]
     connectivityAt: NotRequired[datetime]
     containerInstanceArn: NotRequired[str]
-    containers: NotRequired[List[ContainerTypeDef]]
+    containers: NotRequired[list[ContainerTypeDef]]
     cpu: NotRequired[str]
     createdAt: NotRequired[datetime]
     desiredStatus: NotRequired[str]
@@ -1865,7 +2258,7 @@ class TaskTypeDef(TypedDict):
     executionStoppedAt: NotRequired[datetime]
     group: NotRequired[str]
     healthStatus: NotRequired[HealthStatusType]
-    inferenceAccelerators: NotRequired[List[InferenceAcceleratorTypeDef]]
+    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
     lastStatus: NotRequired[str]
     launchType: NotRequired[LaunchTypeType]
     memory: NotRequired[str]
@@ -1880,7 +2273,7 @@ class TaskTypeDef(TypedDict):
     stoppedAt: NotRequired[datetime]
     stoppedReason: NotRequired[str]
     stoppingAt: NotRequired[datetime]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     taskArn: NotRequired[str]
     taskDefinitionArn: NotRequired[str]
     version: NotRequired[int]
@@ -1894,8 +2287,8 @@ class DeregisterContainerInstanceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeContainerInstancesResponseTypeDef(TypedDict):
-    containerInstances: List[ContainerInstanceTypeDef]
-    failures: List[FailureTypeDef]
+    containerInstances: list[ContainerInstanceTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterContainerInstanceResponseTypeDef(TypedDict):
@@ -1907,13 +2300,13 @@ class UpdateContainerAgentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateContainerInstancesStateResponseTypeDef(TypedDict):
-    containerInstances: List[ContainerInstanceTypeDef]
-    failures: List[FailureTypeDef]
+    containerInstances: list[ContainerInstanceTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeServiceDeploymentsResponseTypeDef(TypedDict):
-    serviceDeployments: List[ServiceDeploymentTypeDef]
-    failures: List[FailureTypeDef]
+    serviceDeployments: list[ServiceDeploymentTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ClusterTypeDef(TypedDict):
@@ -1925,12 +2318,12 @@ class ClusterTypeDef(TypedDict):
     runningTasksCount: NotRequired[int]
     pendingTasksCount: NotRequired[int]
     activeServicesCount: NotRequired[int]
-    statistics: NotRequired[List[KeyValuePairTypeDef]]
-    tags: NotRequired[List[TagTypeDef]]
-    settings: NotRequired[List[ClusterSettingTypeDef]]
-    capacityProviders: NotRequired[List[str]]
-    defaultCapacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
-    attachments: NotRequired[List[AttachmentTypeDef]]
+    statistics: NotRequired[list[KeyValuePairTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
+    settings: NotRequired[list[ClusterSettingTypeDef]]
+    capacityProviders: NotRequired[list[str]]
+    defaultCapacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
+    attachments: NotRequired[list[AttachmentTypeDef]]
     attachmentsStatus: NotRequired[str]
     serviceConnectDefaults: NotRequired[ClusterServiceConnectDefaultsTypeDef]
 
@@ -1949,26 +2342,94 @@ class UpdateClusterRequestTypeDef(TypedDict):
     configuration: NotRequired[ClusterConfigurationTypeDef]
     serviceConnectDefaults: NotRequired[ClusterServiceConnectDefaultsRequestTypeDef]
 
+class ECSExpressGatewayServiceTypeDef(TypedDict):
+    cluster: NotRequired[str]
+    serviceName: NotRequired[str]
+    serviceArn: NotRequired[str]
+    infrastructureRoleArn: NotRequired[str]
+    status: NotRequired[ExpressGatewayServiceStatusTypeDef]
+    currentDeployment: NotRequired[str]
+    activeConfigurations: NotRequired[list[ExpressGatewayServiceConfigurationTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class UpdatedExpressGatewayServiceTypeDef(TypedDict):
+    serviceArn: NotRequired[str]
+    cluster: NotRequired[str]
+    serviceName: NotRequired[str]
+    status: NotRequired[ExpressGatewayServiceStatusTypeDef]
+    targetConfiguration: NotRequired[ExpressGatewayServiceConfigurationTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class CreateExpressGatewayServiceRequestTypeDef(TypedDict):
+    executionRoleArn: str
+    infrastructureRoleArn: str
+    primaryContainer: ExpressGatewayContainerUnionTypeDef
+    serviceName: NotRequired[str]
+    cluster: NotRequired[str]
+    healthCheckPath: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
+    serviceArn: str
+    executionRoleArn: NotRequired[str]
+    healthCheckPath: NotRequired[str]
+    primaryContainer: NotRequired[ExpressGatewayContainerUnionTypeDef]
+    taskRoleArn: NotRequired[str]
+    networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
+
 VolumeUnionTypeDef = Union[VolumeTypeDef, VolumeOutputTypeDef]
+
+class ManagedInstancesProviderTypeDef(TypedDict):
+    infrastructureRoleArn: NotRequired[str]
+    instanceLaunchTemplate: NotRequired[InstanceLaunchTemplateOutputTypeDef]
+    propagateTags: NotRequired[PropagateMITagsType]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+class InstanceLaunchTemplateTypeDef(TypedDict):
+    ec2InstanceProfileArn: str
+    networkConfiguration: ManagedInstancesNetworkConfigurationUnionTypeDef
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
+    capacityOptionType: NotRequired[CapacityOptionTypeType]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    fipsEnabled: NotRequired[bool]
+
+class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
+    ec2InstanceProfileArn: NotRequired[str]
+    networkConfiguration: NotRequired[ManagedInstancesNetworkConfigurationUnionTypeDef]
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
 
 class TaskDefinitionTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]
-    containerDefinitions: NotRequired[List[ContainerDefinitionOutputTypeDef]]
+    containerDefinitions: NotRequired[list[ContainerDefinitionOutputTypeDef]]
     family: NotRequired[str]
     taskRoleArn: NotRequired[str]
     executionRoleArn: NotRequired[str]
     networkMode: NotRequired[NetworkModeType]
     revision: NotRequired[int]
-    volumes: NotRequired[List[VolumeOutputTypeDef]]
+    volumes: NotRequired[list[VolumeOutputTypeDef]]
     status: NotRequired[TaskDefinitionStatusType]
-    requiresAttributes: NotRequired[List[AttributeTypeDef]]
-    placementConstraints: NotRequired[List[TaskDefinitionPlacementConstraintTypeDef]]
-    compatibilities: NotRequired[List[CompatibilityType]]
+    requiresAttributes: NotRequired[list[AttributeTypeDef]]
+    placementConstraints: NotRequired[list[TaskDefinitionPlacementConstraintTypeDef]]
+    compatibilities: NotRequired[list[CompatibilityType]]
     runtimePlatform: NotRequired[RuntimePlatformTypeDef]
-    requiresCompatibilities: NotRequired[List[CompatibilityType]]
+    requiresCompatibilities: NotRequired[list[CompatibilityType]]
     cpu: NotRequired[str]
     memory: NotRequired[str]
-    inferenceAccelerators: NotRequired[List[InferenceAcceleratorTypeDef]]
+    inferenceAccelerators: NotRequired[list[InferenceAcceleratorTypeDef]]
     pidMode: NotRequired[PidModeType]
     ipcMode: NotRequired[IpcModeType]
     proxyConfiguration: NotRequired[ProxyConfigurationOutputTypeDef]
@@ -1993,18 +2454,18 @@ class TaskVolumeConfigurationTypeDef(TypedDict):
     managedEBSVolume: NotRequired[TaskManagedEBSVolumeConfigurationTypeDef]
 
 class DescribeTasksResponseTypeDef(TypedDict):
-    tasks: List[TaskTypeDef]
-    failures: List[FailureTypeDef]
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RunTaskResponseTypeDef(TypedDict):
-    tasks: List[TaskTypeDef]
-    failures: List[FailureTypeDef]
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartTaskResponseTypeDef(TypedDict):
-    tasks: List[TaskTypeDef]
-    failures: List[FailureTypeDef]
+    tasks: list[TaskTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StopTaskResponseTypeDef(TypedDict):
@@ -2020,8 +2481,8 @@ class DeleteClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeClustersResponseTypeDef(TypedDict):
-    clusters: List[ClusterTypeDef]
-    failures: List[FailureTypeDef]
+    clusters: list[ClusterTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutClusterCapacityProvidersResponseTypeDef(TypedDict):
@@ -2036,9 +2497,50 @@ class UpdateClusterSettingsResponseTypeDef(TypedDict):
     cluster: ClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateExpressGatewayServiceResponseTypeDef(TypedDict):
+    service: ECSExpressGatewayServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteExpressGatewayServiceResponseTypeDef(TypedDict):
+    service: ECSExpressGatewayServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeExpressGatewayServiceResponseTypeDef(TypedDict):
+    service: ECSExpressGatewayServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateExpressGatewayServiceResponseTypeDef(TypedDict):
+    service: UpdatedExpressGatewayServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CapacityProviderTypeDef = TypedDict(
+    "CapacityProviderTypeDef",
+    {
+        "capacityProviderArn": NotRequired[str],
+        "name": NotRequired[str],
+        "cluster": NotRequired[str],
+        "status": NotRequired[CapacityProviderStatusType],
+        "autoScalingGroupProvider": NotRequired[AutoScalingGroupProviderTypeDef],
+        "managedInstancesProvider": NotRequired[ManagedInstancesProviderTypeDef],
+        "updateStatus": NotRequired[CapacityProviderUpdateStatusType],
+        "updateStatusReason": NotRequired[str],
+        "tags": NotRequired[list[TagTypeDef]],
+        "type": NotRequired[CapacityProviderTypeType],
+    },
+)
+InstanceLaunchTemplateUnionTypeDef = Union[
+    InstanceLaunchTemplateTypeDef, InstanceLaunchTemplateOutputTypeDef
+]
+
+class UpdateManagedInstancesProviderConfigurationTypeDef(TypedDict):
+    infrastructureRoleArn: str
+    instanceLaunchTemplate: InstanceLaunchTemplateUpdateTypeDef
+    propagateTags: NotRequired[PropagateMITagsType]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
 class DeleteTaskDefinitionsResponseTypeDef(TypedDict):
-    taskDefinitions: List[TaskDefinitionTypeDef]
-    failures: List[FailureTypeDef]
+    taskDefinitions: list[TaskDefinitionTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
@@ -2047,18 +2549,18 @@ class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
 
 class DescribeTaskDefinitionResponseTypeDef(TypedDict):
     taskDefinition: TaskDefinitionTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterTaskDefinitionResponseTypeDef(TypedDict):
     taskDefinition: TaskDefinitionTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ServiceConnectServiceOutputTypeDef(TypedDict):
     portName: str
     discoveryName: NotRequired[str]
-    clientAliases: NotRequired[List[ServiceConnectClientAliasTypeDef]]
+    clientAliases: NotRequired[list[ServiceConnectClientAliasTypeDef]]
     ingressPortOverride: NotRequired[int]
     timeout: NotRequired[TimeoutConfigurationTypeDef]
     tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
@@ -2155,17 +2657,49 @@ class StartTaskRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
     volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
 
+class CreateCapacityProviderResponseTypeDef(TypedDict):
+    capacityProvider: CapacityProviderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteCapacityProviderResponseTypeDef(TypedDict):
+    capacityProvider: CapacityProviderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapacityProvidersResponseTypeDef(TypedDict):
+    capacityProviders: list[CapacityProviderTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdateCapacityProviderResponseTypeDef(TypedDict):
+    capacityProvider: CapacityProviderTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateManagedInstancesProviderConfigurationTypeDef(TypedDict):
+    infrastructureRoleArn: str
+    instanceLaunchTemplate: InstanceLaunchTemplateUnionTypeDef
+    propagateTags: NotRequired[PropagateMITagsType]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+class UpdateCapacityProviderRequestTypeDef(TypedDict):
+    name: str
+    cluster: NotRequired[str]
+    autoScalingGroupProvider: NotRequired[AutoScalingGroupProviderUpdateTypeDef]
+    managedInstancesProvider: NotRequired[UpdateManagedInstancesProviderConfigurationTypeDef]
+
 class ServiceConnectConfigurationOutputTypeDef(TypedDict):
     enabled: bool
     namespace: NotRequired[str]
-    services: NotRequired[List[ServiceConnectServiceOutputTypeDef]]
+    services: NotRequired[list[ServiceConnectServiceOutputTypeDef]]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
 
 class ServiceConnectConfigurationTypeDef(TypedDict):
     enabled: bool
     namespace: NotRequired[str]
     services: NotRequired[Sequence[ServiceConnectServiceTypeDef]]
     logConfiguration: NotRequired[LogConfigurationTypeDef]
+    accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
 
 ContainerDefinitionUnionTypeDef = Union[
     ContainerDefinitionTypeDef, ContainerDefinitionOutputTypeDef
@@ -2173,6 +2707,14 @@ ContainerDefinitionUnionTypeDef = Union[
 ServiceVolumeConfigurationUnionTypeDef = Union[
     ServiceVolumeConfigurationTypeDef, ServiceVolumeConfigurationOutputTypeDef
 ]
+
+class CreateCapacityProviderRequestTypeDef(TypedDict):
+    name: str
+    cluster: NotRequired[str]
+    autoScalingGroupProvider: NotRequired[AutoScalingGroupProviderTypeDef]
+    managedInstancesProvider: NotRequired[CreateManagedInstancesProviderConfigurationTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
 DeploymentTypeDef = TypedDict(
     "DeploymentTypeDef",
     {
@@ -2185,7 +2727,7 @@ DeploymentTypeDef = TypedDict(
         "failedTasks": NotRequired[int],
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
-        "capacityProviderStrategy": NotRequired[List[CapacityProviderStrategyItemTypeDef]],
+        "capacityProviderStrategy": NotRequired[list[CapacityProviderStrategyItemTypeDef]],
         "launchType": NotRequired[LaunchTypeType],
         "platformVersion": NotRequired[str],
         "platformFamily": NotRequired[str],
@@ -2193,10 +2735,10 @@ DeploymentTypeDef = TypedDict(
         "rolloutState": NotRequired[DeploymentRolloutStateType],
         "rolloutStateReason": NotRequired[str],
         "serviceConnectConfiguration": NotRequired[ServiceConnectConfigurationOutputTypeDef],
-        "serviceConnectResources": NotRequired[List[ServiceConnectServiceResourceTypeDef]],
-        "volumeConfigurations": NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]],
+        "serviceConnectResources": NotRequired[list[ServiceConnectServiceResourceTypeDef]],
+        "volumeConfigurations": NotRequired[list[ServiceVolumeConfigurationOutputTypeDef]],
         "fargateEphemeralStorage": NotRequired[DeploymentEphemeralStorageTypeDef],
-        "vpcLatticeConfigurations": NotRequired[List[VpcLatticeConfigurationTypeDef]],
+        "vpcLatticeConfigurations": NotRequired[list[VpcLatticeConfigurationTypeDef]],
     },
 )
 
@@ -2205,21 +2747,22 @@ class ServiceRevisionTypeDef(TypedDict):
     serviceArn: NotRequired[str]
     clusterArn: NotRequired[str]
     taskDefinition: NotRequired[str]
-    capacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    capacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     launchType: NotRequired[LaunchTypeType]
     platformVersion: NotRequired[str]
     platformFamily: NotRequired[str]
-    loadBalancers: NotRequired[List[LoadBalancerTypeDef]]
-    serviceRegistries: NotRequired[List[ServiceRegistryTypeDef]]
+    loadBalancers: NotRequired[list[LoadBalancerTypeDef]]
+    serviceRegistries: NotRequired[list[ServiceRegistryTypeDef]]
     networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
-    containerImages: NotRequired[List[ContainerImageTypeDef]]
+    containerImages: NotRequired[list[ContainerImageTypeDef]]
     guardDutyEnabled: NotRequired[bool]
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationOutputTypeDef]
-    volumeConfigurations: NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]]
+    volumeConfigurations: NotRequired[list[ServiceVolumeConfigurationOutputTypeDef]]
     fargateEphemeralStorage: NotRequired[DeploymentEphemeralStorageTypeDef]
     createdAt: NotRequired[datetime]
-    vpcLatticeConfigurations: NotRequired[List[VpcLatticeConfigurationTypeDef]]
+    vpcLatticeConfigurations: NotRequired[list[VpcLatticeConfigurationTypeDef]]
     resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
+    ecsManagedResources: NotRequired[ECSManagedResourcesTypeDef]
 
 ServiceConnectConfigurationUnionTypeDef = Union[
     ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
@@ -2249,39 +2792,42 @@ class ServiceTypeDef(TypedDict):
     serviceArn: NotRequired[str]
     serviceName: NotRequired[str]
     clusterArn: NotRequired[str]
-    loadBalancers: NotRequired[List[LoadBalancerTypeDef]]
-    serviceRegistries: NotRequired[List[ServiceRegistryTypeDef]]
+    loadBalancers: NotRequired[list[LoadBalancerTypeDef]]
+    serviceRegistries: NotRequired[list[ServiceRegistryTypeDef]]
     status: NotRequired[str]
     desiredCount: NotRequired[int]
     runningCount: NotRequired[int]
     pendingCount: NotRequired[int]
     launchType: NotRequired[LaunchTypeType]
-    capacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    capacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     platformVersion: NotRequired[str]
     platformFamily: NotRequired[str]
     taskDefinition: NotRequired[str]
     deploymentConfiguration: NotRequired[DeploymentConfigurationOutputTypeDef]
-    taskSets: NotRequired[List[TaskSetTypeDef]]
-    deployments: NotRequired[List[DeploymentTypeDef]]
+    taskSets: NotRequired[list[TaskSetTypeDef]]
+    deployments: NotRequired[list[DeploymentTypeDef]]
     roleArn: NotRequired[str]
-    events: NotRequired[List[ServiceEventTypeDef]]
+    events: NotRequired[list[ServiceEventTypeDef]]
     createdAt: NotRequired[datetime]
-    placementConstraints: NotRequired[List[PlacementConstraintTypeDef]]
-    placementStrategy: NotRequired[List[PlacementStrategyTypeDef]]
+    currentServiceDeployment: NotRequired[str]
+    currentServiceRevisions: NotRequired[list[ServiceCurrentRevisionSummaryTypeDef]]
+    placementConstraints: NotRequired[list[PlacementConstraintTypeDef]]
+    placementStrategy: NotRequired[list[PlacementStrategyTypeDef]]
     networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     healthCheckGracePeriodSeconds: NotRequired[int]
     schedulingStrategy: NotRequired[SchedulingStrategyType]
     deploymentController: NotRequired[DeploymentControllerTypeDef]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     createdBy: NotRequired[str]
     enableECSManagedTags: NotRequired[bool]
     propagateTags: NotRequired[PropagateTagsType]
     enableExecuteCommand: NotRequired[bool]
     availabilityZoneRebalancing: NotRequired[AvailabilityZoneRebalancingType]
+    resourceManagementType: NotRequired[ResourceManagementTypeType]
 
 class DescribeServiceRevisionsResponseTypeDef(TypedDict):
-    serviceRevisions: List[ServiceRevisionTypeDef]
-    failures: List[FailureTypeDef]
+    serviceRevisions: list[ServiceRevisionTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateServiceRequestTypeDef(TypedDict):
@@ -2345,8 +2891,8 @@ class DeleteServiceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeServicesResponseTypeDef(TypedDict):
-    services: List[ServiceTypeDef]
-    failures: List[FailureTypeDef]
+    services: list[ServiceTypeDef]
+    failures: list[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateServiceResponseTypeDef(TypedDict):

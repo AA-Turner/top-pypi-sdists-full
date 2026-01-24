@@ -3,7 +3,7 @@ Type annotations for workspaces-web service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_workspaces_web/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,6 +25,8 @@ else:
 __all__ = (
     "AuthenticationTypeType",
     "BrowserTypeType",
+    "CategoryType",
+    "ColorThemeType",
     "EnabledTypeType",
     "EventType",
     "FolderStructureType",
@@ -33,8 +35,10 @@ __all__ = (
     "ListDataProtectionSettingsPaginatorName",
     "ListSessionLoggersPaginatorName",
     "ListSessionsPaginatorName",
+    "LocaleType",
     "LogFileFormatType",
     "MaxDisplayResolutionType",
+    "MimeTypeType",
     "PaginatorName",
     "PortalStatusType",
     "RedactionPlaceHolderTypeType",
@@ -53,6 +57,36 @@ __all__ = (
 
 AuthenticationTypeType = Literal["IAM_Identity_Center", "Standard"]
 BrowserTypeType = Literal["Chrome"]
+CategoryType = Literal[
+    "Chat",
+    "CriminalActivity",
+    "Cults",
+    "DownloadSites",
+    "Gambling",
+    "Games",
+    "GenerativeAI",
+    "Hacking",
+    "HateAndIntolerance",
+    "IllegalDrug",
+    "IllegalSoftware",
+    "ImageSharing",
+    "InstantMessaging",
+    "Nudity",
+    "ParkedDomains",
+    "PeerToPeer",
+    "Pornography",
+    "ProfessionalNetwork",
+    "SchoolCheating",
+    "SelfHarm",
+    "SexEducation",
+    "SocialNetworking",
+    "StreamingMediaAndDownloads",
+    "Tasteless",
+    "Violence",
+    "Weapons",
+    "WebBasedEmail",
+]
+ColorThemeType = Literal["Dark", "Light"]
 EnabledTypeType = Literal["Disabled", "Enabled"]
 EventType = Literal[
     "ContentCopyFromWebsite",
@@ -69,6 +103,7 @@ EventType = Literal[
     "SessionStart",
     "TabClose",
     "TabOpen",
+    "UrlBlockByContentFilter",
     "UrlLoad",
     "WebsiteInteract",
 ]
@@ -80,6 +115,19 @@ InstanceTypeType = Literal["standard.large", "standard.regular", "standard.xlarg
 ListDataProtectionSettingsPaginatorName = Literal["list_data_protection_settings"]
 ListSessionLoggersPaginatorName = Literal["list_session_loggers"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+LocaleType = Literal[
+    "de-DE",
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "id-ID",
+    "it-IT",
+    "ja-JP",
+    "ko-KR",
+    "pt-BR",
+    "zh-CN",
+    "zh-TW",
+]
 LogFileFormatType = Literal["JSONLines", "Json"]
 MaxDisplayResolutionType = Literal[
     "size1024X768",
@@ -91,6 +139,7 @@ MaxDisplayResolutionType = Literal[
     "size4096X2160",
     "size800X600",
 ]
+MimeTypeType = Literal["image/jpeg", "image/png", "image/x-icon"]
 PortalStatusType = Literal["Active", "Incomplete", "Pending"]
 RedactionPlaceHolderTypeType = Literal["CustomText"]
 RendererTypeType = Literal["AppStream"]
@@ -126,7 +175,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -196,6 +244,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -241,7 +290,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -294,7 +342,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -333,8 +380,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -369,6 +414,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -378,6 +424,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -388,6 +435,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -409,8 +459,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -425,15 +473,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -464,6 +513,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -504,6 +554,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

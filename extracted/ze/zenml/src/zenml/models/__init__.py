@@ -112,6 +112,7 @@ from zenml.models.v2.core.artifact_visualization import (
     ArtifactVisualizationResponse,
     ArtifactVisualizationResponseBody,
     ArtifactVisualizationResponseMetadata,
+    ArtifactVisualizationResponseResources,
 )
 from zenml.models.v2.core.service import (
     ServiceResponse,
@@ -153,6 +154,24 @@ from zenml.models.v2.core.event_source_flavor import (
     EventSourceFlavorResponseBody,
     EventSourceFlavorResponseMetadata,
     EventSourceFlavorResponseResources,
+)
+from zenml.models.v2.core.deployment import (
+    DeploymentRequest,
+    DeploymentUpdate,
+    DeploymentFilter,
+    DeploymentOperationalState,
+    DeploymentResponse,
+    DeploymentResponseBody,
+    DeploymentResponseMetadata,
+    DeploymentResponseResources,
+)
+from zenml.models.v2.core.curated_visualization import (
+    CuratedVisualizationRequest,
+    CuratedVisualizationResponse,
+    CuratedVisualizationResponseBody,
+    CuratedVisualizationResponseMetadata,
+    CuratedVisualizationResponseResources,
+    CuratedVisualizationUpdate,
 )
 from zenml.models.v2.core.device import (
     OAuthDeviceUpdate,
@@ -228,14 +247,16 @@ from zenml.models.v2.core.pipeline_build import (
     PipelineBuildResponseMetadata,
     PipelineBuildResponseResources,
 )
-from zenml.models.v2.core.pipeline_deployment import (
-    PipelineDeploymentBase,
-    PipelineDeploymentRequest,
-    PipelineDeploymentFilter,
-    PipelineDeploymentResponse,
-    PipelineDeploymentResponseBody,
-    PipelineDeploymentResponseMetadata,
-    PipelineDeploymentResponseResources,
+from zenml.models.v2.core.pipeline_snapshot import (
+    PipelineSnapshotBase,
+    PipelineSnapshotRequest,
+    PipelineSnapshotUpdate,
+    PipelineSnapshotFilter,
+    PipelineSnapshotResponse,
+    PipelineSnapshotResponseBody,
+    PipelineSnapshotResponseMetadata,
+    PipelineSnapshotResponseResources,
+    PipelineSnapshotRunRequest,
 )
 from zenml.models.v2.core.pipeline_run import (
     PipelineRunRequest,
@@ -244,7 +265,8 @@ from zenml.models.v2.core.pipeline_run import (
     PipelineRunResponse,
     PipelineRunResponseBody,
     PipelineRunResponseMetadata,
-    PipelineRunResponseResources
+    PipelineRunResponseResources,
+    PipelineRunTriggerInfo,
 )
 from zenml.models.v2.core.run_template import (
     RunTemplateRequest,
@@ -307,6 +329,12 @@ from zenml.models.v2.core.stack import (
     StackResponseMetadata,
     StackResponseResources
 )
+from zenml.models.v2.misc.param_groups import (
+    PipelineRunIdentifier,
+    StepRunIdentifier,
+    ArtifactVersionIdentifier,
+    ModelVersionIdentifier,
+)
 from zenml.models.v2.misc.statistics import (
     ProjectStatistics,
     ServerStatistics,
@@ -318,7 +346,8 @@ from zenml.models.v2.core.step_run import (
     StepRunResponse,
     StepRunResponseBody,
     StepRunResponseMetadata,
-    StepRunResponseResources
+    StepRunResponseResources,
+    StepHeartbeatResponse,
 )
 from zenml.models.v2.core.tag import (
     TagFilter,
@@ -454,6 +483,10 @@ ArtifactVersionRequest.model_rebuild()
 ArtifactVersionResponseBody.model_rebuild()
 ArtifactVersionResponseMetadata.model_rebuild()
 ArtifactVersionResponseResources.model_rebuild()
+ArtifactVisualizationResponse.model_rebuild()
+ArtifactVisualizationResponseBody.model_rebuild()
+ArtifactVisualizationResponseMetadata.model_rebuild()
+ArtifactVisualizationResponseResources.model_rebuild()
 CodeReferenceResponseBody.model_rebuild()
 CodeRepositoryResponseBody.model_rebuild()
 CodeRepositoryResponseMetadata.model_rebuild()
@@ -461,6 +494,14 @@ CodeRepositoryResponseResources.model_rebuild()
 ComponentResponseBody.model_rebuild()
 ComponentResponseMetadata.model_rebuild()
 ComponentResponseResources.model_rebuild()
+DeploymentRequest.model_rebuild()
+DeploymentResponseBody.model_rebuild()
+DeploymentResponseMetadata.model_rebuild()
+DeploymentResponseResources.model_rebuild()
+CuratedVisualizationResponseBody.model_rebuild()
+CuratedVisualizationResponseMetadata.model_rebuild()
+CuratedVisualizationResponseResources.model_rebuild()
+CuratedVisualizationResponse.model_rebuild()
 EventSourceResponseBody.model_rebuild()
 EventSourceResponseMetadata.model_rebuild()
 EventSourceResponseResources.model_rebuild()
@@ -484,10 +525,10 @@ PipelineBuildBase.model_rebuild()
 PipelineBuildResponseBody.model_rebuild()
 PipelineBuildResponseMetadata.model_rebuild()
 PipelineBuildResponseResources.model_rebuild()
-PipelineDeploymentRequest.model_rebuild()
-PipelineDeploymentResponseBody.model_rebuild()
-PipelineDeploymentResponseMetadata.model_rebuild()
-PipelineDeploymentResponseResources.model_rebuild()
+PipelineSnapshotRequest.model_rebuild()
+PipelineSnapshotResponseBody.model_rebuild()
+PipelineSnapshotResponseMetadata.model_rebuild()
+PipelineSnapshotResponseResources.model_rebuild()
 PipelineRunRequest.model_rebuild()
 PipelineRunResponseBody.model_rebuild()
 PipelineRunResponseMetadata.model_rebuild()
@@ -513,6 +554,7 @@ StackResponseBody.model_rebuild()
 StackResponseMetadata.model_rebuild()
 StackResponseResources.model_rebuild()
 StepRunRequest.model_rebuild()
+StepRunUpdate.model_rebuild()
 StepRunResponseBody.model_rebuild()
 StepRunResponseMetadata.model_rebuild()
 StepRunResponseResources.model_rebuild()
@@ -607,6 +649,7 @@ __all__ = [
     "ArtifactVisualizationResponse",
     "ArtifactVisualizationResponseBody",
     "ArtifactVisualizationResponseMetadata",
+    "ArtifactVisualizationResponseResources",
     "CodeReferenceRequest",
     "CodeReferenceResponse",
     "CodeReferenceResponseBody",
@@ -628,6 +671,20 @@ __all__ = [
     "ComponentResponseResources",
     "DefaultComponentRequest",
     "DefaultStackRequest",
+    "DeploymentRequest",
+    "DeploymentUpdate",
+    "DeploymentFilter",
+    "DeploymentOperationalState",
+    "DeploymentResponse",
+    "DeploymentResponseBody",
+    "DeploymentResponseMetadata",
+    "DeploymentResponseResources",
+    "CuratedVisualizationRequest",
+    "CuratedVisualizationResponse",
+    "CuratedVisualizationResponseBody",
+    "CuratedVisualizationResponseMetadata",
+    "CuratedVisualizationResponseResources",
+    "CuratedVisualizationUpdate",
     "EventSourceFlavorResponse",
     "EventSourceFlavorResponseBody",
     "EventSourceFlavorResponseMetadata",
@@ -688,13 +745,15 @@ __all__ = [
     "PipelineBuildResponseBody",
     "PipelineBuildResponseMetadata",
     "PipelineBuildResponseResources",
-    "PipelineDeploymentBase",
-    "PipelineDeploymentRequest",
-    "PipelineDeploymentFilter",
-    "PipelineDeploymentResponse",
-    "PipelineDeploymentResponseBody",
-    "PipelineDeploymentResponseMetadata",
-    "PipelineDeploymentResponseResources",
+    "PipelineSnapshotBase",
+    "PipelineSnapshotRequest",
+    "PipelineSnapshotUpdate",
+    "PipelineSnapshotFilter",
+    "PipelineSnapshotResponse",
+    "PipelineSnapshotResponseBody",
+    "PipelineSnapshotResponseMetadata",
+    "PipelineSnapshotResponseResources",
+    "PipelineSnapshotRunRequest",
     "PipelineRunRequest",
     "PipelineRunUpdate",
     "PipelineRunFilter",
@@ -702,6 +761,7 @@ __all__ = [
     "PipelineRunResponseBody",
     "PipelineRunResponseMetadata",
     "PipelineRunResponseResources",
+    "PipelineRunTriggerInfo",
     "RunTemplateRequest",
     "RunTemplateUpdate",
     "RunTemplateResponse",
@@ -846,4 +906,9 @@ __all__ = [
     "ProjectStatistics",
     "PipelineRunDAG",
     "ExceptionInfo",
+    "PipelineRunIdentifier",
+    "StepRunIdentifier",
+    "ArtifactVersionIdentifier",
+    "ModelVersionIdentifier",
+    "StepHeartbeatResponse",
 ]

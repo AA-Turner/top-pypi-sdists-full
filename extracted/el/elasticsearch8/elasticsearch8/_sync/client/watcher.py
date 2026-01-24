@@ -492,9 +492,9 @@ class WatcherClient(NamespacedClient):
         :param active: The initial state of the watch. The default value is `true`, which
             means the watch is active by default.
         :param condition: The condition that defines if the actions should be run.
-        :param if_primary_term: only update the watch if the last operation that has
+        :param if_primary_term: Only update the watch if the last operation that has
             changed the watch has the specified primary term
-        :param if_seq_no: only update the watch if the last operation that has changed
+        :param if_seq_no: Only update the watch if the last operation that has changed
             the watch has the specified sequence number
         :param input: The input that defines the input that loads the data for the watch.
         :param metadata: Metadata JSON that will be copied into the history entries.
@@ -550,11 +550,7 @@ class WatcherClient(NamespacedClient):
                 __body["transform"] = transform
             if trigger is not None:
                 __body["trigger"] = trigger
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,

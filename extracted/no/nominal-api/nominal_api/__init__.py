@@ -10,11 +10,10 @@ __all__ = [
     'connect_download',
     'datasource',
     'datasource_api',
-    'datasource_logset',
-    'datasource_logset_api',
     'datasource_pagination_api',
     'event',
     'ingest_api',
+    'ingest_manifest',
     'ingest_workflow_api',
     'module',
     'module_internal',
@@ -67,12 +66,12 @@ __all__ = [
     'storage_series_api',
     'storage_writer_api',
     'themes_api',
-    'timeseries_archetype',
-    'timeseries_archetype_api',
     'timeseries_channelmetadata',
     'timeseries_channelmetadata_api',
     'timeseries_logicalseries',
     'timeseries_logicalseries_api',
+    'timeseries_metadata',
+    'timeseries_metadata_api',
     'timeseries_seriescache',
     'timeseries_seriescache_api',
     'upload_api',
@@ -81,5 +80,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.921.0"
+__version__ = "0.1080.0"
 

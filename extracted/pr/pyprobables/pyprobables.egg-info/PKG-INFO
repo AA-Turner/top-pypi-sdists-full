@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyprobables
-Version: 0.6.1
+Version: 0.6.2
 Summary: Probabilistic data structures in python
 Author-email: Tyler Barrus <barrust@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/barrust/pyprobables
 Project-URL: Bug-tracker, https://github.com/barrust/pyprobables/issues
 Project-URL: Documentation, https://pyprobables.readthedocs.io/
@@ -14,18 +14,18 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Classifier: License :: OSI Approved
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 PyProbables
 ===========

@@ -297,7 +297,7 @@ Keyword arguments:
 - withKeyboardEvents (boolean; optional):
     Determines whether arrow key should switch slides, `True` by
     default."""
-    _children_props = ['nextControlIcon', 'previousControlIcon']
+    _children_props: typing.List[str] = ['nextControlIcon', 'previousControlIcon']
     _base_nodes = ['nextControlIcon', 'previousControlIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Carousel'

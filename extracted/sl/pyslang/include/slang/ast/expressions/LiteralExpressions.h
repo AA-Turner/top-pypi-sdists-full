@@ -12,6 +12,8 @@
 
 namespace slang::ast {
 
+class TypeProvider;
+
 /// Represents an integer literal.
 class SLANG_EXPORT IntegerLiteral final : public Expression {
 public:
@@ -28,6 +30,7 @@ public:
     ConstantValue evalImpl(EvalContext& context) const;
     std::optional<bitwidth_t> getEffectiveWidthImpl() const;
     EffectiveSign getEffectiveSignImpl(bool isForConversion) const;
+    bool isEquivalentImpl(const IntegerLiteral& rhs) const;
 
     void serializeTo(ASTSerializer&) const;
 
@@ -35,7 +38,7 @@ public:
                                   const syntax::LiteralExpressionSyntax& syntax);
     static Expression& fromSyntax(Compilation& compilation,
                                   const syntax::IntegerVectorExpressionSyntax& syntax);
-    static Expression& fromConstant(Compilation& compilation, const SVInt& value);
+    static Expression& fromConstant(const TypeProvider& typeProvider, const SVInt& value);
 
     static bool isKind(ExpressionKind kind) { return kind == ExpressionKind::IntegerLiteral; }
 
@@ -53,6 +56,7 @@ public:
     double getValue() const { return value; }
 
     ConstantValue evalImpl(EvalContext& context) const;
+    bool isEquivalentImpl(const RealLiteral& rhs) const;
 
     void serializeTo(ASTSerializer&) const;
 
@@ -68,13 +72,17 @@ private:
 /// Represents a time literal.
 class SLANG_EXPORT TimeLiteral final : public Expression {
 public:
-    TimeLiteral(const Type& type, double value, SourceRange sourceRange) :
-        Expression(ExpressionKind::TimeLiteral, type, sourceRange), value(value) {}
+    TimeLiteral(const Type& type, double value, TimeScale scale, SourceRange sourceRange) :
+        Expression(ExpressionKind::TimeLiteral, type, sourceRange), value(value), scale(scale) {}
 
     /// Gets the value of the literal.
     double getValue() const { return value; }
 
+    /// Gets the time scale in effect for the context of the expression.
+    TimeScale getScale() const { return scale; }
+
     ConstantValue evalImpl(EvalContext& context) const;
+    bool isEquivalentImpl(const TimeLiteral& rhs) const;
 
     void serializeTo(ASTSerializer&) const;
 
@@ -85,6 +93,7 @@ public:
 
 private:
     double value;
+    TimeScale scale;
 };
 
 /// Represents an unbased unsized integer literal, which fills all bits in an expression.
@@ -104,6 +113,7 @@ public:
                        ConversionKind conversionKind);
     std::optional<bitwidth_t> getEffectiveWidthImpl() const;
     EffectiveSign getEffectiveSignImpl(bool isForConversion) const;
+    bool isEquivalentImpl(const UnbasedUnsizedIntegerLiteral& rhs) const;
 
     void serializeTo(ASTSerializer&) const;
 
@@ -125,6 +135,7 @@ public:
         Expression(ExpressionKind::NullLiteral, type, sourceRange) {}
 
     ConstantValue evalImpl(EvalContext& context) const;
+    bool isEquivalentImpl(const NullLiteral&) const { return true; }
 
     void serializeTo(ASTSerializer&) const {}
 
@@ -141,6 +152,7 @@ public:
         Expression(ExpressionKind::UnboundedLiteral, type, sourceRange) {}
 
     ConstantValue evalImpl(EvalContext& context) const;
+    bool isEquivalentImpl(const UnboundedLiteral&) const { return true; }
 
     void serializeTo(ASTSerializer&) const {}
 
@@ -166,6 +178,7 @@ public:
     const ConstantValue& getIntValue() const;
 
     ConstantValue evalImpl(EvalContext& context) const;
+    bool isEquivalentImpl(const StringLiteral& rhs) const;
 
     void serializeTo(ASTSerializer& serializer) const;
 

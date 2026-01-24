@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: check-manifest
-Version: 0.50
+Version: 0.51
 Summary: Check MANIFEST.in in a Python source package for completeness
 Home-page: https://github.com/mgedmin/check-manifest
 Author: Marius Gedminas
@@ -14,16 +14,16 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: build>=0.1
@@ -33,6 +33,19 @@ Provides-Extra: test
 Requires-Dist: mock>=3.0.0; python_version == "3.7" and extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: wheel; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 check-manifest
 ==============
@@ -171,7 +184,7 @@ git-workflow. Add the following to your ``.pre-commit-config.yaml``.
 
     repos:
     -   repo: https://github.com/mgedmin/check-manifest
-        rev: "0.50"
+        rev: "0.51"
         hooks:
         -   id: check-manifest
 
@@ -184,14 +197,14 @@ so you'll want to list them all in ``additional_dependencies``.
 
     repos:
     -   repo: https://github.com/mgedmin/check-manifest
-        rev: "0.50"
+        rev: "0.51"
         hooks:
         -   id: check-manifest
             args: [--no-build-isolation]
             additional_dependencies: [setuptools, wheel, setuptools-scm]
 
 
-.. |buildstatus| image:: https://github.com/mgedmin/check-manifest/workflows/build/badge.svg?branch=master
+.. |buildstatus| image:: https://github.com/mgedmin/check-manifest/actions/workflows/build.yml/badge.svg?branch=master
 .. _buildstatus: https://github.com/mgedmin/check-manifest/actions
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/mgedmin/check-manifest?branch=master&svg=true
@@ -203,6 +216,13 @@ so you'll want to list them all in ``additional_dependencies``.
 
 Changelog
 =========
+
+
+0.51 (2025-10-15)
+-----------------
+
+- Add Python 3.14 support.
+- Drop Python 3.7 support.
 
 
 0.50 (2024-10-09)

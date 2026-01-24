@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ml_dtypes
-Version: 0.5.3
+Version: 0.5.4
 Summary: ml_dtypes is a stand-alone implementation of several NumPy dtype extensions used in machine learning.
 Author-email: ml_dtypes authors <ml_dtypes@google.com>
 License-Expression: Apache-2.0

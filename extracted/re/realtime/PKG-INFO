@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: realtime
-Version: 2.20.0
+Version: 2.27.2
 Summary: 
 License-Expression: MIT
 Author: Joel Lee
@@ -21,6 +21,7 @@ Requires-Dist: websockets (>=11,<16)
 Project-URL: Documentation, https://github.com/supabase/supabase/tree/main/src/realime
 Project-URL: Homepage, https://github.com/supabase/supabase/tree/main/src/realime
 Project-URL: Repository, https://github.com/supabase/supabase-py
+Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md
 Description-Content-Type: text/markdown
 
 <br />

@@ -1,10 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: uniseg
-Version: 0.10.0
+Version: 0.10.1
 Summary: Determine Unicode text segmentations
 Author-email: Masaaki Shibata <mshibata@emptypage.jp>
+Project-URL: Homepage, https://bitbucket.org/emptypage/uniseg-py
 Project-URL: Documentation, https://uniseg-py.readthedocs.io/
-Project-URL: Repository, https://bitbucket.org/emptypage/uniseg-py/
+Project-URL: Repository, https://bitbucket.org/emptypage/uniseg-py.git
 Keywords: text,unicode
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
@@ -19,6 +20,7 @@ Classifier: Topic :: Text Processing
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ======
 uniseg
@@ -120,6 +122,12 @@ Install
 
 Changes
 =======
+
+0.10.1 (2025-05-11)
+  - Fix ``line_break('\U00010000')`` returned wrong property value.
+
+0.10.0 (2025-02-23)
+  - Add ``tailor`` argument for ``tt_wrap``.
 
 0.9.1 (2025-01-16)
   - Fix ``ambiguous_as_wide`` options are not working on ``uniseg.wrap``.

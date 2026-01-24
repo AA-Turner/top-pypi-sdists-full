@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-core
-Version: 2.19.2
+Version: 2.20.1
 Summary: Radically simple IT automation
 Author: Ansible Project
 Project-URL: Homepage, https://ansible.com/
@@ -18,14 +18,14 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 or later (G
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: licenses/Apache-License.txt
@@ -37,7 +37,7 @@ Requires-Dist: jinja2>=3.1.0
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: cryptography
 Requires-Dist: packaging
-Requires-Dist: resolvelib<2.0.0,>=0.5.3
+Requires-Dist: resolvelib<2.0.0,>=0.8.0
 Dynamic: license-file
 
 [![PyPI version](https://img.shields.io/pypi/v/ansible-core.svg)](https://pypi.org/project/ansible-core)

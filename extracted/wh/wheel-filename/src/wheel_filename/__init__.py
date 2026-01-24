@@ -19,21 +19,20 @@ Visit <https://github.com/wheelodex/wheel-filename> for more information.
 
 from __future__ import annotations
 from collections.abc import Iterator
+from dataclasses import dataclass
 import os
 import os.path
 import re
-from typing import NamedTuple, Optional
 
-__version__ = "1.4.2"
+__version__ = "2.1.0"
 __author__ = "John Thorvald Wodder II"
 __author_email__ = "wheel-filename@varonathe.org"
 __license__ = "MIT"
 __url__ = "https://github.com/wheelodex/wheel-filename"
 
 __all__ = [
-    "InvalidFilenameError",
-    "ParsedWheelFilename",
-    "parse_wheel_filename",
+    "ParseError",
+    "WheelFilename",
 ]
 
 # These patterns are interpreted with re.UNICODE in effect, so there's probably
@@ -53,10 +52,11 @@ WHEEL_FILENAME_CRGX = re.compile(
 )
 
 
-class ParsedWheelFilename(NamedTuple):
+@dataclass
+class WheelFilename:
     project: str
     version: str
-    build: Optional[str]
+    build: str | None
     python_tags: list[str]
     abi_tags: list[str]
     platform_tags: list[str]
@@ -83,39 +83,79 @@ class ParsedWheelFilename(NamedTuple):
                 for plat in self.platform_tags:
                     yield "-".join([py, abi, plat])
 
+    @property
+    def build_tuple(self) -> tuple[int, str] | tuple[()]:
+        """
+        Returns the build tag as a tuple for use in sorting.  If `self.build`
+        is non-`None`, this is ``(self.build_leading, self.build_trailing)``;
+        otherwise, it is the empty tuple.
+        """
+        if self.build is not None:
+            m = re.match(r"[0-9]+", self.build)
+            assert m
+            return (int(m[0]), self.build[m.end() :])
+        else:
+            return ()
 
-def parse_wheel_filename(
-    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
-) -> ParsedWheelFilename:
-    """
-    Parse a wheel filename into its components
+    @property
+    def build_leading(self) -> int | None:
+        """
+        If `self.build` is non-`None`, returns the leading integer portion of
+        the build tag converted to an integer; otherwise, returns `None`
+        """
+        if self.build is not None:
+            m = re.match(r"[0-9]+", self.build)
+            assert m
+            return int(m[0])
+        else:
+            return None
 
-    :param path filename: a wheel path or filename
-    :rtype: ParsedWheelFilename
-    :raises InvalidFilenameError: if the filename is invalid
-    """
-    basename = os.path.basename(os.fsdecode(filename))
-    m = WHEEL_FILENAME_CRGX.fullmatch(basename)
-    if not m:
-        raise InvalidFilenameError(basename)
-    return ParsedWheelFilename(
-        project=m.group("project"),
-        version=m.group("version"),
-        build=m.group("build"),
-        python_tags=m.group("python_tags").split("."),
-        abi_tags=m.group("abi_tags").split("."),
-        platform_tags=m.group("platform_tags").split("."),
-    )
+    @property
+    def build_trailing(self) -> str | None:
+        """
+        If `self.build` is non-`None`, returns the part of the build tag after
+        the leading integer portion; otherwise, returns `None`
+        """
+        if self.build is not None:
+            m = re.match(r"[0-9]+", self.build)
+            assert m
+            return self.build[m.end() :]
+        else:
+            return None
+
+    @classmethod
+    def parse(
+        cls,
+        filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    ) -> WheelFilename:
+        """
+        Parse a wheel filename into its components
+
+        :param path filename: a wheel path or filename
+        :rtype: WheelFilename
+        :raises ParseError: if the filename is invalid
+        """
+        basename = os.path.basename(os.fsdecode(filename))
+        m = WHEEL_FILENAME_CRGX.fullmatch(basename)
+        if not m:
+            raise ParseError(basename)
+        return cls(
+            project=m.group("project"),
+            version=m.group("version"),
+            build=m.group("build"),
+            python_tags=m.group("python_tags").split("."),
+            abi_tags=m.group("abi_tags").split("."),
+            platform_tags=m.group("platform_tags").split("."),
+        )
 
 
-class InvalidFilenameError(ValueError):
+class ParseError(ValueError):
     """Raised when an invalid wheel filename is encountered"""
-
-    filename: str
 
     def __init__(self, filename: str) -> None:
         #: The invalid filename
         self.filename = filename
+        super().__init__(filename)
 
     def __str__(self) -> str:
         return "Invalid wheel filename: " + repr(self.filename)

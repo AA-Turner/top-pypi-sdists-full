@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from logging import Logger, getLogger
 from typing import overload
 
@@ -36,6 +37,30 @@ class HealthcheckConfig(BaseSettings):
 
     port: int = 8001
     enabled: bool = False
+    # HATCHET_CLIENT_WORKER_HEALTHCHECK_EVENT_LOOP_BLOCK_THRESHOLD_SECONDS
+    event_loop_block_threshold_seconds: timedelta = Field(
+        default=timedelta(seconds=5),
+        description="If the worker listener process event loop appears blocked longer than this threshold, /health returns 503. Value is interpreted as seconds.",
+    )
+
+    @field_validator("event_loop_block_threshold_seconds", mode="before")
+    @classmethod
+    def validate_event_loop_block_threshold_seconds(
+        cls, value: timedelta | int | float | str
+    ) -> timedelta:
+        # Settings env vars are strings; interpret as seconds.
+        if isinstance(value, timedelta):
+            return value
+
+        if isinstance(value, int | float):
+            return timedelta(seconds=float(value))
+
+        v = value.strip()
+        # Allow a small convenience suffix, but keep "seconds" as the contract.
+        if v.endswith("s"):
+            v = v[:-1].strip()
+
+        return timedelta(seconds=float(v))
 
 
 class OpenTelemetryConfig(BaseSettings):
@@ -47,6 +72,16 @@ class OpenTelemetryConfig(BaseSettings):
         default_factory=list,
         description='Note that if specifying this field via an environment variable, the variable must be a valid JSON array. For example: \'["action_name", "action_payload"]\'',
     )
+
+    include_task_name_in_start_step_run_span_name: bool = False
+
+
+class TenacityConfig(BaseSettings):
+    model_config = create_settings_config(
+        env_prefix="HATCHET_CLIENT_TENACITY_",
+    )
+
+    max_attempts: int = 5
 
 
 DEFAULT_HOST_PORT = "localhost:7070"
@@ -87,6 +122,7 @@ class ClientConfig(BaseSettings):
     log_queue_size: int = 1000
     grpc_enable_fork_support: bool = False
     force_shutdown_on_shutdown_signal: bool = False
+    tenacity: TenacityConfig = TenacityConfig()
 
     @model_validator(mode="after")
     def validate_token_and_tenant(self) -> "ClientConfig":

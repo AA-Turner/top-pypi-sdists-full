@@ -332,7 +332,7 @@ class CortexInferenceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["complete_request"]:
+        if _params["complete_request"] is not None:
             _body_params = _params["complete_request"]
 
         # set the HTTP header `Accept`
@@ -505,7 +505,7 @@ class CortexInferenceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["get_models_request"]:
+        if _params["get_models_request"] is not None:
             _body_params = _params["get_models_request"]
 
         # set the HTTP header `Accept`

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.1.4
+Version: 4.9.4
 Summary: Property-based testing framework for Open API and GraphQL based apps
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -20,19 +20,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
-Requires-Dist: backoff<3.0,>=2.1.2
+Requires-Python: >=3.10
 Requires-Dist: click<9,>=8.0
 Requires-Dist: colorama<1.0,>=0.4
-Requires-Dist: harfile<1.0,>=0.3.1
+Requires-Dist: harfile<1.0,>=0.4.0
 Requires-Dist: httpx<1.0,>=0.22.0
 Requires-Dist: hypothesis-graphql<1,>=0.11.1
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
@@ -40,17 +39,18 @@ Requires-Dist: hypothesis<7,>=6.108.0
 Requires-Dist: jsonschema[format]<5.0,>=4.18.0
 Requires-Dist: junit-xml<2.0,>=1.9
 Requires-Dist: pyrate-limiter<4.0,>=3.0
-Requires-Dist: pytest-subtests<0.15.0,>=0.11
-Requires-Dist: pytest<9,>=8
+Requires-Dist: pytest-subtests<0.16.0,>=0.11
+Requires-Dist: pytest<10,>=8
 Requires-Dist: pyyaml<7.0,>=5.1
 Requires-Dist: requests<3,>=2.22
 Requires-Dist: rich>=13.9.4
 Requires-Dist: starlette-testclient<1,>=0.4.1
-Requires-Dist: tomli>=2.2.1
+Requires-Dist: tenacity<10.0,>=9.1.2
+Requires-Dist: tomli>=2.2.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: werkzeug<4,>=0.16.0
 Provides-Extra: bench
-Requires-Dist: pytest-codspeed==2.2.1; extra == 'bench'
+Requires-Dist: pytest-codspeed==4.2.0; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
@@ -65,14 +65,14 @@ Requires-Dist: hypothesis-openapi<1,>=0.2; (python_version >= '3.10') and extra 
 Requires-Dist: mkdocs-material; extra == 'dev'
 Requires-Dist: mkdocstrings[python]; extra == 'dev'
 Requires-Dist: pydantic>=1.10.2; extra == 'dev'
-Requires-Dist: pytest-asyncio<1.0,>=0.18.0; extra == 'dev'
-Requires-Dist: pytest-codspeed==2.2.1; extra == 'dev'
+Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
+Requires-Dist: pytest-codspeed==4.2.0; extra == 'dev'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'dev'
 Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0,>=3; extra == 'dev'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'dev'
-Requires-Dist: syrupy<5.0,>=2; extra == 'dev'
+Requires-Dist: syrupy<6.0,>=4; extra == 'dev'
 Requires-Dist: tomli-w>=1.2.0; extra == 'dev'
 Requires-Dist: trustme<1.0,>=0.9.0; extra == 'dev'
 Provides-Extra: docs
@@ -85,13 +85,13 @@ Requires-Dist: fastapi>=0.86.0; extra == 'tests'
 Requires-Dist: flask<3.0,>=2.1.1; extra == 'tests'
 Requires-Dist: hypothesis-openapi<1,>=0.2; (python_version >= '3.10') and extra == 'tests'
 Requires-Dist: pydantic>=1.10.2; extra == 'tests'
-Requires-Dist: pytest-asyncio<1.0,>=0.18.0; extra == 'tests'
+Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'tests'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'tests'
 Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'tests'
 Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'tests'
 Requires-Dist: pytest-xdist<4.0,>=3; extra == 'tests'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'tests'
-Requires-Dist: syrupy<5.0,>=2; extra == 'tests'
+Requires-Dist: syrupy<6.0,>=4; extra == 'tests'
 Requires-Dist: tomli-w>=1.2.0; extra == 'tests'
 Requires-Dist: trustme<1.0,>=0.9.0; extra == 'tests'
 Description-Content-Type: text/markdown
@@ -132,7 +132,7 @@ Schemathesis automatically generates thousands of test cases from your OpenAPI o
 ## Try it now
 
 ```console
-# Test a demo API - finds real bugs instantly
+# Test a demo API - finds real bugs in 30 seconds
 uvx schemathesis run https://example.schemathesis.io/openapi.json
 
 # Test your own API
@@ -143,9 +143,10 @@ uvx schemathesis run https://your-api.com/openapi.json
 ## What problems does it solve?
 
 - 💥 **500 errors** that crash your API on edge case inputs
-- 📋 **Schema violations** where your API returns different data than documented  
+- 📋 **Schema violations** where your API returns different data than documented
 - 🚪 **Validation bypasses** where invalid data gets accepted
 - 🔗 **Integration failures** when responses don't match client expectations
+- 🔄 **Stateful bugs** where operations work individually but fail in realistic workflows
 
 
 > ⚠️ **Upgrading from older versions?** Check our [Migration Guide](https://github.com/schemathesis/schemathesis/blob/master/MIGRATION.md) for key changes.
@@ -166,7 +167,13 @@ schema = schemathesis.openapi.from_url("https://your-api.com/openapi.json")
 
 @schema.parametrize()
 def test_api(case):
-    case.call_and_validate()  # Finds bugs automatically
+    # Tests with random data, edge cases, and invalid inputs
+    case.call_and_validate()
+
+# Stateful testing: Tests workflows like: create user -> get user -> delete user
+APIWorkflow = schema.as_state_machine()
+# Creates a test class for pytest/unittest
+TestAPI = APIWorkflow.TestCase
 ```
 
 **CI/CD:**
@@ -178,14 +185,22 @@ def test_api(case):
 
 ## Who uses it
 
-Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordPress](https://github.com/WordPress/openverse)**, **JetBrains**, **Red Hat** and dozens other companies.
+Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordPress](https://github.com/WordPress/openverse)**, **JetBrains**, **Red Hat**, and dozens of other companies.
 
 
-> "_Schemathesis is the best tool for fuzz testing of REST API on the market. We are at Red Hat use it for examining our applications in functional and integrations testing levels._" - Dmitry Misharov, RedHat
+> "_Schemathesis is the best tool for fuzz testing of REST APIs on the market. We at Red Hat use it for examining our applications in functional and integration testing levels._" - Dmitry Misharov, RedHat
+
+## See it in action
+
+🔬 **[Live Benchmarks](https://workbench.schemathesis.io)** showing continuous testing results from real-world APIs:
+
+- Code & API schema coverage achieved
+- Issues found with detailed categorization
+- Performance across different fuzzing strategies
 
 ## Documentation
 
-📚 **[Complete documentation](https://schemathesis.readthedocs.io/en/stable/)** with guides, examples, and API reference.
+📚 **[Documentation](https://schemathesis.readthedocs.io/en/stable/)** with guides, examples, and API reference.
 
 ## Get Help
 

@@ -40,11 +40,7 @@ setup(
     python_requires=REQUIRES_PYTHON,
     url=URL,
     packages=find_packages(exclude=('tests', 'tests.*')),
-    entry_points={
-        'console_scripts':
-        ['lightning_cloud=lightning_cloud.cli.__main__:main'],
-    },
-    long_description="Lightning AI Command Line Interface",
+    long_description="Lightning AI Cloud API",
     long_description_content_type="text/x-rst",
     install_requires=REQUIRED,
     license=LICENSE,

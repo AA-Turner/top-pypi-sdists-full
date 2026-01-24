@@ -3,7 +3,7 @@ Type annotations for glacier service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glacier/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
@@ -33,12 +34,6 @@ from .literals import (
     TypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -168,7 +163,7 @@ class AddTagsToVaultInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -299,7 +294,7 @@ class GetVaultNotificationsInputTypeDef(TypedDict):
 
 class VaultNotificationConfigOutputTypeDef(TypedDict):
     SNSTopic: NotRequired[str]
-    Events: NotRequired[List[str]]
+    Events: NotRequired[list[str]]
 
 class InventoryRetrievalJobDescriptionTypeDef(TypedDict):
     Format: NotRequired[str]
@@ -463,7 +458,7 @@ class InitiateVaultLockOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForVaultOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PurchaseProvisionedCapacityOutputTypeDef(TypedDict):
@@ -513,7 +508,7 @@ class OutputSerializationTypeDef(TypedDict):
     csv: NotRequired[CSVOutputTypeDef]
 
 class DataRetrievalPolicyOutputTypeDef(TypedDict):
-    Rules: NotRequired[List[DataRetrievalRuleTypeDef]]
+    Rules: NotRequired[list[DataRetrievalRuleTypeDef]]
 
 class DataRetrievalPolicyTypeDef(TypedDict):
     Rules: NotRequired[Sequence[DataRetrievalRuleTypeDef]]
@@ -529,7 +524,7 @@ class DescribeVaultInputWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class ListVaultsOutputTypeDef(TypedDict):
-    VaultList: List[DescribeVaultOutputTypeDef]
+    VaultList: list[DescribeVaultOutputTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -578,7 +573,7 @@ class ListVaultsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMultipartUploadsOutputTypeDef(TypedDict):
-    UploadsList: List[UploadListElementTypeDef]
+    UploadsList: list[UploadListElementTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -588,12 +583,12 @@ class ListPartsOutputTypeDef(TypedDict):
     ArchiveDescription: str
     PartSizeInBytes: int
     CreationDate: str
-    Parts: List[PartListElementTypeDef]
+    Parts: list[PartListElementTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProvisionedCapacityOutputTypeDef(TypedDict):
-    ProvisionedCapacityList: List[ProvisionedCapacityDescriptionTypeDef]
+    ProvisionedCapacityList: list[ProvisionedCapacityDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 VaultNotificationConfigUnionTypeDef = Union[
@@ -619,9 +614,9 @@ class S3LocationOutputTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Encryption: NotRequired[EncryptionTypeDef]
     CannedACL: NotRequired[CannedACLType]
-    AccessControlList: NotRequired[List[GrantTypeDef]]
-    Tagging: NotRequired[Dict[str, str]]
-    UserMetadata: NotRequired[Dict[str, str]]
+    AccessControlList: NotRequired[list[GrantTypeDef]]
+    Tagging: NotRequired[dict[str, str]]
+    UserMetadata: NotRequired[dict[str, str]]
     StorageClass: NotRequired[StorageClassType]
 
 class S3LocationTypeDef(TypedDict):
@@ -702,7 +697,7 @@ class OutputLocationTypeDef(TypedDict):
     S3: NotRequired[S3LocationUnionTypeDef]
 
 class ListJobsOutputTypeDef(TypedDict):
-    JobList: List[GlacierJobDescriptionTypeDef]
+    JobList: list[GlacierJobDescriptionTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 

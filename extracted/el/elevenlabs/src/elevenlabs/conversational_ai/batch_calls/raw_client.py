@@ -13,6 +13,7 @@ from ...core.unchecked_base_model import construct_type
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.batch_call_detailed_response import BatchCallDetailedResponse
 from ...types.batch_call_response import BatchCallResponse
+from ...types.batch_call_whats_app_params import BatchCallWhatsAppParams
 from ...types.http_validation_error import HttpValidationError
 from ...types.outbound_call_recipient import OutboundCallRecipient
 from ...types.workspace_batch_calls_response import WorkspaceBatchCallsResponse
@@ -30,9 +31,11 @@ class RawBatchCallsClient:
         *,
         call_name: str,
         agent_id: str,
-        agent_phone_number_id: str,
         recipients: typing.Sequence[OutboundCallRecipient],
         scheduled_time_unix: typing.Optional[int] = OMIT,
+        agent_phone_number_id: typing.Optional[str] = OMIT,
+        whatsapp_params: typing.Optional[BatchCallWhatsAppParams] = OMIT,
+        timezone: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[BatchCallResponse]:
         """
@@ -44,11 +47,15 @@ class RawBatchCallsClient:
 
         agent_id : str
 
-        agent_phone_number_id : str
-
         recipients : typing.Sequence[OutboundCallRecipient]
 
         scheduled_time_unix : typing.Optional[int]
+
+        agent_phone_number_id : typing.Optional[str]
+
+        whatsapp_params : typing.Optional[BatchCallWhatsAppParams]
+
+        timezone : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -64,11 +71,15 @@ class RawBatchCallsClient:
             json={
                 "call_name": call_name,
                 "agent_id": agent_id,
-                "agent_phone_number_id": agent_phone_number_id,
-                "scheduled_time_unix": scheduled_time_unix,
                 "recipients": convert_and_respect_annotation_metadata(
                     object_=recipients, annotation=typing.Sequence[OutboundCallRecipient], direction="write"
                 ),
+                "scheduled_time_unix": scheduled_time_unix,
+                "agent_phone_number_id": agent_phone_number_id,
+                "whatsapp_params": convert_and_respect_annotation_metadata(
+                    object_=whatsapp_params, annotation=BatchCallWhatsAppParams, direction="write"
+                ),
+                "timezone": timezone,
             },
             headers={
                 "content-type": "application/json",
@@ -210,6 +221,45 @@ class RawBatchCallsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def delete(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[None]:
+        """
+        Permanently delete a batch call and all recipient records. Conversations remain in history.
+
+        Parameters
+        ----------
+        batch_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[None]
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/convai/batch-calling/{jsonable_encoder(batch_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return HttpResponse(response=_response, data=None)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def cancel(
         self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[BatchCallResponse]:
@@ -318,9 +368,11 @@ class AsyncRawBatchCallsClient:
         *,
         call_name: str,
         agent_id: str,
-        agent_phone_number_id: str,
         recipients: typing.Sequence[OutboundCallRecipient],
         scheduled_time_unix: typing.Optional[int] = OMIT,
+        agent_phone_number_id: typing.Optional[str] = OMIT,
+        whatsapp_params: typing.Optional[BatchCallWhatsAppParams] = OMIT,
+        timezone: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[BatchCallResponse]:
         """
@@ -332,11 +384,15 @@ class AsyncRawBatchCallsClient:
 
         agent_id : str
 
-        agent_phone_number_id : str
-
         recipients : typing.Sequence[OutboundCallRecipient]
 
         scheduled_time_unix : typing.Optional[int]
+
+        agent_phone_number_id : typing.Optional[str]
+
+        whatsapp_params : typing.Optional[BatchCallWhatsAppParams]
+
+        timezone : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -352,11 +408,15 @@ class AsyncRawBatchCallsClient:
             json={
                 "call_name": call_name,
                 "agent_id": agent_id,
-                "agent_phone_number_id": agent_phone_number_id,
-                "scheduled_time_unix": scheduled_time_unix,
                 "recipients": convert_and_respect_annotation_metadata(
                     object_=recipients, annotation=typing.Sequence[OutboundCallRecipient], direction="write"
                 ),
+                "scheduled_time_unix": scheduled_time_unix,
+                "agent_phone_number_id": agent_phone_number_id,
+                "whatsapp_params": convert_and_respect_annotation_metadata(
+                    object_=whatsapp_params, annotation=BatchCallWhatsAppParams, direction="write"
+                ),
+                "timezone": timezone,
             },
             headers={
                 "content-type": "application/json",
@@ -482,6 +542,47 @@ class AsyncRawBatchCallsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def delete(
+        self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[None]:
+        """
+        Permanently delete a batch call and all recipient records. Conversations remain in history.
+
+        Parameters
+        ----------
+        batch_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[None]
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/convai/batch-calling/{jsonable_encoder(batch_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return AsyncHttpResponse(response=_response, data=None)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

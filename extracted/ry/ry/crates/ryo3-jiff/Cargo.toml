@@ -13,12 +13,12 @@ description = "ryo3 + jiff https://github.com/BurntSushi/jiff"
 readme = "README.md"
 
 [dependencies]
-jiff.workspace = true
-parking_lot.workspace = true
+jiff = {workspace =true, features = ["default", "perf-inline"] }
 pyo3 = { workspace = true, features = ["jiff-02"] }
+ryo3-core.workspace = true
 ryo3-macro-rules.workspace = true
 ryo3-pydantic = { workspace = true, optional = true }
-ryo3-std = { workspace = true, features = ["std-time"] }
+ryo3-std = { workspace = true, features = ["time", "jiff"] }
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
@@ -43,7 +43,4 @@ serde = [
 ]
 
 [lints]
-
-#extend
-
 workspace = true

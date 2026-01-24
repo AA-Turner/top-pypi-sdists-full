@@ -25,9 +25,9 @@ except ImportError:
     brotli = None
 
 try:
-    import zstandard as zstd  # type: ignore[import-not-found]
+    import zstandard as zstd
 except ImportError:
-    zstd = None
+    zstd = None  # type: ignore[assignment]
 
 
 TARGET_PACKAGE: str = (
@@ -160,6 +160,13 @@ def notMacOS() -> typing.Callable[[_TestFuncT], _TestFuncT]:
     return pytest.mark.skipif(
         platform.system() == "Darwin",
         reason="Test does not run on MacOS",
+    )
+
+
+def onlyCPython() -> typing.Callable[[_TestFuncT], _TestFuncT]:
+    return pytest.mark.skipif(
+        platform.python_implementation() != "CPython",
+        reason="Test excluded if not CPython",
     )
 
 

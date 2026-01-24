@@ -133,7 +133,7 @@ class XmlCoverageReporter(BaseViolationReporter):
 
     def _measured_source_path_matches(self, package_name, file_name, src_path):
         # find src_path in any of the source roots
-        if not src_path.endswith(file_name):
+        if not src_path.endswith(util.to_unix_path(file_name)):
             return False
 
         norm_src_path = os.path.normcase(src_path)
@@ -574,12 +574,12 @@ pyflakes_driver = RegexBasedDriver(
 ruff_check_driver = RegexBasedDriver(
     name="ruff.check",
     supported_extensions=["py"],
-    command=["ruff", "check"],
+    command=["ruff", "check", "--output-format", "pylint"],
     # Match lines of the form:
     # path/to/file.py:328:27 F541 [*] f-string without any placeholders
     # path/to/file.py:418:26 F841 [*] Local variable `e` is assigned to but never used
     expression=r"^([^:]+):(\d+):\d*:? (.*)$",
-    command_to_check_install=["ruff", "--version", "--output-format", "pylint"],
+    command_to_check_install=["ruff", "--version"],
     # ruff exit code is 1 if there are violations
     # https://docs.astral.sh/ruff/linter/#exit-codes
     exit_codes=[0, 1],

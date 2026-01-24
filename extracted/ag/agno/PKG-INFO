@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.0.8
+Version: 2.4.3
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 Project-URL: homepage, https://agno.com
@@ -23,7 +23,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: docstring-parser
 Requires-Dist: gitpython
-Requires-Dist: httpx
+Requires-Dist: h11>=0.16.0
+Requires-Dist: httpx[http2]
 Requires-Dist: packaging
 Requires-Dist: pydantic-settings
 Requires-Dist: pydantic
@@ -34,26 +35,26 @@ Requires-Dist: rich
 Requires-Dist: typer
 Requires-Dist: typing-extensions
 Provides-Extra: dev
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: mypy==1.18.2; extra == "dev"
+Requires-Dist: ruff==0.14.3; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
 Requires-Dist: timeout-decorator; extra == "dev"
 Requires-Dist: types-pyyaml; extra == "dev"
 Requires-Dist: types-aiofiles; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
+Requires-Dist: PyJWT; extra == "dev"
+Requires-Dist: mcp; extra == "dev"
+Requires-Dist: openai; extra == "dev"
+Requires-Dist: fakeredis; extra == "dev"
+Requires-Dist: xlwt; extra == "dev"
 Provides-Extra: os
 Requires-Dist: fastapi; extra == "os"
 Requires-Dist: uvicorn; extra == "os"
-Provides-Extra: integration-tests
-Requires-Dist: exa_py; extra == "integration-tests"
-Requires-Dist: ddgs; extra == "integration-tests"
-Requires-Dist: yfinance; extra == "integration-tests"
-Requires-Dist: sqlalchemy; extra == "integration-tests"
-Requires-Dist: Pillow; extra == "integration-tests"
+Requires-Dist: PyJWT; extra == "os"
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-sdk; extra == "opentelemetry"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "opentelemetry"
@@ -84,7 +85,7 @@ Requires-Dist: cohere; extra == "cohere"
 Provides-Extra: infinity
 Requires-Dist: infinity_client; extra == "infinity"
 Provides-Extra: google
-Requires-Dist: google-genai; extra == "google"
+Requires-Dist: google-genai>=1.52.0; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq; extra == "groq"
 Provides-Extra: ibm
@@ -103,6 +104,9 @@ Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
 Provides-Extra: portkey
 Requires-Dist: portkey-ai; extra == "portkey"
+Provides-Extra: tokenizers
+Requires-Dist: tiktoken; extra == "tokenizers"
+Requires-Dist: tokenizers; extra == "tokenizers"
 Provides-Extra: agentql
 Requires-Dist: agentql; extra == "agentql"
 Provides-Extra: apify
@@ -131,9 +135,11 @@ Requires-Dist: exa_py; extra == "exa"
 Provides-Extra: fal
 Requires-Dist: fal_client; extra == "fal"
 Provides-Extra: firecrawl
-Requires-Dist: firecrawl-py; extra == "firecrawl"
+Requires-Dist: firecrawl-py==3.4.0; extra == "firecrawl"
+Provides-Extra: tavily
+Requires-Dist: tavily-python; extra == "tavily"
 Provides-Extra: crawl4ai
-Requires-Dist: crawl4ai; extra == "crawl4ai"
+Requires-Dist: crawl4ai>=0.6.3; extra == "crawl4ai"
 Provides-Extra: github
 Requires-Dist: PyGithub; extra == "github"
 Provides-Extra: gmail
@@ -148,21 +154,29 @@ Requires-Dist: google-maps-places; extra == "googlemaps"
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib; extra == "matplotlib"
 Provides-Extra: mcp
-Requires-Dist: mcp; extra == "mcp"
+Requires-Dist: mcp>=1.9.2; extra == "mcp"
 Provides-Extra: mem0
 Requires-Dist: mem0ai; extra == "mem0"
 Provides-Extra: memori
-Requires-Dist: memorisdk; extra == "memori"
+Requires-Dist: memori>=3.0.5; extra == "memori"
 Provides-Extra: newspaper
 Requires-Dist: newspaper4k; extra == "newspaper"
 Requires-Dist: lxml_html_clean; extra == "newspaper"
+Provides-Extra: notion
+Requires-Dist: notion-client; extra == "notion"
 Provides-Extra: opencv
 Requires-Dist: opencv-python; extra == "opencv"
+Provides-Extra: parallel
+Requires-Dist: parallel-web; extra == "parallel"
 Provides-Extra: psycopg
 Requires-Dist: psycopg-binary; extra == "psycopg"
 Requires-Dist: psycopg; extra == "psycopg"
+Provides-Extra: redshift
+Requires-Dist: redshift-connector; extra == "redshift"
 Provides-Extra: reportlab
 Requires-Dist: reportlab; extra == "reportlab"
+Provides-Extra: scrapegraph
+Requires-Dist: scrapegraph-py; extra == "scrapegraph"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: valyu
@@ -187,6 +201,11 @@ Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
 Requires-Dist: psycopg-binary; extra == "postgres"
+Provides-Extra: async-postgres
+Requires-Dist: asyncpg; extra == "async-postgres"
+Provides-Extra: async-mongo
+Requires-Dist: pymongo>=4.9; extra == "async-mongo"
+Requires-Dist: motor; extra == "async-mongo"
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy; extra == "sqlite"
 Provides-Extra: gcs
@@ -195,12 +214,16 @@ Provides-Extra: firestore
 Requires-Dist: google-cloud-firestore; extra == "firestore"
 Provides-Extra: redis
 Requires-Dist: redis; extra == "redis"
+Requires-Dist: redisvl>=0.12.1; extra == "redis"
+Provides-Extra: mysql
+Requires-Dist: pymysql; extra == "mysql"
+Requires-Dist: asyncmy; extra == "mysql"
 Provides-Extra: pgvector
 Requires-Dist: pgvector; extra == "pgvector"
 Provides-Extra: chromadb
 Requires-Dist: chromadb; extra == "chromadb"
 Provides-Extra: lancedb
-Requires-Dist: lancedb>=0.24.0; extra == "lancedb"
+Requires-Dist: lancedb==0.24.0; extra == "lancedb"
 Requires-Dist: tantivy; extra == "lancedb"
 Provides-Extra: pylance
 Requires-Dist: pylance; extra == "pylance"
@@ -231,19 +254,27 @@ Requires-Dist: pypdf; extra == "pdf"
 Requires-Dist: rapidocr_onnxruntime; extra == "pdf"
 Provides-Extra: docx
 Requires-Dist: python-docx; extra == "docx"
+Provides-Extra: pptx
+Requires-Dist: python-pptx; extra == "pptx"
 Provides-Extra: text
 Requires-Dist: aiofiles; extra == "text"
 Provides-Extra: csv
 Requires-Dist: aiofiles; extra == "csv"
+Provides-Extra: excel
+Requires-Dist: openpyxl; extra == "excel"
+Requires-Dist: xlrd; extra == "excel"
 Provides-Extra: markdown
 Requires-Dist: unstructured; extra == "markdown"
 Requires-Dist: markdown; extra == "markdown"
 Requires-Dist: aiofiles; extra == "markdown"
 Provides-Extra: chonkie
-Requires-Dist: chonkie[st]; extra == "chonkie"
+Requires-Dist: chonkie[semantic]; extra == "chonkie"
+Requires-Dist: chonkie[code]; extra == "chonkie"
 Requires-Dist: chonkie; extra == "chonkie"
 Provides-Extra: agui
 Requires-Dist: ag-ui-protocol; extra == "agui"
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk; extra == "a2a"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: performance
@@ -264,11 +295,9 @@ Requires-Dist: agno[anthropic]; extra == "models"
 Requires-Dist: agno[azure]; extra == "models"
 Requires-Dist: agno[cerebras]; extra == "models"
 Requires-Dist: agno[cohere]; extra == "models"
-Requires-Dist: agno[infinity]; extra == "models"
 Requires-Dist: agno[google]; extra == "models"
 Requires-Dist: agno[groq]; extra == "models"
 Requires-Dist: agno[ibm]; extra == "models"
-Requires-Dist: agno[infinity]; extra == "models"
 Requires-Dist: agno[litellm]; extra == "models"
 Requires-Dist: agno[meta]; extra == "models"
 Requires-Dist: agno[mistral]; extra == "models"
@@ -278,7 +307,6 @@ Requires-Dist: agno[portkey]; extra == "models"
 Provides-Extra: tools
 Requires-Dist: agno[apify]; extra == "tools"
 Requires-Dist: agno[arxiv]; extra == "tools"
-Requires-Dist: agno[brave]; extra == "tools"
 Requires-Dist: agno[exa]; extra == "tools"
 Requires-Dist: agno[cartesia]; extra == "tools"
 Requires-Dist: agno[ddg]; extra == "tools"
@@ -286,6 +314,7 @@ Requires-Dist: agno[duckdb]; extra == "tools"
 Requires-Dist: agno[newspaper]; extra == "tools"
 Requires-Dist: agno[youtube]; extra == "tools"
 Requires-Dist: agno[firecrawl]; extra == "tools"
+Requires-Dist: agno[tavily]; extra == "tools"
 Requires-Dist: agno[crawl4ai]; extra == "tools"
 Requires-Dist: agno[github]; extra == "tools"
 Requires-Dist: agno[gmail]; extra == "tools"
@@ -300,20 +329,27 @@ Requires-Dist: agno[mcp]; extra == "tools"
 Requires-Dist: agno[browserbase]; extra == "tools"
 Requires-Dist: agno[agentql]; extra == "tools"
 Requires-Dist: agno[opencv]; extra == "tools"
+Requires-Dist: agno[parallel]; extra == "tools"
+Requires-Dist: agno[scrapegraph]; extra == "tools"
 Requires-Dist: agno[valyu]; extra == "tools"
+Requires-Dist: agno[yfinance]; extra == "tools"
 Requires-Dist: agno[confluence]; extra == "tools"
+Requires-Dist: agno[notion]; extra == "tools"
 Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[memori]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
 Requires-Dist: agno[psycopg]; extra == "tools"
+Requires-Dist: agno[redshift]; extra == "tools"
 Requires-Dist: agno[reportlab]; extra == "tools"
 Requires-Dist: agno[trafilatura]; extra == "tools"
 Requires-Dist: agno[neo4j]; extra == "tools"
 Provides-Extra: storage
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"
+Requires-Dist: agno[async_postgres]; extra == "storage"
+Requires-Dist: agno[async_mongo]; extra == "storage"
 Requires-Dist: agno[sqlite]; extra == "storage"
 Requires-Dist: agno[gcs]; extra == "storage"
 Requires-Dist: agno[firestore]; extra == "storage"
@@ -333,16 +369,22 @@ Requires-Dist: agno[clickhouse]; extra == "vectordbs"
 Requires-Dist: agno[pinecone]; extra == "vectordbs"
 Requires-Dist: agno[surrealdb]; extra == "vectordbs"
 Requires-Dist: agno[upstash]; extra == "vectordbs"
+Requires-Dist: agno[pylance]; extra == "vectordbs"
+Requires-Dist: agno[redis]; extra == "vectordbs"
 Provides-Extra: knowledge
 Requires-Dist: agno[pdf]; extra == "knowledge"
 Requires-Dist: agno[docx]; extra == "knowledge"
+Requires-Dist: agno[pptx]; extra == "knowledge"
 Requires-Dist: agno[text]; extra == "knowledge"
 Requires-Dist: agno[csv]; extra == "knowledge"
+Requires-Dist: agno[excel]; extra == "knowledge"
 Requires-Dist: agno[markdown]; extra == "knowledge"
 Requires-Dist: agno[chonkie]; extra == "knowledge"
 Provides-Extra: embedders
 Requires-Dist: agno[huggingface]; extra == "embedders"
+Requires-Dist: agno[vllm]; extra == "embedders"
 Provides-Extra: tests
+Requires-Dist: agno[a2a]; extra == "tests"
 Requires-Dist: agno[dev]; extra == "tests"
 Requires-Dist: agno[models]; extra == "tests"
 Requires-Dist: agno[tools]; extra == "tests"
@@ -353,12 +395,44 @@ Requires-Dist: agno[embedders]; extra == "tests"
 Requires-Dist: agno[performance]; extra == "tests"
 Requires-Dist: agno[cookbooks]; extra == "tests"
 Requires-Dist: agno[agui]; extra == "tests"
+Requires-Dist: agno[integration-tests]; extra == "tests"
 Requires-Dist: twine; extra == "tests"
 Requires-Dist: build; extra == "tests"
+Requires-Dist: grpcio==1.74.0; extra == "tests"
+Provides-Extra: integration-tests
+Requires-Dist: exa_py; extra == "integration-tests"
+Requires-Dist: ddgs; extra == "integration-tests"
+Requires-Dist: yfinance; extra == "integration-tests"
+Requires-Dist: sqlalchemy; extra == "integration-tests"
+Requires-Dist: Pillow; extra == "integration-tests"
+Requires-Dist: fastmcp; extra == "integration-tests"
+Provides-Extra: demo
+Requires-Dist: agno[dev]; extra == "demo"
+Requires-Dist: anthropic; extra == "demo"
+Requires-Dist: chromadb; extra == "demo"
+Requires-Dist: ddgs; extra == "demo"
+Requires-Dist: fastapi[standard]; extra == "demo"
+Requires-Dist: google-genai; extra == "demo"
+Requires-Dist: matplotlib; extra == "demo"
+Requires-Dist: mcp; extra == "demo"
+Requires-Dist: nest_asyncio; extra == "demo"
+Requires-Dist: openai; extra == "demo"
+Requires-Dist: openinference-instrumentation-agno; extra == "demo"
+Requires-Dist: opentelemetry-api; extra == "demo"
+Requires-Dist: opentelemetry-sdk; extra == "demo"
+Requires-Dist: pandas; extra == "demo"
+Requires-Dist: parallel-web; extra == "demo"
+Requires-Dist: pgvector; extra == "demo"
+Requires-Dist: pillow; extra == "demo"
+Requires-Dist: psycopg[binary]; extra == "demo"
+Requires-Dist: pypdf; extra == "demo"
+Requires-Dist: sqlalchemy; extra == "demo"
+Requires-Dist: yfinance; extra == "demo"
+Requires-Dist: youtube-transcript-api; extra == "demo"
 Dynamic: license-file
 
 <div align="center" id="top">
-  <a href="https://docs.agno.com">
+  <a href="https://agno.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://agno-public.s3.us-east-1.amazonaws.com/assets/logo-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="https://agno-public.s3.us-east-1.amazonaws.com/assets/logo-light.svg">
@@ -366,133 +440,128 @@ Dynamic: license-file
     </picture>
   </a>
 </div>
+
+<p align="center">
+  Build, run, manage multi-agent systems.
+</p>
+
 <div align="center">
-  <a href="https://docs.agno.com">📚 Documentation</a> &nbsp;|&nbsp;
-  <a href="https://docs.agno.com/examples/introduction">💡 Examples</a> &nbsp;|&nbsp;
-  <a href="https://www.agno.com/?utm_source=github&utm_medium=readme&utm_campaign=agno-github&utm_content=header">🏠 Website</a> &nbsp;|&nbsp;
-  <a href="https://github.com/agno-agi/agno/stargazers">🌟 Star Us</a>
+  <a href="https://docs.agno.com">Docs</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="https://github.com/agno-agi/agno/tree/main/cookbook">Cookbook</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="https://community.agno.com/">Community</a>
+  <span>&nbsp;•&nbsp;</span>
+  <a href="https://www.agno.com/discord">Discord</a>
 </div>
 
 ## What is Agno?
 
-[Agno](https://docs.agno.com) is a high-performance runtime for multi-agent systems. Use it to build, run and manage secure multi-agent systems in your cloud.
+Agno is a framework, runtime, and control plane for multi-agent systems.
 
-Agno gives you the fastest framework for building agents with session management, memory, knowledge, human in the loop and MCP support. You can put agents together as an autonomous multi-agent team, or build step-based agentic workflows for full control over complex multi-step processes.
+| Layer | What it does |
+|-------|--------------|
+| **Framework** | Build agents, teams, and workflows with memory, knowledge, guardrails, and 100+ integrations |
+| **AgentOS Runtime** | Run your system in production with a stateless, secure FastAPI backend |
+| **Control Plane** | Test, monitor, and manage your system using the [AgentOS UI](https://os.agno.com) |
 
-In 10 lines of code, we can build an Agent that will fetch the top stories from HackerNews and summarize them.
+## Why Agno?
 
-```python hackernews_agent.py
+- **Private by design.** AgentOS runs in your cloud. The control plane connects directly to your runtime from your browser. No retention costs, no vendor lock-in, no compliance headaches.
+- **Production-ready on day one.** Pre-built FastAPI runtime with SSE endpoints, ready to deploy.
+- **Fast.** 529× faster instantiation than LangGraph. 24× lower memory. [See benchmarks →](#performance)
+
+## Example
+
+An agent with MCP tools, persistent state, served via FastAPI:
+```python
 from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
 from agno.models.anthropic import Claude
-from agno.tools.hackernews import HackerNewsTools
+from agno.os import AgentOS
+from agno.tools.mcp import MCPTools
 
-agent = Agent(
-    model=Claude(id="claude-sonnet-4-0"),
-    tools=[HackerNewsTools()],
+agno_agent = Agent(
+    name="Agno Agent",
+    model=Claude(id="claude-sonnet-4-5"),
+    db=SqliteDb(db_file="agno.db"),
+    tools=[MCPTools(transport="streamable-http", url="https://docs.agno.com/mcp")],
+    add_history_to_context=True,
     markdown=True,
 )
-agent.print_response("Summarize the top 5 stories on hackernews", stream=True)
+
+agent_os = AgentOS(agents=[agno_agent])
+app = agent_os.get_app()
+
+if __name__ == "__main__":
+    agent_os.serve(app="agno_agent:app", reload=True)
 ```
 
-But the real advantage of Agno is its [AgentOS](https://docs.agno.com/agent-os/introduction) runtime:
+Run this and connect to the [AgentOS UI](https://os.agno.com):
 
-1. You get a pre-built FastAPI app for running your agentic system, meaning you start building your product on day one. This is a remarkable advantage over other solutions or rolling your own.
-2. You also get a control plane which connects directly to your AgentOS for testing, monitoring and managing your system. This gives you unmatched visibility and control over your system.
-3. Your AgentOS runs in your cloud and you get complete data privacy because no data ever leaves your system. This is incredible for security conscious enterprises that can't send traces to external services.
+https://github.com/user-attachments/assets/feb23db8-15cc-4e88-be7c-01a21a03ebf6
 
-For organizations building agents, Agno provides the complete solution. You get the fastest framework for building agents (speed of development and execution), a pre-built FastAPI app that lets you build your product on day one, and a control plane for managing your system.
+## Features
 
-We bring a novel architecture that no other framework provides, your AgentOS runs securely in your cloud, and the control plane connects directly to it from your browser. You don't need to send data to external services or pay retention costs, you get complete privacy and control.
+**Core**
+- Model-agnostic: OpenAI, Anthropic, Google, local models
+- Type-safe I/O with `input_schema` and `output_schema`
+- Async-first, built for long-running tasks
+- Natively multimodal (text, images, audio, video, files)
 
-## Getting started
+**Memory & Knowledge**
+- Persistent storage for session history and state
+- User memory across sessions
+- Agentic RAG with 20+ vector stores, hybrid search, reranking
+- Culture: shared long-term memory across agents
 
-If you're new to Agno, follow our [quickstart](https://docs.agno.com/introduction/quickstart) to build your first Agent and run it using the AgentOS.
+**Orchestration**
+- Human-in-the-loop (confirmations, approvals, overrides)
+- Guardrails for validation and security
+- Pre/post hooks for the agent lifecycle
+- First-class MCP and A2A support
+- 100+ built-in toolkits
 
-After that, checkout the [examples gallery](https://docs.agno.com/examples/introduction) and build real-world applications with Agno.
+**Production**
+- Ready-to-use FastAPI runtime
+- Integrated control plane UI
+- Evals for accuracy, performance, latency
+- Durable execution for resumable workflows
+- RBAC and per-agent permissions
 
-## Documentation, Community & More Examples
+## Getting Started
 
-- Docs: <a href="https://docs.agno.com" target="_blank" rel="noopener noreferrer">docs.agno.com</a>
-- Cookbook: <a href="https://github.com/agno-agi/agno/tree/main/cookbook" target="_blank" rel="noopener noreferrer">Cookbook</a>
-- Community forum: <a href="https://community.agno.com/" target="_blank" rel="noopener noreferrer">community.agno.com</a>
-- Discord: <a href="https://discord.gg/4MtYHHrgA8" target="_blank" rel="noopener noreferrer">discord</a>
-
-## Setup Your Coding Agent to Use Agno
-
-For LLMs and AI assistants to understand and navigate Agno's documentation, we provide an [llms.txt](https://docs.agno.com/llms.txt) or [llms-full.txt](https://docs.agno.com/llms-full.txt) file.
-
-This file is built for AI systems to efficiently parse and reference our documentation.
-
-### IDE Integration
-
-When building Agno agents, using Agno documentation as a source in your IDE is a great way to speed up your development. Here's how to integrate with Cursor:
-
-1. In Cursor, go to the "Cursor Settings" menu.
-2. Find the "Indexing & Docs" section.
-3. Add `https://docs.agno.com/llms-full.txt` to the list of documentation URLs.
-4. Save the changes.
-
-Now, Cursor will have access to the Agno documentation. You can do the same with other IDEs like VSCode, Windsurf etc.
+1. Follow the [getting started guide](https://github.com/agno-agi/agno/tree/main/cookbook/00_getting_started)
+2. Browse the [cookbook](https://github.com/agno-agi/agno/tree/main/cookbook) for real-world examples
+3. Read the [docs](https://docs.agno.com) to go deeper
 
 ## Performance
 
-At Agno, we're obsessed with performance. Why? because even simple AI workflows can spawn thousands of Agents. Scale that to a modest number of users and performance becomes a bottleneck. Agno is designed for building highly performant agentic systems:
+Agent workloads spawn hundreds of instances. Stateless, horizontal scalability isn't optional.
 
-- Agent instantiation: ~3μs on average
-- Memory footprint: ~6.5Kib on average
+| Metric | Agno | LangGraph | PydanticAI | CrewAI |
+|--------|------|-----------|------------|--------|
+| Instantiation | **3μs** | 1,587μs (529×) | 170μs (57×) | 210μs (70×) |
+| Memory | **6.6 KiB** | 161 KiB (24×) | 29 KiB (4×) | 66 KiB (10×) |
 
-> Tested on an Apple M4 Mackbook Pro.
+<sub>Apple M4 MacBook Pro, Oct 2025. [Run benchmarks yourself →](https://github.com/agno-agi/agno/tree/main/cookbook/12_evals/performance)</sub>
 
-While an Agent's run-time is bottlenecked by inference, we must do everything possible to minimize execution time, reduce memory usage, and parallelize tool calls. These numbers may seem trivial at first, but our experience shows that they add up even at a reasonably small scale.
+https://github.com/user-attachments/assets/54b98576-1859-4880-9f2d-15e1a426719d
 
-### Instantiation Time
+## IDE Integration
 
-Let's measure the time it takes for an Agent with 1 tool to start up. We'll run the evaluation 1000 times to get a baseline measurement.
+Add our docs to your AI-enabled editor:
 
-You should run the evaluation yourself on your own machine, please, do not take these results at face value.
+**Cursor:** Settings → Indexing & Docs → Add `https://docs.agno.com/llms-full.txt`
 
-```shell
-# Setup virtual environment
-./scripts/perf_setup.sh
-source .venvs/perfenv/bin/activate
-# OR Install dependencies manually
-# pip install openai agno langgraph langchain_openai
+Also works with VSCode, Windsurf, and similar tools.
 
-# Agno
-python evals/performance/instantiation_with_tool.py
+## Contributing
 
-# LangGraph
-python evals/performance/other/langgraph_instantiation.py
-```
-
-> The following evaluation is run on an Apple M4 Mackbook Pro. It also runs as a Github action on this repo.
-
-LangGraph is on the right, **let's start it first and give it a head start**.
-
-Agno is on the left, notice how it finishes before LangGraph gets 1/2 way through the runtime measurement, and hasn't even started the memory measurement. That's how fast Agno is.
-
-https://github.com/user-attachments/assets/ba466d45-75dd-45ac-917b-0a56c5742e23
-
-### Memory Usage
-
-To measure memory usage, we use the `tracemalloc` library. We first calculate a baseline memory usage by running an empty function, then run the Agent 1000x times and calculate the difference. This gives a (reasonably) isolated measurement of the memory usage of the Agent.
-
-We recommend running the evaluation yourself on your own machine, and digging into the code to see how it works. If we've made a mistake, please let us know.
-
-### Conclusion
-
-Agno agents are designed for performance and while we do share some benchmarks against other frameworks, we should be mindful that accuracy and reliability are more important than speed.
-
-Given that each framework is different and we won't be able to tune their performance like we do with Agno, for future benchmarks we'll only be comparing against ourselves.
-
-## Contributions
-
-We welcome contributions, read our [contributing guide](https://github.com/agno-agi/agno/blob/v2.0/CONTRIBUTING.md) to get started.
+We welcome contributions. See the [contributing guide](https://github.com/agno-agi/agno/blob/v2.0/CONTRIBUTING.md).
 
 ## Telemetry
 
-Agno logs which model an agent used so we can prioritize updates to the most popular providers. You can disable this by setting `AGNO_TELEMETRY=false` in your environment.
+Agno logs which model providers are used to prioritize updates. Disable with `AGNO_TELEMETRY=false`.
 
-<p align="left">
-  <a href="#top">⬆️ Back to Top</a>
-</p>
+<p align="right"><a href="#top">↑ Back to top</a></p>

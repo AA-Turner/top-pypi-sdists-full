@@ -2,7 +2,7 @@
 # This file is part of pygal
 #
 # A python svg graph plotting library
-# Copyright © 2012-2016 Kozea
+# Copyright © 2012-2025 Kozea
 #
 # This library is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -323,6 +323,10 @@ class Config(CommonConfig):
     )
 
     half_pie = Key(False, bool, "Look", "Create a half-pie chart")
+
+    reverse_direction = Key(
+        False, bool, "Look", "Reverse the direction of the gauge"
+    )
 
     x_labels = Key(
         None, list, "Label", "X labels, must have same len than data.",

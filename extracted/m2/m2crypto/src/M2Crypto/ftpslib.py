@@ -1,35 +1,25 @@
-from __future__ import absolute_import
-
 """M2Crypto client-side FTP/TLS.
 
 This implementation complies with draft-murray-auth-ftp-ssl-07.txt.
 
 Example:
 
->>> from M2Crypto import ftpslib
->>> f = ftpslib.FTP_TLS()
->>> f.connect('', 9021)
-'220 spinnaker.dyndns.org M2Crypto (Medusa) FTP/TLS server v0.07 ready.'
->>> f.auth_tls()
->>> f.set_pasv(0)
->>> f.login('ftp', 'ngps@')
-'230 Ok.'
->>> f.retrlines('LIST')
--rw-rw-r--   1 0        198          2326 Jul  3  1996 apache_pb.gif
-drwxrwxr-x   7 0        198          1536 Oct 10  2000 manual
-drwxrwxr-x   2 0        198           512 Oct 31  2000 modpy
-drwxrwxr-x   2 0        198           512 Oct 31  2000 bobo
-drwxr-xr-x   2 0        198         14336 May 28 15:54 postgresql
-drwxr-xr-x   4 100      198           512 May 16 17:19 home
-drwxr-xr-x   7 100      100          3584 Sep 23  2000 openacs
-drwxr-xr-x  10 0        0             512 Aug  5  2000 python1.5
--rw-r--r--   1 100      198           326 Jul 29 03:29 index.html
-drwxr-xr-x  12 0        0             512 May 31 17:08 python2.1
-'226 Transfer complete'
->>> f.quit()
-'221 Goodbye.'
->>>
-
+    from M2Crypto import ftpslib
+    f = ftpslib.FTP_TLS()
+    f.connect('ftp.example.com', 21)
+    f.auth_tls()
+    f.set_pasv(0)
+    f.login('username', 'password')
+    f.retrlines('LIST')
+    # Output:
+    # -rw-rw-r--   1 0        198          2326 Jul  3  1996 apache_pb.gif
+    # drwxrwxr-x   7 0        198          1536 Oct 10  2000 manual
+    # drwxrwxr-x   2 0        198           512 Oct 31  2000 modpy
+    # drwxrwxr-x   2 0        198           512 Oct 31  2000 bobo
+    # ...
+    # '226 Transfer complete'
+    f.quit()
+    # '221 Goodbye.'
 
 Copyright (c) 1999-2003 Ng Pheng Siong. All rights reserved."""
 
@@ -41,7 +31,7 @@ from ftplib import *  # noqa
 from M2Crypto import SSL
 
 
-class FTP_TLS(FTP):
+class FTP_TLS(FTP):  # type: ignore [no-redef]
     """Python OO interface to client-side FTP/TLS."""
 
     def __init__(self, host=None, ssl_ctx=None):
@@ -55,7 +45,7 @@ class FTP_TLS(FTP):
 
     def auth_tls(self):
         """Secure the control connection per AUTH TLS, aka AUTH TLS-C."""
-        self.voidcmd('AUTH TLS')
+        self.voidcmd("AUTH TLS")
         s = SSL.Connection(self.ssl_ctx, self.sock)
         s.setup_ssl()
         s.set_connect_state()
@@ -69,13 +59,13 @@ class FTP_TLS(FTP):
 
     def prot_p(self):
         """Set up secure data connection."""
-        self.voidcmd('PBSZ 0')
-        self.voidcmd('PROT P')
+        self.voidcmd("PBSZ 0")
+        self.voidcmd("PROT P")
         self.prot = 1
 
     def prot_c(self):
         """Set up data connection in the clear."""
-        self.voidcmd('PROT C')
+        self.voidcmd("PROT C")
         self.prot = 0
 
     def ntransfercmd(self, cmd, rest=None):

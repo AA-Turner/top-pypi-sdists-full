@@ -14,7 +14,7 @@ to recognize bytearrays and memoryviews as bytes-like objects.
 def Response_render(self, content: Any) -> bytes:
     if content is None:
         return b""
-    if isinstance(content, (bytes, bytearray, memoryview)):  # noqa: UP038
+    if isinstance(content, (bytes, bytearray, memoryview)):
         return content
     return content.encode(self.charset)  # type: ignore
 
@@ -34,7 +34,7 @@ async def StreamingResponse_stream_response(self, send: Send) -> None:
             chunk = chunk.buf
         if isinstance(chunk, dict):
             chunk = json_dumpb(chunk)
-        if not isinstance(chunk, (bytes, bytearray, memoryview)):  # noqa: UP038
+        if not isinstance(chunk, (bytes, bytearray, memoryview)):
             chunk = chunk.encode(self.charset)
         await send({"type": "http.response.body", "body": chunk, "more_body": True})
 

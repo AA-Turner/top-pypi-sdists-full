@@ -25,7 +25,7 @@ from wbcore.test.utils import get_or_create_superuser
 class TestEvent:
     @patch("wbcore.contrib.example_app.models.Match.reschedule_task")
     def test_filter_by_period(self, mock_reschedule):
-        event = EventFactory(match__date_time=timezone.now())
+        event = EventFactory.create(match__date_time=timezone.now())
         before_event = DateRange((timezone.now() - timedelta(7)).date(), (timezone.now() - timedelta(1)).date())
         after_event = DateRange((timezone.now() + timedelta(1)).date(), (timezone.now() + timedelta(7)).date())
         mvs = PlayerStatisticsChartModelViewSet(kwargs={"player_id": event.person})
@@ -44,22 +44,22 @@ class TestEvent:
 class TestPerson:
     @patch("wbcore.contrib.example_app.models.Match.reschedule_task")
     def test_filter_by_match(self, mock_reschedule):
-        ref1 = SportPersonFactory()
-        match1 = MatchFactory(referee=ref1, home__coach=None, away__coach=None)
-        ref2 = SportPersonFactory()
-        home_coach = SportPersonFactory()
-        away_coach = SportPersonFactory()
-        home_team = TeamFactory(coach=home_coach)
-        away_team = TeamFactory(coach=away_coach)
-        home_player = PlayerFactory(current_team=home_team)
-        away_player = PlayerFactory(current_team=away_team)
-        match2 = MatchFactory(
+        ref1 = SportPersonFactory.create()
+        match1 = MatchFactory.create(referee=ref1, home__coach=None, away__coach=None)
+        ref2 = SportPersonFactory.create()
+        home_coach = SportPersonFactory.create()
+        away_coach = SportPersonFactory.create()
+        home_team = TeamFactory.create(coach=home_coach)
+        away_team = TeamFactory.create(coach=away_coach)
+        home_player = PlayerFactory.create(current_team=home_team)
+        away_player = PlayerFactory.create(current_team=away_team)
+        match2 = MatchFactory.create(
             home=home_team,
             away=away_team,
             referee=ref2,
         )
-        SportPersonFactory()
-        PlayerFactory()
+        SportPersonFactory.create()
+        PlayerFactory.create()
         mvs = SportPersonRepresentationViewSet()
         request = APIRequestFactory().get("")
         request.user = get_or_create_superuser()

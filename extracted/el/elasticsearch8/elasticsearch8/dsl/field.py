@@ -572,7 +572,11 @@ class Object(Field):
         if isinstance(data, collections.abc.Mapping):
             return data
 
-        return data.to_dict(skip_empty=skip_empty)
+        try:
+            return data.to_dict(skip_empty=skip_empty)
+        except TypeError:
+            # this would only happen if an AttrDict was given instead of an InnerDoc
+            return data.to_dict()
 
     def clean(self, data: Any) -> Any:
         data = super().clean(data)
@@ -3870,9 +3874,13 @@ class SemanticText(Field):
         sent in the inference endpoint associated with inference_id. If
         chunking settings are updated, they will not be applied to
         existing documents until they are reindexed.
+    :arg fields:
     """
 
     name = "semantic_text"
+    _param_defs = {
+        "fields": {"type": "field", "hash": True},
+    }
 
     def __init__(
         self,
@@ -3886,6 +3894,7 @@ class SemanticText(Field):
         chunking_settings: Union[
             "types.ChunkingSettings", Dict[str, Any], "DefaultType"
         ] = DEFAULT,
+        fields: Union[Mapping[str, Field], "DefaultType"] = DEFAULT,
         **kwargs: Any,
     ):
         if meta is not DEFAULT:
@@ -3898,6 +3907,8 @@ class SemanticText(Field):
             kwargs["index_options"] = index_options
         if chunking_settings is not DEFAULT:
             kwargs["chunking_settings"] = chunking_settings
+        if fields is not DEFAULT:
+            kwargs["fields"] = fields
         super().__init__(*args, **kwargs)
 
 

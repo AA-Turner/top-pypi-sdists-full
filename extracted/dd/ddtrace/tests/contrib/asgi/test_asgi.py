@@ -229,9 +229,7 @@ async def test(scope, tracer, test_spans):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_span_name
-    )
+    """.format(expected_span_name)
     env = os.environ.copy()
     if schema_version:
         env["DD_TRACE_SPAN_ATTRIBUTE_SCHEMA"] = schema_version
@@ -288,9 +286,7 @@ async def test(scope, tracer, test_spans):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_service_name
-    )
+    """.format(expected_service_name)
     env = os.environ.copy()
     if global_service_name:
         env["DD_SERVICE"] = global_service_name
@@ -812,7 +808,7 @@ async def test_inferred_spans_api_gateway_default(scope, tracer, test_spans, app
                     api_gateway_resource="GET /",
                     method="GET",
                     status_code=app_type["status_code"],
-                    url="local/",
+                    url="https://local/",
                     start=1736973768,
                     is_distributed=headers == distributed_headers,
                     distributed_trace_id=1,

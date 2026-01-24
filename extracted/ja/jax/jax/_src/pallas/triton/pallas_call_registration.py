@@ -58,8 +58,9 @@ def pallas_call_lowering(
     cost_estimate: pallas_core.CostEstimate | None,
     out_avals: tuple[jax_core.AbstractValue, ...],
     metadata: frozen_dict.FrozenDict[str, str] | None,
+    name: str | None,
 ):
-  del interpret, out_avals, cost_estimate
+  del interpret, out_avals, cost_estimate, name
   debug_info = jaxpr.debug_info
   if grid_mapping.num_dynamic_grid_bounds:
     raise NotImplementedError(
@@ -112,8 +113,8 @@ def pallas_call_lowering(
   if True:
     # AOT Triton compilation is only available on jaxlib 0.5.1+.
     out_types = [
-      ir.RankedTensorType.get(bm.array_shape_dtype.shape,
-                              mlir.dtype_to_ir_type(bm.array_shape_dtype.dtype))
+      ir.RankedTensorType.get(bm.array_aval.shape,
+                              mlir.dtype_to_ir_type(bm.array_aval.dtype))
       for bm in grid_mapping.block_mappings_output
     ]
     backend_config = dict(

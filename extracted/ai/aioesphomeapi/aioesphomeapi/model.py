@@ -112,6 +112,15 @@ class BluetoothProxyFeature(enum.IntFlag):
     FEATURE_STATE_AND_MODE = 1 << 6
 
 
+class ClimateFeature(enum.IntFlag):
+    SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
+    SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 1
+    REQUIRES_TWO_POINT_TARGET_TEMPERATURE = 1 << 2
+    SUPPORTS_CURRENT_HUMIDITY = 1 << 3
+    SUPPORTS_TARGET_HUMIDITY = 1 << 4
+    SUPPORTS_ACTION = 1 << 5
+
+
 class BluetoothProxySubscriptionFlag(enum.IntFlag):
     RAW_ADVERTISEMENTS = 1 << 0
 
@@ -132,11 +141,30 @@ class ZWaveProxyFeature(enum.IntFlag):
 class ZWaveProxyRequestType(APIIntEnum):
     SUBSCRIBE = 0
     UNSUBSCRIBE = 1
+    HOME_ID_CHANGE = 2
+
+
+@_frozen_dataclass_decorator
+class ZWaveProxyFrame(APIModelBase):
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
 class ZWaveProxyRequest(APIModelBase):
     type: ZWaveProxyRequestType = ZWaveProxyRequestType.SUBSCRIBE
+    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
+
+
+class InfraredCapability(enum.IntFlag):
+    TRANSMITTER = 1 << 0
+    RECEIVER = 1 << 1
+
+
+@_frozen_dataclass_decorator
+class InfraredRFReceiveEvent(APIModelBase):
+    device_id: int = 0
+    key: int = 0
+    timings: list[int] = field(default_factory=list)  # pylint: disable=invalid-field-call
 
 
 class VoiceAssistantSubscriptionFlag(enum.IntFlag):
@@ -520,6 +548,7 @@ class SensorStateClass(APIIntEnum):
     MEASUREMENT = 1
     TOTAL_INCREASING = 2
     TOTAL = 3
+    MEASUREMENT_ANGLE = 4
 
 
 class LastResetType(APIIntEnum):
@@ -636,6 +665,7 @@ class ClimatePreset(APIIntEnum):
 
 @_frozen_dataclass_decorator
 class ClimateInfo(EntityInfo):
+    feature_flags: int = 0
     supports_current_temperature: bool = False
     supports_two_point_target_temperature: bool = False
     supported_modes: list[ClimateMode] = converter_field(
@@ -674,6 +704,23 @@ class ClimateInfo(EntityInfo):
     supports_target_humidity: bool = False
     visual_min_humidity: float = 0
     visual_max_humidity: float = 0
+
+    def supported_feature_flags_compat(self, api_version: APIVersion) -> int:
+        if api_version < APIVersion(1, 13):
+            flags: int = 0
+            if self.supports_current_temperature:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_TEMPERATURE
+            if self.supports_two_point_target_temperature:
+                # Use REQUIRES_TWO_POINT_TARGET_TEMPERATURE to mimic previous behavior
+                flags |= ClimateFeature.REQUIRES_TWO_POINT_TARGET_TEMPERATURE
+            if self.supports_current_humidity:
+                flags |= ClimateFeature.SUPPORTS_CURRENT_HUMIDITY
+            if self.supports_target_humidity:
+                flags |= ClimateFeature.SUPPORTS_TARGET_HUMIDITY
+            if self.supports_action:
+                flags |= ClimateFeature.SUPPORTS_ACTION
+            return flags
+        return self.feature_flags
 
     def supported_presets_compat(self, api_version: APIVersion) -> list[ClimatePreset]:
         if api_version < APIVersion(1, 5):
@@ -1051,6 +1098,74 @@ class AlarmControlPanelEntityState(EntityState):
     )
 
 
+# ==================== WATER HEATER ====================
+class WaterHeaterMode(APIIntEnum):
+    OFF = 0
+    ECO = 1
+    ELECTRIC = 2
+    PERFORMANCE = 3
+    HIGH_DEMAND = 4
+    HEAT_PUMP = 5
+    GAS = 6
+
+
+class WaterHeaterCommandField(enum.IntFlag):
+    """Bitmask for has_fields in WaterHeaterCommandRequest."""
+
+    MODE = 1 << 0
+    TARGET_TEMPERATURE = 1 << 1
+    STATE = 1 << 2
+    TARGET_TEMPERATURE_LOW = 1 << 3
+    TARGET_TEMPERATURE_HIGH = 1 << 4
+
+
+class WaterHeaterStateFlag(enum.IntFlag):
+    """Bitmask for state field in WaterHeaterStateResponse/CommandRequest."""
+
+    AWAY = 1 << 0
+    ON = 1 << 1
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterInfo(EntityInfo):
+    min_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    max_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_step: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    supported_modes: list[WaterHeaterMode] = converter_field(
+        default_factory=list, converter=WaterHeaterMode.convert_list
+    )
+    supported_features: int = 0
+
+
+@_frozen_dataclass_decorator
+class WaterHeaterState(EntityState):
+    current_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    target_temperature_low: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+    target_temperature_high: float = converter_field(
+        default=0.0, converter=fix_float_single_double_conversion
+    )
+
+    mode: WaterHeaterMode | None = converter_field(
+        default=WaterHeaterMode.OFF, converter=WaterHeaterMode.convert
+    )
+    state: int = 0
+
+
 # ==================== TEXT ====================
 class TextMode(APIIntEnum):
     TEXT = 0
@@ -1100,6 +1215,14 @@ class UpdateState(EntityState):
     release_url: str = ""
 
 
+# ==================== INFRARED ====================
+
+
+@_frozen_dataclass_decorator
+class InfraredInfo(EntityInfo):
+    capabilities: int = 0
+
+
 # ==================== INFO MAP ====================
 
 COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
@@ -1126,6 +1249,7 @@ COMPONENT_TYPE_TO_INFO: dict[str, type[EntityInfo]] = {
     "valve": ValveInfo,
     "event": EventInfo,
     "update": UpdateInfo,
+    "infrared": InfraredInfo,
 }
 
 
@@ -1152,6 +1276,19 @@ class HomeassistantServiceCall(APIModelBase):
     variables: dict[str, str] = converter_field(
         default_factory=dict, converter=_convert_homeassistant_service_map
     )
+    call_id: int = 0  # Call ID for response tracking
+    wants_response: bool = False
+    response_template: str = ""  # Optional Jinja template for response processing
+
+
+@_frozen_dataclass_decorator
+class HomeassistantActionResponse(APIModelBase):
+    call_id: int = 0  # Call ID that matches the original request
+    response_data: bytes = field(
+        default_factory=bytes
+    )  # Response data from Home Assistant
+    success: bool = False  # Whether the service call was successful
+    error_message: str = ""  # Error message if the call failed
 
 
 class UserServiceArgType(APIIntEnum):
@@ -1163,6 +1300,13 @@ class UserServiceArgType(APIIntEnum):
     INT_ARRAY = 5
     FLOAT_ARRAY = 6
     STRING_ARRAY = 7
+
+
+class SupportsResponseType(APIIntEnum):
+    NONE = 0
+    OPTIONAL = 1
+    ONLY = 2
+    STATUS = 100
 
 
 @_frozen_dataclass_decorator
@@ -1192,6 +1336,19 @@ class UserService(APIModelBase):
     args: list[UserServiceArg] = converter_field(
         default_factory=list, converter=UserServiceArg.convert_list
     )
+    supports_response: SupportsResponseType | None = converter_field(
+        default=SupportsResponseType.NONE, converter=SupportsResponseType.convert
+    )
+
+
+@_frozen_dataclass_decorator
+class ExecuteServiceResponse(APIModelBase):
+    call_id: int = 0  # Call ID that matches the original request
+    success: bool = False  # Whether the service execution succeeded
+    error_message: str = ""  # Error message if success = false
+    response_data: bytes = field(
+        default_factory=bytes
+    )  # JSON response data from ESPHome
 
 
 # ==================== BLUETOOTH ====================
@@ -1293,11 +1450,6 @@ class BluetoothLEAdvertisement:
             service_data=service_data,
             manufacturer_data=manufacturer_data,
         )
-
-
-@_frozen_dataclass_decorator
-class ZWaveProxyFrame(APIModelBase):
-    data: bytes = field(default_factory=bytes)  # pylint: disable=invalid-field-call
 
 
 @_frozen_dataclass_decorator
@@ -1577,6 +1729,27 @@ class VoiceAssistantWakeWord(APIModelBase):
 
 
 @_frozen_dataclass_decorator
+class VoiceAssistantExternalWakeWord(APIModelBase):
+    id: str
+    wake_word: str
+    trained_languages: list[str]
+    model_type: str
+    model_size: int
+    model_hash: str
+    url: str
+
+    @classmethod
+    def convert_list(cls, value: list[Any]) -> list[VoiceAssistantExternalWakeWord]:
+        ret = []
+        for x in value:
+            if isinstance(x, dict):
+                ret.append(VoiceAssistantExternalWakeWord.from_dict(x))
+            else:
+                ret.append(VoiceAssistantExternalWakeWord.from_pb(x))
+        return ret
+
+
+@_frozen_dataclass_decorator
 class VoiceAssistantConfigurationResponse(APIModelBase):
     available_wake_words: list[VoiceAssistantWakeWord] = converter_field(
         default_factory=list, converter=VoiceAssistantWakeWord.convert_list
@@ -1587,7 +1760,9 @@ class VoiceAssistantConfigurationResponse(APIModelBase):
 
 @_frozen_dataclass_decorator
 class VoiceAssistantConfigurationRequest(APIModelBase):
-    pass
+    external_wake_words: list[VoiceAssistantExternalWakeWord] = converter_field(
+        default_factory=list, converter=VoiceAssistantExternalWakeWord.convert_list
+    )
 
 
 @_frozen_dataclass_decorator
@@ -1666,20 +1841,66 @@ _TYPE_TO_NAME = {
     ValveInfo: "valve",
     EventInfo: "event",
     UpdateInfo: "update",
+    WaterHeaterInfo: "water_heater",
+    InfraredInfo: "infrared",
 }
 
 
-def build_unique_id(formatted_mac: str, entity_info: EntityInfo) -> str:
+def build_unique_id(
+    formatted_mac: str, entity_info: EntityInfo, *, version: int = 1
+) -> str:
     """Build a unique id for an entity.
 
-    This is the new format for unique ids which replaces the old format
-    that is included in the EntityInfo object. This new format is used
-    because the old format used the name in the unique id which is not
-    guaranteed to be unique. This new format is guaranteed to be unique
-    and is also more human readable.
+    Version history and rationale:
+    -----------------------------
+
+    **Version 1 (default, legacy):** Uses `object_id` which is the entity name
+    after applying `snake_case()` + `sanitize()` transformations.
+
+        Format: `{mac}-{entity_type}-{object_id}`
+        Example: `aabbccddeeff-sensor-temperature_sensor`
+
+    This was introduced as a compromise to satisfy Home Assistant's unique ID
+    requirements (https://developers.home-assistant.io/docs/entity_registry_index#unique-id-requirements)
+    which list "Device Name" as an unacceptable source. For ESPHome devices,
+    the entity name IS the unique identifier - users explicitly configure it
+    in their YAML. The `object_id` was a compromise to derive a stable identifier
+    from the name while technically not "using the name directly".
+
+    Unfortunately, this approach had unintended consequences. The `object_id`
+    mangles names by converting to lowercase, replacing spaces with underscores,
+    and replacing non-ASCII characters with underscores. This causes collisions:
+
+    - UTF-8 names get sanitized to underscores, causing collisions
+      (e.g., "温度传感器" and "湿度传感器" both become "___")
+    - Sub-devices with same-named entities collide (e.g., two "Battery" sensors
+      on different sub-devices get the same object_id)
+      See https://github.com/esphome/esphome-webserver/issues/160
+      and https://github.com/esphome/esphome-webserver/issues/153
+
+    The `object_id` concept is planned for removal. See
+    https://github.com/esphome/backlog/issues/76 for the full history.
+
+    **Version 2:** Uses the entity `name` directly without mangling.
+
+        Format: `{mac}-{entity_type}-{name}`
+        Example: `aabbccddeeff-sensor-Temperature Sensor`
+
+    This preserves the full entity name including Unicode characters, spaces,
+    and special characters. Since the name is what the user configured and is
+    unique within the device, this provides true uniqueness without collisions.
+
+    The "Device Name" rule in Home Assistant's requirements exists because
+    device names can change or be duplicated across devices. For ESPHome
+    entity names within a single device (identified by MAC), they ARE stable
+    unique identifiers explicitly chosen by the user in their configuration.
     """
-    # <mac>-<entity type>-<object_id>
-    return f"{formatted_mac}-{_TYPE_TO_NAME[type(entity_info)]}-{entity_info.object_id}"
+    # <mac>-<entity type>-<object_id or name>
+    entity_type = _TYPE_TO_NAME[type(entity_info)]
+    if version == 1:
+        return f"{formatted_mac}-{entity_type}-{entity_info.object_id}"
+    # Version 2: use name directly to avoid mangling/collisions
+    return f"{formatted_mac}-{entity_type}-{entity_info.name}"
 
 
 def message_types_to_names(msg_types: Iterable[type[message.Message]]) -> str:

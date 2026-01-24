@@ -1,23 +1,23 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mdformat_deflist
-Version: 0.1.3
+Version: 0.1.4
 Summary: An mdformat plugin for markdown-it-deflist.
 Home-page: https://github.com/executablebooks/mdformat-deflist
 Keywords: mdformat,markdown,markdown-it
 Author: Chris Sewell
 Author-email: executablebooks@gmail.com
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: mdformat >=0.7.0,<0.8.0
+License-File: LICENSE
+Requires-Dist: mdformat >=1.0.0
 Requires-Dist: mdit-py-plugins >=0.2.7
 Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: pytest~=6.0 ; extra == "test"
-Requires-Dist: coverage ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: pytest>=8.0.0 ; extra == "test"
+Requires-Dist: pytest-cov>=7.0.0 ; extra == "test"
 Provides-Extra: dev
 Provides-Extra: test
 
@@ -48,7 +48,7 @@ tox
 and with test coverage:
 
 ```bash
-tox -e py37-cov
+tox -e py310-cov
 ```
 
 The easiest way to write tests, is to edit tests/fixtures.md
@@ -56,7 +56,7 @@ The easiest way to write tests, is to edit tests/fixtures.md
 To run the code formatting and style checks:
 
 ```bash
-tox -e py37-pre-commit
+tox -e py310-pre-commit
 ```
 
 or directly
@@ -69,7 +69,7 @@ pre-commit run --all
 To run the pre-commit hook test:
 
 ```bash
-tox -e py37-hook
+tox -e py310-hook
 ```
 
 ## Publish to PyPi

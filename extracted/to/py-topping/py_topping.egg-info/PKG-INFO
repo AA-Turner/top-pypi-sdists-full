@@ -1,20 +1,31 @@
-Metadata-Version: 2.1
-Name: py-topping
-Version: 0.4.11
+Metadata-Version: 2.4
+Name: py_topping
+Version: 0.4.13
 Summary: simplify functions from other libraries functions in 1-2 lines
 Home-page: https://github.com/chanon-kr/Shared_Function
+Download-URL: https://github.com/chanon-kr/Shared_Function/archive/v0.4.11.tar.gz
 Author: Chanon Krittapholchai
 Author-email: chanon.krittapholchai@gmail.com
 License: MIT
-Download-URL: https://github.com/chanon-kr/Shared_Function/archive/v0.4.11.tar.gz
 Keywords: utility,ETL
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 <img src="https://user-images.githubusercontent.com/64777509/179344226-e9440447-a69d-46c1-a535-d18c1680e73d.jpg" align="center" width="228">
 
@@ -98,5 +109,3 @@ https://github.com/chanon-kr/Shared_Function
   - Dependecies and Sample of use  
     - run pipeline=> https://github.com/chanon-kr/Shared_Function/blob/main/samples/run_pipeline.ipynb
     - create FastAPI => https://github.com/chanon-kr/Shared_Function/blob/main/samples/api.ipynb
-
-

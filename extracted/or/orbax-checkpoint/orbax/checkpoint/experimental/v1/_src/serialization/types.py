@@ -12,21 +12,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Define types for `LeafHandler`."""
+"""Define types for :py:class:`.LeafHandler`."""
 
 import dataclasses
 from typing import Any, Awaitable, Generic, Protocol, Sequence, Tuple, Type, TypeVar
 
-from orbax.checkpoint._src.serialization import serialization as serialization_v0
+import jax
+import jax.experimental.layout as jax_layout
+import numpy as np
+from orbax.checkpoint._src.arrays import types as arrays_types
+from orbax.checkpoint._src.serialization import limits
 from orbax.checkpoint._src.tree import utils as tree_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 import tensorstore as ts
 
+
 Leaf = TypeVar('Leaf')
 AbstractLeaf = TypeVar('AbstractLeaf')
 
+Shape = arrays_types.Shape
+DType = arrays_types.DType
+
 PLACEHOLDER = ...
+
+Scalar = int | float | np.number
+# Optional type hint for a scalar leaf handler. If provided, the restored scalar
+# will be cast to this type.  Only casting to int or float is supported.
+AbstractScalar = Scalar
+AbstractString = str
+
+if jax.__version_info__ >= (0, 6, 2):
+  Format = jax_layout.Format
+else:
+  Format = jax_layout.Layout
+
+
+class AbstractArray(Protocol):
+  """Abstract representation of an array.
+
+  This is a protocol for an abstract array that can be used to represent
+  the metadata belonging to an array.
+
+  shape:
+    Tuple of integers describing the array shape.
+  dtype:
+    Dtype of array elements.
+  """
+
+  shape: Shape | None
+  dtype: DType | None
+
+
+class AbstractShardedArray(Protocol):
+  """Abstract representation of an array.
+
+  This is a protocol for an abstract array that can be used to represent various
+  metadata types such as :py:class:`jax.ShapeDtypeStruct` and
+  :py:class:`~orbax.checkpoint.metadata.ArrayMetadata`.
+
+  #TODO(dnlng): All attributes are made optional to support the case where
+  # the ArrayMetadata is passed into the metadata() call to pass only the
+  # `write_shape`.  Optional attributes are not needed once write_shape is
+  # refactored.
+
+
+  shape:
+    Tuple of integers describing the array shape.
+  dtype:
+    Dtype of array elements.
+  Sharding:
+    Sharding to indicate how the array is sharded. This can be jax's Sharding or
+    Layout or None.
+  """
+
+  shape: Shape | None
+  dtype: DType | None
+  sharding: jax.sharding.Sharding | Format | None = None  # pytype: disable=invalid-annotation
 
 
 def is_placeholder(value: Any) -> bool:
@@ -47,13 +109,13 @@ class SerializationParam(Generic[Leaf]):
 class SerializationContext:
   parent_dir: path_types.PathAwaitingCreation
   ts_context: ts.Context | None = None
-  byte_limiter: serialization_v0.LimitInFlightBytes | None = None
+  byte_limiter: limits.LimitInFlightBytes | None = None
 
 
 @dataclasses.dataclass
 class DeserializationParam(Generic[AbstractLeaf]):
   keypath: tree_types.PyTreeKeyPath
-  value: AbstractLeaf | None = None
+  value: AbstractLeaf | Type[AbstractLeaf] | None = None
 
   @property
   def name(self) -> str:
@@ -66,7 +128,7 @@ class DeserializationContext:
   ocdbt_checkpoint: bool
   zarr3_checkpoint: bool
   ts_context: ts.Context | None = None
-  byte_limiter: serialization_v0.LimitInFlightBytes | None = None
+  byte_limiter: limits.LimitInFlightBytes | None = None
 
 
 class LeafHandler(Protocol[Leaf, AbstractLeaf]):
@@ -94,8 +156,9 @@ class LeafHandler(Protocol[Leaf, AbstractLeaf]):
     storage write operations.
 
     Args:
-      params: a sequence of SerializationParam per leaf.
-      serialization_context: SerializationContext for the leaf handler.
+      params: a sequence of :py:class:`.SerializationParam` per leaf.
+      serialization_context: :py:class:`.SerializationContext` for the leaf
+        handler.
 
     Returns:
       A awaitable which can be awaited to complete the save operation.
@@ -114,8 +177,14 @@ class LeafHandler(Protocol[Leaf, AbstractLeaf]):
     confirm the completion of this data transfer.
 
     Args:
-      params: sequence of DeserializationParam per leaf.
-      deserialization_context: DeserializationContext for the leaf handler.
+      params: sequence of :py:class:`.DeserializationParam` per leaf. The Param
+        contains a value corresponding to the `AbstractLeaf` type.
+        `Type[AbstractLeaf]` is always valid. E.g. if the `AbstractLeaf` is
+        `AbstractFoo`, it is always valid to pass `AbstractFoo()` or
+        `AbstractFoo`. Passing the latter two indicates that metadata should be
+        used to restore the leaf.
+      deserialization_context: :py:class:`.DeserializationContext` for the leaf
+        handler.
 
     Returns:
       A awaitable which can be awaited to complete the load operation and obtain
@@ -131,12 +200,14 @@ class LeafHandler(Protocol[Leaf, AbstractLeaf]):
     """Returns a squence of AbstractLeaf from a stored checkpointable location.
 
     Args:
-      params: sequence of DeserializationParam[None] per leaf, the keypath is
-        essential to look up the leaf metadata.
-      deserialization_context: DeserializationContext for the leaf handler.
+      params: sequence of :py:class:`.DeserializationParam` [None] per leaf, the
+        keypath is essential to look up the leaf metadata.
+      deserialization_context: :py:class:`.DeserializationContext` for the leaf
+        handler.
 
     Returns:
-      Sequence of AbstractLeaf for each provided DeserializationParam.
+      Sequence of AbstractLeaf for each provided
+      :py:class:`.DeserializationParam`.
     """
     ...
 

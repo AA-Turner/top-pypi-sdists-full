@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Container
 import functools
 import json
 from json import JSONDecodeError
@@ -139,6 +140,7 @@ class FastAPIKeycloak:
             scope: str = "openid profile email",
             timeout: int = 10,
             ssl_verification: bool = True,
+            algorithms: str | Container[str] | None = None
     ):
         """FastAPIKeycloak constructor
 
@@ -164,6 +166,7 @@ class FastAPIKeycloak:
         self.timeout = timeout
         self.scope = scope
         self.ssl_verification = ssl_verification
+        self.algorithms = algorithms
         self._get_admin_token()  # Requests an admin access token on startup
 
     @property
@@ -191,7 +194,7 @@ class FastAPIKeycloak:
         Returns:
             None: Inplace method, updates the _admin_token
         """
-        decoded_token = self._decode_token(token=value)
+        decoded_token = self._decode_token(token=value, algorithms=self.algorithms)
         if ((not decoded_token.get("resource_access").get(
                 "realm-management")
             and
@@ -267,7 +270,7 @@ class FastAPIKeycloak:
                 HTTPException: If any role required is not contained within the roles of the users
             """
             try:
-                decoded_token = self._decode_token(token=token, audience="account")
+                decoded_token = self._decode_token(token=token, audience="account", algorithms=self.algorithms)
             except JWTError as e:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED) from e
 
@@ -1021,6 +1024,36 @@ class FastAPIKeycloak:
         return response
 
     @result_or_error(response_model=KeycloakToken)
+    def refresh_token(self, refresh_token: str) -> KeycloakToken:
+        """Refreshes an access token using a refresh token.
+
+        This method implements the OAuth 2.0 refresh token grant type. It allows an application
+        to obtain a new access token without prompting the user for their credentials again.
+        A refresh token is a long-lived credential that can be used to request new access tokens.
+
+        Args:
+            refresh_token (str): The refresh token that was issued to the client along with the original access token.
+
+        Returns:
+            KeycloakToken: An object containing the new access token, a new refresh token,
+                           and other token-related information if the request is successful.
+
+        Raises:
+            KeycloakError: If the request to Keycloak fails. This can happen if the refresh token is expired,
+                           revoked, or invalid, or if the client ID or secret is incorrect. The exception
+                           will contain the status code and reason from Keycloak's response.
+        """
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }
+        return requests.post(url=self.token_uri, headers=headers, data=data, timeout=self.timeout, verify=self.ssl_verification)
+
+
+    @result_or_error(response_model=KeycloakToken)
     def exchange_authorization_code(
             self, session_state: str, code: str
     ) -> KeycloakToken:
@@ -1156,13 +1189,13 @@ class FastAPIKeycloak:
             bool: True if the token is valid
         """
         try:
-            self._decode_token(token=token, audience=audience)
+            self._decode_token(token=token, audience=audience, algorithms=self.algorithms)
             return True
         except (ExpiredSignatureError, JWTError, JWTClaimsError):
             return False
 
     def _decode_token(
-            self, token: str, options: dict = None, audience: str = None
+            self, token: str, options: dict = None, audience: str = None, algorithms: str | Container[str] | None = None
     ) -> dict:
         """Decodes a token, verifies the signature by using Keycloaks public key. Optionally verifying the audience
 
@@ -1186,7 +1219,7 @@ class FastAPIKeycloak:
                 "verify_exp": True,
             }
         return jwt.decode(
-            token=token, key=self.public_key, options=options, audience=audience
+            token=token, key=self.public_key, options=options, audience=audience, algorithms=algorithms
         )
 
     def __str__(self):

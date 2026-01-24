@@ -43,6 +43,13 @@ jobs:
     if: contains(github.ref, 'refs/tags/')
     env:
       GH_TOKEN: ${{ github.token }}
+    environment:
+      name: publish-to-pypi
+      url: https://pypi.org/p/uharfbuzz
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+      contents: write # Needed to create GH release
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -99,10 +106,7 @@ jobs:
                             --title "${{ env.RELEASE_NAME }}" \
                             $notes \
                             $prerelease
-    - name: Build and publish
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+    - name: Build sdist
       run: |
         if [ "$IS_PRERELEASE" == true ]; then
           echo "DEBUG: This is a pre-release"
@@ -110,4 +114,5 @@ jobs:
           echo "DEBUG: This is a final release"
         fi
         pipx run build --sdist --outdir dist/
-        pipx run twine upload dist/*
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,3 +1,9 @@
+"""STIX2 utility functions and mappings for OpenCTI.
+
+This module provides utility classes and constants for working with STIX2 objects
+in OpenCTI, including type mappings, pattern generation, and object reference counting.
+"""
+
 from typing import Any, Dict
 
 from stix2 import EqualityComparisonExpression, ObjectPath, ObservationExpression
@@ -64,6 +70,7 @@ STIX_CORE_OBJECTS = [
     "threat-actor",
     "tool",
     "vulnerability",
+    "security-coverage",
 ]
 
 SUPPORTED_STIX_ENTITY_OBJECTS = STIX_META_OBJECTS + STIX_CORE_OBJECTS
@@ -102,6 +109,7 @@ STIX_CYBER_OBSERVABLE_MAPPING = {
     "media-content": "Media-Content",
     "simple-observable": "Simple-Observable",
     "persona": "Persona",
+    "ssh-key": "SSH-Key",
 }
 
 STIX_OBJECTS = (
@@ -130,7 +138,7 @@ PATTERN_MAPPING = {
     "Process": ["pid"],
     "Software": ["name"],
     "Url": ["value"],
-    "User-Account": ["acount_login"],
+    "User-Account": ["account_login"],
     "Windows-Registry-Key": ["key"],
     "Windows-Registry-Value-Type": ["name"],
     "Hostname": ["value"],
@@ -150,8 +158,21 @@ OBSERVABLES_VALUE_INT = [
 
 
 class OpenCTIStix2Utils:
+    """Utility class for STIX2 operations in OpenCTI.
+
+    Provides helper methods for STIX2 conversions and pattern generation,
+    including type mappings, observable pattern creation, and reference counting.
+    """
+
     @staticmethod
     def stix_observable_opencti_type(observable_type):
+        """Convert STIX observable type to OpenCTI type.
+
+        :param observable_type: STIX observable type
+        :type observable_type: str
+        :return: Corresponding OpenCTI type or "Unknown"
+        :rtype: str
+        """
         if observable_type in STIX_CYBER_OBSERVABLE_MAPPING:
             return STIX_CYBER_OBSERVABLE_MAPPING[observable_type]
         else:
@@ -159,6 +180,15 @@ class OpenCTIStix2Utils:
 
     @staticmethod
     def create_stix_pattern(observable_type, observable_value):
+        """Create a STIX pattern from an observable type and value.
+
+        :param observable_type: Type of the observable
+        :type observable_type: str
+        :param observable_value: Value of the observable
+        :type observable_value: str
+        :return: STIX pattern string or None if type not supported
+        :rtype: str or None
+        """
         if observable_type in PATTERN_MAPPING:
             lhs = ObjectPath(
                 (
@@ -175,26 +205,86 @@ class OpenCTIStix2Utils:
         else:
             return None
 
-    """Generate random stix id (uuid v1)
-    This id will stored and resolved by openCTI
-    We will stored only 5 stix of this type to prevent database flooding
-    :param stix_type: the stix type
-    """
-
     @staticmethod
     def generate_random_stix_id(stix_type):
+        """Generate random stix id (uuid v1) - DEPRECATED.
+
+        This function is deprecated and should not be used anymore.
+        Please use the generate_id function for SDO or proper SCO constructor.
+
+        :param stix_type: the stix type
+        :raises ValueError: Always raises an error as this function is deprecated
+        """
         raise ValueError(
             "This function should not be used anymore, please use the generate_id function for SDO or proper SCO constructor"
         )
 
     @staticmethod
-    def retrieveClassForMethod(
-        openCTIApiClient, entity: Dict, type_path: str, method: str
+    def retrieve_class_for_method(
+        opencti_api_client, entity: Dict, type_path: str, method: str
     ) -> Any:
+        """Retrieve the appropriate API class for a given entity type and method.
+
+        :param opencti_api_client: OpenCTI API client instance
+        :type opencti_api_client: OpenCTIApiClient
+        :param entity: Entity dictionary containing the type
+        :type entity: Dict
+        :param type_path: Path to the type field in the entity
+        :type type_path: str
+        :param method: Name of the method to check for
+        :type method: str
+        :return: The API class that has the specified method, or None
+        :rtype: Any
+        """
         if entity is not None and type_path in entity:
-            attributeName = entity[type_path].lower().replace("-", "_")
-            if hasattr(openCTIApiClient, attributeName):
-                attribute = getattr(openCTIApiClient, attributeName)
+            attribute_name = entity[type_path].lower().replace("-", "_")
+            if hasattr(opencti_api_client, attribute_name):
+                attribute = getattr(opencti_api_client, attribute_name)
                 if hasattr(attribute, method):
                     return attribute
         return None
+
+    @staticmethod
+    def retrieveClassForMethod(
+        openCTIApiClient, entity: Dict, type_path: str, method: str
+    ) -> Any:
+        """Retrieve the appropriate API class for a given entity type and method.
+
+        .. deprecated::
+            Use :meth:`retrieve_class_for_method` instead.
+
+        :param openCTIApiClient: OpenCTI API client instance
+        :type openCTIApiClient: OpenCTIApiClient
+        :param entity: Entity dictionary containing the type
+        :type entity: Dict
+        :param type_path: Path to the type field in the entity
+        :type type_path: str
+        :param method: Name of the method to check for
+        :type method: str
+        :return: The API class that has the specified method, or None
+        :rtype: Any
+        """
+        return OpenCTIStix2Utils.retrieve_class_for_method(
+            openCTIApiClient, entity, type_path, method
+        )
+
+    @staticmethod
+    def compute_object_refs_number(entity: Dict):
+        """Compute the number of object references in an entity.
+
+        :param entity: Entity dictionary to analyze
+        :type entity: Dict
+        :return: Total number of references
+        :rtype: int
+        """
+        refs_number = 0
+        for key in list(entity.keys()):
+            if key.endswith("_refs") and entity[key] is not None:
+                refs_number += len(entity[key])
+            elif key.endswith("_ref"):
+                refs_number += 1
+            elif key == "external_references" and entity[key] is not None:
+                refs_number += len(entity[key])
+            elif key == "kill_chain_phases" and entity[key] is not None:
+                refs_number += len(entity[key])
+        return refs_number

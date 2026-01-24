@@ -1,11 +1,46 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import System
 import System.Diagnostics.CodeAnalysis
 
 
+class ConstantExpectedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def min(self) -> System.Object:
+        ...
+
+    @min.setter
+    def min(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def max(self) -> System.Object:
+        ...
+
+    @max.setter
+    def max(self, value: System.Object) -> None:
+        ...
+
+
+class ExcludeFromCodeCoverageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def justification(self) -> str:
+        ...
+
+    @justification.setter
+    def justification(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
 class SuppressMessageAttribute(System.Attribute):
-    """Suppresses reporting of a specific code analysis rule violation, allowing multiple suppressions on a single code artifact. Does not apply to compiler diagnostics."""
+    """This class has no documentation."""
 
     @property
     def category(self) -> str:
@@ -51,49 +86,10 @@ class SuppressMessageAttribute(System.Attribute):
         ...
 
 
-class ExcludeFromCodeCoverageAttribute(System.Attribute):
+class UnscopedRefAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @property
-    def justification(self) -> str:
-        """Gets or sets the justification for excluding the member from code coverage."""
-        ...
-
-    @justification.setter
-    def justification(self, value: str) -> None:
-        ...
-
     def __init__(self) -> None:
-        ...
-
-
-class UnscopedRefAttribute(System.Attribute):
-    """Used to indicate a byref escapes and is not scoped."""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the UnscopedRefAttribute class."""
-        ...
-
-
-class ConstantExpectedAttribute(System.Attribute):
-    """Indicates that the specified method parameter expects a constant."""
-
-    @property
-    def min(self) -> System.Object:
-        """Indicates the minimum bound of the expected constant, inclusive."""
-        ...
-
-    @min.setter
-    def min(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def max(self) -> System.Object:
-        """Indicates the maximum bound of the expected constant, inclusive."""
-        ...
-
-    @max.setter
-    def max(self, value: System.Object) -> None:
         ...
 
 

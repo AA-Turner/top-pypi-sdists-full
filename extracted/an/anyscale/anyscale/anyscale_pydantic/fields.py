@@ -83,11 +83,11 @@ class UndefinedType:
 Undefined = UndefinedType()
 
 if TYPE_CHECKING:
-    from .class_validators import ValidatorsList
-    from .config import BaseConfig
-    from .error_wrappers import ErrorList
-    from .types import ModelOrDc
-    from .typing import AbstractSetIntStr, MappingIntStrAny, ReprArgs
+    from .class_validators import ValidatorsList # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .config import BaseConfig # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .error_wrappers import ErrorList # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .types import ModelOrDc # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .typing import AbstractSetIntStr, MappingIntStrAny, ReprArgs # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     ValidateReturn = Tuple[Optional[Any], Optional[ErrorList]]
     LocStr = Union[Tuple[Union[int, str], ...], str]
@@ -492,7 +492,7 @@ class ModelField(Representation):
         class_validators: Optional[Dict[str, Validator]],
         config: Type['BaseConfig'],
     ) -> 'ModelField':
-        from .schema import get_annotation_from_field_info
+        from .schema import get_annotation_from_field_info # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
         field_info, value = cls._get_field_info(name, annotation, value, config)
         required: 'BoolUndefined' = Undefined
@@ -1163,7 +1163,7 @@ class ModelField(Representation):
         """
         Whether the field is "complex" eg. env variables should be parsed as JSON.
         """
-        from .main import BaseModel
+        from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
         return (
             self.shape != SHAPE_SINGLETON

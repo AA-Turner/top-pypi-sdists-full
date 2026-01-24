@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import datetime
 import functools
 import re
 import types
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 import numpy as np
@@ -310,7 +310,7 @@ def push(data=None, *, metadata=None, replace=None, workbook=_common.DEFAULT_WOR
     workbook_context: WorkbookContext = WorkbookContext.from_args(session, status, workbook, worksheet, datasource)
 
     push_result_df = pd.DataFrame()
-    sync_token = datetime.datetime.utcnow().isoformat()
+    sync_token = datetime.now(timezone.utc).isoformat()
     push_metadata_status = status.create_inner('Push Metadata')
 
     if metadata is not None and not metadata.empty:
@@ -435,12 +435,12 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
     status.df = push_result_df[status_columns].copy()
     status.df['Count'] = 0
     status.df['Pages'] = 0
-    status.df['Time'] = datetime.timedelta(0)
+    status.df['Time'] = timedelta(0)
     status.df['Result'] = 'Pushing'
     status_columns.extend(['Count', 'Pages', 'Time', 'Result'])
 
     push_result_df['Push Count'] = np.int64(0)
-    push_result_df['Push Time'] = datetime.timedelta(0)
+    push_result_df['Push Time'] = timedelta(0)
     push_result_df['Push Result'] = ''
 
     status.update(
@@ -529,7 +529,7 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
                         # "blank" row in the status DataFrame.
                         ad_hoc_status_df = pd.DataFrame({'Count': 0,
                                                          'Pages': 0,
-                                                         'Time': datetime.timedelta(0),
+                                                         'Time': timedelta(0),
                                                          'Result': 'Pushing'},
                                                         index=[status_index])
                         status.df = pd.concat([status.df, ad_hoc_status_df], sort=True)
@@ -639,12 +639,12 @@ def _push_data(session, status, data, metadata, replace, push_result_df, workboo
         if _common.get(status_row, 'Type') == 'Asset':
             status.df.at[status_index, 'Result'] = 'N/A'
             status.df.at[status_index, 'Count'] = 0
-            status.df.at[status_index, 'Time'] = datetime.timedelta(0)
+            status.df.at[status_index, 'Time'] = timedelta(0)
 
         if status.df.at[status_index, 'Result'] == 'Pushing':
             status.df.at[status_index, 'Result'] = 'No data supplied'
             status.df.at[status_index, 'Count'] = 0
-            status.df.at[status_index, 'Time'] = datetime.timedelta(0)
+            status.df.at[status_index, 'Time'] = timedelta(0)
 
         push_result_df.at[
             status_index, 'Push Result'] = status.df.at[status_index, 'Result']
@@ -841,7 +841,7 @@ def _push_signal(session: Session, column, signal_metadata, replace, data_suppli
         # Add a timezone (from options.default_timezone) if necessary
         if series.index.tz is None:
             # (Mark Derbecker) In my tests, this action does not adversely affect the caller's DataFrame reference
-            series.index = series.index.tz_localize(_login.get_fallback_timezone(session))
+            series.index = series.index.tz_localize(session.get_session_timezone())
 
         for sample_timestamp, sample_value in series.items():
             if pd.isna(sample_value) and sample_value is not None:
@@ -1061,7 +1061,8 @@ def _push_condition(session: Session, condition_metadata, replace, data_supplier
 def _dict_to_capsule(d, capsule, capsule_property_units=None):
     _metadata.dict_to_input(d, capsule, 'properties', {
         'Capsule Start': None,
-        'Capsule End': None
+        'Capsule End': None,
+        'Vantage Context': None
     }, capsule_property_units)
 
 

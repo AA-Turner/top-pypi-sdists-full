@@ -8,9 +8,12 @@ The 'direct disk' connector provides the reader for when a dataset is
 given as a folder on local disk
 """
 
-import mmap
 import os
+import threading
 import time
+from concurrent.futures import FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import wait
 from typing import Dict
 from typing import List
 
@@ -20,36 +23,21 @@ from orso.tools import single_item_cache
 from orso.types import OrsoTypes
 
 from opteryx.connectors.base.base_connector import BaseConnector
+from opteryx.connectors.capabilities import Diachronic
 from opteryx.connectors.capabilities import LimitPushable
-from opteryx.connectors.capabilities import Partitionable
 from opteryx.connectors.capabilities import PredicatePushable
 from opteryx.connectors.capabilities import Statistics
 from opteryx.exceptions import DataError
 from opteryx.exceptions import DatasetNotFoundError
 from opteryx.exceptions import EmptyDatasetError
 from opteryx.exceptions import UnsupportedFileTypeError
-from opteryx.utils import is_windows
 from opteryx.utils.file_decoders import TUPLE_OF_VALID_EXTENSIONS
 from opteryx.utils.file_decoders import get_decoder
 
 OS_SEP = os.sep
-IS_WINDOWS = is_windows()
-
-# Define os.O_BINARY for non-Windows platforms if it's not already defined
-if not hasattr(os, "O_BINARY"):
-    os.O_BINARY = 0  # Value has no effect on non-Windows platforms
-if not hasattr(os, "O_DIRECT"):
-    os.O_DIRECT = 0  # Value has no effect on non-Windows platforms
-
-mmap_config = {}
-if not IS_WINDOWS:
-    mmap_config["flags"] = mmap.MAP_PRIVATE
-    mmap_config["prot"] = mmap.PROT_READ
-else:
-    mmap_config["access"] = mmap.ACCESS_READ
 
 
-class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushable, Statistics):
+class DiskConnector(BaseConnector, Diachronic, PredicatePushable, LimitPushable, Statistics):
     """
     Connector for reading datasets from files on local storage.
     """
@@ -76,6 +64,8 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
         OrsoTypes.DATE,
     }
 
+    _executor = None  # Lazy initialization
+
     def __init__(self, **kwargs):
         """
         Initialize the DiskConnector, which reads datasets directly from disk.
@@ -85,7 +75,7 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
                 Arbitrary keyword arguments.
         """
         BaseConnector.__init__(self, **kwargs)
-        Partitionable.__init__(self, **kwargs)
+        Diachronic.__init__(self, **kwargs)
         PredicatePushable.__init__(self, **kwargs)
         LimitPushable.__init__(self, **kwargs)
         Statistics.__init__(self, **kwargs)
@@ -95,6 +85,18 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
         self.blob_list = {}
         self.rows_seen = 0
         self.blobs_seen = 0
+        self._stats_lock = threading.Lock()
+        cpu_count = os.cpu_count() or 1
+        self._max_workers = max(1, min(cpu_count * 2, 16))  # More aggressive scaling
+
+    def get_executor(self):
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
+        return self._executor
+
+    def __del__(self):
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)
 
     def read_blob(
         self, *, blob_name: str, decoder, just_schema=False, projection=None, selection=None
@@ -129,31 +131,44 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
             OSError:
                 If an I/O error occurs while reading the file.
         """
+        from opteryx.compiled.io.disk_reader import read_file_mmap
+        from opteryx.compiled.io.disk_reader import unmap_memory
+
+        # from opteryx.compiled.io.disk_reader import unmap_memory
+        # Read using mmap for maximum speed
+        mmap_obj = read_file_mmap(blob_name)
+
         try:
-            file_descriptor = os.open(blob_name, os.O_RDONLY | os.O_BINARY)
-            if hasattr(os, "posix_fadvise"):
-                os.posix_fadvise(file_descriptor, 0, 0, os.POSIX_FADV_WILLNEED)
-            size = os.fstat(file_descriptor).st_size
-            _map = mmap.mmap(file_descriptor, length=size, **mmap_config)
+            # Create memoryview for the decoder
+            mv = memoryview(mmap_obj)
+
             result = decoder(
-                _map,
+                mv,
                 just_schema=just_schema,
                 projection=projection,
                 selection=selection,
                 use_threads=True,
             )
-            self.statistics.bytes_read += size
+
+            with self._stats_lock:
+                self.statistics.bytes_read += len(mv)
 
             if not just_schema:
                 stats = self.read_blob_statistics(
-                    blob_name=blob_name, blob_bytes=_map, decoder=decoder
+                    blob_name=blob_name, blob_bytes=mv, decoder=decoder
                 )
-                if self.relation_statistics is None:
-                    self.relation_statistics = stats
+                if stats is not None:
+                    with self._stats_lock:
+                        if self.relation_statistics is None:
+                            self.relation_statistics = stats
+                        else:
+                            self.relation_statistics.merge(stats)
 
             return result
         finally:
-            os.close(file_descriptor)
+            # CRITICAL: Clean up the memory mapping
+            if mmap_obj is not None:
+                unmap_memory(mmap_obj)
 
     @single_item_cache
     def get_list_of_blob_names(self, *, prefix: str) -> List[str]:
@@ -168,15 +183,16 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
             A list of blob filenames.
         """
         # only fetch once per prefix (partition)
+        from opteryx.compiled.io.disk_reader import list_files
+
         if prefix in self.blob_list:
             return self.blob_list[prefix]
 
-        blobs = sorted(
-            os.path.join(root, file)
-            for root, _, files in os.walk(prefix + OS_SEP)
-            for file in files
-            if file.endswith(TUPLE_OF_VALID_EXTENSIONS)
-        )
+        target = os.path.normpath(prefix)
+        try:
+            blobs = sorted(list_files(target, TUPLE_OF_VALID_EXTENSIONS))
+        except FileNotFoundError:
+            blobs = []
 
         self.blob_list[prefix] = blobs
         return blobs
@@ -209,53 +225,141 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
             )
             self.statistics.time_pruning_blobs += time.monotonic_ns() - start
 
-        remaining_rows = limit if limit is not None else float("inf")
-
-        for blob_name in blob_names:
-            decoder = get_decoder(blob_name)
-            try:
-                if not just_schema:
-                    num_rows, _, decoded = self.read_blob(
-                        blob_name=blob_name,
-                        decoder=decoder,
-                        just_schema=False,
-                        projection=columns,
-                        selection=predicates,
-                    )
-
-                    # push limits to the reader
-                    if decoded.num_rows > remaining_rows:
-                        decoded = decoded.slice(0, remaining_rows)
-                    remaining_rows -= decoded.num_rows
-
-                    self.statistics.rows_seen += num_rows
-                    self.rows_seen += num_rows
-                    self.blobs_seen += 1
-                    yield decoded
-
-                    # if we have read all the rows we need to stop
-                    if remaining_rows <= 0:
-                        break
-                else:
+        if just_schema:
+            for blob_name in blob_names:
+                try:
+                    decoder = get_decoder(blob_name)
                     schema = self.read_blob(
                         blob_name=blob_name,
                         decoder=decoder,
                         just_schema=True,
                     )
-                    # if we have more than one blob we need to estimate the row count
                     blob_count = len(blob_names)
                     if schema.row_count_metric and blob_count > 1:
                         schema.row_count_estimate = schema.row_count_metric * blob_count
                         schema.row_count_metric = None
                         self.statistics.estimated_row_count += schema.row_count_estimate
                     yield schema
+                except UnsupportedFileTypeError:
+                    continue
+                except pyarrow.ArrowInvalid:
+                    with self._stats_lock:
+                        self.statistics.unreadable_data_blobs += 1
+                except Exception as err:
+                    raise DataError(f"Unable to read file {blob_name} ({err})") from err
+            return
 
-            except UnsupportedFileTypeError:
-                pass  # Skip unsupported file types
-            except pyarrow.ArrowInvalid:
-                self.statistics.unreadable_data_blobs += 1
-            except Exception as err:
-                raise DataError(f"Unable to read file {blob_name} ({err})") from err
+        remaining_rows = limit if limit is not None else float("inf")
+
+        def process_result(num_rows, raw_size, decoded):
+            nonlocal remaining_rows
+            if decoded.num_rows > remaining_rows:
+                decoded = decoded.slice(0, remaining_rows)
+            remaining_rows -= decoded.num_rows
+
+            self.statistics.rows_seen += num_rows
+            self.rows_seen += num_rows
+            self.blobs_seen += 1
+            self.statistics.bytes_raw += raw_size
+            return decoded
+
+        max_workers = min(self._max_workers, len(blob_names)) or 1
+
+        if max_workers <= 1:
+            for blob_name in blob_names:
+                try:
+                    num_rows, _, raw_size, decoded = self._read_blob_task(
+                        blob_name,
+                        columns,
+                        predicates,
+                    )
+                except UnsupportedFileTypeError:
+                    continue
+                except pyarrow.ArrowInvalid:
+                    with self._stats_lock:
+                        self.statistics.unreadable_data_blobs += 1
+                    continue
+                except Exception as err:
+                    raise DataError(f"Unable to read file {blob_name} ({err})") from err
+
+                if remaining_rows <= 0:
+                    break
+
+                decoded = process_result(num_rows, raw_size, decoded)
+                yield decoded
+
+                if remaining_rows <= 0:
+                    break
+        else:
+            blob_iter = iter(blob_names)
+            pending = {}
+
+            with self.get_executor() as executor:
+                for _ in range(max_workers):
+                    try:
+                        blob_name = next(blob_iter)
+                    except StopIteration:
+                        break
+                    future = executor.submit(
+                        self._read_blob_task,
+                        blob_name,
+                        columns,
+                        predicates,
+                    )
+                    pending[future] = blob_name
+
+                while pending:
+                    done, _ = wait(pending.keys(), return_when=FIRST_COMPLETED)
+                    for future in done:
+                        blob_name = pending.pop(future)
+                        try:
+                            num_rows, _, raw_size, decoded = future.result()
+                        except UnsupportedFileTypeError:
+                            pass
+                        except pyarrow.ArrowInvalid:
+                            with self._stats_lock:
+                                self.statistics.unreadable_data_blobs += 1
+                        except Exception as err:
+                            for remaining_future in list(pending):
+                                remaining_future.cancel()
+                            raise DataError(f"Unable to read file {blob_name} ({err})") from err
+                        else:
+                            if remaining_rows > 0:
+                                decoded = process_result(num_rows, raw_size, decoded)
+                                yield decoded
+                                if remaining_rows <= 0:
+                                    for remaining_future in list(pending):
+                                        remaining_future.cancel()
+                                    pending.clear()
+                                    break
+
+                        if remaining_rows <= 0:
+                            break
+
+                        try:
+                            next_blob = next(blob_iter)
+                        except StopIteration:
+                            continue
+                        future = executor.submit(
+                            self._read_blob_task,
+                            next_blob,
+                            columns,
+                            predicates,
+                        )
+                        pending[future] = next_blob
+
+                    if remaining_rows <= 0:
+                        break
+
+    def _read_blob_task(self, blob_name: str, columns, predicates):
+        decoder = get_decoder(blob_name)
+        return self.read_blob(
+            blob_name=blob_name,
+            decoder=decoder,
+            just_schema=False,
+            projection=columns,
+            selection=predicates,
+        )
 
     def get_dataset_schema(self) -> RelationSchema:
         """
@@ -274,6 +378,6 @@ class DiskConnector(BaseConnector, Partitionable, PredicatePushable, LimitPushab
         if self.schema is None:
             if os.path.isdir(self.dataset):
                 raise EmptyDatasetError(dataset=self.dataset.replace(OS_SEP, "."))
-            raise DatasetNotFoundError(dataset=self.dataset)
+            raise DatasetNotFoundError(dataset=self.dataset, connector=self.__type__)
 
         return self.schema

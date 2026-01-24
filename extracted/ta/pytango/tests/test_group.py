@@ -3,21 +3,20 @@
 import pytest
 
 from tango import (
-    Group,
-    StdStringVector,
-    DevFailed,
     AttrWriteType,
-    DevState,
+    DevFailed,
     DeviceData,
     DeviceDataList,
-    StdGroupReplyVector,
-    StdGroupCmdReplyVector,
-    StdGroupAttrReplyVector,
+    DevState,
+    Group,
+    GroupAttrReply,
+    GroupCmdReply,
+    GroupReply,
+    StdStringVector,
 )
 from tango.server import Device, attribute, command
-from tango.utils import TO_TANGO_TYPE
 from tango.test_context import MultiDeviceTestContext
-
+from tango.utils import TO_TANGO_TYPE
 
 _is_allowed = [True]
 
@@ -62,6 +61,17 @@ devices_info = (
 def context():
     with MultiDeviceTestContext(devices_info) as ctx:
         yield ctx
+
+
+def test_wrong_device_name(context):
+    group = Group("test_group")
+    group.add("test/device/1")
+
+    with pytest.raises(KeyError, match="some/wrong/device"):
+        group.get_device("some/wrong/device")
+
+    with pytest.raises(KeyError, match="some/wrong/device"):
+        group["some/wrong/device"]
 
 
 def test_nested_multi_group(context):
@@ -113,23 +123,44 @@ def test_read_write_attribute(context):
     group.add("test/device/2")
 
     seq = group.write_attribute("attr", 3)
-    assert isinstance(seq, StdGroupReplyVector)
 
     for ret in seq:
         assert not ret.has_failed()
+        assert isinstance(ret, GroupReply)
 
     seq = group.read_attribute("attr")
-    assert isinstance(seq, StdGroupAttrReplyVector)
 
     for ret in seq:
         assert not ret.has_failed()
         assert ret.get_data().value == 3
         # we check, that we can read value for the second time
         assert ret.get_data().value == 3
+        assert isinstance(ret, GroupAttrReply)
+
+    # now we check that we can iterate over GroupReplyList for the second time
+    for ret in seq:
+        assert not ret.has_failed()
+        assert ret.get_data().value == 3
+        assert ret.get_data().value == 3
+        assert isinstance(ret, GroupAttrReply)
+
+    dev = group.get_device(1)
+    attr_info = dev.get_attribute_config("attr")
+    seq = group.write_attribute(attr_info, 4)
+
+    for ret in seq:
+        assert not ret.has_failed()
+        assert isinstance(ret, GroupReply)
+
+    seq = group.read_attribute("attr")
+
+    for ret in seq:
+        assert not ret.has_failed()
+        assert ret.get_data().value == 4
 
     _is_allowed[0] = False
 
-    for ret in group.write_attribute("attr", 4):
+    for ret in group.write_attribute("attr", 5):
         assert ret.has_failed()
         assert (
             ret.get_err_stack()[0].desc
@@ -153,19 +184,25 @@ def test_command(context):
     group.add("test/device/2")
 
     seq = group.command_inout("indent", 1)
-    assert isinstance(seq, StdGroupCmdReplyVector)
 
     for ret in seq:
         assert not ret.has_failed()
         assert ret.get_data() == 1
         # we check, that we can read value for the second time
         assert ret.get_data() == 1
+        assert isinstance(ret, GroupCmdReply)
+
+    # now we check that we can iterate over GroupReplyList for the second time
+    for ret in seq:
+        assert not ret.has_failed()
+        assert ret.get_data() == 1
+        assert ret.get_data() == 1
+        assert isinstance(ret, GroupCmdReply)
 
     param = DeviceData()
     param.insert(TO_TANGO_TYPE[int], 1)
 
     seq = group.command_inout("indent", param)
-    assert isinstance(seq, StdGroupCmdReplyVector)
 
     for ret in seq:
         assert not ret.has_failed()
@@ -175,7 +212,6 @@ def test_command(context):
     param_list.extend([param, param])
 
     seq = group.command_inout("indent", param_list)
-    assert isinstance(seq, StdGroupCmdReplyVector)
 
     for ret in seq:
         assert not ret.has_failed()

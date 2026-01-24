@@ -64,27 +64,26 @@ impl<'a> Linter<'a> {
             (None, None)
         };
 
-        if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive {
-            if let Some(lint) = &tombi_document_comment_directive.lint {
-                if lint.disabled() == Some(true) {
-                    // Only skip linting if there are no validation errors
-                    if self.diagnostics.is_empty() {
-                        match self.source_uri_or_path.map(|path| match path {
-                            Either::Left(url) => url.to_string(),
-                            Either::Right(path) => path.to_string_lossy().to_string(),
-                        }) {
-                            Some(source_url_or_path) => {
-                                tracing::info!(
-                                    "Skip linting for \"{source_url_or_path}\" due to `lint.disable`"
-                                );
-                            }
-                            None => {
-                                tracing::info!("Skip linting for stdin due to `lint.disable`");
-                            }
-                        }
-                        return Ok(());
+        if let Some(tombi_document_comment_directive) = &tombi_document_comment_directive
+            && let Some(lint) = &tombi_document_comment_directive.lint
+            && lint.disabled.unwrap_or(false)
+        {
+            // Only skip linting if there are no validation errors
+            if self.diagnostics.is_empty() {
+                match self.source_uri_or_path.map(|path| match path {
+                    Either::Left(url) => url.to_string(),
+                    Either::Right(path) => path.to_string_lossy().to_string(),
+                }) {
+                    Some(source_url_or_path) => {
+                        tracing::info!(
+                            "Skip linting for \"{source_url_or_path}\" due to `lint.disable`"
+                        );
+                    }
+                    None => {
+                        tracing::info!("Skip linting for stdin due to `lint.disable`");
                     }
                 }
+                return Ok(());
             }
         }
 
@@ -142,11 +141,11 @@ impl<'a> Linter<'a> {
                     }),
             };
 
-            if let Err(schema_diagnostics) =
+            if let Err(diagnostics) =
                 tombi_validator::validate(document_tree, source_schema.as_ref(), &schema_context)
                     .await
             {
-                self.diagnostics.extend(schema_diagnostics);
+                self.diagnostics.extend(diagnostics);
             }
         }
 

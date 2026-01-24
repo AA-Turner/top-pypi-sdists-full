@@ -33,8 +33,11 @@ class PrivateServiceAccountSDK(BaseSDK):
             raise ValueError(f"No service account {identifier} found.")
 
         if len(service_accounts) > 1:
+            names = [sa.name for sa in service_accounts]
+            emails = [sa.email for sa in service_accounts]
             raise ValueError(
-                f"Internal server error when fetching service account {identifier}. Please contact support."
+                f"Found {len(service_accounts)} service accounts matching '{identifier}'. "
+                f"Names: {names}, Emails: {emails}. This should not happen - please contact support."
             )
 
     def _get_service_account(
@@ -44,6 +47,12 @@ class PrivateServiceAccountSDK(BaseSDK):
         service_accounts = self.client.get_organization_collaborators(
             email=email, name=name, is_service_account=True
         )
+
+        if name is not None:
+            service_accounts = [sa for sa in service_accounts if sa.name == name]
+        if email is not None:
+            service_accounts = [sa for sa in service_accounts if sa.email == email]
+
         self._validate_exactly_one_service_account_per_email_or_name(
             service_accounts, identifier
         )

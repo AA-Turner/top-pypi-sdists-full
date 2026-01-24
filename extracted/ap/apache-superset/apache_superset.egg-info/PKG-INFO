@@ -1,8 +1,8 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: apache-superset
-Version: 5.0.0
+Version: 6.0.0
 Summary: A modern, enterprise-ready business intelligence web application
-Download-URL: https://www.apache.org/dist/superset/5.0.0
+Download-URL: https://www.apache.org/dist/superset/6.0.0
 Author-email: Apache Software Foundation <dev@superset.apache.org>
 License:                               Apache License
                                 Version 2.0, January 2004
@@ -225,214 +225,66 @@ Project-URL: homepage, https://superset.apache.org/
 Project-URL: documentation, https://superset.apache.org/docs/intro
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-License-File: NOTICE
-Requires-Dist: backoff>=1.8.0
-Requires-Dist: celery<6.0.0,>=5.3.6
-Requires-Dist: click>=8.0.3
-Requires-Dist: click-option-group
-Requires-Dist: colorama
-Requires-Dist: croniter>=0.3.28
-Requires-Dist: cron-descriptor
-Requires-Dist: cryptography<44.0.0,>=42.0.4
-Requires-Dist: deprecation<2.2.0,>=2.1.0
-Requires-Dist: flask<3.0.0,>=2.2.5
-Requires-Dist: flask-appbuilder<5.0.0,>=4.5.5
-Requires-Dist: flask-caching<3,>=2.1.0
-Requires-Dist: flask-compress<2.0,>=1.13
-Requires-Dist: flask-talisman<2.0,>=1.0.0
-Requires-Dist: flask-login<1.0,>=0.6.0
-Requires-Dist: flask-migrate<4.0,>=3.1.0
-Requires-Dist: flask-session<1.0,>=0.4.0
-Requires-Dist: flask-wtf<2.0,>=1.1.0
-Requires-Dist: geopy
-Requires-Dist: greenlet<=3.1.1,>=3.0.3
-Requires-Dist: gunicorn>=22.0.0; sys_platform != "win32"
-Requires-Dist: hashids<2,>=1.3.1
-Requires-Dist: holidays<0.26,>=0.25
-Requires-Dist: humanize
-Requires-Dist: importlib_metadata
-Requires-Dist: isodate
-Requires-Dist: jsonpath-ng<2,>=1.6.1
-Requires-Dist: Mako>=1.2.2
-Requires-Dist: markdown>=3.0
-Requires-Dist: msgpack<1.1,>=1.0.0
-Requires-Dist: nh3<0.3,>=0.2.11
-Requires-Dist: numpy<2,>1.23.5
-Requires-Dist: packaging
-Requires-Dist: pandas[excel]<2.1,>=2.0.3
-Requires-Dist: bottleneck
-Requires-Dist: parsedatetime
-Requires-Dist: paramiko>=3.4.0
-Requires-Dist: pgsanity
-Requires-Dist: polyline<3.0,>=2.0.0
-Requires-Dist: pyparsing<4,>=3.0.6
-Requires-Dist: python-dateutil
-Requires-Dist: python-dotenv
-Requires-Dist: python-geohash
-Requires-Dist: pyarrow<15,>=14.0.1
-Requires-Dist: pyyaml<7.0.0,>=6.0.0
-Requires-Dist: PyJWT<3.0,>=2.4.0
-Requires-Dist: redis<5.0,>=4.6.0
-Requires-Dist: selenium<5.0,>=4.14.0
-Requires-Dist: shillelagh[gsheetsapi]<2.0,>=1.2.18
-Requires-Dist: shortid
-Requires-Dist: sshtunnel<0.5,>=0.4.0
-Requires-Dist: simplejson>=3.15.0
-Requires-Dist: slack_sdk<4,>=3.19.0
-Requires-Dist: sqlalchemy<2,>=1.4
-Requires-Dist: sqlalchemy-utils<0.39,>=0.38.3
-Requires-Dist: sqlglot<27,>=26.1.3
-Requires-Dist: sqlparse>=0.5.0
-Requires-Dist: tabulate<0.9,>=0.8.9
-Requires-Dist: typing-extensions<5,>=4
-Requires-Dist: waitress; sys_platform == "win32"
-Requires-Dist: wtforms<4,>=2.3.3
-Requires-Dist: wtforms-json
-Requires-Dist: xlsxwriter<3.1,>=3.0.7
 Provides-Extra: athena
-Requires-Dist: pyathena[pandas]<3,>=2; extra == "athena"
 Provides-Extra: aurora-data-api
-Requires-Dist: preset-sqlalchemy-aurora-data-api<0.3,>=0.2.8; extra == "aurora-data-api"
 Provides-Extra: bigquery
-Requires-Dist: pandas-gbq>=0.19.1; extra == "bigquery"
-Requires-Dist: sqlalchemy-bigquery>=1.6.1; extra == "bigquery"
-Requires-Dist: google-cloud-bigquery>=3.10.0; extra == "bigquery"
 Provides-Extra: clickhouse
-Requires-Dist: clickhouse-connect<1.0,>=0.5.14; extra == "clickhouse"
 Provides-Extra: cockroachdb
-Requires-Dist: cockroachdb<0.4,>=0.3.5; extra == "cockroachdb"
-Provides-Extra: cors
-Requires-Dist: flask-cors>=2.0.0; extra == "cors"
 Provides-Extra: crate
-Requires-Dist: sqlalchemy-cratedb<1,>=0.40.1; extra == "crate"
 Provides-Extra: databend
-Requires-Dist: databend-sqlalchemy<1.0,>=0.3.2; extra == "databend"
 Provides-Extra: databricks
-Requires-Dist: databricks-sql-connector<3,>=2.0.2; extra == "databricks"
-Requires-Dist: sqlalchemy-databricks>=0.2.0; extra == "databricks"
 Provides-Extra: db2
-Requires-Dist: ibm-db-sa<=0.4.0,>0.3.8; extra == "db2"
 Provides-Extra: denodo
-Requires-Dist: denodo-sqlalchemy~=1.0.6; extra == "denodo"
 Provides-Extra: dremio
-Requires-Dist: sqlalchemy-dremio<4,>=1.2.1; extra == "dremio"
 Provides-Extra: drill
-Requires-Dist: sqlalchemy-drill<2,>=1.1.4; extra == "drill"
 Provides-Extra: druid
-Requires-Dist: pydruid<0.7,>=0.6.5; extra == "druid"
 Provides-Extra: duckdb
-Requires-Dist: duckdb-engine<0.10,>=0.9.5; extra == "duckdb"
 Provides-Extra: dynamodb
-Requires-Dist: pydynamodb>=0.4.2; extra == "dynamodb"
 Provides-Extra: solr
-Requires-Dist: sqlalchemy-solr>=0.2.0; extra == "solr"
 Provides-Extra: elasticsearch
-Requires-Dist: elasticsearch-dbapi<0.3.0,>=0.2.9; extra == "elasticsearch"
 Provides-Extra: exasol
-Requires-Dist: sqlalchemy-exasol<3.0,>=2.4.0; extra == "exasol"
 Provides-Extra: excel
-Requires-Dist: xlrd<1.3,>=1.2.0; extra == "excel"
 Provides-Extra: firebird
-Requires-Dist: sqlalchemy-firebird<0.8,>=0.7.0; extra == "firebird"
 Provides-Extra: firebolt
-Requires-Dist: firebolt-sqlalchemy<2,>=1.0.0; extra == "firebolt"
 Provides-Extra: gevent
-Requires-Dist: gevent>=23.9.1; extra == "gevent"
 Provides-Extra: gsheets
-Requires-Dist: shillelagh[gsheetsapi]<2,>=1.2.18; extra == "gsheets"
 Provides-Extra: hana
-Requires-Dist: hdbcli==2.4.162; extra == "hana"
-Requires-Dist: sqlalchemy_hana==0.4.0; extra == "hana"
 Provides-Extra: hive
-Requires-Dist: pyhive[hive]>=0.6.5; python_version < "3.11" and extra == "hive"
-Requires-Dist: pyhive[hive_pure_sasl]>=0.7.0; extra == "hive"
-Requires-Dist: tableschema; extra == "hive"
-Requires-Dist: thrift<1.0.0,>=0.14.1; extra == "hive"
-Requires-Dist: thrift_sasl<1.0.0,>=0.4.3; extra == "hive"
 Provides-Extra: impala
-Requires-Dist: impyla<0.17,>0.16.2; extra == "impala"
 Provides-Extra: kusto
-Requires-Dist: sqlalchemy-kusto<3,>=2.0.0; extra == "kusto"
 Provides-Extra: kylin
-Requires-Dist: kylinpy<2.9,>=2.8.1; extra == "kylin"
+Provides-Extra: motherduck
 Provides-Extra: mssql
-Requires-Dist: pymssql<3,>=2.2.8; extra == "mssql"
 Provides-Extra: mysql
-Requires-Dist: mysqlclient<3,>=2.1.0; extra == "mysql"
 Provides-Extra: ocient
-Requires-Dist: sqlalchemy-ocient>=1.0.0; extra == "ocient"
-Requires-Dist: pyocient<2,>=1.0.15; extra == "ocient"
-Requires-Dist: shapely; extra == "ocient"
-Requires-Dist: geojson; extra == "ocient"
 Provides-Extra: oracle
-Requires-Dist: cx-Oracle<8.1,>8.0.0; extra == "oracle"
 Provides-Extra: parseable
-Requires-Dist: sqlalchemy-parseable<0.2.0,>=0.1.3; extra == "parseable"
 Provides-Extra: pinot
-Requires-Dist: pinotdb<6.0.0,>=5.0.0; extra == "pinot"
 Provides-Extra: playwright
-Requires-Dist: playwright<2,>=1.37.0; extra == "playwright"
 Provides-Extra: postgres
-Requires-Dist: psycopg2-binary==2.9.6; extra == "postgres"
 Provides-Extra: presto
-Requires-Dist: pyhive[presto]>=0.6.5; extra == "presto"
 Provides-Extra: trino
-Requires-Dist: trino>=0.328.0; extra == "trino"
 Provides-Extra: prophet
-Requires-Dist: prophet<2,>=1.1.5; extra == "prophet"
 Provides-Extra: redshift
-Requires-Dist: sqlalchemy-redshift<0.9,>=0.8.1; extra == "redshift"
-Provides-Extra: rockset
-Requires-Dist: rockset-sqlalchemy<1,>=0.0.1; extra == "rockset"
+Provides-Extra: risingwave
 Provides-Extra: shillelagh
-Requires-Dist: shillelagh[all]<2,>=1.2.18; extra == "shillelagh"
+Provides-Extra: singlestore
 Provides-Extra: snowflake
-Requires-Dist: snowflake-sqlalchemy<2,>=1.2.4; extra == "snowflake"
 Provides-Extra: spark
-Requires-Dist: pyhive[hive]>=0.6.5; python_version < "3.11" and extra == "spark"
-Requires-Dist: pyhive[hive_pure_sasl]>=0.7; extra == "spark"
-Requires-Dist: tableschema; extra == "spark"
-Requires-Dist: thrift<1,>=0.14.1; extra == "spark"
+Provides-Extra: tdengine
 Provides-Extra: teradata
-Requires-Dist: teradatasql>=16.20.0.23; extra == "teradata"
 Provides-Extra: thumbnails
-Requires-Dist: Pillow<11,>=10.0.1; extra == "thumbnails"
 Provides-Extra: vertica
-Requires-Dist: sqlalchemy-vertica-python<0.6,>=0.5.9; extra == "vertica"
 Provides-Extra: netezza
-Requires-Dist: nzalchemy>=11.0.2; extra == "netezza"
 Provides-Extra: starrocks
-Requires-Dist: starrocks>=1.0.0; extra == "starrocks"
 Provides-Extra: doris
-Requires-Dist: pydoris<2.0.0,>=1.0.0; extra == "doris"
 Provides-Extra: oceanbase
-Requires-Dist: oceanbase_py>=0.0.1; extra == "oceanbase"
 Provides-Extra: ydb
-Requires-Dist: ydb-sqlalchemy>=0.1.2; extra == "ydb"
 Provides-Extra: development
-Requires-Dist: docker; extra == "development"
-Requires-Dist: flask-testing; extra == "development"
-Requires-Dist: freezegun; extra == "development"
-Requires-Dist: grpcio>=1.55.3; extra == "development"
-Requires-Dist: openapi-spec-validator; extra == "development"
-Requires-Dist: parameterized; extra == "development"
-Requires-Dist: pre-commit; extra == "development"
-Requires-Dist: progress<2,>=1.5; extra == "development"
-Requires-Dist: psutil; extra == "development"
-Requires-Dist: pyfakefs; extra == "development"
-Requires-Dist: pyinstrument<5,>=4.0.2; extra == "development"
-Requires-Dist: pytest<8.0.0; extra == "development"
-Requires-Dist: pytest-cov; extra == "development"
-Requires-Dist: pytest-mock; extra == "development"
-Requires-Dist: python-ldap>=3.4.4; extra == "development"
-Requires-Dist: ruff; extra == "development"
-Requires-Dist: sqloxide; extra == "development"
-Requires-Dist: statsd; extra == "development"
-Dynamic: download-url
-Dynamic: license-file
+License-File: LICENSE.txt
 
 <!--
 Licensed to the Apache Software Foundation (ASF) under one
@@ -456,11 +308,11 @@ under the License.
 # Superset
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/license/apache-2-0)
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/apache/superset?sort=semver)](https://github.com/apache/superset/tree/latest)
-[![Build Status](https://github.com/apache/superset/workflows/Python/badge.svg)](https://github.com/apache/superset/actions)
-[![PyPI version](https://badge.fury.io/py/apache-superset.svg)](https://badge.fury.io/py/apache-superset)
+[![Latest Release on Github](https://img.shields.io/github/v/release/apache/superset?sort=semver)](https://github.com/apache/superset/releases/latest)
+[![Build Status](https://github.com/apache/superset/actions/workflows/superset-python-unittest.yml/badge.svg)](https://github.com/apache/superset/actions)
+[![PyPI version](https://badge.fury.io/py/apache_superset.svg)](https://badge.fury.io/py/apache_superset)
 [![Coverage Status](https://codecov.io/github/apache/superset/coverage.svg?branch=master)](https://codecov.io/github/apache/superset)
-[![PyPI](https://img.shields.io/pypi/pyversions/apache-superset.svg?maxAge=2592000)](https://pypi.python.org/pypi/apache-superset)
+[![PyPI](https://img.shields.io/pypi/pyversions/apache_superset.svg?maxAge=2592000)](https://pypi.python.org/pypi/apache_superset)
 [![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](http://bit.ly/join-superset-slack)
 [![Documentation](https://img.shields.io/badge/docs-apache.org-blue.svg)](https://superset.apache.org)
 
@@ -508,8 +360,10 @@ Superset provides:
 ## Screenshots & Gifs
 
 **Video Overview**
+
 <!-- File hosted here https://github.com/apache/superset-site/raw/lfs/superset-video-4k.mp4 -->
-[superset-video-4k.webm](https://github.com/apache/superset/assets/812905/da036bc2-150c-4ee7-80f9-75e63210ff76)
+
+[superset-video-1080p.webm](https://github.com/user-attachments/assets/b37388f7-a971-409c-96a7-90c4e31322e6)
 
 <br/>
 
@@ -537,7 +391,7 @@ Here are some of the major database solutions that are supported:
 
 <p align="center">
   <img src="https://superset.apache.org/img/databases/redshift.png" alt="redshift" border="0" width="200"/>
-  <img src="https://superset.apache.org/img/databases/google-biquery.png" alt="google-biquery" border="0" width="200"/>
+  <img src="https://superset.apache.org/img/databases/google-biquery.png" alt="google-bigquery" border="0" width="200"/>
   <img src="https://superset.apache.org/img/databases/snowflake.png" alt="snowflake" border="0" width="200"/>
   <img src="https://superset.apache.org/img/databases/trino.png" alt="trino" border="0" width="150" />
   <img src="https://superset.apache.org/img/databases/presto.png" alt="presto" border="0" width="200"/>
@@ -545,7 +399,6 @@ Here are some of the major database solutions that are supported:
   <img src="https://superset.apache.org/img/databases/druid.png" alt="druid" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/firebolt.png" alt="firebolt" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/timescale.png" alt="timescale" border="0" width="200" />
-  <img src="https://superset.apache.org/img/databases/rockset.png" alt="rockset" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/postgresql.png" alt="postgresql" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/mysql.png" alt="mysql" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/mssql-server.png" alt="mssql-server" border="0" width="200" />
@@ -570,9 +423,10 @@ Here are some of the major database solutions that are supported:
   <img src="https://superset.apache.org/img/databases/starrocks.png" alt="starrocks" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/doris.png" alt="doris" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/oceanbase.svg" alt="oceanbase" border="0" width="220" />
-  <img src="https://superset.apache.org/img/databases/sap-hana.png" alt="oceanbase" border="0" width="220" />
+  <img src="https://superset.apache.org/img/databases/sap-hana.png" alt="sap-hana" border="0" width="220" />
   <img src="https://superset.apache.org/img/databases/denodo.png" alt="denodo" border="0" width="200" />
   <img src="https://superset.apache.org/img/databases/ydb.svg" alt="ydb" border="0" width="200" />
+  <img src="https://superset.apache.org/img/databases/tdengine.png" alt="TDengine" border="0" width="200" />
 </p>
 
 **A more comprehensive list of supported databases** along with the configuration instructions can be found [here](https://superset.apache.org/docs/configuration/databases).
@@ -581,7 +435,7 @@ Want to add support for your datastore or data engine? Read more [here](https://
 
 ## Installation and Configuration
 
-[Extended documentation for Superset](https://superset.apache.org/docs/installation/docker-compose)
+Try out Superset's [quickstart](https://superset.apache.org/docs/quickstart/) guide or learn about [the options for production deployments](https://superset.apache.org/docs/installation/architecture/).
 
 ## Get Involved
 
@@ -590,7 +444,7 @@ Want to add support for your datastore or data engine? Read more [here](https://
   and please read our [Slack Community Guidelines](https://github.com/apache/superset/blob/master/CODE_OF_CONDUCT.md#slack-community-guidelines)
 - [Join our dev@superset.apache.org Mailing list](https://lists.apache.org/list.html?dev@superset.apache.org). To join, simply send an email to [dev-subscribe@superset.apache.org](mailto:dev-subscribe@superset.apache.org)
 - If you want to help troubleshoot GitHub Issues involving the numerous database drivers that Superset supports, please consider adding your name and the databases you have access to on the [Superset Database Familiarity Rolodex](https://docs.google.com/spreadsheets/d/1U1qxiLvOX0kBTUGME1AHHi6Ywel6ECF8xk_Qy-V9R8c/edit#gid=0)
-- Join Superset's Town Hall and [Operational Model](https://preset.io/blog/the-superset-operational-model-wants-you/) recurring meetings.  Meeting info is available on the [Superset Community Calendar](https://superset.apache.org/community)
+- Join Superset's Town Hall and [Operational Model](https://preset.io/blog/the-superset-operational-model-wants-you/) recurring meetings. Meeting info is available on the [Superset Community Calendar](https://superset.apache.org/community)
 
 ## Contributor Guide
 
@@ -618,14 +472,16 @@ Understanding the Superset Points of View
   - [Building New Database Connectors](https://preset.io/blog/building-database-connector/)
   - [Create Your First Dashboard](https://superset.apache.org/docs/using-superset/creating-your-first-dashboard/)
   - [Comprehensive Tutorial for Contributing Code to Apache Superset
-  ](https://preset.io/blog/tutorial-contributing-code-to-apache-superset/)
+    ](https://preset.io/blog/tutorial-contributing-code-to-apache-superset/)
 - [Resources to master Superset by Preset](https://preset.io/resources/)
 
 - Deploying Superset
+
   - [Official Docker image](https://hub.docker.com/r/apache/superset)
   - [Helm Chart](https://github.com/apache/superset/tree/master/helm/superset)
 
 - Recordings of Past [Superset Community Events](https://preset.io/events)
+
   - [Mixed Time Series Charts](https://preset.io/events/mixed-time-series-visualization-in-superset-workshop/)
   - [How the Bing Team Customized Superset for the Internal Self-Serve Data & Analytics Platform](https://preset.io/events/how-the-bing-team-heavily-customized-superset-for-their-internal-data/)
   - [Live Demo: Visualizing MongoDB and Pinot Data using Trino](https://preset.io/events/2021-04-13-visualizing-mongodb-and-pinot-data-using-trino/)
@@ -633,6 +489,7 @@ Understanding the Superset Points of View
   - [Building a Database Connector for Superset](https://preset.io/events/2021-02-16-building-a-database-connector-for-superset/)
 
 - Visualizations
+
   - [Creating Viz Plugins](https://superset.apache.org/docs/contributing/creating-viz-plugins/)
   - [Managing and Deploying Custom Viz Plugins](https://medium.com/nmc-techblog/apache-superset-manage-custom-viz-plugins-in-production-9fde1a708e55)
   - [Why Apache Superset is Betting on Apache ECharts](https://preset.io/blog/2021-4-1-why-echarts/)

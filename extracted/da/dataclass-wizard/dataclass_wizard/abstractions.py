@@ -1,20 +1,24 @@
 """
 Contains implementations for Abstract Base Classes
 """
+from __future__ import annotations
 import json
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, InitVar, Field
-from typing import Type, TypeVar, Dict, Generic
+from typing import Type, TypeVar, Dict, Generic, TYPE_CHECKING
 
-from .bases import META
 from .models import Extras
-from .v1.models import Extras as V1Extras, TypeInfo
+
 from .type_def import T, TT
 
 
 # Create a generic variable that can be 'AbstractJSONWizard', or any subclass.
 W = TypeVar('W', bound='AbstractJSONWizard')
+
+
+if TYPE_CHECKING:
+    from .v1.models import Extras as V1Extras, TypeInfo
 
 
 class AbstractEnvWizard(ABC):
@@ -274,10 +278,19 @@ class AbstractLoaderGenerator(ABC):
 
     @staticmethod
     @abstractmethod
-    def default_load_to(tp: TypeInfo, extras: V1Extras) -> str:
+    def is_none(tp: TypeInfo, extras: V1Extras) -> str:
         """
-        Generate code for the default load function if no other types match.
-        Generally, this will be a stub load method.
+        Generate the condition to determine if a value is None.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def load_fallback(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code for the fallback load handler when no specialized type matches.
+
+        The default fallback implementation is typically an identity / passthrough,
+        but subclasses may override this behavior.
         """
 
     @staticmethod
@@ -458,11 +471,230 @@ class AbstractLoaderGenerator(ABC):
 
     @classmethod
     @abstractmethod
-    def get_string_for_annotation(cls,
-                                  tp: TypeInfo,
-                                  extras: V1Extras) -> 'str | TypeInfo':
+    def load_dispatcher_for_annotation(cls,
+                                       tp: TypeInfo,
+                                       extras: V1Extras) -> 'str | TypeInfo':
         """
-        Generate code to get the parser (dispatcher) for a given annotation type.
+        Resolve the load dispatcher for a given annotation type.
+
+        Returns either a string reference to a dispatcher or a TypeInfo object,
+        depending on how the annotation is handled.
+
+        `base_cls` is the original class object, useful when the annotated
+        type is a :class:`typing.ForwardRef` object.
+        """
+
+
+class AbstractDumperGenerator(ABC):
+    """
+    Abstract code generator which defines helper methods to generate the
+    code for deserializing an object `o` of a given annotated type into
+    the corresponding dataclass field during dynamic function construction.
+    """
+    __slots__ = ()
+
+    @staticmethod
+    @abstractmethod
+    def transform_dataclass_field(string: str) -> str:
+        """
+        Transform a dataclass field name (which will ideally be snake-cased)
+        into the conventional format for a JSON field name.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_fallback(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code for the fallback dump handler when no specialized type matches.
+
+        The default fallback implementation is typically an identity / passthrough,
+        but subclasses may override this behavior.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_str(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from a string field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_int(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from an integer field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_float(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a float field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_bool(_: str, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from a boolean field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_bytes(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a bytes field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_bytearray(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a bytearray field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_none(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from a None.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_literal(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a literal.
+        """
+
+    @classmethod
+    @abstractmethod
+    def dump_from_union(cls, tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a `Union[X, Y, ...]` (one of [X, Y, ...] possible types)
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_enum(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from an Enum field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_uuid(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a UUID field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_iterable(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from an iterable field (list, set, etc.).
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_tuple(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a tuple field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_named_tuple(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a named tuple field.
+        """
+
+    @classmethod
+    @abstractmethod
+    def dump_from_named_tuple_untyped(cls, tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from an untyped named tuple.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_dict(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a dictionary field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_defaultdict(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a defaultdict field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_typed_dict(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a typed dictionary field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_decimal(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a Decimal field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_path(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a Decimal field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_datetime(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from a datetime field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_time(tp: TypeInfo, extras: V1Extras) -> str:
+        """
+        Generate code to dump a value from a time field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_date(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a date field.
+        """
+
+    @staticmethod
+    @abstractmethod
+    def dump_from_timedelta(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a timedelta field.
+        """
+
+    @staticmethod
+    def dump_from_dataclass(tp: TypeInfo, extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Generate code to dump a value from a `dataclass` type field.
+        """
+
+    @classmethod
+    @abstractmethod
+    def dump_dispatcher_for_annotation(cls,
+                                       tp: TypeInfo,
+                                       extras: V1Extras) -> 'str | TypeInfo':
+        """
+        Resolve the dump dispatcher for a given annotation type.
+
+        Returns either a string reference to a dispatcher or a TypeInfo object,
+        depending on how the annotation is handled.
 
         `base_cls` is the original class object, useful when the annotated
         type is a :class:`typing.ForwardRef` object.

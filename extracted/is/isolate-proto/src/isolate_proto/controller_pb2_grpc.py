@@ -89,6 +89,11 @@ class IsolateControllerStub(object):
                 request_serializer=controller__pb2.DeleteApplicationRequest.SerializeToString,
                 response_deserializer=controller__pb2.DeleteApplicationResult.FromString,
                 _registered_method=True)
+        self.RolloutApplication = channel.unary_unary(
+                '/controller.IsolateController/RolloutApplication',
+                request_serializer=controller__pb2.RolloutApplicationRequest.SerializeToString,
+                response_deserializer=controller__pb2.RolloutApplicationResult.FromString,
+                _registered_method=True)
         self.SetAlias = channel.unary_unary(
                 '/controller.IsolateController/SetAlias',
                 request_serializer=controller__pb2.SetAliasRequest.SerializeToString,
@@ -119,6 +124,11 @@ class IsolateControllerStub(object):
                 request_serializer=controller__pb2.ListAliasRunnersRequest.SerializeToString,
                 response_deserializer=controller__pb2.ListAliasRunnersResponse.FromString,
                 _registered_method=True)
+        self.StopRunner = channel.unary_unary(
+                '/controller.IsolateController/StopRunner',
+                request_serializer=controller__pb2.StopRunnerRequest.SerializeToString,
+                response_deserializer=controller__pb2.StopRunnerResponse.FromString,
+                _registered_method=True)
         self.KillRunner = channel.unary_unary(
                 '/controller.IsolateController/KillRunner',
                 request_serializer=controller__pb2.KillRunnerRequest.SerializeToString,
@@ -128,6 +138,26 @@ class IsolateControllerStub(object):
                 '/controller.IsolateController/ListRunners',
                 request_serializer=controller__pb2.ListRunnersRequest.SerializeToString,
                 response_deserializer=controller__pb2.ListRunnersResponse.FromString,
+                _registered_method=True)
+        self.ShellRunner = channel.stream_stream(
+                '/controller.IsolateController/ShellRunner',
+                request_serializer=controller__pb2.ShellRunnerInput.SerializeToString,
+                response_deserializer=controller__pb2.ShellRunnerOutput.FromString,
+                _registered_method=True)
+        self.ListEnvironments = channel.unary_unary(
+                '/controller.IsolateController/ListEnvironments',
+                request_serializer=controller__pb2.ListEnvironmentsRequest.SerializeToString,
+                response_deserializer=controller__pb2.ListEnvironmentsResponse.FromString,
+                _registered_method=True)
+        self.CreateEnvironment = channel.unary_unary(
+                '/controller.IsolateController/CreateEnvironment',
+                request_serializer=controller__pb2.CreateEnvironmentRequest.SerializeToString,
+                response_deserializer=controller__pb2.CreateEnvironmentResponse.FromString,
+                _registered_method=True)
+        self.DeleteEnvironment = channel.unary_unary(
+                '/controller.IsolateController/DeleteEnvironment',
+                request_serializer=controller__pb2.DeleteEnvironmentRequest.SerializeToString,
+                response_deserializer=controller__pb2.DeleteEnvironmentResponse.FromString,
                 _registered_method=True)
 
 
@@ -207,6 +237,13 @@ class IsolateControllerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RolloutApplication(self, request, context):
+        """Rollout an application
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SetAlias(self, request, context):
         """Set alias to point to an existing application.
         """
@@ -249,6 +286,13 @@ class IsolateControllerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StopRunner(self, request, context):
+        """Stop a runner
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def KillRunner(self, request, context):
         """Kill a runner
         """
@@ -258,6 +302,34 @@ class IsolateControllerServicer(object):
 
     def ListRunners(self, request, context):
         """List all runners
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ShellRunner(self, request_iterator, context):
+        """Open interactive shell in a runner
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListEnvironments(self, request, context):
+        """List all environments for a user
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateEnvironment(self, request, context):
+        """Create a new environment
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteEnvironment(self, request, context):
+        """Delete an environment
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -316,6 +388,11 @@ def add_IsolateControllerServicer_to_server(servicer, server):
                     request_deserializer=controller__pb2.DeleteApplicationRequest.FromString,
                     response_serializer=controller__pb2.DeleteApplicationResult.SerializeToString,
             ),
+            'RolloutApplication': grpc.unary_unary_rpc_method_handler(
+                    servicer.RolloutApplication,
+                    request_deserializer=controller__pb2.RolloutApplicationRequest.FromString,
+                    response_serializer=controller__pb2.RolloutApplicationResult.SerializeToString,
+            ),
             'SetAlias': grpc.unary_unary_rpc_method_handler(
                     servicer.SetAlias,
                     request_deserializer=controller__pb2.SetAliasRequest.FromString,
@@ -346,6 +423,11 @@ def add_IsolateControllerServicer_to_server(servicer, server):
                     request_deserializer=controller__pb2.ListAliasRunnersRequest.FromString,
                     response_serializer=controller__pb2.ListAliasRunnersResponse.SerializeToString,
             ),
+            'StopRunner': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopRunner,
+                    request_deserializer=controller__pb2.StopRunnerRequest.FromString,
+                    response_serializer=controller__pb2.StopRunnerResponse.SerializeToString,
+            ),
             'KillRunner': grpc.unary_unary_rpc_method_handler(
                     servicer.KillRunner,
                     request_deserializer=controller__pb2.KillRunnerRequest.FromString,
@@ -355,6 +437,26 @@ def add_IsolateControllerServicer_to_server(servicer, server):
                     servicer.ListRunners,
                     request_deserializer=controller__pb2.ListRunnersRequest.FromString,
                     response_serializer=controller__pb2.ListRunnersResponse.SerializeToString,
+            ),
+            'ShellRunner': grpc.stream_stream_rpc_method_handler(
+                    servicer.ShellRunner,
+                    request_deserializer=controller__pb2.ShellRunnerInput.FromString,
+                    response_serializer=controller__pb2.ShellRunnerOutput.SerializeToString,
+            ),
+            'ListEnvironments': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListEnvironments,
+                    request_deserializer=controller__pb2.ListEnvironmentsRequest.FromString,
+                    response_serializer=controller__pb2.ListEnvironmentsResponse.SerializeToString,
+            ),
+            'CreateEnvironment': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateEnvironment,
+                    request_deserializer=controller__pb2.CreateEnvironmentRequest.FromString,
+                    response_serializer=controller__pb2.CreateEnvironmentResponse.SerializeToString,
+            ),
+            'DeleteEnvironment': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteEnvironment,
+                    request_deserializer=controller__pb2.DeleteEnvironmentRequest.FromString,
+                    response_serializer=controller__pb2.DeleteEnvironmentResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -638,6 +740,33 @@ class IsolateController(object):
             _registered_method=True)
 
     @staticmethod
+    def RolloutApplication(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller.IsolateController/RolloutApplication',
+            controller__pb2.RolloutApplicationRequest.SerializeToString,
+            controller__pb2.RolloutApplicationResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SetAlias(request,
             target,
             options=(),
@@ -800,6 +929,33 @@ class IsolateController(object):
             _registered_method=True)
 
     @staticmethod
+    def StopRunner(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller.IsolateController/StopRunner',
+            controller__pb2.StopRunnerRequest.SerializeToString,
+            controller__pb2.StopRunnerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def KillRunner(request,
             target,
             options=(),
@@ -843,6 +999,114 @@ class IsolateController(object):
             '/controller.IsolateController/ListRunners',
             controller__pb2.ListRunnersRequest.SerializeToString,
             controller__pb2.ListRunnersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ShellRunner(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/controller.IsolateController/ShellRunner',
+            controller__pb2.ShellRunnerInput.SerializeToString,
+            controller__pb2.ShellRunnerOutput.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListEnvironments(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller.IsolateController/ListEnvironments',
+            controller__pb2.ListEnvironmentsRequest.SerializeToString,
+            controller__pb2.ListEnvironmentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateEnvironment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller.IsolateController/CreateEnvironment',
+            controller__pb2.CreateEnvironmentRequest.SerializeToString,
+            controller__pb2.CreateEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteEnvironment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller.IsolateController/DeleteEnvironment',
+            controller__pb2.DeleteEnvironmentRequest.SerializeToString,
+            controller__pb2.DeleteEnvironmentResponse.FromString,
             options,
             channel_credentials,
             insecure,

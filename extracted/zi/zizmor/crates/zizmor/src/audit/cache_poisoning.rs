@@ -3,13 +3,13 @@ use std::sync::LazyLock;
 use github_actions_models::workflow::Trigger;
 use github_actions_models::workflow::event::{BareEvent, BranchFilters, OptionalBody};
 
-use crate::audit::{Audit, audit_meta};
+use crate::audit::{Audit, AuditError, audit_meta};
 use crate::config::Config;
 use crate::finding::location::{Locatable as _, Routable};
 use crate::finding::{Confidence, Finding, Fix, FixDisposition, Severity};
 use crate::models::StepCommon;
 use crate::models::coordinate::{ActionCoordinate, ControlExpr, ControlFieldType, Toggle, Usage};
-use crate::models::workflow::{JobExt as _, NormalJob, Step, Steps};
+use crate::models::workflow::{JobCommon as _, NormalJob, Step, Steps};
 use crate::state::AuditState;
 
 use indexmap::IndexMap;
@@ -20,6 +20,7 @@ use super::AuditLoadError;
 /// The list of know cache-aware actions
 /// In the future we can easily retrieve this list from the static API,
 /// since it should be easily serializable
+#[allow(clippy::unwrap_used)]
 static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::new(|| {
     vec![
         // https://github.com/actions/cache/blob/main/action.yml
@@ -50,12 +51,22 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/actions/setup-node/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses_pattern: "actions/setup-node".parse().unwrap(),
-            control: ControlExpr::single(
-                Toggle::OptIn,
-                "cache",
-                ControlFieldType::FreeString,
-                false,
-            ),
+            control: ControlExpr::any([
+                ControlExpr::single(
+                    Toggle::OptIn,
+                    "cache",
+                    // https://github.com/actions/setup-node/blob/65d868f8d4/src/cache-utils.ts#L101-L111
+                    ControlFieldType::Exact(&["npm", "yarn", "pnpm"]),
+                    false,
+                ),
+                // NOTE: Added with `setup-node@v5`.
+                ControlExpr::single(
+                    Toggle::OptIn,
+                    "package-manager-cache",
+                    ControlFieldType::Boolean,
+                    true,
+                ),
+            ]),
         },
         // https://github.com/actions/setup-python/blob/main/action.yml
         ActionCoordinate::Configurable {
@@ -194,11 +205,22 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
             uses_pattern: "jdx/mise-action".parse().unwrap(),
             control: ControlExpr::single(Toggle::OptIn, "cache", ControlFieldType::Boolean, true),
         },
+        // https://github.com/ramsey/composer-install/blob/v3/action.yml
+        ActionCoordinate::Configurable {
+            uses_pattern: "ramsey/composer-install".parse().unwrap(),
+            control: ControlExpr::Single {
+                toggle: Toggle::OptOut,
+                field_name: "ignore-cache",
+                field_type: ControlFieldType::Exact(&["yes", "true", "1"]),
+                satisfied_by_default: true,
+            },
+        },
     ]
 });
 
 /// A list of well-know publisher actions
 /// In the future we can retrieve this list from the static API
+#[allow(clippy::unwrap_used)]
 static KNOWN_PUBLISHER_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::new(|| {
     vec![
         // Public packages and/or binary distribution channels
@@ -390,14 +412,36 @@ impl CachePoisoning {
         &self,
         step: &Step<'doc>,
         scenario: &PublishingArtifactsScenario<'doc>,
-    ) -> Option<Finding<'doc>> {
-        let (coord, cache_usage) = self.evaluate_cache_usage(step)?;
+    ) -> Result<Option<Finding<'doc>>, AuditError> {
+        let Some((coord, cache_usage)) = self.evaluate_cache_usage(step) else {
+            return Ok(None);
+        };
 
-        let (yaml_key, annotation) = match cache_usage {
-            Usage::Always => ("uses", "caching always restored here"),
-            Usage::DefaultActionBehaviour => ("uses", "cache enabled by default here"),
-            Usage::DirectOptIn => ("with", "opt-in for caching here"),
-            Usage::ConditionalOptIn => ("with", "opt-in for caching might happen here"),
+        let locations = match cache_usage {
+            Usage::ConditionalOptIn => vec![
+                step.location().primary().with_keys(["uses".into()]),
+                step.location()
+                    .with_keys(["with".into()])
+                    .annotated("may enable caching here"),
+            ],
+            Usage::DirectOptIn => vec![
+                step.location().primary().with_keys(["uses".into()]),
+                step.location()
+                    .with_keys(["with".into()])
+                    .annotated("enables caching explicitly here"),
+            ],
+            Usage::DefaultActionBehaviour => vec![
+                step.location()
+                    .primary()
+                    .with_keys(["uses".into()])
+                    .annotated("enables caching by default"),
+            ],
+            Usage::Always => vec![
+                step.location()
+                    .primary()
+                    .with_keys(["uses".into()])
+                    .annotated("always restores from cache"),
+            ],
         };
 
         let mut finding_builder = match scenario {
@@ -409,12 +453,6 @@ impl CachePoisoning {
                         .location()
                         .with_keys(["on".into()])
                         .annotated("generally used when publishing artifacts generated at runtime"),
-                )
-                .add_location(
-                    step.location()
-                        .primary()
-                        .with_keys([yaml_key.into()])
-                        .annotated(annotation),
                 ),
             PublishingArtifactsScenario::UsingWellKnowPublisherAction(publisher) => Self::finding()
                 .confidence(Confidence::Low)
@@ -424,24 +462,23 @@ impl CachePoisoning {
                         .location()
                         .with_keys(["uses".into()])
                         .annotated("runtime artifacts usually published here"),
-                )
-                .add_location(
-                    step.location()
-                        .primary()
-                        .with_keys([yaml_key.into()])
-                        .annotated(annotation),
                 ),
         };
+
+        for location in locations {
+            finding_builder = finding_builder.add_location(location);
+        }
 
         // Add fix if available
         if let Some(fix) = self.create_cache_disable_fix(coord, step) {
             finding_builder = finding_builder.fix(fix);
         }
 
-        finding_builder.build(step.workflow()).ok()
+        Ok(Some(finding_builder.build(step)?))
     }
 }
 
+#[async_trait::async_trait]
 impl Audit for CachePoisoning {
     fn new(_state: &AuditState) -> Result<Self, AuditLoadError>
     where
@@ -450,11 +487,11 @@ impl Audit for CachePoisoning {
         Ok(Self)
     }
 
-    fn audit_normal_job<'doc>(
+    async fn audit_normal_job<'doc>(
         &self,
         job: &NormalJob<'doc>,
         _config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut findings = vec![];
         let steps = job.steps();
         let trigger = &job.parent().on;
@@ -464,7 +501,7 @@ impl Audit for CachePoisoning {
         };
 
         for step in job.steps() {
-            if let Some(finding) = self.uses_cache_aware_step(&step, &scenario) {
+            if let Some(finding) = self.uses_cache_aware_step(&step, &scenario)? {
                 findings.push(finding);
             }
         }
@@ -491,11 +528,14 @@ mod tests {
     /// 4. Executes the provided test closure with the findings
     macro_rules! test_workflow_audit {
         ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>).unwrap();
+            let key = InputKey::local("fakegroup".into(), $filename, None::<&str>);
             let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
             let audit_state = AuditState::default();
             let audit = <$audit_type>::new(&audit_state).unwrap();
-            let findings = audit.audit_workflow(&workflow, &Config::default()).unwrap();
+            let findings = audit
+                .audit_workflow(&workflow, &Config::default())
+                .await
+                .unwrap();
 
             $test_fn(findings)
         }};
@@ -519,8 +559,8 @@ mod tests {
         fixed_document.source().to_string()
     }
 
-    #[test]
-    fn test_cache_disable_fix_opt_out_boolean() {
+    #[tokio::test]
+    async fn test_cache_disable_fix_opt_out_boolean() {
         let workflow_content = r#"
 name: Test Workflow
 on: release
@@ -545,6 +585,7 @@ jobs:
             |findings: Vec<Finding>| {
                 let fixed_content = apply_fix_for_snapshot(workflow_content, findings);
                 insta::assert_snapshot!(fixed_content, @r"
+
                 name: Test Workflow
                 on: release
 
@@ -565,8 +606,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_cache_disable_fix_opt_in_boolean() {
+    #[tokio::test]
+    async fn test_cache_disable_fix_opt_in_boolean() {
         let workflow_content = r#"
 name: Test Workflow
 on: release
@@ -589,6 +630,7 @@ jobs:
             |findings: Vec<Finding>| {
                 let fixed_content = apply_fix_for_snapshot(workflow_content, findings);
                 insta::assert_snapshot!(fixed_content, @r"
+
                 name: Test Workflow
                 on: release
 
@@ -606,8 +648,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_cache_disable_fix_opt_in_string() {
+    #[tokio::test]
+    async fn test_cache_disable_fix_opt_in_string() {
         let workflow_content = r#"
 name: Test Workflow
 on: release
@@ -637,8 +679,8 @@ jobs:
         );
     }
 
-    #[test]
-    fn test_cache_disable_fix_non_configurable() {
+    #[tokio::test]
+    async fn test_cache_disable_fix_non_configurable() {
         let workflow_content = r#"
 name: Test Workflow
 on: release

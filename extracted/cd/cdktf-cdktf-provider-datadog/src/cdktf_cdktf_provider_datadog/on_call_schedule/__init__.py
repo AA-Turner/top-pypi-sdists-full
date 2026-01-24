@@ -1,7 +1,7 @@
 r'''
 # `datadog_on_call_schedule`
 
-Refer to the Terraform Registry for docs: [`datadog_on_call_schedule`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule).
+Refer to the Terraform Registry for docs: [`datadog_on_call_schedule`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OnCallSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.onCallSchedule.OnCallSchedule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule datadog_on_call_schedule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule datadog_on_call_schedule}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class OnCallSchedule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule datadog_on_call_schedule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule datadog_on_call_schedule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A human-readable name for the new schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
-        :param time_zone: The time zone in which the schedule is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
-        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
-        :param teams: A list of team ids associated with the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
+        :param name: A human-readable name for the new schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
+        :param time_zone: The time zone in which the schedule is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
+        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
+        :param teams: A list of team ids associated with the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class OnCallSchedule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OnCallSchedule to import.
-        :param import_from_id: The id of the existing OnCallSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OnCallSchedule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OnCallSchedule to import is found.
         '''
         if __debug__:
@@ -267,10 +267,10 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A human-readable name for the new schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
-        :param time_zone: The time zone in which the schedule is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
-        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
-        :param teams: A list of team ids associated with the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
+        :param name: A human-readable name for the new schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
+        :param time_zone: The time zone in which the schedule is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
+        :param layer: layer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
+        :param teams: A list of team ids associated with the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -378,7 +378,7 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''A human-readable name for the new schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -388,7 +388,7 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def time_zone(self) -> builtins.str:
         '''The time zone in which the schedule is defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -400,7 +400,7 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallScheduleLayer"]]]:
         '''layer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#layer OnCallSchedule#layer}
         '''
         result = self._values.get("layer")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallScheduleLayer"]]], result)
@@ -409,7 +409,7 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def teams(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of team ids associated with the schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#teams OnCallSchedule#teams}
         '''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -437,6 +437,7 @@ class OnCallScheduleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "end_date": "endDate",
         "interval": "interval",
         "restriction": "restriction",
+        "time_zone": "timeZone",
     },
 )
 class OnCallScheduleLayer:
@@ -450,15 +451,17 @@ class OnCallScheduleLayer:
         end_date: typing.Optional[builtins.str] = None,
         interval: typing.Optional[typing.Union["OnCallScheduleLayerInterval", typing.Dict[builtins.str, typing.Any]]] = None,
         restriction: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OnCallScheduleLayerRestriction", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effective_date: The date/time when this layer should become active (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#effective_date OnCallSchedule#effective_date}
-        :param name: The name of this layer. Should be unique within the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
-        :param rotation_start: The date/time when the rotation for this layer starts (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#rotation_start OnCallSchedule#rotation_start}
-        :param users: List of user IDs for the layer. Can either be a valid user id or null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#users OnCallSchedule#users}
-        :param end_date: The date/time after which this layer no longer applies (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_date OnCallSchedule#end_date}
-        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#interval OnCallSchedule#interval}
-        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#restriction OnCallSchedule#restriction}
+        :param effective_date: The date/time when this layer should become active (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#effective_date OnCallSchedule#effective_date}
+        :param name: The name of this layer. Should be unique within the schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
+        :param rotation_start: The date/time when the rotation for this layer starts (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#rotation_start OnCallSchedule#rotation_start}
+        :param users: List of user IDs for the layer. Can either be a valid user id or null. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#users OnCallSchedule#users}
+        :param end_date: The date/time after which this layer no longer applies (in ISO 8601). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_date OnCallSchedule#end_date}
+        :param interval: interval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#interval OnCallSchedule#interval}
+        :param restriction: restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#restriction OnCallSchedule#restriction}
+        :param time_zone: The time zone for this layer. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
         '''
         if isinstance(interval, dict):
             interval = OnCallScheduleLayerInterval(**interval)
@@ -471,6 +474,7 @@ class OnCallScheduleLayer:
             check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
             check_type(argname="argument restriction", value=restriction, expected_type=type_hints["restriction"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "effective_date": effective_date,
             "name": name,
@@ -483,12 +487,14 @@ class OnCallScheduleLayer:
             self._values["interval"] = interval
         if restriction is not None:
             self._values["restriction"] = restriction
+        if time_zone is not None:
+            self._values["time_zone"] = time_zone
 
     @builtins.property
     def effective_date(self) -> builtins.str:
         '''The date/time when this layer should become active (in ISO 8601).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#effective_date OnCallSchedule#effective_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#effective_date OnCallSchedule#effective_date}
         '''
         result = self._values.get("effective_date")
         assert result is not None, "Required property 'effective_date' is missing"
@@ -498,7 +504,7 @@ class OnCallScheduleLayer:
     def name(self) -> builtins.str:
         '''The name of this layer. Should be unique within the schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#name OnCallSchedule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -508,7 +514,7 @@ class OnCallScheduleLayer:
     def rotation_start(self) -> builtins.str:
         '''The date/time when the rotation for this layer starts (in ISO 8601).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#rotation_start OnCallSchedule#rotation_start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#rotation_start OnCallSchedule#rotation_start}
         '''
         result = self._values.get("rotation_start")
         assert result is not None, "Required property 'rotation_start' is missing"
@@ -518,7 +524,7 @@ class OnCallScheduleLayer:
     def users(self) -> typing.List[builtins.str]:
         '''List of user IDs for the layer. Can either be a valid user id or null.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#users OnCallSchedule#users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#users OnCallSchedule#users}
         '''
         result = self._values.get("users")
         assert result is not None, "Required property 'users' is missing"
@@ -528,7 +534,7 @@ class OnCallScheduleLayer:
     def end_date(self) -> typing.Optional[builtins.str]:
         '''The date/time after which this layer no longer applies (in ISO 8601).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_date OnCallSchedule#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_date OnCallSchedule#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -537,7 +543,7 @@ class OnCallScheduleLayer:
     def interval(self) -> typing.Optional["OnCallScheduleLayerInterval"]:
         '''interval block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#interval OnCallSchedule#interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#interval OnCallSchedule#interval}
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional["OnCallScheduleLayerInterval"], result)
@@ -548,10 +554,19 @@ class OnCallScheduleLayer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallScheduleLayerRestriction"]]]:
         '''restriction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#restriction OnCallSchedule#restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#restriction OnCallSchedule#restriction}
         '''
         result = self._values.get("restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OnCallScheduleLayerRestriction"]]], result)
+
+    @builtins.property
+    def time_zone(self) -> typing.Optional[builtins.str]:
+        '''The time zone for this layer. String length must be at least 1.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#time_zone OnCallSchedule#time_zone}
+        '''
+        result = self._values.get("time_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -578,8 +593,8 @@ class OnCallScheduleLayerInterval:
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: The number of full days in each rotation period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
-        :param seconds: For intervals that are not expressible in whole days, this will be added to ``days``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
+        :param days: The number of full days in each rotation period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
+        :param seconds: For intervals that are not expressible in whole days, this will be added to ``days``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7141aef608a69d0508ecc32cb2ce55149edbd0bdc95b6f7b56ea14e9042df125)
@@ -595,7 +610,7 @@ class OnCallScheduleLayerInterval:
     def days(self) -> typing.Optional[jsii.Number]:
         '''The number of full days in each rotation period.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
         '''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -604,7 +619,7 @@ class OnCallScheduleLayerInterval:
     def seconds(self) -> typing.Optional[jsii.Number]:
         '''For intervals that are not expressible in whole days, this will be added to ``days``. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
         '''
         result = self._values.get("seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -825,8 +840,8 @@ class OnCallScheduleLayerOutputReference(
         seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: The number of full days in each rotation period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
-        :param seconds: For intervals that are not expressible in whole days, this will be added to ``days``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
+        :param days: The number of full days in each rotation period. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#days OnCallSchedule#days}
+        :param seconds: For intervals that are not expressible in whole days, this will be added to ``days``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#seconds OnCallSchedule#seconds}
         '''
         value = OnCallScheduleLayerInterval(days=days, seconds=seconds)
 
@@ -856,6 +871,10 @@ class OnCallScheduleLayerOutputReference(
     @jsii.member(jsii_name="resetRestriction")
     def reset_restriction(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRestriction", []))
+
+    @jsii.member(jsii_name="resetTimeZone")
+    def reset_time_zone(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTimeZone", []))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -905,6 +924,11 @@ class OnCallScheduleLayerOutputReference(
     @jsii.member(jsii_name="rotationStartInput")
     def rotation_start_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rotationStartInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timeZoneInput")
+    def time_zone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "timeZoneInput"))
 
     @builtins.property
     @jsii.member(jsii_name="usersInput")
@@ -960,6 +984,18 @@ class OnCallScheduleLayerOutputReference(
         jsii.set(self, "rotationStart", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="timeZone")
+    def time_zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "timeZone"))
+
+    @time_zone.setter
+    def time_zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__613478756f2499f8cd25a628cb24690844ae23b85beaa98aa3dd091f52d41ec3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="users")
     def users(self) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.get(self, "users"))
@@ -1009,10 +1045,10 @@ class OnCallScheduleLayerRestriction:
         start_time: builtins.str,
     ) -> None:
         '''
-        :param end_day: The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_day OnCallSchedule#end_day}
-        :param end_time: The time of day when the restriction ends (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_time OnCallSchedule#end_time}
-        :param start_day: The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#start_day OnCallSchedule#start_day}
-        :param start_time: The time of day when the restriction begins (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#start_time OnCallSchedule#start_time}
+        :param end_day: The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_day OnCallSchedule#end_day}
+        :param end_time: The time of day when the restriction ends (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_time OnCallSchedule#end_time}
+        :param start_day: The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#start_day OnCallSchedule#start_day}
+        :param start_time: The time of day when the restriction begins (hh:mm:ss). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#start_time OnCallSchedule#start_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f6924fd28cfdda69629b09d7093caa031f89226836584a6df0b25bb25892d0f)
@@ -1031,7 +1067,7 @@ class OnCallScheduleLayerRestriction:
     def end_day(self) -> builtins.str:
         '''The weekday when the restriction period ends. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_day OnCallSchedule#end_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_day OnCallSchedule#end_day}
         '''
         result = self._values.get("end_day")
         assert result is not None, "Required property 'end_day' is missing"
@@ -1041,7 +1077,7 @@ class OnCallScheduleLayerRestriction:
     def end_time(self) -> builtins.str:
         '''The time of day when the restriction ends (hh:mm:ss).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#end_time OnCallSchedule#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#end_time OnCallSchedule#end_time}
         '''
         result = self._values.get("end_time")
         assert result is not None, "Required property 'end_time' is missing"
@@ -1051,7 +1087,7 @@ class OnCallScheduleLayerRestriction:
     def start_day(self) -> builtins.str:
         '''The weekday when the restriction period starts. Valid values are ``monday``, ``tuesday``, ``wednesday``, ``thursday``, ``friday``, ``saturday``, ``sunday``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#start_day OnCallSchedule#start_day}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#start_day OnCallSchedule#start_day}
         '''
         result = self._values.get("start_day")
         assert result is not None, "Required property 'start_day' is missing"
@@ -1061,7 +1097,7 @@ class OnCallScheduleLayerRestriction:
     def start_time(self) -> builtins.str:
         '''The time of day when the restriction begins (hh:mm:ss).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/on_call_schedule#start_time OnCallSchedule#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/on_call_schedule#start_time OnCallSchedule#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -1377,6 +1413,7 @@ def _typecheckingstub__e7699e64c60ad474977827c11277798e364ee285219c06cae7aafdd9c
     end_date: typing.Optional[builtins.str] = None,
     interval: typing.Optional[typing.Union[OnCallScheduleLayerInterval, typing.Dict[builtins.str, typing.Any]]] = None,
     restriction: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OnCallScheduleLayerRestriction, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    time_zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1486,6 +1523,12 @@ def _typecheckingstub__842f4ac6bd0e7d1396b16127c580e88019abec3637b01d94ac6e738f2
     pass
 
 def _typecheckingstub__6b94f91522c72e5185f4f09eecca8c773ccfc0786ca00356705c4ab8c8c69d8d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__613478756f2499f8cd25a628cb24690844ae23b85beaa98aa3dd091f52d41ec3(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""

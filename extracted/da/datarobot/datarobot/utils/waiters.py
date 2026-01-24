@@ -75,9 +75,7 @@ def wait_for_custom_resolution(
         response = client.get(url, allow_redirects=False, join_endpoint=join_endpoint)
 
     timeout_msg = "Client timed out in {} seconds waiting for {} to resolve. Last status was {}: {}"
-    raise errors.AsyncTimeoutError(
-        timeout_msg.format(max_wait, url, response.status_code, response.text)
-    )
+    raise errors.AsyncTimeoutError(timeout_msg.format(max_wait, url, response.status_code, response.text))
 
 
 def wait_for_async_resolution(

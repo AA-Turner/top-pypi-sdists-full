@@ -1,7 +1,7 @@
 version: 2.1
 
-deploy_filter: &deploy_filter
-  # YAML reference for tag based filtering on deployments
+deploy_filter:
+  &deploy_filter # YAML reference for tag based filtering on deployments
   filters:
     tags:
       only: /^v.*/
@@ -15,18 +15,14 @@ test_steps: &test_steps
         name: Update pip
         command: pip install --upgrade pip
     - run:
-        name: Install dependencies
-        command: pip install virtualenv==20.26.1
-    - run:
-        name: Run unit tests
-        command: make install-with-tests
+        name: Run tests and checks
+        command: |
+          make install
+          make test
 
 sanity_check: &sanity_check_steps
   steps:
     - checkout
-    - run:
-        name: Install dependencies
-        command: pip install virtualenv==20.26.1
     - run:
         name: Make Sanity Check
         command: |
@@ -67,22 +63,17 @@ jobs:
       - image: python:3.9
     <<: *sanity_check_steps
 
-  deploy:
+  deploy: # cci-ignore
     docker:
       - image: python:3.8.6
 
     steps:
       - checkout
       - run:
-          name: Install dependencies
-          command: pip install virtualenv==20.26.1
-      - run:
           name: Deploy to PyPI
           command: make distribute
 
 workflows:
-  version: 2
-
   build:
     jobs:
       - run-test-3-8
@@ -91,9 +82,9 @@ workflows:
       - run-test-3-11
       - run-test-3-12
       - run-sanity-check:
-          context: mc-prod
+          context: mc-prod # cci-ignore
 
-  deploy:
+  deploy: # cci-ignore
     jobs:
       - run-test-3-8:
           <<: *deploy_filter
@@ -106,7 +97,7 @@ workflows:
       - run-test-3-12:
           <<: *deploy_filter
       - run-sanity-check:
-          context: mc-prod
+          context: mc-prod # cci-ignore
           <<: *deploy_filter
       - deploy:
           requires:

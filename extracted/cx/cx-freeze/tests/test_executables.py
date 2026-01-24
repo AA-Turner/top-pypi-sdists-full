@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import shutil
 import sys
-from importlib.resources import files
 from pathlib import Path
 
 import pytest
 from setuptools import Distribution
 
 from cx_Freeze import Executable
-from cx_Freeze._compat import EXE_SUFFIX, IS_CONDA, IS_MINGW, IS_WINDOWS, SOABI
+from cx_Freeze._compat import (
+    EXE_SUFFIX,
+    IS_CONDA,
+    IS_MINGW,
+    IS_WINDOWS,
+    SOABI,
+)
+from cx_Freeze.common import resource_path
 from cx_Freeze.exception import OptionError, SetupError
 
 SOURCE_SETUP_TOML = """
@@ -231,13 +237,6 @@ def test_executables(
 
 
 TEST_VALID_PARAMETERS = [
-    ("base", "console", f"console-{SOABI}{EXE_SUFFIX}"),
-    pytest.param(
-        "base",
-        "absolutepath",
-        f"console_test{EXE_SUFFIX}",
-        id="base-absolutepath-console_test",
-    ),
     pytest.param(
         "init_script", None, "console.py", id="init_script-none-console.py"
     ),
@@ -262,59 +261,96 @@ TEST_VALID_PARAMETERS = [
         id="icon-icon-multiple",
     ),
 ]
-if sys.version_info[:2] < (3, 13):
-    TEST_VALID_PARAMETERS += [
-        pytest.param(
-            "base",
-            None,
-            f"console_legacy-{SOABI}{EXE_SUFFIX}",
-            id="base-none-console_legacy-",
-        ),
-        ("base", "console_legacy", f"console_legacy-{SOABI}{EXE_SUFFIX}"),
-    ]
-else:
-    TEST_VALID_PARAMETERS += [
-        pytest.param(
-            "base",
-            None,
-            f"console-{SOABI}{EXE_SUFFIX}",
-            id="base-none-console-",
-        ),
-    ]
+
+# base=console valid parameters
+TEST_VALID_PARAMETERS += [
+    ("base", None, f"bases/console-{SOABI}{EXE_SUFFIX}"),
+    ("base", "console", f"bases/console-{SOABI}{EXE_SUFFIX}"),
+    pytest.param(
+        "base",
+        "absolutepath",
+        f"console_test{EXE_SUFFIX}",
+        id="base-absolutepath-console_test",
+    ),
+]
+# base=gui and base=service are available on Windows
 if IS_WINDOWS or IS_MINGW:
     TEST_VALID_PARAMETERS += [
-        ("base", "gui", f"gui-{SOABI}{EXE_SUFFIX}"),
-        ("base", "service", f"service-{SOABI}{EXE_SUFFIX}"),
-        ("base", "Win32GUI", f"Win32GUI-{SOABI}{EXE_SUFFIX}"),
-        ("base", "Win32Service", f"Win32Service-{SOABI}{EXE_SUFFIX}"),
+        ("base", "gui", f"bases/gui-{SOABI}{EXE_SUFFIX}"),
+        ("base", "service", f"bases/service-{SOABI}{EXE_SUFFIX}"),
     ]
+    # In Python < 3.13 legacy bases are available
+    if sys.version_info[:2] < (3, 13):
+        TEST_VALID_PARAMETERS += [
+            ("base", "legacy/console", f"legacy/console-{SOABI}{EXE_SUFFIX}"),
+            ("base", "Win32GUI", f"legacy/win32gui-{SOABI}{EXE_SUFFIX}"),
+            (
+                "base",
+                "Win32Service",
+                f"legacy/win32service-{SOABI}{EXE_SUFFIX}",
+            ),
+        ]
+    else:
+        TEST_VALID_PARAMETERS += [
+            ("base", "legacy/console", OptionError),
+            ("base", "Win32GUI", OptionError),
+            ("base", "Win32Service", OptionError),
+        ]
 else:
     TEST_VALID_PARAMETERS += [
-        ("base", "gui", f"console-{SOABI}{EXE_SUFFIX}"),
-        ("base", "service", f"console-{SOABI}{EXE_SUFFIX}"),
+        ("base", "gui", f"bases/console-{SOABI}{EXE_SUFFIX}"),
+        ("base", "service", f"bases/console-{SOABI}{EXE_SUFFIX}"),
     ]
+    # In Python < 3.13 legacy console is available
+    if sys.version_info[:2] < (3, 13):
+        TEST_VALID_PARAMETERS += [
+            ("base", "legacy/console", f"legacy/console-{SOABI}{EXE_SUFFIX}"),
+        ]
+    else:
+        TEST_VALID_PARAMETERS += [
+            ("base", "legacy/console", OptionError),
+        ]
 
 
 @pytest.mark.parametrize(("option", "value", "result"), TEST_VALID_PARAMETERS)
 def test_valid(tmp_package, option, value, result) -> None:
     """Test valid values to use in Executable class."""
+    expected_app_type = None
     if value == "absolutepath":
-        src_dir = files("cx_Freeze").resolve()
         if option == "base":
+            expected_app_type = "console"
             value = tmp_package.path / f"console_test{EXE_SUFFIX}"
             shutil.copyfile(
-                src_dir / f"bases/console-{SOABI}{EXE_SUFFIX}", value
+                resource_path(f"bases/console-{SOABI}{EXE_SUFFIX}"), value
             )
         elif option == "init_script":
             value = tmp_package.path / "console_test.py"
-            shutil.copyfile(src_dir / "initscripts/console.py", value)
+            shutil.copyfile(resource_path("initscripts/console.py"), value)
 
-    executable = Executable("test.py", **{option: value})
+    try:
+        if issubclass(result, OptionError):
+            with pytest.raises(result):
+                executable = Executable("test.py", **{option: value})
+            return
+    except TypeError:
+        executable = Executable("test.py", **{option: value})
+
+    if expected_app_type is None:
+        base = value or "console" if option == "base" else executable.base.stem
+        expected_app_type = (
+            base.lower().removeprefix("win32").removesuffix(f"-{SOABI}")
+        )
+    assert executable.app_type == expected_app_type
+
     returned = getattr(executable, option)
     if isinstance(value, Path) and value.is_absolute():
         assert returned == value
+        return
     if isinstance(returned, Path):
-        returned = returned.name
+        if option == "base":
+            returned = returned.relative_to(returned.parent.parent).as_posix()
+        else:
+            returned = returned.name
     if isinstance(result, tuple):  # valid icon names
         assert returned.startswith(result), returned
         return
@@ -394,9 +430,9 @@ pyproject.toml
 def test_valid_icon(tmp_package) -> None:
     """Test with valid icon in any OS."""
     tmp_package.create(SOURCE_VALID_ICON)
-    # copy valid icons: cp $SRC/cx_Freeze/icons/py.* $DST/icon.*
-    src_dir = files("cx_Freeze").resolve()
-    for src in src_dir.joinpath("icons").glob("py.*"):
+    # copy valid icons: cp $SRC/freeze_core/icons/py.* $DST/icon.*
+    src_dir = resource_path("icons")
+    for src in src_dir.glob("py.*"):
         shutil.copyfile(
             src, tmp_package.path.joinpath("icon").with_suffix(src.suffix)
         )
@@ -442,9 +478,9 @@ pyproject.toml
 def test_invalid_icon(tmp_package) -> None:
     """Test with invalid icon in Windows."""
     tmp_package.create(SOURCE_INVALID_ICON)
-    # use an invalid icon: cp $SRC/cx_Freeze/icons/py.png $DST/icon.png
-    src_dir = files("cx_Freeze").resolve()
-    shutil.copyfile(src_dir / "icons/py.png", tmp_package.path / "icon.png")
+    # use an invalid icon: cp $SRC/freeze_core/icons/py.png $DST/icon.png
+    src_dir = resource_path("icons")
+    shutil.copyfile(src_dir / "py.png", tmp_package.path / "icon.png")
     result = tmp_package.freeze()
     result.stdout.no_fnmatch_line("WARNING: Icon file not found")
     # it is expected the following warning if the icon is invalid

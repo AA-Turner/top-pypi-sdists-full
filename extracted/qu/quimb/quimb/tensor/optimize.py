@@ -616,20 +616,25 @@ def get_torch():
 
 
 class TorchHandler:
-    def __init__(self, jit_fn=False, device=None):
+    def __init__(self, jit_fn=False, device=None, dtype=None):
         torch = get_torch()
         self.jit_fn = jit_fn
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
+        if isinstance(dtype, str):
+            dtype = getattr(torch, dtype)
+        self.dtype = dtype
 
     def to_variable(self, x):
         torch = get_torch()
-        return torch.tensor(x).to(self.device).requires_grad_()
+        return torch.as_tensor(
+            x, device=self.device, dtype=self.dtype
+        ).requires_grad_()
 
     def to_constant(self, x):
         torch = get_torch()
-        return torch.tensor(x).to(self.device)
+        return torch.as_tensor(x, device=self.device, dtype=self.dtype)
 
     def setup_fn(self, fn):
         self._fn = fn
@@ -638,15 +643,30 @@ class TorchHandler:
     def _setup_backend_fn(self, arrays):
         torch = get_torch()
         if self.jit_fn:
-            example_inputs = (tree_map(self.to_variable, arrays),)
+            # jit.trace only accepts a tuple of example tensors ->
+            # so we need to further flatten the pytree of arrays
+
+            flat_arrays, ref_tree = tree_flatten(arrays, get_ref=True)
+            example_inputs = tuple(map(self.to_variable, flat_arrays))
+
+            def fn_flat(*arrays_flat):
+                arrays = tree_unflatten(arrays_flat, ref_tree)
+                return self._fn(arrays)
+
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     action="ignore",
                     message=".*can't record the data flow of Python values.*",
                 )
-                self._backend_fn = torch.jit.trace(
-                    self._fn, example_inputs=example_inputs
+                traced_fn = torch.jit.trace(
+                    fn_flat, example_inputs=example_inputs
                 )
+
+            def backend_fn(arrays):
+                flat_arrays = tree_flatten(arrays)
+                return traced_fn(*flat_arrays)
+
+            self._backend_fn = backend_fn
         else:
             self._backend_fn = self._fn
 
@@ -955,8 +975,7 @@ class ADAM:
 
 
 class CADAM(ADAM):
-    """Cautious ADAM - https://arxiv.org/abs/2411.16085.
-    """
+    """Cautious ADAM - https://arxiv.org/abs/2411.16085."""
 
     def __init__(self):
         super().__init__(cautious=True)

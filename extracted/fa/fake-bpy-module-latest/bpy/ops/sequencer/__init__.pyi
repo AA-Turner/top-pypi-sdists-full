@@ -24,30 +24,57 @@ def add_scene_strip_from_scene_asset(
     asset_library_identifier: str = "",
     relative_asset_identifier: str = "",
 ) -> None:
-    """Add a scene strip from a scene asset
+    """Add a strip using a duplicate of this scene asset as the source
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-    :type move_strips: bool | None
     :param frame_start: Start Frame, Start frame of the strip
-    :type frame_start: int | None
     :param channel: Channel, Channel to place this strip into
-    :type channel: int | None
     :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-    :type replace_sel: bool | None
     :param overlap: Allow Overlap, Dont correct overlap on new strips
-    :type overlap: bool | None
     :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-    :type overlap_shuffle_override: bool | None
     :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-    :type skip_locked_or_muted_channels: bool | None
     :param asset_library_type: Asset Library Type
-    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
     :param asset_library_identifier: Asset Library Identifier
-    :type asset_library_identifier: str
     :param relative_asset_identifier: Relative Asset Identifier
-    :type relative_asset_identifier: str
+    """
+
+def box_blade(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    xmin: int | None = 0,
+    xmax: int | None = 0,
+    ymin: int | None = 0,
+    ymax: int | None = 0,
+    wait_for_input: bool | None = True,
+    mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
+    type: typing.Literal["SOFT", "HARD"] | None = "SOFT",
+    ignore_selection: bool | None = True,
+    ignore_connections: bool | None = False,
+    remove_gaps: bool | None = True,
+) -> None:
+    """Draw a box around the parts of strips you want to cut away
+
+        :param xmin: X Min
+        :param xmax: X Max
+        :param ymin: Y Min
+        :param ymax: Y Max
+        :param wait_for_input: Wait for Input
+        :param mode: Mode
+
+    SET
+    Set -- Set a new selection.
+
+    ADD
+    Extend -- Extend existing selection.
+
+    SUB
+    Subtract -- Subtract existing selection.
+        :param type: Type, The type of split operation to perform on strips
+        :param ignore_selection: Ignore Selection, In box blade mode, make cuts to all strips, even if they are not selected
+        :param ignore_connections: Ignore Connections, Dont propagate split to connected strips
+        :param remove_gaps: Remove Gaps, In box blade mode, close gaps between cut strips, rippling later strips on the same channel
     """
 
 def change_effect_type(
@@ -65,7 +92,6 @@ def change_effect_type(
         "MULTIPLY",
         "WIPE",
         "GLOW",
-        "TRANSFORM",
         "COLOR",
         "SPEED",
         "MULTICAM",
@@ -78,8 +104,6 @@ def change_effect_type(
 ) -> None:
     """Replace effect strip with another that takes the same number of inputs
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type, Strip effect type
 
     CROSS
@@ -109,9 +133,6 @@ def change_effect_type(
     GLOW
     Glow -- Add blur and brightness to light areas.
 
-    TRANSFORM
-    Transform -- Apply scale, rotation, or translation.
-
     COLOR
     Color -- Add a simple color strip.
 
@@ -132,7 +153,6 @@ def change_effect_type(
 
     COLORMIX
     Color Mix -- Combine two strips using blend modes.
-        :type type: typing.Literal['CROSS','ADD','SUBTRACT','ALPHA_OVER','ALPHA_UNDER','GAMMA_CROSS','MULTIPLY','WIPE','GLOW','TRANSFORM','COLOR','SPEED','MULTICAM','ADJUSTMENT','GAUSSIAN_BLUR','TEXT','COLORMIX'] | None
     """
 
 def change_path(
@@ -173,54 +193,29 @@ def change_path(
 ) -> None:
     """Undocumented, consider contributing.
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -234,11 +229,8 @@ def change_path(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param use_placeholders: Use Placeholders, Use placeholders for missing frames of the strip
-        :type use_placeholders: bool | None
     """
 
 def change_scene(
@@ -250,10 +242,7 @@ def change_scene(
 ) -> None:
     """Change Scene assigned to Strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param scene: Scene
-    :type scene: str | None
     """
 
 def connect(
@@ -265,10 +254,7 @@ def connect(
 ) -> None:
     """Link selected strips together for simplified group selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param toggle: Toggle, Toggle strip connections
-    :type toggle: bool | None
     """
 
 def copy(
@@ -276,22 +262,14 @@ def copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the selected strips to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the selected strips to the internal clipboard"""
 
 def crossfade_sounds(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Do cross-fading volume animation of two selected sound strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Do cross-fading volume animation of two selected sound strips"""
 
 def cursor_set(
     execution_context: int | str | None = None,
@@ -302,10 +280,7 @@ def cursor_set(
 ) -> None:
     """Set 2D cursor location
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Cursor location in normalized preview coordinates
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def deinterlace_selected_movies(
@@ -313,11 +288,7 @@ def deinterlace_selected_movies(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deinterlace all selected movie sources
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deinterlace all selected movie sources"""
 
 def delete(
     execution_context: int | str | None = None,
@@ -328,10 +299,7 @@ def delete(
 ) -> None:
     """Delete selected strips from the sequencer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delete_data: Delete Data, After removing the Strip, delete the associated data also
-    :type delete_data: bool | None
     """
 
 def disconnect(
@@ -339,11 +307,7 @@ def disconnect(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Unlink selected strips so that they can be selected individually
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Unlink selected strips so that they can be selected individually"""
 
 def duplicate(
     execution_context: int | str | None = None,
@@ -354,10 +318,7 @@ def duplicate(
 ) -> None:
     """Duplicate the selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param linked: Linked, Duplicate strip but not strip data, linking to the original data
-    :type linked: bool | None
     """
 
 def duplicate_move(
@@ -370,12 +331,8 @@ def duplicate_move(
 ) -> None:
     """Duplicate selected strips and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips
-    :type SEQUENCER_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_seq_slide: Sequence Slide, Slide a sequence strip in time
-    :type TRANSFORM_OT_seq_slide: bpy.ops.transform.seq_slide | None
     """
 
 def duplicate_move_linked(
@@ -388,12 +345,8 @@ def duplicate_move_linked(
 ) -> None:
     """Duplicate selected strips, but not their data, and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips
-    :type SEQUENCER_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_seq_slide: Sequence Slide, Slide a sequence strip in time
-    :type TRANSFORM_OT_seq_slide: bpy.ops.transform.seq_slide | None
     """
 
 def effect_strip_add(
@@ -411,7 +364,6 @@ def effect_strip_add(
         "MULTIPLY",
         "WIPE",
         "GLOW",
-        "TRANSFORM",
         "COLOR",
         "SPEED",
         "MULTICAM",
@@ -433,8 +385,6 @@ def effect_strip_add(
 ) -> None:
     """Add an effect to the sequencer, most are applied on top of existing strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type, Sequencer effect type
 
     CROSS
@@ -464,9 +414,6 @@ def effect_strip_add(
     GLOW
     Glow -- Add blur and brightness to light areas.
 
-    TRANSFORM
-    Transform -- Apply scale, rotation, or translation.
-
     COLOR
     Color -- Add a simple color strip.
 
@@ -487,25 +434,15 @@ def effect_strip_add(
 
     COLORMIX
     Color Mix -- Combine two strips using blend modes.
-        :type type: typing.Literal['CROSS','ADD','SUBTRACT','ALPHA_OVER','ALPHA_UNDER','GAMMA_CROSS','MULTIPLY','WIPE','GLOW','TRANSFORM','COLOR','SPEED','MULTICAM','ADJUSTMENT','GAUSSIAN_BLUR','TEXT','COLORMIX'] | None
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-        :type move_strips: bool | None
         :param frame_start: Start Frame, Start frame of the strip
-        :type frame_start: int | None
         :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added
-        :type length: int | None
         :param channel: Channel, Channel to place this strip into
-        :type channel: int | None
         :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-        :type replace_sel: bool | None
         :param overlap: Allow Overlap, Dont correct overlap on new strips
-        :type overlap: bool | None
         :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-        :type overlap_shuffle_override: bool | None
         :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-        :type skip_locked_or_muted_channels: bool | None
         :param color: Color, Initialize the strip with this color
-        :type color: collections.abc.Sequence[float] | mathutils.Color | None
     """
 
 def enable_proxies(
@@ -521,18 +458,11 @@ def enable_proxies(
 ) -> None:
     """Enable selected proxies on all selected Movie and Image strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param proxy_25: 25%
-    :type proxy_25: bool | None
     :param proxy_50: 50%
-    :type proxy_50: bool | None
     :param proxy_75: 75%
-    :type proxy_75: bool | None
     :param proxy_100: 100%
-    :type proxy_100: bool | None
     :param overwrite: Overwrite
-    :type overwrite: bool | None
     """
 
 def export_subtitles(
@@ -568,48 +498,26 @@ def export_subtitles(
 ) -> None:
     """Export .srt file containing text strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -623,9 +531,7 @@ def export_subtitles(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def fades_add(
@@ -639,10 +545,7 @@ def fades_add(
 ) -> None:
     """Adds or updates a fade animation for either visual or audio strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param duration_seconds: Fade Duration, Duration of the fade in seconds
-        :type duration_seconds: float | None
         :param type: Fade Type, Fade in, out, both in and out, to, or from the current frame. Default is both in and out
 
     IN_OUT
@@ -659,7 +562,6 @@ def fades_add(
 
     CURSOR_TO
     To Current Frame -- Fade from the start of strips under the time cursor to the current frame.
-        :type type: typing.Literal['IN_OUT','IN','OUT','CURSOR_FROM','CURSOR_TO'] | None
     """
 
 def fades_clear(
@@ -667,11 +569,7 @@ def fades_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Removes fade animation from selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Removes fade animation from selected strips"""
 
 def gap_insert(
     execution_context: int | str | None = None,
@@ -682,10 +580,7 @@ def gap_insert(
 ) -> None:
     """Insert gap at current frame to first strips at the right, independent of selection or locked state of strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frames: Frames, Frames to insert after current strip
-    :type frames: int | None
     """
 
 def gap_remove(
@@ -697,10 +592,7 @@ def gap_remove(
 ) -> None:
     """Remove gap at current frame to first strip at the right, independent of selection or locked state of strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All Gaps, Do all gaps to right of current frame
-    :type all: bool | None
     """
 
 def image_strip_add(
@@ -755,59 +647,36 @@ def image_strip_add(
     skip_locked_or_muted_channels: bool | None = True,
     fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None = "FIT",
     set_view_transform: bool | None = True,
+    image_import_type: typing.Literal["DETECT", "SEQUENCE", "INDIVIDUAL"]
+    | None = "DETECT",
     use_sequence_detection: bool | None = True,
     use_placeholders: bool | None = False,
 ) -> None:
     """Add an image or image sequence to the sequencer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -821,7 +690,6 @@ def image_strip_add(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
 
     DEFAULT
@@ -841,31 +709,28 @@ def image_strip_add(
 
     ASSET_CATALOG
     Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
-        :type sort_method: typing.Literal['DEFAULT','FILE_SORT_ALPHA','FILE_SORT_EXTENSION','FILE_SORT_TIME','FILE_SORT_SIZE','ASSET_CATALOG'] | None
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-        :type move_strips: bool | None
         :param frame_start: Start Frame, Start frame of the strip
-        :type frame_start: int | None
         :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added
-        :type length: int | None
         :param channel: Channel, Channel to place this strip into
-        :type channel: int | None
         :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-        :type replace_sel: bool | None
         :param overlap: Allow Overlap, Dont correct overlap on new strips
-        :type overlap: bool | None
         :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-        :type overlap_shuffle_override: bool | None
         :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-        :type skip_locked_or_muted_channels: bool | None
         :param fit_method: Fit Method, Mode for fitting the image to the canvas
-        :type fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None
         :param set_view_transform: Set View Transform, Set appropriate view transform based on media color space
-        :type set_view_transform: bool | None
+        :param image_import_type: Import As, Mode for importing selected images
+
+    DETECT
+    Auto Detect -- Add images as individual strips, unless their filenames match Blenders numbered sequence pattern, in which case they are grouped into a single image sequence.
+
+    SEQUENCE
+    Image Sequence -- Import all selected images as a single image sequence. The sequence of images does not have to match Blenders numbered sequence pattern, so placeholders cannot be inferred.
+
+    INDIVIDUAL
+    Individual Images -- Add each selected image as an individual strip.
         :param use_sequence_detection: Detect Sequences, Automatically detect animated sequences in selected images (based on file names)
-        :type use_sequence_detection: bool | None
         :param use_placeholders: Use Placeholders, Reserve placeholder frames for missing frames of the image sequence
-        :type use_placeholders: bool | None
     """
 
 def images_separate(
@@ -877,10 +742,7 @@ def images_separate(
 ) -> None:
     """On image sequence strips, it returns a strip for each image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param length: Length, Length of each frame
-    :type length: int | None
     """
 
 def lock(
@@ -888,11 +750,7 @@ def lock(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Lock strips so they cannot be transformed
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Lock strips so they cannot be transformed"""
 
 def mask_strip_add(
     execution_context: int | str | None = None,
@@ -910,24 +768,14 @@ def mask_strip_add(
 ) -> None:
     """Add a mask strip to the sequencer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-    :type move_strips: bool | None
     :param frame_start: Start Frame, Start frame of the strip
-    :type frame_start: int | None
     :param channel: Channel, Channel to place this strip into
-    :type channel: int | None
     :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-    :type replace_sel: bool | None
     :param overlap: Allow Overlap, Dont correct overlap on new strips
-    :type overlap: bool | None
     :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-    :type overlap_shuffle_override: bool | None
     :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-    :type skip_locked_or_muted_channels: bool | None
     :param mask: Mask
-    :type mask: str | None
     """
 
 def meta_make(
@@ -935,33 +783,21 @@ def meta_make(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Group selected strips into a meta-strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Group selected strips into a meta-strip"""
 
 def meta_separate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Put the contents of a meta-strip back in the sequencer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Put the contents of a meta-strip back in the sequencer"""
 
 def meta_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle a meta-strip (to edit enclosed strips)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle a meta-strip (to edit enclosed strips)"""
 
 def movie_strip_add(
     execution_context: int | str | None = None,
@@ -1021,56 +857,30 @@ def movie_strip_add(
 ) -> None:
     """Add a movie strip to the sequencer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1084,7 +894,6 @@ def movie_strip_add(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
 
     DEFAULT
@@ -1104,31 +913,18 @@ def movie_strip_add(
 
     ASSET_CATALOG
     Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
-        :type sort_method: typing.Literal['DEFAULT','FILE_SORT_ALPHA','FILE_SORT_EXTENSION','FILE_SORT_TIME','FILE_SORT_SIZE','ASSET_CATALOG'] | None
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-        :type move_strips: bool | None
         :param frame_start: Start Frame, Start frame of the strip
-        :type frame_start: int | None
         :param channel: Channel, Channel to place this strip into
-        :type channel: int | None
         :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-        :type replace_sel: bool | None
         :param overlap: Allow Overlap, Dont correct overlap on new strips
-        :type overlap: bool | None
         :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-        :type overlap_shuffle_override: bool | None
         :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-        :type skip_locked_or_muted_channels: bool | None
         :param fit_method: Fit Method, Mode for fitting the image to the canvas
-        :type fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None
         :param set_view_transform: Set View Transform, Set appropriate view transform based on media color space
-        :type set_view_transform: bool | None
         :param adjust_playback_rate: Adjust Playback Rate, Play at normal speed regardless of scene FPS
-        :type adjust_playback_rate: bool | None
         :param sound: Sound, Load sound with the movie
-        :type sound: bool | None
         :param use_framerate: Set Scene Frame Rate, Set frame rate of the current scene to the frame rate of the movie
-        :type use_framerate: bool | None
     """
 
 def movieclip_strip_add(
@@ -1147,24 +943,14 @@ def movieclip_strip_add(
 ) -> None:
     """Add a movieclip strip to the sequencer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-    :type move_strips: bool | None
     :param frame_start: Start Frame, Start frame of the strip
-    :type frame_start: int | None
     :param channel: Channel, Channel to place this strip into
-    :type channel: int | None
     :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-    :type replace_sel: bool | None
     :param overlap: Allow Overlap, Dont correct overlap on new strips
-    :type overlap: bool | None
     :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-    :type overlap_shuffle_override: bool | None
     :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-    :type skip_locked_or_muted_channels: bool | None
     :param clip: Clip
-    :type clip: str | None
     """
 
 def mute(
@@ -1176,10 +962,7 @@ def mute(
 ) -> None:
     """Mute (un)selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Mute unselected rather than selected strips
-    :type unselected: bool | None
     """
 
 def offset_clear(
@@ -1187,11 +970,7 @@ def offset_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear strip in/out offsets from the start and end of content
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear strip in/out offsets from the start and end of content"""
 
 def paste(
     execution_context: int | str | None = None,
@@ -1204,14 +983,9 @@ def paste(
 ) -> None:
     """Paste strips from the internal clipboard
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param keep_offset: Keep Offset, Keep strip offset relative to the current frame when pasting
-    :type keep_offset: bool | None
     :param x: X
-    :type x: int | None
     :param y: Y
-    :type y: int | None
     """
 
 def preview_duplicate_move(
@@ -1224,12 +998,8 @@ def preview_duplicate_move(
 ) -> None:
     """Duplicate selected strips and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips
-    :type SEQUENCER_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def preview_duplicate_move_linked(
@@ -1242,12 +1012,8 @@ def preview_duplicate_move_linked(
 ) -> None:
     """Duplicate selected strips, but not their data, and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips
-    :type SEQUENCER_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def reassign_inputs(
@@ -1255,33 +1021,21 @@ def reassign_inputs(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reassign the inputs for the effect strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reassign the inputs for the effect strip"""
 
 def rebuild_proxy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Rebuild all selected proxies and timecode indices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Rebuild all selected proxies and timecode indices"""
 
 def refresh_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Refresh the sequencer editor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Refresh the sequencer editor"""
 
 def reload(
     execution_context: int | str | None = None,
@@ -1292,10 +1046,7 @@ def reload(
 ) -> None:
     """Reload strips in the sequencer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param adjust_length: Adjust Length, Adjust length of strips to their data length
-    :type adjust_length: bool | None
     """
 
 def rename_channel(
@@ -1303,22 +1054,14 @@ def rename_channel(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def rendersize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set render size and aspect from active strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set render size and aspect from active strip"""
 
 def retiming_add_freeze_frame_slide(
     execution_context: int | str | None = None,
@@ -1330,12 +1073,8 @@ def retiming_add_freeze_frame_slide(
 ) -> None:
     """Add freeze frame and move it
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_retiming_freeze_frame_add: Add Freeze Frame, Add freeze frame
-    :type SEQUENCER_OT_retiming_freeze_frame_add: retiming_freeze_frame_add | None
     :param TRANSFORM_OT_seq_slide: Sequence Slide, Slide a sequence strip in time
-    :type TRANSFORM_OT_seq_slide: bpy.ops.transform.seq_slide | None
     """
 
 def retiming_add_transition_slide(
@@ -1348,12 +1087,8 @@ def retiming_add_transition_slide(
 ) -> None:
     """Add smooth transition between 2 retimed segments and change its duration
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param SEQUENCER_OT_retiming_transition_add: Add Speed Transition, Add smooth transition between 2 retimed segments
-    :type SEQUENCER_OT_retiming_transition_add: retiming_transition_add | None
     :param TRANSFORM_OT_seq_slide: Sequence Slide, Slide a sequence strip in time
-    :type TRANSFORM_OT_seq_slide: bpy.ops.transform.seq_slide | None
     """
 
 def retiming_freeze_frame_add(
@@ -1365,10 +1100,7 @@ def retiming_freeze_frame_add(
 ) -> None:
     """Add freeze frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param duration: Duration, Duration of freeze frame segment
-    :type duration: int | None
     """
 
 def retiming_key_add(
@@ -1380,10 +1112,7 @@ def retiming_key_add(
 ) -> None:
     """Add retiming Key
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param timeline_frame: Timeline Frame, Frame where key will be added
-    :type timeline_frame: int | None
     """
 
 def retiming_key_delete(
@@ -1391,22 +1120,14 @@ def retiming_key_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete selected retiming keys from the sequencer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete selected retiming keys from the sequencer"""
 
 def retiming_reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset strip retiming
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset strip retiming"""
 
 def retiming_segment_speed_set(
     execution_context: int | str | None = None,
@@ -1418,12 +1139,8 @@ def retiming_segment_speed_set(
 ) -> None:
     """Set speed of retimed segment
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param speed: Speed, New speed of retimed segment
-    :type speed: float | None
     :param keep_retiming: Preserve Current Retiming, Keep speed of other segments unchanged, change strip length instead
-    :type keep_retiming: bool | None
     """
 
 def retiming_show(
@@ -1431,11 +1148,7 @@ def retiming_show(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Show retiming keys in selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Show retiming keys in selected strips"""
 
 def retiming_transition_add(
     execution_context: int | str | None = None,
@@ -1446,10 +1159,7 @@ def retiming_transition_add(
 ) -> None:
     """Add smooth transition between 2 retimed segments
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param duration: Duration, Duration of freeze frame segment
-    :type duration: int | None
     """
 
 def sample(
@@ -1461,10 +1171,7 @@ def sample(
 ) -> None:
     """Use mouse to sample color in current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param size: Sample Size
-    :type size: int | None
     """
 
 def scene_frame_range_update(
@@ -1472,11 +1179,7 @@ def scene_frame_range_update(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update frame range of scene strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update frame range of scene strip"""
 
 def scene_strip_add(
     execution_context: int | str | None = None,
@@ -1492,26 +1195,16 @@ def scene_strip_add(
     skip_locked_or_muted_channels: bool | None = True,
     scene: str | None = "",
 ) -> None:
-    """Add a strip to the sequencer using a Blender scene as a source
+    """Add a strip re-using this scene as the source
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-    :type move_strips: bool | None
     :param frame_start: Start Frame, Start frame of the strip
-    :type frame_start: int | None
     :param channel: Channel, Channel to place this strip into
-    :type channel: int | None
     :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-    :type replace_sel: bool | None
     :param overlap: Allow Overlap, Dont correct overlap on new strips
-    :type overlap: bool | None
     :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-    :type overlap_shuffle_override: bool | None
     :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-    :type skip_locked_or_muted_channels: bool | None
     :param scene: Scene
-    :type scene: str | None
     """
 
 def scene_strip_add_new(
@@ -1528,24 +1221,15 @@ def scene_strip_add_new(
     skip_locked_or_muted_channels: bool | None = True,
     type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
 ) -> None:
-    """Create a new Strip and assign a new Scene as source
+    """Add a strip using a new scene as the source
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-        :type move_strips: bool | None
         :param frame_start: Start Frame, Start frame of the strip
-        :type frame_start: int | None
         :param channel: Channel, Channel to place this strip into
-        :type channel: int | None
         :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-        :type replace_sel: bool | None
         :param overlap: Allow Overlap, Dont correct overlap on new strips
-        :type overlap: bool | None
         :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-        :type overlap_shuffle_override: bool | None
         :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-        :type skip_locked_or_muted_channels: bool | None
         :param type: Type
 
     NEW
@@ -1559,7 +1243,6 @@ def scene_strip_add_new(
 
     FULL_COPY
     Full Copy -- Add a Strip and make a full copy of the current scene.
-        :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
     """
 
 def select(
@@ -1568,6 +1251,7 @@ def select(
     /,
     *,
     wait_to_deselect_others: bool | None = False,
+    use_select_on_click: bool | None = False,
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     extend: bool | None = False,
@@ -1583,34 +1267,20 @@ def select(
 ) -> None:
     """Select a strip (last selected becomes the "active strip")
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param wait_to_deselect_others: Wait to Deselect Others
-    :type wait_to_deselect_others: bool | None
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
     :param mouse_x: Mouse X
-    :type mouse_x: int | None
     :param mouse_y: Mouse Y
-    :type mouse_y: int | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     :param deselect: Deselect, Remove from selection
-    :type deselect: bool | None
     :param toggle: Toggle Selection, Toggle the selection
-    :type toggle: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected
-    :type select_passthrough: bool | None
     :param center: Center, Use the object center when selecting, in edit mode used to extend object selection
-    :type center: bool | None
     :param linked_handle: Linked Handle, Select handles next to the active strip
-    :type linked_handle: bool | None
     :param linked_time: Linked Time, Select other strips or handles at the same time, or all retiming keys after the current in retiming mode
-    :type linked_time: bool | None
     :param side_of_frame: Side of Frame, Select all strips on same side of the current frame as the mouse cursor
-    :type side_of_frame: bool | None
     :param ignore_connections: Ignore Connections, Select strips individually whether or not they are connected
-    :type ignore_connections: bool | None
     """
 
 def select_all(
@@ -1622,8 +1292,6 @@ def select_all(
 ) -> None:
     """Select or deselect all strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -1637,7 +1305,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -1657,18 +1324,11 @@ def select_box(
 ) -> None:
     """Select strips using box selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -1679,13 +1339,9 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
         :param tweak: Tweak, Make box select pass through to sequence slide when the cursor is hovering on a strip
-        :type tweak: bool | None
         :param include_handles: Select Handles, Select the strips and their handles
-        :type include_handles: bool | None
         :param ignore_connections: Ignore Connections, Select strips individually whether or not they are connected
-        :type ignore_connections: bool | None
     """
 
 def select_circle(
@@ -1702,16 +1358,10 @@ def select_circle(
 ) -> None:
     """Select strips using circle selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param x: X
-        :type x: int | None
         :param y: Y
-        :type y: int | None
         :param radius: Radius
-        :type radius: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -1722,9 +1372,7 @@ def select_circle(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
         :param ignore_connections: Ignore Connections, Select strips individually whether or not they are connected
-        :type ignore_connections: bool | None
     """
 
 def select_grouped(
@@ -1741,8 +1389,6 @@ def select_grouped(
 ) -> None:
     """Select all strips grouped by various properties
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     TYPE
@@ -1765,11 +1411,8 @@ def select_grouped(
 
     OVERLAP
     Overlap -- Overlapping time.
-        :type type: typing.Literal['TYPE','TYPE_BASIC','TYPE_EFFECT','DATA','EFFECT','EFFECT_LINK','OVERLAP'] | None
         :param extend: Extend, Extend selection instead of deselecting everything first
-        :type extend: bool | None
         :param use_active_channel: Same Channel, Only consider strips on the same channel as the active one
-        :type use_active_channel: bool | None
     """
 
 def select_handle(
@@ -1778,22 +1421,18 @@ def select_handle(
     /,
     *,
     wait_to_deselect_others: bool | None = False,
+    use_select_on_click: bool | None = False,
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     ignore_connections: bool | None = False,
 ) -> None:
     """Select strip handle
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param wait_to_deselect_others: Wait to Deselect Others
-    :type wait_to_deselect_others: bool | None
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
     :param mouse_x: Mouse X
-    :type mouse_x: int | None
     :param mouse_y: Mouse Y
-    :type mouse_y: int | None
     :param ignore_connections: Ignore Connections, Select strips individually whether or not they are connected
-    :type ignore_connections: bool | None
     """
 
 def select_handles(
@@ -1808,10 +1447,7 @@ def select_handles(
 ) -> None:
     """Select gizmo handles on the sides of the selected strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param side: Side, The side of the handle that is selected
-    :type side: typing.Literal['LEFT','RIGHT','BOTH','LEFT_NEIGHBOR','RIGHT_NEIGHBOR','BOTH_NEIGHBORS'] | None
     """
 
 def select_lasso(
@@ -1827,16 +1463,10 @@ def select_lasso(
 ) -> None:
     """Select strips using lasso selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param mode: Mode
 
     SET
@@ -1847,7 +1477,6 @@ def select_lasso(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_less(
@@ -1855,22 +1484,14 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Shrink the current selection of adjacent selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Shrink the current selection of adjacent selected strips"""
 
 def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all strips adjacent to the current selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all strips adjacent to the current selection"""
 
 def select_linked_pick(
     execution_context: int | str | None = None,
@@ -1881,10 +1502,7 @@ def select_linked_pick(
 ) -> None:
     """Select a chain of linked strips nearest to the mouse pointer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def select_more(
@@ -1892,11 +1510,7 @@ def select_more(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select more strips adjacent to the current selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select more strips adjacent to the current selection"""
 
 def select_side(
     execution_context: int | str | None = None,
@@ -1907,10 +1521,7 @@ def select_side(
 ) -> None:
     """Select strips on the nominated side of the selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param side: Side, The side to which the selection is applied
-    :type side: typing.Literal['MOUSE','LEFT','RIGHT','BOTH','NO_CHANGE'] | None
     """
 
 def select_side_of_frame(
@@ -1923,10 +1534,7 @@ def select_side_of_frame(
 ) -> None:
     """Select strips relative to the current frame
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param extend: Extend, Extend the selection
-        :type extend: bool | None
         :param side: Side
 
     LEFT
@@ -1937,7 +1545,6 @@ def select_side_of_frame(
 
     CURRENT
     Current Frame -- Select intersecting with the current frame.
-        :type side: typing.Literal['LEFT','RIGHT','CURRENT'] | None
     """
 
 def set_range_to_strips(
@@ -1949,10 +1556,7 @@ def set_range_to_strips(
 ) -> None:
     """Set the frame range to the selected strips start and end
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param preview: Preview, Set the preview range instead
-    :type preview: bool | None
     """
 
 def slip(
@@ -1967,16 +1571,10 @@ def slip(
 ) -> None:
     """Slip the contents of selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Offset, Offset to the data of the strip
-    :type offset: float | None
     :param slip_keyframes: Slip Keyframes, Move the keyframes alongside the media
-    :type slip_keyframes: bool | None
     :param use_cursor_position: Use Cursor Position, Slip strips under mouse cursor instead of all selected strips
-    :type use_cursor_position: bool | None
     :param ignore_connections: Ignore Connections, Do not slip connected strips if using cursor position
-    :type ignore_connections: bool | None
     """
 
 def snap(
@@ -1988,10 +1586,7 @@ def snap(
 ) -> None:
     """Frame where selected strips will be snapped
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame, Frame where selected strips will be snapped
-    :type frame: int | None
     """
 
 def sound_strip_add(
@@ -2047,52 +1642,28 @@ def sound_strip_add(
 ) -> None:
     """Add a sound strip to the sequencer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2106,7 +1677,6 @@ def sound_strip_add(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
 
     DEFAULT
@@ -2126,25 +1696,15 @@ def sound_strip_add(
 
     ASSET_CATALOG
     Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
-        :type sort_method: typing.Literal['DEFAULT','FILE_SORT_ALPHA','FILE_SORT_EXTENSION','FILE_SORT_TIME','FILE_SORT_SIZE','ASSET_CATALOG'] | None
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline
-        :type move_strips: bool | None
         :param frame_start: Start Frame, Start frame of the strip
-        :type frame_start: int | None
         :param channel: Channel, Channel to place this strip into
-        :type channel: int | None
         :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes
-        :type replace_sel: bool | None
         :param overlap: Allow Overlap, Dont correct overlap on new strips
-        :type overlap: bool | None
         :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips
-        :type overlap_shuffle_override: bool | None
         :param skip_locked_or_muted_channels: Skip Locked or Muted Channels, Add strips to muted or locked channels when adding movie strips
-        :type skip_locked_or_muted_channels: bool | None
         :param cache: Cache, Cache the sound in memory
-        :type cache: bool | None
         :param mono: Mono, Merge all the sounds channels into one
-        :type mono: bool | None
     """
 
 def split(
@@ -2159,23 +1719,17 @@ def split(
     side: typing.Literal["MOUSE", "LEFT", "RIGHT", "BOTH", "NO_CHANGE"]
     | None = "MOUSE",
     ignore_selection: bool | None = False,
+    ignore_connections: bool | None = False,
 ) -> None:
     """Split the selected strips in two
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param frame: Frame, Frame where selected strips will be split
-    :type frame: int | None
     :param channel: Channel, Channel in which strip will be cut
-    :type channel: int | None
     :param type: Type, The type of split operation to perform on strips
-    :type type: typing.Literal['SOFT','HARD'] | None
     :param use_cursor_position: Use Cursor Position, Split at position of the cursor instead of current frame
-    :type use_cursor_position: bool | None
     :param side: Side, The side that remains selected after splitting
-    :type side: typing.Literal['MOUSE','LEFT','RIGHT','BOTH','NO_CHANGE'] | None
     :param ignore_selection: Ignore Selection, Make cut even if strip is not selected preserving selection state after cut
-    :type ignore_selection: bool | None
+    :param ignore_connections: Ignore Connections, Dont propagate split to connected strips
     """
 
 def split_multicam(
@@ -2187,10 +1741,7 @@ def split_multicam(
 ) -> None:
     """Split multicam strip and select camera
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param camera: Camera
-    :type camera: int | None
     """
 
 def strip_color_tag_set(
@@ -2202,10 +1753,7 @@ def strip_color_tag_set(
 ) -> None:
     """Set a color tag for the selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param color: Color Tag
-    :type color: bpy.stub_internal.rna_enums.StripColorItems | None
     """
 
 def strip_jump(
@@ -2218,12 +1766,8 @@ def strip_jump(
 ) -> None:
     """Move frame to previous edit point
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param next: Next Strip
-    :type next: bool | None
     :param center: Use Strip Center
-    :type center: bool | None
     """
 
 def strip_modifier_add(
@@ -2235,10 +1779,7 @@ def strip_modifier_add(
 ) -> None:
     """Add a modifier to the strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: str | None
     """
 
 def strip_modifier_copy(
@@ -2250,8 +1791,6 @@ def strip_modifier_copy(
 ) -> None:
     """Copy modifiers of the active strip to all selected strips
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     REPLACE
@@ -2259,7 +1798,6 @@ def strip_modifier_copy(
 
     APPEND
     Append -- Append active modifiers to selected strips.
-        :type type: typing.Literal['REPLACE','APPEND'] | None
     """
 
 def strip_modifier_equalizer_redefine(
@@ -2272,8 +1810,6 @@ def strip_modifier_equalizer_redefine(
 ) -> None:
     """Redefine equalizer graphs
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param graphs: Graphs, Number of graphs
 
     SIMPLE
@@ -2284,9 +1820,7 @@ def strip_modifier_equalizer_redefine(
 
     TRIPLE
     Triplet -- Graphical definition in 3 sections.
-        :type graphs: typing.Literal['SIMPLE','DOUBLE','TRIPLE'] | None
         :param name: Name, Name of modifier to redefine
-        :type name: str
     """
 
 def strip_modifier_move(
@@ -2299,10 +1833,7 @@ def strip_modifier_move(
 ) -> None:
     """Move modifier up and down in the stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param name: Name, Name of modifier to remove
-        :type name: str
         :param direction: Type
 
     UP
@@ -2310,7 +1841,6 @@ def strip_modifier_move(
 
     DOWN
     Down -- Move modifier down in the stack.
-        :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def strip_modifier_move_to_index(
@@ -2323,12 +1853,8 @@ def strip_modifier_move_to_index(
 ) -> None:
     """Change the strip modifiers index in the stack so it evaluates after the set number of others
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param modifier: Modifier, Name of the modifier to edit
-    :type modifier: str
     :param index: Index, The index to move the modifier to
-    :type index: int | None
     """
 
 def strip_modifier_remove(
@@ -2340,10 +1866,7 @@ def strip_modifier_remove(
 ) -> None:
     """Remove a modifier from the strip
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of modifier to remove
-    :type name: str
     """
 
 def strip_modifier_set_active(
@@ -2355,10 +1878,7 @@ def strip_modifier_set_active(
 ) -> None:
     """Activate the strip modifier to use as the context
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param modifier: Modifier, Name of the strip modifier to edit
-    :type modifier: str
     """
 
 def strip_transform_clear(
@@ -2370,8 +1890,6 @@ def strip_transform_clear(
 ) -> None:
     """Reset image transformation to default value
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param property: Property, Strip transform property to be reset
 
     POSITION
@@ -2385,7 +1903,6 @@ def strip_transform_clear(
 
     ALL
     All -- Reset strip transform location, scale and rotation.
-        :type property: typing.Literal['POSITION','SCALE','ROTATION','ALL'] | None
     """
 
 def strip_transform_fit(
@@ -2397,10 +1914,7 @@ def strip_transform_fit(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param fit_method: Fit Method, Mode for fitting the image to the canvas
-    :type fit_method: bpy.stub_internal.rna_enums.StripScaleMethodItems | None
     """
 
 def swap(
@@ -2412,10 +1926,7 @@ def swap(
 ) -> None:
     """Swap active strip with strip to the right or left
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param side: Side, Side of the strip to swap
-    :type side: typing.Literal['LEFT','RIGHT'] | None
     """
 
 def swap_data(
@@ -2423,22 +1934,14 @@ def swap_data(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Swap 2 sequencer strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Swap 2 sequencer strips"""
 
 def swap_inputs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Swap the two inputs of the effect strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Swap the two inputs of the effect strip"""
 
 def text_cursor_move(
     execution_context: int | str | None = None,
@@ -2462,12 +1965,8 @@ def text_cursor_move(
 ) -> None:
     """Move cursor in text
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Where to move cursor to, to make a selection
-    :type type: typing.Literal['LINE_BEGIN','LINE_END','TEXT_BEGIN','TEXT_END','PREVIOUS_CHARACTER','NEXT_CHARACTER','PREVIOUS_WORD','NEXT_WORD','PREVIOUS_LINE','NEXT_LINE'] | None
     :param select_text: Select Text, Select text while moving cursor
-    :type select_text: bool | None
     """
 
 def text_cursor_set(
@@ -2479,10 +1978,7 @@ def text_cursor_set(
 ) -> None:
     """Set cursor position in text
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select_text: Select Text, Select text while moving cursor
-    :type select_text: bool | None
     """
 
 def text_delete(
@@ -2495,10 +1991,7 @@ def text_delete(
 ) -> None:
     """Delete text at cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Which part of the text to delete
-    :type type: typing.Literal['NEXT_OR_SELECTION','PREVIOUS_OR_SELECTION'] | None
     """
 
 def text_deselect_all(
@@ -2506,55 +1999,35 @@ def text_deselect_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect all characters
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect all characters"""
 
 def text_edit_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy text to clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy text to clipboard"""
 
 def text_edit_cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Cut text to clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Cut text to clipboard"""
 
 def text_edit_mode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle text editing
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle text editing"""
 
 def text_edit_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste text from clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste text from clipboard"""
 
 def text_insert(
     execution_context: int | str | None = None,
@@ -2565,10 +2038,7 @@ def text_insert(
 ) -> None:
     """Insert text at cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param string: String, String to be inserted at cursor position
-    :type string: str
     """
 
 def text_line_break(
@@ -2576,33 +2046,21 @@ def text_line_break(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Insert line break at cursor position
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Insert line break at cursor position"""
 
 def text_select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all characters
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all characters"""
 
 def unlock(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Unlock strips so they can be transformed
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Unlock strips so they can be transformed"""
 
 def unmute(
     execution_context: int | str | None = None,
@@ -2613,10 +2071,7 @@ def unmute(
 ) -> None:
     """Unmute (un)selected strips
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Unmute unselected rather than selected strips
-    :type unselected: bool | None
     """
 
 def view_all(
@@ -2624,33 +2079,21 @@ def view_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """View all the strips in the sequencer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """View all the strips in the sequencer"""
 
 def view_all_preview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Zoom preview to fit in the area
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Zoom preview to fit in the area"""
 
 def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move the view to the current frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move the view to the current frame"""
 
 def view_ghost_border(
     execution_context: int | str | None = None,
@@ -2665,18 +2108,11 @@ def view_ghost_border(
 ) -> None:
     """Set the boundaries of the border used for offset view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     """
 
 def view_selected(
@@ -2684,11 +2120,7 @@ def view_selected(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Zoom the sequencer on the selected strips
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Zoom the sequencer on the selected strips"""
 
 def view_zoom_ratio(
     execution_context: int | str | None = None,
@@ -2699,8 +2131,5 @@ def view_zoom_ratio(
 ) -> None:
     """Change zoom ratio of sequencer preview
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param ratio: Ratio, Zoom ratio, 1.0 is 1:1, higher is zoomed in, lower is zoomed out
-    :type ratio: float | None
     """

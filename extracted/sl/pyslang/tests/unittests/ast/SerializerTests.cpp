@@ -118,16 +118,10 @@ endmodule
 {
   "name": "$root",
   "kind": "Root",
-  "source_file": "",
-  "source_line": 0,
-  "source_column": 0,
   "members": [
     {
       "name": "",
-      "kind": "CompilationUnit",
-      "source_file": "",
-      "source_line": 0,
-      "source_column": 0
+      "kind": "CompilationUnit"
     },
     {
       "name": "test_enum",
@@ -199,8 +193,8 @@ endmodule
                     "source_file_end": "source",
                     "source_line_start": 11,
                     "source_line_end": 11,
-                    "source_column_start": 29,
-                    "source_column_end": 95,
+                    "source_column_start": 30,
+                    "source_column_end": 94,
                     "kind": "IntegerLiteral",
                     "type": "bit[199:0]",
                     "value": "200'h20f1c22386aad976de4999f1b69e783e821874fb88b47314c",
@@ -765,7 +759,7 @@ endclass
             {
               "name": "g2",
               "kind": "ClassProperty",
-              "type": "",
+              "type": "<unnamed covergroup>",
               "lifetime": "Automatic",
               "flags": "const",
               "visibility": "Public"
@@ -831,7 +825,8 @@ typedef enum logic [1:0] {
                   "kind": "PackedArrayType",
                   "elementType": {
                     "name": "logic",
-                    "kind": "ScalarType"
+                    "kind": "ScalarType",
+                    "isSigned": false
                   },
                   "range": "[31:0]"
                 },
@@ -869,7 +864,8 @@ typedef enum logic [1:0] {
                           "kind": "PackedArrayType",
                           "elementType": {
                             "name": "logic",
-                            "kind": "ScalarType"
+                            "kind": "ScalarType",
+                            "isSigned": false
                           },
                           "range": "[31:0]"
                         },
@@ -891,7 +887,8 @@ typedef enum logic [1:0] {
                 "kind": "Field",
                 "type": {
                   "name": "logic",
-                  "kind": "ScalarType"
+                  "kind": "ScalarType",
+                  "isSigned": false
                 },
                 "lifetime": "Automatic",
                 "bitOffset": 0,
@@ -917,7 +914,8 @@ typedef enum logic [1:0] {
                     "kind": "PackedArrayType",
                     "elementType": {
                       "name": "logic",
-                      "kind": "ScalarType"
+                      "kind": "ScalarType",
+                      "isSigned": false
                     },
                     "range": "[1:0]"
                   },
@@ -928,7 +926,8 @@ typedef enum logic [1:0] {
                       "kind": "PackedArrayType",
                       "elementType": {
                         "name": "bit",
-                        "kind": "ScalarType"
+                        "kind": "ScalarType",
+                        "isSigned": false
                       },
                       "range": "[1:0]"
                     },
@@ -949,7 +948,8 @@ typedef enum logic [1:0] {
                     "kind": "PackedArrayType",
                     "elementType": {
                       "name": "logic",
-                      "kind": "ScalarType"
+                      "kind": "ScalarType",
+                      "isSigned": false
                     },
                     "range": "[1:0]"
                   },
@@ -960,7 +960,8 @@ typedef enum logic [1:0] {
                       "kind": "PackedArrayType",
                       "elementType": {
                         "name": "bit",
-                        "kind": "ScalarType"
+                        "kind": "ScalarType",
+                        "isSigned": false
                       },
                       "range": "[1:0]"
                     },
@@ -981,7 +982,8 @@ typedef enum logic [1:0] {
                     "kind": "PackedArrayType",
                     "elementType": {
                       "name": "logic",
-                      "kind": "ScalarType"
+                      "kind": "ScalarType",
+                      "isSigned": false
                     },
                     "range": "[1:0]"
                   },
@@ -992,7 +994,8 @@ typedef enum logic [1:0] {
                       "kind": "PackedArrayType",
                       "elementType": {
                         "name": "bit",
-                        "kind": "ScalarType"
+                        "kind": "ScalarType",
+                        "isSigned": false
                       },
                       "range": "[1:0]"
                     },
@@ -1013,7 +1016,8 @@ typedef enum logic [1:0] {
                     "kind": "PackedArrayType",
                     "elementType": {
                       "name": "logic",
-                      "kind": "ScalarType"
+                      "kind": "ScalarType",
+                      "isSigned": false
                     },
                     "range": "[1:0]"
                   },
@@ -1024,7 +1028,8 @@ typedef enum logic [1:0] {
                       "kind": "PackedArrayType",
                       "elementType": {
                         "name": "bit",
-                        "kind": "ScalarType"
+                        "kind": "ScalarType",
+                        "isSigned": false
                       },
                       "range": "[1:0]"
                     },
@@ -1041,7 +1046,8 @@ typedef enum logic [1:0] {
               "kind": "PackedArrayType",
               "elementType": {
                 "name": "logic",
-                "kind": "ScalarType"
+                "kind": "ScalarType",
+                "isSigned": false
               },
               "range": "[1:0]"
             }
@@ -1088,16 +1094,10 @@ endmodule
 {
   "name": "$root",
   "kind": "Root",
-  "source_file": "",
-  "source_line": 0,
-  "source_column": 0,
   "members": [
     {
       "name": "",
       "kind": "CompilationUnit",
-      "source_file": "",
-      "source_line": 0,
-      "source_column": 0,
       "members": [
         {
           "name": "C",
@@ -1178,6 +1178,12 @@ endmodule
                 "source_column_end": 35,
                 "kind": "Return",
                 "expr": {
+                  "source_file_start": "source",
+                  "source_file_end": "source",
+                  "source_line_start": 12,
+                  "source_line_end": 12,
+                  "source_column_start": 16,
+                  "source_column_end": 34,
                   "kind": "Conversion",
                   "type": "logic",
                   "operand": {
@@ -1397,6 +1403,12 @@ endmodule
                       "type": "logic",
                       "subroutine": "should_print",
                       "thisClass": {
+                        "source_file_start": "source",
+                        "source_file_end": "source",
+                        "source_line_start": 22,
+                        "source_line_end": 22,
+                        "source_column_start": 9,
+                        "source_column_end": 9,
                         "kind": "NamedValue",
                         "type": "C",
                         "symbol": "c"
@@ -1447,12 +1459,24 @@ endmodule
                       "type": "void",
                       "subroutine": "print_msg",
                       "thisClass": {
+                        "source_file_start": "source",
+                        "source_file_end": "source",
+                        "source_line_start": 22,
+                        "source_line_end": 22,
+                        "source_column_start": 9,
+                        "source_column_end": 9,
                         "kind": "NamedValue",
                         "type": "C",
                         "symbol": "c"
                       },
                       "arguments": [
                         {
+                          "source_file_start": "source",
+                          "source_file_end": "source",
+                          "source_line_start": 22,
+                          "source_line_end": 22,
+                          "source_column_start": 9,
+                          "source_column_end": 9,
                           "kind": "Conversion",
                           "type": "string",
                           "operand": {
@@ -1515,4 +1539,286 @@ endmodule : rptr_empty
 
     compilation.freeze();
     serialize(compilation, false, false, true);
+}
+
+TEST_CASE("Serializing locations for select expressions") {
+    auto tree = SyntaxTree::fromText(R"(
+class B;
+  int i;
+endclass
+
+class A;
+  B b;
+endclass
+
+module top;
+  A a;
+
+  initial
+    $display(a.b.i);
+
+  logic [1:0] bits;
+  logic       sel;
+  always_comb bits[sel] = 1'b0;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto result = serialize(compilation, true);
+    CHECK(result == R"(
+{
+  "name": "$root",
+  "kind": "Root",
+  "members": [
+    {
+      "name": "",
+      "kind": "CompilationUnit",
+      "members": [
+        {
+          "name": "B",
+          "kind": "ClassType",
+          "source_file": "source",
+          "source_line": 2,
+          "source_column": 7,
+          "members": [
+            {
+              "name": "i",
+              "kind": "ClassProperty",
+              "source_file": "source",
+              "source_line": 3,
+              "source_column": 7,
+              "type": "int",
+              "lifetime": "Automatic",
+              "visibility": "Public"
+            }
+          ],
+          "isAbstract": false,
+          "isInterface": false,
+          "isFinal": false,
+          "implements": [
+          ]
+        },
+        {
+          "name": "A",
+          "kind": "ClassType",
+          "source_file": "source",
+          "source_line": 6,
+          "source_column": 7,
+          "members": [
+            {
+              "name": "b",
+              "kind": "ClassProperty",
+              "source_file": "source",
+              "source_line": 7,
+              "source_column": 5,
+              "type": "B",
+              "lifetime": "Automatic",
+              "visibility": "Public"
+            }
+          ],
+          "isAbstract": false,
+          "isInterface": false,
+          "isFinal": false,
+          "implements": [
+          ]
+        }
+      ]
+    },
+    {
+      "name": "top",
+      "kind": "Instance",
+      "source_file": "source",
+      "source_line": 10,
+      "source_column": 8,
+      "body": {
+        "name": "top",
+        "kind": "InstanceBody",
+        "source_file": "source",
+        "source_line": 10,
+        "source_column": 8,
+        "members": [
+          {
+            "name": "a",
+            "kind": "Variable",
+            "source_file": "source",
+            "source_line": 11,
+            "source_column": 5,
+            "type": "A",
+            "lifetime": "Static"
+          },
+          {
+            "name": "",
+            "kind": "ProceduralBlock",
+            "source_file": "source",
+            "source_line": 13,
+            "source_column": 3,
+            "procedureKind": "Initial",
+            "body": {
+              "source_file_start": "source",
+              "source_file_end": "source",
+              "source_line_start": 14,
+              "source_line_end": 14,
+              "source_column_start": 5,
+              "source_column_end": 21,
+              "kind": "ExpressionStatement",
+              "expr": {
+                "source_file_start": "source",
+                "source_file_end": "source",
+                "source_line_start": 14,
+                "source_line_end": 14,
+                "source_column_start": 5,
+                "source_column_end": 20,
+                "kind": "Call",
+                "type": "void",
+                "subroutine": "$display",
+                "arguments": [
+                  {
+                    "source_file_start": "source",
+                    "source_file_end": "source",
+                    "source_line_start": 14,
+                    "source_line_end": 14,
+                    "source_column_start": 14,
+                    "source_column_end": 19,
+                    "kind": "MemberAccess",
+                    "type": "int",
+                    "member": "i",
+                    "value": {
+                      "source_file_start": "source",
+                      "source_file_end": "source",
+                      "source_line_start": 14,
+                      "source_line_end": 14,
+                      "source_column_start": 14,
+                      "source_column_end": 17,
+                      "kind": "MemberAccess",
+                      "type": "B",
+                      "member": "b",
+                      "value": {
+                        "source_file_start": "source",
+                        "source_file_end": "source",
+                        "source_line_start": 14,
+                        "source_line_end": 14,
+                        "source_column_start": 14,
+                        "source_column_end": 15,
+                        "kind": "NamedValue",
+                        "type": "A",
+                        "symbol": "a"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "bits",
+            "kind": "Variable",
+            "source_file": "source",
+            "source_line": 16,
+            "source_column": 15,
+            "type": "logic[1:0]",
+            "lifetime": "Static"
+          },
+          {
+            "name": "sel",
+            "kind": "Variable",
+            "source_file": "source",
+            "source_line": 17,
+            "source_column": 15,
+            "type": "logic",
+            "lifetime": "Static"
+          },
+          {
+            "name": "",
+            "kind": "ProceduralBlock",
+            "source_file": "source",
+            "source_line": 18,
+            "source_column": 3,
+            "procedureKind": "AlwaysComb",
+            "body": {
+              "source_file_start": "source",
+              "source_file_end": "source",
+              "source_line_start": 18,
+              "source_line_end": 18,
+              "source_column_start": 15,
+              "source_column_end": 32,
+              "kind": "ExpressionStatement",
+              "expr": {
+                "source_file_start": "source",
+                "source_file_end": "source",
+                "source_line_start": 18,
+                "source_line_end": 18,
+                "source_column_start": 15,
+                "source_column_end": 31,
+                "kind": "Assignment",
+                "type": "logic",
+                "left": {
+                  "source_file_start": "source",
+                  "source_file_end": "source",
+                  "source_line_start": 18,
+                  "source_line_end": 18,
+                  "source_column_start": 15,
+                  "source_column_end": 24,
+                  "kind": "ElementSelect",
+                  "type": "logic",
+                  "value": {
+                    "source_file_start": "source",
+                    "source_file_end": "source",
+                    "source_line_start": 18,
+                    "source_line_end": 18,
+                    "source_column_start": 15,
+                    "source_column_end": 19,
+                    "kind": "NamedValue",
+                    "type": "logic[1:0]",
+                    "symbol": "bits"
+                  },
+                  "selector": {
+                    "source_file_start": "source",
+                    "source_file_end": "source",
+                    "source_line_start": 18,
+                    "source_line_end": 18,
+                    "source_column_start": 20,
+                    "source_column_end": 23,
+                    "kind": "NamedValue",
+                    "type": "logic",
+                    "symbol": "sel"
+                  }
+                },
+                "right": {
+                  "source_file_start": "source",
+                  "source_file_end": "source",
+                  "source_line_start": 18,
+                  "source_line_end": 18,
+                  "source_column_start": 27,
+                  "source_column_end": 31,
+                  "kind": "Conversion",
+                  "type": "logic",
+                  "operand": {
+                    "source_file_start": "source",
+                    "source_file_end": "source",
+                    "source_line_start": 18,
+                    "source_line_end": 18,
+                    "source_column_start": 27,
+                    "source_column_end": 31,
+                    "kind": "IntegerLiteral",
+                    "type": "bit[0:0]",
+                    "value": "1'b0",
+                    "constant": "1'b0"
+                  },
+                  "constant": "1'b0"
+                },
+                "isNonBlocking": false
+              }
+            }
+          }
+        ],
+        "definition": "top"
+      },
+      "connections": [
+      ]
+    }
+  ]
+})");
 }

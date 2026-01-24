@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from enum import EnumMeta, IntEnum
-from logging import getLevelName
+from logging import getLevelNamesMapping
 from typing import TYPE_CHECKING
 
 from .._compat import deprecated
@@ -11,8 +11,10 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from typing import Literal
 
-    _VerbosityName = Literal["error", "warning", "info", "hint", "debug"]
-    _LoggingLevelName = Literal["CRITICAL", "ERROR", "WARNING", "INFO", "HINT", "DEBUG"]
+type _VerbosityName = Literal["error", "warning", "info", "hint", "debug"]
+type _LoggingLevelName = Literal[
+    "CRITICAL", "ERROR", "WARNING", "INFO", "HINT", "DEBUG"
+]
 
 
 _VERBOSITY_TO_LOGLEVEL: dict[int | _VerbosityName, _LoggingLevelName] = {
@@ -62,8 +64,8 @@ class Verbosity(IntEnum, metaclass=VerbosityMeta):
     @property
     def level(self) -> int:
         """The :ref:`logging level <levels>` corresponding to this verbosity level."""
-        # getLevelName(str) returns the int level…
-        return getLevelName(_VERBOSITY_TO_LOGLEVEL[self.name])
+        m = getLevelNamesMapping()
+        return m[_VERBOSITY_TO_LOGLEVEL[self.name]]
 
     @contextmanager
     def override(

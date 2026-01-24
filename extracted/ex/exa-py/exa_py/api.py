@@ -47,6 +47,9 @@ from .research import ResearchClient, AsyncResearchClient
 
 is_beta = os.getenv("IS_BETA") == "True"
 
+# Default max characters for text contents
+DEFAULT_MAX_CHARACTERS = 10_000
+
 
 def snake_to_camel(snake_str: str) -> str:
     """Convert snake_case string to camelCase.
@@ -119,6 +122,128 @@ def to_snake_case(data: dict) -> dict:
     return data
 
 
+def _parse_entities(entities_data: Optional[List[dict]]) -> Optional[List]:
+    """
+    Parse entity data from API response into Entity dataclasses.
+
+    Handles field mapping for reserved Python keywords:
+    - 'from' -> 'from_date'
+    - 'to' -> 'to_date'
+    """
+    if not entities_data:
+        return None
+
+    # Import here to avoid circular imports (Entity types defined later in file)
+    from exa_py.api import (
+        CompanyEntity,
+        PersonEntity,
+        EntityCompanyProperties,
+        EntityPersonProperties,
+        EntityCompanyPropertiesWorkforce,
+        EntityCompanyPropertiesHeadquarters,
+        EntityCompanyPropertiesFinancials,
+        EntityCompanyPropertiesFundingRound,
+        EntityCompanyPropertiesWebTraffic,
+        EntityDateRange,
+        EntityPersonPropertiesCompanyRef,
+        EntityPersonPropertiesWorkHistoryEntry,
+    )
+
+    def parse_date_range(data: Optional[dict]) -> Optional[EntityDateRange]:
+        if not data:
+            return None
+        return EntityDateRange(
+            from_date=data.get("from"),
+            to_date=data.get("to"),
+        )
+
+    def parse_company_ref(data: Optional[dict]) -> Optional[EntityPersonPropertiesCompanyRef]:
+        if not data:
+            return None
+        return EntityPersonPropertiesCompanyRef(
+            id=data.get("id"),
+            name=data.get("name"),
+        )
+
+    def parse_work_history_entry(data: dict) -> EntityPersonPropertiesWorkHistoryEntry:
+        return EntityPersonPropertiesWorkHistoryEntry(
+            title=data.get("title"),
+            location=data.get("location"),
+            dates=parse_date_range(data.get("dates")),
+            company=parse_company_ref(data.get("company")),
+        )
+
+    def parse_funding_round(data: Optional[dict]) -> Optional[EntityCompanyPropertiesFundingRound]:
+        if not data:
+            return None
+        return EntityCompanyPropertiesFundingRound(
+            name=data.get("name"),
+            date=data.get("date"),
+            amount=data.get("amount"),
+        )
+
+    def parse_financials(data: Optional[dict]) -> Optional[EntityCompanyPropertiesFinancials]:
+        if not data:
+            return None
+        return EntityCompanyPropertiesFinancials(
+            revenue_annual=data.get("revenueAnnual"),
+            funding_total=data.get("fundingTotal"),
+            funding_latest_round=parse_funding_round(data.get("fundingLatestRound")),
+        )
+
+    def parse_web_traffic(data: Optional[dict]) -> Optional[EntityCompanyPropertiesWebTraffic]:
+        if not data:
+            return None
+        return EntityCompanyPropertiesWebTraffic(
+            visits_monthly=data.get("visitsMonthly"),
+        )
+
+    def parse_company_properties(data: dict) -> EntityCompanyProperties:
+        workforce_data = data.get("workforce")
+        headquarters_data = data.get("headquarters")
+        return EntityCompanyProperties(
+            name=data.get("name"),
+            founded_year=data.get("foundedYear"),
+            description=data.get("description"),
+            workforce=EntityCompanyPropertiesWorkforce(total=workforce_data.get("total")) if workforce_data else None,
+            headquarters=EntityCompanyPropertiesHeadquarters(
+                address=headquarters_data.get("address"),
+                city=headquarters_data.get("city"),
+                postal_code=headquarters_data.get("postalCode"),
+                country=headquarters_data.get("country"),
+            ) if headquarters_data else None,
+            financials=parse_financials(data.get("financials")),
+            web_traffic=parse_web_traffic(data.get("webTraffic")),
+        )
+
+    def parse_person_properties(data: dict) -> EntityPersonProperties:
+        work_history = data.get("workHistory")
+        return EntityPersonProperties(
+            name=data.get("name"),
+            location=data.get("location"),
+            work_history=[parse_work_history_entry(wh) for wh in work_history] if work_history else None,
+        )
+
+    entities = []
+    for entity_data in entities_data:
+        entity_type = entity_data.get("type")
+        if entity_type == "company":
+            entities.append(CompanyEntity(
+                id=entity_data["id"],
+                type="company",
+                version=entity_data["version"],
+                properties=parse_company_properties(entity_data.get("properties", {})),
+            ))
+        elif entity_type == "person":
+            entities.append(PersonEntity(
+                id=entity_data["id"],
+                type="person",
+                version=entity_data["version"],
+                properties=parse_person_properties(entity_data.get("properties", {})),
+            ))
+    return entities if entities else None
+
+
 SEARCH_OPTIONS_TYPES = {
     "query": [str],  # The query string.
     "num_results": [int],  # Number of results (Default: 10, Max for basic: 10).
@@ -141,13 +266,14 @@ SEARCH_OPTIONS_TYPES = {
     "exclude_text": [
         list
     ],  # Must not be present in webpage text. (One string, up to 5 words)
-    "use_autoprompt": [bool],  # Convert query to Exa. (Default: false)
-    "type": [str],  # 'keyword', 'neural', 'hybrid', 'fast', or 'auto' (Default: auto)
-    "category": [
+    "type": [
         str
-    ],  # A data category to focus on: 'company', 'research paper', 'news', 'pdf', 'github', 'tweet', 'personal site', 'linkedin profile', 'financial report'
+    ],  # 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (Default: auto)
+    "category": [str],  # A data category to focus on (known categories: company, research paper, news, pdf, github, tweet, personal site, financial report, people)
     "flags": [list],  # Experimental flags array for Exa usage.
     "moderation": [bool],  # If true, moderate search results for safety.
+    "contents": [dict, bool],  # Options for retrieving page contents
+    "additional_queries": [list],  # Alternative query formulations for deep search (max 5). Only used when type='deep'.
 }
 
 FIND_SIMILAR_OPTIONS_TYPES = {
@@ -162,8 +288,9 @@ FIND_SIMILAR_OPTIONS_TYPES = {
     "include_text": [list],
     "exclude_text": [list],
     "exclude_source_domain": [bool],
-    "category": [str],
+    "category": [str],  # A data category to focus on
     "flags": [list],  # Experimental flags array for Exa usage.
+    "contents": [dict, bool],  # Options for retrieving page contents
 }
 
 # the livecrawl options
@@ -172,8 +299,8 @@ LIVECRAWL_OPTIONS = Literal["always", "fallback", "never", "auto", "preferred"]
 CONTENTS_OPTIONS_TYPES = {
     "urls": [list],
     "text": [dict, bool],
-    "highlights": [dict, bool],
     "summary": [dict, bool],
+    "highlights": [dict, bool],
     "context": [dict, bool],
     "metadata": [dict, bool],
     "livecrawl_timeout": [int],
@@ -253,20 +380,6 @@ class TextContentsOptions(TypedDict, total=False):
     include_html_tags: bool
 
 
-class HighlightsContentsOptions(TypedDict, total=False):
-    """A class representing the options that you can specify when requesting highlights
-
-    Attributes:
-        query (str): The query string for the highlights.
-        num_sentences (int): Size of highlights to return, in sentences. Default: 5
-        highlights_per_url (int): Number of highlights to return per URL. Default: 1
-    """
-
-    query: str
-    num_sentences: int
-    highlights_per_url: int
-
-
 class JSONSchema(TypedDict, total=False):
     """Represents a JSON Schema definition used for structured summary output.
 
@@ -307,6 +420,20 @@ class SummaryContentsOptions(TypedDict, total=False):
     schema: JSONSchemaInput
 
 
+class HighlightsContentsOptions(TypedDict, total=False):
+    """A class representing the options that you can specify when requesting highlights.
+
+    Attributes:
+        query (str): The query string for highlight generation. Highlights will be biased towards this query.
+        num_sentences (int): The number of sentences per highlight.
+        highlights_per_url (int): The number of highlights to return per URL.
+    """
+
+    query: str
+    num_sentences: int
+    highlights_per_url: int
+
+
 class ContextContentsOptions(TypedDict, total=False):
     """Options for retrieving aggregated context from a set of search results.
 
@@ -335,7 +462,6 @@ class CostDollarsContents(TypedDict, total=False):
     """Represents the cost breakdown for contents."""
 
     text: float
-    highlights: float
     summary: float
 
 
@@ -346,6 +472,123 @@ class CostDollars:
     total: float
     search: CostDollarsSearch = None
     contents: CostDollarsContents = None
+
+
+# Entity types for company/people search results
+# Only returned when using category="company" or category="people" searches
+
+
+@dataclass
+class EntityCompanyPropertiesWorkforce:
+    """Company workforce information."""
+
+    total: Optional[int] = None
+
+
+@dataclass
+class EntityCompanyPropertiesHeadquarters:
+    """Company headquarters information."""
+
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+
+
+@dataclass
+class EntityCompanyPropertiesFundingRound:
+    """Funding round information."""
+
+    name: Optional[str] = None
+    date: Optional[str] = None
+    amount: Optional[int] = None
+
+
+@dataclass
+class EntityCompanyPropertiesFinancials:
+    """Company financial information."""
+
+    revenue_annual: Optional[int] = None
+    funding_total: Optional[int] = None
+    funding_latest_round: Optional[EntityCompanyPropertiesFundingRound] = None
+
+
+@dataclass
+class EntityCompanyPropertiesWebTraffic:
+    """Company web traffic information."""
+
+    visits_monthly: Optional[int] = None
+
+
+@dataclass
+class EntityCompanyProperties:
+    """Structured properties for a company entity."""
+
+    name: Optional[str] = None
+    founded_year: Optional[int] = None
+    description: Optional[str] = None
+    workforce: Optional[EntityCompanyPropertiesWorkforce] = None
+    headquarters: Optional[EntityCompanyPropertiesHeadquarters] = None
+    financials: Optional[EntityCompanyPropertiesFinancials] = None
+    web_traffic: Optional[EntityCompanyPropertiesWebTraffic] = None
+
+
+@dataclass
+class EntityDateRange:
+    """Date range for work history entries."""
+
+    from_date: Optional[str] = None  # API returns 'from' but it's a reserved keyword
+    to_date: Optional[str] = None  # API returns 'to', renamed for consistency
+
+
+@dataclass
+class EntityPersonPropertiesCompanyRef:
+    """Reference to a company in work history."""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+
+@dataclass
+class EntityPersonPropertiesWorkHistoryEntry:
+    """A single work history entry for a person."""
+
+    title: Optional[str] = None
+    location: Optional[str] = None
+    dates: Optional[EntityDateRange] = None
+    company: Optional[EntityPersonPropertiesCompanyRef] = None
+
+
+@dataclass
+class EntityPersonProperties:
+    """Structured properties for a person entity."""
+
+    name: Optional[str] = None
+    location: Optional[str] = None
+    work_history: Optional[List[EntityPersonPropertiesWorkHistoryEntry]] = None
+
+
+@dataclass
+class CompanyEntity:
+    """Structured entity data for a company."""
+
+    id: str
+    type: Literal["company"]
+    version: int
+    properties: EntityCompanyProperties
+
+
+@dataclass
+class PersonEntity:
+    """Structured entity data for a person."""
+
+    id: str
+    type: Literal["person"]
+    version: int
+    properties: EntityPersonProperties
+
+
+Entity = Union[CompanyEntity, PersonEntity]
 
 
 @dataclass
@@ -363,6 +606,7 @@ class _Result:
         favicon (str, optional): A URL to the favicon (if available).
         subpages (List[_Result], optional): Subpages of main page
         extras (Dict, optional): Additional metadata; e.g. links, images.
+        entities (List[Entity], optional): Structured entity data for company or person searches.
     """
 
     url: str
@@ -375,6 +619,7 @@ class _Result:
     favicon: Optional[str] = None
     subpages: Optional[List[_Result]] = None
     extras: Optional[Dict] = None
+    entities: Optional[List[Entity]] = None
 
     def __init__(
         self,
@@ -388,6 +633,7 @@ class _Result:
         favicon=None,
         subpages=None,
         extras=None,
+        entities=None,
     ):
         self.url = url
         self.id = id
@@ -399,9 +645,10 @@ class _Result:
         self.favicon = favicon
         self.subpages = subpages
         self.extras = extras
+        self.entities = entities
 
     def __str__(self):
-        return (
+        result = (
             f"Title: {self.title}\n"
             f"URL: {self.url}\n"
             f"ID: {self.id}\n"
@@ -413,24 +660,31 @@ class _Result:
             f"Extras: {self.extras}\n"
             f"Subpages: {self.subpages}\n"
         )
+        if self.entities:
+            entities_str = "\n".join(
+                f"  - [{e.type}] {e.properties.name or 'Unknown'}"
+                for e in self.entities
+            )
+            result += f"Entities:\n{entities_str}\n"
+        return result
 
 
 @dataclass
 class Result(_Result):
     """
-    A class representing a search result with optional text, highlights, summary.
+    A class representing a search result with optional text, summary, and highlights.
 
     Attributes:
-        text (str, optional)
-        highlights (List[str], optional)
-        highlight_scores (List[float], optional)
-        summary (str, optional)
+        text (str, optional): The text content of the page.
+        summary (str, optional): A summary of the page content.
+        highlights (List[str], optional): Relevant sentences from the page.
+        highlight_scores (List[float], optional): Scores for each highlight.
     """
 
     text: Optional[str] = None
+    summary: Optional[str] = None
     highlights: Optional[List[str]] = None
     highlight_scores: Optional[List[float]] = None
-    summary: Optional[str] = None
 
     def __init__(
         self,
@@ -444,10 +698,11 @@ class Result(_Result):
         favicon=None,
         subpages=None,
         extras=None,
+        entities=None,
         text=None,
+        summary=None,
         highlights=None,
         highlight_scores=None,
-        summary=None,
     ):
         super().__init__(
             url,
@@ -460,20 +715,21 @@ class Result(_Result):
             favicon,
             subpages,
             extras,
+            entities,
         )
         self.text = text
+        self.summary = summary
         self.highlights = highlights
         self.highlight_scores = highlight_scores
-        self.summary = summary
 
     def __str__(self):
         base_str = super().__str__()
-        return base_str + (
-            f"Text: {self.text}\n"
-            f"Highlights: {self.highlights}\n"
-            f"Highlight Scores: {self.highlight_scores}\n"
-            f"Summary: {self.summary}\n"
-        )
+        result = base_str + f"Text: {self.text}\nSummary: {self.summary}\n"
+        if self.highlights:
+            result += f"Highlights: {self.highlights}\n"
+        if self.highlight_scores:
+            result += f"Highlight Scores: {self.highlight_scores}\n"
+        return result
 
 
 @dataclass
@@ -499,6 +755,7 @@ class ResultWithText(_Result):
         favicon=None,
         subpages=None,
         extras=None,
+        entities=None,
         text="",
     ):
         super().__init__(
@@ -512,119 +769,13 @@ class ResultWithText(_Result):
             favicon,
             subpages,
             extras,
+            entities,
         )
         self.text = text
 
     def __str__(self):
         base_str = super().__str__()
         return base_str + f"Text: {self.text}\n"
-
-
-@dataclass
-class ResultWithHighlights(_Result):
-    """
-    A class representing a search result with highlights present.
-
-    Attributes:
-        highlights (List[str])
-        highlight_scores (List[float])
-    """
-
-    highlights: List[str] = dataclasses.field(default_factory=list)
-    highlight_scores: List[float] = dataclasses.field(default_factory=list)
-
-    def __init__(
-        self,
-        url,
-        id,
-        title=None,
-        score=None,
-        published_date=None,
-        author=None,
-        image=None,
-        favicon=None,
-        subpages=None,
-        extras=None,
-        highlights=None,
-        highlight_scores=None,
-    ):
-        super().__init__(
-            url,
-            id,
-            title,
-            score,
-            published_date,
-            author,
-            image,
-            favicon,
-            subpages,
-            extras,
-        )
-        self.highlights = highlights if highlights is not None else []
-        self.highlight_scores = highlight_scores if highlight_scores is not None else []
-
-    def __str__(self):
-        base_str = super().__str__()
-        return base_str + (
-            f"Highlights: {self.highlights}\n"
-            f"Highlight Scores: {self.highlight_scores}\n"
-        )
-
-
-@dataclass
-class ResultWithTextAndHighlights(_Result):
-    """
-    A class representing a search result with text and highlights present.
-
-    Attributes:
-        text (str)
-        highlights (List[str])
-        highlight_scores (List[float])
-    """
-
-    text: str = dataclasses.field(default_factory=str)
-    highlights: List[str] = dataclasses.field(default_factory=list)
-    highlight_scores: List[float] = dataclasses.field(default_factory=list)
-
-    def __init__(
-        self,
-        url,
-        id,
-        title=None,
-        score=None,
-        published_date=None,
-        author=None,
-        image=None,
-        favicon=None,
-        subpages=None,
-        extras=None,
-        text="",
-        highlights=None,
-        highlight_scores=None,
-    ):
-        super().__init__(
-            url,
-            id,
-            title,
-            score,
-            published_date,
-            author,
-            image,
-            favicon,
-            subpages,
-            extras,
-        )
-        self.text = text
-        self.highlights = highlights if highlights is not None else []
-        self.highlight_scores = highlight_scores if highlight_scores is not None else []
-
-    def __str__(self):
-        base_str = super().__str__()
-        return base_str + (
-            f"Text: {self.text}\n"
-            f"Highlights: {self.highlights}\n"
-            f"Highlight Scores: {self.highlight_scores}\n"
-        )
 
 
 @dataclass
@@ -650,6 +801,7 @@ class ResultWithSummary(_Result):
         favicon=None,
         subpages=None,
         extras=None,
+        entities=None,
         summary="",
     ):
         super().__init__(
@@ -663,6 +815,7 @@ class ResultWithSummary(_Result):
             favicon,
             subpages,
             extras,
+            entities,
         )
         self.summary = summary
 
@@ -696,6 +849,7 @@ class ResultWithTextAndSummary(_Result):
         favicon=None,
         subpages=None,
         extras=None,
+        entities=None,
         text="",
         summary="",
     ):
@@ -710,6 +864,7 @@ class ResultWithTextAndSummary(_Result):
             favicon,
             subpages,
             extras,
+            entities,
         )
         self.text = text
         self.summary = summary
@@ -717,123 +872,6 @@ class ResultWithTextAndSummary(_Result):
     def __str__(self):
         base_str = super().__str__()
         return base_str + f"Text: {self.text}\n" + f"Summary: {self.summary}\n"
-
-
-@dataclass
-class ResultWithHighlightsAndSummary(_Result):
-    """
-    A class representing a search result with highlights and summary present.
-
-    Attributes:
-        highlights (List[str])
-        highlight_scores (List[float])
-        summary (str)
-    """
-
-    highlights: List[str] = dataclasses.field(default_factory=list)
-    highlight_scores: List[float] = dataclasses.field(default_factory=list)
-    summary: str = dataclasses.field(default_factory=str)
-
-    def __init__(
-        self,
-        url,
-        id,
-        title=None,
-        score=None,
-        published_date=None,
-        author=None,
-        image=None,
-        favicon=None,
-        subpages=None,
-        extras=None,
-        highlights=None,
-        highlight_scores=None,
-        summary="",
-    ):
-        super().__init__(
-            url,
-            id,
-            title,
-            score,
-            published_date,
-            author,
-            image,
-            favicon,
-            subpages,
-            extras,
-        )
-        self.highlights = highlights if highlights is not None else []
-        self.highlight_scores = highlight_scores if highlight_scores is not None else []
-        self.summary = summary
-
-    def __str__(self):
-        base_str = super().__str__()
-        return base_str + (
-            f"Highlights: {self.highlights}\n"
-            f"Highlight Scores: {self.highlight_scores}\n"
-            f"Summary: {self.summary}\n"
-        )
-
-
-@dataclass
-class ResultWithTextAndHighlightsAndSummary(_Result):
-    """
-    A class representing a search result with text, highlights, and summary present.
-
-    Attributes:
-        text (str)
-        highlights (List[str])
-        highlight_scores (List[float])
-        summary (str)
-    """
-
-    text: str = dataclasses.field(default_factory=str)
-    highlights: List[str] = dataclasses.field(default_factory=list)
-    highlight_scores: List[float] = dataclasses.field(default_factory=list)
-    summary: str = dataclasses.field(default_factory=str)
-
-    def __init__(
-        self,
-        url,
-        id,
-        title=None,
-        score=None,
-        published_date=None,
-        author=None,
-        image=None,
-        favicon=None,
-        subpages=None,
-        extras=None,
-        text="",
-        highlights=None,
-        highlight_scores=None,
-        summary="",
-    ):
-        super().__init__(
-            url,
-            id,
-            title,
-            score,
-            published_date,
-            author,
-            image,
-            favicon,
-            subpages,
-            extras,
-        )
-        self.text = text
-        self.highlights = highlights if highlights is not None else []
-        self.highlight_scores = highlight_scores if highlight_scores is not None else []
-        self.summary = summary
-
-    def __str__(self):
-        base_str = super().__str__()
-        return base_str + (
-            f"Text: {self.text}\n"
-            f"Highlights: {self.highlights}\n"
-            f"Highlight Scores: {self.highlight_scores}\n"
-            f"Summary: {self.summary}\n"
-        )
 
 
 @dataclass
@@ -1067,7 +1105,6 @@ class SearchResponse(Generic[T]):
 
     Attributes:
         results (List[Result]): A list of search results.
-        autoprompt_string (str, optional): The Exa query created by autoprompt.
         resolved_search_type (str, optional): 'neural' or 'keyword' if auto.
         auto_date (str, optional): A date for filtering if autoprompt found one.
         context (str, optional): Combined context string when requested via contents.context.
@@ -1076,7 +1113,6 @@ class SearchResponse(Generic[T]):
     """
 
     results: List[T]
-    autoprompt_string: Optional[str]
     resolved_search_type: Optional[str]
     auto_date: Optional[str]
     context: Optional[str] = None
@@ -1087,8 +1123,6 @@ class SearchResponse(Generic[T]):
         output = "\n\n".join(str(result) for result in self.results)
         if self.context:
             output += f"\nContext: {self.context}"
-        if self.autoprompt_string:
-            output += f"\n\nAutoprompt String: {self.autoprompt_string}"
         if self.resolved_search_type:
             output += f"\nResolved Search Type: {self.resolved_search_type}"
         if self.cost_dollars:
@@ -1146,7 +1180,7 @@ class Exa:
 
         # Set default user agent with dynamic version if not provided
         if user_agent is None:
-            user_agent = f"exa-py {_get_package_version()}"
+            user_agent = f"exa-py/{_get_package_version()}"
 
         self.base_url = base_url
         self.headers = {
@@ -1245,6 +1279,7 @@ class Exa:
         self,
         query: str,
         *,
+        contents: Optional[Union[Dict, bool]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -1254,18 +1289,24 @@ class Exa:
         end_published_date: Optional[str] = None,
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
         type: Optional[str] = None,
         category: Optional[str] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
         user_location: Optional[str] = None,
-    ) -> SearchResponse[_Result]:
-        """Perform a search with a prompt-engineered query to retrieve relevant results.
+        additional_queries: Optional[List[str]] = None,
+    ) -> SearchResponse[Result]:
+        """Perform a search.
+
+        By default, returns text contents with 10,000 max characters. Use contents=False to opt-out.
 
         Args:
             query (str): The query string.
-            num_results (int, optional): Number of search results to return (default 10).
+            contents (dict | bool, optional): Options for retrieving page contents.
+                Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                Note: For deep search (type='deep'), context is always returned by the API.
+            num_results (int, optional): Number of search results to return (default 10). 
+                For deep search, recommend leaving blank - number of results will be determined dynamically for your query.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
             start_crawl_date (str, optional): Only links crawled after this date.
@@ -1274,17 +1315,31 @@ class Exa:
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            use_autoprompt (bool, optional): Convert query to Exa (default False).
-            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', or 'auto' (default 'auto').
+            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (default 'auto').
             category (str, optional): e.g. 'company'
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
             user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            additional_queries (List[str], optional): Alternative query formulations for deep search to skip
+                automatic LLM-based query expansion. Max 5 queries. Only applicable when type='deep'.
+                Example: ["machine learning", "ML algorithms", "neural networks"]
 
         Returns:
             SearchResponse: The response containing search results, etc.
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+
+        # Handle contents parameter with default behavior
+        if contents is False:
+            # Explicitly no contents - remove from options
+            options.pop("contents", None)
+        elif contents is None and "contents" not in options:
+            # No contents specified - add default text with 10,000 max characters
+            options["contents"] = {"text": {"max_characters": DEFAULT_MAX_CHARACTERS}}
+        elif contents is not None:
+            # User provided contents - use as-is
+            options["contents"] = contents
+
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options)
         data = self.request("/search", options)
@@ -1305,267 +1360,41 @@ class Exa:
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data["autopromptString"] if "autopromptString" in data else None,
             data["resolvedSearchType"] if "resolvedSearchType" in data else None,
             data["autoDate"] if "autoDate" in data else None,
+            context=data.get("context"),
             cost_dollars=cost_dollars,
         )
 
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithText]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithText]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithHighlights]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlights]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithSummary]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithTextAndSummary]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithHighlightsAndSummary]: ...
-
-    @overload
-    def search_and_contents(
-        self,
-        query: str,
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
-        type: Optional[str] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlightsAndSummary]: ...
-
     def search_and_contents(self, query: str, **kwargs):
+        """
+        DEPRECATED: Use search() instead. The search() method now returns text contents by default.
+
+        Migration:
+        - search_and_contents(query) → search(query)
+        - search_and_contents(query, text=True) → search(query, contents={"text": True})
+        - search_and_contents(query, summary=True) → search(query, contents={"summary": True})
+        """
+
         options = {"query": query}
         for k, v in kwargs.items():
             if v is not None:
                 options[k] = v
-        # If user didn't ask for any particular content, default to text
+        # If user didn't ask for any particular content, default to text with max characters
         if (
             "text" not in options
-            and "highlights" not in options
             and "summary" not in options
             and "extras" not in options
         ):
-            options["text"] = True
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(SEARCH_OPTIONS_TYPES)
@@ -1584,8 +1413,8 @@ class Exa:
             options,
             [
                 "text",
-                "highlights",
                 "summary",
+                "highlights",
                 "context",
                 "subpages",
                 "subpage_target",
@@ -1614,16 +1443,16 @@ class Exa:
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data["autopromptString"] if "autopromptString" in data else None,
-            data["resolvedSearchType"] if "resolvedSearchType" in data else None,
-            data["autoDate"] if "autoDate" in data else None,
+            data.get("resolvedSearchType"),
+            data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
         )
@@ -1661,37 +1490,6 @@ class Exa:
         self,
         urls: Union[str, List[str], List[_Result]],
         *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-        flags: Optional[List[str]] = None,
-    ) -> SearchResponse[ResultWithHighlights]: ...
-
-    @overload
-    def get_contents(
-        self,
-        urls: Union[str, List[str], List[_Result]],
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-        flags: Optional[List[str]] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlights]: ...
-
-    @overload
-    def get_contents(
-        self,
-        urls: Union[str, List[str], List[_Result]],
-        *,
         summary: Union[SummaryContentsOptions, Literal[True]],
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
@@ -1718,40 +1516,14 @@ class Exa:
         flags: Optional[List[str]] = None,
     ) -> SearchResponse[ResultWithTextAndSummary]: ...
 
-    @overload
-    def get_contents(
-        self,
-        urls: Union[str, List[str], List[_Result]],
-        *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-        flags: Optional[List[str]] = None,
-    ) -> SearchResponse[ResultWithHighlightsAndSummary]: ...
-
-    @overload
-    def get_contents(
-        self,
-        urls: Union[str, List[str], List[_Result]],
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-        flags: Optional[List[str]] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlightsAndSummary]: ...
-
     def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
+        # Normalize urls to always be a list
+        if isinstance(urls, str):
+            urls = [urls]
+        elif isinstance(urls, list) and len(urls) > 0 and isinstance(urls[0], _Result):
+            # Extract URLs from Result objects
+            urls = [r.url for r in urls]
+
         options = {"urls": urls}
         for k, v in kwargs.items():
             if k != "self" and v is not None:
@@ -1759,11 +1531,10 @@ class Exa:
 
         if (
             "text" not in options
-            and "highlights" not in options
             and "summary" not in options
             and "extras" not in options
         ):
-            options["text"] = True
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(CONTENTS_OPTIONS_TYPES)
@@ -1804,14 +1575,14 @@ class Exa:
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             context=data.get("context"),
@@ -1823,6 +1594,7 @@ class Exa:
         self,
         url: str,
         *,
+        contents: Optional[Union[Dict, bool]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -1835,11 +1607,15 @@ class Exa:
         exclude_source_domain: Optional[bool] = None,
         category: Optional[str] = None,
         flags: Optional[List[str]] = None,
-    ) -> SearchResponse[_Result]:
+    ) -> SearchResponse[Result]:
         """Finds similar pages to a given URL, potentially with domain filters and date filters.
+
+        By default, returns text contents with 10,000 max characters. Use contents=False to opt-out.
 
         Args:
             url (str): The URL to find similar pages for.
+            contents (dict | bool, optional): Options for retrieving page contents.
+                Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -1854,9 +1630,21 @@ class Exa:
             flags (List[str], optional): Experimental flags.
 
         Returns:
-            SearchResponse[_Result]
+            SearchResponse[Result]
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+
+        # Handle contents parameter with default behavior
+        if contents is False:
+            # Explicitly no contents - remove from options
+            options.pop("contents", None)
+        elif contents is None and "contents" not in options:
+            # No contents specified - add default text with 10,000 max characters
+            options["contents"] = {"text": {"max_characters": DEFAULT_MAX_CHARACTERS}}
+        elif contents is not None:
+            # User provided contents - use as-is
+            options["contents"] = contents
+
         validate_search_options(options, FIND_SIMILAR_OPTIONS_TYPES)
         options = to_camel_case(options)
         data = self.request("/findSimilar", options)
@@ -1877,14 +1665,14 @@ class Exa:
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             cost_dollars=cost_dollars,
@@ -1946,34 +1734,7 @@ class Exa:
         self,
         url: str,
         *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithHighlights]: ...
-
-    @overload
-    def find_similar_and_contents(
-        self,
-        url: str,
-        *,
         text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -1992,7 +1753,7 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlights]: ...
+    ) -> SearchResponse[ResultWithText]: ...
 
     @overload
     def find_similar_and_contents(
@@ -2047,73 +1808,23 @@ class Exa:
         extras: Optional[ExtrasOptions] = None,
     ) -> SearchResponse[ResultWithTextAndSummary]: ...
 
-    @overload
-    def find_similar_and_contents(
-        self,
-        url: str,
-        *,
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithHighlightsAndSummary]: ...
-
-    @overload
-    def find_similar_and_contents(
-        self,
-        url: str,
-        *,
-        text: Union[TextContentsOptions, Literal[True]],
-        highlights: Union[HighlightsContentsOptions, Literal[True]],
-        summary: Union[SummaryContentsOptions, Literal[True]],
-        num_results: Optional[int] = None,
-        include_domains: Optional[List[str]] = None,
-        exclude_domains: Optional[List[str]] = None,
-        start_crawl_date: Optional[str] = None,
-        end_crawl_date: Optional[str] = None,
-        start_published_date: Optional[str] = None,
-        end_published_date: Optional[str] = None,
-        include_text: Optional[List[str]] = None,
-        exclude_text: Optional[List[str]] = None,
-        exclude_source_domain: Optional[bool] = None,
-        category: Optional[str] = None,
-        flags: Optional[List[str]] = None,
-        livecrawl_timeout: Optional[int] = None,
-        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
-        filter_empty_results: Optional[bool] = None,
-        subpages: Optional[int] = None,
-        subpage_target: Optional[Union[str, List[str]]] = None,
-        extras: Optional[ExtrasOptions] = None,
-    ) -> SearchResponse[ResultWithTextAndHighlightsAndSummary]: ...
-
     def find_similar_and_contents(self, url: str, **kwargs):
+        """
+        DEPRECATED: Use find_similar() instead. The find_similar() method now returns text contents by default.
+
+        Migration:
+        - find_similar_and_contents(url) → find_similar(url)
+        - find_similar_and_contents(url, text=True) → find_similar(url, contents={"text": True})
+        - find_similar_and_contents(url, summary=True) → find_similar(url, contents={"summary": True})
+        """
+
         options = {"url": url}
         for k, v in kwargs.items():
             if v is not None:
                 options[k] = v
-        # Default to text if none specified
-        if (
-            "text" not in options
-            and "highlights" not in options
-            and "summary" not in options
-        ):
-            options["text"] = True
+        # Default to text with max characters if none specified
+        if "text" not in options and "summary" not in options:
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(FIND_SIMILAR_OPTIONS_TYPES)
@@ -2132,8 +1843,8 @@ class Exa:
             options,
             [
                 "text",
-                "highlights",
                 "summary",
+                "highlights",
                 "context",
                 "subpages",
                 "subpage_target",
@@ -2162,14 +1873,14 @@ class Exa:
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             context=data.get("context"),
@@ -2199,7 +1910,6 @@ class Exa:
             model: Union[str, ChatModel],
             # Exa args
             use_exa: Optional[Literal["required", "none", "auto"]] = "auto",
-            highlights: Union[HighlightsContentsOptions, Literal[True], None] = None,
             num_results: Optional[int] = 3,
             include_domains: Optional[List[str]] = None,
             exclude_domains: Optional[List[str]] = None,
@@ -2209,7 +1919,6 @@ class Exa:
             end_published_date: Optional[str] = None,
             include_text: Optional[List[str]] = None,
             exclude_text: Optional[List[str]] = None,
-            use_autoprompt: Optional[bool] = True,
             type: Optional[str] = None,
             category: Optional[str] = None,
             result_max_len: int = 2048,
@@ -2221,14 +1930,12 @@ class Exa:
                 "num_results": num_results,
                 "include_domains": include_domains,
                 "exclude_domains": exclude_domains,
-                "highlights": highlights,
                 "start_crawl_date": start_crawl_date,
                 "end_crawl_date": end_crawl_date,
                 "start_published_date": start_published_date,
                 "end_published_date": end_published_date,
                 "include_text": include_text,
                 "exclude_text": exclude_text,
-                "use_autoprompt": use_autoprompt,
                 "type": type,
                 "category": category,
                 "flags": flags,
@@ -2295,14 +2002,12 @@ class Exa:
             num_results=exa_kwargs.get("num_results"),
             include_domains=exa_kwargs.get("include_domains"),
             exclude_domains=exa_kwargs.get("exclude_domains"),
-            highlights=exa_kwargs.get("highlights"),
             start_crawl_date=exa_kwargs.get("start_crawl_date"),
             end_crawl_date=exa_kwargs.get("end_crawl_date"),
             start_published_date=exa_kwargs.get("start_published_date"),
             end_published_date=exa_kwargs.get("end_published_date"),
             include_text=exa_kwargs.get("include_text"),
             exclude_text=exa_kwargs.get("exclude_text"),
-            use_autoprompt=exa_kwargs.get("use_autoprompt"),
             type=exa_kwargs.get("type"),
             category=exa_kwargs.get("category"),
             flags=exa_kwargs.get("flags"),
@@ -2438,8 +2143,12 @@ class AsyncExa(Exa):
         return self._client
 
     async def async_request(
-        self, endpoint: str, data=None, method: str = "POST", params=None,
-        headers: Optional[Dict[str, str]] = None
+        self,
+        endpoint: str,
+        data=None,
+        method: str = "POST",
+        params=None,
+        headers: Optional[Dict[str, str]] = None,
     ):
         """Send a request to the Exa API, optionally streaming if data['stream'] is True.
 
@@ -2470,7 +2179,10 @@ class AsyncExa(Exa):
         if method.upper() == "GET":
             if needs_streaming:
                 request = httpx.Request(
-                    "GET", self.base_url + endpoint, params=params, headers=request_headers
+                    "GET",
+                    self.base_url + endpoint,
+                    params=params,
+                    headers=request_headers,
                 )
                 res = await self.client.send(request, stream=True)
                 return res
@@ -2499,6 +2211,7 @@ class AsyncExa(Exa):
         self,
         query: str,
         *,
+        contents: Optional[Union[Dict, bool]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -2508,18 +2221,24 @@ class AsyncExa(Exa):
         end_published_date: Optional[str] = None,
         include_text: Optional[List[str]] = None,
         exclude_text: Optional[List[str]] = None,
-        use_autoprompt: Optional[bool] = None,
         type: Optional[str] = None,
         category: Optional[str] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
         user_location: Optional[str] = None,
-    ) -> SearchResponse[_Result]:
+        additional_queries: Optional[List[str]] = None,
+    ) -> SearchResponse[Result]:
         """Perform a search with a prompt-engineered query to retrieve relevant results.
+
+        By default, returns text contents with 10,000 max characters. Use contents=False to opt-out.
 
         Args:
             query (str): The query string.
-            num_results (int, optional): Number of search results to return (default 10).
+            contents (dict | bool, optional): Options for retrieving page contents.
+                Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
+                Note: For deep search (type='deep'), context is always returned by the API.
+            num_results (int, optional): Number of search results to return (default 10). 
+                For deep search, recommend leaving blank - number of results will be determined dynamically for your query.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
             start_crawl_date (str, optional): Only links crawled after this date.
@@ -2528,17 +2247,31 @@ class AsyncExa(Exa):
             end_published_date (str, optional): Only links published before this date.
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
-            use_autoprompt (bool, optional): Convert query to Exa (default False).
-            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', or 'auto' (default 'auto').
+            type (str, optional): 'keyword', 'neural', 'hybrid', 'fast', 'deep', or 'auto' (default 'auto').
             category (str, optional): e.g. 'company'
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
             user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            additional_queries (List[str], optional): Alternative query formulations for deep search to skip
+                automatic LLM-based query expansion. Max 5 queries. Only applicable when type='deep'.
+                Example: ["machine learning", "ML algorithms", "neural networks"]
 
         Returns:
             SearchResponse: The response containing search results, etc.
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+
+        # Handle contents parameter with default behavior
+        if contents is False:
+            # Explicitly no contents - remove from options
+            options.pop("contents", None)
+        elif contents is None and "contents" not in options:
+            # No contents specified - add default text with 10,000 max characters
+            options["contents"] = {"text": {"max_characters": DEFAULT_MAX_CHARACTERS}}
+        elif contents is not None:
+            # User provided contents - use as-is
+            options["contents"] = contents
+
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options)
         data = await self.async_request("/search", options)
@@ -2559,32 +2292,41 @@ class AsyncExa(Exa):
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data["autopromptString"] if "autopromptString" in data else None,
-            data["resolvedSearchType"] if "resolvedSearchType" in data else None,
-            data["autoDate"] if "autoDate" in data else None,
+            data.get("resolvedSearchType"),
+            data.get("autoDate"),
+            context=data.get("context"),
             cost_dollars=cost_dollars,
         )
 
     async def search_and_contents(self, query: str, **kwargs):
+        """
+        DEPRECATED: Use search() instead. The search() method now returns text contents by default.
+
+        Migration:
+        - search_and_contents(query) → search(query)
+        - search_and_contents(query, text=True) → search(query, contents={"text": True})
+        - search_and_contents(query, summary=True) → search(query, contents={"summary": True})
+        """
+
         options = {"query": query}
         for k, v in kwargs.items():
             if v is not None:
                 options[k] = v
-        # If user didn't ask for any particular content, default to text
+        # If user didn't ask for any particular content, default to text with max characters
         if (
             "text" not in options
-            and "highlights" not in options
             and "summary" not in options
             and "extras" not in options
         ):
-            options["text"] = True
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(SEARCH_OPTIONS_TYPES)
@@ -2603,8 +2345,8 @@ class AsyncExa(Exa):
             options,
             [
                 "text",
-                "highlights",
                 "summary",
+                "highlights",
                 "context",
                 "subpages",
                 "subpage_target",
@@ -2633,21 +2375,28 @@ class AsyncExa(Exa):
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data["autopromptString"] if "autopromptString" in data else None,
-            data["resolvedSearchType"] if "resolvedSearchType" in data else None,
-            data["autoDate"] if "autoDate" in data else None,
+            data.get("resolvedSearchType"),
+            data.get("autoDate"),
             context=data.get("context"),
             cost_dollars=cost_dollars,
         )
 
     async def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
+        # Normalize urls to always be a list
+        if isinstance(urls, str):
+            urls = [urls]
+        elif isinstance(urls, list) and len(urls) > 0 and isinstance(urls[0], _Result):
+            # Extract URLs from Result objects
+            urls = [r.url for r in urls]
+
         options = {"urls": urls}
         for k, v in kwargs.items():
             if k != "self" and v is not None:
@@ -2655,11 +2404,10 @@ class AsyncExa(Exa):
 
         if (
             "text" not in options
-            and "highlights" not in options
             and "summary" not in options
             and "extras" not in options
         ):
-            options["text"] = True
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(CONTENTS_OPTIONS_TYPES)
@@ -2700,14 +2448,14 @@ class AsyncExa(Exa):
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             context=data.get("context"),
@@ -2719,6 +2467,7 @@ class AsyncExa(Exa):
         self,
         url: str,
         *,
+        contents: Optional[Union[Dict, bool]] = None,
         num_results: Optional[int] = None,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
@@ -2731,11 +2480,15 @@ class AsyncExa(Exa):
         exclude_source_domain: Optional[bool] = None,
         category: Optional[str] = None,
         flags: Optional[List[str]] = None,
-    ) -> SearchResponse[_Result]:
+    ) -> SearchResponse[Result]:
         """Finds similar pages to a given URL, potentially with domain filters and date filters.
+
+        By default, returns text contents with 10,000 max characters. Use contents=False to opt-out.
 
         Args:
             url (str): The URL to find similar pages for.
+            contents (dict | bool, optional): Options for retrieving page contents.
+                Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -2750,9 +2503,21 @@ class AsyncExa(Exa):
             flags (List[str], optional): Experimental flags.
 
         Returns:
-            SearchResponse[_Result]
+            SearchResponse[Result]
         """
         options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+
+        # Handle contents parameter with default behavior
+        if contents is False:
+            # Explicitly no contents - remove from options
+            options.pop("contents", None)
+        elif contents is None and "contents" not in options:
+            # No contents specified - add default text with 10,000 max characters
+            options["contents"] = {"text": {"max_characters": DEFAULT_MAX_CHARACTERS}}
+        elif contents is not None:
+            # User provided contents - use as-is
+            options["contents"] = contents
+
         validate_search_options(options, FIND_SIMILAR_OPTIONS_TYPES)
         options = to_camel_case(options)
         data = await self.async_request("/findSimilar", options)
@@ -2773,31 +2538,35 @@ class AsyncExa(Exa):
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             cost_dollars=cost_dollars,
         )
 
     async def find_similar_and_contents(self, url: str, **kwargs):
+        """
+        DEPRECATED: Use find_similar() instead. The find_similar() method now returns text contents by default.
+
+        Migration:
+        - find_similar_and_contents(url) → find_similar(url)
+        - find_similar_and_contents(url, text=True) → find_similar(url, contents={"text": True})
+        - find_similar_and_contents(url, summary=True) → find_similar(url, contents={"summary": True})
+        """
         options = {"url": url}
         for k, v in kwargs.items():
             if v is not None:
                 options[k] = v
-        # Default to text if none specified
-        if (
-            "text" not in options
-            and "highlights" not in options
-            and "summary" not in options
-        ):
-            options["text"] = True
+        # Default to text with max characters if none specified
+        if "text" not in options and "summary" not in options:
+            options["text"] = {"max_characters": DEFAULT_MAX_CHARACTERS}
 
         merged_options = {}
         merged_options.update(FIND_SIMILAR_OPTIONS_TYPES)
@@ -2816,8 +2585,8 @@ class AsyncExa(Exa):
             options,
             [
                 "text",
-                "highlights",
                 "summary",
+                "highlights",
                 "context",
                 "subpages",
                 "subpage_target",
@@ -2846,14 +2615,14 @@ class AsyncExa(Exa):
                     subpages=snake_result.get("subpages"),
                     extras=snake_result.get("extras"),
                     text=snake_result.get("text"),
+                    summary=snake_result.get("summary"),
                     highlights=snake_result.get("highlights"),
                     highlight_scores=snake_result.get("highlight_scores"),
-                    summary=snake_result.get("summary"),
+                    entities=_parse_entities(result.get("entities")),
                 )
             )
         return SearchResponse(
             results,
-            data.get("autopromptString"),
             data.get("resolvedSearchType"),
             data.get("autoDate"),
             context=data.get("context"),

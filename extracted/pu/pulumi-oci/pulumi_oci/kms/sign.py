@@ -266,12 +266,21 @@ class Sign(pulumi.CustomResource):
                  signing_algorithm: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Sign resource in Oracle Cloud Infrastructure Kms service.
+        ## Example Usage
 
-        Creates a digital signature for a message or message digest by using the private key of a public-private key pair,
-        also known as an asymmetric key. To verify the generated signature, you can use the [Verify](https://docs.cloud.oracle.com/iaas/api/#/en/key/latest/VerifiedData/Verify)
-        operation. Or, if you want to validate the signature outside of the service, you can do so by using the public key of the same asymmetric key.
-        This operation is not supported for keys having protection mode `EXTERNAL`.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_sign = oci.kms.Sign("test_sign",
+            crypto_endpoint=sign_message_crypto_endpoint,
+            key_id=test_key["id"],
+            message=sign_message,
+            signing_algorithm=sign_signing_algorithm,
+            key_version_id=test_key_version["id"],
+            logging_context=sign_logging_context,
+            message_type=sign_message_type)
+        ```
 
         ## Import
 
@@ -301,12 +310,21 @@ class Sign(pulumi.CustomResource):
                  args: SignArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Sign resource in Oracle Cloud Infrastructure Kms service.
+        ## Example Usage
 
-        Creates a digital signature for a message or message digest by using the private key of a public-private key pair,
-        also known as an asymmetric key. To verify the generated signature, you can use the [Verify](https://docs.cloud.oracle.com/iaas/api/#/en/key/latest/VerifiedData/Verify)
-        operation. Or, if you want to validate the signature outside of the service, you can do so by using the public key of the same asymmetric key.
-        This operation is not supported for keys having protection mode `EXTERNAL`.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_sign = oci.kms.Sign("test_sign",
+            crypto_endpoint=sign_message_crypto_endpoint,
+            key_id=test_key["id"],
+            message=sign_message,
+            signing_algorithm=sign_signing_algorithm,
+            key_version_id=test_key_version["id"],
+            logging_context=sign_logging_context,
+            message_type=sign_message_type)
+        ```
 
         ## Import
 

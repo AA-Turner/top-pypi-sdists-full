@@ -11,11 +11,10 @@ from angr.analyses.forward_analysis.visitors.graph import NodeType
 from angr.analyses.forward_analysis import FunctionGraphVisitor
 from .rewriting_engine import SimEngineDephiRewriting
 
-
 l = logging.getLogger(__name__)
 
 
-class GraphRewritingAnalysis(ForwardAnalysis[None, NodeType, object, object]):
+class GraphRewritingAnalysis(ForwardAnalysis[None, NodeType, object, object, object]):
     """
     This analysis traverses the AIL graph and rewrites virtual variables accordingly.
     """

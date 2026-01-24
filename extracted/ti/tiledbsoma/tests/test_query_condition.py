@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import pathlib
 
 import pytest
 
@@ -11,7 +12,7 @@ from tiledbsoma._query_condition import QueryCondition
 
 VERBOSE = False
 
-TEST_DIR = os.path.dirname(__file__)
+TEST_DIR = pathlib.Path(__file__).parent
 SOMA_URI = f"{TEST_DIR}/../../../data/soco/pbmc3k_processed"
 
 if VERBOSE:
@@ -42,6 +43,104 @@ def soma_query(uri, condition):
 
 
 @pytest.mark.parametrize(
+    "soma_pd_condition",
+    [
+        # types
+        ("int == None or int == 1", "(int != int) | (int == 1)"),
+        ("int == None and bool == None", "int.isna() & bool.isna()"),
+        ("int == None and ord != 'g1'", "int.isna() & ord != 'g1'"),
+    ],
+)
+def test_query_with_combo_none_condition(tmp_path, soma_pd_condition):
+    import pandas as pd
+    import pyarrow as pa
+
+    import tiledbsoma as soma
+
+    uri = tmp_path.as_posix()
+    asch = pa.schema(
+        [
+            pa.field("int", pa.int32()),
+            pa.field("bool", pa.bool_()),
+            pa.field("ord", pa.dictionary(pa.int64(), pa.string())),
+        ],
+        metadata={
+            "int": "nullable",
+            "bool": "nullable",
+            "ord": "nullable",
+        },
+    )
+
+    pydict = {}
+    pydict["soma_joinid"] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    pydict["int"] = [1, 2, 3, 4, 5, 6, None, 8, None, None]
+    pydict["bool"] = [True, True, True, False, True, False, None, False, None, None]
+    pydict["ord"] = pd.Categorical(["g1", "g2", "g3", None, "g2", "g3", "g1", None, "g3", "g1"])
+    data = pa.Table.from_pydict(pydict)
+
+    with soma.DataFrame.create(uri, schema=asch, domain=[[0, 9]]) as sdf:
+        sdf.write(data)
+
+    soma_arrow = soma_query(uri, soma_pd_condition[0])
+    pandas = pandas_query(uri, soma_pd_condition[1])
+    assert len(pandas.index) == soma_arrow.num_rows
+
+
+@pytest.mark.parametrize(
+    "soma_pd_condition",
+    [
+        # types
+        ("ord == None", "ord.isna()"),
+        ("ord != None", "ord.notna()"),
+        ("ord <= None", "ord < ord"),
+        ("ord < None", "ord < ord"),
+        ("ord >= None", "ord >= ord"),
+        ("ord >= None", "ord >= ord"),
+    ],
+)
+def test_query_with_none_condition(tmp_path, soma_pd_condition):
+    """Compare condition to result from Pandas - they should match"""
+
+    import pandas as pd
+    import pyarrow as pa
+
+    import tiledbsoma as soma
+
+    uri = tmp_path.as_posix()
+    asch = pa.schema(
+        [
+            pa.field("int", pa.int32()),
+            pa.field("bool", pa.bool_()),
+            pa.field("ord", pa.dictionary(pa.int64(), pa.string())),
+        ],
+        metadata={
+            "int": "nullable",
+            "bool": "nullable",
+            "ord": "nullable",
+        },
+    )
+
+    pydict = {}
+    pydict["soma_joinid"] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    pydict["int"] = [1, 2, 3, 4, 5, 6, None, 8, None, None]
+    pydict["bool"] = [True, True, True, False, True, False, None, False, None, None]
+    pydict["ord"] = pd.Categorical(["g1", "g2", "g3", None, "g2", "g3", "g1", None, "g3", "g1"])
+    data = pa.Table.from_pydict(pydict)
+
+    with soma.DataFrame.create(uri, schema=asch, domain=[[0, 9]]) as sdf:
+        sdf.write(data)
+
+    if any(op in soma_pd_condition[0] for op in ["==", "!="]):
+        soma_arrow = soma_query(uri, soma_pd_condition[0])
+        pandas = pandas_query(uri, soma_pd_condition[1])
+        assert len(pandas.index) == soma_arrow.num_rows
+    else:
+        with pytest.raises(SOMAError) as e:
+            soma_arrow = soma_query(uri, soma_pd_condition[0])
+            assert "Null value can only be used with equality operators" in str(e)
+
+
+@pytest.mark.parametrize(
     "condition",
     [
         # types
@@ -63,6 +162,10 @@ def soma_query(uri, condition):
         "n_genes == +480",
         "n_genes >= -1",
         "n_genes > -(+(-1))",
+        # not ops
+        "not n_genes == 480",
+        "not n_genes > 500",
+        "not n_genes < 500",
         # boolean logic
         "percent_mito > 0.02 and n_genes > 700",  # and
         "percent_mito > 0.02 or n_genes > 700",  # or
@@ -77,10 +180,8 @@ def test_query_condition(condition):
     pandas = pandas_query(uri, condition)
     soma_arrow = soma_query(uri, condition)
     assert len(pandas.index) == soma_arrow.num_rows
-    assert (
-        (pandas.reset_index(drop=True) == soma_arrow.to_pandas().reset_index(drop=True))
-        .all()
-        .all()
+    assert pandas.empty or (
+        (pandas.reset_index(drop=True) == soma_arrow.to_pandas().reset_index(drop=True)).all().all()
     )
 
 
@@ -116,11 +217,7 @@ def test_query_condition_extensions(condition, pandas_equivalent_condition):
     pandas = pandas_query(uri, pandas_equivalent_condition)
     soma_arrow = soma_query(uri, condition)
     assert len(pandas.index) == soma_arrow.num_rows
-    assert (
-        (pandas.reset_index(drop=True) == soma_arrow.to_pandas().reset_index(drop=True))
-        .all()
-        .all()
-    )
+    assert (pandas.reset_index(drop=True) == soma_arrow.to_pandas().reset_index(drop=True)).all().all()
 
 
 def test_query_condition_select_columns():
@@ -210,6 +307,7 @@ def test_query_condition_reset():
         '"',
         "'",
         "attr(3) > 1attr(b) == 3",
+        "not > a",
     ],
 )
 def test_parsing_error_conditions(malformed_condition):
@@ -282,9 +380,8 @@ def test_eval_error_conditions(malformed_condition):
 def test_query_condition_syntax_handling(expression_and_message):
     uri = os.path.join(SOMA_URI, "obs")
     expression, message = expression_and_message
-    with DataFrame.open(uri) as obs:
-        with pytest.raises(SOMAError, match=message):
-            obs.read(value_filter=expression).concat()
+    with DataFrame.open(uri) as obs, pytest.raises(SOMAError, match=message):
+        obs.read(value_filter=expression).concat()
 
 
 if __name__ == "__main__":

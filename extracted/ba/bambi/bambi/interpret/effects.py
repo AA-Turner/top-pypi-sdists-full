@@ -1,7 +1,6 @@
 # pylint: disable=ungrouped-imports
 from dataclasses import dataclass, field
 import itertools
-from typing import Dict, Union
 
 import arviz as az
 import numpy as np
@@ -35,15 +34,12 @@ class ResponseInfo:
     computing uncertainty intervals, and creating the summary dataframe in
     'PredictiveDifferences'
 
-    FIXME: is the documentation outdated?
-
     Parameters
     ----------
-    model : Model
-        The fitted bambi Model object.
+    name : str
+        The name of the response variable.
     target : str
-        The target of the response variable such as 'mean' or 'sigma'. Defaults to
-        'mean'.
+        The target of the response variable such as 'mean' or 'sigma'. Defaults to 'mean'.
     lower_bound : float
         The percentile of the lower bound of the uncertainty interval. Defaults to 0.03.
     upper_bound : float
@@ -51,7 +47,7 @@ class ResponseInfo:
     """
 
     name: str
-    target: Union[str, None] = None
+    target: str | None = None
     lower_bound: float = 0.03
     upper_bound: float = 0.97
     name_target: str = field(init=False)
@@ -83,16 +79,16 @@ class Estimate:
 
     Parameters
     ----------
-    mean : Dict[str, xr.DataArray]
+    mean : dict of str to xr.DataArray
         The mean of the posterior distribution (chains and draws).
-    bounds : Dict[str, xr.Dataset]
+    bounds : dict of str to xr.Dataset
         The uncertainty interval of the posterior distribution (chains and draws).
     use_hdi : bool
         Whether to use the highest density interval (HDI) (True) or quantiles (False).
     """
 
-    mean: Dict[str, xr.DataArray]
-    bounds: Dict[str, xr.Dataset]
+    mean: dict[str, xr.DataArray]
+    bounds: dict[str, xr.Dataset]
     use_hdi: bool
     bounds_list: list = field(init=False)
     lower: xr.DataArray = field(init=False)
@@ -130,8 +126,7 @@ class Estimate:
 @dataclass
 class PredictiveDifferences:
     """Computes predictive differences and their uncertainty intervals for
-    'comparisons' and 'slopes' effects and returns a summary dataframe of the
-    results
+    'comparisons' and 'slopes' effects and returns a summary dataframe of the results
 
     Parameters
     ----------
@@ -195,6 +190,7 @@ class PredictiveDifferences:
 
         return pairwise_variables
 
+    # pylint: disable=possibly-used-before-assignment
     def get_slope_estimate(
         self,
         predictive_difference: xr.DataArray,
@@ -204,9 +200,7 @@ class PredictiveDifferences:
         eps: float,
         wrt_x: xr.DataArray,
     ) -> xr.DataArray:
-        """
-        Computes the slope estimate for 'dydx', 'dyex', 'eyex', 'eydx'.
-        """
+        """Computes the slope estimate for 'dydx', 'dyex', 'eyex', 'eydx'."""
         predictive_difference = (predictive_difference / eps).rename(self.response.name_target)
 
         if slope in ("eyex", "dyex"):
@@ -230,11 +224,11 @@ class PredictiveDifferences:
 
     def get_estimate(
         self,
-        idata: az.InferenceData,
+        idata: "InferenceData",
         response_transforms: dict,
         comparison_type: str = "diff",
         slope: str = "dydx",
-        eps: Union[float, None] = None,
+        eps: float | None = None,
         prob: float = 0.94,
     ):
         """Obtain the effect ('comparisons' or 'slopes') estimate and uncertainty
@@ -402,15 +396,15 @@ class PredictiveDifferences:
 
         return self.summary_df
 
-    def average_by(self, variable: Union[bool, str]) -> pd.DataFrame:
+    def average_by(self, variable: bool | str) -> pd.DataFrame:
         """Uses the original 'summary_df' to perform a marginal (if 'variable=True')
         or group by average if covariate(s) are passed
 
         Parameters
         ----------
-        variable : Union[bool, str]
-            If 'True', then average over all covariates. If a string
-            is passed, then a group by average is performed.
+        variable : bool or str
+            If `True`, then average over all covariates.
+            If a string is passed, then a group by average is performed.
 
         Returns
         -------
@@ -435,15 +429,15 @@ class PredictiveDifferences:
 
 def predictions(
     model: Model,
-    idata: az.InferenceData,
-    conditional: Union[str, dict, list, None] = None,
-    average_by: Union[str, list, bool, None] = None,
+    idata: "InferenceData",
+    conditional: str | dict | list | None = None,
+    average_by: str | list | bool | None = None,
     target: str = "mean",
     pps: bool = False,
     use_hdi: bool = True,
-    prob=None,
-    transforms=None,
-    sample_new_groups=False,
+    prob: float | None = None,
+    transforms: dict | None = None,
+    sample_new_groups: bool = False,
 ) -> pd.DataFrame:
     """Compute Conditional Adjusted Predictions
 
@@ -471,7 +465,7 @@ def predictions(
         Whether to compute the highest density interval (defaults to True) or the quantiles.
     prob : float, optional
         The probability for the credibility intervals. Must be between 0 and 1. Defaults to 0.94.
-        Changing the global variable `az.rcParam["stats.hdi_prob"]` affects this default.
+        Changing the global variable `az.rcParam["stats.ci_prob"]` affects this default.
     transforms : dict, optional
         Transformations that are applied to each of the variables being plotted. The keys are the
         name of the variables, and the values are functions to be applied. Defaults to `None`.
@@ -481,8 +475,8 @@ def predictions(
 
     Returns
     -------
-    cap_data : pandas.DataFrame
-        A DataFrame with the `create_cap_data` and model predictions.
+    cap_data : pd.DataFrame
+        A DataFrame with the result of `create_predictions_data` and model predictions.
 
     Raises
     ------
@@ -506,7 +500,7 @@ def predictions(
     transforms = transforms if transforms is not None else {}
 
     if prob is None:
-        prob = az.rcParams["stats.hdi_prob"]
+        prob = az.rcParams["stats.ci_prob"]
     if not 0 < prob < 1:
         raise ValueError(f"'prob' must be greater than 0 and smaller than 1. It is {prob}.")
 
@@ -588,14 +582,14 @@ def predictions(
 
 def comparisons(
     model: Model,
-    idata: az.InferenceData,
-    contrast: Union[str, dict],
-    conditional: Union[str, dict, list, None] = None,
-    average_by: Union[str, list, bool, None] = None,
+    idata: "InferenceData",
+    contrast: str | dict,
+    conditional: str | dict | list | None = None,
+    average_by: str | list | bool | None = None,
     comparison_type: str = "diff",
     use_hdi: bool = True,
-    prob: Union[float, None] = None,
-    transforms: Union[dict, None] = None,
+    prob: float | None = None,
+    transforms: dict | None = None,
     sample_new_groups: bool = False,
 ) -> pd.DataFrame:
     """Compute Conditional Adjusted Comparisons
@@ -632,7 +626,7 @@ def comparisons(
 
     Returns
     -------
-    pandas.DataFrame
+    pd.DataFrame
         A dataframe with the comparison values, highest density interval, contrast name,
         contrast value, and conditional values.
 
@@ -683,7 +677,7 @@ def comparisons(
         raise ValueError("'comparison_type' must be 'diff' or 'ratio'")
 
     if prob is None:
-        prob = az.rcParams["stats.hdi_prob"]
+        prob = az.rcParams["stats.ci_prob"]
     if not 0 < prob < 1:
         raise ValueError(f"'prob' must be greater than 0 and smaller than 1. It is {prob}.")
 
@@ -739,15 +733,15 @@ def comparisons(
 
 def slopes(
     model: Model,
-    idata: az.InferenceData,
-    wrt: Union[str, dict],
-    conditional: Union[str, dict, list, None] = None,
-    average_by: Union[str, list, bool, None] = None,
+    idata: "InferenceData",
+    wrt: str | dict,
+    conditional: str | dict | list | None = None,
+    average_by: str | list | bool | None = None,
     eps: float = 1e-4,
     slope: str = "dydx",
     use_hdi: bool = True,
-    prob: Union[float, None] = None,
-    transforms: Union[dict, None] = None,
+    prob: float | None = None,
+    transforms: dict | None = None,
     sample_new_groups: bool = False,
 ) -> pd.DataFrame:
     """Compute Conditional Adjusted Slopes
@@ -785,7 +779,7 @@ def slopes(
         Whether to compute the highest density interval (defaults to True) or the quantiles.
     prob : float, optional
         The probability for the credibility intervals. Must be between 0 and 1. Defaults to 0.94.
-        Changing the global variable `az.rcParams["stats.hdi_prob"]` affects this default.
+        Changing the global variable `az.rcParams["stats.ci_prob"]` affects this default.
     transforms : dict, optional
         Transformations that are applied to each of the variables being plotted. The keys are the
         name of the variables, and the values are functions to be applied. Defaults to `None`.
@@ -795,7 +789,7 @@ def slopes(
 
     Returns
     -------
-    pandas.DataFrame
+    pd.DataFrame
         A dataframe with the comparison values, highest density interval, `wrt` name,
         contrast value, and conditional values.
 
@@ -843,7 +837,7 @@ def slopes(
         raise ValueError("'slope' must be one of ('dydx', 'dyex', 'eyex', 'eydx')")
 
     if prob is None:
-        prob = az.rcParams["stats.hdi_prob"]
+        prob = az.rcParams["stats.ci_prob"]
     if not 0 < prob < 1:
         raise ValueError(f"'prob' must be greater than 0 and smaller than 1. It is {prob}.")
 

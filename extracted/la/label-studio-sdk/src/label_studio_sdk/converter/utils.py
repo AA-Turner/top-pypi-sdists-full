@@ -388,6 +388,8 @@ def prettify_result(v):
             out.append(j["choices"][0])
         elif tag_type == "TextArea" and len(j["text"]) == 1:
             out.append(j["text"][0])
+        elif tag_type in ("Chat", "chatmessage"):
+            out.append(j.get("chatmessage", j))
         else:
             out.append(j)
     return out[0] if tag_type in ("Choices", "TextArea") and len(out) == 1 else out
@@ -412,14 +414,20 @@ def convert_annotation_to_yolo(label):
 
     if not ("x" in label and "y" in label and "width" in label and "height" in label):
         return None
-
-    w = label["width"]
-    h = label["height"]
-
-    x = (label["x"] + w / 2) / 100
-    y = (label["y"] + h / 2) / 100
-    w = w / 100
-    h = h / 100
+    # Guard against None or non-numeric values
+    try:
+        x = label["x"]
+        y = label["y"]
+        w = label["width"]
+        h = label["height"]
+        if x is None or y is None or w is None or h is None:
+            return None
+        x = (x + w / 2) / 100
+        y = (y + h / 2) / 100
+        w = w / 100
+        h = h / 100
+    except (TypeError, ValueError):
+        return None
 
     return x, y, w, h
 

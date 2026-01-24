@@ -1,53 +1,16 @@
 # pylint:disable=unused-argument,no-self-use,wrong-import-position
 from __future__ import annotations
 
-import functools
 import itertools
 import numbers
-
-from claripy.ast import Base
-from claripy.backends.backend_object import BackendObject
-from claripy.errors import ClaripyValueError
 
 from .bool_result import BoolResult, FalseResult, MaybeResult, TrueResult
 from .errors import ClaripyVSAError, ClaripyVSAOperationError
 
-
-def normalize_types_two_args(f):
-    @functools.wraps(f)
-    def normalizer(self, region, o):
-        """
-        Convert any object to an object that we can process.
-        """
-        if isinstance(o, Base):
-            raise ClaripyValueError("BoolResult can't handle AST objects directly")
-
-        if not isinstance(o, StridedInterval):
-            raise ClaripyVSAOperationError(f"Unsupported operand type {type(o)}")
-
-        return f(self, region, o)
-
-    return normalizer
-
-
-def normalize_types_one_arg(f):
-    @functools.wraps(f)
-    def normalizer(self, o):
-        """
-        Convert any object to an object that we can process.
-        """
-        if isinstance(o, Base):
-            raise ClaripyValueError("BoolResult can't handle AST objects directly")
-
-        return f(self, o)
-
-    return normalizer
-
-
 vs_id_ctr = itertools.count()
 
 
-class ValueSet(BackendObject):
+class ValueSet:
     """
     ValueSet is a mapping between memory regions and corresponding offsets.
     """
@@ -118,10 +81,6 @@ class ValueSet(BackendObject):
         return self._reversed
 
     @property
-    def unique(self):
-        return len(self.regions) == 1 and self.regions.values()[0].unique
-
-    @property
     def cardinality(self):
         card = 0
         for region in self._regions:
@@ -132,10 +91,6 @@ class ValueSet(BackendObject):
     @property
     def is_empty(self):
         return len(self._regions) == 0
-
-    @property
-    def valueset(self):
-        return self
 
     #
     # Private methods
@@ -225,7 +180,6 @@ class ValueSet(BackendObject):
     # Arithmetic operations
     #
 
-    @normalize_types_one_arg
     def __add__(self, other):
         """
         Binary operation: addition
@@ -248,11 +202,9 @@ class ValueSet(BackendObject):
 
         return new_vs
 
-    @normalize_types_one_arg
     def __radd__(self, other):
         return self.__add__(other)
 
-    @normalize_types_one_arg
     def __sub__(self, other):
         """
         Binary operation: subtraction
@@ -291,7 +243,6 @@ class ValueSet(BackendObject):
 
         return new_vs
 
-    @normalize_types_one_arg
     def __mod__(self, other):
         """
         Binary operation: modulo
@@ -313,7 +264,6 @@ class ValueSet(BackendObject):
 
         return new_vs
 
-    @normalize_types_one_arg
     def __and__(self, other):
         """
         Binary operation: and
@@ -450,8 +400,7 @@ class ValueSet(BackendObject):
 
         return list(itertools.islice(itertools.chain.from_iterable(si.eval(n) for si in self._regions.values()), n))
 
-    @property
-    def min(self):
+    def min(self, signed=False):
         """
         The minimum integer value of a value-set. It is only defined when there is exactly one region.
 
@@ -462,10 +411,9 @@ class ValueSet(BackendObject):
         if len(self.regions) != 1:
             raise ClaripyVSAOperationError("'min()' onlly works on single-region value-sets.")
 
-        return self.get_si(next(iter(self.regions))).min
+        return self.get_si(next(iter(self.regions))).min(signed=signed)
 
-    @property
-    def max(self):
+    def max(self, signed=False):
         """
         The maximum integer value of a value-set. It is only defined when there is exactly one region.
 
@@ -476,7 +424,7 @@ class ValueSet(BackendObject):
         if len(self.regions) != 1:
             raise ClaripyVSAOperationError("'max()' onlly works on single-region value-sets.")
 
-        return self.get_si(next(iter(self.regions))).max
+        return self.get_si(next(iter(self.regions))).max(signed=signed)
 
     def reverse(self):
         # TODO: obviously valueset.reverse is not properly implemented. I'm disabling the old annoying output line for
@@ -530,7 +478,6 @@ class ValueSet(BackendObject):
 
         return new_vs
 
-    @normalize_types_one_arg
     def union(self, b):
         merged_vs = self.copy()
 
@@ -551,7 +498,6 @@ class ValueSet(BackendObject):
 
         return merged_vs
 
-    @normalize_types_one_arg
     def widen(self, b):
         merged_vs = self.copy()
 
@@ -572,7 +518,6 @@ class ValueSet(BackendObject):
 
         return merged_vs
 
-    @normalize_types_one_arg
     def intersection(self, b):
         vs = self.copy()
 

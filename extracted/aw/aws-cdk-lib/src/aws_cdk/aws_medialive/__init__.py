@@ -68,3812 +68,39 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnChannelPlacementGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_id": "clusterId",
-        "name": "name",
-        "nodes": "nodes",
-        "tags": "tags",
-    },
+from ..interfaces.aws_medialive import (
+    ChannelPlacementGroupReference as _ChannelPlacementGroupReference_35fe6396,
+    ChannelReference as _ChannelReference_53f0e672,
+    CloudWatchAlarmTemplateGroupReference as _CloudWatchAlarmTemplateGroupReference_c63f8d18,
+    CloudWatchAlarmTemplateReference as _CloudWatchAlarmTemplateReference_630afd4a,
+    ClusterReference as _ClusterReference_4df32298,
+    EventBridgeRuleTemplateGroupReference as _EventBridgeRuleTemplateGroupReference_e4516a88,
+    EventBridgeRuleTemplateReference as _EventBridgeRuleTemplateReference_9050adf5,
+    IChannelPlacementGroupRef as _IChannelPlacementGroupRef_838b020d,
+    IChannelRef as _IChannelRef_33237c32,
+    ICloudWatchAlarmTemplateGroupRef as _ICloudWatchAlarmTemplateGroupRef_4c344bee,
+    ICloudWatchAlarmTemplateRef as _ICloudWatchAlarmTemplateRef_3ddb27d9,
+    IClusterRef as _IClusterRef_5854fbe7,
+    IEventBridgeRuleTemplateGroupRef as _IEventBridgeRuleTemplateGroupRef_f450a1e3,
+    IEventBridgeRuleTemplateRef as _IEventBridgeRuleTemplateRef_93336a40,
+    IInputRef as _IInputRef_78838789,
+    IInputSecurityGroupRef as _IInputSecurityGroupRef_0986c1df,
+    IMultiplexRef as _IMultiplexRef_8fc558d0,
+    IMultiplexprogramRef as _IMultiplexprogramRef_efafb5b7,
+    INetworkRef as _INetworkRef_08b06309,
+    ISdiSourceRef as _ISdiSourceRef_7d27da12,
+    ISignalMapRef as _ISignalMapRef_8f1d7eee,
+    InputReference as _InputReference_719c752b,
+    InputSecurityGroupReference as _InputSecurityGroupReference_35336458,
+    MultiplexReference as _MultiplexReference_05176fd7,
+    MultiplexprogramReference as _MultiplexprogramReference_9c8b3c6d,
+    NetworkReference as _NetworkReference_9bd2fbf1,
+    SdiSourceReference as _SdiSourceReference_5c2d3018,
+    SignalMapReference as _SignalMapReference_e4433d8b,
 )
-class CfnChannelPlacementGroupProps:
-    def __init__(
-        self,
-        *,
-        cluster_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannelPlacementGroup``.
 
-        :param cluster_id: The ID of the cluster the node is on.
-        :param name: The name of the channel placement group.
-        :param nodes: List of nodes added to the channel placement group.
-        :param tags: A collection of key-value pairs.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_channel_placement_group_props = medialive.CfnChannelPlacementGroupProps(
-                cluster_id="clusterId",
-                name="name",
-                nodes=["nodes"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ce3dbbf353a6b42ed802e21eee1f03cbc017e2f2b534fa1bd8b55b29eef4597)
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cluster_id is not None:
-            self._values["cluster_id"] = cluster_id
-        if name is not None:
-            self._values["name"] = name
-        if nodes is not None:
-            self._values["nodes"] = nodes
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def cluster_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the cluster the node is on.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-clusterid
-        '''
-        result = self._values.get("cluster_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the channel placement group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def nodes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of nodes added to the channel placement group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-nodes
-        '''
-        result = self._values.get("nodes")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelPlacementGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "anywhere_settings": "anywhereSettings",
-        "cdi_input_specification": "cdiInputSpecification",
-        "channel_class": "channelClass",
-        "channel_engine_version": "channelEngineVersion",
-        "destinations": "destinations",
-        "dry_run": "dryRun",
-        "encoder_settings": "encoderSettings",
-        "input_attachments": "inputAttachments",
-        "input_specification": "inputSpecification",
-        "log_level": "logLevel",
-        "maintenance": "maintenance",
-        "name": "name",
-        "role_arn": "roleArn",
-        "tags": "tags",
-        "vpc": "vpc",
-    },
-)
-class CfnChannelProps:
-    def __init__(
-        self,
-        *,
-        anywhere_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AnywhereSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        channel_class: typing.Optional[builtins.str] = None,
-        channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_level: typing.Optional[builtins.str] = None,
-        maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MaintenanceCreateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-        vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VpcOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannel``.
-
-        :param anywhere_settings: 
-        :param cdi_input_specification: Specification of CDI inputs for this channel.
-        :param channel_class: The class for this channel. For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
-        :param channel_engine_version: 
-        :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
-        :param dry_run: 
-        :param encoder_settings: The encoding configuration for the output content.
-        :param input_attachments: The list of input attachments for the channel.
-        :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
-        :param log_level: The verbosity for logging activity for this channel. Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
-        :param maintenance: Maintenance settings for this channel.
-        :param name: Name of channel.
-        :param role_arn: The IAM role for MediaLive to assume when running this channel. The role is identified by its ARN.
-        :param tags: A collection of tags for this channel. Each tag is a key-value pair.
-        :param vpc: Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d768ae6ab)
-            check_type(argname="argument anywhere_settings", value=anywhere_settings, expected_type=type_hints["anywhere_settings"])
-            check_type(argname="argument cdi_input_specification", value=cdi_input_specification, expected_type=type_hints["cdi_input_specification"])
-            check_type(argname="argument channel_class", value=channel_class, expected_type=type_hints["channel_class"])
-            check_type(argname="argument channel_engine_version", value=channel_engine_version, expected_type=type_hints["channel_engine_version"])
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument dry_run", value=dry_run, expected_type=type_hints["dry_run"])
-            check_type(argname="argument encoder_settings", value=encoder_settings, expected_type=type_hints["encoder_settings"])
-            check_type(argname="argument input_attachments", value=input_attachments, expected_type=type_hints["input_attachments"])
-            check_type(argname="argument input_specification", value=input_specification, expected_type=type_hints["input_specification"])
-            check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
-            check_type(argname="argument maintenance", value=maintenance, expected_type=type_hints["maintenance"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if anywhere_settings is not None:
-            self._values["anywhere_settings"] = anywhere_settings
-        if cdi_input_specification is not None:
-            self._values["cdi_input_specification"] = cdi_input_specification
-        if channel_class is not None:
-            self._values["channel_class"] = channel_class
-        if channel_engine_version is not None:
-            self._values["channel_engine_version"] = channel_engine_version
-        if destinations is not None:
-            self._values["destinations"] = destinations
-        if dry_run is not None:
-            self._values["dry_run"] = dry_run
-        if encoder_settings is not None:
-            self._values["encoder_settings"] = encoder_settings
-        if input_attachments is not None:
-            self._values["input_attachments"] = input_attachments
-        if input_specification is not None:
-            self._values["input_specification"] = input_specification
-        if log_level is not None:
-            self._values["log_level"] = log_level
-        if maintenance is not None:
-            self._values["maintenance"] = maintenance
-        if name is not None:
-            self._values["name"] = name
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc is not None:
-            self._values["vpc"] = vpc
-
-    @builtins.property
-    def anywhere_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AnywhereSettingsProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-anywheresettings
-        '''
-        result = self._values.get("anywhere_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AnywhereSettingsProperty"]], result)
-
-    @builtins.property
-    def cdi_input_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CdiInputSpecificationProperty"]]:
-        '''Specification of CDI inputs for this channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-cdiinputspecification
-        '''
-        result = self._values.get("cdi_input_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CdiInputSpecificationProperty"]], result)
-
-    @builtins.property
-    def channel_class(self) -> typing.Optional[builtins.str]:
-        '''The class for this channel.
-
-        For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-channelclass
-        '''
-        result = self._values.get("channel_class")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def channel_engine_version(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelEngineVersionRequestProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-channelengineversion
-        '''
-        result = self._values.get("channel_engine_version")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelEngineVersionRequestProperty"]], result)
-
-    @builtins.property
-    def destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationProperty"]]]]:
-        '''The settings that identify the destination for the outputs in this MediaLive output package.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-destinations
-        '''
-        result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationProperty"]]]], result)
-
-    @builtins.property
-    def dry_run(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-dryrun
-        '''
-        result = self._values.get("dry_run")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def encoder_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EncoderSettingsProperty"]]:
-        '''The encoding configuration for the output content.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-encodersettings
-        '''
-        result = self._values.get("encoder_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EncoderSettingsProperty"]], result)
-
-    @builtins.property
-    def input_attachments(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputAttachmentProperty"]]]]:
-        '''The list of input attachments for the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-inputattachments
-        '''
-        result = self._values.get("input_attachments")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputAttachmentProperty"]]]], result)
-
-    @builtins.property
-    def input_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSpecificationProperty"]]:
-        '''The input specification for this channel.
-
-        It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-inputspecification
-        '''
-        result = self._values.get("input_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSpecificationProperty"]], result)
-
-    @builtins.property
-    def log_level(self) -> typing.Optional[builtins.str]:
-        '''The verbosity for logging activity for this channel.
-
-        Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-loglevel
-        '''
-        result = self._values.get("log_level")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maintenance(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MaintenanceCreateSettingsProperty"]]:
-        '''Maintenance settings for this channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-maintenance
-        '''
-        result = self._values.get("maintenance")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MaintenanceCreateSettingsProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Name of channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM role for MediaLive to assume when running this channel.
-
-        The role is identified by its ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''A collection of tags for this channel.
-
-        Each tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def vpc(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VpcOutputSettingsProperty"]]:
-        '''Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-vpc
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VpcOutputSettingsProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnCloudWatchAlarmTemplateGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description", "tags": "tags"},
-)
-class CfnCloudWatchAlarmTemplateGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCloudWatchAlarmTemplateGroup``.
-
-        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
-        :param description: A resource's optional description.
-        :param tags: Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_cloud_watch_alarm_template_group_props = medialive.CfnCloudWatchAlarmTemplateGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3e0b37fe8763aaae3a1514c03c5199d210b8101eaf7a29e646e417b297c9f2d)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A resource's name.
-
-        Names must be unique within the scope of a resource type in a specific region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A resource's optional description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCloudWatchAlarmTemplateGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnCloudWatchAlarmTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "comparison_operator": "comparisonOperator",
-        "evaluation_periods": "evaluationPeriods",
-        "metric_name": "metricName",
-        "name": "name",
-        "period": "period",
-        "statistic": "statistic",
-        "target_resource_type": "targetResourceType",
-        "threshold": "threshold",
-        "treat_missing_data": "treatMissingData",
-        "datapoints_to_alarm": "datapointsToAlarm",
-        "description": "description",
-        "group_identifier": "groupIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnCloudWatchAlarmTemplateProps:
-    def __init__(
-        self,
-        *,
-        comparison_operator: builtins.str,
-        evaluation_periods: jsii.Number,
-        metric_name: builtins.str,
-        name: builtins.str,
-        period: jsii.Number,
-        statistic: builtins.str,
-        target_resource_type: builtins.str,
-        threshold: jsii.Number,
-        treat_missing_data: builtins.str,
-        datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        description: typing.Optional[builtins.str] = None,
-        group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCloudWatchAlarmTemplate``.
-
-        :param comparison_operator: The comparison operator used to compare the specified statistic and the threshold.
-        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. Default: - 0
-        :param metric_name: The name of the metric associated with the alarm. Must be compatible with targetResourceType.
-        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
-        :param period: The period, in seconds, over which the specified statistic is applied. Default: - 0
-        :param statistic: The statistic to apply to the alarm's metric data.
-        :param target_resource_type: The resource type this template should dynamically generate CloudWatch metric alarms for.
-        :param threshold: The threshold value to compare with the specified statistic. Default: - 0
-        :param treat_missing_data: Specifies how missing data points are treated when evaluating the alarm's condition.
-        :param datapoints_to_alarm: The number of datapoints within the evaluation period that must be breaching to trigger the alarm. Default: - 0
-        :param description: A resource's optional description.
-        :param group_identifier: A cloudwatch alarm template group's identifier. Can be either be its id or current name.
-        :param tags: Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_cloud_watch_alarm_template_props = medialive.CfnCloudWatchAlarmTemplateProps(
-                comparison_operator="comparisonOperator",
-                evaluation_periods=123,
-                metric_name="metricName",
-                name="name",
-                period=123,
-                statistic="statistic",
-                target_resource_type="targetResourceType",
-                threshold=123,
-                treat_missing_data="treatMissingData",
-            
-                # the properties below are optional
-                datapoints_to_alarm=123,
-                description="description",
-                group_identifier="groupIdentifier",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f9937f82f949597524044fa535456d197389d74dc7e674c36adddd3dd1b1671)
-            check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
-            check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
-            check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
-            check_type(argname="argument target_resource_type", value=target_resource_type, expected_type=type_hints["target_resource_type"])
-            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
-            check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
-            check_type(argname="argument datapoints_to_alarm", value=datapoints_to_alarm, expected_type=type_hints["datapoints_to_alarm"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "comparison_operator": comparison_operator,
-            "evaluation_periods": evaluation_periods,
-            "metric_name": metric_name,
-            "name": name,
-            "period": period,
-            "statistic": statistic,
-            "target_resource_type": target_resource_type,
-            "threshold": threshold,
-            "treat_missing_data": treat_missing_data,
-        }
-        if datapoints_to_alarm is not None:
-            self._values["datapoints_to_alarm"] = datapoints_to_alarm
-        if description is not None:
-            self._values["description"] = description
-        if group_identifier is not None:
-            self._values["group_identifier"] = group_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def comparison_operator(self) -> builtins.str:
-        '''The comparison operator used to compare the specified statistic and the threshold.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-comparisonoperator
-        '''
-        result = self._values.get("comparison_operator")
-        assert result is not None, "Required property 'comparison_operator' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def evaluation_periods(self) -> jsii.Number:
-        '''The number of periods over which data is compared to the specified threshold.
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-evaluationperiods
-        '''
-        result = self._values.get("evaluation_periods")
-        assert result is not None, "Required property 'evaluation_periods' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def metric_name(self) -> builtins.str:
-        '''The name of the metric associated with the alarm.
-
-        Must be compatible with targetResourceType.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-metricname
-        '''
-        result = self._values.get("metric_name")
-        assert result is not None, "Required property 'metric_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A resource's name.
-
-        Names must be unique within the scope of a resource type in a specific region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def period(self) -> jsii.Number:
-        '''The period, in seconds, over which the specified statistic is applied.
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-period
-        '''
-        result = self._values.get("period")
-        assert result is not None, "Required property 'period' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def statistic(self) -> builtins.str:
-        '''The statistic to apply to the alarm's metric data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-statistic
-        '''
-        result = self._values.get("statistic")
-        assert result is not None, "Required property 'statistic' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_resource_type(self) -> builtins.str:
-        '''The resource type this template should dynamically generate CloudWatch metric alarms for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-targetresourcetype
-        '''
-        result = self._values.get("target_resource_type")
-        assert result is not None, "Required property 'target_resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def threshold(self) -> jsii.Number:
-        '''The threshold value to compare with the specified statistic.
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-threshold
-        '''
-        result = self._values.get("threshold")
-        assert result is not None, "Required property 'threshold' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def treat_missing_data(self) -> builtins.str:
-        '''Specifies how missing data points are treated when evaluating the alarm's condition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-treatmissingdata
-        '''
-        result = self._values.get("treat_missing_data")
-        assert result is not None, "Required property 'treat_missing_data' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
-        '''The number of datapoints within the evaluation period that must be breaching to trigger the alarm.
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-datapointstoalarm
-        '''
-        result = self._values.get("datapoints_to_alarm")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A resource's optional description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def group_identifier(self) -> typing.Optional[builtins.str]:
-        '''A cloudwatch alarm template group's identifier.
-
-        Can be either be its id or current name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-groupidentifier
-        '''
-        result = self._values.get("group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCloudWatchAlarmTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cluster_type": "clusterType",
-        "instance_role_arn": "instanceRoleArn",
-        "name": "name",
-        "network_settings": "networkSettings",
-        "tags": "tags",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        cluster_type: typing.Optional[builtins.str] = None,
-        instance_role_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        network_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterNetworkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param cluster_type: The hardware type for the cluster.
-        :param instance_role_arn: The IAM role your nodes will use.
-        :param name: The user-specified name of the Cluster to be created.
-        :param network_settings: On premises settings which will have the interface network mappings and default Output logical interface.
-        :param tags: A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_cluster_props = medialive.CfnClusterProps(
-                cluster_type="clusterType",
-                instance_role_arn="instanceRoleArn",
-                name="name",
-                network_settings=medialive.CfnCluster.ClusterNetworkSettingsProperty(
-                    default_route="defaultRoute",
-                    interface_mappings=[medialive.CfnCluster.InterfaceMappingProperty(
-                        logical_interface_name="logicalInterfaceName",
-                        network_id="networkId"
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10348c721e1237dd4b7d20ec73dc42084221f4a1916b1ae46f88ff9ad3d5a134)
-            check_type(argname="argument cluster_type", value=cluster_type, expected_type=type_hints["cluster_type"])
-            check_type(argname="argument instance_role_arn", value=instance_role_arn, expected_type=type_hints["instance_role_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_settings", value=network_settings, expected_type=type_hints["network_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cluster_type is not None:
-            self._values["cluster_type"] = cluster_type
-        if instance_role_arn is not None:
-            self._values["instance_role_arn"] = instance_role_arn
-        if name is not None:
-            self._values["name"] = name
-        if network_settings is not None:
-            self._values["network_settings"] = network_settings
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def cluster_type(self) -> typing.Optional[builtins.str]:
-        '''The hardware type for the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-clustertype
-        '''
-        result = self._values.get("cluster_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM role your nodes will use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-instancerolearn
-        '''
-        result = self._values.get("instance_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The user-specified name of the Cluster to be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterNetworkSettingsProperty"]]:
-        '''On premises settings which will have the interface network mappings and default Output logical interface.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-networksettings
-        '''
-        result = self._values.get("network_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterNetworkSettingsProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnEventBridgeRuleTemplateGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description", "tags": "tags"},
-)
-class CfnEventBridgeRuleTemplateGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventBridgeRuleTemplateGroup``.
-
-        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
-        :param description: A resource's optional description.
-        :param tags: Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_event_bridge_rule_template_group_props = medialive.CfnEventBridgeRuleTemplateGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d5a57a585fec39e65762c277317730448a87c9bbac78b248847233f56b72408)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A resource's name.
-
-        Names must be unique within the scope of a resource type in a specific region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A resource's optional description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventBridgeRuleTemplateGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnEventBridgeRuleTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_type": "eventType",
-        "name": "name",
-        "description": "description",
-        "event_targets": "eventTargets",
-        "group_identifier": "groupIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnEventBridgeRuleTemplateProps:
-    def __init__(
-        self,
-        *,
-        event_type: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        event_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventBridgeRuleTemplate``.
-
-        :param event_type: The type of event to match with the rule.
-        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
-        :param description: A resource's optional description.
-        :param event_targets: The destinations that will receive the event notifications.
-        :param group_identifier: An eventbridge rule template group's identifier. Can be either be its id or current name.
-        :param tags: Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_event_bridge_rule_template_props = medialive.CfnEventBridgeRuleTemplateProps(
-                event_type="eventType",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                event_targets=[medialive.CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty(
-                    arn="arn"
-                )],
-                group_identifier="groupIdentifier",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8013ff24e616fad75b238b7af1721d8eaeff80b4bfe4b36eae41f63d216efd1d)
-            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_targets", value=event_targets, expected_type=type_hints["event_targets"])
-            check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_type": event_type,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if event_targets is not None:
-            self._values["event_targets"] = event_targets
-        if group_identifier is not None:
-            self._values["group_identifier"] = group_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def event_type(self) -> builtins.str:
-        '''The type of event to match with the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-eventtype
-        '''
-        result = self._values.get("event_type")
-        assert result is not None, "Required property 'event_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A resource's name.
-
-        Names must be unique within the scope of a resource type in a specific region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A resource's optional description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]]:
-        '''The destinations that will receive the event notifications.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-eventtargets
-        '''
-        result = self._values.get("event_targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]], result)
-
-    @builtins.property
-    def group_identifier(self) -> typing.Optional[builtins.str]:
-        '''An eventbridge rule template group's identifier.
-
-        Can be either be its id or current name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-groupidentifier
-        '''
-        result = self._values.get("group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventBridgeRuleTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnInputProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "destinations": "destinations",
-        "input_devices": "inputDevices",
-        "input_network_location": "inputNetworkLocation",
-        "input_security_groups": "inputSecurityGroups",
-        "media_connect_flows": "mediaConnectFlows",
-        "multicast_settings": "multicastSettings",
-        "name": "name",
-        "role_arn": "roleArn",
-        "sdi_sources": "sdiSources",
-        "smpte2110_receiver_group_settings": "smpte2110ReceiverGroupSettings",
-        "sources": "sources",
-        "srt_settings": "srtSettings",
-        "tags": "tags",
-        "type": "type",
-        "vpc": "vpc",
-    },
-)
-class CfnInputProps:
-    def __init__(
-        self,
-        *,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputDestinationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputDeviceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_network_location: typing.Optional[builtins.str] = None,
-        input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        media_connect_flows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.MediaConnectFlowRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        multicast_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.MulticastSettingsCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        smpte2110_receiver_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.Smpte2110ReceiverGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        srt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.SrtSettingsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Any = None,
-        type: typing.Optional[builtins.str] = None,
-        vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputVpcRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInput``.
-
-        :param destinations: Settings that apply only if the input is a push type of input.
-        :param input_devices: Settings that apply only if the input is an Elemental Link input.
-        :param input_network_location: 
-        :param input_security_groups: The list of input security groups (referenced by IDs) to attach to the input if the input is a push type.
-        :param media_connect_flows: Settings that apply only if the input is a MediaConnect input.
-        :param multicast_settings: 
-        :param name: A name for the input.
-        :param role_arn: The IAM role for MediaLive to assume when creating a MediaConnect input or Amazon VPC input. This doesn't apply to other types of inputs. The role is identified by its ARN.
-        :param sdi_sources: 
-        :param smpte2110_receiver_group_settings: 
-        :param sources: Settings that apply only if the input is a pull type of input.
-        :param srt_settings: 
-        :param tags: A collection of tags for this input. Each tag is a key-value pair.
-        :param type: The type for this input.
-        :param vpc: Settings that apply only if the input is an push input where the source is on Amazon VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            # tags: Any
-            
-            cfn_input_props = medialive.CfnInputProps(
-                destinations=[medialive.CfnInput.InputDestinationRequestProperty(
-                    network="network",
-                    network_routes=[medialive.CfnInput.InputRequestDestinationRouteProperty(
-                        cidr="cidr",
-                        gateway="gateway"
-                    )],
-                    static_ip_address="staticIpAddress",
-                    stream_name="streamName"
-                )],
-                input_devices=[medialive.CfnInput.InputDeviceSettingsProperty(
-                    id="id"
-                )],
-                input_network_location="inputNetworkLocation",
-                input_security_groups=["inputSecurityGroups"],
-                media_connect_flows=[medialive.CfnInput.MediaConnectFlowRequestProperty(
-                    flow_arn="flowArn"
-                )],
-                multicast_settings=medialive.CfnInput.MulticastSettingsCreateRequestProperty(
-                    sources=[medialive.CfnInput.MulticastSourceCreateRequestProperty(
-                        source_ip="sourceIp",
-                        url="url"
-                    )]
-                ),
-                name="name",
-                role_arn="roleArn",
-                sdi_sources=["sdiSources"],
-                smpte2110_receiver_group_settings=medialive.CfnInput.Smpte2110ReceiverGroupSettingsProperty(
-                    smpte2110_receiver_groups=[medialive.CfnInput.Smpte2110ReceiverGroupProperty(
-                        sdp_settings=medialive.CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty(
-                            ancillary_sdps=[medialive.CfnInput.InputSdpLocationProperty(
-                                media_index=123,
-                                sdp_url="sdpUrl"
-                            )],
-                            audio_sdps=[medialive.CfnInput.InputSdpLocationProperty(
-                                media_index=123,
-                                sdp_url="sdpUrl"
-                            )],
-                            video_sdp=medialive.CfnInput.InputSdpLocationProperty(
-                                media_index=123,
-                                sdp_url="sdpUrl"
-                            )
-                        )
-                    )]
-                ),
-                sources=[medialive.CfnInput.InputSourceRequestProperty(
-                    password_param="passwordParam",
-                    url="url",
-                    username="username"
-                )],
-                srt_settings=medialive.CfnInput.SrtSettingsRequestProperty(
-                    srt_caller_sources=[medialive.CfnInput.SrtCallerSourceRequestProperty(
-                        decryption=medialive.CfnInput.SrtCallerDecryptionRequestProperty(
-                            algorithm="algorithm",
-                            passphrase_secret_arn="passphraseSecretArn"
-                        ),
-                        minimum_latency=123,
-                        srt_listener_address="srtListenerAddress",
-                        srt_listener_port="srtListenerPort",
-                        stream_id="streamId"
-                    )]
-                ),
-                tags=tags,
-                type="type",
-                vpc=medialive.CfnInput.InputVpcRequestProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5e4e9b50624e42353cf086c51b3b7174a3d994bf1dc422fe68231305af4a8c7)
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument input_devices", value=input_devices, expected_type=type_hints["input_devices"])
-            check_type(argname="argument input_network_location", value=input_network_location, expected_type=type_hints["input_network_location"])
-            check_type(argname="argument input_security_groups", value=input_security_groups, expected_type=type_hints["input_security_groups"])
-            check_type(argname="argument media_connect_flows", value=media_connect_flows, expected_type=type_hints["media_connect_flows"])
-            check_type(argname="argument multicast_settings", value=multicast_settings, expected_type=type_hints["multicast_settings"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument sdi_sources", value=sdi_sources, expected_type=type_hints["sdi_sources"])
-            check_type(argname="argument smpte2110_receiver_group_settings", value=smpte2110_receiver_group_settings, expected_type=type_hints["smpte2110_receiver_group_settings"])
-            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
-            check_type(argname="argument srt_settings", value=srt_settings, expected_type=type_hints["srt_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if destinations is not None:
-            self._values["destinations"] = destinations
-        if input_devices is not None:
-            self._values["input_devices"] = input_devices
-        if input_network_location is not None:
-            self._values["input_network_location"] = input_network_location
-        if input_security_groups is not None:
-            self._values["input_security_groups"] = input_security_groups
-        if media_connect_flows is not None:
-            self._values["media_connect_flows"] = media_connect_flows
-        if multicast_settings is not None:
-            self._values["multicast_settings"] = multicast_settings
-        if name is not None:
-            self._values["name"] = name
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if sdi_sources is not None:
-            self._values["sdi_sources"] = sdi_sources
-        if smpte2110_receiver_group_settings is not None:
-            self._values["smpte2110_receiver_group_settings"] = smpte2110_receiver_group_settings
-        if sources is not None:
-            self._values["sources"] = sources
-        if srt_settings is not None:
-            self._values["srt_settings"] = srt_settings
-        if tags is not None:
-            self._values["tags"] = tags
-        if type is not None:
-            self._values["type"] = type
-        if vpc is not None:
-            self._values["vpc"] = vpc
-
-    @builtins.property
-    def destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDestinationRequestProperty"]]]]:
-        '''Settings that apply only if the input is a push type of input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-destinations
-        '''
-        result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDestinationRequestProperty"]]]], result)
-
-    @builtins.property
-    def input_devices(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDeviceSettingsProperty"]]]]:
-        '''Settings that apply only if the input is an Elemental Link input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputdevices
-        '''
-        result = self._values.get("input_devices")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDeviceSettingsProperty"]]]], result)
-
-    @builtins.property
-    def input_network_location(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputnetworklocation
-        '''
-        result = self._values.get("input_network_location")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of input security groups (referenced by IDs) to attach to the input if the input is a push type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputsecuritygroups
-        '''
-        result = self._values.get("input_security_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def media_connect_flows(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MediaConnectFlowRequestProperty"]]]]:
-        '''Settings that apply only if the input is a MediaConnect input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-mediaconnectflows
-        '''
-        result = self._values.get("media_connect_flows")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MediaConnectFlowRequestProperty"]]]], result)
-
-    @builtins.property
-    def multicast_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSettingsCreateRequestProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-multicastsettings
-        '''
-        result = self._values.get("multicast_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSettingsCreateRequestProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A name for the input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM role for MediaLive to assume when creating a MediaConnect input or Amazon VPC input.
-
-        This doesn't apply to other types of inputs. The role is identified by its ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sdi_sources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-sdisources
-        '''
-        result = self._values.get("sdi_sources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def smpte2110_receiver_group_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-smpte2110receivergroupsettings
-        '''
-        result = self._values.get("smpte2110_receiver_group_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]], result)
-
-    @builtins.property
-    def sources(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSourceRequestProperty"]]]]:
-        '''Settings that apply only if the input is a pull type of input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-sources
-        '''
-        result = self._values.get("sources")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSourceRequestProperty"]]]], result)
-
-    @builtins.property
-    def srt_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtSettingsRequestProperty"]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-srtsettings
-        '''
-        result = self._values.get("srt_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtSettingsRequestProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''A collection of tags for this input.
-
-        Each tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type for this input.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputVpcRequestProperty"]]:
-        '''Settings that apply only if the input is an push input where the source is on Amazon VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-vpc
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputVpcRequestProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInputProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnInputSecurityGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"tags": "tags", "whitelist_rules": "whitelistRules"},
-)
-class CfnInputSecurityGroupProps:
-    def __init__(
-        self,
-        *,
-        tags: typing.Any = None,
-        whitelist_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInputSecurityGroup.InputWhitelistRuleCidrProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInputSecurityGroup``.
-
-        :param tags: A collection of tags for this input security group. Each tag is a key-value pair.
-        :param whitelist_rules: The list of IPv4 CIDR addresses to include in the input security group as "allowed" addresses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            # tags: Any
-            
-            cfn_input_security_group_props = medialive.CfnInputSecurityGroupProps(
-                tags=tags,
-                whitelist_rules=[medialive.CfnInputSecurityGroup.InputWhitelistRuleCidrProperty(
-                    cidr="cidr"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc91e6b6fb01d2e6a1928acf9023824675d51e9e0f586d43d61092afdca3bbd0)
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument whitelist_rules", value=whitelist_rules, expected_type=type_hints["whitelist_rules"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if tags is not None:
-            self._values["tags"] = tags
-        if whitelist_rules is not None:
-            self._values["whitelist_rules"] = whitelist_rules
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''A collection of tags for this input security group.
-
-        Each tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html#cfn-medialive-inputsecuritygroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def whitelist_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]]:
-        '''The list of IPv4 CIDR addresses to include in the input security group as "allowed" addresses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html#cfn-medialive-inputsecuritygroup-whitelistrules
-        '''
-        result = self._values.get("whitelist_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInputSecurityGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnMultiplexProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zones": "availabilityZones",
-        "multiplex_settings": "multiplexSettings",
-        "name": "name",
-        "destinations": "destinations",
-        "tags": "tags",
-    },
-)
-class CfnMultiplexProps:
-    def __init__(
-        self,
-        *,
-        availability_zones: typing.Sequence[builtins.str],
-        multiplex_settings: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplex.MultiplexSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplex.MultiplexOutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMultiplex``.
-
-        :param availability_zones: A list of availability zones for the multiplex.
-        :param multiplex_settings: Configuration for a multiplex event.
-        :param name: The name of the multiplex.
-        :param destinations: A list of the multiplex output destinations.
-        :param tags: A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_multiplex_props = medialive.CfnMultiplexProps(
-                availability_zones=["availabilityZones"],
-                multiplex_settings=medialive.CfnMultiplex.MultiplexSettingsProperty(
-                    transport_stream_bitrate=123,
-                    transport_stream_id=123,
-            
-                    # the properties below are optional
-                    maximum_video_buffer_delay_milliseconds=123,
-                    transport_stream_reserved_bitrate=123
-                ),
-                name="name",
-            
-                # the properties below are optional
-                destinations=[medialive.CfnMultiplex.MultiplexOutputDestinationProperty(
-                    multiplex_media_connect_output_destination_settings=medialive.CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty(
-                        entitlement_arn="entitlementArn"
-                    )
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6704a902c292c9baa14e9f413dfaa206004c02bc34f7b7596d44253cdcecd075)
-            check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
-            check_type(argname="argument multiplex_settings", value=multiplex_settings, expected_type=type_hints["multiplex_settings"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "availability_zones": availability_zones,
-            "multiplex_settings": multiplex_settings,
-            "name": name,
-        }
-        if destinations is not None:
-            self._values["destinations"] = destinations
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def availability_zones(self) -> typing.List[builtins.str]:
-        '''A list of availability zones for the multiplex.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-availabilityzones
-        '''
-        result = self._values.get("availability_zones")
-        assert result is not None, "Required property 'availability_zones' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def multiplex_settings(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexSettingsProperty"]:
-        '''Configuration for a multiplex event.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-multiplexsettings
-        '''
-        result = self._values.get("multiplex_settings")
-        assert result is not None, "Required property 'multiplex_settings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexSettingsProperty"], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the multiplex.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexOutputDestinationProperty"]]]]:
-        '''A list of the multiplex output destinations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-destinations
-        '''
-        result = self._values.get("destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexOutputDestinationProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMultiplexProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnMultiplexprogramProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "multiplex_id": "multiplexId",
-        "multiplex_program_settings": "multiplexProgramSettings",
-        "packet_identifiers_map": "packetIdentifiersMap",
-        "pipeline_details": "pipelineDetails",
-        "preferred_channel_pipeline": "preferredChannelPipeline",
-        "program_name": "programName",
-    },
-)
-class CfnMultiplexprogramProps:
-    def __init__(
-        self,
-        *,
-        multiplex_id: typing.Optional[builtins.str] = None,
-        multiplex_program_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        packet_identifiers_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pipeline_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        preferred_channel_pipeline: typing.Optional[builtins.str] = None,
-        program_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMultiplexprogram``.
-
-        :param multiplex_id: The unique id of the multiplex.
-        :param multiplex_program_settings: Multiplex Program settings configuration.
-        :param packet_identifiers_map: Packet identifiers map for a given Multiplex program.
-        :param pipeline_details: Contains information about the current sources for the specified program in the specified multiplex. Keep in mind that each multiplex pipeline connects to both pipelines in a given source channel (the channel identified by the program). But only one of those channel pipelines is ever active at one time.
-        :param preferred_channel_pipeline: Indicates which pipeline is preferred by the multiplex for program ingest. If set to "PIPELINE_0" or "PIPELINE_1" and an unhealthy ingest causes the multiplex to switch to the non-preferred pipeline, it will switch back once that ingest is healthy again. If set to "CURRENTLY_ACTIVE", it will not switch back to the other pipeline based on it recovering to a healthy state, it will only switch if the active pipeline becomes unhealthy.
-        :param program_name: The name of the multiplex program.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_multiplexprogram_props = medialive.CfnMultiplexprogramProps(
-                multiplex_id="multiplexId",
-                multiplex_program_settings=medialive.CfnMultiplexprogram.MultiplexProgramSettingsProperty(
-                    program_number=123,
-            
-                    # the properties below are optional
-                    preferred_channel_pipeline="preferredChannelPipeline",
-                    service_descriptor=medialive.CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty(
-                        provider_name="providerName",
-                        service_name="serviceName"
-                    ),
-                    video_settings=medialive.CfnMultiplexprogram.MultiplexVideoSettingsProperty(
-                        constant_bitrate=123,
-                        statmux_settings=medialive.CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty(
-                            maximum_bitrate=123,
-                            minimum_bitrate=123,
-                            priority=123
-                        )
-                    )
-                ),
-                packet_identifiers_map=medialive.CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty(
-                    audio_pids=[123],
-                    dvb_sub_pids=[123],
-                    dvb_teletext_pid=123,
-                    etv_platform_pid=123,
-                    etv_signal_pid=123,
-                    klv_data_pids=[123],
-                    pcr_pid=123,
-                    pmt_pid=123,
-                    private_metadata_pid=123,
-                    scte27_pids=[123],
-                    scte35_pid=123,
-                    timed_metadata_pid=123,
-                    video_pid=123
-                ),
-                pipeline_details=[medialive.CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty(
-                    active_channel_pipeline="activeChannelPipeline",
-                    pipeline_id="pipelineId"
-                )],
-                preferred_channel_pipeline="preferredChannelPipeline",
-                program_name="programName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f73df2de9c8f0593b389bf604ffaf3d1b093165585c8988cb33c99e1826cb730)
-            check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
-            check_type(argname="argument multiplex_program_settings", value=multiplex_program_settings, expected_type=type_hints["multiplex_program_settings"])
-            check_type(argname="argument packet_identifiers_map", value=packet_identifiers_map, expected_type=type_hints["packet_identifiers_map"])
-            check_type(argname="argument pipeline_details", value=pipeline_details, expected_type=type_hints["pipeline_details"])
-            check_type(argname="argument preferred_channel_pipeline", value=preferred_channel_pipeline, expected_type=type_hints["preferred_channel_pipeline"])
-            check_type(argname="argument program_name", value=program_name, expected_type=type_hints["program_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if multiplex_id is not None:
-            self._values["multiplex_id"] = multiplex_id
-        if multiplex_program_settings is not None:
-            self._values["multiplex_program_settings"] = multiplex_program_settings
-        if packet_identifiers_map is not None:
-            self._values["packet_identifiers_map"] = packet_identifiers_map
-        if pipeline_details is not None:
-            self._values["pipeline_details"] = pipeline_details
-        if preferred_channel_pipeline is not None:
-            self._values["preferred_channel_pipeline"] = preferred_channel_pipeline
-        if program_name is not None:
-            self._values["program_name"] = program_name
-
-    @builtins.property
-    def multiplex_id(self) -> typing.Optional[builtins.str]:
-        '''The unique id of the multiplex.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-multiplexid
-        '''
-        result = self._values.get("multiplex_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multiplex_program_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]]:
-        '''Multiplex Program settings configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-multiplexprogramsettings
-        '''
-        result = self._values.get("multiplex_program_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]], result)
-
-    @builtins.property
-    def packet_identifiers_map(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]]:
-        '''Packet identifiers map for a given Multiplex program.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-packetidentifiersmap
-        '''
-        result = self._values.get("packet_identifiers_map")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]], result)
-
-    @builtins.property
-    def pipeline_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]]:
-        '''Contains information about the current sources for the specified program in the specified multiplex.
-
-        Keep in mind that each multiplex pipeline connects to both pipelines in a given source channel (the channel identified by the program). But only one of those channel pipelines is ever active at one time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-pipelinedetails
-        '''
-        result = self._values.get("pipeline_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]], result)
-
-    @builtins.property
-    def preferred_channel_pipeline(self) -> typing.Optional[builtins.str]:
-        '''Indicates which pipeline is preferred by the multiplex for program ingest.
-
-        If set to "PIPELINE_0" or "PIPELINE_1" and an unhealthy ingest causes the multiplex to switch to the non-preferred pipeline,
-        it will switch back once that ingest is healthy again. If set to "CURRENTLY_ACTIVE",
-        it will not switch back to the other pipeline based on it recovering to a healthy state,
-        it will only switch if the active pipeline becomes unhealthy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-preferredchannelpipeline
-        '''
-        result = self._values.get("preferred_channel_pipeline")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def program_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the multiplex program.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-programname
-        '''
-        result = self._values.get("program_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMultiplexprogramProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnNetworkProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ip_pools": "ipPools",
-        "name": "name",
-        "routes": "routes",
-        "tags": "tags",
-    },
-)
-class CfnNetworkProps:
-    def __init__(
-        self,
-        *,
-        ip_pools: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNetwork.IpPoolProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        name: builtins.str,
-        routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNetwork.RouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnNetwork``.
-
-        :param ip_pools: The list of IP address cidr pools for the network.
-        :param name: The user-specified name of the Network to be created.
-        :param routes: The routes for the network.
-        :param tags: A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_network_props = medialive.CfnNetworkProps(
-                ip_pools=[medialive.CfnNetwork.IpPoolProperty(
-                    cidr="cidr"
-                )],
-                name="name",
-            
-                # the properties below are optional
-                routes=[medialive.CfnNetwork.RouteProperty(
-                    cidr="cidr",
-                    gateway="gateway"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce051d018b08d63f7635cc8b76953a328599484abcb517746121568d77b7677f)
-            check_type(argname="argument ip_pools", value=ip_pools, expected_type=type_hints["ip_pools"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument routes", value=routes, expected_type=type_hints["routes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ip_pools": ip_pools,
-            "name": name,
-        }
-        if routes is not None:
-            self._values["routes"] = routes
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def ip_pools(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.IpPoolProperty"]]]:
-        '''The list of IP address cidr pools for the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-ippools
-        '''
-        result = self._values.get("ip_pools")
-        assert result is not None, "Required property 'ip_pools' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.IpPoolProperty"]]], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The user-specified name of the Network to be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def routes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.RouteProperty"]]]]:
-        '''The routes for the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-routes
-        '''
-        result = self._values.get("routes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.RouteProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNetworkProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnSdiSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "type": "type", "mode": "mode", "tags": "tags"},
-)
-class CfnSdiSourceProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        type: builtins.str,
-        mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSdiSource``.
-
-        :param name: The name of the SdiSource.
-        :param type: The interface mode of the SdiSource.
-        :param mode: The current state of the SdiSource.
-        :param tags: A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_sdi_source_props = medialive.CfnSdiSourceProps(
-                name="name",
-                type="type",
-            
-                # the properties below are optional
-                mode="mode",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be3a17037ad4f2f8c80f02e8f3e258e8b7b51dab04d8ad4bc57ce67293c8b88a)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "type": type,
-        }
-        if mode is not None:
-            self._values["mode"] = mode
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the SdiSource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The interface mode of the SdiSource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mode(self) -> typing.Optional[builtins.str]:
-        '''The current state of the SdiSource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-mode
-        '''
-        result = self._values.get("mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A collection of key-value pairs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSdiSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CfnSignalMapProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "discovery_entry_point_arn": "discoveryEntryPointArn",
-        "name": "name",
-        "cloud_watch_alarm_template_group_identifiers": "cloudWatchAlarmTemplateGroupIdentifiers",
-        "description": "description",
-        "event_bridge_rule_template_group_identifiers": "eventBridgeRuleTemplateGroupIdentifiers",
-        "force_rediscovery": "forceRediscovery",
-        "tags": "tags",
-    },
-)
-class CfnSignalMapProps:
-    def __init__(
-        self,
-        *,
-        discovery_entry_point_arn: builtins.str,
-        name: builtins.str,
-        cloud_watch_alarm_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        force_rediscovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSignalMap``.
-
-        :param discovery_entry_point_arn: A top-level supported Amazon Web Services resource ARN to discover a signal map from.
-        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
-        :param cloud_watch_alarm_template_group_identifiers: A cloudwatch alarm template group's identifier. Can be either be its id or current name.
-        :param description: A resource's optional description.
-        :param event_bridge_rule_template_group_identifiers: An eventbridge rule template group's identifier. Can be either be its id or current name.
-        :param force_rediscovery: If true, will force a rediscovery of a signal map if an unchanged discoveryEntryPointArn is provided. Default: - false
-        :param tags: Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cfn_signal_map_props = medialive.CfnSignalMapProps(
-                discovery_entry_point_arn="discoveryEntryPointArn",
-                name="name",
-            
-                # the properties below are optional
-                cloud_watch_alarm_template_group_identifiers=["cloudWatchAlarmTemplateGroupIdentifiers"],
-                description="description",
-                event_bridge_rule_template_group_identifiers=["eventBridgeRuleTemplateGroupIdentifiers"],
-                force_rediscovery=False,
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2cd411f3529bdc888717beba54eec356dd7b8ee974cace608d45c1450f0790f)
-            check_type(argname="argument discovery_entry_point_arn", value=discovery_entry_point_arn, expected_type=type_hints["discovery_entry_point_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument cloud_watch_alarm_template_group_identifiers", value=cloud_watch_alarm_template_group_identifiers, expected_type=type_hints["cloud_watch_alarm_template_group_identifiers"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_bridge_rule_template_group_identifiers", value=event_bridge_rule_template_group_identifiers, expected_type=type_hints["event_bridge_rule_template_group_identifiers"])
-            check_type(argname="argument force_rediscovery", value=force_rediscovery, expected_type=type_hints["force_rediscovery"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "discovery_entry_point_arn": discovery_entry_point_arn,
-            "name": name,
-        }
-        if cloud_watch_alarm_template_group_identifiers is not None:
-            self._values["cloud_watch_alarm_template_group_identifiers"] = cloud_watch_alarm_template_group_identifiers
-        if description is not None:
-            self._values["description"] = description
-        if event_bridge_rule_template_group_identifiers is not None:
-            self._values["event_bridge_rule_template_group_identifiers"] = event_bridge_rule_template_group_identifiers
-        if force_rediscovery is not None:
-            self._values["force_rediscovery"] = force_rediscovery
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def discovery_entry_point_arn(self) -> builtins.str:
-        '''A top-level supported Amazon Web Services resource ARN to discover a signal map from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-discoveryentrypointarn
-        '''
-        result = self._values.get("discovery_entry_point_arn")
-        assert result is not None, "Required property 'discovery_entry_point_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A resource's name.
-
-        Names must be unique within the scope of a resource type in a specific region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cloud_watch_alarm_template_group_identifiers(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''A cloudwatch alarm template group's identifier.
-
-        Can be either be its id or current name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-cloudwatchalarmtemplategroupidentifiers
-        '''
-        result = self._values.get("cloud_watch_alarm_template_group_identifiers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A resource's optional description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_bridge_rule_template_group_identifiers(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''An eventbridge rule template group's identifier.
-
-        Can be either be its id or current name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-eventbridgeruletemplategroupidentifiers
-        '''
-        result = self._values.get("event_bridge_rule_template_group_identifiers")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def force_rediscovery(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If true, will force a rediscovery of a signal map if an unchanged discoveryEntryPointArn is provided.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-forcerediscovery
-        '''
-        result = self._values.get("force_rediscovery")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Represents the tags associated with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSignalMapProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.ChannelPlacementGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_placement_group_arn": "channelPlacementGroupArn",
-        "channel_placement_group_id": "channelPlacementGroupId",
-        "cluster_id": "clusterId",
-    },
-)
-class ChannelPlacementGroupReference:
-    def __init__(
-        self,
-        *,
-        channel_placement_group_arn: builtins.str,
-        channel_placement_group_id: builtins.str,
-        cluster_id: builtins.str,
-    ) -> None:
-        '''A reference to a ChannelPlacementGroup resource.
-
-        :param channel_placement_group_arn: The ARN of the ChannelPlacementGroup resource.
-        :param channel_placement_group_id: The Id of the ChannelPlacementGroup resource.
-        :param cluster_id: The ClusterId of the ChannelPlacementGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            channel_placement_group_reference = medialive.ChannelPlacementGroupReference(
-                channel_placement_group_arn="channelPlacementGroupArn",
-                channel_placement_group_id="channelPlacementGroupId",
-                cluster_id="clusterId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea8c6f49acedcdbdf07fbcc5aa1ab303898bd4c9e248b0b635fa5eacb7702242)
-            check_type(argname="argument channel_placement_group_arn", value=channel_placement_group_arn, expected_type=type_hints["channel_placement_group_arn"])
-            check_type(argname="argument channel_placement_group_id", value=channel_placement_group_id, expected_type=type_hints["channel_placement_group_id"])
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_placement_group_arn": channel_placement_group_arn,
-            "channel_placement_group_id": channel_placement_group_id,
-            "cluster_id": cluster_id,
-        }
-
-    @builtins.property
-    def channel_placement_group_arn(self) -> builtins.str:
-        '''The ARN of the ChannelPlacementGroup resource.'''
-        result = self._values.get("channel_placement_group_arn")
-        assert result is not None, "Required property 'channel_placement_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_placement_group_id(self) -> builtins.str:
-        '''The Id of the ChannelPlacementGroup resource.'''
-        result = self._values.get("channel_placement_group_id")
-        assert result is not None, "Required property 'channel_placement_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cluster_id(self) -> builtins.str:
-        '''The ClusterId of the ChannelPlacementGroup resource.'''
-        result = self._values.get("cluster_id")
-        assert result is not None, "Required property 'cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ChannelPlacementGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.ChannelReference",
-    jsii_struct_bases=[],
-    name_mapping={"channel_arn": "channelArn", "channel_id": "channelId"},
-)
-class ChannelReference:
-    def __init__(self, *, channel_arn: builtins.str, channel_id: builtins.str) -> None:
-        '''A reference to a Channel resource.
-
-        :param channel_arn: The ARN of the Channel resource.
-        :param channel_id: The Id of the Channel resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            channel_reference = medialive.ChannelReference(
-                channel_arn="channelArn",
-                channel_id="channelId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__883ba931354226437a8187766b958a00f5baccb07c2a799b2de5056fdfe7c6bb)
-            check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
-            check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "channel_arn": channel_arn,
-            "channel_id": channel_id,
-        }
-
-    @builtins.property
-    def channel_arn(self) -> builtins.str:
-        '''The ARN of the Channel resource.'''
-        result = self._values.get("channel_arn")
-        assert result is not None, "Required property 'channel_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def channel_id(self) -> builtins.str:
-        '''The Id of the Channel resource.'''
-        result = self._values.get("channel_id")
-        assert result is not None, "Required property 'channel_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ChannelReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CloudWatchAlarmTemplateGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cloud_watch_alarm_template_group_arn": "cloudWatchAlarmTemplateGroupArn",
-        "identifier": "identifier",
-    },
-)
-class CloudWatchAlarmTemplateGroupReference:
-    def __init__(
-        self,
-        *,
-        cloud_watch_alarm_template_group_arn: builtins.str,
-        identifier: builtins.str,
-    ) -> None:
-        '''A reference to a CloudWatchAlarmTemplateGroup resource.
-
-        :param cloud_watch_alarm_template_group_arn: The ARN of the CloudWatchAlarmTemplateGroup resource.
-        :param identifier: The Identifier of the CloudWatchAlarmTemplateGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cloud_watch_alarm_template_group_reference = medialive.CloudWatchAlarmTemplateGroupReference(
-                cloud_watch_alarm_template_group_arn="cloudWatchAlarmTemplateGroupArn",
-                identifier="identifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd08e6b646aa31804da92d939250f43fdad1aec3843dda0710a5b3b5f9915794)
-            check_type(argname="argument cloud_watch_alarm_template_group_arn", value=cloud_watch_alarm_template_group_arn, expected_type=type_hints["cloud_watch_alarm_template_group_arn"])
-            check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cloud_watch_alarm_template_group_arn": cloud_watch_alarm_template_group_arn,
-            "identifier": identifier,
-        }
-
-    @builtins.property
-    def cloud_watch_alarm_template_group_arn(self) -> builtins.str:
-        '''The ARN of the CloudWatchAlarmTemplateGroup resource.'''
-        result = self._values.get("cloud_watch_alarm_template_group_arn")
-        assert result is not None, "Required property 'cloud_watch_alarm_template_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identifier(self) -> builtins.str:
-        '''The Identifier of the CloudWatchAlarmTemplateGroup resource.'''
-        result = self._values.get("identifier")
-        assert result is not None, "Required property 'identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CloudWatchAlarmTemplateGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.CloudWatchAlarmTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cloud_watch_alarm_template_arn": "cloudWatchAlarmTemplateArn",
-        "identifier": "identifier",
-    },
-)
-class CloudWatchAlarmTemplateReference:
-    def __init__(
-        self,
-        *,
-        cloud_watch_alarm_template_arn: builtins.str,
-        identifier: builtins.str,
-    ) -> None:
-        '''A reference to a CloudWatchAlarmTemplate resource.
-
-        :param cloud_watch_alarm_template_arn: The ARN of the CloudWatchAlarmTemplate resource.
-        :param identifier: The Identifier of the CloudWatchAlarmTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cloud_watch_alarm_template_reference = medialive.CloudWatchAlarmTemplateReference(
-                cloud_watch_alarm_template_arn="cloudWatchAlarmTemplateArn",
-                identifier="identifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aeefb399b967ac8f3fa31111cdb1c74e46069c577b3e2aabdaf83c22da44dc0e)
-            check_type(argname="argument cloud_watch_alarm_template_arn", value=cloud_watch_alarm_template_arn, expected_type=type_hints["cloud_watch_alarm_template_arn"])
-            check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cloud_watch_alarm_template_arn": cloud_watch_alarm_template_arn,
-            "identifier": identifier,
-        }
-
-    @builtins.property
-    def cloud_watch_alarm_template_arn(self) -> builtins.str:
-        '''The ARN of the CloudWatchAlarmTemplate resource.'''
-        result = self._values.get("cloud_watch_alarm_template_arn")
-        assert result is not None, "Required property 'cloud_watch_alarm_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identifier(self) -> builtins.str:
-        '''The Identifier of the CloudWatchAlarmTemplate resource.'''
-        result = self._values.get("identifier")
-        assert result is not None, "Required property 'identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CloudWatchAlarmTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.ClusterReference",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_arn": "clusterArn", "cluster_id": "clusterId"},
-)
-class ClusterReference:
-    def __init__(self, *, cluster_arn: builtins.str, cluster_id: builtins.str) -> None:
-        '''A reference to a Cluster resource.
-
-        :param cluster_arn: The ARN of the Cluster resource.
-        :param cluster_id: The Id of the Cluster resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            cluster_reference = medialive.ClusterReference(
-                cluster_arn="clusterArn",
-                cluster_id="clusterId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c3d850ec707ba1867ec3c78032cbf49c45bcbeece403f193907111483741059)
-            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
-            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_arn": cluster_arn,
-            "cluster_id": cluster_id,
-        }
-
-    @builtins.property
-    def cluster_arn(self) -> builtins.str:
-        '''The ARN of the Cluster resource.'''
-        result = self._values.get("cluster_arn")
-        assert result is not None, "Required property 'cluster_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cluster_id(self) -> builtins.str:
-        '''The Id of the Cluster resource.'''
-        result = self._values.get("cluster_id")
-        assert result is not None, "Required property 'cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.EventBridgeRuleTemplateGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_bridge_rule_template_group_arn": "eventBridgeRuleTemplateGroupArn",
-        "identifier": "identifier",
-    },
-)
-class EventBridgeRuleTemplateGroupReference:
-    def __init__(
-        self,
-        *,
-        event_bridge_rule_template_group_arn: builtins.str,
-        identifier: builtins.str,
-    ) -> None:
-        '''A reference to a EventBridgeRuleTemplateGroup resource.
-
-        :param event_bridge_rule_template_group_arn: The ARN of the EventBridgeRuleTemplateGroup resource.
-        :param identifier: The Identifier of the EventBridgeRuleTemplateGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            event_bridge_rule_template_group_reference = medialive.EventBridgeRuleTemplateGroupReference(
-                event_bridge_rule_template_group_arn="eventBridgeRuleTemplateGroupArn",
-                identifier="identifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac0fe3d330c7f6c8290fca708e1926d86af09b89c0da0257ca36e4e932504670)
-            check_type(argname="argument event_bridge_rule_template_group_arn", value=event_bridge_rule_template_group_arn, expected_type=type_hints["event_bridge_rule_template_group_arn"])
-            check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_bridge_rule_template_group_arn": event_bridge_rule_template_group_arn,
-            "identifier": identifier,
-        }
-
-    @builtins.property
-    def event_bridge_rule_template_group_arn(self) -> builtins.str:
-        '''The ARN of the EventBridgeRuleTemplateGroup resource.'''
-        result = self._values.get("event_bridge_rule_template_group_arn")
-        assert result is not None, "Required property 'event_bridge_rule_template_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identifier(self) -> builtins.str:
-        '''The Identifier of the EventBridgeRuleTemplateGroup resource.'''
-        result = self._values.get("identifier")
-        assert result is not None, "Required property 'identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventBridgeRuleTemplateGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.EventBridgeRuleTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_bridge_rule_template_arn": "eventBridgeRuleTemplateArn",
-        "identifier": "identifier",
-    },
-)
-class EventBridgeRuleTemplateReference:
-    def __init__(
-        self,
-        *,
-        event_bridge_rule_template_arn: builtins.str,
-        identifier: builtins.str,
-    ) -> None:
-        '''A reference to a EventBridgeRuleTemplate resource.
-
-        :param event_bridge_rule_template_arn: The ARN of the EventBridgeRuleTemplate resource.
-        :param identifier: The Identifier of the EventBridgeRuleTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            event_bridge_rule_template_reference = medialive.EventBridgeRuleTemplateReference(
-                event_bridge_rule_template_arn="eventBridgeRuleTemplateArn",
-                identifier="identifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65df217f4f9364bfa147c8ebeb8bcf7c78c707f1ac1fcadbb7ad90cc25d910c3)
-            check_type(argname="argument event_bridge_rule_template_arn", value=event_bridge_rule_template_arn, expected_type=type_hints["event_bridge_rule_template_arn"])
-            check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_bridge_rule_template_arn": event_bridge_rule_template_arn,
-            "identifier": identifier,
-        }
-
-    @builtins.property
-    def event_bridge_rule_template_arn(self) -> builtins.str:
-        '''The ARN of the EventBridgeRuleTemplate resource.'''
-        result = self._values.get("event_bridge_rule_template_arn")
-        assert result is not None, "Required property 'event_bridge_rule_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identifier(self) -> builtins.str:
-        '''The Identifier of the EventBridgeRuleTemplate resource.'''
-        result = self._values.get("identifier")
-        assert result is not None, "Required property 'identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventBridgeRuleTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IChannelPlacementGroupRef")
-class IChannelPlacementGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ChannelPlacementGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="channelPlacementGroupRef")
-    def channel_placement_group_ref(self) -> ChannelPlacementGroupReference:
-        '''(experimental) A reference to a ChannelPlacementGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IChannelPlacementGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ChannelPlacementGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IChannelPlacementGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="channelPlacementGroupRef")
-    def channel_placement_group_ref(self) -> ChannelPlacementGroupReference:
-        '''(experimental) A reference to a ChannelPlacementGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ChannelPlacementGroupReference, jsii.get(self, "channelPlacementGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IChannelPlacementGroupRef).__jsii_proxy_class__ = lambda : _IChannelPlacementGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IChannelRef")
-class IChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Channel.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> ChannelReference:
-        '''(experimental) A reference to a Channel resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IChannelRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Channel.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IChannelRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> ChannelReference:
-        '''(experimental) A reference to a Channel resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.ICloudWatchAlarmTemplateGroupRef")
-class ICloudWatchAlarmTemplateGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplateGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="cloudWatchAlarmTemplateGroupRef")
-    def cloud_watch_alarm_template_group_ref(
-        self,
-    ) -> CloudWatchAlarmTemplateGroupReference:
-        '''(experimental) A reference to a CloudWatchAlarmTemplateGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICloudWatchAlarmTemplateGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplateGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.ICloudWatchAlarmTemplateGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="cloudWatchAlarmTemplateGroupRef")
-    def cloud_watch_alarm_template_group_ref(
-        self,
-    ) -> CloudWatchAlarmTemplateGroupReference:
-        '''(experimental) A reference to a CloudWatchAlarmTemplateGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CloudWatchAlarmTemplateGroupReference, jsii.get(self, "cloudWatchAlarmTemplateGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICloudWatchAlarmTemplateGroupRef).__jsii_proxy_class__ = lambda : _ICloudWatchAlarmTemplateGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.ICloudWatchAlarmTemplateRef")
-class ICloudWatchAlarmTemplateRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="cloudWatchAlarmTemplateRef")
-    def cloud_watch_alarm_template_ref(self) -> CloudWatchAlarmTemplateReference:
-        '''(experimental) A reference to a CloudWatchAlarmTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICloudWatchAlarmTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CloudWatchAlarmTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.ICloudWatchAlarmTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="cloudWatchAlarmTemplateRef")
-    def cloud_watch_alarm_template_ref(self) -> CloudWatchAlarmTemplateReference:
-        '''(experimental) A reference to a CloudWatchAlarmTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CloudWatchAlarmTemplateReference, jsii.get(self, "cloudWatchAlarmTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICloudWatchAlarmTemplateRef).__jsii_proxy_class__ = lambda : _ICloudWatchAlarmTemplateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IClusterRef")
-class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IClusterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IEventBridgeRuleTemplateGroupRef")
-class IEventBridgeRuleTemplateGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplateGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBridgeRuleTemplateGroupRef")
-    def event_bridge_rule_template_group_ref(
-        self,
-    ) -> EventBridgeRuleTemplateGroupReference:
-        '''(experimental) A reference to a EventBridgeRuleTemplateGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventBridgeRuleTemplateGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplateGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IEventBridgeRuleTemplateGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBridgeRuleTemplateGroupRef")
-    def event_bridge_rule_template_group_ref(
-        self,
-    ) -> EventBridgeRuleTemplateGroupReference:
-        '''(experimental) A reference to a EventBridgeRuleTemplateGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventBridgeRuleTemplateGroupReference, jsii.get(self, "eventBridgeRuleTemplateGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventBridgeRuleTemplateGroupRef).__jsii_proxy_class__ = lambda : _IEventBridgeRuleTemplateGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IEventBridgeRuleTemplateRef")
-class IEventBridgeRuleTemplateRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBridgeRuleTemplateRef")
-    def event_bridge_rule_template_ref(self) -> EventBridgeRuleTemplateReference:
-        '''(experimental) A reference to a EventBridgeRuleTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventBridgeRuleTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventBridgeRuleTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IEventBridgeRuleTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBridgeRuleTemplateRef")
-    def event_bridge_rule_template_ref(self) -> EventBridgeRuleTemplateReference:
-        '''(experimental) A reference to a EventBridgeRuleTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventBridgeRuleTemplateReference, jsii.get(self, "eventBridgeRuleTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventBridgeRuleTemplateRef).__jsii_proxy_class__ = lambda : _IEventBridgeRuleTemplateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IInputRef")
-class IInputRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Input.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="inputRef")
-    def input_ref(self) -> "InputReference":
-        '''(experimental) A reference to a Input resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInputRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Input.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IInputRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="inputRef")
-    def input_ref(self) -> "InputReference":
-        '''(experimental) A reference to a Input resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InputReference", jsii.get(self, "inputRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInputRef).__jsii_proxy_class__ = lambda : _IInputRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IInputSecurityGroupRef")
-class IInputSecurityGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a InputSecurityGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="inputSecurityGroupRef")
-    def input_security_group_ref(self) -> "InputSecurityGroupReference":
-        '''(experimental) A reference to a InputSecurityGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInputSecurityGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a InputSecurityGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IInputSecurityGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="inputSecurityGroupRef")
-    def input_security_group_ref(self) -> "InputSecurityGroupReference":
-        '''(experimental) A reference to a InputSecurityGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InputSecurityGroupReference", jsii.get(self, "inputSecurityGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInputSecurityGroupRef).__jsii_proxy_class__ = lambda : _IInputSecurityGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IMultiplexRef")
-class IMultiplexRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Multiplex.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="multiplexRef")
-    def multiplex_ref(self) -> "MultiplexReference":
-        '''(experimental) A reference to a Multiplex resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMultiplexRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Multiplex.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IMultiplexRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="multiplexRef")
-    def multiplex_ref(self) -> "MultiplexReference":
-        '''(experimental) A reference to a Multiplex resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MultiplexReference", jsii.get(self, "multiplexRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMultiplexRef).__jsii_proxy_class__ = lambda : _IMultiplexRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.IMultiplexprogramRef")
-class IMultiplexprogramRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Multiplexprogram.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="multiplexprogramRef")
-    def multiplexprogram_ref(self) -> "MultiplexprogramReference":
-        '''(experimental) A reference to a Multiplexprogram resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMultiplexprogramRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Multiplexprogram.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.IMultiplexprogramRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="multiplexprogramRef")
-    def multiplexprogram_ref(self) -> "MultiplexprogramReference":
-        '''(experimental) A reference to a Multiplexprogram resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MultiplexprogramReference", jsii.get(self, "multiplexprogramRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMultiplexprogramRef).__jsii_proxy_class__ = lambda : _IMultiplexprogramRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.INetworkRef")
-class INetworkRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Network.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="networkRef")
-    def network_ref(self) -> "NetworkReference":
-        '''(experimental) A reference to a Network resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INetworkRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Network.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.INetworkRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="networkRef")
-    def network_ref(self) -> "NetworkReference":
-        '''(experimental) A reference to a Network resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("NetworkReference", jsii.get(self, "networkRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INetworkRef).__jsii_proxy_class__ = lambda : _INetworkRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.ISdiSourceRef")
-class ISdiSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SdiSource.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="sdiSourceRef")
-    def sdi_source_ref(self) -> "SdiSourceReference":
-        '''(experimental) A reference to a SdiSource resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISdiSourceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SdiSource.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.ISdiSourceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="sdiSourceRef")
-    def sdi_source_ref(self) -> "SdiSourceReference":
-        '''(experimental) A reference to a SdiSource resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SdiSourceReference", jsii.get(self, "sdiSourceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISdiSourceRef).__jsii_proxy_class__ = lambda : _ISdiSourceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_medialive.ISignalMapRef")
-class ISignalMapRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SignalMap.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="signalMapRef")
-    def signal_map_ref(self) -> "SignalMapReference":
-        '''(experimental) A reference to a SignalMap resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISignalMapRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SignalMap.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_medialive.ISignalMapRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="signalMapRef")
-    def signal_map_ref(self) -> "SignalMapReference":
-        '''(experimental) A reference to a SignalMap resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SignalMapReference", jsii.get(self, "signalMapRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISignalMapRef).__jsii_proxy_class__ = lambda : _ISignalMapRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.InputReference",
-    jsii_struct_bases=[],
-    name_mapping={"input_arn": "inputArn", "input_id": "inputId"},
-)
-class InputReference:
-    def __init__(self, *, input_arn: builtins.str, input_id: builtins.str) -> None:
-        '''A reference to a Input resource.
-
-        :param input_arn: The ARN of the Input resource.
-        :param input_id: The Id of the Input resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            input_reference = medialive.InputReference(
-                input_arn="inputArn",
-                input_id="inputId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5cd34f262bedd3be2421e91ff5cbd2e0b88d6b957df0a8b50b0816e6021f253)
-            check_type(argname="argument input_arn", value=input_arn, expected_type=type_hints["input_arn"])
-            check_type(argname="argument input_id", value=input_id, expected_type=type_hints["input_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_arn": input_arn,
-            "input_id": input_id,
-        }
-
-    @builtins.property
-    def input_arn(self) -> builtins.str:
-        '''The ARN of the Input resource.'''
-        result = self._values.get("input_arn")
-        assert result is not None, "Required property 'input_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def input_id(self) -> builtins.str:
-        '''The Id of the Input resource.'''
-        result = self._values.get("input_id")
-        assert result is not None, "Required property 'input_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InputReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.InputSecurityGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "input_security_group_arn": "inputSecurityGroupArn",
-        "input_security_group_id": "inputSecurityGroupId",
-    },
-)
-class InputSecurityGroupReference:
-    def __init__(
-        self,
-        *,
-        input_security_group_arn: builtins.str,
-        input_security_group_id: builtins.str,
-    ) -> None:
-        '''A reference to a InputSecurityGroup resource.
-
-        :param input_security_group_arn: The ARN of the InputSecurityGroup resource.
-        :param input_security_group_id: The Id of the InputSecurityGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            input_security_group_reference = medialive.InputSecurityGroupReference(
-                input_security_group_arn="inputSecurityGroupArn",
-                input_security_group_id="inputSecurityGroupId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9dcd7810799013083333644f37f0bdf46b4ae77271f38d7b5beef7621c52fe79)
-            check_type(argname="argument input_security_group_arn", value=input_security_group_arn, expected_type=type_hints["input_security_group_arn"])
-            check_type(argname="argument input_security_group_id", value=input_security_group_id, expected_type=type_hints["input_security_group_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_security_group_arn": input_security_group_arn,
-            "input_security_group_id": input_security_group_id,
-        }
-
-    @builtins.property
-    def input_security_group_arn(self) -> builtins.str:
-        '''The ARN of the InputSecurityGroup resource.'''
-        result = self._values.get("input_security_group_arn")
-        assert result is not None, "Required property 'input_security_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def input_security_group_id(self) -> builtins.str:
-        '''The Id of the InputSecurityGroup resource.'''
-        result = self._values.get("input_security_group_id")
-        assert result is not None, "Required property 'input_security_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InputSecurityGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.MultiplexReference",
-    jsii_struct_bases=[],
-    name_mapping={"multiplex_arn": "multiplexArn", "multiplex_id": "multiplexId"},
-)
-class MultiplexReference:
-    def __init__(
-        self,
-        *,
-        multiplex_arn: builtins.str,
-        multiplex_id: builtins.str,
-    ) -> None:
-        '''A reference to a Multiplex resource.
-
-        :param multiplex_arn: The ARN of the Multiplex resource.
-        :param multiplex_id: The Id of the Multiplex resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            multiplex_reference = medialive.MultiplexReference(
-                multiplex_arn="multiplexArn",
-                multiplex_id="multiplexId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79501bb5a37f12cd96f4c46c3f27bede25689a9203945cb99a54d49d4e25b530)
-            check_type(argname="argument multiplex_arn", value=multiplex_arn, expected_type=type_hints["multiplex_arn"])
-            check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "multiplex_arn": multiplex_arn,
-            "multiplex_id": multiplex_id,
-        }
-
-    @builtins.property
-    def multiplex_arn(self) -> builtins.str:
-        '''The ARN of the Multiplex resource.'''
-        result = self._values.get("multiplex_arn")
-        assert result is not None, "Required property 'multiplex_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def multiplex_id(self) -> builtins.str:
-        '''The Id of the Multiplex resource.'''
-        result = self._values.get("multiplex_id")
-        assert result is not None, "Required property 'multiplex_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MultiplexReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.MultiplexprogramReference",
-    jsii_struct_bases=[],
-    name_mapping={"multiplex_id": "multiplexId", "program_name": "programName"},
-)
-class MultiplexprogramReference:
-    def __init__(
-        self,
-        *,
-        multiplex_id: builtins.str,
-        program_name: builtins.str,
-    ) -> None:
-        '''A reference to a Multiplexprogram resource.
-
-        :param multiplex_id: The MultiplexId of the Multiplexprogram resource.
-        :param program_name: The ProgramName of the Multiplexprogram resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            multiplexprogram_reference = medialive.MultiplexprogramReference(
-                multiplex_id="multiplexId",
-                program_name="programName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0a9e116ca688c57d9556cce3201e564f26b85eb0cb652b3c7dd60c4af86ea46)
-            check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
-            check_type(argname="argument program_name", value=program_name, expected_type=type_hints["program_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "multiplex_id": multiplex_id,
-            "program_name": program_name,
-        }
-
-    @builtins.property
-    def multiplex_id(self) -> builtins.str:
-        '''The MultiplexId of the Multiplexprogram resource.'''
-        result = self._values.get("multiplex_id")
-        assert result is not None, "Required property 'multiplex_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def program_name(self) -> builtins.str:
-        '''The ProgramName of the Multiplexprogram resource.'''
-        result = self._values.get("program_name")
-        assert result is not None, "Required property 'program_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MultiplexprogramReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.NetworkReference",
-    jsii_struct_bases=[],
-    name_mapping={"network_arn": "networkArn", "network_id": "networkId"},
-)
-class NetworkReference:
-    def __init__(self, *, network_arn: builtins.str, network_id: builtins.str) -> None:
-        '''A reference to a Network resource.
-
-        :param network_arn: The ARN of the Network resource.
-        :param network_id: The Id of the Network resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            network_reference = medialive.NetworkReference(
-                network_arn="networkArn",
-                network_id="networkId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa3ec7ffd12960b704d7cf715ca884c7d63e8e340828cbfe44e1da6ced9a50ac)
-            check_type(argname="argument network_arn", value=network_arn, expected_type=type_hints["network_arn"])
-            check_type(argname="argument network_id", value=network_id, expected_type=type_hints["network_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "network_arn": network_arn,
-            "network_id": network_id,
-        }
-
-    @builtins.property
-    def network_arn(self) -> builtins.str:
-        '''The ARN of the Network resource.'''
-        result = self._values.get("network_arn")
-        assert result is not None, "Required property 'network_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def network_id(self) -> builtins.str:
-        '''The Id of the Network resource.'''
-        result = self._values.get("network_id")
-        assert result is not None, "Required property 'network_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NetworkReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.SdiSourceReference",
-    jsii_struct_bases=[],
-    name_mapping={"sdi_source_arn": "sdiSourceArn", "sdi_source_id": "sdiSourceId"},
-)
-class SdiSourceReference:
-    def __init__(
-        self,
-        *,
-        sdi_source_arn: builtins.str,
-        sdi_source_id: builtins.str,
-    ) -> None:
-        '''A reference to a SdiSource resource.
-
-        :param sdi_source_arn: The ARN of the SdiSource resource.
-        :param sdi_source_id: The Id of the SdiSource resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            sdi_source_reference = medialive.SdiSourceReference(
-                sdi_source_arn="sdiSourceArn",
-                sdi_source_id="sdiSourceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__935c4abc6dc33896fe97b954e7e76271324fc396b7eb0c24cbda5c35a531fbba)
-            check_type(argname="argument sdi_source_arn", value=sdi_source_arn, expected_type=type_hints["sdi_source_arn"])
-            check_type(argname="argument sdi_source_id", value=sdi_source_id, expected_type=type_hints["sdi_source_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sdi_source_arn": sdi_source_arn,
-            "sdi_source_id": sdi_source_id,
-        }
-
-    @builtins.property
-    def sdi_source_arn(self) -> builtins.str:
-        '''The ARN of the SdiSource resource.'''
-        result = self._values.get("sdi_source_arn")
-        assert result is not None, "Required property 'sdi_source_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sdi_source_id(self) -> builtins.str:
-        '''The Id of the SdiSource resource.'''
-        result = self._values.get("sdi_source_id")
-        assert result is not None, "Required property 'sdi_source_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SdiSourceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_medialive.SignalMapReference",
-    jsii_struct_bases=[],
-    name_mapping={"identifier": "identifier", "signal_map_arn": "signalMapArn"},
-)
-class SignalMapReference:
-    def __init__(
-        self,
-        *,
-        identifier: builtins.str,
-        signal_map_arn: builtins.str,
-    ) -> None:
-        '''A reference to a SignalMap resource.
-
-        :param identifier: The Identifier of the SignalMap resource.
-        :param signal_map_arn: The ARN of the SignalMap resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_medialive as medialive
-            
-            signal_map_reference = medialive.SignalMapReference(
-                identifier="identifier",
-                signal_map_arn="signalMapArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9807824c74973d5a410e380156883d2357a7f1215154aa52043706b789dca8a)
-            check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
-            check_type(argname="argument signal_map_arn", value=signal_map_arn, expected_type=type_hints["signal_map_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identifier": identifier,
-            "signal_map_arn": signal_map_arn,
-        }
-
-    @builtins.property
-    def identifier(self) -> builtins.str:
-        '''The Identifier of the SignalMap resource.'''
-        result = self._values.get("identifier")
-        assert result is not None, "Required property 'identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signal_map_arn(self) -> builtins.str:
-        '''The ARN of the SignalMap resource.'''
-        result = self._values.get("signal_map_arn")
-        assert result is not None, "Required property 'signal_map_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SignalMapReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IChannelRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IChannelRef_33237c32, _ITaggable_36806126)
 class CfnChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3894,26 +121,28 @@ class CfnChannel(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        anywhere_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AnywhereSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        anywhere_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AnywhereSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdi_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         channel_class: typing.Optional[builtins.str] = None,
-        channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_engine_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        linked_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LinkedChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         log_level: typing.Optional[builtins.str] = None,
-        maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MaintenanceCreateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MaintenanceCreateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Any = None,
-        vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VpcOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VpcOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Channel``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param anywhere_settings: 
@@ -3925,6 +154,7 @@ class CfnChannel(
         :param encoder_settings: The encoding configuration for the output content.
         :param input_attachments: The list of input attachments for the channel.
         :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
+        :param linked_channel_settings: 
         :param log_level: The verbosity for logging activity for this channel. Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
         :param maintenance: Maintenance settings for this channel.
         :param name: Name of channel.
@@ -3946,6 +176,7 @@ class CfnChannel(
             encoder_settings=encoder_settings,
             input_attachments=input_attachments,
             input_specification=input_specification,
+            linked_channel_settings=linked_channel_settings,
             log_level=log_level,
             maintenance=maintenance,
             name=name,
@@ -3956,8 +187,73 @@ class CfnChannel(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForChannel")
+    @builtins.classmethod
+    def arn_for_channel(cls, resource: "_IChannelRef_33237c32") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d55420324497a74500800e56442385fa786171c6a5c0ba683d36d5678287436)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
+
+    @jsii.member(jsii_name="fromChannelArn")
+    @builtins.classmethod
+    def from_channel_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IChannelRef_33237c32":
+        '''Creates a new IChannelRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d2f95218f9095cece7aeb9099434b20ee1d3edda5afb64ec302ef4c5b93c0e5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IChannelRef_33237c32", jsii.sinvoke(cls, "fromChannelArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromChannelId")
+    @builtins.classmethod
+    def from_channel_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        channel_id: builtins.str,
+    ) -> "_IChannelRef_33237c32":
+        '''Creates a new IChannelRef from a channelId.
+
+        :param scope: -
+        :param id: -
+        :param channel_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6b1d9b196e9144183daa21c67b901e170d335ffd5f6d15fb2f36229b0ece372)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
+        return typing.cast("_IChannelRef_33237c32", jsii.sinvoke(cls, "fromChannelId", [scope, id, channel_id]))
+
+    @jsii.member(jsii_name="isCfnChannel")
+    @builtins.classmethod
+    def is_cfn_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97bd1c7e07d2c716f0501f130db911cb9bd0d0f4ecd67269de9baceb33573f6a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4026,27 +322,27 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> ChannelReference:
+    def channel_ref(self) -> "_ChannelReference_53f0e672":
         '''A reference to a Channel resource.'''
-        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
+        return typing.cast("_ChannelReference_53f0e672", jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="anywhereSettings")
     def anywhere_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AnywhereSettingsProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AnywhereSettingsProperty"]], jsii.get(self, "anywhereSettings"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AnywhereSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AnywhereSettingsProperty"]], jsii.get(self, "anywhereSettings"))
 
     @anywhere_settings.setter
     def anywhere_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AnywhereSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AnywhereSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd7334cacbe92d6917c2266de7d120f4dfdf1176775aaa8b7fb067d8645290e0)
@@ -4057,14 +353,14 @@ class CfnChannel(
     @jsii.member(jsii_name="cdiInputSpecification")
     def cdi_input_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CdiInputSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CdiInputSpecificationProperty"]]:
         '''Specification of CDI inputs for this channel.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CdiInputSpecificationProperty"]], jsii.get(self, "cdiInputSpecification"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CdiInputSpecificationProperty"]], jsii.get(self, "cdiInputSpecification"))
 
     @cdi_input_specification.setter
     def cdi_input_specification(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CdiInputSpecificationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CdiInputSpecificationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f92b60869c3a38d6c288b1f41617590836131c33145b5a07d2348dbb82d37420)
@@ -4088,13 +384,13 @@ class CfnChannel(
     @jsii.member(jsii_name="channelEngineVersion")
     def channel_engine_version(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelEngineVersionRequestProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelEngineVersionRequestProperty"]], jsii.get(self, "channelEngineVersion"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]], jsii.get(self, "channelEngineVersion"))
 
     @channel_engine_version.setter
     def channel_engine_version(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelEngineVersionRequestProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91ef8d94b4069de96a8aaa0571cc762a4cefc0811c1703adc15d899e72d034a2)
@@ -4105,14 +401,14 @@ class CfnChannel(
     @jsii.member(jsii_name="destinations")
     def destinations(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationProperty"]]]]:
         '''The settings that identify the destination for the outputs in this MediaLive output package.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationProperty"]]]], jsii.get(self, "destinations"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationProperty"]]]], jsii.get(self, "destinations"))
 
     @destinations.setter
     def destinations(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2a2554798d3e2b5537f9e6866bbc72a0a8473bbaa576a77c590c04c2e70f553)
@@ -4123,13 +419,13 @@ class CfnChannel(
     @jsii.member(jsii_name="dryRun")
     def dry_run(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "dryRun"))
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "dryRun"))
 
     @dry_run.setter
     def dry_run(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6775d143746a388a43731dd0cc03a742ff66c3055bf702a2e6eebad64a531fec)
@@ -4140,14 +436,14 @@ class CfnChannel(
     @jsii.member(jsii_name="encoderSettings")
     def encoder_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EncoderSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]]:
         '''The encoding configuration for the output content.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EncoderSettingsProperty"]], jsii.get(self, "encoderSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]], jsii.get(self, "encoderSettings"))
 
     @encoder_settings.setter
     def encoder_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EncoderSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fdb195a3769eba13c8fa8392bdc7fdb13d178f09f1a3128b22012ff69de3ea8)
@@ -4158,14 +454,14 @@ class CfnChannel(
     @jsii.member(jsii_name="inputAttachments")
     def input_attachments(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputAttachmentProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputAttachmentProperty"]]]]:
         '''The list of input attachments for the channel.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputAttachmentProperty"]]]], jsii.get(self, "inputAttachments"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputAttachmentProperty"]]]], jsii.get(self, "inputAttachments"))
 
     @input_attachments.setter
     def input_attachments(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputAttachmentProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputAttachmentProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21a00bae3ae031cde82b03663d2a24b4294b4b914a32c0c2f6738dd48830dc30)
@@ -4176,19 +472,36 @@ class CfnChannel(
     @jsii.member(jsii_name="inputSpecification")
     def input_specification(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSpecificationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSpecificationProperty"]]:
         '''The input specification for this channel.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSpecificationProperty"]], jsii.get(self, "inputSpecification"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSpecificationProperty"]], jsii.get(self, "inputSpecification"))
 
     @input_specification.setter
     def input_specification(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSpecificationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSpecificationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b5259f36c03529b4fadc479e28da22c834a5bc4672f8081bd809f8353b46ad4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="linkedChannelSettings")
+    def linked_channel_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LinkedChannelSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LinkedChannelSettingsProperty"]], jsii.get(self, "linkedChannelSettings"))
+
+    @linked_channel_settings.setter
+    def linked_channel_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LinkedChannelSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3dc913848b596deda37acf9491bb6e4a8c222dc215d0716e77dfb8b5320568c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "linkedChannelSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="logLevel")
@@ -4207,14 +520,14 @@ class CfnChannel(
     @jsii.member(jsii_name="maintenance")
     def maintenance(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MaintenanceCreateSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MaintenanceCreateSettingsProperty"]]:
         '''Maintenance settings for this channel.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MaintenanceCreateSettingsProperty"]], jsii.get(self, "maintenance"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MaintenanceCreateSettingsProperty"]], jsii.get(self, "maintenance"))
 
     @maintenance.setter
     def maintenance(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MaintenanceCreateSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MaintenanceCreateSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3468489db4ad9a5131075408b322162aebaf0aa3a8c49b86e5f9c4a94c1ed381)
@@ -4264,14 +577,14 @@ class CfnChannel(
     @jsii.member(jsii_name="vpc")
     def vpc(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VpcOutputSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VpcOutputSettingsProperty"]]:
         '''Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VpcOutputSettingsProperty"]], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VpcOutputSettingsProperty"]], jsii.get(self, "vpc"))
 
     @vpc.setter
     def vpc(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VpcOutputSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VpcOutputSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eb8444e8ee5815fae672b115515a96cba9b3cf9b7e399608e9a0d229e8c8ad41)
@@ -4656,6 +969,63 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AdditionalDestinationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destination": "destination"},
+    )
+    class AdditionalDestinationsProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-additionaldestinations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                additional_destinations_property = medialive.CfnChannel.AdditionalDestinationsProperty(
+                    destination=medialive.CfnChannel.OutputLocationRefProperty(
+                        destination_ref_id="destinationRefId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f35ce75f1f33941348d85275d7dc5d6c728631bea4d0fc0ad49a7bc029ddce29)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-additionaldestinations.html#cfn-medialive-channel-additionaldestinations-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdditionalDestinationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.AncillarySourceSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4795,7 +1165,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            archive_s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ArchiveS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            archive_s3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ArchiveS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure the destination of an Archive output.
 
@@ -4828,13 +1198,13 @@ class CfnChannel(
         @builtins.property
         def archive_s3_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveS3SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveS3SettingsProperty"]]:
             '''Sets up Amazon S3 as the destination for this Archive output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archivecdnsettings.html#cfn-medialive-channel-archivecdnsettings-archives3settings
             '''
             result = self._values.get("archive_s3_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveS3SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveS3SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4856,8 +1226,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            m2_ts_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            raw_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RawSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            m2_ts_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            raw_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RawSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The archive container settings.
 
@@ -4953,24 +1323,24 @@ class CfnChannel(
         @builtins.property
         def m2_ts_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M2tsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]]:
             '''The settings for the M2TS in the archive output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archivecontainersettings.html#cfn-medialive-channel-archivecontainersettings-m2tssettings
             '''
             result = self._values.get("m2_ts_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M2tsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]], result)
 
         @builtins.property
         def raw_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RawSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RawSettingsProperty"]]:
             '''The settings for Raw archive output type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archivecontainersettings.html#cfn-medialive-channel-archivecontainersettings-rawsettings
             '''
             result = self._values.get("raw_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RawSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RawSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4996,8 +1366,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            archive_cdn_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ArchiveCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            archive_cdn_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ArchiveCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rollover_interval: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The settings for an archive output group.
@@ -5045,24 +1415,24 @@ class CfnChannel(
         @builtins.property
         def archive_cdn_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveCdnSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveCdnSettingsProperty"]]:
             '''Settings to configure the destination of an Archive output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archivegroupsettings.html#cfn-medialive-channel-archivegroupsettings-archivecdnsettings
             '''
             result = self._values.get("archive_cdn_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveCdnSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveCdnSettingsProperty"]], result)
 
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''A directory and base file name where archive files should be written.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archivegroupsettings.html#cfn-medialive-channel-archivegroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def rollover_interval(self) -> typing.Optional[jsii.Number]:
@@ -5097,7 +1467,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            container_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ArchiveContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ArchiveContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             extension: typing.Optional[builtins.str] = None,
             name_modifier: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5203,13 +1573,13 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveContainerSettingsProperty"]]:
             '''The settings that are specific to the container type of the file.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-archiveoutputsettings.html#cfn-medialive-channel-archiveoutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveContainerSettingsProperty"]], result)
 
         @builtins.property
         def extension(self) -> typing.Optional[builtins.str]:
@@ -5375,7 +1745,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            input_channel_levels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputChannelLevelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            input_channel_levels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputChannelLevelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             output_channel: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The settings for remixing audio.
@@ -5415,13 +1785,13 @@ class CfnChannel(
         @builtins.property
         def input_channel_levels(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputChannelLevelProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputChannelLevelProperty"]]]]:
             '''The indices and gain values for each input channel that should be remixed into this output channel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiochannelmapping.html#cfn-medialive-channel-audiochannelmapping-inputchannellevels
             '''
             result = self._values.get("input_channel_levels")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputChannelLevelProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputChannelLevelProperty"]]]], result)
 
         @builtins.property
         def output_channel(self) -> typing.Optional[jsii.Number]:
@@ -5460,13 +1830,13 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            aac_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AacSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ac3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Ac3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            eac3_atmos_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Eac3AtmosSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            eac3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Eac3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mp2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Mp2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            pass_through_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.PassThroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            wav_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.WavSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aac_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AacSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ac3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Ac3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            eac3_atmos_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Eac3AtmosSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            eac3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Eac3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mp2_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Mp2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pass_through_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.PassThroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wav_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.WavSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the audio codec in the audio output.
 
@@ -5583,78 +1953,78 @@ class CfnChannel(
         @builtins.property
         def aac_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AacSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AacSettingsProperty"]]:
             '''The setup of the AAC audio codec in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-aacsettings
             '''
             result = self._values.get("aac_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AacSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AacSettingsProperty"]], result)
 
         @builtins.property
         def ac3_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Ac3SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Ac3SettingsProperty"]]:
             '''The setup of an AC3 audio codec in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-ac3settings
             '''
             result = self._values.get("ac3_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Ac3SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Ac3SettingsProperty"]], result)
 
         @builtins.property
         def eac3_atmos_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Eac3AtmosSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Eac3AtmosSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-eac3atmossettings
             '''
             result = self._values.get("eac3_atmos_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Eac3AtmosSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Eac3AtmosSettingsProperty"]], result)
 
         @builtins.property
         def eac3_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Eac3SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Eac3SettingsProperty"]]:
             '''The setup of an EAC3 audio codec in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-eac3settings
             '''
             result = self._values.get("eac3_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Eac3SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Eac3SettingsProperty"]], result)
 
         @builtins.property
         def mp2_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mp2SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mp2SettingsProperty"]]:
             '''The setup of an MP2 audio codec in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-mp2settings
             '''
             result = self._values.get("mp2_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mp2SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mp2SettingsProperty"]], result)
 
         @builtins.property
         def pass_through_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.PassThroughSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PassThroughSettingsProperty"]]:
             '''The setup to pass through the Dolby audio codec to the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-passthroughsettings
             '''
             result = self._values.get("pass_through_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.PassThroughSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PassThroughSettingsProperty"]], result)
 
         @builtins.property
         def wav_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.WavSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.WavSettingsProperty"]]:
             '''Settings for audio encoded with the WAV codec.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiocodecsettings.html#cfn-medialive-channel-audiocodecsettings-wavsettings
             '''
             result = self._values.get("wav_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.WavSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.WavSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5691,17 +2061,17 @@ class CfnChannel(
             self,
             *,
             audio_dash_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-            audio_normalization_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioNormalizationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_normalization_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioNormalizationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             audio_selector_name: typing.Optional[builtins.str] = None,
             audio_type: typing.Optional[builtins.str] = None,
             audio_type_control: typing.Optional[builtins.str] = None,
-            audio_watermarking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioWatermarkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            codec_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioCodecSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_watermarking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioWatermarkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            codec_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioCodecSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dvb_dash_accessibility: typing.Optional[builtins.str] = None,
             language_code: typing.Optional[builtins.str] = None,
             language_code_control: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
-            remix_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RemixSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            remix_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RemixSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             stream_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The encoding information for one output audio.
@@ -5893,13 +2263,13 @@ class CfnChannel(
         @builtins.property
         def audio_normalization_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioNormalizationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioNormalizationSettingsProperty"]]:
             '''The advanced audio normalization settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiodescription.html#cfn-medialive-channel-audiodescription-audionormalizationsettings
             '''
             result = self._values.get("audio_normalization_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioNormalizationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioNormalizationSettingsProperty"]], result)
 
         @builtins.property
         def audio_selector_name(self) -> typing.Optional[builtins.str]:
@@ -5935,24 +2305,24 @@ class CfnChannel(
         @builtins.property
         def audio_watermarking_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioWatermarkSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioWatermarkSettingsProperty"]]:
             '''Settings to configure one or more solutions that insert audio watermarks in the audio encode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiodescription.html#cfn-medialive-channel-audiodescription-audiowatermarkingsettings
             '''
             result = self._values.get("audio_watermarking_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioWatermarkSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioWatermarkSettingsProperty"]], result)
 
         @builtins.property
         def codec_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioCodecSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioCodecSettingsProperty"]]:
             '''The audio codec settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiodescription.html#cfn-medialive-channel-audiodescription-codecsettings
             '''
             result = self._values.get("codec_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioCodecSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioCodecSettingsProperty"]], result)
 
         @builtins.property
         def dvb_dash_accessibility(self) -> typing.Optional[builtins.str]:
@@ -5998,13 +2368,13 @@ class CfnChannel(
         @builtins.property
         def remix_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RemixSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RemixSettingsProperty"]]:
             '''The settings that control how input audio channels are remixed into the output audio channels.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiodescription.html#cfn-medialive-channel-audiodescription-remixsettings
             '''
             result = self._values.get("remix_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RemixSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RemixSettingsProperty"]], result)
 
         @builtins.property
         def stream_name(self) -> typing.Optional[builtins.str]:
@@ -6342,7 +2712,7 @@ class CfnChannel(
             self,
             *,
             audio_group_id: typing.Optional[builtins.str] = None,
-            audio_only_image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_only_image: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             audio_track_type: typing.Optional[builtins.str] = None,
             segment_type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -6403,7 +2773,7 @@ class CfnChannel(
         @builtins.property
         def audio_only_image(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''Used with an audio-only stream.
 
             It must be a .jpg or .png file. If given, this image is used as the cover art for the audio-only output. Ideally, it should be formatted for an iPhone screen for two reasons. The iPhone does not resize the image; instead, it crops a centered image on the top/bottom and left/right. Additionally, this image file gets saved bit-for-bit into every 10-second segment file, so it increases bandwidth by {image file size} * {segment count} * {user count.}.
@@ -6411,7 +2781,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioonlyhlssettings.html#cfn-medialive-channel-audioonlyhlssettings-audioonlyimage
             '''
             result = self._values.get("audio_only_image")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def audio_track_type(self) -> typing.Optional[builtins.str]:
@@ -6507,7 +2877,7 @@ class CfnChannel(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            selector_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            selector_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about one audio to extract from the input.
 
@@ -6572,13 +2942,13 @@ class CfnChannel(
         @builtins.property
         def selector_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSelectorSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSelectorSettingsProperty"]]:
             '''Information about the specific audio to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioselector.html#cfn-medialive-channel-audioselector-selectorsettings
             '''
             result = self._values.get("selector_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSelectorSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSelectorSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6605,10 +2975,10 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            audio_hls_rendition_selection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioHlsRenditionSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            audio_language_selection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioLanguageSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            audio_pid_selection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioPidSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            audio_track_selection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioTrackSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_hls_rendition_selection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioHlsRenditionSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_language_selection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioLanguageSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_pid_selection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioPidSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_track_selection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioTrackSelectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the audio to extract from the input.
 
@@ -6669,46 +3039,46 @@ class CfnChannel(
         @builtins.property
         def audio_hls_rendition_selection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioHlsRenditionSelectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioHlsRenditionSelectionProperty"]]:
             '''Selector for HLS audio rendition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioselectorsettings.html#cfn-medialive-channel-audioselectorsettings-audiohlsrenditionselection
             '''
             result = self._values.get("audio_hls_rendition_selection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioHlsRenditionSelectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioHlsRenditionSelectionProperty"]], result)
 
         @builtins.property
         def audio_language_selection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioLanguageSelectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioLanguageSelectionProperty"]]:
             '''The language code of the audio to select.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioselectorsettings.html#cfn-medialive-channel-audioselectorsettings-audiolanguageselection
             '''
             result = self._values.get("audio_language_selection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioLanguageSelectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioLanguageSelectionProperty"]], result)
 
         @builtins.property
         def audio_pid_selection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioPidSelectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPidSelectionProperty"]]:
             '''The PID of the audio to select.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioselectorsettings.html#cfn-medialive-channel-audioselectorsettings-audiopidselection
             '''
             result = self._values.get("audio_pid_selection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioPidSelectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioPidSelectionProperty"]], result)
 
         @builtins.property
         def audio_track_selection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioTrackSelectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioTrackSelectionProperty"]]:
             '''Information about the audio track to extract.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audioselectorsettings.html#cfn-medialive-channel-audioselectorsettings-audiotrackselection
             '''
             result = self._values.get("audio_track_selection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioTrackSelectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioTrackSelectionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6862,8 +3232,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            dolby_e_decode: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioDolbyEDecodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            tracks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioTrackProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dolby_e_decode: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioDolbyEDecodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            tracks: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioTrackProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Information about the audio track to extract.
 
@@ -6903,23 +3273,23 @@ class CfnChannel(
         @builtins.property
         def dolby_e_decode(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioDolbyEDecodeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDolbyEDecodeProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiotrackselection.html#cfn-medialive-channel-audiotrackselection-dolbyedecode
             '''
             result = self._values.get("dolby_e_decode")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioDolbyEDecodeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDolbyEDecodeProperty"]], result)
 
         @builtins.property
         def tracks(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioTrackProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioTrackProperty"]]]]:
             '''Selects one or more unique audio tracks from within a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiotrackselection.html#cfn-medialive-channel-audiotrackselection-tracks
             '''
             result = self._values.get("tracks")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioTrackProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioTrackProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6941,7 +3311,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            nielsen_watermarks_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.NielsenWatermarksSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_watermarks_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.NielsenWatermarksSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Audio Watermark Settings.
 
@@ -6984,13 +3354,13 @@ class CfnChannel(
         @builtins.property
         def nielsen_watermarks_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenWatermarksSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenWatermarksSettingsProperty"]]:
             '''Settings to configure Nielsen Watermarks in the audio encode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-audiowatermarksettings.html#cfn-medialive-channel-audiowatermarksettings-nielsenwatermarkssettings
             '''
             result = self._values.get("nielsen_watermarks_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenWatermarksSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenWatermarksSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7018,7 +3388,7 @@ class CfnChannel(
             self,
             *,
             error_clear_time_msec: typing.Optional[jsii.Number] = None,
-            failover_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FailoverConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            failover_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FailoverConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             input_preference: typing.Optional[builtins.str] = None,
             secondary_input_id: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -7091,7 +3461,7 @@ class CfnChannel(
         @builtins.property
         def failover_conditions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.FailoverConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.FailoverConditionProperty"]]]]:
             '''A list of failover conditions.
 
             If any of these conditions occur, MediaLive will perform a failover to the other input.
@@ -7099,7 +3469,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-automaticinputfailoversettings.html#cfn-medialive-channel-automaticinputfailoversettings-failoverconditions
             '''
             result = self._values.get("failover_conditions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.FailoverConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.FailoverConditionProperty"]]]], result)
 
         @builtins.property
         def input_preference(self) -> typing.Optional[builtins.str]:
@@ -7145,7 +3515,7 @@ class CfnChannel(
             self,
             *,
             color_space_passthrough_settings: typing.Any = None,
-            hdr10_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hdr10_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rec601_settings: typing.Any = None,
             rec709_settings: typing.Any = None,
         ) -> None:
@@ -7205,12 +3575,12 @@ class CfnChannel(
         @builtins.property
         def hdr10_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1colorspacesettings.html#cfn-medialive-channel-av1colorspacesettings-hdr10settings
             '''
             result = self._values.get("hdr10_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]], result)
 
         @builtins.property
         def rec601_settings(self) -> typing.Any:
@@ -7255,12 +3625,15 @@ class CfnChannel(
             "level": "level",
             "look_ahead_rate_control": "lookAheadRateControl",
             "max_bitrate": "maxBitrate",
+            "min_bitrate": "minBitrate",
             "min_i_interval": "minIInterval",
             "par_denominator": "parDenominator",
             "par_numerator": "parNumerator",
             "qvbr_quality_level": "qvbrQualityLevel",
             "rate_control_mode": "rateControlMode",
             "scene_change_detect": "sceneChangeDetect",
+            "spatial_aq": "spatialAq",
+            "temporal_aq": "temporalAq",
             "timecode_burnin_settings": "timecodeBurninSettings",
         },
     )
@@ -7271,7 +3644,7 @@ class CfnChannel(
             afd_signaling: typing.Optional[builtins.str] = None,
             bitrate: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
-            color_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Av1ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Av1ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fixed_afd: typing.Optional[builtins.str] = None,
             framerate_denominator: typing.Optional[jsii.Number] = None,
             framerate_numerator: typing.Optional[jsii.Number] = None,
@@ -7280,13 +3653,16 @@ class CfnChannel(
             level: typing.Optional[builtins.str] = None,
             look_ahead_rate_control: typing.Optional[builtins.str] = None,
             max_bitrate: typing.Optional[jsii.Number] = None,
+            min_bitrate: typing.Optional[jsii.Number] = None,
             min_i_interval: typing.Optional[jsii.Number] = None,
             par_denominator: typing.Optional[jsii.Number] = None,
             par_numerator: typing.Optional[jsii.Number] = None,
             qvbr_quality_level: typing.Optional[jsii.Number] = None,
             rate_control_mode: typing.Optional[builtins.str] = None,
             scene_change_detect: typing.Optional[builtins.str] = None,
-            timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            spatial_aq: typing.Optional[builtins.str] = None,
+            temporal_aq: typing.Optional[builtins.str] = None,
+            timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param afd_signaling: 
@@ -7301,12 +3677,15 @@ class CfnChannel(
             :param level: 
             :param look_ahead_rate_control: 
             :param max_bitrate: 
+            :param min_bitrate: 
             :param min_i_interval: 
             :param par_denominator: 
             :param par_numerator: 
             :param qvbr_quality_level: 
             :param rate_control_mode: 
             :param scene_change_detect: 
+            :param spatial_aq: 
+            :param temporal_aq: 
             :param timecode_burnin_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html
@@ -7343,12 +3722,15 @@ class CfnChannel(
                     level="level",
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
+                    min_bitrate=123,
                     min_iInterval=123,
                     par_denominator=123,
                     par_numerator=123,
                     qvbr_quality_level=123,
                     rate_control_mode="rateControlMode",
                     scene_change_detect="sceneChangeDetect",
+                    spatial_aq="spatialAq",
+                    temporal_aq="temporalAq",
                     timecode_burnin_settings=medialive.CfnChannel.TimecodeBurninSettingsProperty(
                         font_size="fontSize",
                         position="position",
@@ -7370,12 +3752,15 @@ class CfnChannel(
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
                 check_type(argname="argument look_ahead_rate_control", value=look_ahead_rate_control, expected_type=type_hints["look_ahead_rate_control"])
                 check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
+                check_type(argname="argument min_bitrate", value=min_bitrate, expected_type=type_hints["min_bitrate"])
                 check_type(argname="argument min_i_interval", value=min_i_interval, expected_type=type_hints["min_i_interval"])
                 check_type(argname="argument par_denominator", value=par_denominator, expected_type=type_hints["par_denominator"])
                 check_type(argname="argument par_numerator", value=par_numerator, expected_type=type_hints["par_numerator"])
                 check_type(argname="argument qvbr_quality_level", value=qvbr_quality_level, expected_type=type_hints["qvbr_quality_level"])
                 check_type(argname="argument rate_control_mode", value=rate_control_mode, expected_type=type_hints["rate_control_mode"])
                 check_type(argname="argument scene_change_detect", value=scene_change_detect, expected_type=type_hints["scene_change_detect"])
+                check_type(argname="argument spatial_aq", value=spatial_aq, expected_type=type_hints["spatial_aq"])
+                check_type(argname="argument temporal_aq", value=temporal_aq, expected_type=type_hints["temporal_aq"])
                 check_type(argname="argument timecode_burnin_settings", value=timecode_burnin_settings, expected_type=type_hints["timecode_burnin_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if afd_signaling is not None:
@@ -7402,6 +3787,8 @@ class CfnChannel(
                 self._values["look_ahead_rate_control"] = look_ahead_rate_control
             if max_bitrate is not None:
                 self._values["max_bitrate"] = max_bitrate
+            if min_bitrate is not None:
+                self._values["min_bitrate"] = min_bitrate
             if min_i_interval is not None:
                 self._values["min_i_interval"] = min_i_interval
             if par_denominator is not None:
@@ -7414,6 +3801,10 @@ class CfnChannel(
                 self._values["rate_control_mode"] = rate_control_mode
             if scene_change_detect is not None:
                 self._values["scene_change_detect"] = scene_change_detect
+            if spatial_aq is not None:
+                self._values["spatial_aq"] = spatial_aq
+            if temporal_aq is not None:
+                self._values["temporal_aq"] = temporal_aq
             if timecode_burnin_settings is not None:
                 self._values["timecode_burnin_settings"] = timecode_burnin_settings
 
@@ -7444,12 +3835,12 @@ class CfnChannel(
         @builtins.property
         def color_space_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Av1ColorSpaceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Av1ColorSpaceSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-colorspacesettings
             '''
             result = self._values.get("color_space_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Av1ColorSpaceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Av1ColorSpaceSettingsProperty"]], result)
 
         @builtins.property
         def fixed_afd(self) -> typing.Optional[builtins.str]:
@@ -7516,6 +3907,14 @@ class CfnChannel(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def min_bitrate(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-minbitrate
+            '''
+            result = self._values.get("min_bitrate")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
         def min_i_interval(self) -> typing.Optional[jsii.Number]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-miniinterval
@@ -7564,14 +3963,30 @@ class CfnChannel(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def spatial_aq(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-spatialaq
+            '''
+            result = self._values.get("spatial_aq")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def temporal_aq(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-temporalaq
+            '''
+            result = self._values.get("temporal_aq")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def timecode_burnin_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-timecodeburninsettings
             '''
             result = self._values.get("timecode_burnin_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7593,7 +4008,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            avail_blanking_image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            avail_blanking_image: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             state: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration of ad avail blanking in the output.
@@ -7634,7 +4049,7 @@ class CfnChannel(
         @builtins.property
         def avail_blanking_image(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The blanking image to be used.
 
             Keep empty for solid black. Only .bmp and .png images are supported.
@@ -7642,7 +4057,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-availblanking.html#cfn-medialive-channel-availblanking-availblankingimage
             '''
             result = self._values.get("avail_blanking_image")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def state(self) -> typing.Optional[builtins.str]:
@@ -7676,7 +4091,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            avail_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AvailSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            avail_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AvailSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scte35_segmentation_scope: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The setup of ad avail handling in the output.
@@ -7732,13 +4147,13 @@ class CfnChannel(
         @builtins.property
         def avail_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailSettingsProperty"]]:
             '''The setup of ad avail handling in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-availconfiguration.html#cfn-medialive-channel-availconfiguration-availsettings
             '''
             result = self._values.get("avail_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailSettingsProperty"]], result)
 
         @builtins.property
         def scte35_segmentation_scope(self) -> typing.Optional[builtins.str]:
@@ -7772,9 +4187,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            esam: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EsamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte35_splice_insert: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte35SpliceInsertProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte35_time_signal_apos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte35TimeSignalAposProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            esam: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EsamProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte35_splice_insert: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte35SpliceInsertProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte35_time_signal_apos: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte35TimeSignalAposProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for the ad avail setup in the output.
 
@@ -7830,34 +4245,34 @@ class CfnChannel(
         @builtins.property
         def esam(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EsamProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EsamProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-availsettings.html#cfn-medialive-channel-availsettings-esam
             '''
             result = self._values.get("esam")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EsamProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EsamProperty"]], result)
 
         @builtins.property
         def scte35_splice_insert(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte35SpliceInsertProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte35SpliceInsertProperty"]]:
             '''The setup for SCTE-35 splice insert handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-availsettings.html#cfn-medialive-channel-availsettings-scte35spliceinsert
             '''
             result = self._values.get("scte35_splice_insert")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte35SpliceInsertProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte35SpliceInsertProperty"]], result)
 
         @builtins.property
         def scte35_time_signal_apos(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte35TimeSignalAposProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte35TimeSignalAposProperty"]]:
             '''The setup for SCTE-35 time signal APOS handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-availsettings.html#cfn-medialive-channel-availsettings-scte35timesignalapos
             '''
             result = self._values.get("scte35_time_signal_apos")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte35TimeSignalAposProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte35TimeSignalAposProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7955,9 +4370,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            blackout_slate_image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            blackout_slate_image: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             network_end_blackout: typing.Optional[builtins.str] = None,
-            network_end_blackout_image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_end_blackout_image: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             network_id: typing.Optional[builtins.str] = None,
             state: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -8018,7 +4433,7 @@ class CfnChannel(
         @builtins.property
         def blackout_slate_image(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The blackout slate image to be used.
 
             Keep empty for solid black. Only .bmp and .png images are supported.
@@ -8026,7 +4441,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-blackoutslate.html#cfn-medialive-channel-blackoutslate-blackoutslateimage
             '''
             result = self._values.get("blackout_slate_image")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def network_end_blackout(self) -> typing.Optional[builtins.str]:
@@ -8042,7 +4457,7 @@ class CfnChannel(
         @builtins.property
         def network_end_blackout_image(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The path to the local file to use as the Network End Blackout image.
 
             The image is scaled to fill the entire output raster.
@@ -8050,7 +4465,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-blackoutslate.html#cfn-medialive-channel-blackoutslate-networkendblackoutimage
             '''
             result = self._values.get("network_end_blackout_image")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def network_id(self) -> typing.Optional[builtins.str]:
@@ -8099,6 +4514,7 @@ class CfnChannel(
             "shadow_opacity": "shadowOpacity",
             "shadow_x_offset": "shadowXOffset",
             "shadow_y_offset": "shadowYOffset",
+            "subtitle_rows": "subtitleRows",
             "teletext_grid_control": "teletextGridControl",
             "x_position": "xPosition",
             "y_position": "yPosition",
@@ -8111,7 +4527,7 @@ class CfnChannel(
             alignment: typing.Optional[builtins.str] = None,
             background_color: typing.Optional[builtins.str] = None,
             background_opacity: typing.Optional[jsii.Number] = None,
-            font: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            font: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             font_color: typing.Optional[builtins.str] = None,
             font_opacity: typing.Optional[jsii.Number] = None,
             font_resolution: typing.Optional[jsii.Number] = None,
@@ -8122,6 +4538,7 @@ class CfnChannel(
             shadow_opacity: typing.Optional[jsii.Number] = None,
             shadow_x_offset: typing.Optional[jsii.Number] = None,
             shadow_y_offset: typing.Optional[jsii.Number] = None,
+            subtitle_rows: typing.Optional[builtins.str] = None,
             teletext_grid_control: typing.Optional[builtins.str] = None,
             x_position: typing.Optional[jsii.Number] = None,
             y_position: typing.Optional[jsii.Number] = None,
@@ -8144,6 +4561,7 @@ class CfnChannel(
             :param shadow_opacity: Specifies the opacity of the shadow. 255 is opaque; 0 is transparent. Keeping this parameter blank is equivalent to setting it to 0 (transparent). All burn-in and DVB-Sub font settings must match.
             :param shadow_x_offset: Specifies the horizontal offset of the shadow that is relative to the captions in pixels. A value of -2 would result in a shadow offset 2 pixels to the left. All burn-in and DVB-Sub font settings must match.
             :param shadow_y_offset: Specifies the vertical offset of the shadow that is relative to the captions in pixels. A value of -2 would result in a shadow offset 2 pixels above the text. All burn-in and DVB-Sub font settings must match.
+            :param subtitle_rows: 
             :param teletext_grid_control: Controls whether a fixed grid size is used to generate the output subtitles bitmap. This applies only to Teletext inputs and DVB-Sub/Burn-in outputs.
             :param x_position: Specifies the horizontal position of the captions relative to the left side of the output in pixels. A value of 10 would result in the captions starting 10 pixels from the left of the output. If no explicit xPosition is provided, the horizontal captions position is determined by the alignment parameter. All burn-in and DVB-Sub font settings must match.
             :param y_position: Specifies the vertical position of the captions relative to the top of the output in pixels. A value of 10 would result in the captions starting 10 pixels from the top of the output. If no explicit yPosition is provided, the captions are positioned towards the bottom of the output. All burn-in and DVB-Sub font settings must match.
@@ -8176,6 +4594,7 @@ class CfnChannel(
                     shadow_opacity=123,
                     shadow_xOffset=123,
                     shadow_yOffset=123,
+                    subtitle_rows="subtitleRows",
                     teletext_grid_control="teletextGridControl",
                     x_position=123,
                     y_position=123
@@ -8197,6 +4616,7 @@ class CfnChannel(
                 check_type(argname="argument shadow_opacity", value=shadow_opacity, expected_type=type_hints["shadow_opacity"])
                 check_type(argname="argument shadow_x_offset", value=shadow_x_offset, expected_type=type_hints["shadow_x_offset"])
                 check_type(argname="argument shadow_y_offset", value=shadow_y_offset, expected_type=type_hints["shadow_y_offset"])
+                check_type(argname="argument subtitle_rows", value=subtitle_rows, expected_type=type_hints["subtitle_rows"])
                 check_type(argname="argument teletext_grid_control", value=teletext_grid_control, expected_type=type_hints["teletext_grid_control"])
                 check_type(argname="argument x_position", value=x_position, expected_type=type_hints["x_position"])
                 check_type(argname="argument y_position", value=y_position, expected_type=type_hints["y_position"])
@@ -8229,6 +4649,8 @@ class CfnChannel(
                 self._values["shadow_x_offset"] = shadow_x_offset
             if shadow_y_offset is not None:
                 self._values["shadow_y_offset"] = shadow_y_offset
+            if subtitle_rows is not None:
+                self._values["subtitle_rows"] = subtitle_rows
             if teletext_grid_control is not None:
                 self._values["teletext_grid_control"] = teletext_grid_control
             if x_position is not None:
@@ -8272,7 +4694,7 @@ class CfnChannel(
         @builtins.property
         def font(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The external font file that is used for captions burn-in.
 
             The file extension must be .ttf or .tte. Although you can select output fonts for many different types of input captions, embedded, STL, and Teletext sources use a strict grid system. Using external fonts with these captions sources could cause an unexpected display of proportional fonts. All burn-in and DVB-Sub font settings must match.
@@ -8280,7 +4702,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-burnindestinationsettings.html#cfn-medialive-channel-burnindestinationsettings-font
             '''
             result = self._values.get("font")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def font_color(self) -> typing.Optional[builtins.str]:
@@ -8393,6 +4815,14 @@ class CfnChannel(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def subtitle_rows(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-burnindestinationsettings.html#cfn-medialive-channel-burnindestinationsettings-subtitlerows
+            '''
+            result = self._values.get("subtitle_rows")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def teletext_grid_control(self) -> typing.Optional[builtins.str]:
             '''Controls whether a fixed grid size is used to generate the output subtitles bitmap.
 
@@ -8457,7 +4887,7 @@ class CfnChannel(
             accessibility: typing.Optional[builtins.str] = None,
             caption_dash_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
             caption_selector_name: typing.Optional[builtins.str] = None,
-            destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dvb_dash_accessibility: typing.Optional[builtins.str] = None,
             language_code: typing.Optional[builtins.str] = None,
             language_description: typing.Optional[builtins.str] = None,
@@ -8510,6 +4940,7 @@ class CfnChannel(
                             shadow_opacity=123,
                             shadow_xOffset=123,
                             shadow_yOffset=123,
+                            subtitle_rows="subtitleRows",
                             teletext_grid_control="teletextGridControl",
                             x_position=123,
                             y_position=123
@@ -8533,6 +4964,7 @@ class CfnChannel(
                             shadow_opacity=123,
                             shadow_xOffset=123,
                             shadow_yOffset=123,
+                            subtitle_rows="subtitleRows",
                             teletext_grid_control="teletextGridControl",
                             x_position=123,
                             y_position=123
@@ -8623,13 +5055,13 @@ class CfnChannel(
         @builtins.property
         def destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionDestinationSettingsProperty"]]:
             '''Additional settings for a captions destination that depend on the destination type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondescription.html#cfn-medialive-channel-captiondescription-destinationsettings
             '''
             result = self._values.get("destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionDestinationSettingsProperty"]], result)
 
         @builtins.property
         def dvb_dash_accessibility(self) -> typing.Optional[builtins.str]:
@@ -8704,19 +5136,19 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            arib_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AribDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            burn_in_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.BurnInDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dvb_sub_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DvbSubDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ebu_tt_d_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EbuTtDDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            embedded_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EmbeddedDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            embedded_plus_scte20_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtmp_caption_info_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RtmpCaptionInfoDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte20_plus_embedded_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte27_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte27DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            smpte_tt_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.SmpteTtDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            teletext_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TeletextDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ttml_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TtmlDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            webvtt_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.WebvttDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            arib_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AribDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            burn_in_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.BurnInDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_sub_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DvbSubDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ebu_tt_d_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EbuTtDDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            embedded_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EmbeddedDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            embedded_plus_scte20_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_caption_info_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RtmpCaptionInfoDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte20_plus_embedded_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte27_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte27DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            smpte_tt_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SmpteTtDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            teletext_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TeletextDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ttml_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TtmlDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            webvtt_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.WebvttDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of one captions encode in the output.
 
@@ -8766,6 +5198,7 @@ class CfnChannel(
                         shadow_opacity=123,
                         shadow_xOffset=123,
                         shadow_yOffset=123,
+                        subtitle_rows="subtitleRows",
                         teletext_grid_control="teletextGridControl",
                         x_position=123,
                         y_position=123
@@ -8789,6 +5222,7 @@ class CfnChannel(
                         shadow_opacity=123,
                         shadow_xOffset=123,
                         shadow_yOffset=123,
+                        subtitle_rows="subtitleRows",
                         teletext_grid_control="teletextGridControl",
                         x_position=123,
                         y_position=123
@@ -8862,145 +5296,145 @@ class CfnChannel(
         @builtins.property
         def arib_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AribDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AribDestinationSettingsProperty"]]:
             '''The configuration of one ARIB captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-aribdestinationsettings
             '''
             result = self._values.get("arib_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AribDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AribDestinationSettingsProperty"]], result)
 
         @builtins.property
         def burn_in_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BurnInDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BurnInDestinationSettingsProperty"]]:
             '''The configuration of one burn-in captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-burnindestinationsettings
             '''
             result = self._values.get("burn_in_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BurnInDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BurnInDestinationSettingsProperty"]], result)
 
         @builtins.property
         def dvb_sub_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSubDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSubDestinationSettingsProperty"]]:
             '''The configuration of one DVB Sub captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-dvbsubdestinationsettings
             '''
             result = self._values.get("dvb_sub_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSubDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSubDestinationSettingsProperty"]], result)
 
         @builtins.property
         def ebu_tt_d_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EbuTtDDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EbuTtDDestinationSettingsProperty"]]:
             '''Settings for EBU-TT captions in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-ebuttddestinationsettings
             '''
             result = self._values.get("ebu_tt_d_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EbuTtDDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EbuTtDDestinationSettingsProperty"]], result)
 
         @builtins.property
         def embedded_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedDestinationSettingsProperty"]]:
             '''The configuration of one embedded captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-embeddeddestinationsettings
             '''
             result = self._values.get("embedded_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedDestinationSettingsProperty"]], result)
 
         @builtins.property
         def embedded_plus_scte20_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty"]]:
             '''The configuration of one embedded plus SCTE-20 captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-embeddedplusscte20destinationsettings
             '''
             result = self._values.get("embedded_plus_scte20_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedPlusScte20DestinationSettingsProperty"]], result)
 
         @builtins.property
         def rtmp_caption_info_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpCaptionInfoDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpCaptionInfoDestinationSettingsProperty"]]:
             '''The configuration of one RTMPCaptionInfo captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-rtmpcaptioninfodestinationsettings
             '''
             result = self._values.get("rtmp_caption_info_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpCaptionInfoDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpCaptionInfoDestinationSettingsProperty"]], result)
 
         @builtins.property
         def scte20_plus_embedded_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty"]]:
             '''The configuration of one SCTE20 plus embedded captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-scte20plusembeddeddestinationsettings
             '''
             result = self._values.get("scte20_plus_embedded_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte20PlusEmbeddedDestinationSettingsProperty"]], result)
 
         @builtins.property
         def scte27_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte27DestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte27DestinationSettingsProperty"]]:
             '''The configuration of one SCTE-27 captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-scte27destinationsettings
             '''
             result = self._values.get("scte27_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte27DestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte27DestinationSettingsProperty"]], result)
 
         @builtins.property
         def smpte_tt_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SmpteTtDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SmpteTtDestinationSettingsProperty"]]:
             '''The configuration of one SMPTE-TT captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-smptettdestinationsettings
             '''
             result = self._values.get("smpte_tt_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SmpteTtDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SmpteTtDestinationSettingsProperty"]], result)
 
         @builtins.property
         def teletext_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TeletextDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TeletextDestinationSettingsProperty"]]:
             '''The configuration of one Teletext captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-teletextdestinationsettings
             '''
             result = self._values.get("teletext_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TeletextDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TeletextDestinationSettingsProperty"]], result)
 
         @builtins.property
         def ttml_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TtmlDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TtmlDestinationSettingsProperty"]]:
             '''The configuration of one TTML captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-ttmldestinationsettings
             '''
             result = self._values.get("ttml_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TtmlDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TtmlDestinationSettingsProperty"]], result)
 
         @builtins.property
         def webvtt_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.WebvttDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.WebvttDestinationSettingsProperty"]]:
             '''The configuration of one WebVTT captions encode in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captiondestinationsettings.html#cfn-medialive-channel-captiondestinationsettings-webvttdestinationsettings
             '''
             result = self._values.get("webvtt_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.WebvttDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.WebvttDestinationSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9238,7 +5672,7 @@ class CfnChannel(
             *,
             language_code: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
-            selector_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            selector_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about one caption to extract from the input.
 
@@ -9331,13 +5765,13 @@ class CfnChannel(
         @builtins.property
         def selector_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionSelectorSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionSelectorSettingsProperty"]]:
             '''Information about the specific audio to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselector.html#cfn-medialive-channel-captionselector-selectorsettings
             '''
             result = self._values.get("selector_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionSelectorSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionSelectorSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9367,13 +5801,13 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            ancillary_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AncillarySourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            arib_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AribSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dvb_sub_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DvbSubSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            embedded_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EmbeddedSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte20_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte20SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte27_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Scte27SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            teletext_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TeletextSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ancillary_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AncillarySourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            arib_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AribSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_sub_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DvbSubSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            embedded_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EmbeddedSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte20_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte20SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte27_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Scte27SourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            teletext_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TeletextSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Captions Selector Settings.
 
@@ -9458,79 +5892,79 @@ class CfnChannel(
         @builtins.property
         def ancillary_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AncillarySourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AncillarySourceSettingsProperty"]]:
             '''Information about the ancillary captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-ancillarysourcesettings
             '''
             result = self._values.get("ancillary_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AncillarySourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AncillarySourceSettingsProperty"]], result)
 
         @builtins.property
         def arib_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AribSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AribSourceSettingsProperty"]]:
             '''Information about the ARIB captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-aribsourcesettings
             '''
             result = self._values.get("arib_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AribSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AribSourceSettingsProperty"]], result)
 
         @builtins.property
         def dvb_sub_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSubSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSubSourceSettingsProperty"]]:
             '''Information about the DVB Sub captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-dvbsubsourcesettings
             '''
             result = self._values.get("dvb_sub_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSubSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSubSourceSettingsProperty"]], result)
 
         @builtins.property
         def embedded_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedSourceSettingsProperty"]]:
             '''Information about the embedded captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-embeddedsourcesettings
             '''
             result = self._values.get("embedded_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EmbeddedSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EmbeddedSourceSettingsProperty"]], result)
 
         @builtins.property
         def scte20_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte20SourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte20SourceSettingsProperty"]]:
             '''Information about the SCTE-20 captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-scte20sourcesettings
             '''
             result = self._values.get("scte20_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte20SourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte20SourceSettingsProperty"]], result)
 
         @builtins.property
         def scte27_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte27SourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte27SourceSettingsProperty"]]:
             '''Information about the SCTE-27 captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-scte27sourcesettings
             '''
             result = self._values.get("scte27_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Scte27SourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Scte27SourceSettingsProperty"]], result)
 
         @builtins.property
         def teletext_source_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TeletextSourceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TeletextSourceSettingsProperty"]]:
             '''Information about the Teletext captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-captionselectorsettings.html#cfn-medialive-channel-captionselectorsettings-teletextsourcesettings
             '''
             result = self._values.get("teletext_source_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TeletextSourceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TeletextSourceSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9721,6 +6155,7 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.CmafIngestGroupSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "additional_destinations": "additionalDestinations",
             "caption_language_mappings": "captionLanguageMappings",
             "destination": "destination",
             "id3_behavior": "id3Behavior",
@@ -9743,8 +6178,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CmafIngestCaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            additional_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AdditionalDestinationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            caption_language_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CmafIngestCaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id3_behavior: typing.Optional[builtins.str] = None,
             id3_name_modifier: typing.Optional[builtins.str] = None,
             klv_behavior: typing.Optional[builtins.str] = None,
@@ -9761,6 +6197,7 @@ class CfnChannel(
             timed_metadata_passthrough: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param additional_destinations: 
             :param caption_language_mappings: 
             :param destination: 
             :param id3_behavior: 
@@ -9788,6 +6225,11 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 cmaf_ingest_group_settings_property = medialive.CfnChannel.CmafIngestGroupSettingsProperty(
+                    additional_destinations=[medialive.CfnChannel.AdditionalDestinationsProperty(
+                        destination=medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        )
+                    )],
                     caption_language_mappings=[medialive.CfnChannel.CmafIngestCaptionLanguageMappingProperty(
                         caption_channel=123,
                         language_code="languageCode"
@@ -9813,6 +6255,7 @@ class CfnChannel(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__6fe9142b6885e8776c3e51af0733250a73fcd8e45bb4ec5f866206680352c7eb)
+                check_type(argname="argument additional_destinations", value=additional_destinations, expected_type=type_hints["additional_destinations"])
                 check_type(argname="argument caption_language_mappings", value=caption_language_mappings, expected_type=type_hints["caption_language_mappings"])
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument id3_behavior", value=id3_behavior, expected_type=type_hints["id3_behavior"])
@@ -9830,6 +6273,8 @@ class CfnChannel(
                 check_type(argname="argument timed_metadata_id3_period", value=timed_metadata_id3_period, expected_type=type_hints["timed_metadata_id3_period"])
                 check_type(argname="argument timed_metadata_passthrough", value=timed_metadata_passthrough, expected_type=type_hints["timed_metadata_passthrough"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if additional_destinations is not None:
+                self._values["additional_destinations"] = additional_destinations
             if caption_language_mappings is not None:
                 self._values["caption_language_mappings"] = caption_language_mappings
             if destination is not None:
@@ -9864,24 +6309,34 @@ class CfnChannel(
                 self._values["timed_metadata_passthrough"] = timed_metadata_passthrough
 
         @builtins.property
+        def additional_destinations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AdditionalDestinationsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestgroupsettings.html#cfn-medialive-channel-cmafingestgroupsettings-additionaldestinations
+            '''
+            result = self._values.get("additional_destinations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AdditionalDestinationsProperty"]]]], result)
+
+        @builtins.property
         def caption_language_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestCaptionLanguageMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestCaptionLanguageMappingProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestgroupsettings.html#cfn-medialive-channel-cmafingestgroupsettings-captionlanguagemappings
             '''
             result = self._values.get("caption_language_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestCaptionLanguageMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestCaptionLanguageMappingProperty"]]]], result)
 
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-cmafingestgroupsettings.html#cfn-medialive-channel-cmafingestgroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def id3_behavior(self) -> typing.Optional[builtins.str]:
@@ -10153,7 +6608,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            global_color_corrections: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ColorCorrectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            global_color_corrections: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ColorCorrectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param global_color_corrections: 
@@ -10185,12 +6640,12 @@ class CfnChannel(
         @builtins.property
         def global_color_corrections(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorCorrectionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorCorrectionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-colorcorrectionsettings.html#cfn-medialive-channel-colorcorrectionsettings-globalcolorcorrections
             '''
             result = self._values.get("global_color_corrections")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorCorrectionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorCorrectionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10491,6 +6946,7 @@ class CfnChannel(
             "shadow_opacity": "shadowOpacity",
             "shadow_x_offset": "shadowXOffset",
             "shadow_y_offset": "shadowYOffset",
+            "subtitle_rows": "subtitleRows",
             "teletext_grid_control": "teletextGridControl",
             "x_position": "xPosition",
             "y_position": "yPosition",
@@ -10503,7 +6959,7 @@ class CfnChannel(
             alignment: typing.Optional[builtins.str] = None,
             background_color: typing.Optional[builtins.str] = None,
             background_opacity: typing.Optional[jsii.Number] = None,
-            font: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            font: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             font_color: typing.Optional[builtins.str] = None,
             font_opacity: typing.Optional[jsii.Number] = None,
             font_resolution: typing.Optional[jsii.Number] = None,
@@ -10514,6 +6970,7 @@ class CfnChannel(
             shadow_opacity: typing.Optional[jsii.Number] = None,
             shadow_x_offset: typing.Optional[jsii.Number] = None,
             shadow_y_offset: typing.Optional[jsii.Number] = None,
+            subtitle_rows: typing.Optional[builtins.str] = None,
             teletext_grid_control: typing.Optional[builtins.str] = None,
             x_position: typing.Optional[jsii.Number] = None,
             y_position: typing.Optional[jsii.Number] = None,
@@ -10536,6 +6993,7 @@ class CfnChannel(
             :param shadow_opacity: Specifies the opacity of the shadow. 255 is opaque; 0 is transparent. Keeping this parameter blank is equivalent to setting it to 0 (transparent). All burn-in and DVB-Sub font settings must match.
             :param shadow_x_offset: Specifies the horizontal offset of the shadow relative to the captions in pixels. A value of -2 would result in a shadow offset 2 pixels to the left. All burn-in and DVB-Sub font settings must match.
             :param shadow_y_offset: Specifies the vertical offset of the shadow relative to the captions in pixels. A value of -2 would result in a shadow offset 2 pixels above the text. All burn-in and DVB-Sub font settings must match.
+            :param subtitle_rows: 
             :param teletext_grid_control: Controls whether a fixed grid size is used to generate the output subtitles bitmap. This applies to only Teletext inputs and DVB-Sub/Burn-in outputs.
             :param x_position: Specifies the horizontal position of the captions relative to the left side of the output in pixels. A value of 10 would result in the captions starting 10 pixels from the left of the output. If no explicit xPosition is provided, the horizontal captions position is determined by the alignment parameter. This option is not valid for source captions that are STL, 608/embedded, or Teletext. These source settings are already pre-defined by the captions stream. All burn-in and DVB-Sub font settings must match.
             :param y_position: Specifies the vertical position of the captions relative to the top of the output in pixels. A value of 10 would result in the captions starting 10 pixels from the top of the output. If no explicit yPosition is provided, the captions are positioned towards the bottom of the output. This option is not valid for source captions that are STL, 608/embedded, or Teletext. These source settings are already pre-defined by the captions stream. All burn-in and DVB-Sub font settings must match.
@@ -10568,6 +7026,7 @@ class CfnChannel(
                     shadow_opacity=123,
                     shadow_xOffset=123,
                     shadow_yOffset=123,
+                    subtitle_rows="subtitleRows",
                     teletext_grid_control="teletextGridControl",
                     x_position=123,
                     y_position=123
@@ -10589,6 +7048,7 @@ class CfnChannel(
                 check_type(argname="argument shadow_opacity", value=shadow_opacity, expected_type=type_hints["shadow_opacity"])
                 check_type(argname="argument shadow_x_offset", value=shadow_x_offset, expected_type=type_hints["shadow_x_offset"])
                 check_type(argname="argument shadow_y_offset", value=shadow_y_offset, expected_type=type_hints["shadow_y_offset"])
+                check_type(argname="argument subtitle_rows", value=subtitle_rows, expected_type=type_hints["subtitle_rows"])
                 check_type(argname="argument teletext_grid_control", value=teletext_grid_control, expected_type=type_hints["teletext_grid_control"])
                 check_type(argname="argument x_position", value=x_position, expected_type=type_hints["x_position"])
                 check_type(argname="argument y_position", value=y_position, expected_type=type_hints["y_position"])
@@ -10621,6 +7081,8 @@ class CfnChannel(
                 self._values["shadow_x_offset"] = shadow_x_offset
             if shadow_y_offset is not None:
                 self._values["shadow_y_offset"] = shadow_y_offset
+            if subtitle_rows is not None:
+                self._values["subtitle_rows"] = subtitle_rows
             if teletext_grid_control is not None:
                 self._values["teletext_grid_control"] = teletext_grid_control
             if x_position is not None:
@@ -10664,7 +7126,7 @@ class CfnChannel(
         @builtins.property
         def font(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The external font file that is used for captions burn-in.
 
             The file extension must be .ttf or .tte. Although you can select output fonts for many different types of input captions, embedded, STL, and Teletext sources use a strict grid system. Using external fonts with these captions sources could cause an unexpected display of proportional fonts. All burn-in and DVB-Sub font settings must match.
@@ -10672,7 +7134,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-dvbsubdestinationsettings.html#cfn-medialive-channel-dvbsubdestinationsettings-font
             '''
             result = self._values.get("font")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def font_color(self) -> typing.Optional[builtins.str]:
@@ -10783,6 +7245,14 @@ class CfnChannel(
             '''
             result = self._values.get("shadow_y_offset")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def subtitle_rows(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-dvbsubdestinationsettings.html#cfn-medialive-channel-dvbsubdestinationsettings-subtitlerows
+            '''
+            result = self._values.get("subtitle_rows")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def teletext_grid_control(self) -> typing.Optional[builtins.str]:
@@ -11843,20 +8313,20 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            audio_descriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            avail_blanking: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AvailBlankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            avail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AvailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            blackout_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.BlackoutSlateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            caption_descriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            color_correction_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ColorCorrectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            feature_activations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FeatureActivationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            global_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.GlobalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            motion_graphics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MotionGraphicsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            nielsen_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.NielsenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            output_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ThumbnailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timecode_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            video_descriptions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_descriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            avail_blanking: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AvailBlankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            avail_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AvailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            blackout_slate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.BlackoutSlateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            caption_descriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            color_correction_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ColorCorrectionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            feature_activations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FeatureActivationsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            global_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.GlobalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            motion_graphics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MotionGraphicsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.NielsenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            thumbnail_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ThumbnailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_descriptions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The settings for the encoding of outputs.
 
@@ -11933,154 +8403,154 @@ class CfnChannel(
         @builtins.property
         def audio_descriptions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioDescriptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDescriptionProperty"]]]]:
             '''The encoding information for output audio.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-audiodescriptions
             '''
             result = self._values.get("audio_descriptions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioDescriptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioDescriptionProperty"]]]], result)
 
         @builtins.property
         def avail_blanking(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailBlankingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailBlankingProperty"]]:
             '''The settings for ad avail blanking.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-availblanking
             '''
             result = self._values.get("avail_blanking")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailBlankingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailBlankingProperty"]], result)
 
         @builtins.property
         def avail_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailConfigurationProperty"]]:
             '''The configuration settings for the ad avail handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-availconfiguration
             '''
             result = self._values.get("avail_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AvailConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AvailConfigurationProperty"]], result)
 
         @builtins.property
         def blackout_slate(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BlackoutSlateProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BlackoutSlateProperty"]]:
             '''The settings for the blackout slate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-blackoutslate
             '''
             result = self._values.get("blackout_slate")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BlackoutSlateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BlackoutSlateProperty"]], result)
 
         @builtins.property
         def caption_descriptions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionDescriptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionDescriptionProperty"]]]]:
             '''The encoding information for output captions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-captiondescriptions
             '''
             result = self._values.get("caption_descriptions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionDescriptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionDescriptionProperty"]]]], result)
 
         @builtins.property
         def color_correction_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorCorrectionSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorCorrectionSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-colorcorrectionsettings
             '''
             result = self._values.get("color_correction_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorCorrectionSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorCorrectionSettingsProperty"]], result)
 
         @builtins.property
         def feature_activations(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FeatureActivationsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FeatureActivationsProperty"]]:
             '''Settings to enable specific features.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-featureactivations
             '''
             result = self._values.get("feature_activations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FeatureActivationsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FeatureActivationsProperty"]], result)
 
         @builtins.property
         def global_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.GlobalConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.GlobalConfigurationProperty"]]:
             '''The configuration settings that apply to the entire channel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-globalconfiguration
             '''
             result = self._values.get("global_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.GlobalConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.GlobalConfigurationProperty"]], result)
 
         @builtins.property
         def motion_graphics_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MotionGraphicsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MotionGraphicsConfigurationProperty"]]:
             '''Settings to enable and configure the motion graphics overlay feature in the channel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-motiongraphicsconfiguration
             '''
             result = self._values.get("motion_graphics_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MotionGraphicsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MotionGraphicsConfigurationProperty"]], result)
 
         @builtins.property
         def nielsen_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenConfigurationProperty"]]:
             '''The settings to configure Nielsen watermarks.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-nielsenconfiguration
             '''
             result = self._values.get("nielsen_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenConfigurationProperty"]], result)
 
         @builtins.property
         def output_groups(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputGroupProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputGroupProperty"]]]]:
             '''The settings for the output groups in the channel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-outputgroups
             '''
             result = self._values.get("output_groups")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputGroupProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputGroupProperty"]]]], result)
 
         @builtins.property
         def thumbnail_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ThumbnailConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ThumbnailConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-thumbnailconfiguration
             '''
             result = self._values.get("thumbnail_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ThumbnailConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ThumbnailConfigurationProperty"]], result)
 
         @builtins.property
         def timecode_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeConfigProperty"]]:
             '''Contains settings used to acquire and adjust timecode information from the inputs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-timecodeconfig
             '''
             result = self._values.get("timecode_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeConfigProperty"]], result)
 
         @builtins.property
         def video_descriptions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoDescriptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoDescriptionProperty"]]]]:
             '''The encoding information for output videos.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-encodersettings.html#cfn-medialive-channel-encodersettings-videodescriptions
             '''
             result = self._values.get("video_descriptions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoDescriptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoDescriptionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12299,7 +8769,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            failover_condition_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FailoverConditionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failover_condition_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FailoverConditionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Failover Condition settings. There can be multiple failover conditions inside AutomaticInputFailoverSettings.
 
@@ -12342,13 +8812,13 @@ class CfnChannel(
         @builtins.property
         def failover_condition_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FailoverConditionSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FailoverConditionSettingsProperty"]]:
             '''Settings for a specific failover condition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-failovercondition.html#cfn-medialive-channel-failovercondition-failoverconditionsettings
             '''
             result = self._values.get("failover_condition_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FailoverConditionSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FailoverConditionSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12374,9 +8844,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            audio_silence_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioSilenceFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            input_loss_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLossFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            video_black_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoBlackFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_silence_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioSilenceFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_loss_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLossFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_black_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoBlackFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for one failover condition.
 
@@ -12425,35 +8895,35 @@ class CfnChannel(
         @builtins.property
         def audio_silence_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSilenceFailoverSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSilenceFailoverSettingsProperty"]]:
             '''MediaLive will perform a failover if the specified audio selector is silent for the specified period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-failoverconditionsettings.html#cfn-medialive-channel-failoverconditionsettings-audiosilencesettings
             '''
             result = self._values.get("audio_silence_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSilenceFailoverSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSilenceFailoverSettingsProperty"]], result)
 
         @builtins.property
         def input_loss_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLossFailoverSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLossFailoverSettingsProperty"]]:
             '''MediaLive will perform a failover if content is not detected in this input for the specified period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-failoverconditionsettings.html#cfn-medialive-channel-failoverconditionsettings-inputlosssettings
             '''
             result = self._values.get("input_loss_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLossFailoverSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLossFailoverSettingsProperty"]], result)
 
         @builtins.property
         def video_black_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoBlackFailoverSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoBlackFailoverSettingsProperty"]]:
             '''MediaLive will perform a failover if content is considered black for the specified period.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-failoverconditionsettings.html#cfn-medialive-channel-failoverconditionsettings-videoblacksettings
             '''
             result = self._values.get("video_black_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoBlackFailoverSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoBlackFailoverSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12734,6 +9204,76 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.FollowerChannelSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "linked_channel_type": "linkedChannelType",
+            "primary_channel_arn": "primaryChannelArn",
+        },
+    )
+    class FollowerChannelSettingsProperty:
+        def __init__(
+            self,
+            *,
+            linked_channel_type: typing.Optional[builtins.str] = None,
+            primary_channel_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param linked_channel_type: 
+            :param primary_channel_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-followerchannelsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                follower_channel_settings_property = medialive.CfnChannel.FollowerChannelSettingsProperty(
+                    linked_channel_type="linkedChannelType",
+                    primary_channel_arn="primaryChannelArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__73ed7414fbfd6de6b5ea6d0923c3a3280c4afd5641560c81905241dc399d7bda)
+                check_type(argname="argument linked_channel_type", value=linked_channel_type, expected_type=type_hints["linked_channel_type"])
+                check_type(argname="argument primary_channel_arn", value=primary_channel_arn, expected_type=type_hints["primary_channel_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if linked_channel_type is not None:
+                self._values["linked_channel_type"] = linked_channel_type
+            if primary_channel_arn is not None:
+                self._values["primary_channel_arn"] = primary_channel_arn
+
+        @builtins.property
+        def linked_channel_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-followerchannelsettings.html#cfn-medialive-channel-followerchannelsettings-linkedchanneltype
+            '''
+            result = self._values.get("linked_channel_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def primary_channel_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-followerchannelsettings.html#cfn-medialive-channel-followerchannelsettings-primarychannelarn
+            '''
+            result = self._values.get("primary_channel_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FollowerChannelSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.FrameCaptureCdnSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={"frame_capture_s3_settings": "frameCaptureS3Settings"},
@@ -12742,7 +9282,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            frame_capture_s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_s3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure the destination of a Frame Capture output.
 
@@ -12775,13 +9315,13 @@ class CfnChannel(
         @builtins.property
         def frame_capture_s3_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureS3SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureS3SettingsProperty"]]:
             '''Sets up Amazon S3 as the destination for this Frame Capture output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-framecapturecdnsettings.html#cfn-medialive-channel-framecapturecdnsettings-framecaptures3settings
             '''
             result = self._values.get("frame_capture_s3_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureS3SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureS3SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12806,8 +9346,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frame_capture_cdn_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_cdn_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for a frame capture output group.
 
@@ -12849,7 +9389,7 @@ class CfnChannel(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''The destination for the frame capture files.
 
             The destination is either the URI for an Amazon S3 bucket and object, plus a file name prefix (for example, s3ssl://sportsDelivery/highlights/20180820/curling_) or the URI for a MediaStore container, plus a file name prefix (for example, mediastoressl://sportsDelivery/20180820/curling_). The final file names consist of the prefix from the destination field (for example, "curling_") + name modifier + the counter (5 digits, starting from 00001) + extension (which is always .jpg). For example, curlingLow.00001.jpg.
@@ -12857,18 +9397,18 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-framecapturegroupsettings.html#cfn-medialive-channel-framecapturegroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def frame_capture_cdn_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureCdnSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureCdnSettingsProperty"]]:
             '''Settings to configure the destination of a Frame Capture output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-framecapturegroupsettings.html#cfn-medialive-channel-framecapturegroupsettings-framecapturecdnsettings
             '''
             result = self._values.get("frame_capture_cdn_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureCdnSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureCdnSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13042,7 +9582,7 @@ class CfnChannel(
             *,
             capture_interval: typing.Optional[jsii.Number] = None,
             capture_interval_units: typing.Optional[builtins.str] = None,
-            timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The frame capture settings.
 
@@ -13107,12 +9647,12 @@ class CfnChannel(
         @builtins.property
         def timecode_burnin_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-framecapturesettings.html#cfn-medialive-channel-framecapturesettings-timecodeburninsettings
             '''
             result = self._values.get("timecode_burnin_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13144,9 +9684,9 @@ class CfnChannel(
             *,
             initial_audio_gain: typing.Optional[jsii.Number] = None,
             input_end_action: typing.Optional[builtins.str] = None,
-            input_loss_behavior: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLossBehaviorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_loss_behavior: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLossBehaviorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             output_locking_mode: typing.Optional[builtins.str] = None,
-            output_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             output_timing_source: typing.Optional[builtins.str] = None,
             support_low_framerate_inputs: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -13247,13 +9787,13 @@ class CfnChannel(
         @builtins.property
         def input_loss_behavior(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLossBehaviorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLossBehaviorProperty"]]:
             '''The settings for system actions when the input is lost.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-globalconfiguration.html#cfn-medialive-channel-globalconfiguration-inputlossbehavior
             '''
             result = self._values.get("input_loss_behavior")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLossBehaviorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLossBehaviorProperty"]], result)
 
         @builtins.property
         def output_locking_mode(self) -> typing.Optional[builtins.str]:
@@ -13269,12 +9809,12 @@ class CfnChannel(
         @builtins.property
         def output_locking_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLockingSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLockingSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-globalconfiguration.html#cfn-medialive-channel-globalconfiguration-outputlockingsettings
             '''
             result = self._values.get("output_locking_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLockingSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLockingSettingsProperty"]], result)
 
         @builtins.property
         def output_timing_source(self) -> typing.Optional[builtins.str]:
@@ -13320,9 +9860,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            color_space_passthrough_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ColorSpacePassthroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rec601_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Rec601SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rec709_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Rec709SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_passthrough_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ColorSpacePassthroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rec601_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Rec601SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rec709_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Rec709SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings for configuring color space in an H264 video encode.
 
@@ -13363,35 +9903,35 @@ class CfnChannel(
         @builtins.property
         def color_space_passthrough_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorSpacePassthroughSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorSpacePassthroughSettingsProperty"]]:
             '''Passthrough applies no color space conversion to the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264colorspacesettings.html#cfn-medialive-channel-h264colorspacesettings-colorspacepassthroughsettings
             '''
             result = self._values.get("color_space_passthrough_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorSpacePassthroughSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorSpacePassthroughSettingsProperty"]], result)
 
         @builtins.property
         def rec601_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec601SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec601SettingsProperty"]]:
             '''Settings to configure the handling of Rec601 color space.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264colorspacesettings.html#cfn-medialive-channel-h264colorspacesettings-rec601settings
             '''
             result = self._values.get("rec601_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec601SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec601SettingsProperty"]], result)
 
         @builtins.property
         def rec709_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec709SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec709SettingsProperty"]]:
             '''Settings to configure the handling of Rec709 color space.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264colorspacesettings.html#cfn-medialive-channel-h264colorspacesettings-rec709settings
             '''
             result = self._values.get("rec709_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec709SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec709SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13416,8 +9956,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            bandwidth_reduction_filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            temporal_filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bandwidth_reduction_filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            temporal_filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure video filters that apply to the H264 codec.
 
@@ -13459,23 +9999,23 @@ class CfnChannel(
         @builtins.property
         def bandwidth_reduction_filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BandwidthReductionFilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BandwidthReductionFilterSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html#cfn-medialive-channel-h264filtersettings-bandwidthreductionfiltersettings
             '''
             result = self._values.get("bandwidth_reduction_filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
 
         @builtins.property
         def temporal_filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]]:
             '''Settings for applying the temporal filter to the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264filtersettings.html#cfn-medialive-channel-h264filtersettings-temporalfiltersettings
             '''
             result = self._values.get("temporal_filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13515,6 +10055,7 @@ class CfnChannel(
             "level": "level",
             "look_ahead_rate_control": "lookAheadRateControl",
             "max_bitrate": "maxBitrate",
+            "min_bitrate": "minBitrate",
             "min_i_interval": "minIInterval",
             "min_qp": "minQp",
             "num_ref_frames": "numRefFrames",
@@ -13547,9 +10088,9 @@ class CfnChannel(
             buf_fill_pct: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
             color_metadata: typing.Optional[builtins.str] = None,
-            color_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H264ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H264ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             entropy_encoding: typing.Optional[builtins.str] = None,
-            filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H264FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H264FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fixed_afd: typing.Optional[builtins.str] = None,
             flicker_aq: typing.Optional[builtins.str] = None,
             force_field_pictures: typing.Optional[builtins.str] = None,
@@ -13564,6 +10105,7 @@ class CfnChannel(
             level: typing.Optional[builtins.str] = None,
             look_ahead_rate_control: typing.Optional[builtins.str] = None,
             max_bitrate: typing.Optional[jsii.Number] = None,
+            min_bitrate: typing.Optional[jsii.Number] = None,
             min_i_interval: typing.Optional[jsii.Number] = None,
             min_qp: typing.Optional[jsii.Number] = None,
             num_ref_frames: typing.Optional[jsii.Number] = None,
@@ -13582,7 +10124,7 @@ class CfnChannel(
             subgop_length: typing.Optional[builtins.str] = None,
             syntax: typing.Optional[builtins.str] = None,
             temporal_aq: typing.Optional[builtins.str] = None,
-            timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timecode_insertion: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for the H.264 codec in the output.
@@ -13612,6 +10154,7 @@ class CfnChannel(
             :param level: The H.264 level.
             :param look_ahead_rate_control: The amount of lookahead. A value of low can decrease latency and memory usage, while high can produce better quality for certain content.
             :param max_bitrate: For QVBR: See the tooltip for Quality level. For VBR: Set the maximum bitrate in order to accommodate expected spikes in the complexity of the video.
+            :param min_bitrate: 
             :param min_i_interval: Meaningful only if sceneChangeDetect is set to enabled. This setting enforces separation between repeated (cadence) I-frames and I-frames inserted by Scene Change Detection. If a scene change I-frame is within I-interval frames of a cadence I-frame, the GOP is shrunk or stretched to the scene change I-frame. GOP stretch requires enabling lookahead as well as setting the I-interval. The normal cadence resumes for the next GOP. Note that the maximum GOP stretch = GOP size + Min-I-interval - 1.
             :param min_qp: 
             :param num_ref_frames: The number of reference frames to use. The encoder might use more than requested if you use B-frames or interlaced encoding.
@@ -13679,6 +10222,7 @@ class CfnChannel(
                     level="level",
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
+                    min_bitrate=123,
                     min_iInterval=123,
                     min_qp=123,
                     num_ref_frames=123,
@@ -13730,6 +10274,7 @@ class CfnChannel(
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
                 check_type(argname="argument look_ahead_rate_control", value=look_ahead_rate_control, expected_type=type_hints["look_ahead_rate_control"])
                 check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
+                check_type(argname="argument min_bitrate", value=min_bitrate, expected_type=type_hints["min_bitrate"])
                 check_type(argname="argument min_i_interval", value=min_i_interval, expected_type=type_hints["min_i_interval"])
                 check_type(argname="argument min_qp", value=min_qp, expected_type=type_hints["min_qp"])
                 check_type(argname="argument num_ref_frames", value=num_ref_frames, expected_type=type_hints["num_ref_frames"])
@@ -13797,6 +10342,8 @@ class CfnChannel(
                 self._values["look_ahead_rate_control"] = look_ahead_rate_control
             if max_bitrate is not None:
                 self._values["max_bitrate"] = max_bitrate
+            if min_bitrate is not None:
+                self._values["min_bitrate"] = min_bitrate
             if min_i_interval is not None:
                 self._values["min_i_interval"] = min_i_interval
             if min_qp is not None:
@@ -13901,13 +10448,13 @@ class CfnChannel(
         @builtins.property
         def color_space_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264ColorSpaceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264ColorSpaceSettingsProperty"]]:
             '''Settings to configure the color space handling for the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-colorspacesettings
             '''
             result = self._values.get("color_space_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264ColorSpaceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264ColorSpaceSettingsProperty"]], result)
 
         @builtins.property
         def entropy_encoding(self) -> typing.Optional[builtins.str]:
@@ -13923,13 +10470,13 @@ class CfnChannel(
         @builtins.property
         def filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264FilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264FilterSettingsProperty"]]:
             '''Optional filters that you can apply to an encode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-filtersettings
             '''
             result = self._values.get("filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264FilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264FilterSettingsProperty"]], result)
 
         @builtins.property
         def fixed_afd(self) -> typing.Optional[builtins.str]:
@@ -14071,6 +10618,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-maxbitrate
             '''
             result = self._values.get("max_bitrate")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_bitrate(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-minbitrate
+            '''
+            result = self._values.get("min_bitrate")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
@@ -14258,12 +10813,12 @@ class CfnChannel(
         @builtins.property
         def timecode_burnin_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h264settings.html#cfn-medialive-channel-h264settings-timecodeburninsettings
             '''
             result = self._values.get("timecode_burnin_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
 
         @builtins.property
         def timecode_insertion(self) -> typing.Optional[builtins.str]:
@@ -14294,6 +10849,7 @@ class CfnChannel(
             "color_space_passthrough_settings": "colorSpacePassthroughSettings",
             "dolby_vision81_settings": "dolbyVision81Settings",
             "hdr10_settings": "hdr10Settings",
+            "hlg2020_settings": "hlg2020Settings",
             "rec601_settings": "rec601Settings",
             "rec709_settings": "rec709Settings",
         },
@@ -14302,11 +10858,12 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            color_space_passthrough_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ColorSpacePassthroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dolby_vision81_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DolbyVision81SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hdr10_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rec601_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Rec601SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rec709_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Rec709SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_passthrough_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ColorSpacePassthroughSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dolby_vision81_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DolbyVision81SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hdr10_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hlg2020_settings: typing.Any = None,
+            rec601_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Rec601SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rec709_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Rec709SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''H265 Color Space Settings.
 
@@ -14315,6 +10872,7 @@ class CfnChannel(
             :param color_space_passthrough_settings: Passthrough applies no color space conversion to the output.
             :param dolby_vision81_settings: 
             :param hdr10_settings: Settings to configure the handling of HDR10 color space.
+            :param hlg2020_settings: 
             :param rec601_settings: Settings to configure the handling of Rec601 color space.
             :param rec709_settings: Settings to configure the handling of Rec709 color space.
 
@@ -14327,6 +10885,8 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # hlg2020_settings: Any
+                
                 h265_color_space_settings_property = medialive.CfnChannel.H265ColorSpaceSettingsProperty(
                     color_space_passthrough_settings=medialive.CfnChannel.ColorSpacePassthroughSettingsProperty(),
                     dolby_vision81_settings=medialive.CfnChannel.DolbyVision81SettingsProperty(),
@@ -14334,6 +10894,7 @@ class CfnChannel(
                         max_cll=123,
                         max_fall=123
                     ),
+                    hlg2020_settings=hlg2020_settings,
                     rec601_settings=medialive.CfnChannel.Rec601SettingsProperty(),
                     rec709_settings=medialive.CfnChannel.Rec709SettingsProperty()
                 )
@@ -14343,6 +10904,7 @@ class CfnChannel(
                 check_type(argname="argument color_space_passthrough_settings", value=color_space_passthrough_settings, expected_type=type_hints["color_space_passthrough_settings"])
                 check_type(argname="argument dolby_vision81_settings", value=dolby_vision81_settings, expected_type=type_hints["dolby_vision81_settings"])
                 check_type(argname="argument hdr10_settings", value=hdr10_settings, expected_type=type_hints["hdr10_settings"])
+                check_type(argname="argument hlg2020_settings", value=hlg2020_settings, expected_type=type_hints["hlg2020_settings"])
                 check_type(argname="argument rec601_settings", value=rec601_settings, expected_type=type_hints["rec601_settings"])
                 check_type(argname="argument rec709_settings", value=rec709_settings, expected_type=type_hints["rec709_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -14352,6 +10914,8 @@ class CfnChannel(
                 self._values["dolby_vision81_settings"] = dolby_vision81_settings
             if hdr10_settings is not None:
                 self._values["hdr10_settings"] = hdr10_settings
+            if hlg2020_settings is not None:
+                self._values["hlg2020_settings"] = hlg2020_settings
             if rec601_settings is not None:
                 self._values["rec601_settings"] = rec601_settings
             if rec709_settings is not None:
@@ -14360,56 +10924,64 @@ class CfnChannel(
         @builtins.property
         def color_space_passthrough_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorSpacePassthroughSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorSpacePassthroughSettingsProperty"]]:
             '''Passthrough applies no color space conversion to the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-colorspacepassthroughsettings
             '''
             result = self._values.get("color_space_passthrough_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ColorSpacePassthroughSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ColorSpacePassthroughSettingsProperty"]], result)
 
         @builtins.property
         def dolby_vision81_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DolbyVision81SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DolbyVision81SettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-dolbyvision81settings
             '''
             result = self._values.get("dolby_vision81_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DolbyVision81SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DolbyVision81SettingsProperty"]], result)
 
         @builtins.property
         def hdr10_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]]:
             '''Settings to configure the handling of HDR10 color space.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-hdr10settings
             '''
             result = self._values.get("hdr10_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]], result)
+
+        @builtins.property
+        def hlg2020_settings(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-hlg2020settings
+            '''
+            result = self._values.get("hlg2020_settings")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def rec601_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec601SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec601SettingsProperty"]]:
             '''Settings to configure the handling of Rec601 color space.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-rec601settings
             '''
             result = self._values.get("rec601_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec601SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec601SettingsProperty"]], result)
 
         @builtins.property
         def rec709_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec709SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec709SettingsProperty"]]:
             '''Settings to configure the handling of Rec709 color space.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html#cfn-medialive-channel-h265colorspacesettings-rec709settings
             '''
             result = self._values.get("rec709_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Rec709SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Rec709SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14434,8 +11006,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            bandwidth_reduction_filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            temporal_filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bandwidth_reduction_filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.BandwidthReductionFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            temporal_filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure video filters that apply to the H265 codec.
 
@@ -14477,23 +11049,23 @@ class CfnChannel(
         @builtins.property
         def bandwidth_reduction_filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BandwidthReductionFilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BandwidthReductionFilterSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html#cfn-medialive-channel-h265filtersettings-bandwidthreductionfiltersettings
             '''
             result = self._values.get("bandwidth_reduction_filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.BandwidthReductionFilterSettingsProperty"]], result)
 
         @builtins.property
         def temporal_filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]]:
             '''Settings for applying the temporal filter to the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265filtersettings.html#cfn-medialive-channel-h265filtersettings-temporalfiltersettings
             '''
             result = self._values.get("temporal_filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14523,12 +11095,15 @@ class CfnChannel(
             "flicker_aq": "flickerAq",
             "framerate_denominator": "framerateDenominator",
             "framerate_numerator": "framerateNumerator",
+            "gop_b_reference": "gopBReference",
             "gop_closed_cadence": "gopClosedCadence",
+            "gop_num_b_frames": "gopNumBFrames",
             "gop_size": "gopSize",
             "gop_size_units": "gopSizeUnits",
             "level": "level",
             "look_ahead_rate_control": "lookAheadRateControl",
             "max_bitrate": "maxBitrate",
+            "min_bitrate": "minBitrate",
             "min_i_interval": "minIInterval",
             "min_qp": "minQp",
             "mv_over_picture_boundaries": "mvOverPictureBoundaries",
@@ -14541,6 +11116,7 @@ class CfnChannel(
             "scan_type": "scanType",
             "scene_change_detect": "sceneChangeDetect",
             "slices": "slices",
+            "subgop_length": "subgopLength",
             "tier": "tier",
             "tile_height": "tileHeight",
             "tile_padding": "tilePadding",
@@ -14560,19 +11136,22 @@ class CfnChannel(
             bitrate: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
             color_metadata: typing.Optional[builtins.str] = None,
-            color_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H265ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H265ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deblocking: typing.Optional[builtins.str] = None,
-            filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H265FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H265FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fixed_afd: typing.Optional[builtins.str] = None,
             flicker_aq: typing.Optional[builtins.str] = None,
             framerate_denominator: typing.Optional[jsii.Number] = None,
             framerate_numerator: typing.Optional[jsii.Number] = None,
+            gop_b_reference: typing.Optional[builtins.str] = None,
             gop_closed_cadence: typing.Optional[jsii.Number] = None,
+            gop_num_b_frames: typing.Optional[jsii.Number] = None,
             gop_size: typing.Optional[jsii.Number] = None,
             gop_size_units: typing.Optional[builtins.str] = None,
             level: typing.Optional[builtins.str] = None,
             look_ahead_rate_control: typing.Optional[builtins.str] = None,
             max_bitrate: typing.Optional[jsii.Number] = None,
+            min_bitrate: typing.Optional[jsii.Number] = None,
             min_i_interval: typing.Optional[jsii.Number] = None,
             min_qp: typing.Optional[jsii.Number] = None,
             mv_over_picture_boundaries: typing.Optional[builtins.str] = None,
@@ -14585,11 +11164,12 @@ class CfnChannel(
             scan_type: typing.Optional[builtins.str] = None,
             scene_change_detect: typing.Optional[builtins.str] = None,
             slices: typing.Optional[jsii.Number] = None,
+            subgop_length: typing.Optional[builtins.str] = None,
             tier: typing.Optional[builtins.str] = None,
             tile_height: typing.Optional[jsii.Number] = None,
             tile_padding: typing.Optional[builtins.str] = None,
             tile_width: typing.Optional[jsii.Number] = None,
-            timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timecode_insertion: typing.Optional[builtins.str] = None,
             treeblock_size: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -14610,12 +11190,15 @@ class CfnChannel(
             :param flicker_aq: If set to enabled, adjust quantization within each frame to reduce flicker or 'pop' on I-frames.
             :param framerate_denominator: Framerate denominator.
             :param framerate_numerator: Framerate numerator - framerate is a fraction, e.g. 24000 / 1001 = 23.976 fps.
+            :param gop_b_reference: 
             :param gop_closed_cadence: Frequency of closed GOPs. In streaming applications, it is recommended that this be set to 1 so a decoder joining mid-stream will receive an IDR frame as quickly as possible. Setting this value to 0 will break output segmenting.
+            :param gop_num_b_frames: 
             :param gop_size: GOP size (keyframe interval) in units of either frames or seconds per gopSizeUnits. If gopSizeUnits is frames, gopSize must be an integer and must be greater than or equal to 1. If gopSizeUnits is seconds, gopSize must be greater than 0, but need not be an integer.
             :param gop_size_units: Indicates if the gopSize is specified in frames or seconds. If seconds the system will convert the gopSize into a frame count at run time.
             :param level: H.265 Level.
             :param look_ahead_rate_control: Amount of lookahead. A value of low can decrease latency and memory usage, while high can produce better quality for certain content.
             :param max_bitrate: For QVBR: See the tooltip for Quality level.
+            :param min_bitrate: 
             :param min_i_interval: Only meaningful if sceneChangeDetect is set to enabled. Defaults to 5 if multiplex rate control is used. Enforces separation between repeated (cadence) I-frames and I-frames inserted by Scene Change Detection. If a scene change I-frame is within I-interval frames of a cadence I-frame, the GOP is shrunk and/or stretched to the scene change I-frame. GOP stretch requires enabling lookahead as well as setting I-interval. The normal cadence resumes for the next GOP. Note: Maximum GOP stretch = GOP size + Min-I-interval - 1
             :param min_qp: 
             :param mv_over_picture_boundaries: 
@@ -14628,6 +11211,7 @@ class CfnChannel(
             :param scan_type: Sets the scan type of the output to progressive or top-field-first interlaced.
             :param scene_change_detect: Scene change detection.
             :param slices: Number of slices per picture. Must be less than or equal to the number of macroblock rows for progressive pictures, and less than or equal to half the number of macroblock rows for interlaced pictures. This field is optional; when no value is specified the encoder will choose the number of slices based on encode resolution.
+            :param subgop_length: 
             :param tier: H.265 Tier.
             :param tile_height: 
             :param tile_padding: 
@@ -14645,6 +11229,8 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
+                # hlg2020_settings: Any
+                
                 h265_settings_property = medialive.CfnChannel.H265SettingsProperty(
                     adaptive_quantization="adaptiveQuantization",
                     afd_signaling="afdSignaling",
@@ -14659,6 +11245,7 @@ class CfnChannel(
                             max_cll=123,
                             max_fall=123
                         ),
+                        hlg2020_settings=hlg2020_settings,
                         rec601_settings=medialive.CfnChannel.Rec601SettingsProperty(),
                         rec709_settings=medialive.CfnChannel.Rec709SettingsProperty()
                     ),
@@ -14677,12 +11264,15 @@ class CfnChannel(
                     flicker_aq="flickerAq",
                     framerate_denominator=123,
                     framerate_numerator=123,
+                    gop_bReference="gopBReference",
                     gop_closed_cadence=123,
+                    gop_num_bFrames=123,
                     gop_size=123,
                     gop_size_units="gopSizeUnits",
                     level="level",
                     look_ahead_rate_control="lookAheadRateControl",
                     max_bitrate=123,
+                    min_bitrate=123,
                     min_iInterval=123,
                     min_qp=123,
                     mv_over_picture_boundaries="mvOverPictureBoundaries",
@@ -14695,6 +11285,7 @@ class CfnChannel(
                     scan_type="scanType",
                     scene_change_detect="sceneChangeDetect",
                     slices=123,
+                    subgop_length="subgopLength",
                     tier="tier",
                     tile_height=123,
                     tile_padding="tilePadding",
@@ -14723,12 +11314,15 @@ class CfnChannel(
                 check_type(argname="argument flicker_aq", value=flicker_aq, expected_type=type_hints["flicker_aq"])
                 check_type(argname="argument framerate_denominator", value=framerate_denominator, expected_type=type_hints["framerate_denominator"])
                 check_type(argname="argument framerate_numerator", value=framerate_numerator, expected_type=type_hints["framerate_numerator"])
+                check_type(argname="argument gop_b_reference", value=gop_b_reference, expected_type=type_hints["gop_b_reference"])
                 check_type(argname="argument gop_closed_cadence", value=gop_closed_cadence, expected_type=type_hints["gop_closed_cadence"])
+                check_type(argname="argument gop_num_b_frames", value=gop_num_b_frames, expected_type=type_hints["gop_num_b_frames"])
                 check_type(argname="argument gop_size", value=gop_size, expected_type=type_hints["gop_size"])
                 check_type(argname="argument gop_size_units", value=gop_size_units, expected_type=type_hints["gop_size_units"])
                 check_type(argname="argument level", value=level, expected_type=type_hints["level"])
                 check_type(argname="argument look_ahead_rate_control", value=look_ahead_rate_control, expected_type=type_hints["look_ahead_rate_control"])
                 check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
+                check_type(argname="argument min_bitrate", value=min_bitrate, expected_type=type_hints["min_bitrate"])
                 check_type(argname="argument min_i_interval", value=min_i_interval, expected_type=type_hints["min_i_interval"])
                 check_type(argname="argument min_qp", value=min_qp, expected_type=type_hints["min_qp"])
                 check_type(argname="argument mv_over_picture_boundaries", value=mv_over_picture_boundaries, expected_type=type_hints["mv_over_picture_boundaries"])
@@ -14741,6 +11335,7 @@ class CfnChannel(
                 check_type(argname="argument scan_type", value=scan_type, expected_type=type_hints["scan_type"])
                 check_type(argname="argument scene_change_detect", value=scene_change_detect, expected_type=type_hints["scene_change_detect"])
                 check_type(argname="argument slices", value=slices, expected_type=type_hints["slices"])
+                check_type(argname="argument subgop_length", value=subgop_length, expected_type=type_hints["subgop_length"])
                 check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
                 check_type(argname="argument tile_height", value=tile_height, expected_type=type_hints["tile_height"])
                 check_type(argname="argument tile_padding", value=tile_padding, expected_type=type_hints["tile_padding"])
@@ -14775,8 +11370,12 @@ class CfnChannel(
                 self._values["framerate_denominator"] = framerate_denominator
             if framerate_numerator is not None:
                 self._values["framerate_numerator"] = framerate_numerator
+            if gop_b_reference is not None:
+                self._values["gop_b_reference"] = gop_b_reference
             if gop_closed_cadence is not None:
                 self._values["gop_closed_cadence"] = gop_closed_cadence
+            if gop_num_b_frames is not None:
+                self._values["gop_num_b_frames"] = gop_num_b_frames
             if gop_size is not None:
                 self._values["gop_size"] = gop_size
             if gop_size_units is not None:
@@ -14787,6 +11386,8 @@ class CfnChannel(
                 self._values["look_ahead_rate_control"] = look_ahead_rate_control
             if max_bitrate is not None:
                 self._values["max_bitrate"] = max_bitrate
+            if min_bitrate is not None:
+                self._values["min_bitrate"] = min_bitrate
             if min_i_interval is not None:
                 self._values["min_i_interval"] = min_i_interval
             if min_qp is not None:
@@ -14811,6 +11412,8 @@ class CfnChannel(
                 self._values["scene_change_detect"] = scene_change_detect
             if slices is not None:
                 self._values["slices"] = slices
+            if subgop_length is not None:
+                self._values["subgop_length"] = subgop_length
             if tier is not None:
                 self._values["tier"] = tier
             if tile_height is not None:
@@ -14889,13 +11492,13 @@ class CfnChannel(
         @builtins.property
         def color_space_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265ColorSpaceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265ColorSpaceSettingsProperty"]]:
             '''Color Space settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-colorspacesettings
             '''
             result = self._values.get("color_space_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265ColorSpaceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265ColorSpaceSettingsProperty"]], result)
 
         @builtins.property
         def deblocking(self) -> typing.Optional[builtins.str]:
@@ -14908,13 +11511,13 @@ class CfnChannel(
         @builtins.property
         def filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265FilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265FilterSettingsProperty"]]:
             '''Optional filters that you can apply to an encode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-filtersettings
             '''
             result = self._values.get("filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265FilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265FilterSettingsProperty"]], result)
 
         @builtins.property
         def fixed_afd(self) -> typing.Optional[builtins.str]:
@@ -14955,6 +11558,14 @@ class CfnChannel(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def gop_b_reference(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-gopbreference
+            '''
+            result = self._values.get("gop_b_reference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def gop_closed_cadence(self) -> typing.Optional[jsii.Number]:
             '''Frequency of closed GOPs.
 
@@ -14963,6 +11574,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-gopclosedcadence
             '''
             result = self._values.get("gop_closed_cadence")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def gop_num_b_frames(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-gopnumbframes
+            '''
+            result = self._values.get("gop_num_b_frames")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
@@ -15015,6 +11634,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-maxbitrate
             '''
             result = self._values.get("max_bitrate")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_bitrate(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-minbitrate
+            '''
+            result = self._values.get("min_bitrate")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
@@ -15140,6 +11767,14 @@ class CfnChannel(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
+        def subgop_length(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-subgoplength
+            '''
+            result = self._values.get("subgop_length")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def tier(self) -> typing.Optional[builtins.str]:
             '''H.265 Tier.
 
@@ -15175,12 +11810,12 @@ class CfnChannel(
         @builtins.property
         def timecode_burnin_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265settings.html#cfn-medialive-channel-h265settings-timecodeburninsettings
             '''
             result = self._values.get("timecode_burnin_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
 
         @builtins.property
         def timecode_insertion(self) -> typing.Optional[builtins.str]:
@@ -15570,11 +12205,11 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            hls_akamai_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsAkamaiSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_basic_put_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsBasicPutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_media_store_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsMediaStoreSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_webdav_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsWebdavSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_akamai_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsAkamaiSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_basic_put_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsBasicPutSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_media_store_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsMediaStoreSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_s3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsS3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_webdav_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsWebdavSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for the CDN of an HLS output.
 
@@ -15652,51 +12287,51 @@ class CfnChannel(
         @builtins.property
         def hls_akamai_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsAkamaiSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsAkamaiSettingsProperty"]]:
             '''Sets up Akamai as the downstream system for the HLS output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlscdnsettings.html#cfn-medialive-channel-hlscdnsettings-hlsakamaisettings
             '''
             result = self._values.get("hls_akamai_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsAkamaiSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsAkamaiSettingsProperty"]], result)
 
         @builtins.property
         def hls_basic_put_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsBasicPutSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsBasicPutSettingsProperty"]]:
             '''The settings for Basic Put for the HLS output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlscdnsettings.html#cfn-medialive-channel-hlscdnsettings-hlsbasicputsettings
             '''
             result = self._values.get("hls_basic_put_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsBasicPutSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsBasicPutSettingsProperty"]], result)
 
         @builtins.property
         def hls_media_store_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsMediaStoreSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsMediaStoreSettingsProperty"]]:
             '''Sets up MediaStore as the destination for the HLS output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlscdnsettings.html#cfn-medialive-channel-hlscdnsettings-hlsmediastoresettings
             '''
             result = self._values.get("hls_media_store_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsMediaStoreSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsMediaStoreSettingsProperty"]], result)
 
         @builtins.property
         def hls_s3_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsS3SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsS3SettingsProperty"]]:
             '''Sets up Amazon S3 as the destination for this HLS output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlscdnsettings.html#cfn-medialive-channel-hlscdnsettings-hlss3settings
             '''
             result = self._values.get("hls_s3_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsS3SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsS3SettingsProperty"]], result)
 
         @builtins.property
         def hls_webdav_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsWebdavSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsWebdavSettingsProperty"]]:
             '''The settings for Web VTT captions in the HLS output group.
 
             The parent of this entity is HlsGroupSettings.
@@ -15704,7 +12339,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlscdnsettings.html#cfn-medialive-channel-hlscdnsettings-hlswebdavsettings
             '''
             result = self._values.get("hls_webdav_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsWebdavSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsWebdavSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15775,16 +12410,16 @@ class CfnChannel(
             base_url_content1: typing.Optional[builtins.str] = None,
             base_url_manifest: typing.Optional[builtins.str] = None,
             base_url_manifest1: typing.Optional[builtins.str] = None,
-            caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            caption_language_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             caption_language_setting: typing.Optional[builtins.str] = None,
             client_cache: typing.Optional[builtins.str] = None,
             codec_specification: typing.Optional[builtins.str] = None,
             constant_iv: typing.Optional[builtins.str] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             directory_structure: typing.Optional[builtins.str] = None,
             discontinuity_tags: typing.Optional[builtins.str] = None,
             encryption_type: typing.Optional[builtins.str] = None,
-            hls_cdn_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_cdn_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsCdnSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hls_id3_segment_tagging: typing.Optional[builtins.str] = None,
             i_frame_only_playlists: typing.Optional[builtins.str] = None,
             incomplete_segment_behavior: typing.Optional[builtins.str] = None,
@@ -15795,7 +12430,7 @@ class CfnChannel(
             keep_segments: typing.Optional[jsii.Number] = None,
             key_format: typing.Optional[builtins.str] = None,
             key_format_versions: typing.Optional[builtins.str] = None,
-            key_provider_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.KeyProviderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            key_provider_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.KeyProviderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_compression: typing.Optional[builtins.str] = None,
             manifest_duration_format: typing.Optional[builtins.str] = None,
             min_segment_length: typing.Optional[jsii.Number] = None,
@@ -16150,7 +12785,7 @@ class CfnChannel(
         @builtins.property
         def caption_language_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionLanguageMappingProperty"]]]]:
             '''A mapping of up to 4 captions channels to captions languages.
 
             This is meaningful only if captionLanguageSetting is set to "insert."
@@ -16158,7 +12793,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlsgroupsettings.html#cfn-medialive-channel-hlsgroupsettings-captionlanguagemappings
             '''
             result = self._values.get("caption_language_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionLanguageMappingProperty"]]]], result)
 
         @builtins.property
         def caption_language_setting(self) -> typing.Optional[builtins.str]:
@@ -16203,13 +12838,13 @@ class CfnChannel(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''A directory or HTTP destination for the HLS segments, manifest files, and encryption keys (if enabled).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlsgroupsettings.html#cfn-medialive-channel-hlsgroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def directory_structure(self) -> typing.Optional[builtins.str]:
@@ -16246,13 +12881,13 @@ class CfnChannel(
         @builtins.property
         def hls_cdn_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsCdnSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsCdnSettingsProperty"]]:
             '''The parameters that control interactions with the CDN.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlsgroupsettings.html#cfn-medialive-channel-hlsgroupsettings-hlscdnsettings
             '''
             result = self._values.get("hls_cdn_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsCdnSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsCdnSettingsProperty"]], result)
 
         @builtins.property
         def hls_id3_segment_tagging(self) -> typing.Optional[builtins.str]:
@@ -16362,13 +12997,13 @@ class CfnChannel(
         @builtins.property
         def key_provider_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.KeyProviderSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.KeyProviderSettingsProperty"]]:
             '''The key provider settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlsgroupsettings.html#cfn-medialive-channel-hlsgroupsettings-keyprovidersettings
             '''
             result = self._values.get("key_provider_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.KeyProviderSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.KeyProviderSettingsProperty"]], result)
 
         @builtins.property
         def manifest_compression(self) -> typing.Optional[builtins.str]:
@@ -16815,7 +13450,7 @@ class CfnChannel(
             self,
             *,
             h265_packaging_type: typing.Optional[builtins.str] = None,
-            hls_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             name_modifier: typing.Optional[builtins.str] = None,
             segment_modifier: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -16913,7 +13548,7 @@ class CfnChannel(
         @builtins.property
         def hls_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsSettingsProperty"]]:
             '''The settings regarding the underlying stream.
 
             These settings are different for audio-only outputs.
@@ -16921,7 +13556,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlsoutputsettings.html#cfn-medialive-channel-hlsoutputsettings-hlssettings
             '''
             result = self._values.get("hls_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsSettingsProperty"]], result)
 
         @builtins.property
         def name_modifier(self) -> typing.Optional[builtins.str]:
@@ -17023,10 +13658,10 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            audio_only_hls_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioOnlyHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fmp4_hls_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Fmp4HlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frame_capture_hls_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            standard_hls_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.StandardHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            audio_only_hls_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioOnlyHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fmp4_hls_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Fmp4HlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_hls_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            standard_hls_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.StandardHlsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for an HLS output.
 
@@ -17108,46 +13743,46 @@ class CfnChannel(
         @builtins.property
         def audio_only_hls_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioOnlyHlsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioOnlyHlsSettingsProperty"]]:
             '''The settings for an audio-only output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlssettings.html#cfn-medialive-channel-hlssettings-audioonlyhlssettings
             '''
             result = self._values.get("audio_only_hls_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioOnlyHlsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioOnlyHlsSettingsProperty"]], result)
 
         @builtins.property
         def fmp4_hls_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Fmp4HlsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Fmp4HlsSettingsProperty"]]:
             '''The settings for an fMP4 container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlssettings.html#cfn-medialive-channel-hlssettings-fmp4hlssettings
             '''
             result = self._values.get("fmp4_hls_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Fmp4HlsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Fmp4HlsSettingsProperty"]], result)
 
         @builtins.property
         def frame_capture_hls_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureHlsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureHlsSettingsProperty"]]:
             '''Settings for a frame capture output in an HLS output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlssettings.html#cfn-medialive-channel-hlssettings-framecapturehlssettings
             '''
             result = self._values.get("frame_capture_hls_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureHlsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureHlsSettingsProperty"]], result)
 
         @builtins.property
         def standard_hls_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.StandardHlsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.StandardHlsSettingsProperty"]]:
             '''The settings for a standard output (an output that is not audio-only).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlssettings.html#cfn-medialive-channel-hlssettings-standardhlssettings
             '''
             result = self._values.get("standard_hls_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.StandardHlsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.StandardHlsSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17332,10 +13967,10 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            automatic_input_failover_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AutomaticInputFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            automatic_input_failover_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AutomaticInputFailoverSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_attachment_name: typing.Optional[builtins.str] = None,
             input_id: typing.Optional[builtins.str] = None,
-            input_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             logical_interface_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''An input to attach to this channel.
@@ -17506,13 +14141,13 @@ class CfnChannel(
         @builtins.property
         def automatic_input_failover_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AutomaticInputFailoverSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AutomaticInputFailoverSettingsProperty"]]:
             '''Settings to implement automatic input failover in this input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputattachment.html#cfn-medialive-channel-inputattachment-automaticinputfailoversettings
             '''
             result = self._values.get("automatic_input_failover_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.AutomaticInputFailoverSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AutomaticInputFailoverSettingsProperty"]], result)
 
         @builtins.property
         def input_attachment_name(self) -> typing.Optional[builtins.str]:
@@ -17537,13 +14172,13 @@ class CfnChannel(
         @builtins.property
         def input_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSettingsProperty"]]:
             '''Information about the content to extract from the input and about the general handling of the content.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputattachment.html#cfn-medialive-channel-inputattachment-inputsettings
             '''
             result = self._values.get("input_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSettingsProperty"]], result)
 
         @builtins.property
         def logical_interface_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -17752,7 +14387,7 @@ class CfnChannel(
             *,
             black_frame_msec: typing.Optional[jsii.Number] = None,
             input_loss_image_color: typing.Optional[builtins.str] = None,
-            input_loss_image_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            input_loss_image_slate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_loss_image_type: typing.Optional[builtins.str] = None,
             repeat_frame_msec: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -17831,13 +14466,13 @@ class CfnChannel(
         @builtins.property
         def input_loss_image_slate(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''When the input loss image type is "slate," these fields specify the parameters for accessing the slate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputlossbehavior.html#cfn-medialive-channel-inputlossbehavior-inputlossimageslate
             '''
             result = self._values.get("input_loss_image_slate")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def input_loss_image_type(self) -> typing.Optional[builtins.str]:
@@ -17950,17 +14585,17 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            audio_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            caption_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            caption_selectors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             deblock_filter: typing.Optional[builtins.str] = None,
             denoise_filter: typing.Optional[builtins.str] = None,
             filter_strength: typing.Optional[jsii.Number] = None,
             input_filter: typing.Optional[builtins.str] = None,
-            network_input_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.NetworkInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            network_input_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.NetworkInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scte35_pid: typing.Optional[jsii.Number] = None,
             smpte2038_data_preference: typing.Optional[builtins.str] = None,
             source_end_behavior: typing.Optional[builtins.str] = None,
-            video_selector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoSelectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_selector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoSelectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about extracting content from the input and about handling the content.
 
@@ -18129,7 +14764,7 @@ class CfnChannel(
         @builtins.property
         def audio_selectors(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSelectorProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSelectorProperty"]]]]:
             '''Information about the specific audio to extract from the input.
 
             The parent of this entity is InputSettings.
@@ -18137,18 +14772,18 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputsettings.html#cfn-medialive-channel-inputsettings-audioselectors
             '''
             result = self._values.get("audio_selectors")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioSelectorProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioSelectorProperty"]]]], result)
 
         @builtins.property
         def caption_selectors(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionSelectorProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionSelectorProperty"]]]]:
             '''Information about the specific captions to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputsettings.html#cfn-medialive-channel-inputsettings-captionselectors
             '''
             result = self._values.get("caption_selectors")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionSelectorProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionSelectorProperty"]]]], result)
 
         @builtins.property
         def deblock_filter(self) -> typing.Optional[builtins.str]:
@@ -18191,13 +14826,13 @@ class CfnChannel(
         @builtins.property
         def network_input_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NetworkInputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NetworkInputSettingsProperty"]]:
             '''Information about how to connect to the upstream system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputsettings.html#cfn-medialive-channel-inputsettings-networkinputsettings
             '''
             result = self._values.get("network_input_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NetworkInputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NetworkInputSettingsProperty"]], result)
 
         @builtins.property
         def scte35_pid(self) -> typing.Optional[jsii.Number]:
@@ -18233,13 +14868,13 @@ class CfnChannel(
         @builtins.property
         def video_selector(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorProperty"]]:
             '''Information about one video to extract from the input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inputsettings.html#cfn-medialive-channel-inputsettings-videoselector
             '''
             result = self._values.get("video_selector")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18354,7 +14989,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            static_key_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.StaticKeySettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            static_key_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.StaticKeySettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of key provider settings.
 
@@ -18392,13 +15027,13 @@ class CfnChannel(
         @builtins.property
         def static_key_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.StaticKeySettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.StaticKeySettingsProperty"]]:
             '''The configuration of static key settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-keyprovidersettings.html#cfn-medialive-channel-keyprovidersettings-statickeysettings
             '''
             result = self._values.get("static_key_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.StaticKeySettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.StaticKeySettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18408,6 +15043,85 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "KeyProviderSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.LinkedChannelSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "follower_channel_settings": "followerChannelSettings",
+            "primary_channel_settings": "primaryChannelSettings",
+        },
+    )
+    class LinkedChannelSettingsProperty:
+        def __init__(
+            self,
+            *,
+            follower_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FollowerChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            primary_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.PrimaryChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param follower_channel_settings: 
+            :param primary_channel_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-linkedchannelsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                linked_channel_settings_property = medialive.CfnChannel.LinkedChannelSettingsProperty(
+                    follower_channel_settings=medialive.CfnChannel.FollowerChannelSettingsProperty(
+                        linked_channel_type="linkedChannelType",
+                        primary_channel_arn="primaryChannelArn"
+                    ),
+                    primary_channel_settings=medialive.CfnChannel.PrimaryChannelSettingsProperty(
+                        linked_channel_type="linkedChannelType"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5d6ba52fb648fc46280606d4015f014397662c16f70051073428ed9c13956605)
+                check_type(argname="argument follower_channel_settings", value=follower_channel_settings, expected_type=type_hints["follower_channel_settings"])
+                check_type(argname="argument primary_channel_settings", value=primary_channel_settings, expected_type=type_hints["primary_channel_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if follower_channel_settings is not None:
+                self._values["follower_channel_settings"] = follower_channel_settings
+            if primary_channel_settings is not None:
+                self._values["primary_channel_settings"] = primary_channel_settings
+
+        @builtins.property
+        def follower_channel_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FollowerChannelSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-linkedchannelsettings.html#cfn-medialive-channel-linkedchannelsettings-followerchannelsettings
+            '''
+            result = self._values.get("follower_channel_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FollowerChannelSettingsProperty"]], result)
+
+        @builtins.property
+        def primary_channel_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PrimaryChannelSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-linkedchannelsettings.html#cfn-medialive-channel-linkedchannelsettings-primarychannelsettings
+            '''
+            result = self._values.get("primary_channel_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PrimaryChannelSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LinkedChannelSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18480,10 +15194,10 @@ class CfnChannel(
             bitrate: typing.Optional[jsii.Number] = None,
             buffer_model: typing.Optional[builtins.str] = None,
             cc_descriptor: typing.Optional[builtins.str] = None,
-            dvb_nit_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DvbNitSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dvb_sdt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DvbSdtSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_nit_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DvbNitSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_sdt_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DvbSdtSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dvb_sub_pids: typing.Optional[builtins.str] = None,
-            dvb_tdt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.DvbTdtSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_tdt_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DvbTdtSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dvb_teletext_pid: typing.Optional[builtins.str] = None,
             ebif: typing.Optional[builtins.str] = None,
             ebp_audio_interval: typing.Optional[builtins.str] = None,
@@ -18908,24 +15622,24 @@ class CfnChannel(
         @builtins.property
         def dvb_nit_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbNitSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbNitSettingsProperty"]]:
             '''Inserts a DVB Network Information Table (NIT) at the specified table repetition interval.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-m2tssettings.html#cfn-medialive-channel-m2tssettings-dvbnitsettings
             '''
             result = self._values.get("dvb_nit_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbNitSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbNitSettingsProperty"]], result)
 
         @builtins.property
         def dvb_sdt_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSdtSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSdtSettingsProperty"]]:
             '''Inserts a DVB Service Description Table (SDT) at the specified table repetition interval.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-m2tssettings.html#cfn-medialive-channel-m2tssettings-dvbsdtsettings
             '''
             result = self._values.get("dvb_sdt_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbSdtSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbSdtSettingsProperty"]], result)
 
         @builtins.property
         def dvb_sub_pids(self) -> typing.Optional[builtins.str]:
@@ -18941,13 +15655,13 @@ class CfnChannel(
         @builtins.property
         def dvb_tdt_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbTdtSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbTdtSettingsProperty"]]:
             '''Inserts DVB Time and Date Table (TDT) at the specified table repetition interval.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-m2tssettings.html#cfn-medialive-channel-m2tssettings-dvbtdtsettings
             '''
             result = self._values.get("dvb_tdt_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.DvbTdtSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DvbTdtSettingsProperty"]], result)
 
         @builtins.property
         def dvb_teletext_pid(self) -> typing.Optional[builtins.str]:
@@ -19836,8 +16550,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mediapackage_v2_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageV2GroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mediapackage_v2_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageV2GroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for the MediaPackage group.
 
@@ -19864,7 +16578,16 @@ class CfnChannel(
                             caption_channel=123,
                             language_code="languageCode",
                             language_description="languageDescription"
-                        )]
+                        )],
+                        id3_behavior="id3Behavior",
+                        klv_behavior="klvBehavior",
+                        nielsen_id3_behavior="nielsenId3Behavior",
+                        scte35_type="scte35Type",
+                        segment_length=123,
+                        segment_length_units="segmentLengthUnits",
+                        timed_metadata_id3_frame="timedMetadataId3Frame",
+                        timed_metadata_id3_period=123,
+                        timed_metadata_passthrough="timedMetadataPassthrough"
                     )
                 )
             '''
@@ -19881,23 +16604,23 @@ class CfnChannel(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''The MediaPackage channel destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagegroupsettings.html#cfn-medialive-channel-mediapackagegroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def mediapackage_v2_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2GroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageV2GroupSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagegroupsettings.html#cfn-medialive-channel-mediapackagegroupsettings-mediapackagev2groupsettings
             '''
             result = self._values.get("mediapackage_v2_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2GroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageV2GroupSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20012,7 +16735,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            media_package_v2_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageV2DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_package_v2_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageV2DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for a MediaPackage output.
 
@@ -20048,12 +16771,12 @@ class CfnChannel(
         @builtins.property
         def media_package_v2_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2DestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageV2DestinationSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputsettings.html#cfn-medialive-channel-mediapackageoutputsettings-mediapackagev2destinationsettings
             '''
             result = self._values.get("media_package_v2_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2DestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageV2DestinationSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20169,16 +16892,45 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageV2GroupSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"caption_language_mappings": "captionLanguageMappings"},
+        name_mapping={
+            "caption_language_mappings": "captionLanguageMappings",
+            "id3_behavior": "id3Behavior",
+            "klv_behavior": "klvBehavior",
+            "nielsen_id3_behavior": "nielsenId3Behavior",
+            "scte35_type": "scte35Type",
+            "segment_length": "segmentLength",
+            "segment_length_units": "segmentLengthUnits",
+            "timed_metadata_id3_frame": "timedMetadataId3Frame",
+            "timed_metadata_id3_period": "timedMetadataId3Period",
+            "timed_metadata_passthrough": "timedMetadataPassthrough",
+        },
     )
     class MediaPackageV2GroupSettingsProperty:
         def __init__(
             self,
             *,
-            caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            caption_language_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            id3_behavior: typing.Optional[builtins.str] = None,
+            klv_behavior: typing.Optional[builtins.str] = None,
+            nielsen_id3_behavior: typing.Optional[builtins.str] = None,
+            scte35_type: typing.Optional[builtins.str] = None,
+            segment_length: typing.Optional[jsii.Number] = None,
+            segment_length_units: typing.Optional[builtins.str] = None,
+            timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
+            timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
+            timed_metadata_passthrough: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
             :param caption_language_mappings: 
+            :param id3_behavior: 
+            :param klv_behavior: 
+            :param nielsen_id3_behavior: 
+            :param scte35_type: 
+            :param segment_length: 
+            :param segment_length_units: 
+            :param timed_metadata_id3_frame: 
+            :param timed_metadata_id3_period: 
+            :param timed_metadata_passthrough: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html
             :exampleMetadata: fixture=_generated
@@ -20194,25 +16946,133 @@ class CfnChannel(
                         caption_channel=123,
                         language_code="languageCode",
                         language_description="languageDescription"
-                    )]
+                    )],
+                    id3_behavior="id3Behavior",
+                    klv_behavior="klvBehavior",
+                    nielsen_id3_behavior="nielsenId3Behavior",
+                    scte35_type="scte35Type",
+                    segment_length=123,
+                    segment_length_units="segmentLengthUnits",
+                    timed_metadata_id3_frame="timedMetadataId3Frame",
+                    timed_metadata_id3_period=123,
+                    timed_metadata_passthrough="timedMetadataPassthrough"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4)
                 check_type(argname="argument caption_language_mappings", value=caption_language_mappings, expected_type=type_hints["caption_language_mappings"])
+                check_type(argname="argument id3_behavior", value=id3_behavior, expected_type=type_hints["id3_behavior"])
+                check_type(argname="argument klv_behavior", value=klv_behavior, expected_type=type_hints["klv_behavior"])
+                check_type(argname="argument nielsen_id3_behavior", value=nielsen_id3_behavior, expected_type=type_hints["nielsen_id3_behavior"])
+                check_type(argname="argument scte35_type", value=scte35_type, expected_type=type_hints["scte35_type"])
+                check_type(argname="argument segment_length", value=segment_length, expected_type=type_hints["segment_length"])
+                check_type(argname="argument segment_length_units", value=segment_length_units, expected_type=type_hints["segment_length_units"])
+                check_type(argname="argument timed_metadata_id3_frame", value=timed_metadata_id3_frame, expected_type=type_hints["timed_metadata_id3_frame"])
+                check_type(argname="argument timed_metadata_id3_period", value=timed_metadata_id3_period, expected_type=type_hints["timed_metadata_id3_period"])
+                check_type(argname="argument timed_metadata_passthrough", value=timed_metadata_passthrough, expected_type=type_hints["timed_metadata_passthrough"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if caption_language_mappings is not None:
                 self._values["caption_language_mappings"] = caption_language_mappings
+            if id3_behavior is not None:
+                self._values["id3_behavior"] = id3_behavior
+            if klv_behavior is not None:
+                self._values["klv_behavior"] = klv_behavior
+            if nielsen_id3_behavior is not None:
+                self._values["nielsen_id3_behavior"] = nielsen_id3_behavior
+            if scte35_type is not None:
+                self._values["scte35_type"] = scte35_type
+            if segment_length is not None:
+                self._values["segment_length"] = segment_length
+            if segment_length_units is not None:
+                self._values["segment_length_units"] = segment_length_units
+            if timed_metadata_id3_frame is not None:
+                self._values["timed_metadata_id3_frame"] = timed_metadata_id3_frame
+            if timed_metadata_id3_period is not None:
+                self._values["timed_metadata_id3_period"] = timed_metadata_id3_period
+            if timed_metadata_passthrough is not None:
+                self._values["timed_metadata_passthrough"] = timed_metadata_passthrough
 
         @builtins.property
         def caption_language_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionLanguageMappingProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-captionlanguagemappings
             '''
             result = self._values.get("caption_language_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionLanguageMappingProperty"]]]], result)
+
+        @builtins.property
+        def id3_behavior(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-id3behavior
+            '''
+            result = self._values.get("id3_behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def klv_behavior(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-klvbehavior
+            '''
+            result = self._values.get("klv_behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def nielsen_id3_behavior(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-nielsenid3behavior
+            '''
+            result = self._values.get("nielsen_id3_behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def scte35_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-scte35type
+            '''
+            result = self._values.get("scte35_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def segment_length(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-segmentlength
+            '''
+            result = self._values.get("segment_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def segment_length_units(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-segmentlengthunits
+            '''
+            result = self._values.get("segment_length_units")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timed_metadata_id3_frame(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-timedmetadataid3frame
+            '''
+            result = self._values.get("timed_metadata_id3_frame")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timed_metadata_id3_period(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-timedmetadataid3period
+            '''
+            result = self._values.get("timed_metadata_id3_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timed_metadata_passthrough(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-timedmetadatapassthrough
+            '''
+            result = self._values.get("timed_metadata_passthrough")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20238,7 +17098,7 @@ class CfnChannel(
             self,
             *,
             motion_graphics_insertion: typing.Optional[builtins.str] = None,
-            motion_graphics_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MotionGraphicsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            motion_graphics_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MotionGraphicsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to enable and configure the motion graphics overlay feature in the channel.
 
@@ -20285,13 +17145,13 @@ class CfnChannel(
         @builtins.property
         def motion_graphics_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MotionGraphicsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MotionGraphicsSettingsProperty"]]:
             '''Settings to enable and configure the motion graphics overlay feature in the channel.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-motiongraphicsconfiguration.html#cfn-medialive-channel-motiongraphicsconfiguration-motiongraphicssettings
             '''
             result = self._values.get("motion_graphics_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MotionGraphicsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MotionGraphicsSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20313,7 +17173,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            html_motion_graphics_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HtmlMotionGraphicsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            html_motion_graphics_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HtmlMotionGraphicsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to enable and configure the motion graphics overlay feature in the channel.
 
@@ -20344,13 +17204,13 @@ class CfnChannel(
         @builtins.property
         def html_motion_graphics_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HtmlMotionGraphicsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HtmlMotionGraphicsSettingsProperty"]]:
             '''Settings to configure the motion graphics overlay to use an HTML asset.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-motiongraphicssettings.html#cfn-medialive-channel-motiongraphicssettings-htmlmotiongraphicssettings
             '''
             result = self._values.get("html_motion_graphics_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HtmlMotionGraphicsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HtmlMotionGraphicsSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20465,7 +17325,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            temporal_filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            temporal_filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TemporalFilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure video filters that apply to the MPEG-2 codec.
 
@@ -20499,13 +17359,13 @@ class CfnChannel(
         @builtins.property
         def temporal_filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]]:
             '''Settings for applying the temporal filter to the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mpeg2filtersettings.html#cfn-medialive-channel-mpeg2filtersettings-temporalfiltersettings
             '''
             result = self._values.get("temporal_filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TemporalFilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TemporalFilterSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20550,7 +17410,7 @@ class CfnChannel(
             color_metadata: typing.Optional[builtins.str] = None,
             color_space: typing.Optional[builtins.str] = None,
             display_aspect_ratio: typing.Optional[builtins.str] = None,
-            filter_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Mpeg2FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Mpeg2FilterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fixed_afd: typing.Optional[builtins.str] = None,
             framerate_denominator: typing.Optional[jsii.Number] = None,
             framerate_numerator: typing.Optional[jsii.Number] = None,
@@ -20560,7 +17420,7 @@ class CfnChannel(
             gop_size_units: typing.Optional[builtins.str] = None,
             scan_type: typing.Optional[builtins.str] = None,
             subgop_length: typing.Optional[builtins.str] = None,
-            timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             timecode_insertion: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for the MPEG-2 codec in the output.
@@ -20738,7 +17598,7 @@ class CfnChannel(
         @builtins.property
         def filter_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mpeg2FilterSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mpeg2FilterSettingsProperty"]]:
             '''Optionally specify a noise reduction filter, which can improve quality of compressed content.
 
             If you do not choose a filter, no filter will be applied.
@@ -20749,7 +17609,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mpeg2settings.html#cfn-medialive-channel-mpeg2settings-filtersettings
             '''
             result = self._values.get("filter_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mpeg2FilterSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mpeg2FilterSettingsProperty"]], result)
 
         @builtins.property
         def fixed_afd(self) -> typing.Optional[builtins.str]:
@@ -20853,12 +17713,12 @@ class CfnChannel(
         @builtins.property
         def timecode_burnin_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mpeg2settings.html#cfn-medialive-channel-mpeg2settings-timecodeburninsettings
             '''
             result = self._values.get("timecode_burnin_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
 
         @builtins.property
         def timecode_insertion(self) -> typing.Optional[builtins.str]:
@@ -20917,7 +17777,7 @@ class CfnChannel(
             audio_only_timecode_control: typing.Optional[builtins.str] = None,
             certificate_mode: typing.Optional[builtins.str] = None,
             connection_retry_interval: typing.Optional[jsii.Number] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             event_id: typing.Optional[builtins.str] = None,
             event_id_mode: typing.Optional[builtins.str] = None,
             event_stop_behavior: typing.Optional[builtins.str] = None,
@@ -21098,7 +17958,7 @@ class CfnChannel(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''The Smooth Streaming publish point on an IIS server.
 
             MediaLive acts as a "Push" encoder to IIS.
@@ -21106,7 +17966,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mssmoothgroupsettings.html#cfn-medialive-channel-mssmoothgroupsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def event_id(self) -> typing.Optional[builtins.str]:
@@ -21396,7 +18256,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            multiplex_m2_ts_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MultiplexM2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multiplex_m2_ts_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexM2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param multiplex_m2_ts_settings: 
@@ -21439,12 +18299,12 @@ class CfnChannel(
         @builtins.property
         def multiplex_m2_ts_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexM2tsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexM2tsSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-multiplexcontainersettings.html#cfn-medialive-channel-multiplexcontainersettings-multiplexm2tssettings
             '''
             result = self._values.get("multiplex_m2_ts_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexM2tsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexM2tsSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21751,8 +18611,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            container_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MultiplexContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration of a Multiplex output.
 
@@ -21807,23 +18667,23 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexContainerSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-multiplexoutputsettings.html#cfn-medialive-channel-multiplexoutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexContainerSettingsProperty"]], result)
 
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''Destination is a Multiplex.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-multiplexoutputsettings.html#cfn-medialive-channel-multiplexoutputsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21924,8 +18784,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            hls_input_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            multicast_input_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MulticastInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_input_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multicast_input_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MulticastInputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             server_validation: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about how to connect to the upstream system.
@@ -21975,23 +18835,23 @@ class CfnChannel(
         @builtins.property
         def hls_input_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsInputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsInputSettingsProperty"]]:
             '''Information about how to connect to the upstream system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-networkinputsettings.html#cfn-medialive-channel-networkinputsettings-hlsinputsettings
             '''
             result = self._values.get("hls_input_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsInputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsInputSettingsProperty"]], result)
 
         @builtins.property
         def multicast_input_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MulticastInputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MulticastInputSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-networkinputsettings.html#cfn-medialive-channel-networkinputsettings-multicastinputsettings
             '''
             result = self._values.get("multicast_input_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MulticastInputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MulticastInputSettingsProperty"]], result)
 
         @builtins.property
         def server_validation(self) -> typing.Optional[builtins.str]:
@@ -22284,9 +19144,9 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            nielsen_cbet_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.NielsenCBETProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_cbet_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.NielsenCBETProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             nielsen_distribution_type: typing.Optional[builtins.str] = None,
-            nielsen_naes_ii_nw_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.NielsenNaesIiNwProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            nielsen_naes_ii_nw_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.NielsenNaesIiNwProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure Nielsen Watermarks in the audio encode.
 
@@ -22335,13 +19195,13 @@ class CfnChannel(
         @builtins.property
         def nielsen_cbet_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenCBETProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenCBETProperty"]]:
             '''Complete these fields only if you want to insert watermarks of type Nielsen CBET.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsenwatermarkssettings.html#cfn-medialive-channel-nielsenwatermarkssettings-nielsencbetsettings
             '''
             result = self._values.get("nielsen_cbet_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenCBETProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenCBETProperty"]], result)
 
         @builtins.property
         def nielsen_distribution_type(self) -> typing.Optional[builtins.str]:
@@ -22355,13 +19215,13 @@ class CfnChannel(
         @builtins.property
         def nielsen_naes_ii_nw_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenNaesIiNwProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenNaesIiNwProperty"]]:
             '''Complete these fields only if you want to insert watermarks of type Nielsen NAES II (N2) and Nielsen NAES VI (NW).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-nielsenwatermarkssettings.html#cfn-medialive-channel-nielsenwatermarkssettings-nielsennaesiinwsettings
             '''
             result = self._values.get("nielsen_naes_ii_nw_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.NielsenNaesIiNwProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.NielsenNaesIiNwProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22392,10 +19252,10 @@ class CfnChannel(
             *,
             id: typing.Optional[builtins.str] = None,
             logical_interface_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            media_package_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            multiplex_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MultiplexProgramChannelDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            srt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.SrtOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            media_package_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            multiplex_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexProgramChannelDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            srt_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SrtOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Configuration information for an output.
 
@@ -22484,18 +19344,18 @@ class CfnChannel(
         @builtins.property
         def media_package_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageOutputDestinationSettingsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageOutputDestinationSettingsProperty"]]]]:
             '''The destination settings for a MediaPackage output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestination.html#cfn-medialive-channel-outputdestination-mediapackagesettings
             '''
             result = self._values.get("media_package_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageOutputDestinationSettingsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageOutputDestinationSettingsProperty"]]]], result)
 
         @builtins.property
         def multiplex_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexProgramChannelDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexProgramChannelDestinationSettingsProperty"]]:
             '''Destination settings for a Multiplex output;
 
             one destination for both encoders.
@@ -22503,28 +19363,28 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestination.html#cfn-medialive-channel-outputdestination-multiplexsettings
             '''
             result = self._values.get("multiplex_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexProgramChannelDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexProgramChannelDestinationSettingsProperty"]], result)
 
         @builtins.property
         def settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationSettingsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationSettingsProperty"]]]]:
             '''The destination settings for an output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestination.html#cfn-medialive-channel-outputdestination-settings
             '''
             result = self._values.get("settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputDestinationSettingsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationSettingsProperty"]]]], result)
 
         @builtins.property
         def srt_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtOutputDestinationSettingsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtOutputDestinationSettingsProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestination.html#cfn-medialive-channel-outputdestination-srtsettings
             '''
             result = self._values.get("srt_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtOutputDestinationSettingsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtOutputDestinationSettingsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22664,8 +19524,8 @@ class CfnChannel(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            output_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            output_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            outputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The settings for one output group.
 
@@ -22709,24 +19569,24 @@ class CfnChannel(
         @builtins.property
         def output_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputGroupSettingsProperty"]]:
             '''The settings associated with the output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroup.html#cfn-medialive-channel-outputgroup-outputgroupsettings
             '''
             result = self._values.get("output_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputGroupSettingsProperty"]], result)
 
         @builtins.property
         def outputs(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputProperty"]]]]:
             '''The settings for the outputs in the output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroup.html#cfn-medialive-channel-outputgroup-outputs
             '''
             result = self._values.get("outputs")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22759,16 +19619,16 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            archive_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ArchiveGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cmaf_ingest_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CmafIngestGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frame_capture_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            media_package_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ms_smooth_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MsSmoothGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            multiplex_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MultiplexGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtmp_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RtmpGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.SrtGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            udp_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.UdpGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            archive_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ArchiveGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cmaf_ingest_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CmafIngestGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_package_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ms_smooth_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MsSmoothGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multiplex_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RtmpGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SrtGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            udp_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.UdpGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of the output group.
 
@@ -22807,6 +19667,11 @@ class CfnChannel(
                         rollover_interval=123
                     ),
                     cmaf_ingest_group_settings=medialive.CfnChannel.CmafIngestGroupSettingsProperty(
+                        additional_destinations=[medialive.CfnChannel.AdditionalDestinationsProperty(
+                            destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            )
+                        )],
                         caption_language_mappings=[medialive.CfnChannel.CmafIngestCaptionLanguageMappingProperty(
                             caption_channel=123,
                             language_code="languageCode"
@@ -22941,7 +19806,16 @@ class CfnChannel(
                                 caption_channel=123,
                                 language_code="languageCode",
                                 language_description="languageDescription"
-                            )]
+                            )],
+                            id3_behavior="id3Behavior",
+                            klv_behavior="klvBehavior",
+                            nielsen_id3_behavior="nielsenId3Behavior",
+                            scte35_type="scte35Type",
+                            segment_length=123,
+                            segment_length_units="segmentLengthUnits",
+                            timed_metadata_id3_frame="timedMetadataId3Frame",
+                            timed_metadata_id3_period=123,
+                            timed_metadata_passthrough="timedMetadataPassthrough"
                         )
                     ),
                     ms_smooth_group_settings=medialive.CfnChannel.MsSmoothGroupSettingsProperty(
@@ -23025,7 +19899,7 @@ class CfnChannel(
         @builtins.property
         def archive_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveGroupSettingsProperty"]]:
             '''The configuration of an archive output group.
 
             The parent of this entity is OutputGroupSettings.
@@ -23033,104 +19907,104 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-archivegroupsettings
             '''
             result = self._values.get("archive_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveGroupSettingsProperty"]], result)
 
         @builtins.property
         def cmaf_ingest_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestGroupSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-cmafingestgroupsettings
             '''
             result = self._values.get("cmaf_ingest_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestGroupSettingsProperty"]], result)
 
         @builtins.property
         def frame_capture_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureGroupSettingsProperty"]]:
             '''The configuration of a frame capture output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-framecapturegroupsettings
             '''
             result = self._values.get("frame_capture_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureGroupSettingsProperty"]], result)
 
         @builtins.property
         def hls_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsGroupSettingsProperty"]]:
             '''The configuration of an HLS output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-hlsgroupsettings
             '''
             result = self._values.get("hls_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsGroupSettingsProperty"]], result)
 
         @builtins.property
         def media_package_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageGroupSettingsProperty"]]:
             '''The configuration of a MediaPackage output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-mediapackagegroupsettings
             '''
             result = self._values.get("media_package_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageGroupSettingsProperty"]], result)
 
         @builtins.property
         def ms_smooth_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MsSmoothGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MsSmoothGroupSettingsProperty"]]:
             '''The configuration of a Microsoft Smooth output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-mssmoothgroupsettings
             '''
             result = self._values.get("ms_smooth_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MsSmoothGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MsSmoothGroupSettingsProperty"]], result)
 
         @builtins.property
         def multiplex_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexGroupSettingsProperty"]]:
             '''The settings for a Multiplex output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-multiplexgroupsettings
             '''
             result = self._values.get("multiplex_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexGroupSettingsProperty"]], result)
 
         @builtins.property
         def rtmp_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpGroupSettingsProperty"]]:
             '''The configuration of an RTMP output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-rtmpgroupsettings
             '''
             result = self._values.get("rtmp_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpGroupSettingsProperty"]], result)
 
         @builtins.property
         def srt_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtGroupSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-srtgroupsettings
             '''
             result = self._values.get("srt_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtGroupSettingsProperty"]], result)
 
         @builtins.property
         def udp_group_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpGroupSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpGroupSettingsProperty"]]:
             '''The configuration of a UDP output group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-udpgroupsettings
             '''
             result = self._values.get("udp_group_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpGroupSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpGroupSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -23212,7 +20086,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            epoch_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.EpochLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            epoch_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EpochLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             pipeline_locking_settings: typing.Any = None,
         ) -> None:
             '''
@@ -23251,12 +20125,12 @@ class CfnChannel(
         @builtins.property
         def epoch_locking_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EpochLockingSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EpochLockingSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputlockingsettings.html#cfn-medialive-channel-outputlockingsettings-epochlockingsettings
             '''
             result = self._values.get("epoch_locking_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.EpochLockingSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EpochLockingSettingsProperty"]], result)
 
         @builtins.property
         def pipeline_locking_settings(self) -> typing.Any:
@@ -23295,7 +20169,7 @@ class CfnChannel(
             audio_description_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             caption_description_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             output_name: typing.Optional[builtins.str] = None,
-            output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             video_description_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The output settings.
@@ -23686,13 +20560,13 @@ class CfnChannel(
         @builtins.property
         def output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputSettingsProperty"]]:
             '''The output type-specific settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-output.html#cfn-medialive-channel-output-outputsettings
             '''
             result = self._values.get("output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputSettingsProperty"]], result)
 
         @builtins.property
         def video_description_name(self) -> typing.Optional[builtins.str]:
@@ -23734,16 +20608,16 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            archive_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ArchiveOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cmaf_ingest_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CmafIngestOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frame_capture_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.HlsOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            media_package_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ms_smooth_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MsSmoothOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            multiplex_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MultiplexOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rtmp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RtmpOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            srt_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.SrtOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            udp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.UdpOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            archive_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ArchiveOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cmaf_ingest_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CmafIngestOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_package_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ms_smooth_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MsSmoothOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multiplex_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rtmp_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RtmpOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            srt_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SrtOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            udp_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.UdpOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The output settings.
 
@@ -24118,28 +20992,28 @@ class CfnChannel(
         @builtins.property
         def archive_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveOutputSettingsProperty"]]:
             '''The settings for an archive output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-archiveoutputsettings
             '''
             result = self._values.get("archive_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ArchiveOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ArchiveOutputSettingsProperty"]], result)
 
         @builtins.property
         def cmaf_ingest_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestOutputSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-cmafingestoutputsettings
             '''
             result = self._values.get("cmaf_ingest_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CmafIngestOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CmafIngestOutputSettingsProperty"]], result)
 
         @builtins.property
         def frame_capture_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureOutputSettingsProperty"]]:
             '''The settings for a frame capture output.
 
             The parent of this entity is OutputGroupSettings.
@@ -24147,12 +21021,12 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-framecaptureoutputsettings
             '''
             result = self._values.get("frame_capture_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureOutputSettingsProperty"]], result)
 
         @builtins.property
         def hls_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsOutputSettingsProperty"]]:
             '''The settings for an HLS output.
 
             The parent of this entity is OutputGroupSettings.
@@ -24160,12 +21034,12 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-hlsoutputsettings
             '''
             result = self._values.get("hls_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.HlsOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsOutputSettingsProperty"]], result)
 
         @builtins.property
         def media_package_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageOutputSettingsProperty"]]:
             '''The settings for a MediaPackage output.
 
             The parent of this entity is OutputGroupSettings.
@@ -24173,34 +21047,34 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-mediapackageoutputsettings
             '''
             result = self._values.get("media_package_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageOutputSettingsProperty"]], result)
 
         @builtins.property
         def ms_smooth_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MsSmoothOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MsSmoothOutputSettingsProperty"]]:
             '''The settings for a Microsoft Smooth output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-mssmoothoutputsettings
             '''
             result = self._values.get("ms_smooth_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MsSmoothOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MsSmoothOutputSettingsProperty"]], result)
 
         @builtins.property
         def multiplex_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexOutputSettingsProperty"]]:
             '''Configuration of a Multiplex output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-multiplexoutputsettings
             '''
             result = self._values.get("multiplex_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MultiplexOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MultiplexOutputSettingsProperty"]], result)
 
         @builtins.property
         def rtmp_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpOutputSettingsProperty"]]:
             '''The settings for an RTMP output.
 
             The parent of this entity is OutputGroupSettings.
@@ -24208,22 +21082,22 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-rtmpoutputsettings
             '''
             result = self._values.get("rtmp_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RtmpOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.RtmpOutputSettingsProperty"]], result)
 
         @builtins.property
         def srt_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtOutputSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-srtoutputsettings
             '''
             result = self._values.get("srt_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.SrtOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SrtOutputSettingsProperty"]], result)
 
         @builtins.property
         def udp_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpOutputSettingsProperty"]]:
             '''The settings for a UDP output.
 
             The parent of this entity is OutputGroupSettings.
@@ -24231,7 +21105,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-udpoutputsettings
             '''
             result = self._values.get("udp_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpOutputSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -24273,6 +21147,59 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "PassThroughSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.PrimaryChannelSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"linked_channel_type": "linkedChannelType"},
+    )
+    class PrimaryChannelSettingsProperty:
+        def __init__(
+            self,
+            *,
+            linked_channel_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param linked_channel_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-primarychannelsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                primary_channel_settings_property = medialive.CfnChannel.PrimaryChannelSettingsProperty(
+                    linked_channel_type="linkedChannelType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e7f9686b9d994824ef348763f4747c7f8585da763c6368d1d4b4be0ff70cbfd6)
+                check_type(argname="argument linked_channel_type", value=linked_channel_type, expected_type=type_hints["linked_channel_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if linked_channel_type is not None:
+                self._values["linked_channel_type"] = linked_channel_type
+
+        @builtins.property
+        def linked_channel_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-primarychannelsettings.html#cfn-medialive-channel-primarychannelsettings-linkedchanneltype
+            '''
+            result = self._values.get("linked_channel_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrimaryChannelSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -24385,7 +21312,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            channel_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.AudioChannelMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            channel_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AudioChannelMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             channels_in: typing.Optional[jsii.Number] = None,
             channels_out: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -24434,13 +21361,13 @@ class CfnChannel(
         @builtins.property
         def channel_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioChannelMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioChannelMappingProperty"]]]]:
             '''A mapping of input channels to output channels, with appropriate gain adjustments.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-remixsettings.html#cfn-medialive-channel-remixsettings-channelmappings
             '''
             result = self._values.get("channel_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.AudioChannelMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.AudioChannelMappingProperty"]]]], result)
 
         @builtins.property
         def channels_in(self) -> typing.Optional[jsii.Number]:
@@ -24701,7 +21628,7 @@ class CfnChannel(
             *,
             certificate_mode: typing.Optional[builtins.str] = None,
             connection_retry_interval: typing.Optional[jsii.Number] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             num_retries: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The settings for one RTMP output.
@@ -24770,13 +21697,13 @@ class CfnChannel(
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''The RTMP endpoint excluding the stream name (for example, rtmp://host/appname).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-rtmpoutputsettings.html#cfn-medialive-channel-rtmpoutputsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def num_retries(self) -> typing.Optional[jsii.Number]:
@@ -25385,8 +22312,8 @@ class CfnChannel(
             self,
             *,
             buffer_msec: typing.Optional[jsii.Number] = None,
-            container_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.UdpContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.UdpContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             encryption_type: typing.Optional[builtins.str] = None,
             latency: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -25508,22 +22435,22 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpContainerSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-srtoutputsettings.html#cfn-medialive-channel-srtoutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpContainerSettingsProperty"]], result)
 
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-srtoutputsettings.html#cfn-medialive-channel-srtoutputsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def encryption_type(self) -> typing.Optional[builtins.str]:
@@ -25565,7 +22492,7 @@ class CfnChannel(
             self,
             *,
             audio_rendition_sets: typing.Optional[builtins.str] = None,
-            m3_u8_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.M3u8SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            m3_u8_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.M3u8SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of an HLS output that is a standard output (not an audio-only output).
 
@@ -25632,13 +22559,13 @@ class CfnChannel(
         @builtins.property
         def m3_u8_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M3u8SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M3u8SettingsProperty"]]:
             '''Settings for the M3U8 container.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-standardhlssettings.html#cfn-medialive-channel-standardhlssettings-m3u8settings
             '''
             result = self._values.get("m3_u8_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M3u8SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M3u8SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -25663,7 +22590,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            key_provider_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            key_provider_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             static_key_value: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The static key settings.
@@ -25704,13 +22631,13 @@ class CfnChannel(
         @builtins.property
         def key_provider_server(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]]:
             '''The URL of the license server that is used for protecting content.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-statickeysettings.html#cfn-medialive-channel-statickeysettings-keyproviderserver
             '''
             result = self._values.get("key_provider_server")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.InputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputLocationProperty"]], result)
 
         @builtins.property
         def static_key_value(self) -> typing.Optional[builtins.str]:
@@ -25776,7 +22703,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            output_rectangle: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionRectangleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            output_rectangle: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionRectangleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             page_number: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Information about the Teletext captions to extract from the input.
@@ -25818,13 +22745,13 @@ class CfnChannel(
         @builtins.property
         def output_rectangle(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionRectangleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionRectangleProperty"]]:
             '''Settings to configure the caption rectangle for an output captions that will be created using this Teletext source captions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-teletextsourcesettings.html#cfn-medialive-channel-teletextsourcesettings-outputrectangle
             '''
             result = self._values.get("output_rectangle")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionRectangleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CaptionRectangleProperty"]], result)
 
         @builtins.property
         def page_number(self) -> typing.Optional[builtins.str]:
@@ -26203,7 +23130,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            m2_ts_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            m2_ts_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of a UDP output.
 
@@ -26294,13 +23221,13 @@ class CfnChannel(
         @builtins.property
         def m2_ts_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M2tsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]]:
             '''The M2TS configuration for this UDP output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpcontainersettings.html#cfn-medialive-channel-udpcontainersettings-m2tssettings
             '''
             result = self._values.get("m2_ts_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.M2tsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26421,9 +23348,9 @@ class CfnChannel(
             self,
             *,
             buffer_msec: typing.Optional[jsii.Number] = None,
-            container_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.UdpContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            fec_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FecOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.UdpContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fec_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FecOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for one UDP output.
 
@@ -26548,18 +23475,18 @@ class CfnChannel(
         @builtins.property
         def container_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpContainerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpContainerSettingsProperty"]]:
             '''The settings for the UDP output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpoutputsettings.html#cfn-medialive-channel-udpoutputsettings-containersettings
             '''
             result = self._values.get("container_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.UdpContainerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.UdpContainerSettingsProperty"]], result)
 
         @builtins.property
         def destination(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
             '''The destination address and port number for RTP or UDP packets.
 
             These can be unicast or multicast RTP or UDP (for example, rtp://239.10.10.10:5001 or udp://10.100.100.100:5002).
@@ -26567,18 +23494,18 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpoutputsettings.html#cfn-medialive-channel-udpoutputsettings-destination
             '''
             result = self._values.get("destination")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
 
         @builtins.property
         def fec_output_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FecOutputSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FecOutputSettingsProperty"]]:
             '''The settings for enabling and adjusting Forward Error Correction on UDP outputs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-udpoutputsettings.html#cfn-medialive-channel-udpoutputsettings-fecoutputsettings
             '''
             result = self._values.get("fec_output_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FecOutputSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FecOutputSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26683,11 +23610,11 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            av1_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Av1SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            frame_capture_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.FrameCaptureSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            h264_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H264SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            h265_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.H265SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mpeg2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Mpeg2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            av1_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Av1SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            frame_capture_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            h264_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H264SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            h265_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.H265SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mpeg2_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Mpeg2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for the video codec in the output.
 
@@ -26709,6 +23636,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 # color_space_passthrough_settings: Any
+                # hlg2020_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -26734,12 +23662,15 @@ class CfnChannel(
                         level="level",
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
+                        min_bitrate=123,
                         min_iInterval=123,
                         par_denominator=123,
                         par_numerator=123,
                         qvbr_quality_level=123,
                         rate_control_mode="rateControlMode",
                         scene_change_detect="sceneChangeDetect",
+                        spatial_aq="spatialAq",
+                        temporal_aq="temporalAq",
                         timecode_burnin_settings=medialive.CfnChannel.TimecodeBurninSettingsProperty(
                             font_size="fontSize",
                             position="position",
@@ -26792,6 +23723,7 @@ class CfnChannel(
                         level="level",
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
+                        min_bitrate=123,
                         min_iInterval=123,
                         min_qp=123,
                         num_ref_frames=123,
@@ -26831,6 +23763,7 @@ class CfnChannel(
                                 max_cll=123,
                                 max_fall=123
                             ),
+                            hlg2020_settings=hlg2020_settings,
                             rec601_settings=medialive.CfnChannel.Rec601SettingsProperty(),
                             rec709_settings=medialive.CfnChannel.Rec709SettingsProperty()
                         ),
@@ -26849,12 +23782,15 @@ class CfnChannel(
                         flicker_aq="flickerAq",
                         framerate_denominator=123,
                         framerate_numerator=123,
+                        gop_bReference="gopBReference",
                         gop_closed_cadence=123,
+                        gop_num_bFrames=123,
                         gop_size=123,
                         gop_size_units="gopSizeUnits",
                         level="level",
                         look_ahead_rate_control="lookAheadRateControl",
                         max_bitrate=123,
+                        min_bitrate=123,
                         min_iInterval=123,
                         min_qp=123,
                         mv_over_picture_boundaries="mvOverPictureBoundaries",
@@ -26867,6 +23803,7 @@ class CfnChannel(
                         scan_type="scanType",
                         scene_change_detect="sceneChangeDetect",
                         slices=123,
+                        subgop_length="subgopLength",
                         tier="tier",
                         tile_height=123,
                         tile_padding="tilePadding",
@@ -26931,56 +23868,56 @@ class CfnChannel(
         @builtins.property
         def av1_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Av1SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Av1SettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videocodecsettings.html#cfn-medialive-channel-videocodecsettings-av1settings
             '''
             result = self._values.get("av1_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Av1SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Av1SettingsProperty"]], result)
 
         @builtins.property
         def frame_capture_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureSettingsProperty"]]:
             '''The settings for the video codec in a frame capture output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videocodecsettings.html#cfn-medialive-channel-videocodecsettings-framecapturesettings
             '''
             result = self._values.get("frame_capture_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.FrameCaptureSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.FrameCaptureSettingsProperty"]], result)
 
         @builtins.property
         def h264_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264SettingsProperty"]]:
             '''The settings for the H.264 codec in the output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videocodecsettings.html#cfn-medialive-channel-videocodecsettings-h264settings
             '''
             result = self._values.get("h264_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H264SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H264SettingsProperty"]], result)
 
         @builtins.property
         def h265_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265SettingsProperty"]]:
             '''Settings for video encoded with the H265 codec.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videocodecsettings.html#cfn-medialive-channel-videocodecsettings-h265settings
             '''
             result = self._values.get("h265_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.H265SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.H265SettingsProperty"]], result)
 
         @builtins.property
         def mpeg2_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mpeg2SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mpeg2SettingsProperty"]]:
             '''Settings for video encoded with the MPEG-2 codec.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videocodecsettings.html#cfn-medialive-channel-videocodecsettings-mpeg2settings
             '''
             result = self._values.get("mpeg2_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Mpeg2SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Mpeg2SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27010,7 +23947,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            codec_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoCodecSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            codec_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoCodecSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             height: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
             respond_to_afd: typing.Optional[builtins.str] = None,
@@ -27040,6 +23977,7 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 # color_space_passthrough_settings: Any
+                # hlg2020_settings: Any
                 # rec601_settings: Any
                 # rec709_settings: Any
                 
@@ -27066,12 +24004,15 @@ class CfnChannel(
                             level="level",
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
+                            min_bitrate=123,
                             min_iInterval=123,
                             par_denominator=123,
                             par_numerator=123,
                             qvbr_quality_level=123,
                             rate_control_mode="rateControlMode",
                             scene_change_detect="sceneChangeDetect",
+                            spatial_aq="spatialAq",
+                            temporal_aq="temporalAq",
                             timecode_burnin_settings=medialive.CfnChannel.TimecodeBurninSettingsProperty(
                                 font_size="fontSize",
                                 position="position",
@@ -27124,6 +24065,7 @@ class CfnChannel(
                             level="level",
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
+                            min_bitrate=123,
                             min_iInterval=123,
                             min_qp=123,
                             num_ref_frames=123,
@@ -27163,6 +24105,7 @@ class CfnChannel(
                                     max_cll=123,
                                     max_fall=123
                                 ),
+                                hlg2020_settings=hlg2020_settings,
                                 rec601_settings=medialive.CfnChannel.Rec601SettingsProperty(),
                                 rec709_settings=medialive.CfnChannel.Rec709SettingsProperty()
                             ),
@@ -27181,12 +24124,15 @@ class CfnChannel(
                             flicker_aq="flickerAq",
                             framerate_denominator=123,
                             framerate_numerator=123,
+                            gop_bReference="gopBReference",
                             gop_closed_cadence=123,
+                            gop_num_bFrames=123,
                             gop_size=123,
                             gop_size_units="gopSizeUnits",
                             level="level",
                             look_ahead_rate_control="lookAheadRateControl",
                             max_bitrate=123,
+                            min_bitrate=123,
                             min_iInterval=123,
                             min_qp=123,
                             mv_over_picture_boundaries="mvOverPictureBoundaries",
@@ -27199,6 +24145,7 @@ class CfnChannel(
                             scan_type="scanType",
                             scene_change_detect="sceneChangeDetect",
                             slices=123,
+                            subgop_length="subgopLength",
                             tier="tier",
                             tile_height=123,
                             tile_padding="tilePadding",
@@ -27276,13 +24223,13 @@ class CfnChannel(
         @builtins.property
         def codec_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoCodecSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoCodecSettingsProperty"]]:
             '''The video codec settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videodescription.html#cfn-medialive-channel-videodescription-codecsettings
             '''
             result = self._values.get("codec_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoCodecSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoCodecSettingsProperty"]], result)
 
         @builtins.property
         def height(self) -> typing.Optional[jsii.Number]:
@@ -27370,7 +24317,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            hdr10_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hdr10_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Hdr10SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Settings to configure color space settings in the incoming video.
 
@@ -27404,13 +24351,13 @@ class CfnChannel(
         @builtins.property
         def hdr10_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]]:
             '''Settings to configure color space settings in the incoming video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videoselectorcolorspacesettings.html#cfn-medialive-channel-videoselectorcolorspacesettings-hdr10settings
             '''
             result = self._values.get("hdr10_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.Hdr10SettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.Hdr10SettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27546,9 +24493,9 @@ class CfnChannel(
             self,
             *,
             color_space: typing.Optional[builtins.str] = None,
-            color_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoSelectorColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            color_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoSelectorColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             color_space_usage: typing.Optional[builtins.str] = None,
-            selector_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            selector_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoSelectorSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the video to extract from the input. An input can contain only one video selector.
 
@@ -27617,13 +24564,13 @@ class CfnChannel(
         @builtins.property
         def color_space_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorColorSpaceSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorColorSpaceSettingsProperty"]]:
             '''Settings to configure color space settings in the incoming video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videoselector.html#cfn-medialive-channel-videoselector-colorspacesettings
             '''
             result = self._values.get("color_space_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorColorSpaceSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorColorSpaceSettingsProperty"]], result)
 
         @builtins.property
         def color_space_usage(self) -> typing.Optional[builtins.str]:
@@ -27639,13 +24586,13 @@ class CfnChannel(
         @builtins.property
         def selector_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorSettingsProperty"]]:
             '''Information about the video to select from the content.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videoselector.html#cfn-medialive-channel-videoselector-selectorsettings
             '''
             result = self._values.get("selector_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27670,8 +24617,8 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            video_selector_pid: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoSelectorPidProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            video_selector_program_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.VideoSelectorProgramIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_selector_pid: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoSelectorPidProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_selector_program_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VideoSelectorProgramIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the video to extract from the input.
 
@@ -27711,24 +24658,24 @@ class CfnChannel(
         @builtins.property
         def video_selector_pid(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorPidProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorPidProperty"]]:
             '''Used to extract video by PID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videoselectorsettings.html#cfn-medialive-channel-videoselectorsettings-videoselectorpid
             '''
             result = self._values.get("video_selector_pid")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorPidProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorPidProperty"]], result)
 
         @builtins.property
         def video_selector_program_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorProgramIdProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorProgramIdProperty"]]:
             '''Used to extract video by program ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-videoselectorsettings.html#cfn-medialive-channel-videoselectorsettings-videoselectorprogramid
             '''
             result = self._values.get("video_selector_program_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.VideoSelectorProgramIdProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VideoSelectorProgramIdProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27993,7 +24940,7 @@ class CfnChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IChannelPlacementGroupRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IChannelPlacementGroupRef_838b020d, _ITaggableV2_4e6798f8)
 class CfnChannelPlacementGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -28007,6 +24954,7 @@ class CfnChannelPlacementGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_medialive as medialive
@@ -28024,15 +24972,16 @@ class CfnChannelPlacementGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         cluster_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::ChannelPlacementGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_id: The ID of the cluster the node is on.
@@ -28050,8 +24999,34 @@ class CfnChannelPlacementGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForChannelPlacementGroup")
+    @builtins.classmethod
+    def arn_for_channel_placement_group(
+        cls,
+        resource: "_IChannelPlacementGroupRef_838b020d",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7067b1d102776e476275bf22c6cb79794db38943b69d02eeaad61238c23d8ce3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannelPlacementGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnChannelPlacementGroup")
+    @builtins.classmethod
+    def is_cfn_channel_placement_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnChannelPlacementGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f962202c0982574e93b3e07cb5931c7f40cfa042e8e47b36e592bffe27e89a0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelPlacementGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -28118,9 +25093,9 @@ class CfnChannelPlacementGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -28129,9 +25104,9 @@ class CfnChannelPlacementGroup(
 
     @builtins.property
     @jsii.member(jsii_name="channelPlacementGroupRef")
-    def channel_placement_group_ref(self) -> ChannelPlacementGroupReference:
+    def channel_placement_group_ref(self) -> "_ChannelPlacementGroupReference_35fe6396":
         '''A reference to a ChannelPlacementGroup resource.'''
-        return typing.cast(ChannelPlacementGroupReference, jsii.get(self, "channelPlacementGroupRef"))
+        return typing.cast("_ChannelPlacementGroupReference_35fe6396", jsii.get(self, "channelPlacementGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -28174,19 +25149,434 @@ class CfnChannelPlacementGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A collection of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__118a890b50f622ace96dfd8a053871abf8d40ea0231101b0be89c1be70b22a2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ICloudWatchAlarmTemplateRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnChannelPlacementGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_id": "clusterId",
+        "name": "name",
+        "nodes": "nodes",
+        "tags": "tags",
+    },
+)
+class CfnChannelPlacementGroupProps:
+    def __init__(
+        self,
+        *,
+        cluster_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannelPlacementGroup``.
+
+        :param cluster_id: The ID of the cluster the node is on.
+        :param name: The name of the channel placement group.
+        :param nodes: List of nodes added to the channel placement group.
+        :param tags: A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_channel_placement_group_props = medialive.CfnChannelPlacementGroupProps(
+                cluster_id="clusterId",
+                name="name",
+                nodes=["nodes"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ce3dbbf353a6b42ed802e21eee1f03cbc017e2f2b534fa1bd8b55b29eef4597)
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument nodes", value=nodes, expected_type=type_hints["nodes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cluster_id is not None:
+            self._values["cluster_id"] = cluster_id
+        if name is not None:
+            self._values["name"] = name
+        if nodes is not None:
+            self._values["nodes"] = nodes
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the cluster the node is on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-clusterid
+        '''
+        result = self._values.get("cluster_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the channel placement group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of nodes added to the channel placement group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-nodes
+        '''
+        result = self._values.get("nodes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channelplacementgroup.html#cfn-medialive-channelplacementgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelPlacementGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "anywhere_settings": "anywhereSettings",
+        "cdi_input_specification": "cdiInputSpecification",
+        "channel_class": "channelClass",
+        "channel_engine_version": "channelEngineVersion",
+        "destinations": "destinations",
+        "dry_run": "dryRun",
+        "encoder_settings": "encoderSettings",
+        "input_attachments": "inputAttachments",
+        "input_specification": "inputSpecification",
+        "linked_channel_settings": "linkedChannelSettings",
+        "log_level": "logLevel",
+        "maintenance": "maintenance",
+        "name": "name",
+        "role_arn": "roleArn",
+        "tags": "tags",
+        "vpc": "vpc",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        anywhere_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.AnywhereSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdi_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_class: typing.Optional[builtins.str] = None,
+        channel_engine_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        linked_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LinkedChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_level: typing.Optional[builtins.str] = None,
+        maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MaintenanceCreateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+        vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.VpcOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param anywhere_settings: 
+        :param cdi_input_specification: Specification of CDI inputs for this channel.
+        :param channel_class: The class for this channel. For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
+        :param channel_engine_version: 
+        :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
+        :param dry_run: 
+        :param encoder_settings: The encoding configuration for the output content.
+        :param input_attachments: The list of input attachments for the channel.
+        :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
+        :param linked_channel_settings: 
+        :param log_level: The verbosity for logging activity for this channel. Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
+        :param maintenance: Maintenance settings for this channel.
+        :param name: Name of channel.
+        :param role_arn: The IAM role for MediaLive to assume when running this channel. The role is identified by its ARN.
+        :param tags: A collection of tags for this channel. Each tag is a key-value pair.
+        :param vpc: Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d768ae6ab)
+            check_type(argname="argument anywhere_settings", value=anywhere_settings, expected_type=type_hints["anywhere_settings"])
+            check_type(argname="argument cdi_input_specification", value=cdi_input_specification, expected_type=type_hints["cdi_input_specification"])
+            check_type(argname="argument channel_class", value=channel_class, expected_type=type_hints["channel_class"])
+            check_type(argname="argument channel_engine_version", value=channel_engine_version, expected_type=type_hints["channel_engine_version"])
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument dry_run", value=dry_run, expected_type=type_hints["dry_run"])
+            check_type(argname="argument encoder_settings", value=encoder_settings, expected_type=type_hints["encoder_settings"])
+            check_type(argname="argument input_attachments", value=input_attachments, expected_type=type_hints["input_attachments"])
+            check_type(argname="argument input_specification", value=input_specification, expected_type=type_hints["input_specification"])
+            check_type(argname="argument linked_channel_settings", value=linked_channel_settings, expected_type=type_hints["linked_channel_settings"])
+            check_type(argname="argument log_level", value=log_level, expected_type=type_hints["log_level"])
+            check_type(argname="argument maintenance", value=maintenance, expected_type=type_hints["maintenance"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if anywhere_settings is not None:
+            self._values["anywhere_settings"] = anywhere_settings
+        if cdi_input_specification is not None:
+            self._values["cdi_input_specification"] = cdi_input_specification
+        if channel_class is not None:
+            self._values["channel_class"] = channel_class
+        if channel_engine_version is not None:
+            self._values["channel_engine_version"] = channel_engine_version
+        if destinations is not None:
+            self._values["destinations"] = destinations
+        if dry_run is not None:
+            self._values["dry_run"] = dry_run
+        if encoder_settings is not None:
+            self._values["encoder_settings"] = encoder_settings
+        if input_attachments is not None:
+            self._values["input_attachments"] = input_attachments
+        if input_specification is not None:
+            self._values["input_specification"] = input_specification
+        if linked_channel_settings is not None:
+            self._values["linked_channel_settings"] = linked_channel_settings
+        if log_level is not None:
+            self._values["log_level"] = log_level
+        if maintenance is not None:
+            self._values["maintenance"] = maintenance
+        if name is not None:
+            self._values["name"] = name
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc is not None:
+            self._values["vpc"] = vpc
+
+    @builtins.property
+    def anywhere_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AnywhereSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-anywheresettings
+        '''
+        result = self._values.get("anywhere_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.AnywhereSettingsProperty"]], result)
+
+    @builtins.property
+    def cdi_input_specification(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CdiInputSpecificationProperty"]]:
+        '''Specification of CDI inputs for this channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-cdiinputspecification
+        '''
+        result = self._values.get("cdi_input_specification")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.CdiInputSpecificationProperty"]], result)
+
+    @builtins.property
+    def channel_class(self) -> typing.Optional[builtins.str]:
+        '''The class for this channel.
+
+        For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-channelclass
+        '''
+        result = self._values.get("channel_class")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def channel_engine_version(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-channelengineversion
+        '''
+        result = self._values.get("channel_engine_version")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]], result)
+
+    @builtins.property
+    def destinations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationProperty"]]]]:
+        '''The settings that identify the destination for the outputs in this MediaLive output package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-destinations
+        '''
+        result = self._values.get("destinations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputDestinationProperty"]]]], result)
+
+    @builtins.property
+    def dry_run(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-dryrun
+        '''
+        result = self._values.get("dry_run")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def encoder_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]]:
+        '''The encoding configuration for the output content.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-encodersettings
+        '''
+        result = self._values.get("encoder_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]], result)
+
+    @builtins.property
+    def input_attachments(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputAttachmentProperty"]]]]:
+        '''The list of input attachments for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-inputattachments
+        '''
+        result = self._values.get("input_attachments")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputAttachmentProperty"]]]], result)
+
+    @builtins.property
+    def input_specification(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSpecificationProperty"]]:
+        '''The input specification for this channel.
+
+        It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-inputspecification
+        '''
+        result = self._values.get("input_specification")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSpecificationProperty"]], result)
+
+    @builtins.property
+    def linked_channel_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LinkedChannelSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-linkedchannelsettings
+        '''
+        result = self._values.get("linked_channel_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LinkedChannelSettingsProperty"]], result)
+
+    @builtins.property
+    def log_level(self) -> typing.Optional[builtins.str]:
+        '''The verbosity for logging activity for this channel.
+
+        Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-loglevel
+        '''
+        result = self._values.get("log_level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def maintenance(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MaintenanceCreateSettingsProperty"]]:
+        '''Maintenance settings for this channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-maintenance
+        '''
+        result = self._values.get("maintenance")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MaintenanceCreateSettingsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Name of channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role for MediaLive to assume when running this channel.
+
+        The role is identified by its ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''A collection of tags for this channel.
+
+        Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def vpc(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VpcOutputSettingsProperty"]]:
+        '''Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-vpc
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.VpcOutputSettingsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICloudWatchAlarmTemplateRef_3ddb27d9, _ITaggableV2_4e6798f8)
 class CfnCloudWatchAlarmTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -28227,7 +25617,7 @@ class CfnCloudWatchAlarmTemplate(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         comparison_operator: builtins.str,
@@ -28244,7 +25634,8 @@ class CfnCloudWatchAlarmTemplate(
         group_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::CloudWatchAlarmTemplate``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param comparison_operator: The comparison operator used to compare the specified statistic and the threshold.
@@ -28283,8 +25674,34 @@ class CfnCloudWatchAlarmTemplate(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCloudWatchAlarmTemplate")
+    @builtins.classmethod
+    def arn_for_cloud_watch_alarm_template(
+        cls,
+        resource: "_ICloudWatchAlarmTemplateRef_3ddb27d9",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59bb16d2e37c7b3cf89956e6bb12b9fe033c0ec3ca0796cef5121b6817ba99da)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudWatchAlarmTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnCloudWatchAlarmTemplate")
+    @builtins.classmethod
+    def is_cfn_cloud_watch_alarm_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCloudWatchAlarmTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__173be46c80fee257b89cc39d62db1632b11c7d03902e0fbb1b7af12e7d2b8e98)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudWatchAlarmTemplate", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -28372,9 +25789,9 @@ class CfnCloudWatchAlarmTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -28383,9 +25800,11 @@ class CfnCloudWatchAlarmTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cloudWatchAlarmTemplateRef")
-    def cloud_watch_alarm_template_ref(self) -> CloudWatchAlarmTemplateReference:
+    def cloud_watch_alarm_template_ref(
+        self,
+    ) -> "_CloudWatchAlarmTemplateReference_630afd4a":
         '''A reference to a CloudWatchAlarmTemplate resource.'''
-        return typing.cast(CloudWatchAlarmTemplateReference, jsii.get(self, "cloudWatchAlarmTemplateRef"))
+        return typing.cast("_CloudWatchAlarmTemplateReference_630afd4a", jsii.get(self, "cloudWatchAlarmTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="comparisonOperator")
@@ -28560,7 +25979,7 @@ class CfnCloudWatchAlarmTemplate(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ICloudWatchAlarmTemplateGroupRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _ICloudWatchAlarmTemplateGroupRef_4c344bee, _ITaggableV2_4e6798f8)
 class CfnCloudWatchAlarmTemplateGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -28591,14 +26010,15 @@ class CfnCloudWatchAlarmTemplateGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::CloudWatchAlarmTemplateGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
@@ -28615,8 +26035,34 @@ class CfnCloudWatchAlarmTemplateGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCloudWatchAlarmTemplateGroup")
+    @builtins.classmethod
+    def arn_for_cloud_watch_alarm_template_group(
+        cls,
+        resource: "_ICloudWatchAlarmTemplateGroupRef_4c344bee",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ccc0c4144a5f196953e877bf92ac19764a7f9c3360e6aaa269894a62b740ccbd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCloudWatchAlarmTemplateGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnCloudWatchAlarmTemplateGroup")
+    @builtins.classmethod
+    def is_cfn_cloud_watch_alarm_template_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCloudWatchAlarmTemplateGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8a6976c273ff74c9d8b25ab365a9820292e87b3c1bf39d21375f8b87ac0d561)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCloudWatchAlarmTemplateGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -28693,9 +26139,9 @@ class CfnCloudWatchAlarmTemplateGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -28706,9 +26152,9 @@ class CfnCloudWatchAlarmTemplateGroup(
     @jsii.member(jsii_name="cloudWatchAlarmTemplateGroupRef")
     def cloud_watch_alarm_template_group_ref(
         self,
-    ) -> CloudWatchAlarmTemplateGroupReference:
+    ) -> "_CloudWatchAlarmTemplateGroupReference_c63f8d18":
         '''A reference to a CloudWatchAlarmTemplateGroup resource.'''
-        return typing.cast(CloudWatchAlarmTemplateGroupReference, jsii.get(self, "cloudWatchAlarmTemplateGroupRef"))
+        return typing.cast("_CloudWatchAlarmTemplateGroupReference_c63f8d18", jsii.get(self, "cloudWatchAlarmTemplateGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -28753,7 +26199,369 @@ class CfnCloudWatchAlarmTemplateGroup(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnCloudWatchAlarmTemplateGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnCloudWatchAlarmTemplateGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudWatchAlarmTemplateGroup``.
+
+        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
+        :param description: A resource's optional description.
+        :param tags: Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_cloud_watch_alarm_template_group_props = medialive.CfnCloudWatchAlarmTemplateGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3e0b37fe8763aaae3a1514c03c5199d210b8101eaf7a29e646e417b297c9f2d)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A resource's name.
+
+        Names must be unique within the scope of a resource type in a specific region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A resource's optional description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplategroup.html#cfn-medialive-cloudwatchalarmtemplategroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudWatchAlarmTemplateGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnCloudWatchAlarmTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "comparison_operator": "comparisonOperator",
+        "evaluation_periods": "evaluationPeriods",
+        "metric_name": "metricName",
+        "name": "name",
+        "period": "period",
+        "statistic": "statistic",
+        "target_resource_type": "targetResourceType",
+        "threshold": "threshold",
+        "treat_missing_data": "treatMissingData",
+        "datapoints_to_alarm": "datapointsToAlarm",
+        "description": "description",
+        "group_identifier": "groupIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnCloudWatchAlarmTemplateProps:
+    def __init__(
+        self,
+        *,
+        comparison_operator: builtins.str,
+        evaluation_periods: jsii.Number,
+        metric_name: builtins.str,
+        name: builtins.str,
+        period: jsii.Number,
+        statistic: builtins.str,
+        target_resource_type: builtins.str,
+        threshold: jsii.Number,
+        treat_missing_data: builtins.str,
+        datapoints_to_alarm: typing.Optional[jsii.Number] = None,
+        description: typing.Optional[builtins.str] = None,
+        group_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCloudWatchAlarmTemplate``.
+
+        :param comparison_operator: The comparison operator used to compare the specified statistic and the threshold.
+        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. Default: - 0
+        :param metric_name: The name of the metric associated with the alarm. Must be compatible with targetResourceType.
+        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
+        :param period: The period, in seconds, over which the specified statistic is applied. Default: - 0
+        :param statistic: The statistic to apply to the alarm's metric data.
+        :param target_resource_type: The resource type this template should dynamically generate CloudWatch metric alarms for.
+        :param threshold: The threshold value to compare with the specified statistic. Default: - 0
+        :param treat_missing_data: Specifies how missing data points are treated when evaluating the alarm's condition.
+        :param datapoints_to_alarm: The number of datapoints within the evaluation period that must be breaching to trigger the alarm. Default: - 0
+        :param description: A resource's optional description.
+        :param group_identifier: A cloudwatch alarm template group's identifier. Can be either be its id or current name.
+        :param tags: Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_cloud_watch_alarm_template_props = medialive.CfnCloudWatchAlarmTemplateProps(
+                comparison_operator="comparisonOperator",
+                evaluation_periods=123,
+                metric_name="metricName",
+                name="name",
+                period=123,
+                statistic="statistic",
+                target_resource_type="targetResourceType",
+                threshold=123,
+                treat_missing_data="treatMissingData",
+            
+                # the properties below are optional
+                datapoints_to_alarm=123,
+                description="description",
+                group_identifier="groupIdentifier",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f9937f82f949597524044fa535456d197389d74dc7e674c36adddd3dd1b1671)
+            check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
+            check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+            check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
+            check_type(argname="argument target_resource_type", value=target_resource_type, expected_type=type_hints["target_resource_type"])
+            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+            check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
+            check_type(argname="argument datapoints_to_alarm", value=datapoints_to_alarm, expected_type=type_hints["datapoints_to_alarm"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "comparison_operator": comparison_operator,
+            "evaluation_periods": evaluation_periods,
+            "metric_name": metric_name,
+            "name": name,
+            "period": period,
+            "statistic": statistic,
+            "target_resource_type": target_resource_type,
+            "threshold": threshold,
+            "treat_missing_data": treat_missing_data,
+        }
+        if datapoints_to_alarm is not None:
+            self._values["datapoints_to_alarm"] = datapoints_to_alarm
+        if description is not None:
+            self._values["description"] = description
+        if group_identifier is not None:
+            self._values["group_identifier"] = group_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def comparison_operator(self) -> builtins.str:
+        '''The comparison operator used to compare the specified statistic and the threshold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-comparisonoperator
+        '''
+        result = self._values.get("comparison_operator")
+        assert result is not None, "Required property 'comparison_operator' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def evaluation_periods(self) -> jsii.Number:
+        '''The number of periods over which data is compared to the specified threshold.
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-evaluationperiods
+        '''
+        result = self._values.get("evaluation_periods")
+        assert result is not None, "Required property 'evaluation_periods' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''The name of the metric associated with the alarm.
+
+        Must be compatible with targetResourceType.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-metricname
+        '''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A resource's name.
+
+        Names must be unique within the scope of a resource type in a specific region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def period(self) -> jsii.Number:
+        '''The period, in seconds, over which the specified statistic is applied.
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-period
+        '''
+        result = self._values.get("period")
+        assert result is not None, "Required property 'period' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def statistic(self) -> builtins.str:
+        '''The statistic to apply to the alarm's metric data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-statistic
+        '''
+        result = self._values.get("statistic")
+        assert result is not None, "Required property 'statistic' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_resource_type(self) -> builtins.str:
+        '''The resource type this template should dynamically generate CloudWatch metric alarms for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-targetresourcetype
+        '''
+        result = self._values.get("target_resource_type")
+        assert result is not None, "Required property 'target_resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def threshold(self) -> jsii.Number:
+        '''The threshold value to compare with the specified statistic.
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-threshold
+        '''
+        result = self._values.get("threshold")
+        assert result is not None, "Required property 'threshold' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def treat_missing_data(self) -> builtins.str:
+        '''Specifies how missing data points are treated when evaluating the alarm's condition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-treatmissingdata
+        '''
+        result = self._values.get("treat_missing_data")
+        assert result is not None, "Required property 'treat_missing_data' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
+        '''The number of datapoints within the evaluation period that must be breaching to trigger the alarm.
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-datapointstoalarm
+        '''
+        result = self._values.get("datapoints_to_alarm")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A resource's optional description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def group_identifier(self) -> typing.Optional[builtins.str]:
+        '''A cloudwatch alarm template group's identifier.
+
+        Can be either be its id or current name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-groupidentifier
+        '''
+        result = self._values.get("group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cloudwatchalarmtemplate.html#cfn-medialive-cloudwatchalarmtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCloudWatchAlarmTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IClusterRef_5854fbe7, _ITaggableV2_4e6798f8)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -28767,6 +26575,7 @@ class CfnCluster(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_medialive as medialive
@@ -28791,16 +26600,17 @@ class CfnCluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         cluster_type: typing.Optional[builtins.str] = None,
         instance_role_arn: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        network_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterNetworkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterNetworkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Cluster``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_type: The hardware type for the cluster.
@@ -28823,8 +26633,73 @@ class CfnCluster(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCluster")
+    @builtins.classmethod
+    def arn_for_cluster(cls, resource: "_IClusterRef_5854fbe7") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97f8576463f82528ccb3787e692521505a654f9ee7b98409e009deeae9c31640)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCluster", [resource]))
+
+    @jsii.member(jsii_name="fromClusterArn")
+    @builtins.classmethod
+    def from_cluster_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IClusterRef_5854fbe7":
+        '''Creates a new IClusterRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ace674eb5f9971088c58b6909f16da7a9f745cf84d2bb76adc43523af315735)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IClusterRef_5854fbe7", jsii.sinvoke(cls, "fromClusterArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromClusterId")
+    @builtins.classmethod
+    def from_cluster_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        cluster_id: builtins.str,
+    ) -> "_IClusterRef_5854fbe7":
+        '''Creates a new IClusterRef from a clusterId.
+
+        :param scope: -
+        :param id: -
+        :param cluster_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__370028181a698f0b673da9554bdec75f95f22731d956423079518e13772bd902)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+        return typing.cast("_IClusterRef_5854fbe7", jsii.sinvoke(cls, "fromClusterId", [scope, id, cluster_id]))
+
+    @jsii.member(jsii_name="isCfnCluster")
+    @builtins.classmethod
+    def is_cfn_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04afad0f9a323af0a141ae96e4f029dceedca707aed3ecf4d8c1319942e8f06c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -28891,9 +26766,9 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -28902,9 +26777,9 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
+    def cluster_ref(self) -> "_ClusterReference_4df32298":
         '''A reference to a Cluster resource.'''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+        return typing.cast("_ClusterReference_4df32298", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterType")
@@ -28949,14 +26824,14 @@ class CfnCluster(
     @jsii.member(jsii_name="networkSettings")
     def network_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterNetworkSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkSettingsProperty"]]:
         '''On premises settings which will have the interface network mappings and default Output logical interface.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterNetworkSettingsProperty"]], jsii.get(self, "networkSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkSettingsProperty"]], jsii.get(self, "networkSettings"))
 
     @network_settings.setter
     def network_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterNetworkSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__098126e337c38603a21ea0ab9b314815e2c4744405b67e9d3598a8d2552b189a)
@@ -28965,12 +26840,12 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A collection of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6949245119ce087cfa6fae20097cbdac166d585dea8287cca5c0854be130683)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -28989,7 +26864,7 @@ class CfnCluster(
             self,
             *,
             default_route: typing.Optional[builtins.str] = None,
-            interface_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.InterfaceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            interface_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.InterfaceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''On premises settings which will have the interface network mappings and default Output logical interface.
 
@@ -29035,13 +26910,13 @@ class CfnCluster(
         @builtins.property
         def interface_mappings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.InterfaceMappingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InterfaceMappingProperty"]]]]:
             '''Network mappings for the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-cluster-clusternetworksettings.html#cfn-medialive-cluster-clusternetworksettings-interfacemappings
             '''
             result = self._values.get("interface_mappings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.InterfaceMappingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.InterfaceMappingProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -29128,7 +27003,141 @@ class CfnCluster(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEventBridgeRuleTemplateRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_type": "clusterType",
+        "instance_role_arn": "instanceRoleArn",
+        "name": "name",
+        "network_settings": "networkSettings",
+        "tags": "tags",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        cluster_type: typing.Optional[builtins.str] = None,
+        instance_role_arn: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterNetworkSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param cluster_type: The hardware type for the cluster.
+        :param instance_role_arn: The IAM role your nodes will use.
+        :param name: The user-specified name of the Cluster to be created.
+        :param network_settings: On premises settings which will have the interface network mappings and default Output logical interface.
+        :param tags: A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_cluster_props = medialive.CfnClusterProps(
+                cluster_type="clusterType",
+                instance_role_arn="instanceRoleArn",
+                name="name",
+                network_settings=medialive.CfnCluster.ClusterNetworkSettingsProperty(
+                    default_route="defaultRoute",
+                    interface_mappings=[medialive.CfnCluster.InterfaceMappingProperty(
+                        logical_interface_name="logicalInterfaceName",
+                        network_id="networkId"
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10348c721e1237dd4b7d20ec73dc42084221f4a1916b1ae46f88ff9ad3d5a134)
+            check_type(argname="argument cluster_type", value=cluster_type, expected_type=type_hints["cluster_type"])
+            check_type(argname="argument instance_role_arn", value=instance_role_arn, expected_type=type_hints["instance_role_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_settings", value=network_settings, expected_type=type_hints["network_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cluster_type is not None:
+            self._values["cluster_type"] = cluster_type
+        if instance_role_arn is not None:
+            self._values["instance_role_arn"] = instance_role_arn
+        if name is not None:
+            self._values["name"] = name
+        if network_settings is not None:
+            self._values["network_settings"] = network_settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cluster_type(self) -> typing.Optional[builtins.str]:
+        '''The hardware type for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-clustertype
+        '''
+        result = self._values.get("cluster_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role your nodes will use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-instancerolearn
+        '''
+        result = self._values.get("instance_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The user-specified name of the Cluster to be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkSettingsProperty"]]:
+        '''On premises settings which will have the interface network mappings and default Output logical interface.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-networksettings
+        '''
+        result = self._values.get("network_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterNetworkSettingsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-cluster.html#cfn-medialive-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEventBridgeRuleTemplateRef_93336a40, _ITaggableV2_4e6798f8)
 class CfnEventBridgeRuleTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -29164,17 +27173,18 @@ class CfnEventBridgeRuleTemplate(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         event_type: builtins.str,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        event_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        event_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         group_identifier: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::EventBridgeRuleTemplate``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param event_type: The type of event to match with the rule.
@@ -29199,8 +27209,34 @@ class CfnEventBridgeRuleTemplate(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventBridgeRuleTemplate")
+    @builtins.classmethod
+    def arn_for_event_bridge_rule_template(
+        cls,
+        resource: "_IEventBridgeRuleTemplateRef_93336a40",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7af8309b68d7b8323d9d956a8ce8bf1b835aa9d161f4da32888bc6d452af124b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventBridgeRuleTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnEventBridgeRuleTemplate")
+    @builtins.classmethod
+    def is_cfn_event_bridge_rule_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventBridgeRuleTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba784237f23c36b0dc8496dac2cf45f6b757fcf93eacb65c7507d859d4b2e4ea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventBridgeRuleTemplate", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -29289,9 +27325,9 @@ class CfnEventBridgeRuleTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -29300,9 +27336,11 @@ class CfnEventBridgeRuleTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="eventBridgeRuleTemplateRef")
-    def event_bridge_rule_template_ref(self) -> EventBridgeRuleTemplateReference:
+    def event_bridge_rule_template_ref(
+        self,
+    ) -> "_EventBridgeRuleTemplateReference_9050adf5":
         '''A reference to a EventBridgeRuleTemplate resource.'''
-        return typing.cast(EventBridgeRuleTemplateReference, jsii.get(self, "eventBridgeRuleTemplateRef"))
+        return typing.cast("_EventBridgeRuleTemplateReference_9050adf5", jsii.get(self, "eventBridgeRuleTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventType")
@@ -29347,14 +27385,14 @@ class CfnEventBridgeRuleTemplate(
     @jsii.member(jsii_name="eventTargets")
     def event_targets(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]]:
         '''The destinations that will receive the event notifications.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]], jsii.get(self, "eventTargets"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]], jsii.get(self, "eventTargets"))
 
     @event_targets.setter
     def event_targets(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81bc09a41f6baccaa61b08c48a8e8ca2b1faea6dd9e4d747797a269c5d38ffcd)
@@ -29443,7 +27481,7 @@ class CfnEventBridgeRuleTemplate(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEventBridgeRuleTemplateGroupRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IEventBridgeRuleTemplateGroupRef_f450a1e3, _ITaggableV2_4e6798f8)
 class CfnEventBridgeRuleTemplateGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -29474,14 +27512,15 @@ class CfnEventBridgeRuleTemplateGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::EventBridgeRuleTemplateGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
@@ -29498,8 +27537,34 @@ class CfnEventBridgeRuleTemplateGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventBridgeRuleTemplateGroup")
+    @builtins.classmethod
+    def arn_for_event_bridge_rule_template_group(
+        cls,
+        resource: "_IEventBridgeRuleTemplateGroupRef_f450a1e3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9fb5bf86ee9a3ae12f7fd04d17c182b4d28f1b38d505349d595fdf2d031d84f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventBridgeRuleTemplateGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnEventBridgeRuleTemplateGroup")
+    @builtins.classmethod
+    def is_cfn_event_bridge_rule_template_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventBridgeRuleTemplateGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adfa0e40f85f50ad1f5244df59e3d15f89bfff0aee5db74b75a8f6122a852c2d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventBridgeRuleTemplateGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -29576,9 +27641,9 @@ class CfnEventBridgeRuleTemplateGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -29589,9 +27654,9 @@ class CfnEventBridgeRuleTemplateGroup(
     @jsii.member(jsii_name="eventBridgeRuleTemplateGroupRef")
     def event_bridge_rule_template_group_ref(
         self,
-    ) -> EventBridgeRuleTemplateGroupReference:
+    ) -> "_EventBridgeRuleTemplateGroupReference_e4516a88":
         '''A reference to a EventBridgeRuleTemplateGroup resource.'''
-        return typing.cast(EventBridgeRuleTemplateGroupReference, jsii.get(self, "eventBridgeRuleTemplateGroupRef"))
+        return typing.cast("_EventBridgeRuleTemplateGroupReference_e4516a88", jsii.get(self, "eventBridgeRuleTemplateGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -29636,7 +27701,251 @@ class CfnEventBridgeRuleTemplateGroup(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IInputRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnEventBridgeRuleTemplateGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnEventBridgeRuleTemplateGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventBridgeRuleTemplateGroup``.
+
+        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
+        :param description: A resource's optional description.
+        :param tags: Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_event_bridge_rule_template_group_props = medialive.CfnEventBridgeRuleTemplateGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d5a57a585fec39e65762c277317730448a87c9bbac78b248847233f56b72408)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A resource's name.
+
+        Names must be unique within the scope of a resource type in a specific region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A resource's optional description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplategroup.html#cfn-medialive-eventbridgeruletemplategroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventBridgeRuleTemplateGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnEventBridgeRuleTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_type": "eventType",
+        "name": "name",
+        "description": "description",
+        "event_targets": "eventTargets",
+        "group_identifier": "groupIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnEventBridgeRuleTemplateProps:
+    def __init__(
+        self,
+        *,
+        event_type: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        event_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        group_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventBridgeRuleTemplate``.
+
+        :param event_type: The type of event to match with the rule.
+        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
+        :param description: A resource's optional description.
+        :param event_targets: The destinations that will receive the event notifications.
+        :param group_identifier: An eventbridge rule template group's identifier. Can be either be its id or current name.
+        :param tags: Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_event_bridge_rule_template_props = medialive.CfnEventBridgeRuleTemplateProps(
+                event_type="eventType",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                event_targets=[medialive.CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty(
+                    arn="arn"
+                )],
+                group_identifier="groupIdentifier",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8013ff24e616fad75b238b7af1721d8eaeff80b4bfe4b36eae41f63d216efd1d)
+            check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_targets", value=event_targets, expected_type=type_hints["event_targets"])
+            check_type(argname="argument group_identifier", value=group_identifier, expected_type=type_hints["group_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_type": event_type,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if event_targets is not None:
+            self._values["event_targets"] = event_targets
+        if group_identifier is not None:
+            self._values["group_identifier"] = group_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def event_type(self) -> builtins.str:
+        '''The type of event to match with the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-eventtype
+        '''
+        result = self._values.get("event_type")
+        assert result is not None, "Required property 'event_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A resource's name.
+
+        Names must be unique within the scope of a resource type in a specific region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A resource's optional description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]]:
+        '''The destinations that will receive the event notifications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-eventtargets
+        '''
+        result = self._values.get("event_targets")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty"]]]], result)
+
+    @builtins.property
+    def group_identifier(self) -> typing.Optional[builtins.str]:
+        '''An eventbridge rule template group's identifier.
+
+        Can be either be its id or current name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-groupidentifier
+        '''
+        result = self._values.get("group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-eventbridgeruletemplate.html#cfn-medialive-eventbridgeruletemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventBridgeRuleTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInputRef_78838789, _ITaggable_36806126)
 class CfnInput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -29684,6 +27993,13 @@ class CfnInput(
             ),
             name="name",
             role_arn="roleArn",
+            router_settings=medialive.CfnInput.RouterSettingsProperty(
+                destinations=[medialive.CfnInput.RouterDestinationSettingsProperty(
+                    availability_zone_name="availabilityZoneName"
+                )],
+                encryption_type="encryptionType",
+                secret_arn="secretArn"
+            ),
             sdi_sources=["sdiSources"],
             smpte2110_receiver_group_settings=medialive.CfnInput.Smpte2110ReceiverGroupSettingsProperty(
                 smpte2110_receiver_groups=[medialive.CfnInput.Smpte2110ReceiverGroupProperty(
@@ -29731,26 +28047,28 @@ class CfnInput(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputDestinationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        input_devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputDeviceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDestinationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_devices: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDeviceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         input_network_location: typing.Optional[builtins.str] = None,
         input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        media_connect_flows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.MediaConnectFlowRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        multicast_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.MulticastSettingsCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        media_connect_flows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.MediaConnectFlowRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multicast_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.MulticastSettingsCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
+        router_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.RouterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        smpte2110_receiver_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.Smpte2110ReceiverGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        srt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.SrtSettingsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        smpte2110_receiver_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.Smpte2110ReceiverGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        srt_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtSettingsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Any = None,
         type: typing.Optional[builtins.str] = None,
-        vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputVpcRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputVpcRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Input``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param destinations: Settings that apply only if the input is a push type of input.
@@ -29761,6 +28079,7 @@ class CfnInput(
         :param multicast_settings: 
         :param name: A name for the input.
         :param role_arn: The IAM role for MediaLive to assume when creating a MediaConnect input or Amazon VPC input. This doesn't apply to other types of inputs. The role is identified by its ARN.
+        :param router_settings: 
         :param sdi_sources: 
         :param smpte2110_receiver_group_settings: 
         :param sources: Settings that apply only if the input is a pull type of input.
@@ -29782,6 +28101,7 @@ class CfnInput(
             multicast_settings=multicast_settings,
             name=name,
             role_arn=role_arn,
+            router_settings=router_settings,
             sdi_sources=sdi_sources,
             smpte2110_receiver_group_settings=smpte2110_receiver_group_settings,
             sources=sources,
@@ -29793,8 +28113,73 @@ class CfnInput(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForInput")
+    @builtins.classmethod
+    def arn_for_input(cls, resource: "_IInputRef_78838789") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b66ec4bc44c226bcdda59aaab41aa0d363cb9965f0aef59298633b9cc62aade0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInput", [resource]))
+
+    @jsii.member(jsii_name="fromInputArn")
+    @builtins.classmethod
+    def from_input_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IInputRef_78838789":
+        '''Creates a new IInputRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86eaf44b588030c80007f0bc46931e3339f5a52855c099197b6caf381a6e060e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IInputRef_78838789", jsii.sinvoke(cls, "fromInputArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromInputId")
+    @builtins.classmethod
+    def from_input_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        input_id: builtins.str,
+    ) -> "_IInputRef_78838789":
+        '''Creates a new IInputRef from a inputId.
+
+        :param scope: -
+        :param id: -
+        :param input_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8316fecd2510b6badfb48fb39122584af592100ba3f5280544b677db7cb76bb9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument input_id", value=input_id, expected_type=type_hints["input_id"])
+        return typing.cast("_IInputRef_78838789", jsii.sinvoke(cls, "fromInputId", [scope, id, input_id]))
+
+    @jsii.member(jsii_name="isCfnInput")
+    @builtins.classmethod
+    def is_cfn_input(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInput.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33a991ee3d8e3ee28665f535938987b74835bd5e0c45aab7cb3578cb68521ad9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInput", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -29872,28 +28257,28 @@ class CfnInput(
 
     @builtins.property
     @jsii.member(jsii_name="inputRef")
-    def input_ref(self) -> InputReference:
+    def input_ref(self) -> "_InputReference_719c752b":
         '''A reference to a Input resource.'''
-        return typing.cast(InputReference, jsii.get(self, "inputRef"))
+        return typing.cast("_InputReference_719c752b", jsii.get(self, "inputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="destinations")
     def destinations(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDestinationRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDestinationRequestProperty"]]]]:
         '''Settings that apply only if the input is a push type of input.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDestinationRequestProperty"]]]], jsii.get(self, "destinations"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDestinationRequestProperty"]]]], jsii.get(self, "destinations"))
 
     @destinations.setter
     def destinations(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDestinationRequestProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDestinationRequestProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cffc80b1792cfd553a18c3073e65c06bd96b5645d7d220d2c0fa6401fddb016)
@@ -29904,14 +28289,14 @@ class CfnInput(
     @jsii.member(jsii_name="inputDevices")
     def input_devices(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDeviceSettingsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDeviceSettingsProperty"]]]]:
         '''Settings that apply only if the input is an Elemental Link input.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDeviceSettingsProperty"]]]], jsii.get(self, "inputDevices"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDeviceSettingsProperty"]]]], jsii.get(self, "inputDevices"))
 
     @input_devices.setter
     def input_devices(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputDeviceSettingsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDeviceSettingsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa854573ca5ff75a03fa7c73c49f967eb050c5f8110cd037bf76b2fac1c1550a)
@@ -29950,14 +28335,14 @@ class CfnInput(
     @jsii.member(jsii_name="mediaConnectFlows")
     def media_connect_flows(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MediaConnectFlowRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MediaConnectFlowRequestProperty"]]]]:
         '''Settings that apply only if the input is a MediaConnect input.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MediaConnectFlowRequestProperty"]]]], jsii.get(self, "mediaConnectFlows"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MediaConnectFlowRequestProperty"]]]], jsii.get(self, "mediaConnectFlows"))
 
     @media_connect_flows.setter
     def media_connect_flows(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MediaConnectFlowRequestProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MediaConnectFlowRequestProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36d69a3eef35821448bd3b7d0186fd6931cde0ba3ed063665c2e4374b869a945)
@@ -29968,13 +28353,13 @@ class CfnInput(
     @jsii.member(jsii_name="multicastSettings")
     def multicast_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSettingsCreateRequestProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSettingsCreateRequestProperty"]], jsii.get(self, "multicastSettings"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSettingsCreateRequestProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSettingsCreateRequestProperty"]], jsii.get(self, "multicastSettings"))
 
     @multicast_settings.setter
     def multicast_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSettingsCreateRequestProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSettingsCreateRequestProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3be032c1c827fbe2f5705ea336074bf1a3ef5655571641de3b73c117673255ac)
@@ -30008,6 +28393,23 @@ class CfnInput(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="routerSettings")
+    def router_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterSettingsProperty"]], jsii.get(self, "routerSettings"))
+
+    @router_settings.setter
+    def router_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb0f3ea0253dcf1dc1606278ef96621bf685640d0f796e05f4ea4df5f93c2417)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "routerSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="sdiSources")
     def sdi_sources(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "sdiSources"))
@@ -30023,13 +28425,13 @@ class CfnInput(
     @jsii.member(jsii_name="smpte2110ReceiverGroupSettings")
     def smpte2110_receiver_group_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]], jsii.get(self, "smpte2110ReceiverGroupSettings"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]], jsii.get(self, "smpte2110ReceiverGroupSettings"))
 
     @smpte2110_receiver_group_settings.setter
     def smpte2110_receiver_group_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9eb61e4c554ab79faf5508611b7e077c83491a6dad8b923d92479d86d72c6b2)
@@ -30040,14 +28442,14 @@ class CfnInput(
     @jsii.member(jsii_name="sources")
     def sources(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSourceRequestProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSourceRequestProperty"]]]]:
         '''Settings that apply only if the input is a pull type of input.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSourceRequestProperty"]]]], jsii.get(self, "sources"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSourceRequestProperty"]]]], jsii.get(self, "sources"))
 
     @sources.setter
     def sources(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSourceRequestProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSourceRequestProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e2140b67b560eb9a66e34c68eb67fd4ee61037201bd2a5b844eaf6d2bcb509a)
@@ -30058,13 +28460,13 @@ class CfnInput(
     @jsii.member(jsii_name="srtSettings")
     def srt_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtSettingsRequestProperty"]]:
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtSettingsRequestProperty"]], jsii.get(self, "srtSettings"))
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtSettingsRequestProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtSettingsRequestProperty"]], jsii.get(self, "srtSettings"))
 
     @srt_settings.setter
     def srt_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtSettingsRequestProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtSettingsRequestProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a4ba24e3c418be19be8d83700db7c5458b9a7b7560b1d9bcb5f371c89a322da3)
@@ -30101,14 +28503,14 @@ class CfnInput(
     @jsii.member(jsii_name="vpc")
     def vpc(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputVpcRequestProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputVpcRequestProperty"]]:
         '''Settings that apply only if the input is an push input where the source is on Amazon VPC.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputVpcRequestProperty"]], jsii.get(self, "vpc"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputVpcRequestProperty"]], jsii.get(self, "vpc"))
 
     @vpc.setter
     def vpc(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputVpcRequestProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputVpcRequestProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__573af095b6f922599f1ad8fe07017e5b0b3c4507ea657c757c3526efa045bac7)
@@ -30130,7 +28532,7 @@ class CfnInput(
             self,
             *,
             network: typing.Optional[builtins.str] = None,
-            network_routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputRequestDestinationRouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_routes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputRequestDestinationRouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             static_ip_address: typing.Optional[builtins.str] = None,
             stream_name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -30189,12 +28591,12 @@ class CfnInput(
         @builtins.property
         def network_routes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputRequestDestinationRouteProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputRequestDestinationRouteProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-inputdestinationrequest.html#cfn-medialive-input-inputdestinationrequest-networkroutes
             '''
             result = self._values.get("network_routes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputRequestDestinationRouteProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputRequestDestinationRouteProperty"]]]], result)
 
         @builtins.property
         def static_ip_address(self) -> typing.Optional[builtins.str]:
@@ -30696,7 +29098,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.MulticastSourceCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.MulticastSourceCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param sources: 
@@ -30727,12 +29129,12 @@ class CfnInput(
         @builtins.property
         def sources(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSourceCreateRequestProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSourceCreateRequestProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-multicastsettingscreaterequest.html#cfn-medialive-input-multicastsettingscreaterequest-sources
             '''
             result = self._values.get("sources")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.MulticastSourceCreateRequestProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSourceCreateRequestProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30813,6 +29215,148 @@ class CfnInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnInput.RouterDestinationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"availability_zone_name": "availabilityZoneName"},
+    )
+    class RouterDestinationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param availability_zone_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routerdestinationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                router_destination_settings_property = medialive.CfnInput.RouterDestinationSettingsProperty(
+                    availability_zone_name="availabilityZoneName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fd76591a032a5ef5639e46859de432497cc94985ec82d35bb41068cba6878f6b)
+                check_type(argname="argument availability_zone_name", value=availability_zone_name, expected_type=type_hints["availability_zone_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone_name is not None:
+                self._values["availability_zone_name"] = availability_zone_name
+
+        @builtins.property
+        def availability_zone_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routerdestinationsettings.html#cfn-medialive-input-routerdestinationsettings-availabilityzonename
+            '''
+            result = self._values.get("availability_zone_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterDestinationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnInput.RouterSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destinations": "destinations",
+            "encryption_type": "encryptionType",
+            "secret_arn": "secretArn",
+        },
+    )
+    class RouterSettingsProperty:
+        def __init__(
+            self,
+            *,
+            destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.RouterDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            encryption_type: typing.Optional[builtins.str] = None,
+            secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param destinations: 
+            :param encryption_type: 
+            :param secret_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                router_settings_property = medialive.CfnInput.RouterSettingsProperty(
+                    destinations=[medialive.CfnInput.RouterDestinationSettingsProperty(
+                        availability_zone_name="availabilityZoneName"
+                    )],
+                    encryption_type="encryptionType",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ce323ecc944c2b41163d06784a86234b6d87b6462d60a348fafd7abe90916f63)
+                check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destinations is not None:
+                self._values["destinations"] = destinations
+            if encryption_type is not None:
+                self._values["encryption_type"] = encryption_type
+            if secret_arn is not None:
+                self._values["secret_arn"] = secret_arn
+
+        @builtins.property
+        def destinations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterDestinationSettingsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routersettings.html#cfn-medialive-input-routersettings-destinations
+            '''
+            result = self._values.get("destinations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterDestinationSettingsProperty"]]]], result)
+
+        @builtins.property
+        def encryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routersettings.html#cfn-medialive-input-routersettings-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routersettings.html#cfn-medialive-input-routersettings-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RouterSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnInput.Smpte2110ReceiverGroupProperty",
         jsii_struct_bases=[],
         name_mapping={"sdp_settings": "sdpSettings"},
@@ -30821,7 +29365,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            sdp_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sdp_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param sdp_settings: 
@@ -30862,12 +29406,12 @@ class CfnInput(
         @builtins.property
         def sdp_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-smpte2110receivergroup.html#cfn-medialive-input-smpte2110receivergroup-sdpsettings
             '''
             result = self._values.get("sdp_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30893,9 +29437,9 @@ class CfnInput(
         def __init__(
             self,
             *,
-            ancillary_sdps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            audio_sdps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            video_sdp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ancillary_sdps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            audio_sdps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            video_sdp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputSdpLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param ancillary_sdps: 
@@ -30942,32 +29486,32 @@ class CfnInput(
         @builtins.property
         def ancillary_sdps(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-smpte2110receivergroupsdpsettings.html#cfn-medialive-input-smpte2110receivergroupsdpsettings-ancillarysdps
             '''
             result = self._values.get("ancillary_sdps")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]]]], result)
 
         @builtins.property
         def audio_sdps(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-smpte2110receivergroupsdpsettings.html#cfn-medialive-input-smpte2110receivergroupsdpsettings-audiosdps
             '''
             result = self._values.get("audio_sdps")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]]]], result)
 
         @builtins.property
         def video_sdp(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-smpte2110receivergroupsdpsettings.html#cfn-medialive-input-smpte2110receivergroupsdpsettings-videosdp
             '''
             result = self._values.get("video_sdp")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.InputSdpLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSdpLocationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30989,7 +29533,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            smpte2110_receiver_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.Smpte2110ReceiverGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            smpte2110_receiver_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.Smpte2110ReceiverGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param smpte2110_receiver_groups: 
@@ -31032,12 +29576,12 @@ class CfnInput(
         @builtins.property
         def smpte2110_receiver_groups(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-smpte2110receivergroupsettings.html#cfn-medialive-input-smpte2110receivergroupsettings-smpte2110receivergroups
             '''
             result = self._values.get("smpte2110_receiver_groups")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.Smpte2110ReceiverGroupProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -31135,7 +29679,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.SrtCallerDecryptionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtCallerDecryptionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             minimum_latency: typing.Optional[jsii.Number] = None,
             srt_listener_address: typing.Optional[builtins.str] = None,
             srt_listener_port: typing.Optional[builtins.str] = None,
@@ -31190,12 +29734,12 @@ class CfnInput(
         @builtins.property
         def decryption(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtCallerDecryptionRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtCallerDecryptionRequestProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtcallersourcerequest.html#cfn-medialive-input-srtcallersourcerequest-decryption
             '''
             result = self._values.get("decryption")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtCallerDecryptionRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtCallerDecryptionRequestProperty"]], result)
 
         @builtins.property
         def minimum_latency(self) -> typing.Optional[jsii.Number]:
@@ -31249,7 +29793,7 @@ class CfnInput(
         def __init__(
             self,
             *,
-            srt_caller_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInput.SrtCallerSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            srt_caller_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtCallerSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param srt_caller_sources: 
@@ -31286,12 +29830,12 @@ class CfnInput(
         @builtins.property
         def srt_caller_sources(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtCallerSourceRequestProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtCallerSourceRequestProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtsettingsrequest.html#cfn-medialive-input-srtsettingsrequest-srtcallersources
             '''
             result = self._values.get("srt_caller_sources")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInput.SrtCallerSourceRequestProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtCallerSourceRequestProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -31305,7 +29849,381 @@ class CfnInput(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IInputSecurityGroupRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnInputProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destinations": "destinations",
+        "input_devices": "inputDevices",
+        "input_network_location": "inputNetworkLocation",
+        "input_security_groups": "inputSecurityGroups",
+        "media_connect_flows": "mediaConnectFlows",
+        "multicast_settings": "multicastSettings",
+        "name": "name",
+        "role_arn": "roleArn",
+        "router_settings": "routerSettings",
+        "sdi_sources": "sdiSources",
+        "smpte2110_receiver_group_settings": "smpte2110ReceiverGroupSettings",
+        "sources": "sources",
+        "srt_settings": "srtSettings",
+        "tags": "tags",
+        "type": "type",
+        "vpc": "vpc",
+    },
+)
+class CfnInputProps:
+    def __init__(
+        self,
+        *,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDestinationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_devices: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputDeviceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        input_network_location: typing.Optional[builtins.str] = None,
+        input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        media_connect_flows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.MediaConnectFlowRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multicast_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.MulticastSettingsCreateRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        router_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.RouterSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        smpte2110_receiver_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.Smpte2110ReceiverGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        srt_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtSettingsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Any = None,
+        type: typing.Optional[builtins.str] = None,
+        vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.InputVpcRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInput``.
+
+        :param destinations: Settings that apply only if the input is a push type of input.
+        :param input_devices: Settings that apply only if the input is an Elemental Link input.
+        :param input_network_location: 
+        :param input_security_groups: The list of input security groups (referenced by IDs) to attach to the input if the input is a push type.
+        :param media_connect_flows: Settings that apply only if the input is a MediaConnect input.
+        :param multicast_settings: 
+        :param name: A name for the input.
+        :param role_arn: The IAM role for MediaLive to assume when creating a MediaConnect input or Amazon VPC input. This doesn't apply to other types of inputs. The role is identified by its ARN.
+        :param router_settings: 
+        :param sdi_sources: 
+        :param smpte2110_receiver_group_settings: 
+        :param sources: Settings that apply only if the input is a pull type of input.
+        :param srt_settings: 
+        :param tags: A collection of tags for this input. Each tag is a key-value pair.
+        :param type: The type for this input.
+        :param vpc: Settings that apply only if the input is an push input where the source is on Amazon VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            # tags: Any
+            
+            cfn_input_props = medialive.CfnInputProps(
+                destinations=[medialive.CfnInput.InputDestinationRequestProperty(
+                    network="network",
+                    network_routes=[medialive.CfnInput.InputRequestDestinationRouteProperty(
+                        cidr="cidr",
+                        gateway="gateway"
+                    )],
+                    static_ip_address="staticIpAddress",
+                    stream_name="streamName"
+                )],
+                input_devices=[medialive.CfnInput.InputDeviceSettingsProperty(
+                    id="id"
+                )],
+                input_network_location="inputNetworkLocation",
+                input_security_groups=["inputSecurityGroups"],
+                media_connect_flows=[medialive.CfnInput.MediaConnectFlowRequestProperty(
+                    flow_arn="flowArn"
+                )],
+                multicast_settings=medialive.CfnInput.MulticastSettingsCreateRequestProperty(
+                    sources=[medialive.CfnInput.MulticastSourceCreateRequestProperty(
+                        source_ip="sourceIp",
+                        url="url"
+                    )]
+                ),
+                name="name",
+                role_arn="roleArn",
+                router_settings=medialive.CfnInput.RouterSettingsProperty(
+                    destinations=[medialive.CfnInput.RouterDestinationSettingsProperty(
+                        availability_zone_name="availabilityZoneName"
+                    )],
+                    encryption_type="encryptionType",
+                    secret_arn="secretArn"
+                ),
+                sdi_sources=["sdiSources"],
+                smpte2110_receiver_group_settings=medialive.CfnInput.Smpte2110ReceiverGroupSettingsProperty(
+                    smpte2110_receiver_groups=[medialive.CfnInput.Smpte2110ReceiverGroupProperty(
+                        sdp_settings=medialive.CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty(
+                            ancillary_sdps=[medialive.CfnInput.InputSdpLocationProperty(
+                                media_index=123,
+                                sdp_url="sdpUrl"
+                            )],
+                            audio_sdps=[medialive.CfnInput.InputSdpLocationProperty(
+                                media_index=123,
+                                sdp_url="sdpUrl"
+                            )],
+                            video_sdp=medialive.CfnInput.InputSdpLocationProperty(
+                                media_index=123,
+                                sdp_url="sdpUrl"
+                            )
+                        )
+                    )]
+                ),
+                sources=[medialive.CfnInput.InputSourceRequestProperty(
+                    password_param="passwordParam",
+                    url="url",
+                    username="username"
+                )],
+                srt_settings=medialive.CfnInput.SrtSettingsRequestProperty(
+                    srt_caller_sources=[medialive.CfnInput.SrtCallerSourceRequestProperty(
+                        decryption=medialive.CfnInput.SrtCallerDecryptionRequestProperty(
+                            algorithm="algorithm",
+                            passphrase_secret_arn="passphraseSecretArn"
+                        ),
+                        minimum_latency=123,
+                        srt_listener_address="srtListenerAddress",
+                        srt_listener_port="srtListenerPort",
+                        stream_id="streamId"
+                    )]
+                ),
+                tags=tags,
+                type="type",
+                vpc=medialive.CfnInput.InputVpcRequestProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5e4e9b50624e42353cf086c51b3b7174a3d994bf1dc422fe68231305af4a8c7)
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument input_devices", value=input_devices, expected_type=type_hints["input_devices"])
+            check_type(argname="argument input_network_location", value=input_network_location, expected_type=type_hints["input_network_location"])
+            check_type(argname="argument input_security_groups", value=input_security_groups, expected_type=type_hints["input_security_groups"])
+            check_type(argname="argument media_connect_flows", value=media_connect_flows, expected_type=type_hints["media_connect_flows"])
+            check_type(argname="argument multicast_settings", value=multicast_settings, expected_type=type_hints["multicast_settings"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument router_settings", value=router_settings, expected_type=type_hints["router_settings"])
+            check_type(argname="argument sdi_sources", value=sdi_sources, expected_type=type_hints["sdi_sources"])
+            check_type(argname="argument smpte2110_receiver_group_settings", value=smpte2110_receiver_group_settings, expected_type=type_hints["smpte2110_receiver_group_settings"])
+            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            check_type(argname="argument srt_settings", value=srt_settings, expected_type=type_hints["srt_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if destinations is not None:
+            self._values["destinations"] = destinations
+        if input_devices is not None:
+            self._values["input_devices"] = input_devices
+        if input_network_location is not None:
+            self._values["input_network_location"] = input_network_location
+        if input_security_groups is not None:
+            self._values["input_security_groups"] = input_security_groups
+        if media_connect_flows is not None:
+            self._values["media_connect_flows"] = media_connect_flows
+        if multicast_settings is not None:
+            self._values["multicast_settings"] = multicast_settings
+        if name is not None:
+            self._values["name"] = name
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if router_settings is not None:
+            self._values["router_settings"] = router_settings
+        if sdi_sources is not None:
+            self._values["sdi_sources"] = sdi_sources
+        if smpte2110_receiver_group_settings is not None:
+            self._values["smpte2110_receiver_group_settings"] = smpte2110_receiver_group_settings
+        if sources is not None:
+            self._values["sources"] = sources
+        if srt_settings is not None:
+            self._values["srt_settings"] = srt_settings
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+        if vpc is not None:
+            self._values["vpc"] = vpc
+
+    @builtins.property
+    def destinations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDestinationRequestProperty"]]]]:
+        '''Settings that apply only if the input is a push type of input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-destinations
+        '''
+        result = self._values.get("destinations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDestinationRequestProperty"]]]], result)
+
+    @builtins.property
+    def input_devices(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDeviceSettingsProperty"]]]]:
+        '''Settings that apply only if the input is an Elemental Link input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputdevices
+        '''
+        result = self._values.get("input_devices")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputDeviceSettingsProperty"]]]], result)
+
+    @builtins.property
+    def input_network_location(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputnetworklocation
+        '''
+        result = self._values.get("input_network_location")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of input security groups (referenced by IDs) to attach to the input if the input is a push type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-inputsecuritygroups
+        '''
+        result = self._values.get("input_security_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def media_connect_flows(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MediaConnectFlowRequestProperty"]]]]:
+        '''Settings that apply only if the input is a MediaConnect input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-mediaconnectflows
+        '''
+        result = self._values.get("media_connect_flows")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.MediaConnectFlowRequestProperty"]]]], result)
+
+    @builtins.property
+    def multicast_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSettingsCreateRequestProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-multicastsettings
+        '''
+        result = self._values.get("multicast_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.MulticastSettingsCreateRequestProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM role for MediaLive to assume when creating a MediaConnect input or Amazon VPC input.
+
+        This doesn't apply to other types of inputs. The role is identified by its ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def router_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-routersettings
+        '''
+        result = self._values.get("router_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.RouterSettingsProperty"]], result)
+
+    @builtins.property
+    def sdi_sources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-sdisources
+        '''
+        result = self._values.get("sdi_sources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def smpte2110_receiver_group_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-smpte2110receivergroupsettings
+        '''
+        result = self._values.get("smpte2110_receiver_group_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.Smpte2110ReceiverGroupSettingsProperty"]], result)
+
+    @builtins.property
+    def sources(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSourceRequestProperty"]]]]:
+        '''Settings that apply only if the input is a pull type of input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-sources
+        '''
+        result = self._values.get("sources")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.InputSourceRequestProperty"]]]], result)
+
+    @builtins.property
+    def srt_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtSettingsRequestProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-srtsettings
+        '''
+        result = self._values.get("srt_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtSettingsRequestProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''A collection of tags for this input.
+
+        Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type for this input.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputVpcRequestProperty"]]:
+        '''Settings that apply only if the input is an push input where the source is on Amazon VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-input.html#cfn-medialive-input-vpc
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.InputVpcRequestProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInputProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInputSecurityGroupRef_0986c1df, _ITaggable_36806126)
 class CfnInputSecurityGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -31337,13 +30255,14 @@ class CfnInputSecurityGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         tags: typing.Any = None,
-        whitelist_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInputSecurityGroup.InputWhitelistRuleCidrProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        whitelist_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInputSecurityGroup.InputWhitelistRuleCidrProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::InputSecurityGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param tags: A collection of tags for this input security group. Each tag is a key-value pair.
@@ -31357,8 +30276,76 @@ class CfnInputSecurityGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForInputSecurityGroup")
+    @builtins.classmethod
+    def arn_for_input_security_group(
+        cls,
+        resource: "_IInputSecurityGroupRef_0986c1df",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f61f51cb1a58cba3bc0aad76c206860a71f7ed9ee9ad76ac391c0ae59d3e453f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInputSecurityGroup", [resource]))
+
+    @jsii.member(jsii_name="fromInputSecurityGroupArn")
+    @builtins.classmethod
+    def from_input_security_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IInputSecurityGroupRef_0986c1df":
+        '''Creates a new IInputSecurityGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bd4383749cc94ae807145e9ecbbe23a985dccee4195bd0a767b69b9bb87f3ca)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IInputSecurityGroupRef_0986c1df", jsii.sinvoke(cls, "fromInputSecurityGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromInputSecurityGroupId")
+    @builtins.classmethod
+    def from_input_security_group_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        input_security_group_id: builtins.str,
+    ) -> "_IInputSecurityGroupRef_0986c1df":
+        '''Creates a new IInputSecurityGroupRef from a inputSecurityGroupId.
+
+        :param scope: -
+        :param id: -
+        :param input_security_group_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8bfd301f40f6b27720dff328316eae238352bfedaadfbaa30fd7d995e635d634)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument input_security_group_id", value=input_security_group_id, expected_type=type_hints["input_security_group_id"])
+        return typing.cast("_IInputSecurityGroupRef_0986c1df", jsii.sinvoke(cls, "fromInputSecurityGroupId", [scope, id, input_security_group_id]))
+
+    @jsii.member(jsii_name="isCfnInputSecurityGroup")
+    @builtins.classmethod
+    def is_cfn_input_security_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInputSecurityGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__889f2aef2388fed33b94c51c8979a40e58d9cf82b2c1b450b8e8538cbd552ec0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInputSecurityGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -31414,15 +30401,15 @@ class CfnInputSecurityGroup(
 
     @builtins.property
     @jsii.member(jsii_name="inputSecurityGroupRef")
-    def input_security_group_ref(self) -> InputSecurityGroupReference:
+    def input_security_group_ref(self) -> "_InputSecurityGroupReference_35336458":
         '''A reference to a InputSecurityGroup resource.'''
-        return typing.cast(InputSecurityGroupReference, jsii.get(self, "inputSecurityGroupRef"))
+        return typing.cast("_InputSecurityGroupReference_35336458", jsii.get(self, "inputSecurityGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -31441,14 +30428,14 @@ class CfnInputSecurityGroup(
     @jsii.member(jsii_name="whitelistRules")
     def whitelist_rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]]:
         '''The list of IPv4 CIDR addresses to include in the input security group as "allowed" addresses.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]], jsii.get(self, "whitelistRules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]], jsii.get(self, "whitelistRules"))
 
     @whitelist_rules.setter
     def whitelist_rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1d5c5d1eac7f185a969f245cbf8bf734b1b341e4c215a93b8cea44585b6f021)
@@ -31509,7 +30496,86 @@ class CfnInputSecurityGroup(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMultiplexRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnInputSecurityGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"tags": "tags", "whitelist_rules": "whitelistRules"},
+)
+class CfnInputSecurityGroupProps:
+    def __init__(
+        self,
+        *,
+        tags: typing.Any = None,
+        whitelist_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInputSecurityGroup.InputWhitelistRuleCidrProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInputSecurityGroup``.
+
+        :param tags: A collection of tags for this input security group. Each tag is a key-value pair.
+        :param whitelist_rules: The list of IPv4 CIDR addresses to include in the input security group as "allowed" addresses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            # tags: Any
+            
+            cfn_input_security_group_props = medialive.CfnInputSecurityGroupProps(
+                tags=tags,
+                whitelist_rules=[medialive.CfnInputSecurityGroup.InputWhitelistRuleCidrProperty(
+                    cidr="cidr"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc91e6b6fb01d2e6a1928acf9023824675d51e9e0f586d43d61092afdca3bbd0)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument whitelist_rules", value=whitelist_rules, expected_type=type_hints["whitelist_rules"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
+        if whitelist_rules is not None:
+            self._values["whitelist_rules"] = whitelist_rules
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''A collection of tags for this input security group.
+
+        Each tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html#cfn-medialive-inputsecuritygroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def whitelist_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]]:
+        '''The list of IPv4 CIDR addresses to include in the input security group as "allowed" addresses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-inputsecuritygroup.html#cfn-medialive-inputsecuritygroup-whitelistrules
+        '''
+        result = self._values.get("whitelist_rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInputSecurityGroup.InputWhitelistRuleCidrProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInputSecurityGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMultiplexRef_8fc558d0, _ITaggableV2_4e6798f8)
 class CfnMultiplex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -31523,6 +30589,7 @@ class CfnMultiplex(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_medialive as medialive
@@ -31554,16 +30621,17 @@ class CfnMultiplex(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         availability_zones: typing.Sequence[builtins.str],
-        multiplex_settings: typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplex.MultiplexSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        multiplex_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplex.MultiplexSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
-        destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplex.MultiplexOutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplex.MultiplexOutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Multiplex``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param availability_zones: A list of availability zones for the multiplex.
@@ -31586,8 +30654,73 @@ class CfnMultiplex(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMultiplex")
+    @builtins.classmethod
+    def arn_for_multiplex(cls, resource: "_IMultiplexRef_8fc558d0") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29ab4c07dc2bd73bb69f0c0c379e9f8d584a36c1d04e01ef05ec00bfdbccc847)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiplex", [resource]))
+
+    @jsii.member(jsii_name="fromMultiplexArn")
+    @builtins.classmethod
+    def from_multiplex_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IMultiplexRef_8fc558d0":
+        '''Creates a new IMultiplexRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0255c8c208f27c1043881f29c322aae6006b38f1e9653a10b50844699e65041)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IMultiplexRef_8fc558d0", jsii.sinvoke(cls, "fromMultiplexArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromMultiplexId")
+    @builtins.classmethod
+    def from_multiplex_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        multiplex_id: builtins.str,
+    ) -> "_IMultiplexRef_8fc558d0":
+        '''Creates a new IMultiplexRef from a multiplexId.
+
+        :param scope: -
+        :param id: -
+        :param multiplex_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f0b4f1475c2d2609961966c00f209761ff867ee2ad0f09101d4841b50b81ddfe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
+        return typing.cast("_IMultiplexRef_8fc558d0", jsii.sinvoke(cls, "fromMultiplexId", [scope, id, multiplex_id]))
+
+    @jsii.member(jsii_name="isCfnMultiplex")
+    @builtins.classmethod
+    def is_cfn_multiplex(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMultiplex.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44d5c0f0c9efdf318ad2e40cad9bbb5a3e6dacd98c05a99694362ebfe70f91ea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiplex", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -31663,9 +30796,9 @@ class CfnMultiplex(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -31674,9 +30807,9 @@ class CfnMultiplex(
 
     @builtins.property
     @jsii.member(jsii_name="multiplexRef")
-    def multiplex_ref(self) -> MultiplexReference:
+    def multiplex_ref(self) -> "_MultiplexReference_05176fd7":
         '''A reference to a Multiplex resource.'''
-        return typing.cast(MultiplexReference, jsii.get(self, "multiplexRef"))
+        return typing.cast("_MultiplexReference_05176fd7", jsii.get(self, "multiplexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZones")
@@ -31695,14 +30828,14 @@ class CfnMultiplex(
     @jsii.member(jsii_name="multiplexSettings")
     def multiplex_settings(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexSettingsProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexSettingsProperty"]:
         '''Configuration for a multiplex event.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexSettingsProperty"], jsii.get(self, "multiplexSettings"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexSettingsProperty"], jsii.get(self, "multiplexSettings"))
 
     @multiplex_settings.setter
     def multiplex_settings(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexSettingsProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexSettingsProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce2855608a24187a7473607b448e08fb8942be2d21caa404ba1868f0a99b6c90)
@@ -31726,14 +30859,14 @@ class CfnMultiplex(
     @jsii.member(jsii_name="destinations")
     def destinations(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexOutputDestinationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexOutputDestinationProperty"]]]]:
         '''A list of the multiplex output destinations.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexOutputDestinationProperty"]]]], jsii.get(self, "destinations"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexOutputDestinationProperty"]]]], jsii.get(self, "destinations"))
 
     @destinations.setter
     def destinations(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexOutputDestinationProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexOutputDestinationProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4989a725a9ed6430dd6acf9e21056f1e7c9d10e8c1bc9901449c1fb34b59d29b)
@@ -31742,12 +30875,12 @@ class CfnMultiplex(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A collection of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2391218d45da78d7d7a00830023efa7328947a64cd54595c0c575bf450f1ad83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -31819,7 +30952,7 @@ class CfnMultiplex(
         def __init__(
             self,
             *,
-            multiplex_media_connect_output_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            multiplex_media_connect_output_destination_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Multiplex output destination settings.
 
@@ -31850,13 +30983,13 @@ class CfnMultiplex(
         @builtins.property
         def multiplex_media_connect_output_destination_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty"]]:
             '''Multiplex MediaConnect output destination settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplex-multiplexoutputdestination.html#cfn-medialive-multiplex-multiplexoutputdestination-multiplexmediaconnectoutputdestinationsettings
             '''
             result = self._values.get("multiplex_media_connect_output_destination_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -31980,7 +31113,151 @@ class CfnMultiplex(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMultiplexprogramRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnMultiplexProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zones": "availabilityZones",
+        "multiplex_settings": "multiplexSettings",
+        "name": "name",
+        "destinations": "destinations",
+        "tags": "tags",
+    },
+)
+class CfnMultiplexProps:
+    def __init__(
+        self,
+        *,
+        availability_zones: typing.Sequence[builtins.str],
+        multiplex_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplex.MultiplexSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplex.MultiplexOutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMultiplex``.
+
+        :param availability_zones: A list of availability zones for the multiplex.
+        :param multiplex_settings: Configuration for a multiplex event.
+        :param name: The name of the multiplex.
+        :param destinations: A list of the multiplex output destinations.
+        :param tags: A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_multiplex_props = medialive.CfnMultiplexProps(
+                availability_zones=["availabilityZones"],
+                multiplex_settings=medialive.CfnMultiplex.MultiplexSettingsProperty(
+                    transport_stream_bitrate=123,
+                    transport_stream_id=123,
+            
+                    # the properties below are optional
+                    maximum_video_buffer_delay_milliseconds=123,
+                    transport_stream_reserved_bitrate=123
+                ),
+                name="name",
+            
+                # the properties below are optional
+                destinations=[medialive.CfnMultiplex.MultiplexOutputDestinationProperty(
+                    multiplex_media_connect_output_destination_settings=medialive.CfnMultiplex.MultiplexMediaConnectOutputDestinationSettingsProperty(
+                        entitlement_arn="entitlementArn"
+                    )
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6704a902c292c9baa14e9f413dfaa206004c02bc34f7b7596d44253cdcecd075)
+            check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
+            check_type(argname="argument multiplex_settings", value=multiplex_settings, expected_type=type_hints["multiplex_settings"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "availability_zones": availability_zones,
+            "multiplex_settings": multiplex_settings,
+            "name": name,
+        }
+        if destinations is not None:
+            self._values["destinations"] = destinations
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def availability_zones(self) -> typing.List[builtins.str]:
+        '''A list of availability zones for the multiplex.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-availabilityzones
+        '''
+        result = self._values.get("availability_zones")
+        assert result is not None, "Required property 'availability_zones' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def multiplex_settings(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexSettingsProperty"]:
+        '''Configuration for a multiplex event.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-multiplexsettings
+        '''
+        result = self._values.get("multiplex_settings")
+        assert result is not None, "Required property 'multiplex_settings' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexSettingsProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the multiplex.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def destinations(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexOutputDestinationProperty"]]]]:
+        '''A list of the multiplex output destinations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-destinations
+        '''
+        result = self._values.get("destinations")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplex.MultiplexOutputDestinationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplex.html#cfn-medialive-multiplex-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiplexProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMultiplexprogramRef_efafb5b7)
 class CfnMultiplexprogram(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -32044,17 +31321,18 @@ class CfnMultiplexprogram(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         multiplex_id: typing.Optional[builtins.str] = None,
-        multiplex_program_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        packet_identifiers_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        pipeline_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        multiplex_program_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        packet_identifiers_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pipeline_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         preferred_channel_pipeline: typing.Optional[builtins.str] = None,
         program_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Multiplexprogram``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param multiplex_id: The unique id of the multiplex.
@@ -32079,8 +31357,20 @@ class CfnMultiplexprogram(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnMultiplexprogram")
+    @builtins.classmethod
+    def is_cfn_multiplexprogram(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMultiplexprogram.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f90d23d95a0acf70ca29f17ca56841dd12a18fac9475c88670d3e40d96b9f176)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiplexprogram", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -32125,9 +31415,9 @@ class CfnMultiplexprogram(
 
     @builtins.property
     @jsii.member(jsii_name="multiplexprogramRef")
-    def multiplexprogram_ref(self) -> MultiplexprogramReference:
+    def multiplexprogram_ref(self) -> "_MultiplexprogramReference_9c8b3c6d":
         '''A reference to a Multiplexprogram resource.'''
-        return typing.cast(MultiplexprogramReference, jsii.get(self, "multiplexprogramRef"))
+        return typing.cast("_MultiplexprogramReference_9c8b3c6d", jsii.get(self, "multiplexprogramRef"))
 
     @builtins.property
     @jsii.member(jsii_name="multiplexId")
@@ -32146,14 +31436,14 @@ class CfnMultiplexprogram(
     @jsii.member(jsii_name="multiplexProgramSettings")
     def multiplex_program_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]]:
         '''Multiplex Program settings configuration.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]], jsii.get(self, "multiplexProgramSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]], jsii.get(self, "multiplexProgramSettings"))
 
     @multiplex_program_settings.setter
     def multiplex_program_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f632ae0fd00e44b0621aa33b16ea0e78aceb8b3a0dd16e47b0fdff627872a53)
@@ -32164,14 +31454,14 @@ class CfnMultiplexprogram(
     @jsii.member(jsii_name="packetIdentifiersMap")
     def packet_identifiers_map(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]]:
         '''Packet identifiers map for a given Multiplex program.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]], jsii.get(self, "packetIdentifiersMap"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]], jsii.get(self, "packetIdentifiersMap"))
 
     @packet_identifiers_map.setter
     def packet_identifiers_map(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5998eaaa6be93df5d21c91e4f1988628e7b05bfde5293cdc5cc97d358907e789)
@@ -32182,14 +31472,14 @@ class CfnMultiplexprogram(
     @jsii.member(jsii_name="pipelineDetails")
     def pipeline_details(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]]:
         '''Contains information about the current sources for the specified program in the specified multiplex.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]], jsii.get(self, "pipelineDetails"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]], jsii.get(self, "pipelineDetails"))
 
     @pipeline_details.setter
     def pipeline_details(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f19f0b51ba746cbf53f697a5e3f5fc3695fdbb86d18970453f105e18d0fdee6b)
@@ -32245,16 +31535,16 @@ class CfnMultiplexprogram(
         def __init__(
             self,
             *,
-            audio_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-            dvb_sub_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            audio_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            dvb_sub_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
             dvb_teletext_pid: typing.Optional[jsii.Number] = None,
             etv_platform_pid: typing.Optional[jsii.Number] = None,
             etv_signal_pid: typing.Optional[jsii.Number] = None,
-            klv_data_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            klv_data_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
             pcr_pid: typing.Optional[jsii.Number] = None,
             pmt_pid: typing.Optional[jsii.Number] = None,
             private_metadata_pid: typing.Optional[jsii.Number] = None,
-            scte27_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+            scte27_pids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
             scte35_pid: typing.Optional[jsii.Number] = None,
             timed_metadata_pid: typing.Optional[jsii.Number] = None,
             video_pid: typing.Optional[jsii.Number] = None,
@@ -32346,22 +31636,22 @@ class CfnMultiplexprogram(
         @builtins.property
         def audio_pids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap.html#cfn-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap-audiopids
             '''
             result = self._values.get("audio_pids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def dvb_sub_pids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap.html#cfn-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap-dvbsubpids
             '''
             result = self._values.get("dvb_sub_pids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def dvb_teletext_pid(self) -> typing.Optional[jsii.Number]:
@@ -32390,12 +31680,12 @@ class CfnMultiplexprogram(
         @builtins.property
         def klv_data_pids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap.html#cfn-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap-klvdatapids
             '''
             result = self._values.get("klv_data_pids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def pcr_pid(self) -> typing.Optional[jsii.Number]:
@@ -32424,12 +31714,12 @@ class CfnMultiplexprogram(
         @builtins.property
         def scte27_pids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap.html#cfn-medialive-multiplexprogram-multiplexprogrampacketidentifiersmap-scte27pids
             '''
             result = self._values.get("scte27_pids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def scte35_pid(self) -> typing.Optional[jsii.Number]:
@@ -32626,8 +31916,8 @@ class CfnMultiplexprogram(
             *,
             program_number: jsii.Number,
             preferred_channel_pipeline: typing.Optional[builtins.str] = None,
-            service_descriptor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            video_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexVideoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_descriptor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexVideoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Multiplex Program settings configuration.
 
@@ -32702,24 +31992,24 @@ class CfnMultiplexprogram(
         @builtins.property
         def service_descriptor(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty"]]:
             '''Transport stream service descriptor configuration for the Multiplex program.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogramsettings.html#cfn-medialive-multiplexprogram-multiplexprogramsettings-servicedescriptor
             '''
             result = self._values.get("service_descriptor")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty"]], result)
 
         @builtins.property
         def video_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexVideoSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexVideoSettingsProperty"]]:
             '''Program video settings configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexprogramsettings.html#cfn-medialive-multiplexprogram-multiplexprogramsettings-videosettings
             '''
             result = self._values.get("video_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexVideoSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexVideoSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -32836,7 +32126,7 @@ class CfnMultiplexprogram(
             self,
             *,
             constant_bitrate: typing.Optional[jsii.Number] = None,
-            statmux_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            statmux_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The video configuration for each program in a multiplex.
 
@@ -32885,7 +32175,7 @@ class CfnMultiplexprogram(
         @builtins.property
         def statmux_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty"]]:
             '''Statmux rate control settings.
 
             When this field is defined, ConstantBitrate must be undefined.
@@ -32893,7 +32183,7 @@ class CfnMultiplexprogram(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-multiplexprogram-multiplexvideosettings.html#cfn-medialive-multiplexprogram-multiplexvideosettings-statmuxsettings
             '''
             result = self._values.get("statmux_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -32907,7 +32197,192 @@ class CfnMultiplexprogram(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, INetworkRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnMultiplexprogramProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "multiplex_id": "multiplexId",
+        "multiplex_program_settings": "multiplexProgramSettings",
+        "packet_identifiers_map": "packetIdentifiersMap",
+        "pipeline_details": "pipelineDetails",
+        "preferred_channel_pipeline": "preferredChannelPipeline",
+        "program_name": "programName",
+    },
+)
+class CfnMultiplexprogramProps:
+    def __init__(
+        self,
+        *,
+        multiplex_id: typing.Optional[builtins.str] = None,
+        multiplex_program_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        packet_identifiers_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pipeline_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        preferred_channel_pipeline: typing.Optional[builtins.str] = None,
+        program_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMultiplexprogram``.
+
+        :param multiplex_id: The unique id of the multiplex.
+        :param multiplex_program_settings: Multiplex Program settings configuration.
+        :param packet_identifiers_map: Packet identifiers map for a given Multiplex program.
+        :param pipeline_details: Contains information about the current sources for the specified program in the specified multiplex. Keep in mind that each multiplex pipeline connects to both pipelines in a given source channel (the channel identified by the program). But only one of those channel pipelines is ever active at one time.
+        :param preferred_channel_pipeline: Indicates which pipeline is preferred by the multiplex for program ingest. If set to "PIPELINE_0" or "PIPELINE_1" and an unhealthy ingest causes the multiplex to switch to the non-preferred pipeline, it will switch back once that ingest is healthy again. If set to "CURRENTLY_ACTIVE", it will not switch back to the other pipeline based on it recovering to a healthy state, it will only switch if the active pipeline becomes unhealthy.
+        :param program_name: The name of the multiplex program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_multiplexprogram_props = medialive.CfnMultiplexprogramProps(
+                multiplex_id="multiplexId",
+                multiplex_program_settings=medialive.CfnMultiplexprogram.MultiplexProgramSettingsProperty(
+                    program_number=123,
+            
+                    # the properties below are optional
+                    preferred_channel_pipeline="preferredChannelPipeline",
+                    service_descriptor=medialive.CfnMultiplexprogram.MultiplexProgramServiceDescriptorProperty(
+                        provider_name="providerName",
+                        service_name="serviceName"
+                    ),
+                    video_settings=medialive.CfnMultiplexprogram.MultiplexVideoSettingsProperty(
+                        constant_bitrate=123,
+                        statmux_settings=medialive.CfnMultiplexprogram.MultiplexStatmuxVideoSettingsProperty(
+                            maximum_bitrate=123,
+                            minimum_bitrate=123,
+                            priority=123
+                        )
+                    )
+                ),
+                packet_identifiers_map=medialive.CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty(
+                    audio_pids=[123],
+                    dvb_sub_pids=[123],
+                    dvb_teletext_pid=123,
+                    etv_platform_pid=123,
+                    etv_signal_pid=123,
+                    klv_data_pids=[123],
+                    pcr_pid=123,
+                    pmt_pid=123,
+                    private_metadata_pid=123,
+                    scte27_pids=[123],
+                    scte35_pid=123,
+                    timed_metadata_pid=123,
+                    video_pid=123
+                ),
+                pipeline_details=[medialive.CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty(
+                    active_channel_pipeline="activeChannelPipeline",
+                    pipeline_id="pipelineId"
+                )],
+                preferred_channel_pipeline="preferredChannelPipeline",
+                program_name="programName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f73df2de9c8f0593b389bf604ffaf3d1b093165585c8988cb33c99e1826cb730)
+            check_type(argname="argument multiplex_id", value=multiplex_id, expected_type=type_hints["multiplex_id"])
+            check_type(argname="argument multiplex_program_settings", value=multiplex_program_settings, expected_type=type_hints["multiplex_program_settings"])
+            check_type(argname="argument packet_identifiers_map", value=packet_identifiers_map, expected_type=type_hints["packet_identifiers_map"])
+            check_type(argname="argument pipeline_details", value=pipeline_details, expected_type=type_hints["pipeline_details"])
+            check_type(argname="argument preferred_channel_pipeline", value=preferred_channel_pipeline, expected_type=type_hints["preferred_channel_pipeline"])
+            check_type(argname="argument program_name", value=program_name, expected_type=type_hints["program_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if multiplex_id is not None:
+            self._values["multiplex_id"] = multiplex_id
+        if multiplex_program_settings is not None:
+            self._values["multiplex_program_settings"] = multiplex_program_settings
+        if packet_identifiers_map is not None:
+            self._values["packet_identifiers_map"] = packet_identifiers_map
+        if pipeline_details is not None:
+            self._values["pipeline_details"] = pipeline_details
+        if preferred_channel_pipeline is not None:
+            self._values["preferred_channel_pipeline"] = preferred_channel_pipeline
+        if program_name is not None:
+            self._values["program_name"] = program_name
+
+    @builtins.property
+    def multiplex_id(self) -> typing.Optional[builtins.str]:
+        '''The unique id of the multiplex.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-multiplexid
+        '''
+        result = self._values.get("multiplex_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multiplex_program_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]]:
+        '''Multiplex Program settings configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-multiplexprogramsettings
+        '''
+        result = self._values.get("multiplex_program_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramSettingsProperty"]], result)
+
+    @builtins.property
+    def packet_identifiers_map(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]]:
+        '''Packet identifiers map for a given Multiplex program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-packetidentifiersmap
+        '''
+        result = self._values.get("packet_identifiers_map")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty"]], result)
+
+    @builtins.property
+    def pipeline_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]]:
+        '''Contains information about the current sources for the specified program in the specified multiplex.
+
+        Keep in mind that each multiplex pipeline connects to both pipelines in a given source channel (the channel identified by the program). But only one of those channel pipelines is ever active at one time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-pipelinedetails
+        '''
+        result = self._values.get("pipeline_details")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty"]]]], result)
+
+    @builtins.property
+    def preferred_channel_pipeline(self) -> typing.Optional[builtins.str]:
+        '''Indicates which pipeline is preferred by the multiplex for program ingest.
+
+        If set to "PIPELINE_0" or "PIPELINE_1" and an unhealthy ingest causes the multiplex to switch to the non-preferred pipeline,
+        it will switch back once that ingest is healthy again. If set to "CURRENTLY_ACTIVE",
+        it will not switch back to the other pipeline based on it recovering to a healthy state,
+        it will only switch if the active pipeline becomes unhealthy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-preferredchannelpipeline
+        '''
+        result = self._values.get("preferred_channel_pipeline")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def program_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the multiplex program.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-multiplexprogram.html#cfn-medialive-multiplexprogram-programname
+        '''
+        result = self._values.get("program_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiplexprogramProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INetworkRef_08b06309, _ITaggableV2_4e6798f8)
 class CfnNetwork(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -32921,6 +32396,7 @@ class CfnNetwork(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_medialive as medialive
@@ -32945,15 +32421,16 @@ class CfnNetwork(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ip_pools: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNetwork.IpPoolProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ip_pools: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetwork.IpPoolProperty", typing.Dict[builtins.str, typing.Any]]]]],
         name: builtins.str,
-        routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNetwork.RouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        routes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetwork.RouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::Network``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param ip_pools: The list of IP address cidr pools for the network.
@@ -32969,8 +32446,73 @@ class CfnNetwork(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForNetwork")
+    @builtins.classmethod
+    def arn_for_network(cls, resource: "_INetworkRef_08b06309") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e5c8ee7b963d799896a62a293ce5f45986e3430b0fd4e91b6cf8927c7921882)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNetwork", [resource]))
+
+    @jsii.member(jsii_name="fromNetworkArn")
+    @builtins.classmethod
+    def from_network_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_INetworkRef_08b06309":
+        '''Creates a new INetworkRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e9ca7d5b36bf5cf572e225f6d2e7d610fac144debb04f2b697b0b4c10d2fcc0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_INetworkRef_08b06309", jsii.sinvoke(cls, "fromNetworkArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromNetworkId")
+    @builtins.classmethod
+    def from_network_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        network_id: builtins.str,
+    ) -> "_INetworkRef_08b06309":
+        '''Creates a new INetworkRef from a networkId.
+
+        :param scope: -
+        :param id: -
+        :param network_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f09001a20f04eefe74200d88c2a9b4166d00bb7f7db83d92f55b287b5136dc3a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument network_id", value=network_id, expected_type=type_hints["network_id"])
+        return typing.cast("_INetworkRef_08b06309", jsii.sinvoke(cls, "fromNetworkId", [scope, id, network_id]))
+
+    @jsii.member(jsii_name="isCfnNetwork")
+    @builtins.classmethod
+    def is_cfn_network(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNetwork.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5059087f8ffde388ff9d2ca3e7206e9679c96c30f85eca889eb5bd89177b644)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNetwork", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -33035,9 +32577,9 @@ class CfnNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -33046,22 +32588,22 @@ class CfnNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="networkRef")
-    def network_ref(self) -> NetworkReference:
+    def network_ref(self) -> "_NetworkReference_9bd2fbf1":
         '''A reference to a Network resource.'''
-        return typing.cast(NetworkReference, jsii.get(self, "networkRef"))
+        return typing.cast("_NetworkReference_9bd2fbf1", jsii.get(self, "networkRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ipPools")
     def ip_pools(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.IpPoolProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.IpPoolProperty"]]]:
         '''The list of IP address cidr pools for the network.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.IpPoolProperty"]]], jsii.get(self, "ipPools"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.IpPoolProperty"]]], jsii.get(self, "ipPools"))
 
     @ip_pools.setter
     def ip_pools(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.IpPoolProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.IpPoolProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a16694de609dcf785e3a0b74c08911169bb1e60abf6d1fa90b31addb27cb21e)
@@ -33085,14 +32627,14 @@ class CfnNetwork(
     @jsii.member(jsii_name="routes")
     def routes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.RouteProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.RouteProperty"]]]]:
         '''The routes for the network.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.RouteProperty"]]]], jsii.get(self, "routes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.RouteProperty"]]]], jsii.get(self, "routes"))
 
     @routes.setter
     def routes(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNetwork.RouteProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.RouteProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__017e4e8c0a0cc3b92fe85e6c18672449fd5568049d63a9bbe4dbfd12f699f937)
@@ -33101,12 +32643,12 @@ class CfnNetwork(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A collection of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdac98ae314e152c753c645a3736b549c7d17c4e68778eb2be70cf9123f42a34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -33233,7 +32775,129 @@ class CfnNetwork(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ISdiSourceRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnNetworkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ip_pools": "ipPools",
+        "name": "name",
+        "routes": "routes",
+        "tags": "tags",
+    },
+)
+class CfnNetworkProps:
+    def __init__(
+        self,
+        *,
+        ip_pools: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetwork.IpPoolProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        routes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNetwork.RouteProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNetwork``.
+
+        :param ip_pools: The list of IP address cidr pools for the network.
+        :param name: The user-specified name of the Network to be created.
+        :param routes: The routes for the network.
+        :param tags: A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_network_props = medialive.CfnNetworkProps(
+                ip_pools=[medialive.CfnNetwork.IpPoolProperty(
+                    cidr="cidr"
+                )],
+                name="name",
+            
+                # the properties below are optional
+                routes=[medialive.CfnNetwork.RouteProperty(
+                    cidr="cidr",
+                    gateway="gateway"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce051d018b08d63f7635cc8b76953a328599484abcb517746121568d77b7677f)
+            check_type(argname="argument ip_pools", value=ip_pools, expected_type=type_hints["ip_pools"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument routes", value=routes, expected_type=type_hints["routes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ip_pools": ip_pools,
+            "name": name,
+        }
+        if routes is not None:
+            self._values["routes"] = routes
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def ip_pools(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.IpPoolProperty"]]]:
+        '''The list of IP address cidr pools for the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-ippools
+        '''
+        result = self._values.get("ip_pools")
+        assert result is not None, "Required property 'ip_pools' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.IpPoolProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The user-specified name of the Network to be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def routes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.RouteProperty"]]]]:
+        '''The routes for the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-routes
+        '''
+        result = self._values.get("routes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnNetwork.RouteProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-network.html#cfn-medialive-network-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNetworkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISdiSourceRef_7d27da12, _ITaggableV2_4e6798f8)
 class CfnSdiSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -33247,6 +32911,7 @@ class CfnSdiSource(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_medialive as medialive
@@ -33266,15 +32931,16 @@ class CfnSdiSource(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         type: builtins.str,
         mode: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::SdiSource``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the SdiSource.
@@ -33290,8 +32956,73 @@ class CfnSdiSource(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSdiSource")
+    @builtins.classmethod
+    def arn_for_sdi_source(cls, resource: "_ISdiSourceRef_7d27da12") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4d5fd0b35161f4cb39ad755728c2dd293710224aee215e1e856725abb5512d4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSdiSource", [resource]))
+
+    @jsii.member(jsii_name="fromSdiSourceArn")
+    @builtins.classmethod
+    def from_sdi_source_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ISdiSourceRef_7d27da12":
+        '''Creates a new ISdiSourceRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10b9a95d9535e3031ed288f7d5c017b2dcdbc73abecc8c358ef4eac9ddee7d05)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ISdiSourceRef_7d27da12", jsii.sinvoke(cls, "fromSdiSourceArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromSdiSourceId")
+    @builtins.classmethod
+    def from_sdi_source_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        sdi_source_id: builtins.str,
+    ) -> "_ISdiSourceRef_7d27da12":
+        '''Creates a new ISdiSourceRef from a sdiSourceId.
+
+        :param scope: -
+        :param id: -
+        :param sdi_source_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3975b7f77d52b9257092c0ac7c1b47dded95096832ea9dcaf6c2e22ada85a234)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument sdi_source_id", value=sdi_source_id, expected_type=type_hints["sdi_source_id"])
+        return typing.cast("_ISdiSourceRef_7d27da12", jsii.sinvoke(cls, "fromSdiSourceId", [scope, id, sdi_source_id]))
+
+    @jsii.member(jsii_name="isCfnSdiSource")
+    @builtins.classmethod
+    def is_cfn_sdi_source(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSdiSource.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a6778be4d32e31e40c65268d148476583fe7c182406c58c2a51efd8bd979019)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSdiSource", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -33358,9 +33089,9 @@ class CfnSdiSource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -33369,9 +33100,9 @@ class CfnSdiSource(
 
     @builtins.property
     @jsii.member(jsii_name="sdiSourceRef")
-    def sdi_source_ref(self) -> SdiSourceReference:
+    def sdi_source_ref(self) -> "_SdiSourceReference_5c2d3018":
         '''A reference to a SdiSource resource.'''
-        return typing.cast(SdiSourceReference, jsii.get(self, "sdiSourceRef"))
+        return typing.cast("_SdiSourceReference_5c2d3018", jsii.get(self, "sdiSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -33414,19 +33145,127 @@ class CfnSdiSource(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A collection of key-value pairs.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3233ba5e2817f9737ce4bf31dd15395077aed12d47190b354e52dcc8abfcc290)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ISignalMapRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnSdiSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "type": "type", "mode": "mode", "tags": "tags"},
+)
+class CfnSdiSourceProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        type: builtins.str,
+        mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSdiSource``.
+
+        :param name: The name of the SdiSource.
+        :param type: The interface mode of the SdiSource.
+        :param mode: The current state of the SdiSource.
+        :param tags: A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_sdi_source_props = medialive.CfnSdiSourceProps(
+                name="name",
+                type="type",
+            
+                # the properties below are optional
+                mode="mode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be3a17037ad4f2f8c80f02e8f3e258e8b7b51dab04d8ad4bc57ce67293c8b88a)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "type": type,
+        }
+        if mode is not None:
+            self._values["mode"] = mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the SdiSource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The interface mode of the SdiSource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional[builtins.str]:
+        '''The current state of the SdiSource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-mode
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A collection of key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-sdisource.html#cfn-medialive-sdisource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSdiSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISignalMapRef_8f1d7eee, _ITaggableV2_4e6798f8)
 class CfnSignalMap(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -33461,7 +33300,7 @@ class CfnSignalMap(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         discovery_entry_point_arn: builtins.str,
@@ -33469,10 +33308,11 @@ class CfnSignalMap(
         cloud_watch_alarm_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        force_rediscovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        force_rediscovery: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaLive::SignalMap``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param discovery_entry_point_arn: A top-level supported Amazon Web Services resource ARN to discover a signal map from.
@@ -33499,8 +33339,31 @@ class CfnSignalMap(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSignalMap")
+    @builtins.classmethod
+    def arn_for_signal_map(cls, resource: "_ISignalMapRef_8f1d7eee") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2598ad505d9f6cb11203d771c9810c8bf61e232fd9a2dee9644f642330377ff6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSignalMap", [resource]))
+
+    @jsii.member(jsii_name="isCfnSignalMap")
+    @builtins.classmethod
+    def is_cfn_signal_map(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSignalMap.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4e8480a2afa64668127d3ae714071e70413541c1748ab95705e67449754381a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSignalMap", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -33576,12 +33439,12 @@ class CfnSignalMap(
 
     @builtins.property
     @jsii.member(jsii_name="attrFailedMediaResourceMap")
-    def attr_failed_media_resource_map(self) -> _IResolvable_da3f097b:
+    def attr_failed_media_resource_map(self) -> "_IResolvable_da3f097b":
         '''A map representing an incomplete AWS media workflow as a graph.
 
         :cloudformationAttribute: FailedMediaResourceMap
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrFailedMediaResourceMap"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrFailedMediaResourceMap"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -33611,21 +33474,21 @@ class CfnSignalMap(
 
     @builtins.property
     @jsii.member(jsii_name="attrLastSuccessfulMonitorDeployment")
-    def attr_last_successful_monitor_deployment(self) -> _IResolvable_da3f097b:
+    def attr_last_successful_monitor_deployment(self) -> "_IResolvable_da3f097b":
         '''Represents the latest successful monitor deployment of a signal map.
 
         :cloudformationAttribute: LastSuccessfulMonitorDeployment
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLastSuccessfulMonitorDeployment"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLastSuccessfulMonitorDeployment"))
 
     @builtins.property
     @jsii.member(jsii_name="attrMediaResourceMap")
-    def attr_media_resource_map(self) -> _IResolvable_da3f097b:
+    def attr_media_resource_map(self) -> "_IResolvable_da3f097b":
         '''A map representing an AWS media workflow as a graph.
 
         :cloudformationAttribute: MediaResourceMap
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrMediaResourceMap"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrMediaResourceMap"))
 
     @builtins.property
     @jsii.member(jsii_name="attrModifiedAt")
@@ -33638,21 +33501,21 @@ class CfnSignalMap(
 
     @builtins.property
     @jsii.member(jsii_name="attrMonitorChangesPendingDeployment")
-    def attr_monitor_changes_pending_deployment(self) -> _IResolvable_da3f097b:
+    def attr_monitor_changes_pending_deployment(self) -> "_IResolvable_da3f097b":
         '''If true, there are pending monitor changes for this signal map that can be deployed.
 
         :cloudformationAttribute: MonitorChangesPendingDeployment
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrMonitorChangesPendingDeployment"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrMonitorChangesPendingDeployment"))
 
     @builtins.property
     @jsii.member(jsii_name="attrMonitorDeployment")
-    def attr_monitor_deployment(self) -> _IResolvable_da3f097b:
+    def attr_monitor_deployment(self) -> "_IResolvable_da3f097b":
         '''Represents the latest monitor deployment of a signal map.
 
         :cloudformationAttribute: MonitorDeployment
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrMonitorDeployment"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrMonitorDeployment"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
@@ -33665,9 +33528,9 @@ class CfnSignalMap(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -33676,9 +33539,9 @@ class CfnSignalMap(
 
     @builtins.property
     @jsii.member(jsii_name="signalMapRef")
-    def signal_map_ref(self) -> SignalMapReference:
+    def signal_map_ref(self) -> "_SignalMapReference_e4433d8b":
         '''A reference to a SignalMap resource.'''
-        return typing.cast(SignalMapReference, jsii.get(self, "signalMapRef"))
+        return typing.cast("_SignalMapReference_e4433d8b", jsii.get(self, "signalMapRef"))
 
     @builtins.property
     @jsii.member(jsii_name="discoveryEntryPointArn")
@@ -33759,14 +33622,14 @@ class CfnSignalMap(
     @jsii.member(jsii_name="forceRediscovery")
     def force_rediscovery(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''If true, will force a rediscovery of a signal map if an unchanged discoveryEntryPointArn is provided.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "forceRediscovery"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "forceRediscovery"))
 
     @force_rediscovery.setter
     def force_rediscovery(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02cc17bbea1544850f88b57a02d082b2aac9d0bb02a19831db9d08ced7318b3c)
@@ -33875,9 +33738,9 @@ class CfnSignalMap(
         def __init__(
             self,
             *,
-            destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalMap.MediaResourceNeighborProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalMap.MediaResourceNeighborProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             name: typing.Optional[builtins.str] = None,
-            sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSignalMap.MediaResourceNeighborProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSignalMap.MediaResourceNeighborProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''An Amazon Web Services resource used in media workflows.
 
@@ -33926,13 +33789,13 @@ class CfnSignalMap(
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalMap.MediaResourceNeighborProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalMap.MediaResourceNeighborProperty"]]]]:
             '''A direct destination neighbor to an Amazon Web Services media resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-signalmap-mediaresource.html#cfn-medialive-signalmap-mediaresource-destinations
             '''
             result = self._values.get("destinations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalMap.MediaResourceNeighborProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalMap.MediaResourceNeighborProperty"]]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -33946,13 +33809,13 @@ class CfnSignalMap(
         @builtins.property
         def sources(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalMap.MediaResourceNeighborProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalMap.MediaResourceNeighborProperty"]]]]:
             '''A direct source neighbor to an Amazon Web Services media resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-signalmap-mediaresource.html#cfn-medialive-signalmap-mediaresource-sources
             '''
             result = self._values.get("sources")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSignalMap.MediaResourceNeighborProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSignalMap.MediaResourceNeighborProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -34124,6 +33987,179 @@ class CfnSignalMap(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_medialive.CfnSignalMapProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "discovery_entry_point_arn": "discoveryEntryPointArn",
+        "name": "name",
+        "cloud_watch_alarm_template_group_identifiers": "cloudWatchAlarmTemplateGroupIdentifiers",
+        "description": "description",
+        "event_bridge_rule_template_group_identifiers": "eventBridgeRuleTemplateGroupIdentifiers",
+        "force_rediscovery": "forceRediscovery",
+        "tags": "tags",
+    },
+)
+class CfnSignalMapProps:
+    def __init__(
+        self,
+        *,
+        discovery_entry_point_arn: builtins.str,
+        name: builtins.str,
+        cloud_watch_alarm_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        force_rediscovery: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSignalMap``.
+
+        :param discovery_entry_point_arn: A top-level supported Amazon Web Services resource ARN to discover a signal map from.
+        :param name: A resource's name. Names must be unique within the scope of a resource type in a specific region.
+        :param cloud_watch_alarm_template_group_identifiers: A cloudwatch alarm template group's identifier. Can be either be its id or current name.
+        :param description: A resource's optional description.
+        :param event_bridge_rule_template_group_identifiers: An eventbridge rule template group's identifier. Can be either be its id or current name.
+        :param force_rediscovery: If true, will force a rediscovery of a signal map if an unchanged discoveryEntryPointArn is provided. Default: - false
+        :param tags: Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_medialive as medialive
+            
+            cfn_signal_map_props = medialive.CfnSignalMapProps(
+                discovery_entry_point_arn="discoveryEntryPointArn",
+                name="name",
+            
+                # the properties below are optional
+                cloud_watch_alarm_template_group_identifiers=["cloudWatchAlarmTemplateGroupIdentifiers"],
+                description="description",
+                event_bridge_rule_template_group_identifiers=["eventBridgeRuleTemplateGroupIdentifiers"],
+                force_rediscovery=False,
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2cd411f3529bdc888717beba54eec356dd7b8ee974cace608d45c1450f0790f)
+            check_type(argname="argument discovery_entry_point_arn", value=discovery_entry_point_arn, expected_type=type_hints["discovery_entry_point_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument cloud_watch_alarm_template_group_identifiers", value=cloud_watch_alarm_template_group_identifiers, expected_type=type_hints["cloud_watch_alarm_template_group_identifiers"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_bridge_rule_template_group_identifiers", value=event_bridge_rule_template_group_identifiers, expected_type=type_hints["event_bridge_rule_template_group_identifiers"])
+            check_type(argname="argument force_rediscovery", value=force_rediscovery, expected_type=type_hints["force_rediscovery"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "discovery_entry_point_arn": discovery_entry_point_arn,
+            "name": name,
+        }
+        if cloud_watch_alarm_template_group_identifiers is not None:
+            self._values["cloud_watch_alarm_template_group_identifiers"] = cloud_watch_alarm_template_group_identifiers
+        if description is not None:
+            self._values["description"] = description
+        if event_bridge_rule_template_group_identifiers is not None:
+            self._values["event_bridge_rule_template_group_identifiers"] = event_bridge_rule_template_group_identifiers
+        if force_rediscovery is not None:
+            self._values["force_rediscovery"] = force_rediscovery
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def discovery_entry_point_arn(self) -> builtins.str:
+        '''A top-level supported Amazon Web Services resource ARN to discover a signal map from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-discoveryentrypointarn
+        '''
+        result = self._values.get("discovery_entry_point_arn")
+        assert result is not None, "Required property 'discovery_entry_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A resource's name.
+
+        Names must be unique within the scope of a resource type in a specific region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cloud_watch_alarm_template_group_identifiers(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''A cloudwatch alarm template group's identifier.
+
+        Can be either be its id or current name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-cloudwatchalarmtemplategroupidentifiers
+        '''
+        result = self._values.get("cloud_watch_alarm_template_group_identifiers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A resource's optional description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_bridge_rule_template_group_identifiers(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''An eventbridge rule template group's identifier.
+
+        Can be either be its id or current name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-eventbridgeruletemplategroupidentifiers
+        '''
+        result = self._values.get("event_bridge_rule_template_group_identifiers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def force_rediscovery(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''If true, will force a rediscovery of a signal map if an unchanged discoveryEntryPointArn is provided.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-forcerediscovery
+        '''
+        result = self._values.get("force_rediscovery")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Represents the tags associated with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-signalmap.html#cfn-medialive-signalmap-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSignalMapProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnChannel",
     "CfnChannelPlacementGroup",
@@ -34153,326 +34189,9 @@ __all__ = [
     "CfnSdiSourceProps",
     "CfnSignalMap",
     "CfnSignalMapProps",
-    "ChannelPlacementGroupReference",
-    "ChannelReference",
-    "CloudWatchAlarmTemplateGroupReference",
-    "CloudWatchAlarmTemplateReference",
-    "ClusterReference",
-    "EventBridgeRuleTemplateGroupReference",
-    "EventBridgeRuleTemplateReference",
-    "IChannelPlacementGroupRef",
-    "IChannelRef",
-    "ICloudWatchAlarmTemplateGroupRef",
-    "ICloudWatchAlarmTemplateRef",
-    "IClusterRef",
-    "IEventBridgeRuleTemplateGroupRef",
-    "IEventBridgeRuleTemplateRef",
-    "IInputRef",
-    "IInputSecurityGroupRef",
-    "IMultiplexRef",
-    "IMultiplexprogramRef",
-    "INetworkRef",
-    "ISdiSourceRef",
-    "ISignalMapRef",
-    "InputReference",
-    "InputSecurityGroupReference",
-    "MultiplexReference",
-    "MultiplexprogramReference",
-    "NetworkReference",
-    "SdiSourceReference",
-    "SignalMapReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__8ce3dbbf353a6b42ed802e21eee1f03cbc017e2f2b534fa1bd8b55b29eef4597(
-    *,
-    cluster_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d768ae6ab(
-    *,
-    anywhere_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AnywhereSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CdiInputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    channel_class: typing.Optional[builtins.str] = None,
-    channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelEngineVersionRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_level: typing.Optional[builtins.str] = None,
-    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MaintenanceCreateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.VpcOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a3e0b37fe8763aaae3a1514c03c5199d210b8101eaf7a29e646e417b297c9f2d(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f9937f82f949597524044fa535456d197389d74dc7e674c36adddd3dd1b1671(
-    *,
-    comparison_operator: builtins.str,
-    evaluation_periods: jsii.Number,
-    metric_name: builtins.str,
-    name: builtins.str,
-    period: jsii.Number,
-    statistic: builtins.str,
-    target_resource_type: builtins.str,
-    threshold: jsii.Number,
-    treat_missing_data: builtins.str,
-    datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    description: typing.Optional[builtins.str] = None,
-    group_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__10348c721e1237dd4b7d20ec73dc42084221f4a1916b1ae46f88ff9ad3d5a134(
-    *,
-    cluster_type: typing.Optional[builtins.str] = None,
-    instance_role_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    network_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterNetworkSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4d5a57a585fec39e65762c277317730448a87c9bbac78b248847233f56b72408(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8013ff24e616fad75b238b7af1721d8eaeff80b4bfe4b36eae41f63d216efd1d(
-    *,
-    event_type: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    event_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    group_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f5e4e9b50624e42353cf086c51b3b7174a3d994bf1dc422fe68231305af4a8c7(
-    *,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDestinationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    input_devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDeviceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    input_network_location: typing.Optional[builtins.str] = None,
-    input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    media_connect_flows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.MediaConnectFlowRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    multicast_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.MulticastSettingsCreateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    smpte2110_receiver_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.Smpte2110ReceiverGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputSourceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    srt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.SrtSettingsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Any = None,
-    type: typing.Optional[builtins.str] = None,
-    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputVpcRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc91e6b6fb01d2e6a1928acf9023824675d51e9e0f586d43d61092afdca3bbd0(
-    *,
-    tags: typing.Any = None,
-    whitelist_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInputSecurityGroup.InputWhitelistRuleCidrProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6704a902c292c9baa14e9f413dfaa206004c02bc34f7b7596d44253cdcecd075(
-    *,
-    availability_zones: typing.Sequence[builtins.str],
-    multiplex_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplex.MultiplexSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplex.MultiplexOutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f73df2de9c8f0593b389bf604ffaf3d1b093165585c8988cb33c99e1826cb730(
-    *,
-    multiplex_id: typing.Optional[builtins.str] = None,
-    multiplex_program_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    packet_identifiers_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pipeline_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    preferred_channel_pipeline: typing.Optional[builtins.str] = None,
-    program_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce051d018b08d63f7635cc8b76953a328599484abcb517746121568d77b7677f(
-    *,
-    ip_pools: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetwork.IpPoolProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    name: builtins.str,
-    routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetwork.RouteProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be3a17037ad4f2f8c80f02e8f3e258e8b7b51dab04d8ad4bc57ce67293c8b88a(
-    *,
-    name: builtins.str,
-    type: builtins.str,
-    mode: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c2cd411f3529bdc888717beba54eec356dd7b8ee974cace608d45c1450f0790f(
-    *,
-    discovery_entry_point_arn: builtins.str,
-    name: builtins.str,
-    cloud_watch_alarm_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    force_rediscovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea8c6f49acedcdbdf07fbcc5aa1ab303898bd4c9e248b0b635fa5eacb7702242(
-    *,
-    channel_placement_group_arn: builtins.str,
-    channel_placement_group_id: builtins.str,
-    cluster_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__883ba931354226437a8187766b958a00f5baccb07c2a799b2de5056fdfe7c6bb(
-    *,
-    channel_arn: builtins.str,
-    channel_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bd08e6b646aa31804da92d939250f43fdad1aec3843dda0710a5b3b5f9915794(
-    *,
-    cloud_watch_alarm_template_group_arn: builtins.str,
-    identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aeefb399b967ac8f3fa31111cdb1c74e46069c577b3e2aabdaf83c22da44dc0e(
-    *,
-    cloud_watch_alarm_template_arn: builtins.str,
-    identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6c3d850ec707ba1867ec3c78032cbf49c45bcbeece403f193907111483741059(
-    *,
-    cluster_arn: builtins.str,
-    cluster_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ac0fe3d330c7f6c8290fca708e1926d86af09b89c0da0257ca36e4e932504670(
-    *,
-    event_bridge_rule_template_group_arn: builtins.str,
-    identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__65df217f4f9364bfa147c8ebeb8bcf7c78c707f1ac1fcadbb7ad90cc25d910c3(
-    *,
-    event_bridge_rule_template_arn: builtins.str,
-    identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a5cd34f262bedd3be2421e91ff5cbd2e0b88d6b957df0a8b50b0816e6021f253(
-    *,
-    input_arn: builtins.str,
-    input_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9dcd7810799013083333644f37f0bdf46b4ae77271f38d7b5beef7621c52fe79(
-    *,
-    input_security_group_arn: builtins.str,
-    input_security_group_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79501bb5a37f12cd96f4c46c3f27bede25689a9203945cb99a54d49d4e25b530(
-    *,
-    multiplex_arn: builtins.str,
-    multiplex_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f0a9e116ca688c57d9556cce3201e564f26b85eb0cb652b3c7dd60c4af86ea46(
-    *,
-    multiplex_id: builtins.str,
-    program_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fa3ec7ffd12960b704d7cf715ca884c7d63e8e340828cbfe44e1da6ced9a50ac(
-    *,
-    network_arn: builtins.str,
-    network_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__935c4abc6dc33896fe97b954e7e76271324fc396b7eb0c24cbda5c35a531fbba(
-    *,
-    sdi_source_arn: builtins.str,
-    sdi_source_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b9807824c74973d5a410e380156883d2357a7f1215154aa52043706b789dca8a(
-    *,
-    identifier: builtins.str,
-    signal_map_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__0060427de31049849d0b954eb2d8f1219de8b4f8164b94cdfa32d6ef2df38d6f(
     scope: _constructs_77d1e7e8.Construct,
@@ -34487,12 +34206,41 @@ def _typecheckingstub__0060427de31049849d0b954eb2d8f1219de8b4f8164b94cdfa32d6ef2
     encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linked_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LinkedChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_level: typing.Optional[builtins.str] = None,
     maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MaintenanceCreateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Any = None,
     vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.VpcOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d55420324497a74500800e56442385fa786171c6a5c0ba683d36d5678287436(
+    resource: _IChannelRef_33237c32,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d2f95218f9095cece7aeb9099434b20ee1d3edda5afb64ec302ef4c5b93c0e5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6b1d9b196e9144183daa21c67b901e170d335ffd5f6d15fb2f36229b0ece372(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97bd1c7e07d2c716f0501f130db911cb9bd0d0f4ecd67269de9baceb33573f6a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34563,6 +34311,12 @@ def _typecheckingstub__0b5259f36c03529b4fadc479e28da22c834a5bc4672f8081bd809f835
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3dc913848b596deda37acf9491bb6e4a8c222dc215d0716e77dfb8b5320568c3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.LinkedChannelSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0fb18d7d630d6ab2d0915e23515972c22653969c3e2ab74e3d5284992dd07c06(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -34624,6 +34378,13 @@ def _typecheckingstub__3438fa867f11ff502b4fa54f1dd5270220ccbbc83de4185add8ae06b3
     drc_profile: typing.Optional[builtins.str] = None,
     lfe_filter: typing.Optional[builtins.str] = None,
     metadata_control: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f35ce75f1f33941348d85275d7dc5d6c728631bea4d0fc0ad49a7bc029ddce29(
+    *,
+    destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34854,12 +34615,15 @@ def _typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884
     level: typing.Optional[builtins.str] = None,
     look_ahead_rate_control: typing.Optional[builtins.str] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
+    min_bitrate: typing.Optional[jsii.Number] = None,
     min_i_interval: typing.Optional[jsii.Number] = None,
     par_denominator: typing.Optional[jsii.Number] = None,
     par_numerator: typing.Optional[jsii.Number] = None,
     qvbr_quality_level: typing.Optional[jsii.Number] = None,
     rate_control_mode: typing.Optional[builtins.str] = None,
     scene_change_detect: typing.Optional[builtins.str] = None,
+    spatial_aq: typing.Optional[builtins.str] = None,
+    temporal_aq: typing.Optional[builtins.str] = None,
     timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimecodeBurninSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -34925,6 +34689,7 @@ def _typecheckingstub__33dec7d6f1bff74983258afde73011d8330c6183129c52e7873c9573a
     shadow_opacity: typing.Optional[jsii.Number] = None,
     shadow_x_offset: typing.Optional[jsii.Number] = None,
     shadow_y_offset: typing.Optional[jsii.Number] = None,
+    subtitle_rows: typing.Optional[builtins.str] = None,
     teletext_grid_control: typing.Optional[builtins.str] = None,
     x_position: typing.Optional[jsii.Number] = None,
     y_position: typing.Optional[jsii.Number] = None,
@@ -35030,6 +34795,7 @@ def _typecheckingstub__a833a02632a589afb5026143cbf8803b2228e0f422ab4c5a2dbf59314
 
 def _typecheckingstub__6fe9142b6885e8776c3e51af0733250a73fcd8e45bb4ec5f866206680352c7eb(
     *,
+    additional_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AdditionalDestinationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CmafIngestCaptionLanguageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id3_behavior: typing.Optional[builtins.str] = None,
@@ -35108,6 +34874,7 @@ def _typecheckingstub__8d5d2ee13f6699d87c134941e50183ecf466b424e0dbd1cc71d92035d
     shadow_opacity: typing.Optional[jsii.Number] = None,
     shadow_x_offset: typing.Optional[jsii.Number] = None,
     shadow_y_offset: typing.Optional[jsii.Number] = None,
+    subtitle_rows: typing.Optional[builtins.str] = None,
     teletext_grid_control: typing.Optional[builtins.str] = None,
     x_position: typing.Optional[jsii.Number] = None,
     y_position: typing.Optional[jsii.Number] = None,
@@ -35273,6 +35040,14 @@ def _typecheckingstub__083543bbfcc983933dcd032f2995caa7a42e85e15332719207408bfbb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__73ed7414fbfd6de6b5ea6d0923c3a3280c4afd5641560c81905241dc399d7bda(
+    *,
+    linked_channel_type: typing.Optional[builtins.str] = None,
+    primary_channel_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__02bd05ffdb6de2491773d7ccb53d8d6f9ffc22520b2423f14dcefad239054595(
     *,
     frame_capture_s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.FrameCaptureS3SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -35366,6 +35141,7 @@ def _typecheckingstub__b5cab7f49556648d7d963fdbb4cfd87845bc6a70172808b1847d7a218
     level: typing.Optional[builtins.str] = None,
     look_ahead_rate_control: typing.Optional[builtins.str] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
+    min_bitrate: typing.Optional[jsii.Number] = None,
     min_i_interval: typing.Optional[jsii.Number] = None,
     min_qp: typing.Optional[jsii.Number] = None,
     num_ref_frames: typing.Optional[jsii.Number] = None,
@@ -35395,6 +35171,7 @@ def _typecheckingstub__32abe461f10992cf69e1043984b274ff5499daba5fe0817221cfab579
     color_space_passthrough_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ColorSpacePassthroughSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dolby_vision81_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DolbyVision81SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hdr10_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Hdr10SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hlg2020_settings: typing.Any = None,
     rec601_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Rec601SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rec709_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Rec709SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -35424,12 +35201,15 @@ def _typecheckingstub__ba24f075b346c08bd6351ec946aa6352e1a32fe09c8751f612abee3e6
     flicker_aq: typing.Optional[builtins.str] = None,
     framerate_denominator: typing.Optional[jsii.Number] = None,
     framerate_numerator: typing.Optional[jsii.Number] = None,
+    gop_b_reference: typing.Optional[builtins.str] = None,
     gop_closed_cadence: typing.Optional[jsii.Number] = None,
+    gop_num_b_frames: typing.Optional[jsii.Number] = None,
     gop_size: typing.Optional[jsii.Number] = None,
     gop_size_units: typing.Optional[builtins.str] = None,
     level: typing.Optional[builtins.str] = None,
     look_ahead_rate_control: typing.Optional[builtins.str] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
+    min_bitrate: typing.Optional[jsii.Number] = None,
     min_i_interval: typing.Optional[jsii.Number] = None,
     min_qp: typing.Optional[jsii.Number] = None,
     mv_over_picture_boundaries: typing.Optional[builtins.str] = None,
@@ -35442,6 +35222,7 @@ def _typecheckingstub__ba24f075b346c08bd6351ec946aa6352e1a32fe09c8751f612abee3e6
     scan_type: typing.Optional[builtins.str] = None,
     scene_change_detect: typing.Optional[builtins.str] = None,
     slices: typing.Optional[jsii.Number] = None,
+    subgop_length: typing.Optional[builtins.str] = None,
     tier: typing.Optional[builtins.str] = None,
     tile_height: typing.Optional[jsii.Number] = None,
     tile_padding: typing.Optional[builtins.str] = None,
@@ -35683,6 +35464,14 @@ def _typecheckingstub__f17a7a3d9400285491546fe3aa2beed1785e9839486a1ca6a046d8ce2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5d6ba52fb648fc46280606d4015f014397662c16f70051073428ed9c13956605(
+    *,
+    follower_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.FollowerChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    primary_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.PrimaryChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__617eef143db398943797d56777c8be418acc28e5691fe00e2c35c23e1fa83760(
     *,
     absent_input_audio_behavior: typing.Optional[builtins.str] = None,
@@ -35816,6 +35605,15 @@ def _typecheckingstub__f3d603bf777a51fcd4a655ef17dcc1a5fa66a4fa5fe69e9918522175d
 def _typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4(
     *,
     caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CaptionLanguageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    id3_behavior: typing.Optional[builtins.str] = None,
+    klv_behavior: typing.Optional[builtins.str] = None,
+    nielsen_id3_behavior: typing.Optional[builtins.str] = None,
+    scte35_type: typing.Optional[builtins.str] = None,
+    segment_length: typing.Optional[jsii.Number] = None,
+    segment_length_units: typing.Optional[builtins.str] = None,
+    timed_metadata_id3_frame: typing.Optional[builtins.str] = None,
+    timed_metadata_id3_period: typing.Optional[jsii.Number] = None,
+    timed_metadata_passthrough: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36086,6 +35884,13 @@ def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b
     rtmp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RtmpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SrtOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     udp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.UdpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7f9686b9d994824ef348763f4747c7f8585da763c6368d1d4b4be0ff70cbfd6(
+    *,
+    linked_channel_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36381,6 +36186,18 @@ def _typecheckingstub__4e243315b7345536389960f25695eb10f1fa9ae011ea703c70b9fbe4c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7067b1d102776e476275bf22c6cb79794db38943b69d02eeaad61238c23d8ce3(
+    resource: _IChannelPlacementGroupRef_838b020d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f962202c0982574e93b3e07cb5931c7f40cfa042e8e47b36e592bffe27e89a0(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7dc59f9af5380ef0917c9d9bea643eb9e0495fd90e51b92ab0a1fe1ffbd1c64c(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -36417,6 +36234,38 @@ def _typecheckingstub__118a890b50f622ace96dfd8a053871abf8d40ea0231101b0be89c1be7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8ce3dbbf353a6b42ed802e21eee1f03cbc017e2f2b534fa1bd8b55b29eef4597(
+    *,
+    cluster_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    nodes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d768ae6ab(
+    *,
+    anywhere_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AnywhereSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CdiInputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_class: typing.Optional[builtins.str] = None,
+    channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelEngineVersionRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linked_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LinkedChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_level: typing.Optional[builtins.str] = None,
+    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MaintenanceCreateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.VpcOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__45035437e2968a9b31025d1394a9a287e6574a026df24f4a216a088dcc43f003(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -36434,6 +36283,18 @@ def _typecheckingstub__45035437e2968a9b31025d1394a9a287e6574a026df24f4a216a088dc
     description: typing.Optional[builtins.str] = None,
     group_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59bb16d2e37c7b3cf89956e6bb12b9fe033c0ec3ca0796cef5121b6817ba99da(
+    resource: _ICloudWatchAlarmTemplateRef_3ddb27d9,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__173be46c80fee257b89cc39d62db1632b11c7d03902e0fbb1b7af12e7d2b8e98(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36539,6 +36400,18 @@ def _typecheckingstub__769f471e86ed89e6f4fa6fc14403c8b76cf6e3859cdb17b42e8a94a27
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ccc0c4144a5f196953e877bf92ac19764a7f9c3360e6aaa269894a62b740ccbd(
+    resource: _ICloudWatchAlarmTemplateGroupRef_4c344bee,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8a6976c273ff74c9d8b25ab365a9820292e87b3c1bf39d21375f8b87ac0d561(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__85f8ab0c90b6d16f3b0be352baa5a966a2901003acba6936edb389a898033b04(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -36569,6 +36442,34 @@ def _typecheckingstub__eb9c5a78725c5618c2f2036860771f9bec6585cc28a7e27e0327a681d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a3e0b37fe8763aaae3a1514c03c5199d210b8101eaf7a29e646e417b297c9f2d(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f9937f82f949597524044fa535456d197389d74dc7e674c36adddd3dd1b1671(
+    *,
+    comparison_operator: builtins.str,
+    evaluation_periods: jsii.Number,
+    metric_name: builtins.str,
+    name: builtins.str,
+    period: jsii.Number,
+    statistic: builtins.str,
+    target_resource_type: builtins.str,
+    threshold: jsii.Number,
+    treat_missing_data: builtins.str,
+    datapoints_to_alarm: typing.Optional[jsii.Number] = None,
+    description: typing.Optional[builtins.str] = None,
+    group_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cafedd699c56a3cba598f1b205d13e464679c1d1f61bfe63b410a4cd15de2cbe(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -36578,6 +36479,34 @@ def _typecheckingstub__cafedd699c56a3cba598f1b205d13e464679c1d1f61bfe63b410a4cd1
     name: typing.Optional[builtins.str] = None,
     network_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterNetworkSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97f8576463f82528ccb3787e692521505a654f9ee7b98409e009deeae9c31640(
+    resource: _IClusterRef_5854fbe7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ace674eb5f9971088c58b6909f16da7a9f745cf84d2bb76adc43523af315735(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__370028181a698f0b673da9554bdec75f95f22731d956423079518e13772bd902(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    cluster_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04afad0f9a323af0a141ae96e4f029dceedca707aed3ecf4d8c1319942e8f06c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36640,6 +36569,17 @@ def _typecheckingstub__c105793283e315457a150f5e63dace4ac477092cbf0f4777697a0377d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__10348c721e1237dd4b7d20ec73dc42084221f4a1916b1ae46f88ff9ad3d5a134(
+    *,
+    cluster_type: typing.Optional[builtins.str] = None,
+    instance_role_arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterNetworkSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__06ba8b7d3f5c4b66de27e1d7ffee2b95483d7167df320d288de8d5fe191f5375(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -36650,6 +36590,18 @@ def _typecheckingstub__06ba8b7d3f5c4b66de27e1d7ffee2b95483d7167df320d288de8d5fe1
     event_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     group_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7af8309b68d7b8323d9d956a8ce8bf1b835aa9d161f4da32888bc6d452af124b(
+    resource: _IEventBridgeRuleTemplateRef_93336a40,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba784237f23c36b0dc8496dac2cf45f6b757fcf93eacb65c7507d859d4b2e4ea(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36720,6 +36672,18 @@ def _typecheckingstub__f6f0ffeb5657c9ee90c999561674e6dfef80b6b6678dd72347dba37b8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c9fb5bf86ee9a3ae12f7fd04d17c182b4d28f1b38d505349d595fdf2d031d84f(
+    resource: _IEventBridgeRuleTemplateGroupRef_f450a1e3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adfa0e40f85f50ad1f5244df59e3d15f89bfff0aee5db74b75a8f6122a852c2d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8d479f26d1c815914ee5d061ec0a9f55aa7313fe318a3574ebb96af63aeadc70(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -36750,6 +36714,27 @@ def _typecheckingstub__a903b2294a7b99169389c909623f53bac899ad56ba51dd2ff3ad2f653
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4d5a57a585fec39e65762c277317730448a87c9bbac78b248847233f56b72408(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8013ff24e616fad75b238b7af1721d8eaeff80b4bfe4b36eae41f63d216efd1d(
+    *,
+    event_type: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    event_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBridgeRuleTemplate.EventBridgeRuleTemplateTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    group_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c37c21db5712f0e670f3144efc99d8c9ed0a67af3bc5d9018df305c7ed3dd1f3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -36762,6 +36747,7 @@ def _typecheckingstub__c37c21db5712f0e670f3144efc99d8c9ed0a67af3bc5d9018df305c7e
     multicast_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.MulticastSettingsCreateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
+    router_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.RouterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     smpte2110_receiver_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.Smpte2110ReceiverGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputSourceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -36769,6 +36755,34 @@ def _typecheckingstub__c37c21db5712f0e670f3144efc99d8c9ed0a67af3bc5d9018df305c7e
     tags: typing.Any = None,
     type: typing.Optional[builtins.str] = None,
     vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputVpcRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b66ec4bc44c226bcdda59aaab41aa0d363cb9965f0aef59298633b9cc62aade0(
+    resource: _IInputRef_78838789,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86eaf44b588030c80007f0bc46931e3339f5a52855c099197b6caf381a6e060e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8316fecd2510b6badfb48fb39122584af592100ba3f5280544b677db7cb76bb9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    input_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33a991ee3d8e3ee28665f535938987b74835bd5e0c45aab7cb3578cb68521ad9(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36829,6 +36843,12 @@ def _typecheckingstub__e6c903e6cb9991ee5f749c3f36cb893dcfc9c3500eafd66dea88a7359
 
 def _typecheckingstub__f27fc34cd2daae9bc688d197b2f17a9be9a91d5deaae844af5f1dc9c7ebc31ca(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb0f3ea0253dcf1dc1606278ef96621bf685640d0f796e05f4ea4df5f93c2417(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInput.RouterSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36954,6 +36974,22 @@ def _typecheckingstub__2e6df72893ce7d89a6f92d69d9db55440192c737e450948d86a7e6e63
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fd76591a032a5ef5639e46859de432497cc94985ec82d35bb41068cba6878f6b(
+    *,
+    availability_zone_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce323ecc944c2b41163d06784a86234b6d87b6462d60a348fafd7abe90916f63(
+    *,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.RouterDestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    encryption_type: typing.Optional[builtins.str] = None,
+    secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e439b3fe47808a945aa11d675bf7807e78bb6123c2ccf728b7f31a2f77ad12e3(
     *,
     sdp_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.Smpte2110ReceiverGroupSdpSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -37003,12 +37039,62 @@ def _typecheckingstub__1f4b72d8f4c8216704b3fd806f90e730a140d0fd89ce7ac7a7b91ce08
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f5e4e9b50624e42353cf086c51b3b7174a3d994bf1dc422fe68231305af4a8c7(
+    *,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDestinationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    input_devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputDeviceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    input_network_location: typing.Optional[builtins.str] = None,
+    input_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    media_connect_flows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.MediaConnectFlowRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    multicast_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.MulticastSettingsCreateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    router_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.RouterSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sdi_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    smpte2110_receiver_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.Smpte2110ReceiverGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputSourceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    srt_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.SrtSettingsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Any = None,
+    type: typing.Optional[builtins.str] = None,
+    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.InputVpcRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__36ebb0545851926b9b6f0c8e07003f5330e537dbc3cb244849ed42ceb55b14b3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     tags: typing.Any = None,
     whitelist_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInputSecurityGroup.InputWhitelistRuleCidrProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f61f51cb1a58cba3bc0aad76c206860a71f7ed9ee9ad76ac391c0ae59d3e453f(
+    resource: _IInputSecurityGroupRef_0986c1df,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bd4383749cc94ae807145e9ecbbe23a985dccee4195bd0a767b69b9bb87f3ca(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bfd301f40f6b27720dff328316eae238352bfedaadfbaa30fd7d995e635d634(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    input_security_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__889f2aef2388fed33b94c51c8979a40e58d9cf82b2c1b450b8e8538cbd552ec0(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37044,6 +37130,14 @@ def _typecheckingstub__a030c17295e511120d15baa09772d94fd8c4856db58d0f3bd773ecf4b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dc91e6b6fb01d2e6a1928acf9023824675d51e9e0f586d43d61092afdca3bbd0(
+    *,
+    tags: typing.Any = None,
+    whitelist_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInputSecurityGroup.InputWhitelistRuleCidrProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9255fd2dfb064346defb8b7a153f0b574e1531ce42a8b94643d2c219b3d36e9b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37053,6 +37147,34 @@ def _typecheckingstub__9255fd2dfb064346defb8b7a153f0b574e1531ce42a8b94643d2c219b
     name: builtins.str,
     destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplex.MultiplexOutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29ab4c07dc2bd73bb69f0c0c379e9f8d584a36c1d04e01ef05ec00bfdbccc847(
+    resource: _IMultiplexRef_8fc558d0,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0255c8c208f27c1043881f29c322aae6006b38f1e9653a10b50844699e65041(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0b4f1475c2d2609961966c00f209761ff867ee2ad0f09101d4841b50b81ddfe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    multiplex_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44d5c0f0c9efdf318ad2e40cad9bbb5a3e6dacd98c05a99694362ebfe70f91ea(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37123,6 +37245,17 @@ def _typecheckingstub__459251b2f0910e0cef06727e247bd7e3eabc41412bd526dfcf77e7215
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6704a902c292c9baa14e9f413dfaa206004c02bc34f7b7596d44253cdcecd075(
+    *,
+    availability_zones: typing.Sequence[builtins.str],
+    multiplex_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplex.MultiplexSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplex.MultiplexOutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1e8cee4de488a1e3af5984f421ac406fb3ce2264e4688ae568997c405d95db9e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37133,6 +37266,12 @@ def _typecheckingstub__1e8cee4de488a1e3af5984f421ac406fb3ce2264e4688ae568997c405
     pipeline_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     preferred_channel_pipeline: typing.Optional[builtins.str] = None,
     program_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f90d23d95a0acf70ca29f17ca56841dd12a18fac9475c88670d3e40d96b9f176(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37247,6 +37386,18 @@ def _typecheckingstub__97bea0267704f0addfd06d5672cbe39ebea79dbcc03e14eb7dd6ebdab
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f73df2de9c8f0593b389bf604ffaf3d1b093165585c8988cb33c99e1826cb730(
+    *,
+    multiplex_id: typing.Optional[builtins.str] = None,
+    multiplex_program_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    packet_identifiers_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramPacketIdentifiersMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pipeline_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiplexprogram.MultiplexProgramPipelineDetailProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    preferred_channel_pipeline: typing.Optional[builtins.str] = None,
+    program_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__583bddbad65360919d723debec6ac90a73fd0b1bf571223e4f8ed7cbdf6a160d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37255,6 +37406,34 @@ def _typecheckingstub__583bddbad65360919d723debec6ac90a73fd0b1bf571223e4f8ed7cbd
     name: builtins.str,
     routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetwork.RouteProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e5c8ee7b963d799896a62a293ce5f45986e3430b0fd4e91b6cf8927c7921882(
+    resource: _INetworkRef_08b06309,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e9ca7d5b36bf5cf572e225f6d2e7d610fac144debb04f2b697b0b4c10d2fcc0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f09001a20f04eefe74200d88c2a9b4166d00bb7f7db83d92f55b287b5136dc3a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    network_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5059087f8ffde388ff9d2ca3e7206e9679c96c30f85eca889eb5bd89177b644(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37310,6 +37489,16 @@ def _typecheckingstub__a5e520733e30474b209d61b7cc8118fb7975f39b1ea7b6af4ffbce992
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ce051d018b08d63f7635cc8b76953a328599484abcb517746121568d77b7677f(
+    *,
+    ip_pools: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetwork.IpPoolProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    routes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNetwork.RouteProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c4329fe5e0c187d59071eb967613803b4ea03a0a770d7f41b39043667c80f573(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37318,6 +37507,34 @@ def _typecheckingstub__c4329fe5e0c187d59071eb967613803b4ea03a0a770d7f41b39043667
     type: builtins.str,
     mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4d5fd0b35161f4cb39ad755728c2dd293710224aee215e1e856725abb5512d4(
+    resource: _ISdiSourceRef_7d27da12,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10b9a95d9535e3031ed288f7d5c017b2dcdbc73abecc8c358ef4eac9ddee7d05(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3975b7f77d52b9257092c0ac7c1b47dded95096832ea9dcaf6c2e22ada85a234(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    sdi_source_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a6778be4d32e31e40c65268d148476583fe7c182406c58c2a51efd8bd979019(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37358,6 +37575,16 @@ def _typecheckingstub__3233ba5e2817f9737ce4bf31dd15395077aed12d47190b354e52dcc8a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be3a17037ad4f2f8c80f02e8f3e258e8b7b51dab04d8ad4bc57ce67293c8b88a(
+    *,
+    name: builtins.str,
+    type: builtins.str,
+    mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e5a3f2dd00a67b6da21630f17b763706a759e7cc9661502a72b136c740a6e094(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -37369,6 +37596,18 @@ def _typecheckingstub__e5a3f2dd00a67b6da21630f17b763706a759e7cc9661502a72b136c74
     event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
     force_rediscovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2598ad505d9f6cb11203d771c9810c8bf61e232fd9a2dee9644f642330377ff6(
+    resource: _ISignalMapRef_8f1d7eee,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4e8480a2afa64668127d3ae714071e70413541c1748ab95705e67449754381a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37457,6 +37696,19 @@ def _typecheckingstub__9317fc441faa2bbf831054a6400c72c65b432c3cea33091ae4241073c
     *,
     details_uri: builtins.str,
     status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2cd411f3529bdc888717beba54eec356dd7b8ee974cace608d45c1450f0790f(
+    *,
+    discovery_entry_point_arn: builtins.str,
+    name: builtins.str,
+    cloud_watch_alarm_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_bridge_rule_template_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    force_rediscovery: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

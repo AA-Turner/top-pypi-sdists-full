@@ -15,11 +15,14 @@ T = TypeVar("T", bound="BranchAll")
 
 @_attrs_define
 class BranchAll:
-    """
-    Attributes:
-        branches (List['BranchAllBranchesItem']):
-        type (BranchAllType):
-        parallel (Union[Unset, bool]):
+    """Parallel branching where all branches execute simultaneously. Unlike BranchOne, all branches run regardless of
+    conditions. Useful for executing independent tasks concurrently
+
+        Attributes:
+            branches (List['BranchAllBranchesItem']): Array of branches that all execute (either in parallel or
+                sequentially)
+            type (BranchAllType):
+            parallel (Union[Unset, bool]): If true, all branches execute concurrently. If false, they execute sequentially
     """
 
     branches: List["BranchAllBranchesItem"]

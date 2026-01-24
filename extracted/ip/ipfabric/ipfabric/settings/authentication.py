@@ -8,14 +8,15 @@ from ipfabric.models.authentication import Credential, Privilege
 from ipfabric.tools.shared import validate_ip_network_str, raise_for_status
 
 logger = logging.getLogger("ipfabric")
+CRED_ERROR = "Creating credentials in a snapshot is not supported."
 
 
 class Authentication(BaseModel):
     client: Any = Field(exclude=True)
     snapshot_id: Optional[str] = Field(None, exclude=True)
     settings: Optional[dict] = Field(None, exclude=True)
-    _credentials: dict[int, Credential] = PrivateAttr(default=dict())
-    _privileges: dict[int, Privilege] = PrivateAttr(default=dict())
+    _credentials: dict[int, Credential] = PrivateAttr(default={})
+    _privileges: dict[int, Privilege] = PrivateAttr(default={})
     _cred_url: ClassVar[str] = "settings/credentials"
     _priv_url: ClassVar[str] = "settings/privileges"
 
@@ -33,10 +34,10 @@ class Authentication(BaseModel):
 
     @model_serializer
     def _ser_model(self) -> dict[str, Any]:
-        return dict(
-            credentials=[_.model_dump(by_alias=True) for _ in self.credentials.values()],
-            privileges=[_.model_dump(by_alias=True) for _ in self.enables.values()],
-        )
+        return {
+            "credentials": [_.model_dump(by_alias=True) for _ in self.credentials.values()],
+            "privileges": [_.model_dump(by_alias=True) for _ in self.enables.values()],
+        }
 
     @property
     def credentials(self) -> dict[int, Credential]:
@@ -79,14 +80,14 @@ class Authentication(BaseModel):
     @staticmethod
     def _create_payload(username, password, notes, network, excluded, expiration):
         networks = network or ["0.0.0.0/0"]
-        excluded = excluded or list()
+        excluded = excluded or []
         if expiration:
-            expires = dict(
-                enabled=True,
-                value=parser.parse(expiration).strftime("%Y-%m-%d %H:%M:%S"),
-            )
+            expires = {
+                "enabled": True,
+                "value": parser.parse(expiration).strftime("%Y-%m-%d %H:%M:%S"),
+            }
         else:
-            expires = dict(enabled=False)
+            expires = {"enabled": False}
         payload = {
             "password": password,
             "username": username,
@@ -151,7 +152,7 @@ class Authentication(BaseModel):
         :return: Credential: Obj: Credential Obj with ID and encrypted password
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
+            raise NotImplementedError(CRED_ERROR)
         payload = self._create_payload(username, password, notes, networks, excluded, expiration)
         payload.update({"syslog": config_mgmt})
         res = raise_for_status(self.client.post(self._cred_url, json=payload))
@@ -212,7 +213,7 @@ class Authentication(BaseModel):
         :return: Privilege: Obj: Privilege Obj with ID and encrypted password
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
+            raise NotImplementedError(CRED_ERROR)
         payload = self._create_payload(username, password, notes, networks, excluded, expiration)
         payload["includeNetworks"] = payload.pop("network")
         res = raise_for_status(self.client.post(self._priv_url, json=payload))
@@ -228,7 +229,7 @@ class Authentication(BaseModel):
         :return:
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
+            raise NotImplementedError(CRED_ERROR)
         cred = credential.credential_id if isinstance(credential, Credential) else credential
         raise_for_status(self.client.request("DELETE", self._cred_url, json=[cred]))
         self.get_credentials()
@@ -242,7 +243,7 @@ class Authentication(BaseModel):
         :return:
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
+            raise NotImplementedError(CRED_ERROR)
         priv = enable.privilege_id if isinstance(enable, Privilege) else enable
         raise_for_status(self.client.request("DELETE", self._priv_url, json=[priv]))
         self.get_enables()
@@ -256,8 +257,8 @@ class Authentication(BaseModel):
         :return: self.credentials: dict: {priority: Credential}
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
-        payload = [dict(id=c.credential_id, priority=p) for p, c in credentials.items()]
+            raise NotImplementedError(CRED_ERROR)
+        payload = [{"id": c.credential_id, "priority": p} for p, c in credentials.items()]
         raise_for_status(self.client.patch(self._cred_url, json=payload))
         self.get_credentials()
         return self.credentials
@@ -269,8 +270,8 @@ class Authentication(BaseModel):
         :return: self.enables: dict: {priority: Privilege}
         """
         if self.snapshot_id:
-            raise NotImplementedError("Creating credentials in a snapshot is not supported.")  # TODO
-        payload = [dict(id=e.privilege_id, priority=p) for p, e in enables.items()]
+            raise NotImplementedError(CRED_ERROR)
+        payload = [{"id": e.privilege_id, "priority": p} for p, e in enables.items()]
         raise_for_status(self.client.patch(self._priv_url, json=payload))
         self.get_enables()
         return self.enables

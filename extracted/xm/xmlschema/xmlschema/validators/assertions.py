@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2020, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -20,18 +20,15 @@ from xmlschema.translation import gettext as _
 from xmlschema.xpath import ElementPathMixin, XMLSchemaProxy
 
 from .exceptions import XMLSchemaNotBuiltError, XMLSchemaAssertPathWarning
-from .validation import DecodeContext
+from .helpers import parse_xpath_default_namespace
+from .validation import ValidationContext
 from .xsdbase import XsdComponent
 from .groups import XsdGroup
 
-
 if TYPE_CHECKING:
-    from elementpath import XPath2Parser
-    from elementpath.xpath3 import XPath3Parser
-    from .attributes import XsdAttributeGroup
-    from .complex_types import XsdComplexType
-    from .elements import XsdElement
-    from .wildcards import XsdAnyElement
+    from elementpath import XPath2Parser  # noqa
+    from elementpath.xpath3 import XPath3Parser  # noqa
+    from . import XsdAttributeGroup, XsdComplexType, XsdElement, XsdAnyElement  # noqa
 
 warnings.filterwarnings(action="always", category=XMLSchemaAssertPathWarning)
 
@@ -80,18 +77,18 @@ class XsdAssert(XsdComponent, ElementPathMixin[Union['XsdAssert', SchemaElementT
             self.parse_error(_("missing required attribute 'test'"))
 
         if 'xpathDefaultNamespace' in self.elem.attrib:
-            self.xpath_default_namespace = self._parse_xpath_default_namespace(self.elem)
+            self.xpath_default_namespace = parse_xpath_default_namespace(self)
         else:
             self.xpath_default_namespace = self.schema.xpath_default_namespace
 
     def build(self) -> None:
         # Assert requires a schema bound parser because select
         # is on XML elements and with XSD type decoded values
-        if self._built:
+        if self._built is not False:
             return
-        self._built = True
 
-        self.parser = self.maps.loader.xpath_parser_class(
+        self._built = None
+        self.parser = self.maps.xpath_parser_class(
             namespaces=self.schema.namespaces,
             variable_types={'value': self.base_type.sequence_type},
             strict=False,
@@ -112,14 +109,17 @@ class XsdAssert(XsdComponent, ElementPathMixin[Union['XsdAssert', SchemaElementT
                     f"ent so these operators will return empty sequences."
                 )
                 warnings.warn(msg, category=XMLSchemaAssertPathWarning, stacklevel=4)
+            self._built = True
         finally:
             if self.parser.variable_types:
                 self.parser.variable_types.clear()
+            if self._built is None:
+                self._built = False
 
     def __call__(self,
                  obj: ElementType,
                  validation: str,
-                 context: DecodeContext,
+                 context: ValidationContext,
                  value: Any = None) -> None:
 
         if not hasattr(self, 'parser') or not hasattr(self, 'token'):
@@ -149,7 +149,7 @@ class XsdAssert(XsdComponent, ElementPathMixin[Union['XsdAssert', SchemaElementT
     # For implementing ElementPathMixin
     def __iter__(self) -> Iterator[Union['XsdElement', 'XsdAnyElement']]:
         if isinstance(self.parent.content, XsdGroup):
-            yield from self.parent.content.iter_elements()
+            yield from self.parent.content.elements
 
     @property
     def attrib(self) -> 'XsdAttributeGroup':
@@ -172,7 +172,7 @@ class XsdAssert(XsdComponent, ElementPathMixin[Union['XsdAssert', SchemaElementT
             return node
 
         return build_schema_node_tree(
-            root=self,
+            root=self,  # type: ignore[arg-type, unused-ignore] # FIXME: update protocols
             uri=schema_node.uri,
             elements=schema_node.elements,
             global_elements=schema_node.children,

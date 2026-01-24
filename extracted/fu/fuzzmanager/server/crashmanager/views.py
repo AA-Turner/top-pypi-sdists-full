@@ -29,7 +29,7 @@ from rest_framework.views import APIView
 from FTB.ProgramConfiguration import ProgramConfiguration
 from FTB.Signatures.CrashInfo import CrashInfo
 from server.auth import CheckAppPermission
-from server.utils import IPRestrictedTokenAuthentication
+from server.utils import IPRestrictedTokenAuthentication, parse_bool
 
 from .forms import (
     BugzillaTemplateBugForm,
@@ -1068,14 +1068,10 @@ class CrashEntryViewSet(
 
     def get_serializer(self, *args, **kwds):
         kwds["include_raw"] = getattr(self, "include_raw", True)
-        self.vue = self.request.query_params.get("vue", "false").lower() not in (
-            "false",
-            "0",
-        )
+        self.vue = parse_bool(self.request, "vue", False)
         if self.vue:
             return CrashEntryVueSerializer(*args, **kwds)
-        else:
-            return super().get_serializer(*args, **kwds)
+        return super().get_serializer(*args, **kwds)
 
     @action(detail=False, methods=["delete"])
     def delete(self, request, pk=None):
@@ -1220,14 +1216,10 @@ class BucketViewSet(
     pagination_class = None
 
     def get_serializer(self, *args, **kwds):
-        self.vue = self.request.query_params.get("vue", "false").lower() not in (
-            "false",
-            "0",
-        )
+        self.vue = parse_bool(self.request, "vue", False)
         if self.vue:
             return BucketVueSerializer(*args, **kwds)
-        else:
-            return super().get_serializer(*args, **kwds)
+        return super().get_serializer(*args, **kwds)
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
@@ -1321,7 +1313,8 @@ class BucketViewSet(
 
         return response
 
-    def __validate(self, request, bucket, submitSave, reassign, limit, offset, created):
+    @staticmethod
+    def _validate(bucket, submit_save, reassign, limit, offset, created):
         try:
             bucket.getSignature()
         except RuntimeError as e:
@@ -1330,7 +1323,7 @@ class BucketViewSet(
         # Only save if we hit "save" (not e.g. "preview")
         # If offset is set, don't do it again (already done on first iteration)
         result = status.HTTP_200_OK
-        if submitSave and not offset:
+        if submit_save and not offset:
             if bucket.bug is not None:
                 bucket.bug.save()
                 # this is not a no-op!
@@ -1353,28 +1346,28 @@ class BucketViewSet(
         # no-reassign & preview: same as above, but change results are empty
         # no-reassign & save: save bucket without reprocessing, s.b. instant
 
-        inList, outList = [], []
-        inListCount, outListCount = 0, 0
-        nextOffset = None
+        in_list, out_list = [], []
+        in_list_count, out_list_count = 0, 0
+        next_offset = None
         # If the reassign checkbox is checked
         if reassign:
-            inList, outList, inListCount, outListCount, nextOffset = bucket.reassign(
-                submitSave, limit=limit, offset=offset
+            in_list, out_list, in_list_count, out_list_count, next_offset = (
+                bucket.reassign(submit_save, limit=limit, offset=offset)
             )
-            if submitSave and not nextOffset:
+            if submit_save and not next_offset:
                 Bucket.objects.filter(pk=bucket.pk).update(reassign_in_progress=False)
 
         data = {
-            "inList": inList,
-            "outList": outList,
-            "inListCount": inListCount,
-            "outListCount": outListCount,
-            "nextOffset": nextOffset,
+            "inList": in_list,
+            "outList": out_list,
+            "inListCount": in_list_count,
+            "outListCount": out_list_count,
+            "nextOffset": next_offset,
         }
-        if submitSave:
+        if submit_save:
             if created:
                 data["bucket_id"] = bucket.pk
-            if nextOffset is None:
+            if next_offset is None:
                 data["url"] = reverse(
                     "crashmanager:sigview", kwargs={"sigid": bucket.pk}
                 )
@@ -1430,19 +1423,14 @@ class BucketViewSet(
         if "doNotReduce" in serializer.validated_data:
             bucket.doNotReduce = serializer.validated_data["doNotReduce"]
 
-        save = request.query_params.get("save", "true").lower() not in ("false", "0")
-        reassign = request.query_params.get("reassign", "true").lower() not in (
-            "false",
-            "0",
-        )
+        save = parse_bool(request, "save")
+        reassign = parse_bool(request, "reassign")
         if reassign:
             limit = int(request.query_params.get("limit", "1000"))
             offset = int(request.query_params.get("offset", "0"))
         else:
             limit = offset = None
-        return self.__validate(
-            request, bucket, save, reassign, limit, offset, created=False
-        )
+        return self._validate(bucket, save, reassign, limit, offset, created=False)
 
     def create(self, request, *args, **kwargs):
         user = User.get_or_create_restricted(request.user)[0]
@@ -1459,19 +1447,15 @@ class BucketViewSet(
             permanent=serializer.validated_data.get("permanent"),
         )
 
-        save = request.query_params.get("save", "true").lower() not in ("false", "0")
-        reassign = request.query_params.get("reassign", "true").lower() not in (
-            "false",
-            "0",
-        )
+        save = parse_bool(request, "save")
+        reassign = parse_bool(request, "reassign")
+
         if reassign:
             limit = int(request.query_params.get("limit", "1000"))
             offset = int(request.query_params.get("offset", "0"))
         else:
             limit = offset = None
-        return self.__validate(
-            request, bucket, save, reassign, limit, offset, created=save
-        )
+        return self._validate(bucket, save, reassign, limit, offset, created=save)
 
 
 class BucketVueViewSet(BucketViewSet):
@@ -1842,6 +1826,7 @@ class CrashStatsViewSet(viewsets.GenericViewSet):
     queryset = CrashEntry.objects.all()
     filter_backends = [
         ToolFilterCrashesBackend,
+        JsonQueryFilterBackend,
     ]
 
     def retrieve(self, request, *_args, **_kwds):

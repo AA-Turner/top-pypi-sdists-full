@@ -1,81 +1,84 @@
 [build-system]
 requires = [
     # setuptools 77.0.3+ supports PEP 639
-    "setuptools>=77.0.3,<=80.9.0",
-    "cx-logging>=3.1 ;sys_platform == 'win32'",
+    # setuptools 78.1.1 fix path traversal vulnerability
+    "setuptools>=78.1.1,<81",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cx_Freeze"
 description = "Create standalone executables from Python scripts"
-authors = [
-    {name = "Anthony Tuininga", email = "anthony.tuininga@gmail.com"},
-    {name = "Marcelo Duarte", email = "marcelotduarte@users.noreply.github.com"}
-]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Programming Language :: C",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Software Distribution",
     "Topic :: Utilities",
 ]
 dependencies = [
-    "filelock>=3.12.3",
+    "freeze-core>=0.4.0",
     "packaging>=24",
-    "setuptools>=65.6.3,<=80.9.0",
-    "tomli>=2.0.1 ;python_version < '3.11'",
+    "setuptools>=78.1.1,<81",
+    "tomli>=2.0.1 ;python_version == '3.10'",
     # Linux
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 'i686'",
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 'armv7l'",
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 'ppc64le'",
-    "patchelf>=0.14,<0.18 ;sys_platform == 'linux' and platform_machine == 's390x'",
+    "filelock>=3.20.1 ;sys_platform == 'linux'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 'i686'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 'armv7l'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 'ppc64le'",
+    "patchelf>=0.16.1,<0.18 ;sys_platform == 'linux' and platform_machine == 's390x'",
     # macOS
     "dmgbuild>=1.6.1 ;sys_platform == 'darwin'",
     # Windows
-    "cabarchive>=0.2.4 ;sys_platform == 'win32'",
-    "cx-logging>=3.1 ;sys_platform == 'win32' and platform_machine != 'ARM64'",
-    "lief>=0.15.1,<=0.17.0 ;sys_platform == 'win32'",
-    "striprtf>=0.0.26 ;sys_platform == 'win32'",
+    "lief>=0.15.1,<=0.17.1 ;sys_platform == 'win32' and platform_machine != 'ARM64'",
+    "lief>=0.15.1,<=0.17.1 ;sys_platform == 'win32' and platform_machine == 'ARM64' and python_version <= '3.13'",
+    "python-msilib>=0.4.1 ;sys_platform == 'win32' and python_version >= '3.13'",
 ]
 dynamic = ["version"]
 keywords = ["cx-freeze cxfreeze cx_Freeze freeze python"]
 license = "PSF-2.0"
 license-files = ["LICENSE.md"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+
+[[project.authors]]
+name = "Marcelo Duarte"
+email = "marcelotduarte@users.noreply.github.com"
+
+[[project.authors]]
+name = "Anthony Tuininga"
+email = "anthony.tuininga@gmail.com"
 
 [project.optional-dependencies]
 dev = [
-    "bump-my-version==1.2.3",
-    "cibuildwheel==2.23.3",
-    "pre-commit==4.3.0",           # python_version >= 3.9
+    "bump-my-version==1.2.6",
+    "pre-commit==4.5.1",
 ]
 doc = [
     "sphinx==8.2.3 ;python_version >= '3.11'",
     "sphinx-issues==5.0.1 ;python_version >= '3.11'",
-    "sphinx-new-tab-link==0.8.0 ;python_version >= '3.11'",
+    "sphinx-new-tab-link==0.8.1 ;python_version >= '3.11'",
     "sphinx-tabs==3.4.7 ;python_version >= '3.11'",
-    "furo==2024.8.6 ;python_version >= '3.11'",
+    "furo==2025.12.19 ;python_version >= '3.11'",
     "myst-parser==4.0.1 ;python_version >= '3.11'",
 ]
 tests = [
-    "coverage==7.10.6",
-    "pytest==8.4.2",
+    "coverage==7.13.1",
+    "filelock>=3.20.1",
+    "pytest==9.0.2",
         "pluggy==1.6.0",
     "pytest-mock==3.15.1",
     "pytest-timeout==2.4.0",
@@ -113,11 +116,11 @@ namespaces = false
 
 [tool.black]
 line-length = 79
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.bumpversion]
 commit = true
-current_version = "8.4.1"
+current_version = "8.5.3"
 message = "Bump version: {current_version} → {new_version} [ci skip]"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
@@ -152,37 +155,6 @@ filename = "doc/src/conf.py"
 values = ["dev", "alpha", "rc", "final"]
 optional_value = "final"
 
-[tool.cibuildwheel]
-before-build = "uv pip install -r pyproject.toml"
-build-frontend = "build[uv]"
-build-verbosity = 1
-enable = ["cpython-freethreading"]
-skip = [
-    "cp3{9,10,13}-musllinux_*",
-    "cp3{9,10,13}-manylinux_ppc64le",
-    "cp313t-win*",
-]
-
-[tool.cibuildwheel.linux]
-archs = "x86_64 aarch64 ppc64le"
-before-build = """
-cd /opt/_internal && tar -xvf static-libs-for-embedding-only.tar.xz
-"""
-# keep this setting until cibuildwheel uses the tag 2025.07.12-0 or higher
-# https://github.com/marcelotduarte/cx_Freeze/issues/3038
-# https://github.com/pypa/manylinux/issues/1809
-manylinux-x86_64-image = "quay.io/pypa/manylinux2014_x86_64:latest"
-manylinux-aarch64-image = "quay.io/pypa/manylinux2014_aarch64:latest"
-manylinux-ppc64le-image = "quay.io/pypa/manylinux2014_ppc64le:latest"
-musllinux-x86_64-image = "quay.io/pypa/musllinux2014_x86_64:latest"
-musllinux-aarch64-image = "quay.io/pypa/musllinux2014_aarch64:latest"
-
-[tool.cibuildwheel.macos]
-archs = "universal2"
-repair-wheel-command = """
-delocate-wheel --require-archs {delocate_archs} -L bases/lib -w {dest_dir} {wheel}
-"""
-
 [tool.coverage.html]
 directory = "build/coverage_html_report"
 
@@ -201,7 +173,6 @@ exclude_also = [
 ignore_errors = true
 omit = [
     "*/cx_Freeze/hooks/*",
-    "*/cx_Freeze/initscripts/*",
     "*/cx_Freeze/_typing.py",
 ]
 precision = 2
@@ -213,7 +184,7 @@ source = [
 ]
 
 [tool.coverage.run]
-command_line = "-m pytest --dist=loadfile --durations=20 -nauto"
+command_line = "-m pytest --dist=loadfile --durations=20 -nauto -rpfEsXx tests"
 source = ["cx_Freeze"]
 parallel = true
 patch = ["subprocess"]
@@ -264,18 +235,17 @@ ignore-paths = [
 ]
 jobs = 0
 output-format = "colorized"
-py-version = [3, 9]
+py-version = [3, 10]
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-rpfEsXx"
+[tool.pytest]
+minversion = "9.0"
+addopts = ["-rpfEsXx"]
 testpaths = ["tests"]
 filterwarnings = [
     "ignore::DeprecationWarning:distutils.*",
     "ignore::DeprecationWarning:pkg_resources.*",
     "ignore::DeprecationWarning:setuptools.*",
 ]
-tmp_path_retention_count = 1
 
 [tool.ruff]
 extend-exclude = [
@@ -329,35 +299,27 @@ select = [
     "YTT",  # flake8-2020
 ]
 ignore = [
-    # ignored for now, but should be revised in future
-    # last revised using ruff 0.12.0
-    "D102",     # Missing docstring in public method
-    "D205",     # 1 blank line required between summary line and description
-    "D401",     # First line of docstring should be in imperative mood
-    "PERF203",  # `try`-`except` within a loop incurs performance overhead
-    # ignore the following
     "D105",     # Missing docstring in magic method
     "D107",     # Missing docstring in `__init__`
     "D203",     # conflict with D211
     "D213",     # conflict with D212
-    "PLC0415",  # `import` should be at the top-level of a file
+    # should be revised in future - last revised using ruff 0.14.0
+    "D102",     # Missing docstring in public method
+    "D205",     # 1 blank line required between summary line and description
+    "D401",     # First line of docstring should be in imperative mood
     "PLR2004",  # magic-value-comparison
     "PLR0912",  # too-many-branches
     "PLR0913",  # too-many-arguments
     "PLR0915",  # too-many-statements
-    "PYI021",   # Docstrings should not be included in stubs
-    # avoid the rules that may cause conflict with formatter
-    "E501",
     # prone to false positives: https://github.com/astral-sh/ruff/issues/4045
     "S603",
 ]
 typing-modules = ["cx_Freeze._typing"]
 
 [tool.ruff.lint.per-file-ignores]
-"cx_Freeze/bases/__init__.py" = ["D104"]
 "cx_Freeze/command/_pydialog.py" = ["ERA001"]
 "cx_Freeze/command/bdist_msi.py" = ["ERA001"]
-"cx_Freeze/initscripts/*" = ["S102"]
+"samples/pydantic/test_pydantic.py" = ["E501"]
 "samples/*" = ["D1"]
 "tests/*" = ["S101"]
 

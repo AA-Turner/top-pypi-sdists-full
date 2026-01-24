@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 """Core module of component manager"""
 
@@ -805,6 +805,7 @@ class ComponentManager:
         self,
         component_requires_file: t.Union[Path, str],
         component_list_file: t.Union[Path, str],
+        cm_run_counter: int,
     ):
         """Set build dependencies for components with manifests"""
         requirements_manager = CMakeRequirementsManager(component_requires_file)
@@ -883,6 +884,27 @@ class ComponentManager:
 
         handle_project_requirements(new_requirements)
         requirements_manager.dump(new_requirements)
+
+        # In case of the CM second run when dealing with KConfig Variables
+        # We need to overwrite the retried to 0 to run CM the third time
+        # It's needed due to reason that in sdkconfig.json there will be
+        # correct values for configs of downloaded deps
+        if cm_run_counter == 1:
+            with open(requirements_manager.path, 'a', encoding='utf-8') as f:
+                f.write('set(retried 0 PARENT_SCOPE)\n')
+        if cm_run_counter >= 1:
+            with open(requirements_manager.path, 'a', encoding='utf-8') as f:
+                # HACK: Clear all build properties so the order of dependencies is correct.
+                # This fixes the issue where Kconfig-gated dependencies that provide
+                # CMake functions are not available when main's CMakeLists.txt is processed.
+                f.write("""
+                    idf_build_unset_property(__BUILD_COMPONENT_TARGETS)
+                    idf_build_unset_property(__COMPONENT_TARGETS_SEEN)
+                    idf_build_unset_property(__BUILD_COMPONENTS)
+                    idf_build_unset_property(BUILD_COMPONENT_ALIASES)
+                    idf_build_unset_property(BUILD_COMPONENTS)
+                    idf_build_unset_property(__BUILD_COMPONENT_DEPGRAPH)
+                """)
 
     @staticmethod
     def _override_requirements_by_component_sources(

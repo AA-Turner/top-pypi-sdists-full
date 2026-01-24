@@ -1,5 +1,17 @@
-import typing
 from contextvars import Token
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    Union,
+    cast,
+)
+from uuid import UUID
 
 import pydantic
 from opentelemetry import context, trace
@@ -16,41 +28,53 @@ from langfuse._client.span import (
     LangfuseSpan,
     LangfuseTool,
 )
-from langfuse.logger import langfuse_logger
-
-try:
-    import langchain  # noqa
-
-except ImportError as e:
-    langfuse_logger.error(
-        f"Could not import langchain. The langchain integration will not work. {e}"
-    )
-
-from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Type, Union, cast
-from uuid import UUID
-
 from langfuse._utils import _get_timestamp
 from langfuse.langchain.utils import _extract_model_name
+from langfuse.logger import langfuse_logger
+from langfuse.types import TraceContext
 
 try:
-    from langchain.callbacks.base import (
-        BaseCallbackHandler as LangchainBaseCallbackHandler,
-    )
-    from langchain.schema.agent import AgentAction, AgentFinish
-    from langchain.schema.document import Document
-    from langchain_core.messages import (
-        AIMessage,
-        BaseMessage,
-        ChatMessage,
-        FunctionMessage,
-        HumanMessage,
-        SystemMessage,
-        ToolMessage,
-    )
-    from langchain_core.outputs import (
-        ChatGeneration,
-        LLMResult,
-    )
+    import langchain
+
+    if langchain.__version__.startswith("1"):
+        # Langchain v1
+        from langchain_core.agents import AgentAction, AgentFinish
+        from langchain_core.callbacks import (
+            BaseCallbackHandler as LangchainBaseCallbackHandler,
+        )
+        from langchain_core.documents import Document
+        from langchain_core.messages import (
+            AIMessage,
+            BaseMessage,
+            ChatMessage,
+            FunctionMessage,
+            HumanMessage,
+            SystemMessage,
+            ToolMessage,
+        )
+        from langchain_core.outputs import ChatGeneration, LLMResult
+
+    else:
+        # Langchain v0
+        from langchain.callbacks.base import (  # type: ignore
+            BaseCallbackHandler as LangchainBaseCallbackHandler,
+        )
+        from langchain.schema.agent import AgentAction, AgentFinish  # type: ignore
+        from langchain.schema.document import Document  # type: ignore
+        from langchain_core.messages import (
+            AIMessage,
+            BaseMessage,
+            ChatMessage,
+            FunctionMessage,
+            HumanMessage,
+            SystemMessage,
+            ToolMessage,
+        )
+        from langchain_core.outputs import (
+            ChatGeneration,
+            LLMResult,
+        )
+
 except ImportError:
     raise ModuleNotFoundError(
         "Please install langchain to use the Langfuse langchain integration: 'pip install langchain'"
@@ -69,15 +93,33 @@ except ImportError:
 
 class LangchainCallbackHandler(LangchainBaseCallbackHandler):
     def __init__(
-        self, *, public_key: Optional[str] = None, update_trace: bool = False
+        self,
+        *,
+        public_key: Optional[str] = None,
+        update_trace: bool = False,
+        trace_context: Optional[TraceContext] = None,
     ) -> None:
         """Initialize the LangchainCallbackHandler.
 
         Args:
             public_key: Optional Langfuse public key. If not provided, will use the default client configuration.
             update_trace: Whether to update the Langfuse trace with the chains input / output / metadata / name. Defaults to False.
+            trace_context: Optional context for connecting to an existing trace (distributed tracing) or
+                setting a custom trace id for the root LangChain run. Pass a `TraceContext` dict, e.g.
+                `{"trace_id": "<trace_id>"}` (and optionally `{"parent_span_id": "<span_id>"}`) to link
+                the trace to an upstream system.
+
+        Example:
+            Use a custom trace id without context managers:
+
+            ```python
+            from langfuse.langchain import CallbackHandler
+
+            handler = CallbackHandler(trace_context={"trace_id": "my-trace-id"})
+            ```
         """
         self.client = get_client(public_key=public_key)
+        self.run_inline = True
 
         self.runs: Dict[
             UUID,
@@ -90,12 +132,14 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 LangfuseRetriever,
             ],
         ] = {}
+        self._child_to_parent_run_id_map: Dict[UUID, Optional[UUID]] = {}
         self.context_tokens: Dict[UUID, Token] = {}
         self.prompt_to_parent_run_map: Dict[UUID, Any] = {}
         self.updated_completion_start_time_memo: Set[UUID] = set()
 
         self.last_trace_id: Optional[str] = None
         self.update_trace = update_trace
+        self.trace_context = trace_context
 
     def on_llm_new_token(
         self,
@@ -259,6 +303,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_chain_start", run_id, parent_run_id, inputs=inputs
@@ -275,16 +321,31 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
                 serialized, "chain", **kwargs
             )
 
-            span = self._get_parent_observation(parent_run_id).start_observation(
-                name=span_name,
-                as_type=observation_type,
-                metadata=span_metadata,
-                input=inputs,
-                level=cast(
-                    Optional[Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]],
-                    span_level,
-                ),
-            )
+            obs = self._get_parent_observation(parent_run_id)
+            if isinstance(obs, Langfuse):
+                span = obs.start_observation(
+                    trace_context=self.trace_context,
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=cast(
+                        Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"] | None,
+                        span_level,
+                    ),
+                )
+            else:
+                span = obs.start_observation(
+                    name=span_name,
+                    as_type=observation_type,
+                    metadata=span_metadata,
+                    input=inputs,
+                    level=cast(
+                        Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"] | None,
+                        span_level,
+                    ),
+                )
+
             self._attach_observation(run_id, span)
 
             if parent_run_id is None:
@@ -422,6 +483,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run on agent action."""
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_agent_action", run_id, parent_run_id, action=action
@@ -502,6 +565,10 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         except Exception as e:
             langfuse_logger.exception(e)
 
+        finally:
+            if parent_run_id is None:
+                self._reset()
+
     def on_chain_error(
         self,
         error: BaseException,
@@ -545,6 +612,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_chat_model_start", run_id, parent_run_id, messages=messages
@@ -577,6 +646,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_llm_start", run_id, parent_run_id, prompts=prompts
@@ -604,6 +675,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_tool_start", run_id, parent_run_id, input_str=input_str
@@ -646,6 +719,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             self._log_debug_event(
                 "on_retriever_start", run_id, parent_run_id, query=query
@@ -751,6 +826,8 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
+        self._child_to_parent_run_id_map[run_id] = parent_run_id
+
         try:
             tools = kwargs.get("invocation_params", {}).get("tools", None)
             if tools and isinstance(tools, list):
@@ -759,14 +836,23 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
             model_name = self._parse_model_and_log_errors(
                 serialized=serialized, metadata=metadata, kwargs=kwargs
             )
-            registered_prompt = (
-                self.prompt_to_parent_run_map.get(parent_run_id)
-                if parent_run_id is not None
-                else None
-            )
 
-            if registered_prompt:
-                self._deregister_langfuse_prompt(parent_run_id)
+            registered_prompt = None
+            current_parent_run_id = parent_run_id
+
+            # Check all parents for registered prompt
+            while current_parent_run_id is not None:
+                registered_prompt = self.prompt_to_parent_run_map.get(
+                    current_parent_run_id
+                )
+
+                if registered_prompt:
+                    self._deregister_langfuse_prompt(current_parent_run_id)
+                    break
+                else:
+                    current_parent_run_id = self._child_to_parent_run_id_map.get(
+                        current_parent_run_id, None
+                    )
 
             content = {
                 "name": self.get_langchain_run_name(serialized, **kwargs),
@@ -898,6 +984,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         finally:
             self.updated_completion_start_time_memo.discard(run_id)
 
+            if parent_run_id is None:
+                self._reset()
+
     def on_llm_error(
         self,
         error: BaseException,
@@ -921,6 +1010,9 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
 
         except Exception as e:
             langfuse_logger.exception(e)
+
+    def _reset(self) -> None:
+        self._child_to_parent_run_id_map = {}
 
     def __join_tags_and_metadata(
         self,
@@ -989,7 +1081,7 @@ class LangchainCallbackHandler(LangchainBaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         langfuse_logger.debug(
-            f"Event: {event_name}, run_id: {str(run_id)[:5]}, parent_run_id: {str(parent_run_id)[:5]}"
+            f"Event: {event_name}, run_id: {run_id}, parent_run_id: {parent_run_id}"
         )
 
 
@@ -1010,7 +1102,7 @@ def _flatten_comprehension(matrix: Any) -> Any:
     return [item for row in matrix for item in row]
 
 
-def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
+def _parse_usage_model(usage: Union[pydantic.BaseModel, dict]) -> Any:
     # maintains a list of key translations. For each key, the usage model is checked
     # and a new object will be created with the new key if the key exists in the usage model
     # All non matched keys will remain on the object.
@@ -1150,6 +1242,11 @@ def _parse_usage_model(usage: typing.Union[pydantic.BaseModel, dict]) -> Any:
 
                     if "input" in usage_model:
                         usage_model["input"] = max(0, usage_model["input"] - value)
+
+                    if f"input_modality_{item['modality']}" in usage_model:
+                        usage_model[f"input_modality_{item['modality']}"] = max(
+                            0, usage_model[f"input_modality_{item['modality']}"] - value
+                        )
 
     usage_model = {k: v for k, v in usage_model.items() if isinstance(v, int)}
 

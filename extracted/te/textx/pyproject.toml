@@ -1,7 +1,7 @@
 [project]
 name = "textX"
+version = "4.3.0"
 description = "Meta-language for DSL implementation inspired by Xtext"
-dynamic = ["version"]
 authors = [
     {name = "Igor R. Dejanović", email = "igor.dejanovic@gmail.com"},
     {name = "Pierre Bayerl", email = "noemail@nowhere.com"},
@@ -30,12 +30,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 requires-python = ">=3.8"
 dependencies = [
     "Arpeggio >= 2.0.0",
-    "importlib-metadata; python_version < '3.10'",  # For entry_points backward compatibility
+    "importlib-metadata; python_version < '3.10'", # For entry_points backward compatibility
 ]
 
 [project.urls]
@@ -53,26 +54,42 @@ name = "textx"
 [tool.flit.sdist]
 exclude = ["**/.*"]
 
+[tool.uv]
+default-groups = ["dev"]
+
 [project.optional-dependencies]
 cli = [
     "click >=7.0, <9.0"
 ]
 
+[dependency-groups]
 dev = [
     "textX-dev",
-    "click >=7.0, <9.0",
-    "ruff",
     "flit",
+    {include-group = "test"},
+    {include-group = "dbg"},
 ]
 
 test = [
     "click >=7.0, <9.0",
     "ruff",
+    "mypy",
     "jinja2",
     "coverage",
     "coveralls",
     "pytest",
     "html5lib",
+
+    "data-dsl",
+    "flow-codegen",
+    "flow-dsl",
+    "textx-subcommand-test",
+    "types-dsl",
+]
+
+dbg = [
+    "pudb",
+    "ipython",
 ]
 
 [project.scripts]
@@ -113,3 +130,19 @@ select = [
     # isort
     "I",
 ]
+
+[tool.uv.workspace]
+members = [
+    "tests/functional/subcommands/example_project",
+    "tests/functional/registration/projects/flow_dsl",
+    "tests/functional/registration/projects/types_dsl",
+    "tests/functional/registration/projects/flow_codegen",
+    "tests/functional/registration/projects/data_dsl",
+]
+
+[tool.uv.sources]
+textx-subcommand-test = { workspace = true, editable = true }
+flow-dsl = { workspace = true, editable = true }
+types-dsl = { workspace = true, editable = true }
+flow-codegen = { workspace = true, editable = true }
+data-dsl = { workspace = true, editable = true }

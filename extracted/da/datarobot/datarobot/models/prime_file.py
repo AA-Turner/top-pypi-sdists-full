@@ -40,17 +40,15 @@ class PrimeFile(APIObject):
         whether the code passed basic validation
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("parent_model_id"): String(),
-            t.Key("model_id"): String(),
-            t.Key("ruleset_id"): Int(),
-            t.Key("language"): String(),
-            t.Key("is_valid"): t.Bool(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("parent_model_id"): String(),
+        t.Key("model_id"): String(),
+        t.Key("ruleset_id"): Int(),
+        t.Key("language"): String(),
+        t.Key("is_valid"): t.Bool(),
+    }).allow_extra("*")
 
     def __init__(
         self,

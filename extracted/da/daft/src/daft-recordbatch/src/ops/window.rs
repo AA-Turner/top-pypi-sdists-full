@@ -1,7 +1,7 @@
-use arrow2::bitmap::{Bitmap, MutableBitmap};
 use common_error::{DaftError, DaftResult};
+use daft_arrow::buffer::NullBufferBuilder;
 use daft_core::{
-    array::ops::{IntoGroups, arrow2::comparison::build_multi_array_is_equal},
+    array::ops::{IntoGroups, arrow::comparison::build_multi_array_is_equal},
     prelude::*,
 };
 use daft_dsl::{
@@ -71,8 +71,7 @@ impl RecordBatch {
                         .iter()
                         .map(|&idx| idx as u64)
                         .collect::<Vec<_>>(),
-                ))
-                .into_series();
+                ));
                 agg_col.rename(name).take(&take_indices)
             })
             .collect::<DaftResult<Vec<_>>>()?;
@@ -394,7 +393,7 @@ impl RecordBatch {
         // Track previous window boundaries
         let mut prev_frame_start = 0;
         let mut prev_frame_end = 0;
-        let mut validity = MutableBitmap::from_len_zeroed(total_rows);
+        let mut null_builder = NullBufferBuilder::new(total_rows);
 
         for row_idx in 0..total_rows {
             // Calculate frame bounds for this row
@@ -416,21 +415,21 @@ impl RecordBatch {
                     frame_end,
                     &mut agg_state,
                 )?;
-                validity.set(row_idx, true);
+                null_builder.append_non_null();
+            } else {
+                null_builder.append_null();
             }
 
             // Evaluate current state to get the result for this row
             agg_state.evaluate()?;
         }
 
-        let mut validity = Bitmap::from(validity);
+        let nulls = null_builder.finish();
         let agg_state = agg_state.build()?.rename(name);
-        if let Some(agg_validity) = agg_state.validity() {
-            validity = arrow2::bitmap::and(&validity, agg_validity);
-        }
+        let nulls = daft_arrow::buffer::NullBuffer::union(nulls.as_ref(), agg_state.nulls());
 
         // Build the final result series
-        let renamed_result = agg_state.with_validity(Some(validity))?;
+        let renamed_result = agg_state.with_nulls(nulls)?;
         let window_batch = Self::from_nonempty_columns(vec![renamed_result])?;
         self.union(&window_batch)
     }
@@ -495,7 +494,7 @@ impl RecordBatch {
         // Use the optimized implementation with incremental state updates
         // Initialize the state for incremental aggregation
         let order_by_col = self.eval_expression(order_by)?;
-        let mut validity = MutableBitmap::with_capacity(total_rows);
+        let mut null_builder = NullBufferBuilder::new(total_rows);
 
         // Track previous window boundaries
         let mut prev_frame_start = 0;
@@ -539,23 +538,21 @@ impl RecordBatch {
                     frame_end,
                     &mut agg_state,
                 )?;
-                validity.push(true);
+                null_builder.append_non_null();
             } else {
-                validity.push(false);
+                null_builder.append_null();
             }
 
             // Evaluate current state to get the result for this row
             agg_state.evaluate()?;
         }
 
-        let mut validity = Bitmap::from(validity);
+        let nulls = null_builder.finish();
         let agg_state = agg_state.build()?.rename(name);
-        if let Some(agg_validity) = agg_state.validity() {
-            validity = arrow2::bitmap::and(&validity, agg_validity);
-        }
+        let nulls = daft_arrow::buffer::NullBuffer::union(nulls.as_ref(), agg_state.nulls());
 
         // Build the final result series
-        let renamed_result = agg_state.with_validity(Some(validity))?;
+        let renamed_result = agg_state.with_nulls(nulls)?;
         let window_batch = Self::from_nonempty_columns(vec![renamed_result])?;
         self.union(&window_batch)
     }

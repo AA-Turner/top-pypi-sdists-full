@@ -13,6 +13,7 @@ class StartProject(BaseStartProject):
         parser.add_argument('--celery', help='The path to the celery executable.')
         parser.add_argument('--gunicorn', help='The path to the gunicorn executable.')
         parser.add_argument('--memmon', help='The path to the memmon executable.')
+        parser.add_argument('--venv_directory', help='The path to the virtual environment directory.')
 
 
 def create_project(parser, options, args):
@@ -27,7 +28,7 @@ def create_project(parser, options, args):
     allianceauth_path = os.path.dirname(allianceauth.__file__)
     template_path = os.path.join(allianceauth_path, 'project_template')
 
-    # Determine locations of commands to render supervisor cond
+    # Determine locations of commands to render supervisor configuration
     command_options = {
         'template': template_path,
         'python': shutil.which('python'),
@@ -35,6 +36,7 @@ def create_project(parser, options, args):
         'celery': shutil.which('celery'),
         'memmon': shutil.which('memmon'),
         'extensions': ['py', 'conf', 'json'],
+        'venv_directory': os.getenv('VIRTUAL_ENV'),
     }
 
     # Strip 'start' out of the arguments, leaving project name (and optionally destination dir)

@@ -43,8 +43,13 @@
     file: dbdata.tar
     test_fixture: admin
 
+- import_tasks: state_dump_restore_role.yml
+
 # Simple test to create and then drop with force
 - import_tasks: manage_database.yml
 
 # Test the comment feature
 - import_tasks: postgresql_db_comment.yml
+
+# Test connection limit zero fix (issue #879)
+- import_tasks: postgresql_db_conn_limit_zero.yml

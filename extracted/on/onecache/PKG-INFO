@@ -1,11 +1,11 @@
 Metadata-Version: 2.1
 Name: onecache
-Version: 0.7.1
+Version: 0.8.0
 Summary: Python cache for sync and async code
 License: MIT
 Author: Johanderson Mogollon
 Author-email: johander1822@gmail.com
-Requires-Python: >=3.8,<3.14
+Requires-Python: >=3.8,<3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License

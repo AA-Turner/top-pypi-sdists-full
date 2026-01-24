@@ -34,6 +34,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    final,
     Final,
     Generic,
     Iterable,
@@ -51,7 +52,7 @@ from typing import (
 import cftime
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import Buffer, Self, TypeAlias
+from typing_extensions import Buffer, Self, TypeAlias, disjoint_base
 
 __all__ = [
     "Dataset",
@@ -217,6 +218,7 @@ class NetCDF4MissingFeatureException(Exception):
 
 def dtype_is_complex(dtype: str) -> bool: ...
 
+@disjoint_base
 class Dataset:
     def __init__(
         self,
@@ -354,7 +356,7 @@ class Dataset:
     def createVLType(self, datatype: npt.DTypeLike, datatype_name: str) -> VLType: ...
     def createEnumType(
         self,
-        datatype: np.dtype[np.integer] | type[np.integer] | type[int],
+        datatype: np.dtype[np.integer] | type[np.integer] | type[int] | str,
         datatype_name: str,
         enum_dict: Mapping[str, int | np.integer],
     ) -> EnumType: ...
@@ -373,7 +375,7 @@ class Dataset:
     def get_variables_by_attributes(self, **kwargs: Callable[[Any], bool] | Any) -> list[Variable]: ...
     @staticmethod
     def fromcdl(
-        cdlfilename: str, ncfilename: str | None = None, mode: AccessMode = "a", format: Format = "NETCDF4"
+        cdlfilename: str | os.PathLike, ncfilename: str | os.PathLike | None = None, mode: AccessMode = "a", format: Format = "NETCDF4"
     ) -> Dataset: ...
     @overload
     def tocdl(self, coordvars: bool = False, data: bool = False, outfile: None = None) -> str: ...
@@ -384,6 +386,9 @@ class Dataset:
     def has_bzip2_filter(self) -> bool: ...
     def has_szip_filter(self) -> bool: ...
     def __getitem__(self, elem: str) -> Any: ...  # should be Group | Variable, but this causes too many problems
+    # __iter__ and __contains__ always error because iteration and membership ops are not allowed
+    def __iter__(self) -> NoReturn: ...
+    def __contains__(self, key) -> NoReturn: ...
     def __setattr__(self, name: str, value: Any) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __delattr__(self, name: str): ...
@@ -395,6 +400,7 @@ class Group(Dataset):
     def __init__(self, parent: Dataset, name: str, **kwargs: Any) -> None: ...
     def close(self) -> NoReturn: ...
 
+@final
 class Dimension:
     def __init__(self, grp: Dataset, name: str, size: int | None = None, **kwargs: Any) -> None: ...
     @property
@@ -427,6 +433,7 @@ class _VarDtypeProperty:
     @overload
     def __get__(self, instance: Variable, owner: Any) -> Any: ...  # actual return type np.dtype | Type[str]
 
+@final
 class Variable(Generic[VarT]):
     # Overloads of __new__ are provided for some cases where the Variable's type may be statically inferred from the datatype arg
     @overload
@@ -587,6 +594,7 @@ class Variable(Generic[VarT]):
     def __len__(self) -> int: ...
     def __iter__(self) -> Iterator[Any]: ...  # faux method so mypy believes Variable is iterable
 
+@final
 class CompoundType:
     dtype: np.dtype
     dtype_view: np.dtype
@@ -597,6 +605,7 @@ class CompoundType:
     ) -> None: ...
     def __reduce__(self) -> NoReturn: ...
 
+@final
 class VLType:
     dtype: np.dtype
     name: str | None
@@ -604,6 +613,7 @@ class VLType:
     def __init__(self, grp: Dataset, dt: npt.DTypeLike, dtype_name: str, **kwargs: Any) -> None: ...
     def __reduce__(self) -> NoReturn: ...
 
+@final
 class EnumType:
     dtype: np.dtype[np.integer]
     name: str
@@ -689,6 +699,7 @@ def stringtoarr(
 def stringtochar(
     a: npt.NDArray[np.character],
     encoding: Literal["none", "None", "bytes"],
+    n_strlen: int | None = None,
 ) -> npt.NDArray[np.bytes_]: ...
 @overload
 def stringtochar(

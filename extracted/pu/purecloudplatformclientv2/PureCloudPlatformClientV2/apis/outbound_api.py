@@ -49,6 +49,7 @@ from ..models import CampaignEntityListing
 from ..models import CampaignInteractions
 from ..models import CampaignOutboundLinesDistribution
 from ..models import CampaignPatchRequest
+from ..models import CampaignPerformanceDataListing
 from ..models import CampaignProgress
 from ..models import CampaignRule
 from ..models import CampaignRuleEntityListing
@@ -7223,12 +7224,13 @@ class OutboundApi(object):
         :param list[str] id: A list of messaging campaign ids to bulk fetch
         :param str content_template_id: Content template ID
         :param str campaign_status: Campaign Status
+        :param list[str] rule_set_ids: Ruleset ID(s)
         :return: MessagingCampaignEntityListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['page_size', 'page_number', 'sort_by', 'sort_order', 'name', 'contact_list_id', 'division_id', 'type', 'sender_sms_phone_number', 'id', 'content_template_id', 'campaign_status']
+        all_params = ['page_size', 'page_number', 'sort_by', 'sort_order', 'name', 'contact_list_id', 'division_id', 'type', 'sender_sms_phone_number', 'id', 'content_template_id', 'campaign_status', 'rule_set_ids']
         all_params.append('callback')
 
         params = locals()
@@ -7271,6 +7273,8 @@ class OutboundApi(object):
             query_params['contentTemplateId'] = params['content_template_id']
         if 'campaign_status' in params:
             query_params['campaignStatus'] = params['campaign_status']
+        if 'rule_set_ids' in params:
+            query_params['ruleSetIds'] = params['rule_set_ids']
 
         header_params = {}
 
@@ -9926,6 +9930,84 @@ class OutboundApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='Campaign',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def post_outbound_campaigns_performance_query(self, body: List['str'], **kwargs) -> 'CampaignPerformanceDataListing':
+        """
+        Get performance data for a list of campaigns
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_outbound_campaigns_performance_query(body, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param list[str] body: Campaign IDs. Maximum of 50 IDs allowed. (required)
+        :return: CampaignPerformanceDataListing
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_outbound_campaigns_performance_query" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'body' is set
+        if ('body' not in params) or (params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `post_outbound_campaigns_performance_query`")
+
+
+        resource_path = '/api/v2/outbound/campaigns/performance/query'.replace('{format}', 'json')
+        path_params = {}
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='CampaignPerformanceDataListing',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response

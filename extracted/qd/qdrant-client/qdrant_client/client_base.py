@@ -1,72 +1,19 @@
-from typing import Any, Iterable, Mapping, Optional, Sequence, Union
+from typing import Any, Iterable, Mapping, Sequence
 
 from qdrant_client.conversions import common_types as types
-from qdrant_client.http import models
 
 
 class QdrantBase:
     def __init__(self, **kwargs: Any):
         pass
 
-    def search_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.SearchRequest],
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
-        raise NotImplementedError()
-
-    def search(
-        self,
-        collection_name: str,
-        query_vector: Union[
-            types.NumpyArray,
-            Sequence[float],
-            tuple[str, list[float]],
-            types.NamedVector,
-            types.NamedSparseVector,
-        ],
-        query_filter: Optional[models.Filter] = None,
-        search_params: Optional[models.SearchParams] = None,
-        limit: int = 10,
-        offset: Optional[int] = None,
-        with_payload: Union[bool, Sequence[str], models.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        raise NotImplementedError()
-
-    def search_groups(
-        self,
-        collection_name: str,
-        query_vector: Union[
-            types.NumpyArray,
-            Sequence[float],
-            tuple[str, list[float]],
-            types.NamedVector,
-            types.NamedSparseVector,
-        ],
-        group_by: str,
-        query_filter: Optional[models.Filter] = None,
-        search_params: Optional[models.SearchParams] = None,
-        limit: int = 10,
-        group_size: int = 1,
-        with_payload: Union[bool, Sequence[str], models.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        **kwargs: Any,
-    ) -> types.GroupsResult:
-        raise NotImplementedError()
-
     def search_matrix_offsets(
         self,
         collection_name: str,
-        query_filter: Optional[types.Filter] = None,
+        query_filter: types.Filter | None = None,
         limit: int = 3,
         sample: int = 10,
-        using: Optional[str] = None,
+        using: str | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixOffsetsResponse:
         raise NotImplementedError()
@@ -74,10 +21,10 @@ class QdrantBase:
     def search_matrix_pairs(
         self,
         collection_name: str,
-        query_filter: Optional[types.Filter] = None,
+        query_filter: types.Filter | None = None,
         limit: int = 3,
         sample: int = 10,
-        using: Optional[str] = None,
+        using: str | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixPairsResponse:
         raise NotImplementedError()
@@ -93,28 +40,26 @@ class QdrantBase:
     def query_points(
         self,
         collection_name: str,
-        query: Union[
-            types.PointId,
-            list[float],
-            list[list[float]],
-            types.SparseVector,
-            types.Query,
-            types.NumpyArray,
-            types.Document,
-            types.Image,
-            types.InferenceObject,
-            None,
-        ] = None,
-        using: Optional[str] = None,
-        prefetch: Union[types.Prefetch, list[types.Prefetch], None] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
+        query: types.PointId
+        | list[float]
+        | list[list[float]]
+        | types.SparseVector
+        | types.Query
+        | types.NumpyArray
+        | types.Document
+        | types.Image
+        | types.InferenceObject
+        | None = None,
+        using: str | None = None,
+        prefetch: types.Prefetch | list[types.Prefetch] | None = None,
+        query_filter: types.Filter | None = None,
+        search_params: types.SearchParams | None = None,
         limit: int = 10,
-        offset: Optional[int] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
+        offset: int | None = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        score_threshold: float | None = None,
+        lookup_from: types.LookupLocation | None = None,
         **kwargs: Any,
     ) -> types.QueryResponse:
         raise NotImplementedError()
@@ -123,124 +68,48 @@ class QdrantBase:
         self,
         collection_name: str,
         group_by: str,
-        query: Union[
-            types.PointId,
-            list[float],
-            list[list[float]],
-            types.SparseVector,
-            types.Query,
-            types.NumpyArray,
-            types.Document,
-            types.Image,
-            types.InferenceObject,
-            None,
-        ] = None,
-        using: Optional[str] = None,
-        prefetch: Union[types.Prefetch, list[types.Prefetch], None] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
+        query: types.PointId
+        | list[float]
+        | list[list[float]]
+        | types.SparseVector
+        | types.Query
+        | types.NumpyArray
+        | types.Document
+        | types.Image
+        | types.InferenceObject
+        | None = None,
+        using: str | None = None,
+        prefetch: types.Prefetch | list[types.Prefetch] | None = None,
+        query_filter: types.Filter | None = None,
+        search_params: types.SearchParams | None = None,
         limit: int = 10,
         group_size: int = 3,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        score_threshold: float | None = None,
+        with_lookup: types.WithLookupInterface | None = None,
+        lookup_from: types.LookupLocation | None = None,
         **kwargs: Any,
     ) -> types.GroupsResult:
-        raise NotImplementedError()
-
-    def recommend_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.RecommendRequest],
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
-        raise NotImplementedError()
-
-    def recommend(
-        self,
-        collection_name: str,
-        positive: Optional[Sequence[types.RecommendExample]] = None,
-        negative: Optional[Sequence[types.RecommendExample]] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        offset: int = 0,
-        with_payload: Union[bool, list[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, list[str]] = False,
-        score_threshold: Optional[float] = None,
-        using: Optional[str] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        strategy: Optional[types.RecommendStrategy] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        raise NotImplementedError()
-
-    def recommend_groups(
-        self,
-        collection_name: str,
-        group_by: str,
-        positive: Optional[Sequence[types.RecommendExample]] = None,
-        negative: Optional[Sequence[types.RecommendExample]] = None,
-        query_filter: Optional[models.Filter] = None,
-        search_params: Optional[models.SearchParams] = None,
-        limit: int = 10,
-        group_size: int = 1,
-        score_threshold: Optional[float] = None,
-        with_payload: Union[bool, Sequence[str], models.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        using: Optional[str] = None,
-        lookup_from: Optional[models.LookupLocation] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        strategy: Optional[types.RecommendStrategy] = None,
-        **kwargs: Any,
-    ) -> types.GroupsResult:
-        raise NotImplementedError()
-
-    def discover(
-        self,
-        collection_name: str,
-        target: Optional[types.TargetVector] = None,
-        context: Optional[Sequence[types.ContextExamplePair]] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        offset: int = 0,
-        with_payload: Union[bool, list[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, list[str]] = False,
-        using: Optional[str] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        raise NotImplementedError()
-
-    def discover_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.DiscoverRequest],
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
         raise NotImplementedError()
 
     def scroll(
         self,
         collection_name: str,
-        scroll_filter: Optional[types.Filter] = None,
+        scroll_filter: types.Filter | None = None,
         limit: int = 10,
-        order_by: Optional[types.OrderBy] = None,
-        offset: Optional[types.PointId] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
+        order_by: types.OrderBy | None = None,
+        offset: types.PointId | None = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
         **kwargs: Any,
-    ) -> tuple[list[types.Record], Optional[types.PointId]]:
+    ) -> tuple[list[types.Record], types.PointId | None]:
         raise NotImplementedError()
 
     def count(
         self,
         collection_name: str,
-        count_filter: Optional[types.Filter] = None,
+        count_filter: types.Filter | None = None,
         exact: bool = True,
         **kwargs: Any,
     ) -> types.CountResult:
@@ -250,7 +119,7 @@ class QdrantBase:
         self,
         collection_name: str,
         key: str,
-        facet_filter: Optional[types.Filter] = None,
+        facet_filter: types.Filter | None = None,
         limit: int = 10,
         exact: bool = False,
         **kwargs: Any,
@@ -286,8 +155,8 @@ class QdrantBase:
         self,
         collection_name: str,
         ids: Sequence[types.PointId],
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
         **kwargs: Any,
     ) -> list[types.Record]:
         raise NotImplementedError()
@@ -305,7 +174,7 @@ class QdrantBase:
         collection_name: str,
         payload: types.Payload,
         points: types.PointsSelector,
-        key: Optional[str] = None,
+        key: str | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         raise NotImplementedError()
@@ -381,7 +250,7 @@ class QdrantBase:
     def create_collection(
         self,
         collection_name: str,
-        vectors_config: Union[types.VectorParams, Mapping[str, types.VectorParams]],
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams],
         **kwargs: Any,
     ) -> bool:
         raise NotImplementedError()
@@ -389,17 +258,9 @@ class QdrantBase:
     def recreate_collection(
         self,
         collection_name: str,
-        vectors_config: Union[types.VectorParams, Mapping[str, types.VectorParams]],
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams],
         **kwargs: Any,
     ) -> bool:
-        raise NotImplementedError()
-
-    def upload_records(
-        self,
-        collection_name: str,
-        records: Iterable[types.Record],
-        **kwargs: Any,
-    ) -> None:
         raise NotImplementedError()
 
     def upload_points(
@@ -413,11 +274,9 @@ class QdrantBase:
     def upload_collection(
         self,
         collection_name: str,
-        vectors: Union[
-            dict[str, types.NumpyArray], types.NumpyArray, Iterable[types.VectorStruct]
-        ],
-        payload: Optional[Iterable[dict[Any, Any]]] = None,
-        ids: Optional[Iterable[types.PointId]] = None,
+        vectors: dict[str, types.NumpyArray] | types.NumpyArray | Iterable[types.VectorStruct],
+        payload: Iterable[dict[Any, Any]] | None = None,
+        ids: Iterable[types.PointId] | None = None,
         **kwargs: Any,
     ) -> None:
         raise NotImplementedError()
@@ -426,8 +285,8 @@ class QdrantBase:
         self,
         collection_name: str,
         field_name: str,
-        field_schema: Optional[types.PayloadSchemaType] = None,
-        field_type: Optional[types.PayloadSchemaType] = None,
+        field_schema: types.PayloadSchemaType | None = None,
+        field_type: types.PayloadSchemaType | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         raise NotImplementedError()
@@ -447,21 +306,21 @@ class QdrantBase:
 
     def create_snapshot(
         self, collection_name: str, **kwargs: Any
-    ) -> Optional[types.SnapshotDescription]:
+    ) -> types.SnapshotDescription | None:
         raise NotImplementedError()
 
     def delete_snapshot(
         self, collection_name: str, snapshot_name: str, **kwargs: Any
-    ) -> Optional[bool]:
+    ) -> bool | None:
         raise NotImplementedError()
 
     def list_full_snapshots(self, **kwargs: Any) -> list[types.SnapshotDescription]:
         raise NotImplementedError()
 
-    def create_full_snapshot(self, **kwargs: Any) -> Optional[types.SnapshotDescription]:
+    def create_full_snapshot(self, **kwargs: Any) -> types.SnapshotDescription | None:
         raise NotImplementedError()
 
-    def delete_full_snapshot(self, snapshot_name: str, **kwargs: Any) -> Optional[bool]:
+    def delete_full_snapshot(self, snapshot_name: str, **kwargs: Any) -> bool | None:
         raise NotImplementedError()
 
     def recover_snapshot(
@@ -469,7 +328,7 @@ class QdrantBase:
         collection_name: str,
         location: str,
         **kwargs: Any,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         raise NotImplementedError()
 
     def list_shard_snapshots(
@@ -479,12 +338,12 @@ class QdrantBase:
 
     def create_shard_snapshot(
         self, collection_name: str, shard_id: int, **kwargs: Any
-    ) -> Optional[types.SnapshotDescription]:
+    ) -> types.SnapshotDescription | None:
         raise NotImplementedError()
 
     def delete_shard_snapshot(
         self, collection_name: str, shard_id: int, snapshot_name: str, **kwargs: Any
-    ) -> Optional[bool]:
+    ) -> bool | None:
         raise NotImplementedError()
 
     def recover_shard_snapshot(
@@ -493,16 +352,7 @@ class QdrantBase:
         shard_id: int,
         location: str,
         **kwargs: Any,
-    ) -> Optional[bool]:
-        raise NotImplementedError()
-
-    def lock_storage(self, reason: str, **kwargs: Any) -> types.LocksOption:
-        raise NotImplementedError()
-
-    def unlock_storage(self, **kwargs: Any) -> types.LocksOption:
-        raise NotImplementedError()
-
-    def get_locks(self, **kwargs: Any) -> types.LocksOption:
+    ) -> bool | None:
         raise NotImplementedError()
 
     def close(self, **kwargs: Any) -> None:
@@ -511,7 +361,7 @@ class QdrantBase:
     def migrate(
         self,
         dest_client: "QdrantBase",
-        collection_names: Optional[list[str]] = None,
+        collection_names: list[str] | None = None,
         batch_size: int = 100,
         recreate_on_collision: bool = False,
     ) -> None:
@@ -521,9 +371,9 @@ class QdrantBase:
         self,
         collection_name: str,
         shard_key: types.ShardKey,
-        shards_number: Optional[int] = None,
-        replication_factor: Optional[int] = None,
-        placement: Optional[list[int]] = None,
+        shards_number: int | None = None,
+        replication_factor: int | None = None,
+        placement: list[int] | None = None,
         **kwargs: Any,
     ) -> bool:
         raise NotImplementedError()
@@ -537,4 +387,24 @@ class QdrantBase:
         raise NotImplementedError()
 
     def info(self) -> types.VersionInfo:
+        raise NotImplementedError()
+
+    def cluster_collection_update(
+        self,
+        collection_name: str,
+        cluster_operation: types.ClusterOperations,
+        **kwargs: Any,
+    ) -> bool:
+        raise NotImplementedError()
+
+    def collection_cluster_info(self, collection_name: str) -> types.CollectionClusterInfo:
+        raise NotImplementedError()
+
+    def cluster_status(self) -> types.ClusterStatus:
+        raise NotImplementedError()
+
+    def recover_current_peer(self) -> bool:
+        raise NotImplementedError()
+
+    def remove_peer(self, peer_id: int, **kwargs: Any) -> bool:
         raise NotImplementedError()

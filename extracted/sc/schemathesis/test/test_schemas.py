@@ -1,12 +1,18 @@
 import platform
 
+import jsonschema
 import pytest
+import requests
 
 import schemathesis
 from schemathesis.core.errors import InvalidSchema, LoaderError, OperationNotFound
+from schemathesis.core.failures import Failure
 from schemathesis.core.result import Err, Ok
-from schemathesis.specs.openapi.parameters import OpenAPI20Body
-from schemathesis.specs.openapi.schemas import InliningResolver
+from schemathesis.core.transport import Response as HTTPResponse
+from schemathesis.openapi.checks import JsonSchemaError
+from schemathesis.specs.openapi import adapter
+from schemathesis.specs.openapi._operation_lookup import OperationLookup
+from schemathesis.specs.openapi.adapter import validators
 
 
 @pytest.mark.parametrize("base_path", ["/v1", "/v1/"])
@@ -44,18 +50,6 @@ def test_open_api_specification(openapi_30):
     assert openapi_30.specification.version == "3.0.0"
 
 
-def test_resolver_cache(simple_schema, mocker):
-    schema = schemathesis.openapi.from_dict(simple_schema)
-    spy = mocker.patch("schemathesis.specs.openapi.schemas.InliningResolver", wraps=InliningResolver)
-    assert "_resolver" not in schema.__dict__
-    assert isinstance(schema.resolver, InliningResolver)
-    assert spy.call_count == 1
-    # Cached
-    assert "_resolver" in schema.__dict__
-    assert isinstance(schema.resolver, InliningResolver)
-    assert spy.call_count == 1
-
-
 def test_resolving_multiple_files():
     raw_schema = {
         "swagger": "2.0",
@@ -83,9 +77,11 @@ def test_resolving_multiple_files():
     schema = schemathesis.openapi.from_dict(raw_schema)
     assert len(schema["/teapot"]["post"].body) == 1
     body = schema["/teapot"]["post"].body[0]
-    assert isinstance(body, OpenAPI20Body)
     assert body.media_type == "application/json"
     assert body.definition == {
+        "in": "body",
+        "name": "user",
+        "required": True,
         "schema": {
             "type": "object",
             "properties": {
@@ -100,9 +96,6 @@ def test_resolving_multiple_files():
             },
             "xml": {"name": "User"},
         },
-        "in": "body",
-        "name": "user",
-        "required": True,
     }
 
 
@@ -138,9 +131,28 @@ def test_not_recoverable_schema_error(simple_schema):
     # When there is an error in the API schema that leads to inability to generate any tests
     del simple_schema["paths"]
     # Then it is an explicit exception during processing API operations
+    schema = schemathesis.openapi.from_dict(simple_schema)
     with pytest.raises(InvalidSchema):
-        schema = schemathesis.openapi.from_dict(simple_schema)
         list(schema.get_all_operations())
+
+
+def test_invalid_parameter_schema_type(ctx):
+    # When a parameter's schema is not a dict or bool (e.g., a list)
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "get": {
+                    "parameters": [{"in": "query", "name": "filter", "schema": ["invalid", "list"]}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/users"]["get"]
+    # Then getting this parameter's schema should raise InvalidSchema
+    with pytest.raises(InvalidSchema, match="Can not generate data for query parameter"):
+        _ = operation.query[0].optimized_schema
 
 
 def test_no_paths_on_openapi_3_1():
@@ -150,6 +162,100 @@ def test_no_paths_on_openapi_3_1():
     }
     schema = schemathesis.openapi.from_dict(raw_schema)
     assert list(schema.get_all_operations()) == []
+
+
+def test_operation_lookup_without_paths_on_openapi_3_1():
+    raw_schema = {
+        "openapi": "3.1.0",
+        "info": {"title": "Test", "version": "0.1.0"},
+        # No `paths`, but webhook-only schemas are valid in 3.1+
+        "webhooks": {
+            "UserCreated": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"id": {"type": "integer"}}}
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    }
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    with pytest.raises(OperationNotFound, match="/users"):
+        schema["/users"]
+
+
+def test_openapi_3_2():
+    raw_schema = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test", "version": "0.1.0"},
+        "paths": {},
+    }
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    assert schema.adapter is adapter.v3_2
+    assert schema.specification.name == "Open API 3.2.0"
+    assert schema.specification.version == "3.2.0"
+
+
+def test_no_paths_on_openapi_3_2():
+    raw_schema = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test", "version": "0.1.0"},
+    }
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    assert list(schema.get_all_operations()) == []
+
+
+def test_openapi_3_2_smoke():
+    raw_schema = {
+        "openapi": "3.2.0",
+        "info": {"title": "Test", "version": "0.1.0"},
+        "paths": {
+            "/users": {
+                "get": {
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    }
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operations = list(schema.get_all_operations())
+    assert len(operations) == 1
+    assert operations[0].ok().path == "/users"
+    assert operations[0].ok().method == "get"
+
+
+@pytest.mark.parametrize(
+    ("version", "invalid_schema", "expected_error"),
+    [
+        ("3.0.0", {"openapi": "3.0.0"}, "'info' is a required property"),
+        ("3.1.0", {"openapi": "3.1.0"}, "'info' is a required property"),
+        ("3.2.0", {"openapi": "3.2.0"}, "'info' is a required property"),
+    ],
+    ids=["openapi-3.0", "openapi-3.1", "openapi-3.2"],
+)
+def test_validate_v3_rejects_invalid_schema(version, invalid_schema, expected_error):
+    with pytest.raises(jsonschema.ValidationError, match=expected_error):
+        validators.validate_v3(invalid_schema)
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["3.0.0", "3.1.0", "3.2.0"],
+    ids=["openapi-3.0", "openapi-3.1", "openapi-3.2"],
+)
+def test_validate_v3_accepts_valid_schema(version):
+    raw_schema = {
+        "openapi": version,
+        "info": {"title": "Test", "version": "0.1.0"},
+        "paths": {},
+    }
+    # Should not raise
+    validators.validate_v3(raw_schema)
 
 
 def test_schema_error_on_path(simple_schema):
@@ -168,6 +274,142 @@ def test_schema_error_on_path(simple_schema):
     assert len(oks) == 1
     assert oks[0].ok().path == "/foo"
     assert oks[0].ok().method == "post"
+
+
+def test_response_validation_selects_media_type(ctx):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/value": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                },
+                                "application/problem+json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["title"],
+                                        "properties": {"title": {"type": "string"}},
+                                    }
+                                },
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/value"]["GET"]
+    request = requests.Request("GET", "http://example.com/value").prepare()
+
+    def make_response(content_type: str, payload: str) -> HTTPResponse:
+        return HTTPResponse(
+            status_code=200,
+            headers={"content-type": [content_type]},
+            content=payload.encode(),
+            request=request,
+            elapsed=0.0,
+            verify=False,
+        )
+
+    # application/json schema requires "id"
+    schema.validate_response(operation, make_response("application/json", '{"id": 1}'))
+
+    # application/problem+json schema requires "title"
+    with pytest.raises(JsonSchemaError):
+        schema.validate_response(operation, make_response("application/problem+json", '{"id": 1}'))
+    schema.validate_response(operation, make_response("application/problem+json", '{"title": "Oops"}'))
+
+
+@pytest.mark.parametrize(
+    ("content_type", "payload", "expect_error"),
+    [
+        # Exact match to application/json (first schema - requires "id")
+        ("application/json", '{"id": 1}', None),
+        ("application/json; charset=utf-8", '{"id": 1}', None),
+        ("application/json;charset=utf-8", '{"id": 1}', None),
+        ("application/json", '{"id": 42}', None),
+        ("application/json", '{"wrong": "data"}', JsonSchemaError),
+        # Wildcard match to application/* (second schema - requires "data" as string)
+        ("application/xml", '{"data": "test"}', None),
+        # Exact match to application/vnd.api+json (third schema - requires "data" as array)
+        ("application/vnd.api+json", '{"data": []}', None),
+        ("application/vnd.api+json", '{"id": 42}', JsonSchemaError),
+        # Unmatched content types fall back to first schema (application/json)
+        # Note: Non-JSON content types may skip validation if no deserializer exists
+        ("text/plain", '{"id": 1}', None),
+        ("image/png", '{"id": 1}', None),
+        ("text/html", '{"id": 1}', None),
+        # Malformed Content-Type causes deserialization error
+        ("invalid", '{"id": 1}', Failure),
+        ("application", '{"id": 1}', Failure),
+    ],
+)
+def test_response_validation_media_type_edge_cases(ctx, content_type, payload, expect_error):
+    # Schema with multiple media types and different validation rules
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/value": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                },
+                                "application/*": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["data"],
+                                        "properties": {"data": {"type": "string"}},
+                                    }
+                                },
+                                "application/vnd.api+json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["data"],
+                                        "properties": {"data": {"type": "array"}},
+                                    }
+                                },
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/value"]["GET"]
+    request = requests.Request("GET", "http://example.com/value").prepare()
+
+    headers = {"content-type": [content_type]}
+    response = HTTPResponse(
+        status_code=200,
+        headers=headers,
+        content=payload.encode(),
+        request=request,
+        elapsed=0.0,
+        verify=False,
+    )
+
+    if expect_error:
+        with pytest.raises(expect_error):
+            schema.validate_response(operation, response)
+    else:
+        schema.validate_response(operation, response)
 
 
 RESPONSES = {"responses": {"200": {"description": "OK"}}}
@@ -190,13 +432,31 @@ SCHEMA = {
 )
 def test_get_operation(operation_id, reference, path, method):
     schema = schemathesis.openapi.from_dict(SCHEMA)
-    for getter, key in ((schema.get_operation_by_id, operation_id), (schema.get_operation_by_reference, reference)):
+    for getter, key in ((schema.find_operation_by_id, operation_id), (schema.find_operation_by_reference, reference)):
         operation = getter(key)
         assert operation.path == path
         assert operation.method.upper() == method
 
 
-def test_get_operation_by_id_in_referenced_path(ctx):
+def test_operation_lookup_cache_built_once(monkeypatch):
+    schema = schemathesis.openapi.from_dict(SCHEMA)
+    calls = 0
+    original = OperationLookup._build_tables
+
+    def tracking(self: OperationLookup) -> None:
+        nonlocal calls
+        calls += 1
+        return original(self)
+
+    monkeypatch.setattr(OperationLookup, "_build_tables", tracking)
+
+    schema.find_operation_by_id("getFoo")
+    schema.find_operation_by_reference("#/paths/~1foo/get")
+
+    assert calls == 1
+
+
+def test_find_operation_by_id_in_referenced_path(ctx):
     # When a path entry is behind a reference
     # it should be resolved correctly
     schema = ctx.openapi.build_schema(
@@ -208,12 +468,12 @@ def test_get_operation_by_id_in_referenced_path(ctx):
         },
     )
     schema = schemathesis.openapi.from_dict(schema)
-    operation = schema.get_operation_by_id("getFoo")
+    operation = schema.find_operation_by_id("getFoo")
     assert operation.path == "/foo"
     assert operation.method.upper() == "GET"
 
 
-def test_get_operation_by_id_in_referenced_path_shared_parameters(ctx):
+def test_find_operation_by_id_in_referenced_path_shared_parameters(ctx):
     # When a path entry is behind a reference
     # and it shares parameters with the parent path
     # it should be resolved correctly
@@ -231,40 +491,19 @@ def test_get_operation_by_id_in_referenced_path_shared_parameters(ctx):
         },
     )
     schema = schemathesis.openapi.from_dict(schema)
-    operation = schema.get_operation_by_id("getFoo")
+    operation = schema.find_operation_by_id("getFoo")
     assert operation.path == "/foo"
     assert operation.method.upper() == "GET"
-    assert operation.query.get("foo").definition == parameter
 
 
-def test_get_operation_by_id_no_paths_on_openapi_3_1():
+def test_find_operation_by_id_no_paths_on_openapi_3_1():
     raw_schema = {
         "openapi": "3.1.0",
         "info": {"title": "Test", "version": "0.1.0"},
     }
     schema = schemathesis.openapi.from_dict(raw_schema)
     with pytest.raises(OperationNotFound):
-        schema.get_operation_by_id("getFoo")
-
-
-@pytest.mark.parametrize(
-    ("fixture", "path"),
-    [
-        ("simple_schema", "/users"),
-        ("simple_openapi", "/query"),
-    ],
-)
-def test_missing_payload_schema(request, fixture, path):
-    raw_schema = request.getfixturevalue(fixture)
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    operation = schema[path]["GET"]
-    assert operation.get_raw_payload_schema("application/xml") is None
-    assert operation.get_resolved_payload_schema("application/xml") is None
-
-
-def test_missing_payload_schema_media_type(open_api_3_schema_with_yaml_payload):
-    schema = schemathesis.openapi.from_dict(open_api_3_schema_with_yaml_payload)
-    assert schema["/yaml"]["POST"].get_raw_payload_schema("application/xml") is None
+        schema.find_operation_by_id("getFoo")
 
 
 @pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
@@ -273,5 +512,9 @@ def test_ssl_error(server):
         schemathesis.openapi.from_url(f"https://127.0.0.1:{server['port']}")
     assert exc.value.message == "SSL verification problem"
     assert exc.value.extras[0].startswith(
-        ("[SSL: WRONG_VERSION_NUMBER] wrong version number", "[SSL] record layer failure")
+        (
+            "[SSL: WRONG_VERSION_NUMBER] wrong version number",
+            "[SSL] record layer failure",
+            "[SSL: RECORD_LAYER_FAILURE] record layer failure",
+        )
     )

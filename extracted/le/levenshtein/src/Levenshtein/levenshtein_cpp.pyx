@@ -1,6 +1,4 @@
-# distutils: language=c++
-# cython: language_level=3
-# cython: binding=True
+# cython: freethreading_compatible = True
 
 from libc.stdint cimport uint32_t
 from libcpp.vector cimport vector

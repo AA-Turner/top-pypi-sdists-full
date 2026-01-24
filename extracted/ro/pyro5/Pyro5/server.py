@@ -168,7 +168,7 @@ class DaemonObject(object):
             metadata = _get_exposed_members(obj)
             if not metadata["methods"] and not metadata["attrs"]:
                 # Something seems wrong: nothing is remotely exposed.
-                warnings.warn("Class %r doesn't expose any methods or attributes. Did you forget setting @expose on them?" % type(obj))
+                warnings.warn("Class %s doesn't expose any methods or attributes. Did you forget setting @expose on them?" % repr(obj))
             return metadata
         else:
             log.debug("unknown object requested: %s", objectId)
@@ -456,6 +456,16 @@ class Daemon(object):
                     if method == "__getattr__":
                         # special case for direct attribute access (only exposed @properties are accessible)
                         data = _get_exposed_property_value(obj, vargs[0])
+                        if not request_flags & protocol.FLAGS_ONEWAY:
+                            isStream, data = self._streamResponse(data, conn)
+                            if isStream:
+                                # throw an exception as well as setting message flags
+                                # this way, it is backwards compatible with older pyro versions.
+                                exc = errors.ProtocolError("result of call is an iterator")
+                                ann = {"STRM": data.encode()} if data else {}
+                                self._sendExceptionResponse(conn, request_seq, serializer.serializer_id, exc, None,
+                                                            annotations=ann, flags=protocol.FLAGS_ITEMSTREAMRESULT)
+                                return
                     elif method == "__setattr__":
                         # special case for direct attribute access (only exposed @properties are accessible)
                         data = _set_exposed_property_value(obj, vargs[0], vargs[1])
@@ -650,7 +660,9 @@ class Daemon(object):
                 obj_or_class._pyroInstancing = ("session", None)
         if not force:
             if hasattr(obj_or_class, "_pyroId") and obj_or_class._pyroId != "":  # check for empty string is needed for Cython
-                raise errors.DaemonError("object or class already has a Pyro id")
+                pyro_id = obj_or_class._pyroId
+                if pyro_id and self.objectsById.get(pyro_id) is obj_or_class:
+                    raise errors.DaemonError("object or class already has a Pyro id")
             if objectId in self.objectsById:
                 raise errors.DaemonError("an object or class is already registered with that id")
         # set some pyro attributes
@@ -664,7 +676,7 @@ class Daemon(object):
             else:
                 ser.register_type_replacement(type(obj_or_class), _pyro_obj_to_auto_proxy)
         # register the object/class in the mapping
-        self.objectsById[obj_or_class._pyroId] = (obj_or_class if not weak else weakref.ref(obj_or_class))
+        self.objectsById[obj_or_class._pyroId] = obj_or_class if not weak else weakref.ref(obj_or_class)
         if weak: weakref.finalize(obj_or_class,self.unregister,objectId)
         return self.uriFor(objectId)
 

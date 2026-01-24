@@ -19,13 +19,12 @@
 from setuptools import setup
 
 distribution_package_name = "tensorrt"
-plugin_import_package_name = f"{distribution_package_name}.plugin"
 
 DISABLE_INTERNAL_PIP_FLAG = "NVIDIA_TENSORRT_DISABLE_INTERNAL_PIP"
 
 setup(
     name=distribution_package_name,
-    version="10.13.3.9",
+    version="10.14.1.48.post1",
     description="TensorRT Metapackage",
     long_description="""
 Metapackage for NVIDIA TensorRT, which is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as TensorFlow, PyTorch, and MXNet. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.
@@ -46,8 +45,7 @@ pip install tensorrt
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
     ],
-    packages=[plugin_import_package_name],
-    install_requires=["tensorrt_cu13==10.13.3.9"],
+    install_requires=["tensorrt_cu13==10.14.1.48.post1"],
     include_package_data=True,
     zip_safe=True,
     keywords="nvidia tensorrt deeplearning inference",

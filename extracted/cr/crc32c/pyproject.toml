@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crc32c"
+version = "2.8"
+authors = [
+    { name = "Rodrigo Tobar", email = "rtobar@icrar.org" },
+]
+description = "A python package implementing the crc32c algorithm in hardware and software"
+readme = "README.rst"
+license = { text = "LGPL-2.1-or-later" }
+requires-python = ">=3.7"
+classifiers = [
+    # There's no more specific classifier for LGPLv2.1+
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: C",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+urls.github = "https://github.com/ICRAR/crc32c"
+urls.changelog = "https://github.com/ICRAR/crc32c/blob/master/CHANGELOG.md"
+urls.issues = "https://github.com/ICRAR/crc32c/issues"
+
+[project.scripts]
+crc32c = "crc32c:main"
+
+[dependency-groups]
+test = [
+    "pytest",
+]
+lint = [
+    "black",
+    "isort",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "calculates_crc32c: Mark a test as needing crc32c working"
+]
+
+[tool.tox]
+requires = ["tox>=4.23"]
+env_list = [
+    "py3.7",
+    "py3.8",
+    "py3.9",
+    "py3.10",
+    "py3.11",
+    "py3.12",
+    "py3.13",
+    "py3.13t",
+    "py3.14",
+    "py3.14t",
+]
+
+[tool.tox.env_run_base]
+description = "Run test under {base_python}"
+labels = ["test"]
+commands = [["{env_python}", "-u", "run-tests.py"]]
+dependency_groups = ["test"]
+passenv = ["CRC32C_SW_MODE"]
+
+[tool.tox.env.benchmark]
+description = "Run basic benckmark"
+labels = ["benchmark"]
+commands = [["{env_python}", "-m", "crc32c.benchmark", { replace = "posargs", extend = true }]]
+passenv = ["CRC32C_SW_MODE"]
+parallel_show_output = true
+
+[tool.tox.env.lint]
+description = "Run linting checks"
+labels = ["lint"]
+commands = [
+    ["mypy", "--strict", "src", "test"],
+    ["black", "--check", "src", "test"],
+    ["isort", "--profile", "black", "--check", "--diff", "src", "test"],
+]
+dependency_groups = ["lint", "test"]
+package = "skip"
+changedir = "{toxinidir}"

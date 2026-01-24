@@ -3,7 +3,7 @@
 import itertools
 import math
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Collection, Dict, Final, List, Optional, Set, Tuple, Union
 
@@ -41,6 +41,7 @@ class SpanValue:
 
 @dataclass
 class SlotCombinationInfo:
+    context_area: bool
     name_domains: Optional[Set[str]] = None
 
 
@@ -68,9 +69,7 @@ class FuzzyNgramMatcher:
         intents: Intents,
         intent_models: Dict[str, Sqlite3NgramModel],
         intent_slot_list_names: Mapping[str, Collection[str]],
-        slot_combinations: Mapping[
-            str, Mapping[Tuple[str, ...], Sequence[SlotCombinationInfo]]
-        ],
+        slot_combinations: Mapping[str, Mapping[Tuple[str, ...], SlotCombinationInfo]],
         domain_keywords: Mapping[str, Collection[str]],
         stop_words: Optional[Collection[str]] = None,
         slot_lists: Optional[Dict[str, SlotList]] = None,
@@ -95,6 +94,7 @@ class FuzzyNgramMatcher:
     def match(
         self,
         text: str,
+        context_area: Optional[str] = None,
         min_score: Optional[float] = MIN_SCORE,
         close_score: Optional[float] = CLOSE_SCORE,
         equal_score: Optional[float] = EQUAL_SCORE,
@@ -105,7 +105,6 @@ class FuzzyNgramMatcher:
         span_map: Dict[Tuple[int, int], SpanValue] = {}
         tokens = text_norm.split()
         keyword_boosts = self._get_keyword_boosts(tokens)
-        print(keyword_boosts)
         spans = self._trie.find(text_norm, unique=False, word_boundaries=True)
 
         # Get values for spans in text
@@ -120,6 +119,7 @@ class FuzzyNgramMatcher:
         best_score: Optional[float] = None
         best_slots: Optional[Dict[str, Any]] = None
         best_name_domain: Optional[str] = None
+        best_combo_info: Optional[SlotCombinationInfo] = None
 
         # (intent name, score)
         best_scores: List[Tuple[str, float]] = []
@@ -233,17 +233,30 @@ class FuzzyNgramMatcher:
                     # Slot combination is not valid for any intent
                     continue
 
+                if not context_area:
+                    if _requires_context_area(combo_key):
+                        # Skip slot combinations that need a context area if we
+                        # don't have one.
+                        continue
+
+                    # Remove intents that would require a context area
+                    intents_to_check = [
+                        intent_name
+                        for intent_name in intents_to_check
+                        if not self.slot_combinations[intent_name][
+                            combo_key
+                        ].context_area
+                    ]
+
                 if name_domain:
                     # Filter intents by slot combination and name domain
                     intents_to_check = [
                         intent_name
                         for intent_name in intents_to_check
-                        if any(
-                            combo_info.name_domains
-                            and (name_domain in combo_info.name_domains)
-                            for combo_info in self.slot_combinations[intent_name][
-                                combo_key
-                            ]
+                        if name_domain
+                        in (
+                            self.slot_combinations[intent_name][combo_key].name_domains
+                            or []
                         )
                     ]
 
@@ -251,8 +264,9 @@ class FuzzyNgramMatcher:
                     # Not a valid slot combination
                     continue
 
-                if (len(interp_tokens) == 2) and (interp_tokens[1] == "{name}"):
-                    # Don't try to interpret entity names only
+                # <s> {list}
+                if (len(interp_tokens) == 2) and (interp_tokens[1].startswith("{")):
+                    # Don't try to interpret {list} only
                     continue
 
                 interp_tokens.append(EOS)
@@ -290,8 +304,6 @@ class FuzzyNgramMatcher:
                     intent_score += (
                         keyword_boosts.get(model_name, 0.0) * KEYWORD_BOOST_SCORE
                     )
-
-                    print(intent_score, intent_name, interp_tokens)
 
                     if (min_score is not None) and (intent_score < min_score):
                         # Below minimum score
@@ -338,8 +350,8 @@ class FuzzyNgramMatcher:
                         best_score = intent_score
                         best_slots = slot_values
                         best_name_domain = name_domain
+                        best_combo_info = self.slot_combinations[intent_name][combo_key]
                         best_scores.append((best_intent_name, best_score))
-                        print("Best:", best_intent_name, best_score, best_slots)
 
         if not best_intent_name:
             return None
@@ -352,16 +364,26 @@ class FuzzyNgramMatcher:
                 if abs(other_score - best_score) < MIN_DIFF_SCORE:
                     return None
 
+        result_slots = (
+            {
+                slot_name: FuzzySlotValue(value=slot_value, text=slot_text)
+                for slot_name, (slot_value, slot_text) in best_slots.items()
+            }
+            if best_slots is not None
+            else {}
+        )
+        best_combo_key = tuple(sorted(result_slots.keys()))
+
+        # Check if we need to add an "area" slot from context
+        if context_area and (
+            ((best_combo_info is not None) and best_combo_info.context_area)
+            or _requires_context_area(best_combo_key)
+        ):
+            result_slots["area"] = FuzzySlotValue(value=context_area, text="")
+
         return FuzzyResult(
             intent_name=best_intent_name,
-            slots=(
-                {
-                    slot_name: FuzzySlotValue(value=slot_value, text=slot_text)
-                    for slot_name, (slot_value, slot_text) in best_slots.items()
-                }
-                if best_slots is not None
-                else {}
-            ),
+            slots=result_slots,
             score=best_score,
             name_domain=best_name_domain,
         )
@@ -548,3 +570,7 @@ class FuzzyNgramMatcher:
             max_score = max(word_scores.values())
             for word, score in word_scores.items():
                 word_scores[word] = score / max_score
+
+
+def _requires_context_area(combo_key: Tuple[str, ...]) -> bool:
+    return combo_key == ("domain",)

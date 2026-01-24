@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.5
+Version: 0.2.8
 Summary: Microsoft Azure CLI Developer Tools
 Home-page: https://github.com/Azure/azure-cli-dev-tools
 Author: Microsoft Corporation
@@ -35,8 +35,8 @@ Requires-Dist: requests
 Requires-Dist: sphinx==1.6.7
 Requires-Dist: tox
 Requires-Dist: jsbeautifier~=1.14.7
-Requires-Dist: deepdiff~=6.3.0
-Requires-Dist: azure-cli-diff-tool~=0.1.0
+Requires-Dist: deepdiff~=8.6.1
+Requires-Dist: azure-cli-diff-tool~=0.1.1
 Requires-Dist: packaging
 Requires-Dist: tqdm
 Requires-Dist: wheel==0.30.0
@@ -160,6 +160,18 @@ License
 
 Release History
 ===============
+0.2.8
+++++++
+* Pin pip to 25.2 as pip 25.3 remove support for the legacy setup.py develop editable method in setuptools editable installs; setuptools >= 64 is now required. (#11457)
+
+0.2.7
+++++++
+* Support resolve extension name in upcoming breaking change collection
+
+0.2.6
+++++++
+* Bump `deepdiff` to 8.6.1 and `azure-cli-diff-tool` to 0.1.1
+
 0.2.5
 ++++++
 * Add support for Python 3.11, 3.12, and 3.13

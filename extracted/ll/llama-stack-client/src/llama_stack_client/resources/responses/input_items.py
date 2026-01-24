@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import List
+from typing import Optional
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -48,32 +54,23 @@ class InputItemsResource(SyncAPIResource):
         self,
         response_id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        include: List[str] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        include: Optional[SequenceNotStr[str]] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InputItemListResponse:
         """
-        List input items for a given OpenAI response.
+        List input items.
 
         Args:
-          after: An item ID to list items after, used for pagination.
-
-          before: An item ID to list items before, used for pagination.
-
-          include: Additional fields to include in the response.
-
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              100, and the default is 20.
-
-          order: The order to return the input items in. Default is desc.
+          order: Sort order for paginated responses.
 
           extra_headers: Send extra headers
 
@@ -86,7 +83,7 @@ class InputItemsResource(SyncAPIResource):
         if not response_id:
             raise ValueError(f"Expected a non-empty value for `response_id` but received {response_id!r}")
         return self._get(
-            f"/v1/openai/v1/responses/{response_id}/input_items",
+            f"/v1/responses/{response_id}/input_items",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -131,32 +128,23 @@ class AsyncInputItemsResource(AsyncAPIResource):
         self,
         response_id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        include: List[str] | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        include: Optional[SequenceNotStr[str]] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InputItemListResponse:
         """
-        List input items for a given OpenAI response.
+        List input items.
 
         Args:
-          after: An item ID to list items after, used for pagination.
-
-          before: An item ID to list items before, used for pagination.
-
-          include: Additional fields to include in the response.
-
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              100, and the default is 20.
-
-          order: The order to return the input items in. Default is desc.
+          order: Sort order for paginated responses.
 
           extra_headers: Send extra headers
 
@@ -169,7 +157,7 @@ class AsyncInputItemsResource(AsyncAPIResource):
         if not response_id:
             raise ValueError(f"Expected a non-empty value for `response_id` but received {response_id!r}")
         return await self._get(
-            f"/v1/openai/v1/responses/{response_id}/input_items",
+            f"/v1/responses/{response_id}/input_items",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

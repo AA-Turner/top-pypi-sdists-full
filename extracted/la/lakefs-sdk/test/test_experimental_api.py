@@ -34,6 +34,20 @@ class TestExperimentalApi(unittest.TestCase):
         """
         pass
 
+    def test_commit_async(self) -> None:
+        """Test case for commit_async
+
+        create commit asynchronously  # noqa: E501
+        """
+        pass
+
+    def test_commit_async_status(self) -> None:
+        """Test case for commit_async_status
+
+        get status of async commit operation  # noqa: E501
+        """
+        pass
+
     def test_complete_presign_multipart_upload(self) -> None:
         """Test case for complete_presign_multipart_upload
 
@@ -96,6 +110,20 @@ class TestExperimentalApi(unittest.TestCase):
         """
         pass
 
+    def test_get_token_from_mailbox(self) -> None:
+        """Test case for get_token_from_mailbox
+
+        receive the token after user has authenticated on redirect URL.  # noqa: E501
+        """
+        pass
+
+    def test_get_token_redirect(self) -> None:
+        """Test case for get_token_redirect
+
+        start acquiring a token by logging in on a browser  # noqa: E501
+        """
+        pass
+
     def test_hard_reset_branch(self) -> None:
         """Test case for hard_reset_branch
 
@@ -117,10 +145,31 @@ class TestExperimentalApi(unittest.TestCase):
         """
         pass
 
+    def test_merge_into_branch_async(self) -> None:
+        """Test case for merge_into_branch_async
+
+        merge references asynchronously  # noqa: E501
+        """
+        pass
+
+    def test_merge_into_branch_async_status(self) -> None:
+        """Test case for merge_into_branch_async_status
+
+        get status of async merge operation  # noqa: E501
+        """
+        pass
+
     def test_merge_pull_request(self) -> None:
         """Test case for merge_pull_request
 
         merge pull request  # noqa: E501
+        """
+        pass
+
+    def test_release_token_to_mailbox(self) -> None:
+        """Test case for release_token_to_mailbox
+
+        release a token for the current (authenticated) user to the mailbox of this login request.  # noqa: E501
         """
         pass
 

@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_1 import (
         QueuedJobFlowStatusFailureModuleAgentActionsItemType1,
     )
+    from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_2 import (
+        QueuedJobFlowStatusFailureModuleAgentActionsItemType2,
+    )
+    from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_3 import (
+        QueuedJobFlowStatusFailureModuleAgentActionsItemType3,
+    )
     from ..models.queued_job_flow_status_failure_module_approvers_item import (
         QueuedJobFlowStatusFailureModuleApproversItem,
     )
@@ -48,7 +54,9 @@ class QueuedJobFlowStatusFailureModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['QueuedJobFlowStatusFailureModuleAgentActionsItemType0',
-            'QueuedJobFlowStatusFailureModuleAgentActionsItemType1']]]):
+            'QueuedJobFlowStatusFailureModuleAgentActionsItemType1',
+            'QueuedJobFlowStatusFailureModuleAgentActionsItemType2',
+            'QueuedJobFlowStatusFailureModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
         parent_module (Union[Unset, str]):
     """
@@ -73,6 +81,8 @@ class QueuedJobFlowStatusFailureModule:
             Union[
                 "QueuedJobFlowStatusFailureModuleAgentActionsItemType0",
                 "QueuedJobFlowStatusFailureModuleAgentActionsItemType1",
+                "QueuedJobFlowStatusFailureModuleAgentActionsItemType2",
+                "QueuedJobFlowStatusFailureModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -83,6 +93,12 @@ class QueuedJobFlowStatusFailureModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_0 import (
             QueuedJobFlowStatusFailureModuleAgentActionsItemType0,
+        )
+        from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_1 import (
+            QueuedJobFlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_2 import (
+            QueuedJobFlowStatusFailureModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -135,6 +151,12 @@ class QueuedJobFlowStatusFailureModule:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, QueuedJobFlowStatusFailureModuleAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, QueuedJobFlowStatusFailureModuleAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, QueuedJobFlowStatusFailureModuleAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -197,6 +219,12 @@ class QueuedJobFlowStatusFailureModule:
         )
         from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_1 import (
             QueuedJobFlowStatusFailureModuleAgentActionsItemType1,
+        )
+        from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_2 import (
+            QueuedJobFlowStatusFailureModuleAgentActionsItemType2,
+        )
+        from ..models.queued_job_flow_status_failure_module_agent_actions_item_type_3 import (
+            QueuedJobFlowStatusFailureModuleAgentActionsItemType3,
         )
         from ..models.queued_job_flow_status_failure_module_approvers_item import (
             QueuedJobFlowStatusFailureModuleApproversItem,
@@ -273,6 +301,8 @@ class QueuedJobFlowStatusFailureModule:
             ) -> Union[
                 "QueuedJobFlowStatusFailureModuleAgentActionsItemType0",
                 "QueuedJobFlowStatusFailureModuleAgentActionsItemType1",
+                "QueuedJobFlowStatusFailureModuleAgentActionsItemType2",
+                "QueuedJobFlowStatusFailureModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -282,11 +312,27 @@ class QueuedJobFlowStatusFailureModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = QueuedJobFlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = QueuedJobFlowStatusFailureModuleAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = QueuedJobFlowStatusFailureModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = QueuedJobFlowStatusFailureModuleAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

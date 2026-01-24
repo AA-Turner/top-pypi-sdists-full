@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -19,40 +19,18 @@
 
 from __future__ import absolute_import
 
-import json
 import datetime
-import functools
 import os
 import re
 import shutil
 import subprocess  # nosec # Commands are trusted.
-from typing import Any, Optional
+from typing import Any
 
+from ...data_model.container import CoverageContainer
+from ...data_model.coverage import FileCoverage
+from ...exceptions import SanityCheckError
 from ...options import Options
-
-from ...utils import get_md5_hexdigest, presentable_filename, open_text_for_writing
-from ...coverage import CoverageContainer, FileCoverage
-
-PRETTY_JSON_INDENT = 4
-
-
-def _write_coveralls_result(
-    gcovr_json_dict: dict[str, Any], output_file: str, pretty: bool
-) -> None:
-    r"""helper utility to output json format dictionary to a file/STDOUT"""
-    write_json = json.dump
-
-    if pretty:
-        write_json = functools.partial(
-            write_json,
-            indent=PRETTY_JSON_INDENT,
-            separators=(",", ": "),
-        )
-    else:
-        write_json = functools.partial(write_json)
-
-    with open_text_for_writing(output_file, "coveralls.json") as fh:
-        write_json(gcovr_json_dict, fh)
+from ...utils import get_md5_hexdigest, write_json_output
 
 
 def write_report(
@@ -66,7 +44,7 @@ def write_report(
     @param options: options object
     """
 
-    # Create object to collect coverage data
+    # Create object to collect coverage data (https://docs.coveralls.io/api-jobs-endpoint#json-object-job)
     json_dict = dict[str, Any]()
 
     # Capture timestamp
@@ -144,9 +122,7 @@ def write_report(
 
     def run_git_cmd(*args: str) -> str:
         if git is None:
-            raise AssertionError(
-                "Sanity check failed. Function must only be executed if git is found."
-            )
+            raise SanityCheckError("Function must only be executed if git is found.")
         process = subprocess.run(  # nosec # We execute git
             [git] + list(args),
             stdout=subprocess.PIPE,
@@ -186,56 +162,65 @@ def write_report(
 
     # Loop through each coverage file collecting details
     json_dict["source_files"] = []
-    for file_path in sorted(covdata):
+    for _, filecov in sorted(covdata.items()):
         # File data has been compiled
-        json_dict["source_files"].append(_make_source_file(covdata[file_path], options))
+        json_dict["source_files"].append(_make_source_file(filecov, options))
 
-    _write_coveralls_result(json_dict, output_file, options.coveralls_pretty)
+    write_json_output(
+        json_dict,
+        pretty=options.coveralls_pretty,
+        filename=output_file,
+        default_filename="coveralls.json",
+    )
 
 
-def _make_source_file(
-    coverage_details: FileCoverage, options: Options
-) -> dict[str, Any]:
-    # Object with Coveralls file details
+def _make_source_file(filecov: FileCoverage, options: Options) -> dict[str, Any]:
+    # Object with Coveralls file details (https://docs.coveralls.io/api-jobs-endpoint#json-object-source-file)
     source_file = dict[str, Any]()
 
     # Isolate relative file path
-    relative_file_path = presentable_filename(
-        coverage_details.filename,
-        root_filter=options.root_filter,
-    )
+    relative_file_path = filecov.presentable_filename(options.root_filter)
     source_file["name"] = relative_file_path
 
     # Generate md5 hash of file contents
-    if coverage_details.filename.endswith("<stdin>"):
+    if filecov.filename.endswith("<stdin>"):
         total_line_count = None
     else:
-        with open(coverage_details.filename, "rb") as file_handle:
+        with open(filecov.filename, "rb") as file_handle:
             contents = file_handle.read()
 
         source_file["source_digest"] = get_md5_hexdigest(contents)
         total_line_count = len(contents.splitlines())
 
     # Initialize coverage array and load with line coverage data
-    coverage = list[Optional[int]]()
+    coverage = list[int | None]()
+    branches = list[int | None]()
     source_file["coverage"] = coverage
     # source_file['branches'] = []
-    for lineno, linecov in coverage_details.lines.items():
+    for linecov_collection in filecov.lines(sort=True):
         # Comment lines are not collected in `covdata`, but must
         # be reported to coveralls (fill missing lines)
-        _extend_with_none(coverage, lineno - 1)
-
-        coverage.append(linecov.count if linecov.is_reportable else None)
+        _extend_with_none(coverage, linecov_collection.lineno - 1)
+        linecov_collection = linecov_collection.merge_lines()
+        linecov = list(linecov_collection.linecov())[0]
+        if linecov_collection.is_reportable:
+            coverage.append(linecov.count)
+        else:
+            coverage.append(None)
 
         # Record branch information (INCOMPLETE/OMITTED)
-        # branch_details = linecov.branches
-        # if branch_details:
-        #     stat = linecov.branch_coverage()
-        #     source_file['coverage'].append(line)
-        #     # TODO: Add block information to `covdata` object
-        #     source_file['coverage'].append(0)
-        #     source_file['coverage'].append(stat.total)
-        #     source_file['coverage'].append(stat.covered)
+        for branchno, branchcov in enumerate(
+            branchcov
+            for branchcov in linecov.branches(sort=True)
+            if branchcov.is_reportable
+        ):
+            branches.append(linecov.lineno)
+            branches.append(branchcov.source_block_id_or_0)
+            branches.append(branchno)
+            branches.append(branchcov.count)
+
+    if branches:
+        source_file["branches"] = branches
 
     # add trailing empty lines
     if total_line_count is not None:
@@ -244,6 +229,6 @@ def _make_source_file(
     return source_file
 
 
-def _extend_with_none(target: list[Optional[int]], wanted_len: int) -> None:
+def _extend_with_none(target: list[int | None], wanted_len: int) -> None:
     current_len = len(target)
     target.extend(None for _ in range(current_len, wanted_len))

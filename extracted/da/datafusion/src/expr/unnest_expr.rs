@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt::{self, Display, Formatter};
+
 use datafusion::logical_expr::expr::Unnest;
 use pyo3::prelude::*;
-use std::fmt::{self, Display, Formatter};
 
 use super::PyExpr;
 
-#[pyclass(name = "UnnestExpr", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "UnnestExpr", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyUnnestExpr {
     unnest: Unnest,

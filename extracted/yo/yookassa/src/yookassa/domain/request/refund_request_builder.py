@@ -77,13 +77,24 @@ class RefundRequestBuilder(object):
         return self
 
     def refund_method_data(self, value):
-        """Устанавливает refund_method_data модели RefundRequest.
+        """Устанавливает refund_method_data модели RefundRequestBuilder.
 
-        :param value: refund_method_data модели RefundRequest.
+        :param value: refund_method_data модели RefundRequestBuilder.
         :type value: RequestRefundData
         :rtype: RefundRequestBuilder
         """
         self.__request.refund_method_data = value
+        return self
+
+    def set_metadata(self, value):
+        """
+        Устанавливает metadata модели RefundRequestBuilder.
+
+        :param value: metadata модели RefundRequestBuilder.
+        :type value: dict[str, str]
+        :rtype: PaymentRequestBuilder
+        """
+        self.__request.metadata = value
         return self
 
     def build(self):

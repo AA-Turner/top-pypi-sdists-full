@@ -37,6 +37,9 @@ class RefundRequest(RequestObject):
     __refund_method_data = None
     """Детали возврата. Зависят от способа оплаты, который использовался при проведении платежа."""
 
+    __metadata = None
+    """Любые дополнительные данные, которые нужны вам для работы (например, ваш внутренний идентификатор заказа). Передаются в виде набора пар «ключ-значение» и возвращаются в ответе от ЮKassa. Ограничения: максимум 16 ключей, имя ключа не больше 32 символов, значение ключа не больше 512 символов, тип данных — строка в формате UTF-8. """  # noqa: E501
+
     @property
     def payment_id(self):
         """
@@ -207,6 +210,25 @@ class RefundRequest(RequestObject):
             self.__refund_method_data = value
         else:
             raise TypeError('Invalid refund_method_data data type in RefundRequest.refund_method_data')
+
+    @property
+    def metadata(self):
+        """Возвращает metadata модели RefundRequest.
+
+        :return: metadata модели RefundRequest.
+        :rtype: dict[str, str]
+        """
+        return self.__metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """Устанавливает metadata модели RefundRequest.
+
+        :param value: metadata модели RefundRequest.
+        :type value: dict[str, str]
+        """
+        if type(value) is dict:
+            self.__metadata = value
 
     def validate(self):
         """

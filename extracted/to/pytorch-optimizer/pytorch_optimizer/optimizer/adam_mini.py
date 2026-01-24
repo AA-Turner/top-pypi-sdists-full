@@ -7,32 +7,32 @@ from torch import nn
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGroup
 
 
 class AdamMini(BaseOptimizer):  # pragma: no cover
-    r"""Use Fewer Learning Rates To Gain More.
+    """Use Fewer Learning Rates To Gain More.
 
-    :param model: nn.Module. model instance.
-    :param model_sharding: bool. set to True if you are using model parallelism with more than 1 GPU, including FSDP
-        and zero_1, 2, 3 in Deepspeed. Set to False if otherwise.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param num_embeds: int. number of embedding dimensions. could be unspecified if you are training non-transformer
-        models.
-    :param num_heads: int. number of attention heads. could be unspecified if you are training non-transformer models.
-    :param num_query_groups: Optional[int]. number of query groups in Group Query Attention (GQA). if not specified, it
-        will be equal to num_heads. could be unspecified if you are training non-transformer models.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        model (nn.Module): Model instance.
+        model_sharding (bool): Set to True if you are using model parallelism with more than 1 GPU, including FSDP
+            and zero_1, zero_2, zero_3 in DeepSpeed. Set to False otherwise.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        num_embeds (int): Number of embedding dimensions. Could be unspecified if training non-transformer models.
+        num_heads (int): Number of attention heads. Could be unspecified if training non-transformer models.
+        num_query_groups (Optional[int]): Number of query groups in Group Query Attention (GQA).
+            If not specified, defaults to num_heads. Could be unspecified for non-transformer models.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
         model: nn.Module,
         lr: float = 1.0,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.1,
         model_sharding: bool = False,
         num_embeds: int = 2048,
@@ -66,7 +66,7 @@ class AdamMini(BaseOptimizer):  # pragma: no cover
 
         groups = self.get_optimizer_groups(weight_decay)
 
-        defaults: DEFAULTS = {'lr': lr, 'betas': betas, 'eps': eps, **kwargs}
+        defaults: Defaults = {'lr': lr, 'betas': betas, 'eps': eps, **kwargs}
 
         super().__init__(groups, defaults)
 
@@ -96,8 +96,9 @@ class AdamMini(BaseOptimizer):  # pragma: no cover
 
         return groups
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        pass
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
 
     @staticmethod
     def step_embed(
@@ -258,18 +259,15 @@ class AdamMini(BaseOptimizer):  # pragma: no cover
         p.add_(update, alpha=-lr)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             name = group['name']
 

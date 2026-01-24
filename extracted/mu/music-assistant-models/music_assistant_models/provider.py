@@ -55,6 +55,11 @@ class ProviderManifest(DataClassORJSONMixin):
     # mdns_discovery: list of mdns types to discover
     mdns_discovery: list[str] | None = None
 
+    # credits: list of credits/attributions
+    # e.g. for libraries used, icons, etc.
+    # accepts markdown formatting.
+    credits: list[str] = field(default_factory=list)
+
     @classmethod
     async def parse(cls, manifest_file: str) -> ProviderManifest:
         """Parse ProviderManifest from file."""
@@ -70,11 +75,16 @@ class ProviderInstance(DataClassORJSONMixin):
     domain: str
     name: str
     instance_id: str
-    lookup_key: str
     supported_features: set[ProviderFeature]
     available: bool
     icon: str | None = None
     is_streaming_provider: bool | None = None  # music providers only
+
+    def __post_serialize__(self, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Execute action(s) on serialization."""
+        # add lookup_key for backwards compatibility
+        d["lookup_key"] = self.domain if self.is_streaming_provider else self.instance_id
+        return d
 
 
 @dataclass

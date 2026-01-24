@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: oslo.rootwrap
-Version: 7.7.0
+Version: 7.8.0
 Summary: Oslo Rootwrap
-Home-page: https://docs.openstack.org/oslo.rootwrap/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+Project-URL: Homepage, https://docs.openstack.org/oslo.rootwrap
+Project-URL: Repository, https://opendev.org/openstack/oslo.rootwrap
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -12,13 +12,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: debtcollector>=3.0.0
 
@@ -51,4 +52,3 @@ as `root` from OpenStack services.
 * Source: https://opendev.org/openstack/oslo.rootwrap
 * Bugs: https://bugs.launchpad.net/oslo.rootwrap
 * Release notes: https://docs.openstack.org/releasenotes/oslo.rootwrap/
-

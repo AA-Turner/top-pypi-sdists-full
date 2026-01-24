@@ -3,7 +3,7 @@ Type annotations for appflow service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appflow/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -64,12 +65,6 @@ from .literals import (
     ZendeskConnectorOperatorType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -325,7 +320,7 @@ class AuthParameterTypeDef(TypedDict):
     label: NotRequired[str]
     description: NotRequired[str]
     isSensitiveField: NotRequired[bool]
-    connectorSuppliedValues: NotRequired[List[str]]
+    connectorSuppliedValues: NotRequired[list[str]]
 
 
 class BasicAuthCredentialsTypeDef(TypedDict):
@@ -341,7 +336,7 @@ class CancelFlowExecutionsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -353,7 +348,7 @@ class ConnectorRuntimeSettingTypeDef(TypedDict):
     label: NotRequired[str]
     description: NotRequired[str]
     scope: NotRequired[str]
-    connectorSuppliedValueOptions: NotRequired[List[str]]
+    connectorSuppliedValueOptions: NotRequired[list[str]]
 
 
 DataTransferApiTypeDef = TypedDict(
@@ -376,8 +371,8 @@ class ConnectorDetailTypeDef(TypedDict):
     registeredAt: NotRequired[datetime]
     registeredBy: NotRequired[str]
     connectorProvisioningType: NotRequired[Literal["LAMBDA"]]
-    connectorModes: NotRequired[List[str]]
-    supportedDataTransferTypes: NotRequired[List[SupportedDataTransferTypeType]]
+    connectorModes: NotRequired[list[str]]
+    supportedDataTransferTypes: NotRequired[list[SupportedDataTransferTypeType]]
 
 
 class DestinationFieldPropertiesTypeDef(TypedDict):
@@ -386,7 +381,7 @@ class DestinationFieldPropertiesTypeDef(TypedDict):
     isUpsertable: NotRequired[bool]
     isUpdatable: NotRequired[bool]
     isDefaultedOnCreate: NotRequired[bool]
-    supportedWriteOperations: NotRequired[List[WriteOperationTypeType]]
+    supportedWriteOperations: NotRequired[list[WriteOperationTypeType]]
 
 
 class SourceFieldPropertiesTypeDef(TypedDict):
@@ -402,29 +397,29 @@ class ConnectorEntityTypeDef(TypedDict):
 
 
 class GoogleAnalyticsMetadataTypeDef(TypedDict):
-    oAuthScopes: NotRequired[List[str]]
+    oAuthScopes: NotRequired[list[str]]
 
 
 class HoneycodeMetadataTypeDef(TypedDict):
-    oAuthScopes: NotRequired[List[str]]
+    oAuthScopes: NotRequired[list[str]]
 
 
 class SalesforceMetadataTypeDef(TypedDict):
-    oAuthScopes: NotRequired[List[str]]
-    dataTransferApis: NotRequired[List[SalesforceDataTransferApiType]]
-    oauth2GrantTypesSupported: NotRequired[List[OAuth2GrantTypeType]]
+    oAuthScopes: NotRequired[list[str]]
+    dataTransferApis: NotRequired[list[SalesforceDataTransferApiType]]
+    oauth2GrantTypesSupported: NotRequired[list[OAuth2GrantTypeType]]
 
 
 class SlackMetadataTypeDef(TypedDict):
-    oAuthScopes: NotRequired[List[str]]
+    oAuthScopes: NotRequired[list[str]]
 
 
 class SnowflakeMetadataTypeDef(TypedDict):
-    supportedRegions: NotRequired[List[str]]
+    supportedRegions: NotRequired[list[str]]
 
 
 class ZendeskMetadataTypeDef(TypedDict):
-    oAuthScopes: NotRequired[List[str]]
+    oAuthScopes: NotRequired[list[str]]
 
 
 class ConnectorOAuthRequestTypeDef(TypedDict):
@@ -581,7 +576,7 @@ class ErrorHandlingConfigTypeDef(TypedDict):
 class OAuth2PropertiesOutputTypeDef(TypedDict):
     tokenUrl: str
     oAuth2GrantType: OAuth2GrantTypeType
-    tokenUrlCustomProperties: NotRequired[Dict[str, str]]
+    tokenUrlCustomProperties: NotRequired[dict[str, str]]
 
 
 class CustomerProfilesDestinationPropertiesTypeDef(TypedDict):
@@ -738,7 +733,7 @@ OAuth2CustomParameterTypeDef = TypedDict(
         "label": NotRequired[str],
         "description": NotRequired[str],
         "isSensitiveField": NotRequired[bool],
-        "connectorSuppliedValues": NotRequired[List[str]],
+        "connectorSuppliedValues": NotRequired[list[str]],
         "type": NotRequired[OAuth2CustomPropTypeType],
     },
 )
@@ -753,7 +748,7 @@ class OAuth2PropertiesTypeDef(TypedDict):
 class OAuthPropertiesOutputTypeDef(TypedDict):
     tokenUrl: str
     authCodeUrl: str
-    oAuthScopes: List[str]
+    oAuthScopes: list[str]
 
 
 class OAuthPropertiesTypeDef(TypedDict):
@@ -773,7 +768,7 @@ PardotSourcePropertiesTypeDef = TypedDict(
 class PrefixConfigOutputTypeDef(TypedDict):
     prefixType: NotRequired[PrefixTypeType]
     prefixFormat: NotRequired[PrefixFormatType]
-    pathPrefixHierarchy: NotRequired[List[PathPrefixType]]
+    pathPrefixHierarchy: NotRequired[list[PathPrefixType]]
 
 
 class PrefixConfigTypeDef(TypedDict):
@@ -898,11 +893,11 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class CustomAuthConfigTypeDef(TypedDict):
     customAuthenticationType: NotRequired[str]
-    authParameters: NotRequired[List[AuthParameterTypeDef]]
+    authParameters: NotRequired[list[AuthParameterTypeDef]]
 
 
 class CancelFlowExecutionsResponseTypeDef(TypedDict):
-    invalidExecutions: List[str]
+    invalidExecutions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -918,7 +913,7 @@ class CreateFlowResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -957,7 +952,7 @@ class UpdateFlowResponseTypeDef(TypedDict):
 
 class CustomConnectorSourcePropertiesOutputTypeDef(TypedDict):
     entityName: str
-    customProperties: NotRequired[Dict[str, str]]
+    customProperties: NotRequired[dict[str, str]]
     dataTransferApi: NotRequired[DataTransferApiTypeDef]
 
 
@@ -968,40 +963,40 @@ class CustomConnectorSourcePropertiesTypeDef(TypedDict):
 
 
 class ListConnectorsResponseTypeDef(TypedDict):
-    connectors: List[ConnectorDetailTypeDef]
+    connectors: list[ConnectorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListConnectorEntitiesResponseTypeDef(TypedDict):
-    connectorEntityMap: Dict[str, List[ConnectorEntityTypeDef]]
+    connectorEntityMap: dict[str, list[ConnectorEntityTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ConnectorMetadataTypeDef(TypedDict):
-    Amplitude: NotRequired[Dict[str, Any]]
-    Datadog: NotRequired[Dict[str, Any]]
-    Dynatrace: NotRequired[Dict[str, Any]]
+    Amplitude: NotRequired[dict[str, Any]]
+    Datadog: NotRequired[dict[str, Any]]
+    Dynatrace: NotRequired[dict[str, Any]]
     GoogleAnalytics: NotRequired[GoogleAnalyticsMetadataTypeDef]
-    InforNexus: NotRequired[Dict[str, Any]]
-    Marketo: NotRequired[Dict[str, Any]]
-    Redshift: NotRequired[Dict[str, Any]]
-    S3: NotRequired[Dict[str, Any]]
+    InforNexus: NotRequired[dict[str, Any]]
+    Marketo: NotRequired[dict[str, Any]]
+    Redshift: NotRequired[dict[str, Any]]
+    S3: NotRequired[dict[str, Any]]
     Salesforce: NotRequired[SalesforceMetadataTypeDef]
-    ServiceNow: NotRequired[Dict[str, Any]]
-    Singular: NotRequired[Dict[str, Any]]
+    ServiceNow: NotRequired[dict[str, Any]]
+    Singular: NotRequired[dict[str, Any]]
     Slack: NotRequired[SlackMetadataTypeDef]
     Snowflake: NotRequired[SnowflakeMetadataTypeDef]
-    Trendmicro: NotRequired[Dict[str, Any]]
-    Veeva: NotRequired[Dict[str, Any]]
+    Trendmicro: NotRequired[dict[str, Any]]
+    Veeva: NotRequired[dict[str, Any]]
     Zendesk: NotRequired[ZendeskMetadataTypeDef]
-    EventBridge: NotRequired[Dict[str, Any]]
-    Upsolver: NotRequired[Dict[str, Any]]
-    CustomerProfiles: NotRequired[Dict[str, Any]]
+    EventBridge: NotRequired[dict[str, Any]]
+    Upsolver: NotRequired[dict[str, Any]]
+    CustomerProfiles: NotRequired[dict[str, Any]]
     Honeycode: NotRequired[HoneycodeMetadataTypeDef]
-    SAPOData: NotRequired[Dict[str, Any]]
-    Pardot: NotRequired[Dict[str, Any]]
+    SAPOData: NotRequired[dict[str, Any]]
+    Pardot: NotRequired[dict[str, Any]]
 
 
 class GoogleAnalyticsConnectorProfileCredentialsTypeDef(TypedDict):
@@ -1072,11 +1067,11 @@ class ZendeskConnectorProfileCredentialsTypeDef(TypedDict):
 
 
 class TaskOutputTypeDef(TypedDict):
-    sourceFields: List[str]
+    sourceFields: list[str]
     taskType: TaskTypeType
     connectorOperator: NotRequired[ConnectorOperatorTypeDef]
     destinationField: NotRequired[str]
-    taskProperties: NotRequired[Dict[OperatorPropertiesKeysType, str]]
+    taskProperties: NotRequired[dict[OperatorPropertiesKeysType, str]]
 
 
 class TaskTypeDef(TypedDict):
@@ -1099,8 +1094,8 @@ class CustomConnectorDestinationPropertiesOutputTypeDef(TypedDict):
     entityName: str
     errorHandlingConfig: NotRequired[ErrorHandlingConfigTypeDef]
     writeOperationType: NotRequired[WriteOperationTypeType]
-    idFieldNames: NotRequired[List[str]]
-    customProperties: NotRequired[Dict[str, str]]
+    idFieldNames: NotRequired[list[str]]
+    customProperties: NotRequired[dict[str, str]]
 
 
 class CustomConnectorDestinationPropertiesTypeDef(TypedDict):
@@ -1145,7 +1140,7 @@ SalesforceDestinationPropertiesOutputTypeDef = TypedDict(
     "SalesforceDestinationPropertiesOutputTypeDef",
     {
         "object": str,
-        "idFieldNames": NotRequired[List[str]],
+        "idFieldNames": NotRequired[list[str]],
         "errorHandlingConfig": NotRequired[ErrorHandlingConfigTypeDef],
         "writeOperationType": NotRequired[WriteOperationTypeType],
         "dataTransferApi": NotRequired[SalesforceDataTransferApiType],
@@ -1174,7 +1169,7 @@ ZendeskDestinationPropertiesOutputTypeDef = TypedDict(
     "ZendeskDestinationPropertiesOutputTypeDef",
     {
         "object": str,
-        "idFieldNames": NotRequired[List[str]],
+        "idFieldNames": NotRequired[list[str]],
         "errorHandlingConfig": NotRequired[ErrorHandlingConfigTypeDef],
         "writeOperationType": NotRequired[WriteOperationTypeType],
     },
@@ -1191,7 +1186,7 @@ ZendeskDestinationPropertiesTypeDef = TypedDict(
 
 
 class CustomConnectorProfilePropertiesOutputTypeDef(TypedDict):
-    profileProperties: NotRequired[Dict[str, str]]
+    profileProperties: NotRequired[dict[str, str]]
     oAuth2Properties: NotRequired[OAuth2PropertiesOutputTypeDef]
 
 
@@ -1209,7 +1204,7 @@ class FlowDefinitionTypeDef(TypedDict):
     lastUpdatedAt: NotRequired[datetime]
     createdBy: NotRequired[str]
     lastUpdatedBy: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     lastRunExecutionDetails: NotRequired[ExecutionDetailsTypeDef]
 
 
@@ -1224,8 +1219,8 @@ class ExecutionResultTypeDef(TypedDict):
 
 class FieldTypeDetailsTypeDef(TypedDict):
     fieldType: str
-    filterOperators: List[OperatorType]
-    supportedValues: NotRequired[List[str]]
+    filterOperators: list[OperatorType]
+    supportedValues: NotRequired[list[str]]
     valueRegexPattern: NotRequired[str]
     supportedDateFormat: NotRequired[str]
     fieldValueRange: NotRequired[RangeTypeDef]
@@ -1244,11 +1239,11 @@ class MetadataCatalogDetailTypeDef(TypedDict):
 
 
 class OAuth2DefaultsTypeDef(TypedDict):
-    oauthScopes: NotRequired[List[str]]
-    tokenUrls: NotRequired[List[str]]
-    authCodeUrls: NotRequired[List[str]]
-    oauth2GrantTypesSupported: NotRequired[List[OAuth2GrantTypeType]]
-    oauth2CustomProperties: NotRequired[List[OAuth2CustomParameterTypeDef]]
+    oauthScopes: NotRequired[list[str]]
+    tokenUrls: NotRequired[list[str]]
+    authCodeUrls: NotRequired[list[str]]
+    oauth2GrantTypesSupported: NotRequired[list[OAuth2GrantTypeType]]
+    oauth2CustomProperties: NotRequired[list[OAuth2CustomParameterTypeDef]]
 
 
 OAuth2PropertiesUnionTypeDef = Union[OAuth2PropertiesTypeDef, OAuth2PropertiesOutputTypeDef]
@@ -1293,7 +1288,7 @@ class S3SourcePropertiesTypeDef(TypedDict):
 class SAPODataDestinationPropertiesOutputTypeDef(TypedDict):
     objectPath: str
     successResponseHandlingConfig: NotRequired[SuccessResponseHandlingConfigTypeDef]
-    idFieldNames: NotRequired[List[str]]
+    idFieldNames: NotRequired[list[str]]
     errorHandlingConfig: NotRequired[ErrorHandlingConfigTypeDef]
     writeOperationType: NotRequired[WriteOperationTypeType]
 
@@ -1376,7 +1371,7 @@ ZendeskDestinationPropertiesUnionTypeDef = Union[
 
 
 class ListFlowsResponseTypeDef(TypedDict):
-    flows: List[FlowDefinitionTypeDef]
+    flows: list[FlowDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1393,7 +1388,7 @@ class ExecutionRecordTypeDef(TypedDict):
     lastUpdatedAt: NotRequired[datetime]
     dataPullStartTime: NotRequired[datetime]
     dataPullEndTime: NotRequired[datetime]
-    metadataCatalogDetails: NotRequired[List[MetadataCatalogDetailTypeDef]]
+    metadataCatalogDetails: NotRequired[list[MetadataCatalogDetailTypeDef]]
 
 
 class AuthenticationConfigTypeDef(TypedDict):
@@ -1402,7 +1397,7 @@ class AuthenticationConfigTypeDef(TypedDict):
     isOAuth2Supported: NotRequired[bool]
     isCustomAuthSupported: NotRequired[bool]
     oAuth2Defaults: NotRequired[OAuth2DefaultsTypeDef]
-    customAuthConfigs: NotRequired[List[CustomAuthConfigTypeDef]]
+    customAuthConfigs: NotRequired[list[CustomAuthConfigTypeDef]]
 
 
 class CustomConnectorProfilePropertiesTypeDef(TypedDict):
@@ -1411,20 +1406,20 @@ class CustomConnectorProfilePropertiesTypeDef(TypedDict):
 
 
 class ConnectorProfilePropertiesOutputTypeDef(TypedDict):
-    Amplitude: NotRequired[Dict[str, Any]]
+    Amplitude: NotRequired[dict[str, Any]]
     Datadog: NotRequired[DatadogConnectorProfilePropertiesTypeDef]
     Dynatrace: NotRequired[DynatraceConnectorProfilePropertiesTypeDef]
-    GoogleAnalytics: NotRequired[Dict[str, Any]]
-    Honeycode: NotRequired[Dict[str, Any]]
+    GoogleAnalytics: NotRequired[dict[str, Any]]
+    Honeycode: NotRequired[dict[str, Any]]
     InforNexus: NotRequired[InforNexusConnectorProfilePropertiesTypeDef]
     Marketo: NotRequired[MarketoConnectorProfilePropertiesTypeDef]
     Redshift: NotRequired[RedshiftConnectorProfilePropertiesTypeDef]
     Salesforce: NotRequired[SalesforceConnectorProfilePropertiesTypeDef]
     ServiceNow: NotRequired[ServiceNowConnectorProfilePropertiesTypeDef]
-    Singular: NotRequired[Dict[str, Any]]
+    Singular: NotRequired[dict[str, Any]]
     Slack: NotRequired[SlackConnectorProfilePropertiesTypeDef]
     Snowflake: NotRequired[SnowflakeConnectorProfilePropertiesTypeDef]
-    Trendmicro: NotRequired[Dict[str, Any]]
+    Trendmicro: NotRequired[dict[str, Any]]
     Veeva: NotRequired[VeevaConnectorProfilePropertiesTypeDef]
     Zendesk: NotRequired[ZendeskConnectorProfilePropertiesTypeDef]
     SAPOData: NotRequired[SAPODataConnectorProfilePropertiesOutputTypeDef]
@@ -1555,11 +1550,11 @@ class ConnectorEntityFieldTypeDef(TypedDict):
     description: NotRequired[str]
     sourceProperties: NotRequired[SourceFieldPropertiesTypeDef]
     destinationProperties: NotRequired[DestinationFieldPropertiesTypeDef]
-    customProperties: NotRequired[Dict[str, str]]
+    customProperties: NotRequired[dict[str, str]]
 
 
 class DescribeFlowExecutionRecordsResponseTypeDef(TypedDict):
-    flowExecutions: List[ExecutionRecordTypeDef]
+    flowExecutions: list[ExecutionRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1567,11 +1562,11 @@ class DescribeFlowExecutionRecordsResponseTypeDef(TypedDict):
 class ConnectorConfigurationTypeDef(TypedDict):
     canUseAsSource: NotRequired[bool]
     canUseAsDestination: NotRequired[bool]
-    supportedDestinationConnectors: NotRequired[List[ConnectorTypeType]]
-    supportedSchedulingFrequencies: NotRequired[List[ScheduleFrequencyTypeType]]
+    supportedDestinationConnectors: NotRequired[list[ConnectorTypeType]]
+    supportedSchedulingFrequencies: NotRequired[list[ScheduleFrequencyTypeType]]
     isPrivateLinkEnabled: NotRequired[bool]
     isPrivateLinkEndpointUrlRequired: NotRequired[bool]
-    supportedTriggerTypes: NotRequired[List[TriggerTypeType]]
+    supportedTriggerTypes: NotRequired[list[TriggerTypeType]]
     connectorMetadata: NotRequired[ConnectorMetadataTypeDef]
     connectorType: NotRequired[ConnectorTypeType]
     connectorLabel: NotRequired[str]
@@ -1580,19 +1575,19 @@ class ConnectorConfigurationTypeDef(TypedDict):
     connectorName: NotRequired[str]
     connectorVersion: NotRequired[str]
     connectorArn: NotRequired[str]
-    connectorModes: NotRequired[List[str]]
+    connectorModes: NotRequired[list[str]]
     authenticationConfig: NotRequired[AuthenticationConfigTypeDef]
-    connectorRuntimeSettings: NotRequired[List[ConnectorRuntimeSettingTypeDef]]
-    supportedApiVersions: NotRequired[List[str]]
-    supportedOperators: NotRequired[List[OperatorsType]]
-    supportedWriteOperations: NotRequired[List[WriteOperationTypeType]]
+    connectorRuntimeSettings: NotRequired[list[ConnectorRuntimeSettingTypeDef]]
+    supportedApiVersions: NotRequired[list[str]]
+    supportedOperators: NotRequired[list[OperatorsType]]
+    supportedWriteOperations: NotRequired[list[WriteOperationTypeType]]
     connectorProvisioningType: NotRequired[Literal["LAMBDA"]]
     connectorProvisioningConfig: NotRequired[ConnectorProvisioningConfigTypeDef]
     logoURL: NotRequired[str]
     registeredAt: NotRequired[datetime]
     registeredBy: NotRequired[str]
-    supportedDataTransferTypes: NotRequired[List[SupportedDataTransferTypeType]]
-    supportedDataTransferApis: NotRequired[List[DataTransferApiTypeDef]]
+    supportedDataTransferTypes: NotRequired[list[SupportedDataTransferTypeType]]
+    supportedDataTransferApis: NotRequired[list[DataTransferApiTypeDef]]
 
 
 CustomConnectorProfilePropertiesUnionTypeDef = Union[
@@ -1624,7 +1619,7 @@ class DestinationConnectorPropertiesOutputTypeDef(TypedDict):
     Salesforce: NotRequired[SalesforceDestinationPropertiesOutputTypeDef]
     Snowflake: NotRequired[SnowflakeDestinationPropertiesTypeDef]
     EventBridge: NotRequired[EventBridgeDestinationPropertiesTypeDef]
-    LookoutMetrics: NotRequired[Dict[str, Any]]
+    LookoutMetrics: NotRequired[dict[str, Any]]
     Upsolver: NotRequired[UpsolverDestinationPropertiesOutputTypeDef]
     Honeycode: NotRequired[HoneycodeDestinationPropertiesTypeDef]
     CustomerProfiles: NotRequired[CustomerProfilesDestinationPropertiesTypeDef]
@@ -1664,7 +1659,7 @@ class TriggerConfigTypeDef(TypedDict):
 
 
 class DescribeConnectorEntityResponseTypeDef(TypedDict):
-    connectorEntityFields: List[ConnectorEntityFieldTypeDef]
+    connectorEntityFields: list[ConnectorEntityFieldTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1674,14 +1669,14 @@ class DescribeConnectorResponseTypeDef(TypedDict):
 
 
 class DescribeConnectorsResponseTypeDef(TypedDict):
-    connectorConfigurations: Dict[ConnectorTypeType, ConnectorConfigurationTypeDef]
-    connectors: List[ConnectorDetailTypeDef]
+    connectorConfigurations: dict[ConnectorTypeType, ConnectorConfigurationTypeDef]
+    connectors: list[ConnectorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeConnectorProfilesResponseTypeDef(TypedDict):
-    connectorProfileDetails: List[ConnectorProfileTypeDef]
+    connectorProfileDetails: list[ConnectorProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1742,17 +1737,17 @@ class DescribeFlowResponseTypeDef(TypedDict):
     flowStatus: FlowStatusType
     flowStatusMessage: str
     sourceFlowConfig: SourceFlowConfigOutputTypeDef
-    destinationFlowConfigList: List[DestinationFlowConfigOutputTypeDef]
+    destinationFlowConfigList: list[DestinationFlowConfigOutputTypeDef]
     lastRunExecutionDetails: ExecutionDetailsTypeDef
     triggerConfig: TriggerConfigOutputTypeDef
-    tasks: List[TaskOutputTypeDef]
+    tasks: list[TaskOutputTypeDef]
     createdAt: datetime
     lastUpdatedAt: datetime
     createdBy: str
     lastUpdatedBy: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     metadataCatalogConfig: MetadataCatalogConfigTypeDef
-    lastRunMetadataCatalogDetails: List[MetadataCatalogDetailTypeDef]
+    lastRunMetadataCatalogDetails: list[MetadataCatalogDetailTypeDef]
     schemaVersion: int
     ResponseMetadata: ResponseMetadataTypeDef
 

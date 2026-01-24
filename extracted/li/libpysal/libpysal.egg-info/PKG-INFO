@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libpysal
-Version: 4.13.0
+Version: 4.14.1
 Summary: Core components of PySAL - A library of spatial analysis functions
 Author-email: Serge Rey <sjsrey@gmail.com>, Levi Wolf <levi.john.wolf@gmail.com>
 Maintainer: PySAL Developers
@@ -13,26 +13,28 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: beautifulsoup4>=4.10
-Requires-Dist: geopandas>=0.10.0
-Requires-Dist: numpy>=1.22
-Requires-Dist: packaging>=22
-Requires-Dist: pandas>=1.4
-Requires-Dist: platformdirs>=2.0.2
-Requires-Dist: requests>=2.27
-Requires-Dist: scipy>=1.8
-Requires-Dist: shapely>=2.0.1
-Requires-Dist: scikit-learn>=1.1
+Requires-Dist: beautifulsoup4>=4.13.0
+Requires-Dist: geopandas>=0.14.0
+Requires-Dist: jinja2
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: packaging>=23.2
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: platformdirs>=3.11.0
+Requires-Dist: requests>=2.32.0
+Requires-Dist: scikit-learn>=1.4.0
+Requires-Dist: scipy>=1.12.0
+Requires-Dist: shapely>=2.0
 Provides-Extra: plus
-Requires-Dist: joblib>=1.2; extra == "plus"
-Requires-Dist: networkx>=2.7; extra == "plus"
-Requires-Dist: numba>=0.55; extra == "plus"
-Requires-Dist: pyarrow>=7.0; extra == "plus"
+Requires-Dist: joblib>=1.4.0; extra == "plus"
+Requires-Dist: networkx>=3.2; extra == "plus"
+Requires-Dist: numba>=0.58; extra == "plus"
+Requires-Dist: pandana; extra == "plus"
+Requires-Dist: pyarrow>=11.0; extra == "plus"
 Requires-Dist: sqlalchemy>=2.0; extra == "plus"
-Requires-Dist: xarray>=2022.3; extra == "plus"
+Requires-Dist: xarray>=2023.6; extra == "plus"
 Requires-Dist: zstd; extra == "plus"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
@@ -48,8 +50,8 @@ Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
 Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: codecov; extra == "tests"
-Requires-Dist: geodatasets>=2023.3.0; extra == "tests"
-Requires-Dist: matplotlib>=3.6; extra == "tests"
+Requires-Dist: geodatasets>=2023.12.0; extra == "tests"
+Requires-Dist: matplotlib>=3.8; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-mpl; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
@@ -64,6 +66,7 @@ Dynamic: license-file
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/libpysal.svg)](https://anaconda.org/conda-forge/libpysal)
 [![DOI](https://zenodo.org/badge/81501824.svg)](https://zenodo.org/badge/latestdoi/81501824)
 [![Discord](https://img.shields.io/badge/Discord-join%20chat-7289da?style=flat&logo=discord&logoColor=cccccc&link=https://discord.gg/BxFTEPFFZn)](https://discord.gg/BxFTEPFFZn)
+[![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
    
 ## libpysal modules
 
@@ -73,11 +76,12 @@ Dynamic: license-file
 - `libpysal.io` –  Input and output
 - `libpysal.weights` –  Spatial weights
 
-## Example Notebooks
 
-- [Spatial Weights](notebooks/weights.ipynb)
-- [Voronoi](notebooks/voronoi.ipynb)
-- [Input and Output](notebooks/io.ipynb)
+## Documentation
+
+- [User Guide](https://pysal.org/libpysal/user-guide/intro.html)
+- [API](https://pysal.org/libpysal/api.html)
+
 
 ## Development
 

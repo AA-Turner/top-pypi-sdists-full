@@ -1,32 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requests-ratelimiter
-Version: 0.7.0
+Version: 0.8.0
 Summary: Rate-limiting for the requests library
-Home-page: https://github.com/JWCook/requests-ratelimiter
-License: MIT
-Keywords: requests,rate-limiting,leaky-bucket
+Project-URL: homepage, https://github.com/JWCook/requests-ratelimiter
+Project-URL: repository, https://github.com/JWCook/requests-ratelimiter
+Project-URL: documentation, https://requests-ratelimiter.readthedocs.io
 Author: Jordan Cook
-Requires-Python: >=3.7,<4.0
+License-Expression: MIT
+License-File: LICENSE
+Keywords: leaky-bucket,rate-limiting,requests
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
-Provides-Extra: docs
-Requires-Dist: furo (>=2023.3,<2024.0) ; extra == "docs"
-Requires-Dist: myst-parser (>=1.0) ; extra == "docs"
-Requires-Dist: pyrate-limiter (<3.0)
-Requires-Dist: requests (>=2.20)
-Requires-Dist: sphinx (>=5.2,<6.0) ; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints (>=1.22,<2.0) ; extra == "docs"
-Requires-Dist: sphinx-copybutton (>=0.5) ; extra == "docs"
-Project-URL: Documentation, https://requests-ratelimiter.readthedocs.io
-Project-URL: Repository, https://github.com/JWCook/requests-ratelimiter
+Requires-Python: >=3.8
+Requires-Dist: pyrate-limiter<3.0
+Requires-Dist: requests>=2.20
 Description-Content-Type: text/markdown
 
 # Requests-Ratelimiter
@@ -297,4 +285,3 @@ session = CachedLimiterSession(
 ```
 
 This example has an extra benefit: cache hits won't count against your rate limit!
-

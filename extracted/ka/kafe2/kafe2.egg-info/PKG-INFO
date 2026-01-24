@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: kafe2
-Version: 2.10.0
+Version: 2.11.0
 Summary: Karlsruhe Fit Environment 2: a package for fitting and elementary data analysis
 Author-email: Johannes Gäßler <johannes.gaessler@cern.ch>, Michael Hohenstein <michael@hohenste.in>, Günter Quast <G.Quast@kit.edu>, Daniel Savoiu <daniel.savoiu@cern.ch>, Cedric Verstege <cedric.verstege@cern.ch>
-License: GPL3
+License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://philfitters.github.io/kafe2/
 Project-URL: Repository, https://github.com/PhiLFitters/kafe2
 Keywords: kafe2,kit,karlsruhe,data,analysis,lab,laboratory,practical courses,education,university,students,physics,fitting,minimization,minimisation,regression,parametric,parameter,estimation,optimization,optimisation
@@ -15,7 +15,6 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7

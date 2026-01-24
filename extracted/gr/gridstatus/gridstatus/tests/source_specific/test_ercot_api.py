@@ -19,6 +19,7 @@ from gridstatus.ercot_constants import (
 )
 from gridstatus.tests.base_test_iso import TestHelperMixin
 from gridstatus.tests.source_specific.test_ercot import (
+    TestErcot,
     check_60_day_dam_disclosure,
     check_60_day_sced_disclosure,
 )
@@ -368,9 +369,58 @@ class TestErcotAPI(TestHelperMixin):
         # Not inclusive of end date
         assert df["Interval End"].max() == self.local_start_of_day(end_date)
 
+    """get_mcpc_dam"""
+
+    def _check_get_mcpc_dam(self, df: pd.DataFrame):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "AS Type",
+            "MCPC",
+        ]
+
+        assert list(df["AS Type"].unique()) == [
+            "ECRS",
+            "NSPIN",
+            "REGDN",
+            "REGUP",
+            "RRS",
+        ]
+
+        assert (
+            (df["Interval End"] - df["Interval Start"]) == pd.Timedelta(hours=1)
+        ).all()
+
+    def test_get_mcpc_dam_today(self):
+        with api_vcr.use_cassette("test_get_mcpc_dam_today.yaml"):
+            df = self.iso.get_mcpc_dam("today")
+        self._check_get_mcpc_dam(df)
+        assert df["Interval Start"].min() == self.local_start_of_today()
+
+        # Depending on time of day, the end date will be today or tomorrow
+        assert df["Interval End"].max() in [
+            self.local_start_of_today() + pd.DateOffset(days=1),
+            self.local_start_of_today() + pd.DateOffset(days=2),
+        ]
+
+    def test_get_mcpc_dam_historical_date_range(self):
+        date = self.local_today() - pd.Timedelta(days=10)
+        end = date + pd.Timedelta(days=2)
+
+        with api_vcr.use_cassette(
+            f"test_get_mcpc_dam_historical_date_range_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_mcpc_dam(date, end)
+        self._check_get_mcpc_dam(df)
+        assert df["Interval Start"].min() == self.local_start_of_day(date)
+        assert df["Interval End"].max() == self.local_start_of_day(
+            end,
+        )
+
     """get_as_reports"""
 
     def _check_as_reports(self, df, before_full_columns=False):
+        """Check AS reports in original wide format"""
         # Earlier datasets only have these limited columns
         if before_full_columns:
             columns = [
@@ -447,16 +497,6 @@ class TestErcotAPI(TestHelperMixin):
         )
 
     @pytest.mark.integration
-    def test_get_as_reports_today_or_latest_raises_error(self):
-        with pytest.raises(ValueError) as error:
-            self.iso.get_as_reports("today")
-            assert str(error.value) == "Cannot get AS reports for 'latest' or 'today'"
-
-        with pytest.raises(ValueError) as error:
-            self.iso.get_as_reports("latest")
-            assert str(error.value) == "Cannot get AS reports for 'latest' or 'today'"
-
-    @pytest.mark.integration
     def test_get_as_reports_historical_date(self):
         historical_date = datetime.date(2022, 1, 1)
         df = self.iso.get_as_reports(historical_date, verbose=True)
@@ -486,9 +526,9 @@ class TestErcotAPI(TestHelperMixin):
 
     @api_vcr.use_cassette("test_get_as_reports_full_columns_21_days_ago.yaml")
     def test_get_as_reports_full_columns(self):
-        df = self.iso.get_as_reports(
-            self.local_start_of_today() - pd.DateOffset(days=21),
-        )
+        # This report ends on 2025-12-05 so we have to pin the date
+        date = pd.Timestamp("2025-12-05", tz=self.iso.default_timezone)
+        df = self.iso.get_as_reports(date)
 
         self._check_as_reports(df)
 
@@ -502,6 +542,33 @@ class TestErcotAPI(TestHelperMixin):
         assert {"2024-11-03 01:00:00-05:00", "2024-11-03 01:00:00-06:00"}.issubset(
             set(df["Interval Start"].astype(str).unique()),
         )
+
+    """get_as_reports_dam"""
+
+    def test_get_as_reports_dam(self):
+        """Test get_as_reports_dam method - long format"""
+        date = self.local_start_of_today() - pd.Timedelta(days=4)
+
+        with api_vcr.use_cassette(f"test_get_as_reports_dam_{date}.yaml"):
+            df = self.iso.get_as_reports_dam(date, verbose=True)
+
+        TestErcot()._check_as_reports_dam(df)
+
+        assert df["Interval Start"].dt.date.unique() == date.date()
+
+    """get_as_reports_sced"""
+
+    def test_get_as_reports_sced(self):
+        """Test get_as_reports_sced method for SCED ancillary service offers"""
+        # SCED AS reports started on December 5, 2025
+        date = self.local_start_of_today() - pd.Timedelta(days=4)
+
+        with api_vcr.use_cassette(f"test_get_as_reports_sced_{date}.yaml"):
+            df = self.iso.get_as_reports_sced(date, verbose=True)
+
+        TestErcot()._check_as_reports_sced(df)
+
+        assert df["SCED Timestamp"].dt.date.unique() == date.date()
 
     """get_as_plan"""
 
@@ -1661,7 +1728,8 @@ class TestErcotAPI(TestHelperMixin):
 
         self._check_system_load_charging_4_seconds(df)
 
-        assert df["Time"].min() == self.local_start_of_today()
+        # This data is not exactly on even intervals
+        assert df["Time"].min() >= self.local_start_of_today()
         assert df["Time"].max() <= self.local_now()
 
     def test_get_system_load_charging_4_seconds_date_range(self):
@@ -1684,3 +1752,22 @@ class TestErcotAPI(TestHelperMixin):
             end_date,
             tz=ErcotAPI().default_timezone,
         )
+
+    def test_get_system_load_charging_dst_end(self):
+        start_date = pd.Timestamp("2025-11-02 00:00:00").tz_localize(
+            self.iso.default_timezone,
+        )
+        end_date = start_date + pd.Timedelta(hours=6)
+
+        with api_vcr.use_cassette("test_get_system_load_charging_dst_end.yaml"):
+            data = self.iso.get_system_load_charging_4_seconds(start_date, end_date)
+
+        self._check_system_load_charging_4_seconds(data)
+
+        # Make sure the DST transition is handled correctly. There should be the same
+        # time except with different offsets
+        assert "2025-11-02 01:39:33-05:00" in list(data["Time"].astype(str))
+        assert "2025-11-02 01:39:33-06:00" in list(data["Time"].astype(str))
+
+        # No duplicates
+        assert (data["Time"].value_counts() == 1).all()

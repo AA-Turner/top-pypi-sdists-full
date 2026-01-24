@@ -30,7 +30,7 @@ def helper(rf):
 
 
 # Dummy callable. Needs to be at an importable location to be useful.
-def dummy_rp_callable(request):  # noqa
+def dummy_rp_callable(request):
     assert isinstance(request, HttpRequest)
     return request.GET.get("rp")
 
@@ -183,7 +183,7 @@ def test_helper_get_supported_key_algorithms(helper, settings):
 
     # Invalid algorithm
     settings.OTP_WEBAUTHN_SUPPORTED_COSE_ALGORITHMS = [0]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         helper.get_supported_key_algorithms()
 
 

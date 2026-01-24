@@ -1,4 +1,5 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
+import asyncio
 import datetime as dt
 import fnmatch
 import glob
@@ -10,10 +11,14 @@ import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
+from contextlib import contextmanager
+from functools import wraps
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 import json
+import json_repair
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -140,9 +145,42 @@ def add_version_to_work_dir(work_dir: str) -> str:
 _T = TypeVar('_T')
 
 
+def _patch_args(class_type):
+    try:
+        for k, v in class_type.__annotations__.items():
+            if v == Union[str, dict, type(None)]:
+                class_type.__annotations__[k] = Union[dict, str, type(None)]
+    except Exception:
+        logger.warning('patch args failed')
+
+
+@contextmanager
+def _patch_get_type_hints():
+    # Fix parsing string arguments into dicts
+    from transformers import hf_argparser
+    origin_get_type_hints = hf_argparser.get_type_hints
+
+    def get_type_hints(*args, **kwargs):
+        kwargs = origin_get_type_hints(*args, **kwargs)
+        for k, v in kwargs.items():
+            if v == Union[str, dict, type(None)]:
+                kwargs[k] = Union[dict, str, type(None)]
+        return kwargs
+
+    hf_argparser.get_type_hints = get_type_hints
+    try:
+        yield
+    finally:
+        hf_argparser.get_type_hints = origin_get_type_hints
+
+
 def parse_args(class_type: Type[_T], argv: Optional[List[str]] = None) -> Tuple[_T, List[str]]:
-    parser = HfArgumentParser([class_type])
-    if argv is None:
+    with _patch_get_type_hints():
+        parser = HfArgumentParser([class_type])
+    _ray_args = os.environ.get('RAY_SWIFT_ARGS')
+    if _ray_args:
+        argv = json.loads(_ray_args)
+    elif argv is None:
         argv = sys.argv[1:]
     if len(argv) > 0 and argv[0].endswith('.json'):
         json_path = os.path.abspath(os.path.expanduser(argv[0]))
@@ -238,6 +276,22 @@ def get_env_args(args_name: str, type_func: Callable[[str], _T], default_value: 
         log_info = f'Using environment variable `{args_name_upper}`, Setting {args_name}: {value}.'
     logger.info_once(log_info)
     return value
+
+
+def find_node_ip() -> Optional[str]:
+    import psutil
+    main_ip, virtual_ip = None, None
+    for name, addrs in sorted(psutil.net_if_addrs().items()):
+        for addr in addrs:
+            if addr.family.name == 'AF_INET' and not addr.address.startswith('127.'):
+                # Heuristic to prefer non-virtual interfaces
+                if any(s in name for s in ['lo', 'docker', 'veth', 'vmnet']):
+                    if virtual_ip is None:
+                        virtual_ip = addr.address
+                else:
+                    if main_ip is None:
+                        main_ip = addr.address
+    return main_ip or virtual_ip
 
 
 def find_free_port(start_port: Optional[int] = None, retry: int = 100) -> int:
@@ -368,8 +422,16 @@ def json_parse_to_dict(value: Union[str, Dict, None], strict: bool = True) -> Un
                 value = json.loads(value)
             except json.JSONDecodeError:
                 if strict:
-                    logger.error(f"Unable to parse string: '{value}'")
-                    raise
+                    try:
+                        # fix malformed json string, e.g., incorrect quotation marks
+                        old_value = value
+                        value = json_repair.repair_json(value)
+                        logger.warning(f'Unable to parse json string, try to repair it, '
+                                       f"the string before and after repair are '{old_value}' | '{value}'")
+                        value = json.loads(value)
+                    except Exception:
+                        logger.error(f"Unable to parse json string: '{value}', and try to repair failed")
+                        raise
     return value
 
 
@@ -389,3 +451,96 @@ def remove_response(messages) -> Optional[str]:
     last_role = messages[-1]['role'] if messages else None
     if last_role == 'assistant':
         return messages.pop()['content']
+
+
+@contextmanager
+def disable_deepspeed_zero3():
+    import transformers.integrations.deepspeed as ds_module
+    orig_weak_ref = ds_module._hf_deepspeed_config_weak_ref
+    ds_module._hf_deepspeed_config_weak_ref = None
+    try:
+        yield
+    finally:
+        ds_module._hf_deepspeed_config_weak_ref = orig_weak_ref
+
+
+def get_modules_to_not_convert(model):
+    if not hasattr(model, 'model_meta') or not hasattr(model, 'model_info'):
+        return
+    model_arch = model.model_meta.model_arch
+    prefix_list = []
+    suffix_list = []
+    if model.model_info.is_moe_model:
+        suffix_list += ['mlp.gate', 'mlp.shared_expert_gate']
+    if model_arch is not None:
+        for key in ['vision_tower', 'aligner']:
+            value = getattr(model_arch, key, None)
+            if value:
+                prefix_list += value
+    suffix_list.append('lm_head')
+    res = []
+    for n, m in model.named_modules():
+        if 'linear' in m.__class__.__name__.lower() and (any(n.endswith(suffix) for suffix in suffix_list)
+                                                         or any(n.startswith(prefix) for prefix in prefix_list)):
+            res.append(n)
+    return res if res else None
+
+
+def retry_decorator(retry=3):
+
+    def _retry(func):
+
+        @wraps(func)
+        def new_func(*args, **kwargs):
+            i = 1
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception:
+                    if i == retry:
+                        raise
+                    i += 1
+
+        return new_func
+
+    return _retry
+
+
+def start_event_loop_in_daemon(name: str = None) -> Tuple[threading.Thread, asyncio.AbstractEventLoop, threading.Event]:
+    """Create a new daemon thread that runs an asyncio event loop.
+
+    Args:
+        name: Name of the thread. If None, the default thread naming will be used.
+
+    Returns:
+        tuple: (thread, loop, loop_ready_event)
+            - thread: The thread running the event loop.
+            - loop: The event loop being run in the thread.
+            - loop_ready_event: An event that is set when the loop is ready.
+    """
+    loop = asyncio.new_event_loop()
+    loop_ready_event = threading.Event()
+
+    def run_loop():
+        asyncio.set_event_loop(loop)
+        loop_ready_event.set()
+        loop.run_forever()
+
+    thread = threading.Thread(target=run_loop, name=name, daemon=True)
+    thread.start()
+    return thread, loop, loop_ready_event
+
+
+def shutdown_event_loop_in_daemon(thread: threading.Thread = None, loop: asyncio.AbstractEventLoop = None) -> None:
+    """Shutdown an asyncio event loop running in a separate thread.
+
+    This function stops the event loop and waits for the associated thread to finish execution.
+
+    Args:
+        thread: The thread running the event loop.
+        loop: The asyncio event loop to shut down.
+    """
+    if loop is None or thread is None:
+        return
+    loop.call_soon_threadsafe(loop.stop)
+    thread.join(timeout=5)

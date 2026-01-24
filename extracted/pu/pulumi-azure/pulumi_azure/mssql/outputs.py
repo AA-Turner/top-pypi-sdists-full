@@ -260,6 +260,7 @@ class DatabaseLongTermRetentionPolicy(dict):
                  weekly_retention: Optional[_builtins.str] = None,
                  yearly_retention: Optional[_builtins.str] = None):
         """
+        :param _builtins.bool immutable_backups_enabled: Specifies if the backups are immutable. Defaults to `false`.
         :param _builtins.str monthly_retention: The monthly retention policy for an LTR backup in an ISO 8601 format. Valid value is between 1 to 120 months. e.g. `P1Y`, `P1M`, `P4W` or `P30D`. Defaults to `PT0S`.
         :param _builtins.int week_of_year: The week of year to take the yearly backup. Value has to be between `1` and `52`.
         :param _builtins.str weekly_retention: The weekly retention policy for an LTR backup in an ISO 8601 format. Valid value is between 1 to 520 weeks. e.g. `P1Y`, `P1M`, `P1W` or `P7D`. Defaults to `PT0S`.
@@ -279,6 +280,9 @@ class DatabaseLongTermRetentionPolicy(dict):
     @_builtins.property
     @pulumi.getter(name="immutableBackupsEnabled")
     def immutable_backups_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Specifies if the backups are immutable. Defaults to `false`.
+        """
         return pulumi.get(self, "immutable_backups_enabled")
 
     @_builtins.property
@@ -854,7 +858,7 @@ class JobTargetGroupJobTarget(dict):
                > **Note:** This cannot be set in combination with `database_name`.
         :param _builtins.str job_credential_id: The ID of the job credential to use during execution of jobs.
                
-               > **Note:** This is required when `membership_type` is `Include`, unless `database_name` is set.
+               > **Note:** This is required when `membership_type` is `Include`, unless `database_name` is set or the target resource is configured to use a managed identity for authentication.
         :param _builtins.str membership_type: The membership type for this job target. Possible values are `Include` and `Exclude`. Defaults to `Include`.
         :param _builtins.str type: The job target type. This value is computed based on `server_name`, `database_name`, and `elastic_pool_name`.
         """
@@ -904,7 +908,7 @@ class JobTargetGroupJobTarget(dict):
         """
         The ID of the job credential to use during execution of jobs.
 
-        > **Note:** This is required when `membership_type` is `Include`, unless `database_name` is set.
+        > **Note:** This is required when `membership_type` is `Include`, unless `database_name` is set or the target resource is configured to use a managed identity for authentication.
         """
         return pulumi.get(self, "job_credential_id")
 
@@ -959,6 +963,7 @@ class ManagedDatabaseLongTermRetentionPolicy(dict):
                  weekly_retention: Optional[_builtins.str] = None,
                  yearly_retention: Optional[_builtins.str] = None):
         """
+        :param _builtins.bool immutable_backups_enabled: Specifies if the backups are immutable. Defaults to `false`.
         :param _builtins.str monthly_retention: The monthly retention policy for an LTR backup in an ISO 8601 format. Valid value is between 1 to 120 months. e.g. `P1Y`, `P1M`, `P4W` or `P30D`. Defaults to `PT0S`.
         :param _builtins.int week_of_year: The week of year to take the yearly backup. Value has to be between `1` and `52`.
         :param _builtins.str weekly_retention: The weekly retention policy for an LTR backup in an ISO 8601 format. Valid value is between 1 to 520 weeks. e.g. `P1Y`, `P1M`, `P1W` or `P7D`. Defaults to `PT0S`.
@@ -978,6 +983,9 @@ class ManagedDatabaseLongTermRetentionPolicy(dict):
     @_builtins.property
     @pulumi.getter(name="immutableBackupsEnabled")
     def immutable_backups_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Specifies if the backups are immutable. Defaults to `false`.
+        """
         return pulumi.get(self, "immutable_backups_enabled")
 
     @_builtins.property

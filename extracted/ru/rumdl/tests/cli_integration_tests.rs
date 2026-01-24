@@ -1,4 +1,4 @@
-use assert_cmd::prelude::*;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use std::path::Path;
@@ -730,83 +730,68 @@ exclude = ["excluded.md", "excluded/**"]
 "#;
     fs::write(dir_path.join(".rumdl.toml"), config)?;
 
-    // Test 1: Default behavior - explicitly provided files are NOT excluded
-    println!("--- Test 1: Default behavior (force_exclude = false) ---");
-    let (success1, stdout1, _) = run_cmd(&["check", "excluded.md", "--verbose"]);
+    // Test 1: Default behavior - explicitly provided files ARE excluded (new behavior as of v0.0.156)
+    println!("--- Test 1: Default behavior (always respect excludes) ---");
+    let (success1, stdout1, stderr1) = run_cmd(&["check", "excluded.md", "--verbose"]);
     assert!(success1, "Test 1 failed");
     let norm_stdout1 = normalize(&stdout1);
+    let norm_stderr1 = normalize(&stderr1);
     assert!(
-        norm_stdout1.contains("Processing file: excluded.md"),
-        "Default behavior: explicitly provided excluded.md should be processed"
+        norm_stderr1.contains("warning:")
+            && norm_stderr1.contains("excluded.md")
+            && norm_stderr1.contains("ignored because of exclude pattern"),
+        "Default behavior: excluded.md should show warning about exclusion. stderr: {norm_stderr1}"
+    );
+    assert!(
+        !norm_stdout1.contains("Processing file: excluded.md"),
+        "Default behavior: excluded.md should NOT be processed"
     );
 
-    // Test 2: With --force-exclude CLI flag - explicitly provided files ARE excluded
-    println!("--- Test 2: With --force-exclude CLI flag ---");
-    let (success2, stdout2, stderr2) = run_cmd(&["check", "excluded.md", "--force-exclude", "--verbose"]);
+    // Test 2: included.md should still be processed
+    println!("--- Test 2: Non-excluded files are processed ---");
+    let (success2, stdout2, _) = run_cmd(&["check", "included.md", "--verbose"]);
     assert!(success2, "Test 2 failed");
-    let norm_stderr2 = normalize(&stderr2);
     let norm_stdout2 = normalize(&stdout2);
     assert!(
-        norm_stderr2.contains("Excluding explicitly provided file due to force_exclude: excluded.md"),
-        "With --force-exclude: excluded.md should be excluded with message in stderr"
-    );
-    assert!(
-        !norm_stdout2.contains("Processing file: excluded.md"),
-        "With --force-exclude: excluded.md should NOT be processed"
+        norm_stdout2.contains("Processing file: included.md"),
+        "included.md should be processed"
     );
 
-    // Test 3: With force_exclude in config
-    println!("--- Test 3: With force_exclude in config ---");
-    let config_with_force = r#"[global]
-exclude = ["excluded.md", "excluded/**"]
-force_exclude = true
-"#;
-    fs::write(dir_path.join(".rumdl.toml"), config_with_force)?;
-    let (success3, stdout3, stderr3) = run_cmd(&["check", "excluded.md", "--verbose"]);
+    // Test 3: Multiple files - only non-excluded are processed
+    println!("--- Test 3: Multiple files with excludes ---");
+    let (success3, stdout3, stderr3) = run_cmd(&["check", "included.md", "excluded.md", "--verbose"]);
     assert!(success3, "Test 3 failed");
-    let norm_stderr3 = normalize(&stderr3);
     let norm_stdout3 = normalize(&stdout3);
+    let norm_stderr3 = normalize(&stderr3);
     assert!(
-        norm_stderr3.contains("Excluding explicitly provided file due to force_exclude: excluded.md"),
-        "With config force_exclude: excluded.md should be excluded with message in stderr"
+        norm_stdout3.contains("Processing file: included.md"),
+        "included.md should be processed"
+    );
+    assert!(
+        norm_stderr3.contains("warning:")
+            && norm_stderr3.contains("excluded.md")
+            && norm_stderr3.contains("ignored because of exclude pattern"),
+        "excluded.md should show warning about exclusion"
     );
     assert!(
         !norm_stdout3.contains("Processing file: excluded.md"),
-        "With config force_exclude: excluded.md should NOT be processed"
+        "excluded.md should NOT be processed"
     );
 
-    // Test 4: Multiple files with force_exclude
-    println!("--- Test 4: Multiple files with --force-exclude ---");
-    let (success4, stdout4, stderr4) =
-        run_cmd(&["check", "included.md", "excluded.md", "--force-exclude", "--verbose"]);
+    // Test 4: Directory patterns work
+    println!("--- Test 4: Directory patterns with excludes ---");
+    let (success4, stdout4, stderr4) = run_cmd(&["check", "excluded/test.md", "--verbose"]);
     assert!(success4, "Test 4 failed");
     let norm_stdout4 = normalize(&stdout4);
     let norm_stderr4 = normalize(&stderr4);
     assert!(
-        norm_stdout4.contains("Processing file: included.md"),
-        "included.md should be processed"
+        norm_stderr4.contains("warning:")
+            && norm_stderr4.contains("excluded/test.md")
+            && norm_stderr4.contains("ignored because of exclude pattern"),
+        "Files in excluded dir should show warning about exclusion"
     );
     assert!(
-        norm_stderr4.contains("Excluding explicitly provided file due to force_exclude: excluded.md"),
-        "Multiple files: excluded.md should be excluded with message in stderr"
-    );
-    assert!(
-        !norm_stdout4.contains("Processing file: excluded.md"),
-        "excluded.md should be excluded with force_exclude"
-    );
-
-    // Test 5: Directory patterns with force_exclude
-    println!("--- Test 5: Directory patterns with --force-exclude ---");
-    let (success5, stdout5, stderr5) = run_cmd(&["check", "excluded/test.md", "--force-exclude", "--verbose"]);
-    assert!(success5, "Test 5 failed");
-    let norm_stdout5 = normalize(&stdout5);
-    let norm_stderr5 = normalize(&stderr5);
-    assert!(
-        norm_stderr5.contains("Excluding explicitly provided file due to force_exclude: excluded/test.md"),
-        "Files in excluded dir should be excluded with force_exclude (check stderr)"
-    );
-    assert!(
-        !norm_stdout5.contains("Processing file: excluded/test.md"),
+        !norm_stdout4.contains("Processing file: excluded/test.md"),
         "excluded/test.md should NOT be processed"
     );
 
@@ -823,7 +808,7 @@ fn test_default_discovery_includes_only_markdown() -> Result<(), Box<dyn std::er
     // Create a non-markdown file
     fs::write(dir_path.join("test.txt"), "This is a text file.")?;
 
-    let mut cmd = Command::cargo_bin("rumdl")?;
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg(".")
         .arg("--verbose") // Need verbose to see "Processing file:" messages
@@ -848,7 +833,7 @@ fn test_markdown_extension_handling() -> Result<(), Box<dyn std::error::Error>> 
     fs::write(dir_path.join("other.txt"), "Text file")?;
 
     // Test 1: Default discovery should find both .md and .markdown
-    let mut cmd1 = Command::cargo_bin("rumdl")?;
+    let mut cmd1 = cargo_bin_cmd!("rumdl");
     cmd1.arg("check").arg(".").arg("--verbose").current_dir(dir_path);
     cmd1.assert()
         .success()
@@ -857,7 +842,7 @@ fn test_markdown_extension_handling() -> Result<(), Box<dyn std::error::Error>> 
         .stdout(predicates::str::contains("Processing file: other.txt").not());
 
     // Test 2: Explicit include for .markdown should only find that file
-    let mut cmd2 = Command::cargo_bin("rumdl")?;
+    let mut cmd2 = cargo_bin_cmd!("rumdl");
     cmd2.arg("check")
         .arg(".")
         .arg("--include")
@@ -881,21 +866,22 @@ fn test_type_filter_precedence() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(dir_path.join("test.md"), "# MD File\n")?;
     fs::write(dir_path.join("test.txt"), "Text file")?;
 
-    // Test 1: Trying to include non-markdown files should yield nothing
-    let mut cmd1 = Command::cargo_bin("rumdl")?;
+    // Test 1: --include allows checking non-markdown files (e.g., .txt)
+    let mut cmd1 = cargo_bin_cmd!("rumdl");
     cmd1.arg("check")
         .arg(".")
         .arg("--include")
         .arg("*.txt")
-        .arg("--verbose") // Use verbose to ensure no "Processing file:" messages appear
+        .arg("--verbose")
         .current_dir(dir_path);
     cmd1.assert()
-        .success()
-        .stdout(predicates::str::contains("No markdown files found to check."))
-        .stdout(predicates::str::contains("Processing file:").not());
+        .code(1) // Should fail because test.txt has linting issues
+        .stdout(predicates::str::contains("Processing file: test.txt"))
+        .stdout(predicates::str::contains("MD041")) // First line should be heading
+        .stdout(predicates::str::contains("MD047")); // Should end with newline
 
     // Test 2: Excluding all .md files when only .md files exist
-    let mut cmd2 = Command::cargo_bin("rumdl")?;
+    let mut cmd2 = cargo_bin_cmd!("rumdl");
     cmd2.arg("check")
         .arg(".")
         .arg("--exclude")
@@ -909,7 +895,7 @@ fn test_type_filter_precedence() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test 3: Excluding both markdown types
     fs::write(dir_path.join("test.markdown"), "# MARKDOWN File\n")?;
-    let mut cmd3 = Command::cargo_bin("rumdl")?;
+    let mut cmd3 = cargo_bin_cmd!("rumdl");
     cmd3.arg("check")
         .arg(".")
         .arg("--exclude")
@@ -1073,7 +1059,7 @@ line_length = 123
     let (success, stdout, stderr) = run_cmd(&["config", "get", "global.exclude"]);
     assert!(success, "config get global.exclude should succeed, stderr: {stderr}");
     assert!(
-        stdout.contains("global.exclude = [\"docs/temp\", \"node_modules\"] [from .rumdl.toml]"),
+        stdout.contains("global.exclude = [\"docs/temp\", \"node_modules\"] [from project config]"),
         "Unexpected output: {stdout}. Stderr: {stderr}"
     );
 
@@ -1081,7 +1067,7 @@ line_length = 123
     let (success, stdout, stderr) = run_cmd(&["config", "get", "MD013.line_length"]);
     assert!(success, "config get MD013.line_length should succeed, stderr: {stderr}");
     assert!(
-        stdout.contains("MD013.line-length = 123 [from .rumdl.toml]"),
+        stdout.contains("MD013.line-length = 123 [from project config]"),
         "Unexpected output: {stdout}. Stderr: {stderr}"
     );
 
@@ -1566,4 +1552,346 @@ fn test_fmt_command() {
     // No errors in quiet mode
     assert_eq!(stderr, "");
     assert!(output.status.success());
+}
+
+#[test]
+fn test_fmt_vs_check_fix_exit_codes() {
+    let rumdl_exe = env!("CARGO_BIN_EXE_rumdl");
+
+    // Test content with an unfixable violation (MD041 - first line heading)
+    // and fixable violations (missing blank line before heading - MD022)
+    let input = "Some text\n# Title\n";
+
+    // Test 1: fmt should exit 0 even if unfixable violations remain
+    let mut cmd = Command::new(rumdl_exe);
+    cmd.arg("fmt").arg("-").arg("--quiet");
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().expect("Failed to spawn fmt command");
+    use std::io::Write;
+    let mut stdin = child.stdin.take().expect("Failed to open stdin");
+    stdin.write_all(input.as_bytes()).expect("Failed to write to stdin");
+    drop(stdin);
+
+    let output = child.wait_with_output().expect("Failed to wait for fmt command");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should output formatted content (blank line added before heading)
+    assert_eq!(stdout, "Some text\n\n# Title\n");
+    // fmt should exit 0 even though MD041 violation remains
+    assert!(output.status.success(), "fmt should exit 0 on successful formatting");
+
+    // Test 2: check --fix should exit 1 if unfixable violations remain
+    let mut cmd = Command::new(rumdl_exe);
+    cmd.arg("check").arg("--fix").arg("-").arg("--quiet");
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().expect("Failed to spawn check --fix command");
+    let mut stdin = child.stdin.take().expect("Failed to open stdin");
+    stdin.write_all(input.as_bytes()).expect("Failed to write to stdin");
+    drop(stdin);
+
+    let output = child
+        .wait_with_output()
+        .expect("Failed to wait for check --fix command");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should output formatted content (same as fmt)
+    assert_eq!(stdout, "Some text\n\n# Title\n");
+    // check --fix should exit 1 because MD041 violation remains
+    assert!(
+        !output.status.success(),
+        "check --fix should exit 1 when unfixable violations remain"
+    );
+    assert_eq!(output.status.code(), Some(1), "check --fix should exit with code 1");
+}
+
+/// Test that --include allows checking files with non-standard extensions (issue #127)
+#[test]
+fn test_include_nonstandard_extensions() -> Result<(), Box<dyn std::error::Error>> {
+    let temp_dir = tempdir()?;
+    let dir_path = temp_dir.path();
+
+    // Create files with both standard and non-standard extensions
+    fs::write(
+        dir_path.join("template.md.jinja"),
+        "# Template\n\nThis is a Jinja2 template.\n",
+    )?;
+    fs::write(
+        dir_path.join("regular.md"),
+        "# Regular\n\nThis is a regular markdown file.\n",
+    )?;
+    fs::write(dir_path.join("config.yml.j2"), "# Not markdown\n\nThis is YAML.\n")?;
+
+    // Test 1: Default behavior should only find regular.md
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check").arg(".").arg("--verbose").current_dir(dir_path);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Processing file: regular.md"))
+        .stdout(predicates::str::contains("template.md.jinja").not())
+        .stdout(predicates::str::contains("config.yml.j2").not());
+
+    // Test 2: --include with *.md.jinja should find template.md.jinja
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check")
+        .arg(".")
+        .arg("--include")
+        .arg("**/*.md.jinja")
+        .arg("--verbose")
+        .current_dir(dir_path);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Processing file: template.md.jinja"));
+
+    // Test 3: --include should still respect patterns (not find yml.j2)
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check")
+        .arg(".")
+        .arg("--include")
+        .arg("**/*.md.jinja")
+        .arg("--verbose")
+        .current_dir(dir_path);
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("config.yml.j2").not());
+
+    Ok(())
+}
+
+/// Test that explicit file paths work with non-standard extensions (issue #127)
+#[test]
+fn test_explicit_path_nonstandard_extensions() -> Result<(), Box<dyn std::error::Error>> {
+    let temp_dir = tempdir()?;
+    let dir_path = temp_dir.path();
+
+    // Create a file with non-standard extension
+    let jinja_file = dir_path.join("template.md.jinja");
+    fs::write(&jinja_file, "# Jinja Template\n\nThis should be checked.\n")?;
+
+    // Test: Explicitly providing the file path should work
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check").arg(&jinja_file).arg("--verbose");
+
+    cmd.assert()
+        .success()
+        .stdout(predicates::str::contains("Processing file:"))
+        .stdout(predicates::str::contains("template.md.jinja"));
+
+    Ok(())
+}
+
+/// Test that --include works with multiple non-standard extensions
+#[test]
+fn test_include_multiple_nonstandard_extensions() -> Result<(), Box<dyn std::error::Error>> {
+    let temp_dir = tempdir()?;
+    let dir_path = temp_dir.path();
+
+    // Create files with various extensions
+    fs::write(dir_path.join("template.md.jinja"), "# Jinja\n")?;
+    fs::write(dir_path.join("readme.md.tmpl"), "# Template\n")?;
+    fs::write(dir_path.join("doc.md.erb"), "# ERB\n")?;
+    fs::write(dir_path.join("regular.md"), "# Regular\n")?;
+
+    // Test: Include multiple non-standard extensions
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check")
+        .arg(".")
+        .arg("--include")
+        .arg("**/*.md.jinja,**/*.md.tmpl,**/*.md.erb")
+        .arg("--verbose")
+        .current_dir(dir_path);
+
+    let output = cmd.output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should find all three non-standard extension files
+    assert!(stdout.contains("template.md.jinja"), "Should find .md.jinja file");
+    assert!(stdout.contains("readme.md.tmpl"), "Should find .md.tmpl file");
+    assert!(stdout.contains("doc.md.erb"), "Should find .md.erb file");
+    // Should NOT find regular.md (not in include pattern)
+    assert!(
+        !stdout.contains("regular.md"),
+        "Should not find regular.md when using specific --include"
+    );
+
+    Ok(())
+}
+
+// Tests for Issue #197: Exit code behavior with --fix
+// These tests verify that rumdl check --fix returns the correct exit code
+mod issue197_exit_code {
+    use std::fs;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_exit_code_after_all_fixes() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.md");
+
+        // Create a file with a fixable issue (MD007 - list indentation)
+        // This will be fixed by --fix
+        fs::write(
+            &test_file,
+            "# Heading\n\n- list item\n    - nested item (4 spaces, should be 2)\n",
+        )
+        .unwrap();
+
+        // Create config to set MD007 indent to 2
+        let config_file = temp_dir.path().join(".rumdl.toml");
+        fs::write(&config_file, "[MD007]\nindent = 2\n").unwrap();
+
+        // Run rumdl check --fix
+        let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .arg("check")
+            .arg("--fix")
+            .arg(test_file.to_str().unwrap())
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        // Verify the fix was applied
+        assert!(
+            stdout.contains("[fixed]") || stdout.contains("Fixed:"),
+            "Should show that issues were fixed. stdout: {stdout}\nstderr: {stderr}"
+        );
+
+        // Verify exit code is 0 when all issues are fixed
+        assert_eq!(
+            exit_code, 0,
+            "Exit code should be 0 when all issues are fixed. stdout: {stdout}\nstderr: {stderr}\nexit_code: {exit_code}"
+        );
+
+        // Verify the message shows all issues were fixed
+        assert!(
+            stdout.contains("Fixed:") && (stdout.contains("Fixed 1/1") || stdout.contains("Fixed: 1/1")),
+            "Should show 'Fixed: Fixed 1/1 issues' message. stdout: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_exit_code_with_remaining_issues() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.md");
+
+        // Create a file with both fixable and unfixable issues
+        // MD007 (fixable) and MD041 (unfixable - first line must be heading)
+        fs::write(
+            &test_file,
+            "This is not a heading (MD041 violation - unfixable)\n\n- list item\n    - nested item (MD007 violation - fixable)\n",
+        )
+        .unwrap();
+
+        // Create config to set MD007 indent to 2
+        let config_file = temp_dir.path().join(".rumdl.toml");
+        fs::write(&config_file, "[MD007]\nindent = 2\n").unwrap();
+
+        // Run rumdl check --fix
+        let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .arg("check")
+            .arg("--fix")
+            .arg(test_file.to_str().unwrap())
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        // Verify exit code is 1 when some issues remain (unfixable)
+        assert_eq!(
+            exit_code, 1,
+            "Exit code should be 1 when unfixable issues remain. stdout: {stdout}\nstderr: {stderr}\nexit_code: {exit_code}"
+        );
+    }
+
+    /// Test that verifies the fix implementation re-lints after applying fixes.
+    ///
+    /// This addresses a concern raised by @martimlobao on issue #197:
+    /// If --fix creates NEW issues while fixing existing ones (e.g., MD005/MD007 conflict),
+    /// the exit code should still be 1.
+    ///
+    /// The implementation in file_processor.rs:668-740 handles this by:
+    /// 1. Applying all fixes to the content
+    /// 2. Re-linting the fixed content with all rules
+    /// 3. Returning exit code based on remaining_warnings (which includes ANY issues, new or old)
+    ///
+    /// This test verifies that behavior by checking that:
+    /// - The fix is applied (issue count decreases)
+    /// - But exit code is 1 if ANY issues remain after fixing
+    #[test]
+    fn test_relint_after_fix_catches_remaining_issues() {
+        let temp_dir = tempdir().unwrap();
+        let test_file = temp_dir.path().join("test.md");
+
+        // Create a file where:
+        // - MD007 will fix the indentation
+        // - But MD041 (first line not heading) remains unfixable
+        // This verifies the re-lint catches issues that weren't part of the original fix
+        fs::write(&test_file, "Not a heading\n\n- item\n    - nested\n").unwrap();
+
+        let config_file = temp_dir.path().join(".rumdl.toml");
+        fs::write(&config_file, "[MD007]\nindent = 2\n").unwrap();
+
+        // First, verify the file has multiple issues
+        let check_output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .arg("check")
+            .arg(test_file.to_str().unwrap())
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let check_stdout = String::from_utf8_lossy(&check_output.stdout);
+        assert!(
+            check_stdout.contains("MD007") && check_stdout.contains("MD041"),
+            "File should have both MD007 and MD041 issues. stdout: {check_stdout}"
+        );
+
+        // Now run --fix
+        let fix_output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .arg("check")
+            .arg("--fix")
+            .arg(test_file.to_str().unwrap())
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let fix_stdout = String::from_utf8_lossy(&fix_output.stdout);
+        let fix_stderr = String::from_utf8_lossy(&fix_output.stderr);
+        let exit_code = fix_output.status.code().unwrap_or(-1);
+
+        // Verify MD007 was fixed
+        assert!(
+            fix_stdout.contains("[fixed]"),
+            "MD007 should be fixed. stdout: {fix_stdout}"
+        );
+
+        // Verify exit code is 1 because MD041 still remains
+        // This proves the implementation re-lints after fixing and catches remaining issues
+        assert_eq!(
+            exit_code, 1,
+            "Exit code should be 1 when issues remain after fix (re-lint catches them). \
+             stdout: {fix_stdout}\nstderr: {fix_stderr}"
+        );
+
+        // Verify the content was actually modified (fix was applied)
+        let fixed_content = fs::read_to_string(&test_file).unwrap();
+        assert!(
+            fixed_content.contains("  - nested"),
+            "Content should be fixed (2 spaces). Got: {fixed_content}"
+        );
+    }
 }

@@ -2,6 +2,7 @@ from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -134,32 +135,151 @@ class ListChartsResponse(_message.Message):
         next_page_token: _Optional[str] = ...,
     ) -> None: ...
 
+class UpdateMetricConfigOperation(_message.Message):
+    __slots__ = ("name", "window_period", "series", "formulas", "trigger", "graph_generated")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    FORMULAS_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_GENERATED_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    window_period: str
+    series: _containers.RepeatedCompositeFieldContainer[_chart_pb2.MetricConfigSeries]
+    formulas: _containers.RepeatedCompositeFieldContainer[_chart_pb2.MetricFormula]
+    trigger: _chart_pb2.AlertTrigger
+    graph_generated: bool
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        window_period: _Optional[str] = ...,
+        series: _Optional[_Iterable[_Union[_chart_pb2.MetricConfigSeries, _Mapping]]] = ...,
+        formulas: _Optional[_Iterable[_Union[_chart_pb2.MetricFormula, _Mapping]]] = ...,
+        trigger: _Optional[_Union[_chart_pb2.AlertTrigger, _Mapping]] = ...,
+        graph_generated: bool = ...,
+    ) -> None: ...
+
+class CreateChartRequest(_message.Message):
+    __slots__ = (
+        "name",
+        "window_period",
+        "series",
+        "formulas",
+        "trigger",
+        "link_entity_kind",
+        "linked_entity_id",
+        "graph_generated",
+    )
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    FORMULAS_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    LINK_ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
+    LINKED_ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_GENERATED_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    window_period: str
+    series: _containers.RepeatedCompositeFieldContainer[_chart_pb2.MetricConfigSeries]
+    formulas: _containers.RepeatedCompositeFieldContainer[_chart_pb2.MetricFormula]
+    trigger: _chart_pb2.AlertTrigger
+    link_entity_kind: _chart_pb2.ChartLinkKind
+    linked_entity_id: str
+    graph_generated: bool
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        window_period: _Optional[str] = ...,
+        series: _Optional[_Iterable[_Union[_chart_pb2.MetricConfigSeries, _Mapping]]] = ...,
+        formulas: _Optional[_Iterable[_Union[_chart_pb2.MetricFormula, _Mapping]]] = ...,
+        trigger: _Optional[_Union[_chart_pb2.AlertTrigger, _Mapping]] = ...,
+        link_entity_kind: _Optional[_Union[_chart_pb2.ChartLinkKind, str]] = ...,
+        linked_entity_id: _Optional[str] = ...,
+        graph_generated: bool = ...,
+    ) -> None: ...
+
+class CreateChartResponse(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _chart_pb2.Chart
+    def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+
+class UpdateMetricConfigRequest(_message.Message):
+    __slots__ = ("metric_config_id", "update", "update_mask")
+    METRIC_CONFIG_ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    metric_config_id: str
+    update: UpdateMetricConfigOperation
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        metric_config_id: _Optional[str] = ...,
+        update: _Optional[_Union[UpdateMetricConfigOperation, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateMetricConfigResponse(_message.Message):
+    __slots__ = ("metric_config",)
+    METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    metric_config: _chart_pb2.MetricConfig
+    def __init__(self, metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...) -> None: ...
+
 class GetChartSnapshotRequest(_message.Message):
-    __slots__ = ("metric_config", "start_time", "end_time")
+    __slots__ = (
+        "metric_config",
+        "start_time",
+        "end_time",
+        "use_start_as_origin",
+        "use_sketch_metrics_table",
+        "return_sql_query_string",
+    )
     METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    USE_START_AS_ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    USE_SKETCH_METRICS_TABLE_FIELD_NUMBER: _ClassVar[int]
+    RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     metric_config: _chart_pb2.MetricConfig
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    use_start_as_origin: bool
+    use_sketch_metrics_table: bool
+    return_sql_query_string: bool
     def __init__(
         self,
         metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        use_start_as_origin: bool = ...,
+        use_sketch_metrics_table: bool = ...,
+        return_sql_query_string: bool = ...,
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):
-    __slots__ = ("charts", "x_series", "window_period")
+    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings")
     CHARTS_FIELD_NUMBER: _ClassVar[int]
     X_SERIES_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SQL_QUERY_STRINGS_FIELD_NUMBER: _ClassVar[int]
     charts: _containers.RepeatedCompositeFieldContainer[_densetimeserieschart_pb2.DenseTimeSeriesChart]
     x_series: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
     window_period: _duration_pb2.Duration
+    sql_query_strings: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         charts: _Optional[_Iterable[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]]] = ...,
         x_series: _Optional[_Iterable[_Union[_timestamp_pb2.Timestamp, _Mapping]]] = ...,
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        sql_query_strings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
+
+class DeleteChartRequest(_message.Message):
+    __slots__ = ("metric_config_id",)
+    METRIC_CONFIG_ID_FIELD_NUMBER: _ClassVar[int]
+    metric_config_id: str
+    def __init__(self, metric_config_id: _Optional[str] = ...) -> None: ...
+
+class DeleteChartResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

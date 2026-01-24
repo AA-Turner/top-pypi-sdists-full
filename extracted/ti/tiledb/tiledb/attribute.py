@@ -47,7 +47,11 @@ class Attr(CtxMixin, lt.Attribute):
         if (var is None and dtype == "ascii") or np.issubdtype(dt.np_dtype, np.str_):
             var = True
         elif np.issubdtype(dt.np_dtype, np.bytes_):
-            if dt.np_dtype.itemsize > 0 and var:
+            if dtype == "blob":
+                if var is None:
+                    # The default for blob is var-length
+                    var = True
+            elif dt.np_dtype.itemsize > 0 and var:
                 warnings.warn(
                     f"Attr given `var=True` but `dtype` `{dtype}` is fixed; "
                     "setting `dtype=S0`. Hint: set `var=True` with `dtype=S0`, "
@@ -212,6 +216,25 @@ class Attr(CtxMixin, lt.Attribute):
         if np.issubdtype(dtype, np.datetime64):
             return self._fill[0].astype(np.timedelta64)
         return self._fill
+
+    @fill.setter
+    def fill(self, value: Any):
+        """Set the fill value for unset cells of this attribute
+
+        :param value: Fill value to set
+        :raises: :py:exc:`tiledb.TileDBError`
+        """
+        if self._tiledb_dtype == lt.DataType.STRING_UTF8:
+            self._fill = np.array([value.encode("utf-8")], dtype="S")
+        else:
+            if (
+                self.dtype in (np.dtype("complex64"), np.dtype("complex128"))
+                and hasattr(value, "__len__")
+                and len(value) == 2
+            ):
+                # Convert tuple (real, imag) to complex number
+                value = value[0] + value[1] * 1j
+            self._fill = np.array(value, dtype=self.dtype)
 
     @property
     def isnullable(self) -> bool:

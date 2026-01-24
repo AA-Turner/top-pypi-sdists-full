@@ -12,6 +12,7 @@ Handles verification of Kubernetes-based cloud deployments including:
 
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from enum import Enum
 import json
 import os
 import shutil
@@ -90,7 +91,18 @@ KUBECTL_COMMON_PATHS = [
 # Status and result strings
 PASSED_STATUS = "PASSED"
 FAILED_STATUS = "FAILED"
+SKIPPED_STATUS = "SKIPPED"
 RUNNING_STATUS = "Running"
+
+
+# Verification status enum
+class VerificationStatus(Enum):
+    """Status of a verification check."""
+
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
 
 # Verification component names (for consistent reporting)
 class VerificationComponents:
@@ -206,15 +218,15 @@ class ResourceNotFoundError(KubernetesVerificationError):
 class VerificationResults:
     """Tracks the results of all verification steps."""
 
-    operator_pod_installed: bool = False
-    operator_health: bool = False
-    operator_identity: bool = False
-    file_storage: bool = False
-    gateway_support: bool = False
-    nginx_ingress: bool = False
+    operator_pod_installed: VerificationStatus = VerificationStatus.FAILED
+    operator_health: VerificationStatus = VerificationStatus.FAILED
+    operator_identity: VerificationStatus = VerificationStatus.FAILED
+    file_storage: VerificationStatus = VerificationStatus.FAILED
+    gateway_support: VerificationStatus = VerificationStatus.FAILED
+    nginx_ingress: VerificationStatus = VerificationStatus.FAILED
 
-    def to_dict(self) -> Dict[str, bool]:
-        """Convert to dictionary format matching original implementation."""
+    def to_dict(self) -> Dict[str, VerificationStatus]:
+        """Convert to dictionary format for reporting."""
         return {
             VerificationComponents.OPERATOR_POD_INSTALLED: self.operator_pod_installed,
             VerificationComponents.OPERATOR_HEALTH: self.operator_health,
@@ -226,9 +238,10 @@ class VerificationResults:
 
     @property
     def overall_success(self) -> bool:
-        """Return True if all verification steps passed."""
+        """Return True if all verification steps passed or were skipped."""
         return all(
-            [
+            status in (VerificationStatus.PASSED, VerificationStatus.SKIPPED)
+            for status in [
                 self.operator_pod_installed,
                 self.operator_health,
                 self.operator_identity,
@@ -494,7 +507,7 @@ class KubectlOperations:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                preexec_fn=os.setsid,  # Create new process group for cleanup
+                start_new_session=True,  # Create new process group for cleanup
             )
             return process
         except (subprocess.CalledProcessError, OSError) as e:
@@ -654,32 +667,32 @@ class OperatorVerifier:
                 port=OPERATOR_HEALTH_PORT,
             )
 
-    def verify_operator_health(self, operator_data: OperatorData) -> bool:
+    def verify_operator_health(self, operator_data: OperatorData) -> VerificationStatus:
         """Verify operator health using pre-fetched data."""
         if operator_data.health.is_healthy:
-            return True
+            return VerificationStatus.PASSED
         else:
             self.log.error(
                 f"Health check failed - HTTP {operator_data.health.status_code}"
             )
             if operator_data.health.response_text:
                 self.log.error(f"Response: {operator_data.health.response_text}")
-            return False
+            return VerificationStatus.FAILED
 
     def verify_operator_identity(
         self,
         operator_data: OperatorData,
         kubernetes_config: OpenAPIKubernetesConfig,
         cloud_provider: Optional[CloudProviders],
-    ) -> bool:
+    ) -> VerificationStatus:
         """Verify operator identity using pre-fetched config data."""
         # Validate kubernetes_config contents
         expected_identity = kubernetes_config.anyscale_operator_iam_identity
         if not expected_identity:
-            self.log.error(
-                "Missing 'anyscale_operator_iam_identity' in kubernetes config"
+            self.log.info(
+                "Operator is not using IAM identity - skipping identity verification"
             )
-            return False
+            return VerificationStatus.SKIPPED
 
         # Validate config response
         if not operator_data.config.is_valid:
@@ -688,32 +701,34 @@ class OperatorVerifier:
             )
             if operator_data.config.response_text:
                 self.log.error(f"Response: {operator_data.config.response_text}")
-            return False
+            return VerificationStatus.FAILED
 
         # Extract actual identity from config
         if operator_data.config.config_data is None:
             self.log.error("Operator config data is None")
-            return False
+            return VerificationStatus.FAILED
 
         actual_identity = operator_data.config.config_data.get("iamIdentity")
         if not actual_identity:
             self.log.error("Operator config missing 'iamIdentity' field")
-            return False
+            return VerificationStatus.FAILED
 
         # Perform identity comparison
         if self._evaluate_identity_match(
             expected_identity, actual_identity, cloud_provider
         ):
+            # Get cloud provider string for display
+            provider_str = str(cloud_provider) if cloud_provider else "AWS"
             self.log.info(
-                f"AWS identity match: Role matches (Expected: {expected_identity})"
+                f"{provider_str} identity match: Expected identity matches (Expected: {expected_identity})"
             )
-            self.log.info("Expected IAM role matches actual assumed role")
-            return True
+            self.log.info("Expected identity matches actual identity")
+            return VerificationStatus.PASSED
         else:
             self.log.error("Operator identity mismatch")
             self.log.error(f"Expected: {expected_identity}")
             self.log.error(f"Actual: {actual_identity}")
-            return False
+            return VerificationStatus.FAILED
 
     @contextmanager
     def _port_forward_to_operator(self, pod_name: str):
@@ -789,20 +804,59 @@ class OperatorVerifier:
 
     def _fetch_config_data(self, local_port: int) -> OperatorConfigData:
         """Fetch config data from operator."""
-        response = requests.get(
-            f"http://localhost:{local_port}{OPERATOR_CONFIG_ENDPOINT}",
-            timeout=HTTP_REQUEST_TIMEOUT,
-        )
+        max_retries = 6
+        retry_delay = 5
 
-        config_data = None
-        config_error = None
+        for attempt in range(max_retries):
+            response = requests.get(
+                f"http://localhost:{local_port}{OPERATOR_CONFIG_ENDPOINT}",
+                timeout=HTTP_REQUEST_TIMEOUT,
+            )
 
-        if response.status_code == 200:
-            try:
-                config_data = response.json()
-            except json.JSONDecodeError as e:
-                config_error = str(e)
+            config_data = None
+            config_error = None
 
+            if response.status_code == 200:
+                try:
+                    config_data = response.json()
+
+                    # Check if iamIdentity is present in the config
+                    # This is necessary because the operator may not have the iamIdentity field
+                    # immediately available after startup while it is being bootstrapped (connecting to KCP, storing registry secrets, etc.)
+                    if config_data and "iamIdentity" in config_data:
+                        return OperatorConfigData(
+                            status_code=response.status_code,
+                            response_text=response.text,
+                            config_data=config_data,
+                            config_error=config_error,
+                        )
+
+                    # If iamIdentity is missing and we have retries left, wait and retry
+                    if attempt < max_retries - 1:
+                        self.log.info(
+                            f"Operator config endpoint returned 200 but iamIdentity not found. "
+                            f"Retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})"
+                        )
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        # Last attempt and still no iamIdentity, return what we have
+                        self.log.warning(
+                            f"iamIdentity not found after {max_retries} attempts"
+                        )
+
+                except json.JSONDecodeError as e:
+                    config_error = str(e)
+            else:
+                # Non-200 status code, return immediately without retrying
+                return OperatorConfigData(
+                    status_code=response.status_code,
+                    response_text=response.text,
+                    config_data=config_data,
+                    config_error=config_error,
+                )
+
+        # Return the last response (this will have config_data but no iamIdentity)
         return OperatorConfigData(
             status_code=response.status_code,
             response_text=response.text,
@@ -941,8 +995,12 @@ class StorageVerifier:
 
     def verify_file_storage(
         self, file_storage: FileStorage, cloud_deployment: CloudDeployment
-    ) -> bool:
-        """Verify file storage configuration (non-functional checks only)."""
+    ) -> VerificationStatus:
+        """Verify file storage configuration (non-functional checks only).
+
+        Returns:
+            VerificationStatus enum value
+        """
         self.log.info("Verifying file storage configuration...")
         verification_results = []
 
@@ -975,12 +1033,15 @@ class StorageVerifier:
                     f"Cloud provider API error while verifying file storage: {e}"
                 ) from e
 
-        # Return overall success
+        # Return overall status
         if verification_results:
-            return all(result for _, result in verification_results)
+            if all(result for _, result in verification_results):
+                return VerificationStatus.PASSED
+            else:
+                return VerificationStatus.FAILED
         else:
-            self.log.info("INFO: No file storage components found to verify")
-            return True
+            self.log.info("No file storage components found to verify")
+            return VerificationStatus.SKIPPED
 
     def _verify_csi_driver(self, driver_name: str) -> bool:
         """Check if CSI driver exists on cluster."""
@@ -1096,13 +1157,17 @@ class GatewayVerifier:
         self.config = k8s_config
         self.log = logger
 
-    def verify_gateway_support(self, operator_data: OperatorData) -> bool:
-        """Verify gateway support using pre-fetched config data."""
+    def verify_gateway_support(self, operator_data: OperatorData) -> VerificationStatus:
+        """Verify gateway support using pre-fetched config data.
+
+        Returns:
+            VerificationStatus enum value
+        """
         if not operator_data.config.is_valid:
-            self.log.warning(
+            self.log.info(
                 "Could not retrieve operator configuration - skipping gateway verification"
             )
-            return True
+            return VerificationStatus.SKIPPED
 
         # Extract gateway configuration from operator data
         gateway_config = GatewayConfig.from_operator_config(
@@ -1113,21 +1178,24 @@ class GatewayVerifier:
             self.log.info(
                 "Gateway support is not enabled - skipping gateway verification"
             )
-            return True
+            return VerificationStatus.SKIPPED
 
         if not gateway_config.requires_verification:
             self.log.error(
                 "Gateway is enabled but no gateway name found in operator configuration"
             )
-            return False
+            return VerificationStatus.FAILED
 
         # Verify gateway exists in cluster
         assert (
             gateway_config.name is not None
         )  # guaranteed by requires_verification check
-        return self._verify_gateway_exists(gateway_config.name)
+        if self._verify_gateway_exists(gateway_config.name):
+            return VerificationStatus.PASSED
+        else:
+            return VerificationStatus.FAILED
 
-    def verify_nginx_ingress(self) -> bool:
+    def verify_nginx_ingress(self) -> VerificationStatus:
         """Check for NGINX ingress controller (warning only)."""
         try:
             self.log.info("Checking for NGINX ingress controller...")
@@ -1143,7 +1211,7 @@ class GatewayVerifier:
                             f"PASSED: Found running NGINX ingress controller: {nginx_pod} "
                             f"(namespace: {config_dict['namespace']})"
                         )
-                        return True
+                        return VerificationStatus.PASSED
                     else:
                         pod_status = self.kubectl.get_pod_status(
                             nginx_pod, config_dict["namespace"]
@@ -1155,14 +1223,14 @@ class GatewayVerifier:
 
             # Try fallback search by name patterns
             if self._find_nginx_by_name_pattern():
-                return True
+                return VerificationStatus.PASSED
 
             # No NGINX ingress controller found
             self.log.warning("No NGINX ingress controller found")
             self.log.warning("This may impact ingress routing capabilities")
             self.log.warning("Available ingress controllers:")
             self._list_available_ingress_controllers()
-            return False
+            return VerificationStatus.FAILED
 
         except (KubectlError, ResourceNotFoundError) as e:
             self.log.warning(f"WARNING: Could not verify NGINX ingress controller: {e}")
@@ -1375,6 +1443,13 @@ class KubernetesCloudDeploymentVerifier:
         ):
             cloud_deployment.file_storage = FileStorage(**cloud_deployment.file_storage)
 
+        if cloud_deployment.kubernetes_config is not None and isinstance(
+            cloud_deployment.kubernetes_config, dict
+        ):
+            cloud_deployment.kubernetes_config = OpenAPIKubernetesConfig(
+                **cloud_deployment.kubernetes_config
+            )
+
         try:
             return self._run_verification_steps(cloud_deployment)
 
@@ -1390,10 +1465,6 @@ class KubernetesCloudDeploymentVerifier:
         except (KeyError, ValueError, json.JSONDecodeError) as e:
             self.log.error(f"Data parsing error during verification: {e}")
             return False
-
-    def _passed_or_failed_str_from_bool(self, is_passing: bool) -> str:
-        """Return PASSED or FAILED string for verification results, matching VM verification format."""
-        return PASSED_STATUS if is_passing else FAILED_STATUS
 
     @contextmanager
     def _verification_step(self, step_name: str):
@@ -1421,7 +1492,7 @@ class KubernetesCloudDeploymentVerifier:
         with self._verification_step("Finding operator pod"):
             try:
                 operator_pod = operator_verifier.find_operator_pod()
-                self.results.operator_pod_installed = True
+                self.results.operator_pod_installed = VerificationStatus.PASSED
             except OperatorPodNotFoundError as e:
                 self.log.error(
                     "Failed to find operator pod, please make sure the operator is running"
@@ -1444,56 +1515,47 @@ class KubernetesCloudDeploymentVerifier:
             self.results.operator_health = operator_verifier.verify_operator_health(
                 operator_data
             )
-            self.log.info(
-                f"Operator Health: {self._passed_or_failed_str_from_bool(self.results.operator_health)}"
-            )
+            self.log.info(f"Operator Health: {self.results.operator_health.value}")
 
             self.log.info("Verifying operator identity...")
             if cloud_deployment.kubernetes_config is None:
                 self.log.error(
                     "Kubernetes configuration is missing from cloud deployment"
                 )
-                self.results.operator_identity = False
+                self.results.operator_identity = VerificationStatus.FAILED
             else:
                 self.results.operator_identity = operator_verifier.verify_operator_identity(
                     operator_data,
                     cloud_deployment.kubernetes_config,
                     cloud_deployment.provider,
                 )
-            self.log.info(
-                f"Operator Identity: {self._passed_or_failed_str_from_bool(self.results.operator_identity)}"
-            )
+            self.log.info(f"Operator Identity: {self.results.operator_identity.value}")
 
         # Step 4: Check file storage
         with self._verification_step("Checking file storage"):
             if cloud_deployment.file_storage is None:
                 self.log.info(
-                    "INFO: No file storage configured - skipping file storage verification"
+                    "No file storage configured - skipping file storage verification"
                 )
-                self.results.file_storage = True
+                self.results.file_storage = VerificationStatus.SKIPPED
             else:
                 self.results.file_storage = storage_verifier.verify_file_storage(
                     cloud_deployment.file_storage, cloud_deployment
                 )
-            self.log.info(
-                f"File Storage: {self._passed_or_failed_str_from_bool(self.results.file_storage)}"
-            )
+
+            self.log.info(f"File Storage: {self.results.file_storage.value}")
 
         # Step 5: Verify gateway support
-        with self._verification_step("Verifying gateway support"):
+        with self._verification_step("Checking gateway support"):
             self.results.gateway_support = gateway_verifier.verify_gateway_support(
                 operator_data
             )
-            self.log.info(
-                f"Gateway Support: {self._passed_or_failed_str_from_bool(self.results.gateway_support)}"
-            )
+            self.log.info(f"Gateway Support: {self.results.gateway_support.value}")
 
         # Step 6: Check NGINX ingress (warning only)
         with self._verification_step("Checking NGINX ingress controller"):
             self.results.nginx_ingress = gateway_verifier.verify_nginx_ingress()
-            self.log.info(
-                f"NGINX Ingress: {self._passed_or_failed_str_from_bool(self.results.nginx_ingress)}"
-            )
+            self.log.info(f"NGINX Ingress: {self.results.nginx_ingress.value}")
 
         self._show_verification_summary()
 
@@ -1511,14 +1573,20 @@ class KubernetesCloudDeploymentVerifier:
         verification_result_summary = ["Verification result:"]
 
         for component, result in self.results.to_dict().items():
-            verification_result_summary.append(
-                f"{component}: {self._passed_or_failed_str_from_bool(result)}"
-            )
+            verification_result_summary.append(f"{component}: {result.value}")
 
         self.log.info("\n".join(verification_result_summary))
 
     def _get_kubectl_config(self):
         """Get kubectl context and operator namespace from user"""
+        # If k8s_config is already set, skip prompting
+        if self.k8s_config is not None:
+            self.log.info(
+                f"Using configured context='{self.k8s_config.context}', "
+                f"namespace='{self.k8s_config.operator_namespace}'"
+            )
+            return
+
         # Check if kubectl is available
         temp_kubectl = KubectlOperations("", self.log)
         if not temp_kubectl.check_kubectl_available():

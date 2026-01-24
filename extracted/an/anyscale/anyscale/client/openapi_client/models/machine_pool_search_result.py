@@ -37,7 +37,7 @@ class MachinePoolSearchResult(object):
         'machine_pool_id': 'str',
         'organization_id': 'str',
         'cloud_ids': 'list[str]',
-        'enable_rootless_dataplane_config': 'bool',
+        'cloud_resource_ids': 'dict(str, list[str])',
         'spec': 'object'
     }
 
@@ -46,11 +46,11 @@ class MachinePoolSearchResult(object):
         'machine_pool_id': 'machine_pool_id',
         'organization_id': 'organization_id',
         'cloud_ids': 'cloud_ids',
-        'enable_rootless_dataplane_config': 'enable_rootless_dataplane_config',
+        'cloud_resource_ids': 'cloud_resource_ids',
         'spec': 'spec'
     }
 
-    def __init__(self, machine_pool_name=None, machine_pool_id=None, organization_id=None, cloud_ids=None, enable_rootless_dataplane_config=False, spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_pool_name=None, machine_pool_id=None, organization_id=None, cloud_ids=None, cloud_resource_ids=None, spec=None, local_vars_configuration=None):  # noqa: E501
         """MachinePoolSearchResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -60,7 +60,7 @@ class MachinePoolSearchResult(object):
         self._machine_pool_id = None
         self._organization_id = None
         self._cloud_ids = None
-        self._enable_rootless_dataplane_config = None
+        self._cloud_resource_ids = None
         self._spec = None
         self.discriminator = None
 
@@ -68,8 +68,8 @@ class MachinePoolSearchResult(object):
         self.machine_pool_id = machine_pool_id
         self.organization_id = organization_id
         self.cloud_ids = cloud_ids
-        if enable_rootless_dataplane_config is not None:
-            self.enable_rootless_dataplane_config = enable_rootless_dataplane_config
+        if cloud_resource_ids is not None:
+            self.cloud_resource_ids = cloud_resource_ids
         if spec is not None:
             self.spec = spec
 
@@ -174,27 +174,27 @@ class MachinePoolSearchResult(object):
         self._cloud_ids = cloud_ids
 
     @property
-    def enable_rootless_dataplane_config(self):
-        """Gets the enable_rootless_dataplane_config of this MachinePoolSearchResult.  # noqa: E501
+    def cloud_resource_ids(self):
+        """Gets the cloud_resource_ids of this MachinePoolSearchResult.  # noqa: E501
 
-        Whether to enable rootless dataplane config nodes running under this machine pool.  # noqa: E501
+        The cloud resource IDs for each cloud ID that is attached to the machine pool.  # noqa: E501
 
-        :return: The enable_rootless_dataplane_config of this MachinePoolSearchResult.  # noqa: E501
-        :rtype: bool
+        :return: The cloud_resource_ids of this MachinePoolSearchResult.  # noqa: E501
+        :rtype: dict(str, list[str])
         """
-        return self._enable_rootless_dataplane_config
+        return self._cloud_resource_ids
 
-    @enable_rootless_dataplane_config.setter
-    def enable_rootless_dataplane_config(self, enable_rootless_dataplane_config):
-        """Sets the enable_rootless_dataplane_config of this MachinePoolSearchResult.
+    @cloud_resource_ids.setter
+    def cloud_resource_ids(self, cloud_resource_ids):
+        """Sets the cloud_resource_ids of this MachinePoolSearchResult.
 
-        Whether to enable rootless dataplane config nodes running under this machine pool.  # noqa: E501
+        The cloud resource IDs for each cloud ID that is attached to the machine pool.  # noqa: E501
 
-        :param enable_rootless_dataplane_config: The enable_rootless_dataplane_config of this MachinePoolSearchResult.  # noqa: E501
-        :type: bool
+        :param cloud_resource_ids: The cloud_resource_ids of this MachinePoolSearchResult.  # noqa: E501
+        :type: dict(str, list[str])
         """
 
-        self._enable_rootless_dataplane_config = enable_rootless_dataplane_config
+        self._cloud_resource_ids = cloud_resource_ids
 
     @property
     def spec(self):

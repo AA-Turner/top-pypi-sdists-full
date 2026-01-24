@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-gitlab
-Version: 6.3.0
+Version: 7.1.0
 Summary: The python wrapper for the GitLab REST and GraphQL APIs.
 Author-email: Gauvain Pocentek <gauvain@pocentek.net>
 Maintainer-email: John Villalovos <john@sodarock.com>, Max Wittig <max.wittig@siemens.com>, Nejc Habjan <nejc.habjan@siemens.com>, Roger Meier <r.meier@siemens.com>
@@ -19,12 +19,12 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9.0
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10.0
 Description-Content-Type: text/x-rst
 License-File: COPYING
 License-File: AUTHORS
@@ -93,7 +93,7 @@ Features
 Installation
 ------------
 
-As of 5.0.0, ``python-gitlab`` is compatible with Python 3.9+.
+As of 7.0.0, ``python-gitlab`` is compatible with Python 3.10+.
 
 Use ``pip`` to install the latest stable version of ``python-gitlab``:
 

@@ -5,6 +5,7 @@
 #include <aws/cal/hash.h>
 
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonKeyDerivation.h>
 
 static void s_destroy(struct aws_hash *hash);
 static int s_update(struct aws_hash *hash, const struct aws_byte_cursor *to_hash);
@@ -25,10 +26,6 @@ struct cc_sha256_hash {
 
 struct aws_hash *aws_sha256_default_new(struct aws_allocator *allocator) {
     struct cc_sha256_hash *sha256_hash = aws_mem_acquire(allocator, sizeof(struct cc_sha256_hash));
-
-    if (!sha256_hash) {
-        return NULL;
-    }
 
     sha256_hash->hash.allocator = allocator;
     sha256_hash->hash.vtable = &s_vtable;

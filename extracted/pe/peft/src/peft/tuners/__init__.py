@@ -18,6 +18,7 @@ from .boft import BOFTConfig, BOFTModel
 from .bone import BoneConfig, BoneModel
 from .c3a import C3AConfig, C3AModel
 from .cpt import CPTConfig, CPTEmbedding
+from .delora import DeloraConfig, DeloraModel
 from .fourierft import FourierFTConfig, FourierFTModel
 from .hra import HRAConfig, HRAModel
 from .ia3 import IA3Config, IA3Model
@@ -25,11 +26,13 @@ from .ln_tuning import LNTuningConfig, LNTuningModel
 from .loha import LoHaConfig, LoHaModel
 from .lokr import LoKrConfig, LoKrModel
 from .lora import (
+    ArrowConfig,
     EvaConfig,
     LoftQConfig,
     LoraConfig,
     LoraModel,
     LoraRuntimeConfig,
+    create_arrow_model,
     get_eva_state_dict,
     initialize_lora_eva_weights,
 )
@@ -37,15 +40,18 @@ from .miss import MissConfig, MissModel
 from .mixed import MixedModel
 from .multitask_prompt_tuning import MultitaskPromptEmbedding, MultitaskPromptTuningConfig, MultitaskPromptTuningInit
 from .oft import OFTConfig, OFTModel
+from .osf import OSFConfig, OSFModel
 from .p_tuning import PromptEncoder, PromptEncoderConfig, PromptEncoderReparameterizationType
 from .poly import PolyConfig, PolyModel
 from .prefix_tuning import PrefixEncoder, PrefixTuningConfig
 from .prompt_tuning import PromptEmbedding, PromptTuningConfig, PromptTuningInit
 from .randlora import RandLoraConfig, RandLoraModel
+from .road import RoadConfig, RoadModel
 from .shira import ShiraConfig, ShiraModel
 from .trainable_tokens import TrainableTokensConfig, TrainableTokensModel
 from .vblora import VBLoRAConfig, VBLoRAModel
 from .vera import VeraConfig, VeraModel
+from .waveft import WaveFTConfig, WaveFTModel
 from .xlora import XLoraConfig, XLoraModel
 
 
@@ -54,6 +60,7 @@ __all__ = [
     "AdaLoraModel",
     "AdaptionPromptConfig",
     "AdaptionPromptModel",
+    "ArrowConfig",
     "BOFTConfig",
     "BOFTModel",
     "BoneConfig",
@@ -62,6 +69,8 @@ __all__ = [
     "C3AModel",
     "CPTConfig",
     "CPTEmbedding",
+    "DeloraConfig",
+    "DeloraModel",
     "EvaConfig",
     "FourierFTConfig",
     "FourierFTModel",
@@ -87,6 +96,8 @@ __all__ = [
     "MultitaskPromptTuningInit",
     "OFTConfig",
     "OFTModel",
+    "OSFConfig",
+    "OSFModel",
     "PolyConfig",
     "PolyModel",
     "PrefixEncoder",
@@ -99,6 +110,8 @@ __all__ = [
     "PromptTuningInit",
     "RandLoraConfig",
     "RandLoraModel",
+    "RoadConfig",
+    "RoadModel",
     "ShiraConfig",
     "ShiraModel",
     "TrainableTokensConfig",
@@ -107,8 +120,11 @@ __all__ = [
     "VBLoRAModel",
     "VeraConfig",
     "VeraModel",
+    "WaveFTConfig",
+    "WaveFTModel",
     "XLoraConfig",
     "XLoraModel",
+    "create_arrow_model",
     "get_eva_state_dict",
     "initialize_lora_eva_weights",
 ]

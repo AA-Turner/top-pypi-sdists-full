@@ -47,6 +47,7 @@ dependencies = [
   "rich-click",
   "multipart>=1.2.0",
   "exceptiongroup>=1.2.2; python_version < \"3.11\"",
+  "sniffio>=1.3.1",
   # default litestar plugins
   "litestar-htmx>=0.4.0",
 ]
@@ -58,13 +59,12 @@ maintainers = [
   { name = "Cody Fincher", email = "cody@litestar.dev" },
   { name = "Jacob Coffee", email = "jacob@litestar.dev" },
   { name = "Janek Nouvertné", email = "janek@litestar.dev" },
-  { name = "Visakh Unnikrishnan", email = "guacs@litestar.dev" },
   { name = "Julien Courtes", email = "julien@litestar.dev" },
 ]
 name = "litestar"
 readme = "docs/PYPI_README.md"
 requires-python = ">=3.8,<4.0"
-version = "2.17.0"
+version = "2.19.0"
 
 [project.urls]
 Blog = "https://blog.litestar.dev"
@@ -83,7 +83,7 @@ Twitter = "https://twitter.com/LitestarAPI"
 annotated-types = ["annotated-types"]
 attrs = ["attrs"]
 brotli = ["brotli"]
-cli = ["jsbeautifier", "uvicorn[standard]", "uvloop>=0.18.0; sys_platform != 'win32'"]
+cli = ["jsbeautifier", "uvicorn[standard]"]
 cryptography = ["cryptography"]
 full = [
   "litestar[annotated-types,attrs,brotli,cli,cryptography,jinja,jwt,mako,minijinja,opentelemetry,piccolo,picologging,prometheus,pydantic,redis,sqlalchemy,standard,structlog,valkey]; python_version < \"3.13\"",
@@ -109,7 +109,6 @@ standard = [
   "jinja2",
   "jsbeautifier",
   "uvicorn[standard]",
-  "uvloop>=0.18.0; sys_platform != 'win32'",
   "fast-query-parsers>=1.0.2",
 ]
 structlog = ["structlog"]
@@ -163,10 +162,11 @@ docs = [
 ]
 linting = [
   "ruff>=0.2.1",
-  "mypy",
+  "mypy<1.17.0", # 1.17.0 dropped support for Python 3.8
   "pre-commit",
   "slotscheck",
   "codecov-cli",
+  "codecov-cli>=11.2.6; python_version >= \"3.14\"",
   "pyright==1.1.344",
   "asyncpg-stubs",
   "types-beautifulsoup4",
@@ -185,7 +185,7 @@ test = [
   "pytest-rerunfailures",
   "pytest-timeout",
   "pytest-xdist",
-  "time-machine",
+  "time-machine<3",
 ]
 
 [build-system]
@@ -226,6 +226,7 @@ filterwarnings = [
   "ignore: Python Debugger on exception enabled:litestar.exceptions.LitestarWarning:",
   "ignore: datetime.datetime.utcnow:DeprecationWarning:time_machine",
   "ignore:Use of deprecated default '__check_model__':DeprecationWarning:polyfactory:",
+  "ignore:Core Pydantic V1:UserWarning:"
 ]
 markers = [
   "sqlalchemy_integration: SQLAlchemy integration tests",
@@ -245,7 +246,7 @@ enable_error_code = [
 ]
 packages = ["litestar", "tests"]
 plugins = ["pydantic.mypy"]
-python_version = "3.8"
+python_version = "3.12"
 
 disallow_any_generics = false
 local_partial_types = true
@@ -417,6 +418,11 @@ lint.ignore = [
   "RUF012",  # Ruff-specific rule - annotated with classvar
   "ISC001",  # Ruff formatter incompatible
   "CPY001",  # ruff - copyright notice at the top of the file
+  "SIM108",  # Use ternary operator
+  "A005",    # Module shadows a built-in Python standard library module
+  "PLC0415", # `import` should be at the top-level of a file
+  "PLW1641", # Object does not implement `__hash__` method
+  "SIM103",  # 'Return the condition directly': This is a bit overzealous
 ]
 
 line-length = 120
@@ -454,6 +460,8 @@ known-first-party = ["litestar", "tests", "examples"]
 "litestar/handlers/**/*.*" = ["N801"]
 "litestar/handlers/websocket_handlers/listener.py" = ["B027"]
 "litestar/params.py" = ["N802"]
+"litestar/utils/predicates.py" = ["UP006", "UP035"]
+"litestar/utils/typing.py" = ["UP006", "UP035"]
 "test_apps/**/*.*" = ["D", "TRY", "EM", "S", "PTH"]
 "tests/**/*.*" = [
   "A",
@@ -482,8 +490,10 @@ known-first-party = ["litestar", "tests", "examples"]
 ]
 "tests/unit/test_contrib/test_sqlalchemy/**/*.*" = ["UP006"]
 "tests/unit/test_openapi/test_typescript_converter/test_converter.py" = ["W293"]
+"tests/unit/test_typing.py" = ["UP006", "UP035"]
 "tools/**/*.*" = ["D", "ARG", "EM", "TRY", "G", "FBT"]
 "tools/prepare_release.py" = ["S603", "S607"]
+"tests/*" = ["PLC0415", "UP045"]
 
 [tool.ruff.format]
 docstring-code-format = true

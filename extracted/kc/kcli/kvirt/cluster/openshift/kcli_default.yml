@@ -17,7 +17,7 @@ info: |
     bootstrap in place (which removes the need for a bootstrap vm). This approach is suitable for baremetal single node
     baremetal_hosts can be specified as an array of bmc urls to deploy baremetal workers (or in the case of SNO described before)
 version: stable
-tag: '4.19'
+tag: '4.20'
 pull_secret: openshift_pull.json
 image:
 network: default
@@ -26,6 +26,7 @@ api_ip:
 ingress_ip:
 ctlplanes: 3
 workers: 0
+ctlplane_schedulable: false
 fips: false
 cluster: myopenshift
 domain: karmalabs.corp
@@ -50,11 +51,14 @@ memory: 16384
 bootstrap_memory: 8192
 ctlplane_memory:
 worker_memory:
+bgp: false
+bgp_peers: []
+bgp_extra_peers: []
 keepalived: true
 coredns: true
 mdns: true
 ignore_hosts: false
-disk_size: 30
+disk_size: 60
 autostart: false
 keys: []
 apps: []
@@ -78,6 +82,7 @@ disconnected_haproxy: false
 disconnected_reuse: false
 bootstrap_mac:
 disconnected_reuse_name:
+disconnected_fqdn:
 disconnected_default_network: default
 disconnected_image: centos9stream
 disconnected_disk_size: 100
@@ -128,6 +133,7 @@ sno_nic:
 sno_vm: false
 sno_wait: false
 sno_workers: false
+sno_telco: false
 metal3: false
 baremetal_user: root
 baremetal_password: calvin

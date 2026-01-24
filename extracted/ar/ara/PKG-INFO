@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: ara
-Version: 1.7.3
+Version: 1.7.4
 Summary: ARA Records Ansible
 Home-page: https://codeberg.org/ansible-community/ara
 Author: ARA Records Ansible Authors
@@ -48,15 +48,6 @@ Requires-Dist: coverage; extra == "test"
 Requires-Dist: flake8; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: isort; extra == "test"
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 # ARA Records Ansible
 

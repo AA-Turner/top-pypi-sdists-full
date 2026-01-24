@@ -3,7 +3,7 @@ Type annotations for devicefarm service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devicefarm/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -48,12 +49,6 @@ from .literals import (
     UploadTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -106,6 +101,7 @@ __all__ = (
     "DeviceSelectionConfigurationTypeDef",
     "DeviceSelectionResultTypeDef",
     "DeviceTypeDef",
+    "EnvironmentVariableTypeDef",
     "ExecutionConfigurationTypeDef",
     "GetAccountSettingsResultTypeDef",
     "GetDeviceInstanceRequestTypeDef",
@@ -230,6 +226,7 @@ __all__ = (
     "PurchaseOfferingResultTypeDef",
     "RadiosTypeDef",
     "RecurringChargeTypeDef",
+    "RemoteAccessEndpointsTypeDef",
     "RemoteAccessSessionTypeDef",
     "RenewOfferingRequestTypeDef",
     "RenewOfferingResultTypeDef",
@@ -327,7 +324,7 @@ RuleTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -341,7 +338,7 @@ class CreateInstanceProfileRequestTypeDef(TypedDict):
 class InstanceProfileTypeDef(TypedDict):
     arn: NotRequired[str]
     packageCleanup: NotRequired[bool]
-    excludeAppPackagesFromCleanup: NotRequired[List[str]]
+    excludeAppPackagesFromCleanup: NotRequired[list[str]]
     rebootAfterUse: NotRequired[bool]
     name: NotRequired[str]
     description: NotRequired[str]
@@ -380,6 +377,10 @@ NetworkProfileTypeDef = TypedDict(
         "downlinkLossPercent": NotRequired[int],
     },
 )
+
+class EnvironmentVariableTypeDef(TypedDict):
+    name: str
+    value: str
 
 class DeviceProxyTypeDef(TypedDict):
     host: str
@@ -428,9 +429,9 @@ class VPCEConfigurationTypeDef(TypedDict):
     vpceConfigurationDescription: NotRequired[str]
 
 class CustomerArtifactPathsOutputTypeDef(TypedDict):
-    iosPaths: NotRequired[List[str]]
-    androidPaths: NotRequired[List[str]]
-    deviceHostPaths: NotRequired[List[str]]
+    iosPaths: NotRequired[list[str]]
+    androidPaths: NotRequired[list[str]]
+    deviceHostPaths: NotRequired[list[str]]
 
 class CustomerArtifactPathsTypeDef(TypedDict):
     iosPaths: NotRequired[Sequence[str]]
@@ -469,7 +470,7 @@ DeviceFilterOutputTypeDef = TypedDict(
     {
         "attribute": DeviceFilterAttributeType,
         "operator": RuleOperatorType,
-        "values": List[str],
+        "values": list[str],
     },
 )
 DeviceFilterTypeDef = TypedDict(
@@ -744,8 +745,8 @@ class ProblemDetailTypeDef(TypedDict):
     name: NotRequired[str]
 
 class VpcConfigOutputTypeDef(TypedDict):
-    securityGroupIds: List[str]
-    subnetIds: List[str]
+    securityGroupIds: list[str]
+    subnetIds: list[str]
     vpcId: str
 
 class PurchaseOfferingRequestTypeDef(TypedDict):
@@ -758,6 +759,10 @@ class RadiosTypeDef(TypedDict):
     bluetooth: NotRequired[bool]
     nfc: NotRequired[bool]
     gps: NotRequired[bool]
+
+class RemoteAccessEndpointsTypeDef(TypedDict):
+    remoteDriverEndpoint: NotRequired[str]
+    interactiveEndpoint: NotRequired[str]
 
 class RenewOfferingRequestTypeDef(TypedDict):
     offeringId: str
@@ -773,8 +778,8 @@ class StopRunRequestTypeDef(TypedDict):
     arn: str
 
 class TestGridVpcConfigOutputTypeDef(TypedDict):
-    securityGroupIds: List[str]
-    subnetIds: List[str]
+    securityGroupIds: list[str]
+    subnetIds: list[str]
     vpcId: str
 
 class TestGridVpcConfigTypeDef(TypedDict):
@@ -837,11 +842,11 @@ class VpcConfigTypeDef(TypedDict):
 
 class AccountSettingsTypeDef(TypedDict):
     awsAccountNumber: NotRequired[str]
-    unmeteredDevices: NotRequired[Dict[DevicePlatformType, int]]
-    unmeteredRemoteAccessDevices: NotRequired[Dict[DevicePlatformType, int]]
+    unmeteredDevices: NotRequired[dict[DevicePlatformType, int]]
+    unmeteredRemoteAccessDevices: NotRequired[dict[DevicePlatformType, int]]
     maxJobTimeoutMinutes: NotRequired[int]
     trialMinutes: NotRequired[TrialMinutesTypeDef]
-    maxSlots: NotRequired[Dict[str, int]]
+    maxSlots: NotRequired[dict[str, int]]
     defaultJobTimeoutMinutes: NotRequired[int]
     skipAppResign: NotRequired[bool]
 
@@ -859,7 +864,7 @@ DevicePoolTypeDef = TypedDict(
         "name": NotRequired[str],
         "description": NotRequired[str],
         "type": NotRequired[DevicePoolTypeType],
-        "rules": NotRequired[List[RuleTypeDef]],
+        "rules": NotRequired[list[RuleTypeDef]],
         "maxDevices": NotRequired[int],
     },
 )
@@ -878,7 +883,7 @@ class CreateTestGridUrlResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListArtifactsResultTypeDef(TypedDict):
-    artifacts: List[ArtifactTypeDef]
+    artifacts: list[ArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -889,7 +894,7 @@ class CreateInstanceProfileResultTypeDef(TypedDict):
 class DeviceInstanceTypeDef(TypedDict):
     arn: NotRequired[str]
     deviceArn: NotRequired[str]
-    labels: NotRequired[List[str]]
+    labels: NotRequired[list[str]]
     status: NotRequired[InstanceStatusType]
     udid: NotRequired[str]
     instanceProfile: NotRequired[InstanceProfileTypeDef]
@@ -899,7 +904,7 @@ class GetInstanceProfileResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInstanceProfilesResultTypeDef(TypedDict):
-    instanceProfiles: List[InstanceProfileTypeDef]
+    instanceProfiles: list[InstanceProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -916,7 +921,7 @@ class GetNetworkProfileResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListNetworkProfilesResultTypeDef(TypedDict):
-    networkProfiles: List[NetworkProfileTypeDef]
+    networkProfiles: list[NetworkProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -925,6 +930,7 @@ class UpdateNetworkProfileResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRemoteAccessSessionConfigurationTypeDef(TypedDict):
+    auxiliaryApps: NotRequired[Sequence[str]]
     billingMethod: NotRequired[BillingMethodType]
     vpceConfigurationArns: NotRequired[Sequence[str]]
     deviceProxy: NotRequired[DeviceProxyTypeDef]
@@ -942,7 +948,7 @@ class InstallToRemoteAccessSessionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUploadsResultTypeDef(TypedDict):
-    uploads: List[UploadTypeDef]
+    uploads: list[UploadTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -959,7 +965,7 @@ class GetVPCEConfigurationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVPCEConfigurationsResultTypeDef(TypedDict):
-    vpceConfigurations: List[VPCEConfigurationTypeDef]
+    vpceConfigurations: list[VPCEConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -972,7 +978,7 @@ CustomerArtifactPathsUnionTypeDef = Union[
 ]
 
 class DeviceSelectionResultTypeDef(TypedDict):
-    filters: NotRequired[List[DeviceFilterOutputTypeDef]]
+    filters: NotRequired[list[DeviceFilterOutputTypeDef]]
     matchedDevicesCount: NotRequired[int]
     maxDevices: NotRequired[int]
 
@@ -1104,22 +1110,22 @@ class GetTestGridSessionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTestGridSessionsResultTypeDef(TypedDict):
-    testGridSessions: List[TestGridSessionTypeDef]
+    testGridSessions: list[TestGridSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOfferingPromotionsResultTypeDef(TypedDict):
-    offeringPromotions: List[OfferingPromotionTypeDef]
+    offeringPromotions: list[OfferingPromotionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSamplesResultTypeDef(TypedDict):
-    samples: List[SampleTypeDef]
+    samples: list[SampleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1127,12 +1133,12 @@ class TagResourceRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
 
 class ListTestGridSessionActionsResultTypeDef(TypedDict):
-    actions: List[TestGridSessionActionTypeDef]
+    actions: list[TestGridSessionActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTestGridSessionArtifactsResultTypeDef(TypedDict):
-    artifacts: List[TestGridSessionArtifactTypeDef]
+    artifacts: list[TestGridSessionArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1156,6 +1162,8 @@ class ProjectTypeDef(TypedDict):
     defaultJobTimeoutMinutes: NotRequired[int]
     created: NotRequired[datetime]
     vpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    environmentVariables: NotRequired[list[EnvironmentVariableTypeDef]]
+    executionRoleArn: NotRequired[str]
 
 class TestGridProjectTypeDef(TypedDict):
     arn: NotRequired[str]
@@ -1180,7 +1188,7 @@ class GetDevicePoolResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDevicePoolsResultTypeDef(TypedDict):
-    devicePools: List[DevicePoolTypeDef]
+    devicePools: list[DevicePoolTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1208,7 +1216,7 @@ class DeviceTypeDef(TypedDict):
     remoteDebugEnabled: NotRequired[bool]
     fleetType: NotRequired[str]
     fleetName: NotRequired[str]
-    instances: NotRequired[List[DeviceInstanceTypeDef]]
+    instances: NotRequired[list[DeviceInstanceTypeDef]]
     availability: NotRequired[DeviceAvailabilityType]
 
 class GetDeviceInstanceResultTypeDef(TypedDict):
@@ -1216,7 +1224,7 @@ class GetDeviceInstanceResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDeviceInstancesResultTypeDef(TypedDict):
-    deviceInstances: List[DeviceInstanceTypeDef]
+    deviceInstances: list[DeviceInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1227,13 +1235,9 @@ class UpdateDeviceInstanceResultTypeDef(TypedDict):
 class CreateRemoteAccessSessionRequestTypeDef(TypedDict):
     projectArn: str
     deviceArn: str
+    appArn: NotRequired[str]
     instanceArn: NotRequired[str]
-    sshPublicKey: NotRequired[str]
-    remoteDebugEnabled: NotRequired[bool]
-    remoteRecordEnabled: NotRequired[bool]
-    remoteRecordAppArn: NotRequired[str]
     name: NotRequired[str]
-    clientId: NotRequired[str]
     configuration: NotRequired[CreateRemoteAccessSessionConfigurationTypeDef]
     interactionMode: NotRequired[InteractionModeType]
     skipAppResign: NotRequired[bool]
@@ -1249,6 +1253,8 @@ class ScheduleRunConfigurationTypeDef(TypedDict):
     radios: NotRequired[RadiosTypeDef]
     auxiliaryApps: NotRequired[Sequence[str]]
     billingMethod: NotRequired[BillingMethodType]
+    environmentVariables: NotRequired[Sequence[EnvironmentVariableTypeDef]]
+    executionRoleArn: NotRequired[str]
 
 RunTypeDef = TypedDict(
     "RunTypeDef",
@@ -1286,6 +1292,8 @@ RunTypeDef = TypedDict(
         "testSpecArn": NotRequired[str],
         "deviceSelectionResult": NotRequired[DeviceSelectionResultTypeDef],
         "vpcConfig": NotRequired[VpcConfigOutputTypeDef],
+        "executionRoleArn": NotRequired[str],
+        "environmentVariables": NotRequired[list[EnvironmentVariableTypeDef]],
     },
 )
 
@@ -1308,7 +1316,7 @@ class GetSuiteResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSuitesResultTypeDef(TypedDict):
-    suites: List[SuiteTypeDef]
+    suites: list[SuiteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1317,7 +1325,7 @@ class GetTestResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTestsResultTypeDef(TypedDict):
-    tests: List[TestTypeDef]
+    tests: list[TestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1328,7 +1336,7 @@ OfferingTypeDef = TypedDict(
         "description": NotRequired[str],
         "type": NotRequired[Literal["RECURRING"]],
         "platform": NotRequired[DevicePlatformType],
-        "recurringCharges": NotRequired[List[RecurringChargeTypeDef]],
+        "recurringCharges": NotRequired[list[RecurringChargeTypeDef]],
     },
 )
 
@@ -1341,7 +1349,7 @@ class GetProjectResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProjectsResultTypeDef(TypedDict):
-    projects: List[ProjectTypeDef]
+    projects: list[ProjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1358,7 +1366,7 @@ class GetTestGridProjectResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTestGridProjectsResultTypeDef(TypedDict):
-    testGridProjects: List[TestGridProjectTypeDef]
+    testGridProjects: list[TestGridProjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1381,17 +1389,21 @@ class CreateProjectRequestTypeDef(TypedDict):
     name: str
     defaultJobTimeoutMinutes: NotRequired[int]
     vpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    environmentVariables: NotRequired[Sequence[EnvironmentVariableTypeDef]]
+    executionRoleArn: NotRequired[str]
 
 class UpdateProjectRequestTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     defaultJobTimeoutMinutes: NotRequired[int]
     vpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    environmentVariables: NotRequired[Sequence[EnvironmentVariableTypeDef]]
+    executionRoleArn: NotRequired[str]
 
 class DevicePoolCompatibilityResultTypeDef(TypedDict):
     device: NotRequired[DeviceTypeDef]
     compatible: NotRequired[bool]
-    incompatibilityMessages: NotRequired[List[IncompatibilityMessageTypeDef]]
+    incompatibilityMessages: NotRequired[list[IncompatibilityMessageTypeDef]]
 
 class GetDeviceResultTypeDef(TypedDict):
     device: DeviceTypeDef
@@ -1419,7 +1431,7 @@ JobTypeDef = TypedDict(
 )
 
 class ListDevicesResultTypeDef(TypedDict):
-    devices: List[DeviceTypeDef]
+    devices: list[DeviceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1443,11 +1455,6 @@ class RemoteAccessSessionTypeDef(TypedDict):
     stopped: NotRequired[datetime]
     device: NotRequired[DeviceTypeDef]
     instanceArn: NotRequired[str]
-    remoteDebugEnabled: NotRequired[bool]
-    remoteRecordEnabled: NotRequired[bool]
-    remoteRecordAppArn: NotRequired[str]
-    hostAddress: NotRequired[str]
-    clientId: NotRequired[str]
     billingMethod: NotRequired[BillingMethodType]
     deviceMinutes: NotRequired[DeviceMinutesTypeDef]
     endpoint: NotRequired[str]
@@ -1456,6 +1463,8 @@ class RemoteAccessSessionTypeDef(TypedDict):
     skipAppResign: NotRequired[bool]
     vpcConfig: NotRequired[VpcConfigOutputTypeDef]
     deviceProxy: NotRequired[DeviceProxyTypeDef]
+    appUpload: NotRequired[str]
+    endpoints: NotRequired[RemoteAccessEndpointsTypeDef]
 
 class GetDevicePoolCompatibilityRequestTypeDef(TypedDict):
     devicePoolArn: str
@@ -1470,7 +1479,7 @@ class GetRunResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRunsResultTypeDef(TypedDict):
-    runs: List[RunTypeDef]
+    runs: list[RunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1493,7 +1502,7 @@ class ScheduleRunRequestTypeDef(TypedDict):
     executionConfiguration: NotRequired[ExecutionConfigurationTypeDef]
 
 class ListOfferingsResultTypeDef(TypedDict):
-    offerings: List[OfferingTypeDef]
+    offerings: list[OfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1508,8 +1517,8 @@ OfferingStatusTypeDef = TypedDict(
 )
 
 class GetDevicePoolCompatibilityResultTypeDef(TypedDict):
-    compatibleDevices: List[DevicePoolCompatibilityResultTypeDef]
-    incompatibleDevices: List[DevicePoolCompatibilityResultTypeDef]
+    compatibleDevices: list[DevicePoolCompatibilityResultTypeDef]
+    incompatibleDevices: list[DevicePoolCompatibilityResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetJobResultTypeDef(TypedDict):
@@ -1517,7 +1526,7 @@ class GetJobResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListJobsResultTypeDef(TypedDict):
-    jobs: List[JobTypeDef]
+    jobs: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1527,7 +1536,7 @@ class StopJobResultTypeDef(TypedDict):
 
 class UniqueProblemTypeDef(TypedDict):
     message: NotRequired[str]
-    problems: NotRequired[List[ProblemTypeDef]]
+    problems: NotRequired[list[ProblemTypeDef]]
 
 class CreateRemoteAccessSessionResultTypeDef(TypedDict):
     remoteAccessSession: RemoteAccessSessionTypeDef
@@ -1538,7 +1547,7 @@ class GetRemoteAccessSessionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRemoteAccessSessionsResultTypeDef(TypedDict):
-    remoteAccessSessions: List[RemoteAccessSessionTypeDef]
+    remoteAccessSessions: list[RemoteAccessSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1547,8 +1556,8 @@ class StopRemoteAccessSessionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOfferingStatusResultTypeDef(TypedDict):
-    current: Dict[str, OfferingStatusTypeDef]
-    nextPeriod: Dict[str, OfferingStatusTypeDef]
+    current: dict[str, OfferingStatusTypeDef]
+    nextPeriod: dict[str, OfferingStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1560,12 +1569,12 @@ class OfferingTransactionTypeDef(TypedDict):
     cost: NotRequired[MonetaryAmountTypeDef]
 
 class ListUniqueProblemsResultTypeDef(TypedDict):
-    uniqueProblems: Dict[ExecutionResultType, List[UniqueProblemTypeDef]]
+    uniqueProblems: dict[ExecutionResultType, list[UniqueProblemTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOfferingTransactionsResultTypeDef(TypedDict):
-    offeringTransactions: List[OfferingTransactionTypeDef]
+    offeringTransactions: list[OfferingTransactionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -1,34 +1,34 @@
 Metadata-Version: 2.4
 Name: pyink
-Version: 24.10.1
+Version: 25.12.0
 Summary: Pyink is a python formatter, forked from Black with slightly different behavior.
 Project-URL: Changelog, https://github.com/google/pyink/blob/pyink/CHANGES.md
 Project-URL: Repository, https://github.com/google/pyink
 Project-URL: Issues, https://github.com/google/pyink/issues
 Author-email: The Pyink Maintainers <pyink-maintainers@google.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
-Requires-Dist: black==24.10.0
+Requires-Python: >=3.10
+Requires-Dist: black==25.12.0
 Requires-Dist: click>=8.0.0
 Requires-Dist: mypy-extensions>=0.4.3
 Requires-Dist: packaging>=22.0
 Requires-Dist: pathspec>=0.9.0
 Requires-Dist: platformdirs>=2
+Requires-Dist: pytokens>=0.3.0
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.0.1; python_version < '3.11'
 Provides-Extra: colorama

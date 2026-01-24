@@ -54,7 +54,7 @@ class NotifySynology(NotifyBase):
     secure_protocol = "synologys"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_synology_chat"
+    setup_url = "https://appriseit.com/services/synology_chat/"
 
     # Title is to be part of body
     title_maxlen = 0
@@ -304,7 +304,8 @@ class NotifySynology(NotifyBase):
                     str(r.status_code),
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

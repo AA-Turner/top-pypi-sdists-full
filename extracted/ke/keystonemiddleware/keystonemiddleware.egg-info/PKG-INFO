@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: keystonemiddleware
-Version: 10.12.0
+Version: 11.0.0
 Summary: Middleware for OpenStack Identity
 Home-page: https://docs.openstack.org/keystonemiddleware/latest/
 Author: OpenStack
@@ -35,9 +35,10 @@ Requires-Dist: requests>=2.14.2
 Requires-Dist: WebOb>=1.7.1
 Provides-Extra: audit-notifications
 Requires-Dist: oslo.messaging>=5.29.0; extra == "audit-notifications"
+Provides-Extra: memcache-encryption
+Requires-Dist: cryptography>=2.7; extra == "memcache-encryption"
 Provides-Extra: test
 Requires-Dist: hacking~=6.1.0; extra == "test"
-Requires-Dist: flake8-docstrings~=1.7.0; extra == "test"
 Requires-Dist: coverage>=4.0; extra == "test"
 Requires-Dist: cryptography>=3.0; extra == "test"
 Requires-Dist: fixtures>=3.0.0; extra == "test"
@@ -53,6 +54,16 @@ Requires-Dist: WebTest>=2.0.27; extra == "test"
 Requires-Dist: oslo.messaging>=5.29.0; extra == "test"
 Requires-Dist: PyJWT>=2.4.0; extra == "test"
 Requires-Dist: bandit>=1.1.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Team and repository tags

@@ -58,7 +58,7 @@ pub(crate) enum Cache {
 }
 
 impl Class {
-    fn new(value: StrTendril) -> Class {
+    pub(crate) fn new(value: StrTendril) -> Class {
         // Build a Bloom filter for all element's classes
         let mut cache = BloomFilter::new();
         let mut classes = value.split(SELECTOR_WHITESPACE).filter(|s| !s.is_empty());
@@ -136,7 +136,7 @@ pub(crate) const CSS_INLINE_ATTRIBUTE: &str = "data-css-inline";
 pub(super) fn should_ignore(attributes: &[html5ever::Attribute]) -> bool {
     attributes
         .iter()
-        .any(|a| a.name.local == *CSS_INLINE_ATTRIBUTE && a.value == "ignore".into())
+        .any(|a| a.name.local == *CSS_INLINE_ATTRIBUTE && &*a.value == "ignore")
 }
 
 impl Attributes {

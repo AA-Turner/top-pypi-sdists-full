@@ -111,7 +111,7 @@ def limit_resource(memory_limit, time_limit):
                 pass
 
 
-class BaseEstimator:
+class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
     """The abstract class for all learners.
 
     Typical examples:
@@ -135,6 +135,7 @@ class BaseEstimator:
         self._task = task if isinstance(task, Task) else task_factory(task, None, None)
         self.params = self.config2params(config)
         self.estimator_class = self._model = None
+        self.estimator_baseclass = "sklearn"
         if "_estimator_type" in self.params:
             self._estimator_type = self.params.pop("_estimator_type")
         else:
@@ -294,6 +295,35 @@ class BaseEstimator:
             train_time = self._fit(X_train, y_train, **kwargs)
         return train_time
 
+    def preprocess(self, X):
+        """Preprocess data using estimator-level preprocessing.
+
+        This method applies estimator-specific preprocessing transformations to the input data.
+        This is the second level of preprocessing that should be applied after task-level
+        preprocessing (automl.preprocess()). Different estimator types may apply different
+        preprocessing steps (e.g., sparse matrix conversion, dataframe handling).
+
+        Args:
+            X: A numpy array or a dataframe of featurized instances, shape n*m.
+
+        Returns:
+            Preprocessed data ready for the estimator's predict/fit methods.
+
+        Example:
+            ```python
+            automl = AutoML()
+            automl.fit(X_train, y_train, task="classification")
+
+            # First apply task-level preprocessing
+            X_test_task = automl.preprocess(X_test)
+
+            # Then apply estimator-level preprocessing
+            estimator = automl.model
+            X_test_estimator = estimator.preprocess(X_test_task)
+            ```
+        """
+        return self._preprocess(X)
+
     def predict(self, X, **kwargs):
         """Predict label from features.
 
@@ -439,6 +469,7 @@ class SparkEstimator(BaseEstimator):
             raise SPARK_ERROR
         super().__init__(task, **config)
         self.df_train = None
+        self.estimator_baseclass = "spark"
 
     def _preprocess(
         self,
@@ -974,7 +1005,7 @@ class TransformersEstimator(BaseEstimator):
         from .nlp.huggingface.utils import tokenize_text
         from .nlp.utils import is_a_list_of_str
 
-        is_str = str(X.dtypes[0]) in ("string", "str")
+        is_str = str(X.dtypes.iloc[0]) in ("string", "str")
         is_list_of_str = is_a_list_of_str(X[list(X.keys())[0]].to_list()[0])
 
         if is_str or is_list_of_str:
@@ -2347,8 +2378,11 @@ class SGDEstimator(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["loss"] = params.get("loss", None)
-        if params["loss"] is None and self._task.is_classification():
-            params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
+        if params["loss"] is None:
+            if self._task.is_classification():
+                params["loss"] = "log_loss" if SKLEARN_VERSION >= "1.1" else "log"
+            else:
+                params["loss"] = "squared_error"
         if not self._task.is_classification() and "n_jobs" in params:
             params.pop("n_jobs")
 
@@ -2820,7 +2854,7 @@ class suppress_stdout_stderr:
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
         # Save the actual stdout (1) and stderr (2) file descriptors.
-        self.save_fds = (os.dup(1), os.dup(2))
+        self.save_fds = [os.dup(1), os.dup(2)]
 
     def __enter__(self):
         # Assign the null pointers to stdout and stderr.
@@ -2832,5 +2866,5 @@ class suppress_stdout_stderr:
         os.dup2(self.save_fds[0], 1)
         os.dup2(self.save_fds[1], 2)
         # Close the null files
-        os.close(self.null_fds[0])
-        os.close(self.null_fds[1])
+        for fd in self.null_fds + self.save_fds:
+            os.close(fd)

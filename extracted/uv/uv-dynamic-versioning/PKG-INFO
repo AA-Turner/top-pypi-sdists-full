@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uv-dynamic-versioning
-Version: 0.11.1
+Version: 0.13.0
 Summary: Dynamic versioning based on VCS tags for uv/hatch project
 Project-URL: Repository, https://github.com/ninoseki/uv-dynamic-versioning/
 Project-URL: Homepage, https://github.com/ninoseki/uv-dynamic-versioning/
@@ -34,7 +34,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <4.0,>=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.10
 Requires-Dist: dunamai~=1.25
 Requires-Dist: hatchling~=1.26
 Requires-Dist: jinja2~=3.0

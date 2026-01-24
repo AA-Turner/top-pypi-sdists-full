@@ -5,28 +5,24 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import OrderedDict
-from typing import Union
+from typing import TypedDict, Optional, Union, overload, Literal
+from collections.abc import Sequence
 
-import dns
-from pyleri import (
-    Grammar,
-    Regex,
-    Sequence,
-    List,
-)
+import dns.resolver
+import dns.exception
+from dns.nameserver import Nameserver
+import pyleri
 
-
-from checkdmarc.utils import (
-    WSP_REGEX,
-    query_dns,
-    normalize_domain,
-    get_base_domain,
-    MAILTO_REGEX,
-    DNSException,
-)
-from checkdmarc.utils import get_mx_records
 from checkdmarc._constants import SYNTAX_ERROR_MARKER
+from checkdmarc.utils import (
+    MAILTO_REGEX,
+    WSP_REGEX,
+    DNSException,
+    get_base_domain,
+    get_mx_records,
+    normalize_domain,
+    query_dns,
+)
 
 """Copyright 2019-2023 Sean Whalen
 
@@ -61,11 +57,11 @@ class _DMARCBestPracticeWarning(_DMARCWarning):
 class DMARCError(Exception):
     """Raised when a fatal DMARC error occurs"""
 
-    def __init__(self, msg: str, data: dict = None):
+    def __init__(self, msg: str, data: Optional[DMARCErrorData] = None):
         """
         Args:
             msg (str): The error message
-            data (dict): A dictionary of data to include in the results
+            data (DMARCErrorData): A dictionary of data to include in the results
         """
         self.data = data
         Exception.__init__(self, msg)
@@ -127,279 +123,495 @@ class UnverifiedDMARCURIDestination(_DMARCWarning):
 
 class MultipleDMARCRecords(DMARCError):
     """Raised when multiple DMARC records are found, in violation of
-    RFC 7486, section 6.6.3"""
+    RFC 7486, § 6.6.3"""
 
 
-class _DMARCGrammar(Grammar):
+class _DMARCGrammar(pyleri.Grammar):
     """Defines Pyleri grammar for DMARC records"""
 
-    version_tag = Regex(DMARC_VERSION_REGEX_STRING, re.IGNORECASE)
-    tag_value = Regex(DMARC_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
-    START = Sequence(
+    version_tag = pyleri.Regex(DMARC_VERSION_REGEX_STRING, re.IGNORECASE)
+    tag_value = pyleri.Regex(DMARC_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
+    START = pyleri.Sequence(
         version_tag,
-        List(tag_value, delimiter=Regex(f"{WSP_REGEX}*;{WSP_REGEX}*"), opt=True),
+        pyleri.List(
+            tag_value, delimiter=pyleri.Regex(f"{WSP_REGEX}*;{WSP_REGEX}*"), opt=True
+        ),
     )
 
 
-dmarc_tags = OrderedDict(
-    adkim=OrderedDict(
-        name="DKIM Alignment Mode",
-        required=False,
-        default="r",
-        description="In relaxed mode, "
-        "the Organizational "
-        "Domains of both the "
-        "DKIM-authenticated "
-        "signing domain (taken "
-        "from the value of the "
-        '"d=" tag in the '
-        "signature) and that "
-        "of the RFC 5322 "
-        "From domain "
-        "must be equal if the "
-        "identifiers are to be "
-        "considered aligned.",
-    ),
-    aspf=OrderedDict(
-        name="SPF alignment mode",
-        required=False,
-        default="r",
-        description="In relaxed mode, "
-        "the SPF-authenticated "
-        "domain and RFC5322 "
-        "From domain must have "
-        "the same "
-        "Organizational Domain. "
-        "In strict mode, only "
-        "an exact DNS domain "
-        "match is considered to "
-        "produce Identifier "
-        "Alignment.",
-    ),
-    fo=OrderedDict(
-        name="Failure Reporting Options",
-        required=False,
-        default="0",
-        description="Provides requested "
-        "options for generation "
-        "of failure reports. "
-        "Report generators MAY "
-        "choose to adhere to the "
-        "requested options. "
-        "This tag's content "
-        "MUST be ignored if "
-        'a "ruf" tag (below) is '
-        "not also specified. "
-        "The value of this tag is "
-        "a colon-separated list "
-        "of characters that "
-        "indicate failure "
-        "reporting options.",
-        values={
-            "0": "Generate a DMARC failure "
-            "report if all underlying "
-            "authentication mechanisms "
-            "fail to produce an aligned "
-            '"pass" result.',
-            "1": "Generate a DMARC failure "
-            "report if any underlying "
-            "authentication mechanism "
-            "produced something other "
-            "than an aligned "
-            '"pass" result.',
-            "d": "Generate a DKIM failure "
-            "report if the message had "
-            "a signature that failed "
-            "evaluation, regardless of "
-            "its alignment. DKIM-"
-            "specific reporting is "
-            "described in AFRF-DKIM.",
-            "s": "Generate an SPF failure "
-            "report if the message "
-            "failed SPF evaluation, "
-            "regardless of its alignment."
-            " SPF-specific reporting is "
-            "described in AFRF-SPF",
-        },
-    ),
-    p=OrderedDict(
-        name="Requested Mail Receiver Policy",
-        required=True,
-        description="Specifies the policy to "
-        "be enacted by the "
-        "Receiver at the "
-        "request of the "
-        "Domain Owner. The "
-        "policy applies to "
-        "the domain and to its "
-        "subdomains, unless "
-        "subdomain policy "
-        "is explicitly described "
-        'using the "sp" tag.',
-        values={
-            "none": "The Domain Owner requests "
-            "no specific action be "
-            "taken regarding delivery "
-            "of messages.",
-            "quarantine": "The Domain Owner "
-            "wishes to have "
-            "email that fails "
-            "the DMARC mechanism "
-            "check be treated by "
-            "Mail Receivers as "
-            "suspicious. "
-            "Depending on the "
-            "capabilities of the "
-            "MailReceiver, "
-            "this can mean "
-            '"place into spam '
-            'folder", '
-            '"scrutinize '
-            "with additional "
-            'intensity", and/or '
-            '"flag as '
-            'suspicious".',
-            "reject": "The Domain Owner wishes "
-            "for Mail Receivers to "
-            "reject "
-            "email that fails the "
-            "DMARC mechanism check. "
-            "Rejection SHOULD "
-            "occur during the SMTP "
-            "transaction.",
-        },
-    ),
-    pct=OrderedDict(
-        name="Percentage",
-        required=False,
-        default=100,
-        description="Integer percentage of "
-        "messages from the "
-        "Domain Owner's "
-        "mail stream to which "
-        "the DMARC policy is to "
-        "be applied. "
-        "However, this "
-        "MUST NOT be applied to "
-        "the DMARC-generated "
-        "reports, all of which "
-        "must be sent and "
-        "received unhindered. "
-        "The purpose of the "
-        '"pct" tag is to allow '
-        "Domain Owners to enact "
-        "a slow rollout of "
-        "enforcement of the "
-        "DMARC mechanism.",
-    ),
-    rf=OrderedDict(
-        name="Report Format",
-        required=False,
-        default="afrf",
-        description="A list separated by "
-        "colons of one or more "
-        "report formats as "
-        "requested by the "
-        "Domain Owner to be "
-        "used when a message "
-        "fails both SPF and DKIM "
-        "tests to report details "
-        "of the individual "
-        'failure. Only "afrf" '
-        "(the auth-failure report "
-        "type) is currently "
-        "supported in the "
-        "DMARC standard.",
-        values={
-            "afrf": ' "Authentication Failure '
-            "Reporting Using the "
-            'Abuse Reporting Format", '
-            "RFC 6591, April 2012,"
-            "<https://www.rfc-"
-            "editor.org/info/rfc6591>"
-        },
-    ),
-    ri=OrderedDict(
-        name="Report Interval",
-        required=False,
-        default=86400,
-        description="Indicates a request to "
-        "Receivers to generate "
-        "aggregate reports "
-        "separated by no more "
-        "than the requested "
-        "number of seconds. "
-        "DMARC implementations "
-        "MUST be able to provide "
-        "daily reports and "
-        "SHOULD be able to "
-        "provide hourly reports "
-        "when requested. "
-        "However, anything other "
-        "than a daily report is "
-        "understood to "
-        "be accommodated on a "
-        "best-effort basis.",
-    ),
-    rua=OrderedDict(
-        name="Aggregate Feedback Addresses",
-        required=False,
-        description=" A comma-separated list "
-        "of DMARC URIs to which "
-        "aggregate feedback "
-        "is to be sent.",
-    ),
-    ruf=OrderedDict(
-        name="Forensic Feedback Addresses",
-        required=False,
-        description=" A comma-separated list "
-        "of DMARC URIs to which "
-        "forensic feedback "
-        "is to be sent.",
-    ),
-    sp=OrderedDict(
-        name="Subdomain Policy",
-        required=False,
-        description="Indicates the policy to "
-        "be enacted by the "
-        "Receiver at the request "
-        "of the Domain Owner. "
-        "It applies only to "
-        "subdomains of the "
-        "domain queried, and not "
-        "to the domain itself. "
-        "Its syntax is identical "
-        'to that of the "p" tag '
-        "defined above. If "
-        "absent, the policy "
-        'specified by the "p" '
-        "tag MUST be applied "
-        "for subdomains.",
-    ),
-    v=OrderedDict(
-        name="Version",
-        required=True,
-        description="Identifies the record "
-        "retrieved as a DMARC "
-        "record. It MUST have the "
-        'value of "DMARC1". The '
-        "value of this tag MUST "
-        "match precisely; if it "
-        "does not or it is absent, "
-        "the entire retrieved "
-        "record MUST be ignored. "
-        "It MUST be the first "
-        "tag in the list.",
+class DMARCTagMapItem(TypedDict):
+    name: str
+    required: bool
+    description: str
+
+
+class DMARCTagMapItemWithDefault(DMARCTagMapItem):
+    default: Union[str, int]
+
+
+class DMARCTagMapItemWithValues(DMARCTagMapItem):
+    values: dict[str, Union[str, int]]
+
+
+class DMARCTagMapItemWithDefaultAndValues(DMARCTagMapItem):
+    default: Union[str, int]
+    values: dict[str, Union[str, int]]
+
+
+class DMARCTagMap(TypedDict):
+    adkim: DMARCTagMapItemWithDefault
+    aspf: DMARCTagMapItemWithDefault
+    fo: DMARCTagMapItemWithDefaultAndValues
+    p: DMARCTagMapItemWithValues
+    pct: DMARCTagMapItemWithDefault
+    rf: DMARCTagMapItemWithDefaultAndValues
+    ri: DMARCTagMapItemWithDefault
+    rua: DMARCTagMapItem
+    ruf: DMARCTagMapItem
+    sp: DMARCTagMapItemWithValues
+    v: DMARCTagMapItem
+
+
+class DMARCTagDetails(TypedDict):
+    name: str
+    default: Union[str, int, None]
+    description: str
+
+
+class DMARCRecordQueryResults(TypedDict):
+    record: str
+    location: str
+    warnings: list[str]
+
+
+class ParsedDMARCReportURI(TypedDict):
+    """Structure for a parsed DMARC report URI"""
+
+    scheme: str
+    address: str
+    size_limit: Union[str, None]
+
+
+# TypedDicts for DMARC tag values
+class DMARCTagValue(TypedDict):
+    """Base structure for a DMARC tag value without descriptions"""
+
+    value: Union[str, int, list[ParsedDMARCReportURI]]
+    explicit: bool
+
+
+class _DMARCTagValueOptionalFields(TypedDict, total=False):
+    """Optional fields for DMARC tag values with descriptions"""
+
+    default: Union[str, int]
+
+
+class DMARCTagValueWithDescription(DMARCTagValue, _DMARCTagValueOptionalFields):
+    """Structure for a DMARC tag value with descriptions"""
+
+    name: str
+    description: str
+
+
+# Type aliases for parsed tags dictionaries
+DMARCParsedTags = dict[str, DMARCTagValue]
+DMARCParsedTagsWithDescriptions = dict[str, DMARCTagValueWithDescription]
+
+
+class ParsedDMARCRecord(TypedDict):
+    """Return type for parse_dmarc_record without descriptions"""
+
+    tags: DMARCParsedTags
+    warnings: list[str]
+
+
+class ParsedDMARCRecordWithDescriptions(TypedDict):
+    """Return type for parse_dmarc_record with descriptions"""
+
+    tags: DMARCParsedTagsWithDescriptions
+    warnings: list[str]
+
+
+class DMARCRecord(TypedDict):
+    """Return type for get_dmarc_record without descriptions"""
+
+    record: str
+    location: str
+    parsed: ParsedDMARCRecord
+
+
+class DMARCRecordWithDescriptions(TypedDict):
+    """Return type for get_dmarc_record with descriptions"""
+
+    record: str
+    location: str
+    parsed: ParsedDMARCRecordWithDescriptions
+
+
+class DMARCResults(TypedDict):
+    """Success return type for check_dmarc"""
+
+    record: str
+    location: str
+    valid: bool
+    warnings: list[str]
+    tags: Union[DMARCParsedTags, DMARCParsedTagsWithDescriptions]
+
+
+class _DMARCErrorResultsOptionalFields(TypedDict, total=False):
+    """Optional fields for DMARCErrorResults"""
+
+    target: str
+
+
+class DMARCErrorResults(_DMARCErrorResultsOptionalFields):
+    """Error return type for check_dmarc"""
+
+    record: None
+    location: None
+    valid: bool
+    error: str
+
+
+class DMARCErrorData(TypedDict, total=False):
+    """Optional data structure for DMARCError"""
+
+    target: str
+
+
+version_tag = pyleri.Regex(DMARC_VERSION_REGEX_STRING, re.IGNORECASE)
+tag_value = pyleri.Regex(DMARC_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
+START = pyleri.Sequence(
+    version_tag,
+    pyleri.List(
+        tag_value, delimiter=pyleri.Regex(f"{WSP_REGEX}*;{WSP_REGEX}*"), opt=True
     ),
 )
+
+
+dmarc_tags: DMARCTagMap = {
+    "adkim": {
+        "name": "DKIM Alignment Mode",
+        "required": False,
+        "default": "r",
+        "description": (
+            "In relaxed mode, "
+            "the Organizational "
+            "Domains of both the "
+            "DKIM-authenticated "
+            "signing domain (taken "
+            "from the value of the "
+            '"d=" tag in the '
+            "signature) and that "
+            "of the RFC 5322 "
+            "From domain "
+            "must be equal if the "
+            "identifiers are to be "
+            "considered aligned."
+        ),
+    },
+    "aspf": {
+        "name": "SPF alignment mode",
+        "required": False,
+        "default": "r",
+        "description": (
+            "In relaxed mode, "
+            "the SPF-authenticated "
+            "domain and RFC 5322 "
+            "From domain must have "
+            "the same "
+            "Organizational Domain. "
+            "In strict mode, only "
+            "an exact DNS domain "
+            "match is considered to "
+            "produce Identifier "
+            "Alignment."
+        ),
+    },
+    "fo": {
+        "name": "Failure Reporting Options",
+        "required": False,
+        "default": "0",
+        "description": (
+            "Provides requested "
+            "options for generation "
+            "of failure reports. "
+            "Report generators MAY "
+            "choose to adhere to the "
+            "requested options. "
+            "This tag's content "
+            "MUST be ignored if "
+            'a "ruf" tag (below) is '
+            "not also specified. "
+            "The value of this tag is "
+            "a colon-separated list "
+            "of characters that "
+            "indicate failure "
+            "reporting options."
+        ),
+        "values": {
+            "0": (
+                "Generate a DMARC failure "
+                "report if all underlying "
+                "authentication mechanisms "
+                "fail to produce an aligned "
+                '"pass" result.'
+            ),
+            "1": (
+                "Generate a DMARC failure "
+                "report if any underlying "
+                "authentication mechanism "
+                "produced something other "
+                "than an aligned "
+                '"pass" result.'
+            ),
+            "d": (
+                "Generate a DKIM failure "
+                "report if the message had "
+                "a signature that failed "
+                "evaluation, regardless of "
+                "its alignment. DKIM-"
+                "specific reporting is "
+                "described in AFRF-DKIM."
+            ),
+            "s": (
+                "Generate an SPF failure "
+                "report if the message "
+                "failed SPF evaluation, "
+                "regardless of its alignment. "
+                "SPF-specific reporting is "
+                "described in AFRF-SPF"
+            ),
+        },
+    },
+    "p": {
+        "name": "Requested Mail Receiver Policy",
+        "required": True,
+        "description": (
+            "Specifies the policy to "
+            "be enacted by the "
+            "Receiver at the "
+            "request of the "
+            "Domain Owner. The "
+            "policy applies to "
+            "the domain and to its "
+            "subdomains, unless "
+            "subdomain policy "
+            "is explicitly described "
+            'using the "sp" tag.'
+        ),
+        "values": {
+            "none": (
+                "The Domain Owner requests "
+                "no specific action be "
+                "taken regarding delivery "
+                "of messages."
+            ),
+            "quarantine": (
+                "The Domain Owner "
+                "wishes to have "
+                "email that fails "
+                "the DMARC mechanism "
+                "check be treated by "
+                "Mail Receivers as "
+                "suspicious. "
+                "Depending on the "
+                "capabilities of the "
+                "MailReceiver, "
+                'this can mean "place into spam folder", '
+                '"scrutinize with additional intensity", '
+                'and/or "flag as suspicious".'
+            ),
+            "reject": (
+                "The Domain Owner wishes "
+                "for Mail Receivers to "
+                "reject email that fails "
+                "the DMARC mechanism check. "
+                "Rejection SHOULD occur "
+                "during the SMTP "
+                "transaction."
+            ),
+        },
+    },
+    "pct": {
+        "name": "Percentage",
+        "required": False,
+        "default": 100,
+        "description": (
+            "Integer percentage of "
+            "messages from the "
+            "Domain Owner's "
+            "mail stream to which "
+            "the DMARC policy is to "
+            "be applied. "
+            "However, this "
+            "MUST NOT be applied to "
+            "the DMARC-generated "
+            "reports, all of which "
+            "must be sent and "
+            "received unhindered. "
+            "The purpose of the "
+            '"pct" tag is to allow '
+            "Domain Owners to enact "
+            "a slow rollout of "
+            "enforcement of the "
+            "DMARC mechanism."
+        ),
+    },
+    "rf": {
+        "name": "Report Format",
+        "required": False,
+        "default": "afrf",
+        "description": (
+            "A list separated by "
+            "colons of one or more "
+            "report formats as "
+            "requested by the "
+            "Domain Owner to be "
+            "used when a message "
+            "fails both SPF and DKIM "
+            "tests to report details "
+            "of the individual "
+            'failure. Only "afrf" '
+            "(the auth-failure report "
+            "type) is currently "
+            "supported in the "
+            "DMARC standard."
+        ),
+        "values": {
+            "afrf": (
+                '"Authentication Failure '
+                "Reporting Using the "
+                'Abuse Reporting Format", '
+                "RFC 6591, April 2012, "
+                "<https://www.rfc-editor.org/info/rfc6591>"
+            ),
+        },
+    },
+    "ri": {
+        "name": "Report Interval",
+        "required": False,
+        "default": 86400,
+        "description": (
+            "Indicates a request to "
+            "Receivers to generate "
+            "aggregate reports "
+            "separated by no more "
+            "than the requested "
+            "number of seconds. "
+            "DMARC implementations "
+            "MUST be able to provide "
+            "daily reports and "
+            "SHOULD be able to "
+            "provide hourly reports "
+            "when requested. "
+            "However, anything other "
+            "than a daily report is "
+            "understood to be "
+            "accommodated on a "
+            "best-effort basis."
+        ),
+    },
+    "rua": {
+        "name": "Aggregate Feedback Addresses",
+        "required": False,
+        "description": (
+            "A comma-separated list "
+            "of DMARC URIs to which "
+            "aggregate feedback "
+            "is to be sent."
+        ),
+    },
+    "ruf": {
+        "name": "Forensic Feedback Addresses",
+        "required": False,
+        "description": (
+            "A comma-separated list "
+            "of DMARC URIs to which "
+            "forensic feedback "
+            "is to be sent."
+        ),
+    },
+    "sp": {
+        "name": "Subdomain Policy",
+        "required": False,
+        "description": (
+            "Indicates the policy to "
+            "be enacted by the "
+            "Receiver at the request "
+            "of the Domain Owner. "
+            "It applies only to "
+            "subdomains of the "
+            "domain queried, and not "
+            "to the domain itself. "
+            "Its syntax is identical "
+            'to that of the "p" tag '
+            "defined above. If "
+            "absent, the policy "
+            'specified by the "p" '
+            "tag MUST be applied "
+            "for subdomains."
+        ),
+        "values": {
+            "none": (
+                "The Domain Owner requests "
+                "no specific action be "
+                "taken regarding delivery "
+                "of messages."
+            ),
+            "quarantine": (
+                "The Domain Owner "
+                "wishes to have "
+                "email that fails "
+                "the DMARC mechanism "
+                "check be treated by "
+                "Mail Receivers as "
+                "suspicious. "
+                "Depending on the "
+                "capabilities of the "
+                "MailReceiver, "
+                'this can mean "place into spam folder", '
+                '"scrutinize with additional intensity", '
+                'and/or "flag as suspicious".'
+            ),
+            "reject": (
+                "The Domain Owner wishes "
+                "for Mail Receivers to "
+                "reject email that fails "
+                "the DMARC mechanism check. "
+                "Rejection SHOULD occur "
+                "during the SMTP "
+                "transaction."
+            ),
+        },
+    },
+    "v": {
+        "name": "Version",
+        "required": True,
+        "description": (
+            "Identifies the record "
+            "retrieved as a DMARC "
+            "record. It MUST have the "
+            'value of "DMARC1". The '
+            "value of this tag MUST "
+            "match precisely; if it "
+            "does not or it is absent, "
+            "the entire retrieved "
+            "record MUST be ignored. "
+            "It MUST be the first "
+            "tag in the list."
+        ),
+    },
+}
 
 
 def _query_dmarc_record(
     domain: str,
     *,
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
     ignore_unrelated_records: bool = False,
 ) -> Union[str, None]:
     """
@@ -411,6 +623,8 @@ def _query_dmarc_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for a record from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
+        ignore_unrelated_records (bool): Do not raise a warning if unrelated records are found
 
     Returns:
         str: A record string or None
@@ -424,7 +638,12 @@ def _query_dmarc_record(
 
     try:
         records = query_dns(
-            target, "TXT", nameservers=nameservers, resolver=resolver, timeout=timeout
+            target,
+            "TXT",
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         for record in records:
             if record.startswith(txt_prefix):
@@ -463,6 +682,7 @@ def _query_dmarc_record(
                 nameservers=nameservers,
                 resolver=resolver,
                 timeout=timeout,
+                timeout_retries=timeout_retries,
             )
             for record in records:
                 if record.startswith(txt_prefix):
@@ -485,7 +705,7 @@ def _query_dmarc_record(
     except MultipleDMARCRecords as error:
         raise error
     except Exception as error:
-        raise DMARCRecordNotFound(error)
+        raise DMARCError(str(error))
 
     return dmarc_record
 
@@ -493,11 +713,12 @@ def _query_dmarc_record(
 def query_dmarc_record(
     domain: str,
     *,
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
     ignore_unrelated_records: bool = False,
-) -> OrderedDict:
+) -> DMARCRecordQueryResults:
     """
     Queries DNS for a DMARC record
 
@@ -507,10 +728,11 @@ def query_dmarc_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for a record from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
         ignore_unrelated_records (bool): Ignore unrelated TXT records
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
                      - ``record`` - the unparsed DMARC record string
                      - ``location`` - the domain where the record was found
                      - ``warnings`` - warning conditions found
@@ -533,6 +755,7 @@ def query_dmarc_record(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
             ignore_unrelated_records=ignore_unrelated_records,
         )
     except DMARCRecordNotFound:
@@ -543,13 +766,18 @@ def query_dmarc_record(
 
     try:
         root_records = query_dns(
-            domain, "TXT", nameservers=nameservers, resolver=resolver, timeout=timeout
+            domain,
+            "TXT",
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         for root_record in root_records:
             if root_record.startswith("v=DMARC1"):
                 warnings.append(f"DMARC record at root of {domain} has no effect.")
     except dns.resolver.NXDOMAIN:
-        raise DMARCRecordNotFound(f"The domain {domain} does not exist.")
+        raise DMARCRecordNotFound("The domain does not exist.")
     except dns.exception.DNSException:
         pass
 
@@ -559,22 +787,24 @@ def query_dmarc_record(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
             ignore_unrelated_records=ignore_unrelated_records,
         )
         location = base_domain
     if record is None:
-        raise DMARCRecordNotFound(
-            "A DMARC record does not exist for this domain or its base domain."
-        )
+        error_str = "A DMARC record does not exist"
+        if domain == base_domain:
+            error_str += "."
+        else:
+            error_str += " for this subdomain or its base domain."
+        raise DMARCRecordNotFound(error_str)
 
-    return OrderedDict(
-        [("record", record), ("location", location), ("warnings", warnings)]
-    )
+    return {"record": record, "location": location, "warnings": warnings}
 
 
 def get_dmarc_tag_description(
-    tag: str, value: Union[str, list[str]] = None
-) -> OrderedDict:
+    tag: str, value: Optional[Union[str, list[str]]] = None
+) -> DMARCTagDetails:
     """
     Get the name, default value, and description for a DMARC tag, amd/or a
     description for a tag value
@@ -584,7 +814,7 @@ def get_dmarc_tag_description(
         value: An optional value
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
                      - ``name`` - the tag name
                      - ``default``- the tag's default value
                      - ``description`` - A description of the tag or value
@@ -607,12 +837,10 @@ def get_dmarc_tag_description(
         if new_description != "":
             description = new_description
 
-    return OrderedDict(
-        [("name", name), ("default", default), ("description", description)]
-    )
+    return {"name": name, "default": default, "description": description}
 
 
-def parse_dmarc_report_uri(uri: str) -> OrderedDict:
+def parse_dmarc_report_uri(uri: str) -> ParsedDMARCReportURI:
     """
     Parses a DMARC Reporting (i.e. ``rua``/``ruf``) URI
 
@@ -623,7 +851,7 @@ def parse_dmarc_report_uri(uri: str) -> OrderedDict:
         uri: A DMARC URI
 
     Returns:
-        OrderedDict: An ``OrderedDict`` of the URI's components:
+        dict: a ``dict`` of the URI's components:
                     - ``scheme``
                     - ``address``
                     - ``size_limit``
@@ -654,18 +882,17 @@ def parse_dmarc_report_uri(uri: str) -> OrderedDict:
     if size_limit == "":
         size_limit = None
 
-    return OrderedDict(
-        [("scheme", scheme), ("address", email_address), ("size_limit", size_limit)]
-    )
+    return {"scheme": scheme, "address": email_address, "size_limit": size_limit}
 
 
 def check_wildcard_dmarc_report_authorization(
     domain: str,
     *,
-    nameservers: list[str] = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
     ignore_unrelated_records: bool = False,
-    resolver: dns.resolver.Resolver = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
 ) -> bool:
     """
     Checks for a wildcard DMARC report authorization record, e.g.:
@@ -681,6 +908,8 @@ def check_wildcard_dmarc_report_authorization(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for an answer from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
+
 
     Returns:
         bool: An indicator of the existence of a valid wildcard DMARC report
@@ -696,6 +925,7 @@ def check_wildcard_dmarc_report_authorization(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
         )
 
         for record in records:
@@ -726,14 +956,15 @@ def verify_dmarc_report_destination(
     source_domain: str,
     destination_domain: str,
     *,
-    nameservers: list[str] = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
     ignore_unrelated_records: bool = False,
-    resolver: dns.resolver.Resolver = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
 ) -> None:
     """
     Checks if the report destination accepts reports for the source domain
-    per RFC 7489, section 7.1. Raises
+    per RFC 7489, § 7.1. Raises
     `checkdmarc.dmarc.UnverifiedDMARCURIDestination` if it doesn't accept.
 
     Args:
@@ -744,6 +975,8 @@ def verify_dmarc_report_destination(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                         requests
         timeout (float): number of seconds to wait for an answer from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
+
 
     Raises:
         :exc:`checkdmarc.dmarc.UnverifiedDMARCURIDestination`
@@ -759,6 +992,8 @@ def verify_dmarc_report_destination(
             nameservers=nameservers,
             ignore_unrelated_records=ignore_unrelated_records,
             resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         ):
             return
         target = f"{source_domain}._report._dmarc.{destination_domain}"
@@ -778,6 +1013,7 @@ def verify_dmarc_report_destination(
                 nameservers=nameservers,
                 resolver=resolver,
                 timeout=timeout,
+                timeout_retries=timeout_retries,
             )
 
             for record in records:
@@ -802,18 +1038,51 @@ def verify_dmarc_report_destination(
             raise UnverifiedDMARCURIDestination(message)
 
 
+@overload
+def parse_dmarc_record(
+    record: str,
+    domain: str,
+    *,
+    parked: bool = False,
+    include_tag_descriptions: Literal[False] = False,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    ignore_unrelated_records: bool = False,
+    resolver: Optional[dns.resolver.Resolver] = None,
+    timeout: float = 2.0,
+    timeout_retries: int = 2,
+    syntax_error_marker: str = SYNTAX_ERROR_MARKER,
+) -> ParsedDMARCRecord: ...
+
+
+@overload
+def parse_dmarc_record(
+    record: str,
+    domain: str,
+    *,
+    parked: bool = False,
+    include_tag_descriptions: Literal[True],
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    ignore_unrelated_records: bool = False,
+    resolver: Optional[dns.resolver.Resolver] = None,
+    timeout: float = 2.0,
+    timeout_retries: int = 2,
+    syntax_error_marker: str = SYNTAX_ERROR_MARKER,
+) -> ParsedDMARCRecordWithDescriptions: ...
+
+
 def parse_dmarc_record(
     record: str,
     domain: str,
     *,
     parked: bool = False,
     include_tag_descriptions: bool = False,
-    nameservers: list[str] = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
     ignore_unrelated_records: bool = False,
-    resolver: dns.resolver.Resolver = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
     syntax_error_marker: str = SYNTAX_ERROR_MARKER,
-) -> OrderedDict:
+) -> Union[ParsedDMARCRecord, ParsedDMARCRecordWithDescriptions]:
     """
     Parses a DMARC record
 
@@ -827,11 +1096,12 @@ def parse_dmarc_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for an answer from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
         syntax_error_marker (str): The maker for pointing out syntax errors
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
-         - ``tags`` - An ``OrderedDict`` of DMARC tags
+        dict: a ``dict`` with the following keys:
+         - ``tags`` - a ``dict`` of DMARC tags
 
            - ``value`` - The DMARC tag value
            - ``explicit`` - ``bool``: A value is explicitly set
@@ -885,45 +1155,59 @@ def parse_dmarc_record(
             f"{marked_record}"
         )
 
-    pairs = DMARC_TAG_VALUE_REGEX.findall(record)
-    tags = OrderedDict()
-
     # Find explicit tags
+    pairs: list[tuple[str, str]] = DMARC_TAG_VALUE_REGEX.findall(record)
+    tags = {}
+
+    seen_tags: list[str] = []
+    duplicate_tags: list[str] = []
     for pair in pairs:
-        tags[pair[0].lower()] = OrderedDict(
-            [("value", str(pair[1].strip())), ("explicit", True)]
-        )
+        tag = pair[0].lower()
+        # Check for invalid tags
+        if tag not in dmarc_tags:
+            raise InvalidDMARCTag(f"{tag} is not a valid DMARC tag.")
+        # Check for duplicate tags
+        if tag in seen_tags:
+            if tag not in duplicate_tags:
+                duplicate_tags.append(tag)
+        else:
+            seen_tags.append(tag)
+        if len(duplicate_tags):
+            duplicate_tags_str = ",".join(duplicate_tags)
+            raise InvalidDMARCTag(
+                f"Duplicate {duplicate_tags_str} tags are not permitted"
+            )
+        value = pair[1].lower().strip()
+        tags[tag] = {"value": value, "explicit": True}
 
     # Include implicit tags and their defaults
     for tag in dmarc_tags.keys():
         if tag not in tags and "default" in dmarc_tags[tag]:
-            tags[tag] = OrderedDict(
-                [("value", dmarc_tags[tag]["default"]), ("explicit", False)]
-            )
+            tags[tag] = {"value": dmarc_tags[tag]["default"], "explicit": False}
     if "p" not in tags:
         raise DMARCSyntaxError('The record is missing the required policy ("p") tag.')
     tags["p"]["value"] = tags["p"]["value"].lower()
     if "sp" not in tags:
-        tags["sp"] = OrderedDict([("value", tags["p"]["value"]), ("explicit", False)])
+        tags["sp"] = {"value": tags["p"]["value"], "explicit": False}
+    # Normalize sp value for validation consistency (mirrors p behavior)
+    tags["sp"]["value"] = tags["sp"]["value"].lower()
     if list(tags.keys())[1] != "p":
         raise DMARCSyntaxError("the p tag must immediately follow the v tag.")
     tags["v"]["value"] = tags["v"]["value"].upper()
     # Validate tag values
     for tag in tags:
-        if tag not in dmarc_tags:
-            raise InvalidDMARCTag(f"{tag} is not a valid DMARC tag.")
         tag_value = tags[tag]["value"]
-        allowed_values = None
+        allowed_values = []
         explicit = tags[tag]["explicit"]
         if "values" in dmarc_tags[tag]:
             allowed_values = dmarc_tags[tag]["values"]
         if tag == "p" and tag_value == "none":
             warnings.append(
-                f"A p tag value of none has no effect on email sent as {domain}."
+                f"A p tag value of none makes DMARC unenforced on email sent as {domain}."
             )
         if tag == "sp" and tag_value == "none" and explicit:
             warnings.append(
-                f"An sp tag value of none has no effect on email sent as a subdomain of {domain}."
+                f"An sp tag value of none makes DMARC unenforced on email sent as a subdomain of {domain}."
             )
         if tag == "fo":
             tag_value = tag_value.split(":")
@@ -982,6 +1266,7 @@ def parse_dmarc_record(
                         ignore_unrelated_records=ignore_unrelated_records,
                         resolver=resolver,
                         timeout=timeout,
+                        timeout_retries=timeout_retries,
                     )
                 try:
                     hosts = get_mx_records(
@@ -989,6 +1274,7 @@ def parse_dmarc_record(
                         nameservers=nameservers,
                         resolver=resolver,
                         timeout=timeout,
+                        timeout_retries=timeout_retries,
                     )
                     if len(hosts) == 0:
                         raise DMARCReportEmailAddressMissingMXRecords(
@@ -1043,6 +1329,7 @@ def parse_dmarc_record(
                         ignore_unrelated_records=ignore_unrelated_records,
                         resolver=resolver,
                         timeout=timeout,
+                        timeout_retries=timeout_retries,
                     )
                 try:
                     hosts = get_mx_records(
@@ -1050,6 +1337,7 @@ def parse_dmarc_record(
                         nameservers=nameservers,
                         resolver=resolver,
                         timeout=timeout,
+                        timeout_retries=timeout_retries,
                     )
                     if len(hosts) == 0:
                         raise DMARCReportEmailAddressMissingMXRecords(
@@ -1077,9 +1365,7 @@ def parse_dmarc_record(
             )
 
     if tags["pct"]["value"] < 0 or tags["pct"]["value"] > 100:
-        warnings.append(
-            str(InvalidDMARCTagValue("pct value must be an integer between 0 and 100."))
-        )
+        raise DMARCSyntaxError("pct value must be an integer between 0 and 100.")
     elif tags["pct"]["value"] == 0:
         warnings.append("A pct value of 0 disables DMARC enforcement.")
     elif tags["pct"]["value"] < 100:
@@ -1107,17 +1393,42 @@ def parse_dmarc_record(
                 tags[tag]["default"] = details["default"]
             tags[tag]["description"] = details["description"]
 
-    return OrderedDict([("tags", tags), ("warnings", warnings)])
+    return {"tags": tags, "warnings": warnings}
+
+
+@overload
+def get_dmarc_record(
+    domain: str,
+    *,
+    include_tag_descriptions: Literal[False] = False,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
+    timeout: float = 2.0,
+    timeout_retries: int = 2,
+) -> DMARCRecord: ...
+
+
+@overload
+def get_dmarc_record(
+    domain: str,
+    *,
+    include_tag_descriptions: Literal[True],
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
+    timeout: float = 2.0,
+    timeout_retries: int = 2,
+) -> DMARCRecordWithDescriptions: ...
 
 
 def get_dmarc_record(
     domain: str,
     *,
     include_tag_descriptions: bool = False,
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
-) -> OrderedDict:
+    timeout_retries: int = 2,
+) -> Union[DMARCRecord, DMARCRecordWithDescriptions]:
     """
     Retrieves a DMARC record for a domain and parses it
 
@@ -1128,9 +1439,10 @@ def get_dmarc_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for an answer from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
          - ``record`` - The DMARC record string
          - ``location`` -  Where the DMARC was found
          - ``parsed`` - See :meth:`checkdmarc.parse_dmarc_record`
@@ -1153,20 +1465,38 @@ def get_dmarc_record(
         domain, nameservers=nameservers, resolver=resolver, timeout=timeout
     )
 
-    tag_descriptions = include_tag_descriptions
-
-    tags = parse_dmarc_record(
-        query["record"],
-        query["location"],
-        include_tag_descriptions=tag_descriptions,
-        nameservers=nameservers,
-        resolver=resolver,
-        timeout=timeout,
-    )
-
-    return OrderedDict(
-        [("record", query["record"]), ("location", query["location"]), ("parsed", tags)]
-    )
+    if include_tag_descriptions:
+        tags = parse_dmarc_record(
+            query["record"],
+            query["location"],
+            include_tag_descriptions=True,
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
+        )
+        result: DMARCRecordWithDescriptions = {
+            "record": query["record"],
+            "location": query["location"],
+            "parsed": tags,
+        }
+        return result
+    else:
+        tags = parse_dmarc_record(
+            query["record"],
+            query["location"],
+            include_tag_descriptions=False,
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
+        )
+        result_no_desc: DMARCRecord = {
+            "record": query["record"],
+            "location": query["location"],
+            "parsed": tags,
+        }
+        return result_no_desc
 
 
 def check_dmarc(
@@ -1175,10 +1505,11 @@ def check_dmarc(
     parked: bool = False,
     include_dmarc_tag_descriptions: bool = False,
     ignore_unrelated_records: bool = False,
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    nameservers: Optional[Sequence[Union[str, Nameserver]]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
-) -> OrderedDict:
+    timeout_retries: int = 2,
+) -> Union[DMARCResults, DMARCErrorResults]:
     """
     Returns a dictionary with a parsed DMARC record or an error
 
@@ -1191,9 +1522,11 @@ def check_dmarc(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for a record from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
+
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
 
                      - ``record`` - the unparsed DMARC record string
                      - ``location`` - the domain where the record was found
@@ -1206,7 +1539,6 @@ def check_dmarc(
                   - ``valid`` - False
 
     """
-    dmarc_results = OrderedDict([("record", None), ("valid", True), ("location", None)])
     try:
         dmarc_query = query_dmarc_record(
             domain,
@@ -1214,9 +1546,8 @@ def check_dmarc(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
         )
-        dmarc_results["record"] = dmarc_query["record"]
-        dmarc_results["location"] = dmarc_query["location"]
         parsed_dmarc_record = parse_dmarc_record(
             dmarc_query["record"],
             dmarc_query["location"],
@@ -1226,16 +1557,26 @@ def check_dmarc(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
         )
-        dmarc_results["warnings"] = dmarc_query["warnings"]
-
-        dmarc_results["tags"] = parsed_dmarc_record["tags"]
-        dmarc_results["warnings"] += parsed_dmarc_record["warnings"]
+        combined_warnings = dmarc_query["warnings"] + parsed_dmarc_record["warnings"]
+        dmarc_results: DMARCResults = {
+            "record": dmarc_query["record"],
+            "location": dmarc_query["location"],
+            "valid": True,
+            "warnings": combined_warnings,
+            "tags": parsed_dmarc_record["tags"],
+        }
+        return dmarc_results
     except DMARCError as error:
-        dmarc_results["error"] = str(error)
-        dmarc_results["valid"] = False
+        error_results: DMARCErrorResults = {
+            "record": None,
+            "location": None,
+            "valid": False,
+            "error": str(error),
+        }
         if hasattr(error, "data") and error.data:
-            for key in error.data:
-                dmarc_results[key] = error.data[key]
-
-    return dmarc_results
+            # error.data only contains "target" key based on codebase analysis
+            if "target" in error.data:
+                error_results["target"] = error.data["target"]
+        return error_results

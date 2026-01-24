@@ -4,7 +4,7 @@ build-backend = "whey"
 
 [project]
 name = "appdirs-stubs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Type stubs for appdirs"
 readme = "README.rst"
 keywords = []
@@ -15,34 +15,51 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-requires-python = ">=3.6"
-
-[[project.authors]]
-email = "dominic@davis-foster.co.uk"
-name = "Dominic Davis-Foster"
-
+requires-python = ">=3.9"
 
 [project.license]
 file = "LICENSE"
+
+[[project.authors]]
+name = "Dominic Davis-Foster"
+email = "dominic@davis-foster.co.uk"
 
 [project.urls]
 Homepage = "https://github.com/repo-helper/appdirs-stubs"
 "Issue Tracker" = "https://github.com/repo-helper/appdirs-stubs/issues"
 "Source Code" = "https://github.com/repo-helper/appdirs-stubs"
 
-[tool.mkrecipe]
-conda-channels = [ "repo-helper",]
-extras = "all"
-license-key = "MIT"
-package = "appdirs-stubs"
-
 [tool.whey]
 base-classifiers = []
-python-versions = [ "3.6",]
+python-versions = [ "3.9",]
 python-implementations = [ "CPython",]
 platforms = [ "Windows", "macOS", "Linux",]
 license-key = "MIT"
 package = "appdirs-stubs"
+
+[tool.mypy]
+python_version = "3.9"
+namespace_packages = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.snippet-fmt]
+directives = [ "code-block",]
+
+[tool.snippet-fmt.languages.python]
+reformat = true
+
+[tool.snippet-fmt.languages.TOML]
+reformat = true
+
+[tool.snippet-fmt.languages.ini]
+
+[tool.snippet-fmt.languages.json]
+
+[tool.dependency-dash."requirements.txt"]
+order = 10

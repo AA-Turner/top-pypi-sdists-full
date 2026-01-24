@@ -25,11 +25,11 @@ setup(
         "https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-core"
     ),
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
@@ -37,7 +37,7 @@ setup(
     install_requires=[
         "Jinja2",
         "tomlkit<0.13.3",  # bug in this version
-        "click>=8,<8.2",
+        "click>=8,<9",
         "click-aliases",
         "typing_extensions>=4.4.0,<5",
         "gql[requests]",
@@ -51,8 +51,8 @@ setup(
         "packaging",
         "python-dotenv",
         "typer<0.17.0",
-        "dagster-shared==1.11.11",
-        "dagster-cloud-cli==1.11.11",
+        "dagster-shared==1.12.12",
+        "dagster-cloud-cli==1.12.12",
     ],
     include_package_data=True,
     zip_safe=False,
@@ -60,12 +60,12 @@ setup(
     extras_require={
         "test": [
             "click",
-            "dagster==1.11.11",
+            "dagster==1.12.12",
             "freezegun",
             "psutil",
             "pydantic",
             "pytest",
-            "dagster-graphql==1.11.11",
+            "dagster-graphql==1.12.12",
             f"create-dagster{pin}",
         ],
     },

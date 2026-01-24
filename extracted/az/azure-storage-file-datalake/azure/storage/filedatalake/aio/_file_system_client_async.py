@@ -140,6 +140,28 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
         self._datalake_client_for_blob_operation = self._build_generated_client(self._container_client.url)
         self._loop = kwargs.get('loop', None)
 
+    async def __aenter__(self) -> Self:
+        await self._client.__aenter__()
+        await self._container_client.__aenter__()
+        await self._datalake_client_for_blob_operation.__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self._datalake_client_for_blob_operation.__aexit__(*args)
+        await self._container_client.__aexit__(*args)
+        await self._client.__aexit__(*args)
+
+    async def close(self) -> None:  # type: ignore
+        """This method is to close the sockets opened by the client.
+        It need not be used when using with a context manager.
+
+        :return: None
+        :rtype: None
+        """
+        await self._datalake_client_for_blob_operation.close()
+        await self._container_client.close()
+        await self._client.close()
+
     def _build_generated_client(self, url: str) -> AzureDataLakeStorageRESTAPI:
         client = AzureDataLakeStorageRESTAPI(
             url,
@@ -152,20 +174,6 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
 
     def _format_url(self, hostname: str) -> str:
         return _format_url(self.scheme, hostname, self.file_system_name, self._query_str)
-
-    async def __aexit__(self, *args: Any) -> None:
-        await self._container_client.close()
-        await self._datalake_client_for_blob_operation.close()
-        await super(FileSystemClient, self).__aexit__(*args)
-
-    async def close(self) -> None:  # type: ignore
-        """This method is to close the sockets opened by the client.
-        It need not be used when using with a context manager.
-
-        :return: None
-        :rtype: None
-        """
-        await self.__aexit__()
 
     @classmethod
     def from_connection_string(
@@ -589,6 +597,12 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             :class:`~azure.storage.filedatalake.PathProperties`. If False, the values will be returned
             as Azure Active Directory Object IDs. The default value is False. Note that group and application
             Object IDs are not translate because they do not have unique friendly names.
+        :keyword Optional[str] start_from: A relative path within the specified directory where the listing
+            will start from. For example, a recursive listing under directory folder1/folder2 with
+            beginFrom as folder3/readmefile.txt will start listing from folder1/folder2/folder3/readmefile.txt.
+            Multiple entity levels are supported for recursive listing.
+            Non-recursive listing supports only one entity level.
+            An error will appear if multiple entity levels are specified for non-recursive listing.
         :keyword int timeout:
             Sets the server-side timeout for the operation in seconds. For more details see
             https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-blob-service-operations.
@@ -608,14 +622,18 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
                 :caption: List the blobs in the file system.
         """
         timeout = kwargs.pop('timeout', None)
+        begin_from = kwargs.pop("start_from", None)
         command = functools.partial(
             self._client.file_system.list_paths,
             path=path,
             timeout=timeout,
-            **kwargs)
+            begin_from=begin_from,
+            **kwargs
+        )
         return AsyncItemPaged(
             command, recursive, path=path, max_results=max_results,
-            page_iterator_class=PathPropertiesPaged, **kwargs)
+            page_iterator_class=PathPropertiesPaged, **kwargs
+        )
 
     @distributed_trace_async
     async def create_directory(
@@ -695,7 +713,7 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             see `here <https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-datalake
             #other-client--per-operation-configuration>`_.
         :returns: DataLakeDirectoryClient with new directory and metadata.
-        :rtype: ~azure.storage.file.datalake.aio.DataLakeDirectoryClient
+        :rtype: ~azure.storage.filedatalake.aio.DataLakeDirectoryClient
 
         .. admonition:: Example:
 
@@ -750,7 +768,7 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             see `here <https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-datalake
             #other-client--per-operation-configuration>`_.
         :returns: DataLakeDirectoryClient after deleting specified directory.
-        :rtype: ~azure.storage.file.datalake.aio.DataLakeDirectoryClient
+        :rtype: ~azure.storage.filedatalake.aio.DataLakeDirectoryClient
 
         .. admonition:: Example:
 
@@ -850,7 +868,7 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             see `here <https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-datalake
             #other-client--per-operation-configuration>`_.
         :returns: DataLakeFileClient with new file created.
-        :rtype: ~azure.storage.file.datalake.aio.DataLakeFileClient
+        :rtype: ~azure.storage.filedatalake.aio.DataLakeFileClient
 
         .. admonition:: Example:
 
@@ -905,7 +923,7 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             see `here <https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-datalake
             #other-client--per-operation-configuration>`_.
         :return: DataLakeFileClient after deleting specified file.
-        :rtype: ~azure.storage.file.datalake.aio.DataLakeFileClient
+        :rtype: ~azure.storage.filedatalake.aio.DataLakeFileClient
 
         .. literalinclude:: ../samples/datalake_samples_file_system_async.py
             :start-after: [START delete_file_from_file_system]
@@ -943,8 +961,8 @@ class FileSystemClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMixin):
             see `here <https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-datalake
             #other-client--per-operation-configuration>`_.
         :returns: Returns the DataLake client for the restored soft-deleted path.
-        :rtype: ~azure.storage.file.datalake.aio.DataLakeDirectoryClient or
-                ~azure.storage.file.datalake.aio.DataLakeFileClient
+        :rtype: ~azure.storage.filedatalake.aio.DataLakeDirectoryClient or
+                ~azure.storage.filedatalake.aio.DataLakeFileClient
         """
         _, url, undelete_source = _undelete_path_options(deleted_path_name, deletion_id, self.url)
 

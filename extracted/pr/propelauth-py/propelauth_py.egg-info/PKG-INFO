@@ -1,14 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: propelauth-py
-Version: 4.2.8
+Version: 4.3.2
 Summary: A python authentication library
 Home-page: https://github.com/propelauth/propelauth-py
 Author: PropelAuth
 Author-email: support@propelauth.com
 License: MIT
-Platform: UNKNOWN
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pyjwt[crypto]<3,>=2
+Requires-Dist: requests
+Requires-Dist: httpx>=0.28.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 <p align="center">
   <a href="https://www.propelauth.com?ref=github" target="_blank" align="center">
@@ -156,5 +167,3 @@ By default, exceptions are logged using Python's standard logging module. Settin
 ## Questions?
 
 Feel free to reach out at support@propelauth.com
-
-

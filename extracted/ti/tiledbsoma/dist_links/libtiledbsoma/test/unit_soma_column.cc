@@ -51,12 +51,9 @@ struct VariouslyIndexedDataFrameFixture {
     tiledb_datatype_t u32_datatype = TILEDB_UINT32;
     tiledb_datatype_t str_datatype = TILEDB_STRING_ASCII;
 
-    std::string i64_arrow_format = ArrowAdapter::tdb_to_arrow_type(
-        i64_datatype);
-    std::string u32_arrow_format = ArrowAdapter::tdb_to_arrow_type(
-        u32_datatype);
-    std::string attr_1_arrow_format = ArrowAdapter::tdb_to_arrow_type(
-        str_datatype);
+    std::string i64_arrow_format = ArrowAdapter::tdb_to_arrow_type(i64_datatype);
+    std::string u32_arrow_format = ArrowAdapter::tdb_to_arrow_type(u32_datatype);
+    std::string attr_1_arrow_format = ArrowAdapter::tdb_to_arrow_type(str_datatype);
 
     helper::DimInfo i64_dim_info() {
         return helper::DimInfo(
@@ -84,32 +81,21 @@ struct VariouslyIndexedDataFrameFixture {
     }
 
     helper::AttrInfo i64_attr_info(std::string name = i64_name) {
-        return helper::AttrInfo(
-            {.name = name, .tiledb_datatype = i64_datatype});
+        return helper::AttrInfo({.name = name, .tiledb_datatype = i64_datatype});
     }
     helper::AttrInfo u32_attr_info() {
-        return helper::AttrInfo(
-            {.name = u32_name, .tiledb_datatype = u32_datatype});
+        return helper::AttrInfo({.name = u32_name, .tiledb_datatype = u32_datatype});
     }
     helper::AttrInfo str_attr_info() {
-        return helper::AttrInfo(
-            {.name = str_name, .tiledb_datatype = str_datatype});
+        return helper::AttrInfo({.name = str_name, .tiledb_datatype = str_datatype});
     }
 
     //  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Helper methods for create/open/write/etc.
 
-    void create(
-        const std::vector<helper::DimInfo>& dim_infos,
-        const std::vector<helper::AttrInfo>& attr_infos) {
-        auto [schema, index_columns] =
-            helper::create_arrow_schema_and_index_columns(
-                dim_infos, attr_infos);
+    void create(const std::vector<helper::DimInfo>& dim_infos, const std::vector<helper::AttrInfo>& attr_infos) {
+        auto [schema, index_columns] = helper::create_arrow_schema_and_index_columns(dim_infos, attr_infos);
         SOMADataFrame::create(uri_, schema, index_columns, ctx_);
-
-        schema->release(schema.get());
-        index_columns.first->release(index_columns.first.get());
-        index_columns.second->release(index_columns.second.get());
     }
 
     void create(
@@ -117,30 +103,16 @@ struct VariouslyIndexedDataFrameFixture {
         const std::vector<helper::AttrInfo>& attr_infos,
         const PlatformConfig& platform_config,
         std::optional<TimestampRange> timestamp_range = std::nullopt) {
-        auto [schema, index_columns] =
-            helper::create_arrow_schema_and_index_columns(
-                dim_infos, attr_infos);
-        SOMADataFrame::create(
-            uri_,
-            schema,
-            index_columns,
-            ctx_,
-            platform_config,
-            timestamp_range);
-
-        schema->release(schema.get());
-        index_columns.first->release(index_columns.first.get());
-        index_columns.second->release(index_columns.second.get());
+        auto [schema, index_columns] = helper::create_arrow_schema_and_index_columns(dim_infos, attr_infos);
+        SOMADataFrame::create(uri_, schema, index_columns, ctx_, platform_config, timestamp_range);
     }
 
-    std::unique_ptr<SOMADataFrame> open(
-        OpenMode mode,
-        std::optional<TimestampRange> timestamp_range = std::nullopt) {
+    std::unique_ptr<SOMADataFrame> open(OpenMode mode, std::optional<TimestampRange> timestamp_range = std::nullopt) {
         return SOMADataFrame::open(uri_, mode, ctx_, timestamp_range);
     }
 
     void write_sjid_u32_str_data_from(int64_t sjid_base) {
-        auto sdf = SOMADataFrame::open(uri_, OpenMode::write, ctx_);
+        auto sdf = SOMADataFrame::open(uri_, OpenMode::soma_write, ctx_);
 
         auto i64_data = std::vector<int64_t>({sjid_base + 1, sjid_base + 2});
 
@@ -163,13 +135,10 @@ struct VariouslyIndexedDataFrameFixture {
         }
         char_offsets.push_back(offset);
 
-        auto mq = ManagedQuery(*sdf, ctx_->tiledb_ctx());
-        mq.setup_write_column(
-            i64_name, i64_data.size(), i64_data.data(), (uint64_t*)nullptr);
-        mq.setup_write_column(
-            str_name, strings.size(), char_data.data(), char_offsets.data());
-        mq.setup_write_column(
-            u32_name, u32_data.size(), u32_data.data(), (uint64_t*)nullptr);
+        auto mq = sdf->create_managed_query();
+        mq.setup_write_column(i64_name, i64_data.size(), i64_data.data(), (uint64_t*)nullptr);
+        mq.setup_write_column(str_name, strings.size(), char_data.data(), char_offsets.data());
+        mq.setup_write_column(u32_name, u32_data.size(), u32_data.data(), (uint64_t*)nullptr);
         mq.submit_write();
 
         sdf->close();
@@ -215,11 +184,7 @@ TEST_CASE("SOMAColumn: SOMADimension") {
 
     std::vector<helper::DimInfo> spatial_dim_infos(
         {helper::DimInfo(
-             {.name = "x",
-              .tiledb_datatype = TILEDB_FLOAT64,
-              .dim_max = 200,
-              .string_lo = "N/A",
-              .string_hi = "N/A"}),
+             {.name = "x", .tiledb_datatype = TILEDB_FLOAT64, .dim_max = 200, .string_lo = "N/A", .string_hi = "N/A"}),
          helper::DimInfo(
              {.name = "y",
               .tiledb_datatype = TILEDB_FLOAT64,
@@ -232,34 +197,22 @@ TEST_CASE("SOMAColumn: SOMADimension") {
     std::vector<std::shared_ptr<SOMAColumn>> columns;
 
     for (int64_t i = 0; i < index_columns.second->n_children; ++i) {
-        columns.push_back(SOMADimension::create(
-            ctx->tiledb_ctx(),
-            index_columns.second->children[i],
-            index_columns.first->children[i],
-            "SOMAGeometryDataFrame",
-            "",
-            platform_config));
+        columns.push_back(
+            SOMADimension::create(
+                ctx->tiledb_ctx(),
+                index_columns.second->children[i],
+                index_columns.first->children[i],
+                "SOMAGeometryDataFrame",
+                "",
+                platform_config));
 
-        REQUIRE(
-            columns.back()->tiledb_dimensions().value()[0].type() ==
-            dim_infos[i].tiledb_datatype);
+        REQUIRE(columns.back()->tiledb_dimensions().value()[0].type() == dim_infos[i].tiledb_datatype);
     }
 
-    index_columns.first->release(index_columns.first.get());
-    index_columns.second->release(index_columns.second.get());
-
-    REQUIRE(
-        columns[1]->core_domain_slot<double_t>() ==
-        std::make_pair<double_t, double_t>(0, helper::CORE_DOMAIN_MAX));
-    REQUIRE(
-        columns[1]->core_domain_slot<double_t>() ==
-        std::make_pair<double_t, double_t>(0, helper::CORE_DOMAIN_MAX));
-    REQUIRE(
-        columns[2]->core_domain_slot<int64_t>() ==
-        std::make_pair<int64_t, int64_t>(0, helper::CORE_DOMAIN_MAX));
-    REQUIRE(
-        columns[3]->core_domain_slot<std::string>() ==
-        std::make_pair<std::string, std::string>("", ""));
+    REQUIRE(columns[1]->core_domain_slot<double_t>() == std::make_pair<double_t, double_t>(0, helper::CORE_DOMAIN_MAX));
+    REQUIRE(columns[1]->core_domain_slot<double_t>() == std::make_pair<double_t, double_t>(0, helper::CORE_DOMAIN_MAX));
+    REQUIRE(columns[2]->core_domain_slot<int64_t>() == std::make_pair<int64_t, int64_t>(0, helper::CORE_DOMAIN_MAX));
+    REQUIRE(columns[3]->core_domain_slot<std::string>() == std::make_pair<std::string, std::string>("", ""));
 }
 
 TEST_CASE_METHOD(
@@ -269,34 +222,29 @@ TEST_CASE_METHOD(
     auto specify_domain = GENERATE(false, true);
     SECTION("- specify_domain=" + std::to_string(specify_domain)) {
         std::string suffix1 = specify_domain ? "true" : "false";
-        set_up(
-            std::make_shared<SOMAContext>(),
-            "mem://unit-test-column-variant-indexed-dataframe-4-" + suffix1);
+        set_up(std::make_shared<SOMAContext>(), "mem://unit-test-column-variant-indexed-dataframe-4-" + suffix1);
 
         std::string string_lo = "";
         std::string string_hi = "";
-        std::vector<helper::DimInfo> dim_infos(
-            {str_dim_info(string_lo, string_hi), u32_dim_info()});
+        std::vector<helper::DimInfo> dim_infos({str_dim_info(string_lo, string_hi), u32_dim_info()});
         std::vector<helper::AttrInfo> attr_infos({i64_attr_info()});
 
         // Create
         create(dim_infos, attr_infos);
 
         // Check current domain
-        auto sdf = open(OpenMode::read);
+        auto sdf = open(OpenMode::soma_read);
 
         // External column initialization
         auto raw_array = tiledb::Array(*ctx_->tiledb_ctx(), uri_, TILEDB_READ);
         std::vector<std::shared_ptr<SOMAColumn>> columns;
 
         for (auto dimension : sdf->tiledb_schema()->domain().dimensions()) {
-            columns.push_back(
-                std::make_shared<SOMADimension>(SOMADimension(dimension)));
+            columns.push_back(std::make_shared<SOMADimension>(SOMADimension(dimension)));
         }
 
         for (size_t i = 0; i < sdf->tiledb_schema()->attribute_num(); ++i) {
-            columns.push_back(std::make_shared<SOMAAttribute>(
-                SOMAAttribute(sdf->tiledb_schema()->attribute(i))));
+            columns.push_back(std::make_shared<SOMAAttribute>(SOMAAttribute(sdf->tiledb_schema()->attribute(i))));
         }
 
         CurrentDomain current_domain = sdf->get_current_domain_for_test();
@@ -305,11 +253,9 @@ TEST_CASE_METHOD(
         REQUIRE(current_domain.type() == TILEDB_NDRECTANGLE);
         NDRectangle ndrect = current_domain.ndrectangle();
 
-        std::array<std::string, 2> str_range = ndrect.range<std::string>(
-            dim_infos[0].name);
-        std::pair<std::string, std::string>
-            str_external = columns[0]->core_current_domain_slot<std::string>(
-                *ctx_, raw_array);
+        std::array<std::string, 2> str_range = ndrect.range<std::string>(dim_infos[0].name);
+        std::pair<std::string, std::string> str_external = columns[0]->core_current_domain_slot<std::string>(
+            *ctx_, raw_array);
 
         // Can we write empty strings in this range?
         REQUIRE(str_range[0] <= "");
@@ -323,11 +269,8 @@ TEST_CASE_METHOD(
         REQUIRE(str_external.first == "");
         REQUIRE(str_external.second == "");
 
-        std::array<uint32_t, 2> u32_range = ndrect.range<uint32_t>(
-            dim_infos[1].name);
-        std::pair<uint32_t, uint32_t>
-            u32_external = columns[1]->core_current_domain_slot<uint32_t>(
-                *ctx_, raw_array);
+        std::array<uint32_t, 2> u32_range = ndrect.range<uint32_t>(dim_infos[1].name);
+        std::pair<uint32_t, uint32_t> u32_external = columns[1]->core_current_domain_slot<uint32_t>(*ctx_, raw_array);
         REQUIRE(u32_range[0] == u32_external.first);
         REQUIRE(u32_range[1] == u32_external.second);
 
@@ -337,42 +280,23 @@ TEST_CASE_METHOD(
 
         // Check domainish accessors before resize
         ArrowTable non_empty_domain = sdf->get_non_empty_domain();
-        std::vector<std::string>
-            ned_str = ArrowAdapter::get_table_string_column_by_name(
-                non_empty_domain, "mystring");
+        std::vector<std::string> ned_str = ArrowAdapter::get_table_string_column_by_name(non_empty_domain, "mystring");
 
-        auto col_non_empty_domain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_non_empty_domain);
-        std::vector<std::string> ned_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_non_empty_domain);
+        auto col_non_empty_domain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_non_empty_domain);
+        std::vector<std::string> ned_str_col = std::apply(ArrowAdapter::get_array_string_column, col_non_empty_domain);
 
         ArrowTable soma_domain = sdf->get_soma_domain();
-        std::vector<std::string>
-            dom_str = ArrowAdapter::get_table_string_column_by_name(
-                soma_domain, "mystring");
-        auto col_soma_domain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_core_current_domain);
-        std::vector<std::string> dom_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_soma_domain);
+        std::vector<std::string> dom_str = ArrowAdapter::get_table_string_column_by_name(soma_domain, "mystring");
+        auto col_soma_domain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_core_current_domain);
+        std::vector<std::string> dom_str_col = std::apply(ArrowAdapter::get_array_string_column, col_soma_domain);
 
         ArrowTable soma_maxdomain = sdf->get_soma_maxdomain();
-        std::vector<std::string>
-            maxdom_str = ArrowAdapter::get_table_string_column_by_name(
-                soma_maxdomain, "mystring");
+        std::vector<std::string> maxdom_str = ArrowAdapter::get_table_string_column_by_name(soma_maxdomain, "mystring");
 
-        auto col_soma_maxdomain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_core_domain);
-        std::vector<std::string> maxdom_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_soma_maxdomain);
+        auto col_soma_maxdomain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_core_domain);
+        std::vector<std::string> maxdom_str_col = std::apply(ArrowAdapter::get_array_string_column, col_soma_maxdomain);
 
         // Cleanup domain arrow tables
-        non_empty_domain.first->release(non_empty_domain.first.get());
-        non_empty_domain.second->release(non_empty_domain.second.get());
-        soma_domain.first->release(soma_domain.first.get());
-        soma_domain.second->release(soma_domain.second.get());
-        soma_maxdomain.first->release(soma_maxdomain.first.get());
-        soma_maxdomain.second->release(soma_maxdomain.second.get());
-
         col_non_empty_domain.first->release(col_non_empty_domain.first);
         col_non_empty_domain.second->release(col_non_empty_domain.second);
         col_soma_domain.first->release(col_soma_domain.first);
@@ -403,17 +327,17 @@ TEST_CASE_METHOD(
 
         sdf->close();
 
-        sdf = open(OpenMode::write);
+        sdf = open(OpenMode::soma_write);
         write_sjid_u32_str_data_from(0);
 
         sdf->close();
 
-        sdf = open(OpenMode::read);
+        sdf = open(OpenMode::soma_read);
         REQUIRE(sdf->nnz() == 2);
 
         sdf->close();
 
-        ManagedQuery external_query(*open(OpenMode::read), ctx_->tiledb_ctx());
+        auto external_query = open(OpenMode::soma_read)->create_managed_query();
 
         columns[1]->select_columns(external_query);
         columns[1]->set_dim_point<uint32_t>(external_query, 1234);
@@ -425,14 +349,11 @@ TEST_CASE_METHOD(
 
         external_query.reset();
 
-        const std::vector a(
-            {std::make_pair<std::string, std::string>("apple", "b")});
+        const std::vector a({std::make_pair<std::string, std::string>("apple", "b")});
 
         columns[0]->select_columns(external_query);
         columns[0]->set_dim_ranges(
-            external_query,
-            std::vector(
-                {std::make_pair<std::string, std::string>("apple", "b")}));
+            external_query, std::vector({std::make_pair<std::string, std::string>("apple", "b")}));
 
         // Configure query and allocate result buffers
         ext_res = external_query.read_next().value();
@@ -448,34 +369,29 @@ TEST_CASE_METHOD(
     auto specify_domain = GENERATE(false, true);
     SECTION("- specify_domain=" + std::to_string(specify_domain)) {
         std::string suffix1 = specify_domain ? "true" : "false";
-        set_up(
-            std::make_shared<SOMAContext>(),
-            "mem://unit-test-column-variant-indexed-dataframe-4-" + suffix1);
+        set_up(std::make_shared<SOMAContext>(), "mem://unit-test-column-variant-indexed-dataframe-4-" + suffix1);
 
         std::string string_lo = "";
         std::string string_hi = "";
-        std::vector<helper::DimInfo> dim_infos(
-            {str_dim_info(string_lo, string_hi), u32_dim_info()});
+        std::vector<helper::DimInfo> dim_infos({str_dim_info(string_lo, string_hi), u32_dim_info()});
         std::vector<helper::AttrInfo> attr_infos({i64_attr_info()});
 
         // Create
         create(dim_infos, attr_infos);
 
         // Check current domain
-        auto sdf = open(OpenMode::read);
+        auto sdf = open(OpenMode::soma_read);
 
         // External column initialization
         auto raw_array = tiledb::Array(*ctx_->tiledb_ctx(), uri_, TILEDB_READ);
         std::vector<std::shared_ptr<SOMAColumn>> columns;
 
         for (auto dimension : sdf->tiledb_schema()->domain().dimensions()) {
-            columns.push_back(
-                std::make_shared<SOMADimension>(SOMADimension(dimension)));
+            columns.push_back(std::make_shared<SOMADimension>(SOMADimension(dimension)));
         }
 
         for (size_t i = 0; i < sdf->tiledb_schema()->attribute_num(); ++i) {
-            columns.push_back(std::make_shared<SOMAAttribute>(
-                SOMAAttribute(sdf->tiledb_schema()->attribute(i))));
+            columns.push_back(std::make_shared<SOMAAttribute>(SOMAAttribute(sdf->tiledb_schema()->attribute(i))));
         }
 
         CurrentDomain current_domain = sdf->get_current_domain_for_test();
@@ -484,11 +400,9 @@ TEST_CASE_METHOD(
         REQUIRE(current_domain.type() == TILEDB_NDRECTANGLE);
         NDRectangle ndrect = current_domain.ndrectangle();
 
-        std::array<std::string, 2> str_range = ndrect.range<std::string>(
-            dim_infos[0].name);
-        std::pair<std::string, std::string>
-            str_external = columns[0]->core_current_domain_slot<std::string>(
-                *ctx_, raw_array);
+        std::array<std::string, 2> str_range = ndrect.range<std::string>(dim_infos[0].name);
+        std::pair<std::string, std::string> str_external = columns[0]->core_current_domain_slot<std::string>(
+            *ctx_, raw_array);
 
         // Can we write empty strings in this range?
         REQUIRE(str_range[0] <= "");
@@ -501,11 +415,8 @@ TEST_CASE_METHOD(
         REQUIRE(str_range[1] > "~");
         // REQUIRE(str_external.second >= "~");
 
-        std::array<uint32_t, 2> u32_range = ndrect.range<uint32_t>(
-            dim_infos[1].name);
-        std::pair<uint32_t, uint32_t>
-            u32_external = columns[1]->core_current_domain_slot<uint32_t>(
-                *ctx_, raw_array);
+        std::array<uint32_t, 2> u32_range = ndrect.range<uint32_t>(dim_infos[1].name);
+        std::pair<uint32_t, uint32_t> u32_external = columns[1]->core_current_domain_slot<uint32_t>(*ctx_, raw_array);
         REQUIRE(u32_range[0] == u32_external.first);
         REQUIRE(u32_range[1] == u32_external.second);
 
@@ -515,43 +426,24 @@ TEST_CASE_METHOD(
 
         // Check domainish accessors before resize
         ArrowTable non_empty_domain = sdf->get_non_empty_domain();
-        std::vector<std::string>
-            ned_str = ArrowAdapter::get_table_string_column_by_name(
-                non_empty_domain, "mystring");
+        std::vector<std::string> ned_str = ArrowAdapter::get_table_string_column_by_name(non_empty_domain, "mystring");
 
-        auto col_non_empty_domain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_non_empty_domain);
-        std::vector<std::string> ned_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_non_empty_domain);
+        auto col_non_empty_domain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_non_empty_domain);
+        std::vector<std::string> ned_str_col = std::apply(ArrowAdapter::get_array_string_column, col_non_empty_domain);
 
         ArrowTable soma_domain = sdf->get_soma_domain();
-        std::vector<std::string>
-            dom_str = ArrowAdapter::get_table_string_column_by_name(
-                soma_domain, "mystring");
+        std::vector<std::string> dom_str = ArrowAdapter::get_table_string_column_by_name(soma_domain, "mystring");
 
-        auto col_soma_domain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_core_current_domain);
-        std::vector<std::string> dom_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_soma_domain);
+        auto col_soma_domain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_core_current_domain);
+        std::vector<std::string> dom_str_col = std::apply(ArrowAdapter::get_array_string_column, col_soma_domain);
 
         ArrowTable soma_maxdomain = sdf->get_soma_maxdomain();
-        std::vector<std::string>
-            maxdom_str = ArrowAdapter::get_table_string_column_by_name(
-                soma_maxdomain, "mystring");
+        std::vector<std::string> maxdom_str = ArrowAdapter::get_table_string_column_by_name(soma_maxdomain, "mystring");
 
-        auto col_soma_maxdomain = columns[0]->arrow_domain_slot(
-            *ctx_, raw_array, Domainish::kind_core_domain);
-        std::vector<std::string> maxdom_str_col = std::apply(
-            ArrowAdapter::get_array_string_column, col_soma_maxdomain);
+        auto col_soma_maxdomain = columns[0]->arrow_domain_slot(*ctx_, raw_array, Domainish::kind_core_domain);
+        std::vector<std::string> maxdom_str_col = std::apply(ArrowAdapter::get_array_string_column, col_soma_maxdomain);
 
         // Cleanup domain arrow tables
-        non_empty_domain.first->release(non_empty_domain.first.get());
-        non_empty_domain.second->release(non_empty_domain.second.get());
-        soma_domain.first->release(soma_domain.first.get());
-        soma_domain.second->release(soma_domain.second.get());
-        soma_maxdomain.first->release(soma_maxdomain.first.get());
-        soma_maxdomain.second->release(soma_maxdomain.second.get());
-
         col_non_empty_domain.first->release(col_non_empty_domain.first);
         col_non_empty_domain.second->release(col_non_empty_domain.second);
         col_soma_domain.first->release(col_soma_domain.first);
@@ -582,17 +474,17 @@ TEST_CASE_METHOD(
 
         sdf->close();
 
-        sdf = open(OpenMode::write);
+        sdf = open(OpenMode::soma_write);
         write_sjid_u32_str_data_from(0);
 
         sdf->close();
 
-        sdf = open(OpenMode::read);
+        sdf = open(OpenMode::soma_read);
         REQUIRE(sdf->nnz() == 2);
 
         sdf->close();
 
-        ManagedQuery external_query(*open(OpenMode::read), ctx_->tiledb_ctx());
+        auto external_query = open(OpenMode::soma_read)->create_managed_query();
 
         columns[1]->select_columns(external_query);
         columns[1]->set_dim_point<uint32_t>(external_query, 1234);
@@ -606,9 +498,7 @@ TEST_CASE_METHOD(
 
         columns[0]->select_columns(external_query);
         columns[0]->set_dim_ranges<std::string>(
-            external_query,
-            std::vector(
-                {std::make_pair<std::string, std::string>("apple", "b")}));
+            external_query, std::vector({std::make_pair<std::string, std::string>("apple", "b")}));
 
         // Configure query and allocate result buffers
         ext_res = external_query.read_next().value();

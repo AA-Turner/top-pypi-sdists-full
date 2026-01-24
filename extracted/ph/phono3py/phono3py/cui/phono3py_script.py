@@ -41,7 +41,7 @@ import os
 import pathlib
 import sys
 from collections.abc import Sequence
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -470,9 +470,12 @@ def _init_phono3py_with_cell_info(
 def _init_phono3py(
     settings: Phono3pySettings,
     unitcell: PhonopyAtoms,
-    supercell_matrix: ArrayLike | None = None,
-    primitive_matrix: ArrayLike | None = None,
-    phonon_supercell_matrix: ArrayLike | None = None,
+    supercell_matrix: Sequence[Sequence[int]] | NDArray | None = None,
+    primitive_matrix: Literal["P", "F", "I", "A", "C", "R", "auto"]
+    | Sequence[Sequence[float]]
+    | NDArray
+    | None = None,
+    phonon_supercell_matrix: Sequence[Sequence[int]] | NDArray | None = None,
     interface_mode: str | None = None,
     symprec: float = 1e-5,
     log_level: int = 0,
@@ -752,7 +755,7 @@ def _produce_force_constants(
             is_compact_fc=settings.is_compact_fc,
         )
 
-    if ph3py.fc3 is None and not settings.write_phonon:
+    if ph3py.fc3 is None and not settings.write_phonon and not settings.read_gamma:
         if log_level:
             print("fc3 could not be obtained.")
             if not forces_in_dataset(ph3py.dataset):
@@ -763,7 +766,7 @@ def _produce_force_constants(
 
     # When settings.write_phonon=True, fc3 can be None.
     if ph3py.fc3 is None:
-        assert settings.write_phonon
+        assert settings.write_phonon or settings.read_gamma
     else:
         if log_level:
             show_drift_fc3(ph3py.fc3, primitive=ph3py.primitive)
@@ -810,6 +813,7 @@ def _produce_force_constants(
             ph3py.fc2,
             p2s_map=ph3py.phonon_primitive.p2s_map,
             physical_unit="eV/angstrom^2",
+            cutoff=ph3py.fc2_cutoff,
             compression=settings.hdf5_compression,
         )
         if log_level:
@@ -985,7 +989,9 @@ def _init_phph_interaction(
         if settings.is_symmetrize_fc3_q:
             print("Permutation symmetry of ph-ph interaction strengths: True")
         if settings.is_fc3_r0_average:
-            print("fc3 r2q transformation over three atoms: True")
+            print("fc3-r2q-transformation over three atoms: True")
+        else:
+            print("fc3-r2q-transformation over three atoms: False")
 
     ave_pp = settings.constant_averaged_pp_interaction
     phono3py.init_phph_interaction(

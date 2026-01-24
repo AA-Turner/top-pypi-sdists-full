@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.procedure._generated.models.call_argument import CallArgument, CallArgumentModel
 
@@ -38,9 +38,10 @@ class CallArgumentList(BaseModel):
 
     __properties = ["call_arguments"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -65,7 +66,7 @@ class CallArgumentList(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in call_arguments (list)
         _items = []
@@ -88,9 +89,9 @@ class CallArgumentList(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return CallArgumentList.parse_obj(obj)
+            return CallArgumentList.model_validate(obj)
 
-        _obj = CallArgumentList.parse_obj(
+        _obj = CallArgumentList.model_validate(
             {
                 "call_arguments": [CallArgument.from_dict(_item) for _item in obj.get("call_arguments")]
                 if obj.get("call_arguments") is not None

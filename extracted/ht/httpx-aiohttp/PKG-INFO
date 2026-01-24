@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx-aiohttp
-Version: 0.1.8
+Version: 0.1.12
 Summary: Aiohttp transport for HTTPX
 Project-URL: Homepage, https://karpetrosyan.github.io/httpx-aiohttp/
 Project-URL: Source, https://github.com/karpetrosyan/httpx-aiohttp

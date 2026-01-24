@@ -8,11 +8,11 @@ class FileStatsReport(robocop.linter.reports.ComparableReport):
     """
     **Report name**: ``file_stats``
 
-    Report that displays overall statistics about number of processed files.
+    Report that displays overall statistics about the number of processed files.
 
-    Example::
-
+    Example:
         Processed 7 files from which 5 files contained issues.
+
     """
 
     def __init__(self, config: Config):
@@ -31,6 +31,8 @@ class FileStatsReport(robocop.linter.reports.ComparableReport):
             output = self.get_report_with_compare(prev_results)
         else:
             output = self.get_report_without_compare()
+        if self.config.silent:
+            return
         print(output)
 
     def get_report_with_compare(self, prev_results: dict) -> str:

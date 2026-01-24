@@ -43,7 +43,7 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
         self.setWindowFlags(QtCore.Qt.WindowType.WindowMinMaxButtonsHint | self.windowFlags())
 
         self.mdf = mdf
-        self.result = None
+        self.payload = None
         self.pressed_button = None
         self.origin_uuid = origin_uuid or (mdf.uuid if mdf else os.urandom(6).hex())
 
@@ -128,6 +128,9 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
                     time_stamps_shift["global_variable_timestamps_shift"]
                 )
 
+        self.name_label.setMinimumSize(QtCore.QSize(self.triggering_on_all.width() + 4, 0))
+        self.func_name_label.setMinimumSize(QtCore.QSize(self.triggering_on_all.width() - 1, 0))
+
         self.showMaximized()
 
     def apply(self):
@@ -154,7 +157,7 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
             fargs[label.text()] = names
             raw_info[label.text()] = check.isChecked()
 
-        self.result = {
+        self.payload = {
             "type": "channel",
             "common_axis": False,
             "individual_axis": False,
@@ -197,7 +200,7 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
         self.close()
 
     def cancel(self, event):
-        self.result = None
+        self.payload = None
         self.pressed_button = "cancel"
         self.close()
 
@@ -264,8 +267,8 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
             return_names=True,
         )
         dlg.setModal(True)
-        dlg.exec_()
-        result, pattern_window = dlg.result, dlg.pattern_window
+        dlg.exec()
+        result, pattern_window = dlg.payload, dlg.pattern_window
 
         if result:
             lines = [self.arg_widgets[index][1].toPlainText(), *list(result)]
@@ -282,8 +285,8 @@ class DefineChannel(Ui_ComputedChannel, QtWidgets.QDialog):
             return_names=True,
         )
         dlg.setModal(True)
-        dlg.exec_()
-        result, pattern_window = dlg.result, dlg.pattern_window
+        dlg.exec()
+        result, pattern_window = dlg.payload, dlg.pattern_window
 
         if result:
             self.trigger_channel.setText(list(result)[0])

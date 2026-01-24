@@ -3,7 +3,7 @@ Type annotations for pipes service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pipes/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

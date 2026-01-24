@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import re
 import sys
 from collections.abc import Iterator, Mapping, Sequence
+from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple
 
-from ..config.primitives import EmptyDict, EnvDefault
+from ..config.primitives import EmptyDict, EnvDefault, EnvfileOption
 from ..exceptions import ConfigValidationError, PoeException
+from ..executor.task_run import PoeTaskRun
 from ..io import PoeIO
 from ..options import PoeOptions
 
@@ -40,16 +44,15 @@ class MetaPoeTask(type):
             cls.TaskSpec.task_type = cls
 
 
-TaskContent = Union[str, Sequence[Union[str, Mapping[str, Any]]]]
-
-TaskDef = Union[str, Mapping[str, Any], Sequence[Union[str, Mapping[str, Any]]]]
+TaskContent = str | Sequence[str | Mapping[str, Any]]
+TaskDef = str | Mapping[str, Any] | Sequence[str | Mapping[str, Any]]
 
 
 class TaskSpecFactory:
-    __cache: dict[str, "PoeTask.TaskSpec"]
-    config: "PoeConfig"
+    __cache: dict[str, PoeTask.TaskSpec]
+    config: PoeConfig
 
-    def __init__(self, config: "PoeConfig"):
+    def __init__(self, config: PoeConfig):
         self.__cache = {}
         self.config = config
 
@@ -59,10 +62,10 @@ class TaskSpecFactory:
     def get(
         self,
         task_name: str,
-        task_def: Optional[TaskDef] = None,
-        task_type: Optional[str] = None,
-        parent: Optional["PoeTask.TaskSpec"] = None,
-    ) -> "PoeTask.TaskSpec":
+        task_def: TaskDef | None = None,
+        task_type: str | None = None,
+        parent: PoeTask.TaskSpec | None = None,
+    ) -> PoeTask.TaskSpec:
         if task_def and parent:
             # This is probably a subtask and will be cached by the parent task_spec
             if not task_type:
@@ -82,9 +85,9 @@ class TaskSpecFactory:
         task_name: str,
         task_type: str,
         task_def: TaskDef,
-        source: "ConfigPartition",
-        parent: Optional["PoeTask.TaskSpec"] = None,
-    ) -> "PoeTask.TaskSpec":
+        source: ConfigPartition,
+        parent: PoeTask.TaskSpec | None = None,
+    ) -> PoeTask.TaskSpec:
         """
         A parent task should be provided when this task is defined inline within another
         task, for example as part of a sequence.
@@ -138,18 +141,18 @@ class TaskContext(NamedTuple):
     Collection of contextual config inherited from a parent task to a child task
     """
 
-    config: "PoeConfig"
+    config: PoeConfig
     cwd: str
-    io: "PoeIO"
-    ui: "PoeUi"
-    specs: "TaskSpecFactory"
+    io: PoeIO
+    ui: PoeUi
+    specs: TaskSpecFactory
 
     @property
     def verbosity(self) -> int:
         return self.io.verbosity
 
     @classmethod
-    def from_task(cls, parent_task: "PoeTask", task_spec: "PoeTask.TaskSpec"):
+    def from_task(cls, parent_task: PoeTask, task_spec: PoeTask.TaskSpec):
         return cls(
             config=parent_task.ctx.config,
             cwd=str(parent_task.spec.options.get("cwd", parent_task.ctx.cwd)),
@@ -169,39 +172,59 @@ class PoeTask(metaclass=MetaPoeTask):
     __content_type__: ClassVar[type] = str
 
     class TaskOptions(PoeOptions):
-        args: Optional[Union[dict, list]] = None
-        capture_stdout: Optional[str] = None
-        cwd: Optional[str] = None
-        deps: Optional[Sequence[str]] = None
-        # ruff: noqa: UP007
-        env: Mapping[str, Union[str, EnvDefault]] = EmptyDict
-        envfile: Union[str, Sequence[str]] = tuple()
-        executor: Optional[dict] = None
-        help: Optional[str] = None
-        uses: Optional[Mapping[str, str]] = None
-        verbosity: Optional[Literal[-2, -1, 0, 1, 2]] = None
+        args: dict | list | None = None
+        capture_stdout: str | None = None
+        cwd: str | None = None
+        deps: Sequence[str] | None = None
+        env: Mapping[str, str | EnvDefault] = EmptyDict
+        envfile: str | Sequence[str] | EnvfileOption = ()
+        executor: Mapping[str, str | Sequence[str] | bool] | str | None = None
+        help: str | None = None
+        uses: Mapping[str, str] | None = None
+        verbosity: Literal[-2, -1, 0, 1, 2] | None = None
 
         def validate(self):
             """
             Validation rules that don't require any extra context go here.
             """
 
+        @classmethod
+        def normalize(
+            cls,
+            source: Mapping[str, Any] | list[Mapping[str, Any]],
+            strict: bool = True,
+        ):
+            """
+            if executor is provided as just a string, then expand it to a dict with type
+            """
+
+            for item in super().normalize(source, strict):
+                item = dict(item)
+
+                # Normalize executor option:
+                # > Mapping[str, str | Sequence[str] | bool] | str | None
+                #     => Mapping[str, str | Sequence[str | bool] | bool]
+                if isinstance((executor := item.get("executor")), str):
+                    item["executor"] = {"type": executor}
+
+                yield item
+
     class TaskSpec:
         name: str
         content: TaskContent
-        options: "PoeTask.TaskOptions"
-        task_type: type["PoeTask"]
-        source: "ConfigPartition"
-        parent: Optional["PoeTask.TaskSpec"] = None
+        options: PoeTask.TaskOptions
+        task_type: type[PoeTask]
+        source: ConfigPartition
+        parent: PoeTask.TaskSpec | None = None
 
         def __init__(
             self,
             name: str,
             task_def: dict[str, Any],
             factory: TaskSpecFactory,
-            source: "ConfigPartition",
+            source: ConfigPartition,
             *,
-            parent: Optional["PoeTask.TaskSpec"] = None,
+            parent: PoeTask.TaskSpec | None = None,
         ):
             self.name = name
             self.content = task_def[self.task_type.__key__]
@@ -209,9 +232,9 @@ class PoeTask(metaclass=MetaPoeTask):
             self.source = source
             self.parent = parent
 
-        def _parse_options(self, task_def: dict[str, Any]):
+        def _parse_options(self, task_def: dict[str, Any]) -> PoeTask.TaskOptions:
             try:
-                return next(
+                return next(  # type: ignore[return-value]
                     self.task_type.TaskOptions.parse(
                         task_def, extra_keys=(self.task_type.__key__,)
                     )
@@ -222,15 +245,13 @@ class PoeTask(metaclass=MetaPoeTask):
 
         def get_task_env(
             self,
-            parent_env: "EnvVarsManager",
-            io: "PoeIO",
-            uses_values: Optional[Mapping[str, str]] = None,
-        ) -> "EnvVarsManager":
+            parent_env: EnvVarsManager,
+            io: PoeIO,
+            uses_values: Mapping[str, str] | None = None,
+        ) -> EnvVarsManager:
             """
             Resolve the EnvVarsManager for this task, relative to the given parent_env
             """
-            task_envfile = self.options.get("envfile")
-            task_env = self.options.get("env")
 
             result = parent_env.clone(io=io)
 
@@ -240,8 +261,8 @@ class PoeTask(metaclass=MetaPoeTask):
 
             result.set("POE_CONF_DIR", str(self.source.config_dir))
             result.apply_env_config(
-                task_envfile,
-                task_env,
+                envfile_option=self.options.get("envfile"),
+                config_env=self.options.get("env"),
                 config_dir=self.source.config_dir,
                 config_working_dir=self.source.cwd,
             )
@@ -255,7 +276,7 @@ class PoeTask(metaclass=MetaPoeTask):
             """
             return self.options.args is not None
 
-        def get_args(self, io: PoeIO) -> Optional["PoeTaskArgs"]:
+        def get_args(self, io: PoeIO) -> PoeTaskArgs | None:
             if self.options.args:
                 from .args import PoeTaskArgs
 
@@ -266,8 +287,8 @@ class PoeTask(metaclass=MetaPoeTask):
             self,
             invocation: tuple[str, ...],
             ctx: TaskContext,
-            capture_stdout: Union[str, bool] = False,
-        ) -> "PoeTask":
+            capture_stdout: str | bool = False,
+        ) -> PoeTask:
             return self.task_type(
                 spec=self,
                 invocation=invocation,
@@ -275,7 +296,7 @@ class PoeTask(metaclass=MetaPoeTask):
                 ctx=ctx,
             )
 
-        def validate(self, config: "PoeConfig", task_specs: TaskSpecFactory):
+        def validate(self, config: PoeConfig, task_specs: TaskSpecFactory):
             try:
                 self._base_validations(config, task_specs)
                 self._task_validations(config, task_specs)
@@ -283,7 +304,7 @@ class PoeTask(metaclass=MetaPoeTask):
                 error.task_name = self.name
                 raise
 
-        def _base_validations(self, config: "PoeConfig", task_specs: TaskSpecFactory):
+        def _base_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             """
             Perform validations on this TaskSpec that apply to all task types
             """
@@ -353,26 +374,26 @@ class PoeTask(metaclass=MetaPoeTask):
                 for _ in ArgSpec.parse(self.options.args):
                     pass
 
-        def _task_validations(self, config: "PoeConfig", task_specs: TaskSpecFactory):
+        def _task_validations(self, config: PoeConfig, task_specs: TaskSpecFactory):
             """
             Perform validations on this TaskSpec that apply to a specific task type
             """
 
     spec: TaskSpec
     ctx: TaskContext
-    _parsed_args: Optional[tuple[dict[str, str], tuple[str, ...]]] = None
+    _parsed_args: tuple[dict[str, str], tuple[str, ...]] | None = None
 
-    __task_types: ClassVar[dict[str, type["PoeTask"]]] = {}
-    __upstream_invocations: Optional[
-        dict[str, Union[list[tuple[str, ...]], dict[str, tuple[str, ...]]]]
-    ] = None
+    __task_types: ClassVar[dict[str, type[PoeTask]]] = {}
+    __upstream_invocations: (
+        dict[str, list[tuple[str, ...]] | dict[str, tuple[str, ...]]] | None
+    ) = None
 
     def __init__(
         self,
         spec: TaskSpec,
         invocation: tuple[str, ...],
         ctx: TaskContext,
-        capture_stdout: Union[str, bool] = False,
+        capture_stdout: str | bool = False,
     ):
         self.spec = spec
         self.invocation = invocation
@@ -392,9 +413,9 @@ class PoeTask(metaclass=MetaPoeTask):
     def resolve_task_type(
         cls,
         task_def: TaskDef,
-        config: "PoeConfig",
-        array_item: Union[bool, str] = False,
-    ) -> Optional[str]:
+        config: PoeConfig,
+        array_item: bool | str = False,
+    ) -> str | None:
         if isinstance(task_def, str):
             if array_item:
                 return (
@@ -416,7 +437,7 @@ class PoeTask(metaclass=MetaPoeTask):
         return None
 
     def get_parsed_arguments(
-        self, env: "EnvVarsManager"
+        self, env: EnvVarsManager
     ) -> tuple[dict[str, str], tuple[str, ...]]:
         """
         Returns a dict of parsed arguments, and a list extra arguments.
@@ -435,7 +456,7 @@ class PoeTask(metaclass=MetaPoeTask):
                     extra_args = all_args[split_index + 1 :]
                 except ValueError:
                     option_args = all_args
-                    extra_args = tuple()
+                    extra_args = ()
 
                 self._parsed_args = (
                     task_args.parse(option_args, env, self.ctx.ui.program_name),
@@ -447,11 +468,11 @@ class PoeTask(metaclass=MetaPoeTask):
 
         return self._parsed_args
 
-    def run(
+    async def run(
         self,
-        context: "RunContext",
-        parent_env: Optional["EnvVarsManager"] = None,
-    ) -> int:
+        context: RunContext,
+        parent_env: EnvVarsManager | None = None,
+    ) -> PoeTaskRun:
         """
         Run this task
         """
@@ -472,7 +493,7 @@ class PoeTask(metaclass=MetaPoeTask):
                 dry=True,
                 unresolved=True,
             )
-            return 0
+            return await PoeTaskRun(self.name).finalize()
 
         task_env = self.spec.get_task_env(
             parent_env or context.env,
@@ -485,23 +506,25 @@ class PoeTask(metaclass=MetaPoeTask):
             self.ctx.io.print_debug(f" . Parsed args {named_arg_values!r}")
             self.ctx.io.print_debug(f" . Extra args  {extra_args!r}")
 
-        return self._handle_run(context, task_env)
+        task_state = PoeTaskRun(self.name, partial(self._handle_run, context, task_env))
+        context.register_async_task(task_state.asyncio_task)
+        task_state.add_new_process_callback(context.register_subprocess)
 
-    def _handle_run(
-        self,
-        context: "RunContext",
-        env: "EnvVarsManager",
-    ) -> int:
+        return task_state
+
+    async def _handle_run(
+        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+    ):
         """
-        This method must be implemented by a subclass and return a single executor
-        result.
+        This method must be implemented by a subclass and is expected to mutate the
+        supplied task_state.
         """
         raise NotImplementedError
 
     def _get_executor(
         self,
-        context: "RunContext",
-        env: "EnvVarsManager",
+        context: RunContext,
+        env: EnvVarsManager,
         *,
         resolve_python: bool = False,
         delegate_dry_run: bool = False,
@@ -519,7 +542,7 @@ class PoeTask(metaclass=MetaPoeTask):
 
     def get_working_dir(
         self,
-        env: "EnvVarsManager",
+        env: EnvVarsManager,
     ) -> Path:
         cwd_option = env.fill_template(self.spec.options.get("cwd", self.ctx.cwd))
         working_dir = Path(cwd_option)
@@ -529,16 +552,14 @@ class PoeTask(metaclass=MetaPoeTask):
 
         return working_dir
 
-    def iter_upstream_tasks(
-        self, context: "RunContext"
-    ) -> Iterator[tuple[str, "PoeTask"]]:
+    def iter_upstream_tasks(self, context: RunContext) -> Iterator[tuple[str, PoeTask]]:
         invocations = self._get_upstream_invocations(context)
         for invocation in invocations["deps"]:
             yield ("", self._instantiate_dep(invocation, capture_stdout=False))
         for key, invocation in invocations["uses"].items():
             yield (key, self._instantiate_dep(invocation, capture_stdout=True))
 
-    def _get_upstream_invocations(self, context: "RunContext"):
+    def _get_upstream_invocations(self, context: RunContext):
         """
         NB. this memoization assumes the context (and contained env vars) will be the
         same in all instances for the lifetime of this object. Whilst this should be OK
@@ -568,7 +589,7 @@ class PoeTask(metaclass=MetaPoeTask):
 
     def _instantiate_dep(
         self, invocation: tuple[str, ...], capture_stdout: bool
-    ) -> "PoeTask":
+    ) -> PoeTask:
         task_spec = self.ctx.specs.get(invocation[0])
         return task_spec.create_task(
             invocation=invocation,
@@ -593,9 +614,7 @@ class PoeTask(metaclass=MetaPoeTask):
         )
 
     @classmethod
-    def is_task_type(
-        cls, task_def_key: str, content_type: Optional[type] = None
-    ) -> bool:
+    def is_task_type(cls, task_def_key: str, content_type: type | None = None) -> bool:
         """
         Checks whether the given key identifies a known task type.
         Optionally also check whether the given content_type matches the type of content
@@ -607,7 +626,7 @@ class PoeTask(metaclass=MetaPoeTask):
         )
 
     @classmethod
-    def get_task_types(cls, content_type: Optional[type] = None) -> tuple[str, ...]:
+    def get_task_types(cls, content_type: type | None = None) -> tuple[str, ...]:
         if content_type:
             return tuple(
                 task_type
@@ -623,6 +642,9 @@ class PoeTask(metaclass=MetaPoeTask):
         min_verbosity = -1 if dry else 0
         arrow = "??" if unresolved else "<=" if self.capture_stdout else "=>"
         self.ctx.io.print_poe_action(arrow, action, message_verbosity=min_verbosity)
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}:{self.name} at {hex(id(self))}>"
 
     class Error(Exception):
         pass

@@ -35,6 +35,7 @@ py_library(
     deps = [
         ":_keyset_reader",
         ":_keyset_writer",
+        ":_monitoring",
         ":secret_key_access",
         requirement("protobuf"),
         "//tink/aead",
@@ -102,6 +103,14 @@ py_test(
         ":tink_python",
         requirement("absl-py"),
         "//tink/core",
+        "//tink/proto:tink_py_pb2",
+    ],
+)
+
+py_library(
+    name = "_monitoring",
+    srcs = ["_monitoring.py"],
+    deps = [
         "//tink/proto:tink_py_pb2",
     ],
 )

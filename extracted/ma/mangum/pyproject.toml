@@ -4,38 +4,39 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mangum"
-version = "0.19.0"
+version = "0.20.0"
 authors = [
     { name = "Jordan Eremieff", email = "jordan@eremieff.com" },
     { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" },
 ]
 description = "AWS Lambda support for ASGI applications"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = ["typing_extensions"]
 
 [tool.uv]
-dev-dependencies = [
-    "pytest",
-    "pytest-cov",
+default-groups = ["dev"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "coverage",
     "ruff",
     "starlette",
-    "quart",
-    "hypercorn<0.15.0; python_version < '3.8'",
-    "hypercorn>=0.15.0; python_version >= '3.8'",
+    "quart>=0.20.0",
+    "hypercorn>=0.15.0",
     "mypy",
     "brotli",
     "brotli-asgi",
@@ -69,10 +70,6 @@ ignore = ["UP031"] # https://docs.astral.sh/ruff/rules/printf-string-formatting/
 strict = true
 
 [tool.pytest.ini_options]
-log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
-log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 addopts = "-rXs --strict-config --strict-markers"
 xfail_strict = true
 filterwarnings = [
@@ -89,8 +86,12 @@ filterwarnings = [
 
 [tool.coverage.run]
 source_pkgs = ["mangum", "tests"]
+omit = ["mangum/_compat.py"]
 
 [tool.coverage.report]
+fail_under = 100
+skip_covered = true
+show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "pragma: nocover",

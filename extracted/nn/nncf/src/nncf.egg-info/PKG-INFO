@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nncf
-Version: 2.18.0
+Version: 2.19.0
 Summary: Neural Networks Compression Framework
 Author: Intel
 Author-email: maksim.proshin@intel.com
@@ -9,7 +9,7 @@ Project-URL: Homepage, https://github.com/openvinotoolkit/nncf
 Keywords: bert,classification,compression,hawq,mixed-precision-training,mmdetection,nas,nlp,object-detection,pruning,quantization,quantization-aware-training,semantic-segmentation,sparsity,transformers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: jsonschema>=3.2.0
@@ -78,7 +78,7 @@ For more information about NNCF, see:
 | Compression algorithm                                                                                    | OpenVINO  | PyTorch   | TorchFX   | TensorFlow    | ONNX          |
 | :------------------------------------------------------------------------------------------------------- | :-------: | :-------: | :-----------: | :-----------: | :-----------: |
 | [Post-Training Quantization](https://github.com/openvinotoolkit/nncf/blob/develop/docs/usage/post_training_compression/post_training_quantization/Usage.md) | Supported | Supported | Experimental | Supported     | Supported     |
-| [Weights Compression](https://github.com/openvinotoolkit/nncf/blob/develop/docs/usage/post_training_compression/weights_compression/Usage.md)               | Supported | Supported | Experimental | Not supported | Not supported |
+| [Weights Compression](https://github.com/openvinotoolkit/nncf/blob/develop/docs/usage/post_training_compression/weights_compression/Usage.md)               | Supported | Supported | Experimental | Not supported | Supported |
 | [Activation Sparsity](https://github.com/openvinotoolkit/nncf/blob/develop/src/nncf/experimental/torch/sparsify_activations/ActivationSparsity.md)          | Not supported | Experimental | Not supported| Not supported| Not supported |
 
 ### Training-Time Compression Algorithms

@@ -4,7 +4,7 @@ import dataclasses
 import inspect
 import re
 from argparse import SUPPRESS, ArgumentParser
-from typing import Any, Callable, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Optional, Union
 
 from ._actions import _ActionConfigLoad
 from ._common import (
@@ -12,28 +12,27 @@ from ._common import (
     get_class_instantiator,
     get_generic_origin,
     get_unaliased_type,
-    is_dataclass_like,
     is_final_class,
+    is_not_subclass_type,
     is_subclass,
 )
 from ._namespace import Namespace
-from ._optionals import attrs_support, get_doc_short_description, is_pydantic_model, pydantic_support
+from ._optionals import attrs_support, get_doc_short_description, is_attrs_class, is_pydantic_model
 from ._parameter_resolvers import ParamData, get_parameter_origins, get_signature_parameters
 from ._typehints import (
     ActionTypeHint,
     LazyInitBaseClass,
     callable_instances,
     get_subclass_names,
+    is_list_pathlike,
     is_optional,
     not_required_types,
+    sequence_origin_types,
 )
-from ._util import NoneType, get_private_kwargs, get_typehint_origin, iter_to_set_str
+from ._util import NoneType, get_import_path, get_private_kwargs, get_typehint_origin, iter_to_set_str
 from .typing import register_pydantic_type
 
-__all__ = [
-    "compose_dataclasses",
-    "SignatureArguments",
-]
+__all__ = ["SignatureArguments"]
 
 
 kinds = inspect._ParameterKind
@@ -45,17 +44,17 @@ class SignatureArguments(LoggerProperty):
 
     def add_class_arguments(
         self,
-        theclass: Type,
+        theclass: type,
         nested_key: Optional[str] = None,
         as_group: bool = True,
         as_positional: bool = False,
-        default: Optional[Union[dict, Namespace, LazyInitBaseClass, Type]] = None,
-        skip: Optional[Set[Union[str, int]]] = None,
+        default: Optional[Union[dict, Namespace, LazyInitBaseClass, type]] = None,
+        skip: Optional[set[Union[str, int]]] = None,
         instantiate: bool = True,
         fail_untyped: bool = True,
         sub_configs: bool = False,
         **kwargs,
-    ) -> List[str]:
+    ) -> list[str]:
         """Adds arguments from a class based on its type hints and docstrings.
 
         Note: Keyword arguments without at least one valid type are ignored.
@@ -86,7 +85,7 @@ class SignatureArguments(LoggerProperty):
             or (isinstance(default, LazyInitBaseClass) and isinstance(default, unaliased_class_type))
             or (
                 not is_final_class(default.__class__)
-                and is_dataclass_like(default.__class__)
+                and is_not_subclass_type(default.__class__)
                 and isinstance(default, unaliased_class_type)
             )
         ):
@@ -120,14 +119,12 @@ class SignatureArguments(LoggerProperty):
             defaults = default
             if isinstance(default, LazyInitBaseClass):
                 defaults = default.lazy_get_init_args().as_dict()
-            elif is_dataclass_like(default.__class__):
-                defaults = dataclass_to_dict(default)
+            elif is_convertible_to_dict(default.__class__):
+                defaults = convert_to_dict(default)
                 args = {k[len(prefix) :] for k in added_args}
                 skip_not_added = [k for k in defaults if k not in args]
                 if skip_not_added:
                     skip.update(skip_not_added)  # skip init=False
-            elif isinstance(default, Namespace):
-                defaults = default.as_dict()
             if defaults:
                 defaults = {prefix + k: v for k, v in defaults.items() if k not in skip}
                 self.set_defaults(**defaults)  # type: ignore[attr-defined]
@@ -136,15 +133,15 @@ class SignatureArguments(LoggerProperty):
 
     def add_method_arguments(
         self,
-        theclass: Type,
+        theclass: type,
         themethod: str,
         nested_key: Optional[str] = None,
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[Set[Union[str, int]]] = None,
+        skip: Optional[set[Union[str, int]]] = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """Adds arguments from a class based on its type hints and docstrings.
 
         Note: Keyword arguments without at least one valid type are ignored.
@@ -189,10 +186,10 @@ class SignatureArguments(LoggerProperty):
         nested_key: Optional[str] = None,
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[Set[Union[str, int]]] = None,
+        skip: Optional[set[Union[str, int]]] = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """Adds arguments from a function based on its type hints and docstrings.
 
         Note: Keyword arguments without at least one valid type are ignored.
@@ -239,13 +236,13 @@ class SignatureArguments(LoggerProperty):
         nested_key: Optional[str],
         as_group: bool = True,
         as_positional: bool = False,
-        skip: Optional[Set[Union[str, int]]] = None,
+        skip: Optional[set[Union[str, int]]] = None,
         fail_untyped: bool = True,
         sub_configs: bool = False,
         instantiate: bool = True,
-        linked_targets: Optional[Set[str]] = None,
+        linked_targets: Optional[set[str]] = None,
         help: Optional[str] = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """Adds arguments from parameters of objects based on signatures and docstrings.
 
         Args:
@@ -303,7 +300,7 @@ class SignatureArguments(LoggerProperty):
         )
 
         ## Add parameter arguments ##
-        added_args: List[str] = []
+        added_args: list[str] = []
         for param in params:
             self._add_signature_parameter(
                 container,
@@ -324,13 +321,13 @@ class SignatureArguments(LoggerProperty):
         container,
         nested_key: Optional[str],
         param,
-        added_args: List[str],
-        skip: Optional[Set[str]] = None,
+        added_args: list[str],
+        skip: Optional[set[str]] = None,
         fail_untyped: bool = True,
         as_positional: bool = False,
         sub_configs: bool = False,
         instantiate: bool = True,
-        linked_targets: Optional[Set[str]] = None,
+        linked_targets: Optional[set[str]] = None,
         default: Any = inspect_empty,
         **kwargs,
     ):
@@ -389,7 +386,7 @@ class SignatureArguments(LoggerProperty):
         elif not as_positional or is_non_positional:
             kwargs["required"] = True
         is_subclass_typehint = False
-        is_dataclass_like_typehint = is_dataclass_like(annotation)
+        is_not_subclass_typehint = is_not_subclass_type(annotation)
         dest = (nested_key + "." if nested_key else "") + name
         args = [dest if is_required and as_positional and not is_non_positional else "--" + dest]
         if param.origin:
@@ -407,7 +404,7 @@ class SignatureArguments(LoggerProperty):
         if (
             annotation in {str, int, float, bool}
             or is_subclass(annotation, (str, int, float))
-            or is_dataclass_like_typehint
+            or is_not_subclass_typehint
         ):
             kwargs["type"] = annotation
             register_pydantic_type(annotation)
@@ -423,7 +420,9 @@ class SignatureArguments(LoggerProperty):
                 else:
                     register_pydantic_type(annotation)
                 enable_path = sub_configs and (
-                    is_subclass_typehint or ActionTypeHint.is_return_subclass_typehint(annotation)
+                    is_subclass_typehint
+                    or ActionTypeHint.is_return_subclass_typehint(annotation)
+                    or is_list_pathlike(annotation)
                 )
                 args = ActionTypeHint.prepare_add_argument(
                     args=args,
@@ -441,7 +440,7 @@ class SignatureArguments(LoggerProperty):
                 "sub_configs": sub_configs,
                 "instantiate": instantiate,
             }
-            if is_dataclass_like_typehint:
+            if is_not_subclass_typehint:
                 kwargs.update(sub_add_kwargs)
             with ActionTypeHint.allow_default_instance_context():
                 action = container.add_argument(*args, **kwargs)
@@ -458,10 +457,10 @@ class SignatureArguments(LoggerProperty):
 
     def add_subclass_arguments(
         self,
-        baseclass: Union[Type, Tuple[Type, ...]],
+        baseclass: Union[type, tuple[type, ...]],
         nested_key: str,
         as_group: bool = True,
-        skip: Optional[Set[str]] = None,
+        skip: Optional[set[str]] = None,
         instantiate: bool = True,
         required: bool = False,
         metavar: str = "CONFIG | CLASS_PATH_OR_NAME | .INIT_ARG_NAME VALUE",
@@ -492,15 +491,14 @@ class SignatureArguments(LoggerProperty):
         Raises:
             ValueError: When given an invalid base class.
         """
-        if is_dataclass_like(baseclass):
-            raise ValueError("Not allowed for dataclass-like classes.")
         if type(baseclass) is not tuple:
             baseclass = (baseclass,)  # type: ignore[assignment]
+        assert isinstance(baseclass, tuple)
         if not baseclass or not all(ActionTypeHint.is_subclass_typehint(c, also_lists=True) for c in baseclass):
             raise ValueError(f"Expected 'baseclass' to be a subclass type or a tuple of subclass types: {baseclass}")
 
         doc_group = None
-        if len(baseclass) == 1:  # type: ignore[arg-type]
+        if len(baseclass) == 1:
             doc_group = get_doc_short_description(baseclass[0], logger=self.logger)
         group = self._create_group_if_requested(
             baseclass,
@@ -512,7 +510,7 @@ class SignatureArguments(LoggerProperty):
             instantiate=False,
         )
 
-        added_args: List[str] = []
+        added_args: list[str] = []
         if skip is not None:
             skip = {f"{nested_key}.init_args." + s for s in skip}
         param = ParamData(name=nested_key, annotation=Union[baseclass], component=baseclass)
@@ -590,29 +588,30 @@ def is_factory_class(value):
     return value.__class__ == dataclasses._HAS_DEFAULT_FACTORY_CLASS
 
 
-def dataclass_to_dict(value) -> dict:
-    if pydantic_support:
-        pydantic_model = is_pydantic_model(type(value))
-        if pydantic_model:
-            return value.dict() if pydantic_model == 1 else value.model_dump()
+def is_convertible_to_dict(value):
+    return dataclasses.is_dataclass(value) or is_attrs_class(value) or is_pydantic_model(value)
 
+
+def convert_to_dict(value) -> dict:
     if attrs_support:
         import attrs
 
-        is_attrs_dataclass = attrs.has(type(value))
-        if is_attrs_dataclass:
+        if attrs.has(type(value)):
             return attrs.asdict(value)
-    return dataclasses.asdict(value)
 
+    value_type = type(value)
+    init_args = {}
+    for name, attr in vars(value).items():
+        attr_type = type(attr)
+        if is_convertible_to_dict(attr_type):
+            attr = convert_to_dict(attr)
+        elif attr_type in sequence_origin_types:
+            attr = attr.copy()
+            for num, item in enumerate(attr):
+                if is_convertible_to_dict(type(item)):
+                    attr[num] = convert_to_dict(item)
+        init_args[name] = attr
 
-def compose_dataclasses(*args):
-    """Returns a dataclass inheriting all given dataclasses and properly handling __post_init__."""
-
-    @dataclasses.dataclass
-    class ComposedDataclass(*args):
-        def __post_init__(self):
-            for arg in args:
-                if hasattr(arg, "__post_init__"):
-                    arg.__post_init__(self)
-
-    return ComposedDataclass
+    if is_not_subclass_type(value_type):
+        return init_args
+    return {"class_path": get_import_path(value_type), "init_args": init_args}

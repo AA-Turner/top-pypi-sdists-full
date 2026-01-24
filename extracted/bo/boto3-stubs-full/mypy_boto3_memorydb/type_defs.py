@@ -3,7 +3,7 @@ Type annotations for memorydb service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_memorydb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,12 +33,6 @@ from .literals import (
     UpdateStrategyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -101,6 +96,10 @@ __all__ = (
     "DescribeMultiRegionClustersRequestPaginateTypeDef",
     "DescribeMultiRegionClustersRequestTypeDef",
     "DescribeMultiRegionClustersResponseTypeDef",
+    "DescribeMultiRegionParameterGroupsRequestTypeDef",
+    "DescribeMultiRegionParameterGroupsResponseTypeDef",
+    "DescribeMultiRegionParametersRequestTypeDef",
+    "DescribeMultiRegionParametersResponseTypeDef",
     "DescribeParameterGroupsRequestPaginateTypeDef",
     "DescribeParameterGroupsRequestTypeDef",
     "DescribeParameterGroupsResponseTypeDef",
@@ -138,6 +137,8 @@ __all__ = (
     "ListTagsRequestTypeDef",
     "ListTagsResponseTypeDef",
     "MultiRegionClusterTypeDef",
+    "MultiRegionParameterGroupTypeDef",
+    "MultiRegionParameterTypeDef",
     "NodeTypeDef",
     "PaginatorConfigTypeDef",
     "ParameterGroupTypeDef",
@@ -190,8 +191,8 @@ __all__ = (
 
 
 class ACLPendingChangesTypeDef(TypedDict):
-    UserNamesToRemove: NotRequired[List[str]]
-    UserNamesToAdd: NotRequired[List[str]]
+    UserNamesToRemove: NotRequired[list[str]]
+    UserNamesToAdd: NotRequired[list[str]]
 
 
 class ACLsUpdateStatusTypeDef(TypedDict):
@@ -225,7 +226,7 @@ class ServiceUpdateRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -343,6 +344,36 @@ class DescribeMultiRegionClustersRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     ShowClusterDetails: NotRequired[bool]
+
+
+class DescribeMultiRegionParameterGroupsRequestTypeDef(TypedDict):
+    MultiRegionParameterGroupName: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class MultiRegionParameterGroupTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Family: NotRequired[str]
+    Description: NotRequired[str]
+    ARN: NotRequired[str]
+
+
+class DescribeMultiRegionParametersRequestTypeDef(TypedDict):
+    MultiRegionParameterGroupName: str
+    Source: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class MultiRegionParameterTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    Description: NotRequired[str]
+    Source: NotRequired[str]
+    DataType: NotRequired[str]
+    AllowedValues: NotRequired[str]
+    MinimumEngineVersion: NotRequired[str]
 
 
 class DescribeParameterGroupsRequestTypeDef(TypedDict):
@@ -506,10 +537,10 @@ class UpdateSubnetGroupRequestTypeDef(TypedDict):
 class ACLTypeDef(TypedDict):
     Name: NotRequired[str]
     Status: NotRequired[str]
-    UserNames: NotRequired[List[str]]
+    UserNames: NotRequired[list[str]]
     MinimumEngineVersion: NotRequired[str]
     PendingChanges: NotRequired[ACLPendingChangesTypeDef]
-    Clusters: NotRequired[List[str]]
+    Clusters: NotRequired[list[str]]
     ARN: NotRequired[str]
 
 
@@ -523,7 +554,7 @@ class UserTypeDef(TypedDict):
     Name: NotRequired[str]
     Status: NotRequired[str]
     AccessString: NotRequired[str]
-    ACLNames: NotRequired[List[str]]
+    ACLNames: NotRequired[list[str]]
     MinimumEngineVersion: NotRequired[str]
     Authentication: NotRequired[AuthenticationTypeDef]
     ARN: NotRequired[str]
@@ -532,7 +563,7 @@ class UserTypeDef(TypedDict):
 class SubnetTypeDef(TypedDict):
     Identifier: NotRequired[str]
     AvailabilityZone: NotRequired[AvailabilityZoneTypeDef]
-    SupportedNetworkTypes: NotRequired[List[NetworkTypeType]]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class BatchUpdateClusterRequestTypeDef(TypedDict):
@@ -541,14 +572,14 @@ class BatchUpdateClusterRequestTypeDef(TypedDict):
 
 
 class ListAllowedMultiRegionClusterUpdatesResponseTypeDef(TypedDict):
-    ScaleUpNodeTypes: List[str]
-    ScaleDownNodeTypes: List[str]
+    ScaleUpNodeTypes: list[str]
+    ScaleDownNodeTypes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAllowedNodeTypeUpdatesResponseTypeDef(TypedDict):
-    ScaleUpNodeTypes: List[str]
-    ScaleDownNodeTypes: List[str]
+    ScaleUpNodeTypes: list[str]
+    ScaleDownNodeTypes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -644,7 +675,7 @@ class CreateUserRequestTypeDef(TypedDict):
 
 
 class ListTagsResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -661,12 +692,12 @@ class TagResourceRequestTypeDef(TypedDict):
 
 
 class TagResourceResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UntagResourceResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -681,7 +712,7 @@ class DeleteParameterGroupResponseTypeDef(TypedDict):
 
 
 class DescribeParameterGroupsResponseTypeDef(TypedDict):
-    ParameterGroups: List[ParameterGroupTypeDef]
+    ParameterGroups: list[ParameterGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -769,7 +800,7 @@ class DescribeSubnetGroupsRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeEngineVersionsResponseTypeDef(TypedDict):
-    EngineVersions: List[EngineVersionInfoTypeDef]
+    EngineVersions: list[EngineVersionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -794,19 +825,31 @@ class DescribeEventsRequestTypeDef(TypedDict):
 
 
 class DescribeEventsResponseTypeDef(TypedDict):
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeMultiRegionParameterGroupsResponseTypeDef(TypedDict):
+    MultiRegionParameterGroups: list[MultiRegionParameterGroupTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeMultiRegionParametersResponseTypeDef(TypedDict):
+    MultiRegionParameters: list[MultiRegionParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeParametersResponseTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeServiceUpdatesResponseTypeDef(TypedDict):
-    ServiceUpdates: List[ServiceUpdateTypeDef]
+    ServiceUpdates: list[ServiceUpdateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -832,7 +875,7 @@ class MultiRegionClusterTypeDef(TypedDict):
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
     NumberOfShards: NotRequired[int]
-    Clusters: NotRequired[List[RegionalClusterTypeDef]]
+    Clusters: NotRequired[list[RegionalClusterTypeDef]]
     MultiRegionParameterGroupName: NotRequired[str]
     TLSEnabled: NotRequired[bool]
     ARN: NotRequired[str]
@@ -853,7 +896,7 @@ class ReservedNodeTypeDef(TypedDict):
     NodeCount: NotRequired[int]
     OfferingType: NotRequired[str]
     State: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
     ARN: NotRequired[str]
 
 
@@ -863,7 +906,7 @@ class ReservedNodesOfferingTypeDef(TypedDict):
     Duration: NotRequired[int]
     FixedPrice: NotRequired[float]
     OfferingType: NotRequired[str]
-    RecurringCharges: NotRequired[List[RecurringChargeTypeDef]]
+    RecurringCharges: NotRequired[list[RecurringChargeTypeDef]]
 
 
 class ReshardingStatusTypeDef(TypedDict):
@@ -917,7 +960,7 @@ class DeleteACLResponseTypeDef(TypedDict):
 
 
 class DescribeACLsResponseTypeDef(TypedDict):
-    ACLs: List[ACLTypeDef]
+    ACLs: list[ACLTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -938,7 +981,7 @@ class DeleteUserResponseTypeDef(TypedDict):
 
 
 class DescribeUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -952,16 +995,16 @@ class SubnetGroupTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     VpcId: NotRequired[str]
-    Subnets: NotRequired[List[SubnetTypeDef]]
+    Subnets: NotRequired[list[SubnetTypeDef]]
     ARN: NotRequired[str]
-    SupportedNetworkTypes: NotRequired[List[NetworkTypeType]]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class ShardTypeDef(TypedDict):
     Name: NotRequired[str]
     Status: NotRequired[str]
     Slots: NotRequired[str]
-    Nodes: NotRequired[List[NodeTypeDef]]
+    Nodes: NotRequired[list[NodeTypeDef]]
     NumberOfNodes: NotRequired[int]
 
 
@@ -976,7 +1019,7 @@ class DeleteMultiRegionClusterResponseTypeDef(TypedDict):
 
 
 class DescribeMultiRegionClustersResponseTypeDef(TypedDict):
-    MultiRegionClusters: List[MultiRegionClusterTypeDef]
+    MultiRegionClusters: list[MultiRegionClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -987,7 +1030,7 @@ class UpdateMultiRegionClusterResponseTypeDef(TypedDict):
 
 
 class DescribeReservedNodesResponseTypeDef(TypedDict):
-    ReservedNodes: List[ReservedNodeTypeDef]
+    ReservedNodes: list[ReservedNodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -998,7 +1041,7 @@ class PurchaseReservedNodesOfferingResponseTypeDef(TypedDict):
 
 
 class DescribeReservedNodesOfferingsResponseTypeDef(TypedDict):
-    ReservedNodesOfferings: List[ReservedNodesOfferingTypeDef]
+    ReservedNodesOfferings: list[ReservedNodesOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1006,7 +1049,7 @@ class DescribeReservedNodesOfferingsResponseTypeDef(TypedDict):
 class ClusterPendingUpdatesTypeDef(TypedDict):
     Resharding: NotRequired[ReshardingStatusTypeDef]
     ACLs: NotRequired[ACLsUpdateStatusTypeDef]
-    ServiceUpdates: NotRequired[List[PendingModifiedServiceUpdateTypeDef]]
+    ServiceUpdates: NotRequired[list[PendingModifiedServiceUpdateTypeDef]]
 
 
 class ClusterConfigurationTypeDef(TypedDict):
@@ -1024,7 +1067,7 @@ class ClusterConfigurationTypeDef(TypedDict):
     SnapshotRetentionLimit: NotRequired[int]
     SnapshotWindow: NotRequired[str]
     NumShards: NotRequired[int]
-    Shards: NotRequired[List[ShardDetailTypeDef]]
+    Shards: NotRequired[list[ShardDetailTypeDef]]
     MultiRegionParameterGroupName: NotRequired[str]
     MultiRegionClusterName: NotRequired[str]
 
@@ -1040,7 +1083,7 @@ class DeleteSubnetGroupResponseTypeDef(TypedDict):
 
 
 class DescribeSubnetGroupsResponseTypeDef(TypedDict):
-    SubnetGroups: List[SubnetGroupTypeDef]
+    SubnetGroups: list[SubnetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1057,7 +1100,7 @@ class ClusterTypeDef(TypedDict):
     PendingUpdates: NotRequired[ClusterPendingUpdatesTypeDef]
     MultiRegionClusterName: NotRequired[str]
     NumberOfShards: NotRequired[int]
-    Shards: NotRequired[List[ShardTypeDef]]
+    Shards: NotRequired[list[ShardTypeDef]]
     AvailabilityMode: NotRequired[AZStatusType]
     ClusterEndpoint: NotRequired[EndpointTypeDef]
     NodeType: NotRequired[str]
@@ -1066,7 +1109,7 @@ class ClusterTypeDef(TypedDict):
     EnginePatchVersion: NotRequired[str]
     ParameterGroupName: NotRequired[str]
     ParameterGroupStatus: NotRequired[str]
-    SecurityGroups: NotRequired[List[SecurityGroupMembershipTypeDef]]
+    SecurityGroups: NotRequired[list[SecurityGroupMembershipTypeDef]]
     SubnetGroupName: NotRequired[str]
     TLSEnabled: NotRequired[bool]
     KmsKeyId: NotRequired[str]
@@ -1094,8 +1137,8 @@ class SnapshotTypeDef(TypedDict):
 
 
 class BatchUpdateClusterResponseTypeDef(TypedDict):
-    ProcessedClusters: List[ClusterTypeDef]
-    UnprocessedClusters: List[UnprocessedClusterTypeDef]
+    ProcessedClusters: list[ClusterTypeDef]
+    UnprocessedClusters: list[UnprocessedClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1110,7 +1153,7 @@ class DeleteClusterResponseTypeDef(TypedDict):
 
 
 class DescribeClustersResponseTypeDef(TypedDict):
-    Clusters: List[ClusterTypeDef]
+    Clusters: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1141,6 +1184,6 @@ class DeleteSnapshotResponseTypeDef(TypedDict):
 
 
 class DescribeSnapshotsResponseTypeDef(TypedDict):
-    Snapshots: List[SnapshotTypeDef]
+    Snapshots: list[SnapshotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

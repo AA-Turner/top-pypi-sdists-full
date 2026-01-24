@@ -41,14 +41,40 @@ class V1GcpDataConnection(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'source': 'str'
     }
 
     attribute_map = {
+        'source': 'source'
     }
 
-    def __init__(self):  # noqa: E501
+    def __init__(self, source: 'str' =None):  # noqa: E501
         """V1GcpDataConnection - a model defined in Swagger"""  # noqa: E501
+        self._source = None
         self.discriminator = None
+        if source is not None:
+            self.source = source
+
+    @property
+    def source(self) -> 'str':
+        """Gets the source of this V1GcpDataConnection.  # noqa: E501
+
+
+        :return: The source of this V1GcpDataConnection.  # noqa: E501
+        :rtype: str
+        """
+        return self._source
+
+    @source.setter
+    def source(self, source: 'str'):
+        """Sets the source of this V1GcpDataConnection.
+
+
+        :param source: The source of this V1GcpDataConnection.  # noqa: E501
+        :type: str
+        """
+
+        self._source = source
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: clvm_rs
-Version: 0.16.2
+Version: 0.16.3
 Summary: Implementation of `clvm` for Chia Network's cryptocurrency
 Home-Page: https://github.com/Chia-Network/clvm_rs/
 Author: Richard Kiss <him@richardkiss.com>
 Author-email: Richard Kiss <him@richardkiss.com>
 License: Apache-2.0
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/Chia-Network/clvm_rs/
 Project-URL: Source Code, https://github.com/Chia-Network/clvm_rs/
 
 Rust implementation of clvm.

@@ -1,7 +1,8 @@
-import matplotlib.pyplot as plt
+
 import numpy as np
 
 from pymoo.core.problem import ElementwiseProblem
+from pymoo.util import default_random_state
 
 
 class FlowshopScheduling(ElementwiseProblem):
@@ -75,14 +76,14 @@ class FlowshopScheduling(ElementwiseProblem):
         return machine_times
 
 
-def create_random_flowshop_problem(n_machines, n_jobs, seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-    T = np.random.random((n_machines, n_jobs)) * 50 + 50
+@default_random_state(seed=1)
+def create_random_flowshop_problem(n_machines, n_jobs, random_state=None, **kwargs):
+    T = random_state.random((n_machines, n_jobs)) * 50 + 50
     return FlowshopScheduling(T)
 
 
 def visualize(problem, x, path=None, label=True):
+    from pymoo.visualization.matplotlib import plt
     with plt.style.context('ggplot'):
         n_machines, n_jobs = problem.records.shape
         machine_times = problem.get_machine_times(x)

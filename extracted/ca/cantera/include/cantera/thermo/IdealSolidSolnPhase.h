@@ -71,20 +71,6 @@ public:
     //! @{
 
     /**
-     * Molar enthalpy of the solution. Units: J/kmol. For an ideal, constant
-     * partial molar volume solution mixture with pure species phases which
-     * exhibit zero volume expansivity and zero isothermal compressibility:
-     * @f[
-     * \hat h(T,P) = \sum_k X_k \hat h^0_k(T) + (P - P_{ref}) (\sum_k X_k \hat V^0_k)
-     * @f]
-     * The reference-state pure-species enthalpies at the reference pressure Pref
-     * @f$ \hat h^0_k(T) @f$, are computed by the species thermodynamic
-     * property manager. They are polynomial functions of temperature.
-     * @see MultiSpeciesThermo
-     */
-    double enthalpy_mole() const override;
-
-    /**
      * Molar entropy of the solution. Units: J/kmol/K. For an ideal, constant
      * partial molar volume solution mixture with pure species phases which
      * exhibit zero volume expansivity:
@@ -115,8 +101,9 @@ public:
     double gibbs_mole() const override;
 
     /**
-     * Molar heat capacity at constant pressure of the solution.
-     * Units: J/kmol/K.
+     * Molar heat capacity of the solution at at constant pressure and composition
+     * [J/kmol/K].
+     *
      * For an ideal, constant partial molar volume solution mixture with
      * pure species phases which exhibit zero volume expansivity:
      * @f[
@@ -130,7 +117,9 @@ public:
     double cp_mole() const override;
 
     /**
-     * Molar heat capacity at constant volume of the solution. Units: J/kmol/K.
+     * Molar heat capacity of the solution at constant volume and composition
+     * [J/kmol/K].
+     *
      * For an ideal, constant partial molar volume solution mixture with pure
      * species phases which exhibit zero volume expansivity:
      * @f[ \hat c_v(T,P) = \hat c_p(T,P) @f]
@@ -370,9 +359,7 @@ public:
      * @param mu0   Output vector of standard state chemical potentials.
      *              Length: m_kk.
      */
-    void getStandardChemPotentials(double* mu0) const override {
-        getPureGibbs(mu0);
-    }
+    void getStandardChemPotentials(double* mu0) const override;
 
     //! Get the array of nondimensional Enthalpy functions for the standard
     //! state species at the current *T* and *P* of the solution.
@@ -429,6 +416,8 @@ public:
      * the reference pressure, @f$ P_{ref} @f$.
      *
      * @param gpure  Output vector of Gibbs functions for species. Length: m_kk.
+     * @deprecated  To be removed after %Cantera 3.2. Use getStandardChemPotentials()
+     *     instead.
      */
     void getPureGibbs(double* gpure) const override;
 

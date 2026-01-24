@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: opentelemetry-resourcedetector-gcp
-Version: 1.9.0a0
+Version: 1.11.0a0
 Summary: Google Cloud resource detector for OpenTelemetry
 Home-page: https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-resourcedetector-gcp
 Author: Google
@@ -12,21 +12,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: opentelemetry-api~=1.0
-Requires-Dist: opentelemetry-sdk~=1.0
+Requires-Dist: opentelemetry-api~=1.30
+Requires-Dist: opentelemetry-sdk~=1.30
 Requires-Dist: requests~=2.24
 Requires-Dist: typing_extensions~=4.0
 Provides-Extra: test
+Dynamic: license-file
 
 OpenTelemetry Google Cloud Resource Detector
 ============================================
@@ -54,9 +53,29 @@ Installation
 
     pip install opentelemetry-resourcedetector-gcp
 
-..
-    TODO: Add usage info here
+Usage
+-----
 
+.. code:: python
+
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry import trace
+    from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, Resource
+
+    # This will use the GooglecloudResourceDetector under the covers.
+    resource = Resource.create(
+        attributes={
+            # Use the PID as the service.instance.id to avoid duplicate timeseries
+            # from different Gunicorn worker processes.
+            SERVICE_INSTANCE_ID: f"worker-{os.getpid()}",
+        }
+    )
+    traceProvider = TracerProvider(resource=resource)
+    processor = BatchSpanProcessor(OTLPSpanExporter())
+    traceProvider.add_span_processor(processor)
+    trace.set_tracer_provider(traceProvider)
 
 References
 ----------

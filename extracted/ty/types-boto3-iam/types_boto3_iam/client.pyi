@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -62,9 +63,11 @@ from .paginator import (
     SimulatePrincipalPolicyPaginator,
 )
 from .type_defs import (
+    AcceptDelegationRequestRequestTypeDef,
     AddClientIDToOpenIDConnectProviderRequestTypeDef,
     AddRoleToInstanceProfileRequestTypeDef,
     AddUserToGroupRequestTypeDef,
+    AssociateDelegationRequestRequestTypeDef,
     AttachGroupPolicyRequestTypeDef,
     AttachRolePolicyRequestTypeDef,
     AttachUserPolicyRequestTypeDef,
@@ -72,6 +75,8 @@ from .type_defs import (
     CreateAccessKeyRequestTypeDef,
     CreateAccessKeyResponseTypeDef,
     CreateAccountAliasRequestTypeDef,
+    CreateDelegationRequestRequestTypeDef,
+    CreateDelegationRequestResponseTypeDef,
     CreateGroupRequestTypeDef,
     CreateGroupResponseTypeDef,
     CreateInstanceProfileRequestTypeDef,
@@ -129,6 +134,7 @@ from .type_defs import (
     EnableMFADeviceRequestTypeDef,
     EnableOrganizationsRootCredentialsManagementResponseTypeDef,
     EnableOrganizationsRootSessionsResponseTypeDef,
+    EnableOutboundWebIdentityFederationResponseTypeDef,
     GenerateCredentialReportResponseTypeDef,
     GenerateOrganizationsAccessReportRequestTypeDef,
     GenerateOrganizationsAccessReportResponseTypeDef,
@@ -144,10 +150,14 @@ from .type_defs import (
     GetContextKeysForPolicyResponseTypeDef,
     GetContextKeysForPrincipalPolicyRequestTypeDef,
     GetCredentialReportResponseTypeDef,
+    GetDelegationRequestRequestTypeDef,
+    GetDelegationRequestResponseTypeDef,
     GetGroupPolicyRequestTypeDef,
     GetGroupPolicyResponseTypeDef,
     GetGroupRequestTypeDef,
     GetGroupResponseTypeDef,
+    GetHumanReadableSummaryRequestTypeDef,
+    GetHumanReadableSummaryResponseTypeDef,
     GetInstanceProfileRequestTypeDef,
     GetInstanceProfileResponseTypeDef,
     GetLoginProfileRequestTypeDef,
@@ -158,6 +168,7 @@ from .type_defs import (
     GetOpenIDConnectProviderResponseTypeDef,
     GetOrganizationsAccessReportRequestTypeDef,
     GetOrganizationsAccessReportResponseTypeDef,
+    GetOutboundWebIdentityFederationInfoResponseTypeDef,
     GetPolicyRequestTypeDef,
     GetPolicyResponseTypeDef,
     GetPolicyVersionRequestTypeDef,
@@ -192,6 +203,8 @@ from .type_defs import (
     ListAttachedRolePoliciesResponseTypeDef,
     ListAttachedUserPoliciesRequestTypeDef,
     ListAttachedUserPoliciesResponseTypeDef,
+    ListDelegationRequestsRequestTypeDef,
+    ListDelegationRequestsResponseTypeDef,
     ListEntitiesForPolicyRequestTypeDef,
     ListEntitiesForPolicyResponseTypeDef,
     ListGroupPoliciesRequestTypeDef,
@@ -254,12 +267,14 @@ from .type_defs import (
     PutRolePolicyRequestTypeDef,
     PutUserPermissionsBoundaryRequestTypeDef,
     PutUserPolicyRequestTypeDef,
+    RejectDelegationRequestRequestTypeDef,
     RemoveClientIDFromOpenIDConnectProviderRequestTypeDef,
     RemoveRoleFromInstanceProfileRequestTypeDef,
     RemoveUserFromGroupRequestTypeDef,
     ResetServiceSpecificCredentialRequestTypeDef,
     ResetServiceSpecificCredentialResponseTypeDef,
     ResyncMFADeviceRequestTypeDef,
+    SendDelegationTokenRequestTypeDef,
     SetDefaultPolicyVersionRequestTypeDef,
     SetSecurityTokenServicePreferencesRequestTypeDef,
     SimulateCustomPolicyRequestTypeDef,
@@ -284,6 +299,7 @@ from .type_defs import (
     UpdateAccessKeyRequestTypeDef,
     UpdateAccountPasswordPolicyRequestTypeDef,
     UpdateAssumeRolePolicyRequestTypeDef,
+    UpdateDelegationRequestRequestTypeDef,
     UpdateGroupRequestTypeDef,
     UpdateLoginProfileRequestTypeDef,
     UpdateOpenIDConnectProviderThumbprintRequestTypeDef,
@@ -311,12 +327,6 @@ from .waiter import (
     UserExistsWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -325,40 +335,42 @@ else:
 __all__ = ("IAMClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccountNotManagementOrDelegatedAdministratorException: Type[BotocoreClientError]
-    CallerIsNotManagementAccountException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    CredentialReportExpiredException: Type[BotocoreClientError]
-    CredentialReportNotPresentException: Type[BotocoreClientError]
-    CredentialReportNotReadyException: Type[BotocoreClientError]
-    DeleteConflictException: Type[BotocoreClientError]
-    DuplicateCertificateException: Type[BotocoreClientError]
-    DuplicateSSHPublicKeyException: Type[BotocoreClientError]
-    EntityAlreadyExistsException: Type[BotocoreClientError]
-    EntityTemporarilyUnmodifiableException: Type[BotocoreClientError]
-    InvalidAuthenticationCodeException: Type[BotocoreClientError]
-    InvalidCertificateException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    InvalidPublicKeyException: Type[BotocoreClientError]
-    InvalidUserTypeException: Type[BotocoreClientError]
-    KeyPairMismatchException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedCertificateException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    NoSuchEntityException: Type[BotocoreClientError]
-    OpenIdIdpCommunicationErrorException: Type[BotocoreClientError]
-    OrganizationNotFoundException: Type[BotocoreClientError]
-    OrganizationNotInAllFeaturesModeException: Type[BotocoreClientError]
-    PasswordPolicyViolationException: Type[BotocoreClientError]
-    PolicyEvaluationException: Type[BotocoreClientError]
-    PolicyNotAttachableException: Type[BotocoreClientError]
-    ReportGenerationLimitExceededException: Type[BotocoreClientError]
-    ServiceAccessNotEnabledException: Type[BotocoreClientError]
-    ServiceFailureException: Type[BotocoreClientError]
-    ServiceNotSupportedException: Type[BotocoreClientError]
-    UnmodifiableEntityException: Type[BotocoreClientError]
-    UnrecognizedPublicKeyEncodingException: Type[BotocoreClientError]
+    AccountNotManagementOrDelegatedAdministratorException: type[BotocoreClientError]
+    CallerIsNotManagementAccountException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    CredentialReportExpiredException: type[BotocoreClientError]
+    CredentialReportNotPresentException: type[BotocoreClientError]
+    CredentialReportNotReadyException: type[BotocoreClientError]
+    DeleteConflictException: type[BotocoreClientError]
+    DuplicateCertificateException: type[BotocoreClientError]
+    DuplicateSSHPublicKeyException: type[BotocoreClientError]
+    EntityAlreadyExistsException: type[BotocoreClientError]
+    EntityTemporarilyUnmodifiableException: type[BotocoreClientError]
+    FeatureDisabledException: type[BotocoreClientError]
+    FeatureEnabledException: type[BotocoreClientError]
+    InvalidAuthenticationCodeException: type[BotocoreClientError]
+    InvalidCertificateException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    InvalidPublicKeyException: type[BotocoreClientError]
+    InvalidUserTypeException: type[BotocoreClientError]
+    KeyPairMismatchException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedCertificateException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    NoSuchEntityException: type[BotocoreClientError]
+    OpenIdIdpCommunicationErrorException: type[BotocoreClientError]
+    OrganizationNotFoundException: type[BotocoreClientError]
+    OrganizationNotInAllFeaturesModeException: type[BotocoreClientError]
+    PasswordPolicyViolationException: type[BotocoreClientError]
+    PolicyEvaluationException: type[BotocoreClientError]
+    PolicyNotAttachableException: type[BotocoreClientError]
+    ReportGenerationLimitExceededException: type[BotocoreClientError]
+    ServiceAccessNotEnabledException: type[BotocoreClientError]
+    ServiceFailureException: type[BotocoreClientError]
+    ServiceNotSupportedException: type[BotocoreClientError]
+    UnmodifiableEntityException: type[BotocoreClientError]
+    UnrecognizedPublicKeyEncodingException: type[BotocoreClientError]
 
 class IAMClient(BaseClient):
     """
@@ -395,6 +407,16 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#generate_presigned_url)
         """
 
+    def accept_delegation_request(
+        self, **kwargs: Unpack[AcceptDelegationRequestRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Accepts a delegation request, granting the requested temporary access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/accept_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#accept_delegation_request)
+        """
+
     def add_client_id_to_open_id_connect_provider(
         self, **kwargs: Unpack[AddClientIDToOpenIDConnectProviderRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -424,6 +446,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/add_user_to_group.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#add_user_to_group)
+        """
+
+    def associate_delegation_request(
+        self, **kwargs: Unpack[AssociateDelegationRequestRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates a delegation request with the current identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/associate_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#associate_delegation_request)
         """
 
     def attach_group_policy(
@@ -485,6 +517,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/create_account_alias.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#create_account_alias)
+        """
+
+    def create_delegation_request(
+        self, **kwargs: Unpack[CreateDelegationRequestRequestTypeDef]
+    ) -> CreateDelegationRequestResponseTypeDef:
+        """
+        Creates an IAM delegation request for temporary access delegation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/create_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#create_delegation_request)
         """
 
     def create_group(
@@ -902,6 +944,15 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#disable_organizations_root_sessions)
         """
 
+    def disable_outbound_web_identity_federation(self) -> EmptyResponseMetadataTypeDef:
+        """
+        Disables the outbound identity federation feature for your Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/disable_outbound_web_identity_federation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#disable_outbound_web_identity_federation)
+        """
+
     def enable_mfa_device(
         self, **kwargs: Unpack[EnableMFADeviceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -930,6 +981,17 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/enable_organizations_root_sessions.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#enable_organizations_root_sessions)
+        """
+
+    def enable_outbound_web_identity_federation(
+        self,
+    ) -> EnableOutboundWebIdentityFederationResponseTypeDef:
+        """
+        Enables the outbound identity federation feature for your Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/enable_outbound_web_identity_federation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#enable_outbound_web_identity_federation)
         """
 
     def generate_credential_report(self) -> GenerateCredentialReportResponseTypeDef:
@@ -1029,6 +1091,16 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_credential_report)
         """
 
+    def get_delegation_request(
+        self, **kwargs: Unpack[GetDelegationRequestRequestTypeDef]
+    ) -> GetDelegationRequestResponseTypeDef:
+        """
+        Retrieves information about a specific delegation request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_delegation_request)
+        """
+
     def get_group(self, **kwargs: Unpack[GetGroupRequestTypeDef]) -> GetGroupResponseTypeDef:
         """
         Returns a list of IAM users that are in the specified IAM group.
@@ -1046,6 +1118,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_group_policy.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_group_policy)
+        """
+
+    def get_human_readable_summary(
+        self, **kwargs: Unpack[GetHumanReadableSummaryRequestTypeDef]
+    ) -> GetHumanReadableSummaryResponseTypeDef:
+        """
+        Retrieves a human readable summary for a given entity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_human_readable_summary.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_human_readable_summary)
         """
 
     def get_instance_profile(
@@ -1101,6 +1183,17 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_organizations_access_report.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_organizations_access_report)
+        """
+
+    def get_outbound_web_identity_federation_info(
+        self,
+    ) -> GetOutboundWebIdentityFederationInfoResponseTypeDef:
+        """
+        Retrieves the configuration information for the outbound identity federation
+        feature in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_outbound_web_identity_federation_info.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#get_outbound_web_identity_federation_info)
         """
 
     def get_policy(self, **kwargs: Unpack[GetPolicyRequestTypeDef]) -> GetPolicyResponseTypeDef:
@@ -1280,6 +1373,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/list_attached_user_policies.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#list_attached_user_policies)
+        """
+
+    def list_delegation_requests(
+        self, **kwargs: Unpack[ListDelegationRequestsRequestTypeDef]
+    ) -> ListDelegationRequestsResponseTypeDef:
+        """
+        Lists delegation requests based on the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/list_delegation_requests.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#list_delegation_requests)
         """
 
     def list_entities_for_policy(
@@ -1640,6 +1743,16 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#put_user_policy)
         """
 
+    def reject_delegation_request(
+        self, **kwargs: Unpack[RejectDelegationRequestRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Rejects a delegation request, denying the requested temporary access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/reject_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#reject_delegation_request)
+        """
+
     def remove_client_id_from_open_id_connect_provider(
         self, **kwargs: Unpack[RemoveClientIDFromOpenIDConnectProviderRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1691,6 +1804,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/resync_mfa_device.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#resync_mfa_device)
+        """
+
+    def send_delegation_token(
+        self, **kwargs: Unpack[SendDelegationTokenRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Sends the exchange token for an accepted delegation request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/send_delegation_token.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#send_delegation_token)
         """
 
     def set_default_policy_version(
@@ -1925,6 +2048,16 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#update_assume_role_policy)
         """
 
+    def update_delegation_request(
+        self, **kwargs: Unpack[UpdateDelegationRequestRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates an existing delegation request with additional information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/update_delegation_request.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#update_delegation_request)
+        """
+
     def update_group(
         self, **kwargs: Unpack[UpdateGroupRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1956,7 +2089,7 @@ class IAMClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/client/#update_open_id_connect_provider_thumbprint)
         """
 
-    def update_role(self, **kwargs: Unpack[UpdateRoleRequestTypeDef]) -> Dict[str, Any]:
+    def update_role(self, **kwargs: Unpack[UpdateRoleRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the description or maximum session duration setting of a role.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: ibm-cos-sdk
-Version: 2.14.3
+Version: 2.16.0
 Summary: IBM SDK for Python
 Home-page: https://github.com/ibm/ibm-cos-sdk-python
 Author: IBM
@@ -20,12 +20,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ibm-cos-sdk-core==2.14.3
-Requires-Dist: ibm-cos-sdk-s3transfer==2.14.3
+Requires-Dist: ibm-cos-sdk-core==2.16.0
+Requires-Dist: ibm-cos-sdk-s3transfer==2.16.0
 Requires-Dist: jmespath<=1.0.1,>=0.10.0
+Provides-Extra: crt
+Requires-Dist: ibm_botocore[crt]<2.0a0,>=1.21.0; extra == "crt"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

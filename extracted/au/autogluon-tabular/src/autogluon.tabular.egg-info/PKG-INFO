@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: autogluon.tabular
-Version: 1.4.0
+Version: 1.5.0
 Summary: Fast and Accurate ML in 3 Lines of Code
 Home-page: https://github.com/autogluon/autogluon
 Author: AutoGluon Community
@@ -9,7 +9,6 @@ Project-URL: Documentation, https://auto.gluon.ai
 Project-URL: Bug Reports, https://github.com/autogluon/autogluon/issues
 Project-URL: Source, https://github.com/autogluon/autogluon/
 Project-URL: Contribute!, https://github.com/autogluon/autogluon/blob/master/CONTRIBUTING.md
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Developers
@@ -24,35 +23,128 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Image Recognition
-Requires-Python: >=3.9, <3.13
+Requires-Python: >=3.10, <3.14
 Description-Content-Type: text/markdown
+Requires-Dist: numpy<2.4.0,>=1.25.0
+Requires-Dist: scipy<1.17,>=1.5.4
+Requires-Dist: pandas<2.4.0,>=2.0.0
+Requires-Dist: scikit-learn<1.8.0,>=1.4.0
+Requires-Dist: networkx<4,>=3.0
+Requires-Dist: autogluon.core==1.5.0
+Requires-Dist: autogluon.features==1.5.0
 Provides-Extra: lightgbm
+Requires-Dist: lightgbm<4.7,>=4.0; extra == "lightgbm"
 Provides-Extra: catboost
+Requires-Dist: catboost<1.3,>=1.2; extra == "catboost"
 Provides-Extra: xgboost
+Requires-Dist: xgboost<3.2,>=2.0; extra == "xgboost"
 Provides-Extra: realmlp
+Requires-Dist: pytabkit<1.8,>=1.7.2; extra == "realmlp"
+Provides-Extra: interpret
+Requires-Dist: interpret-core<0.8,>=0.7.2; extra == "interpret"
 Provides-Extra: fastai
+Requires-Dist: spacy<3.9; extra == "fastai"
+Requires-Dist: torch<2.10,>=2.6; extra == "fastai"
+Requires-Dist: fastai<2.9,>=2.3.1; extra == "fastai"
 Provides-Extra: tabm
+Requires-Dist: torch<2.10,>=2.6; extra == "tabm"
 Provides-Extra: tabpfn
+Requires-Dist: tabpfn<6.2.1,>=6.2.0; extra == "tabpfn"
+Provides-Extra: tabdpt
+Requires-Dist: tabdpt<1.2,>=1.1.11; extra == "tabdpt"
 Provides-Extra: tabpfnmix
+Requires-Dist: torch<2.10,>=2.6; extra == "tabpfnmix"
+Requires-Dist: huggingface_hub[torch]<1.0; extra == "tabpfnmix"
+Requires-Dist: einops<0.9,>=0.7; extra == "tabpfnmix"
 Provides-Extra: mitra
+Requires-Dist: loguru; extra == "mitra"
+Requires-Dist: einx; extra == "mitra"
+Requires-Dist: omegaconf; extra == "mitra"
+Requires-Dist: torch<2.10,>=2.6; extra == "mitra"
+Requires-Dist: transformers; extra == "mitra"
+Requires-Dist: huggingface_hub[torch]<1.0; extra == "mitra"
+Requires-Dist: einops<0.9,>=0.7; extra == "mitra"
 Provides-Extra: tabicl
+Requires-Dist: tabicl<0.2,>=0.1.4; extra == "tabicl"
 Provides-Extra: ray
+Requires-Dist: autogluon.core[all]==1.5.0; extra == "ray"
 Provides-Extra: skex
+Requires-Dist: scikit-learn-intelex<2025.10,>=2025.0; extra == "skex"
 Provides-Extra: imodels
+Requires-Dist: imodels<2.1.0,>=1.3.10; extra == "imodels"
 Provides-Extra: skl2onnx
+Requires-Dist: skl2onnx<1.20.0,>=1.15.0; extra == "skl2onnx"
+Requires-Dist: onnx!=1.16.2,<1.21.0,>=1.13.0; platform_system == "Windows" and extra == "skl2onnx"
+Requires-Dist: onnx<1.21.0,>=1.13.0; platform_system != "Windows" and extra == "skl2onnx"
+Requires-Dist: onnxruntime<1.24.0,>=1.17.0; extra == "skl2onnx"
+Requires-Dist: onnxruntime-gpu<1.24.0,>=1.17.0; (platform_system != "Darwin" and platform_machine != "aarch64") and extra == "skl2onnx"
 Provides-Extra: all
+Requires-Dist: autogluon.core[all]==1.5.0; extra == "all"
+Requires-Dist: einx; extra == "all"
+Requires-Dist: lightgbm<4.7,>=4.0; extra == "all"
+Requires-Dist: torch<2.10,>=2.6; extra == "all"
+Requires-Dist: huggingface_hub[torch]<1.0; extra == "all"
+Requires-Dist: omegaconf; extra == "all"
+Requires-Dist: transformers; extra == "all"
+Requires-Dist: xgboost<3.2,>=2.0; extra == "all"
+Requires-Dist: catboost<1.3,>=1.2; extra == "all"
+Requires-Dist: fastai<2.9,>=2.3.1; extra == "all"
+Requires-Dist: loguru; extra == "all"
+Requires-Dist: einops<0.9,>=0.7; extra == "all"
+Requires-Dist: spacy<3.9; extra == "all"
 Provides-Extra: tabarena
+Requires-Dist: pytabkit<1.8,>=1.7.2; extra == "tabarena"
+Requires-Dist: autogluon.core[all]==1.5.0; extra == "tabarena"
+Requires-Dist: einx; extra == "tabarena"
+Requires-Dist: tabpfn<6.2.1,>=6.2.0; extra == "tabarena"
+Requires-Dist: lightgbm<4.7,>=4.0; extra == "tabarena"
+Requires-Dist: huggingface_hub[torch]<1.0; extra == "tabarena"
+Requires-Dist: torch<2.10,>=2.6; extra == "tabarena"
+Requires-Dist: omegaconf; extra == "tabarena"
+Requires-Dist: transformers; extra == "tabarena"
+Requires-Dist: xgboost<3.2,>=2.0; extra == "tabarena"
+Requires-Dist: catboost<1.3,>=1.2; extra == "tabarena"
+Requires-Dist: interpret-core<0.8,>=0.7.2; extra == "tabarena"
+Requires-Dist: fastai<2.9,>=2.3.1; extra == "tabarena"
+Requires-Dist: loguru; extra == "tabarena"
+Requires-Dist: tabdpt<1.2,>=1.1.11; extra == "tabarena"
+Requires-Dist: tabicl<0.2,>=0.1.4; extra == "tabarena"
+Requires-Dist: einops<0.9,>=0.7; extra == "tabarena"
+Requires-Dist: spacy<3.9; extra == "tabarena"
 Provides-Extra: tests
-License-File: ../LICENSE
-License-File: ../NOTICE
+Requires-Dist: interpret-core<0.8,>=0.7.2; extra == "tests"
+Requires-Dist: tabdpt<1.2,>=1.1.11; extra == "tests"
+Requires-Dist: tabicl<0.2,>=0.1.4; extra == "tests"
+Requires-Dist: tabpfn<6.2.1,>=6.2.0; extra == "tests"
+Requires-Dist: pytabkit<1.8,>=1.7.2; extra == "tests"
+Requires-Dist: torch<2.10,>=2.6; extra == "tests"
+Requires-Dist: huggingface_hub[torch]<1.0; extra == "tests"
+Requires-Dist: einops<0.9,>=0.7; extra == "tests"
+Requires-Dist: imodels<2.1.0,>=1.3.10; extra == "tests"
+Requires-Dist: skl2onnx<1.20.0,>=1.15.0; extra == "tests"
+Requires-Dist: onnx!=1.16.2,<1.21.0,>=1.13.0; platform_system == "Windows" and extra == "tests"
+Requires-Dist: onnx<1.21.0,>=1.13.0; platform_system != "Windows" and extra == "tests"
+Requires-Dist: onnxruntime<1.24.0,>=1.17.0; extra == "tests"
+Requires-Dist: onnxruntime-gpu<1.24.0,>=1.17.0; (platform_system != "Darwin" and platform_machine != "aarch64") and extra == "tests"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 
@@ -63,7 +155,7 @@ License-File: ../NOTICE
 
 [![Latest Release](https://img.shields.io/github/v/release/autogluon/autogluon)](https://github.com/autogluon/autogluon/releases)
 [![Conda Forge](https://img.shields.io/conda/vn/conda-forge/autogluon.svg)](https://anaconda.org/conda-forge/autogluon)
-[![Python Versions](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/autogluon/)
+[![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/project/autogluon/)
 [![Downloads](https://pepy.tech/badge/autogluon/month)](https://pepy.tech/project/autogluon)
 [![GitHub license](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Discord](https://img.shields.io/discord/1043248669505368144?color=7289da&label=Discord&logo=discord&logoColor=ffffff)](https://discord.gg/wjUmjqAc2N)
@@ -80,7 +172,7 @@ AutoGluon, developed by AWS AI, automates machine learning tasks enabling you to
 
 ## 💾 Installation
 
-AutoGluon is supported on Python 3.9 - 3.12 and is available on Linux, MacOS, and Windows.
+AutoGluon is supported on Python 3.10 - 3.13 and is available on Linux, MacOS, and Windows.
 
 You can install AutoGluon with:
 
@@ -103,8 +195,8 @@ predictions = predictor.predict("test.csv")
 | AutoGluon Task      |                                                                                Quickstart                                                                                |                                                                                API                                                                                |
 |:--------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | TabularPredictor    | [![Quick Start](https://img.shields.io/static/v1?label=&message=tutorial&color=grey)](https://auto.gluon.ai/stable/tutorials/tabular/tabular-quick-start.html) |                 [![API](https://img.shields.io/badge/api-reference-blue.svg)](https://auto.gluon.ai/stable/api/autogluon.tabular.TabularPredictor.html)                 |
-| MultiModalPredictor | [![Quick Start](https://img.shields.io/static/v1?label=&message=tutorial&color=grey)](https://auto.gluon.ai/stable/tutorials/multimodal/multimodal_prediction/multimodal-quick-start.html)            | [![API](https://img.shields.io/badge/api-reference-blue.svg)](https://auto.gluon.ai/stable/api/autogluon.multimodal.MultiModalPredictor.html) |
 | TimeSeriesPredictor | [![Quick Start](https://img.shields.io/static/v1?label=&message=tutorial&color=grey)](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quick-start.html)            | [![API](https://img.shields.io/badge/api-reference-blue.svg)](https://auto.gluon.ai/stable/api/autogluon.timeseries.TimeSeriesPredictor.html) |
+| MultiModalPredictor | [![Quick Start](https://img.shields.io/static/v1?label=&message=tutorial&color=grey)](https://auto.gluon.ai/stable/tutorials/multimodal/multimodal_prediction/multimodal-quick-start.html)            | [![API](https://img.shields.io/badge/api-reference-blue.svg)](https://auto.gluon.ai/stable/api/autogluon.multimodal.MultiModalPredictor.html) |
 
 ## :mag: Resources
 
@@ -127,7 +219,10 @@ Below is a curated list of recent tutorials and talks on AutoGluon. A comprehens
 - [Benchmarking Multimodal AutoML for Tabular Data with Text Fields](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/file/9bf31c7ff062936a96d3c8bd1f8f2ff3-Paper-round2.pdf) (*NeurIPS*, 2021) ([BibTeX](CITING.md#autogluonmultimodal))
 - [XTab: Cross-table Pretraining for Tabular Transformers](https://proceedings.mlr.press/v202/zhu23k/zhu23k.pdf) (*ICML*, 2023)
 - [AutoGluon-TimeSeries: AutoML for Probabilistic Time Series Forecasting](https://arxiv.org/abs/2308.05566) (*AutoML Conf*, 2023) ([BibTeX](CITING.md#autogluontimeseries))
-- [TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications](https://arxiv.org/pdf/2311.02971.pdf) (*Under Review*, 2024)
+- [TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications](https://arxiv.org/pdf/2311.02971.pdf) (*AutoML Conf*, 2024)
+- [AutoGluon-Multimodal (AutoMM): Supercharging Multimodal AutoML with Foundation Models](https://arxiv.org/pdf/2404.16233) (*AutoML Conf*, 2024) ([BibTeX](CITING.md#autogluonmultimodal))
+- [Multi-layer Stack Ensembles for Time Series Forecasting](https://arxiv.org/abs/2511.15350) (*AutoML Conf*, 2025) ([BibTeX](CITING.md#autogluontimeseries))
+- [Chronos-2: From Univariate to Universal Forecasting](https://arxiv.org/abs/2510.15821) (*Arxiv*, 2025) ([BibTeX](CITING.md#autogluontimeseries))
 
 ### Articles
 - [AutoGluon-TimeSeries: Every Time Series Forecasting Model In One Library](https://towardsdatascience.com/autogluon-timeseries-every-time-series-forecasting-model-in-one-library-29a3bf6879db) (*Towards Data Science*, Jan 2024)
@@ -153,5 +248,3 @@ We are actively accepting code contributions to the AutoGluon project. If you ar
 ## :classical_building: License
 
 This library is licensed under the Apache 2.0 License.
-
-

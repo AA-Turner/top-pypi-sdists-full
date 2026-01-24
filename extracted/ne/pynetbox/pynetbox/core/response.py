@@ -36,7 +36,9 @@ def get_return(lookup, return_fields=None):
     so simply return a string. Order is important due to nested_return
     being self-referential.
 
-    :arg list,optional return_fields: A list of fields to reference when
+    ## Parameters
+
+    * **return_fields** (list, optional): A list of fields to reference when
         calling values on lookup.
     """
 
@@ -75,7 +77,7 @@ def flatten_custom(custom_dict):
 
 class JsonField:
     """Explicit field type for values that are not to be converted
-    to a Record object"""
+    to a Record object."""
 
     _json_field = True
 
@@ -83,30 +85,31 @@ class JsonField:
 class RecordSet:
     """Iterator containing Record objects.
 
-    Returned by :py:meth:`.Endpoint.all()` and :py:meth:`.Endpoint.filter()` methods.
+    Returned by `Endpoint.all()` and `Endpoint.filter()` methods.
     Allows iteration of and actions to be taken on the results from the aforementioned
-    methods. Contains :py:class:`.Record` objects.
+    methods. Contains Record objects.
 
-    :Examples:
+    ## Examples
 
-    To see how many results are in a query by calling ``len()``:
+    To see how many results are in a query by calling `len()`:
 
-    >>> x = nb.dcim.devices.all()
-    >>> len(x)
-    123
-    >>>
+    ```python
+    x = nb.dcim.devices.all()
+    len(x)
+    # 123
+    ```
 
     Simple iteration of the results:
 
-    >>> devices = nb.dcim.devices.all()
-    >>> for device in devices:
-    ...     print(device.name)
-    ...
-    test1-leaf1
-    test1-leaf2
-    test1-leaf3
-    >>>
+    ```python
+    devices = nb.dcim.devices.all()
+    for device in devices:
+        print(device.name)
 
+    # test1-leaf1
+    # test1-leaf2
+    # test1-leaf3
+    ```
     """
 
     def __init__(self, endpoint, request, **kwargs):
@@ -141,14 +144,17 @@ class RecordSet:
         """Updates kwargs onto all Records in the RecordSet and saves these.
 
         Updates are only sent to the API if a value were changed, and only for
-        the Records which were changed
+        the Records which were changed.
 
-        :returns: True if the update succeeded, None if no update were required
-        :example:
+        ## Returns
+        True if the update succeeded, None if no update were required.
 
-        >>> result = nb.dcim.devices.filter(site_id=1).update(status='active')
-        True
-        >>>
+        ## Examples
+
+        ```python
+        result = nb.dcim.devices.filter(site_id=1).update(status='active')
+        # True
+        ```
         """
         updates = []
         for record in self:
@@ -166,18 +172,20 @@ class RecordSet:
             return None
 
     def delete(self):
-        r"""Bulk deletes objects in a RecordSet.
+        """Bulk deletes objects in a RecordSet.
 
-        Allows for batch deletion of multiple objects in a RecordSet
+        Allows for batch deletion of multiple objects in a RecordSet.
 
-        :returns: True if bulk DELETE operation was successful.
+        ## Returns
+        True if bulk DELETE operation was successful.
 
-        :Examples:
+        ## Examples
 
         Deleting offline `devices` on site 1:
 
-        >>> netbox.dcim.devices.filter(site_id=1, status="offline").delete()
-        >>>
+        ```python
+        netbox.dcim.devices.filter(site_id=1, status="offline").delete()
+        ```
         """
         return self.endpoint.delete(self)
 
@@ -185,92 +193,105 @@ class RecordSet:
 class Record:
     """Create Python objects from NetBox API responses.
 
-    Creates an object from a NetBox response passed as ``values``.
+    Creates an object from a NetBox response passed as `values`.
     Nested dicts that represent other endpoints are also turned
-    into ``Record`` objects. All fields are then assigned to the
+    into Record objects. All fields are then assigned to the
     object's attributes. If a missing attr is requested
     (e.g. requesting a field that's only present on a full response on
-    a ``Record`` made from a nested response) then pynetbox will make a
+    a Record made from a nested response) then pynetbox will make a
     request for the full object and return the requested value.
 
-    :examples:
+    ## Examples
 
     Default representation of the object is usually its name:
 
-    >>> x = nb.dcim.devices.get(1)
-    >>> x
-    test1-switch1
-    >>>
+    ```python
+    x = nb.dcim.devices.get(1)
+    x
+    # test1-switch1
+    ```
 
     Querying a string field:
 
-    >>> x = nb.dcim.devices.get(1)
-    >>> x.serial
-    'ABC123'
-    >>>
+    ```python
+    x = nb.dcim.devices.get(1)
+    x.serial
+    # 'ABC123'
+    ```
 
     Querying a field on a nested object:
 
-    >>> x = nb.dcim.devices.get(1)
-    >>> x.device_type.model
-    'QFX5100-24Q'
-    >>>
+    ```python
+    x = nb.dcim.devices.get(1)
+    x.device_type.model
+    # 'QFX5100-24Q'
+    ```
 
     Casting the object as a dictionary:
 
-    >>> from pprint import pprint
-    >>> pprint(dict(x))
-    {'asset_tag': None,
-     'cluster': None,
-     'comments': '',
-     'config_context': {},
-     'created': '2018-04-01',
-     'custom_fields': {},
-     'role': {'id': 1,
-                     'name': 'Test Switch',
-                     'slug': 'test-switch',
-                     'url': 'http://localhost:8000/api/dcim/device-roles/1/'},
-     'device_type': {...},
-     'display_name': 'test1-switch1',
-     'face': {'label': 'Rear', 'value': 1},
-     'id': 1,
-     'name': 'test1-switch1',
-     'parent_device': None,
-     'platform': {...},
-     'position': 1,
-     'primary_ip': {'address': '192.0.2.1/24',
-                    'family': 4,
-                    'id': 1,
-                    'url': 'http://localhost:8000/api/ipam/ip-addresses/1/'},
-     'primary_ip4': {...},
-     'primary_ip6': None,
-     'rack': {'display_name': 'Test Rack',
-              'id': 1,
-              'name': 'Test Rack',
-              'url': 'http://localhost:8000/api/dcim/racks/1/'},
-     'serial': 'ABC123',
-     'site': {'id': 1,
-              'name': 'TEST',
-              'slug': 'TEST',
-              'url': 'http://localhost:8000/api/dcim/sites/1/'},
-     'status': {'label': 'Active', 'value': 1},
-     'tags': [],
-     'tenant': None,
-     'vc_position': None,
-     'vc_priority': None,
-     'virtual_chassis': None}
-     >>>
+    ```python
+    from pprint import pprint
+    pprint(dict(x))
+    {
+        'asset_tag': None,
+        'cluster': None,
+        'comments': '',
+        'config_context': {},
+        'created': '2018-04-01',
+        'custom_fields': {},
+        'role': {
+            'id': 1,
+            'name': 'Test Switch',
+            'slug': 'test-switch',
+            'url': 'http://localhost:8000/api/dcim/device-roles/1/'
+        },
+        'device_type': {...},
+        'display_name': 'test1-switch1',
+        'face': {'label': 'Rear', 'value': 1},
+        'id': 1,
+        'name': 'test1-switch1',
+        'parent_device': None,
+        'platform': {...},
+        'position': 1,
+        'primary_ip': {
+            'address': '192.0.2.1/24',
+            'family': 4,
+            'id': 1,
+            'url': 'http://localhost:8000/api/ipam/ip-addresses/1/'
+        },
+        'primary_ip4': {...},
+        'primary_ip6': None,
+        'rack': {
+            'display_name': 'Test Rack',
+            'id': 1,
+            'name': 'Test Rack',
+            'url': 'http://localhost:8000/api/dcim/racks/1/'
+        },
+        'site': {
+            'id': 1,
+            'name': 'TEST',
+            'slug': 'TEST',
+            'url': 'http://localhost:8000/api/dcim/sites/1/'
+        },
+        'status': {'label': 'Active', 'value': 1},
+        'tags': [],
+        'tenant': None,
+        'vc_position': None,
+        'vc_priority': None,
+        'virtual_chassis': None
+    }
+    ```
 
-     Iterating over a ``Record`` object:
+    Iterating over a Record object:
 
-    >>> for i in x:
-    ...  print(i)
-    ...
-    ('id', 1)
-    ('name', 'test1-switch1')
-    ('display_name', 'test1-switch1')
-    >>>
+    ```python
+    for i in x:
+        print(i)
 
+    # ('id', 1)
+    # ('name', 'test1-switch1')
+    # ('display_name', 'test1-switch1')
+    ```
     """
 
     url = None
@@ -313,7 +334,7 @@ class Record:
             if isinstance(cur_attr, Record):
                 yield i, dict(cur_attr)
             elif isinstance(cur_attr, list) and all(
-                isinstance(i, Record) for i in cur_attr
+                isinstance(i, (Record, GenericListObject)) for i in cur_attr
             ):
                 yield i, [dict(x) for x in cur_attr]
             else:
@@ -373,10 +394,9 @@ class Record:
                 and "object" in list_item
             ):
                 lookup = list_item["object_type"]
-                model = None
-                model = CONTENT_TYPE_MAPPER.get(lookup)
-                if model:
-                    return model(list_item["object"], self.api, self.endpoint)
+                if model := CONTENT_TYPE_MAPPER.get(lookup, None):
+                    record = model(list_item["object"], self.api, self.endpoint)
+                    return GenericListObject(record)
 
             return list_item
 
@@ -412,7 +432,7 @@ class Record:
                 # check if GFK
                 if len(v) and isinstance(v[0], dict) and "object_type" in v[0]:
                     v = [generic_list_parser(k, i) for i in v]
-                    to_cache = list(v)
+                    to_cache = [i.serialize() for i in v]
                 elif k == "constraints":
                     # Permissions constraints can be either dict or list
                     to_cache = copy.deepcopy(v)
@@ -470,6 +490,7 @@ class Record:
         If an attribute's value is a ``Record`` type it's replaced with
         the ``id`` field of that object.
 
+
         .. note::
 
             Using this to get a dictionary representation of the record
@@ -485,6 +506,7 @@ class Record:
             init_vals = dict(self._init_cache)
 
         ret = {}
+
         for i in dict(self):
             current_val = getattr(self, i) if not init else init_vals.get(i)
             if i == "custom_fields":
@@ -494,15 +516,21 @@ class Record:
                     current_val = getattr(current_val, "serialize")(nested=True)
 
                 if isinstance(current_val, list):
-                    current_val = [
-                        v.id if isinstance(v, Record) else v for v in current_val
-                    ]
+                    serialized_list = []
+                    for v in current_val:
+                        if isinstance(v, GenericListObject):
+                            v = v.serialize()
+                        elif isinstance(v, Record):
+                            v = v.id
+                        serialized_list.append(v)
+                    current_val = serialized_list
                     if i in LIST_AS_SET and (
                         all([isinstance(v, str) for v in current_val])
                         or all([isinstance(v, int) for v in current_val])
                     ):
                         current_val = list(OrderedDict.fromkeys(current_val))
                 ret[i] = current_val
+
         return ret
 
     def _diff(self):
@@ -615,3 +643,29 @@ class Record:
             http_session=self.api.http_session,
         )
         return True if req.delete() else False
+
+
+class GenericListObject:
+    def __init__(self, record):
+        from pynetbox.models.mapper import TYPE_CONTENT_MAPPER
+
+        self.object = record
+        self.object_id = record.id
+        self.object_type = TYPE_CONTENT_MAPPER.get(record.__class__)
+
+    def __repr__(self):
+        return str(self.object)
+
+    def serialize(self):
+        ret = {k: getattr(self, k) for k in ["object_id", "object_type"]}
+        return ret
+
+    def __getattr__(self, k):
+        return getattr(self.object, k)
+
+    def __iter__(self):
+        for i in ["object_id", "object_type", "object"]:
+            cur_attr = getattr(self, i)
+            if isinstance(cur_attr, Record):
+                cur_attr = dict(cur_attr)
+            yield i, cur_attr

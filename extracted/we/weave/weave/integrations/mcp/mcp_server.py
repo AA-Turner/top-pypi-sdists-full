@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import weave
 from weave.integrations.patcher import MultiPatcher, NoOpPatcher, SymbolPatcher
@@ -79,6 +80,7 @@ def get_mcp_server_patcher(
         update={
             "name": base.name or "mcp.server.fastmcp.FastMCP.call_tool",
             "call_display_name": base.call_display_name or "FastMCP.call_tool",
+            "kind": base.kind or "tool",
         }
     )
 
@@ -108,6 +110,7 @@ def get_mcp_server_patcher(
         update={
             "name": base.name or "mcp.server.fastmcp.FastMCP.tool",
             "call_display_name": base.call_display_name or "FastMCP.tool",
+            "kind": base.kind or "tool",
         }
     )
 

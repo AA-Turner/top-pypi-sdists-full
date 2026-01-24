@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -20,6 +20,9 @@ macro(PACKAGE_ADD_TEST testname linklibs)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" DISCOVERY_TIMEOUT 60)
     set_target_properties(${testname} PROPERTIES FOLDER tests)
+
+    # Set c++ standard
+    target_compile_features(${testname} PRIVATE cxx_std_20)
   endif()
 endmacro()
 
@@ -36,5 +39,8 @@ macro(PACKAGE_ADD_TEST_WITH_WORKING_DIR testname linklibs test_working_directory
       WORKING_DIRECTORY ${test_working_directory}
       PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${test_working_directory}" DISCOVERY_TIMEOUT 60)
     set_target_properties(${testname} PROPERTIES FOLDER tests)
+
+    # Set c++ standard
+    target_compile_features(${testname} PRIVATE cxx_std_20)
   endif()
 endmacro()

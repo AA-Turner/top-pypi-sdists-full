@@ -3,7 +3,7 @@ Type annotations for bcm-pricing-calculator service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_pricing_calculator/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -109,12 +110,6 @@ from .type_defs import (
     UpdateWorkloadEstimateResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -123,15 +118,15 @@ else:
 __all__ = ("BillingandCostManagementPricingCalculatorClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DataUnavailableException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DataUnavailableException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
     """
@@ -294,7 +289,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
 
     async def delete_bill_estimate(
         self, **kwargs: Unpack[DeleteBillEstimateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing bill estimate.
 
@@ -304,7 +299,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
 
     async def delete_bill_scenario(
         self, **kwargs: Unpack[DeleteBillScenarioRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing bill scenario.
 
@@ -314,7 +309,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
 
     async def delete_workload_estimate(
         self, **kwargs: Unpack[DeleteWorkloadEstimateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing workload estimate.
 
@@ -470,7 +465,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_pricing_calculator/client/#list_workload_estimates)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a specified resource.
 
@@ -478,7 +473,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bcm_pricing_calculator/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a specified resource.
 
@@ -644,7 +639,7 @@ class BillingandCostManagementPricingCalculatorClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -78,7 +78,9 @@ def parse_args() -> Args:
     unreserve_parser = subparsers.add_parser("unreserve", help="Resource to free")
 
     for subparser in [reserve_parser, unreserve_parser]:
-        subparser.add_argument("resource_names", action="store", nargs="+", help="Resource to handle")
+        subparser.add_argument(
+            "resource_names", action="store", nargs="+", help="Resource to handle"
+        )
 
     return parser.parse_args()
 
@@ -99,8 +101,8 @@ def api_call(state: LockStateTypes, args: Args) -> None:
                 continue
 
             # https://github.com/jenkinsci/lockable-resources-plugin/issues/103
-            url = f"{jenkins.client.server}/lockable-resources/{state}?resource={resource_name}"   # type: ignore[attr-defined]
-            result = jenkins.client._session.post(url) # type: ignore[attr-defined]
+            url = f"{jenkins.client.server}/lockable-resources/{state}?resource={resource_name}"
+            result = jenkins.client._session.post(url)  # type: ignore[attr-defined]
             if result.status_code == RESOURCE_LOCKED_STATUS_CODE:
                 logger.warning(f"Resource {resource_name} already locked")
                 if args.fail_already_locked:
@@ -111,10 +113,11 @@ def api_call(state: LockStateTypes, args: Args) -> None:
                 logger.info(f"{result}")
                 raise ValueError(f"{state} of {resource_name} failed due to: {result.reason}")
 
+
 def list_resources(args: Args) -> None:
     # https://JENKINS_URL/lockable-resources/api/json
     with AugmentedJenkinsClient(**extract_credentials(), timeout=args.timeout) as jenkins:
-        url = f"{jenkins.client.server}/lockable-resources/api/json?tree=resources[*]" # type: ignore[attr-defined]
+        url = f"{jenkins.client.server}/lockable-resources/api/json?tree=resources[*]"
         result = jenkins.client._session.get(url).json()
         logger.debug(f"Found {len(result['resources'])} lockable resources")
 
@@ -141,5 +144,5 @@ def main() -> None:
             list_resources(args=args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

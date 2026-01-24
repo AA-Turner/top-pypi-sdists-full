@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import errno
 import logging
 from unittest import mock
@@ -26,6 +28,7 @@ from .async_mock import AsyncMock, MagicMock, patch, sentinel
 from .conftest import (
     NCP_IEEE,
     App,
+    FeaturelessApp,
     make_app,
     make_ieee,
     make_neighbor,
@@ -115,7 +118,7 @@ async def _remove(
         elif delivery_failure:
             raise DeliveryError("Error")
         else:
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
     device = MagicMock()
     device.ieee = ieee
@@ -525,6 +528,84 @@ async def test_form_network(app):
     )
 
     assert nwk_info1.channel in (11, 15, 20, 25)
+
+
+@pytest.mark.parametrize("app_cls", [App, FeaturelessApp])
+@pytest.mark.parametrize(
+    ("config_override", "expected_tx_power", "should_warn"),
+    [
+        # No config: uses safe default
+        ({}, 8, False),
+        # Explicit tx_power configured: uses configured value
+        ({"network": {"tx_power": 10}}, 10, False),
+        ({"network": {"tx_power": -5}}, -5, False),
+        ({"network": {"tx_power": 20}}, 20, True),
+        # Country code configured: uses recommended power for country
+        ({"network": {"country_code": "US"}}, 8, False),
+        # Both country_code and explicit tx_power: uses explicit (ignores country)
+        ({"network": {"country_code": "US", "tx_power": 9}}, 9, False),
+    ],
+)
+@pytest.mark.filterwarnings("ignore::UserWarning")
+async def test_form_network_tx_power(
+    app_cls: type[zigpy.application.ControllerApplication],
+    config_override: dict | None,
+    expected_tx_power: int,
+    should_warn: bool,
+    caplog,
+):
+    app = make_app(config_override, app_base=app_cls)
+
+    with (
+        patch.object(app, "write_network_info") as write,
+        caplog.at_level(logging.WARNING),
+    ):
+        await app.form_network()
+
+        if should_warn:
+            assert "Increasing the TX power" in caplog.text
+        else:
+            assert "Increasing the TX power" not in caplog.text
+
+    nwk_info = write.mock_calls[0].kwargs["network_info"]
+    assert nwk_info.tx_power == expected_tx_power
+
+
+@pytest.mark.parametrize(
+    ("app_cls", "config_override", "expected_tx_power"),
+    [
+        # No config: nothing is adjusted
+        (App, {}, None),
+        # Explicit tx_power configured: use configured value
+        (App, {"network": {"tx_power": 10}}, 10),
+        (App, {"network": {"tx_power": -5}}, -5),
+        # Country code configured, no explicit tx_power: returns recommended power
+        (App, {"network": {"country_code": "US"}}, 8),
+        (App, {"network": {"country_code": "NL"}}, 10),
+        # Both tx_power and country_code: prioritizes explicit
+        (App, {"network": {"tx_power": 15, "country_code": "US"}}, 8),
+        (App, {"network": {"tx_power": 15, "country_code": "NL"}}, 10),
+        # With no firmware support, we have no way to detect maximums
+        (FeaturelessApp, {"network": {"tx_power": 15, "country_code": "US"}}, 15),
+        (FeaturelessApp, {"network": {"tx_power": 15, "country_code": "NL"}}, 15),
+    ],
+)
+async def test_startup_tx_power_config(
+    app_cls: type[zigpy.application.ControllerApplication],
+    config_override: dict,
+    expected_tx_power: int | None,
+) -> None:
+    app = make_app(config_override, app_base=app_cls)
+
+    with patch.object(app, "_set_tx_power", wraps=app._set_tx_power) as set_tx_power:
+        await app.initialize()
+
+    try:
+        tx_power = set_tx_power.mock_calls[0].args[0]
+    except IndexError:
+        tx_power = None
+
+    assert tx_power == expected_tx_power
 
 
 @mock.patch("zigpy.util.pick_optimal_channel", mock.Mock(return_value=22))
@@ -1381,13 +1462,13 @@ async def test_energy_scan_default(app):
     )
 
     assert len(results) == 16
-    assert results == dict(zip(range(11, 26 + 1), raw_scan_results))
+    assert results == dict(zip(range(11, 26 + 1), raw_scan_results, strict=True))
 
 
 async def test_energy_scan_not_implemented(app):
     """Energy scanning still "works" even when the radio doesn't implement it."""
     await app.startup()
-    app._device.zdo.Mgmt_NWK_Update_req.side_effect = asyncio.TimeoutError()
+    app._device.zdo.Mgmt_NWK_Update_req.side_effect = TimeoutError()
 
     results = await app.energy_scan(
         channels=t.Channels.ALL_CHANNELS, duration_exp=2, count=1
@@ -1540,7 +1621,7 @@ async def test_probe(app):
 
         async def connect(self):
             if self._config[conf.CONF_DEVICE][conf.CONF_DEVICE_BAUDRATE] != 115200:
-                raise asyncio.TimeoutError
+                raise TimeoutError
 
     # Only one baudrate is valid
     assert (await BaudSpecificApp.probe({conf.CONF_DEVICE_PATH: "/dev/null"})) == {
@@ -1551,7 +1632,7 @@ async def test_probe(app):
 
     class NeverConnectsApp(App):
         async def connect(self):
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
     # No settings will work
     assert (await NeverConnectsApp.probe({conf.CONF_DEVICE_PATH: "/dev/null"})) is False
@@ -1605,14 +1686,14 @@ async def test_network_scan(app) -> None:
 async def test_packet_capture(app) -> None:
     packets = [
         t.CapturedPacket(
-            timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2021, 1, 1, 0, 0, 0, tzinfo=UTC),
             rssi=-60,
             lqi=250,
             channel=15,
             data=bytes.fromhex("02007f"),
         ),
         t.CapturedPacket(
-            timestamp=datetime(2021, 1, 1, 0, 0, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2021, 1, 1, 0, 0, 1, tzinfo=UTC),
             rssi=-70,
             lqi=240,
             channel=15,
@@ -1704,3 +1785,70 @@ async def test_can_write_network_settings(app) -> None:
     assert await app.can_write_network_settings(
         network_info=app.state.network_info, node_info=app.state.node_info
     )
+
+
+async def test_shutdown_device_remove_fails(app, ieee, caplog):
+    """Test shutdown continues if a device fails to be removed."""
+    dev = app.add_device(ieee, 0x1234)
+
+    with patch.object(dev, "on_remove", side_effect=Exception("Boom!")):
+        with caplog.at_level(logging.WARNING):
+            await app.shutdown()
+
+    assert "Failed to remove device" in caplog.text
+    assert "Boom!" in caplog.text
+
+
+async def test_callback_wrapping(
+    app: zigpy.application.ControllerApplication, ieee, caplog
+) -> None:
+    """Test that exceptions are caught and logged for wrapped callbacks."""
+    dev = app.add_device(ieee, 0x1234)
+
+    def _callback():
+        raise ValueError("Boom!")
+
+    callback = app.wrap_callback(dev, _callback)
+    with caplog.at_level(logging.WARNING):
+        callback()
+
+    assert caplog.record_tuples == [
+        (
+            "zigpy.application",
+            logging.WARNING,
+            (
+                "Device <Device model=None manuf=None nwk=0x1234 "
+                "ieee=07:06:05:04:03:02:01:00 is_initialized=False> "
+                "callback failed - ValueError('Boom!')"
+            ),
+        ),
+    ]
+
+
+async def test_callback_wrapping_async(
+    app: zigpy.application.ControllerApplication, ieee, caplog
+) -> None:
+    """Test that exceptions are caught and logged for wrapped async callbacks."""
+    dev = app.add_device(ieee, 0x1234)
+
+    async def _callback():
+        raise ValueError("Boom!")
+
+    callback = app.wrap_callback(dev, _callback)
+    with caplog.at_level(logging.WARNING):
+        callback()
+        tasks = app._tasks.copy()
+        for task in tasks:
+            await task
+
+    assert caplog.record_tuples == [
+        (
+            "zigpy.application",
+            logging.WARNING,
+            (
+                "Device <Device model=None manuf=None nwk=0x1234 "
+                "ieee=07:06:05:04:03:02:01:00 is_initialized=False> "
+                "callback failed - ValueError('Boom!')"
+            ),
+        ),
+    ]

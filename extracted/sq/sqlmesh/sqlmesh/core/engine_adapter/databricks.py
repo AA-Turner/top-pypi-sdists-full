@@ -5,7 +5,9 @@ import typing as t
 from functools import partial
 
 from sqlglot import exp
+
 from sqlmesh.core.dialect import to_schema
+from sqlmesh.core.engine_adapter.mixins import GrantsFromInfoSchemaMixin
 from sqlmesh.core.engine_adapter.shared import (
     CatalogSupport,
     DataObject,
@@ -28,12 +30,16 @@ if t.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DatabricksEngineAdapter(SparkEngineAdapter):
+class DatabricksEngineAdapter(SparkEngineAdapter, GrantsFromInfoSchemaMixin):
     DIALECT = "databricks"
     INSERT_OVERWRITE_STRATEGY = InsertOverwriteStrategy.REPLACE_WHERE
     SUPPORTS_CLONING = True
     SUPPORTS_MATERIALIZED_VIEWS = True
     SUPPORTS_MATERIALIZED_VIEW_SCHEMA = True
+    SUPPORTS_GRANTS = True
+    USE_CATALOG_IN_GRANTS = True
+    # Spark has this set to false for compatibility when mixing with Trino but that isn't a concern with Databricks
+    QUOTE_IDENTIFIERS_IN_VIEWS = True
     SCHEMA_DIFFER_KWARGS = {
         "support_positional_add": True,
         "nested_support": NestedSupport.ALL,
@@ -72,21 +78,21 @@ class DatabricksEngineAdapter(SparkEngineAdapter):
     def _use_spark_session(self) -> bool:
         if self.can_access_spark_session(bool(self._extra_config.get("disable_spark_session"))):
             return True
-        return (
-            self.can_access_databricks_connect(
-                bool(self._extra_config.get("disable_databricks_connect"))
-            )
-            and (
-                {
-                    "databricks_connect_server_hostname",
-                    "databricks_connect_access_token",
-                }.issubset(self._extra_config)
-            )
-            and (
-                "databricks_connect_cluster_id" in self._extra_config
-                or "databricks_connect_use_serverless" in self._extra_config
-            )
-        )
+
+        if self.can_access_databricks_connect(
+            bool(self._extra_config.get("disable_databricks_connect"))
+        ):
+            if self._extra_config.get("databricks_connect_use_serverless"):
+                return True
+
+            if {
+                "databricks_connect_cluster_id",
+                "databricks_connect_server_hostname",
+                "databricks_connect_access_token",
+            }.issubset(self._extra_config):
+                return True
+
+        return False
 
     @property
     def is_spark_session_connection(self) -> bool:
@@ -102,7 +108,7 @@ class DatabricksEngineAdapter(SparkEngineAdapter):
 
         connect_kwargs = dict(
             host=self._extra_config["databricks_connect_server_hostname"],
-            token=self._extra_config["databricks_connect_access_token"],
+            token=self._extra_config.get("databricks_connect_access_token"),
         )
         if "databricks_connect_use_serverless" in self._extra_config:
             connect_kwargs["serverless"] = True
@@ -148,6 +154,28 @@ class DatabricksEngineAdapter(SparkEngineAdapter):
     @property
     def catalog_support(self) -> CatalogSupport:
         return CatalogSupport.FULL_SUPPORT
+
+    @staticmethod
+    def _grant_object_kind(table_type: DataObjectType) -> str:
+        if table_type == DataObjectType.VIEW:
+            return "VIEW"
+        if table_type == DataObjectType.MATERIALIZED_VIEW:
+            return "MATERIALIZED VIEW"
+        return "TABLE"
+
+    def _get_grant_expression(self, table: exp.Table) -> exp.Expression:
+        # We only care about explicitly granted privileges and not inherited ones
+        # if this is removed you would see grants inherited from the catalog get returned
+        expression = super()._get_grant_expression(table)
+        expression.args["where"].set(
+            "this",
+            exp.and_(
+                expression.args["where"].this,
+                exp.column("inherited_from").eq(exp.Literal.string("NONE")),
+                wrap=False,
+            ),
+        )
+        return expression
 
     def _begin_session(self, properties: SessionProperties) -> t.Any:
         """Begin a new session."""
@@ -366,3 +394,20 @@ class DatabricksEngineAdapter(SparkEngineAdapter):
             expressions.append(clustered_by_exp)
             properties = exp.Properties(expressions=expressions)
         return properties
+
+    def _build_column_defs(
+        self,
+        target_columns_to_types: t.Dict[str, exp.DataType],
+        column_descriptions: t.Optional[t.Dict[str, str]] = None,
+        is_view: bool = False,
+        materialized: bool = False,
+    ) -> t.List[exp.ColumnDef]:
+        # Databricks requires column types to be specified when adding column comments
+        # in CREATE MATERIALIZED VIEW statements. Override is_view to False to force
+        # column types to be included when comments are present.
+        if is_view and materialized and column_descriptions:
+            is_view = False
+
+        return super()._build_column_defs(
+            target_columns_to_types, column_descriptions, is_view, materialized
+        )

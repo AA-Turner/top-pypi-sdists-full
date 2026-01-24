@@ -156,6 +156,22 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, None, None, None])
             self.state.live_registers.add(base_offset)
 
     def _handle_expr_Load(self, expr: Load):
+        # slightly tricky to handle it right
+        # if this load is covered by an existing stack variable, it will be a partial read, and we do not do anything
+        # otherwise we make sure a def will be created for this load
+        if (
+            self.stackvars
+            and isinstance(expr.addr, StackBaseOffset)
+            and isinstance(expr.addr.offset, int)
+            and self.stackvars
+        ):
+            offset, size = expr.addr.offset, expr.size
+            if (offset, size) in self.state.live_stackvars:
+                return
+            for off, sz in self.state.live_stackvars:
+                if off <= offset and offset + size <= off + sz:
+                    return
+
         self._expr(expr.addr)
         if (
             self.stackvars
@@ -202,6 +218,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, None, None, None])
     _handle_binop_CmpGT = _handle_binop_Default
     _handle_binop_CmpEQ = _handle_binop_Default
     _handle_binop_CmpNE = _handle_binop_Default
+    _handle_binop_CmpORD = _handle_binop_Default
     _handle_binop_Add = _handle_binop_Default
     _handle_binop_AddF = _handle_binop_Default
     _handle_binop_AddV = _handle_binop_Default

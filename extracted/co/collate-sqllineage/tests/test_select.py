@@ -234,7 +234,13 @@ def test_select_from_unnest_with_ordinality():
     ) AS x (numbers)
     CROSS JOIN UNNEST(numbers) WITH ORDINALITY AS t (n, a);
     """
-    assert_table_lineage_equal(sql, test_sqlfluff=False, test_sqlparse=False)
+    assert_table_lineage_equal(
+        sql,
+        {DataFunction("UNNEST")},
+        test_sqlglot=True,
+        test_sqlfluff=False,  # doesn't support parsing this yet
+        test_sqlparse=False,  # supports but returns additional DataFunction("x") so skipping this
+    )
 
 
 def test_select_union_all():
@@ -292,7 +298,8 @@ def test_token_matching_empty_in_clause():
         sql,
         {"some_table"},
         test_sqlparse=True,
-        test_sqlfluff=False,
+        test_sqlfluff=False,  # AssertionError: Root variant not successfully parsed.
+        test_sqlglot=False,  # sqlglot.errors.TokenError: Error tokenizing '         'SOME_STRING)',
     )
 
 

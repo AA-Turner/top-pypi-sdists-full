@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pysonar
-Version: 1.2.0.2419
+Version: 1.3.0.4086
 Summary: Sonar Scanner for the Python Ecosystem
-License: LGPL-3.0-only
+License-Expression: LGPL-3.0-only
+License-File: LICENSE
 Keywords: sonar,sonarqube,sonarcloud,cleancode
 Author: [Code Quality] Data & ML Squad
 Author-email: quality.data-ml@sonarsource.com

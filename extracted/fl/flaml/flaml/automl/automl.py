@@ -4,6 +4,7 @@
 #  * project root for license information.
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -117,6 +118,8 @@ class AutoML(BaseEstimator):
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'roc_auc_weighted',
                 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted', 'f1', 'micro_f1', 'macro_f1',
                 'log_loss', 'mae', 'mse', 'r2', 'mape'. Default is 'auto'.
+                For a full list of supported built-in metrics, please refer to
+                https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric
                 If passing a customized metric function, the function needs to
                 have the following input arguments:
 
@@ -153,6 +156,10 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
+                **Note:** When passing a custom metric function, pass the function itself
+                (e.g., `metric=custom_metric`), not the result of calling it
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function
+                internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast', 'rank',
                 'seq-classification', 'seq-regression', 'summarization',
@@ -173,14 +180,20 @@ class AutoML(BaseEstimator):
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
                 'n_jobs' as the key to specify the number of jobs for the stacker.
+                Note: The hyperparameters of a custom 'final_estimator' are NOT
+                automatically tuned. If you provide an estimator instance (e.g.,
+                CatBoostClassifier()), it will use the parameters you specified
+                or their defaults. If 'final_estimator' is not provided, the best
+                model found during the search will be used as the final estimator.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
             n_splits: An integer of the number of folds for cross - validation.
-            log_type: A string of the log type, one of
-                ['better', 'all'].
-                'better' only logs configs with better loss than previos iters
-                'all' logs all the tried configs.
+            log_type: Specifies which logs to save. One of ['better', 'all']. Default is 'better'.
+                - 'better': Logs configs and models (if `model_history` is True) only when the loss improves,
+                  to `log_file_name` and MLflow, respectively.
+                - 'all': Logs all configs and models (if `model_history` is True), regardless of performance.
+                Note: Configs are always logged to MLflow if MLflow logging is enabled.
             model_history: A boolean of whether to keep the best
                 model per estimator. Make sure memory is large enough if setting to True. Default False.
             log_training_metric: A boolean of whether to log the training
@@ -330,6 +343,12 @@ class AutoML(BaseEstimator):
          }
         ```
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to the set that is
+                missing them, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             fit_kwargs_by_estimator: dict, default=None | The user specified keywords arguments, grouped by estimator name.
                 e.g.,
 
@@ -360,7 +379,10 @@ class AutoML(BaseEstimator):
         settings["split_ratio"] = settings.get("split_ratio", SPLIT_RATIO)
         settings["n_splits"] = settings.get("n_splits", N_SPLITS)
         settings["auto_augment"] = settings.get("auto_augment", True)
+        settings["allow_label_overlap"] = settings.get("allow_label_overlap", True)
         settings["metric"] = settings.get("metric", "auto")
+        # Validate that custom metric is callable if not a string
+        self._validate_metric_parameter(settings["metric"], allow_auto=True)
         settings["estimator_list"] = settings.get("estimator_list", "auto")
         settings["log_file_name"] = settings.get("log_file_name", "")
         settings["max_iter"] = settings.get("max_iter")  # no budget by default
@@ -400,6 +422,80 @@ class AutoML(BaseEstimator):
 
         self._estimator_type = "classifier" if settings["task"] in CLASSIFICATION else "regressor"
         self.best_run_id = None
+
+    def __getstate__(self):
+        """Customize pickling to avoid serializing runtime-only objects.
+
+        MLflow's sklearn flavor serializes estimators via (cloud)pickle. During
+        AutoML fitting we may attach an internal mlflow integration instance
+        which holds `concurrent.futures.Future` objects and executors containing
+        thread locks, which are not picklable.
+        """
+
+        state = self.__dict__.copy()
+        # Keep mlflow_integration for post-load visualization (e.g., infos), but
+        # strip non-picklable runtime-only members (thread futures, clients).
+        mlflow_integration = state.get("mlflow_integration", None)
+        if mlflow_integration is not None:
+            import copy
+
+            mi = copy.copy(mlflow_integration)
+            # These are runtime-only and often contain locks / threads.
+            if hasattr(mi, "futures"):
+                mi.futures = {}
+            if hasattr(mi, "futures_log_model"):
+                mi.futures_log_model = {}
+            if hasattr(mi, "train_func"):
+                mi.train_func = None
+            if hasattr(mi, "mlflow_client"):
+                mi.mlflow_client = None
+            state["mlflow_integration"] = mi
+        # MLflow signature objects may hold references to Spark/pandas-on-Spark
+        # inputs and can indirectly capture SparkContext, which is not picklable.
+        state.pop("estimator_signature", None)
+        state.pop("pipeline_signature", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Ensure mlflow_integration runtime members exist post-unpickle.
+        mi = getattr(self, "mlflow_integration", None)
+        if mi is not None:
+            if not hasattr(mi, "futures") or mi.futures is None:
+                mi.futures = {}
+            if not hasattr(mi, "futures_log_model") or mi.futures_log_model is None:
+                mi.futures_log_model = {}
+            if not hasattr(mi, "train_func"):
+                mi.train_func = None
+            if not hasattr(mi, "mlflow_client") or mi.mlflow_client is None:
+                try:
+                    import mlflow as _mlflow
+
+                    mi.mlflow_client = _mlflow.tracking.MlflowClient()
+                except Exception:
+                    mi.mlflow_client = None
+
+    @staticmethod
+    def _validate_metric_parameter(metric, allow_auto=True):
+        """Validate that the metric parameter is either a string or a callable function.
+
+        Args:
+            metric: The metric parameter to validate.
+            allow_auto: Whether to allow "auto" as a valid string value.
+
+        Raises:
+            ValueError: If metric is not a string or callable function.
+        """
+        if allow_auto and metric == "auto":
+            return
+        if not isinstance(metric, str) and not callable(metric):
+            raise ValueError(
+                f"The 'metric' parameter must be either a string or a callable function, "
+                f"but got {type(metric).__name__}. "
+                f"If you defined a custom_metric function, make sure to pass the function itself "
+                f"(e.g., metric=custom_metric) and not the result of calling it "
+                f"(e.g., metric=custom_metric(...))."
+            )
 
     def get_params(self, deep: bool = False) -> dict:
         return self._settings.copy()
@@ -449,18 +545,135 @@ class AutoML(BaseEstimator):
 
     @property
     def best_config(self):
-        """A dictionary of the best configuration."""
+        """A dictionary of the best configuration.
+
+        The returned config dictionary can be used to:
+        1. Pass as `starting_points` to a new AutoML run.
+        2. Initialize the corresponding FLAML estimator directly.
+        3. Initialize the original model (e.g., LightGBM, XGBoost) after converting
+           FLAML-specific parameters.
+
+        Note:
+            The config contains FLAML's search space parameters, which may differ from
+            the original model's parameters. For example, FLAML uses `log_max_bin` for
+            LightGBM instead of `max_bin`. Use the FLAML estimator's `config2params()`
+            method to convert to the original model's parameters.
+
+        Example:
+
+        ```python
+        from flaml import AutoML
+        from flaml.automl.model import LGBMEstimator
+        from lightgbm import LGBMClassifier
+        from sklearn.datasets import load_iris
+
+        X, y = load_iris(return_X_y=True)
+
+        # Train with AutoML
+        automl = AutoML()
+        automl.fit(X, y, task="classification", time_budget=10)
+
+        # Get the best config
+        best_config = automl.best_config
+        print("Best config:", best_config)
+        # Example output: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+        #                  'learning_rate': 0.1, 'log_max_bin': 8, ...}
+
+        # Option 1: Use FLAML estimator directly (handles parameter conversion internally)
+        flaml_estimator = LGBMEstimator(task="classification", **best_config)
+        flaml_estimator.fit(X, y)
+
+        # Option 2: Convert to original model parameters using config2params()
+        # This converts FLAML-specific params (e.g., log_max_bin -> max_bin)
+        original_params = flaml_estimator.params  # or use flaml_estimator.config2params(best_config)
+        print("Original model params:", original_params)
+        # Example output: {'n_estimators': 4, 'num_leaves': 4, 'min_child_samples': 20,
+        #                  'learning_rate': 0.1, 'max_bin': 255, ...}  # log_max_bin converted to max_bin
+
+        # Now use with original LightGBM
+        lgbm_model = LGBMClassifier(**original_params)
+        lgbm_model.fit(X, y)
+        ```
+        """
         state = self._search_states.get(self._best_estimator)
         config = state and getattr(state, "best_config", None)
         return config and AutoMLState.sanitize(config)
 
     @property
     def best_config_per_estimator(self):
-        """A dictionary of all estimators' best configuration."""
-        return {
-            e: e_search_state.best_config and AutoMLState.sanitize(e_search_state.best_config)
-            for e, e_search_state in self._search_states.items()
-        }
+        """A dictionary of all estimators' best configuration.
+
+        Returns a dictionary where keys are estimator names (e.g., 'lgbm', 'xgboost')
+        and values are the best hyperparameter configurations found for each estimator.
+        The config may include `FLAML_sample_size` which indicates the sample size used
+        during training.
+
+        This is useful for:
+        1. Passing as `starting_points` to a new AutoML run for warm-starting.
+        2. Comparing the best configurations across different estimators.
+        3. Initializing the original models after converting FLAML-specific parameters.
+
+        Note:
+            The configs contain FLAML's search space parameters, which may differ from
+            the original models' parameters. Use each estimator's `config2params()` method
+            to convert to the original model's parameters.
+
+        Example:
+
+        ```python
+        from flaml import AutoML
+        from flaml.automl.model import LGBMEstimator, XGBoostEstimator
+        from lightgbm import LGBMClassifier
+        from xgboost import XGBClassifier
+        from sklearn.datasets import load_iris
+
+        X, y = load_iris(return_X_y=True)
+
+        # Train with AutoML
+        automl = AutoML()
+        automl.fit(X, y, task="classification", time_budget=30,
+                   estimator_list=['lgbm', 'xgboost'])
+
+        # Get best configs for all estimators
+        configs = automl.best_config_per_estimator
+        print(configs)
+        # Example output: {'lgbm': {'n_estimators': 4, 'num_leaves': 4, 'log_max_bin': 8, ...},
+        #                  'xgboost': {'n_estimators': 4, 'max_leaves': 4, ...}}
+
+        # Use as starting points for a new AutoML run (warm start)
+        new_automl = AutoML()
+        new_automl.fit(X, y, task="classification", time_budget=30,
+                       starting_points=configs)
+
+        # Or convert to original model parameters for direct use
+        if configs.get('lgbm'):
+            lgbm_config = configs['lgbm'].copy()
+            lgbm_config.pop('FLAML_sample_size', None)  # Remove FLAML internal param
+            flaml_lgbm = LGBMEstimator(task="classification", **lgbm_config)
+            original_lgbm_params = flaml_lgbm.params  # Converted params (log_max_bin -> max_bin), or use flaml_lgbm.config2params(lgbm_config)
+            lgbm_model = LGBMClassifier(**original_lgbm_params)
+            lgbm_model.fit(X, y)
+
+        if configs.get('xgboost'):
+            xgb_config = configs['xgboost'].copy()
+            xgb_config.pop('FLAML_sample_size', None)  # Remove FLAML internal param
+            flaml_xgb = XGBoostEstimator(task="classification", **xgb_config)
+            original_xgb_params = flaml_xgb.params  # Converted params
+            xgb_model = XGBClassifier(**original_xgb_params)
+            xgb_model.fit(X, y)
+        ```
+        """
+        result = {}
+        for e, e_search_state in self._search_states.items():
+            if e_search_state.best_config:
+                config = e_search_state.best_config.get("ml", e_search_state.best_config).copy()
+                # Remove internal keys that are not needed for starting_points, but keep FLAML_sample_size
+                config.pop("learner", None)
+                config.pop("_choice_", None)
+                result[e] = config
+            else:
+                result[e] = None
+        return result
 
     @property
     def best_loss_per_estimator(self):
@@ -576,7 +789,7 @@ class AutoML(BaseEstimator):
 
     def predict(
         self,
-        X: np.array | DataFrame | list[str] | list[list[str]] | psDataFrame,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
         **pred_kwargs,
     ):
         """Predict label from features.
@@ -641,6 +854,50 @@ class AutoML(BaseEstimator):
         X = self._state.task.preprocess(X, self._transformer)
         proba = self._trained_estimator.predict_proba(X, **pred_kwargs)
         return proba
+
+    def preprocess(
+        self,
+        X: np.ndarray | DataFrame | list[str] | list[list[str]] | psDataFrame,
+    ):
+        """Preprocess data using task-level preprocessing.
+
+        This method applies task-level preprocessing transformations to the input data,
+        including handling of data types, sparse matrices, and feature transformations
+        that were learned during the fit phase. This should be called before any
+        estimator-level preprocessing.
+
+        Args:
+            X: A numpy array or pandas dataframe or pyspark.pandas dataframe
+                of featurized instances, shape n * m,
+                or for time series forecast tasks:
+                    a pandas dataframe with the first column containing
+                    timestamp values (datetime type) or an integer n for
+                    the predict steps (only valid when the estimator is
+                    arima or sarimax). Other columns in the dataframe
+                    are assumed to be exogenous variables (categorical
+                    or numeric).
+
+        Returns:
+            Preprocessed data in the same format as input (numpy array, DataFrame, etc.).
+
+        Raises:
+            AttributeError: If the model has not been fitted yet.
+
+        Example:
+            ```python
+            automl = AutoML()
+            automl.fit(X_train, y_train, task="classification")
+
+            # Apply task-level preprocessing to new data
+            X_test_preprocessed = automl.preprocess(X_test)
+            ```
+        """
+        if not hasattr(self, "_state") or self._state is None:
+            raise AttributeError("AutoML instance has not been fitted yet. Please call fit() first.")
+        if not hasattr(self, "_transformer"):
+            raise AttributeError("Transformer not initialized. Please call fit() first.")
+
+        return self._state.task.preprocess(X, self._transformer)
 
     def add_learner(self, learner_name, learner_class):
         """Add a customized learner.
@@ -800,6 +1057,14 @@ class AutoML(BaseEstimator):
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
+                        This is the number of time steps ahead to forecast (e.g., period=12 means
+                        forecasting 12 steps into the future). This represents the forecast horizon
+                        used during model training. Note: during prediction, the output length
+                        equals the length of X_test. FLAML automatically handles feature
+                        engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
+                        lagged features created automatically, while time series native models (prophet,
+                        arima, sarimax) use their built-in forecasting capabilities. You do NOT need
+                        to manually create lagged features of the target variable.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                         only used by TransformersEstimator, XGBoostSklearnEstimator, and
                         TemporalFusionTransformerEstimator.
@@ -907,6 +1172,7 @@ class AutoML(BaseEstimator):
         eval_method = self._decide_eval_method(eval_method, time_budget)
         self.modelcount = 0
         self._auto_augment = auto_augment
+        self._allow_label_overlap = self._settings.get("allow_label_overlap", True)
         self._prepare_data(eval_method, split_ratio, n_splits)
         self._state.time_budget = -1
         self._state.free_mem_ratio = 0
@@ -1094,17 +1360,344 @@ class AutoML(BaseEstimator):
         return self._state.data_size[0] if self._sample else None
 
     def pickle(self, output_file_name):
+        """Serialize the AutoML instance to a pickle file.
+
+        Notes:
+            When the trained estimator(s) are Spark-based, they may hold references
+            to SparkContext/SparkSession via Spark ML objects. Such objects are not
+            safely picklable and can cause pickling/broadcast errors.
+
+            This method externalizes Spark ML models into an adjacent artifact
+            directory and stores only lightweight metadata in the pickle.
+        """
+
+        import os
+        import pickle
+        import re
+
+        def _safe_name(name: str) -> str:
+            return re.sub(r"[^A-Za-z0-9_.-]+", "_", name)
+
+        def _iter_trained_estimators():
+            trained = getattr(self, "_trained_estimator", None)
+            if trained is not None:
+                yield "_trained_estimator", trained
+            for est_name in getattr(self, "estimator_list", []) or []:
+                ss = getattr(self, "_search_states", {}).get(est_name)
+                te = ss and getattr(ss, "trained_estimator", None)
+                if te is not None:
+                    yield f"_search_states.{est_name}.trained_estimator", te
+
+        def _scrub_pyspark_refs(root_obj):
+            """Best-effort removal of pyspark objects prior to pickling.
+
+            SparkContext/SparkSession and Spark DataFrame objects are not picklable.
+            This function finds such objects within common containers and instance
+            attributes and replaces them with None, returning a restore mapping.
+            """
+
+            try:
+                import pyspark
+                from pyspark.broadcast import Broadcast
+                from pyspark.sql import DataFrame as SparkDataFrame
+                from pyspark.sql import SparkSession
+
+                try:
+                    import pyspark.pandas as ps
+
+                    psDataFrameType = getattr(ps, "DataFrame", None)
+                    psSeriesType = getattr(ps, "Series", None)
+                except Exception:
+                    psDataFrameType = None
+                    psSeriesType = None
+
+                bad_types = [
+                    pyspark.SparkContext,
+                    SparkSession,
+                    SparkDataFrame,
+                    Broadcast,
+                ]
+                if psDataFrameType is not None:
+                    bad_types.append(psDataFrameType)
+                if psSeriesType is not None:
+                    bad_types.append(psSeriesType)
+                bad_types = tuple(t for t in bad_types if t is not None)
+            except Exception:
+                return {}
+
+            restore = {}
+            visited = set()
+
+            def _mark(parent, key, value, path):
+                restore[(id(parent), key)] = (parent, key, value)
+                try:
+                    if isinstance(parent, dict):
+                        parent[key] = None
+                    elif isinstance(parent, list):
+                        parent[key] = None
+                    elif isinstance(parent, tuple):
+                        # tuples are immutable; we can't modify in-place
+                        pass
+                    else:
+                        setattr(parent, key, None)
+                except Exception:
+                    # Best-effort.
+                    pass
+
+            def _walk(obj, depth, parent=None, key=None, path="self"):
+                if obj is None:
+                    return
+                oid = id(obj)
+                if oid in visited:
+                    return
+                visited.add(oid)
+
+                if isinstance(obj, bad_types):
+                    if parent is not None:
+                        _mark(parent, key, obj, path)
+                    return
+                if depth <= 0:
+                    return
+
+                if isinstance(obj, dict):
+                    for k, v in list(obj.items()):
+                        _walk(v, depth - 1, parent=obj, key=k, path=f"{path}[{k!r}]")
+                    return
+                if isinstance(obj, list):
+                    for i, v in enumerate(list(obj)):
+                        _walk(v, depth - 1, parent=obj, key=i, path=f"{path}[{i}]")
+                    return
+                if isinstance(obj, tuple):
+                    # Can't scrub inside tuples safely; but still inspect for diagnostics.
+                    for i, v in enumerate(obj):
+                        _walk(v, depth - 1, parent=None, key=None, path=f"{path}[{i}]")
+                    return
+                if isinstance(obj, set):
+                    for v in list(obj):
+                        _walk(v, depth - 1, parent=None, key=None, path=f"{path}{{...}}")
+                    return
+
+                d = getattr(obj, "__dict__", None)
+                if isinstance(d, dict):
+                    for attr, v in list(d.items()):
+                        _walk(v, depth - 1, parent=obj, key=attr, path=f"{path}.{attr}")
+
+            _walk(root_obj, depth=6)
+            return restore
+
+        # Temporarily remove non-picklable pieces (e.g., SparkContext-backed objects)
+        # and externalize spark models.
+        estimator_to_training_function = {}
+        spark_restore = []
+        artifact_dir = None
+        state_restore = {}
+        automl_restore = {}
+        scrub_restore = {}
+
+        try:
+            # Signatures are only used for MLflow logging; they are not required
+            # for inference and can capture SparkContext via pyspark objects.
+            for attr in ("estimator_signature", "pipeline_signature"):
+                if hasattr(self, attr):
+                    automl_restore[attr] = getattr(self, attr)
+                    setattr(self, attr, None)
+
+            for estimator in self.estimator_list:
+                search_state = self._search_states[estimator]
+                if hasattr(search_state, "training_function"):
+                    estimator_to_training_function[estimator] = search_state.training_function
+                    del search_state.training_function
+
+            # AutoMLState may keep Spark / pandas-on-Spark dataframes which are not picklable.
+            # They are not required for inference, so strip them for serialization.
+            state = getattr(self, "_state", None)
+            if state is not None:
+                for attr in (
+                    "X_train",
+                    "y_train",
+                    "X_train_all",
+                    "y_train_all",
+                    "X_val",
+                    "y_val",
+                    "weight_val",
+                    "groups_val",
+                    "sample_weight_all",
+                    "groups",
+                    "groups_all",
+                    "kf",
+                ):
+                    if hasattr(state, attr):
+                        state_restore[attr] = getattr(state, attr)
+                        setattr(state, attr, None)
+
+            for key, est in _iter_trained_estimators():
+                if getattr(est, "estimator_baseclass", None) != "spark":
+                    continue
+
+                # Drop training data reference (Spark DataFrame / pandas-on-Spark).
+                old_df_train = getattr(est, "df_train", None)
+                old_model = getattr(est, "_model", None)
+
+                model_meta = None
+                if old_model is not None:
+                    if artifact_dir is None:
+                        artifact_dir = output_file_name + ".flaml_artifacts"
+                        os.makedirs(artifact_dir, exist_ok=True)
+                        # store relative dirname so the pickle+folder can be moved together
+                        self._flaml_pickle_artifacts_dirname = os.path.basename(artifact_dir)
+
+                    model_dir = os.path.join(artifact_dir, _safe_name(key))
+                    # Spark ML models are saved as directories.
+                    try:
+                        writer = old_model.write()
+                        writer.overwrite().save(model_dir)
+                    except Exception as e:
+                        raise RuntimeError(
+                            "Failed to externalize Spark model for pickling. "
+                            "Please ensure the Spark ML model supports write().overwrite().save(path)."
+                        ) from e
+
+                    model_meta = {
+                        "path": os.path.relpath(model_dir, os.path.dirname(output_file_name) or "."),
+                        "class": old_model.__class__.__module__ + "." + old_model.__class__.__name__,
+                    }
+                    # Replace in-memory Spark model with metadata only.
+                    est._model = None
+                    est._flaml_spark_model_meta = model_meta
+
+                est.df_train = None
+                spark_restore.append((est, old_model, old_df_train, model_meta))
+
+            with open(output_file_name, "wb") as f:
+                try:
+                    pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+                except Exception:
+                    # Some pyspark objects can still be captured indirectly.
+                    scrub_restore = _scrub_pyspark_refs(self)
+                    if scrub_restore:
+                        f.seek(0)
+                        f.truncate()
+                        pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+                    else:
+                        raise
+        finally:
+            # Restore training_function and Spark models so current object remains usable.
+            for estimator, tf in estimator_to_training_function.items():
+                self._search_states[estimator].training_function = tf
+
+            for attr, val in automl_restore.items():
+                setattr(self, attr, val)
+
+            state = getattr(self, "_state", None)
+            if state is not None and state_restore:
+                for attr, val in state_restore.items():
+                    setattr(state, attr, val)
+
+            for est, old_model, old_df_train, model_meta in spark_restore:
+                est._model = old_model
+                est.df_train = old_df_train
+                if model_meta is not None and hasattr(est, "_flaml_spark_model_meta"):
+                    delattr(est, "_flaml_spark_model_meta")
+
+            if scrub_restore:
+                for _, (parent, key, value) in scrub_restore.items():
+                    try:
+                        if isinstance(parent, dict):
+                            parent[key] = value
+                        elif isinstance(parent, list):
+                            parent[key] = value
+                        else:
+                            setattr(parent, key, value)
+                    except Exception:
+                        pass
+
+    @classmethod
+    def load_pickle(cls, input_file_name: str, load_spark_models: bool = True):
+        """Load an AutoML instance saved by :meth:`pickle`.
+
+        Args:
+            input_file_name: Path to the pickle file created by :meth:`pickle`.
+            load_spark_models: Whether to load externalized Spark ML models back
+                into the estimator objects. If False, Spark estimators will remain
+                without their underlying Spark model and cannot be used for predict.
+
+        Returns:
+            The deserialized AutoML instance.
+        """
+        import importlib
+        import os
         import pickle
 
-        estimator_to_training_function = {}
-        for estimator in self.estimator_list:
-            search_state = self._search_states[estimator]
-            if hasattr(search_state, "training_function"):
-                estimator_to_training_function[estimator] = search_state.training_function
-                del search_state.training_function
+        with open(input_file_name, "rb") as f:
+            automl = pickle.load(f)
 
-        with open(output_file_name, "wb") as f:
-            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        # Recreate per-estimator training_function if it was removed for pickling.
+        try:
+            for est_name, ss in getattr(automl, "_search_states", {}).items():
+                if not hasattr(ss, "training_function"):
+                    ss.training_function = partial(
+                        AutoMLState._compute_with_config_base,
+                        state=automl._state,
+                        estimator=est_name,
+                    )
+        except Exception:
+            # Best-effort; training_function is only needed for re-searching.
+            pass
+
+        if not load_spark_models:
+            return automl
+
+        base_dir = os.path.dirname(input_file_name) or "."
+
+        def _iter_trained_estimators_loaded():
+            trained = getattr(automl, "_trained_estimator", None)
+            if trained is not None:
+                yield trained
+            for ss in getattr(automl, "_search_states", {}).values():
+                te = ss and getattr(ss, "trained_estimator", None)
+                if te is not None:
+                    yield te
+
+        for est in _iter_trained_estimators_loaded():
+            meta = getattr(est, "_flaml_spark_model_meta", None)
+            if not meta:
+                continue
+            model_path = meta.get("path")
+            model_class = meta.get("class")
+            if not model_path or not model_class:
+                continue
+
+            abs_model_path = os.path.join(base_dir, model_path)
+
+            module_name, _, class_name = model_class.rpartition(".")
+            try:
+                module = importlib.import_module(module_name)
+                model_cls = getattr(module, class_name)
+            except Exception as e:
+                raise RuntimeError(f"Failed to import Spark model class '{model_class}'") from e
+
+            # Most Spark ML models support either Class.load(path) or Class.read().load(path).
+            if hasattr(model_cls, "load"):
+                est._model = model_cls.load(abs_model_path)
+            elif hasattr(model_cls, "read"):
+                est._model = model_cls.read().load(abs_model_path)
+            else:
+                try:
+                    from pyspark.ml.pipeline import PipelineModel
+
+                    loaded_model = PipelineModel.load(abs_model_path)
+                    if not isinstance(loaded_model, model_cls):
+                        raise RuntimeError(
+                            f"Loaded model type '{type(loaded_model).__name__}' does not match expected type '{model_class}'."
+                        )
+                    est._model = loaded_model
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Spark model class '{model_class}' does not support load/read(). "
+                        "Unable to restore Spark model from artifacts."
+                    ) from e
+
+        return automl
 
     @property
     def trainable(self) -> Callable[[dict], float | None]:
@@ -1183,6 +1776,7 @@ class AutoML(BaseEstimator):
             n_splits,
             self._df,
             self._sample_weight_full,
+            self._allow_label_overlap,
         )
         self.data_size_full = self._state.data_size_full
 
@@ -1239,6 +1833,7 @@ class AutoML(BaseEstimator):
         time_col=None,
         cv_score_agg_func=None,
         skip_transform=None,
+        allow_label_overlap=True,
         mlflow_logging=None,
         fit_kwargs_by_estimator=None,
         mlflow_exp_name=None,
@@ -1267,6 +1862,8 @@ class AutoML(BaseEstimator):
                 e.g., 'accuracy', 'roc_auc', 'roc_auc_ovr', 'roc_auc_ovo', 'roc_auc_weighted',
                 'roc_auc_ovo_weighted', 'roc_auc_ovr_weighted', 'f1', 'micro_f1', 'macro_f1',
                 'log_loss', 'mae', 'mse', 'r2', 'mape'. Default is 'auto'.
+                For a full list of supported built-in metrics, please refer to
+                https://microsoft.github.io/FLAML/docs/Use-Cases/Task-Oriented-AutoML#optimization-metric
                 If passing a customized metric function, the function needs to
                 have the following input arguments:
 
@@ -1303,6 +1900,10 @@ class AutoML(BaseEstimator):
                 "pred_time": pred_time,
             }
         ```
+                **Note:** When passing a custom metric function, pass the function itself
+                (e.g., `metric=custom_metric`), not the result of calling it
+                (e.g., `metric=custom_metric(...)`). FLAML will call your function
+                internally during the training process.
             task: A string of the task type, e.g.,
                 'classification', 'regression', 'ts_forecast_regression',
                 'ts_forecast_classification', 'rank', 'seq-classification',
@@ -1325,6 +1926,11 @@ class AutoML(BaseEstimator):
                 and 'final_estimator' to specify the passthrough and
                 final_estimator in the stacker. The dict can also contain
                 'n_jobs' as the key to specify the number of jobs for the stacker.
+                Note: The hyperparameters of a custom 'final_estimator' are NOT
+                automatically tuned. If you provide an estimator instance (e.g.,
+                CatBoostClassifier()), it will use the parameters you specified
+                or their defaults. If 'final_estimator' is not provided, the best
+                model found during the search will be used as the final estimator.
             eval_method: A string of resampling strategy, one of
                 ['auto', 'cv', 'holdout'].
             split_ratio: A float of the valiation data percentage for holdout.
@@ -1514,6 +2120,12 @@ class AutoML(BaseEstimator):
         ```
 
             skip_transform: boolean, default=False | Whether to pre-process data prior to modeling.
+            allow_label_overlap: boolean, default=True | For classification tasks with holdout evaluation,
+                whether to allow label overlap between train and validation sets. When True (default),
+                uses a fast strategy that adds the first instance of missing labels to the set that is
+                missing them, which may create some overlap. When False, uses a precise but slower
+                strategy that intelligently re-splits instances to avoid overlap when possible.
+                Only affects classification tasks with holdout evaluation method.
             mlflow_logging: boolean, default=None | Whether to log the training results to mlflow.
                 Default value is None, which means the logging decision is made based on
                 AutoML.__init__'s mlflow_logging argument. Not valid if mlflow is not installed.
@@ -1547,6 +2159,14 @@ class AutoML(BaseEstimator):
                 the searched learners, such as sample_weight. Below are a few examples of
                 estimator-specific parameters:
                     period: int | forecast horizon for all time series forecast tasks.
+                        This is the number of time steps ahead to forecast (e.g., period=12 means
+                        forecasting 12 steps into the future). This represents the forecast horizon
+                        used during model training. Note: during prediction, the output length
+                        equals the length of X_test. FLAML automatically handles feature
+                        engineering for you - sklearn-based models (lgbm, rf, xgboost, etc.) will have
+                        lagged features created automatically, while time series native models (prophet,
+                        arima, sarimax) use their built-in forecasting capabilities. You do NOT need
+                        to manually create lagged features of the target variable.
                     gpu_per_trial: float, default = 0 | A float of the number of gpus per trial,
                         only used by TransformersEstimator, XGBoostSklearnEstimator, and
                         TemporalFusionTransformerEstimator.
@@ -1583,7 +2203,10 @@ class AutoML(BaseEstimator):
         split_ratio = split_ratio or self._settings.get("split_ratio")
         n_splits = n_splits or self._settings.get("n_splits")
         auto_augment = self._settings.get("auto_augment") if auto_augment is None else auto_augment
-        metric = metric or self._settings.get("metric")
+        allow_label_overlap = (
+            self._settings.get("allow_label_overlap") if allow_label_overlap is None else allow_label_overlap
+        )
+        metric = self._settings.get("metric") if metric is None else metric
         estimator_list = estimator_list or self._settings.get("estimator_list")
         log_file_name = self._settings.get("log_file_name") if log_file_name is None else log_file_name
         max_iter = self._settings.get("max_iter") if max_iter is None else max_iter
@@ -1765,6 +2388,7 @@ class AutoML(BaseEstimator):
 
         self._retrain_in_budget = retrain_full == "budget" and (eval_method == "holdout" and self._state.X_val is None)
         self._auto_augment = auto_augment
+        self._allow_label_overlap = allow_label_overlap
 
         _sample_size_from_starting_points = {}
         if isinstance(starting_points, dict):
@@ -1821,6 +2445,9 @@ class AutoML(BaseEstimator):
                 and eval_method != "cv"
                 and (self._min_sample_size * SAMPLE_MULTIPLY_FACTOR < self._state.data_size[0])
             )
+
+        # Validate metric parameter before processing
+        self._validate_metric_parameter(metric, allow_auto=True)
 
         metric = task.default_metric(metric)
         self._state.metric = metric
@@ -2156,7 +2783,7 @@ class AutoML(BaseEstimator):
                 use_spark=True,
                 force_cancel=self._force_cancel,
                 mlflow_exp_name=self._mlflow_exp_name,
-                automl_info=(mlflow_log_latency,),  # pass automl info to tune.run
+                automl_info=(mlflow_log_latency, self._log_type),  # pass automl info to tune.run
                 extra_tag=self.autolog_extra_tag,
                 # raise_on_failed_trial=False,
                 # keep_checkpoints_num=1,
@@ -2219,7 +2846,9 @@ class AutoML(BaseEstimator):
                 if better or self._log_type == "all":
                     self._log_trial(search_state, estimator)
                 if self.mlflow_integration:
-                    self.mlflow_integration.record_state(self, search_state, estimator)
+                    self.mlflow_integration.record_state(
+                        self, search_state, estimator, better or self._log_type == "all"
+                    )
 
     def _log_trial(self, search_state, estimator):
         if self._training_log:
@@ -2461,10 +3090,12 @@ class AutoML(BaseEstimator):
                 if better or self._log_type == "all":
                     self._log_trial(search_state, estimator)
                 if self.mlflow_integration:
-                    self.mlflow_integration.record_state(self, search_state, estimator)
+                    self.mlflow_integration.record_state(
+                        self, search_state, estimator, better or self._log_type == "all"
+                    )
 
                 logger.info(
-                    " at {:.1f}s,\testimator {}'s best error={:.4f},\tbest estimator {}'s best error={:.4f}".format(
+                    " at {:.1f}s,\testimator {}'s best error={:.4e},\tbest estimator {}'s best error={:.4e}".format(
                         self._state.time_from_start,
                         estimator,
                         search_state.best_loss,
@@ -2641,6 +3272,10 @@ class AutoML(BaseEstimator):
                     # the total degree of parallelization = parallelization degree per estimator * parallelization degree of ensemble
                 )
                 if isinstance(self._ensemble, dict):
+                    # Note: If a custom final_estimator is provided, it is used as-is without
+                    # hyperparameter tuning. The user is responsible for setting appropriate
+                    # parameters or using defaults. If not provided, the best model found
+                    # during the search (self._trained_estimator) is used.
                     final_estimator = self._ensemble.get("final_estimator", self._trained_estimator)
                     passthrough = self._ensemble.get("passthrough", True)
                     ensemble_n_jobs = self._ensemble.get("n_jobs", ensemble_n_jobs)

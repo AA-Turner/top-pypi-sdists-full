@@ -76,12 +76,8 @@ def from_api(
     if type(data) not in (dict, list):
         return data
     if isinstance(data, list):
-        return _from_api_list(
-            data, do_recursive=do_recursive, keep_attrs=keep_attrs, keep_null_keys=keep_null_keys
-        )
-    return _from_api_dict(
-        data, do_recursive=do_recursive, keep_attrs=keep_attrs, keep_null_keys=keep_null_keys
-    )
+        return _from_api_list(data, do_recursive=do_recursive, keep_attrs=keep_attrs, keep_null_keys=keep_null_keys)
+    return _from_api_dict(data, do_recursive=do_recursive, keep_attrs=keep_attrs, keep_null_keys=keep_null_keys)
 
 
 # pylint: disable-next=missing-function-docstring
@@ -216,8 +212,12 @@ def to_api(
     """
     if not data:
         return {}
-    assert isinstance(data, dict) or _is_api_object(data), "Wrong type"
+    assert is_convertable_to_api(data), "Wrong type"
     return _to_api_item(data, keep_attrs)
+
+
+def is_convertable_to_api(data: Any) -> bool:
+    return isinstance(data, dict) or _is_api_object(data)
 
 
 def _to_dict(item: Any) -> Dict[str, Any]:
@@ -242,9 +242,7 @@ def _to_api_item(
     elif isinstance(item, list):
         # Casting because of misc error seemingly caused by recursion:
         # List comprehension has incompatible type
-        return cast(
-            ToApiReturnType, [_to_api_item(subitem, keep_attrs=keep_attrs) for subitem in item]
-        )
+        return cast(ToApiReturnType, [_to_api_item(subitem, keep_attrs=keep_attrs) for subitem in item])
     elif isinstance(item, datetime):
         return datetime_to_string(item)
     elif isinstance(item, date):
@@ -314,11 +312,7 @@ def raw_prediction_response_to_dataframe(
 
     # Remove some columns with all null values
     # (i.e. TS models return empty series_id for single-series projects)
-    drop_cols = [
-        col
-        for col in ("positive_probability", "series_id")
-        if col in frame and frame[col].isna().all()
-    ]
+    drop_cols = [col for col in ("positive_probability", "series_id") if col in frame and frame[col].isna().all()]
     if drop_cols:
         frame = frame.drop(columns=drop_cols)
 

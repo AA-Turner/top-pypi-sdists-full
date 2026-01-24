@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geoarrow-c
-Version: 0.3.0
+Version: 0.3.1
 Summary: Python bindings to the geoarrow C and C++ implementation
 Author-email: Dewey Dunnington <dewey@dunnington.ca>
 License: Apache-2.0

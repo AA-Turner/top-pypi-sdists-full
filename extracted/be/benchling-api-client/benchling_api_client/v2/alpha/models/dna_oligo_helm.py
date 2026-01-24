@@ -30,6 +30,7 @@ class DnaOligoHelm:
     _custom_notation_name: Union[Unset, None, str] = UNSET
     _aliases: Union[Unset, List[str]] = UNSET
     _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
+    _authors: Union[Unset, List[UserSummary]] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _creator: Union[Unset, UserSummary] = UNSET
     _custom_fields: Union[Unset, CustomFields] = UNSET
@@ -57,6 +58,7 @@ class DnaOligoHelm:
         fields.append("custom_notation_name={}".format(repr(self._custom_notation_name)))
         fields.append("aliases={}".format(repr(self._aliases)))
         fields.append("archive_record={}".format(repr(self._archive_record)))
+        fields.append("authors={}".format(repr(self._authors)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creator={}".format(repr(self._creator)))
         fields.append("custom_fields={}".format(repr(self._custom_fields)))
@@ -96,6 +98,14 @@ class DnaOligoHelm:
         archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self._archive_record, Unset):
             archive_record = self._archive_record.to_dict() if self._archive_record else None
+
+        authors: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._authors, Unset):
+            authors = []
+            for authors_item_data in self._authors:
+                authors_item = authors_item_data.to_dict()
+
+                authors.append(authors_item)
 
         created_at: Union[Unset, str] = UNSET
         if not isinstance(self._created_at, Unset):
@@ -156,6 +166,8 @@ class DnaOligoHelm:
             field_dict["aliases"] = aliases
         if archive_record is not UNSET:
             field_dict["archiveRecord"] = archive_record
+        if authors is not UNSET:
+            field_dict["authors"] = authors
         if created_at is not UNSET:
             field_dict["createdAt"] = created_at
         if creator is not UNSET:
@@ -292,6 +304,23 @@ class DnaOligoHelm:
             if strict:
                 raise
             archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
+
+        def get_authors() -> Union[Unset, List[UserSummary]]:
+            authors = []
+            _authors = d.pop("authors")
+            for authors_item_data in _authors or []:
+                authors_item = UserSummary.from_dict(authors_item_data, strict=False)
+
+                authors.append(authors_item)
+
+            return authors
+
+        try:
+            authors = get_authors()
+        except KeyError:
+            if strict:
+                raise
+            authors = cast(Union[Unset, List[UserSummary]], UNSET)
 
         def get_created_at() -> Union[Unset, datetime.datetime]:
             created_at: Union[Unset, datetime.datetime] = UNSET
@@ -507,6 +536,7 @@ class DnaOligoHelm:
             custom_notation_name=custom_notation_name,
             aliases=aliases,
             archive_record=archive_record,
+            authors=authors,
             created_at=created_at,
             creator=creator,
             custom_fields=custom_fields,
@@ -664,6 +694,20 @@ class DnaOligoHelm:
     @archive_record.deleter
     def archive_record(self) -> None:
         self._archive_record = UNSET
+
+    @property
+    def authors(self) -> List[UserSummary]:
+        if isinstance(self._authors, Unset):
+            raise NotPresentError(self, "authors")
+        return self._authors
+
+    @authors.setter
+    def authors(self, value: List[UserSummary]) -> None:
+        self._authors = value
+
+    @authors.deleter
+    def authors(self) -> None:
+        self._authors = UNSET
 
     @property
     def created_at(self) -> datetime.datetime:

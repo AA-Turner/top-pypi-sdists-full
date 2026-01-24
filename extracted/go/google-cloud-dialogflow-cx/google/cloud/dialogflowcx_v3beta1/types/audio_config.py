@@ -48,8 +48,8 @@ class AudioEncoding(proto.Enum):
         AUDIO_ENCODING_UNSPECIFIED (0):
             Not specified.
         AUDIO_ENCODING_LINEAR_16 (1):
-            Uncompressed 16-bit signed little-endian
-            samples (Linear PCM).
+            Uncompressed 16-bit signed little-endian samples (Linear
+            PCM). LINT: LEGACY_NAMES
         AUDIO_ENCODING_FLAC (2):
             ```FLAC`` <https://xiph.org/flac/documentation.html>`__
             (Free Lossless Audio Codec) is the recommended encoding
@@ -130,14 +130,14 @@ class SpeechModelVariant(proto.Enum):
         USE_ENHANCED (3):
             Use an enhanced model variant:
 
-            -  If an enhanced variant does not exist for the given
-               [model][google.cloud.dialogflow.cx.v3beta1.InputAudioConfig.model]
-               and request language, Dialogflow falls back to the
-               standard variant.
+            - If an enhanced variant does not exist for the given
+              [model][google.cloud.dialogflow.cx.v3beta1.InputAudioConfig.model]
+              and request language, Dialogflow falls back to the
+              standard variant.
 
-               The `Cloud Speech
-               documentation <https://cloud.google.com/speech-to-text/docs/enhanced-models>`__
-               describes which models have enhanced variants.
+              The `Cloud Speech
+              documentation <https://cloud.google.com/speech-to-text/docs/enhanced-models>`__
+              describes which models have enhanced variants.
     """
     SPEECH_MODEL_VARIANT_UNSPECIFIED = 0
     USE_BEST_AVAILABLE = 1
@@ -174,13 +174,13 @@ class OutputAudioEncoding(proto.Enum):
         OUTPUT_AUDIO_ENCODING_UNSPECIFIED (0):
             Not specified.
         OUTPUT_AUDIO_ENCODING_LINEAR_16 (1):
-            Uncompressed 16-bit signed little-endian
-            samples (Linear PCM). Audio content returned as
-            LINEAR16 also contains a WAV header.
+            Uncompressed 16-bit signed little-endian samples (Linear
+            PCM). Audio content returned as LINEAR16 also contains a WAV
+            header. LINT: LEGACY_NAMES
         OUTPUT_AUDIO_ENCODING_MP3 (2):
             MP3 audio at 32kbps.
         OUTPUT_AUDIO_ENCODING_MP3_64_KBPS (4):
-            MP3 audio at 64kbps.
+            MP3 audio at 64kbps. LINT: LEGACY_NAMES
         OUTPUT_AUDIO_ENCODING_OGG_OPUS (3):
             Opus encoded audio wrapped in an ogg
             container. The result will be a file which can
@@ -265,13 +265,13 @@ class BargeInConfig(proto.Message):
     input as soon as it starts playing back the audio from the previous
     response. The playback is modeled into two phases:
 
-    -  No barge-in phase: which goes first and during which speech
-       detection should not be carried out.
+    - No barge-in phase: which goes first and during which speech
+      detection should not be carried out.
 
-    -  Barge-in phase: which follows the no barge-in phase and during
-       which the API starts speech detection and may inform the client
-       that an utterance has been detected. Note that no-speech event is
-       not expected in this phase.
+    - Barge-in phase: which follows the no barge-in phase and during
+      which the API starts speech detection and may inform the client
+      that an utterance has been detected. Note that no-speech event is
+      not expected in this phase.
 
     The client provides this configuration in terms of the durations of
     those two phases. The durations are measured in terms of the audio
@@ -545,18 +545,18 @@ class TextToSpeechSettings(proto.Message):
 
             These settings affect:
 
-            -  The `phone
-               gateway <https://cloud.google.com/dialogflow/cx/docs/concept/integration/phone-gateway>`__
-               synthesize configuration set via
-               [Agent.text_to_speech_settings][google.cloud.dialogflow.cx.v3beta1.Agent.text_to_speech_settings].
+            - The `phone
+              gateway <https://cloud.google.com/dialogflow/cx/docs/concept/integration/phone-gateway>`__
+              synthesize configuration set via
+              [Agent.text_to_speech_settings][google.cloud.dialogflow.cx.v3beta1.Agent.text_to_speech_settings].
 
-            -  How speech is synthesized when invoking
-               [session][google.cloud.dialogflow.cx.v3beta1.Sessions]
-               APIs.
-               [Agent.text_to_speech_settings][google.cloud.dialogflow.cx.v3beta1.Agent.text_to_speech_settings]
-               only applies if
-               [OutputAudioConfig.synthesize_speech_config][google.cloud.dialogflow.cx.v3beta1.OutputAudioConfig.synthesize_speech_config]
-               is not specified.
+            - How speech is synthesized when invoking
+              [session][google.cloud.dialogflow.cx.v3beta1.Sessions]
+              APIs.
+              [Agent.text_to_speech_settings][google.cloud.dialogflow.cx.v3beta1.Agent.text_to_speech_settings]
+              only applies if
+              [OutputAudioConfig.synthesize_speech_config][google.cloud.dialogflow.cx.v3beta1.OutputAudioConfig.synthesize_speech_config]
+              is not specified.
     """
 
     synthesize_speech_configs: MutableMapping[

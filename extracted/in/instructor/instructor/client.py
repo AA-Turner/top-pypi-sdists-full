@@ -13,13 +13,13 @@ def __getattr__(name: str):
         f"Please update your imports to use 'instructor.core.client.{name}' instead:\n"
         "  from instructor.core.client import Instructor, AsyncInstructor, from_openai, from_litellm",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from .core import client as core_client
-    
+
     # Try to get the attribute from the core.client module
     if hasattr(core_client, name):
         return getattr(core_client, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

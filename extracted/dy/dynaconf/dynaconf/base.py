@@ -27,7 +27,6 @@ from dynaconf.utils import compat_kwargs
 from dynaconf.utils import ensure_a_list
 from dynaconf.utils import missing
 from dynaconf.utils import object_merge
-from dynaconf.utils import recursively_evaluate_lazy_format
 from dynaconf.utils import RENAMED_VARS
 from dynaconf.utils import upperfy
 from dynaconf.utils.boxing import DynaBox
@@ -143,8 +142,6 @@ class LazySettings(LazyObject):
         ):
             return self._wrapped.get_fresh(name)
         value = getattr(self._wrapped, name)
-        if name not in RESERVED_ATTRS:
-            return recursively_evaluate_lazy_format(value, self)
         return value
 
     def __call__(self, *args, **kwargs):
@@ -464,7 +461,7 @@ class Settings:
         dotted_lookup=empty,
         parent=None,
         sysenv_fallback=None,
-    ):
+    ) -> Any:
         """
         Get a value from settings store, this is the preferred way to access::
 

@@ -275,10 +275,17 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
             if revision_mismatch_raise:
                 raise e
 
+    def ls_add(self, switch=None, may_exist=False, network_id=None, **columns):
+        if network_id is None:
+            return super().ls_add(switch, may_exist, **columns)
+        return cmd.AddNetworkCommand(self, network_id, may_exist=may_exist,
+                                     **columns)
+
     def create_lswitch_port(self, lport_name, lswitch_name, may_exist=True,
-                            **columns):
+                            network_id=None, **columns):
         return cmd.AddLSwitchPortCommand(self, lport_name, lswitch_name,
-                                         may_exist, **columns)
+                                         may_exist, network_id=network_id,
+                                         **columns)
 
     def set_lswitch_port(self, lport_name, external_ids_update=None,
                          if_exists=True, **columns):
@@ -520,6 +527,30 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
         # make sure that chassis are sorted by priority
         return sorted(chassis, reverse=True, key=lambda x: x[1])
 
+    @staticmethod
+    def _get_logical_router_port_ha_chassis_group(lrp, priorities=None):
+        """Get the list of chassis hosting this gateway port.
+
+        @param   lrp: logical router port
+        @type    lrp: Logical_Router_Port row
+        @param   priorities: a list of gateway chassis priorities to search for
+        @type    priorities: list of int
+        @return: List of tuples (chassis_name, priority) sorted by priority. If
+                 ``priorities`` is set then only chassis matching of these
+                 priorities are returned.
+        """
+        chassis = []
+        hcg = getattr(lrp, 'ha_chassis_group', None)
+        if not hcg:
+            return chassis
+
+        for hc in hcg[0].ha_chassis:
+            if priorities is not None and hc.priority not in priorities:
+                continue
+            chassis.append((hc.chassis_name, hc.priority))
+        # Make sure that chassis are sorted by priority (highest prio first)
+        return sorted(chassis, reverse=True, key=lambda x: x[1])
+
     def get_all_chassis_gateway_bindings(self,
                                          chassis_candidate_list=None,
                                          priorities=None):
@@ -553,10 +584,9 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
                           default=None)
         if not lrp:
             return []
-        router_id = lrp.external_ids.get(
+        router_name = lrp.external_ids.get(
             ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY, "")
-        lrouter = self.lookup('Logical_Router', utils.ovn_name(router_id),
-                              default=None)
+        lrouter = self.lookup('Logical_Router', router_name, default=None)
         if not lrouter:
             return []
         az_string = lrouter.external_ids.get(
@@ -582,7 +612,7 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
             if not physnet:
                 continue
 
-            lrp_name = '{}{}'.format(ovn_const.LRP_PREFIX, port)
+            lrp_name = f'{ovn_const.LRP_PREFIX}{port}'
             original_state = self.get_gateway_chassis_binding(lrp_name)
             az_hints = self.get_gateway_chassis_az_hints(lrp_name)
             # Filter out chassis that lost physnet, the cms option,
@@ -782,6 +812,13 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
         result = fip.execute(check_error=True)
         return result[0] if result else None
 
+    def get_floatingips(self):
+        cmd = self.db_find('NAT',
+            ('external_ids', '!=', {ovn_const.OVN_FIP_EXT_ID_KEY: ''}),
+            ('type', '=', 'dnat_and_snat')
+        )
+        return cmd.execute(check_error=True)
+
     def check_revision_number(self, name, resource, resource_type,
                               if_exists=True):
         return cmd.CheckRevisionNumberCommand(
@@ -812,7 +849,7 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
         for lrp in getattr(lr, 'ports', []):
             lrp_ext_ids = getattr(lrp, 'external_ids', {})
             if (r_name not in lrp_ext_ids or
-                    utils.ovn_name(lrp_ext_ids[r_name]) != lr.name or
+                    lrp_ext_ids[r_name] != lr.name or
                     not strutils.bool_from_string(lrp_ext_ids.get(is_gw))):
                 continue
 
@@ -905,6 +942,12 @@ class OvsdbNbOvnIdl(nb_impl_idl.OvnNbApiIdlImpl, Backend):
         # Set the MAC_Binding age limit on OVN Logical Routers
         return cmd.SetLRouterMacAgeLimitCommand(
             self, router, cfg.get_ovn_mac_binding_age_threshold())
+
+    def ha_chassis_group_with_hc_add(self, name, chassis_priority,
+                                     may_exist=False, **columns):
+        return cmd.HAChassisGroupWithHCAddCommand(
+            self, name, chassis_priority, may_exist=may_exist,
+            **columns)
 
 
 class OvsdbSbOvnIdl(sb_impl_idl.OvnSbApiIdlImpl, Backend):

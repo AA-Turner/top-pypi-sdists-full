@@ -3,17 +3,18 @@ import sys
 from argparse import ArgumentParser, HelpFormatter
 from functools import partial
 from pathlib import Path
-from typing import Type, cast
+from typing import List, Optional, Type, cast
 
 from ._config import Config
 from .commands import CommandArgumentParser
 from .commands.plugin_command import PluginCommand
 from .commands.run_command import RunCommand
 from .commands.version_command import VersionCommand
+from .commands.version_command._version_command import make_console
 from .core import ConfigFileLoader
 
 
-async def main() -> None:
+async def main(argv: Optional[List[str]] = None) -> None:
     """
     Execute the main logic of the Vedro command-line interface.
 
@@ -27,13 +28,17 @@ async def main() -> None:
     - Parsing the main command (run, version, plugin, etc.).
     - Executing the corresponding command logic.
 
+    :param argv: Optional list of command-line arguments without the program name.
+                 If None, uses sys.argv[1:] (arguments without program name).
     :raises FileNotFoundError: If the specified project directory does not exist.
     :raises NotADirectoryError: If the specified project directory path is not a directory.
     """
-    # TODO: add argv parameter to main function in v2 to make it testable
+    if argv is None:
+        argv = sys.argv[1:]
+
     shadow_parser = ArgumentParser(add_help=False, allow_abbrev=False)
     shadow_parser.add_argument("--project-dir", type=Path, default=Path.cwd())
-    shadow_args, _ = shadow_parser.parse_known_args()
+    shadow_args, _ = shadow_parser.parse_known_args(argv)
 
     project_dir = shadow_args.project_dir.absolute()
     if not project_dir.exists():
@@ -52,9 +57,16 @@ async def main() -> None:
     arg_parser = ArgumentParser("vedro", formatter_class=formatter, add_help=False,
                                 allow_abbrev=False, description="documentation: vedro.io/docs")
 
+    arg_parser.add_argument("--version", action="store_true", help="Show vedro version")
+
     commands = {"run", "version", "plugin"}
     arg_parser.add_argument("command", nargs="?", help=f"Command to run {{{', '.join(commands)}}}")
-    args, unknown_args = arg_parser.parse_known_args()
+    args, unknown_args = arg_parser.parse_known_args(argv)
+
+    # Handle --version flag
+    if args.version:
+        args.command = "version"
+        unknown_args = []
 
     # backward compatibility
     # vedro <args> -> vedro run <args>
@@ -74,7 +86,8 @@ async def main() -> None:
 
     elif args.command == "version":
         parser = arg_parser_factory("vedro version")
-        await VersionCommand(config, parser).run()
+        console_factory = partial(make_console, no_color=True) if args.version else make_console
+        await VersionCommand(config, parser, console_factory=console_factory).run()
 
     elif args.command in ("plugin", "plugins"):
         parser = arg_parser_factory("vedro plugin")

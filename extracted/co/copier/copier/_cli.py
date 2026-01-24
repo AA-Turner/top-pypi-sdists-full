@@ -49,11 +49,11 @@ copier --help-all
 """
 
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from os import PathLike
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable, Optional
+from typing import Any
 
 import yaml
 from plumbum import cli, colors
@@ -163,7 +163,7 @@ class _Subcommand(cli.Application):  # type: ignore[misc]
         help="Skip template tasks execution",
     )
 
-    @cli.switch(  # type: ignore[misc]
+    @cli.switch(  # type: ignore[untyped-decorator]
         ["-d", "--data"],
         str,
         "VARIABLE=VALUE",
@@ -181,7 +181,7 @@ class _Subcommand(cli.Application):  # type: ignore[misc]
             key, value = arg.split("=", 1)
             self.data[key] = value
 
-    @cli.switch(  # type: ignore[misc]
+    @cli.switch(  # type: ignore[untyped-decorator]
         ["--data-file"],
         cli.ExistingFile,
         help="Load data from a YAML file",
@@ -202,7 +202,7 @@ class _Subcommand(cli.Application):  # type: ignore[misc]
 
     def _worker(
         self,
-        src_path: Optional[str] = None,
+        src_path: str | None = None,
         dst_path: str = ".",
         **kwargs: Any,  # noqa: FA100
     ) -> Worker:

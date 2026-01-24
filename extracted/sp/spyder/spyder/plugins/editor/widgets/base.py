@@ -30,7 +30,6 @@ from spyder.plugins.editor.utils.decoration import TextDecorationsManager
 from spyder.plugins.editor.widgets.completion import CompletionWidget
 from spyder.plugins.completion.api import CompletionItemKind
 from spyder.plugins.outlineexplorer.api import is_cell_header, document_cells
-from spyder.py3compat import to_text_string
 from spyder.utils.palette import SpyderPalette
 from spyder.widgets.calltip import CallTipWidget, ToolTipWidget
 from spyder.widgets.mixins import BaseEditMixin
@@ -438,7 +437,7 @@ class TextEditBaseWidget(
             return
         cursor.movePosition(QTextCursor.PreviousCharacter,
                             QTextCursor.KeepAnchor)
-        text = to_text_string(cursor.selectedText())
+        text = str(cursor.selectedText())
         if text in (')', ']', '}'):
             forward = False
         elif text in ('(', '[', '{'):
@@ -480,6 +479,9 @@ class TextEditBaseWidget(
         """
         if self.get_selected_text():
             QApplication.clipboard().setText(self.get_selected_text())
+        else:
+            cursor = self.select_current_line_and_sep(set_cursor=False)
+            QApplication.clipboard().setText(self.get_selected_text(cursor))
 
     def toPlainText(self):
         """
@@ -495,7 +497,7 @@ class TextEditBaseWidget(
             text = self.get_text('sof', 'eof')
             return text.replace('\u2028', '\n').replace('\u2029', '\n')\
                        .replace('\u0085', '\n')
-        return super(TextEditBaseWidget, self).toPlainText()
+        return super().toPlainText()
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -506,7 +508,7 @@ class TextEditBaseWidget(
         if (ctrl or meta) and key == Qt.Key_C:
             self.copy()
         else:
-            super(TextEditBaseWidget, self).keyPressEvent(event)
+            super().keyPressEvent(event)
 
     # ------Text: get, set, ...
     def get_cell_list(self):
@@ -645,6 +647,44 @@ class TextEditBaseWidget(
 
         return cursor, cell_full_file
 
+    def select_current_line_and_sep(self, cursor=None, set_cursor=True):
+        """
+        Selects the current line, including the correct line separator to
+        delete or copy the whole current line.
+
+        This means:
+        - If there is a next block, select the current block's newline char.
+        - Else if there is a previous block, select the previous newline char.
+        - Else select no newline char (1-line file)
+
+        Does a similar thing to `cursor.select(QTextCursor.BlockUnderCursor)`,
+        which always selects the previous newline char.
+        """
+        if cursor is None:
+            cursor = self.textCursor()
+
+        cursor.movePosition(QTextCursor.StartOfBlock, QTextCursor.MoveAnchor)
+
+        if not cursor.movePosition(QTextCursor.NextBlock,
+                                   QTextCursor.KeepAnchor):
+            # if there is no next Block, we select the previous newline
+            if cursor.movePosition(QTextCursor.PreviousBlock,
+                                   QTextCursor.MoveAnchor):
+                cursor.movePosition(QTextCursor.EndOfBlock,
+                                    QTextCursor.MoveAnchor)
+                cursor.movePosition(QTextCursor.NextBlock,
+                                    QTextCursor.KeepAnchor)
+                cursor.movePosition(QTextCursor.EndOfBlock,
+                                    QTextCursor.KeepAnchor)
+            else:
+                # if there is no previous block, we can select the current line
+                # this is the 1-line file case
+                cursor.select(QTextCursor.BlockUnderCursor)
+
+        if set_cursor:
+            self.setTextCursor(cursor)
+        return cursor
+
     def go_to_next_cell(self):
         """Go to the next cell of lines"""
         cursor = self.textCursor()
@@ -687,7 +727,7 @@ class TextEditBaseWidget(
         if self._restore_selection_pos is not None:
             self.__restore_selection(*self._restore_selection_pos)
             self._restore_selection_pos = None
-        super(TextEditBaseWidget, self).paintEvent(e)
+        super().paintEvent(e)
 
     def __save_selection(self):
         """Save current cursor selection and return position bounds"""
@@ -708,13 +748,13 @@ class TextEditBaseWidget(
         cur_pos = cursor.position()
         start_pos, end_pos = self.__save_selection()
         end_pos_orig = end_pos
-        if to_text_string(cursor.selectedText()):
+        if str(cursor.selectedText()):
             cursor.setPosition(end_pos)
             # Check if end_pos is at the start of a block: if so, starting
             # changes from the previous block
             cursor.movePosition(QTextCursor.StartOfBlock,
                                 QTextCursor.KeepAnchor)
-            if not to_text_string(cursor.selectedText()):
+            if not str(cursor.selectedText()):
                 cursor.movePosition(QTextCursor.PreviousBlock)
                 end_pos = cursor.position()
 
@@ -765,7 +805,7 @@ class TextEditBaseWidget(
         """
         self.__duplicate_line_or_selection(after_current_line=True)
 
-    def __move_line_or_selection(self, after_current_line=True):
+    def move_line_or_selection(self, after_current_line=True):
         """Move current line or selected text"""
         cursor = self.textCursor()
         cursor.beginEditBlock()
@@ -808,12 +848,12 @@ class TextEditBaseWidget(
             return
 
         # ------ Move text
-        sel_text = to_text_string(cursor.selectedText())
+        sel_text = str(cursor.selectedText())
         cursor.removeSelectedText()
 
         if after_current_line:
             # Shift selection down
-            text = to_text_string(cursor.block().text())
+            text = str(cursor.block().text())
             sel_text = os.linesep + sel_text[0:-1]  # Move linesep at the start
             cursor.movePosition(QTextCursor.EndOfBlock)
             start_pos += len(text)+1
@@ -830,7 +870,7 @@ class TextEditBaseWidget(
                 end_pos += 1
             else:
                 cursor.movePosition(QTextCursor.PreviousBlock)
-            text = to_text_string(cursor.block().text())
+            text = str(cursor.block().text())
             start_pos -= len(text)+1
             end_pos -= len(text)+1
 
@@ -839,14 +879,6 @@ class TextEditBaseWidget(
         cursor.endEditBlock()
         self.setTextCursor(cursor)
         self.__restore_selection(start_pos, end_pos)
-
-    def move_line_up(self):
-        """Move up current line or selected text"""
-        self.__move_line_or_selection(after_current_line=False)
-
-    def move_line_down(self):
-        """Move down current line or selected text"""
-        self.__move_line_or_selection(after_current_line=True)
 
     def go_to_new_line(self):
         """Go to the end of the current line and create a new line"""
@@ -1108,7 +1140,7 @@ class TextEditBaseWidget(
         if sys.platform.startswith('linux') and event.button() == Qt.MidButton:
             self.calltip_widget.hide()
             self.setFocus()
-            event = QMouseEvent(QEvent.MouseButtonPress, event.pos(),
+            event = QMouseEvent(QEvent.MouseButtonPress, event.position(),
                                 Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
             QPlainTextEdit.mousePressEvent(self, event)
             QPlainTextEdit.mouseReleaseEvent(self, event)
@@ -1141,7 +1173,10 @@ class TextEditBaseWidget(
     def wheelEvent(self, event):
         """Reimplemented to emit zoom in/out signals when Ctrl is pressed"""
         # This feature is disabled on MacOS, see spyder-ide/spyder#1510.
-        if sys.platform != 'darwin':
+        if (
+            sys.platform != 'darwin'
+            and not self.get_conf('disable_zoom_mouse', section='main')
+        ):
             if event.modifiers() & Qt.ControlModifier:
                 if hasattr(event, 'angleDelta'):
                     if event.angleDelta().y() < 0:

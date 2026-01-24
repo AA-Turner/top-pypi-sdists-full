@@ -1,11 +1,20 @@
 # -*- encoding: utf-8 -*-
-from collections import namedtuple
+
+from __future__ import annotations
+
 import logging
 import os
-import threading
-import typing  # noqa:F401
+from types import TracebackType
+from typing import TYPE_CHECKING
 from typing import Optional
+from typing import Type
+from typing import cast
 
+from typing_extensions import Self
+
+
+if TYPE_CHECKING:
+    from tests.profiling.collector import pprof_pb2  # pyright: ignore[reportMissingModuleSource]
 
 try:
     from ddtrace.profiling.collector import _memalloc
@@ -14,17 +23,11 @@ except ImportError:
     _memalloc = None  # type: ignore[assignment]
 
 from ddtrace.internal.datadog.profiling import ddup
-from ddtrace.profiling import _threading
+from ddtrace.internal.settings.profiling import config
 from ddtrace.profiling import collector
-from ddtrace.settings.profiling import config
 
 
 LOG = logging.getLogger(__name__)
-
-MemorySample = namedtuple(
-    "MemorySample",
-    ("frames", "size", "count", "in_use_size", "alloc_size", "thread_id"),
-)
 
 
 class MemoryCollector:
@@ -35,16 +38,25 @@ class MemoryCollector:
         max_nframe: Optional[int] = None,
         heap_sample_size: Optional[int] = None,
         ignore_profiler: Optional[bool] = None,
-    ):
-        self.max_nframe: int = max_nframe if max_nframe is not None else config.max_frames
-        self.heap_sample_size: int = heap_sample_size if heap_sample_size is not None else config.heap.sample_size
-        self.ignore_profiler: bool = ignore_profiler if ignore_profiler is not None else config.ignore_profiler
+    ) -> None:
+        self.max_nframe = cast(int, max_nframe if max_nframe is not None else config.max_frames)
+        self.heap_sample_size = cast(
+            int,
+            heap_sample_size if heap_sample_size is not None else config.heap.sample_size,  # pyright: ignore
+        )
+        self.ignore_profiler = cast(bool, ignore_profiler if ignore_profiler is not None else config.ignore_profiler)
 
-    def start(self):
-        # type: (...) -> None
+    def start(self) -> None:
         """Start collecting memory profiles."""
         if _memalloc is None:
             raise collector.CollectorUnavailable
+
+        # Ensure threading module structures are available before starting memalloc
+        # The C++ code directly accesses threading._active, threading._limbo, and
+        # ddtrace.internal._threads.periodic_threads dictionaries to get thread info.
+        # The threading module is already imported at the top of this file.
+        # We import _threads here to ensure periodic_threads dict exists.
+        import ddtrace.internal._threads  # noqa: F401
 
         try:
             _memalloc.start(self.max_nframe, self.heap_sample_size)
@@ -55,89 +67,67 @@ class MemoryCollector:
             _memalloc.stop()
             _memalloc.start(self.max_nframe, self.heap_sample_size)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.start()
+        return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
         self.stop()
 
-    def join(self):
+    def join(self, timeout: Optional[float] = None) -> None:
         pass
 
-    def stop(self):
-        # type: () -> None
+    def stop(self) -> None:
         if _memalloc is not None:
             try:
                 _memalloc.stop()
             except RuntimeError:
                 LOG.debug("Failed to stop memalloc profiling on shutdown", exc_info=True)
 
-    def _get_thread_id_ignore_set(self):
-        # type: () -> typing.Set[int]
-        # This method is not perfect and prone to race condition in theory, but very little in practice.
-        # Anyhow it's not a big deal — it's a best effort feature.
-        return {
-            thread.ident
-            for thread in threading.enumerate()
-            if getattr(thread, "_ddtrace_profiling_ignore", False) and thread.ident is not None
-        }
-
-    def snapshot(self):
-        thread_id_ignore_set = self._get_thread_id_ignore_set()
+    def snapshot(self) -> None:
+        """Take a snapshot of collected data, to be exported."""
 
         try:
-            events = _memalloc.heap()
-        except RuntimeError:
+            if _memalloc is None:
+                raise ValueError("Memalloc is not initialized")
+            _memalloc.heap()  # Samples are exported directly to pprof, no return value needed
+        except (RuntimeError, ValueError):
             # DEV: This can happen if either _memalloc has not been started or has been stopped.
             LOG.debug("Unable to collect heap events from process %d", os.getpid(), exc_info=True)
-            return tuple()
 
-        for event in events:
-            (frames, thread_id), in_use_size, alloc_size, count = event
+    def snapshot_and_parse_pprof(self, output_filename: str, assert_samples: bool = True) -> pprof_pb2.Profile:
+        """Export samples to profile, upload, and parse the pprof profile.
 
-            if not self.ignore_profiler or thread_id not in thread_id_ignore_set:
-                handle = ddup.SampleHandle()
+        This is similar to test_snapshot() but exports to the profile and returns
+        the parsed pprof profile instead of Python objects.
 
-                if in_use_size > 0:
-                    handle.push_heap(in_use_size)
-                if alloc_size > 0:
-                    handle.push_alloc(alloc_size, count)
+        Args:
+            output_filename: The pprof output filename prefix (without .pid.counter suffix)
+            assert_samples: Whether to assert that the profile contains samples
 
-                handle.push_threadinfo(
-                    thread_id,
-                    _threading.get_thread_native_id(thread_id),
-                    _threading.get_thread_name(thread_id),
-                )
-                try:
-                    for frame in frames:
-                        handle.push_frame(frame.function_name, frame.file_name, 0, frame.lineno)
-                    handle.flush_sample()
-                except AttributeError:
-                    # DEV: This might happen if the memalloc sofile is unlinked and relinked without module
-                    #      re-initialization.
-                    LOG.debug("Invalid state detected in memalloc module, suppressing profile")
-        return tuple()
+        Returns:
+            Parsed pprof profile object (pprof_pb2.Profile)
 
-    def test_snapshot(self):
-        thread_id_ignore_set = self._get_thread_id_ignore_set()
+        Raises:
+            ImportError: If pprof_utils is not available (only available in test environment)
+        """
+        # Export samples to profile
+        self.snapshot()
 
+        # Upload to write profile to disk
+        ddup.upload()
+
+        # Parse the profile (only available in test environment)
         try:
-            events = _memalloc.heap()
-        except RuntimeError:
-            # DEV: This can happen if either _memalloc has not been started or has been stopped.
-            LOG.debug("Unable to collect heap events from process %d", os.getpid(), exc_info=True)
-            return tuple()
+            from tests.profiling.collector import pprof_utils
+        except ImportError:
+            raise ImportError(
+                "pprof_utils is not available. snapshot_and_parse_pprof() is only available in test environment."
+            )
 
-        samples = []
-        for event in events:
-            (frames, thread_id), in_use_size, alloc_size, count = event
-
-            if not self.ignore_profiler or thread_id not in thread_id_ignore_set:
-                size = in_use_size if in_use_size > 0 else alloc_size
-
-                samples.append(MemorySample(frames, size, count, in_use_size, alloc_size, thread_id))
-
-        return tuple(samples)
-
-    def collect(self):
-        return tuple()
+        return pprof_utils.parse_newest_profile(output_filename, assert_samples=assert_samples)

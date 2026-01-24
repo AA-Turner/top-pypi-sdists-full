@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from ase.atoms import Atoms, Cell
 from ase.geometry import find_mic
 import numpy as np
@@ -75,7 +73,7 @@ class StructureMapper:
         P = cell2.dot(np.linalg.inv(cell1))
         return 0.5 * (P.T.dot(P) - np.eye(3))
 
-    def snap_to_lattice(self, atoms: Atoms, template: Atoms) -> Tuple[Atoms, TransformInfo]:
+    def snap_to_lattice(self, atoms: Atoms, template: Atoms) -> tuple[Atoms, TransformInfo]:
         """
         Snaps atoms to an ideal lattice. If the number of atoms in the
         relaxed atoms object is less than the number of atoms in the template,

@@ -7,7 +7,6 @@ from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclas
 from dbt_semantic_interfaces.references import EntityReference, GroupByMetricReference
 from typing_extensions import override
 
-from metricflow_semantics.model.semantics.linkable_element import ElementPathKey, LinkableElementType
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.specs.entity_spec import EntitySpec
 from metricflow_semantics.specs.instance_spec import InstanceSpecVisitor, LinkableInstanceSpec
@@ -75,14 +74,14 @@ class GroupByMetricSpec(LinkableInstanceSpec, SerializableDataclass):
 
     @property
     @override
-    def qualified_name(self) -> str:
+    def dunder_name(self) -> str:
         return StructuredLinkableSpecName(
             entity_link_names=tuple(entity_link.element_name for entity_link in self.entity_links),
             element_name=self.element_name,
             metric_subquery_entity_link_names=tuple(
                 entity_link.element_name for entity_link in self.metric_subquery_entity_links
             ),
-        ).qualified_name
+        ).dunder_name
 
     def __eq__(self, other: Any) -> bool:  # type: ignore[misc] # noqa: D105
         if not isinstance(other, GroupByMetricSpec):
@@ -98,13 +97,6 @@ class GroupByMetricSpec(LinkableInstanceSpec, SerializableDataclass):
 
     def accept(self, visitor: InstanceSpecVisitor[VisitorOutputT]) -> VisitorOutputT:  # noqa: D102
         return visitor.visit_group_by_metric_spec(self)
-
-    @property
-    @override
-    def element_path_key(self) -> ElementPathKey:
-        return ElementPathKey(
-            element_name=self.element_name, element_type=LinkableElementType.METRIC, entity_links=self.entity_links
-        )
 
     def with_entity_prefix(self, entity_prefix: EntityReference) -> GroupByMetricSpec:  # noqa: D102
         return GroupByMetricSpec(

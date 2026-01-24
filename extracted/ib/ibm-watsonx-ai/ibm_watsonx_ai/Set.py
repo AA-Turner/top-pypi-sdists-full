@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -36,6 +36,8 @@ class Set(WMLResource):
         :return: status ("SUCCESS" if succeeded)
         :rtype: str
 
+        :raises CannotSetProjectOrSpace: if retrieving space details failed
+
         **Example:**
 
         .. code-block:: python
@@ -47,24 +49,24 @@ class Set(WMLResource):
             kwargs, space_id, "space", can_be_none=False
         )
 
+        self._client.default_space_id = space_id
+        if self._client.default_project_id is not None:
+            print("Unsetting the project_id ...")
+        self._client.default_project_id = None
+        self._client.project_type = None
+
         space_endpoint = self._client._href_definitions.get_platform_space_href(
             space_id
         )
 
-        space_details = self._client._session.get(
-            space_endpoint, headers=self._client._get_headers()
+        space_details = self._client.httpx_client.get(
+            url=space_endpoint, headers=self._client._get_headers()
         )
         if space_details.status_code == 404:
             error_msg = "Space with id '{}' does not exist".format(space_id)
             raise CannotSetProjectOrSpace(reason=error_msg)
 
         elif space_details.status_code == 200:
-            self._client.default_space_id = space_id
-            if self._client.default_project_id is not None:
-                print("Unsetting the project_id ...")
-            self._client.default_project_id = None
-            self._client.project_type = None
-
             if self._client.CLOUD_PLATFORM_SPACES:
                 instance_id = "not found"
                 comp_obj_type = None
@@ -106,6 +108,7 @@ class Set(WMLResource):
 
         :return: status ("SUCCESS" if succeeded)
         :rtype: str
+        :raises CannotSetProjectOrSpace: if retrieving project details failed
 
         **Example:**
 
@@ -116,7 +119,6 @@ class Set(WMLResource):
 
         if project_id is not None:
             self._client.default_project_id = project_id
-
             if self._client.default_space_id is not None:
                 print("Unsetting the space_id ...")
             self._client.default_space_id = None
@@ -124,8 +126,8 @@ class Set(WMLResource):
             project_endpoint = self._client._href_definitions.get_project_href(
                 project_id
             )
-            project_details = self._client._session.get(
-                project_endpoint, headers=self._client._get_headers()
+            project_details = self._client.httpx_client.get(
+                url=project_endpoint, headers=self._client._get_headers()
             )
             if project_details.status_code == 429:
                 raise ExceededLimitOfAPICalls(

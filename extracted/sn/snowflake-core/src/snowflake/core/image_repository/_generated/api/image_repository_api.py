@@ -471,7 +471,7 @@ class ImageRepositoryApi:
         # process the body parameter
         _body_params = None
 
-        if _params["image_repository"]:
+        if _params["image_repository"] is not None:
             _body_params = _params["image_repository"]
 
         # set the HTTP header `Accept`

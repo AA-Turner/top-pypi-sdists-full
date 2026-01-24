@@ -325,6 +325,25 @@ class InvalidBundle(Error):
         )
 
 
+class IncompatibleEntry(InvalidBundle):
+    """
+    Raised when the log entry within the `Bundle` has an incompatible KindVersion.
+    """
+
+    def diagnostics(self) -> str:
+        """Returns diagnostics for the error."""
+
+        return dedent(
+            f"""\
+        The provided bundle contains a transparency log entry that is incompatible with this version of sigstore-python. Please upgrade your verifying client.
+
+        Additional context:
+
+        {self}
+        """
+        )
+
+
 class Bundle:
     """
     Represents a Sigstore bundle.
@@ -425,6 +444,11 @@ class Bundle:
         if len(tlog_entries) != 1:
             raise InvalidBundle("expected exactly one log entry in bundle")
         tlog_entry = tlog_entries[0]
+
+        if tlog_entry.kind_version.version not in ["0.0.1", "0.0.2"]:
+            raise IncompatibleEntry(
+                f"Expected log entry version 0.0.1 - 0.0.2, got {tlog_entry.kind_version.version}"
+            )
 
         # Handling of inclusion promises and proofs varies between bundle
         # format versions:
@@ -929,13 +953,14 @@ class ClientTrustConfig:
         cls,
         url: str,
         offline: bool = False,
+        bootstrap_root: Path | None = None,
     ) -> ClientTrustConfig:
         """Create a new trust config from a TUF repository.
 
         If `offline`, will use data in local TUF cache. Otherwise will
         update the trust config from remote TUF repository.
         """
-        updater = TrustUpdater(url, offline)
+        updater = TrustUpdater(url, offline, bootstrap_root)
 
         tr_path = updater.get_trusted_root_path()
         inner_tr = trustroot_v1.TrustedRoot.from_json(Path(tr_path).read_bytes())

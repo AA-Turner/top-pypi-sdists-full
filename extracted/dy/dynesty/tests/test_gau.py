@@ -101,16 +101,6 @@ class Gaussian:
 
         return ret
 
-    # gradient (no jacobian)
-    def grad_x(self, x):
-        """Multivariate normal log-likelihood gradient."""
-        return -np.dot(self.cov_inv, (x - self.mean))
-
-    # gradient (with jacobian)
-    def grad_u(self, x):
-        """Multivariate normal log-likelihood gradient."""
-        return -np.dot(self.cov_inv, x - self.mean) * 2 * self.prior_win
-
 
 def check_results_gau(results, g, rstate, sig=4, logz_tol=None):
     if logz_tol is None:
@@ -206,26 +196,6 @@ def test_generator():
     check_results_gau(res, g, rstate)
 
 
-def test_n_effective():
-    # Test that n_effective controls the sample size
-    rstate = get_rstate()
-    g = Gaussian()
-    sampler = dynesty.NestedSampler(g.loglikelihood,
-                                    g.prior_transform,
-                                    g.ndim,
-                                    nlive=nlive,
-                                    rstate=rstate)
-    target_n_effective = 2
-
-    current_n_effective = sampler.n_effective
-
-    for _ in sampler.sample(add_live=False, n_effective=target_n_effective):
-        previous_n_effective = current_n_effective
-        current_n_effective = sampler.n_effective
-
-    assert current_n_effective > target_n_effective > previous_n_effective
-
-
 # try all combinations except
 @pytest.mark.parametrize(
     "bound,sample",
@@ -291,57 +261,6 @@ def test_bounding_enlarge():
                                     bound=bound,
                                     sample=sample,
                                     enlarge=1.5,
-                                    rstate=rstate)
-    sampler.run_nested(print_progress=printing)
-    check_results_gau(sampler.results, g, rstate)
-
-
-# extra checks for gradients
-def test_hslice_nograd():
-    rstate = get_rstate()
-    g = Gaussian()
-    sampler = dynesty.NestedSampler(g.loglikelihood,
-                                    g.prior_transform,
-                                    g.ndim,
-                                    nlive=nlive,
-                                    sample='hslice',
-                                    rstate=rstate)
-    sampler.run_nested(print_progress=printing)
-    check_results_gau(sampler.results, g, rstate)
-
-
-@pytest.mark.parametrize("dyn", [False, True])
-def test_hslice_grad(dyn):
-    rstate = get_rstate()
-    g = Gaussian()
-    if dyn:
-        CL = dynesty.DynamicNestedSampler
-        kw = dict(dlogz_init=1, n_effective=100)
-        # otherwise it's too slow
-    else:
-        CL = dynesty.NestedSampler
-        kw = {}
-    sampler = CL(g.loglikelihood,
-                 g.prior_transform,
-                 g.ndim,
-                 nlive=nlive,
-                 sample='hslice',
-                 gradient=g.grad_x,
-                 compute_jac=True,
-                 rstate=rstate)
-    sampler.run_nested(print_progress=printing, **kw)
-    check_results_gau(sampler.results, g, rstate)
-
-
-def test_hslice_grad1():
-    rstate = get_rstate()
-    g = Gaussian()
-    sampler = dynesty.NestedSampler(g.loglikelihood,
-                                    g.prior_transform,
-                                    g.ndim,
-                                    nlive=nlive,
-                                    sample='hslice',
-                                    gradient=g.grad_u,
                                     rstate=rstate)
     sampler.run_nested(print_progress=printing)
     check_results_gau(sampler.results, g, rstate)

@@ -118,7 +118,7 @@ def title_case(string):
     return "".join(x.capitalize() for x in string.split("_"))
 
 
-class ParamKwargsHelper(object):
+class ParamKwargsHelper:
     """
     Utility class to help extract the subset of keys that an s3 method is
     actually using
@@ -152,7 +152,7 @@ class ParamKwargsHelper(object):
         return {k: v for k, v in d.items() if k in valid_keys}
 
 
-class SSEParams(object):
+class SSEParams:
     def __init__(
         self,
         server_side_encryption=None,

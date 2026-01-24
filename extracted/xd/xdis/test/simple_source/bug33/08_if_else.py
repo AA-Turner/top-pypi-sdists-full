@@ -10,7 +10,7 @@ assert init() == set()
 assert init([1, 2, 3]) == set([1, 2, 3])
 
 # From 3.6 sre_parse
-# Bug was in handling multiple COME_FROMS from nested if's
+# Bug was in handling multple COME_FROMS from nested if's
 def _escape(a, b, c, d, e):
     if a:
         if b:

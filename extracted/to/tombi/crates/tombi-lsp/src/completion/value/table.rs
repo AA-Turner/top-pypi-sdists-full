@@ -4,19 +4,19 @@ use futures::future::join_all;
 use itertools::Itertools;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::{
-    is_online_url, Accessor, CurrentSchema, DocumentSchema, FindSchemaCandidates, PropertySchema,
-    Referable, SchemaAccessor, SchemaStore, TableSchema, ValueSchema,
+    Accessor, CurrentSchema, DocumentSchema, FindSchemaCandidates, PropertySchema, Referable,
+    SchemaAccessor, SchemaStore, TableSchema, ValueSchema, is_online_url,
 };
 
 use crate::{
     comment_directive::get_table_comment_directive_content_with_schema_uri,
     completion::{
+        CompletionCandidate, CompletionContent, CompletionHint, FindCompletionContents,
         comment::get_tombi_comment_directive_content_completion_contents,
         value::{
             all_of::find_all_of_completion_items, any_of::find_any_of_completion_items,
             one_of::find_one_of_completion_items, type_hint_value,
         },
-        CompletionCandidate, CompletionContent, CompletionHint, FindCompletionContents,
     },
 };
 
@@ -40,22 +40,21 @@ impl FindCompletionContents for tombi_document_tree::Table {
             if keys.is_empty() {
                 if let Some((comment_directive_context, schema_uri)) =
                     get_table_comment_directive_content_with_schema_uri(self, position, accessors)
-                {
-                    if let Some(completions) =
+                    && let Some(completions) =
                         get_tombi_comment_directive_content_completion_contents(
                             comment_directive_context,
                             schema_uri,
                         )
                         .await
-                    {
-                        return completions;
-                    }
+                {
+                    return completions;
                 }
 
                 if !matches!(
                     self.kind(),
                     tombi_document_tree::TableKind::InlineTable { .. }
-                ) {
+                ) && completion_hint != Some(CompletionHint::InTableHeader)
+                {
                     // Skip if the cursor is the end space of key value like:
                     //
                     // ```toml
@@ -188,14 +187,14 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             continue;
                                         }
 
-                                        if let Some(value) = self.get(key_name) {
-                                            if check_used_table_value(
+                                        if let Some(value) = self.get(key_name)
+                                            && check_used_table_value(
                                                 value,
                                                 accessors.is_empty(),
                                                 completion_hint,
-                                            ) {
-                                                continue;
-                                            }
+                                            )
+                                        {
+                                            continue;
                                         }
 
                                         if let Ok(Some(current_schema)) = property_schema
@@ -255,7 +254,8 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                         },
                                     ) in pattern_properties.write().await.iter_mut()
                                     {
-                                        let Ok(pattern) = regex::Regex::new(property_key) else {
+                                        let Ok(pattern) = tombi_regex::Regex::new(property_key)
+                                        else {
                                             tracing::warn!(
                                                 "Invalid regex pattern property: {}",
                                                 property_key
@@ -380,14 +380,14 @@ impl FindCompletionContents for tombi_document_tree::Table {
                             {
                                 let key_name = &schema_accessor.to_string();
 
-                                if let Some(value) = self.get(key_name) {
-                                    if check_used_table_value(
+                                if let Some(value) = self.get(key_name)
+                                    && check_used_table_value(
                                         value,
                                         accessors.is_empty(),
                                         completion_hint,
-                                    ) {
-                                        continue;
-                                    }
+                                    )
+                                {
+                                    continue;
                                 }
 
                                 // NOTE: To avoid downloading unnecessary schema files,
@@ -449,91 +449,80 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                     {
                                         let head_accessors =
                                             &root_accessors[..root_accessors.len() - 1];
-                                        if head_accessors == accessors {
-                                            if let Ok(Some(document_schema)) = schema_context
+                                        if head_accessors == accessors
+                                            && let Ok(Some(document_schema)) = schema_context
                                                 .store
                                                 .try_get_document_schema(sub_schema_uri)
                                                 .await
-                                            {
-                                                if let Some(value_schema) =
-                                                    &document_schema.value_schema
-                                                {
-                                                    completion_contents.push(
-                                                        CompletionContent::new_key(
-                                                            last_key,
-                                                            position,
-                                                            value_schema
-                                                                .detail(
-                                                                    &current_schema.schema_uri,
-                                                                    &current_schema.definitions,
-                                                                    schema_context.store,
-                                                                    completion_hint,
-                                                                )
-                                                                .await,
-                                                            value_schema
-                                                                .documentation(
-                                                                    &current_schema.schema_uri,
-                                                                    &current_schema.definitions,
-                                                                    schema_context.store,
-                                                                    completion_hint,
-                                                                )
-                                                                .await,
-                                                            None,
-                                                            Some(
-                                                                current_schema.schema_uri.as_ref(),
-                                                            ),
-                                                            value_schema.deprecated().await,
-                                                            completion_hint,
-                                                        ),
-                                                    );
-                                                }
-                                            }
+                                            && let Some(value_schema) =
+                                                &document_schema.value_schema
+                                        {
+                                            completion_contents.push(CompletionContent::new_key(
+                                                last_key,
+                                                position,
+                                                value_schema
+                                                    .detail(
+                                                        &current_schema.schema_uri,
+                                                        &current_schema.definitions,
+                                                        schema_context.store,
+                                                        completion_hint,
+                                                    )
+                                                    .await,
+                                                value_schema
+                                                    .documentation(
+                                                        &current_schema.schema_uri,
+                                                        &current_schema.definitions,
+                                                        schema_context.store,
+                                                        completion_hint,
+                                                    )
+                                                    .await,
+                                                None,
+                                                Some(current_schema.schema_uri.as_ref()),
+                                                value_schema.deprecated().await,
+                                                completion_hint,
+                                            ));
                                         }
                                     }
                                 }
                             }
 
-                            if completion_contents.is_empty() {
-                                if let Some(pattern_properties) = &table_schema.pattern_properties {
-                                    let patterns = pattern_properties
-                                        .read()
-                                        .await
-                                        .keys()
-                                        .map(ToString::to_string)
-                                        .collect_vec();
-                                    completion_contents.push(CompletionContent::new_pattern_key(
-                                        patterns.as_ref(),
-                                        position,
-                                        Some(current_schema.schema_uri.as_ref()),
-                                        completion_hint,
-                                    ))
-                                } else if let Some((_, additional_property_schema)) =
-                                    &table_schema.additional_property_schema
-                                {
-                                    if let Ok(Some(CurrentSchema {
-                                        value_schema,
-                                        schema_uri,
-                                        ..
-                                    })) = additional_property_schema
-                                        .write()
-                                        .await
-                                        .resolve(
-                                            current_schema.schema_uri.clone(),
-                                            current_schema.definitions.clone(),
-                                            schema_context.store,
-                                        )
-                                        .await
-                                    {
-                                        completion_contents.push(
-                                            CompletionContent::new_additional_key(
-                                                position,
-                                                Some(schema_uri.as_ref()),
-                                                value_schema.deprecated().await,
-                                                completion_hint,
-                                            ),
-                                        );
-                                    }
-                                }
+                            if let Some(pattern_properties) = &table_schema.pattern_properties {
+                                let patterns = pattern_properties
+                                    .read()
+                                    .await
+                                    .keys()
+                                    .map(ToString::to_string)
+                                    .collect_vec();
+                                completion_contents.push(CompletionContent::new_pattern_key(
+                                    table_schema.additional_key_label.as_deref(),
+                                    patterns.as_ref(),
+                                    position,
+                                    Some(current_schema.schema_uri.as_ref()),
+                                    completion_hint,
+                                ))
+                            } else if let Some((_, additional_property_schema)) =
+                                &table_schema.additional_property_schema
+                                && let Ok(Some(CurrentSchema {
+                                    value_schema,
+                                    schema_uri,
+                                    ..
+                                })) = additional_property_schema
+                                    .write()
+                                    .await
+                                    .resolve(
+                                        current_schema.schema_uri.clone(),
+                                        current_schema.definitions.clone(),
+                                        schema_context.store,
+                                    )
+                                    .await
+                            {
+                                completion_contents.push(CompletionContent::new_additional_key(
+                                    table_schema.additional_key_label.as_deref(),
+                                    position,
+                                    Some(schema_uri.as_ref()),
+                                    value_schema.deprecated().await,
+                                    completion_hint,
+                                ));
                             }
                         }
                         completion_contents
@@ -663,13 +652,12 @@ impl FindCompletionContents for TableSchema {
                     }
 
                     for schema_candidate in schema_candidates {
-                        if let Some(CompletionHint::InTableHeader) = completion_hint {
-                            if count_table_or_array_schema(&current_schema, schema_context.store)
+                        if let Some(CompletionHint::InTableHeader) = completion_hint
+                            && count_table_or_array_schema(&current_schema, schema_context.store)
                                 .await
                                 == 0
-                            {
-                                continue;
-                            }
+                        {
+                            continue;
                         }
 
                         completion_items.push(CompletionContent::new_key(
@@ -730,8 +718,8 @@ async fn count_table_or_array_schema(
             .map(|schema| async {
                 match schema {
                     ValueSchema::Array(array_schema) => {
-                        if let Some(item) = array_schema.items {
-                            if let Ok(Some(CurrentSchema {
+                        if let Some(item) = array_schema.items
+                            && let Ok(Some(CurrentSchema {
                                 schema_uri,
                                 value_schema,
                                 definitions,
@@ -744,16 +732,15 @@ async fn count_table_or_array_schema(
                                     schema_store,
                                 )
                                 .await
-                            {
-                                return value_schema
-                                    .is_match(
-                                        &|schema| matches!(schema, ValueSchema::Table(_)),
-                                        &schema_uri,
-                                        &definitions,
-                                        schema_store,
-                                    )
-                                    .await;
-                            }
+                        {
+                            return value_schema
+                                .is_match(
+                                    &|schema| matches!(schema, ValueSchema::Table(_)),
+                                    &schema_uri,
+                                    &definitions,
+                                    schema_store,
+                                )
+                                .await;
                         }
                         true
                     }
@@ -805,12 +792,11 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                     }
                 }
                 Some(CompletionHint::InTableHeader) => {
-                    if let Some(current_schema) = current_schema {
-                        if count_table_or_array_schema(current_schema, schema_context.store).await
+                    if let Some(current_schema) = current_schema
+                        && count_table_or_array_schema(current_schema, schema_context.store).await
                             == 0
-                        {
-                            return Vec::with_capacity(0);
-                        }
+                    {
+                        return Vec::with_capacity(0);
                     }
                 }
                 Some(CompletionHint::InArray { .. } | CompletionHint::Comma { .. }) | None => {

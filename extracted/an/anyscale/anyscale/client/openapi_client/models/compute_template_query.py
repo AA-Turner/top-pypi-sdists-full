@@ -40,7 +40,8 @@ class ComputeTemplateQuery(object):
         'include_anonymous': 'bool',
         'archive_status': 'ArchiveStatus',
         'cloud_id': 'str',
-        'version': 'int'
+        'version': 'int',
+        'sort_by_clauses': 'list[SortByClause]'
     }
 
     attribute_map = {
@@ -51,10 +52,11 @@ class ComputeTemplateQuery(object):
         'include_anonymous': 'include_anonymous',
         'archive_status': 'archive_status',
         'cloud_id': 'cloud_id',
-        'version': 'version'
+        'version': 'version',
+        'sort_by_clauses': 'sort_by_clauses'
     }
 
-    def __init__(self, orgwide=False, project_id=None, creator_id=None, name=None, include_anonymous=False, archive_status=None, cloud_id=None, version=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, orgwide=False, project_id=None, creator_id=None, name=None, include_anonymous=False, archive_status=None, cloud_id=None, version=None, sort_by_clauses=None, local_vars_configuration=None):  # noqa: E501
         """ComputeTemplateQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class ComputeTemplateQuery(object):
         self._archive_status = None
         self._cloud_id = None
         self._version = None
+        self._sort_by_clauses = None
         self.discriminator = None
 
         if orgwide is not None:
@@ -86,6 +89,8 @@ class ComputeTemplateQuery(object):
             self.cloud_id = cloud_id
         if version is not None:
             self.version = version
+        if sort_by_clauses is not None:
+            self.sort_by_clauses = sort_by_clauses
 
     @property
     def orgwide(self):
@@ -268,6 +273,29 @@ class ComputeTemplateQuery(object):
         """
 
         self._version = version
+
+    @property
+    def sort_by_clauses(self):
+        """Gets the sort_by_clauses of this ComputeTemplateQuery.  # noqa: E501
+
+        The order used to specify results. The list will be used to construct ORDER BY database queries. If not specified, the fallback order by clauses are 1. Creation time (desc) 2. Name (ascending) and 3. ID (ascending)  # noqa: E501
+
+        :return: The sort_by_clauses of this ComputeTemplateQuery.  # noqa: E501
+        :rtype: list[SortByClause]
+        """
+        return self._sort_by_clauses
+
+    @sort_by_clauses.setter
+    def sort_by_clauses(self, sort_by_clauses):
+        """Sets the sort_by_clauses of this ComputeTemplateQuery.
+
+        The order used to specify results. The list will be used to construct ORDER BY database queries. If not specified, the fallback order by clauses are 1. Creation time (desc) 2. Name (ascending) and 3. ID (ascending)  # noqa: E501
+
+        :param sort_by_clauses: The sort_by_clauses of this ComputeTemplateQuery.  # noqa: E501
+        :type: list[SortByClause]
+        """
+
+        self._sort_by_clauses = sort_by_clauses
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.sqs_trigger_aws_auth_resource_type import SqsTriggerAwsAuthResourceType
+from ..models.sqs_trigger_mode import SqsTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,6 @@ class SqsTrigger:
         queue_url (str):
         aws_auth_resource_type (SqsTriggerAwsAuthResourceType):
         aws_resource_path (str):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -33,19 +33,19 @@ class SqsTrigger:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (SqsTriggerMode): job trigger mode
         message_attributes (Union[Unset, List[str]]):
         server_id (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, SqsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, SqsTriggerRetry]):
+        retry (Union[Unset, SqsTriggerRetry]): Retry configuration for failed module executions
     """
 
     queue_url: str
     aws_auth_resource_type: SqsTriggerAwsAuthResourceType
     aws_resource_path: str
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -54,6 +54,7 @@ class SqsTrigger:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: SqsTriggerMode
     message_attributes: Union[Unset, List[str]] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -68,7 +69,6 @@ class SqsTrigger:
         aws_auth_resource_type = self.aws_auth_resource_type.value
 
         aws_resource_path = self.aws_resource_path
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -79,6 +79,8 @@ class SqsTrigger:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         message_attributes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
             message_attributes = self.message_attributes
@@ -105,7 +107,6 @@ class SqsTrigger:
                 "queue_url": queue_url,
                 "aws_auth_resource_type": aws_auth_resource_type,
                 "aws_resource_path": aws_resource_path,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -114,6 +115,7 @@ class SqsTrigger:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if message_attributes is not UNSET:
@@ -146,8 +148,6 @@ class SqsTrigger:
 
         aws_resource_path = d.pop("aws_resource_path")
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -163,6 +163,8 @@ class SqsTrigger:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = SqsTriggerMode(d.pop("mode"))
 
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
 
@@ -197,7 +199,6 @@ class SqsTrigger:
             queue_url=queue_url,
             aws_auth_resource_type=aws_auth_resource_type,
             aws_resource_path=aws_resource_path,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -206,6 +207,7 @@ class SqsTrigger:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             message_attributes=message_attributes,
             server_id=server_id,
             last_server_ping=last_server_ping,

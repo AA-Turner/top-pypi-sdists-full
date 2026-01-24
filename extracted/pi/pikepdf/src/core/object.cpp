@@ -1,20 +1,21 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
-#include <cstring>
 #include <cctype>
+#include <cmath>
+#include <cstring>
 
+#include <qpdf/Buffer.hh>
 #include <qpdf/Constants.h>
-#include <qpdf/Types.h>
 #include <qpdf/DLL.h>
 #include <qpdf/Pl_String.hh>
+#include <qpdf/QPDF.hh>
 #include <qpdf/QPDFExc.hh>
 #include <qpdf/QPDFObjGen.hh>
-#include <qpdf/QPDFXRefEntry.hh>
-#include <qpdf/Buffer.hh>
 #include <qpdf/QPDFObjectHandle.hh>
-#include <qpdf/QPDF.hh>
 #include <qpdf/QPDFWriter.hh>
+#include <qpdf/QPDFXRefEntry.hh>
+#include <qpdf/Types.h>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -22,6 +23,7 @@
 #include "pikepdf.h"
 #include "utils.h"
 
+#include "namepath.h"
 #include "parsers.h"
 
 /*
@@ -59,138 +61,6 @@ py::size_t list_range_check(QPDFObjectHandle h, int index)
     if (!(0 <= index && index < h.getArrayNItems()))
         throw py::index_error("index out of range");
     return static_cast<py::size_t>(index);
-}
-
-inline bool typecode_is_bool(qpdf_object_type_e typecode)
-{
-    return typecode == qpdf_object_type_e::ot_boolean;
-}
-
-inline bool typecode_is_int(qpdf_object_type_e typecode)
-{
-    return typecode == qpdf_object_type_e::ot_integer;
-}
-
-inline bool typecode_is_numeric(qpdf_object_type_e typecode)
-{
-    return typecode == qpdf_object_type_e::ot_integer ||
-           typecode == qpdf_object_type_e::ot_real ||
-           typecode == qpdf_object_type_e::ot_boolean;
-}
-
-bool objecthandle_equal(QPDFObjectHandle self, QPDFObjectHandle other)
-{
-    StackGuard sg(" objecthandle_equal");
-
-    // Uninitialized objects are never equal
-    if (!self.isInitialized() || !other.isInitialized())
-        return false; // LCOV_EXCL_LINE
-
-    // If two objects point to the same underlying object, they are equal (in fact,
-    // they are identical; they reference the same underlying QPDFObject, even if the
-    // handles are different). This lets us compare deeply nested and cyclic
-    // structures without recursing into them.
-    if (self.isSameObjectAs(other)) {
-        return true;
-    }
-
-    auto self_typecode  = self.getTypeCode();
-    auto other_typecode = other.getTypeCode();
-
-    if (typecode_is_bool(self_typecode) && typecode_is_bool(other_typecode)) {
-        return self.getBoolValue() == other.getBoolValue();
-    } else if (typecode_is_int(self_typecode) && typecode_is_int(other_typecode)) {
-        return self.getIntValue() == other.getIntValue();
-    } else if (typecode_is_numeric(self_typecode) &&
-               typecode_is_numeric(other_typecode)) {
-        // If 'self' and 'other' are different numeric types, convert both to
-        // Decimal objects and compare them as such.
-        auto a              = decimal_from_pdfobject(self);
-        auto b              = decimal_from_pdfobject(other);
-        py::object pyresult = a.attr("__eq__")(b);
-        bool result         = pyresult.cast<bool>();
-        return result;
-    }
-
-    // Apart from numeric types, dissimilar types are never equal
-    if (self_typecode != other_typecode)
-        return false;
-
-    switch (self_typecode) {
-    case qpdf_object_type_e::ot_null:
-        return true; // Both must be null
-    case qpdf_object_type_e::ot_name:
-        return self.getName() == other.getName();
-    case qpdf_object_type_e::ot_operator:
-        return self.getOperatorValue() == other.getOperatorValue();
-    case qpdf_object_type_e::ot_string: {
-        // We don't know what encoding the string is in
-        // This ensures UTF-16 coded ASCII strings will compare equal to
-        // UTF-8/ASCII coded.
-        return self.getStringValue() == other.getStringValue() ||
-               self.getUTF8Value() == other.getUTF8Value();
-    }
-    case qpdf_object_type_e::ot_array: {
-        // Call operator==() on each element of the arrays, meaning this
-        // recurses into this function
-        if (self.getArrayNItems() != other.getArrayNItems())
-            return false;
-        {
-            auto self_aitems  = self.aitems();
-            auto other_aitems = other.aitems();
-            auto iter_self    = self_aitems.begin();
-            auto iter_other   = other_aitems.begin();
-            for (; iter_self != self_aitems.end(); ++iter_self, ++iter_other) {
-                if (!objecthandle_equal(*iter_self, *iter_other))
-                    return false;
-            }
-        }
-        return true;
-    }
-    case qpdf_object_type_e::ot_dictionary: {
-        // Call operator==() on each element of the arrays, meaning this
-        // recurses into this function
-        return (self.getDictAsMap() == other.getDictAsMap());
-    }
-    case qpdf_object_type_e::ot_stream: {
-        // Recurse into this function to check if our dictionaries are equal
-        if (!objecthandle_equal(self.getDict(), other.getDict()))
-            return false;
-
-        // If dictionaries are equal, check our stream
-        // We don't go as far as decompressing the data to see if it's equal
-        auto self_buffer  = self.getRawStreamData();
-        auto other_buffer = other.getRawStreamData();
-
-        // Early out: if underlying qpdf Buffers happen to be the same, the data is
-        // the same
-        if (self_buffer == other_buffer)
-            return true;
-        // Early out: if sizes are different, data cannot be the same
-        if (self_buffer->getSize() != other_buffer->getSize())
-            return false;
-
-        // Slow path: memcmp the binary data
-        return 0 == std::memcmp(self_buffer->getBuffer(),
-                        other_buffer->getBuffer(),
-                        self_buffer->getSize());
-    }
-    // LCOV_EXCL_START
-    case qpdf_object_type_e::ot_boolean:
-    case qpdf_object_type_e::ot_integer:
-    case qpdf_object_type_e::ot_real:
-        throw std::logic_error("should have eliminated numeric types by now");
-    default:
-        throw std::logic_error("invalid object type");
-    }
-    // LCOV_EXCL_STOP
-}
-
-bool operator==(QPDFObjectHandle self, QPDFObjectHandle other)
-{
-    // A lot of functions in QPDFObjectHandle are not tagged const where they
-    // should be, but are const-safe
-    return objecthandle_equal(self, other);
 }
 
 bool object_has_key(QPDFObjectHandle h, std::string const &key)
@@ -260,6 +130,47 @@ void object_del_key(QPDFObjectHandle h, std::string const &key)
         throw py::key_error(key);
 
     dict.removeKey(key);
+}
+
+// Traverse a NamePath, returning the final object or throwing with context
+QPDFObjectHandle traverse_namepath(
+    QPDFObjectHandle h, NamePath const &path, bool for_set = false)
+{
+    auto const &components = path.components();
+    size_t end = for_set ? components.size() - 1 : components.size();
+
+    QPDFObjectHandle current = h;
+    for (size_t i = 0; i < end; ++i) {
+        if (std::holds_alternative<std::string>(components[i])) {
+            auto const &key = std::get<std::string>(components[i]);
+            if (!current.isDictionary() && !current.isStream()) {
+                throw py::type_error("Expected Dictionary or Stream at " +
+                                     path.format_path(i) + ", got " +
+                                     current.getTypeName());
+            }
+            QPDFObjectHandle dict = current.isStream() ? current.getDict() : current;
+            if (!dict.hasKey(key)) {
+                throw py::key_error(
+                    "Key " + key + " not found; traversed " + path.format_path(i));
+            }
+            current = dict.getKey(key);
+        } else {
+            int index = std::get<int>(components[i]);
+            if (!current.isArray()) {
+                throw py::type_error("Expected Array at " + path.format_path(i) +
+                                     ", got " + current.getTypeName());
+            }
+            int size = current.getArrayNItems();
+            if (index < 0)
+                index += size;
+            if (index < 0 || index >= size) {
+                throw py::index_error("Index " + std::to_string(index) +
+                                      " out of range at " + path.format_path(i));
+            }
+            current = current.getArrayItem(static_cast<size_t>(index));
+        }
+    }
+    return current;
 }
 
 std::pair<int, int> object_get_objgen(QPDFObjectHandle h)
@@ -352,7 +263,7 @@ void init_object(py::module_ &m)
             })
         .def("with_same_owner_as",
             [](QPDFObjectHandle &self, QPDFObjectHandle &other) {
-                QPDF *self_owner  = self.getOwningQPDF();
+                QPDF *self_owner = self.getOwningQPDF();
                 QPDF *other_owner = other.getOwningQPDF();
 
                 if (self_owner == other_owner)
@@ -471,6 +382,10 @@ void init_object(py::module_ &m)
             })
         .def("__bool__",
             [](QPDFObjectHandle &h) -> bool {
+                // Handle boolean objects (in explicit conversion mode)
+                if (h.isBool()) {
+                    return h.getBoolValue();
+                }
                 if (h.isDictionary()) {
                     return h.getDictAsMap().size() > 0;
                 } else if (h.isArray()) {
@@ -483,7 +398,7 @@ void init_object(py::module_ &m)
                     return nitems > 0;
                 } else if (h.isStream()) {
                     auto stream_dict = h.getDict();
-                    auto len         = stream_dict.getKey("/Length");
+                    auto len = stream_dict.getKey("/Length");
                     if (len.isNull() || !len.isInteger() || len.getIntValue() <= 0) {
                         return false;
                     }
@@ -499,6 +414,421 @@ void init_object(py::module_ &m)
                 }
                 throw py::notimpl_error("code is unreachable");
             })
+        .def("__int__",
+            [](QPDFObjectHandle &h) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return h.getIntValue();
+            })
+        .def("__index__",
+            [](QPDFObjectHandle &h) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return h.getIntValue();
+            })
+        .def("__float__",
+            [](QPDFObjectHandle &h) -> double {
+                if (h.isInteger())
+                    return static_cast<double>(h.getIntValue());
+                if (h.isReal())
+                    return std::stod(h.getRealValue());
+                throw py::type_error("Object is not numeric");
+            })
+        .def("_get_real_value",
+            [](QPDFObjectHandle &h) -> std::string {
+                if (!h.isReal())
+                    throw py::type_error("Object is not a real number");
+                return h.getRealValue();
+            })
+        // Arithmetic operations for Integer objects (return native Python types)
+        // Integer + int -> int
+        .def(
+            "__add__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return h.getIntValue() + other;
+            },
+            py::is_operator())
+        .def(
+            "__radd__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return other + h.getIntValue();
+            },
+            py::is_operator())
+        // Numeric + float -> float (for Integer or Real)
+        .def(
+            "__add__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(static_cast<double>(h.getIntValue()) + other);
+                if (h.isReal())
+                    return py::cast(std::stod(h.getRealValue()) + other);
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__radd__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(other + static_cast<double>(h.getIntValue()));
+                if (h.isReal())
+                    return py::cast(other + std::stod(h.getRealValue()));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        // Fallback for other types (e.g., Decimal) - return NotImplemented
+        .def(
+            "__add__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__radd__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__sub__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return h.getIntValue() - other;
+            },
+            py::is_operator())
+        .def(
+            "__rsub__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return other - h.getIntValue();
+            },
+            py::is_operator())
+        .def(
+            "__sub__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(static_cast<double>(h.getIntValue()) - other);
+                if (h.isReal())
+                    return py::cast(std::stod(h.getRealValue()) - other);
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rsub__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(other - static_cast<double>(h.getIntValue()));
+                if (h.isReal())
+                    return py::cast(other - std::stod(h.getRealValue()));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__sub__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__rsub__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__mul__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return h.getIntValue() * other;
+            },
+            py::is_operator())
+        .def(
+            "__rmul__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                return other * h.getIntValue();
+            },
+            py::is_operator())
+        .def(
+            "__mul__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(static_cast<double>(h.getIntValue()) * other);
+                if (h.isReal())
+                    return py::cast(std::stod(h.getRealValue()) * other);
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rmul__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (h.isInteger())
+                    return py::cast(other * static_cast<double>(h.getIntValue()));
+                if (h.isReal())
+                    return py::cast(other * std::stod(h.getRealValue()));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__mul__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__rmul__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        // True division: always returns float
+        .def(
+            "__truediv__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (other == 0.0)
+                    throw py::value_error("division by zero");
+                if (h.isInteger())
+                    return py::cast(static_cast<double>(h.getIntValue()) / other);
+                if (h.isReal())
+                    return py::cast(std::stod(h.getRealValue()) / other);
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rtruediv__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                double val;
+                if (h.isInteger())
+                    val = static_cast<double>(h.getIntValue());
+                else if (h.isReal())
+                    val = std::stod(h.getRealValue());
+                else
+                    throw py::type_error("Object is not numeric");
+                if (val == 0.0)
+                    throw py::value_error("division by zero");
+                return py::cast(other / val);
+            },
+            py::is_operator())
+        .def(
+            "__truediv__",
+            [](QPDFObjectHandle &h, long long other) -> py::object {
+                if (other == 0)
+                    throw py::value_error("division by zero");
+                if (h.isInteger())
+                    return py::cast(static_cast<double>(h.getIntValue()) /
+                                    static_cast<double>(other));
+                if (h.isReal())
+                    return py::cast(
+                        std::stod(h.getRealValue()) / static_cast<double>(other));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rtruediv__",
+            [](QPDFObjectHandle &h, long long other) -> py::object {
+                double val;
+                if (h.isInteger())
+                    val = static_cast<double>(h.getIntValue());
+                else if (h.isReal())
+                    val = std::stod(h.getRealValue());
+                else
+                    throw py::type_error("Object is not numeric");
+                if (val == 0.0)
+                    throw py::value_error("division by zero");
+                return py::cast(static_cast<double>(other) / val);
+            },
+            py::is_operator())
+        .def(
+            "__truediv__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__rtruediv__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        // Floor division: Integer // int -> int
+        .def(
+            "__floordiv__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                if (other == 0)
+                    throw py::value_error("division by zero");
+                return h.getIntValue() / other;
+            },
+            py::is_operator())
+        .def(
+            "__rfloordiv__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                long long val = h.getIntValue();
+                if (val == 0)
+                    throw py::value_error("division by zero");
+                return other / val;
+            },
+            py::is_operator())
+        // Floor division with float -> float
+        .def(
+            "__floordiv__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (other == 0.0)
+                    throw py::value_error("division by zero");
+                if (h.isInteger())
+                    return py::cast(
+                        std::floor(static_cast<double>(h.getIntValue()) / other));
+                if (h.isReal())
+                    return py::cast(std::floor(std::stod(h.getRealValue()) / other));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rfloordiv__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                double val;
+                if (h.isInteger())
+                    val = static_cast<double>(h.getIntValue());
+                else if (h.isReal())
+                    val = std::stod(h.getRealValue());
+                else
+                    throw py::type_error("Object is not numeric");
+                if (val == 0.0)
+                    throw py::value_error("division by zero");
+                return py::cast(std::floor(other / val));
+            },
+            py::is_operator())
+        .def(
+            "__floordiv__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__rfloordiv__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__mod__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                if (other == 0)
+                    throw py::value_error("modulo by zero");
+                return h.getIntValue() % other;
+            },
+            py::is_operator())
+        .def(
+            "__rmod__",
+            [](QPDFObjectHandle &h, long long other) -> long long {
+                if (!h.isInteger())
+                    throw py::type_error("Object is not an integer");
+                long long val = h.getIntValue();
+                if (val == 0)
+                    throw py::value_error("modulo by zero");
+                return other % val;
+            },
+            py::is_operator())
+        .def(
+            "__mod__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                if (other == 0.0)
+                    throw py::value_error("modulo by zero");
+                if (h.isInteger())
+                    return py::cast(
+                        std::fmod(static_cast<double>(h.getIntValue()), other));
+                if (h.isReal())
+                    return py::cast(std::fmod(std::stod(h.getRealValue()), other));
+                throw py::type_error("Object is not numeric");
+            },
+            py::is_operator())
+        .def(
+            "__rmod__",
+            [](QPDFObjectHandle &h, double other) -> py::object {
+                double val;
+                if (h.isInteger())
+                    val = static_cast<double>(h.getIntValue());
+                else if (h.isReal())
+                    val = std::stod(h.getRealValue());
+                else
+                    throw py::type_error("Object is not numeric");
+                if (val == 0.0)
+                    throw py::value_error("modulo by zero");
+                return py::cast(std::fmod(other, val));
+            },
+            py::is_operator())
+        .def(
+            "__mod__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def(
+            "__rmod__",
+            [](QPDFObjectHandle &h, py::object other) -> py::object {
+                if (!h.isInteger() && !h.isReal())
+                    throw py::type_error("Object is not numeric");
+                return py::handle(Py_NotImplemented).cast<py::object>();
+            },
+            py::is_operator())
+        .def("__neg__",
+            [](QPDFObjectHandle &h) -> py::object {
+                if (h.isInteger())
+                    return py::cast(-h.getIntValue());
+                if (h.isReal())
+                    return py::cast(-std::stod(h.getRealValue()));
+                throw py::type_error("Object is not numeric");
+            })
+        .def("__pos__",
+            [](QPDFObjectHandle &h) -> py::object {
+                if (h.isInteger())
+                    return py::cast(+h.getIntValue());
+                if (h.isReal())
+                    return py::cast(+std::stod(h.getRealValue()));
+                throw py::type_error("Object is not numeric");
+            })
+        .def("__abs__",
+            [](QPDFObjectHandle &h) -> py::object {
+                if (h.isInteger())
+                    return py::cast(std::abs(h.getIntValue()));
+                if (h.isReal())
+                    return py::cast(std::abs(std::stod(h.getRealValue())));
+                throw py::type_error("Object is not numeric");
+            })
         .def("__getitem__",
             [](QPDFObjectHandle &h, std::string const &key) {
                 return object_get_key(h, key);
@@ -506,6 +836,13 @@ void init_object(py::module_ &m)
         .def("__getitem__",
             [](QPDFObjectHandle &h, QPDFObjectHandle &name) {
                 return object_get_key(h, name.getName());
+            })
+        .def("__getitem__",
+            [](QPDFObjectHandle &h, NamePath const &path) {
+                if (path.empty()) {
+                    return h; // Empty path returns self
+                }
+                return traverse_namepath(h, path);
             })
         .def("__setitem__",
             [](QPDFObjectHandle &h, std::string const &key, QPDFObjectHandle &value) {
@@ -524,6 +861,67 @@ void init_object(py::module_ &m)
             [](QPDFObjectHandle &h, QPDFObjectHandle &name, py::object pyvalue) {
                 auto value = objecthandle_encode(pyvalue);
                 object_set_key(h, name.getName(), value);
+            })
+        .def("__setitem__",
+            [](QPDFObjectHandle &h, NamePath const &path, QPDFObjectHandle &value) {
+                if (path.empty()) {
+                    throw py::value_error("Cannot assign to empty NamePath");
+                }
+                auto const &components = path.components();
+
+                // Traverse to parent
+                QPDFObjectHandle parent =
+                    path.size() == 1 ? h : traverse_namepath(h, path, true);
+
+                // Get final component
+                auto const &last = components.back();
+                if (std::holds_alternative<std::string>(last)) {
+                    auto const &key = std::get<std::string>(last);
+                    object_set_key(parent, key, value);
+                } else {
+                    int index = std::get<int>(last);
+                    if (!parent.isArray()) {
+                        throw py::type_error("Cannot use integer index on non-Array");
+                    }
+                    int size = parent.getArrayNItems();
+                    if (index < 0)
+                        index += size;
+                    if (index < 0 || index >= size) {
+                        throw py::index_error("Index out of range");
+                    }
+                    parent.setArrayItem(static_cast<size_t>(index), value);
+                }
+            })
+        .def("__setitem__",
+            [](QPDFObjectHandle &h, NamePath const &path, py::object pyvalue) {
+                if (path.empty()) {
+                    throw py::value_error("Cannot assign to empty NamePath");
+                }
+                auto value = objecthandle_encode(pyvalue);
+                auto const &components = path.components();
+
+                // Traverse to parent
+                QPDFObjectHandle parent =
+                    path.size() == 1 ? h : traverse_namepath(h, path, true);
+
+                // Get final component
+                auto const &last = components.back();
+                if (std::holds_alternative<std::string>(last)) {
+                    auto const &key = std::get<std::string>(last);
+                    object_set_key(parent, key, value);
+                } else {
+                    int index = std::get<int>(last);
+                    if (!parent.isArray()) {
+                        throw py::type_error("Cannot use integer index on non-Array");
+                    }
+                    int size = parent.getArrayNItems();
+                    if (index < 0)
+                        index += size;
+                    if (index < 0 || index >= size) {
+                        throw py::index_error("Index out of range");
+                    }
+                    parent.setArrayItem(static_cast<size_t>(index), value);
+                }
             })
         .def("__delitem__",
             [](QPDFObjectHandle &h, std::string const &key) { object_del_key(h, key); })
@@ -558,7 +956,7 @@ void init_object(py::module_ &m)
                 if (h.isDictionary() || (h.isStream() && name != "stream_dict")) {
                     // Map attribute assignment to setting dictionary key
                     std::string key = "/" + name;
-                    auto value      = objecthandle_encode(pyvalue);
+                    auto value = objecthandle_encode(pyvalue);
                     object_set_key(h, key, value);
                     return;
                 }
@@ -615,6 +1013,24 @@ void init_object(py::module_ &m)
             },
             py::arg("key"),
             py::arg("default") = py::none())
+        .def(
+            "get",
+            [](QPDFObjectHandle &h, NamePath const &path, py::object default_) {
+                if (path.empty()) {
+                    return py::cast(h);
+                }
+                try {
+                    return py::cast(traverse_namepath(h, path));
+                } catch (const py::key_error &) {
+                    return default_;
+                } catch (const py::index_error &) {
+                    return default_;
+                } catch (const py::type_error &) {
+                    return default_;
+                }
+            },
+            py::arg("path"),
+            py::arg("default") = py::none())
         .def("keys",
             [](QPDFObjectHandle &h) {
                 if (h.isStream())
@@ -652,13 +1068,13 @@ void init_object(py::module_ &m)
             "__iter__",
             [](QPDFObjectHandle h) -> py::iterable {
                 if (h.isArray()) {
-                    auto vec   = h.getArrayAsVector();
+                    auto vec = h.getArrayAsVector();
                     auto pyvec = py::cast(vec);
                     return pyvec.attr("__iter__")();
                 } else if (h.isDictionary() || h.isStream()) {
                     if (h.isStream())
                         h = h.getDict();
-                    auto keys   = h.getKeys();
+                    auto keys = h.getKeys();
                     auto pykeys = py::cast(keys);
                     return pykeys.attr("__iter__")();
                 } else {
@@ -673,7 +1089,7 @@ void init_object(py::module_ &m)
                     h = h.getDict();
                 if (!h.isDictionary())
                     throw py::type_error("items() not available on this type");
-                auto dict   = h.getDictAsMap();
+                auto dict = h.getDictAsMap();
                 auto pydict = py::cast(dict);
                 return pydict.attr("items")();
             },
@@ -716,7 +1132,7 @@ void init_object(py::module_ &m)
         .def("__setitem__",
             [](QPDFObjectHandle &h, int index, py::object pyvalue) {
                 auto u_index = list_range_check(h, index);
-                auto value   = objecthandle_encode(pyvalue);
+                auto value = objecthandle_encode(pyvalue);
                 h.setArrayItem(u_index, value);
             })
         .def("__delitem__",
@@ -766,8 +1182,8 @@ void init_object(py::module_ &m)
                 py::bytes data,
                 py::object filter,
                 py::object decode_parms) {
-                std::string sdata               = data;
-                QPDFObjectHandle h_filter       = objecthandle_encode(filter);
+                std::string sdata = data;
+                QPDFObjectHandle h_filter = objecthandle_encode(filter);
                 QPDFObjectHandle h_decode_parms = objecthandle_encode(decode_parms);
                 h.replaceStreamData(sdata, h_filter, h_decode_parms);
             },
@@ -814,7 +1230,7 @@ void init_object(py::module_ &m)
                 auto name = h.getUniqueResourceName(prefix, min_suffix);
                 return std::pair(name, min_suffix);
             },
-            py::arg("prefix")     = "",
+            py::arg("prefix") = "",
             py::arg("min_suffix") = 0)
         .def("_get_resource_names",
             [](QPDFObjectHandle &h) { return h.getResourceNames(); })
@@ -829,14 +1245,14 @@ void init_object(py::module_ &m)
         .def(
             "to_json",
             [](QPDFObjectHandle &h,
-                bool dereference   = false,
+                bool dereference = false,
                 int schema_version = 2) -> py::bytes {
                 std::string result;
                 Pl_String p("json", nullptr, result);
                 h.writeJSON(schema_version, &p, dereference);
                 return result;
             },
-            py::arg("dereference")    = false,
+            py::arg("dereference") = false,
             py::arg("schema_version") = 2); // end of QPDFObjectHandle bindings
 
     m.def("_new_boolean", &QPDFObjectHandle::newBool);

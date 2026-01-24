@@ -9,116 +9,77 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
 
-class ProjectsV2FieldType(TypedDict):
-    """Projects v2 Field
+class CopilotOrganizationDetailsType(TypedDict):
+    """Copilot Organization Details
 
-    A field inside a projects v2 project
+    Information about the seat breakdown and policies set for an organization with a
+    Copilot Business or Copilot Enterprise subscription.
     """
 
-    id: int
-    node_id: NotRequired[str]
-    project_url: str
-    name: str
-    data_type: Literal[
-        "assignees",
-        "linked_pull_requests",
-        "reviewers",
-        "labels",
-        "milestone",
-        "repository",
-        "title",
-        "text",
-        "single_select",
-        "number",
-        "date",
-        "iteration",
-        "issue_type",
-        "parent_issue",
-        "sub_issues_progress",
+    seat_breakdown: CopilotOrganizationSeatBreakdownType
+    public_code_suggestions: Literal["allow", "block", "unconfigured"]
+    ide_chat: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    platform_chat: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    cli: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    seat_management_setting: Literal[
+        "assign_all", "assign_selected", "disabled", "unconfigured"
     ]
-    options: NotRequired[list[ProjectsV2SingleSelectOptionsType]]
-    configuration: NotRequired[ProjectsV2FieldPropConfigurationType]
-    created_at: datetime
-    updated_at: datetime
+    plan_type: NotRequired[Literal["business", "enterprise"]]
 
 
-class ProjectsV2SingleSelectOptionsType(TypedDict):
-    """Projects v2 Single Select Option
+class CopilotOrganizationDetailsTypeForResponse(TypedDict):
+    """Copilot Organization Details
 
-    An option for a single select field
+    Information about the seat breakdown and policies set for an organization with a
+    Copilot Business or Copilot Enterprise subscription.
     """
 
-    id: str
-    name: ProjectsV2SingleSelectOptionsPropNameType
-    description: ProjectsV2SingleSelectOptionsPropDescriptionType
-    color: str
+    seat_breakdown: CopilotOrganizationSeatBreakdownTypeForResponse
+    public_code_suggestions: Literal["allow", "block", "unconfigured"]
+    ide_chat: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    platform_chat: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    cli: NotRequired[Literal["enabled", "disabled", "unconfigured"]]
+    seat_management_setting: Literal[
+        "assign_all", "assign_selected", "disabled", "unconfigured"
+    ]
+    plan_type: NotRequired[Literal["business", "enterprise"]]
 
 
-class ProjectsV2SingleSelectOptionsPropNameType(TypedDict):
-    """ProjectsV2SingleSelectOptionsPropName
+class CopilotOrganizationSeatBreakdownType(TypedDict):
+    """Copilot Seat Breakdown
 
-    The display name of the option, in raw text and HTML formats.
+    The breakdown of Copilot Business seats for the organization.
     """
 
-    raw: str
-    html: str
+    total: NotRequired[int]
+    added_this_cycle: NotRequired[int]
+    pending_cancellation: NotRequired[int]
+    pending_invitation: NotRequired[int]
+    active_this_cycle: NotRequired[int]
+    inactive_this_cycle: NotRequired[int]
 
 
-class ProjectsV2SingleSelectOptionsPropDescriptionType(TypedDict):
-    """ProjectsV2SingleSelectOptionsPropDescription
+class CopilotOrganizationSeatBreakdownTypeForResponse(TypedDict):
+    """Copilot Seat Breakdown
 
-    The description of the option, in raw text and HTML formats.
+    The breakdown of Copilot Business seats for the organization.
     """
 
-    raw: str
-    html: str
-
-
-class ProjectsV2FieldPropConfigurationType(TypedDict):
-    """ProjectsV2FieldPropConfiguration
-
-    Configuration for iteration fields.
-    """
-
-    start_day: NotRequired[int]
-    duration: NotRequired[int]
-    iterations: NotRequired[list[ProjectsV2IterationSettingsType]]
-
-
-class ProjectsV2IterationSettingsType(TypedDict):
-    """Projects v2 Iteration Setting
-
-    An iteration setting for an iteration field
-    """
-
-    id: str
-    start_date: date
-    duration: int
-    title: ProjectsV2IterationSettingsPropTitleType
-    completed: bool
-
-
-class ProjectsV2IterationSettingsPropTitleType(TypedDict):
-    """ProjectsV2IterationSettingsPropTitle
-
-    The iteration title, in raw text and HTML formats.
-    """
-
-    raw: str
-    html: str
+    total: NotRequired[int]
+    added_this_cycle: NotRequired[int]
+    pending_cancellation: NotRequired[int]
+    pending_invitation: NotRequired[int]
+    active_this_cycle: NotRequired[int]
+    inactive_this_cycle: NotRequired[int]
 
 
 __all__ = (
-    "ProjectsV2FieldPropConfigurationType",
-    "ProjectsV2FieldType",
-    "ProjectsV2IterationSettingsPropTitleType",
-    "ProjectsV2IterationSettingsType",
-    "ProjectsV2SingleSelectOptionsPropDescriptionType",
-    "ProjectsV2SingleSelectOptionsPropNameType",
-    "ProjectsV2SingleSelectOptionsType",
+    "CopilotOrganizationDetailsType",
+    "CopilotOrganizationDetailsTypeForResponse",
+    "CopilotOrganizationSeatBreakdownType",
+    "CopilotOrganizationSeatBreakdownTypeForResponse",
 )

@@ -6,8 +6,12 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .calls_create_response import CallsCreateResponse
-_dynamic_imports: typing.Dict[str, str] = {"CallsCreateResponse": ".calls_create_response"}
+    from .call_controller_find_all_paginated_request_sort_order import CallControllerFindAllPaginatedRequestSortOrder
+    from .create_calls_response import CreateCallsResponse
+_dynamic_imports: typing.Dict[str, str] = {
+    "CallControllerFindAllPaginatedRequestSortOrder": ".call_controller_find_all_paginated_request_sort_order",
+    "CreateCallsResponse": ".create_calls_response",
+}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -16,8 +20,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -29,4 +35,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["CallsCreateResponse"]
+__all__ = ["CallControllerFindAllPaginatedRequestSortOrder", "CreateCallsResponse"]

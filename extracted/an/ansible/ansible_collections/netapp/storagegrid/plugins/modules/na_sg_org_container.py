@@ -62,11 +62,11 @@ options:
         type: int
   capacity_limit:
     description:
-    - The maximum number of bytes available for this buckets's objects.
+    - The maximum number of GB available for this buckets's objects.
     - Represents a logical amount (object size), not a physical amount (size on disk).
     - Requires storageGRID 11.9 or later.
-    type: int
-    version_added: '21.15.0'
+    type: float
+    version_added: '21.16.0'
   s3_object_lock_enabled:
     description:
     - Enable S3 Object Lock on the bucket.
@@ -86,6 +86,11 @@ options:
     type: str
     choices: ['all', 'strong-global', 'strong-site', 'read-after-new-write', 'available']
     version_added: '21.15.0'
+  policy:
+    description:
+      - Configure bucket policy.
+    type: dict
+    version_added: '21.16.0'
 """
 
 EXAMPLES = """
@@ -130,7 +135,24 @@ EXAMPLES = """
     validate_certs: false
     state: present
     name: ansiblebucket1
-    capacity_limit: 10000
+    capacity_limit: 1.5
+
+- name: create a s3 bucket with policy
+  netapp.storagegrid.na_sg_org_container:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: ansiblebucket1
+    policy:
+      Statement:
+        - Sid: "string"
+          Effect: "Allow"
+          Action": "s3:GetObject"
+          Resource:
+            - "arn:aws:s3:::mybucket/myobject"
+            - "arn:aws:s3:::mybucket/myobject"
+          Principal: "*"
 """
 
 RETURN = """
@@ -150,7 +172,21 @@ resp:
         "s3ObjectLock": {
             "enabled": false
         },
-        "quotaObjectBytes": 1000000000
+        "quotaObjectBytes": 1000000000,
+        "policy": {
+          "Statement": [
+            {
+              "Sid": "string",
+              "Effect": "Allow",
+              "Action": "s3:GetObject",
+              "Resource": [
+                "arn:aws:s3:::mybucket/myobject",
+                "arn:aws:s3:::mybucket/myobject"
+              ],
+              "Principal": "*"
+            }
+          ]
+        }
     }
 """
 
@@ -185,10 +221,11 @@ class SgOrgContainer(object):
                         retention_period_minutes=dict(required=False, type="int"),
                     ),
                 ),
-                capacity_limit=dict(required=False, type="int"),
+                capacity_limit=dict(required=False, type="float"),
                 s3_object_lock_enabled=dict(required=False, type="bool"),
                 bucket_versioning_enabled=dict(required=False, type="bool"),
                 consistency=dict(required=False, type="str", choices=["all", "strong-global", "strong-site", "read-after-new-write", "available"]),
+                policy=dict(required=False, type="dict"),
             )
         )
         parameter_map = {
@@ -210,6 +247,7 @@ class SgOrgContainer(object):
         self.rest_api = SGRestAPI(self.module)
         # Get API version
         self.rest_api.get_sg_product_version(api_root="org")
+        self.api_version = self.rest_api.get_api_version()
 
         # Checking for the parameters passed and create new parameters list.
 
@@ -217,6 +255,7 @@ class SgOrgContainer(object):
         self.data_versioning["versioningSuspended"] = True
 
         self.consistency_setting = {}
+        self.bucket_policy = {}
         self.quota_object_bytes = {}
 
         self.data = {}
@@ -243,14 +282,18 @@ class SgOrgContainer(object):
 
         if self.parameters.get("capacity_limit"):
             self.rest_api.fail_if_not_sg_minimum_version("Bucket capacity limit", 11, 9)
-            self.quota_object_bytes["quotaObjectBytes"] = self.parameters["capacity_limit"]
+            self.quota_object_bytes["quotaObjectBytes"] = int(self.parameters["capacity_limit"] * 1024 ** 3)
+
+        if self.parameters.get("policy") is not None:
+            self.rest_api.fail_if_not_sg_minimum_version("bucket policy", 11, 9)
+            self.bucket_policy = {"policy": self.parameters.get("policy")}
 
     def get_org_container(self):
         ''' Get org container details '''
         params = {"include": "compliance,region"}
         if self.rest_api.meets_sg_minimum_version(11, 9):
             params["include"] += ",quotaObjectBytes"
-        response, error = self.rest_api.get("api/v3/org/containers", params=params)
+        response, error = self.rest_api.get("api/%s/org/containers" % self.api_version, params=params)
 
         if error:
             self.module.fail_json(msg=error)
@@ -263,7 +306,7 @@ class SgOrgContainer(object):
 
     def create_org_container(self):
         ''' Create org container '''
-        api = "api/v3/org/containers"
+        api = "api/%s/org/containers" % self.api_version
 
         response, error = self.rest_api.post(api, self.data)
 
@@ -274,7 +317,7 @@ class SgOrgContainer(object):
 
     def get_org_container_versioning(self):
         ''' Get org container versioning details '''
-        api = "api/v3/org/containers/%s/versioning" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/versioning" % (self.api_version, self.parameters["name"])
         response, error = self.rest_api.get(api)
 
         if error:
@@ -284,7 +327,7 @@ class SgOrgContainer(object):
 
     def update_org_container_versioning(self):
         ''' Update org container versioning '''
-        api = "api/v3/org/containers/%s/versioning" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/versioning" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.data_versioning)
         if error:
@@ -294,7 +337,7 @@ class SgOrgContainer(object):
 
     def fail_if_global_object_lock_disabled(self):
         ''' Fail if global object lock is disabled '''
-        api = "api/v3/org/compliance-global"
+        api = "api/%s/org/compliance-global" % self.api_version
 
         response, error = self.rest_api.get(api)
         if error:
@@ -305,7 +348,7 @@ class SgOrgContainer(object):
 
     def update_org_container_compliance(self):
         ''' Update org container compliance '''
-        api = "api/v3/org/containers/%s/compliance" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/compliance" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.data["compliance"])
         if error:
@@ -315,7 +358,7 @@ class SgOrgContainer(object):
 
     def update_org_container_quota_object_bytes(self):
         ''' Update org container quota object bytes '''
-        api = "api/v3/org/containers/%s/quota-object-bytes" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/quota-object-bytes" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.quota_object_bytes)
         if error:
@@ -325,14 +368,14 @@ class SgOrgContainer(object):
 
     def delete_org_container(self):
         ''' Delete org container '''
-        api = "api/v3/org/containers/%s" % self.parameters["name"]
+        api = "api/%s/org/containers/%s" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.delete(api, None)
         if error:
-            self.module.fail_json(msg=error["text"])
+            self.module.fail_json(msg=error)
 
     def get_org_container_consistency(self):
-        api = "api/v3/org/containers/%s/consistency" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/consistency" % (self.api_version, self.parameters["name"])
         response, error = self.rest_api.get(api)
 
         if error:
@@ -341,9 +384,27 @@ class SgOrgContainer(object):
         return response["data"]
 
     def update_org_container_consistency(self):
-        api = "api/v3/org/containers/%s/consistency" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/consistency" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.consistency_setting)
+        if error:
+            self.module.fail_json(msg=error)
+
+        return response["data"]
+
+    def get_org_container_policy(self):
+        api = "api/v3/org/containers/%s/policy" % self.parameters["name"]
+        response, error = self.rest_api.get(api)
+
+        if error:
+            self.module.fail_json(msg=error)
+
+        return response["data"]
+
+    def update_org_container_policy(self):
+        api = "api/v3/org/containers/%s/policy" % self.parameters["name"]
+
+        response, error = self.rest_api.put(api, self.bucket_policy)
         if error:
             self.module.fail_json(msg=error)
 
@@ -357,6 +418,7 @@ class SgOrgContainer(object):
         update_versioning = False
         consistency_setting = None
         update_consistency = False
+        get_policy = None
 
         org_container = self.get_org_container()
 
@@ -364,6 +426,8 @@ class SgOrgContainer(object):
             versioning_config = self.get_org_container_versioning()
         if org_container and self.parameters.get("consistency") is not None:
             consistency_setting = self.get_org_container_consistency()
+        if org_container:
+            get_policy = self.get_org_container_policy()
 
         cd_action = self.na_helper.get_cd_action(org_container, self.parameters)
 
@@ -371,6 +435,7 @@ class SgOrgContainer(object):
             # let's see if we need to update parameters
             update_compliance = False
             update_quota_object_bytes = False
+            update_policy = False
 
             if self.parameters.get("compliance") and org_container.get("compliance") != self.data["compliance"]:
                 update_compliance = True
@@ -392,6 +457,19 @@ class SgOrgContainer(object):
                 and consistency_setting["consistency"] != self.consistency_setting["consistency"]
             ):
                 update_consistency = True
+                self.na_helper.changed = True
+
+            desired_policy = self.bucket_policy.get("policy") if self.bucket_policy else None
+            current_policy = get_policy.get("policy") if get_policy else None
+
+            # Treating None and {} as equivalent for comparison
+            if not desired_policy:
+                desired_policy = {}
+            if not current_policy:
+                current_policy = {}
+
+            if desired_policy != current_policy:
+                update_policy = True
                 self.na_helper.changed = True
 
         result_message = ""
@@ -418,6 +496,8 @@ class SgOrgContainer(object):
 
                     if self.parameters.get("capacity_limit"):
                         resp_data.update(self.update_org_container_quota_object_bytes())
+                    if self.parameters.get("policy"):
+                        resp_data.update(self.update_org_container_policy())
                     result_message = "Org Container created"
 
                 else:
@@ -429,6 +509,8 @@ class SgOrgContainer(object):
                         self.update_org_container_consistency()
                     if update_quota_object_bytes:
                         resp_data = self.update_org_container_quota_object_bytes()
+                    if update_policy:
+                        resp_data = self.update_org_container_policy()
                     result_message = "Org Container updated"
 
         self.module.exit_json(changed=self.na_helper.changed, msg=result_message, resp=resp_data)

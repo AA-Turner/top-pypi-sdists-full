@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
-import contextvars
 import inspect
 import sys
 import types
-from collections.abc import Awaitable, Coroutine, Generator
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
+
+if TYPE_CHECKING:
+    import contextvars
+    from collections.abc import Awaitable, Coroutine, Generator
 
 T = TypeVar("T")
 AnyFuture = asyncio.Future | concurrent.futures.Future
@@ -45,7 +47,8 @@ def _set_concurrent_future_state(
     source: AnyFuture,
 ) -> None:
     """Copy state from a future to a concurrent.futures.Future."""
-    assert source.done()
+    if not source.done():
+        raise ValueError("Future is not done")
     if source.cancelled():
         concurrent.cancel()
     if not concurrent.set_running_or_notify_cancel():
@@ -65,7 +68,8 @@ def _copy_future_state(source: AnyFuture, dest: asyncio.Future) -> None:
     """
     if dest.done():
         return
-    assert source.done()
+    if not source.done():
+        raise ValueError("Future is not done")
     if dest.cancelled():
         return
     if source.cancelled():
@@ -152,7 +156,7 @@ def _ensure_future(
     if not asyncio.iscoroutine(coro_or_future):
         if inspect.isawaitable(coro_or_future):
             coro_or_future = cast(
-                Coroutine[None, None, T], _wrap_awaitable(coro_or_future)
+                "Coroutine[None, None, T]", _wrap_awaitable(coro_or_future)
             )
             called_wrap_awaitable = True
         else:

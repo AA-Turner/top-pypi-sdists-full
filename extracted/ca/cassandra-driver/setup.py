@@ -74,7 +74,7 @@ class DocCommand(Command):
 
             try:
                 os.makedirs(path)
-            except:
+            except OSError:
                 pass
 
         if has_subprocess:
@@ -82,7 +82,7 @@ class DocCommand(Command):
             # http://docs.cython.org/src/userguide/special_methods.html#docstrings
             import glob
             for f in glob.glob("cassandra/*.so"):
-                print("Removing '%s' to allow docs to run on pure python modules." %(f,))
+                print("Removing '%s' to allow docs to run on pure python modules." % (f,))
                 os.unlink(f)
 
             # Build io extension to make import and docstrings work
@@ -114,15 +114,18 @@ class BuildFailed(Exception):
     def __init__(self, ext):
         self.ext = ext
 
+
 is_windows = sys.platform.startswith('win32')
 is_macos = sys.platform.startswith('darwin')
 
 murmur3_ext = Extension('cassandra.cmurmur3',
                         sources=['cassandra/cmurmur3.c'])
 
+
 def eval_env_var_as_array(varname):
     val = os.environ.get(varname)
     return None if not val else [v.strip() for v in val.split(',')]
+
 
 DEFAULT_LIBEV_INCLUDES = ['/usr/include/libev', '/usr/local/include', '/opt/local/include', '/usr/include']
 DEFAULT_LIBEV_LIBDIRS = ['/usr/local/lib', '/opt/local/lib', '/usr/lib64']
@@ -338,7 +341,7 @@ def pre_build_check():
             # We must be able to initialize the compiler if it has that method
             if hasattr(compiler, "initialize"):
                 compiler.initialize()
-        except:
+        except OSError:
             return False
 
         executables = []
@@ -375,7 +378,7 @@ def run_setup(extensions):
         # 1.) build_ext eats errors at compile time, letting the install complete while producing useful feedback
         # 2.) there could be a case where the python environment has cython installed but the system doesn't have build tools
         if pre_build_check():
-            cython_dep = 'Cython>=0.20,!=0.25,<0.30'
+            cython_dep = 'Cython>=3.0'
             user_specified_cython_version = os.environ.get('CASS_DRIVER_ALLOWED_CYTHON_VERSION')
             if user_specified_cython_version is not None:
                 cython_dep = 'Cython==%s' % (user_specified_cython_version,)
@@ -383,11 +386,11 @@ def run_setup(extensions):
         else:
             sys.stderr.write("Bypassing Cython setup requirement\n")
 
-    dependencies = ['geomet>=0.1,<0.3']
+    dependencies = ['geomet>=1.1']
 
     _EXTRAS_REQUIRE = {
         'graph': ['gremlinpython==3.4.6'],
-        'cle': ['cryptography>=35.0']
+        'cle': ['cryptography>=42.0']
     }
 
     setup(
@@ -413,7 +416,7 @@ def run_setup(extensions):
         include_package_data=True,
         install_requires=dependencies,
         extras_require=_EXTRAS_REQUIRE,
-        tests_require=['pytest', 'PyYAML', 'pytz', 'sure'],
+        tests_require=['pytest', 'PyYAML', 'pytz'],
         classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Developers',
@@ -421,11 +424,11 @@ def run_setup(extensions):
             'Natural Language :: English',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
-            'Programming Language :: Python :: 3.8',
             'Programming Language :: Python :: 3.9',
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Programming Language :: Python :: Implementation :: CPython',
             'Programming Language :: Python :: Implementation :: PyPy',
             'Topic :: Software Development :: Libraries :: Python Modules'

@@ -3,7 +3,7 @@ Main interface for glue service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -34,6 +34,7 @@ Usage::
         ListConnectionTypesPaginator,
         ListEntitiesPaginator,
         ListJobsPaginator,
+        ListMaterializedViewRefreshTaskRunsPaginator,
         ListRegistriesPaginator,
         ListSchemaVersionsPaginator,
         ListSchemasPaginator,
@@ -71,6 +72,7 @@ Usage::
     list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
+    list_materialized_view_refresh_task_runs_paginator: ListMaterializedViewRefreshTaskRunsPaginator = client.get_paginator("list_materialized_view_refresh_task_runs")
     list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
     list_schema_versions_paginator: ListSchemaVersionsPaginator = client.get_paginator("list_schema_versions")
     list_schemas_paginator: ListSchemasPaginator = client.get_paginator("list_schemas")
@@ -105,6 +107,7 @@ from .paginator import (
     ListConnectionTypesPaginator,
     ListEntitiesPaginator,
     ListJobsPaginator,
+    ListMaterializedViewRefreshTaskRunsPaginator,
     ListRegistriesPaginator,
     ListSchemasPaginator,
     ListSchemaVersionsPaginator,
@@ -141,6 +144,7 @@ __all__ = (
     "ListConnectionTypesPaginator",
     "ListEntitiesPaginator",
     "ListJobsPaginator",
+    "ListMaterializedViewRefreshTaskRunsPaginator",
     "ListRegistriesPaginator",
     "ListSchemaVersionsPaginator",
     "ListSchemasPaginator",

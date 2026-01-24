@@ -1,0 +1,34 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: select
+      - select_clause_element:
+        - expression:
+          - case_expression:
+            - keyword: case
+            - when_clause:
+              - keyword: when
+              - expression:
+                - column_reference:
+                  - quoted_identifier: '"Spec\"s 23"'
+                - keyword: like
+                - quoted_literal: '''Spec\''s%'''
+              - keyword: then
+              - expression:
+                - quoted_literal: '''boop'''
+            - keyword: end
+        - alias_expression:
+          - keyword: as
+          - naked_identifier: field
+- statement_terminator: ;
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: select
+      - select_clause_element:
+        - quoted_literal: '''This shouldn''''t fail'''
+        - alias_expression:
+          - keyword: as
+          - naked_identifier: success
+- statement_terminator: ;

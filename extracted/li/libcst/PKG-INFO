@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: libcst
-Version: 1.8.4
-Summary: A concrete syntax tree with AST-like properties for Python 3.0 through 3.13 programs.
+Version: 1.8.6
+Summary: A concrete syntax tree with AST-like properties for Python 3.0 through 3.14 programs.
 License: All contributions towards LibCST are MIT licensed.
         
         Some Python files have been derived from the standard library and are therefore
@@ -115,12 +115,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pyyaml>=5.2; python_version < "3.13"
-Requires-Dist: pyyaml-ft>=8.0.0; python_version >= "3.13"
+Requires-Dist: pyyaml-ft>=8.0.0; python_version == "3.13"
+Requires-Dist: pyyaml>=6.0.3; python_version >= "3.14"
 Requires-Dist: typing-extensions; python_version < "3.10"
 Dynamic: license-file
 

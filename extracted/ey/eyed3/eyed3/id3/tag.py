@@ -10,7 +10,7 @@ from .. import core
 from ..core import TXXX_ALBUM_TYPE, TXXX_ARTIST_ORIGIN, ALBUM_TYPE_IDS, ArtistOrigin
 from .. import Error
 from . import (ID3_ANY_VERSION, ID3_DEFAULT_VERSION, ID3_V1, ID3_V1_0, ID3_V1_1,
-               ID3_V2, ID3_V2_2, ID3_V2_3, ID3_V2_4, versionToString)
+               ID3_V2, ID3_V2_2, ID3_V2_3, ID3_V2_4, versionToString, GenreException)
 from . import DEFAULT_LANG
 from . import Genre
 from . import frames
@@ -174,7 +174,7 @@ class Tag(core.Tag):
                 self.release_date = int(year)
         except ValueError:
             # Bogus year strings.
-            log.warn("ID3v1.x tag contains invalid year: %s" % year)
+            log.warning("ID3v1.x tag contains invalid year: %s" % year)
             pass
 
         # Can't use ID3_V1_STRIP_CHARS here, since the final byte is numeric
@@ -202,7 +202,7 @@ class Tag(core.Tag):
         log.debug(f"Genre ID: {genre}")
         try:
             self.genre = genre
-        except ValueError as ex:
+        except GenreException as ex:
             log.warning(ex)
             self.genre = None
 
@@ -535,7 +535,7 @@ class Tag(core.Tag):
     The date the work was originally released.
 
     NOTE: ID3v2.3 only stores year. If the Date object is more precise it is store in `XDOR`, and
-    XDOR is preferred when acessing. The year-only date is stored in the standard `TORY` frame as
+    XDOR is preferred when accessing. The year-only date is stored in the standard `TORY` frame as
     well.
     """)
 
@@ -1845,7 +1845,7 @@ class ChaptersAccessor(AccessorBase):
         return super().get(element_id)
 
     def __getitem__(self, elem_id):
-        """Overiding the index based __getitem__ for one indexed with chapter
+        """Overriding the index based __getitem__ for one indexed with chapter
         element IDs. These are stored in the tag's table of contents frames."""
         for chapter in (self._fs[frames.CHAPTER_FID] or []):
             if chapter.element_id == elem_id:
@@ -1905,7 +1905,7 @@ class TocAccessor(AccessorBase):
         return super().get(element_id)
 
     def __getitem__(self, elem_id):
-        """Overiding the index based __getitem__ for one indexed with table
+        """Overriding the index based __getitem__ for one indexed with table
         of contents element IDs."""
         for toc in (self._fs[frames.TOC_FID] or []):
             if toc.element_id == elem_id:

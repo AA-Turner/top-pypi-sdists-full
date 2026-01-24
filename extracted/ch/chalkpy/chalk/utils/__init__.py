@@ -1,6 +1,4 @@
-from typing import Any
-
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
 MachineType: TypeAlias = str
 """The type of machine to use.

@@ -94,8 +94,7 @@ class EntryView(proto.Enum):
             GetEntryRequest. If the number of aspects
             exceeds 100, the first 100 will be returned.
         ALL (4):
-            Returns all aspects. If the number of aspects
-            exceeds 100, the first 100 will be returned.
+            No description available.
     """
     ENTRY_VIEW_UNSPECIFIED = 0
     BASIC = 1
@@ -161,6 +160,9 @@ class AspectType(proto.Message):
             client may send it on update and delete requests
             to ensure it has an up-to-date value before
             proceeding.
+        data_classification (google.cloud.dataplex_v1.types.AspectType.DataClassification):
+            Optional. Immutable. Stores data
+            classification of the aspect.
         authorization (google.cloud.dataplex_v1.types.AspectType.Authorization):
             Immutable. Defines the Authorization for this
             type.
@@ -171,6 +173,19 @@ class AspectType(proto.Message):
             the Aspect Type. It is unspecified for Aspect
             Types created from Dataplex API.
     """
+
+    class DataClassification(proto.Enum):
+        r"""Classifies the data stored by the aspect.
+
+        Values:
+            DATA_CLASSIFICATION_UNSPECIFIED (0):
+                Denotes that the aspect contains only
+                metadata.
+            METADATA_AND_DATA (1):
+                Metadata and data classification.
+        """
+        DATA_CLASSIFICATION_UNSPECIFIED = 0
+        METADATA_AND_DATA = 1
 
     class Authorization(proto.Message):
         r"""Authorization for an AspectType.
@@ -453,6 +468,11 @@ class AspectType(proto.Message):
     etag: str = proto.Field(
         proto.STRING,
         number=8,
+    )
+    data_classification: DataClassification = proto.Field(
+        proto.ENUM,
+        number=9,
+        enum=DataClassification,
     )
     authorization: Authorization = proto.Field(
         proto.MESSAGE,
@@ -1707,6 +1727,7 @@ class ListEntriesRequest(proto.Message):
 
             - entry_type
             - entry_source.display_name
+            - parent_entry
 
             The comparison operators are =, !=, <, >, <=, >=. The
             service compares strings according to lexical order.
@@ -1714,8 +1735,12 @@ class ListEntriesRequest(proto.Message):
             You can use the logical operators AND, OR, NOT in the
             filter.
 
-            You can use Wildcard "\*", but for entry_type you need to
-            provide the full project id or number.
+            You can use Wildcard "\*", but for entry_type and
+            parent_entry you need to provide the full project id or
+            number.
+
+            You cannot use parent_entry in conjunction with other
+            fields.
 
             Example filter expressions:
 
@@ -1723,7 +1748,8 @@ class ListEntriesRequest(proto.Message):
             - "entry_type=projects/example-project/locations/global/entryTypes/example-entry_type"
             - "entry_type=projects/example-project/locations/us/entryTypes/a\*
               OR entry_type=projects/another-project/locations/\*"
-            - "NOT entry_source.display_name=AnotherExampleDisplayName".
+            - "NOT entry_source.display_name=AnotherExampleDisplayName"
+            - "parent_entry=projects/example-project/locations/us/entryGroups/example-entry-group/entries/example-entry".
     """
 
     parent: str = proto.Field(
@@ -2553,14 +2579,13 @@ class MetadataJob(proto.Message):
 
             Attributes:
                 entry_groups (MutableSequence[str]):
-                    Required. The entry group that is in scope for the import
-                    job, specified as a relative resource name in the format
+                    Required. The entry groups that are in scope for the import
+                    job, specified as relative resource names in the format
                     ``projects/{project_number_or_id}/locations/{location_id}/entryGroups/{entry_group_id}``.
                     Only entries and aspects that belong to the specified entry
-                    group are affected by the job.
+                    groups are affected by the job.
 
-                    Must contain exactly one element. The entry group and the
-                    job must be in the same location.
+                    The entry groups and the job must be in the same location.
                 entry_types (MutableSequence[str]):
                     Required. The entry types that are in scope for the import
                     job, specified as relative resource names in the format

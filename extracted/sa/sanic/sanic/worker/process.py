@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import os
 
+from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from inspect import signature
 from multiprocessing.context import BaseContext
@@ -91,7 +94,12 @@ class WorkerProcess:
         if not self.is_alive():
             try:
                 del self.worker_state[self.name]
-            except ConnectionRefusedError:
+            except (
+                BrokenPipeError,
+                ConnectionRefusedError,
+                ConnectionResetError,
+                EOFError,
+            ):
                 logger.debug("Monitor process has already exited.")
             except KeyError:
                 logger.debug("Could not find worker state to delete.")
@@ -105,7 +113,10 @@ class WorkerProcess:
                 self.name,
                 self.pid,
             )
-            self.set_state(ProcessState.TERMINATED, force=True)
+            try:
+                self.set_state(ProcessState.TERMINATED, force=True)
+            except (BrokenPipeError, ConnectionResetError, EOFError):
+                pass
             try:
                 os.kill(self.pid, SIGINT)
             except (KeyError, AttributeError, ProcessLookupError):
@@ -238,7 +249,7 @@ class Worker:
         serve,
         server_settings,
         context: BaseContext,
-        worker_state: dict[str, Any],
+        worker_state: MutableMapping[str, Any],
         num: int = 1,
         restartable: bool = False,
         tracked: bool = True,

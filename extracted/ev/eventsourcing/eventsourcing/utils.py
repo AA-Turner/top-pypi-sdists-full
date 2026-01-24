@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import importlib
-import sys
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from functools import wraps
 from inspect import isfunction
 from random import random
 from threading import Lock
 from time import sleep
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union, no_type_check, overload
+from typing import TYPE_CHECKING, Any, TypeVar, no_type_check, overload
 
 if TYPE_CHECKING:
     from types import FunctionType, WrapperDescriptorType
@@ -19,7 +18,7 @@ class TopicError(Exception):
     """Raised when topic doesn't resolve."""
 
 
-SupportsTopic = Union[type, Callable[..., Any], ModuleType]
+SupportsTopic = type | Callable[..., Any] | ModuleType
 
 _type_cache: dict[SupportsTopic, str] = {}
 _topic_cache: dict[str, SupportsTopic] = {}
@@ -35,10 +34,14 @@ def get_topic(obj: SupportsTopic, /) -> str:
     try:
         return _type_cache[obj]
     except KeyError:
-        topic = getattr(obj, "TOPIC", f"{obj.__module__}:{obj.__qualname__}")
+        topic = construct_topic(obj)
         register_topic(topic, obj)
         _type_cache[obj] = topic
         return topic
+
+
+def construct_topic(obj: SupportsTopic, /) -> str:
+    return getattr(obj, "TOPIC", f"{obj.__module__}:{obj.__qualname__}")
 
 
 def resolve_topic(topic: str) -> Any:
@@ -78,7 +81,7 @@ def resolve_topic(topic: str) -> Any:
                     except KeyError:
                         continue
                     else:
-                        module_name = ".".join([obj.__name__] + module_name_parts[i:])
+                        module_name = ".".join([obj.__name__, *module_name_parts[i:]])
                         break
                 try:
                     obj = importlib.import_module(module_name)
@@ -113,8 +116,8 @@ def register_topic(topic: str, obj: SupportsTopic) -> None:
         else:
             if cached_obj != obj:
                 msg = (
-                    f"Object {cached_obj} is already registered "
-                    f"for topic '{topic}', so refusing to cache obj {obj}"
+                    f"Refusing to cache {obj} (oid {id(obj)}): {cached_obj} (oid "
+                    f"{id(cached_obj)}) is already registered for topic '{topic}'"
                 )
                 raise TopicError(msg)
 
@@ -212,12 +215,11 @@ def reversed_keys(d: dict[Any, Any]) -> Iterator[Any]:
     return reversed(d.keys())
 
 
+# TODO: Inline this now.
 def get_method_name(
     method: Callable[..., Any] | FunctionType | WrapperDescriptorType,
 ) -> str:
-    if sys.version_info >= (3, 10):  # pragma: no cover
-        return method.__qualname__
-    return method.__name__  # pragma: no cover
+    return method.__qualname__
 
 
 EnvType = Mapping[str, str]

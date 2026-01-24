@@ -3,7 +3,7 @@ Type annotations for route53-recovery-readiness service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53_recovery_readiness/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import ReadinessType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -126,9 +121,9 @@ __all__ = (
 class CellOutputTypeDef(TypedDict):
     CellArn: str
     CellName: str
-    Cells: List[str]
-    ParentReadinessScopes: List[str]
-    Tags: NotRequired[Dict[str, str]]
+    Cells: list[str]
+    ParentReadinessScopes: list[str]
+    Tags: NotRequired[dict[str, str]]
 
 class CreateCellRequestTypeDef(TypedDict):
     CellName: str
@@ -138,7 +133,7 @@ class CreateCellRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -245,17 +240,17 @@ class ReadinessCheckOutputTypeDef(TypedDict):
     ReadinessCheckArn: str
     ResourceSet: str
     ReadinessCheckName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ListRecoveryGroupsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
 class RecoveryGroupOutputTypeDef(TypedDict):
-    Cells: List[str]
+    Cells: list[str]
     RecoveryGroupArn: str
     RecoveryGroupName: str
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ListResourceSetsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -304,9 +299,9 @@ class UpdateRecoveryGroupRequestTypeDef(TypedDict):
 class CreateCellResponseTypeDef(TypedDict):
     CellArn: str
     CellName: str
-    Cells: List[str]
-    ParentReadinessScopes: List[str]
-    Tags: Dict[str, str]
+    Cells: list[str]
+    ParentReadinessScopes: list[str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateCrossAccountAuthorizationResponseTypeDef(TypedDict):
@@ -317,14 +312,14 @@ class CreateReadinessCheckResponseTypeDef(TypedDict):
     ReadinessCheckArn: str
     ReadinessCheckName: str
     ResourceSet: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRecoveryGroupResponseTypeDef(TypedDict):
-    Cells: List[str]
+    Cells: list[str]
     RecoveryGroupArn: str
     RecoveryGroupName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -333,64 +328,64 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 class GetCellResponseTypeDef(TypedDict):
     CellArn: str
     CellName: str
-    Cells: List[str]
-    ParentReadinessScopes: List[str]
-    Tags: Dict[str, str]
+    Cells: list[str]
+    ParentReadinessScopes: list[str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetReadinessCheckResponseTypeDef(TypedDict):
     ReadinessCheckArn: str
     ReadinessCheckName: str
     ResourceSet: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRecoveryGroupResponseTypeDef(TypedDict):
-    Cells: List[str]
+    Cells: list[str]
     RecoveryGroupArn: str
     RecoveryGroupName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCellsResponseTypeDef(TypedDict):
-    Cells: List[CellOutputTypeDef]
+    Cells: list[CellOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCrossAccountAuthorizationsResponseTypeDef(TypedDict):
-    CrossAccountAuthorizations: List[str]
+    CrossAccountAuthorizations: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourcesResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateCellResponseTypeDef(TypedDict):
     CellArn: str
     CellName: str
-    Cells: List[str]
-    ParentReadinessScopes: List[str]
-    Tags: Dict[str, str]
+    Cells: list[str]
+    ParentReadinessScopes: list[str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateReadinessCheckResponseTypeDef(TypedDict):
     ReadinessCheckArn: str
     ReadinessCheckName: str
     ResourceSet: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRecoveryGroupResponseTypeDef(TypedDict):
-    Cells: List[str]
+    Cells: list[str]
     RecoveryGroupArn: str
     RecoveryGroupName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetArchitectureRecommendationsResponseTypeDef(TypedDict):
     LastAuditTimestamp: datetime
-    Recommendations: List[RecommendationTypeDef]
+    Recommendations: list[RecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -432,41 +427,41 @@ class ListRulesRequestPaginateTypeDef(TypedDict):
 
 class GetCellReadinessSummaryResponseTypeDef(TypedDict):
     Readiness: ReadinessType
-    ReadinessChecks: List[ReadinessCheckSummaryTypeDef]
+    ReadinessChecks: list[ReadinessCheckSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GetRecoveryGroupReadinessSummaryResponseTypeDef(TypedDict):
     Readiness: ReadinessType
-    ReadinessChecks: List[ReadinessCheckSummaryTypeDef]
+    ReadinessChecks: list[ReadinessCheckSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class RuleResultTypeDef(TypedDict):
     LastCheckedTimestamp: datetime
-    Messages: List[MessageTypeDef]
+    Messages: list[MessageTypeDef]
     Readiness: ReadinessType
     RuleId: str
 
 class GetReadinessCheckStatusResponseTypeDef(TypedDict):
-    Messages: List[MessageTypeDef]
+    Messages: list[MessageTypeDef]
     Readiness: ReadinessType
-    Resources: List[ResourceResultTypeDef]
+    Resources: list[ResourceResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListReadinessChecksResponseTypeDef(TypedDict):
-    ReadinessChecks: List[ReadinessCheckOutputTypeDef]
+    ReadinessChecks: list[ReadinessCheckOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRecoveryGroupsResponseTypeDef(TypedDict):
-    RecoveryGroups: List[RecoveryGroupOutputTypeDef]
+    RecoveryGroups: list[RecoveryGroupOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRulesResponseTypeDef(TypedDict):
-    Rules: List[ListRulesOutputTypeDef]
+    Rules: list[ListRulesOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -476,7 +471,7 @@ class TargetResourceTypeDef(TypedDict):
 
 class GetReadinessCheckResourceStatusResponseTypeDef(TypedDict):
     Readiness: ReadinessType
-    Rules: List[RuleResultTypeDef]
+    Rules: list[RuleResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -490,7 +485,7 @@ class DNSTargetResourceTypeDef(TypedDict):
 class ResourceOutputTypeDef(TypedDict):
     ComponentId: NotRequired[str]
     DnsTargetResource: NotRequired[DNSTargetResourceTypeDef]
-    ReadinessScopes: NotRequired[List[str]]
+    ReadinessScopes: NotRequired[list[str]]
     ResourceArn: NotRequired[str]
 
 class ResourceTypeDef(TypedDict):
@@ -503,37 +498,37 @@ class CreateResourceSetResponseTypeDef(TypedDict):
     ResourceSetArn: str
     ResourceSetName: str
     ResourceSetType: str
-    Resources: List[ResourceOutputTypeDef]
-    Tags: Dict[str, str]
+    Resources: list[ResourceOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourceSetResponseTypeDef(TypedDict):
     ResourceSetArn: str
     ResourceSetName: str
     ResourceSetType: str
-    Resources: List[ResourceOutputTypeDef]
-    Tags: Dict[str, str]
+    Resources: list[ResourceOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ResourceSetOutputTypeDef(TypedDict):
     ResourceSetArn: str
     ResourceSetName: str
     ResourceSetType: str
-    Resources: List[ResourceOutputTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Resources: list[ResourceOutputTypeDef]
+    Tags: NotRequired[dict[str, str]]
 
 class UpdateResourceSetResponseTypeDef(TypedDict):
     ResourceSetArn: str
     ResourceSetName: str
     ResourceSetType: str
-    Resources: List[ResourceOutputTypeDef]
-    Tags: Dict[str, str]
+    Resources: list[ResourceOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
 
 class ListResourceSetsResponseTypeDef(TypedDict):
-    ResourceSets: List[ResourceSetOutputTypeDef]
+    ResourceSets: list[ResourceSetOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

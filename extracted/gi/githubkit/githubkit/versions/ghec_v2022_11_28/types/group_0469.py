@@ -9,20 +9,33 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0083 import TeamType, TeamTypeForResponse
 
 
-class MetaType(TypedDict):
-    """Meta
+class PullRequestReviewRequestType(TypedDict):
+    """Pull Request Review Request
 
-    The metadata associated with the creation/updates to the user.
+    Pull Request Review Request
     """
 
-    resource_type: Literal["User", "Group"]
-    created: NotRequired[str]
-    last_modified: NotRequired[str]
-    location: NotRequired[str]
+    users: list[SimpleUserType]
+    teams: list[TeamType]
 
 
-__all__ = ("MetaType",)
+class PullRequestReviewRequestTypeForResponse(TypedDict):
+    """Pull Request Review Request
+
+    Pull Request Review Request
+    """
+
+    users: list[SimpleUserTypeForResponse]
+    teams: list[TeamTypeForResponse]
+
+
+__all__ = (
+    "PullRequestReviewRequestType",
+    "PullRequestReviewRequestTypeForResponse",
+)

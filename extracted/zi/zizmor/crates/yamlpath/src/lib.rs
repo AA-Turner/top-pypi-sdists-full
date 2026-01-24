@@ -13,10 +13,17 @@
 #![allow(clippy::redundant_field_names)]
 #![forbid(unsafe_code)]
 
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    ops::{Deref, RangeBounds},
+};
+
 use line_index::LineIndex;
 use serde::Serialize;
 use thiserror::Error;
-use tree_sitter::{Language, Node, Parser, Tree};
+use tree_sitter::{Language, Node, Parser};
+use tree_sitter_iter::TreeIter;
 
 /// Possible errors when performing YAML path routes.
 #[derive(Error, Debug)]
@@ -49,6 +56,11 @@ pub enum QueryError {
     /// the given field name.
     #[error("syntax node `{0}` is missing child field `{1}`")]
     MissingChildField(String, &'static str),
+    /// The input contains a duplicate YAML anchor.
+    /// This is valid YAML, but we intentionally forbid it for now
+    /// for simplicity's sake.
+    #[error("input contains duplicate YAML anchor: `{0}`")]
+    DuplicateAnchor(String),
     /// Any other route error that doesn't fit cleanly above.
     #[error("route error: {0}")]
     Other(String),
@@ -138,7 +150,7 @@ impl<'a> From<Vec<Component<'a>>> for Route<'a> {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum Component<'a> {
     /// A YAML key.
-    Key(&'a str),
+    Key(Cow<'a, str>),
 
     /// An index into a YAML array.
     Index(usize),
@@ -152,7 +164,13 @@ impl From<usize> for Component<'_> {
 
 impl<'a> From<&'a str> for Component<'a> {
     fn from(key: &'a str) -> Self {
-        Component::Key(key)
+        Component::Key(key.into())
+    }
+}
+
+impl From<String> for Component<'_> {
+    fn from(key: String) -> Self {
+        Component::Key(key.into())
     }
 }
 
@@ -224,7 +242,10 @@ impl Feature<'_> {
         // `block_node` or `flow_node`, which is a container
         // for the real kind of node we're interested in.
         let node = match self._node.kind() {
-            "block_node" | "flow_node" => self._node.child(0).unwrap(),
+            "block_node" | "flow_node" => self
+                ._node
+                .child(0)
+                .expect("internal error: expected child of block_node/flow_node"),
             _ => self._node,
         };
 
@@ -238,6 +259,21 @@ impl Feature<'_> {
             }
             kind => unreachable!("unexpected feature kind: {kind}"),
         }
+    }
+
+    /// Returns whether this feature spans multiple lines.
+    pub fn is_multiline(&self) -> bool {
+        self.location.point_span.0.0 != self.location.point_span.1.0
+    }
+}
+
+impl RangeBounds<usize> for &Feature<'_> {
+    fn start_bound(&self) -> std::ops::Bound<&usize> {
+        std::ops::Bound::Included(&self.location.byte_span.0)
+    }
+
+    fn end_bound(&self) -> std::ops::Bound<&usize> {
+        std::ops::Bound::Excluded(&self.location.byte_span.1)
     }
 }
 
@@ -272,10 +308,100 @@ enum QueryMode {
     Exact,
 }
 
+/// A holder type so that we can associate both source and node references
+/// with the same lifetime for [`self_cell`].
+#[derive(Clone)]
+struct SourceTree {
+    source: String,
+    tree: tree_sitter::Tree,
+}
+
+impl Deref for SourceTree {
+    type Target = tree_sitter::Tree;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tree
+    }
+}
+
+type AnchorMap<'tree> = HashMap<&'tree str, Node<'tree>>;
+
+self_cell::self_cell!(
+    /// A wrapper for a [`SourceTree`] that also contains a computed
+    /// anchor map.
+    struct Tree {
+        owner: SourceTree,
+
+        #[covariant]
+        dependent: AnchorMap,
+    }
+);
+
+impl Tree {
+    fn build(inner: SourceTree) -> Result<Self, QueryError> {
+        Tree::try_new(SourceTree::clone(&inner), |tree| {
+            let mut anchor_map = HashMap::new();
+
+            for anchor in TreeIter::new(tree).filter(|n| n.kind() == "anchor") {
+                // NOTE(ww): We could poke into the `anchor_name` child
+                // instead of slicing, but this is simpler.
+                let anchor_name = &anchor
+                    .utf8_text(tree.source.as_bytes())
+                    .expect("impossible: anchor name should be UTF-8 by construction")[1..];
+
+                // Only insert if the anchor name is unique.
+                if anchor_map.contains_key(anchor_name) {
+                    return Err(QueryError::DuplicateAnchor(anchor_name[1..].to_string()));
+                }
+
+                // NOTE(ww): We insert the anchor's next non-comment
+                // sibling as the anchor's target. This makes things
+                // a bit simpler when descending later, plus it produces
+                // more useful spans, since neither the anchor node
+                // nor its parent are useful in the aliased context.
+                let parent = anchor.parent().ok_or_else(|| {
+                    QueryError::UnexpectedNode("anchor node has no parent".into())
+                })?;
+
+                let mut cursor = parent.walk();
+                let sibling = parent
+                    .named_children(&mut cursor)
+                    .find(|child| child.kind() != "anchor" && child.kind() != "comment")
+                    .ok_or_else(|| {
+                        QueryError::UnexpectedNode("anchor has no non-comment sibling".into())
+                    })?;
+
+                anchor_map.insert(anchor_name, sibling);
+            }
+
+            Ok(anchor_map)
+        })
+    }
+}
+
+impl Clone for Tree {
+    fn clone(&self) -> Self {
+        // Cloning is mildly annoying: we can clone the tree itself,
+        // but we need to reconstruct the anchor map from scratch since
+        // it borrows from the tree.
+        // TODO: Can we do better here?
+        // Unwrap safety: we're cloning from an existing valid owner.
+        Self::build(self.borrow_owner().clone())
+            .expect("impossible: cloning a Tree preserves invariants")
+    }
+}
+
+impl Deref for Tree {
+    type Target = tree_sitter::Tree;
+
+    fn deref(&self) -> &Self::Target {
+        &self.borrow_owner().tree
+    }
+}
+
 /// Represents a queryable YAML document.
 #[derive(Clone)]
 pub struct Document {
-    source: String,
     tree: Tree,
     line_index: LineIndex,
     document_id: u16,
@@ -293,6 +419,9 @@ pub struct Document {
     flow_pair_id: u16,
     block_sequence_item_id: u16,
     comment_id: u16,
+    anchor_id: u16,
+    alias_id: u16,
+    block_scalar_id: u16,
 }
 
 impl Document {
@@ -305,7 +434,9 @@ impl Document {
         parser.set_language(&language)?;
 
         // NOTE: Infallible, assuming `language` is correctly constructed above.
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser
+            .parse(&source, None)
+            .expect("impossible: tree-sitter parsing should never fail");
 
         if tree.root_node().has_error() {
             return Err(QueryError::InvalidInput);
@@ -313,9 +444,13 @@ impl Document {
 
         let line_index = LineIndex::new(&source);
 
-        Ok(Self {
-            source,
+        let source_tree = SourceTree {
+            source: source,
             tree,
+        };
+
+        Ok(Self {
+            tree: Tree::build(source_tree)?,
             line_index,
             document_id: language.id_for_node_kind("document", true),
             block_node_id: language.id_for_node_kind("block_node", true),
@@ -328,6 +463,9 @@ impl Document {
             flow_pair_id: language.id_for_node_kind("flow_pair", true),
             block_sequence_item_id: language.id_for_node_kind("block_sequence_item", true),
             comment_id: language.id_for_node_kind("comment", true),
+            anchor_id: language.id_for_node_kind("anchor", true),
+            alias_id: language.id_for_node_kind("alias", true),
+            block_scalar_id: language.id_for_node_kind("block_scalar", true),
         })
     }
 
@@ -340,7 +478,7 @@ impl Document {
     /// Return a view of the original YAML source that this document was
     /// loaded from.
     pub fn source(&self) -> &str {
-        &self.source
+        &self.tree.borrow_owner().source
     }
 
     /// Returns a [`Feature`] for the topmost semantic object in this document.
@@ -443,7 +581,7 @@ impl Document {
     ///
     /// Panics if the feature's span is invalid.
     pub fn extract(&self, feature: &Feature) -> &str {
-        &self.source[feature.location.byte_span.0..feature.location.byte_span.1]
+        &self.source()[feature.location.byte_span.0..feature.location.byte_span.1]
     }
 
     /// Returns a string slice of the original document corresponding to the given
@@ -458,11 +596,11 @@ impl Document {
     /// Panics if the feature's span is invalid.
     pub fn extract_with_leading_whitespace<'a>(&'a self, feature: &Feature) -> &'a str {
         let mut start_idx = feature.location.byte_span.0;
-        let pre_slice = &self.source[0..start_idx];
+        let pre_slice = &self.source()[0..start_idx];
         if let Some(last_newline) = pre_slice.rfind('\n') {
             // If everything between the last newline and the start_index
             // is ASCII spaces, then we include it.
-            if self.source[last_newline + 1..start_idx]
+            if self.source()[last_newline + 1..start_idx]
                 .bytes()
                 .all(|b| b == b' ')
             {
@@ -470,7 +608,7 @@ impl Document {
             }
         }
 
-        &self.source[start_idx..feature.location.byte_span.1]
+        &self.source()[start_idx..feature.location.byte_span.1]
     }
 
     /// Given a [`Feature`], return all comments that span the same range
@@ -541,6 +679,11 @@ impl Document {
         )
     }
 
+    /// Returns whether this document contains any YAML anchors.
+    pub fn has_anchors(&self) -> bool {
+        !self.tree.borrow_dependent().is_empty()
+    }
+
     /// Returns the topmost semantic object in the YAML document,
     /// i.e. the node corresponding to the first block or flow feature.
     fn top_object(&self) -> Result<Node<'_>, QueryError> {
@@ -576,6 +719,22 @@ impl Document {
             }
         }
 
+        // Our focus node might be an alias, in which case we need to
+        // do one last leap to get our "real" final focus node.
+        // TODO(ww): What about nested aliases?
+        focus_node = match focus_node.child(0) {
+            Some(child) if child.kind_id() == self.alias_id => {
+                let alias_name = child
+                    .utf8_text(self.source().as_bytes())
+                    .expect("impossible: alias name should be UTF-8 by construction");
+                let anchor_map = self.tree.borrow_dependent();
+                *anchor_map
+                    .get(&alias_name[1..])
+                    .ok_or_else(|| QueryError::Other(format!("unknown alias: {}", alias_name)))?
+            }
+            _ => focus_node,
+        };
+
         focus_node = match mode {
             QueryMode::Pretty => {
                 // If we're in "pretty" mode, we want to return the
@@ -589,7 +748,7 @@ impl Document {
                     && focus_node.kind_id() != self.block_mapping_pair_id
                     && focus_node.kind_id() != self.flow_pair_id
                 {
-                    focus_node.parent().unwrap()
+                    focus_node.parent().expect("missing parent of focus node")
                 } else {
                     focus_node
                 }
@@ -599,14 +758,25 @@ impl Document {
                 // the parent block/flow pair node that contains the key,
                 // and isolate on the key child instead.
 
-                // If we're already on block/flow pair, then we're already
-                // the key's parent.
                 let parent_node = if focus_node.kind_id() == self.block_mapping_pair_id
                     || focus_node.kind_id() == self.flow_pair_id
                 {
+                    // If we're already on block/flow pair, then we're already
+                    // the key's parent.
                     focus_node
+                } else if focus_node.kind_id() == self.block_scalar_id {
+                    // We might be on the internal `block_scalar` node, if
+                    // we got here via an alias. We need to go up two levels
+                    // to get to the mapping pair.
+                    focus_node
+                        .parent()
+                        .expect("missing parent of focus node")
+                        .parent()
+                        .expect("missing grandparent of focus node")
                 } else {
-                    focus_node.parent().unwrap()
+                    // Otherwise, we expect to be on the `block_node`
+                    // or `flow_node`, so we go up one level.
+                    focus_node.parent().expect("missing parent of focus node")
                 };
 
                 if parent_node.kind_id() == self.flow_mapping_id {
@@ -642,17 +812,63 @@ impl Document {
             && matches!(route.route.last(), Some(Component::Key(_)))
             && focus_node.kind_id() != self.block_mapping_pair_id
         {
-            focus_node = focus_node.parent().unwrap()
+            focus_node = focus_node.parent().expect("missing parent of focus node")
         }
 
         Ok(focus_node)
     }
 
-    fn descend<'b>(&self, node: &Node<'b>, component: &Component) -> Result<Node<'b>, QueryError> {
+    fn descend<'b>(
+        &'b self,
+        node: &Node<'b>,
+        component: &Component,
+    ) -> Result<Node<'b>, QueryError> {
         // The cursor is assumed to start on a block_node or flow_node,
-        // which has a single child containing the inner scalar/vector
+        // which has a child containing the inner scalar/vector/alias
         // type we're descending through.
-        let child = node.child(0).unwrap();
+        //
+        // To get to that child, we might have to skip over any
+        // anchor nodes that we're not actually aliasing through
+        // in this descent step.
+        //
+        // For example, for a YAML snippet like:
+        //
+        // ```yaml
+        // foo: &foo
+        //   bar: baz
+        // ```
+        //
+        // ...the relevant part of the CST looks roughly like:
+        //
+        // ```
+        // block_node         <- `node` points here
+        // |--- anchor        <- we need to skip this
+        // |--- block_mapping <- we want `child` to point here
+        // ```
+        let mut child = {
+            let mut cursor = node.walk();
+            node.named_children(&mut cursor)
+                .find(|n| n.kind_id() != self.anchor_id)
+                .ok_or_else(|| {
+                    QueryError::Other(format!(
+                        "node of kind {} has no non-anchor child",
+                        node.kind()
+                    ))
+                })?
+        };
+
+        // We might be on an alias node, in which case we need to
+        // jump to the alias's target via the anchor map.
+        if child.kind_id() == self.alias_id {
+            let alias_name = node
+                .utf8_text(self.source().as_bytes())
+                .expect("impossible: alias name should be UTF-8 by construction");
+            let anchor_map = self.tree.borrow_dependent();
+
+            child = *anchor_map
+                .get(&alias_name[1..])
+                .ok_or_else(|| QueryError::Other(format!("unknown alias: {}", alias_name)))?;
+        }
 
         // We expect the child to be a sequence or mapping of either
         // flow or block type.
@@ -697,7 +913,9 @@ impl Document {
             // NOTE: text unwraps are infallible, since our document is UTF-8.
             let key_value = match key.named_child(0) {
                 Some(scalar) => {
-                    let key_value = scalar.utf8_text(self.source.as_bytes()).unwrap();
+                    let key_value = scalar
+                        .utf8_text(self.source().as_bytes())
+                        .expect("impossible: value for key should be UTF-8 by construction");
 
                     match scalar.kind() {
                         "single_quote_scalar" | "double_quote_scalar" => {
@@ -709,7 +927,9 @@ impl Document {
                         _ => key_value,
                     }
                 }
-                None => key.utf8_text(self.source.as_bytes()).unwrap(),
+                None => key
+                    .utf8_text(self.source().as_bytes())
+                    .expect("impossible: key should be UTF-8 by construction"),
             };
 
             if key_value == expected {
@@ -726,33 +946,69 @@ impl Document {
         Err(QueryError::ExhaustedMapping(expected.into()))
     }
 
-    fn descend_sequence<'b>(&self, node: &Node<'b>, idx: usize) -> Result<Node<'b>, QueryError> {
+    /// Given a `block_sequence` or `flow_sequence` node, return
+    /// a full list of child nodes after expanding any aliases present.
+    ///
+    /// The returned child nodes are the inner
+    /// `block_node`/`flow_node`/`flow_pair` nodes for each sequence item.
+    fn flatten_sequence<'b>(&'b self, node: &Node<'b>) -> Result<Vec<Node<'b>>, QueryError> {
+        let mut children = vec![];
+
         let mut cur = node.walk();
-        // TODO: Optimize; we shouldn't collect the entire child set just to extract one.
-        let children = node
-            .named_children(&mut cur)
-            .filter(|n| {
-                n.kind_id() == self.block_sequence_item_id
-                    || n.kind_id() == self.flow_node_id
-                    || n.kind_id() == self.flow_pair_id
-            })
-            .collect::<Vec<_>>();
+        for child in node.named_children(&mut cur).filter(|child| {
+            child.kind_id() == self.block_sequence_item_id
+                || child.kind_id() == self.flow_node_id
+                || child.kind_id() == self.flow_pair_id
+        }) {
+            let mut child = child;
+
+            // If we have a `block_sequence_item`, we need to get its
+            // inner `block_node`/`flow_node`, which might be interceded
+            // by comments.
+            if child.kind_id() == self.block_sequence_item_id {
+                let mut cur = child.walk();
+                child = child
+                    .named_children(&mut cur)
+                    .find(|c| c.kind_id() == self.block_node_id || c.kind_id() == self.flow_node_id)
+                    .ok_or_else(|| {
+                        QueryError::MissingChild(child.kind().into(), "block_sequence_item".into())
+                    })?;
+            }
+
+            // `child` is now a `block_node`, a `flow_node`, or `flow_pair`:
+            //
+            // `block_node` looks like `- a: b`
+            // `flow_node` looks like `- a`
+            // `flow_pair` looks like `[a: b]`
+            //
+            // From here, we need to peek inside each and see if it's
+            // an alias. If it is, we expand the alias; otherwise, we
+            // just keep the child as-is.
+            if child.named_child(0).map(|c| c.kind()) == Some("alias") {
+                let alias_name = &child
+                    .utf8_text(self.source().as_bytes())
+                    .expect("impossible: alias name should be UTF-8 by construction")[1..];
+                let anchor_map = self.tree.borrow_dependent();
+                let aliased_node = anchor_map
+                    .get(alias_name)
+                    .ok_or_else(|| QueryError::Other(format!("unknown alias: {}", alias_name)))?;
+
+                children.extend(self.flatten_sequence(aliased_node)?);
+            } else {
+                children.push(child);
+            }
+        }
+
+        Ok(children)
+    }
+
+    fn descend_sequence<'b>(&'b self, node: &Node<'b>, idx: usize) -> Result<Node<'b>, QueryError> {
+        let children = self.flatten_sequence(node)?;
         let Some(child) = children.get(idx) else {
             return Err(QueryError::ExhaustedList(idx, children.len()));
         };
 
-        // If we're in a block_sequence, there's an intervening `block_sequence_item`
-        // getting in the way of our `block_node`/`flow_node`.
-        if child.kind_id() == self.block_sequence_item_id {
-            // NOTE: We can't just get the first named child here, since there might
-            // be interceding comments.
-            return child
-                .named_children(&mut cur)
-                .find(|c| c.kind_id() == self.block_node_id || c.kind_id() == self.flow_node_id)
-                .ok_or_else(|| {
-                    QueryError::MissingChild(child.kind().into(), "block_sequence_item".into())
-                });
-        } else if child.kind_id() == self.flow_pair_id {
+        if child.kind_id() == self.flow_pair_id {
             // Similarly, if our index happens to be a `flow_pair`, we need to
             // get the `value` child to get the next `flow_node`.
             // The `value` might not be present (e.g. `{foo: }`), in which case
@@ -768,14 +1024,14 @@ impl Document {
 mod tests {
     use std::vec;
 
-    use crate::{Component, Document, FeatureKind, Route};
+    use crate::{Component, Document, FeatureKind, QueryError, Route};
 
     #[test]
     fn test_query_parent() {
         let route = route!("foo", "bar", "baz");
         assert_eq!(
             route.parent().unwrap().route,
-            [Component::Key("foo"), Component::Key("bar")]
+            [Component::Key("foo".into()), Component::Key("bar".into())]
         );
 
         let route = route!("foo");
@@ -827,11 +1083,11 @@ baz: quux
         assert_eq!(
             route.route,
             [
-                Component::Key("foo"),
-                Component::Key("bar"),
+                Component::Key("foo".into()),
+                Component::Key("bar".into()),
                 Component::Index(1),
                 Component::Index(123),
-                Component::Key("lol"),
+                Component::Key("lol".into()),
             ]
         )
     }
@@ -852,10 +1108,10 @@ baz:
         let doc = Document::new(doc).unwrap();
         let route = Route {
             route: vec![
-                Component::Key("baz"),
-                Component::Key("sub"),
-                Component::Key("keys"),
-                Component::Key("abc"),
+                Component::Key("baz".into()),
+                Component::Key("sub".into()),
+                Component::Key("keys".into()),
+                Component::Key("abc".into()),
                 Component::Index(2),
                 Component::Index(3),
             ],
@@ -900,7 +1156,7 @@ bar: # outside
 
         // Querying the root gives us all comments underneath it.
         let route = Route {
-            route: vec![Component::Key("root")],
+            route: vec![Component::Key("root".into())],
         };
         let feature = doc.query_pretty(&route).unwrap();
         assert_eq!(
@@ -915,8 +1171,8 @@ bar: # outside
         // even though it's above it on the AST.
         let route = Route {
             route: vec![
-                Component::Key("root"),
-                Component::Key("e"),
+                Component::Key("root".into()),
+                Component::Key("e".into()),
                 Component::Index(1),
             ],
         };
@@ -979,85 +1235,85 @@ nested:
 
         for (route, expected_kind) in &[
             (
-                vec![Component::Key("block-mapping")],
+                vec![Component::Key("block-mapping".into())],
                 FeatureKind::BlockMapping,
             ),
             (
-                vec![Component::Key("block-mapping-quoted")],
+                vec![Component::Key("block-mapping-quoted".into())],
                 FeatureKind::BlockMapping,
             ),
             (
-                vec![Component::Key("block-sequence")],
+                vec![Component::Key("block-sequence".into())],
                 FeatureKind::BlockSequence,
             ),
             (
-                vec![Component::Key("block-sequence-quoted")],
+                vec![Component::Key("block-sequence-quoted".into())],
                 FeatureKind::BlockSequence,
             ),
             (
-                vec![Component::Key("flow-mapping")],
+                vec![Component::Key("flow-mapping".into())],
                 FeatureKind::FlowMapping,
             ),
             (
-                vec![Component::Key("flow-sequence")],
+                vec![Component::Key("flow-sequence".into())],
                 FeatureKind::FlowSequence,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(0)],
+                vec![Component::Key("scalars".into()), Component::Index(0)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(1)],
+                vec![Component::Key("scalars".into()), Component::Index(1)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(2)],
+                vec![Component::Key("scalars".into()), Component::Index(2)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(3)],
+                vec![Component::Key("scalars".into()), Component::Index(3)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(4)],
+                vec![Component::Key("scalars".into()), Component::Index(4)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(5)],
+                vec![Component::Key("scalars".into()), Component::Index(5)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(6)],
+                vec![Component::Key("scalars".into()), Component::Index(6)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(7)],
+                vec![Component::Key("scalars".into()), Component::Index(7)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(8)],
+                vec![Component::Key("scalars".into()), Component::Index(8)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(9)],
+                vec![Component::Key("scalars".into()), Component::Index(9)],
                 FeatureKind::Scalar,
             ),
             (
-                vec![Component::Key("scalars"), Component::Index(10)],
+                vec![Component::Key("scalars".into()), Component::Index(10)],
                 FeatureKind::Scalar,
             ),
             (
                 vec![
-                    Component::Key("nested"),
-                    Component::Key("foo"),
+                    Component::Key("nested".into()),
+                    Component::Key("foo".into()),
                     Component::Index(2),
                 ],
                 FeatureKind::FlowMapping,
             ),
             (
                 vec![
-                    Component::Key("nested"),
-                    Component::Key("foo"),
+                    Component::Key("nested".into()),
+                    Component::Key("foo".into()),
                     Component::Index(3),
                 ],
                 FeatureKind::FlowMapping,
@@ -1067,5 +1323,32 @@ nested:
             let feature = doc.query_exact(&route).unwrap().unwrap();
             assert_eq!(feature.kind(), *expected_kind);
         }
+    }
+
+    #[test]
+    fn test_reject_duplicate_anchors() {
+        let anchors = r#"
+foo: &dup-anchor bar
+baz: &dup-anchor quux
+        "#;
+
+        let result = Document::new(anchors);
+        assert!(matches!(result, Err(QueryError::DuplicateAnchor(_))));
+    }
+
+    #[test]
+    fn test_anchor_map() {
+        let anchors = r#"
+foo: &foo-anchor
+  bar: &bar-anchor
+    baz: quux
+        "#;
+
+        let doc = Document::new(anchors).unwrap();
+        let anchor_map = doc.tree.borrow_dependent();
+
+        assert_eq!(anchor_map.len(), 2);
+        assert_eq!(anchor_map["foo-anchor"].kind(), "block_mapping");
+        assert_eq!(anchor_map["bar-anchor"].kind(), "block_mapping");
     }
 }

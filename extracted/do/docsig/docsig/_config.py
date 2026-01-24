@@ -18,7 +18,7 @@ from ._version import __version__
 PYPROJECT_TOML = "pyproject.toml"
 
 
-# split str by comma, but allow for escaping
+# split str by comma but allow for escaping
 def _split_comma(value: str) -> list[str]:
     return [i.replace("\\,", ",") for i in _re.split(r"(?<!\\),", value)]
 
@@ -39,7 +39,7 @@ def _find_pyproject_toml(path: _Path | None = None) -> _Path | None:
 
 
 def get_config(prog: str) -> dict[str, _t.Any]:
-    """Get config dict object from package's tool section in toml file.
+    """Get the config object from the package's tool section the config.
 
     :param prog: Program name.
     :return: Config dict.
@@ -88,21 +88,6 @@ class _ArgumentParser(_a.ArgumentParser):
         namespace.__dict__ = merge_configs(namespace.__dict__, config)
         return namespace, args
 
-    def add_list_argument(self, *args: str, **kwargs: _t.Any) -> None:
-        """Parse a comma separated list of strings into a list.
-
-        :param args: Long and/or short form argument(s).
-        :param kwargs: Kwargs to pass to ``add_argument``.
-        """
-        kwargs.update(
-            {
-                "action": "store",
-                "type": _split_comma,
-                "default": kwargs.get("default", []),
-            },
-        )
-        self.add_argument(*args, **kwargs)
-
 
 def parse_args(args: _t.Sequence[str] | None = None) -> _a.Namespace:
     """Parse commandline arguments.
@@ -114,12 +99,6 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _a.Namespace:
         description="Check signature params for proper documentation",
     )
     parser.add_argument(
-        "-V",
-        "--version",
-        action="version",
-        version=__version__,
-    )
-    parser.add_argument(
         "path",
         nargs="*",
         action="store",
@@ -127,95 +106,16 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _a.Namespace:
         help="directories or files to check",
     )
     parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=__version__,
+    )
+    parser.add_argument(
         "-l",
         "--list-checks",
         action="store_true",
         help="display a list of all checks and their messages",
-    )
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument(
-        "-c",
-        "--check-class",
-        action="store_true",
-        help="check class docstrings",
-    )
-    group.add_argument(
-        "-C",
-        "--check-class-constructor",
-        action="store_true",
-        help="check __init__ methods. Note: mutually incompatible with -c",
-    )
-    parser.add_argument(
-        "-D",
-        "--check-dunders",
-        action="store_true",
-        help="check dunder methods",
-    )
-    parser.add_argument(
-        "-m",
-        "--check-protected-class-methods",
-        action="store_true",
-        help="check public methods belonging to protected classes",
-    )
-    parser.add_argument(
-        "-N",
-        "--check-nested",
-        action="store_true",
-        help="check nested functions and classes",
-    )
-    parser.add_argument(
-        "-o",
-        "--check-overridden",
-        action="store_true",
-        help="check overridden methods",
-    )
-    parser.add_argument(
-        "-p",
-        "--check-protected",
-        action="store_true",
-        help="check protected functions and classes",
-    )
-    parser.add_argument(
-        "-P",
-        "--check-property-returns",
-        action="store_true",
-        help="check property return values",
-    )
-    parser.add_argument(
-        "-i",
-        "--ignore-no-params",
-        action="store_true",
-        help="ignore docstrings where parameters are not documented",
-    )
-    parser.add_argument(
-        "-a",
-        "--ignore-args",
-        action="store_true",
-        help="ignore args prefixed with an asterisk",
-    )
-    parser.add_argument(
-        "-k",
-        "--ignore-kwargs",
-        action="store_true",
-        help="ignore kwargs prefixed with two asterisks",
-    )
-    parser.add_argument(
-        "-T",
-        "--ignore-typechecker",
-        action="store_true",
-        help="ignore checking return values",
-    )
-    parser.add_argument(
-        "-I",
-        "--include-ignored",
-        action="store_true",
-        help="check files even if they match a gitignore pattern",
-    )
-    parser.add_argument(
-        "-U",
-        "--enforce-capitalization",
-        action="store_true",
-        help="ensure param descriptions are capitalized",
     )
     parser.add_argument(
         "-n",
@@ -229,23 +129,173 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _a.Namespace:
         action="store_true",
         help="increase output verbosity",
     )
-    parser.add_argument(
-        "-s",
-        "--string",
-        action="store",
-        metavar="STR",
-        help="string to parse instead of files",
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument(
+        "-c",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_class",
     )
-    parser.add_list_argument(
+    group.add_argument(
+        "--check-class",
+        action="store_true",
+        help="check class docstrings",
+        dest="check_class",
+    )
+    group.add_argument(
+        "-C",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_class_constructor",
+    )
+    group.add_argument(
+        "--check-class-constructor",
+        action="store_true",
+        help="check __init__ methods",
+        dest="check_class_constructor",
+    )
+    parser.add_argument(
+        "-D",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_dunders",
+    )
+    parser.add_argument(
+        "--check-dunders",
+        action="store_true",
+        help="check dunder methods",
+        dest="check_dunders",
+    )
+    parser.add_argument(
+        "-N",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_nested",
+    )
+    parser.add_argument(
+        "--check-nested",
+        action="store_true",
+        help="check nested functions and classes",
+        dest="check_nested",
+    )
+    parser.add_argument(
+        "-o",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_overridden",
+    )
+    parser.add_argument(
+        "--check-overridden",
+        action="store_true",
+        help="check overridden methods",
+        dest="check_overridden",
+    )
+    parser.add_argument(
+        "-P",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_property_returns",
+    )
+    parser.add_argument(
+        "--check-property-returns",
+        action="store_true",
+        help="check property return values",
+        dest="check_property_returns",
+    )
+    parser.add_argument(
+        "-p",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_protected",
+    )
+    parser.add_argument(
+        "--check-protected",
+        action="store_true",
+        help="check protected functions and classes",
+        dest="check_protected",
+    )
+    parser.add_argument(
+        "-m",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="check_protected_class_methods",
+    )
+    parser.add_argument(
+        "--check-protected-class-methods",
+        action="store_true",
+        help="check public methods belonging to protected classes",
+        dest="check_protected_class_methods",
+    )
+    parser.add_argument(  # deprecated
+        "-U",
+        "--enforce-capitalization",
+        action="store_true",
+        help=_a.SUPPRESS,
+    )
+    parser.add_argument(
+        "-a",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="ignore_args",
+    )
+    parser.add_argument(
+        "--ignore-args",
+        action="store_true",
+        help="ignore args prefixed with an asterisk",
+        dest="ignore_args",
+    )
+    parser.add_argument(
+        "-k",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="ignore_kwargs",
+    )
+    parser.add_argument(
+        "--ignore-kwargs",
+        action="store_true",
+        help="ignore kwargs prefixed with two asterisks",
+        dest="ignore_kwargs",
+    )
+    parser.add_argument(
+        "-i",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="ignore_no_params",
+    )
+    parser.add_argument(
+        "--ignore-no-params",
+        action="store_true",
+        help="ignore docstrings where parameters are not documented",
+        dest="ignore_no_params",
+    )
+    parser.add_argument(
+        "-T",
+        action="store_true",
+        help=_a.SUPPRESS,
+        dest="ignore_typechecker",
+    )
+    parser.add_argument(
+        "--ignore-typechecker",
+        action="store_true",
+        help="ignore checking return values",
+        dest="ignore_typechecker",
+    )
+    parser.add_argument(
         "-d",
         "--disable",
         metavar="LIST",
+        action="store",
+        type=_split_comma,
+        default=[],
         help="comma separated list of rules to disable",
     )
-    parser.add_list_argument(
+    parser.add_argument(
         "-t",
         "--target",
         metavar="LIST",
+        action="store",
+        type=_split_comma,
+        default=[],
         help="comma separated list of rules to target",
     )
     parser.add_argument(
@@ -260,5 +310,18 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _a.Namespace:
         nargs="+",
         metavar="PATH",
         help="path glob patterns to exclude from checks",
+    )
+    parser.add_argument(
+        "-I",
+        "--include-ignored",
+        action="store_true",
+        help="check files even if they match a gitignore pattern",
+    )
+    parser.add_argument(
+        "-s",
+        "--string",
+        action="store",
+        metavar="STR",
+        help="string to parse instead of files",
     )
     return parser.parse_args(args)

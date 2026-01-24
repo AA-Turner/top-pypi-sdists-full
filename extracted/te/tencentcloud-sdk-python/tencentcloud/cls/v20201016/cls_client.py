@@ -72,6 +72,29 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CancelRebuildIndexTask(self, request):
+        r"""取消重建索引任务
+
+        :param request: Request instance for CancelRebuildIndexTask.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CancelRebuildIndexTaskRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CancelRebuildIndexTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CancelRebuildIndexTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CancelRebuildIndexTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CheckFunction(self, request):
         r"""本接口用于数据加工DSL函数的语法校验。
 
@@ -132,6 +155,29 @@ class ClsClient(AbstractClient):
             body = self.call("CloseKafkaConsumer", params, headers=headers)
             response = json.loads(body)
             model = models.CloseKafkaConsumerResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CommitConsumerOffsets(self, request):
+        r"""提交消费点位
+
+        :param request: Request instance for CommitConsumerOffsets.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CommitConsumerOffsetsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CommitConsumerOffsetsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CommitConsumerOffsets", params, headers=headers)
+            response = json.loads(body)
+            model = models.CommitConsumerOffsetsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -332,6 +378,29 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateConsumerGroup(self, request):
+        r"""消费组心跳
+
+        :param request: Request instance for CreateConsumerGroup.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateConsumerGroupRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateConsumerGroupResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateConsumerGroup", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateConsumerGroupResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateCosRecharge(self, request):
         r"""本接口用于创建cos导入任务
 
@@ -346,6 +415,29 @@ class ClsClient(AbstractClient):
             body = self.call("CreateCosRecharge", params, headers=headers)
             response = json.loads(body)
             model = models.CreateCosRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateDashboard(self, request):
+        r"""本接口用于创建仪表盘
+
+        :param request: Request instance for CreateDashboard.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateDashboardRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateDashboardResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateDashboard", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateDashboardResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -424,6 +516,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateDlcDeliver(self, request):
+        r"""创建DLC投递任务
+
+        :param request: Request instance for CreateDlcDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateDlcDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateDlcDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateDlcDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateDlcDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateEsRecharge(self, request):
+        r"""创建es导入配置
+
+        :param request: Request instance for CreateEsRecharge.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateEsRechargeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateEsRechargeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateEsRecharge", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateEsRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateExport(self, request):
         r"""本接口仅创建下载任务。任务返回的下载地址，请用户调用[DescribeExports](https://cloud.tencent.com/document/product/614/56449)查看任务列表，其中有下载地址CosPath参数。
 
@@ -438,6 +576,29 @@ class ClsClient(AbstractClient):
             body = self.call("CreateExport", params, headers=headers)
             response = json.loads(body)
             model = models.CreateExportResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateHostMetricConfig(self, request):
+        r"""创建主机指标采集配置
+
+        :param request: Request instance for CreateHostMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateHostMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateHostMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateHostMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateHostMetricConfigResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -539,6 +700,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateMetricConfig(self, request):
+        r"""创建指标采集配置
+
+        :param request: Request instance for CreateMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateMetricConfigResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateMetricSubscribe(self, request):
+        r"""创建指标订阅配置
+
+        :param request: Request instance for CreateMetricSubscribe.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateMetricSubscribeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateMetricSubscribeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateMetricSubscribe", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateMetricSubscribeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateNoticeContent(self, request):
         r"""该接口用于创建通知内容。
 
@@ -553,6 +760,35 @@ class ClsClient(AbstractClient):
             body = self.call("CreateNoticeContent", params, headers=headers)
             response = json.loads(body)
             model = models.CreateNoticeContentResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateRebuildIndexTask(self, request):
+        r"""创建重建索引任务
+        注意：
+        - 单个日志主题同时仅允许运行一个重建索引任务，单个日志主题最多同时拥有10个重建索引任务记录，需删除不再需要的任务记录后才能新建索引任务。
+        - 同一时间范围内的日志，仅允许重建一次索引，需删除之前的任务记录后才能再次重建。
+        - 删除重建索引任务记录将恢复重建索引前的索引数据。
+        - 所选时间范围对应日志写流量不能超出5TB。
+        - 重建索引时间范围以日志时间为准，日志上传时间与重建索引时间范围有超过1小时的偏差时（例如16:00上传了一条02:00的日志到 CLS，重建00:00～12:00的日志索引）不会被重建且后续无法进行检索。新上报一条日志到已经被重建的日志时间范围时，也不会被重建且后续无法进行检索。
+
+        :param request: Request instance for CreateRebuildIndexTask.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateRebuildIndexTaskRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateRebuildIndexTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateRebuildIndexTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateRebuildIndexTaskResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -608,8 +844,31 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateSplunkDeliver(self, request):
+        r"""创建Splunk投递任务
+
+        :param request: Request instance for CreateSplunkDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.CreateSplunkDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.CreateSplunkDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSplunkDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSplunkDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateTopic(self, request):
-        r"""本接口用于创建日志主题。
+        r"""本接口用于创建日志或指标主题。
 
         :param request: Request instance for CreateTopic.
         :type request: :class:`tencentcloud.cls.v20201016.models.CreateTopicRequest`
@@ -861,6 +1120,29 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteConsumerGroup(self, request):
+        r"""删除消费组
+
+        :param request: Request instance for DeleteConsumerGroup.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteConsumerGroupRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteConsumerGroupResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteConsumerGroup", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteConsumerGroupResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteCosRecharge(self, request):
         r"""本接口用于删除cos导入任务
 
@@ -875,6 +1157,29 @@ class ClsClient(AbstractClient):
             body = self.call("DeleteCosRecharge", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteCosRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteDashboard(self, request):
+        r"""本接口用于删除仪表盘
+
+        :param request: Request instance for DeleteDashboard.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteDashboardRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteDashboardResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteDashboard", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteDashboardResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -930,6 +1235,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteDlcDeliver(self, request):
+        r"""删除DLC投递任务
+
+        :param request: Request instance for DeleteDlcDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteDlcDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteDlcDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteDlcDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteDlcDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteEsRecharge(self, request):
+        r"""删除es导入配置
+
+        :param request: Request instance for DeleteEsRecharge.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteEsRechargeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteEsRechargeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteEsRecharge", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteEsRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteExport(self, request):
         r"""本接口用于删除日志下载任务
 
@@ -944,6 +1295,29 @@ class ClsClient(AbstractClient):
             body = self.call("DeleteExport", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteExportResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteHostMetricConfig(self, request):
+        r"""删除主机指标采集配置
+
+        :param request: Request instance for DeleteHostMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteHostMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteHostMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteHostMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteHostMetricConfigResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1068,6 +1442,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteMetricConfig(self, request):
+        r"""删除指标采集配置
+
+        :param request: Request instance for DeleteMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteMetricConfigResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteMetricSubscribe(self, request):
+        r"""删除指标订阅配置
+
+        :param request: Request instance for DeleteMetricSubscribe.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteMetricSubscribeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteMetricSubscribeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteMetricSubscribe", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteMetricSubscribeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteNoticeContent(self, request):
         r"""该接口用于删除通知内容配置
 
@@ -1137,8 +1557,31 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteSplunkDeliver(self, request):
+        r"""删除Splunk投递任务
+
+        :param request: Request instance for DeleteSplunkDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DeleteSplunkDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DeleteSplunkDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteSplunkDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteSplunkDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteTopic(self, request):
-        r"""本接口用于删除日志主题。
+        r"""本接口用于删除日志或指标主题。
 
         :param request: Request instance for DeleteTopic.
         :type request: :class:`tencentcloud.cls.v20201016.models.DeleteTopicRequest`
@@ -1298,6 +1741,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeClusterBaseMetricConfigs(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeClusterBaseMetricConfigs.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeClusterBaseMetricConfigsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeClusterBaseMetricConfigsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeClusterBaseMetricConfigs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeClusterBaseMetricConfigsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeClusterMetricConfigs(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeClusterMetricConfigs.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeClusterMetricConfigsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeClusterMetricConfigsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeClusterMetricConfigs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeClusterMetricConfigsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeConfigExtras(self, request):
         r"""本接口用于获取特殊采集配置，特殊采集配置应用于自建K8S环境的采集Agent
 
@@ -1413,6 +1902,98 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeConsumerGroups(self, request):
+        r"""获取消费组列表
+
+        :param request: Request instance for DescribeConsumerGroups.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerGroupsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerGroupsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeConsumerGroups", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeConsumerGroupsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeConsumerOffsets(self, request):
+        r"""获取消费组点位信息
+
+        :param request: Request instance for DescribeConsumerOffsets.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerOffsetsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerOffsetsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeConsumerOffsets", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeConsumerOffsetsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeConsumerPreview(self, request):
+        r"""本接口用于kafka投递数据预览
+
+        :param request: Request instance for DescribeConsumerPreview.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerPreviewRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeConsumerPreviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeConsumerPreview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeConsumerPreviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeConsumers(self, request):
+        r"""获取投递规则信息列表
+
+        :param request: Request instance for DescribeConsumers.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeConsumersRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeConsumersResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeConsumers", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeConsumersResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeCosRecharges(self, request):
         r"""本接口用于获取cos导入配置
 
@@ -1505,6 +2086,75 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeDlcDelivers(self, request):
+        r"""获取告警渠道回调配置列表。
+
+        :param request: Request instance for DescribeDlcDelivers.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeDlcDeliversRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeDlcDeliversResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeDlcDelivers", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeDlcDeliversResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeEsRechargePreview(self, request):
+        r"""es导入预览
+
+        :param request: Request instance for DescribeEsRechargePreview.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeEsRechargePreviewRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeEsRechargePreviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeEsRechargePreview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeEsRechargePreviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeEsRecharges(self, request):
+        r"""获取es导入配置
+
+        :param request: Request instance for DescribeEsRecharges.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeEsRechargesRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeEsRechargesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeEsRecharges", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeEsRechargesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeExports(self, request):
         r"""本接口用于获取日志下载任务列表
 
@@ -1519,6 +2169,29 @@ class ClsClient(AbstractClient):
             body = self.call("DescribeExports", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeExportsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeHostMetricConfigs(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeHostMetricConfigs.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeHostMetricConfigsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeHostMetricConfigsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeHostMetricConfigs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeHostMetricConfigsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1611,6 +2284,52 @@ class ClsClient(AbstractClient):
             body = self.call("DescribeKafkaConsumerGroupList", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeKafkaConsumerGroupListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeKafkaConsumerPreview(self, request):
+        r"""kafka协议消费预览接口
+
+        :param request: Request instance for DescribeKafkaConsumerPreview.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeKafkaConsumerPreviewRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeKafkaConsumerPreviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeKafkaConsumerPreview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeKafkaConsumerPreviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeKafkaConsumerTopics(self, request):
+        r"""本接口用于获取kafka协议消费主题信息列表
+
+        :param request: Request instance for DescribeKafkaConsumerTopics.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeKafkaConsumerTopicsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeKafkaConsumerTopicsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeKafkaConsumerTopics", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeKafkaConsumerTopicsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1782,6 +2501,75 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeMetricCorrectDimension(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeMetricCorrectDimension.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeMetricCorrectDimensionRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeMetricCorrectDimensionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMetricCorrectDimension", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMetricCorrectDimensionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeMetricSubscribePreview(self, request):
+        r"""创建指标订阅配置
+
+        :param request: Request instance for DescribeMetricSubscribePreview.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeMetricSubscribePreviewRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeMetricSubscribePreviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMetricSubscribePreview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMetricSubscribePreviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeMetricSubscribes(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeMetricSubscribes.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeMetricSubscribesRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeMetricSubscribesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMetricSubscribes", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMetricSubscribesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeNoticeContents(self, request):
         r"""获取通知内容列表
 
@@ -1819,6 +2607,29 @@ class ClsClient(AbstractClient):
             body = self.call("DescribePartitions", params, headers=headers)
             response = json.loads(body)
             model = models.DescribePartitionsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeRebuildIndexTasks(self, request):
+        r"""获取重建索引任务列表
+
+        :param request: Request instance for DescribeRebuildIndexTasks.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeRebuildIndexTasksRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeRebuildIndexTasksResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeRebuildIndexTasks", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeRebuildIndexTasksResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1897,8 +2708,100 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeSplunkDelivers(self, request):
+        r"""获取Splunk投递任务列表
+
+        :param request: Request instance for DescribeSplunkDelivers.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeSplunkDeliversRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeSplunkDeliversResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSplunkDelivers", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSplunkDeliversResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeSplunkPreview(self, request):
+        r"""splunk投递任务预览
+
+        :param request: Request instance for DescribeSplunkPreview.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeSplunkPreviewRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeSplunkPreviewResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSplunkPreview", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSplunkPreviewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeTopicBaseMetricConfigs(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeTopicBaseMetricConfigs.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeTopicBaseMetricConfigsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeTopicBaseMetricConfigsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTopicBaseMetricConfigs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTopicBaseMetricConfigsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeTopicMetricConfigs(self, request):
+        r"""获取指标订阅配置
+
+        :param request: Request instance for DescribeTopicMetricConfigs.
+        :type request: :class:`tencentcloud.cls.v20201016.models.DescribeTopicMetricConfigsRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.DescribeTopicMetricConfigsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTopicMetricConfigs", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTopicMetricConfigsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeTopics(self, request):
-        r"""本接口用于获取日志主题列表，支持分页
+        r"""本接口用于获取日志或指标主题列表，支持分页
 
         :param request: Request instance for DescribeTopics.
         :type request: :class:`tencentcloud.cls.v20201016.models.DescribeTopicsRequest`
@@ -1943,6 +2846,29 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def EstimateRebuildIndexTask(self, request):
+        r"""预估重建索引任务
+
+        :param request: Request instance for EstimateRebuildIndexTask.
+        :type request: :class:`tencentcloud.cls.v20201016.models.EstimateRebuildIndexTaskRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.EstimateRebuildIndexTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EstimateRebuildIndexTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.EstimateRebuildIndexTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def GetAlarmLog(self, request):
         r"""本接口用于获取告警策略执行详情
 
@@ -1957,6 +2883,29 @@ class ClsClient(AbstractClient):
             body = self.call("GetAlarmLog", params, headers=headers)
             response = json.loads(body)
             model = models.GetAlarmLogResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def GetMetricLabelValues(self, request):
+        r"""获取时序label values列表
+
+        :param request: Request instance for GetMetricLabelValues.
+        :type request: :class:`tencentcloud.cls.v20201016.models.GetMetricLabelValuesRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.GetMetricLabelValuesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("GetMetricLabelValues", params, headers=headers)
+            response = json.loads(body)
+            model = models.GetMetricLabelValuesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2173,6 +3122,29 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyConsumerGroup(self, request):
+        r"""更新消费组信息
+
+        :param request: Request instance for ModifyConsumerGroup.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyConsumerGroupRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyConsumerGroupResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyConsumerGroup", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyConsumerGroupResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyCosRecharge(self, request):
         r"""本接口用于修改cos导入任务
 
@@ -2187,6 +3159,29 @@ class ClsClient(AbstractClient):
             body = self.call("ModifyCosRecharge", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyCosRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyDashboard(self, request):
+        r"""本接口用于修改仪表盘
+
+        :param request: Request instance for ModifyDashboard.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyDashboardRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyDashboardResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyDashboard", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyDashboardResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2233,6 +3228,75 @@ class ClsClient(AbstractClient):
             body = self.call("ModifyDataTransform", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyDataTransformResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyDlcDeliver(self, request):
+        r"""修改DLC投递任务
+
+        :param request: Request instance for ModifyDlcDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyDlcDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyDlcDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyDlcDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyDlcDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyEsRecharge(self, request):
+        r"""修改es导入配置
+
+        :param request: Request instance for ModifyEsRecharge.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyEsRechargeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyEsRechargeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyEsRecharge", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyEsRechargeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyHostMetricConfig(self, request):
+        r"""修改主机指标采集配置
+
+        :param request: Request instance for ModifyHostMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyHostMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyHostMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyHostMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyHostMetricConfigResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2381,6 +3445,52 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyMetricConfig(self, request):
+        r"""创建指标采集配置
+
+        :param request: Request instance for ModifyMetricConfig.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyMetricConfigRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyMetricConfigResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyMetricConfig", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyMetricConfigResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyMetricSubscribe(self, request):
+        r"""修改指标订阅配置
+
+        :param request: Request instance for ModifyMetricSubscribe.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifyMetricSubscribeRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifyMetricSubscribeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyMetricSubscribe", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyMetricSubscribeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyNoticeContent(self, request):
         r"""该接口用于修改通知内容配置
 
@@ -2450,8 +3560,31 @@ class ClsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifySplunkDeliver(self, request):
+        r"""修改splunk投递任务相关信息
+
+        :param request: Request instance for ModifySplunkDeliver.
+        :type request: :class:`tencentcloud.cls.v20201016.models.ModifySplunkDeliverRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.ModifySplunkDeliverResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifySplunkDeliver", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifySplunkDeliverResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyTopic(self, request):
-        r"""本接口用于修改日志主题。
+        r"""本接口用于修改日志或指标主题。
 
         :param request: Request instance for ModifyTopic.
         :type request: :class:`tencentcloud.cls.v20201016.models.ModifyTopicRequest`
@@ -2675,6 +3808,29 @@ class ClsClient(AbstractClient):
             body = self.call("SearchLog", params, headers=headers)
             response = json.loads(body)
             model = models.SearchLogResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SendConsumerHeartbeat(self, request):
+        r"""消费组心跳
+
+        :param request: Request instance for SendConsumerHeartbeat.
+        :type request: :class:`tencentcloud.cls.v20201016.models.SendConsumerHeartbeatRequest`
+        :rtype: :class:`tencentcloud.cls.v20201016.models.SendConsumerHeartbeatResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SendConsumerHeartbeat", params, headers=headers)
+            response = json.loads(body)
+            model = models.SendConsumerHeartbeatResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

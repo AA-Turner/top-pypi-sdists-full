@@ -6,14 +6,13 @@ from itertools import pairwise
 from typing import cast
 
 import numpy as np
-
-from pytensor.compile.builders import OpFromGraph
-from pytensor.npy_2_compat import (
+from numpy._core.einsumfunc import (  # type: ignore[attr-defined]
     _find_contraction,
     _parse_einsum_input,
-    normalize_axis_index,
-    normalize_axis_tuple,
 )
+from numpy.lib.array_utils import normalize_axis_index, normalize_axis_tuple
+
+from pytensor.compile.builders import OpFromGraph
 from pytensor.tensor import TensorLike
 from pytensor.tensor.basic import (
     arange,
@@ -389,7 +388,7 @@ def _contraction_list_from_path(
         )
 
         contract_tuple = _find_contraction(contract_inds, input_sets, output_set)
-        out_inds, input_sets, idx_removed, idx_contract = contract_tuple
+        out_inds, input_sets, idx_removed, _idx_contract = contract_tuple
 
         tmp_inputs = [input_list.pop(x) for x in contract_inds]
 
@@ -597,10 +596,14 @@ def einsum(subscripts: str, *operands: "TensorLike", optimize=None) -> TensorVar
             # Numpy einsum_path requires arrays even though only the shapes matter
             # It's not trivial to duck-type our way around because of internal call to `asanyarray`
             *[np.empty(shape) for shape in shapes],
-            einsum_call=True,  # Not part of public API
+            # einsum_call is not part of public API
+            einsum_call=True,  # type: ignore[arg-type]
             optimize="optimal",
-        )  # type: ignore
-        np_path = tuple(contraction[0] for contraction in contraction_list)
+        )
+        np_path: PATH | tuple[tuple[int, ...]] = tuple(
+            contraction[0]  # type: ignore[misc]
+            for contraction in contraction_list
+        )
 
         if len(np_path) == 1 and len(np_path[0]) > 2:
             # When there's nothing to optimize, einsum_path reduces all entries simultaneously instead of doing
@@ -610,7 +613,7 @@ def einsum(subscripts: str, *operands: "TensorLike", optimize=None) -> TensorVar
                 subscripts, tensor_operands, path
             )
         else:
-            path = np_path
+            path = cast(PATH, np_path)
 
         optimized = True
 
@@ -668,9 +671,9 @@ def einsum(subscripts: str, *operands: "TensorLike", optimize=None) -> TensorVar
     einsum_operands = list(tensor_operands)  # So we can pop
     for operand_indices, contracted_names, einstr, _, _ in contraction_list:
         contracted_names = sorted(contracted_names)
-        assert len(contracted_names) == len(
-            set(contracted_names)
-        ), "The set was needed!"
+        assert len(contracted_names) == len(set(contracted_names)), (
+            "The set was needed!"
+        )
 
         input_str, result_names = einstr.split("->")
         input_names = input_str.split(",")

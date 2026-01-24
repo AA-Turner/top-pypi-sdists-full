@@ -31,22 +31,22 @@ class Options(base.Model):
             elif key == 'runTests' and not isinstance(kwargs[key], list):
                 raise Exception('Tests must be specified as a list')
             elif key not in specials and not isinstance(kwargs[key], bool):
-                raise Exception('Invalid option value for ' + key)
+                raise Exception(f'Invalid option value for {key}')
 
             self.__setattr__(key, kwargs[key])
 
     def as_xml(self):
-        return '\n'.join([
+        return '\n'.join(
             self._get_data_for_key(key, value)
             for key, value in vars(self).items()
-        ])
+        )
 
     def _get_data_for_key(self, key, value):
         if key == 'runTests':
-            return ''.join([
+            return ''.join(
                 f'<met:runTests>{test}</met:runTests>'
                 for test in value
-            ])
+            )
         return f'<met:{key}>{value}</met:{key}>'
 
 

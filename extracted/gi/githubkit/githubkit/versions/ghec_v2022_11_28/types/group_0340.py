@@ -9,32 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0299 import DiffEntryType
-from .group_0300 import CommitType
+from typing_extensions import TypedDict
 
 
-class CommitComparisonType(TypedDict):
-    """Commit Comparison
+class CheckAutomatedSecurityFixesType(TypedDict):
+    """Check Dependabot security updates
 
-    Commit Comparison
+    Check Dependabot security updates
     """
 
-    url: str
-    html_url: str
-    permalink_url: str
-    diff_url: str
-    patch_url: str
-    base_commit: CommitType
-    merge_base_commit: CommitType
-    status: Literal["diverged", "ahead", "behind", "identical"]
-    ahead_by: int
-    behind_by: int
-    total_commits: int
-    commits: list[CommitType]
-    files: NotRequired[list[DiffEntryType]]
+    enabled: bool
+    paused: bool
 
 
-__all__ = ("CommitComparisonType",)
+class CheckAutomatedSecurityFixesTypeForResponse(TypedDict):
+    """Check Dependabot security updates
+
+    Check Dependabot security updates
+    """
+
+    enabled: bool
+    paused: bool
+
+
+__all__ = (
+    "CheckAutomatedSecurityFixesType",
+    "CheckAutomatedSecurityFixesTypeForResponse",
+)

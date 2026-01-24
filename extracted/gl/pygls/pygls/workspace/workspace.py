@@ -19,8 +19,7 @@
 import copy
 import logging
 import os
-import warnings
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Sequence, Union
 
 from lsprotocol import types
 from lsprotocol.types import (
@@ -40,7 +39,7 @@ class Workspace(object):
         self,
         root_uri: Optional[str],
         sync_kind: TextDocumentSyncKind = TextDocumentSyncKind.Incremental,
-        workspace_folders: Optional[List[WorkspaceFolder]] = None,
+        workspace_folders: Optional[Sequence[WorkspaceFolder]] = None,
         position_encoding: Optional[
             Union[PositionEncodingKind, str]
         ] = PositionEncodingKind.Utf16,
@@ -48,10 +47,7 @@ class Workspace(object):
         self._root_uri = root_uri
         if self._root_uri is not None:
             self._root_uri_scheme = uri_scheme(self._root_uri)
-            root_path = to_fs_path(self._root_uri)
-            if root_path is None:
-                raise Exception("Couldn't get `root_path` from `root_uri`")
-            self._root_path = root_path
+            self._root_path = to_fs_path(self._root_uri)
         else:
             self._root_path = None
         self._sync_kind = sync_kind
@@ -95,16 +91,6 @@ class Workspace(object):
 
     def add_folder(self, folder: WorkspaceFolder):
         self._folders[folder.uri] = folder
-
-    @property
-    def documents(self):
-        warnings.warn(
-            "'workspace.documents' has been deprecated, use "
-            "'workspace.text_documents' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.text_documents
 
     @property
     def notebook_documents(self):
@@ -162,9 +148,14 @@ class Workspace(object):
         return self._text_documents.get(doc_uri) or self._create_text_document(doc_uri)
 
     def is_local(self):
-        return (
-            self._root_uri_scheme == "" or self._root_uri_scheme == "file"
-        ) and os.path.exists(self._root_path)
+
+        if self._root_uri_scheme not in {"", "file"}:
+            return False
+
+        if (path := self._root_path) is None:
+            return False
+
+        return os.path.exists(path)
 
     def put_notebook_document(self, params: types.DidOpenNotebookDocumentParams):
         notebook = params.notebook_document
@@ -285,39 +276,3 @@ class Workspace(object):
         doc_uri = text_doc.uri
         self._text_documents[doc_uri].apply_change(change)
         self._text_documents[doc_uri].version = text_doc.version
-
-    def get_document(self, *args, **kwargs):
-        warnings.warn(
-            "'workspace.get_document' has been deprecated, use "
-            "'workspace.get_text_document' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.get_text_document(*args, **kwargs)
-
-    def remove_document(self, *args, **kwargs):
-        warnings.warn(
-            "'workspace.remove_document' has been deprecated, use "
-            "'workspace.remove_text_document' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.remove_text_document(*args, **kwargs)
-
-    def put_document(self, *args, **kwargs):
-        warnings.warn(
-            "'workspace.put_document' has been deprecated, use "
-            "'workspace.put_text_document' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.put_text_document(*args, **kwargs)
-
-    def update_document(self, *args, **kwargs):
-        warnings.warn(
-            "'workspace.update_document' has been deprecated, use "
-            "'workspace.update_text_document' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.update_text_document(*args, **kwargs)

@@ -11,12 +11,14 @@ import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional, Union
 
 import jsonpatch
 from fastapi import Request
 
 from supervisely._utils import is_production
 from supervisely.api.api import Api
+import supervisely.app.fastapi.multi_user as multi_user
 from supervisely.app.fastapi import run_sync
 from supervisely.app.fastapi.websocket import WebsocketManager
 from supervisely.app.singleton import Singleton
@@ -109,16 +111,29 @@ class _PatchableJson(dict):
             patch.apply(self._last, in_place=True)
             self._last = copy.deepcopy(self._last)
 
-    async def synchronize_changes(self):
+    async def synchronize_changes(self, user_id: Optional[Union[int, str]] = None):
         patch = self._get_patch()
-        await self._apply_patch(patch)
-        await self._ws.broadcast(self.get_changes(patch))
+        if user_id is not None:
+            async with multi_user.async_session_context(user_id):
+                await self._apply_patch(patch)
+                await self._ws.broadcast(
+                    self.get_changes(patch), user_id=user_id
+                )
+        else:
+            await self._apply_patch(patch)
+            await self._ws.broadcast(self.get_changes(patch), user_id=user_id)
 
     async def send_changes_async(self):
-        await self.synchronize_changes()
+        user_id = None
+        if sly_env.is_multiuser_mode_enabled():
+            user_id = sly_env.user_from_multiuser_app()
+        await self.synchronize_changes(user_id=user_id)
 
     def send_changes(self):
-        run_sync(self.synchronize_changes())
+        user_id = None
+        if sly_env.is_multiuser_mode_enabled():
+            user_id = sly_env.user_from_multiuser_app()
+        run_sync(self.synchronize_changes(user_id=user_id))
 
     def raise_for_key(self, key: str):
         if key in self:
@@ -139,7 +154,7 @@ class StateJson(_PatchableJson, metaclass=Singleton):
         await StateJson._replace_global(dict(self))
 
     @classmethod
-    async def from_request(cls, request: Request) -> StateJson:
+    async def from_request(cls, request: Request, local: bool = True) -> StateJson:
         if "application/json" not in request.headers.get("Content-Type", ""):
             return None
         content = await request.json()
@@ -149,7 +164,8 @@ class StateJson(_PatchableJson, metaclass=Singleton):
         # TODO: should we always replace STATE with {}?
         d = content.get(Field.STATE, {})
         await cls._replace_global(d)
-        return cls(d, __local__=True)
+
+        return cls(d, __local__=local)
 
     @classmethod
     async def _replace_global(cls, d: dict):

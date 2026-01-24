@@ -3,7 +3,7 @@ Type annotations for connectparticipant service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectparticipant/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -47,12 +48,6 @@ from .type_defs import (
     StartAttachmentUploadResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -61,14 +56,14 @@ else:
 __all__ = ("ConnectParticipantClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ConnectParticipantClient(BaseClient):
     """
@@ -107,7 +102,7 @@ class ConnectParticipantClient(BaseClient):
 
     def cancel_participant_authentication(
         self, **kwargs: Unpack[CancelParticipantAuthenticationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the authentication session.
 
@@ -117,7 +112,7 @@ class ConnectParticipantClient(BaseClient):
 
     def complete_attachment_upload(
         self, **kwargs: Unpack[CompleteAttachmentUploadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allows you to confirm that the attachment has been uploaded using the
         pre-signed URL provided in StartAttachmentUpload API.
@@ -148,7 +143,7 @@ class ConnectParticipantClient(BaseClient):
 
     def disconnect_participant(
         self, **kwargs: Unpack[DisconnectParticipantRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disconnects a participant.
 

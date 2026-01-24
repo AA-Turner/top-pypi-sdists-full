@@ -23,9 +23,9 @@ from ._base import NamespacedClient
 from .utils import (
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
 )
 
 
@@ -46,8 +46,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Clean up the snapshot repository.
-          Trigger the review of the contents of a snapshot repository and delete any stale data not referenced by existing snapshots.</p>
+          <p>Clean up the snapshot repository.</p>
+          <p>Trigger the review of the contents of a snapshot repository and delete any stale data not referenced by existing snapshots.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-cleanup-repository>`_
@@ -110,8 +110,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Clone a snapshot.
-          Clone part of all of a snapshot into another snapshot in the same repository.</p>
+          <p>Clone a snapshot.</p>
+          <p>Clone part of all of a snapshot into another snapshot in the same repository.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-clone>`_
@@ -207,8 +207,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Create a snapshot.
-          Take a snapshot of a cluster or of data streams and indices.</p>
+          <p>Create a snapshot.</p>
+          <p>Take a snapshot of a cluster or of data streams and indices.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-create>`_
@@ -330,8 +330,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Create or update a snapshot repository.
-          IMPORTANT: If you are migrating searchable snapshots, the repository name must be identical in the source and destination clusters.
+          <p>Create or update a snapshot repository.</p>
+          <p>IMPORTANT: If you are migrating searchable snapshots, the repository name must be identical in the source and destination clusters.
           To register a snapshot repository, the cluster's global metadata must be writeable.
           Ensure there are no cluster blocks (for example, <code>cluster.blocks.read_only</code> and <code>clsuter.blocks.read_only_allow_delete</code> settings) that prevent write access.</p>
           <p>Several options for this API can be specified using a query parameter or a request body parameter.
@@ -470,8 +470,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Delete snapshot repositories.
-          When a repository is unregistered, Elasticsearch removes only the reference to the location where the repository is storing the snapshots.
+          <p>Delete snapshot repositories.</p>
+          <p>When a repository is unregistered, Elasticsearch removes only the reference to the location where the repository is storing the snapshots.
           The snapshots themselves are left untouched and in place.</p>
 
 
@@ -872,35 +872,40 @@ class SnapshotClient(NamespacedClient):
 
         :param name: The name of the repository.
         :param blob_count: The total number of blobs to write to the repository during
-            the test. For realistic experiments, you should set it to at least `2000`.
+            the test. For realistic experiments, set this parameter to at least `2000`.
         :param concurrency: The number of operations to run concurrently during the test.
+            For realistic experiments, leave this parameter unset.
         :param detailed: Indicates whether to return detailed results, including timing
             information for every operation performed during the analysis. If false,
             it returns only a summary of the analysis.
         :param early_read_node_count: The number of nodes on which to perform an early
             read operation while writing each blob. Early read operations are only rarely
-            performed.
+            performed. For realistic experiments, leave this parameter unset.
         :param max_blob_size: The maximum size of a blob to be written during the test.
-            For realistic experiments, you should set it to at least `2gb`.
+            For realistic experiments, set this parameter to at least `2gb`.
         :param max_total_data_size: An upper limit on the total size of all the blobs
-            written during the test. For realistic experiments, you should set it to
+            written during the test. For realistic experiments, set this parameter to
             at least `1tb`.
         :param rare_action_probability: The probability of performing a rare action such
-            as an early read, an overwrite, or an aborted write on each blob.
+            as an early read, an overwrite, or an aborted write on each blob. For realistic
+            experiments, leave this parameter unset.
         :param rarely_abort_writes: Indicates whether to rarely cancel writes before
-            they complete.
+            they complete. For realistic experiments, leave this parameter unset.
         :param read_node_count: The number of nodes on which to read a blob after writing.
+            For realistic experiments, leave this parameter unset.
         :param register_operation_count: The minimum number of linearizable register
-            operations to perform in total. For realistic experiments, you should set
-            it to at least `100`.
+            operations to perform in total. For realistic experiments, set this parameter
+            to at least `100`.
         :param seed: The seed for the pseudo-random number generator used to generate
             the list of operations performed during the test. To repeat the same set
             of operations in multiple experiments, use the same seed in each experiment.
             Note that the operations are performed concurrently so might not always happen
-            in the same order on each run.
+            in the same order on each run. For realistic experiments, leave this parameter
+            unset.
         :param timeout: The period of time to wait for the test to complete. If no response
             is received before the timeout expires, the test is cancelled and returns
-            an error.
+            an error. For realistic experiments, set this parameter sufficiently long
+            to allow the test to complete.
         """
         if name in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'name'")
@@ -950,7 +955,7 @@ class SnapshotClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def repository_verify_integrity(
         self,
         *,
@@ -971,8 +976,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Verify the repository integrity.
-          Verify the integrity of the contents of a snapshot repository.</p>
+          <p>Verify the repository integrity.</p>
+          <p>Verify the integrity of the contents of a snapshot repository.</p>
           <p>This API enables you to perform a comprehensive check of the contents of a repository, looking for any anomalies in its data or metadata which might prevent you from restoring snapshots from the repository or which might cause future snapshot create or delete operations to fail.</p>
           <p>If you suspect the integrity of the contents of one of your snapshot repositories, cease all write activity to this repository immediately, set its <code>read_only</code> option to <code>true</code>, and use this API to verify its integrity.
           Until you do so:</p>
@@ -1110,8 +1115,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Restore a snapshot.
-          Restore a snapshot of a cluster or data streams and indices.</p>
+          <p>Restore a snapshot.</p>
+          <p>Restore a snapshot of a cluster or data streams and indices.</p>
           <p>You can restore a snapshot only to a running cluster with an elected master node.
           The snapshot repository must be registered and available to the cluster.
           The snapshot and cluster versions must be compatible.</p>
@@ -1259,13 +1264,18 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get the snapshot status.
-          Get a detailed description of the current state for each shard participating in the snapshot.</p>
+          <p>Get the snapshot status.</p>
+          <p>Get a detailed description of the current state for each shard participating in the snapshot.</p>
           <p>Note that this API should be used only to obtain detailed shard-level information for ongoing snapshots.
           If this detail is not needed or you want to obtain information about one or more existing snapshots, use the get snapshot API.</p>
           <p>If you omit the <code>&lt;snapshot&gt;</code> request path parameter, the request retrieves information only for currently running snapshots.
           This usage is preferred.
           If needed, you can specify <code>&lt;repository&gt;</code> and <code>&lt;snapshot&gt;</code> to retrieve information for specific snapshots, even if they're not currently running.</p>
+          <p>Note that the stats will not be available for any shard snapshots in an ongoing snapshot completed by a node that (even momentarily) left the cluster.
+          Loading the stats from the repository is an expensive operation (see the WARNING below).
+          Therefore the stats values for such shards will be -1 even though the &quot;stage&quot; value will be &quot;DONE&quot;, in order to minimize latency.
+          A &quot;description&quot; field will be present for a shard snapshot completed by a departed node explaining why the shard snapshot's stats results are invalid.
+          Consequently, the total stats for the index will be less than expected due to the missing values from these shards.</p>
           <p>WARNING: Using the API to return the status of any snapshots other than currently running snapshots can be expensive.
           The API requires a read from the repository for each shard in each snapshot.
           For example, if you have 100 snapshots with 1,000 shards each, an API request that includes all snapshots will require 100,000 reads (100 snapshots x 1,000 shards).</p>
@@ -1337,8 +1347,8 @@ class SnapshotClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Verify a snapshot repository.
-          Check for common misconfigurations in a snapshot repository.</p>
+          <p>Verify a snapshot repository.</p>
+          <p>Check for common misconfigurations in a snapshot repository.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-snapshot-verify-repository>`_

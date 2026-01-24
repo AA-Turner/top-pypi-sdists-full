@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: django-filter
-Version: 25.1
+Version: 25.2
 Summary: Django-filter is a reusable Django application for allowing users to filter querysets dynamically.
 Author-email: Alex Gaynor <alex.gaynor@gmail.com>
 Maintainer-email: Carlton Gibson <carlton.gibson@noumenal.es>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -12,22 +12,22 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: Django>=4.2
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: Django>=5.2
+Requires-Dist: djangorestframework ; extra == "drf"
 Project-URL: Bug Tracker, https://github.com/carltongibson/django-filter/issues
 Project-URL: Changelog, https://github.com/carltongibson/django-filter/blob/main/CHANGES.rst
 Project-URL: Documentation, https://django-filter.readthedocs.io/en/main/
 Project-URL: Homepage, https://github.com/carltongibson/django-filter/tree/main
 Project-URL: Source Code, https://github.com/carltongibson/django-filter
+Provides-Extra: drf
 
 Django Filter
 =============

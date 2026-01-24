@@ -1,4 +1,5 @@
-from collections.abc import Callable, Iterable
+# pyright: reportUnnecessaryTypeIgnoreComment=false
+from collections.abc import Callable
 from concurrent import futures
 from typing import Any
 
@@ -9,13 +10,10 @@ from joblib._memmapping_reducer import (
     get_memmapping_reducers as get_memmapping_reducers,
 )
 from joblib.externals.loky.reusable_executor import _ReusablePoolExecutor
-from typing_extensions import TypeVar
-
-_T = TypeVar("_T")
 
 def get_memmapping_executor(n_jobs: int, **kwargs: Any) -> futures.Executor: ...
 
-class MemmappingExecutor(_ReusablePoolExecutor):
+class MemmappingExecutor(_ReusablePoolExecutor):  # type: ignore[misc]
     @classmethod
     def get_memmapping_executor(
         cls,
@@ -29,11 +27,3 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         **backend_args: Any,
     ) -> futures.Executor: ...
     def terminate(self, kill_workers: bool = ...) -> None: ...
-
-class _TestingMemmappingExecutor(MemmappingExecutor):
-    def apply_async(
-        self, func: Callable[..., _T], args: tuple[Any, ...]
-    ) -> futures.Future[_T]: ...
-    def map(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, f: Callable[..., _T], *args: Iterable[Any]
-    ) -> list[_T]: ...

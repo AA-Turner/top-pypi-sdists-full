@@ -11,8 +11,9 @@ multi_line_output = 3
 
 [project]
 name = "fastuuid"
+description = "Python bindings to Rust's UUID library."
 dynamic = ["version"]
-classifier = [
+classifiers = [
   "Development Status :: 4 - Beta",
   "License :: OSI Approved :: BSD License",
   "Programming Language :: Rust",
@@ -25,11 +26,13 @@ classifier = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
-maintainer = "Omer Katz"
-maintainer-email = "omer.drow@gmail.com"
+maintainers = [
+  {name = "Omer Katz", email = "omer.drow@gmail.com"}
+]
 requires-python = ">=3.8"
 urls = { homepage = "https://github.com/thedrow/fastuuid/" }

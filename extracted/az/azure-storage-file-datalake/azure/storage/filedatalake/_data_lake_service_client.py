@@ -120,18 +120,23 @@ class DataLakeServiceClient(StorageAccountHostsMixin):
         self._client._config.version = get_api_version(kwargs)  # type: ignore [assignment]
 
     def __enter__(self) -> Self:
+        self._client.__enter__()
         self._blob_service_client.__enter__()
         return self
 
     def __exit__(self, *args: Any) -> None:
-        self._blob_service_client.close()
-        super(DataLakeServiceClient, self).__exit__(*args)
+        self._blob_service_client.__exit__(*args)
+        self._client.__exit__(*args)
 
     def close(self) -> None:
-        """ This method is to close the sockets opened by the client.
+        """This method is to close the sockets opened by the client.
         It need not be used when using with a context manager.
+
+        :return: None
+        :rtype: None
         """
-        self.__exit__()
+        self._blob_service_client.close()
+        self._client.close()
 
     def _format_url(self, hostname: str) -> str:
         """Format the endpoint URL according to hostname.
@@ -165,6 +170,9 @@ class DataLakeServiceClient(StorageAccountHostsMixin):
             ~azure.core.credentials.AzureSasCredential or
             ~azure.core.credentials.TokenCredential or
             str or Dict[str, str] or None
+        :keyword str api_version:
+            The Storage API version to use for requests. Default value is the most recent service version that is
+            compatible with the current SDK. Setting to an older version may result in reduced feature compatibility.
         :keyword str audience: The audience to use when requesting tokens for Azure Active Directory
             authentication. Only has an effect when credential is of type TokenCredential. The value could be
             https://storage.azure.com/ (default) or https://<account>.blob.core.windows.net.

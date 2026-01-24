@@ -1,14 +1,15 @@
-
 """Web interface for Wn databases."""
 
 from typing import Optional, Union
 from functools import wraps
 from urllib.parse import urlsplit, parse_qs, urlencode
+from datetime import datetime, timezone
 
 from starlette.applications import Starlette  # type: ignore
 from starlette.responses import JSONResponse  # type: ignore
 from starlette.routing import Route  # type: ignore
 from starlette.requests import Request  # type: ignore
+from starlette.exceptions import HTTPException  # type: ignore
 
 import wn
 
@@ -16,9 +17,7 @@ DEFAULT_PAGINATION_LIMIT = 50
 
 
 def paginate(proto):
-
     def paginate_wrapper(func):
-
         @wraps(func)
         async def _paginate_wrapper(request: Request) -> JSONResponse:
             url = str(request.url)
@@ -30,9 +29,11 @@ def paginate(proto):
             total = len(obj['data'])
             prev = max(0, offset - limit)
             next = offset + limit
-            last = (total//limit)*limit
+            last = (total // limit) * limit
 
-            obj['data'] = [proto(x, request) for x in obj['data'][offset:offset+limit]]
+            obj['data'] = [
+                proto(x, request) for x in obj['data'][offset : offset + limit]
+            ]
             obj.setdefault('meta', {}).update(total=total)
 
             links = {}
@@ -62,6 +63,7 @@ def replace_query_params(url: str, **params) -> str:
 
 # Wordnet-instantiation
 
+
 def _init_wordnet(
     lexicon: str = '*',
     lang: Optional[str] = None,
@@ -73,6 +75,7 @@ def _init_wordnet(
 
 # Data-making functions
 
+
 def _url_for_obj(
     request: Request,
     name: str,
@@ -83,7 +86,7 @@ def _url_for_obj(
         lexicon = obj.lexicon().specifier()
     kwargs = {
         'lexicon': lexicon,
-        name: obj.id
+        name: obj.id,
     }
     return str(request.url_for(name, **kwargs))
 
@@ -101,7 +104,7 @@ def make_lexicon(lex: wn.Lexicon, request: Request) -> dict:
             'license': lex.license,
         },
         'links': {
-            'self': str(request.url_for('lexicon', lexicon=spec))
+            'self': str(request.url_for('lexicon', lexicon=spec)),
         },
         'relationships': {
             'words': {
@@ -113,7 +116,7 @@ def make_lexicon(lex: wn.Lexicon, request: Request) -> dict:
             'senses': {
                 'links': {'related': str(request.url_for('senses', lexicon=spec))},
             },
-        }
+        },
     }
 
 
@@ -128,21 +131,25 @@ def make_word(w: wn.Word, request: Request, basic: bool = False) -> dict:
             'forms': w.forms(),
         },
         'links': {
-            'self': _url_for_obj(request, 'word', w, lexicon=lex_spec)
-        }
+            'self': _url_for_obj(request, 'word', w, lexicon=lex_spec),
+        },
     }
     if not basic:
         synsets = w.synsets()
         lex_link = str(request.url_for('lexicon', lexicon=lex_spec))
         senses_link = str(request.url_for('senses', word=w.id, lexicon=lex_spec))
-        d.update({
-            'relationships': {
-                'senses': {'links': {'related': senses_link}},
-                'synsets': {'data': [dict(type='synset', id=ss.id) for ss in synsets]},
-                'lexicon': {'links': {'related': lex_link}}
-            },
-            'included': [make_synset(ss, request, basic=True) for ss in synsets]
-        })
+        d.update(
+            {
+                'relationships': {
+                    'senses': {'links': {'related': senses_link}},
+                    'synsets': {
+                        'data': [dict(type='synset', id=ss.id) for ss in synsets]
+                    },
+                    'lexicon': {'links': {'related': lex_link}},
+                },
+                'included': [make_synset(ss, request, basic=True) for ss in synsets],
+            }
+        )
     return d
 
 
@@ -152,8 +159,8 @@ def make_sense(s: wn.Sense, request: Request, basic: bool = False) -> dict:
         'id': s.id,
         'type': 'sense',
         'links': {
-            'self': _url_for_obj(request, 'sense', s, lexicon=lex_spec)
-        }
+            'self': _url_for_obj(request, 'sense', s, lexicon=lex_spec),
+        },
     }
     if not basic:
         w = s.word()
@@ -164,12 +171,12 @@ def make_sense(s: wn.Sense, request: Request, basic: bool = False) -> dict:
         relationships: dict = {
             'word': {'links': {'related': word_link}},
             'synset': {'links': {'related': synset_link}},
-            'lexicon': {'links': {'related': lex_link}}
+            'lexicon': {'links': {'related': lex_link}},
         }
         included = []
         for relname, slist in s.relations().items():
             relationships[relname] = {
-                'data': [dict(type='sense', id=_s.id) for _s in slist]
+                'data': [dict(type='sense', id=_s.id) for _s in slist],
             }
             included.extend([make_sense(_s, request, basic=True) for _s in slist])
         d.update({'relationships': relationships, 'included': included})
@@ -186,8 +193,8 @@ def make_synset(ss: wn.Synset, request: Request, basic: bool = False) -> dict:
             'ili': ss._ili,
         },
         'links': {
-            'self': _url_for_obj(request, 'synset', ss, lexicon=lex_spec)
-        }
+            'self': _url_for_obj(request, 'synset', ss, lexicon=lex_spec),
+        },
     }
     if not basic:
         words = ss.words()
@@ -196,19 +203,37 @@ def make_synset(ss: wn.Synset, request: Request, basic: bool = False) -> dict:
         relationships: dict = {
             'members': {'links': {'related': members_link}},
             'words': {'data': [dict(type='word', id=w.id) for w in words]},
-            'lexicon': {'links': {'related': lex_link}}
+            'lexicon': {'links': {'related': lex_link}},
         }
         included = [make_word(w, request, basic=True) for w in words]
         for relname, sslist in ss.relations().items():
             relationships[relname] = {
-                'data': [dict(type='synset', id=_s.id) for _s in sslist]
+                'data': [dict(type='synset', id=_s.id) for _s in sslist],
             }
             included.extend([make_synset(_s, request, basic=True) for _s in sslist])
         d.update({'relationships': relationships, 'included': included})
     return d
 
 
+# Exception handlers
+
+async def http_exception(request: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(
+        {"detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
+
+
+async def wn_error(request: Request, exc: wn.Error) -> JSONResponse:
+    return JSONResponse(
+        {"detail": str(exc)},
+        status_code=404,
+    )
+
+
 # Route handlers
+
 
 @paginate(make_lexicon)
 async def lexicons(request):
@@ -221,9 +246,11 @@ async def lexicons(request):
 
 
 async def lexicon(request):
-    path_params = request.path_params
-    lex = wn.lexicons(lexicon=path_params['lexicon'])[0]
-    return JSONResponse({'data': make_lexicon(lex, request)})
+    lex_spec = request.path_params['lexicon']
+    _lexicons = wn.lexicons(lexicon=lex_spec)
+    if _lexicons:
+        return JSONResponse({'data': make_lexicon(_lexicons[0], request)})
+    raise HTTPException(status_code=404, detail=f"Lexicon not found: {lex_spec}")
 
 
 def _get_words(wordnet: wn.Wordnet, request: Request) -> dict:
@@ -320,7 +347,27 @@ async def synset(request):
     return JSONResponse({'data': make_synset(synset, request)})
 
 
+async def index(request: Request):
+    endpoints = {
+        route.path: str(request.url_for(route.name))
+        for route in routes
+        if len(route.param_convertors) == 0
+    }
+    return JSONResponse({'endpoints': endpoints})
+
+
+async def health_check(request: Request):
+    body = {
+        'status': 'healthy',
+        'timestamp': datetime.now(tz=timezone.utc).isoformat(),
+        'service': 'wn.web',
+    }
+    return JSONResponse(body, status_code=200)
+
+
 routes = [
+    Route('/', endpoint=index),
+    Route('/health', endpoint=health_check),
     Route('/lexicons', endpoint=lexicons),
     Route('/lexicons/{lexicon}', endpoint=lexicon),
     Route('/lexicons/{lexicon}/words', endpoint=words),
@@ -336,4 +383,9 @@ routes = [
     Route('/synsets', endpoint=all_synsets),
 ]
 
-app = Starlette(debug=True, routes=routes)
+exception_handlers = {
+    HTTPException: http_exception,
+    wn.Error: wn_error,
+}
+
+app = Starlette(debug=True, routes=routes, exception_handlers=exception_handlers)

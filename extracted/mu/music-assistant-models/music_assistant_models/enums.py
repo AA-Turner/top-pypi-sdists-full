@@ -20,6 +20,7 @@ class MediaTypeMeta(EnumType):
             MediaType.RADIO,
             MediaType.AUDIOBOOK,
             MediaType.PODCAST,
+            MediaType.GENRE,
         ]
 
 
@@ -38,6 +39,8 @@ class MediaType(StrEnum, metaclass=MediaTypeMeta):
     ANNOUNCEMENT = "announcement"
     FLOW_STREAM = "flow_stream"
     PLUGIN_SOURCE = "plugin_source"
+    SOUND_EFFECT = "sound_effect"
+    GENRE = "genre"
     UNKNOWN = "unknown"
 
     @classmethod
@@ -141,6 +144,11 @@ class AlbumType(StrEnum):
     COMPILATION = "compilation"
     EP = "ep"
     UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> AlbumType:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
 
 
 class ContentType(StrEnum):
@@ -303,6 +311,12 @@ class QueueOption(StrEnum):
     NEXT = "next"
     REPLACE_NEXT = "replace_next"
     ADD = "add"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> QueueOption:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
 
 
 class RepeatMode(StrEnum):
@@ -312,8 +326,12 @@ class RepeatMode(StrEnum):
     ONE = "one"  # repeat one/single track
     ALL = "all"  # repeat entire queue
 
-    # fallback
     UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> RepeatMode:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
 
 
 class PlaybackState(StrEnum):
@@ -416,29 +434,12 @@ class EventType(StrEnum):
     PROVIDERS_UPDATED = "providers_updated"
     SYNC_TASKS_UPDATED = "sync_tasks_updated"
     AUTH_SESSION = "auth_session"
-    BUILTIN_PLAYER = "builtin_player"
     UNKNOWN = "unknown"
 
     @classmethod
     def _missing_(cls, value: object) -> EventType:  # noqa: ARG003
         """Set default enum member if an unknown value is provided."""
         return cls.UNKNOWN
-
-
-class BuiltinPlayerEventType(StrEnum):
-    """Enum with possible actions for the builtin (web) player."""
-
-    PLAY = "play"
-    PAUSE = "pause"
-    RESUME = "resume"
-    STOP = "stop"
-    MUTE = "mute"
-    UNMUTE = "unmute"
-    SET_VOLUME = "set_volume"
-    PLAY_MEDIA = "play_media"
-    TIMEOUT = "timeout"
-    POWER_OFF = "power_off"
-    POWER_ON = "power_on"
 
 
 class ProviderFeature(StrEnum):
@@ -475,6 +476,15 @@ class ProviderFeature(StrEnum):
     LIBRARY_AUDIOBOOKS_EDIT = "library_audiobooks_edit"
     LIBRARY_PODCASTS_EDIT = "library_podcasts_edit"
 
+    # favorites editing per mediatype
+    FAVORITE_ARTISTS_EDIT = "favorite_artists_edit"
+    FAVORITE_ALBUMS_EDIT = "favorite_albums_edit"
+    FAVORITE_TRACKS_EDIT = "favorite_tracks_edit"
+    FAVORITE_PLAYLISTS_EDIT = "favorite_playlists_edit"
+    FAVORITE_RADIOS_EDIT = "favorite_radios_edit"
+    FAVORITE_AUDIOBOOKS_EDIT = "favorite_audiobooks_edit"
+    FAVORITE_PODCASTS_EDIT = "favorite_podcasts_edit"
+
     # if we can grab 'similar tracks' from the music provider
     # used to generate dynamic playlists
     SIMILAR_TRACKS = "similar_tracks"
@@ -497,6 +507,7 @@ class ProviderFeature(StrEnum):
     ARTIST_METADATA = "artist_metadata"
     ALBUM_METADATA = "album_metadata"
     TRACK_METADATA = "track_metadata"
+    LYRICS = "lyrics"  # lyrics support - can also be provided by a music provider
 
     #
     # PLUGIN FEATURES
@@ -564,8 +575,11 @@ class StreamType(StrEnum):
     # hls: http HLS stream - url provided in path
     HLS = "hls"
 
-    # icy: http stream with icy metadata - url provided in path
+    # icy: http/1.1 stream with icy metadata - url provided in path
     ICY = "icy"
+
+    # shoutcast: legacy shoutcast stream - url provided in path
+    SHOUTCAST = "shoutcast"
 
     # local_file: local file which is accessible by the MA server process
     LOCAL_FILE = "local_file"
@@ -575,12 +589,6 @@ class StreamType(StrEnum):
 
     # other_ffmpeg: any other ffmpeg compatible input stream (used together with extra_input_args)
     OTHER_FFMPEG = "other_ffmpeg"
-
-    # cache: audio data is cached
-    CACHE = "cache"
-
-    # multi_file: multiple files are provided in a list
-    MULTI_FILE = "multi_file"
 
     # custom: custom (bytes) stream - provided by an (async) generator
     CUSTOM = "custom"

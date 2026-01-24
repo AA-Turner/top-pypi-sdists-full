@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: vellum-ai
-Version: 1.5.1
+Version: 1.13.6
 Summary: 
 License: MIT
 Requires-Python: >=3.9,<4.0
@@ -20,11 +20,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+Provides-Extra: mypy
+Provides-Extra: zuban
 Requires-Dist: Jinja2 (>=3.1.0,<4.0.0)
 Requires-Dist: click (>=8.1.7,<9.0.0)
 Requires-Dist: docker (>=7.1.0,<8.0.0)
 Requires-Dist: httpx (>=0.21.2)
-Requires-Dist: openai (>=1.0.0,<2.0.0)
+Requires-Dist: jsonschema (>=4.0.0)
+Requires-Dist: mypy (>=1.13.0) ; extra == "mypy"
 Requires-Dist: orderly-set (>=5.2.2,<6.0.0)
 Requires-Dist: publication (==0.0.3)
 Requires-Dist: pydantic (>=1.9.2)
@@ -37,6 +40,7 @@ Requires-Dist: pyyaml (>=6.0.0,<7.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0)
 Requires-Dist: typing_extensions (>=4.0.0)
+Requires-Dist: zuban (>=0.4.2) ; extra == "zuban"
 Project-URL: Repository, https://github.com/vellum-ai/vellum-python-sdks
 Description-Content-Type: text/markdown
 

@@ -1,8 +1,8 @@
 import pydoc
 import sys
 import warnings
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Optional, Tuple, Union
 
 from rich.padding import Padding
 from rich.text import Text
@@ -19,7 +19,7 @@ class MethodRedefinitionWarning(Warning):
     """A method is redefined."""
 
 
-def _render_function_call(f: str, target: Union[Tuple, Signature]) -> str:
+def _render_function_call(f: str, target: tuple | Signature, /) -> str:
     """Render a function call.
 
     Args:
@@ -44,8 +44,8 @@ class AmbiguousLookupError(LookupError):
 
     def __init__(
         self,
-        f_name: Union[str, None],
-        target: Union[Tuple, Signature],
+        f_name: str | None,
+        target: tuple | Signature,
         methods: MethodList,
     ):
         """Create a new :class:`AmbiguousLookupError`.
@@ -78,8 +78,8 @@ class NotFoundLookupError(LookupError):
 
     def __init__(
         self,
-        f_name: Union[str, None],
-        target: Union[Tuple, Signature],
+        f_name: str | None,
+        target: tuple | Signature,
         methods: MethodList,
         *,
         max_suggestions: int = 3,
@@ -131,7 +131,7 @@ class NotFoundLookupError(LookupError):
                 yield Padding(m.repr_mismatch(misses, varargs_matched), (0, 4))
 
 
-def _change_function_name(f: Callable, name: str) -> Callable:
+def _change_function_name(f: Callable, name: str, /) -> Callable:
     """It is not always the case that `f.__name__` is writable. To solve this, first
     create a temporary function that wraps `f` and then change the name.
 
@@ -151,7 +151,7 @@ def _change_function_name(f: Callable, name: str) -> Callable:
     return f_renamed
 
 
-def _document(f: Callable, f_name: Optional[str] = None) -> str:
+def _document(f: Callable, f_name: str | None = None, /) -> str:
     """Generate documentation for a function `f`.
 
     The generated documentation contains both the function definition and the
@@ -202,7 +202,7 @@ def _document(f: Callable, f_name: Optional[str] = None) -> str:
     return "\n".join([title] + body).rstrip()
 
 
-def _unwrap_invoked_methods(f):
+def _unwrap_invoked_methods(f: Callable, /) -> Callable:
     """Undo wrapping of :meth:`Function.invoke`d methods.
 
     :meth:`Function.invoke` uses :func:`functools.wraps` to wrap the function and
@@ -245,7 +245,7 @@ class Resolver:
 
     def __init__(
         self,
-        function_name: Optional[str] = None,
+        function_name: str | None = None,
         warn_redefinition: bool = False,
     ) -> None:
         """Initialise the resolver.
@@ -258,7 +258,7 @@ class Resolver:
         self.is_faithful: bool = True
         self.warn_redefinition = warn_redefinition
 
-    def doc(self, exclude: Union[Callable, None] = None) -> str:
+    def doc(self, exclude: Callable | None = None) -> str:
         """Concatenate the docstrings of all methods of this function. Remove duplicate
         docstrings before concatenating.
 
@@ -328,7 +328,7 @@ class Resolver:
     def __len__(self) -> int:
         return len(self.methods)
 
-    def resolve(self, target: Union[Tuple[object, ...], Signature]) -> Method:
+    def resolve(self, target: tuple[object, ...] | Signature) -> Method:
         """Find the most specific signature that satisfies a target.
 
         Args:

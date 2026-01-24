@@ -1,7 +1,7 @@
 r'''
 # `aws_iam_service_specific_credential`
 
-Refer to the Terraform Registry for docs: [`aws_iam_service_specific_credential`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential).
+Refer to the Terraform Registry for docs: [`aws_iam_service_specific_credential`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IamServiceSpecificCredential(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.iamServiceSpecificCredential.IamServiceSpecificCredential",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class IamServiceSpecificCredential(
         *,
         service_name: builtins.str,
         user_name: builtins.str,
+        credential_age_days: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -63,14 +64,15 @@ class IamServiceSpecificCredential(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential aws_iam_service_specific_credential} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
+        :param credential_age_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#credential_age_days IamServiceSpecificCredential#credential_age_days}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -86,6 +88,7 @@ class IamServiceSpecificCredential(
         config = IamServiceSpecificCredentialConfig(
             service_name=service_name,
             user_name=user_name,
+            credential_age_days=credential_age_days,
             id=id,
             status=status,
             connection=connection,
@@ -112,7 +115,7 @@ class IamServiceSpecificCredential(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IamServiceSpecificCredential to import.
-        :param import_from_id: The id of the existing IamServiceSpecificCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IamServiceSpecificCredential that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IamServiceSpecificCredential to import is found.
         '''
         if __debug__:
@@ -122,6 +125,10 @@ class IamServiceSpecificCredential(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetCredentialAgeDays")
+    def reset_credential_age_days(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCredentialAgeDays", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -145,6 +152,26 @@ class IamServiceSpecificCredential(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="createDate")
+    def create_date(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "createDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="expirationDate")
+    def expiration_date(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "expirationDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceCredentialAlias")
+    def service_credential_alias(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "serviceCredentialAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceCredentialSecret")
+    def service_credential_secret(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "serviceCredentialSecret"))
+
+    @builtins.property
     @jsii.member(jsii_name="servicePassword")
     def service_password(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "servicePassword"))
@@ -158,6 +185,11 @@ class IamServiceSpecificCredential(
     @jsii.member(jsii_name="serviceUserName")
     def service_user_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "serviceUserName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialAgeDaysInput")
+    def credential_age_days_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "credentialAgeDaysInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -178,6 +210,18 @@ class IamServiceSpecificCredential(
     @jsii.member(jsii_name="userNameInput")
     def user_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "userNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialAgeDays")
+    def credential_age_days(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "credentialAgeDays"))
+
+    @credential_age_days.setter
+    def credential_age_days(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5fdba3abfb684c42534a21775fd75a08bb6eaf390e70deb788450e3c3620b9f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "credentialAgeDays", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -241,6 +285,7 @@ class IamServiceSpecificCredential(
         "provisioners": "provisioners",
         "service_name": "serviceName",
         "user_name": "userName",
+        "credential_age_days": "credentialAgeDays",
         "id": "id",
         "status": "status",
     },
@@ -258,6 +303,7 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         service_name: builtins.str,
         user_name: builtins.str,
+        credential_age_days: typing.Optional[jsii.Number] = None,
         id: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -269,10 +315,11 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.
+        :param credential_age_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#credential_age_days IamServiceSpecificCredential#credential_age_days}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -287,6 +334,7 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+            check_type(argname="argument credential_age_days", value=credential_age_days, expected_type=type_hints["credential_age_days"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -307,6 +355,8 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if credential_age_days is not None:
+            self._values["credential_age_days"] = credential_age_days
         if id is not None:
             self._values["id"] = id
         if status is not None:
@@ -378,21 +428,27 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#service_name IamServiceSpecificCredential#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#user_name IamServiceSpecificCredential#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def credential_age_days(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#credential_age_days IamServiceSpecificCredential#credential_age_days}.'''
+        result = self._values.get("credential_age_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#id IamServiceSpecificCredential#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -402,7 +458,7 @@ class IamServiceSpecificCredentialConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_service_specific_credential#status IamServiceSpecificCredential#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -431,6 +487,7 @@ def _typecheckingstub__163d629cfa4ee3c12c01232adf642e17f5b302970311928962fe2a3fe
     *,
     service_name: builtins.str,
     user_name: builtins.str,
+    credential_age_days: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -449,6 +506,12 @@ def _typecheckingstub__65c15294604b2af7f0042d9dbf380271925b8bd2419aa5c4a4fae7e3f
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5fdba3abfb684c42534a21775fd75a08bb6eaf390e70deb788450e3c3620b9f(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -488,6 +551,7 @@ def _typecheckingstub__406f7666a56e580708fc35d17f37b0d0199c57a966c92ac7660a683cf
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     service_name: builtins.str,
     user_name: builtins.str,
+    credential_age_days: typing.Optional[jsii.Number] = None,
     id: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
 ) -> None:

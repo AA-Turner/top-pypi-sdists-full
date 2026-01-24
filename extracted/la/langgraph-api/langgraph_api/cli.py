@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import logging
@@ -8,12 +9,10 @@ import typing
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from typing_extensions import TypedDict
-
 if typing.TYPE_CHECKING:
     from packaging.version import Version
 
-    from langgraph_api.config import HttpConfig, StoreConfig
+    from langgraph_api.config import AuthConfig, HttpConfig, StoreConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -81,51 +80,6 @@ def patch_environment(**kwargs):
                 os.environ[key] = value
 
 
-class SecurityConfig(TypedDict, total=False):
-    securitySchemes: dict
-    security: list
-    # path => {method => security}
-    paths: dict[str, dict[str, list]]
-
-
-class CacheConfig(TypedDict, total=False):
-    cache_keys: list[str]
-    ttl_seconds: int
-    max_size: int
-
-
-class AuthConfig(TypedDict, total=False):
-    path: str
-    """Path to the authentication function in a Python file."""
-    disable_studio_auth: bool
-    """Whether to disable auth when connecting from the LangSmith Studio."""
-    openapi: SecurityConfig
-    """The schema to use for updating the openapi spec.
-
-    Example:
-        {
-            "securitySchemes": {
-                "OAuth2": {
-                    "type": "oauth2",
-                    "flows": {
-                        "password": {
-                            "tokenUrl": "/token",
-                            "scopes": {
-                                "me": "Read information about the current user",
-                                "items": "Access to create and manage items"
-                            }
-                        }
-                    }
-                }
-            },
-            "security": [
-                {"OAuth2": ["me"]}  # Default security requirement for all endpoints
-            ]
-        }
-    """
-    cache: CacheConfig | None
-
-
 def run_server(
     host: str = "127.0.0.1",
     port: int = 2024,
@@ -141,15 +95,20 @@ def run_server(
     reload_includes: Sequence[str] | None = None,
     reload_excludes: Sequence[str] | None = None,
     store: typing.Optional["StoreConfig"] = None,
-    auth: AuthConfig | None = None,
+    auth: typing.Optional["AuthConfig"] = None,
     http: typing.Optional["HttpConfig"] = None,
     ui: dict | None = None,
+    webhooks: dict | None = None,
     ui_config: dict | None = None,
     studio_url: str | None = None,
     disable_persistence: bool = False,
     allow_blocking: bool = False,
     runtime_edition: Literal["inmem", "community", "postgres"] = "inmem",
     server_level: str = "WARNING",
+    __redis_uri__: str | None = "fake",
+    __database_uri__: str | None = ":memory:",
+    __migrations_path__: str | None = "__inmem",
+    __entrypoint__: Literal["server", "python-executor"] = "server",
     **kwargs: typing.Any,
 ):
     """Run the LangGraph API server."""
@@ -165,6 +124,8 @@ def run_server(
     mount_prefix = None
     if http is not None and http.get("mount_prefix") is not None:
         mount_prefix = http.get("mount_prefix")
+    if os.environ.get("MOUNT_PREFIX"):
+        mount_prefix = os.environ.get("MOUNT_PREFIX")
     if os.environ.get("LANGGRAPH_MOUNT_PREFIX"):
         mount_prefix = os.environ.get("LANGGRAPH_MOUNT_PREFIX")
     if isinstance(env, str | pathlib.Path):
@@ -230,16 +191,19 @@ def run_server(
     else:
         local_url = upstream_url
     to_patch = dict(
-        MIGRATIONS_PATH="__inmem",
-        DATABASE_URI=":memory:",
-        REDIS_URI="fake",
-        N_JOBS_PER_WORKER=str(n_jobs_per_worker if n_jobs_per_worker else 1),
+        MIGRATIONS_PATH=__migrations_path__,
+        DATABASE_URI=__database_uri__,
+        REDIS_URI=__redis_uri__,
+        N_JOBS_PER_WORKER=str(
+            n_jobs_per_worker if n_jobs_per_worker is not None else 1
+        ),
         LANGGRAPH_STORE=json.dumps(store) if store else None,
         LANGSERVE_GRAPHS=json.dumps(graphs) if graphs else None,
         LANGSMITH_LANGGRAPH_API_VARIANT="local_dev",
         LANGGRAPH_AUTH=json.dumps(auth) if auth else None,
         LANGGRAPH_HTTP=json.dumps(http) if http else None,
         LANGGRAPH_UI=json.dumps(ui) if ui else None,
+        LANGGRAPH_WEBHOOKS=json.dumps(webhooks) if webhooks else None,
         LANGGRAPH_UI_CONFIG=json.dumps(ui_config) if ui_config else None,
         LANGGRAPH_UI_BUNDLER="true",
         LANGGRAPH_API_URL=local_url,
@@ -290,7 +254,7 @@ def run_server(
                                         full_studio_url = f"{studio_origin}/studio/?baseUrl={local_url}&organizationId={org_id}"
                                 except TimeoutError as e:
                                     thread_logger.debug(
-                                        f"Failed to get organization ID: {str(e)}"
+                                        f"Failed to get organization ID: {e!s}"
                                     )
                                     pass
                                 thread_logger.info(
@@ -319,7 +283,7 @@ def run_server(
 - 📚 API Docs: \033[36m{local_url}/docs\033[0m
 
 This in-memory server is designed for development and testing.
-For production use, please use LangGraph Platform.
+For production use, please use LangSmith Deployment.
 
 """
         logger.info(welcome)
@@ -340,40 +304,53 @@ For production use, please use LangGraph Platform.
             if k in inspect.signature(uvicorn.run).parameters
         }
         server_level = server_level.upper()
-        uvicorn.run(
-            "langgraph_api.server:app",
-            host=host,
-            port=port,
-            reload=reload,
-            env_file=env_file,
-            access_log=False,
-            reload_includes=list(reload_includes) if reload_includes else None,
-            reload_excludes=list(reload_excludes) if reload_excludes else None,
-            log_config={
-                "version": 1,
-                "incremental": False,
-                "disable_existing_loggers": False,
-                "formatters": {
-                    "simple": {
-                        "class": "langgraph_api.logging.Formatter",
-                    }
+        if __entrypoint__ == "server":
+            uvicorn.run(
+                "langgraph_api.server:app",
+                host=host,
+                port=port,
+                reload=reload,
+                env_file=env_file,
+                access_log=False,
+                reload_includes=list(reload_includes) if reload_includes else None,
+                reload_excludes=list(reload_excludes) if reload_excludes else None,
+                log_config={
+                    "version": 1,
+                    "incremental": False,
+                    "disable_existing_loggers": False,
+                    "formatters": {
+                        "simple": {
+                            "class": "langgraph_api.logging.Formatter",
+                        }
+                    },
+                    "handlers": {
+                        "console": {
+                            "class": "logging.StreamHandler",
+                            "formatter": "simple",
+                            "stream": "ext://sys.stdout",
+                        }
+                    },
+                    "loggers": {
+                        "uvicorn": {"level": server_level},
+                        "uvicorn.error": {"level": server_level},
+                        "langgraph_api.server": {"level": server_level},
+                    },
+                    "root": {"handlers": ["console"]},
                 },
-                "handlers": {
-                    "console": {
-                        "class": "logging.StreamHandler",
-                        "formatter": "simple",
-                        "stream": "ext://sys.stdout",
-                    }
-                },
-                "loggers": {
-                    "uvicorn": {"level": server_level},
-                    "uvicorn.error": {"level": server_level},
-                    "langgraph_api.server": {"level": server_level},
-                },
-                "root": {"handlers": ["console"]},
-            },
-            **supported_kwargs,
-        )
+                **supported_kwargs,
+            )
+        elif __entrypoint__ == "python-executor":
+            from langgraph_api.executor_entrypoint import (
+                main as executor_entrypoint_main,
+            )
+
+            asyncio.run(
+                executor_entrypoint_main(
+                    grpc_port=8188,
+                )
+            )
+        else:
+            raise ValueError(f"Unknown entrypoint: {__entrypoint__}")
 
 
 def main():
@@ -398,7 +375,7 @@ def main():
         help="Number of jobs per worker. Default is None (meaning 10)",
     )
     parser.add_argument(
-        "--no-browser", action="store_true", help="Disable automatic browser opening"
+        "--open-browser", action="store_true", help="Open browser automatically"
     )
     parser.add_argument(
         "--debug-port", type=int, help="Port for debugger to listen on (default: none)"
@@ -413,7 +390,19 @@ def main():
         action="store_true",
         help="Expose the server via Cloudflare Tunnel",
     )
-
+    parser.add_argument(
+        "--runtime-edition",
+        type=str,
+        default="inmem",
+        help="Runtime edition to use",
+    )
+    parser.add_argument(
+        "--entrypoint",
+        type=str,
+        default="server",
+        choices=["server", "python-executor"],
+        help="Entry point to use",
+    )
     args = parser.parse_args()
 
     with open(args.config, encoding="utf-8") as f:
@@ -422,21 +411,32 @@ def main():
     graphs = config_data.get("graphs", {})
     auth = config_data.get("auth")
     ui = config_data.get("ui")
+    webhooks = config_data.get("webhooks")
     ui_config = config_data.get("ui_config")
+    kwargs = {}
+    if args.runtime_edition == "postgres":
+        kwargs["__redis_uri__"] = os.getenv("REDIS_URI")
+        kwargs["__database_uri__"] = os.getenv("DATABASE_URI")
+        kwargs["__migrations_path__"] = os.getenv("MIGRATIONS_PATH")
+    if args.entrypoint == "python-executor":
+        kwargs["__entrypoint__"] = "python-executor"
     run_server(
         args.host,
         args.port,
         not args.no_reload,
         graphs,
         n_jobs_per_worker=args.n_jobs_per_worker,
-        open_browser=not args.no_browser,
+        open_browser=args.open_browser,
         tunnel=args.tunnel,
         debug_port=args.debug_port,
         wait_for_client=args.wait_for_client,
         env=config_data.get("env", None),
         auth=auth,
         ui=ui,
+        webhooks=webhooks,
         ui_config=ui_config,
+        runtime_edition=args.runtime_edition,
+        **kwargs,
     )
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-glue-alpha
-Version: 2.216.0a0
+Version: 2.236.0a0
 Summary: The CDK Construct Library for AWS::Glue
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.216.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: jsii<2.0.0,>=1.125.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # AWS Glue Construct Library
 
@@ -144,7 +144,7 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
@@ -202,7 +202,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
@@ -257,7 +257,7 @@ glue.PySparkEtlJob(stack, "pySparkEtlJob",
     description="This is a description",
     role=role,
     script=script,
-    glue_version=glue.GlueVersion.V3_0,
+    glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
     worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,

@@ -3,7 +3,7 @@ Type annotations for docdb-elastic service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_docdb_elastic/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import AuthType, OptInTypeType, SnapshotTypeType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -91,7 +86,7 @@ class ApplyPendingMaintenanceActionInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -116,8 +111,8 @@ class ClusterSnapshotTypeDef(TypedDict):
     snapshotCreationTime: str
     snapshotName: str
     status: StatusType
-    subnetIds: List[str]
-    vpcSecurityGroupIds: List[str]
+    subnetIds: list[str]
+    vpcSecurityGroupIds: list[str]
     snapshotType: NotRequired[SnapshotTypeType]
 
 class ShardTypeDef(TypedDict):
@@ -238,16 +233,16 @@ class UpdateClusterInputTypeDef(TypedDict):
     vpcSecurityGroupIds: NotRequired[Sequence[str]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClustersOutputTypeDef(TypedDict):
-    clusters: List[ClusterInListTypeDef]
+    clusters: list[ClusterInListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListClusterSnapshotsOutputTypeDef(TypedDict):
-    snapshots: List[ClusterSnapshotInListTypeDef]
+    snapshots: list[ClusterSnapshotInListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -279,12 +274,12 @@ class ClusterTypeDef(TypedDict):
     shardCapacity: int
     shardCount: int
     status: StatusType
-    subnetIds: List[str]
-    vpcSecurityGroupIds: List[str]
+    subnetIds: list[str]
+    vpcSecurityGroupIds: list[str]
     backupRetentionPeriod: NotRequired[int]
     preferredBackupWindow: NotRequired[str]
     shardInstanceCount: NotRequired[int]
-    shards: NotRequired[List[ShardTypeDef]]
+    shards: NotRequired[list[ShardTypeDef]]
 
 class ListClusterSnapshotsInputPaginateTypeDef(TypedDict):
     clusterArn: NotRequired[str]
@@ -298,7 +293,7 @@ class ListPendingMaintenanceActionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ResourcePendingMaintenanceActionTypeDef(TypedDict):
-    pendingMaintenanceActionDetails: NotRequired[List[PendingMaintenanceActionDetailsTypeDef]]
+    pendingMaintenanceActionDetails: NotRequired[list[PendingMaintenanceActionDetailsTypeDef]]
     resourceArn: NotRequired[str]
 
 class CreateClusterOutputTypeDef(TypedDict):
@@ -338,6 +333,6 @@ class GetPendingMaintenanceActionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPendingMaintenanceActionsOutputTypeDef(TypedDict):
-    resourcePendingMaintenanceActions: List[ResourcePendingMaintenanceActionTypeDef]
+    resourcePendingMaintenanceActions: list[ResourcePendingMaintenanceActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

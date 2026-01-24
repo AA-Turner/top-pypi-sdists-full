@@ -1,21 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pgzip
-Version: 0.3.5
+Version: 0.4.0
 Summary: A multi-threading implementation of Python gzip module
-Home-page: https://github.com/pgzip/pgzip
-Author: pgzip team
-Author-email: pgzip@thegoldfish.org
-License: MIT
+Project-URL: Homepage, https://github.com/pgzip/pgzip
+Author-email: Vincent Li <vincentliyx@gmail.com>, Tim Hughes <thughes@thegoldfish.org>
+Maintainer-email: Tim Hughes <thughes@thegoldfish.org>
+License: MIT License
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Intended Audience :: Developers
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE
+
+👷👷👷 Maintainers Wanted 👷👷👷 See https://github.com/pgzip/pgzip/issues/37
 
 # pgzip
 
@@ -37,6 +39,7 @@ Theoretically, the compression and decompression speed should be linear with the
 ## Usage and Examples
 
 ### CLI
+
 ```
 ❯ python -m pgzip -h
 usage: __main__.py [-h] [-o OUTPUT] [-f FILENAME] [-d] [-l {0-9}] [-t THREADS] input
@@ -90,11 +93,11 @@ with pgzip.open("test.txt.gz", "rt", thread=8) as fr:
 
 ### Compression Performance
 
-![Compression Performance](https://raw.githubusercontent.com/pgzip/pgzip/master/CompressionBenchmark.png)
+![Compression Performance](CompressionBenchmark.png)
 
 ### Decompression Performance
 
-![Decompression Performance](https://raw.githubusercontent.com/pgzip/pgzip/master/DecompressionBenchmark.png)
+![Decompression Performance](DecompressionBenchmark.png)
 
 Decompression was benchmarked using an 8.0GB `FASTQ` text file with 48 threads across 24 cores on a machine with Xeon(R) E5-2650 v4 @ 2.20GHz CPUs.
 

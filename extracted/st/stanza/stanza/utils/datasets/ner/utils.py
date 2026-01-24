@@ -6,9 +6,11 @@ or the entire prepare_ner_dataset.py script
 """
 
 from collections import defaultdict
+import io
 import json
 import os
 import random
+import zipfile
 
 from stanza.models.common.doc import Document
 import stanza.utils.datasets.ner.prepare_ner_file as prepare_ner_file
@@ -141,7 +143,7 @@ def write_multitag_dataset(datasets, output_dir, short_name, suffix="bio", shard
         output_filename = os.path.join(output_dir, "%s.%s.json" % (short_name, shard))
         write_multitag_json(output_filename, dataset)
 
-def read_tsv(filename, text_column, annotation_column, remap_fn=None, skip_comments=True, keep_broken_tags=False, keep_all_columns=False, separator="\t"):
+def read_tsv(filename, text_column, annotation_column, remap_tag_fn=None, remap_line=None, skip_comments=True, keep_broken_tags=False, keep_all_columns=False, separator="\t", zip_filename=None):
     """
     Read sentences from a TSV file
 
@@ -149,8 +151,14 @@ def read_tsv(filename, text_column, annotation_column, remap_fn=None, skip_comme
 
     If keep_broken_tags==True, then None is returned for a missing.  Otherwise, an IndexError is thrown
     """
-    with open(filename, encoding="utf-8") as fin:
-        lines = fin.readlines()
+    if zip_filename is not None:
+        with zipfile.ZipFile(zip_filename) as zin:
+            with zin.open(filename) as fin:
+                fin = io.TextIOWrapper(fin, encoding='utf-8')
+                lines = fin.readlines()
+    else:
+        with open(filename, encoding="utf-8") as fin:
+            lines = fin.readlines()
 
     lines = [x.strip() for x in lines]
 
@@ -165,11 +173,13 @@ def read_tsv(filename, text_column, annotation_column, remap_fn=None, skip_comme
         if skip_comments and line.startswith("#"):
             continue
 
+        if remap_line is not None:
+            line = remap_line(line)
         pieces = line.split(separator)
         try:
             word = pieces[text_column]
         except IndexError as e:
-            raise IndexError("Could not find word index %d at line %d |%s|" % (text_column, line_idx, line)) from e
+            raise IndexError("Filename %s: could not find word index %d at line %d |%s|" % (filename, text_column, line_idx, line)) from e
         if word == '\x96':
             # this happens in GermEval2014 for some reason
             continue
@@ -179,9 +189,9 @@ def read_tsv(filename, text_column, annotation_column, remap_fn=None, skip_comme
             if keep_broken_tags:
                 tag = None
             else:
-                raise IndexError("Could not find tag index %d at line %d |%s|" % (annotation_column, line_idx, line)) from e
-        if remap_fn:
-            tag = remap_fn(tag)
+                raise IndexError("Filename %s: could not find tag index %d at line %d |%s|" % (filename, annotation_column, line_idx, line)) from e
+        if remap_tag_fn is not None:
+            tag = remap_tag_fn(tag)
 
         if keep_all_columns:
             pieces[annotation_column] = tag

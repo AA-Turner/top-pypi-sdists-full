@@ -63,7 +63,6 @@ from neutron.db import models_v2
 from neutron.db import rbac_db_mixin as rbac_mixin
 from neutron.db import rbac_db_models
 from neutron.db import standardattrdescription_db as stattr_db
-from neutron.exceptions import mtu as mtu_exc
 from neutron.extensions import subnetpool_prefix_ops
 from neutron import ipam
 from neutron.ipam import exceptions as ipam_exc
@@ -145,10 +144,7 @@ def _network_result_filter_hook(query, filters):
         query = query.join(
             segment_db.NetworkSegment,
             segment_db.NetworkSegment.network_id == models_v2.Network.id)
-    for attr in pnet_def.ATTRIBUTES:
-        if attr not in filters:
-            continue
-
+    for attr in (attr for attr in pnet_def.ATTRIBUTES if attr in filters):
         value = filters[attr]
         field = attr_to_field[attr]
         if utils.is_iterable_not_string(value):
@@ -553,7 +549,7 @@ class NeutronDbPluginV2(db_base_plugin_common.DbBasePluginCommon,
 
         # at least one subnet present, if below IPv4 minimum we fail early
         if mtu < constants.IPV4_MIN_MTU:
-            raise mtu_exc.NetworkMTUSubnetConflict(
+            raise exc.NetworkMTUSubnetConflict(
                 net_id=id, mtu=constants.IPV4_MIN_MTU)
 
         # We do not need to check IPv4 subnets as they will have been
@@ -561,7 +557,7 @@ class NeutronDbPluginV2(db_base_plugin_common.DbBasePluginCommon,
         for subnet in subnets:
             if (subnet.ip_version == constants.IP_VERSION_6 and
                     mtu < constants.IPV6_MIN_MTU):
-                raise mtu_exc.NetworkMTUSubnetConflict(
+                raise exc.NetworkMTUSubnetConflict(
                     net_id=id, mtu=constants.IPV6_MIN_MTU)
 
     def _ensure_network_not_in_use(self, context, net_id):
@@ -834,14 +830,16 @@ class NeutronDbPluginV2(db_base_plugin_common.DbBasePluginCommon,
 
         # if below IPv4 minimum we fail early
         if mtu < constants.IPV4_MIN_MTU:
-            raise mtu_exc.NetworkMTUSubnetConflict(net_id=network.id, mtu=mtu)
+            raise exc.NetworkMTUSubnetConflict(
+                net_id=network.id, mtu=constants.IPV4_MIN_MTU)
 
         # We do not need to check IPv4 subnets as they will have been
         # caught by above IPV4_MIN_MTU check
         ip_version = subnet.get('ip_version')
         if (ip_version == constants.IP_VERSION_6 and
                 mtu < constants.IPV6_MIN_MTU):
-            raise mtu_exc.NetworkMTUSubnetConflict(net_id=network.id, mtu=mtu)
+            raise exc.NetworkMTUSubnetConflict(
+                net_id=network.id, mtu=constants.IPV6_MIN_MTU)
 
     def _update_router_gw_ports(self, context, network, subnet):
         l3plugin = directory.get_plugin(plugin_constants.L3)

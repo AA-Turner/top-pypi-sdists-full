@@ -5,7 +5,6 @@ import asyncio
 import os
 import socket
 import struct
-import sys
 import warnings
 import configparser
 import getpass
@@ -188,7 +187,7 @@ class Connection:
         """
         self._loop = loop or asyncio.get_event_loop()
 
-        if use_unicode is None and sys.version_info[0] > 2:
+        if use_unicode is None:
             use_unicode = True
 
         if read_default_file:
@@ -246,7 +245,8 @@ class Connection:
 
         self._encoding = charset_by_name(self._charset).encoding
 
-        if local_infile:
+        self._local_infile = bool(local_infile)
+        if self._local_infile:
             client_flag |= CLIENT.LOCAL_FILES
 
         client_flag |= CLIENT.CAPABILITIES
@@ -1204,6 +1204,10 @@ class MySQLResult:
         self.has_next = ok_packet.has_next
 
     async def _read_load_local_packet(self, first_packet):
+        if not self.connection._local_infile:
+            raise RuntimeError(
+                "**WARN**: Received LOAD_LOCAL packet but local_infile option is false."
+            )
         load_packet = LoadLocalPacketWrapper(first_packet)
         sender = LoadLocalFile(load_packet.filename, self.connection)
         try:

@@ -44,6 +44,9 @@ INVALIDPARAMETER_DUPLICATEDEVICEVIRTUALGROUPNAME = 'InvalidParameter.DuplicateDe
 # 黑白名单选中有相同的终端设备
 INVALIDPARAMETER_DUPLICATEIDINBLACKWHITELIST = 'InvalidParameter.DuplicateIdInBlackWhiteList'
 
+# 参数错误有重复数据。
+INVALIDPARAMETER_IDENTICALNAME = 'InvalidParameter.IdenticalName'
+
 # 请求参数错误。
 INVALIDPARAMETER_INVALIDPARAMETER = 'InvalidParameter.InvalidParameter'
 
@@ -55,6 +58,9 @@ INVALIDPARAMETERVALUE_VIRTUALDEVICEGROUPNOTFOUND = 'InvalidParameterValue.Virtua
 
 # 缺少公共参数。
 MISSINGPARAMETER_COMMONPARAM = 'MissingParameter.CommonParam'
+
+# 终端导出任务同一时间仅允许一个，请稍后再试。
+REQUESTLIMITEXCEEDED_DEVICEDOWNLOADTASK = 'RequestLimitExceeded.DeviceDownloadTask'
 
 # 上次操作还未完成，请稍后重试。
 REQUESTLIMITEXCEEDED_WAITFORTHELASTOPERATIONTOCOMPLETE = 'RequestLimitExceeded.WaitForTheLastOperationToComplete'

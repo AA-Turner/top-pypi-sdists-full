@@ -29,6 +29,15 @@ impl DataTransformationSet {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -83,7 +92,7 @@ impl DataTransformationSet {
         name: &str,
         config: &Bound<'_, PyAny>, // some variant of TransformationTechnologyConfig
     ) -> PyResult<TransformationTechnology> {
-        let config = transformation_technology_config_from_pyobject(config)?;
+        let config = transformation_technology_config_from_pyany(config)?;
         match self.0.create_transformation_technology(name, &config) {
             Ok(value) => Ok(TransformationTechnology(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -123,6 +132,15 @@ impl DataTransformation {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -189,6 +207,15 @@ impl TransformationTechnology {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -230,15 +257,15 @@ impl TransformationTechnology {
     #[pyo3(signature = (config, /))]
     #[pyo3(text_signature = "(self, config: TransformationTechnologyConfig, /)")]
     fn set_config(&self, config: &Bound<'_, PyAny>) -> PyResult<()> {
-        let config = transformation_technology_config_from_pyobject(config)?;
+        let config = transformation_technology_config_from_pyany(config)?;
         self.0.set_config(&config).map_err(abstraction_err_to_pyerr)
     }
 
     /// Get the configuration of the `TransformationTechnology`
-    fn config(&self, py: Python) -> Option<PyObject> {
+    fn config(&self, py: Python) -> Option<Py<PyAny>> {
         self.0
             .config()
-            .and_then(|config| transformation_technology_config_to_pyobject(py, &config).ok())
+            .and_then(|config| transformation_technology_config_to_pyany(py, &config).ok())
     }
 }
 
@@ -248,8 +275,8 @@ iterator_wrapper!(TransformationTechnologyIterator, TransformationTechnology);
 
 //##################################################################
 
-// when we receive a generic PyObject, we need to determine the actual type of the config and wrap it appropriately
-fn transformation_technology_config_from_pyobject(
+// when we receive a generic Py<PyAny>, we need to determine the actual type of the config and wrap it appropriately
+fn transformation_technology_config_from_pyany(
     config: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::communication::TransformationTechnologyConfig> {
     if let Ok(config) = config.extract::<GenericTransformationTechnologyConfig>() {
@@ -283,11 +310,11 @@ fn transformation_technology_config_from_pyobject(
     }
 }
 
-// instead of representing TransformationTechnologyConfig with a matching enum in python, we can simply return generic PyObjects
-fn transformation_technology_config_to_pyobject(
+// instead of representing TransformationTechnologyConfig with a matching enum in python, we can simply return generic Py<PyAny>s
+fn transformation_technology_config_to_pyany(
     py: Python,
     config: &autosar_data_abstraction::communication::TransformationTechnologyConfig,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     match config {
         autosar_data_abstraction::communication::TransformationTechnologyConfig::Generic(
             config,
@@ -896,6 +923,15 @@ impl EndToEndTransformationISignalProps {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[getter]
     fn element(&self) -> Element {
         Element(self.0.element().clone())
@@ -1013,6 +1049,15 @@ impl SomeIpTransformationISignalProps {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[getter]

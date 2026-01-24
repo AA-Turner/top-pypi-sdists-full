@@ -20,14 +20,13 @@ from pytensor.configdefaults import config
 from pytensor.graph.basic import (
     Constant,
     Variable,
-    ancestors,
     clone_get_equiv,
-    graph_inputs,
 )
 from pytensor.graph.destroyhandler import DestroyHandler
 from pytensor.graph.features import AlreadyThere, Feature, PreserveVariableAttributes
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import HasInnerGraph
+from pytensor.graph.traversal import ancestors, graph_inputs
 from pytensor.graph.utils import InconsistencyError, get_variable_trace_string
 from pytensor.link.basic import Container
 from pytensor.link.utils import raise_with_op
@@ -216,7 +215,7 @@ def add_supervisor_to_fgraph(
             input
             for spec, input in zip(input_specs, fgraph.inputs, strict=True)
             if not (
-                spec.mutable or has_destroy_handler and fgraph.has_destroyers([input])
+                spec.mutable or (has_destroy_handler and fgraph.has_destroyers([input]))
             )
         )
     )

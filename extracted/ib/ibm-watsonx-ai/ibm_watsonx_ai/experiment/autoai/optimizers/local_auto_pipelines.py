@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -8,6 +8,7 @@ import traceback
 import uuid
 from contextlib import redirect_stdout
 from inspect import signature
+from pathlib import Path
 from time import gmtime, strftime
 from typing import TYPE_CHECKING, List, Tuple, Union
 from warnings import filterwarnings
@@ -32,7 +33,7 @@ from ibm_watsonx_ai.utils.autoai.utils import (
     try_import_joblib,
     try_import_lale,
 )
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_client_error import InvalidValue, WMLClientError
 
 from .base_auto_pipelines import BaseAutoPipelines
 
@@ -72,8 +73,8 @@ class LocalAutoPipelines(BaseAutoPipelines):
     :param desc: description
     :type desc: str, optional
 
-    :param holdout_size: percentage of the entire dataset to leave as a holdout
-    :type holdout_size: float, optional
+    :param holdout_size: percentage of the entire dataset to leave as a holdout, for AutoAI Forecasting it can be a number of rows of data
+    :type holdout_size: float | int, optional
 
     :param max_num_daub_ensembles: maximum number (top-K ranked by DAUB model selection) of the selected algorithm,
         or estimator types, for example `LGBMClassifierEstimator`, `XGBoostClassifierEstimator`,
@@ -88,7 +89,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
     :param include_only_estimators: list of estimators to include in computation process
     :type include_only_estimators: list[ClassificationAlgorithms or RegressionAlgorithms], optional
 
-    :param cognito_transform_names: list of transformers to include in the feature enginnering computation process,
+    :param cognito_transform_names: list of transformers to include in the feature engineering computation process,
         see: AutoAI.Transformers
     :type cognito_transform_names: list[Transformers], optional
 
@@ -108,17 +109,18 @@ class LocalAutoPipelines(BaseAutoPipelines):
         prediction_type: "PredictionType",
         prediction_column: str,
         scoring: "Metrics",
-        desc: str = None,
-        holdout_size: float = 0.1,
-        max_num_daub_ensembles: int = None,
+        desc: str | None = None,
+        holdout_size: float | int = 0.1,
+        max_num_daub_ensembles: int | None = None,
         train_sample_rows_test_size: float = 1.0,
         include_only_estimators: List[
             Union["ClassificationAlgorithms", "RegressionAlgorithms"]
-        ] = None,
-        cognito_transform_names: List["Transformers"] = None,
-        positive_label: str = None,
-        _data_clients: List[Tuple["DataConnection", "resource"]] = None,
-        _result_client: Tuple["DataConnection", "resource"] = None,
+        ]
+        | None = None,
+        cognito_transform_names: List["Transformers"] | None = None,
+        positive_label: str | None = None,
+        _data_clients: List[Tuple["DataConnection", "resource"]] | None = None,
+        _result_client: Tuple["DataConnection", "resource"] | None = None,
         _force_local_scenario: bool = False,
         **_additional_params,
     ):
@@ -137,13 +139,9 @@ class LocalAutoPipelines(BaseAutoPipelines):
             # Disable printing to suppress warnings from ai4ml
             with redirect_stdout(open(os.devnull, "w")):
                 try:
-                    from ai4ml.joint_optimizers.prep_daub_cog_opt import (  # noqa: E402
-                        PrepDaubCogOptEstimator,  # noqa: F401
-                    )
                     from ai4ml.utils.ai4ml_status import (
                         StatusMessageHandler,  # noqa: E402, F401
                     )
-
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError(
                         "To be able to use a Local Optimizer version, you need to have "
@@ -162,6 +160,15 @@ class LocalAutoPipelines(BaseAutoPipelines):
                 level=logging.DEBUG,
             )
             # -- end note
+
+            if isinstance(holdout_size, int) and prediction_type not in {
+                PredictionType.FORECASTING,
+                "timeseries",
+            }:
+                raise InvalidValue(
+                    value_name="holdout_size",
+                    reason="Integer value is only valid for AutoAI Forecasting",
+                )
 
             self.params = {
                 "name": name,
@@ -206,6 +213,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
@@ -248,6 +256,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
@@ -280,6 +289,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
@@ -309,6 +319,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
@@ -393,10 +404,13 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
-            pipeline_details = local_optimizer.get_pipeline_details(pipeline_name="Pipeline_1")
+            pipeline_details = local_optimizer.get_pipeline_details(
+                pipeline_name="Pipeline_1"
+            )
         """
         if hasattr(self, "_result_client"):
             details = download_experiment_details_from_file(self._result_client)
@@ -455,7 +469,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
 
     def get_pipeline(
         self,
-        pipeline_name: str = None,
+        pipeline_name: str | None = None,
         astype: "PipelineTypes" = PipelineTypes.LALE,
         persist: "bool" = False,
     ) -> Union["Pipeline", "TrainablePipeline"]:
@@ -481,12 +495,17 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 
-            pipeline_1 = local_optimizer.get_pipeline(pipeline_name='Pipeline_1')
-            pipeline_2 = local_optimizer.get_pipeline(pipeline_name='Pipeline_1', astype=PipelineTypes.LALE)
-            pipeline_3 = local_optimizer.get_pipeline(pipeline_name='Pipeline_1', astype=PipelineTypes.SKLEARN)
+            pipeline_1 = local_optimizer.get_pipeline(pipeline_name="Pipeline_1")
+            pipeline_2 = local_optimizer.get_pipeline(
+                pipeline_name="Pipeline_1", astype=PipelineTypes.LALE
+            )
+            pipeline_3 = local_optimizer.get_pipeline(
+                pipeline_name="Pipeline_1", astype=PipelineTypes.SKLEARN
+            )
             type(pipeline_3)
 
             # Result:
@@ -501,7 +520,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
             )
 
             joblib = try_import_joblib()
-            filename = "pipeline_model_auto-gen_notebook.pickle"
+            filename = Path("pipeline_model_auto-gen_notebook.pickle")
 
             try:
                 if pipeline_name is not None:
@@ -515,7 +534,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
                     path = prepare_model_location_path(
                         model_path=self._result_client[0].location._model_location
                     )
-                    key = f"{path}{best_pipeline_name}/model.pickle"
+                    key = path / best_pipeline_name / "model.pickle"
 
                 self._result_client[1].meta.client.download_file(
                     Bucket=self._result_client[0].location.bucket,
@@ -534,7 +553,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
                 pipeline_model = joblib.load(filename)
 
             # note: show download link in the notebook and save file or delete it after memory load
-            path = os.path.join(os.path.abspath("."), filename)
+            path = Path(".").absolute() / filename
             if persist:
                 create_model_download_link(path)
                 print(f"Local path to downloaded model: {path}")
@@ -599,6 +618,7 @@ class LocalAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI()
             local_optimizer = experiment.optimizer()
 

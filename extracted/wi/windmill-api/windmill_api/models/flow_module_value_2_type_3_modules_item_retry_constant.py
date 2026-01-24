@@ -10,10 +10,11 @@ T = TypeVar("T", bound="FlowModuleValue2Type3ModulesItemRetryConstant")
 
 @_attrs_define
 class FlowModuleValue2Type3ModulesItemRetryConstant:
-    """
+    """Retry with constant delay between attempts
+
     Attributes:
-        attempts (Union[Unset, int]):
-        seconds (Union[Unset, int]):
+        attempts (Union[Unset, int]): Number of retry attempts
+        seconds (Union[Unset, int]): Seconds to wait between retries
     """
 
     attempts: Union[Unset, int] = UNSET

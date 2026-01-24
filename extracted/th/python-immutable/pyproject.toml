@@ -1,0 +1,84 @@
+[project]
+name = "python-immutable"
+dynamic = ["version"]
+description = "Immutable implementation for Python using dataclasses"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Sassan Haradji", email = "me@sassanh.com" }]
+maintainers = [{ name = "Sassan Haradji", email = "me@sassanh.com" }]
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ['python', 'immutable', 'dataclass', 'frozen', 'typing']
+dependencies = []
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "immutable/_version.py"
+
+[tool.hatch.version.raw-options]
+local_scheme = "setup_scm_schemes:local_scheme"
+
+[tool.hatch.build]
+packages = ["immutable"]
+
+[tool.uv]
+dev-dependencies = [
+  "poethepoet>=0.24.4",
+  "pyright>=1.1.401",
+  "pytest>=8.0.0",
+  "pytest-cov>=4.1.0",
+  "pytest-timeout>=2.3.1",
+  "ruff>=0.11.10",
+  "toml>=0.10.2",
+  "typing-extensions>=4.13.2",
+]
+
+[tool.poetry.scripts]
+demo = "demo:main"
+
+[tool.poe.tasks]
+lint = "ruff check . --unsafe-fixes"
+typecheck = "pyright -p pyproject.toml ."
+test = "pytest --cov --cov-report=term-missing --cov-report=html --cov-report=xml"
+sanity = ["typecheck", "lint", "test"]
+
+[tool.ruff]
+lint.select = ['ALL']
+lint.ignore = ['INP001', 'PLR0911', 'D203', 'D213']
+lint.fixable = ['ALL']
+lint.unfixable = []
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+multiline-quotes = "double"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "PLR0915", "PLR2004"]
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.isort]
+profile = "black"
+
+[tool.pyright]
+exclude = ['typings', '.venv']
+filterwarnings = 'error'
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = 'ERROR'
+timeout = 1
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.coverage.run]
+source = ['immutable']
+omit = ['immutable/_version.py']

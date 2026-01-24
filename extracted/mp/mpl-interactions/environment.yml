@@ -1,9 +1,0 @@
-name: mpl-interactions
-channels:
-  - defaults
-dependencies:
-  - pandoc
-  - pip
-  - python
-  - pip:
-      - -e .[dev]

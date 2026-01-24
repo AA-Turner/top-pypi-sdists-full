@@ -1,7 +1,7 @@
 r'''
 # `aws_ssm_association`
 
-Refer to the Terraform Registry for docs: [`aws_ssm_association`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association).
+Refer to the Terraform Registry for docs: [`aws_ssm_association`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SsmAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ssmAssociation.SsmAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association aws_ssm_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association aws_ssm_association}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class SsmAssociation(
         apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         association_name: typing.Optional[builtins.str] = None,
         automation_target_parameter_name: typing.Optional[builtins.str] = None,
+        calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         compliance_severity: typing.Optional[builtins.str] = None,
         document_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
@@ -77,28 +78,29 @@ class SsmAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association aws_ssm_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association aws_ssm_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#name SsmAssociation#name}.
-        :param apply_only_at_cron_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.
-        :param association_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#association_name SsmAssociation#association_name}.
-        :param automation_target_parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.
-        :param compliance_severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.
-        :param document_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#document_version SsmAssociation#document_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#id SsmAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.
-        :param max_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.
-        :param output_location: output_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#output_location SsmAssociation#output_location}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#parameters SsmAssociation#parameters}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#region SsmAssociation#region}
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.
-        :param sync_compliance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags SsmAssociation#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.
-        :param targets: targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#targets SsmAssociation#targets}
-        :param wait_for_success_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#name SsmAssociation#name}.
+        :param apply_only_at_cron_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.
+        :param association_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#association_name SsmAssociation#association_name}.
+        :param automation_target_parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.
+        :param calendar_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#calendar_names SsmAssociation#calendar_names}.
+        :param compliance_severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.
+        :param document_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#document_version SsmAssociation#document_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#id SsmAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.
+        :param max_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.
+        :param output_location: output_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#output_location SsmAssociation#output_location}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#parameters SsmAssociation#parameters}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#region SsmAssociation#region}
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.
+        :param sync_compliance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags SsmAssociation#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.
+        :param targets: targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#targets SsmAssociation#targets}
+        :param wait_for_success_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -116,6 +118,7 @@ class SsmAssociation(
             apply_only_at_cron_interval=apply_only_at_cron_interval,
             association_name=association_name,
             automation_target_parameter_name=automation_target_parameter_name,
+            calendar_names=calendar_names,
             compliance_severity=compliance_severity,
             document_version=document_version,
             id=id,
@@ -154,7 +157,7 @@ class SsmAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SsmAssociation to import.
-        :param import_from_id: The id of the existing SsmAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SsmAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SsmAssociation to import is found.
         '''
         if __debug__:
@@ -174,9 +177,9 @@ class SsmAssociation(
         s3_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.
-        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.
+        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.
         '''
         value = SsmAssociationOutputLocation(
             s3_bucket_name=s3_bucket_name,
@@ -210,6 +213,10 @@ class SsmAssociation(
     @jsii.member(jsii_name="resetAutomationTargetParameterName")
     def reset_automation_target_parameter_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAutomationTargetParameterName", []))
+
+    @jsii.member(jsii_name="resetCalendarNames")
+    def reset_calendar_names(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCalendarNames", []))
 
     @jsii.member(jsii_name="resetComplianceSeverity")
     def reset_compliance_severity(self) -> None:
@@ -316,6 +323,11 @@ class SsmAssociation(
     @jsii.member(jsii_name="automationTargetParameterNameInput")
     def automation_target_parameter_name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "automationTargetParameterNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="calendarNamesInput")
+    def calendar_names_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "calendarNamesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="complianceSeverityInput")
@@ -438,6 +450,18 @@ class SsmAssociation(
             type_hints = typing.get_type_hints(_typecheckingstub__e5af60491654894cc5e9d3d8f3f5235f35fa244d6cec0a4a91dc5af498baef01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "automationTargetParameterName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="calendarNames")
+    def calendar_names(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "calendarNames"))
+
+    @calendar_names.setter
+    def calendar_names(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c509818c82f584e08e0f5c3e83b3c87463d448600a8d3f78b39617a52ba53dcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "calendarNames", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="complianceSeverity")
@@ -611,6 +635,7 @@ class SsmAssociation(
         "apply_only_at_cron_interval": "applyOnlyAtCronInterval",
         "association_name": "associationName",
         "automation_target_parameter_name": "automationTargetParameterName",
+        "calendar_names": "calendarNames",
         "compliance_severity": "complianceSeverity",
         "document_version": "documentVersion",
         "id": "id",
@@ -642,6 +667,7 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         association_name: typing.Optional[builtins.str] = None,
         automation_target_parameter_name: typing.Optional[builtins.str] = None,
+        calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         compliance_severity: typing.Optional[builtins.str] = None,
         document_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
@@ -665,24 +691,25 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#name SsmAssociation#name}.
-        :param apply_only_at_cron_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.
-        :param association_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#association_name SsmAssociation#association_name}.
-        :param automation_target_parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.
-        :param compliance_severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.
-        :param document_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#document_version SsmAssociation#document_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#id SsmAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.
-        :param max_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.
-        :param output_location: output_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#output_location SsmAssociation#output_location}
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#parameters SsmAssociation#parameters}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#region SsmAssociation#region}
-        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.
-        :param sync_compliance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags SsmAssociation#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.
-        :param targets: targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#targets SsmAssociation#targets}
-        :param wait_for_success_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#name SsmAssociation#name}.
+        :param apply_only_at_cron_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.
+        :param association_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#association_name SsmAssociation#association_name}.
+        :param automation_target_parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.
+        :param calendar_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#calendar_names SsmAssociation#calendar_names}.
+        :param compliance_severity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.
+        :param document_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#document_version SsmAssociation#document_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#id SsmAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.
+        :param max_errors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.
+        :param output_location: output_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#output_location SsmAssociation#output_location}
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#parameters SsmAssociation#parameters}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#region SsmAssociation#region}
+        :param schedule_expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.
+        :param sync_compliance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags SsmAssociation#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.
+        :param targets: targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#targets SsmAssociation#targets}
+        :param wait_for_success_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -701,6 +728,7 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument apply_only_at_cron_interval", value=apply_only_at_cron_interval, expected_type=type_hints["apply_only_at_cron_interval"])
             check_type(argname="argument association_name", value=association_name, expected_type=type_hints["association_name"])
             check_type(argname="argument automation_target_parameter_name", value=automation_target_parameter_name, expected_type=type_hints["automation_target_parameter_name"])
+            check_type(argname="argument calendar_names", value=calendar_names, expected_type=type_hints["calendar_names"])
             check_type(argname="argument compliance_severity", value=compliance_severity, expected_type=type_hints["compliance_severity"])
             check_type(argname="argument document_version", value=document_version, expected_type=type_hints["document_version"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -738,6 +766,8 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["association_name"] = association_name
         if automation_target_parameter_name is not None:
             self._values["automation_target_parameter_name"] = automation_target_parameter_name
+        if calendar_names is not None:
+            self._values["calendar_names"] = calendar_names
         if compliance_severity is not None:
             self._values["compliance_severity"] = compliance_severity
         if document_version is not None:
@@ -833,7 +863,7 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#name SsmAssociation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#name SsmAssociation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -842,37 +872,43 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apply_only_at_cron_interval(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#apply_only_at_cron_interval SsmAssociation#apply_only_at_cron_interval}.'''
         result = self._values.get("apply_only_at_cron_interval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def association_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#association_name SsmAssociation#association_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#association_name SsmAssociation#association_name}.'''
         result = self._values.get("association_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def automation_target_parameter_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#automation_target_parameter_name SsmAssociation#automation_target_parameter_name}.'''
         result = self._values.get("automation_target_parameter_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def calendar_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#calendar_names SsmAssociation#calendar_names}.'''
+        result = self._values.get("calendar_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def compliance_severity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#compliance_severity SsmAssociation#compliance_severity}.'''
         result = self._values.get("compliance_severity")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def document_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#document_version SsmAssociation#document_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#document_version SsmAssociation#document_version}.'''
         result = self._values.get("document_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#id SsmAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#id SsmAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -882,13 +918,13 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def max_concurrency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_concurrency SsmAssociation#max_concurrency}.'''
         result = self._values.get("max_concurrency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_errors(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#max_errors SsmAssociation#max_errors}.'''
         result = self._values.get("max_errors")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -896,14 +932,14 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def output_location(self) -> typing.Optional["SsmAssociationOutputLocation"]:
         '''output_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#output_location SsmAssociation#output_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#output_location SsmAssociation#output_location}
         '''
         result = self._values.get("output_location")
         return typing.cast(typing.Optional["SsmAssociationOutputLocation"], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#parameters SsmAssociation#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#parameters SsmAssociation#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -911,32 +947,32 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#region SsmAssociation#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#region SsmAssociation#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#schedule_expression SsmAssociation#schedule_expression}.'''
         result = self._values.get("schedule_expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sync_compliance(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#sync_compliance SsmAssociation#sync_compliance}.'''
         result = self._values.get("sync_compliance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags SsmAssociation#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags SsmAssociation#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#tags_all SsmAssociation#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -946,14 +982,14 @@ class SsmAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmAssociationTargets"]]]:
         '''targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#targets SsmAssociation#targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#targets SsmAssociation#targets}
         '''
         result = self._values.get("targets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SsmAssociationTargets"]]], result)
 
     @builtins.property
     def wait_for_success_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#wait_for_success_timeout_seconds SsmAssociation#wait_for_success_timeout_seconds}.'''
         result = self._values.get("wait_for_success_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -987,9 +1023,9 @@ class SsmAssociationOutputLocation:
         s3_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.
-        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.
-        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.
+        :param s3_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.
+        :param s3_key_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.
+        :param s3_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11142a4b3e575cfe0e3bfd858a4a6d7be6d3b92188f38da968cfe0ad6d225c5d)
@@ -1006,20 +1042,20 @@ class SsmAssociationOutputLocation:
 
     @builtins.property
     def s3_bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_bucket_name SsmAssociation#s3_bucket_name}.'''
         result = self._values.get("s3_bucket_name")
         assert result is not None, "Required property 's3_bucket_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_key_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_key_prefix SsmAssociation#s3_key_prefix}.'''
         result = self._values.get("s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#s3_region SsmAssociation#s3_region}.'''
         result = self._values.get("s3_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1143,8 +1179,8 @@ class SsmAssociationTargets:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#key SsmAssociation#key}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#values SsmAssociation#values}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#key SsmAssociation#key}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#values SsmAssociation#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23a78afb18729a1c5893a9083c83c957abf9835db59146ed80e7505d0d5b38fa)
@@ -1157,14 +1193,14 @@ class SsmAssociationTargets:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#key SsmAssociation#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#key SsmAssociation#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/ssm_association#values SsmAssociation#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/ssm_association#values SsmAssociation#values}.'''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1369,6 +1405,7 @@ def _typecheckingstub__29d40c568c6b4696cb02160abb791331eb50a7eaeb4ad152bf01a161e
     apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     association_name: typing.Optional[builtins.str] = None,
     automation_target_parameter_name: typing.Optional[builtins.str] = None,
+    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     compliance_severity: typing.Optional[builtins.str] = None,
     document_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
@@ -1423,6 +1460,12 @@ def _typecheckingstub__af6756ec16925946dfc0ee6bdda07fffb18a58b03b2bc2a685c20858e
 
 def _typecheckingstub__e5af60491654894cc5e9d3d8f3f5235f35fa244d6cec0a4a91dc5af498baef01(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c509818c82f584e08e0f5c3e83b3c87463d448600a8d3f78b39617a52ba53dcf(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1518,6 +1561,7 @@ def _typecheckingstub__73dfd7bd6714e9ca3d5d0770ca45a306a5d589d239126929a8bf350b1
     apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     association_name: typing.Optional[builtins.str] = None,
     automation_target_parameter_name: typing.Optional[builtins.str] = None,
+    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     compliance_severity: typing.Optional[builtins.str] = None,
     document_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,

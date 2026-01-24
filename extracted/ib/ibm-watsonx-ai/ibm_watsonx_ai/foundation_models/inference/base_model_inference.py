@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -22,11 +22,10 @@ from typing import (
 from warnings import warn
 
 import httpx
-import requests as _requests
 
-import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai._wrappers import httpx_wrapper
+from ibm_watsonx_ai._wrappers.httpx_wrapper import TokenBucket, _httpx_transport_params
 from ibm_watsonx_ai.foundation_models.schema import (
-    BaseSchema,
     TextChatParameters,
     TextGenParameters,
 )
@@ -35,8 +34,8 @@ from ibm_watsonx_ai.foundation_models.utils.utils import (
     HAPDetectionWarning,
     PIIDetectionWarning,
 )
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_client_error import UnsupportedOperation, WMLClientError
+from ibm_watsonx_ai.utils.utils import get_from_json
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
@@ -57,33 +56,21 @@ class BaseModelInference(WMLResource, ABC):
         self,
         name: str,
         client: APIClient,
-        persistent_connection: bool = True,
         max_retries: int | None = None,
         delay_time: float | None = None,
         retry_status_codes: list[int] | None = None,
         validate: bool = True,
     ):
-        self._persistent_connection = persistent_connection
-
         # to use in get_identifying_params(
         self._validate = validate
 
-        self._transport_params = requests._httpx_transport_params(client)
+        self._transport_params = _httpx_transport_params(client)
 
         WMLResource.__init__(self, name, client)
-        if self._persistent_connection:
-            self._http_client = client.httpx_client
-        else:
-            self._http_client = requests  # type: ignore[assignment]
-            persistent_connection_warn = (
-                "`persistent_connection` is deprecated and will be removed in future. "
-            )
-            warn(persistent_connection_warn, category=DeprecationWarning)
 
-        self._async_http_client = client.async_httpx_client
         # Set initially 8 requests per second as it is default for prod instances
         # if header "x-requests-limit-rate" is different capacity will be updated
-        self.rate_limiter = requests.TokenBucket(rate=8, capacity=8)
+        self.rate_limiter = TokenBucket(rate=8, capacity=8)
 
         self.retry_status_codes = retry_status_codes
         self.max_retries = max_retries
@@ -105,7 +92,7 @@ class BaseModelInference(WMLResource, ABC):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> dict:
         """
@@ -121,7 +108,7 @@ class BaseModelInference(WMLResource, ABC):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> Generator:
         """
@@ -137,7 +124,7 @@ class BaseModelInference(WMLResource, ABC):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> dict:
         raise NotImplementedError
@@ -149,7 +136,7 @@ class BaseModelInference(WMLResource, ABC):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> AsyncGenerator:
         """
@@ -230,10 +217,6 @@ class BaseModelInference(WMLResource, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def tokenize(self, prompt: str, return_tokens: bool = False) -> dict:
-        raise NotImplementedError
-
-    @abstractmethod
     def get_identifying_params(self) -> dict:
         """Represent Model Inference's setup in dictionary"""
         raise NotImplementedError
@@ -245,7 +228,7 @@ class BaseModelInference(WMLResource, ABC):
         context: str | None = None,
         tools: list[dict] | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
     ) -> dict:
         raise NotImplementedError
 
@@ -257,51 +240,15 @@ class BaseModelInference(WMLResource, ABC):
         guardrails_hap_params: dict | None = None,
         guardrails_pii_params: dict | None = None,
         guardrails_granite_guardian_params: dict | None = None,
-    ) -> dict:
-        raise NotImplementedError
-
-    def _prepare_beta_inference_payload(
-        self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None = None,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
+        **kwargs: Any,
     ) -> dict:
         raise NotImplementedError
 
     def _send_inference_payload_raw(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
-        _http_client: httpx.Client | None = None,
-    ) -> httpx.Response | _requests.Response:
-        if self._client._use_fm_ga_api:
-            payload = self._prepare_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-        else:  # Remove on CPD 5.0 release
-            payload = self._prepare_beta_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-        http_client = _http_client or self._http_client
-
+    ) -> httpx.Response:
         post_params: dict[str, Any] = dict(
             url=generate_url,
             json=payload,
@@ -309,28 +256,16 @@ class BaseModelInference(WMLResource, ABC):
             headers=self._client._get_headers(),
         )
 
-        return self._post(http_client=http_client, **post_params)
+        return self._post(http_client=self._client.httpx_client, **post_params)
 
     def _send_inference_payload(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
-        _http_client: requests.HTTPXClient | httpx.Client | None = None,
     ) -> dict:
         response_scoring = self._send_inference_payload_raw(
-            prompt=prompt,
-            params=params,
+            payload=payload,
             generate_url=generate_url,
-            guardrails=guardrails,
-            guardrails_hap_params=guardrails_hap_params,
-            guardrails_pii_params=guardrails_pii_params,
-            guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            _http_client=_http_client,
         )
 
         return self._handle_response(
@@ -340,153 +275,16 @@ class BaseModelInference(WMLResource, ABC):
             _field_to_hide="generated_text",
         )
 
-    def _send_chat_payload(
-        self,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        generate_url: str,
-        tools: list[dict] | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
-    ) -> dict:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        post_params: dict[str, Any] = dict(
-            url=generate_url,
-            json=payload,
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-            headers=self._client._get_headers(),
-        )
-
-        response_scoring = self._post(self._http_client, **post_params)
-
-        return self._handle_response(
-            200,
-            "chat",
-            response_scoring,
-            _field_to_hide="choices",
-        )
-
-    def _send_deployment_chat_payload(
-        self,
-        deployment_chat_url: str,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        context: str | None = None,
-        tools: list | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
-    ) -> dict:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            context=context,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        post_params: dict[str, Any] = dict(
-            url=deployment_chat_url,
-            json=payload,
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-            headers=self._client._get_headers(),
-        )
-
-        response_scoring = self._post(self._http_client, **post_params)
-
-        if response_scoring.status_code == 404:
-            raise UnsupportedOperation(
-                Messages.get_message(message_id="chat_deployment_not_supported")
-            )
-
-        return self._handle_response(
-            200,
-            "chat",
-            response_scoring,
-            _field_to_hide="choices",
-        )
-
-    async def _asend_deployment_chat_payload(
-        self,
-        deployment_chat_url: str,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        context: str | None = None,
-        tools: list | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
-    ) -> dict:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            context=context,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        post_params: dict[str, Any] = dict(
-            url=deployment_chat_url,
-            json=payload,
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-            headers=self._client._get_headers(),
-        )
-
-        response = await self._apost(self._async_http_client, **post_params)
-
-        if response.status_code == 404:
-            raise UnsupportedOperation(
-                Messages.get_message(message_id="chat_deployment_not_supported")
-            )
-
-        return self._handle_response(
-            200,
-            "achat",
-            response,
-            _field_to_hide="choices",
-        )
-
     async def _asend_inference_payload(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
     ) -> dict:
-        if self._client._use_fm_ga_api:
-            payload = self._prepare_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-        else:  # Remove on CPD 5.0 release
-            payload = self._prepare_beta_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-
         response = await self._apost(
-            self._async_http_client,
+            self._client.async_httpx_client,
             url=generate_url,
             json=payload,
-            headers=self._client._get_headers(),
+            headers=await self._client._aget_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
         )
 
@@ -494,43 +292,19 @@ class BaseModelInference(WMLResource, ABC):
 
     async def _agenerate_stream_with_url(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
     ) -> AsyncGenerator:
-        if self._client._use_fm_ga_api:
-            payload = self._prepare_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-        else:  # Remove on CPD 5.0 release
-            payload = self._prepare_beta_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-
-        if isinstance(self._async_http_client, requests.HTTPXAsyncClient):
-            stream_function = self._async_http_client.post_stream
+        if hasattr(self._client.async_httpx_client, "post_stream"):
+            stream_function = self._client.async_httpx_client.post_stream
         else:
-            stream_function = self._async_http_client.stream  # type: ignore[assignment]
+            stream_function = self._client.async_httpx_client.stream
 
         kw_args: dict = dict(
             method="POST",
             url=generate_url,
             json=payload,
-            headers=self._client._get_headers(),
+            headers=await self._client._aget_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
         )
 
@@ -562,75 +336,7 @@ class BaseModelInference(WMLResource, ABC):
                     f"Request failed with: ({resp.text} {resp.status_code})"
                 )
 
-    def _generate_chat_stream_with_url(
-        self,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        chat_stream_url: str,
-        tools: list[dict] | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
-    ) -> Generator:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        kw_args: dict = dict(
-            url=chat_stream_url,
-            json=payload,
-            headers=self._client._get_headers(),
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-
-        if isinstance(self._http_client, requests.HTTPXClient):
-            stream_function = self._http_client.post_stream
-            kw_args |= {"method": "POST"}
-        elif isinstance(self._http_client, httpx.Client):
-            stream_function = self._http_client.stream  # type: ignore[assignment]
-            kw_args |= {"method": "POST"}
-        else:
-            stream_function = requests.Session().post  # type: ignore[assignment]
-            kw_args |= {
-                "stream": True,
-            }
-        with self._stream(stream_function, **kw_args) as resp:
-            if resp.status_code == 200:
-                resp_iter = (
-                    resp.iter_lines()
-                    if isinstance(resp, httpx.Response)
-                    else resp.iter_lines(decode_unicode=False)  # type: ignore[call-arg]
-                )
-                for chunk in resp_iter:
-                    if isinstance(resp, _requests.Response):
-                        chunk = chunk.decode("utf-8")  # type: ignore[union-attr]
-                    if chunk.strip() == "event: error":
-                        chunk = next(resp_iter)
-                        field_name, _, response = chunk.partition(":")
-                        raise WMLClientError(
-                            error_msg="Error event occurred during chat stream.",
-                            reason=response,
-                        )
-
-                    field_name, _, response = chunk.partition(":")
-                    if field_name == "data" and response:
-                        try:
-                            parsed_response = json.loads(response)
-                        except json.JSONDecodeError:
-                            raise Exception(f"Could not parse {response} as json")
-                        yield parsed_response
-
-            else:
-                if isinstance(resp, httpx.Response):
-                    resp.read()
-                raise WMLClientError(
-                    f"Request failed with: {resp.text} ({resp.status_code})"
-                )
-
-    @requests._with_retry_stream()
+    @httpx_wrapper._with_retry_stream()
     @contextmanager
     def _stream(
         self,
@@ -641,7 +347,7 @@ class BaseModelInference(WMLResource, ABC):
         with stream_function(**kw_args) as resp:
             yield resp
 
-    @requests._with_async_retry_stream()
+    @httpx_wrapper._with_async_retry_stream()
     @asynccontextmanager
     async def _astream(
         self,
@@ -651,204 +357,17 @@ class BaseModelInference(WMLResource, ABC):
         async with stream_function(**kw_args) as resp:
             yield resp
 
-    def _generate_deployment_chat_stream_with_url(
-        self,
-        deployment_chat_stream_url: str,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        context: str | None = None,
-        tools: list | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
-    ) -> Generator:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            context=context,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        kw_args: dict = dict(
-            url=deployment_chat_stream_url,
-            json=payload,
-            headers=self._client._get_headers(),
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-
-        if isinstance(self._http_client, requests.HTTPXClient):
-            stream_function = self._http_client.post_stream
-            kw_args |= {"method": "POST"}
-        elif isinstance(self._http_client, httpx.Client):
-            stream_function = self._http_client.stream  # type: ignore[assignment]
-            kw_args |= {"method": "POST"}
-        else:
-            stream_function = requests.Session().post  # type: ignore[assignment]
-            kw_args |= {
-                "stream": True,
-            }
-
-        with self._stream(stream_function, **kw_args) as resp:
-            if resp.status_code == 200:
-                resp_iter = (
-                    resp.iter_lines()
-                    if isinstance(resp, httpx.Response)
-                    else resp.iter_lines(decode_unicode=False)  # type: ignore[call-arg]
-                )
-                for chunk in resp_iter:
-                    if isinstance(resp, _requests.Response):
-                        chunk = chunk.decode("utf-8")  # type: ignore[union-attr]
-                    field_name, _, response = chunk.partition(":")
-                    if field_name == "data" and response:
-                        try:
-                            parsed_response = json.loads(response)
-                        except json.JSONDecodeError:
-                            raise Exception(f"Could not parse {response} as json")
-                        yield parsed_response
-
-            elif resp.status_code == 404:
-                raise UnsupportedOperation(
-                    Messages.get_message(message_id="chat_deployment_not_supported")
-                )
-
-            else:
-                if isinstance(resp, httpx.Response):
-                    resp.read()
-                raise WMLClientError(
-                    f"Request failed with: {resp.text} ({resp.status_code})"
-                )
-
-    async def _agenerate_deployment_chat_stream_with_url(
-        self,
-        deployment_chat_stream_url: str,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        context: str | None = None,
-        tools: list | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
-    ) -> AsyncGenerator:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            context=context,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        if isinstance(self._async_http_client, requests.HTTPXAsyncClient):
-            stream_function = self._async_http_client.post_stream
-        else:
-            stream_function = self._async_http_client.stream  # type: ignore[assignment]
-
-        kw_args: dict = dict(
-            method="POST",
-            url=deployment_chat_stream_url,
-            json=payload,
-            headers=self._client._get_headers(),
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-        async with self._astream(stream_function, **kw_args) as resp:
-            if resp.status_code == 200:
-                resp_iter = resp.aiter_lines()
-
-                async for chunk in resp_iter:
-                    field_name, _, response = chunk.partition(":")
-                    if field_name == "data" and response:
-                        try:
-                            parsed_response = json.loads(response)
-                        except json.JSONDecodeError:
-                            raise Exception(f"Could not parse {response} as json")
-                        yield parsed_response
-
-            elif resp.status_code != 200:
-                await resp.aread()
-                raise WMLClientError(
-                    f"Request failed with: ({resp.text} {resp.status_code})"
-                )
-
-    async def _agenerate_chat_stream_with_url(
-        self,
-        messages: list[dict],
-        params: dict | TextChatParameters | None,
-        chat_stream_url: str,
-        tools: list[dict] | None = None,
-        tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
-    ) -> AsyncGenerator:
-        payload = self._prepare_chat_payload(
-            messages,
-            params=params,
-            tools=tools,
-            tool_choice=tool_choice,
-            tool_choice_option=tool_choice_option,
-        )
-
-        if isinstance(self._async_http_client, requests.HTTPXAsyncClient):
-            stream_function = self._async_http_client.post_stream
-        else:
-            stream_function = self._async_http_client.stream  # type: ignore[assignment]
-
-        kw_args: dict = dict(
-            method="POST",
-            url=chat_stream_url,
-            json=payload,
-            headers=self._client._get_headers(),
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-        )
-
-        async with self._astream(stream_function, **kw_args) as resp:
-            if resp.status_code == 200:
-                resp_iter = resp.aiter_lines()
-
-                async for chunk in resp_iter:
-                    if chunk.strip() == "event: error":
-                        chunk = await anext(resp_iter)
-                        field_name, _, response = chunk.partition(":")
-                        raise WMLClientError(
-                            error_msg="Error event occurred during achat stream.",
-                            reason=response,
-                        )
-
-                    field_name, _, response = chunk.partition(":")
-                    if field_name == "data" and response:
-                        try:
-                            parsed_response = json.loads(response)
-                        except json.JSONDecodeError:
-                            raise Exception(f"Could not parse {response} as json")
-                        yield parsed_response
-
-            elif resp.status_code != 200:
-                await resp.aread()
-                raise WMLClientError(
-                    f"Request failed with: ({resp.text} {resp.status_code})"
-                )
-
     def __make_request(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
-        _http_client: requests.HTTPXClient | httpx.Client | None = None,
     ) -> dict:
         """Rate-limited request with dynamic token adjustment and retry logic."""
         self.rate_limiter.acquire()
 
         inference_response = self._send_inference_payload_raw(
-            prompt=prompt,
-            params=params,
+            payload=payload,
             generate_url=generate_url,
-            guardrails=guardrails,
-            guardrails_hap_params=guardrails_hap_params,
-            guardrails_pii_params=guardrails_pii_params,
-            guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            _http_client=_http_client,
         )
         rate_limit = int(inference_response.headers.get(LIMIT_RATE_HEADER, 8))
         if rate_limit and rate_limit != self.rate_limiter.capacity:
@@ -856,7 +375,7 @@ class BaseModelInference(WMLResource, ABC):
 
         rate_limit_remaining = int(
             inference_response.headers.get(
-                requests.REMAINING_LIMIT_HEADER, self.rate_limiter.capacity
+                httpx_wrapper.REMAINING_LIMIT_HEADER, self.rate_limiter.capacity
             )
         )
         self.rate_limiter.adjust_tokens(rate_limit_remaining)
@@ -870,25 +389,14 @@ class BaseModelInference(WMLResource, ABC):
 
     def _generate_with_url(
         self,
-        prompt: list | str | None,
-        params: dict | TextGenParameters | None,
+        payloads: list[dict],
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
     ) -> list | dict:
         """
         Helper method which implements multi-threading for with passed generate_url.
         """
-        if isinstance(prompt, list):
-            # For batch of prompts use keep-alive connection even if persistent_connection=False
-            http_client: requests.HTTPXClient | httpx.Client = (
-                self._client.httpx_client
-                if not self._persistent_connection
-                else self._http_client
-            )
+        if len(payloads) > 1:
             # If CLOUD, use __make_request which uses token bucket for throttling
             if self._client.CLOUD_PLATFORM_SPACES:
                 func = self.__make_request
@@ -897,63 +405,43 @@ class BaseModelInference(WMLResource, ABC):
 
             inference_fn = partial(
                 func,
-                params=params,
                 generate_url=generate_url,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-                _http_client=http_client,
             )  # If CDP, don't use Token Bucket
 
-            if (prompt_length := len(prompt)) <= concurrency_limit:
-                with ThreadPoolExecutor(max_workers=prompt_length) as executor:
-                    generated_responses = list(executor.map(inference_fn, prompt))
+            if (payloads_length := len(payloads)) <= concurrency_limit:
+                with ThreadPoolExecutor(max_workers=payloads_length) as executor:
+                    generated_responses = list(executor.map(inference_fn, payloads))
             else:
                 with ThreadPoolExecutor(max_workers=concurrency_limit) as executor:
-                    generated_responses = list(executor.map(inference_fn, prompt))
+                    generated_responses = list(executor.map(inference_fn, payloads))
             return generated_responses
 
         else:
-            response = self._send_inference_payload(
-                prompt,
-                params,
-                generate_url,
-                guardrails,
-                guardrails_hap_params,
-                guardrails_pii_params,
-                guardrails_granite_guardian_params,
-            )
+            response = [
+                self._send_inference_payload(
+                    payload=payloads[0],
+                    generate_url=generate_url,
+                )
+            ]
         return response
 
     def _generate_with_url_async(
         self,
-        prompt: list | str | None,
-        params: dict | TextGenParameters | None,
+        payloads: list[dict],
         generate_url: str,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
         concurrency_limit: int = DEFAULT_CONCURRENCY_LIMIT,
     ) -> Generator:
         """
         Helper method which implements multi-threading for with passed generate_url.
         """
-        async_params = params or {}
-        async_params = copy.deepcopy(async_params)
+        payloads = copy.deepcopy(payloads)
 
-        if isinstance(async_params, BaseSchema):
-            async_params = async_params.to_dict()
+        for payload in payloads:
+            payload.setdefault("parameters", {})["return_options"] = {
+                "input_text": True
+            }
 
-        async_params["return_options"] = {"input_text": True}
-        if isinstance(prompt, list):
-            # For batch of prompts use keep-alive connection even if persistent_connection=False
-            http_client: requests.HTTPXClient | httpx.Client = (
-                self._client.httpx_client
-                if not self._persistent_connection
-                else self._http_client
-            )
+        if len(payloads) > 1:
             # If CLOUD, use __make_request which uses token bucket for throttling
             if self._client.CLOUD_PLATFORM_SPACES:
                 func = self.__make_request
@@ -962,20 +450,14 @@ class BaseModelInference(WMLResource, ABC):
 
             inference_fn = partial(
                 func,
-                params=async_params,
                 generate_url=generate_url,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-                _http_client=http_client,
             )
 
-            if (prompt_length := len(prompt)) <= concurrency_limit:
-                with ThreadPoolExecutor(max_workers=prompt_length) as executor:
+            if (payloads_length := len(payloads)) <= concurrency_limit:
+                with ThreadPoolExecutor(max_workers=payloads_length) as executor:
                     generate_futures = [
-                        executor.submit(inference_fn, single_prompt)
-                        for single_prompt in prompt
+                        executor.submit(inference_fn, payload=payload)
+                        for payload in payloads
                     ]
                     try:
                         for future in as_completed(generate_futures):
@@ -987,8 +469,8 @@ class BaseModelInference(WMLResource, ABC):
             else:
                 with ThreadPoolExecutor(max_workers=concurrency_limit) as executor:
                     generate_futures = [
-                        executor.submit(inference_fn, single_prompt)
-                        for single_prompt in prompt
+                        executor.submit(inference_fn, payload=payload)
+                        for payload in payloads
                     ]
                     try:
                         for future in as_completed(generate_futures):
@@ -998,74 +480,38 @@ class BaseModelInference(WMLResource, ABC):
                         raise
         else:
             response = self._send_inference_payload(
-                prompt=prompt,
-                params=async_params,
+                payload=payloads[0],
                 generate_url=generate_url,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
             )
             yield response
 
     def _generate_stream_with_url(
         self,
-        prompt: str | None,
-        params: dict | TextGenParameters | None,
+        payload: dict,
         generate_stream_url: str,
         raw_response: bool = False,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
     ) -> Generator:
-        if self._client._use_fm_ga_api:
-            payload = self._prepare_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
-        else:  # Remove on CPD 5.0 release
-            payload = self._prepare_beta_inference_payload(
-                prompt=prompt,
-                params=params,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-            )
+        if hasattr(self._client.httpx_client, "post_stream"):
+            stream_function = self._client.httpx_client.post_stream
+        else:
+            stream_function = self._client.httpx_client.stream
 
         kw_args: dict = dict(
+            method="POST",
             url=generate_stream_url,
             json=payload,
             headers=self._client._get_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
         )
 
-        if isinstance(self._http_client, requests.HTTPXClient):
-            stream_function = self._http_client.post_stream
-            kw_args |= {"method": "POST"}
-        elif isinstance(self._http_client, httpx.Client):
-            stream_function = self._http_client.stream  # type: ignore[assignment]
-            kw_args |= {"method": "POST"}
-        else:
-            stream_function = requests.Session().post  # type: ignore[assignment]
-            kw_args |= {
-                "stream": True,
-            }
         with self._stream(stream_function, **kw_args) as resp:
             if resp.status_code == 200:
                 resp_iter = (
                     resp.iter_lines()
                     if isinstance(resp, httpx.Response)
-                    else resp.iter_lines(decode_unicode=False)  # type: ignore[call-arg]
+                    else resp.iter_lines(decode_unicode=False)
                 )
                 for chunk in resp_iter:
-                    if isinstance(resp, _requests.Response):
-                        chunk = chunk.decode("utf-8")  # type: ignore[union-attr]
                     if chunk.rstrip() == "event: error":
                         chunk = next(resp_iter)
                         field_name, _, response = chunk.partition(":")
@@ -1094,87 +540,69 @@ class BaseModelInference(WMLResource, ABC):
                     f"Request failed with: {resp.text} ({resp.status_code})"
                 )
 
-    def _tokenize_with_url(
-        self,
-        prompt: str,
-        tokenize_url: str,
-        return_tokens: bool,
-    ) -> dict:
-        payload = self._prepare_inference_payload(prompt)
-
-        parameters = payload.get("parameters", {})
-        parameters.update({"return_tokens": return_tokens})
-        payload["parameters"] = parameters
-
-        post_params: dict[str, Any] = dict(
-            url=tokenize_url,
-            json=payload,
-            params=self._client._params(skip_for_create=True, skip_userfs=True),
-            headers=self._client._get_headers(),
-        )
-        if not isinstance(self._http_client, httpx.Client):
-            post_params["_retry_status_codes"] = _RETRY_STATUS_CODES
-
-        response_scoring = self._post(self._http_client, **post_params)
-
-        if response_scoring.status_code == 404:
-            raise WMLClientError("Tokenize is not supported for this release")
-        return self._handle_response(200, "tokenize", response_scoring)
-
-    def _return_guardrails_stats(self, single_response: dict) -> dict:
+    @staticmethod
+    def _return_guardrails_stats(single_response: dict) -> dict:
         results = single_response["results"][0]
-        hap_details = (
-            results.get("moderations", {}).get("hap")
-            if self._client._use_fm_ga_api
-            else results.get("moderation", {}).get("hap")
-        )  # Remove 'else' on CPD 5.0 release
+        hap_details = get_from_json(
+            results,
+            ["moderations", "hap"],
+        )
         if hap_details:
+            harmful_text_warning = f"Potentially harmful text detected: {hap_details}"
             if hap_details[0].get("input"):
-                unsuitable_input_warning = next(
-                    warning.get("message")
-                    for warning in single_response.get("system", {}).get("warnings")
-                    if warning.get("id") == "UNSUITABLE_INPUT"
+                # overwrite with UNSUITABLE_INPUT warning from API if present in response
+                harmful_text_warning = next(
+                    (
+                        warning.get("message")
+                        for warning in get_from_json(
+                            single_response, ["system", "warnings"]
+                        )
+                        if warning.get("id") == "UNSUITABLE_INPUT"
+                    ),
+                    harmful_text_warning,
                 )
-                warn(unsuitable_input_warning, category=HAPDetectionWarning)
-            else:
-                harmful_text_warning = (
-                    f"Potentially harmful text detected: {hap_details}"
-                )
-                warn(harmful_text_warning, category=HAPDetectionWarning)
-        pii_details = (
-            results.get("moderations", {}).get("pii")
-            if self._client._use_fm_ga_api
-            else results.get("moderation", {}).get("pii")
-        )  # Remove 'else' on CPD 5.0 release
+            warn(harmful_text_warning, category=HAPDetectionWarning)
+        pii_details = get_from_json(
+            results,
+            ["moderations", "pii"],
+        )
         if pii_details:
+            identifiable_information_warning = (
+                f"Personally identifiable information detected: {pii_details}"
+            )
             if pii_details[0].get("input"):
-                unsuitable_input_warning = next(
-                    warning.get("message")
-                    for warning in single_response.get("system", {}).get("warnings")
-                    if warning.get("id") == "UNSUITABLE_INPUT"
+                # overwrite with UNSUITABLE_INPUT warning from API if present in response
+                identifiable_information_warning = next(
+                    (
+                        warning.get("message")
+                        for warning in get_from_json(
+                            single_response, ["system", "warnings"]
+                        )
+                        if warning.get("id") == "UNSUITABLE_INPUT"
+                    ),
+                    identifiable_information_warning,
                 )
-                warn(unsuitable_input_warning, category=PIIDetectionWarning)
-            else:
-                identifiable_information_warning = (
-                    f"Personally identifiable information detected: {pii_details}"
-                )
-                warn(identifiable_information_warning, category=PIIDetectionWarning)
-        granite_guardian_details = results.get("moderations", {}).get(
-            "granite_guardian"
+
+            warn(identifiable_information_warning, category=PIIDetectionWarning)
+        granite_guardian_details = get_from_json(
+            results, ["moderations", "granite_guardian"]
         )
         if granite_guardian_details:
+            granite_guardian_warning = (
+                f"Potentially granite guardian detected: {granite_guardian_details}"
+            )
             if granite_guardian_details[0].get("input"):
-                unsuitable_input_warning = next(
-                    warning.get("message")
-                    for warning in single_response.get("system", {}).get("warnings")
-                    if warning.get("id") == "UNSUITABLE_INPUT"
+                granite_guardian_warning = next(
+                    (
+                        warning.get("message")
+                        for warning in get_from_json(
+                            single_response, ["system", "warnings"]
+                        )
+                        if warning.get("id") == "UNSUITABLE_INPUT"
+                    ),
+                    granite_guardian_warning,
                 )
-                warn(unsuitable_input_warning, category=GraniteGuardianDetectionWarning)
-            else:
-                granite_guardian_warning = (
-                    f"Potentially granite guardian detected: {granite_guardian_details}"
-                )
-                warn(granite_guardian_warning, category=GraniteGuardianDetectionWarning)
+            warn(granite_guardian_warning, category=GraniteGuardianDetectionWarning)
         return results
 
     @staticmethod
@@ -1220,13 +648,11 @@ class BaseModelInference(WMLResource, ABC):
 
         return valid_params
 
-    @requests._with_retry()
-    def _post(
-        self, http_client: Any, *args: Any, **kwargs: Any
-    ) -> httpx.Response | _requests.Response:
+    @httpx_wrapper._with_retry()
+    def _post(self, http_client: Any, *args: Any, **kwargs: Any) -> httpx.Response:
         return http_client.post(*args, **kwargs)
 
-    @requests._with_async_retry()
+    @httpx_wrapper._with_async_retry()
     async def _apost(
         self, async_http_client: Any, *args: Any, **kwargs: Any
     ) -> httpx.Response:

@@ -11,10 +11,10 @@ from schemathesis.checks import not_a_server_error
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
 from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.failures import Failure, FailureGroup
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import merge_at
 from schemathesis.core.transport import USER_AGENT, Response
 from schemathesis.generation import GenerationMode
-from schemathesis.generation.meta import ComponentKind
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi.checks import content_type_conformance, response_schema_conformance
 from schemathesis.transport.prepare import get_default_headers
@@ -109,7 +109,14 @@ def test_make_case_missing_media_type(ctx):
     ],
 )
 def test_case_repr(swagger_20, kwargs, expected):
-    operation = APIOperation("/users/{name}", "GET", {}, swagger_20)
+    operation = APIOperation(
+        "/users/{name}",
+        "GET",
+        {},
+        swagger_20,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+    )
     case = operation.Case(**kwargs)
     assert repr(case) == expected
 
@@ -118,7 +125,14 @@ def test_case_repr(swagger_20, kwargs, expected):
 @pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"])
 def test_as_transport_kwargs(override, server, base_url, swagger_20, converter):
     base_url = converter(base_url)
-    operation = APIOperation("/success", "GET", {}, swagger_20)
+    operation = APIOperation(
+        "/success",
+        "GET",
+        {},
+        swagger_20,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+    )
     case = operation.Case(cookies={"TOKEN": "secret"})
     if override:
         data = case.as_transport_kwargs(base_url)
@@ -150,7 +164,14 @@ def test_mutate_body(openapi3_schema):
 def test_reserved_characters_in_operation_name(swagger_20):
     # See GH-992
     # When an API operation name contains `:`
-    operation = APIOperation("/foo:bar", "GET", {}, swagger_20)
+    operation = APIOperation(
+        "/foo:bar",
+        "GET",
+        {},
+        swagger_20,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+    )
     case = operation.Case()
     # Then it should not be truncated during API call
     assert case.as_transport_kwargs("/")["url"] == "/foo:bar"
@@ -166,7 +187,15 @@ def test_reserved_characters_in_operation_name(swagger_20):
     ],
 )
 def test_as_transport_kwargs_override_user_agent(server, openapi2_base_url, swagger_20, headers, expected):
-    operation = APIOperation("/success", "GET", {}, swagger_20, base_url=openapi2_base_url)
+    operation = APIOperation(
+        "/success",
+        "GET",
+        {},
+        swagger_20,
+        base_url=openapi2_base_url,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+    )
     original_headers = headers.copy()
     case = operation.Case(headers=headers)
     data = case.as_transport_kwargs(headers={"X-Key": "foo"})
@@ -221,7 +250,14 @@ def test_as_transport_kwargs_override_content_type(ctx, header):
 
 @pytest.mark.parametrize("override", [False, True])
 def test_call(override, base_url, swagger_20):
-    operation = APIOperation("/success", "GET", {}, swagger_20)
+    operation = APIOperation(
+        "/success",
+        "GET",
+        {},
+        swagger_20,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+    )
     case = operation.Case()
     if override:
         response = case.call(base_url)
@@ -270,7 +306,7 @@ def test_metadata_has_only_relevant_components(openapi3_schema_url):
     def test(case):
         # Metadata should only contain components relevant to the API operation
         assert len(case.meta.components) == 1
-        assert ComponentKind.QUERY in case.meta.components
+        assert ParameterLocation.QUERY in case.meta.components
 
     test()
 
@@ -282,7 +318,7 @@ def test_call_and_validate_for_asgi(fastapi_app):
     @given(case=api_schema["/users"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
     def test(case):
-        with pytest.raises(RuntimeError, match="If you use the ASGI integration"):
+        with pytest.raises(IncorrectUsage, match="If you use the ASGI integration"):
             case.call_and_validate()
 
     test()
@@ -574,6 +610,31 @@ def test_call_overrides(mocker, arg, openapi_30):
     except ValueError:
         pass
     _assert_override(spy, arg, original, overridden)
+
+
+@pytest.mark.parametrize("with_config", [True, False])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"verify": False},
+        {"cert": "abc"},
+        {"timeout": 42},
+    ],
+)
+def test_call_transport_overrides(mocker, with_config, kwargs, openapi_30):
+    spy = mocker.patch("requests.Session.request", side_effect=ValueError)
+    if with_config:
+        # Config should be overridden anyway
+        openapi_30.config.tls_verify = "/tmp"
+        openapi_30.config.request_cert = "/tmp"
+        openapi_30.config.request_timeout = 0.5
+    case = openapi_30["/users"]["GET"].Case()
+    try:
+        case.call(**kwargs, base_url="http://127.0.0.1")
+    except ValueError:
+        pass
+    for key, value in kwargs.items():
+        assert spy.call_args[1][key] == value
 
 
 def test_merge_at():

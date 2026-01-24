@@ -155,7 +155,7 @@ class Logger(Filterer):
         stacklevel: int = 1,
         extra: Mapping[str, object] | None = None,
     ) -> None: ...
-    @deprecated("Deprecated; use warning() instead.")
+    @deprecated("Deprecated since Python 3.3. Use `Logger.warning()` instead.")
     def warn(
         self,
         msg: object,
@@ -411,7 +411,7 @@ class LoggerAdapter(Generic[_L]):
         extra: Mapping[str, object] | None = None,
         **kwargs: object,
     ) -> None: ...
-    @deprecated("Deprecated; use warning() instead.")
+    @deprecated("Deprecated since Python 3.3. Use `LoggerAdapter.warning()` instead.")
     def warn(
         self,
         msg: object,
@@ -527,7 +527,7 @@ def warning(
     stacklevel: int = 1,
     extra: Mapping[str, object] | None = None,
 ) -> None: ...
-@deprecated("Deprecated; use warning() instead.")
+@deprecated("Deprecated since Python 3.3. Use `warning()` instead.")
 def warn(
     msg: object,
     *args: object,
@@ -673,4 +673,4 @@ class StringTemplateStyle(PercentStyle):  # undocumented
 
 _STYLES: Final[dict[str, tuple[PercentStyle, str]]]
 
-BASIC_FORMAT: Final[str]
+BASIC_FORMAT: Final = "%(levelname)s:%(name)s:%(message)s"

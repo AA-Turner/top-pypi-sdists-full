@@ -68,6 +68,8 @@ HAChassisGroupInfo = collections.namedtuple(
     'HAChassisGroupInfo', ['group_name', 'chassis_list', 'az_hints',
                            'ignore_chassis', 'external_ids'])
 
+_OVS_PERSIST_UUID = _SENTINEL = object()
+
 
 class OvsdbClientCommand:
     _CONNECTION = 0
@@ -200,7 +202,7 @@ def ovn_name(id):
     # is a UUID. If so then there will be no matches.
     # We prefix the UUID to enable us to use the Neutron UUID when
     # updating, deleting etc.
-    return "{}{}".format(constants.OVN_NAME_PREFIX, id)
+    return f"{constants.OVN_NAME_PREFIX}{id}"
 
 
 def ovn_lrouter_port_name(id):
@@ -247,7 +249,7 @@ def ovn_addrset_name(sg_id, ip_version):
     #   as-<ip version>-<security group uuid>
     # with all '-' replaced with '_'. This replacement is necessary
     # because OVN doesn't support '-' in an address set name.
-    return ('as-{}-{}'.format(ip_version, sg_id)).replace('-', '_')
+    return (f'as-{ip_version}-{sg_id}').replace('-', '_')
 
 
 def ovn_pg_addrset_name(sg_id, ip_version):
@@ -256,7 +258,7 @@ def ovn_pg_addrset_name(sg_id, ip_version):
     #   pg-<security group uuid>-<ip version>
     # with all '-' replaced with '_'. This replacement is necessary
     # because OVN doesn't support '-' in an address set name.
-    return ('pg-{}-{}'.format(sg_id, ip_version)).replace('-', '_')
+    return (f'pg-{sg_id}-{ip_version}').replace('-', '_')
 
 
 def ovn_ag_addrset_name(ag_id, ip_version):
@@ -265,7 +267,7 @@ def ovn_ag_addrset_name(ag_id, ip_version):
     #   ag-<address group uuid>-<ip version>
     # with all '-' replaced with '_'. This replacement is necessary
     # because OVN doesn't support '-' in an address set name.
-    return ('ag-%s-%s' % (ag_id, ip_version)).replace('-', '_')
+    return ('ag-{}-{}'.format(ag_id, ip_version)).replace('-', '_')
 
 
 def ovn_port_group_name(sg_id):
@@ -463,7 +465,9 @@ def validate_and_get_data_from_binding_profile(port):
         if pbp_param_set.vnic_type:
             if pbp_param_set.vnic_type != vnic_type:
                 continue
-            if capabilities and pbp_param_set.capability not in capabilities:
+            if (capabilities and
+                    pbp_param_set.capability is not None and
+                    pbp_param_set.capability not in capabilities):
                 continue
         param_set = pbp_param_set.param_set
         param_keys = param_set.keys()
@@ -1375,3 +1379,41 @@ def validate_port_forwarding_configuration():
     if any(net_type in provider_network_types
            for net_type in cfg.CONF.ml2.tenant_network_types):
         raise ovn_exc.InvalidPortForwardingConfiguration()
+
+
+def ovs_persist_uuid_supported(nb_idl):
+    # OVS 3.1+ contain the persist_uuid feature that allows choosing the UUID
+    # that will be stored in the DB. It was broken prior to 3.1.5/3.2.3/3.3.1
+    # so this will return True only for the fixed version. As actually testing
+    # the fix requires committing a transaction, an implementation detail is
+    # tested. This can be removed once a fixed version is required.
+    global _OVS_PERSIST_UUID
+    if _OVS_PERSIST_UUID is _SENTINEL:
+        _OVS_PERSIST_UUID = isinstance(
+            next(iter(nb_idl.tables["NB_Global"].rows.data.values())), list)
+        LOG.debug(f"OVS persist_uuid supported={_OVS_PERSIST_UUID}")
+    return _OVS_PERSIST_UUID
+
+
+def get_logical_router_port_ha_chassis(nb_idl, lrp, priorities=None):
+    """Get the list of chassis hosting this Logical_Router_Port.
+
+    :param nb_idl: (``OvsdbNbOvnIdl``) OVN Northbound IDL
+    :param lrp: Logical_Router_Port
+    :param priorities: (list of int) a list of HA_Chassis chassis priorities
+           to search for
+    :return: List of tuples (chassis_name, priority) sorted by priority. If
+             ``priorities`` is set then only chassis matching of these
+             priorities are returned.
+    """
+    chassis = []
+    lrp = nb_idl.lookup('Logical_Router_Port', lrp.name, default=None)
+    if not lrp or not lrp.ha_chassis_group:
+        return chassis
+
+    for hc in lrp.ha_chassis_group[0].ha_chassis:
+        if priorities and hc.priority not in priorities:
+            continue
+        chassis.append((hc.chassis_name, hc.priority))
+
+    return chassis

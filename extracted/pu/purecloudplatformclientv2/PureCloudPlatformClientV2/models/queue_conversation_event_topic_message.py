@@ -80,8 +80,11 @@ class QueueConversationEventTopicMessage(object):
             'after_call_work': 'QueueConversationEventTopicAfterCallWork',
             'after_call_work_required': 'bool',
             'agent_assistant_id': 'str',
+            'engagement_source': 'str',
             'byo_sms_integration_id': 'str',
-            'queue_media_settings': 'QueueConversationEventTopicQueueMediaSettings'
+            'queue_media_settings': 'QueueConversationEventTopicQueueMediaSettings',
+            'resume_time': 'datetime',
+            'park_time': 'datetime'
         }
 
         self.attribute_map = {
@@ -110,8 +113,11 @@ class QueueConversationEventTopicMessage(object):
             'after_call_work': 'afterCallWork',
             'after_call_work_required': 'afterCallWorkRequired',
             'agent_assistant_id': 'agentAssistantId',
+            'engagement_source': 'engagementSource',
             'byo_sms_integration_id': 'byoSmsIntegrationId',
-            'queue_media_settings': 'queueMediaSettings'
+            'queue_media_settings': 'queueMediaSettings',
+            'resume_time': 'resumeTime',
+            'park_time': 'parkTime'
         }
 
         self._id = None
@@ -139,8 +145,11 @@ class QueueConversationEventTopicMessage(object):
         self._after_call_work = None
         self._after_call_work_required = None
         self._agent_assistant_id = None
+        self._engagement_source = None
         self._byo_sms_integration_id = None
         self._queue_media_settings = None
+        self._resume_time = None
+        self._park_time = None
 
     @property
     def id(self) -> str:
@@ -188,7 +197,7 @@ class QueueConversationEventTopicMessage(object):
         """
         if isinstance(state, int):
             state = str(state)
-        allowed_values = ["alerting", "connected", "disconnected"]
+        allowed_values = ["alerting", "connected", "disconnected", "parked"]
         if state.lower() not in map(str.lower, allowed_values):
             # print("Invalid value for state -> " + state)
             self._state = "outdated_sdk_version"
@@ -217,7 +226,7 @@ class QueueConversationEventTopicMessage(object):
         """
         if isinstance(initial_state, int):
             initial_state = str(initial_state)
-        allowed_values = ["alerting", "connected", "disconnected"]
+        allowed_values = ["alerting", "connected", "disconnected", "parked"]
         if initial_state.lower() not in map(str.lower, allowed_values):
             # print("Invalid value for initial_state -> " + initial_state)
             self._initial_state = "outdated_sdk_version"
@@ -395,7 +404,7 @@ class QueueConversationEventTopicMessage(object):
         """
         if isinstance(disconnect_type, int):
             disconnect_type = str(disconnect_type)
-        allowed_values = ["endpoint", "endpoint.dnd", "client", "system", "timeout", "transfer", "transfer.conference", "transfer.consult", "transfer.forward", "transfer.noanswer", "transfer.notavailable", "transfer.dnd", "transport.failure", "error", "peer", "other", "spam", "uncallable", "inactivity"]
+        allowed_values = ["endpoint", "endpoint.dnd", "client", "system", "timeout", "transfer", "transfer.conference", "transfer.consult", "transfer.forward", "transfer.noanswer", "transfer.notavailable", "transfer.dnd", "transport.failure", "error", "peer", "other", "spam", "uncallable", "inactivity", "session.expired"]
         if disconnect_type.lower() not in map(str.lower, allowed_values):
             # print("Invalid value for disconnect_type -> " + disconnect_type)
             self._disconnect_type = "outdated_sdk_version"
@@ -768,6 +777,30 @@ class QueueConversationEventTopicMessage(object):
         self._agent_assistant_id = agent_assistant_id
 
     @property
+    def engagement_source(self) -> str:
+        """
+        Gets the engagement_source of this QueueConversationEventTopicMessage.
+        Provide more visibility into what integrations customers are creating with Open Messaging. String values are defined in the Constants.java named ENGAGEMENT_SOURCE_*
+
+        :return: The engagement_source of this QueueConversationEventTopicMessage.
+        :rtype: str
+        """
+        return self._engagement_source
+
+    @engagement_source.setter
+    def engagement_source(self, engagement_source: str) -> None:
+        """
+        Sets the engagement_source of this QueueConversationEventTopicMessage.
+        Provide more visibility into what integrations customers are creating with Open Messaging. String values are defined in the Constants.java named ENGAGEMENT_SOURCE_*
+
+        :param engagement_source: The engagement_source of this QueueConversationEventTopicMessage.
+        :type: str
+        """
+        
+
+        self._engagement_source = engagement_source
+
+    @property
     def byo_sms_integration_id(self) -> str:
         """
         Gets the byo_sms_integration_id of this QueueConversationEventTopicMessage.
@@ -814,6 +847,54 @@ class QueueConversationEventTopicMessage(object):
         
 
         self._queue_media_settings = queue_media_settings
+
+    @property
+    def resume_time(self) -> datetime:
+        """
+        Gets the resume_time of this QueueConversationEventTopicMessage.
+        The time when a parked message should resume.
+
+        :return: The resume_time of this QueueConversationEventTopicMessage.
+        :rtype: datetime
+        """
+        return self._resume_time
+
+    @resume_time.setter
+    def resume_time(self, resume_time: datetime) -> None:
+        """
+        Sets the resume_time of this QueueConversationEventTopicMessage.
+        The time when a parked message should resume.
+
+        :param resume_time: The resume_time of this QueueConversationEventTopicMessage.
+        :type: datetime
+        """
+        
+
+        self._resume_time = resume_time
+
+    @property
+    def park_time(self) -> datetime:
+        """
+        Gets the park_time of this QueueConversationEventTopicMessage.
+        The time when an  parked message was parked.
+
+        :return: The park_time of this QueueConversationEventTopicMessage.
+        :rtype: datetime
+        """
+        return self._park_time
+
+    @park_time.setter
+    def park_time(self, park_time: datetime) -> None:
+        """
+        Sets the park_time of this QueueConversationEventTopicMessage.
+        The time when an  parked message was parked.
+
+        :param park_time: The park_time of this QueueConversationEventTopicMessage.
+        :type: datetime
+        """
+        
+
+        self._park_time = park_time
 
     def to_dict(self):
         """

@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import QuantConnect.DownloaderDataProvider.Launcher.Models.Constants
 import System
 

@@ -9,9 +9,9 @@
 
 #ifdef SK_GL
 #include "include/core/SkTypes.h"
-#include "include/gpu/gl/GrGLExtensions.h"
-#include "include/gpu/gl/GrGLTypes.h"
-#include "src/gpu/ganesh/gl/GrGLDefines_impl.h"
+#include "include/gpu/ganesh/gl/GrGLExtensions.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
+#include "src/gpu/ganesh/gl/GrGLDefines.h"
 
 const GrGLubyte* simpleGetString(GrGLenum name) {
     return (const GrGLubyte*)(name == GR_GL_VERSION ? "3.0" : "");

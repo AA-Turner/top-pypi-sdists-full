@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cutadapt
-Version: 5.1
+Version: 5.2
 Summary: Adapter trimming and other preprocessing of high-throughput sequencing reads
 Author-email: Marcel Martin <marcel.martin@scilifelab.se>
 License-Expression: MIT

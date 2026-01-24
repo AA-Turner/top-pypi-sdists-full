@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Callable, KeysView, List, Optional, Tuple, Union
+from collections.abc import Callable, KeysView
+from typing import Any
 
 import a_sync
 import brownie
@@ -21,10 +22,10 @@ SUPPORTED_INPUT_TYPES = str, Address, EthAddress, brownie.Contract, Contract
 
 @a_sync.a_sync(default="sync")
 async def decimals(
-    contract_address_or_addresses: Union[
-        AddressOrContract, List[AddressOrContract], Tuple[AddressOrContract]
-    ],
-    block: Optional[Block] = None,
+    contract_address_or_addresses: (
+        AddressOrContract | list[AddressOrContract] | tuple[AddressOrContract]
+    ),
+    block: Block | None = None,
     return_None_on_failure: bool = False,
 ):
     """
@@ -66,10 +67,10 @@ async def decimals(
 
 @a_sync.a_sync(default="sync")
 async def totalSupply(
-    contract_address_or_addresses: Union[
-        AddressOrContract, List[AddressOrContract], Tuple[AddressOrContract]
-    ],
-    block: Optional[Block] = None,
+    contract_address_or_addresses: (
+        AddressOrContract | list[AddressOrContract] | tuple[AddressOrContract]
+    ),
+    block: Block | None = None,
     return_None_on_failure: bool = False,
 ):
     """
@@ -113,10 +114,10 @@ async def totalSupply(
 
 @a_sync.a_sync(default="sync")
 async def totalSupplyReadable(
-    contract_address_or_addresses: Union[
-        AddressOrContract, List[AddressOrContract], Tuple[AddressOrContract]
-    ],
-    block: Optional[Block] = None,
+    contract_address_or_addresses: (
+        AddressOrContract | list[AddressOrContract] | tuple[AddressOrContract]
+    ),
+    block: Block | None = None,
     return_None_on_failure: bool = False,
 ):
     """

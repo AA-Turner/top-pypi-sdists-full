@@ -62,7 +62,7 @@ class LayerwiseRieszEnergyReferenceDirectionFactory(ReferenceDirectionFactory):
         self.scalings = scalings
         return get_points(X, scalings)
 
-    def do(self):
+    def do(self, **kwargs):
 
         X = []
         scalings = []
@@ -79,7 +79,7 @@ class LayerwiseRieszEnergyReferenceDirectionFactory(ReferenceDirectionFactory):
                         x[:, j] = 1 - val
                         _X.append(x)
 
-                X.append(np.row_stack(_X + [np.eye(self.n_dim)]))
+                X.append(np.vstack(_X + [np.eye(self.n_dim)]))
 
             elif p == 1:
                 X.append(np.eye(self.n_dim))

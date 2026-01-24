@@ -1,8 +1,7 @@
-from ..abstract import ErdReadOnlyConverter, ErdReadWriteConverter
+from ..abstract import ErdReadWriteConverter
 from ..primitives import *
-
-from gehomesdk.erd.values import ErdWaterFilterPosition
-from gehomesdk.exception import GeSetErdNotAllowedError
+from ...values import ErdWaterFilterPosition
+from ....exception import GeSetErdNotAllowedError
 
 class ErdFilterPositionConverter(ErdReadWriteConverter[ErdWaterFilterPosition]):
     def erd_decode(self, value) -> ErdWaterFilterPosition:
@@ -11,7 +10,7 @@ class ErdFilterPositionConverter(ErdReadWriteConverter[ErdWaterFilterPosition]):
         except ValueError:
             return ErdWaterFilterPosition.UNKNOWN
 
-    def erd_encode(self, new_position: ErdWaterFilterPosition) -> str:
-        if new_position == ErdWaterFilterPosition.UNKNOWN:
-            raise GeSetErdNotAllowedError(new_position)
-        return erd_encode_int(new_position.value, 1)
+    def erd_encode(self, value: ErdWaterFilterPosition) -> str:
+        if value == ErdWaterFilterPosition.UNKNOWN:
+            raise GeSetErdNotAllowedError(str(self.erd_code), "Cannot set to unknown filter position.")
+        return erd_encode_int(value.value, 1)

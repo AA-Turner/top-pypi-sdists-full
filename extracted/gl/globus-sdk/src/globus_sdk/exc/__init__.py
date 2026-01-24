@@ -10,7 +10,7 @@ from .err_info import (
     ErrorInfo,
     ErrorInfoContainer,
 )
-from .warnings import RemovedInV4Warning, warn_deprecated
+from .warnings import RemovedInV5Warning, warn_deprecated
 
 __all__ = (
     "GlobusError",
@@ -27,14 +27,14 @@ __all__ = (
     "ErrorInfoContainer",
     "AuthorizationParameterInfo",
     "ConsentRequiredInfo",
-    "RemovedInV4Warning",
+    "RemovedInV5Warning",
     "warn_deprecated",
 )
 
 # imports from `globus_sdk.exc.convert` are done lazily
 #
 # this ensures that we do not eagerly import `requests` when attempting to use SDK
-# components which do not need it, but which do need errors (e.g., RemovedInV4Warning)
+# components which do not need it, but which do need errors (e.g., RemovedInV5Warning)
 # and we avoid paying the performance penalty for importing the relevant dependencies
 if t.TYPE_CHECKING:
     from .convert import (

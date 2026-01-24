@@ -3,7 +3,7 @@ Type annotations for redshift-serverless service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -84,6 +85,8 @@ from .type_defs import (
     GetCustomDomainAssociationResponseTypeDef,
     GetEndpointAccessRequestTypeDef,
     GetEndpointAccessResponseTypeDef,
+    GetIdentityCenterAuthTokenRequestTypeDef,
+    GetIdentityCenterAuthTokenResponseTypeDef,
     GetNamespaceRequestTypeDef,
     GetNamespaceResponseTypeDef,
     GetRecoveryPointRequestTypeDef,
@@ -152,6 +155,8 @@ from .type_defs import (
     UpdateCustomDomainAssociationResponseTypeDef,
     UpdateEndpointAccessRequestTypeDef,
     UpdateEndpointAccessResponseTypeDef,
+    UpdateLakehouseConfigurationRequestTypeDef,
+    UpdateLakehouseConfigurationResponseTypeDef,
     UpdateNamespaceRequestTypeDef,
     UpdateNamespaceResponseTypeDef,
     UpdateScheduledActionRequestTypeDef,
@@ -166,12 +171,6 @@ from .type_defs import (
     UpdateWorkgroupResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -182,18 +181,19 @@ __all__ = ("RedshiftServerlessClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InsufficientCapacityException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidPaginationException: Type[BotocoreClientError]
-    Ipv6CidrBlockNotFoundException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DryRunException: type[BotocoreClientError]
+    InsufficientCapacityException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidPaginationException: type[BotocoreClientError]
+    Ipv6CidrBlockNotFoundException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class RedshiftServerlessClient(BaseClient):
@@ -336,7 +336,7 @@ class RedshiftServerlessClient(BaseClient):
 
     def delete_custom_domain_association(
         self, **kwargs: Unpack[DeleteCustomDomainAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom domain association for Amazon Redshift Serverless.
 
@@ -366,7 +366,7 @@ class RedshiftServerlessClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified resource policy.
 
@@ -453,6 +453,17 @@ class RedshiftServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-serverless/client/get_endpoint_access.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#get_endpoint_access)
+        """
+
+    def get_identity_center_auth_token(
+        self, **kwargs: Unpack[GetIdentityCenterAuthTokenRequestTypeDef]
+    ) -> GetIdentityCenterAuthTokenResponseTypeDef:
+        """
+        Returns an Identity Center authentication token for accessing Amazon Redshift
+        Serverless workgroups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-serverless/client/get_identity_center_auth_token.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#get_identity_center_auth_token)
         """
 
     def get_namespace(
@@ -764,7 +775,7 @@ class RedshiftServerlessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#restore_table_from_snapshot)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags to a resource.
 
@@ -772,7 +783,7 @@ class RedshiftServerlessClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or set of tags from a resource.
 
@@ -799,6 +810,16 @@ class RedshiftServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-serverless/client/update_endpoint_access.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#update_endpoint_access)
+        """
+
+    def update_lakehouse_configuration(
+        self, **kwargs: Unpack[UpdateLakehouseConfigurationRequestTypeDef]
+    ) -> UpdateLakehouseConfigurationResponseTypeDef:
+        """
+        Modifies the lakehouse configuration for a namespace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-serverless/client/update_lakehouse_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift_serverless/client/#update_lakehouse_configuration)
         """
 
     def update_namespace(

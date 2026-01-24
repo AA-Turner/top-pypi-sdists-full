@@ -52,6 +52,7 @@ from hera.workflows.models import (
     VolumeClaimGC,
     Workflow as _ModelWorkflow,
     WorkflowCreateRequest,
+    WorkflowLevelArtifactGC,
     WorkflowLintRequest,
     WorkflowMetadata,
     WorkflowSpec as _ModelWorkflowSpec,
@@ -191,7 +192,9 @@ class Workflow(
     active_deadline_seconds: Annotated[Optional[int], _WorkflowModelMapper("spec.active_deadline_seconds")] = None
     affinity: Annotated[Optional[Affinity], _WorkflowModelMapper("spec.affinity")] = None
     archive_logs: Annotated[Optional[bool], _WorkflowModelMapper("spec.archive_logs")] = None
-    artifact_gc: Annotated[Optional[ArtifactGC], _WorkflowModelMapper("spec.artifact_gc")] = None
+    artifact_gc: Annotated[
+        Optional[ArtifactGC | WorkflowLevelArtifactGC], _WorkflowModelMapper("spec.artifact_gc")
+    ] = None
     artifact_repository_ref: Annotated[
         Optional[ArtifactRepositoryRef], _WorkflowModelMapper("spec.artifact_repository_ref")
     ] = None
@@ -214,7 +217,6 @@ class Workflow(
     ] = None
     pod_gc: Annotated[Optional[PodGC], _WorkflowModelMapper("spec.pod_gc")] = None
     pod_metadata: Annotated[Optional[Metadata], _WorkflowModelMapper("spec.pod_metadata")] = None
-    pod_priority: Annotated[Optional[int], _WorkflowModelMapper("spec.pod_priority")] = None
     pod_priority_class_name: Annotated[Optional[str], _WorkflowModelMapper("spec.pod_priority_class_name")] = None
     pod_spec_patch: Annotated[Optional[str], _WorkflowModelMapper("spec.pod_spec_patch")] = None
     priority: Annotated[Optional[int], _WorkflowModelMapper("spec.priority")] = None
@@ -257,6 +259,10 @@ class Workflow(
 
     # Hera-specific fields
     workflows_service: Optional[Union[WorkflowsService, AsyncWorkflowsService]] = None
+
+    pod_priority: Optional[int] = None
+    """DEPRECATED: The spec.podPriority field was removed in 3.7, so does not map to
+       anything. Use pod_priority_class_name instead."""
 
     @validator("name", pre=True, always=True)
     def _set_name(cls, v):

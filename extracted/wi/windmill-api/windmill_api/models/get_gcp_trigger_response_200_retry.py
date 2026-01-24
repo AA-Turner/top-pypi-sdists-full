@@ -16,11 +16,13 @@ T = TypeVar("T", bound="GetGcpTriggerResponse200Retry")
 
 @_attrs_define
 class GetGcpTriggerResponse200Retry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetGcpTriggerResponse200RetryConstant]):
-        exponential (Union[Unset, GetGcpTriggerResponse200RetryExponential]):
-        retry_if (Union[Unset, GetGcpTriggerResponse200RetryRetryIf]):
+        constant (Union[Unset, GetGcpTriggerResponse200RetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, GetGcpTriggerResponse200RetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, GetGcpTriggerResponse200RetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "GetGcpTriggerResponse200RetryConstant"] = UNSET

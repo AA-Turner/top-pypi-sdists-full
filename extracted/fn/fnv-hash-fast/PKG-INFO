@@ -1,14 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fnv-hash-fast
-Version: 1.5.0
+Version: 1.6.0
 Summary: A fast version of fnv1a
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -16,8 +16,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: fnvhash (>=0.1.0,<0.2.0)
+Requires-Dist: fnvhash (>=0.1,<0.3)
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/fnv-hash-fast/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/fnv-hash-fast/blob/main/CHANGELOG.md
 Project-URL: Repository, https://github.com/bluetooth-devices/fnv-hash-fast
@@ -43,7 +44,7 @@ Description-Content-Type: text/markdown
   <a href="https://github.com/pre-commit/pre-commit">
     <img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=flat-square" alt="pre-commit">
   </a>
-  <a href="https://codspeed.io/bluetooth-devices/fnv-hash-fast"><img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed Badge"/></a>
+  <a href="https://codspeed.io/Bluetooth-Devices/fnv-hash-fast"><img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed Badge"/></a>
 </p>
 <p align="center">
   <a href="https://pypi.org/project/fnv-hash-fast/">

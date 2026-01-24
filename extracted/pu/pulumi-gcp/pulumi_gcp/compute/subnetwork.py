@@ -25,6 +25,7 @@ class SubnetworkArgs:
                  allow_subnet_cidr_routes_overlap: Optional[pulumi.Input[_builtins.bool]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  external_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
+                 internal_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_collection: Optional[pulumi.Input[_builtins.str]] = None,
                  ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
@@ -37,6 +38,7 @@ class SubnetworkArgs:
                  purpose: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  reserved_internal_range: Optional[pulumi.Input[_builtins.str]] = None,
+                 resolve_subnet_mask: Optional[pulumi.Input[_builtins.str]] = None,
                  role: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_ip_ranges: Optional[pulumi.Input[Sequence[pulumi.Input['SubnetworkSecondaryIpRangeArgs']]]] = None,
                  send_secondary_ip_range_if_empty: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -53,15 +55,16 @@ class SubnetworkArgs:
                you create the resource. This field can be set only at resource
                creation time.
         :param pulumi.Input[_builtins.str] external_ipv6_prefix: The range of external IPv6 addresses that are owned by this subnetwork.
+        :param pulumi.Input[_builtins.str] internal_ipv6_prefix: The internal IPv6 address range that is assigned to this subnetwork.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The range of internal addresses that are owned by this subnetwork.
                Provide this property when you create the subnetwork. For example,
                10.0.0.0/8 or 192.168.0.0/16. Ranges must be unique and
                non-overlapping within a network. Only IPv4 is supported.
                Field is optional when `reserved_internal_range` is defined, otherwise required.
         :param pulumi.Input[_builtins.str] ip_collection: Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-               in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-               Use one of the following formats to specify a sub-PDP when creating an
-               IPv6 NetLB forwarding rule using BYOIP:
+               in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+               mode. Use one of the following formats to specify a sub-PDP when creating
+               a dual stack or IPv6-only subnetwork using BYOIP:
                Full resource URL, as in:
                * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
                Partial URL, as in:
@@ -101,6 +104,8 @@ class SubnetworkArgs:
         :param pulumi.Input[_builtins.str] region: The GCP region for this subnetwork.
         :param pulumi.Input[_builtins.str] reserved_internal_range: The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
                E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
+        :param pulumi.Input[_builtins.str] resolve_subnet_mask: 'Configures subnet mask resolution for this subnetwork.'
+               Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
         :param pulumi.Input[_builtins.str] role: The role of subnetwork.
                Currently, this field is only used when `purpose` is `REGIONAL_MANAGED_PROXY`.
                The value can be set to `ACTIVE` or `BACKUP`.
@@ -129,6 +134,8 @@ class SubnetworkArgs:
             pulumi.set(__self__, "description", description)
         if external_ipv6_prefix is not None:
             pulumi.set(__self__, "external_ipv6_prefix", external_ipv6_prefix)
+        if internal_ipv6_prefix is not None:
+            pulumi.set(__self__, "internal_ipv6_prefix", internal_ipv6_prefix)
         if ip_cidr_range is not None:
             pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
         if ip_collection is not None:
@@ -153,6 +160,8 @@ class SubnetworkArgs:
             pulumi.set(__self__, "region", region)
         if reserved_internal_range is not None:
             pulumi.set(__self__, "reserved_internal_range", reserved_internal_range)
+        if resolve_subnet_mask is not None:
+            pulumi.set(__self__, "resolve_subnet_mask", resolve_subnet_mask)
         if role is not None:
             pulumi.set(__self__, "role", role)
         if secondary_ip_ranges is not None:
@@ -217,6 +226,18 @@ class SubnetworkArgs:
         pulumi.set(self, "external_ipv6_prefix", value)
 
     @_builtins.property
+    @pulumi.getter(name="internalIpv6Prefix")
+    def internal_ipv6_prefix(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The internal IPv6 address range that is assigned to this subnetwork.
+        """
+        return pulumi.get(self, "internal_ipv6_prefix")
+
+    @internal_ipv6_prefix.setter
+    def internal_ipv6_prefix(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "internal_ipv6_prefix", value)
+
+    @_builtins.property
     @pulumi.getter(name="ipCidrRange")
     def ip_cidr_range(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -237,9 +258,9 @@ class SubnetworkArgs:
     def ip_collection(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-        in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-        Use one of the following formats to specify a sub-PDP when creating an
-        IPv6 NetLB forwarding rule using BYOIP:
+        in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+        mode. Use one of the following formats to specify a sub-PDP when creating
+        a dual stack or IPv6-only subnetwork using BYOIP:
         Full resource URL, as in:
         * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
         Partial URL, as in:
@@ -397,6 +418,19 @@ class SubnetworkArgs:
         pulumi.set(self, "reserved_internal_range", value)
 
     @_builtins.property
+    @pulumi.getter(name="resolveSubnetMask")
+    def resolve_subnet_mask(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        'Configures subnet mask resolution for this subnetwork.'
+        Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
+        """
+        return pulumi.get(self, "resolve_subnet_mask")
+
+    @resolve_subnet_mask.setter
+    def resolve_subnet_mask(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "resolve_subnet_mask", value)
+
+    @_builtins.property
     @pulumi.getter
     def role(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -486,6 +520,7 @@ class _SubnetworkState:
                  purpose: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  reserved_internal_range: Optional[pulumi.Input[_builtins.str]] = None,
+                 resolve_subnet_mask: Optional[pulumi.Input[_builtins.str]] = None,
                  role: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_ip_ranges: Optional[pulumi.Input[Sequence[pulumi.Input['SubnetworkSecondaryIpRangeArgs']]]] = None,
                  self_link: Optional[pulumi.Input[_builtins.str]] = None,
@@ -514,9 +549,9 @@ class _SubnetworkState:
                non-overlapping within a network. Only IPv4 is supported.
                Field is optional when `reserved_internal_range` is defined, otherwise required.
         :param pulumi.Input[_builtins.str] ip_collection: Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-               in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-               Use one of the following formats to specify a sub-PDP when creating an
-               IPv6 NetLB forwarding rule using BYOIP:
+               in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+               mode. Use one of the following formats to specify a sub-PDP when creating
+               a dual stack or IPv6-only subnetwork using BYOIP:
                Full resource URL, as in:
                * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
                Partial URL, as in:
@@ -564,6 +599,8 @@ class _SubnetworkState:
         :param pulumi.Input[_builtins.str] region: The GCP region for this subnetwork.
         :param pulumi.Input[_builtins.str] reserved_internal_range: The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
                E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
+        :param pulumi.Input[_builtins.str] resolve_subnet_mask: 'Configures subnet mask resolution for this subnetwork.'
+               Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
         :param pulumi.Input[_builtins.str] role: The role of subnetwork.
                Currently, this field is only used when `purpose` is `REGIONAL_MANAGED_PROXY`.
                The value can be set to `ACTIVE` or `BACKUP`.
@@ -638,6 +675,8 @@ class _SubnetworkState:
             pulumi.set(__self__, "region", region)
         if reserved_internal_range is not None:
             pulumi.set(__self__, "reserved_internal_range", reserved_internal_range)
+        if resolve_subnet_mask is not None:
+            pulumi.set(__self__, "resolve_subnet_mask", resolve_subnet_mask)
         if role is not None:
             pulumi.set(__self__, "role", role)
         if secondary_ip_ranges is not None:
@@ -765,9 +804,9 @@ class _SubnetworkState:
     def ip_collection(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-        in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-        Use one of the following formats to specify a sub-PDP when creating an
-        IPv6 NetLB forwarding rule using BYOIP:
+        in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+        mode. Use one of the following formats to specify a sub-PDP when creating
+        a dual stack or IPv6-only subnetwork using BYOIP:
         Full resource URL, as in:
         * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
         Partial URL, as in:
@@ -966,6 +1005,19 @@ class _SubnetworkState:
         pulumi.set(self, "reserved_internal_range", value)
 
     @_builtins.property
+    @pulumi.getter(name="resolveSubnetMask")
+    def resolve_subnet_mask(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        'Configures subnet mask resolution for this subnetwork.'
+        Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
+        """
+        return pulumi.get(self, "resolve_subnet_mask")
+
+    @resolve_subnet_mask.setter
+    def resolve_subnet_mask(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "resolve_subnet_mask", value)
+
+    @_builtins.property
     @pulumi.getter
     def role(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1078,6 +1130,7 @@ class Subnetwork(pulumi.CustomResource):
                  allow_subnet_cidr_routes_overlap: Optional[pulumi.Input[_builtins.bool]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  external_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
+                 internal_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_collection: Optional[pulumi.Input[_builtins.str]] = None,
                  ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1091,6 +1144,7 @@ class Subnetwork(pulumi.CustomResource):
                  purpose: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  reserved_internal_range: Optional[pulumi.Input[_builtins.str]] = None,
+                 resolve_subnet_mask: Optional[pulumi.Input[_builtins.str]] = None,
                  role: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_ip_ranges: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SubnetworkSecondaryIpRangeArgs', 'SubnetworkSecondaryIpRangeArgsDict']]]]] = None,
                  send_secondary_ip_range_if_empty: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1236,6 +1290,23 @@ class Subnetwork(pulumi.CustomResource):
             purpose="PRIVATE_NAT",
             network=custom_test.id)
         ```
+        ### Subnetwork Resolve Subnet Mask
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        custom_test = gcp.compute.Network("custom-test",
+            name="subnet-resolve-subnet-mask-test-network",
+            auto_create_subnetworks=False)
+        subnetwork_resolve_subnet_mask = gcp.compute.Subnetwork("subnetwork-resolve-subnet-mask",
+            name="subnet-resolve-subnet-mask-test-subnetwork",
+            region="us-west2",
+            ip_cidr_range="10.10.0.0/24",
+            purpose="PRIVATE",
+            resolve_subnet_mask="ARP_PRIMARY_RANGE",
+            network=custom_test.id)
+        ```
         ### Subnetwork Cidr Overlap
 
         ```python
@@ -1348,15 +1419,16 @@ class Subnetwork(pulumi.CustomResource):
                you create the resource. This field can be set only at resource
                creation time.
         :param pulumi.Input[_builtins.str] external_ipv6_prefix: The range of external IPv6 addresses that are owned by this subnetwork.
+        :param pulumi.Input[_builtins.str] internal_ipv6_prefix: The internal IPv6 address range that is assigned to this subnetwork.
         :param pulumi.Input[_builtins.str] ip_cidr_range: The range of internal addresses that are owned by this subnetwork.
                Provide this property when you create the subnetwork. For example,
                10.0.0.0/8 or 192.168.0.0/16. Ranges must be unique and
                non-overlapping within a network. Only IPv4 is supported.
                Field is optional when `reserved_internal_range` is defined, otherwise required.
         :param pulumi.Input[_builtins.str] ip_collection: Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-               in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-               Use one of the following formats to specify a sub-PDP when creating an
-               IPv6 NetLB forwarding rule using BYOIP:
+               in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+               mode. Use one of the following formats to specify a sub-PDP when creating
+               a dual stack or IPv6-only subnetwork using BYOIP:
                Full resource URL, as in:
                * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
                Partial URL, as in:
@@ -1398,6 +1470,8 @@ class Subnetwork(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] region: The GCP region for this subnetwork.
         :param pulumi.Input[_builtins.str] reserved_internal_range: The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
                E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
+        :param pulumi.Input[_builtins.str] resolve_subnet_mask: 'Configures subnet mask resolution for this subnetwork.'
+               Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
         :param pulumi.Input[_builtins.str] role: The role of subnetwork.
                Currently, this field is only used when `purpose` is `REGIONAL_MANAGED_PROXY`.
                The value can be set to `ACTIVE` or `BACKUP`.
@@ -1565,6 +1639,23 @@ class Subnetwork(pulumi.CustomResource):
             purpose="PRIVATE_NAT",
             network=custom_test.id)
         ```
+        ### Subnetwork Resolve Subnet Mask
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        custom_test = gcp.compute.Network("custom-test",
+            name="subnet-resolve-subnet-mask-test-network",
+            auto_create_subnetworks=False)
+        subnetwork_resolve_subnet_mask = gcp.compute.Subnetwork("subnetwork-resolve-subnet-mask",
+            name="subnet-resolve-subnet-mask-test-subnetwork",
+            region="us-west2",
+            ip_cidr_range="10.10.0.0/24",
+            purpose="PRIVATE",
+            resolve_subnet_mask="ARP_PRIMARY_RANGE",
+            network=custom_test.id)
+        ```
         ### Subnetwork Cidr Overlap
 
         ```python
@@ -1685,6 +1776,7 @@ class Subnetwork(pulumi.CustomResource):
                  allow_subnet_cidr_routes_overlap: Optional[pulumi.Input[_builtins.bool]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  external_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
+                 internal_ipv6_prefix: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_cidr_range: Optional[pulumi.Input[_builtins.str]] = None,
                  ip_collection: Optional[pulumi.Input[_builtins.str]] = None,
                  ipv6_access_type: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1698,6 +1790,7 @@ class Subnetwork(pulumi.CustomResource):
                  purpose: Optional[pulumi.Input[_builtins.str]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  reserved_internal_range: Optional[pulumi.Input[_builtins.str]] = None,
+                 resolve_subnet_mask: Optional[pulumi.Input[_builtins.str]] = None,
                  role: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_ip_ranges: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SubnetworkSecondaryIpRangeArgs', 'SubnetworkSecondaryIpRangeArgsDict']]]]] = None,
                  send_secondary_ip_range_if_empty: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1714,6 +1807,7 @@ class Subnetwork(pulumi.CustomResource):
             __props__.__dict__["allow_subnet_cidr_routes_overlap"] = allow_subnet_cidr_routes_overlap
             __props__.__dict__["description"] = description
             __props__.__dict__["external_ipv6_prefix"] = external_ipv6_prefix
+            __props__.__dict__["internal_ipv6_prefix"] = internal_ipv6_prefix
             __props__.__dict__["ip_cidr_range"] = ip_cidr_range
             __props__.__dict__["ip_collection"] = ip_collection
             __props__.__dict__["ipv6_access_type"] = ipv6_access_type
@@ -1729,6 +1823,7 @@ class Subnetwork(pulumi.CustomResource):
             __props__.__dict__["purpose"] = purpose
             __props__.__dict__["region"] = region
             __props__.__dict__["reserved_internal_range"] = reserved_internal_range
+            __props__.__dict__["resolve_subnet_mask"] = resolve_subnet_mask
             __props__.__dict__["role"] = role
             __props__.__dict__["secondary_ip_ranges"] = secondary_ip_ranges
             __props__.__dict__["send_secondary_ip_range_if_empty"] = send_secondary_ip_range_if_empty
@@ -1736,7 +1831,6 @@ class Subnetwork(pulumi.CustomResource):
             __props__.__dict__["creation_timestamp"] = None
             __props__.__dict__["fingerprint"] = None
             __props__.__dict__["gateway_address"] = None
-            __props__.__dict__["internal_ipv6_prefix"] = None
             __props__.__dict__["ipv6_cidr_range"] = None
             __props__.__dict__["ipv6_gce_endpoint"] = None
             __props__.__dict__["self_link"] = None
@@ -1774,6 +1868,7 @@ class Subnetwork(pulumi.CustomResource):
             purpose: Optional[pulumi.Input[_builtins.str]] = None,
             region: Optional[pulumi.Input[_builtins.str]] = None,
             reserved_internal_range: Optional[pulumi.Input[_builtins.str]] = None,
+            resolve_subnet_mask: Optional[pulumi.Input[_builtins.str]] = None,
             role: Optional[pulumi.Input[_builtins.str]] = None,
             secondary_ip_ranges: Optional[pulumi.Input[Sequence[pulumi.Input[Union['SubnetworkSecondaryIpRangeArgs', 'SubnetworkSecondaryIpRangeArgsDict']]]]] = None,
             self_link: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1807,9 +1902,9 @@ class Subnetwork(pulumi.CustomResource):
                non-overlapping within a network. Only IPv4 is supported.
                Field is optional when `reserved_internal_range` is defined, otherwise required.
         :param pulumi.Input[_builtins.str] ip_collection: Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-               in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-               Use one of the following formats to specify a sub-PDP when creating an
-               IPv6 NetLB forwarding rule using BYOIP:
+               in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+               mode. Use one of the following formats to specify a sub-PDP when creating
+               a dual stack or IPv6-only subnetwork using BYOIP:
                Full resource URL, as in:
                * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
                Partial URL, as in:
@@ -1857,6 +1952,8 @@ class Subnetwork(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] region: The GCP region for this subnetwork.
         :param pulumi.Input[_builtins.str] reserved_internal_range: The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
                E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
+        :param pulumi.Input[_builtins.str] resolve_subnet_mask: 'Configures subnet mask resolution for this subnetwork.'
+               Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
         :param pulumi.Input[_builtins.str] role: The role of subnetwork.
                Currently, this field is only used when `purpose` is `REGIONAL_MANAGED_PROXY`.
                The value can be set to `ACTIVE` or `BACKUP`.
@@ -1910,6 +2007,7 @@ class Subnetwork(pulumi.CustomResource):
         __props__.__dict__["purpose"] = purpose
         __props__.__dict__["region"] = region
         __props__.__dict__["reserved_internal_range"] = reserved_internal_range
+        __props__.__dict__["resolve_subnet_mask"] = resolve_subnet_mask
         __props__.__dict__["role"] = role
         __props__.__dict__["secondary_ip_ranges"] = secondary_ip_ranges
         __props__.__dict__["self_link"] = self_link
@@ -1999,9 +2097,9 @@ class Subnetwork(pulumi.CustomResource):
     def ip_collection(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-        in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-        Use one of the following formats to specify a sub-PDP when creating an
-        IPv6 NetLB forwarding rule using BYOIP:
+        in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+        mode. Use one of the following formats to specify a sub-PDP when creating
+        a dual stack or IPv6-only subnetwork using BYOIP:
         Full resource URL, as in:
         * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
         Partial URL, as in:
@@ -2142,6 +2240,15 @@ class Subnetwork(pulumi.CustomResource):
         E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
         """
         return pulumi.get(self, "reserved_internal_range")
+
+    @_builtins.property
+    @pulumi.getter(name="resolveSubnetMask")
+    def resolve_subnet_mask(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        'Configures subnet mask resolution for this subnetwork.'
+        Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
+        """
+        return pulumi.get(self, "resolve_subnet_mask")
 
     @_builtins.property
     @pulumi.getter

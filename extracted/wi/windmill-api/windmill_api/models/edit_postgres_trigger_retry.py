@@ -16,11 +16,13 @@ T = TypeVar("T", bound="EditPostgresTriggerRetry")
 
 @_attrs_define
 class EditPostgresTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, EditPostgresTriggerRetryConstant]):
-        exponential (Union[Unset, EditPostgresTriggerRetryExponential]):
-        retry_if (Union[Unset, EditPostgresTriggerRetryRetryIf]):
+        constant (Union[Unset, EditPostgresTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, EditPostgresTriggerRetryExponential]): Retry with exponential backoff (delay doubles
+            each time)
+        retry_if (Union[Unset, EditPostgresTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "EditPostgresTriggerRetryConstant"] = UNSET

@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -18,7 +18,7 @@ class BumpSequence(Operation):
 
     Threshold: Low
 
-    See `Bump Sequence <https://developers.stellar.org/docs/start/list-of-operations/#bump-sequence>`_ for more information.
+    See `Bump Sequence <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#bump-sequence>`_ for more information.
 
     :param bump_to: Sequence number to bump to.
     :param source: The optional source account.
@@ -29,9 +29,7 @@ class BumpSequence(Operation):
         stellar_xdr.OperationType.BUMP_SEQUENCE
     )
 
-    def __init__(
-        self, bump_to: int, source: Optional[Union[MuxedAccount, str]] = None
-    ) -> None:
+    def __init__(self, bump_to: int, source: MuxedAccount | str | None = None) -> None:
         super().__init__(source)
         self.bump_to: int = bump_to
 

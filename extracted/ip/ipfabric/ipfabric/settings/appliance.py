@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime, timezone, timedelta
 from typing import Any, Union
 
 from pydantic import BaseModel, Field
@@ -36,7 +35,7 @@ CONFIG_OPTIONS = {
     "intent-checks",
     "dashboards-and-widgets",
 }
-CONFIG_ITEMS = set(sorted(CONFIG_OPTIONS.union({_.replace("-", "_") for _ in CONFIG_OPTIONS})))
+CONFIG_ITEMS = set(sorted(CONFIG_OPTIONS.union({_.replace("-", "_") for _ in CONFIG_OPTIONS})))  # noqa: S7516, S7508
 
 
 class ApplianceConfiguration(BaseModel):
@@ -88,16 +87,12 @@ class ApplianceConfiguration(BaseModel):
         """
         config_options = self._create_options(passphrase, config_options, disable_options)
         payload = {"passphrase": passphrase, **config_options.export()}
-        started = round((datetime.now(timezone.utc) - timedelta(seconds=10)).timestamp() * 1000)
-        raise_for_status(self.client.post("appliance-configuration/export", json=payload))
-        # TODO: NIM-18675 v7.5
-        job = self.client.jobs.find_job(started=started, action="export")
-        if not job:
-            return None
-        if wait_for_export and (_ := self.client.jobs.return_job_when_done(job, retry=retry, timeout=timeout)):
-            config = raise_for_status(self.client.get(f"jobs/{job.id}/download"))
+        job_id = raise_for_status(self.client.post("appliance-configuration/export", json=payload)).json()["id"]
+
+        if wait_for_export and (_ := self.client.jobs.return_job_when_done(job_id, retry=retry, timeout=timeout)):
+            config = raise_for_status(self.client.get(f"jobs/{job_id}/download"))
             return ExportJob(job=_, config=config.json())
-        return ExportJob(job=job, config=None)
+        return ExportJob(job=self.client.jobs.get_job_by_id(job_id), config=None)
 
     def import_config(
         self,
@@ -143,13 +138,8 @@ class ApplianceConfiguration(BaseModel):
             ("passphrase", (None, passphrase)),
             *[("configurationOptions[]", (None, v)) for v in valid_options],
         ]
-        started = round((datetime.now(timezone.utc) - timedelta(seconds=10)).timestamp() * 1000)
-        raise_for_status(self.client.post("appliance-configuration/import", files=files))
-        # TODO: NIM-18675 v8.0
-        job = self.client.jobs.find_job(started=started, action="import")
-        if not job:
-            return None
-        if wait_for_import:
-            _ = self.client.jobs.return_job_when_done(job, retry=retry, timeout=timeout)
-            job = _ or self.client.jobs.get_job_by_id(job.id)
+        job_id = raise_for_status(self.client.post("appliance-configuration/import", files=files)).json()["id"]
+        job = self.client.jobs.get_job_by_id(job_id)
+        if wait_for_import and (_ := self.client.jobs.return_job_when_done(job_id, retry=retry, timeout=timeout)):
+            job = _
         return ImportJob(job=job)

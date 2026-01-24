@@ -3,7 +3,7 @@ Type annotations for firehose service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_firehose/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -49,12 +50,6 @@ from .type_defs import (
     UpdateDestinationInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -65,15 +60,15 @@ __all__ = ("FirehoseClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidKMSResourceException: Type[BotocoreClientError]
-    InvalidSourceException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidKMSResourceException: type[BotocoreClientError]
+    InvalidSourceException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
 
 
 class FirehoseClient(AioBaseClient):
@@ -123,7 +118,7 @@ class FirehoseClient(AioBaseClient):
 
     async def delete_delivery_stream(
         self, **kwargs: Unpack[DeleteDeliveryStreamInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Firehose stream and its data.
 
@@ -182,7 +177,7 @@ class FirehoseClient(AioBaseClient):
 
     async def start_delivery_stream_encryption(
         self, **kwargs: Unpack[StartDeliveryStreamEncryptionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables server-side encryption (SSE) for the Firehose stream.
 
@@ -192,7 +187,7 @@ class FirehoseClient(AioBaseClient):
 
     async def stop_delivery_stream_encryption(
         self, **kwargs: Unpack[StopDeliveryStreamEncryptionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables server-side encryption (SSE) for the Firehose stream.
 
@@ -202,7 +197,7 @@ class FirehoseClient(AioBaseClient):
 
     async def tag_delivery_stream(
         self, **kwargs: Unpack[TagDeliveryStreamInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or updates tags for the specified Firehose stream.
 
@@ -212,7 +207,7 @@ class FirehoseClient(AioBaseClient):
 
     async def untag_delivery_stream(
         self, **kwargs: Unpack[UntagDeliveryStreamInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes tags from the specified Firehose stream.
 
@@ -222,7 +217,7 @@ class FirehoseClient(AioBaseClient):
 
     async def update_destination(
         self, **kwargs: Unpack[UpdateDestinationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified destination of the specified Firehose stream.
 
@@ -238,7 +233,7 @@ class FirehoseClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

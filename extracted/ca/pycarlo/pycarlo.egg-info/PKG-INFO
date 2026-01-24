@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pycarlo
-Version: 0.10.153
+Version: 0.12.92
 Summary: Monte Carlo's Python SDK
 Home-page: https://www.montecarlodata.com/
 Author: Monte Carlo Data, Inc
@@ -25,9 +25,7 @@ Requires-Dist: requests<3.0.0,>=2.0.0
 Requires-Dist: responses>=0.20.0
 Requires-Dist: sgqlc<17.0,>=14.1
 
-# Pycarlo
-
-Monte Carlo's Alpha Python SDK!
+# Pycarlo - Monte Carlo's Python SDK
 
 ## Installation
 
@@ -40,23 +38,22 @@ virtualenv venv
 pip install -U pycarlo
 ```
 
-Developers of the SDK can use:
-
-```shell
-make install-with-tests
-. venv/bin/activate
-pre-commit install
-```
-
 ## Overview
 
 Pycarlo comprises two components: `core` and `features`.
 
-All Monte Carlo API queries and mutations that you could execute via the API are supported via the `core` library. Operations can be executed as first class objects, using [sgqlc](https://github.com/profusion/sgqlc), or as raw GQL with variables. In both cases, a consistent object where fields can be referenced by dot notation and the more pythonic snake_case is returned for ease of use.
+All Monte Carlo API queries and mutations that you could execute via the API are supported via the
+`core` library. Operations can be executed as first class objects, using
+[sgqlc](https://github.com/profusion/sgqlc), or as raw GQL with variables. In both cases, a
+consistent object where fields can be referenced by dot notation and the more pythonic snake_case is
+returned for ease of use.
 
-The `features` library provides additional convenience for performing common operations like with dbt, circuit breaking, and pii filtering.
+The `features` library provides additional convenience for performing common operations like with
+dbt, circuit breaking, and pii filtering.
 
-Note that an API Key is required to use the SDK. See [here](https://docs.getmontecarlo.com/docs/developer-resources#creating-an-api-key) for details on how to generate one.
+Note that an API Key is required to use the SDK. See
+[our docs on generating API keys](https://docs.getmontecarlo.com/docs/developer-resources#creating-an-api-key)
+for details.
 
 ## Basic usage
 
@@ -144,13 +141,78 @@ print(client(mutation))
 # ]
 ```
 
-Note that you can find Monte Carlo's API reference [here](https://apidocs.getmontecarlo.com/).
+### Examples
 
-For details and additional examples on how to map (convert) GraphQL queries to `sgqlc` operations please refer to the docs [here](https://sgqlc.readthedocs.io/en/latest/sgqlc.operation.html).
+#### Circuit Breaker Example
+
+```python
+from pycarlo.core import Client, Session
+from pycarlo.features.circuit_breakers import CircuitBreakerService
+
+# Example from our test.snowflake account.
+endpoint = "https://api.dev.getmontecarlo.com/graphql"
+
+service = CircuitBreakerService(
+    mc_client=Client(Session(mcd_profile="test-snow", endpoint=endpoint)), print_func=print
+)
+in_breach = service.trigger_and_poll(rule_uuid="87872875-fe80-4963-8ab0-c04397a6daae")
+print("That can't be good. Our warehouse is broken." if in_breach else "Go, go, go!.")
+```
+
+#### Insight Upload Example
+
+```python
+from pathlib import Path
+
+import boto3
+import requests
+
+from pycarlo.core import Client, Query
+
+MC_CLIENT = Client()
+S3_CLIENT = boto3.client("s3")
+
+
+def upload_insights_to_s3(
+    destination_bucket: str,
+    desired_file_extension: str = ".csv",
+) -> None:
+    """
+    Example function for listing all insights in an account, and uploading any available
+    to S3 as a CSV.
+    """
+    list_insights_query = Query()
+    list_insights_query.get_insights()
+    for insight in MC_CLIENT(list_insights_query).get_insights:
+        report_name = str(Path(insight.name).with_suffix(desired_file_extension))
+
+        if insight.available:
+            report_url_query = Query()
+            report_url_query.get_report_url(insight_name=insight.name, report_name=report_name)
+            report_url = MC_CLIENT(report_url_query).get_report_url.url
+
+            print(f"Uploading {report_name} to {destination_bucket}.")
+            S3_CLIENT.upload_fileobj(
+                Fileobj=requests.get(url=report_url, stream=True).raw,
+                Bucket=destination_bucket,
+                Key=report_name,
+            )
+
+
+if __name__ == "__main__":
+    upload_insights_to_s3(destination_bucket="<BUCKET-NAME>")
+```
+
+See [Monte Carlo's API reference](https://apidocs.getmontecarlo.com/) for all supported queries and
+mutations.
+
+For details and additional examples on how to map (convert) GraphQL queries to `sgqlc` operations
+please refer to [the sgqlc docs](https://sgqlc.readthedocs.io/en/latest/sgqlc.operation.html).
 
 ### Features
 
-You can use [pydoc](https://docs.python.org/3.8/library/pydoc.html) to retrieve documentation on any feature packages (`pydoc pycarlo.features`).
+You can use [pydoc](https://docs.python.org/library/pydoc.html) to retrieve documentation on any
+feature packages (`pydoc pycarlo.features`).
 
 For instance for [circuit breakers](https://docs.getmontecarlo.com/docs/circuit-breakers):
 
@@ -160,9 +222,13 @@ pydoc pycarlo.features.circuit_breakers.service
 
 ## Session configuration
 
-By default, when creating a client the `default` profile from `~/.mcd/profiles.ini` is used. This file created via [montecarlo configure](https://docs.getmontecarlo.com/docs/using-the-cli#setting-up-the-cli) on the CLI. Note that you can find Monte Carlo's CLI reference [here](https://clidocs.getmontecarlo.com/).
+By default, when creating a client the `default` profile from `~/.mcd/profiles.ini` is used. This
+file created via
+[montecarlo configure](https://docs.getmontecarlo.com/docs/using-the-cli#setting-up-the-cli) on the
+CLI. See [Monte Carlo's CLI reference](https://clidocs.getmontecarlo.com/) for more details.
 
-You can override this usage by creating a custom `Session`. For instance, if you want to pass the ID and Token:
+You can override this usage by creating a custom `Session`. For instance, if you want to pass the ID
+and Token:
 
 ```python
 from pycarlo.core import Client, Session
@@ -174,7 +240,8 @@ Sessions support the following params:
 
 - `mcd_id`: API Key ID.
 - `mcd_token`: API secret.
-- `mcd_profile`: Named profile containing credentials. This is created via the CLI (e.g. `montecarlo configure --profile-name zeus`).
+- `mcd_profile`: Named profile containing credentials. This is created via the CLI (e.g.
+  `montecarlo configure --profile-name zeus`).
 - `mcd_config_path`: Path to file containing credentials. Defaults to `~/.mcd/`.
 
 You can also specify the API Key, secret or profile name using the following environment variables:
@@ -183,7 +250,8 @@ You can also specify the API Key, secret or profile name using the following env
 - `MCD_DEFAULT_API_TOKEN`
 - `MCD_DEFAULT_PROFILE`
 
-When creating a session any explicitly passed `mcd_id` and `mcd_token` params take precedence, followed by environmental variables and then any config-file options.
+When creating a session any explicitly passed `mcd_id` and `mcd_token` params take precedence,
+followed by environmental variables and then any config-file options.
 
 Environment variables can be mixed with passed credentials, but not the config-file profile.
 
@@ -191,9 +259,11 @@ Environment variables can be mixed with passed credentials, but not the config-f
 
 ## Integration Gateway API
 
-There are features that require the Integration Gateway API instead of the regular GraphQL Application API, for example Airflow Callbacks invoked by the `airflow-mcd` library.
+There are features that require the Integration Gateway API instead of the regular GraphQL
+Application API, for example Airflow Callbacks invoked by the `airflow-mcd` library.
 
-To use the Gateway you need to initialize the `Session` object passing a `scope` parameter and then use `make_request` to invoke Gateway endpoints:
+To use the Gateway you need to initialize the `Session` object passing a `scope` parameter and then
+use `make_request` to invoke Gateway endpoints:
 
 ```python
 from pycarlo.core import Client, Session
@@ -211,17 +281,18 @@ The following values also be set by the environment:
 - `MCD_VERBOSE_ERRORS`: Enable logging. This includes a trace ID for each session and request.
 - `MCD_API_ENDPOINT`: Customize the endpoint where queries and mutations are executed.
 
-## Tests and releases
+## Enum Backward Compatibility
 
-To update queries and mutations via introspection, use `make generate`.
+Unlike the baseline `sgqlc` behavior, this SDK is designed to maintain backward compatibility when
+new enum values are added to the Monte Carlo API. If the API returns an enum value that doesn't
+exist in your SDK version, it will be returned as a string with a warning logged, rather than
+raising an error. This allows older SDK versions to continue working when new features are added.
 
-`make test` can be used to run all tests locally. CircleCI manages all testing for deployment. When ready for a review, create a PR against `main`.
-
-When ready to release, create a new [Github release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) with a tag using semantic versioning (e.g. `v0.42.0`) and CircleCI will test and publish to PyPI. Note that an existing version will not be deployed.
+To avoid warnings and ensure full feature support, keep your SDK updated to the latest version.
 
 ## References
 
-- Dashboard: <https://getmontecarlo.com>
+- Monte Carlo App: <https://getmontecarlo.com>
 - Product docs: <https://docs.getmontecarlo.com>
 - Status page: <https://status.getmontecarlo.com>
 - API (and SDK): <https://apidocs.getmontecarlo.com>
@@ -229,4 +300,4 @@ When ready to release, create a new [Github release](https://docs.github.com/en/
 
 ## License
 
-Apache 2.0 - See the [LICENSE](http://www.apache.org/licenses/LICENSE-2.0) for more information.
+Apache 2.0 - See the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) for more information.

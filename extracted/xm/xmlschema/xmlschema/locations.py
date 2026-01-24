@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -7,16 +7,66 @@
 #
 # @author Davide Brunato <brunato@sissa.it>
 #
-import os
+import pathlib
 from collections.abc import Iterable
-from typing import Optional
+from typing import Optional, Any, MutableMapping, Iterator, TypeVar
 
-from xmlschema.namespaces import NamespaceResourcesMap
 from xmlschema.aliases import LocationsMapType, LocationsType
 from xmlschema.exceptions import XMLSchemaTypeError
 from xmlschema.translation import gettext as _
 from xmlschema.utils.urls import normalize_locations
 import xmlschema.names as nm
+
+T = TypeVar('T', bound=object)
+
+
+class NamespaceResourcesMap(MutableMapping[str, list[T]]):
+    """
+    Dictionary for storing information about namespace resources. Values are
+    lists of objects. Setting an existing value appends the object to the value.
+    Setting a value with a list sets/replaces the value.
+    """
+    __slots__ = ('_store',)
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        self._store: dict[str, list[T]] = {}
+        for item in args:
+            self.update(item)
+        self.update(kwargs)
+
+    def __getitem__(self, uri: str) -> list[T]:
+        return self._store[uri]
+
+    def __setitem__(self, uri: str, value: Any) -> None:
+        if isinstance(value, list):
+            self._store[uri] = value[:]
+        else:
+            try:
+                self._store[uri].append(value)
+            except KeyError:
+                self._store[uri] = [value]
+
+    def __delitem__(self, uri: str) -> None:
+        del self._store[uri]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._store)
+
+    def __len__(self) -> int:
+        return len(self._store)
+
+    def __repr__(self) -> str:
+        return repr(self._store)
+
+    def clear(self) -> None:
+        self._store.clear()
+
+    def copy(self) -> 'NamespaceResourcesMap[T]':
+        obj: NamespaceResourcesMap[T] = object.__new__(self.__class__)
+        obj._store = {k: v.copy() for k, v in self.items()}
+        return obj
+
+    __copy__ = copy
 
 
 def get_locations(locations: Optional[LocationsType], base_url: Optional[str] = None) \
@@ -35,7 +85,7 @@ def get_locations(locations: Optional[LocationsType], base_url: Optional[str] = 
         return NamespaceResourcesMap(normalize_locations(locations, base_url))
 
 
-SCHEMAS_DIR = os.path.join(os.path.dirname(__file__), 'schemas/')
+SCHEMAS_DIR = pathlib.Path(__file__).parent.joinpath('schemas')
 
 ###
 # Standard locations for well-known namespaces
@@ -64,22 +114,22 @@ LOCATIONS: LocationsMapType = {
 # Fallback locations for well-known namespaces
 FALLBACK_LOCATIONS: LocationsMapType = {
     nm.XSD_NAMESPACE: [
-        f'{SCHEMAS_DIR}XSD_1.0/XMLSchema.xsd',
-        f'{SCHEMAS_DIR}XSD_1.1/XMLSchema.xsd',
-        f'{SCHEMAS_DIR}XSD_1.1/XMLSchema.xsd',
+        SCHEMAS_DIR.joinpath('XSD_1.0', 'XMLSchema.xsd').as_uri(),
+        SCHEMAS_DIR.joinpath('XSD_1.1', 'XMLSchema.xsd').as_uri(),
+        SCHEMAS_DIR.joinpath('XSD_1.1', 'XMLSchema.xsd').as_uri(),
     ],
-    nm.XML_NAMESPACE: f'{SCHEMAS_DIR}XML/xml.xsd',
-    nm.XSI_NAMESPACE: f'{SCHEMAS_DIR}XSI/XMLSchema-instance.xsd',
-    nm.HFP_NAMESPACE: f'{SCHEMAS_DIR}HFP/XMLSchema-hasFacetAndProperty.xsd',
-    nm.VC_NAMESPACE: f'{SCHEMAS_DIR}XSI/XMLSchema-versioning.xsd',
-    nm.XLINK_NAMESPACE: f'{SCHEMAS_DIR}XLINK/xlink.xsd',
-    nm.XHTML_NAMESPACE: f'{SCHEMAS_DIR}XHTML/xhtml1-strict.xsd',
-    nm.WSDL_NAMESPACE: f'{SCHEMAS_DIR}WSDL/wsdl.xsd',
-    nm.SOAP_NAMESPACE: f'{SCHEMAS_DIR}WSDL/wsdl-soap.xsd',
-    nm.SOAP_ENVELOPE_NAMESPACE: f'{SCHEMAS_DIR}WSDL/soap-envelope.xsd',
-    nm.SOAP_ENCODING_NAMESPACE: f'{SCHEMAS_DIR}WSDL/soap-encoding.xsd',
-    nm.DSIG_NAMESPACE: f'{SCHEMAS_DIR}DSIG/xmldsig-core-schema.xsd',
-    nm.DSIG11_NAMESPACE: f'{SCHEMAS_DIR}DSIG/xmldsig11-schema.xsd',
-    nm.XENC_NAMESPACE: f'{SCHEMAS_DIR}XENC/xenc-schema.xsd',
-    nm.XENC11_NAMESPACE: f'{SCHEMAS_DIR}XENC/xenc-schema-11.xsd',
+    nm.XML_NAMESPACE: SCHEMAS_DIR.joinpath('XML', 'xml.xsd').as_uri(),
+    nm.XSI_NAMESPACE: SCHEMAS_DIR.joinpath('XSI', 'XMLSchema-instance.xsd').as_uri(),
+    nm.HFP_NAMESPACE: SCHEMAS_DIR.joinpath('HFP', 'XMLSchema-hasFacetAndProperty.xsd').as_uri(),
+    nm.VC_NAMESPACE: SCHEMAS_DIR.joinpath('XSI', 'XMLSchema-versioning.xsd').as_uri(),
+    nm.XLINK_NAMESPACE: SCHEMAS_DIR.joinpath('XLINK', 'xlink.xsd').as_uri(),
+    nm.XHTML_NAMESPACE: SCHEMAS_DIR.joinpath('XHTML', 'xhtml1-strict.xsd').as_uri(),
+    nm.WSDL_NAMESPACE: SCHEMAS_DIR.joinpath('WSDL', 'wsdl.xsd').as_uri(),
+    nm.SOAP_NAMESPACE: SCHEMAS_DIR.joinpath('WSDL', 'wsdl-soap.xsd').as_uri(),
+    nm.SOAP_ENVELOPE_NAMESPACE: SCHEMAS_DIR.joinpath('WSDL', 'soap-envelope.xsd').as_uri(),
+    nm.SOAP_ENCODING_NAMESPACE: SCHEMAS_DIR.joinpath('WSDL', 'soap-encoding.xsd').as_uri(),
+    nm.DSIG_NAMESPACE: SCHEMAS_DIR.joinpath('DSIG', 'xmldsig-core-schema.xsd').as_uri(),
+    nm.DSIG11_NAMESPACE: SCHEMAS_DIR.joinpath('DSIG', 'xmldsig11-schema.xsd').as_uri(),
+    nm.XENC_NAMESPACE: SCHEMAS_DIR.joinpath('XENC', 'xenc-schema.xsd').as_uri(),
+    nm.XENC11_NAMESPACE: SCHEMAS_DIR.joinpath('XENC', 'xenc-schema-11.xsd').as_uri(),
 }

@@ -50,7 +50,8 @@ class WorkspaceTemplate(object):
         'updated_at': 'datetime',
         'organization_id': 'str',
         'creator_email': 'str',
-        'published_version': 'WorkspaceTemplateVersionDataObject'
+        'current_version': 'WorkspaceTemplateVersionDataObject',
+        'version': 'int'
     }
 
     attribute_map = {
@@ -71,10 +72,11 @@ class WorkspaceTemplate(object):
         'updated_at': 'updated_at',
         'organization_id': 'organization_id',
         'creator_email': 'creator_email',
-        'published_version': 'published_version'
+        'current_version': 'current_version',
+        'version': 'version'
     }
 
-    def __init__(self, name=None, description=None, mins_to_complete=None, icon_type=None, icon_bg_color=None, complexity=None, category=None, labels=None, published_version_id=None, cloud_id=None, is_global=False, id=None, creator_id=None, created_at=None, updated_at=None, organization_id=None, creator_email=None, published_version=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, mins_to_complete=None, icon_type=None, icon_bg_color=None, complexity=None, category=None, labels=None, published_version_id=None, cloud_id=None, is_global=False, id=None, creator_id=None, created_at=None, updated_at=None, organization_id=None, creator_email=None, current_version=None, version=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -97,7 +99,8 @@ class WorkspaceTemplate(object):
         self._updated_at = None
         self._organization_id = None
         self._creator_email = None
-        self._published_version = None
+        self._current_version = None
+        self._version = None
         self.discriminator = None
 
         self.name = name
@@ -128,8 +131,10 @@ class WorkspaceTemplate(object):
         self.organization_id = organization_id
         if creator_email is not None:
             self.creator_email = creator_email
-        if published_version is not None:
-            self.published_version = published_version
+        if current_version is not None:
+            self.current_version = current_version
+        if version is not None:
+            self.version = version
 
     @property
     def name(self):
@@ -535,27 +540,50 @@ class WorkspaceTemplate(object):
         self._creator_email = creator_email
 
     @property
-    def published_version(self):
-        """Gets the published_version of this WorkspaceTemplate.  # noqa: E501
+    def current_version(self):
+        """Gets the current_version of this WorkspaceTemplate.  # noqa: E501
 
-        Published version of the template  # noqa: E501
+        Current version of the template. This is the version being published or the latest version if no version is published.  # noqa: E501
 
-        :return: The published_version of this WorkspaceTemplate.  # noqa: E501
+        :return: The current_version of this WorkspaceTemplate.  # noqa: E501
         :rtype: WorkspaceTemplateVersionDataObject
         """
-        return self._published_version
+        return self._current_version
 
-    @published_version.setter
-    def published_version(self, published_version):
-        """Sets the published_version of this WorkspaceTemplate.
+    @current_version.setter
+    def current_version(self, current_version):
+        """Sets the current_version of this WorkspaceTemplate.
 
-        Published version of the template  # noqa: E501
+        Current version of the template. This is the version being published or the latest version if no version is published.  # noqa: E501
 
-        :param published_version: The published_version of this WorkspaceTemplate.  # noqa: E501
+        :param current_version: The current_version of this WorkspaceTemplate.  # noqa: E501
         :type: WorkspaceTemplateVersionDataObject
         """
 
-        self._published_version = published_version
+        self._current_version = current_version
+
+    @property
+    def version(self):
+        """Gets the version of this WorkspaceTemplate.  # noqa: E501
+
+        Version of the template  # noqa: E501
+
+        :return: The version of this WorkspaceTemplate.  # noqa: E501
+        :rtype: int
+        """
+        return self._version
+
+    @version.setter
+    def version(self, version):
+        """Sets the version of this WorkspaceTemplate.
+
+        Version of the template  # noqa: E501
+
+        :param version: The version of this WorkspaceTemplate.  # noqa: E501
+        :type: int
+        """
+
+        self._version = version
 
     def to_dict(self):
         """Returns the model properties as a dict"""

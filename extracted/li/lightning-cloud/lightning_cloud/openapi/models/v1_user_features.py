@@ -41,360 +41,537 @@ class V1UserFeatures(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'apt_get_v2': 'bool',
+        'affiliate_links': 'bool',
+        'agents_v2': 'bool',
+        'ai_hub_monetization': 'bool',
         'auto_fast_load': 'bool',
-        'aws_trainium': 'bool',
         'b2c_experience': 'bool',
-        'byom': 'bool',
+        'byo_machine_type': 'bool',
         'cap_add': 'list[str]',
         'cap_drop': 'list[str]',
-        'cluster_running_notification': 'bool',
+        'capacity_reservation_byoc': 'bool',
+        'capacity_reservation_dry_run': 'bool',
+        'chat_models': 'bool',
+        'cloudspace_schedules': 'bool',
         'code_tab': 'bool',
         'collab_screen_sharing': 'bool',
+        'control_center_monitoring': 'bool',
         'cost_attribution_settings': 'bool',
-        'crypto_monitoring': 'bool',
-        'custom_app_domain': 'bool',
-        'custom_instance_types': 'bool',
-        'docs_agent': 'bool',
-        'enable_crypto_crackdown': 'bool',
+        'datasets': 'bool',
+        'default_one_cluster': 'bool',
+        'drive_v2': 'bool',
+        'enterprise_compute_admin': 'bool',
+        'f234': 'bool',
+        'f236': 'bool',
+        'f240': 'bool',
+        'f241': 'bool',
+        'f243': 'bool',
+        'f245': 'bool',
+        'f247': 'bool',
+        'f250': 'bool',
+        'f252': 'bool',
+        'f253': 'bool',
+        'f254': 'bool',
+        'f258': 'bool',
+        'f259': 'bool',
+        'f265': 'bool',
+        'f266': 'bool',
+        'f268': 'bool',
+        'f270': 'bool',
+        'f271': 'bool',
+        'f272': 'bool',
+        'f273': 'bool',
+        'f274': 'bool',
+        'f275': 'bool',
+        'f276': 'bool',
+        'f278': 'bool',
+        'f279': 'bool',
+        'f280': 'bool',
+        'f281': 'bool',
+        'f282': 'bool',
+        'f283': 'bool',
+        'f284': 'bool',
+        'f285': 'bool',
+        'f286': 'bool',
+        'f287': 'bool',
+        'f288': 'bool',
+        'f289': 'bool',
+        'f290': 'bool',
+        'fair_share': 'bool',
         'featured_studios_admin': 'bool',
-        'filesystem_optimisation': 'bool',
-        'gcp': 'bool',
-        'import_from_studio_into_about': 'bool',
-        'interruptible_instances': 'bool',
-        'jobs_init': 'bool',
-        'jobs_v2': 'bool',
-        'l4x8': 'bool',
+        'job_artifacts_v2': 'bool',
+        'kubernetes_cluster_ui': 'bool',
+        'kubernetes_clusters': 'bool',
         'landing_studios': 'bool',
-        'lit_logger': 'bool',
-        'lit_logger_storage_v2': 'bool',
-        'mmt_app': 'bool',
+        'marketplace': 'bool',
         'mmt_fault_tolerance': 'bool',
         'mmt_strategy_selector': 'bool',
-        'mountpoint_s3': 'bool',
-        'plugin_biz_chat': 'bool',
+        'multiple_studio_versions': 'bool',
+        'nerf_fs_nonpaying': 'bool',
+        'org_level_member_permissions': 'bool',
+        'org_usage_limits': 'bool',
+        'persistent_disk': 'bool',
         'plugin_distributed': 'bool',
-        'plugin_fiftyone': 'bool',
         'plugin_inference': 'bool',
         'plugin_label_studio': 'bool',
         'plugin_langflow': 'bool',
-        'plugin_lightning_apps': 'bool',
-        'plugin_lightning_apps_distributed': 'bool',
-        'plugin_mage_ai': 'bool',
-        'plugin_milvus': 'bool',
         'plugin_python_profiler': 'bool',
-        'plugin_react': 'bool',
-        'plugin_service': 'bool',
         'plugin_sweeps': 'bool',
-        'plugin_weviate': 'bool',
-        'pricing_updates': 'bool',
         'product_generator': 'bool',
+        'product_license': 'bool',
         'project_selector': 'bool',
-        'publish_ai_app': 'bool',
-        'restart_ide_on_hang': 'bool',
+        'publish_pipelines': 'bool',
+        'reserved_machines_tab': 'bool',
         'restartable_jobs': 'bool',
         'runnable_public_studio_page': 'bool',
+        'security_docs': 'bool',
         'show_dev_admin': 'bool',
         'slurm': 'bool',
-        'slurm_machine_selector': 'bool',
-        'snowflake_connection': 'bool',
-        'spot': 'bool',
-        'teamspace_storage_tab': 'bool',
-        'testable_entrypoint': 'bool',
-        'unified_billing_ux': 'bool',
-        'unified_billing_ux_v2': 'bool',
-        'use_local_disk': 'bool',
-        'use_rclone_mounts_only': 'bool',
-        'writable_data_connections': 'bool'
+        'specialised_studios': 'bool',
+        'storage_overuse_deletion': 'bool',
+        'studio_config': 'bool',
+        'studio_version_visibility': 'bool',
+        'vultr': 'bool',
+        'weka': 'bool'
     }
 
     attribute_map = {
-        'apt_get_v2': 'aptGetV2',
+        'affiliate_links': 'affiliateLinks',
+        'agents_v2': 'agentsV2',
+        'ai_hub_monetization': 'aiHubMonetization',
         'auto_fast_load': 'autoFastLoad',
-        'aws_trainium': 'awsTrainium',
         'b2c_experience': 'b2cExperience',
-        'byom': 'byom',
+        'byo_machine_type': 'byoMachineType',
         'cap_add': 'capAdd',
         'cap_drop': 'capDrop',
-        'cluster_running_notification': 'clusterRunningNotification',
+        'capacity_reservation_byoc': 'capacityReservationByoc',
+        'capacity_reservation_dry_run': 'capacityReservationDryRun',
+        'chat_models': 'chatModels',
+        'cloudspace_schedules': 'cloudspaceSchedules',
         'code_tab': 'codeTab',
         'collab_screen_sharing': 'collabScreenSharing',
+        'control_center_monitoring': 'controlCenterMonitoring',
         'cost_attribution_settings': 'costAttributionSettings',
-        'crypto_monitoring': 'cryptoMonitoring',
-        'custom_app_domain': 'customAppDomain',
-        'custom_instance_types': 'customInstanceTypes',
-        'docs_agent': 'docsAgent',
-        'enable_crypto_crackdown': 'enableCryptoCrackdown',
+        'datasets': 'datasets',
+        'default_one_cluster': 'defaultOneCluster',
+        'drive_v2': 'driveV2',
+        'enterprise_compute_admin': 'enterpriseComputeAdmin',
+        'f234': 'f234',
+        'f236': 'f236',
+        'f240': 'f240',
+        'f241': 'f241',
+        'f243': 'f243',
+        'f245': 'f245',
+        'f247': 'f247',
+        'f250': 'f250',
+        'f252': 'f252',
+        'f253': 'f253',
+        'f254': 'f254',
+        'f258': 'f258',
+        'f259': 'f259',
+        'f265': 'f265',
+        'f266': 'f266',
+        'f268': 'f268',
+        'f270': 'f270',
+        'f271': 'f271',
+        'f272': 'f272',
+        'f273': 'f273',
+        'f274': 'f274',
+        'f275': 'f275',
+        'f276': 'f276',
+        'f278': 'f278',
+        'f279': 'f279',
+        'f280': 'f280',
+        'f281': 'f281',
+        'f282': 'f282',
+        'f283': 'f283',
+        'f284': 'f284',
+        'f285': 'f285',
+        'f286': 'f286',
+        'f287': 'f287',
+        'f288': 'f288',
+        'f289': 'f289',
+        'f290': 'f290',
+        'fair_share': 'fairShare',
         'featured_studios_admin': 'featuredStudiosAdmin',
-        'filesystem_optimisation': 'filesystemOptimisation',
-        'gcp': 'gcp',
-        'import_from_studio_into_about': 'importFromStudioIntoAbout',
-        'interruptible_instances': 'interruptibleInstances',
-        'jobs_init': 'jobsInit',
-        'jobs_v2': 'jobsV2',
-        'l4x8': 'l4x8',
+        'job_artifacts_v2': 'jobArtifactsV2',
+        'kubernetes_cluster_ui': 'kubernetesClusterUi',
+        'kubernetes_clusters': 'kubernetesClusters',
         'landing_studios': 'landingStudios',
-        'lit_logger': 'litLogger',
-        'lit_logger_storage_v2': 'litLoggerStorageV2',
-        'mmt_app': 'mmtApp',
+        'marketplace': 'marketplace',
         'mmt_fault_tolerance': 'mmtFaultTolerance',
         'mmt_strategy_selector': 'mmtStrategySelector',
-        'mountpoint_s3': 'mountpointS3',
-        'plugin_biz_chat': 'pluginBizChat',
+        'multiple_studio_versions': 'multipleStudioVersions',
+        'nerf_fs_nonpaying': 'nerfFsNonpaying',
+        'org_level_member_permissions': 'orgLevelMemberPermissions',
+        'org_usage_limits': 'orgUsageLimits',
+        'persistent_disk': 'persistentDisk',
         'plugin_distributed': 'pluginDistributed',
-        'plugin_fiftyone': 'pluginFiftyone',
         'plugin_inference': 'pluginInference',
         'plugin_label_studio': 'pluginLabelStudio',
         'plugin_langflow': 'pluginLangflow',
-        'plugin_lightning_apps': 'pluginLightningApps',
-        'plugin_lightning_apps_distributed': 'pluginLightningAppsDistributed',
-        'plugin_mage_ai': 'pluginMageAi',
-        'plugin_milvus': 'pluginMilvus',
         'plugin_python_profiler': 'pluginPythonProfiler',
-        'plugin_react': 'pluginReact',
-        'plugin_service': 'pluginService',
         'plugin_sweeps': 'pluginSweeps',
-        'plugin_weviate': 'pluginWeviate',
-        'pricing_updates': 'pricingUpdates',
         'product_generator': 'productGenerator',
+        'product_license': 'productLicense',
         'project_selector': 'projectSelector',
-        'publish_ai_app': 'publishAiApp',
-        'restart_ide_on_hang': 'restartIdeOnHang',
+        'publish_pipelines': 'publishPipelines',
+        'reserved_machines_tab': 'reservedMachinesTab',
         'restartable_jobs': 'restartableJobs',
         'runnable_public_studio_page': 'runnablePublicStudioPage',
+        'security_docs': 'securityDocs',
         'show_dev_admin': 'showDevAdmin',
         'slurm': 'slurm',
-        'slurm_machine_selector': 'slurmMachineSelector',
-        'snowflake_connection': 'snowflakeConnection',
-        'spot': 'spot',
-        'teamspace_storage_tab': 'teamspaceStorageTab',
-        'testable_entrypoint': 'testableEntrypoint',
-        'unified_billing_ux': 'unifiedBillingUx',
-        'unified_billing_ux_v2': 'unifiedBillingUxV2',
-        'use_local_disk': 'useLocalDisk',
-        'use_rclone_mounts_only': 'useRcloneMountsOnly',
-        'writable_data_connections': 'writableDataConnections'
+        'specialised_studios': 'specialisedStudios',
+        'storage_overuse_deletion': 'storageOveruseDeletion',
+        'studio_config': 'studioConfig',
+        'studio_version_visibility': 'studioVersionVisibility',
+        'vultr': 'vultr',
+        'weka': 'weka'
     }
 
-    def __init__(self, apt_get_v2: 'bool' =None, auto_fast_load: 'bool' =None, aws_trainium: 'bool' =None, b2c_experience: 'bool' =None, byom: 'bool' =None, cap_add: 'list[str]' =None, cap_drop: 'list[str]' =None, cluster_running_notification: 'bool' =None, code_tab: 'bool' =None, collab_screen_sharing: 'bool' =None, cost_attribution_settings: 'bool' =None, crypto_monitoring: 'bool' =None, custom_app_domain: 'bool' =None, custom_instance_types: 'bool' =None, docs_agent: 'bool' =None, enable_crypto_crackdown: 'bool' =None, featured_studios_admin: 'bool' =None, filesystem_optimisation: 'bool' =None, gcp: 'bool' =None, import_from_studio_into_about: 'bool' =None, interruptible_instances: 'bool' =None, jobs_init: 'bool' =None, jobs_v2: 'bool' =None, l4x8: 'bool' =None, landing_studios: 'bool' =None, lit_logger: 'bool' =None, lit_logger_storage_v2: 'bool' =None, mmt_app: 'bool' =None, mmt_fault_tolerance: 'bool' =None, mmt_strategy_selector: 'bool' =None, mountpoint_s3: 'bool' =None, plugin_biz_chat: 'bool' =None, plugin_distributed: 'bool' =None, plugin_fiftyone: 'bool' =None, plugin_inference: 'bool' =None, plugin_label_studio: 'bool' =None, plugin_langflow: 'bool' =None, plugin_lightning_apps: 'bool' =None, plugin_lightning_apps_distributed: 'bool' =None, plugin_mage_ai: 'bool' =None, plugin_milvus: 'bool' =None, plugin_python_profiler: 'bool' =None, plugin_react: 'bool' =None, plugin_service: 'bool' =None, plugin_sweeps: 'bool' =None, plugin_weviate: 'bool' =None, pricing_updates: 'bool' =None, product_generator: 'bool' =None, project_selector: 'bool' =None, publish_ai_app: 'bool' =None, restart_ide_on_hang: 'bool' =None, restartable_jobs: 'bool' =None, runnable_public_studio_page: 'bool' =None, show_dev_admin: 'bool' =None, slurm: 'bool' =None, slurm_machine_selector: 'bool' =None, snowflake_connection: 'bool' =None, spot: 'bool' =None, teamspace_storage_tab: 'bool' =None, testable_entrypoint: 'bool' =None, unified_billing_ux: 'bool' =None, unified_billing_ux_v2: 'bool' =None, use_local_disk: 'bool' =None, use_rclone_mounts_only: 'bool' =None, writable_data_connections: 'bool' =None):  # noqa: E501
+    def __init__(self, affiliate_links: 'bool' =None, agents_v2: 'bool' =None, ai_hub_monetization: 'bool' =None, auto_fast_load: 'bool' =None, b2c_experience: 'bool' =None, byo_machine_type: 'bool' =None, cap_add: 'list[str]' =None, cap_drop: 'list[str]' =None, capacity_reservation_byoc: 'bool' =None, capacity_reservation_dry_run: 'bool' =None, chat_models: 'bool' =None, cloudspace_schedules: 'bool' =None, code_tab: 'bool' =None, collab_screen_sharing: 'bool' =None, control_center_monitoring: 'bool' =None, cost_attribution_settings: 'bool' =None, datasets: 'bool' =None, default_one_cluster: 'bool' =None, drive_v2: 'bool' =None, enterprise_compute_admin: 'bool' =None, f234: 'bool' =None, f236: 'bool' =None, f240: 'bool' =None, f241: 'bool' =None, f243: 'bool' =None, f245: 'bool' =None, f247: 'bool' =None, f250: 'bool' =None, f252: 'bool' =None, f253: 'bool' =None, f254: 'bool' =None, f258: 'bool' =None, f259: 'bool' =None, f265: 'bool' =None, f266: 'bool' =None, f268: 'bool' =None, f270: 'bool' =None, f271: 'bool' =None, f272: 'bool' =None, f273: 'bool' =None, f274: 'bool' =None, f275: 'bool' =None, f276: 'bool' =None, f278: 'bool' =None, f279: 'bool' =None, f280: 'bool' =None, f281: 'bool' =None, f282: 'bool' =None, f283: 'bool' =None, f284: 'bool' =None, f285: 'bool' =None, f286: 'bool' =None, f287: 'bool' =None, f288: 'bool' =None, f289: 'bool' =None, f290: 'bool' =None, fair_share: 'bool' =None, featured_studios_admin: 'bool' =None, job_artifacts_v2: 'bool' =None, kubernetes_cluster_ui: 'bool' =None, kubernetes_clusters: 'bool' =None, landing_studios: 'bool' =None, marketplace: 'bool' =None, mmt_fault_tolerance: 'bool' =None, mmt_strategy_selector: 'bool' =None, multiple_studio_versions: 'bool' =None, nerf_fs_nonpaying: 'bool' =None, org_level_member_permissions: 'bool' =None, org_usage_limits: 'bool' =None, persistent_disk: 'bool' =None, plugin_distributed: 'bool' =None, plugin_inference: 'bool' =None, plugin_label_studio: 'bool' =None, plugin_langflow: 'bool' =None, plugin_python_profiler: 'bool' =None, plugin_sweeps: 'bool' =None, product_generator: 'bool' =None, product_license: 'bool' =None, project_selector: 'bool' =None, publish_pipelines: 'bool' =None, reserved_machines_tab: 'bool' =None, restartable_jobs: 'bool' =None, runnable_public_studio_page: 'bool' =None, security_docs: 'bool' =None, show_dev_admin: 'bool' =None, slurm: 'bool' =None, specialised_studios: 'bool' =None, storage_overuse_deletion: 'bool' =None, studio_config: 'bool' =None, studio_version_visibility: 'bool' =None, vultr: 'bool' =None, weka: 'bool' =None):  # noqa: E501
         """V1UserFeatures - a model defined in Swagger"""  # noqa: E501
-        self._apt_get_v2 = None
+        self._affiliate_links = None
+        self._agents_v2 = None
+        self._ai_hub_monetization = None
         self._auto_fast_load = None
-        self._aws_trainium = None
         self._b2c_experience = None
-        self._byom = None
+        self._byo_machine_type = None
         self._cap_add = None
         self._cap_drop = None
-        self._cluster_running_notification = None
+        self._capacity_reservation_byoc = None
+        self._capacity_reservation_dry_run = None
+        self._chat_models = None
+        self._cloudspace_schedules = None
         self._code_tab = None
         self._collab_screen_sharing = None
+        self._control_center_monitoring = None
         self._cost_attribution_settings = None
-        self._crypto_monitoring = None
-        self._custom_app_domain = None
-        self._custom_instance_types = None
-        self._docs_agent = None
-        self._enable_crypto_crackdown = None
+        self._datasets = None
+        self._default_one_cluster = None
+        self._drive_v2 = None
+        self._enterprise_compute_admin = None
+        self._f234 = None
+        self._f236 = None
+        self._f240 = None
+        self._f241 = None
+        self._f243 = None
+        self._f245 = None
+        self._f247 = None
+        self._f250 = None
+        self._f252 = None
+        self._f253 = None
+        self._f254 = None
+        self._f258 = None
+        self._f259 = None
+        self._f265 = None
+        self._f266 = None
+        self._f268 = None
+        self._f270 = None
+        self._f271 = None
+        self._f272 = None
+        self._f273 = None
+        self._f274 = None
+        self._f275 = None
+        self._f276 = None
+        self._f278 = None
+        self._f279 = None
+        self._f280 = None
+        self._f281 = None
+        self._f282 = None
+        self._f283 = None
+        self._f284 = None
+        self._f285 = None
+        self._f286 = None
+        self._f287 = None
+        self._f288 = None
+        self._f289 = None
+        self._f290 = None
+        self._fair_share = None
         self._featured_studios_admin = None
-        self._filesystem_optimisation = None
-        self._gcp = None
-        self._import_from_studio_into_about = None
-        self._interruptible_instances = None
-        self._jobs_init = None
-        self._jobs_v2 = None
-        self._l4x8 = None
+        self._job_artifacts_v2 = None
+        self._kubernetes_cluster_ui = None
+        self._kubernetes_clusters = None
         self._landing_studios = None
-        self._lit_logger = None
-        self._lit_logger_storage_v2 = None
-        self._mmt_app = None
+        self._marketplace = None
         self._mmt_fault_tolerance = None
         self._mmt_strategy_selector = None
-        self._mountpoint_s3 = None
-        self._plugin_biz_chat = None
+        self._multiple_studio_versions = None
+        self._nerf_fs_nonpaying = None
+        self._org_level_member_permissions = None
+        self._org_usage_limits = None
+        self._persistent_disk = None
         self._plugin_distributed = None
-        self._plugin_fiftyone = None
         self._plugin_inference = None
         self._plugin_label_studio = None
         self._plugin_langflow = None
-        self._plugin_lightning_apps = None
-        self._plugin_lightning_apps_distributed = None
-        self._plugin_mage_ai = None
-        self._plugin_milvus = None
         self._plugin_python_profiler = None
-        self._plugin_react = None
-        self._plugin_service = None
         self._plugin_sweeps = None
-        self._plugin_weviate = None
-        self._pricing_updates = None
         self._product_generator = None
+        self._product_license = None
         self._project_selector = None
-        self._publish_ai_app = None
-        self._restart_ide_on_hang = None
+        self._publish_pipelines = None
+        self._reserved_machines_tab = None
         self._restartable_jobs = None
         self._runnable_public_studio_page = None
+        self._security_docs = None
         self._show_dev_admin = None
         self._slurm = None
-        self._slurm_machine_selector = None
-        self._snowflake_connection = None
-        self._spot = None
-        self._teamspace_storage_tab = None
-        self._testable_entrypoint = None
-        self._unified_billing_ux = None
-        self._unified_billing_ux_v2 = None
-        self._use_local_disk = None
-        self._use_rclone_mounts_only = None
-        self._writable_data_connections = None
+        self._specialised_studios = None
+        self._storage_overuse_deletion = None
+        self._studio_config = None
+        self._studio_version_visibility = None
+        self._vultr = None
+        self._weka = None
         self.discriminator = None
-        if apt_get_v2 is not None:
-            self.apt_get_v2 = apt_get_v2
+        if affiliate_links is not None:
+            self.affiliate_links = affiliate_links
+        if agents_v2 is not None:
+            self.agents_v2 = agents_v2
+        if ai_hub_monetization is not None:
+            self.ai_hub_monetization = ai_hub_monetization
         if auto_fast_load is not None:
             self.auto_fast_load = auto_fast_load
-        if aws_trainium is not None:
-            self.aws_trainium = aws_trainium
         if b2c_experience is not None:
             self.b2c_experience = b2c_experience
-        if byom is not None:
-            self.byom = byom
+        if byo_machine_type is not None:
+            self.byo_machine_type = byo_machine_type
         if cap_add is not None:
             self.cap_add = cap_add
         if cap_drop is not None:
             self.cap_drop = cap_drop
-        if cluster_running_notification is not None:
-            self.cluster_running_notification = cluster_running_notification
+        if capacity_reservation_byoc is not None:
+            self.capacity_reservation_byoc = capacity_reservation_byoc
+        if capacity_reservation_dry_run is not None:
+            self.capacity_reservation_dry_run = capacity_reservation_dry_run
+        if chat_models is not None:
+            self.chat_models = chat_models
+        if cloudspace_schedules is not None:
+            self.cloudspace_schedules = cloudspace_schedules
         if code_tab is not None:
             self.code_tab = code_tab
         if collab_screen_sharing is not None:
             self.collab_screen_sharing = collab_screen_sharing
+        if control_center_monitoring is not None:
+            self.control_center_monitoring = control_center_monitoring
         if cost_attribution_settings is not None:
             self.cost_attribution_settings = cost_attribution_settings
-        if crypto_monitoring is not None:
-            self.crypto_monitoring = crypto_monitoring
-        if custom_app_domain is not None:
-            self.custom_app_domain = custom_app_domain
-        if custom_instance_types is not None:
-            self.custom_instance_types = custom_instance_types
-        if docs_agent is not None:
-            self.docs_agent = docs_agent
-        if enable_crypto_crackdown is not None:
-            self.enable_crypto_crackdown = enable_crypto_crackdown
+        if datasets is not None:
+            self.datasets = datasets
+        if default_one_cluster is not None:
+            self.default_one_cluster = default_one_cluster
+        if drive_v2 is not None:
+            self.drive_v2 = drive_v2
+        if enterprise_compute_admin is not None:
+            self.enterprise_compute_admin = enterprise_compute_admin
+        if f234 is not None:
+            self.f234 = f234
+        if f236 is not None:
+            self.f236 = f236
+        if f240 is not None:
+            self.f240 = f240
+        if f241 is not None:
+            self.f241 = f241
+        if f243 is not None:
+            self.f243 = f243
+        if f245 is not None:
+            self.f245 = f245
+        if f247 is not None:
+            self.f247 = f247
+        if f250 is not None:
+            self.f250 = f250
+        if f252 is not None:
+            self.f252 = f252
+        if f253 is not None:
+            self.f253 = f253
+        if f254 is not None:
+            self.f254 = f254
+        if f258 is not None:
+            self.f258 = f258
+        if f259 is not None:
+            self.f259 = f259
+        if f265 is not None:
+            self.f265 = f265
+        if f266 is not None:
+            self.f266 = f266
+        if f268 is not None:
+            self.f268 = f268
+        if f270 is not None:
+            self.f270 = f270
+        if f271 is not None:
+            self.f271 = f271
+        if f272 is not None:
+            self.f272 = f272
+        if f273 is not None:
+            self.f273 = f273
+        if f274 is not None:
+            self.f274 = f274
+        if f275 is not None:
+            self.f275 = f275
+        if f276 is not None:
+            self.f276 = f276
+        if f278 is not None:
+            self.f278 = f278
+        if f279 is not None:
+            self.f279 = f279
+        if f280 is not None:
+            self.f280 = f280
+        if f281 is not None:
+            self.f281 = f281
+        if f282 is not None:
+            self.f282 = f282
+        if f283 is not None:
+            self.f283 = f283
+        if f284 is not None:
+            self.f284 = f284
+        if f285 is not None:
+            self.f285 = f285
+        if f286 is not None:
+            self.f286 = f286
+        if f287 is not None:
+            self.f287 = f287
+        if f288 is not None:
+            self.f288 = f288
+        if f289 is not None:
+            self.f289 = f289
+        if f290 is not None:
+            self.f290 = f290
+        if fair_share is not None:
+            self.fair_share = fair_share
         if featured_studios_admin is not None:
             self.featured_studios_admin = featured_studios_admin
-        if filesystem_optimisation is not None:
-            self.filesystem_optimisation = filesystem_optimisation
-        if gcp is not None:
-            self.gcp = gcp
-        if import_from_studio_into_about is not None:
-            self.import_from_studio_into_about = import_from_studio_into_about
-        if interruptible_instances is not None:
-            self.interruptible_instances = interruptible_instances
-        if jobs_init is not None:
-            self.jobs_init = jobs_init
-        if jobs_v2 is not None:
-            self.jobs_v2 = jobs_v2
-        if l4x8 is not None:
-            self.l4x8 = l4x8
+        if job_artifacts_v2 is not None:
+            self.job_artifacts_v2 = job_artifacts_v2
+        if kubernetes_cluster_ui is not None:
+            self.kubernetes_cluster_ui = kubernetes_cluster_ui
+        if kubernetes_clusters is not None:
+            self.kubernetes_clusters = kubernetes_clusters
         if landing_studios is not None:
             self.landing_studios = landing_studios
-        if lit_logger is not None:
-            self.lit_logger = lit_logger
-        if lit_logger_storage_v2 is not None:
-            self.lit_logger_storage_v2 = lit_logger_storage_v2
-        if mmt_app is not None:
-            self.mmt_app = mmt_app
+        if marketplace is not None:
+            self.marketplace = marketplace
         if mmt_fault_tolerance is not None:
             self.mmt_fault_tolerance = mmt_fault_tolerance
         if mmt_strategy_selector is not None:
             self.mmt_strategy_selector = mmt_strategy_selector
-        if mountpoint_s3 is not None:
-            self.mountpoint_s3 = mountpoint_s3
-        if plugin_biz_chat is not None:
-            self.plugin_biz_chat = plugin_biz_chat
+        if multiple_studio_versions is not None:
+            self.multiple_studio_versions = multiple_studio_versions
+        if nerf_fs_nonpaying is not None:
+            self.nerf_fs_nonpaying = nerf_fs_nonpaying
+        if org_level_member_permissions is not None:
+            self.org_level_member_permissions = org_level_member_permissions
+        if org_usage_limits is not None:
+            self.org_usage_limits = org_usage_limits
+        if persistent_disk is not None:
+            self.persistent_disk = persistent_disk
         if plugin_distributed is not None:
             self.plugin_distributed = plugin_distributed
-        if plugin_fiftyone is not None:
-            self.plugin_fiftyone = plugin_fiftyone
         if plugin_inference is not None:
             self.plugin_inference = plugin_inference
         if plugin_label_studio is not None:
             self.plugin_label_studio = plugin_label_studio
         if plugin_langflow is not None:
             self.plugin_langflow = plugin_langflow
-        if plugin_lightning_apps is not None:
-            self.plugin_lightning_apps = plugin_lightning_apps
-        if plugin_lightning_apps_distributed is not None:
-            self.plugin_lightning_apps_distributed = plugin_lightning_apps_distributed
-        if plugin_mage_ai is not None:
-            self.plugin_mage_ai = plugin_mage_ai
-        if plugin_milvus is not None:
-            self.plugin_milvus = plugin_milvus
         if plugin_python_profiler is not None:
             self.plugin_python_profiler = plugin_python_profiler
-        if plugin_react is not None:
-            self.plugin_react = plugin_react
-        if plugin_service is not None:
-            self.plugin_service = plugin_service
         if plugin_sweeps is not None:
             self.plugin_sweeps = plugin_sweeps
-        if plugin_weviate is not None:
-            self.plugin_weviate = plugin_weviate
-        if pricing_updates is not None:
-            self.pricing_updates = pricing_updates
         if product_generator is not None:
             self.product_generator = product_generator
+        if product_license is not None:
+            self.product_license = product_license
         if project_selector is not None:
             self.project_selector = project_selector
-        if publish_ai_app is not None:
-            self.publish_ai_app = publish_ai_app
-        if restart_ide_on_hang is not None:
-            self.restart_ide_on_hang = restart_ide_on_hang
+        if publish_pipelines is not None:
+            self.publish_pipelines = publish_pipelines
+        if reserved_machines_tab is not None:
+            self.reserved_machines_tab = reserved_machines_tab
         if restartable_jobs is not None:
             self.restartable_jobs = restartable_jobs
         if runnable_public_studio_page is not None:
             self.runnable_public_studio_page = runnable_public_studio_page
+        if security_docs is not None:
+            self.security_docs = security_docs
         if show_dev_admin is not None:
             self.show_dev_admin = show_dev_admin
         if slurm is not None:
             self.slurm = slurm
-        if slurm_machine_selector is not None:
-            self.slurm_machine_selector = slurm_machine_selector
-        if snowflake_connection is not None:
-            self.snowflake_connection = snowflake_connection
-        if spot is not None:
-            self.spot = spot
-        if teamspace_storage_tab is not None:
-            self.teamspace_storage_tab = teamspace_storage_tab
-        if testable_entrypoint is not None:
-            self.testable_entrypoint = testable_entrypoint
-        if unified_billing_ux is not None:
-            self.unified_billing_ux = unified_billing_ux
-        if unified_billing_ux_v2 is not None:
-            self.unified_billing_ux_v2 = unified_billing_ux_v2
-        if use_local_disk is not None:
-            self.use_local_disk = use_local_disk
-        if use_rclone_mounts_only is not None:
-            self.use_rclone_mounts_only = use_rclone_mounts_only
-        if writable_data_connections is not None:
-            self.writable_data_connections = writable_data_connections
+        if specialised_studios is not None:
+            self.specialised_studios = specialised_studios
+        if storage_overuse_deletion is not None:
+            self.storage_overuse_deletion = storage_overuse_deletion
+        if studio_config is not None:
+            self.studio_config = studio_config
+        if studio_version_visibility is not None:
+            self.studio_version_visibility = studio_version_visibility
+        if vultr is not None:
+            self.vultr = vultr
+        if weka is not None:
+            self.weka = weka
 
     @property
-    def apt_get_v2(self) -> 'bool':
-        """Gets the apt_get_v2 of this V1UserFeatures.  # noqa: E501
+    def affiliate_links(self) -> 'bool':
+        """Gets the affiliate_links of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The apt_get_v2 of this V1UserFeatures.  # noqa: E501
+        :return: The affiliate_links of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._apt_get_v2
+        return self._affiliate_links
 
-    @apt_get_v2.setter
-    def apt_get_v2(self, apt_get_v2: 'bool'):
-        """Sets the apt_get_v2 of this V1UserFeatures.
+    @affiliate_links.setter
+    def affiliate_links(self, affiliate_links: 'bool'):
+        """Sets the affiliate_links of this V1UserFeatures.
 
 
-        :param apt_get_v2: The apt_get_v2 of this V1UserFeatures.  # noqa: E501
+        :param affiliate_links: The affiliate_links of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._apt_get_v2 = apt_get_v2
+        self._affiliate_links = affiliate_links
+
+    @property
+    def agents_v2(self) -> 'bool':
+        """Gets the agents_v2 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The agents_v2 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._agents_v2
+
+    @agents_v2.setter
+    def agents_v2(self, agents_v2: 'bool'):
+        """Sets the agents_v2 of this V1UserFeatures.
+
+
+        :param agents_v2: The agents_v2 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._agents_v2 = agents_v2
+
+    @property
+    def ai_hub_monetization(self) -> 'bool':
+        """Gets the ai_hub_monetization of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The ai_hub_monetization of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ai_hub_monetization
+
+    @ai_hub_monetization.setter
+    def ai_hub_monetization(self, ai_hub_monetization: 'bool'):
+        """Sets the ai_hub_monetization of this V1UserFeatures.
+
+
+        :param ai_hub_monetization: The ai_hub_monetization of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._ai_hub_monetization = ai_hub_monetization
 
     @property
     def auto_fast_load(self) -> 'bool':
@@ -418,27 +595,6 @@ class V1UserFeatures(object):
         self._auto_fast_load = auto_fast_load
 
     @property
-    def aws_trainium(self) -> 'bool':
-        """Gets the aws_trainium of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The aws_trainium of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._aws_trainium
-
-    @aws_trainium.setter
-    def aws_trainium(self, aws_trainium: 'bool'):
-        """Sets the aws_trainium of this V1UserFeatures.
-
-
-        :param aws_trainium: The aws_trainium of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._aws_trainium = aws_trainium
-
-    @property
     def b2c_experience(self) -> 'bool':
         """Gets the b2c_experience of this V1UserFeatures.  # noqa: E501
 
@@ -460,25 +616,25 @@ class V1UserFeatures(object):
         self._b2c_experience = b2c_experience
 
     @property
-    def byom(self) -> 'bool':
-        """Gets the byom of this V1UserFeatures.  # noqa: E501
+    def byo_machine_type(self) -> 'bool':
+        """Gets the byo_machine_type of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The byom of this V1UserFeatures.  # noqa: E501
+        :return: The byo_machine_type of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._byom
+        return self._byo_machine_type
 
-    @byom.setter
-    def byom(self, byom: 'bool'):
-        """Sets the byom of this V1UserFeatures.
+    @byo_machine_type.setter
+    def byo_machine_type(self, byo_machine_type: 'bool'):
+        """Sets the byo_machine_type of this V1UserFeatures.
 
 
-        :param byom: The byom of this V1UserFeatures.  # noqa: E501
+        :param byo_machine_type: The byo_machine_type of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._byom = byom
+        self._byo_machine_type = byo_machine_type
 
     @property
     def cap_add(self) -> 'list[str]':
@@ -523,25 +679,88 @@ class V1UserFeatures(object):
         self._cap_drop = cap_drop
 
     @property
-    def cluster_running_notification(self) -> 'bool':
-        """Gets the cluster_running_notification of this V1UserFeatures.  # noqa: E501
+    def capacity_reservation_byoc(self) -> 'bool':
+        """Gets the capacity_reservation_byoc of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The cluster_running_notification of this V1UserFeatures.  # noqa: E501
+        :return: The capacity_reservation_byoc of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._cluster_running_notification
+        return self._capacity_reservation_byoc
 
-    @cluster_running_notification.setter
-    def cluster_running_notification(self, cluster_running_notification: 'bool'):
-        """Sets the cluster_running_notification of this V1UserFeatures.
+    @capacity_reservation_byoc.setter
+    def capacity_reservation_byoc(self, capacity_reservation_byoc: 'bool'):
+        """Sets the capacity_reservation_byoc of this V1UserFeatures.
 
 
-        :param cluster_running_notification: The cluster_running_notification of this V1UserFeatures.  # noqa: E501
+        :param capacity_reservation_byoc: The capacity_reservation_byoc of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._cluster_running_notification = cluster_running_notification
+        self._capacity_reservation_byoc = capacity_reservation_byoc
+
+    @property
+    def capacity_reservation_dry_run(self) -> 'bool':
+        """Gets the capacity_reservation_dry_run of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The capacity_reservation_dry_run of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._capacity_reservation_dry_run
+
+    @capacity_reservation_dry_run.setter
+    def capacity_reservation_dry_run(self, capacity_reservation_dry_run: 'bool'):
+        """Sets the capacity_reservation_dry_run of this V1UserFeatures.
+
+
+        :param capacity_reservation_dry_run: The capacity_reservation_dry_run of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._capacity_reservation_dry_run = capacity_reservation_dry_run
+
+    @property
+    def chat_models(self) -> 'bool':
+        """Gets the chat_models of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The chat_models of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._chat_models
+
+    @chat_models.setter
+    def chat_models(self, chat_models: 'bool'):
+        """Sets the chat_models of this V1UserFeatures.
+
+
+        :param chat_models: The chat_models of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._chat_models = chat_models
+
+    @property
+    def cloudspace_schedules(self) -> 'bool':
+        """Gets the cloudspace_schedules of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The cloudspace_schedules of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._cloudspace_schedules
+
+    @cloudspace_schedules.setter
+    def cloudspace_schedules(self, cloudspace_schedules: 'bool'):
+        """Sets the cloudspace_schedules of this V1UserFeatures.
+
+
+        :param cloudspace_schedules: The cloudspace_schedules of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._cloudspace_schedules = cloudspace_schedules
 
     @property
     def code_tab(self) -> 'bool':
@@ -586,6 +805,27 @@ class V1UserFeatures(object):
         self._collab_screen_sharing = collab_screen_sharing
 
     @property
+    def control_center_monitoring(self) -> 'bool':
+        """Gets the control_center_monitoring of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The control_center_monitoring of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._control_center_monitoring
+
+    @control_center_monitoring.setter
+    def control_center_monitoring(self, control_center_monitoring: 'bool'):
+        """Sets the control_center_monitoring of this V1UserFeatures.
+
+
+        :param control_center_monitoring: The control_center_monitoring of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._control_center_monitoring = control_center_monitoring
+
+    @property
     def cost_attribution_settings(self) -> 'bool':
         """Gets the cost_attribution_settings of this V1UserFeatures.  # noqa: E501
 
@@ -607,109 +847,865 @@ class V1UserFeatures(object):
         self._cost_attribution_settings = cost_attribution_settings
 
     @property
-    def crypto_monitoring(self) -> 'bool':
-        """Gets the crypto_monitoring of this V1UserFeatures.  # noqa: E501
+    def datasets(self) -> 'bool':
+        """Gets the datasets of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The crypto_monitoring of this V1UserFeatures.  # noqa: E501
+        :return: The datasets of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._crypto_monitoring
+        return self._datasets
 
-    @crypto_monitoring.setter
-    def crypto_monitoring(self, crypto_monitoring: 'bool'):
-        """Sets the crypto_monitoring of this V1UserFeatures.
+    @datasets.setter
+    def datasets(self, datasets: 'bool'):
+        """Sets the datasets of this V1UserFeatures.
 
 
-        :param crypto_monitoring: The crypto_monitoring of this V1UserFeatures.  # noqa: E501
+        :param datasets: The datasets of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._crypto_monitoring = crypto_monitoring
+        self._datasets = datasets
 
     @property
-    def custom_app_domain(self) -> 'bool':
-        """Gets the custom_app_domain of this V1UserFeatures.  # noqa: E501
+    def default_one_cluster(self) -> 'bool':
+        """Gets the default_one_cluster of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The custom_app_domain of this V1UserFeatures.  # noqa: E501
+        :return: The default_one_cluster of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._custom_app_domain
+        return self._default_one_cluster
 
-    @custom_app_domain.setter
-    def custom_app_domain(self, custom_app_domain: 'bool'):
-        """Sets the custom_app_domain of this V1UserFeatures.
+    @default_one_cluster.setter
+    def default_one_cluster(self, default_one_cluster: 'bool'):
+        """Sets the default_one_cluster of this V1UserFeatures.
 
 
-        :param custom_app_domain: The custom_app_domain of this V1UserFeatures.  # noqa: E501
+        :param default_one_cluster: The default_one_cluster of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._custom_app_domain = custom_app_domain
+        self._default_one_cluster = default_one_cluster
 
     @property
-    def custom_instance_types(self) -> 'bool':
-        """Gets the custom_instance_types of this V1UserFeatures.  # noqa: E501
+    def drive_v2(self) -> 'bool':
+        """Gets the drive_v2 of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The custom_instance_types of this V1UserFeatures.  # noqa: E501
+        :return: The drive_v2 of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._custom_instance_types
+        return self._drive_v2
 
-    @custom_instance_types.setter
-    def custom_instance_types(self, custom_instance_types: 'bool'):
-        """Sets the custom_instance_types of this V1UserFeatures.
+    @drive_v2.setter
+    def drive_v2(self, drive_v2: 'bool'):
+        """Sets the drive_v2 of this V1UserFeatures.
 
 
-        :param custom_instance_types: The custom_instance_types of this V1UserFeatures.  # noqa: E501
+        :param drive_v2: The drive_v2 of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._custom_instance_types = custom_instance_types
+        self._drive_v2 = drive_v2
 
     @property
-    def docs_agent(self) -> 'bool':
-        """Gets the docs_agent of this V1UserFeatures.  # noqa: E501
+    def enterprise_compute_admin(self) -> 'bool':
+        """Gets the enterprise_compute_admin of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The docs_agent of this V1UserFeatures.  # noqa: E501
+        :return: The enterprise_compute_admin of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._docs_agent
+        return self._enterprise_compute_admin
 
-    @docs_agent.setter
-    def docs_agent(self, docs_agent: 'bool'):
-        """Sets the docs_agent of this V1UserFeatures.
+    @enterprise_compute_admin.setter
+    def enterprise_compute_admin(self, enterprise_compute_admin: 'bool'):
+        """Sets the enterprise_compute_admin of this V1UserFeatures.
 
 
-        :param docs_agent: The docs_agent of this V1UserFeatures.  # noqa: E501
+        :param enterprise_compute_admin: The enterprise_compute_admin of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._docs_agent = docs_agent
+        self._enterprise_compute_admin = enterprise_compute_admin
 
     @property
-    def enable_crypto_crackdown(self) -> 'bool':
-        """Gets the enable_crypto_crackdown of this V1UserFeatures.  # noqa: E501
+    def f234(self) -> 'bool':
+        """Gets the f234 of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The enable_crypto_crackdown of this V1UserFeatures.  # noqa: E501
+        :return: The f234 of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._enable_crypto_crackdown
+        return self._f234
 
-    @enable_crypto_crackdown.setter
-    def enable_crypto_crackdown(self, enable_crypto_crackdown: 'bool'):
-        """Sets the enable_crypto_crackdown of this V1UserFeatures.
+    @f234.setter
+    def f234(self, f234: 'bool'):
+        """Sets the f234 of this V1UserFeatures.
 
 
-        :param enable_crypto_crackdown: The enable_crypto_crackdown of this V1UserFeatures.  # noqa: E501
+        :param f234: The f234 of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._enable_crypto_crackdown = enable_crypto_crackdown
+        self._f234 = f234
+
+    @property
+    def f236(self) -> 'bool':
+        """Gets the f236 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f236 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f236
+
+    @f236.setter
+    def f236(self, f236: 'bool'):
+        """Sets the f236 of this V1UserFeatures.
+
+
+        :param f236: The f236 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f236 = f236
+
+    @property
+    def f240(self) -> 'bool':
+        """Gets the f240 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f240 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f240
+
+    @f240.setter
+    def f240(self, f240: 'bool'):
+        """Sets the f240 of this V1UserFeatures.
+
+
+        :param f240: The f240 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f240 = f240
+
+    @property
+    def f241(self) -> 'bool':
+        """Gets the f241 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f241 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f241
+
+    @f241.setter
+    def f241(self, f241: 'bool'):
+        """Sets the f241 of this V1UserFeatures.
+
+
+        :param f241: The f241 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f241 = f241
+
+    @property
+    def f243(self) -> 'bool':
+        """Gets the f243 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f243 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f243
+
+    @f243.setter
+    def f243(self, f243: 'bool'):
+        """Sets the f243 of this V1UserFeatures.
+
+
+        :param f243: The f243 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f243 = f243
+
+    @property
+    def f245(self) -> 'bool':
+        """Gets the f245 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f245 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f245
+
+    @f245.setter
+    def f245(self, f245: 'bool'):
+        """Sets the f245 of this V1UserFeatures.
+
+
+        :param f245: The f245 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f245 = f245
+
+    @property
+    def f247(self) -> 'bool':
+        """Gets the f247 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f247 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f247
+
+    @f247.setter
+    def f247(self, f247: 'bool'):
+        """Sets the f247 of this V1UserFeatures.
+
+
+        :param f247: The f247 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f247 = f247
+
+    @property
+    def f250(self) -> 'bool':
+        """Gets the f250 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f250 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f250
+
+    @f250.setter
+    def f250(self, f250: 'bool'):
+        """Sets the f250 of this V1UserFeatures.
+
+
+        :param f250: The f250 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f250 = f250
+
+    @property
+    def f252(self) -> 'bool':
+        """Gets the f252 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f252 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f252
+
+    @f252.setter
+    def f252(self, f252: 'bool'):
+        """Sets the f252 of this V1UserFeatures.
+
+
+        :param f252: The f252 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f252 = f252
+
+    @property
+    def f253(self) -> 'bool':
+        """Gets the f253 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f253 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f253
+
+    @f253.setter
+    def f253(self, f253: 'bool'):
+        """Sets the f253 of this V1UserFeatures.
+
+
+        :param f253: The f253 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f253 = f253
+
+    @property
+    def f254(self) -> 'bool':
+        """Gets the f254 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f254 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f254
+
+    @f254.setter
+    def f254(self, f254: 'bool'):
+        """Sets the f254 of this V1UserFeatures.
+
+
+        :param f254: The f254 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f254 = f254
+
+    @property
+    def f258(self) -> 'bool':
+        """Gets the f258 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f258 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f258
+
+    @f258.setter
+    def f258(self, f258: 'bool'):
+        """Sets the f258 of this V1UserFeatures.
+
+
+        :param f258: The f258 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f258 = f258
+
+    @property
+    def f259(self) -> 'bool':
+        """Gets the f259 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f259 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f259
+
+    @f259.setter
+    def f259(self, f259: 'bool'):
+        """Sets the f259 of this V1UserFeatures.
+
+
+        :param f259: The f259 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f259 = f259
+
+    @property
+    def f265(self) -> 'bool':
+        """Gets the f265 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f265 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f265
+
+    @f265.setter
+    def f265(self, f265: 'bool'):
+        """Sets the f265 of this V1UserFeatures.
+
+
+        :param f265: The f265 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f265 = f265
+
+    @property
+    def f266(self) -> 'bool':
+        """Gets the f266 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f266 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f266
+
+    @f266.setter
+    def f266(self, f266: 'bool'):
+        """Sets the f266 of this V1UserFeatures.
+
+
+        :param f266: The f266 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f266 = f266
+
+    @property
+    def f268(self) -> 'bool':
+        """Gets the f268 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f268 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f268
+
+    @f268.setter
+    def f268(self, f268: 'bool'):
+        """Sets the f268 of this V1UserFeatures.
+
+
+        :param f268: The f268 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f268 = f268
+
+    @property
+    def f270(self) -> 'bool':
+        """Gets the f270 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f270 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f270
+
+    @f270.setter
+    def f270(self, f270: 'bool'):
+        """Sets the f270 of this V1UserFeatures.
+
+
+        :param f270: The f270 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f270 = f270
+
+    @property
+    def f271(self) -> 'bool':
+        """Gets the f271 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f271 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f271
+
+    @f271.setter
+    def f271(self, f271: 'bool'):
+        """Sets the f271 of this V1UserFeatures.
+
+
+        :param f271: The f271 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f271 = f271
+
+    @property
+    def f272(self) -> 'bool':
+        """Gets the f272 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f272 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f272
+
+    @f272.setter
+    def f272(self, f272: 'bool'):
+        """Sets the f272 of this V1UserFeatures.
+
+
+        :param f272: The f272 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f272 = f272
+
+    @property
+    def f273(self) -> 'bool':
+        """Gets the f273 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f273 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f273
+
+    @f273.setter
+    def f273(self, f273: 'bool'):
+        """Sets the f273 of this V1UserFeatures.
+
+
+        :param f273: The f273 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f273 = f273
+
+    @property
+    def f274(self) -> 'bool':
+        """Gets the f274 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f274 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f274
+
+    @f274.setter
+    def f274(self, f274: 'bool'):
+        """Sets the f274 of this V1UserFeatures.
+
+
+        :param f274: The f274 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f274 = f274
+
+    @property
+    def f275(self) -> 'bool':
+        """Gets the f275 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f275 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f275
+
+    @f275.setter
+    def f275(self, f275: 'bool'):
+        """Sets the f275 of this V1UserFeatures.
+
+
+        :param f275: The f275 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f275 = f275
+
+    @property
+    def f276(self) -> 'bool':
+        """Gets the f276 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f276 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f276
+
+    @f276.setter
+    def f276(self, f276: 'bool'):
+        """Sets the f276 of this V1UserFeatures.
+
+
+        :param f276: The f276 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f276 = f276
+
+    @property
+    def f278(self) -> 'bool':
+        """Gets the f278 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f278 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f278
+
+    @f278.setter
+    def f278(self, f278: 'bool'):
+        """Sets the f278 of this V1UserFeatures.
+
+
+        :param f278: The f278 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f278 = f278
+
+    @property
+    def f279(self) -> 'bool':
+        """Gets the f279 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f279 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f279
+
+    @f279.setter
+    def f279(self, f279: 'bool'):
+        """Sets the f279 of this V1UserFeatures.
+
+
+        :param f279: The f279 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f279 = f279
+
+    @property
+    def f280(self) -> 'bool':
+        """Gets the f280 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f280 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f280
+
+    @f280.setter
+    def f280(self, f280: 'bool'):
+        """Sets the f280 of this V1UserFeatures.
+
+
+        :param f280: The f280 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f280 = f280
+
+    @property
+    def f281(self) -> 'bool':
+        """Gets the f281 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f281 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f281
+
+    @f281.setter
+    def f281(self, f281: 'bool'):
+        """Sets the f281 of this V1UserFeatures.
+
+
+        :param f281: The f281 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f281 = f281
+
+    @property
+    def f282(self) -> 'bool':
+        """Gets the f282 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f282 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f282
+
+    @f282.setter
+    def f282(self, f282: 'bool'):
+        """Sets the f282 of this V1UserFeatures.
+
+
+        :param f282: The f282 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f282 = f282
+
+    @property
+    def f283(self) -> 'bool':
+        """Gets the f283 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f283 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f283
+
+    @f283.setter
+    def f283(self, f283: 'bool'):
+        """Sets the f283 of this V1UserFeatures.
+
+
+        :param f283: The f283 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f283 = f283
+
+    @property
+    def f284(self) -> 'bool':
+        """Gets the f284 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f284 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f284
+
+    @f284.setter
+    def f284(self, f284: 'bool'):
+        """Sets the f284 of this V1UserFeatures.
+
+
+        :param f284: The f284 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f284 = f284
+
+    @property
+    def f285(self) -> 'bool':
+        """Gets the f285 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f285 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f285
+
+    @f285.setter
+    def f285(self, f285: 'bool'):
+        """Sets the f285 of this V1UserFeatures.
+
+
+        :param f285: The f285 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f285 = f285
+
+    @property
+    def f286(self) -> 'bool':
+        """Gets the f286 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f286 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f286
+
+    @f286.setter
+    def f286(self, f286: 'bool'):
+        """Sets the f286 of this V1UserFeatures.
+
+
+        :param f286: The f286 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f286 = f286
+
+    @property
+    def f287(self) -> 'bool':
+        """Gets the f287 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f287 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f287
+
+    @f287.setter
+    def f287(self, f287: 'bool'):
+        """Sets the f287 of this V1UserFeatures.
+
+
+        :param f287: The f287 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f287 = f287
+
+    @property
+    def f288(self) -> 'bool':
+        """Gets the f288 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f288 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f288
+
+    @f288.setter
+    def f288(self, f288: 'bool'):
+        """Sets the f288 of this V1UserFeatures.
+
+
+        :param f288: The f288 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f288 = f288
+
+    @property
+    def f289(self) -> 'bool':
+        """Gets the f289 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f289 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f289
+
+    @f289.setter
+    def f289(self, f289: 'bool'):
+        """Sets the f289 of this V1UserFeatures.
+
+
+        :param f289: The f289 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f289 = f289
+
+    @property
+    def f290(self) -> 'bool':
+        """Gets the f290 of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The f290 of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._f290
+
+    @f290.setter
+    def f290(self, f290: 'bool'):
+        """Sets the f290 of this V1UserFeatures.
+
+
+        :param f290: The f290 of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._f290 = f290
+
+    @property
+    def fair_share(self) -> 'bool':
+        """Gets the fair_share of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The fair_share of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._fair_share
+
+    @fair_share.setter
+    def fair_share(self, fair_share: 'bool'):
+        """Sets the fair_share of this V1UserFeatures.
+
+
+        :param fair_share: The fair_share of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._fair_share = fair_share
 
     @property
     def featured_studios_admin(self) -> 'bool':
@@ -733,151 +1729,67 @@ class V1UserFeatures(object):
         self._featured_studios_admin = featured_studios_admin
 
     @property
-    def filesystem_optimisation(self) -> 'bool':
-        """Gets the filesystem_optimisation of this V1UserFeatures.  # noqa: E501
+    def job_artifacts_v2(self) -> 'bool':
+        """Gets the job_artifacts_v2 of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The filesystem_optimisation of this V1UserFeatures.  # noqa: E501
+        :return: The job_artifacts_v2 of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._filesystem_optimisation
+        return self._job_artifacts_v2
 
-    @filesystem_optimisation.setter
-    def filesystem_optimisation(self, filesystem_optimisation: 'bool'):
-        """Sets the filesystem_optimisation of this V1UserFeatures.
+    @job_artifacts_v2.setter
+    def job_artifacts_v2(self, job_artifacts_v2: 'bool'):
+        """Sets the job_artifacts_v2 of this V1UserFeatures.
 
 
-        :param filesystem_optimisation: The filesystem_optimisation of this V1UserFeatures.  # noqa: E501
+        :param job_artifacts_v2: The job_artifacts_v2 of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._filesystem_optimisation = filesystem_optimisation
+        self._job_artifacts_v2 = job_artifacts_v2
 
     @property
-    def gcp(self) -> 'bool':
-        """Gets the gcp of this V1UserFeatures.  # noqa: E501
+    def kubernetes_cluster_ui(self) -> 'bool':
+        """Gets the kubernetes_cluster_ui of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The gcp of this V1UserFeatures.  # noqa: E501
+        :return: The kubernetes_cluster_ui of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._gcp
+        return self._kubernetes_cluster_ui
 
-    @gcp.setter
-    def gcp(self, gcp: 'bool'):
-        """Sets the gcp of this V1UserFeatures.
+    @kubernetes_cluster_ui.setter
+    def kubernetes_cluster_ui(self, kubernetes_cluster_ui: 'bool'):
+        """Sets the kubernetes_cluster_ui of this V1UserFeatures.
 
 
-        :param gcp: The gcp of this V1UserFeatures.  # noqa: E501
+        :param kubernetes_cluster_ui: The kubernetes_cluster_ui of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._gcp = gcp
+        self._kubernetes_cluster_ui = kubernetes_cluster_ui
 
     @property
-    def import_from_studio_into_about(self) -> 'bool':
-        """Gets the import_from_studio_into_about of this V1UserFeatures.  # noqa: E501
+    def kubernetes_clusters(self) -> 'bool':
+        """Gets the kubernetes_clusters of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The import_from_studio_into_about of this V1UserFeatures.  # noqa: E501
+        :return: The kubernetes_clusters of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._import_from_studio_into_about
+        return self._kubernetes_clusters
 
-    @import_from_studio_into_about.setter
-    def import_from_studio_into_about(self, import_from_studio_into_about: 'bool'):
-        """Sets the import_from_studio_into_about of this V1UserFeatures.
+    @kubernetes_clusters.setter
+    def kubernetes_clusters(self, kubernetes_clusters: 'bool'):
+        """Sets the kubernetes_clusters of this V1UserFeatures.
 
 
-        :param import_from_studio_into_about: The import_from_studio_into_about of this V1UserFeatures.  # noqa: E501
+        :param kubernetes_clusters: The kubernetes_clusters of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._import_from_studio_into_about = import_from_studio_into_about
-
-    @property
-    def interruptible_instances(self) -> 'bool':
-        """Gets the interruptible_instances of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The interruptible_instances of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._interruptible_instances
-
-    @interruptible_instances.setter
-    def interruptible_instances(self, interruptible_instances: 'bool'):
-        """Sets the interruptible_instances of this V1UserFeatures.
-
-
-        :param interruptible_instances: The interruptible_instances of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._interruptible_instances = interruptible_instances
-
-    @property
-    def jobs_init(self) -> 'bool':
-        """Gets the jobs_init of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The jobs_init of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._jobs_init
-
-    @jobs_init.setter
-    def jobs_init(self, jobs_init: 'bool'):
-        """Sets the jobs_init of this V1UserFeatures.
-
-
-        :param jobs_init: The jobs_init of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._jobs_init = jobs_init
-
-    @property
-    def jobs_v2(self) -> 'bool':
-        """Gets the jobs_v2 of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The jobs_v2 of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._jobs_v2
-
-    @jobs_v2.setter
-    def jobs_v2(self, jobs_v2: 'bool'):
-        """Sets the jobs_v2 of this V1UserFeatures.
-
-
-        :param jobs_v2: The jobs_v2 of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._jobs_v2 = jobs_v2
-
-    @property
-    def l4x8(self) -> 'bool':
-        """Gets the l4x8 of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The l4x8 of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._l4x8
-
-    @l4x8.setter
-    def l4x8(self, l4x8: 'bool'):
-        """Sets the l4x8 of this V1UserFeatures.
-
-
-        :param l4x8: The l4x8 of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._l4x8 = l4x8
+        self._kubernetes_clusters = kubernetes_clusters
 
     @property
     def landing_studios(self) -> 'bool':
@@ -901,67 +1813,25 @@ class V1UserFeatures(object):
         self._landing_studios = landing_studios
 
     @property
-    def lit_logger(self) -> 'bool':
-        """Gets the lit_logger of this V1UserFeatures.  # noqa: E501
+    def marketplace(self) -> 'bool':
+        """Gets the marketplace of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The lit_logger of this V1UserFeatures.  # noqa: E501
+        :return: The marketplace of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._lit_logger
+        return self._marketplace
 
-    @lit_logger.setter
-    def lit_logger(self, lit_logger: 'bool'):
-        """Sets the lit_logger of this V1UserFeatures.
+    @marketplace.setter
+    def marketplace(self, marketplace: 'bool'):
+        """Sets the marketplace of this V1UserFeatures.
 
 
-        :param lit_logger: The lit_logger of this V1UserFeatures.  # noqa: E501
+        :param marketplace: The marketplace of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._lit_logger = lit_logger
-
-    @property
-    def lit_logger_storage_v2(self) -> 'bool':
-        """Gets the lit_logger_storage_v2 of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The lit_logger_storage_v2 of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._lit_logger_storage_v2
-
-    @lit_logger_storage_v2.setter
-    def lit_logger_storage_v2(self, lit_logger_storage_v2: 'bool'):
-        """Sets the lit_logger_storage_v2 of this V1UserFeatures.
-
-
-        :param lit_logger_storage_v2: The lit_logger_storage_v2 of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._lit_logger_storage_v2 = lit_logger_storage_v2
-
-    @property
-    def mmt_app(self) -> 'bool':
-        """Gets the mmt_app of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The mmt_app of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._mmt_app
-
-    @mmt_app.setter
-    def mmt_app(self, mmt_app: 'bool'):
-        """Sets the mmt_app of this V1UserFeatures.
-
-
-        :param mmt_app: The mmt_app of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._mmt_app = mmt_app
+        self._marketplace = marketplace
 
     @property
     def mmt_fault_tolerance(self) -> 'bool':
@@ -1006,46 +1876,109 @@ class V1UserFeatures(object):
         self._mmt_strategy_selector = mmt_strategy_selector
 
     @property
-    def mountpoint_s3(self) -> 'bool':
-        """Gets the mountpoint_s3 of this V1UserFeatures.  # noqa: E501
+    def multiple_studio_versions(self) -> 'bool':
+        """Gets the multiple_studio_versions of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The mountpoint_s3 of this V1UserFeatures.  # noqa: E501
+        :return: The multiple_studio_versions of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._mountpoint_s3
+        return self._multiple_studio_versions
 
-    @mountpoint_s3.setter
-    def mountpoint_s3(self, mountpoint_s3: 'bool'):
-        """Sets the mountpoint_s3 of this V1UserFeatures.
+    @multiple_studio_versions.setter
+    def multiple_studio_versions(self, multiple_studio_versions: 'bool'):
+        """Sets the multiple_studio_versions of this V1UserFeatures.
 
 
-        :param mountpoint_s3: The mountpoint_s3 of this V1UserFeatures.  # noqa: E501
+        :param multiple_studio_versions: The multiple_studio_versions of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._mountpoint_s3 = mountpoint_s3
+        self._multiple_studio_versions = multiple_studio_versions
 
     @property
-    def plugin_biz_chat(self) -> 'bool':
-        """Gets the plugin_biz_chat of this V1UserFeatures.  # noqa: E501
+    def nerf_fs_nonpaying(self) -> 'bool':
+        """Gets the nerf_fs_nonpaying of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The plugin_biz_chat of this V1UserFeatures.  # noqa: E501
+        :return: The nerf_fs_nonpaying of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._plugin_biz_chat
+        return self._nerf_fs_nonpaying
 
-    @plugin_biz_chat.setter
-    def plugin_biz_chat(self, plugin_biz_chat: 'bool'):
-        """Sets the plugin_biz_chat of this V1UserFeatures.
+    @nerf_fs_nonpaying.setter
+    def nerf_fs_nonpaying(self, nerf_fs_nonpaying: 'bool'):
+        """Sets the nerf_fs_nonpaying of this V1UserFeatures.
 
 
-        :param plugin_biz_chat: The plugin_biz_chat of this V1UserFeatures.  # noqa: E501
+        :param nerf_fs_nonpaying: The nerf_fs_nonpaying of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._plugin_biz_chat = plugin_biz_chat
+        self._nerf_fs_nonpaying = nerf_fs_nonpaying
+
+    @property
+    def org_level_member_permissions(self) -> 'bool':
+        """Gets the org_level_member_permissions of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The org_level_member_permissions of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._org_level_member_permissions
+
+    @org_level_member_permissions.setter
+    def org_level_member_permissions(self, org_level_member_permissions: 'bool'):
+        """Sets the org_level_member_permissions of this V1UserFeatures.
+
+
+        :param org_level_member_permissions: The org_level_member_permissions of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._org_level_member_permissions = org_level_member_permissions
+
+    @property
+    def org_usage_limits(self) -> 'bool':
+        """Gets the org_usage_limits of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The org_usage_limits of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._org_usage_limits
+
+    @org_usage_limits.setter
+    def org_usage_limits(self, org_usage_limits: 'bool'):
+        """Sets the org_usage_limits of this V1UserFeatures.
+
+
+        :param org_usage_limits: The org_usage_limits of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._org_usage_limits = org_usage_limits
+
+    @property
+    def persistent_disk(self) -> 'bool':
+        """Gets the persistent_disk of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The persistent_disk of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._persistent_disk
+
+    @persistent_disk.setter
+    def persistent_disk(self, persistent_disk: 'bool'):
+        """Sets the persistent_disk of this V1UserFeatures.
+
+
+        :param persistent_disk: The persistent_disk of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._persistent_disk = persistent_disk
 
     @property
     def plugin_distributed(self) -> 'bool':
@@ -1067,27 +2000,6 @@ class V1UserFeatures(object):
         """
 
         self._plugin_distributed = plugin_distributed
-
-    @property
-    def plugin_fiftyone(self) -> 'bool':
-        """Gets the plugin_fiftyone of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_fiftyone of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_fiftyone
-
-    @plugin_fiftyone.setter
-    def plugin_fiftyone(self, plugin_fiftyone: 'bool'):
-        """Sets the plugin_fiftyone of this V1UserFeatures.
-
-
-        :param plugin_fiftyone: The plugin_fiftyone of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_fiftyone = plugin_fiftyone
 
     @property
     def plugin_inference(self) -> 'bool':
@@ -1153,90 +2065,6 @@ class V1UserFeatures(object):
         self._plugin_langflow = plugin_langflow
 
     @property
-    def plugin_lightning_apps(self) -> 'bool':
-        """Gets the plugin_lightning_apps of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_lightning_apps of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_lightning_apps
-
-    @plugin_lightning_apps.setter
-    def plugin_lightning_apps(self, plugin_lightning_apps: 'bool'):
-        """Sets the plugin_lightning_apps of this V1UserFeatures.
-
-
-        :param plugin_lightning_apps: The plugin_lightning_apps of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_lightning_apps = plugin_lightning_apps
-
-    @property
-    def plugin_lightning_apps_distributed(self) -> 'bool':
-        """Gets the plugin_lightning_apps_distributed of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_lightning_apps_distributed of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_lightning_apps_distributed
-
-    @plugin_lightning_apps_distributed.setter
-    def plugin_lightning_apps_distributed(self, plugin_lightning_apps_distributed: 'bool'):
-        """Sets the plugin_lightning_apps_distributed of this V1UserFeatures.
-
-
-        :param plugin_lightning_apps_distributed: The plugin_lightning_apps_distributed of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_lightning_apps_distributed = plugin_lightning_apps_distributed
-
-    @property
-    def plugin_mage_ai(self) -> 'bool':
-        """Gets the plugin_mage_ai of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_mage_ai of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_mage_ai
-
-    @plugin_mage_ai.setter
-    def plugin_mage_ai(self, plugin_mage_ai: 'bool'):
-        """Sets the plugin_mage_ai of this V1UserFeatures.
-
-
-        :param plugin_mage_ai: The plugin_mage_ai of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_mage_ai = plugin_mage_ai
-
-    @property
-    def plugin_milvus(self) -> 'bool':
-        """Gets the plugin_milvus of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_milvus of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_milvus
-
-    @plugin_milvus.setter
-    def plugin_milvus(self, plugin_milvus: 'bool'):
-        """Sets the plugin_milvus of this V1UserFeatures.
-
-
-        :param plugin_milvus: The plugin_milvus of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_milvus = plugin_milvus
-
-    @property
     def plugin_python_profiler(self) -> 'bool':
         """Gets the plugin_python_profiler of this V1UserFeatures.  # noqa: E501
 
@@ -1256,48 +2084,6 @@ class V1UserFeatures(object):
         """
 
         self._plugin_python_profiler = plugin_python_profiler
-
-    @property
-    def plugin_react(self) -> 'bool':
-        """Gets the plugin_react of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_react of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_react
-
-    @plugin_react.setter
-    def plugin_react(self, plugin_react: 'bool'):
-        """Sets the plugin_react of this V1UserFeatures.
-
-
-        :param plugin_react: The plugin_react of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_react = plugin_react
-
-    @property
-    def plugin_service(self) -> 'bool':
-        """Gets the plugin_service of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_service of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_service
-
-    @plugin_service.setter
-    def plugin_service(self, plugin_service: 'bool'):
-        """Sets the plugin_service of this V1UserFeatures.
-
-
-        :param plugin_service: The plugin_service of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_service = plugin_service
 
     @property
     def plugin_sweeps(self) -> 'bool':
@@ -1321,48 +2107,6 @@ class V1UserFeatures(object):
         self._plugin_sweeps = plugin_sweeps
 
     @property
-    def plugin_weviate(self) -> 'bool':
-        """Gets the plugin_weviate of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The plugin_weviate of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._plugin_weviate
-
-    @plugin_weviate.setter
-    def plugin_weviate(self, plugin_weviate: 'bool'):
-        """Sets the plugin_weviate of this V1UserFeatures.
-
-
-        :param plugin_weviate: The plugin_weviate of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._plugin_weviate = plugin_weviate
-
-    @property
-    def pricing_updates(self) -> 'bool':
-        """Gets the pricing_updates of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The pricing_updates of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._pricing_updates
-
-    @pricing_updates.setter
-    def pricing_updates(self, pricing_updates: 'bool'):
-        """Sets the pricing_updates of this V1UserFeatures.
-
-
-        :param pricing_updates: The pricing_updates of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._pricing_updates = pricing_updates
-
-    @property
     def product_generator(self) -> 'bool':
         """Gets the product_generator of this V1UserFeatures.  # noqa: E501
 
@@ -1382,6 +2126,27 @@ class V1UserFeatures(object):
         """
 
         self._product_generator = product_generator
+
+    @property
+    def product_license(self) -> 'bool':
+        """Gets the product_license of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The product_license of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._product_license
+
+    @product_license.setter
+    def product_license(self, product_license: 'bool'):
+        """Sets the product_license of this V1UserFeatures.
+
+
+        :param product_license: The product_license of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._product_license = product_license
 
     @property
     def project_selector(self) -> 'bool':
@@ -1405,46 +2170,46 @@ class V1UserFeatures(object):
         self._project_selector = project_selector
 
     @property
-    def publish_ai_app(self) -> 'bool':
-        """Gets the publish_ai_app of this V1UserFeatures.  # noqa: E501
+    def publish_pipelines(self) -> 'bool':
+        """Gets the publish_pipelines of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The publish_ai_app of this V1UserFeatures.  # noqa: E501
+        :return: The publish_pipelines of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._publish_ai_app
+        return self._publish_pipelines
 
-    @publish_ai_app.setter
-    def publish_ai_app(self, publish_ai_app: 'bool'):
-        """Sets the publish_ai_app of this V1UserFeatures.
+    @publish_pipelines.setter
+    def publish_pipelines(self, publish_pipelines: 'bool'):
+        """Sets the publish_pipelines of this V1UserFeatures.
 
 
-        :param publish_ai_app: The publish_ai_app of this V1UserFeatures.  # noqa: E501
+        :param publish_pipelines: The publish_pipelines of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._publish_ai_app = publish_ai_app
+        self._publish_pipelines = publish_pipelines
 
     @property
-    def restart_ide_on_hang(self) -> 'bool':
-        """Gets the restart_ide_on_hang of this V1UserFeatures.  # noqa: E501
+    def reserved_machines_tab(self) -> 'bool':
+        """Gets the reserved_machines_tab of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The restart_ide_on_hang of this V1UserFeatures.  # noqa: E501
+        :return: The reserved_machines_tab of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._restart_ide_on_hang
+        return self._reserved_machines_tab
 
-    @restart_ide_on_hang.setter
-    def restart_ide_on_hang(self, restart_ide_on_hang: 'bool'):
-        """Sets the restart_ide_on_hang of this V1UserFeatures.
+    @reserved_machines_tab.setter
+    def reserved_machines_tab(self, reserved_machines_tab: 'bool'):
+        """Sets the reserved_machines_tab of this V1UserFeatures.
 
 
-        :param restart_ide_on_hang: The restart_ide_on_hang of this V1UserFeatures.  # noqa: E501
+        :param reserved_machines_tab: The reserved_machines_tab of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._restart_ide_on_hang = restart_ide_on_hang
+        self._reserved_machines_tab = reserved_machines_tab
 
     @property
     def restartable_jobs(self) -> 'bool':
@@ -1489,6 +2254,27 @@ class V1UserFeatures(object):
         self._runnable_public_studio_page = runnable_public_studio_page
 
     @property
+    def security_docs(self) -> 'bool':
+        """Gets the security_docs of this V1UserFeatures.  # noqa: E501
+
+
+        :return: The security_docs of this V1UserFeatures.  # noqa: E501
+        :rtype: bool
+        """
+        return self._security_docs
+
+    @security_docs.setter
+    def security_docs(self, security_docs: 'bool'):
+        """Sets the security_docs of this V1UserFeatures.
+
+
+        :param security_docs: The security_docs of this V1UserFeatures.  # noqa: E501
+        :type: bool
+        """
+
+        self._security_docs = security_docs
+
+    @property
     def show_dev_admin(self) -> 'bool':
         """Gets the show_dev_admin of this V1UserFeatures.  # noqa: E501
 
@@ -1531,214 +2317,130 @@ class V1UserFeatures(object):
         self._slurm = slurm
 
     @property
-    def slurm_machine_selector(self) -> 'bool':
-        """Gets the slurm_machine_selector of this V1UserFeatures.  # noqa: E501
+    def specialised_studios(self) -> 'bool':
+        """Gets the specialised_studios of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The slurm_machine_selector of this V1UserFeatures.  # noqa: E501
+        :return: The specialised_studios of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._slurm_machine_selector
+        return self._specialised_studios
 
-    @slurm_machine_selector.setter
-    def slurm_machine_selector(self, slurm_machine_selector: 'bool'):
-        """Sets the slurm_machine_selector of this V1UserFeatures.
+    @specialised_studios.setter
+    def specialised_studios(self, specialised_studios: 'bool'):
+        """Sets the specialised_studios of this V1UserFeatures.
 
 
-        :param slurm_machine_selector: The slurm_machine_selector of this V1UserFeatures.  # noqa: E501
+        :param specialised_studios: The specialised_studios of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._slurm_machine_selector = slurm_machine_selector
+        self._specialised_studios = specialised_studios
 
     @property
-    def snowflake_connection(self) -> 'bool':
-        """Gets the snowflake_connection of this V1UserFeatures.  # noqa: E501
+    def storage_overuse_deletion(self) -> 'bool':
+        """Gets the storage_overuse_deletion of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The snowflake_connection of this V1UserFeatures.  # noqa: E501
+        :return: The storage_overuse_deletion of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._snowflake_connection
+        return self._storage_overuse_deletion
 
-    @snowflake_connection.setter
-    def snowflake_connection(self, snowflake_connection: 'bool'):
-        """Sets the snowflake_connection of this V1UserFeatures.
+    @storage_overuse_deletion.setter
+    def storage_overuse_deletion(self, storage_overuse_deletion: 'bool'):
+        """Sets the storage_overuse_deletion of this V1UserFeatures.
 
 
-        :param snowflake_connection: The snowflake_connection of this V1UserFeatures.  # noqa: E501
+        :param storage_overuse_deletion: The storage_overuse_deletion of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._snowflake_connection = snowflake_connection
+        self._storage_overuse_deletion = storage_overuse_deletion
 
     @property
-    def spot(self) -> 'bool':
-        """Gets the spot of this V1UserFeatures.  # noqa: E501
+    def studio_config(self) -> 'bool':
+        """Gets the studio_config of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The spot of this V1UserFeatures.  # noqa: E501
+        :return: The studio_config of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._spot
+        return self._studio_config
 
-    @spot.setter
-    def spot(self, spot: 'bool'):
-        """Sets the spot of this V1UserFeatures.
+    @studio_config.setter
+    def studio_config(self, studio_config: 'bool'):
+        """Sets the studio_config of this V1UserFeatures.
 
 
-        :param spot: The spot of this V1UserFeatures.  # noqa: E501
+        :param studio_config: The studio_config of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._spot = spot
+        self._studio_config = studio_config
 
     @property
-    def teamspace_storage_tab(self) -> 'bool':
-        """Gets the teamspace_storage_tab of this V1UserFeatures.  # noqa: E501
+    def studio_version_visibility(self) -> 'bool':
+        """Gets the studio_version_visibility of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The teamspace_storage_tab of this V1UserFeatures.  # noqa: E501
+        :return: The studio_version_visibility of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._teamspace_storage_tab
+        return self._studio_version_visibility
 
-    @teamspace_storage_tab.setter
-    def teamspace_storage_tab(self, teamspace_storage_tab: 'bool'):
-        """Sets the teamspace_storage_tab of this V1UserFeatures.
+    @studio_version_visibility.setter
+    def studio_version_visibility(self, studio_version_visibility: 'bool'):
+        """Sets the studio_version_visibility of this V1UserFeatures.
 
 
-        :param teamspace_storage_tab: The teamspace_storage_tab of this V1UserFeatures.  # noqa: E501
+        :param studio_version_visibility: The studio_version_visibility of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._teamspace_storage_tab = teamspace_storage_tab
+        self._studio_version_visibility = studio_version_visibility
 
     @property
-    def testable_entrypoint(self) -> 'bool':
-        """Gets the testable_entrypoint of this V1UserFeatures.  # noqa: E501
+    def vultr(self) -> 'bool':
+        """Gets the vultr of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The testable_entrypoint of this V1UserFeatures.  # noqa: E501
+        :return: The vultr of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._testable_entrypoint
+        return self._vultr
 
-    @testable_entrypoint.setter
-    def testable_entrypoint(self, testable_entrypoint: 'bool'):
-        """Sets the testable_entrypoint of this V1UserFeatures.
+    @vultr.setter
+    def vultr(self, vultr: 'bool'):
+        """Sets the vultr of this V1UserFeatures.
 
 
-        :param testable_entrypoint: The testable_entrypoint of this V1UserFeatures.  # noqa: E501
+        :param vultr: The vultr of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._testable_entrypoint = testable_entrypoint
+        self._vultr = vultr
 
     @property
-    def unified_billing_ux(self) -> 'bool':
-        """Gets the unified_billing_ux of this V1UserFeatures.  # noqa: E501
+    def weka(self) -> 'bool':
+        """Gets the weka of this V1UserFeatures.  # noqa: E501
 
 
-        :return: The unified_billing_ux of this V1UserFeatures.  # noqa: E501
+        :return: The weka of this V1UserFeatures.  # noqa: E501
         :rtype: bool
         """
-        return self._unified_billing_ux
+        return self._weka
 
-    @unified_billing_ux.setter
-    def unified_billing_ux(self, unified_billing_ux: 'bool'):
-        """Sets the unified_billing_ux of this V1UserFeatures.
+    @weka.setter
+    def weka(self, weka: 'bool'):
+        """Sets the weka of this V1UserFeatures.
 
 
-        :param unified_billing_ux: The unified_billing_ux of this V1UserFeatures.  # noqa: E501
+        :param weka: The weka of this V1UserFeatures.  # noqa: E501
         :type: bool
         """
 
-        self._unified_billing_ux = unified_billing_ux
-
-    @property
-    def unified_billing_ux_v2(self) -> 'bool':
-        """Gets the unified_billing_ux_v2 of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The unified_billing_ux_v2 of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._unified_billing_ux_v2
-
-    @unified_billing_ux_v2.setter
-    def unified_billing_ux_v2(self, unified_billing_ux_v2: 'bool'):
-        """Sets the unified_billing_ux_v2 of this V1UserFeatures.
-
-
-        :param unified_billing_ux_v2: The unified_billing_ux_v2 of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._unified_billing_ux_v2 = unified_billing_ux_v2
-
-    @property
-    def use_local_disk(self) -> 'bool':
-        """Gets the use_local_disk of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The use_local_disk of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._use_local_disk
-
-    @use_local_disk.setter
-    def use_local_disk(self, use_local_disk: 'bool'):
-        """Sets the use_local_disk of this V1UserFeatures.
-
-
-        :param use_local_disk: The use_local_disk of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._use_local_disk = use_local_disk
-
-    @property
-    def use_rclone_mounts_only(self) -> 'bool':
-        """Gets the use_rclone_mounts_only of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The use_rclone_mounts_only of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._use_rclone_mounts_only
-
-    @use_rclone_mounts_only.setter
-    def use_rclone_mounts_only(self, use_rclone_mounts_only: 'bool'):
-        """Sets the use_rclone_mounts_only of this V1UserFeatures.
-
-
-        :param use_rclone_mounts_only: The use_rclone_mounts_only of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._use_rclone_mounts_only = use_rclone_mounts_only
-
-    @property
-    def writable_data_connections(self) -> 'bool':
-        """Gets the writable_data_connections of this V1UserFeatures.  # noqa: E501
-
-
-        :return: The writable_data_connections of this V1UserFeatures.  # noqa: E501
-        :rtype: bool
-        """
-        return self._writable_data_connections
-
-    @writable_data_connections.setter
-    def writable_data_connections(self, writable_data_connections: 'bool'):
-        """Sets the writable_data_connections of this V1UserFeatures.
-
-
-        :param writable_data_connections: The writable_data_connections of this V1UserFeatures.  # noqa: E501
-        :type: bool
-        """
-
-        self._writable_data_connections = writable_data_connections
+        self._weka = weka
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

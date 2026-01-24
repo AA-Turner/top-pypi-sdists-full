@@ -8,7 +8,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ....._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ....._utils import maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
@@ -55,15 +55,15 @@ class RatesResource(SyncAPIResource):
         *,
         at: Union[str, datetime],
         rate_card_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
-        selectors: Iterable[rate_list_params.Selector] | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
+        selectors: Iterable[rate_list_params.Selector] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[RateListResponse]:
         """
         Understand the rate schedule at a given timestamp, optionally filtering the list
@@ -132,23 +132,22 @@ class RatesResource(SyncAPIResource):
         rate_card_id: str,
         rate_type: Literal["FLAT", "PERCENTAGE", "SUBSCRIPTION", "TIERED", "CUSTOM"],
         starting_at: Union[str, datetime],
-        billing_frequency: Literal["MONTHLY", "QUARTERLY", "ANNUAL", "WEEKLY"] | NotGiven = NOT_GIVEN,
-        commit_rate: CommitRate | NotGiven = NOT_GIVEN,
-        credit_type_id: str | NotGiven = NOT_GIVEN,
-        custom_rate: Dict[str, object] | NotGiven = NOT_GIVEN,
-        ending_before: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        is_prorated: bool | NotGiven = NOT_GIVEN,
-        price: float | NotGiven = NOT_GIVEN,
-        pricing_group_values: Dict[str, str] | NotGiven = NOT_GIVEN,
-        quantity: float | NotGiven = NOT_GIVEN,
-        tiers: Iterable[Tier] | NotGiven = NOT_GIVEN,
-        use_list_prices: bool | NotGiven = NOT_GIVEN,
+        billing_frequency: Literal["MONTHLY", "QUARTERLY", "ANNUAL", "WEEKLY"] | Omit = omit,
+        commit_rate: CommitRate | Omit = omit,
+        credit_type_id: str | Omit = omit,
+        custom_rate: Dict[str, object] | Omit = omit,
+        ending_before: Union[str, datetime] | Omit = omit,
+        is_prorated: bool | Omit = omit,
+        price: float | Omit = omit,
+        pricing_group_values: Dict[str, str] | Omit = omit,
+        quantity: float | Omit = omit,
+        tiers: Iterable[Tier] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RateAddResponse:
         """
         Add a new rate
@@ -189,10 +188,6 @@ class RatesResource(SyncAPIResource):
 
           tiers: Only set for TIERED rate_type.
 
-          use_list_prices: Only set for PERCENTAGE rate_type. Defaults to false. If true, rate is computed
-              using list prices rather than the standard rates for this product on the
-              contract.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -220,7 +215,6 @@ class RatesResource(SyncAPIResource):
                     "pricing_group_values": pricing_group_values,
                     "quantity": quantity,
                     "tiers": tiers,
-                    "use_list_prices": use_list_prices,
                 },
                 rate_add_params.RateAddParams,
             ),
@@ -240,7 +234,7 @@ class RatesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RateAddManyResponse:
         """
         Add new rates
@@ -295,15 +289,15 @@ class AsyncRatesResource(AsyncAPIResource):
         *,
         at: Union[str, datetime],
         rate_card_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
-        selectors: Iterable[rate_list_params.Selector] | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
+        selectors: Iterable[rate_list_params.Selector] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RateListResponse, AsyncCursorPage[RateListResponse]]:
         """
         Understand the rate schedule at a given timestamp, optionally filtering the list
@@ -372,23 +366,22 @@ class AsyncRatesResource(AsyncAPIResource):
         rate_card_id: str,
         rate_type: Literal["FLAT", "PERCENTAGE", "SUBSCRIPTION", "TIERED", "CUSTOM"],
         starting_at: Union[str, datetime],
-        billing_frequency: Literal["MONTHLY", "QUARTERLY", "ANNUAL", "WEEKLY"] | NotGiven = NOT_GIVEN,
-        commit_rate: CommitRate | NotGiven = NOT_GIVEN,
-        credit_type_id: str | NotGiven = NOT_GIVEN,
-        custom_rate: Dict[str, object] | NotGiven = NOT_GIVEN,
-        ending_before: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        is_prorated: bool | NotGiven = NOT_GIVEN,
-        price: float | NotGiven = NOT_GIVEN,
-        pricing_group_values: Dict[str, str] | NotGiven = NOT_GIVEN,
-        quantity: float | NotGiven = NOT_GIVEN,
-        tiers: Iterable[Tier] | NotGiven = NOT_GIVEN,
-        use_list_prices: bool | NotGiven = NOT_GIVEN,
+        billing_frequency: Literal["MONTHLY", "QUARTERLY", "ANNUAL", "WEEKLY"] | Omit = omit,
+        commit_rate: CommitRate | Omit = omit,
+        credit_type_id: str | Omit = omit,
+        custom_rate: Dict[str, object] | Omit = omit,
+        ending_before: Union[str, datetime] | Omit = omit,
+        is_prorated: bool | Omit = omit,
+        price: float | Omit = omit,
+        pricing_group_values: Dict[str, str] | Omit = omit,
+        quantity: float | Omit = omit,
+        tiers: Iterable[Tier] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RateAddResponse:
         """
         Add a new rate
@@ -429,10 +422,6 @@ class AsyncRatesResource(AsyncAPIResource):
 
           tiers: Only set for TIERED rate_type.
 
-          use_list_prices: Only set for PERCENTAGE rate_type. Defaults to false. If true, rate is computed
-              using list prices rather than the standard rates for this product on the
-              contract.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -460,7 +449,6 @@ class AsyncRatesResource(AsyncAPIResource):
                     "pricing_group_values": pricing_group_values,
                     "quantity": quantity,
                     "tiers": tiers,
-                    "use_list_prices": use_list_prices,
                 },
                 rate_add_params.RateAddParams,
             ),
@@ -480,7 +468,7 @@ class AsyncRatesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RateAddManyResponse:
         """
         Add new rates

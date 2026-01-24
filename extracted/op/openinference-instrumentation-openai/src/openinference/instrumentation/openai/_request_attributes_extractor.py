@@ -13,6 +13,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -26,12 +27,10 @@ from openinference.semconv.trace import (
     ImageAttributes,
     MessageAttributes,
     MessageContentAttributes,
+    PromptAttributes,
     SpanAttributes,
     ToolCallAttributes,
 )
-
-# TODO: Update to use SpanAttributes.EMBEDDING_INVOCATION_PARAMETERS when released in semconv
-_EMBEDDING_INVOCATION_PARAMETERS = "embedding.invocation_parameters"
 
 if TYPE_CHECKING:
     from openai.types import Completion, CreateEmbeddingResponse
@@ -198,11 +197,16 @@ class _RequestAttributesExtractor:
 
     def _get_attributes_from_image(
         self,
-        image: Mapping[str, Any],
+        image: Union[Mapping[str, Any], str],
     ) -> Iterator[Tuple[str, AttributeValue]]:
-        image = dict(image)
-        if url := image.pop("url"):
-            yield f"{ImageAttributes.IMAGE_URL}", url
+        # Handle both dict and string formats for image_url
+        if isinstance(image, str):
+            if image:  # Only yield if string is not empty
+                yield f"{ImageAttributes.IMAGE_URL}", image
+        elif isinstance(image, Mapping):
+            image_dict = dict(image)
+            if url := image_dict.pop("url"):
+                yield f"{ImageAttributes.IMAGE_URL}", url
 
 
 def _get_attributes_from_completion_create_param(
@@ -226,13 +230,14 @@ def _get_attributes_from_completion_create_param(
 
     model_prompt = params.get("prompt")
     if isinstance(model_prompt, str):
-        yield SpanAttributes.LLM_PROMPTS, [model_prompt]
+        yield f"{SpanAttributes.LLM_PROMPTS}.0.{PromptAttributes.PROMPT_TEXT}", model_prompt
     elif (
         isinstance(model_prompt, list)
         and model_prompt
         and all(isinstance(item, str) for item in model_prompt)
     ):
-        yield SpanAttributes.LLM_PROMPTS, model_prompt
+        for index, prompt in enumerate(model_prompt):
+            yield f"{SpanAttributes.LLM_PROMPTS}.{index}.{PromptAttributes.PROMPT_TEXT}", prompt
 
 
 def _get_attributes_from_embedding_create_param(
@@ -244,7 +249,7 @@ def _get_attributes_from_embedding_create_param(
         return
     invocation_params = dict(params)
     invocation_params.pop("input", None)
-    yield _EMBEDDING_INVOCATION_PARAMETERS, safe_json_dumps(invocation_params)
+    yield SpanAttributes.EMBEDDING_INVOCATION_PARAMETERS, safe_json_dumps(invocation_params)
 
     # Extract text from embedding input - only records text, not token IDs
     embedding_input = params.get("input")

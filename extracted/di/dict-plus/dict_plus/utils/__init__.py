@@ -1,1 +1,0 @@
-from .simpleflatten import SimpleFlattener

@@ -32,8 +32,16 @@ std::pair<double, double> calculate_values_minmax(const Array* lhs_ptr, const Ar
     // If one size is a scalar, we also support dynamic arrays.
     // Otherwise both arrays must be the same shape and not be dynamic
     if (lhs_ptr->size() == 1 || rhs_ptr->size() == 1) {
-        // this is allowed
+        // This is allowed. Note that in this case, since `broadcast_shapes()`
+        // was called prior to `calculate_values_minmax()` in the constructor
+        // of this node, we do not need to check `lhs_ptr->shape()` against
+        // `rhs_ptr->shape()` since `broadcast_shapes()` has certified that we
+        // can broadcast safely.
     } else if (lhs_ptr->sizeinfo().substitute(100) != rhs_ptr->sizeinfo().substitute(100)) {
+        throw std::invalid_argument("arrays must have the same size or one must be a scalar");
+    } else if (lhs_ptr->shape().size() != rhs_ptr->shape().size() ||
+               !std::equal(lhs_ptr->shape().begin(), lhs_ptr->shape().end(),
+                           rhs_ptr->shape().begin())) {
         throw std::invalid_argument("arrays must have the same shape or one must be a scalar");
     }
 
@@ -133,10 +141,39 @@ std::pair<double, double> calculate_values_minmax(const Array* lhs_ptr, const Ar
 }
 
 template <class BinaryOp>
+bool calculate_integral(const Array* lhs_ptr, const Array* rhs_ptr) {
+    using result_type = typename std::invoke_result<BinaryOp, double&, double&>::type;
+
+    if constexpr (std::is_integral<result_type>::value) {
+        return true;
+    }
+
+    // The mathematical operations require a bit more fiddling.
+
+    if constexpr (std::is_same<BinaryOp, std::divides<double>>::value ||
+                  std::is_same<BinaryOp, functional::safe_divides<double>>::value) {
+        return false;
+    }
+    if constexpr (std::is_same<BinaryOp, functional::max<double>>::value ||
+                  std::is_same<BinaryOp, functional::min<double>>::value ||
+                  std::is_same<BinaryOp, std::minus<double>>::value ||
+                  std::is_same<BinaryOp, functional::modulus<double>>::value ||
+                  std::is_same<BinaryOp, std::multiplies<double>>::value ||
+                  std::is_same<BinaryOp, std::plus<double>>::value) {
+        return lhs_ptr->integral() && rhs_ptr->integral();
+    }
+
+    assert(false && "not implemeted yet");
+    unreachable();
+}
+
+template <class BinaryOp>
 BinaryOpNode<BinaryOp>::BinaryOpNode(ArrayNode* a_ptr, ArrayNode* b_ptr)
-        : ArrayOutputMixin(broadcast_shape(a_ptr->shape(), b_ptr->shape())),
+        : ArrayOutputMixin(broadcast_shapes(a_ptr->shape(), b_ptr->shape())),
           operands_({a_ptr, b_ptr}),
-          minmax_(calculate_values_minmax<BinaryOp>(operands_[0], operands_[1])) {
+          values_info_(calculate_values_minmax<BinaryOp>(operands_[0], operands_[1]),
+                       calculate_integral<BinaryOp>(operands_[0], operands_[1])),
+          sizeinfo_(binaryop_calculate_sizeinfo(this, operands_[0], operands_[1])) {
     this->add_predecessor(a_ptr);
     this->add_predecessor(b_ptr);
 }
@@ -202,42 +239,17 @@ void BinaryOpNode<BinaryOp>::initialize_state(State& state) const {
 
 template <class BinaryOp>
 bool BinaryOpNode<BinaryOp>::integral() const {
-    using result_type = typename std::invoke_result<BinaryOp, double&, double&>::type;
-
-    if constexpr (std::is_integral<result_type>::value) {
-        return true;
-    }
-
-    // The mathematical operations require a bit more fiddling.
-
-    auto lhs_ptr = operands_[0];
-    auto rhs_ptr = operands_[1];
-
-    if constexpr (std::is_same<BinaryOp, std::divides<double>>::value ||
-                  std::is_same<BinaryOp, functional::safe_divides<double>>::value) {
-        return false;
-    }
-    if constexpr (std::is_same<BinaryOp, functional::max<double>>::value ||
-                  std::is_same<BinaryOp, functional::min<double>>::value ||
-                  std::is_same<BinaryOp, std::minus<double>>::value ||
-                  std::is_same<BinaryOp, functional::modulus<double>>::value ||
-                  std::is_same<BinaryOp, std::multiplies<double>>::value ||
-                  std::is_same<BinaryOp, std::plus<double>>::value) {
-        return lhs_ptr->integral() && rhs_ptr->integral();
-    }
-
-    assert(false && "not implemeted yet");
-    unreachable();
-}
-
-template <class BinaryOp>
-double BinaryOpNode<BinaryOp>::min() const {
-    return this->minmax_.first;
+    return values_info_.integral;
 }
 
 template <class BinaryOp>
 double BinaryOpNode<BinaryOp>::max() const {
-    return this->minmax_.second;
+    return this->values_info_.max;
+}
+
+template <class BinaryOp>
+double BinaryOpNode<BinaryOp>::min() const {
+    return this->values_info_.min;
 }
 
 template <class BinaryOp>
@@ -265,8 +277,8 @@ void BinaryOpNode<BinaryOp>::propagate(State& state) const {
             rhs_diff_copy.assign(rhs_ptr->diff(state).begin(), rhs_ptr->diff(state).end());
             deduplicate_diff(lhs_diff_copy);
             deduplicate_diff(rhs_diff_copy);
-            lhs_diff = std::span<const Update>(lhs_diff.begin(), lhs_diff.end());
-            rhs_diff = std::span<const Update>(rhs_diff.begin(), rhs_diff.end());
+            lhs_diff = std::span<const Update>(lhs_diff_copy.begin(), lhs_diff_copy.end());
+            rhs_diff = std::span<const Update>(rhs_diff_copy.begin(), rhs_diff_copy.end());
         }
 
         if (lhs_diff.size() && rhs_diff.size()) {
@@ -363,25 +375,40 @@ template <class BinaryOp>
 std::span<const ssize_t> BinaryOpNode<BinaryOp>::shape(const State& state) const {
     if (!this->dynamic()) return this->shape();
 
-    const ssize_t lhs_size = operands_[0]->size(state);
+    const auto [lhs, rhs] = operands_;
 
-    if (lhs_size == operands_[1]->size(state)) return operands_[0]->shape(state);
+    // If we're broadcasting we know which size we're looking at
+    if (lhs->size() == 1) return rhs->shape(state);
+    if (rhs->size() == 1) return lhs->shape(state);
 
-    return (lhs_size == 1) ? operands_[1]->shape(state) : operands_[0]->shape(state);
+    // Dev note: it's very tempting to put an assert here that checks
+    // that lhs.shape == rhs.shape, but that can make calling shape()
+    // very expensive in some cases.
+    // Having this commented out makes the second if-branch above redundant, but
+    // I am leaving this in for clarity and future debugging.
+    // assert(std::ranges::equal(lhs->shape(state), rhs->shape(state)));
+
+    return lhs->shape(state);
 }
 
 template <class BinaryOp>
 ssize_t BinaryOpNode<BinaryOp>::size(const State& state) const {
-    if (ssize_t size = this->size(); size >= 0) {
-        return size;
-    }
+    if (const ssize_t size = this->size(); size >= 0) return size;
 
-    const ssize_t lhs_size = operands_[0]->size(state);
-    const ssize_t rhs_size = operands_[1]->size(state);
+    const auto [lhs, rhs] = operands_;
 
-    if (lhs_size == rhs_size) return lhs_size;
+    // If we're broadcasting we know which size we're looking at
+    if (lhs->size() == 1) return rhs->size(state);
+    if (rhs->size() == 1) return lhs->size(state);
 
-    return (lhs_size == 1) ? rhs_size : lhs_size;
+    // Dev note: it's very tempting to put an assert here that checks
+    // that lhs.size == rhs.size, but that can make calling size()
+    // very expensive in some cases.
+    // Having this commented out makes the second if-branch above redundant, but
+    // I am leaving this in for clarity and future debugging.
+    // assert(lhs->size(state) == rhs->size(state)));
+
+    return lhs->size(state);
 }
 
 template <class BinaryOp>
@@ -389,27 +416,29 @@ ssize_t BinaryOpNode<BinaryOp>::size_diff(const State& state) const {
     return data_ptr<ArrayNodeStateData>(state)->size_diff();
 }
 
-template <class BinaryOp>
-SizeInfo BinaryOpNode<BinaryOp>::sizeinfo() const {
-    if (!dynamic()) return SizeInfo(size());
-
-    const Array* lhs_ptr = operands_[0];
-    const Array* rhs_ptr = operands_[1];
+SizeInfo binaryop_calculate_sizeinfo(const Array* node_ptr, const Array* lhs_ptr,
+                                     const Array* rhs_ptr) {
+    if (!node_ptr->dynamic()) return SizeInfo(node_ptr->size());
 
     if (lhs_ptr->dynamic() && rhs_ptr->dynamic()) {
-        assert(lhs_ptr->sizeinfo().substitute(100) == rhs_ptr->sizeinfo().substitute(100));
+        assert(lhs_ptr->sizeinfo() == rhs_ptr->sizeinfo());
         return lhs_ptr->sizeinfo();
     } else if (lhs_ptr->dynamic()) {
         assert(rhs_ptr->size() == 1);
-        return SizeInfo(lhs_ptr);
+        return lhs_ptr->sizeinfo();
     } else if (rhs_ptr->dynamic()) {
         assert(lhs_ptr->size() == 1);
-        return SizeInfo(rhs_ptr);
+        return rhs_ptr->sizeinfo();
     }
 
     // not possible for us to be dynamic and none of our predecessors to be
     assert(false && "not implemeted");
     unreachable();
+}
+
+template <class BinaryOp>
+SizeInfo BinaryOpNode<BinaryOp>::sizeinfo() const {
+    return this->sizeinfo_;
 }
 
 // Uncommented are the tested specializations

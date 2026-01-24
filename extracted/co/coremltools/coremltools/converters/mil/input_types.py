@@ -8,6 +8,7 @@ from typing import Optional
 
 import numpy as np
 
+from coremltools import _logger
 from coremltools.converters.mil.mil import types
 from coremltools.converters.mil.mil.types.symbolic import is_symbolic
 
@@ -225,7 +226,13 @@ class TensorType(InputType):
           dtype=ct.converters.mil.types.fp32)``
         """
         super(TensorType, self).__init__(name, shape)
+
         if dtype is not None:
+            if dtype in (types.int8, np.int8):
+                _logger.warning(
+                    "A dtype of int8 will only work with a minimum_deployment_target iOS26 or higher."
+                )
+
             if types.is_builtin(dtype):
                 self.dtype = dtype
                 if dtype not in (
@@ -247,10 +254,21 @@ class TensorType(InputType):
                     self.dtype = types.numpy_type_to_builtin_type(dtype)
                 except TypeError:
                     raise TypeError("dtype={} is unsupported".format(dtype))
-                if dtype not in (np.float16, np.float32, np.float64, float,
-                                 np.int32, np.int64, int,
-                                 bool, np.bool_):
-                    raise TypeError("dtype={} is unsupported for inputs/outputs of the model".format(dtype))
+                if dtype not in (
+                    np.float16,
+                    np.float32,
+                    np.float64,
+                    float,
+                    np.int8,
+                    np.int32,
+                    np.int64,
+                    int,
+                    bool,
+                    np.bool_,
+                ):
+                    raise TypeError(
+                        "dtype={} is unsupported for inputs/outputs of the model".format(dtype)
+                    )
 
         if default_value is not None:
             if isinstance(shape, EnumeratedShapes):
@@ -315,7 +333,7 @@ class StateType(InputType):
         Parameters
         ----------
         wrapped_type: coremltools.converters.mil.input_types.InputType
-            - The type wrapped in the state. 
+            - The type wrapped in the state.
             - Must be ``TensorType``.
               Note that the ``name`` and ``default_value`` of the wrapped ``TensorType`` must not be provided.
 
@@ -407,6 +425,22 @@ class RangeDim:
     def __str__(self):
         return 'RangeDim(lower_bound={}, upper_bound={}, default={}, symbol="{}")'.format(
             self.lower_bound, self.upper_bound, self.default, self.symbol)
+    
+    def __ior__(self, other):
+        if not isinstance(other, RangeDim):
+            return NotImplemented
+
+        self.lower_bound = min(self.lower_bound, other.lower_bound)
+
+        if self.upper_bound == -1 or other.upper_bound == -1:
+            self.upper_bound = -1
+        else:
+            self.upper_bound = max(self.upper_bound, other.upper_bound)
+
+        # Adjust default to fit in new bounds if needed
+        self.default = max(self.lower_bound, min(self.default, self.upper_bound))
+
+        return self
 
 
 class Shape:

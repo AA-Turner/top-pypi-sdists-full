@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from logging import getLogger
-from typing import TYPE_CHECKING, Callable, Literal, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 from crawlee import service_locator
 from crawlee._utils.context import ensure_context
@@ -23,7 +24,7 @@ logger = getLogger(__name__)
 CreateSessionFunctionType = Callable[[], Session]
 
 
-@docs_group('Classes')
+@docs_group('Session management')
 class SessionPool:
     """A pool of sessions that are managed, rotated, and persisted based on usage and age.
 
@@ -162,7 +163,7 @@ class SessionPool:
     def add_session(self, session: Session) -> None:
         """Add an externally created session to the pool.
 
-        This is intened only for the cases when you want to add a session that was created outside of the pool.
+        This is intended only for the cases when you want to add a session that was created outside of the pool.
         Otherwise, the pool will create new sessions automatically.
 
         Args:

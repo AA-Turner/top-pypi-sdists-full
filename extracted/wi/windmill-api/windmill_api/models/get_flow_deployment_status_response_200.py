@@ -13,19 +13,24 @@ class GetFlowDeploymentStatusResponse200:
     """
     Attributes:
         lock_error_logs (Union[Unset, str]):
+        job_id (Union[Unset, str]):
     """
 
     lock_error_logs: Union[Unset, str] = UNSET
+    job_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         lock_error_logs = self.lock_error_logs
+        job_id = self.job_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if lock_error_logs is not UNSET:
             field_dict["lock_error_logs"] = lock_error_logs
+        if job_id is not UNSET:
+            field_dict["job_id"] = job_id
 
         return field_dict
 
@@ -34,8 +39,11 @@ class GetFlowDeploymentStatusResponse200:
         d = src_dict.copy()
         lock_error_logs = d.pop("lock_error_logs", UNSET)
 
+        job_id = d.pop("job_id", UNSET)
+
         get_flow_deployment_status_response_200 = cls(
             lock_error_logs=lock_error_logs,
+            job_id=job_id,
         )
 
         get_flow_deployment_status_response_200.additional_properties = d

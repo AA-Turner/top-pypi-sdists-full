@@ -1,8 +1,6 @@
 use crate::RySpan;
 use crate::RyTimeRound;
 use crate::difference::{RyTimeDifference, TimeDifferenceArg};
-use crate::errors::{map_py_overflow_err, map_py_value_err};
-use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
 use crate::series::RyTimeSeries;
 use crate::spanish::Spanish;
 use crate::{JiffRoundMode, JiffTime, JiffUnit};
@@ -10,21 +8,22 @@ use crate::{RyDate, RyDateTime};
 use crate::{RySignedDuration, RyTimestamp, RyZoned};
 use jiff::Zoned;
 use jiff::civil::{Time, TimeRound};
+use pyo3::BoundObject;
 use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
 use ryo3_macro_rules::any_repr;
 use ryo3_macro_rules::py_type_err;
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
-use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-#[pyclass(name = "Time", frozen)]
+#[pyclass(name = "Time", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTime(pub(crate) Time);
 
@@ -32,20 +31,10 @@ pub struct RyTime(pub(crate) Time);
 impl RyTime {
     #[new]
     #[pyo3(signature = (hour=0, minute=0, second=0, nanosecond=0))]
-    pub(crate) fn py_new(
-        hour: Option<i8>,
-        minute: Option<i8>,
-        second: Option<i8>,
-        nanosecond: Option<i32>,
-    ) -> PyResult<Self> {
-        Time::new(
-            hour.unwrap_or(0),
-            minute.unwrap_or(0),
-            second.unwrap_or(0),
-            nanosecond.unwrap_or(0),
-        )
-        .map(Self::from)
-        .map_err(map_py_value_err)
+    pub(crate) fn py_new(hour: i8, minute: i8, second: i8, nanosecond: i32) -> PyResult<Self> {
+        Time::new(hour, minute, second, nanosecond)
+            .map(Self::from)
+            .map_err(map_py_value_err)
     }
 
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -92,25 +81,21 @@ impl RyTime {
         Self(Time::midnight())
     }
 
-    #[staticmethod]
-    fn from_str(s: &str) -> PyResult<Self> {
-        Time::from_str(s).map(Self::from).map_err(map_py_value_err)
-    }
-
-    #[staticmethod]
-    fn parse(input: &str) -> PyResult<Self> {
-        Self::from_str(input)
-    }
-
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
-    fn __format__(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            self.strftime(fmt)
+        }
     }
 
-    fn strftime(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    #[pyo3(signature = (fmt))]
+    fn strftime(&self, fmt: &str) -> PyResult<String> {
+        let bdt: jiff::fmt::strtime::BrokenDownTime = self.0.into();
+        bdt.to_string(fmt).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -124,24 +109,17 @@ impl RyTime {
     // ========================================================================
     // STRING
     // ========================================================================
-    fn string(&self) -> String {
-        self.0.to_string()
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> PyAsciiString {
+        self.__str__()
     }
 
-    fn __str__(&self) -> String {
-        self.string()
+    fn __str__(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
-    fn __repr__(&self) -> String {
-        format!("{self}")
-    }
-
-    fn isoformat(&self) -> String {
-        if self.0.subsec_nanosecond() == 0 {
-            ISOFORMAT_PRINTER_NO_MICROS.time_to_string(&self.0)
-        } else {
-            ISOFORMAT_PRINTER.time_to_string(&self.0)
-        }
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     // ========================================================================
@@ -169,7 +147,7 @@ impl RyTime {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(ob) = other.cast::<Self>() {
+        if let Ok(ob) = other.cast_exact::<Self>() {
             let span = self.0.sub(ob.get().0);
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
             Ok(obj)
@@ -208,6 +186,7 @@ impl RyTime {
     fn minute(&self) -> i8 {
         self.0.minute()
     }
+
     #[getter]
     fn second(&self) -> i8 {
         self.0.second()
@@ -352,9 +331,7 @@ impl RyTime {
     }
 
     fn series(&self, period: &RySpan) -> PyResult<RyTimeSeries> {
-        period.assert_non_zero()?;
-        let s = self.0.series(period.0);
-        Ok(RyTimeSeries::from(s))
+        (self, period).try_into()
     }
 
     fn duration_since(&self, other: &Self) -> RySignedDuration {
@@ -390,45 +367,50 @@ impl RyTime {
         RyDateTime::from(self.0.to_datetime(date.0))
     }
 
-    #[pyo3(signature = (smallest = None, mode = None, increment = None))]
-    fn round(
-        &self,
-        smallest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
-    ) -> PyResult<Self> {
-        let mut timeround = TimeRound::new();
-        if let Some(smallest) = smallest {
-            timeround = timeround.smallest(smallest.0);
-        }
-        if let Some(mode) = mode {
-            timeround = timeround.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            timeround = timeround.increment(increment);
-        }
+    #[pyo3(
+        signature = (
+            smallest=JiffUnit::NANOSECOND,
+            *,
+            mode=JiffRoundMode::HALF_EXPAND,
+            increment = 1
+        ),
+        text_signature = "(self, smallest=\"nanosecond\", *, mode=\"half-expand\", increment=1)"
+    )]
+    fn round(&self, smallest: JiffUnit, mode: JiffRoundMode, increment: i64) -> PyResult<Self> {
+        let timeround = TimeRound::new()
+            .smallest(smallest.0)
+            .mode(mode.0)
+            .increment(increment);
         self.0
             .round(timeround)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    fn _round(&self, dt_round: &RyTimeRound) -> PyResult<Self> {
-        dt_round.round(self)
+    fn _round(&self, options: &RyTimeRound) -> PyResult<Self> {
+        options.round(self)
     }
     // ------------------------------------------------------------------------
     // SINCE/UNTIL
     // ------------------------------------------------------------------------
     #[pyo3(
-       signature = (t, *, smallest=None, largest = None, mode = None, increment = None),
+        signature=(
+            t,
+            *,
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
+        ),
+       text_signature = "(self, t, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn since(
         &self,
         t: TimeDifferenceArg,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
         let t_diff = t.build(smallest, largest, mode, increment);
         self.0
@@ -438,15 +420,23 @@ impl RyTime {
     }
 
     #[pyo3(
-       signature = (t, *, smallest=None, largest = None, mode = None, increment = None),
+        signature=(
+            t,
+            *,
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
+        ),
+       text_signature = "(self, t, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn until(
         &self,
         t: TimeDifferenceArg,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
         let t_diff = t.build(smallest, largest, mode, increment);
         self.0
@@ -470,27 +460,24 @@ impl RyTime {
     }
 
     #[staticmethod]
-    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         let py = value.py();
-        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
-            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
-            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if value.is_exact_instance_of::<Self>() {
-            value.into_bound_py_any(py)
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(d) = value.cast_exact::<RyDateTime>() {
-            let dt = d.get().time();
-            dt.into_bound_py_any(py)
-        } else if let Ok(d) = value.cast_exact::<RyZoned>() {
-            let dt = d.get().time();
-            dt.into_bound_py_any(py)
-        } else if let Ok(d) = value.cast_exact::<RyTimestamp>() {
-            let dt = d.get().time();
-            dt.into_bound_py_any(py)
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(zdt) = value.cast_exact::<RyZoned>() {
+            Self::from(zdt.get()).into_pyobject(py)
+        } else if let Ok(ts) = value.cast_exact::<RyTimestamp>() {
+            Self::from(ts.get()).into_pyobject(py)
         } else if let Ok(d) = value.extract::<JiffTime>() {
-            Self::from_pytime(d).into_bound_py_any(py)
+            Self::from_pytime(d).into_pyobject(py)
         } else {
             let valtype = any_repr!(value);
             py_type_err!("Time conversion error: {valtype}")
@@ -505,7 +492,7 @@ impl RyTime {
     fn _pydantic_validate<'py>(
         value: &Bound<'py, PyAny>,
         _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    ) -> PyResult<Bound<'py, Self>> {
         Self::from_any(value).map_err(map_py_value_err)
     }
 
@@ -519,6 +506,27 @@ impl RyTime {
         use ryo3_pydantic::GetPydanticCoreSchemaCls;
         Self::get_pydantic_core_schema(cls, source, handler)
     }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
+    }
+    // </STD-METHODS>
 }
 
 impl Display for RyTime {
@@ -531,17 +539,5 @@ impl Display for RyTime {
             self.0.second(),
             self.0.subsec_nanosecond()
         )
-    }
-}
-
-impl From<Time> for RyTime {
-    fn from(value: Time) -> Self {
-        Self(value)
-    }
-}
-
-impl From<JiffTime> for RyTime {
-    fn from(value: JiffTime) -> Self {
-        Self(value.0)
     }
 }

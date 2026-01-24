@@ -2,7 +2,7 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
 from typing import Optional
 
-from open_webui.retrieval.vector.utils import stringify_metadata
+from open_webui.retrieval.vector.utils import process_metadata
 from open_webui.retrieval.vector.main import (
     VectorDBBase,
     VectorItem,
@@ -113,7 +113,11 @@ class OpenSearchClient(VectorDBBase):
         self.client.indices.delete(index=self._get_index_name(collection_name))
 
     def search(
-        self, collection_name: str, vectors: list[list[float | int]], limit: int
+        self,
+        collection_name: str,
+        vectors: list[list[float | int]],
+        filter: Optional[dict] = None,
+        limit: int = 10,
     ) -> Optional[SearchResult]:
         try:
             if not self.has_collection(collection_name):
@@ -201,7 +205,7 @@ class OpenSearchClient(VectorDBBase):
                     "_source": {
                         "vector": item["vector"],
                         "text": item["text"],
-                        "metadata": stringify_metadata(item["metadata"]),
+                        "metadata": process_metadata(item["metadata"]),
                     },
                 }
                 for item in batch
@@ -223,7 +227,7 @@ class OpenSearchClient(VectorDBBase):
                     "doc": {
                         "vector": item["vector"],
                         "text": item["text"],
-                        "metadata": stringify_metadata(item["metadata"]),
+                        "metadata": process_metadata(item["metadata"]),
                     },
                     "doc_as_upsert": True,
                 }

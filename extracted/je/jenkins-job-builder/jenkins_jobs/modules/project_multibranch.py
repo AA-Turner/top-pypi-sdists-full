@@ -1267,6 +1267,9 @@ def build_strategies(xml_parent, data):
             * **ignore-target-only-changes** (bool) Ignore rebuilding merge
                 branches when only the target branch changed.
                 (optional, default false)
+            * **ignore-untrusted-changes** (bool) Ignore change requests
+                flagged as originating from an untrusted source.
+                (optional, default false)
         * **regular-branches** (bool): Builds regular branches whenever a
             change is detected. (optional, default None)
         * **skip-initial-build** (bool): Skip initial build on first branch
@@ -1365,7 +1368,9 @@ def build_strategies(xml_parent, data):
                 {"plugin": "basic-branch-build-strategies"},
             )
             itoc = cr.get("ignore-target-only-changes", False)
+            iuc = cr.get("ignore-untrusted-changes", False)
             XML.SubElement(cr_elem, "ignoreTargetOnlyChanges").text = str(itoc).lower()
+            XML.SubElement(cr_elem, "ignoreUntrustedChanges").text = str(iuc).lower()
 
         if "named-branches" in bbs_list:
             named_branch_elem = XML.SubElement(
@@ -1486,10 +1491,13 @@ def property_strategies(xml_parent, data):
                 is compiled as a case-insensitive regular expression, so
                 use ``".*"`` to trigger a build on any comment whatsoever.
                 (optional)
-                If dictionary syntax is used, the option requires 2 fields:
-                ``comment`` with the comment body and ``allow-untrusted-users``
-                (bool) causing the plugin to skip checking if the comment author
-                is a collaborator of the GitHub project.
+                If dictionary syntax is used, the option takes 3 fields:
+                ``comment`` (str, required) with the comment body,
+                ``allow-untrusted-users`` (bool, optional) causing the plugin
+                to skip checking if the comment author is a collaborator of the
+                GitHub project, and ``add-reaction`` (bool, optional) causing
+                the plugin to add a thumbs-up reaction to the comment when it
+                successfully triggers a build.
                 Requires the :jenkins-plugins:`GitHub PR Comment Build Plugin
                 <github-pr-comment-build>`
             * **trigger-build-on-pr-label** (str or dict): PR label to trigger
@@ -1554,11 +1562,13 @@ def property_strategies(xml_parent, data):
                     is compiled as a case-insensitive regular expression, so
                     use ``".*"`` to trigger a build on any comment whatsoever.
                     (optional)
-                    If dictionary syntax is used, the option accepts 2 fields:
-                    ``comment`` (str, required) with the comment body and
-                    ``allow-untrusted-users`` (bool, optional) causing the plugin
-                    to skip checking if the comment author is a collaborator of
-                    the GitHub project.
+                    If dictionary syntax is used, the option takes 3 fields:
+                    ``comment`` (str, required) with the comment body,
+                    ``allow-untrusted-users`` (bool, optional) causing the
+                    plugin to skip checking if the comment author is a
+                    collaborator of the GitHub project, and ``add-reaction``
+                    (bool, optional) causing the plugin to add a thumbs-up
+                    reaction to the comment when it successfully triggers a build.
                     Requires the :jenkins-plugins:`GitHub PR Comment Build Plugin
                     <github-pr-comment-build>`
                 * **trigger-build-on-pr-review** (bool or dict): This property will
@@ -1851,6 +1861,8 @@ def apply_property_strategies(props_elem, props_list):
                 XML.SubElement(tbopc_elem, "commentBody").text = tbopc_val["comment"]
                 if tbopc_val.get("allow-untrusted-users", False):
                     XML.SubElement(tbopc_elem, "allowUntrusted").text = "true"
+                if tbopc_val.get("add-reaction", False):
+                    XML.SubElement(tbopc_elem, "addReaction").text = "true"
             elif isinstance(tbopc_val, str):
                 XML.SubElement(tbopc_elem, "commentBody").text = tbopc_val
             else:

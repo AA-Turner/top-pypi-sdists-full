@@ -21,9 +21,9 @@ class _ConnInitHandler(_BaseHandler):
     Starts the connection by sending the "start request" to the REST API.
     """
 
-    _closed_event: typing.Optional[asyncio.Event] = None
-    _initial_request_task: typing.Optional[asyncio.Task[None]] = None
-    _reconnect_watcher_task: typing.Optional[asyncio.Task[None]] = None
+    _closed_event: asyncio.Event | None = None
+    _initial_request_task: asyncio.Task[None] | None = None
+    _reconnect_watcher_task: asyncio.Task[None] | None = None
 
     @property
     def closed_event(self) -> asyncio.Event:
@@ -35,13 +35,13 @@ class _ConnInitHandler(_BaseHandler):
         self,
         *,
         api_origin: str,
-        env: typing.Optional[str],
+        env: str | None,
         http_client: net.ThreadAwareAsyncHTTPClient,
         http_client_sync: httpx.Client,
         logger: types.Logger,
-        rewrite_gateway_endpoint: typing.Optional[typing.Callable[[str], str]],
-        signing_key: typing.Optional[str],
-        signing_key_fallback: typing.Optional[str],
+        rewrite_gateway_endpoint: typing.Callable[[str], str] | None,
+        signing_key: str | None,
+        signing_key_fallback: str | None,
         state: _State,
     ):
         self._api_origin = api_origin
@@ -87,7 +87,7 @@ class _ConnInitHandler(_BaseHandler):
                 pass
 
     async def _send_start_request(self) -> None:
-        err: typing.Optional[Exception] = None
+        err: Exception | None = None
 
         while self.closed_event.is_set() is False:
             if err is not None:
@@ -124,7 +124,10 @@ class _ConnInitHandler(_BaseHandler):
                     await asyncio.sleep(_reconnect_interval.seconds)
                     self._logger.debug(
                         "ConnectionStart request retry",
-                        extra={"url": url},
+                        extra={
+                            "error": str(err),
+                            "url": url,
+                        },
                     )
 
                 headers = {
@@ -157,7 +160,6 @@ class _ConnInitHandler(_BaseHandler):
                         raise Exception(
                             f"failed to send start request: {res.status_code}"
                         )
-                    self._logger.debug("ConnectionStart response received")
 
                     # Clear the error since we got a successful response. Err is
                     # set if this was a retry.
@@ -165,6 +167,14 @@ class _ConnInitHandler(_BaseHandler):
 
                     start_resp = connect_pb2.StartResponse()
                     start_resp.ParseFromString(res.content)
+                    self._logger.debug(
+                        "ConnectionStart response received",
+                        extra={
+                            "connection_id": start_resp.connection_id,
+                            "gateway_endpoint": start_resp.gateway_endpoint,
+                            "gateway_group": start_resp.gateway_group,
+                        },
+                    )
 
                     self._state.conn_id = start_resp.connection_id
 
@@ -173,6 +183,10 @@ class _ConnInitHandler(_BaseHandler):
                         final_endpoint = self._rewrite_gateway_endpoint(
                             final_endpoint
                         )
+
+                    err = validate_gateway_endpoint(final_endpoint)
+                    if isinstance(err, Exception):
+                        raise err
 
                     self._state.conn_init.value = (
                         connect_pb2.AuthData(
@@ -203,3 +217,24 @@ class _ConnInitHandler(_BaseHandler):
                 ConnectionState.RECONNECTING,
                 immediate=False,
             )
+
+
+def validate_gateway_endpoint(endpoint: str) -> types.MaybeError[None]:
+    if endpoint.strip() == "":
+        return Exception("gateway endpoint is empty")
+
+    try:
+        parsed = urllib.parse.urlparse(endpoint)
+    except Exception as e:
+        return e
+
+    valid_schemes = ["ws", "wss"]
+    if parsed.scheme not in valid_schemes:
+        return Exception(
+            f"gateway endpoint scheme {parsed.scheme} is not valid, must be one of {', '.join(valid_schemes)}"
+        )
+
+    if parsed.hostname is None:
+        return Exception("gateway endpoint hostname is required")
+
+    return None

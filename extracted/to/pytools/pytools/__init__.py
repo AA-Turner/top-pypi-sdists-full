@@ -41,9 +41,11 @@ from collections.abc import (
     Iterable,
     Iterator,
     Mapping,
+    MutableSequence,
     Sequence,
 )
 from functools import reduce, wraps
+from pathlib import Path
 from sys import intern
 from typing import (
     TYPE_CHECKING,
@@ -51,14 +53,23 @@ from typing import (
     ClassVar,
     Concatenate,
     Generic,
+    Literal,
     ParamSpec,
     Protocol,
     TypeVar,
     cast,
+    overload,
 )
 from warnings import warn
 
-from typing_extensions import Self, dataclass_transform, deprecated, override
+from typing_extensions import (
+    Self,
+    TypeVarTuple,
+    Unpack,
+    dataclass_transform,
+    deprecated,
+    override,
+)
 
 from pytools.version import VERSION_TEXT
 
@@ -69,7 +80,8 @@ if TYPE_CHECKING:
 
     import numpy as np
     from _typeshed import ReadableBuffer
-    from numpy.typing import NDArray
+    from numpy.typing import DTypeLike, NDArray
+    from optype import CanLt
     from typing_extensions import Self
 
 
@@ -260,6 +272,10 @@ Type Variables Used
 .. class:: ReadableBuffer
 
     Anything that implements the read-write buffer interface.
+
+.. class:: SupportsLessThanT
+
+    An invariant :class:`typing.TypeVar` bound to :class:`optype.CanLt`.
 """
 
 # {{{ type variables
@@ -267,12 +283,14 @@ Type Variables Used
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 T_contra = TypeVar("T_contra", contravariant=True)
+Ts = TypeVarTuple("Ts")
 R = TypeVar("R", covariant=True)
 F = TypeVar("F", bound=Callable[..., Any])
 P = ParamSpec("P")
 K = TypeVar("K")
 V = TypeVar("V")
 EmptyT = TypeVar("EmptyT")
+SupportsLessThanT = TypeVar("SupportsLessThanT", bound="CanLt[Any]")
 
 # }}}
 
@@ -555,75 +573,85 @@ class ImmutableRecord(ImmutableRecordWithoutPickling, Record):
 # }}}
 
 
-class Reference:
-    def __init__(self, value):
-        self.value = value
+class Reference(Generic[T]):
+    def __init__(self, value: T) -> None:
+        self.value: T = value
 
-    def get(self):
+    def get(self) -> T:
         from warnings import warn
         warn("Reference.get() is deprecated -- use ref.value instead. "
              "This will stop working in 2025.", stacklevel=2)
         return self.value
 
-    def set(self, value):
+    def set(self, value: T) -> None:
         self.value = value
 
 
-class FakeList:
-    def __init__(self, f, length):
-        self._Length = length
-        self._Function = f
+class FakeList(Generic[R]):
+    def __init__(self, f: Callable[[int], R], length: int) -> None:
+        self._Length: int = length
+        self._Function: Callable[[int], R] = f
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._Length
 
-    def __getitem__(self, index):
-        try:
-            return [self._Function(i)
-                    for i in range(*index.indices(self._Length))]
-        except AttributeError:
+    @overload
+    def __getitem__(self, index: int) -> R: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[R]: ...
+
+    def __getitem__(self, index: object) -> R | Sequence[R]:
+        if isinstance(index, int):
             return self._Function(index)
+        elif isinstance(index, slice):
+            return [self._Function(i) for i in range(*index.indices(self._Length))]
+        else:
+            raise TypeError(
+                f"list indices must be 'int' or 'slice', not '{type(index).__name__}'")
 
 
 # {{{ dependent dictionary
 
-class DependentDictionary:
-    def __init__(self, f, start=None):
+class DependentDictionary(Generic[T, R]):
+    def __init__(self,
+                 f: Callable[[dict[T, R], T], R],
+                 start: dict[T, R] | None = None) -> None:
         if start is None:
             start = {}
 
-        self._Function = f
-        self._Dictionary = start.copy()
+        self._Function: Callable[[dict[T, R], T], R] = f
+        self._Dictionary: dict[T, R] = start.copy()
 
-    def copy(self):
+    def copy(self) -> DependentDictionary[T, R]:
         return DependentDictionary(self._Function, self._Dictionary)
 
-    def __contains__(self, key):
+    def __contains__(self, key: T) -> bool:
         try:
             self[key]
             return True
         except KeyError:
             return False
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: T) -> R:
         try:
             return self._Dictionary[key]
         except KeyError:
             return self._Function(self._Dictionary, key)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: T, value: R) -> None:
         self._Dictionary[key] = value
 
     def genuineKeys(self):  # noqa: N802
         return list(self._Dictionary.keys())
 
-    def iteritems(self):
+    def iteritems(self) -> Iterable[tuple[T, R]]:
         return self._Dictionary.items()
 
-    def iterkeys(self):
+    def iterkeys(self) -> Iterable[T]:
         return self._Dictionary.keys()
 
-    def itervalues(self):
+    def itervalues(self) -> Iterable[R]:
         return self._Dictionary.values()
 
 # }}}
@@ -671,7 +699,7 @@ def is_single_valued(
 all_equal = is_single_valued
 
 
-def all_roughly_equal(iterable, threshold):
+def all_roughly_equal(iterable: Iterable[object], threshold: float) -> bool:
     return is_single_valued(iterable,
             equality_pred=lambda a, b: abs(a-b) < threshold)
 
@@ -1055,15 +1083,17 @@ def monkeypatch_class(_name, bases, namespace):
 
 # {{{ generic utilities
 
-def add_tuples(t1, t2):
+# FIXME: to type these correctly, TypeVarTuple would need to support bounds
+def add_tuples(t1: tuple[Unpack[Ts]], t2: tuple[Unpack[Ts]]) -> tuple[Unpack[Ts]]:
     return tuple(t1v + t2v for t1v, t2v in zip(t1, t2, strict=True))
 
 
-def negate_tuple(t1):
+# FIXME: to type these correctly, TypeVarTuple would need to support bounds
+def negate_tuple(t1: tuple[Unpack[Ts]]) -> tuple[Unpack[Ts]]:
     return tuple(-t1v for t1v in t1)
 
 
-def shift(vec, dist):
+def shift(vec: MutableSequence[T], dist: int) -> Sequence[T]:
     """Return a copy of *vec* shifted by *dist* such that
 
     .. code:: python
@@ -1073,19 +1103,19 @@ def shift(vec, dist):
 
     result = vec[:]
 
-    N = len(vec)  # noqa: N806
-    dist = dist % N
+    n = len(vec)
+    dist = dist % n
 
     # modulo only returns positive distances!
     if dist > 0:
-        result[dist:] = vec[:N-dist]
-        result[:dist] = vec[N-dist:]
+        result[dist:] = vec[:n-dist]
+        result[:dist] = vec[n-dist:]
 
     return result
 
 
-def len_iterable(iterable):
-    return sum(1 for i in iterable)
+def len_iterable(iterable: Iterable[object]) -> int:
+    return sum(1 for _ in iterable)
 
 
 def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
@@ -1106,6 +1136,7 @@ def linear_combination(coefficients, vectors):
     result = coefficients[0] * vectors[0]
     for c, v in zip(coefficients[1:], vectors[1:], strict=True):
         result += c*v
+
     return result
 
 
@@ -1293,12 +1324,22 @@ def find_max_where(predicate, prec=1e-5, initial_guess=1, fail_bound=1e38):
 
 # {{{ argmin, argmax
 
-def argmin2(iterable, return_value=False):
+@overload
+def argmin2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: Literal[True]) -> tuple[T, SupportsLessThanT]: ...
+
+@overload
+def argmin2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: Literal[False] = False) -> T: ...
+
+
+def argmin2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: bool = False) -> T | tuple[T, SupportsLessThanT]:
     it = iter(iterable)
     try:
         current_argmin, current_min = next(it)
     except StopIteration:
-        raise ValueError("argmin of empty iterable") from None
+        raise ValueError("argmin() iterable argument is empty") from None
 
     for arg, item in it:
         if item < current_min:
@@ -1307,15 +1348,26 @@ def argmin2(iterable, return_value=False):
 
     if return_value:
         return current_argmin, current_min
+
     return current_argmin
 
 
-def argmax2(iterable, return_value=False):
+@overload
+def argmax2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: Literal[True]) -> tuple[T, SupportsLessThanT]: ...
+
+@overload
+def argmax2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: Literal[False] = False) -> T: ...
+
+
+def argmax2(iterable: Iterable[tuple[T, SupportsLessThanT]],
+            return_value: bool = False) -> T | tuple[T, SupportsLessThanT]:
     it = iter(iterable)
     try:
         current_argmax, current_max = next(it)
     except StopIteration:
-        raise ValueError("argmax of empty iterable") from None
+        raise ValueError("argmax() iterable argument is empty") from None
 
     for arg, item in it:
         if item > current_max:
@@ -1324,15 +1376,16 @@ def argmax2(iterable, return_value=False):
 
     if return_value:
         return current_argmax, current_max
+
     return current_argmax
 
 
-def argmin(iterable):
-    return argmin2(enumerate(iterable))
+def argmin(iterable: Iterable[SupportsLessThanT]) -> int:
+    return argmin2(enumerate(iterable), return_value=False)
 
 
-def argmax(iterable):
-    return argmax2(enumerate(iterable))
+def argmax(iterable: Iterable[SupportsLessThanT]) -> int:
+    return argmax2(enumerate(iterable), return_value=False)
 
 # }}}
 
@@ -1667,7 +1720,7 @@ class Table:
             alignments = tuple(alignments)
 
         self.rows: list[tuple[str, ...]] = []
-        self.alignments = alignments
+        self.alignments: tuple[str, ...] = alignments
 
     @property
     def nrows(self) -> int:
@@ -1697,7 +1750,7 @@ class Table:
                 + (self.alignments[-1],) * (self.ncolumns - len(self.alignments))
                 )[:self.ncolumns]
 
-    def _get_column_widths(self, rows) -> tuple[int, ...]:
+    def _get_column_widths(self, rows: list[tuple[str, ...]]) -> tuple[int, ...]:
         return tuple(
             max(len(row[i]) for row in rows) for i in range(self.ncolumns)
             )
@@ -1875,7 +1928,7 @@ class Table:
         if hline_after is None:
             hline_after = ()
 
-        lines = []
+        lines: list[str] = []
         for row_nr, row in enumerate(self.rows[skip_lines:]):
             lines.append(fr"{' & '.join(row)} \\")
             if row_nr in hline_after:
@@ -1932,7 +1985,7 @@ def merge_tables(*tables: Table,
     if isinstance(skip_columns, int):
         skip_columns = (skip_columns,)
 
-    def remove_columns(i, row):
+    def remove_columns(i: int, row: tuple[str, ...]) -> tuple[str, ...]:
         if i == 0 or skip_columns is None:
             return row
         return tuple(
@@ -1940,13 +1993,13 @@ def merge_tables(*tables: Table,
             )
 
     alignments = sum((
-        remove_columns(i, tbl._get_alignments())
+        remove_columns(i, tbl._get_alignments())  # pyright: ignore[reportPrivateUsage]
         for i, tbl in enumerate(tables)
         ), ())
     result = Table(alignments=alignments)
 
     for i in range(tables[0].nrows):
-        row = []
+        row: list[str] = []
         for j, tbl in enumerate(tables):
             row.extend(remove_columns(j, tbl.rows[i]))
 
@@ -2011,12 +2064,12 @@ def string_histogram(
 # }}}
 
 
-def word_wrap(text, width, wrap_using="\n"):
+def word_wrap(text: str, width: int, wrap_using: str = "\n") -> str:
     # http://code.activestate.com/recipes/148061-one-liner-word-wrap-function/
     r"""
     A word-wrap function that preserves existing line breaks
     and most spaces in the text. Expects that existing line
-    breaks are posix newlines (``\n``).
+    breaks are POSIX newlines (``\n``).
     """
     space_or_break = [" ", wrap_using]
     return reduce(lambda line, word: "{}{}{}".format(
@@ -2044,8 +2097,10 @@ class StderrToStdout:
         del self.stderr_backup
 
 
-def typedump(val: Any, max_seq: int = 5,
-             special_handlers: Mapping[type, Callable] | None = None,
+def typedump(val: object, max_seq: int = 5,
+             special_handlers: (
+                 Mapping[type, Callable[[object], str]]
+                 | None) = None,
              fully_qualified_name: bool = True) -> str:
     """
     Return a string representation of the type of *val*, recursing into
@@ -2072,14 +2127,16 @@ def typedump(val: Any, max_seq: int = 5,
     else:
         return hdlr(val)
 
-    def objname(obj: Any) -> str:
+    def objname(obj: object) -> str:
         if type(obj).__module__ == "builtins":
             if fully_qualified_name:
                 return type(obj).__qualname__
+
             return type(obj).__name__
 
         if fully_qualified_name:
             return type(obj).__module__ + "." + type(obj).__qualname__
+
         return type(obj).__name__
 
     # Special handling for 'str' since it is also iterable
@@ -2110,28 +2167,25 @@ def typedump(val: Any, max_seq: int = 5,
             return objname(val)
 
 
-def invoke_editor(s, filename="edit.txt", descr="the file"):
+def invoke_editor(s: str, filename: str = "edit.txt", descr: str = "the file"):
     from tempfile import mkdtemp
-    tempdir = mkdtemp()
+    tempdir = Path(mkdtemp())
 
-    from os.path import join
-    full_name = join(tempdir, filename)
+    full_path = tempdir / filename
 
-    with open(full_name, "w") as outf:
-        outf.write(str(s))
+    full_path.write_text(str(s))
 
     import os
     if "EDITOR" in os.environ:
         from subprocess import Popen
-        p = Popen([os.environ["EDITOR"], full_name])
+        p = Popen([os.environ["EDITOR"], full_path])
         os.waitpid(p.pid, 0)
     else:
         print("(Set the EDITOR environment variable to be "
                 "dropped directly into an editor next time.)")
-        input(f"Edit {descr} at {full_name} now, then hit [Enter]:")
+        input(f"Edit {descr} at {full_path} now, then hit [Enter]:")
 
-    with open(full_name) as inf:
-        result = inf.read()
+    result = full_path.read_text()
 
     return result
 
@@ -2149,13 +2203,31 @@ class ProgressBar:
     .. automethod:: __enter__
     .. automethod:: __exit__
     """
-    def __init__(self, descr: str, total: int, initial: int = 0,
+
+    description: str
+    total: int
+    done: int
+    length: int
+
+    last_squares: int
+    start_time: float
+    last_update_time: float
+    speed_meas_start_time: float
+    speed_meas_start_done: int
+    time_per_step: float | None
+
+    def __init__(self,
+                 descr: str,
+                 total: int,
+                 initial: int = 0,
                  length: int = 40) -> None:
         import time
+
         self.description = descr
         self.total = total
         self.done = initial
         self.length = length
+
         self.last_squares = -1
         self.start_time = time.time()
         self.last_update_time = self.start_time
@@ -2163,7 +2235,7 @@ class ProgressBar:
         self.speed_meas_start_time = self.start_time
         self.speed_meas_start_done = initial
 
-        self.time_per_step: float | None = None
+        self.time_per_step = None
 
     def draw(self) -> None:
         import time
@@ -2212,7 +2284,10 @@ class ProgressBar:
     def __enter__(self) -> None:
         self.draw()
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self,
+                 exc_type: type[BaseException],
+                 exc_val: BaseException | None,
+                 exc_tb: types.TracebackType | None) -> None:
         self.finished()
 
 # }}}
@@ -2239,14 +2314,18 @@ def add_python_path_relative_to_script(rel_path: str) -> None:
 
 # {{{ numpy dtype mangling
 
-def common_dtype(dtypes, default=None):
-    dtypes = list(dtypes)
-    if dtypes:
-        return argmax2((dtype, dtype.num) for dtype in dtypes)
+def common_dtype(dtypes: Iterator[DTypeLike],
+                 default: DTypeLike = None) -> np.dtype[Any]:
+    import numpy as np
+
+    ddtypes = [np.dtype(dtype) for dtype in dtypes]
+    if ddtypes:
+        return argmax2((dtype, dtype.num) for dtype in ddtypes)
+
     if default is not None:
-        return default
-    raise ValueError(
-            "cannot find common dtype of empty dtype list")
+        return np.dtype(default)
+
+    raise ValueError("cannot find common dtype of empty dtype list")
 
 
 def to_uncomplex_dtype(dtype):
@@ -2476,8 +2555,7 @@ def download_from_web_if_not_present(url: str, local_name: str | None = None) ->
         with urlopen(req) as inf:
             contents = inf.read()
 
-            with open(local_name, "wb") as outf:
-                outf.write(contents)
+        Path(local_name).write_bytes(contents)
 
 # }}}
 
@@ -2823,7 +2901,7 @@ def natorder(item: str) -> list[int]:
     result: list[int] = []
     for (int_val, string_val) in re.findall(r"(\d+)|(\D+)", item):
         if int_val:
-            result.append(int(int_val))
+            result.append(int(int_val))  # noqa: FURB113
             # Tie-breaker in case of leading zeros in *int_val*.  Longer values
             # compare smaller to preserve order of numbers in decimal notation,
             # e.g., "1.001" < "1.01"
@@ -2874,7 +2952,7 @@ def natsorted(iterable: Iterable[T],
 # https://github.com/python/cpython/commit/1ed61617a4a6632905ad6a0b440cd2cafb8b6414
 
 _DOTTED_WORDS = r"[a-z_]\w*(\.[a-z_]\w*)*"
-_NAME_PATTERN = re.compile(f"^({_DOTTED_WORDS})(:({_DOTTED_WORDS})?)?$", re.I)
+_NAME_PATTERN = re.compile(f"^({_DOTTED_WORDS})(:({_DOTTED_WORDS})?)?$", re.IGNORECASE)
 del _DOTTED_WORDS
 
 

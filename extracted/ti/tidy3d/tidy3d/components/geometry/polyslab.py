@@ -5,21 +5,16 @@ from __future__ import annotations
 import math
 from copy import copy
 from functools import lru_cache
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import autograd.numpy as np
 import pydantic.v1 as pydantic
 import shapely
 from autograd.tracer import getval, isbox
+from numpy._typing import NDArray
 from numpy.polynomial.legendre import leggauss as _leggauss
 
 from tidy3d.components.autograd import AutogradFieldMap, TracedVertices, get_static
-from tidy3d.components.autograd.constants import (
-    EDGE_CLIP_TOLERANCE,
-    GAUSS_QUADRATURE_ORDER,
-    GRADIENT_DTYPE_FLOAT,
-    QUAD_SAMPLE_FRACTION,
-)
 from tidy3d.components.autograd.derivative_utils import DerivativeInfo
 from tidy3d.components.autograd.types import TracedFloat
 from tidy3d.components.base import cached_property, skip_if_fields_missing
@@ -35,12 +30,16 @@ from tidy3d.components.types import (
     PlanePosition,
     Shapely,
 )
+from tidy3d.config import config
 from tidy3d.constants import LARGE_NUMBER, MICROMETER, fp_eps
 from tidy3d.exceptions import SetupError, Tidy3dImportError, ValidationError
 from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
 
 from . import base, triangulation
+
+if TYPE_CHECKING:
+    from gdstk import Cell
 
 # sampling polygon along dilation for validating polygon to be
 # non self-intersecting during the entire dilation process
@@ -58,10 +57,12 @@ _MIN_POLYGON_AREA = fp_eps
 
 
 @lru_cache(maxsize=128)
-def leggauss(n):
+def leggauss(n: int) -> tuple[NDArray, NDArray]:
     """Cached version of leggauss with dtype conversions."""
     g, w = _leggauss(n)
-    return g.astype(GRADIENT_DTYPE_FLOAT, copy=False), w.astype(GRADIENT_DTYPE_FLOAT, copy=False)
+    return g.astype(config.adjoint.gradient_dtype_float, copy=False), w.astype(
+        config.adjoint.gradient_dtype_float, copy=False
+    )
 
 
 class PolySlab(base.Planar):
@@ -105,7 +106,7 @@ class PolySlab(base.Planar):
         return shapely.Polygon(vertices)
 
     @pydantic.validator("slab_bounds", always=True)
-    def slab_bounds_order(cls, val):
+    def slab_bounds_order(cls, val: tuple[float, float]) -> tuple[float, float]:
         """Maximum position of the slab should be no smaller than its minimal position."""
         if val[1] < val[0]:
             raise SetupError(
@@ -116,7 +117,7 @@ class PolySlab(base.Planar):
         return val
 
     @pydantic.validator("vertices", always=True)
-    def correct_shape(cls, val):
+    def correct_shape(cls, val: ArrayFloat2D) -> ArrayFloat2D:
         """Makes sure vertices size is correct.
         Make sure no intersecting edges.
         """
@@ -143,7 +144,9 @@ class PolySlab(base.Planar):
 
     @pydantic.validator("vertices", always=True)
     @skip_if_fields_missing(["dilation"])
-    def no_complex_self_intersecting_polygon_at_reference_plane(cls, val, values):
+    def no_complex_self_intersecting_polygon_at_reference_plane(
+        cls, val: ArrayFloat2D, values: dict[str, Any]
+    ) -> ArrayFloat2D:
         """At the reference plane, check if the polygon is self-intersecting.
 
         There are two types of self-intersection that can occur during dilation:
@@ -193,7 +196,9 @@ class PolySlab(base.Planar):
 
     @pydantic.validator("vertices", always=True)
     @skip_if_fields_missing(["sidewall_angle", "dilation", "slab_bounds", "reference_plane"])
-    def no_self_intersecting_polygon_during_extrusion(cls, val, values):
+    def no_self_intersecting_polygon_during_extrusion(
+        cls, val: ArrayFloat2D, values: dict[str, Any]
+    ) -> ArrayFloat2D:
         """In this simple polyslab, we don't support self-intersecting polygons yet, meaning that
         any normal cross section of the PolySlab cannot be self-intersecting. This part checks
         if any self-interction will occur during extrusion with non-zero sidewall angle.
@@ -209,7 +214,8 @@ class PolySlab(base.Planar):
         """
 
         # no need to validate anything here
-        if math.isclose(values["sidewall_angle"], 0):
+        # sidewall_angle may be autograd-traced; use static value for this check only
+        if math.isclose(getval(values["sidewall_angle"]), 0):
             return val
 
         # apply dilation
@@ -263,7 +269,7 @@ class PolySlab(base.Planar):
     @classmethod
     def from_gds(
         cls,
-        gds_cell,
+        gds_cell: Cell,
         axis: Axis,
         slab_bounds: tuple[float, float],
         gds_layer: int,
@@ -327,7 +333,7 @@ class PolySlab(base.Planar):
 
     @staticmethod
     def _load_gds_vertices(
-        gds_cell,
+        gds_cell: Cell,
         gds_layer: int,
         gds_dtype: Optional[int] = None,
         gds_scale: pydantic.PositiveFloat = 1.0,
@@ -413,7 +419,7 @@ class PolySlab(base.Planar):
         return zmax - zmin
 
     @cached_property
-    def reference_polygon(self) -> np.ndarray:
+    def reference_polygon(self) -> NDArray:
         """The polygon at the reference plane.
 
         Returns
@@ -428,7 +434,7 @@ class PolySlab(base.Planar):
         return self._heal_polygon(offset_vertices)
 
     @cached_property
-    def middle_polygon(self) -> np.ndarray:
+    def middle_polygon(self) -> NDArray:
         """The polygon at the middle.
 
         Returns
@@ -446,7 +452,7 @@ class PolySlab(base.Planar):
         return self.reference_polygon
 
     @cached_property
-    def base_polygon(self) -> np.ndarray:
+    def base_polygon(self) -> NDArray:
         """The polygon at the base, derived from the ``middle_polygon``.
 
         Returns
@@ -460,7 +466,7 @@ class PolySlab(base.Planar):
         return self._shift_vertices(self.middle_polygon, dist)[0]
 
     @cached_property
-    def top_polygon(self) -> np.ndarray:
+    def top_polygon(self) -> NDArray:
         """The polygon at the top, derived from the ``middle_polygon``.
 
         Returns
@@ -495,9 +501,7 @@ class PolySlab(base.Planar):
         """Is this ``PolySlab`` CCW-oriented?"""
         return PolySlab._area(self.vertices) > 0
 
-    def inside(
-        self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
-    ) -> np.ndarray[bool]:
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
         volume of the :class:`Geometry`, and ``False`` otherwise.
@@ -551,10 +555,10 @@ class PolySlab(base.Planar):
             # slanted sidewall, offsetting vertices at each z
             else:
                 # a helper function for moving axis
-                def _move_axis(arr):
+                def _move_axis(arr: NDArray) -> NDArray:
                     return np.moveaxis(arr, source=self.axis, destination=-1)
 
-                def _move_axis_reverse(arr):
+                def _move_axis_reverse(arr: NDArray) -> NDArray:
                     return np.moveaxis(arr, source=-1, destination=self.axis)
 
                 inside_polygon_axis = _move_axis(inside_polygon)
@@ -583,7 +587,11 @@ class PolySlab(base.Planar):
 
     @verify_packages_import(["trimesh"])
     def _do_intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -595,6 +603,8 @@ class PolySlab(base.Planar):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. Not used for PolySlab geometry.
 
         Returns
         -------
@@ -637,7 +647,7 @@ class PolySlab(base.Planar):
         path, _ = section.to_2D(to_2D=to_2D)
         return path.polygons_full
 
-    def _intersections_normal(self, z: float):
+    def _intersections_normal(self, z: float, quad_segs: Optional[int] = None) -> list[Shapely]:
         """Find shapely geometries intersecting planar geometry with axis normal to slab.
 
         Parameters
@@ -661,7 +671,7 @@ class PolySlab(base.Planar):
         vertices_z = self._shift_vertices(self.middle_polygon, dist)[0]
         return [self.make_shapely_polygon(vertices_z)]
 
-    def _intersections_side(self, position, axis) -> list:
+    def _intersections_side(self, position: float, axis: int) -> list[Shapely]:
         """Find shapely geometries intersecting planar geometry with axis orthogonal to slab.
 
         For slanted polyslab, the procedure is as follows,
@@ -768,7 +778,7 @@ class PolySlab(base.Planar):
         # in other cases, just return the original unmerged polygons
         return polys
 
-    def _find_intersecting_height(self, position: float, axis: int) -> np.ndarray:
+    def _find_intersecting_height(self, position: float, axis: int) -> NDArray:
         """Found a list of height where the plane will intersect with the vertices;
         For vertical sidewall, just return np.array([]).
         Assumes axis is handles so this function works on xy plane.
@@ -807,11 +817,11 @@ class PolySlab(base.Planar):
 
     def _find_intersecting_ys_angle_vertical(
         self,
-        vertices: np.ndarray,
+        vertices: NDArray,
         position: float,
         axis: int,
         exclude_on_vertices: bool = False,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[NDArray, NDArray, NDArray]:
         """Finds pairs of forward and backwards vertices where polygon intersects position at axis,
         Find intersection point (in y) assuming straight line,and intersecting angle between plane
         and edges. (For unslanted polyslab).
@@ -848,23 +858,22 @@ class PolySlab(base.Planar):
         x_vertices_f, _ = vertices_f.T
         x_vertices_axis, _ = vertices_axis.T
 
-        # find which segments intersect
-        f_left_to_intersect = x_vertices_f <= position
-        orig_right_to_intersect = x_vertices_axis > position
-        intersects_b = np.logical_and(f_left_to_intersect, orig_right_to_intersect)
+        # Find which segments intersect:
+        # 1. Strictly crossing: one endpoint strictly left, one strictly right
+        # 2. Touching: exactly one endpoint on the plane (xor), which excludes
+        #    edges lying entirely on the plane (both endpoints at position).
+        orig_on_plane = np.isclose(x_vertices_axis, position, rtol=_IS_CLOSE_RTOL)
+        f_on_plane = np.roll(orig_on_plane, shift=-1)
+        crosses_b = (x_vertices_axis > position) & (x_vertices_f < position)
+        crosses_f = (x_vertices_axis < position) & (x_vertices_f > position)
 
-        f_right_to_intersect = x_vertices_f > position
-        orig_left_to_intersect = x_vertices_axis <= position
-        intersects_f = np.logical_and(f_right_to_intersect, orig_left_to_intersect)
-
-        # exclude vertices at the position if exclude_on_vertices is True
         if exclude_on_vertices:
-            intersects_on = np.isclose(x_vertices_axis, position, rtol=_IS_CLOSE_RTOL)
-            intersects_f_on = np.isclose(x_vertices_f, position, rtol=_IS_CLOSE_RTOL)
-            intersects_both_off = np.logical_not(np.logical_or(intersects_on, intersects_f_on))
-            intersects_f &= intersects_both_off
-            intersects_b &= intersects_both_off
-        intersects_segment = np.logical_or(intersects_b, intersects_f)
+            # exclude vertices at the position
+            not_touching = np.logical_not(orig_on_plane | f_on_plane)
+            intersects_segment = (crosses_b | crosses_f) & not_touching
+        else:
+            single_touch = np.logical_xor(orig_on_plane, f_on_plane)
+            intersects_segment = crosses_b | crosses_f | single_touch
 
         iverts_b = vertices_axis[intersects_segment]
         iverts_f = vertices_f[intersects_segment]
@@ -883,15 +892,32 @@ class PolySlab(base.Planar):
         ints_y = np.array(ints_y)
         ints_angle = np.array(ints_angle)
 
-        sort_index = np.argsort(ints_y)
-        ints_y_sort = ints_y[sort_index]
+        # Get rid of duplicate intersection points (vertices counted twice if directly on position)
+        ints_y_sort, sort_index = np.unique(ints_y, return_index=True)
         ints_angle_sort = ints_angle[sort_index]
 
+        # For tangent touches (vertex on plane, both neighbors on same side),
+        # add y-value back to form a degenerate pair
+        if not exclude_on_vertices:
+            n = len(vertices_axis)
+            for idx in np.where(orig_on_plane)[0]:
+                prev_on = orig_on_plane[(idx - 1) % n]
+                next_on = orig_on_plane[(idx + 1) % n]
+                if not prev_on and not next_on:
+                    prev_side = x_vertices_axis[(idx - 1) % n] > position
+                    next_side = x_vertices_axis[(idx + 1) % n] > position
+                    if prev_side == next_side:
+                        ints_y_sort = np.append(ints_y_sort, vertices_axis[idx, 1])
+                        ints_angle_sort = np.append(ints_angle_sort, 0)
+
+            sort_index = np.argsort(ints_y_sort)
+            ints_y_sort = ints_y_sort[sort_index]
+            ints_angle_sort = ints_angle_sort[sort_index]
         return ints_y_sort, ints_angle_sort
 
     def _find_intersecting_ys_angle_slant(
-        self, vertices: np.ndarray, position: float, axis: int
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self, vertices: NDArray, position: float, axis: int
+    ) -> tuple[NDArray, NDArray, NDArray]:
         """Finds pairs of forward and backwards vertices where polygon intersects position at axis,
         Find intersection point (in y) assuming straight line,and intersecting angle between plane
         and edges. (For slanted polyslab)
@@ -1009,7 +1035,8 @@ class PolySlab(base.Planar):
 
         # check for the maximum possible contribution from dilation/slant on each side
         max_offset = self.dilation
-        if not math.isclose(self.sidewall_angle, 0):
+        # sidewall_angle may be autograd-traced; unbox for this check
+        if not math.isclose(getval(self.sidewall_angle), 0):
             if self.reference_plane == "bottom":
                 max_offset += max(0, -self._tanq * self.finite_length_axis)
             elif self.reference_plane == "top":
@@ -1044,7 +1071,7 @@ class PolySlab(base.Planar):
         return -extrusion * self._tanq
 
     @staticmethod
-    def _area(vertices: np.ndarray) -> float:
+    def _area(vertices: NDArray) -> float:
         """Compute the signed polygon area (positive for CCW orientation).
 
         Parameters
@@ -1067,7 +1094,7 @@ class PolySlab(base.Planar):
         return np.sum(term1 - term2) * 0.5
 
     @staticmethod
-    def _perimeter(vertices: np.ndarray) -> float:
+    def _perimeter(vertices: NDArray) -> float:
         """Compute the polygon perimeter.
 
         Parameters
@@ -1091,7 +1118,7 @@ class PolySlab(base.Planar):
         return np.sum(dists)
 
     @staticmethod
-    def _orient(vertices: np.ndarray) -> np.ndarray:
+    def _orient(vertices: NDArray) -> NDArray:
         """Return a CCW-oriented polygon.
 
         Parameters
@@ -1107,7 +1134,7 @@ class PolySlab(base.Planar):
         return vertices if PolySlab._area(vertices) > 0 else vertices[::-1, :]
 
     @staticmethod
-    def _remove_duplicate_vertices(vertices: np.ndarray) -> np.ndarray:
+    def _remove_duplicate_vertices(vertices: NDArray) -> NDArray:
         """Remove redundant/identical nearest neighbour vertices.
 
         Parameters
@@ -1126,7 +1153,7 @@ class PolySlab(base.Planar):
         return vertices[~np.isclose(vertices_diff, 0, rtol=_IS_CLOSE_RTOL)]
 
     @staticmethod
-    def _proper_vertices(vertices: ArrayFloat2D) -> np.ndarray:
+    def _proper_vertices(vertices: ArrayFloat2D) -> NDArray:
         """convert vertices to np.array format,
         removing duplicate neighbouring vertices,
         and oriented in CCW direction.
@@ -1142,7 +1169,7 @@ class PolySlab(base.Planar):
 
     @staticmethod
     def _edge_events_detection(
-        proper_vertices: np.ndarray, dilation: float, ignore_at_dist: bool = True
+        proper_vertices: NDArray, dilation: float, ignore_at_dist: bool = True
     ) -> bool:
         """Detect any edge events within the offset distance ``dilation``.
         If ``ignore_at_dist=True``, the edge event at ``dist`` is ignored.
@@ -1161,7 +1188,9 @@ class PolySlab(base.Planar):
         # sample at a few dilation values
         dist_list = (
             dilation
-            * np.linspace(0, 1, 1 + _N_SAMPLE_POLYGON_INTERSECT, dtype=GRADIENT_DTYPE_FLOAT)[1:]
+            * np.linspace(
+                0, 1, 1 + _N_SAMPLE_POLYGON_INTERSECT, dtype=config.adjoint.gradient_dtype_float
+            )[1:]
         )
         for dist in dist_list:
             # offset: we offset the vertices first, and then use shapely to make it proper
@@ -1197,7 +1226,7 @@ class PolySlab(base.Planar):
 
     @staticmethod
     def _neighbor_vertices_crossing_detection(
-        vertices: np.ndarray, dist: float, ignore_at_dist: bool = True
+        vertices: NDArray, dist: float, ignore_at_dist: bool = True
     ) -> float:
         """Detect if neighboring vertices will cross after a dilation distance dist.
 
@@ -1232,12 +1261,12 @@ class PolySlab(base.Planar):
         return None
 
     @staticmethod
-    def array_to_vertices(arr_vertices: np.ndarray) -> ArrayFloat2D:
+    def array_to_vertices(arr_vertices: NDArray) -> ArrayFloat2D:
         """Converts a numpy array of vertices to a list of tuples."""
         return list(arr_vertices)
 
     @staticmethod
-    def vertices_to_array(vertices_tuple: ArrayFloat2D) -> np.ndarray:
+    def vertices_to_array(vertices_tuple: ArrayFloat2D) -> NDArray:
         """Converts a list of tuples (vertices) to a numpy array."""
         return np.array(vertices_tuple)
 
@@ -1245,7 +1274,7 @@ class PolySlab(base.Planar):
     def interior_angle(self) -> ArrayFloat1D:
         """Angle formed inside polygon by two adjacent edges."""
 
-        def normalize(v):
+        def normalize(v: NDArray) -> NDArray:
             return v / np.linalg.norm(v, axis=0)
 
         vs_orig = self.reference_polygon.T
@@ -1265,8 +1294,8 @@ class PolySlab(base.Planar):
 
     @staticmethod
     def _shift_vertices(
-        vertices: np.ndarray, dist
-    ) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]:
+        vertices: NDArray, dist: float
+    ) -> tuple[NDArray, NDArray, tuple[NDArray, NDArray]]:
         """Shifts the vertices of a polygon outward uniformly by distances
         `dists`.
 
@@ -1285,10 +1314,11 @@ class PolySlab(base.Planar):
             Shift along x and y direction.
         """
 
-        if math.isclose(dist, 0):
+        # 'dist' may be autograd-traced; unbox for the zero-check only
+        if math.isclose(getval(dist), 0):
             return vertices, np.zeros(vertices.shape[0], dtype=float), None
 
-        def rot90(v):
+        def rot90(v: tuple[NDArray, NDArray]) -> NDArray:
             """90 degree rotation of 2d vector
             vx -> vy
             vy -> -vx
@@ -1296,10 +1326,10 @@ class PolySlab(base.Planar):
             vxs, vys = v
             return np.stack((-vys, vxs), axis=0)
 
-        def cross(u, v):
+        def cross(u: NDArray, v: NDArray) -> Any:
             return u[0] * v[1] - u[1] * v[0]
 
-        def normalize(v):
+        def normalize(v: NDArray) -> NDArray:
             return v / np.linalg.norm(v, axis=0)
 
         vs_orig = copy(vertices.T)
@@ -1332,8 +1362,8 @@ class PolySlab(base.Planar):
 
     @staticmethod
     def _edge_length_and_reduction_rate(
-        vertices: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        vertices: NDArray,
+    ) -> tuple[NDArray, NDArray]:
         """Edge length of reduction rate of each edge with unit offset length.
 
         Parameters
@@ -1360,7 +1390,7 @@ class PolySlab(base.Planar):
         return edge_length, edge_reduction
 
     @staticmethod
-    def _maximal_erosion(vertices: np.ndarray) -> float:
+    def _maximal_erosion(vertices: NDArray) -> float:
         """The erosion value that reduces the length of
         all edges to be non-positive.
         """
@@ -1369,7 +1399,7 @@ class PolySlab(base.Planar):
         return -np.min(edge_length[ind_nonzero] / edge_reduction[ind_nonzero])
 
     @staticmethod
-    def _heal_polygon(vertices: np.ndarray) -> np.ndarray:
+    def _heal_polygon(vertices: NDArray) -> NDArray:
         """heal a self-intersecting polygon."""
         shapely_poly = PolySlab.make_shapely_polygon(vertices)
         if shapely_poly.is_valid:
@@ -1447,13 +1477,15 @@ class PolySlab(base.Planar):
         """
         vjps: AutogradFieldMap = {}
 
-        sim_min, sim_max = map(np.asarray, derivative_info.bounds_intersect)
-        extents = sim_max - sim_min
+        intersect_min, intersect_max = map(np.asarray, derivative_info.bounds_intersect)
+        sim_min, sim_max = map(np.asarray, derivative_info.simulation_bounds)
+
+        extents = intersect_max - intersect_min
         is_2d = np.isclose(extents[self.axis], 0.0)
 
         # early return if polyslab is not in simulation domain
         slab_min, slab_max = self.slab_bounds
-        if (slab_max <= sim_min[self.axis]) or (slab_min >= sim_max[self.axis]):
+        if (slab_max < sim_min[self.axis]) or (slab_min > sim_max[self.axis]):
             log.warning(
                 "'PolySlab' lies completely outside the simulation domain.",
                 log_once=True,
@@ -1465,12 +1497,17 @@ class PolySlab(base.Planar):
         # create interpolators once for ALL derivative computations
         # use provided interpolators if available to avoid redundant field data conversions
         interpolators = derivative_info.interpolators or derivative_info.create_interpolators(
-            dtype=GRADIENT_DTYPE_FLOAT
+            dtype=config.adjoint.gradient_dtype_float
         )
 
         for path in derivative_info.paths:
             if path == ("vertices",):
                 vjps[path] = self._compute_derivative_vertices(
+                    derivative_info, sim_min, sim_max, is_2d, interpolators
+                )
+
+            elif path == ("sidewall_angle",):
+                vjps[path] = self._compute_derivative_sidewall_angle(
                     derivative_info, sim_min, sim_max, is_2d, interpolators
                 )
             elif path[0] == "slab_bounds":
@@ -1497,6 +1534,525 @@ class PolySlab(base.Planar):
 
         return vjps
 
+    # ---- Shared helpers for VJP surface integrations ----
+    def _z_slices(
+        self, sim_min: NDArray, sim_max: NDArray, is_2d: bool, dx: float
+    ) -> tuple[NDArray, float, float, float]:
+        """Compute z-slice centers and spacing within bounds.
+
+        Returns (z_centers, dz, z0, z1). For 2D, returns single center and dz=1.
+        """
+        if is_2d:
+            midpoint_z = np.maximum(
+                np.minimum(self.center_axis, sim_max[self.axis]),
+                sim_min[self.axis],
+            )
+            zc = np.array([midpoint_z], dtype=config.adjoint.gradient_dtype_float)
+            return zc, 1.0, self.center_axis, self.center_axis
+
+        z0 = max(self.slab_bounds[0], sim_min[self.axis])
+        z1 = min(self.slab_bounds[1], sim_max[self.axis])
+        if z1 <= z0:
+            return np.array([], dtype=config.adjoint.gradient_dtype_float), 0.0, z0, z1
+
+        n_z = max(1, int(np.ceil((z1 - z0) / dx)))
+        dz = (z1 - z0) / n_z
+        z_centers = np.linspace(
+            z0 + dz / 2, z1 - dz / 2, n_z, dtype=config.adjoint.gradient_dtype_float
+        )
+        return z_centers, dz, z0, z1
+
+    @staticmethod
+    def _clip_edges_to_bounds_batch(
+        segment_starts: NDArray,
+        segment_ends: NDArray,
+        sim_min: NDArray,
+        sim_max: NDArray,
+        *,
+        _edge_clip_tol: Optional[float] = None,
+        _dtype: Optional[type] = None,
+    ) -> tuple[NDArray, NDArray, NDArray]:
+        """
+        Compute parametric bounds for multiple segments clipped to simulation bounds.
+
+        Parameters
+        ----------
+        segment_starts : NDArray
+            (N, 3) array of segment start coordinates.
+        segment_ends : NDArray
+            (N, 3) array of segment end coordinates.
+        sim_min : NDArray
+            (3,) array of simulation minimum bounds.
+        sim_max : NDArray
+            (3,) array of simulation maximum bounds.
+
+        Returns
+        -------
+        is_within_bounds : NDArray
+            (N,) boolean array indicating if the segment intersects the bounds.
+        t_starts : NDArray
+            (N,) array of parametric start values (0.0 to 1.0).
+        t_ends : NDArray
+            (N,) array of parametric end values (0.0 to 1.0).
+        """
+        n = segment_starts.shape[0]
+        if _edge_clip_tol is None:
+            _edge_clip_tol = config.adjoint.edge_clip_tolerance
+        if _dtype is None:
+            _dtype = config.adjoint.gradient_dtype_float
+
+        t_starts = np.zeros(n, dtype=_dtype)
+        t_ends = np.ones(n, dtype=_dtype)
+        is_within_bounds = np.ones(n, dtype=bool)
+
+        for dim in range(3):
+            start_coords = segment_starts[:, dim]
+            end_coords = segment_ends[:, dim]
+            bound_min = sim_min[dim]
+            bound_max = sim_max[dim]
+
+            # check for parallel edges (faster than isclose)
+            parallel = np.abs(start_coords - end_coords) < 1e-12
+
+            # parallel edges: check if outside bounds
+            outside = parallel & (
+                (start_coords < (bound_min - _edge_clip_tol))
+                | (start_coords > (bound_max + _edge_clip_tol))
+            )
+            is_within_bounds &= ~outside
+
+            # non-parallel edges: compute t_min, t_max
+            not_parallel = ~parallel & is_within_bounds
+            if np.any(not_parallel):
+                denom = np.where(not_parallel, end_coords - start_coords, 1.0)  # avoid div by zero
+                t_min = (bound_min - start_coords) / denom
+                t_max = (bound_max - start_coords) / denom
+
+                # swap if needed
+                swap = t_min > t_max
+                t_min_new = np.where(swap, t_max, t_min)
+                t_max_new = np.where(swap, t_min, t_max)
+
+                # update t_starts and t_ends for valid non-parallel edges
+                t_starts = np.where(not_parallel, np.maximum(t_starts, t_min_new), t_starts)
+                t_ends = np.where(not_parallel, np.minimum(t_ends, t_max_new), t_ends)
+
+                # still valid?
+                is_within_bounds &= ~not_parallel | (t_starts < t_ends)
+
+        is_within_bounds &= t_ends > t_starts + _edge_clip_tol
+
+        return is_within_bounds, t_starts, t_ends
+
+    @staticmethod
+    def _adaptive_edge_samples(
+        L: float,
+        dx: float,
+        t_start: float = 0.0,
+        t_end: float = 1.0,
+        *,
+        _sample_fraction: Optional[float] = None,
+        _gauss_order: Optional[int] = None,
+        _dtype: Optional[type] = None,
+    ) -> tuple[NDArray, NDArray]:
+        """
+        Compute Gauss samples and weights along [t_start, t_end] with adaptive count.
+
+        Parameters
+        ----------
+        L : float
+            Physical length of the full edge.
+        dx : float
+            Target discretization step size.
+        t_start : float, optional
+            Start parameter, by default 0.0.
+        t_end : float, optional
+            End parameter, by default 1.0.
+
+        Returns
+        -------
+        tuple[NDArray, NDArray]
+            Tuple of (samples, weights) for the integration.
+        """
+        if _sample_fraction is None:
+            _sample_fraction = config.adjoint.quadrature_sample_fraction
+        if _gauss_order is None:
+            _gauss_order = config.adjoint.gauss_quadrature_order
+        if _dtype is None:
+            _dtype = config.adjoint.gradient_dtype_float
+
+        L_eff = L * max(0.0, t_end - t_start)
+        n_uniform = max(1, int(np.ceil(L_eff / dx)))
+        n_gauss = n_uniform if n_uniform <= 3 else max(2, int(n_uniform * _sample_fraction))
+        if n_gauss <= _gauss_order:
+            g, w = leggauss(n_gauss)
+            half_range = 0.5 * (t_end - t_start)
+            s = (half_range * g + 0.5 * (t_end + t_start)).astype(_dtype, copy=False)
+            wt = (w * half_range).astype(_dtype, copy=False)
+            return s, wt
+
+        # composite Gauss with fixed local order
+        g_loc, w_loc = leggauss(_gauss_order)
+        segs = n_uniform
+        edges_t = np.linspace(t_start, t_end, segs + 1, dtype=_dtype)
+
+        # compute all segments at once
+        a = edges_t[:-1]  # (segs,)
+        b = edges_t[1:]  # (segs,)
+        half_width = 0.5 * (b - a)  # (segs,)
+        mid = 0.5 * (b + a)  # (segs,)
+
+        # (segs, 1) * (order,) + (segs, 1) -> (segs, order)
+        S = (half_width[:, None] * g_loc + mid[:, None]).astype(_dtype, copy=False)
+        W = (half_width[:, None] * w_loc).astype(_dtype, copy=False)
+        return S.ravel(), W.ravel()
+
+    def _collect_sidewall_patches(
+        self,
+        vertices: NDArray,
+        next_v: NDArray,
+        edges: NDArray,
+        basis: dict,
+        sim_min: NDArray,
+        sim_max: NDArray,
+        is_2d: bool,
+        dx: float,
+    ) -> dict:
+        """
+        Collect sidewall patch geometry for batched VJP evaluation.
+
+        Parameters
+        ----------
+        vertices : NDArray
+            Array of polygon vertices.
+        next_v : NDArray
+            Array of next vertices (forming edges).
+        edges : NDArray
+            Edge vectors.
+        basis : dict
+            Basis vectors dictionary.
+        sim_min : NDArray
+            Simulation minimum bounds.
+        sim_max : NDArray
+            Simulation maximum bounds.
+        is_2d : bool
+            Whether the simulation is 2D.
+        dx : float
+            Discretization step.
+
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - centers: (N, 3) array of patch centers.
+            - normals: (N, 3) array of patch normals.
+            - perps1: (N, 3) array of first tangent vectors.
+            - perps2: (N, 3) array of second tangent vectors.
+            - Ls: (N,) array of edge lengths.
+            - s_vals: (N,) array of parametric coordinates along the edge.
+            - s_weights: (N,) array of quadrature weights.
+            - zc_vals: (N,) array of z-coordinates.
+            - dz: float, slice thickness.
+            - edge_indices: (N,) array of original edge indices.
+        """
+        # cache config values to avoid repeated lookups (overhead not insignificant here)
+        _dtype = config.adjoint.gradient_dtype_float
+        _edge_clip_tol = config.adjoint.edge_clip_tolerance
+        _sample_fraction = config.adjoint.quadrature_sample_fraction
+        _gauss_order = config.adjoint.gauss_quadrature_order
+
+        theta = get_static(self.sidewall_angle)
+        z_ref = self.reference_axis_pos
+
+        cos_th = np.cos(theta)
+        cos_th = np.clip(cos_th, 1e-12, 1.0)
+        tan_th = np.tan(theta)
+        dprime = -tan_th  # dd/dz
+
+        # axis unit vector in 3D
+        axis_vec = np.zeros(3, dtype=_dtype)
+        axis_vec[self.axis] = 1.0
+
+        # densify along axis as |theta| grows, dz scales with cos(theta)
+        z_centers, dz, z0, z1 = self._z_slices(sim_min, sim_max, is_2d=is_2d, dx=dx * cos_th)
+
+        # early exit: no slices
+        if (not is_2d) and len(z_centers) == 0:
+            return {
+                "centers": np.empty((0, 3), dtype=_dtype),
+                "normals": np.empty((0, 3), dtype=_dtype),
+                "perps1": np.empty((0, 3), dtype=_dtype),
+                "perps2": np.empty((0, 3), dtype=_dtype),
+                "Ls": np.empty((0,), dtype=_dtype),
+                "s_vals": np.empty((0,), dtype=_dtype),
+                "s_weights": np.empty((0,), dtype=_dtype),
+                "zc_vals": np.empty((0,), dtype=_dtype),
+                "dz": dz,
+                "edge_indices": np.empty((0,), dtype=int),
+            }
+
+        # estimate patches for pre-allocation
+        n_edges = len(vertices)
+        estimated_patches = 0
+        denom_edge = max(dx * cos_th, 1e-12)
+        for ei in range(n_edges):
+            v0, v1 = vertices[ei], next_v[ei]
+            L = np.linalg.norm(v1 - v0)
+            if not np.isclose(L, 0.0):
+                # prealloc guided by actual step; ds_phys scales with cos(theta)
+                n_samples = max(1, int(np.ceil(L / denom_edge) * 0.6))
+                estimated_patches += n_samples * max(1, len(z_centers))
+        estimated_patches = int(max(1, estimated_patches) * 1.2)
+
+        # pre-allocate arrays
+        centers = np.empty((estimated_patches, 3), dtype=_dtype)
+        normals = np.empty((estimated_patches, 3), dtype=_dtype)
+        perps1 = np.empty((estimated_patches, 3), dtype=_dtype)
+        perps2 = np.empty((estimated_patches, 3), dtype=_dtype)
+        Ls = np.empty((estimated_patches,), dtype=_dtype)
+        s_vals = np.empty((estimated_patches,), dtype=_dtype)
+        s_weights = np.empty((estimated_patches,), dtype=_dtype)
+        zc_vals = np.empty((estimated_patches,), dtype=_dtype)
+        edge_indices = np.empty((estimated_patches,), dtype=int)
+
+        patch_idx = 0
+
+        # if the simulation is effectively 2D (one tangential dimension collapsed),
+        # slightly expand degenerate bounds to enable finite-length clipping of edges.
+        sim_min_eff = np.array(sim_min, dtype=_dtype)
+        sim_max_eff = np.array(sim_max, dtype=_dtype)
+        for dim in range(3):
+            if dim == self.axis:
+                continue
+            if np.isclose(sim_max_eff[dim] - sim_min_eff[dim], 0.0):
+                sim_min_eff[dim] -= 0.5 * dx
+                sim_max_eff[dim] += 0.5 * dx
+
+        # pre-compute values that are constant across z slices
+        n_z = len(z_centers)
+        z_centers_arr = np.asarray(z_centers, dtype=_dtype)
+
+        # slanted local basis (constant across z for non-slanted case)
+        # for slanted: rz = axis_vec + dprime * n2d, but dprime is constant
+        for ei, (v0, v1) in enumerate(zip(vertices, next_v)):
+            edge_vec = v1 - v0
+            L = np.sqrt(np.dot(edge_vec, edge_vec))
+            if L < 1e-12:
+                continue
+
+            # constant along edge: unit tangent in 3D (no axis component)
+            t_edge = basis["perp1"][ei]
+
+            # outward in-plane normal from canonical basis normal
+            n2d = basis["norm"][ei].copy()
+            n2d[self.axis] = 0.0
+            nrm = np.linalg.norm(n2d)
+            if not np.isclose(nrm, 0.0):
+                n2d = n2d / nrm
+            else:
+                # fallback to right-handed construction if degenerate
+                tmp = np.cross(axis_vec, t_edge)
+                n2d = tmp / (np.linalg.norm(tmp) + 1e-20)
+
+            # compute basis vectors once per edge
+            rz = axis_vec + dprime * n2d
+            T1_vec = t_edge
+            N_vec = np.cross(T1_vec, rz)
+            N_norm = np.linalg.norm(N_vec)
+            if not np.isclose(N_norm, 0.0):
+                N_vec = N_vec / N_norm
+
+            # align N with outward edge normal
+            if float(np.dot(N_vec, basis["norm"][ei])) < 0.0:
+                N_vec = -N_vec
+
+            T2_vec = np.cross(N_vec, T1_vec)
+            T2_norm = np.linalg.norm(T2_vec)
+            if not np.isclose(T2_norm, 0.0):
+                T2_vec = T2_vec / T2_norm
+
+            # batch compute offsets for all z slices at once
+            d_all = -(z_centers_arr - z_ref) * tan_th  # (n_z,)
+            offsets_3d = d_all[:, None] * n2d  # (n_z, 3) - faster than np.outer
+
+            # batch compute segment starts and ends for all z slices
+            segment_starts = np.empty((n_z, 3), dtype=_dtype)
+            segment_ends = np.empty((n_z, 3), dtype=_dtype)
+            plane_axes = [i for i in range(3) if i != self.axis]
+            segment_starts[:, self.axis] = z_centers_arr
+            segment_starts[:, plane_axes] = v0
+            segment_starts += offsets_3d
+            segment_ends[:, self.axis] = z_centers_arr
+            segment_ends[:, plane_axes] = v1
+            segment_ends += offsets_3d
+
+            # batch clip all z slices at once
+            is_within_bounds, t_starts, t_ends = self._clip_edges_to_bounds_batch(
+                segment_starts,
+                segment_ends,
+                sim_min_eff,
+                sim_max_eff,
+                _edge_clip_tol=_edge_clip_tol,
+                _dtype=_dtype,
+            )
+
+            # process only valid z slices (sampling has variable output sizes)
+            valid_indices = np.nonzero(is_within_bounds)[0]
+            if len(valid_indices) == 0:
+                continue
+
+            # group z slices by unique (t0, t1) pairs to avoid redundant quadrature calculations.
+            # since most z-slices will have identical clipping bounds (0.0, 1.0),
+            # we can compute the Gauss samples once and reuse them for almost all slices.
+            # rounding ensures we get cache hits despite tiny floating point differences.
+            t0_valid = np.round(t_starts[valid_indices], 10)
+            t1_valid = np.round(t_ends[valid_indices], 10)
+
+            # simple cache for sampling results: (t0, t1) -> (s_list, w_list)
+            sample_cache = {}
+
+            # process each z slice
+            for zi, t0, t1 in zip(valid_indices, t0_valid, t1_valid):
+                if (t0, t1) not in sample_cache:
+                    sample_cache[(t0, t1)] = self._adaptive_edge_samples(
+                        L,
+                        denom_edge,
+                        t0,
+                        t1,
+                        _sample_fraction=_sample_fraction,
+                        _gauss_order=_gauss_order,
+                        _dtype=_dtype,
+                    )
+
+                s_list, w_list = sample_cache[(t0, t1)]
+                if len(s_list) == 0:
+                    continue
+
+                zc = z_centers_arr[zi]
+                offset3d = offsets_3d[zi]
+
+                pts2d = v0 + s_list[:, None] * edge_vec  # faster than np.outer
+
+                # inline unpop_axis_vect for xyz computation
+                n_pts = len(s_list)
+                xyz = np.empty((n_pts, 3), dtype=_dtype)
+                xyz[:, self.axis] = zc
+                xyz[:, plane_axes] = pts2d
+                xyz += offset3d
+
+                n_patches = n_pts
+                new_size_needed = patch_idx + n_patches
+                if new_size_needed > centers.shape[0]:
+                    # grow arrays by 1.5x to avoid frequent reallocations
+                    new_size = int(new_size_needed * 1.5)
+                    centers.resize((new_size, 3), refcheck=False)
+                    normals.resize((new_size, 3), refcheck=False)
+                    perps1.resize((new_size, 3), refcheck=False)
+                    perps2.resize((new_size, 3), refcheck=False)
+                    Ls.resize((new_size,), refcheck=False)
+                    s_vals.resize((new_size,), refcheck=False)
+                    s_weights.resize((new_size,), refcheck=False)
+                    zc_vals.resize((new_size,), refcheck=False)
+                    edge_indices.resize((new_size,), refcheck=False)
+
+                sl = slice(patch_idx, patch_idx + n_patches)
+                centers[sl] = xyz
+                normals[sl] = N_vec
+                perps1[sl] = T1_vec
+                perps2[sl] = T2_vec
+                Ls[sl] = L
+                s_vals[sl] = s_list
+                s_weights[sl] = w_list
+                zc_vals[sl] = zc
+                edge_indices[sl] = ei
+
+                patch_idx += n_patches
+
+        # trim arrays to final size
+        centers = centers[:patch_idx]
+        normals = normals[:patch_idx]
+        perps1 = perps1[:patch_idx]
+        perps2 = perps2[:patch_idx]
+        Ls = Ls[:patch_idx]
+        s_vals = s_vals[:patch_idx]
+        s_weights = s_weights[:patch_idx]
+        zc_vals = zc_vals[:patch_idx]
+        edge_indices = edge_indices[:patch_idx]
+
+        return {
+            "centers": centers,
+            "normals": normals,
+            "perps1": perps1,
+            "perps2": perps2,
+            "Ls": Ls,
+            "s_vals": s_vals,
+            "s_weights": s_weights,
+            "zc_vals": zc_vals,
+            "dz": dz,
+            "edge_indices": edge_indices,
+        }
+
+    def _compute_derivative_sidewall_angle(
+        self,
+        derivative_info: DerivativeInfo,
+        sim_min: NDArray,
+        sim_max: NDArray,
+        is_2d: bool = False,
+        interpolators: Optional[dict] = None,
+    ) -> float:
+        """VJP for dJ/dtheta where theta = sidewall_angle.
+
+        Use dJ/dtheta = integral_S g(x) * V_n(x; theta) * dA, with g(x) from
+        `evaluate_gradient_at_points`. For a ruled sidewall built by
+        offsetting the mid-plane polygon by d(z) = -(z - z_ref) * tan(theta),
+        the normal velocity is V_n = (dd/dtheta) * cos(theta) = -(z - z_ref)/cos(theta)
+        and the area element is dA = (dz/cos(theta)) * d_ell.
+        Therefore each patch weight is w = L * dz * (-(z - z_ref)) / cos(theta)^2.
+        """
+        if interpolators is None:
+            interpolators = derivative_info.create_interpolators(
+                dtype=config.adjoint.gradient_dtype_float
+            )
+
+        # 2D sim => no dependence on theta (z_local=0)
+        if is_2d:
+            return 0.0
+
+        vertices, next_v, edges, basis = self._edge_geometry_arrays()
+
+        dx = derivative_info.adaptive_vjp_spacing()
+
+        # collect patches once
+        patch = self._collect_sidewall_patches(
+            vertices=vertices,
+            next_v=next_v,
+            edges=edges,
+            basis=basis,
+            sim_min=sim_min,
+            sim_max=sim_max,
+            is_2d=False,
+            dx=dx,
+        )
+        if patch["centers"].shape[0] == 0:
+            return 0.0
+
+        # Shape-derivative factors:
+        # - Offset: d(z) = -(z - z_ref) * tan(theta)
+        # - Tangential rate: dd/dtheta = -(z - z_ref) * sec(theta)^2
+        # - Normal velocity (project to surface normal): V_n = (dd/dtheta) * cos(theta) = -(z - z_ref)/cos(theta)
+        # - Area element of slanted strip: dA = (dz/cos(theta)) * d_ell
+        # => Patch weight scales as: V_n * dA = -(z - z_ref) * dz * d_ell / cos(theta)^2
+        cos_theta = np.cos(get_static(self.sidewall_angle))
+        inv_cos2 = 1.0 / (cos_theta * cos_theta)
+        z_ref = self.reference_axis_pos
+
+        g = derivative_info.evaluate_gradient_at_points(
+            patch["centers"], patch["normals"], patch["perps1"], patch["perps2"], interpolators
+        )
+        z_local = patch["zc_vals"] - z_ref
+        weights = patch["Ls"] * patch["s_weights"] * patch["dz"] * (-z_local) * inv_cos2
+        return float(np.real(np.sum(g * weights)))
+
     def _compute_derivative_slab_bounds(
         self, derivative_info: DerivativeInfo, min_max_index: int, interpolators: dict
     ) -> float:
@@ -1508,6 +2064,12 @@ class PolySlab(base.Planar):
         is split equally between the two vertices that bound the edge segment.
         """
         # rmin/rmax over the geometry and simulation box
+        if np.isclose(self.slab_bounds[1] - self.slab_bounds[0], 0.0):
+            log.warning(
+                "Computing slab face derivatives for flat structures is not fully supported and "
+                "may give zero for the derivative. Try using a structure with a small, but nonzero "
+                "thickness for slab bound derivatives."
+            )
         rmin, rmax = derivative_info.bounds_intersect
         _, (r1_min, r2_min) = self.pop_axis(rmin, axis=self.axis)
         _, (r1_max, r2_max) = self.pop_axis(rmax, axis=self.axis)
@@ -1523,6 +2085,9 @@ class PolySlab(base.Planar):
         r1_max = min(r1_max, poly_max_r1)
         r2_min = max(r2_min, poly_min_r2)
         r2_max = min(r2_max, poly_max_r2)
+
+        # intersect the polygon with the simulation bounds
+        face_poly = face_poly.intersection(shapely.box(r1_min, r2_min, r1_max, r2_max))
 
         if (r1_max <= r1_min) and (r2_max <= r2_min):
             # the polygon does not intersect the current simulation slice
@@ -1553,7 +2118,7 @@ class PolySlab(base.Planar):
     def compute_derivative_slab_bounds_line(
         self,
         derivative_info: DerivativeInfo,
-        extents: np.ndarray,
+        extents: NDArray,
         r1_min: float,
         r1_max: float,
         r2_min: float,
@@ -1580,7 +2145,9 @@ class PolySlab(base.Planar):
 
         dx = derivative_info.adaptive_vjp_spacing()
         n_seg = max(1, int(np.ceil(length / dx)))
-        coords = np.linspace(l_min, l_max, 2 * n_seg + 1, dtype=GRADIENT_DTYPE_FLOAT)[1::2]
+        coords = np.linspace(
+            l_min, l_max, 2 * n_seg + 1, dtype=config.adjoint.gradient_dtype_float
+        )[1::2]
 
         # build XY coordinates and in-plane direction vectors
         if line_dim == 0:
@@ -1616,7 +2183,7 @@ class PolySlab(base.Planar):
     def compute_derivative_slab_bounds_surface(
         self,
         derivative_info: DerivativeInfo,
-        extents: np.ndarray,
+        extents: NDArray,
         r1_min: float,
         r1_max: float,
         r2_min: float,
@@ -1640,10 +2207,10 @@ class PolySlab(base.Planar):
         g2, w2 = leggauss(n2)
 
         coords1 = (0.5 * (r1_max - r1_min) * g1 + 0.5 * (r1_max + r1_min)).astype(
-            GRADIENT_DTYPE_FLOAT, copy=False
+            config.adjoint.gradient_dtype_float, copy=False
         )
         coords2 = (0.5 * (r2_max - r2_min) * g2 + 0.5 * (r2_max + r2_min)).astype(
-            GRADIENT_DTYPE_FLOAT, copy=False
+            config.adjoint.gradient_dtype_float, copy=False
         )
 
         r1_grid, r2_grid = np.meshgrid(coords1, coords2, indexing="ij")
@@ -1656,29 +2223,33 @@ class PolySlab(base.Planar):
             return 0.0
 
         xyz = self.unpop_axis_vect(
-            np.full(in_face.sum(), ax_val, dtype=GRADIENT_DTYPE_FLOAT), pts[in_face]
+            np.full(in_face.sum(), ax_val, dtype=config.adjoint.gradient_dtype_float), pts[in_face]
         )
         n_patches = xyz.shape[0]
 
         normals_xyz = self.unpop_axis_vect(
-            np.full(n_patches, -1 if min_max_index == 0 else 1, dtype=GRADIENT_DTYPE_FLOAT),
-            np.zeros((n_patches, 2), dtype=GRADIENT_DTYPE_FLOAT),
+            np.full(
+                n_patches,
+                -1 if min_max_index == 0 else 1,
+                dtype=config.adjoint.gradient_dtype_float,
+            ),
+            np.zeros((n_patches, 2), dtype=config.adjoint.gradient_dtype_float),
         )
         perps1_xyz = self.unpop_axis_vect(
-            np.zeros(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
+            np.zeros(n_patches, dtype=config.adjoint.gradient_dtype_float),
             np.column_stack(
                 (
-                    np.ones(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
-                    np.zeros(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
+                    np.ones(n_patches, dtype=config.adjoint.gradient_dtype_float),
+                    np.zeros(n_patches, dtype=config.adjoint.gradient_dtype_float),
                 )
             ),
         )
         perps2_xyz = self.unpop_axis_vect(
-            np.zeros(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
+            np.zeros(n_patches, dtype=config.adjoint.gradient_dtype_float),
             np.column_stack(
                 (
-                    np.zeros(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
-                    np.ones(n_patches, dtype=GRADIENT_DTYPE_FLOAT),
+                    np.zeros(n_patches, dtype=config.adjoint.gradient_dtype_float),
+                    np.ones(n_patches, dtype=config.adjoint.gradient_dtype_float),
                 )
             ),
         )
@@ -1702,298 +2273,110 @@ class PolySlab(base.Planar):
     def _compute_derivative_vertices(
         self,
         derivative_info: DerivativeInfo,
-        sim_min: np.ndarray,
-        sim_max: np.ndarray,
+        sim_min: NDArray,
+        sim_max: NDArray,
         is_2d: bool = False,
         interpolators: Optional[dict] = None,
-    ) -> np.ndarray:
+    ) -> NDArray:
         """VJP for the vertices of a ``PolySlab``.
 
-        Each side-wall is sliced in the **in-plane** direction (along the edge)
-        and, when applicable, in the **out-of-plane** direction (along the
-        extrusion axis) so that every rectangular surface patch is no larger
-        than ``_VJP_SAMPLE_SPACING`` in any dimension.  The adjoint surface
-        integral is evaluated on every retained patch; the resulting force is
-        split (weighted) between the two vertices that bound the edge segment.
-
-        Special cases:
-        - Pure 2d simulations - integral collapses to a line; only one z-slice is taken.
-        - Partial overlap with the simulation box - patches falling
-          outside ``[sim_min, sim_max]`` are skipped.
-        - Degenerate edges (zero length) - ignored.
+        Uses shared sidewall patch collection and batched field evaluation.
         """
-        vertices = np.asarray(self.vertices, dtype=GRADIENT_DTYPE_FLOAT)
-        next_v = np.roll(vertices, -1, axis=0)
-        edges = next_v - vertices
-        basis = self.edge_basis_vectors(edges)
+        vertices, next_v, edges, basis = self._edge_geometry_arrays()
         dx = derivative_info.adaptive_vjp_spacing()
 
-        # compute z‐slices
-        z0 = max(self.slab_bounds[0], sim_min[self.axis])
-        z1 = min(self.slab_bounds[1], sim_max[self.axis])
+        # collect patches once
+        patch = self._collect_sidewall_patches(
+            vertices=vertices,
+            next_v=next_v,
+            edges=edges,
+            basis=basis,
+            sim_min=sim_min,
+            sim_max=sim_max,
+            is_2d=is_2d,
+            dx=dx,
+        )
 
-        # early return if no z-slices
-        if (not is_2d) and z1 <= z0:
+        # early return if no patches
+        if patch["centers"].shape[0] == 0:
             return np.zeros_like(vertices)
 
-        if is_2d:
-            z_centers = np.array([self.center_axis], dtype=GRADIENT_DTYPE_FLOAT)
-            dz_surf = 1.0
-        else:
-            n_z = max(1, int(np.ceil((z1 - z0) / dx)))
-            dz = (z1 - z0) / n_z
-            dz_surf = dz / np.cos(self.sidewall_angle)
-            z_centers = np.linspace(z0 + dz / 2, z1 - dz / 2, n_z, dtype=GRADIENT_DTYPE_FLOAT)
-
-        vjp_per_vertex = np.zeros_like(vertices, dtype=float)
-        normals_2d = np.delete(basis["norm"], self.axis, axis=1)
+        dz = patch["dz"]
+        dz_surf = 1.0 if is_2d else dz / np.cos(self.sidewall_angle)
 
         # use provided interpolators or create them if not provided
         if interpolators is None:
-            interpolators = derivative_info.create_interpolators(dtype=GRADIENT_DTYPE_FLOAT)
-
-        def compute_edge_clip_bounds(v0_3d, v1_3d, sim_min, sim_max):
-            """
-            Compute parametric bounds [t_start, t_end] for the portion of edge
-            (v0_3d -> v1_3d) that lies within [sim_min, sim_max].
-
-            Returns:
-            - (t_start, t_end): parametric bounds, or None if edge is fully outside
-            """
-            t_start, t_end = 0.0, 1.0
-
-            for dim in range(3):
-                v0_d, v1_d = v0_3d[dim], v1_3d[dim]
-                min_d, max_d = sim_min[dim], sim_max[dim]
-
-                if np.isclose(v0_d, v1_d):
-                    if v0_d < min_d or v0_d > max_d:
-                        return None
-                    continue
-
-                t_min = (min_d - v0_d) / (v1_d - v0_d)
-                t_max = (max_d - v0_d) / (v1_d - v0_d)
-
-                if t_min > t_max:
-                    t_min, t_max = t_max, t_min
-
-                t_start = max(t_start, t_min)
-                t_end = min(t_end, t_max)
-
-                if t_start >= t_end:
-                    return None
-
-            # avoid numerical issues at boundaries
-            if t_end <= t_start + EDGE_CLIP_TOLERANCE:
-                return None
-
-            return (t_start, t_end)
-
-        # estimate total number of patches for pre-allocation
-        # this avoids repeated list.extend calls
-        estimated_patches = 0
-        n_edges = len(vertices)
-        for ei in range(n_edges):
-            v0, v1 = vertices[ei], next_v[ei]
-            L = np.linalg.norm(v1 - v0)
-            if not np.isclose(L, 0.0):
-                # estimate samples per edge (conservative estimate)
-                n_samples = max(1, int(np.ceil(L / dx) * 0.4))  # 40% of uniform for Gauss
-                estimated_patches += n_samples * len(z_centers)
-
-        # pre-allocate arrays with estimated size
-        # over-allocate by 20% to handle edge cases, will trim later
-        estimated_patches = int(estimated_patches * 1.2)
-        all_centers = np.empty((estimated_patches, 3), dtype=GRADIENT_DTYPE_FLOAT)
-        all_areas = np.empty(estimated_patches, dtype=GRADIENT_DTYPE_FLOAT)
-        all_normals = np.empty((estimated_patches, 3), dtype=GRADIENT_DTYPE_FLOAT)
-        all_perps1 = np.empty((estimated_patches, 3), dtype=GRADIENT_DTYPE_FLOAT)
-        all_perps2 = np.empty((estimated_patches, 3), dtype=GRADIENT_DTYPE_FLOAT)
-        all_edge_info = []  # keep as list since it stores tuples
-
-        # track actual number of patches
-        patch_idx = 0
-
-        def get_adaptive_samples(L, dx, t_start=0.0, t_end=1.0):
-            """Get sampling points and weights along edge using optimal quadrature.
-
-            Parameters:
-            - L: Full edge length
-            - dx: Target spacing
-            - t_start, t_end: Parametric bounds for clipped edges (0 <= t_start < t_end <= 1)
-
-            Returns:
-            - s: Parametric coordinates in [t_start, t_end]
-            - weights: Quadrature weights (sum to t_end - t_start)
-            """
-            # compute effective length for the clipped portion
-            L_effective = L * (t_end - t_start)
-            n_uniform = max(1, int(np.ceil(L_effective / dx)))
-
-            # Gauss quadrature is more accurate than uniform sampling
-            if n_uniform <= 3:
-                n_gauss = n_uniform  # for very short edges, keep same number
-            else:
-                n_gauss = max(
-                    2, int(n_uniform * QUAD_SAMPLE_FRACTION)
-                )  # use 40% of points for longer edges
-
-            if n_gauss <= GAUSS_QUADRATURE_ORDER:
-                g, w = leggauss(n_gauss)
-
-                # map from [-1, 1] to [t_start, t_end]
-                s = (0.5 * (t_end - t_start) * g + 0.5 * (t_end + t_start)).astype(
-                    GRADIENT_DTYPE_FLOAT, copy=False
-                )
-                weights = (w * 0.5 * (t_end - t_start)).astype(GRADIENT_DTYPE_FLOAT, copy=False)
-            else:
-                # for longer edges, use composite Gauss quadrature
-                pts_per_interval = GAUSS_QUADRATURE_ORDER
-                n_intervals = max(1, (n_gauss + pts_per_interval - 1) // pts_per_interval)
-
-                g_ref, w_ref = leggauss(pts_per_interval)
-
-                s_list = []
-                w_list = []
-
-                for i in range(n_intervals):
-                    # sub-interval bounds in [0, 1]
-                    a = i / n_intervals
-                    b = (i + 1) / n_intervals
-
-                    # map to [t_start, t_end]
-                    a_mapped = t_start + a * (t_end - t_start)
-                    b_mapped = t_start + b * (t_end - t_start)
-
-                    # transform Gauss points to sub-interval [a_mapped, b_mapped]
-                    s_interval = 0.5 * (b_mapped - a_mapped) * g_ref + 0.5 * (b_mapped + a_mapped)
-                    w_interval = 0.5 * (b_mapped - a_mapped) * w_ref
-
-                    s_list.extend(s_interval)
-                    w_list.extend(w_interval)
-
-                s = np.array(s_list, dtype=GRADIENT_DTYPE_FLOAT)
-                weights = np.array(w_list, dtype=GRADIENT_DTYPE_FLOAT)
-
-            return s, weights
-
-        # pre-compute 2D bounding box for edge clipping optimization
-        sim_min_2d = np.delete(sim_min, self.axis)
-        sim_max_2d = np.delete(sim_max, self.axis)
-
-        for ei, (v0, v1) in enumerate(zip(vertices, next_v)):
-            edge_vec = v1 - v0
-            L = np.linalg.norm(edge_vec)
-            if np.isclose(L, 0.0):
-                continue
-
-            # check if edge is definitely inside 2D bounds
-            edge_min_2d = np.minimum(v0, v1)
-            edge_max_2d = np.maximum(v0, v1)
-            definitely_inside_2d = np.all(edge_min_2d >= sim_min_2d) and np.all(
-                edge_max_2d <= sim_max_2d
+            interpolators = derivative_info.create_interpolators(
+                dtype=config.adjoint.gradient_dtype_float
             )
 
-            # process each z-slice with proper clipping
-            for zc in z_centers:
-                # fast path: if edge is definitely inside 2D bounds AND z is in bounds, skip clipping
-                if definitely_inside_2d and z0 <= zc <= z1:
-                    t_start, t_end = 0.0, 1.0
-                else:
-                    v0_3d = self.unpop_axis_vect(np.array([zc]), v0[None])[0]
-                    v1_3d = self.unpop_axis_vect(np.array([zc]), v1[None])[0]
+        # evaluate integrand
+        g = derivative_info.evaluate_gradient_at_points(
+            patch["centers"], patch["normals"], patch["perps1"], patch["perps2"], interpolators
+        )
 
-                    clip_bounds = compute_edge_clip_bounds(v0_3d, v1_3d, sim_min, sim_max)
-                    if clip_bounds is None:
-                        continue  # edge is entirely outside bounds
+        # compute area-based weights and weighted vjps
+        areas = patch["Ls"] * patch["s_weights"] * dz_surf
+        patch_vjps = (g * areas).real
 
-                    t_start, t_end = clip_bounds
+        # distribute to vertices using vectorized accumulation
+        normals_2d = np.delete(basis["norm"], self.axis, axis=1)
+        edge_idx = patch["edge_indices"]
+        s = patch["s_vals"]
+        w0 = (1.0 - s) * patch_vjps
+        w1 = s * patch_vjps
+        edge_norms = normals_2d[edge_idx]
 
-                s_list, s_weights = get_adaptive_samples(L, dx, t_start, t_end)
+        # Accumulate per-vertex contributions using bincount (O(N_patches))
+        num_vertices = vertices.shape[0]
+        contrib0 = w0[:, None] * edge_norms  # (n_patches, 2)
+        contrib1 = w1[:, None] * edge_norms  # (n_patches, 2)
 
-                pts2d = v0 + np.outer(s_list, edge_vec)
+        idx0 = edge_idx
+        idx1 = (edge_idx + 1) % num_vertices
 
-                # patch areas include quadrature weights for accurate integration
-                patch_areas = L * s_weights * (dz_surf if not is_2d else 1.0)
+        v0x = np.bincount(idx0, weights=contrib0[:, 0], minlength=num_vertices)
+        v0y = np.bincount(idx0, weights=contrib0[:, 1], minlength=num_vertices)
+        v1x = np.bincount(idx1, weights=contrib1[:, 0], minlength=num_vertices)
+        v1y = np.bincount(idx1, weights=contrib1[:, 1], minlength=num_vertices)
 
-                # all points are within bounds by construction due to clipping
-                xyz = self.unpop_axis_vect(np.full(len(s_list), zc), pts2d)
-
-                n_patches = len(s_list)
-
-                # ensure we don't exceed pre-allocated size
-                if patch_idx + n_patches > estimated_patches:
-                    # resize arrays if needed (rare case)
-                    new_size = int((patch_idx + n_patches) * 1.5)
-
-                    # at this stage, no other views into these arrays exist _yet_
-                    # so `refcheck=False` should be safe
-                    all_centers.resize((new_size, 3), refcheck=False)
-                    all_areas.resize(new_size, refcheck=False)
-                    all_normals.resize((new_size, 3), refcheck=False)
-                    all_perps1.resize((new_size, 3), refcheck=False)
-                    all_perps2.resize((new_size, 3), refcheck=False)
-
-                all_centers[patch_idx : patch_idx + n_patches] = xyz
-                all_areas[patch_idx : patch_idx + n_patches] = patch_areas
-
-                all_normals[patch_idx : patch_idx + n_patches] = basis["norm"][ei]
-                all_perps1[patch_idx : patch_idx + n_patches] = basis["perp1"][ei]
-                all_perps2[patch_idx : patch_idx + n_patches] = basis["perp2"][ei]
-
-                edge_norm_2d = normals_2d[ei]
-                all_edge_info.extend([(ei, s_val, edge_norm_2d) for s_val in s_list])
-
-                patch_idx += n_patches
-
-        if patch_idx > 0:
-            # trim arrays to actual size used
-            centers = all_centers[:patch_idx]
-            areas = all_areas[:patch_idx]
-            normals = all_normals[:patch_idx]
-            perps1 = all_perps1[:patch_idx]
-            perps2 = all_perps2[:patch_idx]
-
-            patch_vjps = derivative_info.evaluate_gradient_at_points(
-                centers, normals, perps1, perps2, interpolators
-            )
-            patch_vjps = (patch_vjps * areas).real
-
-            for vjp, (ei, s_val, edge_norm_2d) in zip(patch_vjps, all_edge_info):
-                # vertex weights: (1-s) for vertex i, s for vertex i+1
-                # quadrature weights are already included in areas via patch_areas
-                w0 = 1.0 - s_val
-                w1 = s_val
-
-                vjp_per_vertex[ei] += (w0 * vjp) * edge_norm_2d
-                vjp_per_vertex[(ei + 1) % len(vertices)] += (w1 * vjp) * edge_norm_2d
-
+        vjp_per_vertex = np.stack((v0x + v1x, v0y + v1y), axis=1)
         return vjp_per_vertex
+
+    def _edge_geometry_arrays(
+        self, dtype: np.dtype = config.adjoint.gradient_dtype_float
+    ) -> tuple[NDArray, NDArray, NDArray, dict[str, NDArray]]:
+        """Return (vertices, next_v, edges, basis) arrays for sidewall edge geometry."""
+        vertices = np.asarray(self.vertices, dtype=dtype)
+        next_v = np.roll(vertices, -1, axis=0)
+        edges = next_v - vertices
+        basis = self.edge_basis_vectors(edges)
+        return vertices, next_v, edges, basis
 
     def edge_basis_vectors(
         self,
-        edges: np.ndarray,  # (N, 2)
-    ) -> dict[str, np.ndarray]:  # (N, 3)
+        edges: NDArray,  # (N, 2)
+    ) -> dict[str, NDArray]:  # (N, 3)
         """Normalized basis vectors for ``normal`` direction, ``slab`` tangent direction and ``edge``."""
 
         # ensure edges have consistent dtype
-        edges = edges.astype(GRADIENT_DTYPE_FLOAT, copy=False)
+        edges = edges.astype(config.adjoint.gradient_dtype_float, copy=False)
 
         num_vertices, _ = edges.shape
-        zeros = np.zeros(num_vertices, dtype=GRADIENT_DTYPE_FLOAT)
-        ones = np.ones(num_vertices, dtype=GRADIENT_DTYPE_FLOAT)
+        zeros = np.zeros(num_vertices, dtype=config.adjoint.gradient_dtype_float)
+        ones = np.ones(num_vertices, dtype=config.adjoint.gradient_dtype_float)
 
         # normalized vectors along edges
         edges_norm_in_plane = self.normalize_vect(edges)
         edges_norm_xyz = self.unpop_axis_vect(zeros, edges_norm_in_plane)
 
         # normalized vectors from base of edges to tops of edges
-        cos_angle = np.cos(self.sidewall_angle, dtype=GRADIENT_DTYPE_FLOAT)
-        sin_angle = np.sin(self.sidewall_angle, dtype=GRADIENT_DTYPE_FLOAT)
+        cos_angle = np.cos(self.sidewall_angle)
+        sin_angle = np.sin(self.sidewall_angle)
         slabs_axis_components = cos_angle * ones
 
         # create axis_norm as array directly to avoid tuple->array conversion in np.cross
-        axis_norm = np.zeros(3, dtype=GRADIENT_DTYPE_FLOAT)
+        axis_norm = np.zeros(3, dtype=config.adjoint.gradient_dtype_float)
         axis_norm[self.axis] = 1.0
         slab_normal_xyz = -sin_angle * np.cross(edges_norm_xyz, axis_norm)
         _, slab_normal_in_plane = self.pop_axis_vect(slab_normal_xyz)
@@ -2010,7 +2393,7 @@ class PolySlab(base.Planar):
             "perp2": slabs_norm_xyz,
         }
 
-    def unpop_axis_vect(self, ax_coords: np.ndarray, plane_coords: np.ndarray) -> np.ndarray:
+    def unpop_axis_vect(self, ax_coords: NDArray, plane_coords: NDArray) -> NDArray:
         """Combine coordinate along axis with coordinates on the plane tangent to the axis.
 
         ax_coords.shape == [N]
@@ -2027,7 +2410,7 @@ class PolySlab(base.Planar):
 
         return arr_xyz
 
-    def pop_axis_vect(self, coord: np.ndarray) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    def pop_axis_vect(self, coord: NDArray) -> tuple[NDArray, tuple[NDArray, NDArray]]:
         """Combine coordinate along axis with coordinates on the plane tangent to the axis.
 
         coord.shape == [N, 3]
@@ -2040,7 +2423,7 @@ class PolySlab(base.Planar):
         return arr_axis, arrs_plane
 
     @staticmethod
-    def normalize_vect(arr: np.ndarray) -> np.ndarray:
+    def normalize_vect(arr: NDArray) -> NDArray:
         """normalize an array shaped (N, d) along the `d` axis and return (N, 1)."""
         norm = np.linalg.norm(arr, axis=-1, keepdims=True)
         norm = np.where(norm == 0, 1, norm)
@@ -2154,14 +2537,16 @@ class ComplexPolySlabBase(PolySlab):
     :class:`plugins.polyslab.ComplexPolySlab`."""
 
     @pydantic.validator("vertices", always=True)
-    def no_self_intersecting_polygon_during_extrusion(cls, val, values):
+    def no_self_intersecting_polygon_during_extrusion(
+        cls, val: ArrayFloat2D, values: dict[str, Any]
+    ) -> ArrayFloat2D:
         """Turn off the validation for this class."""
         return val
 
     @classmethod
     def from_gds(
         cls,
-        gds_cell,
+        gds_cell: Cell,
         axis: Axis,
         slab_bounds: tuple[float, float],
         gds_layer: int,
@@ -2349,7 +2734,12 @@ class ComplexPolySlabBase(PolySlab):
         return z_coord
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -2361,6 +2751,10 @@ class ComplexPolySlabBase(PolySlab):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. Not used for PolySlab.
 
         Returns
         -------
@@ -2374,7 +2768,9 @@ class ComplexPolySlabBase(PolySlab):
                 [
                     base.Geometry.evaluate_inf_shape(shape)
                     for polyslab in self.sub_polyslabs
-                    for shape in polyslab.intersections_tilted_plane(normal, origin, to_2D)
+                    for shape in polyslab.intersections_tilted_plane(
+                        normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+                    )
                 ]
             )
         ]

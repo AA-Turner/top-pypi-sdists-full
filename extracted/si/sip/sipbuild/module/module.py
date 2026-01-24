@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2024 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
 
 
 import os
@@ -9,22 +9,23 @@ import subprocess
 import sys
 
 from ..exceptions import UserException
-from ..py_versions import MINIMUM_SETUPTOOLS, OLDEST_SUPPORTED_MINOR
+from ..py_versions import (DEFAULT_ABI_MAJOR, MINIMUM_SETUPTOOLS,
+        OLDEST_SUPPORTED_MINOR)
 from ..version import SIP_VERSION, SIP_VERSION_STR
 
-from .abi_version import (get_latest_version, get_module_source_dir,
-        get_source_version_range, parse_abi_version)
+from .abi_version import (get_module_source_dir, get_source_version_range,
+        parse_abi_version)
 
 
-def module(sip_module, abi_version, project, sdist, setup_cfg, sip_h, sip_rst,
-        target_dir):
+def module(sip_module, abi_version, sip_module_configuration, project, sdist,
+        setup_cfg, sip_h, sip_rst, target_dir):
     """ Create the various elements of a sip module. """
 
     # Check we have the required source.
     if abi_version:
         major_version, minor_version = parse_abi_version(abi_version)
     else:
-        major_version = get_latest_version()
+        major_version = DEFAULT_ABI_MAJOR
         minor_version = None
 
     oldest_source, latest_source = get_source_version_range(major_version)
@@ -41,7 +42,8 @@ def module(sip_module, abi_version, project, sdist, setup_cfg, sip_h, sip_rst,
         project = sip_module.replace('.', '_')
 
     # Create the patches.
-    patches = _create_patches(sip_module, module_source_dir, project)
+    patches = _create_patches(sip_module, module_source_dir,
+            sip_module_shared=True, project=project)
 
     # The names of generated files.
     sdist_dir = project + '-' + patches['@SIP_MODULE_VERSION@']
@@ -64,12 +66,13 @@ def module(sip_module, abi_version, project, sdist, setup_cfg, sip_h, sip_rst,
         _create_sip_file(sip_rst_fn, module_source_dir, patches)
 
 
-def copy_sip_h(abi_version, target_dir, sip_module='', version_info=True):
+def copy_sip_h(abi_version, sip_module, target_dir, *, sip_module_shared=True,
+        version_info=True):
     """ Copy the sip.h file. """
 
     module_source_dir = get_module_source_dir(abi_version)
     patches = _create_patches(sip_module, module_source_dir,
-            version_info=version_info)
+            sip_module_shared=sip_module_shared, version_info=version_info)
     _install_source_file('sip.h', module_source_dir, target_dir, patches)
 
 
@@ -80,11 +83,11 @@ def copy_sip_pyi(abi_version, target_dir):
     shutil.copy(os.path.join(module_source_dir, 'sip.pyi'), target_dir)
 
 
-def copy_nonshared_sources(abi_version, target_dir):
+def copy_nonshared_sources(abi_version, sip_module, target_dir):
     """ Copy the module sources as a non-shared module. """
 
     # Copy the patched sip.h.
-    copy_sip_h(abi_version, target_dir)
+    copy_sip_h(abi_version, sip_module, target_dir, sip_module_shared=False)
 
     # Copy the remaining source code.
     sources = []
@@ -103,8 +106,8 @@ def copy_nonshared_sources(abi_version, target_dir):
     return sources
 
 
-def _create_patches(sip_module, module_source_dir, project='',
-        version_info=True):
+def _create_patches(sip_module, module_source_dir, *, sip_module_shared,
+        project='', version_info=True):
     """ Return a dict of the patches. """
 
     sip_module_parts = sip_module.split('.')
@@ -153,7 +156,7 @@ def _create_patches(sip_module, module_source_dir, project='',
         '@_SIP_MINIMUM_SETUPTOOLS@':            MINIMUM_SETUPTOOLS,
         '@_SIP_MODULE_FQ_NAME@':                sip_module,
         '@_SIP_MODULE_NAME@':                   sip_module_name,
-        '@_SIP_MODULE_SHARED@':                 '1' if sip_module else '0',
+        '@_SIP_MODULE_SHARED@':                 '1' if sip_module_shared else '0',
         '@_SIP_MODULE_ENTRY@':                  'PyInit_' + sip_module_name,
         '@_SIP_MODULE_LEGACY@':                 "1" if legacy else "0",
         '@_SIP_OLDEST_SUPPORTED_MINOR@':        str(OLDEST_SUPPORTED_MINOR),

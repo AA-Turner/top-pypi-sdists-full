@@ -59,11 +59,7 @@ _Marshallable: TypeAlias = (
 )
 
 if sys.version_info >= (3, 14):
-    def dump(value: _Marshallable, file: SupportsWrite[bytes], version: int = 5, /, *, allow_code: bool = True) -> None: ...
-    def dumps(value: _Marshallable, version: int = 5, /, *, allow_code: bool = True) -> bytes: ...
-
-elif sys.version_info >= (3, 13):
-    def dump(value: _Marshallable, file: SupportsWrite[bytes], version: int = 4, /, *, allow_code: bool = True) -> None:
+    def dump(value: _Marshallable, file: SupportsWrite[bytes], version: int = 5, /, *, allow_code: bool = True) -> None:
         """
         Write the value on the open file.
 
@@ -81,7 +77,7 @@ elif sys.version_info >= (3, 13):
         to the file. The object will not be properly read back by load().
         """
         ...
-    def dumps(value: _Marshallable, version: int = 4, /, *, allow_code: bool = True) -> bytes:
+    def dumps(value: _Marshallable, version: int = 5, /, *, allow_code: bool = True) -> bytes:
         """
         Return the bytes object that would be written to a file by dump(value, file).
 
@@ -96,6 +92,10 @@ elif sys.version_info >= (3, 13):
         unsupported type.
         """
         ...
+
+elif sys.version_info >= (3, 13):
+    def dump(value: _Marshallable, file: SupportsWrite[bytes], version: int = 4, /, *, allow_code: bool = True) -> None: ...
+    def dumps(value: _Marshallable, version: int = 4, /, *, allow_code: bool = True) -> bytes: ...
 
 else:
     def dump(value: _Marshallable, file: SupportsWrite[bytes], version: int = 4, /) -> None: ...

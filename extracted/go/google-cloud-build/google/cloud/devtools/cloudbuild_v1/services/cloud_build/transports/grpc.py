@@ -159,9 +159,10 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -295,9 +296,10 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -471,29 +473,29 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
 
         For triggered builds:
 
-        -  Triggered builds resolve to a precise revision; therefore a
-           retry of a triggered build will result in a build that uses
-           the same revision.
+        - Triggered builds resolve to a precise revision; therefore a
+          retry of a triggered build will result in a build that uses
+          the same revision.
 
         For non-triggered builds that specify ``RepoSource``:
 
-        -  If the original build built from the tip of a branch, the
-           retried build will build from the tip of that branch, which
-           may not be the same revision as the original build.
-        -  If the original build specified a commit sha or revision ID,
-           the retried build will use the identical source.
+        - If the original build built from the tip of a branch, the
+          retried build will build from the tip of that branch, which
+          may not be the same revision as the original build.
+        - If the original build specified a commit sha or revision ID,
+          the retried build will use the identical source.
 
         For builds that specify ``StorageSource``:
 
-        -  If the original build pulled source from Cloud Storage
-           without specifying the generation of the object, the new
-           build will use the current object, which may be different
-           from the original build source.
-        -  If the original build pulled source from Cloud Storage and
-           specified the generation of the object, the new build will
-           attempt to use the same object, which may or may not be
-           available depending on the bucket's lifecycle management
-           settings.
+        - If the original build pulled source from Cloud Storage without
+          specifying the generation of the object, the new build will
+          use the current object, which may be different from the
+          original build source.
+        - If the original build pulled source from Cloud Storage and
+          specified the generation of the object, the new build will
+          attempt to use the same object, which may or may not be
+          available depending on the bucket's lifecycle management
+          settings.
 
         Returns:
             Callable[[~.RetryBuildRequest],
@@ -521,8 +523,9 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
 
         Approves or rejects a pending build.
 
-        If approved, the returned LRO will be analogous to the
-        LRO returned from a CreateBuild call.
+        If approved, the returned long-running operation (LRO)
+        will be analogous to the LRO returned from a CreateBuild
+        call.
 
         If rejected, the returned LRO will be immediately done.
 
@@ -552,8 +555,6 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
 
         Creates a new ``BuildTrigger``.
 
-        This API is experimental.
-
         Returns:
             Callable[[~.CreateBuildTriggerRequest],
                     ~.BuildTrigger]:
@@ -579,8 +580,6 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
         r"""Return a callable for the get build trigger method over gRPC.
 
         Returns information about a ``BuildTrigger``.
-
-        This API is experimental.
 
         Returns:
             Callable[[~.GetBuildTriggerRequest],
@@ -610,8 +609,6 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
 
         Lists existing ``BuildTrigger``\ s.
 
-        This API is experimental.
-
         Returns:
             Callable[[~.ListBuildTriggersRequest],
                     ~.ListBuildTriggersResponse]:
@@ -638,8 +635,6 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
 
         Deletes a ``BuildTrigger`` by its project ID and trigger ID.
 
-        This API is experimental.
-
         Returns:
             Callable[[~.DeleteBuildTriggerRequest],
                     ~.Empty]:
@@ -665,8 +660,6 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
         r"""Return a callable for the update build trigger method over gRPC.
 
         Updates a ``BuildTrigger`` by its project ID and trigger ID.
-
-        This API is experimental.
 
         Returns:
             Callable[[~.UpdateBuildTriggerRequest],
@@ -879,6 +872,36 @@ class CloudBuildGrpcTransport(CloudBuildTransport):
                 response_deserializer=cloudbuild.ListWorkerPoolsResponse.deserialize,
             )
         return self._stubs["list_worker_pools"]
+
+    @property
+    def get_default_service_account(
+        self,
+    ) -> Callable[
+        [cloudbuild.GetDefaultServiceAccountRequest], cloudbuild.DefaultServiceAccount
+    ]:
+        r"""Return a callable for the get default service account method over gRPC.
+
+        Returns the ``DefaultServiceAccount`` used by the project.
+
+        Returns:
+            Callable[[~.GetDefaultServiceAccountRequest],
+                    ~.DefaultServiceAccount]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_default_service_account" not in self._stubs:
+            self._stubs[
+                "get_default_service_account"
+            ] = self._logged_channel.unary_unary(
+                "/google.devtools.cloudbuild.v1.CloudBuild/GetDefaultServiceAccount",
+                request_serializer=cloudbuild.GetDefaultServiceAccountRequest.serialize,
+                response_deserializer=cloudbuild.DefaultServiceAccount.deserialize,
+            )
+        return self._stubs["get_default_service_account"]
 
     def close(self):
         self._logged_channel.close()

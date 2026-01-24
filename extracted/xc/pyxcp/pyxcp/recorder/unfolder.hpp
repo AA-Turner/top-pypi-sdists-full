@@ -13,6 +13,7 @@
     #include <stdfloat>
 #endif
 #include <variant>
+#include <memory>
 
 #include "daqlist.hpp"
 #include "helper.hpp"
@@ -324,7 +325,7 @@ struct Getter {
         }
     }
 
-    void set_first_pids(const std::vector<DaqList>& daq_lists, const std::vector<std::uint16_t>& first_pids) {
+    void set_first_pids(const std::vector<std::shared_ptr<DaqListBase>>& daq_lists, const std::vector<std::uint16_t>& first_pids) {
         m_first_pids = first_pids;
 
         if (m_id_size == 1) {
@@ -333,7 +334,7 @@ struct Getter {
             for (const auto& daq_list : daq_lists) {
                 auto first_pid = m_first_pids[daq_list_num];
 
-                for (std::uint16_t idx = first_pid; idx < daq_list.get_odt_count() + first_pid; ++idx) {
+                for (std::uint16_t idx = first_pid; idx < daq_list->get_odt_count() + first_pid; ++idx) {
                     m_odt_to_daq_map[idx] = { daq_list_num, (idx - first_pid) };
                 }
                 daq_list_num++;
@@ -540,7 +541,7 @@ struct MeasurementParameters {
     explicit MeasurementParameters(
         std::uint8_t byte_order, std::uint8_t id_field_size, bool timestamps_supported, bool ts_fixed, bool prescaler_supported,
         bool selectable_timestamps, double ts_scale_factor, std::uint8_t ts_size, std::uint16_t min_daq,
-        const TimestampInfo& timestamp_info, const std::vector<DaqList>& daq_lists, const std::vector<std::uint16_t>& first_pids
+        const TimestampInfo& timestamp_info, const std::vector<std::shared_ptr<DaqListBase>>& daq_lists, const std::vector<std::uint16_t>& first_pids
     ) :
         m_byte_order(byte_order),
         m_id_field_size(id_field_size),
@@ -578,7 +579,7 @@ struct MeasurementParameters {
         ////
 
         for (const auto& daq_list : m_daq_lists) {
-            ss << daq_list.dumps();
+            ss << daq_list->dumps();
         }
 
         std::size_t fp_count = m_first_pids.size();
@@ -675,7 +676,7 @@ struct MeasurementParameters {
     std::uint8_t               m_ts_size;
     std::uint16_t              m_min_daq;
     TimestampInfo              m_timestamp_info;
-    std::vector<DaqList>       m_daq_lists;
+    std::vector<std::shared_ptr<DaqListBase>> m_daq_lists;
     std::vector<std::uint16_t> m_first_pids;
 };
 
@@ -696,7 +697,7 @@ class Deserializer {
         std::uint8_t               ts_size;
         std::uint16_t              min_daq;
         std::size_t                dl_count;
-        std::vector<DaqList>       daq_lists;
+        std::vector<std::shared_ptr<DaqListBase>> daq_lists;
         std::size_t                fp_count;
         std::uint64_t              timestamp_ns;
         std::int16_t               utc_offset;
@@ -716,20 +717,21 @@ class Deserializer {
         min_daq               = from_binary<std::uint16_t>();
         dl_count              = from_binary<std::size_t>();
 
-        ////
         timestamp_ns = from_binary<std::uint64_t>();
-        // std::cout << "TS: " << timestamp_ns << std::endl;
         timezone = from_binary_str();
-        // std::cout << "TZ: " << timezone << std::endl;
         utc_offset = from_binary<std::int16_t>();
-        // std::cout << "UTC:" << utc_offset << std::endl;
         dst_offset = from_binary<std::int16_t>();
-        // std::cout << "DST:" << dst_offset << std::endl;
 
         TimestampInfo timestamp_info{ timestamp_ns, timezone, utc_offset, dst_offset };
 
         for (std::size_t i = 0; i < dl_count; i++) {
-            daq_lists.push_back(create_daq_list());
+			auto discr = from_binary<std::uint8_t>();
+
+			if (discr == 1) {
+				daq_lists.push_back(create_daq_list());
+			} else if (discr == 2) {
+				daq_lists.push_back(create_predefined_daq_list());
+			}
         }
 
         fp_count = from_binary<std::size_t>();
@@ -745,9 +747,10 @@ class Deserializer {
 
    protected:
 
-    DaqList create_daq_list() {
+    std::shared_ptr<DaqListBase> create_daq_list() {
         std::string              name;
         std::uint16_t            event_num;
+        std::uint16_t            prescaler;
         bool                     stim;
         bool                     enable_timestamps;
         std::vector<McObject>    measurements;
@@ -766,6 +769,8 @@ class Deserializer {
         event_num         = from_binary<std::uint16_t>();
         stim              = from_binary<bool>();
         enable_timestamps = from_binary<bool>();
+        std::uint8_t priority = from_binary<std::uint8_t>();
+        prescaler         = from_binary<std::uint8_t>();
 
         odt_count     = from_binary<std::uint16_t>();  // not used
         total_entries = from_binary<std::uint16_t>();  // not used
@@ -773,7 +778,6 @@ class Deserializer {
 
         std::size_t meas_size = from_binary<std::size_t>();
         for (std::size_t i = 0; i < meas_size; ++i) {
-            // name, address, ext, dt_name
             auto meas = create_mc_object();
             measurements.push_back(meas);
             initializer_list.push_back({ meas.get_name(), meas.get_address(), meas.get_ext(), meas.get_data_type() });
@@ -790,38 +794,68 @@ class Deserializer {
             header_names.push_back(header);
         }
 
-        auto odts = create_flatten_odts();
-
-        auto result = DaqList(name, event_num, stim, enable_timestamps, initializer_list);
-        result.set_measurements_opt(measurements_opt);
-        return result;
+        auto dl = std::make_shared<DaqList>(name, event_num, stim, enable_timestamps, initializer_list, priority, prescaler);
+        dl->set_measurements_opt(measurements_opt);
+        return dl;
     }
 
-    flatten_odts_t create_flatten_odts() {
-        std::string   name;
-        std::uint32_t address;
-        std::uint8_t  ext;
-        std::uint16_t size;
-        std::int16_t  type_index;
+    std::shared_ptr<DaqListBase> create_predefined_daq_list() {
+        std::string              name;
+        std::uint16_t            event_num;
+        std::uint8_t             priority;
+        std::uint8_t             prescaler;
+        bool                     stim;
+        bool                     enable_timestamps;
+        std::vector<Bin>         measurements_opt;
+        std::vector<std::string> header_names;
+        PredefinedDaqList::predefined_daq_list_initializer_t odts;
+        std::uint16_t odt_count;
+        std::uint16_t total_entries;
+        std::uint16_t total_length;
 
-        flatten_odts_t odts;
+        name              = from_binary_str();
+        event_num         = from_binary<std::uint16_t>();
+        stim              = from_binary<bool>();
+        enable_timestamps = from_binary<bool>();
+        priority          = from_binary<std::uint8_t>();
+        prescaler         = from_binary<std::uint8_t>();
 
-        std::size_t odt_count = from_binary<std::size_t>();
-        for (std::size_t i = 0; i < odt_count; ++i) {
-            std::vector<std::tuple<std::string, std::uint32_t, std::uint8_t, std::uint16_t, std::int16_t>> flatten_odt{};
-            std::size_t odt_entry_count = from_binary<std::size_t>();
-            for (std::size_t j = 0; j < odt_entry_count; ++j) {
-                name       = from_binary_str();
-                address    = from_binary<std::uint32_t>();
-                ext        = from_binary<std::uint8_t>();
-                size       = from_binary<std::uint16_t>();
-                type_index = from_binary<std::int16_t>();
-                flatten_odt.push_back(std::make_tuple(name, address, ext, size, type_index));
-            }
-            odts.push_back(flatten_odt);
+        odt_count     = from_binary<std::uint16_t>();  // not used
+        total_entries = from_binary<std::uint16_t>();  // not used
+        total_length  = from_binary<std::uint16_t>();  // not used
+
+        std::size_t meas_opt_size = from_binary<std::size_t>();
+        for (std::size_t i = 0; i < meas_opt_size; ++i) {
+            measurements_opt.emplace_back(create_bin());
         }
 
-        return odts;
+        std::size_t hname_size = from_binary<std::size_t>();
+        for (std::size_t i = 0; i < hname_size; ++i) {
+            auto header = from_binary_str();
+            header_names.push_back(header);
+        }
+
+        // Build `odts` from `measurements_opt` so the constructor is properly initialized
+        odts.clear();
+        odts.reserve(measurements_opt.size());
+        for (const auto& bin : measurements_opt) {
+            PredefinedDaqList::odt_initializer_t odt_init;
+            for (const auto& mc_obj : bin.get_entries()) {
+                const auto& comps = mc_obj.get_components();
+                if (comps.empty()) {
+                    odt_init.emplace_back(mc_obj.get_name(), mc_obj.get_data_type());
+                } else {
+                    for (const auto& component : comps) {
+                        odt_init.emplace_back(component.get_name(), component.get_data_type());
+                    }
+                }
+            }
+            odts.emplace_back(std::move(odt_init));
+        }
+
+        auto dl = std::make_shared<PredefinedDaqList>(name, event_num, stim, enable_timestamps, odts, priority, prescaler);
+        dl->set_measurements_opt(measurements_opt);
+        return dl;
     }
 
     McObject create_mc_object() {
@@ -1057,8 +1091,8 @@ class DAQProcessor {
         m_getter = Getter(requires_swap(params.m_byte_order), params.m_id_field_size, params.m_ts_size);
         for (std::uint16_t idx = 0; idx < params.m_daq_lists.size(); ++idx) {
             m_state.emplace_back(DaqListState(
-                idx, params.m_daq_lists[idx].get_odt_count(), params.m_daq_lists[idx].get_total_entries(),
-                params.m_daq_lists[idx].get_enable_timestamps(), params.m_id_field_size, params.m_daq_lists[idx].get_flatten_odts(),
+                idx, params.m_daq_lists[idx]->get_odt_count(), params.m_daq_lists[idx]->get_total_entries(),
+                params.m_daq_lists[idx]->get_enable_timestamps(), params.m_id_field_size, params.m_daq_lists[idx]->get_flatten_odts(),
                 m_getter, params
             ));
         }

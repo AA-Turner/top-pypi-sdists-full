@@ -4,7 +4,6 @@ import asyncio
 import functools
 import typing
 from collections import ChainMap
-from concurrent.futures import Executor
 from contextvars import copy_context
 from os import getenv
 from typing import Any, ParamSpec, TypeVar
@@ -13,6 +12,8 @@ from langgraph.constants import CONF
 from typing_extensions import TypedDict
 
 if typing.TYPE_CHECKING:
+    from concurrent.futures import Executor
+
     from langchain_core.runnables import RunnableConfig
 
 try:

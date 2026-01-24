@@ -7,7 +7,7 @@ if (!window.chrome) {
     writable: true,
     enumerable: true,
     configurable: false, // note!
-    value: {}, // We'll extend that later
+    value: {} // We'll extend that later
   });
 }
 
@@ -17,7 +17,7 @@ if (!("app" in window.chrome)) {
     ErrorInInvocation: (fn) => {
       const err = new TypeError(`Error in invocation of app.${fn}()`);
       return utils.stripErrorWithAnchor(err, `at ${fn} (eval at <anonymous>`);
-    },
+    }
   };
 
   const APP_STATIC_DATA = JSON.parse(
@@ -62,7 +62,7 @@ if (!("app" in window.chrome)) {
         throw makeError.ErrorInInvocation(`runningState`);
       }
       return "cannot_run";
-    },
+    }
   };
   utils.patchToStringNested(window.chrome.app);
 }

@@ -16,11 +16,19 @@ from .. import _utilities
 from . import outputs
 
 __all__ = [
+    'AutomaticDrConfigurationMember',
+    'DrPlanExecutionAutomaticExecutionDetail',
     'DrPlanExecutionExecutionOptions',
     'DrPlanExecutionGroupExecution',
     'DrPlanExecutionGroupExecutionStepExecution',
     'DrPlanExecutionGroupExecutionStepExecutionLogLocation',
     'DrPlanExecutionLogLocation',
+    'DrPlanExecutionStepStatusCount',
+    'DrPlanExecutionStepStatusCountFailedStep',
+    'DrPlanExecutionStepStatusCountRemainingStep',
+    'DrPlanExecutionStepStatusCountSkippedStep',
+    'DrPlanExecutionStepStatusCountSuccessfulStep',
+    'DrPlanExecutionStepStatusCountWarningStep',
     'DrPlanPlanGroup',
     'DrPlanPlanGroupStep',
     'DrPlanPlanGroupStepUserDefinedStep',
@@ -48,23 +56,43 @@ __all__ = [
     'DrProtectionGroupMemberLoadBalancerMapping',
     'DrProtectionGroupMemberManagedNodePoolConfig',
     'DrProtectionGroupMemberNetworkLoadBalancerMapping',
+    'DrProtectionGroupMemberResourceModifierMapping',
     'DrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMapping',
     'DrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingDestinationEncryptionKey',
     'DrProtectionGroupMemberVaultMapping',
     'DrProtectionGroupMemberVirtualNodePoolConfig',
     'DrProtectionGroupMemberVnicMapping',
+    'GetAutomaticDrConfigurationMemberResult',
+    'GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionResult',
+    'GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemResult',
+    'GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemMemberResult',
+    'GetAutomaticDrConfigurationsFilterResult',
+    'GetDrPlanExecutionAutomaticExecutionDetailResult',
     'GetDrPlanExecutionExecutionOptionResult',
     'GetDrPlanExecutionGroupExecutionResult',
     'GetDrPlanExecutionGroupExecutionStepExecutionResult',
     'GetDrPlanExecutionGroupExecutionStepExecutionLogLocationResult',
     'GetDrPlanExecutionLogLocationResult',
+    'GetDrPlanExecutionStepStatusCountResult',
+    'GetDrPlanExecutionStepStatusCountFailedStepResult',
+    'GetDrPlanExecutionStepStatusCountRemainingStepResult',
+    'GetDrPlanExecutionStepStatusCountSkippedStepResult',
+    'GetDrPlanExecutionStepStatusCountSuccessfulStepResult',
+    'GetDrPlanExecutionStepStatusCountWarningStepResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemAutomaticExecutionDetailResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemExecutionOptionResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemGroupExecutionResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemGroupExecutionStepExecutionResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemGroupExecutionStepExecutionLogLocationResult',
     'GetDrPlanExecutionsDrPlanExecutionCollectionItemLogLocationResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountFailedStepResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountRemainingStepResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSkippedStepResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSuccessfulStepResult',
+    'GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountWarningStepResult',
     'GetDrPlanExecutionsFilterResult',
     'GetDrPlanPlanGroupResult',
     'GetDrPlanPlanGroupStepResult',
@@ -100,6 +128,7 @@ __all__ = [
     'GetDrProtectionGroupMemberLoadBalancerMappingResult',
     'GetDrProtectionGroupMemberManagedNodePoolConfigResult',
     'GetDrProtectionGroupMemberNetworkLoadBalancerMappingResult',
+    'GetDrProtectionGroupMemberResourceModifierMappingResult',
     'GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingResult',
     'GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingDestinationEncryptionKeyResult',
     'GetDrProtectionGroupMemberVaultMappingResult',
@@ -130,6 +159,7 @@ __all__ = [
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberLoadBalancerMappingResult',
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberManagedNodePoolConfigResult',
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberNetworkLoadBalancerMappingResult',
+    'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResourceModifierMappingResult',
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberSourceVolumeToDestinationEncryptionKeyMappingResult',
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberSourceVolumeToDestinationEncryptionKeyMappingDestinationEncryptionKeyResult',
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVaultMappingResult',
@@ -137,6 +167,140 @@ __all__ = [
     'GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVnicMappingResult',
     'GetDrProtectionGroupsFilterResult',
 ]
+
+@pulumi.output_type
+class AutomaticDrConfigurationMember(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "memberId":
+            suggest = "member_id"
+        elif key == "memberType":
+            suggest = "member_type"
+        elif key == "isAutoFailoverEnabled":
+            suggest = "is_auto_failover_enabled"
+        elif key == "isAutoSwitchoverEnabled":
+            suggest = "is_auto_switchover_enabled"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AutomaticDrConfigurationMember. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AutomaticDrConfigurationMember.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AutomaticDrConfigurationMember.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 member_id: _builtins.str,
+                 member_type: _builtins.str,
+                 is_auto_failover_enabled: Optional[_builtins.bool] = None,
+                 is_auto_switchover_enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str member_id: (Updatable) The OCID of the member.  Example: `ocid1.database.oc1..uniqueID`
+        :param _builtins.str member_type: (Updatable) The type of the member. 
+               
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        :param _builtins.bool is_auto_failover_enabled: (Updatable) A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        :param _builtins.bool is_auto_switchover_enabled: (Updatable) A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        pulumi.set(__self__, "member_id", member_id)
+        pulumi.set(__self__, "member_type", member_type)
+        if is_auto_failover_enabled is not None:
+            pulumi.set(__self__, "is_auto_failover_enabled", is_auto_failover_enabled)
+        if is_auto_switchover_enabled is not None:
+            pulumi.set(__self__, "is_auto_switchover_enabled", is_auto_switchover_enabled)
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> _builtins.str:
+        """
+        (Updatable) The OCID of the member.  Example: `ocid1.database.oc1..uniqueID`
+        """
+        return pulumi.get(self, "member_id")
+
+    @_builtins.property
+    @pulumi.getter(name="memberType")
+    def member_type(self) -> _builtins.str:
+        """
+        (Updatable) The type of the member. 
+
+
+        ** IMPORTANT **
+        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
+        return pulumi.get(self, "member_type")
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoFailoverEnabled")
+    def is_auto_failover_enabled(self) -> Optional[_builtins.bool]:
+        """
+        (Updatable) A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_failover_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoSwitchoverEnabled")
+    def is_auto_switchover_enabled(self) -> Optional[_builtins.bool]:
+        """
+        (Updatable) A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_switchover_enabled")
+
+
+@pulumi.output_type
+class DrPlanExecutionAutomaticExecutionDetail(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "eventName":
+            suggest = "event_name"
+        elif key == "memberId":
+            suggest = "member_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionAutomaticExecutionDetail. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionAutomaticExecutionDetail.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionAutomaticExecutionDetail.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 event_name: Optional[_builtins.str] = None,
+                 member_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str event_name: The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        :param _builtins.str member_id: The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        if event_name is not None:
+            pulumi.set(__self__, "event_name", event_name)
+        if member_id is not None:
+            pulumi.set(__self__, "member_id", member_id)
+
+    @_builtins.property
+    @pulumi.getter(name="eventName")
+    def event_name(self) -> Optional[_builtins.str]:
+        """
+        The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        """
+        return pulumi.get(self, "event_name")
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> Optional[_builtins.str]:
+        """
+        The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        return pulumi.get(self, "member_id")
+
 
 @pulumi.output_type
 class DrPlanExecutionExecutionOptions(dict):
@@ -604,6 +768,434 @@ class DrPlanExecutionLogLocation(dict):
 
 
 @pulumi.output_type
+class DrPlanExecutionStepStatusCount(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "failedSteps":
+            suggest = "failed_steps"
+        elif key == "remainingSteps":
+            suggest = "remaining_steps"
+        elif key == "skippedSteps":
+            suggest = "skipped_steps"
+        elif key == "successfulSteps":
+            suggest = "successful_steps"
+        elif key == "totalSteps":
+            suggest = "total_steps"
+        elif key == "warningSteps":
+            suggest = "warning_steps"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCount. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCount.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCount.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 failed_steps: Optional[Sequence['outputs.DrPlanExecutionStepStatusCountFailedStep']] = None,
+                 remaining_steps: Optional[Sequence['outputs.DrPlanExecutionStepStatusCountRemainingStep']] = None,
+                 skipped_steps: Optional[Sequence['outputs.DrPlanExecutionStepStatusCountSkippedStep']] = None,
+                 successful_steps: Optional[Sequence['outputs.DrPlanExecutionStepStatusCountSuccessfulStep']] = None,
+                 total_steps: Optional[_builtins.int] = None,
+                 warning_steps: Optional[Sequence['outputs.DrPlanExecutionStepStatusCountWarningStep']] = None):
+        """
+        :param Sequence['DrPlanExecutionStepStatusCountFailedStepArgs'] failed_steps: A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        :param Sequence['DrPlanExecutionStepStatusCountRemainingStepArgs'] remaining_steps: A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        :param Sequence['DrPlanExecutionStepStatusCountSkippedStepArgs'] skipped_steps: A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        :param Sequence['DrPlanExecutionStepStatusCountSuccessfulStepArgs'] successful_steps: A summary of steps that completed successfully during a DR plan execution.
+        :param _builtins.int total_steps: The total number of steps in a DR plan execution.
+        :param Sequence['DrPlanExecutionStepStatusCountWarningStepArgs'] warning_steps: A summary of steps that encountered warnings during a DR plan execution.
+        """
+        if failed_steps is not None:
+            pulumi.set(__self__, "failed_steps", failed_steps)
+        if remaining_steps is not None:
+            pulumi.set(__self__, "remaining_steps", remaining_steps)
+        if skipped_steps is not None:
+            pulumi.set(__self__, "skipped_steps", skipped_steps)
+        if successful_steps is not None:
+            pulumi.set(__self__, "successful_steps", successful_steps)
+        if total_steps is not None:
+            pulumi.set(__self__, "total_steps", total_steps)
+        if warning_steps is not None:
+            pulumi.set(__self__, "warning_steps", warning_steps)
+
+    @_builtins.property
+    @pulumi.getter(name="failedSteps")
+    def failed_steps(self) -> Optional[Sequence['outputs.DrPlanExecutionStepStatusCountFailedStep']]:
+        """
+        A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        """
+        return pulumi.get(self, "failed_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="remainingSteps")
+    def remaining_steps(self) -> Optional[Sequence['outputs.DrPlanExecutionStepStatusCountRemainingStep']]:
+        """
+        A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        """
+        return pulumi.get(self, "remaining_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="skippedSteps")
+    def skipped_steps(self) -> Optional[Sequence['outputs.DrPlanExecutionStepStatusCountSkippedStep']]:
+        """
+        A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        """
+        return pulumi.get(self, "skipped_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="successfulSteps")
+    def successful_steps(self) -> Optional[Sequence['outputs.DrPlanExecutionStepStatusCountSuccessfulStep']]:
+        """
+        A summary of steps that completed successfully during a DR plan execution.
+        """
+        return pulumi.get(self, "successful_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSteps")
+    def total_steps(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="warningSteps")
+    def warning_steps(self) -> Optional[Sequence['outputs.DrPlanExecutionStepStatusCountWarningStep']]:
+        """
+        A summary of steps that encountered warnings during a DR plan execution.
+        """
+        return pulumi.get(self, "warning_steps")
+
+
+@pulumi.output_type
+class DrPlanExecutionStepStatusCountFailedStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "timedOut":
+            suggest = "timed_out"
+        elif key == "totalFailed":
+            suggest = "total_failed"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCountFailedStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCountFailedStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCountFailedStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 failed: Optional[_builtins.int] = None,
+                 timed_out: Optional[_builtins.int] = None,
+                 total_failed: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int failed: The total number of failed steps in a DR plan execution.
+        :param _builtins.int timed_out: The total number of steps that timed out during a DR plan execution.
+        :param _builtins.int total_failed: The total number of steps that failed during a DR plan execution.
+        """
+        if failed is not None:
+            pulumi.set(__self__, "failed", failed)
+        if timed_out is not None:
+            pulumi.set(__self__, "timed_out", timed_out)
+        if total_failed is not None:
+            pulumi.set(__self__, "total_failed", total_failed)
+
+    @_builtins.property
+    @pulumi.getter
+    def failed(self) -> Optional[_builtins.int]:
+        """
+        The total number of failed steps in a DR plan execution.
+        """
+        return pulumi.get(self, "failed")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOut")
+    def timed_out(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that timed out during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out")
+
+    @_builtins.property
+    @pulumi.getter(name="totalFailed")
+    def total_failed(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that failed during a DR plan execution.
+        """
+        return pulumi.get(self, "total_failed")
+
+
+@pulumi.output_type
+class DrPlanExecutionStepStatusCountRemainingStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "inProgress":
+            suggest = "in_progress"
+        elif key == "totalRemaining":
+            suggest = "total_remaining"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCountRemainingStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCountRemainingStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCountRemainingStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 in_progress: Optional[_builtins.int] = None,
+                 paused: Optional[_builtins.int] = None,
+                 queued: Optional[_builtins.int] = None,
+                 total_remaining: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int in_progress: The total number of steps in progress during a DR plan execution.
+        :param _builtins.int paused: The total number of paused steps in a DR plan execution.
+        :param _builtins.int queued: The total number of queued steps in a DR plan execution.
+        :param _builtins.int total_remaining: The total number of remaining steps in a DR plan execution.
+        """
+        if in_progress is not None:
+            pulumi.set(__self__, "in_progress", in_progress)
+        if paused is not None:
+            pulumi.set(__self__, "paused", paused)
+        if queued is not None:
+            pulumi.set(__self__, "queued", queued)
+        if total_remaining is not None:
+            pulumi.set(__self__, "total_remaining", total_remaining)
+
+    @_builtins.property
+    @pulumi.getter(name="inProgress")
+    def in_progress(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps in progress during a DR plan execution.
+        """
+        return pulumi.get(self, "in_progress")
+
+    @_builtins.property
+    @pulumi.getter
+    def paused(self) -> Optional[_builtins.int]:
+        """
+        The total number of paused steps in a DR plan execution.
+        """
+        return pulumi.get(self, "paused")
+
+    @_builtins.property
+    @pulumi.getter
+    def queued(self) -> Optional[_builtins.int]:
+        """
+        The total number of queued steps in a DR plan execution.
+        """
+        return pulumi.get(self, "queued")
+
+    @_builtins.property
+    @pulumi.getter(name="totalRemaining")
+    def total_remaining(self) -> Optional[_builtins.int]:
+        """
+        The total number of remaining steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_remaining")
+
+
+@pulumi.output_type
+class DrPlanExecutionStepStatusCountSkippedStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "failedIgnored":
+            suggest = "failed_ignored"
+        elif key == "timedOutIgnored":
+            suggest = "timed_out_ignored"
+        elif key == "totalSkipped":
+            suggest = "total_skipped"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCountSkippedStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCountSkippedStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCountSkippedStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 canceled: Optional[_builtins.int] = None,
+                 disabled: Optional[_builtins.int] = None,
+                 failed_ignored: Optional[_builtins.int] = None,
+                 timed_out_ignored: Optional[_builtins.int] = None,
+                 total_skipped: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int canceled: The total number of canceled steps in a DR plan execution.
+        :param _builtins.int disabled: The total number of disabled steps in a DR plan execution.
+        :param _builtins.int failed_ignored: The total number of steps that failed but were ignored during a DR plan execution.
+        :param _builtins.int timed_out_ignored: The total number of steps that timed out but were ignored during a DR plan execution.
+        :param _builtins.int total_skipped: The total number of steps that were skipped during a DR plan execution.
+        """
+        if canceled is not None:
+            pulumi.set(__self__, "canceled", canceled)
+        if disabled is not None:
+            pulumi.set(__self__, "disabled", disabled)
+        if failed_ignored is not None:
+            pulumi.set(__self__, "failed_ignored", failed_ignored)
+        if timed_out_ignored is not None:
+            pulumi.set(__self__, "timed_out_ignored", timed_out_ignored)
+        if total_skipped is not None:
+            pulumi.set(__self__, "total_skipped", total_skipped)
+
+    @_builtins.property
+    @pulumi.getter
+    def canceled(self) -> Optional[_builtins.int]:
+        """
+        The total number of canceled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "canceled")
+
+    @_builtins.property
+    @pulumi.getter
+    def disabled(self) -> Optional[_builtins.int]:
+        """
+        The total number of disabled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="failedIgnored")
+    def failed_ignored(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that failed but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "failed_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOutIgnored")
+    def timed_out_ignored(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that timed out but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSkipped")
+    def total_skipped(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that were skipped during a DR plan execution.
+        """
+        return pulumi.get(self, "total_skipped")
+
+
+@pulumi.output_type
+class DrPlanExecutionStepStatusCountSuccessfulStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "totalSuccessful":
+            suggest = "total_successful"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCountSuccessfulStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCountSuccessfulStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCountSuccessfulStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 succeeded: Optional[_builtins.int] = None,
+                 total_successful: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int succeeded: The total number of steps that succeeded during a DR plan execution.
+        :param _builtins.int total_successful: The total number of successful steps in a DR plan execution.
+        """
+        if succeeded is not None:
+            pulumi.set(__self__, "succeeded", succeeded)
+        if total_successful is not None:
+            pulumi.set(__self__, "total_successful", total_successful)
+
+    @_builtins.property
+    @pulumi.getter
+    def succeeded(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that succeeded during a DR plan execution.
+        """
+        return pulumi.get(self, "succeeded")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSuccessful")
+    def total_successful(self) -> Optional[_builtins.int]:
+        """
+        The total number of successful steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_successful")
+
+
+@pulumi.output_type
+class DrPlanExecutionStepStatusCountWarningStep(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "totalWarnings":
+            suggest = "total_warnings"
+        elif key == "warningsIgnored":
+            suggest = "warnings_ignored"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrPlanExecutionStepStatusCountWarningStep. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrPlanExecutionStepStatusCountWarningStep.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrPlanExecutionStepStatusCountWarningStep.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 total_warnings: Optional[_builtins.int] = None,
+                 warnings_ignored: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int total_warnings: The total number of steps that encountered warnings in a DR plan execution.
+        :param _builtins.int warnings_ignored: The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        if total_warnings is not None:
+            pulumi.set(__self__, "total_warnings", total_warnings)
+        if warnings_ignored is not None:
+            pulumi.set(__self__, "warnings_ignored", warnings_ignored)
+
+    @_builtins.property
+    @pulumi.getter(name="totalWarnings")
+    def total_warnings(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps that encountered warnings in a DR plan execution.
+        """
+        return pulumi.get(self, "total_warnings")
+
+    @_builtins.property
+    @pulumi.getter(name="warningsIgnored")
+    def warnings_ignored(self) -> Optional[_builtins.int]:
+        """
+        The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "warnings_ignored")
+
+
+@pulumi.output_type
 class DrPlanPlanGroup(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -923,10 +1515,10 @@ class DrPlanPlanGroupStepUserDefinedStep(dict):
         :param _builtins.str function_region: The region in which the function is deployed.  Example: `us-ashburn-1`
         :param Sequence['DrPlanPlanGroupStepUserDefinedStepObjectStorageScriptLocationArgs'] object_storage_script_locations: The details of an object storage script location for a user-defined step in a DR plan.
         :param _builtins.str request_body: The request body for the function.  Example: `{ "FnParam1", "FnParam2" }`
-        :param _builtins.str run_as_user: The userid on the instance to be used for executing the script or command.  Example: `opc`
+        :param _builtins.str run_as_user: The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         :param _builtins.str run_on_instance_id: The OCID of the instance on which this script or command should be executed.
         :param _builtins.str run_on_instance_region: The region of the instance where this script or command should be executed.  Example: `us-ashburn-1`
-        :param _builtins.str script_command: The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        :param _builtins.str script_command: The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         :param _builtins.str step_type: The type of the user-defined step.
         """
         if function_id is not None:
@@ -984,7 +1576,7 @@ class DrPlanPlanGroupStepUserDefinedStep(dict):
     @pulumi.getter(name="runAsUser")
     def run_as_user(self) -> Optional[_builtins.str]:
         """
-        The userid on the instance to be used for executing the script or command.  Example: `opc`
+        The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         """
         return pulumi.get(self, "run_as_user")
 
@@ -1008,7 +1600,7 @@ class DrPlanPlanGroupStepUserDefinedStep(dict):
     @pulumi.getter(name="scriptCommand")
     def script_command(self) -> Optional[_builtins.str]:
         """
-        The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         """
         return pulumi.get(self, "script_command")
 
@@ -1241,6 +1833,8 @@ class DrProtectionGroupMember(dict):
             suggest = "peer_cluster_id"
         elif key == "peerDbSystemId":
             suggest = "peer_db_system_id"
+        elif key == "resourceModifierMappings":
+            suggest = "resource_modifier_mappings"
         elif key == "sourceVolumeToDestinationEncryptionKeyMappings":
             suggest = "source_volume_to_destination_encryption_key_mappings"
         elif key == "vaultMappings":
@@ -1301,6 +1895,7 @@ class DrProtectionGroupMember(dict):
                  password_vault_secret_id: Optional[_builtins.str] = None,
                  peer_cluster_id: Optional[_builtins.str] = None,
                  peer_db_system_id: Optional[_builtins.str] = None,
+                 resource_modifier_mappings: Optional[Sequence['outputs.DrProtectionGroupMemberResourceModifierMapping']] = None,
                  source_volume_to_destination_encryption_key_mappings: Optional[Sequence['outputs.DrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMapping']] = None,
                  vault_mappings: Optional[Sequence['outputs.DrProtectionGroupMemberVaultMapping']] = None,
                  virtual_node_pool_configs: Optional[Sequence['outputs.DrProtectionGroupMemberVirtualNodePoolConfig']] = None,
@@ -1344,6 +1939,7 @@ class DrProtectionGroupMember(dict):
         :param _builtins.str password_vault_secret_id: (Updatable) The OCID of the vault secret where the database SYSDBA password is stored. This password is required and used for performing database DR Drill operations when using full clone.  Example: `ocid1.vaultsecret.oc1..uniqueID`
         :param _builtins.str peer_cluster_id: (Updatable) The OCID of the peer OKE cluster. This property applies to the OKE cluster member in both the primary and standby region.   Example: `ocid1.cluster.oc1..uniqueID`
         :param _builtins.str peer_db_system_id: (Updatable) The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
+        :param Sequence['DrProtectionGroupMemberResourceModifierMappingArgs'] resource_modifier_mappings: (Updatable) The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
         :param Sequence['DrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingArgs'] source_volume_to_destination_encryption_key_mappings: (Updatable) A list of mappings between source volume IDs in the volume group and customer-managed encryption keys in the  destination region which will be used to encrypt the volume after it moves to the destination region.
                
                If you add the entry for source volumes and its corresponding vault and encryption keys here, you can not use  'commonDestinationKey' for encrypting all volumes with common encryption key. Similarly, if you specify common vault and encryption key using 'commonDestinationKey', you cannot specify vaults and encryption keys individually  for each volume using 'sourceVolumeToDestinationEncryptionKeyMappings'.
@@ -1426,6 +2022,8 @@ class DrProtectionGroupMember(dict):
             pulumi.set(__self__, "peer_cluster_id", peer_cluster_id)
         if peer_db_system_id is not None:
             pulumi.set(__self__, "peer_db_system_id", peer_db_system_id)
+        if resource_modifier_mappings is not None:
+            pulumi.set(__self__, "resource_modifier_mappings", resource_modifier_mappings)
         if source_volume_to_destination_encryption_key_mappings is not None:
             pulumi.set(__self__, "source_volume_to_destination_encryption_key_mappings", source_volume_to_destination_encryption_key_mappings)
         if vault_mappings is not None:
@@ -1732,6 +2330,14 @@ class DrProtectionGroupMember(dict):
         (Updatable) The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
         """
         return pulumi.get(self, "peer_db_system_id")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceModifierMappings")
+    def resource_modifier_mappings(self) -> Optional[Sequence['outputs.DrProtectionGroupMemberResourceModifierMapping']]:
+        """
+        (Updatable) The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
+        """
+        return pulumi.get(self, "resource_modifier_mappings")
 
     @_builtins.property
     @pulumi.getter(name="sourceVolumeToDestinationEncryptionKeyMappings")
@@ -2824,6 +3430,54 @@ class DrProtectionGroupMemberNetworkLoadBalancerMapping(dict):
 
 
 @pulumi.output_type
+class DrProtectionGroupMemberResourceModifierMapping(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "configMap":
+            suggest = "config_map"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DrProtectionGroupMemberResourceModifierMapping. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DrProtectionGroupMemberResourceModifierMapping.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DrProtectionGroupMemberResourceModifierMapping.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 config_map: Optional[_builtins.str] = None,
+                 namespace: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str config_map: (Updatable) The name of the config map containing resource modification details. Example: `resource-modifier`
+        :param _builtins.str namespace: (Updatable) The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        if config_map is not None:
+            pulumi.set(__self__, "config_map", config_map)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter(name="configMap")
+    def config_map(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The name of the config map containing resource modification details. Example: `resource-modifier`
+        """
+        return pulumi.get(self, "config_map")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        return pulumi.get(self, "namespace")
+
+
+@pulumi.output_type
 class DrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMapping(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3120,6 +3774,370 @@ class DrProtectionGroupMemberVnicMapping(dict):
         (Updatable) The OCID of the source VNIC.  Example: `ocid1.vnic.oc1..uniqueID`
         """
         return pulumi.get(self, "source_vnic_id")
+
+
+@pulumi.output_type
+class GetAutomaticDrConfigurationMemberResult(dict):
+    def __init__(__self__, *,
+                 is_auto_failover_enabled: _builtins.bool,
+                 is_auto_switchover_enabled: _builtins.bool,
+                 member_id: _builtins.str,
+                 member_type: _builtins.str):
+        """
+        :param _builtins.bool is_auto_failover_enabled: A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        :param _builtins.bool is_auto_switchover_enabled: A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        :param _builtins.str member_id: The unique id of the member. Must not be modified by user.  Example: `ocid1.database.oc1..uniqueID`
+        :param _builtins.str member_type: The type of the member.
+        """
+        pulumi.set(__self__, "is_auto_failover_enabled", is_auto_failover_enabled)
+        pulumi.set(__self__, "is_auto_switchover_enabled", is_auto_switchover_enabled)
+        pulumi.set(__self__, "member_id", member_id)
+        pulumi.set(__self__, "member_type", member_type)
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoFailoverEnabled")
+    def is_auto_failover_enabled(self) -> _builtins.bool:
+        """
+        A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_failover_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoSwitchoverEnabled")
+    def is_auto_switchover_enabled(self) -> _builtins.bool:
+        """
+        A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_switchover_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> _builtins.str:
+        """
+        The unique id of the member. Must not be modified by user.  Example: `ocid1.database.oc1..uniqueID`
+        """
+        return pulumi.get(self, "member_id")
+
+    @_builtins.property
+    @pulumi.getter(name="memberType")
+    def member_type(self) -> _builtins.str:
+        """
+        The type of the member.
+        """
+        return pulumi.get(self, "member_type")
+
+
+@pulumi.output_type
+class GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionResult(dict):
+    def __init__(__self__, *,
+                 items: Sequence['outputs.GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemResult']):
+        pulumi.set(__self__, "items", items)
+
+    @_builtins.property
+    @pulumi.getter
+    def items(self) -> Sequence['outputs.GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemResult']:
+        return pulumi.get(self, "items")
+
+
+@pulumi.output_type
+class GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemResult(dict):
+    def __init__(__self__, *,
+                 compartment_id: _builtins.str,
+                 default_failover_dr_plan_id: _builtins.str,
+                 default_switchover_dr_plan_id: _builtins.str,
+                 defined_tags: Mapping[str, _builtins.str],
+                 display_name: _builtins.str,
+                 dr_protection_group_id: _builtins.str,
+                 freeform_tags: Mapping[str, _builtins.str],
+                 id: _builtins.str,
+                 last_automatic_dr_execution_submit_details: _builtins.str,
+                 last_automatic_dr_execution_submit_status: _builtins.str,
+                 lifecycle_details: _builtins.str,
+                 members: Sequence['outputs.GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemMemberResult'],
+                 state: _builtins.str,
+                 system_tags: Mapping[str, _builtins.str],
+                 time_created: _builtins.str,
+                 time_last_automatic_dr_execution_submit_attempt: _builtins.str,
+                 time_updated: _builtins.str):
+        """
+        :param _builtins.str compartment_id: The OCID of the compartment containing the Automatic DR configuration.  Example: `ocid1.compartment.oc1..uniqueID`
+        :param _builtins.str default_failover_dr_plan_id: The unique id of a Failover DR Plan.  Example: `ocid1.drplan.oc1..uniqueID`
+        :param _builtins.str default_switchover_dr_plan_id: The unique id of a Switchover DR Plan.  Example: `ocid1.drplan.oc1..uniqueID`
+        :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace.  Example: `{"Operations.CostCenter": "42"}`
+        :param _builtins.str display_name: A filter to return only resources that match the given display name.  Example: `MyResourceDisplayName`
+        :param _builtins.str dr_protection_group_id: The OCID of the DR protection group. Mandatory query param.  Example: `ocid1.drprotectiongroup.oc1..uniqueID`
+        :param Mapping[str, _builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only.  Example: `{"Department": "Finance"}`
+        :param _builtins.str id: The OCID of the Automatic DR configuration.  Example: `ocid1.automaticdrconfiguration.oc1..uniqueID`
+        :param _builtins.str last_automatic_dr_execution_submit_details: A message describing the result of the most recent attempt made to submit an Automatic DR plan execution.
+        :param _builtins.str last_automatic_dr_execution_submit_status: The status of most recent attempt to submit Automatic DR plan execution.
+        :param _builtins.str lifecycle_details: A message describing the Automatic DR configuration's current state in more detail.
+        :param Sequence['GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemMemberArgs'] members: The list of members in this Automatic DR configuration.
+        :param _builtins.str state: A filter to return only Automatic DR configurations that match the given lifecycle state.
+        :param Mapping[str, _builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces.  Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        :param _builtins.str time_created: The date and time the Automatic DR configuration was created. An RFC3339 formatted datetime string.  Example: `2024-03-29T09:36:42Z`
+        :param _builtins.str time_last_automatic_dr_execution_submit_attempt: The date and time of the most recent attempt made to submit an Automatic DR plan execution. An RFC3339 formatted datetime string.  Example: `2025-06-30T09:36:42Z`
+        :param _builtins.str time_updated: The date and time the Automatic DR configuration was updated. An RFC3339 formatted datetime string.  Example: `2024-03-29T09:36:42Z`
+        """
+        pulumi.set(__self__, "compartment_id", compartment_id)
+        pulumi.set(__self__, "default_failover_dr_plan_id", default_failover_dr_plan_id)
+        pulumi.set(__self__, "default_switchover_dr_plan_id", default_switchover_dr_plan_id)
+        pulumi.set(__self__, "defined_tags", defined_tags)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "dr_protection_group_id", dr_protection_group_id)
+        pulumi.set(__self__, "freeform_tags", freeform_tags)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "last_automatic_dr_execution_submit_details", last_automatic_dr_execution_submit_details)
+        pulumi.set(__self__, "last_automatic_dr_execution_submit_status", last_automatic_dr_execution_submit_status)
+        pulumi.set(__self__, "lifecycle_details", lifecycle_details)
+        pulumi.set(__self__, "members", members)
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
+        pulumi.set(__self__, "time_created", time_created)
+        pulumi.set(__self__, "time_last_automatic_dr_execution_submit_attempt", time_last_automatic_dr_execution_submit_attempt)
+        pulumi.set(__self__, "time_updated", time_updated)
+
+    @_builtins.property
+    @pulumi.getter(name="compartmentId")
+    def compartment_id(self) -> _builtins.str:
+        """
+        The OCID of the compartment containing the Automatic DR configuration.  Example: `ocid1.compartment.oc1..uniqueID`
+        """
+        return pulumi.get(self, "compartment_id")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultFailoverDrPlanId")
+    def default_failover_dr_plan_id(self) -> _builtins.str:
+        """
+        The unique id of a Failover DR Plan.  Example: `ocid1.drplan.oc1..uniqueID`
+        """
+        return pulumi.get(self, "default_failover_dr_plan_id")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultSwitchoverDrPlanId")
+    def default_switchover_dr_plan_id(self) -> _builtins.str:
+        """
+        The unique id of a Switchover DR Plan.  Example: `ocid1.drplan.oc1..uniqueID`
+        """
+        return pulumi.get(self, "default_switchover_dr_plan_id")
+
+    @_builtins.property
+    @pulumi.getter(name="definedTags")
+    def defined_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Defined tags for this resource. Each key is predefined and scoped to a namespace.  Example: `{"Operations.CostCenter": "42"}`
+        """
+        return pulumi.get(self, "defined_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        A filter to return only resources that match the given display name.  Example: `MyResourceDisplayName`
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter(name="drProtectionGroupId")
+    def dr_protection_group_id(self) -> _builtins.str:
+        """
+        The OCID of the DR protection group. Mandatory query param.  Example: `ocid1.drprotectiongroup.oc1..uniqueID`
+        """
+        return pulumi.get(self, "dr_protection_group_id")
+
+    @_builtins.property
+    @pulumi.getter(name="freeformTags")
+    def freeform_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only.  Example: `{"Department": "Finance"}`
+        """
+        return pulumi.get(self, "freeform_tags")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The OCID of the Automatic DR configuration.  Example: `ocid1.automaticdrconfiguration.oc1..uniqueID`
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="lastAutomaticDrExecutionSubmitDetails")
+    def last_automatic_dr_execution_submit_details(self) -> _builtins.str:
+        """
+        A message describing the result of the most recent attempt made to submit an Automatic DR plan execution.
+        """
+        return pulumi.get(self, "last_automatic_dr_execution_submit_details")
+
+    @_builtins.property
+    @pulumi.getter(name="lastAutomaticDrExecutionSubmitStatus")
+    def last_automatic_dr_execution_submit_status(self) -> _builtins.str:
+        """
+        The status of most recent attempt to submit Automatic DR plan execution.
+        """
+        return pulumi.get(self, "last_automatic_dr_execution_submit_status")
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleDetails")
+    def lifecycle_details(self) -> _builtins.str:
+        """
+        A message describing the Automatic DR configuration's current state in more detail.
+        """
+        return pulumi.get(self, "lifecycle_details")
+
+    @_builtins.property
+    @pulumi.getter
+    def members(self) -> Sequence['outputs.GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemMemberResult']:
+        """
+        The list of members in this Automatic DR configuration.
+        """
+        return pulumi.get(self, "members")
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> _builtins.str:
+        """
+        A filter to return only Automatic DR configurations that match the given lifecycle state.
+        """
+        return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Usage of system tag keys. These predefined keys are scoped to namespaces.  Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        """
+        return pulumi.get(self, "system_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> _builtins.str:
+        """
+        The date and time the Automatic DR configuration was created. An RFC3339 formatted datetime string.  Example: `2024-03-29T09:36:42Z`
+        """
+        return pulumi.get(self, "time_created")
+
+    @_builtins.property
+    @pulumi.getter(name="timeLastAutomaticDrExecutionSubmitAttempt")
+    def time_last_automatic_dr_execution_submit_attempt(self) -> _builtins.str:
+        """
+        The date and time of the most recent attempt made to submit an Automatic DR plan execution. An RFC3339 formatted datetime string.  Example: `2025-06-30T09:36:42Z`
+        """
+        return pulumi.get(self, "time_last_automatic_dr_execution_submit_attempt")
+
+    @_builtins.property
+    @pulumi.getter(name="timeUpdated")
+    def time_updated(self) -> _builtins.str:
+        """
+        The date and time the Automatic DR configuration was updated. An RFC3339 formatted datetime string.  Example: `2024-03-29T09:36:42Z`
+        """
+        return pulumi.get(self, "time_updated")
+
+
+@pulumi.output_type
+class GetAutomaticDrConfigurationsAutomaticDrConfigurationCollectionItemMemberResult(dict):
+    def __init__(__self__, *,
+                 is_auto_failover_enabled: _builtins.bool,
+                 is_auto_switchover_enabled: _builtins.bool,
+                 member_id: _builtins.str,
+                 member_type: _builtins.str):
+        """
+        :param _builtins.bool is_auto_failover_enabled: A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        :param _builtins.bool is_auto_switchover_enabled: A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        :param _builtins.str member_id: The unique id of the member. Must not be modified by user.  Example: `ocid1.database.oc1..uniqueID`
+        :param _builtins.str member_type: The type of the member.
+        """
+        pulumi.set(__self__, "is_auto_failover_enabled", is_auto_failover_enabled)
+        pulumi.set(__self__, "is_auto_switchover_enabled", is_auto_switchover_enabled)
+        pulumi.set(__self__, "member_id", member_id)
+        pulumi.set(__self__, "member_type", member_type)
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoFailoverEnabled")
+    def is_auto_failover_enabled(self) -> _builtins.bool:
+        """
+        A flag indicating if the automatic failover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_failover_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="isAutoSwitchoverEnabled")
+    def is_auto_switchover_enabled(self) -> _builtins.bool:
+        """
+        A flag indicating if the automatic switchover should be enabled for the Autonomous Database Serverless member in the Automatic DR configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_auto_switchover_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> _builtins.str:
+        """
+        The unique id of the member. Must not be modified by user.  Example: `ocid1.database.oc1..uniqueID`
+        """
+        return pulumi.get(self, "member_id")
+
+    @_builtins.property
+    @pulumi.getter(name="memberType")
+    def member_type(self) -> _builtins.str:
+        """
+        The type of the member.
+        """
+        return pulumi.get(self, "member_type")
+
+
+@pulumi.output_type
+class GetAutomaticDrConfigurationsFilterResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionAutomaticExecutionDetailResult(dict):
+    def __init__(__self__, *,
+                 event_name: _builtins.str,
+                 member_id: _builtins.str):
+        """
+        :param _builtins.str event_name: The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        :param _builtins.str member_id: The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        pulumi.set(__self__, "event_name", event_name)
+        pulumi.set(__self__, "member_id", member_id)
+
+    @_builtins.property
+    @pulumi.getter(name="eventName")
+    def event_name(self) -> _builtins.str:
+        """
+        The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        """
+        return pulumi.get(self, "event_name")
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> _builtins.str:
+        """
+        The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        return pulumi.get(self, "member_id")
 
 
 @pulumi.output_type
@@ -3477,6 +4495,290 @@ class GetDrPlanExecutionLogLocationResult(dict):
 
 
 @pulumi.output_type
+class GetDrPlanExecutionStepStatusCountResult(dict):
+    def __init__(__self__, *,
+                 failed_steps: Sequence['outputs.GetDrPlanExecutionStepStatusCountFailedStepResult'],
+                 remaining_steps: Sequence['outputs.GetDrPlanExecutionStepStatusCountRemainingStepResult'],
+                 skipped_steps: Sequence['outputs.GetDrPlanExecutionStepStatusCountSkippedStepResult'],
+                 successful_steps: Sequence['outputs.GetDrPlanExecutionStepStatusCountSuccessfulStepResult'],
+                 total_steps: _builtins.int,
+                 warning_steps: Sequence['outputs.GetDrPlanExecutionStepStatusCountWarningStepResult']):
+        """
+        :param Sequence['GetDrPlanExecutionStepStatusCountFailedStepArgs'] failed_steps: A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        :param Sequence['GetDrPlanExecutionStepStatusCountRemainingStepArgs'] remaining_steps: A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        :param Sequence['GetDrPlanExecutionStepStatusCountSkippedStepArgs'] skipped_steps: A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        :param Sequence['GetDrPlanExecutionStepStatusCountSuccessfulStepArgs'] successful_steps: A summary of steps that completed successfully during a DR plan execution.
+        :param _builtins.int total_steps: The total number of steps in a DR plan execution.
+        :param Sequence['GetDrPlanExecutionStepStatusCountWarningStepArgs'] warning_steps: A summary of steps that encountered warnings during a DR plan execution.
+        """
+        pulumi.set(__self__, "failed_steps", failed_steps)
+        pulumi.set(__self__, "remaining_steps", remaining_steps)
+        pulumi.set(__self__, "skipped_steps", skipped_steps)
+        pulumi.set(__self__, "successful_steps", successful_steps)
+        pulumi.set(__self__, "total_steps", total_steps)
+        pulumi.set(__self__, "warning_steps", warning_steps)
+
+    @_builtins.property
+    @pulumi.getter(name="failedSteps")
+    def failed_steps(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountFailedStepResult']:
+        """
+        A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        """
+        return pulumi.get(self, "failed_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="remainingSteps")
+    def remaining_steps(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountRemainingStepResult']:
+        """
+        A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        """
+        return pulumi.get(self, "remaining_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="skippedSteps")
+    def skipped_steps(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountSkippedStepResult']:
+        """
+        A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        """
+        return pulumi.get(self, "skipped_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="successfulSteps")
+    def successful_steps(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountSuccessfulStepResult']:
+        """
+        A summary of steps that completed successfully during a DR plan execution.
+        """
+        return pulumi.get(self, "successful_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSteps")
+    def total_steps(self) -> _builtins.int:
+        """
+        The total number of steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="warningSteps")
+    def warning_steps(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountWarningStepResult']:
+        """
+        A summary of steps that encountered warnings during a DR plan execution.
+        """
+        return pulumi.get(self, "warning_steps")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionStepStatusCountFailedStepResult(dict):
+    def __init__(__self__, *,
+                 failed: _builtins.int,
+                 timed_out: _builtins.int,
+                 total_failed: _builtins.int):
+        """
+        :param _builtins.int failed: The total number of failed steps in a DR plan execution.
+        :param _builtins.int timed_out: The total number of steps that timed out during a DR plan execution.
+        :param _builtins.int total_failed: The total number of steps that failed during a DR plan execution.
+        """
+        pulumi.set(__self__, "failed", failed)
+        pulumi.set(__self__, "timed_out", timed_out)
+        pulumi.set(__self__, "total_failed", total_failed)
+
+    @_builtins.property
+    @pulumi.getter
+    def failed(self) -> _builtins.int:
+        """
+        The total number of failed steps in a DR plan execution.
+        """
+        return pulumi.get(self, "failed")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOut")
+    def timed_out(self) -> _builtins.int:
+        """
+        The total number of steps that timed out during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out")
+
+    @_builtins.property
+    @pulumi.getter(name="totalFailed")
+    def total_failed(self) -> _builtins.int:
+        """
+        The total number of steps that failed during a DR plan execution.
+        """
+        return pulumi.get(self, "total_failed")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionStepStatusCountRemainingStepResult(dict):
+    def __init__(__self__, *,
+                 in_progress: _builtins.int,
+                 paused: _builtins.int,
+                 queued: _builtins.int,
+                 total_remaining: _builtins.int):
+        """
+        :param _builtins.int in_progress: The total number of steps in progress during a DR plan execution.
+        :param _builtins.int paused: The total number of paused steps in a DR plan execution.
+        :param _builtins.int queued: The total number of queued steps in a DR plan execution.
+        :param _builtins.int total_remaining: The total number of remaining steps in a DR plan execution.
+        """
+        pulumi.set(__self__, "in_progress", in_progress)
+        pulumi.set(__self__, "paused", paused)
+        pulumi.set(__self__, "queued", queued)
+        pulumi.set(__self__, "total_remaining", total_remaining)
+
+    @_builtins.property
+    @pulumi.getter(name="inProgress")
+    def in_progress(self) -> _builtins.int:
+        """
+        The total number of steps in progress during a DR plan execution.
+        """
+        return pulumi.get(self, "in_progress")
+
+    @_builtins.property
+    @pulumi.getter
+    def paused(self) -> _builtins.int:
+        """
+        The total number of paused steps in a DR plan execution.
+        """
+        return pulumi.get(self, "paused")
+
+    @_builtins.property
+    @pulumi.getter
+    def queued(self) -> _builtins.int:
+        """
+        The total number of queued steps in a DR plan execution.
+        """
+        return pulumi.get(self, "queued")
+
+    @_builtins.property
+    @pulumi.getter(name="totalRemaining")
+    def total_remaining(self) -> _builtins.int:
+        """
+        The total number of remaining steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_remaining")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionStepStatusCountSkippedStepResult(dict):
+    def __init__(__self__, *,
+                 canceled: _builtins.int,
+                 disabled: _builtins.int,
+                 failed_ignored: _builtins.int,
+                 timed_out_ignored: _builtins.int,
+                 total_skipped: _builtins.int):
+        """
+        :param _builtins.int canceled: The total number of canceled steps in a DR plan execution.
+        :param _builtins.int disabled: The total number of disabled steps in a DR plan execution.
+        :param _builtins.int failed_ignored: The total number of steps that failed but were ignored during a DR plan execution.
+        :param _builtins.int timed_out_ignored: The total number of steps that timed out but were ignored during a DR plan execution.
+        :param _builtins.int total_skipped: The total number of steps that were skipped during a DR plan execution.
+        """
+        pulumi.set(__self__, "canceled", canceled)
+        pulumi.set(__self__, "disabled", disabled)
+        pulumi.set(__self__, "failed_ignored", failed_ignored)
+        pulumi.set(__self__, "timed_out_ignored", timed_out_ignored)
+        pulumi.set(__self__, "total_skipped", total_skipped)
+
+    @_builtins.property
+    @pulumi.getter
+    def canceled(self) -> _builtins.int:
+        """
+        The total number of canceled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "canceled")
+
+    @_builtins.property
+    @pulumi.getter
+    def disabled(self) -> _builtins.int:
+        """
+        The total number of disabled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="failedIgnored")
+    def failed_ignored(self) -> _builtins.int:
+        """
+        The total number of steps that failed but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "failed_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOutIgnored")
+    def timed_out_ignored(self) -> _builtins.int:
+        """
+        The total number of steps that timed out but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSkipped")
+    def total_skipped(self) -> _builtins.int:
+        """
+        The total number of steps that were skipped during a DR plan execution.
+        """
+        return pulumi.get(self, "total_skipped")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionStepStatusCountSuccessfulStepResult(dict):
+    def __init__(__self__, *,
+                 succeeded: _builtins.int,
+                 total_successful: _builtins.int):
+        """
+        :param _builtins.int succeeded: The total number of steps that succeeded during a DR plan execution.
+        :param _builtins.int total_successful: The total number of successful steps in a DR plan execution.
+        """
+        pulumi.set(__self__, "succeeded", succeeded)
+        pulumi.set(__self__, "total_successful", total_successful)
+
+    @_builtins.property
+    @pulumi.getter
+    def succeeded(self) -> _builtins.int:
+        """
+        The total number of steps that succeeded during a DR plan execution.
+        """
+        return pulumi.get(self, "succeeded")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSuccessful")
+    def total_successful(self) -> _builtins.int:
+        """
+        The total number of successful steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_successful")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionStepStatusCountWarningStepResult(dict):
+    def __init__(__self__, *,
+                 total_warnings: _builtins.int,
+                 warnings_ignored: _builtins.int):
+        """
+        :param _builtins.int total_warnings: The total number of steps that encountered warnings in a DR plan execution.
+        :param _builtins.int warnings_ignored: The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        pulumi.set(__self__, "total_warnings", total_warnings)
+        pulumi.set(__self__, "warnings_ignored", warnings_ignored)
+
+    @_builtins.property
+    @pulumi.getter(name="totalWarnings")
+    def total_warnings(self) -> _builtins.int:
+        """
+        The total number of steps that encountered warnings in a DR plan execution.
+        """
+        return pulumi.get(self, "total_warnings")
+
+    @_builtins.property
+    @pulumi.getter(name="warningsIgnored")
+    def warnings_ignored(self) -> _builtins.int:
+        """
+        The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "warnings_ignored")
+
+
+@pulumi.output_type
 class GetDrPlanExecutionsDrPlanExecutionCollectionResult(dict):
     def __init__(__self__, *,
                  items: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemResult']):
@@ -3491,6 +4793,7 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionResult(dict):
 @pulumi.output_type
 class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
     def __init__(__self__, *,
+                 automatic_execution_details: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemAutomaticExecutionDetailResult'],
                  compartment_id: _builtins.str,
                  defined_tags: Mapping[str, _builtins.str],
                  display_name: _builtins.str,
@@ -3500,6 +4803,7 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
                  freeform_tags: Mapping[str, _builtins.str],
                  group_executions: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemGroupExecutionResult'],
                  id: _builtins.str,
+                 is_automatic: _builtins.bool,
                  life_cycle_details: _builtins.str,
                  log_locations: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemLogLocationResult'],
                  peer_dr_protection_group_id: _builtins.str,
@@ -3507,12 +4811,14 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
                  plan_execution_type: _builtins.str,
                  plan_id: _builtins.str,
                  state: _builtins.str,
+                 step_status_counts: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountResult'],
                  system_tags: Mapping[str, _builtins.str],
                  time_created: _builtins.str,
                  time_ended: _builtins.str,
                  time_started: _builtins.str,
                  time_updated: _builtins.str):
         """
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemAutomaticExecutionDetailArgs'] automatic_execution_details: The details of the event that started the automatic DR plan execution.
         :param _builtins.str compartment_id: The OCID of the compartment containing this DR plan execution.  Example: `ocid1.compartment.oc1..uniqueID`
         :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace.  Example: `{"Operations.CostCenter": "42"}`
         :param _builtins.str display_name: A filter to return only resources that match the given display name.  Example: `MyResourceDisplayName`
@@ -3522,6 +4828,7 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         :param Mapping[str, _builtins.str] freeform_tags: Simple key-value pair that is applied without any predefined name, type or scope. Exists for cross-compatibility only.  Example: `{"Department": "Finance"}`
         :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemGroupExecutionArgs'] group_executions: A list of groups executed in this DR plan execution.
         :param _builtins.str id: The OCID of the DR plan execution.  Example: `ocid1.drplanexecution.oc1..uniqueID`
+        :param _builtins.bool is_automatic: A flag indicating whether execution was submitted automatically by Automatic DR Configuration.  Example: `false`
         :param _builtins.str life_cycle_details: A message describing the DR plan execution's current state in more detail.
         :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemLogLocationArgs'] log_locations: The details of an object storage log location for a DR protection group.
         :param _builtins.str peer_dr_protection_group_id: The OCID of peer DR protection group associated with this plan's DR protection group.  Example: `ocid1.drprotectiongroup.oc1..uniqueID`
@@ -3529,12 +4836,14 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         :param _builtins.str plan_execution_type: The type of the DR plan executed.
         :param _builtins.str plan_id: The OCID of the DR plan.  Example: `ocid1.drplan.oc1..uniqueID`
         :param _builtins.str state: A filter to return only DR plan executions that match the given lifecycle state.
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountArgs'] step_status_counts: A categorized summary of step execution statuses and their corresponding counts.
         :param Mapping[str, _builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces.  Example: `{"orcl-cloud.free-tier-retained": "true"}`
         :param _builtins.str time_created: The date and time at which DR plan execution was created. An RFC3339 formatted datetime string.  Example: `2019-03-29T09:36:42Z`
         :param _builtins.str time_ended: The date and time at which DR plan execution succeeded, failed, was paused, or was canceled. An RFC3339 formatted datetime string.  Example: `2019-03-29T09:36:42Z`
         :param _builtins.str time_started: The date and time at which DR plan execution began. An RFC3339 formatted datetime string.  Example: `2019-03-29T09:36:42Z`
         :param _builtins.str time_updated: The time when DR plan execution was last updated. An RFC3339 formatted datetime string.  Example: `2019-03-29T09:36:42Z`
         """
+        pulumi.set(__self__, "automatic_execution_details", automatic_execution_details)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "defined_tags", defined_tags)
         pulumi.set(__self__, "display_name", display_name)
@@ -3544,6 +4853,7 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "group_executions", group_executions)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "is_automatic", is_automatic)
         pulumi.set(__self__, "life_cycle_details", life_cycle_details)
         pulumi.set(__self__, "log_locations", log_locations)
         pulumi.set(__self__, "peer_dr_protection_group_id", peer_dr_protection_group_id)
@@ -3551,11 +4861,20 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         pulumi.set(__self__, "plan_execution_type", plan_execution_type)
         pulumi.set(__self__, "plan_id", plan_id)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "step_status_counts", step_status_counts)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_ended", time_ended)
         pulumi.set(__self__, "time_started", time_started)
         pulumi.set(__self__, "time_updated", time_updated)
+
+    @_builtins.property
+    @pulumi.getter(name="automaticExecutionDetails")
+    def automatic_execution_details(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemAutomaticExecutionDetailResult']:
+        """
+        The details of the event that started the automatic DR plan execution.
+        """
+        return pulumi.get(self, "automatic_execution_details")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -3630,6 +4949,14 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         return pulumi.get(self, "id")
 
     @_builtins.property
+    @pulumi.getter(name="isAutomatic")
+    def is_automatic(self) -> _builtins.bool:
+        """
+        A flag indicating whether execution was submitted automatically by Automatic DR Configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_automatic")
+
+    @_builtins.property
     @pulumi.getter(name="lifeCycleDetails")
     def life_cycle_details(self) -> _builtins.str:
         """
@@ -3686,6 +5013,14 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="stepStatusCounts")
+    def step_status_counts(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountResult']:
+        """
+        A categorized summary of step execution statuses and their corresponding counts.
+        """
+        return pulumi.get(self, "step_status_counts")
+
+    @_builtins.property
     @pulumi.getter(name="systemTags")
     def system_tags(self) -> Mapping[str, _builtins.str]:
         """
@@ -3724,6 +5059,35 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemResult(dict):
         The time when DR plan execution was last updated. An RFC3339 formatted datetime string.  Example: `2019-03-29T09:36:42Z`
         """
         return pulumi.get(self, "time_updated")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemAutomaticExecutionDetailResult(dict):
+    def __init__(__self__, *,
+                 event_name: _builtins.str,
+                 member_id: _builtins.str):
+        """
+        :param _builtins.str event_name: The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        :param _builtins.str member_id: The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        pulumi.set(__self__, "event_name", event_name)
+        pulumi.set(__self__, "member_id", member_id)
+
+    @_builtins.property
+    @pulumi.getter(name="eventName")
+    def event_name(self) -> _builtins.str:
+        """
+        The name of the Oracle Cloud Infrastructure event that started the automatic DR plan execution.  Example: `SwitchoverAutonomousDatabase`
+        """
+        return pulumi.get(self, "event_name")
+
+    @_builtins.property
+    @pulumi.getter(name="memberId")
+    def member_id(self) -> _builtins.str:
+        """
+        The OCID of the member that emitted the event that started the automatic DR plan execution.  Example: "ocid1.autonomousdatabase.oc1..uniqueID"
+        """
+        return pulumi.get(self, "member_id")
 
 
 @pulumi.output_type
@@ -4081,6 +5445,290 @@ class GetDrPlanExecutionsDrPlanExecutionCollectionItemLogLocationResult(dict):
 
 
 @pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountResult(dict):
+    def __init__(__self__, *,
+                 failed_steps: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountFailedStepResult'],
+                 remaining_steps: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountRemainingStepResult'],
+                 skipped_steps: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSkippedStepResult'],
+                 successful_steps: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSuccessfulStepResult'],
+                 total_steps: _builtins.int,
+                 warning_steps: Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountWarningStepResult']):
+        """
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountFailedStepArgs'] failed_steps: A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountRemainingStepArgs'] remaining_steps: A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSkippedStepArgs'] skipped_steps: A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSuccessfulStepArgs'] successful_steps: A summary of steps that completed successfully during a DR plan execution.
+        :param _builtins.int total_steps: The total number of steps in a DR plan execution.
+        :param Sequence['GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountWarningStepArgs'] warning_steps: A summary of steps that encountered warnings during a DR plan execution.
+        """
+        pulumi.set(__self__, "failed_steps", failed_steps)
+        pulumi.set(__self__, "remaining_steps", remaining_steps)
+        pulumi.set(__self__, "skipped_steps", skipped_steps)
+        pulumi.set(__self__, "successful_steps", successful_steps)
+        pulumi.set(__self__, "total_steps", total_steps)
+        pulumi.set(__self__, "warning_steps", warning_steps)
+
+    @_builtins.property
+    @pulumi.getter(name="failedSteps")
+    def failed_steps(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountFailedStepResult']:
+        """
+        A summary of steps that failed during a DR plan execution, including failed and timed out steps.
+        """
+        return pulumi.get(self, "failed_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="remainingSteps")
+    def remaining_steps(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountRemainingStepResult']:
+        """
+        A summary of remaining steps in a DR plan execution, including queued, paused, and in-progress steps.
+        """
+        return pulumi.get(self, "remaining_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="skippedSteps")
+    def skipped_steps(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSkippedStepResult']:
+        """
+        A summary of steps that were skipped during a DR plan execution, including disabled, failed but ignored, timed out but ignored, and canceled steps.
+        """
+        return pulumi.get(self, "skipped_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="successfulSteps")
+    def successful_steps(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSuccessfulStepResult']:
+        """
+        A summary of steps that completed successfully during a DR plan execution.
+        """
+        return pulumi.get(self, "successful_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSteps")
+    def total_steps(self) -> _builtins.int:
+        """
+        The total number of steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_steps")
+
+    @_builtins.property
+    @pulumi.getter(name="warningSteps")
+    def warning_steps(self) -> Sequence['outputs.GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountWarningStepResult']:
+        """
+        A summary of steps that encountered warnings during a DR plan execution.
+        """
+        return pulumi.get(self, "warning_steps")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountFailedStepResult(dict):
+    def __init__(__self__, *,
+                 failed: _builtins.int,
+                 timed_out: _builtins.int,
+                 total_failed: _builtins.int):
+        """
+        :param _builtins.int failed: The total number of failed steps in a DR plan execution.
+        :param _builtins.int timed_out: The total number of steps that timed out during a DR plan execution.
+        :param _builtins.int total_failed: The total number of steps that failed during a DR plan execution.
+        """
+        pulumi.set(__self__, "failed", failed)
+        pulumi.set(__self__, "timed_out", timed_out)
+        pulumi.set(__self__, "total_failed", total_failed)
+
+    @_builtins.property
+    @pulumi.getter
+    def failed(self) -> _builtins.int:
+        """
+        The total number of failed steps in a DR plan execution.
+        """
+        return pulumi.get(self, "failed")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOut")
+    def timed_out(self) -> _builtins.int:
+        """
+        The total number of steps that timed out during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out")
+
+    @_builtins.property
+    @pulumi.getter(name="totalFailed")
+    def total_failed(self) -> _builtins.int:
+        """
+        The total number of steps that failed during a DR plan execution.
+        """
+        return pulumi.get(self, "total_failed")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountRemainingStepResult(dict):
+    def __init__(__self__, *,
+                 in_progress: _builtins.int,
+                 paused: _builtins.int,
+                 queued: _builtins.int,
+                 total_remaining: _builtins.int):
+        """
+        :param _builtins.int in_progress: The total number of steps in progress during a DR plan execution.
+        :param _builtins.int paused: The total number of paused steps in a DR plan execution.
+        :param _builtins.int queued: The total number of queued steps in a DR plan execution.
+        :param _builtins.int total_remaining: The total number of remaining steps in a DR plan execution.
+        """
+        pulumi.set(__self__, "in_progress", in_progress)
+        pulumi.set(__self__, "paused", paused)
+        pulumi.set(__self__, "queued", queued)
+        pulumi.set(__self__, "total_remaining", total_remaining)
+
+    @_builtins.property
+    @pulumi.getter(name="inProgress")
+    def in_progress(self) -> _builtins.int:
+        """
+        The total number of steps in progress during a DR plan execution.
+        """
+        return pulumi.get(self, "in_progress")
+
+    @_builtins.property
+    @pulumi.getter
+    def paused(self) -> _builtins.int:
+        """
+        The total number of paused steps in a DR plan execution.
+        """
+        return pulumi.get(self, "paused")
+
+    @_builtins.property
+    @pulumi.getter
+    def queued(self) -> _builtins.int:
+        """
+        The total number of queued steps in a DR plan execution.
+        """
+        return pulumi.get(self, "queued")
+
+    @_builtins.property
+    @pulumi.getter(name="totalRemaining")
+    def total_remaining(self) -> _builtins.int:
+        """
+        The total number of remaining steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_remaining")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSkippedStepResult(dict):
+    def __init__(__self__, *,
+                 canceled: _builtins.int,
+                 disabled: _builtins.int,
+                 failed_ignored: _builtins.int,
+                 timed_out_ignored: _builtins.int,
+                 total_skipped: _builtins.int):
+        """
+        :param _builtins.int canceled: The total number of canceled steps in a DR plan execution.
+        :param _builtins.int disabled: The total number of disabled steps in a DR plan execution.
+        :param _builtins.int failed_ignored: The total number of steps that failed but were ignored during a DR plan execution.
+        :param _builtins.int timed_out_ignored: The total number of steps that timed out but were ignored during a DR plan execution.
+        :param _builtins.int total_skipped: The total number of steps that were skipped during a DR plan execution.
+        """
+        pulumi.set(__self__, "canceled", canceled)
+        pulumi.set(__self__, "disabled", disabled)
+        pulumi.set(__self__, "failed_ignored", failed_ignored)
+        pulumi.set(__self__, "timed_out_ignored", timed_out_ignored)
+        pulumi.set(__self__, "total_skipped", total_skipped)
+
+    @_builtins.property
+    @pulumi.getter
+    def canceled(self) -> _builtins.int:
+        """
+        The total number of canceled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "canceled")
+
+    @_builtins.property
+    @pulumi.getter
+    def disabled(self) -> _builtins.int:
+        """
+        The total number of disabled steps in a DR plan execution.
+        """
+        return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="failedIgnored")
+    def failed_ignored(self) -> _builtins.int:
+        """
+        The total number of steps that failed but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "failed_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="timedOutIgnored")
+    def timed_out_ignored(self) -> _builtins.int:
+        """
+        The total number of steps that timed out but were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "timed_out_ignored")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSkipped")
+    def total_skipped(self) -> _builtins.int:
+        """
+        The total number of steps that were skipped during a DR plan execution.
+        """
+        return pulumi.get(self, "total_skipped")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountSuccessfulStepResult(dict):
+    def __init__(__self__, *,
+                 succeeded: _builtins.int,
+                 total_successful: _builtins.int):
+        """
+        :param _builtins.int succeeded: The total number of steps that succeeded during a DR plan execution.
+        :param _builtins.int total_successful: The total number of successful steps in a DR plan execution.
+        """
+        pulumi.set(__self__, "succeeded", succeeded)
+        pulumi.set(__self__, "total_successful", total_successful)
+
+    @_builtins.property
+    @pulumi.getter
+    def succeeded(self) -> _builtins.int:
+        """
+        The total number of steps that succeeded during a DR plan execution.
+        """
+        return pulumi.get(self, "succeeded")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSuccessful")
+    def total_successful(self) -> _builtins.int:
+        """
+        The total number of successful steps in a DR plan execution.
+        """
+        return pulumi.get(self, "total_successful")
+
+
+@pulumi.output_type
+class GetDrPlanExecutionsDrPlanExecutionCollectionItemStepStatusCountWarningStepResult(dict):
+    def __init__(__self__, *,
+                 total_warnings: _builtins.int,
+                 warnings_ignored: _builtins.int):
+        """
+        :param _builtins.int total_warnings: The total number of steps that encountered warnings in a DR plan execution.
+        :param _builtins.int warnings_ignored: The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        pulumi.set(__self__, "total_warnings", total_warnings)
+        pulumi.set(__self__, "warnings_ignored", warnings_ignored)
+
+    @_builtins.property
+    @pulumi.getter(name="totalWarnings")
+    def total_warnings(self) -> _builtins.int:
+        """
+        The total number of steps that encountered warnings in a DR plan execution.
+        """
+        return pulumi.get(self, "total_warnings")
+
+    @_builtins.property
+    @pulumi.getter(name="warningsIgnored")
+    def warnings_ignored(self) -> _builtins.int:
+        """
+        The total number of steps with warnings that were ignored during a DR plan execution.
+        """
+        return pulumi.get(self, "warnings_ignored")
+
+
+@pulumi.output_type
 class GetDrPlanExecutionsFilterResult(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
@@ -4325,10 +5973,10 @@ class GetDrPlanPlanGroupStepUserDefinedStepResult(dict):
         :param _builtins.str function_region: The region in which the function is deployed.  Example: `us-ashburn-1`
         :param Sequence['GetDrPlanPlanGroupStepUserDefinedStepObjectStorageScriptLocationArgs'] object_storage_script_locations: The details of an object storage script location for a user-defined step in a DR plan.
         :param _builtins.str request_body: The request body for the function.  Example: `{ "FnParam1", "FnParam2" }`
-        :param _builtins.str run_as_user: The userid on the instance to be used for executing the script or command.  Example: `opc`
+        :param _builtins.str run_as_user: The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         :param _builtins.str run_on_instance_id: The OCID of the instance on which this script or command should be executed.
         :param _builtins.str run_on_instance_region: The region of the instance where this script or command should be executed.  Example: `us-ashburn-1`
-        :param _builtins.str script_command: The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        :param _builtins.str script_command: The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         :param _builtins.str step_type: The type of the user-defined step.
         """
         pulumi.set(__self__, "function_id", function_id)
@@ -4377,7 +6025,7 @@ class GetDrPlanPlanGroupStepUserDefinedStepResult(dict):
     @pulumi.getter(name="runAsUser")
     def run_as_user(self) -> _builtins.str:
         """
-        The userid on the instance to be used for executing the script or command.  Example: `opc`
+        The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         """
         return pulumi.get(self, "run_as_user")
 
@@ -4401,7 +6049,7 @@ class GetDrPlanPlanGroupStepUserDefinedStepResult(dict):
     @pulumi.getter(name="scriptCommand")
     def script_command(self) -> _builtins.str:
         """
-        The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         """
         return pulumi.get(self, "script_command")
 
@@ -4892,10 +6540,10 @@ class GetDrPlansDrPlanCollectionItemPlanGroupStepUserDefinedStepResult(dict):
         :param _builtins.str function_region: The region in which the function is deployed.  Example: `us-ashburn-1`
         :param Sequence['GetDrPlansDrPlanCollectionItemPlanGroupStepUserDefinedStepObjectStorageScriptLocationArgs'] object_storage_script_locations: The details of an object storage script location for a user-defined step in a DR plan.
         :param _builtins.str request_body: The request body for the function.  Example: `{ "FnParam1", "FnParam2" }`
-        :param _builtins.str run_as_user: The userid on the instance to be used for executing the script or command.  Example: `opc`
+        :param _builtins.str run_as_user: The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         :param _builtins.str run_on_instance_id: The OCID of the instance on which this script or command should be executed.
         :param _builtins.str run_on_instance_region: The region of the instance where this script or command should be executed.  Example: `us-ashburn-1`
-        :param _builtins.str script_command: The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        :param _builtins.str script_command: The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         :param _builtins.str step_type: The type of the user-defined step.
         """
         pulumi.set(__self__, "function_id", function_id)
@@ -4944,7 +6592,7 @@ class GetDrPlansDrPlanCollectionItemPlanGroupStepUserDefinedStepResult(dict):
     @pulumi.getter(name="runAsUser")
     def run_as_user(self) -> _builtins.str:
         """
-        The userid on the instance to be used for executing the script or command.  Example: `opc`
+        The user ID on the instance that will be used to execute the script specified in 'scriptCommand'. Example: `opc`
         """
         return pulumi.get(self, "run_as_user")
 
@@ -4968,7 +6616,7 @@ class GetDrPlansDrPlanCollectionItemPlanGroupStepUserDefinedStepResult(dict):
     @pulumi.getter(name="scriptCommand")
     def script_command(self) -> _builtins.str:
         """
-        The script name and arguments.  Example: `/usr/bin/python3 /home/opc/scripts/my_app_script.py arg1 arg2 arg3`
+        The entire path and arguments for the script that is stored in object store, or inside a compressed archive in object store. Example: `/usr/bin/python3.7 scripts/start_server.py --port 8080 --env "production" --max-connections 200 --log-level "INFO"`
         """
         return pulumi.get(self, "script_command")
 
@@ -5096,7 +6744,7 @@ class GetDrProtectionGroupLogLocationResult(dict):
                  object: _builtins.str):
         """
         :param _builtins.str bucket: The bucket name inside the object storage namespace.  Example: `bucket_name`
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param _builtins.str object: The object name inside the object storage bucket.  Example: `switchover_plan_executions`
         """
         pulumi.set(__self__, "bucket", bucket)
@@ -5115,7 +6763,7 @@ class GetDrProtectionGroupLogLocationResult(dict):
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -5168,6 +6816,7 @@ class GetDrProtectionGroupMemberResult(dict):
                  password_vault_secret_id: _builtins.str,
                  peer_cluster_id: _builtins.str,
                  peer_db_system_id: _builtins.str,
+                 resource_modifier_mappings: Sequence['outputs.GetDrProtectionGroupMemberResourceModifierMappingResult'],
                  source_volume_to_destination_encryption_key_mappings: Sequence['outputs.GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingResult'],
                  vault_mappings: Sequence['outputs.GetDrProtectionGroupMemberVaultMappingResult'],
                  virtual_node_pool_configs: Sequence['outputs.GetDrProtectionGroupMemberVirtualNodePoolConfigResult'],
@@ -5206,11 +6855,12 @@ class GetDrProtectionGroupMemberResult(dict):
         :param Sequence['GetDrProtectionGroupMemberManagedNodePoolConfigArgs'] managed_node_pool_configs: The list of node pools with configurations for minimum and maximum node counts. This property applies to the OKE cluster member in both the primary and standby region.
         :param _builtins.str member_id: The OCID of the member.  Example: `ocid1.instance.oc1..uniqueID`
         :param _builtins.str member_type: The type of the member.
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param Sequence['GetDrProtectionGroupMemberNetworkLoadBalancerMappingArgs'] network_load_balancer_mappings: The list of source-to-destination network load balancer mappings required for DR operations. This property applies to the OKE cluster member in primary region.
         :param _builtins.str password_vault_secret_id: The OCID of the vault secret where the database SYSDBA password is stored. This password is required and used for performing database DR Drill operations when using full clone.  Example: `ocid1.vaultsecret.oc1..uniqueID`
         :param _builtins.str peer_cluster_id: The OCID of the peer OKE cluster. This property applies to the OKE cluster member in both the primary and standby region.  Example: `ocid1.cluster.oc1.uniqueID`
         :param _builtins.str peer_db_system_id: The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
+        :param Sequence['GetDrProtectionGroupMemberResourceModifierMappingArgs'] resource_modifier_mappings: The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
         :param Sequence['GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingArgs'] source_volume_to_destination_encryption_key_mappings: A list of mappings between source volume IDs in the volume group and customer-managed encryption keys in the  destination region which will be used to encrypt the volume after it moves to the destination region.
         :param Sequence['GetDrProtectionGroupMemberVaultMappingArgs'] vault_mappings: The list of source-to-destination vault mappings required for DR operations. This property applies to the OKE cluster member in primary region.
         :param Sequence['GetDrProtectionGroupMemberVirtualNodePoolConfigArgs'] virtual_node_pool_configs: The list of node pools with configurations for minimum and maximum node counts. This property applies to the OKE cluster member in both the primary and standby region.
@@ -5254,6 +6904,7 @@ class GetDrProtectionGroupMemberResult(dict):
         pulumi.set(__self__, "password_vault_secret_id", password_vault_secret_id)
         pulumi.set(__self__, "peer_cluster_id", peer_cluster_id)
         pulumi.set(__self__, "peer_db_system_id", peer_db_system_id)
+        pulumi.set(__self__, "resource_modifier_mappings", resource_modifier_mappings)
         pulumi.set(__self__, "source_volume_to_destination_encryption_key_mappings", source_volume_to_destination_encryption_key_mappings)
         pulumi.set(__self__, "vault_mappings", vault_mappings)
         pulumi.set(__self__, "virtual_node_pool_configs", virtual_node_pool_configs)
@@ -5520,7 +7171,7 @@ class GetDrProtectionGroupMemberResult(dict):
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -5555,6 +7206,14 @@ class GetDrProtectionGroupMemberResult(dict):
         The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
         """
         return pulumi.get(self, "peer_db_system_id")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceModifierMappings")
+    def resource_modifier_mappings(self) -> Sequence['outputs.GetDrProtectionGroupMemberResourceModifierMappingResult']:
+        """
+        The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
+        """
+        return pulumi.get(self, "resource_modifier_mappings")
 
     @_builtins.property
     @pulumi.getter(name="sourceVolumeToDestinationEncryptionKeyMappings")
@@ -5718,7 +7377,7 @@ class GetDrProtectionGroupMemberBackupLocationResult(dict):
                  object: _builtins.str):
         """
         :param _builtins.str bucket: The bucket name inside the object storage namespace.  Example: `bucket_name`
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param _builtins.str object: The object name inside the object storage bucket.  Example: `switchover_plan_executions`
         """
         pulumi.set(__self__, "bucket", bucket)
@@ -5737,7 +7396,7 @@ class GetDrProtectionGroupMemberBackupLocationResult(dict):
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -6244,6 +7903,35 @@ class GetDrProtectionGroupMemberNetworkLoadBalancerMappingResult(dict):
 
 
 @pulumi.output_type
+class GetDrProtectionGroupMemberResourceModifierMappingResult(dict):
+    def __init__(__self__, *,
+                 config_map: _builtins.str,
+                 namespace: _builtins.str):
+        """
+        :param _builtins.str config_map: The name of the config map containing resource modification details. Example: `resource-modifier`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        pulumi.set(__self__, "config_map", config_map)
+        pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter(name="configMap")
+    def config_map(self) -> _builtins.str:
+        """
+        The name of the config map containing resource modification details. Example: `resource-modifier`
+        """
+        return pulumi.get(self, "config_map")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        return pulumi.get(self, "namespace")
+
+
+@pulumi.output_type
 class GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingResult(dict):
     def __init__(__self__, *,
                  destination_encryption_keys: Sequence['outputs.GetDrProtectionGroupMemberSourceVolumeToDestinationEncryptionKeyMappingDestinationEncryptionKeyResult'],
@@ -6700,7 +8388,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemLogLocationResult(dict
                  object: _builtins.str):
         """
         :param _builtins.str bucket: The bucket name inside the object storage namespace.  Example: `operation_logs`
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param _builtins.str object: The object name inside the object storage bucket.  Example: `switchover_plan_executions`
         """
         pulumi.set(__self__, "bucket", bucket)
@@ -6719,7 +8407,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemLogLocationResult(dict
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -6772,6 +8460,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResult(dict):
                  password_vault_secret_id: _builtins.str,
                  peer_cluster_id: _builtins.str,
                  peer_db_system_id: _builtins.str,
+                 resource_modifier_mappings: Sequence['outputs.GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResourceModifierMappingResult'],
                  source_volume_to_destination_encryption_key_mappings: Sequence['outputs.GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberSourceVolumeToDestinationEncryptionKeyMappingResult'],
                  vault_mappings: Sequence['outputs.GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVaultMappingResult'],
                  virtual_node_pool_configs: Sequence['outputs.GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVirtualNodePoolConfigResult'],
@@ -6809,11 +8498,12 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResult(dict):
         :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberManagedNodePoolConfigArgs'] managed_node_pool_configs: The list of node pools with configurations for minimum and maximum node counts. This property applies to the OKE cluster member in both the primary and standby region.
         :param _builtins.str member_id: The OCID of the member.  Example: `ocid1.instance.oc1..uniqueID`
         :param _builtins.str member_type: The type of the member.
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberNetworkLoadBalancerMappingArgs'] network_load_balancer_mappings: The list of source-to-destination network load balancer mappings required for DR operations. This property applies to the OKE cluster member in primary region.
         :param _builtins.str password_vault_secret_id: The OCID of the vault secret where the database SYSDBA password is stored. This password is required and used for performing database DR Drill operations when using full clone.  Example: `ocid1.vaultsecret.oc1..uniqueID`
         :param _builtins.str peer_cluster_id: The OCID of the peer OKE cluster. This property applies to the OKE cluster member in both the primary and standby region.  Example: `ocid1.cluster.oc1.uniqueID`
         :param _builtins.str peer_db_system_id: The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
+        :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResourceModifierMappingArgs'] resource_modifier_mappings: The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
         :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberSourceVolumeToDestinationEncryptionKeyMappingArgs'] source_volume_to_destination_encryption_key_mappings: A list of mappings between source volume IDs in the volume group and customer-managed encryption keys in the  destination region which will be used to encrypt the volume after it moves to the destination region.
         :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVaultMappingArgs'] vault_mappings: The list of source-to-destination vault mappings required for DR operations. This property applies to the OKE cluster member in primary region.
         :param Sequence['GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberVirtualNodePoolConfigArgs'] virtual_node_pool_configs: The list of node pools with configurations for minimum and maximum node counts. This property applies to the OKE cluster member in both the primary and standby region.
@@ -6857,6 +8547,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResult(dict):
         pulumi.set(__self__, "password_vault_secret_id", password_vault_secret_id)
         pulumi.set(__self__, "peer_cluster_id", peer_cluster_id)
         pulumi.set(__self__, "peer_db_system_id", peer_db_system_id)
+        pulumi.set(__self__, "resource_modifier_mappings", resource_modifier_mappings)
         pulumi.set(__self__, "source_volume_to_destination_encryption_key_mappings", source_volume_to_destination_encryption_key_mappings)
         pulumi.set(__self__, "vault_mappings", vault_mappings)
         pulumi.set(__self__, "virtual_node_pool_configs", virtual_node_pool_configs)
@@ -7120,7 +8811,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResult(dict):
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -7155,6 +8846,14 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResult(dict):
         The OCID of the peer HeatWave MySQL DB System from the peer region.  Example: `ocid1.mysqldbsystem.oc1..uniqueID`
         """
         return pulumi.get(self, "peer_db_system_id")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceModifierMappings")
+    def resource_modifier_mappings(self) -> Sequence['outputs.GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResourceModifierMappingResult']:
+        """
+        The list of config maps along with their corresponding namespaces. This property applies to the OKE cluster member in primary region.
+        """
+        return pulumi.get(self, "resource_modifier_mappings")
 
     @_builtins.property
     @pulumi.getter(name="sourceVolumeToDestinationEncryptionKeyMappings")
@@ -7318,7 +9017,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberBackupLocationRe
                  object: _builtins.str):
         """
         :param _builtins.str bucket: The bucket name inside the object storage namespace.  Example: `operation_logs`
-        :param _builtins.str namespace: The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
         :param _builtins.str object: The object name inside the object storage bucket.  Example: `switchover_plan_executions`
         """
         pulumi.set(__self__, "bucket", bucket)
@@ -7337,7 +9036,7 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberBackupLocationRe
     @pulumi.getter
     def namespace(self) -> _builtins.str:
         """
-        The namespace in object storage (Note - this is usually the tenancy name).  Example: `myocitenancy`
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
         """
         return pulumi.get(self, "namespace")
 
@@ -7841,6 +9540,35 @@ class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberNetworkLoadBalan
         The OCID of the source Network Load Balancer.  Example: `ocid1.networkloadbalancer.oc1..uniqueID`
         """
         return pulumi.get(self, "source_network_load_balancer_id")
+
+
+@pulumi.output_type
+class GetDrProtectionGroupsDrProtectionGroupCollectionItemMemberResourceModifierMappingResult(dict):
+    def __init__(__self__, *,
+                 config_map: _builtins.str,
+                 namespace: _builtins.str):
+        """
+        :param _builtins.str config_map: The name of the config map containing resource modification details. Example: `resource-modifier`
+        :param _builtins.str namespace: The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        pulumi.set(__self__, "config_map", config_map)
+        pulumi.set(__self__, "namespace", namespace)
+
+    @_builtins.property
+    @pulumi.getter(name="configMap")
+    def config_map(self) -> _builtins.str:
+        """
+        The name of the config map containing resource modification details. Example: `resource-modifier`
+        """
+        return pulumi.get(self, "config_map")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The OKE namespace where the config map resides. Example: `namespace_string_5`
+        """
+        return pulumi.get(self, "namespace")
 
 
 @pulumi.output_type

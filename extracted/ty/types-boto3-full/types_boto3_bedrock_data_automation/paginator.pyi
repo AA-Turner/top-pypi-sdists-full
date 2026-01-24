@@ -3,7 +3,7 @@ Type annotations for bedrock-data-automation service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_data_automation/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

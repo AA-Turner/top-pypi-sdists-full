@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: saq
-Version: 0.25.2
+Version: 0.26.1
 Summary: Distributed Python job queue with asyncio and redis
 Home-page: https://github.com/tobymao/saq
 Author: Toby Mao
@@ -30,13 +30,45 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Systems Administration
 Description-Content-Type: text/markdown
-Provides-Extra: hiredis
-Provides-Extra: http
-Provides-Extra: postgres
-Provides-Extra: redis
-Provides-Extra: web
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: croniter>=0.3.18
+Provides-Extra: hiredis
+Requires-Dist: redis[hiredis]>=4.2.0; extra == "hiredis"
+Provides-Extra: http
+Requires-Dist: aiohttp; extra == "http"
+Provides-Extra: postgres
+Requires-Dist: psycopg[pool]>=3.2.0; extra == "postgres"
+Provides-Extra: redis
+Requires-Dist: redis<7.0,>=4.2; extra == "redis"
+Provides-Extra: web
+Requires-Dist: aiohttp; extra == "web"
+Requires-Dist: aiohttp_basicauth; extra == "web"
+Provides-Extra: dev
+Requires-Dist: aiohttp; extra == "dev"
+Requires-Dist: aiohttp_basicauth; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: psycopg[pool]>=3.2.0; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: redis<7.0,>=4.2; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: time-machine; extra == "dev"
+Requires-Dist: types-croniter; extra == "dev"
+Requires-Dist: types-redis; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: starlette; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # SAQ
 SAQ (Simple Async Queue) is a simple and performant job queueing framework built on top of asyncio and redis or postgres. It can be used for processing background jobs with workers. For example, you could use SAQ to schedule emails, execute long queries, or do expensive data analysis.

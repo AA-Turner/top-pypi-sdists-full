@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import click
 from click.utils import LazyFile
@@ -24,6 +25,7 @@ from schemathesis.config import (
     ReportFormat,
     SchemathesisConfig,
     SchemathesisWarning,
+    WarningsConfig,
 )
 from schemathesis.core import HYPOTHESIS_IN_MEMORY_DATABASE_IDENTIFIER
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT
@@ -37,7 +39,7 @@ COLOR_OPTIONS_INVALID_USAGE_MESSAGE = "Can't use `--no-color` and `--force-color
 DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 
 
-@click.argument(  # type: ignore[misc]
+@click.argument(  # type: ignore[untyped-decorator]
     "location",
     type=str,
     callback=validation.validate_schema_location,
@@ -282,6 +284,12 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
     is_eager=True,
 )
 @grouped_option(
+    "--report-ndjson-path",
+    help="Custom path for NDJSON events file",
+    type=click.File("w", encoding="utf-8"),
+    is_eager=True,
+)
+@grouped_option(
     "--report-preserve-bytes",
     help="Retain exact byte sequence of payloads in cassettes, encoded as base64",
     type=bool,
@@ -412,7 +420,7 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 @group("Global options")
 @grouped_option("--no-color", help="Disable ANSI color escape codes", type=bool, is_flag=True)
 @grouped_option("--force-color", help="Explicitly tells to enable ANSI color escape codes", type=bool, is_flag=True)
-@click.pass_context  # type: ignore[misc]
+@click.pass_context  # type: ignore[untyped-decorator]
 def run(
     ctx: click.Context,
     *,
@@ -465,6 +473,7 @@ def run(
     report_junit_path: LazyFile | None = None,
     report_vcr_path: LazyFile | None = None,
     report_har_path: LazyFile | None = None,
+    report_ndjson_path: LazyFile | None = None,
     report_preserve_bytes: bool | None = None,
     output_sanitize: bool | None = None,
     output_truncate: bool | None = None,
@@ -524,13 +533,14 @@ def run(
         junit_path=report_junit_path.name if report_junit_path else None,
         vcr_path=report_vcr_path.name if report_vcr_path else None,
         har_path=report_har_path.name if report_har_path else None,
+        ndjson_path=report_ndjson_path.name if report_ndjson_path else None,
         directory=Path(report_directory),
         preserve_bytes=report_preserve_bytes,
     )
     # Other CLI options work as an override for all defined projects
     config.projects.override.update(
         base_url=base_url,
-        headers=headers if headers else None,
+        headers=headers or None,
         basic_auth=auth,
         workers=workers,
         continue_on_failure=continue_on_failure,
@@ -541,7 +551,9 @@ def run(
         request_cert=request_cert,
         request_cert_key=request_cert_key,
         proxy=request_proxy,
-        warnings=warnings,
+        warnings=WarningsConfig.from_value([w.value for w in warnings] if isinstance(warnings, list) else warnings)
+        if warnings is not None
+        else None,
     )
     # These are filters for what API operations should be tested
     filter_set = {

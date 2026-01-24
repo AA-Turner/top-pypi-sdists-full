@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def toaster(im):
+def toaster(im: Image.Image) -> Image.Image:
     """Applies Toaster filter.
 
     Arguments:
@@ -26,12 +27,12 @@ def toaster(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
     cs = util.radial_gradient(cb.size, [(128, 78, 15), (59, 0, 59)])
     cr = css.blending.screen(cb, cs)
 
     cr = css.contrast(cr, 1.5)
-    cr = css.brightness(cr, .9)
+    cr = css.brightness(cr, 0.9)
 
     return cr

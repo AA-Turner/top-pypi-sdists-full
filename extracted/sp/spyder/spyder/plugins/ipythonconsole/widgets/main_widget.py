@@ -32,17 +32,21 @@ from superqt.utils import qdebounced
 from traitlets.config.loader import Config, load_pyconfig_files
 
 # Local imports
+from spyder.api.asyncdispatcher import AsyncDispatcher
 from spyder.api.config.decorators import on_conf_change
 from spyder.api.translations import _
 from spyder.api.widgets.main_widget import PluginMainWidget
 from spyder.config.base import get_home_dir, running_under_pytest
+from spyder.plugins.application.api import ApplicationActions
 from spyder.plugins.ipythonconsole.api import (
     ClientContextMenuActions,
     IPythonConsoleWidgetActions,
     IPythonConsoleWidgetMenus,
     IPythonConsoleWidgetCornerWidgets,
     IPythonConsoleWidgetOptionsMenuSections,
-    IPythonConsoleWidgetTabsContextMenuSections
+    IPythonConsoleWidgetTabsContextMenuSections,
+    RemoteConsolesMenuSections,
+    RemoteConsolesMenus
 )
 from spyder.plugins.ipythonconsole.utils.kernel_handler import KernelHandler
 from spyder.plugins.ipythonconsole.utils.kernelspec import SpyderKernelSpec
@@ -58,11 +62,14 @@ from spyder.plugins.ipythonconsole.widgets import (
     ShellWidget,
 )
 from spyder.plugins.ipythonconsole.widgets.mixins import CachedKernelMixin
+from spyder.plugins.remoteclient.api import RemoteClientActions
 from spyder.utils import encoding, sourcecode
+from spyder.utils.environ import get_user_environment_variables
 from spyder.utils.misc import get_error_match, remove_backslashes
 from spyder.utils.palette import SpyderPalette
 from spyder.utils.stylesheet import AppStyle
 from spyder.widgets.findreplace import FindReplace
+from spyder.widgets.helperwidgets import MessageCheckBox
 from spyder.widgets.tabs import Tabs
 from spyder.widgets.printer import SpyderPrinter
 
@@ -100,7 +107,7 @@ class EnvironmentConsolesMenuSections:
 
 # ---- Widgets
 # ----------------------------------------------------------------------------
-class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
+class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):  # noqa: PLR0904
     """
     IPython Console plugin
 
@@ -245,7 +252,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         Example `{'name': str, 'ignore_unknown': bool}`.
     """
 
-    sig_current_directory_changed = Signal(str)
+    sig_current_directory_changed = Signal(str, str)
     """
     This signal is emitted when the current directory of the active shell
     widget has changed.
@@ -254,6 +261,9 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
     ----------
     working_directory: str
         The new working directory path.
+    server_id: str
+        The server identification from where the working directory is
+        reachable.
     """
 
     sig_interpreter_changed = Signal(str)
@@ -265,6 +275,18 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
     ----------
     path: str
         Path to the new interpreter.
+    """
+
+    sig_edit_action_enabled = Signal(str, bool)
+    """
+    This signal is emitted to enable or disable an edit action.
+
+    Parameters
+    ----------
+    action_name: str
+        Name of the edit action to be enabled or disabled.
+    enabled: bool
+        True if the action should be enabled, False if it should disabled.
     """
 
     def __init__(self, name=None, plugin=None, parent=None):
@@ -391,6 +413,9 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         # Initial value for the current working directory
         self._current_working_directory = get_home_dir()
 
+        # Remote Consoles menu
+        self._remote_consoles_menu = None
+
     # ---- PluginMainWidget API and settings handling
     # ------------------------------------------------------------------------
     def get_title(self):
@@ -460,9 +485,8 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         )
         self.connect_to_kernel_action = self.create_action(
             IPythonConsoleWidgetActions.ConnectToKernel,
-            text=_("Connect to an existing kernel"),
-            tip=_("Open a new IPython console connected to an existing "
-                  "kernel"),
+            text=_("Connect to existing kernel..."),
+            tip=_("Open an IPython console connected to an existing kernel"),
             triggered=self._create_client_for_kernel,
         )
         self.rename_tab_action = self.create_action(
@@ -470,6 +494,30 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             text=_("Rename tab"),
             icon=self.create_icon('rename'),
             triggered=self.tab_name_editor,
+        )
+        next_console_action = self.create_action(
+            IPythonConsoleWidgetActions.NextConsole,
+            text=_("Switch to next console"),
+            icon=self.create_icon('next_wng'),
+            triggered=lambda: self.tabwidget.tab_navigate(+1),
+            register_shortcut=True
+        )
+        previous_console_action = self.create_action(
+            IPythonConsoleWidgetActions.PreviousConsole,
+            text=_("Switch to previous console"),
+            icon=self.create_icon('prev_wng'),
+            triggered=lambda: self.tabwidget.tab_navigate(-1),
+            register_shortcut=True
+        )
+
+        # Register shortcuts to switch to the right/left console
+        self.register_shortcut_for_widget(
+            IPythonConsoleWidgetActions.NextConsole,
+            lambda: self.tabwidget.tab_navigate(+1),
+        )
+        self.register_shortcut_for_widget(
+            IPythonConsoleWidgetActions.PreviousConsole,
+            lambda: self.tabwidget.tab_navigate(-1),
         )
 
         # --- For the client
@@ -500,44 +548,44 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
         # --- Context menu actions
         # TODO: Shortcut registration not working
-        cut_action = self.create_action(
+        self.cut_action = self.create_action(
             ClientContextMenuActions.Cut,
             text=_("Cut"),
             icon=self.create_icon("editcut"),
-            triggered=self._current_client_cut
+            triggered=self.current_client_cut
         )
-        cut_action.setShortcut(QKeySequence.Cut)
+        self.cut_action.setShortcut(QKeySequence.Cut)
 
-        copy_action = self.create_action(
+        self.copy_action = self.create_action(
             ClientContextMenuActions.Copy,
             text=_("Copy"),
             icon=self.create_icon("editcopy"),
-            triggered=self._current_client_copy
+            triggered=self.current_client_copy
         )
-        copy_action.setShortcut(QKeySequence.Copy)
+        self.copy_action.setShortcut(QKeySequence.Copy)
 
-        self.create_action(
+        self.copy_raw_action = self.create_action(
             ClientContextMenuActions.CopyRaw,
             text=_("Copy (raw text)"),
             triggered=self._current_client_copy_raw
         )
 
-        paste_action = self.create_action(
+        self.paste_action = self.create_action(
             ClientContextMenuActions.Paste,
             text=_("Paste"),
             icon=self.create_icon("editpaste"),
-            triggered=self._current_client_paste
+            triggered=self.current_client_paste
         )
-        paste_action.setShortcut(QKeySequence.Paste)
+        self.paste_action.setShortcut(QKeySequence.Paste)
 
-        self.create_action(
+        self.select_all_action = self.create_action(
             ClientContextMenuActions.SelectAll,
             text=_("Select all"),
             icon=self.create_icon("selectall"),
-            triggered=self._current_client_select_all
+            triggered=self.current_client_select_all
         )
 
-        self.create_action(
+        self.inspect_object_action = self.create_action(
             ClientContextMenuActions.InspectObject,
             text=_("Inspect current object"),
             icon=self.create_icon('MessageBoxInformation'),
@@ -545,7 +593,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             register_shortcut=True
         )
 
-        self.create_action(
+        self.enter_array_table_action = self.create_action(
             ClientContextMenuActions.ArrayTable,
             text=_("Enter array table"),
             icon=self.create_icon("arredit"),
@@ -553,28 +601,28 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             register_shortcut=True
         )
 
-        self.create_action(
+        self.enter_array_inline_action = self.create_action(
             ClientContextMenuActions.ArrayInline,
             text=_("Enter array inline"),
             triggered=self._current_client_enter_array_inline,
             register_shortcut=True
         )
 
-        self.create_action(
+        self.export_html_action = self.export_action = self.create_action(
             ClientContextMenuActions.Export,
             text=_("Save as html..."),
             icon=self.create_icon("CodeFileIcon"),
             triggered=self._current_client_export
         )
 
-        self.create_action(
+        self.print_action = self.create_action(
             ClientContextMenuActions.Print,
             text=_("Print..."),
             icon=self.create_icon("print"),
             triggered=self._current_client_print
         )
 
-        self.create_action(
+        self.clear_line_action = self.create_action(
             ClientContextMenuActions.ClearLine,
             text=_("Clear line or block"),
             icon=self.create_icon("clear_text"),
@@ -582,7 +630,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             register_shortcut=True
         )
 
-        self.create_action(
+        self.clear_console_action = self.create_action(
             ClientContextMenuActions.ClearConsole,
             text=_("Clear console"),
             icon=self.create_icon("clear_console"),
@@ -590,25 +638,25 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             register_shortcut=True
         )
 
-        self.create_action(
+        self.copy_image_action = self.create_action(
             ClientContextMenuActions.CopyImage,
             text=_("Copy image"),
             triggered=self._current_client_copy_image
         )
 
-        self.create_action(
+        self.save_image_action = self.create_action(
             ClientContextMenuActions.SaveImage,
             text=_("Save image as..."),
             triggered=self._current_client_save_image
         )
 
-        self.create_action(
+        self.copy_svg_action = self.create_action(
             ClientContextMenuActions.CopySvg,
             text=_("Copy SVG"),
             triggered=self._current_client_copy_svg
         )
 
-        self.create_action(
+        self.save_svg_action = self.create_action(
             ClientContextMenuActions.SaveSvg,
             text=_("Save SVG as..."),
             triggered=self._current_client_save_svg
@@ -617,7 +665,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         # The Quit entry was available in Spyder 5 and before, and some users
         # were accustomed to click on it.
         # Fixes spyder-ide/spyder#24096
-        self.create_action(
+        self.quit_action = self.create_action(
             ClientContextMenuActions.Quit,
             _("&Quit"),
             icon=self.create_icon('exit'),
@@ -655,6 +703,13 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
                 section=IPythonConsoleWidgetOptionsMenuSections.View,
             )
 
+        for item in [next_console_action, previous_console_action]:
+            self.add_item_to_menu(
+                item,
+                menu=options_menu,
+                section=IPythonConsoleWidgetOptionsMenuSections.Switch,
+            )
+
         create_pylab_action = self.create_action(
             IPythonConsoleWidgetActions.CreatePyLabClient,
             text=_("New Pylab console (data plotting)"),
@@ -684,12 +739,12 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             )
 
         # --- Widgets for the tab corner
-        self.reset_button = self.create_toolbutton(
-            IPythonConsoleWidgetCornerWidgets.ResetButton,
-            text=_("Remove all variables"),
-            tip=_("Remove all variables from namespace"),
-            icon=self.create_icon("editdelete"),
-            triggered=self.reset_namespace,
+        self.clear_button = self.create_toolbutton(
+            IPythonConsoleWidgetCornerWidgets.ClearButton,
+            text=_("Clear console"),
+            tip=_("Clear console"),
+            icon=self.create_icon("clear_console"),
+            triggered=self._current_client_clear_console,
         )
         self.stop_button = self.create_toolbutton(
             IPythonConsoleWidgetCornerWidgets.InterruptButton,
@@ -705,7 +760,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
         # --- Add tab corner widgets.
         self.add_corner_widget(self.stop_button)
-        self.add_corner_widget(self.reset_button)
+        self.add_corner_widget(self.clear_button)
         self.add_corner_widget(self.time_label)
 
         # --- Tabs context menu
@@ -792,8 +847,9 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         for idx, client in enumerate(self.clients):
             self._change_client_conf(
                 client,
-                client.get_control().set_help_enabled,
-                value)
+                client.get_control(pager=False).set_help_enabled,
+                value
+            )
 
     @on_conf_change(section='appearance', option=['selected', 'ui_theme'])
     def change_clients_color_scheme(self, option, value):
@@ -1373,6 +1429,103 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         # Render consoles menu and submenus
         self.console_environment_menu.render()
 
+    def _connect_new_client_to_kernel(
+        self, cache, path_to_custom_interpreter, client, future
+    ):
+        """Connect kernel to client after environment variables are obtained"""
+        try:
+            # Create new kernel
+            kernel_spec = SpyderKernelSpec(
+                path_to_custom_interpreter=path_to_custom_interpreter
+            )
+            kernel_spec.env = future.result()
+            kernel_handler = self.get_cached_kernel(kernel_spec, cache=cache)
+        except Exception as e:
+            client.show_kernel_error(e)
+            return
+
+        # Connect kernel to client
+        client.connect_kernel(kernel_handler)
+
+    def _run_script(
+        self,
+        filename,
+        wdir,
+        args,
+        post_mortem,
+        clear_variables,
+        console_namespace,
+        method,
+        client,
+        current_client
+    ):
+        if method is None:
+            method = "runfile"
+
+        def norm(text):
+            return remove_backslashes(str(text))
+
+        # The kernel must be connected before the following condition is
+        # tested. This is why self._run_script must wait for sig_prompt_ready
+        # if a new client was created.
+        if client.shellwidget.is_spyder_kernel:
+            # If spyder-kernels, use runfile
+            magic_arguments = [norm(filename)]
+            if args:
+                magic_arguments.append("--args")
+                magic_arguments.append(norm(args))
+            if wdir:
+                if wdir == os.path.dirname(filename):
+                    # No working directory for external kernels
+                    # if it has not been explicitly given.
+                    if not client.shellwidget.is_external_kernel:
+                        magic_arguments.append("--wdir")
+                else:
+                    magic_arguments.append("--wdir")
+                    magic_arguments.append(norm(wdir))
+            if post_mortem:
+                magic_arguments.append("--post-mortem")
+            if console_namespace:
+                magic_arguments.append("--current-namespace")
+
+            line = "%{} {}".format(method, shlex.join(magic_arguments))
+        elif method in ["runfile", "debugfile"]:
+            # External, non spyder-kernels, use %run
+            magic_arguments = []
+
+            if method == "debugfile":
+                magic_arguments.append("-d")
+            magic_arguments.append(filename)
+            if args:
+                magic_arguments.append(norm(args))
+            line = "%run " + shlex.join(magic_arguments)
+        else:
+            client.shellwidget.append_html_message(
+                _(
+                    "The console is not running a Spyder-kernel, so it can't "
+                    "execute <b>{}</b>.<br><br>"
+                    "Please use a Spyder-kernel for this."
+                ).format(method),
+                before_prompt=True
+            )
+            return
+
+        try:
+            if client.shellwidget._executing:
+                # Don't allow multiple executions when there's
+                # still an execution taking place
+                # Fixes spyder-ide/spyder#7293.
+                pass
+            else:
+                self.execute_code(
+                    line,
+                    current_client,
+                    clear_variables,
+                    shellwidget=client.shellwidget,
+                )
+        except AttributeError:
+            pass
+
     # ---- Public API
     # -------------------------------------------------------------------------
     def find_connection_file(self, connection_file):
@@ -1422,6 +1575,37 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
     # ---- General
     # -------------------------------------------------------------------------
+    def update_edit_menu(self) -> None:
+        """
+        Enable edition related actions when a client is available.
+        """
+        undo_action_enabled = False
+        redo_action_enabled = False
+        cut_action_enabled = False
+        copy_action_enabled = False
+        paste_action_enabled = False
+        client = self.get_current_client()
+
+        if client:
+            undo_action_enabled = (
+                client.shellwidget._control.document().isUndoAvailable()
+            )
+            redo_action_enabled = (
+                client.shellwidget._control.document().isRedoAvailable()
+            )
+            cut_action_enabled = client.shellwidget.can_cut()
+            copy_action_enabled = client.shellwidget.can_copy()
+            paste_action_enabled = client.shellwidget.can_paste()
+
+        for action, enabled in [
+            (ApplicationActions.Undo, undo_action_enabled),
+            (ApplicationActions.Redo, redo_action_enabled),
+            (ApplicationActions.Cut, cut_action_enabled),
+            (ApplicationActions.Copy, copy_action_enabled),
+            (ApplicationActions.Paste, paste_action_enabled),
+        ]:
+            self.sig_edit_action_enabled.emit(action, enabled)
+
     def update_font(self, font, app_font):
         self._font = font
         self._app_font = app_font
@@ -1482,6 +1666,8 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             show_elapsed_time = client.show_elapsed_time
             self.show_time_action.setChecked(show_elapsed_time)
             client.timer.timeout.connect(client.show_time)
+            client.timer.start(1000)
+            client.timer.timeout.emit()
         else:
             control = None
         self.find_widget.set_editor(control)
@@ -1496,7 +1682,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             # we call on_working_directory_changed to validate that the cwd
             # exists (this couldn't be the case for remote kernels).
             if sw.get_cwd() != self.get_working_directory():
-                self.on_working_directory_changed(sw.get_cwd())
+                self.on_working_directory_changed(sw.get_cwd(), sw.server_id)
 
         self.update_tabs_text()
         self.update_actions()
@@ -1593,15 +1779,13 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
     def rename_remote_clients(self, server_id):
         """Rename all clients connected to a remote server."""
-        auth_method = self.get_conf(
-            f"{server_id}/auth_method", section="remoteclient"
-        )
-        hostname = self.get_conf(
-            f"{server_id}/{auth_method}/name", section="remoteclient"
-        )
+        hostname = self._plugin._remote_client.get_server_name(server_id)
 
         for client in self.clients:
-            if client.server_id == server_id:
+            if (
+                client.is_remote()
+                and client.jupyter_api.server_id == server_id
+            ):
                 client.hostname = hostname
                 index = self.get_client_index_from_id(id(client))
                 self.tabwidget.setTabText(index, client.get_name())
@@ -1729,10 +1913,22 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
     @Slot(bool, str, str)
     @Slot(bool, bool)
     @Slot(bool, str, bool)
-    def create_new_client(self, give_focus=True, filename='', special=None,
-                          given_name=None, cache=True, initial_cwd=None,
-                          path_to_custom_interpreter=None):
-        """Create a new client"""
+    def create_new_client(
+        self,
+        give_focus=True,
+        filename='',
+        special=None,
+        given_name=None,
+        cache=True,
+        initial_cwd=None,
+        path_to_custom_interpreter=None
+    ):
+        """
+        Create a new client.
+
+        Uses asynchronous get_user_environment_variables and connects to kernel
+        upon future completion.
+        """
         self.master_clients += 1
         client_id = dict(int_id=str(self.master_clients),
                          str_id='A')
@@ -1756,28 +1952,36 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             special_kernel=special
         )
 
+        future = get_user_environment_variables()
+        future.connect(
+            AsyncDispatcher.QtSlot(
+                functools.partial(
+                    self._connect_new_client_to_kernel,
+                    cache,
+                    path_to_custom_interpreter,
+                    client,
+                )
+            )
+        )
+
         # Add client to widget
         self.add_tab(
             client, name=client.get_name(), filename=filename,
             give_focus=give_focus)
 
-        try:
-            # Create new kernel
-            kernel_spec = SpyderKernelSpec(
-                path_to_custom_interpreter=path_to_custom_interpreter
-            )
-            kernel_handler = self.get_cached_kernel(kernel_spec, cache=cache)
-        except Exception as e:
-            client.show_kernel_error(e)
-            return
-
-        # Connect kernel to client
-        client.connect_kernel(kernel_handler)
         return client
 
-    def create_client_for_kernel(self, connection_file, hostname, sshkey,
-                                 password, server_id=None, give_focus=False,
-                                 can_close=True):
+    def create_client_for_kernel(
+        self,
+        connection_file,
+        hostname,
+        sshkey,
+        password,
+        jupyter_api=None,
+        files_api=None,
+        give_focus=False,
+        can_close=True
+    ):
         """Create a client connected to an existing kernel."""
         given_name = None
         master_client = None
@@ -1822,7 +2026,8 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             config_options=self.config_options(),
             additional_options=self.additional_options(),
             handlers=self.registered_spyder_kernel_handlers,
-            server_id=server_id,
+            jupyter_api=jupyter_api,
+            files_api=files_api,
             give_focus=give_focus,
             can_close=can_close,
         )
@@ -1838,8 +2043,9 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             client.t0 = master_client.t0
             client.timer.timeout.connect(client.show_time)
             client.timer.start(1000)
+            client.timer.timeout.emit()
 
-        if server_id:
+        if jupyter_api is not None:
             # This is a client created by the RemoteClient plugin. So, we only
             # create the client and show it as loading because the kernel
             # connection part will be done by that plugin.
@@ -1958,6 +2164,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
         # Show time label
         client.sig_time_label.connect(self.time_label.setText)
+        client.timer.timeout.emit()
 
         # Exception handling
         shellwidget.sig_exception_occurred.connect(
@@ -2070,7 +2277,10 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         """Close all clients connected to a remote server."""
         open_clients = self.clients.copy()
         for client in self.clients:
-            if client.server_id == server_id:
+            if (
+                client.is_remote()
+                and client.jupyter_api.server_id == server_id
+            ):
                 is_last_client = (
                     len(self.get_related_clients(client, open_clients)) == 0
                 )
@@ -2087,13 +2297,20 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         """
         Get all other clients that are connected to the same kernel as `client`
         """
+        # At the moment it's not possible to have two clients connected to the
+        # same remote kernel.
+        if client.is_remote():
+            return []
+
         if clients_list is None:
             clients_list = self.clients
+
         related_clients = []
         for cl in clients_list:
             if (cl.connection_file == client.connection_file and
                     cl is not client):
                 related_clients.append(cl)
+
         return related_clients
 
     def close_related_clients(self, client):
@@ -2117,12 +2334,22 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         self.create_new_client(give_focus=False, cache=False)
         self.create_new_client_if_empty = True
 
-    def _current_client_cut(self):
+    def current_client_undo(self):
+        client = self.get_current_client()
+        if client:
+            client.shellwidget.undo()
+
+    def current_client_redo(self):
+        client = self.get_current_client()
+        if client:
+            client.shellwidget.redo()
+
+    def current_client_cut(self):
         client = self.get_current_client()
         if client:
             client.shellwidget.cut()
 
-    def _current_client_copy(self):
+    def current_client_copy(self):
         client = self.get_current_client()
         if client:
             client.shellwidget.copy()
@@ -2132,12 +2359,12 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         if client:
             client.shellwidget.copy_raw()
 
-    def _current_client_paste(self):
+    def current_client_paste(self):
         client = self.get_current_client()
         if client:
             client.shellwidget.paste()
 
-    def _current_client_select_all(self):
+    def current_client_select_all(self):
         client = self.get_current_client()
         if client:
             client.shellwidget.select_all_smart()
@@ -2273,10 +2500,17 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
         do_restart = True
         if ask_before_restart and not running_under_pytest():
-            message = _('Are you sure you want to restart the kernel?')
-            buttons = QMessageBox.Yes | QMessageBox.No
-            result = QMessageBox.question(
-                self, _('Restart kernel?'), message, buttons)
+            message = MessageCheckBox(icon=QMessageBox.Question, parent=self)
+            message.set_checkbox_text(_("Don't ask again."))
+            message.set_checked(False)
+            message.set_check_visible(True)
+            message.setText(_('Are you sure you want to restart the kernel?'))
+            message.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            result = message.exec_()
+            check = message.is_checked()
+            if check:
+                self.set_conf('ask_before_restart', not check)
+
             do_restart = result == QMessageBox.Yes
 
         if not do_restart:
@@ -2284,7 +2518,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
 
         # For remote kernels we need to request the server for a restart
         if client.is_remote():
-            client.sig_restart_kernel_requested.emit()
+            client.restart_remote_kernel()
             return
 
         # Get new kernel
@@ -2375,93 +2609,23 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
     def run_script(self, filename, wdir, args, post_mortem, current_client,
                    clear_variables, console_namespace, method=None):
         """Run script in current or dedicated client."""
-        norm = lambda text: remove_backslashes(str(text))
-
         # Run Cython files in a dedicated console
         is_cython = osp.splitext(filename)[1] == '.pyx'
         if is_cython:
             current_client = False
 
         # Select client to execute code on it
-        is_new_client = False
         if current_client:
             client = self.get_current_client()
         else:
             client = self.get_client_for_file(filename)
             if client is None:
+                # Create new client before running script
                 client = self.create_client_for_file(
-                    filename, is_cython=is_cython)
-                is_new_client = True
-
-        if client is not None:
-            if method is None:
-                method = "runfile"
-            # If spyder-kernels, use runfile
-            if client.shellwidget.is_spyder_kernel:
-
-                magic_arguments = [norm(filename)]
-                if args:
-                    magic_arguments.append("--args")
-                    magic_arguments.append(norm(args))
-                if wdir:
-                    if wdir == os.path.dirname(filename):
-                        # No working directory for external kernels
-                        # if it has not been explicitly given.
-                        if not client.shellwidget.is_external_kernel:
-                            magic_arguments.append("--wdir")
-                    else:
-                        magic_arguments.append("--wdir")
-                        magic_arguments.append(norm(wdir))
-                if post_mortem:
-                    magic_arguments.append("--post-mortem")
-                if console_namespace:
-                    magic_arguments.append("--current-namespace")
-
-                line = "%{} {}".format(method, shlex.join(magic_arguments))
-
-            elif method in ["runfile", "debugfile"]:
-                # External, non spyder-kernels, use %run
-                magic_arguments = []
-
-                if method == "debugfile":
-                    magic_arguments.append("-d")
-                magic_arguments.append(filename)
-                if args:
-                    magic_arguments.append(norm(args))
-                line = "%run " + shlex.join(magic_arguments)
-            else:
-                client.shellwidget.append_html_message(
-                    _("The console is not running a Spyder-kernel, so it "
-                      "can't execute <b>{}</b>.<br><br>"
-                      "Please use a Spyder-kernel for this.").format(method),
-                    before_prompt=True
+                    filename, is_cython=is_cython
                 )
-                return
 
-            try:
-                if client.shellwidget._executing:
-                    # Don't allow multiple executions when there's
-                    # still an execution taking place
-                    # Fixes spyder-ide/spyder#7293.
-                    pass
-                elif current_client:
-                    self.execute_code(line, current_client, clear_variables)
-                else:
-                    if is_new_client:
-                        client.shellwidget.silent_execute('%clear')
-                    else:
-                        client.shellwidget.execute('%clear')
-                    client.shellwidget.sig_prompt_ready.connect(
-                        lambda: self.execute_code(
-                            line, current_client, clear_variables,
-                            shellwidget=client.shellwidget
-                        )
-                    )
-            except AttributeError:
-                pass
-
-        else:
-            # XXX: not sure it can really happen
+        if client is None:
             QMessageBox.warning(
                 self,
                 _('Warning'),
@@ -2470,16 +2634,44 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
                   ) % osp.basename(filename),
                 QMessageBox.Ok
             )
+            return
+
+        def _run():
+            """
+            Call _run_script with the requested parameters.
+
+            Notes
+            -----
+            This function is necessary to freeze the parameters used in the
+            call when it's connected as a slot to sig_prompt_ready (see below).
+            """
+            # Disconnect from sig_prompt_ready to avoid calling the function
+            # over and over if users execute a file and the kernel is not yet
+            # ready.
+            # Fixes spyder-ide/spyder#25301
+            try:
+                client.shellwidget.sig_prompt_ready.disconnect(_run)
+            except TypeError:
+                pass
+
+            self._run_script(
+                filename,
+                wdir,
+                args,
+                post_mortem,
+                clear_variables,
+                console_namespace,
+                method,
+                client,
+                current_client
+            )
+
+        if client.shellwidget.spyder_kernel_ready:
+            _run()
+        else:
+            client.shellwidget.sig_prompt_ready.connect(_run)
 
     # ---- For working directory and path management
-    def set_working_directory(self, dirname):
-        """
-        Set current working directory in the Working Directory and Files
-        plugins.
-        """
-        if osp.isdir(dirname):
-            self.sig_current_directory_changed.emit(dirname)
-
     def save_working_directory(self, dirname):
         """
         Save current working directory when changed by the Working Directory
@@ -2491,27 +2683,28 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         """Get saved value of current working directory."""
         return self._current_working_directory
 
-    def set_current_client_working_directory(self, directory):
+    def set_current_client_working_directory(self, directory, server_id=None):
         """Set current client working directory."""
         shellwidget = self.get_current_shellwidget()
         if shellwidget is not None:
             shellwidget.set_cwd(directory)
 
-    def on_working_directory_changed(self, dirname):
+    def on_working_directory_changed(self, dirname, server_id):
         """
         Notify that the working directory was changed in the current console
         to other plugins.
         """
-        if dirname and osp.isdir(dirname):
-            self.sig_current_directory_changed.emit(dirname)
+        logger.debug(f"Changing working directory: {server_id} - {dirname}")
+        if dirname:
+            self.sig_current_directory_changed.emit(dirname, server_id)
 
-    def update_path(self, path_dict, new_path_dict):
+    def update_path(self, new_path, prioritize):
         """Update path on consoles."""
         logger.debug("Update sys.path in all console clients")
         for client in self.clients:
             shell = client.shellwidget
             if shell is not None:
-                shell.update_syspath(path_dict, new_path_dict)
+                shell.update_syspath(new_path, prioritize)
 
     def get_active_project_path(self):
         """Get the active project path."""
@@ -2541,6 +2734,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
             sw = self.get_current_shellwidget()
         else:
             sw = shellwidget
+
         if sw is not None:
             if not current_client:
                 # Clear console and reset namespace for
@@ -2550,9 +2744,8 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
                     sw.sig_prompt_ready.disconnect()
                 except TypeError:
                     pass
-                if clear_variables:
-                    sw.reset_namespace(warning=False)
-            elif current_client and clear_variables:
+
+            if clear_variables:
                 sw.reset_namespace(warning=False)
 
             # Needed to handle an error when kernel_client is none.
@@ -2605,3 +2798,192 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):
         """Show IPython Cheat Sheet"""
         from IPython.core.usage import quick_reference
         self.sig_render_plain_text_requested.emit(quick_reference)
+
+    # ---- For remote kernels
+    # -------------------------------------------------------------------------
+    def create_ipyclient_for_server(self, server_id, kernel_spec=None):
+        jupyter_api = self._plugin._remote_client.get_jupyter_api(server_id)
+        files_api = self._plugin._remote_client.get_file_api(server_id)()
+
+        client = self.create_client_for_kernel(
+            # The connection file will be supplied when connecting a remote
+            # kernel to this client
+            connection_file="",
+            # We use the server name as hostname because for clients it's the
+            # attribute used by the IPython console to set their tab name.
+            hostname=jupyter_api.server_name,
+            # These values are not necessary for the new remote development
+            # architecture.
+            sshkey=None,
+            password=None,
+            # We save the jupyter_api in the client to perform on it operations
+            # related to this plugin.
+            jupyter_api=jupyter_api,
+            # We save the files_api in the client to get the remote machine
+            # home directory.
+            files_api=files_api,
+            # This is necessary because it takes a while before getting a
+            # response from the server with the kernel id that will be
+            # associated to this client. So, if users could close it before
+            # that then it'll not be possible to shutdown that kernel unless
+            # the server is stopped as well.
+            can_close=False,
+        )
+        client.start_remote_kernel(kernel_spec)
+
+    def setup_remote_consoles_submenu(self, render=True):
+        """Create the remote consoles submenu in the Consoles app one."""
+
+        if self._remote_consoles_menu is None:
+            self._remote_consoles_menu = self.create_menu(
+                RemoteConsolesMenus.RemoteConsoles,
+                _("New console in remote server")
+            )
+
+        self._remote_consoles_menu.clear_actions()
+
+        self.add_item_to_menu(
+            self.get_action(
+                RemoteClientActions.ManageConnections,
+                self._plugin._remote_client.CONTEXT_NAME,
+                self._plugin._remote_client.PLUGIN_NAME
+
+            ),
+            menu=self._remote_consoles_menu,
+            section=RemoteConsolesMenuSections.ManagerSection,
+        )
+
+        for config_id in self._plugin._remote_client.get_config_ids():
+            name = self._plugin._remote_client.get_server_name(config_id)
+
+            action = self.create_action(
+                name=config_id,
+                text=f"New console in {name} server",
+                icon=self.create_icon("ipython_console"),
+                triggered=functools.partial(
+                    self.create_ipyclient_for_server,
+                    config_id,
+                ),
+                overwrite=True,
+            )
+            self.add_item_to_menu(
+                action,
+                menu=self._remote_consoles_menu,
+                section=RemoteConsolesMenuSections.ConsolesSection,
+            )
+
+        self.add_item_to_menu(
+            self._remote_consoles_menu,
+            self.get_menu(IPythonConsoleWidgetMenus.TabsContextMenu),
+            section=IPythonConsoleWidgetTabsContextMenuSections.Consoles,
+            before=IPythonConsoleWidgetActions.ConnectToKernel,
+        )
+
+        # This is necessary to reposition the menu correctly when rebuilt
+        if render:
+            self._remote_consoles_menu.render()
+
+    def setup_server_consoles_submenu(self, config_id: str):
+        """Add remote kernel specs to the remote consoles submenu."""
+        if self._remote_consoles_menu is None:
+            self._remote_consoles_menu = self.create_menu(
+                RemoteConsolesMenus.RemoteConsoles,
+                _("New console in remote server")
+            )
+
+        for action in self._remote_consoles_menu.get_actions():
+            action_id = getattr(action, "action_id", None)
+            if (
+                action_id is None
+                or action_id == config_id
+                or not action_id.startswith(config_id)
+            ):
+                continue
+            self._remote_consoles_menu.remove_action(action_id)
+
+        server_name = self._plugin._remote_client.get_server_name(config_id)
+
+        self.__get_remote_kernel_specs(config_id).connect(
+            self.__add_kernels_specs_callback(config_id, server_name),
+        )
+
+    def clear_server_consoles_submenu(self, config_id: str):
+        """Clear the remote consoles submenu."""
+        if self._remote_consoles_menu is None:
+            return
+
+        for action in self._remote_consoles_menu.get_actions():
+            action_id = getattr(action, "action_id", None)
+            if (
+                action_id is None
+                or action_id == config_id
+                or not action_id.startswith(config_id)
+            ):
+                continue
+            self._remote_consoles_menu.remove_action(action.action_id)
+
+    @AsyncDispatcher(loop="ipythonconsole")
+    async def __get_remote_kernel_specs(self, config_id: str):
+        """Get kernel specs from remote Jupyter API."""
+        async with self._plugin._remote_client.get_jupyter_api(
+            config_id
+        ) as jupyter_api:
+            return (
+                await jupyter_api.list_kernel_specs(),
+                jupyter_api.manager.options.get("default_kernel_spec")
+            )
+
+    def __add_kernels_specs_callback(self, config_id: str, server_name: str):
+        """Callback to add remote kernel specs."""
+        @AsyncDispatcher.QtSlot
+        def callback(future):
+            try:
+                result = future.result()
+                if result[0]:
+                    self._add_remote_kernel_spec_action(
+                        config_id, server_name, *result,
+                    )
+            except Exception:
+                logger.exception("Failed to get remote kernel specs")
+        return callback
+
+    def _add_remote_kernel_spec_action(
+        self,
+        config_id: str,
+        server_name: str,
+        kernel_specs: dict,
+        default_spec_name: str | None = None,
+    ):
+        """Add remote kernel spec actions to the remote consoles submenu."""
+        default_spec_name = default_spec_name or kernel_specs['default']
+        for spec_name, spec_info in kernel_specs['kernelspecs'].items():
+            if spec_name == default_spec_name:
+                # Skip the default kernel spec, as it is already handled by the
+                # default action in the remote consoles menu.
+                continue
+
+            # Create an action for each kernel spec
+            spec_display_name = (
+                spec_info["spec"].get("display_name")
+                or spec_info["name"]
+            )
+            action = self.create_action(
+                name=f"{config_id}_{spec_name}",
+                text=f"{spec_display_name} ({server_name})",
+                tip=(f"New console with {spec_display_name}"
+                     f" at {server_name} server"),
+                icon=self.create_icon("ipython_console"),
+                triggered=functools.partial(
+                    self.create_ipyclient_for_server,
+                    config_id,
+                    spec_name,
+                ),
+                overwrite=True,
+            )
+            self.add_item_to_menu(
+                action,
+                menu=self._remote_consoles_menu,
+                section=RemoteConsolesMenuSections.ConsolesSection,
+            )
+
+        self._remote_consoles_menu.render()

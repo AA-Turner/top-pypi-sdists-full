@@ -1,9 +1,4 @@
-import inspect
-import sys
 from functools import partial
-from importlib import import_module
-from operator import attrgetter
-from types import MethodType
 from cytoolz.utils import no_default
 import cytoolz._signatures as _sigs
 
@@ -19,6 +14,32 @@ from cpython.ref cimport PyObject
 from cpython.sequence cimport PySequence_Concat
 from cpython.set cimport PyFrozenSet_New
 from cpython.tuple cimport PyTuple_Check, PyTuple_GET_SIZE
+
+import importlib
+import inspect
+import operator
+import types
+
+# cdef constants to eliminate global lookups
+cdef object import_module = importlib.import_module
+del importlib
+
+cdef object signature = inspect.signature
+del inspect
+
+cdef object attrgetter = operator.attrgetter
+del operator
+
+cdef object MethodType = types.MethodType
+del types
+
+cdef object _is_arity = is_arity
+cdef object _has_varargs = has_varargs
+cdef object _has_keywords = has_keywords
+cdef object _is_valid_args = is_valid_args
+cdef object _is_partial_args = is_partial_args
+cdef object _no_default = no_default
+cdef object _signature_or_spec = _sigs.signature_or_spec
 
 
 __all__ = ['identity', 'thread_first', 'thread_last', 'memoize', 'compose', 'compose_left',
@@ -150,11 +171,11 @@ cdef struct partialobject:
     PyObject *weakreflist
 
 
-cdef object _partial = partial(lambda: None)
+cdef object _empty_partial = partial(lambda: None)
 
 
 cdef object _empty_kwargs():
-    if <object> (<partialobject*> _partial).kw is None:
+    if <object> (<partialobject*> _empty_partial).kw is None:
         return None
     return PyDict_New()
 
@@ -289,12 +310,12 @@ cdef class curry:
         #    kwargs = dict(self.keywords, **kwargs)
 
         if self._sigspec is None:
-            sigspec = self._sigspec = _sigs.signature_or_spec(func)
-            self._has_unknown_args = has_varargs(func, sigspec) is not False
+            sigspec = self._sigspec = _signature_or_spec(func)
+            self._has_unknown_args = _has_varargs(func, sigspec) is not False
         else:
             sigspec = self._sigspec
 
-        if is_partial_args(func, args, kwargs, sigspec) is False:
+        if _is_partial_args(func, args, kwargs, sigspec) is False:
             # Nothing can make the call valid
             return False
         elif self._has_unknown_args:
@@ -302,7 +323,7 @@ cdef class curry:
             # anyway because the function may have `*args`.  This is useful
             # for decorators with signature `func(*args, **kwargs)`.
             return True
-        elif not is_valid_args(func, args, kwargs, sigspec):
+        elif not _is_valid_args(func, args, kwargs, sigspec):
             # Adding more arguments may make the call valid
             return True
         else:
@@ -330,10 +351,10 @@ cdef class curry:
 
     property __signature__:
         def __get__(self):
-            sig = inspect.signature(self.func)
+            sig = signature(self.func)
             args = self.args or ()
             keywords = self.keywords or {}
-            if is_partial_args(self.func, args, keywords, sig) is False:
+            if _is_partial_args(self.func, args, keywords, sig) is False:
                 raise TypeError('curry object has incorrect arguments')
 
             params = list(sig.parameters.values())
@@ -361,7 +382,7 @@ cdef class curry:
                     if kwonly:
                         kind = param.KEYWORD_ONLY
                     if default is param.empty:
-                        default = no_default
+                        default = _no_default
                 newparams.append(param.replace(default=default, kind=kind))
 
             return sig.replace(parameters=newparams)
@@ -469,9 +490,9 @@ cdef class _memoize:
         self.key = key
 
         try:
-            self.may_have_kwargs = has_keywords(func) is not False
+            self.may_have_kwargs = _has_keywords(func) is not False
             # Is unary function (single arg, no variadic argument or keywords)?
-            self.is_unary = is_arity(1, func)
+            self.is_unary = _is_arity(1, func)
         except TypeError:
             self.is_unary = False
             self.may_have_kwargs = True
@@ -558,8 +579,8 @@ cdef class Compose:
 
     property __signature__:
         def __get__(self):
-            base = inspect.signature(self.first)
-            last = inspect.signature(self.funcs[-1])
+            base = signature(self.first)
+            last = signature(self.funcs[-1])
             return base.replace(return_annotation=last.return_annotation)
 
     property __name__:

@@ -19,7 +19,7 @@ import pytest
 
 import bigframes.exceptions
 import bigframes.pandas as bpd
-from bigframes.testing.utils import assert_pandas_df_equal, assert_series_equal
+from bigframes.testing.utils import assert_frame_equal, assert_series_equal
 
 
 def test_unordered_mode_sql_no_hash(unordered_session):
@@ -48,7 +48,7 @@ def test_unordered_mode_cache_aggregate(unordered_session):
     bf_result = mean_diff.to_pandas(ordered=False)
     pd_result = pd_df - pd_df.mean()
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)  # type: ignore
 
 
 def test_unordered_mode_series_peek(unordered_session):
@@ -103,7 +103,7 @@ def test_unordered_mode_read_gbq(unordered_session):
         }
     )
     # Don't need ignore_order as there is only 1 row
-    assert_pandas_df_equal(df.to_pandas(), expected, check_index_type=False)
+    assert_frame_equal(df.to_pandas(), expected, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -124,7 +124,7 @@ def test_unordered_drop_duplicates(unordered_session, keep):
     bf_result = bf_df.drop_duplicates(keep=keep)
     pd_result = pd_df.drop_duplicates(keep=keep)
 
-    assert_pandas_df_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
+    assert_frame_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
 
 
 def test_unordered_reset_index(unordered_session):
@@ -134,7 +134,7 @@ def test_unordered_reset_index(unordered_session):
     bf_result = bf_df.set_index("b").reset_index(drop=False)
     pd_result = pd_df.set_index("b").reset_index(drop=False)
 
-    assert_pandas_df_equal(bf_result.to_pandas(), pd_result)
+    assert_frame_equal(bf_result.to_pandas(), pd_result)
 
 
 def test_unordered_merge(unordered_session):
@@ -146,7 +146,7 @@ def test_unordered_merge(unordered_session):
     bf_result = bf_df.merge(bf_df, left_on="a", right_on="c")
     pd_result = pd_df.merge(pd_df, left_on="a", right_on="c")
 
-    assert_pandas_df_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
+    assert_frame_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
 
 
 def test_unordered_drop_duplicates_ambiguous(unordered_session):
@@ -167,7 +167,7 @@ def test_unordered_drop_duplicates_ambiguous(unordered_session):
         .drop_duplicates()
     )
 
-    assert_pandas_df_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
+    assert_frame_equal(bf_result.to_pandas(), pd_result, ignore_order=True)
 
 
 def test_unordered_mode_cache_preserves_order(unordered_session):
@@ -181,7 +181,7 @@ def test_unordered_mode_cache_preserves_order(unordered_session):
     pd_result = pd_df.sort_values("b")
 
     # B is unique so unstrict order mode result here should be equivalent to strictly ordered
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=False)
+    assert_frame_equal(bf_result, pd_result, ignore_order=False)
 
 
 def test_unordered_mode_no_ordering_error(unordered_session):
@@ -195,15 +195,13 @@ def test_unordered_mode_no_ordering_error(unordered_session):
         df.merge(df, on="a").head(3)
 
 
-def test_unordered_mode_ambiguity_warning(unordered_session):
+def test_unordered_mode_allows_ambiguity(unordered_session):
     pd_df = pd.DataFrame(
         {"a": [1, 2, 3, 4, 5, 1], "b": [4, 5, 9, 3, 1, 6]}, dtype=pd.Int64Dtype()
     )
     pd_df.index = pd_df.index.astype(pd.Int64Dtype())
     df = bpd.DataFrame(pd_df, session=unordered_session)
-
-    with pytest.warns(bigframes.exceptions.AmbiguousWindowWarning):
-        df.merge(df, on="a").sort_values("b_x").head(3)
+    df.merge(df, on="a").sort_values("b_x").head(3)
 
 
 def test_unordered_mode_no_ambiguity_warning(unordered_session):
@@ -250,7 +248,7 @@ def test_unordered_mode_no_ambiguity_warning(unordered_session):
         ),
     ],
 )
-def test__resample_with_index(unordered_session, rule, origin, data):
+def test_resample_with_index(unordered_session, rule, origin, data):
     # TODO: supply a reason why this isn't compatible with pandas 1.x
     pytest.importorskip("pandas", minversion="2.0.0")
     col = "timestamp_col"
@@ -258,12 +256,16 @@ def test__resample_with_index(unordered_session, rule, origin, data):
     scalars_pandas_df_index = pd.DataFrame(data).set_index(col)
     scalars_pandas_df_index.index.name = None
 
-    bf_result = scalars_df_index._resample(rule=rule, origin=origin).min().to_pandas()
-
+    bf_result = scalars_df_index.resample(rule=rule, origin=origin).min()
     pd_result = scalars_pandas_df_index.resample(rule=rule, origin=origin).min()
 
+    assert isinstance(bf_result.index, bpd.DatetimeIndex)
+    assert isinstance(pd_result.index, pd.DatetimeIndex)
     pd.testing.assert_frame_equal(
-        bf_result, pd_result, check_dtype=False, check_index_type=False
+        bf_result.to_pandas(),
+        pd_result,
+        check_index_type=False,
+        check_dtype=False,
     )
 
 

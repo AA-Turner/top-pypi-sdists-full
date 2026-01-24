@@ -8,9 +8,10 @@ import { pluralize } from './common/stringUtils';
 import { diffArrays } from 'diff';
 import { assert } from './common/debug';
 import { Range } from './common/textRange';
-import { add } from 'lodash';
+import { add, isEqual } from 'lodash';
 import { ConsoleInterface, StandardConsole } from './common/console';
 import { ConfigOptions } from './common/configOptions';
+import isCI from 'is-ci';
 
 export interface BaselinedDiagnostic {
     code: DiagnosticRule | undefined;
@@ -26,6 +27,16 @@ export interface BaselinedDiagnostic {
     };
 }
 
+// baseline modes allowed in LSP server settings
+// TODO: add 'ignore' mode https://github.com/DetachHead/basedpyright/issues/1524
+export const serverBaselineModes = ['discard', 'auto'] as const;
+export type ServerBaselineMode = (typeof serverBaselineModes)[number];
+
+export const baselineModes = [...serverBaselineModes, 'lock'] as const;
+
+// 'force' is not a real value for `--baselinemode`. we just use it to represent `--writebaseline`
+export type BaselineMode = (typeof baselineModes)[number] | 'force';
+
 /**
  * the JSON structure of the baseline file
  */
@@ -35,49 +46,23 @@ interface BaselineData {
     };
 }
 
-type OptionalIfFalse<Bool extends boolean, T> = T | (Bool extends true ? never : undefined);
+const getErrorCount = (baselineData: BaselineData) => Object.values(baselineData.files).flatMap((file) => file).length;
 
-/**
- * details about the difference between the previous version and the current version of the baseline file
- */
-class BaselineDiff<T extends boolean> {
-    readonly baselinedErrorCount: number;
-    readonly newErrorCount: number;
-    readonly diff: number;
-
-    constructor(
-        private _configOptions: ConfigOptions,
-        readonly previousBaseline: BaselineData,
-        readonly newBaseline: BaselineData,
-        private readonly _forced: T
-    ) {
-        this.baselinedErrorCount = Object.values(previousBaseline.files).flatMap((file) => file).length;
-        this.newErrorCount = Object.values(newBaseline.files).flatMap((file) => file).length;
-        this.diff = this.newErrorCount - this.baselinedErrorCount;
+const getBaselineDiffSummary = (diff: number) => {
+    if (diff === 0) {
+        return "error count didn't change";
+    } else if (diff > 0) {
+        return `went up by ${diff}`;
+    } else {
+        return `went down by ${diff * -1}`;
     }
-
-    getSummaryMessage = (): OptionalIfFalse<T, string> => {
-        let message = '';
-        if (this.diff === 0) {
-            if (!this._forced) {
-                // if the error count didn't change and the baseline update was not explicitly requested by the user,
-                // that means nothing changed so don't show any message
-                return undefined as OptionalIfFalse<T, string>;
-            }
-            message += "error count didn't change";
-        } else if (this.diff > 0) {
-            message += `went up by ${this.diff}`;
-        } else {
-            message += `went down by ${this.diff * -1}`;
-        }
-
-        return `updated ${this._configOptions.projectRoot.getRelativePath(
-            baselineFilePath(this._configOptions)
-        )} with ${pluralize(this.newErrorCount, 'error')} (${message})`;
-    };
-}
+};
 
 export class BaselineHandler {
+    /**
+     * project root can change and we need to invalidate the cache when that happens
+     */
+    private _cache?: { content: BaselineData | undefined; projectRoot: Uri };
     private _console: ConsoleInterface;
 
     constructor(private _fs: FileSystem, public configOptions: ConfigOptions, console: ConsoleInterface | undefined) {
@@ -89,19 +74,17 @@ export class BaselineHandler {
     }
 
     getContents = (): BaselineData | undefined => {
-        let baselineFileContents: string | undefined;
-        try {
-            baselineFileContents = this._fs.readFileSync(this.fileUri, 'utf8');
-        } catch (e) {
-            // assume the file didn't exist
-            return undefined;
+        if (!this._cache || this._cache.projectRoot !== this.configOptions.projectRoot) {
+            const result = this._getContents();
+            this._setCache(result);
+            return result;
+        } else {
+            return this._cache.content;
         }
-        try {
-            return JSON.parse(baselineFileContents);
-        } catch (e) {
-            this._console.error(`failed to parse baseline file - ${e}`);
-            return undefined;
-        }
+    };
+
+    invalidateCache = () => {
+        this._cache = undefined;
     };
 
     /**
@@ -114,13 +97,13 @@ export class BaselineHandler {
      * i haven't actually checked whether it has a noticable impact)
      * @param filesWithDiagnostics the new diagnostics to write to the baseline file
      */
-    write = <T extends boolean>(
-        force: T,
+    write = (
+        baselineMode: BaselineMode,
         removeDeletedFiles: boolean,
         filesWithDiagnostics: readonly FileDiagnostics[]
-    ): BaselineDiff<T> | undefined => {
+    ): string | undefined => {
         const baselineData = this.getContents();
-        if (!force) {
+        if (baselineMode !== 'force') {
             if (!baselineData) {
                 // there currently is no baseline file and the user did not explicitly ask for one, so we do nothing
                 return undefined;
@@ -153,23 +136,64 @@ export class BaselineHandler {
                 newBaselineFiles[filePath] = previousBaselineFiles[filePath];
             }
         }
-        const result: BaselineData = { files: {} };
+        const newBaselineData: BaselineData = { files: {} };
         // sort the file names so they always show up in the same order
         // to prevent needless diffs between baseline files generated by the language server and the cli
         for (const file of Object.keys(newBaselineFiles).sort()) {
             // remove files where there are no errors
             if (newBaselineFiles[file].length) {
-                result.files[file] = newBaselineFiles[file];
+                newBaselineData.files[file] = newBaselineFiles[file];
             }
         }
-        this._fs.mkdirSync(this.fileUri.getDirectory(), { recursive: true });
-        try {
-            this._fs.writeFileSync(this.fileUri, JSON.stringify(result, undefined, 4), null);
-        } catch (e) {
-            this._console.error(`failed to write baseline file - ${e}`);
-            return undefined;
+        const previousBaselineData: BaselineData = { files: previousBaselineFiles };
+        const previousErrorCount = getErrorCount(previousBaselineData);
+        const newErrorCount = getErrorCount(newBaselineData);
+        const errorCountDiff = newErrorCount - previousErrorCount;
+        const shouldWriteChanges =
+            // if there's a change in error count we don't need to compare everything to know we need to write changes
+            Boolean(errorCountDiff) ||
+            // if we aren't force writing the baseline file, we know the only possible changes to the baseline file
+            // would be caused by a reduced error count
+            (baselineMode === 'force' && !isEqual(previousBaselineData, newBaselineData));
+        const summary = getBaselineDiffSummary(errorCountDiff);
+        if (shouldWriteChanges) {
+            if (baselineMode === 'auto' || baselineMode === 'force') {
+                this._fs.mkdirSync(this.fileUri.getDirectory(), { recursive: true });
+                try {
+                    this._fs.writeFileSync(this.fileUri, JSON.stringify(newBaselineData, undefined, 4), null);
+                    this.invalidateCache();
+                } catch (e) {
+                    this._console.error(`failed to write baseline file - ${e}`);
+                    return undefined;
+                }
+            } else {
+                const repr = `\`--baselinemode=${baselineMode}\``;
+                if (baselineMode === 'lock') {
+                    this._console.error(
+                        `baselined errors changed but the baseline file cannot be updated when ${repr} (${summary})`
+                    );
+                    if (isCI) {
+                        this._console.error(
+                            `hint: ${repr} is the default behavior in CI. to change this, run basedpyright with \`--baselinemode=auto\``
+                        );
+                    }
+                } else {
+                    // discard any updates to the baseline file
+                    baselineMode satisfies 'discard';
+                    return `baseline file is outdated, run without ${repr} to update it. (${summary})`;
+                }
+                return undefined;
+            }
+        } else {
+            // if there were no changes and the baseline update was not explicitly requested by the user,
+            // that means nothing changed so don't show any message
+            if (baselineMode !== 'force') {
+                return undefined;
+            }
         }
-        return new BaselineDiff(this.configOptions, { files: previousBaselineFiles }, result, force);
+        return `updated ${this.configOptions.projectRoot.getRelativePath(
+            baselineFilePath(this.configOptions)
+        )} with ${pluralize(newErrorCount, 'error')} (${summary})`;
     };
 
     sortDiagnosticsAndMatchBaseline = (
@@ -236,15 +260,25 @@ export class BaselineHandler {
         return result;
     };
 
-    /**
-     * filters out diagnostics that are baselined, but keeps any that have been turned into hints. so you will need
-     * to filter it further by removing diagnostics with {@link DiagnosticCategory.Hint} if you want those removed as well
-     */
-    filterOutBaselinedDiagnostics = (filesWithDiagnostics: readonly FileDiagnostics[]): readonly FileDiagnostics[] =>
-        filesWithDiagnostics.map((file) => ({
-            ...file,
-            diagnostics: file.diagnostics.filter((diagnostic) => !diagnostic.baselined),
-        }));
+    private _getContents = (): BaselineData | undefined => {
+        let baselineFileContents: string | undefined;
+        try {
+            baselineFileContents = this._fs.readFileSync(this.fileUri, 'utf8');
+        } catch (e) {
+            // assume the file didn't exist
+            return undefined;
+        }
+        try {
+            return JSON.parse(baselineFileContents);
+        } catch (e) {
+            this._console.error(`failed to parse baseline file - ${e}`);
+            return undefined;
+        }
+    };
+
+    private _setCache = (content: BaselineData | undefined) => {
+        this._cache = { projectRoot: this.configOptions.projectRoot, content };
+    };
 
     private _formatUriForBaseline = (file: Uri) => {
         const relativePath = this.configOptions.projectRoot.getRelativePath(file);

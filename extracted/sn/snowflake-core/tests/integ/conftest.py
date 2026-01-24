@@ -32,21 +32,27 @@ from snowflake.core.grant._grants import Grants
 from snowflake.core.iceberg_table import IcebergTableCollection
 from snowflake.core.image_repository import ImageRepositoryCollection
 from snowflake.core.network_policy import NetworkPolicyCollection
+from snowflake.core.network_rule import NetworkRuleCollection
 from snowflake.core.notebook import NotebookCollection
 from snowflake.core.notification_integration import NotificationIntegrationCollection
+from snowflake.core.password_policy import PasswordPolicyCollection
 from snowflake.core.pipe import PipeCollection
 from snowflake.core.procedure import ProcedureCollection
 from snowflake.core.role import RoleCollection
 from snowflake.core.schema import SchemaCollection, SchemaResource
+from snowflake.core.secret import SecretCollection
+from snowflake.core.sequence import SequenceCollection
 from snowflake.core.service import ServiceCollection
 from snowflake.core.stage import StageCollection
 from snowflake.core.stream import StreamCollection
+from snowflake.core.streamlit import StreamlitCollection
 from snowflake.core.table import TableCollection
+from snowflake.core.tag import TagCollection
 from snowflake.core.user import UserCollection
 from snowflake.core.user_defined_function import UserDefinedFunctionCollection
 from snowflake.core.view import ViewCollection
 from snowflake.core.warehouse import WarehouseCollection, WarehouseResource
-from tests.integ.utils import backup_role
+from tests.integ.utils import backup_role, random_string
 
 from ..utils import ensure_snowflake_version, is_prod_or_preprod
 from .fixtures.backup_objects import (  # noqa: F401 # pylint: disable=unused-import
@@ -321,6 +327,11 @@ def notebooks(schema) -> NotebookCollection:
 
 
 @pytest.fixture(scope="session")
+def streamlits(schema) -> StreamlitCollection:
+    return schema.streamlits
+
+
+@pytest.fixture(scope="session")
 def procedures(schema) -> ProcedureCollection:
     return schema.procedures
 
@@ -433,6 +444,57 @@ def catalog_integrations(root) -> CatalogIntegration:
 @pytest.fixture(scope="session")
 def user_defined_functions(schema) -> UserDefinedFunctionCollection:
     return schema.user_defined_functions
+
+
+@pytest.fixture(scope="session")
+def network_rules(schema) -> NetworkRuleCollection:
+    return schema.network_rules
+
+
+@pytest.fixture(scope="session")
+def password_policies(schema) -> PasswordPolicyCollection:
+    return schema.password_policies
+
+
+@pytest.fixture(scope="session")
+def secrets(schema) -> SecretCollection:
+    return schema.secrets
+
+
+@pytest.fixture(scope="session")
+def sequences(schema) -> SequenceCollection:
+    return schema.sequences
+
+
+@pytest.fixture(scope="session")
+def tags(schema) -> TagCollection:
+    return schema.tags
+
+
+@pytest.fixture(scope="function")
+def temp_pypi_api_integration(cursor):
+    """Create a temporary PyPI API integration via SQL for artifact repository tests."""
+    ai_name = random_string(10, "test_artifact_repo_pypi_integration_")
+
+    # Create PyPI API integration using direct SQL - this is the key for artifact repositories!
+    create_sql = f"""
+    CREATE API INTEGRATION {ai_name}
+    API_PROVIDER = pypi
+    ENABLED = true
+    COMMENT = 'PyPI API integration for artifact repository integration tests'
+    """
+
+    cursor.execute(create_sql)
+    try:
+        yield ai_name.upper()  # Return uppercase name for consistency
+    finally:
+        cursor.execute(f"DROP API INTEGRATION IF EXISTS {ai_name}")
+
+
+@pytest.fixture(scope="module")
+def artifact_repositories(schema):
+    """Artifact repository collection fixture for integration tests."""
+    return schema.artifact_repositories
 
 
 @pytest.fixture(scope="session")

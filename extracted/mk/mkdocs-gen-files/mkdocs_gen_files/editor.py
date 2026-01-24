@@ -5,21 +5,25 @@ import os
 import os.path
 import pathlib
 import shutil
-from typing import IO, ClassVar, MutableMapping
+from collections.abc import MutableMapping
+from typing import IO, TYPE_CHECKING, ClassVar
 
-from mkdocs.config import Config, load_config
+from mkdocs.config import load_config
 from mkdocs.structure.files import File, Files
+
+if TYPE_CHECKING:
+    from mkdocs.config.defaults import MkDocsConfig
 
 
 def file_sort_key(f: File):
-    parts = pathlib.PurePath(f.src_path).parts
+    parts = pathlib.PurePosixPath(f.src_uri).parts
     return tuple(
         chr(f.name != "index" if i == len(parts) - 1 else 2) + p for i, p in enumerate(parts)
     )
 
 
 class FilesEditor:
-    config: Config
+    config: MkDocsConfig
     """The current MkDocs [config](https://www.mkdocs.org/user-guide/plugins/#config)."""
     directory: str
     """The base directory for `open()` ([docs_dir](https://www.mkdocs.org/user-guide/configuration/#docs_dir))."""
@@ -38,14 +42,15 @@ class FilesEditor:
             encoding = "utf-8"
         return open(path, mode, buffering, encoding, *args, **kwargs)
 
-    def _get_file(self, name: str, new: bool = False) -> str:
+    def _get_file(self, name: str, *, new: bool = False) -> str:
         new_f = File(
             name,
             src_dir=self.directory,
-            dest_dir=self.config["site_dir"],
-            use_directory_urls=self.config["use_directory_urls"],
+            dest_dir=self.config.site_dir,
+            use_directory_urls=self.config.use_directory_urls,
         )
-        new_f.generated_by = "mkdocs-gen-files"  # type: ignore
+        new_f.generated_by = "mkdocs-gen-files"  # type: ignore[attr-defined]
+        assert new_f.abs_src_path is not None
         normname = pathlib.PurePath(name).as_posix()
 
         if new or normname not in self._files:
@@ -59,7 +64,10 @@ class FilesEditor:
             os.makedirs(os.path.dirname(new_f.abs_src_path), exist_ok=True)
             self._files[normname] = new_f
             self.edit_paths.setdefault(normname, None)
-            shutil.copyfile(f.abs_src_path, new_f.abs_src_path)
+            if f.abs_src_path:
+                shutil.copyfile(f.abs_src_path, new_f.abs_src_path)
+            else:  # MkDocs 1.6+
+                pathlib.Path(new_f.abs_src_path).write_bytes(f.content_bytes)
             return new_f.abs_src_path
 
         return f.abs_src_path
@@ -68,13 +76,13 @@ class FilesEditor:
         """Choose a file path to use for the edit URI of this file."""
         self.edit_paths[pathlib.PurePath(name).as_posix()] = edit_name and str(edit_name)
 
-    def __init__(self, files: Files, config: Config, directory: str | None = None):
+    def __init__(self, files: Files, config: MkDocsConfig, directory: str | None = None):
         self._files: MutableMapping[str, File] = collections.ChainMap(
-            {}, {pathlib.PurePath(f.src_path).as_posix(): f for f in files}
+            {}, {f.src_uri: f for f in files}
         )
         self.config = config
         if directory is None:
-            directory = config["docs_dir"]
+            directory = config.docs_dir
         self.directory = directory
         self.edit_paths = {}
 
@@ -96,8 +104,8 @@ class FilesEditor:
         if cls._current:
             return cls._current
         if not cls._default:
-            config = load_config("mkdocs.yml")
-            config["plugins"].run_event("config", config)
+            config = load_config()
+            config.plugins.run_event("config", config)
             cls._default = FilesEditor(Files([]), config)
         return cls._default
 

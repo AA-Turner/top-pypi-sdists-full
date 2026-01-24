@@ -69,29 +69,25 @@ class DataSliceSizeInfo(APIObject):
         List of user-relevant messages related to a data slice
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("data_slice_id", optional=True): String,
-            t.Key("project_id", optional=True): String,
-            t.Key("source", optional=True): t.Enum(*enum_to_list(INSIGHTS_SOURCES)),
-            t.Key("model_id", optional=True): String,
-            t.Key("slice_size", optional=True): Int,
-            t.Key("messages", optional=True): t.Or(
-                t.Null,
-                t.List(
-                    t.Dict(
-                        {
-                            t.Key("level"): String,
-                            t.Key("description"): String,
-                            t.Key("additional_info"): String,
-                        }
-                    ).ignore_extra("*"),
-                    min_length=0,
-                    max_length=3,
-                ),
+    _converter = t.Dict({
+        t.Key("data_slice_id", optional=True): String,
+        t.Key("project_id", optional=True): String,
+        t.Key("source", optional=True): t.Enum(*enum_to_list(INSIGHTS_SOURCES)),
+        t.Key("model_id", optional=True): String,
+        t.Key("slice_size", optional=True): Int,
+        t.Key("messages", optional=True): t.Or(
+            t.Null,
+            t.List(
+                t.Dict({
+                    t.Key("level"): String,
+                    t.Key("description"): String,
+                    t.Key("additional_info"): String,
+                }).ignore_extra("*"),
+                min_length=0,
+                max_length=3,
             ),
-        }
-    ).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -149,28 +145,20 @@ class DataSlice(APIObject):
     """
 
     _base_data_slices_path_template = "dataSlices"
-    _data_slices_sizes_path_template = (
-        _base_data_slices_path_template + "/{data_slice_id}/sliceSizes"
-    )
+    _data_slices_sizes_path_template = _base_data_slices_path_template + "/{data_slice_id}/sliceSizes"
 
-    FilterDataSlicesDefinition = t.Dict(
-        {
-            t.Key("operand"): String,
-            t.Key("operator"): t.Enum(*enum_to_list(DataSlicesOperators)),
-            t.Key("values"): t.List(t.Or(String, Int, t.Float), min_length=1, max_length=1000),
-        }
-    )
+    FilterDataSlicesDefinition = t.Dict({
+        t.Key("operand"): String,
+        t.Key("operator"): t.Enum(*enum_to_list(DataSlicesOperators)),
+        t.Key("values"): t.List(t.Or(String, Int, t.Float), min_length=1, max_length=1000),
+    })
 
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True): String,
-            t.Key("name", optional=True): String,
-            t.Key("filters", optional=True): t.List(
-                FilterDataSlicesDefinition, min_length=1, max_length=3
-            ),
-            t.Key("project_id", optional=True): String,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True): String,
+        t.Key("name", optional=True): String,
+        t.Key("filters", optional=True): t.List(FilterDataSlicesDefinition, min_length=1, max_length=3),
+        t.Key("project_id", optional=True): String,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -240,16 +228,12 @@ class DataSlice(APIObject):
             "offset": offset,
             "limit": limit,
         }
-        data_slices = [
-            cls.from_server_data(item) for item in unpaginate(url, query_params, cls._client)
-        ]
+        data_slices = [cls.from_server_data(item) for item in unpaginate(url, query_params, cls._client)]
 
         return data_slices
 
     @classmethod
-    def create(
-        cls, name: str, filters: List[DataSliceFiltersType], project: Union[str, Project]
-    ) -> DataSlice:
+    def create(cls, name: str, filters: List[DataSliceFiltersType], project: Union[str, Project]) -> DataSlice:
         """
         Creates a data slice in the project with the given name and filters
 
@@ -323,9 +307,7 @@ class DataSlice(APIObject):
         url = f"{self._base_data_slices_path_template}/{self.id}"
         self._client.delete(url)
 
-    def request_size(
-        self, source: INSIGHTS_SOURCES, model: Optional[Union[str, Model]] = None
-    ) -> StatusCheckJob:
+    def request_size(self, source: INSIGHTS_SOURCES, model: Optional[Union[str, Model]] = None) -> StatusCheckJob:
         """
         Submits a request to validate the data slice's filters and
         calculate the data slice's number of rows on a given source
@@ -369,9 +351,7 @@ class DataSlice(APIObject):
         response = self._client.post(route, data=data)
         return StatusCheckJob.from_response(response, DataSliceSizeInfo)
 
-    def get_size_info(
-        self, source: INSIGHTS_SOURCES, model: Optional[Union[str, Model]] = None
-    ) -> DataSliceSizeInfo:
+    def get_size_info(self, source: INSIGHTS_SOURCES, model: Optional[Union[str, Model]] = None) -> DataSliceSizeInfo:
         """
         Get information about the data slice applied to a source
 

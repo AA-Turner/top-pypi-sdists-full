@@ -18,6 +18,8 @@ except ImportError:  # Remove when dropping Python 3.10
 import marshmallow as ma
 
 if typing.TYPE_CHECKING:
+    from datetime import timedelta
+
     from marshmallow.fields import Field
 
 T = typing.TypeVar("T")
@@ -26,11 +28,7 @@ EnumT = typing.TypeVar("EnumT", bound=enum.Enum)
 
 ErrorMapping: typing.TypeAlias = typing.Mapping[str, list[str]]
 FieldFactory: typing.TypeAlias = typing.Callable[..., ma.fields.Field]
-Subcast: typing.TypeAlias = typing.Union[
-    type[T],
-    typing.Callable[[typing.Any], T],
-    ma.fields.Field,
-]
+Subcast: typing.TypeAlias = type[T] | typing.Callable[[typing.Any], T] | ma.fields.Field
 ParserMethod: typing.TypeAlias = typing.Callable[..., typing.Any]
 
 
@@ -205,3 +203,43 @@ class EnumFieldMethod(typing.Generic[EnumT]):
         by_value: bool | Field | type[Field] = False,
         **kwargs: Unpack[BaseMethodKwargs],
     ) -> EnumT | None: ...
+
+
+class TimeDeltaFieldMethod:
+    @typing.overload
+    def __call__(
+        self,
+        name: str,
+        *,
+        format: typing.Literal["gep2257", "iso8601"] | None = ...,
+        **kwargs: Unpack[BaseMethodKwargs],
+    ) -> timedelta: ...
+
+    @typing.overload
+    def __call__(
+        self,
+        name: str,
+        default: None = ...,
+        *,
+        format: typing.Literal["gep2257", "iso8601"] | None = ...,
+        **kwargs: Unpack[BaseMethodKwargs],
+    ) -> timedelta | None: ...
+
+    @typing.overload
+    def __call__(
+        self,
+        name: str,
+        default: timedelta = ...,
+        *,
+        format: typing.Literal["gep2257", "iso8601"] | None = ...,
+        **kwargs: Unpack[BaseMethodKwargs],
+    ) -> timedelta: ...
+
+    def __call__(
+        self,
+        name: str,
+        default: typing.Any = ...,
+        *,
+        format: typing.Literal["gep2257", "iso8601"] | None = ...,  # noqa: A002
+        **kwargs: Unpack[BaseMethodKwargs],
+    ) -> timedelta | None: ...

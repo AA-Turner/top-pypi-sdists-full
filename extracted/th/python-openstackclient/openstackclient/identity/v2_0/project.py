@@ -20,10 +20,10 @@ import logging
 from keystoneauth1 import exceptions as ks_exc
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 
 
@@ -59,6 +59,7 @@ class CreateProject(command.ShowOne):
         parser.add_argument(
             '--property',
             metavar='<key=value>',
+            dest='properties',
             action=parseractions.KeyValueAction,
             help=_(
                 'Add a property to <name> '
@@ -79,8 +80,8 @@ class CreateProject(command.ShowOne):
         if parsed_args.disable:
             enabled = False
         kwargs = {}
-        if parsed_args.property:
-            kwargs = parsed_args.property.copy()
+        if parsed_args.properties:
+            kwargs.update(parsed_args.properties)
 
         try:
             project = identity_client.tenants.create(
@@ -105,7 +106,14 @@ class CreateProject(command.ShowOne):
 
 
 class DeleteProject(command.Command):
-    _description = _("Delete project(s)")
+    _description = _(
+        "Delete project(s). This command will remove specified "
+        "existing project(s) if an active user is authorized to do "
+        "this. If there are resources managed by other services "
+        "(for example, Nova, Neutron, Cinder) associated with "
+        "specified project(s), delete operation will proceed "
+        "regardless."
+    )
 
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)
@@ -223,6 +231,7 @@ class SetProject(command.Command):
         parser.add_argument(
             '--property',
             metavar='<key=value>',
+            dest='properties',
             action=parseractions.KeyValueAction,
             help=_(
                 'Set a project property '
@@ -248,8 +257,8 @@ class SetProject(command.Command):
             kwargs['enabled'] = True
         if parsed_args.disable:
             kwargs['enabled'] = False
-        if parsed_args.property:
-            kwargs.update(parsed_args.property)
+        if parsed_args.properties:
+            kwargs.update(parsed_args.properties)
         if 'id' in kwargs:
             del kwargs['id']
         if 'name' in kwargs:
@@ -331,6 +340,7 @@ class UnsetProject(command.Command):
         parser.add_argument(
             '--property',
             metavar='<key>',
+            dest='properties',
             action='append',
             default=[],
             help=_(
@@ -347,7 +357,7 @@ class UnsetProject(command.Command):
             parsed_args.project,
         )
         kwargs = project._info
-        for key in parsed_args.property:
+        for key in parsed_args.properties:
             if key in kwargs:
                 kwargs[key] = None
         identity_client.tenants.update(project.id, **kwargs)

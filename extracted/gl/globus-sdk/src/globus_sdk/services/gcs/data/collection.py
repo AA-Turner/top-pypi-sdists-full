@@ -4,7 +4,9 @@ import abc
 import typing as t
 import uuid
 
-from globus_sdk import utils
+from globus_sdk._internal.remarshal import strseq_listify
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import AbstractGlobusPayload
 
 from ._common import (
     DatatypeCallback,
@@ -57,7 +59,9 @@ def _user_message_length_callback(
     return None
 
 
-class CollectionDocument(utils.PayloadWrapper, abc.ABC):
+# Declare a metaclass of ABCMeta even though inheriting from `Payload` renders it
+# inert. This will let type checkers understand that this class is abstract.
+class CollectionDocument(AbstractGlobusPayload):
     """
     This is the base class for :class:`~.MappedCollectionDocument` and
     :class:`~.GuestCollectionDocument`.
@@ -144,69 +148,66 @@ class CollectionDocument(utils.PayloadWrapper, abc.ABC):
         self,
         *,
         # data_type
-        data_type: str | None = None,
+        data_type: str | MissingType = MISSING,
         # strs
-        collection_base_path: str | None = None,
-        contact_email: str | None = None,
-        contact_info: str | None = None,
-        default_directory: str | None = None,
-        department: str | None = None,
-        description: str | None = None,
-        display_name: str | None = None,
-        identity_id: uuid.UUID | str | None = None,
-        info_link: str | None = None,
-        organization: str | None = None,
+        collection_base_path: str | MissingType = MISSING,
+        contact_email: str | None | MissingType = MISSING,
+        contact_info: str | None | MissingType = MISSING,
+        default_directory: str | MissingType = MISSING,
+        department: str | None | MissingType = MISSING,
+        description: str | None | MissingType = MISSING,
+        display_name: str | MissingType = MISSING,
+        identity_id: uuid.UUID | str | MissingType = MISSING,
+        info_link: str | None | MissingType = MISSING,
+        organization: str | MissingType = MISSING,
         restrict_transfers_to_high_assurance: (
-            t.Literal["inbound", "outbound", "all"] | None
-        ) = None,
-        user_message: str | None = None,
-        user_message_link: str | None = None,
+            t.Literal["inbound", "outbound", "all"] | MissingType
+        ) = MISSING,
+        user_message: str | None | MissingType = MISSING,
+        user_message_link: str | None | MissingType = MISSING,
         # str lists
-        keywords: t.Iterable[str] | None = None,
+        keywords: t.Iterable[str] | MissingType = MISSING,
         # bools
-        disable_verify: bool | None = None,
-        enable_https: bool | None = None,
-        force_encryption: bool | None = None,
-        force_verify: bool | None = None,
-        public: bool | None = None,
+        disable_verify: bool | MissingType = MISSING,
+        enable_https: bool | MissingType = MISSING,
+        force_encryption: bool | MissingType = MISSING,
+        force_verify: bool | MissingType = MISSING,
+        public: bool | MissingType = MISSING,
         # ints
-        acl_expiration_mins: int | None = None,
+        acl_expiration_mins: int | MissingType = MISSING,
         # dicts
-        associated_flow_policy: dict[str, t.Any] | None = None,
+        associated_flow_policy: dict[str, t.Any] | MissingType = MISSING,
         # additional fields
-        additional_fields: dict[str, t.Any] | None = None,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__()
         self["collection_type"] = self.collection_type
-        self._set_optstrs(
-            DATA_TYPE=data_type,
-            collection_base_path=collection_base_path,
-            contact_email=contact_email,
-            contact_info=contact_info,
-            default_directory=default_directory,
-            department=department,
-            description=description,
-            display_name=display_name,
-            identity_id=identity_id,
-            info_link=info_link,
-            organization=organization,
-            restrict_transfers_to_high_assurance=restrict_transfers_to_high_assurance,
-            user_message=user_message,
-            user_message_link=user_message_link,
+        self["DATA_TYPE"] = data_type
+        self["collection_base_path"] = collection_base_path
+        self["contact_email"] = contact_email
+        self["contact_info"] = contact_info
+        self["default_directory"] = default_directory
+        self["department"] = department
+        self["description"] = description
+        self["display_name"] = display_name
+        self["identity_id"] = identity_id
+        self["info_link"] = info_link
+        self["organization"] = organization
+        self["restrict_transfers_to_high_assurance"] = (
+            restrict_transfers_to_high_assurance
         )
-        self._set_optstrlists(
-            keywords=keywords,
-        )
-        self._set_optbools(
-            disable_verify=disable_verify,
-            enable_https=enable_https,
-            force_encryption=force_encryption,
-            force_verify=force_verify,
-            public=public,
-        )
-        self._set_optints(acl_expiration_mins=acl_expiration_mins)
-        self._set_value("associated_flow_policy", associated_flow_policy)
-        if additional_fields is not None:
+        self["user_message"] = user_message
+        self["user_message_link"] = user_message_link
+        self["keywords"] = strseq_listify(keywords)
+        self["disable_verify"] = disable_verify
+        self["enable_https"] = enable_https
+        self["force_encryption"] = force_encryption
+        self["force_verify"] = force_verify
+        self["public"] = public
+        self["acl_expiration_mins"] = acl_expiration_mins
+        self["associated_flow_policy"] = associated_flow_policy
+
+        if additional_fields is not MISSING:
             self.update(additional_fields)
 
     @property
@@ -266,56 +267,56 @@ class MappedCollectionDocument(CollectionDocument):
         self,
         *,
         # data type
-        data_type: str | None = None,
+        data_type: str | MissingType = MISSING,
         # > common args start <
         # strs
-        collection_base_path: str | None = None,
-        contact_email: str | None = None,
-        contact_info: str | None = None,
-        default_directory: str | None = None,
-        department: str | None = None,
-        description: str | None = None,
-        display_name: str | None = None,
-        identity_id: uuid.UUID | str | None = None,
-        info_link: str | None = None,
-        organization: str | None = None,
+        collection_base_path: str | MissingType = MISSING,
+        contact_email: str | None | MissingType = MISSING,
+        contact_info: str | None | MissingType = MISSING,
+        default_directory: str | MissingType = MISSING,
+        department: str | None | MissingType = MISSING,
+        description: str | None | MissingType = MISSING,
+        display_name: str | MissingType = MISSING,
+        identity_id: uuid.UUID | str | MissingType = MISSING,
+        info_link: str | None | MissingType = MISSING,
+        organization: str | MissingType = MISSING,
         restrict_transfers_to_high_assurance: (
-            t.Literal["inbound", "outbound", "all"] | None
-        ) = None,
-        user_message: str | None = None,
-        user_message_link: str | None = None,
+            t.Literal["inbound", "outbound", "all"] | MissingType
+        ) = MISSING,
+        user_message: str | None | MissingType = MISSING,
+        user_message_link: str | None | MissingType = MISSING,
         # str lists
-        keywords: t.Iterable[str] | None = None,
+        keywords: t.Iterable[str] | MissingType = MISSING,
         # bools
-        disable_verify: bool | None = None,
-        enable_https: bool | None = None,
-        force_encryption: bool | None = None,
-        force_verify: bool | None = None,
-        public: bool | None = None,
+        disable_verify: bool | MissingType = MISSING,
+        enable_https: bool | MissingType = MISSING,
+        force_encryption: bool | MissingType = MISSING,
+        force_verify: bool | MissingType = MISSING,
+        public: bool | MissingType = MISSING,
         # ints
-        acl_expiration_mins: int | None = None,
+        acl_expiration_mins: int | MissingType = MISSING,
         # > common args end <
         # > specific args start <
         # strs
-        domain_name: str | None = None,
-        guest_auth_policy_id: uuid.UUID | str | None = None,
-        storage_gateway_id: uuid.UUID | str | None = None,
+        domain_name: str | MissingType = MISSING,
+        guest_auth_policy_id: uuid.UUID | str | None | MissingType = MISSING,
+        storage_gateway_id: uuid.UUID | str | MissingType = MISSING,
         # str lists
-        sharing_users_allow: t.Iterable[str] | None = None,
-        sharing_users_deny: t.Iterable[str] | None = None,
-        sharing_restrict_paths: dict[str, t.Any] | None = None,
+        sharing_users_allow: t.Iterable[str] | None | MissingType = MISSING,
+        sharing_users_deny: t.Iterable[str] | None | MissingType = MISSING,
+        sharing_restrict_paths: dict[str, t.Any] | None | MissingType = MISSING,
         # bools
-        delete_protected: bool | None = None,
-        allow_guest_collections: bool | None = None,
-        disable_anonymous_writes: bool | None = None,
+        delete_protected: bool | MissingType = MISSING,
+        allow_guest_collections: bool | MissingType = MISSING,
+        disable_anonymous_writes: bool | MissingType = MISSING,
         # ints
-        auto_delete_timeout: int | None = None,
+        auto_delete_timeout: int | MissingType = MISSING,
         # dicts
-        associated_flow_policy: dict[str, t.Any] | None = None,
-        policies: CollectionPolicies | dict[str, t.Any] | None = None,
+        associated_flow_policy: dict[str, t.Any] | MissingType = MISSING,
+        policies: CollectionPolicies | dict[str, t.Any] | MissingType = MISSING,
         # > specific args end <
         # additional fields
-        additional_fields: dict[str, t.Any] | None = None,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__(
             # data type
@@ -349,26 +350,22 @@ class MappedCollectionDocument(CollectionDocument):
             # additional fields
             additional_fields=additional_fields,
         )
-        self._set_optstrs(
-            domain_name=domain_name,
-            restrict_transfers_to_high_assurance=restrict_transfers_to_high_assurance,
-            guest_auth_policy_id=guest_auth_policy_id,
-            storage_gateway_id=storage_gateway_id,
+        self["domain_name"] = domain_name
+        self["restrict_transfers_to_high_assurance"] = (
+            restrict_transfers_to_high_assurance
         )
-        self._set_optstrlists(
-            sharing_users_allow=sharing_users_allow,
-            sharing_users_deny=sharing_users_deny,
-        )
-        self._set_optbools(
-            delete_protected=delete_protected,
-            allow_guest_collections=allow_guest_collections,
-            disable_anonymous_writes=disable_anonymous_writes,
-        )
-        self._set_optints(
-            auto_delete_timeout=auto_delete_timeout,
-        )
-        self._set_value("sharing_restrict_paths", sharing_restrict_paths)
-        self._set_value("policies", policies)
+        self["guest_auth_policy_id"] = guest_auth_policy_id
+        self["storage_gateway_id"] = storage_gateway_id
+
+        self["sharing_users_allow"] = strseq_listify(sharing_users_allow)
+        self["sharing_users_deny"] = strseq_listify(sharing_users_deny)
+
+        self["delete_protected"] = delete_protected
+        self["allow_guest_collections"] = allow_guest_collections
+        self["disable_anonymous_writes"] = disable_anonymous_writes
+        self["auto_delete_timeout"] = auto_delete_timeout
+        self["sharing_restrict_paths"] = sharing_restrict_paths
+        self["policies"] = policies
         ensure_datatype(self)
 
 
@@ -410,45 +407,45 @@ class GuestCollectionDocument(CollectionDocument):
         self,
         *,
         # data type
-        data_type: str | None = None,
+        data_type: str | MissingType = MISSING,
         # > common args start <
         # strs
-        collection_base_path: str | None = None,
-        contact_email: str | None = None,
-        contact_info: str | None = None,
-        default_directory: str | None = None,
-        department: str | None = None,
-        description: str | None = None,
-        display_name: str | None = None,
-        identity_id: uuid.UUID | str | None = None,
-        info_link: str | None = None,
-        organization: str | None = None,
+        collection_base_path: str | MissingType = MISSING,
+        contact_email: str | None | MissingType = MISSING,
+        contact_info: str | None | MissingType = MISSING,
+        default_directory: str | MissingType = MISSING,
+        department: str | None | MissingType = MISSING,
+        description: str | None | MissingType = MISSING,
+        display_name: str | MissingType = MISSING,
+        identity_id: uuid.UUID | str | MissingType = MISSING,
+        info_link: str | None | MissingType = MISSING,
+        organization: str | MissingType = MISSING,
         restrict_transfers_to_high_assurance: (
-            t.Literal["inbound", "outbound", "all"] | None
-        ) = None,
-        user_message: str | None = None,
-        user_message_link: str | None = None,
+            t.Literal["inbound", "outbound", "all"] | MissingType
+        ) = MISSING,
+        user_message: str | None | MissingType = MISSING,
+        user_message_link: str | None | MissingType = MISSING,
         # str lists
-        keywords: t.Iterable[str] | None = None,
+        keywords: t.Iterable[str] | MissingType = MISSING,
         # bools
-        disable_verify: bool | None = None,
-        enable_https: bool | None = None,
-        force_encryption: bool | None = None,
-        force_verify: bool | None = None,
-        public: bool | None = None,
+        disable_verify: bool | MissingType = MISSING,
+        enable_https: bool | MissingType = MISSING,
+        force_encryption: bool | MissingType = MISSING,
+        force_verify: bool | MissingType = MISSING,
+        public: bool | MissingType = MISSING,
         # ints
-        acl_expiration_mins: int | None = None,
+        acl_expiration_mins: int | MissingType = MISSING,
         # dicts
-        associated_flow_policy: dict[str, t.Any] | None = None,
+        associated_flow_policy: dict[str, t.Any] | MissingType = MISSING,
         # > common args end <
         # > specific args start <
-        mapped_collection_id: uuid.UUID | str | None = None,
-        user_credential_id: uuid.UUID | str | None = None,
-        skip_auto_delete: bool | None = None,
-        activity_notification_policy: dict[str, list[str]] | None = None,
+        mapped_collection_id: uuid.UUID | str | MissingType = MISSING,
+        user_credential_id: uuid.UUID | str | MissingType = MISSING,
+        skip_auto_delete: bool | MissingType = MISSING,
+        activity_notification_policy: dict[str, list[str]] | MissingType = MISSING,
         # > specific args end <
         # additional fields
-        additional_fields: dict[str, t.Any] | None = None,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__(
             # data type
@@ -482,19 +479,15 @@ class GuestCollectionDocument(CollectionDocument):
             # additional fields
             additional_fields=additional_fields,
         )
-        self._set_optstrs(
-            mapped_collection_id=mapped_collection_id,
-            user_credential_id=user_credential_id,
-        )
-        self._set_optbools(
-            skip_auto_delete=skip_auto_delete,
-        )
-        self._set_value("activity_notification_policy", activity_notification_policy)
 
+        self["mapped_collection_id"] = mapped_collection_id
+        self["user_credential_id"] = user_credential_id
+        self["skip_auto_delete"] = skip_auto_delete
+        self["activity_notification_policy"] = activity_notification_policy
         ensure_datatype(self)
 
 
-class CollectionPolicies(utils.PayloadWrapper, abc.ABC):
+class CollectionPolicies(AbstractGlobusPayload):
     """
     This is the abstract base type for Collection Policies documents to use as the
     ``policies`` parameter when creating a MappedCollectionDocument.
@@ -519,17 +512,17 @@ class POSIXCollectionPolicies(CollectionPolicies):
     def __init__(
         self,
         DATA_TYPE: str = "posix_collection_policies#1.0.0",
-        sharing_groups_allow: None | str | t.Iterable[str] = None,
-        sharing_groups_deny: None | str | t.Iterable[str] = None,
-        additional_fields: dict[str, t.Any] | None = None,
+        sharing_groups_allow: str | t.Iterable[str] | None | MissingType = MISSING,
+        sharing_groups_deny: str | t.Iterable[str] | None | MissingType = MISSING,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__()
-        self._set_optstrs(DATA_TYPE=DATA_TYPE)
-        self._set_optstrlists(
-            sharing_groups_allow=sharing_groups_allow,
-            sharing_groups_deny=sharing_groups_deny,
-        )
-        if additional_fields is not None:
+        self["DATA_TYPE"] = DATA_TYPE
+
+        self["sharing_groups_allow"] = strseq_listify(sharing_groups_allow)
+        self["sharing_groups_deny"] = strseq_listify(sharing_groups_deny)
+
+        if additional_fields is not MISSING:
             self.update(additional_fields)
 
 
@@ -551,17 +544,16 @@ class POSIXStagingCollectionPolicies(CollectionPolicies):
     def __init__(
         self,
         DATA_TYPE: str = "posix_staging_collection_policies#1.0.0",
-        sharing_groups_allow: None | str | t.Iterable[str] = None,
-        sharing_groups_deny: None | str | t.Iterable[str] = None,
-        additional_fields: dict[str, t.Any] | None = None,
+        sharing_groups_allow: str | t.Iterable[str] | None | MissingType = MISSING,
+        sharing_groups_deny: str | t.Iterable[str] | None | MissingType = MISSING,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__()
-        self._set_optstrs(DATA_TYPE=DATA_TYPE)
-        self._set_optstrlists(
-            sharing_groups_allow=sharing_groups_allow,
-            sharing_groups_deny=sharing_groups_deny,
-        )
-        if additional_fields is not None:
+        self["DATA_TYPE"] = DATA_TYPE
+        self["sharing_groups_allow"] = strseq_listify(sharing_groups_allow)
+        self["sharing_groups_deny"] = strseq_listify(sharing_groups_deny)
+
+        if additional_fields is not MISSING:
             self.update(additional_fields)
 
 
@@ -579,10 +571,11 @@ class GoogleCloudStorageCollectionPolicies(CollectionPolicies):
     def __init__(
         self,
         DATA_TYPE: str = "google_cloud_storage_collection_policies#1.0.0",
-        project: str | None = None,
-        additional_fields: dict[str, t.Any] | None = None,
+        project: str | MissingType = MISSING,
+        additional_fields: dict[str, t.Any] | MissingType = MISSING,
     ) -> None:
         super().__init__()
-        self._set_optstrs(DATA_TYPE=DATA_TYPE, project=project)
-        if additional_fields is not None:
+        self["DATA_TYPE"] = DATA_TYPE
+        self["project"] = project
+        if additional_fields is not MISSING:
             self.update(additional_fields)

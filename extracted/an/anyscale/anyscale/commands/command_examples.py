@@ -77,6 +77,17 @@ NAME    ID                                    COST  PROJECT NAME    CLUSTER NAME
 my-job  prodjob_s9x4uzc5jnkt5z53g4tujb3y2e       0  default         cluster_for_prodjob_s9x4uzc5jnkt5z53g4tujb3y2e  SUCCESS                 doc@anyscale.com  python main.py
 """
 
+JOB_TAGS_ADD_EXAMPLE = """\
+$ anyscale job tags add --name my-job --tag owner=alice --tag env=staging
+"""
+
+JOB_TAGS_REMOVE_EXAMPLE = """\
+$ anyscale job tags remove --name my-job --key owner --key env
+"""
+
+JOB_TAGS_LIST_EXAMPLE = """\
+$ anyscale job tags list --name my-job
+"""
 JOB_QUEUE_LIST = """\
 $ anyscale job-queue list
 Output
@@ -87,8 +98,8 @@ jq_v5bx9z1sd4pbxasxhdms37j4gi  queue_2  ses_k86raeu6k1t6z1bvyejn3vblad  usr_we8x
 jq_ni6hk66nt3194msr7hzzj9daun  queue_1  ses_uhb8a9gamtarz68kcurpjh86sa  usr_we8x7d7u8hq8mj2488ed9x47n6         10                 5000               Terminated
 """
 
-JOB_QUEUE_INFO = """\
-$ anyscale job-queue info --id jq_h8fcze2qkr8wttuuvapi1hvyuc
+JOB_QUEUE_STATUS = """\
+$ anyscale job-queue status --id jq_h8fcze2qkr8wttuuvapi1hvyuc
 Output
 ID                            : jq_h8fcze2qkr8wttuuvapi1hvyuc
 USER PROVIDED ID              : queue_3
@@ -133,6 +144,18 @@ TOTAL JOBS                    : 6
 SUCCESSFUL JOBS               : 6
 FAILED JOBS                   : 0
 ACTIVE JOBS                   : 0
+"""
+
+JOB_QUEUE_TAGS_ADD_EXAMPLE = """\
+$ anyscale job-queue tags add --name my-queue --tag team=data --tag priority=high
+"""
+
+JOB_QUEUE_TAGS_REMOVE_EXAMPLE = """\
+$ anyscale job-queue tags remove --name my-queue --key team --key priority
+"""
+
+JOB_QUEUE_TAGS_LIST_EXAMPLE = """\
+$ anyscale job-queue tags list --name my-queue --json
 """
 
 SCHEDULE_APPLY_EXAMPLE = """\
@@ -285,6 +308,46 @@ $ anyscale workspace_v2 get --name my-workspace
 id: my-workspace-id
 name: my-workspace
 state: RUNNING
+"""
+
+WORKSPACE_LIST_EXAMPLE = """\
+$ anyscale workspace_v2 list
+Listing workspaces with:
+• name              = <any>
+• project           = <any>
+• cloud             = <any>
+• created_by_me     = False
+• states            = <all>
+• tags              = <none>
+• include_archived  = False
+• sort              = <none>
+• mode              = interactive
+• per-page limit    = 10
+• max-items total   = all
+
+View your Workspaces in the UI at https://console.anyscale.com/workspaces
+
+NAME              STATE     PROJECT           CLOUD        CREATED BY              CREATED AT
+my-workspace-1    RUNNING   proj_abc          cld_xyz      user@example.com        2024-01-15 10:30
+my-workspace-2    STARTING  proj_abc          cld_xyz      user@example.com        2024-01-16 14:20
+Fetched 2 workspaces.
+"""
+
+WORKSPACE_TAGS_ADD_EXAMPLE = """\
+$ anyscale workspace_v2 tags add --name my-workspace --tag team=ml --tag env=prod
+"""
+
+WORKSPACE_TAGS_REMOVE_EXAMPLE = """\
+$ anyscale workspace_v2 tags remove --name my-workspace --key team --key env
+"""
+
+WORKSPACE_TAGS_LIST_EXAMPLE = """\
+$ anyscale workspace_v2 tags list --name my-workspace
+Output
+Tags:
+KEY   VALUE
+env   prod
+team  ml
 """
 
 MACHINE_POOL_CREATE_EXAMPLE = """\
@@ -446,9 +509,22 @@ status: SUCCEEDED
 ray_version: 2.21.0
 """
 
+IMAGE_LIST_EXAMPLE = """
+$ anyscale image list --no-interactive --max-items 2
+NAME         LATEST VERSION  LATEST URI                    CREATED BY           CREATED AT
+my-image     3               anyscale/image/my-image:3     dhyey@anyscale.com   2024-12-01 18:42
+workspace    1               anyscale/image/workspace:1    joshlee@anyscale.com 2024-11-09 09:15
+"""
+
 IMAGE_REGISTER_EXAMPLE = """
 $ anyscale image register --image-uri docker.io/myrepo/image:v2 --name mycoolimage --ray-version 2.30.0
 Image registered successfully with URI: anyscale/image/mycoolimage:1
+"""
+
+IMAGE_ARCHIVE_EXAMPLE = """
+$ anyscale image archive --name my-old-image
+(anyscale +0.5s) Successfully archived image.
+Image 'my-old-image' archived successfully.
 """
 
 AGGREGATED_INSTANCE_USAGE_DOWNLOAD_CSV_EXAMPLE = """\
@@ -480,6 +556,27 @@ create_users:
     title: title2
 """
 
+USER_LIST_EXAMPLE = """\
+$ anyscale user list --page-size 5 --no-interactive
+Output
+USERS:
+EMAIL                ID         NAME         ROLE         CREATED AT
+owner@anyscale.com   usr_owner  Owner Name   owner        2024-01-01 12:00
+service@anyscale.com           Service Bot  collaborator 2024-02-01 08:30
+"""
+
+USER_GET_EXAMPLE = """\
+$ anyscale user get --email owner@anyscale.com --json
+Output
+{
+  "name": "Owner Name",
+  "email": "owner@anyscale.com",
+  "created_at": "2024-01-01T12:00:00+00:00",
+  "permission_level": "owner",
+  "user_id": "usr_owner"
+}
+"""
+
 ORGANIZATION_INVITATION_CREATE_EXAMPLE = """\
 $ anyscale organization-invitation create --emails test1@anyscale.com,test2@anyscale.com
 (anyscale +0.5s) Creating organization invitations...
@@ -505,7 +602,7 @@ $ anyscale project add-collaborators --cloud cloud_name --project project_name -
 $ cat collaborators.yaml
 collaborators:
   - email: "test1@anyscale.com"
-    permission_level: "write"
+    permission_level: "collaborator"
   - email: "test2@anyscale.com"
     permission_level: "readonly"
   - email: "test3@anyscale.com"
@@ -538,13 +635,66 @@ $ anyscale project get-default --cloud my-cloud-id --json
 """
 
 
+CLOUD_SETUP_K8S_AWS_EXAMPLE = """\
+# Set up a Kubernetes cloud on AWS EKS
+$ anyscale cloud setup --provider aws --region us-west-2 --name my-k8s-cloud \\
+    --stack k8s --cluster-name my-eks-cluster --namespace anyscale-operator \\
+    --debug --yes
+Output
+(anyscale +1.0s) Setting up Kubernetes cloud 'my-k8s-cloud' on AWS
+(anyscale +1.5s) Required CLI tools are installed (kubectl, helm, aws)
+(anyscale +2.3s) Using namespace: anyscale-operator
+(anyscale +5.2s) Cluster discovered: arn:aws:eks:us-west-2:123456789012:cluster/my-eks-cluster
+(anyscale +8.4s) Setting up AWS infrastructure...
+(anyscale +1m12.3s) CloudFormation stack created
+(anyscale +1m15.7s) Cloud registered with ID: cld_abc123
+(anyscale +1m18.2s) Adding Anyscale Helm repository...
+(anyscale +1m20.5s) Installing Anyscale operator...
+(anyscale +1m25.8s) Generated Helm values file: anyscale-helm-values-aws-anyscale-operator-20241015_175602.yaml
+(anyscale +2m45.3s) Helm installation completed successfully
+(anyscale +2m45.4s) Kubernetes cloud 'my-k8s-cloud' setup completed successfully!
+"""
+
+CLOUD_SETUP_K8S_GCP_EXAMPLE = """\
+# Set up a Kubernetes cloud on GCP GKE
+$ anyscale cloud setup --provider gcp --region us-central1 --name my-gke-cloud \\
+    --stack k8s --cluster-name my-gke-cluster --namespace anyscale-operator \\
+    --project-id my-project-123 --yes
+Output
+(anyscale +1.0s) Setting up Kubernetes cloud 'my-gke-cloud' on GCP
+(anyscale +1.5s) Required CLI tools are installed (kubectl, helm, gcloud, gsutil)
+(anyscale +2.3s) Using namespace: anyscale-operator
+(anyscale +5.8s) Cluster discovered: gke_my-project-123_us-central1_my-gke-cluster
+(anyscale +9.2s) Setting up GCP infrastructure...
+(anyscale +15.4s) Created GCS bucket: anyscale-k8s-my-gke-cloud-a1b2c3d4
+(anyscale +18.7s) Created service account: anyscale-operator-e5f6g7h8@my-project-123.iam.gserviceaccount.com
+(anyscale +25.3s) GCP resources created successfully
+(anyscale +28.1s) Cloud registered with ID: cld_xyz789
+(anyscale +30.5s) Installing Anyscale operator...
+(anyscale +35.8s) Generated Helm values file: anyscale-helm-values-gcp-anyscale-operator-20241015_180215.yaml
+(anyscale +1m55.2s) Helm installation completed successfully
+(anyscale +1m55.3s) Kubernetes cloud 'my-gke-cloud' setup completed successfully!
+"""
+
+CLOUD_SETUP_K8S_CUSTOM_VALUES_EXAMPLE = """\
+# Set up a Kubernetes cloud with a custom Helm values file path
+$ anyscale cloud setup --provider aws --region us-west-2 --name my-k8s-cloud \\
+    --stack k8s --cluster-name my-eks-cluster \\
+    --values-file /path/to/custom-values.yaml --yes
+Output
+(anyscale +1.0s) Setting up Kubernetes cloud 'my-k8s-cloud' on AWS
+...
+(anyscale +1m25.8s) Generated Helm values file: /path/to/custom-values.yaml
+...
+"""
+
 CLOUD_ADD_COLLABORATORS_EXAMPLE = """\
 $ anyscale cloud add-collaborators --cloud cloud_name --users-file collaborators.yaml
 (anyscale +1.3s) Successfully added 2 collaborators to cloud cloud_name.
 $ cat collaborators.yaml
 collaborators:
   - email: "test1@anyscale.com"
-    permission_level: "write"
+    permission_level: "collaborator"
   - email: "test2@anyscale.com"
     permission_level: "readonly"
 """
@@ -584,10 +734,8 @@ Please confirm that you would like to remove resource my-resource from cloud my-
 
 CLOUD_GET_CLOUD_EXAMPLE = """\
 $ anyscale cloud get --name my-cloud
-id: cld_123
 name: my-cloud
-created_at: 2022-10-18 05:12:13.335803+00:00
-is_default: true
+id: cld_123
 resources:
 - cloud_resource_id: cldrsrc_123
   name: vm-aws-us-west-2
@@ -610,6 +758,29 @@ resources:
     memorydb_cluster_name: my-memorydb-cluster
 """
 
+CLOUD_STATUS_EXAMPLE = """\
+$ anyscale cloud status --name my-cloud
+name: my-cloud
+id: cld_123
+created_at: 2022-10-18 05:12:13.335803+00:00
+is_default: true
+resources:
+- cloud_resource_id: cldrsrc_123
+  name: vm-aws-us-west-2
+  provider: AWS
+  compute_stack: VM
+  region: us-west-2
+  networking_mode: PUBLIC
+  operator_status: HEALTHY
+  operator_status_details: All components running
+  object_storage:
+    bucket_name: s3://my-bucket
+  aws_config:
+    vpc_id: vpc-123
+    subnet_ids:
+    - subnet-123
+"""
+
 CLOUD_GET_DEFAULT_CLOUD_EXAMPLE = """\
 $ anyscale cloud get-default
 name: anyscale_v2_default_cloud
@@ -629,6 +800,18 @@ Output
 --enable-system-cluster is specified. [...] Are you sure you want to enable system cluster? [y/N]: y
 Output
 (anyscale +11.4s) Successfully enabled system cluster for cloud cloud_id
+
+$ anyscale cloud config update --cloud-id cloud_id --spec-file iam.yaml
+Output
+(anyscale +2.1s) Successfully updated cloud configuration for cloud my-cloud (resource: cldrsrc_xyz123)
+
+$ anyscale cloud config update --cloud-id cloud_id --resource shared-usw2 --spec-file iam.yaml
+Output
+(anyscale +2.1s) Successfully updated cloud configuration for cloud my-cloud (resource: cldrsrc_abc456)
+
+$ anyscale cloud config update --cloud-id cloud_id --cloud-resource-id cldrsrc_xyz123 --spec-file iam.yaml
+Output
+(anyscale +2.1s) Successfully updated cloud configuration for cloud my-cloud (resource: cldrsrc_xyz123)
 """
 
 CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """\
@@ -647,4 +830,217 @@ $ anyscale service delete --name my_service
 
 SERVICE_LIST_EXAMPLE = """\
 $ anyscale service list --state running --sort -created_at
+"""
+
+SERVICE_TAGS_ADD_EXAMPLE = """\
+$ anyscale service tags add --name my-service --tag team=platform --tag env=prod
+"""
+
+SERVICE_TAGS_REMOVE_EXAMPLE = """\
+$ anyscale service tags remove --name my-service --key team --key env
+"""
+
+SERVICE_TAGS_LIST_EXAMPLE = """\
+$ anyscale service tags list --name my-service --json
+"""
+
+# User Group Examples
+USER_GROUP_LIST_EXAMPLE = """\
+$ anyscale user-group list --max-items 50
+ID            Name
+------------  ----------------
+ug_abc123     Engineering
+ug_def456     Data Science
+ug_ghi789     Platform Team
+"""
+
+USER_GROUP_GET_EXAMPLE = """\
+$ anyscale user-group get --id ug_abc123
+ID               ug_abc123
+Name             Engineering
+Organization ID  org_abc123
+Created At       2025-01-15 10:30:00 UTC
+Updated At       2025-01-15 10:30:00 UTC
+"""
+
+USER_GROUP_MEMBERSHIP_LIST_EXAMPLE = """\
+$ anyscale user-group membership list
+{
+  "Engineering": [
+    "alice@example.com",
+    "charlie@example.com"
+  ],
+  "Data Science": [
+    "bob@example.com"
+  ]
+}
+
+# Save output to a file
+$ anyscale user-group membership list --output memberships.json
+"""
+
+# Policy Examples
+POLICY_SET_EXAMPLE = """\
+# Set policy for a cloud
+$ anyscale policy set --resource-type cloud --resource-id cld_abc123 -f policy.yaml
+(anyscale +0.5s) Setting policy for cloud cld_abc123...
+(anyscale +1.2s) Policy for cloud cld_abc123 has been updated.
+
+# Set policy for your organization (--resource-id is not allowed)
+$ anyscale policy set --resource-type organization -f org_policy.yaml
+(anyscale +0.5s) Setting policy for organization your organization...
+(anyscale +1.2s) Policy for organization your organization has been updated.
+
+$ cat policy.yaml
+bindings:
+  - role_name: collaborator
+    principals:
+      - ug_abc123
+  - role_name: readonly
+    principals:
+      - ug_def456
+      - ug_ghi789
+"""
+
+POLICY_GET_EXAMPLE = """\
+# Get policy for a cloud
+$ anyscale policy get --resource-type cloud --resource-id cld_abc123
+(anyscale +0.5s) Policy for cloud cld_abc123:
+Role      Principal (User Group ID)  Process Status
+--------  -------------------------  --------------
+collaborator  ug_abc123              success
+readonly  ug_def456                  success
+readonly  ug_ghi789                  success
+
+# Get policy for your organization (--resource-id is not allowed)
+$ anyscale policy get --resource-type organization
+(anyscale +0.5s) Policy for organization your organization:
+Role      Principal (User Group ID)  Process Status
+--------  -------------------------  --------------
+owner     ug_admins                  success
+collaborator  ug_developers          success
+"""
+
+POLICY_LIST_EXAMPLE = """\
+$ anyscale policy list --resource-type cloud
+(anyscale +0.6s) cloud: cld_abc123
+Role      Principal (User Group ID)  Process Status
+--------  -------------------------  --------------
+collaborator  ug_abc123              success
+readonly  ug_def456                  success
+
+(anyscale +0.6s) cloud: cld_xyz789
+Role      Principal (User Group ID)  Process Status
+--------  -------------------------  --------------
+collaborator  ug_ghi789              pending
+"""
+
+# SCIM Examples
+SCIM_ENFORCE_GROUP_PERMISSIONS_EXAMPLE = """\
+$ anyscale scim enforce-groups
+╭─────────────────── ⚠️  Confirmation Required ───────────────────╮
+│ WARNING: This is a destructive operation that cannot be undone. │
+│                                                                  │
+│ All role bindings on users will be removed.                      │
+│ Role bindings on user groups and service accounts are unchanged. │
+╰──────────────────────────────────────────────────────────────────╯
+Do you want to proceed? [y/N]: y
+(anyscale +1.5s) Starting SCIM permission migration...
+(anyscale +2.0s) SCIM permission migration completed successfully.
+"""
+
+SCIM_LIST_USERS_PERMISSIONS_EXAMPLE = """\
+# List all users' effective cloud & project permissions, plus org owners
+$ anyscale scim list-users-permissions
+(anyscale +0.6s) Listing users and their effective permissions...
+{
+  "organization_id": "org_p72",
+  "org_owners": [
+    {
+      "user_email": "admin1@p72.com",
+      "user_id": "usr_aaa"
+    }
+  ],
+  "users": [
+    {
+      "clouds": [
+        {
+          "cloud_id": "cld_111",
+          "cloud_name": "prod-cloud",
+          "role": "collaborator",
+          "projects": [
+            {
+              "project_id": "prj_111",
+              "project_name": "prod-project",
+              "role": "readonly"
+            }
+          ]
+        }
+      ],
+      "user_email": "alice@p72.com",
+      "user_id": "usr_abc"
+    }
+  ]
+}
+"""
+
+USER_LIST_PERMISSIONS_EXAMPLE = """\
+# List all users' effective cloud & project permissions
+$ anyscale user list-permissions
+(anyscale +0.6s) Listing users and their effective permissions...
+{
+  "organization_id": "org_p72",
+  "org_owners": [
+    {
+      "user_email": "admin1@p72.com",
+      "user_id": "usr_aaa"
+    }
+  ],
+  "users": [
+    {
+      "clouds": [
+        {
+          "cloud_id": "cld_111",
+          "cloud_name": "prod-cloud",
+          "role": "collaborator",
+          "projects": [
+            {
+              "project_id": "prj_111",
+              "project_name": "prod-project",
+              "role": "readonly"
+            }
+          ]
+        }
+      ],
+      "user_email": "alice@p72.com",
+      "user_id": "usr_abc"
+    }
+  ]
+}
+
+# List permissions for a specific user
+$ anyscale user list-permissions --user-id usr_abc
+(anyscale +0.4s) Listing users and their effective permissions...
+{
+  "organization_id": "org_p72",
+  "org_owners": [
+    {
+      "user_email": "admin1@p72.com",
+      "user_id": "usr_aaa"
+    }
+  ],
+  "users": [
+    {
+      "clouds": [
+        {
+          "cloud_id": "cld_111",
+          "cloud_name": "prod-cloud",
+          "role": "collaborator"
+        }
+      ],
+      "user_email": "alice@p72.com",
+      "user_id": "usr_abc"
+    }
+  ]
+}
 """

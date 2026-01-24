@@ -18,11 +18,11 @@ from anyscale.service_account.commands import (
     _LIST_EXAMPLE,
     _ROTATE_API_KEYS_DOCSTRINGS,
     _ROTATE_API_KEYS_EXAMPLE,
-    create,
-    create_api_key,
-    delete,
-    list,
-    rotate_api_keys,
+    create as create,
+    create_api_key as create_api_key,
+    delete as delete,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
+    rotate_api_keys as rotate_api_keys,
 )
 from anyscale.service_account.models import ServiceAccount
 

@@ -3,7 +3,7 @@ Type annotations for sso-admin service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -170,12 +171,6 @@ from .type_defs import (
     UpdateTrustedTokenIssuerRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -186,14 +181,14 @@ __all__ = ("SSOAdminClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SSOAdminClient(BaseClient):
@@ -233,7 +228,7 @@ class SSOAdminClient(BaseClient):
 
     def attach_customer_managed_policy_reference_to_permission_set(
         self, **kwargs: Unpack[AttachCustomerManagedPolicyReferenceToPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches the specified customer managed policy to the specified
         <a>PermissionSet</a>.
@@ -244,7 +239,7 @@ class SSOAdminClient(BaseClient):
 
     def attach_managed_policy_to_permission_set(
         self, **kwargs: Unpack[AttachManagedPolicyToPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an Amazon Web Services managed policy ARN to a permission set.
 
@@ -276,7 +271,7 @@ class SSOAdminClient(BaseClient):
 
     def create_application_assignment(
         self, **kwargs: Unpack[CreateApplicationAssignmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Grant application access to a user or group.
 
@@ -298,7 +293,7 @@ class SSOAdminClient(BaseClient):
 
     def create_instance_access_control_attribute_configuration(
         self, **kwargs: Unpack[CreateInstanceAccessControlAttributeConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables the attributes-based access control (ABAC) feature for the specified
         IAM Identity Center instance.
@@ -341,7 +336,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the association with the application.
 
@@ -361,7 +356,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_application_assignment(
         self, **kwargs: Unpack[DeleteApplicationAssignmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Revoke application access to an application by deleting application assignments
         for a user or group.
@@ -392,7 +387,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_inline_policy_from_permission_set(
         self, **kwargs: Unpack[DeleteInlinePolicyFromPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the inline policy from a specified permission set.
 
@@ -400,7 +395,7 @@ class SSOAdminClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#delete_inline_policy_from_permission_set)
         """
 
-    def delete_instance(self, **kwargs: Unpack[DeleteInstanceRequestTypeDef]) -> Dict[str, Any]:
+    def delete_instance(self, **kwargs: Unpack[DeleteInstanceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the instance of IAM Identity Center.
 
@@ -410,7 +405,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_instance_access_control_attribute_configuration(
         self, **kwargs: Unpack[DeleteInstanceAccessControlAttributeConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables the attributes-based access control (ABAC) feature for the specified
         IAM Identity Center instance and deletes all of the attribute mappings that
@@ -422,7 +417,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_permission_set(
         self, **kwargs: Unpack[DeletePermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified permission set.
 
@@ -432,7 +427,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_permissions_boundary_from_permission_set(
         self, **kwargs: Unpack[DeletePermissionsBoundaryFromPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the permissions boundary from a specified <a>PermissionSet</a>.
 
@@ -442,7 +437,7 @@ class SSOAdminClient(BaseClient):
 
     def delete_trusted_token_issuer(
         self, **kwargs: Unpack[DeleteTrustedTokenIssuerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a trusted token issuer configuration from an instance of IAM Identity
         Center.
@@ -559,7 +554,7 @@ class SSOAdminClient(BaseClient):
 
     def detach_customer_managed_policy_reference_from_permission_set(
         self, **kwargs: Unpack[DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detaches the specified customer managed policy from the specified
         <a>PermissionSet</a>.
@@ -570,7 +565,7 @@ class SSOAdminClient(BaseClient):
 
     def detach_managed_policy_from_permission_set(
         self, **kwargs: Unpack[DetachManagedPolicyFromPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detaches the attached Amazon Web Services managed policy ARN from the specified
         permission set.
@@ -886,7 +881,7 @@ class SSOAdminClient(BaseClient):
 
     def put_application_assignment_configuration(
         self, **kwargs: Unpack[PutApplicationAssignmentConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configure how users gain access to an application.
 
@@ -916,7 +911,7 @@ class SSOAdminClient(BaseClient):
 
     def put_application_session_configuration(
         self, **kwargs: Unpack[PutApplicationSessionConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the session configuration for an application in IAM Identity Center.
 
@@ -926,7 +921,7 @@ class SSOAdminClient(BaseClient):
 
     def put_inline_policy_to_permission_set(
         self, **kwargs: Unpack[PutInlinePolicyToPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an inline policy to a permission set.
 
@@ -936,7 +931,7 @@ class SSOAdminClient(BaseClient):
 
     def put_permissions_boundary_to_permission_set(
         self, **kwargs: Unpack[PutPermissionsBoundaryToPermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches an Amazon Web Services managed or customer managed policy to the
         specified <a>PermissionSet</a> as a permissions boundary.
@@ -945,7 +940,7 @@ class SSOAdminClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#put_permissions_boundary_to_permission_set)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a set of tags with a specified resource.
 
@@ -953,7 +948,7 @@ class SSOAdminClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Disassociates a set of tags from a specified resource.
 
@@ -963,7 +958,7 @@ class SSOAdminClient(BaseClient):
 
     def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates application properties.
 
@@ -971,7 +966,7 @@ class SSOAdminClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#update_application)
         """
 
-    def update_instance(self, **kwargs: Unpack[UpdateInstanceRequestTypeDef]) -> Dict[str, Any]:
+    def update_instance(self, **kwargs: Unpack[UpdateInstanceRequestTypeDef]) -> dict[str, Any]:
         """
         Update the details for the instance of IAM Identity Center that is owned by the
         Amazon Web Services account.
@@ -982,7 +977,7 @@ class SSOAdminClient(BaseClient):
 
     def update_instance_access_control_attribute_configuration(
         self, **kwargs: Unpack[UpdateInstanceAccessControlAttributeConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the IAM Identity Center identity store attributes that you can use with
         the IAM Identity Center instance for attributes-based access control (ABAC).
@@ -993,7 +988,7 @@ class SSOAdminClient(BaseClient):
 
     def update_permission_set(
         self, **kwargs: Unpack[UpdatePermissionSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing permission set.
 
@@ -1003,7 +998,7 @@ class SSOAdminClient(BaseClient):
 
     def update_trusted_token_issuer(
         self, **kwargs: Unpack[UpdateTrustedTokenIssuerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the name of the trusted token issuer, or the path of a source attribute
         or destination attribute for a trusted token issuer configuration.

@@ -53,6 +53,8 @@ from astrapy.info import (
     TableIndexDescriptor,
     TableIndexOptions,
     TableInfo,
+    TableTextIndexDefinition,
+    TableTextIndexOptions,
     TableVectorIndexDefinition,
     TableVectorIndexOptions,
 )
@@ -135,7 +137,6 @@ class Table(Generic[ROW]):
         ...     token="AstraCS:..."
         ... )
         >>>
-
         >>> # Create a table using the fluent syntax for definition
         >>> from astrapy.constants import SortMode
         >>> from astrapy.info import (
@@ -159,7 +160,7 @@ class Table(Generic[ROW]):
         ...     "games",
         ...     definition=table_definition,
         ... )
-
+        >>>
         >>> # Create a table with the definition as object
         >>> # (and do not raise an error if the table exists already)
         >>> from astrapy.info import (
@@ -205,7 +206,7 @@ class Table(Generic[ROW]):
         ...     definition=table_definition_1,
         ...     if_not_exists=True,
         ... )
-
+        >>>
         >>> # Create a table with the definition as plain dictionary
         >>> # (and do not raise an error if the table exists already)
         >>> table_definition_2 = {
@@ -228,10 +229,70 @@ class Table(Generic[ROW]):
         ...     definition=table_definition_2,
         ...     if_not_exists=True,
         ... )
-
+        >>>
         >>> # Get a reference to an existing table
         >>> # (no checks are performed on DB)
         >>> my_table_3 = database.get_table("games")
+        >>>
+        >>> # Examples with an embedding service ('vectorize'):
+        >>> (An index is needed for vector search: see table `create_vector_index` method)
+        >>>
+        >>> # Create a table with 'vectorize' and on-the-fly authentication (by headers)
+        >>> from astrapy.info import (
+        ...     CreateTableDefinition,
+        ...     ColumnType,
+        ...     VectorServiceOptions,
+        ... )
+        >>> table_definition_vz1 = (
+        ...     CreateTableDefinition.builder()
+        ...     .add_column("motto_id", ColumnType.TEXT)
+        ...     .add_column("motto_text", ColumnType.TEXT)
+        ...     .add_vector_column(
+        ...         "motto_vector",
+        ...         service=VectorServiceOptions(
+        ...             provider="openai",
+        ...             model_name="text-embedding-3-small",
+        ...         ),
+        ...     )
+        ...     .add_partition_by(["motto_id"])
+        ...     .build()
+        ... )
+        >>> my_table_vz1 = database.create_table(
+        ...     "mottos_vz1",
+        ...     definition=table_definition_vz1,
+        ...     embedding_api_key="sk-...",
+        ... )
+        >>>
+        >>> # Create a 'vectorize' table, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+        >>> from astrapy.info import (
+        ...     CreateTableDefinition,
+        ...     ColumnType,
+        ...     VectorServiceOptions,
+        ... )
+        >>> table_definition_vz2 = (
+        ...     CreateTableDefinition.builder()
+        ...     .add_column("motto_id", ColumnType.TEXT)
+        ...     .add_column("motto_text", ColumnType.TEXT)
+        ...     .add_vector_column(
+        ...         "motto_vector",
+        ...         service=VectorServiceOptions(
+        ...             provider="openai",
+        ...             model_name="text-embedding-3-small",
+        ...             authentication={
+        ...                 "providerKey": "EMB_AUTH_KEY",
+        ...             },
+        ...         ),
+        ...     )
+        ...     .add_partition_by(["motto_id"])
+        ...     .build()
+        ... )
+        >>> my_table_vz2 = database.create_table(
+        ...     "mottos_vz2",
+        ...     definition=table_definition_vz2,
+        ... )
+        >>>
+        >>> # Get a reference to an existing table and set its 'vectorize' authentication:
+        >>> my_table_vz1a = database.get_table("mottos_vz1", embedding_api_key="sk-...")
 
     Note:
         creating an instance of Table does not trigger, in itself, actual
@@ -651,8 +712,9 @@ class Table(Generic[ROW]):
     def create_index(
         self,
         name: str,
-        column: str | dict[str, str],
+        column: str | dict[str, str] | None = None,
         *,
+        definition: TableIndexDefinition | dict[str, Any] | None = None,
         options: TableIndexOptions | dict[str, Any] | None = None,
         if_not_exists: bool | None = None,
         table_admin_timeout_ms: int | None = None,
@@ -666,16 +728,24 @@ class Table(Generic[ROW]):
         is created and ready to use.
 
         For creation of a vector index, see method `create_vector_index` instead.
+        For creation of a text index (used for lexicographical matching), see
+        method `create_text_index` instead.
 
         Args:
             name: the name of the index. Index names must be unique across the keyspace.
             column: the table column on which the index is to be created.
                 For a map column, besides a simple string, it can be an object
-                in one of the two formats {"column": "$values"}, {"column": "$keys"},
+                in one of the two formats {"column": "$values"}, {"column": "$keys"}.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
             options: if passed, it must be an instance of `TableIndexOptions`,
                 or an equivalent dictionary, which specifies index settings
                 such as -- for a text column -- case-sensitivity and so on.
                 See the `astrapy.info.TableIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
             if_not_exists: if set to True, the command will succeed even if an index
                 with the specified name already exists (in which case no actual
                 index creation takes place on the database). The API default of False
@@ -688,7 +758,7 @@ class Table(Generic[ROW]):
             timeout_ms: an alias for `table_admin_timeout_ms`.
 
         Examples:
-            >>> from astrapy.info import TableIndexOptions
+            >>> from astrapy.info import TableIndexDefinition, TableIndexOptions
             >>>
             >>> # create an index on a column
             >>> my_table.create_index(
@@ -706,12 +776,45 @@ class Table(Generic[ROW]):
             ...         case_sensitive=False,
             ...     ),
             ... )
+            >>>
+            >>> # create an index on a textual column, using a TableIndexDefinition
+            >>> my_table.create_index(
+            ...     "venue_index",
+            ...     definition=TableIndexDefinition(
+            ...         column="venue",
+            ...         options=TableIndexOptions(
+            ...             ascii=False,
+            ...             normalize=True,
+            ...             case_sensitive=False,
+            ...         ),
+            ...     ),
+            ... )
         """
 
-        ci_definition: dict[str, Any] = TableIndexDefinition(
-            column=column,
-            options=TableIndexOptions.coerce(options or {}),
-        ).as_dict()
+        idx_definition: TableIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableIndexDefinition(
+                column=column,
+                options=TableIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
         ci_command = "createIndex"
         return self._create_generic_index(
             i_name=name,
@@ -726,8 +829,9 @@ class Table(Generic[ROW]):
     def create_vector_index(
         self,
         name: str,
-        column: str,
+        column: str | None = None,
         *,
+        definition: TableVectorIndexDefinition | dict[str, Any] | None = None,
         options: TableVectorIndexOptions | dict[str, Any] | None = None,
         if_not_exists: bool | None = None,
         table_admin_timeout_ms: int | None = None,
@@ -746,11 +850,17 @@ class Table(Generic[ROW]):
         Args:
             name: the name of the index. Index names must be unique across the keyspace.
             column: the table column, of type "vector" on which to create the index.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableVectorIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
             options: an instance of `TableVectorIndexOptions`, or an equivalent
                 dictionary, which specifies settings for the vector index,
                 such as the metric to use or, if desired, a "source model" setting.
                 If omitted, the Data API defaults will apply for the index.
                 See the `astrapy.info.TableVectorIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
             if_not_exists: if set to True, the command will succeed even if an index
                 with the specified name already exists (in which case no actual
                 index creation takes place on the database). The API default of False
@@ -764,7 +874,10 @@ class Table(Generic[ROW]):
 
         Example:
             >>> from astrapy.constants import VectorMetric
-            >>> from astrapy.info import TableVectorIndexOptions
+            >>> from astrapy.info import (
+            ...     TableVectorIndexDefinition,
+            ...     TableVectorIndexOptions,
+            ... )
             >>>
             >>> # create a vector index with dot-product similarity
             >>> my_table.create_vector_index(
@@ -774,8 +887,20 @@ class Table(Generic[ROW]):
             ...         metric=VectorMetric.DOT_PRODUCT,
             ...     ),
             ... )
-            >>> # specify a source_model (since the previous statement
-            >>> # succeeded, this will do nothing because of `if_not_exists`):
+            >>>
+            >>> # create a vector index using a TableVectorIndexDefinition
+            >>> my_table.create_vector_index(
+            ...     "m_vector_index_2",
+            ...     definition=TableVectorIndexDefinition(
+            ...         column="m_vector_2",
+            ...         options=TableVectorIndexOptions(
+            ...             metric=VectorMetric.DOT_PRODUCT,
+            ...         ),
+            ...     ),
+            ... )
+            >>>
+            >>> # specify a source_model (if the previous statement
+            >>> # succeeded, this would do nothing because of `if_not_exists`):
             >>> my_table.create_vector_index(
             ...     "m_vector_index",
             ...     "m_vector",
@@ -795,11 +920,161 @@ class Table(Generic[ROW]):
             ... )
         """
 
-        ci_definition: dict[str, Any] = TableVectorIndexDefinition(
-            column=column,
-            options=TableVectorIndexOptions.coerce(options),
-        ).as_dict()
+        idx_definition: TableVectorIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableVectorIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableVectorIndexDefinition(
+                column=column,
+                options=TableVectorIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
         ci_command = "createVectorIndex"
+        return self._create_generic_index(
+            i_name=name,
+            ci_definition=ci_definition,
+            ci_command=ci_command,
+            if_not_exists=if_not_exists,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+
+    def create_text_index(
+        self,
+        name: str,
+        column: str | None = None,
+        *,
+        definition: TableTextIndexDefinition | dict[str, Any] | None = None,
+        options: TableTextIndexOptions | dict[str, Any] | None = None,
+        if_not_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Create a text index on a vector column of the table, enabling lexicographical
+        matching operations on it.
+
+        This is a blocking operation: the method returns once the index
+        is created and ready to use.
+
+        For creation of a full-text index, see method `create_index` instead.
+
+        Args:
+            name: the name of the index. Index names must be unique across the keyspace.
+            column: the column, of type "text"/"ascii", on which to create the index.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableTextIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
+            options: an instance of `TableTextIndexOptions`, or an equivalent
+                dictionary, which specifies settings for the text index,
+                in particular the "analyzer" configuration.
+                See the `astrapy.info.TableTextIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
+                If no options are specified (whether in `definition` or explicitly),
+                the Data API defaults will apply for the index.
+            if_not_exists: if set to True, the command will succeed even if an index
+                with the specified name already exists (in which case no actual
+                index creation takes place on the database). The API default of False
+                means that an error is raised by the API in case of name collision.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> from astrapy.info import TableTextIndexDefinition, TableTextIndexOptions
+            >>>
+            >>> # create a text index with the 'whitespace' analyzer
+            >>> my_table.create_text_index(
+            ...     "m_text_index",
+            ...     column="m_text_column",
+            ...     options=TableTextIndexOptions(analyzer="whitespace"),
+            ... )
+            >>>
+            >>> # create a text index using a TableTextIndexDefinition
+            >>> my_table.create_text_index(
+            ...     "m_text_index",
+            ...     definition=TableTextIndexDefinition(
+            ...         column="m_text_column_2",
+            ...         options=TableTextIndexOptions(analyzer="whitespace"),
+            ...     ),
+            ... )
+            >>>
+            >>> # omit the analyzer setting: the default of "standard" will be used.
+            >>> # (if an index with this name exists, this operation won't do nothing
+            >>> # because of if_not_exists.)
+            >>> my_table.create_text_index(
+            ...     "m_text_index_default",
+            ...     column="m_another_text_column",
+            ...     if_not_exists=True,
+            ... )
+            >>>
+            >>> # provide a full object for the analyzer configuration:
+            >>> # (this one is suitable for English prose.)
+            >>> my_table.create_text_index(
+            ...     "m_text_index_2",
+            ...     column="m_yet_another_text_column",
+            ...     options=TableTextIndexOptions(
+            ...         analyzer={
+            ...             "tokenizer": {"name": "standard", "args": {}},
+            ...             "filters": [
+            ...                 {"name": "lowercase"},
+            ...                 {"name": "stop"},
+            ...                 {"name": "porterstem"},
+            ...                 {"name": "asciifolding"},
+            ...             ],
+            ...             "charFilters": [],
+            ...         },
+            ...     ),
+            ... )
+        """
+
+        idx_definition: TableTextIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableTextIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableTextIndexDefinition(
+                column=column,
+                options=TableTextIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
+        ci_command = "createTextIndex"
         return self._create_generic_index(
             i_name=name,
             ci_definition=ci_definition,
@@ -859,7 +1134,7 @@ class Table(Generic[ROW]):
             logger.info("finished listIndexes")
             return li_response["status"]["indexes"]  # type: ignore[no-any-return]
 
-    def _list_indexes(
+    def list_indexes(
         self,
         *,
         table_admin_timeout_ms: int | None = None,
@@ -868,8 +1143,6 @@ class Table(Generic[ROW]):
     ) -> list[TableIndexDescriptor]:
         """
         List the full definitions of all indexes existing on this table.
-
-        WARNING: method not public yet, pending completion of its API.
 
         Args:
             table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
@@ -907,12 +1180,6 @@ class Table(Generic[ROW]):
                 request_ms=_table_admin_timeout_ms, label=_ta_label
             ),
         )
-        columns = self.definition(
-            table_admin_timeout_ms=table_admin_timeout_ms,
-            request_timeout_ms=request_timeout_ms,
-            timeout_ms=timeout_ms,
-        ).columns
-
         if "indexes" not in li_response.get("status", {}):
             raise UnexpectedDataAPIResponseException(
                 text="Faulty response from listIndexes API command.",
@@ -921,7 +1188,7 @@ class Table(Generic[ROW]):
         else:
             logger.info("finished listIndexes")
             return [
-                TableIndexDescriptor.coerce(index_object, columns=columns)
+                TableIndexDescriptor.coerce(index_object)
                 for index_object in li_response["status"]["indexes"]
             ]
 
@@ -1633,6 +1900,7 @@ class Table(Generic[ROW]):
         row_type: None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -1649,6 +1917,7 @@ class Table(Generic[ROW]):
         row_type: type[ROW2],
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -1664,6 +1933,7 @@ class Table(Generic[ROW]):
         row_type: type[ROW2] | None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -1710,9 +1980,20 @@ class Table(Generic[ROW]):
                 projection is given.
             skip: if provided, it is a number of rows that would be obtained first
                 in the response and are instead skipped.
+                Please note that for applications that need to retrieve entries on
+                a page-by-page basis, the suggested approach is to consume a find cursor
+                through their pagination API (see the cursors' `fetch_next_page` method
+                and examples reported there).
             limit: a maximum amount of rows to get from the table. The returned cursor
                 will stop yielding rows when either this number is reached or there
                 really are no more matches in the table.
+            initial_page_state: if a value is provided, it must be the `next_page_state`
+                from the response of `fetch_next_page()` called on a previous cursor.
+                This value is used as the first page state when the first request
+                to consume the cursor is issued.
+                This pattern is what enables the caller to control consuming the
+                results page by page in a caller-driven fashion. See Examples for more.
+                If supplied, this parameter must be string: passing None is forbidden.
             include_similarity: a boolean to request the numeric value of the
                 similarity to be returned as an added "$similarity" key in each returned
                 row. It can be used meaningfully only in a vector search (see `sort`).
@@ -1927,6 +2208,7 @@ class Table(Generic[ROW]):
             .skip(skip)
             .limit(limit)
             .sort(sort)
+            .initial_page_state(initial_page_state)
             .include_similarity(include_similarity)
             .include_sort_vector(include_sort_vector)
         )
@@ -2884,7 +3166,7 @@ class AsyncTable(Generic[ROW]):
         ...     "https://01234567-....apps.astra.datastax.com",
         ...     token="AstraCS:..."
         ... )
-
+        >>>
         >>> # Create a table using the fluent syntax for definition
         >>> from astrapy.constants import SortMode
         >>> from astrapy.info import (
@@ -2908,7 +3190,7 @@ class AsyncTable(Generic[ROW]):
         ...     "games",
         ...     definition=table_definition,
         ... )
-
+        >>>
         >>> # Create a table with the definition as object
         >>> # (and do not raise an error if the table exists already)
         >>> from astrapy.info import (
@@ -2954,7 +3236,7 @@ class AsyncTable(Generic[ROW]):
         ...     definition=table_definition_1,
         ...     if_not_exists=True,
         ... )
-
+        >>>
         >>> # Create a table with the definition as plain dictionary
         >>> # (and do not raise an error if the table exists already)
         >>> table_definition_2 = {
@@ -2977,10 +3259,70 @@ class AsyncTable(Generic[ROW]):
         ...     definition=table_definition_2,
         ...     if_not_exists=True,
         ... )
-
+        >>>
         >>> # Get a reference to an existing table
         >>> # (no checks are performed on DB)
         >>> my_table_4 = async_database.get_table("my_already_existing_table")
+        >>>
+        >>> # Examples with an embedding service ('vectorize'):
+        >>> (An index is needed for vector search: see table `create_vector_index` method)
+        >>>
+        >>> # Create a table with 'vectorize' and on-the-fly authentication (by headers)
+        >>> from astrapy.info import (
+        ...     CreateTableDefinition,
+        ...     ColumnType,
+        ...     VectorServiceOptions,
+        ... )
+        >>> table_definition_vz1 = (
+        ...     CreateTableDefinition.builder()
+        ...     .add_column("motto_id", ColumnType.TEXT)
+        ...     .add_column("motto_text", ColumnType.TEXT)
+        ...     .add_vector_column(
+        ...         "motto_vector",
+        ...         service=VectorServiceOptions(
+        ...             provider="openai",
+        ...             model_name="text-embedding-3-small",
+        ...         ),
+        ...     )
+        ...     .add_partition_by(["motto_id"])
+        ...     .build()
+        ... )
+        >>> my_table_vz1 = await async_database.create_table(
+        ...     "mottos_vz1",
+        ...     definition=table_definition_vz1,
+        ...     embedding_api_key="sk-...",
+        ... )
+        >>>
+        >>> # Create a 'vectorize' table, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+        >>> from astrapy.info import (
+        ...     CreateTableDefinition,
+        ...     ColumnType,
+        ...     VectorServiceOptions,
+        ... )
+        >>> table_definition_vz2 = (
+        ...     CreateTableDefinition.builder()
+        ...     .add_column("motto_id", ColumnType.TEXT)
+        ...     .add_column("motto_text", ColumnType.TEXT)
+        ...     .add_vector_column(
+        ...         "motto_vector",
+        ...         service=VectorServiceOptions(
+        ...             provider="openai",
+        ...             model_name="text-embedding-3-small",
+        ...             authentication={
+        ...                 "providerKey": "EMB_AUTH_KEY",
+        ...             },
+        ...         ),
+        ...     )
+        ...     .add_partition_by(["motto_id"])
+        ...     .build()
+        ... )
+        >>> my_table_vz2 = await async_database.create_table(
+        ...     "mottos_vz2",
+        ...     definition=table_definition_vz2,
+        ... )
+        >>>
+        >>> # Get a reference to an existing table and set its 'vectorize' authentication:
+        >>> my_table_vz1a = async_database.get_table("mottos_vz1", embedding_api_key="sk-...")
 
     Note:
         creating an instance of AsyncTable does not trigger, in itself, actual
@@ -3421,8 +3763,9 @@ class AsyncTable(Generic[ROW]):
     async def create_index(
         self,
         name: str,
-        column: str | dict[str, str],
+        column: str | dict[str, str] | None = None,
         *,
+        definition: TableIndexDefinition | dict[str, Any] | None = None,
         options: TableIndexOptions | dict[str, Any] | None = None,
         if_not_exists: bool | None = None,
         table_admin_timeout_ms: int | None = None,
@@ -3436,16 +3779,24 @@ class AsyncTable(Generic[ROW]):
         is created and ready to use.
 
         For creation of a vector index, see method `create_vector_index` instead.
+        For creation of a text index (used for lexicographical matching), see
+        method `create_text_index` instead.
 
         Args:
             name: the name of the index. Index names must be unique across the keyspace.
             column: the table column on which the index is to be created.
                 For a map column, besides a simple string, it can be an object
-                in one of the two formats {"column": "$values"}, {"column": "$keys"},
+                in one of the two formats {"column": "$values"}, {"column": "$keys"}.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
             options: if passed, it must be an instance of `TableIndexOptions`,
                 or an equivalent dictionary, which specifies index settings
                 such as -- for a text column -- case-sensitivity and so on.
                 See the `astrapy.info.TableIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
             if_not_exists: if set to True, the command will succeed even if an index
                 with the specified name already exists (in which case no actual
                 index creation takes place on the database). The API default of False
@@ -3460,7 +3811,7 @@ class AsyncTable(Generic[ROW]):
         Examples:
             >>> # NOTE: may require slight adaptation to an async context.
             >>>
-            >>> from astrapy.info import TableIndexOptions
+            >>> from astrapy.info import TableIndexDefinition, TableIndexOptions
             >>>
             >>> # create an index on a column
             >>> await my_async_table.create_index(
@@ -3478,12 +3829,45 @@ class AsyncTable(Generic[ROW]):
             ...         case_sensitive=False,
             ...     ),
             ... )
+            >>>
+            >>> # create an index on a textual column, using a TableIndexDefinition
+            >>> await my_async_table.create_index(
+            ...     "venue_index",
+            ...     definition=TableIndexDefinition(
+            ...         column="venue",
+            ...         options=TableIndexOptions(
+            ...             ascii=False,
+            ...             normalize=True,
+            ...             case_sensitive=False,
+            ...         ),
+            ...     ),
+            ... )
         """
 
-        ci_definition: dict[str, Any] = TableIndexDefinition(
-            column=column,
-            options=TableIndexOptions.coerce(options or {}),
-        ).as_dict()
+        idx_definition: TableIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableIndexDefinition(
+                column=column,
+                options=TableIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
         ci_command = "createIndex"
         return await self._create_generic_index(
             i_name=name,
@@ -3498,8 +3882,9 @@ class AsyncTable(Generic[ROW]):
     async def create_vector_index(
         self,
         name: str,
-        column: str,
+        column: str | None = None,
         *,
+        definition: TableVectorIndexDefinition | dict[str, Any] | None = None,
         options: TableVectorIndexOptions | dict[str, Any] | None = None,
         if_not_exists: bool | None = None,
         table_admin_timeout_ms: int | None = None,
@@ -3518,11 +3903,17 @@ class AsyncTable(Generic[ROW]):
         Args:
             name: the name of the index. Index names must be unique across the keyspace.
             column: the table column, of type "vector" on which to create the index.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableVectorIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
             options: an instance of `TableVectorIndexOptions`, or an equivalent
                 dictionary, which specifies settings for the vector index,
                 such as the metric to use or, if desired, a "source model" setting.
                 If omitted, the Data API defaults will apply for the index.
                 See the `astrapy.info.TableVectorIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
             if_not_exists: if set to True, the command will succeed even if an index
                 with the specified name already exists (in which case no actual
                 index creation takes place on the database). The API default of False
@@ -3538,7 +3929,10 @@ class AsyncTable(Generic[ROW]):
             >>> # NOTE: may require slight adaptation to an async context.
             >>>
             >>> from astrapy.constants import VectorMetric
-            >>> from astrapy.info import TableVectorIndexOptions
+            >>> from astrapy.info import (
+            ...     TableVectorIndexDefinition,
+            ...     TableVectorIndexOptions,
+            ... )
             >>>
             >>> # create a vector index with dot-product similarity
             >>> await my_async_table.create_vector_index(
@@ -3548,8 +3942,20 @@ class AsyncTable(Generic[ROW]):
             ...         metric=VectorMetric.DOT_PRODUCT,
             ...     ),
             ... )
-            >>> # specify a source_model (since the previous statement
-            >>> # succeeded, this will do nothing because of `if_not_exists`):
+            >>>
+            >>> # create a vector index using a TableVectorIndexDefinition
+            >>> await my_async_table.create_vector_index(
+            ...     "m_vector_index_2",
+            ...     definition=TableVectorIndexDefinition(
+            ...         column="m_vector_2",
+            ...         options=TableVectorIndexOptions(
+            ...             metric=VectorMetric.DOT_PRODUCT,
+            ...         ),
+            ...     ),
+            ... )
+            >>>
+            >>> # specify a source_model (if the previous statement
+            >>> # succeeded, this would do nothing because of `if_not_exists`):
             >>> await my_async_table.create_vector_index(
             ...     "m_vector_index",
             ...     "m_vector",
@@ -3569,11 +3975,163 @@ class AsyncTable(Generic[ROW]):
             ... )
         """
 
-        ci_definition: dict[str, Any] = TableVectorIndexDefinition(
-            column=column,
-            options=TableVectorIndexOptions.coerce(options),
-        ).as_dict()
+        idx_definition: TableVectorIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableVectorIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableVectorIndexDefinition(
+                column=column,
+                options=TableVectorIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
         ci_command = "createVectorIndex"
+        return await self._create_generic_index(
+            i_name=name,
+            ci_definition=ci_definition,
+            ci_command=ci_command,
+            if_not_exists=if_not_exists,
+            table_admin_timeout_ms=table_admin_timeout_ms,
+            request_timeout_ms=request_timeout_ms,
+            timeout_ms=timeout_ms,
+        )
+
+    async def create_text_index(
+        self,
+        name: str,
+        column: str | None = None,
+        *,
+        definition: TableTextIndexDefinition | dict[str, Any] | None = None,
+        options: TableTextIndexOptions | dict[str, Any] | None = None,
+        if_not_exists: bool | None = None,
+        table_admin_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """
+        Create a text index on a vector column of the table, enabling lexicographical
+        matching operations on it.
+
+        This is a blocking operation: the method returns once the index
+        is created and ready to use.
+
+        For creation of a full-text index, see method `create_index` instead.
+
+        Args:
+            name: the name of the index. Index names must be unique across the keyspace.
+            column: the column, of type "text"/"ascii", on which to create the index.
+                This field must be omitted if passing a full `definition` parameter.
+            definition: A `TableTextIndexDefinition`, or an equivalent dictionary,
+                with the complete specification for the index (including the targeted
+                column name). If using this parameter, no `column` or `options` are
+                accepted.
+            options: an instance of `TableTextIndexOptions`, or an equivalent
+                dictionary, which specifies settings for the text index,
+                in particular the "analyzer" configuration.
+                See the `astrapy.info.TableTextIndexOptions` class for more details.
+                This field must be omitted if passing a full `definition` parameter.
+                If no options are specified (whether in `definition` or explicitly),
+                the Data API defaults will apply for the index.
+            if_not_exists: if set to True, the command will succeed even if an index
+                with the specified name already exists (in which case no actual
+                index creation takes place on the database). The API default of False
+                means that an error is raised by the API in case of name collision.
+            table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
+                underlying API request. If not provided, this object's defaults apply.
+                (This method issues a single API request, hence all timeout parameters
+                are treated the same.)
+            request_timeout_ms: an alias for `table_admin_timeout_ms`.
+            timeout_ms: an alias for `table_admin_timeout_ms`.
+
+        Example:
+            >>> # NOTE: may require slight adaptation to an async context.
+            >>>
+            >>> from astrapy.info import TableTextIndexDefinition, TableTextIndexOptions
+            >>>
+            >>> # create a text index with the 'whitespace' analyzer
+            >>> await my_async_table.create_text_index(
+            ...     "m_text_index",
+            ...     column="m_text_column",
+            ...     options=TableTextIndexOptions(analyzer="whitespace"),
+            ... )
+            >>>
+            >>> # create a text index using a TableTextIndexDefinition
+            >>> await my_async_table.create_text_index(
+            ...     "m_text_index",
+            ...     definition=TableTextIndexDefinition(
+            ...         column="m_text_column_2",
+            ...         options=TableTextIndexOptions(analyzer="whitespace"),
+            ...     ),
+            ... )
+            >>>
+            >>> # omit the analyzer setting: the default of "standard" will be used.
+            >>> # (if an index with this name exists, this operation won't do nothing
+            >>> # because of if_not_exists.)
+            >>> await my_async_table.create_text_index(
+            ...     "m_text_index_default",
+            ...     column="m_another_text_column",
+            ...     if_not_exists=True,
+            ... )
+            >>>
+            >>> # provide a full object for the analyzer configuration:
+            >>> # (this one is suitable for English prose.)
+            >>> await my_async_table.create_text_index(
+            ...     "m_text_index_2",
+            ...     column="m_yet_another_text_column",
+            ...     options=TableTextIndexOptions(
+            ...         analyzer={
+            ...             "tokenizer": {"name": "standard", "args": {}},
+            ...             "filters": [
+            ...                 {"name": "lowercase"},
+            ...                 {"name": "stop"},
+            ...                 {"name": "porterstem"},
+            ...                 {"name": "asciifolding"},
+            ...             ],
+            ...             "charFilters": [],
+            ...         },
+            ...     ),
+            ... )
+        """
+
+        idx_definition: TableTextIndexDefinition
+        if definition is not None:
+            if column is not None:
+                raise ValueError(
+                    "Parameters 'column' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            if options is not None:
+                raise ValueError(
+                    "Parameters 'options' and 'definition' cannot be used "
+                    "simultaneously when creating an index on a Table."
+                )
+            idx_definition = TableTextIndexDefinition.coerce(definition)
+        else:
+            if column is None:
+                raise ValueError(
+                    "Parameter 'column' is required for an index on a Table if "
+                    "not providing 'definition'."
+                )
+            idx_definition = TableTextIndexDefinition(
+                column=column,
+                options=TableTextIndexOptions.coerce(options or {}),
+            )
+        ci_definition = idx_definition.as_dict()
+        ci_command = "createTextIndex"
         return await self._create_generic_index(
             i_name=name,
             ci_definition=ci_definition,
@@ -3635,7 +4193,7 @@ class AsyncTable(Generic[ROW]):
             logger.info("finished listIndexes")
             return li_response["status"]["indexes"]  # type: ignore[no-any-return]
 
-    async def _list_indexes(
+    async def list_indexes(
         self,
         *,
         table_admin_timeout_ms: int | None = None,
@@ -3644,8 +4202,6 @@ class AsyncTable(Generic[ROW]):
     ) -> list[TableIndexDescriptor]:
         """
         List the full definitions of all indexes existing on this table.
-
-        WARNING: method not public yet, pending completion of its API.
 
         Args:
             table_admin_timeout_ms: a timeout, in milliseconds, to impose on the
@@ -3686,14 +4242,6 @@ class AsyncTable(Generic[ROW]):
                 request_ms=_table_admin_timeout_ms, label=_ta_label
             ),
         )
-        columns = (
-            await self.definition(
-                table_admin_timeout_ms=table_admin_timeout_ms,
-                request_timeout_ms=request_timeout_ms,
-                timeout_ms=timeout_ms,
-            )
-        ).columns
-
         if "indexes" not in li_response.get("status", {}):
             raise UnexpectedDataAPIResponseException(
                 text="Faulty response from listIndexes API command.",
@@ -3702,7 +4250,7 @@ class AsyncTable(Generic[ROW]):
         else:
             logger.info("finished listIndexes")
             return [
-                TableIndexDescriptor.coerce(index_object, columns=columns)
+                TableIndexDescriptor.coerce(index_object)
                 for index_object in li_response["status"]["indexes"]
             ]
 
@@ -4402,6 +4950,7 @@ class AsyncTable(Generic[ROW]):
         row_type: None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -4418,6 +4967,7 @@ class AsyncTable(Generic[ROW]):
         row_type: type[ROW2],
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -4433,6 +4983,7 @@ class AsyncTable(Generic[ROW]):
         row_type: type[ROW2] | None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -4479,9 +5030,20 @@ class AsyncTable(Generic[ROW]):
                 projection is given.
             skip: if provided, it is a number of rows that would be obtained first
                 in the response and are instead skipped.
+                Please note that for applications that need to retrieve entries on
+                a page-by-page basis, the suggested approach is to consume a find cursor
+                through their pagination API (see the cursors' `fetch_next_page` method
+                and examples reported there).
             limit: a maximum amount of rows to get from the table. The returned cursor
                 will stop yielding rows when either this number is reached or there
                 really are no more matches in the table.
+            initial_page_state: if a value is provided, it must be the `next_page_state`
+                from the response of `fetch_next_page()` called on a previous cursor.
+                This value is used as the first page state when the first request
+                to consume the cursor is issued.
+                This pattern is what enables the caller to control consuming the
+                results page by page in a caller-driven fashion. See Examples for more.
+                If supplied, this parameter must be string: passing None is forbidden.
             include_similarity: a boolean to request the numeric value of the
                 similarity to be returned as an added "$similarity" key in each returned
                 row. It can be used meaningfully only in a vector search (see `sort`).
@@ -4719,6 +5281,7 @@ class AsyncTable(Generic[ROW]):
             .skip(skip)
             .limit(limit)
             .sort(sort)
+            .initial_page_state(initial_page_state)
             .include_similarity(include_similarity)
             .include_sort_vector(include_sort_vector)
         )
@@ -5550,7 +6113,7 @@ class AsyncTable(Generic[ROW]):
         table_admin_timeout_ms: int | None = None,
         request_timeout_ms: int | None = None,
         timeout_ms: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> None:
         """
         Drop the table, i.e. delete it from the database along with
         all the rows stored therein.
@@ -5604,7 +6167,7 @@ class AsyncTable(Generic[ROW]):
         """
 
         logger.info(f"dropping table '{self.name}' (self)")
-        drop_result = await self.database.drop_table(
+        await self.database.drop_table(
             self.name,
             if_exists=if_exists,
             table_admin_timeout_ms=table_admin_timeout_ms,
@@ -5612,7 +6175,6 @@ class AsyncTable(Generic[ROW]):
             timeout_ms=timeout_ms,
         )
         logger.info(f"finished dropping table '{self.name}' (self)")
-        return drop_result
 
     async def command(
         self,

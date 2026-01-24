@@ -1,5 +1,5 @@
-from collections.abc import Mapping, Sequence
-from typing import Callable, Generic, Optional, Union, cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import Generic, Optional, Union, cast
 
 import dagster._check as check
 from dagster._core.definitions.repository_definition.valid_definitions import (
@@ -53,6 +53,15 @@ class CacheingDefinitionIndex(Generic[T_RepositoryLevelDefinition]):
         self._lazy_definitions: Optional[Sequence[T_RepositoryLevelDefinition]] = None
 
         self._all_definitions: Optional[Sequence[T_RepositoryLevelDefinition]] = None
+
+    def _validate_definition_key(
+        self, definition: T_RepositoryLevelDefinition, definition_dict_key: str
+    ):
+        check.invariant(
+            definition.name == definition_dict_key,
+            f"Bad constructor for {self._definition_kind} '{definition_dict_key}': name in "
+            f"{self._definition_class_name} does not match: got '{definition.name}'",
+        )
 
     def _get_lazy_definitions(self) -> Sequence[T_RepositoryLevelDefinition]:
         if self._lazy_definitions is None:
@@ -118,10 +127,13 @@ class CacheingDefinitionIndex(Generic[T_RepositoryLevelDefinition]):
         definition_source = self._definitions[definition_name]
 
         if isinstance(definition_source, self._definition_class):
-            self._definition_cache[definition_name] = self._validation_fn(definition_source)
+            definition = self._validation_fn(definition_source)
+            self._validate_definition_key(definition, definition_name)
+            self._definition_cache[definition_name] = definition
             return definition_source
         else:
             definition = cast("Callable", definition_source)()
+            self._validate_definition_key(definition, definition_name)
             self._validate_and_cache_definition(definition, definition_name)
             return definition
 
@@ -133,9 +145,5 @@ class CacheingDefinitionIndex(Generic[T_RepositoryLevelDefinition]):
             f"Bad constructor for {self._definition_kind} {definition_dict_key}: must return "
             f"{self._definition_class_name}, got value of type {type(definition)}",
         )
-        check.invariant(
-            definition.name == definition_dict_key,
-            f"Bad constructor for {self._definition_kind} '{definition_dict_key}': name in "
-            f"{self._definition_class_name} does not match: got '{definition.name}'",
-        )
+
         self._definition_cache[definition_dict_key] = self._validation_fn(definition)

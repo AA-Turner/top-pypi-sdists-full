@@ -2,15 +2,16 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 @torch.no_grad()
 def reduce_max_except_dim(x: torch.Tensor, dim: int) -> torch.Tensor:
-    r"""Perform reduce-max along all dimensions except the given dim.
+    """Perform reduce-max along all dimensions except the given dim.
 
-    :param x: torch.Tensor. tensor to reduce-max.
-    :param dim: int. dimension to exclude.
+    Args:
+        x (torch.Tensor): Tensor to reduce-max.
+        dim (int): Dimension to exclude.
     """
     rank: int = len(x.shape)
     if rank == 0:
@@ -28,18 +29,19 @@ def reduce_max_except_dim(x: torch.Tensor, dim: int) -> torch.Tensor:
 class SM3(BaseOptimizer):
     r"""Memory-Efficient Adaptive Optimization.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. coefficient used to scale prior updates before adding. This drastically increases
-        memory usage if `momentum > 0.0`. This is ignored if the parameter's gradient is sparse.
-    :param beta: float. coefficient used for exponential moving averages.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        momentum (float): Coefficient used to scale prior updates before adding. This drastically increases
+            memory usage if momentum > 0.0. This is ignored if the parameter's gradient is sparse.
+        beta (float): Coefficient used for exponential moving averages.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-1,
         momentum: float = 0.0,
         beta: float = 0.0,
@@ -54,14 +56,17 @@ class SM3(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'lr': lr, 'momentum': momentum, 'beta': beta, 'eps': eps}
+        defaults: Defaults = {'lr': lr, 'momentum': momentum, 'beta': beta, 'eps': eps}
 
         super().__init__(params, defaults)
 
     def __str__(self) -> str:
         return 'SM3'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -96,18 +101,15 @@ class SM3(BaseOptimizer):
         return grad.new(grad._indices(), values, grad.size())
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             momentum, beta = group['momentum'], group['beta']
 

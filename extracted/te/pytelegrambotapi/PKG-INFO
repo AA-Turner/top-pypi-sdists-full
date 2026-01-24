@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTelegramBotAPI
-Version: 4.29.1
+Version: 4.30.0
 Summary: Python Telegram bot API.
 Project-URL: Homepage, https://github.com/eternnoir/pyTelegramBotAPI
 Project-URL: Documentation, https://pytba.readthedocs.org
@@ -14,11 +14,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Requires-Dist: requests
 Provides-Extra: coloredlogs
@@ -613,7 +613,7 @@ Refer [Bot Api](https://core.telegram.org/bots/api#messageentity) for extra deta
 
 ## Advanced use of the API
 
-### Using local Bot API Sever
+### Using local Bot API Server
 Since version 5.0 of the Bot API, you have the possibility to run your own [Local Bot API Server](https://core.telegram.org/bots/api#using-a-local-bot-api-server).
 pyTelegramBotAPI also supports this feature.
 ```python

@@ -2,14 +2,16 @@ from uuid import UUID
 from typing import TYPE_CHECKING, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 from vellum import FunctionDefinition, PromptBlock, RichTextChildBlock, VellumVariable
+from vellum.workflows import MCPServer
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.nodes import InlinePromptNode
 from vellum.workflows.types.core import JsonObject
-from vellum.workflows.types.definition import DeploymentDefinition
+from vellum.workflows.types.definition import DeploymentDefinition, MCPToolDefinition, VellumIntegrationToolDefinition
 from vellum.workflows.types.generics import is_workflow_class
 from vellum.workflows.utils.functions import (
     compile_function_definition,
     compile_inline_workflow_function_definition,
+    compile_vellum_integration_tool_definition,
     compile_workflow_deployment_function_definition,
 )
 from vellum.workflows.utils.uuids import uuid4_from_hash
@@ -81,6 +83,7 @@ class BaseInlinePromptNodeDisplay(BaseNodeDisplay[_InlinePromptNodeType], Generi
             [
                 self._generate_function_tools(function, i, display_context)
                 for i, function in enumerate(function_definitions)
+                if not isinstance(function, (MCPServer, MCPToolDefinition))  # we don't need to serialize MCP types
             ]
             if isinstance(function_definitions, list)
             else []
@@ -109,7 +112,7 @@ class BaseInlinePromptNodeDisplay(BaseNodeDisplay[_InlinePromptNodeType], Generi
                 },
                 "ml_model_name": ml_model,
             },
-            **self.serialize_generic_fields(display_context),
+            **self.serialize_generic_fields(display_context, exclude=["outputs"]),
             "outputs": [
                 {"id": str(json_display.id), "name": "json", "type": "JSON", "value": None},
                 {"id": str(output_display.id), "name": "text", "type": "STRING", "value": None},
@@ -146,13 +149,21 @@ class BaseInlinePromptNodeDisplay(BaseNodeDisplay[_InlinePromptNodeType], Generi
             )
             vellum_variable_type = infer_vellum_variable_type(variable_value)
             node_inputs.append(node_input)
-            prompt_inputs.append(VellumVariable(id=str(node_input.id), key=variable_name, type=vellum_variable_type))
+            prompt_inputs.append(
+                VellumVariable(
+                    id=str(node_input.id),
+                    key=variable_name,
+                    type=vellum_variable_type,
+                )
+            )
 
         return node_inputs, prompt_inputs
 
     def _generate_function_tools(
         self,
-        function: Union[FunctionDefinition, Callable, DeploymentDefinition, Type["BaseWorkflow"]],
+        function: Union[
+            FunctionDefinition, Callable, DeploymentDefinition, Type["BaseWorkflow"], VellumIntegrationToolDefinition
+        ],
         index: int,
         display_context: WorkflowDisplayContext,
     ) -> JsonObject:
@@ -164,6 +175,8 @@ class BaseInlinePromptNodeDisplay(BaseNodeDisplay[_InlinePromptNodeType], Generi
             normalized_functions = compile_function_definition(function)
         elif isinstance(function, DeploymentDefinition):
             normalized_functions = compile_workflow_deployment_function_definition(function, display_context.client)
+        elif isinstance(function, VellumIntegrationToolDefinition):
+            normalized_functions = compile_vellum_integration_tool_definition(function, display_context.client)
         else:
             raise ValueError(f"Unsupported function type: {type(function)}")
         return {

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel", "mypy[mypyc]==1.19.1", "typing_extensions>=4.7"]
+
+[tool.mypy]
+files = ["."]
+exclude = "build"
+strict = true
+enable_error_code = [
+  "deprecated",
+  "exhaustive-match",
+  "explicit-override",
+  "ignore-without-code",
+  "mutable-override",
+  "possibly-undefined",
+  "redundant-expr",
+  "redundant-self",
+  "truthy-bool",
+  "truthy-iterable",
+  "unimported-reveal",
+  "unused-awaitable",
+  "unused-ignore",
+]
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "test_factory", "test_mypy_plugin", "test_typed_envs"]
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = ["pytest", "pytest.*"]
+ignore_missing_imports = true
+follow_imports = "skip"

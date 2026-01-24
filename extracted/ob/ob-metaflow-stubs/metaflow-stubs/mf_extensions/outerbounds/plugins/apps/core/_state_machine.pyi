@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.726776                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.901062                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -57,14 +57,14 @@ class DEPLOYMENT_READY_CONDITIONS(object, metaclass=type):
         - Some users might want a cluster of workers ready before serving traffic while others might want just one worker ready to start serving traffic.
     
     Some readiness conditions include:
-            1) [at_least_one_running] At least min(min_replicas, 1) workers of the current deployment instance's version have started running.
-        - Usecase: Some endpoints may be deployed ephemerally and are considered ready when at least one instance is running; additional instances are for load management.
+        1) [at_least_one_running] At least min(min_replicas, 1) workers of the current deployment instance's version have started running.
+            - Usecase: Some endpoints may be deployed ephemerally and are considered ready when at least one instance is running; additional instances are for load management.
         2) [all_running] At least min_replicas number of workers are running for the deployment to be considered ready.
-        - Usecase: Operators may require that all replicas are available before traffic is routed. Needed when inference endpoints maybe under some SLA or require a larger load
+            - Usecase: Operators may require that all replicas are available before traffic is routed. Needed when inference endpoints maybe under some SLA or require a larger load
         3) [fully_finished] At least min_replicas number of workers are running for the deployment and there are no pending or crashlooping workers from previous versions lying around.
-        - Usecase: Ensuring endpoint is fully available and no other versions are running or endpoint has been fully scaled down.
-    4) [async] The deployment will be assumed ready as soon as the server responds with a 200.
-        - Usecase: Operators may only care that the URL is minted for the deployment or the deployment eventually scales down to 0.
+            - Usecase: Ensuring endpoint is fully available and no other versions are running or endpoint has been fully scaled down.
+        4) [async] The deployment will be assumed ready as soon as the server acknowledges its registered the app in the backend.
+            - Usecase: Operators may only care that the URL is minted for the deployment or the operator wants the deployment to eventually scales down to 0.
     """
     @classmethod
     def check_failure_condition(cls, capsule_status: CapsuleStatus, worker_semantic_status: CapsuleWorkerSemanticStatus) -> bool:

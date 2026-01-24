@@ -40,18 +40,16 @@ class DataDriver(APIObject):
 
     _path = "externalDataDrivers/"
     _file_upload_path = "externalDataDriverFile/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("class_name", optional=True): t.Or(String, t.Null),
-            t.Key("canonical_name"): String(),
-            t.Key("creator"): String(),
-            t.Key("base_names", optional=True): t.List(String()),
-            t.Key("database_driver", optional=True): t.Or(String, t.Null),
-            t.Key("type", default="jdbc", optional=True): String(),
-            t.Key("version", optional=True): t.Or(String, t.Null),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("class_name", optional=True): t.Or(String, t.Null),
+        t.Key("canonical_name"): String(),
+        t.Key("creator"): String(),
+        t.Key("base_names", optional=True): t.List(String()),
+        t.Key("database_driver", optional=True): t.Or(String, t.Null),
+        t.Key("type", default="jdbc", optional=True): String(),
+        t.Key("version", optional=True): t.Or(String, t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -205,9 +203,7 @@ class DataDriver(APIObject):
             }
         return cls.from_server_data(cls._client.post(cls._path, data=payload).json())
 
-    def update(
-        self, class_name: Optional[str] = None, canonical_name: Optional[str] = None
-    ) -> None:
+    def update(self, class_name: Optional[str] = None, canonical_name: Optional[str] = None) -> None:
         """
         Updates the driver. Only available to admin users.
 

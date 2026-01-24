@@ -6,7 +6,7 @@ test:
 	flake8 --max-complexity=10 --statistics analytics > flake8.out || true
 
 release:
-	python3 setup.py sdist bdist_wheel
+	python setup.py sdist bdist_wheel
 	twine upload dist/*
 
 e2e_test:

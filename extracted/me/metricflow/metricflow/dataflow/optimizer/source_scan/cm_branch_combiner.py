@@ -12,7 +12,7 @@ from metricflow.dataflow.dataflow_plan import (
 )
 from metricflow.dataflow.dataflow_plan_visitor import DataflowPlanNodeVisitor
 from metricflow.dataflow.nodes.add_generated_uuid import AddGeneratedUuidColumnNode
-from metricflow.dataflow.nodes.aggregate_measures import AggregateMeasuresNode
+from metricflow.dataflow.nodes.aggregate_simple_metric_inputs import AggregateSimpleMetricInputsNode
 from metricflow.dataflow.nodes.alias_specs import AliasSpecsNode
 from metricflow.dataflow.nodes.combine_aggregated_outputs import CombineAggregatedOutputsNode
 from metricflow.dataflow.nodes.compute_metrics import ComputeMetricsNode
@@ -68,7 +68,7 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
 
     left_branch:
         <ComputeMetricsNode metrics=["bookings"]
-            <AggregateMeasuresNode>
+            <AggregateSimpleMetricInputsNode>
                 <FilterElementsNode include_specs=["bookings"]>
                     <ReadSqlSourceNode semantic_model="bookings_source"/>
                 </>
@@ -76,7 +76,7 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
         </>
     right_branch:
         <ComputeMetricsNode metrics=["booking_value"]
-            <AggregateMeasuresNode>
+            <AggregateSimpleMetricInputsNode>
                 <FilterElementsNode include_specs=["booking_value"]>
                     <ReadSqlSourceNode semantic_model="bookings_source"/>
                 </>
@@ -86,7 +86,7 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
     is
 
     <ComputeMetricsNode metrics=["bookings", "booking_value"]
-        <AggregateMeasuresNode>
+        <AggregateSimpleMetricInputsNode>
             <FilterElementsNode include_specs=["bookings", "booking_value"]>
                 <ReadSqlSourceNode semantic_model="bookings_source"/>
             </>
@@ -97,7 +97,7 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
 
     left_branch:
         <ComputeMetricsNode metrics=["bookings"]
-            <AggregateMeasuresNode>
+            <AggregateSimpleMetricInputsNode>
                 <FilterElementsNode include_specs=["bookings", "is_instant"]>
                     <ReadSqlSourceNode semantic_model="bookings_source"/>
                 </>
@@ -105,7 +105,7 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
         </>
     right_branch:
         <ComputeMetricsNode metrics=["booking_value"]
-            <AggregateMeasuresNode>
+            <AggregateSimpleMetricInputsNode>
                 <FilterElementsNode include_specs=["booking_value"]>
                     <ReadSqlSourceNode semantic_model="bookings_source"/>
                 </>
@@ -113,15 +113,15 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
         </>
 
     can't be superpositioned / combined because the different set of linkable specs in the FilterElementsNode will cause
-    the AggregatedMeasuresNode to produce values for the measure that is different from the original branches. The logic
+    the AggregatedMeasuresNode to produce values for the simple-metric input that is different from the original branches. The logic
     to determine whether this is possible for each node type is encapsulated into the handler for each node type.
 
     In general, the questions to consider for combination are:
 
     * For nodes with no parents, can you combine the corresponding left and right nodes to produce an output
-    that is has the same linkable specs, but a superset of the measures / metrics?
+    that is has the same linkable specs, but a superset of the simple-metric inputs / metrics?
     * For other nodes, does a set of inputs that have the same linkable specs as the inputs to the left and right nodes
-    but a superset of measures / metrics produce an output that superset of measures / metrics (with the same values)
+    but a superset of simple-metric inputs / metrics produce an output that superset of simple-metric inputs / metrics (with the same values)
     as the left and right nodes?
 
     The visitor traverses the dataflow plan via DFS, recursively combining the parent nodes first and combining the
@@ -230,8 +230,8 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
         self._log_visit_node_type(node)
         return self._default_handler(node)
 
-    def visit_aggregate_measures_node(  # noqa: D102
-        self, node: AggregateMeasuresNode
+    def visit_aggregate_simple_metric_inputs_node(  # noqa: D102
+        self, node: AggregateSimpleMetricInputsNode
     ) -> ComputeMetricsBranchCombinerResult:  # noqa: D102
         self._log_visit_node_type(node)
         current_right_node = node
@@ -251,30 +251,29 @@ class ComputeMetricsBranchCombiner(DataflowPlanNodeVisitor[ComputeMetricsBranchC
         assert len(combined_parent_nodes) == 1
         combined_parent_node = combined_parent_nodes[0]
 
-        combined_metric_input_measure_specs = tuple(
-            dict.fromkeys(
-                self._current_left_node.metric_input_measure_specs + current_right_node.metric_input_measure_specs
-            ).keys()
-        )
-
-        # Avoid combining branches if the AggregateMeasuresNode specifies a metric with an alias to avoid
-        # collisions e.g. two metrics use the same alias for two different measures. This is not always the case,
+        # Avoid combining branches if the AggregateSimpleMetricInputsNode specifies conflicting aliases.
+        # e.g. two metrics use the same alias for two different simple-metric inputs. This is not always the case,
         # so this could be improved later.
-        seen_aliases = set()
-        for spec in combined_metric_input_measure_specs:
-            if spec.alias is not None:
-                if spec.alias in seen_aliases:
-                    self._log_combine_failure(
-                        left_node=self._current_left_node,
-                        right_node=current_right_node,
-                        combine_failure_reason=f"Found multiple metric input measure specs with alias '{spec.alias}'",
-                    )
-                    return ComputeMetricsBranchCombinerResult()
-                seen_aliases.add(spec.alias)
+        if self._current_left_node.alias_mapping.has_conflict(current_right_node.alias_mapping):
+            self._log_combine_failure(
+                left_node=self._current_left_node,
+                right_node=current_right_node,
+                combine_failure_reason=f"Conflicting alias mapping - left: {self._current_left_node.alias_mapping} right: {current_right_node.alias_mapping}",
+            )
+            return ComputeMetricsBranchCombinerResult()
 
-        combined_node = AggregateMeasuresNode.create(
+        if self._current_left_node.null_fill_value_mapping != current_right_node.null_fill_value_mapping:
+            self._log_combine_failure(
+                left_node=self._current_left_node,
+                right_node=current_right_node,
+                combine_failure_reason=f"Conflicting null-fill-value mapping - left: {self._current_left_node.null_fill_value_mapping} right: {current_right_node.null_fill_value_mapping}",
+            )
+            return ComputeMetricsBranchCombinerResult()
+
+        combined_node = AggregateSimpleMetricInputsNode.create(
             parent_node=combined_parent_node,
-            metric_input_measure_specs=combined_metric_input_measure_specs,
+            alias_mapping=self._current_left_node.alias_mapping,
+            null_fill_value_mapping=self._current_left_node.null_fill_value_mapping,
         )
         self._log_combine_success(
             left_node=self._current_left_node,

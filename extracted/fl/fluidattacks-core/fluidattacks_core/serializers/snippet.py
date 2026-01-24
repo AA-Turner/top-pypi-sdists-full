@@ -78,7 +78,7 @@ class Snippet(NamedTuple):
             offset=self.offset,
         )
         line_context = self.line_context - snippet.offset
-        snippet = snippet._replace(
+        return snippet._replace(
             offset=self.offset + snippet.offset,
             is_function=self.is_function
             if len(snippet.content.splitlines()) == len(self.content.splitlines())
@@ -86,7 +86,6 @@ class Snippet(NamedTuple):
             function=self.function,
             line_context=line_context,
         )
-        return snippet
 
 
 def make_snippet(

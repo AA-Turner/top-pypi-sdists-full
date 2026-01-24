@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "precompiled_header.hpp"
-#include <tango/tango.h>
+#include "common_header.h"
 
-void export_version()
-{
-    bopy::scope().attr("__tangolib_version__") = Tango::TgLibVers;
+void export_version(py::module_ &m) {
+    m.attr("__tangolib_version__") = Tango::TgLibVers;
 }

@@ -42,14 +42,10 @@ def rng() -> np.random.Generator:
 def context(concurrency: int | None) -> soma.SOMATileDBContext:
     if concurrency is None:
         return soma.SOMATileDBContext()
-    else:
-        return soma.SOMATileDBContext(
-            tiledb_config={"soma.compute_concurrency_level": f"{concurrency}"}
-        )
+    return soma.SOMATileDBContext(tiledb_config={"soma.compute_concurrency_level": f"{concurrency}"})
 
 
-def assert_eq(sp: sparse.spmatrix, cm: fastercsx.CompressedMatrix) -> bool:
-
+def assert_eq(sp: sparse.spmatrix | sparse.sparray, cm: fastercsx.CompressedMatrix) -> bool:
     sp_csx = sp.tocsr() if cm.format == "csr" else sp.tocsc()
 
     assert cm.data.shape == sp_csx.data.shape
@@ -71,9 +67,7 @@ def assert_eq(sp: sparse.spmatrix, cm: fastercsx.CompressedMatrix) -> bool:
 
 
 @pytest.mark.parametrize("format", ["csr", "csc"])
-@pytest.mark.parametrize(
-    "shape", [(0, 0), (1, 0), (0, 1), (10, 100), (100, 10), (9972, 1), (1, 9972)]
-)
+@pytest.mark.parametrize("shape", [(0, 0), (1, 0), (0, 1), (10, 100), (100, 10), (9972, 1), (1, 9972)])
 @pytest.mark.parametrize("value_dtype", NP_VALUE_TYPES)
 def test_from_ijd(
     shape: tuple[int, int],
@@ -82,12 +76,16 @@ def test_from_ijd(
     context: soma.SOMATileDBContext,
     rng: np.random.Generator,
 ) -> None:
-    sp = sparse.random(
-        shape[0], shape[1], density=0.01, dtype=value_dtype, random_state=rng
-    )
+    sp = sparse.random(shape[0], shape[1], density=0.01, dtype=value_dtype, random_state=rng)
 
     cm = fastercsx.CompressedMatrix.from_ijd(
-        sp.row, sp.col, sp.data, sp.shape, format, make_sorted=True, context=context
+        sp.row,
+        sp.col,
+        sp.data,
+        sp.shape,
+        format,
+        make_sorted=True,
+        context=context,
     )
     assert_eq(sp, cm)
     assert cm.nbytes == (cm.indptr.nbytes + cm.indices.nbytes + cm.data.nbytes)
@@ -128,13 +126,11 @@ def test_from_soma_array(
                 "soma_dim_0": pa.array(i_),
                 "soma_dim_1": pa.array(j_),
                 "soma_data": pa.array(d_),
-            }
+            },
         )
         for i_, j_, d_ in zip(i, j, d)
     ]
-    cm = fastercsx.CompressedMatrix.from_soma(
-        tables, sp.shape, format, make_sorted=True, context=context
-    )
+    cm = fastercsx.CompressedMatrix.from_soma(tables, sp.shape, format, make_sorted=True, context=context)
     assert_eq(sp, cm)
     assert cm.to_scipy().has_canonical_format
 
@@ -174,25 +170,21 @@ def test_from_soma_chunked_array(
                 "soma_dim_0": pa.chunked_array(np.array_split(i_, n_chunks)),
                 "soma_dim_1": pa.chunked_array(np.array_split(j_, n_chunks)),
                 "soma_data": pa.chunked_array(np.array_split(d_, n_chunks)),
-            }
+            },
         )
         for i_, j_, d_ in zip(i, j, d)
     ]
 
     assert len(tables) == n_tables
     assert tables[0]["soma_data"].num_chunks == n_chunks
-    cm = fastercsx.CompressedMatrix.from_soma(
-        tables, sp.shape, format, make_sorted=True, context=context
-    )
+    cm = fastercsx.CompressedMatrix.from_soma(tables, sp.shape, format, make_sorted=True, context=context)
     assert_eq(sp, cm)
     assert cm.to_scipy().has_canonical_format
 
 
 @pytest.mark.parametrize("format", ["csr", "csc"])
 @pytest.mark.parametrize("sorted", [True, False])
-@pytest.mark.parametrize(
-    "index", [None, slice(None), slice(0), slice(10), slice(0, 1), slice(1, -1)]
-)
+@pytest.mark.parametrize("index", [None, slice(None), slice(0), slice(10), slice(0, 1), slice(1, -1)])
 def test_to_scipy(
     format: Format,
     sorted: bool,
@@ -200,9 +192,7 @@ def test_to_scipy(
     context: soma.SOMATileDBContext,
     rng: np.random.Generator,
 ) -> None:
-    sp = sparse.random(
-        1000, 100, density=0.1, dtype=np.float32, random_state=rng, format="coo"
-    )
+    sp = sparse.random(1000, 100, density=0.1, dtype=np.float32, random_state=rng, format="coo")
 
     cm = fastercsx.CompressedMatrix.from_ijd(
         sp.row,
@@ -215,23 +205,15 @@ def test_to_scipy(
     )
     assert_eq(sp, cm)
     if format == "csr":
-        assert (
-            cm.to_scipy(index).tocsr() != sp.tocsr()[index or slice(None), :]
-        ).nnz == 0
+        assert (cm.to_scipy(index).tocsr() != sp.tocsr()[index or slice(None), :]).nnz == 0
     else:
-        assert (
-            cm.to_scipy(index).tocsc() != sp.tocsc()[:, index or slice(None)]
-        ).nnz == 0
+        assert (cm.to_scipy(index).tocsc() != sp.tocsc()[:, index or slice(None)]).nnz == 0
 
 
 @pytest.mark.parametrize("format", ["csr", "csc"])
 @pytest.mark.parametrize("sorted", [True, False])
-@pytest.mark.parametrize(
-    "shape", [(0, 0), (1, 0), (0, 1), (10, 1000), (1000, 10), (3, 99), (99, 3)]
-)
-@pytest.mark.parametrize(
-    "index", [None, slice(None), slice(0), slice(10), slice(0, 1), slice(1, -1)]
-)
+@pytest.mark.parametrize("shape", [(0, 0), (1, 0), (0, 1), (10, 1000), (1000, 10), (3, 99), (99, 3)])
+@pytest.mark.parametrize("index", [None, slice(None), slice(0), slice(10), slice(0, 1), slice(1, -1)])
 def test_to_numpy(
     format: Format,
     sorted: bool,
@@ -261,42 +243,27 @@ def test_to_numpy(
     assert_eq(sp, cm)
     assert np.array_equal(sp.toarray(), cm.to_numpy())
     if format == "csr":
-        assert np.array_equal(
-            sp.tocsr()[index or slice(None), :].toarray(), cm.to_numpy(index)
-        )
+        assert np.array_equal(sp.tocsr()[index or slice(None), :].toarray(), cm.to_numpy(index))
     else:
-        assert np.array_equal(
-            sp.tocsc()[:, index or slice(None)].toarray(), cm.to_numpy(index)
-        )
+        assert np.array_equal(sp.tocsc()[:, index or slice(None)].toarray(), cm.to_numpy(index))
 
 
-def test_bad_arguments(
-    context: soma.SOMATileDBContext, rng: np.random.Generator
-) -> None:
+def test_bad_arguments(context: soma.SOMATileDBContext, rng: np.random.Generator) -> None:
     """Test various bad argument types/values are caught."""
     sp = sparse.random(970, 31, density=0.01, dtype=np.float32, random_state=rng)
 
-    with (
-        suppress_type_checks()
-    ):  # w/o this, typeguard raises, which defeats the point of the test
-
+    with suppress_type_checks():  # w/o this, typeguard raises, which defeats the point of the test
         # context - bad type
         with pytest.raises(AttributeError):
-            fastercsx.CompressedMatrix.from_ijd(
-                sp.row, sp.col, sp.data, sp.shape, "csr", True, None
-            )
+            fastercsx.CompressedMatrix.from_ijd(sp.row, sp.col, sp.data, sp.shape, "csr", True, None)
         # context - missing
         with pytest.raises(TypeError):
-            fastercsx.CompressedMatrix.from_ijd(
-                sp.row, sp.col, sp.data, sp.shape, "csr", True
-            )
+            fastercsx.CompressedMatrix.from_ijd(sp.row, sp.col, sp.data, sp.shape, "csr", True)
 
         # unsupported data type
         unsup_data = np.full(sp.data.shape, "A", dtype="str")
         with pytest.raises(ValueError):
-            fastercsx.CompressedMatrix.from_ijd(
-                sp.row, sp.col, unsup_data, sp.shape, "csr", True, context
-            )
+            fastercsx.CompressedMatrix.from_ijd(sp.row, sp.col, unsup_data, sp.shape, "csr", True, context)
 
         # unsupported index type
         with pytest.raises(ValueError):
@@ -344,9 +311,7 @@ def test_bad_shapes(context: soma.SOMATileDBContext, rng: np.random.Generator) -
     ]:
         with pytest.raises(IndexError):
             # this will also log an error - which is expected behavior for parallel_for/thread_pool
-            fastercsx.CompressedMatrix.from_ijd(
-                sp.row, sp.col, sp.data, shp, "csr", True, context
-            )
+            fastercsx.CompressedMatrix.from_ijd(sp.row, sp.col, sp.data, shp, "csr", True, context)
 
 
 @pytest.mark.parametrize("format", ["csr", "csc"])
@@ -362,9 +327,5 @@ def test_duplicates(
     j = np.array([0, 0, 1, 1], dtype=np.int64)
     d = np.arange(len(i), dtype=np.int8)
 
-    cm = fastercsx.CompressedMatrix.from_ijd(
-        i, j, d, shape, format, make_sorted, context
-    )
-    assert (
-        sparse.coo_matrix((d, (i, j)), shape=shape).asformat(format) != cm.to_scipy()
-    ).nnz == 0
+    cm = fastercsx.CompressedMatrix.from_ijd(i, j, d, shape, format, make_sorted, context)
+    assert (sparse.coo_matrix((d, (i, j)), shape=shape).asformat(format) != cm.to_scipy()).nnz == 0

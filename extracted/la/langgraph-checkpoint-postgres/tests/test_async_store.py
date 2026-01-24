@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-import sys
 import uuid
 from collections.abc import AsyncIterator
 from concurrent.futures import ThreadPoolExecutor
@@ -12,8 +11,6 @@ from typing import Any
 
 import pytest
 from langchain_core.embeddings import Embeddings
-from psycopg import AsyncConnection
-
 from langgraph.store.base import (
     GetOp,
     Item,
@@ -21,6 +18,8 @@ from langgraph.store.base import (
     PutOp,
     SearchOp,
 )
+from psycopg import AsyncConnection
+
 from langgraph.store.postgres import AsyncPostgresStore
 from tests.conftest import (
     DEFAULT_URI,
@@ -34,9 +33,6 @@ TTL_MINUTES = TTL_SECONDS / 60
 
 @pytest.fixture(scope="function", params=["default", "pipe", "pool"])
 async def store(request) -> AsyncIterator[AsyncPostgresStore]:
-    if sys.version_info < (3, 10):
-        pytest.skip("Async Postgres tests require Python 3.10+")
-
     database = f"test_{uuid.uuid4().hex[:16]}"
     uri_parts = DEFAULT_URI.split("/")
     uri_base = "/".join(uri_parts[:-1])
@@ -358,8 +354,6 @@ async def _create_vector_store(
     text_fields: list[str] | None = None,
 ) -> AsyncIterator[AsyncPostgresStore]:
     """Create a store with vector search enabled."""
-    if sys.version_info < (3, 10):
-        pytest.skip("Async Postgres tests require Python 3.10+")
 
     database = f"test_{uuid.uuid4().hex[:16]}"
     uri_parts = DEFAULT_URI.split("/")

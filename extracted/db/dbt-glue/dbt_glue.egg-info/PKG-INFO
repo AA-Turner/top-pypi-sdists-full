@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-glue
-Version: 1.10.11
+Version: 1.10.15
 Summary: dbt adapter for AWS Glue
 Home-page: https://github.com/aws-samples/dbt-glue
 Author: moshirm,segnina,sekiyama
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: dbt-core~=1.10.11
+Requires-Dist: dbt-core~=1.10.15
 Requires-Dist: dbt-spark~=1.9.3
 Requires-Dist: dbt-common<3.0,>=1.0.4
 Requires-Dist: dbt-adapters<2.0,>=1.1.1
@@ -279,6 +279,7 @@ The table below describes all the options.
 | default_arguments	                      | The map of key value pairs parameters belonging to the session. More information on [Job parameters used by AWS Glue](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html). Ex: `--enable-continuous-cloudwatch-log=true,--enable-continuous-log-filter=true` | no        |
 | glue_session_id                         | re-use a glue-session to run multiple dbt run commands. Will create a new glue-session using glue_session_id if it does not exists yet.                                                                                                                                                           | no        | 
 | glue_session_reuse                      | re-use the glue-session to run multiple dbt run commands: If set to true, the glue session will not be closed for re-use. If set to false, the session will be closed. The glue session will close after idle_timeout time is expired after idle_timeout time                                     | no        | 
+| group_session_id                      | [**Model Level Meta Setting**] Set a specific glue session suffix id to group sets of models together to a specific session id.  Good for models that have chained dependencies in a larger dag and you want to save on session startup times.                                      | no        | 
 | datalake_formats	                       | The ACID datalake format that you want to use if you are doing merge, can be `hudi`, `iceberg` or `delta`                                                                                                                                                                                         |no|
 | use_arrow	                           | (experimental) use an arrow file instead of stdout to have better scalability.                                                                                                                                                                                                                    |no|
 | enable_spark_seed_casting	              | Allows spark to cast the columns depending on the specified model column types. Default `False`.        |no|
@@ -299,6 +300,8 @@ When materializing a model as `table`, you may include several optional configs 
 | hudi_options          | When using file_format `hudi`, gives the ability to overwrite any of the default configuration options.                                                                                                                                                      | Optional                                | `{'hoodie.schema.on.read.enable': 'true'}`        |
 | meta                  | Spawns isolated Glue session with different session configuration. Use Case: When specific models require configurations different from the default session settings. For example, a particular model might require more Glue workers or larger worker type. | Optional                                | `meta = { "workers": 50, "worker_type": "G.1X" }` |
 | add_iceberg_timestamp | Add `update_iceberg_ts` column on Iceberg tables. (default: false)                                                                                                                                                                                           | Optional                                | `true`                                            |
+| use_iceberg_temp_views | Use Spark temporary views when using Iceberg targets instead of physical tables to store intermediate results. (default: false)                                                                                                                                                                                           | Optional                                | `true`                                            |
+| purge_dropped_iceberg_data | Purge Iceberg and S3 Tables underlying data S3 object during drop table. (default: false)                                                                                                                                                                                           | Optional                                | `true`                                            |
 
 ## Amazon S3 Tables Support (Experimental)
 

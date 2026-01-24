@@ -11,9 +11,10 @@ use tombi_schema_store::{
 use crate::{
     comment_directive::get_table_comment_directive_content_with_schema_uri,
     goto_type_definition::{
-        all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
+        GetTypeDefinition, TypeDefinition, all_of::get_all_of_type_definition,
+        any_of::get_any_of_type_definition,
         comment::get_tombi_value_comment_directive_type_definition,
-        one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+        one_of::get_one_of_type_definition,
     },
 };
 
@@ -34,15 +35,13 @@ impl GetTypeDefinition for tombi_document_tree::Table {
         async move {
             if let Some((comment_directive_context, schema_uri)) =
                 get_table_comment_directive_content_with_schema_uri(self, position, accessors)
-            {
-                if let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
+                && let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
-                {
-                    return Some(hover_content);
-                }
+            {
+                return Some(hover_content);
             }
 
             if let Some(Ok(DocumentSchema {
@@ -138,7 +137,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         },
                                     ) in pattern_properties.write().await.iter_mut()
                                     {
-                                        if let Ok(pattern) = regex::Regex::new(property_key) {
+                                        if let Ok(pattern) = tombi_regex::Regex::new(property_key) {
                                             if pattern.is_match(&key.value) {
                                                 if let Ok(Some(current_schema)) = property_schema
                                                     .resolve(
@@ -296,24 +295,24 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                     }),
                 }
             } else {
-                if let Some(key) = keys.first() {
-                    if let Some(value) = self.get(key) {
-                        let accessor = Accessor::Key(key.value.clone());
+                if let Some(key) = keys.first()
+                    && let Some(value) = self.get(key)
+                {
+                    let accessor = Accessor::Key(key.value.clone());
 
-                        return value
-                            .get_type_definition(
-                                position,
-                                &keys[1..],
-                                &accessors
-                                    .iter()
-                                    .cloned()
-                                    .chain(std::iter::once(accessor))
-                                    .collect_vec(),
-                                None,
-                                schema_context,
-                            )
-                            .await;
-                    }
+                    return value
+                        .get_type_definition(
+                            position,
+                            &keys[1..],
+                            &accessors
+                                .iter()
+                                .cloned()
+                                .chain(std::iter::once(accessor))
+                                .collect_vec(),
+                            None,
+                            schema_context,
+                        )
+                        .await;
                 }
                 None
             }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Iterable
+from typing import Dict, List, Union, Iterable
 from typing_extensions import Literal
 
 import httpx
@@ -23,15 +23,16 @@ from .versions import (
     VersionsResourceWithStreamingResponse,
     AsyncVersionsResourceWithStreamingResponse,
 )
-from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ...._utils import maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ....types.ai import (
     assistant_chat_params,
     assistant_create_params,
-    assistant_import_params,
     assistant_update_params,
+    assistant_imports_params,
     assistant_retrieve_params,
+    assistant_send_sms_params,
 )
 from .tests.tests import (
     TestsResource,
@@ -67,17 +68,17 @@ from .scheduled_events import (
 )
 from ....types.ai.assistants_list import AssistantsList
 from ....types.ai.enabled_features import EnabledFeatures
+from ....types.ai.inference_embedding import InferenceEmbedding
 from ....types.ai.assistant_tool_param import AssistantToolParam
 from ....types.ai.voice_settings_param import VoiceSettingsParam
+from ....types.ai.widget_settings_param import WidgetSettingsParam
 from ....types.ai.insight_settings_param import InsightSettingsParam
 from ....types.ai.privacy_settings_param import PrivacySettingsParam
 from ....types.ai.assistant_chat_response import AssistantChatResponse
-from ....types.ai.assistant_clone_response import AssistantCloneResponse
 from ....types.ai.messaging_settings_param import MessagingSettingsParam
 from ....types.ai.telephony_settings_param import TelephonySettingsParam
-from ....types.ai.assistant_create_response import AssistantCreateResponse
 from ....types.ai.assistant_delete_response import AssistantDeleteResponse
-from ....types.ai.assistant_retrieve_response import AssistantRetrieveResponse
+from ....types.ai.assistant_send_sms_response import AssistantSendSMSResponse
 from ....types.ai.transcription_settings_param import TranscriptionSettingsParam
 
 __all__ = ["AssistantsResource", "AsyncAssistantsResource"]
@@ -142,13 +143,14 @@ class AssistantsResource(SyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantCreateResponse:
+    ) -> InferenceEmbedding:
         """
         Create a new AI Assistant.
 
@@ -157,7 +159,7 @@ class AssistantsResource(SyncAPIResource):
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           dynamic_variables: Map of dynamic variables and their default values
@@ -169,16 +171,21 @@ class AssistantsResource(SyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -208,13 +215,14 @@ class AssistantsResource(SyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 assistant_create_params.AssistantCreateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=AssistantCreateResponse,
+            cast_to=InferenceEmbedding,
         )
 
     def retrieve(
@@ -231,7 +239,7 @@ class AssistantsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantRetrieveResponse:
+    ) -> InferenceEmbedding:
         """
         Retrieve an AI Assistant configuration by `assistant_id`.
 
@@ -263,7 +271,7 @@ class AssistantsResource(SyncAPIResource):
                     assistant_retrieve_params.AssistantRetrieveParams,
                 ),
             ),
-            cast_to=AssistantRetrieveResponse,
+            cast_to=InferenceEmbedding,
         )
 
     def update(
@@ -287,13 +295,14 @@ class AssistantsResource(SyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> InferenceEmbedding:
         """
         Update an AI Assistant's attributes.
 
@@ -307,19 +316,22 @@ class AssistantsResource(SyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           instructions: System instructions for the assistant. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           promote_to_main: Indicates whether the assistant should be promoted to the main version. Defaults
@@ -327,6 +339,8 @@ class AssistantsResource(SyncAPIResource):
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -359,13 +373,14 @@ class AssistantsResource(SyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 assistant_update_params.AssistantUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=InferenceEmbedding,
         )
 
     def list(
@@ -438,11 +453,11 @@ class AssistantsResource(SyncAPIResource):
         This endpoint allows a client to send a chat message to a specific AI Assistant.
         The assistant processes the message and returns a relevant reply based on the
         current conversation context. Refer to the Conversation API to
-        [create a conversation](https://developers.telnyx.com/api/inference/inference-embedding/create-new-conversation-public-conversations-post),
-        [filter existing conversations](https://developers.telnyx.com/api/inference/inference-embedding/get-conversations-public-conversations-get),
-        [fetch messages for a conversation](https://developers.telnyx.com/api/inference/inference-embedding/get-conversations-public-conversation-id-messages-get),
+        [create a conversation](https://developers.telnyx.com/api-reference/conversations/create-a-conversation),
+        [filter existing conversations](https://developers.telnyx.com/api-reference/conversations/list-conversations),
+        [fetch messages for a conversation](https://developers.telnyx.com/api-reference/conversations/get-conversation-messages),
         and
-        [manually add messages to a conversation](https://developers.telnyx.com/api/inference/inference-embedding/add-new-message).
+        [manually add messages to a conversation](https://developers.telnyx.com/api-reference/conversations/create-message).
 
         Args:
           content: The message content sent by the client to the assistant
@@ -487,7 +502,7 @@ class AssistantsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantCloneResponse:
+    ) -> InferenceEmbedding:
         """
         Clone an existing assistant, excluding telephony and messaging settings.
 
@@ -507,7 +522,7 @@ class AssistantsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=AssistantCloneResponse,
+            cast_to=InferenceEmbedding,
         )
 
     def get_texml(
@@ -543,11 +558,12 @@ class AssistantsResource(SyncAPIResource):
             cast_to=str,
         )
 
-    def import_(
+    def imports(
         self,
         *,
         api_key_ref: str,
-        provider: Literal["elevenlabs", "vapi"],
+        provider: Literal["elevenlabs", "vapi", "retell"],
+        import_ids: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -568,6 +584,9 @@ class AssistantsResource(SyncAPIResource):
 
           provider: The external provider to import assistants from.
 
+          import_ids: Optional list of assistant IDs to import from the external provider. If not
+              provided, all assistants will be imported.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -582,13 +601,73 @@ class AssistantsResource(SyncAPIResource):
                 {
                     "api_key_ref": api_key_ref,
                     "provider": provider,
+                    "import_ids": import_ids,
                 },
-                assistant_import_params.AssistantImportParams,
+                assistant_imports_params.AssistantImportsParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=AssistantsList,
+        )
+
+    def send_sms(
+        self,
+        assistant_id: str,
+        *,
+        from_: str,
+        to: str,
+        conversation_metadata: Dict[str, Union[str, int, bool]] | Omit = omit,
+        should_create_conversation: bool | Omit = omit,
+        text: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AssistantSendSMSResponse:
+        """Send an SMS message for an assistant.
+
+        This endpoint:
+
+        1. Validates the assistant exists and has messaging profile configured
+        2. If should_create_conversation is true, creates a new conversation with
+           metadata
+        3. Sends the SMS message (If `text` is set, this will be sent. Otherwise, if
+           this is the first message in the conversation and the assistant has a
+           `greeting` configured, this will be sent. Otherwise the assistant will
+           generate the text to send.)
+        4. Updates conversation metadata if provided
+        5. Returns the conversation ID
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not assistant_id:
+            raise ValueError(f"Expected a non-empty value for `assistant_id` but received {assistant_id!r}")
+        return self._post(
+            f"/ai/assistants/{assistant_id}/chat/sms",
+            body=maybe_transform(
+                {
+                    "from_": from_,
+                    "to": to,
+                    "conversation_metadata": conversation_metadata,
+                    "should_create_conversation": should_create_conversation,
+                    "text": text,
+                },
+                assistant_send_sms_params.AssistantSendSMSParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AssistantSendSMSResponse,
         )
 
 
@@ -651,13 +730,14 @@ class AsyncAssistantsResource(AsyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantCreateResponse:
+    ) -> InferenceEmbedding:
         """
         Create a new AI Assistant.
 
@@ -666,7 +746,7 @@ class AsyncAssistantsResource(AsyncAPIResource):
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           dynamic_variables: Map of dynamic variables and their default values
@@ -678,16 +758,21 @@ class AsyncAssistantsResource(AsyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -717,13 +802,14 @@ class AsyncAssistantsResource(AsyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 assistant_create_params.AssistantCreateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=AssistantCreateResponse,
+            cast_to=InferenceEmbedding,
         )
 
     async def retrieve(
@@ -740,7 +826,7 @@ class AsyncAssistantsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantRetrieveResponse:
+    ) -> InferenceEmbedding:
         """
         Retrieve an AI Assistant configuration by `assistant_id`.
 
@@ -772,7 +858,7 @@ class AsyncAssistantsResource(AsyncAPIResource):
                     assistant_retrieve_params.AssistantRetrieveParams,
                 ),
             ),
-            cast_to=AssistantRetrieveResponse,
+            cast_to=InferenceEmbedding,
         )
 
     async def update(
@@ -796,13 +882,14 @@ class AsyncAssistantsResource(AsyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> InferenceEmbedding:
         """
         Update an AI Assistant's attributes.
 
@@ -816,19 +903,22 @@ class AsyncAssistantsResource(AsyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           instructions: System instructions for the assistant. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           promote_to_main: Indicates whether the assistant should be promoted to the main version. Defaults
@@ -836,6 +926,8 @@ class AsyncAssistantsResource(AsyncAPIResource):
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -868,13 +960,14 @@ class AsyncAssistantsResource(AsyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 assistant_update_params.AssistantUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=InferenceEmbedding,
         )
 
     async def list(
@@ -947,11 +1040,11 @@ class AsyncAssistantsResource(AsyncAPIResource):
         This endpoint allows a client to send a chat message to a specific AI Assistant.
         The assistant processes the message and returns a relevant reply based on the
         current conversation context. Refer to the Conversation API to
-        [create a conversation](https://developers.telnyx.com/api/inference/inference-embedding/create-new-conversation-public-conversations-post),
-        [filter existing conversations](https://developers.telnyx.com/api/inference/inference-embedding/get-conversations-public-conversations-get),
-        [fetch messages for a conversation](https://developers.telnyx.com/api/inference/inference-embedding/get-conversations-public-conversation-id-messages-get),
+        [create a conversation](https://developers.telnyx.com/api-reference/conversations/create-a-conversation),
+        [filter existing conversations](https://developers.telnyx.com/api-reference/conversations/list-conversations),
+        [fetch messages for a conversation](https://developers.telnyx.com/api-reference/conversations/get-conversation-messages),
         and
-        [manually add messages to a conversation](https://developers.telnyx.com/api/inference/inference-embedding/add-new-message).
+        [manually add messages to a conversation](https://developers.telnyx.com/api-reference/conversations/create-message).
 
         Args:
           content: The message content sent by the client to the assistant
@@ -996,7 +1089,7 @@ class AsyncAssistantsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AssistantCloneResponse:
+    ) -> InferenceEmbedding:
         """
         Clone an existing assistant, excluding telephony and messaging settings.
 
@@ -1016,7 +1109,7 @@ class AsyncAssistantsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=AssistantCloneResponse,
+            cast_to=InferenceEmbedding,
         )
 
     async def get_texml(
@@ -1052,11 +1145,12 @@ class AsyncAssistantsResource(AsyncAPIResource):
             cast_to=str,
         )
 
-    async def import_(
+    async def imports(
         self,
         *,
         api_key_ref: str,
-        provider: Literal["elevenlabs", "vapi"],
+        provider: Literal["elevenlabs", "vapi", "retell"],
+        import_ids: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1077,6 +1171,9 @@ class AsyncAssistantsResource(AsyncAPIResource):
 
           provider: The external provider to import assistants from.
 
+          import_ids: Optional list of assistant IDs to import from the external provider. If not
+              provided, all assistants will be imported.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1091,13 +1188,73 @@ class AsyncAssistantsResource(AsyncAPIResource):
                 {
                     "api_key_ref": api_key_ref,
                     "provider": provider,
+                    "import_ids": import_ids,
                 },
-                assistant_import_params.AssistantImportParams,
+                assistant_imports_params.AssistantImportsParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=AssistantsList,
+        )
+
+    async def send_sms(
+        self,
+        assistant_id: str,
+        *,
+        from_: str,
+        to: str,
+        conversation_metadata: Dict[str, Union[str, int, bool]] | Omit = omit,
+        should_create_conversation: bool | Omit = omit,
+        text: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AssistantSendSMSResponse:
+        """Send an SMS message for an assistant.
+
+        This endpoint:
+
+        1. Validates the assistant exists and has messaging profile configured
+        2. If should_create_conversation is true, creates a new conversation with
+           metadata
+        3. Sends the SMS message (If `text` is set, this will be sent. Otherwise, if
+           this is the first message in the conversation and the assistant has a
+           `greeting` configured, this will be sent. Otherwise the assistant will
+           generate the text to send.)
+        4. Updates conversation metadata if provided
+        5. Returns the conversation ID
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not assistant_id:
+            raise ValueError(f"Expected a non-empty value for `assistant_id` but received {assistant_id!r}")
+        return await self._post(
+            f"/ai/assistants/{assistant_id}/chat/sms",
+            body=await async_maybe_transform(
+                {
+                    "from_": from_,
+                    "to": to,
+                    "conversation_metadata": conversation_metadata,
+                    "should_create_conversation": should_create_conversation,
+                    "text": text,
+                },
+                assistant_send_sms_params.AssistantSendSMSParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=AssistantSendSMSResponse,
         )
 
 
@@ -1129,8 +1286,11 @@ class AssistantsResourceWithRawResponse:
         self.get_texml = to_raw_response_wrapper(
             assistants.get_texml,
         )
-        self.import_ = to_raw_response_wrapper(
-            assistants.import_,
+        self.imports = to_raw_response_wrapper(
+            assistants.imports,
+        )
+        self.send_sms = to_raw_response_wrapper(
+            assistants.send_sms,
         )
 
     @cached_property
@@ -1182,8 +1342,11 @@ class AsyncAssistantsResourceWithRawResponse:
         self.get_texml = async_to_raw_response_wrapper(
             assistants.get_texml,
         )
-        self.import_ = async_to_raw_response_wrapper(
-            assistants.import_,
+        self.imports = async_to_raw_response_wrapper(
+            assistants.imports,
+        )
+        self.send_sms = async_to_raw_response_wrapper(
+            assistants.send_sms,
         )
 
     @cached_property
@@ -1235,8 +1398,11 @@ class AssistantsResourceWithStreamingResponse:
         self.get_texml = to_streamed_response_wrapper(
             assistants.get_texml,
         )
-        self.import_ = to_streamed_response_wrapper(
-            assistants.import_,
+        self.imports = to_streamed_response_wrapper(
+            assistants.imports,
+        )
+        self.send_sms = to_streamed_response_wrapper(
+            assistants.send_sms,
         )
 
     @cached_property
@@ -1288,8 +1454,11 @@ class AsyncAssistantsResourceWithStreamingResponse:
         self.get_texml = async_to_streamed_response_wrapper(
             assistants.get_texml,
         )
-        self.import_ = async_to_streamed_response_wrapper(
-            assistants.import_,
+        self.imports = async_to_streamed_response_wrapper(
+            assistants.imports,
+        )
+        self.send_sms = async_to_streamed_response_wrapper(
+            assistants.send_sms,
         )
 
     @cached_property

@@ -4,6 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from functools import lru_cache, partial
 from inspect import signature
+from types import UnionType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -12,12 +13,15 @@ from typing import (
     Type,
     Union,
     cast,
+    get_args,
+    get_origin,
     get_type_hints,
     overload,
 )
 
 import anyio
 from anyio import BrokenResourceError, create_memory_object_stream
+from anyio.abc import TaskGroup
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 
 from ._pycrdt import Doc as _Doc
@@ -43,12 +47,14 @@ class BaseDoc:
     _doc: _Doc
     _twin_doc: BaseDoc | None
     _txn: Transaction | None
+    _exceptions: list[Exception]
     _txn_lock: threading.Lock
     _txn_async_lock: anyio.Lock
     _allow_multithreading: bool
     _Model: Any
     _subscriptions: list[Subscription]
     _origins: dict[int, Any]
+    _task_group: TaskGroup | None
 
     def __init__(
         self,
@@ -65,12 +71,14 @@ class BaseDoc:
             doc = _Doc(client_id, skip_gc)
         self._doc = doc
         self._txn = None
+        self._exceptions = []
         self._txn_lock = threading.Lock()
         self._txn_async_lock = anyio.Lock()
         self._Model = Model
         self._subscriptions = []
         self._origins = {}
         self._allow_multithreading = allow_multithreading
+        self._task_group = None
 
 
 class BaseType(ABC):
@@ -296,7 +304,10 @@ def observe_callback(
     _event = event_types[type(event)](event, doc)
     with doc._read_transaction(event.transaction) as txn:
         params = (_event, txn)
-        callback(*params[:param_nb])  # type: ignore[arg-type]
+        try:
+            callback(*params[:param_nb])  # type: ignore[arg-type]
+        except Exception as exc:
+            doc._exceptions.append(exc)
 
 
 def observe_deep_callback(
@@ -309,7 +320,10 @@ def observe_deep_callback(
         events[idx] = event_types[type(event)](event, doc)
     with doc._read_transaction(event.transaction) as txn:
         params = (events, txn)
-        callback(*params[:param_nb])  # type: ignore[arg-type]
+        try:
+            callback(*params[:param_nb])  # type: ignore[arg-type]
+        except Exception as exc:
+            doc._exceptions.append(exc)
 
 
 class BaseEvent:
@@ -385,10 +399,12 @@ class Typed:
             if key not in annotations:
                 raise AttributeError(f'"{type(self).mro()[0]}" has no attribute "{key}"')
             expected_type = annotations[key]
-            if hasattr(expected_type, "__origin__"):
-                expected_type = expected_type.__origin__
-            if hasattr(expected_type, "__args__"):
-                expected_types = expected_type.__args__
+            origin = get_origin(expected_type)
+            if origin in (Union, UnionType):
+                expected_types = get_args(expected_type)
+            elif origin is not None:
+                expected_type = origin
+                expected_types = (expected_type,)
             else:
                 expected_types = (expected_type,)
             if type(value) not in expected_types:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nodeenv
-Version: 1.9.1
+Version: 1.10.0
 Summary: Node.js virtual environment builder
 Home-page: https://github.com/ekalinin/nodeenv
 Author: Eugene Kalinin
@@ -24,14 +24,24 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*
 License-File: LICENSE
 License-File: AUTHORS
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 Node.js virtual environment
 ===========================
 
-``nodeenv`` (node.js virtual environment) is a tool to create 
+``nodeenv`` (node.js virtual environment) is a tool to create
 isolated node.js environments.
 
-It creates an environment that has its own installation directories, 
+It creates an environment that has its own installation directories,
 that doesn't share libraries with other node.js virtual environments.
 
 Also the new environment can be integrated with the environment which was built
@@ -41,8 +51,9 @@ If you use nodeenv feel free to add your project on wiki: `Who-Uses-Nodeenv`_.
 
 .. _Who-Uses-Nodeenv: https://github.com/ekalinin/nodeenv/wiki/Who-Uses-Nodeenv
 
-.. image:: https://travis-ci.org/ekalinin/nodeenv.svg?branch=master
-    :target: https://travis-ci.org/ekalinin/nodeenv
+.. image:: https://github.com/ekalinin/nodeenv/actions/workflows/main.yml/badge.svg?branch=master
+    :target: https://github.com/ekalinin/nodeenv/actions/workflows/main.yml
+    :alt: CI
 
 .. contents:: :local:
 
@@ -81,7 +92,7 @@ pip_/easy_install_ inside any virtual environment built with virtualenv::
     (env) $ nodeenv --version
     0.6.5
 
-If you want to work with the latest version of the nodeenv you can 
+If you want to work with the latest version of the nodeenv you can
 install it from the github `repository`_::
 
     $ git clone https://github.com/ekalinin/nodeenv.git
@@ -154,7 +165,7 @@ Get available node.js versions::
     0.3.2   0.3.3   0.3.4   0.3.5   0.3.6   0.3.7   0.3.8
     0.4.1   0.4.2   0.4.3   0.4.4   0.4.5   0.4.6
 
-Install node.js "0.4.3" without ssl support with 4 parallel commands 
+Install node.js "0.4.3" without ssl support with 4 parallel commands
 for compilation and npm.js "0.3.17"::
 
     $ nodeenv --without-ssl --node=0.4.3 --npm=0.3.17 --with-npm --jobs=4 env-4.3
@@ -203,7 +214,7 @@ Create an environment from a requirements file::
 
     $ nodeenv --requirements=../prod-requirements.txt --jobs=4 env-copy
 
-Requirements files are plain text files that contain a list of packages 
+Requirements files are plain text files that contain a list of packages
 to be installed. These text files allow you to create repeatable installations.
 Requirements file example::
 
@@ -228,7 +239,7 @@ virtual environment::
 and add a node virtual environment to this existing new_venv::
 
     $ nodeenv -p
-    
+
 If you need to set the path to make used to build node::
 
 	$ nodeenv -m /usr/local/bin/gmake ENV
@@ -240,7 +251,7 @@ environment::
     $ npm install -g coffee-script
     $ command -v coffee
     /home/monty/virtualenvs/my_env/bin/coffee
-    
+
 Creating a virtual environment with a custom prompt:
 
     $ nodeenv --node=12.18.2 --prompt="(myenv)" nodeenv
@@ -260,6 +271,104 @@ use `shim` script::
 
     $ ./env-4.3/bin/shim --version
     v0.4.3
+
+Command Line Options
+--------------------
+
+Basic options
+^^^^^^^^^^^^^
+
+``-n NODE_VER, --node=NODE_VER``
+    The node.js version to use, e.g., ``--node=22.11.0``. The default is the
+    last stable version (``latest``). Use ``lts`` for the latest LTS release.
+    Use ``system`` to use system-wide node.
+
+``-l, --list``
+    Lists available node.js versions.
+
+``-p, --python-virtualenv``
+    Use current python virtualenv.
+
+``-r FILENAME, --requirements=FILENAME``
+    Install all the packages listed in the given requirements file.
+
+``--prompt=PROMPT``
+    Provides an alternative prompt prefix for this environment.
+
+``--force``
+    Force installation in a pre-existing directory.
+
+``--update``
+    Install npm packages from file without reinstalling node.
+
+Installation options
+^^^^^^^^^^^^^^^^^^^^
+
+``--prebuilt``
+    Install node.js from prebuilt package (default).
+
+``--source``
+    Install node.js from the source (Unix only).
+
+``--mirror=URL``
+    Set mirror server of nodejs.org to download from.
+
+``-c, --clean-src``
+    Remove "src" directory after installation.
+
+NPM options
+^^^^^^^^^^^
+
+``--npm=NPM_VER``
+    The npm version to use, e.g., ``--npm=10.0.0``.
+    The default is the last available version (``latest``).
+
+``--with-npm``
+    Install npm into the new virtual environment. Required for node.js < 0.6.3.
+    By default, the npm included with node.js is used.
+
+``--no-npm-clean``
+    Skip the npm 0.x cleanup. Cleanup is enabled by default.
+
+Compilation options (Unix only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``-j JOBS, --jobs=JOBS``
+    Sets number of parallel commands at node.js compilation. The default is 2 jobs.
+
+``--load-average=LOAD``
+    Sets maximum load average for executing parallel commands at node.js compilation.
+
+``-m MAKE_PATH, --make=MAKE_PATH``
+    Path to make command.
+
+``--without-ssl``
+    Build node.js without SSL support.
+
+``--debug``
+    Build debug variant of the node.js.
+
+``--profile``
+    Enable profiling for node.js.
+
+Other options
+^^^^^^^^^^^^^
+
+``-v, --verbose``
+    Verbose mode.
+
+``-q, --quiet``
+    Quiet mode.
+
+``-C CONFIG_FILE, --config-file=CONFIG_FILE``
+    Load a different config file than ``~/.nodeenvrc``.
+    Pass an empty string for no config (use built-in defaults).
+
+``--ignore_ssl_certs``
+    Ignore SSL certificates for package downloads. **UNSAFE - use at your own risk**.
+
+``--version``
+    Show program version and exit.
 
 Configuration
 -------------
@@ -290,7 +399,7 @@ There are several alternatives that create isolated environments:
   Nave stores all environments in one directory ``~/.nave``. Can create
   per node version environments using `nave use envname versionname`.
   Can not pass additional arguments into configure (for example --without-ssl)
-  Can't run on windows because it relies on bash.
+  Can't run on windows because it relies on a POSIX shell.
 
 * `nvm <https://github.com/creationix/nvm/blob/master/nvm.sh>`_ - Node Version
   Manager. It is necessarily to do `nvm sync` for caching available node.js

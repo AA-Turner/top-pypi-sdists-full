@@ -1,7 +1,7 @@
 import csv
 from io import StringIO
 
-from utils import match_tables
+from utils import match, match_tables
 
 from chellow.models import (
     Comm,
@@ -31,6 +31,12 @@ from chellow.models import (
 )
 from chellow.reports.report_ecoes_comparison import _process
 from chellow.utils import ct_datetime, to_utc, utc_datetime
+
+
+def test_http_get(mocker, sess, client):
+    mocker.patch("chellow.reports.report_ecoes_comparison.threading.Thread")
+    response = client.get("/reports/ecoes_comparison")
+    match(response, 303)
 
 
 def test_process(mocker, sess):
@@ -124,9 +130,7 @@ def test_process(mocker, sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -157,9 +161,7 @@ def test_process(mocker, sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -206,6 +208,7 @@ def test_process(mocker, sess):
                 "address-line-9",
                 "post-code",
                 "supplier",
+                "",
                 "12/10/2022",
                 "mtc",
                 "12/10/2022",
@@ -222,6 +225,20 @@ def test_process(mocker, sess):
                 "gsp-group",
                 "12/10/2022",
                 "dno",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
                 "msn",
                 "12/10/2022",
                 "meter-type",
@@ -242,6 +259,7 @@ def test_process(mocker, sess):
                 "address-line-9",
                 "post-code",
                 "supplier",
+                "",
                 "12/10/2022",
                 "mtc",
                 "12/10/2022",
@@ -258,6 +276,20 @@ def test_process(mocker, sess):
                 "gsp-group",
                 "12/10/2022",
                 "dno",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
                 "msn",
                 "12/10/2022",
                 "meter-type",
@@ -467,9 +499,7 @@ def test_process_in_chellow_not_ecoes(mocker, sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -658,9 +688,7 @@ def test_process_dtc_none(mocker, sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -707,6 +735,7 @@ def test_process_dtc_none(mocker, sess):
                 "address-line-9",
                 "post-code",
                 "CALB",
+                "supplier-dip",
                 "12/10/2022",
                 "845",
                 "12/10/2022",
@@ -723,6 +752,20 @@ def test_process_dtc_none(mocker, sess):
                 "_L",
                 "12/10/2022",
                 "22",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
                 "hgjeyhuw",
                 "12/10/2022",
                 "",

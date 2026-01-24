@@ -1,11 +1,9 @@
 // Copyright 2019 Google LLC.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #include "tools/fiddle/examples.h"
-// HASH=41638d13e40fa449ece354dde5fb1941
 REG_FIDDLE(Path_conservativelyContainsRect, 256, 140, false, 0) {
 void draw(SkCanvas* canvas) {
-    SkPath path;
-    path.addRoundRect({10, 20, 54, 120}, 10, 20);
+    SkPath path = SkPath::RRect({10, 20, 54, 120}, 10, 20);
     SkRect tests[] = {
       { 10, 40, 54, 80 },
       { 25, 20, 39, 120 },

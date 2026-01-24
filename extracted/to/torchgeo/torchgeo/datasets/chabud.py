@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """ChaBuD dataset."""
@@ -7,6 +7,7 @@ import os
 from collections.abc import Callable, Sequence
 from typing import ClassVar
 
+import einops
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -21,7 +22,7 @@ from .utils import Path, download_url, lazy_import, percentile_normalization
 class ChaBuD(NonGeoDataset):
     """ChaBuD dataset.
 
-    `ChaBuD <https://huggingface.co/spaces/competitions/ChaBuD-ECML-PKDD2023>`__
+    `ChaBuD <https://huggingface.co/datasets/blanchon/ChaBuD>`__
     is a dataset for Change detection for Burned area Delineation and is used
     for the ChaBuD ECML-PKDD 2023 Discovery Challenge.
 
@@ -120,6 +121,9 @@ class ChaBuD(NonGeoDataset):
     def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Return an index within the dataset.
 
+        .. versionchanged:: 0.8
+           Now returns a single T x C x H x W image.
+
         Args:
             index: index to return
 
@@ -178,11 +182,9 @@ class ChaBuD(NonGeoDataset):
         # index specified bands and concatenate
         pre_array = pre_array[..., self.band_indices]
         post_array = post_array[..., self.band_indices]
-        array = np.concatenate([pre_array, post_array], axis=-1).astype(np.float32)
-
+        array = np.stack([pre_array, post_array]).astype(np.float32)
         tensor = torch.from_numpy(array)
-        # Convert from HxWxC to CxHxW
-        tensor = tensor.permute((2, 0, 1))
+        tensor = einops.rearrange(tensor, 't h w c -> t c h w')
         return tensor
 
     def _load_target(self, index: int) -> Tensor:
@@ -201,7 +203,8 @@ class ChaBuD(NonGeoDataset):
 
         tensor = torch.from_numpy(array)
         tensor = tensor.to(torch.long)
-        return tensor
+        # VideoSequential requires time dimension
+        return einops.rearrange(tensor, 'h w -> () h w')
 
     def _verify(self) -> None:
         """Verify the integrity of the dataset."""
@@ -249,9 +252,9 @@ class ChaBuD(NonGeoDataset):
             else:
                 raise ValueError("Dataset doesn't contain some of the RGB bands")
 
-        mask = sample['mask'].numpy()
-        image_pre = sample['image'][: len(self.bands)][rgb_indices].numpy()
-        image_post = sample['image'][len(self.bands) :][rgb_indices].numpy()
+        mask = sample['mask'].numpy()[0]
+        image_pre = sample['image'][0][rgb_indices].numpy()
+        image_post = sample['image'][1][rgb_indices].numpy()
         image_pre = percentile_normalization(image_pre)
         image_post = percentile_normalization(image_post)
 
@@ -259,14 +262,14 @@ class ChaBuD(NonGeoDataset):
 
         showing_predictions = 'prediction' in sample
         if showing_predictions:
-            prediction = sample['prediction']
+            prediction = sample['prediction'][0]
             ncols += 1
 
-        fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(10, ncols * 5))
+        fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(ncols * 5, 10))
 
-        axs[0].imshow(np.transpose(image_pre, (1, 2, 0)))
+        axs[0].imshow(einops.rearrange(image_pre, 'c h w -> h w c'))
         axs[0].axis('off')
-        axs[1].imshow(np.transpose(image_post, (1, 2, 0)))
+        axs[1].imshow(einops.rearrange(image_post, 'c h w -> h w c'))
         axs[1].axis('off')
         axs[2].imshow(mask)
         axs[2].axis('off')

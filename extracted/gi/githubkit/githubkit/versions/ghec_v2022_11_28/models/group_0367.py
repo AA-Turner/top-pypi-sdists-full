@@ -14,25 +14,22 @@ from typing import Union
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class Blob(GitHubModel):
-    """Blob
+class CodeScanningAnalysisDeletion(GitHubModel):
+    """Analysis deletion
 
-    Blob
+    Successful deletion of a code scanning analysis
     """
 
-    content: str = Field()
-    encoding: str = Field()
-    url: str = Field()
-    sha: str = Field()
-    size: Union[int, None] = Field()
-    node_id: str = Field()
-    highlighted_content: Missing[str] = Field(default=UNSET)
+    next_analysis_url: Union[str, None] = Field(
+        description="Next deletable analysis in chain, without last analysis deletion confirmation"
+    )
+    confirm_delete_url: Union[str, None] = Field(
+        description="Next deletable analysis in chain, with last analysis deletion confirmation"
+    )
 
 
-model_rebuild(Blob)
+model_rebuild(CodeScanningAnalysisDeletion)
 
-__all__ = ("Blob",)
+__all__ = ("CodeScanningAnalysisDeletion",)

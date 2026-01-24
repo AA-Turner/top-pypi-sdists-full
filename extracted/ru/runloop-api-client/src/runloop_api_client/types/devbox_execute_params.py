@@ -18,7 +18,16 @@ class DevboxExecuteParams(TypedDict, total=False):
     """
 
     command_id: Required[str]
-    """The command ID for idempotency and tracking"""
+    """The command ID in UUIDv7 string format for idempotency and tracking"""
+
+    last_n: str
+    """Last n lines of standard error / standard out to return (default: 100)"""
+
+    optimistic_timeout: Optional[int]
+    """Timeout in seconds to wait for command completion, up to 25 seconds.
+
+    Defaults to 25 seconds. Operation is not killed.
+    """
 
     shell_name: Optional[str]
     """The name of the persistent shell to create or use if already created.

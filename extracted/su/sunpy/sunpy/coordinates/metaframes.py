@@ -127,7 +127,7 @@ class RotatedSunFrame(SunPyBaseCoordinateFrame):
         between this time and the observation time in ``base``.
     rotation_model : `str`
         Accepted model names are ``'howard'`` (default), ``'snodgrass'``, ``'allen'``, and ``'rigid'``.
-        See the documentation for :func:`~sunpy.physics.differential_rotation.diff_rot` for differences
+        See the documentation for :func:`~sunpy.physics.differential_rotation.differential_rotate` for differences
         between these models.
 
     Notes
@@ -168,7 +168,7 @@ class RotatedSunFrame(SunPyBaseCoordinateFrame):
             newcls = _make_rotatedsun_cls(base_frame.__class__)
             return newcls.__new__(newcls, *args, **kwargs)
 
-        # http://stackoverflow.com/questions/19277399/why-does-object-new-work-differently-in-these-three-cases
+        # https://stackoverflow.com/questions/19277399/why-does-object-new-work-differently-in-these-three-cases
         # See above for why this is necessary. Basically, because some child
         # may override __new__, we must override it here to never pass
         # arguments to the object.__new__ method.

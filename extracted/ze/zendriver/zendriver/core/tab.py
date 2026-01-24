@@ -382,19 +382,18 @@ class Tab(Connection):
         :rtype:
         """
         items: List[Element] = []
-        try:
-            await self.send(cdp.dom.enable(), True)
-            items = await self.find_all(xpath, timeout=0)
-            if not items:
-                loop = asyncio.get_running_loop()
-                start_time = loop.time()
-                while not items:
-                    items = await self.find_all(xpath, timeout=0)
-                    await self.sleep(0.1)
-                    if loop.time() - start_time > timeout:
-                        break
-        finally:
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
+
+        while (loop.time() - start_time) < timeout and len(items) == 0:
+            try:
+                await self.send(cdp.dom.enable(), True)
+                items = await self.find_all(xpath, timeout=0)
+            except Exception:
+                items = []  # find_elements_by_text may raise exception
+
             await self.disable_dom_agent()
+
         return items
 
     async def get(
@@ -464,12 +463,19 @@ class Tab(Connection):
                         return []
                     # if supplied node is not found, the dom has changed since acquiring the element
                     # therefore we need to update our passed node and try again
-                    if isinstance(_node, Element):
+                    if isinstance(_node, element.Element):
                         await _node.update()
                     # make sure this isn't turned into infinite loop
                     setattr(_node, "__last", True)
                     return await self.query_selector_all(selector, _node)
             else:
+                if e.message is not None and "could not find node" in e.message.lower():
+                    # The document node is stale; refetch and retry once
+                    doc = await self.send(cdp.dom.get_document(-1, True))
+                    # Prevent double-retry by marking this node as 'last attempt'
+                    setattr(doc, "__last", True)
+                    return await self.query_selector_all(selector, doc)
+
                 await self.disable_dom_agent()
                 raise
         if not node_ids:
@@ -522,7 +528,7 @@ class Tab(Connection):
                         return None
                     # if supplied node is not found, the dom has changed since acquiring the element
                     # therefore we need to update our passed node and try again
-                    if isinstance(_node, Element):
+                    if isinstance(_node, element.Element):
                         await _node.update()
                     # make sure this isn't turned into infinite loop
                     setattr(_node, "__last", True)
@@ -532,7 +538,11 @@ class Tab(Connection):
                 and "could not find node" in e.message.lower()
                 and doc
             ):
-                return None
+                # The document node is stale; refetch and retry once
+                doc = await self.send(cdp.dom.get_document(-1, True))
+                # Prevent double-retry by marking this node as 'last attempt'
+                setattr(doc, "__last", True)
+                return await self.query_selector(selector, doc)
             else:
                 await self.disable_dom_agent()
                 raise

@@ -46,10 +46,13 @@ options:
     suboptions:
       primary_volume_id:
         description: The primary volume identifier. If not provided, it will be omitted.
-        type: int
+          Required for the Get snapshot pairs with the same P-VOL
+          /Get one snapshot pair tasks.
+        type: str
         required: false
       mirror_unit_id:
         description: The mirror unit identifier. If not provided, it will be omitted.
+          Required for the Get one snapshot pair task.
         type: int
         required: false
 """
@@ -146,7 +149,7 @@ ansible_facts:
           description: Identifier of the pool.
           type: int
           sample: 1
-        primary_hex_volume_id:
+        primary_volume_id_hex:
           description: Hexadecimal identifier of the primary volume.
           type: str
           sample: "00:00:A8"
@@ -175,7 +178,7 @@ ansible_facts:
           description: Retention period for the snapshot in hours.
           type: int
           sample: -1
-        secondary_hex_volume_id:
+        secondary_volume_id_hex:
           description: Hexadecimal identifier of the secondary volume.
           type: str
           sample: "00:00:CD"

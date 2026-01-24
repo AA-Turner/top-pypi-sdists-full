@@ -14,8 +14,8 @@ from .abstract_builder import AbstractBuilder
 from .distinfo import write_metadata
 from .exceptions import UserException
 from .installable import Installable
-from .module import copy_sip_h, copy_sip_pyi
-from .py_versions import OLDEST_SUPPORTED_MINOR
+from .module import copy_sip_h, copy_sip_pyi, get_latest_version
+from .py_versions import DEFAULT_ABI_MAJOR, OLDEST_SUPPORTED_MINOR
 
 
 class Builder(AbstractBuilder):
@@ -82,6 +82,13 @@ class Builder(AbstractBuilder):
                 os.makedirs(os.path.dirname(d_fn_path), exist_ok=True)
 
                 shutil.copy2(s_fn_path, d_fn_path)
+
+        # If we don't know the target ABI at this point then default to the
+        # latest version.
+        if project.target_abi is None:
+            major_version = DEFAULT_ABI_MAJOR
+            minor_version = get_latest_version(major_version)
+            project.target_abi = (major_version, minor_version)
 
         # Create the PKG-INFO file.  This is assumed to be identical to the
         # .dist-info/METADATA file.
@@ -183,7 +190,7 @@ class Builder(AbstractBuilder):
         epoch = int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))
         zip_timestamp = time.gmtime(epoch)[:6]
 
-        with ZipFile(wheel_path, 'w', compression=ZIP_DEFLATED) as zf:
+        with ZipFile(wheel_path, 'w') as zf:
             for dirpath, _, filenames in os.walk('.'):
                 for filename in filenames:
                     # This will result in a name with no leading '.'.
@@ -192,7 +199,7 @@ class Builder(AbstractBuilder):
                     zi = ZipInfo(name, zip_timestamp)
 
                     with open(name, 'rb') as f:
-                        zf.writestr(zi, f.read())
+                        zf.writestr(zi, f.read(), compress_type=ZIP_DEFLATED)
 
         os.chdir(saved_cwd)
 
@@ -261,9 +268,9 @@ class Builder(AbstractBuilder):
 
         if project.sip_module:
             # Generate the sip.h file for the shared sip module now that we
-            # know the target ABI..
-            copy_sip_h(project.build_abi, project.build_dir,
-                    project.sip_module, version_info=project.version_info)
+            # know the target ABI.
+            copy_sip_h(project.build_abi, project.sip_module,
+                    project.build_dir, version_info=project.version_info)
 
         # Create __init__.py if required.
         if project.dunder_init:

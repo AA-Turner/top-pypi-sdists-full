@@ -3,7 +3,7 @@ Type annotations for mediastore-data service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -41,12 +42,6 @@ from .type_defs import (
     PutObjectResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -55,11 +50,11 @@ else:
 __all__ = ("MediaStoreDataClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ContainerNotFoundException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    ObjectNotFoundException: Type[BotocoreClientError]
-    RequestedRangeNotSatisfiableException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ContainerNotFoundException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    ObjectNotFoundException: type[BotocoreClientError]
+    RequestedRangeNotSatisfiableException: type[BotocoreClientError]
 
 class MediaStoreDataClient(AioBaseClient):
     """
@@ -96,7 +91,7 @@ class MediaStoreDataClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore_data/client/#generate_presigned_url)
         """
 
-    async def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an object at the specified path.
 
@@ -163,7 +158,7 @@ class MediaStoreDataClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

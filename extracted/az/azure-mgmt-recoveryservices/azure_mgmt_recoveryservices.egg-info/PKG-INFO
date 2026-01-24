@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-recoveryservices
-Version: 3.1.0
-Summary: Microsoft Azure Recovery Services Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 4.0.0
+Summary: Microsoft Azure Recoveryservices Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -15,14 +14,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
@@ -86,8 +85,47 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 4.0.0 (2025-10-27)
+### Features Added
+
+  - Model `RecoveryServicesClient` added parameter `cloud_setting` in method `__init__`
+  - Client `RecoveryServicesClient` added method `send_request`
+  - Client `RecoveryServicesClient` added operation group `deleted_vaults`
+  - Model `PatchTrackedResource` added property `system_data`
+  - Model `PatchVault` added property `system_data`
+  - Model `PrivateLinkResource` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Model `VaultExtendedInfoResource` added property `properties`
+  - Model `VaultExtendedInfoResource` added property `system_data`
+  - Added model `CloudError`
+  - Added model `DeletedVault`
+  - Added model `DeletedVaultProperties`
+  - Added model `DeletedVaultUndeleteInput`
+  - Added model `DeletedVaultUndeleteInputProperties`
+  - Added model `ProxyResource`
+  - Added model `VaultExtendedInfo`
+  - Added operation group `DeletedVaultsOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. And please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `Resource` deleted or renamed its instance variable `etag`
+  - Model `TrackedResource` deleted or renamed its instance variable `etag`
+  - Model `VaultExtendedInfoResource` deleted or renamed its instance variable `integrity_key`
+  - Model `VaultExtendedInfoResource` deleted or renamed its instance variable `encryption_key`
+  - Model `VaultExtendedInfoResource` deleted or renamed its instance variable `encryption_key_thumbprint`
+  - Model `VaultExtendedInfoResource` deleted or renamed its instance variable `algorithm`
+  - Deleted or renamed model `ClientDiscoveryResponse`
+  - Deleted or renamed model `PrivateLinkResources`
+  - Deleted or renamed model `ReplicationUsageList`
+  - Deleted or renamed model `VaultList`
+  - Deleted or renamed model `VaultUsageList`
+  - Method `VaultsOperations.begin_create_or_update` changed its parameter `x_ms_authorization_auxiliary` from `positional_or_keyword` to `keyword_only`
+  - Method `VaultsOperations.begin_update` changed its parameter `x_ms_authorization_auxiliary` from `positional_or_keyword` to `keyword_only`
+  - Deleted or renamed operation group `RecoveryServicesClientOperationsMixin`
 
 ## 3.1.0 (2025-06-03)
 

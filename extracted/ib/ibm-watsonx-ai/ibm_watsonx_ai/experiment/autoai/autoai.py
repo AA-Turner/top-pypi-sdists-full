@@ -1,9 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import copy
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Union
 from warnings import warn
 
@@ -50,6 +51,7 @@ from ibm_watsonx_ai.utils.autoai.utils import (
 )
 from ibm_watsonx_ai.wml_client_error import (
     ForbiddenActionForGitBasedProject,
+    InvalidValue,
     ParamOutOfRange,
 )
 from ibm_watsonx_ai.workspace import WorkSpace
@@ -64,6 +66,8 @@ __all__ = ["AutoAI"]
 from ...credentials import Credentials
 from ...foundation_models.schema import (
     AutoAIRAGCustomModelConfig,
+    AutoAIRAGDeploymentConfig,
+    AutoAIRAGGenerationConfig,
     AutoAIRAGModelConfig,
     AutoAIRAGRetrievalConfig,
 )
@@ -95,7 +99,7 @@ class AutoAI(BaseExperiment):
         * the path of directory with certificates of trusted CAs
         * `True` - takes the default path to the truststore
         * `False` - makes no verification
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     **Example:**
 
@@ -111,10 +115,11 @@ class AutoAI(BaseExperiment):
                 "iam_role_crn": "...",
                 "iam_serviceid_crn": "...",
                 "instance_id": "...",
-                "url": "https://us-south.ml.cloud.ibm.com"
+                "url": "https://us-south.ml.cloud.ibm.com",
             },
             project_id="...",
-            space_id="...")
+            space_id="...",
+        )
     """
 
     # note: initialization of AutoAI enums as class properties
@@ -135,10 +140,10 @@ class AutoAI(BaseExperiment):
 
     def __init__(
         self,
-        credentials: Union[Credentials, dict, "WorkSpace"] = None,
-        project_id: str = None,
-        space_id: str = None,
-        verify=None,
+        credentials: Credentials | dict | WorkSpace | None = None,
+        project_id: str | None = None,
+        space_id: str | None = None,
+        verify: bool | str | Path | None = None,
         **kwargs,
     ) -> None:
         # note: as workspace is not clear enough to understand, there is a possibility to use pure
@@ -149,11 +154,11 @@ class AutoAI(BaseExperiment):
             if credentials is None:
                 credentials = wml_credentials
 
-            wml_credentials_deprecated_warning = (
-                "`wml_credentials` is deprecated and will be removed in future. "
-                "Instead, please use `credentials`."
-            )
+            wml_credentials_deprecated_warning = "`wml_credentials` is deprecated and will be removed in future. Instead, please use `credentials`."
             warn(wml_credentials_deprecated_warning, category=DeprecationWarning)
+
+        if isinstance(verify, str):
+            verify = Path(verify)
 
         if isinstance(credentials, dict):
             credentials = Credentials.from_dict(credentials, _verify=verify)
@@ -209,7 +214,7 @@ class AutoAI(BaseExperiment):
             from ibm_watsonx_ai.experiment import AutoAI
 
             experiment = AutoAI(...)
-            experiment.runs(filter='Test').list()
+            experiment.runs(filter="Test").list()
         """
 
         if self._workspace is None:
@@ -231,7 +236,7 @@ class AutoAI(BaseExperiment):
         scoring: "Metrics" = None,
         desc: str = None,
         test_size: float = None,  # deprecated
-        holdout_size: float = None,
+        holdout_size: float | int | None = None,
         max_number_of_estimators: int = None,
         train_sample_rows_test_size: float = None,
         include_only_estimators: List[
@@ -321,8 +326,8 @@ class AutoAI(BaseExperiment):
 
         :param test_size: deprecated, use `holdout_size` instead
 
-        :param holdout_size: percentage of the entire dataset to leave as a holdout
-        :type holdout_size: float, optional
+        :param holdout_size: percentage of the entire dataset to leave as a holdout, for AutoAI Forecasting it can be a number of rows of data
+        :type holdout_size: float | int, optional
 
         :param max_number_of_estimators: maximum number (top-K ranked by DAUB model selection)
             of the selected algorithm, or estimator types, for example `LGBMClassifierEstimator`,
@@ -371,7 +376,7 @@ class AutoAI(BaseExperiment):
         :param supporting_features_at_forecast: enables the use of future supporting feature values during the forecast
         :type supporting_features_at_forecast: bool, optional
 
-        :param cognito_transform_names: list of transformers to include in the feature enginnering computation process,
+        :param cognito_transform_names: list of transformers to include in the feature engineering computation process,
             see: AutoAI.Transformers
         :type cognito_transform_names: list[Transformers], optional
 
@@ -547,39 +552,54 @@ class AutoAI(BaseExperiment):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(...)
 
             fairness_info = {
-                       "protected_attributes": [
-                           {"feature": "Sex", "reference_group": ['male'], "monitored_group": ['female']},
-                           {"feature": "Age", "reference_group": [[50,60]], "monitored_group": [[18, 49]]}
-                       ],
-                       "favorable_labels": ["No Risk"],
-                       "unfavorable_labels": ["Risk"],
-                       }
+                "protected_attributes": [
+                    {
+                        "feature": "Sex",
+                        "reference_group": ["male"],
+                        "monitored_group": ["female"],
+                    },
+                    {
+                        "feature": "Age",
+                        "reference_group": [[50, 60]],
+                        "monitored_group": [[18, 49]],
+                    },
+                ],
+                "favorable_labels": ["No Risk"],
+                "unfavorable_labels": ["Risk"],
+            }
 
             optimizer = experiment.optimizer(
-                   name="name of the optimizer.",
-                   prediction_type=AutoAI.PredictionType.BINARY,
-                   prediction_column="y",
-                   scoring=AutoAI.Metrics.ROC_AUC_SCORE,
-                   desc="Some description.",
-                   holdout_size=0.1,
-                   max_number_of_estimators=1,
-                   fairness_info= fairness_info,
-                   cognito_transform_names=[AutoAI.Transformers.SUM,AutoAI.Transformers.MAX],
-                   train_sample_rows_test_size=1,
-                   include_only_estimators=[AutoAI.ClassificationAlgorithms.LGBM, AutoAI.ClassificationAlgorithms.XGB],
-                   t_shirt_size=AutoAI.TShirtSize.L
-               )
+                name="name of the optimizer.",
+                prediction_type=AutoAI.PredictionType.BINARY,
+                prediction_column="y",
+                scoring=AutoAI.Metrics.ROC_AUC_SCORE,
+                desc="Some description.",
+                holdout_size=0.1,
+                max_number_of_estimators=1,
+                fairness_info=fairness_info,
+                cognito_transform_names=[
+                    AutoAI.Transformers.SUM,
+                    AutoAI.Transformers.MAX,
+                ],
+                train_sample_rows_test_size=1,
+                include_only_estimators=[
+                    AutoAI.ClassificationAlgorithms.LGBM,
+                    AutoAI.ClassificationAlgorithms.XGB,
+                ],
+                t_shirt_size=AutoAI.TShirtSize.L,
+            )
 
             optimizer = experiment.optimizer(
-                   name="name of the optimizer.",
-                   prediction_type=AutoAI.PredictionType.MULTICLASS,
-                   prediction_column="y",
-                   scoring=AutoAI.Metrics.ROC_AUC_SCORE,
-                   desc="Some description.",
-               )
+                name="name of the optimizer.",
+                prediction_type=AutoAI.PredictionType.MULTICLASS,
+                prediction_column="y",
+                scoring=AutoAI.Metrics.ROC_AUC_SCORE,
+                desc="Some description.",
+            )
         """
         # note: convert `timeseries` type to PredictionType.FORECASTING:
         if prediction_type == "timeseries":
@@ -599,10 +619,7 @@ class AutoAI(BaseExperiment):
         if (
             prediction_type == PredictionType.TIMESERIES_ANOMALY_PREDICTION
             and self._workspace.api_client.ICP_PLATFORM_SPACES
-            and (
-                self._workspace.api_client.CPD_version <= 4.6
-                or self._workspace.api_client.CPD_version >= 5.1
-            )
+            and self._workspace.api_client.CPD_version >= 5.1
         ):
             raise TSADNotSupported()
 
@@ -655,10 +672,7 @@ class AutoAI(BaseExperiment):
                 include_only_estimators = daub_include_only_estimators
             daub_include_only_estimators = None
 
-        if (
-            train_sample_rows_test_size
-            and self._workspace.api_client.CPD_version >= 4.6
-        ):
+        if train_sample_rows_test_size:
             print(
                 "Note: Using `train_sample_rows_test_size` is deprecated."
                 "Use either `sample_rows_limit` or `sample_percentage_limit` instead."
@@ -669,8 +683,7 @@ class AutoAI(BaseExperiment):
                     and train_sample_rows_test_size <= 1
                 ):
                     print(
-                        "Value of `train_sample_rows_test_size` parameter"
-                        "will be passed as `sample_percentage_limit`."
+                        "Value of `train_sample_rows_test_size` parameter will be passed as `sample_percentage_limit`."
                     )
                     sample_percentage_limit = train_sample_rows_test_size
                 elif (
@@ -678,8 +691,7 @@ class AutoAI(BaseExperiment):
                     and train_sample_rows_test_size > 1
                 ):
                     print(
-                        "Value of `train_sample_rows_test_size` parameter"
-                        "will be passed as `sample_rows_limit`."
+                        "Value of `train_sample_rows_test_size` parameter will be passed as `sample_rows_limit`."
                     )
                     sample_rows_limit = int(train_sample_rows_test_size)
                 train_sample_rows_test_size = None
@@ -798,6 +810,15 @@ class AutoAI(BaseExperiment):
                 scoring,
                 reason=f'"{scoring}" needs a "positive_label" '
                 f"parameter to be defined when used with binary classification.",
+            )
+
+        if isinstance(holdout_size, int) and prediction_type not in {
+            PredictionType.FORECASTING,
+            "timeseries",
+        }:
+            raise InvalidValue(
+                value_name="holdout_size",
+                reason="Integer value is only valid for AutoAI Forecasting",
             )
 
         if self._workspace is None and kwargs.get("t_shirt_size"):
@@ -949,8 +970,9 @@ class AutoAI(BaseExperiment):
         ) = None,  # deprecated
         max_number_of_rag_patterns: int | None = None,
         optimization_metrics: list[str] | None = None,
-        generation: dict[str, Any] | None = None,
+        generation: dict[str, Any] | AutoAIRAGGenerationConfig | None = None,
         retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig] | None = None,
+        deployment: dict[str, Any] | AutoAIRAGDeploymentConfig | None = None,
         **kwargs: Any,
     ) -> "RAGOptimizer":
         """Initialize an AutoAi RAG optimizer.
@@ -985,6 +1007,9 @@ class AutoAI(BaseExperiment):
         :param retrieval: Retrieval settings to be used.
         :type retrieval: list[dict[str, Any] | AutoAIRAGRetrievalConfig], optional
 
+        :param deployment: Best pattern deployment related properties.
+        :type deployment: dict[str, Any] | AutoAIRAGDeploymentConfig, optional
+
         .. deprecated:: IBM Cloud Pak® for Data 5.2
            The parameter ``retrieval_methods`` is deprecated and will be removed in a future version.
            Use ``retrieval`` instead.
@@ -1003,11 +1028,11 @@ class AutoAI(BaseExperiment):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(...)
 
             optimizer = experiment.rag_optimizer(
-                name="RAG - AutoAI",
-                description="Sample description"
+                name="RAG - AutoAI", description="Sample description"
             )
 
 
@@ -1024,7 +1049,11 @@ class AutoAI(BaseExperiment):
                 description="Sample description",
                 max_number_of_rag_patterns=5,
                 chunking=[
-                    {"method": "recursive", "chunk_size": 1024, "chunk_overlap": 64},
+                    {
+                        "method": "recursive",
+                        "chunk_size": 1024,
+                        "chunk_overlap": 64,
+                    },
                     {"method": "semantic", "chunk_size": 1024},
                 ],
                 embedding_models=["ibm/slate-125m-english-rtrvr-v2"],
@@ -1039,8 +1068,21 @@ class AutoAI(BaseExperiment):
                     ],
                 },
                 optimization_metrics=["answer_correctness"],
+                deployment={
+                    "inference_service": {
+                        "space_id": ...,
+                        "auto_deploy": True,
+                    },
+                    "indexing_service": {
+                        "space_id": ...,
+                        "auto_deploy": True,
+                    },
+                },
             )
+
+        - RAG Optimizer quick deployment
         """
+
         from .engines import RAGEngine
 
         engine = RAGEngine(self._workspace)
@@ -1059,6 +1101,7 @@ class AutoAI(BaseExperiment):
             engine=engine,
             generation=generation,
             retrieval=retrieval,
+            deployment=deployment,
             **kwargs,
         )
         optimizer._workspace = self._workspace

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: clease
-Version: 1.1.0
+Version: 1.2.0
 Summary: CLuster Expansion in Atomistic Simulation Environment
 Home-page: https://gitlab.com/computationalmaterials/clease/
 Author: J. H. Chang, D. Kleiven, A. S. Tygesen
@@ -11,17 +11,14 @@ Project-URL: Source, https://gitlab.com/computationalmaterials/clease/
 Keywords: Cluster Expansion,Monte Carlo,Computational materials,Materials research
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Scientific/Engineering :: Chemistry
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: ase>=3.22
-Requires-Dist: numpy<2
+Requires-Dist: numpy
 Requires-Dist: cython
 Requires-Dist: matplotlib
 Requires-Dist: spglib
@@ -48,34 +45,34 @@ Requires-Dist: cython; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: twine; extra == "dev"
-Requires-Dist: black>=22.1.0; extra == "dev"
-Requires-Dist: clang-format>=14.0.3; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
+Requires-Dist: clang-format==21.1.5; extra == "dev"
+Requires-Dist: ruff==0.14.5; extra == "dev"
 Requires-Dist: pyclean>=2.0.0; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Provides-Extra: gui
 Requires-Dist: clease-gui; extra == "gui"
 Provides-Extra: all
-Requires-Dist: black>=22.1.0; extra == "all"
-Requires-Dist: mock; extra == "all"
-Requires-Dist: twine; extra == "all"
-Requires-Dist: ruff; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
 Requires-Dist: pyclean>=2.0.0; extra == "all"
-Requires-Dist: pip; extra == "all"
-Requires-Dist: pytest-cov; extra == "all"
-Requires-Dist: clease-gui; extra == "all"
-Requires-Dist: build; extra == "all"
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: pytest-mock; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: cython; extra == "all"
+Requires-Dist: pre-commit; extra == "all"
 Requires-Dist: ipython; extra == "all"
-Requires-Dist: clang-format>=14.0.3; extra == "all"
-Requires-Dist: tox>=4; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: twine; extra == "all"
+Requires-Dist: cython; extra == "all"
+Requires-Dist: ruff==0.14.5; extra == "all"
 Requires-Dist: pytest-benchmark[histogram]>=3.4.1; extra == "all"
+Requires-Dist: mock; extra == "all"
+Requires-Dist: clang-format==21.1.5; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
+Requires-Dist: pip; extra == "all"
+Requires-Dist: clease-gui; extra == "all"
+Requires-Dist: tox>=4; extra == "all"
+Requires-Dist: pytest-mock; extra == "all"
+Requires-Dist: build; extra == "all"
+Requires-Dist: pytest-cov; extra == "all"
+Dynamic: license-file
+Dynamic: provides-extra
 
 # CLEASE
 
@@ -87,6 +84,14 @@ Requires-Dist: pytest-benchmark[histogram]>=3.4.1; extra == "all"
 CLuster Expansion in Atomic Simulation Environment (CLEASE) is a package that automates the cumbersome setup and construction procedure of cluster expansion (CE). It provides a comprehensive list of tools for specifying parameters for CE, generating training structures, fitting effective cluster interaction (ECI) values and running Monte Carlo simulations. A detailed description of the package can be found in the [documentation](https://clease.readthedocs.io/) and our [paper](https://doi.org/10.1088/1361-648X/ab1bbc).
 
 For information on how to contribute to CLEASE, please see the [contributing](CONTRIBUTING.md) file.
+
+# Documentation
+
+   The updated version of the CLEASE documentation is now available at:
+
+   https://www.clease.org
+
+   Please visit the new site for the latest documentation, tutorials, and resources.
 
 # Installation
 

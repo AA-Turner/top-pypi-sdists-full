@@ -10,6 +10,7 @@ from math import isnan
 import re
 import typing as t
 import warnings
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,6 @@ from pandas.core.dtypes.common import (
     is_timedelta64_dtype,
     is_unsigned_integer_dtype,
 )
-import pytz
 
 from .base import InferFeatureAttributesBase, SingleTableFeatureAttributes
 from .protocols import IFACompatibleADCProtocol
@@ -81,7 +81,18 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
 
     def __call__(self, **kwargs) -> SingleTableFeatureAttributes:
         """Process and return feature attributes."""
+        # For Spark compute types, multiprocessing is less-performant.
+        # If we're working with the SparkDataFrameData ADC, unless the user
+        # specifically sets `max_workers`, we want "sharding" disabled.
+        if (
+            isinstance(AbstractData, type) and
+            isinstance(self.data, AbstractData) and
+            getattr(self.data, "_NATIVE_COMPUTE_TYPE", None) == "spark" and
+            ("max_workers" not in kwargs or kwargs["max_workers"] is None)
+        ):
+            kwargs["max_workers"] = 1
         feature_attributes = self._process(**kwargs)
+
         self.emit_time_zone_warnings(self.missing_tz_features, self.utc_offset_features)
         self.emit_unknown_datetime_warnings(self.unknown_datetime_features)
         return SingleTableFeatureAttributes(
@@ -177,10 +188,11 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                 if dtype in ['datetime64[Y]', 'datetime64[M]', 'datetime64[D]']:
                     return FeatureType.DATE, {}
                 elif isinstance(dtype, pd.DatetimeTZDtype):
-                    if isinstance(dtype.tz, pytz.BaseTzInfo) and dtype.tz.zone:
-                        # If using a named time zone capture it, otherwise
-                        # rely on the offset in the iso8601 format
-                        typing_info['timezone'] = dtype.tz.zone
+                    # If using a named time zone capture it, otherwise
+                    # rely on the offset in the iso8601 format
+                    tz_name = getattr(dtype.tz, 'key', None) or getattr(dtype.tz, 'zone', None)
+                    if tz_name:
+                        typing_info['timezone'] = tz_name
                 return FeatureType.DATETIME, typing_info
 
             elif is_timedelta64_dtype(dtype):
@@ -252,10 +264,11 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                         if converted_dtype in ['datetime64[Y]', 'datetime64[M]', 'datetime64[D]']:
                             return FeatureType.DATE, {}
                         elif isinstance(converted_dtype, pd.DatetimeTZDtype):
-                            if isinstance(converted_dtype.tz, pytz.BaseTzInfo) and converted_dtype.tz.zone:
-                                # If using a named time zone capture it, otherwise
-                                # rely on the offset in the iso8601 format
-                                typing_info['timezone'] = converted_dtype.tz.zone
+                            # If using a named time zone capture it, otherwise
+                            # rely on the offset in the iso8601 format
+                            tz_name = getattr(converted_dtype.tz, 'key', None) or getattr(converted_dtype.tz, 'zone', None)
+                            if tz_name:
+                                typing_info['timezone'] = tz_name
                         return FeatureType.DATETIME, typing_info
                     else:
                         # Only add this to the warning list if we've tried `max_samples` times to
@@ -309,6 +322,29 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                 return val
         return None
 
+    def _get_n_random_rows(self, samples: int = 5000, seed: int | None = None) -> pd.DataFrame:
+        """
+        Get random samples from the given data as a DataFrame.
+
+        Parameters
+        ----------
+        samples : int, default 5000
+            The number of samples to randomly get from the ADC.
+        seed : int, default None
+            (Optional) The random number seed to use.
+
+        Returns
+        -------
+        pd.DataFrame
+            A Pandas DataFrame containing the original header from the source file
+            followed by the requested number of samples.
+        """
+        df = self.data.get_n_random_rows(samples, seed=seed)
+        # Remove the header if it was included
+        if len(df) > samples:
+            df.drop(index=0, inplace=True)
+        return df
+
     def _get_random_value(self, feature_name: str, no_nulls: bool = False) -> t.Any | None:
         """
         Return a random sample from the given column.
@@ -322,7 +358,7 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
 
     def _get_unique_count(self, feature_name: str | Iterable[str]) -> int:
         """Get the number of unique values in the provided column(s)."""
-        return self.data.get_unique_count(feature_name)
+        return self.data.get_unique_count(feature_name)  # pyright: ignore[reportAttributeAccessIssue]
 
     @classmethod
     def _value_to_number(cls, value: t.Any) -> t.Any:
@@ -611,13 +647,12 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
             }
 
         dtype = self.data.get_column_dtype(feature_name)
+        # Pandas datetime64 columns will be deserialized to ISO8601
         dt_format = ISO_8601_FORMAT
-        if not self._is_iso8601_datetime_column(feature_name):
-            raise ValueError(f'Feature {feature_name} recognized as a datetime with non-ISO8601 format. Please '
-                             'specify the format via `datetime_feature_formats`.')
         if isinstance(dtype, pd.DatetimeTZDtype):
             # Include timezone offset in format
             dt_format += '%z'
+        # If dtype is an object, we will need to try to infer the format
         elif dtype == 'object':
             first_non_null = self._get_first_non_null(feature_name)
             if isinstance(first_non_null, datetime.datetime):
@@ -628,17 +663,15 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                     dt_format += '%z'
             elif self._is_iso8601_datetime_column(feature_name):
                 # if datetime, determine the iso8601 format it's using
-                if first_non_null := self._get_first_non_null(feature_name):
-                    fmt = determine_iso_format(first_non_null, feature_name)
-                    return {
-                        'type': 'continuous',
-                        'data_type': 'formatted_date_time',
-                        'date_time_format': fmt
-                    }
-            # Try converting the string to datetime using Pandas to determine
-            # if tz info is present.
-            elif pd.to_datetime(first_non_null).tz is not None:
-                dt_format += '%z'
+                fmt = determine_iso_format(first_non_null, feature_name) # Handles timezone checking
+                return {
+                    'type': 'continuous',
+                    'data_type': 'formatted_date_time',
+                    'date_time_format': fmt
+                }
+            else:
+                raise ValueError(f'Feature {feature_name} recognized as a datetime with non-ISO8601 format. Please '
+                                 'specify the format via `datetime_feature_formats`.')
         return {
             'type': 'continuous',
             'data_type': 'formatted_date_time',
@@ -646,7 +679,8 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
         }
 
     def _infer_date_attributes(self, feature_name: str) -> dict:
-        if not self._is_iso8601_datetime_column(feature_name):
+        dtype = self.data.get_column_dtype(feature_name)
+        if dtype == "object" and not self._is_iso8601_datetime_column(feature_name):
             raise ValueError(f'Feature {feature_name} recognized as a date with non-ISO8601 format. Please '
                              'specify the format via `datetime_feature_formats`.')
         return {
@@ -713,11 +747,11 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
                 guess_nominals = False
             else:
                 # Guess nominals if ALL of:
-                #   - `col_min` and `col_max` are both greater than zero
+                #   - `col_min` and `col_max` are both >= -1 (often a "special" number that could indicate nominality)
                 #   - Their length is at least 5
                 #   - They have the same length
                 guess_nominals = (
-                    col_min > 0 and col_max > 0 and
+                    col_min >= -1 and col_max >= -1 and
                     len(str(col_min)) >= 5 and
                     len(str(col_min)) == len(str(col_max))
                 )
@@ -736,43 +770,6 @@ class InferFeatureAttributesAbstractData(InferFeatureAttributesBase):
             }
 
         return attributes
-
-    def _infer_string_attributes(self, feature_name: str) -> dict:
-        # Column has arbitrary string values, first check if they
-        # are ISO8601 datetimes.
-        if self._is_iso8601_datetime_column(feature_name):
-            # if datetime, determine the iso8601 format it's using
-            if first_non_null := self._get_first_non_null(feature_name):
-                fmt = determine_iso_format(first_non_null, feature_name)
-                return {
-                    'type': 'continuous',
-                    'data_type': 'formatted_date_time',
-                    'date_time_format': fmt
-                }
-            else:
-                # It isn't clear how this method would be called on a feature
-                # if it has no data, but just in case...
-                return {
-                    'type': 'continuous',
-                }
-        elif self._is_json_feature(feature_name):
-            return {
-                'type': 'continuous',
-                'data_type': 'json'
-            }
-        elif self._is_yaml_feature(feature_name):
-            return {
-                'type': 'continuous',
-                'data_type': 'yaml'
-            }
-        else:
-            return self._infer_unknown_attributes(feature_name)
-
-    def _infer_unknown_attributes(self, feature_name: str) -> dict:
-        return {
-            'type': 'nominal',
-            'data_type': 'string',
-        }
 
     def _get_unique_values(self, feature_name: str) -> set[t.Any]:
         """Return the set of unique values for the given feature."""

@@ -4,7 +4,6 @@ from enum import Enum
 
 from opentelemetry.trace import TracerProvider
 import lmnr.opentelemetry_lib.tracing._instrument_initializers as initializers
-from lmnr.sdk.client.synchronous.sync_client import LaminarClient
 from lmnr.sdk.client.asynchronous.async_client import AsyncLaminarClient
 
 module_logger = logging.getLogger(__name__)
@@ -20,6 +19,7 @@ class Instruments(Enum):
     BROWSER_USE_SESSION = "browser_use_session"
     BUBUS = "bubus"
     CHROMA = "chroma"
+    CLAUDE_AGENT = "claude_agent"
     COHERE = "cohere"
     CREWAI = "crewai"
     CUA_AGENT = "cua_agent"
@@ -27,9 +27,11 @@ class Instruments(Enum):
     GOOGLE_GENAI = "google_genai"
     GROQ = "groq"
     HAYSTACK = "haystack"
+    KERNEL = "kernel"
     LANCEDB = "lancedb"
     LANGCHAIN = "langchain"
     LANGGRAPH = "langgraph"
+    LITELLM = "litellm"
     LLAMA_INDEX = "llama_index"
     MARQO = "marqo"
     MCP = "mcp"
@@ -67,6 +69,7 @@ INSTRUMENTATION_INITIALIZERS: dict[
     Instruments.BROWSER_USE_SESSION: initializers.BrowserUseSessionInstrumentorInitializer(),
     Instruments.BUBUS: initializers.BubusInstrumentorInitializer(),
     Instruments.CHROMA: initializers.ChromaInstrumentorInitializer(),
+    Instruments.CLAUDE_AGENT: initializers.ClaudeAgentInstrumentorInitializer(),
     Instruments.COHERE: initializers.CohereInstrumentorInitializer(),
     Instruments.CREWAI: initializers.CrewAIInstrumentorInitializer(),
     Instruments.CUA_AGENT: initializers.CuaAgentInstrumentorInitializer(),
@@ -74,9 +77,11 @@ INSTRUMENTATION_INITIALIZERS: dict[
     Instruments.GOOGLE_GENAI: initializers.GoogleGenAIInstrumentorInitializer(),
     Instruments.GROQ: initializers.GroqInstrumentorInitializer(),
     Instruments.HAYSTACK: initializers.HaystackInstrumentorInitializer(),
+    Instruments.KERNEL: initializers.KernelInstrumentorInitializer(),
     Instruments.LANCEDB: initializers.LanceDBInstrumentorInitializer(),
     Instruments.LANGCHAIN: initializers.LangchainInstrumentorInitializer(),
     Instruments.LANGGRAPH: initializers.LanggraphInstrumentorInitializer(),
+    Instruments.LITELLM: initializers.LitellmInstrumentorInitializer(),
     Instruments.LLAMA_INDEX: initializers.LlamaIndexInstrumentorInitializer(),
     Instruments.MARQO: initializers.MarqoInstrumentorInitializer(),
     Instruments.MCP: initializers.MCPInstrumentorInitializer(),
@@ -105,7 +110,6 @@ def init_instrumentations(
     tracer_provider: TracerProvider,
     instruments: set[Instruments] | None = None,
     block_instruments: set[Instruments] | None = None,
-    client: LaminarClient | None = None,
     async_client: AsyncLaminarClient | None = None,
 ):
     block_instruments = block_instruments or set()
@@ -124,7 +128,7 @@ def init_instrumentations(
             continue
 
         try:
-            instrumentor = initializer.init_instrumentor(client, async_client)
+            instrumentor = initializer.init_instrumentor(async_client)
             if instrumentor is None:
                 continue
             if not instrumentor.is_instrumented_by_opentelemetry:

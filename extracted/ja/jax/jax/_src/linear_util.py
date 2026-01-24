@@ -77,7 +77,7 @@ from jax._src import config
 from jax._src import core
 from jax._src import traceback_util
 from jax._src.tree_util import KeyPath, generate_key_paths, keystr
-from jax._src.util import HashableFunction, curry, fun_name, register_cache
+from jax._src.util import curry, fun_name, register_cache
 
 
 traceback_util.register_exclusion(__file__)
@@ -333,6 +333,11 @@ class DebugInfo(NamedTuple):
     func_src_comps[0] = name
     return self._replace(func_src_info=" ".join(func_src_comps))
 
+  def set_result_paths(self, ans):
+    result_paths = tuple(f"result{_clean_keystr_arg_names(path)}"
+                         for path, _ in generate_key_paths(ans))
+    return self._replace(result_paths=result_paths)
+
   @property
   def func_filename(self) -> str | None:
     m = _re_func_src_info.match(self.func_src_info)
@@ -347,19 +352,14 @@ class DebugInfo(NamedTuple):
 
   def safe_arg_names(self, expected_count: int) -> tuple[str, ...]:
     """Get the arg_names with a safety check."""
+    self.assert_arg_names(expected_count)
     if self.arg_names is not None:
-      # TODO(necula): re-enable this assertion
-      #assert len(self.arg_names) == expected_count, (self.arg_names, expected_count)
-      if len(self.arg_names) != expected_count:
-        return ("",) * expected_count
       return self.arg_names
     return ("",) * expected_count
 
   def assert_arg_names(self, expected_count: int):
-    # TODO(necula): re-enable this assertion
-    #assert self.arg_names is None or len(self.arg_names) == expected_count, (
-    #      self.arg_names, expected_count)
-    pass
+    assert self.arg_names is None or len(self.arg_names) == expected_count, (
+        expected_count, self)
 
   def filter_arg_names(self, keep: Sequence[bool]) -> tuple[str, ...] | None:
     """Keep only the arg_names for which `keep` is True."""
@@ -370,18 +370,15 @@ class DebugInfo(NamedTuple):
   def safe_result_paths(self, expected_count: int) -> tuple[str, ...]:
     """Get the result paths with a safety check. Empty paths mean unknown."""
     assert self.result_paths is not initial_result_paths and not callable(self.result_paths), self
+    self.assert_result_paths(expected_count)
     if self.result_paths is not None:
-      # TODO(necula): re-enable this assertion
-      # assert len(self.result_paths) == expected_count, (self.result_paths, expected_count)  # type: ignore
       return self.result_paths  # type: ignore
 
     return ("",) * expected_count
 
   def assert_result_paths(self, expected_count: int):
-    # TODO(necula): re-enable this assertion
-    #assert self.result_paths is None or len(self.result_paths) == expected_count, (  # type: ignore
-    #      self.result_paths, expected_count)
-    pass
+    assert self.result_paths is None or len(self.result_paths) == expected_count, (  # type: ignore
+        expected_count, self)
 
   def filter_result_paths(self, keep: Sequence[bool]) -> tuple[str, ...] | None:
     """Keep only the result_paths for which `keep` is True."""
@@ -408,13 +405,8 @@ def wrap_init(f: Callable, params=None, *, debug_info: DebugInfo) -> WrappedFun:
   """Wraps function `f` as a `WrappedFun`, suitable for transformation."""
   params_dict = {} if params is None else params
   params = () if params is None else tuple(sorted(params.items()))
+  debug_info = debug_info._replace(result_paths=None)
   fun = WrappedFun(f, partial(f, **params_dict), (), (), params, None, debug_info)
-  if debug_info.result_paths is initial_result_paths:
-    fun, result_paths_thunk = _get_result_paths_thunk(fun)
-    debug_info = debug_info._replace(
-        result_paths=HashableFunction(result_paths_thunk, closure=()))
-  fun = WrappedFun(fun.f, fun.f_transformed, fun.transforms, fun.stores,
-                   fun.params, fun.in_type, debug_info)
   return fun
 
 
@@ -424,54 +416,18 @@ def _clean_keystr_arg_names(k: KeyPath) -> str:
   res = keystr(k)
   return _re_clean_keystr_arg_names.sub(r"\1", res)
 
-@transformation_with_aux2
-def _get_result_paths_thunk(_fun: Callable, _store: Store, *args, **kwargs):
-  ans = _fun(*args, **kwargs)
-  result_paths = tuple(f"result{_clean_keystr_arg_names(path)}" for path, _ in generate_key_paths(ans))
-  if _store:
-    # In some instances a lu.WrappedFun is called multiple times, e.g.,
-    # the bwd function in a custom_vjp
-    assert _store.val == result_paths, (_store, result_paths)
-  else:
-    _store.store(result_paths)
-  return ans
-
 def annotate(f: WrappedFun, in_type: core.InputType | None) -> WrappedFun:
   assert f.in_type is None
   if in_type is None:
     return f
   _check_input_type(in_type)
-  return WrappedFun(f.f, f.f_transformed, f.transforms, f.stores, f.params, in_type, f.debug_info)
+  return WrappedFun(f.f, f.f_transformed, f.transforms, f.stores, f.params,
+                    in_type, f.debug_info)
 
 def _check_input_type(in_type: core.InputType) -> None:
   # Check that in_type is syntactically well-formed
-  assert type(in_type) is tuple and all(type(e) is tuple for e in in_type)
-  assert all(isinstance(a, core.AbstractValue) and type(b) is bool
-             for a, b in in_type)
-
-  def valid_size(d) -> bool:
-    if isinstance(d, core.DBIdx) and type(d.val) is int and d.val >= 0:
-      return True
-    return (isinstance(d, (int, core.DBIdx, core.DArray)) and
-            (not isinstance(d, core.DArray) or type(d) is core.bint and not d.shape))
-  assert all(valid_size(d) for a, _ in in_type if type(a) is core.DShapedArray
-             for d in a.shape)
-
-  # Check that all DBIdx point to positions to the left of the input on which
-  # they appear.
-  assert all(d.val < i for i, (aval, _) in enumerate(in_type)
-             if isinstance(aval, core.DShapedArray) for d in aval.shape
-             if isinstance(d, core.DBIdx))
-
-  # Check that all implicit arguments have at least one DBIdx pointing to them.
-  provided = [e for _, e in in_type]
-  for aval, _ in in_type:
-    if type(aval) is core.DShapedArray:
-      for d in aval.shape:
-        if isinstance(d, core.DBIdx):
-          provided[d.val] = True
-  assert all(provided)
-
+  assert type(in_type) is tuple
+  assert all(isinstance(a, core.AbstractValue) for a in in_type)
 
 def cache(call: Callable, *,
           explain: Callable[[WrappedFun, bool, dict, tuple, float], None] | None = None):

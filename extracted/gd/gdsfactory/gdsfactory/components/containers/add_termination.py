@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+__all__ = ["add_termination"]
+
 from functools import partial
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.tapers.taper import taper
 from gdsfactory.typings import ComponentSpec
+
+from ..tapers.taper import taper
 
 _terminator_function = partial(taper, width2=0.1)
 

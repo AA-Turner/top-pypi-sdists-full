@@ -5,10 +5,10 @@ from django.db.models import DecimalField, Field, FloatField, PositiveIntegerFie
 class AbstractDynamicField(Field):
     dependencies = []
 
-    def __init__(self, *args, dependencies=list(), **kwargs):
+    def __init__(self, *args, dependencies: list | None = None, **kwargs):
         blank = kwargs.pop("blank", True)
         null = kwargs.pop("null", True)
-        self.dependencies = dependencies
+        self.dependencies = dependencies if dependencies else []
         super().__init__(*args, blank=blank, null=null, **kwargs)
 
 

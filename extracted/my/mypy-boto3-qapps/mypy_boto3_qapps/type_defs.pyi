@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -37,12 +38,6 @@ from .literals import (
     SubmissionMutationKindType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -222,7 +217,7 @@ TextInputCardInputTypeDef = TypedDict(
 )
 
 class SubmissionTypeDef(TypedDict):
-    value: NotRequired[Dict[str, Any]]
+    value: NotRequired[dict[str, Any]]
     submissionId: NotRequired[str]
     timestamp: NotRequired[datetime]
 
@@ -231,7 +226,7 @@ FileUploadCardTypeDef = TypedDict(
     {
         "id": str,
         "title": str,
-        "dependencies": List[str],
+        "dependencies": list[str],
         "type": CardTypeType,
         "filename": NotRequired[str],
         "fileId": NotRequired[str],
@@ -243,7 +238,7 @@ QPluginCardTypeDef = TypedDict(
     {
         "id": str,
         "title": str,
-        "dependencies": List[str],
+        "dependencies": list[str],
         "type": CardTypeType,
         "prompt": str,
         "pluginType": PluginTypeType,
@@ -256,7 +251,7 @@ TextInputCardTypeDef = TypedDict(
     {
         "id": str,
         "title": str,
-        "dependencies": List[str],
+        "dependencies": list[str],
         "type": CardTypeType,
         "placeholder": NotRequired[str],
         "defaultValue": NotRequired[str],
@@ -293,7 +288,7 @@ class CreateLibraryItemInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -328,7 +323,7 @@ class DisassociateQAppFromUserInputTypeDef(TypedDict):
 
 class DocumentAttributeValueOutputTypeDef(TypedDict):
     stringValue: NotRequired[str]
-    stringListValue: NotRequired[List[str]]
+    stringListValue: NotRequired[list[str]]
     longValue: NotRequired[int]
     dateValue: NotRequired[datetime]
 
@@ -339,7 +334,7 @@ class ExportQAppSessionDataInputTypeDef(TypedDict):
     sessionId: str
 
 class FormInputCardMetadataOutputTypeDef(TypedDict):
-    schema: Dict[str, Any]
+    schema: dict[str, Any]
 
 class FormInputCardMetadataTypeDef(TypedDict):
     schema: Mapping[str, Any]
@@ -458,7 +453,7 @@ class BatchUpdateCategoryInputTypeDef(TypedDict):
 class CardStatusTypeDef(TypedDict):
     currentState: ExecutionStatusType
     currentValue: str
-    submissions: NotRequired[List[SubmissionTypeDef]]
+    submissions: NotRequired[list[SubmissionTypeDef]]
 
 class CardValueTypeDef(TypedDict):
     cardId: str
@@ -469,7 +464,7 @@ class LibraryItemMemberTypeDef(TypedDict):
     libraryItemId: str
     appId: str
     appVersion: int
-    categories: List[CategoryTypeDef]
+    categories: list[CategoryTypeDef]
     status: str
     createdAt: datetime
     createdBy: str
@@ -498,7 +493,7 @@ class CreateLibraryItemOutputTypeDef(TypedDict):
 class CreatePresignedUrlOutputTypeDef(TypedDict):
     fileId: str
     presignedUrl: str
-    presignedUrlFields: Dict[str, str]
+    presignedUrlFields: dict[str, str]
     presignedUrlExpiration: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -514,7 +509,7 @@ class CreateQAppOutputTypeDef(TypedDict):
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    requiredCapabilities: List[AppRequiredCapabilityType]
+    requiredCapabilities: list[AppRequiredCapabilityType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -530,7 +525,7 @@ class GetLibraryItemOutputTypeDef(TypedDict):
     libraryItemId: str
     appId: str
     appVersion: int
-    categories: List[CategoryTypeDef]
+    categories: list[CategoryTypeDef]
     status: str
     createdAt: datetime
     createdBy: str
@@ -547,11 +542,11 @@ class ImportDocumentOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCategoriesOutputTypeDef(TypedDict):
-    categories: List[CategoryTypeDef]
+    categories: list[CategoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartQAppSessionOutputTypeDef(TypedDict):
@@ -563,7 +558,7 @@ class UpdateLibraryItemOutputTypeDef(TypedDict):
     libraryItemId: str
     appId: str
     appVersion: int
-    categories: List[CategoryTypeDef]
+    categories: list[CategoryTypeDef]
     status: str
     createdAt: datetime
     createdBy: str
@@ -587,7 +582,7 @@ class UpdateQAppOutputTypeDef(TypedDict):
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    requiredCapabilities: List[AppRequiredCapabilityType]
+    requiredCapabilities: list[AppRequiredCapabilityType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateQAppSessionOutputTypeDef(TypedDict):
@@ -620,7 +615,7 @@ FormInputCardTypeDef = TypedDict(
     {
         "id": str,
         "title": str,
-        "dependencies": List[str],
+        "dependencies": list[str],
         "type": CardTypeType,
         "metadata": FormInputCardMetadataOutputTypeDef,
         "computeMode": NotRequired[InputCardComputeModeType],
@@ -668,7 +663,7 @@ class ListQAppsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListQAppsOutputTypeDef(TypedDict):
-    apps: List[UserAppItemTypeDef]
+    apps: list[UserAppItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -685,7 +680,7 @@ class PermissionOutputTypeDef(TypedDict):
 class QAppSessionDataTypeDef(TypedDict):
     cardId: str
     user: UserTypeDef
-    value: NotRequired[Dict[str, Any]]
+    value: NotRequired[dict[str, Any]]
     submissionId: NotRequired[str]
     timestamp: NotRequired[datetime]
 
@@ -696,7 +691,7 @@ class GetQAppSessionOutputTypeDef(TypedDict):
     appVersion: int
     latestPublishedAppVersion: int
     status: ExecutionStatusType
-    cardStatus: Dict[str, CardStatusTypeDef]
+    cardStatus: dict[str, CardStatusTypeDef]
     userIsHost: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -714,7 +709,7 @@ class UpdateQAppSessionInputTypeDef(TypedDict):
     values: NotRequired[Sequence[CardValueTypeDef]]
 
 class ListLibraryItemsOutputTypeDef(TypedDict):
-    libraryItems: List[LibraryItemMemberTypeDef]
+    libraryItems: list[LibraryItemMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -723,9 +718,9 @@ class PredictQAppInputTypeDef(TypedDict):
     options: NotRequired[PredictQAppInputOptionsTypeDef]
 
 class AttributeFilterOutputTypeDef(TypedDict):
-    andAllFilters: NotRequired[List[Dict[str, Any]]]
-    orAllFilters: NotRequired[List[Dict[str, Any]]]
-    notFilter: NotRequired[Dict[str, Any]]
+    andAllFilters: NotRequired[list[dict[str, Any]]]
+    orAllFilters: NotRequired[list[dict[str, Any]]]
+    notFilter: NotRequired[dict[str, Any]]
     equalsTo: NotRequired[DocumentAttributeOutputTypeDef]
     containsAll: NotRequired[DocumentAttributeOutputTypeDef]
     containsAny: NotRequired[DocumentAttributeOutputTypeDef]
@@ -741,19 +736,19 @@ class DocumentAttributeTypeDef(TypedDict):
 class DescribeQAppPermissionsOutputTypeDef(TypedDict):
     resourceArn: str
     appId: str
-    permissions: List[PermissionOutputTypeDef]
+    permissions: list[PermissionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateQAppPermissionsOutputTypeDef(TypedDict):
     resourceArn: str
     appId: str
-    permissions: List[PermissionOutputTypeDef]
+    permissions: list[PermissionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListQAppSessionDataOutputTypeDef(TypedDict):
     sessionId: str
     sessionArn: str
-    sessionData: List[QAppSessionDataTypeDef]
+    sessionData: list[QAppSessionDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -773,12 +768,12 @@ QQueryCardTypeDef = TypedDict(
     {
         "id": str,
         "title": str,
-        "dependencies": List[str],
+        "dependencies": list[str],
         "type": CardTypeType,
         "prompt": str,
         "outputSource": CardOutputSourceType,
         "attributeFilter": NotRequired[AttributeFilterOutputTypeDef],
-        "memoryReferences": NotRequired[List[str]],
+        "memoryReferences": NotRequired[list[str]],
     },
 )
 
@@ -821,12 +816,12 @@ QQueryCardInputTypeDef = TypedDict(
 )
 
 class AppDefinitionInputOutputTypeDef(TypedDict):
-    cards: List[CardInputOutputTypeDef]
+    cards: list[CardInputOutputTypeDef]
     initialPrompt: NotRequired[str]
 
 class AppDefinitionTypeDef(TypedDict):
     appDefinitionVersion: str
-    cards: List[CardTypeDef]
+    cards: list[CardTypeDef]
     canEdit: NotRequired[bool]
 
 class CardInputTypeDef(TypedDict):
@@ -853,7 +848,7 @@ class GetQAppOutputTypeDef(TypedDict):
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    requiredCapabilities: List[AppRequiredCapabilityType]
+    requiredCapabilities: list[AppRequiredCapabilityType]
     appDefinition: AppDefinitionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

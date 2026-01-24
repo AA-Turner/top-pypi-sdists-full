@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import html
@@ -15,18 +15,31 @@ from marimo._output.utils import uri_encode_component
 from marimo._schemas.notebook import NotebookV1
 from marimo._schemas.session import NotebookSessionV1
 from marimo._server.api.utils import parse_title
-from marimo._server.file_manager import read_css_file, read_html_head_file
-from marimo._server.model import SessionMode
 from marimo._server.tokens import SkewProtectionToken
+from marimo._session.model import SessionMode
+from marimo._session.notebook import read_css_file, read_html_head_file
 from marimo._utils.versions import is_editable
 from marimo._version import __version__
 
 MOUNT_CONFIG_TEMPLATE = "'{{ mount_config }}'"
 
 
+_json_script_escapes = {
+    ord(">"): "\\u003E",
+    ord("<"): "\\u003C",
+    ord("&"): "\\u0026",
+}
+
+
 def _html_escape(text: str) -> str:
     """Escape HTML special characters."""
     return html.escape(text, quote=True)
+
+
+def json_script(data: Any) -> str:
+    # See https://github.com/django/django/blob/main/django/utils/html.py#L88C1-L92C2
+    # Only escape values that can break out of a script tag
+    return json.dumps(data, sort_keys=True).translate(_json_script_escapes)
 
 
 def _get_mount_config(
@@ -41,7 +54,7 @@ def _get_mount_config(
     show_app_code: bool = True,
     session_snapshot: Optional[NotebookSessionV1] = None,
     notebook_snapshot: Optional[NotebookV1] = None,
-    remote_url: Optional[str] = None,
+    runtime_config: Optional[list[dict[str, Any]]] = None,
 ) -> str:
     """
     Return a JSON string with custom indentation and sorting.
@@ -62,7 +75,7 @@ def _get_mount_config(
         },
         "notebook": notebook_snapshot,
         "session": session_snapshot,
-        "runtime_config": [{"url": remote_url}] if remote_url else None,
+        "runtime_config": runtime_config,
     }
 
     return """{{
@@ -78,9 +91,7 @@ def _get_mount_config(
             "session": {session},
             "runtimeConfig": {runtime_config},
         }}
-""".format(
-        **{k: json.dumps(v, sort_keys=True) for k, v in options.items()}
-    ).strip()
+""".format(**{k: json_script(v) for k, v in options.items()}).strip()
 
 
 def home_page_template(
@@ -113,7 +124,6 @@ def home_page_template(
             user_config=user_config,
             config_overrides=config_overrides,
             app_config=None,
-            remote_url=None,
         ),
     )
 
@@ -124,6 +134,7 @@ def home_page_template(
 
 
 def notebook_page_template(
+    *,
     html: str,
     base_url: str,
     user_config: MarimoConfig,
@@ -132,15 +143,16 @@ def notebook_page_template(
     app_config: _AppConfig,
     filename: Optional[str],
     mode: SessionMode,
-    remote_url: Optional[str] = None,
+    session_snapshot: Optional[NotebookSessionV1] = None,
+    notebook_snapshot: Optional[NotebookV1] = None,
+    runtime_config: Optional[list[dict[str, Any]]] = None,
     asset_url: Optional[str] = None,
 ) -> str:
     html = html.replace("{{ base_url }}", base_url)
 
     # When we have a remote URL, let's pre-populate the index.html page
     # with a view of the notebook.
-    notebook_snapshot = None
-    if remote_url and filename:
+    if runtime_config and filename and notebook_snapshot is None:
         filepath = Path(filename)
         if filepath.exists():
             notebook_snapshot = MarimoConvert.from_py(
@@ -167,8 +179,9 @@ def notebook_page_template(
             user_config=user_config,
             config_overrides=config_overrides,
             app_config=app_config,
-            remote_url=remote_url,
+            runtime_config=runtime_config,
             notebook_snapshot=notebook_snapshot,
+            session_snapshot=session_snapshot,
         ),
     )
 
@@ -241,7 +254,7 @@ def static_notebook_template(
             app_config=app_config,
             session_snapshot=session_snapshot,
             notebook_snapshot=notebook_snapshot,
-            remote_url=None,
+            runtime_config=None,
         ),
     )
 
@@ -258,7 +271,7 @@ def static_notebook_template(
         f"""
     <script data-marimo="true">
         window.__MARIMO_STATIC__ = {{}};
-        window.__MARIMO_STATIC__.files = {json.dumps(files)};
+        window.__MARIMO_STATIC__.files = {json_script(files)};
     </script>
     """
     )
@@ -361,7 +374,7 @@ def wasm_notebook_template(
             app_config=app_config,
             version=version,
             show_app_code=show_code,
-            remote_url=None,
+            runtime_config=None,
         ),
     )
 

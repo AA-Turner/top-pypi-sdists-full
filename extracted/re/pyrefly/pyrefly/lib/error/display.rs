@@ -6,10 +6,10 @@
  */
 
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::callable::FunctionKind;
 
 use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckKind;
-use crate::types::callable::FuncId;
 use crate::types::display::TypeDisplayContext;
 use crate::types::types::Type;
 
@@ -50,13 +50,16 @@ impl ErrorContext {
                 format!("Cannot match positional sub-patterns in `{ty}`")
             }
             Self::ImportNotFound(import) => {
-                format!("Could not find import of `{import}`")
+                format!("Cannot find module `{import}`")
             }
+            Self::ImportNotTyped(import) => format!("Cannot find type stubs for module `{import}`"),
         }
     }
 }
 
 impl TypeCheckKind {
+    /// Note: `got` and `want` should be processed through `AnswersSolver::for_display` before calling this function
+    /// otherwise printed type representations may be non-deterministic due to unsolved vars
     pub fn format_error(&self, got: &Type, want: &Type, current_module: ModuleName) -> String {
         let mut ctx = TypeDisplayContext::new(&[got, want]);
         match self {
@@ -72,7 +75,7 @@ impl TypeCheckKind {
             }
             Self::AugmentedAssignment => {
                 format!(
-                    "Augmented assignment produces a value of type `{}`, which is not assignable to `{}`",
+                    "Augmented assignment result `{}` is not assignable to `{}`",
                     ctx.display(got),
                     ctx.display(want),
                 )
@@ -172,7 +175,7 @@ impl TypeCheckKind {
                 },
                 ctx.display(want),
             ),
-            Self::TypedDictUnpacking => format!(
+            Self::TypedDictUnpacking | Self::TypedDictOpenUnpacking => format!(
                 "Unpacked `{}` is not assignable to `{}`",
                 ctx.display(got),
                 ctx.display(want)
@@ -190,7 +193,7 @@ impl TypeCheckKind {
                 ctx.display(want),
             ),
             Self::IterationVariableMismatch(var, real_want) => format!(
-                "Cannot use variable `{}` with type `{}` to iterate through `{}`",
+                "Cannot use variable `{}` with type `{}` to iterate over elements of type `{}`",
                 var,
                 ctx.display(real_want),
                 ctx.display(got),
@@ -218,12 +221,12 @@ impl TypeCheckKind {
                 ctx.display(want),
             ),
             Self::YieldValue => format!(
-                "Type of yielded value `{}` is not assignable to declared return type `{}`",
+                "Yielded type `{}` is not assignable to declared yield type `{}`",
                 ctx.display(got),
                 ctx.display(want),
             ),
             Self::YieldFrom => format!(
-                "Cannot yield from a generator of type `{}` because it does not match the declared return type `{}`",
+                "Cannot yield from `{}`, which is not assignable to declared return type `{}`",
                 ctx.display(got),
                 ctx.display(want),
             ),
@@ -232,10 +235,14 @@ impl TypeCheckKind {
                 ctx.display(want),
             ),
             Self::PostInit => format!(
-                "`__post_init__` type `{got}` is not assignable to expected type `{want}` generated from the dataclass's `InitVar` fields"
+                "`__post_init__` type `{}` is not assignable to expected type `{}` generated from the dataclass's `InitVar` fields",
+                ctx.display(got),
+                ctx.display(want),
             ),
             Self::OverloadReturn => format!(
-                "Overload return type `{got}` is not assignable to implementation return type `{want}`",
+                "Overload return type `{}` is not assignable to implementation return type `{}`",
+                ctx.display(got),
+                ctx.display(want),
             ),
             Self::OverloadInput(overload_sig, impl_sig) => {
                 format!(
@@ -244,15 +251,18 @@ impl TypeCheckKind {
             }
             Self::TypeVarSpecialization(name) => {
                 format!(
-                    "Type `{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
+                    "`{got}` is not assignable to upper bound `{want}` of type variable `{name}`"
                 )
+            }
+            Self::Container => {
+                format!("`{got}` is not assignable to contained type `{want}`")
             }
         }
     }
 }
 
-pub fn function_suffix(func_id: Option<&FuncId>, current_module: ModuleName) -> String {
-    match func_id {
+pub fn function_suffix(func_kind: Option<&FunctionKind>, current_module: ModuleName) -> String {
+    match func_kind {
         Some(func) => format!(" in function `{}`", func.format(current_module)),
         None => "".to_owned(),
     }

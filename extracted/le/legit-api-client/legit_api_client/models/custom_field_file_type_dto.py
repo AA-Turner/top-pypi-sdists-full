@@ -33,7 +33,7 @@ class CustomFieldFileTypeDto(CustomFieldDtoType):
     file_size_in_bytes: Optional[StrictInt] = Field(default=None, alias="fileSizeInBytes")
     uploaded_at: Optional[datetime] = Field(default=None, alias="uploadedAt")
     field_type: Optional[CustomFieldType] = Field(default=None, alias="fieldType")
-    __properties: ClassVar[List[str]] = ["FieldType", "fieldType"]
+    __properties: ClassVar[List[str]] = ["FieldType", "fieldType", "fileName", "fileSizeInBytes", "uploadedAt"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +76,11 @@ class CustomFieldFileTypeDto(CustomFieldDtoType):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if file_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.file_name is None and "file_name" in self.model_fields_set:
+            _dict['fileName'] = None
+
         return _dict
 
     @classmethod
@@ -89,7 +94,10 @@ class CustomFieldFileTypeDto(CustomFieldDtoType):
 
         _obj = cls.model_validate({
             "FieldType": obj.get("FieldType"),
-            "fieldType": obj.get("fieldType")
+            "fieldType": obj.get("fieldType"),
+            "fileName": obj.get("fileName"),
+            "fileSizeInBytes": obj.get("fileSizeInBytes"),
+            "uploadedAt": obj.get("uploadedAt")
         })
         return _obj
 

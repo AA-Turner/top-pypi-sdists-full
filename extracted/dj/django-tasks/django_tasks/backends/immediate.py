@@ -1,18 +1,16 @@
 import logging
-from functools import partial
-from typing import TypeVar
+from typing import Any, TypeVar
 
-from django.db import transaction
 from django.utils import timezone
 from typing_extensions import ParamSpec
 
+from django_tasks.base import Task, TaskContext, TaskError, TaskResult, TaskResultStatus
 from django_tasks.signals import task_enqueued, task_finished, task_started
-from django_tasks.task import ResultStatus, Task, TaskContext, TaskError, TaskResult
 from django_tasks.utils import (
     get_exception_traceback,
     get_module_path,
     get_random_id,
-    json_normalize,
+    normalize_json,
 )
 
 from .base import BaseTaskBackend
@@ -26,6 +24,7 @@ P = ParamSpec("P")
 
 class ImmediateBackend(BaseTaskBackend):
     supports_async_task = True
+    supports_priority = True
 
     def __init__(self, alias: str, params: dict):
         super().__init__(alias, params)
@@ -34,16 +33,18 @@ class ImmediateBackend(BaseTaskBackend):
 
     def _execute_task(self, task_result: TaskResult) -> None:
         """
-        Execute the task for the given `TaskResult`, mutating it with the outcome
+        Execute the Task for the given TaskResult, mutating it with the outcome
         """
         object.__setattr__(task_result, "enqueued_at", timezone.now())
         task_enqueued.send(type(self), task_result=task_result)
 
         task = task_result.task
 
-        object.__setattr__(task_result, "status", ResultStatus.RUNNING)
-        object.__setattr__(task_result, "started_at", timezone.now())
-        object.__setattr__(task_result, "last_attempted_at", timezone.now())
+        task_start_time = timezone.now()
+
+        object.__setattr__(task_result, "status", TaskResultStatus.RUNNING)
+        object.__setattr__(task_result, "started_at", task_start_time)
+        object.__setattr__(task_result, "last_attempted_at", task_start_time)
         task_result.worker_ids.append(self.worker_id)
         task_started.send(sender=type(self), task_result=task_result)
 
@@ -60,13 +61,12 @@ class ImmediateBackend(BaseTaskBackend):
             object.__setattr__(
                 task_result,
                 "_return_value",
-                json_normalize(raw_return_value),
+                normalize_json(raw_return_value),
             )
-        except BaseException as e:
+        except KeyboardInterrupt:
             # If the user tried to terminate, let them
-            if isinstance(e, KeyboardInterrupt):
-                raise
-
+            raise
+        except BaseException as e:
             object.__setattr__(task_result, "finished_at", timezone.now())
 
             task_result.errors.append(
@@ -76,12 +76,12 @@ class ImmediateBackend(BaseTaskBackend):
                 )
             )
 
-            object.__setattr__(task_result, "status", ResultStatus.FAILED)
+            object.__setattr__(task_result, "status", TaskResultStatus.FAILED)
 
             task_finished.send(type(self), task_result=task_result)
         else:
             object.__setattr__(task_result, "finished_at", timezone.now())
-            object.__setattr__(task_result, "status", ResultStatus.SUCCEEDED)
+            object.__setattr__(task_result, "status", TaskResultStatus.SUCCEEDED)
 
             task_finished.send(type(self), task_result=task_result)
 
@@ -93,10 +93,10 @@ class ImmediateBackend(BaseTaskBackend):
     ) -> TaskResult[T]:
         self.validate_task(task)
 
-        task_result = TaskResult[T](
+        task_result: TaskResult[T] = TaskResult(
             task=task,
             id=get_random_id(),
-            status=ResultStatus.READY,
+            status=TaskResultStatus.READY,
             enqueued_at=None,
             started_at=None,
             last_attempted_at=None,
@@ -106,11 +106,15 @@ class ImmediateBackend(BaseTaskBackend):
             backend=self.alias,
             errors=[],
             worker_ids=[],
+            metadata={},
         )
 
-        if self._get_enqueue_on_commit_for_task(task) is not False:
-            transaction.on_commit(partial(self._execute_task, task_result))
-        else:
-            self._execute_task(task_result)
+        self._execute_task(task_result)
 
         return task_result
+
+    def save_metadata(self, result_id: str, metadata: dict[str, Any]) -> None:
+        pass
+
+    async def asave_metadata(self, result_id: str, metadata: dict[str, Any]) -> None:
+        pass

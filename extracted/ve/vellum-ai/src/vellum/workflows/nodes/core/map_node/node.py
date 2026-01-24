@@ -17,6 +17,7 @@ from typing import (
     overload,
 )
 
+from vellum.workflows.constants import undefined
 from vellum.workflows.context import ExecutionContext, execution_context, get_execution_context
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.errors.types import WorkflowErrorCode
@@ -68,23 +69,24 @@ class MapNode(BaseAdornmentNode[StateType], Generic[StateType, MapNodeItemType])
 
     def run(self) -> Iterator[BaseOutput]:
         mapped_items: Dict[str, List] = defaultdict(list)
+        items = self.items or []
         for output_descripter in self.subworkflow.Outputs:
-            mapped_items[output_descripter.name] = [None] * len(self.items)
+            mapped_items[output_descripter.name] = [None] * len(items)
 
-        if not self.items:
+        if not items:
             for output_name, output_list in mapped_items.items():
                 yield BaseOutput(name=output_name, value=output_list)
             return
 
         self._event_queue: Queue[Tuple[int, WorkflowEvent]] = Queue()
-        fulfilled_iterations: List[bool] = [False] * len(self.items)
+        fulfilled_iterations: List[bool] = [False] * len(items)
 
-        max_workers = self.max_concurrency if self.max_concurrency is not None else len(self.items)
+        max_workers = self.max_concurrency if self.max_concurrency is not None else len(items)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
             current_execution_context = get_execution_context()
-            for index, item in enumerate(self.items):
+            for index, item in enumerate(items):
                 future = executor.submit(
                     self._context_run_subworkflow,
                     item=item,
@@ -98,6 +100,7 @@ class MapNode(BaseAdornmentNode[StateType], Generic[StateType, MapNodeItemType])
                     map_node_event = self._event_queue.get(block=False)
                     index = map_node_event[0]
                     subworkflow_event = map_node_event[1]
+
                     self._context._emit_subworkflow_event(subworkflow_event)
 
                     if not is_workflow_event(subworkflow_event):
@@ -178,6 +181,7 @@ class MapNode(BaseAdornmentNode[StateType], Generic[StateType, MapNodeItemType])
             inputs=SubworkflowInputsClass(index=index, item=item, items=self.items),
             node_output_mocks=self._context._get_all_node_output_mocks(),
             event_filter=all_workflow_event_filter,
+            event_max_size=self._context.event_max_size,
         )
 
         for event in events:
@@ -209,7 +213,7 @@ class MapNode(BaseAdornmentNode[StateType], Generic[StateType, MapNodeItemType])
 
     @classmethod
     def __annotate_outputs_class__(cls, outputs_class: Type[BaseOutputs], reference: OutputReference) -> None:
-        parameter_type = reference.types[0]
+        parameter_type = reference.types[0] if len(reference.types) > 0 else object
         annotation = List[parameter_type]  # type: ignore[valid-type]
 
         previous_annotations = {prev: annotation for prev in outputs_class.__annotations__ if not prev.startswith("_")}
@@ -217,6 +221,15 @@ class MapNode(BaseAdornmentNode[StateType], Generic[StateType, MapNodeItemType])
         # class Outputs(BaseOutputs):
         #     value: List[str]
         outputs_class.__annotations__ = {**previous_annotations, reference.name: annotation}
+
+        # Create a NEW OutputReference with the List-wrapped type for discoverability during iteration
+        map_output_reference = OutputReference(
+            name=reference.name,
+            types=(annotation,),
+            instance=undefined,
+            outputs_class=outputs_class,
+        )
+        setattr(outputs_class, reference.name, map_output_reference)
 
         subworkflow_class = cls.subworkflow.instance if isinstance(cls.subworkflow, NodeReference) else None
         if subworkflow_class:

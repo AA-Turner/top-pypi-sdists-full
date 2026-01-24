@@ -67,273 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_accessanalyzer.AnalyzerReference",
-    jsii_struct_bases=[],
-    name_mapping={"analyzer_arn": "analyzerArn"},
+from ..interfaces.aws_accessanalyzer import (
+    AnalyzerReference as _AnalyzerReference_be7daa4e,
+    IAnalyzerRef as _IAnalyzerRef_1291bb9b,
 )
-class AnalyzerReference:
-    def __init__(self, *, analyzer_arn: builtins.str) -> None:
-        '''A reference to a Analyzer resource.
-
-        :param analyzer_arn: The Arn of the Analyzer resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_accessanalyzer as accessanalyzer
-            
-            analyzer_reference = accessanalyzer.AnalyzerReference(
-                analyzer_arn="analyzerArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e334a9306858a3345dcc898e2a99af43b36be1484d10cb6e1ad2b5faf23612cb)
-            check_type(argname="argument analyzer_arn", value=analyzer_arn, expected_type=type_hints["analyzer_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "analyzer_arn": analyzer_arn,
-        }
-
-    @builtins.property
-    def analyzer_arn(self) -> builtins.str:
-        '''The Arn of the Analyzer resource.'''
-        result = self._values.get("analyzer_arn")
-        assert result is not None, "Required property 'analyzer_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AnalyzerReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "type": "type",
-        "analyzer_configuration": "analyzerConfiguration",
-        "analyzer_name": "analyzerName",
-        "archive_rules": "archiveRules",
-        "tags": "tags",
-    },
-)
-class CfnAnalyzerProps:
-    def __init__(
-        self,
-        *,
-        type: builtins.str,
-        analyzer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.AnalyzerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        analyzer_name: typing.Optional[builtins.str] = None,
-        archive_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.ArchiveRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAnalyzer``.
-
-        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
-        :param analyzer_configuration: Contains information about the configuration of an analyzer for an AWS organization or account.
-        :param analyzer_name: The name of the analyzer.
-        :param archive_rules: Specifies the archive rules to add for the analyzer. Archive rules automatically archive findings that meet the criteria you define for the rule.
-        :param tags: An array of key-value pairs to apply to the analyzer. You can use the set of Unicode letters, digits, whitespace, ``_`` , ``.`` , ``/`` , ``=`` , ``+`` , and ``-`` . For the tag key, you can specify a value that is 1 to 128 characters in length and cannot be prefixed with ``aws:`` . For the tag value, you can specify a value that is 0 to 256 characters in length.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_accessanalyzer as accessanalyzer
-            
-            cfn_analyzer_props = accessanalyzer.CfnAnalyzerProps(
-                type="type",
-            
-                # the properties below are optional
-                analyzer_configuration=accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty(
-                    internal_access_configuration=accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
-                        internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
-                            inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
-                                account_ids=["accountIds"],
-                                resource_arns=["resourceArns"],
-                                resource_types=["resourceTypes"]
-                            )]
-                        )
-                    ),
-                    unused_access_configuration=accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty(
-                        analysis_rule=accessanalyzer.CfnAnalyzer.AnalysisRuleProperty(
-                            exclusions=[accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty(
-                                account_ids=["accountIds"],
-                                resource_tags=[[CfnTag(
-                                    key="key",
-                                    value="value"
-                                )]]
-                            )]
-                        ),
-                        unused_access_age=123
-                    )
-                ),
-                analyzer_name="analyzerName",
-                archive_rules=[accessanalyzer.CfnAnalyzer.ArchiveRuleProperty(
-                    filter=[accessanalyzer.CfnAnalyzer.FilterProperty(
-                        property="property",
-            
-                        # the properties below are optional
-                        contains=["contains"],
-                        eq=["eq"],
-                        exists=False,
-                        neq=["neq"]
-                    )],
-                    rule_name="ruleName"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d178159df606ae35bc43e8f369c7f3f27d01795dcec5d3d6824e97919c0e7f83)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument analyzer_configuration", value=analyzer_configuration, expected_type=type_hints["analyzer_configuration"])
-            check_type(argname="argument analyzer_name", value=analyzer_name, expected_type=type_hints["analyzer_name"])
-            check_type(argname="argument archive_rules", value=archive_rules, expected_type=type_hints["archive_rules"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-        }
-        if analyzer_configuration is not None:
-            self._values["analyzer_configuration"] = analyzer_configuration
-        if analyzer_name is not None:
-            self._values["analyzer_name"] = analyzer_name
-        if archive_rules is not None:
-            self._values["archive_rules"] = archive_rules
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type represents the zone of trust for the analyzer.
-
-        *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def analyzer_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalyzerConfigurationProperty"]]:
-        '''Contains information about the configuration of an analyzer for an AWS organization or account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-analyzerconfiguration
-        '''
-        result = self._values.get("analyzer_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalyzerConfigurationProperty"]], result)
-
-    @builtins.property
-    def analyzer_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the analyzer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-analyzername
-        '''
-        result = self._values.get("analyzer_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def archive_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.ArchiveRuleProperty"]]]]:
-        '''Specifies the archive rules to add for the analyzer.
-
-        Archive rules automatically archive findings that meet the criteria you define for the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-archiverules
-        '''
-        result = self._values.get("archive_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.ArchiveRuleProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to the analyzer.
-
-        You can use the set of Unicode letters, digits, whitespace, ``_`` , ``.`` , ``/`` , ``=`` , ``+`` , and ``-`` .
-
-        For the tag key, you can specify a value that is 1 to 128 characters in length and cannot be prefixed with ``aws:`` .
-
-        For the tag value, you can specify a value that is 0 to 256 characters in length.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAnalyzerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_accessanalyzer.IAnalyzerRef")
-class IAnalyzerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Analyzer.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="analyzerRef")
-    def analyzer_ref(self) -> AnalyzerReference:
-        '''(experimental) A reference to a Analyzer resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAnalyzerRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Analyzer.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_accessanalyzer.IAnalyzerRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="analyzerRef")
-    def analyzer_ref(self) -> AnalyzerReference:
-        '''(experimental) A reference to a Analyzer resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AnalyzerReference, jsii.get(self, "analyzerRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAnalyzerRef).__jsii_proxy_class__ = lambda : _IAnalyzerRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IAnalyzerRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IAnalyzerRef_1291bb9b, _ITaggable_36806126)
 class CfnAnalyzer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -349,6 +89,7 @@ class CfnAnalyzer(
 
     Example::
 
+        from aws_cdk import CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_accessanalyzer as accessanalyzer
@@ -402,16 +143,17 @@ class CfnAnalyzer(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         type: builtins.str,
-        analyzer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.AnalyzerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        analyzer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.AnalyzerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         analyzer_name: typing.Optional[builtins.str] = None,
-        archive_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.ArchiveRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        archive_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.ArchiveRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::AccessAnalyzer::Analyzer``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
@@ -434,8 +176,31 @@ class CfnAnalyzer(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForAnalyzer")
+    @builtins.classmethod
+    def arn_for_analyzer(cls, resource: "_IAnalyzerRef_1291bb9b") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61ec779a70b941ebfd142eebb3f2c2c7b922bc054919f407e18196f4cdfbdc15)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAnalyzer", [resource]))
+
+    @jsii.member(jsii_name="isCfnAnalyzer")
+    @builtins.classmethod
+    def is_cfn_analyzer(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAnalyzer.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__034f844ec4ed571a24cd9454ce1b5490c37ae1883b78ba72e71ff302efb9f67d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAnalyzer", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -466,9 +231,9 @@ class CfnAnalyzer(
 
     @builtins.property
     @jsii.member(jsii_name="analyzerRef")
-    def analyzer_ref(self) -> AnalyzerReference:
+    def analyzer_ref(self) -> "_AnalyzerReference_be7daa4e":
         '''A reference to a Analyzer resource.'''
-        return typing.cast(AnalyzerReference, jsii.get(self, "analyzerRef"))
+        return typing.cast("_AnalyzerReference_be7daa4e", jsii.get(self, "analyzerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -486,9 +251,9 @@ class CfnAnalyzer(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -507,14 +272,14 @@ class CfnAnalyzer(
     @jsii.member(jsii_name="analyzerConfiguration")
     def analyzer_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalyzerConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalyzerConfigurationProperty"]]:
         '''Contains information about the configuration of an analyzer for an AWS organization or account.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalyzerConfigurationProperty"]], jsii.get(self, "analyzerConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalyzerConfigurationProperty"]], jsii.get(self, "analyzerConfiguration"))
 
     @analyzer_configuration.setter
     def analyzer_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalyzerConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalyzerConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b65a5d08bf50e1911863b6e4854f804654921017c34f668f95a5081f5c25b8c)
@@ -538,14 +303,14 @@ class CfnAnalyzer(
     @jsii.member(jsii_name="archiveRules")
     def archive_rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.ArchiveRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.ArchiveRuleProperty"]]]]:
         '''Specifies the archive rules to add for the analyzer.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.ArchiveRuleProperty"]]]], jsii.get(self, "archiveRules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.ArchiveRuleProperty"]]]], jsii.get(self, "archiveRules"))
 
     @archive_rules.setter
     def archive_rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.ArchiveRuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.ArchiveRuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6e8df0db0833319fd0b7c019964ba2ec4f399928538e323239bc668cacd0434)
@@ -554,12 +319,12 @@ class CfnAnalyzer(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to the analyzer.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a60563761f5e2faa4dde6d3c0daa593ac20d10acf23bf72fc62050810a7b3e48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -575,7 +340,7 @@ class CfnAnalyzer(
             self,
             *,
             account_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-            resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
+            resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
         ) -> None:
             '''The criteria for an analysis rule for an analyzer.
 
@@ -589,6 +354,7 @@ class CfnAnalyzer(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_accessanalyzer as accessanalyzer
@@ -625,7 +391,7 @@ class CfnAnalyzer(
         @builtins.property
         def resource_tags(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]]]:
             '''An array of key-value pairs to match for your resources.
 
             You can use the set of Unicode letters, digits, whitespace, ``_`` , ``.`` , ``/`` , ``=`` , ``+`` , and ``-`` .
@@ -637,7 +403,7 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analysisrulecriteria.html#cfn-accessanalyzer-analyzer-analysisrulecriteria-resourcetags
             '''
             result = self._values.get("resource_tags")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -659,7 +425,7 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.AnalysisRuleCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            exclusions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.AnalysisRuleCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about analysis rules for the analyzer.
 
@@ -672,6 +438,7 @@ class CfnAnalyzer(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_accessanalyzer as accessanalyzer
@@ -696,7 +463,7 @@ class CfnAnalyzer(
         @builtins.property
         def exclusions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalysisRuleCriteriaProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalysisRuleCriteriaProperty"]]]]:
             '''A list of rules for the analyzer containing criteria to exclude from analysis.
 
             Entities that meet the rule criteria will not generate findings.
@@ -704,7 +471,7 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analysisrule.html#cfn-accessanalyzer-analyzer-analysisrule-exclusions
             '''
             result = self._values.get("exclusions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalysisRuleCriteriaProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalysisRuleCriteriaProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -729,8 +496,8 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            internal_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            unused_access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.UnusedAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            internal_access_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.InternalAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            unused_access_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.UnusedAccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about the configuration of an analyzer for an AWS organization or account.
 
@@ -742,6 +509,7 @@ class CfnAnalyzer(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_accessanalyzer as accessanalyzer
@@ -783,7 +551,7 @@ class CfnAnalyzer(
         @builtins.property
         def internal_access_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessConfigurationProperty"]]:
             '''Specifies the configuration of an internal access analyzer for an AWS organization or account.
 
             This configuration determines how the analyzer evaluates access within your AWS environment.
@@ -791,18 +559,18 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analyzerconfiguration.html#cfn-accessanalyzer-analyzer-analyzerconfiguration-internalaccessconfiguration
             '''
             result = self._values.get("internal_access_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessConfigurationProperty"]], result)
 
         @builtins.property
         def unused_access_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.UnusedAccessConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.UnusedAccessConfigurationProperty"]]:
             '''Specifies the configuration of an unused access analyzer for an AWS organization or account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-analyzerconfiguration.html#cfn-accessanalyzer-analyzer-analyzerconfiguration-unusedaccessconfiguration
             '''
             result = self._values.get("unused_access_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.UnusedAccessConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.UnusedAccessConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -824,7 +592,7 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            filter: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            filter: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
             rule_name: builtins.str,
         ) -> None:
             '''Contains information about an archive rule.
@@ -868,14 +636,14 @@ class CfnAnalyzer(
         @builtins.property
         def filter(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.FilterProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.FilterProperty"]]]:
             '''The criteria for the rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-archiverule.html#cfn-accessanalyzer-analyzer-archiverule-filter
             '''
             result = self._values.get("filter")
             assert result is not None, "Required property 'filter' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.FilterProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.FilterProperty"]]], result)
 
         @builtins.property
         def rule_name(self) -> builtins.str:
@@ -916,7 +684,7 @@ class CfnAnalyzer(
             property: builtins.str,
             contains: typing.Optional[typing.Sequence[builtins.str]] = None,
             eq: typing.Optional[typing.Sequence[builtins.str]] = None,
-            exists: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            exists: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             neq: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''The criteria that defines the archive rule.
@@ -998,13 +766,13 @@ class CfnAnalyzer(
         @builtins.property
         def exists(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''An "exists" condition to match for the rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-filter.html#cfn-accessanalyzer-analyzer-filter-exists
             '''
             result = self._values.get("exists")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def neq(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1137,7 +905,7 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            inclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            inclusions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about analysis rules for the internal access analyzer.
 
@@ -1172,7 +940,7 @@ class CfnAnalyzer(
         @builtins.property
         def inclusions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]]:
             '''A list of rules for the internal access analyzer containing criteria to include in analysis.
 
             Only resources that meet the rule criteria will generate findings.
@@ -1180,7 +948,7 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessanalysisrule.html#cfn-accessanalyzer-analyzer-internalaccessanalysisrule-inclusions
             '''
             result = self._values.get("inclusions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1202,7 +970,7 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            internal_access_analysis_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            internal_access_analysis_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.InternalAccessAnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the configuration of an internal access analyzer for an AWS organization or account.
 
@@ -1239,7 +1007,7 @@ class CfnAnalyzer(
         @builtins.property
         def internal_access_analysis_rule(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]]:
             '''Contains information about analysis rules for the internal access analyzer.
 
             These rules determine which resources and access patterns will be analyzed.
@@ -1247,7 +1015,7 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-internalaccessconfiguration.html#cfn-accessanalyzer-analyzer-internalaccessconfiguration-internalaccessanalysisrule
             '''
             result = self._values.get("internal_access_analysis_rule")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.InternalAccessAnalysisRuleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1272,7 +1040,7 @@ class CfnAnalyzer(
         def __init__(
             self,
             *,
-            analysis_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAnalyzer.AnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            analysis_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.AnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             unused_access_age: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Contains information about an unused access analyzer.
@@ -1285,6 +1053,7 @@ class CfnAnalyzer(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_accessanalyzer as accessanalyzer
@@ -1315,7 +1084,7 @@ class CfnAnalyzer(
         @builtins.property
         def analysis_rule(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalysisRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalysisRuleProperty"]]:
             '''Contains information about analysis rules for the analyzer.
 
             Analysis rules determine which entities will generate findings based on the criteria you define when you create the rule.
@@ -1323,7 +1092,7 @@ class CfnAnalyzer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-accessanalyzer-analyzer-unusedaccessconfiguration.html#cfn-accessanalyzer-analyzer-unusedaccessconfiguration-analysisrule
             '''
             result = self._values.get("analysis_rule")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAnalyzer.AnalysisRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalysisRuleProperty"]], result)
 
         @builtins.property
         def unused_access_age(self) -> typing.Optional[jsii.Number]:
@@ -1348,32 +1117,188 @@ class CfnAnalyzer(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "analyzer_configuration": "analyzerConfiguration",
+        "analyzer_name": "analyzerName",
+        "archive_rules": "archiveRules",
+        "tags": "tags",
+    },
+)
+class CfnAnalyzerProps:
+    def __init__(
+        self,
+        *,
+        type: builtins.str,
+        analyzer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.AnalyzerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        analyzer_name: typing.Optional[builtins.str] = None,
+        archive_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnalyzer.ArchiveRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAnalyzer``.
+
+        :param type: The type represents the zone of trust for the analyzer. *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
+        :param analyzer_configuration: Contains information about the configuration of an analyzer for an AWS organization or account.
+        :param analyzer_name: The name of the analyzer.
+        :param archive_rules: Specifies the archive rules to add for the analyzer. Archive rules automatically archive findings that meet the criteria you define for the rule.
+        :param tags: An array of key-value pairs to apply to the analyzer. You can use the set of Unicode letters, digits, whitespace, ``_`` , ``.`` , ``/`` , ``=`` , ``+`` , and ``-`` . For the tag key, you can specify a value that is 1 to 128 characters in length and cannot be prefixed with ``aws:`` . For the tag value, you can specify a value that is 0 to 256 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag, CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_accessanalyzer as accessanalyzer
+            
+            cfn_analyzer_props = accessanalyzer.CfnAnalyzerProps(
+                type="type",
+            
+                # the properties below are optional
+                analyzer_configuration=accessanalyzer.CfnAnalyzer.AnalyzerConfigurationProperty(
+                    internal_access_configuration=accessanalyzer.CfnAnalyzer.InternalAccessConfigurationProperty(
+                        internal_access_analysis_rule=accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleProperty(
+                            inclusions=[accessanalyzer.CfnAnalyzer.InternalAccessAnalysisRuleCriteriaProperty(
+                                account_ids=["accountIds"],
+                                resource_arns=["resourceArns"],
+                                resource_types=["resourceTypes"]
+                            )]
+                        )
+                    ),
+                    unused_access_configuration=accessanalyzer.CfnAnalyzer.UnusedAccessConfigurationProperty(
+                        analysis_rule=accessanalyzer.CfnAnalyzer.AnalysisRuleProperty(
+                            exclusions=[accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty(
+                                account_ids=["accountIds"],
+                                resource_tags=[[CfnTag(
+                                    key="key",
+                                    value="value"
+                                )]]
+                            )]
+                        ),
+                        unused_access_age=123
+                    )
+                ),
+                analyzer_name="analyzerName",
+                archive_rules=[accessanalyzer.CfnAnalyzer.ArchiveRuleProperty(
+                    filter=[accessanalyzer.CfnAnalyzer.FilterProperty(
+                        property="property",
+            
+                        # the properties below are optional
+                        contains=["contains"],
+                        eq=["eq"],
+                        exists=False,
+                        neq=["neq"]
+                    )],
+                    rule_name="ruleName"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d178159df606ae35bc43e8f369c7f3f27d01795dcec5d3d6824e97919c0e7f83)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument analyzer_configuration", value=analyzer_configuration, expected_type=type_hints["analyzer_configuration"])
+            check_type(argname="argument analyzer_name", value=analyzer_name, expected_type=type_hints["analyzer_name"])
+            check_type(argname="argument archive_rules", value=archive_rules, expected_type=type_hints["archive_rules"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if analyzer_configuration is not None:
+            self._values["analyzer_configuration"] = analyzer_configuration
+        if analyzer_name is not None:
+            self._values["analyzer_name"] = analyzer_name
+        if archive_rules is not None:
+            self._values["archive_rules"] = archive_rules
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type represents the zone of trust for the analyzer.
+
+        *Allowed Values* : ACCOUNT | ORGANIZATION | ACCOUNT_UNUSED_ACCESS | ACCOUNT_INTERNAL_ACCESS | ORGANIZATION_INTERNAL_ACCESS | ORGANIZATION_UNUSED_ACCESS
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def analyzer_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalyzerConfigurationProperty"]]:
+        '''Contains information about the configuration of an analyzer for an AWS organization or account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-analyzerconfiguration
+        '''
+        result = self._values.get("analyzer_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.AnalyzerConfigurationProperty"]], result)
+
+    @builtins.property
+    def analyzer_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the analyzer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-analyzername
+        '''
+        result = self._values.get("analyzer_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def archive_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.ArchiveRuleProperty"]]]]:
+        '''Specifies the archive rules to add for the analyzer.
+
+        Archive rules automatically archive findings that meet the criteria you define for the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-archiverules
+        '''
+        result = self._values.get("archive_rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnalyzer.ArchiveRuleProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to the analyzer.
+
+        You can use the set of Unicode letters, digits, whitespace, ``_`` , ``.`` , ``/`` , ``=`` , ``+`` , and ``-`` .
+
+        For the tag key, you can specify a value that is 1 to 128 characters in length and cannot be prefixed with ``aws:`` .
+
+        For the tag value, you can specify a value that is 0 to 256 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-accessanalyzer-analyzer.html#cfn-accessanalyzer-analyzer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAnalyzerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AnalyzerReference",
     "CfnAnalyzer",
     "CfnAnalyzerProps",
-    "IAnalyzerRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__e334a9306858a3345dcc898e2a99af43b36be1484d10cb6e1ad2b5faf23612cb(
-    *,
-    analyzer_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d178159df606ae35bc43e8f369c7f3f27d01795dcec5d3d6824e97919c0e7f83(
-    *,
-    type: builtins.str,
-    analyzer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.AnalyzerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    analyzer_name: typing.Optional[builtins.str] = None,
-    archive_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.ArchiveRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__4d078d0b17e4dff80691cd25737bc9c648722f68955725da002d3ab5d4df9b21(
     scope: _constructs_77d1e7e8.Construct,
@@ -1384,6 +1309,18 @@ def _typecheckingstub__4d078d0b17e4dff80691cd25737bc9c648722f68955725da002d3ab5d
     analyzer_name: typing.Optional[builtins.str] = None,
     archive_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.ArchiveRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61ec779a70b941ebfd142eebb3f2c2c7b922bc054919f407e18196f4cdfbdc15(
+    resource: _IAnalyzerRef_1291bb9b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__034f844ec4ed571a24cd9454ce1b5490c37ae1883b78ba72e71ff302efb9f67d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1499,6 +1436,17 @@ def _typecheckingstub__b15bc1bfb223a199dc73f744cc56dfec8d77e91fcae9e8e5b3520484a
     *,
     analysis_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.AnalysisRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     unused_access_age: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d178159df606ae35bc43e8f369c7f3f27d01795dcec5d3d6824e97919c0e7f83(
+    *,
+    type: builtins.str,
+    analyzer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.AnalyzerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analyzer_name: typing.Optional[builtins.str] = None,
+    archive_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnalyzer.ArchiveRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

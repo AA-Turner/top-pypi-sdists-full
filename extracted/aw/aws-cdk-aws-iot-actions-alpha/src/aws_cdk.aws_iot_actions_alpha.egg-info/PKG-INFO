@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-iot-actions-alpha
-Version: 2.216.0a0
+Version: 2.236.0a0
 Summary: Receipt rule actions for AWS IoT
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,13 +22,13 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.216.0
-Requires-Dist: aws-cdk.aws-iot-alpha==2.216.0.a0
-Requires-Dist: aws-cdk.aws-iotevents-alpha==2.216.0.a0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
+Requires-Dist: aws-cdk.aws-iot-alpha==2.236.0.a0
+Requires-Dist: aws-cdk.aws-iotevents-alpha==2.236.0.a0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: jsii<2.0.0,>=1.125.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # Actions for AWS IoT Rule
 
@@ -391,6 +391,26 @@ topic_rule.add_action(
         auth=actions.HttpActionSigV4Auth(service_name="serviceName", signing_region="us-east-1")
     ))
 ```
+
+You can enable batching to reduce costs and improve efficiency:
+
+```python
+from aws_cdk import Size
+
+# topic_rule: iot.TopicRule
+
+
+topic_rule.add_action(
+    actions.HttpsAction("https://example.com/endpoint",
+        batch_config=actions.HttpActionBatchConfig(
+            max_batch_open_duration=Duration.millis(100),
+            max_batch_size=5,
+            max_batch_size_bytes=Size.kibibytes(1)
+        )
+    ))
+```
+
+For more information about the batching configuration, see the [AWS IoT Core documentation](https://docs.aws.amazon.com/iot/latest/developerguide/http_batching.html).
 
 ## Write Data to Open Search Service
 

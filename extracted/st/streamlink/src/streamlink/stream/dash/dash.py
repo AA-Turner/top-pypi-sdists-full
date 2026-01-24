@@ -4,17 +4,14 @@ import copy
 import itertools
 import logging
 from collections import defaultdict
-from collections.abc import Mapping
 from contextlib import contextmanager, suppress
-from datetime import datetime
 from time import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from requests import Response
 
 from streamlink.exceptions import PluginError, StreamError
-from streamlink.session import Streamlink
-from streamlink.stream.dash.manifest import MPD, Representation, freeze_timeline
+from streamlink.stream.dash.manifest import MPD, freeze_timeline
 from streamlink.stream.dash.segment import DASHSegment
 from streamlink.stream.ffmpegmux import FFMPEGMuxer
 from streamlink.stream.segmented import SegmentedStreamReader, SegmentedStreamWorker, SegmentedStreamWriter
@@ -24,10 +21,20 @@ from streamlink.utils.parse import parse_xml
 from streamlink.utils.times import now
 
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from datetime import datetime
+
+    from streamlink.session import Streamlink
+    from streamlink.stream.dash.manifest import Representation
+
+
 log = logging.getLogger(".".join(__name__.split(".")[:-1]))
 
 
 class DASHStreamWriter(SegmentedStreamWriter[DASHSegment, Response]):
+    WRITE_CHUNK_SIZE: int = 8192
+
     reader: DASHStreamReader
     stream: DASHStream
 
@@ -64,8 +71,8 @@ class DASHStreamWriter(SegmentedStreamWriter[DASHSegment, Response]):
         except StreamError as err:
             log.error(f"{self.reader.mime_type} segment {name}: failed ({err})")
 
-    def write(self, segment, res, chunk_size=8192):
-        for chunk in res.iter_content(chunk_size):
+    def write(self, segment: DASHSegment, result: Response, *data):
+        for chunk in result.iter_content(self.WRITE_CHUNK_SIZE):
             if self.closed:
                 log.warning(f"{self.reader.mime_type} segment {segment.name}: aborted")
                 return
@@ -84,6 +91,7 @@ class DASHStreamWorker(SegmentedStreamWorker[DASHSegment, Response]):
         self.mpd = self.stream.mpd
 
         self.manifest_reload_retries = self.session.options.get("dash-manifest-reload-attempts")
+        self.duration_limit = self.stream.duration or self.duration_limit
 
     @contextmanager
     def sleeper(self, duration):
@@ -95,6 +103,10 @@ class DASHStreamWorker(SegmentedStreamWorker[DASHSegment, Response]):
         time_to_sleep = duration - (time() - s)
         if time_to_sleep > 0:
             self.wait(time_to_sleep)
+
+    @property
+    def _queue_deadline_wait(self) -> float:
+        return self.mpd.minimumUpdatePeriod.total_seconds()
 
     def iter_segments(self):
         init = True
@@ -118,27 +130,32 @@ class DASHStreamWorker(SegmentedStreamWorker[DASHSegment, Response]):
                 if not representation:
                     continue
 
+                queued = False
                 iter_segments = representation.segments(
+                    sequence=self.sequence,
                     init=init,
                     # sync initial timeline generation between audio and video threads
                     timestamp=self.reader.timestamp if init else None,
                 )
                 for segment in iter_segments:
-                    if self.closed:
-                        break
-                    yield segment
+                    if init and not segment.init:
+                        self.sequence = segment.num
+                        init = False
+                    queued |= yield segment
 
                 # close worker if type is not dynamic (all segments were put into writer queue)
                 if self.mpd.type != "dynamic":
                     self.close()
                     return
 
+                # Implicit end of stream
+                if self.check_queue_deadline(queued):
+                    return
+
                 if not self.reload():
                     back_off_factor = max(back_off_factor * 1.3, 10.0)
                 else:
                     back_off_factor = 1
-
-                init = False
 
     def reload(self):
         if self.closed:
@@ -204,6 +221,7 @@ class DASHStream(Stream):
         mpd: MPD,
         video_representation: Representation | None = None,
         audio_representation: Representation | None = None,
+        duration: float | None = None,
         **kwargs,
     ):
         """
@@ -211,6 +229,7 @@ class DASHStream(Stream):
         :param mpd: Parsed MPD manifest
         :param video_representation: Video representation
         :param audio_representation: Audio representation
+        :param duration: Number of seconds until ending the stream
         :param kwargs: Additional keyword arguments passed to :meth:`requests.Session.request`
         """
 
@@ -218,6 +237,7 @@ class DASHStream(Stream):
         self.mpd = mpd
         self.video_representation = video_representation
         self.audio_representation = audio_representation
+        self.duration = duration
         self.args = session.http.valid_request_args(**kwargs)
 
     def __json__(self):  # noqa: PLW3201
@@ -279,7 +299,7 @@ class DASHStream(Stream):
         :param period: Which MPD period to use (index number (int) or ``id`` attribute (str)) for finding representations
         :param with_video_only: Also return video-only streams, otherwise only return muxed streams
         :param with_audio_only: Also return audio-only streams, otherwise only return muxed streams
-        :param kwargs: Additional keyword arguments passed to :meth:`requests.Session.request`
+        :param kwargs: Additional keyword arguments passed to :class:`DASHStream` or :meth:`requests.Session.request`
         """
 
         manifest, mpd_params = cls.fetch_manifest(session, url_or_manifest, **kwargs)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ome-types
-Version: 0.6.1
+Version: 0.6.3
 Summary: Python dataclasses for the OME data model
 Project-URL: Source, https://github.com/tlambert03/ome-types
 Project-URL: Tracker, https://github.com/tlambert03/ome-types/issues
@@ -23,55 +23,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
-Requires-Dist: pydantic-extra-types
-Requires-Dist: pydantic>=2.4
-Requires-Dist: xsdata<24.4,>=23.6
+Requires-Dist: pydantic-core>=2.20.0; python_version >= '3.13'
+Requires-Dist: pydantic-extra-types>=2.0.0
+Requires-Dist: pydantic>=2.4.0
+Requires-Dist: xsdata>=24.4
 Provides-Extra: build
-Requires-Dist: ruff==0.11.5; extra == 'build'
-Requires-Dist: xsdata[cli]==24.2.1; extra == 'build'
-Provides-Extra: dev
-Requires-Dist: lxml; (python_version <= '3.12') and extra == 'dev'
-Requires-Dist: mkdocs-material; extra == 'dev'
-Requires-Dist: mkdocstrings-python; extra == 'dev'
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: numpy; extra == 'dev'
-Requires-Dist: pdbpp; (sys_platform != 'win32') and extra == 'dev'
-Requires-Dist: pint; (python_version <= '3.12') and extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-codspeed; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-mypy-plugins; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
-Requires-Dist: ruff==0.11.5; extra == 'dev'
-Requires-Dist: types-lxml; extra == 'dev'
-Requires-Dist: xmlschema<2.5; extra == 'dev'
-Requires-Dist: xsdata[cli]; extra == 'dev'
-Requires-Dist: xsdata[cli]==24.2.1; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: mkdocs-material; extra == 'docs'
-Requires-Dist: mkdocstrings-python; extra == 'docs'
+Requires-Dist: ruff==0.13.2; extra == 'build'
+Requires-Dist: xsdata[cli]>=24.7; extra == 'build'
 Provides-Extra: lxml
 Requires-Dist: lxml>=4.8.0; extra == 'lxml'
+Requires-Dist: lxml>=5.0; (python_version >= '3.11') and extra == 'lxml'
+Requires-Dist: lxml>=5.3; (python_version >= '3.13') and extra == 'lxml'
 Provides-Extra: pint
 Requires-Dist: pint>=0.15; extra == 'pint'
-Provides-Extra: test
-Requires-Dist: lxml; (python_version <= '3.12') and extra == 'test'
-Requires-Dist: mypy; extra == 'test'
-Requires-Dist: numpy; extra == 'test'
-Requires-Dist: pdbpp; (sys_platform != 'win32') and extra == 'test'
-Requires-Dist: pint; (python_version <= '3.12') and extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-codspeed; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-mypy-plugins; extra == 'test'
-Requires-Dist: ruff; extra == 'test'
-Requires-Dist: types-lxml; extra == 'test'
-Requires-Dist: xmlschema<2.5; extra == 'test'
-Requires-Dist: xsdata[cli]; extra == 'test'
-Provides-Extra: test-qt
-Requires-Dist: pytest-qt; extra == 'test-qt'
-Requires-Dist: qtpy; extra == 'test-qt'
+Requires-Dist: pint>=0.25; (python_version >= '3.13') and extra == 'pint'
 Description-Content-Type: text/markdown
 
 # ome-types

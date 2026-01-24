@@ -3,7 +3,7 @@ Type annotations for servicecatalog service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_servicecatalog/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -52,12 +53,6 @@ from .literals import (
     StatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -359,7 +354,7 @@ class FailedServiceActionAssociationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -586,7 +581,7 @@ class ProvisioningArtifactSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     CreatedTime: NotRequired[datetime]
-    ProvisioningArtifactMetadata: NotRequired[Dict[str, str]]
+    ProvisioningArtifactMetadata: NotRequired[dict[str, str]]
 
 
 class DescribeProductInputTypeDef(TypedDict):
@@ -691,13 +686,13 @@ class ProvisioningArtifactOutputTypeDef(TypedDict):
 
 
 class ProvisioningArtifactPreferencesTypeDef(TypedDict):
-    StackSetAccounts: NotRequired[List[str]]
-    StackSetRegions: NotRequired[List[str]]
+    StackSetAccounts: NotRequired[list[str]]
+    StackSetRegions: NotRequired[list[str]]
 
 
 class TagOptionSummaryTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 UsageInstructionTypeDef = TypedDict(
@@ -733,7 +728,7 @@ ExecutionParameterTypeDef = TypedDict(
     {
         "Name": NotRequired[str],
         "Type": NotRequired[str],
-        "DefaultValues": NotRequired[List[str]],
+        "DefaultValues": NotRequired[list[str]],
     },
 )
 
@@ -989,7 +984,7 @@ class NotifyTerminateProvisionedProductEngineWorkflowResultInputTypeDef(TypedDic
 
 
 class ParameterConstraintsTypeDef(TypedDict):
-    AllowedValues: NotRequired[List[str]]
+    AllowedValues: NotRequired[list[str]]
     AllowedPattern: NotRequired[str]
     ConstraintDescription: NotRequired[str]
     MaxLength: NotRequired[str]
@@ -1060,7 +1055,7 @@ class SearchProductsInputTypeDef(TypedDict):
 
 
 class ShareErrorTypeDef(TypedDict):
-    Accounts: NotRequired[List[str]]
+    Accounts: NotRequired[list[str]]
     Message: NotRequired[str]
     Error: NotRequired[str]
 
@@ -1158,12 +1153,12 @@ class BatchDisassociateServiceActionFromProvisioningArtifactInputTypeDef(TypedDi
 
 
 class BatchAssociateServiceActionWithProvisioningArtifactOutputTypeDef(TypedDict):
-    FailedServiceActionAssociations: List[FailedServiceActionAssociationTypeDef]
+    FailedServiceActionAssociations: list[FailedServiceActionAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDisassociateServiceActionFromProvisioningArtifactOutputTypeDef(TypedDict):
-    FailedServiceActionAssociations: List[FailedServiceActionAssociationTypeDef]
+    FailedServiceActionAssociations: list[FailedServiceActionAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1204,7 +1199,7 @@ class GetAWSOrganizationsAccessStatusOutputTypeDef(TypedDict):
 
 
 class ListPortfolioAccessOutputTypeDef(TypedDict):
-    AccountIds: List[str]
+    AccountIds: list[str]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1217,14 +1212,14 @@ class UpdatePortfolioShareOutputTypeDef(TypedDict):
 
 class UpdateProvisionedProductPropertiesOutputTypeDef(TypedDict):
     ProvisionedProductId: str
-    ProvisionedProductProperties: Dict[PropertyKeyType, str]
+    ProvisionedProductProperties: dict[PropertyKeyType, str]
     RecordId: str
     Status: RecordStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBudgetsForResourceOutputTypeDef(TypedDict):
-    Budgets: List[BudgetDetailTypeDef]
+    Budgets: list[BudgetDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1248,7 +1243,7 @@ class DescribeConstraintOutputTypeDef(TypedDict):
 
 
 class ListConstraintsForPortfolioOutputTypeDef(TypedDict):
-    ConstraintDetails: List[ConstraintDetailTypeDef]
+    ConstraintDetails: list[ConstraintDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1271,8 +1266,8 @@ class CreatePortfolioInputTypeDef(TypedDict):
 
 class LaunchPathSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
-    ConstraintSummaries: NotRequired[List[ConstraintSummaryTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    ConstraintSummaries: NotRequired[list[ConstraintSummaryTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     Name: NotRequired[str]
 
 
@@ -1290,7 +1285,7 @@ ProvisionedProductAttributeTypeDef = TypedDict(
         "LastRecordId": NotRequired[str],
         "LastProvisioningRecordId": NotRequired[str],
         "LastSuccessfulProvisioningRecordId": NotRequired[str],
-        "Tags": NotRequired[List[TagTypeDef]],
+        "Tags": NotRequired[list[TagTypeDef]],
         "PhysicalId": NotRequired[str],
         "ProductId": NotRequired[str],
         "ProductName": NotRequired[str],
@@ -1314,31 +1309,31 @@ class UpdatePortfolioInputTypeDef(TypedDict):
 
 class CreatePortfolioOutputTypeDef(TypedDict):
     PortfolioDetail: PortfolioDetailTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAcceptedPortfolioSharesOutputTypeDef(TypedDict):
-    PortfolioDetails: List[PortfolioDetailTypeDef]
+    PortfolioDetails: list[PortfolioDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPortfoliosForProductOutputTypeDef(TypedDict):
-    PortfolioDetails: List[PortfolioDetailTypeDef]
+    PortfolioDetails: list[PortfolioDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPortfoliosOutputTypeDef(TypedDict):
-    PortfolioDetails: List[PortfolioDetailTypeDef]
+    PortfolioDetails: list[PortfolioDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdatePortfolioOutputTypeDef(TypedDict):
     PortfolioDetail: PortfolioDetailTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1359,7 +1354,7 @@ class DeletePortfolioShareInputTypeDef(TypedDict):
 
 
 class ListOrganizationPortfolioAccessOutputTypeDef(TypedDict):
-    OrganizationNodes: List[OrganizationNodeTypeDef]
+    OrganizationNodes: list[OrganizationNodeTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1382,20 +1377,20 @@ class CreateProvisioningArtifactInputTypeDef(TypedDict):
 
 class CreateProvisioningArtifactOutputTypeDef(TypedDict):
     ProvisioningArtifactDetail: ProvisioningArtifactDetailTypeDef
-    Info: Dict[str, str]
+    Info: dict[str, str]
     Status: StatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListProvisioningArtifactsOutputTypeDef(TypedDict):
-    ProvisioningArtifactDetails: List[ProvisioningArtifactDetailTypeDef]
+    ProvisioningArtifactDetails: list[ProvisioningArtifactDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateProvisioningArtifactOutputTypeDef(TypedDict):
     ProvisioningArtifactDetail: ProvisioningArtifactDetailTypeDef
-    Info: Dict[str, str]
+    Info: dict[str, str]
     Status: StatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1426,9 +1421,9 @@ class ProvisionedProductPlanDetailsTypeDef(TypedDict):
     ProvisioningArtifactId: NotRequired[str]
     Status: NotRequired[ProvisionedProductPlanStatusType]
     UpdatedTime: NotRequired[datetime]
-    NotificationArns: NotRequired[List[str]]
-    ProvisioningParameters: NotRequired[List[UpdateProvisioningParameterTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    NotificationArns: NotRequired[list[str]]
+    ProvisioningParameters: NotRequired[list[UpdateProvisioningParameterTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     StatusMessage: NotRequired[str]
 
 
@@ -1439,9 +1434,9 @@ class CreateTagOptionOutputTypeDef(TypedDict):
 
 class DescribePortfolioOutputTypeDef(TypedDict):
     PortfolioDetail: PortfolioDetailTypeDef
-    Tags: List[TagTypeDef]
-    TagOptions: List[TagOptionDetailTypeDef]
-    Budgets: List[BudgetDetailTypeDef]
+    Tags: list[TagTypeDef]
+    TagOptions: list[TagOptionDetailTypeDef]
+    Budgets: list[BudgetDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1451,7 +1446,7 @@ class DescribeTagOptionOutputTypeDef(TypedDict):
 
 
 class ListTagOptionsOutputTypeDef(TypedDict):
-    TagOptionDetails: List[TagOptionDetailTypeDef]
+    TagOptionDetails: list[TagOptionDetailTypeDef]
     PageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1463,21 +1458,21 @@ class UpdateTagOptionOutputTypeDef(TypedDict):
 
 class DescribePortfolioSharesOutputTypeDef(TypedDict):
     NextPageToken: str
-    PortfolioShareDetails: List[PortfolioShareDetailTypeDef]
+    PortfolioShareDetails: list[PortfolioShareDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeProductOutputTypeDef(TypedDict):
     ProductViewSummary: ProductViewSummaryTypeDef
-    ProvisioningArtifacts: List[ProvisioningArtifactTypeDef]
-    Budgets: List[BudgetDetailTypeDef]
-    LaunchPaths: List[LaunchPathTypeDef]
+    ProvisioningArtifacts: list[ProvisioningArtifactTypeDef]
+    Budgets: list[BudgetDetailTypeDef]
+    LaunchPaths: list[LaunchPathTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeProductViewOutputTypeDef(TypedDict):
     ProductViewSummary: ProductViewSummaryTypeDef
-    ProvisioningArtifacts: List[ProvisioningArtifactTypeDef]
+    ProvisioningArtifacts: list[ProvisioningArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1488,18 +1483,18 @@ class ProvisioningArtifactViewTypeDef(TypedDict):
 
 class DescribeProvisionedProductOutputTypeDef(TypedDict):
     ProvisionedProductDetail: ProvisionedProductDetailTypeDef
-    CloudWatchDashboards: List[CloudWatchDashboardTypeDef]
+    CloudWatchDashboards: list[CloudWatchDashboardTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ScanProvisionedProductsOutputTypeDef(TypedDict):
-    ProvisionedProducts: List[ProvisionedProductDetailTypeDef]
+    ProvisionedProducts: list[ProvisionedProductDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetProvisionedProductOutputsOutputTypeDef(TypedDict):
-    Outputs: List[RecordOutputTypeDef]
+    Outputs: list[RecordOutputTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1514,7 +1509,7 @@ class NotifyUpdateProvisionedProductEngineWorkflowResultInputTypeDef(TypedDict):
 
 
 class DescribeServiceActionExecutionParametersOutputTypeDef(TypedDict):
-    ServiceActionParameters: List[ExecutionParameterTypeDef]
+    ServiceActionParameters: list[ExecutionParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1613,13 +1608,13 @@ class SearchProductsAsAdminInputPaginateTypeDef(TypedDict):
 
 
 class ListPrincipalsForPortfolioOutputTypeDef(TypedDict):
-    Principals: List[PrincipalTypeDef]
+    Principals: list[PrincipalTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListProvisionedProductPlansOutputTypeDef(TypedDict):
-    ProvisionedProductPlans: List[ProvisionedProductPlanSummaryTypeDef]
+    ProvisionedProductPlans: list[ProvisionedProductPlanSummaryTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1640,30 +1635,30 @@ class ListRecordHistoryInputTypeDef(TypedDict):
 
 
 class ListResourcesForTagOptionOutputTypeDef(TypedDict):
-    ResourceDetails: List[ResourceDetailTypeDef]
+    ResourceDetails: list[ResourceDetailTypeDef]
     PageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListServiceActionsForProvisioningArtifactOutputTypeDef(TypedDict):
-    ServiceActionSummaries: List[ServiceActionSummaryTypeDef]
+    ServiceActionSummaries: list[ServiceActionSummaryTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListServiceActionsOutputTypeDef(TypedDict):
-    ServiceActionSummaries: List[ServiceActionSummaryTypeDef]
+    ServiceActionSummaries: list[ServiceActionSummaryTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ServiceActionDetailTypeDef(TypedDict):
     ServiceActionSummary: NotRequired[ServiceActionSummaryTypeDef]
-    Definition: NotRequired[Dict[ServiceActionDefinitionKeyType, str]]
+    Definition: NotRequired[dict[ServiceActionDefinitionKeyType, str]]
 
 
 class ListStackInstancesForProvisionedProductOutputTypeDef(TypedDict):
-    StackInstances: List[StackInstanceTypeDef]
+    StackInstances: list[StackInstanceTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1689,8 +1684,8 @@ class ProvisioningArtifactParameterTypeDef(TypedDict):
 
 
 class SearchProductsOutputTypeDef(TypedDict):
-    ProductViewSummaries: List[ProductViewSummaryTypeDef]
-    ProductViewAggregations: Dict[str, List[ProductViewAggregationValueTypeDef]]
+    ProductViewSummaries: list[ProductViewSummaryTypeDef]
+    ProductViewAggregations: dict[str, list[ProductViewAggregationValueTypeDef]]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1723,8 +1718,8 @@ class RecordDetailTypeDef(TypedDict):
     ProductId: NotRequired[str]
     ProvisioningArtifactId: NotRequired[str]
     PathId: NotRequired[str]
-    RecordErrors: NotRequired[List[RecordErrorTypeDef]]
-    RecordTags: NotRequired[List[RecordTagTypeDef]]
+    RecordErrors: NotRequired[list[RecordErrorTypeDef]]
+    RecordTags: NotRequired[list[RecordTagTypeDef]]
     LaunchRoleArn: NotRequired[str]
 
 
@@ -1735,8 +1730,8 @@ class ResourceChangeDetailTypeDef(TypedDict):
 
 
 class ShareDetailsTypeDef(TypedDict):
-    SuccessfulShares: NotRequired[List[str]]
-    ShareErrors: NotRequired[List[ShareErrorTypeDef]]
+    SuccessfulShares: NotRequired[list[str]]
+    ShareErrors: NotRequired[list[ShareErrorTypeDef]]
 
 
 class UpdateProvisionedProductInputTypeDef(TypedDict):
@@ -1773,20 +1768,20 @@ SourceConnectionTypeDef = TypedDict(
 
 
 class ListLaunchPathsOutputTypeDef(TypedDict):
-    LaunchPathSummaries: List[LaunchPathSummaryTypeDef]
+    LaunchPathSummaries: list[LaunchPathSummaryTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchProvisionedProductsOutputTypeDef(TypedDict):
-    ProvisionedProducts: List[ProvisionedProductAttributeTypeDef]
+    ProvisionedProducts: list[ProvisionedProductAttributeTypeDef]
     TotalResultsCount: int
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListProvisioningArtifactsForServiceActionOutputTypeDef(TypedDict):
-    ProvisioningArtifactViews: List[ProvisioningArtifactViewTypeDef]
+    ProvisioningArtifactViews: list[ProvisioningArtifactViewTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1818,26 +1813,26 @@ class UpdateServiceActionOutputTypeDef(TypedDict):
 
 class DescribeProvisioningArtifactOutputTypeDef(TypedDict):
     ProvisioningArtifactDetail: ProvisioningArtifactDetailTypeDef
-    Info: Dict[str, str]
+    Info: dict[str, str]
     Status: StatusType
-    ProvisioningArtifactParameters: List[ProvisioningArtifactParameterTypeDef]
+    ProvisioningArtifactParameters: list[ProvisioningArtifactParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeProvisioningParametersOutputTypeDef(TypedDict):
-    ProvisioningArtifactParameters: List[ProvisioningArtifactParameterTypeDef]
-    ConstraintSummaries: List[ConstraintSummaryTypeDef]
-    UsageInstructions: List[UsageInstructionTypeDef]
-    TagOptions: List[TagOptionSummaryTypeDef]
+    ProvisioningArtifactParameters: list[ProvisioningArtifactParameterTypeDef]
+    ConstraintSummaries: list[ConstraintSummaryTypeDef]
+    UsageInstructions: list[UsageInstructionTypeDef]
+    TagOptions: list[TagOptionSummaryTypeDef]
     ProvisioningArtifactPreferences: ProvisioningArtifactPreferencesTypeDef
-    ProvisioningArtifactOutputs: List[ProvisioningArtifactOutputTypeDef]
-    ProvisioningArtifactOutputKeys: List[ProvisioningArtifactOutputTypeDef]
+    ProvisioningArtifactOutputs: list[ProvisioningArtifactOutputTypeDef]
+    ProvisioningArtifactOutputKeys: list[ProvisioningArtifactOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeRecordOutputTypeDef(TypedDict):
     RecordDetail: RecordDetailTypeDef
-    RecordOutputs: List[RecordOutputTypeDef]
+    RecordOutputs: list[RecordOutputTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1858,7 +1853,7 @@ class ImportAsProvisionedProductOutputTypeDef(TypedDict):
 
 
 class ListRecordHistoryOutputTypeDef(TypedDict):
-    RecordDetails: List[RecordDetailTypeDef]
+    RecordDetails: list[RecordDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1884,8 +1879,8 @@ class ResourceChangeTypeDef(TypedDict):
     PhysicalResourceId: NotRequired[str]
     ResourceType: NotRequired[str]
     Replacement: NotRequired[ReplacementType]
-    Scope: NotRequired[List[ResourceAttributeType]]
-    Details: NotRequired[List[ResourceChangeDetailTypeDef]]
+    Scope: NotRequired[list[ResourceAttributeType]]
+    Details: NotRequired[list[ResourceChangeDetailTypeDef]]
 
 
 class DescribePortfolioShareStatusOutputTypeDef(TypedDict):
@@ -1938,7 +1933,7 @@ class UpdateProductInputTypeDef(TypedDict):
 
 class DescribeProvisionedProductPlanOutputTypeDef(TypedDict):
     ProvisionedProductPlanDetails: ProvisionedProductPlanDetailsTypeDef
-    ResourceChanges: List[ResourceChangeTypeDef]
+    ResourceChanges: list[ResourceChangeTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1946,26 +1941,26 @@ class DescribeProvisionedProductPlanOutputTypeDef(TypedDict):
 class CreateProductOutputTypeDef(TypedDict):
     ProductViewDetail: ProductViewDetailTypeDef
     ProvisioningArtifactDetail: ProvisioningArtifactDetailTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeProductAsAdminOutputTypeDef(TypedDict):
     ProductViewDetail: ProductViewDetailTypeDef
-    ProvisioningArtifactSummaries: List[ProvisioningArtifactSummaryTypeDef]
-    Tags: List[TagTypeDef]
-    TagOptions: List[TagOptionDetailTypeDef]
-    Budgets: List[BudgetDetailTypeDef]
+    ProvisioningArtifactSummaries: list[ProvisioningArtifactSummaryTypeDef]
+    Tags: list[TagTypeDef]
+    TagOptions: list[TagOptionDetailTypeDef]
+    Budgets: list[BudgetDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchProductsAsAdminOutputTypeDef(TypedDict):
-    ProductViewDetails: List[ProductViewDetailTypeDef]
+    ProductViewDetails: list[ProductViewDetailTypeDef]
     NextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateProductOutputTypeDef(TypedDict):
     ProductViewDetail: ProductViewDetailTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

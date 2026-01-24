@@ -1,17 +1,17 @@
 [build-system]
-requires = ["setuptools>=62.6", "versioneer[toml]==0.29"]
+requires = ["setuptools>=80", "setuptools-scm>=9"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "distributed"
 description = "Distributed scheduler for Dask"
-maintainers = [{name = "Matthew Rocklin", email = "mrocklin@gmail.com"}]
-license = {text = "BSD-3-Clause"}
+maintainers = [{ name = "Matthew Rocklin", email = "mrocklin@gmail.com" }]
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -28,7 +28,7 @@ requires-python = ">=3.10"
 dependencies = [
     "click >= 8.0",
     "cloudpickle >= 3.0.0",
-    "dask == 2025.9.1",
+    "dask >=2026.1.1,<2026.1.2",
     "jinja2 >= 2.10.3",
     "locket >= 1.0.0",
     "msgpack >= 1.0.2",
@@ -36,8 +36,8 @@ dependencies = [
     "psutil >= 5.8.0",
     "pyyaml >= 5.4.1",
     "sortedcontainers >= 2.0.5",
-    "tblib >= 1.6.0",
-    "toolz >= 0.11.2",
+    "tblib >= 1.6.0,!=3.2.0,!=3.2.1",
+    "toolz >= 0.12.0",
     "tornado >= 6.2.0",
     "urllib3 >= 1.26.5",
     "zict >= 3.0.0",
@@ -59,41 +59,66 @@ dask-ssh = "distributed.cli.dask_ssh:main"
 dask-scheduler = "distributed.cli.dask_scheduler:main"
 dask-worker = "distributed.cli.dask_worker:main"
 
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
 [tool.setuptools.packages.find]
 exclude = ["*tests*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"*" = [
-    "templates/index.html",
-    "template.html",
-]
-distributed = [
-    "http/templates/*.html",
-    "py.typed",
+"*" = ["templates/index.html", "template.html"]
+distributed = ["http/templates/*.html", "py.typed"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["B", "TID", "I", "UP", "RUF"]
+ignore = [
+    "B011",   # Do not `assert False`, raise `AssertionError()`
+    "B018",   # Found useless expression
+    "B028",   # FIXME: No explicit `stacklevel` keyword argument found
+    "B904",   # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    "B905",   # `zip()` without an explicit `strict=` parameter
+    "F841",   # Local variable `futures` is assigned to but never used
+    "E402",   # Module level import not at top of file
+    "E714",   # Test for object identity should be `is not`
+    "E721",   # Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+    "E741",   # Ambiguous variable name: `l`
+    "UP031",  # TODO: apply this rule
+    "RUF001", # String contains ambiguous letter
+    "RUF002", # Docstring contains ambiguous letter
+    "RUF005", # Consider unpacking operator instead of concatenation
+    "RUF006", # Store a reference to the return value of `asyncio.ensure_future`
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    "RUF015", # Prefer `next(iter(...))` over single element slice
+    "RUF018", # Avoid assignment expressions in `assert` statements
+    "RUF021", # Parenthesize `a and b` expressions when chaining `and` and `or` together, to make the precedence clear
+    "RUF022", # `__all__` is not sorted
+    "RUF023", # `__slots__` is not sorted
+    "RUF043", # Pattern passed to `match=` contains metacharacters but is neither escaped nor raw
+    "RUF059", # Unpacked variable is never used
 ]
 
-[tool.isort]
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DISTRIBUTED", "FIRSTPARTY", "LOCALFOLDER"]
-profile = "black"
-skip_gitignore = true
-force_to_top = ["true"]
-default_section = "THIRDPARTY"
-known_first_party = ["distributed"]
-known_distributed = ["dask", "zict"]
-add_imports = ["from __future__ import annotations"]
+[tool.ruff.lint.extend-per-file-ignores]
+"**__init__.py" = ["F401", "F811"]
+"distributed/shuffle/tests/test_shuffle.py" = ["F601"]
+"distributed/utils.py" = ["F821"]
 
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-versionfile_source = "distributed/_version.py"
-versionfile_build = "distributed/_version.py"
-tag_prefix = ""
-parentdir_prefix = "distributed-"
+[tool.ruff.lint.isort]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "distributed",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+"distributed" = ["dask", "zict"]
+
+[tool.setuptools_scm]
+version_file = "distributed/_version.py"
+version_scheme = "post-release"
 
 [tool.pytest.ini_options]
 addopts = '''
@@ -161,11 +186,11 @@ minversion = "6"
 markers = [
     "ci1: marks tests as belonging to 1 out of 2 partitions to run on CI ('-m \"not ci1\"' for second partition)",
     "extra_packages: marks tests that require a special dependency to run.",
-    "slow: marks tests as slow (deselected by default", # select with '--runslow')
+    "slow: marks tests as slow (deselected by default",                                                                            # select with '--runslow')
     "avoid_ci: marks tests as flaky or broken on CI on all OSs",
     "ipython: marks tests as exercising IPython",
     "gpu: marks tests we want to run on GPUs",
-    "leaking: ignore leaked resources", # see pytest_resourceleaks.py for usage
+    "leaking: ignore leaked resources",                                                                                            # see pytest_resourceleaks.py for usage
     "workerstate: deterministic test for the worker state machine. Automatically applied to all tests that use the 'ws' fixture.",
 ]
 # pytest-timeout settings
@@ -248,7 +273,7 @@ exclude_lines = [
     "except ImportError",
     "@overload",
     "@abstractmethod",
-    "@abc.abstractmethod"
+    "@abc.abstractmethod",
 ]
 
 [tool.coverage.html]

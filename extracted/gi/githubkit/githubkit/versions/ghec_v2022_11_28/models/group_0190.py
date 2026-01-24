@@ -9,47 +9,41 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0189 import MinimalRepository
 
+class UpdateCostCenter(GitHubModel):
+    """UpdateCostCenter"""
 
-class Thread(GitHubModel):
-    """Thread
-
-    Thread
-    """
-
-    id: str = Field()
-    repository: MinimalRepository = Field(
-        title="Minimal Repository", description="Minimal Repository"
+    id: str = Field(description="ID of the cost center.")
+    name: str = Field(description="Name of the cost center.")
+    azure_subscription: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="Azure subscription ID associated with the cost center. Only present for cost centers linked to Azure subscriptions.",
     )
-    subject: ThreadPropSubject = Field()
-    reason: str = Field()
-    unread: bool = Field()
-    updated_at: str = Field()
-    last_read_at: Union[str, None] = Field()
-    url: str = Field()
-    subscription_url: str = Field()
+    state: Missing[Literal["active", "deleted"]] = Field(
+        default=UNSET, description="State of the cost center."
+    )
+    resources: list[UpdateCostCenterPropResourcesItems] = Field()
 
 
-class ThreadPropSubject(GitHubModel):
-    """ThreadPropSubject"""
+class UpdateCostCenterPropResourcesItems(GitHubModel):
+    """UpdateCostCenterPropResourcesItems"""
 
-    title: str = Field()
-    url: str = Field()
-    latest_comment_url: str = Field()
-    type: str = Field()
+    type: str = Field(description="Type of the resource.")
+    name: str = Field(description="Name of the resource.")
 
 
-model_rebuild(Thread)
-model_rebuild(ThreadPropSubject)
+model_rebuild(UpdateCostCenter)
+model_rebuild(UpdateCostCenterPropResourcesItems)
 
 __all__ = (
-    "Thread",
-    "ThreadPropSubject",
+    "UpdateCostCenter",
+    "UpdateCostCenterPropResourcesItems",
 )

@@ -1,14 +1,13 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from warnings import warn
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -49,7 +48,9 @@ class TaskCredentials(WMLResource):
 
         .. code-block:: python
 
-            task_credentials_details = client.task_credentials.get_details(task_credentials_id)
+            task_credentials_details = client.task_credentials.get_details(
+                task_credentials_id
+            )
 
         """
         if self._client.ICP_PLATFORM_SPACES:
@@ -59,11 +60,9 @@ class TaskCredentials(WMLResource):
             kwargs, task_credentials_id, "task_credentials", True
         )
 
-        # TaskCredentials._validate_type(task_credentials_id, u'task_credentials_id', STR_TYPE, False)
-
         if task_credentials_id:
-            response = requests.get(
-                self._client._href_definitions.get_task_credentials_href(
+            response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_task_credentials_href(
                     task_credentials_id
                 ),
                 headers=self._client._get_headers(),
@@ -83,8 +82,8 @@ class TaskCredentials(WMLResource):
             elif space_id := kwargs.get("space_id"):
                 params["space_id"] = space_id
 
-            response = requests.get(
-                self._client._href_definitions.get_task_credentials_all_href(),
+            response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_task_credentials_all_href(),
                 params=params,
                 headers=self._client._get_headers(),
             )
@@ -133,8 +132,8 @@ class TaskCredentials(WMLResource):
                 "Task Credentials have already been stored. Use old or delete them."
             )
 
-        creation_response = requests.post(
-            href,
+        creation_response = self._client.httpx_client.post(
+            url=href,
             params=self._client._params(skip_for_create=True),
             headers=self._client._get_headers(),
             json={
@@ -206,7 +205,9 @@ class TaskCredentials(WMLResource):
 
         .. code-block:: python
 
-            task_credentials_id = client.task_credentials.get_id(task_credentials_details)
+            task_credentials_id = client.task_credentials.get_id(
+                task_credentials_details
+            )
 
         """
         return task_credentials_details["id"]
@@ -219,6 +220,8 @@ class TaskCredentials(WMLResource):
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -249,19 +252,20 @@ class TaskCredentials(WMLResource):
             scope_fields_not_supported_warning = "Scope fields: project_id/space_id are not yet supported by Task Credentials Service."
             warn(scope_fields_not_supported_warning)
 
-        response = requests.delete(
-            self._client._href_definitions.get_task_credentials_href(
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_task_credentials_href(
                 task_credentials_id
             ),
             params=params,
             headers=self._client._get_headers(),
         )
 
-        if response.status_code == 200:
-            return self._handle_response(
-                200, "delete task credentials", response, _silent_response_logging=True
-            )
-        else:
-            return self._handle_response(
-                204, "delete task credentials", response, _silent_response_logging=True
-            )
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                {200, 204},
+                "delete task credentials",
+                response,
+                _silent_response_logging=True,
+            ),
+        )

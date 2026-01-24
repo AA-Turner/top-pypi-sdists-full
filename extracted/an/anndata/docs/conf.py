@@ -88,8 +88,9 @@ typehints_defaults = "braces"
 todo_include_todos = False
 nitpicky = True  # Report broken links
 nitpick_ignore = [  # APIs without an intersphinx entry
-    # This API isn’t actually documented
+    # These APIs aren’t actually documented
     ("py:class", "anndata._core.raw.Raw"),
+    ("py:class", "pandas._libs.missing.NAType"),
     # TODO: remove zappy support; the zappy repo is archived
     ("py:class", "anndata.compat.ZappyArray"),
 ]
@@ -133,7 +134,9 @@ intersphinx_mapping = dict(
     numpy=("https://numpy.org/doc/stable", None),
     obstore=("https://developmentseed.org/obstore/latest/", None),
     pandas=("https://pandas.pydata.org/pandas-docs/stable", None),
-    python=("https://docs.python.org/3", None),
+    # TODO: switch to `/3` once docs are built with Python 3.14
+    # https://github.com/readthedocs/readthedocs.org/issues/12523
+    python=("https://docs.python.org/3.13", None),
     scipy=("https://docs.scipy.org/doc/scipy", None),
     sklearn=("https://scikit-learn.org/stable", None),
     xarray=("https://docs.xarray.dev/en/stable", None),
@@ -168,6 +171,7 @@ qualname_overrides = {
     "anndata.compat.XDataset": "xarray.Dataset",
     "awkward.highlevel.Array": "ak.Array",
     "numpy.int64": ("py:attr", "numpy.int64"),
+    "numpy.dtypes.StringDType": ("py:attr", "numpy.dtypes.StringDType"),
     "pandas.DataFrame.iloc": ("py:attr", "pandas.DataFrame.iloc"),
     "pandas.DataFrame.loc": ("py:attr", "pandas.DataFrame.loc"),
     # should be fixed soon: https://github.com/tox-dev/sphinx-autodoc-typehints/pull/516

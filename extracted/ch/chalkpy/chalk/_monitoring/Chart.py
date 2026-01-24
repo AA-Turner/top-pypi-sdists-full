@@ -3,9 +3,7 @@ from __future__ import annotations
 import dataclasses
 import zlib
 from copy import deepcopy
-from typing import Any, Callable, ClassVar, List, Literal, Optional, Set, Tuple, TypeVar, Union
-
-from typing_extensions import Concatenate, ParamSpec
+from typing import Any, Callable, ClassVar, Concatenate, List, Literal, Optional, ParamSpec, Set, Tuple, TypeVar, Union
 
 from chalk._monitoring.charts_enums_codegen import (
     AlertSeverityKind,

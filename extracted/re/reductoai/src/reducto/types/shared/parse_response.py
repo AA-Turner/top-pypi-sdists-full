@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
 from typing_extensions import Literal, TypeAlias
 
 from ..._models import BaseModel
@@ -22,6 +22,11 @@ __all__ = [
 
 
 class ResultFullResultChunkBlockGranularConfidence(BaseModel):
+    """Granular confidence scores for the block.
+
+    It is a dictionary of confidence scores for the block. The confidence scores will not be None if the user has enabled numeric confidence scores.
+    """
+
     extract_confidence: Optional[float] = None
 
     parse_confidence: Optional[float] = None
@@ -50,11 +55,23 @@ class ResultFullResultChunkBlock(BaseModel):
     ]
     """The type of block extracted from the document."""
 
+    chart_data: Optional[List[str]] = None
+    """
+    (Experimental) The URL/link to chart data JSON for figure blocks processed by
+    chart agent.
+    """
+
     confidence: Optional[str] = None
     """The confidence for the block.
 
     It is either low or high and takes into account factors like OCR and table
     structure
+    """
+
+    extra: Optional[Dict[str, object]] = None
+    """Extra metadata fields for the block.
+
+    Fields like 'is_chart' will only appear when set to True.
     """
 
     granular_confidence: Optional[ResultFullResultChunkBlockGranularConfidence] = None
@@ -95,6 +112,9 @@ class ResultFullResultOcrLine(BaseModel):
     confidence: Optional[float] = None
     """OCR confidence score between 0 and 1, where 1 indicates highest confidence"""
 
+    rotation: Optional[int] = None
+    """The rotation angle in degrees, from 0 to 360, counterclockwise."""
+
 
 class ResultFullResultOcrWord(BaseModel):
     bbox: BoundingBox
@@ -106,6 +126,9 @@ class ResultFullResultOcrWord(BaseModel):
 
     confidence: Optional[float] = None
     """OCR confidence score between 0 and 1, where 1 indicates highest confidence"""
+
+    rotation: Optional[int] = None
+    """The rotation angle in degrees, from 0 to 360, counterclockwise."""
 
 
 class ResultFullResultOcr(BaseModel):

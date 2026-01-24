@@ -11,6 +11,7 @@ from aiokafka.errors import (
     CoordinatorNotAvailableError,
     DuplicateSequenceNumber,
     GroupAuthorizationFailedError,
+    IncompatibleBrokerVersion,
     InvalidProducerEpoch,
     InvalidProducerIdMapping,
     InvalidTxnState,
@@ -230,7 +231,11 @@ class Sender:
             except Errors.GroupAuthorizationFailedError as err:
                 new_err = Errors.GroupAuthorizationFailedError(coordinator_key)
                 raise new_err from err
-            except Errors.CoordinatorNotAvailableError:
+            except (
+                Errors.CoordinatorNotAvailableError,
+                Errors.NodeNotReadyError,
+                Errors.RequestTimedOutError,
+            ):
                 await self.client.force_metadata_update()
                 await asyncio.sleep(self._retry_backoff)
                 continue
@@ -400,6 +405,13 @@ class BaseHandler:
         req = self.create_request()
         try:
             resp = await self._sender.client.send(node_id, req, group=self.group)
+        except IncompatibleBrokerVersion:
+            raise
+        except (Errors.NodeNotReadyError, Errors.RequestTimedOutError) as err:
+            log.warning("Cannot send %r to %s: %r", req.__class__, node_id, err)
+            retry_backoff = self.handle_error()
+            await asyncio.sleep(retry_backoff)
+            return False
         except KafkaError as err:
             log.warning("Could not send %r: %r", req.__class__, err)
             await asyncio.sleep(self._default_backoff)
@@ -418,11 +430,14 @@ class BaseHandler:
     def handle_response(self, response):
         raise NotImplementedError  # pragma: no cover
 
+    def handle_error(self):
+        raise NotImplementedError  # pragma: no cover
+
 
 class InitPIDHandler(BaseHandler):
     def create_request(self):
         txn_manager = self._sender._txn_manager
-        return InitProducerIdRequest[0](
+        return InitProducerIdRequest(
             transactional_id=txn_manager.transactional_id,
             transaction_timeout_ms=txn_manager.transaction_timeout_ms,
         )
@@ -459,6 +474,10 @@ class InitPIDHandler(BaseHandler):
 
         return self._default_backoff
 
+    def handle_error(self):
+        self._sender._coordinator_dead(CoordinationType.TRANSACTION)
+        return self._default_backoff
+
 
 class AddPartitionsToTxnHandler(BaseHandler):
     group = ConnectionGroup.COORDINATION
@@ -474,7 +493,7 @@ class AddPartitionsToTxnHandler(BaseHandler):
         for tp in self._tps:
             partition_data[tp.topic].append(tp.partition)
 
-        req = AddPartitionsToTxnRequest[0](
+        req = AddPartitionsToTxnRequest(
             transactional_id=txn_manager.transactional_id,
             producer_id=txn_manager.producer_id,
             producer_epoch=txn_manager.producer_epoch,
@@ -540,6 +559,10 @@ class AddPartitionsToTxnHandler(BaseHandler):
             )
         return None
 
+    def handle_error(self):
+        self._sender._coordinator_dead(CoordinationType.TRANSACTION)
+        return self._default_backoff
+
 
 class AddOffsetsToTxnHandler(BaseHandler):
     group = ConnectionGroup.COORDINATION
@@ -551,7 +574,7 @@ class AddOffsetsToTxnHandler(BaseHandler):
     def create_request(self):
         txn_manager = self._sender._txn_manager
 
-        req = AddOffsetsToTxnRequest[0](
+        req = AddOffsetsToTxnRequest(
             transactional_id=txn_manager.transactional_id,
             producer_id=txn_manager.producer_id,
             producer_epoch=txn_manager.producer_epoch,
@@ -596,6 +619,10 @@ class AddOffsetsToTxnHandler(BaseHandler):
 
         return self._default_backoff
 
+    def handle_error(self):
+        self._sender._coordinator_dead(CoordinationType.TRANSACTION)
+        return self._default_backoff
+
 
 class TxnOffsetCommitHandler(BaseHandler):
     group = ConnectionGroup.COORDINATION
@@ -614,7 +641,7 @@ class TxnOffsetCommitHandler(BaseHandler):
                 (tp.partition, offset.offset, offset.metadata),
             )
 
-        req = TxnOffsetCommitRequest[0](
+        req = TxnOffsetCommitRequest(
             transactional_id=txn_manager.transactional_id,
             group_id=self._group_id,
             producer_id=txn_manager.producer_id,
@@ -674,6 +701,10 @@ class TxnOffsetCommitHandler(BaseHandler):
 
         return None
 
+    def handle_error(self):
+        self._sender._coordinator_dead(CoordinationType.GROUP)
+        return self._default_backoff
+
 
 class EndTxnHandler(BaseHandler):
     group = ConnectionGroup.COORDINATION
@@ -684,7 +715,7 @@ class EndTxnHandler(BaseHandler):
 
     def create_request(self):
         txn_manager = self._sender._txn_manager
-        req = EndTxnRequest[0](
+        req = EndTxnRequest(
             transactional_id=txn_manager.transactional_id,
             producer_id=txn_manager.producer_id,
             producer_epoch=txn_manager.producer_epoch,
@@ -722,6 +753,10 @@ class EndTxnHandler(BaseHandler):
 
         return self._default_backoff
 
+    def handle_error(self):
+        self._sender._coordinator_dead(CoordinationType.TRANSACTION)
+        return self._default_backoff
+
 
 class SendProduceReqHandler(BaseHandler):
     def __init__(self, sender, batches):
@@ -737,31 +772,13 @@ class SendProduceReqHandler(BaseHandler):
                 (tp.partition, batch.get_data_buffer()),
             )
 
-        if self._client.api_version >= (2, 1):
-            version = 7
-        elif self._client.api_version >= (2, 0):
-            version = 6
-        elif self._client.api_version >= (1, 1):
-            version = 5
-        elif self._client.api_version >= (1, 0):
-            version = 4
-        elif self._client.api_version >= (0, 11):
-            version = 3
-        elif self._client.api_version >= (0, 10):
-            version = 2
-        elif self._client.api_version == (0, 9):
-            version = 1
-        else:
-            version = 0
-
         kwargs = {}
-        if version >= 3:
-            if self._sender._txn_manager is not None:
-                kwargs["transactional_id"] = self._sender._txn_manager.transactional_id
-            else:
-                kwargs["transactional_id"] = None
+        if self._sender._txn_manager is not None:
+            kwargs["transactional_id"] = self._sender._txn_manager.transactional_id
+        else:
+            kwargs["transactional_id"] = None
 
-        request = ProduceRequest[version](
+        request = ProduceRequest(
             required_acks=self._sender._acks,
             timeout=self._sender._request_timeout_ms,
             topics=list(topics.items()),
@@ -870,6 +887,9 @@ class SendProduceReqHandler(BaseHandler):
                     if getattr(error, "invalid_metadata", False):
                         self._client.force_metadata_update()
                     self._to_reenqueue.append(batch)
+
+    def handle_error(self):
+        return self._default_backoff
 
     def _can_retry(self, error, batch):
         # If indempotence is enabled we never expire batches, but retry until

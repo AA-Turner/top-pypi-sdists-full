@@ -14,7 +14,7 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
-from beartype._data.hint.datahintpep import Hint
+from beartype._data.typing.datatypingport import Hint
 from beartype._util.hint.pep.proposal.pep484585.pep484585 import (
     get_hint_pep484585_arg)
 
@@ -61,7 +61,7 @@ def reduce_hint_pep484585_type(
     # Avoid circular import dependencies.
     from beartype._check.convert._reduce._pep.pep484.redpep484 import (
         reduce_hint_pep484_deprecated)
-    from beartype._check.convert._reduce.redhint import reduce_hint_child
+    from beartype._check.convert._reduce.redmain import reduce_hint_child
 
     # If this is a PEP 484-compliant subclass hint, this hint has been
     # deprecated by PEP 585. In this case, issue a non-fatal warning.

@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2010-2023 Pyresample developers
+# Copyright (C) 2010-2025 Pyresample developers
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -143,7 +140,13 @@ class BaseDefinition:
         return existing_hash
 
     def __eq__(self, other):
-        """Test for approximate equality."""
+        """Test for approximate equality.
+
+        Equality considers only the projection coordinates, not metadata such
+        as description or projection ID.  In other words, areas are considered
+        equal if they produce approximately the same output when used for
+        resampling, within floating point tolerances.
+        """
         if self is other:
             return True
         if not isinstance(other, BaseDefinition):
@@ -186,7 +189,7 @@ class BaseDefinition:
         return lons, lats
 
     def __ne__(self, other):
-        """Test for approximate equality."""
+        """Test for approximate inequality."""
         return not self.__eq__(other)
 
     def get_area_extent_for_subset(self, row_LR, col_LR, row_UL, col_UL):
@@ -345,7 +348,8 @@ class BaseDefinition:
         sides_dim1, sides_dim2 = zip(*[(top_dim1.squeeze(), top_dim2.squeeze()),
                                        (right_dim1.squeeze(), right_dim2.squeeze()),
                                        (bottom_dim1.squeeze(), bottom_dim2.squeeze()),
-                                       (left_dim1.squeeze(), left_dim2.squeeze())])
+                                       (left_dim1.squeeze(), left_dim2.squeeze())],
+                                     strict=True)
         if hasattr(sides_dim1[0], 'compute') and da is not None:
             sides_dim1, sides_dim2 = da.compute(sides_dim1, sides_dim2)
         return self._filter_sides_nans(sides_dim1, sides_dim2)
@@ -358,7 +362,7 @@ class BaseDefinition:
         """Remove nan and inf values present in each side."""
         new_dim1_sides = []
         new_dim2_sides = []
-        for dim1_side, dim2_side in zip(dim1_sides, dim2_sides):
+        for dim1_side, dim2_side in zip(dim1_sides, dim2_sides, strict=True):
             # FIXME: ~(~np.isfinite(dim1_side) | ~np.isfinite(dim1_side))
             is_valid_mask = ~(np.isnan(dim1_side) | np.isnan(dim2_side))
             if not is_valid_mask.any():
@@ -2109,7 +2113,12 @@ class AreaDefinition(_ProjectionDefinition):
         return area_def_str
 
     def __eq__(self, other):
-        """Test for equality."""
+        """Test for equality.
+
+        Equality considers only the projection coordinates, not metadata such
+        as description or projection ID.  In other words, areas are considered
+        equal if they produce the same output when used for resampling.
+        """
         try:
             return ((np.allclose(self.area_extent, other.area_extent)) and
                     (self.crs == other.crs) and
@@ -2118,7 +2127,7 @@ class AreaDefinition(_ProjectionDefinition):
             return super().__eq__(other)
 
     def __ne__(self, other):
-        """Test for equality."""
+        """Test for inequality."""
         return not self.__eq__(other)
 
     def update_hash(self, existing_hash: Optional[hashlib._Hash] = None) -> hashlib._Hash:

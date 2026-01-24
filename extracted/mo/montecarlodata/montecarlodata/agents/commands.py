@@ -6,7 +6,7 @@ from montecarlodata.agents.agent import AgentService
 from montecarlodata.agents.fields import (
     AWS,
     AWS_ASSUMABLE_ROLE,
-    AWS_GENERIC,
+    AWS_PROXIED,
     AZURE,
     AZURE_BLOB,
     AZURE_FUNCTION_APP_KEY,
@@ -14,11 +14,13 @@ from montecarlodata.agents.fields import (
     DATA_STORE_AGENT,
     GCP,
     GCP_JSON_SERVICE_ACCOUNT_KEY,
+    GCP_PROXIED,
     GCS,
     OAUTH2_CLIENT_CREDENTIALS,
     OAUTH2_PASSWORD,
     REMOTE_AGENT,
     S3,
+    S3_COMPATIBLE,
 )
 from montecarlodata.collector.commands import NETWORK_TEST_OPTIONS
 from montecarlodata.collector.network_tests import CollectorNetworkTestService
@@ -162,10 +164,18 @@ def register_s3_store(ctx, bucket_name, **kwargs):
     help="AWS External ID.",
     required=False,
 )
+@click.option(
+    "--storage-type",
+    help="Storage type for agent data store.",
+    required=False,
+    type=click.Choice([S3, S3_COMPATIBLE], case_sensitive=False),
+    default=S3,
+    show_default=True,
+)
 @add_common_options(DRY_RUN_OPTIONS)
 @add_common_options(DC_ID_OPTION)
 @add_common_options(UPDATE_AGENT_OPTIONS)
-def register_aws_agent(ctx, lambda_arn, **kwargs):
+def register_aws_agent(ctx, lambda_arn, storage_type, **kwargs):
     AgentService(
         config=ctx["config"],
         mc_client=create_mc_client(ctx),
@@ -173,7 +183,7 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     ).create_agent(
         agent_type=REMOTE_AGENT,
         platform=AWS,
-        storage=S3,
+        storage=storage_type,
         auth_type=AWS_ASSUMABLE_ROLE,
         endpoint=lambda_arn,
         **kwargs,
@@ -238,6 +248,14 @@ def register_aws_agent(ctx, lambda_arn, **kwargs):
     type=click.Choice(["lambda", "generic"], case_sensitive=False),
     default="lambda",
 )
+@click.option(
+    "--storage-type",
+    help="Storage type for agent data store.",
+    required=False,
+    type=click.Choice([S3, S3_COMPATIBLE], case_sensitive=False),
+    default=S3,
+    show_default=True,
+)
 @add_common_options(DRY_RUN_OPTIONS)
 @add_common_options(DC_ID_OPTION)
 @add_common_options(MUTUAL_TLS_OPTIONS)
@@ -252,6 +270,7 @@ def register_aws_proxied_agent(
     username: Optional[str] = None,
     password: Optional[str] = None,
     deployment_type: Optional[str] = None,
+    storage_type: Optional[str] = None,
     **kwargs,
 ):
     AgentService(
@@ -260,8 +279,93 @@ def register_aws_proxied_agent(
         command_name="agents register_aws_proxied_agent",
     ).create_agent(
         agent_type=REMOTE_AGENT,
-        platform=AWS_GENERIC if deployment_type == "generic" else AWS,
-        storage=S3,
+        platform=AWS_PROXIED if deployment_type == "generic" else AWS,
+        storage=storage_type or S3,
+        auth_type=authentication.upper(),
+        endpoint=proxy_endpoint,
+        auth_url=auth_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        username=username,
+        password=password,
+        **kwargs,
+    )
+
+
+@agents.command(help="Register a Remote GCP Proxied Agent.")
+@click.pass_obj
+@click.option(
+    "--authentication",
+    help="Authentication type.",
+    required=False,
+    type=click.Choice(
+        [OAUTH2_CLIENT_CREDENTIALS.lower(), OAUTH2_PASSWORD.lower()], case_sensitive=False
+    ),
+    default=OAUTH2_CLIENT_CREDENTIALS.lower(),
+)
+@click.option(
+    "--proxy-endpoint",
+    help="HTTP/HTTPS Proxy URL.",
+    required=True,
+)
+@click.option(
+    "--auth-url",
+    help="OAuth2 Client Credentials - Authentication URL, used to get the access token.",
+    required=False,
+    cls=AdvancedOptions,
+)
+@click.option(
+    "--client-id",
+    help="OAuth2 Client Credentials - Client ID.",
+    required=False,
+    cls=AdvancedOptions,
+)
+@click.option(
+    "--client-secret",
+    help=f"OAuth2 Client Credentials - Client Secret. {PASSWORD_VERBIAGE}",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+    required_with_options=["client_id", "auth_url"],
+)
+@click.option(
+    "--username",
+    help="OAuth2 Username/Password - Username.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["password", "auth_url", "authentication"],
+)
+@click.option(
+    "--password",
+    help=f"OAuth2 Username/Password - Password. {PASSWORD_VERBIAGE}",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+    required_with_options=["username", "auth_url", "authentication"],
+)
+@add_common_options(DRY_RUN_OPTIONS)
+@add_common_options(DC_ID_OPTION)
+@add_common_options(MUTUAL_TLS_OPTIONS)
+@add_common_options(UPDATE_AGENT_OPTIONS)
+def register_gcp_proxied_agent(
+    ctx,
+    authentication: str,
+    proxy_endpoint: str,
+    auth_url: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    **kwargs,
+):
+    AgentService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="agents register_gcp_proxied_agent",
+    ).create_agent(
+        agent_type=REMOTE_AGENT,
+        platform=GCP_PROXIED,
+        storage=GCS,
         auth_type=authentication.upper(),
         endpoint=proxy_endpoint,
         auth_url=auth_url,

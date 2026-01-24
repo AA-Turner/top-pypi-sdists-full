@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydantic-avro
-Version: 0.9.0
+Version: 0.9.3
 Summary: Converting pydantic classes to avro schemas
 Home-page: https://github.com/godatadriven/pydantic-avro
 License: MIT

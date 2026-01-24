@@ -16,6 +16,9 @@ from . import _utilities
 from . import outputs
 
 __all__ = [
+    'ActionsHostedRunnerImage',
+    'ActionsHostedRunnerMachineSizeDetail',
+    'ActionsHostedRunnerPublicIp',
     'ActionsOrganizationPermissionsAllowedActionsConfig',
     'ActionsOrganizationPermissionsEnabledRepositoriesConfig',
     'ActionsRepositoryPermissionsAllowedActionsConfig',
@@ -38,6 +41,11 @@ __all__ = [
     'OrganizationRulesetRulesCommitAuthorEmailPattern',
     'OrganizationRulesetRulesCommitMessagePattern',
     'OrganizationRulesetRulesCommitterEmailPattern',
+    'OrganizationRulesetRulesCopilotCodeReview',
+    'OrganizationRulesetRulesFileExtensionRestriction',
+    'OrganizationRulesetRulesFilePathRestriction',
+    'OrganizationRulesetRulesMaxFilePathLength',
+    'OrganizationRulesetRulesMaxFileSize',
     'OrganizationRulesetRulesPullRequest',
     'OrganizationRulesetRulesRequiredCodeScanning',
     'OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool',
@@ -62,6 +70,11 @@ __all__ = [
     'RepositoryRulesetRulesCommitAuthorEmailPattern',
     'RepositoryRulesetRulesCommitMessagePattern',
     'RepositoryRulesetRulesCommitterEmailPattern',
+    'RepositoryRulesetRulesCopilotCodeReview',
+    'RepositoryRulesetRulesFileExtensionRestriction',
+    'RepositoryRulesetRulesFilePathRestriction',
+    'RepositoryRulesetRulesMaxFilePathLength',
+    'RepositoryRulesetRulesMaxFileSize',
     'RepositoryRulesetRulesMergeQueue',
     'RepositoryRulesetRulesPullRequest',
     'RepositoryRulesetRulesRequiredCodeScanning',
@@ -72,7 +85,10 @@ __all__ = [
     'RepositoryRulesetRulesTagNamePattern',
     'RepositorySecurityAndAnalysis',
     'RepositorySecurityAndAnalysisAdvancedSecurity',
+    'RepositorySecurityAndAnalysisCodeSecurity',
     'RepositorySecurityAndAnalysisSecretScanning',
+    'RepositorySecurityAndAnalysisSecretScanningAiDetection',
+    'RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns',
     'RepositorySecurityAndAnalysisSecretScanningPushProtection',
     'RepositoryTemplate',
     'RepositoryWebhookConfiguration',
@@ -96,6 +112,11 @@ __all__ = [
     'GetIssueLabelsLabelResult',
     'GetOrganizationExternalIdentitiesIdentityResult',
     'GetOrganizationIpAllowListIpAllowListResult',
+    'GetOrganizationRepositoryRolesRoleResult',
+    'GetOrganizationRoleTeamsTeamResult',
+    'GetOrganizationRoleUsersUserResult',
+    'GetOrganizationRolesRoleResult',
+    'GetOrganizationSecurityManagersTeamResult',
     'GetOrganizationTeamSyncGroupsGroupResult',
     'GetOrganizationTeamsTeamResult',
     'GetOrganizationWebhooksWebhookResult',
@@ -105,6 +126,7 @@ __all__ = [
     'GetRepositoryCustomPropertiesPropertyResult',
     'GetRepositoryDeployKeysKeyResult',
     'GetRepositoryDeploymentBranchPoliciesDeploymentBranchPolicyResult',
+    'GetRepositoryEnvironmentDeploymentPoliciesPolicyResult',
     'GetRepositoryEnvironmentsEnvironmentResult',
     'GetRepositoryPageResult',
     'GetRepositoryPageSourceResult',
@@ -117,6 +139,184 @@ __all__ = [
     'GetTeamRepositoriesDetailedResult',
     'GetTreeEntryResult',
 ]
+
+@pulumi.output_type
+class ActionsHostedRunnerImage(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "sizeGb":
+            suggest = "size_gb"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ActionsHostedRunnerImage. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ActionsHostedRunnerImage.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ActionsHostedRunnerImage.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 size_gb: Optional[_builtins.int] = None,
+                 source: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str id: The image ID. For GitHub-owned images, use numeric IDs like "2306" for Ubuntu Latest 24.04. To get available images, use the GitHub API: `GET /orgs/{org}/actions/hosted-runners/images/github-owned`.
+        :param _builtins.int size_gb: The size of the image in gigabytes.
+        :param _builtins.str source: The image source. Valid values are "github", "partner", or "custom". Defaults to "github".
+        """
+        pulumi.set(__self__, "id", id)
+        if size_gb is not None:
+            pulumi.set(__self__, "size_gb", size_gb)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The image ID. For GitHub-owned images, use numeric IDs like "2306" for Ubuntu Latest 24.04. To get available images, use the GitHub API: `GET /orgs/{org}/actions/hosted-runners/images/github-owned`.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="sizeGb")
+    def size_gb(self) -> Optional[_builtins.int]:
+        """
+        The size of the image in gigabytes.
+        """
+        return pulumi.get(self, "size_gb")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> Optional[_builtins.str]:
+        """
+        The image source. Valid values are "github", "partner", or "custom". Defaults to "github".
+        """
+        return pulumi.get(self, "source")
+
+
+@pulumi.output_type
+class ActionsHostedRunnerMachineSizeDetail(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cpuCores":
+            suggest = "cpu_cores"
+        elif key == "memoryGb":
+            suggest = "memory_gb"
+        elif key == "storageGb":
+            suggest = "storage_gb"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ActionsHostedRunnerMachineSizeDetail. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ActionsHostedRunnerMachineSizeDetail.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ActionsHostedRunnerMachineSizeDetail.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cpu_cores: Optional[_builtins.int] = None,
+                 id: Optional[_builtins.str] = None,
+                 memory_gb: Optional[_builtins.int] = None,
+                 storage_gb: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int cpu_cores: Number of CPU cores.
+        :param _builtins.str id: Machine size identifier.
+        :param _builtins.int memory_gb: Amount of memory in gigabytes.
+        :param _builtins.int storage_gb: Amount of storage in gigabytes.
+        """
+        if cpu_cores is not None:
+            pulumi.set(__self__, "cpu_cores", cpu_cores)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+        if memory_gb is not None:
+            pulumi.set(__self__, "memory_gb", memory_gb)
+        if storage_gb is not None:
+            pulumi.set(__self__, "storage_gb", storage_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuCores")
+    def cpu_cores(self) -> Optional[_builtins.int]:
+        """
+        Number of CPU cores.
+        """
+        return pulumi.get(self, "cpu_cores")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        Machine size identifier.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryGb")
+    def memory_gb(self) -> Optional[_builtins.int]:
+        """
+        Amount of memory in gigabytes.
+        """
+        return pulumi.get(self, "memory_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="storageGb")
+    def storage_gb(self) -> Optional[_builtins.int]:
+        """
+        Amount of storage in gigabytes.
+        """
+        return pulumi.get(self, "storage_gb")
+
+
+@pulumi.output_type
+class ActionsHostedRunnerPublicIp(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None,
+                 length: Optional[_builtins.int] = None,
+                 prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.bool enabled: Whether this IP range is enabled.
+        :param _builtins.int length: Subnet length.
+        :param _builtins.str prefix: IP address prefix.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+        if length is not None:
+            pulumi.set(__self__, "length", length)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether this IP range is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def length(self) -> Optional[_builtins.int]:
+        """
+        Subnet length.
+        """
+        return pulumi.get(self, "length")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        IP address prefix.
+        """
+        return pulumi.get(self, "prefix")
+
 
 @pulumi.output_type
 class ActionsOrganizationPermissionsAllowedActionsConfig(dict):
@@ -967,12 +1167,12 @@ class OrganizationRulesetBypassActor(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "actorId":
-            suggest = "actor_id"
-        elif key == "actorType":
+        if key == "actorType":
             suggest = "actor_type"
         elif key == "bypassMode":
             suggest = "bypass_mode"
+        elif key == "actorId":
+            suggest = "actor_id"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetBypassActor. Access the value via the '{suggest}' property getter instead.")
@@ -986,30 +1186,23 @@ class OrganizationRulesetBypassActor(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 actor_id: _builtins.int,
                  actor_type: _builtins.str,
-                 bypass_mode: _builtins.str):
+                 bypass_mode: _builtins.str,
+                 actor_id: Optional[_builtins.int] = None):
         """
-        :param _builtins.int actor_id: (Number) The ID of the actor that can bypass a ruleset.
         :param _builtins.str actor_type: The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`.
-        :param _builtins.str bypass_mode: (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`.
+        :param _builtins.str bypass_mode: (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`, `exempt`.
                
                ~>Note: at the time of writing this, the following actor types correspond to the following actor IDs:
                
-               * `OrganizationAdmin` > `1`
-               * `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+               - `OrganizationAdmin` > `1`
+               - `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+        :param _builtins.int actor_id: (Number) The ID of the actor that can bypass a ruleset.
         """
-        pulumi.set(__self__, "actor_id", actor_id)
         pulumi.set(__self__, "actor_type", actor_type)
         pulumi.set(__self__, "bypass_mode", bypass_mode)
-
-    @_builtins.property
-    @pulumi.getter(name="actorId")
-    def actor_id(self) -> _builtins.int:
-        """
-        (Number) The ID of the actor that can bypass a ruleset.
-        """
-        return pulumi.get(self, "actor_id")
+        if actor_id is not None:
+            pulumi.set(__self__, "actor_id", actor_id)
 
     @_builtins.property
     @pulumi.getter(name="actorType")
@@ -1023,14 +1216,22 @@ class OrganizationRulesetBypassActor(dict):
     @pulumi.getter(name="bypassMode")
     def bypass_mode(self) -> _builtins.str:
         """
-        (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`.
+        (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`, `exempt`.
 
         ~>Note: at the time of writing this, the following actor types correspond to the following actor IDs:
 
-        * `OrganizationAdmin` > `1`
-        * `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+        - `OrganizationAdmin` > `1`
+        - `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
         """
         return pulumi.get(self, "bypass_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="actorId")
+    def actor_id(self) -> Optional[_builtins.int]:
+        """
+        (Number) The ID of the actor that can bypass a ruleset.
+        """
+        return pulumi.get(self, "actor_id")
 
 
 @pulumi.output_type
@@ -1183,6 +1384,16 @@ class OrganizationRulesetRules(dict):
             suggest = "commit_message_pattern"
         elif key == "committerEmailPattern":
             suggest = "committer_email_pattern"
+        elif key == "copilotCodeReview":
+            suggest = "copilot_code_review"
+        elif key == "fileExtensionRestriction":
+            suggest = "file_extension_restriction"
+        elif key == "filePathRestriction":
+            suggest = "file_path_restriction"
+        elif key == "maxFilePathLength":
+            suggest = "max_file_path_length"
+        elif key == "maxFileSize":
+            suggest = "max_file_size"
         elif key == "nonFastForward":
             suggest = "non_fast_forward"
         elif key == "pullRequest":
@@ -1216,8 +1427,13 @@ class OrganizationRulesetRules(dict):
                  commit_author_email_pattern: Optional['outputs.OrganizationRulesetRulesCommitAuthorEmailPattern'] = None,
                  commit_message_pattern: Optional['outputs.OrganizationRulesetRulesCommitMessagePattern'] = None,
                  committer_email_pattern: Optional['outputs.OrganizationRulesetRulesCommitterEmailPattern'] = None,
+                 copilot_code_review: Optional['outputs.OrganizationRulesetRulesCopilotCodeReview'] = None,
                  creation: Optional[_builtins.bool] = None,
                  deletion: Optional[_builtins.bool] = None,
+                 file_extension_restriction: Optional['outputs.OrganizationRulesetRulesFileExtensionRestriction'] = None,
+                 file_path_restriction: Optional['outputs.OrganizationRulesetRulesFilePathRestriction'] = None,
+                 max_file_path_length: Optional['outputs.OrganizationRulesetRulesMaxFilePathLength'] = None,
+                 max_file_size: Optional['outputs.OrganizationRulesetRulesMaxFileSize'] = None,
                  non_fast_forward: Optional[_builtins.bool] = None,
                  pull_request: Optional['outputs.OrganizationRulesetRulesPullRequest'] = None,
                  required_code_scanning: Optional['outputs.OrganizationRulesetRulesRequiredCodeScanning'] = None,
@@ -1232,8 +1448,13 @@ class OrganizationRulesetRules(dict):
         :param 'OrganizationRulesetRulesCommitAuthorEmailPatternArgs' commit_author_email_pattern: (Block List, Max: 1) Parameters to be used for the commit_author_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
         :param 'OrganizationRulesetRulesCommitMessagePatternArgs' commit_message_pattern: (Block List, Max: 1) Parameters to be used for the commit_message_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
         :param 'OrganizationRulesetRulesCommitterEmailPatternArgs' committer_email_pattern: (Block List, Max: 1) Parameters to be used for the committer_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
+        :param 'OrganizationRulesetRulesCopilotCodeReviewArgs' copilot_code_review: (Block List, Max: 1) Automatically request Copilot code review for new pull requests if the author has access to Copilot code review and their premium requests quota has not reached the limit. (see below for nested schema)
         :param _builtins.bool creation: (Boolean) Only allow users with bypass permission to create matching refs.
         :param _builtins.bool deletion: (Boolean) Only allow users with bypass permissions to delete matching refs.
+        :param 'OrganizationRulesetRulesFileExtensionRestrictionArgs' file_extension_restriction: (Block List, Max: 1) Prevent commits that include files with specified file extensions from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        :param 'OrganizationRulesetRulesFilePathRestrictionArgs' file_path_restriction: (Block List, Max: 1) Prevent commits that include changes to specified file paths from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        :param 'OrganizationRulesetRulesMaxFilePathLengthArgs' max_file_path_length: (Integer) The maximum number of characters allowed in file paths.
+        :param 'OrganizationRulesetRulesMaxFileSizeArgs' max_file_size: (Integer) The maximum allowed size, in megabytes (MB), of a file. Valid range is 1-100 MB.
         :param _builtins.bool non_fast_forward: (Boolean) Prevent users with push access from force pushing to branches.
         :param 'OrganizationRulesetRulesPullRequestArgs' pull_request: (Block List, Max: 1) Require all commits be made to a non-target branch and submitted via a pull request before they can be merged. (see below for nested schema)
         :param 'OrganizationRulesetRulesRequiredCodeScanningArgs' required_code_scanning: (Block List, Max: 1) Define which tools must provide code scanning results before the reference is updated. When configured, code scanning must be enabled and have results for both the commit and the reference being updated. Multiple code scanning tools can be specified. (see below for nested schema)
@@ -1252,10 +1473,20 @@ class OrganizationRulesetRules(dict):
             pulumi.set(__self__, "commit_message_pattern", commit_message_pattern)
         if committer_email_pattern is not None:
             pulumi.set(__self__, "committer_email_pattern", committer_email_pattern)
+        if copilot_code_review is not None:
+            pulumi.set(__self__, "copilot_code_review", copilot_code_review)
         if creation is not None:
             pulumi.set(__self__, "creation", creation)
         if deletion is not None:
             pulumi.set(__self__, "deletion", deletion)
+        if file_extension_restriction is not None:
+            pulumi.set(__self__, "file_extension_restriction", file_extension_restriction)
+        if file_path_restriction is not None:
+            pulumi.set(__self__, "file_path_restriction", file_path_restriction)
+        if max_file_path_length is not None:
+            pulumi.set(__self__, "max_file_path_length", max_file_path_length)
+        if max_file_size is not None:
+            pulumi.set(__self__, "max_file_size", max_file_size)
         if non_fast_forward is not None:
             pulumi.set(__self__, "non_fast_forward", non_fast_forward)
         if pull_request is not None:
@@ -1308,6 +1539,14 @@ class OrganizationRulesetRules(dict):
         return pulumi.get(self, "committer_email_pattern")
 
     @_builtins.property
+    @pulumi.getter(name="copilotCodeReview")
+    def copilot_code_review(self) -> Optional['outputs.OrganizationRulesetRulesCopilotCodeReview']:
+        """
+        (Block List, Max: 1) Automatically request Copilot code review for new pull requests if the author has access to Copilot code review and their premium requests quota has not reached the limit. (see below for nested schema)
+        """
+        return pulumi.get(self, "copilot_code_review")
+
+    @_builtins.property
     @pulumi.getter
     def creation(self) -> Optional[_builtins.bool]:
         """
@@ -1322,6 +1561,38 @@ class OrganizationRulesetRules(dict):
         (Boolean) Only allow users with bypass permissions to delete matching refs.
         """
         return pulumi.get(self, "deletion")
+
+    @_builtins.property
+    @pulumi.getter(name="fileExtensionRestriction")
+    def file_extension_restriction(self) -> Optional['outputs.OrganizationRulesetRulesFileExtensionRestriction']:
+        """
+        (Block List, Max: 1) Prevent commits that include files with specified file extensions from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        """
+        return pulumi.get(self, "file_extension_restriction")
+
+    @_builtins.property
+    @pulumi.getter(name="filePathRestriction")
+    def file_path_restriction(self) -> Optional['outputs.OrganizationRulesetRulesFilePathRestriction']:
+        """
+        (Block List, Max: 1) Prevent commits that include changes to specified file paths from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        """
+        return pulumi.get(self, "file_path_restriction")
+
+    @_builtins.property
+    @pulumi.getter(name="maxFilePathLength")
+    def max_file_path_length(self) -> Optional['outputs.OrganizationRulesetRulesMaxFilePathLength']:
+        """
+        (Integer) The maximum number of characters allowed in file paths.
+        """
+        return pulumi.get(self, "max_file_path_length")
+
+    @_builtins.property
+    @pulumi.getter(name="maxFileSize")
+    def max_file_size(self) -> Optional['outputs.OrganizationRulesetRulesMaxFileSize']:
+        """
+        (Integer) The maximum allowed size, in megabytes (MB), of a file. Valid range is 1-100 MB.
+        """
+        return pulumi.get(self, "max_file_size")
 
     @_builtins.property
     @pulumi.getter(name="nonFastForward")
@@ -1609,11 +1880,203 @@ class OrganizationRulesetRulesCommitterEmailPattern(dict):
 
 
 @pulumi.output_type
+class OrganizationRulesetRulesCopilotCodeReview(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "reviewDraftPullRequests":
+            suggest = "review_draft_pull_requests"
+        elif key == "reviewOnPush":
+            suggest = "review_on_push"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesCopilotCodeReview. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationRulesetRulesCopilotCodeReview.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationRulesetRulesCopilotCodeReview.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 review_draft_pull_requests: Optional[_builtins.bool] = None,
+                 review_on_push: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool review_draft_pull_requests: Copilot automatically reviews draft pull requests before they are marked as ready for review. Defaults to `false`.
+        :param _builtins.bool review_on_push: Copilot automatically reviews each new push to the pull request. Defaults to `false`.
+        """
+        if review_draft_pull_requests is not None:
+            pulumi.set(__self__, "review_draft_pull_requests", review_draft_pull_requests)
+        if review_on_push is not None:
+            pulumi.set(__self__, "review_on_push", review_on_push)
+
+    @_builtins.property
+    @pulumi.getter(name="reviewDraftPullRequests")
+    def review_draft_pull_requests(self) -> Optional[_builtins.bool]:
+        """
+        Copilot automatically reviews draft pull requests before they are marked as ready for review. Defaults to `false`.
+        """
+        return pulumi.get(self, "review_draft_pull_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="reviewOnPush")
+    def review_on_push(self) -> Optional[_builtins.bool]:
+        """
+        Copilot automatically reviews each new push to the pull request. Defaults to `false`.
+        """
+        return pulumi.get(self, "review_on_push")
+
+
+@pulumi.output_type
+class OrganizationRulesetRulesFileExtensionRestriction(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictedFileExtensions":
+            suggest = "restricted_file_extensions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesFileExtensionRestriction. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationRulesetRulesFileExtensionRestriction.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationRulesetRulesFileExtensionRestriction.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restricted_file_extensions: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] restricted_file_extensions: The file extensions that are restricted from being pushed to the commit graph.
+        """
+        pulumi.set(__self__, "restricted_file_extensions", restricted_file_extensions)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictedFileExtensions")
+    def restricted_file_extensions(self) -> Sequence[_builtins.str]:
+        """
+        The file extensions that are restricted from being pushed to the commit graph.
+        """
+        return pulumi.get(self, "restricted_file_extensions")
+
+
+@pulumi.output_type
+class OrganizationRulesetRulesFilePathRestriction(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictedFilePaths":
+            suggest = "restricted_file_paths"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesFilePathRestriction. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationRulesetRulesFilePathRestriction.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationRulesetRulesFilePathRestriction.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restricted_file_paths: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] restricted_file_paths: The file paths that are restricted from being pushed to the commit graph.
+        """
+        pulumi.set(__self__, "restricted_file_paths", restricted_file_paths)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictedFilePaths")
+    def restricted_file_paths(self) -> Sequence[_builtins.str]:
+        """
+        The file paths that are restricted from being pushed to the commit graph.
+        """
+        return pulumi.get(self, "restricted_file_paths")
+
+
+@pulumi.output_type
+class OrganizationRulesetRulesMaxFilePathLength(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxFilePathLength":
+            suggest = "max_file_path_length"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesMaxFilePathLength. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationRulesetRulesMaxFilePathLength.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationRulesetRulesMaxFilePathLength.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_file_path_length: _builtins.int):
+        """
+        :param _builtins.int max_file_path_length: The maximum allowed length of a file path.
+        """
+        pulumi.set(__self__, "max_file_path_length", max_file_path_length)
+
+    @_builtins.property
+    @pulumi.getter(name="maxFilePathLength")
+    def max_file_path_length(self) -> _builtins.int:
+        """
+        The maximum allowed length of a file path.
+        """
+        return pulumi.get(self, "max_file_path_length")
+
+
+@pulumi.output_type
+class OrganizationRulesetRulesMaxFileSize(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxFileSize":
+            suggest = "max_file_size"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesMaxFileSize. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        OrganizationRulesetRulesMaxFileSize.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        OrganizationRulesetRulesMaxFileSize.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_file_size: _builtins.int):
+        """
+        :param _builtins.int max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+        """
+        pulumi.set(__self__, "max_file_size", max_file_size)
+
+    @_builtins.property
+    @pulumi.getter(name="maxFileSize")
+    def max_file_size(self) -> _builtins.int:
+        """
+        The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+        """
+        return pulumi.get(self, "max_file_size")
+
+
+@pulumi.output_type
 class OrganizationRulesetRulesPullRequest(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "dismissStaleReviewsOnPush":
+        if key == "allowedMergeMethods":
+            suggest = "allowed_merge_methods"
+        elif key == "dismissStaleReviewsOnPush":
             suggest = "dismiss_stale_reviews_on_push"
         elif key == "requireCodeOwnerReview":
             suggest = "require_code_owner_review"
@@ -1636,18 +2099,22 @@ class OrganizationRulesetRulesPullRequest(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 allowed_merge_methods: Optional[Sequence[_builtins.str]] = None,
                  dismiss_stale_reviews_on_push: Optional[_builtins.bool] = None,
                  require_code_owner_review: Optional[_builtins.bool] = None,
                  require_last_push_approval: Optional[_builtins.bool] = None,
                  required_approving_review_count: Optional[_builtins.int] = None,
                  required_review_thread_resolution: Optional[_builtins.bool] = None):
         """
+        :param Sequence[_builtins.str] allowed_merge_methods: Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.
         :param _builtins.bool dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to `false`.
         :param _builtins.bool require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to `false`.
         :param _builtins.bool require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to `false`.
         :param _builtins.int required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to `0`.
         :param _builtins.bool required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to `false`.
         """
+        if allowed_merge_methods is not None:
+            pulumi.set(__self__, "allowed_merge_methods", allowed_merge_methods)
         if dismiss_stale_reviews_on_push is not None:
             pulumi.set(__self__, "dismiss_stale_reviews_on_push", dismiss_stale_reviews_on_push)
         if require_code_owner_review is not None:
@@ -1658,6 +2125,14 @@ class OrganizationRulesetRulesPullRequest(dict):
             pulumi.set(__self__, "required_approving_review_count", required_approving_review_count)
         if required_review_thread_resolution is not None:
             pulumi.set(__self__, "required_review_thread_resolution", required_review_thread_resolution)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedMergeMethods")
+    def allowed_merge_methods(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.
+        """
+        return pulumi.get(self, "allowed_merge_methods")
 
     @_builtins.property
     @pulumi.getter(name="dismissStaleReviewsOnPush")
@@ -1801,6 +2276,8 @@ class OrganizationRulesetRulesRequiredStatusChecks(dict):
         suggest = None
         if key == "requiredChecks":
             suggest = "required_checks"
+        elif key == "doNotEnforceOnCreate":
+            suggest = "do_not_enforce_on_create"
         elif key == "strictRequiredStatusChecksPolicy":
             suggest = "strict_required_status_checks_policy"
 
@@ -1817,12 +2294,16 @@ class OrganizationRulesetRulesRequiredStatusChecks(dict):
 
     def __init__(__self__, *,
                  required_checks: Sequence['outputs.OrganizationRulesetRulesRequiredStatusChecksRequiredCheck'],
+                 do_not_enforce_on_create: Optional[_builtins.bool] = None,
                  strict_required_status_checks_policy: Optional[_builtins.bool] = None):
         """
         :param Sequence['OrganizationRulesetRulesRequiredStatusChecksRequiredCheckArgs'] required_checks: Status checks that are required. Several can be defined.
+        :param _builtins.bool do_not_enforce_on_create: (Boolean) Allow repositories and branches to be created if a check would otherwise prohibit it. Defaults to `false`.
         :param _builtins.bool strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to `false`.
         """
         pulumi.set(__self__, "required_checks", required_checks)
+        if do_not_enforce_on_create is not None:
+            pulumi.set(__self__, "do_not_enforce_on_create", do_not_enforce_on_create)
         if strict_required_status_checks_policy is not None:
             pulumi.set(__self__, "strict_required_status_checks_policy", strict_required_status_checks_policy)
 
@@ -1833,6 +2314,14 @@ class OrganizationRulesetRulesRequiredStatusChecks(dict):
         Status checks that are required. Several can be defined.
         """
         return pulumi.get(self, "required_checks")
+
+    @_builtins.property
+    @pulumi.getter(name="doNotEnforceOnCreate")
+    def do_not_enforce_on_create(self) -> Optional[_builtins.bool]:
+        """
+        (Boolean) Allow repositories and branches to be created if a check would otherwise prohibit it. Defaults to `false`.
+        """
+        return pulumi.get(self, "do_not_enforce_on_create")
 
     @_builtins.property
     @pulumi.getter(name="strictRequiredStatusChecksPolicy")
@@ -1897,6 +2386,8 @@ class OrganizationRulesetRulesRequiredWorkflows(dict):
         suggest = None
         if key == "requiredWorkflows":
             suggest = "required_workflows"
+        elif key == "doNotEnforceOnCreate":
+            suggest = "do_not_enforce_on_create"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in OrganizationRulesetRulesRequiredWorkflows. Access the value via the '{suggest}' property getter instead.")
@@ -1910,11 +2401,15 @@ class OrganizationRulesetRulesRequiredWorkflows(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 required_workflows: Sequence['outputs.OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow']):
+                 required_workflows: Sequence['outputs.OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow'],
+                 do_not_enforce_on_create: Optional[_builtins.bool] = None):
         """
         :param Sequence['OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflowArgs'] required_workflows: Actions workflows that are required. Several can be defined.
+        :param _builtins.bool do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it.
         """
         pulumi.set(__self__, "required_workflows", required_workflows)
+        if do_not_enforce_on_create is not None:
+            pulumi.set(__self__, "do_not_enforce_on_create", do_not_enforce_on_create)
 
     @_builtins.property
     @pulumi.getter(name="requiredWorkflows")
@@ -1923,6 +2418,14 @@ class OrganizationRulesetRulesRequiredWorkflows(dict):
         Actions workflows that are required. Several can be defined.
         """
         return pulumi.get(self, "required_workflows")
+
+    @_builtins.property
+    @pulumi.getter(name="doNotEnforceOnCreate")
+    def do_not_enforce_on_create(self) -> Optional[_builtins.bool]:
+        """
+        Allow repositories and branches to be created if a check would otherwise prohibit it.
+        """
+        return pulumi.get(self, "do_not_enforce_on_create")
 
 
 @pulumi.output_type
@@ -2131,7 +2634,7 @@ class RepositoryCollaboratorsIgnoreTeam(dict):
     def __init__(__self__, *,
                  team_id: _builtins.str):
         """
-        :param _builtins.str team_id: ID or slug of the team to ignore.
+        :param _builtins.str team_id: The GitHub team id or the GitHub team slug.
         """
         pulumi.set(__self__, "team_id", team_id)
 
@@ -2139,7 +2642,7 @@ class RepositoryCollaboratorsIgnoreTeam(dict):
     @pulumi.getter(name="teamId")
     def team_id(self) -> _builtins.str:
         """
-        ID or slug of the team to ignore.
+        The GitHub team id or the GitHub team slug.
         """
         return pulumi.get(self, "team_id")
 
@@ -2449,12 +2952,12 @@ class RepositoryRulesetBypassActor(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "actorId":
-            suggest = "actor_id"
-        elif key == "actorType":
+        if key == "actorType":
             suggest = "actor_type"
         elif key == "bypassMode":
             suggest = "bypass_mode"
+        elif key == "actorId":
+            suggest = "actor_id"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetBypassActor. Access the value via the '{suggest}' property getter instead.")
@@ -2468,36 +2971,29 @@ class RepositoryRulesetBypassActor(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 actor_id: _builtins.int,
                  actor_type: _builtins.str,
-                 bypass_mode: _builtins.str):
+                 bypass_mode: _builtins.str,
+                 actor_id: Optional[_builtins.int] = None):
         """
-        :param _builtins.int actor_id: (Number) The ID of the actor that can bypass a ruleset. If `actor_type` is `Integration`, `actor_id` is a GitHub App ID. App ID can be obtained by following instructions from the [Get an App API docs](https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-app)
-        :param _builtins.str actor_type: The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`.
-        :param _builtins.str bypass_mode: (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`.
+        :param _builtins.str actor_type: The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`, `DeployKey`.
+        :param _builtins.str bypass_mode: (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`, `exempt`.
                
                > Note: at the time of writing this, the following actor types correspond to the following actor IDs:
                
-               * `OrganizationAdmin` > `1`
-               * `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+               - `OrganizationAdmin` > `1`
+               - `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+        :param _builtins.int actor_id: The ID of the actor that can bypass a ruleset. If `actor_type` is `Integration`, `actor_id` is a GitHub App ID. App ID can be obtained by following instructions from the [Get an App API docs](https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-app)
         """
-        pulumi.set(__self__, "actor_id", actor_id)
         pulumi.set(__self__, "actor_type", actor_type)
         pulumi.set(__self__, "bypass_mode", bypass_mode)
-
-    @_builtins.property
-    @pulumi.getter(name="actorId")
-    def actor_id(self) -> _builtins.int:
-        """
-        (Number) The ID of the actor that can bypass a ruleset. If `actor_type` is `Integration`, `actor_id` is a GitHub App ID. App ID can be obtained by following instructions from the [Get an App API docs](https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-app)
-        """
-        return pulumi.get(self, "actor_id")
+        if actor_id is not None:
+            pulumi.set(__self__, "actor_id", actor_id)
 
     @_builtins.property
     @pulumi.getter(name="actorType")
     def actor_type(self) -> _builtins.str:
         """
-        The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`.
+        The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`, `DeployKey`.
         """
         return pulumi.get(self, "actor_type")
 
@@ -2505,14 +3001,22 @@ class RepositoryRulesetBypassActor(dict):
     @pulumi.getter(name="bypassMode")
     def bypass_mode(self) -> _builtins.str:
         """
-        (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`.
+        (String) When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`, `exempt`.
 
         > Note: at the time of writing this, the following actor types correspond to the following actor IDs:
 
-        * `OrganizationAdmin` > `1`
-        * `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
+        - `OrganizationAdmin` > `1`
+        - `RepositoryRole` (This is the actor type, the following are the base repository roles and their associated IDs.)
         """
         return pulumi.get(self, "bypass_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="actorId")
+    def actor_id(self) -> Optional[_builtins.int]:
+        """
+        The ID of the actor that can bypass a ruleset. If `actor_type` is `Integration`, `actor_id` is a GitHub App ID. App ID can be obtained by following instructions from the [Get an App API docs](https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-app)
+        """
+        return pulumi.get(self, "actor_id")
 
 
 @pulumi.output_type
@@ -2592,6 +3096,16 @@ class RepositoryRulesetRules(dict):
             suggest = "commit_message_pattern"
         elif key == "committerEmailPattern":
             suggest = "committer_email_pattern"
+        elif key == "copilotCodeReview":
+            suggest = "copilot_code_review"
+        elif key == "fileExtensionRestriction":
+            suggest = "file_extension_restriction"
+        elif key == "filePathRestriction":
+            suggest = "file_path_restriction"
+        elif key == "maxFilePathLength":
+            suggest = "max_file_path_length"
+        elif key == "maxFileSize":
+            suggest = "max_file_size"
         elif key == "mergeQueue":
             suggest = "merge_queue"
         elif key == "nonFastForward":
@@ -2629,8 +3143,13 @@ class RepositoryRulesetRules(dict):
                  commit_author_email_pattern: Optional['outputs.RepositoryRulesetRulesCommitAuthorEmailPattern'] = None,
                  commit_message_pattern: Optional['outputs.RepositoryRulesetRulesCommitMessagePattern'] = None,
                  committer_email_pattern: Optional['outputs.RepositoryRulesetRulesCommitterEmailPattern'] = None,
+                 copilot_code_review: Optional['outputs.RepositoryRulesetRulesCopilotCodeReview'] = None,
                  creation: Optional[_builtins.bool] = None,
                  deletion: Optional[_builtins.bool] = None,
+                 file_extension_restriction: Optional['outputs.RepositoryRulesetRulesFileExtensionRestriction'] = None,
+                 file_path_restriction: Optional['outputs.RepositoryRulesetRulesFilePathRestriction'] = None,
+                 max_file_path_length: Optional['outputs.RepositoryRulesetRulesMaxFilePathLength'] = None,
+                 max_file_size: Optional['outputs.RepositoryRulesetRulesMaxFileSize'] = None,
                  merge_queue: Optional['outputs.RepositoryRulesetRulesMergeQueue'] = None,
                  non_fast_forward: Optional[_builtins.bool] = None,
                  pull_request: Optional['outputs.RepositoryRulesetRulesPullRequest'] = None,
@@ -2647,9 +3166,14 @@ class RepositoryRulesetRules(dict):
         :param 'RepositoryRulesetRulesCommitAuthorEmailPatternArgs' commit_author_email_pattern: (Block List, Max: 1) Parameters to be used for the commit_author_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
         :param 'RepositoryRulesetRulesCommitMessagePatternArgs' commit_message_pattern: (Block List, Max: 1) Parameters to be used for the commit_message_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
         :param 'RepositoryRulesetRulesCommitterEmailPatternArgs' committer_email_pattern: (Block List, Max: 1) Parameters to be used for the committer_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. (see below for nested schema)
+        :param 'RepositoryRulesetRulesCopilotCodeReviewArgs' copilot_code_review: (Block List, Max: 1) Automatically request Copilot code review for new pull requests if the author has access to Copilot code review and their premium requests quota has not reached the limit. (see below for nested schema)
         :param _builtins.bool creation: (Boolean) Only allow users with bypass permission to create matching refs.
         :param _builtins.bool deletion: (Boolean) Only allow users with bypass permissions to delete matching refs.
-        :param 'RepositoryRulesetRulesMergeQueueArgs' merge_queue: (Block List, Max: 1) Merges must be performed via a merge queue.
+        :param 'RepositoryRulesetRulesFileExtensionRestrictionArgs' file_extension_restriction: (Block List, Max: 1) Prevent commits that include files with specified file extensions from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        :param 'RepositoryRulesetRulesFilePathRestrictionArgs' file_path_restriction: (Block List, Max 1) Parameters to be used for the file_path_restriction rule. When enabled restricts access to files within the repository. (See below for nested schema)
+        :param 'RepositoryRulesetRulesMaxFilePathLengthArgs' max_file_path_length: (Integer) The maximum number of characters allowed in file paths.
+        :param 'RepositoryRulesetRulesMaxFileSizeArgs' max_file_size: (Integer) The maximum allowed size, in megabytes (MB), of a file. Valid range is 1-100 MB.
+        :param 'RepositoryRulesetRulesMergeQueueArgs' merge_queue: (Block List, Max: 1) Merges must be performed via a merge queue. (see below for nested schema)
         :param _builtins.bool non_fast_forward: (Boolean) Prevent users with push access from force pushing to branches.
         :param 'RepositoryRulesetRulesPullRequestArgs' pull_request: (Block List, Max: 1) Require all commits be made to a non-target branch and submitted via a pull request before they can be merged. (see below for nested schema)
         :param 'RepositoryRulesetRulesRequiredCodeScanningArgs' required_code_scanning: (Block List, Max: 1) Define which tools must provide code scanning results before the reference is updated. When configured, code scanning must be enabled and have results for both the commit and the reference being updated. Multiple code scanning tools can be specified. (see below for nested schema)
@@ -2669,10 +3193,20 @@ class RepositoryRulesetRules(dict):
             pulumi.set(__self__, "commit_message_pattern", commit_message_pattern)
         if committer_email_pattern is not None:
             pulumi.set(__self__, "committer_email_pattern", committer_email_pattern)
+        if copilot_code_review is not None:
+            pulumi.set(__self__, "copilot_code_review", copilot_code_review)
         if creation is not None:
             pulumi.set(__self__, "creation", creation)
         if deletion is not None:
             pulumi.set(__self__, "deletion", deletion)
+        if file_extension_restriction is not None:
+            pulumi.set(__self__, "file_extension_restriction", file_extension_restriction)
+        if file_path_restriction is not None:
+            pulumi.set(__self__, "file_path_restriction", file_path_restriction)
+        if max_file_path_length is not None:
+            pulumi.set(__self__, "max_file_path_length", max_file_path_length)
+        if max_file_size is not None:
+            pulumi.set(__self__, "max_file_size", max_file_size)
         if merge_queue is not None:
             pulumi.set(__self__, "merge_queue", merge_queue)
         if non_fast_forward is not None:
@@ -2729,6 +3263,14 @@ class RepositoryRulesetRules(dict):
         return pulumi.get(self, "committer_email_pattern")
 
     @_builtins.property
+    @pulumi.getter(name="copilotCodeReview")
+    def copilot_code_review(self) -> Optional['outputs.RepositoryRulesetRulesCopilotCodeReview']:
+        """
+        (Block List, Max: 1) Automatically request Copilot code review for new pull requests if the author has access to Copilot code review and their premium requests quota has not reached the limit. (see below for nested schema)
+        """
+        return pulumi.get(self, "copilot_code_review")
+
+    @_builtins.property
     @pulumi.getter
     def creation(self) -> Optional[_builtins.bool]:
         """
@@ -2745,10 +3287,42 @@ class RepositoryRulesetRules(dict):
         return pulumi.get(self, "deletion")
 
     @_builtins.property
+    @pulumi.getter(name="fileExtensionRestriction")
+    def file_extension_restriction(self) -> Optional['outputs.RepositoryRulesetRulesFileExtensionRestriction']:
+        """
+        (Block List, Max: 1) Prevent commits that include files with specified file extensions from being pushed to the commit graph. This rule only applies to rulesets with target `push`. (see below for nested schema)
+        """
+        return pulumi.get(self, "file_extension_restriction")
+
+    @_builtins.property
+    @pulumi.getter(name="filePathRestriction")
+    def file_path_restriction(self) -> Optional['outputs.RepositoryRulesetRulesFilePathRestriction']:
+        """
+        (Block List, Max 1) Parameters to be used for the file_path_restriction rule. When enabled restricts access to files within the repository. (See below for nested schema)
+        """
+        return pulumi.get(self, "file_path_restriction")
+
+    @_builtins.property
+    @pulumi.getter(name="maxFilePathLength")
+    def max_file_path_length(self) -> Optional['outputs.RepositoryRulesetRulesMaxFilePathLength']:
+        """
+        (Integer) The maximum number of characters allowed in file paths.
+        """
+        return pulumi.get(self, "max_file_path_length")
+
+    @_builtins.property
+    @pulumi.getter(name="maxFileSize")
+    def max_file_size(self) -> Optional['outputs.RepositoryRulesetRulesMaxFileSize']:
+        """
+        (Integer) The maximum allowed size, in megabytes (MB), of a file. Valid range is 1-100 MB.
+        """
+        return pulumi.get(self, "max_file_size")
+
+    @_builtins.property
     @pulumi.getter(name="mergeQueue")
     def merge_queue(self) -> Optional['outputs.RepositoryRulesetRulesMergeQueue']:
         """
-        (Block List, Max: 1) Merges must be performed via a merge queue.
+        (Block List, Max: 1) Merges must be performed via a merge queue. (see below for nested schema)
         """
         return pulumi.get(self, "merge_queue")
 
@@ -3046,6 +3620,196 @@ class RepositoryRulesetRulesCommitterEmailPattern(dict):
 
 
 @pulumi.output_type
+class RepositoryRulesetRulesCopilotCodeReview(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "reviewDraftPullRequests":
+            suggest = "review_draft_pull_requests"
+        elif key == "reviewOnPush":
+            suggest = "review_on_push"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetRulesCopilotCodeReview. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RepositoryRulesetRulesCopilotCodeReview.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RepositoryRulesetRulesCopilotCodeReview.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 review_draft_pull_requests: Optional[_builtins.bool] = None,
+                 review_on_push: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool review_draft_pull_requests: Copilot automatically reviews draft pull requests before they are marked as ready for review. Defaults to `false`.
+        :param _builtins.bool review_on_push: Copilot automatically reviews each new push to the pull request. Defaults to `false`.
+        """
+        if review_draft_pull_requests is not None:
+            pulumi.set(__self__, "review_draft_pull_requests", review_draft_pull_requests)
+        if review_on_push is not None:
+            pulumi.set(__self__, "review_on_push", review_on_push)
+
+    @_builtins.property
+    @pulumi.getter(name="reviewDraftPullRequests")
+    def review_draft_pull_requests(self) -> Optional[_builtins.bool]:
+        """
+        Copilot automatically reviews draft pull requests before they are marked as ready for review. Defaults to `false`.
+        """
+        return pulumi.get(self, "review_draft_pull_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="reviewOnPush")
+    def review_on_push(self) -> Optional[_builtins.bool]:
+        """
+        Copilot automatically reviews each new push to the pull request. Defaults to `false`.
+        """
+        return pulumi.get(self, "review_on_push")
+
+
+@pulumi.output_type
+class RepositoryRulesetRulesFileExtensionRestriction(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictedFileExtensions":
+            suggest = "restricted_file_extensions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetRulesFileExtensionRestriction. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RepositoryRulesetRulesFileExtensionRestriction.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RepositoryRulesetRulesFileExtensionRestriction.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restricted_file_extensions: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] restricted_file_extensions: A list of file extensions.
+        """
+        pulumi.set(__self__, "restricted_file_extensions", restricted_file_extensions)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictedFileExtensions")
+    def restricted_file_extensions(self) -> Sequence[_builtins.str]:
+        """
+        A list of file extensions.
+        """
+        return pulumi.get(self, "restricted_file_extensions")
+
+
+@pulumi.output_type
+class RepositoryRulesetRulesFilePathRestriction(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictedFilePaths":
+            suggest = "restricted_file_paths"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetRulesFilePathRestriction. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RepositoryRulesetRulesFilePathRestriction.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RepositoryRulesetRulesFilePathRestriction.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restricted_file_paths: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] restricted_file_paths: The file paths that are restricted from being pushed to the commit graph.
+        """
+        pulumi.set(__self__, "restricted_file_paths", restricted_file_paths)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictedFilePaths")
+    def restricted_file_paths(self) -> Sequence[_builtins.str]:
+        """
+        The file paths that are restricted from being pushed to the commit graph.
+        """
+        return pulumi.get(self, "restricted_file_paths")
+
+
+@pulumi.output_type
+class RepositoryRulesetRulesMaxFilePathLength(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxFilePathLength":
+            suggest = "max_file_path_length"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetRulesMaxFilePathLength. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RepositoryRulesetRulesMaxFilePathLength.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RepositoryRulesetRulesMaxFilePathLength.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_file_path_length: _builtins.int):
+        """
+        :param _builtins.int max_file_path_length: The maximum allowed length of a file path.
+        """
+        pulumi.set(__self__, "max_file_path_length", max_file_path_length)
+
+    @_builtins.property
+    @pulumi.getter(name="maxFilePathLength")
+    def max_file_path_length(self) -> _builtins.int:
+        """
+        The maximum allowed length of a file path.
+        """
+        return pulumi.get(self, "max_file_path_length")
+
+
+@pulumi.output_type
+class RepositoryRulesetRulesMaxFileSize(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxFileSize":
+            suggest = "max_file_size"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RepositoryRulesetRulesMaxFileSize. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RepositoryRulesetRulesMaxFileSize.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RepositoryRulesetRulesMaxFileSize.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_file_size: _builtins.int):
+        """
+        :param _builtins.int max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+        """
+        pulumi.set(__self__, "max_file_size", max_file_size)
+
+    @_builtins.property
+    @pulumi.getter(name="maxFileSize")
+    def max_file_size(self) -> _builtins.int:
+        """
+        The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+        """
+        return pulumi.get(self, "max_file_size")
+
+
+@pulumi.output_type
 class RepositoryRulesetRulesMergeQueue(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3170,7 +3934,9 @@ class RepositoryRulesetRulesPullRequest(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "dismissStaleReviewsOnPush":
+        if key == "allowedMergeMethods":
+            suggest = "allowed_merge_methods"
+        elif key == "dismissStaleReviewsOnPush":
             suggest = "dismiss_stale_reviews_on_push"
         elif key == "requireCodeOwnerReview":
             suggest = "require_code_owner_review"
@@ -3193,18 +3959,22 @@ class RepositoryRulesetRulesPullRequest(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 allowed_merge_methods: Optional[Sequence[_builtins.str]] = None,
                  dismiss_stale_reviews_on_push: Optional[_builtins.bool] = None,
                  require_code_owner_review: Optional[_builtins.bool] = None,
                  require_last_push_approval: Optional[_builtins.bool] = None,
                  required_approving_review_count: Optional[_builtins.int] = None,
                  required_review_thread_resolution: Optional[_builtins.bool] = None):
         """
+        :param Sequence[_builtins.str] allowed_merge_methods: Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.
         :param _builtins.bool dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to `false`.
         :param _builtins.bool require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to `false`.
         :param _builtins.bool require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to `false`.
         :param _builtins.int required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to `0`.
         :param _builtins.bool required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to `false`.
         """
+        if allowed_merge_methods is not None:
+            pulumi.set(__self__, "allowed_merge_methods", allowed_merge_methods)
         if dismiss_stale_reviews_on_push is not None:
             pulumi.set(__self__, "dismiss_stale_reviews_on_push", dismiss_stale_reviews_on_push)
         if require_code_owner_review is not None:
@@ -3215,6 +3985,14 @@ class RepositoryRulesetRulesPullRequest(dict):
             pulumi.set(__self__, "required_approving_review_count", required_approving_review_count)
         if required_review_thread_resolution is not None:
             pulumi.set(__self__, "required_review_thread_resolution", required_review_thread_resolution)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedMergeMethods")
+    def allowed_merge_methods(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.
+        """
+        return pulumi.get(self, "allowed_merge_methods")
 
     @_builtins.property
     @pulumi.getter(name="dismissStaleReviewsOnPush")
@@ -3556,8 +4334,14 @@ class RepositorySecurityAndAnalysis(dict):
         suggest = None
         if key == "advancedSecurity":
             suggest = "advanced_security"
+        elif key == "codeSecurity":
+            suggest = "code_security"
         elif key == "secretScanning":
             suggest = "secret_scanning"
+        elif key == "secretScanningAiDetection":
+            suggest = "secret_scanning_ai_detection"
+        elif key == "secretScanningNonProviderPatterns":
+            suggest = "secret_scanning_non_provider_patterns"
         elif key == "secretScanningPushProtection":
             suggest = "secret_scanning_push_protection"
 
@@ -3574,17 +4358,29 @@ class RepositorySecurityAndAnalysis(dict):
 
     def __init__(__self__, *,
                  advanced_security: Optional['outputs.RepositorySecurityAndAnalysisAdvancedSecurity'] = None,
+                 code_security: Optional['outputs.RepositorySecurityAndAnalysisCodeSecurity'] = None,
                  secret_scanning: Optional['outputs.RepositorySecurityAndAnalysisSecretScanning'] = None,
+                 secret_scanning_ai_detection: Optional['outputs.RepositorySecurityAndAnalysisSecretScanningAiDetection'] = None,
+                 secret_scanning_non_provider_patterns: Optional['outputs.RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns'] = None,
                  secret_scanning_push_protection: Optional['outputs.RepositorySecurityAndAnalysisSecretScanningPushProtection'] = None):
         """
         :param 'RepositorySecurityAndAnalysisAdvancedSecurityArgs' advanced_security: The advanced security configuration for the repository. See Advanced Security Configuration below for details. If a repository's visibility is `public`, advanced security is always enabled and cannot be changed, so this setting cannot be supplied.
+        :param 'RepositorySecurityAndAnalysisCodeSecurityArgs' code_security: The code security configuration for the repository. See Code Security below for details.
         :param 'RepositorySecurityAndAnalysisSecretScanningArgs' secret_scanning: The secret scanning configuration for the repository. See Secret Scanning Configuration below for details.
+        :param 'RepositorySecurityAndAnalysisSecretScanningAiDetectionArgs' secret_scanning_ai_detection: The secret scanning ai detection configuration for the repository. See Secret Scanning AI Detection Configuration below for details.
+        :param 'RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsArgs' secret_scanning_non_provider_patterns: The secret scanning non-provider patterns configuration for this repository. See Secret Scanning Non-Provider Patterns Configuration below for more details.
         :param 'RepositorySecurityAndAnalysisSecretScanningPushProtectionArgs' secret_scanning_push_protection: The secret scanning push protection configuration for the repository. See Secret Scanning Push Protection Configuration below for details.
         """
         if advanced_security is not None:
             pulumi.set(__self__, "advanced_security", advanced_security)
+        if code_security is not None:
+            pulumi.set(__self__, "code_security", code_security)
         if secret_scanning is not None:
             pulumi.set(__self__, "secret_scanning", secret_scanning)
+        if secret_scanning_ai_detection is not None:
+            pulumi.set(__self__, "secret_scanning_ai_detection", secret_scanning_ai_detection)
+        if secret_scanning_non_provider_patterns is not None:
+            pulumi.set(__self__, "secret_scanning_non_provider_patterns", secret_scanning_non_provider_patterns)
         if secret_scanning_push_protection is not None:
             pulumi.set(__self__, "secret_scanning_push_protection", secret_scanning_push_protection)
 
@@ -3597,12 +4393,36 @@ class RepositorySecurityAndAnalysis(dict):
         return pulumi.get(self, "advanced_security")
 
     @_builtins.property
+    @pulumi.getter(name="codeSecurity")
+    def code_security(self) -> Optional['outputs.RepositorySecurityAndAnalysisCodeSecurity']:
+        """
+        The code security configuration for the repository. See Code Security below for details.
+        """
+        return pulumi.get(self, "code_security")
+
+    @_builtins.property
     @pulumi.getter(name="secretScanning")
     def secret_scanning(self) -> Optional['outputs.RepositorySecurityAndAnalysisSecretScanning']:
         """
         The secret scanning configuration for the repository. See Secret Scanning Configuration below for details.
         """
         return pulumi.get(self, "secret_scanning")
+
+    @_builtins.property
+    @pulumi.getter(name="secretScanningAiDetection")
+    def secret_scanning_ai_detection(self) -> Optional['outputs.RepositorySecurityAndAnalysisSecretScanningAiDetection']:
+        """
+        The secret scanning ai detection configuration for the repository. See Secret Scanning AI Detection Configuration below for details.
+        """
+        return pulumi.get(self, "secret_scanning_ai_detection")
+
+    @_builtins.property
+    @pulumi.getter(name="secretScanningNonProviderPatterns")
+    def secret_scanning_non_provider_patterns(self) -> Optional['outputs.RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns']:
+        """
+        The secret scanning non-provider patterns configuration for this repository. See Secret Scanning Non-Provider Patterns Configuration below for more details.
+        """
+        return pulumi.get(self, "secret_scanning_non_provider_patterns")
 
     @_builtins.property
     @pulumi.getter(name="secretScanningPushProtection")
@@ -3632,7 +4452,61 @@ class RepositorySecurityAndAnalysisAdvancedSecurity(dict):
 
 
 @pulumi.output_type
+class RepositorySecurityAndAnalysisCodeSecurity(dict):
+    def __init__(__self__, *,
+                 status: _builtins.str):
+        """
+        :param _builtins.str status: The GitHub Pages site's build status e.g. `building` or `built`.
+        """
+        pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        The GitHub Pages site's build status e.g. `building` or `built`.
+        """
+        return pulumi.get(self, "status")
+
+
+@pulumi.output_type
 class RepositorySecurityAndAnalysisSecretScanning(dict):
+    def __init__(__self__, *,
+                 status: _builtins.str):
+        """
+        :param _builtins.str status: The GitHub Pages site's build status e.g. `building` or `built`.
+        """
+        pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        The GitHub Pages site's build status e.g. `building` or `built`.
+        """
+        return pulumi.get(self, "status")
+
+
+@pulumi.output_type
+class RepositorySecurityAndAnalysisSecretScanningAiDetection(dict):
+    def __init__(__self__, *,
+                 status: _builtins.str):
+        """
+        :param _builtins.str status: Set to `enabled` to enable secret scanning AI detection on the repository. Can be `enabled` or `disabled`. If set to `enabled`, the repository's visibility must be `public`, `security_and_analysis[0].advanced_security[0].status` must also be set to `enabled`, or your Organization must have split licensing for Advanced security.
+        """
+        pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        Set to `enabled` to enable secret scanning AI detection on the repository. Can be `enabled` or `disabled`. If set to `enabled`, the repository's visibility must be `public`, `security_and_analysis[0].advanced_security[0].status` must also be set to `enabled`, or your Organization must have split licensing for Advanced security.
+        """
+        return pulumi.get(self, "status")
+
+
+@pulumi.output_type
+class RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns(dict):
     def __init__(__self__, *,
                  status: _builtins.str):
         """
@@ -4889,6 +5763,272 @@ class GetOrganizationIpAllowListIpAllowListResult(dict):
 
 
 @pulumi.output_type
+class GetOrganizationRepositoryRolesRoleResult(dict):
+    def __init__(__self__, *,
+                 base_role: _builtins.str,
+                 description: _builtins.str,
+                 name: _builtins.str,
+                 permissions: Sequence[_builtins.str],
+                 role_id: _builtins.int):
+        """
+        :param _builtins.str base_role: The system role from which this role inherits permissions.
+        :param _builtins.str description: The description of the organization repository role.
+        :param _builtins.str name: The name of the organization repository role.
+        :param Sequence[_builtins.str] permissions: The permissions included in this role.
+        :param _builtins.int role_id: The ID of the organization repository role.
+        """
+        pulumi.set(__self__, "base_role", base_role)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "permissions", permissions)
+        pulumi.set(__self__, "role_id", role_id)
+
+    @_builtins.property
+    @pulumi.getter(name="baseRole")
+    def base_role(self) -> _builtins.str:
+        """
+        The system role from which this role inherits permissions.
+        """
+        return pulumi.get(self, "base_role")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        The description of the organization repository role.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the organization repository role.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permissions(self) -> Sequence[_builtins.str]:
+        """
+        The permissions included in this role.
+        """
+        return pulumi.get(self, "permissions")
+
+    @_builtins.property
+    @pulumi.getter(name="roleId")
+    def role_id(self) -> _builtins.int:
+        """
+        The ID of the organization repository role.
+        """
+        return pulumi.get(self, "role_id")
+
+
+@pulumi.output_type
+class GetOrganizationRoleTeamsTeamResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 permission: _builtins.str,
+                 slug: _builtins.str,
+                 team_id: _builtins.int):
+        """
+        :param _builtins.str name: The name of the team.
+        :param _builtins.str permission: The permission that the team will have for its repositories.
+        :param _builtins.str slug: The Slug of the team name.
+        :param _builtins.int team_id: The ID of the team.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "permission", permission)
+        pulumi.set(__self__, "slug", slug)
+        pulumi.set(__self__, "team_id", team_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the team.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> _builtins.str:
+        """
+        The permission that the team will have for its repositories.
+        """
+        return pulumi.get(self, "permission")
+
+    @_builtins.property
+    @pulumi.getter
+    def slug(self) -> _builtins.str:
+        """
+        The Slug of the team name.
+        """
+        return pulumi.get(self, "slug")
+
+    @_builtins.property
+    @pulumi.getter(name="teamId")
+    def team_id(self) -> _builtins.int:
+        """
+        The ID of the team.
+        """
+        return pulumi.get(self, "team_id")
+
+
+@pulumi.output_type
+class GetOrganizationRoleUsersUserResult(dict):
+    def __init__(__self__, *,
+                 login: _builtins.str,
+                 user_id: _builtins.int):
+        """
+        :param _builtins.str login: The login for the GitHub user account.
+        :param _builtins.int user_id: The ID of the user.
+        """
+        pulumi.set(__self__, "login", login)
+        pulumi.set(__self__, "user_id", user_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def login(self) -> _builtins.str:
+        """
+        The login for the GitHub user account.
+        """
+        return pulumi.get(self, "login")
+
+    @_builtins.property
+    @pulumi.getter(name="userId")
+    def user_id(self) -> _builtins.int:
+        """
+        The ID of the user.
+        """
+        return pulumi.get(self, "user_id")
+
+
+@pulumi.output_type
+class GetOrganizationRolesRoleResult(dict):
+    def __init__(__self__, *,
+                 base_role: _builtins.str,
+                 description: _builtins.str,
+                 name: _builtins.str,
+                 permissions: Sequence[_builtins.str],
+                 role_id: _builtins.int,
+                 source: _builtins.str):
+        """
+        :param _builtins.str base_role: The system role from which this role inherits permissions.
+        :param _builtins.str description: The description of the organization role.
+        :param _builtins.str name: The name of the organization role.
+        :param Sequence[_builtins.str] permissions: A list of permissions included in this role.
+        :param _builtins.int role_id: The ID of the organization role.
+        :param _builtins.str source: The source of this role; one of `Predefined`, `Organization`, or `Enterprise`.
+        """
+        pulumi.set(__self__, "base_role", base_role)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "permissions", permissions)
+        pulumi.set(__self__, "role_id", role_id)
+        pulumi.set(__self__, "source", source)
+
+    @_builtins.property
+    @pulumi.getter(name="baseRole")
+    def base_role(self) -> _builtins.str:
+        """
+        The system role from which this role inherits permissions.
+        """
+        return pulumi.get(self, "base_role")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        The description of the organization role.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the organization role.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permissions(self) -> Sequence[_builtins.str]:
+        """
+        A list of permissions included in this role.
+        """
+        return pulumi.get(self, "permissions")
+
+    @_builtins.property
+    @pulumi.getter(name="roleId")
+    def role_id(self) -> _builtins.int:
+        """
+        The ID of the organization role.
+        """
+        return pulumi.get(self, "role_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> _builtins.str:
+        """
+        The source of this role; one of `Predefined`, `Organization`, or `Enterprise`.
+        """
+        return pulumi.get(self, "source")
+
+
+@pulumi.output_type
+class GetOrganizationSecurityManagersTeamResult(dict):
+    def __init__(__self__, *,
+                 id: _builtins.int,
+                 name: _builtins.str,
+                 permission: _builtins.str,
+                 slug: _builtins.str):
+        """
+        :param _builtins.int id: Unique identifier of the team.
+        :param _builtins.str name: Name of the team.
+        :param _builtins.str permission: Permission that the team will have for its repositories.
+        :param _builtins.str slug: Name based identifier of the team.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "permission", permission)
+        pulumi.set(__self__, "slug", slug)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.int:
+        """
+        Unique identifier of the team.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the team.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def permission(self) -> _builtins.str:
+        """
+        Permission that the team will have for its repositories.
+        """
+        return pulumi.get(self, "permission")
+
+    @_builtins.property
+    @pulumi.getter
+    def slug(self) -> _builtins.str:
+        """
+        Name based identifier of the team.
+        """
+        return pulumi.get(self, "slug")
+
+
+@pulumi.output_type
 class GetOrganizationTeamSyncGroupsGroupResult(dict):
     def __init__(__self__, *,
                  group_description: _builtins.str,
@@ -4937,19 +6077,23 @@ class GetOrganizationTeamsTeamResult(dict):
                  name: _builtins.str,
                  node_id: _builtins.str,
                  parent: Mapping[str, _builtins.str],
+                 parent_team_id: _builtins.str,
+                 parent_team_slug: _builtins.str,
                  privacy: _builtins.str,
                  repositories: Sequence[_builtins.str],
                  slug: _builtins.str):
         """
-        :param _builtins.str description: the team's description.
-        :param _builtins.int id: the ID of the team.
+        :param _builtins.str description: The team's description.
+        :param _builtins.int id: The ID of the team.
         :param Sequence[_builtins.str] members: List of team members. Not returned if `summary_only = true`
-        :param _builtins.str name: the team's full name.
-        :param _builtins.str node_id: the Node ID of the team.
-        :param Mapping[str, _builtins.str] parent: the parent team.
-        :param _builtins.str privacy: the team's privacy type.
+        :param _builtins.str name: The team's full name.
+        :param _builtins.str node_id: The Node ID of the team.
+        :param Mapping[str, _builtins.str] parent: (**DEPRECATED**) The parent team, use `parent_team_id` or `parent_team_slug` instead.
+        :param _builtins.str parent_team_id: The ID of the parent team, if there is one.
+        :param _builtins.str parent_team_slug: The slug of the parent team, if there is one.
+        :param _builtins.str privacy: The team's privacy type.
         :param Sequence[_builtins.str] repositories: List of team repositories. Not returned if `summary_only = true`
-        :param _builtins.str slug: the slug of the team.
+        :param _builtins.str slug: The slug of the team.
         """
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "id", id)
@@ -4957,6 +6101,8 @@ class GetOrganizationTeamsTeamResult(dict):
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "node_id", node_id)
         pulumi.set(__self__, "parent", parent)
+        pulumi.set(__self__, "parent_team_id", parent_team_id)
+        pulumi.set(__self__, "parent_team_slug", parent_team_slug)
         pulumi.set(__self__, "privacy", privacy)
         pulumi.set(__self__, "repositories", repositories)
         pulumi.set(__self__, "slug", slug)
@@ -4965,7 +6111,7 @@ class GetOrganizationTeamsTeamResult(dict):
     @pulumi.getter
     def description(self) -> _builtins.str:
         """
-        the team's description.
+        The team's description.
         """
         return pulumi.get(self, "description")
 
@@ -4973,7 +6119,7 @@ class GetOrganizationTeamsTeamResult(dict):
     @pulumi.getter
     def id(self) -> _builtins.int:
         """
-        the ID of the team.
+        The ID of the team.
         """
         return pulumi.get(self, "id")
 
@@ -4989,7 +6135,7 @@ class GetOrganizationTeamsTeamResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        the team's full name.
+        The team's full name.
         """
         return pulumi.get(self, "name")
 
@@ -4997,23 +6143,40 @@ class GetOrganizationTeamsTeamResult(dict):
     @pulumi.getter(name="nodeId")
     def node_id(self) -> _builtins.str:
         """
-        the Node ID of the team.
+        The Node ID of the team.
         """
         return pulumi.get(self, "node_id")
 
     @_builtins.property
     @pulumi.getter
+    @_utilities.deprecated("""Use parent_team_id and parent_team_slug instead.""")
     def parent(self) -> Mapping[str, _builtins.str]:
         """
-        the parent team.
+        (**DEPRECATED**) The parent team, use `parent_team_id` or `parent_team_slug` instead.
         """
         return pulumi.get(self, "parent")
+
+    @_builtins.property
+    @pulumi.getter(name="parentTeamId")
+    def parent_team_id(self) -> _builtins.str:
+        """
+        The ID of the parent team, if there is one.
+        """
+        return pulumi.get(self, "parent_team_id")
+
+    @_builtins.property
+    @pulumi.getter(name="parentTeamSlug")
+    def parent_team_slug(self) -> _builtins.str:
+        """
+        The slug of the parent team, if there is one.
+        """
+        return pulumi.get(self, "parent_team_slug")
 
     @_builtins.property
     @pulumi.getter
     def privacy(self) -> _builtins.str:
         """
-        the team's privacy type.
+        The team's privacy type.
         """
         return pulumi.get(self, "privacy")
 
@@ -5029,7 +6192,7 @@ class GetOrganizationTeamsTeamResult(dict):
     @pulumi.getter
     def slug(self) -> _builtins.str:
         """
-        the slug of the team.
+        The slug of the team.
         """
         return pulumi.get(self, "slug")
 
@@ -5389,6 +6552,35 @@ class GetRepositoryDeploymentBranchPoliciesDeploymentBranchPolicyResult(dict):
         The name pattern that branches must match in order to deploy to the environment.
         """
         return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetRepositoryEnvironmentDeploymentPoliciesPolicyResult(dict):
+    def __init__(__self__, *,
+                 pattern: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str pattern: The pattern that branch or tag names must match in order to deploy to the environment.
+        :param _builtins.str type: Type of the policy; this could be `branch` or `tag`.
+        """
+        pulumi.set(__self__, "pattern", pattern)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def pattern(self) -> _builtins.str:
+        """
+        The pattern that branch or tag names must match in order to deploy to the environment.
+        """
+        return pulumi.get(self, "pattern")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Type of the policy; this could be `branch` or `tag`.
+        """
+        return pulumi.get(self, "type")
 
 
 @pulumi.output_type
@@ -6095,14 +7287,21 @@ class GetRepositoryWebhooksWebhookResult(dict):
 class GetTeamRepositoriesDetailedResult(dict):
     def __init__(__self__, *,
                  repo_id: _builtins.int,
+                 repo_name: _builtins.str,
                  role_name: _builtins.str):
         pulumi.set(__self__, "repo_id", repo_id)
+        pulumi.set(__self__, "repo_name", repo_name)
         pulumi.set(__self__, "role_name", role_name)
 
     @_builtins.property
     @pulumi.getter(name="repoId")
     def repo_id(self) -> _builtins.int:
         return pulumi.get(self, "repo_id")
+
+    @_builtins.property
+    @pulumi.getter(name="repoName")
+    def repo_name(self) -> _builtins.str:
+        return pulumi.get(self, "repo_name")
 
     @_builtins.property
     @pulumi.getter(name="roleName")

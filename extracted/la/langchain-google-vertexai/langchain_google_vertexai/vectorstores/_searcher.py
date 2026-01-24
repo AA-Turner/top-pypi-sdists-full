@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from google.cloud import storage  # type: ignore[attr-defined, unused-ignore]
 from google.cloud.aiplatform import telemetry
@@ -30,51 +30,58 @@ class Searcher(ABC):
     @abstractmethod
     def find_neighbors(
         self,
-        embeddings: List[List[float]],
+        embeddings: list[list[float]],
         k: int = 4,
-        filter_: Union[List[Namespace], None] = None,
-        numeric_filter: Union[List[NumericNamespace], None] = None,
+        filter_: list[Namespace] | None = None,
+        numeric_filter: list[NumericNamespace] | None = None,
         *,
-        sparse_embeddings: Optional[
-            List[Dict[str, Union[List[int], List[float]]]]
-        ] = None,
+        sparse_embeddings: list[dict[str, list[int] | list[float]]] | None = None,
         rrf_ranking_alpha: float = 1,
-    ) -> List[List[Dict[str, Any]]]:
-        """Finds the k closes neighbors of each instance of embeddings.
+        **kwargs: Any,
+    ) -> list[list[dict[str, Any]]]:
+        """Finds the `k` closes neighbors of each instance of embeddings.
+
         Args:
             embedding: List of embeddings vectors.
             sparse_embeddings: List of Sparse embedding dictionaries which represents an
                 embedding as a list of dimensions and as a list of sparse values:
-                    ie. [{"values": [0.7, 0.5], "dimensions": [10, 20]}]
+
+                ie. `[{"values": [0.7, 0.5], "dimensions": [10, 20]}]`
             k: Number of neighbors to be retrieved.
-            rrf_ranking_alpha: Reciprocal Ranking Fusion weight, float between 0 and 1.0
+            rrf_ranking_alpha: Reciprocal Ranking Fusion weight, float between `0` and
+                `1.0`
+
                 Weights Dense Search VS Sparse Search, as an example:
-                - rrf_ranking_alpha=1: Only Dense
-                - rrf_ranking_alpha=0: Only Sparse
-                - rrf_ranking_alpha=0.7: 0.7 weighting for dense and 0.3 for sparse
+                - `rrf_ranking_alpha=1`: Only Dense
+                - `rrf_ranking_alpha=0`: Only Sparse
+                - `rrf_ranking_alpha=0.7`: `0.7` weighting for dense and `0.3` for
+                    sparse
             filter_: List of filters to apply.
+
         Returns:
-            List of records: [
-                {
-                    "doc_id": doc_id,
-                    "dense_score": dense_score,
-                    "sparse_score": sparse_score
-                }
-            ]
+            List of records:
+
+                ```python
+                [
+                    {
+                        "doc_id": doc_id,
+                        "dense_score": dense_score,
+                        "sparse_score": sparse_score,
+                    }
+                ]
+                ```
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def add_to_index(
         self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        metadatas: Union[List[dict], None] = None,
+        ids: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict] | None = None,
         is_complete_overwrite: bool = False,
         *,
-        sparse_embeddings: Optional[
-            List[Dict[str, Union[List[int], List[float]]]]
-        ] = None,
+        sparse_embeddings: list[dict[str, list[int] | list[float]]] | None = None,
         **kwargs: Any,
     ) -> None:
         """Adds documents to the index.
@@ -85,39 +92,45 @@ class Searcher(ABC):
             sparse_embeddings: List of sparse embedddings for each record.
             metadatas: List of metadata of each record.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def remove_datapoints(
         self,
-        datapoint_ids: List[str],
+        datapoint_ids: list[str],
         **kwargs: Any,
     ) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def get_datapoints_by_filter(
         self,
         metadata: dict,
         max_datapoints: int = MAX_DATA_POINTS,
-    ) -> List[str]:
-        raise NotImplementedError()
+    ) -> list[str]:
+        raise NotImplementedError
 
     def _postprocess_response(
-        self, response: List[List[MatchNeighbor]]
-    ) -> List[List[Dict[str, Any]]]:
+        self, response: list[list[MatchNeighbor]]
+    ) -> list[list[dict[str, Any]]]:
         """Posproceses an endpoint response and converts it to a list of list of records
         instead of using vertexai objects.
+
         Args:
             response: Endpoint response.
+
         Returns:
-            List of records: [
-                {
-                    "doc_id": doc_id,
-                    "dense_score": dense_score,
-                    "sparse_score": sparse_score
-                }
-            ]
+            List of records:
+
+                ```python
+                [
+                    {
+                        "doc_id": doc_id,
+                        "dense_score": dense_score,
+                        "sparse_score": sparse_score,
+                    }
+                ]
+                ```
         """
         queries_results = []
         for matching_neighbor_list in response:
@@ -138,21 +151,23 @@ class Searcher(ABC):
 
 
 class VectorSearchSearcher(Searcher):
-    """Class to interface with a VectorSearch index and endpoint."""
+    """Class to interface with a `VectorSearch` index and endpoint."""
 
     def __init__(
         self,
         endpoint: MatchingEngineIndexEndpoint,
         index: MatchingEngineIndex,
-        staging_bucket: Union[storage.Bucket, None] = None,
+        staging_bucket: storage.Bucket | None = None,
         stream_update: bool = False,
     ) -> None:
         """Constructor.
+
         Args:
             endpoint: Endpoint that will be used to make find_neighbors requests.
             index: Underlying index deployed in that endpoint.
             staging_bucket: Necessary only if updating the index. Bucket where the
                 embeddings and metadata will be staged.
+
         Raises:
             ValueError: If the index provided is not deployed in the endpoint.
         """
@@ -167,7 +182,7 @@ class VectorSearchSearcher(Searcher):
         self,
         metadata: dict,
         max_datapoints: int = MAX_DATA_POINTS,
-    ) -> List[str]:
+    ) -> list[str]:
         """Gets all the datapoints matching the metadata filters (text only)
         on the specified deployed index.
         """
@@ -183,33 +198,30 @@ class VectorSearchSearcher(Searcher):
 
     def remove_datapoints(
         self,
-        datapoint_ids: List[str],
+        datapoint_ids: list[str],
         **kwargs: Any,
     ) -> None:
         self._index.remove_datapoints(datapoint_ids=datapoint_ids)
 
     def add_to_index(
         self,
-        ids: List[str],
-        embeddings: List[List[float]],
-        metadatas: Union[List[dict], None] = None,
+        ids: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict] | None = None,
         is_complete_overwrite: bool = False,
         *,
-        sparse_embeddings: Optional[
-            List[Dict[str, Union[List[int], List[float]]]]
-        ] = None,
+        sparse_embeddings: list[dict[str, list[int] | list[float]]] | None = None,
         **kwargs: Any,
     ) -> None:
         """Adds documents to the index.
 
         Args:
             ids: List of unique ids.
-            embeddings: List of embedddings for each record.
-            sparse_embeddings: List of sparse embedddings for each record.
+            embeddings: List of embeddings for each record.
+            sparse_embeddings: List of sparse embeddings for each record.
             metadatas: List of metadata of each record.
             is_complete_overwrite: Whether to overwrite everything.
         """
-
         data_points = to_data_points(
             ids=ids,
             embeddings=embeddings,
@@ -221,10 +233,11 @@ class VectorSearchSearcher(Searcher):
             stream_update_index(index=self._index, data_points=data_points)
         else:
             if self._staging_bucket is None:
-                raise ValueError(
+                msg = (
                     "In order to update a Vector Search index a staging bucket must"
                     " be defined."
                 )
+                raise ValueError(msg)
             batch_update_index(
                 index=self._index,
                 data_points=data_points,
@@ -234,39 +247,47 @@ class VectorSearchSearcher(Searcher):
 
     def find_neighbors(
         self,
-        embeddings: List[List[float]],
+        embeddings: list[list[float]],
         k: int = 4,
-        filter_: Union[List[Namespace], None] = None,
-        numeric_filter: Union[List[NumericNamespace], None] = None,
+        filter_: list[Namespace] | None = None,
+        numeric_filter: list[NumericNamespace] | None = None,
         *,
-        sparse_embeddings: Optional[
-            List[Dict[str, Union[List[int], List[float]]]]
-        ] = None,
+        sparse_embeddings: list[dict[str, list[int] | list[float]]] | None = None,
         rrf_ranking_alpha: float = 1,
-    ) -> List[List[Dict[str, Any]]]:
-        """Finds the k closes neighbors of each instance of embeddings.
+        **kwargs: Any,
+    ) -> list[list[dict[str, Any]]]:
+        """Finds the `k` closes neighbors of each instance of embeddings.
+
         Args:
             embeddings: List of embedding vectors.
             sparse_embeddings: List of Sparse embedding dictionaries which represents an
                 embedding as a list of dimensions and as a list of sparse values:
-                    ie. [{"values": [0.7, 0.5], "dimensions": [10, 20]}]
-            k: Number of neighbors to be retrieved.
-            rrf_ranking_alpha: Reciprocal Ranking Fusion weight, float between 0 and 1.0
-                Weights Dense Search VS Sparse Search, as an example:
-                - rrf_ranking_alpha=1: Only Dense
-                - rrf_ranking_alpha=0: Only Sparse
-                - rrf_ranking_alpha=0.7: 0.7 weighting for dense and 0.3 for sparse
-            filter_: List of filters to apply.
-        Returns:
-            List of records: [
-                {
-                    "doc_id": doc_id,
-                    "dense_score": dense_score,
-                    "sparse_score": sparse_score
-                }
-            ]
-        """
 
+                i.e. `[{"values": [0.7, 0.5], "dimensions": [10, 20]}]`
+            k: Number of neighbors to be retrieved.
+            rrf_ranking_alpha: Reciprocal Ranking Fusion weight, float between `0` and
+                `1.0`
+
+                Weights Dense Search VS Sparse Search, as an example:
+                - `rrf_ranking_alpha=1`: Only Dense
+                - `rrf_ranking_alpha=0`: Only Sparse
+                - `rrf_ranking_alpha=0.7`: `0.7` weighting for dense and `0.3` for
+                    sparse
+            filter_: List of filters to apply.
+
+        Returns:
+            List of records:
+
+                ```python
+                [
+                    {
+                        "doc_id": doc_id,
+                        "dense_score": dense_score,
+                        "sparse_score": sparse_score,
+                    }
+                ]
+                ```
+        """
         # No need to implement other method for private VPC, find_neighbors now works
         # with public and private.
         _, user_agent = get_user_agent("vertex-ai-matching-engine")
@@ -275,13 +296,16 @@ class VectorSearchSearcher(Searcher):
                 queries = embeddings
             else:
                 if len(sparse_embeddings) != len(embeddings):
-                    raise ValueError(
+                    msg = (
                         "The number of `sparse_embeddings` should match the number of "
                         f"`embeddings` {len(sparse_embeddings)} != {len(embeddings)}"
                     )
+                    raise ValueError(msg)
                 queries = []
 
-                for embedding, sparse_embedding in zip(embeddings, sparse_embeddings):
+                for embedding, sparse_embedding in zip(
+                    embeddings, sparse_embeddings, strict=False
+                ):
                     hybrid_query = HybridQuery(
                         sparse_embedding_dimensions=sparse_embedding["dimensions"],  # type: ignore
                         sparse_embedding_values=sparse_embedding["values"],  # type: ignore
@@ -296,21 +320,24 @@ class VectorSearchSearcher(Searcher):
                 num_neighbors=k,
                 filter=filter_,
                 numeric_filter=numeric_filter,
+                **kwargs,
             )
 
         return self._postprocess_response(response)
 
     def _get_deployed_index_id(self) -> str:
         """Gets the deployed index id that matches with the provided index.
+
         Raises:
-            ValueError if the index provided is not found in the endpoint.
+            ValueError: If the index provided is not found in the endpoint.
         """
         for index in self._endpoint.deployed_indexes:
             if index.index == self._index.resource_name:
                 return index.id
 
-        raise ValueError(
+        msg = (
             f"No index with id {self._index.resource_name} "
             f"deployed on endpoint "
             f"{self._endpoint.display_name}."
         )
+        raise ValueError(msg)

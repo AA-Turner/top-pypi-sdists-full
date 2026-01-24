@@ -45,10 +45,12 @@ options:
     suboptions:
       name:
         description: The name of the specific resource group to retrieve.
+          Required for the Get Resource Group by name task.
         type: str
         required: false
       id:
         description: The id of the specific resource group to retrieve.
+          Required for the Get Resource Group by id task.
         type: int
         required: false
       is_locked:
@@ -56,6 +58,10 @@ options:
           If this field is not present, all resource groups will be retrieved.
           If this field is true, only the locked resource groups will be retrieved.
           If this field is false, only the unlocked resource groups will be retrieved.
+          Required for the Get all information about the Resource Groups that are locked
+          /Get all information about the Resource Groups that are unlocked tasks.
+          Optional for the Get information about the Resource Groups that are unlocked and
+          specified in the query task.
         type: bool
         required: false
       query:
@@ -64,6 +70,8 @@ options:
           Types of resources are: ldevs, parity_groups, ports, host_groups, iscsi_targets, nvm_subsystem_ids, and storage_pool_ids.
           If this field is not present, all resources information of the resource group will be retrieved except storage_pool_ids.
           When storage_pool_ids is present, all the ldevs that constitute the storage pool will be included in the response under the ldevs field.
+          Optional for the Get information about the Resource Groups that are specified in the query
+          /Get information about the Resource Groups that are unlocked and specified in the query tasks.
         type: list
         required: false
         elements: str
@@ -110,77 +118,94 @@ EXAMPLES = """
 
 RETURN = """
 ansible_facts:
-    description: The resource group information.
-    returned: always
-    type: dict
-    contains:
-        resource_groups:
-            description: The resource group information.
-            returned: always
-            type: list
-            elements: dict
-            contains:
-                id:
-                    description: The ID of the resource group.
-                    type: int
-                    sample: 4
-                name:
-                    description: The name of the resource group.
-                    type: str
-                    sample: "my_resource_group"
-                lock_status:
-                    description: The lock status of the resource group.
-                    type: str
-                    sample: "Unlocked"
-                host_groups:
-                    description: List of host groups in the resource group.
-                    type: list
-                    elements: dict
-                    contains:
-                        id:
-                            description: The ID of the host group.
-                            type: int
-                            sample: 1
-                        name:
-                            description: The name of the host group.
-                            type: str
-                            sample: "my_host_group_1"
-                        port:
-                            description: The port of the host group.
-                            type: str
-                            sample: "CL1-A"
-                iscsi_targets:
-                    description: List of iSCSI targets in the resource group.
-                    type: list
-                    elements: dict
-                    contains:
-                        id:
-                            description: The ID of the iSCSI target.
-                            type: int
-                            sample: 1
-                        name:
-                            description: The name of the iSCSI target.
-                            type: str
-                            sample: "my_iscsi_target_1"
-                        port:
-                            description: The port of the iSCSI target.
-                            type: str
-                            sample: "CL1-C"
-                ldevs:
-                    description: List of LDEVs in the resource group.
-                    type: list
-                    elements: int
-                    sample: [1, 2, 3]
-                parity_groups:
-                    description: List of parity groups in the resource group.
-                    type: list
-                    elements: str
-                    sample: ["PG1", "PG2"]
-                ports:
-                    description: List of ports in the resource group.
-                    type: list
-                    elements: str
-                    sample: ["CL1-A", "CL1-C"]
+  description: The resource group information.
+  returned: always
+  type: dict
+  contains:
+    resource_groups:
+      description: The resource group information.
+      returned: always
+      type: list
+      elements: dict
+      contains:
+        id:
+          description: The ID of the resource group.
+          type: int
+          sample: 4
+        name:
+          description: The name of the resource group.
+          type: str
+          sample: "my_resource_group"
+        lock_status:
+          description: The lock status of the resource group.
+          type: str
+          sample: "Unlocked"
+        storage_serial_number:
+          description: The serial number of the storage system.
+          type: str
+          sample: "810045"
+        virtual_model:
+          description: The virtual model of the storage system.
+          type: str
+          sample: "VSP One B28"
+        virtual_serial_number:
+          description: The virtual serial number of the storage system.
+          type: str
+          sample: "810076"
+        virtual_storage_id:
+          description: The virtual storage ID.
+          type: int
+          sample: 0
+        host_groups:
+          description: List of host groups in the resource group.
+          type: list
+          elements: dict
+          contains:
+            name:
+              description: The name of the host group.
+              type: str
+              sample: "GK-TC-HG1"
+            port:
+              description: The port of the host group.
+              type: str
+              sample: "CL1-A"
+        iscsi_targets:
+          description: List of iSCSI targets in the resource group.
+          type: list
+          elements: dict
+          contains:
+            id:
+              description: The ID of the iSCSI target.
+              type: int
+              sample: 1
+            name:
+              description: The name of the iSCSI target.
+              type: str
+              sample: "my_iscsi_target_1"
+            port:
+              description: The port of the iSCSI target.
+              type: str
+              sample: "CL1-C"
+        ldevs:
+          description: List of LDEVs in the resource group.
+          type: list
+          elements: int
+          sample: [1149, 1233]
+        ldevs_hex:
+          description: List of LDEVs in hexadecimal format.
+          type: list
+          elements: str
+          sample: ["00:04:7D", "00:04:D1"]
+        parity_groups:
+          description: List of parity groups in the resource group.
+          type: list
+          elements: str
+          sample: ["PG1", "PG2"]
+        ports:
+          description: List of ports in the resource group.
+          type: list
+          elements: str
+          sample: ["CL1-A", "CL1-C"]
 """
 
 from ansible.module_utils.basic import AnsibleModule

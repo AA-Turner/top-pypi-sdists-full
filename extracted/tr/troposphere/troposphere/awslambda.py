@@ -226,6 +226,19 @@ class FilterCriteria(AWSProperty):
     }
 
 
+class LoggingConfig(AWSProperty):
+    """
+    `LoggingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-loggingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApplicationLogLevel": (str, False),
+        "LogFormat": (str, False),
+        "LogGroup": (str, False),
+        "SystemLogLevel": (str, False),
+    }
+
+
 class MetricsConfig(AWSProperty):
     """
     `MetricsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-metricsconfig.html>`__
@@ -244,6 +257,7 @@ class ProvisionedPollerConfig(AWSProperty):
     props: PropsDictType = {
         "MaximumPollers": (integer, False),
         "MinimumPollers": (integer, False),
+        "PollerGroupName": (str, False),
     }
 
 
@@ -321,6 +335,7 @@ class EventSourceMapping(AWSObject):
         "FunctionName": (str, True),
         "FunctionResponseTypes": ([str], False),
         "KmsKeyArn": (str, False),
+        "LoggingConfig": (LoggingConfig, False),
         "MaximumBatchingWindowInSeconds": (integer, False),
         "MaximumRecordAgeInSeconds": (integer, False),
         "MaximumRetryAttempts": (integer, False),
@@ -414,19 +429,6 @@ class ImageConfig(AWSProperty):
         validate_image_config(self)
 
 
-class LoggingConfig(AWSProperty):
-    """
-    `LoggingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-loggingconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "ApplicationLogLevel": (str, False),
-        "LogFormat": (str, False),
-        "LogGroup": (str, False),
-        "SystemLogLevel": (str, False),
-    }
-
-
 class RuntimeManagementConfig(AWSProperty):
     """
     `RuntimeManagementConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-runtimemanagementconfig.html>`__
@@ -445,6 +447,16 @@ class SnapStart(AWSProperty):
 
     props: PropsDictType = {
         "ApplyOn": (str, True),
+    }
+
+
+class TenancyConfig(AWSProperty):
+    """
+    `TenancyConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-tenancyconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "TenantIsolationMode": (str, True),
     }
 
 
@@ -501,6 +513,7 @@ class Function(AWSObject):
         "RuntimeManagementConfig": (RuntimeManagementConfig, False),
         "SnapStart": (SnapStart, False),
         "Tags": (Tags, False),
+        "TenancyConfig": (TenancyConfig, False),
         "Timeout": (integer, False),
         "TracingConfig": (TracingConfig, False),
         "VpcConfig": (VPCConfig, False),
@@ -563,6 +576,7 @@ class Permission(AWSObject):
         "EventSourceToken": (str, False),
         "FunctionName": (str, True),
         "FunctionUrlAuthType": (str, False),
+        "InvokedViaFunctionUrl": (boolean, False),
         "Principal": (str, True),
         "PrincipalOrgID": (str, False),
         "SourceAccount": (str, False),

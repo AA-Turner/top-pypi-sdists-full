@@ -1,4 +1,5 @@
 import asyncio
+from typing import Union
 from bullmq.event_emitter import EventEmitter
 from bullmq.redis_connection import RedisConnection
 from bullmq.types import QueueBaseOptions, RetryJobsOptions, JobOptions, PromoteJobsOptions
@@ -39,21 +40,20 @@ class Queue(EventEmitter):
         @param data: Arbitrary data to append to the job.
         @param opts: Job options that affects how the job is going to be processed.
         """
-        job = Job(self, name, data, opts)
+        merged_opts = {**self.jobsOpts, **(opts or {})}
+        job = Job(self, name, data, merged_opts)
         job_id = await self.scripts.addJob(job)
         job.id = job_id
         return job
 
-    async def addBulk(self, jobs: list[dict[str, dict | str]]):
+    async def addBulk(self, jobs: list[dict[str, Union[dict, str]]]):
         """
         Adds an array of jobs to the queue. This method may be faster than adding
         one job at a time in a sequence
         """
         jobs_data = []
         for job in jobs:
-            opts = {}
-            opts.update(self.jobsOpts)
-            opts.update(job.get("opts", {}))
+            opts = {**self.jobsOpts, **(job.get("opts") or {})}
 
             jobs_data.append({
                 "name": job.get("name"),
@@ -159,6 +159,15 @@ class Queue(EventEmitter):
             cursor = await self.scripts.obliterate(1000, force)
             if cursor is None or cursor == 0 or cursor == "0":
                 break
+
+    async def drain(self, delayed: bool = False):
+        """
+        Drains the queue, removes all jobs that are waiting
+        or delayed, but not active, completed or failed.
+        
+        @param delayed: Pass True if it should also clean the delayed jobs.
+        """
+        await self.scripts.drain(delayed)
 
     async def retryJobs(self, opts: RetryJobsOptions = {}):
         """

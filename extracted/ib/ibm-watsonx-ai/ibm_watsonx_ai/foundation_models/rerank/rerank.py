@@ -1,16 +1,14 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
-from ibm_watsonx_ai.foundation_models.schema import (
-    BaseSchema,
-    RerankParameters,
-)
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema, Crypto, RerankParameters
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -47,7 +45,7 @@ class Rerank(WMLResource):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :param api_client: initialized APIClient object with a set project ID or space ID. If passed, ``credentials`` and ``project_id``/``space_id`` are not required.
     :type api_client: APIClient, optional
@@ -59,17 +57,15 @@ class Rerank(WMLResource):
         from ibm_watsonx_ai import Credentials
         from ibm_watsonx_ai.foundation_models import Rerank
 
-        generate_params = {
-            "truncate_input_tokens": 10
-        }
+        generate_params = {"truncate_input_tokens": 10}
 
         wx_ranker = Rerank(
             model_id="<RERANK MODEL>",
             params=generate_params,
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id=project_id
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id=project_id,
         )
 
     """
@@ -81,7 +77,7 @@ class Rerank(WMLResource):
         credentials: Credentials | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: bool | str | None = None,
+        verify: bool | str | Path | None = None,
         api_client: APIClient | None = None,
     ) -> None:
         self.model_id = model_id
@@ -89,6 +85,9 @@ class Rerank(WMLResource):
 
         self.params = params
         Rerank._validate_type(params, "params", [dict, RerankParameters], False, True)
+
+        if isinstance(verify, str):
+            verify = Path(verify)
 
         if credentials:
             from ibm_watsonx_ai import APIClient
@@ -119,6 +118,7 @@ class Rerank(WMLResource):
         query: str,
         inputs: list[str | TextDict],
         params: dict | RerankParameters | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """
         Calling this method generates the following auditing event.
@@ -132,6 +132,9 @@ class Rerank(WMLResource):
         :param params:
         :type params: dict, RerankParameters, optional
 
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
+
         **Example:**
 
         .. code-block:: python
@@ -139,7 +142,7 @@ class Rerank(WMLResource):
             query = "As a Youth, I craved excitement while in adulthood I followed Enthusiastic Pursuit."
             inputs = [
                 "In my younger years, I often reveled in the excitement of spontaneous adventures and embraced the thrill of the unknown, whereas in my grownup life, I have come to appreciate the comforting stability of a well-established routine.",
-                "As a young man, I frequently sought out exhilarating experiences, craving the adrenaline rush of lifes novelties, while as a responsible adult, I have come to understand the profound value of accumulated wisdom and life experience."
+                "As a young man, I frequently sought out exhilarating experiences, craving the adrenaline rush of lives novelties, while as a responsible adult, I have come to understand the profound value of accumulated wisdom and life experience.",
             ]
             response = wx_ranker.generate(query=query, inputs=inputs)
 
@@ -152,6 +155,7 @@ class Rerank(WMLResource):
 
         self._validate_type(query, "query", str, True)
         self._validate_type(inputs, "inputs", list, True)
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
 
         if all(isinstance(el, str) for el in inputs):
             inputs_payload = [{"text": el_input} for el_input in inputs]
@@ -178,6 +182,12 @@ class Rerank(WMLResource):
 
         if parameters:
             payload["parameters"] = parameters
+
+        if isinstance(crypto, BaseSchema):
+            crypto = crypto.to_dict()
+
+        if crypto:
+            payload["crypto"] = crypto
 
         if self._client.default_project_id:
             payload["project_id"] = self._client.default_project_id

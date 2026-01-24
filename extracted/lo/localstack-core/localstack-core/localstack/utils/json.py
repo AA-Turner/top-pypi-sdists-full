@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import date, datetime
 from json import JSONDecodeError
-from typing import Any, Union
+from typing import Any
 
 from localstack.config import HostAndPort
 
@@ -63,9 +63,9 @@ class FileMappedDocument(dict):
     concurrent writes, run load(). To save and overwrite the current document on disk, run save().
     """
 
-    path: Union[str, os.PathLike]
+    path: str | os.PathLike
 
-    def __init__(self, path: Union[str, os.PathLike], mode=0o664):
+    def __init__(self, path: str | os.PathLike, mode=0o664):
         super().__init__()
         self.path = path
         self.mode = mode
@@ -169,10 +169,24 @@ def extract_jsonpath(value, path):
     return result
 
 
-def assign_to_path(target, path: str, value, delimiter: str = "."):
+def assign_to_path(target: dict, path: str, value: any, delimiter: str = ".") -> dict:
+    """Assign the given value to a dict. If the path doesn't exist in the target dict, it will be created.
+    The delimiter can be used to provide a path with a different delimiter.
+
+    Examples:
+     - assign_to_path({}, "a", "b") => {"a": "b"}
+     - assign_to_path({}, "a.b.c", "d") => {"a": {"b": {"c": "d"}}}
+     - assign_to_path({}, "a.b/c", "d", delimiter="/") => {"a.b": {"c": "d"}}
+
+    """
     parts = path.strip(delimiter).split(delimiter)
+
+    if len(parts) == 1:
+        target[parts[0]] = value
+        return target
+
     path_to_parent = delimiter.join(parts[:-1])
-    parent = extract_from_jsonpointer_path(target, path_to_parent, auto_create=True)
+    parent = extract_from_jsonpointer_path(target, path_to_parent, delimiter, auto_create=True)
     if not isinstance(parent, dict):
         LOG.debug(
             'Unable to find parent (type %s) for path "%s" in object: %s',

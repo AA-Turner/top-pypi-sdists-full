@@ -31,6 +31,7 @@ from google.cloud.firestore_v1.base_aggregation import (
 from google.cloud.firestore_v1.async_stream_generator import AsyncStreamGenerator
 from google.cloud.firestore_v1.query_profile import ExplainMetrics, QueryExplainError
 from google.cloud.firestore_v1.query_results import QueryResultsList
+from google.cloud.firestore_v1.field_path import FieldPath
 
 
 _PROJECT = "PROJECT"
@@ -321,9 +322,39 @@ def test_async_aggregation_query_prep_stream_with_explain_options():
     assert kwargs == {"retry": None}
 
 
+def test_async_aggregation_query_prep_stream_with_read_time():
+    client = make_async_client()
+    parent = client.collection("dee")
+    query = make_async_query(parent)
+    aggregation_query = make_async_aggregation_query(query)
+
+    aggregation_query.count(alias="all")
+    aggregation_query.sum("someref", alias="sumall")
+    aggregation_query.avg("anotherref", alias="avgall")
+
+    # 1800 seconds after epoch
+    read_time = datetime.now()
+
+    request, kwargs = aggregation_query._prep_stream(read_time=read_time)
+
+    parent_path, _ = parent._parent_info()
+    expected_request = {
+        "parent": parent_path,
+        "structured_aggregation_query": aggregation_query._to_protobuf(),
+        "transaction": None,
+        "read_time": read_time,
+    }
+    assert request == expected_request
+    assert kwargs == {"retry": None}
+
+
 @pytest.mark.asyncio
 async def _async_aggregation_query_get_helper(
-    retry=None, timeout=None, read_time=None, explain_options=None
+    retry=None,
+    timeout=None,
+    explain_options=None,
+    response_read_time=None,
+    query_read_time=None,
 ):
     from google.cloud._helpers import _datetime_to_pb_timestamp
 
@@ -342,7 +373,11 @@ async def _async_aggregation_query_get_helper(
     aggregation_query = make_async_aggregation_query(query)
     aggregation_query.count(alias="all")
 
-    aggregation_result = AggregationResult(alias="total", value=5, read_time=read_time)
+    aggregation_result = AggregationResult(
+        alias="total",
+        value=5,
+        read_time=response_read_time,
+    )
 
     if explain_options is not None:
         explain_metrics = {"execution_stats": {"results_returned": 1}}
@@ -351,14 +386,18 @@ async def _async_aggregation_query_get_helper(
 
     response_pb = make_aggregation_query_response(
         [aggregation_result],
-        read_time=read_time,
+        read_time=response_read_time,
         explain_metrics=explain_metrics,
     )
     firestore_api.run_aggregation_query.return_value = AsyncIter([response_pb])
     kwargs = _helpers.make_retry_timeout_kwargs(retry, timeout)
 
     # Execute the query and check the response.
-    returned = await aggregation_query.get(**kwargs, explain_options=explain_options)
+    returned = await aggregation_query.get(
+        **kwargs,
+        explain_options=explain_options,
+        read_time=query_read_time,
+    )
     assert isinstance(returned, QueryResultsList)
     assert len(returned) == 1
 
@@ -366,9 +405,9 @@ async def _async_aggregation_query_get_helper(
         for r in result:
             assert r.alias == aggregation_result.alias
             assert r.value == aggregation_result.value
-            if read_time is not None:
+            if response_read_time is not None:
                 result_datetime = _datetime_to_pb_timestamp(r.read_time)
-                assert result_datetime == read_time
+                assert result_datetime == response_read_time
 
     if explain_options is None:
         with pytest.raises(QueryExplainError, match="explain_options not set"):
@@ -387,6 +426,8 @@ async def _async_aggregation_query_get_helper(
     }
     if explain_options is not None:
         expected_request["explain_options"] = explain_options._to_dict()
+    if query_read_time is not None:
+        expected_request["read_time"] = query_read_time
     firestore_api.run_aggregation_query.assert_called_once_with(
         request=expected_request,
         metadata=client._rpc_metadata,
@@ -405,7 +446,9 @@ async def test_async_aggregation_query_get_with_readtime():
 
     one_hour_ago = datetime.now(tz=timezone.utc) - timedelta(hours=1)
     read_time = _datetime_to_pb_timestamp(one_hour_ago)
-    await _async_aggregation_query_get_helper(read_time=read_time)
+    await _async_aggregation_query_get_helper(
+        query_read_time=one_hour_ago, response_read_time=read_time
+    )
 
 
 @pytest.mark.asyncio
@@ -583,7 +626,11 @@ async def _async_aggregation_query_stream_helper(
     kwargs = _helpers.make_retry_timeout_kwargs(retry, timeout)
 
     # Execute the query and check the response.
-    returned = aggregation_query.stream(**kwargs, explain_options=explain_options)
+    returned = aggregation_query.stream(
+        **kwargs,
+        explain_options=explain_options,
+        read_time=read_time,
+    )
     assert isinstance(returned, AsyncStreamGenerator)
 
     results = []
@@ -611,6 +658,8 @@ async def _async_aggregation_query_stream_helper(
     }
     if explain_options is not None:
         expected_request["explain_options"] = explain_options._to_dict()
+    if read_time is not None:
+        expected_request["read_time"] = read_time
 
     # Verify the mock call.
     firestore_api.run_aggregation_query.assert_called_once_with(
@@ -623,6 +672,15 @@ async def _async_aggregation_query_stream_helper(
 @pytest.mark.asyncio
 async def test_aggregation_query_stream():
     await _async_aggregation_query_stream_helper()
+
+
+@pytest.mark.asyncio
+async def test_async_aggregation_query_stream_with_read_time():
+    from google.cloud._helpers import _datetime_to_pb_timestamp
+
+    one_hour_ago = datetime.now(tz=timezone.utc) - timedelta(hours=1)
+    read_time = _datetime_to_pb_timestamp(one_hour_ago)
+    await _async_aggregation_query_stream_helper(read_time=read_time)
 
 
 @pytest.mark.asyncio
@@ -639,3 +697,144 @@ async def test_aggregation_query_stream_w_explain_options_analyze_false():
 
     explain_options = ExplainOptions(analyze=False)
     await _async_aggregation_query_stream_helper(explain_options=explain_options)
+
+
+@pytest.mark.parametrize(
+    "field,in_alias,out_alias",
+    [
+        ("field", None, "field_1"),
+        (FieldPath("test"), None, "field_1"),
+        ("field", "overwrite", "overwrite"),
+    ],
+)
+def test_async_aggreation_to_pipeline_sum(field, in_alias, out_alias):
+    from google.cloud.firestore_v1.async_pipeline import AsyncPipeline
+    from google.cloud.firestore_v1.pipeline_stages import Collection, Aggregate
+
+    client = make_async_client()
+    parent = client.collection("dee")
+    query = make_async_query(parent)
+    aggregation_query = make_async_aggregation_query(query)
+    aggregation_query.sum(field, alias=in_alias)
+    pipeline = aggregation_query._build_pipeline(client.pipeline())
+    assert isinstance(pipeline, AsyncPipeline)
+    assert len(pipeline.stages) == 2
+    assert isinstance(pipeline.stages[0], Collection)
+    assert pipeline.stages[0].path == "/dee"
+    aggregate_stage = pipeline.stages[1]
+    assert isinstance(aggregate_stage, Aggregate)
+    assert len(aggregate_stage.accumulators) == 1
+    assert aggregate_stage.accumulators[0].expr.name == "sum"
+    expected_field = field if isinstance(field, str) else field.to_api_repr()
+    assert aggregate_stage.accumulators[0].expr.params[0].path == expected_field
+    assert aggregate_stage.accumulators[0].alias == out_alias
+
+
+@pytest.mark.parametrize(
+    "field,in_alias,out_alias",
+    [
+        ("field", None, "field_1"),
+        (FieldPath("test"), None, "field_1"),
+        ("field", "overwrite", "overwrite"),
+    ],
+)
+def test_async_aggreation_to_pipeline_avg(field, in_alias, out_alias):
+    from google.cloud.firestore_v1.async_pipeline import AsyncPipeline
+    from google.cloud.firestore_v1.pipeline_stages import Collection, Aggregate
+
+    client = make_async_client()
+    parent = client.collection("dee")
+    query = make_async_query(parent)
+    aggregation_query = make_async_aggregation_query(query)
+    aggregation_query.avg(field, alias=in_alias)
+    pipeline = aggregation_query._build_pipeline(client.pipeline())
+    assert isinstance(pipeline, AsyncPipeline)
+    assert len(pipeline.stages) == 2
+    assert isinstance(pipeline.stages[0], Collection)
+    assert pipeline.stages[0].path == "/dee"
+    aggregate_stage = pipeline.stages[1]
+    assert isinstance(aggregate_stage, Aggregate)
+    assert len(aggregate_stage.accumulators) == 1
+    assert aggregate_stage.accumulators[0].expr.name == "average"
+    expected_field = field if isinstance(field, str) else field.to_api_repr()
+    assert aggregate_stage.accumulators[0].expr.params[0].path == expected_field
+    assert aggregate_stage.accumulators[0].alias == out_alias
+
+
+@pytest.mark.parametrize(
+    "in_alias,out_alias",
+    [
+        (None, "field_1"),
+        ("overwrite", "overwrite"),
+    ],
+)
+def test_async_aggreation_to_pipeline_count(in_alias, out_alias):
+    from google.cloud.firestore_v1.async_pipeline import AsyncPipeline
+    from google.cloud.firestore_v1.pipeline_stages import Collection, Aggregate
+    from google.cloud.firestore_v1.pipeline_expressions import Count
+
+    client = make_async_client()
+    parent = client.collection("dee")
+    query = make_async_query(parent)
+    aggregation_query = make_async_aggregation_query(query)
+    aggregation_query.count(alias=in_alias)
+    pipeline = aggregation_query._build_pipeline(client.pipeline())
+    assert isinstance(pipeline, AsyncPipeline)
+    assert len(pipeline.stages) == 2
+    assert isinstance(pipeline.stages[0], Collection)
+    assert pipeline.stages[0].path == "/dee"
+    aggregate_stage = pipeline.stages[1]
+    assert isinstance(aggregate_stage, Aggregate)
+    assert len(aggregate_stage.accumulators) == 1
+    assert isinstance(aggregate_stage.accumulators[0].expr, Count)
+    assert aggregate_stage.accumulators[0].alias == out_alias
+
+
+def test_aggreation_to_pipeline_count_increment():
+    """
+    When aliases aren't given, should assign incrementing field_n values
+    """
+    from google.cloud.firestore_v1.pipeline_expressions import Count
+
+    n = 100
+    client = make_async_client()
+    parent = client.collection("dee")
+    query = make_async_query(parent)
+    aggregation_query = make_async_aggregation_query(query)
+    for _ in range(n):
+        aggregation_query.count()
+    pipeline = aggregation_query._build_pipeline(client.pipeline())
+    aggregate_stage = pipeline.stages[1]
+    assert len(aggregate_stage.accumulators) == n
+    for i in range(n):
+        assert isinstance(aggregate_stage.accumulators[i].expr, Count)
+        assert aggregate_stage.accumulators[i].alias == f"field_{i + 1}"
+
+
+def test_async_aggreation_to_pipeline_complex():
+    from google.cloud.firestore_v1.async_pipeline import AsyncPipeline
+    from google.cloud.firestore_v1.pipeline_stages import Collection, Aggregate, Select
+
+    client = make_async_client()
+    query = client.collection("my_col").select(["field_a", "field_b.c"])
+    aggregation_query = make_async_aggregation_query(query)
+    aggregation_query.sum("field", alias="alias")
+    aggregation_query.count()
+    aggregation_query.avg("other")
+    aggregation_query.sum("final")
+    pipeline = aggregation_query._build_pipeline(client.pipeline())
+    assert isinstance(pipeline, AsyncPipeline)
+    assert len(pipeline.stages) == 3
+    assert isinstance(pipeline.stages[0], Collection)
+    assert isinstance(pipeline.stages[1], Select)
+    assert isinstance(pipeline.stages[2], Aggregate)
+    aggregate_stage = pipeline.stages[2]
+    assert len(aggregate_stage.accumulators) == 4
+    assert aggregate_stage.accumulators[0].expr.name == "sum"
+    assert aggregate_stage.accumulators[0].alias == "alias"
+    assert aggregate_stage.accumulators[1].expr.name == "count"
+    assert aggregate_stage.accumulators[1].alias == "field_1"
+    assert aggregate_stage.accumulators[2].expr.name == "average"
+    assert aggregate_stage.accumulators[2].alias == "field_2"
+    assert aggregate_stage.accumulators[3].expr.name == "sum"
+    assert aggregate_stage.accumulators[3].alias == "field_3"

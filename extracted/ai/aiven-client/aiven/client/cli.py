@@ -12,15 +12,16 @@ from aiven.client.common import UNDEFINED
 from aiven.client.connection_info.common import Store
 from aiven.client.connection_info.kafka import KafkaCertificateConnectionInfo, KafkaSASLConnectionInfo
 from aiven.client.connection_info.pg import PGConnectionInfo
-from aiven.client.connection_info.redis import RedisConnectionInfo
+from aiven.client.connection_info.valkey import ValkeyConnectionInfo
 from aiven.client.speller import suggest
 from argparse import ArgumentParser
 from ast import literal_eval
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from http import HTTPStatus
-from typing import Any, Callable, Final, IO, Mapping, Optional, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Final, IO, Optional, Protocol, TypeVar
 from urllib.parse import urlparse
 
 import errno
@@ -42,11 +43,7 @@ USER_GROUP_COLUMNS = [
 ]
 EOL_ADVANCE_WARNING_TIME = timedelta(weeks=26)  # Give 6 months advance notice for EOL services
 
-REDIS_VALKEY_ACL_ARGS = [
-    "redis_acl_keys",
-    "redis_acl_commands",
-    "redis_acl_categories",
-    "redis_acl_channels",
+VALKEY_ACL_ARGS = [
     "valkey_acl_keys",
     "valkey_acl_commands",
     "valkey_acl_categories",
@@ -143,8 +140,7 @@ def get_current_date() -> datetime:
 
 
 class ClientFactory(Protocol):
-    def __call__(self, base_url: str, show_http: bool, request_timeout: int | None) -> client.AivenClient:
-        ...
+    def __call__(self, base_url: str, show_http: bool, request_timeout: int | None) -> client.AivenClient: ...
 
 
 class AivenCLI(argx.CommandLineTool):
@@ -1506,7 +1502,7 @@ class AivenCLI(argx.CommandLineTool):
     @arg.project
     @arg.service_name
     @arg("-r", "--route", choices=("dynamic", "privatelink", "public"))
-    @arg("--usage", choices=("primary", "replica"))
+    @arg("--usage", choices=("primary", "replica", "disaster_recovery"))
     @arg("-p", "--privatelink-connection-id")
     @arg("--replica", action="store_true")
     @arg("-u", "--username", default="avnadmin")
@@ -1521,7 +1517,7 @@ class AivenCLI(argx.CommandLineTool):
     @arg.project
     @arg.service_name
     @arg("-r", "--route", choices=("dynamic", "privatelink", "public"))
-    @arg("--usage", choices=("primary", "replica"))
+    @arg("--usage", choices=("primary", "replica", "disaster_recovery"))
     @arg("-p", "--privatelink-connection-id")
     @arg("--replica", action="store_true")
     @arg("-u", "--username", default="avnadmin")
@@ -1535,7 +1531,7 @@ class AivenCLI(argx.CommandLineTool):
     @arg.project
     @arg.service_name
     @arg("-r", "--route", choices=("dynamic", "privatelink", "public"))
-    @arg("--usage", choices=("primary", "replica"))
+    @arg("--usage", choices=("primary", "replica", "disaster_recovery"))
     @arg("-p", "--privatelink-connection-id")
     @arg("--replica", action="store_true")
     @arg("-u", "--username", default="avnadmin")
@@ -1582,11 +1578,11 @@ class AivenCLI(argx.CommandLineTool):
     @arg("--replica", action="store_true")
     @arg("-u", "--username", default="default")
     @arg("-d", "--db")
-    def service__connection_info__redis__uri(self) -> None:
-        """Redis connection string"""
+    def service__connection_info__valkey__uri(self) -> None:
+        """Valkey connection string"""
         service = self.client.get_service(project=self.get_project(), service=self.args.service_name)
 
-        ci = RedisConnectionInfo.from_service(
+        ci = ValkeyConnectionInfo.from_service(
             service,
             route=self._get_route_from_args(),
             usage=self._get_usage_from_args(),
@@ -1617,17 +1613,17 @@ class AivenCLI(argx.CommandLineTool):
 
         match = re.match("([a-z]+\\+)?([a-z]+)://", url)
         service_type = match and match.group(2)
-        if service_type == "influxdb":
-            command, params, env = self._build_influx_start_info(url)
-        elif service_type == "postgres":
+        if service_type == "postgres":
             command, params, env = self._build_psql_start_info(url)
-        elif service_type == "rediss":
-            command, params, env = self._build_redis_start_info(url)
+        elif service_type in {"rediss", "valkeys"}:
+            command, params, env = self._build_valkey_start_info(url)
+        elif service_type in {"redis", "valkey"}:
+            command, params, env = self._build_valkey_start_info(url, tls=False)
         elif service_type == "mysql":
             command, params, env = self._build_mysql_start_info(url)
         else:
             raise argx.UserError(
-                "Unsupported service type {}. Only InfluxDB, PostgreSQL, and Redis are supported".format(service_type)
+                "Unsupported service type {}. Only PostgreSQL, MySQL, and Valkey are supported".format(service_type)
             )
 
         try:
@@ -1636,21 +1632,6 @@ class AivenCLI(argx.CommandLineTool):
             if e.errno != errno.ENOENT:
                 raise
             raise argx.UserError("Executable '{}' is not available, cannot launch {} client".format(command, service_type))
-
-    def _build_influx_start_info(self, url: str) -> tuple[str, list, Mapping]:
-        info = urlparse(url)
-        params = [
-            "-host",
-            info.hostname,
-            "-port",
-            str(info.port),
-            "-database",
-            info.path.lstrip("/"),
-            "-username",
-            info.username,
-            "-ssl",
-        ]
-        return "influx", params, {"INFLUX_PASSWORD": info.password}
 
     def _build_psql_start_info(self, url: str) -> tuple[str, list, Mapping]:
         pw_pattern = "([a-z\\+]+://[^:]+):([^@]+)@(.*)"
@@ -1670,10 +1651,9 @@ class AivenCLI(argx.CommandLineTool):
         ]
         return "mysql", params, {"MYSQL_PWD": info.password}
 
-    def _build_redis_start_info(self, url: str) -> tuple[str, list, Mapping]:
+    def _build_valkey_start_info(self, url: str, tls: bool = True) -> tuple[str, list, Mapping]:
         info = urlparse(url)
         params = [
-            "--tls",
             "-h",
             info.hostname,
             "-p",
@@ -1681,7 +1661,10 @@ class AivenCLI(argx.CommandLineTool):
             "--user",
             info.username,
         ]
-        return "redis-cli", params, {"REDISCLI_AUTH": info.password}
+        if tls:
+            params.append("--tls")
+
+        return "valkey-cli", params, {"REDISCLI_AUTH": info.password}
 
     @arg.project
     @arg.service_name
@@ -1838,7 +1821,7 @@ class AivenCLI(argx.CommandLineTool):
 
     def _parse_access_control(self) -> Mapping[str, Any]:
         arg_vars = vars(self.args)
-        result = {key: arg_vars[key].split() for key in REDIS_VALKEY_ACL_ARGS if arg_vars[key] is not None}
+        result = {key: arg_vars[key].split() for key in VALKEY_ACL_ARGS if arg_vars[key] is not None}
         for key in ["m3_group"]:
             value = arg_vars[key]
             if value is not None:
@@ -1849,10 +1832,6 @@ class AivenCLI(argx.CommandLineTool):
     @arg.service_name
     @arg("--username", help="Service user username", required=True)
     @arg("--m3-group", help="Service user group")
-    @arg("--redis-acl-keys", help="ACL rules for keys (Redis only)")
-    @arg("--redis-acl-commands", help="ACL rules for commands (Redis only)")
-    @arg("--redis-acl-categories", help="ACL rules for command categories (Redis only)")
-    @arg("--redis-acl-channels", help="ACL rules for channels (Redis only)")
     @arg("--valkey-acl-keys", help="ACL rules for keys (Valkey only)")
     @arg("--valkey-acl-commands", help="ACL rules for commands (Valkey only)")
     @arg("--valkey-acl-categories", help="ACL rules for command categories (Valkey only)")
@@ -1891,13 +1870,13 @@ class AivenCLI(argx.CommandLineTool):
         """List service users"""
         service = self.client.get_service(project=self.get_project(), service=self.args.service_name)
         layout = [["username", "type"]]
-        if service["service_type"] == "redis":
+        if service["service_type"] == "valkey":
             layout[0].extend(
                 [
-                    "access_control.redis_acl_keys",
-                    "access_control.redis_acl_commands",
-                    "access_control.redis_acl_categories",
-                    "access_control.redis_acl_channels",
+                    "access_control.valkey_acl_keys",
+                    "access_control.valkey_acl_commands",
+                    "access_control.valkey_acl_categories",
+                    "access_control.valkey_acl_channels",
                 ]
             )
         self.print_response(
@@ -1918,12 +1897,7 @@ class AivenCLI(argx.CommandLineTool):
             project=self.get_project(), service=self.args.service_name, username=self.args.username
         )
         layout = [["username", "type"]]
-        for field in (
-            "redis_acl_keys",
-            "redis_acl_commands",
-            "redis_acl_categories",
-            "redis_acl_channels",
-        ):
+        for field in VALKEY_ACL_ARGS:
             if field in user.get("access_control", {}):
                 layout[0].append(f"access_control.{field}")
         self.print_response(user, single_item=True, format=self.args.format, json=self.args.json, table_layout=layout)
@@ -2098,17 +2072,13 @@ ssl.truststore.type=JKS
     @arg.service_name
     @arg("--username", help="Service user username", required=True)
     @arg("--m3-group", help="Service user group")
-    @arg("--redis-acl-keys", help="ACL rules for keys (Redis only)")
-    @arg("--redis-acl-commands", help="ACL rules for commands (Redis only)")
-    @arg("--redis-acl-categories", help="ACL rules for command categories (Redis only)")
-    @arg("--redis-acl-channels", help="ACL rules for channels (Redis only)")
     @arg("--valkey-acl-keys", help="ACL rules for keys (Valkey only)")
     @arg("--valkey-acl-commands", help="ACL rules for commands (Valkey only)")
     @arg("--valkey-acl-categories", help="ACL rules for command categories (Valkey only)")
     @arg("--valkey-acl-channels", help="ACL rules for channels (Valkey only)")
     @arg.json
     def service__user_set_access_control(self) -> None:
-        """Set Redis/Valkey service user access control"""
+        """Set Valkey service user access control"""
         access_control = self._parse_access_control()
         self.client.set_service_user_access_control(
             project=self.get_project(),
@@ -2866,8 +2836,10 @@ ssl.truststore.type=JKS
     @arg.remote_storage_disable
     @arg.local_retention_ms
     @arg.local_retention_bytes
-    @arg.inkless_enable
-    @arg.inkless_disable
+    @arg.diskless_enable
+    @arg.diskless_disable
+    @arg.unclean_leader_election_enable
+    @arg.unclean_leader_election_disable
     @arg.tag
     @arg(
         "--cleanup-policy",
@@ -2898,7 +2870,8 @@ ssl.truststore.type=JKS
             remote_storage_enable=self._remote_storage_enable(),
             local_retention_ms=self.args.local_retention_ms,
             local_retention_bytes=self.args.local_retention_bytes,
-            inkless_enable=self._inkless_enable(),
+            diskless_enable=self._diskless_enable(),
+            unclean_leader_election_enable=self._unclean_leader_election_enable(),
             tags=tags,
         )
         print(response)
@@ -2916,8 +2889,10 @@ ssl.truststore.type=JKS
     @arg.local_retention_ms
     @arg.local_retention_bytes
     @arg.tagupdate
-    @arg.inkless_enable
-    @arg.inkless_disable
+    @arg.diskless_enable
+    @arg.diskless_disable
+    @arg.unclean_leader_election_enable
+    @arg.unclean_leader_election_disable
     @arg.untag
     @arg("--replication", help="Replication factor", type=int, required=False)
     def service__topic_update(self) -> None:
@@ -2953,7 +2928,8 @@ ssl.truststore.type=JKS
             remote_storage_enable=self._remote_storage_enable(),
             local_retention_ms=self.args.local_retention_ms,
             local_retention_bytes=self.args.local_retention_bytes,
-            inkless_enable=self._inkless_enable(),
+            diskless_enable=self._diskless_enable(),
+            unclean_leader_election_enable=self._unclean_leader_election_enable(),
             tags=tags,
         )
         print(response["message"])
@@ -2968,12 +2944,24 @@ ssl.truststore.type=JKS
         else:
             return None
 
-    def _inkless_enable(self) -> bool | None:
-        if self.args.inkless_enable and self.args.inkless_disable:
-            raise argx.UserError("Only set at most one of --inkless-enable and --inkless-disable")
-        if self.args.inkless_enable:
+    def _diskless_enable(self) -> bool | None:
+        if self.args.diskless_enable and self.args.diskless_disable:
+            raise argx.UserError("Only set at most one of --diskless-enable and --diskless-disable")
+        if self.args.diskless_enable:
             return True
-        elif self.args.inkless_disable:
+        elif self.args.diskless_disable:
+            return False
+        else:
+            return None
+
+    def _unclean_leader_election_enable(self) -> bool | None:
+        if self.args.unclean_leader_election_enable and self.args.unclean_leader_election_disable:
+            raise argx.UserError(
+                "Only set at most one of --unclean-leader-election-enable and --unclean-leader-election-disable"
+            )
+        if self.args.unclean_leader_election_enable:
+            return True
+        elif self.args.unclean_leader_election_disable:
             return False
         else:
             return None
@@ -3348,6 +3336,14 @@ ssl.truststore.type=JKS
         """Pause a Kafka connector"""
         project_name = self.get_project()
         self.client.pause_kafka_connector(project_name, self.args.service_name, self.args.connector)
+
+    @arg.project
+    @arg.service_name
+    @arg.connector_name
+    def service__connector__stop(self) -> None:
+        """Stop a Kafka connector"""
+        project_name = self.get_project()
+        self.client.stop_kafka_connector(project_name, self.args.service_name, self.args.connector)
 
     @arg.project
     @arg.service_name
@@ -4023,6 +4019,10 @@ ssl.truststore.type=JKS
         help="Creates a read replica for given source service. Only applicable for certain service types",
     )
     @arg(
+        "--disaster-recovery-copy-for",
+        help="Cretes a disaster recovery copy for given source service. Only applicable for certain service types",
+    )
+    @arg(
         "--enable-termination-protection",
         action="store_true",
         default=False,
@@ -4062,6 +4062,13 @@ ssl.truststore.type=JKS
                         "source_service": self.args.read_replica_for,
                     }
                 )
+        elif self.args.disaster_recovery_copy_for:
+            service_integrations.append(
+                {
+                    "integration_type": "disaster_recovery",
+                    "source_service": self.args.disaster_recovery_copy_for,
+                }
+            )
         elif self.args.recovery_target_time and self.args.service_to_fork_from:
             user_config["service_to_fork_from"] = self.args.service_to_fork_from
             user_config["recovery_target_time"] = self.args.recovery_target_time
@@ -4215,7 +4222,7 @@ ssl.truststore.type=JKS
                 )
             ) from ex
 
-    def _get_maintainance(self) -> Mapping[str, str] | None:
+    def _get_maintenance(self) -> Mapping[str, str] | None:
         maintenance = {}
         if self.args.maintenance_dow:
             maintenance["dow"] = self.args.maintenance_dow
@@ -4249,7 +4256,6 @@ ssl.truststore.type=JKS
             "friday",
             "saturday",
             "sunday",
-            "never",
         ],
     )
     @arg(
@@ -4291,6 +4297,11 @@ ssl.truststore.type=JKS
         action="store_true",
         help="Do not put the service into a project VPC even if the project has one in the selected cloud",
     )
+    @arg(
+        "--disaster-recovery-role",
+        help="Set disaster recovery role",
+        choices=["active", "passive", "failed"],
+    )
     @arg.force
     def service__update(self) -> None:
         """Update service settings"""
@@ -4308,7 +4319,7 @@ ssl.truststore.type=JKS
         if requested_version:
             self._do_version_eol_check(service_type, requested_version, project=project)
 
-        maintenance = self._get_maintainance()
+        maintenance = self._get_maintenance()
         project_vpc_id = self._get_service_project_vpc_id()
         termination_protection = None
         if self.args.enable_termination_protection and self.args.disable_termination_protection:
@@ -4346,6 +4357,7 @@ ssl.truststore.type=JKS
                 termination_protection=termination_protection,
                 project_vpc_id=project_vpc_id,
                 schema_registry_authorization=schema_registry_authorization,
+                disaster_recovery_role=self.args.disaster_recovery_role,
             )
         except client.Error as ex:
             try:

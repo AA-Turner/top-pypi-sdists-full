@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastlite
-Version: 0.2.1
+Version: 0.2.4
 Summary: A bit of extra usability for sqlite
 Home-page: https://github.com/AnswerDotAI/fastlite
 Author: Jeremy Howard
@@ -18,8 +18,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastcore>=1.7.1
-Requires-Dist: apswutils>=0.1.0
+Requires-Dist: apswutils>=0.1.2
 Provides-Extra: dev
+Requires-Dist: graphviz; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

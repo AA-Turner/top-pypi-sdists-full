@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: django_components
-Version: 0.141.5
+Version: 0.146.0
 Summary: A way to create simple reusable template components in Django.
 Author-email: Emil Stenström <emil@emilstenstrom.se>, Juro Oravec <juraj.oravec.josefson@gmail.com>
 License: MIT
 Project-URL: Homepage, https://github.com/django-components/django-components/
 Project-URL: Documentation, https://django-components.github.io/django-components/
-Project-URL: Changelog, https://django-components.github.io/django-components/latest/release_notes/
+Project-URL: Changelog, https://django-components.github.io/django-components/latest/releases/
 Project-URL: Issues, https://github.com/django-components/django-components/issues
 Project-URL: Donate, https://github.com/sponsors/EmilStenstrom
 Keywords: django,components,css,js,html
@@ -23,19 +23,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django>=4.2
-Requires-Dist: djc-core-html-parser>=1.0.2
+Requires-Dist: djc-core>=1.2.2
 Requires-Dist: typing-extensions>=4.12.2
 Dynamic: license-file
 
-# <img src="https://raw.githubusercontent.com/django-components/django-components/master/logo/logo-black-on-white.svg" alt="django-components" style="max-width: 100%; background: white; color: black;">
+# <img src="https://raw.githubusercontent.com/django-components/django-components/master/assets/logo/logo-black-on-white.svg" alt="django-components" style="max-width: 100%; background: white; color: black;">
 
-[![PyPI - Version](https://img.shields.io/pypi/v/django-components)](https://pypi.org/project/django-components/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/django-components)](https://pypi.org/project/django-components/) [![PyPI - License](https://img.shields.io/pypi/l/django-components)](https://github.com/django-components/django-components/blob/master/LICENSE/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/django-components)](https://pypistats.org/packages/django-components) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/django-components/django-components/tests.yml)](https://github.com/django-components/django-components/actions/workflows/tests.yml) [![asv](https://img.shields.io/badge/benchmarked%20by-asv-blue.svg?style=flat)](https://django-components.github.io/django-components/latest/benchmarks/)
+[![PyPI - Version](https://img.shields.io/pypi/v/django-components)](https://pypi.org/project/django-components/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/django-components)](https://pypi.org/project/django-components/) [![PyPI - License](https://img.shields.io/pypi/l/django-components)](https://github.com/django-components/django-components/blob/master/LICENSE/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/django-components)](https://pypistats.org/packages/django-components) [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/django-components/django-components/tests.yml)](https://github.com/django-components/django-components/actions/workflows/tests.yml) [![asv](https://img.shields.io/badge/benchmarked%20by-asv-blue.svg?style=flat)](https://django-components.github.io/django-components/latest/benchmarks/)[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/NaQ8QPyHtD)
 
 ### <table><td>[Read the full documentation](https://django-components.github.io/django-components/latest/)</td></table>
+
+### <table><td>[See Roadmap for v1](https://github.com/orgs/django-components/projects/1/views/1?sliceBy%5Bvalue%5D=milestone--v1)</td></table>
 
 `django-components` is a modular and extensible UI framework for Django.
 
@@ -43,6 +46,17 @@ It combines Django's templating system with the modularity seen
 in modern frontend frameworks like Vue or React.
 
 With `django-components` you can support Django projects small and large without leaving the Django ecosystem.
+
+`django-components` is tested across all major browsers - Chromium, Firefox, WebKit ✅.
+
+## Sponsors
+
+<p align="center">
+  <a href="https://www.ohne-makler.net/?ref=django-components" target="_blank"
+  title="Ohne-makler: Sell and rent real estate without an agent"><img
+  src="https://raw.githubusercontent.com/django-components/django-components/master/assets/sponsors/sponsor-ohne-makler.png" height="120"
+  /></a>
+</p>
 
 ## Quickstart
 
@@ -166,6 +180,44 @@ class Calendar(Component):
         }
 ```
 
+### Extended template tags
+
+`django-components` is designed for flexibility, making working with templates a breeze.
+
+It extends Django's template tags syntax with:
+
+- [Python expressions](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#python-expressions) `disabled=(not editable)` to evaluate Python code in templates
+- [Literal lists and dictionaries](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#literal-lists-and-dictionaries) `headers=["Name", "Age"]` and `data=[{"name": "John"}]` to pass structured data directly
+- [Self-closing tags](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#self-closing-tags) `{% mytag / %}`
+- [Multi-line template tags](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#multiline-tags)
+- [Spread operator](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#spread-operator) `...` to dynamically pass args or kwargs into the template tag
+- [Nested templates](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#nested-templates) like `"{{ first_name }} {{ last_name }}"`
+- [Flat dictionaries](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#flat-dictionaries) `dict:key=val`
+
+```django
+{% component "table"
+    disabled=(not user.is_active)
+    title="Friend list for {{ user.name }}"
+    headers=["Name", "Age", "Email"]
+    data=[
+        {
+            "name": "Jane"|upper,
+            "age": 25|add:1,
+            "email": "jane@example.com",
+            "hobbies": ["reading", "coding"],
+        },
+    ],
+    ...default_attrs
+    attrs:class="py-4 ma-2 border-2 border-gray-300 rounded-md"
+/ %}
+```
+
+You too can define template tags with these features by using
+[`@template_tag()`](https://django-components.github.io/django-components/latest/reference/api/#django_components.template_tag)
+or [`BaseNode`](https://django-components.github.io/django-components/latest/reference/api/#django_components.BaseNode).
+
+Read more on [Custom template tags](https://django-components.github.io/django-components/latest/concepts/advanced/template_tags/).
+
 ### Composition with slots
 
 - Render components inside templates with
@@ -203,49 +255,6 @@ class Calendar(Component):
     {% endfill %}
 {% endcomponent %}
 ```
-
-### Extended template tags
-
-`django-components` is designed for flexibility, making working with templates a breeze.
-
-It extends Django's template tags syntax with:
-
-<!-- TODO - Document literal lists and dictionaries -->
-- Literal lists and dictionaries in the template
-- [Self-closing tags](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#self-closing-tags) `{% mytag / %}`
-- [Multi-line template tags](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#multiline-tags)
-- [Spread operator](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#spread-operator) `...` to dynamically pass args or kwargs into the template tag
-- [Template tags inside literal strings](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#template-tags-inside-literal-strings) like `"{{ first_name }} {{ last_name }}"`
-- [Pass dictonaries by their key-value pairs](https://django-components.github.io/django-components/latest/concepts/fundamentals/template_tag_syntax#pass-dictonary-by-its-key-value-pairs) `attr:key=val`
-
-```django
-{% component "table"
-    ...default_attrs
-    title="Friend list for {{ user.name }}"
-    headers=["Name", "Age", "Email"]
-    data=[
-        {
-            "name": "John"|upper,
-            "age": 30|add:1,
-            "email": "john@example.com",
-            "hobbies": ["reading"],
-        },
-        {
-            "name": "Jane"|upper,
-            "age": 25|add:1,
-            "email": "jane@example.com",
-            "hobbies": ["reading", "coding"],
-        },
-    ],
-    attrs:class="py-4 ma-2 border-2 border-gray-300 rounded-md"
-/ %}
-```
-
-You too can define template tags with these features by using
-[`@template_tag()`](https://django-components.github.io/django-components/latest/reference/api/#django_components.template_tag)
-or [`BaseNode`](https://django-components.github.io/django-components/latest/reference/api/#django_components.BaseNode).
-
-Read more on [Custom template tags](https://django-components.github.io/django-components/latest/concepts/advanced/template_tags/).
 
 ### Full programmatic access
 
@@ -369,13 +378,10 @@ class Calendar(Component):
     template_file = "calendar.html"
 
     class View:
-        # Register Component with `urlpatterns`
-        public = True
-
         # Define handlers
         def get(self, request, *args, **kwargs):
             page = request.GET.get("page", 1)
-            return self.component.render_to_response(
+            return Calendar.render_to_response(
                 request=request,
                 kwargs={
                     "page": page,
@@ -430,21 +436,21 @@ Avoid needless errors with [type hints and runtime input validation](https://dja
 To opt-in to input validation, define types for component's args, kwargs, slots, and more:
 
 ```py
-from typing import NamedTuple, Optional
+from typing import Optional
 from django.template import Context
 from django_components import Component, Slot, SlotInput
 
 class Button(Component):
-    class Args(NamedTuple):
+    class Args:
         size: int
         text: str
 
-    class Kwargs(NamedTuple):
+    class Kwargs:
         variable: str
         another: int
         maybe_var: Optional[int] = None  # May be omitted
 
-    class Slots(NamedTuple):
+    class Slots:
         my_slot: Optional[SlotInput] = None
         another_slot: SlotInput
 
@@ -593,6 +599,6 @@ One of our goals with `django-components` is to make it easy to share components
 
 ## Contributing and development
 
-Get involved or sponsor this project - [See here](https://django-components.github.io/django-components/dev/overview/contributing/)
+Get involved or sponsor this project - [See here](https://django-components.github.io/django-components/dev/community/contributing/)
 
-Running django-components locally for development - [See here](https://django-components.github.io/django-components/dev/overview/development/)
+Running django-components locally for development - [See here](https://django-components.github.io/django-components/dev/community/development/)

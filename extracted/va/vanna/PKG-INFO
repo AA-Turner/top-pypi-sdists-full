@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vanna
-Version: 0.7.9
+Version: 2.0.1
 Summary: Generate SQL queries from natural language
 Author-email: Zain Hoda <zain@vanna.ai>
 Requires-Python: >=3.9
@@ -9,16 +9,16 @@ Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: tabulate
-Requires-Dist: plotly
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: click>=8.0.0
 Requires-Dist: pandas
+Requires-Dist: httpx>=0.28.0
+Requires-Dist: PyYAML
+Requires-Dist: plotly
+Requires-Dist: tabulate
 Requires-Dist: sqlparse
-Requires-Dist: kaleido
-Requires-Dist: flask
-Requires-Dist: flask-sock
-Requires-Dist: flasgger
 Requires-Dist: sqlalchemy
+Requires-Dist: requests
 Requires-Dist: psycopg2-binary ; extra == "all"
 Requires-Dist: db-dtypes ; extra == "all"
 Requires-Dist: PyMySQL ; extra == "all"
@@ -28,13 +28,13 @@ Requires-Dist: duckdb ; extra == "all"
 Requires-Dist: openai ; extra == "all"
 Requires-Dist: qianfan ; extra == "all"
 Requires-Dist: mistralai>=1.0.0 ; extra == "all"
-Requires-Dist: chromadb<1.0.0 ; extra == "all"
+Requires-Dist: chromadb>=1.1.0 ; extra == "all"
 Requires-Dist: anthropic ; extra == "all"
 Requires-Dist: zhipuai ; extra == "all"
 Requires-Dist: marqo ; extra == "all"
 Requires-Dist: google-generativeai ; extra == "all"
 Requires-Dist: google-cloud-aiplatform ; extra == "all"
-Requires-Dist: qdrant-client ; extra == "all"
+Requires-Dist: qdrant-client>=1.0.0 ; extra == "all"
 Requires-Dist: fastembed ; extra == "all"
 Requires-Dist: ollama ; extra == "all"
 Requires-Dist: httpx ; extra == "all"
@@ -57,6 +57,8 @@ Requires-Dist: langchain-community ; extra == "all"
 Requires-Dist: langchain-huggingface ; extra == "all"
 Requires-Dist: xinference-client ; extra == "all"
 Requires-Dist: anthropic ; extra == "anthropic"
+Requires-Dist: openai ; extra == "azureopenai"
+Requires-Dist: azure-identity ; extra == "azureopenai"
 Requires-Dist: azure-search-documents ; extra == "azuresearch"
 Requires-Dist: azure-identity ; extra == "azuresearch"
 Requires-Dist: azure-common ; extra == "azuresearch"
@@ -64,18 +66,37 @@ Requires-Dist: fastembed ; extra == "azuresearch"
 Requires-Dist: boto3 ; extra == "bedrock"
 Requires-Dist: botocore ; extra == "bedrock"
 Requires-Dist: google-cloud-bigquery ; extra == "bigquery"
-Requires-Dist: chromadb<1.0.0 ; extra == "chromadb"
+Requires-Dist: chromadb>=1.1.0 ; extra == "chromadb"
 Requires-Dist: clickhouse_connect ; extra == "clickhouse"
+Requires-Dist: pytest>=7.0.0 ; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0 ; extra == "dev"
+Requires-Dist: pytest-mock>=3.10.0 ; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0 ; extra == "dev"
+Requires-Dist: tox>=4.0.0 ; extra == "dev"
+Requires-Dist: mypy ; extra == "dev"
+Requires-Dist: ruff ; extra == "dev"
+Requires-Dist: pandas-stubs ; extra == "dev"
+Requires-Dist: plotly-stubs ; extra == "dev"
+Requires-Dist: types-PyYAML ; extra == "dev"
+Requires-Dist: types-requests ; extra == "dev"
+Requires-Dist: types-tabulate ; extra == "dev"
 Requires-Dist: duckdb ; extra == "duckdb"
 Requires-Dist: faiss-cpu ; extra == "faiss-cpu"
 Requires-Dist: faiss-gpu ; extra == "faiss-gpu"
-Requires-Dist: google-generativeai ; extra == "gemini"
+Requires-Dist: fastapi>=0.68.0 ; extra == "fastapi"
+Requires-Dist: uvicorn>=0.15.0 ; extra == "fastapi"
+Requires-Dist: flask>=2.0.0 ; extra == "flask"
+Requires-Dist: flask-cors>=4.0.0 ; extra == "flask"
+Requires-Dist: google-genai ; extra == "gemini"
 Requires-Dist: google-generativeai ; extra == "google"
 Requires-Dist: google-cloud-aiplatform ; extra == "google"
 Requires-Dist: transformers ; extra == "hf"
+Requires-Dist: pyhive ; extra == "hive"
+Requires-Dist: thrift ; extra == "hive"
 Requires-Dist: marqo ; extra == "marqo"
 Requires-Dist: pymilvus[model] ; extra == "milvus"
 Requires-Dist: mistralai>=1.0.0 ; extra == "mistralai"
+Requires-Dist: pyodbc ; extra == "mssql"
 Requires-Dist: PyMySQL ; extra == "mysql"
 Requires-Dist: ollama ; extra == "ollama"
 Requires-Dist: httpx ; extra == "ollama"
@@ -91,11 +112,18 @@ Requires-Dist: pinecone ; extra == "pinecone"
 Requires-Dist: fastembed ; extra == "pinecone"
 Requires-Dist: psycopg2-binary ; extra == "postgres"
 Requires-Dist: db-dtypes ; extra == "postgres"
-Requires-Dist: qdrant-client ; extra == "qdrant"
+Requires-Dist: pyhive ; extra == "presto"
+Requires-Dist: thrift ; extra == "presto"
+Requires-Dist: qdrant-client>=1.0.0 ; extra == "qdrant"
 Requires-Dist: fastembed ; extra == "qdrant"
 Requires-Dist: qianfan ; extra == "qianfan"
+Requires-Dist: vanna[flask, fastapi] ; extra == "servers"
 Requires-Dist: snowflake-connector-python ; extra == "snowflake"
-Requires-Dist: tox ; extra == "test"
+Requires-Dist: pytest>=7.0.0 ; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21.0 ; extra == "test"
+Requires-Dist: pytest-mock>=3.10.0 ; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0 ; extra == "test"
+Requires-Dist: tox>=4.0.0 ; extra == "test"
 Requires-Dist: vllm ; extra == "vllm"
 Requires-Dist: weaviate-client ; extra == "weaviate"
 Requires-Dist: xinference-client ; extra == "xinference-client"
@@ -104,20 +132,26 @@ Project-URL: Bug Tracker, https://github.com/vanna-ai/vanna/issues
 Project-URL: Homepage, https://github.com/vanna-ai/vanna
 Provides-Extra: all
 Provides-Extra: anthropic
+Provides-Extra: azureopenai
 Provides-Extra: azuresearch
 Provides-Extra: bedrock
 Provides-Extra: bigquery
 Provides-Extra: chromadb
 Provides-Extra: clickhouse
+Provides-Extra: dev
 Provides-Extra: duckdb
 Provides-Extra: faiss-cpu
 Provides-Extra: faiss-gpu
+Provides-Extra: fastapi
+Provides-Extra: flask
 Provides-Extra: gemini
 Provides-Extra: google
 Provides-Extra: hf
+Provides-Extra: hive
 Provides-Extra: marqo
 Provides-Extra: milvus
 Provides-Extra: mistralai
+Provides-Extra: mssql
 Provides-Extra: mysql
 Provides-Extra: ollama
 Provides-Extra: openai
@@ -126,8 +160,10 @@ Provides-Extra: oracle
 Provides-Extra: pgvector
 Provides-Extra: pinecone
 Provides-Extra: postgres
+Provides-Extra: presto
 Provides-Extra: qdrant
 Provides-Extra: qianfan
+Provides-Extra: servers
 Provides-Extra: snowflake
 Provides-Extra: test
 Provides-Extra: vllm
@@ -135,274 +171,315 @@ Provides-Extra: weaviate
 Provides-Extra: xinference-client
 Provides-Extra: zhipuai
 
+# Vanna 2.0: Turn Questions into Data Insights
+
+**Natural language → SQL → Answers.** Now with enterprise security and user-aware permissions.
+
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+https://github.com/user-attachments/assets/476cd421-d0b0-46af-8b29-0f40c73d6d83
 
 
-| GitHub | PyPI | Documentation | Gurubase |
-| ------ | ---- | ------------- | -------- |
-| [![GitHub](https://img.shields.io/badge/GitHub-vanna-blue?logo=github)](https://github.com/vanna-ai/vanna) | [![PyPI](https://img.shields.io/pypi/v/vanna?logo=pypi)](https://pypi.org/project/vanna/) | [![Documentation](https://img.shields.io/badge/Documentation-vanna-blue?logo=read-the-docs)](https://vanna.ai/docs/) | [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Vanna%20Guru-006BFF)](https://gurubase.io/g/vanna) |
+![Vanna2 Demo](img/architecture.png)
 
-# Vanna
-Vanna is an MIT-licensed open-source Python RAG (Retrieval-Augmented Generation) framework for SQL generation and related functionality.
+---
 
-https://github.com/vanna-ai/vanna/assets/7146154/1901f47a-515d-4982-af50-f12761a3b2ce
+## What's New in 2.0
 
-![vanna-quadrants](https://github.com/vanna-ai/vanna/assets/7146154/1c7c88ba-c144-4ecf-a028-cf5ba7344ca2)
+🔐 **User-Aware at Every Layer** — Queries automatically filtered per user permissions
 
-## How Vanna works
+🎨 **Modern Web Interface** — Beautiful pre-built `<vanna-chat>` component
 
-![Screen Recording 2024-01-24 at 11 21 37 AM](https://github.com/vanna-ai/vanna/assets/7146154/1d2718ad-12a8-4a76-afa2-c61754462f93)
+⚡ **Streaming Responses** — Real-time tables, charts, and progress updates
 
+🔒 **Enterprise Security** — Row-level security, audit logs, rate limiting
 
-Vanna works in two easy steps - train a RAG "model" on your data, and then ask questions which will return SQL queries that can be set up to automatically run on your database.
+🔄 **Production-Ready** — FastAPI integration, observability, lifecycle hooks
 
-1. **Train a RAG "model" on your data**.
-2. **Ask questions**.
+> **Upgrading from 0.x?** See the [Migration Guide](MIGRATION_GUIDE.md) | [What changed?](#migration-notes)
 
-![](img/vanna-readme-diagram.png)
+---
 
-If you don't know what RAG is, don't worry -- you don't need to know how this works under the hood to use it. You just need to know that you "train" a model, which stores some metadata and then use it to "ask" questions.
+## Get Started
 
-See the [base class](https://github.com/vanna-ai/vanna/blob/main/src/vanna/base/base.py) for more details on how this works under the hood.
+### Try it with Sample Data
 
-## User Interfaces
-These are some of the user interfaces that we've built using Vanna. You can use these as-is or as a starting point for your own custom interface.
+[Quickstart](https://vanna.ai/docs/quick-start)
 
-- [Jupyter Notebook](https://vanna.ai/docs/postgres-openai-vanna-vannadb/)
-- [vanna-ai/vanna-streamlit](https://github.com/vanna-ai/vanna-streamlit)
-- [vanna-ai/vanna-flask](https://github.com/vanna-ai/vanna-flask)
-- [vanna-ai/vanna-slack](https://github.com/vanna-ai/vanna-slack)
+### Configure
 
-## Supported LLMs
+[Configure](https://vanna.ai/docs/configure)
 
-- [OpenAI](https://github.com/vanna-ai/vanna/tree/main/src/vanna/openai)
-- [Anthropic](https://github.com/vanna-ai/vanna/tree/main/src/vanna/anthropic)
-- [Gemini](https://github.com/vanna-ai/vanna/blob/main/src/vanna/google/gemini_chat.py)
-- [HuggingFace](https://github.com/vanna-ai/vanna/blob/main/src/vanna/hf/hf.py)
-- [AWS Bedrock](https://github.com/vanna-ai/vanna/tree/main/src/vanna/bedrock)
-- [Ollama](https://github.com/vanna-ai/vanna/tree/main/src/vanna/ollama)
-- [Qianwen](https://github.com/vanna-ai/vanna/tree/main/src/vanna/qianwen)
-- [Qianfan](https://github.com/vanna-ai/vanna/tree/main/src/vanna/qianfan)
-- [Zhipu](https://github.com/vanna-ai/vanna/tree/main/src/vanna/ZhipuAI)
+### Web Component
 
-## Supported VectorStores
-
-- [AzureSearch](https://github.com/vanna-ai/vanna/tree/main/src/vanna/azuresearch)
-- [Opensearch](https://github.com/vanna-ai/vanna/tree/main/src/vanna/opensearch)
-- [PgVector](https://github.com/vanna-ai/vanna/tree/main/src/vanna/pgvector)
-- [PineCone](https://github.com/vanna-ai/vanna/tree/main/src/vanna/pinecone)
-- [ChromaDB](https://github.com/vanna-ai/vanna/tree/main/src/vanna/chromadb)
-- [FAISS](https://github.com/vanna-ai/vanna/tree/main/src/vanna/faiss)
-- [Marqo](https://github.com/vanna-ai/vanna/tree/main/src/vanna/marqo)
-- [Milvus](https://github.com/vanna-ai/vanna/tree/main/src/vanna/milvus)
-- [Qdrant](https://github.com/vanna-ai/vanna/tree/main/src/vanna/qdrant)
-- [Weaviate](https://github.com/vanna-ai/vanna/tree/main/src/vanna/weaviate)
-- [Oracle](https://github.com/vanna-ai/vanna/tree/main/src/vanna/oracle)
-
-## Supported Databases
-
-- [PostgreSQL](https://www.postgresql.org/)
-- [MySQL](https://www.mysql.com/)
-- [PrestoDB](https://prestodb.io/)
-- [Apache Hive](https://hive.apache.org/)
-- [ClickHouse](https://clickhouse.com/)
-- [Snowflake](https://www.snowflake.com/en/)
-- [Oracle](https://www.oracle.com/)
-- [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads)
-- [BigQuery](https://cloud.google.com/bigquery)
-- [SQLite](https://www.sqlite.org/)
-- [DuckDB](https://duckdb.org/)
-
-
-## Getting started
-See the [documentation](https://vanna.ai/docs/) for specifics on your desired database, LLM, etc.
-
-If you want to get a feel for how it works after training, you can try this [Colab notebook](https://vanna.ai/docs/app/).
-
-
-### Install
-```bash
-pip install vanna
+```html
+<!-- Drop into any existing webpage -->
+<script src="https://img.vanna.ai/vanna-components.js"></script>
+<vanna-chat
+  sse-endpoint="https://your-api.com/chat"
+  theme="dark">
+</vanna-chat>
 ```
 
-There are a number of optional packages that can be installed so see the [documentation](https://vanna.ai/docs/) for more details.
+Uses your existing cookies/JWTs. Works with React, Vue, or plain HTML.
 
-### Import
-See the [documentation](https://vanna.ai/docs/) if you're customizing the LLM or vector database.
+---
+
+## What You Get
+
+Ask a question in natural language and get back:
+
+**1. Streaming Progress Updates**
+
+**2. SQL Code Block (By default only shown to "admin" users)**
+
+**3. Interactive Data Table**
+
+**4. Charts** (Plotly visualizations)
+
+**5. Natural Language Summary**
+
+All streamed in real-time to your web component.
+
+---
+
+## Why Vanna 2.0?
+
+### ✅ Get Started Instantly
+* Production chat interface
+* Custom agent with your database
+* Embed in any webpage
+
+### ✅ Enterprise-Ready Security
+**User-aware at every layer** — Identity flows through system prompts, tool execution, and SQL filtering
+**Row-level security** — Queries automatically filtered per user permissions
+**Audit logs** — Every query tracked per user for compliance
+**Rate limiting** — Per-user quotas via lifecycle hooks
+
+### ✅ Beautiful Web UI Included
+**Pre-built `<vanna-chat>` component** — No need to build your own chat interface
+**Streaming tables & charts** — Rich components, not just text
+**Responsive & customizable** — Works on mobile, desktop, light/dark themes
+**Framework-agnostic** — React, Vue, plain HTML
+
+### ✅ Works With Your Stack
+**Any LLM:** OpenAI, Anthropic, Ollama, Azure, Google Gemini, AWS Bedrock, Mistral, Others
+**Any Database:** PostgreSQL, MySQL, Snowflake, BigQuery, Redshift, SQLite, Oracle, SQL Server, DuckDB, ClickHouse, Others
+**Your Auth System:** Bring your own — cookies, JWTs, OAuth tokens
+**Your Framework:** FastAPI, Flask
+
+### ✅ Extensible But Opinionated
+**Custom tools** — Extend the `Tool` base class
+**Lifecycle hooks** — Quota checking, logging, content filtering
+**LLM middlewares** — Caching, prompt engineering
+**Observability** — Built-in tracing and metrics
+
+---
+
+## Architecture
+
+![Vanna2 Diagram](img/vanna2.svg)
+
+---
+
+## How It Works
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 User
+    participant W as 🌐 <vanna-chat>
+    participant S as 🐍 Your Server
+    participant A as 🤖 Agent
+    participant T as 🧰 Tools
+
+    U->>W: "Show Q4 sales"
+    W->>S: POST /api/vanna/v2/chat_sse (with auth)
+    S->>A: User(id=alice, groups=[read_sales])
+    A->>T: Execute SQL tool (user-aware)
+    T->>T: Apply row-level security
+    T->>A: Filtered results
+    A->>W: Stream: Table → Chart → Summary
+    W->>U: Display beautiful UI
+```
+
+**Key Concepts:**
+
+1. **User Resolver** — You define how to extract user identity from requests (cookies, JWTs, etc.)
+2. **User-Aware Tools** — Tools automatically check permissions based on user's group memberships
+3. **Streaming Components** — Backend streams structured UI components (tables, charts) to frontend
+4. **Built-in Web UI** — Pre-built `<vanna-chat>` component renders everything beautifully
+
+---
+
+## Production Setup with Your Auth
+
+Here's a complete example integrating Vanna with your existing FastAPI app and authentication:
 
 ```python
-# The import statement will vary depending on your LLM and vector database. This is an example for OpenAI + ChromaDB
+from fastapi import FastAPI
+from vanna import Agent
+from vanna.servers.fastapi.routes import register_chat_routes
+from vanna.servers.base import ChatHandler
+from vanna.core.user import UserResolver, User, RequestContext
+from vanna.integrations.anthropic import AnthropicLlmService
+from vanna.tools import RunSqlTool
+from vanna.integrations.sqlite import SqliteRunner
+from vanna.core.registry import ToolRegistry
 
-from vanna.openai.openai_chat import OpenAI_Chat
-from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
+# Your existing FastAPI app
+app = FastAPI()
 
-class MyVanna(ChromaDB_VectorStore, OpenAI_Chat):
-    def __init__(self, config=None):
-        ChromaDB_VectorStore.__init__(self, config=config)
-        OpenAI_Chat.__init__(self, config=config)
+# 1. Define your user resolver (using YOUR auth system)
+class MyUserResolver(UserResolver):
+    async def resolve_user(self, request_context: RequestContext) -> User:
+        # Extract from cookies, JWTs, or session
+        token = request_context.get_header('Authorization')
+        user_data = self.decode_jwt(token)  # Your existing logic
 
-vn = MyVanna(config={'api_key': 'sk-...', 'model': 'gpt-4-...'})
+        return User(
+            id=user_data['id'],
+            email=user_data['email'],
+            group_memberships=user_data['groups']  # Used for permissions
+        )
 
-# See the documentation for other options
+# 2. Set up agent with tools
+llm = AnthropicLlmService(model="claude-sonnet-4-5")
+tools = ToolRegistry()
+tools.register(RunSqlTool(sql_runner=SqliteRunner("./data.db")))
 
+agent = Agent(
+    llm_service=llm,
+    tool_registry=tools,
+    user_resolver=MyUserResolver()
+)
+
+# 3. Add Vanna routes to your app
+chat_handler = ChatHandler(agent)
+register_chat_routes(app, chat_handler)
+
+# Now you have:
+# - POST /api/vanna/v2/chat_sse (streaming endpoint)
+# - GET / (optional web UI)
 ```
 
+**Then in your frontend:**
+```html
+<vanna-chat sse-endpoint="/api/vanna/v2/chat_sse"></vanna-chat>
+```
 
-## Training
-You may or may not need to run these `vn.train` commands depending on your use case. See the [documentation](https://vanna.ai/docs/) for more details.
+See [Full Documentation](https://vanna.ai/docs) for custom tools, lifecycle hooks, and advanced configuration
 
-These statements are shown to give you a feel for how it works.
+---
 
-### Train with DDL Statements
-DDL statements contain information about the table names, columns, data types, and relationships in your database.
+## Custom Tools
+
+Extend Vanna with custom tools for your specific use case:
 
 ```python
-vn.train(ddl="""
-    CREATE TABLE IF NOT EXISTS my-table (
-        id INT PRIMARY KEY,
-        name VARCHAR(100),
-        age INT
-    )
-""")
+from vanna.core.tool import Tool, ToolContext, ToolResult
+from pydantic import BaseModel, Field
+from typing import Type
+
+class EmailArgs(BaseModel):
+    recipient: str = Field(description="Email recipient")
+    subject: str = Field(description="Email subject")
+
+class EmailTool(Tool[EmailArgs]):
+    @property
+    def name(self) -> str:
+        return "send_email"
+
+    @property
+    def access_groups(self) -> list[str]:
+        return ["send_email"]  # Permission check
+
+    def get_args_schema(self) -> Type[EmailArgs]:
+        return EmailArgs
+
+    async def execute(self, context: ToolContext, args: EmailArgs) -> ToolResult:
+        user = context.user  # Automatically injected
+
+        # Your business logic
+        await self.email_service.send(
+            from_email=user.email,
+            to=args.recipient,
+            subject=args.subject
+        )
+
+        return ToolResult(success=True, result_for_llm=f"Email sent to {args.recipient}")
+
+# Register your tool
+tools.register(EmailTool())
 ```
 
-### Train with Documentation
-Sometimes you may want to add documentation about your business terminology or definitions.
+---
 
-```python
-vn.train(documentation="Our business defines XYZ as ...")
-```
+## Advanced Features
 
-### Train with SQL
-You can also add SQL queries to your training data. This is useful if you have some queries already laying around. You can just copy and paste those from your editor to begin generating new SQL.
+Vanna 2.0 includes powerful enterprise features for production use:
 
-```python
-vn.train(sql="SELECT name, age FROM my-table WHERE name = 'John Doe'")
-```
+**Lifecycle Hooks** — Add quota checking, custom logging, content filtering at key points in the request lifecycle
 
+**LLM Middlewares** — Implement caching, prompt engineering, or cost tracking around LLM calls
 
-## Asking questions
-```python
-vn.ask("What are the top 10 customers by sales?")
-```
+**Conversation Storage** — Persist and retrieve conversation history per user
 
-You'll get SQL
-```sql
-SELECT c.c_name as customer_name,
-        sum(l.l_extendedprice * (1 - l.l_discount)) as total_sales
-FROM   snowflake_sample_data.tpch_sf1.lineitem l join snowflake_sample_data.tpch_sf1.orders o
-        ON l.l_orderkey = o.o_orderkey join snowflake_sample_data.tpch_sf1.customer c
-        ON o.o_custkey = c.c_custkey
-GROUP BY customer_name
-ORDER BY total_sales desc limit 10;
-```
+**Observability** — Built-in tracing and metrics integration
 
-If you've connected to a database, you'll get the table:
-<div>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>CUSTOMER_NAME</th>
-      <th>TOTAL_SALES</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>Customer#000143500</td>
-      <td>6757566.0218</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>Customer#000095257</td>
-      <td>6294115.3340</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>Customer#000087115</td>
-      <td>6184649.5176</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>Customer#000131113</td>
-      <td>6080943.8305</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>Customer#000134380</td>
-      <td>6075141.9635</td>
-    </tr>
-    <tr>
-      <th>5</th>
-      <td>Customer#000103834</td>
-      <td>6059770.3232</td>
-    </tr>
-    <tr>
-      <th>6</th>
-      <td>Customer#000069682</td>
-      <td>6057779.0348</td>
-    </tr>
-    <tr>
-      <th>7</th>
-      <td>Customer#000102022</td>
-      <td>6039653.6335</td>
-    </tr>
-    <tr>
-      <th>8</th>
-      <td>Customer#000098587</td>
-      <td>6027021.5855</td>
-    </tr>
-    <tr>
-      <th>9</th>
-      <td>Customer#000064660</td>
-      <td>5905659.6159</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+**Context Enrichers** — Add RAG, memory, or documentation to enhance agent responses
 
-You'll also get an automated Plotly chart:
-![](img/top-10-customers.png)
+**Agent Configuration** — Control streaming, temperature, max iterations, and more
 
-## RAG vs. Fine-Tuning
-RAG
-- Portable across LLMs
-- Easy to remove training data if any of it becomes obsolete
-- Much cheaper to run than fine-tuning
-- More future-proof -- if a better LLM comes out, you can just swap it out
+---
 
-Fine-Tuning
-- Good if you need to minimize tokens in the prompt
-- Slow to get started
-- Expensive to train and run (generally)
+## Use Cases
 
-## Why Vanna?
+**Vanna is ideal for:**
+- 📊 Data analytics applications with natural language interfaces
+- 🔐 Multi-tenant SaaS needing user-aware permissions
+- 🎨 Teams wanting a pre-built web component + backend
+- 🏢 Enterprise environments with security/audit requirements
+- 📈 Applications needing rich streaming responses (tables, charts, SQL)
+- 🔄 Integrating with existing authentication systems
 
-1. **High accuracy on complex datasets.**
-    - Vanna’s capabilities are tied to the training data you give it
-    - More training data means better accuracy for large and complex datasets
-2. **Secure and private.**
-    - Your database contents are never sent to the LLM or the vector database
-    - SQL execution happens in your local environment
-3. **Self learning.**
-    - If using via Jupyter, you can choose to "auto-train" it on the queries that were successfully executed
-    - If using via other interfaces, you can have the interface prompt the user to provide feedback on the results
-    - Correct question to SQL pairs are stored for future reference and make the future results more accurate
-4. **Supports any SQL database.**
-    - The package allows you to connect to any SQL database that you can otherwise connect to with Python
-5. **Choose your front end.**
-    - Most people start in a Jupyter Notebook.
-    - Expose to your end users via Slackbot, web app, Streamlit app, or a custom front end.
+---
 
-## Extending Vanna
-Vanna is designed to connect to any database, LLM, and vector database. There's a [VannaBase](https://github.com/vanna-ai/vanna/blob/main/src/vanna/base/base.py) abstract base class that defines some basic functionality. The package provides implementations for use with OpenAI and ChromaDB. You can easily extend Vanna to use your own LLM or vector database. See the [documentation](https://vanna.ai/docs/) for more details.
+## Community & Support
 
-## Vanna in 100 Seconds
+- 📖 **[Full Documentation](https://vanna.ai/docs)** — Complete guides and API reference
+- 💡 **[GitHub Discussions](https://github.com/vanna-ai/vanna/discussions)** — Feature requests and Q&A
+- 🐛 **[GitHub Issues](https://github.com/vanna-ai/vanna/issues)** — Bug reports
+- 📧 **Enterprise Support** — support@vanna.ai
 
-https://github.com/vanna-ai/vanna/assets/7146154/eb90ee1e-aa05-4740-891a-4fc10e611cab
+---
 
-## More resources
- - [Full Documentation](https://vanna.ai/docs/)
- - [Website](https://vanna.ai)
- - [Discord group for support](https://discord.gg/qUZYKHremx)
+## Migration Notes
+
+**Upgrading from Vanna 0.x?**
+
+Vanna 2.0 is a complete rewrite focused on user-aware agents and production deployments. Key changes:
+
+- **New API**: Agent-based instead of `VannaBase` class methods
+- **User-aware**: Every component now knows the user identity
+- **Streaming**: Rich UI components instead of text/dataframes
+- **Web-first**: Built-in `<vanna-chat>` component and server
+
+**Migration path:**
+
+1. **Quick wrap** — Use `LegacyVannaAdapter` to wrap your existing Vanna 0.x instance and get the new web UI immediately
+2. **Gradual migration** — Incrementally move to the new Agent API and tools
+
+See the complete [Migration Guide](MIGRATION_GUIDE.md) for step-by-step instructions.
+
+---
+
+## License
+
+MIT License — See [LICENSE](LICENSE) for details.
+
+---
+
+**Built with ❤️ by the Vanna team** | [Website](https://vanna.ai) | [Docs](https://vanna.ai/docs) | [Discussions](https://github.com/vanna-ai/vanna/discussions)
 

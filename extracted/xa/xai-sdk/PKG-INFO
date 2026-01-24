@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xai-sdk
-Version: 1.2.0
+Version: 1.5.0
 Summary: The official Python SDK for the xAI API
 Project-URL: Homepage, https://github.com/xai-org/xai-sdk-python
 Project-URL: Documentation, https://docs.x.ai
@@ -230,7 +230,7 @@ The xAI SDK excels in advanced use cases, such as:
 - **Deferred Chat**: Sample a long-running response from a model via polling (see sync [deferred_chat.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/deferred_chat.py) and async [deferred_chat.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/deferred_chat.py)).
 - **Tokenization**: Tokenize text with the tokenizer API (see sync [tokenizer.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/tokenizer.py) and async [tokenizer.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/tokenizer.py)).
 - **Models**: Retrieve information on different models available to you, including, name, aliases, token price, max prompt length etc (see sync [models.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/models.py) and async [models.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/models.py))
-- **Live Search**: Augment Grok's knowledge with up-to-date information from the web and 𝕏 (see sync [search.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/search.py) and async [search.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/search.py))
+- **Agentic Tool Calling**: Let Grok autonomously decide when to search the web, 𝕏, or execute code to answer your questions with real-time information (e.g., "What was Arsenal's most recent game result?" triggers a web search automatically). See sync [server_side_tools.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/server_side_tools.py) and async [server_side_tools.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/server_side_tools.py)
 - **Telemetry & Observability**: Export OpenTelemetry traces with rich metadata attributes to console or OTLP backends (see sync [telemetry.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/sync/telemetry.py) and async [telemetry.py](https://github.com/xai-org/xai-sdk-python/tree/main/examples/aio/telemetry.py))
 
 ## Telemetry & Observability
@@ -336,6 +336,10 @@ telemetry.setup_otlp_exporter()
 ### Disabling Tracing
 
 If you're using the xAI SDK within an application that is already using OpenTelemetry to export other traces, you may want to selectively disable xAI SDK traces only, this can be done by setting the environment variable `XAI_SDK_DISABLE_TRACING` to `1` or `true`.
+
+### Disabling Sensitive Attributes
+
+For privacy reasons, you may want to disable the collection of sensitive attributes such as user inputs and AI responses in traces. This can be done by setting the environment variable `XAI_SDK_DISABLE_SENSITIVE_TELEMETRY_ATTRIBUTES` to `1` or `true`. When enabled, traces will still be collected but without the content of messages, prompts, or responses.
 
 ## Timeouts
 

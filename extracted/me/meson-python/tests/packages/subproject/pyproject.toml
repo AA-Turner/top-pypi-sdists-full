@@ -5,3 +5,12 @@
 [build-system]
 build-backend = 'mesonpy'
 requires = ['meson-python']
+
+[tool.meson-python.wheel]
+exclude = [
+    '{datadir}/dep/*.txt',
+    '{py_purelib}/dep.*',
+]
+include = [
+    '{py_purelib}/dep.py',
+]

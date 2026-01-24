@@ -155,7 +155,7 @@ def translate_boto_error(error, message=None, set_cause=True, *args, **kwargs):
         custom_exc = constructor(message, *args, **kwargs)
     else:
         # No match found, wrap this in an IOError with the appropriate message.
-        custom_exc = IOError(errno.EIO, message or str(error), *args)
+        custom_exc = OSError(errno.EIO, message or str(error), *args)
 
     if set_cause:
         custom_exc.__cause__ = error

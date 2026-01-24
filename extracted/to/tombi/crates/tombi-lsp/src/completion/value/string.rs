@@ -6,9 +6,9 @@ use tombi_schema_store::{Accessor, CurrentSchema, SchemaUri, StringSchema};
 use crate::{
     comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
     completion::{
+        CompletionContent, CompletionEdit, CompletionHint, FindCompletionContents,
         comment::get_tombi_comment_directive_content_completion_contents,
-        schema_completion::SchemaCompletion, CompletionContent, CompletionEdit, CompletionHint,
-        FindCompletionContents,
+        schema_completion::SchemaCompletion,
     },
 };
 
@@ -34,15 +34,13 @@ impl FindCompletionContents for tombi_document_tree::String {
                     StringCommonFormatRules,
                     StringCommonLintRules,
                 >(self.comment_directives(), position, accessors)
-            {
-                if let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
-                {
-                    return completions;
-                }
+            {
+                return completions;
             }
 
             if !self.range().contains(position) {
@@ -64,7 +62,10 @@ impl FindCompletionContents for tombi_document_tree::String {
                     .await
                     .into_iter()
                     .filter_map(|mut completion_content| {
-                        if completion_content.kind != CompletionKind::String {
+                        if !matches!(
+                            completion_content.kind,
+                            CompletionKind::String | CompletionKind::Enum
+                        ) {
                             return None;
                         }
 
@@ -110,7 +111,6 @@ impl FindCompletionContents for StringSchema {
                 let label = format!("\"{default}\"");
                 let edit = CompletionEdit::new_literal(&label, position, completion_hint);
                 completion_items.push(CompletionContent::new_default_value(
-                    CompletionKind::String,
                     label,
                     self.title.clone(),
                     self.description.clone(),
@@ -124,7 +124,6 @@ impl FindCompletionContents for StringSchema {
                 let label = format!("\"{const_value}\"");
                 let edit = CompletionEdit::new_literal(&label, position, completion_hint);
                 completion_items.push(CompletionContent::new_const_value(
-                    CompletionKind::String,
                     label,
                     self.title.clone(),
                     self.description.clone(),
@@ -135,12 +134,11 @@ impl FindCompletionContents for StringSchema {
                 return completion_items;
             }
 
-            if let Some(enumerate) = &self.enumerate {
-                for item in enumerate {
+            if let Some(r#enum) = &self.r#enum {
+                for item in r#enum {
                     let label = format!("\"{item}\"");
                     let edit = CompletionEdit::new_literal(&label, position, completion_hint);
-                    completion_items.push(CompletionContent::new_enumerate_value(
-                        CompletionKind::String,
+                    completion_items.push(CompletionContent::new_enum_value(
                         label,
                         self.title.clone(),
                         self.description.clone(),
@@ -150,6 +148,24 @@ impl FindCompletionContents for StringSchema {
                     ));
                 }
                 return completion_items;
+            }
+
+            if let Some(examples) = &self.examples {
+                for example in examples {
+                    let label = format!("\"{example}\"");
+                    if completion_items.iter().any(|item| item.label == label) {
+                        continue;
+                    }
+                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    completion_items.push(CompletionContent::new_example_value(
+                        label,
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_uri,
+                        self.deprecated,
+                    ));
+                }
             }
 
             completion_items.extend(

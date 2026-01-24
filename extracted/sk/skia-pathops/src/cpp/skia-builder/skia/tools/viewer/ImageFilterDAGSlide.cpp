@@ -21,8 +21,10 @@
 #include "include/effects/SkGradientShader.h"
 #include "include/effects/SkImageFilters.h"
 #include "src/core/SkImageFilter_Base.h"
+#include "src/core/SkMatrixPriv.h"
 #include "src/core/SkSpecialImage.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 #include "tools/viewer/Slide.h"
 
 namespace {
@@ -81,10 +83,15 @@ private:
             // been transformed to device space. To achieve that, we mock a new mapping with the
             // identity matrix transform.
             skif::Mapping layerOnly{fMapping.layerMatrix()};
-            skif::DeviceSpace<SkIRect> pseudoDeviceBounds =
+            std::optional<skif::DeviceSpace<SkIRect>> pseudoDeviceBounds =
                     as_IFB(fFilter)->getOutputBounds(layerOnly, fContent);
             // Since layerOnly's device matrix is I, this is effectively a cast to layer space
-            fOutputBounds = layerOnly.deviceToLayer(pseudoDeviceBounds);
+            if (pseudoDeviceBounds) {
+                fOutputBounds = layerOnly.deviceToLayer(*pseudoDeviceBounds);
+            } else {
+                // Skip drawing infinite output bounds
+                fOutputBounds = skif::LayerSpace<SkIRect>::Empty();
+            }
         } else {
             fOutputBounds = fMapping.paramToLayer(fContent).roundOut();
         }
@@ -98,13 +105,13 @@ private:
     void computeInputBounds() {
         // As a proxy for what the base device had, use the content rect mapped to device space
         // (e.g. clipRect() was called with the same coords prior to the draw).
-        skif::DeviceSpace<SkIRect> targetOutput(fMapping.totalMatrix()
-                                                        .mapRect(SkRect(fContent))
-                                                        .roundOut());
+        skif::DeviceSpace<SkIRect> targetOutput(SkMatrixPriv::MapRect(fMapping.totalMatrix(),
+                                                                      SkRect(fContent))
+                                                             .roundOut());
 
         if (fFilter) {
-            fHintedLayerBounds = as_IFB(fFilter)->getInputBounds(fMapping, targetOutput, &fContent);
-            fUnhintedLayerBounds = as_IFB(fFilter)->getInputBounds(fMapping, targetOutput, nullptr);
+            fHintedLayerBounds = as_IFB(fFilter)->getInputBounds(fMapping, targetOutput, fContent);
+            fUnhintedLayerBounds = as_IFB(fFilter)->getInputBounds(fMapping, targetOutput, {});
         } else {
             fHintedLayerBounds = fMapping.paramToLayer(fContent).roundOut();
             fUnhintedLayerBounds = fMapping.deviceToLayer(targetOutput);
@@ -114,7 +121,7 @@ private:
 
 } // anonymous namespace
 
-static FilterNode build_dag(const SkMatrix& ctm, const SkRect& rect,
+static FilterNode build_dag(const SkM44& ctm, const SkRect& rect,
                             const SkImageFilter* rootFilter) {
     // Emulate SkCanvas::internalSaveLayer's decomposition of the CTM.
     skif::ParameterSpace<SkRect> content(rect);
@@ -172,7 +179,7 @@ static void draw_node(SkCanvas* canvas, const FilterNode& node) {
     // Device-space bounding box of the output bounds (e.g. what legacy DAG manipulation via
     // MatrixTransform would produce).
     static const SkScalar kDashParams[] = {6.f, 12.f};
-    line.setPathEffect(SkDashPathEffect::Make(kDashParams, 2, 0.f));
+    line.setPathEffect(SkDashPathEffect::Make(kDashParams, 0.f));
     SkRect devOutputBounds = SkRect::Make(SkIRect(node.fMapping.layerToDevice(node.fOutputBounds)));
     canvas->restore(); // undoes device matrix
     canvas->drawRect(devOutputBounds, line);
@@ -206,7 +213,7 @@ static float print_size(SkCanvas* canvas, const char* prefix, const SkIRect& rec
 }
 
 static float print_info(SkCanvas* canvas, const FilterNode& node) {
-    SkFont font(nullptr, 12);
+    SkFont font(ToolUtils::DefaultTypeface(), 12);
     SkPaint text;
     text.setAntiAlias(true);
 
@@ -216,11 +223,16 @@ static float print_info(SkCanvas* canvas, const FilterNode& node) {
         y += kLineHeight;
         if (node.fDepth == 0) {
             // The mapping is the same for all nodes, so only print at the root
-            y = print_matrix(canvas, "Param->Layer", node.fMapping.layerMatrix(),
-                        kLineInset, y, font, text);
+            y = print_matrix(canvas,
+                             "Param->Layer",
+                             node.fMapping.layerMatrix().asM33(),
+                             kLineInset,
+                             y,
+                             font,
+                             text);
             y = print_matrix(canvas,
                              "Layer->Device",
-                             node.fMapping.layerToDevice(),
+                             node.fMapping.layerToDevice().asM33(),
                              kLineInset,
                              y,
                              font,
@@ -278,17 +290,17 @@ static float draw_dag(SkCanvas* canvas, SkSurface* nodeSurface, const FilterNode
                          x, y + 0.5f * nodeResults->height(), line);         // left of child
         canvas->save();
         canvas->translate(x, y);
-        y = draw_dag(canvas, nodeSurface, node.fInputNodes[i]);
+        y += draw_dag(canvas, nodeSurface, node.fInputNodes[i]);
         canvas->restore();
     }
     return std::max(y, nodeResults->height() + textHeight + kPad);
 }
 
-static void draw_dag(SkCanvas* canvas, sk_sp<SkImageFilter> filter,
+static void draw_dag(SkCanvas* canvas, SkImageFilter* filter,
                      const SkRect& rect, const SkISize& surfaceSize) {
     // Get the current CTM, which includes all the viewer's UI modifications, which we want to
     // pass into our mock canvases for each DAG node.
-    SkMatrix ctm = canvas->getTotalMatrix();
+    SkM44 ctm = canvas->getLocalToDevice();
 
     canvas->save();
     // Reset the matrix so that the DAG layout and instructional text is fixed to the window.
@@ -296,7 +308,7 @@ static void draw_dag(SkCanvas* canvas, sk_sp<SkImageFilter> filter,
 
     // Process the image filter DAG to display intermediate results later on, which will apply the
     // provided CTM during draw_node calls.
-    FilterNode dag = build_dag(ctm, rect, filter.get());
+    FilterNode dag = build_dag(ctm, rect, filter);
 
     sk_sp<SkSurface> nodeSurface =
             canvas->makeSurface(canvas->imageInfo().makeDimensions(surfaceSize));
@@ -325,7 +337,7 @@ public:
 
         sk_sp<SkImageFilter> merge0 = SkImageFilters::Merge(std::move(blur1), std::move(cf1));
 
-        draw_dag(canvas, std::move(merge0), kFilterRect, kFilterSurfaceSize);
+        draw_dag(canvas, merge0.get(), kFilterRect, kFilterSurfaceSize);
     }
 
     // We want to use the viewer calculated CTM in the mini surfaces used per DAG node. The rotation

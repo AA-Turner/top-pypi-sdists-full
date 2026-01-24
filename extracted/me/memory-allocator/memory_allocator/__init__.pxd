@@ -1,1 +1,0 @@
-from memory_allocator.memory_allocator cimport MemoryAllocator

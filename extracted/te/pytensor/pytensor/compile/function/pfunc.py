@@ -328,8 +328,7 @@ def rebuild_collect_shared(
             cloned_outputs = []  # TODO: get Function.__call__ to return None
         else:
             raise TypeError(
-                "output must be an PyTensor Variable or Out "
-                "instance (or list of them)",
+                "output must be an PyTensor Variable or Out instance (or list of them)",
                 outputs,
             )
 
@@ -454,7 +453,6 @@ def pfunc(
     inputs, cloned_outputs = construct_pfunc_ins_and_outs(
         params,
         outputs,
-        mode,
         updates,
         givens,
         no_default_updates,
@@ -480,7 +478,6 @@ def pfunc(
 def construct_pfunc_ins_and_outs(
     params,
     outputs=None,
-    mode=None,
     updates=None,
     givens=None,
     no_default_updates=False,
@@ -547,26 +544,27 @@ def construct_pfunc_ins_and_outs(
                 "variables in the inputs list."
             )
 
-    # Check that we are not using `givens` to replace input variables, because
-    # this typically does nothing, contrary to what one may expect.
-    in_var_set = set(in_variables)
-    try:
-        givens_pairs = list(givens.items())
-    except AttributeError:
-        givens_pairs = givens
-    for x, y in givens_pairs:
-        if x in in_var_set:
-            raise RuntimeError(
-                f"You are trying to replace variable '{x}' through the "
-                "`givens` parameter, but this variable is an input to your "
-                "function. Replacing inputs is currently forbidden because it "
-                "has no effect. One way to modify an input `x` to a function "
-                "evaluating f(x) is to define a new input `y` and use "
-                "`pytensor.function([y], f(x), givens={x: g(y)})`. Another "
-                "solution consists in using `pytensor.clone_replace`, e.g. like this: "
-                "`pytensor.function([x], "
-                "pytensor.clone_replace(f(x), replace={x: g(x)}))`."
-            )
+    if givens:
+        # Check that we are not using `givens` to replace input variables, because
+        # this typically does nothing, contrary to what one may expect.
+        in_var_set = set(in_variables)
+        try:
+            givens_pairs = list(givens.items())
+        except AttributeError:
+            givens_pairs = givens
+        for x, y in givens_pairs:
+            if x in in_var_set:
+                raise RuntimeError(
+                    f"You are trying to replace variable '{x}' through the "
+                    "`givens` parameter, but this variable is an input to your "
+                    "function. Replacing inputs is currently forbidden because it "
+                    "has no effect. One way to modify an input `x` to a function "
+                    "evaluating f(x) is to define a new input `y` and use "
+                    "`pytensor.function([y], f(x), givens={x: g(y)})`. Another "
+                    "solution consists in using `pytensor.clone_replace`, e.g. like this: "
+                    "`pytensor.function([x], "
+                    "pytensor.clone_replace(f(x), replace={x: g(x)}))`."
+                )
 
     if not fgraph:
         # Extend the outputs with the updates on input variables so they are
@@ -592,7 +590,7 @@ def construct_pfunc_ins_and_outs(
             clone_inner_graphs=True,
         )
         input_variables, cloned_extended_outputs, other_stuff = output_vars
-        clone_d, update_d, update_expr, shared_inputs = other_stuff
+        clone_d, update_d, _update_expr, shared_inputs = other_stuff
 
         # Recover only the clones of the original outputs
         if outputs is None:

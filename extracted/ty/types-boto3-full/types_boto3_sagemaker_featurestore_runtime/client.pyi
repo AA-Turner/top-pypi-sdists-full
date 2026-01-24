@@ -3,7 +3,7 @@ Type annotations for sagemaker-featurestore-runtime service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker_featurestore_runtime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -35,11 +36,6 @@ from .type_defs import (
     PutRecordRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -48,12 +44,12 @@ else:
 __all__ = ("SageMakerFeatureStoreRuntimeClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessForbidden: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalFailure: Type[BotocoreClientError]
-    ResourceNotFound: Type[BotocoreClientError]
-    ServiceUnavailable: Type[BotocoreClientError]
-    ValidationError: Type[BotocoreClientError]
+    AccessForbidden: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalFailure: type[BotocoreClientError]
+    ResourceNotFound: type[BotocoreClientError]
+    ServiceUnavailable: type[BotocoreClientError]
+    ValidationError: type[BotocoreClientError]
 
 class SageMakerFeatureStoreRuntimeClient(BaseClient):
     """

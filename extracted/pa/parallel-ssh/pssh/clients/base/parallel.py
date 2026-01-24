@@ -1,19 +1,19 @@
-# This file is part of parallel-ssh.
+#  This file is part of parallel-ssh.
+#  Copyright (C) 2014-2025 Panos Kittenis.
+#  Copyright (C) 2014-2025 parallel-ssh Contributors.
 #
-# Copyright (C) 2014-2022 Panos Kittenis and contributors.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """Abstract parallel SSH client package"""
 
@@ -23,7 +23,7 @@ import gevent.pool
 from gevent import joinall, spawn, Timeout as GTimeout
 from gevent.hub import Hub
 
-from ..common import _validate_pkey_path, _validate_pkey
+from ..common import _validate_pkey_path, _validate_pkey, _validate_api
 from ...config import HostConfig
 from ...constants import DEFAULT_RETRIES, RETRY_DELAY
 from ...exceptions import HostArgumentError, Timeout, ShellError, HostConfigError
@@ -55,6 +55,8 @@ class BaseParallelSSHClient(object):
                  gssapi_client_identity=None,
                  gssapi_delegate_credentials=False,
                  forward_ssh_agent=False,
+                 compress=False,
+                 keyboard_interactive=False,
                  _auth_thread_pool=True,
                  ):
         self.allow_agent = allow_agent
@@ -86,6 +88,9 @@ class BaseParallelSSHClient(object):
         self.gssapi_server_identity = gssapi_server_identity
         self.gssapi_client_identity = gssapi_client_identity
         self.gssapi_delegate_credentials = gssapi_delegate_credentials
+        self.compress = compress
+        self.keyboard_interactive = keyboard_interactive
+        _validate_api(self.keyboard_interactive, self.password)
         self._auth_thread_pool = _auth_thread_pool
         self._check_host_config()
 

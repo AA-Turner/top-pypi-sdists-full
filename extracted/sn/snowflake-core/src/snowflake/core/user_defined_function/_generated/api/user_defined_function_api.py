@@ -18,7 +18,7 @@ import tempfile
 
 from concurrent.futures import Future
 from datetime import date, datetime
-from typing import Iterable, Literal, Optional, Union, overload
+from typing import Iterable, List, Literal, Optional, Union, overload
 
 from dateutil.parser import parse
 from pydantic import Field, StrictBool, StrictStr, validate_call
@@ -36,6 +36,9 @@ from snowflake.core.exceptions import (  # noqa: F401
 from snowflake.core.user_defined_function._generated import models
 from snowflake.core.user_defined_function._generated.models.success_response import SuccessResponse
 from snowflake.core.user_defined_function._generated.models.user_defined_function import UserDefinedFunction
+from snowflake.core.user_defined_function._generated.models.user_defined_function_argument import (
+    UserDefinedFunctionArgument,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -494,7 +497,7 @@ class UserDefinedFunctionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["user_defined_function"]:
+        if _params["user_defined_function"] is not None:
             _body_params = _params["user_defined_function"]
 
         # set the HTTP header `Accept`
@@ -530,6 +533,300 @@ class UserDefinedFunctionApi:
         return self.api_client.call_api(
             self._root,
             "/api/v2/databases/{database}/schemas/{schema}/user-defined-functions",
+            "POST",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def execute_user_defined_function(
+        self,
+        database: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases.",
+            ),
+        ],
+        var_schema: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database.",
+            ),
+        ],
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        user_defined_function_argument: Optional[List[UserDefinedFunctionArgument]] = None,
+        async_req: Literal[False] = False,
+        **kwargs,
+    ) -> object: ...
+
+    @overload
+    def execute_user_defined_function(
+        self,
+        database: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases.",
+            ),
+        ],
+        var_schema: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database.",
+            ),
+        ],
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        user_defined_function_argument: Optional[List[UserDefinedFunctionArgument]] = None,
+        async_req: Literal[True] = True,
+        **kwargs,
+    ) -> Future[object]: ...
+
+    @overload
+    def execute_user_defined_function(
+        self,
+        database: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases.",
+            ),
+        ],
+        var_schema: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database.",
+            ),
+        ],
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        user_defined_function_argument: Optional[List[UserDefinedFunctionArgument]] = None,
+        async_req: bool = False,
+        **kwargs,
+    ) -> Union[object, Future[object]]: ...
+
+    @validate_call
+    def execute_user_defined_function(
+        self,
+        database: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases.",
+            ),
+        ],
+        var_schema: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database.",
+            ),
+        ],
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        user_defined_function_argument: Optional[List[UserDefinedFunctionArgument]] = None,
+        **kwargs,
+    ) -> Union[object, Future[object]]:
+        r"""Execute a UDF.  # noqa: E501
+
+        Execute a UDF.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.execute_user_defined_function(
+        ...     database, var_schema, name, user_defined_function_argument, async_req=True
+        ... )
+        >>> result = future.result()
+        :param database: Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases. (required)
+        :type database: str
+        :param var_schema: Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database. (required)
+        :type var_schema: str
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param user_defined_function_argument:
+        :type user_defined_function_argument: List[UserDefinedFunctionArgument]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[object, Future[object]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.execute_user_defined_function_with_http_info(
+            database, var_schema, name, user_defined_function_argument, **kwargs
+        )
+
+    @validate_call
+    def execute_user_defined_function_with_http_info(
+        self,
+        database: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases.",
+            ),
+        ],
+        var_schema: Annotated[
+            str,
+            Field(
+                strict=True,
+                description="Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database.",
+            ),
+        ],
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        user_defined_function_argument: Optional[List[UserDefinedFunctionArgument]] = None,
+        **kwargs,
+    ):
+        r"""Execute a UDF.  # noqa: E501
+
+        Execute a UDF.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.execute_user_defined_function_with_http_info(
+        ...     database, var_schema, name, user_defined_function_argument, async_req=True
+        ... )
+        >>> result = future.result()
+        :param database: Identifier (i.e. name) for the database to which the resource belongs. You can use the `/api/v2/databases` GET request to get a list of available databases. (required)
+        :type database: str
+        :param var_schema: Identifier (i.e. name) for the schema to which the resource belongs. You can use the `/api/v2/databases/{database}/schemas` GET request to get a list of available schemas for the specified database. (required)
+        :type var_schema: str
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param user_defined_function_argument:
+        :type user_defined_function_argument: List[UserDefinedFunctionArgument]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[object, Future[object]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["database", "var_schema", "name", "user_defined_function_argument"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(
+                    f"Got an unexpected keyword argument '{_key}' to method execute_user_defined_function"
+                )
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        if _params["database"]:
+            _path_params["database"] = _params["database"]
+
+        if _params["var_schema"]:
+            _path_params["schema"] = _params["var_schema"]
+
+        if _params["name"]:
+            _path_params["name"] = _params["name"]
+
+        # process the query parameters
+        _query_params = []
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params["user_defined_function_argument"] is not None:
+            _body_params = _params["user_defined_function_argument"]
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            "_content_type", self.api_client.select_header_content_type(["application/json"])
+        )
+        if _content_types_list:
+            _header_params["Content-Type"] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "object",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/databases/{database}/schemas/{schema}/user-defined-functions/{name}:execute",
             "POST",
             _path_params,
             _query_params,

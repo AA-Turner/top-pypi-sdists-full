@@ -14,7 +14,9 @@ import typing as ty
 
 from openstack.key_manager.v1 import container as _container
 from openstack.key_manager.v1 import order as _order
+from openstack.key_manager.v1 import project_quota as _project_quota
 from openstack.key_manager.v1 import secret as _secret
+from openstack.key_manager.v1 import secret_store as _secret_store
 from openstack import proxy
 from openstack import resource
 
@@ -23,7 +25,9 @@ class Proxy(proxy.Proxy):
     _resource_registry = {
         "container": _container.Container,
         "order": _order.Order,
+        "project_quota": _project_quota.ProjectQuota,
         "secret": _secret.Secret,
+        "secret_store": _secret_store.SecretStore,
     }
 
     def create_container(self, **attrs):
@@ -269,6 +273,91 @@ class Proxy(proxy.Proxy):
         :rtype: :class:`~openstack.key_manager.v1.secret.Secret`
         """
         return self._update(_secret.Secret, secret, **attrs)
+
+    # ========== Secret Store Operations ==========
+
+    def secret_stores(self, **query):
+        """Return a generator of secret stores
+
+        :param kwargs query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of secret store objects
+        :rtype: :class:`~openstack.key_manager.v1.secret_store.SecretStore`
+        """
+        return self._list(_secret_store.SecretStore, **query)
+
+    def get_global_default_secret_store(self):
+        """Get the global default secret store
+
+        :returns: One
+            :class:`~openstack.key_manager.v1.secret_store.SecretStore`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        return self._get(
+            _secret_store.SecretStore,
+            None,
+            requires_id=False,
+            base_path='/secret-stores/global-default',
+        )
+
+    def get_preferred_secret_store(self):
+        """Get the preferred secret store for the current project
+
+        :returns: One
+            :class:`~openstack.key_manager.v1.secret_store.SecretStore`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        return self._get(
+            _secret_store.SecretStore,
+            None,
+            requires_id=False,
+            base_path='/secret-stores/preferred',
+        )
+
+    def delete_project_quota(self, project_id, ignore_missing=True):
+        """Delete a project quota
+
+        :param project_id: A project ID.
+        :param bool ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be
+            raised when the project quota does not exist.
+            When set to ``True``, no exception will be set when
+            attempting to delete a nonexistent project quota.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _project_quota.ProjectQuota,
+            project_id,
+            ignore_missing=ignore_missing,
+        )
+
+    def get_project_quota(self, project_id):
+        """Get a single project quota
+
+        :param project_id: A project ID.
+
+        :returns: One
+            :class:`~openstack.key_manager.v1.project_quota.ProjectQuota`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        return self._get(_project_quota.ProjectQuota, project_id)
+
+    def update_project_quota(self, project_id, **attrs):
+        """Update a project quota
+
+        :param project_id: A project ID.
+        :param attrs: The attributes to update on the project quota represented
+            by ``project quota``.
+
+        :returns: The updated project quota
+        :rtype: :class:`~openstack.key_manager.v1.project_quota.ProjectQuota`
+        """
+        return self._update(_project_quota.ProjectQuota, project_id, **attrs)
 
     # ========== Utilities ==========
 

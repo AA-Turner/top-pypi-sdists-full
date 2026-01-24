@@ -10,9 +10,11 @@
 
 #include "include/core/SkBlendMode.h"
 #include "include/core/SkColor.h"
-#include "include/private/SkColorData.h"
+#include "src/core/SkColorData.h"
 
+class SkBlender;
 class SkRasterPipeline;
+class SkPaint;
 
 /**
  *  Sentinel value for SkBlendMode enum.
@@ -32,9 +34,18 @@ void SkBlendMode_AppendStages(SkBlendMode, SkRasterPipeline*);
 
 SkPMColor4f SkBlendMode_Apply(SkBlendMode, const SkPMColor4f& src, const SkPMColor4f& dst);
 
-#if defined(SK_GANESH)
-#include "src/gpu/ganesh/GrXferProcessor.h"
-const GrXPFactory* SkBlendMode_AsXPFactory(SkBlendMode);
-#endif
+enum class SkBlendFastPath {
+    kNormal,      // draw normally
+    kSrcOver,     //< draw as if in srcover mode
+    kSkipDrawing  //< draw nothing
+};
+
+/**
+ *  Given a paint, determine whether the paint's blend mode can be
+ *  replaced with kSrcOver or not drawn at all. This can inform drawing optimizations.
+ */
+SkBlendFastPath CheckFastPath(const SkPaint&, bool dstIsOpaque);
+
+const SkBlender* GetBlendModeSingleton(SkBlendMode);
 
 #endif

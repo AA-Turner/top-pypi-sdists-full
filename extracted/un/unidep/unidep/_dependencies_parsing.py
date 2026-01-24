@@ -11,13 +11,15 @@ import os
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from unidep.platform_definitions import Platform, Spec, platforms_from_selector
 from unidep.utils import (
+    LocalDependency,
+    LocalDependencyUse,
     PathWithExtras,
     defaultdict_to_dict,
     is_pip_installable,
@@ -201,11 +203,42 @@ def _add_project_dependencies(
         raise ValueError(msg)
 
 
-def _get_local_dependencies(data: dict[str, Any]) -> list[str]:
+def _parse_local_dependency_item(item: str | dict[str, str]) -> LocalDependency:
+    """Parse a single local dependency item into a LocalDependency object."""
+    if isinstance(item, str):
+        return LocalDependency(local=item, pypi=None)
+    if isinstance(item, dict):
+        if "local" not in item:
+            msg = "Dictionary-style local dependency must have a 'local' key"
+            raise ValueError(msg)
+        use = _normalize_local_dependency_use(item.get("use"))
+        pypi_value = item.get("pypi")
+        if use == "pypi" and not pypi_value:
+            msg = "Local dependency with `use: pypi` must specify a `pypi` alternative."
+            raise ValueError(msg)
+        return LocalDependency(local=item["local"], pypi=pypi_value, use=use)
+    msg = f"Invalid local dependency format: {item}"
+    raise TypeError(msg)
+
+
+def _normalize_local_dependency_use(use_value: str | None) -> LocalDependencyUse:
+    if use_value is None:
+        return "local"
+    normalized = use_value.strip().lower()
+    valid = {"local", "pypi", "skip"}
+    if normalized not in valid:
+        options = ", ".join(sorted(valid))
+        msg = f"Invalid `use` value `{use_value}`. Supported values: {options}."
+        raise ValueError(msg)
+    return cast(LocalDependencyUse, normalized)
+
+
+def get_local_dependencies(data: dict[str, Any]) -> list[LocalDependency]:
     """Get `local_dependencies` from a `requirements.yaml` or `pyproject.toml` file."""
+    raw_deps = []
     if "local_dependencies" in data:
-        return data["local_dependencies"]
-    if "includes" in data:
+        raw_deps = data["local_dependencies"]
+    elif "includes" in data:
         warn(
             "⚠️ You are using `includes` in `requirements.yaml` or `pyproject.toml`"
             " `[unidep.tool]` which is deprecated since 0.42.0 and has been renamed to"
@@ -213,8 +246,9 @@ def _get_local_dependencies(data: dict[str, Any]) -> list[str]:
             category=DeprecationWarning,
             stacklevel=2,
         )
-        return data["includes"]
-    return []
+        raw_deps = data["includes"]
+
+    return [_parse_local_dependency_item(item) for item in raw_deps]
 
 
 def _to_path_with_extras(
@@ -253,6 +287,7 @@ def _update_data_structures(
     seen: set[PathWithExtras],  # modified in place
     yaml: YAML,
     is_nested: bool,
+    local_dependency_overrides: dict[Path, LocalDependency],
     verbose: bool = False,
 ) -> None:
     if verbose:
@@ -281,16 +316,39 @@ def _update_data_structures(
     seen.add(path_with_extras.resolved())
 
     # Handle "local_dependencies" (or old name "includes", changed in 0.42.0)
-    for local_dependency in _get_local_dependencies(data):
+    local_dependencies = get_local_dependencies(data)
+    for local_dep_obj in local_dependencies:
+        if local_dep_obj.use != "local":
+            _apply_local_dependency_override(
+                local_dependency=local_dep_obj,
+                base_dir=path_with_extras.path.parent,
+                overrides=local_dependency_overrides,
+            )
+
+    for local_dep_obj in local_dependencies:
+        effective_local_dep = _apply_local_dependency_override(
+            local_dependency=local_dep_obj,
+            base_dir=path_with_extras.path.parent,
+            overrides=local_dependency_overrides,
+        )
+        if effective_local_dep.use == "skip":
+            continue
+        if effective_local_dep.use == "pypi":
+            _append_pip_dependency_from_local(
+                data=data,
+                local_dependency=effective_local_dep,
+            )
+            continue
         # NOTE: The current function calls _add_local_dependencies,
         # which calls the current function recursively
         _add_local_dependencies(
-            local_dependency=local_dependency,
+            local_dependency=effective_local_dep.local,
             path_with_extras=path_with_extras,
             datas=datas,  # modified in place
             all_extras=all_extras,  # modified in place
             seen=seen,  # modified in place
             yaml=yaml,
+            local_dependency_overrides=local_dependency_overrides,
             verbose=verbose,
         )
 
@@ -359,6 +417,49 @@ def _move_local_optional_dependencies_to_local_dependencies(
         optional_dependencies.pop(extra)
 
 
+def _resolve_local_dependency_path(base_dir: Path, local: str) -> Path:
+    local_path, _ = split_path_and_extras(local)
+    return (base_dir / local_path).resolve()
+
+
+def _apply_local_dependency_override(
+    *,
+    local_dependency: LocalDependency,
+    base_dir: Path,
+    overrides: dict[Path, LocalDependency],
+) -> LocalDependency:
+    try:
+        resolved_path = _resolve_local_dependency_path(base_dir, local_dependency.local)
+    except (OSError, RuntimeError, ValueError):  # pragma: no cover
+        resolved_path = None
+    if local_dependency.use != "local" and resolved_path is not None:
+        overrides[resolved_path] = local_dependency
+        return local_dependency
+    if (
+        local_dependency.use == "local"
+        and resolved_path is not None
+        and resolved_path in overrides
+    ):
+        override = overrides[resolved_path]
+        return LocalDependency(
+            local=local_dependency.local,
+            pypi=local_dependency.pypi or override.pypi,
+            use=override.use,
+        )
+    return local_dependency
+
+
+def _append_pip_dependency_from_local(
+    *,
+    data: dict[str, Any],
+    local_dependency: LocalDependency,
+) -> None:
+    assert local_dependency.pypi is not None
+    dependency_entry: str | dict[str, str]
+    dependency_entry = {"pip": local_dependency.pypi}
+    data.setdefault("dependencies", []).append(dependency_entry)
+
+
 def _add_local_dependencies(
     *,
     local_dependency: str,
@@ -367,6 +468,7 @@ def _add_local_dependencies(
     all_extras: list[list[str]],
     seen: set[PathWithExtras],
     yaml: YAML,
+    local_dependency_overrides: dict[Path, LocalDependency],
     verbose: bool = False,
 ) -> None:
     try:
@@ -398,6 +500,7 @@ def _add_local_dependencies(
         yaml=yaml,
         verbose=verbose,
         is_nested=True,
+        local_dependency_overrides=local_dependency_overrides,
     )
 
 
@@ -439,6 +542,7 @@ def parse_requirements(
     datas: list[dict[str, Any]] = []
     all_extras: list[list[str]] = []
     seen: set[PathWithExtras] = set()
+    local_dependency_overrides: dict[Path, LocalDependency] = {}
     yaml = YAML(typ="rt")  # Might be unused if all are TOML files
     for path_with_extras in paths_with_extras:
         _update_data_structures(
@@ -449,6 +553,7 @@ def parse_requirements(
             yaml=yaml,
             verbose=verbose,
             is_nested=False,
+            local_dependency_overrides=local_dependency_overrides,
         )
 
     assert len(datas) == len(all_extras)
@@ -561,7 +666,7 @@ def _add_dependencies(
 parse_yaml_requirements = parse_requirements
 
 
-def _extract_local_dependencies(  # noqa: PLR0912
+def _extract_local_dependencies(  # noqa: PLR0912, PLR0915
     path: Path,
     base_path: Path,
     processed: set[Path],
@@ -571,6 +676,7 @@ def _extract_local_dependencies(  # noqa: PLR0912
     verbose: bool = False,
     raise_if_missing: bool = True,
     warn_non_managed: bool = True,
+    local_dependency_overrides: dict[Path, LocalDependency],
 ) -> None:
     path, extras = parse_folder_or_filename(path)
     if path in processed:
@@ -584,7 +690,24 @@ def _extract_local_dependencies(  # noqa: PLR0912
         verbose=verbose,
     )
     # Handle "local_dependencies" (or old name "includes", changed in 0.42.0)
-    for local_dependency in _get_local_dependencies(data):
+    local_dependencies = get_local_dependencies(data)
+    for local_dep_obj in local_dependencies:
+        if local_dep_obj.use != "local":
+            _apply_local_dependency_override(
+                local_dependency=local_dep_obj,
+                base_dir=path.parent,
+                overrides=local_dependency_overrides,
+            )
+
+    for local_dep_obj in local_dependencies:
+        effective_local_dep = _apply_local_dependency_override(
+            local_dependency=local_dep_obj,
+            base_dir=path.parent,
+            overrides=local_dependency_overrides,
+        )
+        if effective_local_dep.use != "local":
+            continue
+        local_dependency = effective_local_dep.local
         assert not os.path.isabs(local_dependency)  # noqa: PTH117
         local_path, extras = split_path_and_extras(local_dependency)
         abs_local = (path.parent / local_path).resolve()
@@ -656,6 +779,9 @@ def _extract_local_dependencies(  # noqa: PLR0912
             dependencies,
             check_pip_installable=check_pip_installable,
             verbose=verbose,
+            raise_if_missing=raise_if_missing,
+            warn_non_managed=warn_non_managed,
+            local_dependency_overrides=local_dependency_overrides,
         )
 
 
@@ -674,6 +800,7 @@ def parse_local_dependencies(
     name of the project folder => list of `Path`s of local dependencies folders.
     """  # noqa: E501
     dependencies: dict[str, set[str]] = defaultdict(set)
+    local_dependency_overrides: dict[Path, LocalDependency] = {}
 
     for p in paths:
         if verbose:
@@ -688,6 +815,7 @@ def parse_local_dependencies(
             verbose=verbose,
             raise_if_missing=raise_if_missing,
             warn_non_managed=warn_non_managed,
+            local_dependency_overrides=local_dependency_overrides,
         )
 
     return {

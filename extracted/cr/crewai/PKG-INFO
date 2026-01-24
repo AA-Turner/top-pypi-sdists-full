@@ -1,57 +1,73 @@
 Metadata-Version: 2.4
 Name: crewai
-Version: 0.193.2
+Version: 1.8.1
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
 Author-email: Joao Moura <joao@crewai.com>
-License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: appdirs>=1.4.4
-Requires-Dist: blinker>=1.9.0
-Requires-Dist: chromadb>=0.5.23
-Requires-Dist: click>=8.1.7
+Requires-Dist: aiosqlite~=0.21.0
+Requires-Dist: appdirs~=1.4.4
+Requires-Dist: chromadb~=1.1.0
+Requires-Dist: click~=8.1.7
 Requires-Dist: instructor>=1.3.3
-Requires-Dist: json-repair==0.25.2
-Requires-Dist: json5>=0.10.0
-Requires-Dist: jsonref>=1.1.0
-Requires-Dist: litellm==1.74.9
-Requires-Dist: onnxruntime==1.22.0
-Requires-Dist: openai>=1.13.3
-Requires-Dist: openpyxl>=3.1.5
-Requires-Dist: opentelemetry-api>=1.30.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0
-Requires-Dist: opentelemetry-sdk>=1.30.0
-Requires-Dist: pdfplumber>=0.11.4
-Requires-Dist: portalocker==2.7.0
-Requires-Dist: pydantic>=2.4.2
-Requires-Dist: pyjwt>=2.9.0
-Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: pyvis>=0.3.2
-Requires-Dist: regex>=2024.9.11
-Requires-Dist: tokenizers>=0.20.3
-Requires-Dist: tomli-w>=1.1.0
-Requires-Dist: tomli>=2.0.2
-Requires-Dist: uv>=0.4.25
-Provides-Extra: aisuite
-Requires-Dist: aisuite>=0.1.10; extra == 'aisuite'
+Requires-Dist: json-repair~=0.25.2
+Requires-Dist: json5~=0.10.0
+Requires-Dist: jsonref~=1.1.0
+Requires-Dist: mcp~=1.16.0
+Requires-Dist: openai~=1.83.0
+Requires-Dist: openpyxl~=3.1.5
+Requires-Dist: opentelemetry-api~=1.34.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.34.0
+Requires-Dist: opentelemetry-sdk~=1.34.0
+Requires-Dist: pdfplumber~=0.11.4
+Requires-Dist: portalocker~=2.7.0
+Requires-Dist: pydantic-settings~=2.10.1
+Requires-Dist: pydantic~=2.11.9
+Requires-Dist: pyjwt~=2.9.0
+Requires-Dist: python-dotenv~=1.1.1
+Requires-Dist: regex~=2024.9.11
+Requires-Dist: tokenizers~=0.20.3
+Requires-Dist: tomli-w~=1.1.0
+Requires-Dist: tomli~=2.0.2
+Requires-Dist: uv~=0.9.13
+Provides-Extra: a2a
+Requires-Dist: a2a-sdk~=0.3.10; extra == 'a2a'
+Requires-Dist: aiocache[memcached,redis]~=0.12.3; extra == 'a2a'
+Requires-Dist: httpx-auth~=0.23.1; extra == 'a2a'
+Requires-Dist: httpx-sse~=0.4.0; extra == 'a2a'
+Provides-Extra: anthropic
+Requires-Dist: anthropic~=0.71.0; extra == 'anthropic'
+Provides-Extra: aws
+Requires-Dist: aiobotocore~=2.25.2; extra == 'aws'
+Requires-Dist: boto3~=1.40.38; extra == 'aws'
+Provides-Extra: azure-ai-inference
+Requires-Dist: azure-ai-inference~=1.0.0b9; extra == 'azure-ai-inference'
+Provides-Extra: bedrock
+Requires-Dist: boto3~=1.40.45; extra == 'bedrock'
 Provides-Extra: docling
-Requires-Dist: docling>=2.12.0; extra == 'docling'
+Requires-Dist: docling~=2.63.0; extra == 'docling'
 Provides-Extra: embeddings
 Requires-Dist: tiktoken~=0.8.0; extra == 'embeddings'
+Provides-Extra: google-genai
+Requires-Dist: google-genai~=1.49.0; extra == 'google-genai'
+Provides-Extra: litellm
+Requires-Dist: litellm~=1.74.9; extra == 'litellm'
 Provides-Extra: mem0
-Requires-Dist: mem0ai>=0.1.94; extra == 'mem0'
+Requires-Dist: mem0ai~=0.1.94; extra == 'mem0'
 Provides-Extra: openpyxl
-Requires-Dist: openpyxl>=3.1.5; extra == 'openpyxl'
+Requires-Dist: openpyxl~=3.1.5; extra == 'openpyxl'
 Provides-Extra: pandas
-Requires-Dist: pandas>=2.2.3; extra == 'pandas'
-Provides-Extra: pdfplumber
-Requires-Dist: pdfplumber>=0.11.4; extra == 'pdfplumber'
+Requires-Dist: pandas~=2.2.3; extra == 'pandas'
 Provides-Extra: qdrant
-Requires-Dist: qdrant-client[fastembed]>=1.14.3; extra == 'qdrant'
+Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
 Provides-Extra: tools
-Requires-Dist: crewai-tools~=0.73.0; extra == 'tools'
+Requires-Dist: crewai-tools==1.8.1; extra == 'tools'
+Provides-Extra: voyageai
+Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
+Provides-Extra: watson
+Requires-Dist: ibm-watsonx-ai~=1.3.39; extra == 'watson'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -118,9 +134,9 @@ Description-Content-Type: text/markdown
 With over 100,000 developers certified through our community courses at [learn.crewai.com](https://learn.crewai.com), CrewAI is rapidly becoming the
 standard for enterprise-ready AI automation.
 
-# CrewAI Enterprise Suite
+# CrewAI AMP Suite
 
-CrewAI Enterprise Suite is a comprehensive bundle tailored for organizations that require secure, scalable, and easy-to-manage agent-driven automation.
+CrewAI AMP Suite is a comprehensive bundle tailored for organizations that require secure, scalable, and easy-to-manage agent-driven automation.
 
 You can try one part of the suite the [Crew Control Plane for free](https://app.crewai.com)
 
@@ -132,9 +148,9 @@ You can try one part of the suite the [Crew Control Plane for free](https://app.
 - **Advanced Security**: Built-in robust security and compliance measures ensuring safe deployment and management.
 - **Actionable Insights**: Real-time analytics and reporting to optimize performance and decision-making.
 - **24/7 Support**: Dedicated enterprise support to ensure uninterrupted operation and quick resolution of issues.
-- **On-premise and Cloud Deployment Options**: Deploy CrewAI Enterprise on-premise or in the cloud, depending on your security and compliance requirements.
+- **On-premise and Cloud Deployment Options**: Deploy CrewAI AMP on-premise or in the cloud, depending on your security and compliance requirements.
 
-CrewAI Enterprise is designed for enterprises seeking a powerful, reliable solution to transform complex business processes into efficient,
+CrewAI AMP is designed for enterprises seeking a powerful, reliable solution to transform complex business processes into efficient,
 intelligent automations.
 
 ## Table of contents
@@ -180,7 +196,8 @@ Setup and run your first CrewAI agents by following this tutorial.
 [![CrewAI Getting Started Tutorial](https://img.youtube.com/vi/-kSOTtYzgEw/hqdefault.jpg)](https://www.youtube.com/watch?v=-kSOTtYzgEw "CrewAI Getting Started Tutorial")
 
 ###
- Learning Resources
+
+Learning Resources
 
 Learn CrewAI through our comprehensive courses:
 
@@ -197,6 +214,7 @@ CrewAI offers two powerful, complementary approaches that work seamlessly togeth
    - Dynamic task delegation and collaboration
    - Specialized roles with defined goals and expertise
    - Flexible problem-solving approaches
+
 2. **Flows**: Production-ready, event-driven workflows that deliver precise control over complex automations. Flows provide:
 
    - Fine-grained control over execution paths for real-world scenarios
@@ -243,6 +261,7 @@ If you encounter issues during installation or usage, here are some common solut
 
    - Install tiktoken explicitly: `pip install 'crewai[embeddings]'`
    - If using embedchain or other tools: `pip install 'crewai[tools]'`
+
 2. **Failed building wheel for tiktoken**
 
    - Ensure Rust compiler is installed (see installation steps above)
@@ -326,7 +345,7 @@ reporting_analyst:
 
 **tasks.yaml**
 
-```yaml
+````yaml
 # src/my_project/config/tasks.yaml
 research_task:
   description: >
@@ -346,7 +365,7 @@ reporting_task:
     Formatted as markdown without '```'
   agent: reporting_analyst
   output_file: report.md
-```
+````
 
 **crew.py**
 
@@ -612,7 +631,7 @@ Please refer to the [Connect CrewAI to LLMs](https://docs.crewai.com/how-to/LLM-
 
 - **LangGraph**: While LangGraph provides a foundation for building agent workflows, its approach requires significant boilerplate code and complex state management patterns. The framework's tight coupling with LangChain can limit flexibility when implementing custom agent behaviors or integrating with external systems.
 
-*P.S. CrewAI demonstrates significant performance advantages over LangGraph, executing 5.76x faster in certain cases like this QA task example ([see comparison](https://github.com/crewAIInc/crewAI-examples/tree/main/Notebooks/CrewAI%20Flows%20%26%20Langgraph/QA%20Agent)) while achieving higher evaluation scores with faster completion times in certain coding tasks, like in this example ([detailed analysis](https://github.com/crewAIInc/crewAI-examples/blob/main/Notebooks/CrewAI%20Flows%20%26%20Langgraph/Coding%20Assistant/coding_assistant_eval.ipynb)).*
+_P.S. CrewAI demonstrates significant performance advantages over LangGraph, executing 5.76x faster in certain cases like this QA task example ([see comparison](https://github.com/crewAIInc/crewAI-examples/tree/main/Notebooks/CrewAI%20Flows%20%26%20Langgraph/QA%20Agent)) while achieving higher evaluation scores with faster completion times in certain coding tasks, like in this example ([detailed analysis](https://github.com/crewAIInc/crewAI-examples/blob/main/Notebooks/CrewAI%20Flows%20%26%20Langgraph/Coding%20Assistant/coding_assistant_eval.ipynb))._
 
 - **Autogen**: While Autogen excels at creating conversational agents capable of working together, it lacks an inherent concept of process. In Autogen, orchestrating agents' interactions requires additional programming, which can become complex and cumbersome as the scale of tasks grows.
 - **ChatDev**: ChatDev introduced the idea of processes into the realm of AI agents, but its implementation is quite rigid. Customizations in ChatDev are limited and not geared towards production environments, which can hinder scalability and flexibility in real-world applications.
@@ -730,9 +749,9 @@ CrewAI is released under the [MIT License](https://github.com/crewAIInc/crewAI/b
 
 ### Enterprise Features
 
-- [What additional features does CrewAI Enterprise offer?](#q-what-additional-features-does-crewai-enterprise-offer)
-- [Is CrewAI Enterprise available for cloud and on-premise deployments?](#q-is-crewai-enterprise-available-for-cloud-and-on-premise-deployments)
-- [Can I try CrewAI Enterprise for free?](#q-can-i-try-crewai-enterprise-for-free)
+- [What additional features does CrewAI AMP offer?](#q-what-additional-features-does-crewai-enterprise-offer)
+- [Is CrewAI AMP available for cloud and on-premise deployments?](#q-is-crewai-enterprise-available-for-cloud-and-on-premise-deployments)
+- [Can I try CrewAI AMP for free?](#q-can-i-try-crewai-enterprise-for-free)
 
 ### Q: What exactly is CrewAI?
 
@@ -788,17 +807,17 @@ A: Check out practical examples in the [CrewAI-examples repository](https://gith
 
 A: Contributions are warmly welcomed! Fork the repository, create your branch, implement your changes, and submit a pull request. See the Contribution section of the README for detailed guidelines.
 
-### Q: What additional features does CrewAI Enterprise offer?
+### Q: What additional features does CrewAI AMP offer?
 
-A: CrewAI Enterprise provides advanced features such as a unified control plane, real-time observability, secure integrations, advanced security, actionable insights, and dedicated 24/7 enterprise support.
+A: CrewAI AMP provides advanced features such as a unified control plane, real-time observability, secure integrations, advanced security, actionable insights, and dedicated 24/7 enterprise support.
 
-### Q: Is CrewAI Enterprise available for cloud and on-premise deployments?
+### Q: Is CrewAI AMP available for cloud and on-premise deployments?
 
-A: Yes, CrewAI Enterprise supports both cloud-based and on-premise deployment options, allowing enterprises to meet their specific security and compliance requirements.
+A: Yes, CrewAI AMP supports both cloud-based and on-premise deployment options, allowing enterprises to meet their specific security and compliance requirements.
 
-### Q: Can I try CrewAI Enterprise for free?
+### Q: Can I try CrewAI AMP for free?
 
-A: Yes, you can explore part of the CrewAI Enterprise Suite by accessing the [Crew Control Plane](https://app.crewai.com) for free.
+A: Yes, you can explore part of the CrewAI AMP Suite by accessing the [Crew Control Plane](https://app.crewai.com) for free.
 
 ### Q: Does CrewAI support fine-tuning or training custom models?
 
@@ -818,7 +837,7 @@ A: CrewAI is highly scalable, supporting simple automations and large-scale ente
 
 ### Q: Does CrewAI offer debugging and monitoring tools?
 
-A: Yes, CrewAI Enterprise includes advanced debugging, tracing, and real-time observability features, simplifying the management and troubleshooting of your automations.
+A: Yes, CrewAI AMP includes advanced debugging, tracing, and real-time observability features, simplifying the management and troubleshooting of your automations.
 
 ### Q: What programming languages does CrewAI support?
 

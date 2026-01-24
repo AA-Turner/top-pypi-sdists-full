@@ -10,6 +10,7 @@ import gentle_compare
 
 import os
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -70,7 +71,7 @@ def test_pilsave():
         pix2 = pymupdf.Pixmap(stream)
         assert repr(pix1) == repr(pix2)
     except ModuleNotFoundError:
-        assert platform.system() == 'Windows' and sys.maxsize == 2**31 - 1
+        assert platform.system() in ('Windows', 'Emscripten') and sys.maxsize == 2**31 - 1
 
 
 def test_save(tmpdir):
@@ -200,7 +201,7 @@ def test_3050():
         else:
             assert rms == 0
         wt = pymupdf.TOOLS.mupdf_warnings()
-        if pymupdf.mupdf_version_tuple >= (1, 26, 0):
+        if (1, 26, 0) <= pymupdf.mupdf_version_tuple < (1, 27):
             assert wt == 'bogus font ascent/descent values (0 / 0)\nPDF stream Length incorrect'
         else:
             assert wt == 'PDF stream Length incorrect'
@@ -521,10 +522,24 @@ def test_4435():
     with pymupdf.open(path) as document:
         page = document[2]
         print(f'Calling page.get_pixmap().', flush=1)
-        pixmap = page.get_pixmap(alpha=False, dpi=120)
+        if pymupdf.mupdf_version_tuple >= (1, 27) and os.environ.get('PYODIDE_ROOT'):
+            # 2025-11-07: Expect alloc failure.
+            try:
+                pixmap = page.get_pixmap(alpha=False, dpi=120)
+            except Exception as e:
+                print(f'Received exception: {type(e)=}: {e}')
+                assert isinstance(e, pymupdf.mupdf.FzErrorSystem), f'Unrecognised {type(e)=}'
+                m = re.match('code=2: malloc [(][0-9]+ bytes[)] failed', str(e))
+                assert m, f'Unrecognised exception text: {e}'
+                return
+            else:
+                # Hopefully this means that mupdf has been fixed.
+                assert 0, 'Expected alloc failure on pyodide'
+        else:
+            pixmap = page.get_pixmap(alpha=False, dpi=120)
         print(f'Called page.get_pixmap().', flush=1)
-    wt = pymupdf.TOOLS.mupdf_warnings()
-    assert wt == 'bogus font ascent/descent values (0 / 0)\n... repeated 9 times...'
+    if pymupdf.mupdf_version_tuple < (1, 27):
+        assert pymupdf.TOOLS.mupdf_warnings() == 'bogus font ascent/descent values (0 / 0)\n... repeated 9 times...'
 
 
 def test_4423():
@@ -556,6 +571,9 @@ def test_4423():
 
 
 def test_4445():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_4445(): not running on Pyodide - cannot run child processes.')
+        return
     print()
     # Test case is large so we download it instead of having it in PyMuPDF
     # git. We put it in `cache/` directory do it is not removed by `git clean`
@@ -628,3 +646,22 @@ def test_4388():
         assert rms == 0
     else:
         assert rms >= 10
+
+
+def test_4699():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4699.pdf')
+    path_png_expected = os.path.normpath(f'{__file__}/../../tests/resources/test_4699.png')
+    path_png_actual = os.path.normpath(f'{__file__}/../../tests/test_4699.png')
+    with pymupdf.open(path) as document:
+        page = document[0]
+        pixmap = page.get_pixmap()
+        pixmap.save(path_png_actual)
+    print(f'Have saved to {path_png_actual=}.')
+    rms = gentle_compare.pixmaps_rms(path_png_expected, pixmap)
+    print(f'test_4699(): {rms=}')
+    if pymupdf.mupdf_version_tuple >= (1, 26, 11):
+        assert rms == 0
+    else:
+        wt = pymupdf.TOOLS.mupdf_warnings()
+        assert 'syntax error: cannot find ExtGState resource' in wt
+        assert rms > 20

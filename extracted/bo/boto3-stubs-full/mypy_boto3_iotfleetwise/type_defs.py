@@ -3,7 +3,7 @@ Type annotations for iotfleetwise service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotfleetwise/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -52,12 +53,6 @@ from .literals import (
     VehicleStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -295,7 +290,7 @@ ActuatorOutputTypeDef = TypedDict(
         "dataType": NodeDataTypeType,
         "description": NotRequired[str],
         "unit": NotRequired[str],
-        "allowedValues": NotRequired[List[str]],
+        "allowedValues": NotRequired[list[str]],
         "min": NotRequired[float],
         "max": NotRequired[float],
         "assignedValue": NotRequired[str],
@@ -334,7 +329,7 @@ AttributeOutputTypeDef = TypedDict(
         "dataType": NodeDataTypeType,
         "description": NotRequired[str],
         "unit": NotRequired[str],
-        "allowedValues": NotRequired[List[str]],
+        "allowedValues": NotRequired[list[str]],
         "min": NotRequired[float],
         "max": NotRequired[float],
         "assignedValue": NotRequired[str],
@@ -376,7 +371,7 @@ class CreateVehicleResponseItemTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -790,7 +785,7 @@ class VehicleSummaryTypeDef(TypedDict):
     decoderManifestArn: str
     creationTime: datetime
     lastModificationTime: datetime
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
 
 
 class ObdInterfaceTypeDef(TypedDict):
@@ -815,7 +810,7 @@ SensorOutputTypeDef = TypedDict(
         "dataType": NodeDataTypeType,
         "description": NotRequired[str],
         "unit": NotRequired[str],
-        "allowedValues": NotRequired[List[str]],
+        "allowedValues": NotRequired[list[str]],
         "min": NotRequired[float],
         "max": NotRequired[float],
         "deprecationMessage": NotRequired[str],
@@ -884,12 +879,12 @@ class TimeBasedSignalFetchConfigTypeDef(TypedDict):
 
 class StructuredMessageFieldNameAndDataTypePairOutputTypeDef(TypedDict):
     fieldName: str
-    dataType: Dict[str, Any]
+    dataType: dict[str, Any]
 
 
 class StructuredMessageFieldNameAndDataTypePairPaginatorTypeDef(TypedDict):
     fieldName: str
-    dataType: Dict[str, Any]
+    dataType: dict[str, Any]
 
 
 class StructuredMessageFieldNameAndDataTypePairTypeDef(TypedDict):
@@ -899,14 +894,14 @@ class StructuredMessageFieldNameAndDataTypePairTypeDef(TypedDict):
 
 class StructuredMessageListDefinitionOutputTypeDef(TypedDict):
     name: str
-    memberType: Dict[str, Any]
+    memberType: dict[str, Any]
     listType: StructuredMessageListTypeType
     capacity: NotRequired[int]
 
 
 class StructuredMessageListDefinitionPaginatorTypeDef(TypedDict):
     name: str
-    memberType: Dict[str, Any]
+    memberType: dict[str, Any]
     listType: StructuredMessageListTypeType
     capacity: NotRequired[int]
 
@@ -957,8 +952,8 @@ AttributeUnionTypeDef = Union[AttributeTypeDef, AttributeOutputTypeDef]
 
 
 class BatchCreateVehicleResponseTypeDef(TypedDict):
-    vehicles: List[CreateVehicleResponseItemTypeDef]
-    errors: List[CreateVehicleErrorTypeDef]
+    vehicles: list[CreateVehicleResponseItemTypeDef]
+    errors: list[CreateVehicleErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1119,9 +1114,9 @@ GetStateTemplateResponseTypeDef = TypedDict(
         "arn": str,
         "description": str,
         "signalCatalogArn": str,
-        "stateTemplateProperties": List[str],
-        "dataExtraDimensions": List[str],
-        "metadataExtraDimensions": List[str],
+        "stateTemplateProperties": list[str],
+        "dataExtraDimensions": list[str],
+        "metadataExtraDimensions": list[str],
         "creationTime": datetime,
         "lastModificationTime": datetime,
         "id": str,
@@ -1143,13 +1138,13 @@ class ImportSignalCatalogResponseTypeDef(TypedDict):
 
 
 class ListFleetsForVehicleResponseTypeDef(TypedDict):
-    fleets: List[str]
+    fleets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVehiclesInFleetResponseTypeDef(TypedDict):
-    vehicles: List[str]
+    vehicles: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1214,8 +1209,8 @@ class UpdateVehicleResponseTypeDef(TypedDict):
 
 
 class BatchUpdateVehicleResponseTypeDef(TypedDict):
-    vehicles: List[UpdateVehicleResponseItemTypeDef]
-    errors: List[UpdateVehicleErrorTypeDef]
+    vehicles: list[UpdateVehicleResponseItemTypeDef]
+    errors: list[UpdateVehicleErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1226,7 +1221,7 @@ class CanDbcDefinitionTypeDef(TypedDict):
 
 
 class ListCampaignsResponseTypeDef(TypedDict):
-    campaignSummaries: List[CampaignSummaryTypeDef]
+    campaignSummaries: list[CampaignSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1271,7 +1266,7 @@ class CreateStateTemplateRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1293,13 +1288,13 @@ class DataPartitionStorageOptionsTypeDef(TypedDict):
 
 
 class ListDecoderManifestsResponseTypeDef(TypedDict):
-    summaries: List[DecoderManifestSummaryTypeDef]
+    summaries: list[DecoderManifestSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListFleetsResponseTypeDef(TypedDict):
-    fleetSummaries: List[FleetSummaryTypeDef]
+    fleetSummaries: list[FleetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1408,31 +1403,31 @@ class ListVehiclesRequestPaginateTypeDef(TypedDict):
 
 
 class GetVehicleStatusResponseTypeDef(TypedDict):
-    campaigns: List[VehicleStatusTypeDef]
+    campaigns: list[VehicleStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListModelManifestsResponseTypeDef(TypedDict):
-    summaries: List[ModelManifestSummaryTypeDef]
+    summaries: list[ModelManifestSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSignalCatalogsResponseTypeDef(TypedDict):
-    summaries: List[SignalCatalogSummaryTypeDef]
+    summaries: list[SignalCatalogSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStateTemplatesResponseTypeDef(TypedDict):
-    summaries: List[StateTemplateSummaryTypeDef]
+    summaries: list[StateTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVehiclesResponseTypeDef(TypedDict):
-    vehicleSummaries: List[VehicleSummaryTypeDef]
+    vehicleSummaries: list[VehicleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1515,26 +1510,26 @@ DataPartitionTypeDef = TypedDict(
 
 
 class ListDecoderManifestNetworkInterfacesResponseTypeDef(TypedDict):
-    networkInterfaces: List[NetworkInterfaceTypeDef]
+    networkInterfaces: list[NetworkInterfaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListModelManifestNodesResponseTypeDef(TypedDict):
-    nodes: List[NodeOutputTypeDef]
+    nodes: list[NodeOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSignalCatalogNodesResponseTypeDef(TypedDict):
-    nodes: List[NodeOutputTypeDef]
+    nodes: list[NodeOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class StateTemplateUpdateStrategyOutputTypeDef(TypedDict):
     periodic: NotRequired[PeriodicStateTemplateUpdateStrategyTypeDef]
-    onChange: NotRequired[Dict[str, Any]]
+    onChange: NotRequired[dict[str, Any]]
 
 
 class StateTemplateUpdateStrategyTypeDef(TypedDict):
@@ -1546,7 +1541,7 @@ class StructuredMessageOutputTypeDef(TypedDict):
     primitiveMessageDefinition: NotRequired[PrimitiveMessageDefinitionTypeDef]
     structuredMessageListDefinition: NotRequired[StructuredMessageListDefinitionOutputTypeDef]
     structuredMessageDefinition: NotRequired[
-        List[StructuredMessageFieldNameAndDataTypePairOutputTypeDef]
+        list[StructuredMessageFieldNameAndDataTypePairOutputTypeDef]
     ]
 
 
@@ -1554,7 +1549,7 @@ class StructuredMessagePaginatorTypeDef(TypedDict):
     primitiveMessageDefinition: NotRequired[PrimitiveMessageDefinitionTypeDef]
     structuredMessageListDefinition: NotRequired[StructuredMessageListDefinitionPaginatorTypeDef]
     structuredMessageDefinition: NotRequired[
-        List[StructuredMessageFieldNameAndDataTypePairPaginatorTypeDef]
+        list[StructuredMessageFieldNameAndDataTypePairPaginatorTypeDef]
     ]
 
 
@@ -1574,7 +1569,7 @@ NodeTypeDef = TypedDict(
 class SignalFetchInformationOutputTypeDef(TypedDict):
     fullyQualifiedName: str
     signalFetchConfig: SignalFetchConfigTypeDef
-    actions: List[str]
+    actions: list[str]
     conditionLanguageVersion: NotRequired[int]
 
 
@@ -1635,14 +1630,14 @@ class GetCampaignResponseTypeDef(TypedDict):
     spoolingMode: SpoolingModeType
     compression: CompressionType
     priority: int
-    signalsToCollect: List[SignalInformationTypeDef]
+    signalsToCollect: list[SignalInformationTypeDef]
     collectionScheme: CollectionSchemeTypeDef
-    dataExtraDimensions: List[str]
+    dataExtraDimensions: list[str]
     creationTime: datetime
     lastModificationTime: datetime
-    dataDestinationConfigs: List[DataDestinationConfigTypeDef]
-    dataPartitions: List[DataPartitionTypeDef]
-    signalsToFetch: List[SignalFetchInformationOutputTypeDef]
+    dataDestinationConfigs: list[DataDestinationConfigTypeDef]
+    dataPartitions: list[DataPartitionTypeDef]
+    signalsToFetch: list[SignalFetchInformationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1657,8 +1652,8 @@ class GetVehicleResponseTypeDef(TypedDict):
     arn: str
     modelManifestArn: str
     decoderManifestArn: str
-    attributes: Dict[str, str]
-    stateTemplates: List[StateTemplateAssociationOutputTypeDef]
+    attributes: dict[str, str]
+    stateTemplates: list[StateTemplateAssociationOutputTypeDef]
     creationTime: datetime
     lastModificationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1742,13 +1737,13 @@ StateTemplateAssociationUnionTypeDef = Union[
 
 
 class ListDecoderManifestSignalsResponseTypeDef(TypedDict):
-    signalDecoders: List[SignalDecoderOutputTypeDef]
+    signalDecoders: list[SignalDecoderOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDecoderManifestSignalsResponsePaginatorTypeDef(TypedDict):
-    signalDecoders: List[SignalDecoderPaginatorTypeDef]
+    signalDecoders: list[SignalDecoderPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

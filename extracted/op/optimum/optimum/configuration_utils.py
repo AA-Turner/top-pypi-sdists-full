@@ -18,14 +18,13 @@ import copy
 import json
 import os
 import re
-import warnings
 from typing import Any, Dict, List, Tuple, Union
 
 from packaging import version
 from transformers import PretrainedConfig
 from transformers import __version__ as transformers_version_str
 from transformers.dynamic_module_utils import custom_object_save
-from transformers.utils import cached_file, download_url, extract_commit_hash, is_remote_url
+from transformers.utils import cached_file, extract_commit_hash
 
 from .utils import logging
 from .version import __version__
@@ -73,19 +72,7 @@ class BaseConfig(PretrainedConfig):
 
             repo_id = kwargs.pop("repo_id", save_directory.split(os.path.sep)[-1])
             repo_id = self._create_repo(repo_id, **kwargs)
-
-            use_auth_token = kwargs.get("use_auth_token", None)
             token = kwargs.get("token", None)
-
-            if use_auth_token is not None:
-                warnings.warn(
-                    "The `use_auth_token` argument is deprecated and will be removed soon. Please use the `token` argument instead.",
-                    FutureWarning,
-                )
-                if token is not None:
-                    raise ValueError("You cannot use both `use_auth_token` and `token` arguments at the same time.")
-                kwargs["token"] = use_auth_token
-                token = use_auth_token
 
             files_timestamps = self._get_files_timestamps(save_directory)
 
@@ -179,7 +166,6 @@ class BaseConfig(PretrainedConfig):
         force_download = kwargs.pop("force_download", False)
         resume_download = kwargs.pop("resume_download", False)
         proxies = kwargs.pop("proxies", None)
-        use_auth_token = kwargs.pop("use_auth_token", None)
         token = kwargs.pop("token", None)
         local_files_only = kwargs.pop("local_files_only", False)
         revision = kwargs.pop("revision", None)
@@ -188,15 +174,6 @@ class BaseConfig(PretrainedConfig):
         from_pipeline = kwargs.pop("_from_pipeline", None)
         from_auto_class = kwargs.pop("_from_auto", False)
         commit_hash = kwargs.pop("_commit_hash", None)
-
-        if use_auth_token is not None:
-            warnings.warn(
-                "The `use_auth_token` argument is deprecated and will be removed soon. Please use the `token` argument instead.",
-                FutureWarning,
-            )
-            if token is not None:
-                raise ValueError("You cannot use both `use_auth_token` and `token` arguments at the same time.")
-            token = use_auth_token
 
         if trust_remote_code is True:
             logger.warning(
@@ -215,10 +192,6 @@ class BaseConfig(PretrainedConfig):
             # Special case when pretrained_model_name_or_path is a local file
             resolved_config_file = pretrained_model_name_or_path
             is_local = True
-        # TODO: remove condition once transformers release version is way above 4.22.
-        elif is_remote_url(pretrained_model_name_or_path):
-            configuration_file = pretrained_model_name_or_path
-            resolved_config_file = download_url(pretrained_model_name_or_path)
         else:
             configuration_file = kwargs.pop("_configuration_file", cls.CONFIG_NAME)
 
@@ -342,6 +315,7 @@ class BaseConfig(PretrainedConfig):
         output["transformers_version"] = transformers_version_str
         output["optimum_version"] = __version__
 
-        self.dict_torch_dtype_to_str(output)
+        if hasattr(self, "dict_torch_dtype_to_str"):
+            self.dict_torch_dtype_to_str(output)
 
         return output

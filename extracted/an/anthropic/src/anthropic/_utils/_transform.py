@@ -218,7 +218,7 @@ def _transform_recursive(
         return data
 
     if isinstance(data, pydantic.BaseModel):
-        return model_dump(data, exclude_unset=True, mode="json")
+        return model_dump(data, exclude_unset=True, mode="json", exclude=getattr(data, "__api_exclude__", None))
 
     annotated_type = _get_annotated_type(annotation)
     if annotated_type is None:
@@ -268,7 +268,7 @@ def _transform_typeddict(
     annotations = get_type_hints(expected_type, include_extras=True)
     for key, value in data.items():
         if not is_given(value):
-            # we don't need to include `NotGiven` values here as they'll
+            # we don't need to include omitted values here as they'll
             # be stripped out before the request is sent anyway
             continue
 
@@ -434,7 +434,7 @@ async def _async_transform_typeddict(
     annotations = get_type_hints(expected_type, include_extras=True)
     for key, value in data.items():
         if not is_given(value):
-            # we don't need to include `NotGiven` values here as they'll
+            # we don't need to include omitted values here as they'll
             # be stripped out before the request is sent anyway
             continue
 

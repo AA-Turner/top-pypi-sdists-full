@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql import DATERANGE
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.dialects.postgresql import INT4RANGE
 from sqlalchemy.dialects.postgresql import INT8MULTIRANGE
@@ -50,6 +51,8 @@ class Test(Base):
     ident: Mapped[_py_uuid] = mapped_column(UUID())
 
     ident_str: Mapped[str] = mapped_column(UUID(as_uuid=False))
+
+    __table_args__ = (ExcludeConstraint((Column("ident_str"), "=")),)
 
 
 elem = func.jsonb_array_elements(Test.data, type_=JSONB).column_valued("elem")
@@ -116,7 +119,7 @@ array_of_ints = array([0], type_=Integer)
 # EXPECTED_TYPE: array[int]
 reveal_type(array_of_ints)
 
-# EXPECTED_MYPY: Cannot infer type argument 1 of "array"
+# EXPECTED_MYPY_RE: Cannot infer .* of "array"
 array([0], type_=Text)
 
 # EXPECTED_TYPE: ARRAY[str]

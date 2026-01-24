@@ -10,17 +10,17 @@ name = "attrs"
 authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 description = "Classes Without Boilerplate"
 keywords = ["class", "attribute", "boilerplate"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed",
@@ -28,29 +28,36 @@ classifiers = [
 dependencies = []
 dynamic = ["version", "readme"]
 
-[project.optional-dependencies]
-tests-mypy = [
+[project.urls]
+Documentation = "https://www.attrs.org/"
+Changelog = "https://www.attrs.org/en/stable/changelog.html"
+GitHub = "https://github.com/python-attrs/attrs"
+Funding = "https://github.com/sponsors/hynek"
+Tidelift = "https://tidelift.com/subscription/pkg/pypi-attrs?utm_source=pypi-attrs&utm_medium=pypi"
+
+
+[dependency-groups]
+mypy = [
+  { include-group = "tests" },
   'pytest-mypy-plugins; platform_python_implementation == "CPython" and python_version >= "3.10"',
-  # Since the mypy error messages keep changing, we have to keep updating this
-  # pin.
-  'mypy>=1.11.1; platform_python_implementation == "CPython" and python_version >= "3.10"',
 ]
 tests = [
   # For regression test to ensure cloudpickle compat doesn't break.
   'cloudpickle; platform_python_implementation == "CPython"',
   "hypothesis",
   "pympler",
-  # 4.3.0 dropped last use of `convert`
-  "pytest>=4.3.0",
+  "pytest",
   "pytest-xdist[psutil]",
-  "attrs[tests-mypy]",
 ]
-cov = [
-  "attrs[tests]",
-  # Ensure coverage is new enough for `source_pkgs`.
-  "coverage[toml]>=5.3",
+cov = [{ include-group = "tests" }, "coverage[toml]"]
+pyright = ["pyright", { include-group = "tests" }]
+ty = ["ty", { include-group = "tests" }]
+pyrefly = ["pyrefly", { include-group = "tests" }]
+benchmark = [
+  { include-group = "tests" },
+  "pytest-codspeed",
+  "pytest-xdist[psutil]",
 ]
-benchmark = ["pytest-codspeed", "pytest-xdist[psutil]", "attrs[tests]"]
 docs = [
   "cogapp",
   "furo",
@@ -60,14 +67,8 @@ docs = [
   "sphinxcontrib-towncrier",
   "towncrier",
 ]
-dev = ["attrs[tests]", "pre-commit-uv"]
-
-[project.urls]
-Documentation = "https://www.attrs.org/"
-Changelog = "https://www.attrs.org/en/stable/changelog.html"
-GitHub = "https://github.com/python-attrs/attrs"
-Funding = "https://github.com/sponsors/hynek"
-Tidelift = "https://tidelift.com/subscription/pkg/pypi-attrs?utm_source=pypi-attrs&utm_medium=pypi"
+docs-watch = [{ include-group = "docs" }, "watchfiles"]
+dev = [{ include-group = "tests" }, "ruff"]
 
 
 [tool.hatch.version]
@@ -128,19 +129,9 @@ url = "https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=
 img = "Tidelift.svg"
 
 [[tool.sponcon.sponsors]]
-title = "Klaviyo"
-url = "https://klaviyo.com/"
-img = "Klaviyo.svg"
-
-[[tool.sponcon.sponsors]]
 title = "Privacy Solutions"
 url = "https://privacy-solutions.org/"
 img = "Privacy-Solutions.svg"
-
-[[tool.sponcon.sponsors]]
-title = "emsys renewables"
-url = "https://www.emsys-renewables.com/"
-img = "emsys-renewables.svg"
 
 [[tool.sponcon.sponsors]]
 title = "FilePreviews"
@@ -154,7 +145,12 @@ img = "Polar.svg"
 
 
 [tool.pytest.ini_options]
-addopts = ["-ra", "--strict-markers", "--strict-config"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--import-mode=importlib", # make src truly unimportable
+]
 xfail_strict = true
 testpaths = "tests"
 filterwarnings = ["once::Warning", "ignore:::pympler[.*]"]
@@ -163,6 +159,7 @@ filterwarnings = ["once::Warning", "ignore:::pympler[.*]"]
 [tool.coverage.run]
 parallel = true
 branch = true
+patch = ["subprocess"]
 source_pkgs = ["attr", "attrs"]
 
 [tool.coverage.paths]
@@ -196,6 +193,10 @@ toplevel = ["attr", "attrs"]
 src = ["src", "tests", "conftest.py", "docs"]
 line-length = 79
 
+[tool.ruff.per-file-target-version]
+"tests/test_pattern_matching.py" = "py310"
+"tests/test_forward_references.py" = "py314"
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
@@ -214,6 +215,7 @@ ignore = [
   "ISC001",  # conflicts with ruff format
   "N",       # we need more naming freedom
   "PD",      # we're not pandas
+  "PLC0415", # sometimes, imports have to live elsewhere
   "PLR0912", # we're complex software
   "PLR0913", # yes, many arguments, but most have defaults
   "PLR0915", # we're complex software
@@ -225,6 +227,8 @@ ignore = [
   "TD",      # we don't follow other people's todo style
   "TRY301",  # I'm sorry, but this makes not sense for us.
   "UP031",   # format() is slow as molasses; % and f'' FTW.
+  "UP006",   # replace Dict etc by dict etc later.
+  "UP035",   # replace Dict etc by dict etc later.
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -238,6 +242,7 @@ ignore = [
   "DTZ",     # datetime best practices don't matter in tests
   "EM",      # no need for exception msg hygiene in tests
   "PLE0309", # hash doesn't have to return anything in tests
+  "PLW1641", # it's OK to rely object's __hash__
   "PLR0124", # pointless comparison in tests aren't pointless
   "PT011",   # broad is fine
   "PT012",   # sometimes we need more than a single stmt
@@ -251,7 +256,8 @@ ignore = [
 
 "src/*/*.pyi" = ["ALL"] # TODO
 "tests/test_annotations.py" = ["FA100"]
-"tests/typing_example.py" = [
+"typing-examples/*" = [
+  "INP001", # not for imports
   "E741",   # ambiguous variable names don't matter in type checks
   "B018",   # useless expressions aren't useless in type checks
   "B015",   # pointless comparison in type checks aren't pointless
@@ -296,3 +302,7 @@ showcontent = true
 pretty = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+
+
+[tool.pyright]
+include = ["typing-examples/baseline.py"]

@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -9,7 +15,6 @@ import pytest
 
 from tests.utils import assert_matches_type
 from llama_stack_client import LlamaStackClient, AsyncLlamaStackClient
-from llama_stack_client.pagination import SyncOpenAICursorPage, AsyncOpenAICursorPage
 from llama_stack_client.types.chat import (
     CompletionListResponse,
     CompletionCreateResponse,
@@ -41,14 +46,14 @@ class TestCompletions:
             messages=[
                 {
                     "content": "string",
-                    "role": "user",
                     "name": "name",
+                    "role": "user",
                 }
             ],
             model="model",
             frequency_penalty=0,
             function_call="string",
-            functions=[{"foo": True}],
+            functions=[{"foo": "bar"}],
             logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
@@ -60,10 +65,10 @@ class TestCompletions:
             seed=0,
             stop="string",
             stream=False,
-            stream_options={"foo": True},
+            stream_options={"foo": "bar"},
             temperature=0,
             tool_choice="string",
-            tools=[{"foo": True}],
+            tools=[{"foo": "bar"}],
             top_logprobs=0,
             top_p=0,
             user="user",
@@ -126,15 +131,15 @@ class TestCompletions:
             messages=[
                 {
                     "content": "string",
-                    "role": "user",
                     "name": "name",
+                    "role": "user",
                 }
             ],
             model="model",
             stream=True,
             frequency_penalty=0,
             function_call="string",
-            functions=[{"foo": True}],
+            functions=[{"foo": "bar"}],
             logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
@@ -145,10 +150,10 @@ class TestCompletions:
             response_format={"type": "text"},
             seed=0,
             stop="string",
-            stream_options={"foo": True},
+            stream_options={"foo": "bar"},
             temperature=0,
             tool_choice="string",
-            tools=[{"foo": True}],
+            tools=[{"foo": "bar"}],
             top_logprobs=0,
             top_p=0,
             user="user",
@@ -233,7 +238,7 @@ class TestCompletions:
     @parametrize
     def test_method_list(self, client: LlamaStackClient) -> None:
         completion = client.chat.completions.list()
-        assert_matches_type(SyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     def test_method_list_with_all_params(self, client: LlamaStackClient) -> None:
@@ -243,7 +248,7 @@ class TestCompletions:
             model="model",
             order="asc",
         )
-        assert_matches_type(SyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: LlamaStackClient) -> None:
@@ -252,7 +257,7 @@ class TestCompletions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         completion = response.parse()
-        assert_matches_type(SyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: LlamaStackClient) -> None:
@@ -261,7 +266,7 @@ class TestCompletions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             completion = response.parse()
-            assert_matches_type(SyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+            assert_matches_type(CompletionListResponse, completion, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -290,14 +295,14 @@ class TestAsyncCompletions:
             messages=[
                 {
                     "content": "string",
-                    "role": "user",
                     "name": "name",
+                    "role": "user",
                 }
             ],
             model="model",
             frequency_penalty=0,
             function_call="string",
-            functions=[{"foo": True}],
+            functions=[{"foo": "bar"}],
             logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
@@ -309,10 +314,10 @@ class TestAsyncCompletions:
             seed=0,
             stop="string",
             stream=False,
-            stream_options={"foo": True},
+            stream_options={"foo": "bar"},
             temperature=0,
             tool_choice="string",
-            tools=[{"foo": True}],
+            tools=[{"foo": "bar"}],
             top_logprobs=0,
             top_p=0,
             user="user",
@@ -375,15 +380,15 @@ class TestAsyncCompletions:
             messages=[
                 {
                     "content": "string",
-                    "role": "user",
                     "name": "name",
+                    "role": "user",
                 }
             ],
             model="model",
             stream=True,
             frequency_penalty=0,
             function_call="string",
-            functions=[{"foo": True}],
+            functions=[{"foo": "bar"}],
             logit_bias={"foo": 0},
             logprobs=True,
             max_completion_tokens=0,
@@ -394,10 +399,10 @@ class TestAsyncCompletions:
             response_format={"type": "text"},
             seed=0,
             stop="string",
-            stream_options={"foo": True},
+            stream_options={"foo": "bar"},
             temperature=0,
             tool_choice="string",
-            tools=[{"foo": True}],
+            tools=[{"foo": "bar"}],
             top_logprobs=0,
             top_p=0,
             user="user",
@@ -482,7 +487,7 @@ class TestAsyncCompletions:
     @parametrize
     async def test_method_list(self, async_client: AsyncLlamaStackClient) -> None:
         completion = await async_client.chat.completions.list()
-        assert_matches_type(AsyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncLlamaStackClient) -> None:
@@ -492,7 +497,7 @@ class TestAsyncCompletions:
             model="model",
             order="asc",
         )
-        assert_matches_type(AsyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncLlamaStackClient) -> None:
@@ -501,7 +506,7 @@ class TestAsyncCompletions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         completion = await response.parse()
-        assert_matches_type(AsyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+        assert_matches_type(CompletionListResponse, completion, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncLlamaStackClient) -> None:
@@ -510,6 +515,6 @@ class TestAsyncCompletions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             completion = await response.parse()
-            assert_matches_type(AsyncOpenAICursorPage[CompletionListResponse], completion, path=["response"])
+            assert_matches_type(CompletionListResponse, completion, path=["response"])
 
         assert cast(Any, response.is_closed) is True

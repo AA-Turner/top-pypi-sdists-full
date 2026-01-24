@@ -198,6 +198,7 @@ class PluginsDict(TypedDict):
     xep_0359: XEP_0359
     xep_0363: XEP_0363
     xep_0369: XEP_0369
+    xep_0372: XEP_0372
     xep_0377: XEP_0377
     xep_0380: XEP_0380
     xep_0382: XEP_0382

@@ -1,19 +1,24 @@
 """
-    logbook.more
-    ~~~~~~~~~~~~
+logbook.more
+~~~~~~~~~~~~
 
-    Fancy stuff for logbook.
+Fancy stuff for logbook.
 
-    :copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
+:license: BSD, see LICENSE for more details.
 """
 
+import importlib.util
 import os
 import platform
 import re
+import warnings
 from collections import defaultdict
 from functools import partial
+from typing import Any
 from urllib.parse import parse_qsl, urlencode
+
+from typing_extensions import deprecated
 
 from logbook._termcolors import colorize
 from logbook.base import ERROR, NOTICE, NOTSET, RecordDispatcher, dispatch_record
@@ -24,19 +29,42 @@ from logbook.handlers import (
     StringFormatterHandlerMixin,
 )
 from logbook.ticketing import BackendBase
-from logbook.ticketing import TicketingHandler as DatabaseHandler
 
 try:
     import riemann_client.client
     import riemann_client.transport
 except ImportError:
     riemann_client = None
-    # from riemann_client.transport import TCPTransport, UDPTransport, BlankTransport
 
 _ws_re = re.compile(r"(\s+)", re.UNICODE)
 TWITTER_FORMAT_STRING = "[{record.channel}] {record.level_name}: {record.message}"
 TWITTER_ACCESS_TOKEN_URL = "https://twitter.com/oauth/access_token"
 NEW_TWEET_URL = "https://api.twitter.com/1/statuses/update.json"
+
+
+def __getattr__(name: str) -> Any:
+    if name == "FingersCrossedHandler":
+        from logbook.handlers import FingersCrossedHandler
+
+        warnings.warn(
+            "FingersCrossedHandler was moved to logbook.handlers",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return FingersCrossedHandler
+    elif name == "DatabaseHandler":
+        from logbook.ticketing import TicketingHandler
+
+        warnings.warn(
+            "logbook.more.DatabaseHandler is a deprecated alias to "
+            "logbook.ticketing.TicketingHandler",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return TicketingHandler
+    else:
+        msg = f"module '{__name__}' has no attribute '{name}'"
+        raise AttributeError(msg)
 
 
 class CouchDBBackend(BackendBase):
@@ -56,14 +84,17 @@ class CouchDBBackend(BackendBase):
 
         ticket = record.to_dict()
         ticket["time"] = ticket["time"].isoformat() + "Z"
-        ticket_id, _ = db.save(ticket)
+        ticket_id, _ = db.save(ticket)  # noqa: RUF059
 
         db.save(ticket)
 
 
+@deprecated("TwitterFormatter is deprecated")
 class TwitterFormatter(StringFormatter):
     """Works like the standard string formatter and is used by the
     :class:`TwitterHandler` unless changed.
+
+    .. deprecated:: 1.9
     """
 
     max_length = 140
@@ -91,12 +122,12 @@ class TaggingLogger(RecordDispatcher):
     records apart.  It is constructed with a descriptive name and at least
     one tag.  The tags are up for you to define::
 
-        logger = TaggingLogger('My Logger', ['info', 'warning'])
+        logger = TaggingLogger("My Logger", ["info", "warning"])
 
     For each tag defined that way, a method appears on the logger with
     that name::
 
-        logger.info('This is a info message')
+        logger.info("This is a info message")
 
     To dispatch to different handlers based on tags you can use the
     :class:`TaggingHandler`.
@@ -131,17 +162,14 @@ class TaggingHandler(Handler):
         import logbook
         from logbook.more import TaggingHandler
 
-        handler = TaggingHandler(dict(
-            info=OneHandler(),
-            warning=AnotherHandler()
-        ))
+        handler = TaggingHandler(dict(info=OneHandler(), warning=AnotherHandler()))
     """
 
     def __init__(self, handlers, filter=None, bubble=False):
         Handler.__init__(self, NOTSET, filter, bubble)
         assert isinstance(handlers, dict)
         self._handlers = {
-            tag: isinstance(handler, Handler) and [handler] or handler
+            tag: [handler] if isinstance(handler, Handler) else handler
             for (tag, handler) in handlers.items()
         }
 
@@ -151,10 +179,13 @@ class TaggingHandler(Handler):
                 handler.handle(record)
 
 
+@deprecated("TwitterHandler is deprecated")
 class TwitterHandler(Handler, StringFormatterHandlerMixin):
     """A handler that logs to twitter.  Requires that you sign up an
     application on twitter and request xauth support.  Furthermore the
     oauth2 library has to be installed.
+
+    .. deprecated:: 1.9
     """
 
     default_format_string = TWITTER_FORMAT_STRING
@@ -220,7 +251,7 @@ class TwitterHandler(Handler, StringFormatterHandlerMixin):
     def tweet(self, status):
         """Tweets a given status.  Status must not exceed 140 chars."""
         client = self.make_client()
-        resp, content = client.request(
+        resp, content = client.request(  # noqa: RUF059
             NEW_TWEET_URL,
             "POST",
             body=urlencode({"status": status.encode("utf-8")}),
@@ -289,7 +320,8 @@ class ExternalApplicationHandler(Handler):
     For example it can be used to invoke the ``say`` command on OS X::
 
         from logbook.more import ExternalApplicationHandler
-        say_handler = ExternalApplicationHandler(['say', '{record.message}'])
+
+        say_handler = ExternalApplicationHandler(["say", "{record.message}"])
 
     Note that the above example is blocking until ``say`` finished, so it's
     recommended to combine this handler with the
@@ -358,9 +390,7 @@ class ColorizingStreamHandlerMixin:
         installed.
         """
         if os.name == "nt":
-            try:
-                import colorama
-            except ImportError:
+            if importlib.util.find_spec("colorama") is None:
                 return False
         if self._use_color is not None:
             return self._use_color
@@ -408,23 +438,6 @@ class ColorizedStderrHandler(ColorizingStreamHandlerMixin, StderrHandler):
             colorama.init()
 
 
-# backwards compat.  Should go away in some future releases
-from logbook.handlers import FingersCrossedHandler as FingersCrossedHandlerBase
-
-
-class FingersCrossedHandler(FingersCrossedHandlerBase):
-    def __init__(self, *args, **kwargs):
-        FingersCrossedHandlerBase.__init__(self, *args, **kwargs)
-        from warnings import warn
-
-        warn(
-            PendingDeprecationWarning(
-                "fingers crossed handler changed "
-                "location.  It's now a core component of Logbook."
-            )
-        )
-
-
 class ExceptionHandler(Handler, StringFormatterHandlerMixin):
     """An exception handler which raises exceptions of the given `exc_type`.
     This is especially useful if you set a specific error `level` e.g. to treat
@@ -432,10 +445,12 @@ class ExceptionHandler(Handler, StringFormatterHandlerMixin):
 
         from logbook.more import ExceptionHandler
 
+
         class ApplicationWarning(Exception):
             pass
 
-        exc_handler = ExceptionHandler(ApplicationWarning, level='WARNING')
+
+        exc_handler = ExceptionHandler(ApplicationWarning, level="WARNING")
 
     .. versionadded:: 0.3
     """
@@ -461,11 +476,13 @@ class DedupHandler(Handler):
     Example:::
 
         with logbook.more.DedupHandler():
-            logbook.error('foo')
-            logbook.error('bar')
-            logbook.error('foo')
+            logbook.error("foo")
+            logbook.error("bar")
+            logbook.error("foo")
 
-    The expected output:::
+    The expected output:
+
+    .. code-block:: text
 
        message repeated 2 times: foo
        message repeated 1 times: bar
@@ -474,7 +491,7 @@ class DedupHandler(Handler):
     def __init__(
         self, format_string="message repeated {count} times: {message}", *args, **kwargs
     ):
-        Handler.__init__(self, bubble=False, *args, **kwargs)
+        Handler.__init__(self, *args, bubble=False, **kwargs)
         self._format_string = format_string
         self.clear()
 

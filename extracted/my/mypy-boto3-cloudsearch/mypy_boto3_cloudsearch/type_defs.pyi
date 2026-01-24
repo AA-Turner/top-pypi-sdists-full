@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -29,12 +30,6 @@ from .literals import (
     TLSSecurityPolicyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -146,7 +141,7 @@ class BuildSuggestersRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -343,15 +338,15 @@ class AnalysisSchemeTypeDef(TypedDict):
     AnalysisOptions: NotRequired[AnalysisOptionsTypeDef]
 
 class BuildSuggestersResponseTypeDef(TypedDict):
-    FieldNames: List[str]
+    FieldNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IndexDocumentsResponseTypeDef(TypedDict):
-    FieldNames: List[str]
+    FieldNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainNamesResponseTypeDef(TypedDict):
-    DomainNames: Dict[str, str]
+    DomainNames: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DefineExpressionRequestTypeDef(TypedDict):
@@ -445,7 +440,7 @@ class DeleteExpressionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeExpressionsResponseTypeDef(TypedDict):
-    Expressions: List[ExpressionStatusTypeDef]
+    Expressions: list[ExpressionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DefineSuggesterRequestTypeDef(TypedDict):
@@ -473,7 +468,7 @@ class DeleteDomainResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDomainsResponseTypeDef(TypedDict):
-    DomainStatusList: List[DomainStatusTypeDef]
+    DomainStatusList: list[DomainStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DefineIndexFieldRequestTypeDef(TypedDict):
@@ -501,7 +496,7 @@ class DeleteAnalysisSchemeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAnalysisSchemesResponseTypeDef(TypedDict):
-    AnalysisSchemes: List[AnalysisSchemeStatusTypeDef]
+    AnalysisSchemes: list[AnalysisSchemeStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DefineSuggesterResponseTypeDef(TypedDict):
@@ -513,7 +508,7 @@ class DeleteSuggesterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeSuggestersResponseTypeDef(TypedDict):
-    Suggesters: List[SuggesterStatusTypeDef]
+    Suggesters: list[SuggesterStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DefineIndexFieldResponseTypeDef(TypedDict):
@@ -525,5 +520,5 @@ class DeleteIndexFieldResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeIndexFieldsResponseTypeDef(TypedDict):
-    IndexFields: List[IndexFieldStatusTypeDef]
+    IndexFields: list[IndexFieldStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

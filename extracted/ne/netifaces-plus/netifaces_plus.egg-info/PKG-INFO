@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: netifaces-plus
-Version: 0.12.4
+Version: 0.12.5
 Summary: Portable network interface information (Supports Python 3.6 and higher)
 Home-page: https://github.com/tsukumijima/netifaces-plus
 License: MIT License
@@ -17,12 +17,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
-netifaces-plus 0.12.4
+netifaces-plus 0.12.5
 =====================
 
 | This library is a fork of `al45tair/netifaces <https://github.com/al45tair/netifaces>`_.

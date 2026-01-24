@@ -1,14 +1,14 @@
 from __future__ import annotations
-from typing import overload, TypeVar, Any
+from typing import overload, Any
 from ._rfc7515.model import (
     JWSAlgModel,
-    HeaderMember as HeaderMember,
-    CompactSignature as CompactSignature,
-    GeneralJSONSignature as GeneralJSONSignature,
-    FlattenedJSONSignature as FlattenedJSONSignature,
+    HeaderMember,
+    CompactSignature,
+    GeneralJSONSignature,
+    FlattenedJSONSignature,
 )
 from ._rfc7515.registry import (
-    JWSRegistry as JWSRegistry,
+    JWSRegistry,
     construct_registry,
     default_registry,
 )
@@ -26,9 +26,9 @@ from ._rfc7515.json import (
     detach_json_content,
 )
 from ._rfc7515.types import (
-    HeaderDict as HeaderDict,
-    GeneralJSONSerialization as GeneralJSONSerialization,
-    FlattenedJSONSerialization as FlattenedJSONSerialization,
+    HeaderDict,
+    GeneralJSONSerialization,
+    FlattenedJSONSerialization,
 )
 from ._rfc7797.util import is_rfc7797_enabled
 from ._rfc7797.compact import (
@@ -178,7 +178,8 @@ def deserialize_compact(
     :param algorithms: a list of allowed algorithms
     :param registry: a JWSRegistry to use
     :param payload: optional payload, required with detached content
-    :return: object of the ``CompactSignature``
+    :raises BadSignatureError: when signature verification fails
+    :return: object of the CompactSignature
     """
     obj = extract_compact(to_bytes(value), payload, registry)
     if not validate_compact(obj, public_key, algorithms, registry):
@@ -286,8 +287,8 @@ def deserialize_json(
     :param public_key: a flexible public key to verify the signature
     :param algorithms: a list of allowed algorithms
     :param registry: a JWSRegistry to use
-    :return: object of the SignatureData
-    :raise: ValueError or BadSignatureError
+    :return: object of GeneralJSONSignature or FlattenedJSONSignature
+    :raises BadSignatureError: when signature verification fails
     """
     if registry is None:
         registry = construct_registry(algorithms)
@@ -307,10 +308,19 @@ def deserialize_json(
         return flattened_obj
 
 
-DetachValue = TypeVar("DetachValue", str, dict[str, Any])
+@overload
+def detach_content(value: str) -> str: ...
 
 
-def detach_content(value: DetachValue) -> DetachValue:
+@overload
+def detach_content(value: GeneralJSONSerialization) -> dict[str, Any]: ...
+
+
+@overload
+def detach_content(value: FlattenedJSONSerialization) -> dict[str, Any]: ...
+
+
+def detach_content(value: Any) -> Any:
     """In some contexts, it is useful to integrity-protect content that is
     not itself contained in a JWS. This method is an implementation of
     https://www.rfc-editor.org/rfc/rfc7515#appendix-F

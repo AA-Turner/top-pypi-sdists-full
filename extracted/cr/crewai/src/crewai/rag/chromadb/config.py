@@ -1,9 +1,9 @@
 """ChromaDB configuration model."""
 
-import os
-import warnings
 from dataclasses import field
+import os
 from typing import Literal, cast
+import warnings
 
 from chromadb.config import Settings
 from pydantic.dataclasses import dataclass as pyd_dataclass
@@ -15,6 +15,7 @@ from crewai.rag.chromadb.constants import (
 )
 from crewai.rag.chromadb.types import ChromaEmbeddingFunctionWrapper
 from crewai.rag.config.base import BaseRagConfig
+
 
 warnings.filterwarnings(
     "ignore",
@@ -58,6 +59,7 @@ def _default_embedding_function() -> ChromaEmbeddingFunctionWrapper:
         OpenAIEmbeddingFunction(
             api_key=os.getenv("OPENAI_API_KEY"),
             model_name="text-embedding-3-small",
+            api_key_env_var="OPENAI_API_KEY",
         ),
     )
 

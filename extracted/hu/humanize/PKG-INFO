@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: humanize
-Version: 4.13.0
+Version: 4.15.0
 Summary: Python humanize utilities
 Project-URL: Documentation, https://humanize.readthedocs.io/
 Project-URL: Funding, https://tidelift.com/subscription/pkg/pypi-humanize?utm_source=pypi-humanize&utm_medium=pypi
@@ -18,17 +18,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: General
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: tests
 Requires-Dist: freezegun; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
@@ -80,6 +80,7 @@ size or throughput. It is localized to:
 - Swedish
 - Turkish
 - Ukrainian
+- Uzbek
 - Vietnamese
 
 ## API reference

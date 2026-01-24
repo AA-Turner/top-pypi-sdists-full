@@ -5,10 +5,11 @@ from copy import deepcopy
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
-import ujson
+import orjson
 
 from pymilvus.exceptions import MilvusException, ParamError
 from pymilvus.grpc_gen.common_pb2 import Status
+from pymilvus.settings import Config
 
 from .constants import LOGICAL_BITS, LOGICAL_BITS_MASK
 from .types import DataType
@@ -163,6 +164,9 @@ def len_of(field_data: Any) -> int:
         if field_data.scalars.HasField("double_data"):
             return len(field_data.scalars.double_data.data)
 
+        if field_data.scalars.HasField("timestamptz_data"):
+            return len(field_data.scalars.timestamptz_data.data)
+
         if field_data.scalars.HasField("string_data"):
             return len(field_data.scalars.string_data.data)
 
@@ -175,9 +179,15 @@ def len_of(field_data: Any) -> int:
         if field_data.scalars.HasField("array_data"):
             return len(field_data.scalars.array_data.data)
 
+        if field_data.scalars.HasField("geometry_wkt_data"):
+            return len(field_data.scalars.geometry_wkt_data.data)
+
         raise MilvusException(message="Unsupported scalar type")
 
     if field_data.HasField("vectors"):
+        if len(field_data.valid_data) > 0:
+            return len(field_data.valid_data)
+
         dim = field_data.vectors.dim
         if field_data.vectors.HasField("float_vector"):
             total_len = len(field_data.vectors.float_vector.data)
@@ -205,9 +215,14 @@ def len_of(field_data: Any) -> int:
         if field_data.vectors.HasField("int8_vector"):
             total_len = len(field_data.vectors.int8_vector)
             return int(total_len / dim)
+        if field_data.vectors.HasField("vector_array"):
+            return len(field_data.vectors.vector_array.data)
 
         total_len = len(field_data.vectors.binary_vector)
         return int(total_len / (dim / 8))
+
+    if field_data.HasField("struct_arrays"):
+        return len_of(field_data.struct_arrays.fields[0])
 
     raise MilvusException(message="Unknown data type")
 
@@ -300,7 +315,11 @@ def get_server_type(host: str):
 
 
 def dumps(v: Union[dict, str]) -> str:
-    return ujson.dumps(v) if isinstance(v, dict) else str(v)
+    # Use JSON serialization for dicts to ensure proper formatting
+    # For other types (strings, numbers, booleans), use str() to maintain compatibility
+    if isinstance(v, dict):
+        return orjson.dumps(v).decode(Config.EncodeProtocol)
+    return str(v)
 
 
 class SciPyHelper:
@@ -454,3 +473,63 @@ def sparse_parse_single_row(data: bytes) -> SparseRowOutputType:
         struct.unpack("I", data[i : i + 4])[0]: struct.unpack("f", data[i + 4 : i + 8])[0]
         for i in range(0, len(data), 8)
     }
+
+
+def convert_struct_fields_to_user_format(struct_array_fields: List[Dict]) -> List[Dict]:
+    """
+    Convert internal struct_array_fields representation to user-friendly format.
+
+    :param struct_array_fields: List of struct field info from server
+    :return: List of user-friendly field dictionaries
+    """
+    converted_fields = []
+
+    for struct_field_info in struct_array_fields:
+        # Convert to user perspective: a field of type ARRAY with element_type STRUCT
+        user_struct_field = {
+            "field_id": struct_field_info.get("field_id"),
+            "name": struct_field_info["name"],
+            "description": struct_field_info.get("description", ""),
+            "type": DataType.ARRAY,
+            "element_type": DataType.STRUCT,
+            "params": {},
+        }
+
+        # Extract max_capacity from first field (all fields should have the same value)
+        max_capacity = None
+        for f in struct_field_info.get("fields", []):
+            params = f.get("params", {})
+            if isinstance(params, dict) and params.get("max_capacity"):
+                max_capacity = params["max_capacity"]
+                break
+
+        if max_capacity:
+            user_struct_field["params"]["max_capacity"] = max_capacity
+
+        # Convert struct sub-fields to user-defined types
+        struct_fields = []
+        for f in struct_field_info.get("fields", []):
+            # Struct fields are always ARRAY or ARRAY_OF_VECTOR, so element_type must exist
+            # Handle both cases: element_type as dict key or already converted DataType
+            user_field_type = f.get("element_type")
+
+            if user_field_type:
+                struct_sub_field = {
+                    "field_id": f.get("field_id"),
+                    "name": f["name"],
+                    "type": user_field_type,
+                    "description": f.get("description", ""),
+                }
+
+                params = f.get("params", {})
+                if params and isinstance(params, dict):
+                    cleaned_params = {k: v for k, v in params.items() if k != "max_capacity"}
+                    if cleaned_params:
+                        struct_sub_field["params"] = cleaned_params
+
+                struct_fields.append(struct_sub_field)
+
+        user_struct_field["struct_fields"] = struct_fields
+        converted_fields.append(user_struct_field)
+
+    return converted_fields

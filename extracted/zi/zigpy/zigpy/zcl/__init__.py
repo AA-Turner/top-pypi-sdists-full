@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import collections
 from collections.abc import Iterable, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import enum
 import functools
 import itertools
@@ -199,7 +199,7 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
 
                 if isinstance(
                     definition,
-                    (foundation.ZCLCommandDef, foundation.ZCLAttributeDef),
+                    foundation.ZCLCommandDef | foundation.ZCLAttributeDef,
                 ):
                     if definition.name is None:
                         object.__setattr__(definition, "name", name)
@@ -288,7 +288,7 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
         return cluster
 
     def deserialize(self, data: bytes) -> tuple[foundation.ZCLHeader, ...]:
-        self.debug("Received ZCL frame: %r", data)
+        self.debug("Received ZCL frame: %r", data.hex(" "))
 
         hdr, data = foundation.ZCLHeader.deserialize(data)
         self.debug("Decoded ZCL frame header: %r", hdr)
@@ -301,14 +301,18 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
                 commands = self.server_commands
 
             if hdr.command_id not in commands:
-                self.debug("Unknown cluster command %s %s", hdr.command_id, data)
+                self.debug(
+                    "Unknown cluster command %s %r", hdr.command_id, data.hex(" ")
+                )
                 return hdr, data
 
             command = commands[hdr.command_id]
         else:
             # General command
             if hdr.command_id not in foundation.GENERAL_COMMANDS:
-                self.debug("Unknown foundation command %s %s", hdr.command_id, data)
+                self.debug(
+                    "Unknown foundation command %s %r", hdr.command_id, data.hex(" ")
+                )
                 return hdr, data
 
             command = foundation.GENERAL_COMMANDS[hdr.command_id]
@@ -318,7 +322,7 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
         self.debug("Decoded ZCL frame: %s:%r", type(self).__name__, response)
 
         if data:
-            self.debug("Data remains after deserializing ZCL frame: %r", data)
+            self.debug("Data remains after deserializing ZCL frame: %r", data.hex(" "))
 
         return hdr, response
 
@@ -373,18 +377,22 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
         expect_reply: bool = True,
         use_ieee: bool = False,
         ask_for_ack: bool | None = None,
+        disable_default_response: bool | None = None,
         priority: int | None = None,
         tsn: int | t.uint8_t | None = None,
         timeout=APS_REPLY_TIMEOUT,
         **kwargs,
     ):
+        if disable_default_response is None:
+            disable_default_response = self.is_client
+
         hdr, request = self._create_request(
             general=general,
             command_id=command_id,
             schema=schema,
             manufacturer=manufacturer,
             tsn=tsn,
-            disable_default_response=self.is_client,
+            disable_default_response=disable_default_response,
             direction=(
                 foundation.Direction.Server_to_Client
                 if self.is_client
@@ -422,16 +430,20 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
         expect_reply: bool = False,
         use_ieee: bool = False,
         ask_for_ack: bool | None = None,
+        disable_default_response: bool | None = None,
         priority: int | None = None,
         **kwargs,
     ) -> None:
+        if disable_default_response is None:
+            disable_default_response = True
+
         hdr, request = self._create_request(
             general=general,
             command_id=command_id,
             schema=schema,
             manufacturer=manufacturer,
             tsn=tsn,
-            disable_default_response=True,
+            disable_default_response=disable_default_response,
             direction=(
                 foundation.Direction.Server_to_Client
                 if self.is_client
@@ -897,7 +909,7 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
             self._attr_last_updated.pop(attrid)
             self.listener_event("attribute_cleared", attrid)
         else:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             self._attr_cache[attrid] = value
             self._attr_last_updated[attrid] = now
             self.listener_event("attribute_updated", attrid, value, now)
@@ -940,7 +952,7 @@ class Cluster(util.ListenableMixin, util.CatchingTaskMixin):
 
     def __setitem__(self, key: int | str, value: Any) -> None:
         """Set cached value through attribute write."""
-        if not isinstance(key, (int, str)):
+        if not isinstance(key, int | str):
             raise ValueError("attr_name or attr_id are accepted only")  # noqa: TRY004
         self.create_catching_task(self.write_attributes({key: value}))
 

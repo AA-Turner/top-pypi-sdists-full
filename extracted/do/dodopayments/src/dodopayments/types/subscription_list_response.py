@@ -14,6 +14,8 @@ __all__ = ["SubscriptionListResponse"]
 
 
 class SubscriptionListResponse(BaseModel):
+    """Response struct representing subscription details"""
+
     billing: BillingAddress
     """Billing address details for payments"""
 
@@ -88,3 +90,12 @@ class SubscriptionListResponse(BaseModel):
 
     discount_id: Optional[str] = None
     """The discount id if discount is applied"""
+
+    payment_method_id: Optional[str] = None
+    """Saved payment method id used for recurring charges"""
+
+    product_name: Optional[str] = None
+    """Name of the product associated with this subscription"""
+
+    tax_id: Optional[str] = None
+    """Tax identifier provided for this subscription (if applicable)"""

@@ -16,7 +16,6 @@ short_description: TACACS+ server entry configuration.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -156,7 +155,7 @@ EXAMPLES = '''
         bypass_validation: false
         state: present
         system_admin_tacacs:
-          authen-type: auto # <value in [auto, ascii, pap, ...]>
+          authen_type: auto # <value in [auto, ascii, pap, ...]>
           authorization: disable
           key: fortinet
           name: ansible-test-tacacs

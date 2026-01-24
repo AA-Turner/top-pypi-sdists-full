@@ -1,6 +1,8 @@
 """Module for calculating correlation functions."""
+
+from collections.abc import Iterator
 import logging
-from typing import Any, Dict, Iterator, Tuple
+from typing import Any
 
 from ase.atoms import Atoms
 from clease_cxx import PyCEUpdater
@@ -13,7 +15,7 @@ logger = logging.getLogger(__name__)
 __all__ = ("CorrFunction", "ClusterNotTrackedError")
 
 # Type alias for a Correlation function
-CF_T = Dict[str, float]
+CF_T = dict[str, float]
 
 
 class ClusterNotTrackedError(Exception):
@@ -144,14 +146,14 @@ class CorrFunction:
             print("\nreconfiguration completed")
         logger.info("Reconfiguration complete")
 
-    def iter_reconfigure_db_entries(self, select_cond=None) -> Iterator[Tuple[int, int, int]]:
+    def iter_reconfigure_db_entries(self, select_cond=None) -> Iterator[tuple[int, int, int]]:
         """Iterator which reconfigures the correlation function values in the DB,
         which yields after each reconfiguration and reports on the progress.
 
         For more information, see :py:meth:`~reconfigure_db_entries`.
 
         Yields:
-            Tuple[int, int, int]: (row_id, count, total) A tuple containing the ID
+            tuple[int, int, int]: (row_id, count, total) A tuple containing the ID
             of the row which was just reconfigured, current
             count which has been reconfigured, as well as the total number of
             reconfigurations which will be performed.

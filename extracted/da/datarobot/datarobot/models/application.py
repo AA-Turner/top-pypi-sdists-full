@@ -96,49 +96,43 @@ class Application(APIObject):
 
     _path = "applications/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("application_type_id"): t.String,
-            t.Key("user_id"): t.String,
-            t.Key("model_deployment_id"): t.String,
-            t.Key("name"): t.String,
-            t.Key("created_by"): t.String,
-            t.Key("created_at"): t.String,
-            t.Key("updated_at"): t.String,
-            t.Key("datasets"): t.List(t.String),
-            t.Key("deployment_status_id", optional=True): t.String,
-            t.Key("description", optional=True): t.String,
-            t.Key("cloud_provider"): t.String,
-            t.Key("deployment_ids"): t.List(t.String),
-            t.Key("deployment_name", optional=True): t.String,
-            t.Key("permissions"): t.List(t.String),
-            t.Key("has_custom_logo"): t.Bool,
-            t.Key("org_id"): t.String,
-            t.Key("pool_used"): t.Bool,
-            t.Key("related_entities", optional=True): t.Dict(
-                {
-                    t.Key("model_id", optional=True): t.String,
-                    t.Key("project_id", optional=True): t.String,
-                    t.Key("is_from_use_case", optional=True): t.Bool,
-                    t.Key("is_from_experiment_container", optional=True): t.Bool,
-                }
-            ),
-            t.Key("application_template_type", optional=True): t.String,
-            t.Key("deactivation_status_id", optional=True): t.String,
-            t.Key("created_first_name", optional=True): t.String,
-            t.Key("creator_last_name", optional=True): t.String,
-            t.Key("creator_userhash", optional=True): t.String,
-            t.Key("deployments", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("deployment_id"): t.String,
-                        t.Key("reference_name"): t.String,
-                    }
-                )
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("application_type_id"): t.String,
+        t.Key("user_id"): t.String,
+        t.Key("model_deployment_id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("created_by"): t.String,
+        t.Key("created_at"): t.String,
+        t.Key("updated_at"): t.String,
+        t.Key("datasets"): t.List(t.String),
+        t.Key("deployment_status_id", optional=True): t.String,
+        t.Key("description", optional=True): t.String,
+        t.Key("cloud_provider"): t.String,
+        t.Key("deployment_ids"): t.List(t.String),
+        t.Key("deployment_name", optional=True): t.String,
+        t.Key("permissions"): t.List(t.String),
+        t.Key("has_custom_logo"): t.Bool,
+        t.Key("org_id"): t.String,
+        t.Key("pool_used"): t.Bool,
+        t.Key("related_entities", optional=True): t.Dict({
+            t.Key("model_id", optional=True): t.String,
+            t.Key("project_id", optional=True): t.String,
+            t.Key("is_from_use_case", optional=True): t.Bool,
+            t.Key("is_from_experiment_container", optional=True): t.Bool,
+        }),
+        t.Key("application_template_type", optional=True): t.String,
+        t.Key("deactivation_status_id", optional=True): t.String,
+        t.Key("created_first_name", optional=True): t.String,
+        t.Key("creator_last_name", optional=True): t.String,
+        t.Key("creator_userhash", optional=True): t.String,
+        t.Key("deployments", optional=True): t.List(
+            t.Dict({
+                t.Key("deployment_id"): t.String,
+                t.Key("reference_name"): t.String,
+            })
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,

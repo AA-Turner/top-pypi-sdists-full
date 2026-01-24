@@ -11,6 +11,7 @@ from typing import (
     Generator,
     Iterable,
     List,
+    Literal,
     Optional,
     Tuple,
     Union,
@@ -30,6 +31,7 @@ from lhotse.augmentation import (
     LoudnessNormalization,
     ReverbWithImpulseResponse,
 )
+from lhotse.augmentation.compress import Codec
 from lhotse.cut.base import Cut
 from lhotse.cut.data import DataCut
 from lhotse.cut.padding import PaddingCut
@@ -40,6 +42,7 @@ from lhotse.features import (
 )
 from lhotse.features.base import Features
 from lhotse.features.io import FeaturesWriter
+from lhotse.image import Image
 from lhotse.supervision import SupervisionSegment
 from lhotse.utils import (
     DEFAULT_PADDING_VALUE,
@@ -230,14 +233,14 @@ class MixedCut(Cut):
     def iter_data(
         self,
     ) -> Generator[
-        Tuple[str, Union[Recording, Features, Array, TemporalArray]], None, None
+        Tuple[str, Union[Recording, Features, Array, TemporalArray, Image]], None, None
     ]:
         """
         Iterate over each data piece attached to this cut.
         Returns a generator yielding tuples of ``(key, manifest)``, where
         ``key`` is the name of the attribute under which ``manifest`` is found.
         ``manifest`` is of type :class:`~lhotse.Recording`, :class:`~lhotse.Features`,
-        :class:`~lhotse.TemporalArray`, or :class:`~lhotse.Array`.
+        :class:`~lhotse.TemporalArray`, :class:`~lhotse.Array`, or :class:`~lhotse.Image`.
 
         For example, if ``key`` is ``recording``, then ``manifest`` is ``self.recording``.
         """
@@ -674,7 +677,12 @@ class MixedCut(Cut):
             pad_value_dict=pad_value_dict,
         )
 
-    def resample(self, sampling_rate: int, affix_id: bool = False) -> "MixedCut":
+    def resample(
+        self,
+        sampling_rate: int,
+        affix_id: bool = False,
+        recording_field: Optional[str] = None,
+    ) -> "MixedCut":
         """
         Return a new ``MixedCut`` that will lazily resample the audio while reading it.
         This operation will drop the feature manifest, if attached.
@@ -683,13 +691,49 @@ class MixedCut(Cut):
         :param sampling_rate: The new sampling rate.
         :param affix_id: Should we modify the ID (useful if both versions of the same
             cut are going to be present in a single manifest).
+        :param recording_field: which recording field to resample.
         :return: a modified copy of the current ``MixedCut``.
         """
         assert self.has_recording, "Cannot resample a MixedCut without Recording."
+
         return MixedCut(
             id=f"{self.id}_rs{sampling_rate}" if affix_id else self.id,
             tracks=[
-                fastcopy(t, cut=t.cut.resample(sampling_rate)) for t in self.tracks
+                fastcopy(
+                    t,
+                    cut=t.cut.resample(sampling_rate, recording_field=recording_field),
+                )
+                for t in self.tracks
+            ],
+        )
+
+    def compress(
+        self,
+        codec: Codec = "opus",
+        compression_level: float = 0.99,
+        compress_custom_fields: bool = False,
+    ):
+        """
+        Return a copy of this Cut that has Recordings in its sub-Cuts processed by a lossy encoding.
+
+        :param codec: The codec to use for compression. Supported codecs are "opus", "mp3", "vorbis", "gsm".
+        :param compression_level: The level of compression (from 0.0 to 1.0, higher values correspond to higher compression).
+        :param compress_custom_fields: Whether to also compress any custom recording fields in sub-Cuts.
+
+        :return: A modified :class:`~lhotse.MixedCut` containing audio processed by a codec
+        """
+        assert self.has_recording, "Cannot compress a MixedCut without a Recording."
+
+        return MixedCut(
+            id=self.id,
+            tracks=[
+                fastcopy(
+                    t,
+                    cut=t.cut.compress(
+                        codec, compression_level, compress_custom_fields
+                    ),
+                )
+                for t in self.tracks
             ],
         )
 

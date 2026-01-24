@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typedload
-Version: 2.38
+Version: 2.39
 Summary: Load and dump data from json-like format into typed data structures
 Home-page: https://ltworf.codeberg.page/typedload/
 Author: Salvo 'LtWorf' Tomaselli
@@ -1027,7 +1027,6 @@ Used by
 
 As dependency, typedload is used by those entities. Feel free to add to the list.
 
-* The USA armed forces (regrettably) (via [Appgate](https://www.appgate.com/federal-division))
 * [Lyft](https://eng.lyft.com/python-upgrade-playbook-1479145d52f4)
 * Several universities around the world (via [Relational](https://ltworf.codeberg.page/relational/))
 * People who love IRC (via [localslackirc](https://github.com/ltworf/localslackirc))

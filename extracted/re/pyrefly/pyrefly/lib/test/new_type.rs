@@ -105,17 +105,25 @@ class R:
 );
 
 testcase!(
-    bug =
-        "concrete tuple base classes become unbounded when converted to their class representation",
     test_new_type_tuple,
     r#"
 from typing import NewType
 Foo = NewType("Foo", tuple[int, int])
-Bar = NewType("Bar", tuple[int, ...])
 
 Foo((1, 2))  # OK
-Foo((1, 2, 3))  # this shouldn't be allowed
+Foo((1, 2, 3))  # E: Argument `tuple[Literal[1], Literal[2], Literal[3]]` is not assignable to parameter `_x` with type `tuple[int, int]` in function `Foo.__new__`
      "#,
+);
+
+testcase!(
+    test_new_type_inherits_tuple,
+    r#"
+from typing import NewType
+class A(tuple[int, int]):
+    pass
+X = NewType("X", A)
+X((0, 0))  # E: Argument `tuple[Literal[0], Literal[0]]` is not assignable to parameter `_x` with type `A` in function `X.__new__`
+    "#,
 );
 
 testcase!(
@@ -123,8 +131,35 @@ testcase!(
     r#"
 from typing import Any, NewType
 Foo = NewType("Foo", int)
-x: type = Foo  # E: `type[Foo]` is not assignable to `type`
+x: type = Foo  # E: `type[Foo]` is not assignable to `type[Any]`
 y: type[Any] = Foo  # E: `type[Foo]` is not assignable to `type[Any]`
+    "#,
+);
+
+testcase!(
+    test_new_type_type_argument,
+    r#"
+from typing import NewType, Type
+
+Thing = NewType("Thing", int)
+ThingType = type[Thing]  # E: NewType `Thing` is not a class and cannot be used with `type` or `Type`
+OtherThingType = Type[Thing]  # E: NewType `Thing` is not a class and cannot be used with `type` or `Type`
+
+mapping: dict[int, ThingType] = {1: Thing}  # E: `dict[int, type[Thing]]` is not assignable to `dict[int, type[Any]]`
+
+def func(x: ThingType) -> None: ...
+func(Thing)  # E: Argument `type[Thing]` is not assignable to parameter `x` with type `type[Any]` in function `func`
+    "#,
+);
+
+testcase!(
+    test_new_type_runtime_attrs,
+    r#"
+from typing import NewType
+Foo = NewType("Foo", int)
+Foo.__getattribute__
+Foo.__repr__
+Foo.mro()  # E: Object of class `object` has no attribute `mro`
     "#,
 );
 

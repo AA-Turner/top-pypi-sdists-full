@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
 from anyscale._private.workload import WorkloadConfig
@@ -8,11 +8,13 @@ from anyscale.shared_anyscale_utils.utils import INT_MAX
 
 
 class JobQueueExecutionMode(ModelEnum):
+    """Execution mode for job queues."""
+
     FIFO = "FIFO"
     LIFO = "LIFO"
     PRIORITY = "PRIORITY"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         FIFO: "Executes jobs in chronological order ('first in, first out')",
         LIFO: "Executes jobs in reversed chronological order ('last in, first out')",
         PRIORITY: "Executes jobs in the order induced by ordering their priorities in ascending order, "
@@ -300,6 +302,9 @@ py_modules: # (Optional) A list of local directories or remote URIs that will be
 cloud: anyscale-prod # (Optional) The name of the Anyscale Cloud.
 project: my-project # (Optional) The name of the Anyscale Project.
 max_retries: 3 # (Optional) Maximum number of times the job will be retried before being marked failed. Defaults to `1`.
+tags:
+    team: mlops
+    purpose: training
 
 """
 
@@ -377,6 +382,19 @@ max_retries: 3 # (Optional) Maximum number of times the job will be retried befo
             if timeout_s < 0:
                 raise ValueError("'timeout_s' must be >= 0.")
 
+    tags: Optional[Dict[str, str]] = field(
+        default=None, metadata={"docstring": "Tags to associate with the job."},
+    )
+
+    def _validate_tags(self, tags: Optional[Dict[str, str]]):
+        if tags is None:
+            return
+        if not isinstance(tags, dict):
+            raise TypeError("'tags' must be a Dict[str, str].")
+        for k, v in tags.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise TypeError("'tags' must be a Dict[str, str].")
+
 
 class JobRunState(ModelEnum):
     """Current state of an individual job run."""
@@ -387,7 +405,7 @@ class JobRunState(ModelEnum):
     SUCCEEDED = "SUCCEEDED"
     UNKNOWN = "UNKNOWN"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         STARTING: "The job run is being started and is not yet running.",
         RUNNING: "The job run is running.",
         FAILED: "The job run did not finish running or the entrypoint returned an exit code other than 0.",
@@ -431,7 +449,7 @@ class JobState(ModelEnum):
     SUCCEEDED = "SUCCEEDED"
     UNKNOWN = "UNKNOWN"
 
-    _TERMINAL_JOB_STATES = [
+    _TERMINAL_JOB_STATES: ClassVar[List[str]] = [
         SUCCEEDED,
         FAILED,
     ]
@@ -440,7 +458,7 @@ class JobState(ModelEnum):
     def is_terminal(cls, state: "JobState"):
         return state in cls._TERMINAL_JOB_STATES
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         STARTING: "The job is being started and is not yet running.",
         RUNNING: "The job is running. A job will have state RUNNING if a job run fails and there are remaining retries.",
         FAILED: "The job did not finish running or the entrypoint returned an exit code other than 0 after retrying up to max_retries times.",
@@ -523,7 +541,7 @@ class JobLogMode(ModelEnum):
     HEAD = "HEAD"
     TAIL = "TAIL"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         HEAD: "Fetch logs from the start of the job's log.",
         TAIL: "Fetch logs from the end of the job's log.",
     }

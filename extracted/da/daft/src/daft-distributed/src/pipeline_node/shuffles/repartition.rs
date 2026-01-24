@@ -1,21 +1,20 @@
 use std::sync::Arc;
 
-use common_display::{DisplayLevel, tree::TreeDisplay};
 use common_error::DaftResult;
-use daft_local_plan::LocalPhysicalPlan;
+use daft_local_plan::{LocalNodeContext, LocalPhysicalPlan};
 use daft_logical_plan::{partitioning::RepartitionSpec, stats::StatsState};
 use daft_schema::schema::SchemaRef;
 
 use crate::{
     pipeline_node::{
-        DistributedPipelineNode, NodeID, NodeName, PipelineNodeConfig, PipelineNodeContext,
-        SubmittableTaskStream, make_in_memory_task_from_materialized_outputs,
+        DistributedPipelineNode, MaterializedOutput, NodeID, NodeName, PipelineNodeConfig,
+        PipelineNodeContext, PipelineNodeImpl, TaskBuilderStream,
     },
+    plan::{PlanConfig, PlanExecutionContext, TaskIDCounter},
     scheduling::{
-        scheduler::{SchedulerHandle, SubmittableTask},
-        task::{SwordfishTask, TaskContext},
+        scheduler::SchedulerHandle,
+        task::{SwordfishTask, SwordfishTaskBuilder},
     },
-    stage::{StageConfig, StageExecutionContext, TaskIDCounter},
     utils::{
         channel::{Sender, create_channel},
         transpose::transpose_materialized_outputs_from_stream,
@@ -27,7 +26,7 @@ pub(crate) struct RepartitionNode {
     context: PipelineNodeContext,
     repartition_spec: RepartitionSpec,
     num_partitions: usize,
-    child: Arc<dyn DistributedPipelineNode>,
+    child: DistributedPipelineNode,
 }
 
 impl RepartitionNode {
@@ -35,24 +34,21 @@ impl RepartitionNode {
 
     pub fn new(
         node_id: NodeID,
-        logical_node_id: Option<NodeID>,
-        stage_config: &StageConfig,
+        plan_config: &PlanConfig,
         repartition_spec: RepartitionSpec,
         num_partitions: usize,
         schema: SchemaRef,
-        child: Arc<dyn DistributedPipelineNode>,
+        child: DistributedPipelineNode,
     ) -> Self {
         let context = PipelineNodeContext::new(
-            stage_config,
+            plan_config.query_idx,
+            plan_config.query_id.clone(),
             node_id,
             Self::NODE_NAME,
-            vec![child.node_id()],
-            vec![child.name()],
-            logical_node_id,
         );
         let config = PipelineNodeConfig::new(
             schema,
-            stage_config.config.clone(),
+            plan_config.config.clone(),
             repartition_spec
                 .to_clustering_spec(child.config().clustering_spec.num_partitions())
                 .into(),
@@ -67,74 +63,47 @@ impl RepartitionNode {
         }
     }
 
-    pub fn arced(self) -> Arc<dyn DistributedPipelineNode> {
-        Arc::new(self)
-    }
-
-    fn multiline_display(&self) -> Vec<String> {
-        let mut res = vec![format!("Repartition: {}", self.repartition_spec.var_name())];
-        res.extend(self.repartition_spec.multiline_display());
-        res
+    pub fn into_node(self) -> DistributedPipelineNode {
+        DistributedPipelineNode::new(Arc::new(self))
     }
 
     // Async execution to get all partitions out
     async fn execution_loop(
         self: Arc<Self>,
-        local_repartition_node: SubmittableTaskStream,
+        local_repartition_node: TaskBuilderStream,
         task_id_counter: TaskIDCounter,
-        result_tx: Sender<SubmittableTask<SwordfishTask>>,
+        result_tx: Sender<SwordfishTaskBuilder>,
         scheduler_handle: SchedulerHandle<SwordfishTask>,
     ) -> DaftResult<()> {
         // Trigger materialization of the partitions
         // This will produce a stream of materialized outputs, each containing a vector of num_partitions partitions
-        let materialized_stream = local_repartition_node.materialize(scheduler_handle.clone());
+        let materialized_stream = local_repartition_node.materialize(
+            scheduler_handle,
+            self.context.query_idx,
+            task_id_counter,
+        );
         let transposed_outputs =
             transpose_materialized_outputs_from_stream(materialized_stream, self.num_partitions)
                 .await?;
 
         // Make each partition group (partitions equal by (hash % num_partitions)) input to a in-memory scan
         for partition_group in transposed_outputs {
-            let self_clone = self.clone();
-            let task = make_in_memory_task_from_materialized_outputs(
-                TaskContext::from((&self_clone.context, task_id_counter.next())),
+            let (in_memory_source_plan, psets) = MaterializedOutput::into_in_memory_scan_with_psets(
                 partition_group,
-                &(self_clone as Arc<dyn DistributedPipelineNode>),
-                None,
-            )?;
+                self.config.schema.clone(),
+                self.node_id(),
+            );
+            let builder =
+                SwordfishTaskBuilder::new(in_memory_source_plan, self.as_ref()).with_psets(psets);
 
-            let _ = result_tx.send(task).await;
+            let _ = result_tx.send(builder).await;
         }
 
         Ok(())
     }
 }
 
-impl TreeDisplay for RepartitionNode {
-    fn display_as(&self, level: DisplayLevel) -> String {
-        use std::fmt::Write;
-        let mut display = String::new();
-        match level {
-            DisplayLevel::Compact => {
-                writeln!(display, "{}", self.context.node_name).unwrap();
-            }
-            _ => {
-                let multiline_display = self.multiline_display().join("\n");
-                writeln!(display, "{}", multiline_display).unwrap();
-            }
-        }
-        display
-    }
-
-    fn get_children(&self) -> Vec<&dyn TreeDisplay> {
-        vec![self.child.as_tree_display()]
-    }
-
-    fn get_name(&self) -> String {
-        self.context.node_name.to_string()
-    }
-}
-
-impl DistributedPipelineNode for RepartitionNode {
+impl PipelineNodeImpl for RepartitionNode {
     fn context(&self) -> &PipelineNodeContext {
         &self.context
     }
@@ -143,16 +112,21 @@ impl DistributedPipelineNode for RepartitionNode {
         &self.config
     }
 
-    fn children(&self) -> Vec<Arc<dyn DistributedPipelineNode>> {
+    fn children(&self) -> Vec<DistributedPipelineNode> {
         vec![self.child.clone()]
+    }
+
+    fn multiline_display(&self, _verbose: bool) -> Vec<String> {
+        let mut res = vec![format!("Repartition: {}", self.repartition_spec.var_name())];
+        res.extend(self.repartition_spec.multiline_display());
+        res
     }
 
     fn produce_tasks(
         self: Arc<Self>,
-        stage_context: &mut StageExecutionContext,
-    ) -> SubmittableTaskStream {
-        let input_node = self.child.clone().produce_tasks(stage_context);
-        let self_arc = self.clone();
+        plan_context: &mut PlanExecutionContext,
+    ) -> TaskBuilderStream {
+        let input_node = self.child.clone().produce_tasks(plan_context);
 
         // First pipeline the local repartition op
         let self_clone = self.clone();
@@ -163,30 +137,21 @@ impl DistributedPipelineNode for RepartitionNode {
                 self_clone.num_partitions,
                 self_clone.config.schema.clone(),
                 StatsState::NotMaterialized,
+                LocalNodeContext {
+                    origin_node_id: Some(self_clone.node_id() as usize),
+                    additional: None,
+                },
             )
         });
 
         let (result_tx, result_rx) = create_channel(1);
 
-        let task_id_counter = stage_context.task_id_counter();
-        let scheduler_handle = stage_context.scheduler_handle();
-
-        let map_reduce_execution = async move {
-            self_arc
-                .execution_loop(
-                    local_repartition_node,
-                    task_id_counter,
-                    result_tx,
-                    scheduler_handle,
-                )
-                .await
-        };
-
-        stage_context.spawn(map_reduce_execution);
-        SubmittableTaskStream::from(result_rx)
-    }
-
-    fn as_tree_display(&self) -> &dyn TreeDisplay {
-        self
+        plan_context.spawn(self.execution_loop(
+            local_repartition_node,
+            plan_context.task_id_counter(),
+            result_tx,
+            plan_context.scheduler_handle(),
+        ));
+        TaskBuilderStream::from(result_rx)
     }
 }

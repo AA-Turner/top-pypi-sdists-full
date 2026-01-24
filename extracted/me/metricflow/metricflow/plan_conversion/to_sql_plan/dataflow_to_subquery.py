@@ -5,8 +5,11 @@ from collections import OrderedDict, defaultdict
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
-from dbt_semantic_interfaces.protocols import MetricInputMeasure
-from dbt_semantic_interfaces.references import MetricModelReference, SemanticModelElementReference
+from dbt_semantic_interfaces.references import (
+    MetricModelReference,
+    SemanticModelElementReference,
+    TimeDimensionReference,
+)
 from dbt_semantic_interfaces.type_enums import AggregationType, ConversionCalculationType, MetricType, PeriodAggregation
 from dbt_semantic_interfaces.validations.unique_valid_name import MetricFlowReservedKeywords
 from metricflow_semantics.aggregation_properties import AggregationState
@@ -30,7 +33,6 @@ from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifest
 from metricflow_semantics.specs.column_assoc import ColumnAssociationResolver
 from metricflow_semantics.specs.group_by_metric_spec import GroupByMetricSpec
 from metricflow_semantics.specs.instance_spec import InstanceSpec
-from metricflow_semantics.specs.measure_spec import MeasureSpec
 from metricflow_semantics.specs.metadata_spec import MetadataSpec
 from metricflow_semantics.specs.metric_spec import MetricSpec
 from metricflow_semantics.specs.spec_set import InstanceSpecSet
@@ -72,7 +74,7 @@ from metricflow_semantics.time.time_spine_source import TimeSpineSource
 from metricflow.dataflow.dataflow_plan import DataflowPlanNode
 from metricflow.dataflow.dataflow_plan_visitor import DataflowPlanNodeVisitor
 from metricflow.dataflow.nodes.add_generated_uuid import AddGeneratedUuidColumnNode
-from metricflow.dataflow.nodes.aggregate_measures import AggregateMeasuresNode
+from metricflow.dataflow.nodes.aggregate_simple_metric_inputs import AggregateSimpleMetricInputsNode
 from metricflow.dataflow.nodes.alias_specs import AliasSpecsNode
 from metricflow.dataflow.nodes.combine_aggregated_outputs import CombineAggregatedOutputsNode
 from metricflow.dataflow.nodes.compute_metrics import ComputeMetricsNode
@@ -96,24 +98,24 @@ from metricflow.dataflow.nodes.write_to_data_table import WriteToResultDataTable
 from metricflow.dataflow.nodes.write_to_table import WriteToResultTableNode
 from metricflow.dataset.dataset_classes import DataSet
 from metricflow.dataset.sql_dataset import AnnotatedSqlDataSet, SqlDataSet
-from metricflow.plan_conversion.instance_set_transforms.aggregated_measure import (
-    CreateAggregatedMeasuresTransform,
+from metricflow.plan_conversion.instance_set_transforms.aggregated_simple_metric_input import (
+    CreateAggregatedSimpleMetricInputsTransform,
 )
 from metricflow.plan_conversion.instance_set_transforms.instance_converters import (
     AddGroupByMetric,
     AddMetadata,
     AddMetrics,
-    AliasAggregatedMeasures,
+    AliasAggregatedSimpleMetricInputs,
     ChangeAssociatedColumns,
-    ChangeMeasureAggregationState,
+    ChangeSimpleMetricInputAggregationState,
     ConvertToMetadata,
     CreateSelectColumnForCombineOutputNode,
     CreateSqlColumnReferencesForInstances,
     FilterElements,
     FilterLinkableInstancesWithLeadingLink,
-    RemoveMeasures,
     RemoveMetrics,
-    UpdateMeasureFillNullsWith,
+    RemoveSimpleMetricInputTransform,
+    UpdateSimpleMetricInputFillNullsWith,
 )
 from metricflow.plan_conversion.instance_set_transforms.select_columns import (
     CreateSelectColumnsForInstances,
@@ -159,6 +161,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         self._semantic_manifest_lookup = semantic_manifest_lookup
         self._metric_lookup = semantic_manifest_lookup.metric_lookup
         self._semantic_model_lookup = semantic_manifest_lookup.semantic_model_lookup
+        self._manifest_object_lookup = semantic_manifest_lookup.manifest_object_lookup
         self._time_spine_sources = TimeSpineSource.build_standard_time_spine_sources(
             semantic_manifest_lookup.semantic_manifest
         )
@@ -277,7 +280,8 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
                     TimeDimensionInstance(
                         defined_from=(
                             SemanticModelElementReference(
-                                semantic_model_name=time_spine_source.table_name, element_name=spec.element_name
+                                semantic_model_name=time_spine_source.sql_table.table_name,
+                                element_name=spec.element_name,
                             ),
                         ),
                         associated_columns=(self._column_association_resolver.resolve_spec(spec),),
@@ -299,7 +303,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         inner_sql_select_node = SqlSelectStatementNode.create(
             description=time_spine_source.data_set_description,
             select_columns=select_columns,
-            from_source=SqlTableNode.create(sql_table=time_spine_source.spine_table),
+            from_source=SqlTableNode.create(sql_table=time_spine_source.sql_table),
             from_source_alias=time_spine_table_alias,
             group_bys=select_columns if apply_group_by_in_inner_select_node else (),
             where=(
@@ -408,14 +412,14 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         from_data_set = self.get_output_data_set(node.left_node)
         from_data_set_alias = self._next_unique_table_alias()
 
-        # Change the aggregation state for the measures to be partially aggregated if it was previously aggregated
+        # Change the aggregation state for the simple-metric inputs to be partially aggregated if it was previously aggregated
         # since we removed the entities and added the dimensions. The dimensions could have the same value for
         # multiple rows, so we'll need to re-aggregate.
         from_data_set_output_instance_set = from_data_set.instance_set.transform(
             # TODO: is this filter doing anything? seems like no?
             FilterElements(include_specs=from_data_set.instance_set.spec_set)
         ).transform(
-            ChangeMeasureAggregationState(
+            ChangeSimpleMetricInputAggregationState(
                 {
                     AggregationState.NON_AGGREGATED: AggregationState.NON_AGGREGATED,
                     AggregationState.COMPLETE: AggregationState.PARTIAL,
@@ -492,25 +496,25 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
             ),
         )
 
-    def visit_aggregate_measures_node(self, node: AggregateMeasuresNode) -> SqlDataSet:
-        """Generates the query that realizes the behavior of AggregateMeasuresNode.
+    def visit_aggregate_simple_metric_inputs_node(self, node: AggregateSimpleMetricInputsNode) -> SqlDataSet:
+        """Generates the query that realizes the behavior of `AggregateSimpleMetricInputsNode`.
 
-        This will produce a query that aggregates all measures from a given input semantic model per the
-        measure spec
+        This will produce a query that aggregates all simple-metric inputs from a given input semantic model per the
+        simple-metric spec
 
-        In the event the input aggregations are applied to measures with aliases set, in case of, e.g.,
-        a constraint applied to one instance of the measure but not another one, this method will
+        In the event the input aggregations are applied to simple-metric inputs with aliases set, in case of, e.g.,
+        a constraint applied to one instance of the simple metric but not another one, this method will
         apply the rename in the select statement for this node, and propagate that further along via an
-        instance set transform to rename the measures.
+        instance set transform to rename the simple-metric inputs.
 
-        Any node operating on the output of this node will need to use the measure aliases instead of
-        the measure names as references.
+        Any node operating on the output of this node will need to use the simple-metric aliases instead of
+        the simple-metric names as references.
 
         """
-        # Get the data from the parent, and change measure instances to the aggregated state.
+        # Get the data from the parent, and change simple-metric input instances to the aggregated state.
         from_data_set: SqlDataSet = self.get_output_data_set(node.parent_node)
         aggregated_instance_set = from_data_set.instance_set.transform(
-            ChangeMeasureAggregationState(
+            ChangeSimpleMetricInputAggregationState(
                 {
                     AggregationState.NON_AGGREGATED: AggregationState.COMPLETE,
                     AggregationState.COMPLETE: AggregationState.COMPLETE,
@@ -523,33 +527,33 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
             ChangeAssociatedColumns(self._column_association_resolver)
         )
 
-        # Add fill null property to corresponding measure spec
+        # Add fill null property to corresponding simple-metric input spec
         aggregated_instance_set = aggregated_instance_set.transform(
-            UpdateMeasureFillNullsWith(metric_input_measure_specs=node.metric_input_measure_specs)
+            UpdateSimpleMetricInputFillNullsWith(null_fill_value_mapping=node.null_fill_value_mapping)
         )
         from_data_set_alias = self._next_unique_table_alias()
 
         # Convert the instance set into a set of select column statements with updated aliases
-        # Note any measure with an alias requirement will be recast at this point, and
-        # downstream consumers of the resulting node must therefore request aggregated measures
+        # Note any simple-metric input with an alias requirement will be recast at this point, and
+        # downstream consumers of the resulting node must therefore request aggregated simple-metric inputs
         # by their appropriate aliases
         create_columns_result = aggregated_instance_set.transform(
-            CreateAggregatedMeasuresTransform(
+            CreateAggregatedSimpleMetricInputsTransform(
                 table_alias=from_data_set_alias,
                 column_resolver=self._column_association_resolver,
-                semantic_model_lookup=self._semantic_model_lookup,
-                metric_input_measure_specs=node.metric_input_measure_specs,
+                manifest_object_lookup=self._manifest_object_lookup,
+                alias_mapping=node.alias_mapping,
             )
         )
 
-        if any((spec.alias for spec in node.metric_input_measure_specs)):
+        if len(node.alias_mapping.element_name_to_alias) > 0:
             # This is a little silly, but we need to update the column instance set with the new aliases
             # There are a number of refactoring options - simplest is to consolidate this with
-            # ChangeMeasureAggregationState, assuming there are no ordering dependencies up above
+            # `ChangeSimpleMetricInputAggregationState`, assuming there are no ordering dependencies up above
             aggregated_instance_set = aggregated_instance_set.transform(
-                AliasAggregatedMeasures(metric_input_measure_specs=node.metric_input_measure_specs)
+                AliasAggregatedSimpleMetricInputs(node.alias_mapping)
             )
-            # and make sure we follow the resolver format for any newly aliased measures....
+            # and make sure we follow the resolver format for any newly aliased simple-metric inputs....
             aggregated_instance_set = aggregated_instance_set.transform(
                 ChangeAssociatedColumns(self._column_association_resolver)
             )
@@ -562,7 +566,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
                 select_columns=create_columns_result.select_column_set.columns_in_default_order,
                 from_source=from_data_set.checked_sql_select_node,
                 from_source_alias=from_data_set_alias,
-                # This will generate expressions to group by the columns that don't correspond to a measure instance.
+                # This will generate expressions to group by the columns that don't correspond to a simple-metric input instance.
                 group_bys=create_columns_result.group_by_column_set.columns_in_default_order,
             ),
         )
@@ -572,9 +576,9 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         from_data_set: SqlDataSet = self.get_output_data_set(node.parent_node)
         from_data_set_alias = self._next_unique_table_alias()
 
-        # TODO: Check that all measures for the metrics are in the input instance set
-        # The desired output instance set has no measures, so create a copy with those removed.
-        output_instance_set: InstanceSet = from_data_set.instance_set.transform(RemoveMeasures())
+        # TODO: Check that all simple-metric inputs for the metrics are in the input instance set
+        # The desired output instance set has no simple-metric inputs, so create a copy with those removed.
+        output_instance_set: InstanceSet = from_data_set.instance_set.transform(RemoveSimpleMetricInputTransform())
 
         # Also, the output columns should always follow the resolver format.
         output_instance_set = output_instance_set.transform(ChangeAssociatedColumns(self._column_association_resolver))
@@ -600,7 +604,6 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
             metric = self._metric_lookup.get_metric(metric_spec.reference)
 
             metric_expr: Optional[SqlExpressionNode] = None
-            input_measure: Optional[MetricInputMeasure] = None
             if metric.type is MetricType.RATIO:
                 numerator = metric.type_params.numerator
                 denominator = metric.type_params.denominator
@@ -629,29 +632,20 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
                     ),
                 )
             elif metric.type is MetricType.SIMPLE:
-                if len(metric.input_measures) > 0:
-                    assert (
-                        len(metric.input_measures) == 1
-                    ), "Simple metrics should always source from exactly 1 measure."
-                    input_measure = metric.input_measures[0]
-                    expr = self._column_association_resolver.resolve_spec(
-                        MeasureSpec(element_name=input_measure.post_aggregation_measure_reference.element_name)
-                    ).column_name
-                else:
-                    expr = metric.name
                 metric_expr = self.__make_col_reference_or_coalesce_expr(
-                    column_name=expr, input_measure=input_measure, from_data_set_alias=from_data_set_alias
+                    column_name=self._column_association_resolver.resolve_spec(metric_spec).column_name,
+                    null_fill_value=metric.type_params.fill_nulls_with,
+                    from_data_set_alias=from_data_set_alias,
                 )
             elif metric.type is MetricType.CUMULATIVE:
-                assert (
-                    len(metric.measure_references) == 1
-                ), "Cumulative metrics should always source from exactly 1 measure."
-                input_measure = metric.input_measures[0]
-                expr = self._column_association_resolver.resolve_spec(
-                    MeasureSpec(element_name=input_measure.post_aggregation_measure_reference.element_name)
-                ).column_name
+                cumulative_type_params = metric.type_params.cumulative_type_params
+                assert cumulative_type_params is not None and cumulative_type_params.metric is not None, LazyFormat(
+                    "A cumulative metric should have `cumulative_type_params.metric` set", metric=metric
+                )
                 metric_expr = self.__make_col_reference_or_coalesce_expr(
-                    column_name=expr, input_measure=input_measure, from_data_set_alias=from_data_set_alias
+                    column_name=cumulative_type_params.metric.name,
+                    null_fill_value=metric.type_params.fill_nulls_with,
+                    from_data_set_alias=from_data_set_alias,
                 )
             elif metric.type is MetricType.DERIVED:
                 if metric.type_params.expr is None:
@@ -664,28 +658,28 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
                 assert (
                     conversion_type_params
                 ), "A conversion metric should have type_params.conversion_type_params defined."
-                base_measure = conversion_type_params.base_measure
-                assert base_measure is not None, "A conversion metric must have a base measure."
-                conversion_measure = conversion_type_params.conversion_measure
-                assert conversion_measure is not None, "A conversion metric must have a conversion measure."
-                base_measure_column = self._column_association_resolver.resolve_spec(
-                    MeasureSpec(element_name=base_measure.post_aggregation_measure_reference.element_name)
+                input_base_metric = conversion_type_params.base_metric
+                assert input_base_metric is not None, "A conversion metric must have a base metric."
+                input_conversion_metric = conversion_type_params.conversion_metric
+                assert input_conversion_metric is not None, "A conversion metric must have a conversion metric."
+                input_base_metric_column = self._column_association_resolver.resolve_spec(
+                    MetricSpec(element_name=input_base_metric.post_aggregation_reference.element_name)
                 ).column_name
-                conversion_measure_column = self._column_association_resolver.resolve_spec(
-                    MeasureSpec(element_name=conversion_measure.post_aggregation_measure_reference.element_name)
+                input_conversion_metric_column = self._column_association_resolver.resolve_spec(
+                    MetricSpec(element_name=input_conversion_metric.post_aggregation_reference.element_name)
                 ).column_name
 
                 calculation_type = conversion_type_params.calculation
                 conversion_column_reference = SqlColumnReferenceExpression.create(
                     SqlColumnReference(
                         table_alias=from_data_set_alias,
-                        column_name=conversion_measure_column,
+                        column_name=input_conversion_metric_column,
                     )
                 )
                 base_column_reference = SqlColumnReferenceExpression.create(
                     SqlColumnReference(
                         table_alias=from_data_set_alias,
-                        column_name=base_measure_column,
+                        column_name=input_base_metric_column,
                     )
                 )
                 if calculation_type == ConversionCalculationType.CONVERSION_RATE:
@@ -749,17 +743,17 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         )
 
     def __make_col_reference_or_coalesce_expr(
-        self, column_name: str, input_measure: Optional[MetricInputMeasure], from_data_set_alias: str
+        self, column_name: str, null_fill_value: Optional[int], from_data_set_alias: str
     ) -> SqlExpressionNode:
         # Use a column reference to improve query optimization.
         metric_expr: SqlExpressionNode = SqlColumnReferenceExpression.create(
             SqlColumnReference(table_alias=from_data_set_alias, column_name=column_name)
         )
         # Coalesce nulls to requested integer value, if requested.
-        if input_measure and input_measure.fill_nulls_with is not None:
+        if null_fill_value is not None:
             metric_expr = SqlAggregateFunctionExpression.create(
                 sql_function=SqlFunction.COALESCE,
-                sql_function_args=[metric_expr, SqlStringExpression.create(str(input_measure.fill_nulls_with))],
+                sql_function_args=[metric_expr, SqlStringExpression.create(str(null_fill_value))],
             )
         return metric_expr
 
@@ -913,9 +907,9 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         )
 
     def visit_combine_aggregated_outputs_node(self, node: CombineAggregatedOutputsNode) -> SqlDataSet:
-        """Join aggregated output datasets together to return a single dataset containing all metrics/measures.
+        """Join aggregated output datasets together to return a single dataset containing all metrics/simple-metric inputs.
 
-        This node may exist in one of two situations: when metrics/measures need to be combined in order to produce a single
+        This node may exist in one of two situations: when metrics need to be combined in order to produce a single
         dataset with all required inputs for a metric (ie., derived metric), or when metrics need to be combined in order to
         produce a single dataset of output for downstream consumption by the end user.
 
@@ -1088,29 +1082,24 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
     def visit_metric_time_dimension_transform_node(self, node: MetricTimeDimensionTransformNode) -> SqlDataSet:
         """Implement the behavior of the MetricTimeDimensionTransformNode.
 
-        This node will create an output data set that is similar to the input data set, but the measure instances it
-        contains is a subset of the input data set. Only measure instances that have an aggregation time dimension
+        This node will create an output data set that is similar to the input data set, but the simple metric instances it
+        contains is a subset of the input data set. Only simple-metric instances that have an aggregation time dimension
         matching the one defined in the node will be passed. In addition, an additional time dimension instance for
         "metric time" will be included. See DataSet.metric_time_dimension_reference().
         """
         input_data_set: SqlDataSet = self.get_output_data_set(node.parent_node)
 
-        # Find which measures have an aggregation time dimension that is the same as the one specified in the node.
-        # Only these measures will be in the output data set.
-        output_measure_instances = []
-        for measure_instance in input_data_set.instance_set.measure_instances:
-            semantic_model = self._semantic_model_lookup.get_by_reference(
-                semantic_model_reference=measure_instance.origin_semantic_model_reference.semantic_model_reference
-            )
-            assert semantic_model is not None, (
-                f"{measure_instance} was defined from "
-                f"{measure_instance.origin_semantic_model_reference.semantic_model_reference}, but that can't be found"
-            )
-            aggregation_time_dimension_for_measure = semantic_model.checked_agg_time_dimension_for_measure(
-                measure_reference=measure_instance.spec.reference
-            )
+        # Find which simple-metric inputs have an aggregation time dimension that is the same as the one specified in the node.
+        # Only these simple-metric inputs will be in the output data set.
+        output_simple_metric_input_instances = []
+        for simple_metric_input_instance in input_data_set.instance_set.simple_metric_input_instances:
+            simple_metric_input = self._manifest_object_lookup.simple_metric_name_to_input[
+                simple_metric_input_instance.spec.element_name
+            ]
+            aggregation_time_dimension_for_measure = TimeDimensionReference(simple_metric_input.agg_time_dimension_name)
+
             if aggregation_time_dimension_for_measure == node.aggregation_time_dimension_reference:
-                output_measure_instances.append(measure_instance)
+                output_simple_metric_input_instances.append(simple_metric_input_instance)
 
         # Find time dimension instances that refer to the same dimension as the one specified in the node.
         matching_time_dimension_instances: List[TimeDimensionInstance] = []
@@ -1147,7 +1136,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
             ] = matching_time_dimension_instance.associated_column.column_name
 
         output_instance_set = InstanceSet(
-            measure_instances=tuple(output_measure_instances),
+            simple_metric_input_instances=tuple(output_simple_metric_input_instances),
             dimension_instances=input_data_set.instance_set.dimension_instances,
             time_dimension_instances=tuple(output_time_dimension_instances),
             entity_instances=input_data_set.instance_set.entity_instances,
@@ -1321,13 +1310,13 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         parent_join_column_name = self._column_association_resolver.resolve_spec(
             node.join_on_time_dimension_spec
         ).column_name
-        time_spine_jon_column_name = time_spine_data_set.instance_from_time_dimension_grain_and_date_part(
+        time_spine_join_column_name = time_spine_data_set.instance_from_time_dimension_grain_and_date_part(
             time_granularity_name=node.join_on_time_dimension_spec.time_granularity_name, date_part=None
         ).associated_column.column_name
         join_description = SqlPlanJoinBuilder.make_join_to_time_spine_join_description(
             node=node,
             time_spine_alias=time_spine_alias,
-            time_spine_column_name=time_spine_jon_column_name,
+            time_spine_column_name=time_spine_join_column_name,
             parent_column_name=parent_join_column_name,
             parent_sql_select_node=parent_data_set.checked_sql_select_node,
             parent_alias=parent_alias,
@@ -1511,7 +1500,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
 
         time_spine_source = self._get_time_spine_for_custom_granularity(custom_granularity_name)
         join_description = SqlJoinDescription(
-            right_source=SqlTableNode.create(sql_table=time_spine_source.spine_table),
+            right_source=SqlTableNode.create(sql_table=time_spine_source.sql_table),
             right_source_alias=time_spine_alias,
             on_condition=SqlComparisonExpression.create(
                 left_expr=parent_column.expr,
@@ -1746,7 +1735,9 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
         )
 
         conversion_data_set_output_instance_set = conversion_data_set.instance_set.transform(
-            FilterElements(include_specs=InstanceSpecSet(measure_specs=(node.conversion_measure_spec,)))
+            FilterElements(
+                include_specs=InstanceSpecSet(simple_metric_input_specs=(node.conversion_input_metric_spec,))
+            )
         )
 
         # Deduplicate the fanout results
@@ -1766,7 +1757,7 @@ class DataflowNodeToSqlSubqueryVisitor(DataflowPlanNodeVisitor[SqlDataSet]):
             CreateSelectColumnsForInstances(conversion_data_set_alias, self._column_association_resolver)
         ).get_columns()
         deduped_sql_select_node = SqlSelectStatementNode.create(
-            description=f"Dedupe the fanout with {','.join(spec.qualified_name for spec in node.unique_identifier_keys)} in the conversion data set",
+            description=f"Dedupe the fanout with {','.join(spec.dunder_name for spec in node.unique_identifier_keys)} in the conversion data set",
             select_columns=base_sql_select_columns
             + conversion_unique_key_select_columns
             + additional_conversion_select_columns,

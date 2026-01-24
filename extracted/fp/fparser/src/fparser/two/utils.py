@@ -63,9 +63,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Base classes and exception handling for Fortran parser.
-
-"""
+"""Base classes and exception handling for Fortran parser."""
 # Original author: Pearu Peterson <pearu@cens.ioc.ee>
 # First version created: Oct 2006
 
@@ -333,6 +331,7 @@ class DynamicImport:
             End_Select_Type_Stmt,
             Case_Stmt,
             End_Select_Stmt,
+            Directive,
             Comment,
             Include_Stmt,
             add_comments_includes_directives,
@@ -349,6 +348,7 @@ class DynamicImport:
         DynamicImport.End_Select_Type_Stmt = End_Select_Type_Stmt
         DynamicImport.Case_Stmt = Case_Stmt
         DynamicImport.End_Select_Stmt = End_Select_Stmt
+        DynamicImport.Directive = Directive
         DynamicImport.Comment = Comment
         DynamicImport.Include_Stmt = Include_Stmt
         DynamicImport.C99Preprocessor = C99Preprocessor
@@ -487,20 +487,13 @@ class Base(ComparableMixin):
             raise AssertionError(repr(result))
         # If we get to here then we've failed to match the current line
         if isinstance(string, FortranReaderBase):
-            content = False
-            for index in range(string.linecount):
-                # Check all lines up to this one for content. We
-                # should be able to only check the current line but
-                # but as the line number returned is not always
-                # correct (due to coding errors) we cannot assume the
-                # line pointed to is the line where the error actually
-                # happened.
-                if string.source_lines[index].strip():
-                    content = True
-                    break
-            if not content:
-                # There are no lines in the input or all lines up to
-                # this one are empty or contain only white space. This
+            freader: FortranReaderBase = string
+            if not freader.source_lines or all(
+                (line.strip() == "" or freader.is_comment_line(line))
+                for line in freader.source_lines
+            ):
+                # There are no lines in the input or all lines up to this one
+                # are empty, comments or contain only white space. This
                 # is typically accepted by fortran compilers so we
                 # follow their lead and do not raise an exception.
                 return
@@ -712,8 +705,12 @@ class BlockBase(Base):
             if match_names:
                 start_name = obj.get_start_name()
 
-        # Comments and Include statements are always valid sub-classes
-        classes = subclasses + [di.Comment, di.Include_Stmt]
+        # Directives, Comments and Include statements are always valid sub-classes
+        comments = [di.Comment, di.Include_Stmt]
+        # Only add directives if enabled.
+        if reader.process_directives:
+            comments.insert(0, di.Directive)
+        classes = subclasses + comments
         # Preprocessor directives are always valid sub-classes
         cpp_classes = [
             getattr(di.C99Preprocessor, cls_name)
@@ -910,6 +907,8 @@ class BlockBase(Base):
         :rtype: str
         """
         mylist = []
+        if not self.content:
+            return ""
         start = self.content[0]
         end = self.content[-1]
         extra_tab = ""

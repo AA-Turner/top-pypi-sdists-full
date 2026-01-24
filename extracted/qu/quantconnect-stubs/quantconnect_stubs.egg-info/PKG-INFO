@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: quantconnect-stubs
-Version: 17299
+Version: 17490
 Summary: Type stubs for QuantConnect's Lean
 Home-page: https://github.com/QuantConnect/quantconnect-stubs-generator
 Author: QuantConnect
@@ -13,6 +13,14 @@ Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
 Requires-Dist: pandas
 Requires-Dist: matplotlib
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary
 
 # QuantConnect Stubs
 

@@ -10,6 +10,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .auth_connection_locator import AuthConnectionLocator
 from .literal_json_schema_property import LiteralJsonSchemaProperty
 from .query_params_json_schema import QueryParamsJsonSchema
+from .webhook_tool_api_schema_config_input_content_type import WebhookToolApiSchemaConfigInputContentType
 from .webhook_tool_api_schema_config_input_method import WebhookToolApiSchemaConfigInputMethod
 from .webhook_tool_api_schema_config_input_request_headers_value import (
     WebhookToolApiSchemaConfigInputRequestHeadersValue,
@@ -17,8 +18,11 @@ from .webhook_tool_api_schema_config_input_request_headers_value import (
 
 
 class WebhookToolApiSchemaConfigInput(UncheckedBaseModel):
+    request_headers: typing.Optional[typing.Dict[str, WebhookToolApiSchemaConfigInputRequestHeadersValue]] = (
+        pydantic.Field(default=None)
+    )
     """
-    Configuration for a webhook that will be called by an LLM tool.
+    Headers that should be included in the request
     """
 
     url: str = pydantic.Field()
@@ -46,11 +50,9 @@ class WebhookToolApiSchemaConfigInput(UncheckedBaseModel):
     Schema for the body parameters, if any. Used for POST/PATCH/PUT requests. The schema should be an object which will be sent as the json body
     """
 
-    request_headers: typing.Optional[typing.Dict[str, WebhookToolApiSchemaConfigInputRequestHeadersValue]] = (
-        pydantic.Field(default=None)
-    )
+    content_type: typing.Optional[WebhookToolApiSchemaConfigInputContentType] = pydantic.Field(default=None)
     """
-    Headers that should be included in the request
+    Content type for the request body. Only applies to POST/PUT/PATCH requests.
     """
 
     auth_connection: typing.Optional[AuthConnectionLocator] = pydantic.Field(default=None)
@@ -68,7 +70,6 @@ class WebhookToolApiSchemaConfigInput(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .array_json_schema_property_input import ArrayJsonSchemaPropertyInput  # noqa: E402, F401, I001
-from .object_json_schema_property_input import ObjectJsonSchemaPropertyInput  # noqa: E402, F401, I001
+from .object_json_schema_property_input import ObjectJsonSchemaPropertyInput  # noqa: E402, I001
 
 update_forward_refs(WebhookToolApiSchemaConfigInput)

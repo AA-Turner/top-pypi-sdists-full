@@ -43,18 +43,16 @@ class StatusCheckJob:
 
     _client = staticproperty(get_client)  # type: ignore[arg-type]
 
-    _converter_common = t.Dict(
-        {
-            t.Key("status", optional=True): t.Enum(
-                ASYNC_PROCESS_STATUS.ABORTED,
-                ASYNC_PROCESS_STATUS.COMPLETED,
-                ASYNC_PROCESS_STATUS.ERROR,
-                ASYNC_PROCESS_STATUS.INITIALIZED,
-                ASYNC_PROCESS_STATUS.RUNNING,
-            ),
-            t.Key("statusId", optional=True): String,
-        }
-    )
+    _converter_common = t.Dict({
+        t.Key("status", optional=True): t.Enum(
+            ASYNC_PROCESS_STATUS.ABORTED,
+            ASYNC_PROCESS_STATUS.COMPLETED,
+            ASYNC_PROCESS_STATUS.ERROR,
+            ASYNC_PROCESS_STATUS.INITIALIZED,
+            ASYNC_PROCESS_STATUS.RUNNING,
+        ),
+        t.Key("statusId", optional=True): String,
+    })
 
     def __init__(self, job_id: str, resource_type: Optional[Type[APIObject]] = None) -> None:
         """
@@ -120,9 +118,7 @@ class StatusCheckJob:
         try:
             wait_for_async_resolution(self._client, self._this_job_path(), max_wait=max_wait)
         except (AsyncFailureError, AsyncProcessUnsuccessfulError) as ex:
-            return self.status_from_response(
-                data={"status": ASYNC_PROCESS_STATUS.ERROR, "message": str(ex)}
-            )
+            return self.status_from_response(data={"status": ASYNC_PROCESS_STATUS.ERROR, "message": str(ex)})
         except AsyncTimeoutError:
             pass  # just return current status to user
 
@@ -160,16 +156,10 @@ class StatusCheckJob:
             raise ValueError("The function requires self.resource_type to be set before calling")
 
         # if this fails to complete let it throw an exception
-        async_result = wait_for_async_resolution(
-            self._client, self._this_job_path(), max_wait=max_wait
-        )
+        async_result = wait_for_async_resolution(self._client, self._this_job_path(), max_wait=max_wait)
 
         # if we got here we should be complete, fetch the resource
-        resource = (
-            async_result
-            if isinstance(async_result, str)
-            else async_result["completed_resource_url"]
-        )
+        resource = async_result if isinstance(async_result, str) else async_result["completed_resource_url"]
         return self.resource_type.from_location(resource)
 
 

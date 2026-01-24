@@ -1,12 +1,13 @@
 import os
 import types
 
+from decimal import Decimal
 from ssl import CERT_REQUIRED
 from unittest import mock
 
 import pytest
 
-import snowflake.core._http_requests
+import snowflake.core._http_requests as http
 
 
 @pytest.mark.parametrize(
@@ -29,13 +30,12 @@ import snowflake.core._http_requests
     ),
 )
 def test_resolve_url(inputs, expected_output):
-    assert snowflake.core._http_requests.resolve_url(*inputs) == expected_output
+    assert http.resolve_url(*inputs) == expected_output
 
 
 @pytest.fixture(autouse=True)
 def _reset_connection_pool():
     # Ensure singleton pool does not leak across tests
-    http = snowflake.core._http_requests
     original = http.CONNECTION_POOL
     http.CONNECTION_POOL = None
     try:
@@ -45,11 +45,9 @@ def _reset_connection_pool():
 
 
 @mock.patch.dict(os.environ, {"HTTPS_PROXY": ""}, clear=False)
-@mock.patch.object(snowflake.core._http_requests.urllib3, "ProxyManager")
-@mock.patch.object(snowflake.core._http_requests.urllib3, "PoolManager")
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_uses_proxy_from_configuration(pool_mock, proxy_mock):
-    http = snowflake.core._http_requests
-
     configuration = types.SimpleNamespace(
         verify_ssl=True,
         ssl_ca_cert=None,
@@ -79,11 +77,9 @@ def test_create_connection_pool_uses_proxy_from_configuration(pool_mock, proxy_m
 
 
 @mock.patch.dict(os.environ, {"HTTPS_PROXY": "https://env-proxy:3128"}, clear=False)
-@mock.patch.object(snowflake.core._http_requests.urllib3, "ProxyManager")
-@mock.patch.object(snowflake.core._http_requests.urllib3, "PoolManager")
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_uses_proxy_from_env(pool_mock, proxy_mock):
-    http = snowflake.core._http_requests
-
     configuration = types.SimpleNamespace(
         verify_ssl=True,
         ssl_ca_cert=None,
@@ -113,11 +109,9 @@ def test_create_connection_pool_uses_proxy_from_env(pool_mock, proxy_mock):
 
 
 @mock.patch.dict(os.environ, {"HTTPS_PROXY": ""}, clear=False)
-@mock.patch.object(snowflake.core._http_requests.urllib3, "ProxyManager")
-@mock.patch.object(snowflake.core._http_requests.urllib3, "PoolManager")
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_without_proxy(pool_mock, proxy_mock):
-    http = snowflake.core._http_requests
-
     configuration = types.SimpleNamespace(
         verify_ssl=True,
         ssl_ca_cert=None,
@@ -137,3 +131,7 @@ def test_create_connection_pool_without_proxy(pool_mock, proxy_mock):
     pool_mock.assert_called_once_with(
         num_pools=4, maxsize=4, cert_reqs=CERT_REQUIRED, ca_certs=None, cert_file=None, key_file=None
     )
+
+
+def test_sanitize_for_serialization():
+    assert http.sanitize_for_serialization(Decimal("1.23")) == "1.23"

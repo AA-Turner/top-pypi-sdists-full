@@ -4,7 +4,7 @@ if(PLUGIN_SYCL)
   string(REPLACE " -isystem ${CONDA_PREFIX}/include" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-project(xgboost LANGUAGES CXX C VERSION 3.0.5)
+project(xgboost LANGUAGES CXX C VERSION 3.1.3)
 include(cmake/Utils.cmake)
 list(APPEND CMAKE_MODULE_PATH "${xgboost_SOURCE_DIR}/cmake/modules")
 
@@ -53,6 +53,7 @@ option(USE_OPENMP "Build with OpenMP support." ON)
 option(BUILD_STATIC_LIB "Build static library" OFF)
 option(BUILD_DEPRECATED_CLI "Build the deprecated command line interface" OFF)
 option(FORCE_SHARED_CRT "Build with dynamic CRT on Windows (/MD)" OFF)
+option(BUILD_WITH_GIT_HASH "Add a short git hash to the build info." OFF)
 ## Bindings
 option(JVM_BINDINGS "Build JVM bindings" OFF)
 option(R_LIB "Build shared library for R package" OFF)
@@ -72,6 +73,7 @@ option(KEEP_BUILD_ARTIFACTS_IN_BINARY_DIR "Output build artifacts in CMake binar
 ## CUDA
 option(USE_CUDA  "Build with GPU acceleration" OFF)
 option(USE_NCCL  "Build with NCCL to enable distributed GPU support." OFF)
+option(USE_NVCOMP "Build with nvcomp to enable sparse data compression. (experimental)" OFF)
 # This is specifically designed for PyPI binary release and should be disabled for most of the cases.
 option(USE_DLOPEN_NCCL "Whether to load nccl dynamically." OFF)
 option(BUILD_WITH_SHARED_NCCL "Build with shared NCCL library." OFF)
@@ -124,6 +126,9 @@ endif()
 if(USE_NCCL AND (NOT USE_CUDA))
   message(SEND_ERROR "`USE_NCCL` must be enabled with `USE_CUDA` flag.")
 endif()
+if(USE_NVCOMP AND (NOT USE_CUDA))
+  message(SEND_ERROR "`USE_NVCOMP` must be enabled with `USE_CUDA` flag.")
+endif()
 if(USE_DEVICE_DEBUG AND (NOT USE_CUDA))
   message(SEND_ERROR "`USE_DEVICE_DEBUG` must be enabled with `USE_CUDA` flag.")
 endif()
@@ -144,6 +149,9 @@ if(R_LIB AND GOOGLE_TEST)
     WARNING
     "Some C++ tests will fail with `R_LIB` enabled, as R package redirects some functions to R runtime implementation."
   )
+endif()
+if(R_LIB AND USE_NCCL)
+  message(SEND_ERROR "`R_LIB` doesn't support distributed computing with NCCL yet.")
 endif()
 if(PLUGIN_RMM AND NOT (USE_CUDA))
   message(SEND_ERROR "`PLUGIN_RMM` must be enabled with `USE_CUDA` flag.")
@@ -231,13 +239,23 @@ if(USE_CUDA)
   find_package(CUDAToolkit REQUIRED)
 endif()
 
+if(USE_NVCOMP)
+  find_package(nvcomp REQUIRED)
+  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_LESS 12.8)
+    message(SEND_ERROR "NVComp support requires CUDA >= 12.8")
+  endif()
+endif()
+
+
 if(FORCE_COLORED_OUTPUT AND (CMAKE_GENERATOR STREQUAL "Ninja") AND
     ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
       (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")))
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
 endif()
 
-find_package(Threads REQUIRED)
+if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Emscripten"))
+  find_package(Threads REQUIRED)
+endif()
 
 # -- OpenMP
 include(cmake/FindOpenMPMacOS.cmake)
@@ -348,7 +366,7 @@ if(PLUGIN_SYCL)
   set(CMAKE_CXX_LINK_EXECUTABLE
       "icpx <FLAGS> <CMAKE_CXX_LINK_FLAGS> -qopenmp <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
   set(CMAKE_CXX_CREATE_SHARED_LIBRARY
-      "icpx <CMAKE_SHARED_LIBRARY_CXX_FLAGS> -qopenmp <LANGUAGE_COMPILE_FLAGS> \
+      "icpx -shared <CMAKE_SHARED_LIBRARY_CXX_FLAGS> -qopenmp <LANGUAGE_COMPILE_FLAGS> \
       <CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS> <SONAME_FLAG>,<TARGET_SONAME> \
       -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
 endif()
@@ -401,7 +419,7 @@ if(JVM_BINDINGS)
   xgboost_target_defs(xgboost4j)
 endif()
 
-if(USE_OPENMP AND APPLE)
+if(USE_OPENMP AND APPLE AND NOT BUILD_STATIC_LIB)
   patch_openmp_path_macos(xgboost libxgboost)
 endif()
 

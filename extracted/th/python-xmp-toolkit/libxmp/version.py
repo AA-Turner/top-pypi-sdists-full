@@ -36,9 +36,6 @@
 Version information for libxmp.
 """
 
-from distutils.version import LooseVersion
-
 # Do not change the format of this next line!  Doing so risks breaking
 # setup.py
-VERSION = "2.0.2"
-VERSION_TUPLE = LooseVersion(VERSION).version
+VERSION = "2.1.0"

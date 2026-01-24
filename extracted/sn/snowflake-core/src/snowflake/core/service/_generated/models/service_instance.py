@@ -18,7 +18,7 @@ import re
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -36,17 +36,17 @@ class ServiceInstance(BaseModel):
     service_name : str, optional
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     service_status : str, optional
-        The current status of the service.
+        The current status of the service — **Read-only:** *any user-provided value will be ignored.*
     instance_id : str, optional
-        ID of the service instance (this is the index of the service instance starting from 0).
+        ID of the service instance (this is the index of the service instance starting from 0) — **Read-only:** *any user-provided value will be ignored.*
     status : str, optional
-        The current status of the service instance.
+        The current status of the service instance — **Read-only:** *any user-provided value will be ignored.*
     spec_digest : str, optional
-        The unique and immutable identifier that represents the service specification content.
+        The unique and immutable identifier that represents the service specification content — **Read-only:** *any user-provided value will be ignored.*
     creation_time : str, optional
-        The time when Snowflake started creating the service instance.
+        The time when Snowflake started creating the service instance — **Read-only:** *any user-provided value will be ignored.*
     start_time : str, optional
-        The time when Snowflake acknowledged the service instance is running on a node.
+        The time when Snowflake acknowledged the service instance is running on a node — **Read-only:** *any user-provided value will be ignored.*
     """
 
     database_name: Optional[Annotated[str, Field(strict=True)]] = None
@@ -103,9 +103,10 @@ class ServiceInstance(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -139,7 +140,7 @@ class ServiceInstance(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -154,9 +155,9 @@ class ServiceInstance(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ServiceInstance.parse_obj(obj)
+            return ServiceInstance.model_validate(obj)
 
-        _obj = ServiceInstance.parse_obj(
+        _obj = ServiceInstance.model_validate(
             {
                 "database_name": obj.get("database_name"),
                 "schema_name": obj.get("schema_name"),

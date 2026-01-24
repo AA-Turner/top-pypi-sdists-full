@@ -1,3 +1,18 @@
+# Copyright Rouven Bauer
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 from __future__ import annotations
 
 import ast
@@ -10,6 +25,10 @@ from ._meta import version
 from ._util import find_parens_coords
 
 if t.TYPE_CHECKING:
+    from argparse import Namespace
+
+    from flake8.options.manager import OptionManager
+
     from ._util import ParensCords
 
 
@@ -26,6 +45,21 @@ AST_FIX_PREFIXES = {
     "finally": "try:\n   pass\n",
     "case": "match _:\n    ",
 }
+
+
+def _():
+    for prefix in AST_FIX_PREFIXES.values():
+        assert \
+            prefix.rsplit("\n", 1)[-1].strip() == "", \
+            (
+                "All AST_FIX_PREFIXES must end with a newline and optional "
+                "indentation. Extra tokens will lead to incorrect line/column "
+                "offset calculations."
+            )
+
+
+_()
+
 
 AST_FIX_SPECIAL_BODIES = {
     "match": "\n    case _:\n        pass",
@@ -48,11 +82,15 @@ class LogicalLine:
         line: str,
         line_offset: int,
         tokens: t.Optional[t.Tuple[tokenize.TokenInfo]] = None,
-        column_offset: int = 0
+        column_offset: int = 0,
+        padding_line_offset: int = 0,
+        padding_column_offset: int = 0,
     ):
         self.line = line
         self.line_offset = line_offset
         self.column_offset = column_offset
+        self.padding_line_offset = padding_line_offset
+        self.padding_column_offset = padding_column_offset
         self._tokens = tokens
 
     @property
@@ -79,6 +117,8 @@ class PluginRedundantParentheses:
     name = __name__
     version = version
 
+    _enabled: t.ClassVar[bool] = True
+
     def __init__(
         self,
         tree: ast.AST,
@@ -103,10 +143,31 @@ class PluginRedundantParentheses:
     def run(
         self
     ) -> t.Generator[t.Tuple[int, int, str, t.Type[t.Any]], None, None]:
+        if not self._enabled:
+            return
         logical_lines = self._get_logical_lines(self.lines, self.file_tokens)
         problems = self._check(logical_lines, self.tree, self.file_tokens)
         for line, col, msg in problems:
             yield line, col, msg, type(self)
+
+    @classmethod
+    def parse_options(
+        cls,
+        option_manager: OptionManager,
+        options: Namespace,
+        args: list[str],
+    ) -> None:
+        from flake8.style_guide import (
+            Decision,
+            DecisionEngine,
+        )
+
+        engine = DecisionEngine(options)
+        for code in ("PAR001", "PAR002"):
+            if engine.make_decision(code) == Decision.Selected:
+                cls._enabled = True
+                return
+        cls._enabled = False
 
     @classmethod
     def _check(cls, logical_lines, tree, file_tokens):
@@ -124,6 +185,8 @@ class PluginRedundantParentheses:
             logical_line = cls._strip_logical_line(logical_line)
             logical_line = cls._pad_logical_line(logical_line)
             for line, column, msg in cls._check_logical_line(logical_line):
+                column -= logical_line.padding_column_offset
+                line -= logical_line.padding_line_offset
                 if line == 1:
                     column += logical_line.column_offset
                 line += logical_line.line_offset
@@ -133,8 +196,7 @@ class PluginRedundantParentheses:
     def _rewrite_problems(cls, raw_problems, tree, file_tokens):
         parens_coords = find_parens_coords(file_tokens)
         raw_problems = list(raw_problems)
-        raw_problems_pos = set((line, column)
-                               for line, column, _ in raw_problems)
+        raw_problems_pos = {(line, column) for line, column, _ in raw_problems}
         problem_coords = [
             parens_coord
             for parens_coord in parens_coords
@@ -196,8 +258,8 @@ class PluginRedundantParentheses:
             return logical_line
 
         line = logical_line.line
-        line_offset = logical_line.line_offset
-        column_offset = logical_line.column_offset
+        padding_line_offset = 0
+        padding_column_offset = 0
         if is_decorator:
             line += "\ndef f():"
             needs_body = True
@@ -206,18 +268,19 @@ class PluginRedundantParentheses:
             line += AST_FIX_SPECIAL_BODIES.get(keyword, "\n    pass")
         if ast_fix_prefix:
             extra_indent = ast_fix_prefix.rsplit("\n", 1)[-1]
-            if extra_indent.strip():
-                extra_indent = ""  # contains not only whitespace
             if extra_indent:
                 line = "\n".join(extra_indent + s for s in line.split("\n"))
-                column_offset -= len(extra_indent)
+                padding_column_offset += len(extra_indent)
                 ast_fix_prefix = ast_fix_prefix[:-len(extra_indent)]
             line = ast_fix_prefix + line
-            line_offset -= ast_fix_prefix.count("\n")
+            padding_line_offset += ast_fix_prefix.count("\n")
         return LogicalLine(
             line=line,
-            line_offset=line_offset,
-            column_offset=column_offset
+            line_offset=logical_line.line_offset,
+            column_offset=logical_line.column_offset,
+            padding_line_offset=padding_line_offset,
+            padding_column_offset=padding_column_offset,
+
         )
 
     @classmethod

@@ -11,11 +11,14 @@ from tango import (
 from tango.server import Device, attribute
 from tango.test_utils import DeviceTestContext
 
-from threading import Thread
+from threading import Thread, Event
+from queue import Queue
 
 import pytest
 
 from time import sleep
+
+pytestmark = pytest.mark.extra_src_test
 
 
 def do_nothing():
@@ -189,3 +192,42 @@ def test_monitor_force_unlock_from_different_thread(
 
         # required especially by SerialModel.BY_PROCESS so that the DS can be killed from the test context
         MonDiffThread.running = False
+
+
+class DontDeadlock(Device):
+    def init_device(self) -> None:
+        self.queue = Queue[Event | None]()
+        self.thread = Thread(target=self._run)
+        self.thread.start()
+
+    def delete_device(self) -> None:
+        self.queue.put(None)
+        self.thread.join()
+
+    def _run(self) -> None:
+        with EnsureOmniThread():
+            while True:
+                ev = self.queue.get()
+                if ev is None:
+                    break
+
+                with AutoTangoMonitor(self):
+                    ev.set()
+
+    @attribute
+    def attr(self) -> int:
+        ev = Event()
+        self.queue.put(ev)
+        # Allow the thread to run and start waiting for the monitor
+        sleep(0.01)
+        with AutoTangoAllowThreads(self):
+            ev.wait()
+
+        return 1234
+
+
+# This test will probably only fail if the system is under load
+def test_dont_deadlock_when_releasing_monitor():
+    with DeviceTestContext(DontDeadlock, process=True) as proxy:
+        for _ in range(100):
+            assert proxy.attr == 1234

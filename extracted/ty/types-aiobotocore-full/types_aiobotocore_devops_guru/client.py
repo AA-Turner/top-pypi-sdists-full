@@ -3,7 +3,7 @@ Type annotations for devops-guru service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_guru/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -99,12 +100,6 @@ from .type_defs import (
     UpdateServiceIntegrationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -115,14 +110,14 @@ __all__ = ("DevOpsGuruClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DevOpsGuruClient(AioBaseClient):
@@ -170,7 +165,7 @@ class DevOpsGuruClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_guru/client/#add_notification_channel)
         """
 
-    async def delete_insight(self, **kwargs: Unpack[DeleteInsightRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_insight(self, **kwargs: Unpack[DeleteInsightRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the insight along with the associated anomalies, events and
         recommendations.
@@ -398,7 +393,7 @@ class DevOpsGuruClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_devops_guru/client/#list_recommendations)
         """
 
-    async def put_feedback(self, **kwargs: Unpack[PutFeedbackRequestTypeDef]) -> Dict[str, Any]:
+    async def put_feedback(self, **kwargs: Unpack[PutFeedbackRequestTypeDef]) -> dict[str, Any]:
         """
         Collects customer feedback about the specified insight.
 
@@ -408,7 +403,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def remove_notification_channel(
         self, **kwargs: Unpack[RemoveNotificationChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a notification channel from DevOps Guru.
 
@@ -438,7 +433,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def start_cost_estimation(
         self, **kwargs: Unpack[StartCostEstimationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the creation of an estimate of the monthly cost to analyze your Amazon
         Web Services resources.
@@ -449,7 +444,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def update_event_sources_config(
         self, **kwargs: Unpack[UpdateEventSourcesConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables integration with a service that can be integrated with
         DevOps Guru.
@@ -460,7 +455,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def update_resource_collection(
         self, **kwargs: Unpack[UpdateResourceCollectionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the collection of resources that DevOps Guru analyzes.
 
@@ -470,7 +465,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def update_service_integration(
         self, **kwargs: Unpack[UpdateServiceIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables integration with a service that can be integrated with
         DevOps Guru.
@@ -641,7 +636,7 @@ class DevOpsGuruClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

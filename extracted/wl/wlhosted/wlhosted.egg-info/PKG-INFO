@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wlhosted
-Version: 2025.1
+Version: 2026.1
 Summary: Hosted Weblate Customization
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -20,34 +20,25 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django<5.3,>=5.2
+Requires-Dist: Django<6.1,>=5.2
 Requires-Dist: django-appconf>=1.0
-Requires-Dist: django-countries==7.6.1
-Requires-Dist: django-vies==6.2.0
+Requires-Dist: django-countries==8.2.0
+Requires-Dist: django-vies==6.2.2
 Requires-Dist: fakturace==0.7.2
 Requires-Dist: psycopg[binary]
 Requires-Dist: python-dateutil
 Requires-Dist: requests
 Requires-Dist: Weblate>=5.5.3
-Provides-Extra: dev
-Requires-Dist: wlhosted[lint,test]; extra == "dev"
-Provides-Extra: lint
-Requires-Dist: pre-commit==4.2.0; extra == "lint"
-Provides-Extra: test
-Requires-Dist: httpretty; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: build==1.2.2.post1; extra == "test"
-Requires-Dist: twine==6.1.0; extra == "test"
 Dynamic: license-file
 
 .. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png

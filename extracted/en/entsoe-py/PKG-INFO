@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: entsoe-py
-Version: 0.7.4
+Version: 0.7.8
 Summary: A python API wrapper for ENTSO-E
 Home-page: https://github.com/EnergieID/entsoe-py
 Author: EnergieID.be, Frank Boerman

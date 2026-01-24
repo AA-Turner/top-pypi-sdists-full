@@ -33,6 +33,7 @@ class WorkerPing:
         vcpus (Union[Unset, float]):
         memory_usage (Union[Unset, float]):
         wm_memory_usage (Union[Unset, float]):
+        job_isolation (Union[Unset, str]):
     """
 
     worker: str
@@ -54,6 +55,7 @@ class WorkerPing:
     vcpus: Union[Unset, float] = UNSET
     memory_usage: Union[Unset, float] = UNSET
     wm_memory_usage: Union[Unset, float] = UNSET
+    job_isolation: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -80,6 +82,7 @@ class WorkerPing:
         vcpus = self.vcpus
         memory_usage = self.memory_usage
         wm_memory_usage = self.wm_memory_usage
+        job_isolation = self.job_isolation
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -118,6 +121,8 @@ class WorkerPing:
             field_dict["memory_usage"] = memory_usage
         if wm_memory_usage is not UNSET:
             field_dict["wm_memory_usage"] = wm_memory_usage
+        if job_isolation is not UNSET:
+            field_dict["job_isolation"] = job_isolation
 
         return field_dict
 
@@ -162,6 +167,8 @@ class WorkerPing:
 
         wm_memory_usage = d.pop("wm_memory_usage", UNSET)
 
+        job_isolation = d.pop("job_isolation", UNSET)
+
         worker_ping = cls(
             worker=worker,
             worker_instance=worker_instance,
@@ -182,6 +189,7 @@ class WorkerPing:
             vcpus=vcpus,
             memory_usage=memory_usage,
             wm_memory_usage=wm_memory_usage,
+            job_isolation=job_isolation,
         )
 
         worker_ping.additional_properties = d

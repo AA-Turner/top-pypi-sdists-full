@@ -18,7 +18,7 @@ class Petal(Plot):
 
 
         Parameters
-        ----------------
+        ----------
         bounds : tuple
             The boundaries for each objective. Necessary to be provided for this plot!
         axis_style : {axis_style}
@@ -66,7 +66,7 @@ class Petal(Plot):
             t = np.linspace(sections[i], sections[i + 1], 100)
             v = np.column_stack([np.cos(t), np.sin(t)])
 
-            P = np.row_stack([center, F[i] * v])
+            P = np.vstack([center, F[i] * v])
             plot_polygon(ax, P, color=self.colors[i])
 
         # draw the outer circle

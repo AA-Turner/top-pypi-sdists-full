@@ -2,15 +2,15 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import timedelta
-from functools import cached_property
-from typing import Any, Concatenate, ParamSpec, cast, overload
+from typing import Any, Concatenate, ParamSpec, overload
+
+from pydantic import TypeAdapter
 
 from hatchet_sdk import Context, DurableContext
 from hatchet_sdk.client import Client
 from hatchet_sdk.clients.dispatcher.dispatcher import DispatcherClient
 from hatchet_sdk.clients.events import EventClient
 from hatchet_sdk.clients.listeners.run_event_listener import RunEventListenerClient
-from hatchet_sdk.clients.rest.models.tenant_version import TenantVersion
 from hatchet_sdk.config import ClientConfig
 from hatchet_sdk.features.cel import CELClient
 from hatchet_sdk.features.cron import CronClient
@@ -35,6 +35,7 @@ from hatchet_sdk.runnables.types import (
     TaskDefaults,
     TWorkflowInput,
     WorkflowConfig,
+    normalize_validator,
 )
 from hatchet_sdk.runnables.workflow import BaseWorkflow, Standalone, Workflow
 from hatchet_sdk.utils.timedelta_to_expression import Duration
@@ -64,11 +65,6 @@ class Hatchet:
         self._client = (
             client if client else Client(config=config or ClientConfig(), debug=debug)
         )
-
-        if self.tenant_engine_version != TenantVersion.V1:
-            logger.warning(
-                "🚨⚠️‼️ YOU ARE USING A V0 ENGINE WITH A V1 SDK, WHICH IS NOT SUPPORTED. PLEASE UPGRADE YOUR ENGINE TO V1.🚨⚠️‼️"
-            )
 
     @property
     def cel(self) -> CELClient:
@@ -179,19 +175,6 @@ class Hatchet:
         """
         return self._client.config.namespace
 
-    @cached_property
-    def tenant_engine_version(self) -> TenantVersion:
-        """
-        Get the version of the Hatchet engine running in your tenant.
-        """
-        try:
-            return self._client.tenant.get().version
-        except Exception:
-            ## Nothing we can do here - if this fails, it's probably
-            ## because they don't have this endpoint yet, so we need to just
-            ## assume V1 to swallow the warning.
-            return TenantVersion.V1
-
     def worker(
         self,
         name: str,
@@ -248,7 +231,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         task_defaults: TaskDefaults = TaskDefaults(),
         default_filters: list[DefaultFilter] | None = None,
     ) -> Workflow[EmptyModel]: ...
@@ -265,7 +250,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         task_defaults: TaskDefaults = TaskDefaults(),
         default_filters: list[DefaultFilter] | None = None,
     ) -> Workflow[TWorkflowInput]: ...
@@ -281,7 +268,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         task_defaults: TaskDefaults = TaskDefaults(),
         default_filters: list[DefaultFilter] | None = None,
     ) -> Workflow[EmptyModel] | Workflow[TWorkflowInput]:
@@ -304,7 +293,7 @@ class Hatchet:
 
         :param default_priority: The priority of the workflow. Higher values will cause this workflow to have priority in scheduling over other, lower priority ones.
 
-        :param concurrency: A concurrency object controlling the concurrency settings for this workflow.
+        :param concurrency: A concurrency object controlling the concurrency settings for this workflow. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :param task_defaults: A `TaskDefaults` object controlling the default task settings for this workflow.
 
@@ -322,8 +311,7 @@ class Hatchet:
                 on_crons=on_crons or [],
                 sticky=sticky,
                 concurrency=concurrency,
-                input_validator=input_validator
-                or cast(type[TWorkflowInput], EmptyModel),
+                input_validator=TypeAdapter(normalize_validator(input_validator)),
                 task_defaults=task_defaults,
                 default_priority=default_priority,
                 default_filters=default_filters or [],
@@ -343,7 +331,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -369,7 +359,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -394,7 +386,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -432,7 +426,7 @@ class Hatchet:
 
         :param default_priority: The priority of the task. Higher values will cause this task to have priority in scheduling.
 
-        :param concurrency: A concurrency object controlling the concurrency settings for this task.
+        :param concurrency: A concurrency object controlling the concurrency settings for this task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :param schedule_timeout: The maximum time allowed for scheduling the task.
 
@@ -469,8 +463,7 @@ class Hatchet:
                     on_crons=on_crons or [],
                     sticky=sticky,
                     default_priority=default_priority,
-                    input_validator=input_validator
-                    or cast(type[TWorkflowInput], EmptyModel),
+                    input_validator=TypeAdapter(normalize_validator(input_validator)),
                     default_filters=default_filters or [],
                 ),
                 self,
@@ -480,6 +473,8 @@ class Hatchet:
                 _concurrency = concurrency
             elif isinstance(concurrency, ConcurrencyExpression):
                 _concurrency = [concurrency]
+            elif isinstance(concurrency, int):
+                _concurrency = [ConcurrencyExpression.from_int(concurrency)]
             else:
                 _concurrency = []
 
@@ -517,7 +512,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -543,7 +540,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -572,7 +571,9 @@ class Hatchet:
         version: str | None = None,
         sticky: StickyStrategy | None = None,
         default_priority: int = 1,
-        concurrency: ConcurrencyExpression | list[ConcurrencyExpression] | None = None,
+        concurrency: (
+            int | ConcurrencyExpression | list[ConcurrencyExpression] | None
+        ) = None,
         schedule_timeout: Duration = timedelta(minutes=5),
         execution_timeout: Duration = timedelta(seconds=60),
         retries: int = 0,
@@ -618,7 +619,7 @@ class Hatchet:
 
         :param default_priority: The priority of the task. Higher values will cause this task to have priority in scheduling.
 
-        :param concurrency: A concurrency object controlling the concurrency settings for this task.
+        :param concurrency: A concurrency object controlling the concurrency settings for this task. If an integer is provided, it is treated as a constant concurrency limit with a `GROUP_ROUND_ROBIN` strategy, which means that only `N` runs of the task may execute at any given time.
 
         :param schedule_timeout: The maximum time allowed for scheduling the task.
 
@@ -653,8 +654,7 @@ class Hatchet:
                     on_events=on_events or [],
                     on_crons=on_crons or [],
                     sticky=sticky,
-                    input_validator=input_validator
-                    or cast(type[TWorkflowInput], EmptyModel),
+                    input_validator=TypeAdapter(normalize_validator(input_validator)),
                     default_priority=default_priority,
                     default_filters=default_filters or [],
                 ),
@@ -665,6 +665,8 @@ class Hatchet:
                 _concurrency = concurrency
             elif isinstance(concurrency, ConcurrencyExpression):
                 _concurrency = [concurrency]
+            elif isinstance(concurrency, int):
+                _concurrency = [ConcurrencyExpression.from_int(concurrency)]
             else:
                 _concurrency = []
 
@@ -681,11 +683,9 @@ class Hatchet:
                 concurrency=_concurrency,
             )
 
-            created_task = task_wrapper(func)
-
             return Standalone[TWorkflowInput, R](
                 workflow=workflow,
-                task=created_task,
+                task=task_wrapper(func),
             )
 
         return inner

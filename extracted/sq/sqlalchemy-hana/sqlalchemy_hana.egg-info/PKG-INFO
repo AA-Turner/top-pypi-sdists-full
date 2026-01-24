@@ -1,50 +1,34 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-hana
-Version: 3.0.3
+Version: 4.2.0
 Summary: SQLAlchemy dialect for SAP HANA
 Author-email: Christoph Heer <christoph.heer@sap.com>
 Maintainer-email: Christoph Heer <christoph.heer@sap.com>, Kai Harder <kai.harder@sap.com>
 License-Expression: Apache-2.0
-Project-URL: Repository, https://github.com/SAP/sqlalchemy-hana
-Project-URL: Issue Tracker, https://github.com/SAP/sqlalchemy-hana/issues
 Project-URL: Changelog, https://github.com/SAP/sqlalchemy-hana/blob/main/CHANGES.rst
+Project-URL: Issue Tracker, https://github.com/SAP/sqlalchemy-hana/issues
+Project-URL: Repository, https://github.com/SAP/sqlalchemy-hana
 Keywords: sqlalchemy,sap,hana
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sqlalchemy<3,>=1.4.0
+Requires-Dist: sqlalchemy<3,>=2
 Requires-Dist: hdbcli~=2.10
-Provides-Extra: dev
-Requires-Dist: isort==6.0.1; extra == "dev"
-Requires-Dist: black==25.1.0; extra == "dev"
-Requires-Dist: pre-commit==4.2.0; extra == "dev"
-Requires-Dist: flake8==7.2.0; extra == "dev"
-Requires-Dist: flake8-tergeo==25.5.22.0; extra == "dev"
-Requires-Dist: pylint==3.3.7; extra == "dev"
-Requires-Dist: mypy==1.16.0; extra == "dev"
-Requires-Dist: types-hdbcli==2.24.0.20250325; extra == "dev"
-Requires-Dist: typing-extensions==4.13.2; extra == "dev"
-Requires-Dist: yesqa==1.5.0; extra == "dev"
-Provides-Extra: test
-Requires-Dist: pytest==8.3.5; extra == "test"
-Requires-Dist: pytest-cov==6.1.1; extra == "test"
-Requires-Dist: coverage[toml]==7.8.2; extra == "test"
-Requires-Dist: diff-cover[toml]==9.3.1; extra == "test"
 Provides-Extra: alembic
 Requires-Dist: alembic~=1.12; extra == "alembic"
 Dynamic: license-file
@@ -67,8 +51,8 @@ Please notice that sqlalchemy-hana isn't an official SAP product and isn't cover
 
 Prerequisites
 -------------
-* Python 3.9+
-* SQLAlchemy 1.4 or 2.x
+* Python 3.10+
+* SQLAlchemy 2.x
 * `hdbcli <https://help.sap.com/viewer/f1b440ded6144a54ada97ff95dac7adf/latest/en-US/f3b8fabf34324302b123297cdbe710f0.html>`_
 
 Install
@@ -466,16 +450,13 @@ error and raise a more specific exception if possible.
 
 Development Setup
 -----------------
-We recommend the usage of ``pyenv`` to install a proper 3.13 python version for development.
+This project uses `uv`.
+To setup a venv for development use
+`python3.14 -m venv venv && pip install uv && uv sync --all-groups --all-extras && rm -rf venv/`.
+Then use `source .venv/bin/activate` to activate your venv.
 
-* ``pyenv install 3.13``
-* ``python311 -m venv venv``
-* ``source venv/bin/activate``
-* ``pip install -U pip``
-* ``pip install -e .[dev,test,alembic]``
-
-To execute the tests, use ``pyenv``.
-The linters and formatters can be executed using ``pre-commit``: ``pre-commit run -a``.
+To execute the tests, use ``uv run pytest``.
+The linters and formatters can be executed using ``pre-commit``: ``uv run pre-commit run -a``.
 
 Testing
 -------

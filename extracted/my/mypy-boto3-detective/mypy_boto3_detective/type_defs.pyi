@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     StatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -141,7 +136,7 @@ class BatchGetGraphMemberDatasourcesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -348,12 +343,12 @@ class GetInvestigationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListOrganizationAdminAccountsResponseTypeDef(TypedDict):
-    Administrators: List[AdministratorTypeDef]
+    Administrators: list[AdministratorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartInvestigationResponseTypeDef(TypedDict):
@@ -361,23 +356,23 @@ class StartInvestigationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteMembersResponseTypeDef(TypedDict):
-    AccountIds: List[str]
-    UnprocessedAccounts: List[UnprocessedAccountTypeDef]
+    AccountIds: list[str]
+    UnprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DatasourcePackageIngestDetailTypeDef(TypedDict):
     DatasourcePackageIngestState: NotRequired[DatasourcePackageIngestStateType]
     LastIngestStateChange: NotRequired[
-        Dict[DatasourcePackageIngestStateType, TimestampForCollectionTypeDef]
+        dict[DatasourcePackageIngestStateType, TimestampForCollectionTypeDef]
     ]
 
 class MembershipDatasourcesTypeDef(TypedDict):
     AccountId: NotRequired[str]
     GraphArn: NotRequired[str]
     DatasourcePackageIngestHistory: NotRequired[
-        Dict[
+        dict[
             DatasourcePackageType,
-            Dict[DatasourcePackageIngestStateType, TimestampForCollectionTypeDef],
+            dict[DatasourcePackageIngestStateType, TimestampForCollectionTypeDef],
         ]
     ]
 
@@ -397,10 +392,10 @@ class MemberDetailTypeDef(TypedDict):
     PercentOfGraphUtilizationUpdatedTime: NotRequired[datetime]
     InvitationType: NotRequired[InvitationTypeType]
     VolumeUsageByDatasourcePackage: NotRequired[
-        Dict[DatasourcePackageType, DatasourcePackageUsageInfoTypeDef]
+        dict[DatasourcePackageType, DatasourcePackageUsageInfoTypeDef]
     ]
     DatasourcePackageIngestStates: NotRequired[
-        Dict[DatasourcePackageType, DatasourcePackageIngestStateType]
+        dict[DatasourcePackageType, DatasourcePackageIngestStateType]
     ]
 
 class DateFilterTypeDef(TypedDict):
@@ -414,7 +409,7 @@ class StartInvestigationRequestTypeDef(TypedDict):
     ScopeEndTime: TimestampTypeDef
 
 class ListGraphsResponseTypeDef(TypedDict):
-    GraphList: List[GraphTypeDef]
+    GraphList: list[GraphTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -429,42 +424,42 @@ class IndicatorDetailTypeDef(TypedDict):
     RelatedFindingGroupDetail: NotRequired[RelatedFindingGroupDetailTypeDef]
 
 class ListInvestigationsResponseTypeDef(TypedDict):
-    InvestigationDetails: List[InvestigationDetailTypeDef]
+    InvestigationDetails: list[InvestigationDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListDatasourcePackagesResponseTypeDef(TypedDict):
-    DatasourcePackages: Dict[DatasourcePackageType, DatasourcePackageIngestDetailTypeDef]
+    DatasourcePackages: dict[DatasourcePackageType, DatasourcePackageIngestDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BatchGetGraphMemberDatasourcesResponseTypeDef(TypedDict):
-    MemberDatasources: List[MembershipDatasourcesTypeDef]
-    UnprocessedAccounts: List[UnprocessedAccountTypeDef]
+    MemberDatasources: list[MembershipDatasourcesTypeDef]
+    UnprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetMembershipDatasourcesResponseTypeDef(TypedDict):
-    MembershipDatasources: List[MembershipDatasourcesTypeDef]
-    UnprocessedGraphs: List[UnprocessedGraphTypeDef]
+    MembershipDatasources: list[MembershipDatasourcesTypeDef]
+    UnprocessedGraphs: list[UnprocessedGraphTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateMembersResponseTypeDef(TypedDict):
-    Members: List[MemberDetailTypeDef]
-    UnprocessedAccounts: List[UnprocessedAccountTypeDef]
+    Members: list[MemberDetailTypeDef]
+    UnprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMembersResponseTypeDef(TypedDict):
-    MemberDetails: List[MemberDetailTypeDef]
-    UnprocessedAccounts: List[UnprocessedAccountTypeDef]
+    MemberDetails: list[MemberDetailTypeDef]
+    UnprocessedAccounts: list[UnprocessedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInvitationsResponseTypeDef(TypedDict):
-    Invitations: List[MemberDetailTypeDef]
+    Invitations: list[MemberDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMembersResponseTypeDef(TypedDict):
-    MemberDetails: List[MemberDetailTypeDef]
+    MemberDetails: list[MemberDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -489,6 +484,6 @@ class ListInvestigationsRequestTypeDef(TypedDict):
 class ListIndicatorsResponseTypeDef(TypedDict):
     GraphArn: str
     InvestigationId: str
-    Indicators: List[IndicatorTypeDef]
+    Indicators: list[IndicatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

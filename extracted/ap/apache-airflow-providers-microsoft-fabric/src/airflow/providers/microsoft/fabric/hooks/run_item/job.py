@@ -11,7 +11,7 @@ class JobSchedulerConfig(RunItemConfig):
     # API configuration parameters
     api_host: str = "https://api.fabric.microsoft.com"
     api_scope: str = "https://api.fabric.microsoft.com/.default"
-    job_params: Optional[dict] = None
+    job_params: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         # Base handles fabric_conn_id/timeout/poll and drops tenacity_retry
@@ -102,16 +102,18 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
             "Starting item run - workspace_id: %s, item_id: %s, item_type: %s",
             item.workspace_id, item.item_id, item.item_type
         )
+        #self.log.info("Job parameters: %s", self.config.job_params) # may contain sensitive data
 
-        # Use api_host from config instead of hardcoded URL
-        url = f"{self.config.api_host}/v1/workspaces/{item.workspace_id}/items/{item.item_id}/jobs/instances?jobType={item.item_type}"
-        
-        # Use job_params from config
-        job_params = self.config.job_params
-        body = {"executionData": {"parameters": job_params}} if job_params else {}
+        url = f"{self.config.api_host}/v1/workspaces/{item.workspace_id}/items/{item.item_id}/jobs/instances?jobType={item.item_type}"    
 
-        # Use api_scope from config instead of hardcoded scope
-        response = await connection.request("POST", url, self.config.api_scope, json=body)    
+        # send data and content-type = json instead of json= to avoid double encoding
+        response = await connection.request(
+            "POST",
+            url,
+            self.config.api_scope,
+            data=self.config.job_params,   # JSON string
+            headers={"Content-Type": "application/json"}
+        )
 
         headers = response.get("headers", {})
         location = headers.get("Location")
@@ -200,6 +202,41 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         except Exception as e:
             self.log.warning("Failed to cancel run %s for item %s: %s", tracker.run_id, tracker.item.item_id, str(e))
             return False
+        
+    async def generate_deep_link(self, tracker: RunItemTracker, base_url: str = "https://app.fabric.microsoft.com") -> str:
+        """
+        Generate deep links for job items: notebooks, pipelines, and spark jobs.
+        Uses the same URL patterns as MSFabricItemLink.
+        
+        :param tracker: RunItemTracker with run details
+        :param base_url: Base URL for the Fabric portal
+        :return: Deep link URL to the job item run
+        """
+        item_type = tracker.item.item_type
+        workspace_id = tracker.item.workspace_id
+        item_id = tracker.item.item_id
+        run_id = tracker.run_id
+        item_name = tracker.item.item_name
+
+        if not workspace_id or not item_id or not run_id or not item_type:
+            return ""
+
+        # Use the same URL patterns as MSFabricItemLink
+        if item_type == "RunNotebook":
+            # interin solution, waiting for api to release deep link and exit value
+            # https://dev.azure.com/powerbi/Trident/_git/Fabric-APIs/pullrequest/713597?_a=files
+            return f"{base_url}/groups/{workspace_id}/synapsenotebooks/{item_id}?experience=fabric-developer" 
+        
+        elif item_type == "sparkjob":
+            # interin solution while api does not report monitor url
+            return f"{base_url}/groups/{workspace_id}/sparkjobdefinitions/{item_id}?experience=fabric-developer" # interin solution
+
+        elif item_type == "Pipeline" and item_name:
+            return f"{base_url}/workloads/data-pipeline/monitoring/workspaces/{workspace_id}/pipelines/{item_name}/{run_id}"
+
+        else:
+            self.log.warning("Unsupported item type for job hook generate_deep_link: %s", item_type)
+            return ""
         
     def _parse_status(self, sourceStatus: Optional[str]) -> MSFabricRunItemStatus:
 

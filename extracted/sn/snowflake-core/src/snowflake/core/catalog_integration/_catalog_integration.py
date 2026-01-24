@@ -101,8 +101,8 @@ class CatalogIntegrationCollection(CatalogIntegrationCollectionBase):
 class CatalogIntegrationResource(CatalogIntegrationResourceBase):
     """Represents a reference to a Snowflake Catalog Integration resource.
 
-    With this catalog integration reference, you can create, update, and fetch information about catalog integrations,
-    as well as perform certain actions on them.
+    With this catalog integration reference, you can fetch information about a catalog integration,
+    as well as perform certain actions on it.
     """
 
     _plural_name = "catalog_integrations"

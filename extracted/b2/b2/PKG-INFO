@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: b2
-Version: 4.4.2
+Version: 4.5.0
 Summary: Command Line Tool for Backblaze B2
 Keywords: backblaze b2 cloud storage
 Author-Email: Backblaze Inc <support@backblaze.com>
@@ -10,20 +10,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/Backblaze/B2_Command_Line_Tool
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: argcomplete<4,>=3.5.2
 Requires-Dist: arrow<2.0.0,>=1.0.2
-Requires-Dist: b2sdk<3,>=2.9.4
+Requires-Dist: b2sdk<3,>=2.10.2
 Requires-Dist: docutils<0.22,>=0.18.1
 Requires-Dist: idna~=3.4; platform_system == "Java"
-Requires-Dist: importlib-metadata>=3.3; python_version < "3.8"
 Requires-Dist: phx-class-registry<5,>=4.0
 Requires-Dist: rst2ansi==0.1.5
 Requires-Dist: tabulate==0.9.0
@@ -31,19 +30,17 @@ Requires-Dist: tqdm<5,>=4.65.0
 Requires-Dist: platformdirs<5,>=3.11.0
 Requires-Dist: setuptools<80,>=60; python_version < "3.10"
 Provides-Extra: doc
-Requires-Dist: sadisplay>=0.4.9; python_version >= "3.9" and extra == "doc"
-Requires-Dist: sphinx<8,>=7.2; python_version >= "3.9" and extra == "doc"
-Requires-Dist: sphinx-argparse; python_version >= "3.9" and extra == "doc"
-Requires-Dist: sphinx-autobuild; python_version >= "3.9" and extra == "doc"
-Requires-Dist: sphinx-rtd-theme<2,>=1.3; python_version >= "3.9" and extra == "doc"
-Requires-Dist: sphinxcontrib-plantuml; python_version >= "3.9" and extra == "doc"
+Requires-Dist: sadisplay>=0.4.9; extra == "doc"
+Requires-Dist: sphinx<8,>=7.2; extra == "doc"
+Requires-Dist: sphinx-argparse; extra == "doc"
+Requires-Dist: sphinx-autobuild; extra == "doc"
+Requires-Dist: sphinx-rtd-theme<2,>=1.3; extra == "doc"
+Requires-Dist: sphinxcontrib-plantuml; extra == "doc"
 Provides-Extra: license
 Requires-Dist: pip>=23.1.0; extra == "license"
-Requires-Dist: pip-licenses==3.5.5; python_version < "3.9" and extra == "license"
-Requires-Dist: pip-licenses~=5.0; python_version >= "3.9" and extra == "license"
-Requires-Dist: pipdeptree<3,>=2.9; python_version >= "3.9" and extra == "license"
-Requires-Dist: prettytable~=3.7; python_version < "3.9" and extra == "license"
-Requires-Dist: prettytable~=3.9; python_version >= "3.9" and extra == "license"
+Requires-Dist: pip-licenses~=5.0; extra == "license"
+Requires-Dist: pipdeptree<3,>=2.9; extra == "license"
+Requires-Dist: prettytable~=3.9; extra == "license"
 Provides-Extra: full
 Requires-Dist: pydantic<3,>=2.0.1; extra == "full"
 Description-Content-Type: text/markdown

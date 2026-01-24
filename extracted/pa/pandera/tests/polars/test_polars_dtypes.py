@@ -2,9 +2,9 @@
 
 import datetime
 import decimal
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Union
-from collections.abc import Sequence
 
 import polars as pl
 import pytest
@@ -20,19 +20,6 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine as pe
 from pandera.engines.polars_engine import polars_object_coercible
 
-
-def convert_object_to_decimal(
-    number: Union[Decimal, float, str, tuple[int, Sequence[int], int]],
-    precision: int,
-    scale: int,
-) -> decimal.Decimal:
-    """Convert number to decimal with precision and scale."""
-    decimal.getcontext().prec = precision
-    return decimal.Decimal(number).quantize(
-        decimal.Decimal(f"1e-{scale}"), decimal.ROUND_HALF_UP
-    )
-
-
 POLARS_NUMERIC_DTYPES = [
     pl.Int8,
     pl.Int16,
@@ -45,7 +32,6 @@ POLARS_NUMERIC_DTYPES = [
     pl.Float32,
     pl.Float64,
 ]
-
 
 numeric_dtypes = [
     pe.Int8,
@@ -259,7 +245,7 @@ def test_check_not_equivalent(dtype):
     else:
         actual_dtype = pe.Engine.dtype(object)
     expected_dtype = pe.Engine.dtype(dtype)
-    assert actual_dtype.check(expected_dtype) is False
+    assert not actual_dtype.check(expected_dtype)
 
 
 @pytest.mark.parametrize("dtype", all_types + special_types)
@@ -267,7 +253,7 @@ def test_check_equivalent(dtype):
     """Test that check() accepts equivalent dtypes."""
     actual_dtype = pe.Engine.dtype(dtype)
     expected_dtype = pe.Engine.dtype(dtype)
-    assert actual_dtype.check(expected_dtype) is True
+    assert actual_dtype.check(expected_dtype)
 
 
 @pytest.mark.parametrize(
@@ -343,6 +329,20 @@ def test_polars_object_coercible(to_dtype, container, result):
     """
     is_coercible = polars_object_coercible(PolarsData(container), to_dtype)
     assert_frame_equal(is_coercible, result)
+
+
+@pytest.mark.parametrize(
+    "polars_dtype, expected_dtype",
+    [
+        (pl.Decimal(5, 2), pe.Decimal(5, 2)),
+        (pl.Decimal(None, 2), pe.Decimal(38, 2)),
+    ],
+)
+def test_polars_decimal_from_parametrized_dtype(polars_dtype, expected_dtype):
+    pandera_dtype = pe.Engine.dtype(polars_dtype)
+
+    assert pandera_dtype.precision == expected_dtype.precision
+    assert pandera_dtype.scale == expected_dtype.scale
 
 
 @pytest.mark.parametrize(
@@ -519,7 +519,6 @@ def test_polars_from_parametrized_nested_dtype(dtype, shape):
     ],
 )
 def test_datetime_time_zone_agnostic(dtype):
-
     tz_agnostic = pe.DateTime(time_zone_agnostic=True)
     dtype = pe.Engine.dtype(dtype)
 

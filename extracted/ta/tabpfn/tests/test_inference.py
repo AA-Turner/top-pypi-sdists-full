@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal, overload
 from typing_extensions import override
 
+import pytest
 import torch
 from numpy.random import default_rng
 from torch import Tensor
@@ -13,11 +14,19 @@ from tabpfn.architectures.interface import Architecture
 from tabpfn.inference import InferenceEngineCachePreprocessing, InferenceEngineOnDemand
 from tabpfn.preprocessing import (
     ClassifierEnsembleConfig,
+    EnsembleConfig,
     PreprocessorConfig,
+    generate_classification_ensemble_configs,
 )
+from tabpfn.preprocessing.ensemble import TabPFNEnsemblePreprocessor
 
 
 class TestModel(Architecture):
+    def __init__(self) -> None:
+        """Create a new instance."""
+        super().__init__()
+        self.parameter = torch.nn.Parameter(torch.tensor(1.0))
+
     @overload
     def forward(
         self,
@@ -26,6 +35,8 @@ class TestModel(Architecture):
         *,
         only_return_standard_out: Literal[True] = True,
         categorical_inds: list[list[int]] | None = None,
+        force_recompute_layer: bool = False,
+        save_peak_memory_factor: int | None = None,
     ) -> Tensor: ...
 
     @overload
@@ -36,6 +47,8 @@ class TestModel(Architecture):
         *,
         only_return_standard_out: Literal[False],
         categorical_inds: list[list[int]] | None = None,
+        force_recompute_layer: bool = False,
+        save_peak_memory_factor: int | None = None,
     ) -> dict[str, Tensor]: ...
 
     @override
@@ -46,8 +59,16 @@ class TestModel(Architecture):
         *,
         only_return_standard_out: bool = True,
         categorical_inds: list[list[int]] | None = None,
+        force_recompute_layer: bool = False,
+        save_peak_memory_factor: int | None = None,
     ) -> Tensor | dict[str, Tensor]:
-        return torch.zeros(size=(10, 1, 10))
+        """Perform a forward pass, see doc string of `Architecture`."""
+        assert isinstance(x, Tensor)
+        assert isinstance(y, Tensor)
+        n_train_test, _, _ = x.shape
+        n_train, _ = y.shape
+        test_rows = n_train_test - n_train
+        return x.sum(-2, keepdim=True).sum(-1, keepdim=True).reshape(-1, test_rows)
 
     @property
     def ninp(self) -> int:
@@ -63,95 +84,151 @@ class TestModel(Architecture):
 
 def test__cache_preprocessing__result_equal_in_serial_and_in_parallel() -> None:
     rng = default_rng(seed=0)
-    n_train = 10
-    X_train = rng.standard_normal(size=(n_train, 1, 2))
-    y_train = rng.standard_normal(size=(n_train, 1))
-    X_test = rng.standard_normal(size=(2, 1, 2))
+    n_train = 100
+    n_features = 4
+    n_classes = 3
+    X_train = rng.standard_normal(size=(n_train, n_features))
+    y_train = rng.integers(low=0, high=n_classes - 1, size=(n_train, 1))
+    X_test = rng.standard_normal(size=(2, n_features))
 
-    ensemble_config = ClassifierEnsembleConfig(
-        preprocess_config=PreprocessorConfig(name="power", categorical_name="none"),
-        add_fingerprint_feature=False,
-        polynomial_features="no",
-        feature_shift_count=0,
-        feature_shift_decoder="shuffle",
-        subsample_ix=None,
-        class_permutation=None,
+    ensemble_preprocessor = TabPFNEnsemblePreprocessor(
+        configs=_create_test_ensemble_configs(
+            n_configs=5,
+            n_classes=3,
+            num_models=1,
+        ),
+        rng=rng,
+        # We want to test n_preprocessing_jobs>1 as this might mean the outputs are not
+        # in the same order as the input configs, and we want to check that the parallel
+        # evaluation code behaves correctly in this scenario.
+        n_preprocessing_jobs=5,
     )
-    engine = InferenceEngineCachePreprocessing.prepare(
+    engine = InferenceEngineCachePreprocessing(
         X_train,
         y_train,
-        cat_ix=[0] * n_train,
-        model=TestModel(),
-        ensemble_configs=[ensemble_config] * 2,
-        n_workers=0,
-        rng=rng,
+        cat_ix=[] * n_train,
+        ensemble_preprocessor=ensemble_preprocessor,
+        models=[TestModel()],
+        devices=[torch.device("cpu")],
         dtype_byte_size=4,
         force_inference_dtype=None,
         save_peak_mem=True,
         inference_mode=True,
     )
 
-    outputs_sequential = list(
-        engine.iter_outputs(X_test, devices=[torch.device("cpu")], autocast=False)
+    engine.to([torch.device("cpu")], force_inference_dtype=None, dtype_byte_size=4)
+    outputs_sequential = list(engine.iter_outputs(X_test, autocast=False))
+    engine.to(
+        [torch.device("cpu"), torch.device("cpu")],
+        force_inference_dtype=None,
+        dtype_byte_size=4,
     )
-    outputs_parallel = list(
-        engine.iter_outputs(
-            X_test, devices=[torch.device("cpu"), torch.device("cpu")], autocast=False
-        )
-    )
+    outputs_parallel = list(engine.iter_outputs(X_test, autocast=False))
+
     assert len(outputs_sequential) == len(outputs_parallel)
-    for (seq_output, seq_config), (par_output, par_config) in zip(
-        outputs_sequential, outputs_parallel
-    ):
+    for par_output, par_config in outputs_parallel:
+        seq_output = _find_seq_output(par_config, outputs_sequential)
         assert isinstance(seq_output, Tensor)
         assert isinstance(par_output, Tensor)
         assert torch.allclose(seq_output, par_output)
-        assert seq_config == par_config
 
 
 def test__on_demand__result_equal_in_serial_and_in_parallel() -> None:
     rng = default_rng(seed=0)
-    n_train = 10
-    n_estimators = 5
-    X_train = rng.standard_normal(size=(n_train, 1, 2))
-    y_train = rng.standard_normal(size=(n_train, 1))
-    X_test = rng.standard_normal(size=(2, 1, 2))
+    n_train = 100
+    n_features = 4
+    n_classes = 3
+    X_train = rng.standard_normal(size=(n_train, n_features))
+    y_train = rng.integers(low=0, high=n_classes - 1, size=(n_train, 1))
+    X_test = rng.standard_normal(size=(2, n_features))
 
-    ensemble_config = ClassifierEnsembleConfig(
-        preprocess_config=PreprocessorConfig(name="power", categorical_name="none"),
-        add_fingerprint_feature=False,
-        polynomial_features="no",
-        feature_shift_count=0,
-        feature_shift_decoder="shuffle",
-        subsample_ix=None,
-        class_permutation=None,
+    num_models = 3
+    models = [TestModel() for _ in range(num_models)]
+    ensemble_preprocessor = TabPFNEnsemblePreprocessor(
+        configs=_create_test_ensemble_configs(
+            n_configs=5,
+            n_classes=3,
+            num_models=num_models,
+        ),
+        rng=rng,
+        # We want to test n_preprocessing_jobs>1 as this might mean the outputs are not
+        # in the same order as the input configs, and we want to check that the parallel
+        # evaluation code behaves correctly in this scenario.
+        n_preprocessing_jobs=5,
     )
-    engine = InferenceEngineOnDemand.prepare(
+    engine = InferenceEngineOnDemand(
         X_train,
         y_train,
-        cat_ix=[0] * n_train,
-        model=TestModel(),
-        ensemble_configs=[ensemble_config] * n_estimators,
-        n_workers=0,
-        rng=rng,
+        cat_ix=[] * n_train,
+        ensemble_preprocessor=ensemble_preprocessor,
+        models=models,
+        devices=[torch.device("cpu")],
         dtype_byte_size=4,
         force_inference_dtype=None,
         save_peak_mem=True,
     )
 
-    outputs_sequential = list(
-        engine.iter_outputs(X_test, devices=[torch.device("cpu")], autocast=False)
+    engine.to([torch.device("cpu")], force_inference_dtype=None, dtype_byte_size=4)
+    outputs_sequential = list(engine.iter_outputs(X_test, autocast=False))
+    engine.to(
+        [torch.device("cpu"), torch.device("cpu")],
+        force_inference_dtype=None,
+        dtype_byte_size=4,
     )
-    outputs_parallel = list(
-        engine.iter_outputs(
-            X_test, devices=[torch.device("cpu"), torch.device("cpu")], autocast=False
-        )
-    )
+    outputs_parallel = list(engine.iter_outputs(X_test, autocast=False))
+
     assert len(outputs_sequential) == len(outputs_parallel)
-    for (seq_output, seq_config), (par_output, par_config) in zip(
-        outputs_sequential, outputs_parallel
-    ):
+    for par_output, par_config in outputs_parallel:
+        seq_output = _find_seq_output(par_config, outputs_sequential)
         assert isinstance(seq_output, Tensor)
         assert isinstance(par_output, Tensor)
         assert torch.allclose(seq_output, par_output)
-        assert seq_config == par_config
+
+
+def _create_test_ensemble_configs(
+    n_configs: int,
+    n_classes: int,
+    num_models: int,
+) -> list[ClassifierEnsembleConfig]:
+    preprocessor_configs = [
+        PreprocessorConfig(
+            "quantile_uni_coarse",
+            append_original="auto",
+            categorical_name="ordinal_very_common_categories_shuffled",
+            global_transformer_name="svd",
+            max_features_per_estimator=500,
+        ),
+        PreprocessorConfig(
+            "none",
+            categorical_name="numeric",
+            max_features_per_estimator=500,
+        ),
+    ]
+    return generate_classification_ensemble_configs(
+        num_estimators=n_configs,
+        subsample_samples=None,
+        max_index=n_classes - 1,
+        add_fingerprint_feature=True,
+        polynomial_features="all",
+        feature_shift_decoder="shuffle",
+        preprocessor_configs=preprocessor_configs,
+        class_shift_method=None,
+        n_classes=n_classes,
+        random_state=0,
+        num_models=num_models,
+    )
+
+
+def _find_seq_output(
+    config: EnsembleConfig,
+    outputs_sequential: list[tuple[Tensor | dict, EnsembleConfig]],
+) -> Tensor | dict:
+    """Find the sequential output corresponding to the given config.
+
+    The configs are not hashable, so we have to resort to this search method.
+    """
+    for output, trial_config in outputs_sequential:
+        if trial_config == config:
+            return output
+
+    return pytest.fail(f"Parallel config was not found in sequential configs: {config}")

@@ -3,7 +3,7 @@ Main interface for bedrock-data-automation service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_data_automation/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

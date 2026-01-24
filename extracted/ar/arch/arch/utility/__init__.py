@@ -1,13 +1,11 @@
 import os
-from typing import Union
-
-from arch.utility.cov import cov_nw
+import sys
 
 PKG = os.path.dirname(os.path.dirname(__file__))
 
 
 def test(
-    extra_args: Union[str, list[str], None] = None,
+    extra_args: str | list[str] | None = None,
     exit: bool = True,
     append: bool = True,
     location: str = "",
@@ -25,12 +23,10 @@ def test(
         defaults with the user-provided arguments.
     """
 
-    import sys
-
     try:
-        import pytest
-    except ImportError:
-        raise ImportError("Need pytest to run tests")
+        import pytest  # noqa: PLC0415
+    except ImportError as exc:
+        raise ImportError("Need pytest to run tests") from exc
 
     cmd = ["--tb=auto", "--disable-pytest-warnings"]
     if extra_args:
@@ -56,4 +52,4 @@ def test(
     return status
 
 
-__all__ = ["cov_nw", "test"]
+__all__ = ["test"]

@@ -3,7 +3,7 @@ Type annotations for personalize-runtime service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_personalize_runtime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -34,11 +35,6 @@ from .type_defs import (
     GetRecommendationsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -49,9 +45,9 @@ __all__ = ("PersonalizeRuntimeClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class PersonalizeRuntimeClient(BaseClient):

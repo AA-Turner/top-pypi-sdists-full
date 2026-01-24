@@ -9,7 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -18,41 +19,35 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty(
-    GitHubModel
-):
-    """RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty"""
+class NetworkConfiguration(GitHubModel):
+    """Hosted compute network configuration
 
-    include: Missing[list[RepositoryRulesetConditionsRepositoryPropertySpec]] = Field(
-        default=UNSET,
-        description="The repository properties and values to include. All of these properties must match for the condition to pass.",
-    )
-    exclude: Missing[list[RepositoryRulesetConditionsRepositoryPropertySpec]] = Field(
-        default=UNSET,
-        description="The repository properties and values to exclude. The condition will not pass if any of these properties match.",
-    )
-
-
-class RepositoryRulesetConditionsRepositoryPropertySpec(GitHubModel):
-    """Repository ruleset property targeting definition
-
-    Parameters for a targeting a repository property
+    A hosted compute network configuration.
     """
 
-    name: str = Field(description="The name of the repository property to target")
-    property_values: list[str] = Field(
-        description="The values to match for the repository property"
-    )
-    source: Missing[Literal["custom", "system"]] = Field(
+    id: str = Field(description="The unique identifier of the network configuration.")
+    name: str = Field(description="The name of the network configuration.")
+    compute_service: Missing[Literal["none", "actions", "codespaces"]] = Field(
         default=UNSET,
-        description="The source of the repository property. Defaults to 'custom' if not specified.",
+        description="The hosted compute service the network configuration supports.",
+    )
+    network_settings_ids: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The unique identifier of each network settings in the configuration.",
+    )
+    failover_network_settings_ids: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The unique identifier of each failover network settings in the configuration.",
+    )
+    failover_network_enabled: Missing[bool] = Field(
+        default=UNSET,
+        description="Indicates whether the failover network resource is enabled.",
+    )
+    created_on: Union[_dt.datetime, None] = Field(
+        description="The time at which the network configuration was created, in ISO 8601 format."
     )
 
 
-model_rebuild(RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty)
-model_rebuild(RepositoryRulesetConditionsRepositoryPropertySpec)
+model_rebuild(NetworkConfiguration)
 
-__all__ = (
-    "RepositoryRulesetConditionsRepositoryPropertySpec",
-    "RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty",
-)
+__all__ = ("NetworkConfiguration",)

@@ -3,7 +3,7 @@ from crawlee._utils.try_import import try_import as _try_import
 
 # These imports have only mandatory dependencies, so they are imported directly.
 from ._base import HttpClient, HttpCrawlingResult, HttpResponse
-from ._httpx import HttpxHttpClient
+from ._impit import ImpitHttpClient
 
 _install_import_hook(__name__)
 
@@ -12,6 +12,9 @@ _install_import_hook(__name__)
 with _try_import(__name__, 'CurlImpersonateHttpClient'):
     from ._curl_impersonate import CurlImpersonateHttpClient
 
+with _try_import(__name__, 'HttpxHttpClient'):
+    from ._httpx import HttpxHttpClient
+
 
 __all__ = [
     'CurlImpersonateHttpClient',
@@ -19,4 +22,5 @@ __all__ = [
     'HttpCrawlingResult',
     'HttpResponse',
     'HttpxHttpClient',
+    'ImpitHttpClient',
 ]

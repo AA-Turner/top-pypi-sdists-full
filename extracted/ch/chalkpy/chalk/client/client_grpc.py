@@ -3,28 +3,24 @@ from __future__ import annotations
 import collections.abc
 import dataclasses
 import datetime as dt
-import hashlib
 import json
-import os
 import random
-import tempfile
 import typing
 import warnings
 from functools import cached_property
-from math import ceil
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
 from urllib.parse import urlparse
 
 import grpc
 import grpc.experimental
-import requests
-from google.protobuf import empty_pb2, struct_pb2, timestamp_pb2
+from google.protobuf import empty_pb2, timestamp_pb2
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
-from chalk._gen.chalk.common.v1 import offline_query_pb2, online_query_pb2, upload_features_pb2
+from chalk._gen.chalk.common.v1 import online_query_pb2, resources_pb2, upload_features_pb2
 from chalk._gen.chalk.common.v1.online_query_pb2 import GenericSingleQuery, UploadFeaturesBulkRequest
+from chalk._gen.chalk.common.v1.script_task_pb2 import ScriptTaskKind, ScriptTaskRequest, TrainingRunArgs
 from chalk._gen.chalk.common.v2.execute_plan_pb2 import ExecutePlanRequest, ExecutePlanResponse
 from chalk._gen.chalk.engine.v1 import query_server_pb2
 from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
@@ -34,6 +30,7 @@ from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     ExecuteSqlQueryRequest,
+    ExecuteSqlResultPersistenceSettings,
     GetDbCatalogsRequest,
     GetDbSchemasRequest,
     GetTablesRequest,
@@ -41,6 +38,11 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
 )
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
+from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
+    GetJobQueueOperationSummaryRequest,
+    GetJobQueueOperationSummaryResponse,
+)
+from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2_grpc import DataPlaneJobQueueServiceStub
 from chalk._gen.chalk.server.v1.deploy_pb2 import (
     CreateBranchFromSourceDeploymentRequest,
     CreateBranchFromSourceDeploymentResponse,
@@ -54,9 +56,14 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     PythonVersion,
 )
 from chalk._gen.chalk.server.v1.graph_pb2_grpc import GraphServiceStub
+from chalk._gen.chalk.server.v1.log_pb2_grpc import LogSearchServiceStub
 from chalk._gen.chalk.server.v1.model_registry_pb2 import (
+    CreateModelArtifactRequest,
+    CreateModelArtifactResponse,
     CreateModelRequest,
     CreateModelResponse,
+    CreateModelVersionFromArtifactRequest,
+    CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
     GetModelArtifactUploadUrlsRequest,
@@ -67,8 +74,13 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     GetModelVersionResponse,
 )
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
-from chalk._gen.chalk.server.v1.offline_queries_pb2 import CreateModelTrainingJobRequest, CreateModelTrainingJobResponse
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
+from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
+from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import GetScheduledQueryRunsRequest
+from chalk._gen.chalk.server.v1.scheduler_pb2 import ManualTriggerScheduledQueryRequest
+from chalk._gen.chalk.server.v1.scheduler_pb2_grpc import SchedulerServiceStub
+from chalk._gen.chalk.server.v1.script_tasks_pb2 import CreateScriptTaskRequest, CreateScriptTaskResponse
+from chalk._gen.chalk.server.v1.script_tasks_pb2_grpc import ScriptTaskServiceStub
 from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenRequest,
     CreateServiceTokenResponse,
@@ -76,6 +88,7 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensResponse,
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
+from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk.client import ChalkAuthException, FeatureReference
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
 from chalk.client.models import (
@@ -85,14 +98,22 @@ from chalk.client.models import (
     CreateBranchResponse,
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
+)
+from chalk.client.models import ManualTriggerScheduledQueryResponse as ManualTriggerScheduledQueryResponseDataclass
+from chalk.client.models import (
     ModelUploadUrlResponse,
     OnlineQuery,
     OnlineQueryResponse,
+    RegisterModelArtifactResponse,
     RegisterModelResponse,
     RegisterModelVersionResponse,
     ResourceRequests,
+    ScheduledQueryRun,
+    StreamResolverTestResponse,
+    StreamResolverTestStatus,
     UploadFeaturesResponse,
 )
+from chalk.client.serialization.model_serialization import ModelSerializer
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
 from chalk.config.auth_config import TokenConfig, load_token
 from chalk.features import live_updates
@@ -100,16 +121,25 @@ from chalk.features._encoding.inputs import GRPC_ENCODE_OPTIONS, InputEncodeOpti
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import is_feature_set_class
+from chalk.features.resolver import Resolver
 from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
-from chalk.ml import ModelEncoding, ModelType
+from chalk.ml import LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
+from chalk.ml.model_file_transfer import ModelFileUploader
+from chalk.ml.utils import ModelClass
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.utils import df_utils
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
 from chalk.utils.grpc import AuthenticatedChalkClientInterceptor, TokenRefresher, UnauthenticatedChalkClientInterceptor
+from chalk.utils.tracing import add_trace_headers, safe_trace
 
 if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
+    from pydantic import BaseModel
+
+    from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
+    from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
+    from chalk.client import ChalkError
 
 CHALK_GRPC_TRACE_ID_HEADER: str = "x-chalk-trace-id"
 
@@ -128,6 +158,20 @@ def get_trace_id_from_response(call: grpc.Call) -> Optional[str]:
             assert isinstance(v, str)  # for pyright
             return v
     return None
+
+
+def _merge_headers(
+    headers: None | Sequence[tuple[str, str | bytes]] | Mapping[str, str | bytes],
+    extra_headers: None | Sequence[tuple[str, str | bytes]] | Mapping[str, str | bytes],
+) -> tuple[tuple[str, str | bytes], ...]:
+    headers = _canonicalize_headers(headers)
+    extra_headers = _canonicalize_headers(extra_headers)
+    all_headers: list[tuple[str, str | bytes]] = []
+    for h in headers:
+        all_headers.append(h)
+    for h in extra_headers:
+        all_headers.append(h)
+    return tuple(all_headers)
 
 
 def _canonicalize_headers(
@@ -183,29 +227,26 @@ def _parse_uri_for_engine(query_server_uri: str) -> ParsedUri:
     return ParsedUri(uri_without_scheme=uri_without_scheme, use_tls=use_tls)
 
 
-channel_options: List[tuple[str, str | int]] = [
-    ("grpc.max_send_message_length", 1024 * 1024 * 100),  # 100MB
-    ("grpc.max_receive_message_length", 1024 * 1024 * 100),  # 100MB
+default_channel_options: Dict[str, str | int] = {
+    "grpc.max_send_message_length": 1024 * 1024 * 100,  # 100MB
+    "grpc.max_receive_message_length": 1024 * 1024 * 100,  # 100MB
     # https://grpc.io/docs/guides/performance/#python
-    (grpc.experimental.ChannelOptions.SingleThreadedUnaryStream, 1),
-    (
-        "grpc.service_config",
-        json.dumps(
-            {
-                "methodConfig": [
-                    {
-                        "name": [{}],
-                        "maxAttempts": 5,
-                        "initialBackoff": "0.1s",
-                        "maxBackoff": "1s",
-                        "backoffMultiplier": 2,
-                        "retryableStatusCodes": ["UNAVAILABLE"],
-                    }
-                ]
-            }
-        ),
+    grpc.experimental.ChannelOptions.SingleThreadedUnaryStream: 1,
+    "grpc.service_config": json.dumps(
+        {
+            "methodConfig": [
+                {
+                    "name": [{}],
+                    "maxAttempts": 5,
+                    "initialBackoff": "0.1s",
+                    "maxBackoff": "1s",
+                    "backoffMultiplier": 2,
+                    "retryableStatusCodes": ["UNAVAILABLE"],
+                }
+            ]
+        }
     ),
-]
+}
 
 
 T = TypeVar("T")
@@ -254,6 +295,22 @@ class StubProvider:
         return OfflineQueryMetadataServiceStub(self._server_channel)
 
     @cached_property
+    def scheduled_query_stub(self) -> SchedulerServiceStub:
+        if self._server_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return SchedulerServiceStub(self._server_channel)
+
+    @cached_property
+    def scheduled_query_run_stub(self) -> ScheduledQueryServiceStub:
+        if self._server_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return ScheduledQueryServiceStub(self._server_channel)
+
+    @cached_property
     def sql_stub(self) -> SqlServiceStub:
         if self._engine_channel is None:
             raise ValueError(
@@ -270,10 +327,44 @@ class StubProvider:
         return DataFrameServiceStub(self._engine_channel)
 
     @cached_property
+    def streaming_stub(self) -> SimpleStreamingServiceStub:
+        if self._engine_channel is None:
+            raise ValueError(
+                "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
+            )
+        return SimpleStreamingServiceStub(self._engine_channel)
+
+    @cached_property
     def model_stub(self) -> ModelRegistryServiceStub:
         if self._server_channel is None:
             raise RuntimeError("Unable to connect to API server.")
         return ModelRegistryServiceStub(self._server_channel)
+
+    @cached_property
+    def task_stub(self) -> ScriptTaskServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return ScriptTaskServiceStub(self._server_channel)
+
+    @cached_property
+    def builder_stub(self) -> "BuilderServiceStub":
+        from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
+
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return BuilderServiceStub(self._server_channel)
+
+    @cached_property
+    def log_stub(self) -> LogSearchServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return LogSearchServiceStub(self._server_channel)
+
+    @cached_property
+    def job_queue_stub(self) -> DataPlaneJobQueueServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return DataPlaneJobQueueServiceStub(self._server_channel)
 
     def __init__(
         self,
@@ -282,17 +373,25 @@ class StubProvider:
         deployment_tag: str | None = None,
         skip_api_server: bool = False,
         additional_headers: List[tuple[str, str]] | None = None,
+        channel_options: List[tuple[str, str | int]] | None = None,
     ):
         super().__init__()
         additional_headers_nonempty: List[tuple[str, str]] = [] if additional_headers is None else additional_headers
         token_refresher: TokenRefresher | None = None
+        channel_options_merged: Dict[str, str | int] = default_channel_options.copy()
+        if channel_options:
+            channel_options_merged.update(dict(channel_options))
         if skip_api_server:
             # Omits the auth handshake with the API server. Primarily for internal use/testing -- if used in production,
             # this client will simply fail to connect. If True then query_server must be provided & point to
             # `localhost/127.0.0.1`.
             if query_server is None:
                 raise ValueError("If skipping API server auth, query_server URI must be provided.")
-            elif not (query_server.startswith("localhost") or query_server.startswith("127.0.0.1")):
+            parsed_uri = _parse_uri_for_engine(query_server)
+            if not (
+                parsed_uri.uri_without_scheme.startswith("localhost")
+                or parsed_uri.uri_without_scheme.startswith("127.0.0.1")
+            ):
                 warnings.warn(
                     "Skipping API server auth should only be enabled if query_server URI is localhost. It will fail to authenticate against a production engine."
                 )
@@ -308,13 +407,13 @@ class StubProvider:
             _unauthenticated_server_channel: grpc.Channel = (
                 grpc.insecure_channel(
                     target=server_host,
-                    options=channel_options,
+                    options=list(channel_options_merged.items()),
                 )
                 if server_host.startswith("localhost") or server_host.startswith("127.0.0.1")
                 else grpc.secure_channel(
                     target=server_host,
                     credentials=grpc.ssl_channel_credentials(),
-                    options=channel_options,
+                    options=list(channel_options_merged.items()),
                 )
             )
 
@@ -388,12 +487,12 @@ class StubProvider:
                     grpc.secure_channel(
                         target=parsed_uri.uri_without_scheme,
                         credentials=grpc.ssl_channel_credentials(),
-                        options=channel_options,
+                        options=list(channel_options_merged.items()),
                     )
                     if parsed_uri.use_tls
                     else grpc.insecure_channel(
                         target=parsed_uri.uri_without_scheme,
-                        options=channel_options,
+                        options=list(channel_options_merged.items()),
                     )
                 ),
                 *interceptors,
@@ -408,6 +507,7 @@ class StubRefresher:
         deployment_tag: str | None = None,
         skip_api_server: bool = False,
         additional_headers: List[tuple[str, str]] | None = None,
+        channel_options: List[tuple[str, str | int]] | None = None,
     ):
         super().__init__()
         self._token_config = token_config
@@ -415,6 +515,7 @@ class StubRefresher:
         self._deployment_tag = deployment_tag
         self._skip_api_server = skip_api_server
         self._additional_headers = additional_headers
+        self._channel_options = channel_options
         self._stub = self._refresh_stub()
 
     def _refresh_stub(self) -> StubProvider:
@@ -424,6 +525,7 @@ class StubRefresher:
             deployment_tag=self._deployment_tag,
             skip_api_server=self._skip_api_server,
             additional_headers=self._additional_headers,
+            channel_options=self._channel_options,
         )
         return self._stub
 
@@ -460,6 +562,12 @@ class StubRefresher:
     def call_offline_query_stub(self, fn: Callable[[OfflineQueryMetadataServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.offline_query_stub)
 
+    def call_scheduled_query_stub(self, fn: Callable[[SchedulerServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.scheduled_query_stub)
+
+    def call_scheduled_query_run_stub(self, fn: Callable[[ScheduledQueryServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.scheduled_query_run_stub)
+
     def call_sql_stub(self, fn: Callable[[SqlServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.sql_stub)
 
@@ -468,6 +576,25 @@ class StubRefresher:
 
     def call_model_stub(self, fn: Callable[[ModelRegistryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.model_stub)
+
+    def call_task_stub(self, fn: Callable[[ScriptTaskServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.task_stub)
+
+    def call_builder_stub(self, fn: Callable[["BuilderServiceStub"], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.builder_stub)
+
+    def call_log_stub(self, fn: Callable[[LogSearchServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.log_stub)
+
+    def call_job_queue_stub(self, fn: Callable[[DataPlaneJobQueueServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.job_queue_stub)
+
+    def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.streaming_stub)
+
+    @property
+    def log_stub(self) -> LogSearchServiceStub:
+        return self._stub.log_stub
 
     @property
     def environment_id(self) -> str | None:
@@ -490,6 +617,7 @@ class ChalkGRPCClient:
         additional_headers: List[tuple[str, str]] | None = None,
         query_server: str | None = None,
         input_compression: typing.Literal["lz4", "zstd", "uncompressed"] = "lz4",
+        channel_options: List[Tuple[str, str | int]] | None = None,
         **kwargs: Any,
     ):
         """Create a `ChalkGRPCClient` with the given credentials.
@@ -545,6 +673,7 @@ class ChalkGRPCClient:
             deployment_tag=deployment_tag,
             additional_headers=additional_headers,
             skip_api_server=kwargs.get("_skip_api_server", False),
+            channel_options=channel_options,
         )
 
     _INPUT_ENCODE_OPTIONS = GRPC_ENCODE_OPTIONS
@@ -602,6 +731,7 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        trace: bool = False,
     ) -> OnlineQueryResponse:
         """Compute features values using online resolvers.
 
@@ -724,6 +854,7 @@ class ChalkGRPCClient:
             request_timeout=request_timeout,
             headers=headers,
             query_context=_validate_context_dict(query_context),
+            trace=trace,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode_to_single(bulk_response)
 
@@ -749,37 +880,44 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
+        trace: bool = False,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
-        request = self._make_query_bulk_request(
-            input={k: [v] for k, v in input.items()},
-            output=output,
-            now=[now] if now is not None else [],
-            staleness=staleness or {},
-            tags=tags or (),
-            correlation_id=correlation_id,
-            query_name=query_name,
-            query_name_version=query_name_version,
-            include_meta=include_meta,
-            meta=meta or {},
-            explain=explain,
-            store_plan_stages=store_plan_stages,
-            value_metrics_tag_by_features=value_metrics_tag_by_features,
-            encoding_options=encoding_options,
-            required_resolver_tags=required_resolver_tags or (),
-            planner_options=planner_options or {},
-            query_context=query_context,
-        )
-        return self._stub_refresher.call_query_stub(
-            lambda x: x.OnlineQueryBulk(
-                request,
-                timeout=request_timeout,
-                metadata=_canonicalize_headers(headers),
+        with safe_trace("_online_query_grpc_request"):
+            request = self._make_query_bulk_request(
+                input={k: [v] for k, v in input.items()},
+                output=output,
+                now=[now] if now is not None else [],
+                staleness=staleness or {},
+                tags=tags or (),
+                correlation_id=correlation_id,
+                query_name=query_name,
+                query_name_version=query_name_version,
+                include_meta=include_meta,
+                meta=meta or {},
+                explain=explain,
+                store_plan_stages=store_plan_stages,
+                value_metrics_tag_by_features=value_metrics_tag_by_features,
+                encoding_options=encoding_options,
+                required_resolver_tags=required_resolver_tags or (),
+                planner_options=planner_options or {},
+                query_context=query_context,
             )
-        )
+            if trace:
+                extra_headers: dict[str, str] = {}
+                extra_headers = add_trace_headers(extra_headers)
+                headers = _merge_headers(extra_headers, headers)
+            metadata = _canonicalize_headers(headers)
+            return self._stub_refresher.call_query_stub(
+                lambda x: x.OnlineQueryBulk(
+                    request,
+                    timeout=request_timeout,
+                    metadata=metadata,
+                )
+            )
 
     def online_query_bulk(
         self,
-        input: Union[Mapping[FeatureReference, Sequence[Any]], DataFrame],
+        input: Union[Mapping[FeatureReference, Sequence[Any]], DataFrame, None] = None,
         output: Sequence[FeatureReference] = (),
         now: Optional[Sequence[dt.datetime]] = None,
         staleness: Optional[Mapping[FeatureReference, str]] = None,
@@ -798,9 +936,21 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        *,
+        input_sql: str | None = None,
     ) -> BulkOnlineQueryResult:
+        if input is None and input_sql is None:
+            raise TypeError("One of `input` or `input_sql` is required")
+        if input is not None and input_sql is not None:
+            raise TypeError("`input` and `input_sql` are mutually exclusive")
+        if input_sql is not None and now is not None:
+            raise TypeError(
+                "When using `input_sql`, `now` is not allowed: instead, to provide a query time, you can have the SQL query output a column named `__ts__`"
+            )
+
         response, call = self._online_query_bulk_grpc_request(
             input=input,
+            input_sql=input_sql,
             output=output,
             now=now,
             staleness=staleness,
@@ -827,7 +977,8 @@ class ChalkGRPCClient:
     def _online_query_bulk_grpc_request(
         self,
         *,
-        input: Union[Mapping[FeatureReference, Sequence[Any]], DataFrame],
+        input: Union[Mapping[FeatureReference, Sequence[Any]], DataFrame, None] = None,
+        input_sql: str | None = None,
         output: Sequence[FeatureReference] = (),
         now: Optional[Sequence[dt.datetime]] = None,
         staleness: Optional[Mapping[FeatureReference, str]] = None,
@@ -848,8 +999,10 @@ class ChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, grpc.Call]:
         """Returns the raw GRPC response and metadata"""
+
         request = self._make_query_bulk_request(
             input=input,
+            input_sql=input_sql,
             output=output,
             now=now or (),
             staleness=staleness or {},
@@ -1038,7 +1191,9 @@ class ChalkGRPCClient:
 
     def _make_query_bulk_request(
         self,
-        input: Mapping[FeatureReference, Sequence[Any]] | DataFrame,
+        *,
+        input: Mapping[FeatureReference, Sequence[Any]] | DataFrame | None = None,
+        input_sql: str | None = None,
         output: Sequence[FeatureReference],
         now: Sequence[dt.datetime],
         staleness: Mapping[FeatureReference, str],
@@ -1056,9 +1211,19 @@ class ChalkGRPCClient:
         planner_options: Mapping[str, str | int | bool],
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None,
     ) -> online_query_pb2.OnlineQueryBulkRequest:
-        inputs_bytes = get_features_feather_bytes(
-            input, self._INPUT_ENCODE_OPTIONS, compression=self._input_compression
-        )
+        if input is None and input_sql is None:
+            raise TypeError("One of `input` or `input_sql` is required")
+        if input is not None and input_sql is not None:
+            raise TypeError("`input` and `input_sql` are mutually exclusive")
+
+        inputs_feather: bytes | None
+        if input is None:
+            inputs_feather = None
+        else:
+            inputs_feather = get_features_feather_bytes(
+                input, self._INPUT_ENCODE_OPTIONS, compression=self._input_compression
+            )
+
         encoded_outputs = encode_outputs(output)
         outputs = encoded_outputs.string_outputs
         # Currently assume every feature tag is just a fqn instead of a more complex expr.
@@ -1087,7 +1252,8 @@ class ChalkGRPCClient:
         query_context = _validate_context_dict(query_context)
         query_context_proto = {k: value_to_proto(v) for k, v in query_context.items()} if query_context else None
         return online_query_pb2.OnlineQueryBulkRequest(
-            inputs_feather=inputs_bytes,
+            inputs_feather=inputs_feather,
+            inputs_sql=input_sql,
             outputs=[online_query_pb2.OutputExpr(feature_fqn=o) for o in outputs]
             + [online_query_pb2.OutputExpr(feature_expression=o) for o in encoded_outputs.feature_expressions_proto],
             now=now_proto,
@@ -1114,6 +1280,101 @@ class ChalkGRPCClient:
             ),
             body_type=online_query_pb2.FEATHER_BODY_TYPE_RECORD_BATCHES,
         )
+
+    def run_scheduled_query(
+        self,
+        name: str,
+        planner_options: Optional[Mapping[str, Any]],
+        incremental_resolvers: Optional[Sequence[str]],
+        max_samples: Optional[int],
+        env_overrides: Optional[Mapping[str, str]],
+    ) -> ManualTriggerScheduledQueryResponseDataclass:
+        """
+        Manually trigger a scheduled query request.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query to be triggered.
+        incremental_resolvers
+            If set to None, Chalk will incrementalize resolvers in the query's root namespaces.
+            If set to a list of resolvers, this set will be used for incrementalization.
+            Incremental resolvers must return a feature time in its output, and must return a `DataFrame`.
+            Most commonly, this will be the name of a SQL file resolver. Chalk will ingest all new data
+            from these resolvers and propagate changes to values in the root namespace.
+        max_samples
+            The maximum number of samples to compute.
+        env_overrides:
+            A dictionary of environment values to override during this specific triggered query.
+
+        Other Parameters
+        ----------------
+        planner_options
+            A dictionary of options to pass to the planner.
+            These are typically provided by Chalk Support for specific use cases.
+
+        Returns
+        -------
+        ManualTriggerScheduledQueryResponse
+            A response message containing metadata around the triggered run.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().run_scheduled_query(
+        ...     name="my_scheduled_query",
+        ... )
+        """
+        proto_resp = self._stub_refresher.call_scheduled_query_stub(
+            lambda x: x.ManualTriggerScheduledQuery(
+                request=ManualTriggerScheduledQueryRequest(
+                    cron_query_name=name,
+                    planner_options=planner_options or {},
+                    incremental_resolvers=incremental_resolvers or (),
+                    max_samples=max_samples,
+                    env_overrides=env_overrides or {},
+                ),
+            )
+        )
+        return ManualTriggerScheduledQueryResponseDataclass.from_proto(proto_resp)
+
+    def get_scheduled_query_run_history(
+        self,
+        name: str,
+        limit: int = 10,
+    ) -> List[ScheduledQueryRun]:
+        """
+        Get the run history for a scheduled query.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query.
+        limit
+            The maximum number of runs to return. Defaults to 10.
+
+        Returns
+        -------
+        list[ScheduledQueryRun]
+            A response message containing the list of scheduled query runs.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().get_scheduled_query_run_history(
+        ...     name="my_scheduled_query",
+        ...     limit=20,
+        ... )
+        """
+        proto_resp = self._stub_refresher.call_scheduled_query_run_stub(
+            lambda x: x.GetScheduledQueryRuns(
+                GetScheduledQueryRunsRequest(
+                    cron_name=name,
+                    limit=limit,
+                )
+            )
+        )
+        return [ScheduledQueryRun.from_proto(run) for run in proto_resp.runs]
 
     def get_graph(self, deployment: DeploymentId | None = None) -> Graph:
         """Get the graph for a given deployment.
@@ -1197,8 +1458,15 @@ class ChalkGRPCClient:
         """
         return self._stub_refresher.call_team_stub(lambda x: x.ListServiceTokens(ListServiceTokensRequest()))
 
-    def run_sql(self, sql: str):
-        return self._stub_refresher.call_sql_stub(lambda x: x.ExecuteSqlQuery(ExecuteSqlQueryRequest(query=sql)))
+    def run_sql(self, sql: str, persistence_settings: Optional[Dict[str, Any]] = None):
+        request = ExecuteSqlQueryRequest(query=sql)
+
+        if persistence_settings is not None:
+            # Convert dict to proto message
+            enabled = persistence_settings.get("enabled", False)
+            request.persistence_settings.CopyFrom(ExecuteSqlResultPersistenceSettings(enabled=enabled))
+
+        return self._stub_refresher.call_sql_stub(lambda x: x.ExecuteSqlQuery(request))
 
     def explain_sql(self, sql: str):
         return self._stub_refresher.call_sql_stub(lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)))
@@ -1286,7 +1554,6 @@ class ChalkGRPCClient:
                 return GetRegisteredModelVersionResponse(
                     model_id=model_version_resp.model_version.id,
                     model_name=model_version_resp.model_version.model_name,
-                    metadata=dict(model_version_resp.model_version.metadata),
                     created_by=model_version_resp.model_version.created_by,
                     created_at=model_version_resp.model_version.created_at.ToDatetime(),
                     model_artifact=model_version_resp.model_version.model_artifact,
@@ -1316,130 +1583,14 @@ class ChalkGRPCClient:
             except grpc.RpcError as e:
                 raise RuntimeError(f"Could not register model version. {e.details()}")
 
-    @staticmethod
-    def _build_tabular_schema(column_dtypes: Mapping[str, Any]) -> _model_artifact_pb2.TabularSchema:
-        """
-        Build a TabularSchema from a dictionary of column names to dtypes.
-
-        Parameters
-        ----------
-        column_dtypes : dict
-            Dictionary mapping column names to their data types.
-            Data types can be PyArrow types or Python types (str, int, float, bool).
-
-        Returns
-        -------
-        TabularSchema
-            A protobuf TabularSchema object
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> schema = ChalkGRPCClient._build_tabular_schema({
-        ...     'alcohol': pa.float64(),
-        ...     'malic_acid': pa.float64(),
-        ...     'ash': pa.float64(),
-        ... })
-        """
-        import pyarrow as pa
-
-        from chalk.features._encoding.converter import PrimitiveFeatureConverter
-
-        tabular_schema = _model_artifact_pb2.TabularSchema()
-
-        for col_name, dtype in column_dtypes.items():
-            # Convert to PyArrow type if needed
-            if not isinstance(dtype, pa.DataType):
-                # Handle Python types
-                if dtype == str:
-                    pa_dtype = pa.string()
-                elif dtype == int:
-                    pa_dtype = pa.int64()
-                elif dtype == float:
-                    pa_dtype = pa.float64()
-                elif dtype == bool:
-                    pa_dtype = pa.bool_()
-                else:
-                    raise ValueError(f"Unsupported dtype {dtype} for column {col_name}")
-            else:
-                pa_dtype = dtype
-
-            # Convert PyArrow dtype to protobuf Arrow type
-            proto_arrow_type = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype)
-
-            # Create TabularSpec for this column
-            column_spec = _model_artifact_pb2.TabularSpec(name=col_name, dtype=proto_arrow_type)
-
-            tabular_schema.columns.append(column_spec)
-
-        return tabular_schema
-
-    @staticmethod
-    def _build_tensor_schema(tensor_specs: List[Tuple[List[int], Any]]) -> _model_artifact_pb2.TensorSchema:
-        """
-        Build a TensorSchema from a list of (shape, dtype) pairs.
-
-        Parameters
-        ----------
-        tensor_specs : list of tuple
-            List of (shape, dtype) tuples where:
-            - shape is a list of integers representing tensor dimensions
-            - dtype is a PyArrow type or Python type (str, int, float, bool)
-
-        Returns
-        -------
-        TensorSchema
-            A protobuf TensorSchema object
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> schema = ChalkGRPCClient._build_tensor_schema([
-        ...     ([224, 224, 3], pa.float32()),  # RGB image tensor
-        ...     ([100], pa.float64()),          # Feature vector
-        ... ])
-        """
-        import pyarrow as pa
-
-        from chalk.features._encoding.converter import PrimitiveFeatureConverter
-
-        tensor_schema = _model_artifact_pb2.TensorSchema()
-
-        for shape, dtype in tensor_specs:
-            # Convert to PyArrow type if needed
-            if not isinstance(dtype, pa.DataType):
-                # Handle Python types
-                if dtype == str:
-                    pa_dtype = pa.string()
-                elif dtype == int:
-                    pa_dtype = pa.int64()
-                elif dtype == float:
-                    pa_dtype = pa.float64()
-                elif dtype == bool:
-                    pa_dtype = pa.bool_()
-                else:
-                    raise ValueError(f"Unsupported dtype {dtype} for tensor")
-            else:
-                pa_dtype = dtype
-
-            # Convert PyArrow dtype to protobuf Arrow type
-            proto_arrow_type = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype)
-
-            # Create TensorSpec
-            tensor_spec = _model_artifact_pb2.TensorSpec(dtype=proto_arrow_type, shape=shape)
-
-            tensor_schema.tensors.append(tensor_spec)
-
-        return tensor_schema
-
-    def register_model(
+    def register_model_namespace(
         self,
         name: str,
         description: str,
-        metadata: Mapping[str, Any],
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> RegisterModelResponse:
         """
-        Register a model in the Chalk model registry.
+        Register a model namespace in the Chalk model registry.
 
         Parameters
         ----------
@@ -1447,7 +1598,7 @@ class ChalkGRPCClient:
             Unique name for the model
         description : str
             Description of the model's purpose and functionality
-        metadata : Mapping[str, Any]
+        metadata : Mapping[str, Any], optional
             Additional metadata dictionary containing framework info,
             training details, performance metrics, etc.
 
@@ -1462,7 +1613,7 @@ class ChalkGRPCClient:
 
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
-        >>> client.register_model(
+        >>> client.register_model_namespace(
         ...     name="RiskModel",
         ...     description="Credit risk assessment model using transaction history",
         ...     metadata={
@@ -1471,17 +1622,8 @@ class ChalkGRPCClient:
         ...     }
         ... )
         """
-        metadata_converted: Dict[str, struct_pb2.Value] = {}
 
-        for k, v in metadata.items():
-            converted_v = struct_pb2.Value()
-            if isinstance(v, str):
-                converted_v.string_value = v
-            elif isinstance(v, (int, float)):
-                converted_v.number_value = v
-            elif isinstance(v, bool):
-                converted_v.bool_value = v
-            metadata_converted[k] = converted_v
+        metadata_converted = ModelSerializer.convert_metadata_to_protobuf(metadata)
 
         try:
             resp: CreateModelResponse = self._stub_refresher.call_model_stub(
@@ -1493,7 +1635,6 @@ class ChalkGRPCClient:
                     )
                 )
             )
-
             return RegisterModelResponse(
                 model_id=resp.model.id,
                 model_name=resp.model.model_name,
@@ -1520,60 +1661,68 @@ class ChalkGRPCClient:
     def register_model_version(
         self,
         name: str,
-        model_type: ModelType,
+        model_type: Optional[ModelType] = None,
+        model_class: Optional[ModelClass] = None,
         model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
         model_paths: Optional[List[str]] = None,
-        additional_files: Optional[Mapping[str, str]] = None,
+        additional_files: Optional[List[str]] = None,
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
         input_features: Optional[list[str]] = None,
         output_features: Optional[list[str]] = None,
+        source_config: Optional[SourceConfig] = None,
+        dependencies: Optional[List[str]] = None,
     ) -> RegisterModelVersionResponse:
-        """
-        Register a model in the Chalk model registry.
+        """Register a model in the Chalk model registry.
 
         Parameters
         ----------
-        name : str
-           Unique name for the model
-        aliases : list of str, optional
-           List of version aliases (e.g., ["v1.0", "latest"])
-        model_paths : list of str, optional
-           Paths to model files (for file-based registration)
-        model : object, optional
-           Python model object (for object-based registration)
-        additional_files : list of str, optional
-           Additional files needed for inference (tokenizers, configs, etc.)
-        model_type : ModelType
-           Type of model framework
-        model_encoding : ModelEncoding, optional
-           Serialization format
-        input_schema : dict, list, or Any
-           Definition of the input schema. Can be:
-           - dict: Dictionary mapping column names to dtypes for tabular data
-           - list: List of (shape, dtype) tuples for tensor data
-        output_schema : dict, list, or Any
-           Definition of the output schema. Can be:
-           - dict: Dictionary mapping column names to dtypes for tabular data
-           - list: List of (shape, dtype) tuples for tensor data
-        metadata : dict, optional
-           Additional metadata dictionary containing framework info,
-           training details, performance metrics, etc.
-        input_features : FeatureReference, str, optional
+        name
+            Unique name for the model.
+        aliases
+            List of version aliases (e.g., `["v1.0", "latest"]`).
+        model
+            Python model object (for object-based registration).
+        model_paths
+            Paths to model files (for file-based registration).
+        additional_files
+            Additional files needed for inference (tokenizers, configs, etc.)
+        model_type
+            Type of model framework.
+        model_encoding
+            Serialization format.
+        input_schema
+            Definition of the input schema. Can be:
+            - `dict`: Dictionary mapping column names to dtypes for tabular data
+            - `list`: List of `(shape, dtype)` tuples for tensor data
+        output_schema
+            Definition of the output schema. Can be:
+            - `dict`: Dictionary mapping column names to dtypes for tabular data
+            - `list`: List of `(shape, dtype)` tuples for tensor data
+        metadata
+            Additional metadata dictionary containing framework info,
+            training details, performance metrics, etc.
+        input_features
             The features to be used as inputs to the model.
             For example, `[User.message]`. Features can also be expressed as snakecased strings,
-            e.g. `["user.message"]`
-        output_features : FeatureReference, str, optional
+            e.g. `["user.message"]`.
+        output_features
             The features to be used as outputs to the model.
             For example, `[User.is_spam]`. Features can also be expressed as snakecased strings,
-            e.g. `["user.is_spam"]`
+            e.g. `["user.is_spam"]`.
+        source_config
+            Config to pass credentials to access files from a remote source.
+        dependencies
+            List of package dependencies needed to run this model.
+            e.g. `["torch==2.7.1", "numpy==1.26.4"]`.
+
         Returns
         -------
         ModelVersion
-           The registered model version object
+            The registered model version object.
 
         Examples
         --------
@@ -1581,8 +1730,8 @@ class ChalkGRPCClient:
 
         >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model=trained_sklearn_model,
-        ...     model_type="pytorch",
+        ...     model=trained_pytorch_model,
+        ...     model_type=ModelType.PYTORCH,
         ... )
 
         Register from local files:
@@ -1593,304 +1742,719 @@ class ChalkGRPCClient:
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model_paths=["./model.pth"],
-        ...     model_type="pytorch",
-        ...     input_schema=pa.large_string(),
-        ...     output_schema=pa.float32()
+        ...     model_type=ModelType.PYTORCH,
+        ...     input_schema={"content": pa.large_string()},
+        ...     output_schema={"prob": pa.float64()},
         ... )
 
         Register from s3 path:
-
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model_paths=["s3://my-bucket/path/to/model.pth"],
-        ...     model_type="pytorch",
+        ...     model_type=ModelType.PYTORCH,
         ... )
         """
-        model_upload_paths: List[_model_artifact_pb2.ModelFile] = []
-        additional_file_upload_path: List[_model_artifact_pb2.ModelFile] = []
-        temp_files_to_cleanup: List[str] = []
+        with ModelSerializer.from_model(model, model_type) as model_serializer:
+            model_file_uploader = ModelFileUploader(source_config)
 
-        if input_schema is None and input_features is None:
-            raise ValueError(
-                "You must specify at least one of (input_schema, input_features) to register a model version."
-            )
-        if output_schema is None and output_features is None:
-            raise ValueError(
-                "You must specify at least one of (output_schema, output_features) to register a model version."
-            )
+            if model_type is None:
+                model_type = model_serializer.model_type
+
+            if model_class is None:
+                model_class = model_serializer.model_class
+
+            if model is not None:
+                inferred_input_schema, inferred_output_schema = model_serializer.infer_input_output_schemas(
+                    model, model_type
+                )
+                if input_schema is None and inferred_input_schema is not None:
+                    input_schema = inferred_input_schema
+                if output_schema is None and inferred_output_schema is not None:
+                    output_schema = inferred_output_schema
+
+                if dependencies is None:
+                    dependencies = model_serializer.get_dependencies()
+
+            if input_schema is None:
+                raise ValueError("You must specify an input_schema to register a model version.")
+            if output_schema is None:
+                raise ValueError("You must specify an output_schema to register a model version.")
+
+            try:
+                dir_allowlist: List[str] = []
+                metadata_converted = model_serializer.convert_metadata_to_protobuf(metadata)
+
+                if model_paths is None:
+                    if model is None:
+                        raise ValueError("Failed to register model. Please specify a model or model_paths.")
+
+                    assert model_type is not None, "Unable to determine Model Type, please set parameter model_type."
+
+                    tmp_path, model_encoding = model_serializer.serialize_model(model, model_type)
+                    model_paths = [tmp_path]
+                    dir_allowlist.append(tmp_path)
+                else:
+                    if model is not None:
+                        raise ValueError(
+                            "Failed to register model. Ambiguous model, can't specify both model_paths and model."
+                        )
+                    if model_encoding is None:
+                        raise ValueError(
+                            "Failed to register model. Please specify a model encoding if using model_paths."
+                        )
+
+                # Auto-convert ONNX list schemas to dict format if needed
+                if model_type == ModelType.ONNX:
+                    input_schema = model_serializer.convert_onnx_list_schema_to_dict(input_schema, model, is_input=True)
+                    output_schema = model_serializer.convert_onnx_list_schema_to_dict(
+                        output_schema, model, is_input=False
+                    )
+
+                input_model_schema = model_serializer.convert_schema(input_schema)
+                output_model_schema = model_serializer.convert_schema(output_schema)
+
+                # Final validation: ONNX models must use tabular schemas
+                if model_type == ModelType.ONNX:
+                    if input_model_schema is not None and not input_model_schema.HasField("tabular"):
+                        raise ValueError(
+                            "ONNX models must be registered with tabular input schema (dict format). "
+                            + "Use dict format like {'input': Tensor[...]} instead of list format."
+                        )
+                    if output_model_schema is not None and not output_model_schema.HasField("tabular"):
+                        raise ValueError(
+                            "ONNX models must be registered with tabular output schema (dict format). "
+                            + "Use dict format like {'output': Vector[...]} instead of list format."
+                        )
+
+                all_files_to_process, model_file_names = model_file_uploader.prepare_file_mapping(
+                    model_paths, additional_files
+                )
+
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
+                    model_paths=list(all_files_to_process.keys())
+                )
+
+                model_upload_paths, additional_files_upload_paths = model_file_uploader.upload_files(
+                    all_files_to_process,
+                    model_file_names,
+                    presigned_s3_response.upload_urls,
+                    dir_allowlist,
+                )
+                try:
+                    resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
+                        lambda x: x.CreateModelVersion(
+                            CreateModelVersionRequest(
+                                model_name=name,
+                                model_artifact_id=presigned_s3_response.model_artifact_id,
+                                model_artifact=_model_artifact_pb2.ModelArtifactSpec(
+                                    model_files=[
+                                        model_serializer.fileinfo_to_protobuf(file) for file in model_upload_paths
+                                    ],
+                                    additional_files=[
+                                        model_serializer.fileinfo_to_protobuf(file)
+                                        for file in additional_files_upload_paths
+                                    ],
+                                    model_type=model_type,
+                                    model_class=model_class,
+                                    model_encoding=model_encoding,
+                                    model_signature=_model_artifact_pb2.ModelSignature(
+                                        inputs=input_model_schema,
+                                        outputs=output_model_schema,
+                                    ),
+                                    input_features=input_features,
+                                    output_features=output_features,
+                                    python_dependencies=dependencies,
+                                ),
+                                aliases=aliases,
+                                metadata=metadata_converted,
+                            )
+                        )
+                    )
+                    return RegisterModelVersionResponse(
+                        model_id=resp.model_version.id,
+                        model_name=resp.model_version.model_name,
+                        model_version=resp.model_version.version,
+                        artifact=resp.model_version.model_artifact,
+                        aliases=list(resp.model_version.aliases),
+                        created_by=resp.model_version.created_by,
+                        created_at=resp.model_version.created_at.ToDatetime(),
+                    )
+                except grpc.RpcError as e:
+                    raise RuntimeError(f"Could not register model version. {e.details()}")
+            except Exception as e:
+                raise RuntimeError(f"Could not register model version. {e}")
+        raise RuntimeError("Error creating model serializer context to register model version.")
+
+    def _upload_model_artifact(
+        self,
+        model: Any,
+        additional_files: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> RegisterModelArtifactResponse:
+        with ModelSerializer.from_model(model) as model_serializer:
+            try:
+                dir_allowlist: List[str] = []
+                model_tmp_path, model_encoding = model_serializer.serialize()
+                dir_allowlist.append(model_tmp_path)
+
+                model_file_uploader = ModelFileUploader(LocalSourceConfig())
+
+                all_files_to_process, model_file_names = model_file_uploader.prepare_file_mapping(
+                    [model_tmp_path], additional_files
+                )
+
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
+                    model_paths=list(all_files_to_process.keys())
+                )
+
+                metadata_converted = model_serializer.convert_metadata_to_protobuf(metadata)
+
+                input_schema, output_schema = model_serializer.infer_input_output_schemas()
+
+                input_model_schema = model_serializer.convert_schema(input_schema)
+                output_model_schema = model_serializer.convert_schema(output_schema)
+
+                model_upload_paths, additional_files_upload_paths = model_file_uploader.upload_files(
+                    file_paths=all_files_to_process,
+                    model_file_names=model_file_names,
+                    presigned_urls=presigned_s3_response.upload_urls,
+                    dir_allowlist=dir_allowlist,
+                )
+
+                dependencies = model_serializer.get_dependencies()
+                try:
+                    resp: CreateModelArtifactResponse = self._stub_refresher.call_model_stub(
+                        lambda x: x.CreateModelArtifact(
+                            CreateModelArtifactRequest(
+                                model_artifact_id=presigned_s3_response.model_artifact_id,
+                                model_artifact=_model_artifact_pb2.ModelArtifactSpec(
+                                    model_files=[
+                                        model_serializer.fileinfo_to_protobuf(file) for file in model_upload_paths
+                                    ],
+                                    additional_files=[
+                                        model_serializer.fileinfo_to_protobuf(file)
+                                        for file in additional_files_upload_paths
+                                    ],
+                                    model_type=model_serializer.model_type,
+                                    model_encoding=model_encoding,
+                                    model_signature=_model_artifact_pb2.ModelSignature(
+                                        inputs=input_model_schema,
+                                        outputs=output_model_schema,
+                                    ),
+                                    input_features=[],
+                                    output_features=[],
+                                    python_dependencies=dependencies,
+                                ),
+                                metadata=metadata_converted,
+                            )
+                        )
+                    )
+                    return RegisterModelArtifactResponse(
+                        artifact_id=resp.model_artifact.id,
+                        path=resp.model_artifact.path,
+                        spec=resp.model_artifact.spec,
+                        metadata=dict(resp.model_artifact.metadata),
+                        created_by=resp.model_artifact.created_by,
+                        created_at=resp.model_artifact.created_at.ToDatetime(),
+                    )
+                except grpc.RpcError as e:
+                    raise RuntimeError(f"Could not register model artifact. {e.details()}")
+            except Exception as e:
+                raise RuntimeError(f"Could not register model artifact. {e}")
+        raise RuntimeError("Error creating model serializer context to create model artifact.")
+
+    def promote_model_artifact(
+        self,
+        name: str,
+        model_artifact_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        run_name: Optional[str] = None,
+        criterion: Optional[ModelRunCriterion] = None,
+        aliases: Optional[List[str]] = None,
+    ) -> RegisterModelVersionResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+            Name of the model namespace to promote into.
+        model_artifact_id: str, optional
+            Artifact UUID to promote to a model version.
+        run_id: str, optional
+            run id that produce the artifact to promote.
+        run_name: str, optional
+            run name used in the checkpointer for artifact to promote.
+        criterion: ModelRunCriterion, optional
+            criterion on which to select the artifact from the training run.
+            If none provided, the latest artifact in the run will be selected.
+        aliases: list of str, optional
+            List of version aliases (e.g., ["v1.0", "latest"])
+
+        Example
+        --------
+        Register from Python object:
+
+        >>> client.promote_model_artifact(
+        ...     name="RiskModel",
+        ...     model_artifact_id=model_artifact_id,
+        ...     aliases=["latest"],
+        ... )
+        """
+        if model_artifact_id is not None:
+            if run_id is not None or criterion is not None or run_name is not None:
+                raise ValueError(
+                    "Please specify only one of 'model_artifact_id', (run_id, run criterion), (run_name, run criterion)"
+                )
+        else:
+            if run_name is None and run_id is None:
+                raise ValueError(
+                    "Please specify only one of 'model_artifact_id', (run_id, run criterion), (run_name, run criterion)"
+                )
 
         try:
-            metadata_converted: Dict[str, struct_pb2.Value] = {}
-            if metadata is not None:
-                for k, v in metadata.items():
-                    converted_v = struct_pb2.Value()
-                    if isinstance(v, str):
-                        converted_v.string_value = v
-                    elif isinstance(v, (int, float)):
-                        converted_v.number_value = v
-                    elif isinstance(v, bool):
-                        converted_v.bool_value = v
-                    metadata_converted[k] = converted_v
-
-            if model_paths is None:
-                if model is None:
-                    raise ValueError("Failed to register model. Please specify a model or model_paths.")
-
-                tmp_dir = tempfile.mkdtemp()
-
-                if model_type == ModelType.PYTORCH:
-                    try:
-                        import torch
-                    except ImportError:
-                        raise ImportError("Please install PyTorch to save PyTorch models.")
-                    model_path = os.path.join(tmp_dir, "model.pth")
-
-                    torch.save(model, model_path)  # Save entire model to support torch.load()
-
-                    model_encoding = ModelEncoding.PICKLE
-
-                elif model_type == ModelType.SKLEARN:
-                    try:
-                        import joblib
-                    except ImportError:
-                        raise ImportError("Please install joblib to save sklearn models.")
-                    model_path = os.path.join(tmp_dir, "model.pkl")
-                    joblib.dump(model, model_path)
-                    model_encoding = ModelEncoding.PICKLE
-
-                elif model_type == ModelType.TENSORFLOW:
-                    model_path = os.path.join(tmp_dir, "model.h5")
-                    model.save(model_path)
-                    model_encoding = ModelEncoding.HDF5
-
-                elif model_type == ModelType.XGBOOST:
-                    model_path = os.path.join(tmp_dir, "model.json")
-                    model.save_model(model_path)
-                    model_encoding = ModelEncoding.JSON
-
-                elif model_type == ModelType.LIGHTGBM:
-                    model_path = os.path.join(tmp_dir, "model.txt")
-                    model.save_model(model_path)
-                    model_encoding = ModelEncoding.TEXT
-
-                elif model_type == ModelType.CATBOOST:
-                    model_path = os.path.join(tmp_dir, "model.cbm")
-                    model.save_model(model_path)
-                    model_encoding = ModelEncoding.CBM
-
-                elif model_type == ModelType.ONNX:
-                    model_path = os.path.join(tmp_dir, "model.onnx")
-                    model.save_model(model_path)
-                    model_encoding = ModelEncoding.PROTOBUF
-
-                else:
-                    raise NotImplementedError(
-                        f"Unsupported model type: {model_type}; Please save the model to a file and register with "
-                        + "explicit model_paths or contact Chalk Support."
+            resp: CreateModelVersionFromArtifactResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.CreateModelVersionFromArtifact(
+                    CreateModelVersionFromArtifactRequest(
+                        model_name=name,
+                        model_artifact_id=model_artifact_id,
+                        training_run=ModelSerializer.convert_run_criterion_to_proto(
+                            run_id=run_id,
+                            run_name=run_name,
+                            criterion=criterion,
+                        ),
+                        aliases=aliases,
                     )
-
-                model_paths = [model_path]
-                temp_files_to_cleanup.append(model_path)
-
-            else:
-                if model is not None:
-                    raise ValueError(
-                        "Failed to register model. Ambiguous model, can't specify both model_paths and model."
-                    )
-                if model_encoding is None:
-                    raise ValueError("Failed to register model. Please specify a model encoding if using model_paths.")
-
-            input_model_schema = _model_artifact_pb2.ModelSchema()
-            if input_schema is not None:
-                if isinstance(input_schema, dict):
-                    input_model_schema.tabular.CopyFrom(self._build_tabular_schema(input_schema))
-                elif isinstance(input_schema, list):
-                    input_model_schema.tensor.CopyFrom(self._build_tensor_schema(input_schema))
-                else:
-                    raise ValueError(f"Invalid input_schema: {input_schema}")
-
-            output_model_schema = _model_artifact_pb2.ModelSchema()
-            if output_schema is not None:
-                if isinstance(output_schema, dict):
-                    output_model_schema.tabular.CopyFrom(self._build_tabular_schema(output_schema))
-                elif isinstance(output_schema, list):
-                    output_model_schema.tensor.CopyFrom(self._build_tensor_schema(output_schema))
-                else:
-                    raise ValueError(f"Invalid output_schema: {output_schema}")
-
-            all_files_to_process: Dict[str, str] = {}  # map of filename -> local_path
-            model_file_names: List[str] = []
-
-            for model_path in model_paths:
-                filename = os.path.basename(model_path)
-                all_files_to_process[filename] = model_path
-                model_file_names.append(filename)
-
-            additional_file_mapping: Dict[str, str] = {}  # map of filename -> file_type
-            if additional_files is not None:
-                for file_type, file_path in additional_files.items():
-                    filename = os.path.basename(file_path)
-                    all_files_to_process[filename] = file_path
-                    additional_file_mapping[filename] = file_type
-
-            presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
-                model_paths=list(all_files_to_process.keys())
+                )
             )
-
-            try:
-                import boto3
-            except ImportError:
-                raise ImportError("Please install boto3 to enable model registration.")
-
-            aws_profile = os.environ.get("AWS_PROFILE")
-            aws_region = os.environ.get("AWS_REGION")
-
-            session = boto3.Session(profile_name=aws_profile, region_name=aws_region)
-            s3_client = session.client("s3")
-
-            for filename, local_or_s3_path in all_files_to_process.items():
-                presigned_url = presigned_s3_response.upload_urls[filename]
-                parsed_path = urlparse(local_or_s3_path)
-
-                filesize_kb: int
-                file_hash: bytes
-
-                if parsed_path.scheme == "s3":
-                    src_bucket = parsed_path.netloc
-                    src_key = parsed_path.path.lstrip("/")
-                    try:
-                        response = s3_client.get_object(Bucket=src_bucket, Key=src_key)
-                        file_data = response["Body"].read()
-
-                        file_hash = hashlib.sha256(file_data).digest()
-                        filesize_kb = ceil(response["ContentLength"] / 1024.0)
-
-                        put_response = requests.put(
-                            presigned_url,
-                            data=file_data,
-                            headers={"Content-Type": response.get("ContentType", "application/octet-stream")},
-                        )
-
-                        if put_response.status_code != 200:
-                            raise RuntimeError(
-                                f"Failed to upload to presigned URL for {filename}: "
-                                + f"{put_response.status_code} {put_response.text}"
-                            )
-                    except Exception as e:
-                        raise RuntimeError(f"Unable to get object from {local_or_s3_path}. {e}")
-                elif parsed_path.scheme == "" or parsed_path.scheme == "file":
-
-                    def _validate_local_path(path: str):
-                        abs_path = os.path.abspath(path)
-                        if ".." in os.path.relpath(abs_path, start=os.getcwd()).split(os.sep):
-                            if not os.path.commonpath([abs_path, tmp_dir]) == tmp_dir:
-                                raise ValueError(f"Unsafe file path: {path}")
-                        if not os.path.isfile(abs_path):
-                            raise FileNotFoundError(f"Local file not found: {path}")
-                        return abs_path
-
-                    try:
-                        safe_path = _validate_local_path(local_or_s3_path)
-                        with open(safe_path, "rb") as f:
-                            file_data = f.read()
-
-                        file_hash = hashlib.sha256(file_data).digest()
-                        filesize_kb = ceil(os.path.getsize(local_or_s3_path) / 1024.0)
-
-                        put_response = requests.put(presigned_url, data=file_data)
-
-                        if put_response.status_code != 200:
-                            raise RuntimeError(
-                                f"Failed to upload local file {local_or_s3_path} to presigned URL: "
-                                + f"{put_response.status_code} {put_response.text}"
-                            )
-
-                    except Exception as e:
-                        raise RuntimeError(f"Failed to upload local file {local_or_s3_path}: {e}")
-                else:
-                    raise ValueError(f"Unsupported file path format: {local_or_s3_path}")
-
-                if filename in model_file_names:
-                    model_upload_paths.append(
-                        _model_artifact_pb2.ModelFile(
-                            name=filename,
-                            size_kb=filesize_kb,
-                            file_hash=file_hash,
-                        )
-                    )
-                else:
-                    additional_file_upload_path.append(
-                        _model_artifact_pb2.ModelFile(
-                            name=filename,
-                            size_kb=filesize_kb,
-                            file_hash=file_hash,
-                        )
-                    )
-            try:
-                resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
-                    lambda x: x.CreateModelVersion(
-                        CreateModelVersionRequest(
-                            model_name=name,
-                            model_artifact_id=presigned_s3_response.model_artifact_id,
-                            model_artifact=_model_artifact_pb2.ModelArtifactSpec(
-                                model_files=model_upload_paths,
-                                additional_files=additional_file_upload_path,
-                                model_type=model_type,
-                                model_encoding=model_encoding,
-                                model_signature=_model_artifact_pb2.ModelSignature(
-                                    inputs=input_model_schema,
-                                    outputs=output_model_schema,
-                                ),
-                                input_features=input_features,
-                                output_features=output_features,
-                            ),
-                            aliases=aliases,
-                            metadata=metadata_converted,
-                        )
-                    )
-                )
-                return RegisterModelVersionResponse(
-                    model_id=resp.model_version.id,
-                    model_name=resp.model_version.model_name,
-                    model_version=resp.model_version.version,
-                    artifact=resp.model_version.model_artifact,
-                    aliases=list(resp.model_version.aliases),
-                    metadata=dict(resp.model_version.metadata),
-                    created_by=resp.model_version.created_by,
-                    created_at=resp.model_version.created_at.ToDatetime(),
-                )
-            except grpc.RpcError as e:
-                raise RuntimeError(f"Could not register model version. {e.details()}")
-
-        finally:
-            import shutil
-
-            for temp_path in temp_files_to_cleanup:
-                try:
-                    if os.path.isfile(temp_path):
-                        os.remove(temp_path)
-                    elif os.path.isdir(temp_path):
-                        shutil.rmtree(temp_path)
-                    temp_dir = os.path.dirname(temp_path)
-                    if temp_dir and os.path.exists(temp_dir) and temp_dir.startswith(tempfile.gettempdir()):
-                        shutil.rmtree(temp_dir)
-                except Exception:
-                    pass
+            return RegisterModelVersionResponse(
+                model_id=resp.model_version.id,
+                model_name=resp.model_version.model_name,
+                model_version=resp.model_version.version,
+                artifact=resp.model_version.model_artifact,
+                aliases=list(resp.model_version.aliases),
+                created_by=resp.model_version.created_by,
+                created_at=resp.model_version.created_at.ToDatetime(),
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not promote model artifact. {e.details()}")
 
     def create_model_training_job(
         self,
-        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
-        model_name: str,
-        dataset_name: str,
-        config: Optional[Mapping[str, Any]] = None,
+        script: str,
+        function_name: str,
+        experiment_name: str,
+        branch: Optional[str] = None,
+        config: str | None = None,
         resources: Optional[ResourceRequests] = None,
-    ) -> CreateModelTrainingJobResponse:
-        return self._stub_refresher.call_offline_query_stub(
-            lambda x: x.CreateModelTrainingJob(
-                CreateModelTrainingJobRequest(
-                    training_job_request=offline_query_pb2.OfflineQueryRequest(
-                        dataset_name=dataset_name,
-                    )
-                )
+        env_overrides: Optional[Mapping[str, str]] = None,
+        enable_profiling: bool = False,
+        max_retries: int = 0,
+    ) -> CreateScriptTaskResponse:
+        resources_request = {}
+        if resources is not None:
+            if resources.cpu is not None:
+                resources_request["cpu"] = resources.cpu
+            if resources.memory is not None:
+                resources_request["memory"] = resources.memory
+
+        return self._stub_refresher.call_task_stub(
+            lambda x: x.CreateScriptTask(
+                CreateScriptTaskRequest(
+                    request=ScriptTaskRequest(
+                        function_reference_type="file",
+                        # Hardcoded script name
+                        function_reference=f"train.py::{function_name}",
+                        kind=ScriptTaskKind.SCRIPT_TASK_KIND_TRAINING_RUN,
+                        training_run=TrainingRunArgs(
+                            experiment_name=experiment_name,
+                        ),
+                        arguments_json=config,
+                        branch=branch,
+                        resource_requests=resources_pb2.ResourceRequirements(
+                            requests=resources_request,
+                        ),
+                        resource_group=resources.resource_group if resources is not None else None,
+                        env_overrides=env_overrides,
+                        enable_profiling=enable_profiling,
+                        max_retries=max_retries,
+                    ),
+                    source_file=script.encode("utf-8"),
+                ),
             )
+        )
+
+    def await_branch_server_start(
+        self,
+        timeout_seconds: float = 300.0,
+        poll_interval_seconds: float = 2.0,
+    ) -> "StartBranchResponse":
+        """Start and wait for a branch server to be ready.
+
+        This method polls the branch server status until it is ready or a timeout is reached.
+        Both 'apply --branch' and 'query --branch' automatically start the branch server if
+        it isn't already running, so it isn't usually necessary to manually start it.
+
+        Parameters
+        ----------
+        timeout_seconds
+            Maximum time to wait for the branch server to start, in seconds. Defaults to 300 (5 minutes).
+        poll_interval_seconds
+            Time to wait between polling attempts, in seconds. Defaults to 2 seconds.
+
+        Returns
+        -------
+        StartBranchResponse
+            The response from the branch server indicating its state.
+
+        Raises
+        ------
+        TimeoutError
+            If the branch server doesn't start within the timeout period.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> client = ChalkGRPCClient()
+        >>> response = client.await_branch_server_start()
+        """
+        import time
+
+        from chalk._gen.chalk.server.v1.builder_pb2 import BranchScalingState, StartBranchRequest
+
+        start_time = time.time()
+        while True:
+            response = self._stub_refresher.call_builder_stub(lambda x: x.StartBranch(StartBranchRequest()))
+            if response.state == BranchScalingState.BRANCH_SCALING_STATE_SUCCESS:
+                return response
+            if (time.time() - start_time) >= timeout_seconds:
+                raise TimeoutError(
+                    f"Branch server did not start within {timeout_seconds} seconds. Last state: {BranchScalingState.Name(response.state)}"
+                )
+            time.sleep(poll_interval_seconds)
+
+    def get_job_queue_operation_summary(
+        self,
+        operation_id: str,
+        environment_id: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> GetJobQueueOperationSummaryResponse:
+        """Get summary information for a job queue operation.
+
+        Parameters
+        ----------
+        operation_id
+            The ID of the operation to get summary for
+        environment_id
+            The environment ID. If None, uses the client's environment.
+        limit
+            Maximum number of job rows to return. Defaults to 10000.
+        offset
+            Offset for pagination. Defaults to 0.
+
+        Returns
+        -------
+        GetJobQueueOperationSummaryResponse
+            The operation summary response containing job queue information.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> client = ChalkGRPCClient()
+        >>> response = client.get_job_queue_operation_summary(operation_id="op_123")
+        """
+        env_id = environment_id or self._stub_refresher.environment_id
+        if not env_id:
+            raise ValueError("No environment specified")
+
+        request = GetJobQueueOperationSummaryRequest(
+            operation_id=operation_id,
+            environment_id=env_id,
+        )
+
+        if limit is not None:
+            request.limit = limit
+        if offset is not None:
+            request.offset = offset
+
+        return self._stub_refresher.call_job_queue_stub(lambda x: x.GetJobQueueOperationSummary(request))
+
+    def follow_model_training_job(
+        self,
+        operation_id: str,
+        poll_interval: float = 2.0,
+        output_callback: Optional[Callable[[str, str], None]] = None,
+    ) -> None:
+        """Follow a model training job, displaying both status and logs.
+
+        This method polls the job queue for status updates while also following logs
+        in real-time. It continues until the job reaches a terminal state (completed,
+        failed, or canceled).
+
+        Parameters
+        ----------
+        operation_id
+            The operation ID of the model training job
+        poll_interval
+            Time in seconds between polling for status and logs. Defaults to 2.0 seconds.
+        output_callback
+            Optional callback function that receives (timestamp, message) for each log entry.
+            If None, logs are displayed using Rich live display.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> client = ChalkGRPCClient()
+        >>> client.follow_model_training_job(operation_id="op_123")
+        """
+        from chalk.utils.job_log_display import JobLogDisplay
+
+        # Create display manager
+        display = JobLogDisplay(title="Model Training Jobs")
+
+        # Define callback for status polling
+        def get_status_callback():
+            return self.get_job_queue_operation_summary(operation_id=operation_id)
+
+        # Get log stub and construct log query
+        log_query = f'operation_id:"{operation_id}"'
+        log_stub = self._stub_refresher.log_stub
+
+        # Delegate to the display manager to handle all threading and coordination
+        display.follow_job(
+            get_status_callback=get_status_callback,
+            log_stub=log_stub,
+            log_query=log_query,
+            poll_interval=poll_interval,
+            output_callback=output_callback,
+        )
+
+    def test_streaming_resolver(
+        self,
+        resolver: str | Resolver,
+        message_bodies: "list[str | bytes | BaseModel] | None" = None,
+        message_keys: list[str | None] | None = None,
+        message_timestamps: list[str | dt.datetime] | None = None,
+        message_filepath: str | None = None,
+        request_timeout: Optional[float] = None,
+    ) -> "StreamResolverTestResponse":
+        """Test a streaming resolver with supplied messages.
+
+        This method tests streaming resolvers using the gRPC TestStreamingResolver endpoint.
+        It supports both deployed resolvers (by FQN) and static/undeployed resolvers
+        (automatically serialized from Resolver objects).
+
+        Parameters
+        ----------
+        resolver : str | Resolver
+            The streaming resolver or its string name. If a StreamResolver object with
+            feature_expressions is provided, it will be automatically serialized for testing.
+        message_bodies : list[str | bytes | BaseModel], optional
+            The message bodies to process. Can be JSON strings, raw bytes,
+            or Pydantic models (will be serialized to JSON).
+            Either message_bodies or message_filepath must be provided.
+        message_keys : list[str | None], optional
+            Optional keys for each message. If not provided, all keys will be None.
+            Must match length of message_bodies if provided.
+        message_timestamps : list[str | datetime], optional
+            Optional timestamps for each message. If not provided, current time
+            will be used. Must match length of message_bodies if provided.
+        message_filepath : str, optional
+            A filepath from which test messages will be ingested.
+            This file should be newline delimited JSON with format:
+            {"message_key": "my-key", "message_body": {"field1": "value1"}}
+            Each line may optionally contain a "message_timestamp" field.
+            Either message_bodies or message_filepath must be provided.
+        request_timeout : float, optional
+            Request timeout in seconds.
+
+        Returns
+        -------
+        StreamResolverTestResponse
+            Response containing:
+            - status: SUCCESS or FAILURE
+            - data_uri: Optional signed URL to parquet file with results
+            - errors: List of ChalkError objects
+            - message: Human-readable message
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> client = ChalkGRPCClient()
+        >>> response = client.test_streaming_resolver(
+        ...     resolver="my_module.my_stream_resolver",
+        ...     message_bodies=[
+        ...         '{"user_id": 1, "event": "login"}',
+        ...         '{"user_id": 2, "event": "logout"}',
+        ...     ],
+        ...     message_keys=["user_1", "user_2"],
+        ... )
+        >>> print(f"Status: {response.status}")
+        >>> if response.data_uri:
+        ...     print(f"Results at: {response.data_uri}")
+        """
+        import base64
+        import json
+        from uuid import uuid4
+
+        import pyarrow as pa
+
+        from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2 import TestStreamingResolverRequest
+        from chalk.utils.pydanticutil.pydantic_compat import get_pydantic_model_json, is_pydantic_basemodel_instance
+
+        # Determine if resolver is static and needs serialization
+        resolver_fqn: str | None = None
+        static_stream_resolver_b64: str | None = None
+
+        if isinstance(resolver, str):
+            resolver_fqn = resolver
+        else:
+            from chalk.features.resolver import StreamResolver
+
+            resolver_fqn = resolver.fqn
+
+            if isinstance(resolver, StreamResolver) and resolver.feature_expressions:
+                from chalk.parsed.to_proto import ToProtoConverter
+
+                proto_resolver = ToProtoConverter.convert_stream_resolver(resolver)
+                static_stream_resolver_b64 = base64.b64encode(
+                    proto_resolver.SerializeToString(deterministic=True)
+                ).decode("utf-8")
+
+        # Load from file if provided
+        if message_filepath is not None:
+            if message_bodies is not None:
+                raise ValueError("Cannot provide both message_filepath and message_bodies")
+
+            loaded_bodies: list[Any] = []
+            loaded_keys: list[str | None] = []
+            loaded_timestamps: list[str | None] = []
+
+            with open(message_filepath, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    msg = json.loads(line)
+                    loaded_bodies.append(msg.get("message_body", msg))
+                    loaded_keys.append(msg.get("message_key"))
+                    loaded_timestamps.append(msg.get("message_timestamp"))
+
+            message_bodies = loaded_bodies
+            if message_keys is None and any(k is not None for k in loaded_keys):
+                message_keys = loaded_keys
+            if message_timestamps is None and any(t is not None for t in loaded_timestamps):
+                # Cast needed: loaded_timestamps is list[str | None] from JSON,
+                # but message_timestamps is list[str | datetime] - strings will be parsed later
+                message_timestamps = typing.cast(list[str | dt.datetime], loaded_timestamps)
+
+        # Validate inputs
+        if message_bodies is None:
+            raise ValueError("Either message_bodies or message_filepath must be provided")
+
+        num_messages = len(message_bodies)
+        if num_messages == 0:
+            raise ValueError("message_bodies cannot be empty")
+
+        if message_keys is not None and len(message_keys) != num_messages:
+            raise ValueError(
+                f"message_keys length ({len(message_keys)}) must match message_bodies length ({num_messages})"
+            )
+
+        if message_timestamps is not None and len(message_timestamps) != num_messages:
+            raise ValueError(
+                f"message_timestamps length ({len(message_timestamps)}) must match message_bodies length ({num_messages})"
+            )
+
+        # Generate defaults
+        message_ids = [str(uuid4()) for _ in range(num_messages)]
+
+        if message_keys is None:
+            message_keys = typing.cast(list[str | None], [None] * num_messages)
+
+        if message_timestamps is None:
+            message_timestamps = typing.cast(list[str | dt.datetime], [dt.datetime.now()] * num_messages)
+
+        # Convert message bodies to bytes
+        processed_bodies: list[bytes] = []
+        for body in message_bodies:
+            if isinstance(body, bytes):
+                processed_bodies.append(body)
+            elif isinstance(body, str):
+                processed_bodies.append(body.encode("utf-8"))
+            elif is_pydantic_basemodel_instance(body):
+                # Use utility function that handles both Pydantic v1 and v2
+                processed_bodies.append(get_pydantic_model_json(body).encode("utf-8"))
+            else:
+                # Try JSON serialization for dict-like objects
+                processed_bodies.append(json.dumps(body).encode("utf-8"))
+
+        # Convert timestamps to unix timestamps in milliseconds (int64)
+        # At this point message_timestamps is guaranteed to be non-None due to the default assignment above
+        assert message_timestamps is not None
+        processed_timestamps: list[int] = []
+        for ts in message_timestamps:
+            if isinstance(ts, str):
+                # Parse ISO format string
+                parsed = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                processed_timestamps.append(int(parsed.timestamp() * 1000))  # milliseconds
+            else:
+                # Type narrowing: ts must be dt.datetime here
+                processed_timestamps.append(int(ts.timestamp() * 1000))  # milliseconds
+
+        # Create Arrow table
+        table = pa.table(
+            {
+                "message_id": message_ids,
+                "message_key": message_keys,
+                "message_data": processed_bodies,
+                "publish_timestamp": processed_timestamps,
+            }
+        )
+
+        # Serialize to Arrow IPC format
+        sink = pa.BufferOutputStream()
+        with pa.ipc.new_stream(sink, table.schema) as writer:
+            writer.write_table(table)
+        input_data = sink.getvalue().to_pybytes()
+
+        # Create gRPC request
+        request = TestStreamingResolverRequest(
+            resolver_fqn=resolver_fqn or "",
+            input_data=input_data,
+            operation_id=None,
+            debug=True,
+        )
+
+        if static_stream_resolver_b64:
+            request.static_stream_resolver_b64 = static_stream_resolver_b64
+
+        # Call new TestStreamingResolver endpoint
+        proto_response = self._stub_refresher.call_streaming_stub(
+            lambda x: x.TestStreamingResolver(
+                request,
+                timeout=request_timeout,
+            )
+        )
+
+        # Convert proto response to StreamResolverTestResponse
+        from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2 import TEST_STREAM_RESOLVER_STATUS_SUCCESS
+
+        status = (
+            StreamResolverTestStatus.SUCCESS
+            if proto_response.status == TEST_STREAM_RESOLVER_STATUS_SUCCESS
+            else StreamResolverTestStatus.FAILURE
+        )
+
+        # Convert proto errors to ChalkError objects
+        errors_list: list[ChalkError] = []
+        if proto_response.errors:
+            errors_list = [ChalkErrorConverter.chalk_error_decode(err) for err in proto_response.errors]
+
+        return StreamResolverTestResponse(
+            status=status,
+            data_uri=proto_response.data_uri if proto_response.HasField("data_uri") else None,
+            errors=errors_list if errors_list else None,
+            message=proto_response.message if proto_response.message else None,
         )

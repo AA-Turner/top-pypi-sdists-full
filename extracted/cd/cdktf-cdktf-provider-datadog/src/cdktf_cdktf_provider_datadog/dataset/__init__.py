@@ -1,7 +1,7 @@
 r'''
 # `datadog_dataset`
 
-Refer to the Terraform Registry for docs: [`datadog_dataset`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset).
+Refer to the Terraform Registry for docs: [`datadog_dataset`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Dataset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataset.Dataset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset datadog_dataset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset datadog_dataset}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class Dataset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset datadog_dataset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset datadog_dataset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#name Dataset#name}
-        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role`` and ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#principals Dataset#principals}
-        :param product_filters: product_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#product_filters Dataset#product_filters}
+        :param name: The name of the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#name Dataset#name}
+        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role`` and ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#principals Dataset#principals}
+        :param product_filters: product_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#product_filters Dataset#product_filters}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class Dataset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Dataset to import.
-        :param import_from_id: The id of the existing Dataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Dataset that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Dataset to import is found.
         '''
         if __debug__:
@@ -251,9 +251,9 @@ class DatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#name Dataset#name}
-        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role`` and ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#principals Dataset#principals}
-        :param product_filters: product_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#product_filters Dataset#product_filters}
+        :param name: The name of the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#name Dataset#name}
+        :param principals: An array of principals. A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role`` and ``team``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#principals Dataset#principals}
+        :param product_filters: product_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#product_filters Dataset#product_filters}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -358,7 +358,7 @@ class DatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#name Dataset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#name Dataset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -370,7 +370,7 @@ class DatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A principal is a subject or group of subjects. Each principal is formatted as ``type:id``. Supported types: ``role`` and ``team``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#principals Dataset#principals}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#principals Dataset#principals}
         '''
         result = self._values.get("principals")
         assert result is not None, "Required property 'principals' is missing"
@@ -382,7 +382,7 @@ class DatasetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatasetProductFilters"]]]:
         '''product_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#product_filters Dataset#product_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#product_filters Dataset#product_filters}
         '''
         result = self._values.get("product_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DatasetProductFilters"]]], result)
@@ -412,8 +412,8 @@ class DatasetProductFilters:
         product: builtins.str,
     ) -> None:
         '''
-        :param filters: A list of tag-based filters used to restrict access to the product type. Each filter is formatted as ``@tag.key:value``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#filters Dataset#filters}
-        :param product: The product type of the dataset. Supported types: ``apm``, ``rum``, ``synthetics``, ``metrics``, ``logs``, ``sd_repoinfo``, ``error_tracking``, ``cloud_cost``, and ``ml_obs``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#product Dataset#product}
+        :param filters: A list of tag-based filters used to restrict access to the product type. Each filter is formatted as ``@tag.key:value``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#filters Dataset#filters}
+        :param product: The product type of the dataset. Supported types: ``apm``, ``rum``, ``synthetics``, ``metrics``, ``logs``, ``sd_repoinfo``, ``error_tracking``, ``cloud_cost``, and ``ml_obs``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#product Dataset#product}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__275ce2c1b7bee86bbd981d4c4c2d14d594ab59976d2803a981fb805c2ba77f62)
@@ -428,7 +428,7 @@ class DatasetProductFilters:
     def filters(self) -> typing.List[builtins.str]:
         '''A list of tag-based filters used to restrict access to the product type. Each filter is formatted as ``@tag.key:value``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#filters Dataset#filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#filters Dataset#filters}
         '''
         result = self._values.get("filters")
         assert result is not None, "Required property 'filters' is missing"
@@ -438,7 +438,7 @@ class DatasetProductFilters:
     def product(self) -> builtins.str:
         '''The product type of the dataset. Supported types: ``apm``, ``rum``, ``synthetics``, ``metrics``, ``logs``, ``sd_repoinfo``, ``error_tracking``, ``cloud_cost``, and ``ml_obs``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/dataset#product Dataset#product}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/resources/dataset#product Dataset#product}
         '''
         result = self._values.get("product")
         assert result is not None, "Required property 'product' is missing"

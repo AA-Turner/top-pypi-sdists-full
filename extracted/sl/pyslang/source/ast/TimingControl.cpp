@@ -8,6 +8,7 @@
 #include "slang/ast/TimingControl.h"
 
 #include "slang/ast/ASTSerializer.h"
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
@@ -16,6 +17,22 @@
 #include "slang/diagnostics/StatementsDiags.h"
 #include "slang/syntax/AllSyntax.h"
 
+namespace {
+
+using namespace slang::ast;
+
+struct EquivalentToVisitor {
+    template<typename T>
+    bool visit(const T& lhs, const TimingControl& rhs) {
+        if (lhs.kind != rhs.kind)
+            return false;
+
+        return lhs.isEquivalentImpl(rhs.as<T>());
+    }
+};
+
+} // namespace
+
 namespace slang::ast {
 
 using namespace parsing;
@@ -23,7 +40,8 @@ using namespace syntax;
 
 TimingControl& TimingControl::bind(const TimingControlSyntax& syntax, const ASTContext& context) {
     auto& comp = context.getCompilation();
-    if (context.flags.has(ASTFlags::Function | ASTFlags::Final) || context.inAlwaysCombLatch()) {
+    if ((context.flags.has(ASTFlags::Function | ASTFlags::Final) || context.inAlwaysCombLatch()) &&
+        !context.flags.has(ASTFlags::NonBlockingTimingControl)) {
         context.addDiag(diag::TimingInFuncNotAllowed, syntax.sourceRange());
         return badCtrl(comp, nullptr);
     }
@@ -143,6 +161,11 @@ TimingControl& TimingControl::bind(const SequenceExprSyntax& syntax, const ASTCo
     return *result;
 }
 
+bool TimingControl::isEquivalentTo(const TimingControl& other) const {
+    EquivalentToVisitor visitor;
+    return visit(visitor, other);
+}
+
 TimingControl& TimingControl::badCtrl(Compilation& compilation, const TimingControl* ctrl) {
     return *compilation.emplace<InvalidTimingControl>(ctrl);
 }
@@ -187,6 +210,10 @@ TimingControl& DelayControl::fromParams(Compilation& compilation,
     }
 
     return *result;
+}
+
+bool DelayControl::isEquivalentImpl(const DelayControl& rhs) const {
+    return expr.isEquivalentTo(rhs.expr);
 }
 
 void DelayControl::serializeTo(ASTSerializer& serializer) const {
@@ -250,6 +277,12 @@ TimingControl& Delay3Control::fromParams(Compilation& compilation,
     SLANG_ASSERT(delays[0]);
     return *compilation.emplace<Delay3Control>(*delays[0], delays[1], delays[2],
                                                items.sourceRange());
+}
+
+bool Delay3Control::isEquivalentImpl(const Delay3Control& rhs) const {
+    return expr1.isEquivalentTo(rhs.expr1) && bool(expr2) == bool(rhs.expr2) &&
+           (!expr2 || expr2->isEquivalentTo(*rhs.expr2)) && bool(expr3) == bool(rhs.expr3) &&
+           (!expr3 || expr3->isEquivalentTo(*rhs.expr3));
 }
 
 void Delay3Control::serializeTo(ASTSerializer& serializer) const {
@@ -391,6 +424,11 @@ TimingControl& SignalEventControl::fromExpr(Compilation& compilation, EdgeKind e
     return *result;
 }
 
+bool SignalEventControl::isEquivalentImpl(const SignalEventControl& rhs) const {
+    return expr.isEquivalentTo(rhs.expr) && bool(iffCondition) == bool(rhs.iffCondition) &&
+           (!iffCondition || iffCondition->isEquivalentTo(*rhs.iffCondition)) && edge == rhs.edge;
+}
+
 void SignalEventControl::serializeTo(ASTSerializer& serializer) const {
     serializer.write("expr", expr);
     serializer.write("edge", toString(edge));
@@ -488,6 +526,13 @@ TimingControl& EventListControl::fromSyntax(Compilation& compilation, const Synt
     return *result;
 }
 
+bool EventListControl::isEquivalentImpl(const EventListControl& rhs) const {
+    return std::ranges::equal(events, rhs.events,
+                              [](const TimingControl* a, const TimingControl* b) {
+                                  return a->isEquivalentTo(*b);
+                              });
+}
+
 void EventListControl::serializeTo(ASTSerializer& serializer) const {
     serializer.startArray("events");
     for (auto const event : events) {
@@ -532,6 +577,10 @@ TimingControl& RepeatedEventControl::fromSyntax(Compilation& compilation,
     return *result;
 }
 
+bool RepeatedEventControl::isEquivalentImpl(const RepeatedEventControl& rhs) const {
+    return expr.isEquivalentTo(rhs.expr) && event.isEquivalentTo(rhs.event);
+}
+
 void RepeatedEventControl::serializeTo(ASTSerializer& serializer) const {
     serializer.write("expr", expr);
     serializer.write("event", event);
@@ -551,6 +600,10 @@ TimingControl& CycleDelayControl::fromSyntax(Compilation& compilation, const Del
     }
 
     return *result;
+}
+
+bool CycleDelayControl::isEquivalentImpl(const CycleDelayControl& rhs) const {
+    return expr.isEquivalentTo(rhs.expr);
 }
 
 void CycleDelayControl::serializeTo(ASTSerializer& serializer) const {
@@ -591,6 +644,13 @@ TimingControl& BlockEventListControl::fromSyntax(const BlockEventExpressionSynta
         return badCtrl(comp, nullptr);
 
     return *comp.emplace<BlockEventListControl>(events.copy(comp), syntax.sourceRange());
+}
+
+bool BlockEventListControl::isEquivalentImpl(const BlockEventListControl& rhs) const {
+    return std::ranges::equal(events, rhs.events, [](const Event& a, const Event& b) {
+        return a.isBegin == b.isBegin && bool(a.target) == bool(b.target) &&
+               (!a.target || a.target->isEquivalentTo(*b.target));
+    });
 }
 
 void BlockEventListControl::serializeTo(ASTSerializer& serializer) const {

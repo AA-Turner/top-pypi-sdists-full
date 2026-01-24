@@ -18,7 +18,7 @@ from .entries import (
     EntryFactory,
     PersonFactory,
     PersonWithEmployerFactory,
-    Random_ClientFactory,
+    RandomClientFactory,
     SpecializationFactory,
     UnemployedPersonFactory,
     PersonSignatureFactory,

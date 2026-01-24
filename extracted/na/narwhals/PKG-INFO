@@ -1,17 +1,46 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.5.0
+Version: 2.15.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Project-URL: Homepage, https://github.com/narwhals-dev/narwhals
 Project-URL: Documentation, https://narwhals-dev.github.io/narwhals/
 Project-URL: Repository, https://github.com/narwhals-dev/narwhals
 Project-URL: Bug Tracker, https://github.com/narwhals-dev/narwhals/issues
 Author-email: Marco Gorelli <hello_narwhals@proton.me>
+License: MIT License
+        
+        Copyright (c) 2024, Marco Gorelli
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
 License-File: LICENSE.md
 Keywords: cudf,dask,dataframes,interoperability,modin,pandas,polars,pyarrow
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Provides-Extra: cudf
@@ -19,7 +48,7 @@ Requires-Dist: cudf>=24.10.0; extra == 'cudf'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
 Provides-Extra: duckdb
-Requires-Dist: duckdb>=1.0; extra == 'duckdb'
+Requires-Dist: duckdb>=1.1; extra == 'duckdb'
 Provides-Extra: ibis
 Requires-Dist: ibis-framework>=6.0.0; extra == 'ibis'
 Requires-Dist: packaging; extra == 'ibis'
@@ -58,7 +87,7 @@ Description-Content-Type: text/markdown
 Extremely lightweight and extensible compatibility layer between dataframe libraries!
 
 - **Full API support**: cuDF, Modin, pandas, Polars, PyArrow.
-- **Lazy-only support**: Dask, DuckDB, Ibis, PySpark, SQLFrame. Work in progress: Daft.
+- **Lazy-only support**: Daft, Dask, DuckDB, Ibis, PySpark, SQLFrame.
 
 Seamlessly support all, without depending on any!
 
@@ -92,6 +121,7 @@ Get started!
   - [Roadmap](#roadmap)
   - [Used by](#used-by)
   - [Sponsors and institutional partners](#sponsors-and-institutional-partners)
+  - [Support](#support)
   - [Appears on](#appears-on)
   - [Why "Narwhals"?](#why-narwhals)
 
@@ -214,6 +244,7 @@ Join the party!
 - [altair](https://github.com/vega/altair/)
 - [bokeh](https://github.com/bokeh/bokeh)
 - [darts](https://github.com/unit8co/darts)
+- [fairlearn](https://github.com/fairlearn/fairlearn)
 - [formulaic](https://github.com/matthewwardrop/formulaic)
 - [gt-extras](https://github.com/posit-dev/gt-extras)
 - [hierarchicalforecast](https://github.com/Nixtla/hierarchicalforecast)
@@ -255,9 +286,31 @@ provided some funding / development time:
 If you contribute to Narwhals on your organization's time, please let us know. We'd be happy to add your employer
 to this list!
 
+## Support
+
+If you'd like to say "thank you", please give us a ⭐ star ⭐.
+
+Please contact [hello_narwhals@proton.me](hello_narwhals@proton.me) if you would like to:
+
+- Receive professional support (e.g., if you're using or would like to use Narwhals at your company).
+- Have any Narwhals fixes / features prioritised.
+- Commission any Narwhals plugins for new backends.
+
 ## Appears on
 
 Narwhals has been featured in several talks, podcasts, and blog posts:
+
+- [Inspiring Computing Podcast](https://www.inspiringcomputing.com/2107763/episodes/16702460-the-rise-of-narwhals-in-open-source)
+  The Rise of Narwhals in Open-Source
+
+- [PyCon DE & PyData 2025](https://youtu.be/DJk782DWcss)
+  How Narwhals is silently bringing pandas, Polars, DuckDB, PyArrow, and more together
+
+- [The Python Exchange March 2025](https://youtu.be/TvFWFlK-2po)
+  What Can Narwhals Do for You?
+
+- [PyData London 2025](https://youtu.be/r2PxJlO7_QA)
+  How Narwhals brings Polars, DuckDB, PyArrow, & pandas together
 
 - [Talk Python to me Podcast](https://youtu.be/FSH7BZ0tuE0)
   Ahoy, Narwhals are bridging the data science APIs
@@ -274,10 +327,10 @@ Narwhals has been featured in several talks, podcasts, and blog posts:
 - [The Real Python Podcast](https://www.youtube.com/watch?v=w5DFZbFYzCM)
   Narwhals: Expanding DataFrame Compatibility Between Libraries
 
-- [Pycon Lithuania](https://www.youtube.com/watch?v=-mdx7Cn6_6E)  
+- [Pycon Lithuania 2024](https://www.youtube.com/watch?v=-mdx7Cn6_6E)  
   Marco Gorelli - DataFrame interoperatiblity - what's been achieved, and what comes next?
 
-- [Pycon Italy](https://www.youtube.com/watch?v=3IqUli9XsmQ)  
+- [Pycon Italy 2024](https://www.youtube.com/watch?v=3IqUli9XsmQ)  
   How you can write a dataframe-agnostic library - Marco Gorelli
 
 - [Polars Blog Post](https://pola.rs/posts/lightweight_plotting/)  

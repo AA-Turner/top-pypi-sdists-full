@@ -124,6 +124,21 @@ class V2Stub(object):
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationsRequest.SerializeToString,
                 response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse),
                 )
+        self.PostTrackAnnotationsSearches = channel.unary_unary(
+                '/clarifai.api.V2/PostTrackAnnotationsSearches',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostTrackAnnotationsSearchesRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse),
+                )
+        self.StreamAnnotations = channel.unary_stream(
+                '/clarifai.api.V2/StreamAnnotations',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.StreamAnnotationsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse),
+                )
+        self.StreamLivestreamAnnotations = channel.unary_stream(
+                '/clarifai.api.V2/StreamLivestreamAnnotations',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.StreamLivestreamAnnotationsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse),
+                )
         self.PostAnnotations = channel.unary_unary(
                 '/clarifai.api.V2/PostAnnotations',
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostAnnotationsRequest.SerializeToString,
@@ -739,26 +754,6 @@ class V2Stub(object):
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostSearchesByIDRequest.SerializeToString,
                 response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiSearchResponse),
                 )
-        self.PostAnnotationSearchMetrics = channel.unary_unary(
-                '/clarifai.api.V2/PostAnnotationSearchMetrics',
-                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostAnnotationSearchMetricsRequest.SerializeToString,
-                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse),
-                )
-        self.GetAnnotationSearchMetrics = channel.unary_unary(
-                '/clarifai.api.V2/GetAnnotationSearchMetrics',
-                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetAnnotationSearchMetricsRequest.SerializeToString,
-                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse),
-                )
-        self.ListAnnotationSearchMetrics = channel.unary_unary(
-                '/clarifai.api.V2/ListAnnotationSearchMetrics',
-                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationSearchMetricsRequest.SerializeToString,
-                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse),
-                )
-        self.DeleteAnnotationSearchMetrics = channel.unary_unary(
-                '/clarifai.api.V2/DeleteAnnotationSearchMetrics',
-                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteAnnotationSearchMetricsRequest.SerializeToString,
-                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
-                )
         self.DeleteSearch = channel.unary_unary(
                 '/clarifai.api.V2/DeleteSearch',
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteSearchRequest.SerializeToString,
@@ -1199,6 +1194,11 @@ class V2Stub(object):
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteComputeClustersRequest.SerializeToString,
                 response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
                 )
+        self.PatchComputeClusters = channel.unary_unary(
+                '/clarifai.api.V2/PatchComputeClusters',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PatchComputeClustersRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiComputeClusterResponse),
+                )
         self.GetNodepool = channel.unary_unary(
                 '/clarifai.api.V2/GetNodepool',
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetNodepoolRequest.SerializeToString,
@@ -1369,6 +1369,11 @@ class V2Stub(object):
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PatchPipelineVersionRunsRequest.SerializeToString,
                 response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiPipelineVersionRunResponse),
                 )
+        self.ListPipelineVersionRunStatusLogs = channel.unary_unary(
+                '/clarifai.api.V2/ListPipelineVersionRunStatusLogs',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListPipelineVersionRunStatusLogsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiPipelineVersionRunStatusLogResponse),
+                )
         self.PostPipelineSteps = channel.unary_unary(
                 '/clarifai.api.V2/PostPipelineSteps',
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostPipelineStepsRequest.SerializeToString,
@@ -1398,6 +1403,56 @@ class V2Stub(object):
                 '/clarifai.api.V2/GetPipelineStepVersion',
                 request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetPipelineStepVersionRequest.SerializeToString,
                 response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.SinglePipelineStepVersionResponse),
+                )
+        self.DeletePipelineSteps = channel.unary_unary(
+                '/clarifai.api.V2/DeletePipelineSteps',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
+                )
+        self.DeletePipelineStepVersions = channel.unary_unary(
+                '/clarifai.api.V2/DeletePipelineStepVersions',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepVersionsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
+                )
+        self.PostArtifacts = channel.unary_unary(
+                '/clarifai.api.V2/PostArtifacts',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse),
+                )
+        self.GetArtifact = channel.unary_unary(
+                '/clarifai.api.V2/GetArtifact',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactResponse),
+                )
+        self.ListArtifacts = channel.unary_unary(
+                '/clarifai.api.V2/ListArtifacts',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse),
+                )
+        self.DeleteArtifact = channel.unary_unary(
+                '/clarifai.api.V2/DeleteArtifact',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
+                )
+        self.PostArtifactVersionsUpload = channel.stream_stream(
+                '/clarifai.api.V2/PostArtifactVersionsUpload',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadResponse),
+                )
+        self.ListArtifactVersions = channel.unary_unary(
+                '/clarifai.api.V2/ListArtifactVersions',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactVersionsRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactVersionResponse),
+                )
+        self.GetArtifactVersion = channel.unary_unary(
+                '/clarifai.api.V2/GetArtifactVersion',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactVersionRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactVersionResponse),
+                )
+        self.DeleteArtifactVersion = channel.unary_unary(
+                '/clarifai.api.V2/DeleteArtifactVersion',
+                request_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactVersionRequest.SerializeToString,
+                response_deserializer=wrap_response_deserializer(proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse),
                 )
         self.GetSecret = channel.unary_unary(
                 '/clarifai.api.V2/GetSecret',
@@ -1583,6 +1638,28 @@ class V2Servicer(object):
 
     def ListAnnotations(self, request, context):
         """List all the annotation.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PostTrackAnnotationsSearches(self, request, context):
+        """List video track annotations for a specific input.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamAnnotations(self, request, context):
+        """Stream annotations for a specific input one-by-one.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamLivestreamAnnotations(self, request, context):
+        """Stream live video annotations as they are being created by the runner.
+        This endpoint reads from Redis instead of the database for real-time streaming.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2531,34 +2608,6 @@ class V2Servicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def PostAnnotationSearchMetrics(self, request, context):
-        """Evaluate the results of two search requests
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetAnnotationSearchMetrics(self, request, context):
-        """Get the evaluation results between two search requests
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ListAnnotationSearchMetrics(self, request, context):
-        """List the evaluation results between two search requests
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DeleteAnnotationSearchMetrics(self, request, context):
-        """DeleteAnnotationSearchMetrics
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def DeleteSearch(self, request, context):
         """Delete a saved search.
         """
@@ -3230,6 +3279,12 @@ class V2Servicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PatchComputeClusters(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetNodepool(self, request, context):
         """Nodepools CRUD
         """
@@ -3440,6 +3495,12 @@ class V2Servicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListPipelineVersionRunStatusLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def PostPipelineSteps(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -3476,6 +3537,71 @@ class V2Servicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetPipelineStepVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeletePipelineSteps(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeletePipelineStepVersions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PostArtifacts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetArtifact(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListArtifacts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteArtifact(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PostArtifactVersionsUpload(self, request_iterator, context):
+        """This is a streaming endpoint, the request has a field, upload_data, which can either be the config for the upload or the actual data to upload.
+        The config must be sent first before the artifact_bytes can be uploaded.
+        Once the config has been sent, the server will respond with a confirmation containing the artifact_version_id.
+        This is so that if your upload is interrupted, you can resume the upload by sending the config again with the artifact_version_id specified for your artifact_version.
+        The actual upload will be done via a multipart upload, the latest successful part_id will be sent from the server in the response to the artifact_bytes.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListArtifactVersions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetArtifactVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteArtifactVersion(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3615,6 +3741,21 @@ def add_V2Servicer_to_server(servicer, server):
                     servicer.ListAnnotations,
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationsRequest.FromString,
                     response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse.SerializeToString,
+            ),
+            'PostTrackAnnotationsSearches': grpc.unary_unary_rpc_method_handler(
+                    servicer.PostTrackAnnotationsSearches,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostTrackAnnotationsSearchesRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse.SerializeToString,
+            ),
+            'StreamAnnotations': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamAnnotations,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.StreamAnnotationsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse.SerializeToString,
+            ),
+            'StreamLivestreamAnnotations': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamLivestreamAnnotations,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.StreamLivestreamAnnotationsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse.SerializeToString,
             ),
             'PostAnnotations': grpc.unary_unary_rpc_method_handler(
                     servicer.PostAnnotations,
@@ -4231,26 +4372,6 @@ def add_V2Servicer_to_server(servicer, server):
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostSearchesByIDRequest.FromString,
                     response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiSearchResponse.SerializeToString,
             ),
-            'PostAnnotationSearchMetrics': grpc.unary_unary_rpc_method_handler(
-                    servicer.PostAnnotationSearchMetrics,
-                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostAnnotationSearchMetricsRequest.FromString,
-                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.SerializeToString,
-            ),
-            'GetAnnotationSearchMetrics': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetAnnotationSearchMetrics,
-                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetAnnotationSearchMetricsRequest.FromString,
-                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.SerializeToString,
-            ),
-            'ListAnnotationSearchMetrics': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListAnnotationSearchMetrics,
-                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationSearchMetricsRequest.FromString,
-                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.SerializeToString,
-            ),
-            'DeleteAnnotationSearchMetrics': grpc.unary_unary_rpc_method_handler(
-                    servicer.DeleteAnnotationSearchMetrics,
-                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteAnnotationSearchMetricsRequest.FromString,
-                    response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
-            ),
             'DeleteSearch': grpc.unary_unary_rpc_method_handler(
                     servicer.DeleteSearch,
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteSearchRequest.FromString,
@@ -4691,6 +4812,11 @@ def add_V2Servicer_to_server(servicer, server):
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteComputeClustersRequest.FromString,
                     response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
             ),
+            'PatchComputeClusters': grpc.unary_unary_rpc_method_handler(
+                    servicer.PatchComputeClusters,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PatchComputeClustersRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiComputeClusterResponse.SerializeToString,
+            ),
             'GetNodepool': grpc.unary_unary_rpc_method_handler(
                     servicer.GetNodepool,
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetNodepoolRequest.FromString,
@@ -4861,6 +4987,11 @@ def add_V2Servicer_to_server(servicer, server):
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PatchPipelineVersionRunsRequest.FromString,
                     response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiPipelineVersionRunResponse.SerializeToString,
             ),
+            'ListPipelineVersionRunStatusLogs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListPipelineVersionRunStatusLogs,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListPipelineVersionRunStatusLogsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiPipelineVersionRunStatusLogResponse.SerializeToString,
+            ),
             'PostPipelineSteps': grpc.unary_unary_rpc_method_handler(
                     servicer.PostPipelineSteps,
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostPipelineStepsRequest.FromString,
@@ -4890,6 +5021,56 @@ def add_V2Servicer_to_server(servicer, server):
                     servicer.GetPipelineStepVersion,
                     request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetPipelineStepVersionRequest.FromString,
                     response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.SinglePipelineStepVersionResponse.SerializeToString,
+            ),
+            'DeletePipelineSteps': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeletePipelineSteps,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
+            ),
+            'DeletePipelineStepVersions': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeletePipelineStepVersions,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepVersionsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
+            ),
+            'PostArtifacts': grpc.unary_unary_rpc_method_handler(
+                    servicer.PostArtifacts,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse.SerializeToString,
+            ),
+            'GetArtifact': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetArtifact,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactResponse.SerializeToString,
+            ),
+            'ListArtifacts': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListArtifacts,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse.SerializeToString,
+            ),
+            'DeleteArtifact': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteArtifact,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
+            ),
+            'PostArtifactVersionsUpload': grpc.stream_stream_rpc_method_handler(
+                    servicer.PostArtifactVersionsUpload,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadResponse.SerializeToString,
+            ),
+            'ListArtifactVersions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListArtifactVersions,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactVersionsRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactVersionResponse.SerializeToString,
+            ),
+            'GetArtifactVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetArtifactVersion,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactVersionRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactVersionResponse.SerializeToString,
+            ),
+            'DeleteArtifactVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteArtifactVersion,
+                    request_deserializer=proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactVersionRequest.FromString,
+                    response_serializer=proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.SerializeToString,
             ),
             'GetSecret': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSecret,
@@ -5257,6 +5438,57 @@ class V2(object):
         return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/ListAnnotations',
             proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationsRequest.SerializeToString,
             proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PostTrackAnnotationsSearches(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/PostTrackAnnotationsSearches',
+            proto_dot_clarifai_dot_api_dot_service__pb2.PostTrackAnnotationsSearchesRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StreamAnnotations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/clarifai.api.V2/StreamAnnotations',
+            proto_dot_clarifai_dot_api_dot_service__pb2.StreamAnnotationsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StreamLivestreamAnnotations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/clarifai.api.V2/StreamLivestreamAnnotations',
+            proto_dot_clarifai_dot_api_dot_service__pb2.StreamLivestreamAnnotationsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.SingleStreamAnnotationResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -7352,74 +7584,6 @@ class V2(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def PostAnnotationSearchMetrics(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/PostAnnotationSearchMetrics',
-            proto_dot_clarifai_dot_api_dot_service__pb2.PostAnnotationSearchMetricsRequest.SerializeToString,
-            proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def GetAnnotationSearchMetrics(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/GetAnnotationSearchMetrics',
-            proto_dot_clarifai_dot_api_dot_service__pb2.GetAnnotationSearchMetricsRequest.SerializeToString,
-            proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def ListAnnotationSearchMetrics(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/ListAnnotationSearchMetrics',
-            proto_dot_clarifai_dot_api_dot_service__pb2.ListAnnotationSearchMetricsRequest.SerializeToString,
-            proto_dot_clarifai_dot_api_dot_service__pb2.MultiAnnotationSearchMetricsResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def DeleteAnnotationSearchMetrics(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/DeleteAnnotationSearchMetrics',
-            proto_dot_clarifai_dot_api_dot_service__pb2.DeleteAnnotationSearchMetricsRequest.SerializeToString,
-            proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
     def DeleteSearch(request,
             target,
             options=(),
@@ -8916,6 +9080,23 @@ class V2(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def PatchComputeClusters(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/PatchComputeClusters',
+            proto_dot_clarifai_dot_api_dot_service__pb2.PatchComputeClustersRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiComputeClusterResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def GetNodepool(request,
             target,
             options=(),
@@ -9494,6 +9675,23 @@ class V2(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ListPipelineVersionRunStatusLogs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/ListPipelineVersionRunStatusLogs',
+            proto_dot_clarifai_dot_api_dot_service__pb2.ListPipelineVersionRunStatusLogsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiPipelineVersionRunStatusLogResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def PostPipelineSteps(request,
             target,
             options=(),
@@ -9592,6 +9790,176 @@ class V2(object):
         return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/GetPipelineStepVersion',
             proto_dot_clarifai_dot_api_dot_service__pb2.GetPipelineStepVersionRequest.SerializeToString,
             proto_dot_clarifai_dot_api_dot_service__pb2.SinglePipelineStepVersionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeletePipelineSteps(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/DeletePipelineSteps',
+            proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeletePipelineStepVersions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/DeletePipelineStepVersions',
+            proto_dot_clarifai_dot_api_dot_service__pb2.DeletePipelineStepVersionsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PostArtifacts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/PostArtifacts',
+            proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetArtifact(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/GetArtifact',
+            proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListArtifacts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/ListArtifacts',
+            proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteArtifact(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/DeleteArtifact',
+            proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PostArtifactVersionsUpload(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(request_iterator, target, '/clarifai.api.V2/PostArtifactVersionsUpload',
+            proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.PostArtifactVersionsUploadResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListArtifactVersions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/ListArtifactVersions',
+            proto_dot_clarifai_dot_api_dot_service__pb2.ListArtifactVersionsRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.MultiArtifactVersionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetArtifactVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/GetArtifactVersion',
+            proto_dot_clarifai_dot_api_dot_service__pb2.GetArtifactVersionRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_service__pb2.SingleArtifactVersionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteArtifactVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/clarifai.api.V2/DeleteArtifactVersion',
+            proto_dot_clarifai_dot_api_dot_service__pb2.DeleteArtifactVersionRequest.SerializeToString,
+            proto_dot_clarifai_dot_api_dot_status_dot_status__pb2.BaseResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -1,7 +1,6 @@
 import abc
 import warnings
 from collections.abc import Sequence
-from copy import deepcopy
 from typing import Any, cast
 
 import numpy as np
@@ -23,6 +22,7 @@ from pytensor.tensor.blockwise import OpWithCoreShape
 from pytensor.tensor.random.type import RandomGeneratorType, RandomType
 from pytensor.tensor.random.utils import (
     compute_batch_shape,
+    custom_rng_deepcopy,
     explicit_expand_dims,
     normalize_size_param,
 )
@@ -385,7 +385,9 @@ class RandomVariable(RNGConsumerOp):
         dist_params = explicit_expand_dims(
             dist_params,
             self.ndims_params,
-            size_length=None if NoneConst.equals(size) else get_vector_length(size),
+            size_length=None
+            if isinstance(size.type, NoneTypeT)
+            else get_vector_length(size),
         )
 
         inputs = (rng, size, *dist_params)
@@ -421,7 +423,7 @@ class RandomVariable(RNGConsumerOp):
 
         # Draw from `rng` if `self.inplace` is `True`, and from a copy of `rng` otherwise.
         if not self.inplace:
-            rng = deepcopy(rng)
+            rng = custom_rng_deepcopy(rng)
 
         outputs[0][0] = rng
         outputs[1][0] = np.asarray(
@@ -445,6 +447,8 @@ class AbstractRNGConstructor(Op):
     def make_node(self, seed=None):
         if seed is None:
             seed = NoneConst
+        elif isinstance(seed, Variable) and isinstance(seed.type, NoneTypeT):
+            pass
         else:
             seed = as_tensor_variable(seed)
         inputs = [seed]
@@ -494,6 +498,11 @@ def vectorize_random_variable(
 
 class RandomVariableWithCoreShape(OpWithCoreShape):
     """Generalizes a random variable `Op` to include a core shape parameter."""
+
+    @property
+    def core_op(self):
+        [rv_node] = self.fgraph.apply_nodes
+        return rv_node.op
 
     def __str__(self):
         [rv_node] = self.fgraph.apply_nodes

@@ -16,7 +16,6 @@ short_description: Spam filter trusted IP addresses.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -133,8 +135,8 @@ EXAMPLES = '''
     - name: Spam filter trusted IP addresses.
       fortinet.fortimanager.fmgr_spamfilter_iptrust_entries:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -203,15 +205,16 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'iptrust': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'spamfilter_iptrust_entries': {
             'type': 'dict',
-            'v_range': [['6.0.0', '7.2.1']],
+            'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
             'options': {
-                'addr-type': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['ipv4', 'ipv6'], 'type': 'str'},
-                'id': {'v_range': [['6.0.0', '7.2.1']], 'required': True, 'type': 'int'},
-                'ip4-subnet': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'ip6-subnet': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                'status': {'v_range': [['6.0.0', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'addr-type': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['ipv4', 'ipv6'], 'type': 'str'},
+                'id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'required': True, 'type': 'int'},
+                'ip4-subnet': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'ip6-subnet': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                'status': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

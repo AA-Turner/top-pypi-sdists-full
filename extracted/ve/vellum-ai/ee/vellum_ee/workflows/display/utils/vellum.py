@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from vellum.client.core.api_error import ApiError
@@ -10,16 +11,26 @@ from vellum.workflows.nodes.bases.base import BaseNode
 from vellum.workflows.nodes.displayable.bases.utils import primitive_to_vellum_value
 from vellum.workflows.nodes.utils import get_unadorned_node
 from vellum.workflows.references import OutputReference, WorkflowInputReference
+from vellum.workflows.references.environment_variable import EnvironmentVariableReference
 from vellum.workflows.references.execution_count import ExecutionCountReference
 from vellum.workflows.references.lazy import LazyReference
 from vellum.workflows.references.node import NodeReference
+from vellum.workflows.references.state_value import StateValueReference
+from vellum.workflows.references.trigger import TriggerAttributeReference
 from vellum.workflows.references.vellum_secret import VellumSecretReference
+from vellum.workflows.utils.functions import compile_annotation
 from vellum.workflows.utils.vellum_variables import primitive_type_to_vellum_variable_type
-from vellum_ee.workflows.display.utils.exceptions import UnsupportedSerializationException
+from vellum_ee.workflows.display.utils.exceptions import (
+    InvalidInputReferenceError,
+    InvalidOutputReferenceError,
+    UnsupportedSerializationException,
+)
 from vellum_ee.workflows.display.utils.expressions import get_child_descriptor
 
 if TYPE_CHECKING:
     from vellum_ee.workflows.display.types import WorkflowDisplayContext
+
+logger = logging.getLogger(__name__)
 
 
 class ConstantValuePointer(UniversalBaseModel):
@@ -68,12 +79,43 @@ class ExecutionCounterPointer(UniversalBaseModel):
     data: ExecutionCounterData
 
 
+class EnvironmentVariableData(UniversalBaseModel):
+    environment_variable: str
+
+
+class EnvironmentVariablePointer(UniversalBaseModel):
+    type: Literal["ENVIRONMENT_VARIABLE"] = "ENVIRONMENT_VARIABLE"
+    data: EnvironmentVariableData
+
+
+class WorkflowStateData(UniversalBaseModel):
+    state_variable_id: str
+
+
+class WorkflowStatePointer(UniversalBaseModel):
+    type: Literal["WORKFLOW_STATE"] = "WORKFLOW_STATE"
+    data: WorkflowStateData
+
+
+class TriggerAttributeData(UniversalBaseModel):
+    trigger_id: str
+    attribute_id: str
+
+
+class TriggerAttributePointer(UniversalBaseModel):
+    type: Literal["TRIGGER_ATTRIBUTE"] = "TRIGGER_ATTRIBUTE"
+    data: TriggerAttributeData
+
+
 NodeInputValuePointerRule = Union[
     NodeOutputPointer,
     InputVariablePointer,
     ConstantValuePointer,
     WorkspaceSecretPointer,
     ExecutionCounterPointer,
+    EnvironmentVariablePointer,
+    WorkflowStatePointer,
+    TriggerAttributePointer,
 ]
 
 
@@ -95,6 +137,13 @@ def infer_vellum_variable_type(value: Any) -> VellumVariableType:
         inferred_type = vellum_variable_value.type
 
     return inferred_type
+
+
+def compile_descriptor_annotation(descriptor: BaseDescriptor) -> dict:
+    """Compile a BaseDescriptor's type annotation to a JSON schema."""
+    if not descriptor.types:
+        return {}
+    return compile_annotation(descriptor.normalized_type, {})
 
 
 def create_node_input_value_pointer_rule(
@@ -121,9 +170,20 @@ def create_node_input_value_pointer_rule(
             data=NodeOutputData(node_id=str(upstream_node_display.node_id), output_id=str(output_display.id)),
         )
     if isinstance(value, LazyReference):
-        child_descriptor = get_child_descriptor(value, display_context)
+        try:
+            child_descriptor = get_child_descriptor(value, display_context)
+        except InvalidOutputReferenceError as e:
+            logger.warning("Failed to parse lazy reference '%s', skipping serialization", value.name)
+            display_context.add_validation_error(e)
+            raise UnsupportedSerializationException(f"Failed to parse lazy reference: {value.name}")
         return create_node_input_value_pointer_rule(child_descriptor, display_context)
     if isinstance(value, WorkflowInputReference):
+        if value not in display_context.global_workflow_input_displays:
+            raise InvalidInputReferenceError(
+                message=f"Inputs class '{value.inputs_class.__qualname__}' has no attribute '{value.name}'",
+                inputs_class_name=value.inputs_class.__qualname__,
+                attribute_name=value.name,
+            )
         workflow_input_display = display_context.global_workflow_input_displays[value]
         return InputVariablePointer(data=InputVariableData(input_variable_id=str(workflow_input_display.id)))
     if isinstance(value, VellumSecretReference):
@@ -145,6 +205,26 @@ def create_node_input_value_pointer_rule(
         node_class_display = display_context.node_displays[value.node_class]
         return ExecutionCounterPointer(
             data=ExecutionCounterData(node_id=str(node_class_display.node_id)),
+        )
+    if isinstance(value, EnvironmentVariableReference):
+        return EnvironmentVariablePointer(
+            data=EnvironmentVariableData(
+                environment_variable=value.name,
+            ),
+        )
+    if isinstance(value, StateValueReference):
+        state_value_display = display_context.global_state_value_displays[value]
+        return WorkflowStatePointer(
+            data=WorkflowStateData(
+                state_variable_id=str(state_value_display.id),
+            ),
+        )
+    if isinstance(value, TriggerAttributeReference):
+        return TriggerAttributePointer(
+            data=TriggerAttributeData(
+                trigger_id=str(value.trigger_class.__id__),
+                attribute_id=str(value.id),
+            ),
         )
 
     if not isinstance(value, BaseDescriptor):

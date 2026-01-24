@@ -27,10 +27,13 @@ class GetClusterResult:
     """
     A collection of values returned by getCluster.
     """
-    def __init__(__self__, actual_esxi_hosts_count=None, capacity_reservation_id=None, cluster_id=None, compartment_id=None, compute_availability_domain=None, datastores=None, defined_tags=None, display_name=None, esxi_hosts_count=None, esxi_software_version=None, freeform_tags=None, id=None, initial_commitment=None, initial_host_ocpu_count=None, initial_host_shape_name=None, instance_display_name_prefix=None, is_shielded_instance_enabled=None, network_configurations=None, sddc_id=None, state=None, time_created=None, time_updated=None, upgrade_licenses=None, vmware_software_version=None, vsphere_type=None, vsphere_upgrade_objects=None, workload_network_cidr=None):
+    def __init__(__self__, actual_esxi_hosts_count=None, attach_datastore_cluster_ids=None, capacity_reservation_id=None, cluster_id=None, compartment_id=None, compute_availability_domain=None, datastore_cluster_ids=None, datastores=None, defined_tags=None, detach_datastore_cluster_ids=None, display_name=None, esxi_hosts_count=None, esxi_software_version=None, freeform_tags=None, id=None, initial_commitment=None, initial_host_ocpu_count=None, initial_host_shape_name=None, instance_display_name_prefix=None, is_shielded_instance_enabled=None, network_configurations=None, sddc_id=None, state=None, system_tags=None, time_created=None, time_updated=None, upgrade_licenses=None, vmware_software_version=None, vsphere_type=None, vsphere_upgrade_objects=None, workload_network_cidr=None):
         if actual_esxi_hosts_count and not isinstance(actual_esxi_hosts_count, int):
             raise TypeError("Expected argument 'actual_esxi_hosts_count' to be a int")
         pulumi.set(__self__, "actual_esxi_hosts_count", actual_esxi_hosts_count)
+        if attach_datastore_cluster_ids and not isinstance(attach_datastore_cluster_ids, list):
+            raise TypeError("Expected argument 'attach_datastore_cluster_ids' to be a list")
+        pulumi.set(__self__, "attach_datastore_cluster_ids", attach_datastore_cluster_ids)
         if capacity_reservation_id and not isinstance(capacity_reservation_id, str):
             raise TypeError("Expected argument 'capacity_reservation_id' to be a str")
         pulumi.set(__self__, "capacity_reservation_id", capacity_reservation_id)
@@ -43,12 +46,18 @@ class GetClusterResult:
         if compute_availability_domain and not isinstance(compute_availability_domain, str):
             raise TypeError("Expected argument 'compute_availability_domain' to be a str")
         pulumi.set(__self__, "compute_availability_domain", compute_availability_domain)
+        if datastore_cluster_ids and not isinstance(datastore_cluster_ids, list):
+            raise TypeError("Expected argument 'datastore_cluster_ids' to be a list")
+        pulumi.set(__self__, "datastore_cluster_ids", datastore_cluster_ids)
         if datastores and not isinstance(datastores, list):
             raise TypeError("Expected argument 'datastores' to be a list")
         pulumi.set(__self__, "datastores", datastores)
         if defined_tags and not isinstance(defined_tags, dict):
             raise TypeError("Expected argument 'defined_tags' to be a dict")
         pulumi.set(__self__, "defined_tags", defined_tags)
+        if detach_datastore_cluster_ids and not isinstance(detach_datastore_cluster_ids, list):
+            raise TypeError("Expected argument 'detach_datastore_cluster_ids' to be a list")
+        pulumi.set(__self__, "detach_datastore_cluster_ids", detach_datastore_cluster_ids)
         if display_name and not isinstance(display_name, str):
             raise TypeError("Expected argument 'display_name' to be a str")
         pulumi.set(__self__, "display_name", display_name)
@@ -88,6 +97,9 @@ class GetClusterResult:
         if state and not isinstance(state, str):
             raise TypeError("Expected argument 'state' to be a str")
         pulumi.set(__self__, "state", state)
+        if system_tags and not isinstance(system_tags, dict):
+            raise TypeError("Expected argument 'system_tags' to be a dict")
+        pulumi.set(__self__, "system_tags", system_tags)
         if time_created and not isinstance(time_created, str):
             raise TypeError("Expected argument 'time_created' to be a str")
         pulumi.set(__self__, "time_created", time_created)
@@ -114,6 +126,11 @@ class GetClusterResult:
     @pulumi.getter(name="actualEsxiHostsCount")
     def actual_esxi_hosts_count(self) -> _builtins.int:
         return pulumi.get(self, "actual_esxi_hosts_count")
+
+    @_builtins.property
+    @pulumi.getter(name="attachDatastoreClusterIds")
+    def attach_datastore_cluster_ids(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "attach_datastore_cluster_ids")
 
     @_builtins.property
     @pulumi.getter(name="capacityReservationId")
@@ -145,6 +162,14 @@ class GetClusterResult:
         return pulumi.get(self, "compute_availability_domain")
 
     @_builtins.property
+    @pulumi.getter(name="datastoreClusterIds")
+    def datastore_cluster_ids(self) -> Sequence[_builtins.str]:
+        """
+        A list of datastore clusters.
+        """
+        return pulumi.get(self, "datastore_cluster_ids")
+
+    @_builtins.property
     @pulumi.getter
     def datastores(self) -> Sequence['outputs.GetClusterDatastoreResult']:
         """
@@ -159,6 +184,11 @@ class GetClusterResult:
         Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
         """
         return pulumi.get(self, "defined_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="detachDatastoreClusterIds")
+    def detach_datastore_cluster_ids(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "detach_datastore_cluster_ids")
 
     @_builtins.property
     @pulumi.getter(name="displayName")
@@ -265,6 +295,14 @@ class GetClusterResult:
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{orcl-cloud: {free-tier-retain: true}}`
+        """
+        return pulumi.get(self, "system_tags")
+
+    @_builtins.property
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> _builtins.str:
         """
@@ -328,12 +366,15 @@ class AwaitableGetClusterResult(GetClusterResult):
             yield self
         return GetClusterResult(
             actual_esxi_hosts_count=self.actual_esxi_hosts_count,
+            attach_datastore_cluster_ids=self.attach_datastore_cluster_ids,
             capacity_reservation_id=self.capacity_reservation_id,
             cluster_id=self.cluster_id,
             compartment_id=self.compartment_id,
             compute_availability_domain=self.compute_availability_domain,
+            datastore_cluster_ids=self.datastore_cluster_ids,
             datastores=self.datastores,
             defined_tags=self.defined_tags,
+            detach_datastore_cluster_ids=self.detach_datastore_cluster_ids,
             display_name=self.display_name,
             esxi_hosts_count=self.esxi_hosts_count,
             esxi_software_version=self.esxi_software_version,
@@ -347,6 +388,7 @@ class AwaitableGetClusterResult(GetClusterResult):
             network_configurations=self.network_configurations,
             sddc_id=self.sddc_id,
             state=self.state,
+            system_tags=self.system_tags,
             time_created=self.time_created,
             time_updated=self.time_updated,
             upgrade_licenses=self.upgrade_licenses,
@@ -382,12 +424,15 @@ def get_cluster(cluster_id: Optional[_builtins.str] = None,
 
     return AwaitableGetClusterResult(
         actual_esxi_hosts_count=pulumi.get(__ret__, 'actual_esxi_hosts_count'),
+        attach_datastore_cluster_ids=pulumi.get(__ret__, 'attach_datastore_cluster_ids'),
         capacity_reservation_id=pulumi.get(__ret__, 'capacity_reservation_id'),
         cluster_id=pulumi.get(__ret__, 'cluster_id'),
         compartment_id=pulumi.get(__ret__, 'compartment_id'),
         compute_availability_domain=pulumi.get(__ret__, 'compute_availability_domain'),
+        datastore_cluster_ids=pulumi.get(__ret__, 'datastore_cluster_ids'),
         datastores=pulumi.get(__ret__, 'datastores'),
         defined_tags=pulumi.get(__ret__, 'defined_tags'),
+        detach_datastore_cluster_ids=pulumi.get(__ret__, 'detach_datastore_cluster_ids'),
         display_name=pulumi.get(__ret__, 'display_name'),
         esxi_hosts_count=pulumi.get(__ret__, 'esxi_hosts_count'),
         esxi_software_version=pulumi.get(__ret__, 'esxi_software_version'),
@@ -401,6 +446,7 @@ def get_cluster(cluster_id: Optional[_builtins.str] = None,
         network_configurations=pulumi.get(__ret__, 'network_configurations'),
         sddc_id=pulumi.get(__ret__, 'sddc_id'),
         state=pulumi.get(__ret__, 'state'),
+        system_tags=pulumi.get(__ret__, 'system_tags'),
         time_created=pulumi.get(__ret__, 'time_created'),
         time_updated=pulumi.get(__ret__, 'time_updated'),
         upgrade_licenses=pulumi.get(__ret__, 'upgrade_licenses'),
@@ -433,12 +479,15 @@ def get_cluster_output(cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
     __ret__ = pulumi.runtime.invoke_output('oci:Ocvp/getCluster:getCluster', __args__, opts=opts, typ=GetClusterResult)
     return __ret__.apply(lambda __response__: GetClusterResult(
         actual_esxi_hosts_count=pulumi.get(__response__, 'actual_esxi_hosts_count'),
+        attach_datastore_cluster_ids=pulumi.get(__response__, 'attach_datastore_cluster_ids'),
         capacity_reservation_id=pulumi.get(__response__, 'capacity_reservation_id'),
         cluster_id=pulumi.get(__response__, 'cluster_id'),
         compartment_id=pulumi.get(__response__, 'compartment_id'),
         compute_availability_domain=pulumi.get(__response__, 'compute_availability_domain'),
+        datastore_cluster_ids=pulumi.get(__response__, 'datastore_cluster_ids'),
         datastores=pulumi.get(__response__, 'datastores'),
         defined_tags=pulumi.get(__response__, 'defined_tags'),
+        detach_datastore_cluster_ids=pulumi.get(__response__, 'detach_datastore_cluster_ids'),
         display_name=pulumi.get(__response__, 'display_name'),
         esxi_hosts_count=pulumi.get(__response__, 'esxi_hosts_count'),
         esxi_software_version=pulumi.get(__response__, 'esxi_software_version'),
@@ -452,6 +501,7 @@ def get_cluster_output(cluster_id: Optional[pulumi.Input[_builtins.str]] = None,
         network_configurations=pulumi.get(__response__, 'network_configurations'),
         sddc_id=pulumi.get(__response__, 'sddc_id'),
         state=pulumi.get(__response__, 'state'),
+        system_tags=pulumi.get(__response__, 'system_tags'),
         time_created=pulumi.get(__response__, 'time_created'),
         time_updated=pulumi.get(__response__, 'time_updated'),
         upgrade_licenses=pulumi.get(__response__, 'upgrade_licenses'),

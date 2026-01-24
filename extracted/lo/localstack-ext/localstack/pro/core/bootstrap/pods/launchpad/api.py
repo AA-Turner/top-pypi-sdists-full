@@ -11,7 +11,7 @@ LAUNCHPAD_PATH=f"{API_PATH_PODS}/launchpad"
 class LaunchPadApi:
 	pods_cache:CloudPodsCache
 	def __init__(A):A.pods_cache=CloudPodsCache()
-	def launchpad_fetch(D,request):
+	def launchpad_fetch(D,request:Request):
 		try:A=unquote_and_validate_url(request)
 		except werkzeug.exceptions.HTTPException as B:return Response(B.description,B.code)
 		E=get_url_digest(A);C=D.pods_cache.update_cache(E);LOG.debug("Fetching Pod's content from %s to %s",A,C)
@@ -21,19 +21,19 @@ class LaunchPadApi:
 				for E in B.iter_content(chunk_size=100000):D+=len(E);G.write(E);yield f"{D/F}\n"
 		return Response(F(),mimetype='text/plain')
 	launchpad_fetch_route=route(f"{LAUNCHPAD_PATH}/fetch",methods=['POST'])(launchpad_fetch)
-	def launchpad_metadata(C,request):
+	def launchpad_metadata(C,request:Request):
 		try:D=unquote_and_validate_url(request)
 		except werkzeug.exceptions.HTTPException as A:return Response(A.description,A.code)
 		B=C.pods_cache.get_cached_pod_path(D);LOG.debug("Reading Pod's content from cached path %s",B);return Response(response=json.dumps(read_metadata_from_pod(B)),content_type='application/json')
 	launchpad_metadata_route=route(f"{LAUNCHPAD_PATH}/metadata",methods=['GET'])(launchpad_metadata)
-	def launchpad_inject(C,request):
+	def launchpad_inject(C,request:Request):
 		try:D=unquote_and_validate_url(request)
 		except werkzeug.exceptions.HTTPException as A:return Response(A.description,A.code)
-		B=C.pods_cache.get_cached_pod_path(D);LOG.debug("Loading Pod's content from cached path %s",B);E=load_file(B,mode='rb')
+		B=C.pods_cache.get_cached_pod_path(D);LOG.debug("Loading Pod's content from cached path %s",B);E:bytes=load_file(B,mode='rb')
 		try:load_local_state(content=E)
 		except Exception as A:return Response(str(A),status=500)
 	launchpad_inject_route=route(f"{LAUNCHPAD_PATH}/inject",methods=['POST'])(launchpad_inject)
-def unquote_and_validate_url(request):
+def unquote_and_validate_url(request:Request)->str:
 	A=request.values.get('url')
 	if not A:raise BadRequest(description='Missing url as a query string parameter')
 	try:A=urllib.parse.unquote(A);requests.head(A)

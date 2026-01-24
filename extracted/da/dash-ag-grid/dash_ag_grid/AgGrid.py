@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -118,7 +115,7 @@ Keyword arguments:
     - timestamp (boolean | number | string | dict | list; optional):
         Timestamp of when the event was fired.
 
-- className (string; default 'ag-theme-alpine'):
+- className (string; default ''):
     The class for the ag-grid.  Can specify the ag-grid theme here.
 
 - columnDefs (list of dicts; optional):
@@ -516,7 +513,7 @@ Keyword arguments:
 
 - virtualRowData (list of dicts; optional):
     The rowData in the grid after inline filters are applied."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_ag_grid'
     _type = 'AgGrid'

@@ -52,7 +52,7 @@ import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { getPrintTypeFlags } from './typePrinter';
 import { TypeStubWriter } from './typeStubWriter';
 import { Type } from './types';
-import { BaselineHandler } from '../baseline';
+import { BaselineHandler, BaselineMode } from '../baseline';
 
 const _maxImportDepth = 256;
 
@@ -144,8 +144,7 @@ export class Program {
     private _preCheckCallback: PreCheckCallback | undefined;
     private _editModeTracker = new EditModeTracker();
     private _sourceFileFactory: ISourceFileFactory;
-
-    baselineHandler: BaselineHandler;
+    private _baselineHandler: BaselineHandler;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -161,7 +160,7 @@ export class Program {
         this._configOptions = initialConfigOptions;
 
         this._sourceFileFactory = serviceProvider.sourceFileFactory();
-        this.baselineHandler = new BaselineHandler(this.fileSystem, this._configOptions, this._console);
+        this._baselineHandler = new BaselineHandler(this.fileSystem, this._configOptions, this._console);
 
         this._cacheManager = serviceProvider.tryGet(ServiceKeys.cacheManager) ?? new CacheManager();
         this._cacheManager.registerCacheOwner(this);
@@ -268,7 +267,7 @@ export class Program {
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
         this._importResolver.setConfigOptions(configOptions);
-        this.baselineHandler.configOptions = configOptions;
+        this._baselineHandler.configOptions = configOptions;
 
         // Create a new evaluator with the updated config options.
         this._createNewEvaluator();
@@ -361,7 +360,7 @@ export class Program {
                     isThirdPartyImport,
                     isInPyTypedPackage,
                     this._editModeTracker,
-                    this.baselineHandler,
+                    this._baselineHandler,
                     () => sourceFileInfo.cellIndex(),
                     this._console,
                     this._logTracker,
@@ -391,7 +390,7 @@ export class Program {
                 isThirdPartyImport,
                 isInPyTypedPackage,
                 this._editModeTracker,
-                this.baselineHandler,
+                this._baselineHandler,
                 () => undefined,
                 this._console,
                 this._logTracker
@@ -424,7 +423,7 @@ export class Program {
                 /* isThirdPartyImport */ false,
                 moduleImportInfo.isThirdPartyPyTypedPresent,
                 this._editModeTracker,
-                this.baselineHandler,
+                this._baselineHandler,
                 () => sourceFileInfo?.cellIndex(),
                 this._console,
                 this._logTracker,
@@ -550,6 +549,12 @@ export class Program {
             this._createNewEvaluator();
         }
     }
+
+    writeBaseline = (
+        baselineMode: BaselineMode,
+        removeDeletedFiles: boolean,
+        filesWithDiagnostics: readonly FileDiagnostics[]
+    ) => this._baselineHandler.write(baselineMode, removeDeletedFiles, filesWithDiagnostics);
 
     getFileCount(userFileOnly = true) {
         if (userFileOnly) {
@@ -687,6 +692,7 @@ export class Program {
     // to the smaller value to maintain responsiveness.
     analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
         return this._runEvaluatorWithCancellationToken(token, () => {
+            this._baselineHandler.invalidateCache();
             const elapsedTime = new Duration();
 
             const openFiles = this._sourceFileList.filter(
@@ -698,7 +704,7 @@ export class Program {
 
                 // Check the open files.
                 for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -722,7 +728,7 @@ export class Program {
                         continue;
                     }
 
-                    if (this._checkTypes(sourceFileInfo, token)) {
+                    if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
                         }
@@ -739,7 +745,7 @@ export class Program {
     analyzeFile(fileUri: Uri, token: CancellationToken = CancellationToken.None): boolean {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this.getSourceFileInfo(fileUri);
-            if (sourceFileInfo && this._checkTypes(sourceFileInfo, token, { skipFileNeededCheck: true })) {
+            if (sourceFileInfo && this._checkTypes(sourceFileInfo, { skipFileNeededCheck: true })) {
                 return true;
             }
             return false;
@@ -1592,7 +1598,7 @@ export class Program {
                         importInfo.isThirdPartyImport,
                         importInfo.isPyTypedPresent,
                         this._editModeTracker,
-                        this.baselineHandler,
+                        this._baselineHandler,
                         () => importedFileInfo?.cellIndex(),
                         this._console,
                         this._logTracker
@@ -1714,7 +1720,7 @@ export class Program {
             /* isThirdPartyImport */ false,
             /* isInPyTypedPackage */ false,
             this._editModeTracker,
-            this.baselineHandler,
+            this._baselineHandler,
             () => sourceFileInfo.cellIndex(),
             this._console,
             this._logTracker
@@ -2016,7 +2022,6 @@ export class Program {
 
     private _checkTypes(
         fileToCheck: SourceFileInfo,
-        token: CancellationToken,
         options?: { chainedByList?: SourceFileInfo[]; skipFileNeededCheck?: boolean }
     ) {
         // For very large programs, we may need to discard the evaluator and
@@ -2056,7 +2061,7 @@ export class Program {
             if (!this._disableChecker) {
                 // For ipython, make sure we check all its dependent files first since
                 // their results can affect this file's result.
-                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList, token);
+                const dependentFiles = this._checkDependentFiles(fileToCheck, options?.chainedByList);
 
                 if (this._preCheckCallback) {
                     const parseResults = fileToCheck.sourceFile.getParserOutput();
@@ -2066,13 +2071,11 @@ export class Program {
                 }
 
                 if (boundFile) {
-                    const execEnv = this._configOptions.findExecEnvironment(fileToCheck.uri);
                     fileToCheck.sourceFile.check(
                         this.configOptions,
                         this._lookUpImport,
                         this._importResolver,
                         this._evaluator!,
-                        this._createSourceMapper(execEnv, token, fileToCheck),
                         dependentFiles
                     );
                 }
@@ -2110,11 +2113,7 @@ export class Program {
         });
     }
 
-    private _checkDependentFiles(
-        fileToCheck: SourceFileInfo,
-        chainedByList: SourceFileInfo[] | undefined,
-        token: CancellationToken
-    ) {
+    private _checkDependentFiles(fileToCheck: SourceFileInfo, chainedByList: SourceFileInfo[] | undefined) {
         if (fileToCheck.ipythonMode !== IPythonMode.CellDocs) {
             return undefined;
         }
@@ -2141,7 +2140,7 @@ export class Program {
             const handle = this._cacheManager.pauseTracking();
             try {
                 for (let i = chainedByList.length - 1; i >= startIndex; i--) {
-                    this._checkTypes(chainedByList[i], token, { chainedByList });
+                    this._checkTypes(chainedByList[i], { chainedByList });
                 }
             } finally {
                 handle.dispose();

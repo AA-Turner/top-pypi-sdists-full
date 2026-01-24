@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired
@@ -10,14 +10,13 @@ DataUrlContentType = Literal[
 
 ContentType = Literal["bytes", "text", "base64", "file", "url", DataUrlContentType]
 
-ValidContentInputs = Union[bytes, str, Path]
+ValidContentInputs = bytes | str | Path
 
 
 # This is what is saved to the 'metadata.json' file by serialization layer
 # It is used to 'restore' an existing content object
 class ResolvedContentArgsWithoutData(TypedDict):
     # Required Fields
-    id: str
     size: int
     mimetype: str
     digest: str
@@ -28,7 +27,6 @@ class ResolvedContentArgsWithoutData(TypedDict):
 
     # Optional fields - can be omitted
     metadata: NotRequired[dict[str, Any]]
-    path: NotRequired[str]
     extension: NotRequired[str]
 
 
@@ -60,9 +58,6 @@ class DataUrlBase64WithEncoding(DataUrlParamsBase):
 
 
 class DataUrl(BaseModel):
-    params: Union[
-        DataUrlSimple,
-        DataUrlBase64,
-        DataUrlWithEncoding,
-        DataUrlBase64WithEncoding,
-    ] = Field(discriminator="content_type")
+    params: (
+        DataUrlSimple | DataUrlBase64 | DataUrlWithEncoding | DataUrlBase64WithEncoding
+    ) = Field(discriminator="content_type")

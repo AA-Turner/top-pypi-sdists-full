@@ -5652,6 +5652,214 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_ECS_INFRASTRUCTURE_ROLE_POLICY_FOR_MANAGED_INSTANCES = "AMAZON_ECS_INFRASTRUCTURE_ROLE_POLICY_FOR_MANAGED_INSTANCES"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_ECS_INSTANCE_ROLE_POLICY_FOR_MANAGED_INSTANCES = "AMAZON_ECS_INSTANCE_ROLE_POLICY_FOR_MANAGED_INSTANCES"
+    '''
+    :stability: experimental
+    '''
+    AWSTRANSFORM_APPLICATION_ECS_DEPLOYMENT_POLICY = "AWSTRANSFORM_APPLICATION_ECS_DEPLOYMENT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSCONTROL_TOWER_IDENTITY_CENTER_MANAGEMENT_POLICY = "AWSCONTROL_TOWER_IDENTITY_CENTER_MANAGEMENT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSEC2_CAPACITY_MANAGER_SERVICE_ROLE_POLICY = "AWSEC2_CAPACITY_MANAGER_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AIOPS_ASSISTANT_INCIDENT_REPORT_POLICY = "AIOPS_ASSISTANT_INCIDENT_REPORT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    BEDROCK_AGENT_CORE_RUNTIME_IDENTITY_SERVICE_ROLE_POLICY = "BEDROCK_AGENT_CORE_RUNTIME_IDENTITY_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    DYNAMO_DB_GLOBAL_TABLE_SETTINGS_MANAGEMENT_SERVICE_ROLE_POLICY = "DYNAMO_DB_GLOBAL_TABLE_SETTINGS_MANAGEMENT_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    RTBFABRIC_SERVICE_ROLE_POLICY = "RTBFABRIC_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_EMR_CONTAINERS_SYSTEM_NAMESPACE_ROLE_POLICY = "SAGE_MAKER_STUDIO_EMR_CONTAINERS_SYSTEM_NAMESPACE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_APPLICATION_RECOVERY_CONTROLLER_REGION_SWITCH_PLAN_EXECUTION_POLICY = "AMAZON_APPLICATION_RECOVERY_CONTROLLER_REGION_SWITCH_PLAN_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSAPPLICATION_MIGRATION_NETWORK_MIGRATION_CUSTOM_RESOURCE = "AWSAPPLICATION_MIGRATION_NETWORK_MIGRATION_CUSTOM_RESOURCE"
+    '''
+    :stability: experimental
+    '''
+    AWSSECRETS_MANAGER_CLIENT_READ_ONLY_ACCESS = "AWSSECRETS_MANAGER_CLIENT_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSCONTROL_TOWER_CLOUD_TRAIL_ROLE_POLICY = "AWSCONTROL_TOWER_CLOUD_TRAIL_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSAPPLICATION_MIGRATION_NETWORK_MIGRATION_MULTI_ACCOUNT = "AWSAPPLICATION_MIGRATION_NETWORK_MIGRATION_MULTI_ACCOUNT"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_ECS_INFRASTRUCTURE_ROLEFOR_EXPRESS_GATEWAY_SERVICES = "AMAZON_ECS_INFRASTRUCTURE_ROLEFOR_EXPRESS_GATEWAY_SERVICES"
+    '''
+    :stability: experimental
+    '''
+    AWSEC2_SQL_HA_SERVICE_ROLE_POLICY = "AWSEC2_SQL_HA_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSEC2_SQL_HA_INSTANCE_POLICY = "AWSEC2_SQL_HA_INSTANCE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSNATGATEWAY_SERVICE_ROLE_POLICY = "AWSNATGATEWAY_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_ATHENA_SERVICE_ROLE_POLICY = "AMAZON_ATHENA_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    COMPUTE_OPTIMIZER_AUTOMATION_SERVICE_ROLE_POLICY = "COMPUTE_OPTIMIZER_AUTOMATION_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_MWAA_SERVERLESS_SERVICE_ROLE_POLICY = "AMAZON_MWAA_SERVERLESS_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_SPACES_ROUTER_POLICY = "AMAZON_SAGE_MAKER_SPACES_ROUTER_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_SPACES_CONTROLLER_POLICY = "AMAZON_SAGE_MAKER_SPACES_CONTROLLER_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSPARTNER_CENTRAL_CHANNEL_HANDSHAKE_APPROVAL_MANAGEMENT = "AWSPARTNER_CENTRAL_CHANNEL_HANDSHAKE_APPROVAL_MANAGEMENT"
+    '''
+    :stability: experimental
+    '''
+    AWSPARTNER_CENTRAL_CHANNEL_MANAGEMENT = "AWSPARTNER_CENTRAL_CHANNEL_MANAGEMENT"
+    '''
+    :stability: experimental
+    '''
+    SIGN_IN_LOCAL_DEVELOPMENT_ACCESS = "SIGN_IN_LOCAL_DEVELOPMENT_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSBACKUP_SERVICE_ROLE_POLICY_FOR_SCANS = "AWSBACKUP_SERVICE_ROLE_POLICY_FOR_SCANS"
+    '''
+    :stability: experimental
+    '''
+    AWSBACKUP_GUARD_DUTY_ROLE_POLICY_FOR_SCANS = "AWSBACKUP_GUARD_DUTY_ROLE_POLICY_FOR_SCANS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_EKSMCP_READ_ONLY_ACCESS = "AMAZON_EKSMCP_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSMCP_SERVICE_ACTIONS_FULL_ACCESS = "AWSMCP_SERVICE_ACTIONS_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_REDSHIFT_FEDERATED_AUTHORIZATION = "AMAZON_REDSHIFT_FEDERATED_AUTHORIZATION"
+    '''
+    :stability: experimental
+    '''
+    AWSIDENTITY_CENTER_EXTERNAL_MANAGEMENT_POLICY = "AWSIDENTITY_CENTER_EXTERNAL_MANAGEMENT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    NOVA_ACT_SERVICE_ROLE_POLICY = "NOVA_ACT_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSLAMBDA_SERVICE_ROLE_POLICY = "AWSLAMBDA_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSLAMBDA_MANAGED_E_C2_RESOURCE_OPERATOR = "AWSLAMBDA_MANAGED_E_C2_RESOURCE_OPERATOR"
+    '''
+    :stability: experimental
+    '''
+    AWSPARTNER_CENTRAL_MARKETING_MANAGEMENT = "AWSPARTNER_CENTRAL_MARKETING_MANAGEMENT"
+    '''
+    :stability: experimental
+    '''
+    SECURITY_AGENT_WEB_APP_API_POLICY = "SECURITY_AGENT_WEB_APP_API_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSLAMBDA_BASIC_DURABLE_EXECUTION_ROLE_POLICY = "AWSLAMBDA_BASIC_DURABLE_EXECUTION_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_BEDROCK_MANTLE_INFERENCE_ACCESS = "AMAZON_BEDROCK_MANTLE_INFERENCE_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_BEDROCK_MANTLE_FULL_ACCESS = "AMAZON_BEDROCK_MANTLE_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_BEDROCK_MANTLE_READ_ONLY = "AMAZON_BEDROCK_MANTLE_READ_ONLY"
+    '''
+    :stability: experimental
+    '''
+    AWSTRANSFORM_CUSTOM_FULL_ACCESS = "AWSTRANSFORM_CUSTOM_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSTRANSFORM_CUSTOM_EXECUTE_TRANSFORMATIONS = "AWSTRANSFORM_CUSTOM_EXECUTE_TRANSFORMATIONS"
+    '''
+    :stability: experimental
+    '''
+    AWSTRANSFORM_CUSTOM_MANAGE_TRANSFORMATIONS = "AWSTRANSFORM_CUSTOM_MANAGE_TRANSFORMATIONS"
+    '''
+    :stability: experimental
+    '''
+    ACCOUNT_MANAGEMENT_FROM_VERCEL = "ACCOUNT_MANAGEMENT_FROM_VERCEL"
+    '''
+    :stability: experimental
+    '''
+    CONSOLE_FULL_ACCESS_FROM_VERCEL = "CONSOLE_FULL_ACCESS_FROM_VERCEL"
+    '''
+    :stability: experimental
+    '''
+    CONSOLE_VIEW_ONLY_ACCESS_FROM_VERCEL = "CONSOLE_VIEW_ONLY_ACCESS_FROM_VERCEL"
+    '''
+    :stability: experimental
+    '''
+    AWSACCOUNT_SETTINGS_MANAGEMENT_ROLE = "AWSACCOUNT_SETTINGS_MANAGEMENT_ROLE"
+    '''
+    :stability: experimental
+    '''
+    AWSUSER_ATTRIBUTE_COST_ALLOCATION_POLICY = "AWSUSER_ATTRIBUTE_COST_ALLOCATION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSCLEAN_ROOMS_SERVICE_ROLE_POLICY = "AWSCLEAN_ROOMS_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_HYPER_POD_GATED_MODEL_ACCESS = "AMAZON_SAGE_MAKER_HYPER_POD_GATED_MODEL_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(
@@ -5665,60 +5873,60 @@ class LambdaArmFunction(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        code: _aws_cdk_aws_lambda_ceddda9d.Code,
+        code: "_aws_cdk_aws_lambda_ceddda9d.Code",
         handler: builtins.str,
-        runtime: _aws_cdk_aws_lambda_ceddda9d.Runtime,
-        adot_instrumentation: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        runtime: "_aws_cdk_aws_lambda_ceddda9d.Runtime",
+        adot_instrumentation: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
         allow_public_subnet: typing.Optional[builtins.bool] = None,
         application_log_level: typing.Optional[builtins.str] = None,
-        application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
-        current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
+        application_log_level_v2: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
+        code_signing_config: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig"] = None,
+        current_version_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.VersionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.IQueue"] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
-        dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
+        dead_letter_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-        ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
-        events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
-        filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,
+        environment_encryption: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        ephemeral_storage_size: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        events: typing.Optional[typing.Sequence["_aws_cdk_aws_lambda_ceddda9d.IEventSource"]] = None,
+        filesystem: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FileSystem"] = None,
         function_name: typing.Optional[builtins.str] = None,
-        initial_policy: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.PolicyStatement]] = None,
-        insights_version: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion] = None,
+        initial_policy: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.PolicyStatement"]] = None,
+        insights_version: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion"] = None,
         ipv6_allowed_for_dual_stack: typing.Optional[builtins.bool] = None,
-        layers: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.ILayerVersion]] = None,
+        layers: typing.Optional[typing.Sequence["_aws_cdk_aws_lambda_ceddda9d.ILayerVersion"]] = None,
         log_format: typing.Optional[builtins.str] = None,
-        logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-        log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        logging_format: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LoggingFormat"] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        log_retention_retry_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        log_retention_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         memory_size: typing.Optional[jsii.Number] = None,
-        params_and_secrets: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion] = None,
+        params_and_secrets: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion"] = None,
         profiling: typing.Optional[builtins.bool] = None,
-        profiling_group: typing.Optional[_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup] = None,
-        recursive_loop: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop] = None,
+        profiling_group: typing.Optional["_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup"] = None,
+        recursive_loop: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop"] = None,
         reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        runtime_management_mode: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        snap_start: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SnapStartConf] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        runtime_management_mode: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        snap_start: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SnapStartConf"] = None,
         system_log_level: typing.Optional[builtins.str] = None,
-        system_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        tracing: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Tracing] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
-        max_event_age: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        on_failure: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
-        on_success: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
+        system_log_level_v2: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        tracing: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Tracing"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_event_age: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        on_failure: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
+        on_success: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -5842,11 +6050,11 @@ class LambdaArmFunction(
 
     @builtins.property
     @jsii.member(jsii_name="lambdaFunction")
-    def lambda_function(self) -> _aws_cdk_aws_lambda_ceddda9d.Function:
+    def lambda_function(self) -> "_aws_cdk_aws_lambda_ceddda9d.Function":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.Function, jsii.get(self, "lambdaFunction"))
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.Function", jsii.get(self, "lambdaFunction"))
 
 
 @jsii.data_type(
@@ -5911,58 +6119,58 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     def __init__(
         self,
         *,
-        max_event_age: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        on_failure: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
-        on_success: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
+        max_event_age: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        on_failure: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
+        on_success: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        adot_instrumentation: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        adot_instrumentation: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         allow_all_ipv6_outbound: typing.Optional[builtins.bool] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
         allow_public_subnet: typing.Optional[builtins.bool] = None,
         application_log_level: typing.Optional[builtins.str] = None,
-        application_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel] = None,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-        code_signing_config: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig] = None,
-        current_version_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.VersionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue] = None,
+        application_log_level_v2: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"] = None,
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
+        code_signing_config: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig"] = None,
+        current_version_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.VersionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.IQueue"] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
-        dead_letter_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic] = None,
+        dead_letter_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-        ephemeral_storage_size: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
-        events: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.IEventSource]] = None,
-        filesystem: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem] = None,
+        environment_encryption: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        ephemeral_storage_size: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        events: typing.Optional[typing.Sequence["_aws_cdk_aws_lambda_ceddda9d.IEventSource"]] = None,
+        filesystem: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FileSystem"] = None,
         function_name: typing.Optional[builtins.str] = None,
-        initial_policy: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.PolicyStatement]] = None,
-        insights_version: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion] = None,
+        initial_policy: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.PolicyStatement"]] = None,
+        insights_version: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion"] = None,
         ipv6_allowed_for_dual_stack: typing.Optional[builtins.bool] = None,
-        layers: typing.Optional[typing.Sequence[_aws_cdk_aws_lambda_ceddda9d.ILayerVersion]] = None,
+        layers: typing.Optional[typing.Sequence["_aws_cdk_aws_lambda_ceddda9d.ILayerVersion"]] = None,
         log_format: typing.Optional[builtins.str] = None,
-        logging_format: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-        log_retention_retry_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        log_retention_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        logging_format: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LoggingFormat"] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        log_retention_retry_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        log_retention_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         memory_size: typing.Optional[jsii.Number] = None,
-        params_and_secrets: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion] = None,
+        params_and_secrets: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion"] = None,
         profiling: typing.Optional[builtins.bool] = None,
-        profiling_group: typing.Optional[_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup] = None,
-        recursive_loop: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop] = None,
+        profiling_group: typing.Optional["_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup"] = None,
+        recursive_loop: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop"] = None,
         reserved_concurrent_executions: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        runtime_management_mode: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-        snap_start: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SnapStartConf] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        runtime_management_mode: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+        snap_start: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SnapStartConf"] = None,
         system_log_level: typing.Optional[builtins.str] = None,
-        system_log_level_v2: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        tracing: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Tracing] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
-        code: _aws_cdk_aws_lambda_ceddda9d.Code,
+        system_log_level_v2: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        tracing: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Tracing"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        code: "_aws_cdk_aws_lambda_ceddda9d.Code",
         handler: builtins.str,
-        runtime: _aws_cdk_aws_lambda_ceddda9d.Runtime,
+        runtime: "_aws_cdk_aws_lambda_ceddda9d.Runtime",
     ) -> None:
         '''
         :param max_event_age: The maximum age of a request that Lambda sends to a function for processing. Minimum: 60 seconds Maximum: 6 hours Default: Duration.hours(6)
@@ -6187,7 +6395,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def max_event_age(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum: 60 seconds
@@ -6196,25 +6404,29 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: Duration.hours(6)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def on_failure(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination]:
+    def on_failure(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"]:
         '''The destination for failed invocations.
 
         :default: - no destination
         '''
         result = self._values.get("on_failure")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"], result)
 
     @builtins.property
-    def on_success(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination]:
+    def on_success(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"]:
         '''The destination for successful invocations.
 
         :default: - no destination
         '''
         result = self._values.get("on_success")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -6231,7 +6443,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def adot_instrumentation(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig"]:
         '''Specify the configuration of AWS Distro for OpenTelemetry (ADOT) instrumentation.
 
         :default: - No ADOT instrumentation
@@ -6239,7 +6451,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :see: https://aws-otel.github.io/docs/getting-started/lambda
         '''
         result = self._values.get("adot_instrumentation")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.AdotInstrumentationConfig"], result)
 
     @builtins.property
     def allow_all_ipv6_outbound(self) -> typing.Optional[builtins.bool]:
@@ -6301,49 +6513,49 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def application_log_level_v2(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"]:
         '''Sets the application log level for the function.
 
         :default: ApplicationLogLevel.INFO
         '''
         result = self._values.get("application_log_level_v2")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ApplicationLogLevel"], result)
 
     @builtins.property
     def architecture(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"]:
         '''The system architectures compatible with this lambda function.
 
         :default: Architecture.X86_64
         '''
         result = self._values.get("architecture")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"], result)
 
     @builtins.property
     def code_signing_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig"]:
         '''Code signing config associated with this function.
 
         :default: - Not Sign the Code
         '''
         result = self._values.get("code_signing_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ICodeSigningConfig"], result)
 
     @builtins.property
     def current_version_options(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.VersionOptions]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.VersionOptions"]:
         '''Options for the ``lambda.Version`` resource automatically created by the ``fn.currentVersion`` method.
 
         :default: - default options as described in ``VersionOptions``
         '''
         result = self._values.get("current_version_options")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.VersionOptions], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.VersionOptions"], result)
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue]:
+    def dead_letter_queue(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.IQueue"]:
         '''The SQS queue to use if DLQ is enabled.
 
         If SNS topic is desired, specify ``deadLetterTopic`` property instead.
@@ -6351,7 +6563,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - SQS queue with 14 day retention period if ``deadLetterQueueEnabled`` is ``true``
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.IQueue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.IQueue"], result)
 
     @builtins.property
     def dead_letter_queue_enabled(self) -> typing.Optional[builtins.bool]:
@@ -6366,7 +6578,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dead_letter_topic(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic]:
+    def dead_letter_topic(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"]:
         '''The SNS topic to use as a DLQ.
 
         Note that if ``deadLetterQueueEnabled`` is set to ``true``, an SQS queue will be created
@@ -6375,7 +6587,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - no SNS topic
         '''
         result = self._values.get("dead_letter_topic")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.ITopic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.ITopic"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -6402,27 +6614,29 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def environment_encryption(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def environment_encryption(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''The AWS KMS key that's used to encrypt your function's environment variables.
 
         :default: - AWS Lambda creates and uses an AWS managed customer master key (CMK).
         '''
         result = self._values.get("environment_encryption")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
-    def ephemeral_storage_size(self) -> typing.Optional[_aws_cdk_ceddda9d.Size]:
+    def ephemeral_storage_size(self) -> typing.Optional["_aws_cdk_ceddda9d.Size"]:
         '''The size of the function’s /tmp directory in MiB.
 
         :default: 512 MiB
         '''
         result = self._values.get("ephemeral_storage_size")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Size], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Size"], result)
 
     @builtins.property
     def events(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_lambda_ceddda9d.IEventSource]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_lambda_ceddda9d.IEventSource"]]:
         '''Event sources for this function.
 
         You can also add event sources using ``addEventSource``.
@@ -6430,16 +6644,16 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - No event sources.
         '''
         result = self._values.get("events")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_lambda_ceddda9d.IEventSource]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_lambda_ceddda9d.IEventSource"]], result)
 
     @builtins.property
-    def filesystem(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem]:
+    def filesystem(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FileSystem"]:
         '''The filesystem configuration for the lambda function.
 
         :default: - will not mount any filesystem
         '''
         result = self._values.get("filesystem")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FileSystem], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FileSystem"], result)
 
     @builtins.property
     def function_name(self) -> typing.Optional[builtins.str]:
@@ -6456,7 +6670,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def initial_policy(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.PolicyStatement]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.PolicyStatement"]]:
         '''Initial policy statements to add to the created Lambda Role.
 
         You can call ``addToRolePolicy`` to the created lambda to add statements post creation.
@@ -6464,12 +6678,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - No policy statements are added to the created Lambda role.
         '''
         result = self._values.get("initial_policy")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.PolicyStatement]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.PolicyStatement"]], result)
 
     @builtins.property
     def insights_version(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion"]:
         '''Specify the version of CloudWatch Lambda insights to use for monitoring.
 
         :default: - No Lambda Insights
@@ -6477,7 +6691,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Lambda-Insights-Getting-Started-docker.html
         '''
         result = self._values.get("insights_version")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LambdaInsightsVersion"], result)
 
     @builtins.property
     def ipv6_allowed_for_dual_stack(self) -> typing.Optional[builtins.bool]:
@@ -6493,7 +6707,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def layers(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_lambda_ceddda9d.ILayerVersion]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_lambda_ceddda9d.ILayerVersion"]]:
         '''A list of layers to add to the function's execution environment.
 
         You can configure your Lambda function to pull in
@@ -6503,7 +6717,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - No layers.
         '''
         result = self._values.get("layers")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_lambda_ceddda9d.ILayerVersion]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_lambda_ceddda9d.ILayerVersion"]], result)
 
     @builtins.property
     def log_format(self) -> typing.Optional[builtins.str]:
@@ -6521,16 +6735,16 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def logging_format(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LoggingFormat"]:
         '''Sets the loggingFormat for the function.
 
         :default: LoggingFormat.TEXT
         '''
         result = self._values.get("logging_format")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LoggingFormat], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LoggingFormat"], result)
 
     @builtins.property
-    def log_group(self) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup]:
+    def log_group(self) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"]:
         '''The log group the function sends logs to.
 
         By default, Lambda functions send logs to an automatically created default log group named /aws/lambda/.
@@ -6544,12 +6758,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: ``/aws/lambda/${this.functionName}`` - default log group created by Lambda
         '''
         result = self._values.get("log_group")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"], result)
 
     @builtins.property
     def log_retention(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
         '''The number of days log events are kept in CloudWatch Logs.
 
         When updating
@@ -6572,12 +6786,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: logs.RetentionDays.INFINITE
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
 
     @builtins.property
     def log_retention_retry_options(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions"]:
         '''When log retention is specified, a custom resource attempts to create the CloudWatch log group.
 
         These options control the retry policy when interacting with CloudWatch APIs.
@@ -6588,10 +6802,10 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - Default AWS SDK retry options.
         '''
         result = self._values.get("log_retention_retry_options")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.LogRetentionRetryOptions"], result)
 
     @builtins.property
-    def log_retention_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def log_retention_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''The IAM role for the Lambda function associated with the custom resource that sets the retention policy.
 
         This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can.
@@ -6600,7 +6814,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - A new role is created.
         '''
         result = self._values.get("log_retention_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def memory_size(self) -> typing.Optional[jsii.Number]:
@@ -6618,7 +6832,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def params_and_secrets(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion"]:
         '''Specify the configuration of Parameters and Secrets Extension.
 
         :default: - No Parameters and Secrets Extension
@@ -6626,7 +6840,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :see: https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html
         '''
         result = self._values.get("params_and_secrets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.ParamsAndSecretsLayerVersion"], result)
 
     @builtins.property
     def profiling(self) -> typing.Optional[builtins.bool]:
@@ -6642,7 +6856,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def profiling_group(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup]:
+    ) -> typing.Optional["_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup"]:
         '''Profiling Group.
 
         :default: - A new profiling group will be created if ``profiling`` is set.
@@ -6650,12 +6864,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :see: https://docs.aws.amazon.com/codeguru/latest/profiler-ug/setting-up-lambda.html
         '''
         result = self._values.get("profiling_group")
-        return typing.cast(typing.Optional[_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_codeguruprofiler_ceddda9d.IProfilingGroup"], result)
 
     @builtins.property
     def recursive_loop(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop"]:
         '''Sets the Recursive Loop Protection for Lambda Function.
 
         It lets Lambda detect and terminate unintended recursive loops.
@@ -6663,7 +6877,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: RecursiveLoop.Terminate
         '''
         result = self._values.get("recursive_loop")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RecursiveLoop"], result)
 
     @builtins.property
     def reserved_concurrent_executions(self) -> typing.Optional[jsii.Number]:
@@ -6677,7 +6891,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''Lambda execution role.
 
         This is the role that will be assumed by the function upon execution.
@@ -6696,23 +6910,23 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def runtime_management_mode(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode"]:
         '''Sets the runtime management configuration for a function's version.
 
         :default: Auto
         '''
         result = self._values.get("runtime_management_mode")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.RuntimeManagementMode"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''The list of security groups to associate with the Lambda's network interfaces.
 
         Only used if 'vpc' is supplied.
@@ -6724,10 +6938,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         group will be created for this function.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
-    def snap_start(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SnapStartConf]:
+    def snap_start(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
         SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
@@ -6735,7 +6951,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - No snapstart
         '''
         result = self._values.get("snap_start")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SnapStartConf], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SnapStartConf"], result)
 
     @builtins.property
     def system_log_level(self) -> typing.Optional[builtins.str]:
@@ -6753,16 +6969,16 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
     @builtins.property
     def system_log_level_v2(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel"]:
         '''Sets the system log level for the function.
 
         :default: SystemLogLevel.INFO
         '''
         result = self._values.get("system_log_level_v2")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.SystemLogLevel"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The function execution time (in seconds) after which Lambda terminates the function.
 
         Because the execution time affects cost, set this value
@@ -6771,19 +6987,19 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: Duration.seconds(3)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def tracing(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Tracing]:
+    def tracing(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Tracing"]:
         '''Enable AWS X-Ray Tracing for Lambda Function.
 
         :default: Tracing.Disabled
         '''
         result = self._values.get("tracing")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Tracing], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Tracing"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''VPC network to place Lambda network interfaces.
 
         Specify this if the Lambda function needs to access resources in a VPC.
@@ -6792,10 +7008,12 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - Function is not placed within a VPC.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''Where to place the network interfaces within the VPC.
 
         This requires ``vpc`` to be specified in order for interfaces to actually be
@@ -6807,10 +7025,10 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     @builtins.property
-    def code(self) -> _aws_cdk_aws_lambda_ceddda9d.Code:
+    def code(self) -> "_aws_cdk_aws_lambda_ceddda9d.Code":
         '''The source code of your Lambda function.
 
         You can point to a file in an
@@ -6819,7 +7037,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         '''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.Code, result)
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.Code", result)
 
     @builtins.property
     def handler(self) -> builtins.str:
@@ -6840,7 +7058,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def runtime(self) -> _aws_cdk_aws_lambda_ceddda9d.Runtime:
+    def runtime(self) -> "_aws_cdk_aws_lambda_ceddda9d.Runtime":
         '''The runtime environment for the Lambda function that you are uploading.
 
         For valid values, see the Runtime property in the AWS Lambda Developer
@@ -6850,7 +7068,7 @@ class LambdaArmFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionProps):
         '''
         result = self._values.get("runtime")
         assert result is not None, "Required property 'runtime' is missing"
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.Runtime, result)
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.Runtime", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

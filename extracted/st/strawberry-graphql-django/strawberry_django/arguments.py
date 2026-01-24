@@ -13,15 +13,16 @@ def argument(
     is_optional: bool = False,
     default: object = UNSET,
 ):
+    argument_type = type_
     if is_list:
-        type_ = list[type_]
+        argument_type = list[type_]
     if is_optional:
-        type_ = Optional[type_]
+        argument_type = Optional[type_]  # noqa: UP045
 
     return StrawberryArgument(
         default=default,
         description=None,
         graphql_name=None,
         python_name=name,
-        type_annotation=StrawberryAnnotation(type_),
+        type_annotation=StrawberryAnnotation(argument_type),
     )

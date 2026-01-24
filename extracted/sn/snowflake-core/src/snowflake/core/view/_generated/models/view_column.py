@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class ViewColumn(BaseModel):
@@ -33,7 +33,7 @@ class ViewColumn(BaseModel):
     comment : str, optional
         Specifies a comment for the column
     datatype : str, optional
-        The data type for the column
+        The data type for the column — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -44,9 +44,10 @@ class ViewColumn(BaseModel):
 
     __properties = ["name", "comment", "datatype"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -75,7 +76,7 @@ class ViewColumn(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -90,9 +91,9 @@ class ViewColumn(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ViewColumn.parse_obj(obj)
+            return ViewColumn.model_validate(obj)
 
-        _obj = ViewColumn.parse_obj(
+        _obj = ViewColumn.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

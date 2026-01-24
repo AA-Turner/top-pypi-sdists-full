@@ -1,34 +1,13 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 
 import System
 import System.Runtime.ConstrainedExecution
 
 
-class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
-    """Ensures that all finalization code in derived classes is marked as critical."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-
-class Cer(Enum):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
-
-    NONE = 0
-
-    MAY_FAIL = 1
-
-    SUCCESS = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class Consistency(Enum):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
+class Consistency(IntEnum):
+    """This class has no documentation."""
 
     MAY_CORRUPT_PROCESS = 0
 
@@ -38,16 +17,19 @@ class Consistency(Enum):
 
     WILL_NOT_CORRUPT_STATE = 3
 
-    def __int__(self) -> int:
-        ...
+
+class Cer(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    MAY_FAIL = 1
+
+    SUCCESS = 2
 
 
 class ReliabilityContractAttribute(System.Attribute):
-    """
-    Defines a contract for reliability between the author of some code, and the developers who have a dependency on that code.
-    
-    Obsoletions.ConstrainedExecutionRegionMessage
-    """
+    """This class has no documentation."""
 
     @property
     def consistency_guarantee(self) -> System.Runtime.ConstrainedExecution.Consistency:
@@ -62,7 +44,14 @@ class ReliabilityContractAttribute(System.Attribute):
 
 
 class PrePrepareMethodAttribute(System.Attribute):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
     def __init__(self) -> None:
         ...

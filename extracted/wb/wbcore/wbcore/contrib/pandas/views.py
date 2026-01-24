@@ -40,8 +40,8 @@ class PandasMixin(CacheMixin):
     @cached_property
     def df(self) -> pd.DataFrame:
         if not hasattr(self, "_df"):
-            setattr(self, "_df", self._get_dataframe())
-        return getattr(self, "_df")
+            self._df = self._get_dataframe()
+        return self._df
 
     # BASIC DATAFRAME GENERATION FRAMEWORK METHODS
     def filter_queryset(self, queryset: QuerySet) -> QuerySet:
@@ -80,11 +80,13 @@ class PandasMixin(CacheMixin):
             )
 
     def get_queryset(self):
-        assert hasattr(self, "queryset"), "Either specify a queryset or implement the get_queryset method."
+        if not hasattr(self, "queryset"):
+            raise AssertionError("Either specify a queryset or implement the get_queryset method.")
         return self.queryset
 
     def get_dataframe(self, request, queryset, **kwargs):
-        assert self.get_pandas_fields(request), "No pandas_fields specified"
+        if not self.get_pandas_fields(request):
+            raise AssertionError("No pandas_fields specified")
         return pd.DataFrame(queryset.values(*self.get_pandas_fields(request).to_dict().keys()))
 
     def manipulate_dataframe(self, df):
@@ -110,7 +112,7 @@ class PandasMixin(CacheMixin):
             df = pd.DataFrame(
                 columns=[field.key for field in self.get_pandas_fields(self.request).fields]
             )  # if queryset is empty, we make sure the returning df contains all the columns to avoid keyerrors exception
-        setattr(self, "_df", df)
+        self._df = df
         df = self.filter_dataframe(df, **kwargs)
         return df
 

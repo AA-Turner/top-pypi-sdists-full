@@ -1,7 +1,7 @@
+from collections.abc import Sequence
 import logging
 import random
 import time
-from typing import List, Sequence, Tuple, Union
 import warnings
 
 from ase import Atoms
@@ -49,7 +49,7 @@ class KineticMonteCarlo(BaseMC):
 
     def __init__(
         self,
-        system: Union[Atoms, MCEvaluator],
+        system: Atoms | MCEvaluator,
         temp: float,
         barrier: BarrierModel,
         event_types: Sequence[KMCEventType],
@@ -76,7 +76,7 @@ class KineticMonteCarlo(BaseMC):
         if self.epr is not None:
             self.epr.reset()
 
-    def _update_epr(self, current: int, choice: int, swaps: List[int], cum_rates: np.ndarray):
+    def _update_epr(self, current: int, choice: int, swaps: list[int], cum_rates: np.ndarray):
         """
         Update the EPR tracker (if set).
 
@@ -99,7 +99,7 @@ class KineticMonteCarlo(BaseMC):
         """
         self.observers.append((interval, obs))
 
-    def _rates(self, vac_idx: int) -> Tuple[List[int], np.ndarray]:
+    def _rates(self, vac_idx: int) -> tuple[list[int], np.ndarray]:
         """
         Return the rates for all possible swaps for a vacancy
         at position vac_idx
@@ -135,7 +135,7 @@ class KineticMonteCarlo(BaseMC):
         """
         return self.attempt_freq
 
-    def _mc_step(self, vac_idx: int, step_no: int) -> Tuple[int, MCStep]:
+    def _mc_step(self, vac_idx: int, step_no: int) -> tuple[int, MCStep]:
         """
         Perform an MC step and return the new index of the moving vacancy
 
@@ -199,7 +199,7 @@ class KineticMonteCarlo(BaseMC):
 
         if self.atoms[vac_idx].symbol != "X":
             raise ValueError(
-                f"Index {vac_idx} is not a vacancy. " f"Symbol: {self.atoms[vac_idx].symbol}"
+                f"Index {vac_idx} is not a vacancy. Symbol: {self.atoms[vac_idx].symbol}"
             )
 
         # Ensure evaluator is in sync and up-to-date

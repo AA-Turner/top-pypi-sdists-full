@@ -3,7 +3,7 @@ Type annotations for resource-groups service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resource_groups/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -79,12 +80,6 @@ from .type_defs import (
     UpdateGroupQueryOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -95,14 +90,14 @@ __all__ = ("ResourceGroupsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    MethodNotAllowedException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    MethodNotAllowedException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class ResourceGroupsClient(BaseClient):
@@ -274,7 +269,7 @@ class ResourceGroupsClient(BaseClient):
 
     def put_group_configuration(
         self, **kwargs: Unpack[PutGroupConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches a service configuration to the specified group.
 

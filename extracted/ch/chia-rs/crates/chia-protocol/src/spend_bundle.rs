@@ -1,15 +1,15 @@
-use crate::coin_spend::CoinSpend;
 use crate::Bytes32;
 use crate::Coin;
+use crate::coin_spend::CoinSpend;
 use chia_bls::G2Element;
 use chia_streamable_macro::streamable;
 use chia_traits::Streamable;
 use clvm_traits::FromClvm;
+use clvmr::Allocator;
 use clvmr::allocator::{NodePtr, SExp};
 use clvmr::cost::Cost;
 use clvmr::error::EvalErr;
 use clvmr::op_utils::{first, rest};
-use clvmr::Allocator;
 
 #[cfg(feature = "py-bindings")]
 use pyo3::prelude::*;
@@ -65,7 +65,7 @@ impl SpendBundle {
                 let buf = match a.sexp(op) {
                     SExp::Atom => a.atom(op),
                     SExp::Pair(..) => {
-                        return Err(EvalErr::InvalidOpArg(op, "invalid condition".to_string()))
+                        return Err(EvalErr::InvalidOpArg(op, "invalid condition".to_string()));
                     }
                 };
                 let buf = buf.as_ref();
@@ -103,30 +103,27 @@ impl SpendBundle {
         cls: &Bound<'_, PyType>,
         py: Python<'_>,
         spend_bundles: Vec<Self>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let aggregated = Bound::new(py, Self::aggregate(&spend_bundles))?;
         if aggregated.is_exact_instance(cls) {
-            Ok(aggregated.into_pyobject(py)?.unbind().into_any())
+            Ok(aggregated.into_any().unbind())
         } else {
-            let instance = cls.call_method1("from_parent", (aggregated.into_pyobject(py)?,))?;
-            Ok(instance.into_pyobject(py)?.unbind().into_any())
+            let aggregated_py = aggregated.into_any().unbind();
+            let instance = cls.call_method1("from_parent", (Py::clone_ref(&aggregated_py, py),))?;
+            Ok(instance.into_any().unbind())
         }
     }
 
     #[classmethod]
     #[pyo3(name = "from_parent")]
-    pub fn from_parent(
-        cls: &Bound<'_, PyType>,
-        py: Python<'_>,
-        spend_bundle: Self,
-    ) -> PyResult<PyObject> {
+    pub fn from_parent(cls: &Bound<'_, PyType>, spend_bundle: Self) -> PyResult<Py<PyAny>> {
         // Convert result into potential child class
         let instance = cls.call(
             (spend_bundle.coin_spends, spend_bundle.aggregated_signature),
             None,
         )?;
 
-        Ok(instance.into_pyobject(py)?.unbind())
+        Ok(instance.into_any().unbind())
     }
 
     #[pyo3(name = "name")]

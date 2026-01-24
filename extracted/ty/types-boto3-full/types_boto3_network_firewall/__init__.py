@@ -3,7 +3,7 @@ Main interface for network-firewall service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,9 @@ Usage::
         ListFirewallsPaginator,
         ListFlowOperationResultsPaginator,
         ListFlowOperationsPaginator,
+        ListProxiesPaginator,
+        ListProxyConfigurationsPaginator,
+        ListProxyRuleGroupsPaginator,
         ListRuleGroupsPaginator,
         ListTLSInspectionConfigurationsPaginator,
         ListTagsForResourcePaginator,
@@ -33,6 +36,9 @@ Usage::
     list_firewalls_paginator: ListFirewallsPaginator = client.get_paginator("list_firewalls")
     list_flow_operation_results_paginator: ListFlowOperationResultsPaginator = client.get_paginator("list_flow_operation_results")
     list_flow_operations_paginator: ListFlowOperationsPaginator = client.get_paginator("list_flow_operations")
+    list_proxies_paginator: ListProxiesPaginator = client.get_paginator("list_proxies")
+    list_proxy_configurations_paginator: ListProxyConfigurationsPaginator = client.get_paginator("list_proxy_configurations")
+    list_proxy_rule_groups_paginator: ListProxyRuleGroupsPaginator = client.get_paginator("list_proxy_rule_groups")
     list_rule_groups_paginator: ListRuleGroupsPaginator = client.get_paginator("list_rule_groups")
     list_tls_inspection_configurations_paginator: ListTLSInspectionConfigurationsPaginator = client.get_paginator("list_tls_inspection_configurations")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
@@ -48,6 +54,9 @@ from .paginator import (
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
+    ListProxiesPaginator,
+    ListProxyConfigurationsPaginator,
+    ListProxyRuleGroupsPaginator,
     ListRuleGroupsPaginator,
     ListTagsForResourcePaginator,
     ListTLSInspectionConfigurationsPaginator,
@@ -65,6 +74,9 @@ __all__ = (
     "ListFirewallsPaginator",
     "ListFlowOperationResultsPaginator",
     "ListFlowOperationsPaginator",
+    "ListProxiesPaginator",
+    "ListProxyConfigurationsPaginator",
+    "ListProxyRuleGroupsPaginator",
     "ListRuleGroupsPaginator",
     "ListTLSInspectionConfigurationsPaginator",
     "ListTagsForResourcePaginator",

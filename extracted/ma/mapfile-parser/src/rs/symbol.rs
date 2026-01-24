@@ -1,0 +1,353 @@
+/* SPDX-FileCopyrightText: © 2023-2025 Decompollaborate */
+/* SPDX-License-Identifier: MIT */
+
+// Required to call the `.hash` and `.finish` methods, which are defined on traits.
+use std::hash::{Hash, Hasher};
+
+#[cfg(feature = "python_bindings")]
+use pyo3::prelude::*;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+#[cfg_attr(feature = "python_bindings", pyclass(module = "mapfile_parser"))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct Symbol {
+    pub name: String,
+
+    pub vram: u64,
+
+    pub size: u64,
+
+    pub vrom: Option<u64>,
+
+    pub align: Option<u64>,
+
+    /// `true` if a symbol with the same name, but with a `.NON_MATCHING`
+    /// suffix is found in this symbol's section. `false` otherwise.
+    ///
+    /// Note the symbol with the actual `.NON_MATCHING` will have this member
+    /// set to `false`.
+    pub nonmatching_sym_exists: bool,
+
+    /// This symbol was not originally present on the mapfile, but instead it
+    /// was added during parsing because it was inferred this symbol must exist
+    /// due to mismatches on the addresses or sizes of other symbols in this
+    /// section or mismatches in the section itself.
+    pub inferred_static: bool,
+}
+
+impl Symbol {
+    fn new_impl(
+        name: String,
+        vram: u64,
+        size: u64,
+        vrom: Option<u64>,
+        align: Option<u64>,
+        nonmatching_sym_exists: bool,
+        inferred_static: bool,
+    ) -> Self {
+        Self {
+            name,
+            vram,
+            size,
+            vrom,
+            align,
+            nonmatching_sym_exists,
+            inferred_static,
+        }
+    }
+
+    pub fn new(name: String, vram: u64, size: u64, vrom: Option<u64>, align: Option<u64>) -> Self {
+        Self::new_impl(name, vram, size, vrom, align, false, false)
+    }
+
+    pub fn new_default(name: String, vram: u64) -> Self {
+        Self::new_impl(name, vram, 0, None, None, false, false)
+    }
+
+    pub fn new_static(name: String, vram: u64, size: u64, vrom: Option<u64>) -> Self {
+        Self::new_impl(name, vram, size, vrom, None, false, true)
+    }
+
+    pub fn get_vram_str(&self) -> String {
+        format!("0x{0:08X}", self.vram)
+    }
+
+    pub fn get_size_str(&self) -> String {
+        format!("{}", self.size)
+    }
+
+    pub fn get_vrom_str(&self) -> String {
+        if let Some(vrom) = self.vrom {
+            return format!("0x{0:06X}", vrom);
+        }
+        "None".into()
+    }
+
+    pub fn get_align_str(&self) -> String {
+        if let Some(align) = self.align {
+            return format!("0x{:X}", align);
+        }
+        "None".into()
+    }
+
+    pub fn to_csv_header() -> String {
+        "Symbol name,VRAM,Size in bytes".to_string()
+    }
+
+    pub fn to_csv(&self) -> String {
+        format!("{0},{1:08X},{2}", self.name, self.vram, self.get_size_str())
+    }
+
+    pub fn print_csv_header() {
+        print!("{}", Self::to_csv_header());
+    }
+
+    pub fn print_as_csv(&self) {
+        print!("{0}", self.to_csv());
+    }
+}
+
+// https://doc.rust-lang.org/std/cmp/trait.Eq.html
+impl PartialEq for Symbol {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.vram == other.vram
+    }
+}
+impl Eq for Symbol {}
+
+// https://doc.rust-lang.org/std/hash/trait.Hash.html
+impl Hash for Symbol {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.vram.hash(state);
+    }
+}
+
+#[cfg(feature = "python_bindings")]
+#[allow(non_snake_case)]
+pub(crate) mod python_bindings {
+    use pyo3::{prelude::*, types::IntoPyDict, IntoPyObjectExt};
+
+    use std::collections::hash_map::DefaultHasher;
+
+    // Required to call the `.hash` and `.finish` methods, which are defined on traits.
+    use std::hash::{Hash, Hasher};
+
+    #[pymethods]
+    impl super::Symbol {
+        #[new]
+        #[pyo3(signature=(name,vram,size=0,vrom=None,align=None, nonmatchingSymExists=false, inferredStatic=false))]
+        fn py_new(
+            name: String,
+            vram: u64,
+            size: u64,
+            vrom: Option<u64>,
+            align: Option<u64>,
+            nonmatchingSymExists: bool,
+            inferredStatic: bool,
+        ) -> Self {
+            Self::new_impl(
+                name,
+                vram,
+                size,
+                vrom,
+                align,
+                nonmatchingSymExists,
+                inferredStatic,
+            )
+        }
+
+        /* Getters and setters */
+
+        #[getter]
+        fn get_name(&self) -> PyResult<&str> {
+            Ok(&self.name)
+        }
+
+        #[setter]
+        fn set_name(&mut self, value: String) -> PyResult<()> {
+            self.name = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_vram(&self) -> PyResult<u64> {
+            Ok(self.vram)
+        }
+
+        #[setter]
+        fn set_vram(&mut self, value: u64) -> PyResult<()> {
+            self.vram = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_size(&self) -> PyResult<u64> {
+            Ok(self.size)
+        }
+
+        #[setter]
+        fn set_size(&mut self, value: u64) -> PyResult<()> {
+            self.size = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_vrom(&self) -> PyResult<Option<u64>> {
+            Ok(self.vrom)
+        }
+
+        #[setter]
+        fn set_vrom(&mut self, value: Option<u64>) -> PyResult<()> {
+            self.vrom = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_align(&self) -> PyResult<Option<u64>> {
+            Ok(self.align)
+        }
+
+        #[setter]
+        fn set_align(&mut self, value: Option<u64>) -> PyResult<()> {
+            self.align = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_nonmatchingSymExists(&self) -> PyResult<bool> {
+            Ok(self.nonmatching_sym_exists)
+        }
+
+        #[setter]
+        fn set_nonmatchingSymExists(&mut self, value: bool) -> PyResult<()> {
+            self.nonmatching_sym_exists = value;
+            Ok(())
+        }
+
+        #[getter]
+        fn get_inferredStatic(&self) -> PyResult<bool> {
+            Ok(self.inferred_static)
+        }
+
+        #[setter]
+        fn set_inferredStatic(&mut self, value: bool) -> PyResult<()> {
+            self.inferred_static = value;
+            Ok(())
+        }
+
+        /* Serializers */
+
+        #[pyo3(signature=(_humanReadable=true))]
+        fn serializeName(&self, py: Python<'_>, _humanReadable: bool) -> PyResult<Py<PyAny>> {
+            self.name.clone().into_py_any(py)
+        }
+
+        #[pyo3(signature=(humanReadable=true))]
+        fn serializeVram(&self, py: Python<'_>, humanReadable: bool) -> PyResult<Py<PyAny>> {
+            if humanReadable {
+                format!("0x{:08X}", self.vram).into_py_any(py)
+            } else {
+                self.vram.into_py_any(py)
+            }
+        }
+
+        #[pyo3(signature=(humanReadable=true))]
+        fn serializeSize(&self, py: Python<'_>, humanReadable: bool) -> PyResult<Py<PyAny>> {
+            if humanReadable {
+                format!("0x{:X}", self.size).into_py_any(py)
+            } else {
+                self.size.into_py_any(py)
+            }
+        }
+
+        #[pyo3(signature=(humanReadable=true))]
+        fn serializeVrom(&self, py: Python<'_>, humanReadable: bool) -> PyResult<Py<PyAny>> {
+            match self.vrom {
+                None => Ok(Python::None(py)),
+                Some(vrom) => {
+                    if humanReadable {
+                        format!("0x{:06X}", vrom).into_py_any(py)
+                    } else {
+                        vrom.into_py_any(py)
+                    }
+                }
+            }
+        }
+
+        #[pyo3(signature=(humanReadable=true))]
+        fn toJson(&self, py: Python<'_>, humanReadable: bool) -> PyResult<Py<PyAny>> {
+            [
+                ("name", self.serializeName(py, humanReadable)?),
+                ("vram", self.serializeVram(py, humanReadable)?),
+                ("size", self.serializeSize(py, humanReadable)?),
+                ("vrom", self.serializeVrom(py, humanReadable)?),
+            ]
+            .into_py_dict(py)?
+            .into_py_any(py)
+        }
+
+        /* Methods */
+
+        fn getVramStr(&self) -> String {
+            self.get_vram_str()
+        }
+
+        fn getSizeStr(&self) -> String {
+            self.get_size_str()
+        }
+
+        fn getVromStr(&self) -> String {
+            self.get_vrom_str()
+        }
+
+        fn getAlignStr(&self) -> String {
+            self.get_align_str()
+        }
+
+        #[staticmethod]
+        fn toCsvHeader() -> String {
+            Self::to_csv_header()
+        }
+
+        fn toCsv(&self) -> String {
+            self.to_csv()
+        }
+
+        #[staticmethod]
+        fn printCsvHeader() {
+            Self::print_csv_header()
+        }
+
+        fn printAsCsv(&self) {
+            self.print_as_csv()
+        }
+
+        /* Python specific */
+
+        fn __eq__(&self, other: &Self) -> bool {
+            self == other
+        }
+
+        fn __hash__(&self) -> isize {
+            let mut hasher = DefaultHasher::new();
+            self.hash(&mut hasher);
+            hasher.finish() as isize
+        }
+
+        fn __repr__(&self) -> String {
+            format!(
+                "Symbol(name='{}', vram={}, size={}, vrom={}, align={})",
+                self.name,
+                self.get_vram_str(),
+                self.get_size_str(),
+                self.get_vrom_str(),
+                self.get_align_str()
+            )
+        }
+    }
+}

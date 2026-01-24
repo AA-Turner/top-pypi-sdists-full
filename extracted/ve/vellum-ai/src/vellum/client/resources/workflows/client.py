@@ -5,9 +5,15 @@ import typing
 from ... import core
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.check_workflow_execution_status_response import CheckWorkflowExecutionStatusResponse
+from ...types.dataset_row_push_request import DatasetRowPushRequest
+from ...types.runner_config_request import RunnerConfigRequest
+from ...types.type_checker_enum import TypeCheckerEnum
 from ...types.workflow_push_deployment_config_request import WorkflowPushDeploymentConfigRequest
 from ...types.workflow_push_exec_config import WorkflowPushExecConfig
 from ...types.workflow_push_response import WorkflowPushResponse
+from ...types.workflow_resolved_state import WorkflowResolvedState
+from ...types.workflow_sandbox_execute_node_response import WorkflowSandboxExecuteNodeResponse
 from .raw_client import AsyncRawWorkflowsClient, RawWorkflowsClient
 
 # this is used as the default value for optional parameters
@@ -89,13 +95,127 @@ class WorkflowsClient:
         ) as r:
             yield from r.data
 
+    def retrieve_state(
+        self, span_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> WorkflowResolvedState:
+        """
+        Retrieve the current state of a workflow execution.
+
+        **Note:** Uses a base url of `https://predict.vellum.ai`.
+
+        Parameters
+        ----------
+        span_id : str
+            The span ID of the workflow execution to retrieve state for
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkflowResolvedState
+
+
+        Examples
+        --------
+        from vellum import Vellum
+
+        client = Vellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+        client.workflows.retrieve_state(
+            span_id="span_id",
+        )
+        """
+        _response = self._raw_client.retrieve_state(span_id, request_options=request_options)
+        return _response.data
+
+    def execute_node(
+        self,
+        *,
+        files: typing.Dict[str, str],
+        node: str,
+        inputs: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkflowSandboxExecuteNodeResponse:
+        """
+        Parameters
+        ----------
+        files : typing.Dict[str, str]
+
+        node : str
+
+        inputs : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkflowSandboxExecuteNodeResponse
+
+
+        Examples
+        --------
+        from vellum import Vellum
+
+        client = Vellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+        client.workflows.execute_node(
+            files={"files": "files"},
+            node="x",
+        )
+        """
+        _response = self._raw_client.execute_node(
+            files=files, node=node, inputs=inputs, request_options=request_options
+        )
+        return _response.data
+
+    def workflow_execution_status(
+        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> CheckWorkflowExecutionStatusResponse:
+        """
+        Checks if a workflow execution is currently executing (not fulfilled, not rejected, and has no end time).
+        Uses the ClickHouse Prime summary materialized view.
+
+        Parameters
+        ----------
+        execution_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CheckWorkflowExecutionStatusResponse
+
+
+        Examples
+        --------
+        from vellum import Vellum
+
+        client = Vellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+        client.workflows.workflow_execution_status(
+            execution_id="execution_id",
+        )
+        """
+        _response = self._raw_client.workflow_execution_status(execution_id, request_options=request_options)
+        return _response.data
+
     def push(
         self,
         *,
-        exec_config: WorkflowPushExecConfig,
+        exec_config: typing.Optional[WorkflowPushExecConfig] = OMIT,
         workflow_sandbox_id: typing.Optional[str] = OMIT,
         deployment_config: typing.Optional[WorkflowPushDeploymentConfigRequest] = OMIT,
         artifact: typing.Optional[core.File] = OMIT,
+        dataset: typing.Optional[typing.List[DatasetRowPushRequest]] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
         strict: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -103,8 +223,8 @@ class WorkflowsClient:
         """
         Parameters
         ----------
-        exec_config : WorkflowPushExecConfig
-            The execution configuration of the workflow.
+        exec_config : typing.Optional[WorkflowPushExecConfig]
+            The execution configuration of the workflow. If not provided, it will be derived from the artifact.
 
         workflow_sandbox_id : typing.Optional[str]
 
@@ -112,6 +232,9 @@ class WorkflowsClient:
 
         artifact : typing.Optional[core.File]
             See core.File for more documentation
+
+        dataset : typing.Optional[typing.List[DatasetRowPushRequest]]
+            List of dataset rows with inputs for scenarios.
 
         dry_run : typing.Optional[bool]
 
@@ -130,6 +253,7 @@ class WorkflowsClient:
             workflow_sandbox_id=workflow_sandbox_id,
             deployment_config=deployment_config,
             artifact=artifact,
+            dataset=dataset,
             dry_run=dry_run,
             strict=strict,
             request_options=request_options,
@@ -140,6 +264,9 @@ class WorkflowsClient:
         self,
         *,
         files: typing.Dict[str, typing.Optional[typing.Any]],
+        module: typing.Optional[str] = OMIT,
+        runner_config: typing.Optional[RunnerConfigRequest] = OMIT,
+        type_checker: typing.Optional[TypeCheckerEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Dict[str, typing.Optional[typing.Any]]:
         """
@@ -148,6 +275,17 @@ class WorkflowsClient:
         Parameters
         ----------
         files : typing.Dict[str, typing.Optional[typing.Any]]
+
+        module : typing.Optional[str]
+
+        runner_config : typing.Optional[RunnerConfigRequest]
+
+        type_checker : typing.Optional[TypeCheckerEnum]
+            Optional type checker to run during serialization. Supported values: mypy, zuban, default.
+
+            * `mypy` - Mypy
+            * `zuban` - Zuban
+            * `default` - Default
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -169,7 +307,13 @@ class WorkflowsClient:
             files={"files": {"key": "value"}},
         )
         """
-        _response = self._raw_client.serialize_workflow_files(files=files, request_options=request_options)
+        _response = self._raw_client.serialize_workflow_files(
+            files=files,
+            module=module,
+            runner_config=runner_config,
+            type_checker=type_checker,
+            request_options=request_options,
+        )
         return _response.data
 
 
@@ -245,13 +389,151 @@ class AsyncWorkflowsClient:
             async for _chunk in r.data:
                 yield _chunk
 
+    async def retrieve_state(
+        self, span_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> WorkflowResolvedState:
+        """
+        Retrieve the current state of a workflow execution.
+
+        **Note:** Uses a base url of `https://predict.vellum.ai`.
+
+        Parameters
+        ----------
+        span_id : str
+            The span ID of the workflow execution to retrieve state for
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkflowResolvedState
+
+
+        Examples
+        --------
+        import asyncio
+
+        from vellum import AsyncVellum
+
+        client = AsyncVellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.retrieve_state(
+                span_id="span_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.retrieve_state(span_id, request_options=request_options)
+        return _response.data
+
+    async def execute_node(
+        self,
+        *,
+        files: typing.Dict[str, str],
+        node: str,
+        inputs: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkflowSandboxExecuteNodeResponse:
+        """
+        Parameters
+        ----------
+        files : typing.Dict[str, str]
+
+        node : str
+
+        inputs : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkflowSandboxExecuteNodeResponse
+
+
+        Examples
+        --------
+        import asyncio
+
+        from vellum import AsyncVellum
+
+        client = AsyncVellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.execute_node(
+                files={"files": "files"},
+                node="x",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.execute_node(
+            files=files, node=node, inputs=inputs, request_options=request_options
+        )
+        return _response.data
+
+    async def workflow_execution_status(
+        self, execution_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> CheckWorkflowExecutionStatusResponse:
+        """
+        Checks if a workflow execution is currently executing (not fulfilled, not rejected, and has no end time).
+        Uses the ClickHouse Prime summary materialized view.
+
+        Parameters
+        ----------
+        execution_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CheckWorkflowExecutionStatusResponse
+
+
+        Examples
+        --------
+        import asyncio
+
+        from vellum import AsyncVellum
+
+        client = AsyncVellum(
+            api_version="YOUR_API_VERSION",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workflows.workflow_execution_status(
+                execution_id="execution_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.workflow_execution_status(execution_id, request_options=request_options)
+        return _response.data
+
     async def push(
         self,
         *,
-        exec_config: WorkflowPushExecConfig,
+        exec_config: typing.Optional[WorkflowPushExecConfig] = OMIT,
         workflow_sandbox_id: typing.Optional[str] = OMIT,
         deployment_config: typing.Optional[WorkflowPushDeploymentConfigRequest] = OMIT,
         artifact: typing.Optional[core.File] = OMIT,
+        dataset: typing.Optional[typing.List[DatasetRowPushRequest]] = OMIT,
         dry_run: typing.Optional[bool] = OMIT,
         strict: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -259,8 +541,8 @@ class AsyncWorkflowsClient:
         """
         Parameters
         ----------
-        exec_config : WorkflowPushExecConfig
-            The execution configuration of the workflow.
+        exec_config : typing.Optional[WorkflowPushExecConfig]
+            The execution configuration of the workflow. If not provided, it will be derived from the artifact.
 
         workflow_sandbox_id : typing.Optional[str]
 
@@ -268,6 +550,9 @@ class AsyncWorkflowsClient:
 
         artifact : typing.Optional[core.File]
             See core.File for more documentation
+
+        dataset : typing.Optional[typing.List[DatasetRowPushRequest]]
+            List of dataset rows with inputs for scenarios.
 
         dry_run : typing.Optional[bool]
 
@@ -286,6 +571,7 @@ class AsyncWorkflowsClient:
             workflow_sandbox_id=workflow_sandbox_id,
             deployment_config=deployment_config,
             artifact=artifact,
+            dataset=dataset,
             dry_run=dry_run,
             strict=strict,
             request_options=request_options,
@@ -296,6 +582,9 @@ class AsyncWorkflowsClient:
         self,
         *,
         files: typing.Dict[str, typing.Optional[typing.Any]],
+        module: typing.Optional[str] = OMIT,
+        runner_config: typing.Optional[RunnerConfigRequest] = OMIT,
+        type_checker: typing.Optional[TypeCheckerEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Dict[str, typing.Optional[typing.Any]]:
         """
@@ -304,6 +593,17 @@ class AsyncWorkflowsClient:
         Parameters
         ----------
         files : typing.Dict[str, typing.Optional[typing.Any]]
+
+        module : typing.Optional[str]
+
+        runner_config : typing.Optional[RunnerConfigRequest]
+
+        type_checker : typing.Optional[TypeCheckerEnum]
+            Optional type checker to run during serialization. Supported values: mypy, zuban, default.
+
+            * `mypy` - Mypy
+            * `zuban` - Zuban
+            * `default` - Default
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -333,5 +633,11 @@ class AsyncWorkflowsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.serialize_workflow_files(files=files, request_options=request_options)
+        _response = await self._raw_client.serialize_workflow_files(
+            files=files,
+            module=module,
+            runner_config=runner_config,
+            type_checker=type_checker,
+            request_options=request_options,
+        )
         return _response.data

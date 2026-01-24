@@ -8,7 +8,6 @@ import math
 from typing import Any
 from typing import cast
 from typing import TYPE_CHECKING
-import warnings
 
 import numpy as np
 
@@ -17,6 +16,7 @@ from optuna._convert_positional_args import convert_positional_args
 from optuna._experimental import warn_experimental_argument
 from optuna._hypervolume import compute_hypervolume
 from optuna._hypervolume.hssp import _solve_hssp
+from optuna._warnings import optuna_warn
 from optuna.distributions import BaseDistribution
 from optuna.distributions import CategoricalChoiceType
 from optuna.logging import get_logger
@@ -91,6 +91,11 @@ class TPESampler(BaseSampler):
     - `Multiobjective Tree-Structured Parzen Estimator for Computationally Expensive Optimization
       Problems <https://doi.org/10.1145/3377930.3389817>`__
     - `Multiobjective Tree-Structured Parzen Estimator <https://doi.org/10.1613/jair.1.13188>`__
+
+    For the `categorical_distance_func`, please refer to the following paper:
+
+    - `Tree-Structured Parzen Estimator Can Solve Black-Box Combinatorial Optimization More
+      Efficiently <https://arxiv.org/abs/2507.08053>`__
 
     Please also check our articles:
 
@@ -322,7 +327,7 @@ class TPESampler(BaseSampler):
             msg = _deprecated._DEPRECATION_WARNING_TEMPLATE.format(
                 name="`consider_prior`", d_ver="4.3.0", r_ver="6.0.0"
             )
-            warnings.warn(
+            optuna_warn(
                 f"{msg} From v4.3.0 onward, `consider_prior` automatically falls back to `True`.",
                 FutureWarning,
             )
@@ -384,10 +389,13 @@ class TPESampler(BaseSampler):
             return {}
 
         search_space: dict[str, BaseDistribution] = {}
+        use_trial_cache = self._multivariate or not self._constant_liar
 
         if self._group:
             assert self._group_decomposed_search_space is not None
-            self._search_space_group = self._group_decomposed_search_space.calculate(study)
+            self._search_space_group = self._group_decomposed_search_space.calculate(
+                study, use_trial_cache
+            )
             for sub_space in self._search_space_group.search_spaces:
                 # Sort keys because Python's string hashing is nondeterministic.
                 for name, distribution in sorted(sub_space.items()):
@@ -396,7 +404,7 @@ class TPESampler(BaseSampler):
                     search_space[name] = distribution
             return search_space
 
-        for name, distribution in self._search_space.calculate(study).items():
+        for name, distribution in self._search_space.calculate(study, use_trial_cache).items():
             if distribution.single():
                 continue
             search_space[name] = distribution
@@ -442,7 +450,7 @@ class TPESampler(BaseSampler):
         if len(trials) < self._n_startup_trials:
             return {}
 
-        return self._sample(study, trial, search_space)
+        return self._sample(study, trial, search_space, use_trial_cache=True)
 
     def sample_independent(
         self,
@@ -475,7 +483,10 @@ class TPESampler(BaseSampler):
                     )
                 )
 
-        return self._sample(study, trial, {param_name: param_distribution})[param_name]
+        search_space = {param_name: param_distribution}
+        return self._sample(study, trial, search_space, use_trial_cache=not self._constant_liar)[
+            param_name
+        ]
 
     def _get_params(self, trial: FrozenTrial) -> dict[str, Any]:
         if trial.state.is_finished() or not self._multivariate:
@@ -508,14 +519,17 @@ class TPESampler(BaseSampler):
         return {k: np.asarray(v) for k, v in values.items()}
 
     def _sample(
-        self, study: Study, trial: FrozenTrial, search_space: dict[str, BaseDistribution]
+        self,
+        study: Study,
+        trial: FrozenTrial,
+        search_space: dict[str, BaseDistribution],
+        use_trial_cache: bool,
     ) -> dict[str, Any]:
         if self._constant_liar:
             states = [TrialState.COMPLETE, TrialState.PRUNED, TrialState.RUNNING]
         else:
             states = [TrialState.COMPLETE, TrialState.PRUNED]
-        use_cache = not self._constant_liar
-        trials = study._get_trials(deepcopy=False, states=states, use_cache=use_cache)
+        trials = study._get_trials(deepcopy=False, states=states, use_cache=use_trial_cache)
 
         if self._constant_liar:
             # For constant_liar, filter out the current trial.
@@ -790,7 +804,7 @@ def _split_pruned_trials(
 def _get_infeasible_trial_score(trial: FrozenTrial) -> float:
     constraint = trial.system_attrs.get(_CONSTRAINTS_KEY)
     if constraint is None:
-        warnings.warn(
+        optuna_warn(
             f"Trial {trial.number} does not have constraint values."
             " It will be treated as a lower priority than other trials."
         )
@@ -835,9 +849,17 @@ def _calculate_weights_below_for_multi_objective(
 
     loo_mat = ~np.eye(pareto_sols.shape[0], dtype=bool)  # Leave-one-out bool matrix.
     contribs = np.zeros(n_below_feasible, dtype=float)
-    contribs[on_front] = hv - np.array(
-        [compute_hypervolume(pareto_sols[loo], ref_point, assume_pareto=True) for loo in loo_mat]
-    )
+    if len(study.directions) <= 3:
+        contribs[on_front] = [
+            hv - compute_hypervolume(pareto_sols[loo], ref_point, assume_pareto=True)
+            for loo in loo_mat
+        ]
+    else:
+        contribs[on_front] = np.prod(ref_point - pareto_sols, axis=-1)
+        limited_sols = np.maximum(pareto_sols, pareto_sols[:, np.newaxis])
+        contribs[on_front] -= [
+            compute_hypervolume(limited_sols[i, loo], ref_point) for i, loo in enumerate(loo_mat)
+        ]
     weights_below[is_feasible] = np.maximum(contribs / max(np.max(contribs), EPS), EPS)
     return weights_below
 

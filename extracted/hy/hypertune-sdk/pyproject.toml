@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "hypertune-sdk"
+version = "0.6.5"
+description = ""
+authors = ["Jordan Webster <jordan@hypertune.com>"]
+packages = [{include = "hypertune", from = "src"}]
+include = [
+  "src/hypertune/data/hypertune.h", 
+  "src/hypertune/data/aarch64/libhypertune.dylib", 
+  "src/hypertune/data/aarch64/libhypertune.so", 
+  "src/hypertune/data/x86_64/libhypertune.dylib", 
+  "src/hypertune/data/x86_64/libhypertune.so", 
+  "src/hypertune/data/x86_64/hypertune.dll"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+cffi = "^1.17.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import json
 import os
@@ -6,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Optional
 
 import click
 import httpx
@@ -159,6 +160,12 @@ coiled curl -X POST "${SETUP_ENDPOINT}" --json --data "{\\"credentials\\": {\\"t
     help="If there's existing enterprise application, add new secret rather than replacing any existing ones.",
 )
 @click.option(
+    "--update-role-definitions",
+    default=False,
+    is_flag=True,
+    help="If Role Definitions already exist, then update them; default is to leave them unchanged if they exist.",
+)
+@click.option(
     "--save-script",
     is_flag=True,
     default=False,
@@ -175,8 +182,22 @@ coiled curl -X POST "${SETUP_ENDPOINT}" --json --data "{\\"credentials\\": {\\"t
         "service principal for Coiled to use."
     ),
 )
+@click.option(
+    "--refresh-for-app-id", default=None, help="Refresh the secret key used by Coiled for specified Application ID."
+)
 @click.command(context_settings=CONTEXT_SETTINGS)
-def azure_setup(subscription, resource_group, region, account, iam_user, keep_existing_access, save_script, ship_token):
+def azure_setup(
+    subscription,
+    resource_group,
+    region,
+    account,
+    iam_user,
+    keep_existing_access,
+    update_role_definitions,
+    save_script,
+    ship_token,
+    refresh_for_app_id,
+):
     print(
         "Coiled on Azure is currently in [bold]public beta[/bold], "
         "please contact [link]support@coiled.io[/link] if you have any questions or problems."
@@ -264,6 +285,17 @@ def azure_setup(subscription, resource_group, region, account, iam_user, keep_ex
         f"with [green]{region}[/green] as the default region\n"
     )
 
+    if refresh_for_app_id:
+        refresh_app_creds(
+            app_id=refresh_for_app_id,
+            coiled_account=coiled_account,
+            sub_id=sub_id,
+            rg_name=rg_name,
+            region=region,
+            keep_existing_keys=True,
+        )
+        return
+
     if ship_token:
         enable_providers(creds, sub_id)
         ship_token_creds(
@@ -289,7 +321,15 @@ def azure_setup(subscription, resource_group, region, account, iam_user, keep_ex
         app_name = iam_user or f"coiled-{coiled_account}-app"
         try:
             if not setup_with_service_principal(
-                creds, app_name, sub_id, rg_name, rg_id, coiled_account, region, keep_existing_keys=keep_existing_access
+                creds,
+                app_name,
+                sub_id,
+                rg_name,
+                rg_id,
+                coiled_account,
+                region,
+                keep_existing_keys=keep_existing_access,
+                update_role_definitions=update_role_definitions,
             ):
                 coiled.add_interaction(action="CoiledSetup", success=False)
         except Exception as e:
@@ -301,7 +341,15 @@ def azure_setup(subscription, resource_group, region, account, iam_user, keep_ex
 
 
 def setup_with_service_principal(
-    creds, app_name, sub_id, rg_name, rg_id, coiled_account, region, keep_existing_keys: bool = False
+    creds,
+    app_name,
+    sub_id,
+    rg_name,
+    rg_id,
+    coiled_account,
+    region,
+    keep_existing_keys: bool = False,
+    update_role_definitions: bool = False,
 ):
     prompt = f"Create [green]{app_name}[/green] service principal and grant Coiled access to your Azure subscription?"
     if not Confirm.ask(prompt, default=True):
@@ -341,12 +389,16 @@ def setup_with_service_principal(
 
         az_cli_wrapper(
             f"az role definition create --role-definition @{role_def_path}",
-            command_if_exists=f"az role definition update --role-definition @{role_def_path}",
+            command_if_exists=f"az role definition update --role-definition @{role_def_path}"
+            if update_role_definitions
+            else None,
         )
         print(f"  [bright_black]Creating/updating role definition {LOG_ROLE_NAME}...")
         az_cli_wrapper(
             f"az role definition create --role-definition @{log_role_def_path}",
-            command_if_exists=f"az role definition update --role-definition @{log_role_def_path}",
+            command_if_exists=f"az role definition update --role-definition @{log_role_def_path}"
+            if update_role_definitions
+            else None,
         )
 
     print(f"  [bright_black]Assigning '{RG_ROLE_NAME}' role to service principal on '{rg_name}' resource group...")
@@ -378,6 +430,31 @@ def setup_with_service_principal(
     return True
 
 
+def refresh_app_creds(app_id, keep_existing_keys, coiled_account, sub_id, rg_name, region):
+    print(f"  [bright_black]Resetting/retrieving credentials for {app_id}...")
+    cred_reset_opts = "--append" if keep_existing_keys else ""
+    app_creds_json = az_cli_wrapper(f"az ad app credential reset --id {app_id} {cred_reset_opts}")
+    app_creds = json.loads(app_creds_json)
+
+    creds_to_submit = {
+        "tenant_id": app_creds["tenant"],
+        "client_id": app_creds["appId"],
+        "client_secret": app_creds["password"],
+    }
+
+    print("Sending Azure credentials to Coiled... ", end="")
+    submit_azure_credentials(
+        coiled_account=coiled_account,
+        sub_id=sub_id,
+        rg_name=rg_name,
+        region=region,
+        creds_to_submit=creds_to_submit,
+    )
+    print(f"Azure credentials have been updated for {coiled_account} using Azure app {app_id} and {rg_name}!")
+
+    coiled.add_interaction(action="RefreshCloudCredentials", success=True)
+
+
 def submit_azure_credentials(coiled_account, sub_id, rg_name, region, creds_to_submit, check_after: bool = False):
     with coiled.Cloud(account=coiled_account) as cloud:
         setup_endpoint = f"/api/v2/cloud-credentials/{coiled_account}/azure"
@@ -399,13 +476,13 @@ def strip_output(output: str) -> str:
     return output.strip(' \n"')
 
 
-def get_cli_path() -> Optional[str]:
+def get_cli_path() -> str | None:
     return shutil.which("az")
 
 
 def az_cli_wrapper(
     command: str,
-    command_if_exists: str = "",
+    command_if_exists: str | None = "",
     show_stdout: bool = False,
     interactive: bool = False,
 ):

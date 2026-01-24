@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -18,6 +18,7 @@ ListAccessEntriesRequestMaxResults = int
 ListAccessPoliciesRequestMaxResults = int
 ListAddonsRequestMaxResults = int
 ListAssociatedAccessPoliciesRequestMaxResults = int
+ListCapabilitiesRequestMaxResults = int
 ListClustersRequestMaxResults = int
 ListEksAnywhereSubscriptionsRequestMaxResults = int
 ListIdentityProviderConfigsRequestMaxResults = int
@@ -92,10 +93,41 @@ class AddonStatus(StrEnum):
     UPDATE_FAILED = "UPDATE_FAILED"
 
 
+class ArgoCdRole(StrEnum):
+    ADMIN = "ADMIN"
+    EDITOR = "EDITOR"
+    VIEWER = "VIEWER"
+
+
 class AuthenticationMode(StrEnum):
     API = "API"
     API_AND_CONFIG_MAP = "API_AND_CONFIG_MAP"
     CONFIG_MAP = "CONFIG_MAP"
+
+
+class CapabilityDeletePropagationPolicy(StrEnum):
+    RETAIN = "RETAIN"
+
+
+class CapabilityIssueCode(StrEnum):
+    AccessDenied = "AccessDenied"
+    ClusterUnreachable = "ClusterUnreachable"
+
+
+class CapabilityStatus(StrEnum):
+    CREATING = "CREATING"
+    CREATE_FAILED = "CREATE_FAILED"
+    UPDATING = "UPDATING"
+    DELETING = "DELETING"
+    DELETE_FAILED = "DELETE_FAILED"
+    ACTIVE = "ACTIVE"
+    DEGRADED = "DEGRADED"
+
+
+class CapabilityType(StrEnum):
+    ACK = "ACK"
+    KRO = "KRO"
+    ARGOCD = "ARGOCD"
 
 
 class CapacityTypes(StrEnum):
@@ -290,10 +322,28 @@ class NodegroupUpdateStrategies(StrEnum):
     MINIMAL = "MINIMAL"
 
 
+class ProvisionedControlPlaneTier(StrEnum):
+    standard = "standard"
+    tier_xl = "tier-xl"
+    tier_2xl = "tier-2xl"
+    tier_4xl = "tier-4xl"
+
+
+class RepairAction(StrEnum):
+    Replace = "Replace"
+    Reboot = "Reboot"
+    NoAction = "NoAction"
+
+
 class ResolveConflicts(StrEnum):
     OVERWRITE = "OVERWRITE"
     NONE = "NONE"
     PRESERVE = "PRESERVE"
+
+
+class SsoIdentityType(StrEnum):
+    SSO_USER = "SSO_USER"
+    SSO_GROUP = "SSO_GROUP"
 
 
 class SupportType(StrEnum):
@@ -345,6 +395,9 @@ class UpdateParamType(StrEnum):
     KubernetesNetworkConfig = "KubernetesNetworkConfig"
     RemoteNetworkConfig = "RemoteNetworkConfig"
     DeletionProtection = "DeletionProtection"
+    NodeRepairConfig = "NodeRepairConfig"
+    UpdatedTier = "UpdatedTier"
+    PreviousTier = "PreviousTier"
 
 
 class UpdateStatus(StrEnum):
@@ -370,6 +423,7 @@ class UpdateType(StrEnum):
     AutoModeUpdate = "AutoModeUpdate"
     RemoteNetworkConfigUpdate = "RemoteNetworkConfigUpdate"
     DeletionProtectionUpdate = "DeletionProtectionUpdate"
+    ControlPlaneScalingConfigUpdate = "ControlPlaneScalingConfigUpdate"
 
 
 class VersionStatus(StrEnum):
@@ -421,10 +475,10 @@ class ClientException(ServiceException):
     code: str = "ClientException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    addonName: String | None
+    subscriptionId: String | None
 
 
 class InvalidParameterException(ServiceException):
@@ -435,11 +489,11 @@ class InvalidParameterException(ServiceException):
     code: str = "InvalidParameterException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    fargateProfileName: Optional[String]
-    addonName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    fargateProfileName: String | None
+    addonName: String | None
+    subscriptionId: String | None
 
 
 class InvalidRequestException(ServiceException):
@@ -450,10 +504,10 @@ class InvalidRequestException(ServiceException):
     code: str = "InvalidRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    addonName: String | None
+    subscriptionId: String | None
 
 
 class InvalidStateException(ServiceException):
@@ -467,7 +521,7 @@ class InvalidStateException(ServiceException):
     code: str = "InvalidStateException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
+    clusterName: String | None
 
 
 class NotFoundException(ServiceException):
@@ -486,9 +540,9 @@ class ResourceInUseException(ServiceException):
     code: str = "ResourceInUseException"
     sender_fault: bool = False
     status_code: int = 409
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    addonName: String | None
 
 
 class ResourceLimitExceededException(ServiceException):
@@ -497,9 +551,9 @@ class ResourceLimitExceededException(ServiceException):
     code: str = "ResourceLimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    subscriptionId: String | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -512,11 +566,11 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    fargateProfileName: Optional[String]
-    addonName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    fargateProfileName: String | None
+    addonName: String | None
+    subscriptionId: String | None
 
 
 class ResourcePropagationDelayException(ServiceException):
@@ -535,10 +589,10 @@ class ServerException(ServiceException):
     code: str = "ServerException"
     sender_fault: bool = False
     status_code: int = 500
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
-    subscriptionId: Optional[String]
+    clusterName: String | None
+    nodegroupName: String | None
+    addonName: String | None
+    subscriptionId: String | None
 
 
 class ServiceUnavailableException(ServiceException):
@@ -557,10 +611,10 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 429
-    clusterName: Optional[String]
+    clusterName: String | None
 
 
-StringList = List[String]
+StringList = list[String]
 
 
 class UnsupportedAvailabilityZoneException(ServiceException):
@@ -573,32 +627,32 @@ class UnsupportedAvailabilityZoneException(ServiceException):
     code: str = "UnsupportedAvailabilityZoneException"
     sender_fault: bool = False
     status_code: int = 400
-    clusterName: Optional[String]
-    nodegroupName: Optional[String]
-    validZones: Optional[StringList]
+    clusterName: String | None
+    nodegroupName: String | None
+    validZones: StringList | None
 
 
 class AccessConfigResponse(TypedDict, total=False):
     """The access configuration for the cluster."""
 
-    bootstrapClusterCreatorAdminPermissions: Optional[BoxedBoolean]
-    authenticationMode: Optional[AuthenticationMode]
+    bootstrapClusterCreatorAdminPermissions: BoxedBoolean | None
+    authenticationMode: AuthenticationMode | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 Timestamp = datetime
 
 
 class AccessEntry(TypedDict, total=False):
-    clusterName: Optional[String]
-    principalArn: Optional[String]
-    kubernetesGroups: Optional[StringList]
-    accessEntryArn: Optional[String]
-    createdAt: Optional[Timestamp]
-    modifiedAt: Optional[Timestamp]
-    tags: Optional[TagMap]
-    username: Optional[String]
-    type: Optional[String]
+    clusterName: String | None
+    principalArn: String | None
+    kubernetesGroups: StringList | None
+    accessEntryArn: String | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+    tags: TagMap | None
+    username: String | None
+    type: String | None
 
 
 class AccessPolicy(TypedDict, total=False):
@@ -616,19 +670,19 @@ class AccessPolicy(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    name: Optional[String]
-    arn: Optional[String]
+    name: String | None
+    arn: String | None
 
 
-AccessPoliciesList = List[AccessPolicy]
+AccessPoliciesList = list[AccessPolicy]
 
 
 class AccessScope(TypedDict, total=False):
-    type: Optional[AccessScopeType]
-    namespaces: Optional[StringList]
+    type: AccessScopeType | None
+    namespaces: StringList | None
 
 
-AdditionalInfoMap = Dict[String, String]
+AdditionalInfoMap = dict[String, String]
 
 
 class AddonNamespaceConfigResponse(TypedDict, total=False):
@@ -636,7 +690,7 @@ class AddonNamespaceConfigResponse(TypedDict, total=False):
     the namespace where an addon is installed.
     """
 
-    namespace: Optional[namespace]
+    namespace: namespace | None
 
 
 class MarketplaceInformation(TypedDict, total=False):
@@ -644,25 +698,25 @@ class MarketplaceInformation(TypedDict, total=False):
     Marketplace.
     """
 
-    productId: Optional[String]
-    productUrl: Optional[String]
+    productId: String | None
+    productUrl: String | None
 
 
 class AddonIssue(TypedDict, total=False):
     """An issue related to an add-on."""
 
-    code: Optional[AddonIssueCode]
-    message: Optional[String]
-    resourceIds: Optional[StringList]
+    code: AddonIssueCode | None
+    message: String | None
+    resourceIds: StringList | None
 
 
-AddonIssueList = List[AddonIssue]
+AddonIssueList = list[AddonIssue]
 
 
 class AddonHealth(TypedDict, total=False):
     """The health of the add-on."""
 
-    issues: Optional[AddonIssueList]
+    issues: AddonIssueList | None
 
 
 class Addon(TypedDict, total=False):
@@ -671,22 +725,22 @@ class Addon(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    addonName: Optional[String]
-    clusterName: Optional[ClusterName]
-    status: Optional[AddonStatus]
-    addonVersion: Optional[String]
-    health: Optional[AddonHealth]
-    addonArn: Optional[String]
-    createdAt: Optional[Timestamp]
-    modifiedAt: Optional[Timestamp]
-    serviceAccountRoleArn: Optional[String]
-    tags: Optional[TagMap]
-    publisher: Optional[String]
-    owner: Optional[String]
-    marketplaceInformation: Optional[MarketplaceInformation]
-    configurationValues: Optional[String]
-    podIdentityAssociations: Optional[StringList]
-    namespaceConfig: Optional[AddonNamespaceConfigResponse]
+    addonName: String | None
+    clusterName: ClusterName | None
+    status: AddonStatus | None
+    addonVersion: String | None
+    health: AddonHealth | None
+    addonArn: String | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+    serviceAccountRoleArn: String | None
+    tags: TagMap | None
+    publisher: String | None
+    owner: String | None
+    marketplaceInformation: MarketplaceInformation | None
+    configurationValues: String | None
+    podIdentityAssociations: StringList | None
+    namespaceConfig: AddonNamespaceConfigResponse | None
 
 
 class AddonCompatibilityDetail(TypedDict, total=False):
@@ -695,46 +749,46 @@ class AddonCompatibilityDetail(TypedDict, total=False):
     ``UPGRADE_READINESS`` category.
     """
 
-    name: Optional[String]
-    compatibleVersions: Optional[StringList]
+    name: String | None
+    compatibleVersions: StringList | None
 
 
-AddonCompatibilityDetails = List[AddonCompatibilityDetail]
+AddonCompatibilityDetails = list[AddonCompatibilityDetail]
 
 
 class Compatibility(TypedDict, total=False):
     """Compatibility information."""
 
-    clusterVersion: Optional[String]
-    platformVersions: Optional[StringList]
-    defaultVersion: Optional[Boolean]
+    clusterVersion: String | None
+    platformVersions: StringList | None
+    defaultVersion: Boolean | None
 
 
-Compatibilities = List[Compatibility]
+Compatibilities = list[Compatibility]
 
 
 class AddonVersionInfo(TypedDict, total=False):
     """Information about an add-on version."""
 
-    addonVersion: Optional[String]
-    architecture: Optional[StringList]
-    computeTypes: Optional[StringList]
-    compatibilities: Optional[Compatibilities]
-    requiresConfiguration: Optional[Boolean]
-    requiresIamPermissions: Optional[Boolean]
+    addonVersion: String | None
+    architecture: StringList | None
+    computeTypes: StringList | None
+    compatibilities: Compatibilities | None
+    requiresConfiguration: Boolean | None
+    requiresIamPermissions: Boolean | None
 
 
-AddonVersionInfoList = List[AddonVersionInfo]
+AddonVersionInfoList = list[AddonVersionInfo]
 
 
 class AddonInfo(TypedDict, total=False):
-    addonName: Optional[String]
-    type: Optional[String]
-    addonVersions: Optional[AddonVersionInfoList]
-    publisher: Optional[String]
-    owner: Optional[String]
-    marketplaceInformation: Optional[MarketplaceInformation]
-    defaultNamespace: Optional[String]
+    addonName: String | None
+    type: String | None
+    addonVersions: AddonVersionInfoList | None
+    publisher: String | None
+    owner: String | None
+    marketplaceInformation: MarketplaceInformation | None
+    defaultNamespace: String | None
 
 
 class AddonNamespaceConfigRequest(TypedDict, total=False):
@@ -742,7 +796,7 @@ class AddonNamespaceConfigRequest(TypedDict, total=False):
     namespace when creating an addon.
     """
 
-    namespace: Optional[namespace]
+    namespace: namespace | None
 
 
 class AddonPodIdentityAssociations(TypedDict, total=False):
@@ -761,18 +815,103 @@ class AddonPodIdentityAssociations(TypedDict, total=False):
     roleArn: String
 
 
-AddonPodIdentityAssociationsList = List[AddonPodIdentityAssociations]
+AddonPodIdentityAssociationsList = list[AddonPodIdentityAssociations]
 
 
 class AddonPodIdentityConfiguration(TypedDict, total=False):
     """Information about how to configure IAM for an add-on."""
 
-    serviceAccount: Optional[String]
-    recommendedManagedPolicies: Optional[StringList]
+    serviceAccount: String | None
+    recommendedManagedPolicies: StringList | None
 
 
-AddonPodIdentityConfigurationList = List[AddonPodIdentityConfiguration]
-Addons = List[AddonInfo]
+AddonPodIdentityConfigurationList = list[AddonPodIdentityConfiguration]
+Addons = list[AddonInfo]
+
+
+class ArgoCdAwsIdcConfigRequest(TypedDict, total=False):
+    """Configuration for integrating Argo CD with IAM Identity CenterIAM;
+    Identity Center. This allows you to use your organization's identity
+    provider for authentication to Argo CD.
+    """
+
+    idcInstanceArn: String
+    idcRegion: String | None
+
+
+class ArgoCdAwsIdcConfigResponse(TypedDict, total=False):
+    """The response object containing IAM Identity CenterIAM; Identity Center
+    configuration details for an Argo CD capability.
+    """
+
+    idcInstanceArn: String | None
+    idcRegion: String | None
+    idcManagedApplicationArn: String | None
+
+
+class ArgoCdNetworkAccessConfigRequest(TypedDict, total=False):
+    """Configuration for network access to the Argo CD capability's managed API
+    server endpoint. When VPC endpoint IDs are specified, public access is
+    blocked and the Argo CD server is only accessible through the specified
+    VPC endpoints.
+    """
+
+    vpceIds: StringList | None
+
+
+class SsoIdentity(TypedDict, total=False):
+    id: String
+    type: SsoIdentityType
+
+
+SsoIdentityList = list[SsoIdentity]
+
+
+class ArgoCdRoleMapping(TypedDict, total=False):
+    """A mapping between an Argo CD role and IAM Identity CenterIAM; Identity
+    Center identities. This defines which users or groups have specific
+    permissions in Argo CD.
+    """
+
+    role: ArgoCdRole
+    identities: SsoIdentityList
+
+
+ArgoCdRoleMappingList = list[ArgoCdRoleMapping]
+
+
+class ArgoCdConfigRequest(TypedDict, total=False):
+    """Configuration settings for an Argo CD capability. This includes the
+    Kubernetes namespace, IAM Identity CenterIAM; Identity Center
+    integration, RBAC role mappings, and network access configuration.
+    """
+
+    namespace: String | None
+    awsIdc: ArgoCdAwsIdcConfigRequest
+    rbacRoleMappings: ArgoCdRoleMappingList | None
+    networkAccess: ArgoCdNetworkAccessConfigRequest | None
+
+
+class ArgoCdNetworkAccessConfigResponse(TypedDict, total=False):
+    """The response object containing network access configuration for the Argo
+    CD capability's managed API server endpoint. If VPC endpoint IDs are
+    present, public access is blocked and the Argo CD server is only
+    accessible through the specified VPC endpoints.
+    """
+
+    vpceIds: StringList | None
+
+
+class ArgoCdConfigResponse(TypedDict, total=False):
+    """The response object containing Argo CD configuration details, including
+    the server URL that you use to access the Argo CD web interface and API.
+    """
+
+    namespace: String | None
+    awsIdc: ArgoCdAwsIdcConfigResponse | None
+    rbacRoleMappings: ArgoCdRoleMappingList | None
+    networkAccess: ArgoCdNetworkAccessConfigResponse | None
+    serverUrl: String | None
 
 
 class AssociateAccessPolicyRequest(ServiceRequest):
@@ -785,16 +924,16 @@ class AssociateAccessPolicyRequest(ServiceRequest):
 class AssociatedAccessPolicy(TypedDict, total=False):
     """An access policy association."""
 
-    policyArn: Optional[String]
-    accessScope: Optional[AccessScope]
-    associatedAt: Optional[Timestamp]
-    modifiedAt: Optional[Timestamp]
+    policyArn: String | None
+    accessScope: AccessScope | None
+    associatedAt: Timestamp | None
+    modifiedAt: Timestamp | None
 
 
 class AssociateAccessPolicyResponse(TypedDict, total=False):
-    clusterName: Optional[String]
-    principalArn: Optional[String]
-    associatedAccessPolicy: Optional[AssociatedAccessPolicy]
+    clusterName: String | None
+    principalArn: String | None
+    associatedAccessPolicy: AssociatedAccessPolicy | None
 
 
 class Provider(TypedDict, total=False):
@@ -802,58 +941,58 @@ class Provider(TypedDict, total=False):
     secrets.
     """
 
-    keyArn: Optional[String]
+    keyArn: String | None
 
 
 class EncryptionConfig(TypedDict, total=False):
     """The encryption configuration for the cluster."""
 
-    resources: Optional[StringList]
-    provider: Optional[Provider]
+    resources: StringList | None
+    provider: Provider | None
 
 
-EncryptionConfigList = List[EncryptionConfig]
+EncryptionConfigList = list[EncryptionConfig]
 
 
 class AssociateEncryptionConfigRequest(ServiceRequest):
     clusterName: String
     encryptionConfig: EncryptionConfigList
-    clientRequestToken: Optional[String]
+    clientRequestToken: String | None
 
 
 class ErrorDetail(TypedDict, total=False):
     """An object representing an error when an asynchronous operation fails."""
 
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[String]
-    resourceIds: Optional[StringList]
+    errorCode: ErrorCode | None
+    errorMessage: String | None
+    resourceIds: StringList | None
 
 
-ErrorDetails = List[ErrorDetail]
+ErrorDetails = list[ErrorDetail]
 
 
 class UpdateParam(TypedDict, total=False):
-    type: Optional[UpdateParamType]
-    value: Optional[String]
+    type: UpdateParamType | None
+    value: String | None
 
 
-UpdateParams = List[UpdateParam]
+UpdateParams = list[UpdateParam]
 
 
 class Update(TypedDict, total=False):
-    id: Optional[String]
-    status: Optional[UpdateStatus]
-    type: Optional[UpdateType]
-    params: Optional[UpdateParams]
-    createdAt: Optional[Timestamp]
-    errors: Optional[ErrorDetails]
+    id: String | None
+    status: UpdateStatus | None
+    type: UpdateType | None
+    params: UpdateParams | None
+    createdAt: Timestamp | None
+    errors: ErrorDetails | None
 
 
 class AssociateEncryptionConfigResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
-requiredClaimsMap = Dict[requiredClaimsKey, requiredClaimsValue]
+requiredClaimsMap = dict[requiredClaimsKey, requiredClaimsValue]
 
 
 class OidcIdentityProviderConfigRequest(TypedDict, total=False):
@@ -868,37 +1007,37 @@ class OidcIdentityProviderConfigRequest(TypedDict, total=False):
     identityProviderConfigName: String
     issuerUrl: String
     clientId: String
-    usernameClaim: Optional[String]
-    usernamePrefix: Optional[String]
-    groupsClaim: Optional[String]
-    groupsPrefix: Optional[String]
-    requiredClaims: Optional[requiredClaimsMap]
+    usernameClaim: String | None
+    usernamePrefix: String | None
+    groupsClaim: String | None
+    groupsPrefix: String | None
+    requiredClaims: requiredClaimsMap | None
 
 
 class AssociateIdentityProviderConfigRequest(ServiceRequest):
     clusterName: String
     oidc: OidcIdentityProviderConfigRequest
-    tags: Optional[TagMap]
-    clientRequestToken: Optional[String]
+    tags: TagMap | None
+    clientRequestToken: String | None
 
 
 class AssociateIdentityProviderConfigResponse(TypedDict, total=False):
-    update: Optional[Update]
-    tags: Optional[TagMap]
+    update: Update | None
+    tags: TagMap | None
 
 
-AssociatedAccessPoliciesList = List[AssociatedAccessPolicy]
+AssociatedAccessPoliciesList = list[AssociatedAccessPolicy]
 
 
 class AutoScalingGroup(TypedDict, total=False):
-    """An Auto Scaling group that is associated with an Amazon EKS managed node
-    group.
+    """An Amazon EC2 Auto Scaling group that is associated with an Amazon EKS
+    managed node group.
     """
 
-    name: Optional[String]
+    name: String | None
 
 
-AutoScalingGroupList = List[AutoScalingGroup]
+AutoScalingGroupList = list[AutoScalingGroup]
 
 
 class BlockStorage(TypedDict, total=False):
@@ -910,10 +1049,69 @@ class BlockStorage(TypedDict, total=False):
     *Amazon EKS User Guide*.
     """
 
-    enabled: Optional[BoxedBoolean]
+    enabled: BoxedBoolean | None
 
 
-CategoryList = List[Category]
+class CapabilityIssue(TypedDict, total=False):
+    """An issue affecting a capability's health or operation."""
+
+    code: CapabilityIssueCode | None
+    message: String | None
+
+
+CapabilityIssueList = list[CapabilityIssue]
+
+
+class CapabilityHealth(TypedDict, total=False):
+    """Health information for a capability, including any issues that may be
+    affecting its operation.
+    """
+
+    issues: CapabilityIssueList | None
+
+
+class CapabilityConfigurationResponse(TypedDict, total=False):
+    """The response object containing capability configuration details."""
+
+    argoCd: ArgoCdConfigResponse | None
+
+
+class Capability(TypedDict, total=False):
+    capabilityName: String | None
+    arn: String | None
+    clusterName: String | None
+    type: CapabilityType | None
+    roleArn: String | None
+    status: CapabilityStatus | None
+    version: String | None
+    configuration: CapabilityConfigurationResponse | None
+    tags: TagMap | None
+    health: CapabilityHealth | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+    deletePropagationPolicy: CapabilityDeletePropagationPolicy | None
+
+
+class CapabilityConfigurationRequest(TypedDict, total=False):
+    """Configuration settings for a capability. The structure of this object
+    varies depending on the capability type.
+    """
+
+    argoCd: ArgoCdConfigRequest | None
+
+
+class CapabilitySummary(TypedDict, total=False):
+    capabilityName: String | None
+    arn: String | None
+    type: CapabilityType | None
+    status: CapabilityStatus | None
+    version: String | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+
+
+CapabilitySummaryList = list[CapabilitySummary]
+CategoryList = list[Category]
 
 
 class Certificate(TypedDict, total=False):
@@ -921,18 +1119,26 @@ class Certificate(TypedDict, total=False):
     cluster.
     """
 
-    data: Optional[String]
+    data: String | None
 
 
 class ClientStat(TypedDict, total=False):
     """Details about clients using the deprecated resources."""
 
-    userAgent: Optional[String]
-    numberOfRequestsLast30Days: Optional[Integer]
-    lastRequestTime: Optional[Timestamp]
+    userAgent: String | None
+    numberOfRequestsLast30Days: Integer | None
+    lastRequestTime: Timestamp | None
 
 
-ClientStats = List[ClientStat]
+ClientStats = list[ClientStat]
+
+
+class ControlPlaneScalingConfig(TypedDict, total=False):
+    """The control plane scaling tier configuration. For more information, see
+    EKS Provisioned Control Plane in the Amazon EKS User Guide.
+    """
+
+    tier: ProvisionedControlPlaneTier | None
 
 
 class StorageConfigResponse(TypedDict, total=False):
@@ -940,7 +1146,7 @@ class StorageConfigResponse(TypedDict, total=False):
     capability of your EKS Auto Mode cluster.
     """
 
-    blockStorage: Optional[BlockStorage]
+    blockStorage: BlockStorage | None
 
 
 class ComputeConfigResponse(TypedDict, total=False):
@@ -948,9 +1154,9 @@ class ComputeConfigResponse(TypedDict, total=False):
     your EKS Auto Mode cluster.
     """
 
-    enabled: Optional[BoxedBoolean]
-    nodePools: Optional[StringList]
-    nodeRoleArn: Optional[String]
+    enabled: BoxedBoolean | None
+    nodePools: StringList | None
+    nodeRoleArn: String | None
 
 
 class RemotePodNetwork(TypedDict, total=False):
@@ -975,10 +1181,10 @@ class RemotePodNetwork(TypedDict, total=False):
        your EKS resources, or the block of the Kubernetes service IP range.
     """
 
-    cidrs: Optional[StringList]
+    cidrs: StringList | None
 
 
-RemotePodNetworkList = List[RemotePodNetwork]
+RemotePodNetworkList = list[RemotePodNetwork]
 
 
 class RemoteNodeNetwork(TypedDict, total=False):
@@ -1015,10 +1221,10 @@ class RemoteNodeNetwork(TypedDict, total=False):
        service and pod DNS names.
     """
 
-    cidrs: Optional[StringList]
+    cidrs: StringList | None
 
 
-RemoteNodeNetworkList = List[RemoteNodeNetwork]
+RemoteNodeNetworkList = list[RemoteNodeNetwork]
 
 
 class RemoteNetworkConfigResponse(TypedDict, total=False):
@@ -1026,14 +1232,14 @@ class RemoteNetworkConfigResponse(TypedDict, total=False):
     change, or remove this configuration after the cluster is created.
     """
 
-    remoteNodeNetworks: Optional[RemoteNodeNetworkList]
-    remotePodNetworks: Optional[RemotePodNetworkList]
+    remoteNodeNetworks: RemoteNodeNetworkList | None
+    remotePodNetworks: RemotePodNetworkList | None
 
 
 class ZonalShiftConfigResponse(TypedDict, total=False):
     """The status of zonal shift configuration for the cluster"""
 
-    enabled: Optional[BoxedBoolean]
+    enabled: BoxedBoolean | None
 
 
 class UpgradePolicyResponse(TypedDict, total=False):
@@ -1044,7 +1250,7 @@ class UpgradePolicyResponse(TypedDict, total=False):
     Guide. <https://docs.aws.amazon.com/eks/latest/userguide/extended-support-control.html>`__
     """
 
-    supportType: Optional[SupportType]
+    supportType: SupportType | None
 
 
 class ControlPlanePlacementResponse(TypedDict, total=False):
@@ -1055,7 +1261,7 @@ class ControlPlanePlacementResponse(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    groupName: Optional[String]
+    groupName: String | None
 
 
 class OutpostConfigResponse(TypedDict, total=False):
@@ -1066,34 +1272,34 @@ class OutpostConfigResponse(TypedDict, total=False):
 
     outpostArns: StringList
     controlPlaneInstanceType: String
-    controlPlanePlacement: Optional[ControlPlanePlacementResponse]
+    controlPlanePlacement: ControlPlanePlacementResponse | None
 
 
 class ClusterIssue(TypedDict, total=False):
     """An issue with your Amazon EKS cluster."""
 
-    code: Optional[ClusterIssueCode]
-    message: Optional[String]
-    resourceIds: Optional[StringList]
+    code: ClusterIssueCode | None
+    message: String | None
+    resourceIds: StringList | None
 
 
-ClusterIssueList = List[ClusterIssue]
+ClusterIssueList = list[ClusterIssue]
 
 
 class ClusterHealth(TypedDict, total=False):
     """An object representing the health of your Amazon EKS cluster."""
 
-    issues: Optional[ClusterIssueList]
+    issues: ClusterIssueList | None
 
 
 class ConnectorConfigResponse(TypedDict, total=False):
     """The full description of your connected cluster."""
 
-    activationId: Optional[String]
-    activationCode: Optional[String]
-    activationExpiry: Optional[Timestamp]
-    provider: Optional[String]
-    roleArn: Optional[String]
+    activationId: String | None
+    activationCode: String | None
+    activationExpiry: Timestamp | None
+    provider: String | None
+    roleArn: String | None
 
 
 class OIDC(TypedDict, total=False):
@@ -1102,16 +1308,16 @@ class OIDC(TypedDict, total=False):
     information for the cluster.
     """
 
-    issuer: Optional[String]
+    issuer: String | None
 
 
 class Identity(TypedDict, total=False):
     """An object representing an identity provider."""
 
-    oidc: Optional[OIDC]
+    oidc: OIDC | None
 
 
-LogTypes = List[LogType]
+LogTypes = list[LogType]
 
 
 class LogSetup(TypedDict, total=False):
@@ -1119,11 +1325,11 @@ class LogSetup(TypedDict, total=False):
     logs for your cluster.
     """
 
-    types: Optional[LogTypes]
-    enabled: Optional[BoxedBoolean]
+    types: LogTypes | None
+    enabled: BoxedBoolean | None
 
 
-LogSetups = List[LogSetup]
+LogSetups = list[LogSetup]
 
 
 class Logging(TypedDict, total=False):
@@ -1131,7 +1337,7 @@ class Logging(TypedDict, total=False):
     cluster.
     """
 
-    clusterLogging: Optional[LogSetups]
+    clusterLogging: LogSetups | None
 
 
 class ElasticLoadBalancing(TypedDict, total=False):
@@ -1141,7 +1347,7 @@ class ElasticLoadBalancing(TypedDict, total=False):
     capability in the *Amazon EKS User Guide*.
     """
 
-    enabled: Optional[BoxedBoolean]
+    enabled: BoxedBoolean | None
 
 
 class KubernetesNetworkConfigResponse(TypedDict, total=False):
@@ -1150,72 +1356,73 @@ class KubernetesNetworkConfigResponse(TypedDict, total=False):
     both.
     """
 
-    serviceIpv4Cidr: Optional[String]
-    serviceIpv6Cidr: Optional[String]
-    ipFamily: Optional[IpFamily]
-    elasticLoadBalancing: Optional[ElasticLoadBalancing]
+    serviceIpv4Cidr: String | None
+    serviceIpv6Cidr: String | None
+    ipFamily: IpFamily | None
+    elasticLoadBalancing: ElasticLoadBalancing | None
 
 
 class VpcConfigResponse(TypedDict, total=False):
     """An object representing an Amazon EKS cluster VPC configuration response."""
 
-    subnetIds: Optional[StringList]
-    securityGroupIds: Optional[StringList]
-    clusterSecurityGroupId: Optional[String]
-    vpcId: Optional[String]
-    endpointPublicAccess: Optional[Boolean]
-    endpointPrivateAccess: Optional[Boolean]
-    publicAccessCidrs: Optional[StringList]
+    subnetIds: StringList | None
+    securityGroupIds: StringList | None
+    clusterSecurityGroupId: String | None
+    vpcId: String | None
+    endpointPublicAccess: Boolean | None
+    endpointPrivateAccess: Boolean | None
+    publicAccessCidrs: StringList | None
 
 
 class Cluster(TypedDict, total=False):
     """An object representing an Amazon EKS cluster."""
 
-    name: Optional[String]
-    arn: Optional[String]
-    createdAt: Optional[Timestamp]
-    version: Optional[String]
-    endpoint: Optional[String]
-    roleArn: Optional[String]
-    resourcesVpcConfig: Optional[VpcConfigResponse]
-    kubernetesNetworkConfig: Optional[KubernetesNetworkConfigResponse]
-    logging: Optional[Logging]
-    identity: Optional[Identity]
-    status: Optional[ClusterStatus]
-    certificateAuthority: Optional[Certificate]
-    clientRequestToken: Optional[String]
-    platformVersion: Optional[String]
-    tags: Optional[TagMap]
-    encryptionConfig: Optional[EncryptionConfigList]
-    connectorConfig: Optional[ConnectorConfigResponse]
-    id: Optional[String]
-    health: Optional[ClusterHealth]
-    outpostConfig: Optional[OutpostConfigResponse]
-    accessConfig: Optional[AccessConfigResponse]
-    upgradePolicy: Optional[UpgradePolicyResponse]
-    zonalShiftConfig: Optional[ZonalShiftConfigResponse]
-    remoteNetworkConfig: Optional[RemoteNetworkConfigResponse]
-    computeConfig: Optional[ComputeConfigResponse]
-    storageConfig: Optional[StorageConfigResponse]
-    deletionProtection: Optional[BoxedBoolean]
+    name: String | None
+    arn: String | None
+    createdAt: Timestamp | None
+    version: String | None
+    endpoint: String | None
+    roleArn: String | None
+    resourcesVpcConfig: VpcConfigResponse | None
+    kubernetesNetworkConfig: KubernetesNetworkConfigResponse | None
+    logging: Logging | None
+    identity: Identity | None
+    status: ClusterStatus | None
+    certificateAuthority: Certificate | None
+    clientRequestToken: String | None
+    platformVersion: String | None
+    tags: TagMap | None
+    encryptionConfig: EncryptionConfigList | None
+    connectorConfig: ConnectorConfigResponse | None
+    id: String | None
+    health: ClusterHealth | None
+    outpostConfig: OutpostConfigResponse | None
+    accessConfig: AccessConfigResponse | None
+    upgradePolicy: UpgradePolicyResponse | None
+    zonalShiftConfig: ZonalShiftConfigResponse | None
+    remoteNetworkConfig: RemoteNetworkConfigResponse | None
+    computeConfig: ComputeConfigResponse | None
+    storageConfig: StorageConfigResponse | None
+    deletionProtection: BoxedBoolean | None
+    controlPlaneScalingConfig: ControlPlaneScalingConfig | None
 
 
 class ClusterVersionInformation(TypedDict, total=False):
     """Contains details about a specific EKS cluster version."""
 
-    clusterVersion: Optional[String]
-    clusterType: Optional[String]
-    defaultPlatformVersion: Optional[String]
-    defaultVersion: Optional[Boolean]
-    releaseDate: Optional[Timestamp]
-    endOfStandardSupportDate: Optional[Timestamp]
-    endOfExtendedSupportDate: Optional[Timestamp]
-    status: Optional[ClusterVersionStatus]
-    versionStatus: Optional[VersionStatus]
-    kubernetesPatchVersion: Optional[String]
+    clusterVersion: String | None
+    clusterType: String | None
+    defaultPlatformVersion: String | None
+    defaultVersion: Boolean | None
+    releaseDate: Timestamp | None
+    endOfStandardSupportDate: Timestamp | None
+    endOfExtendedSupportDate: Timestamp | None
+    status: ClusterVersionStatus | None
+    versionStatus: VersionStatus | None
+    kubernetesPatchVersion: String | None
 
 
-ClusterVersionList = List[ClusterVersionInformation]
+ClusterVersionList = list[ClusterVersionInformation]
 
 
 class ComputeConfigRequest(TypedDict, total=False):
@@ -1225,9 +1432,9 @@ class ComputeConfigRequest(TypedDict, total=False):
     User Guide*.
     """
 
-    enabled: Optional[BoxedBoolean]
-    nodePools: Optional[StringList]
-    nodeRoleArn: Optional[String]
+    enabled: BoxedBoolean | None
+    nodePools: StringList | None
+    nodeRoleArn: String | None
 
 
 class ConnectorConfigRequest(TypedDict, total=False):
@@ -1245,45 +1452,60 @@ class ControlPlanePlacementRequest(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    groupName: Optional[String]
+    groupName: String | None
 
 
 class CreateAccessConfigRequest(TypedDict, total=False):
     """The access configuration information for the cluster."""
 
-    bootstrapClusterCreatorAdminPermissions: Optional[BoxedBoolean]
-    authenticationMode: Optional[AuthenticationMode]
+    bootstrapClusterCreatorAdminPermissions: BoxedBoolean | None
+    authenticationMode: AuthenticationMode | None
 
 
 class CreateAccessEntryRequest(TypedDict, total=False):
     clusterName: String
     principalArn: String
-    kubernetesGroups: Optional[StringList]
-    tags: Optional[TagMap]
-    clientRequestToken: Optional[String]
-    username: Optional[String]
-    type: Optional[String]
+    kubernetesGroups: StringList | None
+    tags: TagMap | None
+    clientRequestToken: String | None
+    username: String | None
+    type: String | None
 
 
 class CreateAccessEntryResponse(TypedDict, total=False):
-    accessEntry: Optional[AccessEntry]
+    accessEntry: AccessEntry | None
 
 
 class CreateAddonRequest(ServiceRequest):
     clusterName: ClusterName
     addonName: String
-    addonVersion: Optional[String]
-    serviceAccountRoleArn: Optional[RoleArn]
-    resolveConflicts: Optional[ResolveConflicts]
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
-    configurationValues: Optional[String]
-    podIdentityAssociations: Optional[AddonPodIdentityAssociationsList]
-    namespaceConfig: Optional[AddonNamespaceConfigRequest]
+    addonVersion: String | None
+    serviceAccountRoleArn: RoleArn | None
+    resolveConflicts: ResolveConflicts | None
+    clientRequestToken: String | None
+    tags: TagMap | None
+    configurationValues: String | None
+    podIdentityAssociations: AddonPodIdentityAssociationsList | None
+    namespaceConfig: AddonNamespaceConfigRequest | None
 
 
 class CreateAddonResponse(TypedDict, total=False):
-    addon: Optional[Addon]
+    addon: Addon | None
+
+
+class CreateCapabilityRequest(TypedDict, total=False):
+    capabilityName: String
+    clusterName: String
+    clientRequestToken: String | None
+    type: CapabilityType
+    roleArn: String
+    configuration: CapabilityConfigurationRequest | None
+    tags: TagMap | None
+    deletePropagationPolicy: CapabilityDeletePropagationPolicy
+
+
+class CreateCapabilityResponse(TypedDict, total=False):
+    capability: Capability | None
 
 
 class StorageConfigRequest(TypedDict, total=False):
@@ -1293,7 +1515,7 @@ class StorageConfigRequest(TypedDict, total=False):
     EKS User Guide*.
     """
 
-    blockStorage: Optional[BlockStorage]
+    blockStorage: BlockStorage | None
 
 
 class RemoteNetworkConfigRequest(TypedDict, total=False):
@@ -1301,14 +1523,14 @@ class RemoteNetworkConfigRequest(TypedDict, total=False):
     change, or remove this configuration after the cluster is created.
     """
 
-    remoteNodeNetworks: Optional[RemoteNodeNetworkList]
-    remotePodNetworks: Optional[RemotePodNetworkList]
+    remoteNodeNetworks: RemoteNodeNetworkList | None
+    remotePodNetworks: RemotePodNetworkList | None
 
 
 class ZonalShiftConfigRequest(TypedDict, total=False):
     """The configuration for zonal shift for the cluster."""
 
-    enabled: Optional[BoxedBoolean]
+    enabled: BoxedBoolean | None
 
 
 class UpgradePolicyRequest(TypedDict, total=False):
@@ -1321,7 +1543,7 @@ class UpgradePolicyRequest(TypedDict, total=False):
     Guide. <https://docs.aws.amazon.com/eks/latest/userguide/extended-support-control.html>`__
     """
 
-    supportType: Optional[SupportType]
+    supportType: SupportType | None
 
 
 class OutpostConfigRequest(TypedDict, total=False):
@@ -1335,15 +1557,15 @@ class OutpostConfigRequest(TypedDict, total=False):
 
     outpostArns: StringList
     controlPlaneInstanceType: String
-    controlPlanePlacement: Optional[ControlPlanePlacementRequest]
+    controlPlanePlacement: ControlPlanePlacementRequest | None
 
 
 class KubernetesNetworkConfigRequest(TypedDict, total=False):
     """The Kubernetes network configuration for the cluster."""
 
-    serviceIpv4Cidr: Optional[String]
-    ipFamily: Optional[IpFamily]
-    elasticLoadBalancing: Optional[ElasticLoadBalancing]
+    serviceIpv4Cidr: String | None
+    ipFamily: IpFamily | None
+    elasticLoadBalancing: ElasticLoadBalancing | None
 
 
 class VpcConfigRequest(TypedDict, total=False):
@@ -1351,36 +1573,37 @@ class VpcConfigRequest(TypedDict, total=False):
     cluster.
     """
 
-    subnetIds: Optional[StringList]
-    securityGroupIds: Optional[StringList]
-    endpointPublicAccess: Optional[BoxedBoolean]
-    endpointPrivateAccess: Optional[BoxedBoolean]
-    publicAccessCidrs: Optional[StringList]
+    subnetIds: StringList | None
+    securityGroupIds: StringList | None
+    endpointPublicAccess: BoxedBoolean | None
+    endpointPrivateAccess: BoxedBoolean | None
+    publicAccessCidrs: StringList | None
 
 
 class CreateClusterRequest(ServiceRequest):
     name: ClusterName
-    version: Optional[String]
+    version: String | None
     roleArn: String
     resourcesVpcConfig: VpcConfigRequest
-    kubernetesNetworkConfig: Optional[KubernetesNetworkConfigRequest]
-    logging: Optional[Logging]
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
-    encryptionConfig: Optional[EncryptionConfigList]
-    outpostConfig: Optional[OutpostConfigRequest]
-    accessConfig: Optional[CreateAccessConfigRequest]
-    bootstrapSelfManagedAddons: Optional[BoxedBoolean]
-    upgradePolicy: Optional[UpgradePolicyRequest]
-    zonalShiftConfig: Optional[ZonalShiftConfigRequest]
-    remoteNetworkConfig: Optional[RemoteNetworkConfigRequest]
-    computeConfig: Optional[ComputeConfigRequest]
-    storageConfig: Optional[StorageConfigRequest]
-    deletionProtection: Optional[BoxedBoolean]
+    kubernetesNetworkConfig: KubernetesNetworkConfigRequest | None
+    logging: Logging | None
+    clientRequestToken: String | None
+    tags: TagMap | None
+    encryptionConfig: EncryptionConfigList | None
+    outpostConfig: OutpostConfigRequest | None
+    accessConfig: CreateAccessConfigRequest | None
+    bootstrapSelfManagedAddons: BoxedBoolean | None
+    upgradePolicy: UpgradePolicyRequest | None
+    zonalShiftConfig: ZonalShiftConfigRequest | None
+    remoteNetworkConfig: RemoteNetworkConfigRequest | None
+    computeConfig: ComputeConfigRequest | None
+    storageConfig: StorageConfigRequest | None
+    deletionProtection: BoxedBoolean | None
+    controlPlaneScalingConfig: ControlPlaneScalingConfig | None
 
 
 class CreateClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class EksAnywhereSubscriptionTerm(TypedDict, total=False):
@@ -1390,28 +1613,28 @@ class EksAnywhereSubscriptionTerm(TypedDict, total=False):
     indicating a 12 month or 36 month subscription.
     """
 
-    duration: Optional[Integer]
-    unit: Optional[EksAnywhereSubscriptionTermUnit]
+    duration: Integer | None
+    unit: EksAnywhereSubscriptionTermUnit | None
 
 
 class CreateEksAnywhereSubscriptionRequest(ServiceRequest):
     name: EksAnywhereSubscriptionName
     term: EksAnywhereSubscriptionTerm
-    licenseQuantity: Optional[Integer]
-    licenseType: Optional[EksAnywhereSubscriptionLicenseType]
-    autoRenew: Optional[Boolean]
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
+    licenseQuantity: Integer | None
+    licenseType: EksAnywhereSubscriptionLicenseType | None
+    autoRenew: Boolean | None
+    clientRequestToken: String | None
+    tags: TagMap | None
 
 
 class License(TypedDict, total=False):
     """An EKS Anywhere license associated with a subscription."""
 
-    id: Optional[String]
-    token: Optional[String]
+    id: String | None
+    token: String | None
 
 
-LicenseList = List[License]
+LicenseList = list[License]
 
 
 class EksAnywhereSubscription(TypedDict, total=False):
@@ -1419,57 +1642,57 @@ class EksAnywhereSubscription(TypedDict, total=False):
     licensed clusters and access to EKS Anywhere Curated Packages.
     """
 
-    id: Optional[String]
-    arn: Optional[String]
-    createdAt: Optional[Timestamp]
-    effectiveDate: Optional[Timestamp]
-    expirationDate: Optional[Timestamp]
-    licenseQuantity: Optional[Integer]
-    licenseType: Optional[EksAnywhereSubscriptionLicenseType]
-    term: Optional[EksAnywhereSubscriptionTerm]
-    status: Optional[String]
-    autoRenew: Optional[Boolean]
-    licenseArns: Optional[StringList]
-    licenses: Optional[LicenseList]
-    tags: Optional[TagMap]
+    id: String | None
+    arn: String | None
+    createdAt: Timestamp | None
+    effectiveDate: Timestamp | None
+    expirationDate: Timestamp | None
+    licenseQuantity: Integer | None
+    licenseType: EksAnywhereSubscriptionLicenseType | None
+    term: EksAnywhereSubscriptionTerm | None
+    status: String | None
+    autoRenew: Boolean | None
+    licenseArns: StringList | None
+    licenses: LicenseList | None
+    tags: TagMap | None
 
 
 class CreateEksAnywhereSubscriptionResponse(TypedDict, total=False):
-    subscription: Optional[EksAnywhereSubscription]
+    subscription: EksAnywhereSubscription | None
 
 
-FargateProfileLabel = Dict[String, String]
+FargateProfileLabel = dict[String, String]
 
 
 class FargateProfileSelector(TypedDict, total=False):
     """An object representing an Fargate profile selector."""
 
-    namespace: Optional[String]
-    labels: Optional[FargateProfileLabel]
+    namespace: String | None
+    labels: FargateProfileLabel | None
 
 
-FargateProfileSelectors = List[FargateProfileSelector]
+FargateProfileSelectors = list[FargateProfileSelector]
 
 
 class CreateFargateProfileRequest(ServiceRequest):
     fargateProfileName: String
     clusterName: String
     podExecutionRoleArn: String
-    subnets: Optional[StringList]
-    selectors: Optional[FargateProfileSelectors]
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
+    subnets: StringList | None
+    selectors: FargateProfileSelectors | None
+    clientRequestToken: String | None
+    tags: TagMap | None
 
 
 class FargateProfileIssue(TypedDict, total=False):
     """An issue that is associated with the Fargate profile."""
 
-    code: Optional[FargateProfileIssueCode]
-    message: Optional[String]
-    resourceIds: Optional[StringList]
+    code: FargateProfileIssueCode | None
+    message: String | None
+    resourceIds: StringList | None
 
 
-FargateProfileIssueList = List[FargateProfileIssue]
+FargateProfileIssueList = list[FargateProfileIssue]
 
 
 class FargateProfileHealth(TypedDict, total=False):
@@ -1477,32 +1700,53 @@ class FargateProfileHealth(TypedDict, total=False):
     Fargate profile's health, they are listed here.
     """
 
-    issues: Optional[FargateProfileIssueList]
+    issues: FargateProfileIssueList | None
 
 
 class FargateProfile(TypedDict, total=False):
     """An object representing an Fargate profile."""
 
-    fargateProfileName: Optional[String]
-    fargateProfileArn: Optional[String]
-    clusterName: Optional[String]
-    createdAt: Optional[Timestamp]
-    podExecutionRoleArn: Optional[String]
-    subnets: Optional[StringList]
-    selectors: Optional[FargateProfileSelectors]
-    status: Optional[FargateProfileStatus]
-    tags: Optional[TagMap]
-    health: Optional[FargateProfileHealth]
+    fargateProfileName: String | None
+    fargateProfileArn: String | None
+    clusterName: String | None
+    createdAt: Timestamp | None
+    podExecutionRoleArn: String | None
+    subnets: StringList | None
+    selectors: FargateProfileSelectors | None
+    status: FargateProfileStatus | None
+    tags: TagMap | None
+    health: FargateProfileHealth | None
 
 
 class CreateFargateProfileResponse(TypedDict, total=False):
-    fargateProfile: Optional[FargateProfile]
+    fargateProfile: FargateProfile | None
+
+
+class NodeRepairConfigOverrides(TypedDict, total=False):
+    """Specify granular overrides for specific repair actions. These overrides
+    control the repair action and the repair delay time before a node is
+    considered eligible for repair. If you use this, you must specify all
+    the values.
+    """
+
+    nodeMonitoringCondition: String | None
+    nodeUnhealthyReason: String | None
+    minRepairWaitTimeMins: NonZeroInteger | None
+    repairAction: RepairAction | None
+
+
+NodeRepairConfigOverridesList = list[NodeRepairConfigOverrides]
 
 
 class NodeRepairConfig(TypedDict, total=False):
     """The node auto repair configuration for the node group."""
 
-    enabled: Optional[BoxedBoolean]
+    enabled: BoxedBoolean | None
+    maxUnhealthyNodeThresholdCount: NonZeroInteger | None
+    maxUnhealthyNodeThresholdPercentage: PercentCapacity | None
+    maxParallelNodesRepairedCount: NonZeroInteger | None
+    maxParallelNodesRepairedPercentage: PercentCapacity | None
+    nodeRepairConfigOverrides: NodeRepairConfigOverridesList | None
 
 
 class NodegroupUpdateConfig(TypedDict, total=False):
@@ -1512,9 +1756,9 @@ class NodegroupUpdateConfig(TypedDict, total=False):
     strategy*.
     """
 
-    maxUnavailable: Optional[NonZeroInteger]
-    maxUnavailablePercentage: Optional[PercentCapacity]
-    updateStrategy: Optional[NodegroupUpdateStrategies]
+    maxUnavailable: NonZeroInteger | None
+    maxUnavailablePercentage: PercentCapacity | None
+    updateStrategy: NodegroupUpdateStrategies | None
 
 
 class LaunchTemplateSpecification(TypedDict, total=False):
@@ -1541,9 +1785,9 @@ class LaunchTemplateSpecification(TypedDict, total=False):
     name in the request, but not both.
     """
 
-    name: Optional[String]
-    version: Optional[String]
-    id: Optional[String]
+    name: String | None
+    version: String | None
+    id: String | None
 
 
 class Taint(TypedDict, total=False):
@@ -1553,13 +1797,13 @@ class Taint(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    key: Optional[taintKey]
-    value: Optional[taintValue]
-    effect: Optional[TaintEffect]
+    key: taintKey | None
+    value: taintValue | None
+    effect: TaintEffect | None
 
 
-taintsList = List[Taint]
-labelsMap = Dict[labelKey, labelValue]
+taintsList = list[Taint]
+labelsMap = dict[labelKey, labelValue]
 
 
 class RemoteAccessConfig(TypedDict, total=False):
@@ -1567,59 +1811,60 @@ class RemoteAccessConfig(TypedDict, total=False):
     node group.
     """
 
-    ec2SshKey: Optional[String]
-    sourceSecurityGroups: Optional[StringList]
+    ec2SshKey: String | None
+    sourceSecurityGroups: StringList | None
 
 
 class NodegroupScalingConfig(TypedDict, total=False):
-    """An object representing the scaling configuration details for the Auto
-    Scaling group that is associated with your node group. When creating a
-    node group, you must specify all or none of the properties. When
-    updating a node group, you can specify any or none of the properties.
+    """An object representing the scaling configuration details for the Amazon
+    EC2 Auto Scaling group that is associated with your node group. When
+    creating a node group, you must specify all or none of the properties.
+    When updating a node group, you can specify any or none of the
+    properties.
     """
 
-    minSize: Optional[ZeroCapacity]
-    maxSize: Optional[Capacity]
-    desiredSize: Optional[ZeroCapacity]
+    minSize: ZeroCapacity | None
+    maxSize: Capacity | None
+    desiredSize: ZeroCapacity | None
 
 
 class CreateNodegroupRequest(ServiceRequest):
     clusterName: String
     nodegroupName: String
-    scalingConfig: Optional[NodegroupScalingConfig]
-    diskSize: Optional[BoxedInteger]
+    scalingConfig: NodegroupScalingConfig | None
+    diskSize: BoxedInteger | None
     subnets: StringList
-    instanceTypes: Optional[StringList]
-    amiType: Optional[AMITypes]
-    remoteAccess: Optional[RemoteAccessConfig]
+    instanceTypes: StringList | None
+    amiType: AMITypes | None
+    remoteAccess: RemoteAccessConfig | None
     nodeRole: String
-    labels: Optional[labelsMap]
-    taints: Optional[taintsList]
-    tags: Optional[TagMap]
-    clientRequestToken: Optional[String]
-    launchTemplate: Optional[LaunchTemplateSpecification]
-    updateConfig: Optional[NodegroupUpdateConfig]
-    nodeRepairConfig: Optional[NodeRepairConfig]
-    capacityType: Optional[CapacityTypes]
-    version: Optional[String]
-    releaseVersion: Optional[String]
+    labels: labelsMap | None
+    taints: taintsList | None
+    tags: TagMap | None
+    clientRequestToken: String | None
+    launchTemplate: LaunchTemplateSpecification | None
+    updateConfig: NodegroupUpdateConfig | None
+    nodeRepairConfig: NodeRepairConfig | None
+    capacityType: CapacityTypes | None
+    version: String | None
+    releaseVersion: String | None
 
 
 class Issue(TypedDict, total=False):
     """An object representing an issue with an Amazon EKS resource."""
 
-    code: Optional[NodegroupIssueCode]
-    message: Optional[String]
-    resourceIds: Optional[StringList]
+    code: NodegroupIssueCode | None
+    message: String | None
+    resourceIds: StringList | None
 
 
-IssueList = List[Issue]
+IssueList = list[Issue]
 
 
 class NodegroupHealth(TypedDict, total=False):
     """An object representing the health status of the node group."""
 
-    issues: Optional[IssueList]
+    issues: IssueList | None
 
 
 class NodegroupResources(TypedDict, total=False):
@@ -1627,41 +1872,41 @@ class NodegroupResources(TypedDict, total=False):
     such as Auto Scaling groups and security groups for remote access.
     """
 
-    autoScalingGroups: Optional[AutoScalingGroupList]
-    remoteAccessSecurityGroup: Optional[String]
+    autoScalingGroups: AutoScalingGroupList | None
+    remoteAccessSecurityGroup: String | None
 
 
 class Nodegroup(TypedDict, total=False):
     """An object representing an Amazon EKS managed node group."""
 
-    nodegroupName: Optional[String]
-    nodegroupArn: Optional[String]
-    clusterName: Optional[String]
-    version: Optional[String]
-    releaseVersion: Optional[String]
-    createdAt: Optional[Timestamp]
-    modifiedAt: Optional[Timestamp]
-    status: Optional[NodegroupStatus]
-    capacityType: Optional[CapacityTypes]
-    scalingConfig: Optional[NodegroupScalingConfig]
-    instanceTypes: Optional[StringList]
-    subnets: Optional[StringList]
-    remoteAccess: Optional[RemoteAccessConfig]
-    amiType: Optional[AMITypes]
-    nodeRole: Optional[String]
-    labels: Optional[labelsMap]
-    taints: Optional[taintsList]
-    resources: Optional[NodegroupResources]
-    diskSize: Optional[BoxedInteger]
-    health: Optional[NodegroupHealth]
-    updateConfig: Optional[NodegroupUpdateConfig]
-    nodeRepairConfig: Optional[NodeRepairConfig]
-    launchTemplate: Optional[LaunchTemplateSpecification]
-    tags: Optional[TagMap]
+    nodegroupName: String | None
+    nodegroupArn: String | None
+    clusterName: String | None
+    version: String | None
+    releaseVersion: String | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+    status: NodegroupStatus | None
+    capacityType: CapacityTypes | None
+    scalingConfig: NodegroupScalingConfig | None
+    instanceTypes: StringList | None
+    subnets: StringList | None
+    remoteAccess: RemoteAccessConfig | None
+    amiType: AMITypes | None
+    nodeRole: String | None
+    labels: labelsMap | None
+    taints: taintsList | None
+    resources: NodegroupResources | None
+    diskSize: BoxedInteger | None
+    health: NodegroupHealth | None
+    updateConfig: NodegroupUpdateConfig | None
+    nodeRepairConfig: NodeRepairConfig | None
+    launchTemplate: LaunchTemplateSpecification | None
+    tags: TagMap | None
 
 
 class CreateNodegroupResponse(TypedDict, total=False):
-    nodegroup: Optional[Nodegroup]
+    nodegroup: Nodegroup | None
 
 
 class CreatePodIdentityAssociationRequest(ServiceRequest):
@@ -1669,10 +1914,10 @@ class CreatePodIdentityAssociationRequest(ServiceRequest):
     namespace: String
     serviceAccount: String
     roleArn: String
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
-    disableSessionTags: Optional[BoxedBoolean]
-    targetRoleArn: Optional[String]
+    clientRequestToken: String | None
+    tags: TagMap | None
+    disableSessionTags: BoxedBoolean | None
+    targetRoleArn: String | None
 
 
 class PodIdentityAssociation(TypedDict, total=False):
@@ -1681,23 +1926,23 @@ class PodIdentityAssociation(TypedDict, total=False):
     instance profiles provide credentials to Amazon EC2 instances.
     """
 
-    clusterName: Optional[String]
-    namespace: Optional[String]
-    serviceAccount: Optional[String]
-    roleArn: Optional[String]
-    associationArn: Optional[String]
-    associationId: Optional[String]
-    tags: Optional[TagMap]
-    createdAt: Optional[Timestamp]
-    modifiedAt: Optional[Timestamp]
-    ownerArn: Optional[String]
-    disableSessionTags: Optional[BoxedBoolean]
-    targetRoleArn: Optional[String]
-    externalId: Optional[String]
+    clusterName: String | None
+    namespace: String | None
+    serviceAccount: String | None
+    roleArn: String | None
+    associationArn: String | None
+    associationId: String | None
+    tags: TagMap | None
+    createdAt: Timestamp | None
+    modifiedAt: Timestamp | None
+    ownerArn: String | None
+    disableSessionTags: BoxedBoolean | None
+    targetRoleArn: String | None
+    externalId: String | None
 
 
 class CreatePodIdentityAssociationResponse(TypedDict, total=False):
-    association: Optional[PodIdentityAssociation]
+    association: PodIdentityAssociation | None
 
 
 class DeleteAccessEntryRequest(ServiceRequest):
@@ -1712,11 +1957,20 @@ class DeleteAccessEntryResponse(TypedDict, total=False):
 class DeleteAddonRequest(ServiceRequest):
     clusterName: ClusterName
     addonName: String
-    preserve: Optional[Boolean]
+    preserve: Boolean | None
 
 
 class DeleteAddonResponse(TypedDict, total=False):
-    addon: Optional[Addon]
+    addon: Addon | None
+
+
+class DeleteCapabilityRequest(ServiceRequest):
+    clusterName: String
+    capabilityName: String
+
+
+class DeleteCapabilityResponse(TypedDict, total=False):
+    capability: Capability | None
 
 
 class DeleteClusterRequest(ServiceRequest):
@@ -1724,7 +1978,7 @@ class DeleteClusterRequest(ServiceRequest):
 
 
 class DeleteClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class DeleteEksAnywhereSubscriptionRequest(ServiceRequest):
@@ -1732,7 +1986,7 @@ class DeleteEksAnywhereSubscriptionRequest(ServiceRequest):
 
 
 class DeleteEksAnywhereSubscriptionResponse(TypedDict, total=False):
-    subscription: Optional[EksAnywhereSubscription]
+    subscription: EksAnywhereSubscription | None
 
 
 class DeleteFargateProfileRequest(ServiceRequest):
@@ -1741,7 +1995,7 @@ class DeleteFargateProfileRequest(ServiceRequest):
 
 
 class DeleteFargateProfileResponse(TypedDict, total=False):
-    fargateProfile: Optional[FargateProfile]
+    fargateProfile: FargateProfile | None
 
 
 class DeleteNodegroupRequest(ServiceRequest):
@@ -1750,7 +2004,7 @@ class DeleteNodegroupRequest(ServiceRequest):
 
 
 class DeleteNodegroupResponse(TypedDict, total=False):
-    nodegroup: Optional[Nodegroup]
+    nodegroup: Nodegroup | None
 
 
 class DeletePodIdentityAssociationRequest(ServiceRequest):
@@ -1759,7 +2013,7 @@ class DeletePodIdentityAssociationRequest(ServiceRequest):
 
 
 class DeletePodIdentityAssociationResponse(TypedDict, total=False):
-    association: Optional[PodIdentityAssociation]
+    association: PodIdentityAssociation | None
 
 
 class DeprecationDetail(TypedDict, total=False):
@@ -1767,14 +2021,14 @@ class DeprecationDetail(TypedDict, total=False):
     check in the ``UPGRADE_READINESS`` category.
     """
 
-    usage: Optional[String]
-    replacedWith: Optional[String]
-    stopServingVersion: Optional[String]
-    startServingReplacementVersion: Optional[String]
-    clientStats: Optional[ClientStats]
+    usage: String | None
+    replacedWith: String | None
+    stopServingVersion: String | None
+    startServingReplacementVersion: String | None
+    clientStats: ClientStats | None
 
 
-DeprecationDetails = List[DeprecationDetail]
+DeprecationDetails = list[DeprecationDetail]
 
 
 class DeregisterClusterRequest(ServiceRequest):
@@ -1782,7 +2036,7 @@ class DeregisterClusterRequest(ServiceRequest):
 
 
 class DeregisterClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class DescribeAccessEntryRequest(ServiceRequest):
@@ -1791,7 +2045,7 @@ class DescribeAccessEntryRequest(ServiceRequest):
 
 
 class DescribeAccessEntryResponse(TypedDict, total=False):
-    accessEntry: Optional[AccessEntry]
+    accessEntry: AccessEntry | None
 
 
 class DescribeAddonConfigurationRequest(ServiceRequest):
@@ -1800,10 +2054,10 @@ class DescribeAddonConfigurationRequest(ServiceRequest):
 
 
 class DescribeAddonConfigurationResponse(TypedDict, total=False):
-    addonName: Optional[String]
-    addonVersion: Optional[String]
-    configurationSchema: Optional[String]
-    podIdentityConfiguration: Optional[AddonPodIdentityConfigurationList]
+    addonName: String | None
+    addonVersion: String | None
+    configurationSchema: String | None
+    podIdentityConfiguration: AddonPodIdentityConfigurationList | None
 
 
 class DescribeAddonRequest(ServiceRequest):
@@ -1812,22 +2066,31 @@ class DescribeAddonRequest(ServiceRequest):
 
 
 class DescribeAddonResponse(TypedDict, total=False):
-    addon: Optional[Addon]
+    addon: Addon | None
 
 
 class DescribeAddonVersionsRequest(ServiceRequest):
-    kubernetesVersion: Optional[String]
-    maxResults: Optional[DescribeAddonVersionsRequestMaxResults]
-    nextToken: Optional[String]
-    addonName: Optional[String]
-    types: Optional[StringList]
-    publishers: Optional[StringList]
-    owners: Optional[StringList]
+    kubernetesVersion: String | None
+    maxResults: DescribeAddonVersionsRequestMaxResults | None
+    nextToken: String | None
+    addonName: String | None
+    types: StringList | None
+    publishers: StringList | None
+    owners: StringList | None
 
 
 class DescribeAddonVersionsResponse(TypedDict, total=False):
-    addons: Optional[Addons]
-    nextToken: Optional[String]
+    addons: Addons | None
+    nextToken: String | None
+
+
+class DescribeCapabilityRequest(ServiceRequest):
+    clusterName: String
+    capabilityName: String
+
+
+class DescribeCapabilityResponse(TypedDict, total=False):
+    capability: Capability | None
 
 
 class DescribeClusterRequest(ServiceRequest):
@@ -1835,23 +2098,23 @@ class DescribeClusterRequest(ServiceRequest):
 
 
 class DescribeClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class DescribeClusterVersionsRequest(ServiceRequest):
-    clusterType: Optional[String]
-    maxResults: Optional[DescribeClusterVersionMaxResults]
-    nextToken: Optional[String]
-    defaultOnly: Optional[BoxedBoolean]
-    includeAll: Optional[BoxedBoolean]
-    clusterVersions: Optional[StringList]
-    status: Optional[ClusterVersionStatus]
-    versionStatus: Optional[VersionStatus]
+    clusterType: String | None
+    maxResults: DescribeClusterVersionMaxResults | None
+    nextToken: String | None
+    defaultOnly: BoxedBoolean | None
+    includeAll: BoxedBoolean | None
+    clusterVersions: StringList | None
+    status: ClusterVersionStatus | None
+    versionStatus: VersionStatus | None
 
 
 class DescribeClusterVersionsResponse(TypedDict, total=False):
-    nextToken: Optional[String]
-    clusterVersions: Optional[ClusterVersionList]
+    nextToken: String | None
+    clusterVersions: ClusterVersionList | None
 
 
 class DescribeEksAnywhereSubscriptionRequest(ServiceRequest):
@@ -1859,7 +2122,7 @@ class DescribeEksAnywhereSubscriptionRequest(ServiceRequest):
 
 
 class DescribeEksAnywhereSubscriptionResponse(TypedDict, total=False):
-    subscription: Optional[EksAnywhereSubscription]
+    subscription: EksAnywhereSubscription | None
 
 
 class DescribeFargateProfileRequest(ServiceRequest):
@@ -1868,7 +2131,7 @@ class DescribeFargateProfileRequest(ServiceRequest):
 
 
 class DescribeFargateProfileResponse(TypedDict, total=False):
-    fargateProfile: Optional[FargateProfile]
+    fargateProfile: FargateProfile | None
 
 
 class IdentityProviderConfig(TypedDict, total=False):
@@ -1886,28 +2149,28 @@ class OidcIdentityProviderConfig(TypedDict, total=False):
     identity provider.
     """
 
-    identityProviderConfigName: Optional[String]
-    identityProviderConfigArn: Optional[String]
-    clusterName: Optional[String]
-    issuerUrl: Optional[String]
-    clientId: Optional[String]
-    usernameClaim: Optional[String]
-    usernamePrefix: Optional[String]
-    groupsClaim: Optional[String]
-    groupsPrefix: Optional[String]
-    requiredClaims: Optional[requiredClaimsMap]
-    tags: Optional[TagMap]
-    status: Optional[configStatus]
+    identityProviderConfigName: String | None
+    identityProviderConfigArn: String | None
+    clusterName: String | None
+    issuerUrl: String | None
+    clientId: String | None
+    usernameClaim: String | None
+    usernamePrefix: String | None
+    groupsClaim: String | None
+    groupsPrefix: String | None
+    requiredClaims: requiredClaimsMap | None
+    tags: TagMap | None
+    status: configStatus | None
 
 
 class IdentityProviderConfigResponse(TypedDict, total=False):
     """The full description of your identity configuration."""
 
-    oidc: Optional[OidcIdentityProviderConfig]
+    oidc: OidcIdentityProviderConfig | None
 
 
 class DescribeIdentityProviderConfigResponse(TypedDict, total=False):
-    identityProviderConfig: Optional[IdentityProviderConfigResponse]
+    identityProviderConfig: IdentityProviderConfigResponse | None
 
 
 class DescribeInsightRequest(ServiceRequest):
@@ -1921,26 +2184,26 @@ class InsightCategorySpecificSummary(TypedDict, total=False):
     ``UPGRADE_READINESS``.
     """
 
-    deprecationDetails: Optional[DeprecationDetails]
-    addonCompatibilityDetails: Optional[AddonCompatibilityDetails]
+    deprecationDetails: DeprecationDetails | None
+    addonCompatibilityDetails: AddonCompatibilityDetails | None
 
 
 class InsightStatus(TypedDict, total=False):
     """The status of the insight."""
 
-    status: Optional[InsightStatusValue]
-    reason: Optional[String]
+    status: InsightStatusValue | None
+    reason: String | None
 
 
 class InsightResourceDetail(TypedDict, total=False):
     """Returns information about the resource being evaluated."""
 
-    insightStatus: Optional[InsightStatus]
-    kubernetesResourceUri: Optional[String]
-    arn: Optional[String]
+    insightStatus: InsightStatus | None
+    kubernetesResourceUri: String | None
+    arn: String | None
 
 
-InsightResourceDetails = List[InsightResourceDetail]
+InsightResourceDetails = list[InsightResourceDetail]
 
 
 class Insight(TypedDict, total=False):
@@ -1948,22 +2211,22 @@ class Insight(TypedDict, total=False):
     upgrade-impacting issues.
     """
 
-    id: Optional[String]
-    name: Optional[String]
-    category: Optional[Category]
-    kubernetesVersion: Optional[String]
-    lastRefreshTime: Optional[Timestamp]
-    lastTransitionTime: Optional[Timestamp]
-    description: Optional[String]
-    insightStatus: Optional[InsightStatus]
-    recommendation: Optional[String]
-    additionalInfo: Optional[AdditionalInfoMap]
-    resources: Optional[InsightResourceDetails]
-    categorySpecificSummary: Optional[InsightCategorySpecificSummary]
+    id: String | None
+    name: String | None
+    category: Category | None
+    kubernetesVersion: String | None
+    lastRefreshTime: Timestamp | None
+    lastTransitionTime: Timestamp | None
+    description: String | None
+    insightStatus: InsightStatus | None
+    recommendation: String | None
+    additionalInfo: AdditionalInfoMap | None
+    resources: InsightResourceDetails | None
+    categorySpecificSummary: InsightCategorySpecificSummary | None
 
 
 class DescribeInsightResponse(TypedDict, total=False):
-    insight: Optional[Insight]
+    insight: Insight | None
 
 
 class DescribeInsightsRefreshRequest(ServiceRequest):
@@ -1971,10 +2234,10 @@ class DescribeInsightsRefreshRequest(ServiceRequest):
 
 
 class DescribeInsightsRefreshResponse(TypedDict, total=False):
-    message: Optional[String]
-    status: Optional[InsightsRefreshStatus]
-    startedAt: Optional[Timestamp]
-    endedAt: Optional[Timestamp]
+    message: String | None
+    status: InsightsRefreshStatus | None
+    startedAt: Timestamp | None
+    endedAt: Timestamp | None
 
 
 class DescribeNodegroupRequest(ServiceRequest):
@@ -1983,7 +2246,7 @@ class DescribeNodegroupRequest(ServiceRequest):
 
 
 class DescribeNodegroupResponse(TypedDict, total=False):
-    nodegroup: Optional[Nodegroup]
+    nodegroup: Nodegroup | None
 
 
 class DescribePodIdentityAssociationRequest(ServiceRequest):
@@ -1992,7 +2255,7 @@ class DescribePodIdentityAssociationRequest(ServiceRequest):
 
 
 class DescribePodIdentityAssociationResponse(TypedDict, total=False):
-    association: Optional[PodIdentityAssociation]
+    association: PodIdentityAssociation | None
 
 
 class DescribeUpdateRequest(ServiceRequest):
@@ -2000,12 +2263,13 @@ class DescribeUpdateRequest(ServiceRequest):
 
     name: String
     updateId: String
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
+    nodegroupName: String | None
+    addonName: String | None
+    capabilityName: String | None
 
 
 class DescribeUpdateResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
 class DisassociateAccessPolicyRequest(ServiceRequest):
@@ -2021,164 +2285,175 @@ class DisassociateAccessPolicyResponse(TypedDict, total=False):
 class DisassociateIdentityProviderConfigRequest(ServiceRequest):
     clusterName: String
     identityProviderConfig: IdentityProviderConfig
-    clientRequestToken: Optional[String]
+    clientRequestToken: String | None
 
 
 class DisassociateIdentityProviderConfigResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
-EksAnywhereSubscriptionList = List[EksAnywhereSubscription]
-EksAnywhereSubscriptionStatusValues = List[EksAnywhereSubscriptionStatus]
-IdentityProviderConfigs = List[IdentityProviderConfig]
-IncludeClustersList = List[String]
-InsightStatusValueList = List[InsightStatusValue]
+EksAnywhereSubscriptionList = list[EksAnywhereSubscription]
+EksAnywhereSubscriptionStatusValues = list[EksAnywhereSubscriptionStatus]
+IdentityProviderConfigs = list[IdentityProviderConfig]
+IncludeClustersList = list[String]
+InsightStatusValueList = list[InsightStatusValue]
 
 
 class InsightSummary(TypedDict, total=False):
     """The summarized description of the insight."""
 
-    id: Optional[String]
-    name: Optional[String]
-    category: Optional[Category]
-    kubernetesVersion: Optional[String]
-    lastRefreshTime: Optional[Timestamp]
-    lastTransitionTime: Optional[Timestamp]
-    description: Optional[String]
-    insightStatus: Optional[InsightStatus]
+    id: String | None
+    name: String | None
+    category: Category | None
+    kubernetesVersion: String | None
+    lastRefreshTime: Timestamp | None
+    lastTransitionTime: Timestamp | None
+    description: String | None
+    insightStatus: InsightStatus | None
 
 
-InsightSummaries = List[InsightSummary]
+InsightSummaries = list[InsightSummary]
 
 
 class InsightsFilter(TypedDict, total=False):
     """The criteria to use for the insights."""
 
-    categories: Optional[CategoryList]
-    kubernetesVersions: Optional[StringList]
-    statuses: Optional[InsightStatusValueList]
+    categories: CategoryList | None
+    kubernetesVersions: StringList | None
+    statuses: InsightStatusValueList | None
 
 
 class ListAccessEntriesRequest(ServiceRequest):
     clusterName: String
-    associatedPolicyArn: Optional[String]
-    maxResults: Optional[ListAccessEntriesRequestMaxResults]
-    nextToken: Optional[String]
+    associatedPolicyArn: String | None
+    maxResults: ListAccessEntriesRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListAccessEntriesResponse(TypedDict, total=False):
-    accessEntries: Optional[StringList]
-    nextToken: Optional[String]
+    accessEntries: StringList | None
+    nextToken: String | None
 
 
 class ListAccessPoliciesRequest(ServiceRequest):
-    maxResults: Optional[ListAccessPoliciesRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: ListAccessPoliciesRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListAccessPoliciesResponse(TypedDict, total=False):
-    accessPolicies: Optional[AccessPoliciesList]
-    nextToken: Optional[String]
+    accessPolicies: AccessPoliciesList | None
+    nextToken: String | None
 
 
 class ListAddonsRequest(ServiceRequest):
     clusterName: ClusterName
-    maxResults: Optional[ListAddonsRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: ListAddonsRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListAddonsResponse(TypedDict, total=False):
-    addons: Optional[StringList]
-    nextToken: Optional[String]
+    addons: StringList | None
+    nextToken: String | None
 
 
 class ListAssociatedAccessPoliciesRequest(ServiceRequest):
     clusterName: String
     principalArn: String
-    maxResults: Optional[ListAssociatedAccessPoliciesRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: ListAssociatedAccessPoliciesRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListAssociatedAccessPoliciesResponse(TypedDict, total=False):
-    clusterName: Optional[String]
-    principalArn: Optional[String]
-    nextToken: Optional[String]
-    associatedAccessPolicies: Optional[AssociatedAccessPoliciesList]
+    clusterName: String | None
+    principalArn: String | None
+    nextToken: String | None
+    associatedAccessPolicies: AssociatedAccessPoliciesList | None
+
+
+class ListCapabilitiesRequest(ServiceRequest):
+    clusterName: String
+    nextToken: String | None
+    maxResults: ListCapabilitiesRequestMaxResults | None
+
+
+class ListCapabilitiesResponse(TypedDict, total=False):
+    capabilities: CapabilitySummaryList | None
+    nextToken: String | None
 
 
 class ListClustersRequest(ServiceRequest):
-    maxResults: Optional[ListClustersRequestMaxResults]
-    nextToken: Optional[String]
-    include: Optional[IncludeClustersList]
+    maxResults: ListClustersRequestMaxResults | None
+    nextToken: String | None
+    include: IncludeClustersList | None
 
 
 class ListClustersResponse(TypedDict, total=False):
-    clusters: Optional[StringList]
-    nextToken: Optional[String]
+    clusters: StringList | None
+    nextToken: String | None
 
 
 class ListEksAnywhereSubscriptionsRequest(ServiceRequest):
-    maxResults: Optional[ListEksAnywhereSubscriptionsRequestMaxResults]
-    nextToken: Optional[String]
-    includeStatus: Optional[EksAnywhereSubscriptionStatusValues]
+    maxResults: ListEksAnywhereSubscriptionsRequestMaxResults | None
+    nextToken: String | None
+    includeStatus: EksAnywhereSubscriptionStatusValues | None
 
 
 class ListEksAnywhereSubscriptionsResponse(TypedDict, total=False):
-    subscriptions: Optional[EksAnywhereSubscriptionList]
-    nextToken: Optional[String]
+    subscriptions: EksAnywhereSubscriptionList | None
+    nextToken: String | None
 
 
 class ListFargateProfilesRequest(ServiceRequest):
     clusterName: String
-    maxResults: Optional[FargateProfilesRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: FargateProfilesRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListFargateProfilesResponse(TypedDict, total=False):
-    fargateProfileNames: Optional[StringList]
-    nextToken: Optional[String]
+    fargateProfileNames: StringList | None
+    nextToken: String | None
 
 
 class ListIdentityProviderConfigsRequest(ServiceRequest):
     clusterName: String
-    maxResults: Optional[ListIdentityProviderConfigsRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: ListIdentityProviderConfigsRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListIdentityProviderConfigsResponse(TypedDict, total=False):
-    identityProviderConfigs: Optional[IdentityProviderConfigs]
-    nextToken: Optional[String]
+    identityProviderConfigs: IdentityProviderConfigs | None
+    nextToken: String | None
 
 
 class ListInsightsRequest(ServiceRequest):
     clusterName: String
-    filter: Optional[InsightsFilter]
-    maxResults: Optional[ListInsightsMaxResults]
-    nextToken: Optional[String]
+    filter: InsightsFilter | None
+    maxResults: ListInsightsMaxResults | None
+    nextToken: String | None
 
 
 class ListInsightsResponse(TypedDict, total=False):
-    insights: Optional[InsightSummaries]
-    nextToken: Optional[String]
+    insights: InsightSummaries | None
+    nextToken: String | None
 
 
 class ListNodegroupsRequest(ServiceRequest):
     clusterName: String
-    maxResults: Optional[ListNodegroupsRequestMaxResults]
-    nextToken: Optional[String]
+    maxResults: ListNodegroupsRequestMaxResults | None
+    nextToken: String | None
 
 
 class ListNodegroupsResponse(TypedDict, total=False):
-    nodegroups: Optional[StringList]
-    nextToken: Optional[String]
+    nodegroups: StringList | None
+    nextToken: String | None
 
 
 class ListPodIdentityAssociationsRequest(ServiceRequest):
     clusterName: String
-    namespace: Optional[String]
-    serviceAccount: Optional[String]
-    maxResults: Optional[ListPodIdentityAssociationsMaxResults]
-    nextToken: Optional[String]
+    namespace: String | None
+    serviceAccount: String | None
+    maxResults: ListPodIdentityAssociationsMaxResults | None
+    nextToken: String | None
 
 
 class PodIdentityAssociationSummary(TypedDict, total=False):
@@ -2198,20 +2473,20 @@ class PodIdentityAssociationSummary(TypedDict, total=False):
     -  The tags on the association: ``tags``
     """
 
-    clusterName: Optional[String]
-    namespace: Optional[String]
-    serviceAccount: Optional[String]
-    associationArn: Optional[String]
-    associationId: Optional[String]
-    ownerArn: Optional[String]
+    clusterName: String | None
+    namespace: String | None
+    serviceAccount: String | None
+    associationArn: String | None
+    associationId: String | None
+    ownerArn: String | None
 
 
-PodIdentityAssociationSummaries = List[PodIdentityAssociationSummary]
+PodIdentityAssociationSummaries = list[PodIdentityAssociationSummary]
 
 
 class ListPodIdentityAssociationsResponse(TypedDict, total=False):
-    associations: Optional[PodIdentityAssociationSummaries]
-    nextToken: Optional[String]
+    associations: PodIdentityAssociationSummaries | None
+    nextToken: String | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -2219,31 +2494,32 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class ListUpdatesRequest(ServiceRequest):
     name: String
-    nodegroupName: Optional[String]
-    addonName: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[ListUpdatesRequestMaxResults]
+    nodegroupName: String | None
+    addonName: String | None
+    capabilityName: String | None
+    nextToken: String | None
+    maxResults: ListUpdatesRequestMaxResults | None
 
 
 class ListUpdatesResponse(TypedDict, total=False):
-    updateIds: Optional[StringList]
-    nextToken: Optional[String]
+    updateIds: StringList | None
+    nextToken: String | None
 
 
 class RegisterClusterRequest(ServiceRequest):
     name: ClusterName
     connectorConfig: ConnectorConfigRequest
-    clientRequestToken: Optional[String]
-    tags: Optional[TagMap]
+    clientRequestToken: String | None
+    tags: TagMap | None
 
 
 class RegisterClusterResponse(TypedDict, total=False):
-    cluster: Optional[Cluster]
+    cluster: Cluster | None
 
 
 class StartInsightsRefreshRequest(ServiceRequest):
@@ -2251,11 +2527,11 @@ class StartInsightsRefreshRequest(ServiceRequest):
 
 
 class StartInsightsRefreshResponse(TypedDict, total=False):
-    message: Optional[String]
-    status: Optional[InsightsRefreshStatus]
+    message: String | None
+    status: InsightsRefreshStatus | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -2279,77 +2555,117 @@ class UntagResourceResponse(TypedDict, total=False):
 class UpdateAccessConfigRequest(TypedDict, total=False):
     """The access configuration information for the cluster."""
 
-    authenticationMode: Optional[AuthenticationMode]
+    authenticationMode: AuthenticationMode | None
 
 
 class UpdateAccessEntryRequest(ServiceRequest):
     clusterName: String
     principalArn: String
-    kubernetesGroups: Optional[StringList]
-    clientRequestToken: Optional[String]
-    username: Optional[String]
+    kubernetesGroups: StringList | None
+    clientRequestToken: String | None
+    username: String | None
 
 
 class UpdateAccessEntryResponse(TypedDict, total=False):
-    accessEntry: Optional[AccessEntry]
+    accessEntry: AccessEntry | None
 
 
 class UpdateAddonRequest(ServiceRequest):
     clusterName: ClusterName
     addonName: String
-    addonVersion: Optional[String]
-    serviceAccountRoleArn: Optional[RoleArn]
-    resolveConflicts: Optional[ResolveConflicts]
-    clientRequestToken: Optional[String]
-    configurationValues: Optional[String]
-    podIdentityAssociations: Optional[AddonPodIdentityAssociationsList]
+    addonVersion: String | None
+    serviceAccountRoleArn: RoleArn | None
+    resolveConflicts: ResolveConflicts | None
+    clientRequestToken: String | None
+    configurationValues: String | None
+    podIdentityAssociations: AddonPodIdentityAssociationsList | None
 
 
 class UpdateAddonResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
+
+
+class UpdateRoleMappings(TypedDict, total=False):
+    """Updates to RBAC role mappings for an Argo CD capability. You can add,
+    update, or remove role mappings in a single operation.
+    """
+
+    addOrUpdateRoleMappings: ArgoCdRoleMappingList | None
+    removeRoleMappings: ArgoCdRoleMappingList | None
+
+
+class UpdateArgoCdConfig(TypedDict, total=False):
+    """Configuration updates for an Argo CD capability. You only need to
+    specify the fields you want to update.
+    """
+
+    rbacRoleMappings: UpdateRoleMappings | None
+    networkAccess: ArgoCdNetworkAccessConfigRequest | None
+
+
+class UpdateCapabilityConfiguration(TypedDict, total=False):
+    """Configuration updates for a capability. The structure varies depending
+    on the capability type.
+    """
+
+    argoCd: UpdateArgoCdConfig | None
+
+
+class UpdateCapabilityRequest(ServiceRequest):
+    clusterName: String
+    capabilityName: String
+    roleArn: String | None
+    configuration: UpdateCapabilityConfiguration | None
+    clientRequestToken: String | None
+    deletePropagationPolicy: CapabilityDeletePropagationPolicy | None
+
+
+class UpdateCapabilityResponse(TypedDict, total=False):
+    update: Update | None
 
 
 class UpdateClusterConfigRequest(ServiceRequest):
     name: String
-    resourcesVpcConfig: Optional[VpcConfigRequest]
-    logging: Optional[Logging]
-    clientRequestToken: Optional[String]
-    accessConfig: Optional[UpdateAccessConfigRequest]
-    upgradePolicy: Optional[UpgradePolicyRequest]
-    zonalShiftConfig: Optional[ZonalShiftConfigRequest]
-    computeConfig: Optional[ComputeConfigRequest]
-    kubernetesNetworkConfig: Optional[KubernetesNetworkConfigRequest]
-    storageConfig: Optional[StorageConfigRequest]
-    remoteNetworkConfig: Optional[RemoteNetworkConfigRequest]
-    deletionProtection: Optional[BoxedBoolean]
+    resourcesVpcConfig: VpcConfigRequest | None
+    logging: Logging | None
+    clientRequestToken: String | None
+    accessConfig: UpdateAccessConfigRequest | None
+    upgradePolicy: UpgradePolicyRequest | None
+    zonalShiftConfig: ZonalShiftConfigRequest | None
+    computeConfig: ComputeConfigRequest | None
+    kubernetesNetworkConfig: KubernetesNetworkConfigRequest | None
+    storageConfig: StorageConfigRequest | None
+    remoteNetworkConfig: RemoteNetworkConfigRequest | None
+    deletionProtection: BoxedBoolean | None
+    controlPlaneScalingConfig: ControlPlaneScalingConfig | None
 
 
 class UpdateClusterConfigResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
 class UpdateClusterVersionRequest(ServiceRequest):
     name: String
     version: String
-    clientRequestToken: Optional[String]
-    force: Optional[Boolean]
+    clientRequestToken: String | None
+    force: Boolean | None
 
 
 class UpdateClusterVersionResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
 class UpdateEksAnywhereSubscriptionRequest(ServiceRequest):
     id: String
     autoRenew: Boolean
-    clientRequestToken: Optional[String]
+    clientRequestToken: String | None
 
 
 class UpdateEksAnywhereSubscriptionResponse(TypedDict, total=False):
-    subscription: Optional[EksAnywhereSubscription]
+    subscription: EksAnywhereSubscription | None
 
 
-labelsKeyList = List[String]
+labelsKeyList = list[String]
 
 
 class UpdateLabelsPayload(TypedDict, total=False):
@@ -2357,8 +2673,8 @@ class UpdateLabelsPayload(TypedDict, total=False):
     group.
     """
 
-    addOrUpdateLabels: Optional[labelsMap]
-    removeLabels: Optional[labelsKeyList]
+    addOrUpdateLabels: labelsMap | None
+    removeLabels: labelsKeyList | None
 
 
 class UpdateTaintsPayload(TypedDict, total=False):
@@ -2368,55 +2684,55 @@ class UpdateTaintsPayload(TypedDict, total=False):
     in the *Amazon EKS User Guide*.
     """
 
-    addOrUpdateTaints: Optional[taintsList]
-    removeTaints: Optional[taintsList]
+    addOrUpdateTaints: taintsList | None
+    removeTaints: taintsList | None
 
 
 class UpdateNodegroupConfigRequest(ServiceRequest):
     clusterName: String
     nodegroupName: String
-    labels: Optional[UpdateLabelsPayload]
-    taints: Optional[UpdateTaintsPayload]
-    scalingConfig: Optional[NodegroupScalingConfig]
-    updateConfig: Optional[NodegroupUpdateConfig]
-    nodeRepairConfig: Optional[NodeRepairConfig]
-    clientRequestToken: Optional[String]
+    labels: UpdateLabelsPayload | None
+    taints: UpdateTaintsPayload | None
+    scalingConfig: NodegroupScalingConfig | None
+    updateConfig: NodegroupUpdateConfig | None
+    nodeRepairConfig: NodeRepairConfig | None
+    clientRequestToken: String | None
 
 
 class UpdateNodegroupConfigResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
 class UpdateNodegroupVersionRequest(ServiceRequest):
     clusterName: String
     nodegroupName: String
-    version: Optional[String]
-    releaseVersion: Optional[String]
-    launchTemplate: Optional[LaunchTemplateSpecification]
-    force: Optional[Boolean]
-    clientRequestToken: Optional[String]
+    version: String | None
+    releaseVersion: String | None
+    launchTemplate: LaunchTemplateSpecification | None
+    force: Boolean | None
+    clientRequestToken: String | None
 
 
 class UpdateNodegroupVersionResponse(TypedDict, total=False):
-    update: Optional[Update]
+    update: Update | None
 
 
 class UpdatePodIdentityAssociationRequest(ServiceRequest):
     clusterName: String
     associationId: String
-    roleArn: Optional[String]
-    clientRequestToken: Optional[String]
-    disableSessionTags: Optional[BoxedBoolean]
-    targetRoleArn: Optional[String]
+    roleArn: String | None
+    clientRequestToken: String | None
+    disableSessionTags: BoxedBoolean | None
+    targetRoleArn: String | None
 
 
 class UpdatePodIdentityAssociationResponse(TypedDict, total=False):
-    association: Optional[PodIdentityAssociation]
+    association: PodIdentityAssociation | None
 
 
 class EksApi:
-    service = "eks"
-    version = "2017-11-01"
+    service: str = "eks"
+    version: str = "2017-11-01"
 
     @handler("AssociateAccessPolicy")
     def associate_access_policy(
@@ -2605,6 +2921,52 @@ class EksApi:
         """
         raise NotImplementedError
 
+    @handler("CreateCapability", expand=False)
+    def create_capability(
+        self, context: RequestContext, request: CreateCapabilityRequest, **kwargs
+    ) -> CreateCapabilityResponse:
+        """Creates a managed capability resource for an Amazon EKS cluster.
+
+        Capabilities provide fully managed capabilities to build and scale with
+        Kubernetes. When you create a capability, Amazon EKSprovisions and
+        manages the infrastructure required to run the capability outside of
+        your cluster. This approach reduces operational overhead and preserves
+        cluster resources.
+
+        You can only create one Capability of each type on a given Amazon EKS
+        cluster. Valid types are Argo CD for declarative GitOps deployment,
+        Amazon Web Services Controllers for Kubernetes (ACK) for resource
+        management, and Kube Resource Orchestrator (KRO) for Kubernetes custom
+        resource orchestration.
+
+        For more information, see `EKS
+        Capabilities <https://docs.aws.amazon.com/eks/latest/userguide/capabilities.html>`__
+        in the *Amazon EKS User Guide*.
+
+        :param capability_name: A unique name for the capability.
+        :param cluster_name: The name of the Amazon EKS cluster where you want to create the
+        capability.
+        :param type: The type of capability to create.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses
+        to interact with Amazon Web Services services.
+        :param delete_propagation_policy: Specifies how Kubernetes resources managed by the capability should be
+        handled when the capability is deleted.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
+        idempotency of the request.
+        :param configuration: The configuration settings for the capability.
+        :param tags: The metadata that you apply to a resource to help you categorize and
+        organize them.
+        :returns: CreateCapabilityResponse
+        :raises InvalidParameterException:
+        :raises InvalidRequestException:
+        :raises ResourceLimitExceededException:
+        :raises ResourceInUseException:
+        :raises AccessDeniedException:
+        :raises ThrottlingException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("CreateCluster")
     def create_cluster(
         self,
@@ -2627,6 +2989,7 @@ class EksApi:
         compute_config: ComputeConfigRequest | None = None,
         storage_config: StorageConfigRequest | None = None,
         deletion_protection: BoxedBoolean | None = None,
+        control_plane_scaling_config: ControlPlaneScalingConfig | None = None,
         **kwargs,
     ) -> CreateClusterResponse:
         """Creates an Amazon EKS control plane.
@@ -2639,11 +3002,10 @@ class EksApi:
         its own set of Amazon EC2 instances.
 
         The cluster control plane is provisioned across multiple Availability
-        Zones and fronted by an Elastic Load Balancing Network Load Balancer.
-        Amazon EKS also provisions elastic network interfaces in your VPC
-        subnets to provide connectivity from the control plane instances to the
-        nodes (for example, to support ``kubectl exec``, ``logs``, and ``proxy``
-        data flows).
+        Zones and fronted by an ELB Network Load Balancer. Amazon EKS also
+        provisions elastic network interfaces in your VPC subnets to provide
+        connectivity from the control plane instances to the nodes (for example,
+        to support ``kubectl exec``, ``logs``, and ``proxy`` data flows).
 
         Amazon EKS nodes run in your Amazon Web Services account and connect to
         your cluster's control plane over the Kubernetes API server endpoint and
@@ -2704,6 +3066,7 @@ class EksApi:
         :param storage_config: Enable or disable the block storage capability of EKS Auto Mode when
         creating your EKS Auto Mode cluster.
         :param deletion_protection: Indicates whether to enable deletion protection for the cluster.
+        :param control_plane_scaling_config: The control plane scaling tier configuration.
         :returns: CreateClusterResponse
         :raises ResourceInUseException:
         :raises ResourceLimitExceededException:
@@ -2865,9 +3228,10 @@ class EksApi:
         using launch templates, see `Customizing managed nodes with launch
         templates <https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html>`__.
 
-        An Amazon EKS managed node group is an Amazon EC2 Auto Scaling group and
-        associated Amazon EC2 instances that are managed by Amazon Web Services
-        for an Amazon EKS cluster. For more information, see `Managed node
+        An Amazon EKS managed node group is an Amazon EC2 Amazon EC2 Auto
+        Scaling group and associated Amazon EC2 instances that are managed by
+        Amazon Web Services for an Amazon EKS cluster. For more information, see
+        `Managed node
         groups <https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html>`__
         in the *Amazon EKS User Guide*.
 
@@ -3027,6 +3391,33 @@ class EksApi:
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
         :raises ClientException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteCapability")
+    def delete_capability(
+        self, context: RequestContext, cluster_name: String, capability_name: String, **kwargs
+    ) -> DeleteCapabilityResponse:
+        """Deletes a managed capability from your Amazon EKS cluster. When you
+        delete a capability, Amazon EKS removes the capability infrastructure
+        but retains all resources that were managed by the capability.
+
+        Before deleting a capability, you should delete all Kubernetes resources
+        that were created by the capability. After the capability is deleted,
+        these resources become difficult to manage because the controller that
+        managed them is no longer available. To delete resources before removing
+        the capability, use ``kubectl delete`` or remove them through your
+        GitOps workflow.
+
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
+        to delete.
+        :param capability_name: The name of the capability to delete.
+        :returns: DeleteCapabilityResponse
+        :raises InvalidParameterException:
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        :raises ResourceInUseException:
         :raises ServerException:
         """
         raise NotImplementedError
@@ -3248,6 +3639,25 @@ class EksApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeCapability")
+    def describe_capability(
+        self, context: RequestContext, cluster_name: String, capability_name: String, **kwargs
+    ) -> DescribeCapabilityResponse:
+        """Returns detailed information about a specific managed capability in your
+        Amazon EKS cluster, including its current status, configuration, health
+        information, and any issues that may be affecting its operation.
+
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
+        to describe.
+        :param capability_name: The name of the capability to describe.
+        :returns: DescribeCapabilityResponse
+        :raises InvalidParameterException:
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("DescribeCluster")
     def describe_cluster(
         self, context: RequestContext, name: String, **kwargs
@@ -3434,6 +3844,7 @@ class EksApi:
         update_id: String,
         nodegroup_name: String | None = None,
         addon_name: String | None = None,
+        capability_name: String | None = None,
         **kwargs,
     ) -> DescribeUpdateResponse:
         """Describes an update to an Amazon EKS resource.
@@ -3446,6 +3857,7 @@ class EksApi:
         :param update_id: The ID of the update to describe.
         :param nodegroup_name: The name of the Amazon EKS node group associated with the update.
         :param addon_name: The name of the add-on.
+        :param capability_name: The name of the capability for which you want to describe updates.
         :returns: DescribeUpdateResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -3597,6 +4009,31 @@ class EksApi:
         :raises ServerException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("ListCapabilities")
+    def list_capabilities(
+        self,
+        context: RequestContext,
+        cluster_name: String,
+        next_token: String | None = None,
+        max_results: ListCapabilitiesRequestMaxResults | None = None,
+        **kwargs,
+    ) -> ListCapabilitiesResponse:
+        """Lists all managed capabilities in your Amazon EKS cluster. You can use
+        this operation to get an overview of all capabilities and their current
+        status.
+
+        :param cluster_name: The name of the Amazon EKS cluster for which you want to list
+        capabilities.
+        :param next_token: The ``nextToken`` value returned from a previous paginated request,
+        where ``maxResults`` was used and the results exceeded the value of that
+        parameter.
+        :param max_results: The maximum number of results to return in a single call.
+        :returns: ListCapabilitiesResponse
+        :raises InvalidParameterException:
+        :raises ServerException:
         """
         raise NotImplementedError
 
@@ -3819,6 +4256,7 @@ class EksApi:
         name: String,
         nodegroup_name: String | None = None,
         addon_name: String | None = None,
+        capability_name: String | None = None,
         next_token: String | None = None,
         max_results: ListUpdatesRequestMaxResults | None = None,
         **kwargs,
@@ -3829,6 +4267,7 @@ class EksApi:
         :param name: The name of the Amazon EKS cluster to list updates for.
         :param nodegroup_name: The name of the Amazon EKS managed node group to list updates for.
         :param addon_name: The names of the installed add-ons that have available updates.
+        :param capability_name: The name of the capability for which you want to list updates.
         :param next_token: The ``nextToken`` value returned from a previous paginated request,
         where ``maxResults`` was used and the results exceeded the value of that
         parameter.
@@ -4006,6 +4445,45 @@ class EksApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateCapability")
+    def update_capability(
+        self,
+        context: RequestContext,
+        cluster_name: String,
+        capability_name: String,
+        role_arn: String | None = None,
+        configuration: UpdateCapabilityConfiguration | None = None,
+        client_request_token: String | None = None,
+        delete_propagation_policy: CapabilityDeletePropagationPolicy | None = None,
+        **kwargs,
+    ) -> UpdateCapabilityResponse:
+        """Updates the configuration of a managed capability in your Amazon EKS
+        cluster. You can update the IAM role, configuration settings, and delete
+        propagation policy for a capability.
+
+        When you update a capability, Amazon EKS applies the changes and may
+        restart capability components as needed. The capability remains
+        available during the update process, but some operations may be
+        temporarily unavailable.
+
+        :param cluster_name: The name of the Amazon EKS cluster that contains the capability you want
+        to update configuration for.
+        :param capability_name: The name of the capability to update configuration for.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the capability uses
+        to interact with Amazon Web Services services.
+        :param configuration: The updated configuration settings for the capability.
+        :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
+        idempotency of the request.
+        :param delete_propagation_policy: The updated delete propagation policy for the capability.
+        :returns: UpdateCapabilityResponse
+        :raises InvalidParameterException:
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        :raises ResourceInUseException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("UpdateClusterConfig")
     def update_cluster_config(
         self,
@@ -4022,6 +4500,7 @@ class EksApi:
         storage_config: StorageConfigRequest | None = None,
         remote_network_config: RemoteNetworkConfigRequest | None = None,
         deletion_protection: BoxedBoolean | None = None,
+        control_plane_scaling_config: ControlPlaneScalingConfig | None = None,
         **kwargs,
     ) -> UpdateClusterConfigResponse:
         """Updates an Amazon EKS cluster configuration. Your cluster continues to
@@ -4094,6 +4573,7 @@ class EksApi:
         :param remote_network_config: The configuration in the cluster for EKS Hybrid Nodes.
         :param deletion_protection: Specifies whether to enable or disable deletion protection for the
         cluster.
+        :param control_plane_scaling_config: The control plane scaling tier configuration.
         :returns: UpdateClusterConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:

@@ -18,6 +18,7 @@ ThreadSafeEvent = gevent.monkey.get_original("threading", "Event")
 
 # Tango imports
 from tango.green import AbstractExecutor, get_ident
+from tango.utils import _get_current_otel_context, _get_non_tango_source_location
 
 __all__ = (
     "GeventExecutor",
@@ -164,6 +165,9 @@ class GeventExecutor(AbstractExecutor):
 
     def delegate(self, fn, *args, **kwargs):
         """Return the given operation as a gevent future."""
+        if hasattr(fn, "__trace_kwargs__"):
+            kwargs["trace_location"] = _get_non_tango_source_location()
+            kwargs["trace_context"] = _get_current_otel_context()
         return self.subexecutor.spawn(fn, *args, **kwargs)
 
     def access(self, accessor, timeout=None):

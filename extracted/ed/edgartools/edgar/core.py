@@ -17,7 +17,7 @@ from typing import Callable, Iterable, List, Optional, Tuple, TypeVar, Union
 import httpx
 import pandas as pd
 import pyarrow as pa
-import pytz
+from zoneinfo import ZoneInfo
 from pandas.tseries.offsets import BDay
 from rich.logging import RichHandler
 from rich.prompt import Prompt
@@ -49,9 +49,7 @@ __all__ = [
     'NORMAL',
     'CRAWL',
     'CAUTION',
-    'sec_edgar',
     'IntString',
-    'sec_dot_gov',
     'get_identity',
     'python_version',
     'set_identity',
@@ -163,12 +161,10 @@ else:
 
 edgar_identity = 'EDGAR_IDENTITY'
 
-# SEC urls
-sec_dot_gov = "https://www.sec.gov"
-sec_edgar = "https://www.sec.gov/Archives/edgar"
+# Local storage directory - use centralized path configuration
+from edgar.paths import get_data_directory as _get_data_directory
 
-# Local storage directory.
-edgar_data_dir = os.path.join(os.path.expanduser("~"), ".edgar")
+edgar_data_dir = str(_get_data_directory(create=False))
 
 
 def set_identity(user_identity: str):
@@ -260,7 +256,7 @@ binary_extensions = (".pdf", ".jpg", ".jpeg", "png", ".gif", ".tif", ".tiff", ".
                      ".apng")
 
 
-def get_bool(value: str = None) -> Optional[bool]:
+def get_bool(value: Optional[str] = None) -> Optional[bool]:
     """Convert the value to a boolean"""
     return value in [1, "1", "Y", "true", "True", "TRUE"]
 
@@ -317,11 +313,16 @@ def get_resource(file: str):
 
 
 def get_edgar_data_directory() -> Path:
-    """Get the edgar data directory"""
-    default_local_data_dir = Path(os.path.join(os.path.expanduser("~"), ".edgar"))
-    edgar_data_dir = Path(os.getenv('EDGAR_LOCAL_DATA_DIR', default_local_data_dir))
-    os.makedirs(edgar_data_dir, exist_ok=True)
-    return edgar_data_dir
+    """Get the edgar data directory.
+
+    The directory can be customized via the EDGAR_LOCAL_DATA_DIR environment
+    variable or by using edgar.paths.set_data_directory().
+
+    Returns:
+        Path to the Edgar data directory. Creates it if it doesn't exist.
+    """
+    from edgar.paths import get_data_directory
+    return get_data_directory(create=True)
 
 
 class TooManyRequestsException(Exception):
@@ -369,7 +370,7 @@ def filing_date_to_year_quarters(filing_date: str) -> List[Tuple[int, int]]:
 
 def current_year_and_quarter() -> Tuple[int, int]:
     # Define the Eastern timezone
-    eastern = pytz.timezone('America/New_York')
+    eastern = ZoneInfo('America/New_York')
 
     # Get the current time in Eastern timezone
     now_eastern = datetime.datetime.now(eastern)

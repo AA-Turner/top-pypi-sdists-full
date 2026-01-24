@@ -2,26 +2,27 @@
 ///
 /// See [docs/md026.md](../../docs/md026.md) for full documentation, configuration, and examples.
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
-use crate::utils::range_utils::calculate_match_range;
-use lazy_static::lazy_static;
+use crate::utils::range_utils::{LineIndex, calculate_match_range};
 use regex::Regex;
 use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::LazyLock;
 use std::sync::RwLock;
 
 mod md026_config;
 use md026_config::{DEFAULT_PUNCTUATION, MD026Config};
 
-lazy_static! {
-    // Optimized single regex for all ATX heading types (normal, closed, indented 1-3 spaces)
-    static ref ATX_HEADING_UNIFIED: Regex = Regex::new(r"^( {0,3})(#{1,6})(\s+)(.+?)(\s+#{1,6})?$").unwrap();
+// Optimized single regex for all ATX heading types (normal, closed, indented 1-3 spaces)
+static ATX_HEADING_UNIFIED: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^( {0,3})(#{1,6})(\s+)(.+?)(\s+#{1,6})?$").unwrap());
 
-    // Fast check patterns for early returns - match defaults
-    static ref QUICK_PUNCTUATION_CHECK: Regex = Regex::new(&format!(r"[{}]", regex::escape(DEFAULT_PUNCTUATION))).unwrap();
+// Fast check patterns for early returns - match defaults
+static QUICK_PUNCTUATION_CHECK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"[{}]", regex::escape(DEFAULT_PUNCTUATION))).unwrap());
 
-    // Regex cache for punctuation patterns
-    static ref PUNCTUATION_REGEX_CACHE: RwLock<HashMap<String, Regex>> = RwLock::new(HashMap::new());
-}
+// Regex cache for punctuation patterns
+static PUNCTUATION_REGEX_CACHE: LazyLock<RwLock<HashMap<String, Regex>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Rule MD026: Trailing punctuation in heading
 #[derive(Clone, Default)]
@@ -71,23 +72,15 @@ impl MD026NoTrailingPunctuation {
     }
 
     #[inline]
-    fn get_line_byte_range(&self, content: &str, line_num: usize) -> Range<usize> {
-        let mut start_pos = 0;
+    fn get_line_byte_range(&self, content: &str, line_num: usize, line_index: &LineIndex) -> Range<usize> {
+        let start_pos = line_index.get_line_start_byte(line_num).unwrap_or(content.len());
 
-        for (idx, line) in content.lines().enumerate() {
-            if idx + 1 == line_num {
-                return Range {
-                    start: start_pos,
-                    end: start_pos + line.len(),
-                };
-            }
-            // +1 for the newline character
-            start_pos += line.len() + 1;
-        }
+        // Find the line length
+        let line = content.lines().nth(line_num - 1).unwrap_or("");
 
         Range {
-            start: content.len(),
-            end: content.len(),
+            start: start_pos,
+            end: start_pos + line.len(),
         }
     }
 
@@ -165,7 +158,7 @@ impl Rule for MD026NoTrailingPunctuation {
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
         // Skip if no heading markers
-        if !ctx.content.contains('#') {
+        if !ctx.likely_has_headings() {
             return true;
         }
         // Skip if none of the configured punctuation exists
@@ -207,11 +200,19 @@ impl Rule for MD026NoTrailingPunctuation {
             Err(_) => return Ok(warnings),
         };
 
+        // Create LineIndex for correct byte position calculations across all line ending types
+        let line_index = &ctx.line_index;
+
         // Use pre-computed heading information from LintContext
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
             if let Some(heading) = &line_info.heading {
+                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+                if !heading.is_valid {
+                    continue;
+                }
+
                 // Skip deeply indented headings (they're code blocks)
-                if line_info.indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
+                if line_info.visual_indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
                     continue;
                 }
 
@@ -223,7 +224,7 @@ impl Rule for MD026NoTrailingPunctuation {
                 if self.has_trailing_punctuation(&text_to_check, &re) {
                     // Find the trailing punctuation
                     if let Some(punctuation_match) = re.find(&text_to_check) {
-                        let line = &line_info.content;
+                        let line = line_info.content(ctx.content);
 
                         // For ATX headings, find the punctuation position in the line
                         let punctuation_pos_in_text = punctuation_match.start();
@@ -240,7 +241,7 @@ impl Rule for MD026NoTrailingPunctuation {
 
                         let last_char = text_to_check.chars().last().unwrap_or(' ');
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             line: start_line,
                             column: start_col,
                             end_line,
@@ -248,7 +249,7 @@ impl Rule for MD026NoTrailingPunctuation {
                             message: format!("Heading '{text_to_check}' ends with punctuation '{last_char}'"),
                             severity: Severity::Warning,
                             fix: Some(Fix {
-                                range: self.get_line_byte_range(content, line_num + 1),
+                                range: self.get_line_byte_range(content, line_num + 1, line_index),
                                 replacement: if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
                                     self.fix_atx_heading(line, &re)
                                 } else {
@@ -303,8 +304,13 @@ impl Rule for MD026NoTrailingPunctuation {
         // Use pre-computed heading information from LintContext
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
             if let Some(heading) = &line_info.heading {
+                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+                if !heading.is_valid {
+                    continue;
+                }
+
                 // Skip deeply indented headings (they're code blocks)
-                if line_info.indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
+                if line_info.visual_indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
                     continue;
                 }
 
@@ -315,9 +321,9 @@ impl Rule for MD026NoTrailingPunctuation {
                 // Check and fix trailing punctuation
                 if self.has_trailing_punctuation(&text_to_check, &re) {
                     fixed_lines[line_num] = if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                        self.fix_atx_heading(&line_info.content, &re)
+                        self.fix_atx_heading(line_info.content(ctx.content), &re)
                     } else {
-                        self.fix_setext_heading(&line_info.content, &re)
+                        self.fix_setext_heading(line_info.content(ctx.content), &re)
                     };
                 }
             }
@@ -365,7 +371,7 @@ mod tests {
     fn test_no_trailing_punctuation() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# This is a heading\n\n## Another heading";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty(), "Headings without punctuation should not be flagged");
     }
@@ -374,7 +380,7 @@ mod tests {
     fn test_trailing_period() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# This is a heading.\n\n## Another one.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 1);
@@ -388,7 +394,7 @@ mod tests {
     fn test_trailing_comma() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Heading,\n## Sub-heading,";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         assert!(result[0].message.contains("ends with punctuation ','"));
@@ -398,7 +404,7 @@ mod tests {
     fn test_trailing_semicolon() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title;\n## Subtitle;";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         assert!(result[0].message.contains("ends with punctuation ';'"));
@@ -408,7 +414,7 @@ mod tests {
     fn test_custom_punctuation() {
         let rule = MD026NoTrailingPunctuation::new(Some("!".to_string()));
         let content = "# Important!\n## Regular heading.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1, "Only exclamation should be flagged with custom config");
         assert_eq!(result[0].line, 1);
@@ -419,7 +425,7 @@ mod tests {
     fn test_legitimate_question_mark() {
         let rule = MD026NoTrailingPunctuation::new(Some(".,;?".to_string()));
         let content = "# What is this?\n# This is bad.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // With custom punctuation, legitimate punctuation exceptions don't apply
         assert_eq!(result.len(), 2, "Both should be flagged with custom punctuation");
@@ -429,7 +435,7 @@ mod tests {
     fn test_question_marks_not_in_default() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# What is Rust?\n# How does it work?\n# Is it fast?";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty(), "Question marks are not in default punctuation list");
     }
@@ -438,7 +444,7 @@ mod tests {
     fn test_colons_in_default() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# FAQ:\n# API Reference:\n# Step 1:\n# Version 2.0:";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(
             result.len(),
@@ -451,7 +457,7 @@ mod tests {
     fn test_fix_atx_headings() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title.\n## Subtitle,\n### Sub-subtitle;";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "# Title\n## Subtitle\n### Sub-subtitle");
     }
@@ -460,7 +466,7 @@ mod tests {
     fn test_fix_setext_headings() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "Title.\n======\n\nSubtitle,\n---------";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "Title\n======\n\nSubtitle\n---------");
     }
@@ -469,7 +475,7 @@ mod tests {
     fn test_fix_preserves_trailing_hashes() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title. #\n## Subtitle, ##";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "# Title #\n## Subtitle ##");
     }
@@ -478,7 +484,7 @@ mod tests {
     fn test_indented_headings() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "   # Title.\n  ## Subtitle.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2, "Indented headings (< 4 spaces) should be checked");
     }
@@ -487,7 +493,7 @@ mod tests {
     fn test_deeply_indented_ignored() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "    # This is code.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty(), "Deeply indented lines (4+ spaces) should be ignored");
     }
@@ -496,7 +502,7 @@ mod tests {
     fn test_multiple_punctuation() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title...";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].column, 8); // Points to first period
@@ -506,7 +512,7 @@ mod tests {
     fn test_empty_content() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -515,7 +521,7 @@ mod tests {
     fn test_no_headings() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "This is just text.\nMore text with punctuation.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty(), "Non-heading lines should not be checked");
     }
@@ -554,7 +560,7 @@ mod tests {
 
         let rule = MD026NoTrailingPunctuation::from_config(&config);
         let content = "# Title!\n# Another?";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2, "Custom punctuation from config should be used");
     }
@@ -563,7 +569,7 @@ mod tests {
     fn test_fix_removes_punctuation() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title.   \n## Subtitle,  ";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         // The current implementation doesn't preserve trailing whitespace after punctuation removal
         assert_eq!(fixed, "# Title\n## Subtitle");
@@ -573,12 +579,12 @@ mod tests {
     fn test_final_newline_preservation() {
         let rule = MD026NoTrailingPunctuation::new(None);
         let content = "# Title.\n";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "# Title\n");
 
         let content_no_newline = "# Title.";
-        let ctx2 = LintContext::new(content_no_newline, crate::config::MarkdownFlavor::Standard);
+        let ctx2 = LintContext::new(content_no_newline, crate::config::MarkdownFlavor::Standard, None);
         let fixed2 = rule.fix(&ctx2).unwrap();
         assert_eq!(fixed2, "# Title");
     }

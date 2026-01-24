@@ -36,7 +36,7 @@ class ProjectStore:
     """Basic project file container."""
 
     # INITIALIZERS #
-    def __init__(self):
+    def __init__(self) -> None:
         self._files = {}
         self._sourcefiles = []
         self._targetfiles = []
@@ -80,7 +80,7 @@ class ProjectStore:
             },
         }
 
-    def __del__(self):
+    def __del__(self) -> None:
         with contextlib.suppress(Exception):
             self.close()
 
@@ -104,7 +104,7 @@ class ProjectStore:
     transfiles = property(_get_transfiles)
 
     # SPECIAL METHODS #
-    def __contains__(self, lhs):
+    def __contains__(self, lhs) -> bool:
         """@returns ``True`` if ``lhs`` is a file name or file object in the project store."""
         return (
             lhs in self._sourcefiles
@@ -115,12 +115,13 @@ class ProjectStore:
         )
 
     # METHODS #
-    def append_file(self, afile, fname, ftype="trans", delete_orig=False):
+    def append_file(
+        self, afile, fname, ftype: str = "trans", delete_orig: bool = False
+    ):
         """
         Append the given file to the project with the given filename, marked
         to be of type ``ftype`` ('src', 'trans', 'tgt').
 
-        :type  delete_orig: bool
         :param delete_orig: Whether or not the original (given) file should be
                             deleted after being appended. This is set to
                             ``True`` by
@@ -160,7 +161,7 @@ class ProjectStore:
             self._files[fname] = realfname
         else:
             self._files[fname] = afile
-        self.TYPE_INFO["lists"][ftype].append(fname)
+        self.TYPE_INFO["lists"][ftype].append(fname)  # ty:ignore[possibly-missing-attribute]
 
         return afile, fname
 
@@ -173,7 +174,7 @@ class ProjectStore:
     def append_transfile(self, afile, fname=None):
         return self.append_file(afile, fname, ftype="trans")
 
-    def remove_file(self, fname, ftype=None):
+    def remove_file(self, fname, ftype=None) -> None:
         """
         Remove the file with the given project name from the project.  If
         the file type ('src', 'trans' or 'tgt') is not given, it is guessed.
@@ -187,24 +188,30 @@ class ProjectStore:
                     ftype = ft
                     break
 
-        self.TYPE_INFO["lists"][ftype].remove(fname)
+        self.TYPE_INFO["lists"][ftype].remove(fname)  # ty:ignore[possibly-missing-attribute]
         if self._files[fname] and hasattr(self._files[fname], "close"):
             self._files[fname].close()
         del self._files[fname]
 
-    def remove_sourcefile(self, fname):
+    def remove_sourcefile(self, fname) -> None:
         self.remove_file(fname, ftype="src")
 
-    def remove_targetfile(self, fname):
+    def remove_targetfile(self, fname) -> None:
         self.remove_file(fname, ftype="tgt")
 
-    def remove_transfile(self, fname):
+    def remove_transfile(self, fname) -> None:
         self.remove_file(fname, ftype="trans")
 
-    def close(self):
+    def close(self) -> None:
         self.save()
+        self.cleanup()
 
-    def get_file(self, fname, mode="rb"):
+    def cleanup(self) -> None:
+        for handle in self._files.values():
+            if handle is not None and not isinstance(handle, str):
+                handle.close()
+
+    def get_file(self, fname: str, mode: str = "rb"):
         """
         Retrieve the file with the given name from the project store.
 
@@ -214,8 +221,6 @@ class ProjectStore:
         way must be defined in this method of sub-classes. The value may
         also be a string, which indicates that it is a real file accessible
         via ``open``.
-
-        :type  mode: str
         :param mode: The mode in which to re-open the file (if it is closed).
         """
         if fname not in self._files:
@@ -229,11 +234,11 @@ class ProjectStore:
             rfname = fname
             if not os.path.isfile(rfname):
                 rfname = getattr(rfile, "name", None)
-            if not rfile or not os.path.isfile(rfname):
+            if not rfile or not os.path.isfile(rfname):  # ty:ignore[invalid-argument-type]
                 rfname = getattr(rfile, "filename", None)
-            if not rfile or not os.path.isfile(rfname):
+            if not rfile or not os.path.isfile(rfname):  # ty:ignore[invalid-argument-type]
                 raise OSError(f"Could not locate file: {rfile} ({fname})")
-            rfile = open(rfname, mode)
+            rfile = open(rfname, mode)  # ty:ignore[no-matching-overload]
             self._files[fname] = rfile
 
         return rfile
@@ -241,24 +246,24 @@ class ProjectStore:
     def get_filename_type(self, fname):
         """Get the type of file ('src', 'trans', 'tgt') with the given name."""
         for ftype in self.TYPE_INFO["lists"]:
-            if fname in self.TYPE_INFO["lists"][ftype]:
+            if fname in self.TYPE_INFO["lists"][ftype]:  # ty:ignore[unsupported-operator]
                 return ftype
         raise FileNotInProjectError(fname)
 
     def get_proj_filename(self, realfname):
         """Try and find a project file name for the given real file name."""
-        for fname in self._files:
-            if realfname in {fname, self._files[fname]}:
+        for fname, value in self._files.items():
+            if realfname in {fname, value}:
                 return fname
         raise ValueError(f"Real file not in project store: {realfname}")
 
-    def load(self, *args, **kwargs):
+    def load(self, *args, **kwargs) -> None:
         """Load the project in some way. Undefined for this (base) class."""
 
-    def save(self, filename=None, *args, **kwargs):
+    def save(self, filename=None, *args, **kwargs) -> None:
         """Save the project in some way. Undefined for this (base) class."""
 
-    def update_file(self, pfname, infile):
+    def update_file(self, pfname, infile) -> None:
         """
         Remove the project file with name ``pfname`` and add the contents
         from ``infile`` to the project under the same file name.
@@ -337,7 +342,7 @@ class ProjectStore:
 
         return etree.tostring(xml, pretty_print=True)
 
-    def _load_settings(self, settingsxml):
+    def _load_settings(self, settingsxml) -> None:
         """
         Load project settings from the given XML string.  ``settingsxml`` is
         parsed into a DOM tree (``lxml.etree.fromstring``) which is then
@@ -353,7 +358,7 @@ class ProjectStore:
                 continue
 
             settings[section] = []
-            for fnode in groupnode.getchildren():
+            for fnode in groupnode.getchildren():  # ty:ignore[deprecated]
                 settings[section].append(fnode.text)
 
         conversions_el = xml.find("conversions")

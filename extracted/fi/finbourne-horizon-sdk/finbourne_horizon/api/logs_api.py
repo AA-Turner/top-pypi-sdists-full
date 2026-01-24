@@ -19,11 +19,9 @@ import warnings
 from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
+from pydantic.v1 import Field, StrictInt, StrictStr
+from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
-from pydantic.v1 import Field, StrictStr, conint, conlist, constr, validator
-
-from typing import Any, Dict, Optional
-
 from finbourne_horizon.models.external_log_insertion_request import ExternalLogInsertionRequest
 from finbourne_horizon.models.paged_resource_list_of_i_integration_log_response import PagedResourceListOfIIntegrationLogResponse
 
@@ -54,15 +52,15 @@ class LogsApi:
 
 
     @overload
-    async def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[conlist(StrictStr)], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[conint(strict=True)], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, **kwargs) -> PagedResourceListOfIIntegrationLogResponse:  # noqa: E501
+    async def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, **kwargs) -> PagedResourceListOfIIntegrationLogResponse:  # noqa: E501
         ...
 
     @overload
-    def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[conlist(StrictStr)], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[conint(strict=True)], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, async_req: Optional[bool]=True, **kwargs) -> PagedResourceListOfIIntegrationLogResponse:  # noqa: E501
+    def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, async_req: Optional[bool]=True, **kwargs) -> PagedResourceListOfIIntegrationLogResponse:  # noqa: E501
         ...
 
     @validate_arguments
-    def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[conlist(StrictStr)], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[conint(strict=True)], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[PagedResourceListOfIIntegrationLogResponse, Awaitable[PagedResourceListOfIIntegrationLogResponse]]:  # noqa: E501
+    def get_integration_log_results(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[PagedResourceListOfIIntegrationLogResponse, Awaitable[PagedResourceListOfIIntegrationLogResponse]]:  # noqa: E501
         """[EXPERIMENTAL] GetIntegrationLogResults: Get integration log results  # noqa: E501
 
         Get integration log results  # noqa: E501
@@ -78,7 +76,7 @@ class LogsApi:
         :type sort_by: List[str]
         :param limit: When paginating, limit the results to this number.
         :type limit: int
-        :param page_token: The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.
+        :param page_token: The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.
         :type page_token: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
@@ -99,7 +97,7 @@ class LogsApi:
         return self.get_integration_log_results_with_http_info(filter, sort_by, limit, page_token, **kwargs)  # noqa: E501
 
     @validate_arguments
-    def get_integration_log_results_with_http_info(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[conlist(StrictStr)], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[conint(strict=True)], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+    def get_integration_log_results_with_http_info(self, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names or properties to sort by, each suffixed by \" ASC\" or \" DESC\".")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number.")] = None, page_token : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
         """[EXPERIMENTAL] GetIntegrationLogResults: Get integration log results  # noqa: E501
 
         Get integration log results  # noqa: E501
@@ -115,7 +113,7 @@ class LogsApi:
         :type sort_by: List[str]
         :param limit: When paginating, limit the results to this number.
         :type limit: int
-        :param page_token: The pagination token to use to continue listing integration logs; this value is returned from              the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.              For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.
+        :param page_token: The pagination token to use to continue listing integration logs; this value is returned from             the previous call. If a pagination token is provided, the <i>sortBy</i> and <i>filter</i> fields must not have changed since the original request.             For more information, see https://support.lusid.com/knowledgebase/article/KA-01915.
         :type page_token: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional

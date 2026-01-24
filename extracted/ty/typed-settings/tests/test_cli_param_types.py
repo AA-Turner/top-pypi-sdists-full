@@ -4,16 +4,14 @@ Tests for supported CLI param types for both, Click and argparse.
 
 import enum
 import re
-from collections.abc import MutableSequence, MutableSet, Sequence
+from collections.abc import Callable, MutableSequence, MutableSet, Sequence
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Generic,
-    Optional,
-    Union,
+    Literal,
     cast,
 )
 
@@ -30,13 +28,15 @@ from typed_settings import (
     settings,
 )
 from typed_settings._compat import PY_311
-from typed_settings.types import ST
+from typed_settings.types import ST, Secret
+
+from .test_converters import SecretWithEq
 
 
 class CliResult(click.testing.Result, Generic[ST]):
     """A container for the settings passed to a test CLI."""
 
-    settings: Optional[ST]
+    settings: ST | None
 
 
 Cli = Callable[..., CliResult[ST]]
@@ -53,7 +53,7 @@ def make_cli(settings_cls: type[ST]) -> Cli:
     """
 
     class Runner(click.testing.CliRunner):
-        settings: Optional[ST]
+        settings: ST | None
 
         def invoke(self, *args: Any, **kwargs: Any) -> CliResult:
             result = super().invoke(*args, **kwargs)
@@ -177,8 +177,8 @@ class TestBoolParam(ParamBase):
         a: bool
         b: bool = True
         c: bool = False
-        d: Optional[bool]
-        e: Optional[bool] = None
+        d: bool | None
+        e: bool | None = None
 
     click_expected_help = [
         "  --a / --no-a  [required]",
@@ -230,9 +230,9 @@ class TestIntFloatStrParam(ParamBase):
         c: int = 0
         d: float = 0
         # Test explicit and implicit "Optional" variants
-        e: Optional[str]
-        f: Union[None, int] = None
-        g: Union[int, None] = 0
+        e: str | None
+        f: None | int = None
+        g: int | None = 0
 
     click_expected_help = [
         "  --a TEXT     [default: spam]",
@@ -289,7 +289,7 @@ class TestDateTimeParam(ParamBase):
         a: datetime = datetime.fromtimestamp(0, timezone.utc)
         b: datetime = datetime.fromtimestamp(0, timezone.utc)
         c: datetime = datetime.fromtimestamp(0, timezone.utc)
-        d: Optional[datetime] = None
+        d: datetime | None = None
 
     click_expected_help = [
         "  --a [%Y-%m-%d|%Y-%m-%dT%H:%M:%S|%Y-%m-%dT%H:%M:%S%z]",
@@ -357,7 +357,7 @@ class TestDateParam(ParamBase):
     class Settings:
         a: date
         b: date = date(1970, 1, 1)
-        c: Optional[date] = None
+        c: date | None = None
 
     click_expected_help = [
         "  --a [%Y-%m-%d]  [required]",
@@ -403,7 +403,7 @@ class TestTimedeltaParam(ParamBase):
         a: timedelta
         b: timedelta = timedelta(days=1, seconds=4)
         c: timedelta = timedelta(days=1, seconds=4)
-        d: Optional[timedelta] = None
+        d: timedelta | None = None
 
     click_expected_help = [
         "  --a [-][Dd][HHh][MMm][SS[.ffffff]s]",
@@ -463,6 +463,47 @@ class TestTimedeltaParam(ParamBase):
     )
 
 
+class TestLiteralParam(ParamBase):
+    """
+    Test Literal cli_options.
+    """
+
+    @settings
+    class Settings:
+        a: Literal["spam", "eggs"]
+        b: Literal["spam", "eggs"] | None = None
+        c: Literal["spam", "eggs"] = "spam"
+
+    click_expected_help = [
+        "  --a [spam|eggs]  [required]",
+        "  --b [spam|eggs]",
+        "  --c [spam|eggs]  [default: spam]",
+    ]
+    argparse_expected_help = [
+        "  --a {spam,eggs}  [required]",
+        "  --b {spam,eggs}",
+        "  --c {spam,eggs}  [default: spam]",
+    ]
+
+    env_vars = {"A": "spam", "C": "eggs"}
+    click_expected_env_var_defaults = [
+        "  --a [spam|eggs]  [default: spam]",
+        "  --b [spam|eggs]",
+        "  --c [spam|eggs]  [default: eggs]",
+    ]
+    argparse_expected_env_var_defaults = [
+        "  --a {spam,eggs}  [default: spam]",
+        "  --b {spam,eggs}",
+        "  --c {spam,eggs}  [default: eggs]",
+    ]
+
+    default_options = ["--a=spam"]
+    expected_defaults = Settings(a="spam")
+
+    cli_options = ["--a=spam", "--c=eggs"]
+    expected_settings = Settings(a="spam", c="eggs")
+
+
 class TestEnumParam(ParamBase):
     """
     Test enum cli_options.
@@ -471,7 +512,7 @@ class TestEnumParam(ParamBase):
     @settings
     class Settings:
         a: LeEnum
-        b: Optional[LeEnum]
+        b: LeEnum | None
         c: LeEnum = LeEnum.spam
 
     click_expected_help = [
@@ -514,7 +555,7 @@ if PY_311:
         @settings
         class Settings:
             a: LeIntEnum
-            b: Optional[LeIntEnum]
+            b: LeIntEnum | None
             c: LeIntEnum = LeIntEnum.spam
 
         click_expected_help = [
@@ -554,7 +595,7 @@ if PY_311:
         @settings
         class Settings:
             a: LeStrEnum
-            b: Optional[LeStrEnum]
+            b: LeStrEnum | None
             c: LeStrEnum = LeStrEnum.spam
 
         click_expected_help = [
@@ -600,7 +641,7 @@ class TestPathParam(ParamBase):
     class Settings:
         a: Path
         b: Path = Path("/")
-        c: Optional[Path] = None
+        c: Path | None = None
 
     click_expected_help = [
         "  --a PATH  [required]",
@@ -671,6 +712,71 @@ class TestNestedParam(ParamBase):
     expected_settings = Settings(Settings.Nested("eggs", 3))
 
 
+class TestRePatternParam(ParamBase):
+    """
+    Test re.Pattern cli_options.
+    """
+
+    @settings
+    class Settings:
+        a: re.Pattern
+        b: re.Pattern | None = None
+        c: re.Pattern = re.compile("spam")
+
+    expected_help = [
+        "  --a PATTERN  [required]",
+        "  --b PATTERN",
+        "  --c PATTERN  [default: spam]",
+    ]
+
+    env_vars = {"A": "spam", "C": "eggs"}
+    expected_env_var_defaults = [
+        "  --a PATTERN  [default: spam]",
+        "  --b PATTERN",
+        "  --c PATTERN  [default: eggs]",
+    ]
+
+    default_options = ["--a=spam"]
+    expected_defaults = Settings(a=re.compile("spam"))
+
+    cli_options = ["--a=spam", "--c=eggs"]
+    expected_settings = Settings(a=re.compile("spam"), c=re.compile("eggs"))
+
+
+class TestSecretParam(ParamBase):
+    """
+    Test Secret cli_options.
+    """
+
+    @settings
+    class Settings:
+        a: Secret
+        b: Secret[str] | None = None
+        c: Secret[int] = Secret(42)
+
+    expected_help = [
+        "  --a SECRET      [required]",
+        "  --b SECRET",
+        "  --c SECRET_INT  [default: (*******)]",
+    ]
+
+    env_vars = {"B": "eggs", "C": "23"}
+    default_options = ["--a=spam"]
+    expected_env_var_defaults = [
+        "  --a SECRET      [required]",
+        "  --b SECRET      [default: (*******)]",
+        "  --c SECRET_INT  [default: (*******)]",
+    ]
+
+    default_options = ["--a=spam", "--b=eggs"]
+    expected_defaults = Settings(
+        a=SecretWithEq("spam"), b=SecretWithEq("eggs"), c=SecretWithEq(42)
+    )
+
+    cli_options = ["--a=spam", "--c=23"]
+    expected_settings = Settings(SecretWithEq("spam"), None, SecretWithEq(23))
+
+
 class TestListParam(ParamBase):
     """
     Lists (and friends) use "multiple=True".
@@ -679,9 +785,9 @@ class TestListParam(ParamBase):
     @settings
     class Settings:
         a: list[int]
-        b: Optional[list[int]]
-        c: Optional[list[int]] = None
-        d: Optional[list[int]] = []
+        b: list[int] | None
+        c: list[int] | None = None
+        d: list[int] | None = []
         e: Sequence[datetime] = [datetime(2020, 5, 4)]
         f: MutableSequence[int] = []
         g: set[int] = set()
@@ -781,7 +887,7 @@ class TestTupleParam(ParamBase):
     class Settings:
         a: tuple[int, ...] = (0,)
         b: tuple[int, float, str] = (0, 0.0, "")
-        c: Optional[tuple[int, float, str]] = None
+        c: tuple[int, float, str] | None = None
 
     click_expected_help = [
         "  --a INTEGER                  [default: 0]",
@@ -876,7 +982,7 @@ class TestDictParam(ParamBase):
         a: dict[str, str]  # Test "None" value
         b: dict[str, str] = {}  # Test empty value
         c: dict[str, str] = {"default": "value"}
-        d: Optional[dict[str, str]] = None
+        d: dict[str, str] | None = None
 
     click_expected_help = [
         "  --a KEY=VALUE",
@@ -1112,8 +1218,7 @@ class TestArgparse:
 
         with pytest.raises(SystemExit):
             arg_parser("--help")
-        out, err = capsys.readouterr()
-        print(out)
+        out, _err = capsys.readouterr()
 
         lines: list[str] = []
         for line in out.splitlines():

@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "postgres_deparse.h"
+
 typedef struct {
 	char* message; // exception message
 	char* funcname; // source function of exception (e.g. SearchSysCache)
@@ -54,6 +56,12 @@ typedef struct {
 } PgQueryDeparseResult;
 
 typedef struct {
+  PostgresDeparseComment **comments;
+  size_t comment_count;
+  PgQueryError* error;
+} PgQueryDeparseCommentsResult;
+
+typedef struct {
   char* plpgsql_funcs;
   PgQueryError* error;
 } PgQueryPlpgsqlParseResult;
@@ -69,6 +77,12 @@ typedef struct {
   char* normalized_query;
   PgQueryError* error;
 } PgQueryNormalizeResult;
+
+typedef struct {
+	PgQueryProtobuf summary;
+	char* stderr_buffer;
+	PgQueryError* error;
+} PgQuerySummaryParseResult;
 
 // Postgres parser options (parse mode and GUCs that affect parsing)
 
@@ -118,23 +132,29 @@ PgQuerySplitResult pg_query_split_with_scanner(const char *input);
 PgQuerySplitResult pg_query_split_with_parser(const char *input);
 
 PgQueryDeparseResult pg_query_deparse_protobuf(PgQueryProtobuf parse_tree);
+PgQueryDeparseResult pg_query_deparse_protobuf_opts(PgQueryProtobuf parse_tree, struct PostgresDeparseOpts opts);
+PgQueryDeparseCommentsResult pg_query_deparse_comments_for_query(const char *query);
+
+PgQuerySummaryParseResult pg_query_summary(const char* input, int parser_options, int truncate_limit);
 
 void pg_query_free_normalize_result(PgQueryNormalizeResult result);
 void pg_query_free_scan_result(PgQueryScanResult result);
 void pg_query_free_parse_result(PgQueryParseResult result);
 void pg_query_free_split_result(PgQuerySplitResult result);
 void pg_query_free_deparse_result(PgQueryDeparseResult result);
+void pg_query_free_deparse_comments_result(PgQueryDeparseCommentsResult result);
 void pg_query_free_protobuf_parse_result(PgQueryProtobufParseResult result);
 void pg_query_free_plpgsql_parse_result(PgQueryPlpgsqlParseResult result);
 void pg_query_free_fingerprint_result(PgQueryFingerprintResult result);
+void pg_query_free_summary_parse_result(PgQuerySummaryParseResult result);
 
 // Optional, cleans up the top-level memory context (automatically done for threads that exit)
 void pg_query_exit(void);
 
 // Postgres version information
 #define PG_MAJORVERSION "17"
-#define PG_VERSION "17.4"
-#define PG_VERSION_NUM 170004
+#define PG_VERSION "17.7"
+#define PG_VERSION_NUM 170007
 
 // Deprecated APIs below
 

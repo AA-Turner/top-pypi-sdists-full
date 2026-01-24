@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from typing import Union
 
 from .literals import CapabilityType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -87,9 +82,9 @@ class ApplicationDependencySummaryTypeDef(TypedDict):
 
 
 class ApplicationPolicyStatementOutputTypeDef(TypedDict):
-    Actions: List[str]
-    Principals: List[str]
-    PrincipalOrgIDs: NotRequired[List[str]]
+    Actions: list[str]
+    Principals: list[str]
+    PrincipalOrgIDs: NotRequired[list[str]]
     StatementId: NotRequired[str]
 
 
@@ -107,7 +102,7 @@ class ApplicationSummaryTypeDef(TypedDict):
     Name: str
     CreationTime: NotRequired[str]
     HomePageUrl: NotRequired[str]
-    Labels: NotRequired[List[str]]
+    Labels: NotRequired[list[str]]
     SpdxLicenseId: NotRequired[str]
 
 
@@ -132,7 +127,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -150,9 +145,9 @@ ParameterDefinitionTypeDef = TypedDict(
     "ParameterDefinitionTypeDef",
     {
         "Name": str,
-        "ReferencedByResources": List[str],
+        "ReferencedByResources": list[str],
         "AllowedPattern": NotRequired[str],
-        "AllowedValues": NotRequired[List[str]],
+        "AllowedValues": NotRequired[list[str]],
         "ConstraintDescription": NotRequired[str],
         "DefaultValue": NotRequired[str],
         "Description": NotRequired[str],
@@ -283,7 +278,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetApplicationPolicyResponseTypeDef(TypedDict):
-    Statements: List[ApplicationPolicyStatementOutputTypeDef]
+    Statements: list[ApplicationPolicyStatementOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -299,27 +294,27 @@ class GetCloudFormationTemplateResponseTypeDef(TypedDict):
 
 
 class ListApplicationDependenciesResponseTypeDef(TypedDict):
-    Dependencies: List[ApplicationDependencySummaryTypeDef]
+    Dependencies: list[ApplicationDependencySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    Applications: List[ApplicationSummaryTypeDef]
+    Applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class PutApplicationPolicyResponseTypeDef(TypedDict):
-    Statements: List[ApplicationPolicyStatementOutputTypeDef]
+    Statements: list[ApplicationPolicyStatementOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateApplicationVersionResponseTypeDef(TypedDict):
     ApplicationId: str
     CreationTime: str
-    ParameterDefinitions: List[ParameterDefinitionTypeDef]
-    RequiredCapabilities: List[CapabilityType]
+    ParameterDefinitions: list[ParameterDefinitionTypeDef]
+    RequiredCapabilities: list[CapabilityType]
     ResourcesSupported: bool
     SemanticVersion: str
     SourceCodeArchiveUrl: str
@@ -331,8 +326,8 @@ class CreateApplicationVersionResponseTypeDef(TypedDict):
 class VersionTypeDef(TypedDict):
     ApplicationId: str
     CreationTime: str
-    ParameterDefinitions: List[ParameterDefinitionTypeDef]
-    RequiredCapabilities: List[CapabilityType]
+    ParameterDefinitions: list[ParameterDefinitionTypeDef]
+    RequiredCapabilities: list[CapabilityType]
     ResourcesSupported: bool
     SemanticVersion: str
     TemplateUrl: str
@@ -356,7 +351,7 @@ class ListApplicationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListApplicationVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionSummaryTypeDef]
+    Versions: list[VersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -378,7 +373,7 @@ class CreateApplicationResponseTypeDef(TypedDict):
     Description: str
     HomePageUrl: str
     IsVerifiedAuthor: bool
-    Labels: List[str]
+    Labels: list[str]
     LicenseUrl: str
     Name: str
     ReadmeUrl: str
@@ -395,7 +390,7 @@ class GetApplicationResponseTypeDef(TypedDict):
     Description: str
     HomePageUrl: str
     IsVerifiedAuthor: bool
-    Labels: List[str]
+    Labels: list[str]
     LicenseUrl: str
     Name: str
     ReadmeUrl: str
@@ -412,7 +407,7 @@ class UpdateApplicationResponseTypeDef(TypedDict):
     Description: str
     HomePageUrl: str
     IsVerifiedAuthor: bool
-    Labels: List[str]
+    Labels: list[str]
     LicenseUrl: str
     Name: str
     ReadmeUrl: str

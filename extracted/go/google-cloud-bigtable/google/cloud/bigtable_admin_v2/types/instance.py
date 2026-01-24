@@ -67,15 +67,15 @@ class Instance(proto.Message):
             customer's organizational needs and deployment strategies.
             They can be used to filter resources and aggregate metrics.
 
-            -  Label keys must be between 1 and 63 characters long and
-               must conform to the regular expression:
-               ``[\p{Ll}\p{Lo}][\p{Ll}\p{Lo}\p{N}_-]{0,62}``.
-            -  Label values must be between 0 and 63 characters long and
-               must conform to the regular expression:
-               ``[\p{Ll}\p{Lo}\p{N}_-]{0,63}``.
-            -  No more than 64 labels can be associated with a given
-               resource.
-            -  Keys and values must both be under 128 bytes.
+            - Label keys must be between 1 and 63 characters long and
+              must conform to the regular expression:
+              ``[\p{Ll}\p{Lo}][\p{Ll}\p{Lo}\p{N}_-]{0,62}``.
+            - Label values must be between 0 and 63 characters long and
+              must conform to the regular expression:
+              ``[\p{Ll}\p{Lo}\p{N}_-]{0,63}``.
+            - No more than 64 labels can be associated with a given
+              resource.
+            - Keys and values must both be under 128 bytes.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. A commit timestamp representing when this
             Instance was created. For instances created before this
@@ -89,6 +89,20 @@ class Instance(proto.Message):
             Output only. Reserved for future use.
 
             This field is a member of `oneof`_ ``_satisfies_pzi``.
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Tag
+            keys/values directly bound to this resource. For
+            example:
+
+            - "123/environment": "production",
+            - "123/costCenter": "marketing"
+
+            Tags and Labels (above) are both used to bind
+            metadata to resources, with different use-cases.
+            See
+            https://cloud.google.com/resource-manager/docs/tags/tags-overview
+            for an in-depth overview on the difference
+            between tags and labels.
     """
 
     class State(proto.Enum):
@@ -168,6 +182,11 @@ class Instance(proto.Message):
         proto.BOOL,
         number=11,
         optional=True,
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=12,
     )
 
 

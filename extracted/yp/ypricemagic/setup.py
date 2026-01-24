@@ -1,10 +1,11 @@
 from pathlib import Path
+
 from setuptools import find_packages, setup
 
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-with open("requirements.txt", "r") as f:
+with open("requirements.txt") as f:
     requirements = [line.strip() for line in f.read().splitlines() if line.strip()]
 
 try:
@@ -12,6 +13,9 @@ try:
 
     ext_modules = mypycify(
         [
+            "y/_db/brownie.py",
+            "y/_db/config.py",
+            "y/_db/decorators.py",
             "y/_db/utils/stringify.py",
             "y/ENVIRONMENT_VARIABLES.py",
             "y/convert.py",
@@ -21,33 +25,10 @@ try:
             "y/utils/gather.py",
             "--pretty",
             "--install-types",
+            "--follow-imports=silent",
             "--disable-error-code=import-not-found",
-            "--disable-error-code=import-untyped",
-            "--disable-error-code=no-any-return",
-            "--disable-error-code=misc",
-            "--disable-error-code=attr-defined",
-            "--disable-error-code=return-value",
-            "--disable-error-code=operator",
-            "--disable-error-code=override",
-            "--disable-error-code=call-arg",
-            "--disable-error-code=union-attr",
-            "--disable-error-code=str-bytes-safe",
-            "--disable-error-code=call-overload",
-            "--disable-error-code=used-before-def",
-            "--disable-error-code=return",
-            "--disable-error-code=index",
-            "--disable-error-code=list-item",
-            "--disable-error-code=annotation-unchecked",
-            "--disable-error-code=empty-body",
-            "--disable-error-code=has-type",
-            "--disable-error-code=no-redef",
-            "--disable-error-code=valid-type",
-            "--disable-error-code=assignment",
-            "--disable-error-code=arg-type",
-            "--disable-error-code=var-annotated",
-            "--disable-error-code=typeddict-item",
-            "--disable-error-code=type-var",
-        ]
+        ],
+        group_name="ypricemagic",
     )
 except ImportError:
     ext_modules = []
@@ -68,7 +49,7 @@ setup(
     author_email="bobthebuidlerdefi@gmail.com",
     url="https://github.com/BobTheBuidler/ypricemagic",
     license="MIT",
-    python_requires=">=3.9,<3.13",
+    python_requires=">=3.10,<3.14",
     classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
@@ -76,6 +57,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: CPython",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Libraries",

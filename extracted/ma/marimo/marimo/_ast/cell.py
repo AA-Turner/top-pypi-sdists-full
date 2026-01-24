@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import ast
@@ -122,6 +122,7 @@ RunResultStatusType = Literal[
 @dataclasses.dataclass
 class RunResultStatus:
     state: Optional[RunResultStatusType] = None
+    exception: Optional[Exception] = None
 
 
 @dataclasses.dataclass
@@ -173,7 +174,11 @@ class CellImpl:
     # unique id
     cell_id: CellId_t
 
-    # Mutable fields
+    # Markdown content of the cell if it exists
+    markdown: Optional[str] = None
+
+    # ------------------ Mutable fields --------------------------------------
+    #
     # explicit configuration of cell
     config: CellConfig = dataclasses.field(default_factory=CellConfig)
     # workspace for runtimes to use to store metadata about imports
@@ -298,7 +303,8 @@ class CellImpl:
         except SyntaxError:
             return None
 
-        if len(self.defs) != 1:
+        variables = self.defs | self.temporaries
+        if len(variables) != 1:
             return None
 
         if not (
@@ -310,12 +316,22 @@ class CellImpl:
         ):
             return None
 
+        # Depends on cell, JIT import
+        from marimo._ast.variables import unmangle_local
+
         # Check that def matches the single definition
         name = tree.body[0].name
-        if not (name == list(self.defs)[0] and name in self.variable_data):
+        ast_name = unmangle_local(variables.pop()).name
+        if not (name == ast_name):
             return None
 
-        if len(variable_data := self.variable_data[name]) != 1:
+        if name.startswith("_"):
+            return VariableData("temporary")
+
+        if (
+            name not in self.variable_data
+            or len(variable_data := self.variable_data[name]) != 1
+        ):
             return None
 
         return list(variable_data)[0]
@@ -333,7 +349,7 @@ class CellImpl:
             status (RuntimeStateType): New runtime state to set
             stream (Stream | None, optional): Stream to broadcast on. Defaults to None.
         """
-        from marimo._messaging.ops import CellOp
+        from marimo._messaging.notification_utils import CellNotificationUtils
         from marimo._runtime.context import (
             ContextNotInitializedError,
             get_context,
@@ -346,23 +362,26 @@ class CellImpl:
             return
 
         assert self.cell_id is not None
-        CellOp.broadcast_status(
+        CellNotificationUtils.broadcast_status(
             cell_id=self.cell_id, status=status, stream=stream
         )
 
     def set_run_result_status(
-        self, run_result_status: RunResultStatusType
+        self,
+        run_result_status: RunResultStatusType,
+        exception: Exception | None = None,
     ) -> None:
         self._run_result_status.state = run_result_status
+        self._run_result_status.exception = exception
 
     def set_stale(
         self, stale: bool, stream: Stream | None = None, broadcast: bool = True
     ) -> None:
-        from marimo._messaging.ops import CellOp
+        from marimo._messaging.notification_utils import CellNotificationUtils
 
         self._stale.state = stale
         if broadcast:
-            CellOp.broadcast_stale(
+            CellNotificationUtils.broadcast_stale(
                 cell_id=self.cell_id, stale=stale, stream=stream
             )
 
@@ -372,6 +391,10 @@ class CellImpl:
     @property
     def output(self) -> Any:
         return self._output.output
+
+    @property
+    def exception(self) -> Exception | None:
+        return self._run_result_status.exception
 
 
 @dataclasses.dataclass

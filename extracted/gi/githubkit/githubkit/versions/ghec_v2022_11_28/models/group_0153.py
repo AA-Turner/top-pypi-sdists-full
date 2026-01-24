@@ -13,17 +13,15 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0154 import RulesetVersionWithStateAllof1PropState
 
+class RepositoryRuleFileExtensionRestrictionPropParameters(GitHubModel):
+    """RepositoryRuleFileExtensionRestrictionPropParameters"""
 
-class RulesetVersionWithStateAllof1(GitHubModel):
-    """RulesetVersionWithStateAllof1"""
-
-    state: RulesetVersionWithStateAllof1PropState = Field(
-        description="The state of the ruleset version"
+    restricted_file_extensions: list[str] = Field(
+        description="The file extensions that are restricted from being pushed to the commit graph."
     )
 
 
-model_rebuild(RulesetVersionWithStateAllof1)
+model_rebuild(RepositoryRuleFileExtensionRestrictionPropParameters)
 
-__all__ = ("RulesetVersionWithStateAllof1",)
+__all__ = ("RepositoryRuleFileExtensionRestrictionPropParameters",)

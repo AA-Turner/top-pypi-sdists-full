@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.stream._generated.models.stream_source import StreamSource, StreamSourceModel
@@ -37,29 +37,29 @@ class Stream(BaseModel):
     stream_source : StreamSource
 
     created_on : datetime, optional
-        Date and time when the stream was created.
+        Date and time when the stream was created — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
         user comment associated to an object in the dictionary
     database_name : str, optional
-        Database in which the stream is stored
+        Database in which the stream is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the stream is stored
+        Schema in which the stream is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the stream
+        Role that owns the stream — **Read-only:** *any user-provided value will be ignored.*
     table_name : str, optional
-        Table name whose changes are tracked by the stream
+        Table name whose changes are tracked by the stream — **Read-only:** *any user-provided value will be ignored.*
     stale : bool, optional
-        Specifies whether the stream is stale or not
+        Specifies whether the stream is stale or not — **Read-only:** *any user-provided value will be ignored.*
     mode : str, optional
-        Mode of the stream. Possible values include: APPEND_ONLY, INSERT_ONLY. For streams on tables, the column displays DEFAULT.
+        Mode of the stream. Possible values include: APPEND_ONLY, INSERT_ONLY. For streams on tables, the column displays DEFAULT — **Read-only:** *any user-provided value will be ignored.*
     stale_after : datetime, optional
-        Timestamp when the stream became stale or may become stale if not consumed.
+        Timestamp when the stream became stale or may become stale if not consumed — **Read-only:** *any user-provided value will be ignored.*
     invalid_reason : str, optional
-        Reason why the stream cannot be queried successfully. This column supports future functionality. Currently, the only value returned is N/A.
+        Reason why the stream cannot be queried successfully. This column supports future functionality. Currently, the only value returned is N/A — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the stream
+        The type of role that owns the stream — **Read-only:** *any user-provided value will be ignored.*
     type : str, optional
-        Type of the stream; currently DELTA only.
+        Type of the stream; currently DELTA only — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[datetime] = None
@@ -153,9 +153,10 @@ class Stream(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -194,7 +195,7 @@ class Stream(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of stream_source
         if self.stream_source:
@@ -213,9 +214,9 @@ class Stream(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Stream.parse_obj(obj)
+            return Stream.model_validate(obj)
 
-        _obj = Stream.parse_obj(
+        _obj = Stream.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "name": obj.get("name"),

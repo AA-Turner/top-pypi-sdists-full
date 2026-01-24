@@ -16,6 +16,7 @@ from urllib.parse import unquote, urljoin
 
 from pipenv.utils.constants import VCS_LIST
 from pipenv.utils.dependencies import extract_vcs_url, normalize_editable_path_for_pip
+from pipenv.utils.exceptions import LockfileCorruptException
 from pipenv.vendor.tomlkit.items import SingleKey, Table
 
 try:
@@ -57,6 +58,7 @@ from pipenv.utils.internet import (
     proper_case,
 )
 from pipenv.utils.locking import atomic_open_for_write
+from pipenv.utils.pylock import PylockFile, find_pylock_file
 from pipenv.utils.project import get_default_pyproject_backend
 from pipenv.utils.requirements import normalize_name
 from pipenv.utils.shell import (
@@ -163,25 +165,28 @@ class Project:
         self.configuration = Configuration(isolated=False, load_only=None)
         self.configuration.load()
         pip_conf_indexes = []
-        for section_key, value in self.configuration.items():
-            key_parts = section_key.split(".", 1)
-            if key_parts[1] == "index-url":
-                try:
-                    trusted_hosts = self.configuration.get_value(
-                        f"{key_parts[0]}.trusted-host"
-                    )
-                except ConfigurationError:
-                    trusted_hosts = []
-                pip_conf_indexes.append(
-                    {
-                        "url": value,
-                        "verify_ssl": not any(
-                            trusted_host in value for trusted_host in trusted_hosts
+        # In pip 25.3+, _dictionary is a dict of {filename: config_dict} pairs
+        # where config_dict contains the actual key-value pairs like {"global.index-url": "..."}
+        for config_dict in self.configuration._dictionary.values():
+            for section_key, value in config_dict.items():
+                key_parts = section_key.split(".", 1)
+                if len(key_parts) > 1 and key_parts[1] == "index-url":
+                    try:
+                        trusted_hosts = self.configuration.get_value(
+                            f"{key_parts[0]}.trusted-host"
                         )
-                        and "https://" in value,
-                        "name": f"pip_conf_index_{key_parts[0]}",
-                    }
-                )
+                    except ConfigurationError:
+                        trusted_hosts = []
+                    pip_conf_indexes.append(
+                        {
+                            "url": value,
+                            "verify_ssl": not any(
+                                trusted_host in value for trusted_host in trusted_hosts
+                            )
+                            and "https://" in value,
+                            "name": f"pip_conf_index_{key_parts[0]}",
+                        }
+                    )
 
         if pip_conf_indexes:
             self.default_source = None
@@ -768,6 +773,8 @@ class Project:
             try:
                 lockfile = self.load_lockfile(expand_env_vars=False)
                 lockfile_loaded = True
+            except LockfileCorruptException:
+                raise
             except Exception:
                 pass
         if not lockfile_loaded:
@@ -794,6 +801,19 @@ class Project:
         return pf
 
     @property
+    def pylock_location(self):
+        """Returns the location of the pylock.toml file, if it exists."""
+        pylock_path = find_pylock_file(self.project_directory)
+        if pylock_path:
+            return str(pylock_path)
+        return None
+
+    @property
+    def pylock_exists(self):
+        """Returns True if a pylock.toml file exists."""
+        return self.pylock_location is not None
+
+    @property
     def lockfile_location(self):
         return f"{self.pipfile_location}.lock"
 
@@ -803,6 +823,15 @@ class Project:
 
     @property
     def lockfile_content(self):
+        """Returns the content of the lockfile, checking for pylock.toml first."""
+        if self.pylock_exists or self.use_pylock:
+            try:
+                if self.pylock_exists:
+                    pylock = PylockFile.from_path(self.pylock_location)
+                    lockfile_data = pylock.convert_to_pipenv_lockfile()
+                    return lockfile_data
+            except Exception as e:
+                err.print(f"[bold yellow]Error loading pylock.toml: {e}[/bold yellow]")
         return self.load_lockfile()
 
     def get_editable_packages(self, category):
@@ -986,8 +1015,22 @@ class Project:
         with open(path, "w", newline=newlines) as f:
             f.write(formatted_data)
 
+    @property
+    def use_pylock(self) -> bool:
+        """Returns True if pylock.toml should be generated."""
+        return self.settings.get("use_pylock", False)
+
+    @property
+    def pylock_output_path(self) -> str:
+        """Returns the path where pylock.toml should be written."""
+        pylock_name = self.settings.get("pylock_name")
+        if pylock_name:
+            return str(Path(self.project_directory) / f"pylock.{pylock_name}.toml")
+        return str(Path(self.project_directory) / "pylock.toml")
+
     def write_lockfile(self, content):
         """Write out the lockfile."""
+        # Always write the Pipfile.lock
         s = self._lockfile_encoder.encode(content)
         open_kwargs = {"newline": self._lockfile_newlines, "encoding": "utf-8"}
         with atomic_open_for_write(self.lockfile_location, **open_kwargs) as f:
@@ -996,6 +1039,22 @@ class Project:
             # Only need '\n' here; the file object handles the rest.
             if not s.endswith("\n"):
                 f.write("\n")
+
+        # If use_pylock is enabled, also write a pylock.toml file
+        if self.use_pylock:
+            try:
+                from pipenv.utils.pylock import PylockFile
+
+                pylock = PylockFile.from_lockfile(
+                    lockfile_path=self.lockfile_location,
+                    pylock_path=self.pylock_output_path,
+                )
+                pylock.write()
+                err.print(
+                    f"[bold green]Generated pylock.toml at {self.pylock_output_path}[/bold green]"
+                )
+            except Exception as e:
+                err.print(f"[bold red]Error generating pylock.toml: {e}[/bold red]")
 
     def pipfile_sources(self, expand_vars=True):
         if self.pipfile_is_empty or "source" not in self.parsed_pipfile:
@@ -1126,9 +1185,16 @@ class Project:
 
     def remove_package_from_pipfile(self, package_name, category):
         # Read and append Pipfile.
-        name = self.get_package_name_in_pipfile(package_name, category=category)
         p = self.parsed_pipfile
-        if name:
+        section = p.get(category, {})
+        # Find the actual key in the section that matches the normalized name
+        normalized_name = pep423_name(package_name)
+        name = None
+        for key in section:
+            if pep423_name(key) == normalized_name:
+                name = key
+                break
+        if name and name in section:
             del p[category][name]
             if self.settings.get("sort_pipfile"):
                 p[category] = self._sort_category(p[category])
@@ -1155,7 +1221,8 @@ class Project:
             to_remove = packages & pipfile_packages
             for pkg in to_remove:
                 pkg_name = self.get_package_name_in_pipfile(pkg, category=category)
-                del parsed[category][pkg_name]
+                if pkg_name:
+                    del parsed[category][pkg_name]
         self.write_toml(parsed)
 
     def generate_package_pipfile_entry(
@@ -1228,6 +1295,10 @@ class Project:
             entry["index"] = index_name
         elif hasattr(package, "index"):
             entry["index"] = package.index
+
+        # Include markers (e.g., sys_platform == 'win32') if present
+        if package.markers:
+            entry["markers"] = str(package.markers)
 
         if len(entry) == 1 and "version" in entry:
             return name, normalized_name, specifier
@@ -1388,7 +1459,12 @@ class Project:
         """
         Adds a given index to the Pipfile if it doesn't already exist.
         Returns the source name regardless of whether it was newly added or already existed.
+
+        Raises PipenvUsageError if the index is not a valid URL and doesn't exist
+        as a named source in the Pipfile.
         """
+        from pipenv.exceptions import PipenvUsageError
+
         # Read and append Pipfile.
         p = self.parsed_pipfile
         source = None
@@ -1410,7 +1486,18 @@ class Project:
                 if existing_source.get("url") == index:
                     return existing_source.get("name")
 
-        # If we reach here, the source doesn't exist, so create and add it
+        # If we reach here, the source doesn't exist - validate it's a valid URL
+        if not is_valid_url(index):
+            available_sources = ", ".join(
+                f"'{s.get('name')}'" for s in self.sources if s.get("name")
+            )
+            raise PipenvUsageError(
+                f"Index '{index}' was not found in Pipfile sources and is not a valid URL.\n"
+                f"Available sources: {available_sources or 'none'}\n"
+                f"Hint: Use a valid URL or add the index to your Pipfile [[source]] section."
+            )
+
+        # Create and add the new source
         source = {
             "url": index,
             "verify_ssl": verify_ssl,
@@ -1441,11 +1528,8 @@ class Project:
                 try:
                     j = json.load(lock)
                     self._lockfile_newlines = preferred_newlines(lock)
-                except JSONDecodeError:
-                    err.print(
-                        "[bold yellow]Pipfile.lock is corrupted; ignoring contents.[/bold yellow]"
-                    )
-                    j = {}
+                except JSONDecodeError as e:
+                    raise LockfileCorruptException(str(lockfile_path)) from e
         except FileNotFoundError:
             j = {}
 
@@ -1485,7 +1569,7 @@ class Project:
 
         try:
             lockfile = self.load_lockfile(expand_env_vars=False)
-        except ValueError:
+        except LockfileCorruptException:
             # Lockfile corrupted
             return ""
         if "_meta" in lockfile and hasattr(lockfile, "keys"):

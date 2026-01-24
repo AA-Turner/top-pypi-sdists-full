@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Optional
 from enum import Enum
+from typing import Optional
+
 from ably.sync.util.exceptions import AblyException
 
 

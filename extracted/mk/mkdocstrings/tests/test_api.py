@@ -91,7 +91,7 @@ def _fixture_public_objects(public_api: griffe.Module) -> list[griffe.Object | g
 def _fixture_inventory() -> Inventory:
     inventory_file = Path(__file__).parent.parent / "site" / "objects.inv"
     if not inventory_file.exists():
-        raise pytest.skip("The objects inventory is not available.")
+        pytest.skip("The objects inventory is not available.")  # ty: ignore[call-non-callable]
     with inventory_file.open("rb") as file:
         return Inventory.parse_sphinx(file)
 
@@ -137,7 +137,9 @@ def test_api_matches_inventory(inventory: Inventory, public_objects: list[griffe
     """All public objects are added to the inventory."""
     ignore_names = {"__getattr__", "__init__", "__repr__", "__str__", "__post_init__"}
     not_in_inventory = [
-        obj.path for obj in public_objects if obj.name not in ignore_names and obj.path not in inventory
+        f"{obj.relative_filepath}:{obj.lineno}: {obj.path}"
+        for obj in public_objects
+        if obj.name not in ignore_names and obj.path not in inventory
     ]
     msg = "Objects not in the inventory (try running `make run mkdocs build`):\n{paths}"
     assert not not_in_inventory, msg.format(paths="\n".join(sorted(not_in_inventory)))
@@ -150,8 +152,6 @@ def test_inventory_matches_api(
 ) -> None:
     """The inventory doesn't contain any additional Python object."""
     not_in_api = []
-    # YORE: Bump 1: Remove line.
-    deprecated_modules = {"extension", "handlers", "inventory", "loggers", "plugin"}
     public_api_paths = {obj.path for obj in public_objects}
     public_api_paths.add("mkdocstrings")
     for item in inventory.values():
@@ -161,9 +161,6 @@ def test_inventory_matches_api(
             and (item.name == "mkdocstrings" or item.name.startswith("mkdocstrings."))
         ):
             obj = loader.modules_collection[item.name]
-            # YORE: Bump 1: Remove block.
-            if any(obj.path.startswith(f"mkdocstrings.{module}") for module in deprecated_modules):
-                continue
 
             if obj.path not in public_api_paths and not any(path in public_api_paths for path in obj.aliases):
                 not_in_api.append(item.name)

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -17,6 +17,7 @@ from ibm_watsonx_ai.foundation_models.utils.utils import (
 from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.utils.autoai.utils import is_ipython
+from ibm_watsonx_ai.utils.utils import get_from_json, is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     MissingExtension,
     UnsupportedOperation,
@@ -122,6 +123,7 @@ class FineTuner(BaseTuner):
         training_data_references: list[DataConnection],
         training_results_reference: DataConnection | None = None,
         background_mode: bool = False,
+        custom: dict | None = None,
     ) -> dict:
         """Run a fine-tuning process of foundation model on top of the training data referenced by DataConnection.
 
@@ -133,6 +135,9 @@ class FineTuner(BaseTuner):
 
         :param background_mode: indicator if fit() method will run in background (async) or (sync)
         :type background_mode: bool, optional
+
+        :param custom: user defined properties specified as key-value pairs
+        :type custom: dict, optional
 
         :return: run details
         :rtype: dict
@@ -179,6 +184,7 @@ class FineTuner(BaseTuner):
             training_data_references,
             test_data_references=None,
             training_results_reference=training_results_reference,
+            custom=custom,
         )
 
         self._training_metadata = cast(dict, self._training_metadata)
@@ -196,6 +202,7 @@ class FineTuner(BaseTuner):
         training_data_references: list[DataConnection],
         test_data_references: list[DataConnection] | None = None,
         training_results_reference: DataConnection | None = None,
+        custom: dict | None = None,
     ) -> None:
         self._training_metadata = {
             self._client.training.ConfigurationMetaNames.TRAINING_DATA_REFERENCES: [
@@ -212,6 +219,11 @@ class FineTuner(BaseTuner):
             self._training_metadata[
                 self._client.training.ConfigurationMetaNames.TRAINING_RESULTS_REFERENCE
             ] = training_results_reference._to_dict()
+
+        if custom is not None:
+            self._training_metadata[
+                self._client.training.ConfigurationMetaNames.CUSTOM
+            ] = custom
 
         if self.description:
             self._training_metadata[
@@ -399,10 +411,9 @@ class FineTuner(BaseTuner):
                 )
         from ibm_watsonx_ai.utils.autoai.incremental import plot_learning_curve
 
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise MissingExtension("matplotlib")
+        if not is_lib_installed(ext := "matplotlib"):
+            raise MissingExtension(ext)
+        import matplotlib.pyplot as plt
 
         tuning_details = self.get_run_details(include_metrics=True)
 
@@ -470,9 +481,9 @@ class FineTuner(BaseTuner):
             model_metrics = [extracted_metrics["scores"][-1]]
         else:
             model_metrics = [
-                details["entity"]["status"]
-                .get("metrics", [{}])[-1]
-                .get("data", {})[scoring]
+                get_from_json(details, ["entity", "status", "metrics", -1, "data"])[
+                    scoring
+                ]
             ]
 
         if "parameters" in details["entity"]:
@@ -550,6 +561,7 @@ class FineTuner(BaseTuner):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import TuneExperiment
+
             experiment = TuneExperiment(credentials, ...)
             fine_tuner = experiment.fine_tuner(...)
             fine_tuner.run(...)

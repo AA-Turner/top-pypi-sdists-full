@@ -512,12 +512,34 @@ class DatasetRevision(Protocol):
     def ingest(self, store_online: bool = False, store_offline: bool = True) -> Dataset:
         """Saves this revision to Chalk's online and offline storage.
 
+        This method is commonly used for backfilling historical feature data into Chalk's
+        feature stores. Features ingested into the offline store become immediately available
+        for model training queries, while features ingested into the online store are available
+        for low-latency serving. For more details on backfilling data, see
+        https://docs.chalk.ai/docs/backfilling-data
+
         Parameters
         ----------
         store_online
-            Whether to store the revision in Chalk's online storage.
+            Whether to store the revision in Chalk's online storage for low-latency serving.
+            Set to `True` when you need features available for real-time inference.
         store_offline
-            Whether to store the revision in Chalk's offline storage.
+            Whether to store the revision in Chalk's offline storage for training datasets.
+            Set to `True` when backfilling historical data for model training. You may not need
+            to store to the offline store if the data can be recomputed through a new dataset query.
+
+        Returns
+        -------
+        Dataset
+            The dataset object after ingestion is complete.
+
+        Examples
+        --------
+        >>> # Backfill features to offline store for training
+        >>> dataset = client.offline_query(...)
+        >>> dataset.ingest(store_offline=True)
+        >>> # Load features to online store for serving
+        >>> dataset.ingest(store_online=True, store_offline=False)
         """
         ...
 
@@ -1180,12 +1202,34 @@ class Dataset(Protocol):
         """
         Saves the latest revision of this dataset to Chalk's online and offline storage.
 
+        This method is commonly used for backfilling historical feature data into Chalk's
+        feature stores. Features ingested into the offline store become immediately available
+        for model training queries, while features ingested into the online store are available
+        for low-latency serving. For more details on backfilling data, see
+        https://docs.chalk.ai/docs/backfilling-data
+
         Parameters
         ----------
         store_online
-            Whether to store the revision in Chalk's online storage.
+            Whether to store the revision in Chalk's online storage for low-latency serving.
+            Set to `True` when you need features available for real-time inference.
         store_offline
-            Whether to store the revision in Chalk's offline storage.
+            Whether to store the revision in Chalk's offline storage for training datasets.
+            Set to `True` when backfilling historical data for model training. You may not need
+            to store to the offline store if the data can be recomputed through a new dataset query.
+
+        Returns
+        -------
+        Dataset
+            The dataset object after ingestion is complete.
+
+        Examples
+        --------
+        >>> # Backfill features to offline store for training
+        >>> dataset = client.offline_query(...)
+        >>> dataset.ingest(store_offline=True)
+        >>> # Load features to online store for serving
+        >>> dataset.ingest(store_online=True, store_offline=False)
         """
         ...
 

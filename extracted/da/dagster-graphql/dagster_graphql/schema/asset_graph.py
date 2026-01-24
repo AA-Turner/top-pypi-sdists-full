@@ -53,7 +53,6 @@ from dagster._core.remote_representation.external_data import AssetNodeSnap
 from dagster._core.snap.node import GraphDefSnap, OpDefSnap
 from dagster._core.storage.asset_check_execution_record import AssetCheckInstanceSupport
 from dagster._core.storage.event_log.base import AssetRecord
-from dagster._core.storage.partition_status_cache import get_partition_subsets
 from dagster._core.storage.tags import KIND_PREFIX
 from dagster._core.utils import is_valid_email
 from dagster._core.workspace.context import BaseWorkspaceRequestContext
@@ -71,6 +70,7 @@ from dagster_graphql.implementation.fetch_assets import (
 from dagster_graphql.implementation.fetch_partition_subsets import (
     regenerate_and_check_partition_subsets,
 )
+from dagster_graphql.implementation.utils import has_permission_for_definition
 from dagster_graphql.schema import external
 from dagster_graphql.schema.asset_checks import (
     AssetChecksOrErrorUnion,
@@ -112,6 +112,11 @@ from dagster_graphql.schema.logs.events import (
     GrapheneObservationEvent,
 )
 from dagster_graphql.schema.metadata import GrapheneMetadataEntry
+from dagster_graphql.schema.owners import (
+    GrapheneAssetOwner,
+    GrapheneTeamAssetOwner,
+    GrapheneUserAssetOwner,
+)
 from dagster_graphql.schema.partition_keys import GraphenePartitionKeyConnection
 from dagster_graphql.schema.partition_mappings import GraphenePartitionMapping
 from dagster_graphql.schema.partition_sets import (
@@ -147,29 +152,6 @@ GrapheneAssetStaleCauseCategory = graphene.Enum.from_enum(
 )
 
 GrapheneAssetChangedReason = graphene.Enum.from_enum(AssetDefinitionChangeType, name="ChangeReason")
-
-
-class GrapheneUserAssetOwner(graphene.ObjectType):
-    class Meta:
-        name = "UserAssetOwner"
-
-    email = graphene.NonNull(graphene.String)
-
-
-class GrapheneTeamAssetOwner(graphene.ObjectType):
-    class Meta:
-        name = "TeamAssetOwner"
-
-    team = graphene.NonNull(graphene.String)
-
-
-class GrapheneAssetOwner(graphene.Union):
-    class Meta:
-        types = (
-            GrapheneUserAssetOwner,
-            GrapheneTeamAssetOwner,
-        )
-        name = "AssetOwner"
 
 
 class GrapheneAssetStaleCause(graphene.ObjectType):
@@ -265,6 +247,7 @@ class GrapheneAssetNode(graphene.ObjectType):
         beforeTimestampMillis=graphene.String(),
         limit=graphene.Int(),
     )
+    assetsForSameStorageAddress = non_null_list(lambda: GrapheneAssetNode)
     lastAutoMaterializationEvaluationRecord = graphene.Field(
         GrapheneAutoMaterializeAssetEvaluationRecord,
         asOfEvaluationId=graphene.ID(),
@@ -344,6 +327,7 @@ class GrapheneAssetNode(graphene.ObjectType):
     )
     type = graphene.Field(GrapheneDagsterType)
     hasMaterializePermission = graphene.NonNull(graphene.Boolean)
+    hasWipePermission = graphene.NonNull(graphene.Boolean)
     hasReportRunlessAssetEventPermission = graphene.NonNull(graphene.Boolean)
 
     # the acutal checks are listed in the assetChecksOrError resolver. We use this boolean
@@ -397,6 +381,8 @@ class GrapheneAssetNode(graphene.ObjectType):
     def _graphene_asset_owner_from_owner_str(
         self, owner_str: str
     ) -> Union[GrapheneUserAssetOwner, GrapheneTeamAssetOwner]:
+        # TODO: (prha) switch to use definition_owner_from_owner_str once we have switched the frontend
+        # typename checks
         if is_valid_email(owner_str):
             return GrapheneUserAssetOwner(email=owner_str)
         else:
@@ -582,16 +568,24 @@ class GrapheneAssetNode(graphene.ObjectType):
         self,
         graphene_info: ResolveInfo,
     ) -> bool:
-        return graphene_info.context.has_permission_for_location(
-            Permissions.LAUNCH_PIPELINE_EXECUTION, self._repository_selector.location_name
+        return has_permission_for_definition(
+            graphene_info, Permissions.LAUNCH_PIPELINE_EXECUTION, self._remote_node
+        )
+
+    def resolve_hasWipePermission(
+        self,
+        graphene_info: ResolveInfo,
+    ) -> bool:
+        return has_permission_for_definition(
+            graphene_info, Permissions.WIPE_ASSETS, self._remote_node
         )
 
     def resolve_hasReportRunlessAssetEventPermission(
         self,
         graphene_info: ResolveInfo,
     ) -> bool:
-        return graphene_info.context.has_permission_for_location(
-            Permissions.REPORT_RUNLESS_ASSET_EVENTS, self._repository_selector.location_name
+        return has_permission_for_definition(
+            graphene_info, Permissions.REPORT_RUNLESS_ASSET_EVENTS, self._remote_node
         )
 
     def resolve_assetMaterializationUsedData(
@@ -712,6 +706,14 @@ class GrapheneAssetNode(graphene.ObjectType):
                 limit=limit,
             )
         ]
+
+    def resolve_assetsForSameStorageAddress(
+        self, graphene_info: ResolveInfo
+    ) -> Sequence["GrapheneAssetNode"]:
+        matching_nodes = graphene_info.context.asset_graph.get_assets_for_same_storage_address(
+            self._asset_node_snap.asset_key
+        )
+        return [GrapheneAssetNode(remote_node=node) for node in matching_nodes]
 
     def resolve_configField(self, graphene_info: ResolveInfo) -> Optional[GrapheneConfigTypeField]:
         selector = self._job_selector()
@@ -945,13 +947,13 @@ class GrapheneAssetNode(graphene.ObjectType):
             # global nodes have saved references to their targeting instigators
             schedules = [
                 schedule
-                for schedule_handle in self._remote_node.get_targeting_schedule_handles()
-                if (schedule := graphene_info.context.get_schedule(schedule_handle)) is not None
+                for schedule_selector in self._remote_node.get_targeting_schedule_selectors()
+                if (schedule := graphene_info.context.get_schedule(schedule_selector)) is not None
             ]
             sensors = [
                 sensor
-                for sensor_handle in self._remote_node.get_targeting_sensor_handles()
-                if (sensor := graphene_info.context.get_sensor(sensor_handle)) is not None
+                for sensor_selector in self._remote_node.get_targeting_sensor_selectors()
+                if (sensor := graphene_info.context.get_sensor(sensor_selector)) is not None
             ]
 
         else:
@@ -1128,8 +1130,6 @@ class GrapheneAssetNode(graphene.ObjectType):
         "GrapheneDefaultPartitionStatuses",
         "GrapheneMultiPartitionStatuses",
     ]:
-        asset_key = self._asset_node_snap.asset_key
-
         partitions_def = (
             self._asset_node_snap.partitions.get_partitions_definition()
             if self._asset_node_snap.partitions
@@ -1140,12 +1140,10 @@ class GrapheneAssetNode(graphene.ObjectType):
             materialized_partition_subset,
             failed_partition_subset,
             in_progress_subset,
-        ) = await get_partition_subsets(
-            graphene_info.context.instance,
+        ) = await regenerate_and_check_partition_subsets(
             graphene_info.context,
-            asset_key,
+            self._asset_node_snap,
             graphene_info.context.dynamic_partitions_loader,
-            partitions_def,
         )
 
         return build_partition_statuses(
@@ -1173,6 +1171,13 @@ class GrapheneAssetNode(graphene.ObjectType):
                     self._asset_node_snap,
                     graphene_info.context.dynamic_partitions_loader,
                 )
+
+                if (
+                    materialized_partition_subset is None
+                    or failed_partition_subset is None
+                    or in_progress_subset is None
+                ):
+                    check.failed("Expected partitions subset for a partitioned asset")
 
                 failed_or_in_progress_subset = failed_partition_subset | in_progress_subset
                 failed_and_not_in_progress_subset = failed_partition_subset - in_progress_subset

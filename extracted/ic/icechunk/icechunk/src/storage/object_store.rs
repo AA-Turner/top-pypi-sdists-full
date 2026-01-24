@@ -15,8 +15,9 @@ use futures::{
 };
 use object_store::{
     Attribute, AttributeValue, Attributes, BackoffConfig, ClientConfigKey,
-    CredentialProvider, GetOptions, ObjectMeta, ObjectStore, PutMode, PutOptions,
-    PutPayload, RetryConfig, StaticCredentialProvider, UpdateVersion,
+    CredentialProvider, GetOptions, ObjectMeta, ObjectStore, ObjectStoreExt as _,
+    PutMode, PutOptions, PutPayload, RetryConfig, StaticCredentialProvider,
+    UpdateVersion,
     aws::AmazonS3Builder,
     azure::{AzureConfigKey, MicrosoftAzureBuilder},
     gcp::{GcpCredential, GoogleCloudStorageBuilder, GoogleConfigKey},
@@ -969,11 +970,11 @@ impl ObjectStoreBackend for S3ObjectStoreBackend {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AzureObjectStoreBackend {
-    account: String,
-    container: String,
-    prefix: Option<String>,
-    credentials: Option<AzureCredentials>,
-    config: Option<HashMap<AzureConfigKey, String>>,
+    pub account: String,
+    pub container: String,
+    pub prefix: Option<String>,
+    pub credentials: Option<AzureCredentials>,
+    pub config: Option<HashMap<AzureConfigKey, String>>,
 }
 
 impl fmt::Display for AzureObjectStoreBackend {
@@ -1162,14 +1163,12 @@ impl GcsRefreshableCredentialProvider {
         let last_credential = self.last_credential.read().await;
 
         // If we have a credential and it hasn't expired, return it
-        if let Some(creds) = last_credential.as_ref() {
-            if let Some(expires_after) = creds.expires_after {
-                if expires_after
-                    > Utc::now() + TimeDelta::seconds(rand::random_range(120..=180))
-                {
-                    return Ok(creds.clone());
-                }
-            }
+        if let Some(creds) = last_credential.as_ref()
+            && let Some(expires_after) = creds.expires_after
+            && expires_after
+                > Utc::now() + TimeDelta::seconds(rand::random_range(120..=180))
+        {
+            return Ok(creds.clone());
         }
 
         drop(last_credential);

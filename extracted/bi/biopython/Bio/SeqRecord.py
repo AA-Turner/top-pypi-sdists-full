@@ -13,8 +13,6 @@
 # In particular, the SeqRecord and BioSQL.BioSeq.DBSeqRecord classes
 # need to be in sync (this is the BioSQL "Database SeqRecord").
 import numbers
-import warnings
-from io import StringIO
 from typing import Any
 from typing import cast
 from collections.abc import Iterator
@@ -25,7 +23,6 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 from typing import Union
 
-from Bio import BiopythonDeprecationWarning
 from Bio import StreamModeError
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
@@ -178,18 +175,18 @@ class SeqRecord:
 
     annotations: _AnnotationsDict
     dbxrefs: list[str]
-    _per_letter_annotations: Optional[_RestrictedDict]
+    _per_letter_annotations: _RestrictedDict | None
 
     def __init__(
         self,
-        seq: Optional[Union["Seq", "MutableSeq"]],
-        id: Optional[str] = "<unknown id>",
+        seq: Union["Seq", "MutableSeq"] | None,
+        id: str | None = "<unknown id>",
         name: str = "<unknown name>",
         description: str = "<unknown description>",
-        dbxrefs: Optional[list[str]] = None,
-        features: Optional[list["SeqFeature"]] = None,
-        annotations: Optional[_AnnotationsDict] = None,
-        letter_annotations: Optional[dict[str, Sequence[Any]]] = None,
+        dbxrefs: list[str] | None = None,
+        features: list["SeqFeature"] | None = None,
+        annotations: _AnnotationsDict | None = None,
+        letter_annotations: dict[str, Sequence[Any]] | None = None,
     ) -> None:
         """Create a SeqRecord.
 
@@ -216,6 +213,8 @@ class SeqRecord:
         You can create a 'blank' SeqRecord object, and then populate the
         attributes later.
         """
+        if seq is not None and not isinstance(seq, (Seq, MutableSeq)):
+            raise TypeError("seq argument should be a Seq or MutableSeq object")
         if id is not None and not isinstance(id, str):
             # Lots of existing code uses id=None... this may be a bad idea.
             raise TypeError("id argument should be a string")
@@ -223,14 +222,6 @@ class SeqRecord:
             raise TypeError("name argument should be a string")
         if not isinstance(description, str):
             raise TypeError("description argument should be a string")
-
-        if seq is not None and not isinstance(seq, (Seq, MutableSeq)):
-            warnings.warn(
-                "Using a string as the sequence is deprecated and will raise a"
-                " TypeError in future. It has been converted to a Seq object.",
-                BiopythonDeprecationWarning,
-            )
-            seq = Seq(seq)
 
         self._seq = seq
         self.id = id
@@ -343,21 +334,15 @@ class SeqRecord:
         dict.update(self._per_letter_annotations, value)  # type: ignore
 
     @property
-    def seq(self) -> Optional[Union["Seq", "MutableSeq"]]:
+    def seq(self) -> Union["Seq", "MutableSeq"] | None:
         """The sequence itself, as a Seq or MutableSeq object."""
         return self._seq
 
     @seq.setter
     def seq(self, value: Union["Seq", "MutableSeq"]) -> None:
         # Adding this here for users who are not type-checking their code.
-        if not isinstance(value, (Seq, MutableSeq)):
-            warnings.warn(
-                "Using a string as the sequence is deprecated and will raise a"
-                " TypeError in future. It has been converted to a Seq object.",
-                BiopythonDeprecationWarning,
-            )
-            value = Seq(value)
-
+        if value is not None and not isinstance(value, (Seq, MutableSeq)):
+            raise TypeError("seq must be a Seq or MutableSeq object")
         # TODO - Add a deprecation warning that the seq should be write only?
         if self._per_letter_annotations:
             if len(self) != len(value):
@@ -375,14 +360,14 @@ class SeqRecord:
     @classmethod
     def _from_validated(
         cls,
-        seq: Optional[Union[Seq, MutableSeq]],
-        id: Optional[str] = "<unknown id>",
+        seq: Seq | MutableSeq | None,
+        id: str | None = "<unknown id>",
         name: str = "<unknown name>",
         description: str = "<unknown description>",
-        dbxrefs: Optional[list[str]] = None,
-        features: Optional[list["SeqFeature"]] = None,
-        annotations: Optional[dict[str, Union[str, int]]] = None,
-        letter_annotations: Optional[dict[str, Sequence]] = None,
+        dbxrefs: list[str] | None = None,
+        features: list["SeqFeature"] | None = None,
+        annotations: dict[str, str | int] | None = None,
+        letter_annotations: dict[str, Sequence] | None = None,
     ) -> "SeqRecord":
         """Faster constructor for post-validated data like copies or validated parsed data"""
 
@@ -862,20 +847,14 @@ class SeqRecord:
             return str(self)
         from Bio import SeqIO
 
-        # Easy case, can call string-building function directly
-        if format_spec in SeqIO._FormatToString:
-            return SeqIO._FormatToString[format_spec](self)
-
-        # Harder case, make a temp handle instead
-        handle = StringIO()
+        cls = SeqIO._FormatToWriter[format_spec]
         try:
-            SeqIO.write(self, handle, format_spec)
+            return cls.to_string(self)  # type: ignore
         except StreamModeError:
             raise ValueError(
                 "Binary format %s cannot be used with SeqRecord format method"
                 % format_spec
             ) from None
-        return handle.getvalue()
 
     def __len__(self) -> int:
         """Return the length of the sequence.
@@ -1148,7 +1127,11 @@ class SeqRecord:
             dbxrefs=self.dbxrefs[:],
             features=self.features[:],
             annotations=self.annotations.copy(),
-            letter_annotations=self.letter_annotations.copy(),
+            letter_annotations=(
+                None
+                if self._per_letter_annotations is None
+                else self.letter_annotations.copy()
+            ),
         )
 
     def lower(self) -> "SeqRecord":
@@ -1195,7 +1178,11 @@ class SeqRecord:
             dbxrefs=self.dbxrefs[:],
             features=self.features[:],
             annotations=self.annotations.copy(),
-            letter_annotations=self.letter_annotations.copy(),
+            letter_annotations=(
+                None
+                if self._per_letter_annotations is None
+                else self.letter_annotations.copy()
+            ),
         )
 
     def isupper(self):
@@ -1422,12 +1409,13 @@ class SeqRecord:
         elif annotations:
             # Copy the old annotations,
             answer.annotations = self.annotations.copy()
-        if isinstance(letter_annotations, dict):
-            answer.letter_annotations = letter_annotations
-        elif letter_annotations:
-            # Copy the old per letter annotations, reversing them
-            for key, value in self.letter_annotations.items():
-                answer.letter_annotations[key] = value[::-1]
+        if self._per_letter_annotations is not None:
+            if isinstance(letter_annotations, dict):
+                answer.letter_annotations = letter_annotations
+            elif letter_annotations:
+                # Copy the old per letter annotations, reversing them
+                for key, value in self.letter_annotations.items():
+                    answer.letter_annotations[key] = value[::-1]
         return answer
 
     def translate(
@@ -1437,7 +1425,7 @@ class SeqRecord:
         stop_symbol: str = "*",
         to_stop: bool = False,
         cds: bool = False,
-        gap: Optional[str] = None,
+        gap: str | None = None,
         # SeqRecord annotation arguments:
         id: bool = False,
         name: bool = False,
@@ -1532,13 +1520,14 @@ class SeqRecord:
             answer.annotations = self.annotations.copy()
         # Set/update to protein:
         answer.annotations["molecule_type"] = "protein"
-        if isinstance(letter_annotations, dict):
-            answer.letter_annotations = letter_annotations
-        elif letter_annotations:
-            # Does not make sense to copy these as length now wrong
-            raise TypeError(
-                f"Unexpected letter_annotations argument {letter_annotations!r}"
-            )
+        if self._per_letter_annotations is not None:
+            if isinstance(letter_annotations, dict):
+                answer.letter_annotations = letter_annotations
+            elif letter_annotations:
+                # Does not make sense to copy these as length now wrong
+                raise TypeError(
+                    f"Unexpected letter_annotations argument {letter_annotations!r}"
+                )
         return answer
 
 

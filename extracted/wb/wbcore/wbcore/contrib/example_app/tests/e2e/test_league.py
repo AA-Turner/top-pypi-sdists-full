@@ -28,12 +28,12 @@ USER_PASSWORD = "User_Password"
 class TestLeague:
     def test_create_edit_delete_league(self, live_server, selenium):
         # Creating a test user and login to the WB
-        user: User = SuperUserFactory(plaintext_password=USER_PASSWORD)
+        user: User = SuperUserFactory.create(plaintext_password=USER_PASSWORD)
         actions = ActionChains(selenium, 1000)
         set_up(selenium, live_server, user.email, USER_PASSWORD)
 
         # -----> CREATE A NEW LEAGUE <----- #
-        sport = SportFactory()
+        sport = SportFactory.create()
         league_a = create_new_league_instance(
             selenium, ["name", "sport", "established_date", "points_per_win"], sport, False
         )

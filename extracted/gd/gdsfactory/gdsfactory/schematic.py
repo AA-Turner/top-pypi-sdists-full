@@ -1,7 +1,7 @@
 import json
 import pathlib
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, TypeAlias
 
 import networkx as nx
 import yaml
@@ -47,6 +47,9 @@ class GridArray(BaseModel):
     pitch_b: tuple[float, float] = (0.0, 1.0)
 
 
+Array: TypeAlias = OrthogonalGridArray | GridArray
+
+
 class Instance(BaseModel):
     """Instance of a component.
 
@@ -61,7 +64,7 @@ class Instance(BaseModel):
     component: str
     settings: dict[str, Any] = Field(default_factory=dict)
     info: dict[str, Any] = Field(default_factory=dict, exclude=True)
-    array: OrthogonalGridArray | GridArray | None = None
+    array: Array | None = None
     virtual: bool = False
 
     model_config = ConfigDict(extra="forbid")
@@ -90,10 +93,13 @@ class Instance(BaseModel):
         c = gf.get_component(component, settings=settings)
         component_info = c.info.model_dump(exclude_none=True)
         component_settings = c.settings.model_dump(exclude_none=True)
-        values["info"] = {**component_info, **info}
-        values["settings"] = {**component_settings, **settings}
-        values["component"] = c.function_name or component
-        return values
+
+        # Create a new dict to avoid modifying the input in place
+        result = values.copy()
+        result["info"] = {**component_info, **info}
+        result["settings"] = {**component_settings, **settings}
+        result["component"] = c.function_name or component
+        return result
 
     @model_validator(mode="after")
     def validate_array(self) -> Self:
@@ -221,7 +227,7 @@ def to_yaml_graph_networkx(
         ]
     )
     pos = {k: (v["x"], v["y"]) for k, v in placements.items()}
-    labels = {k: ",".join(k.split(",")[:1]) for k in placements.keys()}
+    labels = {k: ",".join(k.split(",")[:1]) for k in placements}
 
     for node, placement in placements.items():
         if not graph.has_node(

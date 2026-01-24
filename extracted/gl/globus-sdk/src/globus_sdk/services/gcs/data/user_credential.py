@@ -3,10 +3,11 @@ from __future__ import annotations
 import typing as t
 import uuid
 
-from globus_sdk import utils
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import GlobusPayload
 
 
-class UserCredentialDocument(utils.PayloadWrapper):
+class UserCredentialDocument(GlobusPayload):
     """
     Convenience class for constructing a UserCredential document
     to use as the `data` parameter to `create_user_credential` and
@@ -27,24 +28,20 @@ class UserCredentialDocument(utils.PayloadWrapper):
     def __init__(
         self,
         DATA_TYPE: str = "user_credential#1.0.0",
-        identity_id: uuid.UUID | str | None = None,
-        connector_id: uuid.UUID | str | None = None,
-        username: str | None = None,
-        display_name: str | None = None,
-        storage_gateway_id: uuid.UUID | str | None = None,
-        policies: dict[str, t.Any] | None = None,
+        identity_id: uuid.UUID | str | MissingType = MISSING,
+        connector_id: uuid.UUID | str | MissingType = MISSING,
+        username: str | MissingType = MISSING,
+        display_name: str | MissingType = MISSING,
+        storage_gateway_id: uuid.UUID | str | MissingType = MISSING,
+        policies: dict[str, t.Any] | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> None:
         super().__init__()
-        self._set_optstrs(
-            DATA_TYPE=DATA_TYPE,
-            identity_id=identity_id,
-            connector_id=connector_id,
-            username=username,
-            display_name=display_name,
-            storage_gateway_id=storage_gateway_id,
-        )
-        self._set_value("policies", policies)
-
-        if additional_fields is not None:
-            self.update(additional_fields)
+        self["DATA_TYPE"] = DATA_TYPE
+        self["identity_id"] = identity_id
+        self["connector_id"] = connector_id
+        self["username"] = username
+        self["display_name"] = display_name
+        self["storage_gateway_id"] = storage_gateway_id
+        self["policies"] = policies
+        self.update(additional_fields or {})

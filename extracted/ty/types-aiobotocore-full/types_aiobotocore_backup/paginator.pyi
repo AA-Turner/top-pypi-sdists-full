@@ -3,7 +3,7 @@ Type annotations for backup service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -31,6 +31,9 @@ Usage::
         ListRestoreJobsPaginator,
         ListRestoreTestingPlansPaginator,
         ListRestoreTestingSelectionsPaginator,
+        ListScanJobSummariesPaginator,
+        ListScanJobsPaginator,
+        ListTieringConfigurationsPaginator,
     )
 
     session = get_session()
@@ -56,6 +59,9 @@ Usage::
         list_restore_jobs_paginator: ListRestoreJobsPaginator = client.get_paginator("list_restore_jobs")
         list_restore_testing_plans_paginator: ListRestoreTestingPlansPaginator = client.get_paginator("list_restore_testing_plans")
         list_restore_testing_selections_paginator: ListRestoreTestingSelectionsPaginator = client.get_paginator("list_restore_testing_selections")
+        list_scan_job_summaries_paginator: ListScanJobSummariesPaginator = client.get_paginator("list_scan_job_summaries")
+        list_scan_jobs_paginator: ListScanJobsPaginator = client.get_paginator("list_scan_jobs")
+        list_tiering_configurations_paginator: ListTieringConfigurationsPaginator = client.get_paginator("list_tiering_configurations")
     ```
 """
 
@@ -105,6 +111,12 @@ from .type_defs import (
     ListRestoreTestingPlansOutputTypeDef,
     ListRestoreTestingSelectionsInputPaginateTypeDef,
     ListRestoreTestingSelectionsOutputTypeDef,
+    ListScanJobsInputPaginateTypeDef,
+    ListScanJobsOutputTypeDef,
+    ListScanJobSummariesInputPaginateTypeDef,
+    ListScanJobSummariesOutputTypeDef,
+    ListTieringConfigurationsInputPaginateTypeDef,
+    ListTieringConfigurationsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -132,6 +144,9 @@ __all__ = (
     "ListRestoreJobsPaginator",
     "ListRestoreTestingPlansPaginator",
     "ListRestoreTestingSelectionsPaginator",
+    "ListScanJobSummariesPaginator",
+    "ListScanJobsPaginator",
+    "ListTieringConfigurationsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -490,4 +505,58 @@ class ListRestoreTestingSelectionsPaginator(_ListRestoreTestingSelectionsPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRestoreTestingSelections.html#Backup.Paginator.ListRestoreTestingSelections.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listrestoretestingselectionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListScanJobSummariesPaginatorBase = AioPaginator[ListScanJobSummariesOutputTypeDef]
+else:
+    _ListScanJobSummariesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListScanJobSummariesPaginator(_ListScanJobSummariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListScanJobSummaries.html#Backup.Paginator.ListScanJobSummaries)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listscanjobsummariespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListScanJobSummariesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListScanJobSummariesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListScanJobSummaries.html#Backup.Paginator.ListScanJobSummaries.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listscanjobsummariespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListScanJobsPaginatorBase = AioPaginator[ListScanJobsOutputTypeDef]
+else:
+    _ListScanJobsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListScanJobsPaginator(_ListScanJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListScanJobs.html#Backup.Paginator.ListScanJobs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listscanjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListScanJobsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListScanJobsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListScanJobs.html#Backup.Paginator.ListScanJobs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listscanjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTieringConfigurationsPaginatorBase = AioPaginator[ListTieringConfigurationsOutputTypeDef]
+else:
+    _ListTieringConfigurationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListTieringConfigurationsPaginator(_ListTieringConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListTieringConfigurations.html#Backup.Paginator.ListTieringConfigurations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listtieringconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTieringConfigurationsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListTieringConfigurationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListTieringConfigurations.html#Backup.Paginator.ListTieringConfigurations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listtieringconfigurationspaginator)
         """

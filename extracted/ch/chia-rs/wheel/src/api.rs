@@ -8,10 +8,10 @@ use chia_consensus::check_time_locks::py_check_time_locks;
 use chia_consensus::consensus_constants::ConsensusConstants;
 use chia_consensus::flags::{
     COMPUTE_FINGERPRINT, COST_CONDITIONS, DONT_VALIDATE_SIGNATURE, MEMPOOL_MODE, NO_UNKNOWN_CONDS,
-    STRICT_ARGS_COUNT,
+    SIMPLE_GENERATOR, STRICT_ARGS_COUNT,
 };
 use chia_consensus::merkle_set::compute_merkle_set_root as compute_merkle_root_impl;
-use chia_consensus::merkle_tree::{validate_merkle_proof, MerkleSet};
+use chia_consensus::merkle_tree::{MerkleSet, validate_merkle_proof};
 use chia_consensus::owned_conditions::{OwnedSpendBundleConditions, OwnedSpendConditions};
 use chia_consensus::run_block_generator::setup_generator_args;
 use chia_consensus::run_block_generator::{
@@ -24,17 +24,13 @@ use chia_consensus::spendbundle_validation::{
     get_flags_for_height_and_constants, validate_clvm_and_signature,
 };
 use chia_protocol::{
-    calculate_ip_iters, calculate_sp_interval_iters, calculate_sp_iters, is_overflow_block,
-    py_expected_plot_size,
-};
-use chia_protocol::{
     BlockRecord, Bytes32, ChallengeBlockInfo, ChallengeChainSubSlot, ClassgroupElement, Coin,
     CoinRecord, CoinSpend, CoinState, CoinStateFilters, CoinStateUpdate, EndOfSubSlotBundle,
     FeeEstimate, FeeEstimateGroup, FeeRate, Foliage, FoliageBlockData, FoliageTransactionBlock,
     FullBlock, Handshake, HeaderBlock, InfusedChallengeChainSubSlot, LazyNode, MempoolItemsAdded,
     MempoolItemsRemoved, Message, NewCompactVDF, NewPeak, NewPeakWallet,
     NewSignagePointOrEndOfSubSlot, NewTransaction, NewUnfinishedBlock, NewUnfinishedBlock2,
-    PoolTarget, Program, ProofBlockHeader, ProofOfSpace, PuzzleSolutionResponse, PyPlotSize,
+    PoolTarget, Program, ProofBlockHeader, ProofOfSpace, PuzzleSolutionResponse, PyPlotParam,
     RecentChainData, RegisterForCoinUpdates, RegisterForPhUpdates, RejectAdditionsRequest,
     RejectBlock, RejectBlockHeaders, RejectBlocks, RejectCoinState, RejectHeaderBlocks,
     RejectHeaderRequest, RejectPuzzleSolution, RejectPuzzleState, RejectRemovalsRequest,
@@ -55,10 +51,15 @@ use chia_protocol::{
     SubEpochSummary, SubSlotData, SubSlotProofs, TimestampedPeerInfo, TransactionAck,
     TransactionsInfo, UnfinishedBlock, UnfinishedHeaderBlock, VDFInfo, VDFProof, WeightProof,
 };
+use chia_protocol::{
+    PartialProof, calculate_ip_iters, calculate_sp_interval_iters, calculate_sp_iters,
+    is_overflow_block, py_expected_plot_size,
+};
+use chia_sha2::Sha256;
 use chia_traits::ChiaToPython;
 use clvm_utils::tree_hash_from_bytes;
-use clvmr::chia_dialect::ENABLE_KECCAK_OPS_OUTSIDE_GUARD;
-use clvmr::{LIMIT_HEAP, NO_UNKNOWN_OPS};
+use clvmr::chia_dialect::DISABLE_OP;
+use clvmr::{ENABLE_KECCAK_OPS_OUTSIDE_GUARD, LIMIT_HEAP, NO_UNKNOWN_OPS};
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -67,14 +68,17 @@ use pyo3::types::PyList;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyBytes, PyDict};
 use pyo3::wrap_pyfunction;
+use std::path::Path;
 
 use std::iter::zip;
+use std::time::Instant;
 
 use crate::run_program::{run_chia_program, serialized_length, serialized_length_trusted};
 
 use chia_consensus::fast_forward::fast_forward_singleton as native_ff;
 use chia_consensus::get_puzzle_and_solution::get_puzzle_and_solution_for_coin as parse_puzzle_solution;
 use chia_consensus::validation_error::ValidationErr;
+use clvmr::ChiaDialect;
 use clvmr::allocator::NodePtr;
 use clvmr::cost::Cost;
 use clvmr::error::EvalErr;
@@ -82,11 +86,10 @@ use clvmr::reduction::Reduction;
 use clvmr::run_program;
 use clvmr::serde::is_canonical_serialization;
 use clvmr::serde::{node_from_bytes, node_from_bytes_backrefs, node_to_bytes};
-use clvmr::ChiaDialect;
 
 use chia_bls::{
-    hash_to_g2 as native_hash_to_g2, BlsCache, DerivableKey, GTElement, PublicKey, SecretKey,
-    Signature,
+    BlsCache, DerivableKey, GTElement, PublicKey, SecretKey, Signature,
+    hash_to_g2 as native_hash_to_g2,
 };
 #[pyfunction]
 pub fn compute_merkle_set_root<'p>(
@@ -157,7 +160,7 @@ pub fn get_puzzle_and_solution_for_coin<'a>(
     let dialect = &ChiaDialect::new(flags);
 
     let (puzzle, solution) = py
-        .allow_threads(|| -> Result<(NodePtr, NodePtr), EvalErr> {
+        .detach(|| -> Result<(NodePtr, NodePtr), EvalErr> {
             let Reduction(_cost, result) =
                 run_program(&mut allocator, dialect, program, args, max_cost)?;
             match parse_puzzle_solution(
@@ -212,11 +215,11 @@ pub fn get_puzzle_and_solution_for_coin2<'a>(
 
     let generator = node_from_bytes_backrefs(&mut allocator, generator.as_ref())
         .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
-    let args = setup_generator_args(&mut allocator, refs)?;
+    let args = setup_generator_args(&mut allocator, refs, flags)?;
     let dialect = &ChiaDialect::new(flags);
 
     let (puzzle, solution) = py
-        .allow_threads(|| -> Result<(NodePtr, NodePtr), EvalErr> {
+        .detach(|| -> Result<(NodePtr, NodePtr), EvalErr> {
             let Reduction(_cost, result) =
                 run_program(&mut allocator, dialect, generator, args, max_cost)?;
             match parse_puzzle_solution(&allocator, result, find_coin) {
@@ -247,7 +250,7 @@ fn convert_list_of_tuples(spends: &Bound<'_, PyAny>) -> PyResult<Vec<CoinSpendRe
     let mut native_spends = Vec::<CoinSpendRef>::new();
     for s in spends.try_iter()? {
         let s = s?;
-        let tuple = s.downcast::<PyTuple>()?;
+        let tuple = s.cast::<PyTuple>()?;
         let coin = tuple.get_item(0)?.extract::<Coin>()?;
         let puzzle = tuple.get_item(1)?.extract::<PyBackedBytes>()?;
         let solution = tuple.get_item(2)?.extract::<PyBackedBytes>()?;
@@ -306,7 +309,7 @@ impl AugSchemeMPL {
 
     #[staticmethod]
     pub fn verify(py: Python<'_>, pk: &PublicKey, msg: &[u8], sig: &Signature) -> bool {
-        py.allow_threads(|| chia_bls::verify(sig, pk, msg))
+        py.detach(|| chia_bls::verify(sig, pk, msg))
     }
 
     #[staticmethod]
@@ -328,7 +331,7 @@ impl AugSchemeMPL {
             data.push((pk, msg));
         }
 
-        py.allow_threads(|| Ok(chia_bls::aggregate_verify(sig, data)))
+        py.detach(|| Ok(chia_bls::aggregate_verify(sig, data)))
     }
 
     #[staticmethod]
@@ -427,8 +430,10 @@ pub fn py_validate_clvm_and_signature(
     constants: &ConsensusConstants,
     flags: u32,
 ) -> PyResult<(OwnedSpendBundleConditions, Vec<([u8; 32], GTElement)>, f32)> {
-    let (owned_conditions, additions, duration) =
-        py.allow_threads(|| validate_clvm_and_signature(new_spend, max_cost, constants, flags))?;
+    let start_time = Instant::now();
+    let (owned_conditions, additions) =
+        py.detach(|| validate_clvm_and_signature(new_spend, max_cost, constants, flags))?;
+    let duration = start_time.elapsed();
     Ok((owned_conditions, additions, duration.as_secs_f32()))
 }
 
@@ -438,20 +443,23 @@ pub fn py_get_conditions_from_spendbundle(
     spend_bundle: &SpendBundle,
     max_cost: u64,
     constants: &ConsensusConstants,
-    height: u32,
+    prev_tx_height: u32,
 ) -> PyResult<OwnedSpendBundleConditions> {
     use chia_consensus::allocator::make_allocator;
     use chia_consensus::owned_conditions::OwnedSpendBundleConditions;
     let mut a = make_allocator(LIMIT_HEAP);
     let conditions =
-        get_conditions_from_spendbundle(&mut a, spend_bundle, max_cost, height, constants)?;
+        get_conditions_from_spendbundle(&mut a, spend_bundle, max_cost, prev_tx_height, constants)?;
     Ok(OwnedSpendBundleConditions::from(&a, conditions))
 }
 
 #[pyfunction]
 #[pyo3(name = "get_flags_for_height_and_constants")]
-pub fn py_get_flags_for_height_and_constants(height: u32, constants: &ConsensusConstants) -> u32 {
-    get_flags_for_height_and_constants(height, constants)
+pub fn py_get_flags_for_height_and_constants(
+    prev_tx_height: u32,
+    constants: &ConsensusConstants,
+) -> u32 {
+    get_flags_for_height_and_constants(prev_tx_height, constants)
 }
 
 #[pyo3::pyfunction]
@@ -517,7 +525,7 @@ pub fn get_spends_for_trusted_block<'a>(
     generator: Program,
     block_refs: &Bound<'_, PyList>,
     flags: u32,
-) -> pyo3::PyResult<PyObject> {
+) -> pyo3::PyResult<Py<PyAny>> {
     let refs = block_refs
         .into_iter()
         .map(|b| {
@@ -529,11 +537,11 @@ pub fn get_spends_for_trusted_block<'a>(
         .collect::<Vec<&'a [u8]>>();
 
     let output =
-        py.allow_threads(|| get_coinspends_for_trusted_block(constants, &generator, &refs, flags))?;
+        py.detach(|| get_coinspends_for_trusted_block(constants, &generator, &refs, flags))?;
 
     let dict = PyDict::new(py);
     dict.set_item("block_spends", output)?;
-    Ok(dict.into())
+    Ok(dict.into_any().unbind())
 }
 
 #[pyo3::pyfunction]
@@ -543,7 +551,7 @@ pub fn get_spends_for_trusted_block_with_conditions<'a>(
     generator: Program,
     block_refs: &Bound<'a, PyList>,
     flags: u32,
-) -> pyo3::PyResult<PyObject> {
+) -> pyo3::PyResult<Py<PyAny>> {
     let refs = block_refs
         .into_iter()
         .map(|b| {
@@ -554,7 +562,7 @@ pub fn get_spends_for_trusted_block_with_conditions<'a>(
         })
         .collect::<Vec<&'a [u8]>>();
 
-    let output = py.allow_threads(|| {
+    let output = py.detach(|| {
         get_coinspends_with_conditions_for_trusted_block(constants, &generator, &refs, flags)
     })?;
 
@@ -577,13 +585,124 @@ pub fn get_spends_for_trusted_block_with_conditions<'a>(
         dict.set_item("conditions", cond_list)?;
         pylist.append(dict)?;
     }
-    Ok(pylist.into())
+    Ok(pylist.into_any().unbind())
 }
 
 #[pyo3::pyfunction]
 #[pyo3(name = "is_canonical_serialization")]
 pub fn py_is_canonical_serialization(buf: &[u8]) -> bool {
     is_canonical_serialization(buf)
+}
+
+#[pyo3::pyfunction]
+pub fn create_v2_plot(
+    filename: &str,
+    k: u8,
+    strength: u8,
+    plot_id: Bytes32,
+    plot_index: u16,
+    meta_group: u8,
+    memo: &[u8],
+) -> PyResult<()> {
+    Ok(chia_pos2::create_v2_plot(
+        Path::new(filename),
+        k,
+        strength,
+        &plot_id.to_bytes(),
+        plot_index,
+        meta_group,
+        memo,
+    )?)
+}
+
+#[pyclass]
+pub struct Prover(chia_pos2::Prover);
+
+#[pymethods]
+impl Prover {
+    #[new]
+    pub fn new(plot_path: &str) -> PyResult<Self> {
+        Ok(Self(chia_pos2::Prover::new(Path::new(plot_path))?))
+    }
+
+    pub fn get_qualities_for_challenge(&self, challenge: Bytes32) -> PyResult<Vec<PartialProof>> {
+        let qualities = self.0.get_qualities_for_challenge(&challenge.to_bytes())?;
+        Ok(qualities
+            .into_iter()
+            .map(|q| PartialProof {
+                fragments: q.chain_links,
+            })
+            .collect())
+    }
+
+    pub fn size(&self) -> u8 {
+        self.0.size()
+    }
+
+    pub fn plot_id(&self) -> Bytes32 {
+        self.0.plot_id().into()
+    }
+
+    pub fn get_strength(&self) -> u8 {
+        self.0.get_strength()
+    }
+
+    pub fn get_filename(&self) -> String {
+        self.0.get_filename()
+    }
+
+    pub fn get_memo(&self) -> Vec<u8> {
+        self.0.get_memo().to_vec()
+    }
+
+    pub fn to_bytes(&self) -> PyResult<Vec<u8>> {
+        bincode::serialize(&self.0)
+            .map_err(|m| PyRuntimeError::new_err(format!("failed to serialize Prover {m:?}")))
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(b: &[u8]) -> PyResult<Self> {
+        Ok(Self(bincode::deserialize::<chia_pos2::Prover>(b).map_err(
+            |m| PyRuntimeError::new_err(format!("failed to deserialize Prover {m:?}")),
+        )?))
+    }
+}
+
+#[pyo3::pyfunction]
+pub fn validate_proof_v2(
+    plot_id: Bytes32,
+    size: u8,
+    challenge: Bytes32,
+    plot_strength: u8,
+    proof: &[u8],
+) -> Option<Bytes32> {
+    chia_pos2::validate_proof_v2(
+        &plot_id.to_bytes(),
+        size,
+        &challenge.to_bytes(),
+        plot_strength,
+        proof,
+    )
+    .map(|quality| -> Bytes32 {
+        let mut sha256 = Sha256::new();
+        sha256.update(chia_pos2::serialize_quality(
+            &quality.chain_links,
+            plot_strength,
+        ));
+        sha256.finalize().into()
+    })
+}
+
+#[pyo3::pyfunction]
+pub fn solve_proof(fragments: &PartialProof, plot_id: Bytes32, strength: u8, k: u8) -> Vec<u8> {
+    chia_pos2::solve_proof(
+        &chia_pos2::QualityChain {
+            chain_links: fragments.fragments,
+        },
+        &plot_id.to_bytes(),
+        k,
+        strength,
+    )
 }
 
 #[pymodule]
@@ -614,6 +733,13 @@ pub fn chia_rs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_calculate_ip_iters, m)?)?;
     m.add_function(wrap_pyfunction!(py_is_overflow_block, m)?)?;
     m.add_function(wrap_pyfunction!(py_expected_plot_size, m)?)?;
+
+    // pos2 functions
+    m.add_function(wrap_pyfunction!(create_v2_plot, m)?)?;
+    m.add_function(wrap_pyfunction!(validate_proof_v2, m)?)?;
+    m.add_function(wrap_pyfunction!(solve_proof, m)?)?;
+    m.add_class::<Prover>()?;
+    m.add_class::<PartialProof>()?;
 
     // check time lock
     m.add_function(wrap_pyfunction!(py_check_time_locks, m)?)?;
@@ -648,11 +774,10 @@ pub fn chia_rs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("DONT_VALIDATE_SIGNATURE", DONT_VALIDATE_SIGNATURE)?;
     m.add("COMPUTE_FINGERPRINT", COMPUTE_FINGERPRINT)?;
     m.add("COST_CONDITIONS", COST_CONDITIONS)?;
+    m.add("SIMPLE_GENERATOR", SIMPLE_GENERATOR)?;
+    m.add("DISABLE_OP", DISABLE_OP)?;
 
-    // for backwards compatibility
-    m.add("ALLOW_BACKREFS", 0)?;
-
-    m.add_class::<PyPlotSize>()?;
+    m.add_class::<PyPlotParam>()?;
 
     // Chia classes
     m.add_class::<Coin>()?;

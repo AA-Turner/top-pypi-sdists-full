@@ -8,7 +8,6 @@ from azure.cosmos.aio import CosmosClient
 import azure.cosmos.exceptions as exceptions
 from azure.cosmos.partition_key import PartitionKey
 import urllib3
-from requests.utils import DEFAULT_CA_BUNDLE_PATH as CaCertPath
 
 import asyncio
 import config
@@ -684,7 +683,7 @@ async def use_vector_embedding_policy(db):
         indexing_policy = {
             "vectorIndexes": [
                 {"path": "/vector", "type": "quantizedFlat", "quantizationByteSize": 8},
-                {"path": "/vector2", "type": "diskANN", "indexingSearchListSize": 50}
+                {"path": "/vector2", "type": "diskANN", "vectorIndexShardKey": ["/city"], "indexingSearchListSize": 50}
             ]
         }
         vector_embedding_policy = {

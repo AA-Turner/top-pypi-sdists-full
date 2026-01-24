@@ -24,9 +24,8 @@ from sql.functions import (
     Substring, Trim)
 from sql.operators import Equal
 
-from trytond import __series__
+from trytond import __series__, config
 from trytond.backend.database import DatabaseInterface, SQLType
-from trytond.config import config, parse_uri
 from trytond.tools import safe_join
 from trytond.transaction import Transaction
 
@@ -239,10 +238,6 @@ class SQLitePosition(Function):
             return 0
 
 
-def replace(text, pattern, replacement):
-    return str(text).replace(pattern, replacement)
-
-
 def now():
     transaction = Transaction()
     return _nows.setdefault(transaction, {}).setdefault(
@@ -443,8 +438,8 @@ class Database(DatabaseInterface):
     _list_cache = {}
     _list_cache_timestamp = {}
     flavor = Flavor(
-        paramstyle='qmark', function_mapping=MAPPING, null_ordering=False,
-        max_limit=-1)
+        paramstyle='qmark', function_mapping=MAPPING,
+        max_limit=-1, filter_=True)
     IN_MAX = 200
 
     TYPES_MAPPING = {
@@ -477,8 +472,6 @@ class Database(DatabaseInterface):
         self._conn.create_function('date_trunc', 2, date_trunc)
         self._conn.create_function('split_part', 3, split_part)
         self._conn.create_function('to_char', 2, to_char)
-        if sqlite.sqlite_version_info < (3, 3, 14):
-            self._conn.create_function('replace', 3, replace)
         self._conn.create_function('now', 0, now)
         self._conn.create_function('greatest', -1, greatest)
         self._conn.create_function('least', -1, least)
@@ -538,7 +531,7 @@ class Database(DatabaseInterface):
 
     def _make_uri(self):
         uri = config.get('database', 'uri')
-        base_uri = parse_uri(uri)
+        base_uri = config.parse_uri(uri)
         if base_uri.path and base_uri.path != '/':
             warnings.warn("The path specified in the URI will be overridden")
 
@@ -620,7 +613,12 @@ class Database(DatabaseInterface):
                     os.remove(file + suffix)
                 except FileNotFoundError:
                     pass
+        cls.clear_cache()
+
+    @classmethod
+    def clear_cache(cls):
         cls._list_cache.clear()
+        cls._list_cache_timestamp.clear()
 
     def list(self, hostname=None):
         now = time.time()
@@ -719,6 +717,25 @@ class Database(DatabaseInterface):
                     return False
         return True
 
+    def setnextid(self, connection, table, value):
+        cursor = connection.cursor()
+        sequence = Table('sqlite_sequence')
+        cursor.execute(*sequence.select(
+                sequence.seq,
+                where=sequence.name == table))
+        rows = cursor.fetchall()
+        if rows:
+            if rows[0][0] >= value:
+                return
+            cursor.execute(*sequence.update(
+                    [sequence.seq],
+                    [value - 1],
+                    where=sequence.name == table))
+        else:
+            cursor.execute(*sequence.insert(
+                    [sequence.name, sequence.seq],
+                    [[table, value - 1]]))
+
     def lastid(self, cursor):
         # This call is not thread safe
         return cursor.lastrowid
@@ -752,9 +769,6 @@ class Database(DatabaseInterface):
 
     def has_insert_on_conflict(self):
         return sqlite.sqlite_version_info >= (3, 35, 0)
-
-    def has_window_functions(self):
-        return sqlite.sqlite_version_info >= (3, 25, 0)
 
     def sql_type(self, type_):
         if type_ in self.TYPES_MAPPING:

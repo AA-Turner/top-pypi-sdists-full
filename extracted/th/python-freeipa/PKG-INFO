@@ -1,16 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-freeipa
-Version: 1.0.9
+Version: 1.0.10
 Summary: Lightweight FreeIPA client
-Author: OpenNode Team
-Author-email: info@opennodecloud.com
-Requires-Python: >=3.9,<4.0
+Project-URL: Documentation, https://python-freeipa.readthedocs.io/
+Project-URL: Homepage, https://python-freeipa.readthedocs.io/
+Author-email: OpenNode Team <info@opennodecloud.com>
+License: MIT
+License-File: LICENSE.md
+Keywords: authentication,directory,freeipa,ipa
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,12 +19,27 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Systems Administration :: Authentication/Directory
+Requires-Python: >=3.10
 Requires-Dist: requests
-Requires-Dist: requests-gssapi
-Requires-Dist: srvlookup
-Project-URL: Documentation, https://python-freeipa.readthedocs.io/
-Description-Content-Type: text/x-rst
+Provides-Extra: all
+Requires-Dist: requests-gssapi; extra == 'all'
+Requires-Dist: srvlookup; extra == 'all'
+Provides-Extra: dev
+Requires-Dist: pre-commit>=3.5.0; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: mkdocs-material>=9.5.49; extra == 'docs'
+Requires-Dist: mkdocs>=1.6.1; extra == 'docs'
+Requires-Dist: mkdocstrings-python>=1.12.2; extra == 'docs'
+Requires-Dist: mkdocstrings>=0.27.0; extra == 'docs'
+Provides-Extra: gssapi
+Requires-Dist: requests-gssapi; extra == 'gssapi'
+Provides-Extra: srv
+Requires-Dist: srvlookup; extra == 'srv'
+Provides-Extra: test
+Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
+Requires-Dist: pytest>=8.3.4; extra == 'test'
+Requires-Dist: responses; extra == 'test'
+Description-Content-Type: text/markdown
 
 python-freeipa is lightweight FreeIPA client.
 API documentation: https://python-freeipa.readthedocs.io/
-

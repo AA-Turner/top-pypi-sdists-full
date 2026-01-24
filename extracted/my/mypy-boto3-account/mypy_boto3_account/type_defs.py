@@ -17,16 +17,16 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
-from .literals import AlternateContactTypeType, PrimaryEmailUpdateStatusType, RegionOptStatusType
+from .literals import (
+    AlternateContactTypeType,
+    AwsAccountStateType,
+    PrimaryEmailUpdateStatusType,
+    RegionOptStatusType,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -48,6 +48,8 @@ __all__ = (
     "GetAlternateContactResponseTypeDef",
     "GetContactInformationRequestTypeDef",
     "GetContactInformationResponseTypeDef",
+    "GetGovCloudAccountInformationRequestTypeDef",
+    "GetGovCloudAccountInformationResponseTypeDef",
     "GetPrimaryEmailRequestTypeDef",
     "GetPrimaryEmailResponseTypeDef",
     "GetRegionOptStatusRequestTypeDef",
@@ -75,7 +77,7 @@ class AcceptPrimaryEmailUpdateRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -129,6 +131,10 @@ class GetAlternateContactRequestTypeDef(TypedDict):
 
 class GetContactInformationRequestTypeDef(TypedDict):
     AccountId: NotRequired[str]
+
+
+class GetGovCloudAccountInformationRequestTypeDef(TypedDict):
+    StandardAccountId: NotRequired[str]
 
 
 class GetPrimaryEmailRequestTypeDef(TypedDict):
@@ -193,6 +199,12 @@ class GetAccountInformationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetGovCloudAccountInformationResponseTypeDef(TypedDict):
+    AccountState: AwsAccountStateType
+    GovCloudAccountId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetPrimaryEmailResponseTypeDef(TypedDict):
     PrimaryEmail: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -231,6 +243,6 @@ class ListRegionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListRegionsResponseTypeDef(TypedDict):
-    Regions: List[RegionTypeDef]
+    Regions: list[RegionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

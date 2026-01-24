@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ixnetwork_restpy"
+dynamic=["version"]
+description = "The IxNetwork Python Client"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    {name = "Keysight ISG IxNetwork team", email = "andy.balogh@keysight.com"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["ixnetwork", "performance", "traffic generator", "real world", "ixia", "automation"]
+requires-python = ">=2.7, <4"
+dependencies = [
+    "requests",
+    "websocket-client",
+    "setuptools",
+    "packaging"
+]
+
+[tool.setuptools]
+packages = ["ixnetwork_restpy","uhd_restpy"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = "final_version.txt"}
+
+[project.optional-dependencies]
+test = [
+    "mock",
+    "pytest"
+]
+
+[project.urls]
+Repository = "https://github.com/OpenIxia/ixnetwork_restpy"

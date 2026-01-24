@@ -15,7 +15,7 @@ license-files = [
     "LICENSE",
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = []
 dynamic = []
 classifiers = [
@@ -24,7 +24,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -41,7 +40,7 @@ dependencies = [
     "mdformat>=0.7.21",
     "mdformat-tables>=1.0",
 ]
-version = "0.3.2"
+version = "0.5.0"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/mkdocs-llmstxt"

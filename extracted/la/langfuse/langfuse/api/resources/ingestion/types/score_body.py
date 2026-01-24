@@ -33,8 +33,17 @@ class ScoreBody(pydantic_v1.BaseModel):
     dataset_run_id: typing.Optional[str] = pydantic_v1.Field(
         alias="datasetRunId", default=None
     )
-    name: str
+    name: str = pydantic_v1.Field()
+    """
+    The name of the score. Always overrides "output" for correction scores.
+    """
+
     environment: typing.Optional[str] = None
+    queue_id: typing.Optional[str] = pydantic_v1.Field(alias="queueId", default=None)
+    """
+    The annotation queue referenced by the score. Indicates if score was initially created while processing annotation queue.
+    """
+
     value: CreateScoreValue = pydantic_v1.Field()
     """
     The value of the score. Must be passed as string for categorical scores, and numeric for boolean and numeric scores. Boolean score values must equal either 1 or 0 (true or false)

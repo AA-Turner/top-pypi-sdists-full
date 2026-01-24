@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: ttkbootstrap
-Version: 1.14.2
+Version: 1.20.1
 Summary: A supercharged theme extension for tkinter that enables on-demand modern flat style themes inspired by Bootstrap.
 Author-email: Israel Dryer <israel.dryer@gmail.com>
-License: MIT
+License-Expression: MIT AND (Apache-2.0 OR BSD-2-Clause)
 Project-URL: Homepage, https://github.com/israel-dryer/ttkbootstrap
 Project-URL: Documentation, https://ttkbootstrap.readthedocs.io/en/latest/
 Keywords: tkinter,theme,ttk,bootstrap,gui,desktop,python3,ui,widgets,theming,cross-platform,modern,responsive,python-gui
@@ -11,20 +11,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Win32 (MS Windows)
 Classifier: Environment :: X11 Applications :: GTK
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pillow<11,>=10
+Requires-Dist: pillow<13,>=10
 Dynamic: license-file
 
 ![](https://img.shields.io/github/release/israel-dryer/ttkbootstrap.svg)
@@ -37,7 +35,7 @@ Dynamic: license-file
 ![](https://img.shields.io/github/forks/israel-dryer/ttkbootstrap.svg)
 
 # ttkbootstrap
-English | [中文](README_zh.md)
+English | [日本語](README_ja.md) | [中文](README_zh.md)
 
 ttkbootstrap is a Python library that enhances tkinter by providing modern, flat-style themes inspired by Bootstrap. Easily create stylish GUI applications with built-in themes, pre-defined widget styles, and more.
 
@@ -106,9 +104,22 @@ The new keyword API is very flexible. The following examples all produce the sam
 - `bootstyle=("info", "outline")`
 - `bootstyle=(INFO, OUTLINE)`
 
+## Icons
+
+Add icons to your app buttons and labels using the [ttkbootstrap-icons](https://github.com/israel-dryer/ttkbootstrap-icons) library.
+
 ## Contributing
 We welcome contributions! If you'd like to contribute to ttkbootstrap, please check out our contributing guidelines.
 
 ## Links
 - **Documentation:** https://ttkbootstrap.readthedocs.io/en/latest/  
 - **GitHub:** https://github.com/israel-dryer/ttkbootstrap
+
+## Support
+
+This project is proudly developed with the support of the
+<a href="https://www.jetbrains.com/pycharm/" target="_blank" rel="noopener">PyCharm IDE</a>, generously provided by JetBrains.
+
+<a href="https://www.jetbrains.com/" target="_blank" rel="noopener"> <picture> <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f6d4e79d-97f4-4368-a944-affd423aa922"> <img width="250" alt="JetBrains logo" src="https://github.com/user-attachments/assets/1e42e5db-ffb5-4c8d-b238-3f5633fb7e6d"> </picture> </a> 
+
+<sub> © 2025 JetBrains s.r.o. JetBrains and the JetBrains logo are registered trademarks of JetBrains s.r.o. </sub>

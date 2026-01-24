@@ -3,7 +3,7 @@ Type annotations for chime-sdk-messaging service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_chime_sdk_messaging/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     SortOrderType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -227,7 +222,7 @@ BatchCreateChannelMembershipRequestTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -270,7 +265,7 @@ class ChannelMessageStatusStructureTypeDef(TypedDict):
 
 
 class MessageAttributeValueOutputTypeDef(TypedDict):
-    StringValues: NotRequired[List[str]]
+    StringValues: NotRequired[list[str]]
 
 
 class TargetTypeDef(TypedDict):
@@ -572,7 +567,7 @@ BatchChannelMembershipsTypeDef = TypedDict(
     {
         "InvitedBy": NotRequired[IdentityTypeDef],
         "Type": NotRequired[ChannelMembershipTypeType],
-        "Members": NotRequired[List[IdentityTypeDef]],
+        "Members": NotRequired[list[IdentityTypeDef]],
         "ChannelArn": NotRequired[str],
         "SubChannelId": NotRequired[str],
     },
@@ -681,7 +676,7 @@ class UpdateChannelResponseTypeDef(TypedDict):
 
 
 class ListChannelsAssociatedWithChannelFlowResponseTypeDef(TypedDict):
-    Channels: List[ChannelAssociatedWithFlowSummaryTypeDef]
+    Channels: list[ChannelAssociatedWithFlowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -696,13 +691,13 @@ class ChannelModeratedByAppInstanceUserSummaryTypeDef(TypedDict):
 
 
 class ListChannelsResponseTypeDef(TypedDict):
-    Channels: List[ChannelSummaryTypeDef]
+    Channels: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SearchChannelsResponseTypeDef(TypedDict):
-    Channels: List[ChannelSummaryTypeDef]
+    Channels: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -745,9 +740,9 @@ ChannelMessageSummaryTypeDef = TypedDict(
         "Sender": NotRequired[IdentityTypeDef],
         "Redacted": NotRequired[bool],
         "Status": NotRequired[ChannelMessageStatusStructureTypeDef],
-        "MessageAttributes": NotRequired[Dict[str, MessageAttributeValueOutputTypeDef]],
+        "MessageAttributes": NotRequired[dict[str, MessageAttributeValueOutputTypeDef]],
         "ContentType": NotRequired[str],
-        "Target": NotRequired[List[TargetTypeDef]],
+        "Target": NotRequired[list[TargetTypeDef]],
     },
 )
 ChannelMessageTypeDef = TypedDict(
@@ -765,10 +760,10 @@ ChannelMessageTypeDef = TypedDict(
         "Redacted": NotRequired[bool],
         "Persistence": NotRequired[ChannelMessagePersistenceTypeType],
         "Status": NotRequired[ChannelMessageStatusStructureTypeDef],
-        "MessageAttributes": NotRequired[Dict[str, MessageAttributeValueOutputTypeDef]],
+        "MessageAttributes": NotRequired[dict[str, MessageAttributeValueOutputTypeDef]],
         "SubChannelId": NotRequired[str],
         "ContentType": NotRequired[str],
-        "Target": NotRequired[List[TargetTypeDef]],
+        "Target": NotRequired[list[TargetTypeDef]],
     },
 )
 
@@ -817,7 +812,7 @@ class CreateChannelRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -832,7 +827,7 @@ class GetMessagingSessionEndpointResponseTypeDef(TypedDict):
 
 
 class GetMessagingStreamingConfigurationsResponseTypeDef(TypedDict):
-    StreamingConfigurations: List[StreamingConfigurationTypeDef]
+    StreamingConfigurations: list[StreamingConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -842,7 +837,7 @@ class PutMessagingStreamingConfigurationsRequestTypeDef(TypedDict):
 
 
 class PutMessagingStreamingConfigurationsResponseTypeDef(TypedDict):
-    StreamingConfigurations: List[StreamingConfigurationTypeDef]
+    StreamingConfigurations: list[StreamingConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -863,7 +858,7 @@ class ListChannelMessagesRequestTypeDef(TypedDict):
 
 class ListSubChannelsResponseTypeDef(TypedDict):
     ChannelArn: str
-    SubChannels: List[SubChannelSummaryTypeDef]
+    SubChannels: list[SubChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -882,13 +877,13 @@ class SearchChannelsRequestTypeDef(TypedDict):
 
 class BatchCreateChannelMembershipResponseTypeDef(TypedDict):
     BatchChannelMemberships: BatchChannelMembershipsTypeDef
-    Errors: List[BatchCreateChannelMembershipErrorTypeDef]
+    Errors: list[BatchCreateChannelMembershipErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListChannelBansResponseTypeDef(TypedDict):
     ChannelArn: str
-    ChannelBans: List[ChannelBanSummaryTypeDef]
+    ChannelBans: list[ChannelBanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -900,7 +895,7 @@ class DescribeChannelBanResponseTypeDef(TypedDict):
 
 class ListChannelMembershipsResponseTypeDef(TypedDict):
     ChannelArn: str
-    ChannelMemberships: List[ChannelMembershipSummaryTypeDef]
+    ChannelMemberships: list[ChannelMembershipSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -912,7 +907,7 @@ class DescribeChannelMembershipResponseTypeDef(TypedDict):
 
 class ListChannelModeratorsResponseTypeDef(TypedDict):
     ChannelArn: str
-    ChannelModerators: List[ChannelModeratorSummaryTypeDef]
+    ChannelModerators: list[ChannelModeratorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -928,7 +923,7 @@ class DescribeChannelMembershipForAppInstanceUserResponseTypeDef(TypedDict):
 
 
 class ListChannelMembershipsForAppInstanceUserResponseTypeDef(TypedDict):
-    ChannelMemberships: List[ChannelMembershipForAppInstanceUserSummaryTypeDef]
+    ChannelMemberships: list[ChannelMembershipForAppInstanceUserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -939,7 +934,7 @@ class DescribeChannelModeratedByAppInstanceUserResponseTypeDef(TypedDict):
 
 
 class ListChannelsModeratedByAppInstanceUserResponseTypeDef(TypedDict):
-    Channels: List[ChannelModeratedByAppInstanceUserSummaryTypeDef]
+    Channels: list[ChannelModeratedByAppInstanceUserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -967,7 +962,7 @@ class PutChannelMembershipPreferencesResponseTypeDef(TypedDict):
 
 class ListChannelMessagesResponseTypeDef(TypedDict):
     ChannelArn: str
-    ChannelMessages: List[ChannelMessageSummaryTypeDef]
+    ChannelMessages: list[ChannelMessageSummaryTypeDef]
     SubChannelId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -1022,12 +1017,12 @@ SendChannelMessageRequestTypeDef = TypedDict(
 class ChannelFlowSummaryTypeDef(TypedDict):
     ChannelFlowArn: NotRequired[str]
     Name: NotRequired[str]
-    Processors: NotRequired[List[ProcessorTypeDef]]
+    Processors: NotRequired[list[ProcessorTypeDef]]
 
 
 class ChannelFlowTypeDef(TypedDict):
     ChannelFlowArn: NotRequired[str]
-    Processors: NotRequired[List[ProcessorTypeDef]]
+    Processors: NotRequired[list[ProcessorTypeDef]]
     Name: NotRequired[str]
     CreatedTimestamp: NotRequired[datetime]
     LastUpdatedTimestamp: NotRequired[datetime]
@@ -1055,7 +1050,7 @@ class ChannelFlowCallbackRequestTypeDef(TypedDict):
 
 
 class ListChannelFlowsResponseTypeDef(TypedDict):
-    ChannelFlows: List[ChannelFlowSummaryTypeDef]
+    ChannelFlows: list[ChannelFlowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

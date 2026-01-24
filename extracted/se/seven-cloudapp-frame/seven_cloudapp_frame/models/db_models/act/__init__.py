@@ -1,1 +1,0 @@
-__all__=["act_info_model","act_module_model","act_prize_model","act_type_model",]

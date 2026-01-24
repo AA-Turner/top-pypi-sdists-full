@@ -74,33 +74,33 @@ type AttributeDomainWithoutCornerItems = typing.Literal[
 type AttributeTypeItems = typing.Literal[
     "FLOAT",  # Float.Floating-point value.
     "INT",  # Integer.32-bit integer.
+    "BOOLEAN",  # Boolean.True or false.
     "FLOAT_VECTOR",  # Vector.3D vector with floating-point values.
     "FLOAT_COLOR",  # Color.RGBA color with 32-bit floating-point values.
-    "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
+    "QUATERNION",  # Quaternion.Floating point quaternion rotation.
+    "FLOAT4X4",  # 4x4 Matrix.Floating point matrix.
     "STRING",  # String.Text string.
-    "BOOLEAN",  # Boolean.True or false.
-    "FLOAT2",  # 2D Vector.2D vector with floating-point values.
     "INT8",  # 8-Bit Integer.Smaller integer with a range from -128 to 127.
     "INT16_2D",  # 2D 16-Bit Integer Vector.16-bit signed integer vector.
     "INT32_2D",  # 2D Integer Vector.32-bit signed integer vector.
-    "QUATERNION",  # Quaternion.Floating point quaternion rotation.
-    "FLOAT4X4",  # 4x4 Matrix.Floating point matrix.
+    "FLOAT2",  # 2D Vector.2D vector with floating-point values.
+    "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
 ]
 type AttributeTypeWithAutoItems = typing.Literal[
     "AUTO",  # Auto.
     "FLOAT",  # Float.Floating-point value.
     "INT",  # Integer.32-bit integer.
+    "BOOLEAN",  # Boolean.True or false.
     "FLOAT_VECTOR",  # Vector.3D vector with floating-point values.
     "FLOAT_COLOR",  # Color.RGBA color with 32-bit floating-point values.
-    "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
-    "STRING",  # String.Text string.
-    "BOOLEAN",  # Boolean.True or false.
-    "FLOAT2",  # 2D Vector.2D vector with floating-point values.
-    "FLOAT2",  # 2D Vector.2D vector with floating-point values.
-    "INT16_2D",  # 2D 16-Bit Integer Vector.16-bit signed integer vector.
-    "INT32_2D",  # 2D Integer Vector.32-bit signed integer vector.
     "QUATERNION",  # Quaternion.Floating point quaternion rotation.
     "FLOAT4X4",  # 4x4 Matrix.Floating point matrix.
+    "STRING",  # String.Text string.
+    "INT8",  # 8-Bit Integer.Smaller integer with a range from -128 to 127.
+    "INT16_2D",  # 2D 16-Bit Integer Vector.16-bit signed integer vector.
+    "INT32_2D",  # 2D Integer Vector.32-bit signed integer vector.
+    "FLOAT2",  # 2D Vector.2D vector with floating-point values.
+    "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
 ]
 type AxisFlagXyzItems = typing.Literal[
     "X",  # <string>:4: (INFO/1) Enumerated list start value not ordinal-1: "X" (ordinal 24)
@@ -138,7 +138,7 @@ type BakePassTypeItems = typing.Literal[
     "NORMAL",  # Normal.
     "UV",  # UV.
     "ROUGHNESS",  # ROUGHNESS.
-    "EMIT",  # Emit.
+    "EMIT",  # Emission.
     "ENVIRONMENT",  # Environment.
     "DIFFUSE",  # Diffuse.
     "GLOSSY",  # Glossy.
@@ -193,9 +193,9 @@ type BoidruleTypeItems = typing.Literal[
 ]
 type BrushAutomaskingFlagItems = typing.Literal[
     "use_automasking_topology",  # Topology.Affect only vertices connected to the active vertex under the brush.
-    "use_automasking_face_sets",  # Face Sets.Affect only vertices that share Face Sets with the active vertex.
+    "use_automasking_face_sets",  # Face Sets.Affect only vertices that share face sets with the active vertex.
     "use_automasking_boundary_edges",  # Mesh Boundary Auto-Masking.Do not affect non manifold boundary edges.
-    "use_automasking_boundary_face_sets",  # Face Sets Boundary Automasking.Do not affect vertices that belong to a Face Set boundary.
+    "use_automasking_boundary_face_sets",  # Face Sets Boundary Automasking.Do not affect vertices that belong to a face set boundary.
     "use_automasking_cavity",  # Cavity Mask.Do not affect vertices on peaks, based on the surface curvature.
     "use_automasking_cavity_inverted",  # Inverted Cavity Mask.Do not affect vertices within crevices, based on the surface curvature.
     "use_automasking_custom_cavity_curve",  # Custom Cavity Curve.Use custom curve.
@@ -294,6 +294,7 @@ type BrushSculptBrushTypeItems = typing.Literal[
     "DISPLACEMENT_SMEAR",  # Multires Displacement Smear.
     "PAINT",  # Paint.
     "SMEAR",  # Smear.
+    "BLUR",  # Blur.
 ]
 type BrushVertexBrushTypeItems = typing.Literal[
     "DRAW",  # Draw.
@@ -384,6 +385,7 @@ type ConstraintTypeItems = typing.Literal[
     "CHILD_OF",  # Child Of.Make target the 'detachable' parent of owner.
     "FLOOR",  # Floor.Use position (and optionally rotation) of target to define a 'wall' or 'floor' that the owner cannot cross.
     "FOLLOW_PATH",  # Follow Path.Use to animate an object/bone following a path.
+    "GEOMETRY_ATTRIBUTE",  # Geometry Attribute.Retrieve transform from target geometry attribute data.
     "PIVOT",  # Pivot.Change pivot point for transforms (buggy).
     "SHRINKWRAP",  # Shrinkwrap.Restrict movements to surface of target mesh.
 ]
@@ -705,6 +707,7 @@ type EventTypeItems = typing.Literal[
     "NDOF_BUTTON_12",  # NDOF Button 12.NdofB12.
     "ACTIONZONE_AREA",  # ActionZone Area.AZone Area.
     "ACTIONZONE_REGION",  # ActionZone Region.AZone Region.
+    "ACTIONZONE_REGION_QUAD",  # ActionZone Quad.AZone Quad.
     "ACTIONZONE_FULLSCREEN",  # ActionZone Fullscreen.AZone FullScr.
     "XR_ACTION",  # XR Action.
 ]
@@ -742,6 +745,14 @@ type ExrCodecItems = typing.Literal[
 type FcurveAutoSmoothingItems = typing.Literal[
     "NONE",  # None.Automatic handles only take immediately adjacent keys into account.
     "CONT_ACCEL",  # Continuous Acceleration.Automatic handles are adjusted to avoid jumps in acceleration, resulting in smoother curves. However, key changes may affect interpolation over a larger stretch of the curve..
+]
+type FilePathForeachFlagItems = typing.Literal[
+    "SKIP_LINKED",  # Skip Linked.Skip paths of linked IDs.
+    "SKIP_PACKED",  # Skip Packed.Skip paths when their matching data is packed.
+    "RESOLVE_TOKEN",  # Resolve Token.Resolve tokens within a virtual filepath to a single, concrete, filepath. Currently only used for UDIM tiles.
+    "SKIP_WEAK_REFERENCES",  # Skip Weak References.Skip weak reference paths. Those paths are typically 'nice to have' extra information, but are not used as actual source of data by the current .blend file.
+    "SKIP_MULTIFILE",  # Skip Multi-file.Skip paths where a single dir is used with an array of files, eg. sequence strip images or point-caches. In this case only the first file path is processed. This is needed for directory manipulation callbacks which might otherwise modify the same directory multiple times.
+    "RELOAD_EDITED",  # Reload Edited.Reload data when the path is edited.
 ]
 type FileselectParamsSortItems = typing.Literal[
     "FILE_SORT_ALPHA",  # Name.Sort the file list alphabetically.
@@ -876,6 +887,7 @@ type IconItems = typing.Literal[
     "PLUGIN",  # PLUGIN.
     "PLUS",  # PLUS.
     "PRESET_NEW",  # PRESET_NEW.
+    "PROJECT",  # PROJECT.
     "QUIT",  # QUIT.
     "RECOVER_LAST",  # RECOVER_LAST.
     "REMOVE",  # REMOVE.
@@ -1006,7 +1018,6 @@ type IconItems = typing.Literal[
     "PRESET",  # PRESET.
     "RENDER_ANIMATION",  # RENDER_ANIMATION.
     "RENDER_STILL",  # RENDER_STILL.
-    "RNA_ADD",  # RNA_ADD.
     "RNA",  # RNA.
     "STRANDS",  # STRANDS.
     "UGLYPACKAGE",  # UGLYPACKAGE.
@@ -1027,6 +1038,14 @@ type IconItems = typing.Literal[
     "DECORATE_OVERRIDE",  # DECORATE_OVERRIDE.
     "DECORATE",  # DECORATE.
     "OUTLINER_COLLECTION",  # OUTLINER_COLLECTION.
+    "COLLECTION_COLOR_01",  # COLLECTION_COLOR_01.
+    "COLLECTION_COLOR_02",  # COLLECTION_COLOR_02.
+    "COLLECTION_COLOR_03",  # COLLECTION_COLOR_03.
+    "COLLECTION_COLOR_04",  # COLLECTION_COLOR_04.
+    "COLLECTION_COLOR_05",  # COLLECTION_COLOR_05.
+    "COLLECTION_COLOR_06",  # COLLECTION_COLOR_06.
+    "COLLECTION_COLOR_07",  # COLLECTION_COLOR_07.
+    "COLLECTION_COLOR_08",  # COLLECTION_COLOR_08.
     "CURVES_DATA",  # CURVES_DATA.
     "OUTLINER_DATA_ARMATURE",  # OUTLINER_DATA_ARMATURE.
     "OUTLINER_DATA_CAMERA",  # OUTLINER_DATA_CAMERA.
@@ -1191,6 +1210,7 @@ type IconItems = typing.Literal[
     "WORDWRAP_ON",  # WORDWRAP_ON.
     "CON_ACTION",  # CON_ACTION.
     "CON_ARMATURE",  # CON_ARMATURE.
+    "CON_GEOMETRYATTRIBUTE",  # CON_GEOMETRYATTRIBUTE.
     "CON_CAMERASOLVER",  # CON_CAMERASOLVER.
     "CON_CHILDOF",  # CON_CHILDOF.
     "CON_CLAMPTO",  # CON_CLAMPTO.
@@ -1225,6 +1245,7 @@ type IconItems = typing.Literal[
     "MOD_CAST",  # MOD_CAST.
     "MOD_CLOTH",  # MOD_CLOTH.
     "MOD_CURVE",  # MOD_CURVE.
+    "MOD_CURVE_TO_TUBE",  # MOD_CURVE_TO_TUBE.
     "MOD_DASH",  # MOD_DASH.
     "MOD_DATA_TRANSFER",  # MOD_DATA_TRANSFER.
     "MOD_DECIM",  # MOD_DECIM.
@@ -1254,6 +1275,7 @@ type IconItems = typing.Literal[
     "MOD_PARTICLES",  # MOD_PARTICLES.
     "MOD_PHYSICS",  # MOD_PHYSICS.
     "MOD_REMESH",  # MOD_REMESH.
+    "MOD_SCATTER_ON_SURFACE",  # MOD_SCATTER_ON_SURFACE.
     "MOD_SCREW",  # MOD_SCREW.
     "MOD_SHRINKWRAP",  # MOD_SHRINKWRAP.
     "MOD_SIMPLEDEFORM",  # MOD_SIMPLEDEFORM.
@@ -1432,6 +1454,7 @@ type IconItems = typing.Literal[
     "DOCUMENTS",  # DOCUMENTS.
     "EXPORT",  # EXPORT.
     "EXTERNAL_DRIVE",  # EXTERNAL_DRIVE.
+    "USB_DRIVE",  # USB_DRIVE.
     "FILE_3D",  # FILE_3D.
     "FILE_ARCHIVE",  # FILE_ARCHIVE.
     "FILE_BACKUP",  # FILE_BACKUP.
@@ -1489,6 +1512,7 @@ type IconItems = typing.Literal[
     "SEQ_SPLITVIEW",  # SEQ_SPLITVIEW.
     "SEQ_STRIP_DUPLICATE",  # SEQ_STRIP_DUPLICATE.
     "SEQ_STRIP_META",  # SEQ_STRIP_META.
+    "SEQ_STRIP_MODIFIER",  # SEQ_STRIP_MODIFIER.
     "MOD_BRIGHTNESS_CONTRAST",  # MOD_BRIGHTNESS_CONTRAST.
     "MOD_COLOR_BALANCE",  # MOD_COLOR_BALANCE.
     "MOD_CURVES",  # MOD_CURVES.
@@ -1504,6 +1528,7 @@ type IconItems = typing.Literal[
     "DISC_LARGE",  # DISC_LARGE.
     "DISK_DRIVE_LARGE",  # DISK_DRIVE_LARGE.
     "EXTERNAL_DRIVE_LARGE",  # EXTERNAL_DRIVE_LARGE.
+    "USB_DRIVE_LARGE",  # USB_DRIVE_LARGE.
     "FILE_FOLDER_LARGE",  # FILE_FOLDER_LARGE.
     "FILE_LARGE",  # FILE_LARGE.
     "FILE_PARENT_LARGE",  # FILE_PARENT_LARGE.
@@ -1581,14 +1606,6 @@ type IconItems = typing.Literal[
     "COLORSET_18_VEC",  # COLORSET_18_VEC.
     "COLORSET_19_VEC",  # COLORSET_19_VEC.
     "COLORSET_20_VEC",  # COLORSET_20_VEC.
-    "COLLECTION_COLOR_01",  # COLLECTION_COLOR_01.
-    "COLLECTION_COLOR_02",  # COLLECTION_COLOR_02.
-    "COLLECTION_COLOR_03",  # COLLECTION_COLOR_03.
-    "COLLECTION_COLOR_04",  # COLLECTION_COLOR_04.
-    "COLLECTION_COLOR_05",  # COLLECTION_COLOR_05.
-    "COLLECTION_COLOR_06",  # COLLECTION_COLOR_06.
-    "COLLECTION_COLOR_07",  # COLLECTION_COLOR_07.
-    "COLLECTION_COLOR_08",  # COLLECTION_COLOR_08.
     "STRIP_COLOR_01",  # STRIP_COLOR_01.
     "STRIP_COLOR_02",  # STRIP_COLOR_02.
     "STRIP_COLOR_03",  # STRIP_COLOR_03.
@@ -1791,6 +1808,11 @@ type IconItems = typing.Literal[
     "NODE_SOCKET_MATRIX",  # NODE_SOCKET_MATRIX.
     "NODE_SOCKET_BUNDLE",  # NODE_SOCKET_BUNDLE.
     "NODE_SOCKET_CLOSURE",  # NODE_SOCKET_CLOSURE.
+    "NODE_SOCKET_FONT",  # NODE_SOCKET_FONT.
+    "NODE_SOCKET_SCENE",  # NODE_SOCKET_SCENE.
+    "NODE_SOCKET_TEXT",  # NODE_SOCKET_TEXT.
+    "NODE_SOCKET_MASK",  # NODE_SOCKET_MASK.
+    "NODE_SOCKET_SOUND",  # NODE_SOCKET_SOUND.
 ]
 type IdTypeItems = typing.Literal[
     "ACTION",  # Action.
@@ -1902,7 +1924,6 @@ type KeyframePasteOffsetValueItems = typing.Literal[
 type KeyingFlagApiItems = typing.Literal[
     "INSERTKEY_NEEDED",  # Only Needed.Only insert keyframes where they're needed in the relevant F-Curves.
     "INSERTKEY_VISUAL",  # Visual Keying.Insert keyframes based on 'visual transforms'.
-    "INSERTKEY_XYZ_TO_RGB",  # XYZ=RGB Colors (ignored).This flag is no longer in use, and is here so that code that uses it doesn't break. The XYZ=RGB coloring is determined by the animation preferences..
     "INSERTKEY_REPLACE",  # Replace Existing.Only replace existing keyframes.
     "INSERTKEY_AVAILABLE",  # Only Available.Don't create F-Curves when they don't already exist.
     "INSERTKEY_CYCLE_AWARE",  # Cycle Aware Keying.When inserting into a curve with cyclic extrapolation, remap the keyframe inside the cycle time range, and if changing an end key, also update the other one.
@@ -1910,7 +1931,6 @@ type KeyingFlagApiItems = typing.Literal[
 type KeyingFlagItems = typing.Literal[
     "INSERTKEY_NEEDED",  # Only Needed.Only insert keyframes where they're needed in the relevant F-Curves.
     "INSERTKEY_VISUAL",  # Visual Keying.Insert keyframes based on 'visual transforms'.
-    "INSERTKEY_XYZ_TO_RGB",  # XYZ=RGB Colors (ignored).This flag is no longer in use, and is here so that code that uses it doesn't break. The XYZ=RGB coloring is determined by the animation preferences..
 ]
 type KeyingsetPathGroupingItems = typing.Literal[
     "NAMED",  # Named Group.
@@ -1998,6 +2018,22 @@ type MeshSelectModeUvItems = typing.Literal[
     "VERTEX",  # Vertex.Vertex selection mode.
     "EDGE",  # Edge.Edge selection mode.
     "FACE",  # Face.Face selection mode.
+]
+type MeshWalkDelimitEdgeLoopItems = typing.Literal[
+    "INNER_CORNERS",  # Inner Corners.Stop boundary selection at vertices with more than three edges.
+    "OUTER_CORNERS",  # Outer Corners.Stop boundary selection at vertices with two edges when they share a face that is not an n-gon.
+    "NGONS",  # N-gons.Stop boundary selection at n-gons.
+]
+type MeshWalkDelimitEdgeRingItems = typing.Literal[
+    "SEAM",  # Seam.Delimit edge ring selection at seams.
+    "SHARP",  # Sharp.Delimit edge ring selection at sharp edges.
+    "MATERIAL",  # Material.Delimit edge ring selection at material boundaries.
+    "NGONS",  # N-gons.Allow edge ring selection to step over n-gons with an even number of sides.
+]
+type MeshWalkDelimitFaceLoopItems = typing.Literal[
+    "SEAM",  # Seam.Delimit face loop selection at seams.
+    "SHARP",  # Sharp.Delimit face loop selection at sharp edges.
+    "MATERIAL",  # Material.Delimit face loop selection at material boundaries.
 ]
 type MetaelemTypeItems = typing.Literal[
     "BALL",  # Ball.
@@ -2095,14 +2131,6 @@ type NodeCompositorInterpolationItems = typing.Literal[
     "BICUBIC",  # Bicubic.Use Cubic B-Spline interpolation.
     "ANISOTROPIC",  # Anisotropic.Use Anisotropic interpolation.
 ]
-type NodeFloatCompareItems = typing.Literal[
-    "LESS_THAN",  # Less Than.True when the first input is smaller than second input.
-    "LESS_EQUAL",  # Less Than or Equal.True when the first input is smaller than the second input or equal.
-    "GREATER_THAN",  # Greater Than.True when the first input is greater than the second input.
-    "GREATER_EQUAL",  # Greater Than or Equal.True when the first input is greater than the second input or equal.
-    "EQUAL",  # Equal.True when both inputs are approximately equal.
-    "NOT_EQUAL",  # Not Equal.True when both inputs are not approximately equal.
-]
 type NodeFloatToIntItems = typing.Literal[
     "ROUND",  # Round.Round the float up or down to the nearest integer.
     "FLOOR",  # Floor.Round the float down to the next smallest integer.
@@ -2192,11 +2220,11 @@ type NodeSocketDataTypeItems = typing.Literal[
     "INT",  # Integer.
     "BOOLEAN",  # Boolean.
     "VECTOR",  # Vector.
+    "RGBA",  # Color.
     "ROTATION",  # Rotation.
     "MATRIX",  # Matrix.
     "STRING",  # String.
     "MENU",  # Menu.
-    "RGBA",  # Color.
     "SHADER",  # Shader.
     "OBJECT",  # Object.
     "IMAGE",  # Image.
@@ -2206,6 +2234,11 @@ type NodeSocketDataTypeItems = typing.Literal[
     "MATERIAL",  # Material.
     "BUNDLE",  # Bundle.
     "CLOSURE",  # Closure.
+    "FONT",  # Font.
+    "SCENE",  # Scene.
+    "TEXT",  # Text.
+    "MASK",  # Mask.
+    "SOUND",  # Sound.
 ]
 type NodeSocketInOutItems = typing.Literal[
     "IN",  # Input.
@@ -2239,6 +2272,11 @@ type NodeSocketTypeItems = typing.Literal[
     "MENU",  # Menu.
     "BUNDLE",  # Bundle.
     "CLOSURE",  # Closure.
+    "FONT",  # Font.
+    "SCENE",  # Scene.
+    "TEXT",  # Text.
+    "MASK",  # Mask.
+    "SOUND",  # Sound.
 ]
 type NodeTreeInterfaceItemTypeItems = typing.Literal[
     "SOCKET",  # Socket.
@@ -2584,6 +2622,7 @@ type PropertySubtypeItems = typing.Literal[
     "UNSIGNED",  # Unsigned.
     "PERCENTAGE",  # Percentage.A percentage between 0 and 100.
     "FACTOR",  # Factor.A factor between 0.0 and 1.0.
+    "MASS",  # Mass.A mass, based on scene unit settings.
     "ANGLE",  # Angle.A rotational value specified in radians.
     "TIME",  # Time (Scene Relative).Time specified in frames, converted to seconds based on scene frame rate.
     "TIME_ABSOLUTE",  # Time (Absolute).Time specified in seconds, independent of the scene.
@@ -2635,6 +2674,7 @@ type PropertySubtypeNumberItems = typing.Literal[
     "UNSIGNED",  # Unsigned.
     "PERCENTAGE",  # Percentage.A percentage between 0 and 100.
     "FACTOR",  # Factor.A factor between 0.0 and 1.0.
+    "MASS",  # Mass.A mass, based on scene unit settings.
     "ANGLE",  # Angle.A rotational value specified in radians.
     "TIME",  # Time (Scene Relative).Time specified in frames, converted to seconds based on scene frame rate.
     "TIME_ABSOLUTE",  # Time (Absolute).Time specified in seconds, independent of the scene.
@@ -2722,6 +2762,9 @@ type RampBlendItems = typing.Literal[
     "COLOR",  # Color.
     "VALUE",  # Value.
 ]
+type RegionPanelCategoryItems = typing.Literal[
+    "UNSUPPORTED",  # Not Supported.This region does not support panel categories.
+]
 type RegionTypeItems = typing.Literal[
     "WINDOW",  # Window.
     "HEADER",  # Header.
@@ -2739,33 +2782,6 @@ type RegionTypeItems = typing.Literal[
     "FOOTER",  # Footer.
     "TOOL_HEADER",  # Tool Header.
     "XR",  # XR.
-]
-type RenderPassTypeItems = typing.Literal[
-    "COMBINED",  # Combined.
-    "Z",  # <string>:4: (INFO/1) Enumerated list start value not ordinal-1: "Z" (ordinal 26)
-    "SHADOW",  # Shadow.
-    "AO",  # Ambient Occlusion.
-    "POSITION",  # Position.
-    "NORMAL",  # Normal.
-    "VECTOR",  # Vector.
-    "OBJECT_INDEX",  # Object Index.
-    "UV",  # UV.
-    "MIST",  # Mist.
-    "EMIT",  # Emit.
-    "ENVIRONMENT",  # Environment.
-    "MATERIAL_INDEX",  # Material Index.
-    "DIFFUSE_DIRECT",  # Diffuse Direct.
-    "DIFFUSE_INDIRECT",  # Diffuse Indirect.
-    "DIFFUSE_COLOR",  # Diffuse Color.
-    "GLOSSY_DIRECT",  # Glossy Direct.
-    "GLOSSY_INDIRECT",  # Glossy Indirect.
-    "GLOSSY_COLOR",  # Glossy Color.
-    "TRANSMISSION_DIRECT",  # Transmission Direct.
-    "TRANSMISSION_INDIRECT",  # Transmission Indirect.
-    "TRANSMISSION_COLOR",  # Transmission Color.
-    "SUBSURFACE_DIRECT",  # Subsurface Direct.
-    "SUBSURFACE_INDIRECT",  # Subsurface Indirect.
-    "SUBSURFACE_COLOR",  # Subsurface Color.
 ]
 type RigidbodyConstraintTypeItems = typing.Literal[
     "FIXED",  # Fixed.Glue rigid bodies together.
@@ -2822,6 +2838,7 @@ type SnapElementItems = typing.Literal[
     "VOLUME",  # Volume.Snap to volume.
     "EDGE_MIDPOINT",  # Edge Center.Snap to the middle of edges.
     "EDGE_PERPENDICULAR",  # Edge Perpendicular.Snap to the nearest point on an edge.
+    "FACE_MIDPOINT",  # Face Center.Snap to the middle of faces.
     "FACE_PROJECT",  # Face Project.Snap by projecting onto faces.
     "FACE_NEAREST",  # Face Nearest.Snap to nearest point on faces.
 ]
@@ -2833,25 +2850,25 @@ type SnapSourceItems = typing.Literal[
 ]
 type SpaceActionModeItems = typing.Literal[
     "DOPESHEET",  # Dope Sheet.Edit all keyframes in scene.
-    "TIMELINE",  # Timeline.Timeline and playback controls.
+    "TIMELINE",  # Timeline.Simple timeline view with playback controls in the header, without channel list, side-panel, or footer.
 ]
 type SpaceFileBrowseModeItems = typing.Literal[
-    "FILES",  # File Browser.
-    "ASSETS",  # Asset Browser.
+    "FILES",  # File Browser.Built-in file manager for opening, saving, and linking data.
+    "ASSETS",  # Asset Browser.Manage assets in the current file and access linked asset libraries.
 ]
 type SpaceGraphModeItems = typing.Literal[
     "FCURVES",  # Graph Editor.Edit animation/keyframes displayed as 2D curves.
-    "DRIVERS",  # Drivers.Edit drivers.
+    "DRIVERS",  # Drivers.Define and edit drivers that link properties to custom functions or other data.
 ]
 type SpaceImageModeAllItems = typing.Literal[
-    "VIEW",  # View.View the image.
-    "UV",  # UV Editor.UV edit in mesh editmode.
-    "PAINT",  # Paint.2D image painting mode.
-    "MASK",  # Mask.Mask editing.
+    "VIEW",  # View.Inspect images or render results.
+    "UV",  # UV Editor.View and edit UVs.
+    "PAINT",  # Paint.Paint images in 2D.
+    "MASK",  # Mask.View and edit masks.
 ]
 type SpaceImageModeItems = typing.Literal[
-    "IMAGE_EDITOR",  # Image Editor.View the image.
-    "UV",  # UV Editor.UV edit in mesh editmode.
+    "IMAGE_EDITOR",  # Image Editor.Inspect images or render results.
+    "UV",  # UV Editor.View and edit UVs.
 ]
 type SpaceSequencerViewTypeItems = typing.Literal[
     "SEQUENCER",  # Sequencer.
@@ -2863,7 +2880,7 @@ type SpaceTypeItems = typing.Literal[
     "VIEW_3D",  # 3D Viewport.Manipulate objects in a 3D environment.
     "IMAGE_EDITOR",  # UV/Image Editor.View and edit images and UV Maps.
     "NODE_EDITOR",  # Node Editor.Editor for node-based shading and compositing tools.
-    "SEQUENCE_EDITOR",  # Video Sequencer.Video editing tools.
+    "SEQUENCE_EDITOR",  # Video Sequencer.Non-linear editor for arranging and mixing scenes, video, audio, and effects.
     "CLIP_EDITOR",  # Movie Clip Editor.Motion tracking tools.
     "DOPESHEET_EDITOR",  # Dope Sheet.Adjust timing of keyframes.
     "GRAPH_EDITOR",  # Graph Editor.Edit drivers and keyframe interpolation.
@@ -2911,12 +2928,15 @@ type StripColorItems = typing.Literal[
 type StripModifierTypeItems = typing.Literal[
     "BRIGHT_CONTRAST",  # Brightness/Contrast.
     "COLOR_BALANCE",  # Color Balance.
+    "COMPOSITOR",  # Compositor.
     "CURVES",  # Curves.
     "HUE_CORRECT",  # Hue Correct.
     "MASK",  # Mask.
     "TONEMAP",  # Tone Map.
     "WHITE_BALANCE",  # White Balance.
     "SOUND_EQUALIZER",  # Sound Equalizer.
+    "PITCH",  # Pitch.
+    "ECHO",  # Echo.
 ]
 type StripScaleMethodItems = typing.Literal[
     "FIT",  # Scale to Fit.Fits the image bounds inside the canvas, avoiding crops while maintaining aspect ratio.
@@ -2926,10 +2946,13 @@ type StripScaleMethodItems = typing.Literal[
 ]
 type StripSoundModifierTypeItems = typing.Literal[
     "SOUND_EQUALIZER",  # Sound Equalizer.
+    "PITCH",  # Pitch.
+    "ECHO",  # Echo.
 ]
 type StripVideoModifierTypeItems = typing.Literal[
     "BRIGHT_CONTRAST",  # Brightness/Contrast.
     "COLOR_BALANCE",  # Color Balance.
+    "COMPOSITOR",  # Compositor.
     "CURVES",  # Curves.
     "HUE_CORRECT",  # Hue Correct.
     "MASK",  # Mask.
@@ -3027,7 +3050,6 @@ type TransformPivotFullItems = typing.Literal[
 type UilistLayoutTypeItems = typing.Literal[
     "DEFAULT",  # Default Layout.Use the default, multi-rows layout.
     "COMPACT",  # Compact Layout.Use the compact, single-row layout.
-    "GRID",  # Grid Layout.Use the grid-based layout.
 ]
 type UnpackMethodItems = typing.Literal[
     "REMOVE",  # Remove Pack.
@@ -3060,7 +3082,7 @@ type VolumeGridDataTypeItems = typing.Literal[
     "INT",  # Integer.32-bit integer.
     "INT64",  # Integer 64-bit.64-bit integer.
     "MASK",  # Mask.No data, boolean mask of active voxels.
-    "VECTOR_FLOAT",  # Float Vector.3D float vector.
+    "VECTOR_FLOAT",  # Vector.3D float vector.
     "VECTOR_DOUBLE",  # Double Vector.3D double vector.
     "VECTOR_INT",  # Integer Vector.3D integer vector.
     "POINTS",  # Points (Unsupported).Points grid, currently unsupported by volume objects.

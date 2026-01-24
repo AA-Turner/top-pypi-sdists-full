@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,15 +29,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/// @file version.h
+/// Libtcod version informaiton.
 #pragma once
 #ifndef LIBTCOD_VERSION_H
 #define LIBTCOD_VERSION_H
 
 #define TCOD_MAJOR_VERSION 2
 #define TCOD_MINOR_VERSION 2
-#define TCOD_PATCHLEVEL 1
+#define TCOD_PATCHLEVEL 2
 
-#define TCOD_STRVERSION "2.2.1"
+#define TCOD_STRVERSION "2.2.2"
 
 /**
     Converts version numbers into a numeric value.

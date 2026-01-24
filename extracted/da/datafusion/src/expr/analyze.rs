@@ -15,15 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use datafusion::logical_expr::logical_plan::Analyze;
-use pyo3::{prelude::*, IntoPyObjectExt};
 use std::fmt::{self, Display, Formatter};
+
+use datafusion::logical_expr::logical_plan::Analyze;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
 use super::logical_node::LogicalNode;
 use crate::common::df_schema::PyDFSchema;
 use crate::sql::logical::PyLogicalPlan;
 
-#[pyclass(name = "Analyze", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Analyze", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyAnalyze {
     analyze: Analyze,

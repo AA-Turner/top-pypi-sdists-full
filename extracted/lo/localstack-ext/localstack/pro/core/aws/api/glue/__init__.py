@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -77,6 +77,8 @@ Double = float
 DoubleValue = float
 EnclosedInStringProperty = str
 EnclosedInStringPropertyWithQuote = str
+EncryptedKeyMetadataString = str
+EncryptionKeyIdString = str
 EntityDescription = str
 EntityFieldName = str
 EntityLabel = str
@@ -213,8 +215,10 @@ SecretArn = str
 SqlQuery = str
 StatisticNameString = str
 String = str
+String1024 = str
 String128 = str
 String2048 = str
+String512 = str
 TableName = str
 TablePrefix = str
 TableTypeString = str
@@ -470,10 +474,73 @@ class ConnectionType(StrEnum):
     ZOHOCRM = "ZOHOCRM"
     SALESFORCEPARDOT = "SALESFORCEPARDOT"
     SALESFORCEMARKETINGCLOUD = "SALESFORCEMARKETINGCLOUD"
+    ADOBEANALYTICS = "ADOBEANALYTICS"
     SLACK = "SLACK"
+    LINKEDIN = "LINKEDIN"
+    MIXPANEL = "MIXPANEL"
+    ASANA = "ASANA"
     STRIPE = "STRIPE"
+    SMARTSHEET = "SMARTSHEET"
+    DATADOG = "DATADOG"
+    WOOCOMMERCE = "WOOCOMMERCE"
     INTERCOM = "INTERCOM"
     SNAPCHATADS = "SNAPCHATADS"
+    PAYPAL = "PAYPAL"
+    QUICKBOOKS = "QUICKBOOKS"
+    FACEBOOKPAGEINSIGHTS = "FACEBOOKPAGEINSIGHTS"
+    FRESHDESK = "FRESHDESK"
+    TWILIO = "TWILIO"
+    DOCUSIGNMONITOR = "DOCUSIGNMONITOR"
+    FRESHSALES = "FRESHSALES"
+    ZOOM = "ZOOM"
+    GOOGLESEARCHCONSOLE = "GOOGLESEARCHCONSOLE"
+    SALESFORCECOMMERCECLOUD = "SALESFORCECOMMERCECLOUD"
+    SAPCONCUR = "SAPCONCUR"
+    DYNATRACE = "DYNATRACE"
+    MICROSOFTDYNAMIC365FINANCEANDOPS = "MICROSOFTDYNAMIC365FINANCEANDOPS"
+    MICROSOFTTEAMS = "MICROSOFTTEAMS"
+    BLACKBAUDRAISEREDGENXT = "BLACKBAUDRAISEREDGENXT"
+    MAILCHIMP = "MAILCHIMP"
+    GITLAB = "GITLAB"
+    PENDO = "PENDO"
+    PRODUCTBOARD = "PRODUCTBOARD"
+    CIRCLECI = "CIRCLECI"
+    PIPEDIVE = "PIPEDIVE"
+    SENDGRID = "SENDGRID"
+    AZURECOSMOS = "AZURECOSMOS"
+    AZURESQL = "AZURESQL"
+    BIGQUERY = "BIGQUERY"
+    BLACKBAUD = "BLACKBAUD"
+    CLOUDERAHIVE = "CLOUDERAHIVE"
+    CLOUDERAIMPALA = "CLOUDERAIMPALA"
+    CLOUDWATCH = "CLOUDWATCH"
+    CLOUDWATCHMETRICS = "CLOUDWATCHMETRICS"
+    CMDB = "CMDB"
+    DATALAKEGEN2 = "DATALAKEGEN2"
+    DB2 = "DB2"
+    DB2AS400 = "DB2AS400"
+    DOCUMENTDB = "DOCUMENTDB"
+    DOMO = "DOMO"
+    DYNAMODB = "DYNAMODB"
+    GOOGLECLOUDSTORAGE = "GOOGLECLOUDSTORAGE"
+    HBASE = "HBASE"
+    KUSTOMER = "KUSTOMER"
+    MICROSOFTDYNAMICS365CRM = "MICROSOFTDYNAMICS365CRM"
+    MONDAY = "MONDAY"
+    MYSQL = "MYSQL"
+    OKTA = "OKTA"
+    OPENSEARCH = "OPENSEARCH"
+    ORACLE = "ORACLE"
+    PIPEDRIVE = "PIPEDRIVE"
+    POSTGRESQL = "POSTGRESQL"
+    SAPHANA = "SAPHANA"
+    SQLSERVER = "SQLSERVER"
+    SYNAPSE = "SYNAPSE"
+    TERADATA = "TERADATA"
+    TERADATANOS = "TERADATANOS"
+    TIMESTREAM = "TIMESTREAM"
+    TPCDS = "TPCDS"
+    VERTICA = "VERTICA"
 
 
 class CrawlState(StrEnum):
@@ -681,6 +748,12 @@ class FilterValueType(StrEnum):
     CONSTANT = "CONSTANT"
 
 
+class FunctionType(StrEnum):
+    REGULAR_FUNCTION = "REGULAR_FUNCTION"
+    AGGREGATE_FUNCTION = "AGGREGATE_FUNCTION"
+    STORED_PROCEDURE = "STORED_PROCEDURE"
+
+
 class GlueRecordType(StrEnum):
     DATE = "DATE"
     STRING = "STRING"
@@ -724,6 +797,20 @@ class IcebergTargetCompressionType(StrEnum):
     lzo = "lzo"
     uncompressed = "uncompressed"
     snappy = "snappy"
+
+
+class IcebergUpdateAction(StrEnum):
+    add_schema = "add-schema"
+    set_current_schema = "set-current-schema"
+    add_spec = "add-spec"
+    set_default_spec = "set-default-spec"
+    add_sort_order = "add-sort-order"
+    set_default_sort_order = "set-default-sort-order"
+    set_location = "set-location"
+    set_properties = "set-properties"
+    remove_properties = "remove-properties"
+    add_encryption_key = "add-encryption-key"
+    remove_encryption_key = "remove-encryption-key"
 
 
 class InclusionAnnotationValue(StrEnum):
@@ -838,6 +925,11 @@ class LastCrawlStatus(StrEnum):
     SUCCEEDED = "SUCCEEDED"
     CANCELLED = "CANCELLED"
     FAILED = "FAILED"
+
+
+class LastRefreshType(StrEnum):
+    FULL = "FULL"
+    INCREMENTAL = "INCREMENTAL"
 
 
 class Logical(StrEnum):
@@ -1336,7 +1428,7 @@ class EntityNotFoundException(ServiceException):
     code: str = "EntityNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    FromFederationSource: Optional[NullableBoolean]
+    FromFederationSource: NullableBoolean | None
 
 
 class FederatedResourceAlreadyExistsException(ServiceException):
@@ -1345,7 +1437,7 @@ class FederatedResourceAlreadyExistsException(ServiceException):
     code: str = "FederatedResourceAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    AssociatedGlueResource: Optional[GlueResourceArn]
+    AssociatedGlueResource: GlueResourceArn | None
 
 
 class FederationSourceException(ServiceException):
@@ -1354,7 +1446,7 @@ class FederationSourceException(ServiceException):
     code: str = "FederationSourceException"
     sender_fault: bool = False
     status_code: int = 400
-    FederationSourceErrorCode: Optional[FederationSourceErrorCode]
+    FederationSourceErrorCode: FederationSourceErrorCode | None
 
 
 class FederationSourceRetryableException(ServiceException):
@@ -1451,7 +1543,7 @@ class InvalidInputException(ServiceException):
     code: str = "InvalidInputException"
     sender_fault: bool = False
     status_code: int = 400
-    FromFederationSource: Optional[NullableBoolean]
+    FromFederationSource: NullableBoolean | None
 
 
 class InvalidIntegrationStateFault(ServiceException):
@@ -1601,28 +1693,28 @@ class VersionMismatchException(ServiceException):
 class NotificationProperty(TypedDict, total=False):
     """Specifies configuration properties of a notification."""
 
-    NotifyDelayAfter: Optional[NotifyDelayAfter]
+    NotifyDelayAfter: NotifyDelayAfter | None
 
 
-GenericMap = Dict[GenericString, GenericString]
+GenericMap = dict[GenericString, GenericString]
 
 
 class Action(TypedDict, total=False):
     """Defines an action to be initiated by a trigger."""
 
-    JobName: Optional[NameString]
-    Arguments: Optional[GenericMap]
-    Timeout: Optional[Timeout]
-    SecurityConfiguration: Optional[NameString]
-    NotificationProperty: Optional[NotificationProperty]
-    CrawlerName: Optional[NameString]
+    JobName: NameString | None
+    Arguments: GenericMap | None
+    Timeout: Timeout | None
+    SecurityConfiguration: NameString | None
+    NotificationProperty: NotificationProperty | None
+    CrawlerName: NameString | None
 
 
-ActionList = List[Action]
-AdditionalContextMap = Dict[ContextKey, ContextValue]
-AdditionalOptions = Dict[EnclosedInStringProperty, EnclosedInStringProperty]
-AdditionalPlanOptionsMap = Dict[GenericString, GenericString]
-EnclosedInStringProperties = List[EnclosedInStringProperty]
+ActionList = list[Action]
+AdditionalContextMap = dict[ContextKey, ContextValue]
+AdditionalOptions = dict[EnclosedInStringProperty, EnclosedInStringProperty]
+AdditionalPlanOptionsMap = dict[GenericString, GenericString]
+EnclosedInStringProperties = list[EnclosedInStringProperty]
 
 
 class AggregateOperation(TypedDict, total=False):
@@ -1634,9 +1726,9 @@ class AggregateOperation(TypedDict, total=False):
     AggFunc: AggFunction
 
 
-AggregateOperations = List[AggregateOperation]
-GlueStudioPathList = List[EnclosedInStringProperties]
-OneInput = List[NodeId]
+AggregateOperations = list[AggregateOperation]
+GlueStudioPathList = list[EnclosedInStringProperties]
+OneInput = list[NodeId]
 
 
 class Aggregate(TypedDict, total=False):
@@ -1653,122 +1745,122 @@ class Aggregate(TypedDict, total=False):
 class AllowedValue(TypedDict, total=False):
     """An object representing a value allowed for a property."""
 
-    Description: Optional[AllowedValueDescriptionString]
+    Description: AllowedValueDescriptionString | None
     Value: AllowedValueValueString
 
 
-AllowedValues = List[AllowedValue]
-AllowedValuesStringList = List[ConfigValueString]
+AllowedValues = list[AllowedValue]
+AllowedValuesStringList = list[ConfigValueString]
 
 
 class AmazonRedshiftAdvancedOption(TypedDict, total=False):
     """Specifies an optional value when connecting to the Redshift cluster."""
 
-    Key: Optional[GenericString]
-    Value: Optional[GenericString]
+    Key: GenericString | None
+    Value: GenericString | None
 
 
-AmazonRedshiftAdvancedOptions = List[AmazonRedshiftAdvancedOption]
+AmazonRedshiftAdvancedOptions = list[AmazonRedshiftAdvancedOption]
 
 
 class Option(TypedDict, total=False):
     """Specifies an option value."""
 
-    Value: Optional[EnclosedInStringProperty]
-    Label: Optional[EnclosedInStringProperty]
-    Description: Optional[EnclosedInStringProperty]
+    Value: EnclosedInStringProperty | None
+    Label: EnclosedInStringProperty | None
+    Description: EnclosedInStringProperty | None
 
 
-OptionList = List[Option]
+OptionList = list[Option]
 
 
 class AmazonRedshiftNodeData(TypedDict, total=False):
     """Specifies an Amazon Redshift node."""
 
-    AccessType: Optional[GenericLimitedString]
-    SourceType: Optional[GenericLimitedString]
-    Connection: Optional[Option]
-    Schema: Optional[Option]
-    Table: Optional[Option]
-    CatalogDatabase: Optional[Option]
-    CatalogTable: Optional[Option]
-    CatalogRedshiftSchema: Optional[GenericString]
-    CatalogRedshiftTable: Optional[GenericString]
-    TempDir: Optional[EnclosedInStringProperty]
-    IamRole: Optional[Option]
-    AdvancedOptions: Optional[AmazonRedshiftAdvancedOptions]
-    SampleQuery: Optional[GenericString]
-    PreAction: Optional[GenericString]
-    PostAction: Optional[GenericString]
-    Action: Optional[GenericString]
-    TablePrefix: Optional[GenericLimitedString]
-    Upsert: Optional[BooleanValue]
-    MergeAction: Optional[GenericLimitedString]
-    MergeWhenMatched: Optional[GenericLimitedString]
-    MergeWhenNotMatched: Optional[GenericLimitedString]
-    MergeClause: Optional[GenericString]
-    CrawlerConnection: Optional[GenericString]
-    TableSchema: Optional[OptionList]
-    StagingTable: Optional[GenericString]
-    SelectedColumns: Optional[OptionList]
+    AccessType: GenericLimitedString | None
+    SourceType: GenericLimitedString | None
+    Connection: Option | None
+    Schema: Option | None
+    Table: Option | None
+    CatalogDatabase: Option | None
+    CatalogTable: Option | None
+    CatalogRedshiftSchema: GenericString | None
+    CatalogRedshiftTable: GenericString | None
+    TempDir: EnclosedInStringProperty | None
+    IamRole: Option | None
+    AdvancedOptions: AmazonRedshiftAdvancedOptions | None
+    SampleQuery: GenericString | None
+    PreAction: GenericString | None
+    PostAction: GenericString | None
+    Action: GenericString | None
+    TablePrefix: GenericLimitedString | None
+    Upsert: BooleanValue | None
+    MergeAction: GenericLimitedString | None
+    MergeWhenMatched: GenericLimitedString | None
+    MergeWhenNotMatched: GenericLimitedString | None
+    MergeClause: GenericString | None
+    CrawlerConnection: GenericString | None
+    TableSchema: OptionList | None
+    StagingTable: GenericString | None
+    SelectedColumns: OptionList | None
 
 
 class AmazonRedshiftSource(TypedDict, total=False):
     """Specifies an Amazon Redshift source."""
 
-    Name: Optional[NodeName]
-    Data: Optional[AmazonRedshiftNodeData]
+    Name: NodeName | None
+    Data: AmazonRedshiftNodeData | None
 
 
 class AmazonRedshiftTarget(TypedDict, total=False):
     """Specifies an Amazon Redshift target."""
 
-    Name: Optional[NodeName]
-    Data: Optional[AmazonRedshiftNodeData]
-    Inputs: Optional[OneInput]
+    Name: NodeName | None
+    Data: AmazonRedshiftNodeData | None
+    Inputs: OneInput | None
 
 
 class AnnotationError(TypedDict, total=False):
     """A failed annotation."""
 
-    ProfileId: Optional[HashString]
-    StatisticId: Optional[HashString]
-    FailureReason: Optional[DescriptionString]
+    ProfileId: HashString | None
+    StatisticId: HashString | None
+    FailureReason: DescriptionString | None
 
 
-AnnotationErrorList = List[AnnotationError]
+AnnotationErrorList = list[AnnotationError]
 Timestamp = datetime
 
 
 class TimestampedInclusionAnnotation(TypedDict, total=False):
     """A timestamped inclusion annotation."""
 
-    Value: Optional[InclusionAnnotationValue]
-    LastModifiedOn: Optional[Timestamp]
+    Value: InclusionAnnotationValue | None
+    LastModifiedOn: Timestamp | None
 
 
 class StatisticAnnotation(TypedDict, total=False):
     """A Statistic Annotation."""
 
-    ProfileId: Optional[HashString]
-    StatisticId: Optional[HashString]
-    StatisticRecordedOn: Optional[Timestamp]
-    InclusionAnnotation: Optional[TimestampedInclusionAnnotation]
+    ProfileId: HashString | None
+    StatisticId: HashString | None
+    StatisticRecordedOn: Timestamp | None
+    InclusionAnnotation: TimestampedInclusionAnnotation | None
 
 
-AnnotationList = List[StatisticAnnotation]
-Mappings = List["Mapping"]
+AnnotationList = list[StatisticAnnotation]
+Mappings = list["Mapping"]
 
 
 class Mapping(TypedDict, total=False):
     """Specifies the mapping of data property keys."""
 
-    ToKey: Optional[EnclosedInStringProperty]
-    FromPath: Optional[EnclosedInStringProperties]
-    FromType: Optional[EnclosedInStringProperty]
-    ToType: Optional[EnclosedInStringProperty]
-    Dropped: Optional[BoxedBoolean]
-    Children: Optional[Mappings]
+    ToKey: EnclosedInStringProperty | None
+    FromPath: EnclosedInStringProperties | None
+    FromType: EnclosedInStringProperty | None
+    ToType: EnclosedInStringProperty | None
+    Dropped: BoxedBoolean | None
+    Children: Mappings | None
 
 
 class ApplyMapping(TypedDict, total=False):
@@ -1786,11 +1878,11 @@ class GlueStudioSchemaColumn(TypedDict, total=False):
     """Specifies a single column in a Glue schema definition."""
 
     Name: GlueStudioColumnNameString
-    Type: Optional[ColumnTypeString]
-    GlueStudioType: Optional[ColumnTypeString]
+    Type: ColumnTypeString | None
+    GlueStudioType: ColumnTypeString | None
 
 
-GlueStudioSchemaColumnList = List[GlueStudioSchemaColumn]
+GlueStudioSchemaColumnList = list[GlueStudioSchemaColumn]
 
 
 class GlueSchema(TypedDict, total=False):
@@ -1798,10 +1890,10 @@ class GlueSchema(TypedDict, total=False):
     Glue.
     """
 
-    Columns: Optional[GlueStudioSchemaColumnList]
+    Columns: GlueStudioSchemaColumnList | None
 
 
-GlueSchemas = List[GlueSchema]
+GlueSchemas = list[GlueSchema]
 
 
 class AthenaConnectorSource(TypedDict, total=False):
@@ -1811,24 +1903,24 @@ class AthenaConnectorSource(TypedDict, total=False):
     ConnectionName: EnclosedInStringProperty
     ConnectorName: EnclosedInStringProperty
     ConnectionType: EnclosedInStringProperty
-    ConnectionTable: Optional[EnclosedInStringPropertyWithQuote]
+    ConnectionTable: EnclosedInStringPropertyWithQuote | None
     SchemaName: EnclosedInStringProperty
-    OutputSchemas: Optional[GlueSchemas]
+    OutputSchemas: GlueSchemas | None
 
 
-AuditColumnNamesList = List[ColumnNameString]
+AuditColumnNamesList = list[ColumnNameString]
 
 
 class AuditContext(TypedDict, total=False):
     """A structure containing the Lake Formation audit context."""
 
-    AdditionalAuditContext: Optional[AuditContextString]
-    RequestedColumns: Optional[AuditColumnNamesList]
-    AllColumnsRequested: Optional[NullableBoolean]
+    AdditionalAuditContext: AuditContextString | None
+    RequestedColumns: AuditColumnNamesList | None
+    AllColumnsRequested: NullableBoolean | None
 
 
-DataOperations = List[DataOperation]
-PropertyTypes = List[PropertyType]
+DataOperations = list[DataOperation]
+PropertyTypes = list[PropertyType]
 
 
 class Property(TypedDict, total=False):
@@ -1837,13 +1929,13 @@ class Property(TypedDict, total=False):
     Name: PropertyName
     Description: PropertyDescriptionString
     Required: Bool
-    DefaultValue: Optional[String]
+    DefaultValue: String | None
     PropertyTypes: PropertyTypes
-    AllowedValues: Optional[AllowedValues]
-    DataOperationScopes: Optional[DataOperations]
+    AllowedValues: AllowedValues | None
+    DataOperationScopes: DataOperations | None
 
 
-PropertiesMap = Dict[PropertyName, Property]
+PropertiesMap = dict[PropertyName, Property]
 
 
 class AuthConfiguration(TypedDict, total=False):
@@ -1852,40 +1944,41 @@ class AuthConfiguration(TypedDict, total=False):
     """
 
     AuthenticationType: Property
-    SecretArn: Optional[Property]
-    OAuth2Properties: Optional[PropertiesMap]
-    BasicAuthenticationProperties: Optional[PropertiesMap]
-    CustomAuthenticationProperties: Optional[PropertiesMap]
+    SecretArn: Property | None
+    OAuth2Properties: PropertiesMap | None
+    BasicAuthenticationProperties: PropertiesMap | None
+    CustomAuthenticationProperties: PropertiesMap | None
 
 
-TokenUrlParametersMap = Dict[TokenUrlParameterKey, TokenUrlParameterValue]
+TokenUrlParametersMap = dict[TokenUrlParameterKey, TokenUrlParameterValue]
 
 
 class OAuth2ClientApplication(TypedDict, total=False):
     """The OAuth2 client app used for the connection."""
 
-    UserManagedClientApplicationClientId: Optional[UserManagedClientApplicationClientId]
-    AWSManagedClientApplicationReference: Optional[AWSManagedClientApplicationReference]
+    UserManagedClientApplicationClientId: UserManagedClientApplicationClientId | None
+    AWSManagedClientApplicationReference: AWSManagedClientApplicationReference | None
 
 
 class OAuth2Properties(TypedDict, total=False):
     """A structure containing properties for OAuth2 authentication."""
 
-    OAuth2GrantType: Optional[OAuth2GrantType]
-    OAuth2ClientApplication: Optional[OAuth2ClientApplication]
-    TokenUrl: Optional[TokenUrl]
-    TokenUrlParametersMap: Optional[TokenUrlParametersMap]
+    OAuth2GrantType: OAuth2GrantType | None
+    OAuth2ClientApplication: OAuth2ClientApplication | None
+    TokenUrl: TokenUrl | None
+    TokenUrlParametersMap: TokenUrlParametersMap | None
 
 
 class AuthenticationConfiguration(TypedDict, total=False):
     """A structure containing the authentication configuration."""
 
-    AuthenticationType: Optional[AuthenticationType]
-    SecretArn: Optional[SecretArn]
-    OAuth2Properties: Optional[OAuth2Properties]
+    AuthenticationType: AuthenticationType | None
+    SecretArn: SecretArn | None
+    KmsKeyArn: KmsKeyArn | None
+    OAuth2Properties: OAuth2Properties | None
 
 
-CredentialMap = Dict[CredentialKey, CredentialValue]
+CredentialMap = dict[CredentialKey, CredentialValue]
 
 
 class BasicAuthenticationCredentials(TypedDict, total=False):
@@ -1893,8 +1986,8 @@ class BasicAuthenticationCredentials(TypedDict, total=False):
     value.
     """
 
-    Username: Optional[Username]
-    Password: Optional[Password]
+    Username: Username | None
+    Password: Password | None
 
 
 class OAuth2Credentials(TypedDict, total=False):
@@ -1902,10 +1995,10 @@ class OAuth2Credentials(TypedDict, total=False):
     authentication.
     """
 
-    UserManagedClientApplicationClientSecret: Optional[UserManagedClientApplicationClientSecret]
-    AccessToken: Optional[AccessToken]
-    RefreshToken: Optional[RefreshToken]
-    JwtToken: Optional[JwtToken]
+    UserManagedClientApplicationClientSecret: UserManagedClientApplicationClientSecret | None
+    AccessToken: AccessToken | None
+    RefreshToken: RefreshToken | None
+    JwtToken: JwtToken | None
 
 
 class AuthorizationCodeProperties(TypedDict, total=False):
@@ -1913,8 +2006,8 @@ class AuthorizationCodeProperties(TypedDict, total=False):
     grant type workflow.
     """
 
-    AuthorizationCode: Optional[AuthorizationCode]
-    RedirectUri: Optional[RedirectUri]
+    AuthorizationCode: AuthorizationCode | None
+    RedirectUri: RedirectUri | None
 
 
 class OAuth2PropertiesInput(TypedDict, total=False):
@@ -1922,12 +2015,12 @@ class OAuth2PropertiesInput(TypedDict, total=False):
     request.
     """
 
-    OAuth2GrantType: Optional[OAuth2GrantType]
-    OAuth2ClientApplication: Optional[OAuth2ClientApplication]
-    TokenUrl: Optional[TokenUrl]
-    TokenUrlParametersMap: Optional[TokenUrlParametersMap]
-    AuthorizationCodeProperties: Optional[AuthorizationCodeProperties]
-    OAuth2Credentials: Optional[OAuth2Credentials]
+    OAuth2GrantType: OAuth2GrantType | None
+    OAuth2ClientApplication: OAuth2ClientApplication | None
+    TokenUrl: TokenUrl | None
+    TokenUrlParametersMap: TokenUrlParametersMap | None
+    AuthorizationCodeProperties: AuthorizationCodeProperties | None
+    OAuth2Credentials: OAuth2Credentials | None
 
 
 class AuthenticationConfigurationInput(TypedDict, total=False):
@@ -1935,15 +2028,15 @@ class AuthenticationConfigurationInput(TypedDict, total=False):
     CreateConnection request.
     """
 
-    AuthenticationType: Optional[AuthenticationType]
-    OAuth2Properties: Optional[OAuth2PropertiesInput]
-    SecretArn: Optional[SecretArn]
-    KmsKeyArn: Optional[KmsKeyArn]
-    BasicAuthenticationCredentials: Optional[BasicAuthenticationCredentials]
-    CustomAuthenticationCredentials: Optional[CredentialMap]
+    AuthenticationType: AuthenticationType | None
+    OAuth2Properties: OAuth2PropertiesInput | None
+    SecretArn: SecretArn | None
+    KmsKeyArn: KmsKeyArn | None
+    BasicAuthenticationCredentials: BasicAuthenticationCredentials | None
+    CustomAuthenticationCredentials: CredentialMap | None
 
 
-AuthenticationTypes = List[AuthenticationType]
+AuthenticationTypes = list[AuthenticationType]
 
 
 class AutoDataQuality(TypedDict, total=False):
@@ -1953,11 +2046,11 @@ class AutoDataQuality(TypedDict, total=False):
     reliability without manual intervention.
     """
 
-    IsEnabled: Optional[BooleanValue]
-    EvaluationContext: Optional[EnclosedInStringProperty]
+    IsEnabled: BooleanValue | None
+    EvaluationContext: EnclosedInStringProperty | None
 
 
-ValueStringList = List[ValueString]
+ValueStringList = list[ValueString]
 
 
 class PartitionValueList(TypedDict, total=False):
@@ -1966,7 +2059,7 @@ class PartitionValueList(TypedDict, total=False):
     Values: ValueStringList
 
 
-BackfillErroredPartitionsList = List[PartitionValueList]
+BackfillErroredPartitionsList = list[PartitionValueList]
 
 
 class BackfillError(TypedDict, total=False):
@@ -1991,11 +2084,11 @@ class BackfillError(TypedDict, total=False):
     -  InternalError: Any error which does not belong to other error codes.
     """
 
-    Code: Optional[BackfillErrorCode]
-    Partitions: Optional[BackfillErroredPartitionsList]
+    Code: BackfillErrorCode | None
+    Partitions: BackfillErroredPartitionsList | None
 
 
-BackfillErrors = List[BackfillError]
+BackfillErrors = list[BackfillError]
 
 
 class BasicCatalogTarget(TypedDict, total=False):
@@ -2003,34 +2096,34 @@ class BasicCatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
 
 
-ParametersMap = Dict[KeyString, ParametersMapValue]
+ParametersMap = dict[KeyString, ParametersMapValue]
 VersionLongNumber = int
 
 
 class SchemaId(TypedDict, total=False):
     """The unique ID of the schema in the Glue schema registry."""
 
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    RegistryName: Optional[SchemaRegistryNameString]
+    SchemaArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    RegistryName: SchemaRegistryNameString | None
 
 
 class SchemaReference(TypedDict, total=False):
     """An object that references a schema stored in the Glue Schema Registry."""
 
-    SchemaId: Optional[SchemaId]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    SchemaVersionNumber: Optional[VersionLongNumber]
+    SchemaId: SchemaId | None
+    SchemaVersionId: SchemaVersionIdString | None
+    SchemaVersionNumber: VersionLongNumber | None
 
 
-LocationMap = Dict[ColumnValuesString, ColumnValuesString]
-ColumnValueStringList = List[ColumnValuesString]
-NameStringList = List[NameString]
+LocationMap = dict[ColumnValuesString, ColumnValuesString]
+ColumnValueStringList = list[ColumnValuesString]
+NameStringList = list[NameString]
 
 
 class SkewedInfo(TypedDict, total=False):
@@ -2038,9 +2131,9 @@ class SkewedInfo(TypedDict, total=False):
     with very high frequency.
     """
 
-    SkewedColumnNames: Optional[NameStringList]
-    SkewedColumnValues: Optional[ColumnValueStringList]
-    SkewedColumnValueLocationMaps: Optional[LocationMap]
+    SkewedColumnNames: NameStringList | None
+    SkewedColumnValues: ColumnValueStringList | None
+    SkewedColumnValueLocationMaps: LocationMap | None
 
 
 class Order(TypedDict, total=False):
@@ -2050,7 +2143,7 @@ class Order(TypedDict, total=False):
     SortOrder: IntegerFlag
 
 
-OrderList = List[Order]
+OrderList = list[Order]
 
 
 class SerDeInfo(TypedDict, total=False):
@@ -2058,60 +2151,60 @@ class SerDeInfo(TypedDict, total=False):
     serves as an extractor and loader.
     """
 
-    Name: Optional[NameString]
-    SerializationLibrary: Optional[NameString]
-    Parameters: Optional[ParametersMap]
+    Name: NameString | None
+    SerializationLibrary: NameString | None
+    Parameters: ParametersMap | None
 
 
-LocationStringList = List[LocationString]
+LocationStringList = list[LocationString]
 
 
 class Column(TypedDict, total=False):
     """A column in a ``Table``."""
 
     Name: NameString
-    Type: Optional[ColumnTypeString]
-    Comment: Optional[CommentString]
-    Parameters: Optional[ParametersMap]
+    Type: ColumnTypeString | None
+    Comment: CommentString | None
+    Parameters: ParametersMap | None
 
 
-ColumnList = List[Column]
+ColumnList = list[Column]
 
 
 class StorageDescriptor(TypedDict, total=False):
     """Describes the physical storage of table data."""
 
-    Columns: Optional[ColumnList]
-    Location: Optional[LocationString]
-    AdditionalLocations: Optional[LocationStringList]
-    InputFormat: Optional[FormatString]
-    OutputFormat: Optional[FormatString]
-    Compressed: Optional[Boolean]
-    NumberOfBuckets: Optional[Integer]
-    SerdeInfo: Optional[SerDeInfo]
-    BucketColumns: Optional[NameStringList]
-    SortColumns: Optional[OrderList]
-    Parameters: Optional[ParametersMap]
-    SkewedInfo: Optional[SkewedInfo]
-    StoredAsSubDirectories: Optional[Boolean]
-    SchemaReference: Optional[SchemaReference]
+    Columns: ColumnList | None
+    Location: LocationString | None
+    AdditionalLocations: LocationStringList | None
+    InputFormat: FormatString | None
+    OutputFormat: FormatString | None
+    Compressed: Boolean | None
+    NumberOfBuckets: Integer | None
+    SerdeInfo: SerDeInfo | None
+    BucketColumns: NameStringList | None
+    SortColumns: OrderList | None
+    Parameters: ParametersMap | None
+    SkewedInfo: SkewedInfo | None
+    StoredAsSubDirectories: Boolean | None
+    SchemaReference: SchemaReference | None
 
 
 class PartitionInput(TypedDict, total=False):
     """The structure used to create and update a partition."""
 
-    Values: Optional[ValueStringList]
-    LastAccessTime: Optional[Timestamp]
-    StorageDescriptor: Optional[StorageDescriptor]
-    Parameters: Optional[ParametersMap]
-    LastAnalyzedTime: Optional[Timestamp]
+    Values: ValueStringList | None
+    LastAccessTime: Timestamp | None
+    StorageDescriptor: StorageDescriptor | None
+    Parameters: ParametersMap | None
+    LastAnalyzedTime: Timestamp | None
 
 
-PartitionInputList = List[PartitionInput]
+PartitionInputList = list[PartitionInput]
 
 
 class BatchCreatePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionInputList: PartitionInputList
@@ -2120,83 +2213,83 @@ class BatchCreatePartitionRequest(ServiceRequest):
 class ErrorDetail(TypedDict, total=False):
     """Contains details about an error."""
 
-    ErrorCode: Optional[NameString]
-    ErrorMessage: Optional[DescriptionString]
+    ErrorCode: NameString | None
+    ErrorMessage: DescriptionString | None
 
 
 class PartitionError(TypedDict, total=False):
     """Contains information about a partition error."""
 
-    PartitionValues: Optional[ValueStringList]
-    ErrorDetail: Optional[ErrorDetail]
+    PartitionValues: ValueStringList | None
+    ErrorDetail: ErrorDetail | None
 
 
-PartitionErrors = List[PartitionError]
+PartitionErrors = list[PartitionError]
 
 
 class BatchCreatePartitionResponse(TypedDict, total=False):
-    Errors: Optional[PartitionErrors]
+    Errors: PartitionErrors | None
 
 
-DeleteConnectionNameList = List[NameString]
+DeleteConnectionNameList = list[NameString]
 
 
 class BatchDeleteConnectionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ConnectionNameList: DeleteConnectionNameList
 
 
-ErrorByName = Dict[NameString, ErrorDetail]
+ErrorByName = dict[NameString, ErrorDetail]
 
 
 class BatchDeleteConnectionResponse(TypedDict, total=False):
-    Succeeded: Optional[NameStringList]
-    Errors: Optional[ErrorByName]
+    Succeeded: NameStringList | None
+    Errors: ErrorByName | None
 
 
-BatchDeletePartitionValueList = List[PartitionValueList]
+BatchDeletePartitionValueList = list[PartitionValueList]
 
 
 class BatchDeletePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionsToDelete: BatchDeletePartitionValueList
 
 
 class BatchDeletePartitionResponse(TypedDict, total=False):
-    Errors: Optional[PartitionErrors]
+    Errors: PartitionErrors | None
 
 
-BatchDeleteTableNameList = List[NameString]
+BatchDeleteTableNameList = list[NameString]
 
 
 class BatchDeleteTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TablesToDelete: BatchDeleteTableNameList
-    TransactionId: Optional[TransactionIdString]
+    TransactionId: TransactionIdString | None
 
 
 class TableError(TypedDict, total=False):
     """An error record for table operations."""
 
-    TableName: Optional[NameString]
-    ErrorDetail: Optional[ErrorDetail]
+    TableName: NameString | None
+    ErrorDetail: ErrorDetail | None
 
 
-TableErrors = List[TableError]
+TableErrors = list[TableError]
 
 
 class BatchDeleteTableResponse(TypedDict, total=False):
-    Errors: Optional[TableErrors]
+    Errors: TableErrors | None
 
 
-BatchDeleteTableVersionList = List[VersionString]
+BatchDeleteTableVersionList = list[VersionString]
 
 
 class BatchDeleteTableVersionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     VersionIds: BatchDeleteTableVersionList
@@ -2205,28 +2298,28 @@ class BatchDeleteTableVersionRequest(ServiceRequest):
 class TableVersionError(TypedDict, total=False):
     """An error record for table-version operations."""
 
-    TableName: Optional[NameString]
-    VersionId: Optional[VersionString]
-    ErrorDetail: Optional[ErrorDetail]
+    TableName: NameString | None
+    VersionId: VersionString | None
+    ErrorDetail: ErrorDetail | None
 
 
-TableVersionErrors = List[TableVersionError]
+TableVersionErrors = list[TableVersionError]
 
 
 class BatchDeleteTableVersionResponse(TypedDict, total=False):
-    Errors: Optional[TableVersionErrors]
+    Errors: TableVersionErrors | None
 
 
-BatchGetBlueprintNames = List[OrchestrationNameString]
+BatchGetBlueprintNames = list[OrchestrationNameString]
 
 
 class BatchGetBlueprintsRequest(ServiceRequest):
     Names: BatchGetBlueprintNames
-    IncludeBlueprint: Optional[NullableBoolean]
-    IncludeParameterSpec: Optional[NullableBoolean]
+    IncludeBlueprint: NullableBoolean | None
+    IncludeParameterSpec: NullableBoolean | None
 
 
-BlueprintNames = List[OrchestrationNameString]
+BlueprintNames = list[OrchestrationNameString]
 TimestampValue = datetime
 
 
@@ -2236,37 +2329,37 @@ class LastActiveDefinition(TypedDict, total=False):
     definition that is available with the service.
     """
 
-    Description: Optional[Generic512CharString]
-    LastModifiedOn: Optional[TimestampValue]
-    ParameterSpec: Optional[BlueprintParameterSpec]
-    BlueprintLocation: Optional[GenericString]
-    BlueprintServiceLocation: Optional[GenericString]
+    Description: Generic512CharString | None
+    LastModifiedOn: TimestampValue | None
+    ParameterSpec: BlueprintParameterSpec | None
+    BlueprintLocation: GenericString | None
+    BlueprintServiceLocation: GenericString | None
 
 
 class Blueprint(TypedDict, total=False):
     """The details of a blueprint."""
 
-    Name: Optional[OrchestrationNameString]
-    Description: Optional[Generic512CharString]
-    CreatedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
-    ParameterSpec: Optional[BlueprintParameterSpec]
-    BlueprintLocation: Optional[GenericString]
-    BlueprintServiceLocation: Optional[GenericString]
-    Status: Optional[BlueprintStatus]
-    ErrorMessage: Optional[ErrorString]
-    LastActiveDefinition: Optional[LastActiveDefinition]
+    Name: OrchestrationNameString | None
+    Description: Generic512CharString | None
+    CreatedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
+    ParameterSpec: BlueprintParameterSpec | None
+    BlueprintLocation: GenericString | None
+    BlueprintServiceLocation: GenericString | None
+    Status: BlueprintStatus | None
+    ErrorMessage: ErrorString | None
+    LastActiveDefinition: LastActiveDefinition | None
 
 
-Blueprints = List[Blueprint]
+Blueprints = list[Blueprint]
 
 
 class BatchGetBlueprintsResponse(TypedDict, total=False):
-    Blueprints: Optional[Blueprints]
-    MissingBlueprints: Optional[BlueprintNames]
+    Blueprints: Blueprints | None
+    MissingBlueprints: BlueprintNames | None
 
 
-CrawlerNameList = List[NameString]
+CrawlerNameList = list[NameString]
 
 
 class BatchGetCrawlersRequest(ServiceRequest):
@@ -2276,8 +2369,8 @@ class BatchGetCrawlersRequest(ServiceRequest):
 class LakeFormationConfiguration(TypedDict, total=False):
     """Specifies Lake Formation configuration settings for the crawler."""
 
-    UseLakeFormationCredentials: Optional[NullableBoolean]
-    AccountId: Optional[AccountId]
+    UseLakeFormationCredentials: NullableBoolean | None
+    AccountId: AccountId | None
 
 
 VersionId = int
@@ -2286,12 +2379,12 @@ VersionId = int
 class LastCrawlInfo(TypedDict, total=False):
     """Status and error information about the most recent crawl."""
 
-    Status: Optional[LastCrawlStatus]
-    ErrorMessage: Optional[DescriptionString]
-    LogGroup: Optional[LogGroup]
-    LogStream: Optional[LogStream]
-    MessagePrefix: Optional[MessagePrefix]
-    StartTime: Optional[Timestamp]
+    Status: LastCrawlStatus | None
+    ErrorMessage: DescriptionString | None
+    LogGroup: LogGroup | None
+    LogStream: LogStream | None
+    MessagePrefix: MessagePrefix | None
+    StartTime: Timestamp | None
 
 
 MillisecondsCount = int
@@ -2300,21 +2393,21 @@ MillisecondsCount = int
 class Schedule(TypedDict, total=False):
     """A scheduling object using a ``cron`` statement to schedule an event."""
 
-    ScheduleExpression: Optional[CronExpression]
-    State: Optional[ScheduleState]
+    ScheduleExpression: CronExpression | None
+    State: ScheduleState | None
 
 
 class LineageConfiguration(TypedDict, total=False):
     """Specifies data lineage configuration settings for the crawler."""
 
-    CrawlerLineageSettings: Optional[CrawlerLineageSettings]
+    CrawlerLineageSettings: CrawlerLineageSettings | None
 
 
 class SchemaChangePolicy(TypedDict, total=False):
     """A policy that specifies update and deletion behaviors for the crawler."""
 
-    UpdateBehavior: Optional[UpdateBehavior]
-    DeleteBehavior: Optional[DeleteBehavior]
+    UpdateBehavior: UpdateBehavior | None
+    DeleteBehavior: DeleteBehavior | None
 
 
 class RecrawlPolicy(TypedDict, total=False):
@@ -2326,23 +2419,23 @@ class RecrawlPolicy(TypedDict, total=False):
     in the developer guide.
     """
 
-    RecrawlBehavior: Optional[RecrawlBehavior]
+    RecrawlBehavior: RecrawlBehavior | None
 
 
-ClassifierNameList = List[NameString]
-PathList = List[Path]
+ClassifierNameList = list[NameString]
+PathList = list[Path]
 
 
 class HudiTarget(TypedDict, total=False):
     """Specifies an Apache Hudi data source."""
 
-    Paths: Optional[PathList]
-    ConnectionName: Optional[ConnectionName]
-    Exclusions: Optional[PathList]
-    MaximumTraversalDepth: Optional[NullableInteger]
+    Paths: PathList | None
+    ConnectionName: ConnectionName | None
+    Exclusions: PathList | None
+    MaximumTraversalDepth: NullableInteger | None
 
 
-HudiTargetList = List[HudiTarget]
+HudiTargetList = list[HudiTarget]
 
 
 class IcebergTarget(TypedDict, total=False):
@@ -2350,26 +2443,26 @@ class IcebergTarget(TypedDict, total=False):
     in Amazon S3.
     """
 
-    Paths: Optional[PathList]
-    ConnectionName: Optional[ConnectionName]
-    Exclusions: Optional[PathList]
-    MaximumTraversalDepth: Optional[NullableInteger]
+    Paths: PathList | None
+    ConnectionName: ConnectionName | None
+    Exclusions: PathList | None
+    MaximumTraversalDepth: NullableInteger | None
 
 
-IcebergTargetList = List[IcebergTarget]
+IcebergTargetList = list[IcebergTarget]
 
 
 class DeltaTarget(TypedDict, total=False):
     """Specifies a Delta data store to crawl one or more Delta tables."""
 
-    DeltaTables: Optional[PathList]
-    ConnectionName: Optional[ConnectionName]
-    WriteManifest: Optional[NullableBoolean]
-    CreateNativeDeltaTable: Optional[NullableBoolean]
+    DeltaTables: PathList | None
+    ConnectionName: ConnectionName | None
+    WriteManifest: NullableBoolean | None
+    CreateNativeDeltaTable: NullableBoolean | None
 
 
-DeltaTargetList = List[DeltaTarget]
-CatalogTablesList = List[NameString]
+DeltaTargetList = list[DeltaTarget]
+CatalogTablesList = list[NameString]
 
 
 class CatalogTarget(TypedDict, total=False):
@@ -2377,74 +2470,74 @@ class CatalogTarget(TypedDict, total=False):
 
     DatabaseName: NameString
     Tables: CatalogTablesList
-    ConnectionName: Optional[ConnectionName]
-    EventQueueArn: Optional[EventQueueArn]
-    DlqEventQueueArn: Optional[EventQueueArn]
+    ConnectionName: ConnectionName | None
+    EventQueueArn: EventQueueArn | None
+    DlqEventQueueArn: EventQueueArn | None
 
 
-CatalogTargetList = List[CatalogTarget]
+CatalogTargetList = list[CatalogTarget]
 
 
 class DynamoDBTarget(TypedDict, total=False):
     """Specifies an Amazon DynamoDB table to crawl."""
 
-    Path: Optional[Path]
-    scanAll: Optional[NullableBoolean]
-    scanRate: Optional[NullableDouble]
+    Path: Path | None
+    scanAll: NullableBoolean | None
+    scanRate: NullableDouble | None
 
 
-DynamoDBTargetList = List[DynamoDBTarget]
+DynamoDBTargetList = list[DynamoDBTarget]
 
 
 class MongoDBTarget(TypedDict, total=False):
     """Specifies an Amazon DocumentDB or MongoDB data store to crawl."""
 
-    ConnectionName: Optional[ConnectionName]
-    Path: Optional[Path]
-    ScanAll: Optional[NullableBoolean]
+    ConnectionName: ConnectionName | None
+    Path: Path | None
+    ScanAll: NullableBoolean | None
 
 
-MongoDBTargetList = List[MongoDBTarget]
-EnableAdditionalMetadata = List[JdbcMetadataEntry]
+MongoDBTargetList = list[MongoDBTarget]
+EnableAdditionalMetadata = list[JdbcMetadataEntry]
 
 
 class JdbcTarget(TypedDict, total=False):
     """Specifies a JDBC data store to crawl."""
 
-    ConnectionName: Optional[ConnectionName]
-    Path: Optional[Path]
-    Exclusions: Optional[PathList]
-    EnableAdditionalMetadata: Optional[EnableAdditionalMetadata]
+    ConnectionName: ConnectionName | None
+    Path: Path | None
+    Exclusions: PathList | None
+    EnableAdditionalMetadata: EnableAdditionalMetadata | None
 
 
-JdbcTargetList = List[JdbcTarget]
+JdbcTargetList = list[JdbcTarget]
 
 
 class S3Target(TypedDict, total=False):
     """Specifies a data store in Amazon Simple Storage Service (Amazon S3)."""
 
-    Path: Optional[Path]
-    Exclusions: Optional[PathList]
-    ConnectionName: Optional[ConnectionName]
-    SampleSize: Optional[NullableInteger]
-    EventQueueArn: Optional[EventQueueArn]
-    DlqEventQueueArn: Optional[EventQueueArn]
+    Path: Path | None
+    Exclusions: PathList | None
+    ConnectionName: ConnectionName | None
+    SampleSize: NullableInteger | None
+    EventQueueArn: EventQueueArn | None
+    DlqEventQueueArn: EventQueueArn | None
 
 
-S3TargetList = List[S3Target]
+S3TargetList = list[S3Target]
 
 
 class CrawlerTargets(TypedDict, total=False):
     """Specifies data stores to crawl."""
 
-    S3Targets: Optional[S3TargetList]
-    JdbcTargets: Optional[JdbcTargetList]
-    MongoDBTargets: Optional[MongoDBTargetList]
-    DynamoDBTargets: Optional[DynamoDBTargetList]
-    CatalogTargets: Optional[CatalogTargetList]
-    DeltaTargets: Optional[DeltaTargetList]
-    IcebergTargets: Optional[IcebergTargetList]
-    HudiTargets: Optional[HudiTargetList]
+    S3Targets: S3TargetList | None
+    JdbcTargets: JdbcTargetList | None
+    MongoDBTargets: MongoDBTargetList | None
+    DynamoDBTargets: DynamoDBTargetList | None
+    CatalogTargets: CatalogTargetList | None
+    DeltaTargets: DeltaTargetList | None
+    IcebergTargets: IcebergTargetList | None
+    HudiTargets: HudiTargetList | None
 
 
 class Crawler(TypedDict, total=False):
@@ -2453,44 +2546,44 @@ class Crawler(TypedDict, total=False):
     records metadata concerning the data source in the Glue Data Catalog.
     """
 
-    Name: Optional[NameString]
-    Role: Optional[Role]
-    Targets: Optional[CrawlerTargets]
-    DatabaseName: Optional[DatabaseName]
-    Description: Optional[DescriptionString]
-    Classifiers: Optional[ClassifierNameList]
-    RecrawlPolicy: Optional[RecrawlPolicy]
-    SchemaChangePolicy: Optional[SchemaChangePolicy]
-    LineageConfiguration: Optional[LineageConfiguration]
-    State: Optional[CrawlerState]
-    TablePrefix: Optional[TablePrefix]
-    Schedule: Optional[Schedule]
-    CrawlElapsedTime: Optional[MillisecondsCount]
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    LastCrawl: Optional[LastCrawlInfo]
-    Version: Optional[VersionId]
-    Configuration: Optional[CrawlerConfiguration]
-    CrawlerSecurityConfiguration: Optional[CrawlerSecurityConfiguration]
-    LakeFormationConfiguration: Optional[LakeFormationConfiguration]
+    Name: NameString | None
+    Role: Role | None
+    Targets: CrawlerTargets | None
+    DatabaseName: DatabaseName | None
+    Description: DescriptionString | None
+    Classifiers: ClassifierNameList | None
+    RecrawlPolicy: RecrawlPolicy | None
+    SchemaChangePolicy: SchemaChangePolicy | None
+    LineageConfiguration: LineageConfiguration | None
+    State: CrawlerState | None
+    TablePrefix: TablePrefix | None
+    Schedule: Schedule | None
+    CrawlElapsedTime: MillisecondsCount | None
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    LastCrawl: LastCrawlInfo | None
+    Version: VersionId | None
+    Configuration: CrawlerConfiguration | None
+    CrawlerSecurityConfiguration: CrawlerSecurityConfiguration | None
+    LakeFormationConfiguration: LakeFormationConfiguration | None
 
 
-CrawlerList = List[Crawler]
+CrawlerList = list[Crawler]
 
 
 class BatchGetCrawlersResponse(TypedDict, total=False):
-    Crawlers: Optional[CrawlerList]
-    CrawlersNotFound: Optional[CrawlerNameList]
+    Crawlers: CrawlerList | None
+    CrawlersNotFound: CrawlerNameList | None
 
 
-CustomEntityTypeNames = List[NameString]
+CustomEntityTypeNames = list[NameString]
 
 
 class BatchGetCustomEntityTypesRequest(ServiceRequest):
     Names: CustomEntityTypeNames
 
 
-ContextWords = List[NameString]
+ContextWords = list[NameString]
 
 
 class CustomEntityType(TypedDict, total=False):
@@ -2500,18 +2593,18 @@ class CustomEntityType(TypedDict, total=False):
 
     Name: NameString
     RegexString: NameString
-    ContextWords: Optional[ContextWords]
+    ContextWords: ContextWords | None
 
 
-CustomEntityTypes = List[CustomEntityType]
+CustomEntityTypes = list[CustomEntityType]
 
 
 class BatchGetCustomEntityTypesResponse(TypedDict, total=False):
-    CustomEntityTypes: Optional[CustomEntityTypes]
-    CustomEntityTypesNotFound: Optional[CustomEntityTypeNames]
+    CustomEntityTypes: CustomEntityTypes | None
+    CustomEntityTypesNotFound: CustomEntityTypeNames | None
 
 
-DataQualityResultIds = List[HashString]
+DataQualityResultIds = list[HashString]
 
 
 class BatchGetDataQualityResultRequest(ServiceRequest):
@@ -2523,15 +2616,15 @@ class DataQualityAggregatedMetrics(TypedDict, total=False):
     rules, including their pass/fail statistics based on row-level results.
     """
 
-    TotalRowsProcessed: Optional[NullableDouble]
-    TotalRowsPassed: Optional[NullableDouble]
-    TotalRowsFailed: Optional[NullableDouble]
-    TotalRulesProcessed: Optional[NullableDouble]
-    TotalRulesPassed: Optional[NullableDouble]
-    TotalRulesFailed: Optional[NullableDouble]
+    TotalRowsProcessed: NullableDouble | None
+    TotalRowsPassed: NullableDouble | None
+    TotalRowsFailed: NullableDouble | None
+    TotalRulesProcessed: NullableDouble | None
+    TotalRulesPassed: NullableDouble | None
+    TotalRulesFailed: NullableDouble | None
 
 
-NewRules = List[NameString]
+NewRules = list[NameString]
 
 
 class DataQualityMetricValues(TypedDict, total=False):
@@ -2539,10 +2632,10 @@ class DataQualityMetricValues(TypedDict, total=False):
     historical data.
     """
 
-    ActualValue: Optional[NullableDouble]
-    ExpectedValue: Optional[NullableDouble]
-    LowerLimit: Optional[NullableDouble]
-    UpperLimit: Optional[NullableDouble]
+    ActualValue: NullableDouble | None
+    ExpectedValue: NullableDouble | None
+    LowerLimit: NullableDouble | None
+    UpperLimit: NullableDouble | None
 
 
 class MetricBasedObservation(TypedDict, total=False):
@@ -2550,10 +2643,10 @@ class MetricBasedObservation(TypedDict, total=False):
     quality metrics.
     """
 
-    MetricName: Optional[NameString]
-    StatisticId: Optional[HashString]
-    MetricValues: Optional[DataQualityMetricValues]
-    NewRules: Optional[NewRules]
+    MetricName: NameString | None
+    StatisticId: HashString | None
+    MetricValues: DataQualityMetricValues | None
+    NewRules: NewRules | None
 
 
 class DataQualityObservation(TypedDict, total=False):
@@ -2561,41 +2654,43 @@ class DataQualityObservation(TypedDict, total=False):
     analyzers.
     """
 
-    Description: Optional[DataQualityObservationDescription]
-    MetricBasedObservation: Optional[MetricBasedObservation]
+    Description: DataQualityObservationDescription | None
+    MetricBasedObservation: MetricBasedObservation | None
 
 
-DataQualityObservations = List[DataQualityObservation]
-EvaluatedMetricsMap = Dict[NameString, NullableDouble]
+DataQualityObservations = list[DataQualityObservation]
+EvaluatedMetricsMap = dict[NameString, NullableDouble]
 
 
 class DataQualityAnalyzerResult(TypedDict, total=False):
     """Describes the result of the evaluation of a data quality analyzer."""
 
-    Name: Optional[NameString]
-    Description: Optional[DataQualityRuleResultDescription]
-    EvaluationMessage: Optional[DataQualityRuleResultDescription]
-    EvaluatedMetrics: Optional[EvaluatedMetricsMap]
+    Name: NameString | None
+    Description: DataQualityRuleResultDescription | None
+    EvaluationMessage: DataQualityRuleResultDescription | None
+    EvaluatedMetrics: EvaluatedMetricsMap | None
 
 
-DataQualityAnalyzerResults = List[DataQualityAnalyzerResult]
-RuleMetricsMap = Dict[NameString, NullableDouble]
+DataQualityAnalyzerResults = list[DataQualityAnalyzerResult]
+Labels = dict[NameString, NameString]
+RuleMetricsMap = dict[NameString, NullableDouble]
 
 
 class DataQualityRuleResult(TypedDict, total=False):
     """Describes the result of the evaluation of a data quality rule."""
 
-    Name: Optional[NameString]
-    Description: Optional[DataQualityRuleResultDescription]
-    EvaluationMessage: Optional[DataQualityRuleResultDescription]
-    Result: Optional[DataQualityRuleResultStatus]
-    EvaluatedMetrics: Optional[EvaluatedMetricsMap]
-    EvaluatedRule: Optional[DataQualityRuleResultDescription]
-    RuleMetrics: Optional[RuleMetricsMap]
+    Name: NameString | None
+    Description: DataQualityRuleResultDescription | None
+    EvaluationMessage: DataQualityRuleResultDescription | None
+    Result: DataQualityRuleResultStatus | None
+    EvaluatedMetrics: EvaluatedMetricsMap | None
+    EvaluatedRule: DataQualityRuleResultDescription | None
+    RuleMetrics: RuleMetricsMap | None
+    Labels: Labels | None
 
 
-DataQualityRuleResults = List[DataQualityRuleResult]
-GlueTableAdditionalOptions = Dict[NameString, DescriptionString]
+DataQualityRuleResults = list[DataQualityRuleResult]
+GlueTableAdditionalOptions = dict[NameString, DescriptionString]
 
 
 class DataQualityGlueTable(TypedDict, total=False):
@@ -2605,10 +2700,10 @@ class DataQualityGlueTable(TypedDict, total=False):
 
     DatabaseName: NameString
     TableName: NameString
-    CatalogId: Optional[NameString]
-    ConnectionName: Optional[NameString]
-    AdditionalOptions: Optional[GlueTableAdditionalOptions]
-    PreProcessingQuery: Optional[PreProcessingQueryString]
+    CatalogId: NameString | None
+    ConnectionName: NameString | None
+    AdditionalOptions: GlueTableAdditionalOptions | None
+    PreProcessingQuery: PreProcessingQueryString | None
 
 
 class GlueTable(TypedDict, total=False):
@@ -2618,56 +2713,56 @@ class GlueTable(TypedDict, total=False):
 
     DatabaseName: NameString
     TableName: NameString
-    CatalogId: Optional[NameString]
-    ConnectionName: Optional[NameString]
-    AdditionalOptions: Optional[GlueTableAdditionalOptions]
+    CatalogId: NameString | None
+    ConnectionName: NameString | None
+    AdditionalOptions: GlueTableAdditionalOptions | None
 
 
 class DataSource(TypedDict, total=False):
     """A data source (an Glue table) for which you want data quality results."""
 
-    GlueTable: Optional[GlueTable]
-    DataQualityGlueTable: Optional[DataQualityGlueTable]
+    GlueTable: GlueTable | None
+    DataQualityGlueTable: DataQualityGlueTable | None
 
 
 class DataQualityResult(TypedDict, total=False):
     """Describes a data quality result."""
 
-    ResultId: Optional[HashString]
-    ProfileId: Optional[HashString]
-    Score: Optional[GenericBoundedDouble]
-    DataSource: Optional[DataSource]
-    RulesetName: Optional[NameString]
-    EvaluationContext: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    JobName: Optional[NameString]
-    JobRunId: Optional[HashString]
-    RulesetEvaluationRunId: Optional[HashString]
-    RuleResults: Optional[DataQualityRuleResults]
-    AnalyzerResults: Optional[DataQualityAnalyzerResults]
-    Observations: Optional[DataQualityObservations]
-    AggregatedMetrics: Optional[DataQualityAggregatedMetrics]
+    ResultId: HashString | None
+    ProfileId: HashString | None
+    Score: GenericBoundedDouble | None
+    DataSource: DataSource | None
+    RulesetName: NameString | None
+    EvaluationContext: GenericString | None
+    StartedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    JobName: NameString | None
+    JobRunId: HashString | None
+    RulesetEvaluationRunId: HashString | None
+    RuleResults: DataQualityRuleResults | None
+    AnalyzerResults: DataQualityAnalyzerResults | None
+    Observations: DataQualityObservations | None
+    AggregatedMetrics: DataQualityAggregatedMetrics | None
 
 
-DataQualityResultsList = List[DataQualityResult]
+DataQualityResultsList = list[DataQualityResult]
 
 
 class BatchGetDataQualityResultResponse(TypedDict, total=False):
     Results: DataQualityResultsList
-    ResultsNotFound: Optional[DataQualityResultIds]
+    ResultsNotFound: DataQualityResultIds | None
 
 
-DevEndpointNames = List[GenericString]
+DevEndpointNames = list[GenericString]
 
 
 class BatchGetDevEndpointsRequest(ServiceRequest):
     DevEndpointNames: DevEndpointNames
 
 
-MapValue = Dict[GenericString, GenericString]
-PublicKeysList = List[GenericString]
-StringList = List[GenericString]
+MapValue = dict[GenericString, GenericString]
+PublicKeysList = list[GenericString]
+StringList = list[GenericString]
 
 
 class DevEndpoint(TypedDict, total=False):
@@ -2675,42 +2770,42 @@ class DevEndpoint(TypedDict, total=False):
     transform, and load (ETL) scripts.
     """
 
-    EndpointName: Optional[GenericString]
-    RoleArn: Optional[RoleArn]
-    SecurityGroupIds: Optional[StringList]
-    SubnetId: Optional[GenericString]
-    YarnEndpointAddress: Optional[GenericString]
-    PrivateAddress: Optional[GenericString]
-    ZeppelinRemoteSparkInterpreterPort: Optional[IntegerValue]
-    PublicAddress: Optional[GenericString]
-    Status: Optional[GenericString]
-    WorkerType: Optional[WorkerType]
-    GlueVersion: Optional[GlueVersionString]
-    NumberOfWorkers: Optional[NullableInteger]
-    NumberOfNodes: Optional[IntegerValue]
-    AvailabilityZone: Optional[GenericString]
-    VpcId: Optional[GenericString]
-    ExtraPythonLibsS3Path: Optional[GenericString]
-    ExtraJarsS3Path: Optional[GenericString]
-    FailureReason: Optional[GenericString]
-    LastUpdateStatus: Optional[GenericString]
-    CreatedTimestamp: Optional[TimestampValue]
-    LastModifiedTimestamp: Optional[TimestampValue]
-    PublicKey: Optional[GenericString]
-    PublicKeys: Optional[PublicKeysList]
-    SecurityConfiguration: Optional[NameString]
-    Arguments: Optional[MapValue]
+    EndpointName: GenericString | None
+    RoleArn: RoleArn | None
+    SecurityGroupIds: StringList | None
+    SubnetId: GenericString | None
+    YarnEndpointAddress: GenericString | None
+    PrivateAddress: GenericString | None
+    ZeppelinRemoteSparkInterpreterPort: IntegerValue | None
+    PublicAddress: GenericString | None
+    Status: GenericString | None
+    WorkerType: WorkerType | None
+    GlueVersion: GlueVersionString | None
+    NumberOfWorkers: NullableInteger | None
+    NumberOfNodes: IntegerValue | None
+    AvailabilityZone: GenericString | None
+    VpcId: GenericString | None
+    ExtraPythonLibsS3Path: GenericString | None
+    ExtraJarsS3Path: GenericString | None
+    FailureReason: GenericString | None
+    LastUpdateStatus: GenericString | None
+    CreatedTimestamp: TimestampValue | None
+    LastModifiedTimestamp: TimestampValue | None
+    PublicKey: GenericString | None
+    PublicKeys: PublicKeysList | None
+    SecurityConfiguration: NameString | None
+    Arguments: MapValue | None
 
 
-DevEndpointList = List[DevEndpoint]
+DevEndpointList = list[DevEndpoint]
 
 
 class BatchGetDevEndpointsResponse(TypedDict, total=False):
-    DevEndpoints: Optional[DevEndpointList]
-    DevEndpointsNotFound: Optional[DevEndpointNames]
+    DevEndpoints: DevEndpointList | None
+    DevEndpointsNotFound: DevEndpointNames | None
 
 
-JobNameList = List[NameString]
+JobNameList = list[NameString]
 
 
 class BatchGetJobsRequest(ServiceRequest):
@@ -2722,14 +2817,14 @@ class SourceControlDetails(TypedDict, total=False):
     synchronization of job artifacts to or from a remote repository.
     """
 
-    Provider: Optional[SourceControlProvider]
-    Repository: Optional[Generic512CharString]
-    Owner: Optional[Generic512CharString]
-    Branch: Optional[Generic512CharString]
-    Folder: Optional[Generic512CharString]
-    LastCommitId: Optional[Generic512CharString]
-    AuthStrategy: Optional[SourceControlAuthStrategy]
-    AuthToken: Optional[Generic512CharString]
+    Provider: SourceControlProvider | None
+    Repository: Generic512CharString | None
+    Owner: Generic512CharString | None
+    Branch: Generic512CharString | None
+    Folder: Generic512CharString | None
+    LastCommitId: Generic512CharString | None
+    AuthStrategy: SourceControlAuthStrategy | None
+    AuthToken: Generic512CharString | None
 
 
 class DDBELTConnectionOptions(TypedDict, total=False):
@@ -2739,13 +2834,13 @@ class DDBELTConnectionOptions(TypedDict, total=False):
     connector.
     """
 
-    DynamodbExport: Optional[DdbExportType]
-    DynamodbUnnestDDBJson: Optional[BooleanValue]
+    DynamodbExport: DdbExportType | None
+    DynamodbUnnestDDBJson: BooleanValue | None
     DynamodbTableArn: EnclosedInStringProperty
-    DynamodbS3Bucket: Optional[EnclosedInStringProperty]
-    DynamodbS3Prefix: Optional[EnclosedInStringProperty]
-    DynamodbS3BucketOwner: Optional[EnclosedInStringProperty]
-    DynamodbStsRoleArn: Optional[EnclosedInStringProperty]
+    DynamodbS3Bucket: EnclosedInStringProperty | None
+    DynamodbS3Prefix: EnclosedInStringProperty | None
+    DynamodbS3BucketOwner: EnclosedInStringProperty | None
+    DynamodbStsRoleArn: EnclosedInStringProperty | None
 
 
 class DynamoDBELTConnectorSource(TypedDict, total=False):
@@ -2754,17 +2849,17 @@ class DynamoDBELTConnectorSource(TypedDict, total=False):
     """
 
     Name: NodeName
-    ConnectionOptions: Optional[DDBELTConnectionOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    ConnectionOptions: DDBELTConnectionOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class DirectSchemaChangePolicy(TypedDict, total=False):
     """A policy that specifies update behavior for the crawler."""
 
-    EnableUpdateCatalog: Optional[BoxedBoolean]
-    UpdateBehavior: Optional[UpdateCatalogBehavior]
-    Table: Optional[EnclosedInStringProperty]
-    Database: Optional[EnclosedInStringProperty]
+    EnableUpdateCatalog: BoxedBoolean | None
+    UpdateBehavior: UpdateCatalogBehavior | None
+    Table: EnclosedInStringProperty | None
+    Database: EnclosedInStringProperty | None
 
 
 class S3HyperDirectTarget(TypedDict, total=False):
@@ -2772,13 +2867,13 @@ class S3HyperDirectTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    Format: Optional[TargetFormat]
-    PartitionKeys: Optional[GlueStudioPathList]
+    Format: TargetFormat | None
+    PartitionKeys: GlueStudioPathList | None
     Path: EnclosedInStringProperty
-    Compression: Optional[HyperTargetCompressionType]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
-    OutputSchemas: Optional[GlueSchemas]
+    Compression: HyperTargetCompressionType | None
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
+    OutputSchemas: GlueSchemas | None
 
 
 BoxedLong = int
@@ -2787,10 +2882,10 @@ BoxedLong = int
 class S3DirectSourceAdditionalOptions(TypedDict, total=False):
     """Specifies additional connection options for the Amazon S3 data store."""
 
-    BoundedSize: Optional[BoxedLong]
-    BoundedFiles: Optional[BoxedLong]
-    EnableSamplePath: Optional[BoxedBoolean]
-    SamplePath: Optional[EnclosedInStringProperty]
+    BoundedSize: BoxedLong | None
+    BoundedFiles: BoxedLong | None
+    EnableSamplePath: BoxedBoolean | None
+    SamplePath: EnclosedInStringProperty | None
 
 
 class S3ExcelSource(TypedDict, total=False):
@@ -2798,17 +2893,17 @@ class S3ExcelSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    CompressionType: Optional[ParquetCompressionType]
-    Exclusions: Optional[EnclosedInStringProperties]
-    GroupSize: Optional[EnclosedInStringProperty]
-    GroupFiles: Optional[EnclosedInStringProperty]
-    Recurse: Optional[BoxedBoolean]
-    MaxBand: Optional[BoxedNonNegativeInt]
-    MaxFilesInBand: Optional[BoxedNonNegativeInt]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    NumberRows: Optional[BoxedLong]
-    SkipFooter: Optional[BoxedNonNegativeInt]
-    OutputSchemas: Optional[GlueSchemas]
+    CompressionType: ParquetCompressionType | None
+    Exclusions: EnclosedInStringProperties | None
+    GroupSize: EnclosedInStringProperty | None
+    GroupFiles: EnclosedInStringProperty | None
+    Recurse: BoxedBoolean | None
+    MaxBand: BoxedNonNegativeInt | None
+    MaxFilesInBand: BoxedNonNegativeInt | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
+    NumberRows: BoxedLong | None
+    SkipFooter: BoxedNonNegativeInt | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3IcebergDirectTarget(TypedDict, total=False):
@@ -2816,22 +2911,22 @@ class S3IcebergDirectTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Path: EnclosedInStringProperty
     Format: TargetFormat
-    AdditionalOptions: Optional[AdditionalOptions]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    AdditionalOptions: AdditionalOptions | None
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
     Compression: IcebergTargetCompressionType
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
-    OutputSchemas: Optional[GlueSchemas]
+    NumberTargetPartitions: NumberTargetPartitionsString | None
+    OutputSchemas: GlueSchemas | None
 
 
 class CatalogSchemaChangePolicy(TypedDict, total=False):
     """A policy that specifies update behavior for the crawler."""
 
-    EnableUpdateCatalog: Optional[BoxedBoolean]
-    UpdateBehavior: Optional[UpdateCatalogBehavior]
+    EnableUpdateCatalog: BoxedBoolean | None
+    UpdateBehavior: UpdateCatalogBehavior | None
 
 
 class S3IcebergCatalogTarget(TypedDict, total=False):
@@ -2841,12 +2936,12 @@ class S3IcebergCatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    AdditionalOptions: Optional[AdditionalOptions]
-    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    AdditionalOptions: AdditionalOptions | None
+    SchemaChangePolicy: CatalogSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
 
 
 class CatalogIcebergSource(TypedDict, total=False):
@@ -2857,8 +2952,8 @@ class CatalogIcebergSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalIcebergOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalIcebergOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3CatalogIcebergSource(TypedDict, total=False):
@@ -2869,11 +2964,11 @@ class S3CatalogIcebergSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalIcebergOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalIcebergOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
-ConnectorOptions = Dict[GenericString, GenericString]
+ConnectorOptions = dict[GenericString, GenericString]
 
 
 class ConnectorDataTarget(TypedDict, total=False):
@@ -2882,7 +2977,7 @@ class ConnectorDataTarget(TypedDict, total=False):
     Name: NodeName
     ConnectionType: EnclosedInStringProperty
     Data: ConnectorOptions
-    Inputs: Optional[OneInput]
+    Inputs: OneInput | None
 
 
 class ConnectorDataSource(TypedDict, total=False):
@@ -2891,33 +2986,33 @@ class ConnectorDataSource(TypedDict, total=False):
     Name: NodeName
     ConnectionType: EnclosedInStringProperty
     Data: ConnectorOptions
-    OutputSchemas: Optional[GlueSchemas]
+    OutputSchemas: GlueSchemas | None
 
 
 class SnowflakeNodeData(TypedDict, total=False):
     """Specifies configuration for Snowflake nodes in Glue Studio."""
 
-    SourceType: Optional[GenericLimitedString]
-    Connection: Optional[Option]
-    Schema: Optional[GenericString]
-    Table: Optional[GenericString]
-    Database: Optional[GenericString]
-    TempDir: Optional[EnclosedInStringProperty]
-    IamRole: Optional[Option]
-    AdditionalOptions: Optional[AdditionalOptions]
-    SampleQuery: Optional[GenericString]
-    PreAction: Optional[GenericString]
-    PostAction: Optional[GenericString]
-    Action: Optional[GenericString]
-    Upsert: Optional[BooleanValue]
-    MergeAction: Optional[GenericLimitedString]
-    MergeWhenMatched: Optional[GenericLimitedString]
-    MergeWhenNotMatched: Optional[GenericLimitedString]
-    MergeClause: Optional[GenericString]
-    StagingTable: Optional[GenericString]
-    SelectedColumns: Optional[OptionList]
-    AutoPushdown: Optional[BooleanValue]
-    TableSchema: Optional[OptionList]
+    SourceType: GenericLimitedString | None
+    Connection: Option | None
+    Schema: GenericString | None
+    Table: GenericString | None
+    Database: GenericString | None
+    TempDir: EnclosedInStringProperty | None
+    IamRole: Option | None
+    AdditionalOptions: AdditionalOptions | None
+    SampleQuery: GenericString | None
+    PreAction: GenericString | None
+    PostAction: GenericString | None
+    Action: GenericString | None
+    Upsert: BooleanValue | None
+    MergeAction: GenericLimitedString | None
+    MergeWhenMatched: GenericLimitedString | None
+    MergeWhenNotMatched: GenericLimitedString | None
+    MergeClause: GenericString | None
+    StagingTable: GenericString | None
+    SelectedColumns: OptionList | None
+    AutoPushdown: BooleanValue | None
+    TableSchema: OptionList | None
 
 
 class SnowflakeTarget(TypedDict, total=False):
@@ -2925,7 +3020,7 @@ class SnowflakeTarget(TypedDict, total=False):
 
     Name: NodeName
     Data: SnowflakeNodeData
-    Inputs: Optional[OneInput]
+    Inputs: OneInput | None
 
 
 class SnowflakeSource(TypedDict, total=False):
@@ -2933,7 +3028,7 @@ class SnowflakeSource(TypedDict, total=False):
 
     Name: NodeName
     Data: SnowflakeNodeData
-    OutputSchemas: Optional[GlueSchemas]
+    OutputSchemas: GlueSchemas | None
 
 
 class ConditionExpression(TypedDict, total=False):
@@ -2942,29 +3037,29 @@ class ConditionExpression(TypedDict, total=False):
     """
 
     Condition: DatabrewCondition
-    Value: Optional[DatabrewConditionValue]
+    Value: DatabrewConditionValue | None
     TargetColumn: TargetColumn
 
 
-ConditionExpressionList = List[ConditionExpression]
-ParameterMap = Dict[ParameterName, ParameterValue]
+ConditionExpressionList = list[ConditionExpression]
+ParameterMap = dict[ParameterName, ParameterValue]
 
 
 class RecipeAction(TypedDict, total=False):
     """Actions defined in the Glue Studio data preparation recipe node."""
 
     Operation: Operation
-    Parameters: Optional[ParameterMap]
+    Parameters: ParameterMap | None
 
 
 class RecipeStep(TypedDict, total=False):
     """A recipe step used in a Glue Studio data preparation recipe node."""
 
     Action: RecipeAction
-    ConditionExpressions: Optional[ConditionExpressionList]
+    ConditionExpressions: ConditionExpressionList | None
 
 
-RecipeSteps = List[RecipeStep]
+RecipeSteps = list[RecipeStep]
 
 
 class RecipeReference(TypedDict, total=False):
@@ -2979,8 +3074,8 @@ class Recipe(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    RecipeReference: Optional[RecipeReference]
-    RecipeSteps: Optional[RecipeSteps]
+    RecipeReference: RecipeReference | None
+    RecipeSteps: RecipeSteps | None
 
 
 class DQStopJobOnFailureOptions(TypedDict, total=False):
@@ -2988,10 +3083,10 @@ class DQStopJobOnFailureOptions(TypedDict, total=False):
     evaluation fails.
     """
 
-    StopJobOnFailureTiming: Optional[DQStopJobOnFailureTiming]
+    StopJobOnFailureTiming: DQStopJobOnFailureTiming | None
 
 
-DQAdditionalOptions = Dict[AdditionalOptionKeys, GenericString]
+DQAdditionalOptions = dict[AdditionalOptionKeys, GenericString]
 
 
 class DQResultsPublishingOptions(TypedDict, total=False):
@@ -2999,14 +3094,14 @@ class DQResultsPublishingOptions(TypedDict, total=False):
     published.
     """
 
-    EvaluationContext: Optional[GenericLimitedString]
-    ResultsS3Prefix: Optional[EnclosedInStringProperty]
-    CloudWatchMetricsEnabled: Optional[BoxedBoolean]
-    ResultsPublishingEnabled: Optional[BoxedBoolean]
+    EvaluationContext: GenericLimitedString | None
+    ResultsS3Prefix: EnclosedInStringProperty | None
+    CloudWatchMetricsEnabled: BoxedBoolean | None
+    ResultsPublishingEnabled: BoxedBoolean | None
 
 
-DQDLAliases = Dict[NodeName, EnclosedInStringProperty]
-ManyInputs = List[NodeId]
+DQDLAliases = dict[NodeName, EnclosedInStringProperty]
+ManyInputs = list[NodeId]
 
 
 class EvaluateDataQualityMultiFrame(TypedDict, total=False):
@@ -3014,11 +3109,11 @@ class EvaluateDataQualityMultiFrame(TypedDict, total=False):
 
     Name: NodeName
     Inputs: ManyInputs
-    AdditionalDataSources: Optional[DQDLAliases]
+    AdditionalDataSources: DQDLAliases | None
     Ruleset: DQDLString
-    PublishingOptions: Optional[DQResultsPublishingOptions]
-    AdditionalOptions: Optional[DQAdditionalOptions]
-    StopJobOnFailureOptions: Optional[DQStopJobOnFailureOptions]
+    PublishingOptions: DQResultsPublishingOptions | None
+    AdditionalOptions: DQAdditionalOptions | None
+    StopJobOnFailureOptions: DQStopJobOnFailureOptions | None
 
 
 class S3DeltaDirectTarget(TypedDict, total=False):
@@ -3026,14 +3121,14 @@ class S3DeltaDirectTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Path: EnclosedInStringProperty
     Compression: DeltaTargetCompressionType
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
+    NumberTargetPartitions: NumberTargetPartitionsString | None
     Format: TargetFormat
-    AdditionalOptions: Optional[AdditionalOptions]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    AdditionalOptions: AdditionalOptions | None
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
 
 
 class S3DeltaCatalogTarget(TypedDict, total=False):
@@ -3043,13 +3138,13 @@ class S3DeltaCatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    AdditionalOptions: Optional[AdditionalOptions]
-    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalOptions: AdditionalOptions | None
+    SchemaChangePolicy: CatalogSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3DeltaSource(TypedDict, total=False):
@@ -3057,9 +3152,9 @@ class S3DeltaSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    AdditionalDeltaOptions: Optional[AdditionalOptions]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalDeltaOptions: AdditionalOptions | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class CatalogDeltaSource(TypedDict, total=False):
@@ -3070,8 +3165,8 @@ class CatalogDeltaSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalDeltaOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalDeltaOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3CatalogDeltaSource(TypedDict, total=False):
@@ -3082,8 +3177,8 @@ class S3CatalogDeltaSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalDeltaOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalDeltaOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class DirectJDBCSource(TypedDict, total=False):
@@ -3094,8 +3189,8 @@ class DirectJDBCSource(TypedDict, total=False):
     Table: EnclosedInStringProperty
     ConnectionName: EnclosedInStringProperty
     ConnectionType: JDBCConnectionType
-    RedshiftTmpDir: Optional[EnclosedInStringProperty]
-    OutputSchemas: Optional[GlueSchemas]
+    RedshiftTmpDir: EnclosedInStringProperty | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3HudiDirectTarget(TypedDict, total=False):
@@ -3105,12 +3200,12 @@ class S3HudiDirectTarget(TypedDict, total=False):
     Inputs: OneInput
     Path: EnclosedInStringProperty
     Compression: HudiTargetCompressionType
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
-    PartitionKeys: Optional[GlueStudioPathList]
+    NumberTargetPartitions: NumberTargetPartitionsString | None
+    PartitionKeys: GlueStudioPathList | None
     Format: TargetFormat
     AdditionalOptions: AdditionalOptions
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
 
 
 class S3HudiCatalogTarget(TypedDict, total=False):
@@ -3120,13 +3215,13 @@ class S3HudiCatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
     AdditionalOptions: AdditionalOptions
-    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
-    OutputSchemas: Optional[GlueSchemas]
+    SchemaChangePolicy: CatalogSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3HudiSource(TypedDict, total=False):
@@ -3134,9 +3229,9 @@ class S3HudiSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    AdditionalHudiOptions: Optional[AdditionalOptions]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalHudiOptions: AdditionalOptions | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class CatalogHudiSource(TypedDict, total=False):
@@ -3147,8 +3242,8 @@ class CatalogHudiSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalHudiOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalHudiOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3CatalogHudiSource(TypedDict, total=False):
@@ -3159,8 +3254,8 @@ class S3CatalogHudiSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    AdditionalHudiOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalHudiOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class EvaluateDataQuality(TypedDict, total=False):
@@ -3169,9 +3264,9 @@ class EvaluateDataQuality(TypedDict, total=False):
     Name: NodeName
     Inputs: OneInput
     Ruleset: DQDLString
-    Output: Optional[DQTransformOutput]
-    PublishingOptions: Optional[DQResultsPublishingOptions]
-    StopJobOnFailureOptions: Optional[DQStopJobOnFailureOptions]
+    Output: DQTransformOutput | None
+    PublishingOptions: DQResultsPublishingOptions | None
+    StopJobOnFailureOptions: DQStopJobOnFailureOptions | None
 
 
 class TransformConfigParameter(TypedDict, total=False):
@@ -3179,14 +3274,14 @@ class TransformConfigParameter(TypedDict, total=False):
 
     Name: EnclosedInStringProperty
     Type: ParamType
-    ValidationRule: Optional[EnclosedInStringProperty]
-    ValidationMessage: Optional[EnclosedInStringProperty]
-    Value: Optional[EnclosedInStringProperties]
-    ListType: Optional[ParamType]
-    IsOptional: Optional[BoxedBoolean]
+    ValidationRule: EnclosedInStringProperty | None
+    ValidationMessage: EnclosedInStringProperty | None
+    Value: EnclosedInStringProperties | None
+    ListType: ParamType | None
+    IsOptional: BoxedBoolean | None
 
 
-TransformConfigParameterList = List[TransformConfigParameter]
+TransformConfigParameterList = list[TransformConfigParameter]
 
 
 class DynamicTransform(TypedDict, total=False):
@@ -3195,11 +3290,11 @@ class DynamicTransform(TypedDict, total=False):
     Name: EnclosedInStringProperty
     TransformName: EnclosedInStringProperty
     Inputs: OneInput
-    Parameters: Optional[TransformConfigParameterList]
+    Parameters: TransformConfigParameterList | None
     FunctionName: EnclosedInStringProperty
     Path: EnclosedInStringProperty
-    Version: Optional[EnclosedInStringProperty]
-    OutputSchemas: Optional[GlueSchemas]
+    Version: EnclosedInStringProperty | None
+    OutputSchemas: GlueSchemas | None
 
 
 class FilterValue(TypedDict, total=False):
@@ -3211,18 +3306,18 @@ class FilterValue(TypedDict, total=False):
     Value: EnclosedInStringProperties
 
 
-FilterValues = List[FilterValue]
+FilterValues = list[FilterValue]
 
 
 class FilterExpression(TypedDict, total=False):
     """Specifies a filter expression."""
 
     Operation: FilterOperation
-    Negated: Optional[BoxedBoolean]
+    Negated: BoxedBoolean | None
     Values: FilterValues
 
 
-FilterExpressions = List[FilterExpression]
+FilterExpressions = list[FilterExpression]
 
 
 class GroupFilters(TypedDict, total=False):
@@ -3235,7 +3330,7 @@ class GroupFilters(TypedDict, total=False):
     LogicalOperator: FilterLogicalOperator
 
 
-GroupFiltersList = List[GroupFilters]
+GroupFiltersList = list[GroupFilters]
 
 
 class Route(TypedDict, total=False):
@@ -3319,8 +3414,8 @@ class MicrosoftSQLServerCatalogSource(TypedDict, total=False):
 class S3SourceAdditionalOptions(TypedDict, total=False):
     """Specifies additional connection options for the Amazon S3 data store."""
 
-    BoundedSize: Optional[BoxedLong]
-    BoundedFiles: Optional[BoxedLong]
+    BoundedSize: BoxedLong | None
+    BoundedFiles: BoxedLong | None
 
 
 class GovernedCatalogSource(TypedDict, total=False):
@@ -3329,8 +3424,8 @@ class GovernedCatalogSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    PartitionPredicate: Optional[EnclosedInStringProperty]
-    AdditionalOptions: Optional[S3SourceAdditionalOptions]
+    PartitionPredicate: EnclosedInStringProperty | None
+    AdditionalOptions: S3SourceAdditionalOptions | None
 
 
 class GovernedCatalogTarget(TypedDict, total=False):
@@ -3340,14 +3435,14 @@ class GovernedCatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
+    SchemaChangePolicy: CatalogSchemaChangePolicy | None
 
 
-LimitedStringList = List[GenericLimitedString]
-LimitedPathList = List[LimitedStringList]
+LimitedStringList = list[GenericLimitedString]
+LimitedPathList = list[LimitedStringList]
 
 
 class DropDuplicates(TypedDict, total=False):
@@ -3357,7 +3452,7 @@ class DropDuplicates(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    Columns: Optional[LimitedPathList]
+    Columns: LimitedPathList | None
 
 
 class PIIDetection(TypedDict, total=False):
@@ -3367,20 +3462,20 @@ class PIIDetection(TypedDict, total=False):
     Inputs: OneInput
     PiiType: PiiType
     EntityTypesToDetect: EnclosedInStringProperties
-    OutputColumnName: Optional[EnclosedInStringProperty]
-    SampleFraction: Optional[BoxedDoubleFraction]
-    ThresholdFraction: Optional[BoxedDoubleFraction]
-    MaskValue: Optional[MaskValue]
-    RedactText: Optional[EnclosedInStringProperty]
-    RedactChar: Optional[EnclosedInStringProperty]
-    MatchPattern: Optional[EnclosedInStringProperty]
-    NumLeftCharsToExclude: Optional[BoxedPositiveInt]
-    NumRightCharsToExclude: Optional[BoxedPositiveInt]
-    DetectionParameters: Optional[EnclosedInStringProperty]
-    DetectionSensitivity: Optional[EnclosedInStringProperty]
+    OutputColumnName: EnclosedInStringProperty | None
+    SampleFraction: BoxedDoubleFraction | None
+    ThresholdFraction: BoxedDoubleFraction | None
+    MaskValue: MaskValue | None
+    RedactText: EnclosedInStringProperty | None
+    RedactChar: EnclosedInStringProperty | None
+    MatchPattern: EnclosedInStringProperty | None
+    NumLeftCharsToExclude: BoxedPositiveInt | None
+    NumRightCharsToExclude: BoxedPositiveInt | None
+    DetectionParameters: EnclosedInStringProperty | None
+    DetectionSensitivity: EnclosedInStringProperty | None
 
 
-TwoInputs = List[NodeId]
+TwoInputs = list[NodeId]
 
 
 class Union_(TypedDict, total=False):
@@ -3422,7 +3517,7 @@ class NullValueField(TypedDict, total=False):
     Datatype: Datatype
 
 
-NullValueFields = List[NullValueField]
+NullValueFields = list[NullValueField]
 
 
 class NullCheckBoxList(TypedDict, total=False):
@@ -3430,9 +3525,9 @@ class NullCheckBoxList(TypedDict, total=False):
     removal.
     """
 
-    IsEmpty: Optional[BoxedBoolean]
-    IsNullString: Optional[BoxedBoolean]
-    IsNegOne: Optional[BoxedBoolean]
+    IsEmpty: BoxedBoolean | None
+    IsNullString: BoxedBoolean | None
+    IsNegOne: BoxedBoolean | None
 
 
 class DropNullFields(TypedDict, total=False):
@@ -3445,8 +3540,8 @@ class DropNullFields(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    NullCheckBoxList: Optional[NullCheckBoxList]
-    NullTextList: Optional[NullValueFields]
+    NullCheckBoxList: NullCheckBoxList | None
+    NullTextList: NullValueFields | None
 
 
 PositiveLong = int
@@ -3458,8 +3553,8 @@ class StreamingDataPreviewOptions(TypedDict, total=False):
     data.
     """
 
-    PollingTime: Optional[PollingTime]
-    RecordPollingLimit: Optional[PositiveLong]
+    PollingTime: PollingTime | None
+    RecordPollingLimit: PositiveLong | None
 
 
 Iso8601DateTime = datetime
@@ -3469,96 +3564,96 @@ BoxedNonNegativeLong = int
 class KafkaStreamingSourceOptions(TypedDict, total=False):
     """Additional options for streaming."""
 
-    BootstrapServers: Optional[EnclosedInStringProperty]
-    SecurityProtocol: Optional[EnclosedInStringProperty]
-    ConnectionName: Optional[EnclosedInStringProperty]
-    TopicName: Optional[EnclosedInStringProperty]
-    Assign: Optional[EnclosedInStringProperty]
-    SubscribePattern: Optional[EnclosedInStringProperty]
-    Classification: Optional[EnclosedInStringProperty]
-    Delimiter: Optional[EnclosedInStringProperty]
-    StartingOffsets: Optional[EnclosedInStringProperty]
-    EndingOffsets: Optional[EnclosedInStringProperty]
-    PollTimeoutMs: Optional[BoxedNonNegativeLong]
-    NumRetries: Optional[BoxedNonNegativeInt]
-    RetryIntervalMs: Optional[BoxedNonNegativeLong]
-    MaxOffsetsPerTrigger: Optional[BoxedNonNegativeLong]
-    MinPartitions: Optional[BoxedNonNegativeInt]
-    IncludeHeaders: Optional[BoxedBoolean]
-    AddRecordTimestamp: Optional[EnclosedInStringProperty]
-    EmitConsumerLagMetrics: Optional[EnclosedInStringProperty]
-    StartingTimestamp: Optional[Iso8601DateTime]
+    BootstrapServers: EnclosedInStringProperty | None
+    SecurityProtocol: EnclosedInStringProperty | None
+    ConnectionName: EnclosedInStringProperty | None
+    TopicName: EnclosedInStringProperty | None
+    Assign: EnclosedInStringProperty | None
+    SubscribePattern: EnclosedInStringProperty | None
+    Classification: EnclosedInStringProperty | None
+    Delimiter: EnclosedInStringProperty | None
+    StartingOffsets: EnclosedInStringProperty | None
+    EndingOffsets: EnclosedInStringProperty | None
+    PollTimeoutMs: BoxedNonNegativeLong | None
+    NumRetries: BoxedNonNegativeInt | None
+    RetryIntervalMs: BoxedNonNegativeLong | None
+    MaxOffsetsPerTrigger: BoxedNonNegativeLong | None
+    MinPartitions: BoxedNonNegativeInt | None
+    IncludeHeaders: BoxedBoolean | None
+    AddRecordTimestamp: EnclosedInStringProperty | None
+    EmitConsumerLagMetrics: EnclosedInStringProperty | None
+    StartingTimestamp: Iso8601DateTime | None
 
 
 class CatalogKafkaSource(TypedDict, total=False):
     """Specifies an Apache Kafka data store in the Data Catalog."""
 
     Name: NodeName
-    WindowSize: Optional[BoxedPositiveInt]
-    DetectSchema: Optional[BoxedBoolean]
+    WindowSize: BoxedPositiveInt | None
+    DetectSchema: BoxedBoolean | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    StreamingOptions: Optional[KafkaStreamingSourceOptions]
-    DataPreviewOptions: Optional[StreamingDataPreviewOptions]
+    StreamingOptions: KafkaStreamingSourceOptions | None
+    DataPreviewOptions: StreamingDataPreviewOptions | None
 
 
 class KinesisStreamingSourceOptions(TypedDict, total=False):
     """Additional options for the Amazon Kinesis streaming data source."""
 
-    EndpointUrl: Optional[EnclosedInStringProperty]
-    StreamName: Optional[EnclosedInStringProperty]
-    Classification: Optional[EnclosedInStringProperty]
-    Delimiter: Optional[EnclosedInStringProperty]
-    StartingPosition: Optional[StartingPosition]
-    MaxFetchTimeInMs: Optional[BoxedNonNegativeLong]
-    MaxFetchRecordsPerShard: Optional[BoxedNonNegativeLong]
-    MaxRecordPerRead: Optional[BoxedNonNegativeLong]
-    AddIdleTimeBetweenReads: Optional[BoxedBoolean]
-    IdleTimeBetweenReadsInMs: Optional[BoxedNonNegativeLong]
-    DescribeShardInterval: Optional[BoxedNonNegativeLong]
-    NumRetries: Optional[BoxedNonNegativeInt]
-    RetryIntervalMs: Optional[BoxedNonNegativeLong]
-    MaxRetryIntervalMs: Optional[BoxedNonNegativeLong]
-    AvoidEmptyBatches: Optional[BoxedBoolean]
-    StreamArn: Optional[EnclosedInStringProperty]
-    RoleArn: Optional[EnclosedInStringProperty]
-    RoleSessionName: Optional[EnclosedInStringProperty]
-    AddRecordTimestamp: Optional[EnclosedInStringProperty]
-    EmitConsumerLagMetrics: Optional[EnclosedInStringProperty]
-    StartingTimestamp: Optional[Iso8601DateTime]
-    FanoutConsumerARN: Optional[EnclosedInStringProperty]
+    EndpointUrl: EnclosedInStringProperty | None
+    StreamName: EnclosedInStringProperty | None
+    Classification: EnclosedInStringProperty | None
+    Delimiter: EnclosedInStringProperty | None
+    StartingPosition: StartingPosition | None
+    MaxFetchTimeInMs: BoxedNonNegativeLong | None
+    MaxFetchRecordsPerShard: BoxedNonNegativeLong | None
+    MaxRecordPerRead: BoxedNonNegativeLong | None
+    AddIdleTimeBetweenReads: BoxedBoolean | None
+    IdleTimeBetweenReadsInMs: BoxedNonNegativeLong | None
+    DescribeShardInterval: BoxedNonNegativeLong | None
+    NumRetries: BoxedNonNegativeInt | None
+    RetryIntervalMs: BoxedNonNegativeLong | None
+    MaxRetryIntervalMs: BoxedNonNegativeLong | None
+    AvoidEmptyBatches: BoxedBoolean | None
+    StreamArn: EnclosedInStringProperty | None
+    RoleArn: EnclosedInStringProperty | None
+    RoleSessionName: EnclosedInStringProperty | None
+    AddRecordTimestamp: EnclosedInStringProperty | None
+    EmitConsumerLagMetrics: EnclosedInStringProperty | None
+    StartingTimestamp: Iso8601DateTime | None
+    FanoutConsumerARN: EnclosedInStringProperty | None
 
 
 class CatalogKinesisSource(TypedDict, total=False):
     """Specifies a Kinesis data source in the Glue Data Catalog."""
 
     Name: NodeName
-    WindowSize: Optional[BoxedPositiveInt]
-    DetectSchema: Optional[BoxedBoolean]
+    WindowSize: BoxedPositiveInt | None
+    DetectSchema: BoxedBoolean | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    StreamingOptions: Optional[KinesisStreamingSourceOptions]
-    DataPreviewOptions: Optional[StreamingDataPreviewOptions]
+    StreamingOptions: KinesisStreamingSourceOptions | None
+    DataPreviewOptions: StreamingDataPreviewOptions | None
 
 
 class DirectKafkaSource(TypedDict, total=False):
     """Specifies an Apache Kafka data store."""
 
     Name: NodeName
-    StreamingOptions: Optional[KafkaStreamingSourceOptions]
-    WindowSize: Optional[BoxedPositiveInt]
-    DetectSchema: Optional[BoxedBoolean]
-    DataPreviewOptions: Optional[StreamingDataPreviewOptions]
+    StreamingOptions: KafkaStreamingSourceOptions | None
+    WindowSize: BoxedPositiveInt | None
+    DetectSchema: BoxedBoolean | None
+    DataPreviewOptions: StreamingDataPreviewOptions | None
 
 
 class DirectKinesisSource(TypedDict, total=False):
     """Specifies a direct Amazon Kinesis data source."""
 
     Name: NodeName
-    WindowSize: Optional[BoxedPositiveInt]
-    DetectSchema: Optional[BoxedBoolean]
-    StreamingOptions: Optional[KinesisStreamingSourceOptions]
-    DataPreviewOptions: Optional[StreamingDataPreviewOptions]
+    WindowSize: BoxedPositiveInt | None
+    DetectSchema: BoxedBoolean | None
+    StreamingOptions: KinesisStreamingSourceOptions | None
+    DataPreviewOptions: StreamingDataPreviewOptions | None
 
 
 class SqlAlias(TypedDict, total=False):
@@ -3568,7 +3663,7 @@ class SqlAlias(TypedDict, total=False):
     Alias: EnclosedInStringPropertyWithQuote
 
 
-SqlAliases = List[SqlAlias]
+SqlAliases = list[SqlAlias]
 
 
 class SparkSQL(TypedDict, total=False):
@@ -3580,7 +3675,7 @@ class SparkSQL(TypedDict, total=False):
     Inputs: ManyInputs
     SqlQuery: SqlQuery
     SqlAliases: SqlAliases
-    OutputSchemas: Optional[GlueSchemas]
+    OutputSchemas: GlueSchemas | None
 
 
 class CustomCode(TypedDict, total=False):
@@ -3592,7 +3687,7 @@ class CustomCode(TypedDict, total=False):
     Inputs: ManyInputs
     Code: ExtendedString
     ClassName: EnclosedInStringProperty
-    OutputSchemas: Optional[GlueSchemas]
+    OutputSchemas: GlueSchemas | None
 
 
 class Filter(TypedDict, total=False):
@@ -3616,7 +3711,7 @@ class FillMissingValues(TypedDict, total=False):
     Name: NodeName
     Inputs: OneInput
     ImputedPath: EnclosedInStringProperty
-    FilledPath: Optional[EnclosedInStringProperty]
+    FilledPath: EnclosedInStringProperty | None
 
 
 class SelectFromCollection(TypedDict, total=False):
@@ -3649,7 +3744,7 @@ class JoinColumn(TypedDict, total=False):
     Keys: GlueStudioPathList
 
 
-JoinColumns = List[JoinColumn]
+JoinColumns = list[JoinColumn]
 
 
 class Join(TypedDict, total=False):
@@ -3672,8 +3767,8 @@ class Spigot(TypedDict, total=False):
     Name: NodeName
     Inputs: OneInput
     Path: EnclosedInStringProperty
-    Topk: Optional[Topk]
-    Prob: Optional[Prob]
+    Topk: Topk | None
+    Prob: Prob | None
 
 
 class RenameField(TypedDict, total=False):
@@ -3710,14 +3805,14 @@ class S3DirectTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Path: EnclosedInStringProperty
-    Compression: Optional[EnclosedInStringProperty]
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
+    Compression: EnclosedInStringProperty | None
+    NumberTargetPartitions: NumberTargetPartitionsString | None
     Format: TargetFormat
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
-    OutputSchemas: Optional[GlueSchemas]
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3GlueParquetTarget(TypedDict, total=False):
@@ -3727,12 +3822,12 @@ class S3GlueParquetTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Path: EnclosedInStringProperty
-    Compression: Optional[ParquetCompressionType]
-    NumberTargetPartitions: Optional[NumberTargetPartitionsString]
-    SchemaChangePolicy: Optional[DirectSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    Compression: ParquetCompressionType | None
+    NumberTargetPartitions: NumberTargetPartitionsString | None
+    SchemaChangePolicy: DirectSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
 
 
 class S3CatalogTarget(TypedDict, total=False):
@@ -3742,14 +3837,14 @@ class S3CatalogTarget(TypedDict, total=False):
 
     Name: NodeName
     Inputs: OneInput
-    PartitionKeys: Optional[GlueStudioPathList]
+    PartitionKeys: GlueStudioPathList | None
     Table: EnclosedInStringProperty
     Database: EnclosedInStringProperty
-    SchemaChangePolicy: Optional[CatalogSchemaChangePolicy]
-    AutoDataQuality: Optional[AutoDataQuality]
+    SchemaChangePolicy: CatalogSchemaChangePolicy | None
+    AutoDataQuality: AutoDataQuality | None
 
 
-EnclosedInStringPropertiesMinOne = List[EnclosedInStringProperty]
+EnclosedInStringPropertiesMinOne = list[EnclosedInStringProperty]
 
 
 class UpsertRedshiftTargetOptions(TypedDict, total=False):
@@ -3757,9 +3852,9 @@ class UpsertRedshiftTargetOptions(TypedDict, total=False):
     target .
     """
 
-    TableLocation: Optional[EnclosedInStringProperty]
-    ConnectionName: Optional[EnclosedInStringProperty]
-    UpsertKeys: Optional[EnclosedInStringPropertiesMinOne]
+    TableLocation: EnclosedInStringProperty | None
+    ConnectionName: EnclosedInStringProperty | None
+    UpsertKeys: EnclosedInStringPropertiesMinOne | None
 
 
 class RedshiftTarget(TypedDict, total=False):
@@ -3769,9 +3864,9 @@ class RedshiftTarget(TypedDict, total=False):
     Inputs: OneInput
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    RedshiftTmpDir: Optional[EnclosedInStringProperty]
-    TmpDirIAMRole: Optional[EnclosedInStringProperty]
-    UpsertRedshiftOptions: Optional[UpsertRedshiftTargetOptions]
+    RedshiftTmpDir: EnclosedInStringProperty | None
+    TmpDirIAMRole: EnclosedInStringProperty | None
+    UpsertRedshiftOptions: UpsertRedshiftTargetOptions | None
 
 
 class SparkConnectorTarget(TypedDict, total=False):
@@ -3782,8 +3877,8 @@ class SparkConnectorTarget(TypedDict, total=False):
     ConnectionName: EnclosedInStringProperty
     ConnectorName: EnclosedInStringProperty
     ConnectionType: EnclosedInStringProperty
-    AdditionalOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class JDBCConnectorTarget(TypedDict, total=False):
@@ -3797,15 +3892,15 @@ class JDBCConnectorTarget(TypedDict, total=False):
     ConnectionTable: EnclosedInStringPropertyWithQuote
     ConnectorName: EnclosedInStringProperty
     ConnectionType: EnclosedInStringProperty
-    AdditionalOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class DDBELTCatalogAdditionalOptions(TypedDict, total=False):
     """Specifies additional options for DynamoDB ELT catalog operations."""
 
-    DynamodbExport: Optional[EnclosedInStringProperty]
-    DynamodbUnnestDDBJson: Optional[BooleanValue]
+    DynamodbExport: EnclosedInStringProperty | None
+    DynamodbUnnestDDBJson: BooleanValue | None
 
 
 class DynamoDBCatalogSource(TypedDict, total=False):
@@ -3814,8 +3909,8 @@ class DynamoDBCatalogSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    PitrEnabled: Optional[BoxedBoolean]
-    AdditionalOptions: Optional[DDBELTCatalogAdditionalOptions]
+    PitrEnabled: BoxedBoolean | None
+    AdditionalOptions: DDBELTCatalogAdditionalOptions | None
 
 
 class RelationalCatalogSource(TypedDict, total=False):
@@ -3831,15 +3926,15 @@ class S3ParquetSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    CompressionType: Optional[ParquetCompressionType]
-    Exclusions: Optional[EnclosedInStringProperties]
-    GroupSize: Optional[EnclosedInStringProperty]
-    GroupFiles: Optional[EnclosedInStringProperty]
-    Recurse: Optional[BoxedBoolean]
-    MaxBand: Optional[BoxedNonNegativeInt]
-    MaxFilesInBand: Optional[BoxedNonNegativeInt]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    CompressionType: ParquetCompressionType | None
+    Exclusions: EnclosedInStringProperties | None
+    GroupSize: EnclosedInStringProperty | None
+    GroupFiles: EnclosedInStringProperty | None
+    Recurse: BoxedBoolean | None
+    MaxBand: BoxedNonNegativeInt | None
+    MaxFilesInBand: BoxedNonNegativeInt | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3JsonSource(TypedDict, total=False):
@@ -3847,17 +3942,17 @@ class S3JsonSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    CompressionType: Optional[CompressionType]
-    Exclusions: Optional[EnclosedInStringProperties]
-    GroupSize: Optional[EnclosedInStringProperty]
-    GroupFiles: Optional[EnclosedInStringProperty]
-    Recurse: Optional[BoxedBoolean]
-    MaxBand: Optional[BoxedNonNegativeInt]
-    MaxFilesInBand: Optional[BoxedNonNegativeInt]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
-    JsonPath: Optional[EnclosedInStringProperty]
-    Multiline: Optional[BoxedBoolean]
-    OutputSchemas: Optional[GlueSchemas]
+    CompressionType: CompressionType | None
+    Exclusions: EnclosedInStringProperties | None
+    GroupSize: EnclosedInStringProperty | None
+    GroupFiles: EnclosedInStringProperty | None
+    Recurse: BoxedBoolean | None
+    MaxBand: BoxedNonNegativeInt | None
+    MaxFilesInBand: BoxedNonNegativeInt | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
+    JsonPath: EnclosedInStringProperty | None
+    Multiline: BoxedBoolean | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3CsvSource(TypedDict, total=False):
@@ -3867,23 +3962,23 @@ class S3CsvSource(TypedDict, total=False):
 
     Name: NodeName
     Paths: EnclosedInStringProperties
-    CompressionType: Optional[CompressionType]
-    Exclusions: Optional[EnclosedInStringProperties]
-    GroupSize: Optional[EnclosedInStringProperty]
-    GroupFiles: Optional[EnclosedInStringProperty]
-    Recurse: Optional[BoxedBoolean]
-    MaxBand: Optional[BoxedNonNegativeInt]
-    MaxFilesInBand: Optional[BoxedNonNegativeInt]
-    AdditionalOptions: Optional[S3DirectSourceAdditionalOptions]
+    CompressionType: CompressionType | None
+    Exclusions: EnclosedInStringProperties | None
+    GroupSize: EnclosedInStringProperty | None
+    GroupFiles: EnclosedInStringProperty | None
+    Recurse: BoxedBoolean | None
+    MaxBand: BoxedNonNegativeInt | None
+    MaxFilesInBand: BoxedNonNegativeInt | None
+    AdditionalOptions: S3DirectSourceAdditionalOptions | None
     Separator: Separator
-    Escaper: Optional[EnclosedInStringPropertyWithQuote]
+    Escaper: EnclosedInStringPropertyWithQuote | None
     QuoteChar: QuoteChar
-    Multiline: Optional[BoxedBoolean]
-    WithHeader: Optional[BoxedBoolean]
-    WriteHeader: Optional[BoxedBoolean]
-    SkipFirst: Optional[BoxedBoolean]
-    OptimizePerformance: Optional[BooleanValue]
-    OutputSchemas: Optional[GlueSchemas]
+    Multiline: BoxedBoolean | None
+    WithHeader: BoxedBoolean | None
+    WriteHeader: BoxedBoolean | None
+    SkipFirst: BoxedBoolean | None
+    OptimizePerformance: BooleanValue | None
+    OutputSchemas: GlueSchemas | None
 
 
 class S3CatalogSource(TypedDict, total=False):
@@ -3892,8 +3987,8 @@ class S3CatalogSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    PartitionPredicate: Optional[EnclosedInStringProperty]
-    AdditionalOptions: Optional[S3SourceAdditionalOptions]
+    PartitionPredicate: EnclosedInStringProperty | None
+    AdditionalOptions: S3SourceAdditionalOptions | None
 
 
 class RedshiftSource(TypedDict, total=False):
@@ -3902,8 +3997,8 @@ class RedshiftSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    RedshiftTmpDir: Optional[EnclosedInStringProperty]
-    TmpDirIAMRole: Optional[EnclosedInStringProperty]
+    RedshiftTmpDir: EnclosedInStringProperty | None
+    TmpDirIAMRole: EnclosedInStringProperty | None
 
 
 class CatalogSource(TypedDict, total=False):
@@ -3912,8 +4007,8 @@ class CatalogSource(TypedDict, total=False):
     Name: NodeName
     Database: EnclosedInStringProperty
     Table: EnclosedInStringProperty
-    PartitionPredicate: Optional[EnclosedInStringProperty]
-    OutputSchemas: Optional[GlueSchemas]
+    PartitionPredicate: EnclosedInStringProperty | None
+    OutputSchemas: GlueSchemas | None
 
 
 class SparkConnectorSource(TypedDict, total=False):
@@ -3923,24 +4018,24 @@ class SparkConnectorSource(TypedDict, total=False):
     ConnectionName: EnclosedInStringProperty
     ConnectorName: EnclosedInStringProperty
     ConnectionType: EnclosedInStringProperty
-    AdditionalOptions: Optional[AdditionalOptions]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalOptions: AdditionalOptions | None
+    OutputSchemas: GlueSchemas | None
 
 
-JDBCDataTypeMapping = Dict[JDBCDataType, GlueRecordType]
+JDBCDataTypeMapping = dict[JDBCDataType, GlueRecordType]
 
 
 class JDBCConnectorOptions(TypedDict, total=False):
     """Additional connection options for the connector."""
 
-    FilterPredicate: Optional[EnclosedInStringProperty]
-    PartitionColumn: Optional[EnclosedInStringProperty]
-    LowerBound: Optional[BoxedNonNegativeLong]
-    UpperBound: Optional[BoxedNonNegativeLong]
-    NumPartitions: Optional[BoxedNonNegativeLong]
-    JobBookmarkKeys: Optional[EnclosedInStringProperties]
-    JobBookmarkKeysSortOrder: Optional[EnclosedInStringProperty]
-    DataTypeMapping: Optional[JDBCDataTypeMapping]
+    FilterPredicate: EnclosedInStringProperty | None
+    PartitionColumn: EnclosedInStringProperty | None
+    LowerBound: BoxedNonNegativeLong | None
+    UpperBound: BoxedNonNegativeLong | None
+    NumPartitions: BoxedNonNegativeLong | None
+    JobBookmarkKeys: EnclosedInStringProperties | None
+    JobBookmarkKeysSortOrder: EnclosedInStringProperty | None
+    DataTypeMapping: JDBCDataTypeMapping | None
 
 
 class JDBCConnectorSource(TypedDict, total=False):
@@ -3950,164 +4045,164 @@ class JDBCConnectorSource(TypedDict, total=False):
     ConnectionName: EnclosedInStringProperty
     ConnectorName: EnclosedInStringProperty
     ConnectionType: EnclosedInStringProperty
-    AdditionalOptions: Optional[JDBCConnectorOptions]
-    ConnectionTable: Optional[EnclosedInStringPropertyWithQuote]
-    Query: Optional[SqlQuery]
-    OutputSchemas: Optional[GlueSchemas]
+    AdditionalOptions: JDBCConnectorOptions | None
+    ConnectionTable: EnclosedInStringPropertyWithQuote | None
+    Query: SqlQuery | None
+    OutputSchemas: GlueSchemas | None
 
 
 class CodeGenConfigurationNode(TypedDict, total=False):
-    AthenaConnectorSource: Optional[AthenaConnectorSource]
-    JDBCConnectorSource: Optional[JDBCConnectorSource]
-    SparkConnectorSource: Optional[SparkConnectorSource]
-    CatalogSource: Optional[CatalogSource]
-    RedshiftSource: Optional[RedshiftSource]
-    S3CatalogSource: Optional[S3CatalogSource]
-    S3CsvSource: Optional[S3CsvSource]
-    S3JsonSource: Optional[S3JsonSource]
-    S3ParquetSource: Optional[S3ParquetSource]
-    RelationalCatalogSource: Optional[RelationalCatalogSource]
-    DynamoDBCatalogSource: Optional[DynamoDBCatalogSource]
-    JDBCConnectorTarget: Optional[JDBCConnectorTarget]
-    SparkConnectorTarget: Optional[SparkConnectorTarget]
-    CatalogTarget: Optional[BasicCatalogTarget]
-    RedshiftTarget: Optional[RedshiftTarget]
-    S3CatalogTarget: Optional[S3CatalogTarget]
-    S3GlueParquetTarget: Optional[S3GlueParquetTarget]
-    S3DirectTarget: Optional[S3DirectTarget]
-    ApplyMapping: Optional[ApplyMapping]
-    SelectFields: Optional[SelectFields]
-    DropFields: Optional[DropFields]
-    RenameField: Optional[RenameField]
-    Spigot: Optional[Spigot]
-    Join: Optional[Join]
-    SplitFields: Optional[SplitFields]
-    SelectFromCollection: Optional[SelectFromCollection]
-    FillMissingValues: Optional[FillMissingValues]
-    Filter: Optional[Filter]
-    CustomCode: Optional[CustomCode]
-    SparkSQL: Optional[SparkSQL]
-    DirectKinesisSource: Optional[DirectKinesisSource]
-    DirectKafkaSource: Optional[DirectKafkaSource]
-    CatalogKinesisSource: Optional[CatalogKinesisSource]
-    CatalogKafkaSource: Optional[CatalogKafkaSource]
-    DropNullFields: Optional[DropNullFields]
-    Merge: Optional[Merge]
-    Union: Optional[Union_]
-    PIIDetection: Optional[PIIDetection]
-    Aggregate: Optional[Aggregate]
-    DropDuplicates: Optional[DropDuplicates]
-    GovernedCatalogTarget: Optional[GovernedCatalogTarget]
-    GovernedCatalogSource: Optional[GovernedCatalogSource]
-    MicrosoftSQLServerCatalogSource: Optional[MicrosoftSQLServerCatalogSource]
-    MySQLCatalogSource: Optional[MySQLCatalogSource]
-    OracleSQLCatalogSource: Optional[OracleSQLCatalogSource]
-    PostgreSQLCatalogSource: Optional[PostgreSQLCatalogSource]
-    MicrosoftSQLServerCatalogTarget: Optional[MicrosoftSQLServerCatalogTarget]
-    MySQLCatalogTarget: Optional[MySQLCatalogTarget]
-    OracleSQLCatalogTarget: Optional[OracleSQLCatalogTarget]
-    PostgreSQLCatalogTarget: Optional[PostgreSQLCatalogTarget]
-    Route: Optional[Route]
-    DynamicTransform: Optional[DynamicTransform]
-    EvaluateDataQuality: Optional[EvaluateDataQuality]
-    S3CatalogHudiSource: Optional[S3CatalogHudiSource]
-    CatalogHudiSource: Optional[CatalogHudiSource]
-    S3HudiSource: Optional[S3HudiSource]
-    S3HudiCatalogTarget: Optional[S3HudiCatalogTarget]
-    S3HudiDirectTarget: Optional[S3HudiDirectTarget]
-    DirectJDBCSource: Optional[DirectJDBCSource]
-    S3CatalogDeltaSource: Optional[S3CatalogDeltaSource]
-    CatalogDeltaSource: Optional[CatalogDeltaSource]
-    S3DeltaSource: Optional[S3DeltaSource]
-    S3DeltaCatalogTarget: Optional[S3DeltaCatalogTarget]
-    S3DeltaDirectTarget: Optional[S3DeltaDirectTarget]
-    AmazonRedshiftSource: Optional[AmazonRedshiftSource]
-    AmazonRedshiftTarget: Optional[AmazonRedshiftTarget]
-    EvaluateDataQualityMultiFrame: Optional[EvaluateDataQualityMultiFrame]
-    Recipe: Optional[Recipe]
-    SnowflakeSource: Optional[SnowflakeSource]
-    SnowflakeTarget: Optional[SnowflakeTarget]
-    ConnectorDataSource: Optional[ConnectorDataSource]
-    ConnectorDataTarget: Optional[ConnectorDataTarget]
-    S3CatalogIcebergSource: Optional[S3CatalogIcebergSource]
-    CatalogIcebergSource: Optional[CatalogIcebergSource]
-    S3IcebergCatalogTarget: Optional[S3IcebergCatalogTarget]
-    S3IcebergDirectTarget: Optional[S3IcebergDirectTarget]
-    S3ExcelSource: Optional[S3ExcelSource]
-    S3HyperDirectTarget: Optional[S3HyperDirectTarget]
-    DynamoDBELTConnectorSource: Optional[DynamoDBELTConnectorSource]
+    AthenaConnectorSource: AthenaConnectorSource | None
+    JDBCConnectorSource: JDBCConnectorSource | None
+    SparkConnectorSource: SparkConnectorSource | None
+    CatalogSource: CatalogSource | None
+    RedshiftSource: RedshiftSource | None
+    S3CatalogSource: S3CatalogSource | None
+    S3CsvSource: S3CsvSource | None
+    S3JsonSource: S3JsonSource | None
+    S3ParquetSource: S3ParquetSource | None
+    RelationalCatalogSource: RelationalCatalogSource | None
+    DynamoDBCatalogSource: DynamoDBCatalogSource | None
+    JDBCConnectorTarget: JDBCConnectorTarget | None
+    SparkConnectorTarget: SparkConnectorTarget | None
+    CatalogTarget: BasicCatalogTarget | None
+    RedshiftTarget: RedshiftTarget | None
+    S3CatalogTarget: S3CatalogTarget | None
+    S3GlueParquetTarget: S3GlueParquetTarget | None
+    S3DirectTarget: S3DirectTarget | None
+    ApplyMapping: ApplyMapping | None
+    SelectFields: SelectFields | None
+    DropFields: DropFields | None
+    RenameField: RenameField | None
+    Spigot: Spigot | None
+    Join: Join | None
+    SplitFields: SplitFields | None
+    SelectFromCollection: SelectFromCollection | None
+    FillMissingValues: FillMissingValues | None
+    Filter: Filter | None
+    CustomCode: CustomCode | None
+    SparkSQL: SparkSQL | None
+    DirectKinesisSource: DirectKinesisSource | None
+    DirectKafkaSource: DirectKafkaSource | None
+    CatalogKinesisSource: CatalogKinesisSource | None
+    CatalogKafkaSource: CatalogKafkaSource | None
+    DropNullFields: DropNullFields | None
+    Merge: Merge | None
+    Union: Union_ | None
+    PIIDetection: PIIDetection | None
+    Aggregate: Aggregate | None
+    DropDuplicates: DropDuplicates | None
+    GovernedCatalogTarget: GovernedCatalogTarget | None
+    GovernedCatalogSource: GovernedCatalogSource | None
+    MicrosoftSQLServerCatalogSource: MicrosoftSQLServerCatalogSource | None
+    MySQLCatalogSource: MySQLCatalogSource | None
+    OracleSQLCatalogSource: OracleSQLCatalogSource | None
+    PostgreSQLCatalogSource: PostgreSQLCatalogSource | None
+    MicrosoftSQLServerCatalogTarget: MicrosoftSQLServerCatalogTarget | None
+    MySQLCatalogTarget: MySQLCatalogTarget | None
+    OracleSQLCatalogTarget: OracleSQLCatalogTarget | None
+    PostgreSQLCatalogTarget: PostgreSQLCatalogTarget | None
+    Route: Route | None
+    DynamicTransform: DynamicTransform | None
+    EvaluateDataQuality: EvaluateDataQuality | None
+    S3CatalogHudiSource: S3CatalogHudiSource | None
+    CatalogHudiSource: CatalogHudiSource | None
+    S3HudiSource: S3HudiSource | None
+    S3HudiCatalogTarget: S3HudiCatalogTarget | None
+    S3HudiDirectTarget: S3HudiDirectTarget | None
+    DirectJDBCSource: DirectJDBCSource | None
+    S3CatalogDeltaSource: S3CatalogDeltaSource | None
+    CatalogDeltaSource: CatalogDeltaSource | None
+    S3DeltaSource: S3DeltaSource | None
+    S3DeltaCatalogTarget: S3DeltaCatalogTarget | None
+    S3DeltaDirectTarget: S3DeltaDirectTarget | None
+    AmazonRedshiftSource: AmazonRedshiftSource | None
+    AmazonRedshiftTarget: AmazonRedshiftTarget | None
+    EvaluateDataQualityMultiFrame: EvaluateDataQualityMultiFrame | None
+    Recipe: Recipe | None
+    SnowflakeSource: SnowflakeSource | None
+    SnowflakeTarget: SnowflakeTarget | None
+    ConnectorDataSource: ConnectorDataSource | None
+    ConnectorDataTarget: ConnectorDataTarget | None
+    S3CatalogIcebergSource: S3CatalogIcebergSource | None
+    CatalogIcebergSource: CatalogIcebergSource | None
+    S3IcebergCatalogTarget: S3IcebergCatalogTarget | None
+    S3IcebergDirectTarget: S3IcebergDirectTarget | None
+    S3ExcelSource: S3ExcelSource | None
+    S3HyperDirectTarget: S3HyperDirectTarget | None
+    DynamoDBELTConnectorSource: DynamoDBELTConnectorSource | None
 
 
-CodeGenConfigurationNodes = Dict[NodeId, CodeGenConfigurationNode]
-ConnectionStringList = List[ConnectionString]
+CodeGenConfigurationNodes = dict[NodeId, CodeGenConfigurationNode]
+ConnectionStringList = list[ConnectionString]
 
 
 class ConnectionsList(TypedDict, total=False):
     """Specifies the connections used by a job."""
 
-    Connections: Optional[ConnectionStringList]
+    Connections: ConnectionStringList | None
 
 
 class JobCommand(TypedDict, total=False):
     """Specifies code that runs when a job is run."""
 
-    Name: Optional[GenericString]
-    ScriptLocation: Optional[ScriptLocationString]
-    PythonVersion: Optional[PythonVersionString]
-    Runtime: Optional[RuntimeNameString]
+    Name: GenericString | None
+    ScriptLocation: ScriptLocationString | None
+    PythonVersion: PythonVersionString | None
+    Runtime: RuntimeNameString | None
 
 
 class ExecutionProperty(TypedDict, total=False):
     """An execution property of a job."""
 
-    MaxConcurrentRuns: Optional[MaxConcurrentRuns]
+    MaxConcurrentRuns: MaxConcurrentRuns | None
 
 
 class Job(TypedDict, total=False):
     """Specifies a job definition."""
 
-    Name: Optional[NameString]
-    JobMode: Optional[JobMode]
-    JobRunQueuingEnabled: Optional[NullableBoolean]
-    Description: Optional[DescriptionString]
-    LogUri: Optional[UriString]
-    Role: Optional[RoleString]
-    CreatedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
-    ExecutionProperty: Optional[ExecutionProperty]
-    Command: Optional[JobCommand]
-    DefaultArguments: Optional[GenericMap]
-    NonOverridableArguments: Optional[GenericMap]
-    Connections: Optional[ConnectionsList]
-    MaxRetries: Optional[MaxRetries]
-    AllocatedCapacity: Optional[IntegerValue]
-    Timeout: Optional[Timeout]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    SecurityConfiguration: Optional[NameString]
-    NotificationProperty: Optional[NotificationProperty]
-    GlueVersion: Optional[GlueVersionString]
-    CodeGenConfigurationNodes: Optional[CodeGenConfigurationNodes]
-    ExecutionClass: Optional[ExecutionClass]
-    SourceControlDetails: Optional[SourceControlDetails]
-    MaintenanceWindow: Optional[MaintenanceWindow]
-    ProfileName: Optional[NameString]
+    Name: NameString | None
+    JobMode: JobMode | None
+    JobRunQueuingEnabled: NullableBoolean | None
+    Description: DescriptionString | None
+    LogUri: UriString | None
+    Role: RoleString | None
+    CreatedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
+    ExecutionProperty: ExecutionProperty | None
+    Command: JobCommand | None
+    DefaultArguments: GenericMap | None
+    NonOverridableArguments: GenericMap | None
+    Connections: ConnectionsList | None
+    MaxRetries: MaxRetries | None
+    AllocatedCapacity: IntegerValue | None
+    Timeout: Timeout | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    SecurityConfiguration: NameString | None
+    NotificationProperty: NotificationProperty | None
+    GlueVersion: GlueVersionString | None
+    CodeGenConfigurationNodes: CodeGenConfigurationNodes | None
+    ExecutionClass: ExecutionClass | None
+    SourceControlDetails: SourceControlDetails | None
+    MaintenanceWindow: MaintenanceWindow | None
+    ProfileName: NameString | None
 
 
-JobList = List[Job]
+JobList = list[Job]
 
 
 class BatchGetJobsResponse(TypedDict, total=False):
-    Jobs: Optional[JobList]
-    JobsNotFound: Optional[JobNameList]
+    Jobs: JobList | None
+    JobsNotFound: JobNameList | None
 
 
-BatchGetPartitionValueList = List[PartitionValueList]
+BatchGetPartitionValueList = list[PartitionValueList]
 
 
 class BatchGetPartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionsToGet: BatchGetPartitionValueList
@@ -4116,44 +4211,44 @@ class BatchGetPartitionRequest(ServiceRequest):
 class Partition(TypedDict, total=False):
     """Represents a slice of table data."""
 
-    Values: Optional[ValueStringList]
-    DatabaseName: Optional[NameString]
-    TableName: Optional[NameString]
-    CreationTime: Optional[Timestamp]
-    LastAccessTime: Optional[Timestamp]
-    StorageDescriptor: Optional[StorageDescriptor]
-    Parameters: Optional[ParametersMap]
-    LastAnalyzedTime: Optional[Timestamp]
-    CatalogId: Optional[CatalogIdString]
+    Values: ValueStringList | None
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    CreationTime: Timestamp | None
+    LastAccessTime: Timestamp | None
+    StorageDescriptor: StorageDescriptor | None
+    Parameters: ParametersMap | None
+    LastAnalyzedTime: Timestamp | None
+    CatalogId: CatalogIdString | None
 
 
-PartitionList = List[Partition]
+PartitionList = list[Partition]
 
 
 class BatchGetPartitionResponse(TypedDict, total=False):
-    Partitions: Optional[PartitionList]
-    UnprocessedKeys: Optional[BatchGetPartitionValueList]
+    Partitions: PartitionList | None
+    UnprocessedKeys: BatchGetPartitionValueList | None
 
 
 class BatchGetTableOptimizerEntry(TypedDict, total=False):
-    catalogId: Optional[CatalogIdString]
-    databaseName: Optional[databaseNameString]
-    tableName: Optional[tableNameString]
-    type: Optional[TableOptimizerType]
+    catalogId: CatalogIdString | None
+    databaseName: databaseNameString | None
+    tableName: tableNameString | None
+    type: TableOptimizerType | None
 
 
-BatchGetTableOptimizerEntries = List[BatchGetTableOptimizerEntry]
+BatchGetTableOptimizerEntries = list[BatchGetTableOptimizerEntry]
 
 
 class BatchGetTableOptimizerError(TypedDict, total=False):
-    error: Optional[ErrorDetail]
-    catalogId: Optional[CatalogIdString]
-    databaseName: Optional[databaseNameString]
-    tableName: Optional[tableNameString]
-    type: Optional[TableOptimizerType]
+    error: ErrorDetail | None
+    catalogId: CatalogIdString | None
+    databaseName: databaseNameString | None
+    tableName: tableNameString | None
+    type: TableOptimizerType | None
 
 
-BatchGetTableOptimizerErrors = List[BatchGetTableOptimizerError]
+BatchGetTableOptimizerErrors = list[BatchGetTableOptimizerError]
 
 
 class BatchGetTableOptimizerRequest(ServiceRequest):
@@ -4166,10 +4261,10 @@ metricCounts = int
 class IcebergOrphanFileDeletionMetrics(TypedDict, total=False):
     """Orphan file deletion metrics for Iceberg for the optimizer run."""
 
-    NumberOfOrphanFilesDeleted: Optional[metricCounts]
-    DpuHours: Optional[dpuHours]
-    NumberOfDpus: Optional[dpuCounts]
-    JobDurationInHour: Optional[dpuDurationInHour]
+    NumberOfOrphanFilesDeleted: metricCounts | None
+    DpuHours: dpuHours | None
+    NumberOfDpus: dpuCounts | None
+    JobDurationInHour: dpuDurationInHour | None
 
 
 class OrphanFileDeletionMetrics(TypedDict, total=False):
@@ -4177,40 +4272,40 @@ class OrphanFileDeletionMetrics(TypedDict, total=False):
     run.
     """
 
-    IcebergMetrics: Optional[IcebergOrphanFileDeletionMetrics]
+    IcebergMetrics: IcebergOrphanFileDeletionMetrics | None
 
 
 class IcebergRetentionMetrics(TypedDict, total=False):
     """Snapshot retention metrics for Iceberg for the optimizer run."""
 
-    NumberOfDataFilesDeleted: Optional[metricCounts]
-    NumberOfManifestFilesDeleted: Optional[metricCounts]
-    NumberOfManifestListsDeleted: Optional[metricCounts]
-    DpuHours: Optional[dpuHours]
-    NumberOfDpus: Optional[dpuCounts]
-    JobDurationInHour: Optional[dpuDurationInHour]
+    NumberOfDataFilesDeleted: metricCounts | None
+    NumberOfManifestFilesDeleted: metricCounts | None
+    NumberOfManifestListsDeleted: metricCounts | None
+    DpuHours: dpuHours | None
+    NumberOfDpus: dpuCounts | None
+    JobDurationInHour: dpuDurationInHour | None
 
 
 class RetentionMetrics(TypedDict, total=False):
     """A structure that contains retention metrics for the optimizer run."""
 
-    IcebergMetrics: Optional[IcebergRetentionMetrics]
+    IcebergMetrics: IcebergRetentionMetrics | None
 
 
 class IcebergCompactionMetrics(TypedDict, total=False):
     """Compaction metrics for Iceberg for the optimizer run."""
 
-    NumberOfBytesCompacted: Optional[metricCounts]
-    NumberOfFilesCompacted: Optional[metricCounts]
-    DpuHours: Optional[dpuHours]
-    NumberOfDpus: Optional[dpuCounts]
-    JobDurationInHour: Optional[dpuDurationInHour]
+    NumberOfBytesCompacted: metricCounts | None
+    NumberOfFilesCompacted: metricCounts | None
+    DpuHours: dpuHours | None
+    NumberOfDpus: dpuCounts | None
+    JobDurationInHour: dpuDurationInHour | None
 
 
 class CompactionMetrics(TypedDict, total=False):
     """A structure that contains compaction metrics for the optimizer run."""
 
-    IcebergMetrics: Optional[IcebergCompactionMetrics]
+    IcebergMetrics: IcebergCompactionMetrics | None
 
 
 class RunMetrics(TypedDict, total=False):
@@ -4220,10 +4315,10 @@ class RunMetrics(TypedDict, total=False):
     compaction, retention, and orphan file deletion.
     """
 
-    NumberOfBytesCompacted: Optional[MessageString]
-    NumberOfFilesCompacted: Optional[MessageString]
-    NumberOfDpus: Optional[MessageString]
-    JobDurationInHour: Optional[MessageString]
+    NumberOfBytesCompacted: MessageString | None
+    NumberOfFilesCompacted: MessageString | None
+    NumberOfDpus: MessageString | None
+    JobDurationInHour: MessageString | None
 
 
 TableOptimizerRunTimestamp = datetime
@@ -4232,44 +4327,44 @@ TableOptimizerRunTimestamp = datetime
 class TableOptimizerRun(TypedDict, total=False):
     """Contains details for a table optimizer run."""
 
-    eventType: Optional[TableOptimizerEventType]
-    startTimestamp: Optional[TableOptimizerRunTimestamp]
-    endTimestamp: Optional[TableOptimizerRunTimestamp]
-    metrics: Optional[RunMetrics]
-    error: Optional[MessageString]
-    compactionMetrics: Optional[CompactionMetrics]
-    compactionStrategy: Optional[CompactionStrategy]
-    retentionMetrics: Optional[RetentionMetrics]
-    orphanFileDeletionMetrics: Optional[OrphanFileDeletionMetrics]
+    eventType: TableOptimizerEventType | None
+    startTimestamp: TableOptimizerRunTimestamp | None
+    endTimestamp: TableOptimizerRunTimestamp | None
+    metrics: RunMetrics | None
+    error: MessageString | None
+    compactionMetrics: CompactionMetrics | None
+    compactionStrategy: CompactionStrategy | None
+    retentionMetrics: RetentionMetrics | None
+    orphanFileDeletionMetrics: OrphanFileDeletionMetrics | None
 
 
 class IcebergOrphanFileDeletionConfiguration(TypedDict, total=False):
     """The configuration for an Iceberg orphan file deletion optimizer."""
 
-    orphanFileRetentionPeriodInDays: Optional[NullableInteger]
-    location: Optional[MessageString]
-    runRateInHours: Optional[NullableInteger]
+    orphanFileRetentionPeriodInDays: NullableInteger | None
+    location: MessageString | None
+    runRateInHours: NullableInteger | None
 
 
 class OrphanFileDeletionConfiguration(TypedDict, total=False):
     """The configuration for an orphan file deletion optimizer."""
 
-    icebergConfiguration: Optional[IcebergOrphanFileDeletionConfiguration]
+    icebergConfiguration: IcebergOrphanFileDeletionConfiguration | None
 
 
 class IcebergRetentionConfiguration(TypedDict, total=False):
     """The configuration for an Iceberg snapshot retention optimizer."""
 
-    snapshotRetentionPeriodInDays: Optional[NullableInteger]
-    numberOfSnapshotsToRetain: Optional[NullableInteger]
-    cleanExpiredFiles: Optional[NullableBoolean]
-    runRateInHours: Optional[NullableInteger]
+    snapshotRetentionPeriodInDays: NullableInteger | None
+    numberOfSnapshotsToRetain: NullableInteger | None
+    cleanExpiredFiles: NullableBoolean | None
+    runRateInHours: NullableInteger | None
 
 
 class RetentionConfiguration(TypedDict, total=False):
     """The configuration for a snapshot retention optimizer."""
 
-    icebergConfiguration: Optional[IcebergRetentionConfiguration]
+    icebergConfiguration: IcebergRetentionConfiguration | None
 
 
 class IcebergCompactionConfiguration(TypedDict, total=False):
@@ -4278,9 +4373,9 @@ class IcebergCompactionConfiguration(TypedDict, total=False):
     in Iceberg tables.
     """
 
-    strategy: Optional[CompactionStrategy]
-    minInputFiles: Optional[NullableInteger]
-    deleteFileThreshold: Optional[NullableInteger]
+    strategy: CompactionStrategy | None
+    minInputFiles: NullableInteger | None
+    deleteFileThreshold: NullableInteger | None
 
 
 class CompactionConfiguration(TypedDict, total=False):
@@ -4289,7 +4384,7 @@ class CompactionConfiguration(TypedDict, total=False):
     performance and reduce storage costs.
     """
 
-    icebergConfiguration: Optional[IcebergCompactionConfiguration]
+    icebergConfiguration: IcebergCompactionConfiguration | None
 
 
 class TableOptimizerVpcConfiguration(TypedDict, total=False):
@@ -4299,7 +4394,7 @@ class TableOptimizerVpcConfiguration(TypedDict, total=False):
     are in a customer VPC.
     """
 
-    glueConnectionName: Optional[glueConnectionNameString]
+    glueConnectionName: glueConnectionNameString | None
 
 
 class TableOptimizerConfiguration(TypedDict, total=False):
@@ -4307,19 +4402,19 @@ class TableOptimizerConfiguration(TypedDict, total=False):
     this configuration when creating or updating a table optimizer.
     """
 
-    roleArn: Optional[ArnString]
-    enabled: Optional[NullableBoolean]
-    vpcConfiguration: Optional[TableOptimizerVpcConfiguration]
-    compactionConfiguration: Optional[CompactionConfiguration]
-    retentionConfiguration: Optional[RetentionConfiguration]
-    orphanFileDeletionConfiguration: Optional[OrphanFileDeletionConfiguration]
+    roleArn: ArnString | None
+    enabled: NullableBoolean | None
+    vpcConfiguration: TableOptimizerVpcConfiguration | None
+    compactionConfiguration: CompactionConfiguration | None
+    retentionConfiguration: RetentionConfiguration | None
+    orphanFileDeletionConfiguration: OrphanFileDeletionConfiguration | None
 
 
 class TableOptimizer(TypedDict, total=False):
-    type: Optional[TableOptimizerType]
-    configuration: Optional[TableOptimizerConfiguration]
-    lastRun: Optional[TableOptimizerRun]
-    configurationSource: Optional[ConfigurationSource]
+    type: TableOptimizerType | None
+    configuration: TableOptimizerConfiguration | None
+    lastRun: TableOptimizerRun | None
+    configurationSource: ConfigurationSource | None
 
 
 class BatchTableOptimizer(TypedDict, total=False):
@@ -4327,21 +4422,21 @@ class BatchTableOptimizer(TypedDict, total=False):
     ``BatchGetTableOptimizer`` operation.
     """
 
-    catalogId: Optional[CatalogIdString]
-    databaseName: Optional[databaseNameString]
-    tableName: Optional[tableNameString]
-    tableOptimizer: Optional[TableOptimizer]
+    catalogId: CatalogIdString | None
+    databaseName: databaseNameString | None
+    tableName: tableNameString | None
+    tableOptimizer: TableOptimizer | None
 
 
-BatchTableOptimizers = List[BatchTableOptimizer]
+BatchTableOptimizers = list[BatchTableOptimizer]
 
 
 class BatchGetTableOptimizerResponse(TypedDict, total=False):
-    TableOptimizers: Optional[BatchTableOptimizers]
-    Failures: Optional[BatchGetTableOptimizerErrors]
+    TableOptimizers: BatchTableOptimizers | None
+    Failures: BatchGetTableOptimizerErrors | None
 
 
-TriggerNameList = List[NameString]
+TriggerNameList = list[NameString]
 
 
 class BatchGetTriggersRequest(ServiceRequest):
@@ -4354,65 +4449,65 @@ class EventBatchingCondition(TypedDict, total=False):
     """
 
     BatchSize: BatchSize
-    BatchWindow: Optional[BatchWindow]
+    BatchWindow: BatchWindow | None
 
 
 class Condition(TypedDict, total=False):
     """Defines a condition under which a trigger fires."""
 
-    LogicalOperator: Optional[LogicalOperator]
-    JobName: Optional[NameString]
-    State: Optional[JobRunState]
-    CrawlerName: Optional[NameString]
-    CrawlState: Optional[CrawlState]
+    LogicalOperator: LogicalOperator | None
+    JobName: NameString | None
+    State: JobRunState | None
+    CrawlerName: NameString | None
+    CrawlState: CrawlState | None
 
 
-ConditionList = List[Condition]
+ConditionList = list[Condition]
 
 
 class Predicate(TypedDict, total=False):
     """Defines the predicate of the trigger, which determines when it fires."""
 
-    Logical: Optional[Logical]
-    Conditions: Optional[ConditionList]
+    Logical: Logical | None
+    Conditions: ConditionList | None
 
 
 class Trigger(TypedDict, total=False):
     """Information about a specific trigger."""
 
-    Name: Optional[NameString]
-    WorkflowName: Optional[NameString]
-    Id: Optional[IdString]
-    Type: Optional[TriggerType]
-    State: Optional[TriggerState]
-    Description: Optional[DescriptionString]
-    Schedule: Optional[GenericString]
-    Actions: Optional[ActionList]
-    Predicate: Optional[Predicate]
-    EventBatchingCondition: Optional[EventBatchingCondition]
+    Name: NameString | None
+    WorkflowName: NameString | None
+    Id: IdString | None
+    Type: TriggerType | None
+    State: TriggerState | None
+    Description: DescriptionString | None
+    Schedule: GenericString | None
+    Actions: ActionList | None
+    Predicate: Predicate | None
+    EventBatchingCondition: EventBatchingCondition | None
 
 
-TriggerList = List[Trigger]
+TriggerList = list[Trigger]
 
 
 class BatchGetTriggersResponse(TypedDict, total=False):
-    Triggers: Optional[TriggerList]
-    TriggersNotFound: Optional[TriggerNameList]
+    Triggers: TriggerList | None
+    TriggersNotFound: TriggerNameList | None
 
 
-WorkflowNames = List[NameString]
+WorkflowNames = list[NameString]
 
 
 class BatchGetWorkflowsRequest(ServiceRequest):
     Names: WorkflowNames
-    IncludeGraph: Optional[NullableBoolean]
+    IncludeGraph: NullableBoolean | None
 
 
 class BlueprintDetails(TypedDict, total=False):
     """The details of a blueprint."""
 
-    BlueprintName: Optional[OrchestrationNameString]
-    RunId: Optional[IdString]
+    BlueprintName: OrchestrationNameString | None
+    RunId: IdString | None
 
 
 class Edge(TypedDict, total=False):
@@ -4420,31 +4515,31 @@ class Edge(TypedDict, total=False):
     that are part of the workflow the edge belongs to.
     """
 
-    SourceId: Optional[NameString]
-    DestinationId: Optional[NameString]
+    SourceId: NameString | None
+    DestinationId: NameString | None
 
 
-EdgeList = List[Edge]
+EdgeList = list[Edge]
 
 
 class Crawl(TypedDict, total=False):
     """The details of a crawl in the workflow."""
 
-    State: Optional[CrawlState]
-    StartedOn: Optional[TimestampValue]
-    CompletedOn: Optional[TimestampValue]
-    ErrorMessage: Optional[DescriptionString]
-    LogGroup: Optional[LogGroup]
-    LogStream: Optional[LogStream]
+    State: CrawlState | None
+    StartedOn: TimestampValue | None
+    CompletedOn: TimestampValue | None
+    ErrorMessage: DescriptionString | None
+    LogGroup: LogGroup | None
+    LogStream: LogStream | None
 
 
-CrawlList = List[Crawl]
+CrawlList = list[Crawl]
 
 
 class CrawlerNodeDetails(TypedDict, total=False):
     """The details of a Crawler node present in the workflow."""
 
-    Crawls: Optional[CrawlList]
+    Crawls: CrawlList | None
 
 
 class Predecessor(TypedDict, total=False):
@@ -4452,61 +4547,61 @@ class Predecessor(TypedDict, total=False):
     triggered this job run.
     """
 
-    JobName: Optional[NameString]
-    RunId: Optional[IdString]
+    JobName: NameString | None
+    RunId: IdString | None
 
 
-PredecessorList = List[Predecessor]
+PredecessorList = list[Predecessor]
 
 
 class JobRun(TypedDict, total=False):
     """Contains information about a job run."""
 
-    Id: Optional[IdString]
-    Attempt: Optional[AttemptCount]
-    PreviousRunId: Optional[IdString]
-    TriggerName: Optional[NameString]
-    JobName: Optional[NameString]
-    JobMode: Optional[JobMode]
-    JobRunQueuingEnabled: Optional[NullableBoolean]
-    StartedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
-    CompletedOn: Optional[TimestampValue]
-    JobRunState: Optional[JobRunState]
-    Arguments: Optional[GenericMap]
-    ErrorMessage: Optional[ErrorString]
-    PredecessorRuns: Optional[PredecessorList]
-    AllocatedCapacity: Optional[IntegerValue]
-    ExecutionTime: Optional[ExecutionTime]
-    Timeout: Optional[Timeout]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    SecurityConfiguration: Optional[NameString]
-    LogGroupName: Optional[GenericString]
-    NotificationProperty: Optional[NotificationProperty]
-    GlueVersion: Optional[GlueVersionString]
-    DPUSeconds: Optional[NullableDouble]
-    ExecutionClass: Optional[ExecutionClass]
-    MaintenanceWindow: Optional[MaintenanceWindow]
-    ProfileName: Optional[NameString]
-    StateDetail: Optional[OrchestrationMessageString]
-    ExecutionRoleSessionPolicy: Optional[OrchestrationPolicyJsonString]
+    Id: IdString | None
+    Attempt: AttemptCount | None
+    PreviousRunId: IdString | None
+    TriggerName: NameString | None
+    JobName: NameString | None
+    JobMode: JobMode | None
+    JobRunQueuingEnabled: NullableBoolean | None
+    StartedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
+    CompletedOn: TimestampValue | None
+    JobRunState: JobRunState | None
+    Arguments: GenericMap | None
+    ErrorMessage: ErrorString | None
+    PredecessorRuns: PredecessorList | None
+    AllocatedCapacity: IntegerValue | None
+    ExecutionTime: ExecutionTime | None
+    Timeout: Timeout | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    SecurityConfiguration: NameString | None
+    LogGroupName: GenericString | None
+    NotificationProperty: NotificationProperty | None
+    GlueVersion: GlueVersionString | None
+    DPUSeconds: NullableDouble | None
+    ExecutionClass: ExecutionClass | None
+    MaintenanceWindow: MaintenanceWindow | None
+    ProfileName: NameString | None
+    StateDetail: OrchestrationMessageString | None
+    ExecutionRoleSessionPolicy: OrchestrationPolicyJsonString | None
 
 
-JobRunList = List[JobRun]
+JobRunList = list[JobRun]
 
 
 class JobNodeDetails(TypedDict, total=False):
     """The details of a Job node present in the workflow."""
 
-    JobRuns: Optional[JobRunList]
+    JobRuns: JobRunList | None
 
 
 class TriggerNodeDetails(TypedDict, total=False):
     """The details of a Trigger node present in the workflow."""
 
-    Trigger: Optional[Trigger]
+    Trigger: Trigger | None
 
 
 class Node(TypedDict, total=False):
@@ -4514,15 +4609,15 @@ class Node(TypedDict, total=False):
     workflow graph.
     """
 
-    Type: Optional[NodeType]
-    Name: Optional[NameString]
-    UniqueId: Optional[NameString]
-    TriggerDetails: Optional[TriggerNodeDetails]
-    JobDetails: Optional[JobNodeDetails]
-    CrawlerDetails: Optional[CrawlerNodeDetails]
+    Type: NodeType | None
+    Name: NameString | None
+    UniqueId: NameString | None
+    TriggerDetails: TriggerNodeDetails | None
+    JobDetails: JobNodeDetails | None
+    CrawlerDetails: CrawlerNodeDetails | None
 
 
-NodeList = List[Node]
+NodeList = list[Node]
 
 
 class WorkflowGraph(TypedDict, total=False):
@@ -4531,8 +4626,8 @@ class WorkflowGraph(TypedDict, total=False):
     between them.
     """
 
-    Nodes: Optional[NodeList]
-    Edges: Optional[EdgeList]
+    Nodes: NodeList | None
+    Edges: EdgeList | None
 
 
 class StartingEventBatchCondition(TypedDict, total=False):
@@ -4542,24 +4637,24 @@ class StartingEventBatchCondition(TypedDict, total=False):
     member is non-zero.
     """
 
-    BatchSize: Optional[NullableInteger]
-    BatchWindow: Optional[NullableInteger]
+    BatchSize: NullableInteger | None
+    BatchWindow: NullableInteger | None
 
 
 class WorkflowRunStatistics(TypedDict, total=False):
     """Workflow run statistics provides statistics about the workflow run."""
 
-    TotalActions: Optional[IntegerValue]
-    TimeoutActions: Optional[IntegerValue]
-    FailedActions: Optional[IntegerValue]
-    StoppedActions: Optional[IntegerValue]
-    SucceededActions: Optional[IntegerValue]
-    RunningActions: Optional[IntegerValue]
-    ErroredActions: Optional[IntegerValue]
-    WaitingActions: Optional[IntegerValue]
+    TotalActions: IntegerValue | None
+    TimeoutActions: IntegerValue | None
+    FailedActions: IntegerValue | None
+    StoppedActions: IntegerValue | None
+    SucceededActions: IntegerValue | None
+    RunningActions: IntegerValue | None
+    ErroredActions: IntegerValue | None
+    WaitingActions: IntegerValue | None
 
 
-WorkflowRunProperties = Dict[IdString, GenericString]
+WorkflowRunProperties = dict[IdString, GenericString]
 
 
 class WorkflowRun(TypedDict, total=False):
@@ -4567,17 +4662,17 @@ class WorkflowRun(TypedDict, total=False):
     information.
     """
 
-    Name: Optional[NameString]
-    WorkflowRunId: Optional[IdString]
-    PreviousRunId: Optional[IdString]
-    WorkflowRunProperties: Optional[WorkflowRunProperties]
-    StartedOn: Optional[TimestampValue]
-    CompletedOn: Optional[TimestampValue]
-    Status: Optional[WorkflowRunStatus]
-    ErrorMessage: Optional[ErrorString]
-    Statistics: Optional[WorkflowRunStatistics]
-    Graph: Optional[WorkflowGraph]
-    StartingEventBatchCondition: Optional[StartingEventBatchCondition]
+    Name: NameString | None
+    WorkflowRunId: IdString | None
+    PreviousRunId: IdString | None
+    WorkflowRunProperties: WorkflowRunProperties | None
+    StartedOn: TimestampValue | None
+    CompletedOn: TimestampValue | None
+    Status: WorkflowRunStatus | None
+    ErrorMessage: ErrorString | None
+    Statistics: WorkflowRunStatistics | None
+    Graph: WorkflowGraph | None
+    StartingEventBatchCondition: StartingEventBatchCondition | None
 
 
 class Workflow(TypedDict, total=False):
@@ -4586,43 +4681,43 @@ class Workflow(TypedDict, total=False):
     execution and monitoring of all its jobs and crawlers.
     """
 
-    Name: Optional[NameString]
-    Description: Optional[GenericString]
-    DefaultRunProperties: Optional[WorkflowRunProperties]
-    CreatedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
-    LastRun: Optional[WorkflowRun]
-    Graph: Optional[WorkflowGraph]
-    MaxConcurrentRuns: Optional[NullableInteger]
-    BlueprintDetails: Optional[BlueprintDetails]
+    Name: NameString | None
+    Description: GenericString | None
+    DefaultRunProperties: WorkflowRunProperties | None
+    CreatedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
+    LastRun: WorkflowRun | None
+    Graph: WorkflowGraph | None
+    MaxConcurrentRuns: NullableInteger | None
+    BlueprintDetails: BlueprintDetails | None
 
 
-Workflows = List[Workflow]
+Workflows = list[Workflow]
 
 
 class BatchGetWorkflowsResponse(TypedDict, total=False):
-    Workflows: Optional[Workflows]
-    MissingWorkflows: Optional[WorkflowNames]
+    Workflows: Workflows | None
+    MissingWorkflows: WorkflowNames | None
 
 
 class DatapointInclusionAnnotation(TypedDict, total=False):
     """An Inclusion Annotation."""
 
-    ProfileId: Optional[HashString]
-    StatisticId: Optional[HashString]
-    InclusionAnnotation: Optional[InclusionAnnotationValue]
+    ProfileId: HashString | None
+    StatisticId: HashString | None
+    InclusionAnnotation: InclusionAnnotationValue | None
 
 
-InclusionAnnotationList = List[DatapointInclusionAnnotation]
+InclusionAnnotationList = list[DatapointInclusionAnnotation]
 
 
 class BatchPutDataQualityStatisticAnnotationRequest(ServiceRequest):
     InclusionAnnotations: InclusionAnnotationList
-    ClientToken: Optional[HashString]
+    ClientToken: HashString | None
 
 
 class BatchPutDataQualityStatisticAnnotationResponse(TypedDict, total=False):
-    FailedInclusionAnnotations: Optional[AnnotationErrorList]
+    FailedInclusionAnnotations: AnnotationErrorList | None
 
 
 class BatchStopJobRunError(TypedDict, total=False):
@@ -4630,13 +4725,13 @@ class BatchStopJobRunError(TypedDict, total=False):
     run.
     """
 
-    JobName: Optional[NameString]
-    JobRunId: Optional[IdString]
-    ErrorDetail: Optional[ErrorDetail]
+    JobName: NameString | None
+    JobRunId: IdString | None
+    ErrorDetail: ErrorDetail | None
 
 
-BatchStopJobRunErrorList = List[BatchStopJobRunError]
-BatchStopJobRunJobRunIdList = List[IdString]
+BatchStopJobRunErrorList = list[BatchStopJobRunError]
+BatchStopJobRunJobRunIdList = list[IdString]
 
 
 class BatchStopJobRunRequest(ServiceRequest):
@@ -4647,29 +4742,29 @@ class BatchStopJobRunRequest(ServiceRequest):
 class BatchStopJobRunSuccessfulSubmission(TypedDict, total=False):
     """Records a successful request to stop a specified ``JobRun``."""
 
-    JobName: Optional[NameString]
-    JobRunId: Optional[IdString]
+    JobName: NameString | None
+    JobRunId: IdString | None
 
 
-BatchStopJobRunSuccessfulSubmissionList = List[BatchStopJobRunSuccessfulSubmission]
+BatchStopJobRunSuccessfulSubmissionList = list[BatchStopJobRunSuccessfulSubmission]
 
 
 class BatchStopJobRunResponse(TypedDict, total=False):
-    SuccessfulSubmissions: Optional[BatchStopJobRunSuccessfulSubmissionList]
-    Errors: Optional[BatchStopJobRunErrorList]
+    SuccessfulSubmissions: BatchStopJobRunSuccessfulSubmissionList | None
+    Errors: BatchStopJobRunErrorList | None
 
 
-BoundedPartitionValueList = List[ValueString]
+BoundedPartitionValueList = list[ValueString]
 
 
 class BatchUpdatePartitionFailureEntry(TypedDict, total=False):
     """Contains information about a batch update partition error."""
 
-    PartitionValueList: Optional[BoundedPartitionValueList]
-    ErrorDetail: Optional[ErrorDetail]
+    PartitionValueList: BoundedPartitionValueList | None
+    ErrorDetail: ErrorDetail | None
 
 
-BatchUpdatePartitionFailureList = List[BatchUpdatePartitionFailureEntry]
+BatchUpdatePartitionFailureList = list[BatchUpdatePartitionFailureEntry]
 
 
 class BatchUpdatePartitionRequestEntry(TypedDict, total=False):
@@ -4681,18 +4776,18 @@ class BatchUpdatePartitionRequestEntry(TypedDict, total=False):
     PartitionInput: PartitionInput
 
 
-BatchUpdatePartitionRequestEntryList = List[BatchUpdatePartitionRequestEntry]
+BatchUpdatePartitionRequestEntryList = list[BatchUpdatePartitionRequestEntry]
 
 
 class BatchUpdatePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     Entries: BatchUpdatePartitionRequestEntryList
 
 
 class BatchUpdatePartitionResponse(TypedDict, total=False):
-    Errors: Optional[BatchUpdatePartitionFailureList]
+    Errors: BatchUpdatePartitionFailureList | None
 
 
 NonNegativeLong = int
@@ -4712,19 +4807,19 @@ Blob = bytes
 class BlueprintRun(TypedDict, total=False):
     """The details of a blueprint run."""
 
-    BlueprintName: Optional[OrchestrationNameString]
-    RunId: Optional[IdString]
-    WorkflowName: Optional[NameString]
-    State: Optional[BlueprintRunState]
-    StartedOn: Optional[TimestampValue]
-    CompletedOn: Optional[TimestampValue]
-    ErrorMessage: Optional[MessageString]
-    RollbackErrorMessage: Optional[MessageString]
-    Parameters: Optional[BlueprintParameters]
-    RoleArn: Optional[OrchestrationIAMRoleArn]
+    BlueprintName: OrchestrationNameString | None
+    RunId: IdString | None
+    WorkflowName: NameString | None
+    State: BlueprintRunState | None
+    StartedOn: TimestampValue | None
+    CompletedOn: TimestampValue | None
+    ErrorMessage: MessageString | None
+    RollbackErrorMessage: MessageString | None
+    Parameters: BlueprintParameters | None
+    RoleArn: OrchestrationIAMRoleArn | None
 
 
-BlueprintRuns = List[BlueprintRun]
+BlueprintRuns = list[BlueprintRun]
 
 
 class BooleanColumnStatisticsData(TypedDict, total=False):
@@ -4757,22 +4852,22 @@ class CancelMLTaskRunRequest(ServiceRequest):
 
 
 class CancelMLTaskRunResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
-    TaskRunId: Optional[HashString]
-    Status: Optional[TaskStatusType]
+    TransformId: HashString | None
+    TaskRunId: HashString | None
+    Status: TaskStatusType | None
 
 
 class CancelStatementRequest(ServiceRequest):
     SessionId: NameString
     Id: IntegerValue
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 class CancelStatementResponse(TypedDict, total=False):
     pass
 
 
-ComputeEnvironments = List[ComputeEnvironment]
+ComputeEnvironments = list[ComputeEnvironment]
 
 
 class Capabilities(TypedDict, total=False):
@@ -4785,23 +4880,23 @@ class Capabilities(TypedDict, total=False):
     SupportedComputeEnvironments: ComputeEnvironments
 
 
-PermissionList = List[Permission]
+PermissionList = list[Permission]
 
 
 class DataLakePrincipal(TypedDict, total=False):
     """The Lake Formation principal."""
 
-    DataLakePrincipalIdentifier: Optional[DataLakePrincipalString]
+    DataLakePrincipalIdentifier: DataLakePrincipalString | None
 
 
 class PrincipalPermissions(TypedDict, total=False):
     """Permissions granted to a principal."""
 
-    Principal: Optional[DataLakePrincipal]
-    Permissions: Optional[PermissionList]
+    Principal: DataLakePrincipal | None
+    Permissions: PermissionList | None
 
 
-PrincipalPermissionsList = List[PrincipalPermissions]
+PrincipalPermissionsList = list[PrincipalPermissions]
 
 
 class IcebergOptimizationPropertiesOutput(TypedDict, total=False):
@@ -4810,11 +4905,11 @@ class IcebergOptimizationPropertiesOutput(TypedDict, total=False):
     Catalog.
     """
 
-    RoleArn: Optional[IAMRoleArn]
-    Compaction: Optional[ParametersMap]
-    Retention: Optional[ParametersMap]
-    OrphanFileDeletion: Optional[ParametersMap]
-    LastUpdatedTime: Optional[Timestamp]
+    RoleArn: IAMRoleArn | None
+    Compaction: ParametersMap | None
+    Retention: ParametersMap | None
+    OrphanFileDeletion: ParametersMap | None
+    LastUpdatedTime: Timestamp | None
 
 
 class DataLakeAccessPropertiesOutput(TypedDict, total=False):
@@ -4822,14 +4917,14 @@ class DataLakeAccessPropertiesOutput(TypedDict, total=False):
     catalog resource in the Glue Data Catalog.
     """
 
-    DataLakeAccess: Optional[Boolean]
-    DataTransferRole: Optional[IAMRoleArn]
-    KmsKey: Optional[ResourceArnString]
-    ManagedWorkgroupName: Optional[NameString]
-    ManagedWorkgroupStatus: Optional[NameString]
-    RedshiftDatabaseName: Optional[NameString]
-    StatusMessage: Optional[NameString]
-    CatalogType: Optional[NameString]
+    DataLakeAccess: Boolean | None
+    DataTransferRole: IAMRoleArn | None
+    KmsKey: ResourceArnString | None
+    ManagedWorkgroupName: NameString | None
+    ManagedWorkgroupStatus: NameString | None
+    RedshiftDatabaseName: NameString | None
+    StatusMessage: NameString | None
+    CatalogType: NameString | None
 
 
 class CatalogPropertiesOutput(TypedDict, total=False):
@@ -4837,17 +4932,17 @@ class CatalogPropertiesOutput(TypedDict, total=False):
     catalog resource.
     """
 
-    DataLakeAccessProperties: Optional[DataLakeAccessPropertiesOutput]
-    IcebergOptimizationProperties: Optional[IcebergOptimizationPropertiesOutput]
-    CustomProperties: Optional[ParametersMap]
+    DataLakeAccessProperties: DataLakeAccessPropertiesOutput | None
+    IcebergOptimizationProperties: IcebergOptimizationPropertiesOutput | None
+    CustomProperties: ParametersMap | None
 
 
 class FederatedCatalog(TypedDict, total=False):
     """A catalog that points to an entity outside the Glue Data Catalog."""
 
-    Identifier: Optional[FederationIdentifier]
-    ConnectionName: Optional[NameString]
-    ConnectionType: Optional[NameString]
+    Identifier: FederationIdentifier | None
+    ConnectionName: NameString | None
+    ConnectionType: NameString | None
 
 
 class TargetRedshiftCatalog(TypedDict, total=False):
@@ -4863,19 +4958,19 @@ class Catalog(TypedDict, total=False):
     Redshift databases in another account or region.
     """
 
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: CatalogNameString
-    ResourceArn: Optional[ResourceArnString]
-    Description: Optional[DescriptionString]
-    Parameters: Optional[ParametersMap]
-    CreateTime: Optional[Timestamp]
-    UpdateTime: Optional[Timestamp]
-    TargetRedshiftCatalog: Optional[TargetRedshiftCatalog]
-    FederatedCatalog: Optional[FederatedCatalog]
-    CatalogProperties: Optional[CatalogPropertiesOutput]
-    CreateTableDefaultPermissions: Optional[PrincipalPermissionsList]
-    CreateDatabaseDefaultPermissions: Optional[PrincipalPermissionsList]
-    AllowFullTableExternalDataAccess: Optional[AllowFullTableExternalDataAccessEnum]
+    ResourceArn: ResourceArnString | None
+    Description: DescriptionString | None
+    Parameters: ParametersMap | None
+    CreateTime: Timestamp | None
+    UpdateTime: Timestamp | None
+    TargetRedshiftCatalog: TargetRedshiftCatalog | None
+    FederatedCatalog: FederatedCatalog | None
+    CatalogProperties: CatalogPropertiesOutput | None
+    CreateTableDefaultPermissions: PrincipalPermissionsList | None
+    CreateDatabaseDefaultPermissions: PrincipalPermissionsList | None
+    AllowFullTableExternalDataAccess: AllowFullTableExternalDataAccessEnum | None
 
 
 class CatalogEntry(TypedDict, total=False):
@@ -4885,15 +4980,15 @@ class CatalogEntry(TypedDict, total=False):
     TableName: NameString
 
 
-CatalogEntries = List[CatalogEntry]
+CatalogEntries = list[CatalogEntry]
 
 
 class CatalogImportStatus(TypedDict, total=False):
     """A structure containing migration status information."""
 
-    ImportCompleted: Optional[Boolean]
-    ImportTime: Optional[Timestamp]
-    ImportedBy: Optional[NameString]
+    ImportCompleted: Boolean | None
+    ImportTime: Timestamp | None
+    ImportedBy: NameString | None
 
 
 class IcebergOptimizationProperties(TypedDict, total=False):
@@ -4902,10 +4997,10 @@ class IcebergOptimizationProperties(TypedDict, total=False):
     file deletion operations.
     """
 
-    RoleArn: Optional[IAMRoleArn]
-    Compaction: Optional[ParametersMap]
-    Retention: Optional[ParametersMap]
-    OrphanFileDeletion: Optional[ParametersMap]
+    RoleArn: IAMRoleArn | None
+    Compaction: ParametersMap | None
+    Retention: ParametersMap | None
+    OrphanFileDeletion: ParametersMap | None
 
 
 class DataLakeAccessProperties(TypedDict, total=False):
@@ -4913,10 +5008,10 @@ class DataLakeAccessProperties(TypedDict, total=False):
     in the Glue Data Catalog.
     """
 
-    DataLakeAccess: Optional[Boolean]
-    DataTransferRole: Optional[IAMRoleArn]
-    KmsKey: Optional[ResourceArnString]
-    CatalogType: Optional[NameString]
+    DataLakeAccess: Boolean | None
+    DataTransferRole: IAMRoleArn | None
+    KmsKey: ResourceArnString | None
+    CatalogType: NameString | None
 
 
 class CatalogProperties(TypedDict, total=False):
@@ -4924,25 +5019,25 @@ class CatalogProperties(TypedDict, total=False):
     properties.
     """
 
-    DataLakeAccessProperties: Optional[DataLakeAccessProperties]
-    IcebergOptimizationProperties: Optional[IcebergOptimizationProperties]
-    CustomProperties: Optional[ParametersMap]
+    DataLakeAccessProperties: DataLakeAccessProperties | None
+    IcebergOptimizationProperties: IcebergOptimizationProperties | None
+    CustomProperties: ParametersMap | None
 
 
 class CatalogInput(TypedDict, total=False):
     """A structure that describes catalog properties."""
 
-    Description: Optional[DescriptionString]
-    FederatedCatalog: Optional[FederatedCatalog]
-    Parameters: Optional[ParametersMap]
-    TargetRedshiftCatalog: Optional[TargetRedshiftCatalog]
-    CatalogProperties: Optional[CatalogProperties]
-    CreateTableDefaultPermissions: Optional[PrincipalPermissionsList]
-    CreateDatabaseDefaultPermissions: Optional[PrincipalPermissionsList]
-    AllowFullTableExternalDataAccess: Optional[AllowFullTableExternalDataAccessEnum]
+    Description: DescriptionString | None
+    FederatedCatalog: FederatedCatalog | None
+    Parameters: ParametersMap | None
+    TargetRedshiftCatalog: TargetRedshiftCatalog | None
+    CatalogProperties: CatalogProperties | None
+    CreateTableDefaultPermissions: PrincipalPermissionsList | None
+    CreateDatabaseDefaultPermissions: PrincipalPermissionsList | None
+    AllowFullTableExternalDataAccess: AllowFullTableExternalDataAccessEnum | None
 
 
-CatalogList = List[Catalog]
+CatalogList = list[Catalog]
 
 
 class CheckSchemaVersionValidityInput(ServiceRequest):
@@ -4951,39 +5046,39 @@ class CheckSchemaVersionValidityInput(ServiceRequest):
 
 
 class CheckSchemaVersionValidityResponse(TypedDict, total=False):
-    Valid: Optional[IsVersionValid]
-    Error: Optional[SchemaValidationError]
+    Valid: IsVersionValid | None
+    Error: SchemaValidationError | None
 
 
-CustomDatatypes = List[NameString]
-CsvHeader = List[NameString]
+CustomDatatypes = list[NameString]
+CsvHeader = list[NameString]
 
 
 class CsvClassifier(TypedDict, total=False):
     """A classifier for custom ``CSV`` content."""
 
     Name: NameString
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    Version: Optional[VersionId]
-    Delimiter: Optional[CsvColumnDelimiter]
-    QuoteSymbol: Optional[CsvQuoteSymbol]
-    ContainsHeader: Optional[CsvHeaderOption]
-    Header: Optional[CsvHeader]
-    DisableValueTrimming: Optional[NullableBoolean]
-    AllowSingleColumn: Optional[NullableBoolean]
-    CustomDatatypeConfigured: Optional[NullableBoolean]
-    CustomDatatypes: Optional[CustomDatatypes]
-    Serde: Optional[CsvSerdeOption]
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    Version: VersionId | None
+    Delimiter: CsvColumnDelimiter | None
+    QuoteSymbol: CsvQuoteSymbol | None
+    ContainsHeader: CsvHeaderOption | None
+    Header: CsvHeader | None
+    DisableValueTrimming: NullableBoolean | None
+    AllowSingleColumn: NullableBoolean | None
+    CustomDatatypeConfigured: NullableBoolean | None
+    CustomDatatypes: CustomDatatypes | None
+    Serde: CsvSerdeOption | None
 
 
 class JsonClassifier(TypedDict, total=False):
     """A classifier for ``JSON`` content."""
 
     Name: NameString
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    Version: Optional[VersionId]
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    Version: VersionId | None
     JsonPath: JsonPath
 
 
@@ -4992,10 +5087,10 @@ class XMLClassifier(TypedDict, total=False):
 
     Name: NameString
     Classification: Classification
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    Version: Optional[VersionId]
-    RowTag: Optional[RowTag]
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    Version: VersionId | None
+    RowTag: RowTag | None
 
 
 class GrokClassifier(TypedDict, total=False):
@@ -5003,11 +5098,11 @@ class GrokClassifier(TypedDict, total=False):
 
     Name: NameString
     Classification: Classification
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    Version: Optional[VersionId]
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    Version: VersionId | None
     GrokPattern: GrokPattern
-    CustomPatterns: Optional[CustomPatterns]
+    CustomPatterns: CustomPatterns | None
 
 
 class Classifier(TypedDict, total=False):
@@ -5024,20 +5119,20 @@ class Classifier(TypedDict, total=False):
     ``Classifier`` object.
     """
 
-    GrokClassifier: Optional[GrokClassifier]
-    XMLClassifier: Optional[XMLClassifier]
-    JsonClassifier: Optional[JsonClassifier]
-    CsvClassifier: Optional[CsvClassifier]
+    GrokClassifier: GrokClassifier | None
+    XMLClassifier: XMLClassifier | None
+    JsonClassifier: JsonClassifier | None
+    CsvClassifier: CsvClassifier | None
 
 
-ClassifierList = List[Classifier]
+ClassifierList = list[Classifier]
 
 
 class CloudWatchEncryption(TypedDict, total=False):
     """Specifies how Amazon CloudWatch data should be encrypted."""
 
-    CloudWatchEncryptionMode: Optional[CloudWatchEncryptionMode]
-    KmsKeyArn: Optional[KmsKeyArn]
+    CloudWatchEncryptionMode: CloudWatchEncryptionMode | None
+    KmsKeyArn: KmsKeyArn | None
 
 
 class CodeGenEdge(TypedDict, total=False):
@@ -5045,7 +5140,7 @@ class CodeGenEdge(TypedDict, total=False):
 
     Source: CodeGenIdentifier
     Target: CodeGenIdentifier
-    TargetParameter: Optional[CodeGenArgName]
+    TargetParameter: CodeGenArgName | None
 
 
 class CodeGenNodeArg(TypedDict, total=False):
@@ -5053,10 +5148,10 @@ class CodeGenNodeArg(TypedDict, total=False):
 
     Name: CodeGenArgName
     Value: CodeGenArgValue
-    Param: Optional[Boolean]
+    Param: Boolean | None
 
 
-CodeGenNodeArgs = List[CodeGenNodeArg]
+CodeGenNodeArgs = list[CodeGenNodeArg]
 
 
 class CodeGenNode(TypedDict, total=False):
@@ -5065,17 +5160,17 @@ class CodeGenNode(TypedDict, total=False):
     Id: CodeGenIdentifier
     NodeType: CodeGenNodeType
     Args: CodeGenNodeArgs
-    LineNumber: Optional[Integer]
+    LineNumber: Integer | None
 
 
 class ColumnError(TypedDict, total=False):
     """Encapsulates a column name that failed and the reason for failure."""
 
-    ColumnName: Optional[NameString]
-    Error: Optional[ErrorDetail]
+    ColumnName: NameString | None
+    Error: ErrorDetail | None
 
 
-ColumnErrors = List[ColumnError]
+ColumnErrors = list[ColumnError]
 
 
 class ColumnImportance(TypedDict, total=False):
@@ -5087,22 +5182,22 @@ class ColumnImportance(TypedDict, total=False):
     than others.
     """
 
-    ColumnName: Optional[NameString]
-    Importance: Optional[GenericBoundedDouble]
+    ColumnName: NameString | None
+    Importance: GenericBoundedDouble | None
 
 
-ColumnImportanceList = List[ColumnImportance]
-ColumnNameList = List[NameString]
+ColumnImportanceList = list[ColumnImportance]
+ColumnNameList = list[NameString]
 
 
 class ColumnRowFilter(TypedDict, total=False):
     """A filter that uses both column-level and row-level filtering."""
 
-    ColumnName: Optional[NameString]
-    RowFilterExpression: Optional[PredicateString]
+    ColumnName: NameString | None
+    RowFilterExpression: PredicateString | None
 
 
-ColumnRowFilterList = List[ColumnRowFilter]
+ColumnRowFilterList = list[ColumnRowFilter]
 
 
 class StringColumnStatisticsData(TypedDict, total=False):
@@ -5120,8 +5215,8 @@ Long = int
 class LongColumnStatisticsData(TypedDict, total=False):
     """Defines column statistics supported for integer data columns."""
 
-    MinimumValue: Optional[Long]
-    MaximumValue: Optional[Long]
+    MinimumValue: Long | None
+    MaximumValue: Long | None
     NumberOfNulls: NonNegativeLong
     NumberOfDistinctValues: NonNegativeLong
 
@@ -5131,8 +5226,8 @@ class DoubleColumnStatisticsData(TypedDict, total=False):
     columns.
     """
 
-    MinimumValue: Optional[Double]
-    MaximumValue: Optional[Double]
+    MinimumValue: Double | None
+    MaximumValue: Double | None
     NumberOfNulls: NonNegativeLong
     NumberOfDistinctValues: NonNegativeLong
 
@@ -5147,8 +5242,8 @@ class DecimalNumber(TypedDict, total=False):
 class DecimalColumnStatisticsData(TypedDict, total=False):
     """Defines column statistics supported for fixed-point number data columns."""
 
-    MinimumValue: Optional[DecimalNumber]
-    MaximumValue: Optional[DecimalNumber]
+    MinimumValue: DecimalNumber | None
+    MaximumValue: DecimalNumber | None
     NumberOfNulls: NonNegativeLong
     NumberOfDistinctValues: NonNegativeLong
 
@@ -5156,8 +5251,8 @@ class DecimalColumnStatisticsData(TypedDict, total=False):
 class DateColumnStatisticsData(TypedDict, total=False):
     """Defines column statistics supported for timestamp data columns."""
 
-    MinimumValue: Optional[Timestamp]
-    MaximumValue: Optional[Timestamp]
+    MinimumValue: Timestamp | None
+    MaximumValue: Timestamp | None
     NumberOfNulls: NonNegativeLong
     NumberOfDistinctValues: NonNegativeLong
 
@@ -5168,13 +5263,13 @@ class ColumnStatisticsData(TypedDict, total=False):
     """
 
     Type: ColumnStatisticsType
-    BooleanColumnStatisticsData: Optional[BooleanColumnStatisticsData]
-    DateColumnStatisticsData: Optional[DateColumnStatisticsData]
-    DecimalColumnStatisticsData: Optional[DecimalColumnStatisticsData]
-    DoubleColumnStatisticsData: Optional[DoubleColumnStatisticsData]
-    LongColumnStatisticsData: Optional[LongColumnStatisticsData]
-    StringColumnStatisticsData: Optional[StringColumnStatisticsData]
-    BinaryColumnStatisticsData: Optional[BinaryColumnStatisticsData]
+    BooleanColumnStatisticsData: BooleanColumnStatisticsData | None
+    DateColumnStatisticsData: DateColumnStatisticsData | None
+    DecimalColumnStatisticsData: DecimalColumnStatisticsData | None
+    DoubleColumnStatisticsData: DoubleColumnStatisticsData | None
+    LongColumnStatisticsData: LongColumnStatisticsData | None
+    StringColumnStatisticsData: StringColumnStatisticsData | None
+    BinaryColumnStatisticsData: BinaryColumnStatisticsData | None
 
 
 class ColumnStatistics(TypedDict, total=False):
@@ -5193,69 +5288,69 @@ class ColumnStatisticsError(TypedDict, total=False):
     for failure.
     """
 
-    ColumnStatistics: Optional[ColumnStatistics]
-    Error: Optional[ErrorDetail]
+    ColumnStatistics: ColumnStatistics | None
+    Error: ErrorDetail | None
 
 
-ColumnStatisticsErrors = List[ColumnStatisticsError]
-ColumnStatisticsList = List[ColumnStatistics]
+ColumnStatisticsErrors = list[ColumnStatisticsError]
+ColumnStatisticsList = list[ColumnStatistics]
 
 
 class ColumnStatisticsTaskRun(TypedDict, total=False):
     """The object that shows the details of the column stats run."""
 
-    CustomerId: Optional[AccountId]
-    ColumnStatisticsTaskRunId: Optional[HashString]
-    DatabaseName: Optional[DatabaseName]
-    TableName: Optional[TableName]
-    ColumnNameList: Optional[ColumnNameList]
-    CatalogID: Optional[CatalogIdString]
-    Role: Optional[Role]
-    SampleSize: Optional[SampleSizePercentage]
-    SecurityConfiguration: Optional[CrawlerSecurityConfiguration]
-    NumberOfWorkers: Optional[PositiveInteger]
-    WorkerType: Optional[NameString]
-    ComputationType: Optional[ComputationType]
-    Status: Optional[ColumnStatisticsState]
-    CreationTime: Optional[Timestamp]
-    LastUpdated: Optional[Timestamp]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    ErrorMessage: Optional[DescriptionString]
-    DPUSeconds: Optional[NonNegativeDouble]
+    CustomerId: AccountId | None
+    ColumnStatisticsTaskRunId: HashString | None
+    DatabaseName: DatabaseName | None
+    TableName: TableName | None
+    ColumnNameList: ColumnNameList | None
+    CatalogID: CatalogIdString | None
+    Role: Role | None
+    SampleSize: SampleSizePercentage | None
+    SecurityConfiguration: CrawlerSecurityConfiguration | None
+    NumberOfWorkers: PositiveInteger | None
+    WorkerType: NameString | None
+    ComputationType: ComputationType | None
+    Status: ColumnStatisticsState | None
+    CreationTime: Timestamp | None
+    LastUpdated: Timestamp | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    ErrorMessage: DescriptionString | None
+    DPUSeconds: NonNegativeDouble | None
 
 
-ColumnStatisticsTaskRunIdList = List[HashString]
-ColumnStatisticsTaskRunsList = List[ColumnStatisticsTaskRun]
+ColumnStatisticsTaskRunIdList = list[HashString]
+ColumnStatisticsTaskRunsList = list[ColumnStatisticsTaskRun]
 
 
 class ExecutionAttempt(TypedDict, total=False):
     """A run attempt for a column statistics task run."""
 
-    Status: Optional[ExecutionStatus]
-    ColumnStatisticsTaskRunId: Optional[HashString]
-    ExecutionTimestamp: Optional[Timestamp]
-    ErrorMessage: Optional[DescriptionString]
+    Status: ExecutionStatus | None
+    ColumnStatisticsTaskRunId: HashString | None
+    ExecutionTimestamp: Timestamp | None
+    ErrorMessage: DescriptionString | None
 
 
 class ColumnStatisticsTaskSettings(TypedDict, total=False):
     """The settings for a column statistics task."""
 
-    DatabaseName: Optional[DatabaseName]
-    TableName: Optional[TableName]
-    Schedule: Optional[Schedule]
-    ColumnNameList: Optional[ColumnNameList]
-    CatalogID: Optional[CatalogIdString]
-    Role: Optional[Role]
-    SampleSize: Optional[SampleSizePercentage]
-    SecurityConfiguration: Optional[CrawlerSecurityConfiguration]
-    ScheduleType: Optional[ScheduleType]
-    SettingSource: Optional[SettingSource]
-    LastExecutionAttempt: Optional[ExecutionAttempt]
+    DatabaseName: DatabaseName | None
+    TableName: TableName | None
+    Schedule: Schedule | None
+    ColumnNameList: ColumnNameList | None
+    CatalogID: CatalogIdString | None
+    Role: Role | None
+    SampleSize: SampleSizePercentage | None
+    SecurityConfiguration: CrawlerSecurityConfiguration | None
+    ScheduleType: ScheduleType | None
+    SettingSource: SettingSource | None
+    LastExecutionAttempt: ExecutionAttempt | None
 
 
-ListOfString = List[String]
-PropertyNameOverrides = Dict[PropertyName, PropertyName]
+ListOfString = list[String]
+PropertyNameOverrides = dict[PropertyName, PropertyName]
 
 
 class ComputeEnvironmentConfiguration(TypedDict, total=False):
@@ -5271,11 +5366,11 @@ class ComputeEnvironmentConfiguration(TypedDict, total=False):
     ConnectionPropertyNameOverrides: PropertyNameOverrides
     ConnectionOptionNameOverrides: PropertyNameOverrides
     ConnectionPropertiesRequiredOverrides: ListOfString
-    PhysicalConnectionPropertiesRequired: Optional[Bool]
+    PhysicalConnectionPropertiesRequired: Bool | None
 
 
-ComputeEnvironmentConfigurationMap = Dict[ComputeEnvironmentName, ComputeEnvironmentConfiguration]
-ComputeEnvironmentList = List[ComputeEnvironment]
+ComputeEnvironmentConfigurationMap = dict[ComputeEnvironmentName, ComputeEnvironmentConfiguration]
+ComputeEnvironmentList = list[ComputeEnvironment]
 
 
 class ConfigurationObject(TypedDict, total=False):
@@ -5283,13 +5378,13 @@ class ConfigurationObject(TypedDict, total=False):
     parameter configured in a Glue usage profile.
     """
 
-    DefaultValue: Optional[ConfigValueString]
-    AllowedValues: Optional[AllowedValuesStringList]
-    MinValue: Optional[ConfigValueString]
-    MaxValue: Optional[ConfigValueString]
+    DefaultValue: ConfigValueString | None
+    AllowedValues: AllowedValuesStringList | None
+    MinValue: ConfigValueString | None
+    MaxValue: ConfigValueString | None
 
 
-ConfigurationMap = Dict[NameString, ConfigurationObject]
+ConfigurationMap = dict[NameString, ConfigurationObject]
 RecordsCount = int
 
 
@@ -5301,70 +5396,70 @@ class ConfusionMatrix(TypedDict, total=False):
     matrix <https://en.wikipedia.org/wiki/Confusion_matrix>`__ in Wikipedia.
     """
 
-    NumTruePositives: Optional[RecordsCount]
-    NumFalsePositives: Optional[RecordsCount]
-    NumTrueNegatives: Optional[RecordsCount]
-    NumFalseNegatives: Optional[RecordsCount]
+    NumTruePositives: RecordsCount | None
+    NumFalsePositives: RecordsCount | None
+    NumTrueNegatives: RecordsCount | None
+    NumFalseNegatives: RecordsCount | None
 
 
-SecurityGroupIdList = List[NameString]
+SecurityGroupIdList = list[NameString]
 
 
 class PhysicalConnectionRequirements(TypedDict, total=False):
     """The OAuth client app in GetConnection response."""
 
-    SubnetId: Optional[NameString]
-    SecurityGroupIdList: Optional[SecurityGroupIdList]
-    AvailabilityZone: Optional[NameString]
+    SubnetId: NameString | None
+    SecurityGroupIdList: SecurityGroupIdList | None
+    AvailabilityZone: NameString | None
 
 
-PropertyMap = Dict[PropertyKey, PropertyValue]
-ConnectionProperties = Dict[ConnectionPropertyKey, ValueString]
-MatchCriteria = List[NameString]
+PropertyMap = dict[PropertyKey, PropertyValue]
+ConnectionProperties = dict[ConnectionPropertyKey, ValueString]
+MatchCriteria = list[NameString]
 
 
 class Connection(TypedDict, total=False):
     """Defines a connection to a data source."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    ConnectionType: Optional[ConnectionType]
-    MatchCriteria: Optional[MatchCriteria]
-    ConnectionProperties: Optional[ConnectionProperties]
-    SparkProperties: Optional[PropertyMap]
-    AthenaProperties: Optional[PropertyMap]
-    PythonProperties: Optional[PropertyMap]
-    PhysicalConnectionRequirements: Optional[PhysicalConnectionRequirements]
-    CreationTime: Optional[Timestamp]
-    LastUpdatedTime: Optional[Timestamp]
-    LastUpdatedBy: Optional[NameString]
-    Status: Optional[ConnectionStatus]
-    StatusReason: Optional[LongValueString]
-    LastConnectionValidationTime: Optional[Timestamp]
-    AuthenticationConfiguration: Optional[AuthenticationConfiguration]
-    ConnectionSchemaVersion: Optional[ConnectionSchemaVersion]
-    CompatibleComputeEnvironments: Optional[ComputeEnvironmentList]
+    Name: NameString | None
+    Description: DescriptionString | None
+    ConnectionType: ConnectionType | None
+    MatchCriteria: MatchCriteria | None
+    ConnectionProperties: ConnectionProperties | None
+    SparkProperties: PropertyMap | None
+    AthenaProperties: PropertyMap | None
+    PythonProperties: PropertyMap | None
+    PhysicalConnectionRequirements: PhysicalConnectionRequirements | None
+    CreationTime: Timestamp | None
+    LastUpdatedTime: Timestamp | None
+    LastUpdatedBy: NameString | None
+    Status: ConnectionStatus | None
+    StatusReason: LongValueString | None
+    LastConnectionValidationTime: Timestamp | None
+    AuthenticationConfiguration: AuthenticationConfiguration | None
+    ConnectionSchemaVersion: ConnectionSchemaVersion | None
+    CompatibleComputeEnvironments: ComputeEnvironmentList | None
 
 
 class ConnectionInput(TypedDict, total=False):
     """A structure that is used to specify a connection to create or update."""
 
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     ConnectionType: ConnectionType
-    MatchCriteria: Optional[MatchCriteria]
+    MatchCriteria: MatchCriteria | None
     ConnectionProperties: ConnectionProperties
-    SparkProperties: Optional[PropertyMap]
-    AthenaProperties: Optional[PropertyMap]
-    PythonProperties: Optional[PropertyMap]
-    PhysicalConnectionRequirements: Optional[PhysicalConnectionRequirements]
-    AuthenticationConfiguration: Optional[AuthenticationConfigurationInput]
-    ValidateCredentials: Optional[Boolean]
-    ValidateForComputeEnvironments: Optional[ComputeEnvironmentList]
+    SparkProperties: PropertyMap | None
+    AthenaProperties: PropertyMap | None
+    PythonProperties: PropertyMap | None
+    PhysicalConnectionRequirements: PhysicalConnectionRequirements | None
+    AuthenticationConfiguration: AuthenticationConfigurationInput | None
+    ValidateCredentials: Boolean | None
+    ValidateForComputeEnvironments: ComputeEnvironmentList | None
 
 
-ConnectionList = List[Connection]
-ConnectionOptions = Dict[OptionKey, OptionValue]
+ConnectionList = list[Connection]
+ConnectionOptions = dict[OptionKey, OptionValue]
 
 
 class ConnectionPasswordEncryption(TypedDict, total=False):
@@ -5385,7 +5480,7 @@ class ConnectionPasswordEncryption(TypedDict, total=False):
     """
 
     ReturnConnectionPasswordEncrypted: Boolean
-    AwsKmsKeyId: Optional[NameString]
+    AwsKmsKeyId: NameString | None
 
 
 class ConnectionTypeVariant(TypedDict, total=False):
@@ -5394,13 +5489,13 @@ class ConnectionTypeVariant(TypedDict, total=False):
     for different implementations of the same general connection type.
     """
 
-    ConnectionTypeVariantName: Optional[DisplayName]
-    DisplayName: Optional[DisplayName]
-    Description: Optional[Description]
-    LogoUrl: Optional[UrlString]
+    ConnectionTypeVariantName: DisplayName | None
+    DisplayName: DisplayName | None
+    Description: Description | None
+    LogoUrl: UrlString | None
 
 
-ConnectionTypeVariantList = List[ConnectionTypeVariant]
+ConnectionTypeVariantList = list[ConnectionTypeVariant]
 
 
 class ConnectionTypeBrief(TypedDict, total=False):
@@ -5408,51 +5503,51 @@ class ConnectionTypeBrief(TypedDict, total=False):
     ``ListConnectionTypes`` API.
     """
 
-    ConnectionType: Optional[ConnectionType]
-    DisplayName: Optional[DisplayName]
-    Vendor: Optional[Vendor]
-    Description: Optional[Description]
-    Categories: Optional[ListOfString]
-    Capabilities: Optional[Capabilities]
-    LogoUrl: Optional[UrlString]
-    ConnectionTypeVariants: Optional[ConnectionTypeVariantList]
+    ConnectionType: ConnectionType | None
+    DisplayName: DisplayName | None
+    Vendor: Vendor | None
+    Description: Description | None
+    Categories: ListOfString | None
+    Capabilities: Capabilities | None
+    LogoUrl: UrlString | None
+    ConnectionTypeVariants: ConnectionTypeVariantList | None
 
 
-ConnectionTypeList = List[ConnectionTypeBrief]
+ConnectionTypeList = list[ConnectionTypeBrief]
 
 
 class CrawlerHistory(TypedDict, total=False):
     """Contains the information for a run of a crawler."""
 
-    CrawlId: Optional[CrawlId]
-    State: Optional[CrawlerHistoryState]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Summary: Optional[NameString]
-    ErrorMessage: Optional[DescriptionString]
-    LogGroup: Optional[LogGroup]
-    LogStream: Optional[LogStream]
-    MessagePrefix: Optional[MessagePrefix]
-    DPUHour: Optional[NonNegativeDouble]
+    CrawlId: CrawlId | None
+    State: CrawlerHistoryState | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Summary: NameString | None
+    ErrorMessage: DescriptionString | None
+    LogGroup: LogGroup | None
+    LogStream: LogStream | None
+    MessagePrefix: MessagePrefix | None
+    DPUHour: NonNegativeDouble | None
 
 
-CrawlerHistoryList = List[CrawlerHistory]
+CrawlerHistoryList = list[CrawlerHistory]
 
 
 class CrawlerMetrics(TypedDict, total=False):
     """Metrics for a specified crawler."""
 
-    CrawlerName: Optional[NameString]
-    TimeLeftSeconds: Optional[NonNegativeDouble]
-    StillEstimating: Optional[Boolean]
-    LastRuntimeSeconds: Optional[NonNegativeDouble]
-    MedianRuntimeSeconds: Optional[NonNegativeDouble]
-    TablesCreated: Optional[NonNegativeInteger]
-    TablesUpdated: Optional[NonNegativeInteger]
-    TablesDeleted: Optional[NonNegativeInteger]
+    CrawlerName: NameString | None
+    TimeLeftSeconds: NonNegativeDouble | None
+    StillEstimating: Boolean | None
+    LastRuntimeSeconds: NonNegativeDouble | None
+    MedianRuntimeSeconds: NonNegativeDouble | None
+    TablesCreated: NonNegativeInteger | None
+    TablesUpdated: NonNegativeInteger | None
+    TablesDeleted: NonNegativeInteger | None
 
 
-CrawlerMetricsList = List[CrawlerMetrics]
+CrawlerMetricsList = list[CrawlerMetrics]
 
 
 class CrawlsFilter(TypedDict, total=False):
@@ -5460,30 +5555,30 @@ class CrawlsFilter(TypedDict, total=False):
     crawler runs for a specified crawler.
     """
 
-    FieldName: Optional[FieldName]
-    FilterOperator: Optional[FilterOperator]
-    FieldValue: Optional[GenericString]
+    FieldName: FieldName | None
+    FilterOperator: FilterOperator | None
+    FieldValue: GenericString | None
 
 
-CrawlsFilterList = List[CrawlsFilter]
-TagsMap = Dict[TagKey, TagValue]
+CrawlsFilterList = list[CrawlsFilter]
+TagsMap = dict[TagKey, TagValue]
 
 
 class CreateBlueprintRequest(ServiceRequest):
     Name: OrchestrationNameString
-    Description: Optional[Generic512CharString]
+    Description: Generic512CharString | None
     BlueprintLocation: OrchestrationS3Location
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class CreateBlueprintResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class CreateCatalogRequest(ServiceRequest):
     Name: CatalogNameString
     CatalogInput: CatalogInput
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class CreateCatalogResponse(TypedDict, total=False):
@@ -5494,15 +5589,15 @@ class CreateCsvClassifierRequest(TypedDict, total=False):
     """Specifies a custom CSV classifier for ``CreateClassifier`` to create."""
 
     Name: NameString
-    Delimiter: Optional[CsvColumnDelimiter]
-    QuoteSymbol: Optional[CsvQuoteSymbol]
-    ContainsHeader: Optional[CsvHeaderOption]
-    Header: Optional[CsvHeader]
-    DisableValueTrimming: Optional[NullableBoolean]
-    AllowSingleColumn: Optional[NullableBoolean]
-    CustomDatatypeConfigured: Optional[NullableBoolean]
-    CustomDatatypes: Optional[CustomDatatypes]
-    Serde: Optional[CsvSerdeOption]
+    Delimiter: CsvColumnDelimiter | None
+    QuoteSymbol: CsvQuoteSymbol | None
+    ContainsHeader: CsvHeaderOption | None
+    Header: CsvHeader | None
+    DisableValueTrimming: NullableBoolean | None
+    AllowSingleColumn: NullableBoolean | None
+    CustomDatatypeConfigured: NullableBoolean | None
+    CustomDatatypes: CustomDatatypes | None
+    Serde: CsvSerdeOption | None
 
 
 class CreateJsonClassifierRequest(TypedDict, total=False):
@@ -5517,7 +5612,7 @@ class CreateXMLClassifierRequest(TypedDict, total=False):
 
     Classification: Classification
     Name: NameString
-    RowTag: Optional[RowTag]
+    RowTag: RowTag | None
 
 
 class CreateGrokClassifierRequest(TypedDict, total=False):
@@ -5526,14 +5621,14 @@ class CreateGrokClassifierRequest(TypedDict, total=False):
     Classification: Classification
     Name: NameString
     GrokPattern: GrokPattern
-    CustomPatterns: Optional[CustomPatterns]
+    CustomPatterns: CustomPatterns | None
 
 
 class CreateClassifierRequest(ServiceRequest):
-    GrokClassifier: Optional[CreateGrokClassifierRequest]
-    XMLClassifier: Optional[CreateXMLClassifierRequest]
-    JsonClassifier: Optional[CreateJsonClassifierRequest]
-    CsvClassifier: Optional[CreateCsvClassifierRequest]
+    GrokClassifier: CreateGrokClassifierRequest | None
+    XMLClassifier: CreateXMLClassifierRequest | None
+    JsonClassifier: CreateJsonClassifierRequest | None
+    CsvClassifier: CreateCsvClassifierRequest | None
 
 
 class CreateClassifierResponse(TypedDict, total=False):
@@ -5544,12 +5639,12 @@ class CreateColumnStatisticsTaskSettingsRequest(ServiceRequest):
     DatabaseName: NameString
     TableName: NameString
     Role: NameString
-    Schedule: Optional[CronExpression]
-    ColumnNameList: Optional[ColumnNameList]
-    SampleSize: Optional[SampleSizePercentage]
-    CatalogID: Optional[NameString]
-    SecurityConfiguration: Optional[NameString]
-    Tags: Optional[TagsMap]
+    Schedule: CronExpression | None
+    ColumnNameList: ColumnNameList | None
+    SampleSize: SampleSizePercentage | None
+    CatalogID: NameString | None
+    SecurityConfiguration: NameString | None
+    Tags: TagsMap | None
 
 
 class CreateColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
@@ -5557,31 +5652,31 @@ class CreateColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
 
 
 class CreateConnectionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ConnectionInput: ConnectionInput
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class CreateConnectionResponse(TypedDict, total=False):
-    CreateConnectionStatus: Optional[ConnectionStatus]
+    CreateConnectionStatus: ConnectionStatus | None
 
 
 class CreateCrawlerRequest(ServiceRequest):
     Name: NameString
     Role: Role
-    DatabaseName: Optional[DatabaseName]
-    Description: Optional[DescriptionString]
+    DatabaseName: DatabaseName | None
+    Description: DescriptionString | None
     Targets: CrawlerTargets
-    Schedule: Optional[CronExpression]
-    Classifiers: Optional[ClassifierNameList]
-    TablePrefix: Optional[TablePrefix]
-    SchemaChangePolicy: Optional[SchemaChangePolicy]
-    RecrawlPolicy: Optional[RecrawlPolicy]
-    LineageConfiguration: Optional[LineageConfiguration]
-    LakeFormationConfiguration: Optional[LakeFormationConfiguration]
-    Configuration: Optional[CrawlerConfiguration]
-    CrawlerSecurityConfiguration: Optional[CrawlerSecurityConfiguration]
-    Tags: Optional[TagsMap]
+    Schedule: CronExpression | None
+    Classifiers: ClassifierNameList | None
+    TablePrefix: TablePrefix | None
+    SchemaChangePolicy: SchemaChangePolicy | None
+    RecrawlPolicy: RecrawlPolicy | None
+    LineageConfiguration: LineageConfiguration | None
+    LakeFormationConfiguration: LakeFormationConfiguration | None
+    Configuration: CrawlerConfiguration | None
+    CrawlerSecurityConfiguration: CrawlerSecurityConfiguration | None
+    Tags: TagsMap | None
 
 
 class CreateCrawlerResponse(TypedDict, total=False):
@@ -5591,12 +5686,12 @@ class CreateCrawlerResponse(TypedDict, total=False):
 class CreateCustomEntityTypeRequest(ServiceRequest):
     Name: NameString
     RegexString: NameString
-    ContextWords: Optional[ContextWords]
-    Tags: Optional[TagsMap]
+    ContextWords: ContextWords | None
+    Tags: TagsMap | None
 
 
 class CreateCustomEntityTypeResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class DataQualityTargetTable(TypedDict, total=False):
@@ -5604,57 +5699,57 @@ class DataQualityTargetTable(TypedDict, total=False):
 
     TableName: NameString
     DatabaseName: NameString
-    CatalogId: Optional[NameString]
+    CatalogId: NameString | None
 
 
 class CreateDataQualityRulesetRequest(ServiceRequest):
     """A request to create a data quality ruleset."""
 
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Ruleset: DataQualityRulesetString
-    Tags: Optional[TagsMap]
-    TargetTable: Optional[DataQualityTargetTable]
-    DataQualitySecurityConfiguration: Optional[NameString]
-    ClientToken: Optional[HashString]
+    Tags: TagsMap | None
+    TargetTable: DataQualityTargetTable | None
+    DataQualitySecurityConfiguration: NameString | None
+    ClientToken: HashString | None
 
 
 class CreateDataQualityRulesetResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class FederatedDatabase(TypedDict, total=False):
     """A database that points to an entity outside the Glue Data Catalog."""
 
-    Identifier: Optional[FederationIdentifier]
-    ConnectionName: Optional[NameString]
-    ConnectionType: Optional[NameString]
+    Identifier: FederationIdentifier | None
+    ConnectionName: NameString | None
+    ConnectionType: NameString | None
 
 
 class DatabaseIdentifier(TypedDict, total=False):
     """A structure that describes a target database for resource linking."""
 
-    CatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    Region: Optional[NameString]
+    CatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    Region: NameString | None
 
 
 class DatabaseInput(TypedDict, total=False):
     """The structure used to create or update a database."""
 
     Name: NameString
-    Description: Optional[DescriptionString]
-    LocationUri: Optional[URI]
-    Parameters: Optional[ParametersMap]
-    CreateTableDefaultPermissions: Optional[PrincipalPermissionsList]
-    TargetDatabase: Optional[DatabaseIdentifier]
-    FederatedDatabase: Optional[FederatedDatabase]
+    Description: DescriptionString | None
+    LocationUri: URI | None
+    Parameters: ParametersMap | None
+    CreateTableDefaultPermissions: PrincipalPermissionsList | None
+    TargetDatabase: DatabaseIdentifier | None
+    FederatedDatabase: FederatedDatabase | None
 
 
 class CreateDatabaseRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseInput: DatabaseInput
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class CreateDatabaseResponse(TypedDict, total=False):
@@ -5664,60 +5759,61 @@ class CreateDatabaseResponse(TypedDict, total=False):
 class CreateDevEndpointRequest(ServiceRequest):
     EndpointName: GenericString
     RoleArn: RoleArn
-    SecurityGroupIds: Optional[StringList]
-    SubnetId: Optional[GenericString]
-    PublicKey: Optional[GenericString]
-    PublicKeys: Optional[PublicKeysList]
-    NumberOfNodes: Optional[IntegerValue]
-    WorkerType: Optional[WorkerType]
-    GlueVersion: Optional[GlueVersionString]
-    NumberOfWorkers: Optional[NullableInteger]
-    ExtraPythonLibsS3Path: Optional[GenericString]
-    ExtraJarsS3Path: Optional[GenericString]
-    SecurityConfiguration: Optional[NameString]
-    Tags: Optional[TagsMap]
-    Arguments: Optional[MapValue]
+    SecurityGroupIds: StringList | None
+    SubnetId: GenericString | None
+    PublicKey: GenericString | None
+    PublicKeys: PublicKeysList | None
+    NumberOfNodes: IntegerValue | None
+    WorkerType: WorkerType | None
+    GlueVersion: GlueVersionString | None
+    NumberOfWorkers: NullableInteger | None
+    ExtraPythonLibsS3Path: GenericString | None
+    ExtraJarsS3Path: GenericString | None
+    SecurityConfiguration: NameString | None
+    Tags: TagsMap | None
+    Arguments: MapValue | None
 
 
 class CreateDevEndpointResponse(TypedDict, total=False):
-    EndpointName: Optional[GenericString]
-    Status: Optional[GenericString]
-    SecurityGroupIds: Optional[StringList]
-    SubnetId: Optional[GenericString]
-    RoleArn: Optional[RoleArn]
-    YarnEndpointAddress: Optional[GenericString]
-    ZeppelinRemoteSparkInterpreterPort: Optional[IntegerValue]
-    NumberOfNodes: Optional[IntegerValue]
-    WorkerType: Optional[WorkerType]
-    GlueVersion: Optional[GlueVersionString]
-    NumberOfWorkers: Optional[NullableInteger]
-    AvailabilityZone: Optional[GenericString]
-    VpcId: Optional[GenericString]
-    ExtraPythonLibsS3Path: Optional[GenericString]
-    ExtraJarsS3Path: Optional[GenericString]
-    FailureReason: Optional[GenericString]
-    SecurityConfiguration: Optional[NameString]
-    CreatedTimestamp: Optional[TimestampValue]
-    Arguments: Optional[MapValue]
+    EndpointName: GenericString | None
+    Status: GenericString | None
+    SecurityGroupIds: StringList | None
+    SubnetId: GenericString | None
+    RoleArn: RoleArn | None
+    YarnEndpointAddress: GenericString | None
+    ZeppelinRemoteSparkInterpreterPort: IntegerValue | None
+    NumberOfNodes: IntegerValue | None
+    WorkerType: WorkerType | None
+    GlueVersion: GlueVersionString | None
+    NumberOfWorkers: NullableInteger | None
+    AvailabilityZone: GenericString | None
+    VpcId: GenericString | None
+    ExtraPythonLibsS3Path: GenericString | None
+    ExtraJarsS3Path: GenericString | None
+    FailureReason: GenericString | None
+    SecurityConfiguration: NameString | None
+    CreatedTimestamp: TimestampValue | None
+    Arguments: MapValue | None
 
 
-IdentityCenterScopesList = List[IdentityCenterScope]
+IdentityCenterScopesList = list[IdentityCenterScope]
 
 
 class CreateGlueIdentityCenterConfigurationRequest(ServiceRequest):
     """Request to create a new Glue Identity Center configuration."""
 
     InstanceArn: IdentityCenterInstanceArn
-    Scopes: Optional[IdentityCenterScopesList]
+    Scopes: IdentityCenterScopesList | None
+    UserBackgroundSessionsEnabled: NullableBoolean | None
 
 
 class CreateGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
     """Response from creating a new Glue Identity Center configuration."""
 
-    ApplicationArn: Optional[ApplicationArn]
+    ApplicationArn: ApplicationArn | None
 
 
-StringToStringMap = Dict[NullableString, NullableString]
+StringToStringMap = dict[NullableString, NullableString]
 
 
 class IcebergSortField(TypedDict, total=False):
@@ -5732,7 +5828,7 @@ class IcebergSortField(TypedDict, total=False):
     NullOrder: IcebergNullOrder
 
 
-IcebergSortOrderFieldList = List[IcebergSortField]
+IcebergSortOrderFieldList = list[IcebergSortField]
 
 
 class IcebergSortOrder(TypedDict, total=False):
@@ -5754,10 +5850,10 @@ class IcebergPartitionField(TypedDict, total=False):
     SourceId: Integer
     Transform: IcebergTransformString
     Name: ColumnNameString
-    FieldId: Optional[Integer]
+    FieldId: Integer | None
 
 
-IcebergPartitionSpecFieldList = List[IcebergPartitionField]
+IcebergPartitionSpecFieldList = list[IcebergPartitionField]
 
 
 class IcebergPartitionSpec(TypedDict, total=False):
@@ -5767,7 +5863,7 @@ class IcebergPartitionSpec(TypedDict, total=False):
     """
 
     Fields: IcebergPartitionSpecFieldList
-    SpecId: Optional[Integer]
+    SpecId: Integer | None
 
 
 class IcebergDocument(TypedDict, total=False):
@@ -5783,11 +5879,13 @@ class IcebergStructField(TypedDict, total=False):
     Name: ColumnNameString
     Type: IcebergDocument
     Required: Boolean
-    Doc: Optional[CommentString]
+    Doc: CommentString | None
+    InitialDefault: IcebergDocument | None
+    WriteDefault: IcebergDocument | None
 
 
-IcebergStructFieldList = List[IcebergStructField]
-IntegerList = List[Integer]
+IcebergStructFieldList = list[IcebergStructField]
+IntegerList = list[Integer]
 
 
 class IcebergSchema(TypedDict, total=False):
@@ -5795,9 +5893,9 @@ class IcebergSchema(TypedDict, total=False):
     definitions, data types, and schema metadata.
     """
 
-    SchemaId: Optional[Integer]
-    IdentifierFieldIds: Optional[IntegerList]
-    Type: Optional[IcebergStructTypeEnum]
+    SchemaId: Integer | None
+    IdentifierFieldIds: IntegerList | None
+    Type: IcebergStructTypeEnum | None
     Fields: IcebergStructFieldList
 
 
@@ -5809,20 +5907,20 @@ class CreateIcebergTableInput(TypedDict, total=False):
 
     Location: LocationString
     Schema: IcebergSchema
-    PartitionSpec: Optional[IcebergPartitionSpec]
-    WriteOrder: Optional[IcebergSortOrder]
-    Properties: Optional[StringToStringMap]
+    PartitionSpec: IcebergPartitionSpec | None
+    WriteOrder: IcebergSortOrder | None
+    Properties: StringToStringMap | None
 
 
-IntegrationSourcePropertiesMap = Dict[IntegrationString, IntegrationString]
+IntegrationSourcePropertiesMap = dict[IntegrationString, IntegrationString]
 
 
 class IntegrationConfig(TypedDict, total=False):
     """Properties associated with the integration."""
 
-    RefreshInterval: Optional[String128]
-    SourceProperties: Optional[IntegrationSourcePropertiesMap]
-    ContinuousSync: Optional[ContinuousSync]
+    RefreshInterval: String128 | None
+    SourceProperties: IntegrationSourcePropertiesMap | None
+    ContinuousSync: ContinuousSync | None
 
 
 class Tag(TypedDict, total=False):
@@ -5838,117 +5936,119 @@ class Tag(TypedDict, total=False):
     in the developer guide.
     """
 
-    key: Optional[TagKey]
-    value: Optional[TagValue]
+    key: TagKey | None
+    value: TagValue | None
 
 
-IntegrationTagsList = List[Tag]
-IntegrationAdditionalEncryptionContextMap = Dict[IntegrationString, IntegrationString]
+IntegrationTagsList = list[Tag]
+IntegrationAdditionalEncryptionContextMap = dict[IntegrationString, IntegrationString]
 
 
 class CreateIntegrationRequest(ServiceRequest):
     IntegrationName: String128
-    SourceArn: String128
-    TargetArn: String128
-    Description: Optional[IntegrationDescription]
-    DataFilter: Optional[String2048]
-    KmsKeyId: Optional[String2048]
-    AdditionalEncryptionContext: Optional[IntegrationAdditionalEncryptionContextMap]
-    Tags: Optional[IntegrationTagsList]
-    IntegrationConfig: Optional[IntegrationConfig]
+    SourceArn: String512
+    TargetArn: String512
+    Description: IntegrationDescription | None
+    DataFilter: String2048 | None
+    KmsKeyId: String2048 | None
+    AdditionalEncryptionContext: IntegrationAdditionalEncryptionContextMap | None
+    Tags: IntegrationTagsList | None
+    IntegrationConfig: IntegrationConfig | None
 
 
 class TargetProcessingProperties(TypedDict, total=False):
     """The resource properties associated with the integration target."""
 
-    RoleArn: Optional[String128]
-    KmsArn: Optional[String2048]
-    ConnectionName: Optional[String128]
-    EventBusArn: Optional[String2048]
+    RoleArn: String128 | None
+    KmsArn: String2048 | None
+    ConnectionName: String128 | None
+    EventBusArn: String2048 | None
 
 
 class SourceProcessingProperties(TypedDict, total=False):
     """The resource properties associated with the integration source."""
 
-    RoleArn: Optional[String128]
+    RoleArn: String128 | None
 
 
 class CreateIntegrationResourcePropertyRequest(ServiceRequest):
-    ResourceArn: String128
-    SourceProcessingProperties: Optional[SourceProcessingProperties]
-    TargetProcessingProperties: Optional[TargetProcessingProperties]
+    ResourceArn: String512
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
+    Tags: IntegrationTagsList | None
 
 
 class CreateIntegrationResourcePropertyResponse(TypedDict, total=False):
-    ResourceArn: String128
-    SourceProcessingProperties: Optional[SourceProcessingProperties]
-    TargetProcessingProperties: Optional[TargetProcessingProperties]
+    ResourceArn: String512
+    ResourcePropertyArn: String512 | None
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
 
 
 class IntegrationError(TypedDict, total=False):
     """An error associated with a zero-ETL integration."""
 
-    ErrorCode: Optional[String128]
-    ErrorMessage: Optional[String2048]
+    ErrorCode: String128 | None
+    ErrorMessage: String2048 | None
 
 
-IntegrationErrorList = List[IntegrationError]
+IntegrationErrorList = list[IntegrationError]
 IntegrationTimestamp = datetime
 
 
 class CreateIntegrationResponse(TypedDict, total=False):
-    SourceArn: String128
-    TargetArn: String128
+    SourceArn: String512
+    TargetArn: String512
     IntegrationName: String128
-    Description: Optional[IntegrationDescription]
+    Description: IntegrationDescription | None
     IntegrationArn: String128
-    KmsKeyId: Optional[String2048]
-    AdditionalEncryptionContext: Optional[IntegrationAdditionalEncryptionContextMap]
-    Tags: Optional[IntegrationTagsList]
+    KmsKeyId: String2048 | None
+    AdditionalEncryptionContext: IntegrationAdditionalEncryptionContextMap | None
+    Tags: IntegrationTagsList | None
     Status: IntegrationStatus
     CreateTime: IntegrationTimestamp
-    Errors: Optional[IntegrationErrorList]
-    DataFilter: Optional[String2048]
-    IntegrationConfig: Optional[IntegrationConfig]
+    Errors: IntegrationErrorList | None
+    DataFilter: String2048 | None
+    IntegrationConfig: IntegrationConfig | None
 
 
 class IntegrationPartition(TypedDict, total=False):
     """A structure that describes how data is partitioned on the target."""
 
-    FieldName: Optional[String128]
-    FunctionSpec: Optional[String128]
-    ConversionSpec: Optional[String128]
+    FieldName: String128 | None
+    FunctionSpec: String128 | None
+    ConversionSpec: String128 | None
 
 
-IntegrationPartitionSpecList = List[IntegrationPartition]
+IntegrationPartitionSpecList = list[IntegrationPartition]
 
 
 class TargetTableConfig(TypedDict, total=False):
     """Properties used by the target leg to partition the data on the target."""
 
-    UnnestSpec: Optional[UnnestSpec]
-    PartitionSpec: Optional[IntegrationPartitionSpecList]
-    TargetTableName: Optional[String128]
+    UnnestSpec: UnnestSpec | None
+    PartitionSpec: IntegrationPartitionSpecList | None
+    TargetTableName: String128 | None
 
 
-PrimaryKeyList = List[String128]
-SourceTableFieldsList = List[String128]
+PrimaryKeyList = list[String128]
+SourceTableFieldsList = list[String128]
 
 
 class SourceTableConfig(TypedDict, total=False):
     """Properties used by the source leg to process data from the source."""
 
-    Fields: Optional[SourceTableFieldsList]
-    FilterPredicate: Optional[String128]
-    PrimaryKey: Optional[PrimaryKeyList]
-    RecordUpdateField: Optional[String128]
+    Fields: SourceTableFieldsList | None
+    FilterPredicate: String128 | None
+    PrimaryKey: PrimaryKeyList | None
+    RecordUpdateField: String128 | None
 
 
 class CreateIntegrationTablePropertiesRequest(ServiceRequest):
-    ResourceArn: String128
+    ResourceArn: String512
     TableName: String128
-    SourceTableConfig: Optional[SourceTableConfig]
-    TargetTableConfig: Optional[TargetTableConfig]
+    SourceTableConfig: SourceTableConfig | None
+    TargetTableConfig: TargetTableConfig | None
 
 
 class CreateIntegrationTablePropertiesResponse(TypedDict, total=False):
@@ -5957,34 +6057,34 @@ class CreateIntegrationTablePropertiesResponse(TypedDict, total=False):
 
 class CreateJobRequest(ServiceRequest):
     Name: NameString
-    JobMode: Optional[JobMode]
-    JobRunQueuingEnabled: Optional[NullableBoolean]
-    Description: Optional[DescriptionString]
-    LogUri: Optional[UriString]
+    JobMode: JobMode | None
+    JobRunQueuingEnabled: NullableBoolean | None
+    Description: DescriptionString | None
+    LogUri: UriString | None
     Role: RoleString
-    ExecutionProperty: Optional[ExecutionProperty]
+    ExecutionProperty: ExecutionProperty | None
     Command: JobCommand
-    DefaultArguments: Optional[GenericMap]
-    NonOverridableArguments: Optional[GenericMap]
-    Connections: Optional[ConnectionsList]
-    MaxRetries: Optional[MaxRetries]
-    AllocatedCapacity: Optional[IntegerValue]
-    Timeout: Optional[Timeout]
-    MaxCapacity: Optional[NullableDouble]
-    SecurityConfiguration: Optional[NameString]
-    Tags: Optional[TagsMap]
-    NotificationProperty: Optional[NotificationProperty]
-    GlueVersion: Optional[GlueVersionString]
-    NumberOfWorkers: Optional[NullableInteger]
-    WorkerType: Optional[WorkerType]
-    CodeGenConfigurationNodes: Optional[CodeGenConfigurationNodes]
-    ExecutionClass: Optional[ExecutionClass]
-    SourceControlDetails: Optional[SourceControlDetails]
-    MaintenanceWindow: Optional[MaintenanceWindow]
+    DefaultArguments: GenericMap | None
+    NonOverridableArguments: GenericMap | None
+    Connections: ConnectionsList | None
+    MaxRetries: MaxRetries | None
+    AllocatedCapacity: IntegerValue | None
+    Timeout: Timeout | None
+    MaxCapacity: NullableDouble | None
+    SecurityConfiguration: NameString | None
+    Tags: TagsMap | None
+    NotificationProperty: NotificationProperty | None
+    GlueVersion: GlueVersionString | None
+    NumberOfWorkers: NullableInteger | None
+    WorkerType: WorkerType | None
+    CodeGenConfigurationNodes: CodeGenConfigurationNodes | None
+    ExecutionClass: ExecutionClass | None
+    SourceControlDetails: SourceControlDetails | None
+    MaintenanceWindow: MaintenanceWindow | None
 
 
 class CreateJobResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class MLUserDataEncryption(TypedDict, total=False):
@@ -5993,7 +6093,7 @@ class MLUserDataEncryption(TypedDict, total=False):
     """
 
     MlUserDataEncryptionMode: MLUserDataEncryptionModeString
-    KmsKeyId: Optional[NameString]
+    KmsKeyId: NameString | None
 
 
 class TransformEncryption(TypedDict, total=False):
@@ -6005,17 +6105,17 @@ class TransformEncryption(TypedDict, total=False):
     encrypted using a customer provided KMS key.
     """
 
-    MlUserDataEncryption: Optional[MLUserDataEncryption]
-    TaskRunSecurityConfigurationName: Optional[NameString]
+    MlUserDataEncryption: MLUserDataEncryption | None
+    TaskRunSecurityConfigurationName: NameString | None
 
 
 class FindMatchesParameters(TypedDict, total=False):
     """The parameters to configure the find matches transform."""
 
-    PrimaryKeyColumnName: Optional[ColumnNameString]
-    PrecisionRecallTradeoff: Optional[GenericBoundedDouble]
-    AccuracyCostTradeoff: Optional[GenericBoundedDouble]
-    EnforceProvidedLabels: Optional[NullableBoolean]
+    PrimaryKeyColumnName: ColumnNameString | None
+    PrecisionRecallTradeoff: GenericBoundedDouble | None
+    AccuracyCostTradeoff: GenericBoundedDouble | None
+    EnforceProvidedLabels: NullableBoolean | None
 
 
 class TransformParameters(TypedDict, total=False):
@@ -6024,33 +6124,33 @@ class TransformParameters(TypedDict, total=False):
     """
 
     TransformType: TransformType
-    FindMatchesParameters: Optional[FindMatchesParameters]
+    FindMatchesParameters: FindMatchesParameters | None
 
 
-GlueTables = List[GlueTable]
+GlueTables = list[GlueTable]
 
 
 class CreateMLTransformRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     InputRecordTables: GlueTables
     Parameters: TransformParameters
     Role: RoleString
-    GlueVersion: Optional[GlueVersionString]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    MaxRetries: Optional[NullableInteger]
-    Tags: Optional[TagsMap]
-    TransformEncryption: Optional[TransformEncryption]
+    GlueVersion: GlueVersionString | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    MaxRetries: NullableInteger | None
+    Tags: TagsMap | None
+    TransformEncryption: TransformEncryption | None
 
 
 class CreateMLTransformResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
+    TransformId: HashString | None
 
 
-KeyList = List[NameString]
+KeyList = list[NameString]
 
 
 class PartitionIndex(TypedDict, total=False):
@@ -6061,7 +6161,7 @@ class PartitionIndex(TypedDict, total=False):
 
 
 class CreatePartitionIndexRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionIndex: PartitionIndex
@@ -6072,7 +6172,7 @@ class CreatePartitionIndexResponse(TypedDict, total=False):
 
 
 class CreatePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionInput: PartitionInput
@@ -6084,15 +6184,15 @@ class CreatePartitionResponse(TypedDict, total=False):
 
 class CreateRegistryInput(ServiceRequest):
     RegistryName: SchemaRegistryNameString
-    Description: Optional[DescriptionString]
-    Tags: Optional[TagsMap]
+    Description: DescriptionString | None
+    Tags: TagsMap | None
 
 
 class CreateRegistryResponse(TypedDict, total=False):
-    RegistryArn: Optional[GlueResourceArn]
-    RegistryName: Optional[SchemaRegistryNameString]
-    Description: Optional[DescriptionString]
-    Tags: Optional[TagsMap]
+    RegistryArn: GlueResourceArn | None
+    RegistryName: SchemaRegistryNameString | None
+    Description: DescriptionString | None
+    Tags: TagsMap | None
 
 
 class RegistryId(TypedDict, total=False):
@@ -6100,67 +6200,67 @@ class RegistryId(TypedDict, total=False):
     Resource Name (ARN).
     """
 
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
 
 
 class CreateSchemaInput(ServiceRequest):
-    RegistryId: Optional[RegistryId]
+    RegistryId: RegistryId | None
     SchemaName: SchemaRegistryNameString
     DataFormat: DataFormat
-    Compatibility: Optional[Compatibility]
-    Description: Optional[DescriptionString]
-    Tags: Optional[TagsMap]
-    SchemaDefinition: Optional[SchemaDefinitionString]
+    Compatibility: Compatibility | None
+    Description: DescriptionString | None
+    Tags: TagsMap | None
+    SchemaDefinition: SchemaDefinitionString | None
 
 
 SchemaCheckpointNumber = int
 
 
 class CreateSchemaResponse(TypedDict, total=False):
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    SchemaArn: Optional[GlueResourceArn]
-    Description: Optional[DescriptionString]
-    DataFormat: Optional[DataFormat]
-    Compatibility: Optional[Compatibility]
-    SchemaCheckpoint: Optional[SchemaCheckpointNumber]
-    LatestSchemaVersion: Optional[VersionLongNumber]
-    NextSchemaVersion: Optional[VersionLongNumber]
-    SchemaStatus: Optional[SchemaStatus]
-    Tags: Optional[TagsMap]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    SchemaVersionStatus: Optional[SchemaVersionStatus]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    SchemaArn: GlueResourceArn | None
+    Description: DescriptionString | None
+    DataFormat: DataFormat | None
+    Compatibility: Compatibility | None
+    SchemaCheckpoint: SchemaCheckpointNumber | None
+    LatestSchemaVersion: VersionLongNumber | None
+    NextSchemaVersion: VersionLongNumber | None
+    SchemaStatus: SchemaStatus | None
+    Tags: TagsMap | None
+    SchemaVersionId: SchemaVersionIdString | None
+    SchemaVersionStatus: SchemaVersionStatus | None
 
 
-DagEdges = List[CodeGenEdge]
-DagNodes = List[CodeGenNode]
+DagEdges = list[CodeGenEdge]
+DagNodes = list[CodeGenNode]
 
 
 class CreateScriptRequest(ServiceRequest):
-    DagNodes: Optional[DagNodes]
-    DagEdges: Optional[DagEdges]
-    Language: Optional[Language]
+    DagNodes: DagNodes | None
+    DagEdges: DagEdges | None
+    Language: Language | None
 
 
 class CreateScriptResponse(TypedDict, total=False):
-    PythonScript: Optional[PythonScript]
-    ScalaCode: Optional[ScalaCode]
+    PythonScript: PythonScript | None
+    ScalaCode: ScalaCode | None
 
 
 class DataQualityEncryption(TypedDict, total=False):
     """Specifies how Data Quality assets in your account should be encrypted."""
 
-    DataQualityEncryptionMode: Optional[DataQualityEncryptionMode]
-    KmsKeyArn: Optional[KmsKeyArn]
+    DataQualityEncryptionMode: DataQualityEncryptionMode | None
+    KmsKeyArn: KmsKeyArn | None
 
 
 class JobBookmarksEncryption(TypedDict, total=False):
     """Specifies how job bookmark data should be encrypted."""
 
-    JobBookmarksEncryptionMode: Optional[JobBookmarksEncryptionMode]
-    KmsKeyArn: Optional[KmsKeyArn]
+    JobBookmarksEncryptionMode: JobBookmarksEncryptionMode | None
+    KmsKeyArn: KmsKeyArn | None
 
 
 class S3Encryption(TypedDict, total=False):
@@ -6168,20 +6268,20 @@ class S3Encryption(TypedDict, total=False):
     encrypted.
     """
 
-    S3EncryptionMode: Optional[S3EncryptionMode]
-    KmsKeyArn: Optional[KmsKeyArn]
+    S3EncryptionMode: S3EncryptionMode | None
+    KmsKeyArn: KmsKeyArn | None
 
 
-S3EncryptionList = List[S3Encryption]
+S3EncryptionList = list[S3Encryption]
 
 
 class EncryptionConfiguration(TypedDict, total=False):
     """Specifies an encryption configuration."""
 
-    S3Encryption: Optional[S3EncryptionList]
-    CloudWatchEncryption: Optional[CloudWatchEncryption]
-    JobBookmarksEncryption: Optional[JobBookmarksEncryption]
-    DataQualityEncryption: Optional[DataQualityEncryption]
+    S3Encryption: S3EncryptionList | None
+    CloudWatchEncryption: CloudWatchEncryption | None
+    JobBookmarksEncryption: JobBookmarksEncryption | None
+    DataQualityEncryption: DataQualityEncryption | None
 
 
 class CreateSecurityConfigurationRequest(ServiceRequest):
@@ -6190,67 +6290,67 @@ class CreateSecurityConfigurationRequest(ServiceRequest):
 
 
 class CreateSecurityConfigurationResponse(TypedDict, total=False):
-    Name: Optional[NameString]
-    CreatedTimestamp: Optional[TimestampValue]
+    Name: NameString | None
+    CreatedTimestamp: TimestampValue | None
 
 
-OrchestrationArgumentsMap = Dict[OrchestrationNameString, OrchestrationArgumentsValue]
+OrchestrationArgumentsMap = dict[OrchestrationNameString, OrchestrationArgumentsValue]
 
 
 class SessionCommand(TypedDict, total=False):
     """The ``SessionCommand`` that runs the job."""
 
-    Name: Optional[NameString]
-    PythonVersion: Optional[PythonVersionString]
+    Name: NameString | None
+    PythonVersion: PythonVersionString | None
 
 
 class CreateSessionRequest(ServiceRequest):
     """Request to create a new session."""
 
     Id: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Role: OrchestrationRoleArn
     Command: SessionCommand
-    Timeout: Optional[Timeout]
-    IdleTimeout: Optional[Timeout]
-    DefaultArguments: Optional[OrchestrationArgumentsMap]
-    Connections: Optional[ConnectionsList]
-    MaxCapacity: Optional[NullableDouble]
-    NumberOfWorkers: Optional[NullableInteger]
-    WorkerType: Optional[WorkerType]
-    SecurityConfiguration: Optional[NameString]
-    GlueVersion: Optional[GlueVersionString]
-    Tags: Optional[TagsMap]
-    RequestOrigin: Optional[OrchestrationNameString]
+    Timeout: Timeout | None
+    IdleTimeout: Timeout | None
+    DefaultArguments: OrchestrationArgumentsMap | None
+    Connections: ConnectionsList | None
+    MaxCapacity: NullableDouble | None
+    NumberOfWorkers: NullableInteger | None
+    WorkerType: WorkerType | None
+    SecurityConfiguration: NameString | None
+    GlueVersion: GlueVersionString | None
+    Tags: TagsMap | None
+    RequestOrigin: OrchestrationNameString | None
 
 
 class Session(TypedDict, total=False):
     """The period in which a remote Spark runtime environment is running."""
 
-    Id: Optional[NameString]
-    CreatedOn: Optional[TimestampValue]
-    Status: Optional[SessionStatus]
-    ErrorMessage: Optional[DescriptionString]
-    Description: Optional[DescriptionString]
-    Role: Optional[OrchestrationRoleArn]
-    Command: Optional[SessionCommand]
-    DefaultArguments: Optional[OrchestrationArgumentsMap]
-    Connections: Optional[ConnectionsList]
-    Progress: Optional[DoubleValue]
-    MaxCapacity: Optional[NullableDouble]
-    SecurityConfiguration: Optional[NameString]
-    GlueVersion: Optional[GlueVersionString]
-    NumberOfWorkers: Optional[NullableInteger]
-    WorkerType: Optional[WorkerType]
-    CompletedOn: Optional[TimestampValue]
-    ExecutionTime: Optional[NullableDouble]
-    DPUSeconds: Optional[NullableDouble]
-    IdleTimeout: Optional[IdleTimeout]
-    ProfileName: Optional[NameString]
+    Id: NameString | None
+    CreatedOn: TimestampValue | None
+    Status: SessionStatus | None
+    ErrorMessage: DescriptionString | None
+    Description: DescriptionString | None
+    Role: OrchestrationRoleArn | None
+    Command: SessionCommand | None
+    DefaultArguments: OrchestrationArgumentsMap | None
+    Connections: ConnectionsList | None
+    Progress: DoubleValue | None
+    MaxCapacity: NullableDouble | None
+    SecurityConfiguration: NameString | None
+    GlueVersion: GlueVersionString | None
+    NumberOfWorkers: NullableInteger | None
+    WorkerType: WorkerType | None
+    CompletedOn: TimestampValue | None
+    ExecutionTime: NullableDouble | None
+    DPUSeconds: NullableDouble | None
+    IdleTimeout: IdleTimeout | None
+    ProfileName: NameString | None
 
 
 class CreateSessionResponse(TypedDict, total=False):
-    Session: Optional[Session]
+    Session: Session | None
 
 
 class CreateTableOptimizerRequest(ServiceRequest):
@@ -6271,18 +6371,21 @@ class IcebergInput(TypedDict, total=False):
     """
 
     MetadataOperation: MetadataOperation
-    Version: Optional[VersionString]
-    CreateIcebergTableInput: Optional[CreateIcebergTableInput]
+    Version: VersionString | None
+    CreateIcebergTableInput: CreateIcebergTableInput | None
 
 
 class OpenTableFormatInput(TypedDict, total=False):
     """A structure representing an open format table."""
 
-    IcebergInput: Optional[IcebergInput]
+    IcebergInput: IcebergInput | None
 
 
-PartitionIndexList = List[PartitionIndex]
-ViewSubObjectsList = List[ArnString]
+PartitionIndexList = list[PartitionIndex]
+TableVersionId = int
+ViewSubObjectVersionIdsList = list[TableVersionId]
+ViewSubObjectsList = list[ArnString]
+RefreshSeconds = int
 
 
 class ViewRepresentationInput(TypedDict, total=False):
@@ -6290,61 +6393,66 @@ class ViewRepresentationInput(TypedDict, total=False):
     Lake Formation view.
     """
 
-    Dialect: Optional[ViewDialect]
-    DialectVersion: Optional[ViewDialectVersionString]
-    ViewOriginalText: Optional[ViewTextString]
-    ValidationConnection: Optional[NameString]
-    ViewExpandedText: Optional[ViewTextString]
+    Dialect: ViewDialect | None
+    DialectVersion: ViewDialectVersionString | None
+    ViewOriginalText: ViewTextString | None
+    ValidationConnection: NameString | None
+    ViewExpandedText: ViewTextString | None
 
 
-ViewRepresentationInputList = List[ViewRepresentationInput]
+ViewRepresentationInputList = list[ViewRepresentationInput]
 
 
 class ViewDefinitionInput(TypedDict, total=False):
     """A structure containing details for creating or updating an Glue view."""
 
-    IsProtected: Optional[NullableBoolean]
-    Definer: Optional[ArnString]
-    Representations: Optional[ViewRepresentationInputList]
-    SubObjects: Optional[ViewSubObjectsList]
+    IsProtected: NullableBoolean | None
+    Definer: ArnString | None
+    Representations: ViewRepresentationInputList | None
+    ViewVersionId: TableVersionId | None
+    ViewVersionToken: VersionString | None
+    RefreshSeconds: RefreshSeconds | None
+    LastRefreshType: LastRefreshType | None
+    SubObjects: ViewSubObjectsList | None
+    SubObjectVersionIds: ViewSubObjectVersionIdsList | None
 
 
 class TableIdentifier(TypedDict, total=False):
     """A structure that describes a target table for resource linking."""
 
-    CatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    Name: Optional[NameString]
-    Region: Optional[NameString]
+    CatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    Name: NameString | None
+    Region: NameString | None
 
 
 class TableInput(TypedDict, total=False):
     """A structure used to define a table."""
 
     Name: NameString
-    Description: Optional[DescriptionString]
-    Owner: Optional[NameString]
-    LastAccessTime: Optional[Timestamp]
-    LastAnalyzedTime: Optional[Timestamp]
-    Retention: Optional[NonNegativeInteger]
-    StorageDescriptor: Optional[StorageDescriptor]
-    PartitionKeys: Optional[ColumnList]
-    ViewOriginalText: Optional[ViewTextString]
-    ViewExpandedText: Optional[ViewTextString]
-    TableType: Optional[TableTypeString]
-    Parameters: Optional[ParametersMap]
-    TargetTable: Optional[TableIdentifier]
-    ViewDefinition: Optional[ViewDefinitionInput]
+    Description: DescriptionString | None
+    Owner: NameString | None
+    LastAccessTime: Timestamp | None
+    LastAnalyzedTime: Timestamp | None
+    Retention: NonNegativeInteger | None
+    StorageDescriptor: StorageDescriptor | None
+    PartitionKeys: ColumnList | None
+    ViewOriginalText: ViewTextString | None
+    ViewExpandedText: ViewTextString | None
+    TableType: TableTypeString | None
+    Parameters: ParametersMap | None
+    TargetTable: TableIdentifier | None
+    ViewDefinition: ViewDefinitionInput | None
 
 
 class CreateTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
-    Name: Optional[NameString]
-    TableInput: Optional[TableInput]
-    PartitionIndexes: Optional[PartitionIndexList]
-    TransactionId: Optional[TransactionIdString]
-    OpenTableFormatInput: Optional[OpenTableFormatInput]
+    Name: NameString | None
+    TableInput: TableInput | None
+    PartitionIndexes: PartitionIndexList | None
+    TransactionId: TransactionIdString | None
+    OpenTableFormatInput: OpenTableFormatInput | None
 
 
 class CreateTableResponse(TypedDict, total=False):
@@ -6353,19 +6461,19 @@ class CreateTableResponse(TypedDict, total=False):
 
 class CreateTriggerRequest(ServiceRequest):
     Name: NameString
-    WorkflowName: Optional[NameString]
+    WorkflowName: NameString | None
     Type: TriggerType
-    Schedule: Optional[GenericString]
-    Predicate: Optional[Predicate]
+    Schedule: GenericString | None
+    Predicate: Predicate | None
     Actions: ActionList
-    Description: Optional[DescriptionString]
-    StartOnCreation: Optional[BooleanValue]
-    Tags: Optional[TagsMap]
-    EventBatchingCondition: Optional[EventBatchingCondition]
+    Description: DescriptionString | None
+    StartOnCreation: BooleanValue | None
+    Tags: TagsMap | None
+    EventBatchingCondition: EventBatchingCondition | None
 
 
 class CreateTriggerResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class ProfileConfiguration(TypedDict, total=False):
@@ -6373,43 +6481,44 @@ class ProfileConfiguration(TypedDict, total=False):
     usage profile.
     """
 
-    SessionConfiguration: Optional[ConfigurationMap]
-    JobConfiguration: Optional[ConfigurationMap]
+    SessionConfiguration: ConfigurationMap | None
+    JobConfiguration: ConfigurationMap | None
 
 
 class CreateUsageProfileRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Configuration: ProfileConfiguration
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class CreateUsageProfileResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class ResourceUri(TypedDict, total=False):
     """The URIs for function resources."""
 
-    ResourceType: Optional[ResourceType]
-    Uri: Optional[URI]
+    ResourceType: ResourceType | None
+    Uri: URI | None
 
 
-ResourceUriList = List[ResourceUri]
+ResourceUriList = list[ResourceUri]
 
 
 class UserDefinedFunctionInput(TypedDict, total=False):
     """A structure used to create or update a user-defined function."""
 
-    FunctionName: Optional[NameString]
-    ClassName: Optional[NameString]
-    OwnerName: Optional[NameString]
-    OwnerType: Optional[PrincipalType]
-    ResourceUris: Optional[ResourceUriList]
+    FunctionName: NameString | None
+    ClassName: NameString | None
+    OwnerName: NameString | None
+    FunctionType: FunctionType | None
+    OwnerType: PrincipalType | None
+    ResourceUris: ResourceUriList | None
 
 
 class CreateUserDefinedFunctionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     FunctionInput: UserDefinedFunctionInput
 
@@ -6420,25 +6529,25 @@ class CreateUserDefinedFunctionResponse(TypedDict, total=False):
 
 class CreateWorkflowRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[WorkflowDescriptionString]
-    DefaultRunProperties: Optional[WorkflowRunProperties]
-    Tags: Optional[TagsMap]
-    MaxConcurrentRuns: Optional[NullableInteger]
+    Description: WorkflowDescriptionString | None
+    DefaultRunProperties: WorkflowRunProperties | None
+    Tags: TagsMap | None
+    MaxConcurrentRuns: NullableInteger | None
 
 
 class CreateWorkflowResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
-CustomProperties = Dict[String, String]
+CustomProperties = dict[String, String]
 
 
 class EncryptionAtRest(TypedDict, total=False):
     """Specifies the encryption-at-rest configuration for the Data Catalog."""
 
     CatalogEncryptionMode: CatalogEncryptionMode
-    SseAwsKmsKeyId: Optional[NameString]
-    CatalogEncryptionServiceRole: Optional[IAMRoleArn]
+    SseAwsKmsKeyId: NameString | None
+    CatalogEncryptionServiceRole: IAMRoleArn | None
 
 
 class DataCatalogEncryptionSettings(TypedDict, total=False):
@@ -6446,110 +6555,110 @@ class DataCatalogEncryptionSettings(TypedDict, total=False):
     security.
     """
 
-    EncryptionAtRest: Optional[EncryptionAtRest]
-    ConnectionPasswordEncryption: Optional[ConnectionPasswordEncryption]
+    EncryptionAtRest: EncryptionAtRest | None
+    ConnectionPasswordEncryption: ConnectionPasswordEncryption | None
 
 
 class DataQualityEvaluationRunAdditionalRunOptions(TypedDict, total=False):
     """Additional run options you can specify for an evaluation run."""
 
-    CloudWatchMetricsEnabled: Optional[NullableBoolean]
-    ResultsS3Prefix: Optional[UriString]
-    CompositeRuleEvaluationMethod: Optional[DQCompositeRuleEvaluationMethod]
+    CloudWatchMetricsEnabled: NullableBoolean | None
+    ResultsS3Prefix: UriString | None
+    CompositeRuleEvaluationMethod: DQCompositeRuleEvaluationMethod | None
 
 
 class DataQualityResultDescription(TypedDict, total=False):
     """Describes a data quality result."""
 
-    ResultId: Optional[HashString]
-    DataSource: Optional[DataSource]
-    JobName: Optional[NameString]
-    JobRunId: Optional[HashString]
-    StartedOn: Optional[Timestamp]
+    ResultId: HashString | None
+    DataSource: DataSource | None
+    JobName: NameString | None
+    JobRunId: HashString | None
+    StartedOn: Timestamp | None
 
 
-DataQualityResultDescriptionList = List[DataQualityResultDescription]
+DataQualityResultDescriptionList = list[DataQualityResultDescription]
 
 
 class DataQualityResultFilterCriteria(TypedDict, total=False):
     """Criteria used to return data quality results."""
 
-    DataSource: Optional[DataSource]
-    JobName: Optional[NameString]
-    JobRunId: Optional[HashString]
-    StartedAfter: Optional[Timestamp]
-    StartedBefore: Optional[Timestamp]
+    DataSource: DataSource | None
+    JobName: NameString | None
+    JobRunId: HashString | None
+    StartedAfter: Timestamp | None
+    StartedBefore: Timestamp | None
 
 
-DataQualityResultIdList = List[HashString]
+DataQualityResultIdList = list[HashString]
 
 
 class DataQualityRuleRecommendationRunDescription(TypedDict, total=False):
     """Describes the result of a data quality rule recommendation run."""
 
-    RunId: Optional[HashString]
-    Status: Optional[TaskStatusType]
-    StartedOn: Optional[Timestamp]
-    DataSource: Optional[DataSource]
+    RunId: HashString | None
+    Status: TaskStatusType | None
+    StartedOn: Timestamp | None
+    DataSource: DataSource | None
 
 
 class DataQualityRuleRecommendationRunFilter(TypedDict, total=False):
     """A filter for listing data quality recommendation runs."""
 
     DataSource: DataSource
-    StartedBefore: Optional[Timestamp]
-    StartedAfter: Optional[Timestamp]
+    StartedBefore: Timestamp | None
+    StartedAfter: Timestamp | None
 
 
-DataQualityRuleRecommendationRunList = List[DataQualityRuleRecommendationRunDescription]
+DataQualityRuleRecommendationRunList = list[DataQualityRuleRecommendationRunDescription]
 
 
 class DataQualityRulesetEvaluationRunDescription(TypedDict, total=False):
     """Describes the result of a data quality ruleset evaluation run."""
 
-    RunId: Optional[HashString]
-    Status: Optional[TaskStatusType]
-    StartedOn: Optional[Timestamp]
-    DataSource: Optional[DataSource]
+    RunId: HashString | None
+    Status: TaskStatusType | None
+    StartedOn: Timestamp | None
+    DataSource: DataSource | None
 
 
 class DataQualityRulesetEvaluationRunFilter(TypedDict, total=False):
     """The filter criteria."""
 
     DataSource: DataSource
-    StartedBefore: Optional[Timestamp]
-    StartedAfter: Optional[Timestamp]
+    StartedBefore: Timestamp | None
+    StartedAfter: Timestamp | None
 
 
-DataQualityRulesetEvaluationRunList = List[DataQualityRulesetEvaluationRunDescription]
+DataQualityRulesetEvaluationRunList = list[DataQualityRulesetEvaluationRunDescription]
 
 
 class DataQualityRulesetFilterCriteria(TypedDict, total=False):
     """The criteria used to filter data quality rulesets."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    CreatedBefore: Optional[Timestamp]
-    CreatedAfter: Optional[Timestamp]
-    LastModifiedBefore: Optional[Timestamp]
-    LastModifiedAfter: Optional[Timestamp]
-    TargetTable: Optional[DataQualityTargetTable]
+    Name: NameString | None
+    Description: DescriptionString | None
+    CreatedBefore: Timestamp | None
+    CreatedAfter: Timestamp | None
+    LastModifiedBefore: Timestamp | None
+    LastModifiedAfter: Timestamp | None
+    TargetTable: DataQualityTargetTable | None
 
 
 class DataQualityRulesetListDetails(TypedDict, total=False):
     """Describes a data quality ruleset returned by ``GetDataQualityRuleset``."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    CreatedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    TargetTable: Optional[DataQualityTargetTable]
-    RecommendationRunId: Optional[HashString]
-    RuleCount: Optional[NullableInteger]
+    Name: NameString | None
+    Description: DescriptionString | None
+    CreatedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    TargetTable: DataQualityTargetTable | None
+    RecommendationRunId: HashString | None
+    RuleCount: NullableInteger | None
 
 
-DataQualityRulesetList = List[DataQualityRulesetListDetails]
-DataSourceMap = Dict[NameString, DataSource]
+DataQualityRulesetList = list[DataQualityRulesetListDetails]
+DataSourceMap = dict[NameString, DataSource]
 
 
 class Database(TypedDict, total=False):
@@ -6558,18 +6667,18 @@ class Database(TypedDict, total=False):
     """
 
     Name: NameString
-    Description: Optional[DescriptionString]
-    LocationUri: Optional[URI]
-    Parameters: Optional[ParametersMap]
-    CreateTime: Optional[Timestamp]
-    CreateTableDefaultPermissions: Optional[PrincipalPermissionsList]
-    TargetDatabase: Optional[DatabaseIdentifier]
-    CatalogId: Optional[CatalogIdString]
-    FederatedDatabase: Optional[FederatedDatabase]
+    Description: DescriptionString | None
+    LocationUri: URI | None
+    Parameters: ParametersMap | None
+    CreateTime: Timestamp | None
+    CreateTableDefaultPermissions: PrincipalPermissionsList | None
+    TargetDatabase: DatabaseIdentifier | None
+    CatalogId: CatalogIdString | None
+    FederatedDatabase: FederatedDatabase | None
 
 
-DatabaseAttributesList = List[DatabaseAttributes]
-DatabaseList = List[Database]
+DatabaseAttributesList = list[DatabaseAttributes]
+DatabaseList = list[Database]
 
 
 class DeleteBlueprintRequest(ServiceRequest):
@@ -6577,7 +6686,7 @@ class DeleteBlueprintRequest(ServiceRequest):
 
 
 class DeleteBlueprintResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class DeleteCatalogRequest(ServiceRequest):
@@ -6597,7 +6706,7 @@ class DeleteClassifierResponse(TypedDict, total=False):
 
 
 class DeleteColumnStatisticsForPartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
@@ -6609,7 +6718,7 @@ class DeleteColumnStatisticsForPartitionResponse(TypedDict, total=False):
 
 
 class DeleteColumnStatisticsForTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     ColumnName: NameString
@@ -6629,7 +6738,7 @@ class DeleteColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
 
 
 class DeleteConnectionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     ConnectionName: NameString
 
 
@@ -6650,7 +6759,7 @@ class DeleteCustomEntityTypeRequest(ServiceRequest):
 
 
 class DeleteCustomEntityTypeResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class DeleteDataQualityRulesetRequest(ServiceRequest):
@@ -6662,7 +6771,7 @@ class DeleteDataQualityRulesetResponse(TypedDict, total=False):
 
 
 class DeleteDatabaseRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
 
 
@@ -6694,23 +6803,31 @@ class DeleteIntegrationRequest(ServiceRequest):
     IntegrationIdentifier: String128
 
 
+class DeleteIntegrationResourcePropertyRequest(ServiceRequest):
+    ResourceArn: String512
+
+
+class DeleteIntegrationResourcePropertyResponse(TypedDict, total=False):
+    pass
+
+
 class DeleteIntegrationResponse(TypedDict, total=False):
-    SourceArn: String128
-    TargetArn: String128
+    SourceArn: String512
+    TargetArn: String512
     IntegrationName: String128
-    Description: Optional[IntegrationDescription]
+    Description: IntegrationDescription | None
     IntegrationArn: String128
-    KmsKeyId: Optional[String2048]
-    AdditionalEncryptionContext: Optional[IntegrationAdditionalEncryptionContextMap]
-    Tags: Optional[IntegrationTagsList]
+    KmsKeyId: String2048 | None
+    AdditionalEncryptionContext: IntegrationAdditionalEncryptionContextMap | None
+    Tags: IntegrationTagsList | None
     Status: IntegrationStatus
     CreateTime: IntegrationTimestamp
-    Errors: Optional[IntegrationErrorList]
-    DataFilter: Optional[String2048]
+    Errors: IntegrationErrorList | None
+    DataFilter: String2048 | None
 
 
 class DeleteIntegrationTablePropertiesRequest(ServiceRequest):
-    ResourceArn: String128
+    ResourceArn: String512
     TableName: String128
 
 
@@ -6723,7 +6840,7 @@ class DeleteJobRequest(ServiceRequest):
 
 
 class DeleteJobResponse(TypedDict, total=False):
-    JobName: Optional[NameString]
+    JobName: NameString | None
 
 
 class DeleteMLTransformRequest(ServiceRequest):
@@ -6731,11 +6848,11 @@ class DeleteMLTransformRequest(ServiceRequest):
 
 
 class DeleteMLTransformResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
+    TransformId: HashString | None
 
 
 class DeletePartitionIndexRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     IndexName: NameString
@@ -6746,7 +6863,7 @@ class DeletePartitionIndexResponse(TypedDict, total=False):
 
 
 class DeletePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
@@ -6761,14 +6878,14 @@ class DeleteRegistryInput(ServiceRequest):
 
 
 class DeleteRegistryResponse(TypedDict, total=False):
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
-    Status: Optional[RegistryStatus]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
+    Status: RegistryStatus | None
 
 
 class DeleteResourcePolicyRequest(ServiceRequest):
-    PolicyHashCondition: Optional[HashString]
-    ResourceArn: Optional[GlueResourceArn]
+    PolicyHashCondition: HashString | None
+    ResourceArn: GlueResourceArn | None
 
 
 class DeleteResourcePolicyResponse(TypedDict, total=False):
@@ -6780,9 +6897,9 @@ class DeleteSchemaInput(ServiceRequest):
 
 
 class DeleteSchemaResponse(TypedDict, total=False):
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    Status: Optional[SchemaStatus]
+    SchemaArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    Status: SchemaStatus | None
 
 
 class DeleteSchemaVersionsInput(ServiceRequest):
@@ -6793,8 +6910,8 @@ class DeleteSchemaVersionsInput(ServiceRequest):
 class ErrorDetails(TypedDict, total=False):
     """An object containing error details."""
 
-    ErrorCode: Optional[ErrorCodeString]
-    ErrorMessage: Optional[ErrorMessageString]
+    ErrorCode: ErrorCodeString | None
+    ErrorMessage: ErrorMessageString | None
 
 
 class SchemaVersionErrorItem(TypedDict, total=False):
@@ -6802,15 +6919,15 @@ class SchemaVersionErrorItem(TypedDict, total=False):
     version.
     """
 
-    VersionNumber: Optional[VersionLongNumber]
-    ErrorDetails: Optional[ErrorDetails]
+    VersionNumber: VersionLongNumber | None
+    ErrorDetails: ErrorDetails | None
 
 
-SchemaVersionErrorList = List[SchemaVersionErrorItem]
+SchemaVersionErrorList = list[SchemaVersionErrorItem]
 
 
 class DeleteSchemaVersionsResponse(TypedDict, total=False):
-    SchemaVersionErrors: Optional[SchemaVersionErrorList]
+    SchemaVersionErrors: SchemaVersionErrorList | None
 
 
 class DeleteSecurityConfigurationRequest(ServiceRequest):
@@ -6823,11 +6940,11 @@ class DeleteSecurityConfigurationResponse(TypedDict, total=False):
 
 class DeleteSessionRequest(ServiceRequest):
     Id: NameString
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 class DeleteSessionResponse(TypedDict, total=False):
-    Id: Optional[NameString]
+    Id: NameString | None
 
 
 class DeleteTableOptimizerRequest(ServiceRequest):
@@ -6842,10 +6959,10 @@ class DeleteTableOptimizerResponse(TypedDict, total=False):
 
 
 class DeleteTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     Name: NameString
-    TransactionId: Optional[TransactionIdString]
+    TransactionId: TransactionIdString | None
 
 
 class DeleteTableResponse(TypedDict, total=False):
@@ -6853,7 +6970,7 @@ class DeleteTableResponse(TypedDict, total=False):
 
 
 class DeleteTableVersionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     VersionId: VersionString
@@ -6868,7 +6985,7 @@ class DeleteTriggerRequest(ServiceRequest):
 
 
 class DeleteTriggerResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class DeleteUsageProfileRequest(ServiceRequest):
@@ -6880,7 +6997,7 @@ class DeleteUsageProfileResponse(TypedDict, total=False):
 
 
 class DeleteUserDefinedFunctionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     FunctionName: NameString
 
@@ -6894,7 +7011,7 @@ class DeleteWorkflowRequest(ServiceRequest):
 
 
 class DeleteWorkflowResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class DescribeConnectionTypeRequest(ServiceRequest):
@@ -6902,28 +7019,28 @@ class DescribeConnectionTypeRequest(ServiceRequest):
 
 
 class DescribeConnectionTypeResponse(TypedDict, total=False):
-    ConnectionType: Optional[NameString]
-    Description: Optional[Description]
-    Capabilities: Optional[Capabilities]
-    ConnectionProperties: Optional[PropertiesMap]
-    ConnectionOptions: Optional[PropertiesMap]
-    AuthenticationConfiguration: Optional[AuthConfiguration]
-    ComputeEnvironmentConfigurations: Optional[ComputeEnvironmentConfigurationMap]
-    PhysicalConnectionRequirements: Optional[PropertiesMap]
-    AthenaConnectionProperties: Optional[PropertiesMap]
-    PythonConnectionProperties: Optional[PropertiesMap]
-    SparkConnectionProperties: Optional[PropertiesMap]
+    ConnectionType: NameString | None
+    Description: Description | None
+    Capabilities: Capabilities | None
+    ConnectionProperties: PropertiesMap | None
+    ConnectionOptions: PropertiesMap | None
+    AuthenticationConfiguration: AuthConfiguration | None
+    ComputeEnvironmentConfigurations: ComputeEnvironmentConfigurationMap | None
+    PhysicalConnectionRequirements: PropertiesMap | None
+    AthenaConnectionProperties: PropertiesMap | None
+    PythonConnectionProperties: PropertiesMap | None
+    SparkConnectionProperties: PropertiesMap | None
 
 
 class DescribeEntityRequest(ServiceRequest):
     ConnectionName: NameString
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     EntityName: EntityName
-    NextToken: Optional[NextToken]
-    DataStoreApiVersion: Optional[ApiVersion]
+    NextToken: NextToken | None
+    DataStoreApiVersion: ApiVersion | None
 
 
-FieldFilterOperatorsList = List[FieldFilterOperator]
+FieldFilterOperatorsList = list[FieldFilterOperator]
 
 
 class Field(TypedDict, total=False):
@@ -6931,62 +7048,62 @@ class Field(TypedDict, total=False):
     associated with a field in the connector.
     """
 
-    FieldName: Optional[EntityFieldName]
-    Label: Optional[FieldLabel]
-    Description: Optional[FieldDescription]
-    FieldType: Optional[FieldDataType]
-    IsPrimaryKey: Optional[Bool]
-    IsNullable: Optional[Bool]
-    IsRetrievable: Optional[Bool]
-    IsFilterable: Optional[Bool]
-    IsPartitionable: Optional[Bool]
-    IsCreateable: Optional[Bool]
-    IsUpdateable: Optional[Bool]
-    IsUpsertable: Optional[Bool]
-    IsDefaultOnCreate: Optional[Bool]
-    SupportedValues: Optional[ListOfString]
-    SupportedFilterOperators: Optional[FieldFilterOperatorsList]
-    ParentField: Optional[String]
-    NativeDataType: Optional[String]
-    CustomProperties: Optional[CustomProperties]
+    FieldName: EntityFieldName | None
+    Label: FieldLabel | None
+    Description: FieldDescription | None
+    FieldType: FieldDataType | None
+    IsPrimaryKey: Bool | None
+    IsNullable: Bool | None
+    IsRetrievable: Bool | None
+    IsFilterable: Bool | None
+    IsPartitionable: Bool | None
+    IsCreateable: Bool | None
+    IsUpdateable: Bool | None
+    IsUpsertable: Bool | None
+    IsDefaultOnCreate: Bool | None
+    SupportedValues: ListOfString | None
+    SupportedFilterOperators: FieldFilterOperatorsList | None
+    ParentField: String | None
+    NativeDataType: String | None
+    CustomProperties: CustomProperties | None
 
 
-FieldsList = List[Field]
+FieldsList = list[Field]
 
 
 class DescribeEntityResponse(TypedDict, total=False):
-    Fields: Optional[FieldsList]
-    NextToken: Optional[NextToken]
+    Fields: FieldsList | None
+    NextToken: NextToken | None
 
 
 class DescribeInboundIntegrationsRequest(ServiceRequest):
-    IntegrationArn: Optional[String128]
-    Marker: Optional[String128]
-    MaxRecords: Optional[IntegrationInteger]
-    TargetArn: Optional[String128]
+    IntegrationArn: String128 | None
+    Marker: String128 | None
+    MaxRecords: IntegrationInteger | None
+    TargetArn: String512 | None
 
 
 class InboundIntegration(TypedDict, total=False):
     """A structure for an integration that writes data into a resource."""
 
-    SourceArn: String128
-    TargetArn: String128
+    SourceArn: String512
+    TargetArn: String512
     IntegrationArn: String128
     Status: IntegrationStatus
     CreateTime: IntegrationTimestamp
-    IntegrationConfig: Optional[IntegrationConfig]
-    Errors: Optional[IntegrationErrorList]
+    IntegrationConfig: IntegrationConfig | None
+    Errors: IntegrationErrorList | None
 
 
-InboundIntegrationsList = List[InboundIntegration]
+InboundIntegrationsList = list[InboundIntegration]
 
 
 class DescribeInboundIntegrationsResponse(TypedDict, total=False):
-    InboundIntegrations: Optional[InboundIntegrationsList]
-    Marker: Optional[String128]
+    InboundIntegrations: InboundIntegrationsList | None
+    Marker: String128 | None
 
 
-IntegrationFilterValues = List[String128]
+IntegrationFilterValues = list[String128]
 
 
 class IntegrationFilter(TypedDict, total=False):
@@ -6994,68 +7111,68 @@ class IntegrationFilter(TypedDict, total=False):
     request.
     """
 
-    Name: Optional[String128]
-    Values: Optional[IntegrationFilterValues]
+    Name: String128 | None
+    Values: IntegrationFilterValues | None
 
 
-IntegrationFilterList = List[IntegrationFilter]
+IntegrationFilterList = list[IntegrationFilter]
 
 
 class DescribeIntegrationsRequest(ServiceRequest):
-    IntegrationIdentifier: Optional[String128]
-    Marker: Optional[String128]
-    MaxRecords: Optional[IntegrationInteger]
-    Filters: Optional[IntegrationFilterList]
+    IntegrationIdentifier: String128 | None
+    Marker: String128 | None
+    MaxRecords: IntegrationInteger | None
+    Filters: IntegrationFilterList | None
 
 
 class Integration(TypedDict, total=False):
     """Describes a zero-ETL integration."""
 
-    SourceArn: String128
-    TargetArn: String128
-    Description: Optional[IntegrationDescription]
+    SourceArn: String512
+    TargetArn: String512
+    Description: IntegrationDescription | None
     IntegrationName: String128
     IntegrationArn: String128
-    KmsKeyId: Optional[String2048]
-    AdditionalEncryptionContext: Optional[IntegrationAdditionalEncryptionContextMap]
-    Tags: Optional[IntegrationTagsList]
+    KmsKeyId: String2048 | None
+    AdditionalEncryptionContext: IntegrationAdditionalEncryptionContextMap | None
+    Tags: IntegrationTagsList | None
     Status: IntegrationStatus
     CreateTime: IntegrationTimestamp
-    IntegrationConfig: Optional[IntegrationConfig]
-    Errors: Optional[IntegrationErrorList]
-    DataFilter: Optional[String2048]
+    IntegrationConfig: IntegrationConfig | None
+    Errors: IntegrationErrorList | None
+    DataFilter: String2048 | None
 
 
-IntegrationsList = List[Integration]
+IntegrationsList = list[Integration]
 
 
 class DescribeIntegrationsResponse(TypedDict, total=False):
-    Integrations: Optional[IntegrationsList]
-    Marker: Optional[String128]
+    Integrations: IntegrationsList | None
+    Marker: String128 | None
 
 
 class DevEndpointCustomLibraries(TypedDict, total=False):
     """Custom libraries to be loaded into a development endpoint."""
 
-    ExtraPythonLibsS3Path: Optional[GenericString]
-    ExtraJarsS3Path: Optional[GenericString]
+    ExtraPythonLibsS3Path: GenericString | None
+    ExtraJarsS3Path: GenericString | None
 
 
-DevEndpointNameList = List[NameString]
+DevEndpointNameList = list[NameString]
 
 
 class Entity(TypedDict, total=False):
     """An entity supported by a given ``ConnectionType``."""
 
-    EntityName: Optional[EntityName]
-    Label: Optional[EntityLabel]
-    IsParentEntity: Optional[IsParentEntity]
-    Description: Optional[EntityDescription]
-    Category: Optional[Category]
-    CustomProperties: Optional[CustomProperties]
+    EntityName: EntityName | None
+    Label: EntityLabel | None
+    IsParentEntity: IsParentEntity | None
+    Description: EntityDescription | None
+    Category: Category | None
+    CustomProperties: CustomProperties | None
 
 
-EntityList = List[Entity]
+EntityList = list[Entity]
 
 
 class FindMatchesMetrics(TypedDict, total=False):
@@ -7066,12 +7183,12 @@ class FindMatchesMetrics(TypedDict, total=False):
     they are not precise.
     """
 
-    AreaUnderPRCurve: Optional[GenericBoundedDouble]
-    Precision: Optional[GenericBoundedDouble]
-    Recall: Optional[GenericBoundedDouble]
-    F1: Optional[GenericBoundedDouble]
-    ConfusionMatrix: Optional[ConfusionMatrix]
-    ColumnImportances: Optional[ColumnImportanceList]
+    AreaUnderPRCurve: GenericBoundedDouble | None
+    Precision: GenericBoundedDouble | None
+    Recall: GenericBoundedDouble | None
+    F1: GenericBoundedDouble | None
+    ConfusionMatrix: ConfusionMatrix | None
+    ColumnImportances: ColumnImportanceList | None
 
 
 class EvaluationMetrics(TypedDict, total=False):
@@ -7080,40 +7197,40 @@ class EvaluationMetrics(TypedDict, total=False):
     """
 
     TransformType: TransformType
-    FindMatchesMetrics: Optional[FindMatchesMetrics]
+    FindMatchesMetrics: FindMatchesMetrics | None
 
 
 class ExportLabelsTaskRunProperties(TypedDict, total=False):
     """Specifies configuration properties for an exporting labels task run."""
 
-    OutputS3Path: Optional[UriString]
+    OutputS3Path: UriString | None
 
 
 class FederatedTable(TypedDict, total=False):
     """A table that points to an entity outside the Glue Data Catalog."""
 
-    Identifier: Optional[FederationIdentifier]
-    DatabaseIdentifier: Optional[FederationIdentifier]
-    ConnectionName: Optional[NameString]
-    ConnectionType: Optional[NameString]
+    Identifier: FederationIdentifier | None
+    DatabaseIdentifier: FederationIdentifier | None
+    ConnectionName: NameString | None
+    ConnectionType: NameString | None
 
 
 class FindMatchesTaskRunProperties(TypedDict, total=False):
     """Specifies configuration properties for a Find Matches task run."""
 
-    JobId: Optional[HashString]
-    JobName: Optional[NameString]
-    JobRunId: Optional[HashString]
+    JobId: HashString | None
+    JobName: NameString | None
+    JobRunId: HashString | None
 
 
 class GetBlueprintRequest(ServiceRequest):
     Name: NameString
-    IncludeBlueprint: Optional[NullableBoolean]
-    IncludeParameterSpec: Optional[NullableBoolean]
+    IncludeBlueprint: NullableBoolean | None
+    IncludeParameterSpec: NullableBoolean | None
 
 
 class GetBlueprintResponse(TypedDict, total=False):
-    Blueprint: Optional[Blueprint]
+    Blueprint: Blueprint | None
 
 
 class GetBlueprintRunRequest(ServiceRequest):
@@ -7122,26 +7239,26 @@ class GetBlueprintRunRequest(ServiceRequest):
 
 
 class GetBlueprintRunResponse(TypedDict, total=False):
-    BlueprintRun: Optional[BlueprintRun]
+    BlueprintRun: BlueprintRun | None
 
 
 class GetBlueprintRunsRequest(ServiceRequest):
     BlueprintName: NameString
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[PageSize]
+    NextToken: GenericString | None
+    MaxResults: PageSize | None
 
 
 class GetBlueprintRunsResponse(TypedDict, total=False):
-    BlueprintRuns: Optional[BlueprintRuns]
-    NextToken: Optional[GenericString]
+    BlueprintRuns: BlueprintRuns | None
+    NextToken: GenericString | None
 
 
 class GetCatalogImportStatusRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class GetCatalogImportStatusResponse(TypedDict, total=False):
-    ImportStatus: Optional[CatalogImportStatus]
+    ImportStatus: CatalogImportStatus | None
 
 
 class GetCatalogRequest(ServiceRequest):
@@ -7149,20 +7266,20 @@ class GetCatalogRequest(ServiceRequest):
 
 
 class GetCatalogResponse(TypedDict, total=False):
-    Catalog: Optional[Catalog]
+    Catalog: Catalog | None
 
 
 class GetCatalogsRequest(ServiceRequest):
-    ParentCatalogId: Optional[CatalogIdString]
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
-    Recursive: Optional[Boolean]
-    IncludeRoot: Optional[NullableBoolean]
+    ParentCatalogId: CatalogIdString | None
+    NextToken: Token | None
+    MaxResults: PageSize | None
+    Recursive: Boolean | None
+    IncludeRoot: NullableBoolean | None
 
 
 class GetCatalogsResponse(TypedDict, total=False):
     CatalogList: CatalogList
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class GetClassifierRequest(ServiceRequest):
@@ -7170,24 +7287,24 @@ class GetClassifierRequest(ServiceRequest):
 
 
 class GetClassifierResponse(TypedDict, total=False):
-    Classifier: Optional[Classifier]
+    Classifier: Classifier | None
 
 
 class GetClassifiersRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class GetClassifiersResponse(TypedDict, total=False):
-    Classifiers: Optional[ClassifierList]
-    NextToken: Optional[Token]
+    Classifiers: ClassifierList | None
+    NextToken: Token | None
 
 
-GetColumnNamesList = List[NameString]
+GetColumnNamesList = list[NameString]
 
 
 class GetColumnStatisticsForPartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
@@ -7195,20 +7312,20 @@ class GetColumnStatisticsForPartitionRequest(ServiceRequest):
 
 
 class GetColumnStatisticsForPartitionResponse(TypedDict, total=False):
-    ColumnStatisticsList: Optional[ColumnStatisticsList]
-    Errors: Optional[ColumnErrors]
+    ColumnStatisticsList: ColumnStatisticsList | None
+    Errors: ColumnErrors | None
 
 
 class GetColumnStatisticsForTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     ColumnNames: GetColumnNamesList
 
 
 class GetColumnStatisticsForTableResponse(TypedDict, total=False):
-    ColumnStatisticsList: Optional[ColumnStatisticsList]
-    Errors: Optional[ColumnErrors]
+    ColumnStatisticsList: ColumnStatisticsList | None
+    Errors: ColumnErrors | None
 
 
 class GetColumnStatisticsTaskRunRequest(ServiceRequest):
@@ -7216,19 +7333,19 @@ class GetColumnStatisticsTaskRunRequest(ServiceRequest):
 
 
 class GetColumnStatisticsTaskRunResponse(TypedDict, total=False):
-    ColumnStatisticsTaskRun: Optional[ColumnStatisticsTaskRun]
+    ColumnStatisticsTaskRun: ColumnStatisticsTaskRun | None
 
 
 class GetColumnStatisticsTaskRunsRequest(ServiceRequest):
     DatabaseName: DatabaseName
     TableName: NameString
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class GetColumnStatisticsTaskRunsResponse(TypedDict, total=False):
-    ColumnStatisticsTaskRuns: Optional[ColumnStatisticsTaskRunsList]
-    NextToken: Optional[Token]
+    ColumnStatisticsTaskRuns: ColumnStatisticsTaskRunsList | None
+    NextToken: Token | None
 
 
 class GetColumnStatisticsTaskSettingsRequest(ServiceRequest):
@@ -7237,18 +7354,18 @@ class GetColumnStatisticsTaskSettingsRequest(ServiceRequest):
 
 
 class GetColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
-    ColumnStatisticsTaskSettings: Optional[ColumnStatisticsTaskSettings]
+    ColumnStatisticsTaskSettings: ColumnStatisticsTaskSettings | None
 
 
 class GetConnectionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
-    HidePassword: Optional[Boolean]
-    ApplyOverrideForComputeEnvironment: Optional[ComputeEnvironment]
+    HidePassword: Boolean | None
+    ApplyOverrideForComputeEnvironment: ComputeEnvironment | None
 
 
 class GetConnectionResponse(TypedDict, total=False):
-    Connection: Optional[Connection]
+    Connection: Connection | None
 
 
 class GetConnectionsFilter(TypedDict, total=False):
@@ -7256,33 +7373,33 @@ class GetConnectionsFilter(TypedDict, total=False):
     ``GetConnections`` API operation.
     """
 
-    MatchCriteria: Optional[MatchCriteria]
-    ConnectionType: Optional[ConnectionType]
-    ConnectionSchemaVersion: Optional[ConnectionSchemaVersion]
+    MatchCriteria: MatchCriteria | None
+    ConnectionType: ConnectionType | None
+    ConnectionSchemaVersion: ConnectionSchemaVersion | None
 
 
 class GetConnectionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    Filter: Optional[GetConnectionsFilter]
-    HidePassword: Optional[Boolean]
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
+    CatalogId: CatalogIdString | None
+    Filter: GetConnectionsFilter | None
+    HidePassword: Boolean | None
+    NextToken: Token | None
+    MaxResults: PageSize | None
 
 
 class GetConnectionsResponse(TypedDict, total=False):
-    ConnectionList: Optional[ConnectionList]
-    NextToken: Optional[Token]
+    ConnectionList: ConnectionList | None
+    NextToken: Token | None
 
 
 class GetCrawlerMetricsRequest(ServiceRequest):
-    CrawlerNameList: Optional[CrawlerNameList]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    CrawlerNameList: CrawlerNameList | None
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class GetCrawlerMetricsResponse(TypedDict, total=False):
-    CrawlerMetricsList: Optional[CrawlerMetricsList]
-    NextToken: Optional[Token]
+    CrawlerMetricsList: CrawlerMetricsList | None
+    NextToken: Token | None
 
 
 class GetCrawlerRequest(ServiceRequest):
@@ -7290,17 +7407,17 @@ class GetCrawlerRequest(ServiceRequest):
 
 
 class GetCrawlerResponse(TypedDict, total=False):
-    Crawler: Optional[Crawler]
+    Crawler: Crawler | None
 
 
 class GetCrawlersRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class GetCrawlersResponse(TypedDict, total=False):
-    Crawlers: Optional[CrawlerList]
-    NextToken: Optional[Token]
+    Crawlers: CrawlerList | None
+    NextToken: Token | None
 
 
 class GetCustomEntityTypeRequest(ServiceRequest):
@@ -7308,29 +7425,29 @@ class GetCustomEntityTypeRequest(ServiceRequest):
 
 
 class GetCustomEntityTypeResponse(TypedDict, total=False):
-    Name: Optional[NameString]
-    RegexString: Optional[NameString]
-    ContextWords: Optional[ContextWords]
+    Name: NameString | None
+    RegexString: NameString | None
+    ContextWords: ContextWords | None
 
 
 class GetDataCatalogEncryptionSettingsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class GetDataCatalogEncryptionSettingsResponse(TypedDict, total=False):
-    DataCatalogEncryptionSettings: Optional[DataCatalogEncryptionSettings]
+    DataCatalogEncryptionSettings: DataCatalogEncryptionSettings | None
 
 
 class GetDataQualityModelRequest(ServiceRequest):
-    StatisticId: Optional[HashString]
+    StatisticId: HashString | None
     ProfileId: HashString
 
 
 class GetDataQualityModelResponse(TypedDict, total=False):
-    Status: Optional[DataQualityModelStatus]
-    StartedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    FailureReason: Optional[HashString]
+    Status: DataQualityModelStatus | None
+    StartedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    FailureReason: HashString | None
 
 
 class GetDataQualityModelResultRequest(ServiceRequest):
@@ -7341,20 +7458,20 @@ class GetDataQualityModelResultRequest(ServiceRequest):
 class StatisticModelResult(TypedDict, total=False):
     """The statistic model result."""
 
-    LowerBound: Optional[NullableDouble]
-    UpperBound: Optional[NullableDouble]
-    PredictedValue: Optional[NullableDouble]
-    ActualValue: Optional[NullableDouble]
-    Date: Optional[Timestamp]
-    InclusionAnnotation: Optional[InclusionAnnotationValue]
+    LowerBound: NullableDouble | None
+    UpperBound: NullableDouble | None
+    PredictedValue: NullableDouble | None
+    ActualValue: NullableDouble | None
+    Date: Timestamp | None
+    InclusionAnnotation: InclusionAnnotationValue | None
 
 
-StatisticModelResults = List[StatisticModelResult]
+StatisticModelResults = list[StatisticModelResult]
 
 
 class GetDataQualityModelResultResponse(TypedDict, total=False):
-    CompletedOn: Optional[Timestamp]
-    Model: Optional[StatisticModelResults]
+    CompletedOn: Timestamp | None
+    Model: StatisticModelResults | None
 
 
 class GetDataQualityResultRequest(ServiceRequest):
@@ -7364,21 +7481,21 @@ class GetDataQualityResultRequest(ServiceRequest):
 class GetDataQualityResultResponse(TypedDict, total=False):
     """The response for the data quality result."""
 
-    ResultId: Optional[HashString]
-    ProfileId: Optional[HashString]
-    Score: Optional[GenericBoundedDouble]
-    DataSource: Optional[DataSource]
-    RulesetName: Optional[NameString]
-    EvaluationContext: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    JobName: Optional[NameString]
-    JobRunId: Optional[HashString]
-    RulesetEvaluationRunId: Optional[HashString]
-    RuleResults: Optional[DataQualityRuleResults]
-    AnalyzerResults: Optional[DataQualityAnalyzerResults]
-    Observations: Optional[DataQualityObservations]
-    AggregatedMetrics: Optional[DataQualityAggregatedMetrics]
+    ResultId: HashString | None
+    ProfileId: HashString | None
+    Score: GenericBoundedDouble | None
+    DataSource: DataSource | None
+    RulesetName: NameString | None
+    EvaluationContext: GenericString | None
+    StartedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    JobName: NameString | None
+    JobRunId: HashString | None
+    RulesetEvaluationRunId: HashString | None
+    RuleResults: DataQualityRuleResults | None
+    AnalyzerResults: DataQualityAnalyzerResults | None
+    Observations: DataQualityObservations | None
+    AggregatedMetrics: DataQualityAggregatedMetrics | None
 
 
 class GetDataQualityRuleRecommendationRunRequest(ServiceRequest):
@@ -7388,45 +7505,45 @@ class GetDataQualityRuleRecommendationRunRequest(ServiceRequest):
 class GetDataQualityRuleRecommendationRunResponse(TypedDict, total=False):
     """The response for the Data Quality rule recommendation run."""
 
-    RunId: Optional[HashString]
-    DataSource: Optional[DataSource]
-    Role: Optional[RoleString]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    Status: Optional[TaskStatusType]
-    ErrorString: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    ExecutionTime: Optional[ExecutionTime]
-    RecommendedRuleset: Optional[DataQualityRulesetString]
-    CreatedRulesetName: Optional[NameString]
-    DataQualitySecurityConfiguration: Optional[NameString]
+    RunId: HashString | None
+    DataSource: DataSource | None
+    Role: RoleString | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    Status: TaskStatusType | None
+    ErrorString: GenericString | None
+    StartedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    ExecutionTime: ExecutionTime | None
+    RecommendedRuleset: DataQualityRulesetString | None
+    CreatedRulesetName: NameString | None
+    DataQualitySecurityConfiguration: NameString | None
 
 
 class GetDataQualityRulesetEvaluationRunRequest(ServiceRequest):
     RunId: HashString
 
 
-RulesetNames = List[NameString]
+RulesetNames = list[NameString]
 
 
 class GetDataQualityRulesetEvaluationRunResponse(TypedDict, total=False):
-    RunId: Optional[HashString]
-    DataSource: Optional[DataSource]
-    Role: Optional[RoleString]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    AdditionalRunOptions: Optional[DataQualityEvaluationRunAdditionalRunOptions]
-    Status: Optional[TaskStatusType]
-    ErrorString: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    ExecutionTime: Optional[ExecutionTime]
-    RulesetNames: Optional[RulesetNames]
-    ResultIds: Optional[DataQualityResultIdList]
-    AdditionalDataSources: Optional[DataSourceMap]
+    RunId: HashString | None
+    DataSource: DataSource | None
+    Role: RoleString | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    AdditionalRunOptions: DataQualityEvaluationRunAdditionalRunOptions | None
+    Status: TaskStatusType | None
+    ErrorString: GenericString | None
+    StartedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    ExecutionTime: ExecutionTime | None
+    RulesetNames: RulesetNames | None
+    ResultIds: DataQualityResultIdList | None
+    AdditionalDataSources: DataSourceMap | None
 
 
 class GetDataQualityRulesetRequest(ServiceRequest):
@@ -7436,45 +7553,45 @@ class GetDataQualityRulesetRequest(ServiceRequest):
 class GetDataQualityRulesetResponse(TypedDict, total=False):
     """Returns the data quality ruleset response."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Ruleset: Optional[DataQualityRulesetString]
-    TargetTable: Optional[DataQualityTargetTable]
-    CreatedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    RecommendationRunId: Optional[HashString]
-    DataQualitySecurityConfiguration: Optional[NameString]
+    Name: NameString | None
+    Description: DescriptionString | None
+    Ruleset: DataQualityRulesetString | None
+    TargetTable: DataQualityTargetTable | None
+    CreatedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    RecommendationRunId: HashString | None
+    DataQualitySecurityConfiguration: NameString | None
 
 
 class GetDatabaseRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
 
 
 class GetDatabaseResponse(TypedDict, total=False):
-    Database: Optional[Database]
+    Database: Database | None
 
 
 class GetDatabasesRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    NextToken: Optional[Token]
-    MaxResults: Optional[CatalogGetterPageSize]
-    ResourceShareType: Optional[ResourceShareType]
-    AttributesToGet: Optional[DatabaseAttributesList]
+    CatalogId: CatalogIdString | None
+    NextToken: Token | None
+    MaxResults: CatalogGetterPageSize | None
+    ResourceShareType: ResourceShareType | None
+    AttributesToGet: DatabaseAttributesList | None
 
 
 class GetDatabasesResponse(TypedDict, total=False):
     DatabaseList: DatabaseList
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class GetDataflowGraphRequest(ServiceRequest):
-    PythonScript: Optional[PythonScript]
+    PythonScript: PythonScript | None
 
 
 class GetDataflowGraphResponse(TypedDict, total=False):
-    DagNodes: Optional[DagNodes]
-    DagEdges: Optional[DagEdges]
+    DagNodes: DagNodes | None
+    DagEdges: DagEdges | None
 
 
 class GetDevEndpointRequest(ServiceRequest):
@@ -7482,46 +7599,46 @@ class GetDevEndpointRequest(ServiceRequest):
 
 
 class GetDevEndpointResponse(TypedDict, total=False):
-    DevEndpoint: Optional[DevEndpoint]
+    DevEndpoint: DevEndpoint | None
 
 
 class GetDevEndpointsRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[GenericString]
+    MaxResults: PageSize | None
+    NextToken: GenericString | None
 
 
 class GetDevEndpointsResponse(TypedDict, total=False):
-    DevEndpoints: Optional[DevEndpointList]
-    NextToken: Optional[GenericString]
+    DevEndpoints: DevEndpointList | None
+    NextToken: GenericString | None
 
 
-SelectedFields = List[EntityFieldName]
+SelectedFields = list[EntityFieldName]
 Limit = int
 
 
 class GetEntityRecordsRequest(ServiceRequest):
-    ConnectionName: Optional[NameString]
-    CatalogId: Optional[CatalogIdString]
+    ConnectionName: NameString | None
+    CatalogId: CatalogIdString | None
     EntityName: EntityName
-    NextToken: Optional[NextToken]
-    DataStoreApiVersion: Optional[ApiVersion]
-    ConnectionOptions: Optional[ConnectionOptions]
-    FilterPredicate: Optional[FilterPredicate]
+    NextToken: NextToken | None
+    DataStoreApiVersion: ApiVersion | None
+    ConnectionOptions: ConnectionOptions | None
+    FilterPredicate: FilterPredicate | None
     Limit: Limit
-    OrderBy: Optional[String]
-    SelectedFields: Optional[SelectedFields]
+    OrderBy: String | None
+    SelectedFields: SelectedFields | None
 
 
 class Record(TypedDict, total=False):
     pass
 
 
-Records = List[Record]
+Records = list[Record]
 
 
 class GetEntityRecordsResponse(TypedDict, total=False):
-    Records: Optional[Records]
-    NextToken: Optional[NextToken]
+    Records: Records | None
+    NextToken: NextToken | None
 
 
 class GetGlueIdentityCenterConfigurationRequest(ServiceRequest):
@@ -7530,58 +7647,60 @@ class GetGlueIdentityCenterConfigurationRequest(ServiceRequest):
     pass
 
 
-OrchestrationStringList = List[GenericString]
+OrchestrationStringList = list[GenericString]
 
 
 class GetGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
     """Response containing the Glue Identity Center configuration details."""
 
-    ApplicationArn: Optional[ApplicationArn]
-    InstanceArn: Optional[IdentityCenterInstanceArn]
-    Scopes: Optional[OrchestrationStringList]
+    ApplicationArn: ApplicationArn | None
+    InstanceArn: IdentityCenterInstanceArn | None
+    Scopes: OrchestrationStringList | None
+    UserBackgroundSessionsEnabled: NullableBoolean | None
 
 
 class GetIntegrationResourcePropertyRequest(ServiceRequest):
-    ResourceArn: String128
+    ResourceArn: String512
 
 
 class GetIntegrationResourcePropertyResponse(TypedDict, total=False):
-    ResourceArn: Optional[String128]
-    SourceProcessingProperties: Optional[SourceProcessingProperties]
-    TargetProcessingProperties: Optional[TargetProcessingProperties]
+    ResourceArn: String512 | None
+    ResourcePropertyArn: String512 | None
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
 
 
 class GetIntegrationTablePropertiesRequest(ServiceRequest):
-    ResourceArn: String128
+    ResourceArn: String512
     TableName: String128
 
 
 class GetIntegrationTablePropertiesResponse(TypedDict, total=False):
-    ResourceArn: Optional[String128]
-    TableName: Optional[String128]
-    SourceTableConfig: Optional[SourceTableConfig]
-    TargetTableConfig: Optional[TargetTableConfig]
+    ResourceArn: String512 | None
+    TableName: String128 | None
+    SourceTableConfig: SourceTableConfig | None
+    TargetTableConfig: TargetTableConfig | None
 
 
 class GetJobBookmarkRequest(ServiceRequest):
     JobName: JobName
-    RunId: Optional[RunId]
+    RunId: RunId | None
 
 
 class JobBookmarkEntry(TypedDict, total=False):
     """Defines a point that a job can resume processing."""
 
-    JobName: Optional[JobName]
-    Version: Optional[IntegerValue]
-    Run: Optional[IntegerValue]
-    Attempt: Optional[IntegerValue]
-    PreviousRunId: Optional[RunId]
-    RunId: Optional[RunId]
-    JobBookmark: Optional[JsonValue]
+    JobName: JobName | None
+    Version: IntegerValue | None
+    Run: IntegerValue | None
+    Attempt: IntegerValue | None
+    PreviousRunId: RunId | None
+    RunId: RunId | None
+    JobBookmark: JsonValue | None
 
 
 class GetJobBookmarkResponse(TypedDict, total=False):
-    JobBookmarkEntry: Optional[JobBookmarkEntry]
+    JobBookmarkEntry: JobBookmarkEntry | None
 
 
 class GetJobRequest(ServiceRequest):
@@ -7589,38 +7708,38 @@ class GetJobRequest(ServiceRequest):
 
 
 class GetJobResponse(TypedDict, total=False):
-    Job: Optional[Job]
+    Job: Job | None
 
 
 class GetJobRunRequest(ServiceRequest):
     JobName: NameString
     RunId: IdString
-    PredecessorsIncluded: Optional[BooleanValue]
+    PredecessorsIncluded: BooleanValue | None
 
 
 class GetJobRunResponse(TypedDict, total=False):
-    JobRun: Optional[JobRun]
+    JobRun: JobRun | None
 
 
 class GetJobRunsRequest(ServiceRequest):
     JobName: NameString
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[OrchestrationPageSize200]
+    NextToken: GenericString | None
+    MaxResults: OrchestrationPageSize200 | None
 
 
 class GetJobRunsResponse(TypedDict, total=False):
-    JobRuns: Optional[JobRunList]
-    NextToken: Optional[GenericString]
+    JobRuns: JobRunList | None
+    NextToken: GenericString | None
 
 
 class GetJobsRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[PageSize]
+    NextToken: GenericString | None
+    MaxResults: PageSize | None
 
 
 class GetJobsResponse(TypedDict, total=False):
-    Jobs: Optional[JobList]
-    NextToken: Optional[GenericString]
+    Jobs: JobList | None
+    NextToken: GenericString | None
 
 
 class GetMLTaskRunRequest(ServiceRequest):
@@ -7633,37 +7752,37 @@ class LabelingSetGenerationTaskRunProperties(TypedDict, total=False):
     run.
     """
 
-    OutputS3Path: Optional[UriString]
+    OutputS3Path: UriString | None
 
 
 class ImportLabelsTaskRunProperties(TypedDict, total=False):
     """Specifies configuration properties for an importing labels task run."""
 
-    InputS3Path: Optional[UriString]
-    Replace: Optional[ReplaceBoolean]
+    InputS3Path: UriString | None
+    Replace: ReplaceBoolean | None
 
 
 class TaskRunProperties(TypedDict, total=False):
     """The configuration properties for the task run."""
 
-    TaskType: Optional[TaskType]
-    ImportLabelsTaskRunProperties: Optional[ImportLabelsTaskRunProperties]
-    ExportLabelsTaskRunProperties: Optional[ExportLabelsTaskRunProperties]
-    LabelingSetGenerationTaskRunProperties: Optional[LabelingSetGenerationTaskRunProperties]
-    FindMatchesTaskRunProperties: Optional[FindMatchesTaskRunProperties]
+    TaskType: TaskType | None
+    ImportLabelsTaskRunProperties: ImportLabelsTaskRunProperties | None
+    ExportLabelsTaskRunProperties: ExportLabelsTaskRunProperties | None
+    LabelingSetGenerationTaskRunProperties: LabelingSetGenerationTaskRunProperties | None
+    FindMatchesTaskRunProperties: FindMatchesTaskRunProperties | None
 
 
 class GetMLTaskRunResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
-    TaskRunId: Optional[HashString]
-    Status: Optional[TaskStatusType]
-    LogGroupName: Optional[GenericString]
-    Properties: Optional[TaskRunProperties]
-    ErrorString: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    ExecutionTime: Optional[ExecutionTime]
+    TransformId: HashString | None
+    TaskRunId: HashString | None
+    Status: TaskStatusType | None
+    LogGroupName: GenericString | None
+    Properties: TaskRunProperties | None
+    ErrorString: GenericString | None
+    StartedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    ExecutionTime: ExecutionTime | None
 
 
 class TaskRunSortCriteria(TypedDict, total=False):
@@ -7680,18 +7799,18 @@ class TaskRunFilterCriteria(TypedDict, total=False):
     learning transform.
     """
 
-    TaskRunType: Optional[TaskType]
-    Status: Optional[TaskStatusType]
-    StartedBefore: Optional[Timestamp]
-    StartedAfter: Optional[Timestamp]
+    TaskRunType: TaskType | None
+    Status: TaskStatusType | None
+    StartedBefore: Timestamp | None
+    StartedAfter: Timestamp | None
 
 
 class GetMLTaskRunsRequest(ServiceRequest):
     TransformId: HashString
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
-    Filter: Optional[TaskRunFilterCriteria]
-    Sort: Optional[TaskRunSortCriteria]
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
+    Filter: TaskRunFilterCriteria | None
+    Sort: TaskRunSortCriteria | None
 
 
 class TaskRun(TypedDict, total=False):
@@ -7699,24 +7818,24 @@ class TaskRun(TypedDict, total=False):
     transform.
     """
 
-    TransformId: Optional[HashString]
-    TaskRunId: Optional[HashString]
-    Status: Optional[TaskStatusType]
-    LogGroupName: Optional[GenericString]
-    Properties: Optional[TaskRunProperties]
-    ErrorString: Optional[GenericString]
-    StartedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    CompletedOn: Optional[Timestamp]
-    ExecutionTime: Optional[ExecutionTime]
+    TransformId: HashString | None
+    TaskRunId: HashString | None
+    Status: TaskStatusType | None
+    LogGroupName: GenericString | None
+    Properties: TaskRunProperties | None
+    ErrorString: GenericString | None
+    StartedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    CompletedOn: Timestamp | None
+    ExecutionTime: ExecutionTime | None
 
 
-TaskRunList = List[TaskRun]
+TaskRunList = list[TaskRun]
 
 
 class GetMLTaskRunsResponse(TypedDict, total=False):
-    TaskRuns: Optional[TaskRunList]
-    NextToken: Optional[PaginationToken]
+    TaskRuns: TaskRunList | None
+    NextToken: PaginationToken | None
 
 
 class GetMLTransformRequest(ServiceRequest):
@@ -7729,33 +7848,33 @@ class SchemaColumn(TypedDict, total=False):
     contain up to 100 of these structures.
     """
 
-    Name: Optional[ColumnNameString]
-    DataType: Optional[ColumnTypeString]
+    Name: ColumnNameString | None
+    DataType: ColumnTypeString | None
 
 
-TransformSchema = List[SchemaColumn]
+TransformSchema = list[SchemaColumn]
 
 
 class GetMLTransformResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Status: Optional[TransformStatusType]
-    CreatedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    InputRecordTables: Optional[GlueTables]
-    Parameters: Optional[TransformParameters]
-    EvaluationMetrics: Optional[EvaluationMetrics]
-    LabelCount: Optional[LabelCount]
-    Schema: Optional[TransformSchema]
-    Role: Optional[RoleString]
-    GlueVersion: Optional[GlueVersionString]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    MaxRetries: Optional[NullableInteger]
-    TransformEncryption: Optional[TransformEncryption]
+    TransformId: HashString | None
+    Name: NameString | None
+    Description: DescriptionString | None
+    Status: TransformStatusType | None
+    CreatedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    InputRecordTables: GlueTables | None
+    Parameters: TransformParameters | None
+    EvaluationMetrics: EvaluationMetrics | None
+    LabelCount: LabelCount | None
+    Schema: TransformSchema | None
+    Role: RoleString | None
+    GlueVersion: GlueVersionString | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    MaxRetries: NullableInteger | None
+    TransformEncryption: TransformEncryption | None
 
 
 class TransformSortCriteria(TypedDict, total=False):
@@ -7770,82 +7889,82 @@ class TransformSortCriteria(TypedDict, total=False):
 class TransformFilterCriteria(TypedDict, total=False):
     """The criteria used to filter the machine learning transforms."""
 
-    Name: Optional[NameString]
-    TransformType: Optional[TransformType]
-    Status: Optional[TransformStatusType]
-    GlueVersion: Optional[GlueVersionString]
-    CreatedBefore: Optional[Timestamp]
-    CreatedAfter: Optional[Timestamp]
-    LastModifiedBefore: Optional[Timestamp]
-    LastModifiedAfter: Optional[Timestamp]
-    Schema: Optional[TransformSchema]
+    Name: NameString | None
+    TransformType: TransformType | None
+    Status: TransformStatusType | None
+    GlueVersion: GlueVersionString | None
+    CreatedBefore: Timestamp | None
+    CreatedAfter: Timestamp | None
+    LastModifiedBefore: Timestamp | None
+    LastModifiedAfter: Timestamp | None
+    Schema: TransformSchema | None
 
 
 class GetMLTransformsRequest(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
-    Filter: Optional[TransformFilterCriteria]
-    Sort: Optional[TransformSortCriteria]
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
+    Filter: TransformFilterCriteria | None
+    Sort: TransformSortCriteria | None
 
 
 class MLTransform(TypedDict, total=False):
     """A structure for a machine learning transform."""
 
-    TransformId: Optional[HashString]
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Status: Optional[TransformStatusType]
-    CreatedOn: Optional[Timestamp]
-    LastModifiedOn: Optional[Timestamp]
-    InputRecordTables: Optional[GlueTables]
-    Parameters: Optional[TransformParameters]
-    EvaluationMetrics: Optional[EvaluationMetrics]
-    LabelCount: Optional[LabelCount]
-    Schema: Optional[TransformSchema]
-    Role: Optional[RoleString]
-    GlueVersion: Optional[GlueVersionString]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    MaxRetries: Optional[NullableInteger]
-    TransformEncryption: Optional[TransformEncryption]
+    TransformId: HashString | None
+    Name: NameString | None
+    Description: DescriptionString | None
+    Status: TransformStatusType | None
+    CreatedOn: Timestamp | None
+    LastModifiedOn: Timestamp | None
+    InputRecordTables: GlueTables | None
+    Parameters: TransformParameters | None
+    EvaluationMetrics: EvaluationMetrics | None
+    LabelCount: LabelCount | None
+    Schema: TransformSchema | None
+    Role: RoleString | None
+    GlueVersion: GlueVersionString | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    MaxRetries: NullableInteger | None
+    TransformEncryption: TransformEncryption | None
 
 
-TransformList = List[MLTransform]
+TransformList = list[MLTransform]
 
 
 class GetMLTransformsResponse(TypedDict, total=False):
     Transforms: TransformList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class Location(TypedDict, total=False):
     """The location of resources."""
 
-    Jdbc: Optional[CodeGenNodeArgs]
-    S3: Optional[CodeGenNodeArgs]
-    DynamoDB: Optional[CodeGenNodeArgs]
+    Jdbc: CodeGenNodeArgs | None
+    S3: CodeGenNodeArgs | None
+    DynamoDB: CodeGenNodeArgs | None
 
 
 class GetMappingRequest(ServiceRequest):
     Source: CatalogEntry
-    Sinks: Optional[CatalogEntries]
-    Location: Optional[Location]
+    Sinks: CatalogEntries | None
+    Location: Location | None
 
 
 class MappingEntry(TypedDict, total=False):
     """Defines a mapping."""
 
-    SourceTable: Optional[TableName]
-    SourcePath: Optional[SchemaPathString]
-    SourceType: Optional[FieldType]
-    TargetTable: Optional[TableName]
-    TargetPath: Optional[SchemaPathString]
-    TargetType: Optional[FieldType]
+    SourceTable: TableName | None
+    SourcePath: SchemaPathString | None
+    SourceType: FieldType | None
+    TargetTable: TableName | None
+    TargetPath: SchemaPathString | None
+    TargetType: FieldType | None
 
 
-MappingList = List[MappingEntry]
+MappingList = list[MappingEntry]
 
 
 class GetMappingResponse(TypedDict, total=False):
@@ -7853,10 +7972,10 @@ class GetMappingResponse(TypedDict, total=False):
 
 
 class GetPartitionIndexesRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class KeySchemaElement(TypedDict, total=False):
@@ -7866,7 +7985,7 @@ class KeySchemaElement(TypedDict, total=False):
     Type: ColumnTypeString
 
 
-KeySchemaElementList = List[KeySchemaElement]
+KeySchemaElementList = list[KeySchemaElement]
 
 
 class PartitionIndexDescriptor(TypedDict, total=False):
@@ -7875,26 +7994,26 @@ class PartitionIndexDescriptor(TypedDict, total=False):
     IndexName: NameString
     Keys: KeySchemaElementList
     IndexStatus: PartitionIndexStatus
-    BackfillErrors: Optional[BackfillErrors]
+    BackfillErrors: BackfillErrors | None
 
 
-PartitionIndexDescriptorList = List[PartitionIndexDescriptor]
+PartitionIndexDescriptorList = list[PartitionIndexDescriptor]
 
 
 class GetPartitionIndexesResponse(TypedDict, total=False):
-    PartitionIndexDescriptorList: Optional[PartitionIndexDescriptorList]
-    NextToken: Optional[Token]
+    PartitionIndexDescriptorList: PartitionIndexDescriptorList | None
+    NextToken: Token | None
 
 
 class GetPartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
 
 
 class GetPartitionResponse(TypedDict, total=False):
-    Partition: Optional[Partition]
+    Partition: Partition | None
 
 
 class Segment(TypedDict, total=False):
@@ -7907,35 +8026,35 @@ class Segment(TypedDict, total=False):
 
 
 class GetPartitionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    Expression: Optional[PredicateString]
-    NextToken: Optional[Token]
-    Segment: Optional[Segment]
-    MaxResults: Optional[PageSize]
-    ExcludeColumnSchema: Optional[BooleanNullable]
-    TransactionId: Optional[TransactionIdString]
-    QueryAsOfTime: Optional[Timestamp]
+    Expression: PredicateString | None
+    NextToken: Token | None
+    Segment: Segment | None
+    MaxResults: PageSize | None
+    ExcludeColumnSchema: BooleanNullable | None
+    TransactionId: TransactionIdString | None
+    QueryAsOfTime: Timestamp | None
 
 
 class GetPartitionsResponse(TypedDict, total=False):
-    Partitions: Optional[PartitionList]
-    NextToken: Optional[Token]
+    Partitions: PartitionList | None
+    NextToken: Token | None
 
 
 class GetPlanRequest(ServiceRequest):
     Mapping: MappingList
     Source: CatalogEntry
-    Sinks: Optional[CatalogEntries]
-    Location: Optional[Location]
-    Language: Optional[Language]
-    AdditionalPlanOptionsMap: Optional[AdditionalPlanOptionsMap]
+    Sinks: CatalogEntries | None
+    Location: Location | None
+    Language: Language | None
+    AdditionalPlanOptionsMap: AdditionalPlanOptionsMap | None
 
 
 class GetPlanResponse(TypedDict, total=False):
-    PythonScript: Optional[PythonScript]
-    ScalaCode: Optional[ScalaCode]
+    PythonScript: PythonScript | None
+    ScalaCode: ScalaCode | None
 
 
 class GetRegistryInput(ServiceRequest):
@@ -7943,45 +8062,45 @@ class GetRegistryInput(ServiceRequest):
 
 
 class GetRegistryResponse(TypedDict, total=False):
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
-    Description: Optional[DescriptionString]
-    Status: Optional[RegistryStatus]
-    CreatedTime: Optional[CreatedTimestamp]
-    UpdatedTime: Optional[UpdatedTimestamp]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
+    Description: DescriptionString | None
+    Status: RegistryStatus | None
+    CreatedTime: CreatedTimestamp | None
+    UpdatedTime: UpdatedTimestamp | None
 
 
 class GetResourcePoliciesRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[PageSize]
+    NextToken: Token | None
+    MaxResults: PageSize | None
 
 
 class GluePolicy(TypedDict, total=False):
     """A structure for returning a resource policy."""
 
-    PolicyInJson: Optional[PolicyJsonString]
-    PolicyHash: Optional[HashString]
-    CreateTime: Optional[Timestamp]
-    UpdateTime: Optional[Timestamp]
+    PolicyInJson: PolicyJsonString | None
+    PolicyHash: HashString | None
+    CreateTime: Timestamp | None
+    UpdateTime: Timestamp | None
 
 
-GetResourcePoliciesResponseList = List[GluePolicy]
+GetResourcePoliciesResponseList = list[GluePolicy]
 
 
 class GetResourcePoliciesResponse(TypedDict, total=False):
-    GetResourcePoliciesResponseList: Optional[GetResourcePoliciesResponseList]
-    NextToken: Optional[Token]
+    GetResourcePoliciesResponseList: GetResourcePoliciesResponseList | None
+    NextToken: Token | None
 
 
 class GetResourcePolicyRequest(ServiceRequest):
-    ResourceArn: Optional[GlueResourceArn]
+    ResourceArn: GlueResourceArn | None
 
 
 class GetResourcePolicyResponse(TypedDict, total=False):
-    PolicyInJson: Optional[PolicyJsonString]
-    PolicyHash: Optional[HashString]
-    CreateTime: Optional[Timestamp]
-    UpdateTime: Optional[Timestamp]
+    PolicyInJson: PolicyJsonString | None
+    PolicyHash: HashString | None
+    CreateTime: Timestamp | None
+    UpdateTime: Timestamp | None
 
 
 class GetSchemaByDefinitionInput(ServiceRequest):
@@ -7990,11 +8109,11 @@ class GetSchemaByDefinitionInput(ServiceRequest):
 
 
 class GetSchemaByDefinitionResponse(TypedDict, total=False):
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    SchemaArn: Optional[GlueResourceArn]
-    DataFormat: Optional[DataFormat]
-    Status: Optional[SchemaVersionStatus]
-    CreatedTime: Optional[CreatedTimestamp]
+    SchemaVersionId: SchemaVersionIdString | None
+    SchemaArn: GlueResourceArn | None
+    DataFormat: DataFormat | None
+    Status: SchemaVersionStatus | None
+    CreatedTime: CreatedTimestamp | None
 
 
 class GetSchemaInput(ServiceRequest):
@@ -8002,42 +8121,42 @@ class GetSchemaInput(ServiceRequest):
 
 
 class GetSchemaResponse(TypedDict, total=False):
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    SchemaArn: Optional[GlueResourceArn]
-    Description: Optional[DescriptionString]
-    DataFormat: Optional[DataFormat]
-    Compatibility: Optional[Compatibility]
-    SchemaCheckpoint: Optional[SchemaCheckpointNumber]
-    LatestSchemaVersion: Optional[VersionLongNumber]
-    NextSchemaVersion: Optional[VersionLongNumber]
-    SchemaStatus: Optional[SchemaStatus]
-    CreatedTime: Optional[CreatedTimestamp]
-    UpdatedTime: Optional[UpdatedTimestamp]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    SchemaArn: GlueResourceArn | None
+    Description: DescriptionString | None
+    DataFormat: DataFormat | None
+    Compatibility: Compatibility | None
+    SchemaCheckpoint: SchemaCheckpointNumber | None
+    LatestSchemaVersion: VersionLongNumber | None
+    NextSchemaVersion: VersionLongNumber | None
+    SchemaStatus: SchemaStatus | None
+    CreatedTime: CreatedTimestamp | None
+    UpdatedTime: UpdatedTimestamp | None
 
 
 class SchemaVersionNumber(TypedDict, total=False):
     """A structure containing the schema version information."""
 
-    LatestVersion: Optional[LatestSchemaVersionBoolean]
-    VersionNumber: Optional[VersionLongNumber]
+    LatestVersion: LatestSchemaVersionBoolean | None
+    VersionNumber: VersionLongNumber | None
 
 
 class GetSchemaVersionInput(ServiceRequest):
-    SchemaId: Optional[SchemaId]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    SchemaVersionNumber: Optional[SchemaVersionNumber]
+    SchemaId: SchemaId | None
+    SchemaVersionId: SchemaVersionIdString | None
+    SchemaVersionNumber: SchemaVersionNumber | None
 
 
 class GetSchemaVersionResponse(TypedDict, total=False):
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    SchemaDefinition: Optional[SchemaDefinitionString]
-    DataFormat: Optional[DataFormat]
-    SchemaArn: Optional[GlueResourceArn]
-    VersionNumber: Optional[VersionLongNumber]
-    Status: Optional[SchemaVersionStatus]
-    CreatedTime: Optional[CreatedTimestamp]
+    SchemaVersionId: SchemaVersionIdString | None
+    SchemaDefinition: SchemaDefinitionString | None
+    DataFormat: DataFormat | None
+    SchemaArn: GlueResourceArn | None
+    VersionNumber: VersionLongNumber | None
+    Status: SchemaVersionStatus | None
+    CreatedTime: CreatedTimestamp | None
 
 
 class GetSchemaVersionsDiffInput(ServiceRequest):
@@ -8048,7 +8167,7 @@ class GetSchemaVersionsDiffInput(ServiceRequest):
 
 
 class GetSchemaVersionsDiffResponse(TypedDict, total=False):
-    Diff: Optional[SchemaDefinitionDiff]
+    Diff: SchemaDefinitionDiff | None
 
 
 class GetSecurityConfigurationRequest(ServiceRequest):
@@ -8058,41 +8177,41 @@ class GetSecurityConfigurationRequest(ServiceRequest):
 class SecurityConfiguration(TypedDict, total=False):
     """Specifies a security configuration."""
 
-    Name: Optional[NameString]
-    CreatedTimeStamp: Optional[TimestampValue]
-    EncryptionConfiguration: Optional[EncryptionConfiguration]
+    Name: NameString | None
+    CreatedTimeStamp: TimestampValue | None
+    EncryptionConfiguration: EncryptionConfiguration | None
 
 
 class GetSecurityConfigurationResponse(TypedDict, total=False):
-    SecurityConfiguration: Optional[SecurityConfiguration]
+    SecurityConfiguration: SecurityConfiguration | None
 
 
 class GetSecurityConfigurationsRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[GenericString]
+    MaxResults: PageSize | None
+    NextToken: GenericString | None
 
 
-SecurityConfigurationList = List[SecurityConfiguration]
+SecurityConfigurationList = list[SecurityConfiguration]
 
 
 class GetSecurityConfigurationsResponse(TypedDict, total=False):
-    SecurityConfigurations: Optional[SecurityConfigurationList]
-    NextToken: Optional[GenericString]
+    SecurityConfigurations: SecurityConfigurationList | None
+    NextToken: GenericString | None
 
 
 class GetSessionRequest(ServiceRequest):
     Id: NameString
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 class GetSessionResponse(TypedDict, total=False):
-    Session: Optional[Session]
+    Session: Session | None
 
 
 class GetStatementRequest(ServiceRequest):
     SessionId: NameString
     Id: IntegerValue
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 LongValue = int
@@ -8101,34 +8220,34 @@ LongValue = int
 class StatementOutputData(TypedDict, total=False):
     """The code execution output in JSON format."""
 
-    TextPlain: Optional[GenericString]
+    TextPlain: GenericString | None
 
 
 class StatementOutput(TypedDict, total=False):
     """The code execution output in JSON format."""
 
-    Data: Optional[StatementOutputData]
-    ExecutionCount: Optional[IntegerValue]
-    Status: Optional[StatementState]
-    ErrorName: Optional[GenericString]
-    ErrorValue: Optional[GenericString]
-    Traceback: Optional[OrchestrationStringList]
+    Data: StatementOutputData | None
+    ExecutionCount: IntegerValue | None
+    Status: StatementState | None
+    ErrorName: GenericString | None
+    ErrorValue: GenericString | None
+    Traceback: OrchestrationStringList | None
 
 
 class Statement(TypedDict, total=False):
     """The statement or request for a particular action to occur in a session."""
 
-    Id: Optional[IntegerValue]
-    Code: Optional[GenericString]
-    State: Optional[StatementState]
-    Output: Optional[StatementOutput]
-    Progress: Optional[DoubleValue]
-    StartedOn: Optional[LongValue]
-    CompletedOn: Optional[LongValue]
+    Id: IntegerValue | None
+    Code: GenericString | None
+    State: StatementState | None
+    Output: StatementOutput | None
+    Progress: DoubleValue | None
+    StartedOn: LongValue | None
+    CompletedOn: LongValue | None
 
 
 class GetStatementResponse(TypedDict, total=False):
-    Statement: Optional[Statement]
+    Statement: Statement | None
 
 
 class GetTableOptimizerRequest(ServiceRequest):
@@ -8139,19 +8258,20 @@ class GetTableOptimizerRequest(ServiceRequest):
 
 
 class GetTableOptimizerResponse(TypedDict, total=False):
-    CatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    TableName: Optional[NameString]
-    TableOptimizer: Optional[TableOptimizer]
+    CatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    TableOptimizer: TableOptimizer | None
 
 
 class GetTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     Name: NameString
-    TransactionId: Optional[TransactionIdString]
-    QueryAsOfTime: Optional[Timestamp]
-    IncludeStatusDetails: Optional[BooleanNullable]
+    TransactionId: TransactionIdString | None
+    QueryAsOfTime: Timestamp | None
+    AuditContext: AuditContext | None
+    IncludeStatusDetails: BooleanNullable | None
 
 
 class ViewValidation(TypedDict, total=False):
@@ -8160,44 +8280,45 @@ class ViewValidation(TypedDict, total=False):
     of direct ``UpdateTable`` or ``CreateTable`` API calls.
     """
 
-    Dialect: Optional[ViewDialect]
-    DialectVersion: Optional[ViewDialectVersionString]
-    ViewValidationText: Optional[ViewTextString]
-    UpdateTime: Optional[Timestamp]
-    State: Optional[ResourceState]
-    Error: Optional[ErrorDetail]
+    Dialect: ViewDialect | None
+    DialectVersion: ViewDialectVersionString | None
+    ViewValidationText: ViewTextString | None
+    UpdateTime: Timestamp | None
+    State: ResourceState | None
+    Error: ErrorDetail | None
 
 
-ViewValidationList = List[ViewValidation]
+ViewValidationList = list[ViewValidation]
 
 
 class Table(TypedDict, total=False):
     """Represents a collection of related data organized in columns and rows."""
 
     Name: "NameString"
-    DatabaseName: Optional["NameString"]
-    Description: Optional["DescriptionString"]
-    Owner: Optional["NameString"]
-    CreateTime: Optional["Timestamp"]
-    UpdateTime: Optional["Timestamp"]
-    LastAccessTime: Optional["Timestamp"]
-    LastAnalyzedTime: Optional["Timestamp"]
-    Retention: Optional["NonNegativeInteger"]
-    StorageDescriptor: Optional["StorageDescriptor"]
-    PartitionKeys: Optional["ColumnList"]
-    ViewOriginalText: Optional["ViewTextString"]
-    ViewExpandedText: Optional["ViewTextString"]
-    TableType: Optional["TableTypeString"]
-    Parameters: Optional["ParametersMap"]
-    CreatedBy: Optional["NameString"]
-    IsRegisteredWithLakeFormation: Optional["Boolean"]
-    TargetTable: Optional["TableIdentifier"]
-    CatalogId: Optional["CatalogIdString"]
-    VersionId: Optional["VersionString"]
-    FederatedTable: Optional["FederatedTable"]
-    ViewDefinition: Optional["ViewDefinition"]
-    IsMultiDialectView: Optional["NullableBoolean"]
-    Status: Optional["TableStatus"]
+    DatabaseName: "NameString | None"
+    Description: "DescriptionString | None"
+    Owner: "NameString | None"
+    CreateTime: "Timestamp | None"
+    UpdateTime: "Timestamp | None"
+    LastAccessTime: "Timestamp | None"
+    LastAnalyzedTime: "Timestamp | None"
+    Retention: "NonNegativeInteger | None"
+    StorageDescriptor: "StorageDescriptor | None"
+    PartitionKeys: "ColumnList | None"
+    ViewOriginalText: "ViewTextString | None"
+    ViewExpandedText: "ViewTextString | None"
+    TableType: "TableTypeString | None"
+    Parameters: "ParametersMap | None"
+    CreatedBy: "NameString | None"
+    IsRegisteredWithLakeFormation: "Boolean | None"
+    TargetTable: "TableIdentifier | None"
+    CatalogId: "CatalogIdString | None"
+    VersionId: "VersionString | None"
+    FederatedTable: "FederatedTable | None"
+    ViewDefinition: "ViewDefinition | None"
+    IsMultiDialectView: "NullableBoolean | None"
+    IsMaterializedView: "NullableBoolean | None"
+    Status: "TableStatus | None"
 
 
 class StatusDetails(TypedDict, total=False):
@@ -8205,8 +8326,8 @@ class StatusDetails(TypedDict, total=False):
     table.
     """
 
-    RequestedChange: Optional[Table]
-    ViewValidations: Optional[ViewValidationList]
+    RequestedChange: Table | None
+    ViewValidations: ViewValidationList | None
 
 
 class TableStatus(TypedDict, total=False):
@@ -8214,14 +8335,14 @@ class TableStatus(TypedDict, total=False):
     change to a table.
     """
 
-    RequestedBy: Optional[NameString]
-    UpdatedBy: Optional[NameString]
-    RequestTime: Optional[Timestamp]
-    UpdateTime: Optional[Timestamp]
-    Action: Optional[ResourceAction]
-    State: Optional[ResourceState]
-    Error: Optional[ErrorDetail]
-    Details: Optional[StatusDetails]
+    RequestedBy: NameString | None
+    UpdatedBy: NameString | None
+    RequestTime: Timestamp | None
+    UpdateTime: Timestamp | None
+    Action: ResourceAction | None
+    State: ResourceState | None
+    Error: ErrorDetail | None
+    Details: StatusDetails | None
 
 
 class ViewRepresentation(TypedDict, total=False):
@@ -8229,85 +8350,91 @@ class ViewRepresentation(TypedDict, total=False):
     defines the view.
     """
 
-    Dialect: Optional[ViewDialect]
-    DialectVersion: Optional[ViewDialectVersionString]
-    ViewOriginalText: Optional[ViewTextString]
-    ViewExpandedText: Optional[ViewTextString]
-    ValidationConnection: Optional[NameString]
-    IsStale: Optional[NullableBoolean]
+    Dialect: ViewDialect | None
+    DialectVersion: ViewDialectVersionString | None
+    ViewOriginalText: ViewTextString | None
+    ViewExpandedText: ViewTextString | None
+    ValidationConnection: NameString | None
+    IsStale: NullableBoolean | None
 
 
-ViewRepresentationList = List[ViewRepresentation]
+ViewRepresentationList = list[ViewRepresentation]
 
 
 class ViewDefinition(TypedDict, total=False):
     """A structure containing details for representations."""
 
-    IsProtected: Optional[NullableBoolean]
-    Definer: Optional[ArnString]
-    SubObjects: Optional[ViewSubObjectsList]
-    Representations: Optional[ViewRepresentationList]
+    IsProtected: NullableBoolean | None
+    Definer: ArnString | None
+    ViewVersionId: TableVersionId | None
+    ViewVersionToken: HashString | None
+    RefreshSeconds: RefreshSeconds | None
+    LastRefreshType: LastRefreshType | None
+    SubObjects: ViewSubObjectsList | None
+    SubObjectVersionIds: ViewSubObjectVersionIdsList | None
+    Representations: ViewRepresentationList | None
 
 
 class GetTableResponse(TypedDict, total=False):
-    Table: Optional[Table]
+    Table: Table | None
 
 
 class GetTableVersionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    VersionId: Optional[VersionString]
+    VersionId: VersionString | None
 
 
 class TableVersion(TypedDict, total=False):
     """Specifies a version of a table."""
 
-    Table: Optional[Table]
-    VersionId: Optional[VersionString]
+    Table: Table | None
+    VersionId: VersionString | None
 
 
 class GetTableVersionResponse(TypedDict, total=False):
-    TableVersion: Optional[TableVersion]
+    TableVersion: TableVersion | None
 
 
-GetTableVersionsList = List[TableVersion]
+GetTableVersionsList = list[TableVersion]
 
 
 class GetTableVersionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
-    NextToken: Optional[Token]
-    MaxResults: Optional[CatalogGetterPageSize]
+    NextToken: Token | None
+    MaxResults: CatalogGetterPageSize | None
 
 
 class GetTableVersionsResponse(TypedDict, total=False):
-    TableVersions: Optional[GetTableVersionsList]
-    NextToken: Optional[Token]
+    TableVersions: GetTableVersionsList | None
+    NextToken: Token | None
 
 
-TableAttributesList = List[TableAttributes]
+TableAttributesList = list[TableAttributes]
 
 
 class GetTablesRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
-    Expression: Optional[FilterString]
-    NextToken: Optional[Token]
-    MaxResults: Optional[CatalogGetterPageSize]
-    TransactionId: Optional[TransactionIdString]
-    QueryAsOfTime: Optional[Timestamp]
-    IncludeStatusDetails: Optional[BooleanNullable]
-    AttributesToGet: Optional[TableAttributesList]
+    Expression: FilterString | None
+    NextToken: Token | None
+    MaxResults: CatalogGetterPageSize | None
+    TransactionId: TransactionIdString | None
+    QueryAsOfTime: Timestamp | None
+    AuditContext: AuditContext | None
+    IncludeStatusDetails: BooleanNullable | None
+    AttributesToGet: TableAttributesList | None
 
 
-TableList = List[Table]
+TableList = list[Table]
 
 
 class GetTablesResponse(TypedDict, total=False):
-    TableList: Optional[TableList]
-    NextToken: Optional[Token]
+    TableList: TableList | None
+    NextToken: Token | None
 
 
 class GetTagsRequest(ServiceRequest):
@@ -8315,7 +8442,7 @@ class GetTagsRequest(ServiceRequest):
 
 
 class GetTagsResponse(TypedDict, total=False):
-    Tags: Optional[TagsMap]
+    Tags: TagsMap | None
 
 
 class GetTriggerRequest(ServiceRequest):
@@ -8323,18 +8450,18 @@ class GetTriggerRequest(ServiceRequest):
 
 
 class GetTriggerResponse(TypedDict, total=False):
-    Trigger: Optional[Trigger]
+    Trigger: Trigger | None
 
 
 class GetTriggersRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    DependentJobName: Optional[NameString]
-    MaxResults: Optional[OrchestrationPageSize200]
+    NextToken: GenericString | None
+    DependentJobName: NameString | None
+    MaxResults: OrchestrationPageSize200 | None
 
 
 class GetTriggersResponse(TypedDict, total=False):
-    Triggers: Optional[TriggerList]
-    NextToken: Optional[GenericString]
+    Triggers: TriggerList | None
+    NextToken: GenericString | None
 
 
 class QuerySessionContext(TypedDict, total=False):
@@ -8343,61 +8470,61 @@ class QuerySessionContext(TypedDict, total=False):
     identifier and information from the request's authorization context.
     """
 
-    QueryId: Optional[HashString]
-    QueryStartTime: Optional[Timestamp]
-    ClusterId: Optional[NullableString]
-    QueryAuthorizationId: Optional[HashString]
-    AdditionalContext: Optional[AdditionalContextMap]
+    QueryId: HashString | None
+    QueryStartTime: Timestamp | None
+    ClusterId: NullableString | None
+    QueryAuthorizationId: HashString | None
+    AdditionalContext: AdditionalContextMap | None
 
 
-PermissionTypeList = List[PermissionType]
+PermissionTypeList = list[PermissionType]
 
 
 class GetUnfilteredPartitionMetadataRequest(ServiceRequest):
-    Region: Optional[ValueString]
+    Region: ValueString | None
     CatalogId: CatalogIdString
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
-    AuditContext: Optional[AuditContext]
+    AuditContext: AuditContext | None
     SupportedPermissionTypes: PermissionTypeList
-    QuerySessionContext: Optional[QuerySessionContext]
+    QuerySessionContext: QuerySessionContext | None
 
 
 class GetUnfilteredPartitionMetadataResponse(TypedDict, total=False):
-    Partition: Optional[Partition]
-    AuthorizedColumns: Optional[NameStringList]
-    IsRegisteredWithLakeFormation: Optional[Boolean]
+    Partition: Partition | None
+    AuthorizedColumns: NameStringList | None
+    IsRegisteredWithLakeFormation: Boolean | None
 
 
 class GetUnfilteredPartitionsMetadataRequest(ServiceRequest):
-    Region: Optional[ValueString]
+    Region: ValueString | None
     CatalogId: CatalogIdString
     DatabaseName: NameString
     TableName: NameString
-    Expression: Optional[PredicateString]
-    AuditContext: Optional[AuditContext]
+    Expression: PredicateString | None
+    AuditContext: AuditContext | None
     SupportedPermissionTypes: PermissionTypeList
-    NextToken: Optional[Token]
-    Segment: Optional[Segment]
-    MaxResults: Optional[PageSize]
-    QuerySessionContext: Optional[QuerySessionContext]
+    NextToken: Token | None
+    Segment: Segment | None
+    MaxResults: PageSize | None
+    QuerySessionContext: QuerySessionContext | None
 
 
 class UnfilteredPartition(TypedDict, total=False):
     """A partition that contains unfiltered metadata."""
 
-    Partition: Optional[Partition]
-    AuthorizedColumns: Optional[NameStringList]
-    IsRegisteredWithLakeFormation: Optional[Boolean]
+    Partition: Partition | None
+    AuthorizedColumns: NameStringList | None
+    IsRegisteredWithLakeFormation: Boolean | None
 
 
-UnfilteredPartitionList = List[UnfilteredPartition]
+UnfilteredPartitionList = list[UnfilteredPartition]
 
 
 class GetUnfilteredPartitionsMetadataResponse(TypedDict, total=False):
-    UnfilteredPartitions: Optional[UnfilteredPartitionList]
-    NextToken: Optional[Token]
+    UnfilteredPartitions: UnfilteredPartitionList | None
+    NextToken: Token | None
 
 
 class SupportedDialect(TypedDict, total=False):
@@ -8405,35 +8532,36 @@ class SupportedDialect(TypedDict, total=False):
     engine.
     """
 
-    Dialect: Optional[ViewDialect]
-    DialectVersion: Optional[ViewDialectVersionString]
+    Dialect: ViewDialect | None
+    DialectVersion: ViewDialectVersionString | None
 
 
 class GetUnfilteredTableMetadataRequest(ServiceRequest):
-    Region: Optional[ValueString]
+    Region: ValueString | None
     CatalogId: CatalogIdString
     DatabaseName: NameString
     Name: NameString
-    AuditContext: Optional[AuditContext]
+    AuditContext: AuditContext | None
     SupportedPermissionTypes: PermissionTypeList
-    ParentResourceArn: Optional[ArnString]
-    RootResourceArn: Optional[ArnString]
-    SupportedDialect: Optional[SupportedDialect]
-    Permissions: Optional[PermissionList]
-    QuerySessionContext: Optional[QuerySessionContext]
+    ParentResourceArn: ArnString | None
+    RootResourceArn: ArnString | None
+    SupportedDialect: SupportedDialect | None
+    Permissions: PermissionList | None
+    QuerySessionContext: QuerySessionContext | None
 
 
 class GetUnfilteredTableMetadataResponse(TypedDict, total=False):
-    Table: Optional[Table]
-    AuthorizedColumns: Optional[NameStringList]
-    IsRegisteredWithLakeFormation: Optional[Boolean]
-    CellFilters: Optional[ColumnRowFilterList]
-    QueryAuthorizationId: Optional[HashString]
-    IsMultiDialectView: Optional[Boolean]
-    ResourceArn: Optional[ArnString]
-    IsProtected: Optional[Boolean]
-    Permissions: Optional[PermissionList]
-    RowFilter: Optional[PredicateString]
+    Table: Table | None
+    AuthorizedColumns: NameStringList | None
+    IsRegisteredWithLakeFormation: Boolean | None
+    CellFilters: ColumnRowFilterList | None
+    QueryAuthorizationId: HashString | None
+    IsMultiDialectView: Boolean | None
+    IsMaterializedView: Boolean | None
+    ResourceArn: ArnString | None
+    IsProtected: Boolean | None
+    Permissions: PermissionList | None
+    RowFilter: PredicateString | None
 
 
 class GetUsageProfileRequest(ServiceRequest):
@@ -8441,15 +8569,15 @@ class GetUsageProfileRequest(ServiceRequest):
 
 
 class GetUsageProfileResponse(TypedDict, total=False):
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Configuration: Optional[ProfileConfiguration]
-    CreatedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
+    Name: NameString | None
+    Description: DescriptionString | None
+    Configuration: ProfileConfiguration | None
+    CreatedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
 
 
 class GetUserDefinedFunctionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     FunctionName: NameString
 
@@ -8459,43 +8587,45 @@ class UserDefinedFunction(TypedDict, total=False):
     definition.
     """
 
-    FunctionName: Optional[NameString]
-    DatabaseName: Optional[NameString]
-    ClassName: Optional[NameString]
-    OwnerName: Optional[NameString]
-    OwnerType: Optional[PrincipalType]
-    CreateTime: Optional[Timestamp]
-    ResourceUris: Optional[ResourceUriList]
-    CatalogId: Optional[CatalogIdString]
+    FunctionName: NameString | None
+    DatabaseName: NameString | None
+    ClassName: NameString | None
+    OwnerName: NameString | None
+    FunctionType: FunctionType | None
+    OwnerType: PrincipalType | None
+    CreateTime: Timestamp | None
+    ResourceUris: ResourceUriList | None
+    CatalogId: CatalogIdString | None
 
 
 class GetUserDefinedFunctionResponse(TypedDict, total=False):
-    UserDefinedFunction: Optional[UserDefinedFunction]
+    UserDefinedFunction: UserDefinedFunction | None
 
 
 class GetUserDefinedFunctionsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
+    CatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
     Pattern: NameString
-    NextToken: Optional[Token]
-    MaxResults: Optional[CatalogGetterPageSize]
+    FunctionType: FunctionType | None
+    NextToken: Token | None
+    MaxResults: CatalogGetterPageSize | None
 
 
-UserDefinedFunctionList = List[UserDefinedFunction]
+UserDefinedFunctionList = list[UserDefinedFunction]
 
 
 class GetUserDefinedFunctionsResponse(TypedDict, total=False):
-    UserDefinedFunctions: Optional[UserDefinedFunctionList]
-    NextToken: Optional[Token]
+    UserDefinedFunctions: UserDefinedFunctionList | None
+    NextToken: Token | None
 
 
 class GetWorkflowRequest(ServiceRequest):
     Name: NameString
-    IncludeGraph: Optional[NullableBoolean]
+    IncludeGraph: NullableBoolean | None
 
 
 class GetWorkflowResponse(TypedDict, total=False):
-    Workflow: Optional[Workflow]
+    Workflow: Workflow | None
 
 
 class GetWorkflowRunPropertiesRequest(ServiceRequest):
@@ -8504,32 +8634,44 @@ class GetWorkflowRunPropertiesRequest(ServiceRequest):
 
 
 class GetWorkflowRunPropertiesResponse(TypedDict, total=False):
-    RunProperties: Optional[WorkflowRunProperties]
+    RunProperties: WorkflowRunProperties | None
 
 
 class GetWorkflowRunRequest(ServiceRequest):
     Name: NameString
     RunId: IdString
-    IncludeGraph: Optional[NullableBoolean]
+    IncludeGraph: NullableBoolean | None
 
 
 class GetWorkflowRunResponse(TypedDict, total=False):
-    Run: Optional[WorkflowRun]
+    Run: WorkflowRun | None
 
 
 class GetWorkflowRunsRequest(ServiceRequest):
     Name: NameString
-    IncludeGraph: Optional[NullableBoolean]
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[PageSize]
+    IncludeGraph: NullableBoolean | None
+    NextToken: GenericString | None
+    MaxResults: PageSize | None
 
 
-WorkflowRuns = List[WorkflowRun]
+WorkflowRuns = list[WorkflowRun]
 
 
 class GetWorkflowRunsResponse(TypedDict, total=False):
-    Runs: Optional[WorkflowRuns]
-    NextToken: Optional[GenericString]
+    Runs: WorkflowRuns | None
+    NextToken: GenericString | None
+
+
+class IcebergEncryptedKey(TypedDict, total=False):
+    """Encryption key structure used for Iceberg table encryption. Contains the
+    key ID, encrypted key metadata, optional reference to the encrypting
+    key, and additional properties for the table's encryption scheme.
+    """
+
+    KeyId: EncryptionKeyIdString
+    EncryptedKeyMetadata: EncryptedKeyMetadataString
+    EncryptedById: EncryptionKeyIdString | None
+    Properties: StringToStringMap | None
 
 
 class IcebergTableUpdate(TypedDict, total=False):
@@ -8539,21 +8681,47 @@ class IcebergTableUpdate(TypedDict, total=False):
     """
 
     Schema: IcebergSchema
-    PartitionSpec: Optional[IcebergPartitionSpec]
-    SortOrder: Optional[IcebergSortOrder]
+    PartitionSpec: IcebergPartitionSpec | None
+    SortOrder: IcebergSortOrder | None
     Location: LocationString
-    Properties: Optional[StringToStringMap]
+    Properties: StringToStringMap | None
+    Action: IcebergUpdateAction | None
+    EncryptionKey: IcebergEncryptedKey | None
+    KeyId: EncryptionKeyIdString | None
 
 
-IcebergTableUpdateList = List[IcebergTableUpdate]
+IcebergTableUpdateList = list[IcebergTableUpdate]
 
 
 class ImportCatalogToGlueRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
 
 
 class ImportCatalogToGlueResponse(TypedDict, total=False):
     pass
+
+
+class IntegrationResourceProperty(TypedDict, total=False):
+    """A structure representing an integration resource property."""
+
+    ResourceArn: String512
+    ResourcePropertyArn: String512 | None
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
+
+
+IntegrationResourcePropertyFilterValues = list[String128]
+
+
+class IntegrationResourcePropertyFilter(TypedDict, total=False):
+    """A filter for integration resource properties."""
+
+    Name: String128 | None
+    Values: IntegrationResourcePropertyFilterValues | None
+
+
+IntegrationResourcePropertyFilterList = list[IntegrationResourcePropertyFilter]
+IntegrationResourcePropertyList = list[IntegrationResourceProperty]
 
 
 class JobUpdate(TypedDict, total=False):
@@ -8561,358 +8729,369 @@ class JobUpdate(TypedDict, total=False):
     previous job definition is completely overwritten by this information.
     """
 
-    JobMode: Optional[JobMode]
-    JobRunQueuingEnabled: Optional[NullableBoolean]
-    Description: Optional[DescriptionString]
-    LogUri: Optional[UriString]
-    Role: Optional[RoleString]
-    ExecutionProperty: Optional[ExecutionProperty]
-    Command: Optional[JobCommand]
-    DefaultArguments: Optional[GenericMap]
-    NonOverridableArguments: Optional[GenericMap]
-    Connections: Optional[ConnectionsList]
-    MaxRetries: Optional[MaxRetries]
-    AllocatedCapacity: Optional[IntegerValue]
-    Timeout: Optional[Timeout]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    SecurityConfiguration: Optional[NameString]
-    NotificationProperty: Optional[NotificationProperty]
-    GlueVersion: Optional[GlueVersionString]
-    CodeGenConfigurationNodes: Optional[CodeGenConfigurationNodes]
-    ExecutionClass: Optional[ExecutionClass]
-    SourceControlDetails: Optional[SourceControlDetails]
-    MaintenanceWindow: Optional[MaintenanceWindow]
+    JobMode: JobMode | None
+    JobRunQueuingEnabled: NullableBoolean | None
+    Description: DescriptionString | None
+    LogUri: UriString | None
+    Role: RoleString | None
+    ExecutionProperty: ExecutionProperty | None
+    Command: JobCommand | None
+    DefaultArguments: GenericMap | None
+    NonOverridableArguments: GenericMap | None
+    Connections: ConnectionsList | None
+    MaxRetries: MaxRetries | None
+    AllocatedCapacity: IntegerValue | None
+    Timeout: Timeout | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    SecurityConfiguration: NameString | None
+    NotificationProperty: NotificationProperty | None
+    GlueVersion: GlueVersionString | None
+    CodeGenConfigurationNodes: CodeGenConfigurationNodes | None
+    ExecutionClass: ExecutionClass | None
+    SourceControlDetails: SourceControlDetails | None
+    MaintenanceWindow: MaintenanceWindow | None
 
 
 class ListBlueprintsRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[OrchestrationPageSize25]
-    Tags: Optional[TagsMap]
+    NextToken: GenericString | None
+    MaxResults: OrchestrationPageSize25 | None
+    Tags: TagsMap | None
 
 
 class ListBlueprintsResponse(TypedDict, total=False):
-    Blueprints: Optional[BlueprintNames]
-    NextToken: Optional[GenericString]
+    Blueprints: BlueprintNames | None
+    NextToken: GenericString | None
 
 
 class ListColumnStatisticsTaskRunsRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
+    MaxResults: PageSize | None
+    NextToken: Token | None
 
 
 class ListColumnStatisticsTaskRunsResponse(TypedDict, total=False):
-    ColumnStatisticsTaskRunIds: Optional[ColumnStatisticsTaskRunIdList]
-    NextToken: Optional[Token]
+    ColumnStatisticsTaskRunIds: ColumnStatisticsTaskRunIdList | None
+    NextToken: Token | None
 
 
 class ListConnectionTypesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListConnectionTypesResponse(TypedDict, total=False):
-    ConnectionTypes: Optional[ConnectionTypeList]
-    NextToken: Optional[NextToken]
+    ConnectionTypes: ConnectionTypeList | None
+    NextToken: NextToken | None
 
 
 class ListCrawlersRequest(ServiceRequest):
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[Token]
-    Tags: Optional[TagsMap]
+    MaxResults: PageSize | None
+    NextToken: Token | None
+    Tags: TagsMap | None
 
 
 class ListCrawlersResponse(TypedDict, total=False):
-    CrawlerNames: Optional[CrawlerNameList]
-    NextToken: Optional[Token]
+    CrawlerNames: CrawlerNameList | None
+    NextToken: Token | None
 
 
 class ListCrawlsRequest(ServiceRequest):
     CrawlerName: NameString
-    MaxResults: Optional[PageSize]
-    Filters: Optional[CrawlsFilterList]
-    NextToken: Optional[Token]
+    MaxResults: PageSize | None
+    Filters: CrawlsFilterList | None
+    NextToken: Token | None
 
 
 class ListCrawlsResponse(TypedDict, total=False):
-    Crawls: Optional[CrawlerHistoryList]
-    NextToken: Optional[Token]
+    Crawls: CrawlerHistoryList | None
+    NextToken: Token | None
 
 
 class ListCustomEntityTypesRequest(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
-    Tags: Optional[TagsMap]
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
+    Tags: TagsMap | None
 
 
 class ListCustomEntityTypesResponse(TypedDict, total=False):
-    CustomEntityTypes: Optional[CustomEntityTypes]
-    NextToken: Optional[PaginationToken]
+    CustomEntityTypes: CustomEntityTypes | None
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityResultsRequest(ServiceRequest):
-    Filter: Optional[DataQualityResultFilterCriteria]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
+    Filter: DataQualityResultFilterCriteria | None
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
 
 
 class ListDataQualityResultsResponse(TypedDict, total=False):
     Results: DataQualityResultDescriptionList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityRuleRecommendationRunsRequest(ServiceRequest):
-    Filter: Optional[DataQualityRuleRecommendationRunFilter]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
+    Filter: DataQualityRuleRecommendationRunFilter | None
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
 
 
 class ListDataQualityRuleRecommendationRunsResponse(TypedDict, total=False):
-    Runs: Optional[DataQualityRuleRecommendationRunList]
-    NextToken: Optional[PaginationToken]
+    Runs: DataQualityRuleRecommendationRunList | None
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityRulesetEvaluationRunsRequest(ServiceRequest):
-    Filter: Optional[DataQualityRulesetEvaluationRunFilter]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
+    Filter: DataQualityRulesetEvaluationRunFilter | None
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
 
 
 class ListDataQualityRulesetEvaluationRunsResponse(TypedDict, total=False):
-    Runs: Optional[DataQualityRulesetEvaluationRunList]
-    NextToken: Optional[PaginationToken]
+    Runs: DataQualityRulesetEvaluationRunList | None
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityRulesetsRequest(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
-    Filter: Optional[DataQualityRulesetFilterCriteria]
-    Tags: Optional[TagsMap]
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
+    Filter: DataQualityRulesetFilterCriteria | None
+    Tags: TagsMap | None
 
 
 class ListDataQualityRulesetsResponse(TypedDict, total=False):
-    Rulesets: Optional[DataQualityRulesetList]
-    NextToken: Optional[PaginationToken]
+    Rulesets: DataQualityRulesetList | None
+    NextToken: PaginationToken | None
 
 
 class TimestampFilter(TypedDict, total=False):
     """A timestamp filter."""
 
-    RecordedBefore: Optional[Timestamp]
-    RecordedAfter: Optional[Timestamp]
+    RecordedBefore: Timestamp | None
+    RecordedAfter: Timestamp | None
 
 
 class ListDataQualityStatisticAnnotationsRequest(ServiceRequest):
-    StatisticId: Optional[HashString]
-    ProfileId: Optional[HashString]
-    TimestampFilter: Optional[TimestampFilter]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[PaginationToken]
+    StatisticId: HashString | None
+    ProfileId: HashString | None
+    TimestampFilter: TimestampFilter | None
+    MaxResults: PageSize | None
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityStatisticAnnotationsResponse(TypedDict, total=False):
-    Annotations: Optional[AnnotationList]
-    NextToken: Optional[PaginationToken]
+    Annotations: AnnotationList | None
+    NextToken: PaginationToken | None
 
 
 class ListDataQualityStatisticsRequest(ServiceRequest):
-    StatisticId: Optional[HashString]
-    ProfileId: Optional[HashString]
-    TimestampFilter: Optional[TimestampFilter]
-    MaxResults: Optional[PageSize]
-    NextToken: Optional[PaginationToken]
+    StatisticId: HashString | None
+    ProfileId: HashString | None
+    TimestampFilter: TimestampFilter | None
+    MaxResults: PageSize | None
+    NextToken: PaginationToken | None
 
 
-StatisticPropertiesMap = Dict[NameString, DescriptionString]
-ReferenceDatasetsList = List[NameString]
+StatisticPropertiesMap = dict[NameString, DescriptionString]
+ReferenceDatasetsList = list[NameString]
 
 
 class RunIdentifier(TypedDict, total=False):
     """A run identifier."""
 
-    RunId: Optional[HashString]
-    JobRunId: Optional[HashString]
+    RunId: HashString | None
+    JobRunId: HashString | None
 
 
 class StatisticSummary(TypedDict, total=False):
     """Summary information about a statistic."""
 
-    StatisticId: Optional[HashString]
-    ProfileId: Optional[HashString]
-    RunIdentifier: Optional[RunIdentifier]
-    StatisticName: Optional[StatisticNameString]
-    DoubleValue: Optional[double]
-    EvaluationLevel: Optional[StatisticEvaluationLevel]
-    ColumnsReferenced: Optional[ColumnNameList]
-    ReferencedDatasets: Optional[ReferenceDatasetsList]
-    StatisticProperties: Optional[StatisticPropertiesMap]
-    RecordedOn: Optional[Timestamp]
-    InclusionAnnotation: Optional[TimestampedInclusionAnnotation]
+    StatisticId: HashString | None
+    ProfileId: HashString | None
+    RunIdentifier: RunIdentifier | None
+    StatisticName: StatisticNameString | None
+    DoubleValue: double | None
+    EvaluationLevel: StatisticEvaluationLevel | None
+    ColumnsReferenced: ColumnNameList | None
+    ReferencedDatasets: ReferenceDatasetsList | None
+    StatisticProperties: StatisticPropertiesMap | None
+    RecordedOn: Timestamp | None
+    InclusionAnnotation: TimestampedInclusionAnnotation | None
 
 
-StatisticSummaryList = List[StatisticSummary]
+StatisticSummaryList = list[StatisticSummary]
 
 
 class ListDataQualityStatisticsResponse(TypedDict, total=False):
-    Statistics: Optional[StatisticSummaryList]
-    NextToken: Optional[PaginationToken]
+    Statistics: StatisticSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListDevEndpointsRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[PageSize]
-    Tags: Optional[TagsMap]
+    NextToken: GenericString | None
+    MaxResults: PageSize | None
+    Tags: TagsMap | None
 
 
 class ListDevEndpointsResponse(TypedDict, total=False):
-    DevEndpointNames: Optional[DevEndpointNameList]
-    NextToken: Optional[GenericString]
+    DevEndpointNames: DevEndpointNameList | None
+    NextToken: GenericString | None
 
 
 class ListEntitiesRequest(ServiceRequest):
-    ConnectionName: Optional[NameString]
-    CatalogId: Optional[CatalogIdString]
-    ParentEntityName: Optional[EntityName]
-    NextToken: Optional[NextToken]
-    DataStoreApiVersion: Optional[ApiVersion]
+    ConnectionName: NameString | None
+    CatalogId: CatalogIdString | None
+    ParentEntityName: EntityName | None
+    NextToken: NextToken | None
+    DataStoreApiVersion: ApiVersion | None
 
 
 class ListEntitiesResponse(TypedDict, total=False):
-    Entities: Optional[EntityList]
-    NextToken: Optional[NextToken]
+    Entities: EntityList | None
+    NextToken: NextToken | None
+
+
+class ListIntegrationResourcePropertiesRequest(ServiceRequest):
+    Marker: String1024 | None
+    Filters: IntegrationResourcePropertyFilterList | None
+    MaxRecords: IntegrationInteger | None
+
+
+class ListIntegrationResourcePropertiesResponse(TypedDict, total=False):
+    IntegrationResourcePropertyList: IntegrationResourcePropertyList | None
+    Marker: String1024 | None
 
 
 class ListJobsRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[PageSize]
-    Tags: Optional[TagsMap]
+    NextToken: GenericString | None
+    MaxResults: PageSize | None
+    Tags: TagsMap | None
 
 
 class ListJobsResponse(TypedDict, total=False):
-    JobNames: Optional[JobNameList]
-    NextToken: Optional[GenericString]
+    JobNames: JobNameList | None
+    NextToken: GenericString | None
 
 
 class ListMLTransformsRequest(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[PageSize]
-    Filter: Optional[TransformFilterCriteria]
-    Sort: Optional[TransformSortCriteria]
-    Tags: Optional[TagsMap]
+    NextToken: PaginationToken | None
+    MaxResults: PageSize | None
+    Filter: TransformFilterCriteria | None
+    Sort: TransformSortCriteria | None
+    Tags: TagsMap | None
 
 
-TransformIdList = List[HashString]
+TransformIdList = list[HashString]
 
 
 class ListMLTransformsResponse(TypedDict, total=False):
     TransformIds: TransformIdList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListRegistriesInput(ServiceRequest):
-    MaxResults: Optional[MaxResultsNumber]
-    NextToken: Optional[SchemaRegistryTokenString]
+    MaxResults: MaxResultsNumber | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class RegistryListItem(TypedDict, total=False):
     """A structure containing the details for a registry."""
 
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
-    Description: Optional[DescriptionString]
-    Status: Optional[RegistryStatus]
-    CreatedTime: Optional[CreatedTimestamp]
-    UpdatedTime: Optional[UpdatedTimestamp]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
+    Description: DescriptionString | None
+    Status: RegistryStatus | None
+    CreatedTime: CreatedTimestamp | None
+    UpdatedTime: UpdatedTimestamp | None
 
 
-RegistryListDefinition = List[RegistryListItem]
+RegistryListDefinition = list[RegistryListItem]
 
 
 class ListRegistriesResponse(TypedDict, total=False):
-    Registries: Optional[RegistryListDefinition]
-    NextToken: Optional[SchemaRegistryTokenString]
+    Registries: RegistryListDefinition | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class ListSchemaVersionsInput(ServiceRequest):
     SchemaId: SchemaId
-    MaxResults: Optional[MaxResultsNumber]
-    NextToken: Optional[SchemaRegistryTokenString]
+    MaxResults: MaxResultsNumber | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class SchemaVersionListItem(TypedDict, total=False):
     """An object containing the details about a schema version."""
 
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    VersionNumber: Optional[VersionLongNumber]
-    Status: Optional[SchemaVersionStatus]
-    CreatedTime: Optional[CreatedTimestamp]
+    SchemaArn: GlueResourceArn | None
+    SchemaVersionId: SchemaVersionIdString | None
+    VersionNumber: VersionLongNumber | None
+    Status: SchemaVersionStatus | None
+    CreatedTime: CreatedTimestamp | None
 
 
-SchemaVersionList = List[SchemaVersionListItem]
+SchemaVersionList = list[SchemaVersionListItem]
 
 
 class ListSchemaVersionsResponse(TypedDict, total=False):
-    Schemas: Optional[SchemaVersionList]
-    NextToken: Optional[SchemaRegistryTokenString]
+    Schemas: SchemaVersionList | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class ListSchemasInput(ServiceRequest):
-    RegistryId: Optional[RegistryId]
-    MaxResults: Optional[MaxResultsNumber]
-    NextToken: Optional[SchemaRegistryTokenString]
+    RegistryId: RegistryId | None
+    MaxResults: MaxResultsNumber | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class SchemaListItem(TypedDict, total=False):
     """An object that contains minimal details for a schema."""
 
-    RegistryName: Optional[SchemaRegistryNameString]
-    SchemaName: Optional[SchemaRegistryNameString]
-    SchemaArn: Optional[GlueResourceArn]
-    Description: Optional[DescriptionString]
-    SchemaStatus: Optional[SchemaStatus]
-    CreatedTime: Optional[CreatedTimestamp]
-    UpdatedTime: Optional[UpdatedTimestamp]
+    RegistryName: SchemaRegistryNameString | None
+    SchemaName: SchemaRegistryNameString | None
+    SchemaArn: GlueResourceArn | None
+    Description: DescriptionString | None
+    SchemaStatus: SchemaStatus | None
+    CreatedTime: CreatedTimestamp | None
+    UpdatedTime: UpdatedTimestamp | None
 
 
-SchemaListDefinition = List[SchemaListItem]
+SchemaListDefinition = list[SchemaListItem]
 
 
 class ListSchemasResponse(TypedDict, total=False):
-    Schemas: Optional[SchemaListDefinition]
-    NextToken: Optional[SchemaRegistryTokenString]
+    Schemas: SchemaListDefinition | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class ListSessionsRequest(ServiceRequest):
-    NextToken: Optional[OrchestrationToken]
-    MaxResults: Optional[PageSize]
-    Tags: Optional[TagsMap]
-    RequestOrigin: Optional[OrchestrationNameString]
+    NextToken: OrchestrationToken | None
+    MaxResults: PageSize | None
+    Tags: TagsMap | None
+    RequestOrigin: OrchestrationNameString | None
 
 
-SessionList = List[Session]
-SessionIdList = List[NameString]
+SessionList = list[Session]
+SessionIdList = list[NameString]
 
 
 class ListSessionsResponse(TypedDict, total=False):
-    Ids: Optional[SessionIdList]
-    Sessions: Optional[SessionList]
-    NextToken: Optional[OrchestrationToken]
+    Ids: SessionIdList | None
+    Sessions: SessionList | None
+    NextToken: OrchestrationToken | None
 
 
 class ListStatementsRequest(ServiceRequest):
     SessionId: NameString
-    RequestOrigin: Optional[OrchestrationNameString]
-    NextToken: Optional[OrchestrationToken]
+    RequestOrigin: OrchestrationNameString | None
+    NextToken: OrchestrationToken | None
 
 
-StatementList = List[Statement]
+StatementList = list[Statement]
 
 
 class ListStatementsResponse(TypedDict, total=False):
-    Statements: Optional[StatementList]
-    NextToken: Optional[OrchestrationToken]
+    Statements: StatementList | None
+    NextToken: OrchestrationToken | None
 
 
 class ListTableOptimizerRunsRequest(ServiceRequest):
@@ -8920,63 +9099,63 @@ class ListTableOptimizerRunsRequest(ServiceRequest):
     DatabaseName: NameString
     TableName: NameString
     Type: TableOptimizerType
-    MaxResults: Optional[MaxListTableOptimizerRunsTokenResults]
-    NextToken: Optional[ListTableOptimizerRunsToken]
+    MaxResults: MaxListTableOptimizerRunsTokenResults | None
+    NextToken: ListTableOptimizerRunsToken | None
 
 
-TableOptimizerRuns = List[TableOptimizerRun]
+TableOptimizerRuns = list[TableOptimizerRun]
 
 
 class ListTableOptimizerRunsResponse(TypedDict, total=False):
-    CatalogId: Optional[CatalogIdString]
-    DatabaseName: Optional[NameString]
-    TableName: Optional[NameString]
-    NextToken: Optional[ListTableOptimizerRunsToken]
-    TableOptimizerRuns: Optional[TableOptimizerRuns]
+    CatalogId: CatalogIdString | None
+    DatabaseName: NameString | None
+    TableName: NameString | None
+    NextToken: ListTableOptimizerRunsToken | None
+    TableOptimizerRuns: TableOptimizerRuns | None
 
 
 class ListTriggersRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    DependentJobName: Optional[NameString]
-    MaxResults: Optional[OrchestrationPageSize200]
-    Tags: Optional[TagsMap]
+    NextToken: GenericString | None
+    DependentJobName: NameString | None
+    MaxResults: OrchestrationPageSize200 | None
+    Tags: TagsMap | None
 
 
 class ListTriggersResponse(TypedDict, total=False):
-    TriggerNames: Optional[TriggerNameList]
-    NextToken: Optional[GenericString]
+    TriggerNames: TriggerNameList | None
+    NextToken: GenericString | None
 
 
 class ListUsageProfilesRequest(ServiceRequest):
-    NextToken: Optional[OrchestrationToken]
-    MaxResults: Optional[OrchestrationPageSize200]
+    NextToken: OrchestrationToken | None
+    MaxResults: OrchestrationPageSize200 | None
 
 
 class UsageProfileDefinition(TypedDict, total=False):
     """Describes an Glue usage profile."""
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    CreatedOn: Optional[TimestampValue]
-    LastModifiedOn: Optional[TimestampValue]
+    Name: NameString | None
+    Description: DescriptionString | None
+    CreatedOn: TimestampValue | None
+    LastModifiedOn: TimestampValue | None
 
 
-UsageProfileDefinitionList = List[UsageProfileDefinition]
+UsageProfileDefinitionList = list[UsageProfileDefinition]
 
 
 class ListUsageProfilesResponse(TypedDict, total=False):
-    Profiles: Optional[UsageProfileDefinitionList]
-    NextToken: Optional[OrchestrationToken]
+    Profiles: UsageProfileDefinitionList | None
+    NextToken: OrchestrationToken | None
 
 
 class ListWorkflowsRequest(ServiceRequest):
-    NextToken: Optional[GenericString]
-    MaxResults: Optional[OrchestrationPageSize25]
+    NextToken: GenericString | None
+    MaxResults: OrchestrationPageSize25 | None
 
 
 class ListWorkflowsResponse(TypedDict, total=False):
-    Workflows: Optional[WorkflowNames]
-    NextToken: Optional[GenericString]
+    Workflows: WorkflowNames | None
+    NextToken: GenericString | None
 
 
 class OtherMetadataValueListItem(TypedDict, total=False):
@@ -8984,71 +9163,71 @@ class OtherMetadataValueListItem(TypedDict, total=False):
     the same metadata key.
     """
 
-    MetadataValue: Optional[MetadataValueString]
-    CreatedTime: Optional[CreatedTimestamp]
+    MetadataValue: MetadataValueString | None
+    CreatedTime: CreatedTimestamp | None
 
 
-OtherMetadataValueList = List[OtherMetadataValueListItem]
+OtherMetadataValueList = list[OtherMetadataValueListItem]
 
 
 class MetadataInfo(TypedDict, total=False):
     """A structure containing metadata information for a schema version."""
 
-    MetadataValue: Optional[MetadataValueString]
-    CreatedTime: Optional[CreatedTimestamp]
-    OtherMetadataValueList: Optional[OtherMetadataValueList]
+    MetadataValue: MetadataValueString | None
+    CreatedTime: CreatedTimestamp | None
+    OtherMetadataValueList: OtherMetadataValueList | None
 
 
-MetadataInfoMap = Dict[MetadataKeyString, MetadataInfo]
+MetadataInfoMap = dict[MetadataKeyString, MetadataInfo]
 
 
 class MetadataKeyValuePair(TypedDict, total=False):
     """A structure containing a key value pair for metadata."""
 
-    MetadataKey: Optional[MetadataKeyString]
-    MetadataValue: Optional[MetadataValueString]
+    MetadataKey: MetadataKeyString | None
+    MetadataValue: MetadataValueString | None
 
 
-MetadataList = List[MetadataKeyValuePair]
+MetadataList = list[MetadataKeyValuePair]
 
 
 class ModifyIntegrationRequest(ServiceRequest):
     IntegrationIdentifier: String128
-    Description: Optional[IntegrationDescription]
-    DataFilter: Optional[String2048]
-    IntegrationConfig: Optional[IntegrationConfig]
-    IntegrationName: Optional[String128]
+    Description: IntegrationDescription | None
+    DataFilter: String2048 | None
+    IntegrationConfig: IntegrationConfig | None
+    IntegrationName: String128 | None
 
 
 class ModifyIntegrationResponse(TypedDict, total=False):
-    SourceArn: String128
-    TargetArn: String128
+    SourceArn: String512
+    TargetArn: String512
     IntegrationName: String128
-    Description: Optional[IntegrationDescription]
+    Description: IntegrationDescription | None
     IntegrationArn: String128
-    KmsKeyId: Optional[String2048]
-    AdditionalEncryptionContext: Optional[IntegrationAdditionalEncryptionContextMap]
-    Tags: Optional[IntegrationTagsList]
+    KmsKeyId: String2048 | None
+    AdditionalEncryptionContext: IntegrationAdditionalEncryptionContextMap | None
+    Tags: IntegrationTagsList | None
     Status: IntegrationStatus
     CreateTime: IntegrationTimestamp
-    Errors: Optional[IntegrationErrorList]
-    DataFilter: Optional[String2048]
-    IntegrationConfig: Optional[IntegrationConfig]
+    Errors: IntegrationErrorList | None
+    DataFilter: String2048 | None
+    IntegrationConfig: IntegrationConfig | None
 
 
-NodeIdList = List[NameString]
+NodeIdList = list[NameString]
 
 
 class PropertyPredicate(TypedDict, total=False):
     """Defines a property predicate."""
 
-    Key: Optional[ValueString]
-    Value: Optional[ValueString]
-    Comparator: Optional[Comparator]
+    Key: ValueString | None
+    Value: ValueString | None
+    Comparator: Comparator | None
 
 
 class PutDataCatalogEncryptionSettingsRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DataCatalogEncryptionSettings: DataCatalogEncryptionSettings
 
 
@@ -9069,32 +9248,32 @@ class PutDataQualityProfileAnnotationResponse(TypedDict, total=False):
 
 class PutResourcePolicyRequest(ServiceRequest):
     PolicyInJson: PolicyJsonString
-    ResourceArn: Optional[GlueResourceArn]
-    PolicyHashCondition: Optional[HashString]
-    PolicyExistsCondition: Optional[ExistCondition]
-    EnableHybrid: Optional[EnableHybridValues]
+    ResourceArn: GlueResourceArn | None
+    PolicyHashCondition: HashString | None
+    PolicyExistsCondition: ExistCondition | None
+    EnableHybrid: EnableHybridValues | None
 
 
 class PutResourcePolicyResponse(TypedDict, total=False):
-    PolicyHash: Optional[HashString]
+    PolicyHash: HashString | None
 
 
 class PutSchemaVersionMetadataInput(ServiceRequest):
-    SchemaId: Optional[SchemaId]
-    SchemaVersionNumber: Optional[SchemaVersionNumber]
-    SchemaVersionId: Optional[SchemaVersionIdString]
+    SchemaId: SchemaId | None
+    SchemaVersionNumber: SchemaVersionNumber | None
+    SchemaVersionId: SchemaVersionIdString | None
     MetadataKeyValue: MetadataKeyValuePair
 
 
 class PutSchemaVersionMetadataResponse(TypedDict, total=False):
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    RegistryName: Optional[SchemaRegistryNameString]
-    LatestVersion: Optional[LatestSchemaVersionBoolean]
-    VersionNumber: Optional[VersionLongNumber]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    MetadataKey: Optional[MetadataKeyString]
-    MetadataValue: Optional[MetadataValueString]
+    SchemaArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    RegistryName: SchemaRegistryNameString | None
+    LatestVersion: LatestSchemaVersionBoolean | None
+    VersionNumber: VersionLongNumber | None
+    SchemaVersionId: SchemaVersionIdString | None
+    MetadataKey: MetadataKeyString | None
+    MetadataValue: MetadataValueString | None
 
 
 class PutWorkflowRunPropertiesRequest(ServiceRequest):
@@ -9108,18 +9287,18 @@ class PutWorkflowRunPropertiesResponse(TypedDict, total=False):
 
 
 class QuerySchemaVersionMetadataInput(ServiceRequest):
-    SchemaId: Optional[SchemaId]
-    SchemaVersionNumber: Optional[SchemaVersionNumber]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    MetadataList: Optional[MetadataList]
-    MaxResults: Optional[QuerySchemaVersionMetadataMaxResults]
-    NextToken: Optional[SchemaRegistryTokenString]
+    SchemaId: SchemaId | None
+    SchemaVersionNumber: SchemaVersionNumber | None
+    SchemaVersionId: SchemaVersionIdString | None
+    MetadataList: MetadataList | None
+    MaxResults: QuerySchemaVersionMetadataMaxResults | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class QuerySchemaVersionMetadataResponse(TypedDict, total=False):
-    MetadataInfoMap: Optional[MetadataInfoMap]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    NextToken: Optional[SchemaRegistryTokenString]
+    MetadataInfoMap: MetadataInfoMap | None
+    SchemaVersionId: SchemaVersionIdString | None
+    NextToken: SchemaRegistryTokenString | None
 
 
 class RegisterSchemaVersionInput(ServiceRequest):
@@ -9128,36 +9307,36 @@ class RegisterSchemaVersionInput(ServiceRequest):
 
 
 class RegisterSchemaVersionResponse(TypedDict, total=False):
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    VersionNumber: Optional[VersionLongNumber]
-    Status: Optional[SchemaVersionStatus]
+    SchemaVersionId: SchemaVersionIdString | None
+    VersionNumber: VersionLongNumber | None
+    Status: SchemaVersionStatus | None
 
 
 class RemoveSchemaVersionMetadataInput(ServiceRequest):
-    SchemaId: Optional[SchemaId]
-    SchemaVersionNumber: Optional[SchemaVersionNumber]
-    SchemaVersionId: Optional[SchemaVersionIdString]
+    SchemaId: SchemaId | None
+    SchemaVersionNumber: SchemaVersionNumber | None
+    SchemaVersionId: SchemaVersionIdString | None
     MetadataKeyValue: MetadataKeyValuePair
 
 
 class RemoveSchemaVersionMetadataResponse(TypedDict, total=False):
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    RegistryName: Optional[SchemaRegistryNameString]
-    LatestVersion: Optional[LatestSchemaVersionBoolean]
-    VersionNumber: Optional[VersionLongNumber]
-    SchemaVersionId: Optional[SchemaVersionIdString]
-    MetadataKey: Optional[MetadataKeyString]
-    MetadataValue: Optional[MetadataValueString]
+    SchemaArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    RegistryName: SchemaRegistryNameString | None
+    LatestVersion: LatestSchemaVersionBoolean | None
+    VersionNumber: VersionLongNumber | None
+    SchemaVersionId: SchemaVersionIdString | None
+    MetadataKey: MetadataKeyString | None
+    MetadataValue: MetadataValueString | None
 
 
 class ResetJobBookmarkRequest(ServiceRequest):
     JobName: JobName
-    RunId: Optional[RunId]
+    RunId: RunId | None
 
 
 class ResetJobBookmarkResponse(TypedDict, total=False):
-    JobBookmarkEntry: Optional[JobBookmarkEntry]
+    JobBookmarkEntry: JobBookmarkEntry | None
 
 
 class ResumeWorkflowRunRequest(ServiceRequest):
@@ -9167,71 +9346,71 @@ class ResumeWorkflowRunRequest(ServiceRequest):
 
 
 class ResumeWorkflowRunResponse(TypedDict, total=False):
-    RunId: Optional[IdString]
-    NodeIds: Optional[NodeIdList]
+    RunId: IdString | None
+    NodeIds: NodeIdList | None
 
 
 class RunStatementRequest(ServiceRequest):
     SessionId: NameString
     Code: OrchestrationStatementCodeString
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 class RunStatementResponse(TypedDict, total=False):
-    Id: Optional[IntegerValue]
+    Id: IntegerValue | None
 
 
-SearchPropertyPredicates = List[PropertyPredicate]
+SearchPropertyPredicates = list[PropertyPredicate]
 
 
 class SortCriterion(TypedDict, total=False):
     """Specifies a field to sort by and a sort order."""
 
-    FieldName: Optional[ValueString]
-    Sort: Optional[Sort]
+    FieldName: ValueString | None
+    Sort: Sort | None
 
 
-SortCriteria = List[SortCriterion]
+SortCriteria = list[SortCriterion]
 
 
 class SearchTablesRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
-    NextToken: Optional[Token]
-    Filters: Optional[SearchPropertyPredicates]
-    SearchText: Optional[ValueString]
-    SortCriteria: Optional[SortCriteria]
-    MaxResults: Optional[PageSize]
-    ResourceShareType: Optional[ResourceShareType]
-    IncludeStatusDetails: Optional[BooleanNullable]
+    CatalogId: CatalogIdString | None
+    NextToken: Token | None
+    Filters: SearchPropertyPredicates | None
+    SearchText: ValueString | None
+    SortCriteria: SortCriteria | None
+    MaxResults: PageSize | None
+    ResourceShareType: ResourceShareType | None
+    IncludeStatusDetails: BooleanNullable | None
 
 
 class SearchTablesResponse(TypedDict, total=False):
-    NextToken: Optional[Token]
-    TableList: Optional[TableList]
+    NextToken: Token | None
+    TableList: TableList | None
 
 
 class StartBlueprintRunRequest(ServiceRequest):
     BlueprintName: OrchestrationNameString
-    Parameters: Optional[BlueprintParameters]
+    Parameters: BlueprintParameters | None
     RoleArn: OrchestrationIAMRoleArn
 
 
 class StartBlueprintRunResponse(TypedDict, total=False):
-    RunId: Optional[IdString]
+    RunId: IdString | None
 
 
 class StartColumnStatisticsTaskRunRequest(ServiceRequest):
     DatabaseName: NameString
     TableName: NameString
-    ColumnNameList: Optional[ColumnNameList]
+    ColumnNameList: ColumnNameList | None
     Role: NameString
-    SampleSize: Optional[SampleSizePercentage]
-    CatalogID: Optional[NameString]
-    SecurityConfiguration: Optional[NameString]
+    SampleSize: SampleSizePercentage | None
+    CatalogID: NameString | None
+    SecurityConfiguration: NameString | None
 
 
 class StartColumnStatisticsTaskRunResponse(TypedDict, total=False):
-    ColumnStatisticsTaskRunId: Optional[HashString]
+    ColumnStatisticsTaskRunId: HashString | None
 
 
 class StartColumnStatisticsTaskRunScheduleRequest(ServiceRequest):
@@ -9264,30 +9443,30 @@ class StartDataQualityRuleRecommendationRunRequest(ServiceRequest):
 
     DataSource: DataSource
     Role: RoleString
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    CreatedRulesetName: Optional[NameString]
-    DataQualitySecurityConfiguration: Optional[NameString]
-    ClientToken: Optional[HashString]
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    CreatedRulesetName: NameString | None
+    DataQualitySecurityConfiguration: NameString | None
+    ClientToken: HashString | None
 
 
 class StartDataQualityRuleRecommendationRunResponse(TypedDict, total=False):
-    RunId: Optional[HashString]
+    RunId: HashString | None
 
 
 class StartDataQualityRulesetEvaluationRunRequest(ServiceRequest):
     DataSource: DataSource
     Role: RoleString
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    ClientToken: Optional[HashString]
-    AdditionalRunOptions: Optional[DataQualityEvaluationRunAdditionalRunOptions]
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    ClientToken: HashString | None
+    AdditionalRunOptions: DataQualityEvaluationRunAdditionalRunOptions | None
     RulesetNames: RulesetNames
-    AdditionalDataSources: Optional[DataSourceMap]
+    AdditionalDataSources: DataSourceMap | None
 
 
 class StartDataQualityRulesetEvaluationRunResponse(TypedDict, total=False):
-    RunId: Optional[HashString]
+    RunId: HashString | None
 
 
 class StartExportLabelsTaskRunRequest(ServiceRequest):
@@ -9296,37 +9475,37 @@ class StartExportLabelsTaskRunRequest(ServiceRequest):
 
 
 class StartExportLabelsTaskRunResponse(TypedDict, total=False):
-    TaskRunId: Optional[HashString]
+    TaskRunId: HashString | None
 
 
 class StartImportLabelsTaskRunRequest(ServiceRequest):
     TransformId: HashString
     InputS3Path: UriString
-    ReplaceAllLabels: Optional[ReplaceBoolean]
+    ReplaceAllLabels: ReplaceBoolean | None
 
 
 class StartImportLabelsTaskRunResponse(TypedDict, total=False):
-    TaskRunId: Optional[HashString]
+    TaskRunId: HashString | None
 
 
 class StartJobRunRequest(ServiceRequest):
     JobName: NameString
-    JobRunQueuingEnabled: Optional[NullableBoolean]
-    JobRunId: Optional[IdString]
-    Arguments: Optional[GenericMap]
-    AllocatedCapacity: Optional[IntegerValue]
-    Timeout: Optional[Timeout]
-    MaxCapacity: Optional[NullableDouble]
-    SecurityConfiguration: Optional[NameString]
-    NotificationProperty: Optional[NotificationProperty]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    ExecutionClass: Optional[ExecutionClass]
-    ExecutionRoleSessionPolicy: Optional[OrchestrationPolicyJsonString]
+    JobRunQueuingEnabled: NullableBoolean | None
+    JobRunId: IdString | None
+    Arguments: GenericMap | None
+    AllocatedCapacity: IntegerValue | None
+    Timeout: Timeout | None
+    MaxCapacity: NullableDouble | None
+    SecurityConfiguration: NameString | None
+    NotificationProperty: NotificationProperty | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    ExecutionClass: ExecutionClass | None
+    ExecutionRoleSessionPolicy: OrchestrationPolicyJsonString | None
 
 
 class StartJobRunResponse(TypedDict, total=False):
-    JobRunId: Optional[IdString]
+    JobRunId: IdString | None
 
 
 class StartMLEvaluationTaskRunRequest(ServiceRequest):
@@ -9334,7 +9513,7 @@ class StartMLEvaluationTaskRunRequest(ServiceRequest):
 
 
 class StartMLEvaluationTaskRunResponse(TypedDict, total=False):
-    TaskRunId: Optional[HashString]
+    TaskRunId: HashString | None
 
 
 class StartMLLabelingSetGenerationTaskRunRequest(ServiceRequest):
@@ -9343,7 +9522,7 @@ class StartMLLabelingSetGenerationTaskRunRequest(ServiceRequest):
 
 
 class StartMLLabelingSetGenerationTaskRunResponse(TypedDict, total=False):
-    TaskRunId: Optional[HashString]
+    TaskRunId: HashString | None
 
 
 class StartTriggerRequest(ServiceRequest):
@@ -9351,16 +9530,16 @@ class StartTriggerRequest(ServiceRequest):
 
 
 class StartTriggerResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class StartWorkflowRunRequest(ServiceRequest):
     Name: NameString
-    RunProperties: Optional[WorkflowRunProperties]
+    RunProperties: WorkflowRunProperties | None
 
 
 class StartWorkflowRunResponse(TypedDict, total=False):
-    RunId: Optional[IdString]
+    RunId: IdString | None
 
 
 class StopColumnStatisticsTaskRunRequest(ServiceRequest):
@@ -9399,11 +9578,11 @@ class StopCrawlerScheduleResponse(TypedDict, total=False):
 
 class StopSessionRequest(ServiceRequest):
     Id: NameString
-    RequestOrigin: Optional[OrchestrationNameString]
+    RequestOrigin: OrchestrationNameString | None
 
 
 class StopSessionResponse(TypedDict, total=False):
-    Id: Optional[NameString]
+    Id: NameString | None
 
 
 class StopTriggerRequest(ServiceRequest):
@@ -9411,7 +9590,7 @@ class StopTriggerRequest(ServiceRequest):
 
 
 class StopTriggerResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class StopWorkflowRunRequest(ServiceRequest):
@@ -9423,7 +9602,7 @@ class StopWorkflowRunResponse(TypedDict, total=False):
     pass
 
 
-TagKeysList = List[TagKey]
+TagKeysList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -9440,13 +9619,13 @@ class TestConnectionInput(TypedDict, total=False):
 
     ConnectionType: ConnectionType
     ConnectionProperties: ConnectionProperties
-    AuthenticationConfiguration: Optional[AuthenticationConfigurationInput]
+    AuthenticationConfiguration: AuthenticationConfigurationInput | None
 
 
 class TestConnectionRequest(ServiceRequest):
-    ConnectionName: Optional[NameString]
-    CatalogId: Optional[CatalogIdString]
-    TestConnectionInput: Optional[TestConnectionInput]
+    ConnectionName: NameString | None
+    CatalogId: CatalogIdString | None
+    TestConnectionInput: TestConnectionInput | None
 
 
 class TestConnectionResponse(TypedDict, total=False):
@@ -9459,12 +9638,12 @@ class TriggerUpdate(TypedDict, total=False):
     completely.
     """
 
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Schedule: Optional[GenericString]
-    Actions: Optional[ActionList]
-    Predicate: Optional[Predicate]
-    EventBatchingCondition: Optional[EventBatchingCondition]
+    Name: NameString | None
+    Description: DescriptionString | None
+    Schedule: GenericString | None
+    Actions: ActionList | None
+    Predicate: Predicate | None
+    EventBatchingCondition: EventBatchingCondition | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -9478,12 +9657,12 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateBlueprintRequest(ServiceRequest):
     Name: OrchestrationNameString
-    Description: Optional[Generic512CharString]
+    Description: Generic512CharString | None
     BlueprintLocation: OrchestrationS3Location
 
 
 class UpdateBlueprintResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class UpdateCatalogRequest(ServiceRequest):
@@ -9499,30 +9678,30 @@ class UpdateCsvClassifierRequest(TypedDict, total=False):
     """Specifies a custom CSV classifier to be updated."""
 
     Name: NameString
-    Delimiter: Optional[CsvColumnDelimiter]
-    QuoteSymbol: Optional[CsvQuoteSymbol]
-    ContainsHeader: Optional[CsvHeaderOption]
-    Header: Optional[CsvHeader]
-    DisableValueTrimming: Optional[NullableBoolean]
-    AllowSingleColumn: Optional[NullableBoolean]
-    CustomDatatypeConfigured: Optional[NullableBoolean]
-    CustomDatatypes: Optional[CustomDatatypes]
-    Serde: Optional[CsvSerdeOption]
+    Delimiter: CsvColumnDelimiter | None
+    QuoteSymbol: CsvQuoteSymbol | None
+    ContainsHeader: CsvHeaderOption | None
+    Header: CsvHeader | None
+    DisableValueTrimming: NullableBoolean | None
+    AllowSingleColumn: NullableBoolean | None
+    CustomDatatypeConfigured: NullableBoolean | None
+    CustomDatatypes: CustomDatatypes | None
+    Serde: CsvSerdeOption | None
 
 
 class UpdateJsonClassifierRequest(TypedDict, total=False):
     """Specifies a JSON classifier to be updated."""
 
     Name: NameString
-    JsonPath: Optional[JsonPath]
+    JsonPath: JsonPath | None
 
 
 class UpdateXMLClassifierRequest(TypedDict, total=False):
     """Specifies an XML classifier to be updated."""
 
     Name: NameString
-    Classification: Optional[Classification]
-    RowTag: Optional[RowTag]
+    Classification: Classification | None
+    RowTag: RowTag | None
 
 
 class UpdateGrokClassifierRequest(TypedDict, total=False):
@@ -9531,27 +9710,27 @@ class UpdateGrokClassifierRequest(TypedDict, total=False):
     """
 
     Name: NameString
-    Classification: Optional[Classification]
-    GrokPattern: Optional[GrokPattern]
-    CustomPatterns: Optional[CustomPatterns]
+    Classification: Classification | None
+    GrokPattern: GrokPattern | None
+    CustomPatterns: CustomPatterns | None
 
 
 class UpdateClassifierRequest(ServiceRequest):
-    GrokClassifier: Optional[UpdateGrokClassifierRequest]
-    XMLClassifier: Optional[UpdateXMLClassifierRequest]
-    JsonClassifier: Optional[UpdateJsonClassifierRequest]
-    CsvClassifier: Optional[UpdateCsvClassifierRequest]
+    GrokClassifier: UpdateGrokClassifierRequest | None
+    XMLClassifier: UpdateXMLClassifierRequest | None
+    JsonClassifier: UpdateJsonClassifierRequest | None
+    CsvClassifier: UpdateCsvClassifierRequest | None
 
 
 class UpdateClassifierResponse(TypedDict, total=False):
     pass
 
 
-UpdateColumnStatisticsList = List[ColumnStatistics]
+UpdateColumnStatisticsList = list[ColumnStatistics]
 
 
 class UpdateColumnStatisticsForPartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValues: ValueStringList
@@ -9559,29 +9738,29 @@ class UpdateColumnStatisticsForPartitionRequest(ServiceRequest):
 
 
 class UpdateColumnStatisticsForPartitionResponse(TypedDict, total=False):
-    Errors: Optional[ColumnStatisticsErrors]
+    Errors: ColumnStatisticsErrors | None
 
 
 class UpdateColumnStatisticsForTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     ColumnStatisticsList: UpdateColumnStatisticsList
 
 
 class UpdateColumnStatisticsForTableResponse(TypedDict, total=False):
-    Errors: Optional[ColumnStatisticsErrors]
+    Errors: ColumnStatisticsErrors | None
 
 
 class UpdateColumnStatisticsTaskSettingsRequest(ServiceRequest):
     DatabaseName: NameString
     TableName: NameString
-    Role: Optional[NameString]
-    Schedule: Optional[CronExpression]
-    ColumnNameList: Optional[ColumnNameList]
-    SampleSize: Optional[SampleSizePercentage]
-    CatalogID: Optional[NameString]
-    SecurityConfiguration: Optional[NameString]
+    Role: NameString | None
+    Schedule: CronExpression | None
+    ColumnNameList: ColumnNameList | None
+    SampleSize: SampleSizePercentage | None
+    CatalogID: NameString | None
+    SecurityConfiguration: NameString | None
 
 
 class UpdateColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
@@ -9589,7 +9768,7 @@ class UpdateColumnStatisticsTaskSettingsResponse(TypedDict, total=False):
 
 
 class UpdateConnectionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
     ConnectionInput: ConnectionInput
 
@@ -9600,19 +9779,19 @@ class UpdateConnectionResponse(TypedDict, total=False):
 
 class UpdateCrawlerRequest(ServiceRequest):
     Name: NameString
-    Role: Optional[Role]
-    DatabaseName: Optional[DatabaseName]
-    Description: Optional[DescriptionStringRemovable]
-    Targets: Optional[CrawlerTargets]
-    Schedule: Optional[CronExpression]
-    Classifiers: Optional[ClassifierNameList]
-    TablePrefix: Optional[TablePrefix]
-    SchemaChangePolicy: Optional[SchemaChangePolicy]
-    RecrawlPolicy: Optional[RecrawlPolicy]
-    LineageConfiguration: Optional[LineageConfiguration]
-    LakeFormationConfiguration: Optional[LakeFormationConfiguration]
-    Configuration: Optional[CrawlerConfiguration]
-    CrawlerSecurityConfiguration: Optional[CrawlerSecurityConfiguration]
+    Role: Role | None
+    DatabaseName: DatabaseName | None
+    Description: DescriptionStringRemovable | None
+    Targets: CrawlerTargets | None
+    Schedule: CronExpression | None
+    Classifiers: ClassifierNameList | None
+    TablePrefix: TablePrefix | None
+    SchemaChangePolicy: SchemaChangePolicy | None
+    RecrawlPolicy: RecrawlPolicy | None
+    LineageConfiguration: LineageConfiguration | None
+    LakeFormationConfiguration: LakeFormationConfiguration | None
+    Configuration: CrawlerConfiguration | None
+    CrawlerSecurityConfiguration: CrawlerSecurityConfiguration | None
 
 
 class UpdateCrawlerResponse(TypedDict, total=False):
@@ -9621,7 +9800,7 @@ class UpdateCrawlerResponse(TypedDict, total=False):
 
 class UpdateCrawlerScheduleRequest(ServiceRequest):
     CrawlerName: NameString
-    Schedule: Optional[CronExpression]
+    Schedule: CronExpression | None
 
 
 class UpdateCrawlerScheduleResponse(TypedDict, total=False):
@@ -9630,18 +9809,18 @@ class UpdateCrawlerScheduleResponse(TypedDict, total=False):
 
 class UpdateDataQualityRulesetRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
-    Ruleset: Optional[DataQualityRulesetString]
+    Description: DescriptionString | None
+    Ruleset: DataQualityRulesetString | None
 
 
 class UpdateDataQualityRulesetResponse(TypedDict, total=False):
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Ruleset: Optional[DataQualityRulesetString]
+    Name: NameString | None
+    Description: DescriptionString | None
+    Ruleset: DataQualityRulesetString | None
 
 
 class UpdateDatabaseRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     Name: NameString
     DatabaseInput: DatabaseInput
 
@@ -9652,13 +9831,13 @@ class UpdateDatabaseResponse(TypedDict, total=False):
 
 class UpdateDevEndpointRequest(ServiceRequest):
     EndpointName: GenericString
-    PublicKey: Optional[GenericString]
-    AddPublicKeys: Optional[PublicKeysList]
-    DeletePublicKeys: Optional[PublicKeysList]
-    CustomLibraries: Optional[DevEndpointCustomLibraries]
-    UpdateEtlLibraries: Optional[BooleanValue]
-    DeleteArguments: Optional[StringList]
-    AddArguments: Optional[MapValue]
+    PublicKey: GenericString | None
+    AddPublicKeys: PublicKeysList | None
+    DeletePublicKeys: PublicKeysList | None
+    CustomLibraries: DevEndpointCustomLibraries | None
+    UpdateEtlLibraries: BooleanValue | None
+    DeleteArguments: StringList | None
+    AddArguments: MapValue | None
 
 
 class UpdateDevEndpointResponse(TypedDict, total=False):
@@ -9668,7 +9847,8 @@ class UpdateDevEndpointResponse(TypedDict, total=False):
 class UpdateGlueIdentityCenterConfigurationRequest(ServiceRequest):
     """Request to update an existing Glue Identity Center configuration."""
 
-    Scopes: Optional[IdentityCenterScopesList]
+    Scopes: IdentityCenterScopesList | None
+    UserBackgroundSessionsEnabled: NullableBoolean | None
 
 
 class UpdateGlueIdentityCenterConfigurationResponse(TypedDict, total=False):
@@ -9695,22 +9875,23 @@ class UpdateIcebergInput(TypedDict, total=False):
 
 
 class UpdateIntegrationResourcePropertyRequest(ServiceRequest):
-    ResourceArn: String128
-    SourceProcessingProperties: Optional[SourceProcessingProperties]
-    TargetProcessingProperties: Optional[TargetProcessingProperties]
+    ResourceArn: String512
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
 
 
 class UpdateIntegrationResourcePropertyResponse(TypedDict, total=False):
-    ResourceArn: Optional[String128]
-    SourceProcessingProperties: Optional[SourceProcessingProperties]
-    TargetProcessingProperties: Optional[TargetProcessingProperties]
+    ResourceArn: String512 | None
+    ResourcePropertyArn: String512 | None
+    SourceProcessingProperties: SourceProcessingProperties | None
+    TargetProcessingProperties: TargetProcessingProperties | None
 
 
 class UpdateIntegrationTablePropertiesRequest(ServiceRequest):
-    ResourceArn: String128
+    ResourceArn: String512
     TableName: String128
-    SourceTableConfig: Optional[SourceTableConfig]
-    TargetTableConfig: Optional[TargetTableConfig]
+    SourceTableConfig: SourceTableConfig | None
+    TargetTableConfig: TargetTableConfig | None
 
 
 class UpdateIntegrationTablePropertiesResponse(TypedDict, total=False):
@@ -9718,19 +9899,19 @@ class UpdateIntegrationTablePropertiesResponse(TypedDict, total=False):
 
 
 class UpdateJobFromSourceControlRequest(ServiceRequest):
-    JobName: Optional[NameString]
-    Provider: Optional[SourceControlProvider]
-    RepositoryName: Optional[NameString]
-    RepositoryOwner: Optional[NameString]
-    BranchName: Optional[NameString]
-    Folder: Optional[NameString]
-    CommitId: Optional[CommitIdString]
-    AuthStrategy: Optional[SourceControlAuthStrategy]
-    AuthToken: Optional[AuthTokenString]
+    JobName: NameString | None
+    Provider: SourceControlProvider | None
+    RepositoryName: NameString | None
+    RepositoryOwner: NameString | None
+    BranchName: NameString | None
+    Folder: NameString | None
+    CommitId: CommitIdString | None
+    AuthStrategy: SourceControlAuthStrategy | None
+    AuthToken: AuthTokenString | None
 
 
 class UpdateJobFromSourceControlResponse(TypedDict, total=False):
-    JobName: Optional[NameString]
+    JobName: NameString | None
 
 
 class UpdateJobRequest(ServiceRequest):
@@ -9739,25 +9920,25 @@ class UpdateJobRequest(ServiceRequest):
 
 
 class UpdateJobResponse(TypedDict, total=False):
-    JobName: Optional[NameString]
+    JobName: NameString | None
 
 
 class UpdateMLTransformRequest(ServiceRequest):
     TransformId: HashString
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Parameters: Optional[TransformParameters]
-    Role: Optional[RoleString]
-    GlueVersion: Optional[GlueVersionString]
-    MaxCapacity: Optional[NullableDouble]
-    WorkerType: Optional[WorkerType]
-    NumberOfWorkers: Optional[NullableInteger]
-    Timeout: Optional[Timeout]
-    MaxRetries: Optional[NullableInteger]
+    Name: NameString | None
+    Description: DescriptionString | None
+    Parameters: TransformParameters | None
+    Role: RoleString | None
+    GlueVersion: GlueVersionString | None
+    MaxCapacity: NullableDouble | None
+    WorkerType: WorkerType | None
+    NumberOfWorkers: NullableInteger | None
+    Timeout: Timeout | None
+    MaxRetries: NullableInteger | None
 
 
 class UpdateMLTransformResponse(TypedDict, total=False):
-    TransformId: Optional[HashString]
+    TransformId: HashString | None
 
 
 class UpdateOpenTableFormatInput(TypedDict, total=False):
@@ -9766,11 +9947,11 @@ class UpdateOpenTableFormatInput(TypedDict, total=False):
     as Apache Iceberg.
     """
 
-    UpdateIcebergInput: Optional[UpdateIcebergInput]
+    UpdateIcebergInput: UpdateIcebergInput | None
 
 
 class UpdatePartitionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     TableName: NameString
     PartitionValueList: BoundedPartitionValueList
@@ -9787,37 +9968,37 @@ class UpdateRegistryInput(ServiceRequest):
 
 
 class UpdateRegistryResponse(TypedDict, total=False):
-    RegistryName: Optional[SchemaRegistryNameString]
-    RegistryArn: Optional[GlueResourceArn]
+    RegistryName: SchemaRegistryNameString | None
+    RegistryArn: GlueResourceArn | None
 
 
 class UpdateSchemaInput(ServiceRequest):
     SchemaId: SchemaId
-    SchemaVersionNumber: Optional[SchemaVersionNumber]
-    Compatibility: Optional[Compatibility]
-    Description: Optional[DescriptionString]
+    SchemaVersionNumber: SchemaVersionNumber | None
+    Compatibility: Compatibility | None
+    Description: DescriptionString | None
 
 
 class UpdateSchemaResponse(TypedDict, total=False):
-    SchemaArn: Optional[GlueResourceArn]
-    SchemaName: Optional[SchemaRegistryNameString]
-    RegistryName: Optional[SchemaRegistryNameString]
+    SchemaArn: GlueResourceArn | None
+    SchemaName: SchemaRegistryNameString | None
+    RegistryName: SchemaRegistryNameString | None
 
 
 class UpdateSourceControlFromJobRequest(ServiceRequest):
-    JobName: Optional[NameString]
-    Provider: Optional[SourceControlProvider]
-    RepositoryName: Optional[NameString]
-    RepositoryOwner: Optional[NameString]
-    BranchName: Optional[NameString]
-    Folder: Optional[NameString]
-    CommitId: Optional[CommitIdString]
-    AuthStrategy: Optional[SourceControlAuthStrategy]
-    AuthToken: Optional[AuthTokenString]
+    JobName: NameString | None
+    Provider: SourceControlProvider | None
+    RepositoryName: NameString | None
+    RepositoryOwner: NameString | None
+    BranchName: NameString | None
+    Folder: NameString | None
+    CommitId: CommitIdString | None
+    AuthStrategy: SourceControlAuthStrategy | None
+    AuthToken: AuthTokenString | None
 
 
 class UpdateSourceControlFromJobResponse(TypedDict, total=False):
-    JobName: Optional[NameString]
+    JobName: NameString | None
 
 
 class UpdateTableOptimizerRequest(ServiceRequest):
@@ -9833,16 +10014,16 @@ class UpdateTableOptimizerResponse(TypedDict, total=False):
 
 
 class UpdateTableRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
-    Name: Optional[NameString]
-    TableInput: Optional[TableInput]
-    SkipArchive: Optional[BooleanNullable]
-    TransactionId: Optional[TransactionIdString]
-    VersionId: Optional[VersionString]
-    ViewUpdateAction: Optional[ViewUpdateAction]
-    Force: Optional[Boolean]
-    UpdateOpenTableFormatInput: Optional[UpdateOpenTableFormatInput]
+    Name: NameString | None
+    TableInput: TableInput | None
+    SkipArchive: BooleanNullable | None
+    TransactionId: TransactionIdString | None
+    VersionId: VersionString | None
+    ViewUpdateAction: ViewUpdateAction | None
+    Force: Boolean | None
+    UpdateOpenTableFormatInput: UpdateOpenTableFormatInput | None
 
 
 class UpdateTableResponse(TypedDict, total=False):
@@ -9855,21 +10036,21 @@ class UpdateTriggerRequest(ServiceRequest):
 
 
 class UpdateTriggerResponse(TypedDict, total=False):
-    Trigger: Optional[Trigger]
+    Trigger: Trigger | None
 
 
 class UpdateUsageProfileRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Configuration: ProfileConfiguration
 
 
 class UpdateUsageProfileResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class UpdateUserDefinedFunctionRequest(ServiceRequest):
-    CatalogId: Optional[CatalogIdString]
+    CatalogId: CatalogIdString | None
     DatabaseName: NameString
     FunctionName: NameString
     FunctionInput: UserDefinedFunctionInput
@@ -9881,18 +10062,18 @@ class UpdateUserDefinedFunctionResponse(TypedDict, total=False):
 
 class UpdateWorkflowRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[WorkflowDescriptionString]
-    DefaultRunProperties: Optional[WorkflowRunProperties]
-    MaxConcurrentRuns: Optional[NullableInteger]
+    Description: WorkflowDescriptionString | None
+    DefaultRunProperties: WorkflowRunProperties | None
+    MaxConcurrentRuns: NullableInteger | None
 
 
 class UpdateWorkflowResponse(TypedDict, total=False):
-    Name: Optional[NameString]
+    Name: NameString | None
 
 
 class GlueApi:
-    service = "glue"
-    version = "2017-03-31"
+    service: str = "glue"
+    version: str = "2017-03-31"
 
     @handler("BatchCreatePartition")
     def batch_create_partition(
@@ -10753,6 +10934,7 @@ class GlueApi:
         context: RequestContext,
         instance_arn: IdentityCenterInstanceArn,
         scopes: IdentityCenterScopesList | None = None,
+        user_background_sessions_enabled: NullableBoolean | None = None,
         **kwargs,
     ) -> CreateGlueIdentityCenterConfigurationResponse:
         """Creates a new Glue Identity Center configuration to enable integration
@@ -10763,6 +10945,8 @@ class GlueApi:
         associated with the Glue configuration.
         :param scopes: A list of Identity Center scopes that define the permissions and access
         levels for the Glue configuration.
+        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity
+        Center authentication with Glue services.
         :returns: CreateGlueIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises AlreadyExistsException:
@@ -10778,8 +10962,8 @@ class GlueApi:
         self,
         context: RequestContext,
         integration_name: String128,
-        source_arn: String128,
-        target_arn: String128,
+        source_arn: String512,
+        target_arn: String512,
         description: IntegrationDescription | None = None,
         data_filter: String2048 | None = None,
         kms_key_id: String2048 | None = None,
@@ -10823,9 +11007,10 @@ class GlueApi:
     def create_integration_resource_property(
         self,
         context: RequestContext,
-        resource_arn: String128,
+        resource_arn: String512,
         source_processing_properties: SourceProcessingProperties | None = None,
         target_processing_properties: TargetProcessingProperties | None = None,
+        tags: IntegrationTagsList | None = None,
         **kwargs,
     ) -> CreateIntegrationResourcePropertyResponse:
         """This API can be used for setting up the ``ResourceProperty`` of the Glue
@@ -10839,6 +11024,8 @@ class GlueApi:
         :param resource_arn: The connection ARN of the source, or the database ARN of the target.
         :param source_processing_properties: The resource properties associated with the integration source.
         :param target_processing_properties: The resource properties associated with the integration target.
+        :param tags: Metadata assigned to the resource consisting of a list of key-value
+        pairs.
         :returns: CreateIntegrationResourcePropertyResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -10855,7 +11042,7 @@ class GlueApi:
     def create_integration_table_properties(
         self,
         context: RequestContext,
-        resource_arn: String128,
+        resource_arn: String512,
         table_name: String128,
         source_table_config: SourceTableConfig | None = None,
         target_table_config: TargetTableConfig | None = None,
@@ -11738,9 +11925,28 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteIntegrationResourceProperty")
+    def delete_integration_resource_property(
+        self, context: RequestContext, resource_arn: String512, **kwargs
+    ) -> DeleteIntegrationResourcePropertyResponse:
+        """This API is used for deleting the ``ResourceProperty`` of the Glue
+        connection (for the source) or Glue database ARN (for the target).
+
+        :param resource_arn: The connection ARN of the source, or the database ARN of the target.
+        :returns: DeleteIntegrationResourcePropertyResponse
+        :raises ValidationException:
+        :raises AccessDeniedException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises EntityNotFoundException:
+        :raises InternalServiceException:
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteIntegrationTableProperties")
     def delete_integration_table_properties(
-        self, context: RequestContext, resource_arn: String128, table_name: String128, **kwargs
+        self, context: RequestContext, resource_arn: String512, table_name: String128, **kwargs
     ) -> DeleteIntegrationTablePropertiesResponse:
         """Deletes the table properties that have been created for the tables that
         need to be replicated.
@@ -12192,7 +12398,7 @@ class GlueApi:
         integration_arn: String128 | None = None,
         marker: String128 | None = None,
         max_records: IntegrationInteger | None = None,
-        target_arn: String128 | None = None,
+        target_arn: String512 | None = None,
         **kwargs,
     ) -> DescribeInboundIntegrationsResponse:
         """Returns a list of inbound integrations for the specified integration.
@@ -12927,7 +13133,7 @@ class GlueApi:
 
     @handler("GetIntegrationResourceProperty")
     def get_integration_resource_property(
-        self, context: RequestContext, resource_arn: String128, **kwargs
+        self, context: RequestContext, resource_arn: String512, **kwargs
     ) -> GetIntegrationResourcePropertyResponse:
         """This API is used for fetching the ``ResourceProperty`` of the Glue
         connection (for the source) or Glue database ARN (for the target)
@@ -12946,7 +13152,7 @@ class GlueApi:
 
     @handler("GetIntegrationTableProperties")
     def get_integration_table_properties(
-        self, context: RequestContext, resource_arn: String128, table_name: String128, **kwargs
+        self, context: RequestContext, resource_arn: String512, table_name: String128, **kwargs
     ) -> GetIntegrationTablePropertiesResponse:
         """This API is used to retrieve optional override properties for the tables
         that need to be replicated. These properties can include properties for
@@ -13563,6 +13769,7 @@ class GlueApi:
         catalog_id: CatalogIdString | None = None,
         transaction_id: TransactionIdString | None = None,
         query_as_of_time: Timestamp | None = None,
+        audit_context: AuditContext | None = None,
         include_status_details: BooleanNullable | None = None,
         **kwargs,
     ) -> GetTableResponse:
@@ -13574,6 +13781,8 @@ class GlueApi:
         :param catalog_id: The ID of the Data Catalog where the table resides.
         :param transaction_id: The transaction ID at which to read the table contents.
         :param query_as_of_time: The time as of when to read the table contents.
+        :param audit_context: A structure containing the Lake Formation `audit
+        context <https://docs.
         :param include_status_details: Specifies whether to include status details related to a request to
         create or update an Glue Data Catalog view.
         :returns: GetTableResponse
@@ -13672,6 +13881,7 @@ class GlueApi:
         max_results: CatalogGetterPageSize | None = None,
         transaction_id: TransactionIdString | None = None,
         query_as_of_time: Timestamp | None = None,
+        audit_context: AuditContext | None = None,
         include_status_details: BooleanNullable | None = None,
         attributes_to_get: TableAttributesList | None = None,
         **kwargs,
@@ -13686,6 +13896,8 @@ class GlueApi:
         :param max_results: The maximum number of tables to return in a single response.
         :param transaction_id: The transaction ID at which to read the table contents.
         :param query_as_of_time: The time as of when to read the table contents.
+        :param audit_context: A structure containing the Lake Formation `audit
+        context <https://docs.
         :param include_status_details: Specifies whether to include status details related to a request to
         create or update an Glue Data Catalog view.
         :param attributes_to_get: Specifies the table fields returned by the ``GetTables`` call.
@@ -13943,6 +14155,7 @@ class GlueApi:
         pattern: NameString,
         catalog_id: CatalogIdString | None = None,
         database_name: NameString | None = None,
+        function_type: FunctionType | None = None,
         next_token: Token | None = None,
         max_results: CatalogGetterPageSize | None = None,
         **kwargs,
@@ -13954,6 +14167,8 @@ class GlueApi:
         :param catalog_id: The ID of the Data Catalog where the functions to be retrieved are
         located.
         :param database_name: The name of the catalog database where the functions are located.
+        :param function_type: An optional function-type pattern string that filters the function
+        definitions returned from Amazon Redshift Federated Permissions Catalog.
         :param next_token: A continuation token, if this is a continuation call.
         :param max_results: The maximum number of functions to return in one response.
         :returns: GetUserDefinedFunctionsResponse
@@ -14409,6 +14624,33 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("ListIntegrationResourceProperties")
+    def list_integration_resource_properties(
+        self,
+        context: RequestContext,
+        marker: String1024 | None = None,
+        filters: IntegrationResourcePropertyFilterList | None = None,
+        max_records: IntegrationInteger | None = None,
+        **kwargs,
+    ) -> ListIntegrationResourcePropertiesResponse:
+        """List integration resource properties for a single customer. It supports
+        the filters, maxRecords and markers.
+
+        :param marker: This is the pagination token for next page, initial value is ``null``.
+        :param filters: A list of filters, supported filter Key is ``SourceArn`` and
+        ``TargetArn``.
+        :param max_records: This is total number of items to be evaluated.
+        :returns: ListIntegrationResourcePropertiesResponse
+        :raises ValidationException:
+        :raises AccessDeniedException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises EntityNotFoundException:
+        :raises InternalServiceException:
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
     @handler("ListJobs")
     def list_jobs(
         self,
@@ -14705,7 +14947,7 @@ class GlueApi:
         :param integration_identifier: The Amazon Resource Name (ARN) for the integration.
         :param description: A description of the integration.
         :param data_filter: Selects source tables for the integration using Maxwell filter syntax.
-        :param integration_config: Properties associated with the integration.
+        :param integration_config: The configuration settings for the integration.
         :param integration_name: A unique name for an integration in Glue.
         :returns: ModifyIntegrationResponse
         :raises ValidationException:
@@ -16030,13 +16272,19 @@ class GlueApi:
 
     @handler("UpdateGlueIdentityCenterConfiguration")
     def update_glue_identity_center_configuration(
-        self, context: RequestContext, scopes: IdentityCenterScopesList | None = None, **kwargs
+        self,
+        context: RequestContext,
+        scopes: IdentityCenterScopesList | None = None,
+        user_background_sessions_enabled: NullableBoolean | None = None,
+        **kwargs,
     ) -> UpdateGlueIdentityCenterConfigurationResponse:
         """Updates the existing Glue Identity Center configuration, allowing
         modification of scopes and permissions for the integration.
 
         :param scopes: A list of Identity Center scopes that define the updated permissions and
         access levels for the Glue configuration.
+        :param user_background_sessions_enabled: Specifies whether users can run background sessions when using Identity
+        Center authentication with Glue services.
         :returns: UpdateGlueIdentityCenterConfigurationResponse
         :raises InvalidInputException:
         :raises EntityNotFoundException:
@@ -16051,7 +16299,7 @@ class GlueApi:
     def update_integration_resource_property(
         self,
         context: RequestContext,
-        resource_arn: String128,
+        resource_arn: String512,
         source_processing_properties: SourceProcessingProperties | None = None,
         target_processing_properties: TargetProcessingProperties | None = None,
         **kwargs,
@@ -16080,7 +16328,7 @@ class GlueApi:
     def update_integration_table_properties(
         self,
         context: RequestContext,
-        resource_arn: String128,
+        resource_arn: String512,
         table_name: String128,
         source_table_config: SourceTableConfig | None = None,
         target_table_config: TargetTableConfig | None = None,

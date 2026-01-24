@@ -48,34 +48,41 @@ class ConfigError(EvoException):
 
 
 def log_info_dict_json(
-    data: dict, colored: bool = True,
-    parameter_subset: typing.Optional[typing.Sequence[str]] = None
+    data: dict,
+    colored: bool = True,
+    parameter_subset: typing.Sequence[str] | None = None,
 ) -> None:
     if parameter_subset:
         data = {
             key: value
-            for key, value in data.items() if key in parameter_subset
+            for key, value in data.items()
+            if key in parameter_subset
         }
     data_str = json.dumps(data, indent=4, sort_keys=True)
     if colored and os.name != "nt":
         data_str = highlight(
-            data_str, lexers.JsonLexer(),
+            data_str,
+            lexers.JsonLexer(),
             formatters.Terminal256Formatter(
-                style=settings.SETTINGS.pygments_style))
+                style=settings.SETTINGS.pygments_style
+            ),
+        )
     logger.info(data_str)
 
 
 def show(
-    config_path: PathStr, colored: bool = True,
-    parameter_subset: typing.Optional[typing.Sequence[str]] = None
+    config_path: PathStr,
+    colored: bool = True,
+    parameter_subset: typing.Sequence[str] | None = None,
 ) -> None:
     with open(config_path) as config_file:
         log_info_dict_json(json.load(config_file), colored, parameter_subset)
 
 
-def merge_json_union(first_file: PathStr, second_file: PathStr,
-                     soft: bool = False) -> None:
-    with open(first_file, 'r+') as f_1:
+def merge_json_union(
+    first_file: PathStr, second_file: PathStr, soft: bool = False
+) -> None:
+    with open(first_file, "r+") as f_1:
         config_1 = json.loads(f_1.read())
         with open(second_file) as f_2:
             config_2 = json.loads(f_2.read())
@@ -93,8 +100,7 @@ def is_number(token: str) -> bool:
         return False
 
 
-def finalize_values(config: dict, key: str,
-                    values: typing.List[str]) -> typing.Any:
+def finalize_values(config: dict, key: str, values: list[str]) -> typing.Any:
     """
     Turns parsed values into final value(s) for the config at the given key,
     e.g. based on the previous type of that parameter or other constraints.
@@ -106,6 +112,7 @@ def finalize_values(config: dict, key: str,
         if len(values) > 1:
             return values
         from seaborn.palettes import color_palette
+
         try:
             color_palette(values[0])
             return values[0]
@@ -135,7 +142,7 @@ def set_config(config_path: PathStr, arg_list: typing.Sequence[str]) -> None:
         if arg not in config.keys():
             continue
         if i + 1 <= max_idx and arg_list[i + 1] not in config.keys():
-            values: typing.List[typing.Any] = []
+            values: list[typing.Any] = []
             for j in range(i + 1, max_idx + 1):
                 value = arg_list[j]
                 if value in config.keys():
@@ -150,23 +157,27 @@ def set_config(config_path: PathStr, arg_list: typing.Sequence[str]) -> None:
             config[arg] = finalize_values(config, arg, values)
         else:
             # no argument, toggle if it's a boolean parameter
-            config[arg] = not config[arg] if isinstance(config[arg],
-                                                        bool) else config[arg]
-    with open(config_path, 'w') as config_file:
+            config[arg] = (
+                not config[arg]
+                if isinstance(config[arg], bool)
+                else config[arg]
+            )
+    with open(config_path, "w") as config_file:
         config_file.write(json.dumps(config, indent=4, sort_keys=True))
 
 
-def generate(arg_list: typing.Sequence[str]) -> typing.Dict[str, typing.Any]:
-    data: typing.Dict[str, typing.Any] = {}
+def generate(arg_list: typing.Sequence[str]) -> dict[str, typing.Any]:
+    data: dict[str, typing.Any] = {}
     max_idx = len(arg_list) - 1
     for i, arg in enumerate(arg_list):
         if arg.startswith("-"):
             arg = arg[1:] if not arg.startswith("--") else arg[2:]
-            if (i + 1 <= max_idx
-                    and arg_list[i + 1].startswith("-")) or i + 1 > max_idx:
+            if (
+                i + 1 <= max_idx and arg_list[i + 1].startswith("-")
+            ) or i + 1 > max_idx:
                 data[arg] = True  # just a boolean flag
             else:
-                values: typing.List[typing.Any] = []
+                values: list[typing.Any] = []
                 for j in range(i + 1, max_idx + 1):
                     value = arg_list[j]
                     if value.startswith("-"):
@@ -178,7 +189,7 @@ def generate(arg_list: typing.Sequence[str]) -> typing.Dict[str, typing.Any]:
     return data
 
 
-SET_HELP = '''
+SET_HELP = """
 set parameters
 Unless -c / --config is specified, the package settings will be used.
 
@@ -199,9 +210,9 @@ will set it to:
         "plot_export_format": "png"
         "plot_info_text": false,
     }
-'''
+"""
 
-GENERATE_HELP = '''
+GENERATE_HELP = """
 generate configuration files from command-line args
 
 The configuration files are intended to hold command line
@@ -224,64 +235,96 @@ will convert the arguments into the JSON format:
 
 List arguments (--arg 1 2 3) are also supported.
 To save the configuration, specify -o / --output.
-'''
+"""
 
 
 def main() -> None:
     import argcomplete
+
     basic_desc = "crappy configuration tool"
     lic = "(c) evo authors"
     shared_parser = argparse.ArgumentParser(add_help=False)
-    shared_parser.add_argument("--no_color", help="don't color output",
-                               action="store_true")
-    main_parser = argparse.ArgumentParser(description="%s %s" %
-                                          (basic_desc, lic))
+    shared_parser.add_argument(
+        "--no_color", help="don't color output", action="store_true"
+    )
+    main_parser = argparse.ArgumentParser(
+        description="%s %s" % (basic_desc, lic)
+    )
     sub_parsers = main_parser.add_subparsers(dest="subcommand")
     sub_parsers.required = True
 
     show_parser = sub_parsers.add_parser(
-        "show", description="show configuration - %s" % lic,
-        parents=[shared_parser])
+        "show",
+        description="show configuration - %s" % lic,
+        parents=[shared_parser],
+    )
     show_parser.add_argument(
-        "-c", "--config",
-        help="path of the config file to display (default: package settings)")
-    show_parser.add_argument("--brief", help="show only the .json data",
-                             action="store_true")
-    show_parser.add_argument("params",
-                             choices=list(DEFAULT_SETTINGS_DICT.keys()),
-                             nargs=argparse.REMAINDER,
-                             help="parameters to show")
+        "-c",
+        "--config",
+        help="path of the config file to display (default: package settings)",
+    )
+    show_parser.add_argument(
+        "--brief", help="show only the .json data", action="store_true"
+    )
+    show_parser.add_argument(
+        "params",
+        choices=list(DEFAULT_SETTINGS_DICT.keys()),
+        nargs=argparse.REMAINDER,
+        help="parameters to show",
+    )
 
     set_parser = sub_parsers.add_parser(
-        "set", description=SET_HELP, parents=[shared_parser],
-        formatter_class=argparse.RawTextHelpFormatter)
-    set_parser.add_argument("params",
-                            choices=list(DEFAULT_SETTINGS_DICT.keys()),
-                            nargs=argparse.REMAINDER, help="parameters to set")
+        "set",
+        description=SET_HELP,
+        parents=[shared_parser],
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
     set_parser.add_argument(
-        "-c", "--config",
-        help="optional config file (default: package settings)", default=None)
-    set_parser.add_argument("-m", "--merge",
-                            help="other config file to merge in (priority)",
-                            default=None)
-    set_parser.add_argument("--soft", help="do a soft-merge (no overwriting)",
-                            action="store_true")
+        "params",
+        choices=list(DEFAULT_SETTINGS_DICT.keys()),
+        nargs=argparse.REMAINDER,
+        help="parameters to set",
+    )
+    set_parser.add_argument(
+        "-c",
+        "--config",
+        help="optional config file (default: package settings)",
+        default=None,
+    )
+    set_parser.add_argument(
+        "-m",
+        "--merge",
+        help="other config file to merge in (priority)",
+        default=None,
+    )
+    set_parser.add_argument(
+        "--soft", help="do a soft-merge (no overwriting)", action="store_true"
+    )
 
     gen_parser = sub_parsers.add_parser(
-        "generate", description=GENERATE_HELP, parents=[shared_parser],
-        formatter_class=argparse.RawTextHelpFormatter)
-    gen_parser.add_argument("-o", "--out",
-                            help="path for config file to generate")
+        "generate",
+        description=GENERATE_HELP,
+        parents=[shared_parser],
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    gen_parser.add_argument(
+        "-o", "--out", help="path for config file to generate"
+    )
 
     reset_parser = sub_parsers.add_parser(
-        "reset", description="reset package settings - %s" % lic,
-        parents=[shared_parser])
-    reset_parser.add_argument("-y", help="acknowledge automatically",
-                              action="store_true")
-    reset_parser.add_argument("params",
-                              choices=list(DEFAULT_SETTINGS_DICT.keys()),
-                              nargs=argparse.REMAINDER,
-                              help="parameters to reset")
+        "reset",
+        description="reset package settings - %s" % lic,
+        parents=[shared_parser],
+    )
+    reset_parser.add_argument(
+        "-y", help="acknowledge automatically", action="store_true"
+    )
+    reset_parser.add_argument(
+        "params",
+        choices=list(DEFAULT_SETTINGS_DICT.keys()),
+        nargs=argparse.REMAINDER,
+        help="parameters to reset",
+    )
 
     argcomplete.autocomplete(main_parser)
     if len(sys.argv) > 1 and sys.argv[1] == "set":
@@ -303,10 +346,12 @@ def main() -> None:
             doc_str = "\n".join(
                 f"{style}{parameter}{Style.RESET_ALL}:\n{value_and_doc[1]}\n"
                 for parameter, value_and_doc in sorted(
-                    DEFAULT_SETTINGS_DICT_DOC.items())
-                if (not args.params or parameter in args.params))
+                    DEFAULT_SETTINGS_DICT_DOC.items()
+                )
+                if (not args.params or parameter in args.params)
+            )
             logger.info(doc_str)
-            logger.info("{0}\n{1}\n{0}".format(SEP, config))
+            logger.info(f"{SEP}\n{config}\n{SEP}")
         show(config, colored=not args.no_color, parameter_subset=args.params)
         if config == settings.DEFAULT_PATH and not args.brief:
             logger.info(SEP + "\nSee text above for parameter descriptions.")
@@ -316,7 +361,7 @@ def main() -> None:
             logger.error("No permission to modify %s", config)
             sys.exit(1)
         if other_args or args.merge:
-            logger.info("{0}\nOld configuration:\n{0}".format(SEP))
+            logger.info(f"{SEP}\nOld configuration:\n{SEP}")
             show(config, colored=not args.no_color)
             try:
                 set_config(config, other_args)
@@ -333,14 +378,15 @@ def main() -> None:
     elif args.subcommand == "generate":
         if other_args:
             logger.info(
-                "{0}\nParsed by argparse:\n{1}\n"
-                "{0}\nWARNING:\nMake sure you use the 'long-style' -- options "
-                "(e.g. --plot) if possible\nand no combined short '-' flags, "
-                "(e.g. -vp)\n{0}".format(SEP, other_args))
+                f"{SEP}\nParsed by argparse:\n{other_args}\n"
+                f"{SEP}\nWARNING:\nMake sure you use the 'long-style' -- options "
+                f"(e.g. --plot) if possible\nand no combined short '-' flags, "
+                f"(e.g. -vp)\n{SEP}"
+            )
             data = generate(other_args)
             log_info_dict_json(data, colored=not args.no_color)
             if args.out and user.check_and_confirm_overwrite(args.out):
-                with open(args.out, 'w') as out:
+                with open(args.out, "w") as out:
                     out.write(json.dumps(data, indent=4, sort_keys=True))
             elif not args.out:
                 logger.warning("\n(-o | --out) not specified - saving nothing")
@@ -354,13 +400,14 @@ def main() -> None:
         if args.params:
             settings.reset(settings.DEFAULT_PATH, parameter_subset=args.params)
         elif args.y or user.confirm(
-                "Reset all package settings to the default settings? (y/n)"):
+            "Reset all package settings to the default settings? (y/n)"
+        ):
             settings.reset()
         else:
             sys.exit()
-        logger.info("{0}\nPackage settings after reset:\n{0}".format(SEP))
+        logger.info(f"{SEP}\nPackage settings after reset:\n{SEP}")
         show(settings.DEFAULT_PATH, colored=not args.no_color)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

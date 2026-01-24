@@ -1,29 +1,63 @@
 [project]
 name = "language_tool_python"
-version = "2.9.4"
+version = "3.2.2" # Keep in sync with docs/source/conf.py
 requires-python = ">=3.9"
 description = "Checks grammar using LanguageTool."
 readme = { file = "README.md", content-type = "text/markdown" }
-license = { file = "LICENSE" }
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [
     { name = "Jack Morris", email = "jxmorris12@gmail.com" }
 ]
-urls = { Repository = "https://github.com/jxmorris12/language_tool_python.git" }
+maintainers = [
+    { name = "mdevolde", email = "martin.devolder2@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Linguistic",
+]
+keywords = ["python", "nlp", "grammar", "languagetool", "grammar-checker", "spellchecker", "grammar-parser"]
 
 dependencies = [
     "requests",
     "tqdm",
+    "packaging",
     "psutil",
     "toml"
 ]
 
-[project.optional-dependencies]
-dev = [
+[project.urls]
+repository = "https://github.com/jxmorris12/language_tool_python.git"
+documentation = "https://language-tool-python.readthedocs.io/en/latest/"
+changelog = "https://github.com/jxmorris12/language_tool_python/blob/master/CHANGELOG.md"
+
+[dependency-groups]
+tests = [
     "pytest",
-    "pytest-xdist",
     "pytest-cov",
-    "pytest-runner"
 ]
+
+docs = [
+  "furo",
+  "sphinx",
+  "sphinx-design",
+]
+
+types = [
+    "types-requests",
+    "types-tqdm",
+    "types-psutil",
+    "types-toml",
+]
+
 
 [project.scripts]
 language_tool_python = "language_tool_python.__main__:main"
@@ -31,3 +65,26 @@ language_tool_python = "language_tool_python.__main__:main"
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = { find = { include = ["language_tool_python*"] } }
+
+[tool.setuptools.package-data]
+language_tool_python = ["py.typed", "logging.toml"]
+
+[tool.ruff.lint]
+select = ["F", "W", "I", "B", "SIM", "RET", "Q", "N", "S", "BLE"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["S101"]
+
+[tool.mypy]
+files = ["language_tool_python", "tests"]
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+show_error_codes = true
+pretty = true
+disable_error_code = ["import-not-found", "import-untyped"]

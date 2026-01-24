@@ -43,6 +43,13 @@ class _ExportableConfig(types.ModuleType):
         return __config__.get_bool('disableAutoRetries')
 
     @_builtins.property
+    def dual_stack_endpoint_enabled(self) -> Optional[bool]:
+        """
+        (Optional) flags to enable Dual Stack endpoint.
+        """
+        return __config__.get_bool('dualStackEndpointEnabled')
+
+    @_builtins.property
     def fingerprint(self) -> Optional[str]:
         """
         (Optional) The fingerprint for the user's RSA key. This can be found in user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
@@ -89,6 +96,13 @@ class _ExportableConfig(types.ModuleType):
         (Required) The region for API connections (e.g. us-ashburn-1).
         """
         return __config__.get('region')
+
+    @_builtins.property
+    def retries_config_file(self) -> Optional[str]:
+        """
+        (Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
+        """
+        return __config__.get('retriesConfigFile')
 
     @_builtins.property
     def retry_duration_seconds(self) -> Optional[int]:

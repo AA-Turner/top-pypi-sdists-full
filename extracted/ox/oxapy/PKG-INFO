@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: oxapy
+Version: 0.8.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: orjson>=3.11.4
+License-File: LICENSE
+Summary: OxAPY is http server for python build in rust
+Author-email: FITAHIANA Nomeniavo Joe <24nomeniavo@gmail.com>
+Requires-Python: >=3.10

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: joserfc
-Version: 1.3.4
+Version: 1.6.1
 Summary: The ultimate Python library for JOSE RFCs, including JWS, JWE, JWK, JWA, JWT
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security
@@ -28,7 +29,7 @@ Classifier: Topic :: Security :: Cryptography
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: cryptography
+Requires-Dist: cryptography>=45.0.1
 Provides-Extra: drafts
 Requires-Dist: pycryptodome; extra == "drafts"
 Dynamic: license-file
@@ -52,6 +53,7 @@ This package contains implementation of:
 - RFC8037: OKP Key and EdDSA algorithm
 - RFC8812: ES256K algorithm
 - RFC9278: JWK Thumbprint URI
+- RFC9864: ``Ed25519`` and ``Ed448`` algorithms
 
 And draft RFCs implementation of:
 
@@ -66,17 +68,16 @@ A quick and simple JWT encoding and decoding would look something like this:
 
 .. code-block:: python
 
-    >>> from joserfc import jwt
-    >>> from joserfc.jwk import OctKey
-    >>> key = OctKey.import_key("secret")
-    >>> encoded = jwt.encode({"alg": "HS256"}, {"k": "value"}, key)
-    >>> encoded
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrIjoidmFsdWUifQ.ni-MJXnZHpFB_8L9P9yllj3RNDfzmD4yBKAyefSctMY'
-    >>> token = jwt.decode(encoded, key)
+    >>> from joserfc import jwt, jwk
+    >>> key = jwk.import_key("your-secret-key", "oct")
+    >>> encoded_jwt = jwt.encode({"alg": "HS256"}, {"k": "value"}, key)
+    >>> encoded_jwt
+    'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJrIjoidmFsdWUifQ._M8ViO_GK6TnZ9G9eqdlS7IpNWzhoGwaYYDQ3hEwwmA'
+    >>> token = jwt.decode(encoded_jwt, key)
     >>> token.header
     {'alg': 'HS256', 'typ': 'JWT'}
     >>> token.claims
-    {'k': 'value'}
+    {'key': 'value'}
     >>> claims_requests = jwt.JWTClaimsRegistry()
     >>> claims_requests.validate(token.claims)
 

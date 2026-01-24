@@ -68,66 +68,254 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.ACLReference",
-    jsii_struct_bases=[],
-    name_mapping={"acl_arn": "aclArn", "acl_name": "aclName"},
+from ..interfaces.aws_ec2 import (
+    ISecurityGroupRef as _ISecurityGroupRef_efa4ff18,
+    ISubnetRef as _ISubnetRef_ac31e361,
 )
-class ACLReference:
-    def __init__(self, *, acl_arn: builtins.str, acl_name: builtins.str) -> None:
-        '''A reference to a ACL resource.
+from ..interfaces.aws_memorydb import (
+    ACLReference as _ACLReference_054b0a92,
+    ClusterReference as _ClusterReference_75855dd3,
+    IACLRef as _IACLRef_c364f794,
+    IClusterRef as _IClusterRef_8cb56f6f,
+    IMultiRegionClusterRef as _IMultiRegionClusterRef_b7a8c236,
+    IParameterGroupRef as _IParameterGroupRef_471eb1a8,
+    ISubnetGroupRef as _ISubnetGroupRef_efc982f4,
+    IUserRef as _IUserRef_ee6ccd70,
+    MultiRegionClusterReference as _MultiRegionClusterReference_24d0cd7a,
+    ParameterGroupReference as _ParameterGroupReference_bde11e60,
+    SubnetGroupReference as _SubnetGroupReference_69a6dcdb,
+    UserReference as _UserReference_10bdf757,
+)
 
-        :param acl_arn: The ARN of the ACL resource.
-        :param acl_name: The ACLName of the ACL resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IACLRef_c364f794, _ITaggable_36806126)
+class CfnACL(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnACL",
+):
+    '''Specifies an Access Control List.
 
-        Example::
+    For more information, see `Authenticating users with Access Contol Lists (ACLs) <https://docs.aws.amazon.com/memorydb/latest/devguide/clusters.acls.html>`_ .
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            a_cLReference = memorydb.ACLReference(
-                acl_arn="aclArn",
-                acl_name="aclName"
-            )
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-acl.html
+    :cloudformationResource: AWS::MemoryDB::ACL
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_memorydb as memorydb
+        
+        cfn_aCL = memorydb.CfnACL(self, "MyCfnACL",
+            acl_name="aclName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            user_names=["userNames"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        acl_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::MemoryDB::ACL``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param acl_name: The name of the Access Control List.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param user_names: The list of users that belong to the Access Control List.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91fda71b6edde1b30d617b13e566130bd338c0ab4ff0a8a015844a8afbc158bf)
-            check_type(argname="argument acl_arn", value=acl_arn, expected_type=type_hints["acl_arn"])
+            type_hints = typing.get_type_hints(_typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1acb261875)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnACLProps(acl_name=acl_name, tags=tags, user_names=user_names)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForACL")
+    @builtins.classmethod
+    def arn_for_acl(cls, resource: "_IACLRef_c364f794") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f48f14679e937bb7eaffacfca87491363bb5fae1fbf23622f6a3837e034a983)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForACL", [resource]))
+
+    @jsii.member(jsii_name="fromACLArn")
+    @builtins.classmethod
+    def from_acl_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IACLRef_c364f794":
+        '''Creates a new IACLRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01e08140f4608bc1201cfa00751f482f04b61a9cbccdbd85b8a30ecdb464d6f6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IACLRef_c364f794", jsii.sinvoke(cls, "fromACLArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromAclName")
+    @builtins.classmethod
+    def from_acl_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        acl_name: builtins.str,
+    ) -> "_IACLRef_c364f794":
+        '''Creates a new IACLRef from a aclName.
+
+        :param scope: -
+        :param id: -
+        :param acl_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02073185f42e3aab0bcd382a58d62c282bc7a5841909e235bb26999421f72701)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "acl_arn": acl_arn,
-            "acl_name": acl_name,
-        }
+        return typing.cast("_IACLRef_c364f794", jsii.sinvoke(cls, "fromAclName", [scope, id, acl_name]))
+
+    @jsii.member(jsii_name="isCfnACL")
+    @builtins.classmethod
+    def is_cfn_acl(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnACL.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23d57aea9ad7d7ee06a7c1cf8df517dd7ef3bcf0d40023f03c0b070c75165182)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnACL", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ccc6a711d3d8a9748de4a3ff47996a84e749aad94d25a5dda512b2da78cc1038)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4acff847fe3f6b78cef61522d272a00a00cc6e9e52bdeb53d457a7ef9445111)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def acl_arn(self) -> builtins.str:
-        '''The ARN of the ACL resource.'''
-        result = self._values.get("acl_arn")
-        assert result is not None, "Required property 'acl_arn' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="aclRef")
+    def acl_ref(self) -> "_ACLReference_054b0a92":
+        '''A reference to a ACL resource.'''
+        return typing.cast("_ACLReference_054b0a92", jsii.get(self, "aclRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the Access Control List, such as ``arn:aws:memorydb:us-east-1:123456789012:acl/my-acl``.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Indicates ACL status.
+
+        *Valid values* : ``creating`` | ``active`` | ``modifying`` | ``deleting``
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aclName")
     def acl_name(self) -> builtins.str:
-        '''The ACLName of the ACL resource.'''
-        result = self._values.get("acl_name")
-        assert result is not None, "Required property 'acl_name' is missing"
-        return typing.cast(builtins.str, result)
+        '''The name of the Access Control List.'''
+        return typing.cast(builtins.str, jsii.get(self, "aclName"))
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+    @acl_name.setter
+    def acl_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f59d44321ba67be64a21cd7280a133eb5eafce74ce555870a7e52de3bbadcbf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "aclName", value) # pyright: ignore[reportArgumentType]
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
-    def __repr__(self) -> str:
-        return "ACLReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19dfb38b66bc6a76c22f50b7a62a4979bd2a681026ccd6e3e50920eb6c5cf6f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userNames")
+    def user_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of users that belong to the Access Control List.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "userNames"))
+
+    @user_names.setter
+    def user_names(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2166de66)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userNames", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -140,7 +328,7 @@ class CfnACLProps:
         self,
         *,
         acl_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnACL``.
@@ -154,6 +342,7 @@ class CfnACLProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_memorydb as memorydb
@@ -193,7 +382,7 @@ class CfnACLProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -201,7 +390,7 @@ class CfnACLProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-acl.html#cfn-memorydb-acl-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def user_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -224,1796 +413,7 @@ class CfnACLProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "acl_name": "aclName",
-        "cluster_name": "clusterName",
-        "node_type": "nodeType",
-        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
-        "cluster_endpoint": "clusterEndpoint",
-        "data_tiering": "dataTiering",
-        "description": "description",
-        "engine": "engine",
-        "engine_version": "engineVersion",
-        "final_snapshot_name": "finalSnapshotName",
-        "ip_discovery": "ipDiscovery",
-        "kms_key_id": "kmsKeyId",
-        "maintenance_window": "maintenanceWindow",
-        "multi_region_cluster_name": "multiRegionClusterName",
-        "network_type": "networkType",
-        "num_replicas_per_shard": "numReplicasPerShard",
-        "num_shards": "numShards",
-        "parameter_group_name": "parameterGroupName",
-        "port": "port",
-        "security_group_ids": "securityGroupIds",
-        "snapshot_arns": "snapshotArns",
-        "snapshot_name": "snapshotName",
-        "snapshot_retention_limit": "snapshotRetentionLimit",
-        "snapshot_window": "snapshotWindow",
-        "sns_topic_arn": "snsTopicArn",
-        "sns_topic_status": "snsTopicStatus",
-        "subnet_group_name": "subnetGroupName",
-        "tags": "tags",
-        "tls_enabled": "tlsEnabled",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        acl_name: builtins.str,
-        cluster_name: builtins.str,
-        node_type: builtins.str,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        data_tiering: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        engine: typing.Optional[builtins.str] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        final_snapshot_name: typing.Optional[builtins.str] = None,
-        ip_discovery: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        maintenance_window: typing.Optional[builtins.str] = None,
-        multi_region_cluster_name: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        num_replicas_per_shard: typing.Optional[jsii.Number] = None,
-        num_shards: typing.Optional[jsii.Number] = None,
-        parameter_group_name: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        snapshot_name: typing.Optional[builtins.str] = None,
-        snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-        snapshot_window: typing.Optional[builtins.str] = None,
-        sns_topic_arn: typing.Optional[builtins.str] = None,
-        sns_topic_status: typing.Optional[builtins.str] = None,
-        subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param acl_name: The name of the Access Control List to associate with the cluster .
-        :param cluster_name: The name of the cluster .
-        :param node_type: The cluster 's node type.
-        :param auto_minor_version_upgrade: When set to true, the cluster will automatically receive minor engine version upgrades after launch.
-        :param cluster_endpoint: The cluster 's configuration endpoint.
-        :param data_tiering: Enables data tiering. Data tiering is only supported for clusters using the r6gd node type. This parameter must be set when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/memorydb/latest/devguide/data-tiering.html>`_ .
-        :param description: A description of the cluster .
-        :param engine: The name of the engine used by the cluster.
-        :param engine_version: The Redis engine version used by the cluster .
-        :param final_snapshot_name: The user-supplied name of a final cluster snapshot. This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
-        :param ip_discovery: The mechanism that the cluster uses to discover IP addresses. Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
-        :param kms_key_id: The ID of the KMS key used to encrypt the cluster .
-        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period. *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
-        :param multi_region_cluster_name: The name of the multi-Region cluster that this cluster belongs to.
-        :param network_type: The IP address type for the cluster. Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
-        :param num_replicas_per_shard: The number of replicas to apply to each shard. *Default value* : ``1`` *Maximum value* : ``5``
-        :param num_shards: The number of shards in the cluster .
-        :param parameter_group_name: The name of the parameter group used by the cluster .
-        :param port: The port used by the cluster .
-        :param security_group_ids: A list of security group names to associate with this cluster .
-        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the RDB snapshot files stored in Amazon S3. The snapshot files are used to populate the new cluster . The Amazon S3 object name in the ARN cannot contain any commas.
-        :param snapshot_name: The name of a snapshot from which to restore data into the new cluster . The snapshot status changes to restoring while the new cluster is being created.
-        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic snapshots before deleting them. For example, if you set SnapshotRetentionLimit to 5, a snapshot that was taken today is retained for 5 days before being deleted.
-        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your shard. Example: 05:00-09:00 If you do not specify this parameter, MemoryDB automatically chooses an appropriate time range.
-        :param sns_topic_arn: When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the SNS topic, such as ``arn:aws:memorydb:us-east-1:123456789012:mySNSTopic``.
-        :param sns_topic_status: The SNS topic must be in Active status to receive notifications.
-        :param subnet_group_name: The name of the subnet group used by the cluster .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param tls_enabled: A flag to indicate if In-transit encryption is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            cfn_cluster_props = memorydb.CfnClusterProps(
-                acl_name="aclName",
-                cluster_name="clusterName",
-                node_type="nodeType",
-            
-                # the properties below are optional
-                auto_minor_version_upgrade=False,
-                cluster_endpoint=memorydb.CfnCluster.EndpointProperty(
-                    address="address",
-                    port=123
-                ),
-                data_tiering="dataTiering",
-                description="description",
-                engine="engine",
-                engine_version="engineVersion",
-                final_snapshot_name="finalSnapshotName",
-                ip_discovery="ipDiscovery",
-                kms_key_id="kmsKeyId",
-                maintenance_window="maintenanceWindow",
-                multi_region_cluster_name="multiRegionClusterName",
-                network_type="networkType",
-                num_replicas_per_shard=123,
-                num_shards=123,
-                parameter_group_name="parameterGroupName",
-                port=123,
-                security_group_ids=["securityGroupIds"],
-                snapshot_arns=["snapshotArns"],
-                snapshot_name="snapshotName",
-                snapshot_retention_limit=123,
-                snapshot_window="snapshotWindow",
-                sns_topic_arn="snsTopicArn",
-                sns_topic_status="snsTopicStatus",
-                subnet_group_name="subnetGroupName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tls_enabled=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8)
-            check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
-            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
-            check_type(argname="argument cluster_endpoint", value=cluster_endpoint, expected_type=type_hints["cluster_endpoint"])
-            check_type(argname="argument data_tiering", value=data_tiering, expected_type=type_hints["data_tiering"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument final_snapshot_name", value=final_snapshot_name, expected_type=type_hints["final_snapshot_name"])
-            check_type(argname="argument ip_discovery", value=ip_discovery, expected_type=type_hints["ip_discovery"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument maintenance_window", value=maintenance_window, expected_type=type_hints["maintenance_window"])
-            check_type(argname="argument multi_region_cluster_name", value=multi_region_cluster_name, expected_type=type_hints["multi_region_cluster_name"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument num_replicas_per_shard", value=num_replicas_per_shard, expected_type=type_hints["num_replicas_per_shard"])
-            check_type(argname="argument num_shards", value=num_shards, expected_type=type_hints["num_shards"])
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument snapshot_arns", value=snapshot_arns, expected_type=type_hints["snapshot_arns"])
-            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
-            check_type(argname="argument snapshot_retention_limit", value=snapshot_retention_limit, expected_type=type_hints["snapshot_retention_limit"])
-            check_type(argname="argument snapshot_window", value=snapshot_window, expected_type=type_hints["snapshot_window"])
-            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
-            check_type(argname="argument sns_topic_status", value=sns_topic_status, expected_type=type_hints["sns_topic_status"])
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tls_enabled", value=tls_enabled, expected_type=type_hints["tls_enabled"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "acl_name": acl_name,
-            "cluster_name": cluster_name,
-            "node_type": node_type,
-        }
-        if auto_minor_version_upgrade is not None:
-            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
-        if cluster_endpoint is not None:
-            self._values["cluster_endpoint"] = cluster_endpoint
-        if data_tiering is not None:
-            self._values["data_tiering"] = data_tiering
-        if description is not None:
-            self._values["description"] = description
-        if engine is not None:
-            self._values["engine"] = engine
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if final_snapshot_name is not None:
-            self._values["final_snapshot_name"] = final_snapshot_name
-        if ip_discovery is not None:
-            self._values["ip_discovery"] = ip_discovery
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if maintenance_window is not None:
-            self._values["maintenance_window"] = maintenance_window
-        if multi_region_cluster_name is not None:
-            self._values["multi_region_cluster_name"] = multi_region_cluster_name
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if num_replicas_per_shard is not None:
-            self._values["num_replicas_per_shard"] = num_replicas_per_shard
-        if num_shards is not None:
-            self._values["num_shards"] = num_shards
-        if parameter_group_name is not None:
-            self._values["parameter_group_name"] = parameter_group_name
-        if port is not None:
-            self._values["port"] = port
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if snapshot_arns is not None:
-            self._values["snapshot_arns"] = snapshot_arns
-        if snapshot_name is not None:
-            self._values["snapshot_name"] = snapshot_name
-        if snapshot_retention_limit is not None:
-            self._values["snapshot_retention_limit"] = snapshot_retention_limit
-        if snapshot_window is not None:
-            self._values["snapshot_window"] = snapshot_window
-        if sns_topic_arn is not None:
-            self._values["sns_topic_arn"] = sns_topic_arn
-        if sns_topic_status is not None:
-            self._values["sns_topic_status"] = sns_topic_status
-        if subnet_group_name is not None:
-            self._values["subnet_group_name"] = subnet_group_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if tls_enabled is not None:
-            self._values["tls_enabled"] = tls_enabled
-
-    @builtins.property
-    def acl_name(self) -> builtins.str:
-        '''The name of the Access Control List to associate with the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-aclname
-        '''
-        result = self._values.get("acl_name")
-        assert result is not None, "Required property 'acl_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cluster_name(self) -> builtins.str:
-        '''The name of the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-clustername
-        '''
-        result = self._values.get("cluster_name")
-        assert result is not None, "Required property 'cluster_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def node_type(self) -> builtins.str:
-        '''The cluster 's node type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-nodetype
-        '''
-        result = self._values.get("node_type")
-        assert result is not None, "Required property 'node_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_minor_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''When set to true, the cluster will automatically receive minor engine version upgrades after launch.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-autominorversionupgrade
-        '''
-        result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def cluster_endpoint(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]]:
-        '''The cluster 's configuration endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-clusterendpoint
-        '''
-        result = self._values.get("cluster_endpoint")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]], result)
-
-    @builtins.property
-    def data_tiering(self) -> typing.Optional[builtins.str]:
-        '''Enables data tiering.
-
-        Data tiering is only supported for clusters using the r6gd node type. This parameter must be set when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/memorydb/latest/devguide/data-tiering.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-datatiering
-        '''
-        result = self._values.get("data_tiering")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine(self) -> typing.Optional[builtins.str]:
-        '''The name of the engine used by the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-engine
-        '''
-        result = self._values.get("engine")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The Redis engine version used by the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def final_snapshot_name(self) -> typing.Optional[builtins.str]:
-        '''The user-supplied name of a final cluster snapshot.
-
-        This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-finalsnapshotname
-        '''
-        result = self._values.get("final_snapshot_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ip_discovery(self) -> typing.Optional[builtins.str]:
-        '''The mechanism that the cluster uses to discover IP addresses.
-
-        Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-ipdiscovery
-        '''
-        result = self._values.get("ip_discovery")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the KMS key used to encrypt the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''Specifies the weekly time range during which maintenance on the cluster is performed.
-
-        It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period.
-
-        *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-maintenancewindow
-        '''
-        result = self._values.get("maintenance_window")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multi_region_cluster_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the multi-Region cluster that this cluster belongs to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-multiregionclustername
-        '''
-        result = self._values.get("multi_region_cluster_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''The IP address type for the cluster.
-
-        Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def num_replicas_per_shard(self) -> typing.Optional[jsii.Number]:
-        '''The number of replicas to apply to each shard.
-
-        *Default value* : ``1``
-
-        *Maximum value* : ``5``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-numreplicaspershard
-        '''
-        result = self._values.get("num_replicas_per_shard")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def num_shards(self) -> typing.Optional[jsii.Number]:
-        '''The number of shards in the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-numshards
-        '''
-        result = self._values.get("num_shards")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter group used by the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-parametergroupname
-        '''
-        result = self._values.get("parameter_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port used by the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security group names to associate with this cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def snapshot_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon Resource Names (ARN) that uniquely identify the RDB snapshot files stored in Amazon S3.
-
-        The snapshot files are used to populate the new cluster . The Amazon S3 object name in the ARN cannot contain any commas.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotarns
-        '''
-        result = self._values.get("snapshot_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def snapshot_name(self) -> typing.Optional[builtins.str]:
-        '''The name of a snapshot from which to restore data into the new cluster .
-
-        The snapshot status changes to restoring while the new cluster is being created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotname
-        '''
-        result = self._values.get("snapshot_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def snapshot_retention_limit(self) -> typing.Optional[jsii.Number]:
-        '''The number of days for which MemoryDB retains automatic snapshots before deleting them.
-
-        For example, if you set SnapshotRetentionLimit to 5, a snapshot that was taken today is retained for 5 days before being deleted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotretentionlimit
-        '''
-        result = self._values.get("snapshot_retention_limit")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def snapshot_window(self) -> typing.Optional[builtins.str]:
-        '''The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your shard.
-
-        Example: 05:00-09:00 If you do not specify this parameter, MemoryDB automatically chooses an appropriate time range.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotwindow
-        '''
-        result = self._values.get("snapshot_window")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the SNS topic, such as ``arn:aws:memorydb:us-east-1:123456789012:mySNSTopic``.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snstopicarn
-        '''
-        result = self._values.get("sns_topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sns_topic_status(self) -> typing.Optional[builtins.str]:
-        '''The SNS topic must be in Active status to receive notifications.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snstopicstatus
-        '''
-        result = self._values.get("sns_topic_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the subnet group used by the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-subnetgroupname
-        '''
-        result = self._values.get("subnet_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def tls_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A flag to indicate if In-transit encryption is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tlsenabled
-        '''
-        result = self._values.get("tls_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnMultiRegionClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "node_type": "nodeType",
-        "description": "description",
-        "engine": "engine",
-        "engine_version": "engineVersion",
-        "multi_region_cluster_name_suffix": "multiRegionClusterNameSuffix",
-        "multi_region_parameter_group_name": "multiRegionParameterGroupName",
-        "num_shards": "numShards",
-        "tags": "tags",
-        "tls_enabled": "tlsEnabled",
-        "update_strategy": "updateStrategy",
-    },
-)
-class CfnMultiRegionClusterProps:
-    def __init__(
-        self,
-        *,
-        node_type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        engine: typing.Optional[builtins.str] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
-        multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
-        num_shards: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        update_strategy: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMultiRegionCluster``.
-
-        :param node_type: The node type used by the multi-Region cluster.
-        :param description: The description of the multi-Region cluster.
-        :param engine: The name of the engine used by the multi-Region cluster.
-        :param engine_version: The version of the engine used by the multi-Region cluster.
-        :param multi_region_cluster_name_suffix: A suffix to be added to the Multi-Region cluster name. Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
-        :param multi_region_parameter_group_name: The name of the multi-Region parameter group associated with the cluster.
-        :param num_shards: The number of shards in the multi-Region cluster.
-        :param tags: A list of tags to be applied to the multi-Region cluster.
-        :param tls_enabled: Indiciates if the multi-Region cluster is TLS enabled.
-        :param update_strategy: The strategy to use for the update operation. Supported values are "coordinated" or "uncoordinated".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            cfn_multi_region_cluster_props = memorydb.CfnMultiRegionClusterProps(
-                node_type="nodeType",
-            
-                # the properties below are optional
-                description="description",
-                engine="engine",
-                engine_version="engineVersion",
-                multi_region_cluster_name_suffix="multiRegionClusterNameSuffix",
-                multi_region_parameter_group_name="multiRegionParameterGroupName",
-                num_shards=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                tls_enabled=False,
-                update_strategy="updateStrategy"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d)
-            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument multi_region_cluster_name_suffix", value=multi_region_cluster_name_suffix, expected_type=type_hints["multi_region_cluster_name_suffix"])
-            check_type(argname="argument multi_region_parameter_group_name", value=multi_region_parameter_group_name, expected_type=type_hints["multi_region_parameter_group_name"])
-            check_type(argname="argument num_shards", value=num_shards, expected_type=type_hints["num_shards"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tls_enabled", value=tls_enabled, expected_type=type_hints["tls_enabled"])
-            check_type(argname="argument update_strategy", value=update_strategy, expected_type=type_hints["update_strategy"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "node_type": node_type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if engine is not None:
-            self._values["engine"] = engine
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if multi_region_cluster_name_suffix is not None:
-            self._values["multi_region_cluster_name_suffix"] = multi_region_cluster_name_suffix
-        if multi_region_parameter_group_name is not None:
-            self._values["multi_region_parameter_group_name"] = multi_region_parameter_group_name
-        if num_shards is not None:
-            self._values["num_shards"] = num_shards
-        if tags is not None:
-            self._values["tags"] = tags
-        if tls_enabled is not None:
-            self._values["tls_enabled"] = tls_enabled
-        if update_strategy is not None:
-            self._values["update_strategy"] = update_strategy
-
-    @builtins.property
-    def node_type(self) -> builtins.str:
-        '''The node type used by the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-nodetype
-        '''
-        result = self._values.get("node_type")
-        assert result is not None, "Required property 'node_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine(self) -> typing.Optional[builtins.str]:
-        '''The name of the engine used by the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-engine
-        '''
-        result = self._values.get("engine")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the engine used by the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multi_region_cluster_name_suffix(self) -> typing.Optional[builtins.str]:
-        '''A suffix to be added to the Multi-Region cluster name.
-
-        Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-multiregionclusternamesuffix
-        '''
-        result = self._values.get("multi_region_cluster_name_suffix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multi_region_parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the multi-Region parameter group associated with the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-multiregionparametergroupname
-        '''
-        result = self._values.get("multi_region_parameter_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def num_shards(self) -> typing.Optional[jsii.Number]:
-        '''The number of shards in the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-numshards
-        '''
-        result = self._values.get("num_shards")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags to be applied to the multi-Region cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def tls_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indiciates if the multi-Region cluster is TLS enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tlsenabled
-        '''
-        result = self._values.get("tls_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def update_strategy(self) -> typing.Optional[builtins.str]:
-        '''The strategy to use for the update operation.
-
-        Supported values are "coordinated" or "uncoordinated".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-updatestrategy
-        '''
-        result = self._values.get("update_strategy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMultiRegionClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnParameterGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "family": "family",
-        "parameter_group_name": "parameterGroupName",
-        "description": "description",
-        "parameters": "parameters",
-        "tags": "tags",
-    },
-)
-class CfnParameterGroupProps:
-    def __init__(
-        self,
-        *,
-        family: builtins.str,
-        parameter_group_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        parameters: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnParameterGroup``.
-
-        :param family: The name of the parameter group family that this parameter group is compatible with.
-        :param parameter_group_name: The name of the parameter group.
-        :param description: A description of the parameter group.
-        :param parameters: Returns the detailed parameter list for the parameter group.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            # parameters: Any
-            
-            cfn_parameter_group_props = memorydb.CfnParameterGroupProps(
-                family="family",
-                parameter_group_name="parameterGroupName",
-            
-                # the properties below are optional
-                description="description",
-                parameters=parameters,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4)
-            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "family": family,
-            "parameter_group_name": parameter_group_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def family(self) -> builtins.str:
-        '''The name of the parameter group family that this parameter group is compatible with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-family
-        '''
-        result = self._values.get("family")
-        assert result is not None, "Required property 'family' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parameter_group_name(self) -> builtins.str:
-        '''The name of the parameter group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-parametergroupname
-        '''
-        result = self._values.get("parameter_group_name")
-        assert result is not None, "Required property 'parameter_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the parameter group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Any:
-        '''Returns the detailed parameter list for the parameter group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnParameterGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnSubnetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subnet_group_name": "subnetGroupName",
-        "subnet_ids": "subnetIds",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnSubnetGroupProps:
-    def __init__(
-        self,
-        *,
-        subnet_group_name: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSubnetGroup``.
-
-        :param subnet_group_name: The name of the subnet group to be used for the cluster .
-        :param subnet_ids: A list of Amazon VPC subnet IDs for the subnet group.
-        :param description: A description of the subnet group.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            cfn_subnet_group_props = memorydb.CfnSubnetGroupProps(
-                subnet_group_name="subnetGroupName",
-                subnet_ids=["subnetIds"],
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1)
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subnet_group_name": subnet_group_name,
-            "subnet_ids": subnet_ids,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def subnet_group_name(self) -> builtins.str:
-        '''The name of the subnet group to be used for the cluster .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-subnetgroupname
-        '''
-        result = self._values.get("subnet_group_name")
-        assert result is not None, "Required property 'subnet_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''A list of Amazon VPC subnet IDs for the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubnetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnUserProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "user_name": "userName",
-        "access_string": "accessString",
-        "authentication_mode": "authenticationMode",
-        "tags": "tags",
-    },
-)
-class CfnUserProps:
-    def __init__(
-        self,
-        *,
-        user_name: builtins.str,
-        access_string: typing.Optional[builtins.str] = None,
-        authentication_mode: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUser``.
-
-        :param user_name: The name of the user.
-        :param access_string: Access permissions string used for this user.
-        :param authentication_mode: Denotes whether the user requires a password to authenticate. *Example:* ``mynewdbuser: Type: AWS::MemoryDB::User Properties: AccessString: on ~* &* +@all AuthenticationMode: Passwords: '1234567890123456' Type: password UserName: mynewdbuser AuthenticationMode: { "Passwords": ["1234567890123456"], "Type": "Password" }``
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            # authentication_mode: Any
-            
-            cfn_user_props = memorydb.CfnUserProps(
-                user_name="userName",
-            
-                # the properties below are optional
-                access_string="accessString",
-                authentication_mode=authentication_mode,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2)
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-            check_type(argname="argument access_string", value=access_string, expected_type=type_hints["access_string"])
-            check_type(argname="argument authentication_mode", value=authentication_mode, expected_type=type_hints["authentication_mode"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "user_name": user_name,
-        }
-        if access_string is not None:
-            self._values["access_string"] = access_string
-        if authentication_mode is not None:
-            self._values["authentication_mode"] = authentication_mode
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The name of the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-username
-        '''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_string(self) -> typing.Optional[builtins.str]:
-        '''Access permissions string used for this user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-accessstring
-        '''
-        result = self._values.get("access_string")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def authentication_mode(self) -> typing.Any:
-        '''Denotes whether the user requires a password to authenticate.
-
-        *Example:*
-
-        ``mynewdbuser: Type: AWS::MemoryDB::User Properties: AccessString: on ~* &* +@all AuthenticationMode: Passwords: '1234567890123456' Type: password UserName: mynewdbuser AuthenticationMode: { "Passwords": ["1234567890123456"], "Type": "Password" }``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-authenticationmode
-        '''
-        result = self._values.get("authentication_mode")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.ClusterReference",
-    jsii_struct_bases=[],
-    name_mapping={"cluster_name": "clusterName"},
-)
-class ClusterReference:
-    def __init__(self, *, cluster_name: builtins.str) -> None:
-        '''A reference to a Cluster resource.
-
-        :param cluster_name: The ClusterName of the Cluster resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            cluster_reference = memorydb.ClusterReference(
-                cluster_name="clusterName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c76205735e446f1b7e5ee9385c143286b7a221e2aa22005bb15a3716b0e8f341)
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cluster_name": cluster_name,
-        }
-
-    @builtins.property
-    def cluster_name(self) -> builtins.str:
-        '''The ClusterName of the Cluster resource.'''
-        result = self._values.get("cluster_name")
-        assert result is not None, "Required property 'cluster_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ClusterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.IACLRef")
-class IACLRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ACL.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="aclRef")
-    def acl_ref(self) -> ACLReference:
-        '''(experimental) A reference to a ACL resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IACLRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ACL.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.IACLRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="aclRef")
-    def acl_ref(self) -> ACLReference:
-        '''(experimental) A reference to a ACL resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ACLReference, jsii.get(self, "aclRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IACLRef).__jsii_proxy_class__ = lambda : _IACLRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.IClusterRef")
-class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IClusterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Cluster.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.IClusterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
-        '''(experimental) A reference to a Cluster resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.IMultiRegionClusterRef")
-class IMultiRegionClusterRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a MultiRegionCluster.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="multiRegionClusterRef")
-    def multi_region_cluster_ref(self) -> "MultiRegionClusterReference":
-        '''(experimental) A reference to a MultiRegionCluster resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMultiRegionClusterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MultiRegionCluster.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.IMultiRegionClusterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="multiRegionClusterRef")
-    def multi_region_cluster_ref(self) -> "MultiRegionClusterReference":
-        '''(experimental) A reference to a MultiRegionCluster resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MultiRegionClusterReference", jsii.get(self, "multiRegionClusterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMultiRegionClusterRef).__jsii_proxy_class__ = lambda : _IMultiRegionClusterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.IParameterGroupRef")
-class IParameterGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ParameterGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterGroupRef")
-    def parameter_group_ref(self) -> "ParameterGroupReference":
-        '''(experimental) A reference to a ParameterGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IParameterGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ParameterGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.IParameterGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterGroupRef")
-    def parameter_group_ref(self) -> "ParameterGroupReference":
-        '''(experimental) A reference to a ParameterGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ParameterGroupReference", jsii.get(self, "parameterGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IParameterGroupRef).__jsii_proxy_class__ = lambda : _IParameterGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.ISubnetGroupRef")
-class ISubnetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SubnetGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="subnetGroupRef")
-    def subnet_group_ref(self) -> "SubnetGroupReference":
-        '''(experimental) A reference to a SubnetGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISubnetGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SubnetGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.ISubnetGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="subnetGroupRef")
-    def subnet_group_ref(self) -> "SubnetGroupReference":
-        '''(experimental) A reference to a SubnetGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SubnetGroupReference", jsii.get(self, "subnetGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISubnetGroupRef).__jsii_proxy_class__ = lambda : _ISubnetGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_memorydb.IUserRef")
-class IUserRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a User.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "UserReference":
-        '''(experimental) A reference to a User resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IUserRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a User.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_memorydb.IUserRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "UserReference":
-        '''(experimental) A reference to a User resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("UserReference", jsii.get(self, "userRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.MultiRegionClusterReference",
-    jsii_struct_bases=[],
-    name_mapping={"multi_region_cluster_name": "multiRegionClusterName"},
-)
-class MultiRegionClusterReference:
-    def __init__(self, *, multi_region_cluster_name: builtins.str) -> None:
-        '''A reference to a MultiRegionCluster resource.
-
-        :param multi_region_cluster_name: The MultiRegionClusterName of the MultiRegionCluster resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            multi_region_cluster_reference = memorydb.MultiRegionClusterReference(
-                multi_region_cluster_name="multiRegionClusterName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5672060efc9de0077e3e025ec334f3eb47c89d6ecc7fbfac806672e740628f99)
-            check_type(argname="argument multi_region_cluster_name", value=multi_region_cluster_name, expected_type=type_hints["multi_region_cluster_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "multi_region_cluster_name": multi_region_cluster_name,
-        }
-
-    @builtins.property
-    def multi_region_cluster_name(self) -> builtins.str:
-        '''The MultiRegionClusterName of the MultiRegionCluster resource.'''
-        result = self._values.get("multi_region_cluster_name")
-        assert result is not None, "Required property 'multi_region_cluster_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MultiRegionClusterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.ParameterGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"parameter_group_name": "parameterGroupName"},
-)
-class ParameterGroupReference:
-    def __init__(self, *, parameter_group_name: builtins.str) -> None:
-        '''A reference to a ParameterGroup resource.
-
-        :param parameter_group_name: The ParameterGroupName of the ParameterGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            parameter_group_reference = memorydb.ParameterGroupReference(
-                parameter_group_name="parameterGroupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e15d859abbd5af86e17e5ff8146802cb57c39bb8baf2240d14abce94c8c81d8)
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_group_name": parameter_group_name,
-        }
-
-    @builtins.property
-    def parameter_group_name(self) -> builtins.str:
-        '''The ParameterGroupName of the ParameterGroup resource.'''
-        result = self._values.get("parameter_group_name")
-        assert result is not None, "Required property 'parameter_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ParameterGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.SubnetGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"subnet_group_name": "subnetGroupName"},
-)
-class SubnetGroupReference:
-    def __init__(self, *, subnet_group_name: builtins.str) -> None:
-        '''A reference to a SubnetGroup resource.
-
-        :param subnet_group_name: The SubnetGroupName of the SubnetGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            subnet_group_reference = memorydb.SubnetGroupReference(
-                subnet_group_name="subnetGroupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a302f6aa9e0c8d5e105277db30aee22c9b61d87170b92541307d2fa426c6ea0)
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subnet_group_name": subnet_group_name,
-        }
-
-    @builtins.property
-    def subnet_group_name(self) -> builtins.str:
-        '''The SubnetGroupName of the SubnetGroup resource.'''
-        result = self._values.get("subnet_group_name")
-        assert result is not None, "Required property 'subnet_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SubnetGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_memorydb.UserReference",
-    jsii_struct_bases=[],
-    name_mapping={"user_arn": "userArn", "user_name": "userName"},
-)
-class UserReference:
-    def __init__(self, *, user_arn: builtins.str, user_name: builtins.str) -> None:
-        '''A reference to a User resource.
-
-        :param user_arn: The ARN of the User resource.
-        :param user_name: The UserName of the User resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_memorydb as memorydb
-            
-            user_reference = memorydb.UserReference(
-                user_arn="userArn",
-                user_name="userName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4b248cf83c2f7b1fe119d26ee1090999f2c214afa2238170816549df4952a8c)
-            check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "user_arn": user_arn,
-            "user_name": user_name,
-        }
-
-    @builtins.property
-    def user_arn(self) -> builtins.str:
-        '''The ARN of the User resource.'''
-        result = self._values.get("user_arn")
-        assert result is not None, "Required property 'user_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The UserName of the User resource.'''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "UserReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IACLRef, _ITaggable_36806126)
-class CfnACL(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_memorydb.CfnACL",
-):
-    '''Specifies an Access Control List.
-
-    For more information, see `Authenticating users with Access Contol Lists (ACLs) <https://docs.aws.amazon.com/memorydb/latest/devguide/clusters.acls.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-acl.html
-    :cloudformationResource: AWS::MemoryDB::ACL
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_memorydb as memorydb
-        
-        cfn_aCL = memorydb.CfnACL(self, "MyCfnACL",
-            acl_name="aclName",
-        
-            # the properties below are optional
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            user_names=["userNames"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        acl_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param acl_name: The name of the Access Control List.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param user_names: The list of users that belong to the Access Control List.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1acb261875)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnACLProps(acl_name=acl_name, tags=tags, user_names=user_names)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccc6a711d3d8a9748de4a3ff47996a84e749aad94d25a5dda512b2da78cc1038)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4acff847fe3f6b78cef61522d272a00a00cc6e9e52bdeb53d457a7ef9445111)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="aclRef")
-    def acl_ref(self) -> ACLReference:
-        '''A reference to a ACL resource.'''
-        return typing.cast(ACLReference, jsii.get(self, "aclRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the Access Control List, such as ``arn:aws:memorydb:us-east-1:123456789012:acl/my-acl``.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''Indicates ACL status.
-
-        *Valid values* : ``creating`` | ``active`` | ``modifying`` | ``deleting``
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="aclName")
-    def acl_name(self) -> builtins.str:
-        '''The name of the Access Control List.'''
-        return typing.cast(builtins.str, jsii.get(self, "aclName"))
-
-    @acl_name.setter
-    def acl_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f59d44321ba67be64a21cd7280a133eb5eafce74ce555870a7e52de3bbadcbf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aclName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19dfb38b66bc6a76c22f50b7a62a4979bd2a681026ccd6e3e50920eb6c5cf6f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="userNames")
-    def user_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The list of users that belong to the Access Control List.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "userNames"))
-
-    @user_names.setter
-    def user_names(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2166de66)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userNames", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IClusterRef_8cb56f6f, _ITaggable_36806126)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2029,6 +429,7 @@ class CfnCluster(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
@@ -2076,14 +477,14 @@ class CfnCluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         acl_name: builtins.str,
         cluster_name: builtins.str,
         node_type: builtins.str,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        cluster_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_tiering: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
@@ -2098,7 +499,7 @@ class CfnCluster(
         num_shards: typing.Optional[jsii.Number] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
         snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         snapshot_name: typing.Optional[builtins.str] = None,
         snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -2106,10 +507,11 @@ class CfnCluster(
         sns_topic_arn: typing.Optional[builtins.str] = None,
         sns_topic_status: typing.Optional[builtins.str] = None,
         subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MemoryDB::Cluster``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param acl_name: The name of the Access Control List to associate with the cluster .
@@ -2180,8 +582,73 @@ class CfnCluster(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCluster")
+    @builtins.classmethod
+    def arn_for_cluster(cls, resource: "_IClusterRef_8cb56f6f") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5b8292313a9705294af4c7ea9229bc91aa301e7e4fa9bca7a3798e33d7f28cd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCluster", [resource]))
+
+    @jsii.member(jsii_name="fromClusterArn")
+    @builtins.classmethod
+    def from_cluster_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IClusterRef_8cb56f6f":
+        '''Creates a new IClusterRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b2b45dd1758ff1ef8a9f1b9d2f6b8e5817eb809b34909e9534ffa76ac714624)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IClusterRef_8cb56f6f", jsii.sinvoke(cls, "fromClusterArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromClusterName")
+    @builtins.classmethod
+    def from_cluster_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        cluster_name: builtins.str,
+    ) -> "_IClusterRef_8cb56f6f":
+        '''Creates a new IClusterRef from a clusterName.
+
+        :param scope: -
+        :param id: -
+        :param cluster_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__052150f6187192008b1d92fe063af7be600bf783ef6fa136fb0ccd2320686ffe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+        return typing.cast("_IClusterRef_8cb56f6f", jsii.sinvoke(cls, "fromClusterName", [scope, id, cluster_name]))
+
+    @jsii.member(jsii_name="isCfnCluster")
+    @builtins.classmethod
+    def is_cfn_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4976a0fb87cd1155ef960fb139c75981962679f0c14f205c013288b3eacf98f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCluster", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2264,15 +731,15 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> ClusterReference:
+    def cluster_ref(self) -> "_ClusterReference_75855dd3":
         '''A reference to a Cluster resource.'''
-        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+        return typing.cast("_ClusterReference_75855dd3", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="aclName")
@@ -2317,14 +784,14 @@ class CfnCluster(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''When set to true, the cluster will automatically receive minor engine version upgrades after launch.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85ceb7f4779e4cc3158fd10ae0f789f977bf4ec7b305427de026b71410314aa2)
@@ -2335,14 +802,14 @@ class CfnCluster(
     @jsii.member(jsii_name="clusterEndpoint")
     def cluster_endpoint(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
         '''The cluster 's configuration endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]], jsii.get(self, "clusterEndpoint"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], jsii.get(self, "clusterEndpoint"))
 
     @cluster_endpoint.setter
     def cluster_endpoint(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.EndpointProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cb933d0258a10b86325bdd089031bbb07512679b44ad9da34f9d222d2a6f441)
@@ -2640,12 +1107,12 @@ class CfnCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5fb518ff45629b2fc5f7488c33f7e4de652dc27f32c98792c355068710db9cbd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2655,14 +1122,14 @@ class CfnCluster(
     @jsii.member(jsii_name="tlsEnabled")
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A flag to indicate if In-transit encryption is enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "tlsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "tlsEnabled"))
 
     @tls_enabled.setter
     def tls_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c35c0a09eb3a078c7c40fabc044eb0877fe7280b70079614ef1383d482cdaa0c)
@@ -2740,7 +1207,557 @@ class CfnCluster(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMultiRegionClusterRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "acl_name": "aclName",
+        "cluster_name": "clusterName",
+        "node_type": "nodeType",
+        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
+        "cluster_endpoint": "clusterEndpoint",
+        "data_tiering": "dataTiering",
+        "description": "description",
+        "engine": "engine",
+        "engine_version": "engineVersion",
+        "final_snapshot_name": "finalSnapshotName",
+        "ip_discovery": "ipDiscovery",
+        "kms_key_id": "kmsKeyId",
+        "maintenance_window": "maintenanceWindow",
+        "multi_region_cluster_name": "multiRegionClusterName",
+        "network_type": "networkType",
+        "num_replicas_per_shard": "numReplicasPerShard",
+        "num_shards": "numShards",
+        "parameter_group_name": "parameterGroupName",
+        "port": "port",
+        "security_group_ids": "securityGroupIds",
+        "snapshot_arns": "snapshotArns",
+        "snapshot_name": "snapshotName",
+        "snapshot_retention_limit": "snapshotRetentionLimit",
+        "snapshot_window": "snapshotWindow",
+        "sns_topic_arn": "snsTopicArn",
+        "sns_topic_status": "snsTopicStatus",
+        "subnet_group_name": "subnetGroupName",
+        "tags": "tags",
+        "tls_enabled": "tlsEnabled",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        acl_name: builtins.str,
+        cluster_name: builtins.str,
+        node_type: builtins.str,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        cluster_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_tiering: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        engine: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        final_snapshot_name: typing.Optional[builtins.str] = None,
+        ip_discovery: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        maintenance_window: typing.Optional[builtins.str] = None,
+        multi_region_cluster_name: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        num_replicas_per_shard: typing.Optional[jsii.Number] = None,
+        num_shards: typing.Optional[jsii.Number] = None,
+        parameter_group_name: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]] = None,
+        snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        snapshot_name: typing.Optional[builtins.str] = None,
+        snapshot_retention_limit: typing.Optional[jsii.Number] = None,
+        snapshot_window: typing.Optional[builtins.str] = None,
+        sns_topic_arn: typing.Optional[builtins.str] = None,
+        sns_topic_status: typing.Optional[builtins.str] = None,
+        subnet_group_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param acl_name: The name of the Access Control List to associate with the cluster .
+        :param cluster_name: The name of the cluster .
+        :param node_type: The cluster 's node type.
+        :param auto_minor_version_upgrade: When set to true, the cluster will automatically receive minor engine version upgrades after launch.
+        :param cluster_endpoint: The cluster 's configuration endpoint.
+        :param data_tiering: Enables data tiering. Data tiering is only supported for clusters using the r6gd node type. This parameter must be set when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/memorydb/latest/devguide/data-tiering.html>`_ .
+        :param description: A description of the cluster .
+        :param engine: The name of the engine used by the cluster.
+        :param engine_version: The Redis engine version used by the cluster .
+        :param final_snapshot_name: The user-supplied name of a final cluster snapshot. This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
+        :param ip_discovery: The mechanism that the cluster uses to discover IP addresses. Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
+        :param kms_key_id: The ID of the KMS key used to encrypt the cluster .
+        :param maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period. *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
+        :param multi_region_cluster_name: The name of the multi-Region cluster that this cluster belongs to.
+        :param network_type: The IP address type for the cluster. Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
+        :param num_replicas_per_shard: The number of replicas to apply to each shard. *Default value* : ``1`` *Maximum value* : ``5``
+        :param num_shards: The number of shards in the cluster .
+        :param parameter_group_name: The name of the parameter group used by the cluster .
+        :param port: The port used by the cluster .
+        :param security_group_ids: A list of security group names to associate with this cluster .
+        :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the RDB snapshot files stored in Amazon S3. The snapshot files are used to populate the new cluster . The Amazon S3 object name in the ARN cannot contain any commas.
+        :param snapshot_name: The name of a snapshot from which to restore data into the new cluster . The snapshot status changes to restoring while the new cluster is being created.
+        :param snapshot_retention_limit: The number of days for which MemoryDB retains automatic snapshots before deleting them. For example, if you set SnapshotRetentionLimit to 5, a snapshot that was taken today is retained for 5 days before being deleted.
+        :param snapshot_window: The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your shard. Example: 05:00-09:00 If you do not specify this parameter, MemoryDB automatically chooses an appropriate time range.
+        :param sns_topic_arn: When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the SNS topic, such as ``arn:aws:memorydb:us-east-1:123456789012:mySNSTopic``.
+        :param sns_topic_status: The SNS topic must be in Active status to receive notifications.
+        :param subnet_group_name: The name of the subnet group used by the cluster .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param tls_enabled: A flag to indicate if In-transit encryption is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            cfn_cluster_props = memorydb.CfnClusterProps(
+                acl_name="aclName",
+                cluster_name="clusterName",
+                node_type="nodeType",
+            
+                # the properties below are optional
+                auto_minor_version_upgrade=False,
+                cluster_endpoint=memorydb.CfnCluster.EndpointProperty(
+                    address="address",
+                    port=123
+                ),
+                data_tiering="dataTiering",
+                description="description",
+                engine="engine",
+                engine_version="engineVersion",
+                final_snapshot_name="finalSnapshotName",
+                ip_discovery="ipDiscovery",
+                kms_key_id="kmsKeyId",
+                maintenance_window="maintenanceWindow",
+                multi_region_cluster_name="multiRegionClusterName",
+                network_type="networkType",
+                num_replicas_per_shard=123,
+                num_shards=123,
+                parameter_group_name="parameterGroupName",
+                port=123,
+                security_group_ids=["securityGroupIds"],
+                snapshot_arns=["snapshotArns"],
+                snapshot_name="snapshotName",
+                snapshot_retention_limit=123,
+                snapshot_window="snapshotWindow",
+                sns_topic_arn="snsTopicArn",
+                sns_topic_status="snsTopicStatus",
+                subnet_group_name="subnetGroupName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tls_enabled=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8)
+            check_type(argname="argument acl_name", value=acl_name, expected_type=type_hints["acl_name"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
+            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
+            check_type(argname="argument cluster_endpoint", value=cluster_endpoint, expected_type=type_hints["cluster_endpoint"])
+            check_type(argname="argument data_tiering", value=data_tiering, expected_type=type_hints["data_tiering"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument final_snapshot_name", value=final_snapshot_name, expected_type=type_hints["final_snapshot_name"])
+            check_type(argname="argument ip_discovery", value=ip_discovery, expected_type=type_hints["ip_discovery"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument maintenance_window", value=maintenance_window, expected_type=type_hints["maintenance_window"])
+            check_type(argname="argument multi_region_cluster_name", value=multi_region_cluster_name, expected_type=type_hints["multi_region_cluster_name"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument num_replicas_per_shard", value=num_replicas_per_shard, expected_type=type_hints["num_replicas_per_shard"])
+            check_type(argname="argument num_shards", value=num_shards, expected_type=type_hints["num_shards"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument snapshot_arns", value=snapshot_arns, expected_type=type_hints["snapshot_arns"])
+            check_type(argname="argument snapshot_name", value=snapshot_name, expected_type=type_hints["snapshot_name"])
+            check_type(argname="argument snapshot_retention_limit", value=snapshot_retention_limit, expected_type=type_hints["snapshot_retention_limit"])
+            check_type(argname="argument snapshot_window", value=snapshot_window, expected_type=type_hints["snapshot_window"])
+            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
+            check_type(argname="argument sns_topic_status", value=sns_topic_status, expected_type=type_hints["sns_topic_status"])
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tls_enabled", value=tls_enabled, expected_type=type_hints["tls_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "acl_name": acl_name,
+            "cluster_name": cluster_name,
+            "node_type": node_type,
+        }
+        if auto_minor_version_upgrade is not None:
+            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
+        if cluster_endpoint is not None:
+            self._values["cluster_endpoint"] = cluster_endpoint
+        if data_tiering is not None:
+            self._values["data_tiering"] = data_tiering
+        if description is not None:
+            self._values["description"] = description
+        if engine is not None:
+            self._values["engine"] = engine
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if final_snapshot_name is not None:
+            self._values["final_snapshot_name"] = final_snapshot_name
+        if ip_discovery is not None:
+            self._values["ip_discovery"] = ip_discovery
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if maintenance_window is not None:
+            self._values["maintenance_window"] = maintenance_window
+        if multi_region_cluster_name is not None:
+            self._values["multi_region_cluster_name"] = multi_region_cluster_name
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if num_replicas_per_shard is not None:
+            self._values["num_replicas_per_shard"] = num_replicas_per_shard
+        if num_shards is not None:
+            self._values["num_shards"] = num_shards
+        if parameter_group_name is not None:
+            self._values["parameter_group_name"] = parameter_group_name
+        if port is not None:
+            self._values["port"] = port
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if snapshot_arns is not None:
+            self._values["snapshot_arns"] = snapshot_arns
+        if snapshot_name is not None:
+            self._values["snapshot_name"] = snapshot_name
+        if snapshot_retention_limit is not None:
+            self._values["snapshot_retention_limit"] = snapshot_retention_limit
+        if snapshot_window is not None:
+            self._values["snapshot_window"] = snapshot_window
+        if sns_topic_arn is not None:
+            self._values["sns_topic_arn"] = sns_topic_arn
+        if sns_topic_status is not None:
+            self._values["sns_topic_status"] = sns_topic_status
+        if subnet_group_name is not None:
+            self._values["subnet_group_name"] = subnet_group_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if tls_enabled is not None:
+            self._values["tls_enabled"] = tls_enabled
+
+    @builtins.property
+    def acl_name(self) -> builtins.str:
+        '''The name of the Access Control List to associate with the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-aclname
+        '''
+        result = self._values.get("acl_name")
+        assert result is not None, "Required property 'acl_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cluster_name(self) -> builtins.str:
+        '''The name of the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-clustername
+        '''
+        result = self._values.get("cluster_name")
+        assert result is not None, "Required property 'cluster_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def node_type(self) -> builtins.str:
+        '''The cluster 's node type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-nodetype
+        '''
+        result = self._values.get("node_type")
+        assert result is not None, "Required property 'node_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_minor_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''When set to true, the cluster will automatically receive minor engine version upgrades after launch.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-autominorversionupgrade
+        '''
+        result = self._values.get("auto_minor_version_upgrade")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def cluster_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]]:
+        '''The cluster 's configuration endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-clusterendpoint
+        '''
+        result = self._values.get("cluster_endpoint")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EndpointProperty"]], result)
+
+    @builtins.property
+    def data_tiering(self) -> typing.Optional[builtins.str]:
+        '''Enables data tiering.
+
+        Data tiering is only supported for clusters using the r6gd node type. This parameter must be set when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/memorydb/latest/devguide/data-tiering.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-datatiering
+        '''
+        result = self._values.get("data_tiering")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine(self) -> typing.Optional[builtins.str]:
+        '''The name of the engine used by the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-engine
+        '''
+        result = self._values.get("engine")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The Redis engine version used by the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def final_snapshot_name(self) -> typing.Optional[builtins.str]:
+        '''The user-supplied name of a final cluster snapshot.
+
+        This is the unique name that identifies the snapshot. MemoryDB creates the snapshot, and then deletes the cluster immediately afterward.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-finalsnapshotname
+        '''
+        result = self._values.get("final_snapshot_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_discovery(self) -> typing.Optional[builtins.str]:
+        '''The mechanism that the cluster uses to discover IP addresses.
+
+        Returns 'ipv4' when DNS endpoints resolve to IPv4 addresses, or 'ipv6' when DNS endpoints resolve to IPv6 addresses.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-ipdiscovery
+        '''
+        result = self._values.get("ip_discovery")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the KMS key used to encrypt the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''Specifies the weekly time range during which maintenance on the cluster is performed.
+
+        It is specified as a range in the format ``ddd:hh24:mi-ddd:hh24:mi`` (24H Clock UTC). The minimum maintenance window is a 60 minute period.
+
+        *Pattern* : ``ddd:hh24:mi-ddd:hh24:mi``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-maintenancewindow
+        '''
+        result = self._values.get("maintenance_window")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multi_region_cluster_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the multi-Region cluster that this cluster belongs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-multiregionclustername
+        '''
+        result = self._values.get("multi_region_cluster_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The IP address type for the cluster.
+
+        Returns 'ipv4' for IPv4 only, 'ipv6' for IPv6 only, or 'dual-stack' if the cluster supports both IPv4 and IPv6 addressing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def num_replicas_per_shard(self) -> typing.Optional[jsii.Number]:
+        '''The number of replicas to apply to each shard.
+
+        *Default value* : ``1``
+
+        *Maximum value* : ``5``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-numreplicaspershard
+        '''
+        result = self._values.get("num_replicas_per_shard")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def num_shards(self) -> typing.Optional[jsii.Number]:
+        '''The number of shards in the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-numshards
+        '''
+        result = self._values.get("num_shards")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter group used by the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-parametergroupname
+        '''
+        result = self._values.get("parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port used by the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def security_group_ids(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]]:
+        '''A list of security group names to associate with this cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]]], result)
+
+    @builtins.property
+    def snapshot_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon Resource Names (ARN) that uniquely identify the RDB snapshot files stored in Amazon S3.
+
+        The snapshot files are used to populate the new cluster . The Amazon S3 object name in the ARN cannot contain any commas.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotarns
+        '''
+        result = self._values.get("snapshot_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def snapshot_name(self) -> typing.Optional[builtins.str]:
+        '''The name of a snapshot from which to restore data into the new cluster .
+
+        The snapshot status changes to restoring while the new cluster is being created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotname
+        '''
+        result = self._values.get("snapshot_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def snapshot_retention_limit(self) -> typing.Optional[jsii.Number]:
+        '''The number of days for which MemoryDB retains automatic snapshots before deleting them.
+
+        For example, if you set SnapshotRetentionLimit to 5, a snapshot that was taken today is retained for 5 days before being deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotretentionlimit
+        '''
+        result = self._values.get("snapshot_retention_limit")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def snapshot_window(self) -> typing.Optional[builtins.str]:
+        '''The daily time range (in UTC) during which MemoryDB begins taking a daily snapshot of your shard.
+
+        Example: 05:00-09:00 If you do not specify this parameter, MemoryDB automatically chooses an appropriate time range.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snapshotwindow
+        '''
+        result = self._values.get("snapshot_window")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sns_topic_arn(self) -> typing.Optional[builtins.str]:
+        '''When you pass the logical ID of this resource to the intrinsic ``Ref`` function, Ref returns the ARN of the SNS topic, such as ``arn:aws:memorydb:us-east-1:123456789012:mySNSTopic``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snstopicarn
+        '''
+        result = self._values.get("sns_topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sns_topic_status(self) -> typing.Optional[builtins.str]:
+        '''The SNS topic must be in Active status to receive notifications.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-snstopicstatus
+        '''
+        result = self._values.get("sns_topic_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the subnet group used by the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-subnetgroupname
+        '''
+        result = self._values.get("subnet_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def tls_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A flag to indicate if In-transit encryption is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-cluster.html#cfn-memorydb-cluster-tlsenabled
+        '''
+        result = self._values.get("tls_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMultiRegionClusterRef_b7a8c236, _ITaggableV2_4e6798f8)
 class CfnMultiRegionCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2754,6 +1771,7 @@ class CfnMultiRegionCluster(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
@@ -2779,7 +1797,7 @@ class CfnMultiRegionCluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         node_type: builtins.str,
@@ -2789,11 +1807,12 @@ class CfnMultiRegionCluster(
         multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
         multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
         num_shards: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         update_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MemoryDB::MultiRegionCluster``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param node_type: The node type used by the multi-Region cluster.
@@ -2826,8 +1845,34 @@ class CfnMultiRegionCluster(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMultiRegionCluster")
+    @builtins.classmethod
+    def arn_for_multi_region_cluster(
+        cls,
+        resource: "_IMultiRegionClusterRef_b7a8c236",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__361e9bf894b22ca7efbe46330f405c203179d386e3f5d7e2d31999eb70b3b56d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiRegionCluster", [resource]))
+
+    @jsii.member(jsii_name="isCfnMultiRegionCluster")
+    @builtins.classmethod
+    def is_cfn_multi_region_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMultiRegionCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65b77630f3e79b149bb1f21b2eabdb22afe82dc984eeb952130614f478f1af5c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiRegionCluster", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2885,9 +1930,9 @@ class CfnMultiRegionCluster(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2896,9 +1941,9 @@ class CfnMultiRegionCluster(
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionClusterRef")
-    def multi_region_cluster_ref(self) -> MultiRegionClusterReference:
+    def multi_region_cluster_ref(self) -> "_MultiRegionClusterReference_24d0cd7a":
         '''A reference to a MultiRegionCluster resource.'''
-        return typing.cast(MultiRegionClusterReference, jsii.get(self, "multiRegionClusterRef"))
+        return typing.cast("_MultiRegionClusterReference_24d0cd7a", jsii.get(self, "multiRegionClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="nodeType")
@@ -2999,12 +2044,12 @@ class CfnMultiRegionCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags to be applied to the multi-Region cluster.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c31a456bc7dbec66c70a71ddb629df188e1935a42408620a3f750d3a77a57e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3014,14 +2059,14 @@ class CfnMultiRegionCluster(
     @jsii.member(jsii_name="tlsEnabled")
     def tls_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indiciates if the multi-Region cluster is TLS enabled.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "tlsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "tlsEnabled"))
 
     @tls_enabled.setter
     def tls_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bb0298e9385954745a7301100806d16ede0f588fef6d462765b2aec1749a85d)
@@ -3042,7 +2087,222 @@ class CfnMultiRegionCluster(
         jsii.set(self, "updateStrategy", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IParameterGroupRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnMultiRegionClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "node_type": "nodeType",
+        "description": "description",
+        "engine": "engine",
+        "engine_version": "engineVersion",
+        "multi_region_cluster_name_suffix": "multiRegionClusterNameSuffix",
+        "multi_region_parameter_group_name": "multiRegionParameterGroupName",
+        "num_shards": "numShards",
+        "tags": "tags",
+        "tls_enabled": "tlsEnabled",
+        "update_strategy": "updateStrategy",
+    },
+)
+class CfnMultiRegionClusterProps:
+    def __init__(
+        self,
+        *,
+        node_type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        engine: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
+        multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
+        num_shards: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tls_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        update_strategy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMultiRegionCluster``.
+
+        :param node_type: The node type used by the multi-Region cluster.
+        :param description: The description of the multi-Region cluster.
+        :param engine: The name of the engine used by the multi-Region cluster.
+        :param engine_version: The version of the engine used by the multi-Region cluster.
+        :param multi_region_cluster_name_suffix: A suffix to be added to the Multi-Region cluster name. Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
+        :param multi_region_parameter_group_name: The name of the multi-Region parameter group associated with the cluster.
+        :param num_shards: The number of shards in the multi-Region cluster.
+        :param tags: A list of tags to be applied to the multi-Region cluster.
+        :param tls_enabled: Indiciates if the multi-Region cluster is TLS enabled.
+        :param update_strategy: The strategy to use for the update operation. Supported values are "coordinated" or "uncoordinated".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            cfn_multi_region_cluster_props = memorydb.CfnMultiRegionClusterProps(
+                node_type="nodeType",
+            
+                # the properties below are optional
+                description="description",
+                engine="engine",
+                engine_version="engineVersion",
+                multi_region_cluster_name_suffix="multiRegionClusterNameSuffix",
+                multi_region_parameter_group_name="multiRegionParameterGroupName",
+                num_shards=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tls_enabled=False,
+                update_strategy="updateStrategy"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d)
+            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument multi_region_cluster_name_suffix", value=multi_region_cluster_name_suffix, expected_type=type_hints["multi_region_cluster_name_suffix"])
+            check_type(argname="argument multi_region_parameter_group_name", value=multi_region_parameter_group_name, expected_type=type_hints["multi_region_parameter_group_name"])
+            check_type(argname="argument num_shards", value=num_shards, expected_type=type_hints["num_shards"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tls_enabled", value=tls_enabled, expected_type=type_hints["tls_enabled"])
+            check_type(argname="argument update_strategy", value=update_strategy, expected_type=type_hints["update_strategy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "node_type": node_type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if engine is not None:
+            self._values["engine"] = engine
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if multi_region_cluster_name_suffix is not None:
+            self._values["multi_region_cluster_name_suffix"] = multi_region_cluster_name_suffix
+        if multi_region_parameter_group_name is not None:
+            self._values["multi_region_parameter_group_name"] = multi_region_parameter_group_name
+        if num_shards is not None:
+            self._values["num_shards"] = num_shards
+        if tags is not None:
+            self._values["tags"] = tags
+        if tls_enabled is not None:
+            self._values["tls_enabled"] = tls_enabled
+        if update_strategy is not None:
+            self._values["update_strategy"] = update_strategy
+
+    @builtins.property
+    def node_type(self) -> builtins.str:
+        '''The node type used by the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-nodetype
+        '''
+        result = self._values.get("node_type")
+        assert result is not None, "Required property 'node_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine(self) -> typing.Optional[builtins.str]:
+        '''The name of the engine used by the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-engine
+        '''
+        result = self._values.get("engine")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the engine used by the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multi_region_cluster_name_suffix(self) -> typing.Optional[builtins.str]:
+        '''A suffix to be added to the Multi-Region cluster name.
+
+        Amazon MemoryDB automatically applies a prefix to the Multi-Region cluster Name when it is created. Each Amazon Region has its own prefix. For instance, a Multi-Region cluster Name created in the US-West-1 region will begin with "virxk", along with the suffix name you provide. The suffix guarantees uniqueness of the Multi-Region cluster name across multiple regions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-multiregionclusternamesuffix
+        '''
+        result = self._values.get("multi_region_cluster_name_suffix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multi_region_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the multi-Region parameter group associated with the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-multiregionparametergroupname
+        '''
+        result = self._values.get("multi_region_parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def num_shards(self) -> typing.Optional[jsii.Number]:
+        '''The number of shards in the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-numshards
+        '''
+        result = self._values.get("num_shards")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to be applied to the multi-Region cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def tls_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indiciates if the multi-Region cluster is TLS enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-tlsenabled
+        '''
+        result = self._values.get("tls_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def update_strategy(self) -> typing.Optional[builtins.str]:
+        '''The strategy to use for the update operation.
+
+        Supported values are "coordinated" or "uncoordinated".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregioncluster.html#cfn-memorydb-multiregioncluster-updatestrategy
+        '''
+        result = self._values.get("update_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiRegionClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IParameterGroupRef_471eb1a8, _ITaggable_36806126)
 class CfnParameterGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3058,6 +2318,7 @@ class CfnParameterGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
@@ -3080,16 +2341,17 @@ class CfnParameterGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         family: builtins.str,
         parameter_group_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MemoryDB::ParameterGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param family: The name of the parameter group family that this parameter group is compatible with.
@@ -3112,8 +2374,76 @@ class CfnParameterGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForParameterGroup")
+    @builtins.classmethod
+    def arn_for_parameter_group(
+        cls,
+        resource: "_IParameterGroupRef_471eb1a8",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04d7b0a0c06aae484cdbce297fc59a5df6e84a64b215b62488b1c669f3285c3d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="fromParameterGroupArn")
+    @builtins.classmethod
+    def from_parameter_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IParameterGroupRef_471eb1a8":
+        '''Creates a new IParameterGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d28fc8873976566f3bc89a158a652d08aad33b305764700b1742dbabc4acb71b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IParameterGroupRef_471eb1a8", jsii.sinvoke(cls, "fromParameterGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromParameterGroupName")
+    @builtins.classmethod
+    def from_parameter_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        parameter_group_name: builtins.str,
+    ) -> "_IParameterGroupRef_471eb1a8":
+        '''Creates a new IParameterGroupRef from a parameterGroupName.
+
+        :param scope: -
+        :param id: -
+        :param parameter_group_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbb188e3de6146df92382196ac7bd7953b94ecb705452402a7e34a6f13a90048)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+        return typing.cast("_IParameterGroupRef_471eb1a8", jsii.sinvoke(cls, "fromParameterGroupName", [scope, id, parameter_group_name]))
+
+    @jsii.member(jsii_name="isCfnParameterGroup")
+    @builtins.classmethod
+    def is_cfn_parameter_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnParameterGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12f92b436e27b3d28c20b4f45f12dc83393b3add06c74f022c3d06d35460c4bc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnParameterGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3158,15 +2488,15 @@ class CfnParameterGroup(
 
     @builtins.property
     @jsii.member(jsii_name="parameterGroupRef")
-    def parameter_group_ref(self) -> ParameterGroupReference:
+    def parameter_group_ref(self) -> "_ParameterGroupReference_bde11e60":
         '''A reference to a ParameterGroup resource.'''
-        return typing.cast(ParameterGroupReference, jsii.get(self, "parameterGroupRef"))
+        return typing.cast("_ParameterGroupReference_bde11e60", jsii.get(self, "parameterGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="family")
@@ -3222,19 +2552,152 @@ class CfnParameterGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15c759a2a9795495d5bfdf5e24f113bc8b0166dd214c06992783c7263752a055)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, ISubnetGroupRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnParameterGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "family": "family",
+        "parameter_group_name": "parameterGroupName",
+        "description": "description",
+        "parameters": "parameters",
+        "tags": "tags",
+    },
+)
+class CfnParameterGroupProps:
+    def __init__(
+        self,
+        *,
+        family: builtins.str,
+        parameter_group_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        parameters: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnParameterGroup``.
+
+        :param family: The name of the parameter group family that this parameter group is compatible with.
+        :param parameter_group_name: The name of the parameter group.
+        :param description: A description of the parameter group.
+        :param parameters: Returns the detailed parameter list for the parameter group.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            # parameters: Any
+            
+            cfn_parameter_group_props = memorydb.CfnParameterGroupProps(
+                family="family",
+                parameter_group_name="parameterGroupName",
+            
+                # the properties below are optional
+                description="description",
+                parameters=parameters,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4)
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "family": family,
+            "parameter_group_name": parameter_group_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def family(self) -> builtins.str:
+        '''The name of the parameter group family that this parameter group is compatible with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-family
+        '''
+        result = self._values.get("family")
+        assert result is not None, "Required property 'family' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parameter_group_name(self) -> builtins.str:
+        '''The name of the parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-parametergroupname
+        '''
+        result = self._values.get("parameter_group_name")
+        assert result is not None, "Required property 'parameter_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Any:
+        '''Returns the detailed parameter list for the parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html#cfn-memorydb-parametergroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnParameterGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISubnetGroupRef_efc982f4, _ITaggable_36806126)
 class CfnSubnetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3250,6 +2713,7 @@ class CfnSubnetGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
@@ -3269,15 +2733,16 @@ class CfnSubnetGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         subnet_group_name: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MemoryDB::SubnetGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param subnet_group_name: The name of the subnet group to be used for the cluster .
@@ -3298,8 +2763,76 @@ class CfnSubnetGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSubnetGroup")
+    @builtins.classmethod
+    def arn_for_subnet_group(
+        cls,
+        resource: "_ISubnetGroupRef_efc982f4",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41b29e2cf889495187c0a550635212a38587947ee2ccd14895e5d0853b53f54c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSubnetGroup", [resource]))
+
+    @jsii.member(jsii_name="fromSubnetGroupArn")
+    @builtins.classmethod
+    def from_subnet_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ISubnetGroupRef_efc982f4":
+        '''Creates a new ISubnetGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83854bccfb483863356c81ba59a6557df20eedd202aaa50cae0f8fa39bb2114d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ISubnetGroupRef_efc982f4", jsii.sinvoke(cls, "fromSubnetGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromSubnetGroupName")
+    @builtins.classmethod
+    def from_subnet_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        subnet_group_name: builtins.str,
+    ) -> "_ISubnetGroupRef_efc982f4":
+        '''Creates a new ISubnetGroupRef from a subnetGroupName.
+
+        :param scope: -
+        :param id: -
+        :param subnet_group_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63193b3e87b7ebddc67ea584a7da2aef68db8126ef8d627b1156bf5191d8be9d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+        return typing.cast("_ISubnetGroupRef_efc982f4", jsii.sinvoke(cls, "fromSubnetGroupName", [scope, id, subnet_group_name]))
+
+    @jsii.member(jsii_name="isCfnSubnetGroup")
+    @builtins.classmethod
+    def is_cfn_subnet_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSubnetGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3ff56028ef95d244f4c99ec61776cd5e844463163ce221bcb8effd823098862)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSubnetGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3355,15 +2888,15 @@ class CfnSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroupRef")
-    def subnet_group_ref(self) -> SubnetGroupReference:
+    def subnet_group_ref(self) -> "_SubnetGroupReference_69a6dcdb":
         '''A reference to a SubnetGroup resource.'''
-        return typing.cast(SubnetGroupReference, jsii.get(self, "subnetGroupRef"))
+        return typing.cast("_SubnetGroupReference_69a6dcdb", jsii.get(self, "subnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="subnetGroupName")
@@ -3406,19 +2939,136 @@ class CfnSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd087ab288f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IUserRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnSubnetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subnet_group_name": "subnetGroupName",
+        "subnet_ids": "subnetIds",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnSubnetGroupProps:
+    def __init__(
+        self,
+        *,
+        subnet_group_name: builtins.str,
+        subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSubnetGroup``.
+
+        :param subnet_group_name: The name of the subnet group to be used for the cluster .
+        :param subnet_ids: A list of Amazon VPC subnet IDs for the subnet group.
+        :param description: A description of the subnet group.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            cfn_subnet_group_props = memorydb.CfnSubnetGroupProps(
+                subnet_group_name="subnetGroupName",
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1)
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subnet_group_name": subnet_group_name,
+            "subnet_ids": subnet_ids,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def subnet_group_name(self) -> builtins.str:
+        '''The name of the subnet group to be used for the cluster .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-subnetgroupname
+        '''
+        result = self._values.get("subnet_group_name")
+        assert result is not None, "Required property 'subnet_group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(
+        self,
+    ) -> typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]]:
+        '''A list of Amazon VPC subnet IDs for the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-subnetgroup.html#cfn-memorydb-subnetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubnetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IUserRef_ee6ccd70, _ITaggable_36806126)
 class CfnUser(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3434,6 +3084,7 @@ class CfnUser(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_memorydb as memorydb
@@ -3455,15 +3106,16 @@ class CfnUser(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         user_name: builtins.str,
         access_string: typing.Optional[builtins.str] = None,
         authentication_mode: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MemoryDB::User``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param user_name: The name of the user.
@@ -3484,8 +3136,73 @@ class CfnUser(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForUser")
+    @builtins.classmethod
+    def arn_for_user(cls, resource: "_IUserRef_ee6ccd70") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19119698c28547952420b03330a70b4826f05e8b8bb087c1195ffd8d28cc4cf3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
+
+    @jsii.member(jsii_name="fromUserArn")
+    @builtins.classmethod
+    def from_user_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IUserRef_ee6ccd70":
+        '''Creates a new IUserRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d410bf65fcb25fb402e9a258fc6a3fa84cea308a89b5336e8593869b0918481b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IUserRef_ee6ccd70", jsii.sinvoke(cls, "fromUserArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromUserName")
+    @builtins.classmethod
+    def from_user_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        user_name: builtins.str,
+    ) -> "_IUserRef_ee6ccd70":
+        '''Creates a new IUserRef from a userName.
+
+        :param scope: -
+        :param id: -
+        :param user_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8586f51fa3b1208ca7029fcd11cf2933a1bec57f526b68903d04bd230ea7090b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+        return typing.cast("_IUserRef_ee6ccd70", jsii.sinvoke(cls, "fromUserName", [scope, id, user_name]))
+
+    @jsii.member(jsii_name="isCfnUser")
+    @builtins.classmethod
+    def is_cfn_user(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUser.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfa5d02d754bf2c646fc6d3ee82e60f82e6b2514d977fec374432c46ebe0ba21)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUser", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3541,15 +3258,15 @@ class CfnUser(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> UserReference:
+    def user_ref(self) -> "_UserReference_10bdf757":
         '''A reference to a User resource.'''
-        return typing.cast(UserReference, jsii.get(self, "userRef"))
+        return typing.cast("_UserReference_10bdf757", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userName")
@@ -3592,12 +3309,12 @@ class CfnUser(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1caf541d919490fde818383ad7111c6060c95572004849b73f36d7935d02afe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3678,8 +3395,128 @@ class CfnUser(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnUserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "user_name": "userName",
+        "access_string": "accessString",
+        "authentication_mode": "authenticationMode",
+        "tags": "tags",
+    },
+)
+class CfnUserProps:
+    def __init__(
+        self,
+        *,
+        user_name: builtins.str,
+        access_string: typing.Optional[builtins.str] = None,
+        authentication_mode: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUser``.
+
+        :param user_name: The name of the user.
+        :param access_string: Access permissions string used for this user.
+        :param authentication_mode: Denotes whether the user requires a password to authenticate. *Example:* ``mynewdbuser: Type: AWS::MemoryDB::User Properties: AccessString: on ~* &* +@all AuthenticationMode: Passwords: '1234567890123456' Type: password UserName: mynewdbuser AuthenticationMode: { "Passwords": ["1234567890123456"], "Type": "Password" }``
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            # authentication_mode: Any
+            
+            cfn_user_props = memorydb.CfnUserProps(
+                user_name="userName",
+            
+                # the properties below are optional
+                access_string="accessString",
+                authentication_mode=authentication_mode,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2)
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
+            check_type(argname="argument access_string", value=access_string, expected_type=type_hints["access_string"])
+            check_type(argname="argument authentication_mode", value=authentication_mode, expected_type=type_hints["authentication_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_name": user_name,
+        }
+        if access_string is not None:
+            self._values["access_string"] = access_string
+        if authentication_mode is not None:
+            self._values["authentication_mode"] = authentication_mode
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''The name of the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-username
+        '''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_string(self) -> typing.Optional[builtins.str]:
+        '''Access permissions string used for this user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-accessstring
+        '''
+        result = self._values.get("access_string")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def authentication_mode(self) -> typing.Any:
+        '''Denotes whether the user requires a password to authenticate.
+
+        *Example:*
+
+        ``mynewdbuser: Type: AWS::MemoryDB::User Properties: AccessString: on ~* &* +@all AuthenticationMode: Passwords: '1234567890123456' Type: password UserName: mynewdbuser AuthenticationMode: { "Passwords": ["1234567890123456"], "Type": "Password" }``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-authenticationmode
+        '''
+        result = self._values.get("authentication_mode")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-user.html#cfn-memorydb-user-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ACLReference",
     "CfnACL",
     "CfnACLProps",
     "CfnCluster",
@@ -3692,155 +3529,9 @@ __all__ = [
     "CfnSubnetGroupProps",
     "CfnUser",
     "CfnUserProps",
-    "ClusterReference",
-    "IACLRef",
-    "IClusterRef",
-    "IMultiRegionClusterRef",
-    "IParameterGroupRef",
-    "ISubnetGroupRef",
-    "IUserRef",
-    "MultiRegionClusterReference",
-    "ParameterGroupReference",
-    "SubnetGroupReference",
-    "UserReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__91fda71b6edde1b30d617b13e566130bd338c0ab4ff0a8a015844a8afbc158bf(
-    *,
-    acl_arn: builtins.str,
-    acl_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__848e1428f1884a88285ca152ff429f50733c57eca32906e1deaae2e8b3f4cd9a(
-    *,
-    acl_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8(
-    *,
-    acl_name: builtins.str,
-    cluster_name: builtins.str,
-    node_type: builtins.str,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_tiering: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    engine: typing.Optional[builtins.str] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    final_snapshot_name: typing.Optional[builtins.str] = None,
-    ip_discovery: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    maintenance_window: typing.Optional[builtins.str] = None,
-    multi_region_cluster_name: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    num_replicas_per_shard: typing.Optional[jsii.Number] = None,
-    num_shards: typing.Optional[jsii.Number] = None,
-    parameter_group_name: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    snapshot_name: typing.Optional[builtins.str] = None,
-    snapshot_retention_limit: typing.Optional[jsii.Number] = None,
-    snapshot_window: typing.Optional[builtins.str] = None,
-    sns_topic_arn: typing.Optional[builtins.str] = None,
-    sns_topic_status: typing.Optional[builtins.str] = None,
-    subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d(
-    *,
-    node_type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    engine: typing.Optional[builtins.str] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
-    multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
-    num_shards: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    update_strategy: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4(
-    *,
-    family: builtins.str,
-    parameter_group_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    parameters: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1(
-    *,
-    subnet_group_name: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2(
-    *,
-    user_name: builtins.str,
-    access_string: typing.Optional[builtins.str] = None,
-    authentication_mode: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c76205735e446f1b7e5ee9385c143286b7a221e2aa22005bb15a3716b0e8f341(
-    *,
-    cluster_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5672060efc9de0077e3e025ec334f3eb47c89d6ecc7fbfac806672e740628f99(
-    *,
-    multi_region_cluster_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e15d859abbd5af86e17e5ff8146802cb57c39bb8baf2240d14abce94c8c81d8(
-    *,
-    parameter_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8a302f6aa9e0c8d5e105277db30aee22c9b61d87170b92541307d2fa426c6ea0(
-    *,
-    subnet_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4b248cf83c2f7b1fe119d26ee1090999f2c214afa2238170816549df4952a8c(
-    *,
-    user_arn: builtins.str,
-    user_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1acb261875(
     scope: _constructs_77d1e7e8.Construct,
@@ -3849,6 +3540,34 @@ def _typecheckingstub__9484fd1d572431ae11bb12955c007dddcddc12b2666a5855747b0a1ac
     acl_name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f48f14679e937bb7eaffacfca87491363bb5fae1fbf23622f6a3837e034a983(
+    resource: _IACLRef_c364f794,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01e08140f4608bc1201cfa00751f482f04b61a9cbccdbd85b8a30ecdb464d6f6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02073185f42e3aab0bcd382a58d62c282bc7a5841909e235bb26999421f72701(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    acl_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23d57aea9ad7d7ee06a7c1cf8df517dd7ef3bcf0d40023f03c0b070c75165182(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3883,6 +3602,15 @@ def _typecheckingstub__3f042edf87d33b30ef4ba034b5cf40ac2a7656eb3997bb3b2744a40f2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__848e1428f1884a88285ca152ff429f50733c57eca32906e1deaae2e8b3f4cd9a(
+    *,
+    acl_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4612235b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3906,7 +3634,7 @@ def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4
     num_shards: typing.Optional[jsii.Number] = None,
     parameter_group_name: typing.Optional[builtins.str] = None,
     port: typing.Optional[jsii.Number] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
     snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     snapshot_name: typing.Optional[builtins.str] = None,
     snapshot_retention_limit: typing.Optional[jsii.Number] = None,
@@ -3916,6 +3644,34 @@ def _typecheckingstub__2be3fd9830386937ed856721b0282cb7c4bcfb48ca212a069ae310ef4
     subnet_group_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5b8292313a9705294af4c7ea9229bc91aa301e7e4fa9bca7a3798e33d7f28cd(
+    resource: _IClusterRef_8cb56f6f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b2b45dd1758ff1ef8a9f1b9d2f6b8e5817eb809b34909e9534ffa76ac714624(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__052150f6187192008b1d92fe063af7be600bf783ef6fa136fb0ccd2320686ffe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    cluster_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4976a0fb87cd1155ef960fb139c75981962679f0c14f205c013288b3eacf98f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4114,6 +3870,41 @@ def _typecheckingstub__a97cbfefa1a4fe0796786c02815b29787b8019f1c83531b4338dd5b4d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1e34c4b7ef2f8328b2d19e6f768b6f44c55efea16824463c1ed0f3497299f1e8(
+    *,
+    acl_name: builtins.str,
+    cluster_name: builtins.str,
+    node_type: builtins.str,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cluster_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_tiering: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    engine: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    final_snapshot_name: typing.Optional[builtins.str] = None,
+    ip_discovery: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    maintenance_window: typing.Optional[builtins.str] = None,
+    multi_region_cluster_name: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    num_replicas_per_shard: typing.Optional[jsii.Number] = None,
+    num_shards: typing.Optional[jsii.Number] = None,
+    parameter_group_name: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    security_group_ids: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]]] = None,
+    snapshot_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    snapshot_name: typing.Optional[builtins.str] = None,
+    snapshot_retention_limit: typing.Optional[jsii.Number] = None,
+    snapshot_window: typing.Optional[builtins.str] = None,
+    sns_topic_arn: typing.Optional[builtins.str] = None,
+    sns_topic_status: typing.Optional[builtins.str] = None,
+    subnet_group_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f43e157f397efc77624c63e994d6c9b59f23c7e38e04f8e2e778cd657215b125(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4128,6 +3919,18 @@ def _typecheckingstub__f43e157f397efc77624c63e994d6c9b59f23c7e38e04f8e2e778cd657
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     update_strategy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__361e9bf894b22ca7efbe46330f405c203179d386e3f5d7e2d31999eb70b3b56d(
+    resource: _IMultiRegionClusterRef_b7a8c236,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65b77630f3e79b149bb1f21b2eabdb22afe82dc984eeb952130614f478f1af5c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4204,6 +4007,22 @@ def _typecheckingstub__842502b31372c3bc8d35b15dbbe504d22ffcb7b578544ced356fd9e30
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07809f34d(
+    *,
+    node_type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    engine: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    multi_region_cluster_name_suffix: typing.Optional[builtins.str] = None,
+    multi_region_parameter_group_name: typing.Optional[builtins.str] = None,
+    num_shards: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tls_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    update_strategy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be539cccbc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4213,6 +4032,34 @@ def _typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be5
     description: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04d7b0a0c06aae484cdbce297fc59a5df6e84a64b215b62488b1c669f3285c3d(
+    resource: _IParameterGroupRef_471eb1a8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d28fc8873976566f3bc89a158a652d08aad33b305764700b1742dbabc4acb71b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbb188e3de6146df92382196ac7bd7953b94ecb705452402a7e34a6f13a90048(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    parameter_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12f92b436e27b3d28c20b4f45f12dc83393b3add06c74f022c3d06d35460c4bc(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4259,14 +4106,53 @@ def _typecheckingstub__15c759a2a9795495d5bfdf5e24f113bc8b0166dd214c06992783c7263
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6f5014f4(
+    *,
+    family: builtins.str,
+    parameter_group_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    parameters: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9b3dd027b7c51d2057be81ff17bfef3dbfbd3522767ca600f468a0d67ff1212e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     subnet_group_name: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41b29e2cf889495187c0a550635212a38587947ee2ccd14895e5d0853b53f54c(
+    resource: _ISubnetGroupRef_efc982f4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83854bccfb483863356c81ba59a6557df20eedd202aaa50cae0f8fa39bb2114d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63193b3e87b7ebddc67ea584a7da2aef68db8126ef8d627b1156bf5191d8be9d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    subnet_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3ff56028ef95d244f4c99ec61776cd5e844463163ce221bcb8effd823098862(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4307,6 +4193,16 @@ def _typecheckingstub__085e1da0c8228c03b5e87f741c2983f9ac01339c717a01009e150bd08
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9355391d833b76afd63e1ea2e6ccb22ce04e5360c7352ef34ee698b3d16fa6c1(
+    *,
+    subnet_group_name: builtins.str,
+    subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__52b4cd545a9f18f09898b753580c602cd4bd6e39c07e6a1f9e34f4fb928fb1dc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4315,6 +4211,34 @@ def _typecheckingstub__52b4cd545a9f18f09898b753580c602cd4bd6e39c07e6a1f9e34f4fb9
     access_string: typing.Optional[builtins.str] = None,
     authentication_mode: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19119698c28547952420b03330a70b4826f05e8b8bb087c1195ffd8d28cc4cf3(
+    resource: _IUserRef_ee6ccd70,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d410bf65fcb25fb402e9a258fc6a3fa84cea308a89b5336e8593869b0918481b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8586f51fa3b1208ca7029fcd11cf2933a1bec57f526b68903d04bd230ea7090b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    user_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfa5d02d754bf2c646fc6d3ee82e60f82e6b2514d977fec374432c46ebe0ba21(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4359,6 +4283,16 @@ def _typecheckingstub__7829a96cb7f6a4249d594f7be104bbd66d8afd40591a46c942d55bbdb
     *,
     passwords: typing.Optional[typing.Sequence[builtins.str]] = None,
     type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f925a1d7d83bd8482a242ecda1a708d70eb49d2ad0cffde56363c3e0dd9b19a2(
+    *,
+    user_name: builtins.str,
+    access_string: typing.Optional[builtins.str] = None,
+    authentication_mode: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,22 +1,24 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: unearth
-Version: 0.17.5
+Version: 0.18.2
 Summary: A utility to fetch and download python packages
 Author-Email: Frost Ming <me@frostming.com>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Project-URL: Homepage, https://github.com/frostming/unearth
 Project-URL: Documentation, https://unearth.readthedocs.io
 Project-URL: Changelog, https://github.com/frostming/unearth/releases
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: packaging>=20
 Requires-Dist: httpx<1,>=0.27.0
 Provides-Extra: keyring

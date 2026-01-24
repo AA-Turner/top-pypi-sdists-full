@@ -30,6 +30,8 @@ from tempfile import TemporaryDirectory
 from time import sleep
 import yaml
 
+_original_construct_mapping = yaml.SafeLoader.construct_mapping
+
 
 class NoAliasDumper(yaml.SafeDumper):
     def ignore_aliases(self, data):
@@ -97,7 +99,7 @@ def cloudinit(name, keys=[], cmds=[], nets=[], gateway=None, dns=None, domain=No
     userdata, metadata, netdata = None, None, None
     default_gateway = gateway
     noname = overrides.get('noname', False)
-    legacy = True if image is not None and (is_7(image) or is_debian9(image)) else False
+    legacy = image is not None and (is_7(image) or is_debian9(image))
     prefix = 'eth'
     if image is not None and (is_ubuntu(image) or is_debian_new(image)):
         if machine == 'pc':
@@ -108,7 +110,7 @@ def cloudinit(name, keys=[], cmds=[], nets=[], gateway=None, dns=None, domain=No
             prefix = 'ens19'
         else:
             prefix = 'enp1s'
-    dns_hack = True if image is not None and is_debian_new(image) else False
+    dns_hack = image is not None and is_debian_new(image)
     netdata = {} if not legacy else ''
     bridges = {}
     vlans = {}
@@ -507,6 +509,7 @@ def _unique_list_dict(a):
 def process_ignition_files(files=[], overrides={}):
     filesdata = []
     unitsdata = []
+    linksdata = []
     for directory in files:
         if not isinstance(directory, dict) or 'origin' not in directory\
                 or not os.path.isdir(os.path.expanduser(directory['origin'])):
@@ -525,11 +528,12 @@ def process_ignition_files(files=[], overrides={}):
         origin = fil.get('origin')
         content = fil.get('content')
         path = fil.get('path')
+        target = fil.get('target')
         mode = int(str(fil.get('mode', '644')), 8)
         permissions = fil.get('permissions', mode)
         render = fil.get('render', True)
         if isinstance(render, str):
-            render = True if render.lower() == 'true' else False
+            render = render.lower() == 'true'
         if origin is not None:
             origin = os.path.expanduser(origin)
             if not os.path.exists(origin):
@@ -537,6 +541,7 @@ def process_ignition_files(files=[], overrides={}):
                 continue
             elif overrides and render:
                 file_overrides = overrides.copy()
+                file_overrides.update(fil)
                 basedir = os.path.dirname(origin) if os.path.dirname(origin) != '' else '.'
                 env = Environment(loader=FileSystemLoader(basedir), undefined=undefined, extensions=['jinja2.ext.do'])
                 for jinjafilter in jinjafilters.jinjafilters:
@@ -563,6 +568,9 @@ def process_ignition_files(files=[], overrides={}):
                 except UnicodeDecodeError:
                     warning(f"SKipping file {origin} as binary")
                     continue
+        elif target is not None:
+            linksdata.append({"path": path, "target": target, "hard": False})
+            continue
         elif content is None:
             continue
         if not isinstance(content, str):
@@ -574,7 +582,7 @@ def process_ignition_files(files=[], overrides={}):
             filesdata.append({'path': path, 'mode': permissions, 'overwrite': True,
                               "contents": {"source": f"data:text/plain;charset=utf-8;base64,{content}",
                                            "verification": {}}})
-    return _unique_list_dict(filesdata), _unique_list_dict(unitsdata)
+    return _unique_list_dict(filesdata), _unique_list_dict(unitsdata), _unique_list_dict(linksdata)
 
 
 def process_cmds(cmds, overrides):
@@ -937,16 +945,7 @@ def ssh(name, ip='', user=None, local=None, remote=None, tunnel=False, tunnelhos
             sshcommand = f'{sshcommand} "{cmd}"'
         if tunnelhost is not None and tunnelhost not in ['localhost', '127.0.0.1'] and tunnel and\
                 tunneluser is not None:
-            if insecure:
-                tunnelcommand = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR "
-            else:
-                tunnelcommand = ""
-            tunnelcommand += f"-qp {tunnelport} -W %h:%p {tunneluser}@{tunnelhost}"
-            if identityfile is not None:
-                tunnelcommand = f"-i {identityfile} {tunnelcommand}"
-            sshcommand = f"-o ProxyCommand='ssh {tunnelcommand}' {sshcommand}"
-            if ':' in ip:
-                sshcommand = sshcommand.replace(ip, f'[{ip}]')
+            sshcommand = f"-J {tunneluser}@{tunnelhost}:{tunnelport} {sshcommand}"
         if local is not None:
             sshcommand = f"-L {local} {sshcommand}"
         if remote is not None:
@@ -973,8 +972,7 @@ def scp(name, ip='', user=None, source=None, destination=None, recursive=None, t
         arguments = ''
         if tunnelhost is not None and tunnelhost not in ['localhost', '127.0.0.1'] and\
                 tunnel and tunneluser is not None:
-            h = "[%h]" if ':' in ip else "%h"
-            arguments += f"-o ProxyCommand='ssh -qp {tunnelport} -W {h}:%p {tunneluser}@{tunnelhost}'"
+            arguments += f"-J {tunneluser}@{tunnelhost}:{tunnelport}"
         if insecure:
             arguments += " -o LogLevel=quiet -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
         scpcommand = 'scp -q'
@@ -1053,7 +1051,7 @@ def ignition(name, keys=[], cmds=[], nets=[], gateway=None, dns=None, domain=Non
     indent = 0 if compact else 4
     default_gateway = gateway
     publickeys = []
-    storage = {"files": []}
+    storage = {"files": [], "links": []}
     systemd = {"units": []}
     if domain is not None:
         localhostname = f"{name}.{domain}"
@@ -1173,11 +1171,13 @@ def ignition(name, keys=[], cmds=[], nets=[], gateway=None, dns=None, domain=Non
                 storage["files"].append({"path": nicpath, "contents": {"source": f"data:,{static}", "verification": {}},
                                          "mode": int(static_nic_file_mode, 8)})
     if files:
-        filesdata, unitsdata = process_ignition_files(files=files, overrides=overrides)
+        filesdata, unitsdata, linksdata = process_ignition_files(files=files, overrides=overrides)
         if filesdata:
             storage["files"].extend(filesdata)
         if unitsdata:
             systemd["units"].extend(unitsdata)
+        if linksdata:
+            storage["links"].extend(linksdata)
     cmdunit = None
     if cmds and not needs_combustion(image):
         cmdsdata = process_ignition_cmds(cmds, overrides)
@@ -1513,6 +1513,8 @@ def mergeignition(name, ignitionextrapath, data):
                             ignitionextra[key][children[key]] = newdata
                 elif children[key] in data[key] and children[key] not in ignitionextra[key]:
                     ignitionextra[key][children[key]] = data[key][children[key]]
+                if key == 'storage' and 'links' in data['storage']:
+                    ignitionextra['storage']['links'] = data['storage']['links']
             elif key in data and key not in ignitionextra:
                 ignitionextra[key] = data[key]
         if 'config' in data['ignition'] and data['ignition']['config']:
@@ -1572,7 +1574,7 @@ def is_debian9(image):
 
 
 def is_debian_new(image):
-    return 'debian10' in image.lower() or 'debian12' in image.lower()
+    return 'debian' in image.lower() and image.lower() != 'debian9' and image.lower() != 'debian8'
 
 
 def is_ubuntu(image):
@@ -2114,7 +2116,7 @@ def compare_git_versions(commit1, commit2):
         timestamp2 = os.popen(f"git show -s --format=%ct {commit2}").read().strip()
         date2 = datetime.fromtimestamp(int(timestamp2))
         os.chdir(mycwd)
-    return True if date1 < date2 else False
+    return date1 < date2
 
 
 def correct_sha(_file, sha):
@@ -2167,6 +2169,21 @@ def reset_baremetal_host(url, user, password, debug=False):
         red.reset()
     except Exception as e:
         msg = f'Hit {e} when resetting host with url {url}'
+        error(msg)
+        return {'result': 'failure', 'reason': msg}
+    return {'result': 'success'}
+
+
+def restart_baremetal_host(url, user, password, debug=False):
+    try:
+        red = Redfish(url, user, password, debug=debug)
+    except:
+        sys.exit(1)
+    pprint(f"Restarting host with url {url}")
+    try:
+        red.restart()
+    except Exception as e:
+        msg = f'Hit {e} when restarting host with url {url}'
         error(msg)
         return {'result': 'failure', 'reason': msg}
     return {'result': 'success'}
@@ -2497,7 +2514,11 @@ def plan_constructor(loader, node, deep=False):
     for key_node, value_node in node.value:
         key = loader.construct_object(key_node, deep=deep)
         value = loader.construct_object(value_node, deep=deep)
-        if isinstance(value, dict):
+        if key == "vmrules":
+            value = [_original_construct_mapping(loader, item_node, deep=deep) for item_node in value_node.value]
+            mapping[key] = value
+            continue
+        elif isinstance(value, dict):
             _type = value.get('type', 'vm')
             if key == 'parameters':
                 mapping[key] = value

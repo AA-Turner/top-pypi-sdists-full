@@ -10,7 +10,6 @@ from .fields import (
     DateTimeRangeFilter,
     ModelChoiceFilter,
     ModelMultipleChoiceFilter,
-    MultipleChoiceContentTypeFilter,
     MultipleChoiceFilter,
     NumberFilter,
     YearFilter,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Copyright (c) 2012-2013 Michael DeHaan <michael.dehaan@gmail.com>
 # Copyright (c) 2016 Toshio Kuratomi <tkuratomi@ansible.com>
 # Copyright (c) 2019 Ansible Project
@@ -12,8 +10,7 @@
 
 # NOTE: THIS IS ONLY FOR ACTION PLUGINS!
 
-from __future__ import absolute_import, division, print_function
-__metaclass__ = type
+from __future__ import annotations
 
 
 import abc
@@ -21,29 +18,28 @@ import copy
 import traceback
 
 from ansible.errors import AnsibleError
-from ansible.module_utils import six
 from ansible.module_utils.basic import SEQUENCETYPE, remove_values
-from collections.abc import (
-    Mapping
-)
-from ansible.module_utils.common.validation import (
-    safe_eval,
-)
-from ansible.module_utils.six import string_types
+from collections.abc import Mapping
 from ansible.plugins.action import ActionBase
-
 
 from ansible.module_utils.common.arg_spec import ArgumentSpecValidator
 from ansible.module_utils.errors import UnsupportedError
 
+try:
+    from ansible.module_utils.common.validation import (
+        safe_eval,
+    )
+except ImportError:
+    safe_eval = None
+
 
 class _ModuleExitException(Exception):
     def __init__(self, result):
-        super(_ModuleExitException, self).__init__()
+        super().__init__()
         self.result = result
 
 
-class AnsibleActionModule(object):
+class AnsibleActionModule:
     def __init__(self, action_plugin, argument_spec, bypass_checks=False,
                  mutually_exclusive=None, required_together=None,
                  required_one_of=None, supports_check_mode=False,
@@ -117,11 +113,13 @@ class AnsibleActionModule(object):
             self.fail_json(msg=msg)
 
     def safe_eval(self, value, locals=None, include_exceptions=False):
+        if safe_eval is None:
+            raise ValueError("safe_eval is not available since ansible-core 2.21")
         return safe_eval(value, locals, include_exceptions)
 
     def warn(self, warning):
         # Copied from ansible.module_utils.common.warnings:
-        if isinstance(warning, string_types):
+        if isinstance(warning, str):
             self.__warnings.append(warning)
         else:
             raise TypeError("warn requires a string not a %s" % type(warning))
@@ -131,7 +129,7 @@ class AnsibleActionModule(object):
             raise AssertionError("implementation error -- version and date must not both be set")
 
         # Copied from ansible.module_utils.common.warnings:
-        if isinstance(msg, string_types):
+        if isinstance(msg, str):
             # For compatibility, we accept that neither version nor date is set,
             # and treat that the same as if version would haven been set
             if date is not None:
@@ -187,8 +185,7 @@ class AnsibleActionModule(object):
         self._return_formatted(result)
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ActionModuleBase(ActionBase):
+class ActionModuleBase(ActionBase, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def setup_module(self):
         """Return pair (ArgumentSpec, kwargs)."""
@@ -203,7 +200,7 @@ class ActionModuleBase(ActionBase):
         if task_vars is None:
             task_vars = dict()
 
-        result = super(ActionModuleBase, self).run(tmp, task_vars)
+        result = super().run(tmp, task_vars)
         del tmp  # tmp no longer has any effect
 
         try:

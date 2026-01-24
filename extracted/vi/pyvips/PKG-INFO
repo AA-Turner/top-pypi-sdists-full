@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvips
-Version: 3.0.0
+Version: 3.1.1
 Summary: binding for the libvips image processing library
 Author-email: John Cupitt <jcupitt@gmail.com>
 License: MIT
@@ -28,6 +28,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.7
@@ -128,11 +129,12 @@ with:
     $ pip install "pyvips[binary]"
 
 This installs a self-contained package with the most commonly needed
-libraries. It should just work on most common platforms, including Linux,
-Windows and macOS, with x64 and ARM CPUs.
+libraries. It should just work on most platforms, including Linux,
+Windows and macOS, with 64 and 32 bit x64 and ARM CPUs. Note that this libvips
+is missing features like PDF load and OpenSlide support.
 
-If your platform is unsupported or the pre-built binary is
-unsuitable, you can install libvips separately instead.
+If your platform is unsupported or the pre-built binary is unsuitable, you
+can install libvips separately instead.
 
 Local installation
 ------------------
@@ -319,6 +321,12 @@ Update pypi package:
 .. code-block:: shell
 
     $ python3 -m build --sdist
+
+Ignore the deprecation warnings about the license, we need to update the 
+build backend before we can fix this.
+
+.. code-block:: shell
+
     $ twine upload --repository pyvips dist/*
     $ git tag -a v3.0.0 -m "as uploaded to pypi"
     $ git push origin v3.0.0

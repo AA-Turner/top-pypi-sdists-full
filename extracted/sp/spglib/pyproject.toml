@@ -1,7 +1,7 @@
 [build-system]
 # Numpy build and runtime dependencies are linked to ABI compatibility
 # A new wheel rebuild is needed when changing these
-requires = ["scikit-build-core>=0.11", "numpy~=2.0"]
+requires = ["scikit-build-core>=0.11", "numpy~=2.0", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -216,3 +216,9 @@ disallow_incomplete_defs = true
 [tool.codespell]
 ignore-words = "docs/codespell.txt"
 skip = "docs/references.bib"
+
+[tool.cmake_pc_hooks]
+defines = [
+    "SPLGIB_WITH_Fortran=ON",
+    "SPLGIB_WITH_TESTS=ON",
+]

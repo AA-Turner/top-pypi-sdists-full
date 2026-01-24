@@ -1,0 +1,467 @@
+Metadata-Version: 2.4
+Name: ahbicht
+Version: 1.2.0
+Summary: Python Library to parse AHB expressions.
+Project-URL: Changelog, https://github.com/Hochfrequenz/ahbicht/releases
+Project-URL: Homepage, https://github.com/Hochfrequenz/ahbicht
+Project-URL: Documentation, https://ahbicht.readthedocs.io/en/latest/
+Author-email: Annika Schlögl <annika.schloegl@hochfrequenz.de>
+License: MIT
+License-File: LICENSE
+Keywords: AHB,Expressions,Parsing
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: efoli>=2.1.0
+Requires-Dist: inject
+Requires-Dist: lark>=1.1.4
+Requires-Dist: pydantic>=2
+Requires-Dist: pytz
+Provides-Extra: coverage
+Requires-Dist: coverage==7.13.0; extra == 'coverage'
+Provides-Extra: dev
+Requires-Dist: pip-tools; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: sphinx-rtd-theme==3.0.2; extra == 'docs'
+Requires-Dist: sphinx==8.1.3; extra == 'docs'
+Provides-Extra: formatting
+Requires-Dist: black[jupyter]==25.12.0; extra == 'formatting'
+Requires-Dist: isort==7.0.0; extra == 'formatting'
+Provides-Extra: json-schemas
+Provides-Extra: linting
+Requires-Dist: pylint==4.0.4; extra == 'linting'
+Provides-Extra: spellcheck
+Requires-Dist: codespell==2.4.1; extra == 'spellcheck'
+Provides-Extra: test-packaging
+Requires-Dist: build==1.3.0; extra == 'test-packaging'
+Requires-Dist: setuptools-scm==9.2.2; extra == 'test-packaging'
+Requires-Dist: setuptools==80.9.0; extra == 'test-packaging'
+Requires-Dist: twine==6.2.0; extra == 'test-packaging'
+Provides-Extra: tests
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'tests'
+Requires-Dist: pytest-datafiles==3.0.0; extra == 'tests'
+Requires-Dist: pytest-mock==3.15.1; extra == 'tests'
+Requires-Dist: pytest==9.0.2; extra == 'tests'
+Provides-Extra: type-check
+Requires-Dist: mypy[pydantic]==1.19.1; extra == 'type-check'
+Requires-Dist: types-pytz==2025.2.0.20251108; extra == 'type-check'
+Description-Content-Type: text/x-rst
+
+AHB Condition Expression Parser (AHBicht)
+=========================================
+
+|Unittests status badge| |Coverage status badge| |Linting status badge|
+|Black status badge| |pypy status badge|
+
+.. image:: https://raw.githubusercontent.com/Hochfrequenz/ahbicht/main/docs/_static/ahbicht-logo.png
+   :target: https://ahbicht.readthedocs.io
+   :align: right
+   :alt: ahbicht logo
+   :width: 150px
+
+A python package that parses condition expressions from EDI\@Energy
+Anwendungshandbücher (AHB). Since it's based on lark, we named the
+module AHBicht.
+
+What is this all about?
+-----------------------
+
+The German energy market uses
+`EDIFACT <https://en.wikipedia.org/wiki/EDIFACT>`__ as an intercompany
+data exchange format. The rules on how to structure and validate the
+EDIFACT messages are written in
+
+-  one **M**\ essage **I**\ mplementation **G**\ uide (MIG) per EDIFACT
+   format (for example UTILMD or MSCONS)
+-  one **A**\ nwendungs\ **h**\ and\ **b**\ uch (AHB,
+   en. manual) per use case group (for example
+   `GPKE <https://de.wikipedia.org/wiki/Gesch%C3%A4ftsprozesse_zur_Kundenbelieferung_mit_Elektrizit%C3%A4t>`__
+   or *Wechselprozesse im Messwesen* (WiM))
+
+According to the legislation for the German energy market, the
+organisations in charge of maintaining the documents described above
+(AHB and MIGs) are the
+**B**\ undesverband **d**\ er **E**\ nergie-
+und **W**\ asserwirtschaft (BDEW) and the
+**B**\ undes\ **netza**\ gentur (BNetzA). They form a working
+group named "Arbeitsgruppe EDI\@Energy". This work group publishes the
+MIGs and AHBs on `edi-energy.de <https://edi-energy.de/>`__. The
+documents are published as PDFs which is better than faxing them but far
+from ideal.
+
+The AHBs contain information on how to structure single EDIFACT
+messages. To create messages that are valid according to the respective
+AHB, you have to process information of the kind:
+|UTILMD_AHB_WiM_3_1b_20201016.pdf page 90|
+
+In this example: **This library parses the string
+``Muss [210] U ([182] X ([90] U [183]))`` and allows determining whether
+“Details der Prognosegrundlage” is an obligatory field according to the
+AHB, iff the individual status of the conditions is given.** We call
+this “expression evaluation”.
+
+Note that determining the individual status of ``[210]``, ``[182]``,
+``[90]`` and ``[183]`` itself (the so called “content evaluation”, see
+below) is **not** within the scope of this parsing library.
+
+Note also, that this library also parses the new convention using logical operators that becomes effective 2022-04-01 ("MaKo2022").
+``Muss [210] ∧ ([182] ⊻ ([90] ∧ [183]))``.
+
+
+Usage and Examples
+------------------
+
+Jupyter Notebook
+~~~~~~~~~~~~~~~~
+For a minimal working example on how what the library is used, check out `this Jupyter notebook <minimal_working_example.ipynb>`__.
+
+Free to Use REST API
+~~~~~~~~~~~~~~~~~~~~
+You can also use our public REST API to parse condition expressions (other features will follow). Simply send a GET request with the condition expression as query parameter to:
+`http://ahbicht-backend-prod-fnfnegeqfwcffrhw.germanywestcentral-01.azurewebsites.net/ParseExpression?expression=[2] U ([3] O [4])[901] U [555] <http://ahbicht-backend-prod-fnfnegeqfwcffrhw.germanywestcentral-01.azurewebsites.net/ParseExpression?expression=%5B2%5D%20U%20%28%5B3%5D%20O%20%5B4%5D%29%5B901%5D%20U%20%5B555%5D>`__.
+Find all features of the REST API (used by e.g. by `Bedingungsbaum <https://bedingungsbaum.hochfrequenz.de/>`__) on `its Swagger site <https://ahbicht-backend-prod-fnfnegeqfwcffrhw.germanywestcentral-01.azurewebsites.net/docs>`__.
+
+Easily Integrate AHBicht with Your Solution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you want to use AHBicht together with your own software, you can use the `JSON Schema files <json_schemas>`__ provided to kick start the integration.
+
+There is a fully typed .NET client available: `AhbichtClient.NET <https://github.com/Hochfrequenz/AhbichtClient.net>`_
+
+Code Quality / Production Readiness
+-----------------------------------
+
+-  The code has at least a 95% unit test coverage. ✔️
+-  The code is rated 10/10 in pylint and type checked with mypy. ✔️
+-  The code is `MIT licensed <LICENSE>`__. ✔️
+-  There are only `few dependencies <requirements.in>`__. ✔️
+
+Expression Evaluation / Parsing the Condition String
+----------------------------------------------------
+
+Evaluating expressions like ``Muss [59] U ([123] O [456])`` from the
+AHBs by parsing it with the `parsing library
+lark <https://lark-parser.readthedocs.io/en/latest/>`__ and
+combining the parsing result with information about the state of
+``[59]``, ``[123]``, ``[456]`` is called **expression evaluation**.
+Determining the state of each single condition (f.e. ``[59]`` is
+fulfilled, ``[123]`` is not fulfilled, ``[456]`` is unknown) for a given
+message is part of the **content evaluation** (see next chapter).
+
+If you’re new to this topic, please read `edi-energy.de → Dokumente →
+Allgemeine
+Festlegungen <https://www.edi-energy.de/index.php?id=38&tx_bdew_bdew%5Buid%5D=956&tx_bdew_bdew%5Baction%5D=download&tx_bdew_bdew%5Bcontroller%5D=Dokument&cHash=ae3c1bd6fe3f664cd90f5e94f9714e3e>`__
+first. This document contains German explanations, how the Bedingungen
+are supposed to be read.
+
+Functionality
+~~~~~~~~~~~~~
+
+-  Expressions can contain single numbers e.g. ``[47]`` or numbers
+   combined with ``U``/``O``/``X`` or ``∧``/``∨``/``⊻`` respectively which are translated to boolean
+   operators ``and``/``or``/``exclusive or``, e.g. ``[45]U[2]`` or they
+   can be combined **without** an operator, e.g. ``[930][5]`` in the
+   case of FormatConstraints.
+-  Expressions can contain random whitespaces.
+-  Input conditions are passed in form of a ``ConditionNode``, see
+   below.
+-  Bedingungen/``RequirementConstraints`` with a boolean value,
+   Hinweise/``Hints`` and Formatdefinitionen/``FormatConstraints`` are
+   so far functionally implemented as the result returns if the
+   condition expression is fulfilled and which Hints and
+   FormatConstraints are relevant.
+-  The boolean logic follows 'brackets ``( )`` before ``then_also``
+   before ``and`` before ``or``'.
+-  Hints and UnevaluatedFormatConstraints are implemented as ``neutral``
+   element, so not changing the boolean outcome of an expression for the
+   evaluation regarding the requirement constraints and raising errors
+   when there is no sensible logical outcome of the expression.
+-  A ``condition_fulfilled`` attribute can also take the value
+   ``unknown``.
+-  Brackets e.g. ``([43]O[4])U[5]``
+-  Requirement indicators (i.e ``Muss``, ``Soll``, ``Kann``, ``X``,
+   ``O``, ``U``) are separated from the condition expressions and also
+   separated into single requirement indicator expressions if there are
+   more than one (for modal marks).
+-  ``Format Constraint Expressions`` that are returned after the
+   requirement condition evaluation can now be parsed and evaluated.
+-  Evaluate several modal marks in one ahb_expression: the first one
+   that evaluates to fulfilled is the valid one.
+
+In planning
+^^^^^^^^^^^
+
+-  Evaluate requirement indicators:
+
+   -  Soll, Kann, Muss, X, O, U -> is_required, is_forbidden, etc…
+
+Definition of terms
+~~~~~~~~~~~~~~~~~~~
+
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Term                                       | Description                                                                                                                                                                                                                                                                                                                                                     | Example                                                                                                 |
++============================================+=================================================================================================================================================================================================================================================================================================================================================================+=========================================================================================================+
+| condition                                  | single operand                                                                                                                                                                                                                                                                                                                                                  | [53]                                                                                                    |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| condition_key                              | int or str, the number of the condition                                                                                                                                                                                                                                                                                                                         | 53                                                                                                      |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| operator                                   | combines two conditions                                                                                                                                                                                                                                                                                                                                         | U, O                                                                                                    |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| composition                                | two parts of an expression combined by an operator                                                                                                                                                                                                                                                                                                              | ([4]U[76])O[5] consists of an and_composition of [4] and [76] and an or_composition of [4]U[76] and [5] |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | used in the context of the parsing and evaluation of the expression                                                                                                                                                                                                                                                                                             |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| ahb expression                             | an expression as given from the ahb                                                                                                                                                                                                                                                                                                                             | X[59]U[53]                                                                                              |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | Consists of at least one single requirement indicator expression.                                                                                                                                                                                                                                                                                               | Muss[59]U([123]O[456])Soll[53]                                                                          |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | In case of several model mark expressions the first one will be evaluated and if not fulfilled, it will be continued with the next one.                                                                                                                                                                                                                         |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| single requirement indicator expression    | An expression consisting of exactly one requirement indicator and their respective condition expression.                                                                                                                                                                                                                                                        | Soll[53]                                                                                                |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | If there is only one requirement indicator in the ahb expression, then both expressions are identical.                                                                                                                                                                                                                                                          |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| condition expression                       | one or multiple conditions combined with or (in case of FormatConstraints) also without operators                                                                                                                                                                                                                                                               | [1]                                                                                                     |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | used as input for the condition parser                                                                                                                                                                                                                                                                                                                          | [4]O[5]U[45]                                                                                            |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| format constraint expression               | Is returned after the evaluation of the RequirementConstraints                                                                                                                                                                                                                                                                                                  | [901]X[954]                                                                                             |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | consist only of FormatConstraints                                                                                                                                                                                                                                                                                                                               |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| requirement indicator                      | The Merkmal/modal_mark or Operator/prefix_operator of the data element/data element group/segment/segment group.                                                                                                                                                                                                                                                | Muss, Soll, Kann, X, O, U                                                                               |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Merkmal / modal_mark                       | as defined by the EDI Energy group (see edi-energy.de → Dokumente → Allgemeine Festlegungen)                                                                                                                                                                                                                                                                    | Muss, Soll, Kann                                                                                        |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | Stands alone or before a condition expression, can be the start of several requirement indicator expressions in one ahb expression                                                                                                                                                                                                                              |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| prefix operator                            | Operator which does not function to combine conditions, but as requirement indicator.                                                                                                                                                                                                                                                                           | X, O, U                                                                                                 |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | Stands alone or in front of a condition expression.                                                                                                                                                                                                                                                                                                             |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| tree, branches, token                      | as used by lark                                                                                                                                                                                                                                                                                                                                                 |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| ConditionNode                              | Defines the nodes of the tree as they are passed, evaluated und returned.                                                                                                                                                                                                                                                                                       | RequirementConstraint, FormatConstraint, Hint, EvaluatedComposition, RepeatabilityConstraint            |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | There are different kinds of conditions (Bedingung, Hinweis, Format) as defined by the EDI Energy group (see edi-energy.de → Dokumente → Allgemeine Festlegungen) and also a EvaluatedComposition after a composition of two nodes is evaluated.                                                                                                                |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Bedingung / RequirementConstraint (rc)     | - are true or false, has to be determined                                                                                                                                                                                                                                                                                                                       | "falls SG2+IDE+CCI == EHZ"                                                                              |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | - keys between [1] and [499]                                                                                                                                                                                                                                                                                                                                    |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Wiederholbarkeit / RepeatabilityConstraint | - gives minimum and maximum occurrence                                                                                                                                                                                                                                                                                                                          | "Segmentgruppe ist mindestens einmal je SG4 IDE+24 (Vorgang) anzugeben"                                 |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | - keys between [2000] and [2499]                                                                                                                                                                                                                                                                                                                                |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Hinweis / Hint                             | - just a hint, even if it is worded like a condition                                                                                                                                                                                                                                                                                                            | "Hinweis: 'ID der Messlokation'"                                                                        |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | - keys from [500] onwards, starts with 'Hinweis:'                                                                                                                                                                                                                                                                                                               | "Hinweis: 'Es ist der alte MSB zu verwenden'"                                                           |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Formatdefinition / FormatConstraint (fc)   | - a constraint for how the data should be given                                                                                                                                                                                                                                                                                                                 | "Format: Muss größer 0 sein"                                                                            |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | - keys between [901] and [999], starts with 'Format:'                                                                                                                                                                                                                                                                                                           | "Format: max 5 Nachkommastellen"                                                                        |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+|                                            | Format Constraints are "collected" while evaluating the rest of the tree, meaning the evaluated composition of the Mussfeldprüfung contains an expression that consists only of format constraints.                                                                                                                                                             |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| UnevaluatedFormatConstraint                | A format constraint that is just "collected" during the requirement constraint evaluation. To have a clear separation of conditions that affect whether a field is mandatory or not and those that check the format of fields without changing their state it will become a part of the format_constraint_expression which is part of the EvaluatedComposition. |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| EvaluatableFormatConstraint                | An evaluatable FormatConstraint will (other than the UnevaluatedFormatConstraint) be evaluated by e.g. matching a regex, calculating a checksum etc. This happens after the Mussfeldprüfung. (details to be added upon implementing)                                                                                                                            |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| EvaluatedComposition                       | is returned after a composition of two nodes is evaluated                                                                                                                                                                                                                                                                                                       |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| Package Resolver                           | a package resolver is a class that replaces package nodes in a tree with a sub tree that is derived from a package definition. Replacing package nodes with sub trees is referred to as "package expansion"                                                                                                                                                     | Example: "[123P]" is replaced with a tree for "[5]U[6]O[7]"                                             |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| neutral                                    | Hints and UnevaluatedFormat Constraints are seen as neutral as they don't have a condition to be fulfilled or unfulfilled and should not change the requirement outcome. See truth table below.                                                                                                                                                                 |                                                                                                         |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+| unknown                                    | If the condition can be fulfilled but we don't know (yet) if it is or not. See truth table below.                                                                                                                                                                                                                                                               | "Wenn vorhanden"                                                                                        |
++--------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------+
+
+
+The decision if a requirement constraint is met / fulfilled / true is
+made in the content evaluation module.
+
+Program structure
+~~~~~~~~~~~~~~~~~
+
+The following diagram shows the structure of the condition check for
+more than one condition. If it is only a single condition or just a
+requirement indicator, the respective tree consists of just this token
+and the result equals the input.
+
+.. figure:: src/ahbicht/expressions/condition_structure_with_more_than_one_condition.png
+   :alt: grafik
+
+The raw and updated data for this diagram can be found in the
+`draw_io_charts
+repository <https://github.com/Hochfrequenz/draw_io_charts/tree/main/wimbee/conditions>`__
+and edited under
+`app.diagrams.net <https://app.diagrams.net/#HHochfrequenz%2Fdraw_io_charts%2Fmain%2Fwimbee%2Fconditions%2FCondition_Structure_with_more_than_one_condition.drawio>`__
+with your GitHub Account.
+
+There is also an `UML Diagram <docs/_static/ahbicht_uml.svg>`_ available (last updated 2022-01-29).
+
+Truth tables
+~~~~~~~~~~~~
+
+Additionally to the usual boolean logic we also have ``neutral``
+elements (e.g. ``Hints``, ``UnevaluatedFormatConstraints`` and in some
+cases ``EvaluatedCompositions``) or ``unknown`` requirement constraints.
+They are handled as follows:
+
+``and_composition``
+^^^^^^^^^^^^^^^^^^^
+
+======= ======= =======
+A       B       A U B
+======= ======= =======
+Neutral True    True
+Neutral False   False
+Neutral Neutral Neutral
+Unknown True    Unknown
+Unknown False   False
+Unknown Unknown Unknown
+Unknown Neutral Unknown
+======= ======= =======
+
+``or_composition``
+^^^^^^^^^^^^^^^^^^
+
++---------+---------+---------------------+-----------------------+
+| A       | B       | A O B               | note                  |
++=========+=========+=====================+=======================+
+| Neutral | True    | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+| Neutral | False   | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+| Neutral | Neutral | Neutral             | no or_compositions of |
+|         |         |                     | hint and format       |
+|         |         |                     | constraint            |
++---------+---------+---------------------+-----------------------+
+| Unknown | True    | True                |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | False   | Unknown             |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | Unknown | Unknown             |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | Neutral | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+
+``xor_composition``
+^^^^^^^^^^^^^^^^^^^
+
++---------+---------+---------------------+-----------------------+
+| A       | B       | A X B               | note                  |
++=========+=========+=====================+=======================+
+| Neutral | True    | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+| Neutral | False   | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+| Neutral | Neutral | Neutral             | no xor_compositions   |
+|         |         |                     | of hint and format    |
+|         |         |                     | constraint            |
++---------+---------+---------------------+-----------------------+
+| Unknown | True    | Unknown             |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | False   | Unknown             |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | Unknown | Unknown             |                       |
++---------+---------+---------------------+-----------------------+
+| Unknown | Neutral | does not make sense |                       |
++---------+---------+---------------------+-----------------------+
+
+Link to automatically generate HintsProvider Json content:
+https://regex101.com/r/za8pr3/5
+
+Content Evaluation
+------------------
+
+Evaluation is the term used for the processing of *single* unevaluated
+conditions. The results of the evaluation of all relevant conditions
+inside a message can then be used to validate a message. The latter is
+**not** part of the evaluation.
+
+This library does *not* provide content evaluation code for all the
+conditions used in the available AHBs. You can use the Content
+Evaluation class stubs though. Please contact
+`@JoschaMetze <https://github.com/joschametze>`_ if you’re interested in a
+ready-to-use solution to validate your EDIFACT messages according to the
+latest AHBs. We probably have you covered.
+
+EvaluatableData (Edifact Seed and others)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the evaluation of a condition (that is referenced by its key,
+e.g. “17”) it is necessary to have a data basis that allows to decide
+whether the respective condition is met or not met. This data basis that
+is stable for all conditions that are evaluated in on evaluation run is
+called ``EvaluatableData``. These data usually contain the **edifact
+seed** (a JSON representation of the EDIFACT message) but may also hold
+other information. The ``EvaluatableData`` class acts a container for
+these data.
+
+EvaluationContext (Scope and others)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While the data basis is stable, the context in which a condition is
+evaluated might change during on evaluation run. The same condition can
+have different evaluation results depending on e.g. in which scope it is
+evaluated. A **scope** is a (json) path that references a specific
+subtree of the edifact seed. For example one “Vorgang” (``SG4 IDE``) in
+UTILMD could be a scope. If a condition is described as
+
+   There has to be exactly one xyz per Vorgang (SG4+IDE) Then for ``n``
+   Vorgänge there are ``n`` scopes:
+
+-  one scope for each Vorgang (path's refer to an edifact seed):
+
+   -  ``$["Dokument"][0]["Nachricht"][0]["Vorgang"][0]``
+   -  ``$["Dokument"][0]["Nachricht"][0]["Vorgang"][1]``
+   -  …
+   -  ``$["Dokument"][0]["Nachricht"][0]["Vorgang"][<n-1>]``
+
+Each of the single vorgang scopes can have a different evaluation
+result. Those results are relevant for the user when entering data,
+probably based in a somehow Vorgang-centric manner.
+
+The ``EvaluationContext`` class is a container for the scope and
+other information that are relevant for a single condition and a single
+evaluation only but (other than ``EvaluatableData``) might change within
+an otherwise stable message.
+
+.. figure:: src/ahbicht/content_evaluation/EvaluatingConditions.png
+   :alt: grafik
+
+..
+    The raw and updated data for this diagram can be found in the [draw_io_charts repository](https://github.com/Hochfrequenz/draw_io_charts/tree/main/wimbee/) and edited under [app.diagrams.net](https://app.diagrams.net/#HHochfrequenz%2Fdraw_io_charts%2Fmain%2Fwimbee%2FEvaluatingConditions.drawio) with your Hochfrequenz GitHub Account. -->
+
+Releasing
+---------
+
+To create a new release, just create a new release with a new version tag (e.g. v1.2.3) on `the releases page of this repository <https://github.com/Hochfrequenz/ahbicht/releases>`__.
+
+Contributing
+------------
+
+You are very welcome to contribute to this repository by opening a pull
+request against the main branch.
+
+How to use this Repository on Your Machine / Local Setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Please follow the instructions in our `Python Template Repository <https://github.com/Hochfrequenz/python_template_repository#how-to-use-this-repository-on-your-machine>`_.
+
+.. |Unittests status badge| image:: https://github.com/Hochfrequenz/ahbicht/workflows/Unittests/badge.svg
+.. |Coverage status badge| image:: https://github.com/Hochfrequenz/ahbicht/workflows/Coverage/badge.svg
+.. |Linting status badge| image:: https://github.com/Hochfrequenz/ahbicht/workflows/Linting/badge.svg
+.. |Black status badge| image:: https://github.com/Hochfrequenz/ahbicht/workflows/Black/badge.svg
+.. |pypy status badge| image:: https://img.shields.io/pypi/v/ahbicht
+.. |UTILMD_AHB_WiM_3_1b_20201016.pdf page 90| image:: ./docs/_static/wim_ahb_screenshot.png

@@ -67,13 +67,12 @@ fn not_valid_validate_in_transaction(
                             }
                         }
                         ast::AlterTableAction::AddConstraint(add_constraint) => {
-                            if add_constraint.not_valid().is_some() {
-                                if let Some(constraint) = add_constraint.constraint() {
-                                    if let Some(constraint_name) = constraint.name() {
-                                        not_valid_names
-                                            .insert(Identifier::new(&constraint_name.text()));
-                                    }
-                                }
+                            if add_constraint.not_valid().is_some()
+                                && let Some(constraint) = add_constraint.constraint()
+                                && let Some(constraint_name) =
+                                    constraint.constraint_name().and_then(|c| c.name())
+                            {
+                                not_valid_names.insert(Identifier::new(&constraint_name.text()));
                             }
                         }
                         _ => (),
@@ -126,6 +125,13 @@ pub(crate) fn constraint_missing_not_valid(ctx: &mut Linter, parse: &Parse<Sourc
                                 continue;
                             }
                         }
+                        if let Some(ast::Constraint::PrimaryKeyConstraint(pk)) =
+                            add_constraint.constraint()
+                        {
+                            if pk.using_index().is_some() {
+                                continue;
+                            }
+                        }
 
                         ctx.report(Violation::for_node(
                             Rule::ConstraintMissingNotValid,
@@ -141,12 +147,18 @@ pub(crate) fn constraint_missing_not_valid(ctx: &mut Linter, parse: &Parse<Sourc
 
 #[cfg(test)]
 mod test {
-    use insta::assert_debug_snapshot;
+    use insta::assert_snapshot;
 
-    use crate::{
-        Rule,
-        test_utils::{lint, lint_with_assume_in_transaction},
-    };
+    use crate::test_utils::{lint_errors, lint_ok};
+    use crate::{LinterSettings, Rule};
+
+    fn lint_ok_with(sql: &str, settings: LinterSettings) {
+        crate::test_utils::lint_ok_with(sql, settings, Rule::ConstraintMissingNotValid);
+    }
+
+    fn lint_errors_with(sql: &str, settings: LinterSettings) -> String {
+        crate::test_utils::lint_errors_with(sql, settings, Rule::ConstraintMissingNotValid)
+    }
 
     #[test]
     fn not_valid_validate_transaction_err() {
@@ -156,9 +168,7 @@ ALTER TABLE "app_email" ADD CONSTRAINT "fk_user" FOREIGN KEY (user_id) REFERENCE
 ALTER TABLE "app_email" VALIDATE CONSTRAINT "fk_user";
 COMMIT;
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_ne!(errors.len(), 0);
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors(sql, Rule::ConstraintMissingNotValid));
     }
 
     #[test]
@@ -167,9 +177,13 @@ COMMIT;
 ALTER TABLE "app_email" ADD CONSTRAINT "fk_user" FOREIGN KEY (user_id) REFERENCES "app_user" (id) NOT VALID;
 ALTER TABLE "app_email" VALIDATE CONSTRAINT "fk_user";
         "#;
-        let errors = lint_with_assume_in_transaction(sql, Rule::ConstraintMissingNotValid);
-        assert_ne!(errors.len(), 0);
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors_with(
+            sql,
+            LinterSettings {
+                assume_in_transaction: true,
+                ..Default::default()
+            },
+        ));
     }
 
     #[test]
@@ -179,9 +193,13 @@ ALTER TABLE "app_email" ADD CONSTRAINT "fk_user" FOREIGN KEY (user_id) REFERENCE
 ALTER TABLE "app_email" VALIDATE CONSTRAINT "fk_user";
 COMMIT;
         "#;
-        let errors = lint_with_assume_in_transaction(sql, Rule::ConstraintMissingNotValid);
-        assert_ne!(errors.len(), 0);
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors_with(
+            sql,
+            LinterSettings {
+                assume_in_transaction: true,
+                ..Default::default()
+            },
+        ));
     }
 
     #[test]
@@ -190,9 +208,7 @@ COMMIT;
 -- instead of
 ALTER TABLE distributors ADD CONSTRAINT distfk FOREIGN KEY (address) REFERENCES addresses (address);
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_ne!(errors.len(), 0);
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors(sql, Rule::ConstraintMissingNotValid));
     }
 
     #[test]
@@ -202,8 +218,15 @@ ALTER TABLE distributors ADD CONSTRAINT distfk FOREIGN KEY (address) REFERENCES 
 ALTER TABLE distributors ADD CONSTRAINT distfk FOREIGN KEY (address) REFERENCES addresses (address) NOT VALID;
 ALTER TABLE distributors VALIDATE CONSTRAINT distfk;
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok(sql, Rule::ConstraintMissingNotValid);
+    }
+
+    #[test]
+    fn adding_using_index_ok() {
+        let sql = r#"
+ALTER TABLE account ADD CONSTRAINT account_pk PRIMARY KEY USING INDEX account_pk_idx;
+        "#;
+        lint_ok(sql, Rule::ConstraintMissingNotValid);
     }
 
     #[test]
@@ -212,9 +235,13 @@ ALTER TABLE distributors VALIDATE CONSTRAINT distfk;
 -- instead of
 ALTER TABLE "accounts" ADD CONSTRAINT "positive_balance" CHECK ("balance" >= 0);
         "#;
-        let errors = lint_with_assume_in_transaction(sql, Rule::ConstraintMissingNotValid);
-        assert_ne!(errors.len(), 0);
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors_with(
+            sql,
+            LinterSettings {
+                assume_in_transaction: true,
+                ..Default::default()
+            },
+        ));
     }
 
     #[test]
@@ -224,8 +251,7 @@ ALTER TABLE "accounts" ADD CONSTRAINT "positive_balance" CHECK ("balance" >= 0);
 ALTER TABLE "accounts" ADD CONSTRAINT "positive_balance" CHECK ("balance" >= 0) NOT VALID;
 ALTER TABLE accounts VALIDATE CONSTRAINT positive_balance;
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok(sql, Rule::ConstraintMissingNotValid);
     }
 
     #[test]
@@ -239,8 +265,7 @@ CREATE TABLE "core_foo" (
 ALTER TABLE "core_foo" ADD CONSTRAINT "age_restriction" CHECK ("age" >= 25);
 COMMIT;
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok(sql, Rule::ConstraintMissingNotValid);
     }
 
     #[test]
@@ -252,8 +277,13 @@ CREATE TABLE "core_foo" (
 );
 ALTER TABLE "core_foo" ADD CONSTRAINT "age_restriction" CHECK ("age" >= 25);
         "#;
-        let errors = lint_with_assume_in_transaction(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok_with(
+            sql,
+            LinterSettings {
+                assume_in_transaction: true,
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
@@ -265,8 +295,13 @@ CREATE TABLE "core_foo" (
 );
 ALTER TABLE "core_foo" ADD CONSTRAINT "age_restriction" CHECK ("age" >= 25);
         "#;
-        let errors = lint_with_assume_in_transaction(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok_with(
+            sql,
+            LinterSettings {
+                assume_in_transaction: true,
+                ..Default::default()
+            },
+        );
     }
 
     #[test]
@@ -274,7 +309,6 @@ ALTER TABLE "core_foo" ADD CONSTRAINT "age_restriction" CHECK ("age" >= 25);
         let sql = r#"
 ALTER TABLE "app_email" ADD CONSTRAINT "email_uniq" UNIQUE USING INDEX "email_idx";
         "#;
-        let errors = lint(sql, Rule::ConstraintMissingNotValid);
-        assert_eq!(errors.len(), 0);
+        lint_ok(sql, Rule::ConstraintMissingNotValid);
     }
 }

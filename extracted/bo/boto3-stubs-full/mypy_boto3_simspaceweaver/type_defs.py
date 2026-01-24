@@ -3,7 +3,7 @@ Type annotations for simspaceweaver service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -30,12 +31,6 @@ from .literals import (
     SimulationTargetStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -111,13 +106,13 @@ class DescribeAppInputTypeDef(TypedDict):
 
 
 class LaunchOverridesOutputTypeDef(TypedDict):
-    LaunchCommands: NotRequired[List[str]]
+    LaunchCommands: NotRequired[list[str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -220,7 +215,7 @@ class CreateSnapshotInputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -253,29 +248,29 @@ LaunchOverridesUnionTypeDef = Union[LaunchOverridesTypeDef, LaunchOverridesOutpu
 
 
 class ListAppsOutputTypeDef(TypedDict):
-    Apps: List[SimulationAppMetadataTypeDef]
+    Apps: list[SimulationAppMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSimulationsOutputTypeDef(TypedDict):
-    Simulations: List[SimulationMetadataTypeDef]
+    Simulations: list[SimulationMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class LiveSimulationStateTypeDef(TypedDict):
-    Clocks: NotRequired[List[SimulationClockTypeDef]]
-    Domains: NotRequired[List[DomainTypeDef]]
+    Clocks: NotRequired[list[SimulationClockTypeDef]]
+    Domains: NotRequired[list[DomainTypeDef]]
 
 
 class SimulationAppEndpointInfoTypeDef(TypedDict):
     Address: NotRequired[str]
-    IngressPortMappings: NotRequired[List[SimulationAppPortMappingTypeDef]]
+    IngressPortMappings: NotRequired[list[SimulationAppPortMappingTypeDef]]
 
 
 class LoggingConfigurationTypeDef(TypedDict):
-    Destinations: NotRequired[List[LogDestinationTypeDef]]
+    Destinations: NotRequired[list[LogDestinationTypeDef]]
 
 
 class StartAppInputTypeDef(TypedDict):

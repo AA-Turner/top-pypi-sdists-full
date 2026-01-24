@@ -8,9 +8,10 @@ nav:
   - "Databricks": databricks.md
   - "DuckDB": duckdb.md
   - "Postgres": postgres.md
+  - "Snowflake": snowflake.md
   - "Spark": spark.md
   - "Standalone": standalone.md
-  - "Redshift (In-Development)": redshift.md
+  - "Redshift (Community Maintained)": redshift.md
 theme:
   name: material
   logo: images/SF.png

@@ -18,7 +18,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.service_account_type import ServiceAccountType
 from typing import Optional, Set
 from typing_extensions import Self
-from connector_sdk_types.serializers.field import HiddenField
+from connector_sdk_types.serializers.field import HiddenField, AnnotatedField
 
 
 class ServiceAccountCredential(BaseModel):
@@ -29,8 +29,8 @@ class ServiceAccountCredential(BaseModel):
     service_type: Optional[ServiceAccountType] = HiddenField(
         default=None, description="The type of service."
     )
-    key: Dict[str, Any] = HiddenField(
-        description="The JSON key file contents for the service account"
+    key: Dict[str, Any] = AnnotatedField(
+        description="The JSON key file contents for the service account", hidden=True, secret=True
     )
     impersonation_email: StrictStr = Field(description="The email of the user to impersonate.")
     tenant_id: StrictStr = Field(description="Tenant ID")

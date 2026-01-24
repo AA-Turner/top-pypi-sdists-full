@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: squawk-cli
-Version: 2.27.0
+Version: 2.37.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -11,4 +11,5 @@ Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Summary: Linter for PostgreSQL migrations
+Home-Page: https://squawkhq.com
 Requires-Python: >=3.8

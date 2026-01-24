@@ -1,0 +1,37 @@
+Metadata-Version: 2.4
+Name: extended-mypy-django-plugin
+Version: 0.8.2
+Summary: Trying to make mypy understand .objects on abstract django models
+Author-email: Stephen Moore <stephen@delfick.com>
+License: MIT
+License-File: LICENSE
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+
+Extended ``django-stubs``
+=========================
+
+This is an extension on the `django-stubs`_ project that makes it possible to
+represent all concrete descendants of an abstract Django ORM Model in terms of
+those abstract models.
+
+The intention is to get this code working and tested and documented before
+getting those changes into the ``django-stubs`` project itself.
+
+.. _django-stubs: https://github.com/typeddjango/django-stubs
+
+Built Docs
+----------
+
+https://extended-mypy-django-plugin.readthedocs.io
+
+History
+-------
+
+This project comes from working on a large Django project (millions of lines of
+code) that has varying levels of typing maturity within it. In working towards
+getting that project onto the latest version of ``mypy`` and ``django-stubs``
+there were 100s of errors that appeared due to ``mypy`` correctly complaining
+about abstract model types not having on them properties that are only on their
+concrete descendants. This project was created to resolve this issue without
+simply ignoring the problem.

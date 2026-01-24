@@ -5,6 +5,7 @@ import random
 import requests
 import uuid
 import warnings
+from http import HTTPStatus
 from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
@@ -64,7 +65,7 @@ class OAuthTestsMixin:
     def test_login(self):
         resp_mocks = self.get_mocked_response()
         if resp_mocks is None:
-            warnings.warn("Cannot test provider %s, no oauth mock" % self.provider.id)
+            warnings.warn(f"Cannot test provider {self.provider.id}, no oauth mock")
             return
         resp = self.login(resp_mocks)
         self.assertRedirects(resp, reverse("socialaccount_signup"))
@@ -95,7 +96,7 @@ class OAuthTestsMixin:
     def test_auto_signup(self):
         resp_mocks = self.get_mocked_response()
         if not resp_mocks:
-            warnings.warn("Cannot test provider %s, no oauth mock" % self.provider.id)
+            warnings.warn(f"Cannot test provider {self.provider.id}, no oauth mock")
             return
         resp = self.login(resp_mocks)
         self.assertRedirects(resp, "/accounts/profile/", fetch_redirect_response=False)
@@ -104,19 +105,19 @@ class OAuthTestsMixin:
     def login(self, resp_mocks, process="login"):
         with mocked_response(
             MockedResponse(
-                200,
+                HTTPStatus.OK,
                 "oauth_token=token&oauth_token_secret=psst",
                 {"content-type": "text/html"},
             )
         ):
             resp = self.client.post(
-                reverse(self.provider.id + "_login")
+                reverse(f"{self.provider.id}_login")
                 + "?"
                 + urlencode(dict(process=process))
             )
         p = urlparse(resp["location"])
         q = parse_qs(p.query)
-        complete_url = reverse(self.provider.id + "_callback")
+        complete_url = reverse(f"{self.provider.id}_callback")
         self.assertGreater(q["oauth_callback"][0].find(complete_url), 0)
         with mocked_response(self.get_access_token_response(), *resp_mocks):
             resp = self.client.get(complete_url)
@@ -124,17 +125,17 @@ class OAuthTestsMixin:
 
     def get_access_token_response(self):
         return MockedResponse(
-            200,
+            HTTPStatus.OK,
             "oauth_token=token&oauth_token_secret=psst",
             {"content-type": "text/html"},
         )
 
     def test_authentication_error(self):
-        resp = self.client.get(reverse(self.provider.id + "_callback"))
+        resp = self.client.get(reverse(f"{self.provider.id}_callback"))
+        assert resp.status_code == HTTPStatus.UNAUTHORIZED
+        template_ext = getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html")
         self.assertTemplateUsed(
-            resp,
-            "socialaccount/authentication_error.%s"
-            % getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html"),
+            resp, f"socialaccount/authentication_error.{template_ext}"
         )
 
 
@@ -144,7 +145,7 @@ def create_oauth_tests(provider):
     class Class(OAuthTestsMixin, TestCase):
         provider_id = provider.id
 
-    Class.__name__ = "OAuthTests_" + provider.id
+    Class.__name__ = f"OAuthTests_{provider.id}"
     return Class
 
 
@@ -218,7 +219,7 @@ class OAuth2TestsMixin:
     def test_login(self):
         resp_mock = self.get_mocked_response()
         if not resp_mock:
-            warnings.warn("Cannot test provider %s, no oauth mock" % self.provider.id)
+            warnings.warn(f"Cannot test provider {self.provider.id}, no oauth mock")
             return
         resp = self.login(
             resp_mock,
@@ -238,9 +239,7 @@ class OAuth2TestsMixin:
         ):
             resp_mock = self.get_mocked_response()
             if not resp_mock:
-                warnings.warn(
-                    "Cannot test provider %s, no oauth mock" % self.provider.id
-                )
+                warnings.warn(f"Cannot test provider {self.provider.id}, no oauth mock")
                 return
             resp = self.login(
                 resp_mock,
@@ -259,9 +258,7 @@ class OAuth2TestsMixin:
         ):
             resp_mock = self.get_mocked_response()
             if not resp_mock:
-                warnings.warn(
-                    "Cannot test provider %s, no oauth mock" % self.provider.id
-                )
+                warnings.warn(f"Cannot test provider {self.provider.id}, no oauth mock")
                 return
 
             resp = self.login(
@@ -352,7 +349,9 @@ class OAuth2TestsMixin:
             resp_mocks = [resp_mock]
 
         with self.mocked_response(
-            MockedResponse(200, response_json, {"content-type": "application/json"}),
+            MockedResponse(
+                HTTPStatus.OK, response_json, {"content-type": "application/json"}
+            ),
             *resp_mocks,
         ):
             resp = self.client.get(complete_url, self.get_complete_parameters(q))
@@ -387,10 +386,9 @@ class OAuth2TestsMixin:
 
     def test_authentication_error(self):
         resp = self.client.get(self.provider.get_callback_url())
+        template_ext = getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html")
         self.assertTemplateUsed(
-            resp,
-            "socialaccount/authentication_error.%s"
-            % getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html"),
+            resp, f"socialaccount/authentication_error.{template_ext}"
         )
 
 
@@ -450,9 +448,9 @@ class OpenIDConnectTests(OAuth2TestsMixin):
 
     def _mocked_responses(self, url, *args, **kwargs):
         if url.endswith("/.well-known/openid-configuration"):
-            return MockedResponse(200, json.dumps(self.oidc_info_content))
+            return MockedResponse(HTTPStatus.OK, json.dumps(self.oidc_info_content))
         elif url.endswith("/userinfo"):
-            return MockedResponse(200, json.dumps(self.userinfo_content))
+            return MockedResponse(HTTPStatus.OK, json.dumps(self.userinfo_content))
 
     @override_settings(SOCIALACCOUNT_AUTO_SIGNUP=True)
     def test_login_auto_signup(self):
@@ -475,29 +473,27 @@ class OpenIDConnectTests(OAuth2TestsMixin):
         # do not want to use the configured provider's ID, so let's inline
         # OpenIDConnectProvider.get_login_url
         login_url = reverse(
-            self.app.provider + "_login",
+            f"{self.app.provider}_login",
             kwargs={
                 # intentionally invalidate the ID
-                "provider_id": self.app.provider_id
-                + "-invalid"
+                "provider_id": f"{self.app.provider_id}-invalid"
             },
         )
 
         resp = self.client.post(login_url)
 
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, HTTPStatus.NOT_FOUND)
 
         # same with the callback endpoint - inlining OpenIDConnectProvider.get_callback_url
         callback_url = reverse(
-            self.app.provider + "_callback",
+            f"{self.app.provider}_callback",
             kwargs={
                 # intentionally invalidate the ID
-                "provider_id": self.app.provider_id
-                + "-invalid"
+                "provider_id": f"{self.app.provider_id}-invalid"
             },
         )
 
         # note: callback is a GET endpoint
         resp = self.client.get(callback_url)
 
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, HTTPStatus.NOT_FOUND)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: sphinx-toolbox
-Version: 4.0.0
+Version: 4.1.2
 Summary: Box of handy tools for Sphinx 🧰 📔
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
 License: MIT
@@ -44,7 +44,8 @@ Requires-Dist: docutils>=0.16
 Requires-Dist: domdf-python-tools>=2.9.0
 Requires-Dist: filelock>=3.8.0
 Requires-Dist: html5lib>=1.1
-Requires-Dist: ruamel.yaml>=0.16.12
+Requires-Dist: roman>4.0
+Requires-Dist: ruamel.yaml<=0.18.16,>=0.16.12
 Requires-Dist: sphinx>=3.2.0
 Requires-Dist: sphinx-autodoc-typehints>=1.11.1
 Requires-Dist: sphinx-jinja2-compat>=0.1.0
@@ -165,7 +166,7 @@ sphinx-toolbox
 .. |language| image:: https://img.shields.io/github/languages/top/sphinx-toolbox/sphinx-toolbox
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/sphinx-toolbox/v4.0.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/sphinx-toolbox/v4.1.2
 	:target: https://github.com/sphinx-toolbox/sphinx-toolbox/pulse
 	:alt: GitHub commits since tagged version
 
@@ -173,11 +174,11 @@ sphinx-toolbox
 	:target: https://github.com/sphinx-toolbox/sphinx-toolbox/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/sphinx-toolbox
-	:target: https://pypi.org/project/sphinx-toolbox/
+	:target: https://pypistats.org/packages/sphinx-toolbox
 	:alt: PyPI - Downloads
 
 .. end shields

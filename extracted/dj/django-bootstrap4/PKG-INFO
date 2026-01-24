@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-bootstrap4
-Version: 25.2
+Version: 26.1
 Summary: Bootstrap 4 for Django
 Keywords: django,bootstrap,bootstrap4
 Author: Dylan Verheul
@@ -12,21 +12,21 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Dist: django>=4.2
+Requires-Dist: django>=4.2,<7.0
 Requires-Dist: beautifulsoup4>=4.10.0
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/zostera/django-bootstrap4/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://django-bootstrap4.readthedocs.io/
 Project-URL: Homepage, https://github.com/zostera/django-bootstrap4

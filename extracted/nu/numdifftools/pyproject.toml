@@ -1,0 +1,205 @@
+[project]
+name = "numdifftools"
+dynamic = []
+description = "Solves automatic numerical differentiation problems in one or more variables."
+authors = [
+    { name = "Per A. Brodtkorb" },
+]
+maintainers = [
+    { name = "Per A. Brodtkorb", email = "per.andreas.brodtkorb@gmail.com" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.21.2",
+    "scipy>=1.7.3",
+]
+readme = "README.rst"
+license_file = "LICENSE.txt"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+version = "0.9.42"
+
+[project.license]
+text = "new BSD"
+
+[project.optional-dependencies]
+plot = [
+    "matplotlib>=3.8.0",
+]
+
+[project.urls]
+repository = "https://github.com/pbrod/numdifftools/"
+documentation = "https://numdifftools.readthedocs.io/en/latest/"
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.resolution]
+allow-prereleases = true
+
+[tool.pdm.version]
+source = "file"
+path = "src/numdifftools/__init__.py"
+
+[tool.pdm.scripts]
+docs-html = "sphinx-build -b html docs docs/_build/html -d docs/_build/doctrees"
+docs-latex = "sphinx-build -b latex docs docs/_build/latex -d docs/_build/doctrees"
+docs-pdf = "sphinx-build -b latexpdf docs docs/_build/latex -d docs/_build/doctrees"
+docs-doctest = "sphinx-build -b doctest docs docs/_build/doctest -d docs/_build/doctrees"
+lock-py314 = "pdm lock -L pdm.lock314 --python 3.14 --strategy no_direct_minimal_versions -dG all"
+lock-win64 = "pdm lock -L pdm_windows.lock --python 3.13 --strategy no_direct_minimal_versions --platform windows -dG all"
+lock-linux = "pdm lock -L pdm_linux.lock --python 3.13 --strategy no_direct_minimal_versions --platform linux -dG all"
+lock-macos = "pdm lock -L pdm_macos.lock --python 3.13 --strategy no_direct_minimal_versions --platform macos -dG all"
+format = "ruff format ./src/"
+check-style = "ruff check ./src/"
+check-types = "mypy ./src/"
+show-next-version = "git-cliff --bumped-version"
+show-next-changelog = "git-cliff"
+append-changelog = "git-cliff --unreleased --prepend CHANGELOG.md"
+update-license = "python build_package.py update-license"
+update-readme = "python build_package.py update-readme"
+
+[tool.pdm.scripts.tests]
+cmd = "pytest"
+
+[tool.pdm.scripts.tests.env]
+MPLBACKEND = "Agg"
+
+[tool.pdm.scripts.all-tests]
+composite = [
+    "format",
+    "check-style",
+    "test",
+    "doctest",
+]
+
+[tool.pdm.scripts.prepare-release]
+composite = [
+    "update-license",
+    "update-readme",
+    "append-changelog",
+]
+
+[tool.pdm.dev-dependencies]
+build = [
+    "setuptools>=39.2",
+    "spyder-kernels",
+    "git-cliff>=2.6.1",
+    "pdm-bump>=0.9.8",
+    "click>=8.3.1",
+]
+test = [
+    "nox",
+    "pytest",
+    "pytest-cov",
+    "pytest-pep8",
+    "algopy>=0.4",
+    "statsmodels>=0.6",
+    "line_profiler",
+    "hypothesis>=3.6",
+    "matplotlib>=3.8.0",
+    "pytest-ruff>=0.4.1",
+    "ruff>=0.0.47",
+    "pytest-mypy>=0.10.3",
+    "mypy>=1.11.2",
+]
+sphinx = [
+    "sphinx>=1.3.1",
+    "sphinx_rtd_theme>=0.1.7",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-bibtex",
+    "myst_parser",
+]
+all = [
+    "numdifftools[build,plot,test,sphinx]",
+]
+
+[tool.mypy]
+strict = true
+explicit_package_bases = false
+no_namespace_packages = true
+warn_return_any = false
+disable_error_code = "import-untyped"
+plugins = "numpy.typing.mypy_plugin"
+
+[[tool.mypy.overrides]]
+module = [
+    "numdifftools.__init__",
+    "numdifftools.tests.test_example_functions",
+    "numdifftools.tests.test_extrapolation",
+    "numdifftools.tests.test_fornberg",
+    "numdifftools.tests.test_limits",
+    "numdifftools.tests.test_multicomplex",
+    "numdifftools.tests.test_nd_algopy",
+    "numdifftools.tests.test_nd_scipy",
+    "numdifftools.tests.test_nd_statsmodels",
+    "numdifftools.tests.test_numdifftools",
+    "numdifftools.tests.test_scripts",
+    "numdifftools.tests.test_step_generators",
+    "numdifftools.tests.test_wprofiletools",
+    "numdifftools.plot",
+]
+ignore_errors = true
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E4",
+    "E7",
+    "E9",
+    "E501",
+    "F",
+    "I",
+    "Q",
+]
+ignore = [
+    "D417",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+docstring-code-line-length = 100
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (time-consuming)",
+    "benchmark: marks tests used for benchmarking",
+]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "IGNORE_EXCEPTION_DETAIL",
+    "ELLIPSIS",
+]
+addopts = "-rsxXf --doctest-modules --cov=numdifftools --cov-report=xml"
+testpaths = [
+    "src",
+]

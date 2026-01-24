@@ -4,11 +4,14 @@ import sys
 import types
 
 import click
+from junitparser import TestCase, TestSuite  # type: ignore
 
 from launchable.commands.detect_flakes import detect_flakes as detect_flakes_cmd
 from launchable.commands.record.tests import tests as record_tests_cmd
 from launchable.commands.split_subset import split_subset as split_subset_cmd
 from launchable.commands.subset import subset as subset_cmd
+
+from ..testpath import TestPath
 
 
 def cmdname(m):
@@ -60,17 +63,35 @@ class CommonSubsetImpls:
     def __init__(self, module_name):
         self.cmdname = cmdname(module_name)
 
-    def scan_files(self, pattern):
+    def scan_stdin(self):
+        """
+        Historical implementation of the files profile that's also used elsewhere.
+        Reads test one line at a time from stdin. Consider this implementation deprecated.
+        Newer test runners are advised to use scan_files() without the pattern argument.
+        """
+        def subset(client):
+            # read lines as test file names
+            for t in client.stdin():
+                client.test_path(t.rstrip("\n"))
+            client.run()
+
+        return wrap(subset, subset_cmd, self.cmdname)
+
+    def scan_files(self, pattern=None):
         """
         Suitable for test runners that use files as unit of tests where file names follow a naming pattern.
 
         :param pattern: file masks that identify test files, such as '*_spec.rb'
+                        for test runners that do not have natural file naming conventions, pass in None,
+                        so that the implementation will refuse to accept directories.
         """
         @click.argument('files', required=True, nargs=-1)
         def subset(client, files):
             # client type: Optimize in def lauchable.commands.subset.subset
             def parse(fname: str):
                 if os.path.isdir(fname):
+                    if pattern is None:
+                        raise click.UsageError(f'{fname} is a directory, but expecting a file or GLOB')
                     client.scan(fname, '**/' + pattern)
                 elif fname == '@-':
                     # read stdin
@@ -110,6 +131,47 @@ class CommonRecordTestImpls:
         @click.argument('source_roots', required=True, nargs=-1)
         def record_tests(client, source_roots):
             CommonRecordTestImpls.load_report_files(client=client, source_roots=source_roots, file_mask=file_mask)
+
+        return wrap(record_tests, record_tests_cmd, self.cmdname)
+
+    def file_profile_report_files(self):
+        """
+        Suitable for test runners that create a directory full of JUnit report files.
+
+        'record tests' expect JUnit report/XML file names.
+        """
+
+        @click.argument('source_roots', required=True, nargs=-1)
+        def record_tests(client, source_roots):
+            def path_builder(
+                case: TestCase, suite: TestSuite, report_file: str
+            ) -> TestPath:
+                def find_filename():
+                    """look for what looks like file names from test reports"""
+                    for e in [case, suite]:
+                        for a in ["file", "filepath"]:
+                            filepath = e._elem.attrib.get(a)
+                            if filepath:
+                                return filepath
+                    return None  # failing to find a test name
+
+                filepath = find_filename()
+                if not filepath:
+                    raise click.ClickException("No file name found in %s" % report_file)
+
+                # default test path in `subset` expects to have this file name
+                test_path = [client.make_file_path_component(filepath)]
+                if suite.name:
+                    test_path.append({"type": "testsuite", "name": suite.name})
+                if case.name:
+                    test_path.append({"type": "testcase", "name": case.name})
+                return test_path
+
+            client.path_builder = path_builder
+
+            for r in source_roots:
+                client.report(r)
+            client.run()
 
         return wrap(record_tests, record_tests_cmd, self.cmdname)
 

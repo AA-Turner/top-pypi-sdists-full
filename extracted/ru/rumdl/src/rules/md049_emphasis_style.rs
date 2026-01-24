@@ -1,15 +1,8 @@
+use crate::filtered_lines::FilteredLinesExt;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
 use crate::rules::emphasis_style::EmphasisStyle;
 use crate::utils::emphasis_utils::{find_emphasis_markers, find_single_emphasis_spans, replace_inline_code};
-use lazy_static::lazy_static;
-use regex::Regex;
-
-lazy_static! {
-    // Reference definition pattern - matches [ref]: url "title"
-    static ref REF_DEF_REGEX: Regex = Regex::new(
-        r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#
-    ).unwrap();
-}
+use crate::utils::skip_context::is_in_mkdocs_markup;
 
 mod md049_config;
 use md049_config::MD049Config;
@@ -56,14 +49,8 @@ impl MD049EmphasisStyle {
             }
         }
 
-        // Check reference definitions [ref]: url "title" using regex pattern
-        for m in REF_DEF_REGEX.find_iter(ctx.content) {
-            if m.start() <= byte_pos && byte_pos < m.end() {
-                return true;
-            }
-        }
-
-        false
+        // Check reference definitions [ref]: url "title" using pre-computed data (O(1) vs O(n))
+        ctx.is_in_reference_def(byte_pos)
     }
 
     // Collect emphasis from a single line
@@ -107,45 +94,56 @@ impl Rule for MD049EmphasisStyle {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = vec![];
-        let content = ctx.content;
 
         // Early return if no emphasis markers
-        if !content.contains('*') && !content.contains('_') {
+        if !ctx.likely_has_emphasis() {
             return Ok(warnings);
         }
 
         // Use LintContext to skip code blocks
+        // Create LineIndex for correct byte position calculations across all line ending types
+        let line_index = &ctx.line_index;
 
         // Collect all emphasis from the document
         let mut emphasis_info = vec![];
 
-        // Track absolute position for fixes
-        let mut abs_pos = 0;
-
-        for (line_idx, line) in content.lines().enumerate() {
-            let line_num = line_idx + 1;
-
-            // Skip if in code block or front matter
-            if ctx.is_in_code_block(line_num) || ctx.is_in_front_matter(line_num) {
-                abs_pos += line.len() + 1; // +1 for newline
-                continue;
-            }
-
+        // Process content lines, automatically skipping front matter, code blocks, HTML comments, MDX constructs, and math blocks
+        // Math blocks contain LaTeX syntax where _ and * have special meaning
+        for line in ctx
+            .filtered_lines()
+            .skip_front_matter()
+            .skip_code_blocks()
+            .skip_html_comments()
+            .skip_jsx_expressions()
+            .skip_mdx_comments()
+            .skip_math_blocks()
+        {
             // Skip if the line doesn't contain any emphasis markers
-            if !line.contains('*') && !line.contains('_') {
-                abs_pos += line.len() + 1;
+            if !line.content.contains('*') && !line.content.contains('_') {
                 continue;
             }
 
-            // Collect emphasis with absolute positions
-            let line_start = abs_pos;
-            self.collect_emphasis_from_line(line, line_num, line_start, &mut emphasis_info);
-
-            abs_pos += line.len() + 1;
+            // Get absolute position for this line
+            let line_start = line_index.get_line_start_byte(line.line_num).unwrap_or(0);
+            self.collect_emphasis_from_line(line.content, line.line_num, line_start, &mut emphasis_info);
         }
 
-        // Filter out emphasis markers that are inside links
-        emphasis_info.retain(|(_, _, abs_pos, _, _)| !self.is_in_link(ctx, *abs_pos));
+        // Filter out emphasis markers that are inside links or MkDocs markup
+        let lines: Vec<&str> = ctx.content.lines().collect();
+        emphasis_info.retain(|(line_num, col, abs_pos, _, _)| {
+            // Skip if inside a link
+            if self.is_in_link(ctx, *abs_pos) {
+                return false;
+            }
+            // Skip if inside MkDocs markup (Keys, Caret, Mark, icon shortcodes)
+            if let Some(line) = lines.get(*line_num - 1) {
+                let line_pos = col.saturating_sub(1); // Convert 1-indexed col to 0-indexed position
+                if is_in_mkdocs_markup(line, line_pos, ctx.flavor) {
+                    return false;
+                }
+            }
+            true
+        });
 
         match self.config.style {
             EmphasisStyle::Consistent => {
@@ -154,17 +152,22 @@ impl Rule for MD049EmphasisStyle {
                     return Ok(warnings);
                 }
 
-                // Use the first emphasis marker found as the target style
-                let target_marker = emphasis_info[0].3;
+                // Count how many times each marker appears (prevalence-based approach)
+                let asterisk_count = emphasis_info.iter().filter(|(_, _, _, m, _)| *m == '*').count();
+                let underscore_count = emphasis_info.iter().filter(|(_, _, _, m, _)| *m == '_').count();
 
-                // Check all subsequent emphasis nodes for consistency
-                for (line_num, col, abs_pos, marker, content) in emphasis_info.iter().skip(1) {
+                // Use the most prevalent marker as the target style
+                // In case of a tie, prefer asterisk (matches CommonMark recommendation)
+                let target_marker = if asterisk_count >= underscore_count { '*' } else { '_' };
+
+                // Check all emphasis nodes for consistency with the prevalent style
+                for (line_num, col, abs_pos, marker, content) in &emphasis_info {
                     if *marker != target_marker {
                         // Calculate emphasis length (marker + content + marker)
                         let emphasis_len = 1 + content.len() + 1;
 
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             line: *line_num,
                             column: *col,
                             end_line: *line_num,
@@ -196,7 +199,7 @@ impl Rule for MD049EmphasisStyle {
                         let emphasis_len = 1 + content.len() + 1;
 
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             line: *line_num,
                             column: *col,
                             end_line: *line_num,
@@ -244,7 +247,7 @@ impl Rule for MD049EmphasisStyle {
 
     /// Check if this rule should be skipped
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        ctx.content.is_empty() || (!ctx.content.contains('*') && !ctx.content.contains('_'))
+        ctx.content.is_empty() || !ctx.likely_has_emphasis()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -295,7 +298,7 @@ Also see the [`__init__`][__init__] reference.
 This should be _flagged_ since we're using asterisk style.
 
 [__init__]: https://example.com/__init__.py"#;
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the real emphasis outside links should be flagged
@@ -311,7 +314,7 @@ This should be _flagged_ since we're using asterisk style.
         let content = r#"Check [*emphasis*](https://example.com/*test*) and inline *real emphasis* text.
 
 [*link*]: https://example.com/*path*"#;
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the actual emphasis outside links should be flagged
@@ -319,5 +322,74 @@ This should be _flagged_ since we're using asterisk style.
         assert!(result[0].message.contains("Emphasis should use _ instead of *"));
         // Should be the "real emphasis" text on line 1
         assert!(result[0].line == 1);
+    }
+
+    #[test]
+    fn test_mkdocs_keys_notation_not_flagged() {
+        // Keys notation uses ++ which shouldn't be confused with emphasis
+        let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+        let content = "Press ++ctrl+alt+del++ to restart.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Keys notation should not be flagged as emphasis
+        assert!(
+            result.is_empty(),
+            "Keys notation should not be flagged as emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_caret_notation_not_flagged() {
+        // Caret notation (^superscript^ and ^^insert^^) should not be flagged
+        let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+        let content = "This is ^superscript^ and ^^inserted^^ text.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Caret notation should not be flagged as emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_mark_notation_not_flagged() {
+        // Mark notation (==highlight==) should not be flagged
+        let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+        let content = "This is ==highlighted== text.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Mark notation should not be flagged as emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_mixed_content_with_real_emphasis() {
+        // Mixed content: MkDocs markup + real emphasis that should be flagged
+        let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+        let content = "Press ++ctrl++ and _underscore emphasis_ here.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the real underscore emphasis should be flagged (not Keys notation)
+        assert_eq!(result.len(), 1, "Expected 1 warning, got: {result:?}");
+        assert!(result[0].message.contains("Emphasis should use * instead of _"));
+    }
+
+    #[test]
+    fn test_mkdocs_icon_shortcode_not_flagged() {
+        // Icon shortcodes like :material-star: should not affect emphasis detection
+        let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+        let content = "Click :material-check: and _this should be flagged_.";
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // The underscore emphasis should still be flagged
+        assert_eq!(result.len(), 1);
+        assert!(result[0].message.contains("Emphasis should use * instead of _"));
     }
 }

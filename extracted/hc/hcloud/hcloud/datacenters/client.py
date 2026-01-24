@@ -7,13 +7,19 @@ from ..locations import BoundLocation
 from ..server_types import BoundServerType
 from .domain import Datacenter, DatacenterServerTypes
 
+__all__ = [
+    "BoundDatacenter",
+    "DatacentersPageResult",
+    "DatacentersClient",
+]
 
-class BoundDatacenter(BoundModelBase, Datacenter):
+
+class BoundDatacenter(BoundModelBase[Datacenter], Datacenter):
     _client: DatacentersClient
 
     model = Datacenter
 
-    def __init__(self, client: DatacentersClient, data: dict):
+    def __init__(self, client: DatacentersClient, data: dict[str, Any]):
         location = data.get("location")
         if location is not None:
             data["location"] = BoundLocation(client._parent.locations, location)
@@ -115,4 +121,4 @@ class DatacentersClient(ResourceClientBase):
                Used to get datacenter by name.
         :return: :class:`BoundDatacenter <hcloud.datacenters.client.BoundDatacenter>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)

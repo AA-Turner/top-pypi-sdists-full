@@ -1540,6 +1540,8 @@ FILE：手动添加域名文件验证。 需要用户手动在域名站点根目
         :type CaType: str
         :param _SignAlgo: 签名算法
         :type SignAlgo: str
+        :param _UseCrossSignRoot: 是否使用交叉根证书
+        :type UseCrossSignRoot: bool
         """
         self._CertId = None
         self._GenCsrType = None
@@ -1582,6 +1584,7 @@ FILE：手动添加域名文件验证。 需要用户手动在域名站点根目
         self._Type = None
         self._CaType = None
         self._SignAlgo = None
+        self._UseCrossSignRoot = None
 
     @property
     def CertId(self):
@@ -2059,6 +2062,17 @@ FILE：手动添加域名文件验证。 需要用户手动在域名站点根目
     def SignAlgo(self, SignAlgo):
         self._SignAlgo = SignAlgo
 
+    @property
+    def UseCrossSignRoot(self):
+        r"""是否使用交叉根证书
+        :rtype: bool
+        """
+        return self._UseCrossSignRoot
+
+    @UseCrossSignRoot.setter
+    def UseCrossSignRoot(self, UseCrossSignRoot):
+        self._UseCrossSignRoot = UseCrossSignRoot
+
 
     def _deserialize(self, params):
         self._CertId = params.get("CertId")
@@ -2102,6 +2116,7 @@ FILE：手动添加域名文件验证。 需要用户手动在域名站点根目
         self._Type = params.get("Type")
         self._CaType = params.get("CaType")
         self._SignAlgo = params.get("SignAlgo")
+        self._UseCrossSignRoot = params.get("UseCrossSignRoot")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2292,209 +2307,129 @@ class Certificates(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _OwnerUin: 用户 UIN。
+        :param _OwnerUin: <p>用户 UIN。</p>
         :type OwnerUin: str
-        :param _ProjectId: 项目 ID。
+        :param _ProjectId: <p>项目 ID。</p>
         :type ProjectId: str
-        :param _From: 证书来源：
-trustasia：亚洲诚信，
-upload：用户上传。
-wosign：沃通
-sheca：上海CA
+        :param _From: <p>证书来源：trustasia：亚洲诚信，upload：用户上传。wosign：沃通sheca：上海CA</p>
         :type From: str
-        :param _PackageType: 证书套餐类型：
-null：用户上传证书（没有套餐类型），
-2：TrustAsia TLS RSA CA， 
-3：SecureSite 增强型企业版（EV Pro）， 
-4：SecureSite 增强型（EV）， 
-5：SecureSite 企业型专业版（OV Pro），
-6：SecureSite 企业型（OV）， 
-7：SecureSite 企业型（OV）通配符， 
-8：Geotrust 增强型（EV）， 
-9：Geotrust 企业型（OV）， 
-10：Geotrust 企业型（OV）通配符， 
-11：TrustAsia 域名型多域名 SSL 证书， 
-12：TrustAsia 域名型（DV）通配符， 
-13：TrustAsia 企业型通配符（OV）SSL 证书（D3）， 
-14：TrustAsia 企业型（OV）SSL 证书（D3）， 
-15：TrustAsia 企业型多域名 （OV）SSL 证书（D3）， 
-16：TrustAsia 增强型 （EV）SSL 证书（D3）， 
-17：TrustAsia 增强型多域名（EV）SSL 证书（D3）， 
-18：GlobalSign 企业型（OV）SSL 证书， 
-19：GlobalSign 企业型通配符 （OV）SSL 证书， 
-20：GlobalSign 增强型 （EV）SSL 证书， 
-21：TrustAsia 企业型通配符多域名（OV）SSL 证书（D3）， 
-22：GlobalSign 企业型多域名（OV）SSL 证书， 
-23：GlobalSign 企业型通配符多域名（OV）SSL 证书，
-24：GlobalSign 增强型多域名（EV）SSL 证书，
-25：Wotrus 域名型证书，
-26：Wotrus 域名型多域名证书，
-27：Wotrus 域名型通配符证书，
-28：Wotrus 企业型证书，
-29：Wotrus 企业型多域名证书，
-30：Wotrus 企业型通配符证书，
-31：Wotrus 增强型证书，
-32：Wotrus 增强型多域名证书，
-33：WoTrus-国密域名型证书，
-34：WoTrus-国密域名型证书（多域名），
-35：WoTrus-国密域名型证书（通配符），
-37：WoTrus-国密企业型证书，
-38：WoTrus-国密企业型证书（多域名），
-39：WoTrus-国密企业型证书（通配符），
-40：WoTrus-国密增强型证书，
-41：WoTrus-国密增强型证书（多域名），
-42：TrustAsia-域名型证书（通配符多域名），
-43：DNSPod-企业型(OV)SSL证书
-44：DNSPod-企业型(OV)通配符SSL证书
-45：DNSPod-企业型(OV)多域名SSL证书
-46：DNSPod-增强型(EV)SSL证书
-47：DNSPod-增强型(EV)多域名SSL证书
-48：DNSPod-域名型(DV)SSL证书
-49：DNSPod-域名型(DV)通配符SSL证书
-50：DNSPod-域名型(DV)多域名SSL证书
-51：DNSPod（国密）-企业型(OV)SSL证书
-52：DNSPod（国密）-企业型(OV)通配符SSL证书
-53：DNSPod（国密）-企业型(OV)多域名SSL证书
-54：DNSPod（国密）-域名型(DV)SSL证书
-55：DNSPod（国密）-域名型(DV)通配符SSL证书
-56：DNSPod（国密）-域名型(DV)多域名SSL证书
-57：SecureSite 企业型专业版多域名(OV Pro)
-58：SecureSite 企业型多域名(OV)
-59：SecureSite 增强型专业版多域名(EV Pro)
-60：SecureSite 增强型多域名(EV)
-61：Geotrust 增强型多域名(EV)
-75：SecureSite 企业型(OV)
-76：SecureSite 企业型(OV)通配符
-77：SecureSite 增强型(EV)
-78：Geotrust 企业型(OV)
-79：Geotrust 企业型(OV)通配符
-80：Geotrust 增强型(EV)
-81：GlobalSign 企业型（OV）SSL证书
-82：GlobalSign 企业型通配符 （OV）SSL证书
-83：TrustAsia C1 DV Free
-85：GlobalSign 增强型 （EV）SSL证书
-88：GlobalSign 企业型通配符多域名 （OV）SSL证书
-89：GlobalSign 企业型多域名 （OV）SSL证书
-90：GlobalSign 增强型多域名（EV） SSL证书
-91：Geotrust 增强型多域名(EV)
-92：SecureSite 企业型专业版多域名(OV Pro)
-93：SecureSite 企业型多域名(OV)
-94：SecureSite 增强型专业版多域名(EV Pro)
-95：SecureSite 增强型多域名(EV)
-96：SecureSite 增强型专业版(EV Pro)
-97：SecureSite 企业型专业版(OV Pro)
-98：CFCA 企业型(OV)SSL证书
-99：CFCA 企业型多域名(OV)SSL证书
-100：CFCA 企业型通配符(OV)SSL证书
-101：CFCA 增强型(EV)SSL证书
+        :param _PackageType: <p>证书套餐类型：null：用户上传证书（没有套餐类型），2：TrustAsia TLS RSA CA， 3：SecureSite 增强型企业版（EV Pro）， 4：SecureSite 增强型（EV）， 5：SecureSite 企业型专业版（OV Pro），6：SecureSite 企业型（OV）， 7：SecureSite 企业型（OV）通配符， 8：Geotrust 增强型（EV）， 9：Geotrust 企业型（OV）， 10：Geotrust 企业型（OV）通配符， 11：TrustAsia 域名型多域名 SSL 证书， 12：TrustAsia 域名型（DV）通配符， 13：TrustAsia 企业型通配符（OV）SSL 证书（D3）， 14：TrustAsia 企业型（OV）SSL 证书（D3）， 15：TrustAsia 企业型多域名 （OV）SSL 证书（D3）， 16：TrustAsia 增强型 （EV）SSL 证书（D3）， 17：TrustAsia 增强型多域名（EV）SSL 证书（D3）， 18：GlobalSign 企业型（OV）SSL 证书， 19：GlobalSign 企业型通配符 （OV）SSL 证书， 20：GlobalSign 增强型 （EV）SSL 证书， 21：TrustAsia 企业型通配符多域名（OV）SSL 证书（D3）， 22：GlobalSign 企业型多域名（OV）SSL 证书， 23：GlobalSign 企业型通配符多域名（OV）SSL 证书，24：GlobalSign 增强型多域名（EV）SSL 证书，25：Wotrus 域名型证书，26：Wotrus 域名型多域名证书，27：Wotrus 域名型通配符证书，28：Wotrus 企业型证书，29：Wotrus 企业型多域名证书，30：Wotrus 企业型通配符证书，31：Wotrus 增强型证书，32：Wotrus 增强型多域名证书，33：WoTrus-国密域名型证书，34：WoTrus-国密域名型证书（多域名），35：WoTrus-国密域名型证书（通配符），37：WoTrus-国密企业型证书，38：WoTrus-国密企业型证书（多域名），39：WoTrus-国密企业型证书（通配符），40：WoTrus-国密增强型证书，41：WoTrus-国密增强型证书（多域名），42：TrustAsia-域名型证书（通配符多域名），43：DNSPod-企业型(OV)SSL证书44：DNSPod-企业型(OV)通配符SSL证书45：DNSPod-企业型(OV)多域名SSL证书46：DNSPod-增强型(EV)SSL证书47：DNSPod-增强型(EV)多域名SSL证书48：DNSPod-域名型(DV)SSL证书49：DNSPod-域名型(DV)通配符SSL证书50：DNSPod-域名型(DV)多域名SSL证书51：DNSPod（国密）-企业型(OV)SSL证书52：DNSPod（国密）-企业型(OV)通配符SSL证书53：DNSPod（国密）-企业型(OV)多域名SSL证书54：DNSPod（国密）-域名型(DV)SSL证书55：DNSPod（国密）-域名型(DV)通配符SSL证书56：DNSPod（国密）-域名型(DV)多域名SSL证书57：SecureSite 企业型专业版多域名(OV Pro)58：SecureSite 企业型多域名(OV)59：SecureSite 增强型专业版多域名(EV Pro)60：SecureSite 增强型多域名(EV)61：Geotrust 增强型多域名(EV)75：SecureSite 企业型(OV)76：SecureSite 企业型(OV)通配符77：SecureSite 增强型(EV)78：Geotrust 企业型(OV)79：Geotrust 企业型(OV)通配符80：Geotrust 增强型(EV)81：GlobalSign 企业型（OV）SSL证书82：GlobalSign 企业型通配符 （OV）SSL证书83：TrustAsia C1 DV Free85：GlobalSign 增强型 （EV）SSL证书88：GlobalSign 企业型通配符多域名 （OV）SSL证书89：GlobalSign 企业型多域名 （OV）SSL证书90：GlobalSign 增强型多域名（EV） SSL证书91：Geotrust 增强型多域名(EV)92：SecureSite 企业型专业版多域名(OV Pro)93：SecureSite 企业型多域名(OV)94：SecureSite 增强型专业版多域名(EV Pro)95：SecureSite 增强型多域名(EV)96：SecureSite 增强型专业版(EV Pro)97：SecureSite 企业型专业版(OV Pro)98：CFCA 企业型(OV)SSL证书99：CFCA 企业型多域名(OV)SSL证书100：CFCA 企业型通配符(OV)SSL证书101：CFCA 增强型(EV)SSL证书</p>
         :type PackageType: str
-        :param _CertificateType: 证书类型：CA = 客户端证书，SVR = 服务器证书。
+        :param _CertificateType: <p>证书类型：CA = 客户端证书，SVR = 服务器证书。</p>
         :type CertificateType: str
-        :param _ProductZhName: 证书产品名称
+        :param _ProductZhName: <p>证书产品名称</p>
         :type ProductZhName: str
-        :param _Domain: 主域名。
+        :param _Domain: <p>主域名。</p>
         :type Domain: str
-        :param _Alias: 备注名称。
+        :param _Alias: <p>备注名称。</p>
         :type Alias: str
-        :param _Status: 证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 自动添加DNS记录，5 = 企业证书，待提交资料，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 证书已退款。 15 = 证书迁移中
+        :param _Status: <p>证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 自动添加DNS记录，5 = 企业证书，待提交资料，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 证书已退款。 15 = 证书迁移中</p>
         :type Status: int
-        :param _CertificateExtra: 证书扩展信息。
+        :param _CertificateExtra: <p>证书扩展信息。</p>
         :type CertificateExtra: :class:`tencentcloud.ssl.v20191205.models.CertificateExtra`
-        :param _VulnerabilityStatus: 漏洞扫描状态：INACTIVE = 未开启，ACTIVE = 已开启
+        :param _VulnerabilityStatus: <p>漏洞扫描状态：INACTIVE = 未开启，ACTIVE = 已开启</p>
         :type VulnerabilityStatus: str
-        :param _StatusMsg: 状态信息。
+        :param _StatusMsg: <p>状态信息。</p>
         :type StatusMsg: str
-        :param _VerifyType: 验证类型：DNS_AUTO = 自动DNS验证，DNS = 手动DNS验证，FILE = 文件验证，DNS_PROXY = DNS代理验证。FILE_PROXY = 文件代理验证
+        :param _VerifyType: <p>验证类型：DNS_AUTO = 自动DNS验证，DNS = 手动DNS验证，FILE = 文件验证，DNS_PROXY = DNS代理验证。FILE_PROXY = 文件代理验证</p>
         :type VerifyType: str
-        :param _CertBeginTime: 证书生效时间。时区为GMT+8:00
+        :param _CertBeginTime: <p>证书生效时间。时区为GMT+8:00</p>
         :type CertBeginTime: str
-        :param _CertEndTime: 证书过期时间。时区为GMT+8:00
+        :param _CertEndTime: <p>证书过期时间。时区为GMT+8:00</p>
         :type CertEndTime: str
-        :param _ValidityPeriod: 证书有效期，单位（月）。
+        :param _ValidityPeriod: <p>证书有效期，单位（月）。</p>
         :type ValidityPeriod: str
-        :param _InsertTime: 创建时间。时区为GMT+8:00
+        :param _InsertTime: <p>创建时间。时区为GMT+8:00</p>
         :type InsertTime: str
-        :param _CertificateId: 证书 ID。
+        :param _CertificateId: <p>证书 ID。</p>
         :type CertificateId: str
-        :param _SubjectAltName: 证书包含的多个域名（包含主域名）。
+        :param _SubjectAltName: <p>证书包含的多个域名（包含主域名）。</p>
         :type SubjectAltName: list of str
-        :param _PackageTypeName: 证书类型名称。
+        :param _PackageTypeName: <p>证书类型名称。</p>
         :type PackageTypeName: str
-        :param _StatusName: 状态名称。
+        :param _StatusName: <p>状态名称。</p>
         :type StatusName: str
-        :param _IsVip: 是否为 VIP 客户。
+        :param _IsVip: <p>是否为 VIP 客户。</p>
         :type IsVip: bool
-        :param _IsDv: 是否为 DV 版证书。
+        :param _IsDv: <p>是否为 DV 版证书。</p>
         :type IsDv: bool
-        :param _IsWildcard: 是否为泛域名证书。
+        :param _IsWildcard: <p>是否为泛域名证书。</p>
         :type IsWildcard: bool
-        :param _IsVulnerability: 是否启用了漏洞扫描功能。
+        :param _IsVulnerability: <p>是否启用了漏洞扫描功能。</p>
         :type IsVulnerability: bool
-        :param _RenewAble: 是否可续费。
+        :param _RenewAble: <p>是否可续费。</p>
         :type RenewAble: bool
-        :param _ProjectInfo: 项目信息。
+        :param _ProjectInfo: <p>项目信息。</p>
         :type ProjectInfo: :class:`tencentcloud.ssl.v20191205.models.ProjectInfo`
-        :param _BoundResource: 关联的云资源，暂不可用
+        :param _BoundResource: <p>关联的云资源，暂不可用</p>
         :type BoundResource: list of str
-        :param _Deployable: 是否可部署。
+        :param _Deployable: <p>是否可部署。</p>
         :type Deployable: bool
-        :param _Tags: 标签列表
+        :param _Tags: <p>标签列表</p>
         :type Tags: list of Tags
-        :param _IsIgnore: 是否已忽略到期通知
+        :param _IsIgnore: <p>是否已忽略到期通知</p>
         :type IsIgnore: bool
-        :param _IsSM: 是否国密证书
+        :param _IsSM: <p>是否国密证书</p>
         :type IsSM: bool
-        :param _EncryptAlgorithm: 证书算法
+        :param _EncryptAlgorithm: <p>证书算法</p>
         :type EncryptAlgorithm: str
-        :param _CAEncryptAlgorithms: 上传CA证书的加密算法
+        :param _CAEncryptAlgorithms: <p>上传CA证书的加密算法</p>
         :type CAEncryptAlgorithms: list of str
-        :param _CAEndTimes: 上传CA证书的过期时间
+        :param _CAEndTimes: <p>上传CA证书的过期时间</p>
         :type CAEndTimes: list of str
-        :param _CACommonNames: 上传CA证书的通用名称
+        :param _CACommonNames: <p>上传CA证书的通用名称</p>
         :type CACommonNames: list of str
-        :param _PreAuditInfo: 证书预审核信息
+        :param _PreAuditInfo: <p>证书预审核信息</p>
         :type PreAuditInfo: :class:`tencentcloud.ssl.v20191205.models.PreAuditInfo`
-        :param _AutoRenewFlag: 是否自动续费
+        :param _AutoRenewFlag: <p>是否自动续费</p>
         :type AutoRenewFlag: int
-        :param _HostingStatus: 托管状态，0，托管中，5，资源替换中， 10， 托管完成， -1未托管 
+        :param _HostingStatus: <p>托管状态，0，托管中，5，资源替换中， 10， 托管完成， -1未托管 </p>
         :type HostingStatus: int
-        :param _HostingCompleteTime: 托管完成时间
+        :param _HostingCompleteTime: <p>托管完成时间</p>
         :type HostingCompleteTime: str
-        :param _HostingRenewCertId: 托管新证书ID
+        :param _HostingRenewCertId: <p>托管新证书ID</p>
         :type HostingRenewCertId: str
-        :param _HasRenewOrder: 存在的续费证书ID
+        :param _HasRenewOrder: <p>存在的续费证书ID</p>
         :type HasRenewOrder: str
-        :param _ReplaceOriCertIsDelete: 重颁发证书原证书是否删除
+        :param _ReplaceOriCertIsDelete: <p>重颁发证书原证书是否删除</p>
         :type ReplaceOriCertIsDelete: bool
-        :param _IsExpiring: 是否即将过期， 证书即将到期的30天内为即将过期
+        :param _IsExpiring: <p>是否即将过期， 证书即将到期的30天内为即将过期</p>
         :type IsExpiring: bool
-        :param _DVAuthDeadline: DV证书添加验证截止时间，时区为GMT+8:00
+        :param _DVAuthDeadline: <p>DV证书添加验证截止时间，时区为GMT+8:00</p>
         :type DVAuthDeadline: str
-        :param _ValidationPassedTime: 域名验证通过时间，时区为GMT+8:00
+        :param _ValidationPassedTime: <p>域名验证通过时间，时区为GMT+8:00</p>
         :type ValidationPassedTime: str
-        :param _CertSANs: 证书关联的多域名
+        :param _CertSANs: <p>证书关联的多域名</p>
         :type CertSANs: list of str
-        :param _AwaitingValidationMsg: 域名验证驳回信息
+        :param _AwaitingValidationMsg: <p>域名验证驳回信息</p>
         :type AwaitingValidationMsg: str
-        :param _AllowDownload: 是否允许下载
+        :param _AllowDownload: <p>是否允许下载</p>
         :type AllowDownload: bool
-        :param _IsDNSPODResolve: 证书域名是否全部在DNSPOD托管解析
+        :param _IsDNSPODResolve: <p>证书域名是否全部在DNSPOD托管解析</p>
         :type IsDNSPODResolve: bool
-        :param _IsPackage: 是否是权益点购买的证书
+        :param _IsPackage: <p>是否是权益点购买的证书</p>
         :type IsPackage: bool
-        :param _KeyPasswordCustomFlag: 是否存在私钥密码
+        :param _KeyPasswordCustomFlag: <p>是否存在私钥密码</p>
         :type KeyPasswordCustomFlag: bool
-        :param _SupportDownloadType: 支持下载的WEB服务器类型： nginx、apache、iis、tomcat、jks、root、other
+        :param _SupportDownloadType: <p>支持下载的WEB服务器类型： nginx、apache、iis、tomcat、jks、root、other</p>
         :type SupportDownloadType: :class:`tencentcloud.ssl.v20191205.models.SupportDownloadType`
-        :param _CertRevokedTime: 证书吊销完成时间，时区为GMT+8:00
+        :param _CertRevokedTime: <p>证书吊销完成时间，时区为GMT+8:00</p>
         :type CertRevokedTime: str
-        :param _HostingResourceTypes: 托管资源类型列表
+        :param _HostingResourceTypes: <p>托管资源类型列表</p>
         :type HostingResourceTypes: list of str
-        :param _HostingConfig: 托管配置信息
+        :param _HostingConfig: <p>托管配置信息</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type HostingConfig: :class:`tencentcloud.ssl.v20191205.models.HostingConfig`
-        :param _IsHostingUploadRenewCert: 是否是上传托管续费证书
+        :param _IsHostingUploadRenewCert: <p>是否是上传托管续费证书</p>
         :type IsHostingUploadRenewCert: bool
+        :param _ServiceId: <p>订阅服务ID</p>
+        :type ServiceId: str
+        :param _ServiceStatus: <p>订阅服务状态</p>枚举值：<ul><li> initing： 未激活</li><li> running： 生效中</li><li> expired： 已过期</li><li> refunded： 已退款</li><li> nearExpire： 即将到期</li></ul>
+        :type ServiceStatus: str
+        :param _CertServiceBeginTime: <p>订阅服务开始时间</p>
+        :type CertServiceBeginTime: str
+        :param _CertServiceEndTime: <p>订阅服务结束时间</p>
+        :type CertServiceEndTime: str
         """
         self._OwnerUin = None
         self._ProjectId = None
@@ -2553,10 +2488,14 @@ null：用户上传证书（没有套餐类型），
         self._HostingResourceTypes = None
         self._HostingConfig = None
         self._IsHostingUploadRenewCert = None
+        self._ServiceId = None
+        self._ServiceStatus = None
+        self._CertServiceBeginTime = None
+        self._CertServiceEndTime = None
 
     @property
     def OwnerUin(self):
-        r"""用户 UIN。
+        r"""<p>用户 UIN。</p>
         :rtype: str
         """
         return self._OwnerUin
@@ -2567,7 +2506,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ProjectId(self):
-        r"""项目 ID。
+        r"""<p>项目 ID。</p>
         :rtype: str
         """
         return self._ProjectId
@@ -2578,11 +2517,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def From(self):
-        r"""证书来源：
-trustasia：亚洲诚信，
-upload：用户上传。
-wosign：沃通
-sheca：上海CA
+        r"""<p>证书来源：trustasia：亚洲诚信，upload：用户上传。wosign：沃通sheca：上海CA</p>
         :rtype: str
         """
         return self._From
@@ -2593,91 +2528,7 @@ sheca：上海CA
 
     @property
     def PackageType(self):
-        r"""证书套餐类型：
-null：用户上传证书（没有套餐类型），
-2：TrustAsia TLS RSA CA， 
-3：SecureSite 增强型企业版（EV Pro）， 
-4：SecureSite 增强型（EV）， 
-5：SecureSite 企业型专业版（OV Pro），
-6：SecureSite 企业型（OV）， 
-7：SecureSite 企业型（OV）通配符， 
-8：Geotrust 增强型（EV）， 
-9：Geotrust 企业型（OV）， 
-10：Geotrust 企业型（OV）通配符， 
-11：TrustAsia 域名型多域名 SSL 证书， 
-12：TrustAsia 域名型（DV）通配符， 
-13：TrustAsia 企业型通配符（OV）SSL 证书（D3）， 
-14：TrustAsia 企业型（OV）SSL 证书（D3）， 
-15：TrustAsia 企业型多域名 （OV）SSL 证书（D3）， 
-16：TrustAsia 增强型 （EV）SSL 证书（D3）， 
-17：TrustAsia 增强型多域名（EV）SSL 证书（D3）， 
-18：GlobalSign 企业型（OV）SSL 证书， 
-19：GlobalSign 企业型通配符 （OV）SSL 证书， 
-20：GlobalSign 增强型 （EV）SSL 证书， 
-21：TrustAsia 企业型通配符多域名（OV）SSL 证书（D3）， 
-22：GlobalSign 企业型多域名（OV）SSL 证书， 
-23：GlobalSign 企业型通配符多域名（OV）SSL 证书，
-24：GlobalSign 增强型多域名（EV）SSL 证书，
-25：Wotrus 域名型证书，
-26：Wotrus 域名型多域名证书，
-27：Wotrus 域名型通配符证书，
-28：Wotrus 企业型证书，
-29：Wotrus 企业型多域名证书，
-30：Wotrus 企业型通配符证书，
-31：Wotrus 增强型证书，
-32：Wotrus 增强型多域名证书，
-33：WoTrus-国密域名型证书，
-34：WoTrus-国密域名型证书（多域名），
-35：WoTrus-国密域名型证书（通配符），
-37：WoTrus-国密企业型证书，
-38：WoTrus-国密企业型证书（多域名），
-39：WoTrus-国密企业型证书（通配符），
-40：WoTrus-国密增强型证书，
-41：WoTrus-国密增强型证书（多域名），
-42：TrustAsia-域名型证书（通配符多域名），
-43：DNSPod-企业型(OV)SSL证书
-44：DNSPod-企业型(OV)通配符SSL证书
-45：DNSPod-企业型(OV)多域名SSL证书
-46：DNSPod-增强型(EV)SSL证书
-47：DNSPod-增强型(EV)多域名SSL证书
-48：DNSPod-域名型(DV)SSL证书
-49：DNSPod-域名型(DV)通配符SSL证书
-50：DNSPod-域名型(DV)多域名SSL证书
-51：DNSPod（国密）-企业型(OV)SSL证书
-52：DNSPod（国密）-企业型(OV)通配符SSL证书
-53：DNSPod（国密）-企业型(OV)多域名SSL证书
-54：DNSPod（国密）-域名型(DV)SSL证书
-55：DNSPod（国密）-域名型(DV)通配符SSL证书
-56：DNSPod（国密）-域名型(DV)多域名SSL证书
-57：SecureSite 企业型专业版多域名(OV Pro)
-58：SecureSite 企业型多域名(OV)
-59：SecureSite 增强型专业版多域名(EV Pro)
-60：SecureSite 增强型多域名(EV)
-61：Geotrust 增强型多域名(EV)
-75：SecureSite 企业型(OV)
-76：SecureSite 企业型(OV)通配符
-77：SecureSite 增强型(EV)
-78：Geotrust 企业型(OV)
-79：Geotrust 企业型(OV)通配符
-80：Geotrust 增强型(EV)
-81：GlobalSign 企业型（OV）SSL证书
-82：GlobalSign 企业型通配符 （OV）SSL证书
-83：TrustAsia C1 DV Free
-85：GlobalSign 增强型 （EV）SSL证书
-88：GlobalSign 企业型通配符多域名 （OV）SSL证书
-89：GlobalSign 企业型多域名 （OV）SSL证书
-90：GlobalSign 增强型多域名（EV） SSL证书
-91：Geotrust 增强型多域名(EV)
-92：SecureSite 企业型专业版多域名(OV Pro)
-93：SecureSite 企业型多域名(OV)
-94：SecureSite 增强型专业版多域名(EV Pro)
-95：SecureSite 增强型多域名(EV)
-96：SecureSite 增强型专业版(EV Pro)
-97：SecureSite 企业型专业版(OV Pro)
-98：CFCA 企业型(OV)SSL证书
-99：CFCA 企业型多域名(OV)SSL证书
-100：CFCA 企业型通配符(OV)SSL证书
-101：CFCA 增强型(EV)SSL证书
+        r"""<p>证书套餐类型：null：用户上传证书（没有套餐类型），2：TrustAsia TLS RSA CA， 3：SecureSite 增强型企业版（EV Pro）， 4：SecureSite 增强型（EV）， 5：SecureSite 企业型专业版（OV Pro），6：SecureSite 企业型（OV）， 7：SecureSite 企业型（OV）通配符， 8：Geotrust 增强型（EV）， 9：Geotrust 企业型（OV）， 10：Geotrust 企业型（OV）通配符， 11：TrustAsia 域名型多域名 SSL 证书， 12：TrustAsia 域名型（DV）通配符， 13：TrustAsia 企业型通配符（OV）SSL 证书（D3）， 14：TrustAsia 企业型（OV）SSL 证书（D3）， 15：TrustAsia 企业型多域名 （OV）SSL 证书（D3）， 16：TrustAsia 增强型 （EV）SSL 证书（D3）， 17：TrustAsia 增强型多域名（EV）SSL 证书（D3）， 18：GlobalSign 企业型（OV）SSL 证书， 19：GlobalSign 企业型通配符 （OV）SSL 证书， 20：GlobalSign 增强型 （EV）SSL 证书， 21：TrustAsia 企业型通配符多域名（OV）SSL 证书（D3）， 22：GlobalSign 企业型多域名（OV）SSL 证书， 23：GlobalSign 企业型通配符多域名（OV）SSL 证书，24：GlobalSign 增强型多域名（EV）SSL 证书，25：Wotrus 域名型证书，26：Wotrus 域名型多域名证书，27：Wotrus 域名型通配符证书，28：Wotrus 企业型证书，29：Wotrus 企业型多域名证书，30：Wotrus 企业型通配符证书，31：Wotrus 增强型证书，32：Wotrus 增强型多域名证书，33：WoTrus-国密域名型证书，34：WoTrus-国密域名型证书（多域名），35：WoTrus-国密域名型证书（通配符），37：WoTrus-国密企业型证书，38：WoTrus-国密企业型证书（多域名），39：WoTrus-国密企业型证书（通配符），40：WoTrus-国密增强型证书，41：WoTrus-国密增强型证书（多域名），42：TrustAsia-域名型证书（通配符多域名），43：DNSPod-企业型(OV)SSL证书44：DNSPod-企业型(OV)通配符SSL证书45：DNSPod-企业型(OV)多域名SSL证书46：DNSPod-增强型(EV)SSL证书47：DNSPod-增强型(EV)多域名SSL证书48：DNSPod-域名型(DV)SSL证书49：DNSPod-域名型(DV)通配符SSL证书50：DNSPod-域名型(DV)多域名SSL证书51：DNSPod（国密）-企业型(OV)SSL证书52：DNSPod（国密）-企业型(OV)通配符SSL证书53：DNSPod（国密）-企业型(OV)多域名SSL证书54：DNSPod（国密）-域名型(DV)SSL证书55：DNSPod（国密）-域名型(DV)通配符SSL证书56：DNSPod（国密）-域名型(DV)多域名SSL证书57：SecureSite 企业型专业版多域名(OV Pro)58：SecureSite 企业型多域名(OV)59：SecureSite 增强型专业版多域名(EV Pro)60：SecureSite 增强型多域名(EV)61：Geotrust 增强型多域名(EV)75：SecureSite 企业型(OV)76：SecureSite 企业型(OV)通配符77：SecureSite 增强型(EV)78：Geotrust 企业型(OV)79：Geotrust 企业型(OV)通配符80：Geotrust 增强型(EV)81：GlobalSign 企业型（OV）SSL证书82：GlobalSign 企业型通配符 （OV）SSL证书83：TrustAsia C1 DV Free85：GlobalSign 增强型 （EV）SSL证书88：GlobalSign 企业型通配符多域名 （OV）SSL证书89：GlobalSign 企业型多域名 （OV）SSL证书90：GlobalSign 增强型多域名（EV） SSL证书91：Geotrust 增强型多域名(EV)92：SecureSite 企业型专业版多域名(OV Pro)93：SecureSite 企业型多域名(OV)94：SecureSite 增强型专业版多域名(EV Pro)95：SecureSite 增强型多域名(EV)96：SecureSite 增强型专业版(EV Pro)97：SecureSite 企业型专业版(OV Pro)98：CFCA 企业型(OV)SSL证书99：CFCA 企业型多域名(OV)SSL证书100：CFCA 企业型通配符(OV)SSL证书101：CFCA 增强型(EV)SSL证书</p>
         :rtype: str
         """
         return self._PackageType
@@ -2688,7 +2539,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertificateType(self):
-        r"""证书类型：CA = 客户端证书，SVR = 服务器证书。
+        r"""<p>证书类型：CA = 客户端证书，SVR = 服务器证书。</p>
         :rtype: str
         """
         return self._CertificateType
@@ -2699,7 +2550,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ProductZhName(self):
-        r"""证书产品名称
+        r"""<p>证书产品名称</p>
         :rtype: str
         """
         return self._ProductZhName
@@ -2710,7 +2561,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def Domain(self):
-        r"""主域名。
+        r"""<p>主域名。</p>
         :rtype: str
         """
         return self._Domain
@@ -2721,7 +2572,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def Alias(self):
-        r"""备注名称。
+        r"""<p>备注名称。</p>
         :rtype: str
         """
         return self._Alias
@@ -2732,7 +2583,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def Status(self):
-        r"""证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 自动添加DNS记录，5 = 企业证书，待提交资料，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 证书已退款。 15 = 证书迁移中
+        r"""<p>证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 自动添加DNS记录，5 = 企业证书，待提交资料，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 证书已退款。 15 = 证书迁移中</p>
         :rtype: int
         """
         return self._Status
@@ -2743,7 +2594,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertificateExtra(self):
-        r"""证书扩展信息。
+        r"""<p>证书扩展信息。</p>
         :rtype: :class:`tencentcloud.ssl.v20191205.models.CertificateExtra`
         """
         return self._CertificateExtra
@@ -2754,7 +2605,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def VulnerabilityStatus(self):
-        r"""漏洞扫描状态：INACTIVE = 未开启，ACTIVE = 已开启
+        r"""<p>漏洞扫描状态：INACTIVE = 未开启，ACTIVE = 已开启</p>
         :rtype: str
         """
         return self._VulnerabilityStatus
@@ -2765,7 +2616,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def StatusMsg(self):
-        r"""状态信息。
+        r"""<p>状态信息。</p>
         :rtype: str
         """
         return self._StatusMsg
@@ -2776,7 +2627,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def VerifyType(self):
-        r"""验证类型：DNS_AUTO = 自动DNS验证，DNS = 手动DNS验证，FILE = 文件验证，DNS_PROXY = DNS代理验证。FILE_PROXY = 文件代理验证
+        r"""<p>验证类型：DNS_AUTO = 自动DNS验证，DNS = 手动DNS验证，FILE = 文件验证，DNS_PROXY = DNS代理验证。FILE_PROXY = 文件代理验证</p>
         :rtype: str
         """
         return self._VerifyType
@@ -2787,7 +2638,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertBeginTime(self):
-        r"""证书生效时间。时区为GMT+8:00
+        r"""<p>证书生效时间。时区为GMT+8:00</p>
         :rtype: str
         """
         return self._CertBeginTime
@@ -2798,7 +2649,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertEndTime(self):
-        r"""证书过期时间。时区为GMT+8:00
+        r"""<p>证书过期时间。时区为GMT+8:00</p>
         :rtype: str
         """
         return self._CertEndTime
@@ -2809,7 +2660,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ValidityPeriod(self):
-        r"""证书有效期，单位（月）。
+        r"""<p>证书有效期，单位（月）。</p>
         :rtype: str
         """
         return self._ValidityPeriod
@@ -2820,7 +2671,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def InsertTime(self):
-        r"""创建时间。时区为GMT+8:00
+        r"""<p>创建时间。时区为GMT+8:00</p>
         :rtype: str
         """
         return self._InsertTime
@@ -2831,7 +2682,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertificateId(self):
-        r"""证书 ID。
+        r"""<p>证书 ID。</p>
         :rtype: str
         """
         return self._CertificateId
@@ -2842,7 +2693,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def SubjectAltName(self):
-        r"""证书包含的多个域名（包含主域名）。
+        r"""<p>证书包含的多个域名（包含主域名）。</p>
         :rtype: list of str
         """
         return self._SubjectAltName
@@ -2853,7 +2704,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def PackageTypeName(self):
-        r"""证书类型名称。
+        r"""<p>证书类型名称。</p>
         :rtype: str
         """
         return self._PackageTypeName
@@ -2864,7 +2715,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def StatusName(self):
-        r"""状态名称。
+        r"""<p>状态名称。</p>
         :rtype: str
         """
         return self._StatusName
@@ -2875,7 +2726,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsVip(self):
-        r"""是否为 VIP 客户。
+        r"""<p>是否为 VIP 客户。</p>
         :rtype: bool
         """
         return self._IsVip
@@ -2886,7 +2737,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsDv(self):
-        r"""是否为 DV 版证书。
+        r"""<p>是否为 DV 版证书。</p>
         :rtype: bool
         """
         return self._IsDv
@@ -2897,7 +2748,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsWildcard(self):
-        r"""是否为泛域名证书。
+        r"""<p>是否为泛域名证书。</p>
         :rtype: bool
         """
         return self._IsWildcard
@@ -2908,7 +2759,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsVulnerability(self):
-        r"""是否启用了漏洞扫描功能。
+        r"""<p>是否启用了漏洞扫描功能。</p>
         :rtype: bool
         """
         return self._IsVulnerability
@@ -2919,7 +2770,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def RenewAble(self):
-        r"""是否可续费。
+        r"""<p>是否可续费。</p>
         :rtype: bool
         """
         return self._RenewAble
@@ -2930,7 +2781,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ProjectInfo(self):
-        r"""项目信息。
+        r"""<p>项目信息。</p>
         :rtype: :class:`tencentcloud.ssl.v20191205.models.ProjectInfo`
         """
         return self._ProjectInfo
@@ -2941,7 +2792,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def BoundResource(self):
-        r"""关联的云资源，暂不可用
+        r"""<p>关联的云资源，暂不可用</p>
         :rtype: list of str
         """
         return self._BoundResource
@@ -2952,7 +2803,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def Deployable(self):
-        r"""是否可部署。
+        r"""<p>是否可部署。</p>
         :rtype: bool
         """
         return self._Deployable
@@ -2963,7 +2814,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def Tags(self):
-        r"""标签列表
+        r"""<p>标签列表</p>
         :rtype: list of Tags
         """
         return self._Tags
@@ -2974,7 +2825,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsIgnore(self):
-        r"""是否已忽略到期通知
+        r"""<p>是否已忽略到期通知</p>
         :rtype: bool
         """
         return self._IsIgnore
@@ -2985,7 +2836,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsSM(self):
-        r"""是否国密证书
+        r"""<p>是否国密证书</p>
         :rtype: bool
         """
         return self._IsSM
@@ -2996,7 +2847,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def EncryptAlgorithm(self):
-        r"""证书算法
+        r"""<p>证书算法</p>
         :rtype: str
         """
         return self._EncryptAlgorithm
@@ -3007,7 +2858,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CAEncryptAlgorithms(self):
-        r"""上传CA证书的加密算法
+        r"""<p>上传CA证书的加密算法</p>
         :rtype: list of str
         """
         return self._CAEncryptAlgorithms
@@ -3018,7 +2869,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CAEndTimes(self):
-        r"""上传CA证书的过期时间
+        r"""<p>上传CA证书的过期时间</p>
         :rtype: list of str
         """
         return self._CAEndTimes
@@ -3029,7 +2880,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CACommonNames(self):
-        r"""上传CA证书的通用名称
+        r"""<p>上传CA证书的通用名称</p>
         :rtype: list of str
         """
         return self._CACommonNames
@@ -3040,7 +2891,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def PreAuditInfo(self):
-        r"""证书预审核信息
+        r"""<p>证书预审核信息</p>
         :rtype: :class:`tencentcloud.ssl.v20191205.models.PreAuditInfo`
         """
         return self._PreAuditInfo
@@ -3051,7 +2902,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def AutoRenewFlag(self):
-        r"""是否自动续费
+        r"""<p>是否自动续费</p>
         :rtype: int
         """
         return self._AutoRenewFlag
@@ -3062,7 +2913,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HostingStatus(self):
-        r"""托管状态，0，托管中，5，资源替换中， 10， 托管完成， -1未托管 
+        r"""<p>托管状态，0，托管中，5，资源替换中， 10， 托管完成， -1未托管 </p>
         :rtype: int
         """
         return self._HostingStatus
@@ -3073,7 +2924,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HostingCompleteTime(self):
-        r"""托管完成时间
+        r"""<p>托管完成时间</p>
         :rtype: str
         """
         return self._HostingCompleteTime
@@ -3084,7 +2935,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HostingRenewCertId(self):
-        r"""托管新证书ID
+        r"""<p>托管新证书ID</p>
         :rtype: str
         """
         return self._HostingRenewCertId
@@ -3095,7 +2946,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HasRenewOrder(self):
-        r"""存在的续费证书ID
+        r"""<p>存在的续费证书ID</p>
         :rtype: str
         """
         return self._HasRenewOrder
@@ -3106,7 +2957,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ReplaceOriCertIsDelete(self):
-        r"""重颁发证书原证书是否删除
+        r"""<p>重颁发证书原证书是否删除</p>
         :rtype: bool
         """
         return self._ReplaceOriCertIsDelete
@@ -3117,7 +2968,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsExpiring(self):
-        r"""是否即将过期， 证书即将到期的30天内为即将过期
+        r"""<p>是否即将过期， 证书即将到期的30天内为即将过期</p>
         :rtype: bool
         """
         return self._IsExpiring
@@ -3128,7 +2979,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def DVAuthDeadline(self):
-        r"""DV证书添加验证截止时间，时区为GMT+8:00
+        r"""<p>DV证书添加验证截止时间，时区为GMT+8:00</p>
         :rtype: str
         """
         return self._DVAuthDeadline
@@ -3139,7 +2990,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def ValidationPassedTime(self):
-        r"""域名验证通过时间，时区为GMT+8:00
+        r"""<p>域名验证通过时间，时区为GMT+8:00</p>
         :rtype: str
         """
         return self._ValidationPassedTime
@@ -3150,7 +3001,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertSANs(self):
-        r"""证书关联的多域名
+        r"""<p>证书关联的多域名</p>
         :rtype: list of str
         """
         return self._CertSANs
@@ -3161,7 +3012,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def AwaitingValidationMsg(self):
-        r"""域名验证驳回信息
+        r"""<p>域名验证驳回信息</p>
         :rtype: str
         """
         return self._AwaitingValidationMsg
@@ -3172,7 +3023,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def AllowDownload(self):
-        r"""是否允许下载
+        r"""<p>是否允许下载</p>
         :rtype: bool
         """
         return self._AllowDownload
@@ -3183,7 +3034,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsDNSPODResolve(self):
-        r"""证书域名是否全部在DNSPOD托管解析
+        r"""<p>证书域名是否全部在DNSPOD托管解析</p>
         :rtype: bool
         """
         return self._IsDNSPODResolve
@@ -3194,7 +3045,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsPackage(self):
-        r"""是否是权益点购买的证书
+        r"""<p>是否是权益点购买的证书</p>
         :rtype: bool
         """
         return self._IsPackage
@@ -3205,7 +3056,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def KeyPasswordCustomFlag(self):
-        r"""是否存在私钥密码
+        r"""<p>是否存在私钥密码</p>
         :rtype: bool
         """
         return self._KeyPasswordCustomFlag
@@ -3216,7 +3067,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def SupportDownloadType(self):
-        r"""支持下载的WEB服务器类型： nginx、apache、iis、tomcat、jks、root、other
+        r"""<p>支持下载的WEB服务器类型： nginx、apache、iis、tomcat、jks、root、other</p>
         :rtype: :class:`tencentcloud.ssl.v20191205.models.SupportDownloadType`
         """
         return self._SupportDownloadType
@@ -3227,7 +3078,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def CertRevokedTime(self):
-        r"""证书吊销完成时间，时区为GMT+8:00
+        r"""<p>证书吊销完成时间，时区为GMT+8:00</p>
         :rtype: str
         """
         return self._CertRevokedTime
@@ -3238,7 +3089,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HostingResourceTypes(self):
-        r"""托管资源类型列表
+        r"""<p>托管资源类型列表</p>
         :rtype: list of str
         """
         return self._HostingResourceTypes
@@ -3249,7 +3100,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def HostingConfig(self):
-        r"""托管配置信息
+        r"""<p>托管配置信息</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.ssl.v20191205.models.HostingConfig`
         """
@@ -3261,7 +3112,7 @@ null：用户上传证书（没有套餐类型），
 
     @property
     def IsHostingUploadRenewCert(self):
-        r"""是否是上传托管续费证书
+        r"""<p>是否是上传托管续费证书</p>
         :rtype: bool
         """
         return self._IsHostingUploadRenewCert
@@ -3269,6 +3120,50 @@ null：用户上传证书（没有套餐类型），
     @IsHostingUploadRenewCert.setter
     def IsHostingUploadRenewCert(self, IsHostingUploadRenewCert):
         self._IsHostingUploadRenewCert = IsHostingUploadRenewCert
+
+    @property
+    def ServiceId(self):
+        r"""<p>订阅服务ID</p>
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
+
+    @property
+    def ServiceStatus(self):
+        r"""<p>订阅服务状态</p>枚举值：<ul><li> initing： 未激活</li><li> running： 生效中</li><li> expired： 已过期</li><li> refunded： 已退款</li><li> nearExpire： 即将到期</li></ul>
+        :rtype: str
+        """
+        return self._ServiceStatus
+
+    @ServiceStatus.setter
+    def ServiceStatus(self, ServiceStatus):
+        self._ServiceStatus = ServiceStatus
+
+    @property
+    def CertServiceBeginTime(self):
+        r"""<p>订阅服务开始时间</p>
+        :rtype: str
+        """
+        return self._CertServiceBeginTime
+
+    @CertServiceBeginTime.setter
+    def CertServiceBeginTime(self, CertServiceBeginTime):
+        self._CertServiceBeginTime = CertServiceBeginTime
+
+    @property
+    def CertServiceEndTime(self):
+        r"""<p>订阅服务结束时间</p>
+        :rtype: str
+        """
+        return self._CertServiceEndTime
+
+    @CertServiceEndTime.setter
+    def CertServiceEndTime(self, CertServiceEndTime):
+        self._CertServiceEndTime = CertServiceEndTime
 
 
     def _deserialize(self, params):
@@ -3344,6 +3239,10 @@ null：用户上传证书（没有套餐类型），
             self._HostingConfig = HostingConfig()
             self._HostingConfig._deserialize(params.get("HostingConfig"))
         self._IsHostingUploadRenewCert = params.get("IsHostingUploadRenewCert")
+        self._ServiceId = params.get("ServiceId")
+        self._ServiceStatus = params.get("ServiceStatus")
+        self._CertServiceBeginTime = params.get("CertServiceBeginTime")
+        self._CertServiceEndTime = params.get("CertServiceEndTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6164,13 +6063,15 @@ class DeployCertificateInstanceRequest(AbstractModel):
 - live：Domain，例：["live1.tencent.com", "live2.tencent.com"]
 - vod：Domain， 例：["vod1.tencent.com", "vod2.tencent.com"]
 - waf：Domain， 例：["waf1.tencent.com", "waf2.tencent.com"]
-- apigateway：ServiceId|Domain， 例：["service-8sk7cqmd|apigw1.tencent.com", "service-8sk7cqmd|apigw2.ninghhuang.online"]
+- apigateway：ServiceId|Domain， 例：["service-8sk7cqmd|apigw1.tencent.com", "service-8sk7cqmd|apigw2.minghuang.online"]
 - teo：Domain， 例：["edgeone1.tencent.com", "edgeone2.tencent.com"]
 - tke：ClusterId|NameSpace|SecretName， 例：["cls-42sa0ae0|default|test-tencent"]
 - cos：Region|Bucket|Domain， 例：["ap-hongkong|ssl-server-1251810746|tencent.com"]
 - lighthouse：Region|InstanceId|Domain， 例：["ap-shanghai|lhins-nh7lql34|tencent.com"]
 - tse：GatewayId|CertificateId， 例：["gateway-s1da9151|fa61bc05-cc54-4eea-c932-24de52577372"]
 - tcb：Type|Region|EnvId|Domain， 例：["AccessService|ap-shanghai|ceshi-4s5h0ymg11c839c7|tencent.com"]
+- mqtt: InstanceId|CertId, 例：["mqtt-rdnwp7kb|gehs6jsx"]
+- gaap: InstanceId|ListenerId 例：["ga-a3e4z3ae|lsr-a73amjob"]
 
         :type InstanceIdList: list of str
         :param _ResourceType: 证书部署云资源支持的云资源类型， 不传则默认部署clb：
@@ -6187,7 +6088,8 @@ class DeployCertificateInstanceRequest(AbstractModel):
 - lighthouse
 - tse
 - tcb
-<dx-alert infotype="explain" title="">当云资源类型传入clb、waf、apigateway、cos、lighthouse、tke、tse、tcb 时，公共参数Region必传。</dx-alert>
+- mqtt
+<dx-alert infotype="explain" title="">当云资源类型传入clb、waf、apigateway、cos、lighthouse、tke、tse、tcb、mqtt 时，公共参数Region必传。</dx-alert>
         :type ResourceType: str
         :param _Status: 部署云资源状态：
 云直播：
@@ -6224,13 +6126,15 @@ class DeployCertificateInstanceRequest(AbstractModel):
 - live：Domain，例：["live1.tencent.com", "live2.tencent.com"]
 - vod：Domain， 例：["vod1.tencent.com", "vod2.tencent.com"]
 - waf：Domain， 例：["waf1.tencent.com", "waf2.tencent.com"]
-- apigateway：ServiceId|Domain， 例：["service-8sk7cqmd|apigw1.tencent.com", "service-8sk7cqmd|apigw2.ninghhuang.online"]
+- apigateway：ServiceId|Domain， 例：["service-8sk7cqmd|apigw1.tencent.com", "service-8sk7cqmd|apigw2.minghuang.online"]
 - teo：Domain， 例：["edgeone1.tencent.com", "edgeone2.tencent.com"]
 - tke：ClusterId|NameSpace|SecretName， 例：["cls-42sa0ae0|default|test-tencent"]
 - cos：Region|Bucket|Domain， 例：["ap-hongkong|ssl-server-1251810746|tencent.com"]
 - lighthouse：Region|InstanceId|Domain， 例：["ap-shanghai|lhins-nh7lql34|tencent.com"]
 - tse：GatewayId|CertificateId， 例：["gateway-s1da9151|fa61bc05-cc54-4eea-c932-24de52577372"]
 - tcb：Type|Region|EnvId|Domain， 例：["AccessService|ap-shanghai|ceshi-4s5h0ymg11c839c7|tencent.com"]
+- mqtt: InstanceId|CertId, 例：["mqtt-rdnwp7kb|gehs6jsx"]
+- gaap: InstanceId|ListenerId 例：["ga-a3e4z3ae|lsr-a73amjob"]
 
         :rtype: list of str
         """
@@ -6256,7 +6160,8 @@ class DeployCertificateInstanceRequest(AbstractModel):
 - lighthouse
 - tse
 - tcb
-<dx-alert infotype="explain" title="">当云资源类型传入clb、waf、apigateway、cos、lighthouse、tke、tse、tcb 时，公共参数Region必传。</dx-alert>
+- mqtt
+<dx-alert infotype="explain" title="">当云资源类型传入clb、waf、apigateway、cos、lighthouse、tke、tse、tcb、mqtt 时，公共参数Region必传。</dx-alert>
         :rtype: str
         """
         return self._ResourceType
@@ -6742,6 +6647,8 @@ class DeployRecordDetail(AbstractModel):
         :type OldAlgorithm: str
         :param _InstanceStatus: 实例状态，不同云产品状态不一样
         :type InstanceStatus: str
+        :param _ListenerStatus: 监听器状态
+        :type ListenerStatus: str
         """
         self._Id = None
         self._CertId = None
@@ -6768,6 +6675,7 @@ class DeployRecordDetail(AbstractModel):
         self._Algorithm = None
         self._OldAlgorithm = None
         self._InstanceStatus = None
+        self._ListenerStatus = None
 
     @property
     def Id(self):
@@ -7044,6 +6952,17 @@ class DeployRecordDetail(AbstractModel):
     def InstanceStatus(self, InstanceStatus):
         self._InstanceStatus = InstanceStatus
 
+    @property
+    def ListenerStatus(self):
+        r"""监听器状态
+        :rtype: str
+        """
+        return self._ListenerStatus
+
+    @ListenerStatus.setter
+    def ListenerStatus(self, ListenerStatus):
+        self._ListenerStatus = ListenerStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -7071,6 +6990,7 @@ class DeployRecordDetail(AbstractModel):
         self._Algorithm = params.get("Algorithm")
         self._OldAlgorithm = params.get("OldAlgorithm")
         self._InstanceStatus = params.get("InstanceStatus")
+        self._ListenerStatus = params.get("ListenerStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7719,27 +7639,15 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TaskId: 任务ID，根据CreateCertificateBindResourceSyncTask得到的任务ID查询绑定云资源结果
+        :param _TaskId: <p>任务ID，根据CreateCertificateBindResourceSyncTask得到的任务ID查询绑定云资源结果</p>
         :type TaskId: str
-        :param _Limit: 每页展示数量， 默认10，最大值100; 分页总数为云资源地域下实例总数， 即第一页会拉群每个云资源的地域下面Limit数量实例
+        :param _Limit: <p>每页展示数量， 默认10，最大值100; 分页总数为云资源地域下实例总数， 即第一页会拉群每个云资源的地域下面Limit数量实例</p>
         :type Limit: str
-        :param _Offset: 当前偏移量，默认为0
+        :param _Offset: <p>当前偏移量，默认为0</p>
         :type Offset: str
-        :param _ResourceTypes: 查询资源类型的结果详情， 不传则查询所有，取值支持：
-- clb
-- cdn
-- ddos
-- live
-- vod
-- waf
-- apigateway
-- teo
-- tke
-- cos
-- tse
-- tcb
+        :param _ResourceTypes: <p>查询资源类型的结果详情， 不传则查询所有，取值支持：- clb- cdn- ddos- live- vod- waf- apigateway- teo- tke- cos- tse- tcb</p>
         :type ResourceTypes: list of str
-        :param _Regions: 查询地域列表的数据，clb、tke、waf、apigateway、tcb、cos、tse支持地域查询， 其他资源类型不支持
+        :param _Regions: <p>查询地域列表的数据，clb、tke、waf、apigateway、tcb、cos、tse支持地域查询， 其他资源类型不支持</p>
         :type Regions: list of str
         """
         self._TaskId = None
@@ -7750,7 +7658,7 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""任务ID，根据CreateCertificateBindResourceSyncTask得到的任务ID查询绑定云资源结果
+        r"""<p>任务ID，根据CreateCertificateBindResourceSyncTask得到的任务ID查询绑定云资源结果</p>
         :rtype: str
         """
         return self._TaskId
@@ -7761,7 +7669,7 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""每页展示数量， 默认10，最大值100; 分页总数为云资源地域下实例总数， 即第一页会拉群每个云资源的地域下面Limit数量实例
+        r"""<p>每页展示数量， 默认10，最大值100; 分页总数为云资源地域下实例总数， 即第一页会拉群每个云资源的地域下面Limit数量实例</p>
         :rtype: str
         """
         return self._Limit
@@ -7772,7 +7680,7 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""当前偏移量，默认为0
+        r"""<p>当前偏移量，默认为0</p>
         :rtype: str
         """
         return self._Offset
@@ -7783,19 +7691,7 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     @property
     def ResourceTypes(self):
-        r"""查询资源类型的结果详情， 不传则查询所有，取值支持：
-- clb
-- cdn
-- ddos
-- live
-- vod
-- waf
-- apigateway
-- teo
-- tke
-- cos
-- tse
-- tcb
+        r"""<p>查询资源类型的结果详情， 不传则查询所有，取值支持：- clb- cdn- ddos- live- vod- waf- apigateway- teo- tke- cos- tse- tcb</p>
         :rtype: list of str
         """
         return self._ResourceTypes
@@ -7806,7 +7702,7 @@ class DescribeCertificateBindResourceTaskDetailRequest(AbstractModel):
 
     @property
     def Regions(self):
-        r"""查询地域列表的数据，clb、tke、waf、apigateway、tcb、cos、tse支持地域查询， 其他资源类型不支持
+        r"""<p>查询地域列表的数据，clb、tke、waf、apigateway、tcb、cos、tse支持地域查询， 其他资源类型不支持</p>
         :rtype: list of str
         """
         return self._Regions
@@ -7839,34 +7735,42 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _CLB: 关联clb资源详情	
+        :param _CLB: <p>关联clb资源详情   </p>
         :type CLB: list of ClbInstanceList
-        :param _CDN: 关联cdn资源详情	
+        :param _CDN: <p>关联cdn资源详情   </p>
         :type CDN: list of CdnInstanceList
-        :param _WAF: 关联waf资源详情	
+        :param _WAF: <p>关联waf资源详情   </p>
         :type WAF: list of WafInstanceList
-        :param _DDOS: 关联ddos资源详情	
+        :param _DDOS: <p>关联ddos资源详情  </p>
         :type DDOS: list of DdosInstanceList
-        :param _LIVE: 关联live资源详情	
+        :param _LIVE: <p>关联live资源详情  </p>
         :type LIVE: list of LiveInstanceList
-        :param _VOD: 关联vod资源详情	
+        :param _VOD: <p>关联vod资源详情   </p>
         :type VOD: list of VODInstanceList
-        :param _TKE: 关联tke资源详情	
+        :param _TKE: <p>关联tke资源详情   </p>
         :type TKE: list of TkeInstanceList
-        :param _APIGATEWAY: 关联apigateway资源详情	
+        :param _APIGATEWAY: <p>关联apigateway资源详情    </p>
         :type APIGATEWAY: list of ApiGatewayInstanceList
-        :param _TCB: 关联tcb资源详情	
+        :param _TCB: <p>关联tcb资源详情   </p>
         :type TCB: list of TCBInstanceList
-        :param _TEO: 关联teo资源详情	
+        :param _TEO: <p>关联teo资源详情   </p>
         :type TEO: list of TeoInstanceList
-        :param _Status: 关联云资源异步查询结果： 0表示查询中， 1表示查询成功。 2表示查询异常； 若状态为1，则查看BindResourceResult结果；若状态为2，则查看Error原因
+        :param _Status: <p>关联云资源异步查询结果： 0表示查询中， 1表示查询成功。 2表示查询异常； 若状态为1，则查看BindResourceResult结果；若状态为2，则查看Error原因</p>
         :type Status: int
-        :param _CacheTime: 当前结果缓存时间
+        :param _CacheTime: <p>当前结果缓存时间</p>
         :type CacheTime: str
-        :param _TSE: 关联tse资源详情	
+        :param _TSE: <p>关联tse资源详情   </p>
         :type TSE: list of TSEInstanceList
-        :param _COS: 关联的COS资源详情
+        :param _COS: <p>关联的COS资源详情</p>
         :type COS: list of COSInstanceList
+        :param _TDMQ: <p>关联的TDMQ - Rabbit资源详情</p>
+        :type TDMQ: list of TDMQInstanceList
+        :param _MQTT: <p>关联的MQTT资源详情</p>
+        :type MQTT: list of MQTTInstanceList
+        :param _GAAP: <p>关联的GAAP资源详情</p>
+        :type GAAP: list of GAAPInstanceList
+        :param _SCF: <p>关联的SCF资源详情</p>
+        :type SCF: list of SCFInstanceList
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -7884,11 +7788,15 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
         self._CacheTime = None
         self._TSE = None
         self._COS = None
+        self._TDMQ = None
+        self._MQTT = None
+        self._GAAP = None
+        self._SCF = None
         self._RequestId = None
 
     @property
     def CLB(self):
-        r"""关联clb资源详情	
+        r"""<p>关联clb资源详情   </p>
         :rtype: list of ClbInstanceList
         """
         return self._CLB
@@ -7899,7 +7807,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def CDN(self):
-        r"""关联cdn资源详情	
+        r"""<p>关联cdn资源详情   </p>
         :rtype: list of CdnInstanceList
         """
         return self._CDN
@@ -7910,7 +7818,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def WAF(self):
-        r"""关联waf资源详情	
+        r"""<p>关联waf资源详情   </p>
         :rtype: list of WafInstanceList
         """
         return self._WAF
@@ -7921,7 +7829,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def DDOS(self):
-        r"""关联ddos资源详情	
+        r"""<p>关联ddos资源详情  </p>
         :rtype: list of DdosInstanceList
         """
         return self._DDOS
@@ -7932,7 +7840,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def LIVE(self):
-        r"""关联live资源详情	
+        r"""<p>关联live资源详情  </p>
         :rtype: list of LiveInstanceList
         """
         return self._LIVE
@@ -7943,7 +7851,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def VOD(self):
-        r"""关联vod资源详情	
+        r"""<p>关联vod资源详情   </p>
         :rtype: list of VODInstanceList
         """
         return self._VOD
@@ -7954,7 +7862,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def TKE(self):
-        r"""关联tke资源详情	
+        r"""<p>关联tke资源详情   </p>
         :rtype: list of TkeInstanceList
         """
         return self._TKE
@@ -7965,7 +7873,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def APIGATEWAY(self):
-        r"""关联apigateway资源详情	
+        r"""<p>关联apigateway资源详情    </p>
         :rtype: list of ApiGatewayInstanceList
         """
         return self._APIGATEWAY
@@ -7976,7 +7884,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def TCB(self):
-        r"""关联tcb资源详情	
+        r"""<p>关联tcb资源详情   </p>
         :rtype: list of TCBInstanceList
         """
         return self._TCB
@@ -7987,7 +7895,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def TEO(self):
-        r"""关联teo资源详情	
+        r"""<p>关联teo资源详情   </p>
         :rtype: list of TeoInstanceList
         """
         return self._TEO
@@ -7998,7 +7906,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def Status(self):
-        r"""关联云资源异步查询结果： 0表示查询中， 1表示查询成功。 2表示查询异常； 若状态为1，则查看BindResourceResult结果；若状态为2，则查看Error原因
+        r"""<p>关联云资源异步查询结果： 0表示查询中， 1表示查询成功。 2表示查询异常； 若状态为1，则查看BindResourceResult结果；若状态为2，则查看Error原因</p>
         :rtype: int
         """
         return self._Status
@@ -8009,7 +7917,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def CacheTime(self):
-        r"""当前结果缓存时间
+        r"""<p>当前结果缓存时间</p>
         :rtype: str
         """
         return self._CacheTime
@@ -8020,7 +7928,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def TSE(self):
-        r"""关联tse资源详情	
+        r"""<p>关联tse资源详情   </p>
         :rtype: list of TSEInstanceList
         """
         return self._TSE
@@ -8031,7 +7939,7 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
 
     @property
     def COS(self):
-        r"""关联的COS资源详情
+        r"""<p>关联的COS资源详情</p>
         :rtype: list of COSInstanceList
         """
         return self._COS
@@ -8039,6 +7947,50 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
     @COS.setter
     def COS(self, COS):
         self._COS = COS
+
+    @property
+    def TDMQ(self):
+        r"""<p>关联的TDMQ - Rabbit资源详情</p>
+        :rtype: list of TDMQInstanceList
+        """
+        return self._TDMQ
+
+    @TDMQ.setter
+    def TDMQ(self, TDMQ):
+        self._TDMQ = TDMQ
+
+    @property
+    def MQTT(self):
+        r"""<p>关联的MQTT资源详情</p>
+        :rtype: list of MQTTInstanceList
+        """
+        return self._MQTT
+
+    @MQTT.setter
+    def MQTT(self, MQTT):
+        self._MQTT = MQTT
+
+    @property
+    def GAAP(self):
+        r"""<p>关联的GAAP资源详情</p>
+        :rtype: list of GAAPInstanceList
+        """
+        return self._GAAP
+
+    @GAAP.setter
+    def GAAP(self, GAAP):
+        self._GAAP = GAAP
+
+    @property
+    def SCF(self):
+        r"""<p>关联的SCF资源详情</p>
+        :rtype: list of SCFInstanceList
+        """
+        return self._SCF
+
+    @SCF.setter
+    def SCF(self, SCF):
+        self._SCF = SCF
 
     @property
     def RequestId(self):
@@ -8127,6 +8079,30 @@ class DescribeCertificateBindResourceTaskDetailResponse(AbstractModel):
                 obj = COSInstanceList()
                 obj._deserialize(item)
                 self._COS.append(obj)
+        if params.get("TDMQ") is not None:
+            self._TDMQ = []
+            for item in params.get("TDMQ"):
+                obj = TDMQInstanceList()
+                obj._deserialize(item)
+                self._TDMQ.append(obj)
+        if params.get("MQTT") is not None:
+            self._MQTT = []
+            for item in params.get("MQTT"):
+                obj = MQTTInstanceList()
+                obj._deserialize(item)
+                self._MQTT.append(obj)
+        if params.get("GAAP") is not None:
+            self._GAAP = []
+            for item in params.get("GAAP"):
+                obj = GAAPInstanceList()
+                obj._deserialize(item)
+                self._GAAP.append(obj)
+        if params.get("SCF") is not None:
+            self._SCF = []
+            for item in params.get("SCF"):
+                obj = SCFInstanceList()
+                obj._deserialize(item)
+                self._SCF.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -8463,6 +8439,8 @@ null：用户上传证书（没有套餐类型），
         :type DomainType: int
         :param _CertType: 证书类型，DV（域名型）；OV（企业型）；EV（增强型）
         :type CertType: str
+        :param _UseCrossSignRoot: 是否使用交叉根
+        :type UseCrossSignRoot: bool
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -8510,6 +8488,7 @@ null：用户上传证书（没有套餐类型），
         self._CertChainInfo = None
         self._DomainType = None
         self._CertType = None
+        self._UseCrossSignRoot = None
         self._RequestId = None
 
     @property
@@ -9115,6 +9094,17 @@ null：用户上传证书（没有套餐类型），
         self._CertType = CertType
 
     @property
+    def UseCrossSignRoot(self):
+        r"""是否使用交叉根
+        :rtype: bool
+        """
+        return self._UseCrossSignRoot
+
+    @UseCrossSignRoot.setter
+    def UseCrossSignRoot(self, UseCrossSignRoot):
+        self._UseCrossSignRoot = UseCrossSignRoot
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -9194,6 +9184,7 @@ null：用户上传证书（没有套餐类型），
                 self._CertChainInfo.append(obj)
         self._DomainType = params.get("DomainType")
         self._CertType = params.get("CertType")
+        self._UseCrossSignRoot = params.get("UseCrossSignRoot")
         self._RequestId = params.get("RequestId")
 
 
@@ -10255,40 +10246,42 @@ class DescribeCertificatesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Offset: 分页偏移量，从0开始。 默认为0
+        :param _Offset: <p>分页偏移量，从0开始。 默认为0</p>
         :type Offset: int
-        :param _Limit: 每页数量，默认10。最大值1000，如超过1000按1000处理
+        :param _Limit: <p>每页数量，默认10。最大值1000，如超过1000按1000处理</p>
         :type Limit: int
-        :param _SearchKey: 搜索关键词，模糊匹配证书 ID、备注名称、证书域名
+        :param _SearchKey: <p>搜索关键词，模糊匹配证书 ID、备注名称、证书域名</p>
         :type SearchKey: str
-        :param _CertificateType: 证书类型：CA = 客户端证书，SVR = 服务器证书。
+        :param _CertificateType: <p>证书类型：CA = 客户端证书，SVR = 服务器证书。</p>
         :type CertificateType: str
-        :param _ProjectId: 项目 ID。
+        :param _ProjectId: <p>项目 ID。</p>
         :type ProjectId: int
-        :param _ExpirationSort: 默认按照证书申请时间降序； 若传排序则按到期时间排序：DESC = 证书到期时间降序， ASC = 证书到期时间升序。
+        :param _ExpirationSort: <p>默认按照证书申请时间降序； 若传排序则按到期时间排序：DESC = 证书到期时间降序， ASC = 证书到期时间升序。</p>
         :type ExpirationSort: str
-        :param _CertificateStatus: 证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 已添加DNS记录，5 = 企业证书，待提交，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 已退款。 15 = 证书迁移中
+        :param _CertificateStatus: <p>证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 已添加DNS记录，5 = 企业证书，待提交，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 已退款。 15 = 证书迁移中</p>
         :type CertificateStatus: list of int non-negative
-        :param _Deployable: 是否可部署，可选值：1 = 可部署，0 =  不可部署。
+        :param _Deployable: <p>是否可部署，可选值：1 = 可部署，0 =  不可部署。</p>
         :type Deployable: int
-        :param _Upload: 是否筛选上传托管的 1筛选，0不筛选
+        :param _Upload: <p>是否筛选上传托管的 1筛选，0不筛选</p>
         :type Upload: int
-        :param _Renew: 是否筛选可续期证书 1筛选 0不筛选
+        :param _Renew: <p>是否筛选可续期证书 1筛选 0不筛选</p>
         :type Renew: int
-        :param _FilterSource: 筛选来源， upload：上传证书， buy：腾讯云证书， 不传默认全部
+        :param _FilterSource: <p>筛选来源， upload：上传证书， buy：腾讯云证书， 不传默认全部</p>
         :type FilterSource: str
-        :param _IsSM: 是否筛选国密证书。1:筛选  0:不筛选
+        :param _IsSM: <p>是否筛选国密证书。1:筛选  0:不筛选</p>
         :type IsSM: int
-        :param _FilterExpiring: 筛选证书是否即将过期，传1是筛选，0不筛选
+        :param _FilterExpiring: <p>筛选证书是否即将过期，传1是筛选，0不筛选</p>
         :type FilterExpiring: int
-        :param _Hostable: 是否可托管，可选值：1 = 可托管，0 =  不可托管。
+        :param _Hostable: <p>是否可托管，可选值：1 = 可托管，0 =  不可托管。</p>
         :type Hostable: int
-        :param _Tags: 筛选指定标签的证书
+        :param _Tags: <p>筛选指定标签的证书</p>
         :type Tags: list of Tags
-        :param _IsPendingIssue: 是否筛选等待签发的证书，传1是筛选，0和null不筛选
+        :param _IsPendingIssue: <p>是否筛选等待签发的证书，传1是筛选，0和null不筛选</p>
         :type IsPendingIssue: int
-        :param _CertIds: 筛选指定证书ID的证书，只支持有权限的证书ID
+        :param _CertIds: <p>筛选指定证书ID的证书，只支持有权限的证书ID</p>
         :type CertIds: list of str
+        :param _ServiceId: <p>订阅服务ID</p>
+        :type ServiceId: str
         """
         self._Offset = None
         self._Limit = None
@@ -10307,10 +10300,11 @@ class DescribeCertificatesRequest(AbstractModel):
         self._Tags = None
         self._IsPendingIssue = None
         self._CertIds = None
+        self._ServiceId = None
 
     @property
     def Offset(self):
-        r"""分页偏移量，从0开始。 默认为0
+        r"""<p>分页偏移量，从0开始。 默认为0</p>
         :rtype: int
         """
         return self._Offset
@@ -10321,7 +10315,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""每页数量，默认10。最大值1000，如超过1000按1000处理
+        r"""<p>每页数量，默认10。最大值1000，如超过1000按1000处理</p>
         :rtype: int
         """
         return self._Limit
@@ -10332,7 +10326,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def SearchKey(self):
-        r"""搜索关键词，模糊匹配证书 ID、备注名称、证书域名
+        r"""<p>搜索关键词，模糊匹配证书 ID、备注名称、证书域名</p>
         :rtype: str
         """
         return self._SearchKey
@@ -10343,7 +10337,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def CertificateType(self):
-        r"""证书类型：CA = 客户端证书，SVR = 服务器证书。
+        r"""<p>证书类型：CA = 客户端证书，SVR = 服务器证书。</p>
         :rtype: str
         """
         return self._CertificateType
@@ -10354,7 +10348,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def ProjectId(self):
-        r"""项目 ID。
+        r"""<p>项目 ID。</p>
         :rtype: int
         """
         return self._ProjectId
@@ -10365,7 +10359,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def ExpirationSort(self):
-        r"""默认按照证书申请时间降序； 若传排序则按到期时间排序：DESC = 证书到期时间降序， ASC = 证书到期时间升序。
+        r"""<p>默认按照证书申请时间降序； 若传排序则按到期时间排序：DESC = 证书到期时间降序， ASC = 证书到期时间升序。</p>
         :rtype: str
         """
         return self._ExpirationSort
@@ -10376,7 +10370,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def CertificateStatus(self):
-        r"""证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 已添加DNS记录，5 = 企业证书，待提交，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 已退款。 15 = 证书迁移中
+        r"""<p>证书状态：0 = 审核中，1 = 已通过，2 = 审核失败，3 = 已过期，4 = 已添加DNS记录，5 = 企业证书，待提交，6 = 订单取消中，7 = 已取消，8 = 已提交资料， 待上传确认函，9 = 证书吊销中，10 = 已吊销，11 = 重颁发中，12 = 待上传吊销确认函，13 = 免费证书待提交资料。14 = 已退款。 15 = 证书迁移中</p>
         :rtype: list of int non-negative
         """
         return self._CertificateStatus
@@ -10387,7 +10381,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Deployable(self):
-        r"""是否可部署，可选值：1 = 可部署，0 =  不可部署。
+        r"""<p>是否可部署，可选值：1 = 可部署，0 =  不可部署。</p>
         :rtype: int
         """
         return self._Deployable
@@ -10398,7 +10392,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Upload(self):
-        r"""是否筛选上传托管的 1筛选，0不筛选
+        r"""<p>是否筛选上传托管的 1筛选，0不筛选</p>
         :rtype: int
         """
         return self._Upload
@@ -10409,7 +10403,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Renew(self):
-        r"""是否筛选可续期证书 1筛选 0不筛选
+        r"""<p>是否筛选可续期证书 1筛选 0不筛选</p>
         :rtype: int
         """
         return self._Renew
@@ -10420,7 +10414,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def FilterSource(self):
-        r"""筛选来源， upload：上传证书， buy：腾讯云证书， 不传默认全部
+        r"""<p>筛选来源， upload：上传证书， buy：腾讯云证书， 不传默认全部</p>
         :rtype: str
         """
         return self._FilterSource
@@ -10431,7 +10425,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def IsSM(self):
-        r"""是否筛选国密证书。1:筛选  0:不筛选
+        r"""<p>是否筛选国密证书。1:筛选  0:不筛选</p>
         :rtype: int
         """
         return self._IsSM
@@ -10442,7 +10436,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def FilterExpiring(self):
-        r"""筛选证书是否即将过期，传1是筛选，0不筛选
+        r"""<p>筛选证书是否即将过期，传1是筛选，0不筛选</p>
         :rtype: int
         """
         return self._FilterExpiring
@@ -10453,7 +10447,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Hostable(self):
-        r"""是否可托管，可选值：1 = 可托管，0 =  不可托管。
+        r"""<p>是否可托管，可选值：1 = 可托管，0 =  不可托管。</p>
         :rtype: int
         """
         return self._Hostable
@@ -10464,7 +10458,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def Tags(self):
-        r"""筛选指定标签的证书
+        r"""<p>筛选指定标签的证书</p>
         :rtype: list of Tags
         """
         return self._Tags
@@ -10475,7 +10469,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def IsPendingIssue(self):
-        r"""是否筛选等待签发的证书，传1是筛选，0和null不筛选
+        r"""<p>是否筛选等待签发的证书，传1是筛选，0和null不筛选</p>
         :rtype: int
         """
         return self._IsPendingIssue
@@ -10486,7 +10480,7 @@ class DescribeCertificatesRequest(AbstractModel):
 
     @property
     def CertIds(self):
-        r"""筛选指定证书ID的证书，只支持有权限的证书ID
+        r"""<p>筛选指定证书ID的证书，只支持有权限的证书ID</p>
         :rtype: list of str
         """
         return self._CertIds
@@ -10494,6 +10488,17 @@ class DescribeCertificatesRequest(AbstractModel):
     @CertIds.setter
     def CertIds(self, CertIds):
         self._CertIds = CertIds
+
+    @property
+    def ServiceId(self):
+        r"""<p>订阅服务ID</p>
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
 
 
     def _deserialize(self, params):
@@ -10519,6 +10524,7 @@ class DescribeCertificatesRequest(AbstractModel):
                 self._Tags.append(obj)
         self._IsPendingIssue = params.get("IsPendingIssue")
         self._CertIds = params.get("CertIds")
+        self._ServiceId = params.get("ServiceId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10536,9 +10542,9 @@ class DescribeCertificatesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TotalCount: 总数量。
+        :param _TotalCount: <p>总数量。</p>
         :type TotalCount: int
-        :param _Certificates: 列表。
+        :param _Certificates: <p>列表。</p>
         :type Certificates: list of Certificates
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -10549,7 +10555,7 @@ class DescribeCertificatesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""总数量。
+        r"""<p>总数量。</p>
         :rtype: int
         """
         return self._TotalCount
@@ -10560,7 +10566,7 @@ class DescribeCertificatesResponse(AbstractModel):
 
     @property
     def Certificates(self):
-        r"""列表。
+        r"""<p>列表。</p>
         :rtype: list of Certificates
         """
         return self._Certificates
@@ -15599,6 +15605,259 @@ class Filter(AbstractModel):
         
 
 
+class GAAPInstanceDetail(AbstractModel):
+    r"""GAAP实例详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _ListenerList: 监听器列表
+        :type ListenerList: list of GAAPListenerDetail
+        :param _InstanceName: 加速实例名称
+        :type InstanceName: str
+        """
+        self._InstanceId = None
+        self._ListenerList = None
+        self._InstanceName = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ListenerList(self):
+        r"""监听器列表
+        :rtype: list of GAAPListenerDetail
+        """
+        return self._ListenerList
+
+    @ListenerList.setter
+    def ListenerList(self, ListenerList):
+        self._ListenerList = ListenerList
+
+    @property
+    def InstanceName(self):
+        r"""加速实例名称
+        :rtype: str
+        """
+        return self._InstanceName
+
+    @InstanceName.setter
+    def InstanceName(self, InstanceName):
+        self._InstanceName = InstanceName
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        if params.get("ListenerList") is not None:
+            self._ListenerList = []
+            for item in params.get("ListenerList"):
+                obj = GAAPListenerDetail()
+                obj._deserialize(item)
+                self._ListenerList.append(obj)
+        self._InstanceName = params.get("InstanceName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GAAPInstanceList(AbstractModel):
+    r"""GAAP实例详情 - 异步关联云资源数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceList: 实例详情
+        :type InstanceList: list of GAAPInstanceDetail
+        :param _TotalCount: 总数
+        :type TotalCount: int
+        :param _Error: 错误信息	
+        :type Error: str
+        """
+        self._InstanceList = None
+        self._TotalCount = None
+        self._Error = None
+
+    @property
+    def InstanceList(self):
+        r"""实例详情
+        :rtype: list of GAAPInstanceDetail
+        """
+        return self._InstanceList
+
+    @InstanceList.setter
+    def InstanceList(self, InstanceList):
+        self._InstanceList = InstanceList
+
+    @property
+    def TotalCount(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Error(self):
+        r"""错误信息	
+        :rtype: str
+        """
+        return self._Error
+
+    @Error.setter
+    def Error(self, Error):
+        self._Error = Error
+
+
+    def _deserialize(self, params):
+        if params.get("InstanceList") is not None:
+            self._InstanceList = []
+            for item in params.get("InstanceList"):
+                obj = GAAPInstanceDetail()
+                obj._deserialize(item)
+                self._InstanceList.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._Error = params.get("Error")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GAAPListenerDetail(AbstractModel):
+    r"""GAAP监听器详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ListenerStatus: 监听器状态
+        :type ListenerStatus: str
+        :param _ListenerId: 监听器ID
+        :type ListenerId: str
+        :param _ListenerName: 监听器名称
+        :type ListenerName: str
+        :param _NoMatchDomains: 不匹配的域名列表
+        :type NoMatchDomains: list of str
+        :param _CertIdList: 实例绑定的证书列表	
+        :type CertIdList: list of str
+        :param _Protocol: 监听器协议
+        :type Protocol: str
+        """
+        self._ListenerStatus = None
+        self._ListenerId = None
+        self._ListenerName = None
+        self._NoMatchDomains = None
+        self._CertIdList = None
+        self._Protocol = None
+
+    @property
+    def ListenerStatus(self):
+        r"""监听器状态
+        :rtype: str
+        """
+        return self._ListenerStatus
+
+    @ListenerStatus.setter
+    def ListenerStatus(self, ListenerStatus):
+        self._ListenerStatus = ListenerStatus
+
+    @property
+    def ListenerId(self):
+        r"""监听器ID
+        :rtype: str
+        """
+        return self._ListenerId
+
+    @ListenerId.setter
+    def ListenerId(self, ListenerId):
+        self._ListenerId = ListenerId
+
+    @property
+    def ListenerName(self):
+        r"""监听器名称
+        :rtype: str
+        """
+        return self._ListenerName
+
+    @ListenerName.setter
+    def ListenerName(self, ListenerName):
+        self._ListenerName = ListenerName
+
+    @property
+    def NoMatchDomains(self):
+        r"""不匹配的域名列表
+        :rtype: list of str
+        """
+        return self._NoMatchDomains
+
+    @NoMatchDomains.setter
+    def NoMatchDomains(self, NoMatchDomains):
+        self._NoMatchDomains = NoMatchDomains
+
+    @property
+    def CertIdList(self):
+        r"""实例绑定的证书列表	
+        :rtype: list of str
+        """
+        return self._CertIdList
+
+    @CertIdList.setter
+    def CertIdList(self, CertIdList):
+        self._CertIdList = CertIdList
+
+    @property
+    def Protocol(self):
+        r"""监听器协议
+        :rtype: str
+        """
+        return self._Protocol
+
+    @Protocol.setter
+    def Protocol(self, Protocol):
+        self._Protocol = Protocol
+
+
+    def _deserialize(self, params):
+        self._ListenerStatus = params.get("ListenerStatus")
+        self._ListenerId = params.get("ListenerId")
+        self._ListenerName = params.get("ListenerName")
+        self._NoMatchDomains = params.get("NoMatchDomains")
+        self._CertIdList = params.get("CertIdList")
+        self._Protocol = params.get("Protocol")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class GatewayCertificate(AbstractModel):
     r"""云原生网关证书信息
 
@@ -15993,6 +16252,203 @@ class LiveInstanceList(AbstractModel):
                 obj = LiveInstanceDetail()
                 obj._deserialize(item)
                 self._InstanceList.append(obj)
+        self._Error = params.get("Error")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MQTTInstanceDetail(AbstractModel):
+    r"""MQTT实例详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _InstanceName: 实例名称
+        :type InstanceName: str
+        :param _InstanceStatus: 实例状态
+        :type InstanceStatus: str
+        :param _NoMatchDomains: 不匹配的域名列表
+        :type NoMatchDomains: list of str
+        :param _ServerCertIdList: 服务端证书列表
+        :type ServerCertIdList: list of str
+        :param _CaCertIdList: ca证书列表
+        :type CaCertIdList: list of str
+        """
+        self._InstanceId = None
+        self._InstanceName = None
+        self._InstanceStatus = None
+        self._NoMatchDomains = None
+        self._ServerCertIdList = None
+        self._CaCertIdList = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def InstanceName(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceName
+
+    @InstanceName.setter
+    def InstanceName(self, InstanceName):
+        self._InstanceName = InstanceName
+
+    @property
+    def InstanceStatus(self):
+        r"""实例状态
+        :rtype: str
+        """
+        return self._InstanceStatus
+
+    @InstanceStatus.setter
+    def InstanceStatus(self, InstanceStatus):
+        self._InstanceStatus = InstanceStatus
+
+    @property
+    def NoMatchDomains(self):
+        r"""不匹配的域名列表
+        :rtype: list of str
+        """
+        return self._NoMatchDomains
+
+    @NoMatchDomains.setter
+    def NoMatchDomains(self, NoMatchDomains):
+        self._NoMatchDomains = NoMatchDomains
+
+    @property
+    def ServerCertIdList(self):
+        r"""服务端证书列表
+        :rtype: list of str
+        """
+        return self._ServerCertIdList
+
+    @ServerCertIdList.setter
+    def ServerCertIdList(self, ServerCertIdList):
+        self._ServerCertIdList = ServerCertIdList
+
+    @property
+    def CaCertIdList(self):
+        r"""ca证书列表
+        :rtype: list of str
+        """
+        return self._CaCertIdList
+
+    @CaCertIdList.setter
+    def CaCertIdList(self, CaCertIdList):
+        self._CaCertIdList = CaCertIdList
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._InstanceName = params.get("InstanceName")
+        self._InstanceStatus = params.get("InstanceStatus")
+        self._NoMatchDomains = params.get("NoMatchDomains")
+        self._ServerCertIdList = params.get("ServerCertIdList")
+        self._CaCertIdList = params.get("CaCertIdList")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MQTTInstanceList(AbstractModel):
+    r"""MQTT实例详情 - 异步关联云资源数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 地域
+        :type Region: str
+        :param _InstanceList: 实例详情
+        :type InstanceList: list of MQTTInstanceDetail
+        :param _TotalCount: 地域下总数
+        :type TotalCount: int
+        :param _Error: 错误信息
+        :type Error: str
+        """
+        self._Region = None
+        self._InstanceList = None
+        self._TotalCount = None
+        self._Error = None
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def InstanceList(self):
+        r"""实例详情
+        :rtype: list of MQTTInstanceDetail
+        """
+        return self._InstanceList
+
+    @InstanceList.setter
+    def InstanceList(self, InstanceList):
+        self._InstanceList = InstanceList
+
+    @property
+    def TotalCount(self):
+        r"""地域下总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Error(self):
+        r"""错误信息
+        :rtype: str
+        """
+        return self._Error
+
+    @Error.setter
+    def Error(self, Error):
+        self._Error = Error
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        if params.get("InstanceList") is not None:
+            self._InstanceList = []
+            for item in params.get("InstanceList"):
+                obj = MQTTInstanceDetail()
+                obj._deserialize(item)
+                self._InstanceList.append(obj)
+        self._TotalCount = params.get("TotalCount")
         self._Error = params.get("Error")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -17560,6 +18016,8 @@ class ReplaceCertificateRequest(AbstractModel):
         :type CertCSRKeyParameter: str
         :param _SignAlgo: 签名算法
         :type SignAlgo: str
+        :param _UseCrossSignRoot: 是否使用交叉根证书，默认为true
+        :type UseCrossSignRoot: bool
         """
         self._CertificateId = None
         self._ValidType = None
@@ -17570,6 +18028,7 @@ class ReplaceCertificateRequest(AbstractModel):
         self._CertCSREncryptAlgo = None
         self._CertCSRKeyParameter = None
         self._SignAlgo = None
+        self._UseCrossSignRoot = None
 
     @property
     def CertificateId(self):
@@ -17671,6 +18130,17 @@ class ReplaceCertificateRequest(AbstractModel):
     def SignAlgo(self, SignAlgo):
         self._SignAlgo = SignAlgo
 
+    @property
+    def UseCrossSignRoot(self):
+        r"""是否使用交叉根证书，默认为true
+        :rtype: bool
+        """
+        return self._UseCrossSignRoot
+
+    @UseCrossSignRoot.setter
+    def UseCrossSignRoot(self, UseCrossSignRoot):
+        self._UseCrossSignRoot = UseCrossSignRoot
+
 
     def _deserialize(self, params):
         self._CertificateId = params.get("CertificateId")
@@ -17682,6 +18152,7 @@ class ReplaceCertificateRequest(AbstractModel):
         self._CertCSREncryptAlgo = params.get("CertCSREncryptAlgo")
         self._CertCSRKeyParameter = params.get("CertCSRKeyParameter")
         self._SignAlgo = params.get("SignAlgo")
+        self._UseCrossSignRoot = params.get("UseCrossSignRoot")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18028,6 +18499,173 @@ class RootCertificates(AbstractModel):
         self._Sign = params.get("Sign")
         self._Encrypt = params.get("Encrypt")
         self._Standard = params.get("Standard")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SCFInstanceDetail(AbstractModel):
+    r"""SCF实例详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CertificateId: 证书ID
+        :type CertificateId: str
+        :param _Protocol: 协议
+        :type Protocol: str
+        :param _Domain: 域名
+        :type Domain: str
+        :param _Region: 地域
+        :type Region: str
+        """
+        self._CertificateId = None
+        self._Protocol = None
+        self._Domain = None
+        self._Region = None
+
+    @property
+    def CertificateId(self):
+        r"""证书ID
+        :rtype: str
+        """
+        return self._CertificateId
+
+    @CertificateId.setter
+    def CertificateId(self, CertificateId):
+        self._CertificateId = CertificateId
+
+    @property
+    def Protocol(self):
+        r"""协议
+        :rtype: str
+        """
+        return self._Protocol
+
+    @Protocol.setter
+    def Protocol(self, Protocol):
+        self._Protocol = Protocol
+
+    @property
+    def Domain(self):
+        r"""域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+
+    def _deserialize(self, params):
+        self._CertificateId = params.get("CertificateId")
+        self._Protocol = params.get("Protocol")
+        self._Domain = params.get("Domain")
+        self._Region = params.get("Region")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SCFInstanceList(AbstractModel):
+    r"""SCF实例详情 - 异步关联云资源数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: <p>地域</p>
+        :type Region: str
+        :param _InstanceList: <p>SCF实例详情</p>
+        :type InstanceList: list of SCFInstanceDetail
+        :param _Error: <p>错误信息</p>
+        :type Error: str
+        :param _TotalCount: <p>地域下总数</p>
+        :type TotalCount: int
+        """
+        self._Region = None
+        self._InstanceList = None
+        self._Error = None
+        self._TotalCount = None
+
+    @property
+    def Region(self):
+        r"""<p>地域</p>
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def InstanceList(self):
+        r"""<p>SCF实例详情</p>
+        :rtype: list of SCFInstanceDetail
+        """
+        return self._InstanceList
+
+    @InstanceList.setter
+    def InstanceList(self, InstanceList):
+        self._InstanceList = InstanceList
+
+    @property
+    def Error(self):
+        r"""<p>错误信息</p>
+        :rtype: str
+        """
+        return self._Error
+
+    @Error.setter
+    def Error(self, Error):
+        self._Error = Error
+
+    @property
+    def TotalCount(self):
+        r"""<p>地域下总数</p>
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        if params.get("InstanceList") is not None:
+            self._InstanceList = []
+            for item in params.get("InstanceList"):
+                obj = SCFInstanceDetail()
+                obj._deserialize(item)
+                self._InstanceList.append(obj)
+        self._Error = params.get("Error")
+        self._TotalCount = params.get("TotalCount")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19813,6 +20451,203 @@ class TCBInstanceList(AbstractModel):
         
 
 
+class TDMQInstanceDetail(AbstractModel):
+    r"""TDMQ - Rabbit实例详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _InstanceName: 实例名称
+        :type InstanceName: str
+        :param _InstanceStatus: 实例状态
+        :type InstanceStatus: str
+        :param _CertId: 服务端证书ID
+        :type CertId: str
+        :param _CaCertId: CA证书ID
+        :type CaCertId: str
+        :param _NoMatchDomains: 不匹配的域名列表
+        :type NoMatchDomains: list of str
+        """
+        self._InstanceId = None
+        self._InstanceName = None
+        self._InstanceStatus = None
+        self._CertId = None
+        self._CaCertId = None
+        self._NoMatchDomains = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def InstanceName(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceName
+
+    @InstanceName.setter
+    def InstanceName(self, InstanceName):
+        self._InstanceName = InstanceName
+
+    @property
+    def InstanceStatus(self):
+        r"""实例状态
+        :rtype: str
+        """
+        return self._InstanceStatus
+
+    @InstanceStatus.setter
+    def InstanceStatus(self, InstanceStatus):
+        self._InstanceStatus = InstanceStatus
+
+    @property
+    def CertId(self):
+        r"""服务端证书ID
+        :rtype: str
+        """
+        return self._CertId
+
+    @CertId.setter
+    def CertId(self, CertId):
+        self._CertId = CertId
+
+    @property
+    def CaCertId(self):
+        r"""CA证书ID
+        :rtype: str
+        """
+        return self._CaCertId
+
+    @CaCertId.setter
+    def CaCertId(self, CaCertId):
+        self._CaCertId = CaCertId
+
+    @property
+    def NoMatchDomains(self):
+        r"""不匹配的域名列表
+        :rtype: list of str
+        """
+        return self._NoMatchDomains
+
+    @NoMatchDomains.setter
+    def NoMatchDomains(self, NoMatchDomains):
+        self._NoMatchDomains = NoMatchDomains
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._InstanceName = params.get("InstanceName")
+        self._InstanceStatus = params.get("InstanceStatus")
+        self._CertId = params.get("CertId")
+        self._CaCertId = params.get("CaCertId")
+        self._NoMatchDomains = params.get("NoMatchDomains")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TDMQInstanceList(AbstractModel):
+    r"""TDMQ - Rabbit实例详情 - 异步关联云资源数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 地域
+        :type Region: str
+        :param _InstanceList: 实例详情
+        :type InstanceList: list of TDMQInstanceDetail
+        :param _TotalCount: 地域下总数
+        :type TotalCount: int
+        :param _Error: 错误信息
+        :type Error: str
+        """
+        self._Region = None
+        self._InstanceList = None
+        self._TotalCount = None
+        self._Error = None
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def InstanceList(self):
+        r"""实例详情
+        :rtype: list of TDMQInstanceDetail
+        """
+        return self._InstanceList
+
+    @InstanceList.setter
+    def InstanceList(self, InstanceList):
+        self._InstanceList = InstanceList
+
+    @property
+    def TotalCount(self):
+        r"""地域下总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Error(self):
+        r"""错误信息
+        :rtype: str
+        """
+        return self._Error
+
+    @Error.setter
+    def Error(self, Error):
+        self._Error = Error
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        if params.get("InstanceList") is not None:
+            self._InstanceList = []
+            for item in params.get("InstanceList"):
+                obj = TDMQInstanceDetail()
+                obj._deserialize(item)
+                self._InstanceList.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._Error = params.get("Error")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class TSEInstanceDetail(AbstractModel):
     r"""tse实例详情
 
@@ -20624,7 +21459,7 @@ class UpdateCertificateInstanceRequest(AbstractModel):
         :type CertificateId: str
         :param _Regions: 需要部署的地域列表（废弃）
         :type Regions: list of str
-        :param _ResourceTypesRegions: 云资源需要部署的地域列表，支持地域的云资源类型必传，取值：clb、tke、apigateway、waf、tcb、tse、cos
+        :param _ResourceTypesRegions: 云资源需要部署的地域列表，支持地域的云资源类型必传，取值：clb、tke、apigateway、waf、tcb、tse、cos、mqtt
         :type ResourceTypesRegions: list of ResourceTypeRegions
         :param _CertificatePublicKey: 公钥证书， 若上传公钥证书，那么私钥证书必传。  则CertificateId不用传
         :type CertificatePublicKey: str
@@ -20704,7 +21539,7 @@ class UpdateCertificateInstanceRequest(AbstractModel):
 
     @property
     def ResourceTypesRegions(self):
-        r"""云资源需要部署的地域列表，支持地域的云资源类型必传，取值：clb、tke、apigateway、waf、tcb、tse、cos
+        r"""云资源需要部署的地域列表，支持地域的云资源类型必传，取值：clb、tke、apigateway、waf、tcb、tse、cos、mqtt
         :rtype: list of ResourceTypeRegions
         """
         return self._ResourceTypesRegions
@@ -21151,6 +21986,10 @@ class UpdateRecordDetail(AbstractModel):
         :type Algorithm: str
         :param _OldAlgorithm: 旧证书加密算法
         :type OldAlgorithm: str
+        :param _InstanceStatus: 实例状态，不同云产品状态不一样	
+        :type InstanceStatus: str
+        :param _ListenerStatus: 监听器状态
+        :type ListenerStatus: str
         """
         self._Id = None
         self._CertId = None
@@ -21177,6 +22016,8 @@ class UpdateRecordDetail(AbstractModel):
         self._Url = None
         self._Algorithm = None
         self._OldAlgorithm = None
+        self._InstanceStatus = None
+        self._ListenerStatus = None
 
     @property
     def Id(self):
@@ -21485,6 +22326,28 @@ class UpdateRecordDetail(AbstractModel):
     def OldAlgorithm(self, OldAlgorithm):
         self._OldAlgorithm = OldAlgorithm
 
+    @property
+    def InstanceStatus(self):
+        r"""实例状态，不同云产品状态不一样	
+        :rtype: str
+        """
+        return self._InstanceStatus
+
+    @InstanceStatus.setter
+    def InstanceStatus(self, InstanceStatus):
+        self._InstanceStatus = InstanceStatus
+
+    @property
+    def ListenerStatus(self):
+        r"""监听器状态
+        :rtype: str
+        """
+        return self._ListenerStatus
+
+    @ListenerStatus.setter
+    def ListenerStatus(self, ListenerStatus):
+        self._ListenerStatus = ListenerStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -21512,6 +22375,8 @@ class UpdateRecordDetail(AbstractModel):
         self._Url = params.get("Url")
         self._Algorithm = params.get("Algorithm")
         self._OldAlgorithm = params.get("OldAlgorithm")
+        self._InstanceStatus = params.get("InstanceStatus")
+        self._ListenerStatus = params.get("ListenerStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

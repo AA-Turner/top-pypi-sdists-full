@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-auditlog
-Version: 3.2.1
+Version: 3.4.1
 Summary: Audit log app for Django
 Home-page: https://github.com/jazzband/django-auditlog
 Author: Jan-Jelle Kester
@@ -9,7 +9,6 @@ Project-URL: Documentation, https://django-auditlog.readthedocs.io
 Project-URL: Source, https://github.com/jazzband/django-auditlog
 Project-URL: Tracker, https://github.com/jazzband/django-auditlog/issues
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,7 +19,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django>=4.2

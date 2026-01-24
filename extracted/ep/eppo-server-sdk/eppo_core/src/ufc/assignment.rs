@@ -348,25 +348,45 @@ impl AssignmentValue {
 mod pyo3_impl {
     use pyo3::prelude::*;
 
-    use crate::pyo3::TryToPyObject;
-
     use super::*;
 
-    impl TryToPyObject for AssignmentValue {
-        fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
-            let obj = match self {
-                AssignmentValue::String(s) => s.to_object(py),
-                AssignmentValue::Integer(i) => i.to_object(py),
-                AssignmentValue::Numeric(n) => n.to_object(py),
-                AssignmentValue::Boolean(b) => b.to_object(py),
-                AssignmentValue::Json { raw: _, parsed } => {
-                    match serde_pyobject::to_pyobject(py, parsed) {
-                        Ok(it) => it.unbind(),
-                        Err(err) => return Err(err.0),
-                    }
+    impl<'py> IntoPyObject<'py> for &AssignmentValue {
+        type Target = PyAny;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            match self {
+                AssignmentValue::String(s) => {
+                    let Ok(obj) = s.into_pyobject(py);
+                    Ok(obj.into_any())
                 }
-            };
-            Ok(obj)
+                AssignmentValue::Integer(i) => {
+                    let Ok(obj) = i.into_pyobject(py);
+                    Ok(obj.into_any())
+                }
+                AssignmentValue::Numeric(n) => {
+                    let Ok(obj) = n.into_pyobject(py);
+                    Ok(obj.into_any())
+                }
+                AssignmentValue::Boolean(b) => {
+                    let Ok(obj) = b.into_pyobject(py);
+                    Ok(obj.as_any().clone())
+                }
+                AssignmentValue::Json { raw: _, parsed } => {
+                    crate::pyo3::serde_to_pyobject(parsed, py)
+                }
+            }
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for AssignmentValue {
+        type Target = PyAny;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            (&self).into_pyobject(py)
         }
     }
 }
@@ -385,8 +405,10 @@ mod magnus_impl {
                 AssignmentValue::Integer(i) => i.into_value_with(handle),
                 AssignmentValue::Numeric(n) => n.into_value_with(handle),
                 AssignmentValue::Boolean(b) => b.into_value_with(handle),
-                AssignmentValue::Json { raw: _, parsed } => serde_magnus::serialize(&parsed)
-                    .expect("JSON value should always be serializable to Ruby"),
+                AssignmentValue::Json { raw: _, parsed } => {
+                    serde_magnus::serialize(handle, &parsed)
+                        .expect("JSON value should always be serializable to Ruby")
+                }
             }
         }
     }
@@ -397,7 +419,7 @@ mod magnus_impl {
             let _ = hash.aset(handle.sym_new("value"), self.value);
             let _ = hash.aset(
                 handle.sym_new("event"),
-                serde_magnus::serialize::<_, magnus::Value>(&self.event)
+                serde_magnus::serialize::<_, magnus::Value>(handle, &self.event)
                     .expect("AssignmentEvent should always be serializable to Ruby"),
             );
             hash.as_value()

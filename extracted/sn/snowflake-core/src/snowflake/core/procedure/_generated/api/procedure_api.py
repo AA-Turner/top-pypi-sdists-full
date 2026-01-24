@@ -491,7 +491,7 @@ class ProcedureApi:
         # process the body parameter
         _body_params = None
 
-        if _params["procedure"]:
+        if _params["procedure"] is not None:
             _body_params = _params["procedure"]
 
         # set the HTTP header `Accept`
@@ -784,7 +784,7 @@ class ProcedureApi:
         # process the body parameter
         _body_params = None
 
-        if _params["call_argument_list"]:
+        if _params["call_argument_list"] is not None:
             _body_params = _params["call_argument_list"]
 
         # set the HTTP header `Accept`

@@ -71,7 +71,7 @@ IPv4 Route CIDR Searching:
     )
     args = shared_args(arg_parser, "ipf_route_search")
 
-    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth)
+    ipf = IPFClient(snapshot_id=args.snapshot, base_url=args.base_url, auth=args.auth, verify=(not args.insecure))
     ipf._client.headers["user-agent"] += "; ipf_route_search"
     rs = RouteTableSearch(client=ipf)
     print_results(rs.search(args.address, args.operator, args.next_hop, not args.default_route), args)

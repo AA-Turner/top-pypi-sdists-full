@@ -27,6 +27,7 @@ Job       AbstractSpecificJob
 
 
 """
+
 from __future__ import annotations
 
 import csv
@@ -125,99 +126,82 @@ class AbstractBatchJob(AbstractSpecificJob):
 
     """
 
-    _s3_settings = t.Dict(
-        {
-            t.Key("url"): String(),
-            t.Key("credential_id", optional=True): String(),
-            t.Key("endpoint_url", optional=True): String(),
-            t.Key("format", optional=True): String(),
-        }
-    )
+    _s3_settings = t.Dict({
+        t.Key("url"): String(),
+        t.Key("credential_id", optional=True): String(),
+        t.Key("endpoint_url", optional=True): String(),
+        t.Key("format", optional=True): String(),
+    })
 
-    _gcp_settings = t.Dict(
-        {
-            t.Key("url"): String(),
-            t.Key("credential_id", optional=True): String(),
-            t.Key("format", optional=True): String(),
-        }
-    )
+    _gcp_settings = t.Dict({
+        t.Key("url"): String(),
+        t.Key("credential_id", optional=True): String(),
+        t.Key("format", optional=True): String(),
+    })
 
-    _azure_settings = t.Dict(
-        {
-            t.Key("url"): String(),
-            t.Key("credential_id", optional=True): String(),
-            t.Key("format", optional=True): String(),
-        }
-    )
+    _azure_settings = t.Dict({
+        t.Key("url"): String(),
+        t.Key("credential_id", optional=True): String(),
+        t.Key("format", optional=True): String(),
+    })
 
-    _dataset_intake_settings = t.Dict(
-        {t.Key("dataset"): t.Type(Dataset), t.Key("dataset_version_id", optional=True): String()}
-    )
+    _dataset_intake_settings = t.Dict({
+        t.Key("dataset"): t.Type(Dataset),
+        t.Key("dataset_version_id", optional=True): String(),
+    })
 
-    _dss_intake_settings = t.Dict(
-        {
-            t.Key("project_id"): String(),
-            t.Key("dataset_id", optional=True): String(),
-            t.Key("partition", optional=True): t.Enum(
-                TrainingDataSubsets.HOLDOUT,
-                TrainingDataSubsets.VALIDATION,
-                TrainingDataSubsets.ALL_BACKTESTS,
-            ),
-        }
-    )
+    _dss_intake_settings = t.Dict({
+        t.Key("project_id"): String(),
+        t.Key("dataset_id", optional=True): String(),
+        t.Key("partition", optional=True): t.Enum(
+            TrainingDataSubsets.HOLDOUT,
+            TrainingDataSubsets.VALIDATION,
+            TrainingDataSubsets.ALL_BACKTESTS,
+        ),
+    })
 
-    _jdbc_intake_settings = t.Dict(
-        {
-            t.Key("data_store_id"): String(),
-            t.Key("query", optional=True): String(),
-            t.Key("table", optional=True): String(),
-            t.Key("schema", optional=True): String(),
-            t.Key("catalog", optional=True): String(),
-            t.Key("fetch_size", optional=True): Int(),
-            t.Key("credential_id", optional=True): String(),
-        }
-    )
+    _jdbc_intake_settings = t.Dict({
+        t.Key("data_store_id"): String(),
+        t.Key("query", optional=True): String(),
+        t.Key("table", optional=True): String(),
+        t.Key("schema", optional=True): String(),
+        t.Key("catalog", optional=True): String(),
+        t.Key("fetch_size", optional=True): Int(),
+        t.Key("credential_id", optional=True): String(),
+    })
 
-    _jdbc_output_settings = t.Dict(
-        {
-            t.Key("data_store_id"): String(),
-            t.Key("table"): String(),
-            t.Key("schema", optional=True): String(),
-            t.Key("catalog", optional=True): String(),
-            t.Key("statement_type"): t.Enum(
-                AVAILABLE_STATEMENT_TYPES.INSERT,
-                AVAILABLE_STATEMENT_TYPES.UPDATE,
-                AVAILABLE_STATEMENT_TYPES.INSERT_UPDATE,
-                AVAILABLE_STATEMENT_TYPES.CREATE_TABLE,
-            ),
-            t.Key("update_columns", optional=True): t.List(String),
-            t.Key("where_columns", optional=True): t.List(String),
-            t.Key("credential_id", optional=True): String(),
-            t.Key("create_table_if_not_exists", optional=True): t.Bool(),
-        }
-    )
+    _jdbc_output_settings = t.Dict({
+        t.Key("data_store_id"): String(),
+        t.Key("table"): String(),
+        t.Key("schema", optional=True): String(),
+        t.Key("catalog", optional=True): String(),
+        t.Key("statement_type"): t.Enum(
+            AVAILABLE_STATEMENT_TYPES.INSERT,
+            AVAILABLE_STATEMENT_TYPES.UPDATE,
+            AVAILABLE_STATEMENT_TYPES.INSERT_UPDATE,
+            AVAILABLE_STATEMENT_TYPES.CREATE_TABLE,
+        ),
+        t.Key("update_columns", optional=True): t.List(String),
+        t.Key("where_columns", optional=True): t.List(String),
+        t.Key("credential_id", optional=True): String(),
+        t.Key("create_table_if_not_exists", optional=True): t.Bool(),
+    })
 
-    _csv_settings = t.Dict(
-        {
-            t.Key("delimiter", optional=True): t.Atom("tab") | String(min_length=1, max_length=1),
-            t.Key("quotechar", optional=True): String(),
-            t.Key("encoding", optional=True): String(),
-        }
-    )
+    _csv_settings = t.Dict({
+        t.Key("delimiter", optional=True): t.Atom("tab") | String(min_length=1, max_length=1),
+        t.Key("quotechar", optional=True): String(),
+        t.Key("encoding", optional=True): String(),
+    })
 
-    _datasphere_settings = t.Dict(
-        {
-            t.Key("data_store_id"): String(),
-            t.Key("table", optional=True): String(),
-            t.Key("schema", optional=True): String(),
-            t.Key("credential_id", optional=True): String(),
-        }
-    )
+    _datasphere_settings = t.Dict({
+        t.Key("data_store_id"): String(),
+        t.Key("table", optional=True): String(),
+        t.Key("schema", optional=True): String(),
+        t.Key("credential_id", optional=True): String(),
+    })
 
     @classmethod
-    def validate_intake_settings(
-        cls, input_intake_settings: Optional[IntakeSettings] = None
-    ) -> IntakeSettings:
+    def validate_intake_settings(cls, input_intake_settings: Optional[IntakeSettings] = None) -> IntakeSettings:
         """Validates intake settings based on type run specific trafaret check
         Creates a copy in order to avoid mutating input data
 
@@ -232,11 +216,7 @@ class AbstractBatchJob(AbstractSpecificJob):
 
         # Validate the intake settings
         if intake_settings.get("type") not in IntakeAdapters:
-            raise ValueError(
-                "Unsupported type parameter for intake_settings: {}".format(
-                    intake_settings.get("type")
-                )
-            )
+            raise ValueError("Unsupported type parameter for intake_settings: {}".format(intake_settings.get("type")))
 
         elif intake_settings["type"] == IntakeAdapters.LOCAL_FILE:
             # This intake option requires us to upload the source
@@ -295,9 +275,7 @@ class AbstractBatchJob(AbstractSpecificJob):
         return intake_settings
 
     @classmethod
-    def validate_output_settings(
-        cls, input_output_settings: Optional[OutputSettings] = None
-    ) -> OutputSettings:
+    def validate_output_settings(cls, input_output_settings: Optional[OutputSettings] = None) -> OutputSettings:
         """Validates output settings based on type run specific trafaret check
         Creates a copy in order to avoid mutating input data
 
@@ -312,11 +290,7 @@ class AbstractBatchJob(AbstractSpecificJob):
         # Validate the output settings
 
         if output_settings.get("type") not in OutputAdapters:
-            raise ValueError(
-                "Unsupported type parameter for output_settings: {}".format(
-                    output_settings.get("type")
-                )
-            )
+            raise ValueError("Unsupported type parameter for output_settings: {}".format(output_settings.get("type")))
         elif output_settings["type"] == OutputAdapters.LOCAL_FILE:
             output_settings["path"] = output_settings.get("path")
 
@@ -527,9 +501,7 @@ class AbstractBatchJob(AbstractSpecificJob):
 
         return batch_job._safe_data
 
-    def _download(
-        self, fileobj: typing.IO[Any], timeout: int = 120, read_timeout: int = 660
-    ) -> None:
+    def _download(self, fileobj: typing.IO[Any], timeout: int = 120, read_timeout: int = 660) -> None:
         """Downloads the CSV result of a batch job"""
 
         status = self._wait_for_download(timeout=timeout)
@@ -565,9 +537,7 @@ class AbstractBatchJob(AbstractSpecificJob):
                 )
 
             if status["status"] in ("ABORTED", "FAILED"):
-                raise RuntimeError(
-                    "Job {} was aborted: {}".format(self.id, status["status_details"])
-                )
+                raise RuntimeError("Job {} was aborted: {}".format(self.id, status["status_details"]))
 
             if "download" in status["links"]:
                 break

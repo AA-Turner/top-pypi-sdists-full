@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xlwings
-Version: 0.33.15
+Version: 0.33.20
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -15,9 +15,6 @@ Classifier: License :: OSI Approved :: BSD License
 Requires-Dist: pywin32>=224 ; platform_system == 'Windows'
 Requires-Dist: psutil>=2.0.0 ; platform_system == 'Darwin'
 Requires-Dist: appscript>=1.0.1 ; platform_system == 'Darwin'
-Requires-Dist: jinja2 ; extra == 'reports'
-Requires-Dist: pdfrw ; extra == 'reports'
-Requires-Dist: mistune ; extra == 'reports'
 Requires-Dist: black ; extra == 'all'
 Requires-Dist: isort ; extra == 'all'
 Requires-Dist: jinja2 ; extra == 'all'
@@ -29,9 +26,12 @@ Requires-Dist: requests ; extra == 'all'
 Requires-Dist: pdfrw ; extra == 'all'
 Requires-Dist: pytest ; extra == 'all'
 Requires-Dist: mistune ; extra == 'all'
+Requires-Dist: jinja2 ; extra == 'reports'
+Requires-Dist: pdfrw ; extra == 'reports'
+Requires-Dist: mistune ; extra == 'reports'
 Requires-Dist: watchgod ; extra == 'vba-edit'
-Provides-Extra: reports
 Provides-Extra: all
+Provides-Extra: reports
 Provides-Extra: vba_edit
 License-File: LICENSE.txt
 License-File: LICENSE_PRO.txt
@@ -41,11 +41,11 @@ Author-email: Felix Zumstein <felix.zumstein@zoomeranalytics.com>
 License: BSD 3-clause
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
-Project-URL: Homepage, https://www.xlwings.org
+Project-URL: Changelog, https://docs.xlwings.org/en/stable/whatsnew.html
 Project-URL: Documentation, https://docs.xlwings.org
 Project-URL: Funding, https://www.xlwings.org/pricing
+Project-URL: Homepage, https://www.xlwings.org
 Project-URL: Source, https://github.com/xlwings/xlwings
-Project-URL: Changelog, https://docs.xlwings.org/en/stable/whatsnew.html
 
 xlwings - Make Excel fly with Python!
 =====================================
@@ -118,7 +118,6 @@ Links
 * Quickstart: https://docs.xlwings.org/en/stable/quickstart.html
 * Documentation: https://docs.xlwings.org
 * Book (O'Reilly, 2021): https://www.xlwings.org/book
-* Video Course: https://training.xlwings.org/p/xlwings
+* Video Course: https://www.youtube.com/playlist?list=PL8T301Ai03xFcE5AFTnfSqnemXAh8cmMR
 * Source Code: https://github.com/xlwings/xlwings
-* xltrail (Version control for Excel files): https://www.xltrail.com 
 

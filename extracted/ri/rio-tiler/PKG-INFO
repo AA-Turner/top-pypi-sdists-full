@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rio-tiler
-Version: 7.8.1
+Version: 8.0.5
 Summary: User friendly Rasterio plugin to read raster datasets.
 Project-URL: Homepage, https://cogeotiff.github.io/rio-tiler/
 Project-URL: Documentation, https://cogeotiff.github.io/rio-tiler/
@@ -43,54 +43,31 @@ Keywords: COGEO,Cloud Optimized Geotiff,STAC,rasterio,slippy-map
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: attrs
 Requires-Dist: cachetools
 Requires-Dist: color-operations
 Requires-Dist: httpx
-Requires-Dist: morecantile<7.0,>=5.0
+Requires-Dist: morecantile<8.0,>=5.0
 Requires-Dist: numexpr
 Requires-Dist: numpy
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pystac<2.0,>=1.9
 Requires-Dist: rasterio>=1.4.0
 Requires-Dist: typing-extensions
-Provides-Extra: benchmark
-Requires-Dist: pytest; extra == 'benchmark'
-Requires-Dist: pytest-benchmark; extra == 'benchmark'
-Provides-Extra: dev
-Requires-Dist: bump-my-version; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: griffe-inherited-docstrings>=1.0.0; extra == 'docs'
-Requires-Dist: mkdocs-jupyter>=0.24.5; extra == 'docs'
-Requires-Dist: mkdocs-material[imaging]>=9.5; extra == 'docs'
-Requires-Dist: mkdocs>=1.4.3; extra == 'docs'
-Requires-Dist: mkdocstrings[python]>=0.25.1; extra == 'docs'
-Requires-Dist: pygments; extra == 'docs'
 Provides-Extra: s3
 Requires-Dist: boto3; extra == 's3'
-Provides-Extra: test
-Requires-Dist: boto3; extra == 'test'
-Requires-Dist: h5netcdf; extra == 'test'
-Requires-Dist: morecantile<7.0,>=6.0; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: rioxarray; extra == 'test'
-Requires-Dist: vsifile>=0.2; extra == 'test'
-Requires-Dist: xarray; extra == 'test'
-Provides-Extra: tilebench
-Requires-Dist: pytest; extra == 'tilebench'
-Requires-Dist: tilebench; extra == 'tilebench'
 Provides-Extra: xarray
 Requires-Dist: rioxarray; extra == 'xarray'
 Requires-Dist: xarray; extra == 'xarray'
+Provides-Extra: zarr
+Requires-Dist: obstore; extra == 'zarr'
+Requires-Dist: zarr~=3.0; extra == 'zarr'
 Description-Content-Type: text/markdown
 
 # rio-tiler
@@ -264,17 +241,17 @@ At the low level, `rio-tiler` is *just* a wrapper around the [rasterio](https://
 You can install `rio-tiler` using pip
 
 ```bash
-$ python -m pip install -U pip
-$ python -m pip install -U rio-tiler
+python -m pip install -U pip
+python -m pip install -U rio-tiler
 ```
 
 or install from source:
 
 ```bash
-$ git clone https://github.com/cogeotiff/rio-tiler.git
-$ cd rio-tiler
-$ python -m pip install -U pip
-$ python -m pip install -e .
+git clone https://github.com/cogeotiff/rio-tiler.git
+cd rio-tiler
+python -m pip install -U pip
+python -m pip install -e .
 ```
 
 ## Plugins

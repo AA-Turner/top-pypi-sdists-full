@@ -93,7 +93,7 @@ class TestImage(BaseTestImage):
                 ),
                 dict(
                     method='GET',
-                    uri=f'https://image.example.com/v2/images?name={self.image_name}',  # noqa: E501
+                    uri=f'https://image.example.com/v2/images?name={self.image_name}',
                     json=dict(images=[]),
                 ),
                 dict(
@@ -121,8 +121,13 @@ class TestImage(BaseTestImage):
                 ),
                 dict(
                     method='GET',
-                    uri=f'https://image.example.com/v2/images?name={self.image_name}',  # noqa: E501
+                    uri=f'https://image.example.com/v2/images?name={self.image_name}',
                     json=self.fake_search_return,
+                ),
+                dict(
+                    method='GET',
+                    uri=f'https://image.example.com/v2/images/{self.image_id}',
+                    json=self.fake_image_dict,
                 ),
                 dict(
                     method='GET',
@@ -883,7 +888,7 @@ class TestImage(BaseTestImage):
                         json=dict(
                             type='import',
                             input={
-                                'import_from': f'{self.container_name}/{self.image_name}',
+                                'import_from': f'{self.container_name}/{self.image_name}',  # noqa: E501
                                 'image_properties': {'name': self.image_name},
                             },
                         )
@@ -929,7 +934,7 @@ class TestImage(BaseTestImage):
                             [
                                 {
                                     'op': 'add',
-                                    'value': f'{self.container_name}/{self.image_name}',
+                                    'value': f'{self.container_name}/{self.image_name}',  # noqa: E501
                                     'path': '/owner_specified.openstack.object',  # noqa: E501
                                 },
                                 {
@@ -1190,7 +1195,7 @@ class TestImage(BaseTestImage):
             'properties': {
                 'owner_specified.openstack.md5': fakes.NO_MD5,
                 'owner_specified.openstack.sha256': fakes.NO_SHA256,
-                'owner_specified.openstack.object': f'images/{self.image_name}',
+                'owner_specified.openstack.object': f'images/{self.image_name}',  # noqa: E501
                 'is_public': False,
             },
         }
@@ -1263,7 +1268,7 @@ class TestImage(BaseTestImage):
             'properties': {
                 'owner_specified.openstack.md5': fakes.NO_MD5,
                 'owner_specified.openstack.sha256': fakes.NO_SHA256,
-                'owner_specified.openstack.object': f'images/{self.image_name}',
+                'owner_specified.openstack.object': f'images/{self.image_name}',  # noqa: E501
                 'is_public': False,
             },
             'validate_checksum': True,

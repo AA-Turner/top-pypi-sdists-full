@@ -1,20 +1,21 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: poetry-plugin-export
-Version: 1.9.0
+Version: 1.10.0
 Summary: Poetry plugin to export the dependencies to various formats
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10,<4.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: poetry (>=2.0.0,<3.0.0)
-Requires-Dist: poetry-core (>=1.7.0,<3.0.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: poetry (>=2.1.0,<3.0.0)
+Requires-Dist: poetry-core (>=2.1.0,<3.0.0)
+Requires-Dist: tomlkit (>=0.11.4,<1.0.0)
 Project-URL: Homepage, https://python-poetry.org/
 Project-URL: Repository, https://github.com/python-poetry/poetry-plugin-export
 Description-Content-Type: text/markdown
@@ -66,11 +67,22 @@ The plugin provides an `export` command to export to the desired format.
 poetry export -f requirements.txt --output requirements.txt
 ```
 
-**Note**: Only the `constraints.txt` and `requirements.txt` formats are currently supported.
+> [!IMPORTANT]
+> When installing an exported `requirements.txt` via `pip`, you should always pass `--no-deps`
+> because Poetry has already resolved the dependencies so that all direct and transitive
+> requirements are included and it is not necessary to resolve again via `pip`.
+> `pip` may even fail to resolve dependencies, especially if `git` dependencies,
+> which are exported with their resolved hashes, are included.
+
+> [!NOTE]
+> The following formats are currently supported:
+> * `requirements.txt`
+> * `constraints.txt`
+> * `pylock.toml`
 
 ### Available options
 
-* `--format (-f)`: The format to export to (default: `requirements.txt`). Currently, only `constraints.txt` and `requirements.txt` are supported.
+* `--format (-f)`: The format to export to (default: `requirements.txt`). Additionally, `constraints.txt` and `pylock.toml` are supported.
 * `--output (-o)`: The name of the output file.  If omitted, print to standard output.
 * `--with`: The optional and non-optional dependency groups to include. By default, only the main dependencies are included.
 * `--only`: The only dependency groups to include. It is possible to exclude the `main` group this way.

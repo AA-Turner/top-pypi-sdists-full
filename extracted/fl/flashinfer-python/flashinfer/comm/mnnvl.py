@@ -16,27 +16,38 @@
 import ctypes
 import logging
 import os
+import socket
+import array
+import random
+
+import contextlib
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import platform
 import sys
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import pynvml
 
 import torch
 
 try:
-    from cuda import cuda
-except ImportError as e:
-    raise ImportError(
-        "Could not import the 'cuda' module. "
-        "Please install cuda-python that matches your CUDA version."
-    ) from e
+    # cuda-python >= 12.9 (has cuda.bindings.driver)
+    from cuda.bindings import driver as cuda
+except ImportError:
+    try:
+        # cuda-python < 12.9 (no cuda.bindings.driver, use cuda as driver)
+        # from cuda import cuda is not available in cuda-python >= 13.0
+        from cuda import cuda
+    except ImportError as e:
+        raise ImportError(
+            "Could not import the 'cuda' module. "
+            "Please install cuda-python that matches your CUDA version."
+        ) from e
 
 from ..cuda_utils import checkCudaErrors
 from .dlpack_utils import create_dlpack_capsule, pack_strided_memory
 from .mapping import Mapping
-
-IS_BUILDING_DOCS = os.environ.get("FLASHINFER_BUILDING_DOCS") == "1"
 
 # mpi4py only exports MPI_COMM_TYPE_SHARED, so we define OMPI_COMM_TYPE_HOST here
 OMPI_COMM_TYPE_HOST = 9
@@ -118,7 +129,7 @@ def test_cuda_memory_access(ptr: int, size: int, device_id: int) -> bool:
         return False
 
 
-def alloc_and_copy_to_cuda(host_ptr_array: List[int]) -> Optional[int]:
+def alloc_and_copy_to_cuda(host_ptr_array: List[int]) -> int:
     """
     A helper function that allocates memory on cuda and copies the data from the host to the device.
     """
@@ -135,7 +146,7 @@ def alloc_and_copy_to_cuda(host_ptr_array: List[int]) -> Optional[int]:
     )
     # c_array should be freed by GC
 
-    return device_ptr
+    return int(device_ptr)
 
 
 class CommBackend(ABC):
@@ -151,480 +162,716 @@ class CommBackend(ABC):
     def allgather(self, data: int) -> List[int]: ...
 
     @abstractmethod
+    def bcast(self, data: Any, root: int) -> Any: ...
+
+    @abstractmethod
+    def barrier(self) -> None: ...
+
+    @abstractmethod
     def Split(self, color: int, key: int) -> "CommBackend": ...
 
 
-if IS_BUILDING_DOCS:
-    # Mock classes for building docs
+if TYPE_CHECKING:
+    from mpi4py import MPI  # noqa: F401
 
-    class MpiComm:  # type: ignore[no-redef]
-        @classmethod
-        def set_mpi_comm(cls, new_comm):
-            pass
 
-        def __getattr__(self, name):
-            return None
+def lazy_import_mpi():
+    """Lazy import for mpi4py"""
+    try:
+        from mpi4py import MPI
 
-    class MnnvlMemory:  # type: ignore[no-redef]
-        initialized: bool = False
+        return MPI
+    except ImportError as err:
+        raise ImportError("mpi4py is not installed") from err  # type: ignore[no-redef]
 
-        current_mem_offset: int = 0
-        current_rank_stride: int = 0  # stride for ranks and also address space size.
-        current_start_address: int = 0
 
-        # allocation granularity
-        allocation_granularity: int = 0
+class MpiComm:  # type: ignore[no-redef]
+    _comm: Any = None
+    _MPI: Any = None
 
-        # fabric address page size (512 MB)
-        fabric_page_size: int = 1 << 29
+    @classmethod
+    def _get_mpi(cls):
+        if cls._MPI is None:
+            cls._MPI = lazy_import_mpi()
+            cls._comm = cls._MPI.COMM_WORLD
+        return cls._MPI
 
-        # MPI communicator
-        comm = None
+    @classmethod
+    def set_mpi_comm(cls, new_comm: Any):
+        cls._get_mpi()
+        # Optional: add type checking here
+        cls._comm = new_comm
 
-        dev_id: int = None
+    def __getattr__(self, name):
+        if self._comm is None:
+            self._get_mpi()
+        return getattr(self._comm, name)
 
-        allocated_map: Dict[int, Any] = {}
-        address_refcnt: Dict[int, Any] = {}
 
-        def __init__(self, mapping: Mapping, size: int):
-            pass
+class MPIBackend(CommBackend):
+    def __init__(self):
+        self._mpicomm = MpiComm()
 
-        def __del__(self):
-            pass
+    def Get_rank(self) -> int:
+        return self._mpicomm.Get_rank()
 
-        def as_torch_strided_tensor(self, dtype):
-            return None
+    def Get_size(self) -> int:
+        return self._mpicomm.Get_size()
 
-        @staticmethod
-        def initialize():
-            pass
+    def allgather(self, data: int) -> List[int]:
+        return self._mpicomm.allgather(data)
 
-        @staticmethod
-        def get_comm(mapping: Mapping):
-            return None
+    def bcast(self, data: Any, root: int) -> Any:
+        return self._mpicomm.bcast(data, root)
 
-        @staticmethod
-        def get_allocation_prop(dev_id: int):
-            return None
+    def barrier(self):
+        self._mpicomm.Barrier()
 
-        @staticmethod
-        def get_allocation_granularity(dev_id: int):
-            return None
+    def Split(self, color: int, key: int) -> CommBackend:
+        self._mpicomm = self._mpicomm.Split(color, key)
+        return MPIBackend()  # Returns new adapter
 
-        @staticmethod
-        def new_mnnvl_memory_address(mapping: Mapping, size: int):
-            pass
 
-        @staticmethod
-        def open_mnnvl_memory(mapping: Mapping, size: int):
-            return None
+class TorchDistBackend(CommBackend):
+    """Communication backend using torch.distributed"""
 
-        @staticmethod
-        def close_mnnvl_memory(ptr: int):
-            pass
+    def __init__(self, group: Optional[Any] = None):
+        """
+        Initialize TorchDistBackend.
 
-        @staticmethod
-        def support_nvlink(need_all_up: bool = True):
-            return None
+        Args:
+            group: Optional process group. If None, uses the default process group.
+        """
+        import torch.distributed as dist
 
-        @staticmethod
-        def supports_mnnvl() -> bool:
-            return False
-
-else:
-    import pynvml
-
-    if TYPE_CHECKING:
-        from mpi4py import MPI  # noqa: F401
-
-    def lazy_import_mpi():
-        """Lazy import for mpi4py"""
-        try:
-            from mpi4py import MPI
-
-            return MPI
-        except ImportError as err:
-            raise ImportError("mpi4py is not installed") from err  # type: ignore[no-redef]
-
-    class MpiComm:  # type: ignore[no-redef]
-        _comm: Any = None
-        _MPI: Any = None
-
-        @classmethod
-        def _get_mpi(cls):
-            if cls._MPI is None:
-                cls._MPI = lazy_import_mpi()
-                cls._comm = cls._MPI.COMM_WORLD
-            return cls._MPI
-
-        @classmethod
-        def set_mpi_comm(cls, new_comm: Any):
-            cls._get_mpi()
-            # Optional: add type checking here
-            cls._comm = new_comm
-
-        def __getattr__(self, name):
-            if self._comm is None:
-                self._get_mpi()
-            return getattr(self._comm, name)
-
-    class MPIBackend(CommBackend):
-        def __init__(self):
-            self._mpicomm = MpiComm()
-
-        def Get_rank(self) -> int:
-            return self._mpicomm.Get_rank()
-
-        def Get_size(self) -> int:
-            return self._mpicomm.Get_size()
-
-        def allgather(self, data: int) -> List[int]:
-            return self._mpicomm.allgather(data)
-
-        def Split(self, color: int, key: int) -> CommBackend:
-            self._mpicomm = self._mpicomm.Split(color, key)
-            return MPIBackend()  # Returns new adapter
-
-    @dataclass
-    class MnnvlConfig:
-        """Configuration for MNNVL memory management"""
-
-        comm_backend: Optional[CommBackend] = None
-        allocation_granularity: int = 0
-        fabric_page_size: int = 1 << 29  # 512MB
-
-    class MnnvlMemory:  # type: ignore[no-redef]
-        initialized: bool = False
-
-        current_mem_offset: int = 0
-        current_rank_stride: int = 0  # stride for ranks and also address space size.
-        current_start_address: int = 0
-
-        # allocation granularity
-        allocation_granularity: int = 0
-
-        # fabric address page size (512 MB)
-        fabric_page_size: int = 1 << 29
-
-        # MPI communicator
-        comm: Optional[CommBackend] = None
-
-        dev_id: int = None
-
-        allocated_map: Dict[int, Any] = {}
-        address_refcnt: Dict[int, Any] = {}
-
-        config: Optional[MnnvlConfig] = None
-
-        def __init__(self, mapping: Mapping, size: int):
-            self.mapping = mapping
-            self.segment_size = size
-            self.ptr, self.rank_stride = MnnvlMemory.open_mnnvl_memory(
-                self.mapping, size
+        if not dist.is_initialized():
+            raise RuntimeError(
+                "torch.distributed is not initialized. "
+                "Please call torch.distributed.init_process_group() first."
             )
+        self._group = group
+        self._dist = dist
 
-        def __del__(self):
-            if not sys.is_finalizing():
-                MnnvlMemory.close_mnnvl_memory(self.ptr)
+    def Get_rank(self) -> int:
+        return self._dist.get_rank(self._group)
 
-        def as_torch_strided_tensor(self, dtype):
-            num_segments = MnnvlMemory.comm.Get_size()
-            return pack_strided_memory(
-                self.ptr,
-                self.segment_size,
-                self.rank_stride,
-                num_segments,
-                dtype,
-                MnnvlMemory.dev_id,
+    def Get_size(self) -> int:
+        return self._dist.get_world_size(self._group)
+
+    def allgather(self, data: Any) -> List[Any]:
+        """All-gather arbitrary Python objects across all ranks."""
+        output_list = [None] * self.Get_size()
+        self._dist.all_gather_object(output_list, data, group=self._group)
+        return output_list
+
+    def bcast(self, data: Any, root: int) -> Any:
+        """Broadcast a Python object from root to all ranks."""
+        object_list = [data]
+        self._dist.broadcast_object_list(object_list, src=root, group=self._group)
+        return object_list[0]
+
+    def barrier(self) -> None:
+        self._dist.barrier(group=self._group)
+
+    def Split(self, color: int, key: int) -> "TorchDistBackend":
+        """
+        Split the communicator into sub-groups based on color.
+
+        All processes with the same color will be in the same new group.
+        The key determines the rank ordering within the new group.
+
+        Args:
+            color: Processes with the same color are placed in the same group
+            key: Determines rank ordering within the new group (lower key = lower rank)
+
+        Returns:
+            New TorchDistBackend with the split process group
+        """
+        # Gather (color, key, global_rank) from all processes
+        global_rank = self.Get_rank()
+
+        all_info = self.allgather((color, key, global_rank))
+
+        # Group ranks by color, sort by key within each group
+        color_groups: Dict[int, List[tuple]] = {}
+        for c, k, r in all_info:
+            if c not in color_groups:
+                color_groups[c] = []
+            color_groups[c].append((k, r))
+
+        # Sort each group by key to determine rank ordering
+        for c in color_groups:
+            color_groups[c].sort(key=lambda x: x[0])
+
+        # Find my new group's ranks (in sorted order by key)
+        my_group_ranks = [r for _, r in color_groups[color]]
+
+        # Create new process group with the ranks in my color group
+        new_group = self._dist.new_group(ranks=my_group_ranks)
+
+        return TorchDistBackend(group=new_group)
+
+
+@dataclass
+class MnnvlConfig:
+    """Configuration for MNNVL memory management"""
+
+    comm_backend: Optional[CommBackend] = None
+    allocation_granularity: int = 0
+    fabric_page_size: int = 1 << 29  # 512MB
+
+
+class MnnvlMemory:  # type: ignore[no-redef]
+    initialized: bool = False
+
+    current_mem_offset: int = 0
+    current_rank_stride: int = 0  # stride for ranks and also address space size.
+    current_start_address: int = 0
+
+    # allocation granularity
+    allocation_granularity: int = 0
+
+    # fabric address page size (512 MB)
+    fabric_page_size: int = 1 << 29
+
+    # MPI communicator
+    comm: Optional[CommBackend] = None
+
+    dev_id: int = None
+
+    allocated_map: Dict[int, Any] = {}
+    address_refcnt: Dict[int, Any] = {}
+
+    config: Optional[MnnvlConfig] = None
+
+    def __init__(self, mapping: Mapping, size: int):
+        self.mapping = mapping
+        self.segment_size = size
+        self.ptr, self.rank_stride = MnnvlMemory.open_mnnvl_memory(self.mapping, size)
+
+    def __del__(self):
+        if not sys.is_finalizing():
+            MnnvlMemory.close_mnnvl_memory(self.ptr)
+
+    def as_torch_strided_tensor(self, dtype):
+        num_segments = MnnvlMemory.comm.Get_size()
+        return pack_strided_memory(
+            self.ptr,
+            self.segment_size,
+            self.rank_stride,
+            num_segments,
+            dtype,
+            MnnvlMemory.dev_id,
+        )
+
+    @staticmethod
+    def initialize():
+        if not MnnvlMemory.initialized:
+            # use a dummy torch CUDA tensor to trigger CUDA context initialization
+            _ = torch.empty(1, device="cuda")
+            # ensure nvml is initialized.
+            try:
+                pynvml.nvmlDeviceGetCount()
+            except pynvml.NVMLError_Uninitialized:
+                pynvml.nvmlInit()
+            MnnvlMemory.initialized = True
+
+    @staticmethod
+    def set_comm_from_config(mapping: Mapping, config: MnnvlConfig = None):
+        MnnvlMemory.config = config or MnnvlConfig(comm_backend=MPIBackend())  # type: ignore[attr-defined]
+        comm = config.comm_backend.Split(
+            mapping.pp_rank * mapping.cp_size + mapping.cp_rank, mapping.tp_rank
+        )
+        MnnvlMemory.comm = comm  # type: ignore[assignment]
+
+    @staticmethod
+    def get_comm(mapping: Mapping):
+        if MnnvlMemory.comm is not None:
+            return MnnvlMemory.comm
+        comm = MpiComm().Split(
+            mapping.pp_rank * mapping.cp_size + mapping.cp_rank, mapping.tp_rank
+        )
+        MnnvlMemory.comm = comm
+        return comm
+
+    @staticmethod
+    def get_allocation_prop(dev_id: int):
+        location = cuda.CUmemLocation()
+        location.type = cuda.CUmemLocationType.CU_MEM_LOCATION_TYPE_DEVICE
+        location.id = dev_id
+        allocation_prop = cuda.CUmemAllocationProp()
+        allocation_prop.type = cuda.CUmemAllocationType.CU_MEM_ALLOCATION_TYPE_PINNED
+        # TODO: We differentiate FABRIC for GB200 (aarch64) and POSIX_FILE_DESCRIPTOR for B200 (x86_64).
+        # May need to find a better way to handle this.
+        arch = platform.machine().lower()
+        is_on_aarch64 = "aarch64" in arch
+        if is_on_aarch64:
+            allocation_prop.requestedHandleTypes = (
+                cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
             )
-
-        @staticmethod
-        def initialize():
-            if not MnnvlMemory.initialized:
-                # use a dummy torch CUDA tensor to trigger CUDA context initialization
-                _ = torch.empty(1, device="cuda")
-                # ensure nvml is initialized.
-                try:
-                    pynvml.nvmlDeviceGetCount()
-                except pynvml.NVMLError_Uninitialized:
-                    pynvml.nvmlInit()
-                MnnvlMemory.initialized = True
-
-        @staticmethod
-        def set_comm_from_config(mapping: Mapping, config: MnnvlConfig = None):
-            MnnvlMemory.config = config or MnnvlConfig(comm_backend=MPIBackend())  # type: ignore[attr-defined]
-            comm = config.comm_backend.Split(
-                mapping.pp_rank * mapping.cp_size + mapping.cp_rank, mapping.tp_rank
+        else:
+            allocation_prop.requestedHandleTypes = (
+                cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR
             )
-            MnnvlMemory.comm = comm  # type: ignore[assignment]
+        allocation_prop.location = location
+        return allocation_prop
 
-        @staticmethod
-        def get_comm(mapping: Mapping):
-            if MnnvlMemory.comm is not None:
-                return MnnvlMemory.comm
-            comm = MpiComm().Split(
-                mapping.pp_rank * mapping.cp_size + mapping.cp_rank, mapping.tp_rank
-            )
-            MnnvlMemory.comm = comm
-            return comm
-
-        @staticmethod
-        def get_allocation_prop(dev_id: int):
-            location = cuda.CUmemLocation()
-            location.type = cuda.CUmemLocationType.CU_MEM_LOCATION_TYPE_DEVICE
-            location.id = dev_id
-            allocation_prop = cuda.CUmemAllocationProp()
-            allocation_prop.type = (
-                cuda.CUmemAllocationType.CU_MEM_ALLOCATION_TYPE_PINNED
-            )
-            # TODO: We differentiate FABRIC for GB200 (aarch64) and POSIX_FILE_DESCRIPTOR for B200 (x86_64).
-            # May need to find a better way to handle this.
-            arch = platform.machine().lower()
-            is_on_aarch64 = "aarch64" in arch
-            if is_on_aarch64:
-                allocation_prop.requestedHandleTypes = (
-                    cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
-                )
-            else:
-                allocation_prop.requestedHandleTypes = cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR
-            allocation_prop.location = location
-            return allocation_prop
-
-        @staticmethod
-        def get_allocation_granularity(dev_id: int):
-            if MnnvlMemory.allocation_granularity != 0:
-                return MnnvlMemory.allocation_granularity
-            allocation_prop = MnnvlMemory.get_allocation_prop(dev_id)
-            option = cuda.CUmemAllocationGranularity_flags(
-                cuda.CUmemAllocationGranularity_flags.CU_MEM_ALLOC_GRANULARITY_RECOMMENDED
-            )
-            granularity = checkCudaErrors(
-                cuda.cuMemGetAllocationGranularity(prop=allocation_prop, option=option)
-            )
-            MnnvlMemory.allocation_granularity = granularity
+    @staticmethod
+    def get_allocation_granularity(dev_id: int):
+        if MnnvlMemory.allocation_granularity != 0:
             return MnnvlMemory.allocation_granularity
+        allocation_prop = MnnvlMemory.get_allocation_prop(dev_id)
+        option = cuda.CUmemAllocationGranularity_flags(
+            cuda.CUmemAllocationGranularity_flags.CU_MEM_ALLOC_GRANULARITY_RECOMMENDED
+        )
+        granularity = checkCudaErrors(
+            cuda.cuMemGetAllocationGranularity(prop=allocation_prop, option=option)
+        )
+        MnnvlMemory.allocation_granularity = granularity
+        return MnnvlMemory.allocation_granularity
 
-        @staticmethod
-        def new_mnnvl_memory_address(mapping: Mapping, size: int):
-            page_count = (
-                size + MnnvlMemory.fabric_page_size - 1
-            ) // MnnvlMemory.fabric_page_size
-            current_rank_stride = page_count * MnnvlMemory.fabric_page_size
-            logging.info(
-                f"[MnnvlMemory] creating address with stride={current_rank_stride}"
+    @staticmethod
+    def new_mnnvl_memory_address(mapping: Mapping, size: int):
+        page_count = (
+            size + MnnvlMemory.fabric_page_size - 1
+        ) // MnnvlMemory.fabric_page_size
+        current_rank_stride = page_count * MnnvlMemory.fabric_page_size
+        logging.info(
+            f"[MnnvlMemory] creating address with stride={current_rank_stride}"
+        )
+        comm = MnnvlMemory.get_comm(mapping)
+        comm_size = comm.Get_size()
+        address_size = current_rank_stride * comm_size
+        ptr = checkCudaErrors(
+            cuda.cuMemAddressReserve(address_size, MnnvlMemory.fabric_page_size, 0, 0)
+        )
+        MnnvlMemory.current_start_address = int(ptr)
+        MnnvlMemory.current_rank_stride = current_rank_stride
+        MnnvlMemory.current_mem_offset = 0
+
+    @staticmethod
+    def open_mnnvl_memory(mapping: Mapping, size: int):
+        dev = checkCudaErrors(cuda.cuCtxGetDevice())
+        dev_id = int(dev)
+        if MnnvlMemory.dev_id is None:
+            MnnvlMemory.dev_id = dev_id
+        assert dev_id == MnnvlMemory.dev_id, (
+            f"Different dev_id found dev_id={dev_id} but MnnvlMemory.dev_id={MnnvlMemory.dev_id}"
+        )
+        comm = MnnvlMemory.get_comm(mapping)
+        comm_rank = comm.Get_rank()
+        comm_size = comm.Get_size()
+        all_rank_allocate_sizes = comm.allgather(size)
+        assert len(all_rank_allocate_sizes) == comm_size
+        assert all(x == size for x in all_rank_allocate_sizes), (
+            "Not all rank allocating same size."
+        )
+        granularity = MnnvlMemory.get_allocation_granularity(dev_id)
+        aligned_size = (size + granularity - 1) // granularity * granularity
+
+        if (
+            MnnvlMemory.current_mem_offset + aligned_size
+            > MnnvlMemory.current_rank_stride
+        ):
+            MnnvlMemory.new_mnnvl_memory_address(mapping, aligned_size)
+
+        assert (
+            MnnvlMemory.current_mem_offset + aligned_size
+            <= MnnvlMemory.current_rank_stride
+        )
+
+        allocation_prop = MnnvlMemory.get_allocation_prop(dev_id)
+        allocated_mem_handle = checkCudaErrors(
+            cuda.cuMemCreate(aligned_size, allocation_prop, flags=0)
+        )
+        exported_fabric_handle = checkCudaErrors(
+            cuda.cuMemExportToShareableHandle(
+                allocated_mem_handle, allocation_prop.requestedHandleTypes, 0
             )
-            comm = MnnvlMemory.get_comm(mapping)
-            comm_size = comm.Get_size()
-            address_size = current_rank_stride * comm_size
-            ptr = checkCudaErrors(
-                cuda.cuMemAddressReserve(
-                    address_size, MnnvlMemory.fabric_page_size, 0, 0
+        )
+        if (
+            allocation_prop.requestedHandleTypes
+            == cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
+        ):
+            all_handles_data = comm.allgather(exported_fabric_handle.data)
+        else:
+            all_handles_data = comm.allgather(exported_fabric_handle)
+            all_pids = comm.allgather(os.getpid())
+            libc = ctypes.CDLL(None, use_errno=True)
+            syscall = libc.syscall
+            SYS_pidfd_open = 434
+            SYS_pidfd_getfd = 438
+            pidfds = []
+            for pid in all_pids:
+                pidfd = syscall(SYS_pidfd_open, pid, 0)
+                if pidfd < 0:
+                    err = ctypes.get_errno()
+                    raise RuntimeError(
+                        f"pidfd_open({pid}) failed with errno {err}: {os.strerror(err)}"
+                    )
+                pidfds.append(pidfd)
+
+            remote_fds = []
+            for pidfd, fd in zip(pidfds, all_handles_data, strict=True):
+                remote_fd = syscall(SYS_pidfd_getfd, pidfd, fd, 0)
+                if remote_fd < 0:
+                    err = ctypes.get_errno()
+                    error_msg = f"pidfd_getfd(pidfd={pidfd}, fd={fd}) failed with errno {err}: {os.strerror(err)}."
+                    if err == 1:  # EPERM
+                        error_msg += (
+                            " Permission denied. If running in a container, try adding --cap-add=SYS_PTRACE "
+                            "to your docker run command."
+                        )
+                    else:
+                        error_msg += (
+                            " This may be due to kernel version (requires Linux 5.6+)."
+                        )
+                    raise RuntimeError(error_msg)
+                remote_fds.append(remote_fd)
+
+            all_handles_data = remote_fds
+        # all_handles_data like b'\x00\x00\x00 \x00\x00\x00\x00\x8f\xec\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00\x00\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # noqa: E501
+        # can use buf = memoryview(data) to import if using plain buffer for data.
+
+        madesc = cuda.CUmemAccessDesc()
+        madesc.location = allocation_prop.location
+        madesc.flags = cuda.CUmemAccess_flags.CU_MEM_ACCESS_FLAGS_PROT_READWRITE
+
+        mem_handles = [None] * comm_size
+
+        for i, remote_handle_data in enumerate(all_handles_data):
+            rank_ptr = (
+                MnnvlMemory.current_start_address
+                + MnnvlMemory.current_rank_stride * i
+                + MnnvlMemory.current_mem_offset
+            )
+            if i == comm_rank:
+                # Local memory mapping
+                mem_handles[i] = allocated_mem_handle
+                checkCudaErrors(
+                    cuda.cuMemMap(rank_ptr, aligned_size, 0, allocated_mem_handle, 0)
                 )
-            )
-            MnnvlMemory.current_start_address = int(ptr)
-            MnnvlMemory.current_rank_stride = current_rank_stride
-            MnnvlMemory.current_mem_offset = 0
-
-        @staticmethod
-        def open_mnnvl_memory(mapping: Mapping, size: int):
-            dev = checkCudaErrors(cuda.cuCtxGetDevice())
-            dev_id = int(dev)
-            if MnnvlMemory.dev_id is None:
-                MnnvlMemory.dev_id = dev_id
-            assert dev_id == MnnvlMemory.dev_id, (
-                f"Different dev_id found dev_id={dev_id} but MnnvlMemory.dev_id={MnnvlMemory.dev_id}"
-            )
-            comm = MnnvlMemory.get_comm(mapping)
-            comm_rank = comm.Get_rank()
-            comm_size = comm.Get_size()
-            all_rank_allocate_sizes = comm.allgather(size)
-            assert len(all_rank_allocate_sizes) == comm_size
-            assert all(x == size for x in all_rank_allocate_sizes), (
-                "Not all rank allocating same size."
-            )
-            granularity = MnnvlMemory.get_allocation_granularity(dev_id)
-            aligned_size = (size + granularity - 1) // granularity * granularity
-
-            if (
-                MnnvlMemory.current_mem_offset + aligned_size
-                > MnnvlMemory.current_rank_stride
-            ):
-                MnnvlMemory.new_mnnvl_memory_address(mapping, aligned_size)
-
-            assert (
-                MnnvlMemory.current_mem_offset + aligned_size
-                <= MnnvlMemory.current_rank_stride
-            )
-
-            allocation_prop = MnnvlMemory.get_allocation_prop(dev_id)
-            allocated_mem_handle = checkCudaErrors(
-                cuda.cuMemCreate(aligned_size, allocation_prop, flags=0)
-            )
-            exported_fabric_handle = checkCudaErrors(
-                cuda.cuMemExportToShareableHandle(
-                    allocated_mem_handle, allocation_prop.requestedHandleTypes, 0
-                )
-            )
-            if (
-                allocation_prop.requestedHandleTypes
-                == cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
-            ):
-                all_handles_data = comm.allgather(exported_fabric_handle.data)
             else:
-                all_handles_data = comm.allgather(exported_fabric_handle)
-                all_pids = comm.allgather(os.getpid())
-                libc = ctypes.CDLL(None, use_errno=True)
-                syscall = libc.syscall
-                SYS_pidfd_open = 434
-                SYS_pidfd_getfd = 438
-                pidfds = []
-                for pid in all_pids:
-                    pidfd = syscall(SYS_pidfd_open, pid, 0)
-                    if pidfd < 0:
-                        err = ctypes.get_errno()
-                        raise RuntimeError(
-                            f"pidfd_open({pid}) failed with errno {err}: {os.strerror(err)}"
-                        )
-                    pidfds.append(pidfd)
-
-                remote_fds = []
-                for pidfd, fd in zip(pidfds, all_handles_data):
-                    remote_fd = syscall(SYS_pidfd_getfd, pidfd, fd, 0)
-                    if remote_fd < 0:
-                        err = ctypes.get_errno()
-                        error_msg = f"pidfd_getfd(pidfd={pidfd}, fd={fd}) failed with errno {err}: {os.strerror(err)}."
-                        if err == 1:  # EPERM
-                            error_msg += (
-                                " Permission denied. If running in a container, try adding --cap-add=SYS_PTRACE "
-                                "to your docker run command."
-                            )
-                        else:
-                            error_msg += " This may be due to kernel version (requires Linux 5.6+)."
-                        raise RuntimeError(error_msg)
-                    remote_fds.append(remote_fd)
-
-                all_handles_data = remote_fds
-            # all_handles_data like b'\x00\x00\x00 \x00\x00\x00\x00\x8f\xec\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00\x00\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # noqa: E501
-            # can use buf = memoryview(data) to import if using plain buffer for data.
-
-            madesc = cuda.CUmemAccessDesc()
-            madesc.location = allocation_prop.location
-            madesc.flags = cuda.CUmemAccess_flags.CU_MEM_ACCESS_FLAGS_PROT_READWRITE
-
-            mem_handles = [None] * comm_size
-
-            for i, remote_handle_data in enumerate(all_handles_data):
-                rank_ptr = (
-                    MnnvlMemory.current_start_address
-                    + MnnvlMemory.current_rank_stride * i
-                    + MnnvlMemory.current_mem_offset
+                # Fabric memory mapping
+                imported_mem_handle = checkCudaErrors(
+                    cuda.cuMemImportFromShareableHandle(
+                        remote_handle_data, allocation_prop.requestedHandleTypes
+                    )
                 )
-                if i == comm_rank:
-                    # Local memory mapping
-                    mem_handles[i] = allocated_mem_handle
-                    checkCudaErrors(
-                        cuda.cuMemMap(
-                            rank_ptr, aligned_size, 0, allocated_mem_handle, 0
-                        )
-                    )
-                else:
-                    # Fabric memory mapping
-                    imported_mem_handle = checkCudaErrors(
-                        cuda.cuMemImportFromShareableHandle(
-                            remote_handle_data, allocation_prop.requestedHandleTypes
-                        )
-                    )
-                    mem_handles[i] = imported_mem_handle
-                    checkCudaErrors(
-                        cuda.cuMemMap(rank_ptr, aligned_size, 0, imported_mem_handle, 0)
-                    )
-
+                mem_handles[i] = imported_mem_handle
                 checkCudaErrors(
-                    cuda.cuMemSetAccess(rank_ptr, aligned_size, [madesc], 1)
+                    cuda.cuMemMap(rank_ptr, aligned_size, 0, imported_mem_handle, 0)
                 )
 
-            ptr = MnnvlMemory.current_start_address + MnnvlMemory.current_mem_offset
-            stride = MnnvlMemory.current_rank_stride
-            MnnvlMemory.allocated_map[ptr] = (
-                mapping,
-                aligned_size,
-                mem_handles,
-                MnnvlMemory.current_start_address,
-                MnnvlMemory.current_rank_stride,
-                MnnvlMemory.current_mem_offset,
-            )
-            MnnvlMemory.address_refcnt[MnnvlMemory.current_start_address] = (
-                MnnvlMemory.address_refcnt.get(MnnvlMemory.current_start_address, 0) + 1
-            )
+            checkCudaErrors(cuda.cuMemSetAccess(rank_ptr, aligned_size, [madesc], 1))
 
-            MnnvlMemory.current_mem_offset += aligned_size
-            return ptr, stride
+        ptr = MnnvlMemory.current_start_address + MnnvlMemory.current_mem_offset
+        stride = MnnvlMemory.current_rank_stride
+        MnnvlMemory.allocated_map[ptr] = (
+            mapping,
+            aligned_size,
+            mem_handles,
+            MnnvlMemory.current_start_address,
+            MnnvlMemory.current_rank_stride,
+            MnnvlMemory.current_mem_offset,
+        )
+        MnnvlMemory.address_refcnt[MnnvlMemory.current_start_address] = (
+            MnnvlMemory.address_refcnt.get(MnnvlMemory.current_start_address, 0) + 1
+        )
 
-        @staticmethod
-        def close_mnnvl_memory(ptr: int):
-            (
-                mapping,
-                aligned_size,
-                mem_handles,
-                start_address,
-                rank_stride,
-                address_offset,
-            ) = MnnvlMemory.allocated_map.pop(ptr)
-            comm = MnnvlMemory.get_comm(mapping)
-            comm_size = comm.Get_size()
-            for i in range(comm_size):
-                rank_ptr = start_address + i * rank_stride + address_offset
-                checkCudaErrors(cuda.cuMemUnmap(rank_ptr, aligned_size))
-                checkCudaErrors(cuda.cuMemRelease(mem_handles[i]))
-            MnnvlMemory.address_refcnt[start_address] -= 1
+        MnnvlMemory.current_mem_offset += aligned_size
+        return ptr, stride
 
-            if MnnvlMemory.address_refcnt[start_address] == 0:
-                MnnvlMemory.address_refcnt.pop(start_address)
-                device_ptr = cuda.CUdeviceptr(start_address)
-                checkCudaErrors(
-                    cuda.cuMemAddressFree(device_ptr, comm_size * rank_stride)
+    @staticmethod
+    def close_mnnvl_memory(ptr: int):
+        (
+            mapping,
+            aligned_size,
+            mem_handles,
+            start_address,
+            rank_stride,
+            address_offset,
+        ) = MnnvlMemory.allocated_map.pop(ptr)
+        comm = MnnvlMemory.get_comm(mapping)
+        comm_size = comm.Get_size()
+        for i in range(comm_size):
+            rank_ptr = start_address + i * rank_stride + address_offset
+            checkCudaErrors(cuda.cuMemUnmap(rank_ptr, aligned_size))
+            checkCudaErrors(cuda.cuMemRelease(mem_handles[i]))
+        MnnvlMemory.address_refcnt[start_address] -= 1
+
+        if MnnvlMemory.address_refcnt[start_address] == 0:
+            MnnvlMemory.address_refcnt.pop(start_address)
+            device_ptr = cuda.CUdeviceptr(start_address)
+            checkCudaErrors(cuda.cuMemAddressFree(device_ptr, comm_size * rank_stride))
+            if start_address == MnnvlMemory.current_start_address:
+                MnnvlMemory.current_start_address = 0
+                MnnvlMemory.current_rank_stride = 0
+                MnnvlMemory.current_mem_offset = 0
+
+    @staticmethod
+    def support_nvlink(need_all_up: bool = True):
+        dev_id = torch.cuda.current_device()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(dev_id)
+        link_count = pynvml.NVML_NVLINK_MAX_LINKS
+        active_links = 0
+        available_links = 0
+        for link_idx in range(link_count):
+            try:
+                if pynvml.nvmlDeviceGetNvLinkCapability(
+                    handle, link_idx, pynvml.NVML_NVLINK_CAP_P2P_SUPPORTED
+                ):
+                    available_links += 1
+                    is_active = pynvml.nvmlDeviceGetNvLinkState(handle, link_idx)
+                    if is_active:
+                        active_links += 1
+            except pynvml.NVMLError_NotSupported:
+                continue
+        return (
+            active_links == available_links and available_links > 0
+            if need_all_up
+            else available_links > 0
+        )
+
+    @staticmethod
+    def supports_mnnvl() -> bool:
+        # TODO:
+        # We check if it has all NVLink up now.
+        # But it is not equivalent to MNNVL support.
+        # May need better support check.
+        support_nvlink_and_all_up = MnnvlMemory.support_nvlink(True)
+        return support_nvlink_and_all_up
+
+
+# The helper class for passing the FD handle over the socket.
+class IpcSocket:
+    """Unix Domain Socket for IPC file descriptor passing"""
+
+    def __init__(self, rank: int, op_id: int, use_abstract=True):
+        """
+        Initialize IPC socket
+
+        Args:
+            rank: Process rank
+            op_id: Unique operation ID (hash)
+            use_abstract: Use Linux abstract socket namespace
+        """
+        self.rank = rank
+        self.op_id = op_id
+        self.use_abstract = use_abstract
+
+        # Create Unix domain socket (DGRAM for compatibility with C code)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+
+        # Create unique socket name
+        socket_name = f"/tmp/mcastmem-socket-{rank}-{op_id:x}"
+
+        if use_abstract:
+            # Linux abstract socket: prepend null byte
+            self.socket_path = "\0" + socket_name
+        else:
+            self.socket_path = socket_name
+            # Remove existing socket file if it exists
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(socket_name)
+
+        # Bind socket
+        self.sock.bind(self.socket_path)
+
+    def send_fd(self, fd: int, dest_rank: int, dest_op_id: Optional[int] = None):
+        """
+        Send a file descriptor to another process
+
+        Args:
+            fd: File descriptor to send
+            dest_rank: Destination process rank
+            dest_op_id: Destination operation ID
+        """
+        # Construct destination socket path
+        dest_op_id = dest_op_id or self.op_id
+        dest_socket_name = f"/tmp/mcastmem-socket-{dest_rank}-{dest_op_id:x}"
+
+        if self.use_abstract:
+            dest_path = "\0" + dest_socket_name
+        else:
+            dest_path = dest_socket_name
+
+        # Prepare message with file descriptor
+        # Send dummy byte as data (required)
+        dummy_data = b"\x00"
+
+        # Pack file descriptor in ancillary data (SCM_RIGHTS)
+        fds = array.array("i", [fd])
+        ancillary = [(socket.SOL_SOCKET, socket.SCM_RIGHTS, fds.tobytes())]
+
+        # Send message with file descriptor
+        self.sock.sendmsg([dummy_data], ancillary, 0, dest_path)
+
+    def recv_fd(self):
+        """
+        Receive a file descriptor from another process
+
+        Returns:
+            int: Received file descriptor
+        """
+        # Receive message with ancillary data
+        # Maximum size for ancillary data containing one fd
+        fds = array.array("i")
+        msg, ancdata, flags, addr = self.sock.recvmsg(
+            1,
+            socket.CMSG_SPACE(
+                fds.itemsize
+            ),  # Buffer size for dummy data  # Ancillary data size
+        )
+
+        # Extract file descriptor from ancillary data
+        for cmsg_level, cmsg_type, cmsg_data in ancdata:
+            if cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS:
+                fds = array.array("i")
+                fds.frombytes(
+                    cmsg_data[: len(cmsg_data) - (len(cmsg_data) % fds.itemsize)]
                 )
-                if start_address == MnnvlMemory.current_start_address:
-                    MnnvlMemory.current_start_address = 0
-                    MnnvlMemory.current_rank_stride = 0
-                    MnnvlMemory.current_mem_offset = 0
+                return fds[0]
 
-        @staticmethod
-        def support_nvlink(need_all_up: bool = True):
-            dev_id = torch.cuda.current_device()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(dev_id)
-            link_count = pynvml.NVML_NVLINK_MAX_LINKS
-            active_links = 0
-            available_links = 0
-            for link_idx in range(link_count):
-                try:
-                    if pynvml.nvmlDeviceGetNvLinkCapability(
-                        handle, link_idx, pynvml.NVML_NVLINK_CAP_P2P_SUPPORTED
-                    ):
-                        available_links += 1
-                        is_active = pynvml.nvmlDeviceGetNvLinkState(handle, link_idx)
-                        if is_active:
-                            active_links += 1
-                except pynvml.NVMLError_NotSupported:
-                    continue
-            return (
-                active_links == available_links and available_links > 0
-                if need_all_up
-                else available_links > 0
-            )
+        raise RuntimeError("No file descriptor received")
 
-        @staticmethod
-        def supports_mnnvl() -> bool:
-            # TODO:
-            # We check if it has all NVLink up now.
-            # But it is not equivalent to MNNVL support.
-            # May need better support check.
-            support_nvlink_and_all_up = MnnvlMemory.support_nvlink(True)
-            return support_nvlink_and_all_up
+    def close(self):
+        """Close the socket"""
+        self.sock.close()
+        if not self.use_abstract and self.socket_path:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(self.socket_path)
 
 
-class McastDeviceMemory:
-    """Python port of McastDeviceMemory from TensorRT-LLM"""
+class HandleExchanger(ABC):
+    """Abstract interface for exchanging CUDA shareable handles across ranks."""
+
+    def __init__(self, comm_backend: "CommBackend", group_rank: int, group_size: int):
+        self.comm = comm_backend
+        self.rank = group_rank
+        self.size = group_size
+
+    @property
+    @abstractmethod
+    def handle_type(self) -> cuda.CUmemAllocationHandleType:
+        """The CUDA handle type this exchanger works with."""
+        ...
+
+    @abstractmethod
+    def allgather(self, local_handle) -> List:
+        """All-gather shareable handles from all ranks."""
+        ...
+
+    @abstractmethod
+    def broadcast(self, handle, root: int):
+        """Broadcast a handle from root to all ranks."""
+        ...
+
+    @abstractmethod
+    def cleanup(self, handle) -> None: ...
+
+    @abstractmethod
+    def close(self) -> None: ...
+
+
+class FabricHandleExchanger(HandleExchanger):
+    """Handle exchange using CUDA Fabric handles via MPI/collective backend."""
+
+    @property
+    def handle_type(self) -> cuda.CUmemAllocationHandleType:
+        return cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
+
+    def allgather(self, local_handle) -> List:
+        return self.comm.allgather(local_handle.data)
+
+    def broadcast(self, handle, root: int):
+        return self.comm.bcast(handle.data if handle else None, root=root)
+
+    def cleanup(self, handle) -> None:
+        pass  # No cleanup needed for Fabric handles.
+
+    def close(self) -> None:
+        pass  # No close needed for Fabric handles.
+
+
+class PosixFDHandleExchanger(HandleExchanger):
+    """Handle exchange using POSIX file descriptors via IPC sockets."""
+
+    def __init__(self, comm_backend: "CommBackend", group_rank: int, group_size: int):
+        super().__init__(comm_backend, group_rank, group_size)
+        self._socket = self._init_ipc_socket()
+
+    def _init_ipc_socket(self) -> IpcSocket:
+        if self.rank == 0:
+            opId = random.randint(0, 2**64 - 1)
+        else:
+            opId = None
+        opId = self.comm.bcast(opId, root=0)
+        return IpcSocket(self.rank, opId)
+
+    @property
+    def handle_type(self) -> cuda.CUmemAllocationHandleType:
+        return cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR
+
+    def allgather(self, local_handle) -> List:
+        result = [None] * self.size
+        for i in range(self.size):
+            self.comm.barrier()
+            self._socket.send_fd(local_handle, (self.rank + i) % self.size)
+            src = (self.rank + self.size - i) % self.size
+            result[src] = self._socket.recv_fd()
+        return result
+
+    def broadcast(self, handle, root: int):
+        if self.rank == root:
+            for p in range(1, self.size):
+                self.comm.barrier()
+                self._socket.send_fd(handle, p)
+            return handle
+        else:
+            # Ordered receive to avoid race condition
+            for _ in range(self.rank):
+                self.comm.barrier()
+            result = self._socket.recv_fd()
+            for _ in range(self.size - self.rank - 1):
+                self.comm.barrier()
+            return result
+
+    def cleanup(self, handle) -> None:
+        os.close(handle)
+
+    def close(self) -> None:
+        self._socket.close()
+
+
+def is_mnnvl_fabric_supported(device_idx: int) -> bool:
+    fabric_handle_supported = checkCudaErrors(
+        cuda.cuDeviceGetAttribute(
+            cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_FABRIC_SUPPORTED,
+            device_idx,
+        )
+    )
+    if fabric_handle_supported == 0:
+        return False
+
+    pynvml.nvmlInit()
+    try:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(device_idx)
+        fabric_info = pynvml.c_nvmlGpuFabricInfoV_t()
+        pynvml.nvmlDeviceGetGpuFabricInfoV(handle, ctypes.byref(fabric_info))
+        if (
+            fabric_info.state >= pynvml.NVML_GPU_FABRIC_STATE_COMPLETED
+            and fabric_info.clusterUuid[0] != 0
+        ):
+            return True
+        return False
+    finally:
+        pynvml.nvmlShutdown()
+
+
+# TODO: This class follows similar logic with MnnvlMemory, but the latter use single instance mode to manage the memory allocation.
+class SymmDeviceMemory:
+    """Python port of SymmDeviceMemory from TensorRT-LLM"""
 
     def __init__(
         self,
@@ -632,7 +879,9 @@ class McastDeviceMemory:
         group_size: int,
         group_rank: int,
         device_idx: int,
-        is_multi_node: bool = True,
+        comm_backend_for_handle_transfer: Optional[CommBackend] = None,
+        enable_multicast: bool = True,
+        allocate_signal_pads: bool = True,
     ):
         cu_device = checkCudaErrors(cuda.cuDeviceGet(device_idx))
 
@@ -652,13 +901,13 @@ class McastDeviceMemory:
 
         checkCudaErrors(cudart.cudaSetDevice(device_idx))
 
-        self.is_multi_node = is_multi_node
         self.device_idx = device_idx
         self.group_size = group_size
         self.group_rank = group_rank
         self.buf_size = buf_size
         self.signal_pad_offset = 0
         self.allocation_size = 0
+        self.comm_backend = comm_backend_for_handle_transfer or MPIBackend()
 
         # CUDA memory handles and pointers
         self.mc_ptr = 0  # CUdeviceptr mMcPtr
@@ -684,58 +933,47 @@ class McastDeviceMemory:
         )
         if multicast_supported == 0:
             raise RuntimeError(
-                "[McastDeviceMemory] Device does not support multicasting."
+                "[SymmDeviceMemory] Device does not support multicasting."
             )
 
         # Calculate signal pad offset with alignment (matching C++ exactly)
         self.signal_pad_offset = round_up(buf_size, self.SIGNAL_PAD_ALIGNMENT)
 
         logging.info(
-            f"[McastDeviceMemory] Rank: {group_rank}, Group size: {group_size}, "
-            f"mnNvlink: {is_multi_node}, device_idx: {device_idx}, "
+            f"[SymmDeviceMemory] Rank: {group_rank}, Group size: {group_size}, "
+            f"device_idx: {device_idx}, "
             f"Signal pad offset: {self.signal_pad_offset}"
         )
 
-        if self.is_multi_node:
-            # Check if fabric handle is supported
-            fabric_handle_supported = checkCudaErrors(
-                cuda.cuDeviceGetAttribute(
-                    cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_FABRIC_SUPPORTED,
-                    device_idx,
-                )
+        # Create handle exchanger
+        if is_mnnvl_fabric_supported(device_idx):
+            self._exchanger: HandleExchanger = FabricHandleExchanger(
+                self.comm_backend, self.group_rank, self.group_size
             )
-            if fabric_handle_supported == 0:
-                raise RuntimeError(
-                    "[McastDeviceMemory] Device does not support fabric handle."
-                )
-
-            self._alloc_mn_mcast_mem(buf_size)
         else:
-            # For single-node NVLS, would need to implement _alloc_nvls_mcast_mem
-            raise NotImplementedError("Single-node NVLS allocation not implemented yet")
+            self._exchanger = PosixFDHandleExchanger(
+                self.comm_backend, self.group_rank, self.group_size
+            )
+        self._alloc_mn_mcast_mem(buf_size, enable_multicast)
 
-        # Initialize signal pads
-        self.signal_pads = [0] * self.group_size
-        for i in range(self.group_size):
-            self.signal_pads[i] = self.uc_ptrs[i] + self.signal_pad_offset
-            if i == self.group_rank:
-                checkCudaErrors(
-                    cuda.cuMemsetD8(self.signal_pads[i], 0, self.SIGNAL_PAD_SIZE)
-                )
+        if allocate_signal_pads:
+            # Initialize signal pads
+            self.signal_pads = [0] * self.group_size
+            for i in range(self.group_size):
+                self.signal_pads[i] = self.uc_ptrs[i] + self.signal_pad_offset
+                if i == self.group_rank:
+                    checkCudaErrors(
+                        cuda.cuMemsetD8(self.signal_pads[i], 0, self.SIGNAL_PAD_SIZE)
+                    )
 
-        # Create device pointers
-        self.signal_pads_dev = alloc_and_copy_to_cuda(self.signal_pads)
+            self.signal_pads_dev = alloc_and_copy_to_cuda(self.signal_pads)
         self.uc_ptrs_dev = alloc_and_copy_to_cuda(self.uc_ptrs)
 
     def __del__(self):
         """Destructor - cleanup allocated memory"""
 
-        # Check if we're in a valid state for cleanup
-        if not hasattr(self, "is_multi_node"):
-            return
-
-        if not self.is_multi_node:
-            return
+        if hasattr(self, "_exchanger"):
+            self._exchanger.close()
 
         # Skip cleanup during Python finalization to avoid segfaults
         # Especially cause the CUDA context could be destroyed at this point.
@@ -831,13 +1069,32 @@ class McastDeviceMemory:
         """Get the total number of devices in the group"""
         return self.group_size
 
-    def _alloc_mn_mcast_mem(self, buf_size: int):
-        """Allocate multi-node multicast memory using MNNVL"""
+    def get_allocation_size(self) -> int:
+        """Get the total allocation size (including signal pad)"""
+        return self.allocation_size
 
-        # Verify CUDA context
+    def get_usable_buffer_size(self) -> int:
+        """Get the usable buffer size (excluding signal pad)"""
+        return self.allocation_size - self.SIGNAL_PAD_SIZE
+
+    def _alloc_mn_mcast_mem(self, buf_size: int, enable_multicast: bool):
+        """Allocate multi-node multicast memory using MNNVL"""
+        self._verify_cuda_context()
+
+        # Compute allocation size and get allocation properties
+        allocation_prop, mc_prop = self._get_allocation_prop(buf_size)
+
+        # Allocate, exchange, and map unicast buffers
+        self._allocate_unicast_buffers(allocation_prop)
+
+        # Setup multicast object, exchange handles, map and bind memory
+        if enable_multicast:
+            self._setup_multicast(mc_prop)
+
+    def _verify_cuda_context(self):
+        """Verify CUDA context is set to the correct device."""
         try:
             current_device = checkCudaErrors(cuda.cuCtxGetDevice())
-
             if int(current_device) != self.device_idx:
                 print(
                     f"CUDA context device mismatch! Current: {current_device}, Expected: {self.device_idx}"
@@ -845,32 +1102,26 @@ class McastDeviceMemory:
         except Exception as e:
             print(f"Error checking CUDA context: {e}")
 
-        # Get MPI communicator
-        comm = MpiComm()
-
-        # Set up allocation properties
-        handle_type = cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC
-
+    def _get_allocation_prop(self, buf_size: int):
+        """Compute allocation size and return allocation/multicast properties."""
         allocation_prop = cuda.CUmemAllocationProp()
-        allocation_prop.requestedHandleTypes = handle_type
+        allocation_prop.requestedHandleTypes = self._exchanger.handle_type
         allocation_prop.type = cuda.CUmemAllocationType.CU_MEM_ALLOCATION_TYPE_PINNED
         allocation_prop.location = cuda.CUmemLocation()
         allocation_prop.location.type = (
             cuda.CUmemLocationType.CU_MEM_LOCATION_TYPE_DEVICE
         )
         allocation_prop.location.id = self.device_idx
-
         allocation_prop.allocFlags.gpuDirectRDMACapable = 1
 
         # Get allocation granularity
         alloc_granularity = checkCudaErrors(
             cuda.cuMemGetAllocationGranularity(
                 allocation_prop,
-                cuda.CUmemAllocationGranularity_flags.CU_MEM_ALLOC_GRANULARITY_MINIMUM,
+                cuda.CUmemAllocationGranularity_flags.CU_MEM_ALLOC_GRANULARITY_RECOMMENDED,
             )
         )
 
-        # mAllocationSize = roundUp(bufSize + kSIGNAL_PAD_SIZE, alloc_granularity);
         self.allocation_size = round_up(
             buf_size + self.SIGNAL_PAD_SIZE, alloc_granularity
         )
@@ -879,18 +1130,21 @@ class McastDeviceMemory:
         mc_prop = cuda.CUmulticastObjectProp()
         mc_prop.numDevices = self.group_size
         mc_prop.size = self.allocation_size
-        mc_prop.handleTypes = handle_type
+        mc_prop.handleTypes = self._exchanger.handle_type
 
-        # Get multicast granularity
-        mc_granularity = checkCudaErrors(
+        # Get multicast granularity and adjust allocation size
+        self._mc_granularity = checkCudaErrors(
             cuda.cuMulticastGetGranularity(
                 mc_prop,
                 cuda.CUmulticastGranularity_flags.CU_MULTICAST_GRANULARITY_RECOMMENDED,
             )
         )
+        self.allocation_size = round_up(self.allocation_size, self._mc_granularity)
 
-        self.allocation_size = round_up(self.allocation_size, mc_granularity)
+        return allocation_prop, mc_prop
 
+    def _allocate_unicast_buffers(self, allocation_prop):
+        """Allocate local UC memory, exchange handles with peers, and map memory."""
         # Initialize UC handles list
         self.uc_handles = [0] * self.group_size
 
@@ -899,17 +1153,17 @@ class McastDeviceMemory:
             cuda.cuMemCreate(self.allocation_size, allocation_prop, 0)
         )
 
-        # Export local handle to fabric handle
-        my_fabric_handle = checkCudaErrors(
+        # Export local handle to shareable handle
+        local_shareable_uc_handle = checkCudaErrors(
             cuda.cuMemExportToShareableHandle(
                 self.uc_handles[self.group_rank],
-                cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC,
+                self._exchanger.handle_type,
                 0,
             )
         )
 
-        # All-gather fabric handles
-        all_fabric_handles = comm.allgather(my_fabric_handle.data)
+        # All-gather shareable handles
+        all_shareable_uc_handles = self._exchanger.allgather(local_shareable_uc_handle)
         cuda.cuCtxSynchronize()
 
         # Import remote handles
@@ -917,62 +1171,20 @@ class McastDeviceMemory:
             if p != self.group_rank:
                 self.uc_handles[p] = checkCudaErrors(
                     cuda.cuMemImportFromShareableHandle(
-                        all_fabric_handles[p],
-                        cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC,
+                        all_shareable_uc_handles[p],
+                        self._exchanger.handle_type,
                     )
                 )
-
-        # Initialize multicasting
-        if self.group_rank == 0:
-            # Create multicast object
-            self.mc_handle = checkCudaErrors(cuda.cuMulticastCreate(mc_prop))
-
-            # Export multicast handle
-            mc_fabric_handle = checkCudaErrors(
-                cuda.cuMemExportToShareableHandle(
-                    self.mc_handle,
-                    cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC,
-                    0,
-                )
-            )
-        else:
-            mc_fabric_handle = None
-
-        # Broadcast multicast handle
-        mc_fabric_handle_data = comm.bcast(
-            mc_fabric_handle.data if mc_fabric_handle else None, root=0
-        )
-        # Sync device to ensure broadcast is complete
-        cuda.cuCtxSynchronize()
-        # Import multicast handle for non-root ranks
-        if self.group_rank != 0:
-            self.mc_handle = checkCudaErrors(
-                cuda.cuMemImportFromShareableHandle(
-                    mc_fabric_handle_data,
-                    cuda.CUmemAllocationHandleType.CU_MEM_HANDLE_TYPE_FABRIC,
-                )
-            )
-
-        # Add device to multicast
-        checkCudaErrors(cuda.cuMulticastAddDevice(self.mc_handle, self.device_idx))
-
-        # Bind memory addresses
-        self.uc_ptrs = [0] * self.group_size
+                self._exchanger.cleanup(all_shareable_uc_handles[p])
 
         # Reserve address space for UC pointers
+        self.uc_ptrs = [0] * self.group_size
         total_uc_size = self.allocation_size * self.group_size
         self.total_uc_size = total_uc_size
         uc_base_ptr = checkCudaErrors(
-            cuda.cuMemAddressReserve(total_uc_size, mc_granularity, 0, 0)
+            cuda.cuMemAddressReserve(total_uc_size, self._mc_granularity, 0, 0)
         )
-        self.uc_base_ptr = uc_base_ptr  # Store for cleanup
-
-        # Set up memory access descriptor
-        access_desc = cuda.CUmemAccessDesc()
-        access_desc.location = cuda.CUmemLocation()
-        access_desc.location.type = cuda.CUmemLocationType.CU_MEM_LOCATION_TYPE_DEVICE
-        access_desc.location.id = self.device_idx
-        access_desc.flags = cuda.CUmemAccess_flags.CU_MEM_ACCESS_FLAGS_PROT_READWRITE
+        self.uc_base_ptr = uc_base_ptr
 
         # Map UC memory
         for i in range(self.group_size):
@@ -984,23 +1196,57 @@ class McastDeviceMemory:
                 )
             )
 
-        # Set memory access permissions
+        # Set memory access permissions for UC
+        access_desc = self._get_mem_access_desc()
         checkCudaErrors(
             cuda.cuMemSetAccess(uc_base_ptr, total_uc_size, [access_desc], 1)
         )
 
-        # Bind MC pointer
+    def _setup_multicast(self, mc_prop):
+        """Create multicast object, exchange handle, map memory, and bind."""
+        # Rank 0 creates the multicast object
+        if self.group_rank == 0:
+            self.mc_handle = checkCudaErrors(cuda.cuMulticastCreate(mc_prop))
+            shareable_mc_handle = checkCudaErrors(
+                cuda.cuMemExportToShareableHandle(
+                    self.mc_handle,
+                    self._exchanger.handle_type,
+                    0,
+                )
+            )
+        else:
+            shareable_mc_handle = None
+
+        # Broadcast multicast handle from rank 0
+        shareable_mc_handle = self._exchanger.broadcast(shareable_mc_handle, root=0)
+        cuda.cuCtxSynchronize()
+
+        # Import multicast handle for non-root ranks
+        if self.group_rank != 0:
+            self.mc_handle = checkCudaErrors(
+                cuda.cuMemImportFromShareableHandle(
+                    shareable_mc_handle,
+                    self._exchanger.handle_type,
+                )
+            )
+            self._exchanger.cleanup(shareable_mc_handle)
+
+        # Add device to multicast
+        checkCudaErrors(cuda.cuMulticastAddDevice(self.mc_handle, self.device_idx))
+
+        # Reserve and map MC pointer
         self.mc_ptr = checkCudaErrors(
-            cuda.cuMemAddressReserve(self.allocation_size, mc_granularity, 0, 0)
+            cuda.cuMemAddressReserve(self.allocation_size, self._mc_granularity, 0, 0)
         )
         checkCudaErrors(
             cuda.cuMemMap(self.mc_ptr, self.allocation_size, 0, self.mc_handle, 0)
         )
+        access_desc = self._get_mem_access_desc()
         checkCudaErrors(
             cuda.cuMemSetAccess(self.mc_ptr, self.allocation_size, [access_desc], 1)
         )
 
-        # Bind memory to multicast
+        # Bind local memory to multicast
         checkCudaErrors(
             cuda.cuMulticastBindMem(
                 self.mc_handle,
@@ -1011,6 +1257,15 @@ class McastDeviceMemory:
                 0,  # flags
             )
         )
+
+    def _get_mem_access_desc(self):
+        """Create memory access descriptor for this device."""
+        access_desc = cuda.CUmemAccessDesc()
+        access_desc.location = cuda.CUmemLocation()
+        access_desc.location.type = cuda.CUmemLocationType.CU_MEM_LOCATION_TYPE_DEVICE
+        access_desc.location.id = self.device_idx
+        access_desc.flags = cuda.CUmemAccess_flags.CU_MEM_ACCESS_FLAGS_PROT_READWRITE
+        return access_desc
 
     def lamport_initialize(self, rank: int, dtype: torch.dtype):
         if dtype == torch.bfloat16 or dtype == torch.float16:
@@ -1024,8 +1279,8 @@ class McastDeviceMemory:
         else:
             raise ValueError(f"Unsupported dtype: {dtype}")
 
-        # Calculate number of elements that fit in allocation_size
-        num_elements = self.allocation_size // dsize
+        # Calculate number of elements that fit in allocation_size; We don't want to include the signal pad.
+        num_elements = (self.allocation_size - self.SIGNAL_PAD_SIZE) // dsize
 
         checkCudaErrors(
             memset_func(int(self.uc_ptrs[self.group_rank]), neg_zero, num_elements)
@@ -1034,7 +1289,7 @@ class McastDeviceMemory:
 
 class McastGPUBuffer:
     """
-    Wrapper class for McastDeviceMemory to facilitate PyTorch tensor creation.
+    Wrapper class for SymmDeviceMemory to facilitate PyTorch tensor creation.
     It manages a buffer accessible via unicast or multicast for multi-node communication.
 
     Python port of McastGPUBuffer from TensorRT-LLM
@@ -1046,28 +1301,34 @@ class McastGPUBuffer:
         group_size: int,
         group_rank: int,
         device: torch.device,
-        mn_nvlink: bool = True,
+        comm_backend_for_handle_transfer: Optional[CommBackend] = None,
     ):
         """
         Constructor for McastGpuBuffer.
 
         Args:
-            buf_size: The total size of the buffer in bytes
+            buf_size: The requested size of the buffer in bytes. The actual usable size may differ due to alignment requirements.
             group_size: The number of ranks in the communication group
             group_rank: The rank of the local process within the group
             device: The CUDA device for buffer allocation
             mn_nvlink: Flag indicating if multi-node NVLink is used
+            comm_backend_for_handle_transfer: Communication backend for handle transfer
         """
-        self.mcast_device_memory = McastDeviceMemory(
-            buf_size, group_size, group_rank, device.index, mn_nvlink
+        self.mcast_device_memory = SymmDeviceMemory(
+            buf_size,
+            group_size,
+            group_rank,
+            device.index,
+            comm_backend_for_handle_transfer,
         )
-        self.buf_size = buf_size
+        # Update buf_size to reflect the actual usable buffer size after allocation
+        self.buf_size = self.mcast_device_memory.get_usable_buffer_size()
         self.local_device = device
 
     def lamport_initialize(self, rank: int, dtype: torch.dtype):
         self.mcast_device_memory.lamport_initialize(rank, dtype)
 
-    def get_mc_buffer(
+    def get_multicast_buffer(
         self, sizes: tuple, dtype: torch.dtype, storage_offset: int = 0
     ) -> torch.Tensor:
         """
@@ -1081,11 +1342,27 @@ class McastGPUBuffer:
         Returns:
             A PyTorch tensor wrapping the multicast buffer section
         """
+
+        # FIXME: Is this needed? As the behavior of reading from mc_ptr is undefined.
+        raise NotImplementedError("Not implemented yet")
+
+    def get_unicast_buffer(
+        self, sizes: tuple, dtype: torch.dtype, storage_offset: int = 0
+    ) -> torch.Tensor:
+        """
+        Returns a PyTorch tensor view of the unicast buffer portion.
+        """
+
+        # TODO: How can I warp a raw pointer to a tensor in python level?
         raise NotImplementedError("Not implemented yet")
 
     def get_multicast_ptr(self) -> int:
         """Get the raw multicast pointer"""
         return self.mcast_device_memory.get_multicast_ptr()
+
+    def get_unicast_ptr(self, rank: int) -> int:
+        """Get the raw unicast pointer to a given rank"""
+        return self.mcast_device_memory.get_unicast_ptr(rank)
 
     def get_buffer_ptrs_dev(self) -> int:
         """Get the buffer pointers device array"""

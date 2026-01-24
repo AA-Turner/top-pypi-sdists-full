@@ -54,7 +54,7 @@
     __esModule();
     exports.VizzuChart = exports.VideoStream = exports.Video = exports.VegaPlot = exports.TrendIndicator = exports.TooltipIcon = exports.ToggleIcon = void 0;
     const tslib_1 = require("tslib");
-    var ace_1 = require("6227c89639") /* ./ace */;
+    var ace_1 = require("78ccb7a2c5") /* ./ace */;
     __esExport("AcePlot", ace_1.AcePlot);
     var anywidget_component_1 = require("1f663ffe94") /* ./anywidget_component */;
     __esExport("AnyWidgetComponent", anywidget_component_1.AnyWidgetComponent);
@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("632409fec4") /* ./tabulator */;
+    var tabulator_1 = require("d446ec1ed8") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("ace9331ee1") /* ./react_component */;
+    var react_component_1 = require("1170146660") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
+    var reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -142,7 +142,7 @@
     __esExport("SpeechToText", speech_to_text_1.SpeechToText);
     var state_1 = require("92822cb73a") /* ./state */;
     __esExport("State", state_1.State);
-    var tabs_1 = require("2231cdc549") /* ./tabs */;
+    var tabs_1 = require("fffb4344f7") /* ./tabs */;
     __esExport("Tabs", tabs_1.Tabs);
     var terminal_1 = require("a961b5ae5e") /* ./terminal */;
     __esExport("Terminal", terminal_1.Terminal);
@@ -170,7 +170,7 @@
     __esExport("VizzuChart", vizzu_1.VizzuChart);
     tslib_1.__exportStar(require("c51f25e2a7") /* ./vtk */, exports);
 },
-"6227c89639": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
+"78ccb7a2c5": /* models/ace.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -238,7 +238,27 @@
         }
         _update_code_from_model() {
             if (this._editor && this._editor.getValue() != this.model.code) {
-                this._editor.setValue(this.model.code);
+                // Save the current cursor position
+                const cursorPosition = this._editor.getCursorPosition();
+                const scrollTop = this._editor.session.getScrollTop();
+                const scrollLeft = this._editor.session.getScrollLeft();
+                // Update the value without selecting all text
+                // The second parameter (-1) keeps cursor where it is
+                this._editor.setValue(this.model.code, -1);
+                // Restore cursor position only if it's valid in the new content
+                const newRowCount = this._editor.session.getLength();
+                if (cursorPosition.row < newRowCount) {
+                    const newRowLength = this._editor.session.getLine(cursorPosition.row).length;
+                    const newColumn = Math.min(cursorPosition.column, newRowLength);
+                    this._editor.moveCursorToPosition({ row: cursorPosition.row, column: newColumn });
+                }
+                else {
+                    // If the cursor was beyond the new document length, move to end
+                    this._editor.moveCursorToPosition({ row: newRowCount - 1, column: this._editor.session.getLine(newRowCount - 1).length });
+                }
+                this._editor.clearSelection();
+                this._editor.session.setScrollTop(scrollTop);
+                this._editor.session.setScrollLeft(scrollLeft);
             }
         }
         _update_print_margin() {
@@ -255,7 +275,9 @@
             }
         }
         _update_theme() {
-            this._editor.setTheme(`ace/theme/${this.model.theme}`);
+            if (this._editor) {
+                this._editor.setTheme(`ace/theme/${this.model.theme}`);
+            }
         }
         _update_filename() {
             if (this.model.filename) {
@@ -747,7 +769,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
+    const reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -911,7 +933,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"50fda3c782": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"d92390e7cb": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -932,6 +954,7 @@ export default {render}`;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const dom_2 = require("@bokehjs/core/dom");
+    const kinds_1 = require("@bokehjs/core/kinds");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
@@ -1155,8 +1178,13 @@ export default {render}`;
                 this.container.className = this.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
             });
             const child_props = this.model.children.map((child) => this.model.data.properties[child]);
-            this.on_change(child_props, () => {
-                this.update_children();
+            for (const cp of child_props) {
+                cp.change.connect(() => this.update_children());
+            }
+            this.on_change([], () => {
+                if (this.model.render_policy !== "manual") {
+                    this.render_esm();
+                }
             });
             this.model.on_event(ESMEvent, (event) => {
                 for (const cb of this._event_handlers) {
@@ -1316,6 +1344,7 @@ export default {render}`;
             if (this.model.compiled === null || this.model.render_module === null) {
                 return;
             }
+            this.container.replaceChildren();
             this.accessed_properties = [];
             for (const lf of this._lifecycle_handlers.keys()) {
                 (this._lifecycle_handlers.get(lf) || []).splice(0);
@@ -1325,6 +1354,9 @@ export default {render}`;
         }
         render_children() {
             for (const child of this.model.children) {
+                if (!this.accessed_children.includes(child)) {
+                    return;
+                }
                 const child_model = this.model.data[child];
                 const children = (0, types_1.isArray)(child_model) ? child_model : [child_model];
                 for (const subchild of children) {
@@ -1339,7 +1371,22 @@ export default {render}`;
                     }
                 }
             }
+            this._stale_children = false;
             this.after_render();
+        }
+        has_finished() {
+            if (!super.has_finished()) {
+                return false;
+            }
+            if (this.is_layout_root && !this._layout_computed) {
+                return false;
+            }
+            for (const child_view of this.child_views) {
+                if (!child_view.has_finished() && this._child_rendered.has(child_view)) {
+                    return false;
+                }
+            }
+            return true;
         }
         invalidate_layout() {
             if (this.is_managed) {
@@ -1389,8 +1436,10 @@ export default {render}`;
         async update_children() {
             const created_children = new Set(await this.build_child_views());
             const all_views = this.child_views;
-            for (const child_view of all_views) {
-                child_view.el.remove();
+            if (this.model.render_policy !== "manual") {
+                for (const child_view of all_views) {
+                    child_view.el.remove();
+                }
             }
             const new_views = new Map();
             for (const child_view of this.child_views) {
@@ -1420,12 +1469,12 @@ export default {render}`;
                     callback(new_children);
                 }
             }
-            if (this._stale_children) {
+            if (this._stale_children && this.model.render_policy !== "manual") {
                 this.render_esm();
-                this._stale_children = false;
+                this._update_children();
+                this.invalidate_layout();
             }
-            this._update_children();
-            this.invalidate_layout();
+            this._stale_children = false;
         }
         on_child_render(child, callback) {
             if (!this._child_callbacks.has(child)) {
@@ -1450,6 +1499,7 @@ export default {render}`;
     }
     exports.ReactiveESMView = ReactiveESMView;
     ReactiveESMView.__name__ = "ReactiveESMView";
+    exports.RenderPolicy = (0, kinds_1.Enum)("manual", "children");
     class ReactiveESM extends layout_1.HTMLBox {
         constructor(attrs) {
             super(attrs);
@@ -1476,12 +1526,6 @@ export default {render}`;
             this.connect(this.properties.importmap.change, () => this.recompile());
         }
         watch(view, prop, cb, force = false) {
-            if (prop in this._esm_watchers) {
-                this._esm_watchers[prop].push([view, cb]);
-            }
-            else {
-                this._esm_watchers[prop] = [[view, cb]];
-            }
             const propPath = prop.split(".");
             let target = this.data;
             let resolvedProp = null;
@@ -1511,10 +1555,43 @@ export default {render}`;
             }
             // Attach watcher if property is found
             if (resolvedProp && target) {
+                if (this.children.includes(resolvedProp)) {
+                    const orig_cb = cb;
+                    cb = async () => {
+                        if (view) {
+                            view._stale_children = true;
+                        }
+                        if (view && view._stale_children) {
+                            await new Promise(resolve => {
+                                const check = () => {
+                                    if (!view._stale_children) {
+                                        resolve(undefined);
+                                    }
+                                    else {
+                                        setTimeout(check, 10);
+                                    }
+                                };
+                                check();
+                            });
+                        }
+                        orig_cb();
+                        if (view && this.render_policy === "manual") {
+                            view.render_children();
+                            view._update_children();
+                            view.invalidate_layout();
+                        }
+                    };
+                }
                 target.property(resolvedProp).change.connect(cb);
             }
             else if (prop in this.properties) {
                 this.property(prop).change.connect(cb);
+            }
+            if (prop in this._esm_watchers) {
+                this._esm_watchers[prop].push([view, cb]);
+            }
+            else {
+                this._esm_watchers[prop] = [[view, cb]];
             }
         }
         unwatch(view, prop, cb) {
@@ -1756,6 +1833,7 @@ export default {render}`;
             esm: [Str, ""],
             events: [Array(Str), []],
             importmap: [Any, {}],
+            render_policy: [exports.RenderPolicy, "children"],
         }));
     })();
 },
@@ -18014,7 +18092,7 @@ ${namesToRegister
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const util_1 = require("a3669a897a") /* ./util */;
-    const html_css_1 = tslib_1.__importDefault(require("8694ed3f61") /* ../styles/models/html.css */);
+    const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* ../styles/models/html.css */);
     const COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-clipboard"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" /><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/></svg>`;
     const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-check"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10"/></svg>`;
     function searchAllDOMs(node, selector) {
@@ -18266,9 +18344,9 @@ ${namesToRegister
         }));
     })();
 },
-"8694ed3f61": /* styles/models/html.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"9b8139e439": /* styles/models/html.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.default = `.copybtn{position:sticky;display:flex;top:0;left:100%;width:1.7em;height:1.7em;opacity:0;transition:opacity 0.3s, border 0.3s, background-color 0.3s;user-select:none;padding:0;border:none;outline:none;border-radius:0.4em;border:#1b1f2426 1px solid;background-color:#f6f8fa;color:#57606a;}.codehilite pre{margin-top:-1.7em;}.copybtn svg{stroke:currentColor;width:1.5em;height:1.5em;padding:0.1em;}.codehilite:hover .copybtn{opacity:1;cursor:pointer;}`;
+    exports.default = `.copybtn{position:sticky;display:flex;top:0;left:100%;width:1.7em;height:1.7em;opacity:0;transition:opacity 0.3s, border 0.3s, background-color 0.3s;user-select:none;padding:0;border:none;outline:none;border-radius:0.4em;border:#1b1f2426 1px solid;background-color:#f6f8fa;color:#57606a;}.codehilite pre{margin-top:-1.5em;}.copybtn svg{stroke:currentColor;width:1.5em;height:1.5em;padding:0.1em;}.codehilite:hover .copybtn{opacity:1;cursor:pointer;}`;
 },
 "727a14f76b": /* styles/models/esm.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -19730,7 +19808,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"632409fec4": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"d446ec1ed8": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19747,7 +19825,7 @@ ${namesToRegister
     const data_1 = require("be689f0377") /* ./data */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
-    const tabulator_css_1 = tslib_1.__importDefault(require("78fb957c9f") /* ../styles/models/tabulator.css */);
+    const tabulator_css_1 = tslib_1.__importDefault(require("3d732ff91f") /* ../styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
         constructor(column, row, pre) {
             super();
@@ -20235,7 +20313,7 @@ ${namesToRegister
             this._restore_scroll = true;
         }
         get is_drawing() {
-            return this._building || this._redrawing || !this.root.has_finished();
+            return this._building || this._redrawing || !this.has_finished();
         }
         after_layout() {
             super.after_layout();
@@ -20398,7 +20476,7 @@ ${namesToRegister
                 if (initializing) {
                     this._resize_redraw();
                 }
-            }, () => this.root.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
+            }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
         }
         recompute_page_size() {
             if (!this.model.pagination || this.model.page_size !== null || this._automatic_page_size) {
@@ -20599,7 +20677,7 @@ ${namesToRegister
                     this._update_children();
                     this.resize_table();
                 }
-            }, () => this.root.has_finished());
+            }, () => this.has_finished());
         }
         resize_table() {
             if (this.tabulator.rowManager.renderer != null) {
@@ -20801,7 +20879,16 @@ ${namesToRegister
                     };
                 }
                 tab_column.visible = (tab_column.visible != false && !this.model.hidden_columns.includes(column.field));
-                tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+                const originalEditable = tab_column.editable;
+                if ((0, types_1.isFunction)(originalEditable)) {
+                    tab_column.editable = (cell) => (this.model.editable && (editor.default_view != null) && originalEditable(cell));
+                }
+                else if ((0, types_1.isBoolean)(originalEditable)) {
+                    tab_column.editable = () => (this.model.editable && (editor.default_view != null) && originalEditable);
+                }
+                else {
+                    tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+                }
                 if (tab_column.headerFilter) {
                     if ((0, types_1.isBoolean)(tab_column.headerFilter) && (0, types_1.isString)(tab_column.editor)) {
                         tab_column.headerFilter = tab_column.editor;
@@ -20837,7 +20924,7 @@ ${namesToRegister
                 };
                 columns.push(button_column);
             }
-            if (this.model.container_popup) {
+            if (this.model.container_popup && (this.model.layout !== "fit_data_stretch")) {
                 // We insert an empty last column to ensure select editor is rendered in correct position
                 // see: https://github.com/holoviz/panel/issues/7295
                 columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
@@ -21350,10 +21437,10 @@ ${namesToRegister
         return records;
     }
 },
-"78fb957c9f": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"3d732ff91f": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.panel_models_markup_HTML = "bk-panel-models-markup-HTML";
-    exports.default = `.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{min-width:0px !important;width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:0px !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
+    exports.default = `.pnx-tabulator.tabulator{overflow:visible;}.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{min-width:0px !important;width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:100% !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
 },
 "100965d6f3": /* models/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -28913,12 +29000,12 @@ ${namesToRegister
         }));
     })();
 },
-"ace9331ee1": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"1170146660": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
+    const reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -28993,7 +29080,7 @@ ${namesToRegister
             this._force_update_callbacks = [];
             if (this.react_root && this.use_shadow_dom) {
                 super.remove();
-                this.react_root.then((root) => root.unmount());
+                this.react_root.then((root) => root && root.unmount());
             }
             else {
                 this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
@@ -29464,6 +29551,9 @@ ${compiled}`;
             root_node: [Nullable(Str), null],
             use_shadow_dom: [Bool, true],
         }));
+        _a.override({
+            render_policy: "manual",
+        });
     })();
 },
 "d5752cda5a": /* models/reactive_html.js */ function _(require, module, exports, __esModule, __esExport) {
@@ -30845,7 +30935,7 @@ ${compiled}`;
         }));
     })();
 },
-"2231cdc549": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
+"fffb4344f7": /* models/tabs.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const tslib_1 = require("tslib");
@@ -30858,10 +30948,14 @@ ${compiled}`;
     function show(element) {
         element.style.visibility = "";
         element.style.opacity = "";
+        element.style.pointerEvents = "auto";
+        element.removeAttribute("aria-hidden");
     }
     function hide(element) {
         element.style.visibility = "hidden";
         element.style.opacity = "0";
+        element.style.pointerEvents = "none";
+        element.setAttribute("aria-hidden", "true");
     }
     class TabsView extends tabs_1.TabsView {
         connect_signals() {
@@ -40663,5 +40757,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"632409fec4","models/data":"be689f0377","styles/models/tabulator.css":"78fb957c9f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"ace9331ee1","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"d92390e7cb","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"d446ec1ed8","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"1170146660","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

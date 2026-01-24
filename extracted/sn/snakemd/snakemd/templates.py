@@ -9,8 +9,10 @@ import csv
 import logging
 import os
 import re
+from typing import Iterable
+from enum import Enum, auto
 
-from .elements import Element, Heading, Inline, MDList, Table
+from .elements import Block, Element, Heading, Inline, MDList, Quote, Table
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,214 @@ class Template(Element):  # pylint: disable=too-few-public-methods
         :param elements: a list of document elements
         """
         self._elements = elements
+
+
+class Alert(Template):
+    """
+    Alert is a wrapper of the Quote object to provide
+    support for the alerts Markdown extension. While
+    quotes can be nested in each other, alerts cannot.  
+
+    .. versionadded:: 2.4
+        Included for user convenience
+
+    :param Kind kind: 
+        the kind of alert; limited to:
+
+        - NOTE
+        - TIP
+        - IMPORTANT 
+        - WARNING
+        - CAUTION
+    :param str | Iterable[str | Inline | Block] message:
+        the message you would like to show with the alert
+    """
+
+    class Kind(Enum):
+        """
+        Kind is an enum representing the different
+        kinds of alerts that you might place in a
+        document. 
+        """
+        
+        NOTE = auto()
+        """
+        As the GitHub docs state, a note should provide
+        "useful information that users should know, 
+        even when skimming content."
+        """
+
+        TIP = auto()
+        """
+        As the GitHub docs state, a tip should provide
+        "helpful advice for doing things better or 
+        more easily."
+        """
+
+        IMPORTANT = auto()
+        """
+        As the GitHub docs state, an important alert should
+        provide "key information users need to know to 
+        achieve their goal."
+        """
+
+        WARNING = auto()
+        """
+        As the GitHub docs state, a warning should provide
+        "urgent info that needs immediate user attention 
+        to avoid problems."
+        """
+
+        CAUTION = auto()
+        """
+        As the GitHub docs state, a caution alert should
+        "[advise] about risks or negative outcomes of 
+        certain actions."
+        """
+
+    def __init__(
+        self,
+        message: str | Iterable[str | Inline | Block],
+        kind: Kind
+    ) -> None:
+        super().__init__()
+        self._kind = kind
+        self._message = message
+        self._alert = Quote([f"[!{self._kind.name}]", self._message])
+
+    def __str__(self) -> str:
+        """
+        Renders self as a markdown ready string. See
+        :class:`snakemd.Quote` for more details.
+
+        :return:
+            the Alert as a markdown string
+        """
+        return str(self._alert)
+
+    def __repr__(self) -> str:
+        """
+        Renders self as an unambiguous string for development.
+        See :class:`snakemd.Quote` for more details.
+
+        :return:
+            the Alert as a development string
+        """
+        return repr(self._alert)
+
+
+class Checklist(Template):
+    """
+    Checklist is an MDList extension to provide support
+    for Markdown checklists, which are a Markdown
+    extension. Previously, this feature was baked
+    directly into MDList. However, because checklists
+    are not a vanilla Markdown feature, they were
+    moved here.
+
+    .. versionadded:: 2.4
+        Included for user convenience
+
+    :raises ValueError:
+        when the checked argument is an Iterable[bool] that does not
+        match the number of top-level elements in the list
+    :param Iterable[str | Inline | Block] items:
+        a "list" of objects to be rendered as a list
+    :param bool | Iterable[bool] checked:
+        the checked state of the list
+
+        - defaults to :code:`False` which renders a series of unchecked 
+          boxes (i.e., :code:`- [ ]`)
+        - set to :code:`True` to render a series of checked boxes
+          (i.e., :code:`- [x]`)
+        - set to :code:`Iterable[bool]` to render the checked
+          status of the top-level list elements directly
+    """
+
+    def __init__(
+        self,
+        items: Iterable[str | Inline | Block],
+        checked: bool | Iterable[bool] = False
+    ) -> None:
+        super().__init__()
+        self._items: list[Block] = MDList._process_items(items)
+        self._checked: bool | list[bool] = (
+            checked if checked is None or isinstance(
+                checked, bool) else list(checked)
+        )
+        self._space = ""
+        if (
+            isinstance(self._checked, list)
+            and MDList._top_level_count(self._items) != len(self._checked)
+        ):
+            raise ValueError(
+                "Number of top-level elements in checklist does not "
+                "match number of booleans supplied by checked parameter: "
+                f"{self._checked}"
+            )
+
+    def __str__(self):
+        """
+        Renders the checklist as a markdown string. Checklists
+        function very similarly to unorded lists, but require
+        additional information about the status of each task
+        (i.e., whether it is checked or not).
+
+        .. code-block:: markdown
+
+            - [ ] Do reading
+            - [X] Do writing
+
+        :return:
+            the list as a markdown string
+        """
+        output = []
+        i = 1
+        for item in self._items:
+            if isinstance(item, Checklist | MDList):
+                item._space = self._space + " " * 2
+                output.append(str(item))
+            else:
+                row = f"{self._space}-"
+
+                if isinstance(self._checked, bool):
+                    checked_str = "X" if self._checked else " "
+                    row = f"{row} [{checked_str}] {item}"
+                else:
+                    checked_str = "X" if self._checked[i - 1] else " "
+                    row = f"{row} [{checked_str}] {item}"
+
+                output.append(row)
+            i += 1
+
+        checklist = "\n".join(output)
+        logger.debug("Rendered checklist: %r", checklist)
+        return checklist
+
+    def __repr__(self) -> str:
+        """
+        Renders self as an unambiguous string for development.
+        In this case, it displays in the style of a dataclass,
+        where instance variables are listed with their
+        values. Unlike many of the other templates, Checklists
+        aren't a direct wrapper of MDList, and therefore cannot
+        be represented as MDList alone. 
+
+        .. doctest:: checklist
+
+            >>> checklist = Checklist(["Do Homework"], True)
+            >>> repr(checklist)
+            "Checklist(items=[Paragraph(...)], checked=True)"
+
+        :return:
+            the Checklist object as a development string
+        """
+        return (
+            f"Checklist("
+            f"items={self._items!r}, "
+            f"checked={self._checked!r}"
+            f")"
+        )
 
 
 class CSVTable(Template):
@@ -141,7 +351,8 @@ class TableOfContents(Template):
     def __init__(self, levels: range = range(2, 3)) -> None:
         super().__init__()
         self._levels: range = levels
-        logger.debug("New table of contents initialized with levels in %s", levels)
+        logger.debug(
+            "New table of contents initialized with levels in %s", levels)
 
     def __str__(self) -> str:
         """

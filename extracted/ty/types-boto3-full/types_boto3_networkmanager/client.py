@@ -3,7 +3,7 @@ Type annotations for networkmanager service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -42,9 +43,12 @@ from .paginator import (
     GetSitesPaginator,
     GetTransitGatewayConnectPeerAssociationsPaginator,
     GetTransitGatewayRegistrationsPaginator,
+    ListAttachmentRoutingPolicyAssociationsPaginator,
     ListAttachmentsPaginator,
     ListConnectPeersPaginator,
     ListCoreNetworkPolicyVersionsPaginator,
+    ListCoreNetworkPrefixListAssociationsPaginator,
+    ListCoreNetworkRoutingInformationPaginator,
     ListCoreNetworksPaginator,
     ListPeeringsPaginator,
 )
@@ -65,6 +69,8 @@ from .type_defs import (
     CreateConnectionResponseTypeDef,
     CreateConnectPeerRequestTypeDef,
     CreateConnectPeerResponseTypeDef,
+    CreateCoreNetworkPrefixListAssociationRequestTypeDef,
+    CreateCoreNetworkPrefixListAssociationResponseTypeDef,
     CreateCoreNetworkRequestTypeDef,
     CreateCoreNetworkResponseTypeDef,
     CreateDeviceRequestTypeDef,
@@ -93,6 +99,8 @@ from .type_defs import (
     DeleteConnectPeerResponseTypeDef,
     DeleteCoreNetworkPolicyVersionRequestTypeDef,
     DeleteCoreNetworkPolicyVersionResponseTypeDef,
+    DeleteCoreNetworkPrefixListAssociationRequestTypeDef,
+    DeleteCoreNetworkPrefixListAssociationResponseTypeDef,
     DeleteCoreNetworkRequestTypeDef,
     DeleteCoreNetworkResponseTypeDef,
     DeleteDeviceRequestTypeDef,
@@ -173,12 +181,18 @@ from .type_defs import (
     GetTransitGatewayRouteTableAttachmentResponseTypeDef,
     GetVpcAttachmentRequestTypeDef,
     GetVpcAttachmentResponseTypeDef,
+    ListAttachmentRoutingPolicyAssociationsRequestTypeDef,
+    ListAttachmentRoutingPolicyAssociationsResponseTypeDef,
     ListAttachmentsRequestTypeDef,
     ListAttachmentsResponseTypeDef,
     ListConnectPeersRequestTypeDef,
     ListConnectPeersResponseTypeDef,
     ListCoreNetworkPolicyVersionsRequestTypeDef,
     ListCoreNetworkPolicyVersionsResponseTypeDef,
+    ListCoreNetworkPrefixListAssociationsRequestTypeDef,
+    ListCoreNetworkPrefixListAssociationsResponseTypeDef,
+    ListCoreNetworkRoutingInformationRequestTypeDef,
+    ListCoreNetworkRoutingInformationResponseTypeDef,
     ListCoreNetworksRequestTypeDef,
     ListCoreNetworksResponseTypeDef,
     ListOrganizationServiceAccessStatusRequestTypeDef,
@@ -187,6 +201,8 @@ from .type_defs import (
     ListPeeringsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutAttachmentRoutingPolicyLabelRequestTypeDef,
+    PutAttachmentRoutingPolicyLabelResponseTypeDef,
     PutCoreNetworkPolicyRequestTypeDef,
     PutCoreNetworkPolicyResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
@@ -194,6 +210,8 @@ from .type_defs import (
     RegisterTransitGatewayResponseTypeDef,
     RejectAttachmentRequestTypeDef,
     RejectAttachmentResponseTypeDef,
+    RemoveAttachmentRoutingPolicyLabelRequestTypeDef,
+    RemoveAttachmentRoutingPolicyLabelResponseTypeDef,
     RestoreCoreNetworkPolicyVersionRequestTypeDef,
     RestoreCoreNetworkPolicyVersionResponseTypeDef,
     StartOrganizationServiceAccessUpdateRequestTypeDef,
@@ -222,12 +240,6 @@ from .type_defs import (
     UpdateVpcAttachmentResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -238,15 +250,15 @@ __all__ = ("NetworkManagerClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    CoreNetworkPolicyException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    CoreNetworkPolicyException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class NetworkManagerClient(BaseClient):
@@ -377,6 +389,17 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/create_core_network.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#create_core_network)
+        """
+
+    def create_core_network_prefix_list_association(
+        self, **kwargs: Unpack[CreateCoreNetworkPrefixListAssociationRequestTypeDef]
+    ) -> CreateCoreNetworkPrefixListAssociationResponseTypeDef:
+        """
+        Creates an association between a core network and a prefix list for routing
+        control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/create_core_network_prefix_list_association.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#create_core_network_prefix_list_association)
         """
 
     def create_device(
@@ -516,6 +539,16 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#delete_core_network_policy_version)
         """
 
+    def delete_core_network_prefix_list_association(
+        self, **kwargs: Unpack[DeleteCoreNetworkPrefixListAssociationRequestTypeDef]
+    ) -> DeleteCoreNetworkPrefixListAssociationResponseTypeDef:
+        """
+        Deletes an association between a core network and a prefix list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/delete_core_network_prefix_list_association.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#delete_core_network_prefix_list_association)
+        """
+
     def delete_device(
         self, **kwargs: Unpack[DeleteDeviceRequestTypeDef]
     ) -> DeleteDeviceResponseTypeDef:
@@ -556,7 +589,7 @@ class NetworkManagerClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource policy for the specified resource.
 
@@ -634,7 +667,7 @@ class NetworkManagerClient(BaseClient):
 
     def execute_core_network_change_set(
         self, **kwargs: Unpack[ExecuteCoreNetworkChangeSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Executes a change set on your core network.
 
@@ -912,6 +945,16 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_vpc_attachment)
         """
 
+    def list_attachment_routing_policy_associations(
+        self, **kwargs: Unpack[ListAttachmentRoutingPolicyAssociationsRequestTypeDef]
+    ) -> ListAttachmentRoutingPolicyAssociationsResponseTypeDef:
+        """
+        Lists the routing policy associations for attachments in a core network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_attachment_routing_policy_associations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_attachment_routing_policy_associations)
+        """
+
     def list_attachments(
         self, **kwargs: Unpack[ListAttachmentsRequestTypeDef]
     ) -> ListAttachmentsResponseTypeDef:
@@ -940,6 +983,27 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_core_network_policy_versions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_core_network_policy_versions)
+        """
+
+    def list_core_network_prefix_list_associations(
+        self, **kwargs: Unpack[ListCoreNetworkPrefixListAssociationsRequestTypeDef]
+    ) -> ListCoreNetworkPrefixListAssociationsResponseTypeDef:
+        """
+        Lists the prefix list associations for a core network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_core_network_prefix_list_associations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_core_network_prefix_list_associations)
+        """
+
+    def list_core_network_routing_information(
+        self, **kwargs: Unpack[ListCoreNetworkRoutingInformationRequestTypeDef]
+    ) -> ListCoreNetworkRoutingInformationResponseTypeDef:
+        """
+        Lists routing information for a core network, including routes and their
+        attributes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_core_network_routing_information.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_core_network_routing_information)
         """
 
     def list_core_networks(
@@ -983,6 +1047,16 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_tags_for_resource)
         """
 
+    def put_attachment_routing_policy_label(
+        self, **kwargs: Unpack[PutAttachmentRoutingPolicyLabelRequestTypeDef]
+    ) -> PutAttachmentRoutingPolicyLabelResponseTypeDef:
+        """
+        Applies a routing policy label to an attachment for traffic routing decisions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/put_attachment_routing_policy_label.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#put_attachment_routing_policy_label)
+        """
+
     def put_core_network_policy(
         self, **kwargs: Unpack[PutCoreNetworkPolicyRequestTypeDef]
     ) -> PutCoreNetworkPolicyResponseTypeDef:
@@ -995,7 +1069,7 @@ class NetworkManagerClient(BaseClient):
 
     def put_resource_policy(
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a resource policy.
 
@@ -1021,6 +1095,16 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/reject_attachment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#reject_attachment)
+        """
+
+    def remove_attachment_routing_policy_label(
+        self, **kwargs: Unpack[RemoveAttachmentRoutingPolicyLabelRequestTypeDef]
+    ) -> RemoveAttachmentRoutingPolicyLabelResponseTypeDef:
+        """
+        Removes a routing policy label from an attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/remove_attachment_routing_policy_label.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#remove_attachment_routing_policy_label)
         """
 
     def restore_core_network_policy_version(
@@ -1054,7 +1138,7 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#start_route_analysis)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a specified resource.
 
@@ -1062,7 +1146,7 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a specified resource.
 
@@ -1335,6 +1419,17 @@ class NetworkManagerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_attachment_routing_policy_associations"]
+    ) -> ListAttachmentRoutingPolicyAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_attachments"]
     ) -> ListAttachmentsPaginator:
         """
@@ -1359,6 +1454,28 @@ class NetworkManagerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_core_network_policy_versions"]
     ) -> ListCoreNetworkPolicyVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_core_network_prefix_list_associations"]
+    ) -> ListCoreNetworkPrefixListAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_core_network_routing_information"]
+    ) -> ListCoreNetworkRoutingInformationPaginator:
         """
         Create a paginator for an operation.
 

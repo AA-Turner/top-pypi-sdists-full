@@ -9,6 +9,7 @@ class BillingApiMock:
         self.mock_add_org_to_billing_subscription = MagicMock()
         self.mock_add_subscription_balance_transaction = MagicMock()
         self.mock_create_billing_account = MagicMock()
+        self.mock_create_currency_migration = MagicMock()
         self.mock_create_feature = MagicMock()
         self.mock_create_product = MagicMock()
         self.mock_create_subscription = MagicMock()
@@ -76,6 +77,12 @@ class BillingApiMock:
         This method mocks the original api BillingApi.create_billing_account with MagicMock.
         """
         return self.mock_create_billing_account(self, *args, **kwargs)
+
+    def create_currency_migration(self, *args, **kwargs):
+        """
+        This method mocks the original api BillingApi.create_currency_migration with MagicMock.
+        """
+        return self.mock_create_currency_migration(self, *args, **kwargs)
 
     def create_feature(self, *args, **kwargs):
         """

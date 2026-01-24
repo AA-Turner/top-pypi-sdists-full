@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiven-client
-Version: 4.8.0
+Version: 4.11.1
 Summary: Aiven.io client library / command-line client
 Project-URL: Homepage, https://github.com/aiven/aiven-client
 Project-URL: Bug Tracker, https://github.com/aiven/aiven-client/issues
@@ -11,23 +11,24 @@ License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: certifi>=2015.11.20.1
 Requires-Dist: requests-toolbelt>=0.9.0
 Requires-Dist: requests>=2.2.1; sys_platform == 'linux'
 Requires-Dist: requests>=2.9.1; sys_platform != 'linux'
 Provides-Extra: dev
-Requires-Dist: black==23.3.0; extra == 'dev'
+Requires-Dist: black>=24.4.2; extra == 'dev'
 Requires-Dist: click; extra == 'dev'
 Requires-Dist: flake8; extra == 'dev'
-Requires-Dist: isort<6.0,>=5.11.5; extra == 'dev'
-Requires-Dist: mypy<2.0,>=1.0.1; extra == 'dev'
+Requires-Dist: isort<7.0,>=6.1.0; extra == 'dev'
+Requires-Dist: mypy<2.0,>=1.17.1; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: types-requests<3.0,>=2.26.1; extra == 'dev'
@@ -56,7 +57,7 @@ Getting Started
 
 Requirements:
 
-*  Python 3.8 or later
+*  Python 3.9 or later
 
 *  Requests_
 
@@ -73,6 +74,14 @@ Install from PyPi
 Pypi installation is the recommended route for most users::
 
   $ python3 -m pip install aiven-client
+
+
+Run without installing
+----------------------
+
+Use `uvx` from Astral's `uv` tool to run the CLI without installing it::
+
+  $ uvx --from aiven-client avn --help
 
 
 Build an RPM Package
@@ -225,25 +234,48 @@ View project management event log::
 
   $ avn events
 
-.. _services:
+.. _application-users:
+
+Working with Application Users
+------------------------------
+
+List organization application users::
+
+  $ avn application-user list --organization-id <organization_id>
+
+Create a new application user::
+
+  $ avn application-user create --organization-id <organization_id> --name "My Application"
+
+Get information on an application user::
+
+  $ avn application-user info <user_id> --organization-id <organization_id>
+
+Create a token for an application user::
+
+  $ avn application-user token create <user_id> --organization-id <organization_id> --description "Token V1 - 2025-07-15"
+
+.. _permissions:
 
 Working with Permissions
 ------------------------
 
 List organization permissions for a given resource type (one of "organization", "organization_unit", or "project")::
 
-  $ avn permissions list --organization <organization_id> --resource-type <resource_type>
+  $ avn permissions list --organization-id <organization_id> --resource-type <resource_type>
 
 Set permissions for a given principal in the scope of resource type and resource ID::
 
-  $ avn permissions set --organization <organization_id> --resource-type <resource_type> --resource-id <resource_id> --principal-id <principal_id> --principal-type <principal_type> --permission <permission1> --permission <permission2>
+  $ avn permissions set --organization-id <organization_id> --resource-type <resource_type> --resource-id <resource_id> --principal-id <principal_id> --principal-type <principal_type> --permission <permission1> --permission <permission2>
 
 Note that setting permissions will override any existing permissions for the specified resource type and resource ID.
 
 For example the following commands will set the permissions for the project with ID "proj1" to assign role "developer" to the user with ID "user1", and let them to be an "operator" for project "proj2"::
 
-  $ avn permissions set --organization <organization_id> --resource-type project --resource-id proj1 --permission developer --principal-id user1 --principal-type user
-  $ avn permissions set --organization <organization_id> --resource-type project --resource-id proj2 --permission operator --principal-id user1 --principal-type user
+  $ avn permissions set --organization-id <organization_id> --resource-type project --resource-id proj1 --permission developer --principal-id user1 --principal-type user
+  $ avn permissions set --organization-id <organization_id> --resource-type project --resource-id proj2 --permission operator --principal-id user1 --principal-type user
+
+.. _services:
 
 Explore Existing Services
 -------------------------
@@ -302,7 +334,7 @@ values is provided as a comma separated list::
 
   $ avn service update mydb96 -c ip_filter=10.0.1.0/24,10.0.2.0/24,1.2.3.4/32
 
-Open psql client and connect to the PostgreSQL service (also available for InfluxDB)::
+Open psql client and connect to the PostgreSQL service (also available for MySQL and Valkey)::
 
   $ avn service cli mydb96
 

@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "rasa-sdk"
-version = "3.13.0"
+version = "3.15.0"
 description = "Open source machine learning framework to automate text- and voice-based conversations: NLU, dialogue management, connect to Slack, Facebook, and more - Create chatbots and voice assistants"
 authors = [ "Rasa Technologies GmbH <hi@rasa.com>",]
 maintainers = [ "Tom Bocklisch <tom@rasa.com>",]
@@ -70,7 +70,7 @@ target-version = "py38"
 exclude = [ "rasa_sdk/grpc_py", "eggs", ".git", ".pytest_cache", "build", "dist", ".DS_Store",]
 
 [tool.poetry.dependencies]
-python = ">3.8,<3.13"
+python = ">3.9,<3.14"
 coloredlogs = ">=10,<16"
 sanic = "^22.12"
 typing-extensions = ">=4.1.1,<5.0.0"
@@ -78,15 +78,14 @@ Sanic-Cors = "^2.0.0"
 "ruamel.yaml" = ">=0.16.5,<0.18.0"
 websockets = ">=10.0,<12.0"
 pluggy = "^1.0.0"
-opentelemetry-api = "~1.16.0"
-opentelemetry-sdk = "~1.16.0"
-opentelemetry-exporter-jaeger = "~1.16.0"
-opentelemetry-exporter-otlp = "~1.16.0"
-grpcio = "~1.60.0"
-protobuf = "~4.25.3"
 pydantic = "^2.6.4"
 grpcio-health-checking = "~1.59.3"
-grpcio-tools = "~1.60.0"
+opentelemetry-sdk = "~1.33.0"
+opentelemetry-exporter-otlp = "~1.33.0"
+opentelemetry-api = "~1.33.0"
+grpcio = "~1.66.2"
+protobuf = "~5.29.5"
+grpcio-tools = "~1.66.2"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -103,7 +102,7 @@ asyncio_mode = "auto"
 convention = "google"
 
 [tool.poetry.group.dev.dependencies]
-pytest-cov = "^4.1.0"
+pytest-cov = "~5.0.0"
 coveralls = "^3.0.1"
 pytest = "^7.4.0"
 questionary = ">=1.5.1,<2.1.0"

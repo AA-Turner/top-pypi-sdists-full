@@ -30,7 +30,7 @@ class ImgbbExtractor(Extractor):
         for image in self.posts():
             url = image["url"]
             text.nameext_from_url(url, image)
-            yield Message.Directory, image
+            yield Message.Directory, "", image
             yield Message.Url, url, image
 
     def login(self):
@@ -136,8 +136,8 @@ class ImgbbAlbumExtractor(ImgbbExtractor):
                 'data-text="image-count">', "<")),
         }
 
-        url = f"{self.root}/json"
-        params["pathname"] = f"/album/{album['id']}"
+        url = self.root + "/json"
+        params["pathname"] = "/album/" + album["id"]
         return self._pagination(page, url, params)
 
 
@@ -159,8 +159,7 @@ class ImgbbImageExtractor(ImgbbExtractor):
             "width" : text.parse_int(extr('"og:image:width" content="', '"')),
             "height": text.parse_int(extr('"og:image:height" content="', '"')),
             "album" : extr("Added to <a", "</a>"),
-            "date"  : text.parse_datetime(extr(
-                '<span title="', '"'), "%Y-%m-%d %H:%M:%S"),
+            "date"  : self.parse_datetime_iso(extr('<span title="', '"')),
             "user"  : util.json_loads(extr(
                 "CHV.obj.resource=", "};") + "}").get("user"),
         }
@@ -191,11 +190,11 @@ class ImgbbUserExtractor(ImgbbExtractor):
 
         if response.status_code < 300:
             params["pathname"] = "/"
-            return self._pagination(response.text, f"{url}json", params)
+            return self._pagination(response.text, url + "json", params)
 
         if response.status_code == 301:
             raise exception.NotFoundError("user")
-        redirect = f"HTTP redirect to {response.headers.get('Location')}"
+        redirect = "HTTP redirect to " + response.headers.get("Location", "")
         if response.status_code == 302:
             raise exception.AuthRequired(
                 ("username & password", "authenticated cookies"),

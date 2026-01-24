@@ -153,6 +153,10 @@ def pytest_addoption(parser):
     base_group.addoption(
         '--logfile-extension', default='.log', help='set the extension format of the log files. (Default: ".log")'
     )
+    base_group.addoption(
+        '--metric-path',
+        help='Path to openmetrics txt file to log metrics. (Default: None)',
+    )
 
     serial_group = parser.getgroup('embedded-serial')
     serial_group.addoption('--port', help='serial port. (Env: "ESPPORT" if service "esp" specified, Default: "None")')
@@ -234,11 +238,6 @@ def pytest_addoption(parser):
         'and panic handler support while teardown the failing test case. '
         'Requires valid partition tool, project_description.json under the build dir. (Default: False)',
     )
-    idf_group.addoption(
-        '--panic-output-decode-script',
-        help='Panic output decode script that is used in conjunction with the check-panic-coredump option '
-        'to parse panic output. (Default: $IDF_PATH/tools/gdb_panic_server.py)',
-    )
 
     jtag_group = parser.getgroup('embedded-jtag')
     jtag_group.addoption('--gdb-prog-path', help='GDB program path. (Default: "xtensa-esp32-elf-gdb")')
@@ -273,6 +272,10 @@ def pytest_addoption(parser):
     qemu_group.addoption(
         '--qemu-extra-args',
         help='QEMU cli extra arguments, will append to the argument list. (Default: None)',
+    )
+    qemu_group.addoption(
+        '--qemu-efuse-path',
+        help='This option makes it possible to use efuse in QEMU when it is set up.',
     )
     qemu_group.addoption(
         '--skip-regenerate-image',
@@ -630,6 +633,55 @@ def port_app_cache() -> dict[str, str]:
     return {}
 
 
+@pytest.fixture(scope='session')
+def metric_path(request: FixtureRequest) -> str | None:
+    """
+    Get the metric file path from the command line option.
+
+    :param request: pytest request object
+    :return: The path to the metric file, or None if not provided.
+    """
+    return request.config.getoption('metric_path', None)
+
+
+@pytest.fixture(scope='session')
+def log_metric(metric_path: str | None) -> t.Callable[..., None]:
+    """
+    Provides a function to log metrics in OpenMetrics format.
+
+    The file is cleared at the beginning of the test session.
+
+    :param metric_path: Path to the metric file, from the ``--metric-path`` option.
+    :return: A function to log metrics, or a no-op function if the path is not provided.
+    """
+    if not metric_path:
+
+        def no_op(key: str, value: t.Any, **kwargs: t.Any) -> None:  # noqa: ARG001
+            warnings.warn('`--metric-path` is not specified, `log_metric` does nothing.')
+
+        return no_op
+
+    if os.path.exists(metric_path):
+        os.remove(metric_path)
+    elif os.path.dirname(metric_path):
+        os.makedirs(os.path.dirname(metric_path), exist_ok=True)
+
+    def _log_metric_impl(key: str, value: t.Any, **kwargs: t.Any) -> None:
+        labels = ''
+        if kwargs:
+            label_str = ','.join(f'{k}="{v}"' for k, v in kwargs.items())
+            labels = f'{{{label_str}}}'
+
+        line = f'{key}{labels} {value}\n'
+
+        lock = filelock.FileLock(f'{metric_path}.lock')
+        with lock:
+            with open(metric_path, 'a') as f:
+                f.write(line)
+
+    return _log_metric_impl
+
+
 @pytest.fixture(scope='session', autouse=True)
 def _mp_manager():
     manager = MessageQueueManager()
@@ -890,9 +942,9 @@ def skip_check_coredump(request: FixtureRequest) -> bool | None:
 
 @pytest.fixture
 @multi_dut_argument
-def panic_output_decode_script(request: FixtureRequest) -> bool | None:
+def skip_decode_panic(request: FixtureRequest) -> bool | None:
     """Enable parametrization for the same cli option"""
-    return _request_param_or_config_option_or_default(request, 'panic_output_decode_script', None)
+    return _request_param_or_config_option_or_default(request, 'skip_decode_panic', None)
 
 
 ########
@@ -961,6 +1013,13 @@ def qemu_cli_args(request: FixtureRequest) -> str | None:
 def qemu_extra_args(request: FixtureRequest) -> str | None:
     """Enable parametrization for the same cli option"""
     return _request_param_or_config_option_or_default(request, 'qemu_extra_args', None)
+
+
+@pytest.fixture
+@multi_dut_argument
+def qemu_efuse_path(request: FixtureRequest) -> str | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'qemu_efuse_path', None)
 
 
 @pytest.fixture
@@ -1040,7 +1099,7 @@ def parametrize_fixtures(
     confirm_target_elf_sha256,
     erase_nvs,
     skip_check_coredump,
-    panic_output_decode_script,
+    skip_decode_panic,
     openocd_prog_path,
     openocd_cli_args,
     gdb_prog_path,
@@ -1050,6 +1109,7 @@ def parametrize_fixtures(
     qemu_prog_path,
     qemu_cli_args,
     qemu_extra_args,
+    qemu_efuse_path,
     wokwi_diagram,
     skip_regenerate_image,
     encrypt,
@@ -1360,10 +1420,18 @@ class PytestEmbedded:
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_call(self, item: Function):
-        # raise dut failed cases
+        all_duts: list[Dut] = []
+
+        # Check DUTs created by fixture
         if 'dut' in item.funcargs:
-            duts = [dut for dut in to_list(item.funcargs['dut']) if isinstance(dut, Dut)]
-            self._raise_dut_failed_cases_if_exists(duts)  # type: ignore
+            fixture_duts = [dut for dut in to_list(item.funcargs['dut']) if isinstance(dut, Dut)]
+            all_duts.extend(fixture_duts)
+
+        # Check DUTs created by DutFactory
+        factory_duts = DutFactory.get_all_duts()
+        all_duts.extend(factory_duts)
+
+        self._raise_dut_failed_cases_if_exists(all_duts)  # type: ignore
 
     @pytest.hookimpl(trylast=True)  # combine all possible junit reports should be the last step
     def pytest_sessionfinish(self, session: Session, exitstatus: int) -> None:

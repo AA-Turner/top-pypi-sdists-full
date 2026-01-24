@@ -1,27 +1,28 @@
 Metadata-Version: 2.4
 Name: django-stubs-ext
-Version: 5.2.5
+Version: 5.2.9
 Summary: Monkey-patching and extensions for django-stubs
-Project-URL: Homepage, https://github.com/typeddjango/django-stubs
-Project-URL: Funding, https://github.com/sponsors/typeddjango
-Project-URL: Release notes, https://github.com/typeddjango/django-stubs/releases
 Author: Simula Proxy
-Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>, Petter Friberg <petter_friberg@hotmail.com>, Adam Johnson <me@adamj.eu>
 License-Expression: MIT
 License-File: LICENSE.md
-Classifier: Framework :: Django
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: Framework :: Django :: 5.2
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Requires-Dist: django
 Requires-Dist: typing-extensions
+Maintainer: Marti Raudsepp, Nikita Sobolev, Petter Friberg, Adam Johnson
+Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>, Petter Friberg <petter_friberg@hotmail.com>, Adam Johnson <me@adamj.eu>
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/typeddjango/django-stubs
+Project-URL: Funding, https://github.com/sponsors/typeddjango
+Project-URL: Release notes, https://github.com/typeddjango/django-stubs/releases
 Description-Content-Type: text/markdown
 
 # Extensions and monkey-patching for django-stubs

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: impacket
-Version: 0.12.0
+Version: 0.13.0
 Summary: Network protocols Constructors and Dissectors
 Home-page: https://www.coresecurity.com
 Author: SecureAuth Corporation
@@ -8,13 +8,36 @@ Maintainer: Fortra
 License: Apache modified
 Platform: Unix
 Platform: Windows
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pyasn1>=0.2.3
+Requires-Dist: pyasn1_modules
+Requires-Dist: pycryptodomex
+Requires-Dist: pyOpenSSL
+Requires-Dist: six
+Requires-Dist: ldap3!=2.5.0,!=2.5.2,!=2.6,>=2.5
+Requires-Dist: ldapdomaindump>=0.9.0
+Requires-Dist: flask>=1.0
+Requires-Dist: setuptools
+Requires-Dist: charset_normalizer
+Requires-Dist: pyreadline3; sys_platform == "win32"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 Impacket
 ========
@@ -68,7 +91,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.12.0
+* Impacket v0.13.0
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
@@ -76,9 +99,9 @@ Getting Impacket
 
 ### Development version
 
-* Impacket v0.13.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
+* Impacket v0.14.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
-  [![Python versions](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10%20|%203.11%20|%203.12-blue.svg)](https://github.com/fortra/impacket/tree/master)
+  [![Python versions](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
 
 Setup

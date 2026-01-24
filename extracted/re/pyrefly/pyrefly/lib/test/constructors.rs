@@ -30,14 +30,15 @@ def test(f: type[A | B]) -> A | B:
 );
 
 testcase!(
+    bug = "There should be no errors",
     test_generic_class,
     r#"
-from typing import assert_type, reveal_type
+from typing import assert_type
 class Box[T]:
     def __init__(self, x: T): pass
 
     def wrap(self) -> Box[Box[T]]:
-        return Box(self)
+        return Box(self)  # E: Argument `Box[Box[Box[T]]]` is not assignable to parameter `self`  # E: `Self@Box` is not assignable to parameter `x`
 
 def f() -> int:
     return 1
@@ -91,6 +92,7 @@ class A[T]:
 );
 
 testcase!(
+    bug = "Spurious 'Box[Box[Box[T]]] is not assignable...' errors",
     test_generic_init_in_generic_class,
     r#"
 from typing import assert_type
@@ -99,9 +101,9 @@ class Box[T]:
         pass
     def wrap(self, x: bool) -> Box[Box[T]]:
         if x:
-            return Box(self, self)  # ok
+            return Box(self, self)  # E: `Box[Box[Box[T]]]` is not assignable to parameter `self`
         else:
-            return Box(self, 42)  # E: Argument `Literal[42]` is not assignable to parameter `y` with type `Self@Box`
+            return Box(self, 42)  # E: `Box[Box[Box[T]]]` is not assignable to parameter `self`  # E: Argument `Literal[42]` is not assignable to parameter `y` with type `Self@Box`
 b = Box[int]("hello", "world")
 assert_type(b, Box[int])
 assert_type(b.wrap(True), Box[Box[int]])
@@ -120,7 +122,6 @@ def test(c: C):
     "#,
 );
 
-// This is the same pyre1 behavior. We infer bivariance here in T1 as well as T2"
 testcase!(
     test_init_self_annotation_in_generic_class,
     r#"
@@ -128,8 +129,9 @@ class C[T1]:
     def __init__[T2](self: T2, x: T2):
         pass
 def test(c: C[int]):
-    C[int](c)  
-    C[str](c)  
+    C[int](c)
+    # Even though T1 is bivariant in C, we follow mypy and pyright's lead in treating it as invariant.
+    C[str](c)  # E: `C[int]` is not assignable to parameter `x` with type `C[str]`
     "#,
 );
 
@@ -281,6 +283,35 @@ assert_type(x, int)
 );
 
 testcase!(
+    test_new_returns_any,
+    r#"
+from typing import assert_type, Any
+class C:
+    def __new__(cls) -> Any:
+        return 0
+x = C()
+assert_type(x, Any)
+    "#,
+);
+
+testcase!(
+    test_new_returns_error,
+    r#"
+from typing import assert_type, overload, Self
+class C:
+    @overload
+    def __new__(cls, x: str) -> Self: ...
+    @overload
+    def __new__(cls, x: bytes) -> Self: ...
+    def __new__(cls, x: str | bytes) -> Self: ...
+
+# Intentionally make it such that `__new__` returns an error-induced `Any`
+x = C(42)  # E: No matching overload found for function `C.__new__`
+assert_type(x, C)
+    "#,
+);
+
+testcase!(
     test_new_returns_something_else_generic,
     r#"
 from typing import assert_type
@@ -385,14 +416,13 @@ assert_type(MyClass(), Any)
 );
 
 testcase!(
-    bug = "We should specialize `type[Self@A]` to `type[A]` in the call to `A.__new__`",
     test_cls_type_in_new_annotated,
     r#"
 from typing import Self
 class A:
     def __new__(cls: type[Self]): ...
 A.__new__(A)  # OK
-A.__new__(int) # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
+A.__new__(int) # E: `int` is not assignable to upper bound `A` of type variable `Self@A`
     "#,
 );
 
@@ -402,7 +432,7 @@ testcase!(
 class A:
     def __new__(cls): ...
 A.__new__(A)  # OK
-A.__new__(int)  # E: Argument `type[int]` is not assignable to parameter `cls` with type `type[A]` in function `A.__new__`
+A.__new__(int)  # E: `int` is not assignable to upper bound `A` of type variable `Self@A`
     "#,
 );
 
@@ -516,5 +546,85 @@ class C[T, U]:
         pass
 
 assert_type(C(0, ""), C[int, str])
+    "#,
+);
+
+testcase!(
+    test_deprecated_new,
+    r#"
+from warnings import deprecated
+class A:
+    @deprecated("old old old")
+    def __new__(cls, x: int):
+        return super().__new__(cls)
+    def __init__(self, x: str):
+        pass
+A(0) # E: `A.__new__` is deprecated # E: `Literal[0]` is not assignable to parameter `x` with type `str`
+    "#,
+);
+
+testcase!(
+    test_annotate_self,
+    r#"
+from typing import assert_type
+class A[T]:
+    def __init__(self: A[str]): pass
+assert_type(A(), A[str])
+    "#,
+);
+
+testcase!(
+    test_targ_mismatch,
+    r#"
+class A[T]:
+    def __init__(self, x: T):
+        pass
+a = A(0)
+b: A[str] = a  # E: `A[int]` is not assignable to `A[str]`
+    "#,
+);
+
+testcase!(
+    test_overloaded_init,
+    r#"
+from typing import Literal, assert_type, overload
+
+class A: ...
+class B: ...
+
+class C[T]:
+    @overload
+    def __init__(self: C[A], x: Literal[True]) -> None: ...
+    @overload
+    def __init__(self: C[B], x: Literal[False]) -> None: ...
+    def __init__(self, x):
+        pass
+
+assert_type(C(True), C[A])
+assert_type(C(False), C[B])
+    "#,
+);
+
+testcase!(
+    test_generic_in_generic,
+    r#"
+from typing import Literal, assert_type, overload
+
+class A: ...
+class B: ...
+
+class TypeEngine[T]: ...
+
+class UUID[T: (A, B)](TypeEngine[T]):
+    @overload
+    def __init__(self: UUID[A], as_uuid: Literal[True]) -> None: ...
+    @overload
+    def __init__(self: UUID[B], as_uuid: Literal[False]) -> None: ...
+    def __init__(self, as_uuid): ...
+
+class Column[T]:
+    def __init__(self, ty: TypeEngine[T]) -> None: ...
+
+assert_type(Column(UUID(as_uuid=False)), Column[B])
     "#,
 );

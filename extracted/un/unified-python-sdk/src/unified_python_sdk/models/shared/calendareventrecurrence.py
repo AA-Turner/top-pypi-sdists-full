@@ -6,12 +6,12 @@ from .property_calendareventrecurrence_on_days import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CalendarEventRecurrenceFrequency(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -32,11 +32,13 @@ class WeekStart(str, Enum, metaclass=utils.OpenEnumMeta):
 
 
 class CalendarEventRecurrenceTypedDict(TypedDict):
-    frequency: CalendarEventRecurrenceFrequency
     count: NotRequired[float]
     end_at: NotRequired[datetime]
     excluded_dates: NotRequired[List[str]]
     r"""dates to exclude from the recurrence, defaults to undefined (no exclusions)"""
+    frequency: NotRequired[CalendarEventRecurrenceFrequency]
+    included_dates: NotRequired[List[str]]
+    r"""dates to include in the recurrence, defaults to undefined (no inclusions)"""
     interval: NotRequired[float]
     on_days: NotRequired[List[PropertyCalendarEventRecurrenceOnDays]]
     r"""days of the week to repeat on, defaults to undefined (every day), only used if frequency is WEEKLY"""
@@ -53,10 +55,6 @@ class CalendarEventRecurrenceTypedDict(TypedDict):
 
 
 class CalendarEventRecurrence(BaseModel):
-    frequency: Annotated[
-        CalendarEventRecurrenceFrequency, PlainValidator(validate_open_enum(False))
-    ]
-
     count: Optional[float] = None
 
     end_at: Optional[datetime] = None
@@ -64,16 +62,14 @@ class CalendarEventRecurrence(BaseModel):
     excluded_dates: Optional[List[str]] = None
     r"""dates to exclude from the recurrence, defaults to undefined (no exclusions)"""
 
+    frequency: Optional[CalendarEventRecurrenceFrequency] = None
+
+    included_dates: Optional[List[str]] = None
+    r"""dates to include in the recurrence, defaults to undefined (no inclusions)"""
+
     interval: Optional[float] = None
 
-    on_days: Optional[
-        List[
-            Annotated[
-                PropertyCalendarEventRecurrenceOnDays,
-                PlainValidator(validate_open_enum(False)),
-            ]
-        ]
-    ] = None
+    on_days: Optional[List[PropertyCalendarEventRecurrenceOnDays]] = None
     r"""days of the week to repeat on, defaults to undefined (every day), only used if frequency is WEEKLY"""
 
     on_month_days: Optional[List[float]] = None
@@ -90,6 +86,54 @@ class CalendarEventRecurrence(BaseModel):
 
     timezone: Optional[str] = None
 
-    week_start: Annotated[
-        Optional[WeekStart], PlainValidator(validate_open_enum(False))
-    ] = None
+    week_start: Optional[WeekStart] = None
+
+    @field_serializer("frequency")
+    def serialize_frequency(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.CalendarEventRecurrenceFrequency(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("week_start")
+    def serialize_week_start(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.WeekStart(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "count",
+                "end_at",
+                "excluded_dates",
+                "frequency",
+                "included_dates",
+                "interval",
+                "on_days",
+                "on_month_days",
+                "on_months",
+                "on_weeks",
+                "on_year_days",
+                "timezone",
+                "week_start",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

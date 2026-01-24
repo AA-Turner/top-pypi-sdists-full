@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numcodecs
-Version: 0.16.3
+Version: 0.16.5
 Summary: A Python package providing buffer compression and transformation codecs for use in data storage and communication applications.
 Maintainer-email: Alistair Miles <alimanfoo@googlemail.com>
 License-Expression: MIT
@@ -30,6 +30,16 @@ License-File: c-blosc/LICENSES/ZLIB-NG.txt
 License-File: c-blosc/LICENSES/ZLIB.txt
 Requires-Dist: numpy>=1.24
 Requires-Dist: typing_extensions
+Provides-Extra: msgpack
+Requires-Dist: msgpack; extra == "msgpack"
+Provides-Extra: zfpy
+Requires-Dist: zfpy>=1.0.0; extra == "zfpy"
+Provides-Extra: pcodec
+Requires-Dist: pcodec<0.4,>=0.3; extra == "pcodec"
+Provides-Extra: crc32c
+Requires-Dist: crc32c>=2.7; extra == "crc32c"
+Provides-Extra: google-crc32c
+Requires-Dist: google-crc32c>=1.5; extra == "google-crc32c"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-issues; extra == "docs"
@@ -42,14 +52,7 @@ Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pyzstd; extra == "test"
 Provides-Extra: test-extras
 Requires-Dist: importlib_metadata; extra == "test-extras"
-Provides-Extra: msgpack
-Requires-Dist: msgpack; extra == "msgpack"
-Provides-Extra: zfpy
-Requires-Dist: zfpy>=1.0.0; extra == "zfpy"
-Provides-Extra: pcodec
-Requires-Dist: pcodec<0.4,>=0.3; extra == "pcodec"
-Provides-Extra: crc32c
-Requires-Dist: crc32c>=2.7; extra == "crc32c"
+Requires-Dist: crc32c; extra == "test-extras"
 Dynamic: license-file
 
 Numcodecs

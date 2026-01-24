@@ -63,6 +63,8 @@ void VPStandardStateTP::getGibbs_RT(double* grt) const
 
 void VPStandardStateTP::getPureGibbs(double* g) const
 {
+    warn_deprecated("VPStandardStateTP::getPureGibbs",
+        "To be removed after Cantera 3.2. Use getStandardChemPotentials instead.");
     updateStandardStateThermo();
     std::copy(m_gss_RT.begin(), m_gss_RT.end(), g);
     scale(g, g+m_kk, g, RT());
@@ -115,12 +117,6 @@ void VPStandardStateTP::getGibbs_ref(double* g) const
     scale(g, g+m_kk, g, RT());
 }
 
-const vector<double>& VPStandardStateTP::Gibbs_RT_ref() const
-{
-    updateStandardStateThermo();
-    return m_g0_RT;
-}
-
 void VPStandardStateTP::getEntropy_R_ref(double* sr) const
 {
     updateStandardStateThermo();
@@ -156,7 +152,7 @@ void VPStandardStateTP::getSpeciesParameters(const string& name,
                                              AnyMap& speciesNode) const
 {
     AnyMap eos;
-    providePDSS(speciesIndex(name))->getParameters(eos);
+    providePDSS(speciesIndex(name, true))->getParameters(eos);
     speciesNode["equation-of-state"].getMapWhere(
         "model", eos.getString("model", ""), true) = std::move(eos);
 }
@@ -199,11 +195,17 @@ void VPStandardStateTP::setPressure(double p)
 
 void VPStandardStateTP::calcDensity()
 {
-    throw NotImplementedError("VPStandardStateTP::calcDensity");
+    getPartialMolarVolumes(m_workS.data());
+    double dd = meanMolecularWeight() / mean_X(m_workS);
+    Phase::assignDensity(dd);
 }
 
 void VPStandardStateTP::setState_TP(double t, double pres)
 {
+    if (pres < 0) {
+        throw CanteraError("VPStandardStateTP::setState_TP",
+            "Pressure must be positive. Specified state was T = {}, P = {}.", t, pres);
+    }
     // A pretty tricky algorithm is needed here, due to problems involving
     // standard states of real fluids. For those cases you need to combine the T
     // and P specification for the standard state, or else you may venture into

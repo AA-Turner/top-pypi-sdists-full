@@ -11,8 +11,8 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: x64
@@ -27,7 +27,7 @@ jobs:
         uses: pyo3/maturin-action@v1
         with:
           target: universal2-apple-darwin
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
           sccache: true
       - name: Install built wheel
         run: |
@@ -35,7 +35,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-macos
           path: dist
@@ -46,8 +46,8 @@ jobs:
       matrix:
         target: [x64, x86]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: ${{ matrix.target }}
@@ -61,14 +61,14 @@ jobs:
         uses: pyo3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
       - name: Install built wheel
         run: |
           pip install nh3 --no-index --find-links dist --force-reinstall
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
@@ -79,18 +79,11 @@ jobs:
       matrix:
         target: [aarch64-pc-windows-msvc]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: arm64
-      # rust toolchain is not currently installed on windopws arm64 images https://github.com/actions/partner-runner-images/issues/77
-      - name: Setup rust
-        id: setup-rust
-        run: |
-          Invoke-WebRequest https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -OutFile .\rustup-init.exe
-          .\rustup-init.exe -y
-          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\.cargo\bin"
       - name: Build wheels
         uses: pyo3/maturin-action@v1
         with:
@@ -100,14 +93,14 @@ jobs:
         uses: pyo3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
       - name: Install built wheel
         run: |
           pip install nh3 --no-index --find-links dist --force-reinstall
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-windows-arm-${{ matrix.target }}
           path: dist
@@ -118,8 +111,8 @@ jobs:
       matrix:
         target: [x86_64, i686]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: x64
@@ -138,7 +131,7 @@ jobs:
           rust-toolchain: nightly
           target: ${{ matrix.target }}
           manylinux: auto
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
           sccache: true
           before-script-linux: yum install -y libatomic
       - name: Install built wheel
@@ -148,7 +141,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
@@ -159,8 +152,8 @@ jobs:
       matrix:
         target: [aarch64, armv7, s390x, ppc64le, ppc64]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Build wheels
@@ -179,7 +172,7 @@ jobs:
           manylinux: auto
           args: --release --out dist -i python3.13
           sccache: true
-      - uses: uraimo/run-on-arch-action@v2.8.1
+      - uses: uraimo/run-on-arch-action@v3.0.1
         if: matrix.target != 'ppc64'
         name: Install built wheel
         with:
@@ -194,7 +187,7 @@ jobs:
             pip3 install nh3 --no-index --find-links dist/ --force-reinstall
             cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
@@ -207,8 +200,8 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: x64
@@ -224,7 +217,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: musllinux_1_2
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
           sccache: true
       - name: Install built wheel
         if: matrix.target == 'x86_64-unknown-linux-musl'
@@ -240,7 +233,7 @@ jobs:
             pip install nh3 --no-index --find-links /io/dist/ --force-reinstall
             cd tests && python3 -m pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -255,8 +248,8 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Build wheels
@@ -271,9 +264,9 @@ jobs:
         with:
           target: ${{ matrix.platform.target }}
           manylinux: musllinux_1_2
-          args: --release --out dist -i python3.13t
+          args: --release --out dist -i python3.14t
           sccache: true
-      - uses: uraimo/run-on-arch-action@v2.8.1
+      - uses: uraimo/run-on-arch-action@v3.0.1
         name: Install built wheel
         with:
           arch: ${{ matrix.platform.arch }}
@@ -288,7 +281,7 @@ jobs:
             pip install nh3 --no-index --find-links dist/ --force-reinstall
             cd tests && python3 -m pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -296,8 +289,8 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
           architecture: x64
@@ -307,7 +300,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-sdist
           path: dist
@@ -319,11 +312,11 @@ jobs:
     needs:
       [macos, windows, windows-arm, linux, linux-cross, musllinux, musllinux-cross, sdist]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           pattern: wheels-*
           merge-multiple: true
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Publish to PyPI

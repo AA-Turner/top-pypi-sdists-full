@@ -3,7 +3,7 @@ Type annotations for dynamodb service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dynamodb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -149,11 +150,6 @@ from .type_defs import (
 )
 from .waiter import TableExistsWaiter, TableNotExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -164,41 +160,41 @@ __all__ = ("DynamoDBClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BackupInUseException: Type[BotocoreClientError]
-    BackupNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConditionalCheckFailedException: Type[BotocoreClientError]
-    ContinuousBackupsUnavailableException: Type[BotocoreClientError]
-    DuplicateItemException: Type[BotocoreClientError]
-    ExportConflictException: Type[BotocoreClientError]
-    ExportNotFoundException: Type[BotocoreClientError]
-    GlobalTableAlreadyExistsException: Type[BotocoreClientError]
-    GlobalTableNotFoundException: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    ImportConflictException: Type[BotocoreClientError]
-    ImportNotFoundException: Type[BotocoreClientError]
-    IndexNotFoundException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidExportTimeException: Type[BotocoreClientError]
-    InvalidRestoreTimeException: Type[BotocoreClientError]
-    ItemCollectionSizeLimitExceededException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    PointInTimeRecoveryUnavailableException: Type[BotocoreClientError]
-    PolicyNotFoundException: Type[BotocoreClientError]
-    ProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ReplicaAlreadyExistsException: Type[BotocoreClientError]
-    ReplicaNotFoundException: Type[BotocoreClientError]
-    ReplicatedWriteConflictException: Type[BotocoreClientError]
-    RequestLimitExceeded: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TableAlreadyExistsException: Type[BotocoreClientError]
-    TableInUseException: Type[BotocoreClientError]
-    TableNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TransactionCanceledException: Type[BotocoreClientError]
-    TransactionConflictException: Type[BotocoreClientError]
-    TransactionInProgressException: Type[BotocoreClientError]
+    BackupInUseException: type[BotocoreClientError]
+    BackupNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConditionalCheckFailedException: type[BotocoreClientError]
+    ContinuousBackupsUnavailableException: type[BotocoreClientError]
+    DuplicateItemException: type[BotocoreClientError]
+    ExportConflictException: type[BotocoreClientError]
+    ExportNotFoundException: type[BotocoreClientError]
+    GlobalTableAlreadyExistsException: type[BotocoreClientError]
+    GlobalTableNotFoundException: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    ImportConflictException: type[BotocoreClientError]
+    ImportNotFoundException: type[BotocoreClientError]
+    IndexNotFoundException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidExportTimeException: type[BotocoreClientError]
+    InvalidRestoreTimeException: type[BotocoreClientError]
+    ItemCollectionSizeLimitExceededException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    PointInTimeRecoveryUnavailableException: type[BotocoreClientError]
+    PolicyNotFoundException: type[BotocoreClientError]
+    ProvisionedThroughputExceededException: type[BotocoreClientError]
+    ReplicaAlreadyExistsException: type[BotocoreClientError]
+    ReplicaNotFoundException: type[BotocoreClientError]
+    ReplicatedWriteConflictException: type[BotocoreClientError]
+    RequestLimitExceeded: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TableAlreadyExistsException: type[BotocoreClientError]
+    TableInUseException: type[BotocoreClientError]
+    TableNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TransactionCanceledException: type[BotocoreClientError]
+    TransactionConflictException: type[BotocoreClientError]
+    TransactionInProgressException: type[BotocoreClientError]
 
 
 class DynamoDBClient(AioBaseClient):
@@ -908,7 +904,7 @@ class DynamoDBClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

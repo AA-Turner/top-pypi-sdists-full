@@ -1,16 +1,10 @@
 """Test serialization."""
 
 from pathlib import Path
-from typing import Any
 
-from typing_extensions import override
+import pytest
 
-from docling_core.transforms.serializer.base import (
-    BaseDocSerializer,
-    SerializationResult,
-)
-from docling_core.transforms.serializer.common import _DEFAULT_LABELS, create_ser_result
-from docling_core.transforms.serializer.doctags import DocTagsDocSerializer
+from docling_core.transforms.serializer.common import _DEFAULT_LABELS
 from docling_core.transforms.serializer.html import (
     HTMLDocSerializer,
     HTMLOutputStyle,
@@ -19,65 +13,19 @@ from docling_core.transforms.serializer.html import (
 from docling_core.transforms.serializer.markdown import (
     MarkdownDocSerializer,
     MarkdownParams,
-    MarkdownTableSerializer,
     OrigListItemMarkerMode,
-    _get_annotation_ser_result,
 )
 from docling_core.transforms.visualizer.layout_visualizer import LayoutVisualizer
 from docling_core.types.doc.base import ImageRefMode
 from docling_core.types.doc.document import (
+    DescriptionAnnotation,
     DoclingDocument,
-    MiscAnnotation,
     TableCell,
     TableData,
-    TableItem,
 )
 from docling_core.types.doc.labels import DocItemLabel
 
 from .test_data_gen_flag import GEN_TEST_DATA
-from .test_docling_doc import _construct_doc, _construct_rich_table_doc
-
-
-class CustomAnnotationTableSerializer(MarkdownTableSerializer):
-    @override
-    def serialize(
-        self,
-        *,
-        item: TableItem,
-        doc_serializer: BaseDocSerializer,
-        doc: DoclingDocument,
-        **kwargs: Any,
-    ) -> SerializationResult:
-        params = MarkdownParams(**kwargs)
-
-        res_parts: list[SerializationResult] = []
-
-        if params.include_annotations:
-            for ann in item.annotations:
-                if isinstance(ann, MiscAnnotation):
-
-                    # custom serialization logic:
-                    ann_txt = "\n".join([f"{k}: {ann.content[k]}" for k in ann.content])
-
-                    ann_ser_res = _get_annotation_ser_result(
-                        ann_kind=ann.kind,
-                        ann_text=ann_txt,
-                        mark_annotation=params.mark_annotations,
-                        doc_item=item,
-                    )
-                    res_parts.append(ann_ser_res)
-
-        # reusing the existing result (excluding the annotations):
-        parent_res = super().serialize(
-            item=item,
-            doc_serializer=doc_serializer,
-            doc=doc,
-            **{**kwargs, **{"include_annotations": False}},
-        )
-        res_parts.append(parent_res)
-
-        text_res = "\n\n".join([part.text for part in res_parts])
-        return create_ser_result(text=text_res, span_source=res_parts)
 
 
 def verify(exp_file: Path, actual: str):
@@ -88,7 +36,17 @@ def verify(exp_file: Path, actual: str):
         with open(exp_file, "r", encoding="utf-8") as f:
             expected = f.read().rstrip()
 
-        assert expected == actual
+        # Normalize platform-dependent quote escaping for DocTags outputs
+        name = exp_file.name
+        if name.endswith((".dt", ".idt", ".idt.xml")):
+
+            def _normalize_quotes(s: str) -> str:
+                return s.replace("&quot;", '"').replace("&#34;", '"')
+
+            expected = _normalize_quotes(expected)
+            actual = _normalize_quotes(actual)
+
+        assert actual == expected
 
 
 # ===============================
@@ -111,6 +69,23 @@ def test_md_cross_page_list_page_break():
     )
     actual = ser.serialize().text
     verify(exp_file=src.with_suffix(".gt.md"), actual=actual)
+
+
+def test_md_checkboxes():
+    src = Path("./test/data/doc/checkboxes.json")
+    doc = DoclingDocument.load_from_json(src)
+
+    ser = MarkdownDocSerializer(
+        doc=doc,
+        params=MarkdownParams(
+            image_mode=ImageRefMode.PLACEHOLDER,
+            image_placeholder="<!-- image -->",
+            page_break_placeholder="<!-- page break -->",
+            labels=_DEFAULT_LABELS - {DocItemLabel.PICTURE},
+        ),
+    )
+    actual = ser.serialize().text
+    verify(exp_file=src.parent / f"{src.stem}.gt.md", actual=actual)
 
 
 def test_md_cross_page_list_page_break_none():
@@ -225,14 +200,12 @@ def test_md_pb_placeholder_and_page_filter():
     verify(exp_file=src.with_suffix(".gt.md"), actual=actual)
 
 
-def test_md_list_item_markers():
-    doc = _construct_doc()
+def test_md_list_item_markers(sample_doc):
     root_dir = Path("./test/data/doc")
     for mode in OrigListItemMarkerMode:
         for valid in [False, True]:
-
             ser = MarkdownDocSerializer(
-                doc=doc,
+                doc=sample_doc,
                 params=MarkdownParams(
                     orig_list_item_marker_mode=mode,
                     ensure_valid_list_item_marker=valid,
@@ -240,67 +213,81 @@ def test_md_list_item_markers():
             )
             actual = ser.serialize().text
             verify(
-                root_dir
-                / f"constructed_mode_{str(mode.value).lower()}_valid_{str(valid).lower()}.gt.md",
+                root_dir / f"constructed_mode_{str(mode.value).lower()}_valid_{str(valid).lower()}.gt.md",
                 actual=actual,
             )
 
 
-def test_md_include_annotations_false():
+def test_md_mark_meta_true():
     src = Path("./test/data/doc/2408.09869v3_enriched.json")
     doc = DoclingDocument.load_from_json(src)
 
     ser = MarkdownDocSerializer(
         doc=doc,
-        table_serializer=CustomAnnotationTableSerializer(),
         params=MarkdownParams(
-            include_annotations=False,
+            mark_meta=True,
             pages={1, 5},
         ),
     )
     actual = ser.serialize().text
     verify(
-        exp_file=src.parent / f"{src.stem}_p1_include_annotations_false.gt.md",
+        exp_file=src.parent / f"{src.stem}_p1_mark_meta_true.gt.md",
         actual=actual,
     )
 
 
-def test_md_mark_annotations_false():
+def test_md_mark_meta_false():
     src = Path("./test/data/doc/2408.09869v3_enriched.json")
     doc = DoclingDocument.load_from_json(src)
 
     ser = MarkdownDocSerializer(
         doc=doc,
-        table_serializer=CustomAnnotationTableSerializer(),
         params=MarkdownParams(
-            include_annotations=True,
-            mark_annotations=False,
+            mark_meta=False,
             pages={1, 5},
         ),
     )
     actual = ser.serialize().text
     verify(
-        exp_file=src.parent / f"{src.stem}_p1_mark_annotations_false.gt.md",
+        exp_file=src.parent / f"{src.stem}_p1_mark_meta_false.gt.md",
         actual=actual,
     )
 
 
-def test_md_mark_annotations_true():
-    src = Path("./test/data/doc/2408.09869v3_enriched.json")
-    doc = DoclingDocument.load_from_json(src)
-
-    ser = MarkdownDocSerializer(
-        doc=doc,
-        table_serializer=CustomAnnotationTableSerializer(),
-        params=MarkdownParams(
-            include_annotations=True,
-            mark_annotations=True,
-            pages={1, 5},
-        ),
-    )
-    actual = ser.serialize().text
+def test_md_legacy_annotations_mark_true(sample_doc):
+    exp_file = Path("./test/data/doc/constructed_legacy_annot_mark_true.gt.md")
+    with pytest.warns(DeprecationWarning):
+        sample_doc.tables[0].annotations.append(
+            DescriptionAnnotation(text="This is a description of table 1.", provenance="foo")
+        )
+        ser = MarkdownDocSerializer(
+            doc=sample_doc,
+            params=MarkdownParams(
+                mark_annotations=True,
+            ),
+        )
+        actual = ser.serialize().text
     verify(
-        exp_file=src.parent / f"{src.stem}_p1_mark_annotations_true.gt.md",
+        exp_file=exp_file,
+        actual=actual,
+    )
+
+
+def test_md_legacy_annotations_mark_false(sample_doc):
+    exp_file = Path("./test/data/doc/constructed_legacy_annot_mark_false.gt.md")
+    with pytest.warns(DeprecationWarning):
+        sample_doc.tables[0].annotations.append(
+            DescriptionAnnotation(text="This is a description of table 1.", provenance="foo")
+        )
+        ser = MarkdownDocSerializer(
+            doc=sample_doc,
+            params=MarkdownParams(
+                mark_annotations=False,
+            ),
+        )
+        actual = ser.serialize().text
+    verify(
+        exp_file=exp_file,
         actual=actual,
     )
 
@@ -314,11 +301,10 @@ def test_md_nested_lists():
     verify(exp_file=src.with_suffix(".gt.md"), actual=actual)
 
 
-def test_md_rich_table():
+def test_md_rich_table(rich_table_doc):
     exp_file = Path("./test/data/doc/rich_table.gt.md")
-    doc = _construct_rich_table_doc()
 
-    ser = MarkdownDocSerializer(doc=doc)
+    ser = MarkdownDocSerializer(doc=rich_table_doc)
     actual = ser.serialize().text
     verify(exp_file=exp_file, actual=actual)
 
@@ -345,6 +331,22 @@ def test_md_single_row_table():
     actual = ser.serialize().text
     verify(exp_file=exp_file, actual=actual)
 
+def test_md_pipe_in_table():
+    doc = DoclingDocument(name="Pipe in Table")
+    table = doc.add_table(data=TableData(num_rows=1, num_cols=1))
+    # TODO: properly handle nested tables, for now just escape the pipe
+    doc.add_table_cell(
+        table,
+        TableCell(
+            start_row_offset_idx=0,
+            end_row_offset_idx=1,
+            start_col_offset_idx=0,
+            end_col_offset_idx=1,
+            text="Fruits | Veggies",
+        )
+    )
+    ser = doc.export_to_markdown()
+    assert ser == "| Fruits &#124; Veggies   |\n|-------------------------|"
 
 # ===============================
 # HTML tests
@@ -521,13 +523,11 @@ def test_html_include_annotations_true():
     )
 
 
-def test_html_list_item_markers():
-    doc = _construct_doc()
+def test_html_list_item_markers(sample_doc):
     root_dir = Path("./test/data/doc")
     for orig in [False, True]:
-
         ser = HTMLDocSerializer(
-            doc=doc,
+            doc=sample_doc,
             params=HTMLParams(
                 show_original_list_item_marker=orig,
             ),
@@ -548,11 +548,10 @@ def test_html_nested_lists():
     verify(exp_file=src.with_suffix(".gt.html"), actual=actual)
 
 
-def test_html_rich_table():
+def test_html_rich_table(rich_table_doc):
     exp_file = Path("./test/data/doc/rich_table.gt.html")
-    doc = _construct_rich_table_doc()
 
-    ser = HTMLDocSerializer(doc=doc)
+    ser = HTMLDocSerializer(doc=rich_table_doc)
     actual = ser.serialize().text
     verify(exp_file=exp_file, actual=actual)
 
@@ -564,36 +563,3 @@ def test_html_inline_and_formatting():
     ser = HTMLDocSerializer(doc=doc)
     actual = ser.serialize().text
     verify(exp_file=src.with_suffix(".gt.html"), actual=actual)
-
-
-# ===============================
-# DocTags tests
-# ===============================
-
-
-def test_doctags_inline_loc_tags():
-    src = Path("./test/data/doc/2408.09869v3_enriched.json")
-    doc = DoclingDocument.load_from_json(src)
-
-    ser = DocTagsDocSerializer(doc=doc)
-    actual = ser.serialize().text
-    verify(exp_file=src.with_suffix(".out.dt"), actual=actual)
-
-
-def test_doctags_rich_table():
-
-    exp_file = Path("./test/data/doc/rich_table.out.dt")
-    doc = _construct_rich_table_doc()
-
-    ser = DocTagsDocSerializer(doc=doc)
-    actual = ser.serialize().text
-    verify(exp_file=exp_file, actual=actual)
-
-
-def test_doctags_inline_and_formatting():
-    src = Path("./test/data/doc/inline_and_formatting.yaml")
-    doc = DoclingDocument.load_from_yaml(src)
-
-    ser = DocTagsDocSerializer(doc=doc)
-    actual = ser.serialize().text
-    verify(exp_file=src.with_suffix(".gt.dt"), actual=actual)

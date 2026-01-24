@@ -120,7 +120,7 @@ class OpenQASMSimulator(BraketSimulator, ABC):
             AbstractProgramContext: The program context after the program has been parsed.
         """
         is_file = program.source.endswith(".qasm")
-        interpreter = Interpreter(self.create_program_context())
+        interpreter = Interpreter(self.create_program_context(), warn_advanced_features=True)
         return interpreter.run(
             source=program.source,
             inputs=program.inputs,
@@ -131,7 +131,7 @@ class OpenQASMSimulator(BraketSimulator, ABC):
 class BaseLocalSimulator(OpenQASMSimulator):
     def run(
         self, circuit_ir: OpenQASMProgram | ProgramSet | JaqcdProgram, *args, **kwargs
-    ) -> GateModelTaskResult:
+    ) -> GateModelTaskResult | ProgramSetTaskResult:
         """
         Simulate a program using either OpenQASM or Jaqcd.
 
@@ -147,7 +147,7 @@ class BaseLocalSimulator(OpenQASMSimulator):
                 optimized contraction.
 
         Returns:
-            GateModelTaskResult: object that represents the result
+            GateModelTaskResult | ProgramSetTaskResult: object that represents the result
 
         Raises:
             ValueError: If result types are not specified in the IR or sample is specified
@@ -335,6 +335,41 @@ class BaseLocalSimulator(OpenQASMSimulator):
                 "Consider running this circuit on the state vector simulator: "
                 'LocalSimulator("default") for a better user experience.'
             )
+
+    def _validate_program_set_instructions_compatibility(self, program_set: ProgramSet) -> None:
+        """
+        Validate that requested IR instructions in each program of the program set are valid
+        for the simulator. Uses OpenQASM program action properties for validation if the device
+        supports OpenQASM, otherwise skips validation.
+
+        Args:
+            program_set (ProgramSet): Program set containing programs to validate.
+        """
+        for program in program_set.programs:
+            if (
+                hasattr(program, "inputs")
+                and (program.inputs is not None)
+                and any(isinstance(value, list) for value in program.inputs.values())
+            ):
+                # program.inputs from {k: [v1,v2]} to [{k: v1}, {k: v2}]
+                inputs_of_all_executables = [
+                    dict(zip(program.inputs.keys(), values))
+                    for values in zip(*program.inputs.values())
+                ]
+                circuits = [
+                    self.parse_program(
+                        OpenQASMProgram(source=program.source, inputs=executable_inputs)
+                    ).circuit
+                    for executable_inputs in inputs_of_all_executables
+                ]
+            else:
+                circuits = [self.parse_program(program).circuit]
+
+            for circuit in circuits:
+                self._validate_ir_instructions_compatibility(
+                    circuit,
+                    device_action_type=DeviceActionType.OPENQASM,
+                )
 
     def _validate_input_provided(self, circuit: Circuit) -> None:
         """
@@ -654,6 +689,8 @@ class BaseLocalSimulator(OpenQASMSimulator):
         if remainder:
             raise ValueError("Total shots must be divisible by number of executables.")
 
+        self._validate_program_set_instructions_compatibility(program_set)
+
         program_results_metadata = [
             self._run_single_program_in_program_set(
                 program, shots=shots_per_executable, batch_size=batch_size
@@ -703,7 +740,11 @@ class BaseLocalSimulator(OpenQASMSimulator):
         circuit = self.parse_program(openqasm_ir).circuit
         qubit_map = BaseLocalSimulator._map_circuit_to_contiguous_qubits(circuit)
         qubit_count = circuit.num_qubits
-        measured_qubits = circuit.measured_qubits
+        classical_bit_positions = {b: i for i, b in enumerate(circuit.target_classical_indices)}
+        measured_qubits = [
+            circuit.measured_qubits[classical_bit_positions[i]]
+            for i in sorted(circuit.target_classical_indices)
+        ]
         mapped_measured_qubits = (
             [qubit_map[q] for q in measured_qubits] if measured_qubits else None
         )
@@ -741,7 +782,7 @@ class BaseLocalSimulator(OpenQASMSimulator):
                 result_types,
                 simulation,
             )
-        else:
+        elif circuit.basis_rotation_instructions:
             simulation.evolve(circuit.basis_rotation_instructions)
 
         return self._create_results_obj(

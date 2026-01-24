@@ -15,7 +15,6 @@ from typing import (
     Any,
     Literal,
     Optional,
-    Union,
 )
 from uuid import UUID
 
@@ -23,16 +22,7 @@ import pytest
 from langchain_core.language_models import GenericFakeChatModel
 from langchain_core.runnables import RunnableConfig, RunnableLambda, RunnablePassthrough
 from langchain_core.utils.aiter import aclosing
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from pytest_mock import MockerFixture
-from syrupy import SnapshotAssertion
-from typing_extensions import NotRequired, TypedDict
-
-from langgraph._internal._constants import CONFIG_KEY_NODE_FINISHED, ERROR, PULL
 from langgraph.cache.base import BaseCache
-from langgraph.channels.binop import BinaryOperatorAggregate
-from langgraph.channels.last_value import LastValue
-from langgraph.channels.topic import Topic
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
     ChannelVersions,
@@ -42,6 +32,18 @@ from langgraph.checkpoint.base import (
 )
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.prebuilt.tool_node import ToolNode
+from langgraph.store.base import BaseStore
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pytest_mock import MockerFixture
+from syrupy import SnapshotAssertion
+from typing_extensions import NotRequired, TypedDict
+
+from langgraph._internal._constants import CONFIG_KEY_NODE_FINISHED, ERROR, PULL
+from langgraph._internal._queue import AsyncQueue
+from langgraph.channels.binop import BinaryOperatorAggregate
+from langgraph.channels.last_value import LastValue
+from langgraph.channels.topic import Topic
 from langgraph.errors import (
     GraphRecursionError,
     InvalidUpdateError,
@@ -50,11 +52,9 @@ from langgraph.errors import (
 from langgraph.func import entrypoint, task
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState, add_messages
-from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.pregel import NodeBuilder, Pregel
 from langgraph.pregel._loop import AsyncPregelLoop
 from langgraph.pregel._runner import PregelRunner
-from langgraph.store.base import BaseStore
 from langgraph.types import (
     CachePolicy,
     Command,
@@ -90,7 +90,7 @@ NEEDS_CONTEXTVARS = pytest.mark.skipif(
 
 async def test_checkpoint_errors() -> None:
     class FaultyGetCheckpointer(InMemorySaver):
-        async def aget_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+        async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
             raise ValueError("Faulty get_tuple")
 
     class FaultyPutCheckpointer(InMemorySaver):
@@ -110,7 +110,7 @@ async def test_checkpoint_errors() -> None:
             raise ValueError("Faulty put_writes")
 
     class FaultyVersionCheckpointer(InMemorySaver):
-        def get_next_version(self, current: Optional[int], channel: None) -> int:
+        def get_next_version(self, current: int | None, channel: None) -> int:
             raise ValueError("Faulty get_next_version")
 
     class FaultySerializer(JsonPlusSerializer):
@@ -912,7 +912,7 @@ async def test_partial_pending_checkpoint(
             answer = " all good"
         return {"my_key": answer}
 
-    def start(state: State) -> list[Union[Send, str]]:
+    def start(state: State) -> list[Send | str]:
         return ["tool_two", Send("tool_one", state)]
 
     tool_two_graph = StateGraph(State)
@@ -1770,7 +1770,7 @@ async def test_pending_writes_resume(
         value: Annotated[int, operator.add]
 
     class AwhileMaker:
-        def __init__(self, sleep: float, rtn: Union[dict, Exception]) -> None:
+        def __init__(self, sleep: float, rtn: dict | Exception) -> None:
             self.sleep = sleep
             self.rtn = rtn
             self.reset()
@@ -2417,7 +2417,7 @@ async def test_imp_sync_from_async(
         return {"a": state["a"] + "foo", "b": "bar"}
 
     @task
-    def bar(a: str, b: str, c: Optional[str] = None) -> dict:
+    def bar(a: str, b: str, c: str | None = None) -> dict:
         return {"a": a + b, "c": (c or "") + "bark"}
 
     @task()
@@ -2451,7 +2451,7 @@ async def test_imp_stream_order(
         return {"a": state["a"] + "foo", "b": "bar"}
 
     @task
-    async def bar(a: str, b: str, c: Optional[str] = None) -> dict:
+    async def bar(a: str, b: str, c: str | None = None) -> dict:
         return {"a": a + b, "c": (c or "") + "bark"}
 
     @task()
@@ -3844,9 +3844,7 @@ async def test_conditional_entrypoint_graph_state() -> None:
 async def test_in_one_fan_out_state_graph_waiting_edge(
     async_checkpointer: BaseCheckpointSaver,
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -3933,9 +3931,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge(
 async def test_in_one_fan_out_state_graph_defer_node(
     async_checkpointer: BaseCheckpointSaver, use_waiting_edge: bool
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4025,9 +4021,7 @@ async def test_in_one_fan_out_state_graph_defer_node(
 async def test_in_one_fan_out_state_graph_waiting_edge_via_branch(
     async_checkpointer: BaseCheckpointSaver,
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4118,7 +4112,7 @@ async def test_nested_pydantic_models() -> None:
     class NestedModel(BaseModel):
         value: int
         name: str
-        something: Optional[str] = None
+        something: str | None = None
 
     # Forward reference model
     class RecursiveModel(BaseModel):
@@ -4152,16 +4146,16 @@ async def test_nested_pydantic_models() -> None:
         # Basic nested model tests
         top_level: str
         nested: NestedModel
-        optional_nested: Optional[NestedModel] = None
+        optional_nested: NestedModel | None = None
         dict_nested: dict[str, NestedModel]
         my_set: set[int]
         another_set: set
         my_enum: MyEnum
         list_nested: Annotated[
-            Union[dict, list[dict[str, NestedModel]]], lambda x, y: (x or []) + [y]
+            dict | list[dict[str, NestedModel]], lambda x, y: (x or []) + [y]
         ]
         list_nested_reversed: Annotated[
-            Union[list[dict[str, NestedModel]], NestedModel, dict, list],
+            list[dict[str, NestedModel]] | NestedModel | dict | list,
             lambda x, y: (x or []) + [y],
         ]
         tuple_nested: tuple[str, NestedModel]
@@ -4173,7 +4167,7 @@ async def test_nested_pydantic_models() -> None:
         recursive: RecursiveModel
 
         # Discriminated union test
-        pet: Union[Cat, Dog]
+        pet: Cat | Dog
 
         # Cyclic reference test
         people: dict[str, Person]  # Map of ID -> Person
@@ -4240,9 +4234,7 @@ async def test_nested_pydantic_models() -> None:
 async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class(
     async_checkpointer: BaseCheckpointSaver,
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4253,7 +4245,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class(
         model_config = ConfigDict(arbitrary_types_allowed=True)
 
         query: str
-        answer: Optional[str] = None
+        answer: str | None = None
         docs: Annotated[list[str], sorted_add]
 
     class Input(BaseModel):
@@ -4264,9 +4256,9 @@ async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class(
         docs: list[str]
 
     class StateUpdate(BaseModel):
-        query: Optional[str] = None
-        answer: Optional[str] = None
-        docs: Optional[list[str]] = None
+        query: str | None = None
+        answer: str | None = None
+        docs: list[str] | None = None
 
     async def rewrite_query(data: State) -> State:
         return {"query": f"query: {data.query}"}
@@ -4393,9 +4385,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class(
 async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class_pydantic2(
     snapshot: SnapshotAssertion, async_checkpointer: BaseCheckpointSaver
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4408,13 +4398,13 @@ async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class_pydant
     class State(BaseModel):
         query: str
         inner: InnerObject
-        answer: Optional[str] = None
+        answer: str | None = None
         docs: Annotated[list[str], sorted_add]
 
     class StateUpdate(BaseModel):
-        query: Optional[str] = None
-        answer: Optional[str] = None
-        docs: Optional[list[str]] = None
+        query: str | None = None
+        answer: str | None = None
+        docs: list[str] | None = None
 
     async def rewrite_query(data: State) -> State:
         return {"query": f"query: {data.query}"}
@@ -4522,9 +4512,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge_custom_state_class_pydant
 async def test_in_one_fan_out_state_graph_waiting_edge_plus_regular(
     async_checkpointer: BaseCheckpointSaver,
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4618,9 +4606,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge_plus_regular(
 async def test_in_one_fan_out_state_graph_waiting_edge_multiple(
     with_cache: bool, cache: BaseCache
 ) -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -4735,9 +4721,7 @@ async def test_in_one_fan_out_state_graph_waiting_edge_multiple(
 
 
 async def test_in_one_fan_out_state_graph_waiting_edge_multiple_cond_edge() -> None:
-    def sorted_add(
-        x: list[str], y: Union[list[str], list[tuple[str, str]]]
-    ) -> list[str]:
+    def sorted_add(x: list[str], y: list[str] | list[tuple[str, str]]) -> list[str]:
         if isinstance(y[0], tuple):
             for rem, _ in y:
                 x.remove(rem)
@@ -5704,7 +5688,7 @@ async def test_store_injected_async(
     thread_2 = str(uuid.uuid4())
 
     class Node:
-        def __init__(self, i: Optional[int] = None):
+        def __init__(self, i: int | None = None):
             self.i = i
 
         async def __call__(
@@ -5834,7 +5818,7 @@ async def test_debug_retry(async_checkpointer: BaseCheckpointSaver):
         async for c in graph.aget_state_history(config)
     }
 
-    def lax_normalize_config(config: Optional[dict]) -> Optional[dict]:
+    def lax_normalize_config(config: dict | None) -> dict | None:
         if config is None:
             return None
         return config["configurable"]
@@ -5902,7 +5886,7 @@ async def test_debug_subgraphs(
 
     assert len(checkpoint_events) == len(checkpoint_history)
 
-    def normalize_config(config: Optional[dict]) -> Optional[dict]:
+    def normalize_config(config: dict | None) -> dict | None:
         if config is None:
             return None
         return config["configurable"]
@@ -5999,7 +5983,7 @@ async def test_debug_nested_subgraphs(
 
         history_ns[ns] = await get_history()
 
-    def normalize_config(config: Optional[dict]) -> Optional[dict]:
+    def normalize_config(config: dict | None) -> dict | None:
         if config is None:
             return None
 
@@ -6376,7 +6360,7 @@ async def test_multistep_plan(async_checkpointer: BaseCheckpointSaver) -> None:
     from langchain_core.messages import AnyMessage
 
     class State(TypedDict, total=False):
-        plan: list[Union[str, list[str]]]
+        plan: list[str | list[str]]
         messages: Annotated[list[AnyMessage], add_messages]
 
     def planner(state: State):
@@ -7547,7 +7531,7 @@ async def test_tags_stream_mode_messages() -> None:
         )
     ] == [
         (
-            _AnyIdAIMessageChunk(content="foo"),
+            _AnyIdAIMessageChunk(content="foo", chunk_position="last"),
             {
                 "langgraph_step": 1,
                 "langgraph_node": "call_model",
@@ -9107,3 +9091,257 @@ async def test_subgraph_streaming_async() -> None:
 
     assert result["last_chunk"].content == "today."
     assert result["num_chunks"] == 9
+
+
+@NEEDS_CONTEXTVARS
+async def test_null_resume_disallowed_with_multiple_interrupts(
+    async_checkpointer: BaseCheckpointSaver,
+) -> None:
+    class State(TypedDict):
+        text_1: str
+        text_2: str
+
+    async def human_node_1(state: State):
+        value = interrupt(state["text_1"])
+        return {"text_1": value}
+
+    async def human_node_2(state: State):
+        value = interrupt(state["text_2"])
+        return {"text_2": value}
+
+    graph_builder = StateGraph(State)
+    graph_builder.add_node("human_node_1", human_node_1)
+    graph_builder.add_node("human_node_2", human_node_2)
+
+    # Add both nodes in parallel from START
+    graph_builder.add_edge(START, "human_node_1")
+    graph_builder.add_edge(START, "human_node_2")
+
+    checkpointer = InMemorySaver()
+    graph = graph_builder.compile(checkpointer=checkpointer)
+
+    thread_id = str(uuid.uuid4())
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+    await graph.ainvoke(
+        {"text_1": "original text 1", "text_2": "original text 2"}, config=config
+    )
+
+    resume_map = {
+        i.id: f"resume for prompt: {i.value}"
+        for i in (await graph.aget_state(config)).interrupts
+    }
+    with pytest.raises(
+        RuntimeError,
+        match="When there are multiple pending interrupts, you must specify the interrupt id when resuming.",
+    ):
+        await graph.ainvoke(Command(resume="singular resume"), config=config)
+
+    assert await graph.ainvoke(Command(resume=resume_map), config=config) == {
+        "text_1": "resume for prompt: original text 1",
+        "text_2": "resume for prompt: original text 2",
+    }
+
+
+async def test_astream_waiter_cleanup_on_cancel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that AsyncPregelLoop cleans up waiter tasks after cancellation."""
+
+    recorded_tasks: list[asyncio.Task[None]] = []
+    finished_tasks: list[asyncio.Task[None]] = []
+
+    original_wait = AsyncQueue.wait
+
+    async def tracked_wait(self: AsyncQueue) -> None:
+        task = asyncio.current_task()
+        assert task is not None
+        recorded_tasks.append(task)
+        try:
+            await original_wait(self)
+        finally:
+            finished_tasks.append(task)
+
+    monkeypatch.setattr(AsyncQueue, "wait", tracked_wait)
+
+    class State(TypedDict, total=False):
+        count: int
+
+    async def slow_node(state: State) -> State:
+        await asyncio.sleep(0.05)
+        state = dict(state)
+        state["count"] = state.get("count", 0) + 1
+        await asyncio.sleep(0.1)
+        return state
+
+    builder = StateGraph(State)
+    builder.add_node("slow", slow_node)
+    builder.add_edge(START, "slow")
+    builder.add_edge("slow", END)
+    graph = builder.compile()
+
+    async def consumer() -> None:
+        async for _ in graph.astream({"msg": "hi"}, stream_mode="messages"):
+            await asyncio.sleep(0.01)
+
+    task = asyncio.create_task(consumer())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    await asyncio.sleep(0.05)
+
+    assert recorded_tasks, "expected stream.wait() task to be created"
+    assert set(finished_tasks) == set(recorded_tasks)
+    assert all(t.done() for t in recorded_tasks)
+
+
+@NEEDS_CONTEXTVARS
+async def test_interrupt_stream_mode_values(async_checkpointer: BaseCheckpointSaver):
+    """Test that interrupts are surfaced on 'values' stream mode"""
+
+    class State(TypedDict):
+        robot_input: str
+        human_input: str
+
+    def robot_input_node(state: State) -> State:
+        return {"robot_input": "beep boop i am a robot"}
+
+    def human_input_node(state: State) -> Command:
+        human_input = interrupt("interrupt")
+        return Command(update={"human_input": human_input})
+
+    builder = StateGraph(State)
+    builder.add_node(robot_input_node)
+    builder.add_node(human_input_node)
+    builder.add_edge(START, "robot_input_node")
+    builder.add_edge("robot_input_node", "human_input_node")
+    app = builder.compile(checkpointer=async_checkpointer)
+    config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+
+    result = [
+        (mode, e)
+        async for mode, e in app.astream(
+            State(), config, stream_mode=["updates", "values"]
+        )
+    ]
+    assert len(result) == 4
+    assert result == [
+        ("updates", {"robot_input_node": {"robot_input": "beep boop i am a robot"}}),
+        ("values", {"robot_input": "beep boop i am a robot"}),
+        ("updates", {"__interrupt__": (Interrupt(value="interrupt", id=AnyStr()),)}),
+        (
+            "values",
+            {
+                "robot_input": "beep boop i am a robot",
+                "__interrupt__": (Interrupt(value="interrupt", id=AnyStr()),),
+            },
+        ),
+    ]
+    resume_result = [
+        (mode, e)
+        async for mode, e in app.astream(
+            Command(resume="i am a human"), config, stream_mode=["updates", "values"]
+        )
+    ]
+    assert resume_result == [
+        ("values", {"robot_input": "beep boop i am a robot"}),
+        ("updates", {"human_input_node": {"human_input": "i am a human"}}),
+        (
+            "values",
+            {"robot_input": "beep boop i am a robot", "human_input": "i am a human"},
+        ),
+    ]
+
+
+async def test_supersteps_populate_task_results(
+    async_checkpointer: BaseCheckpointSaver,
+) -> None:
+    class State(TypedDict):
+        num: int
+        text: str
+
+    def double(state: State) -> State:
+        return {"num": state["num"] * 2, "text": state["text"] * 2}
+
+    graph = (
+        StateGraph(State)
+        .add_node("double", double)
+        .add_edge(START, "double")
+        .add_edge("double", END)
+        .compile(checkpointer=async_checkpointer)
+    )
+
+    # reference run with ainvoke
+    ref_cfg = {"configurable": {"thread_id": "ref"}}
+    await graph.ainvoke({"num": 1, "text": "one"}, ref_cfg)
+    ref_history = [h async for h in graph.aget_state_history(ref_cfg)]
+
+    # Helper: pull first task result for a node name from history
+    def first_task_result(history: list[StateSnapshot], node: str) -> Any:
+        for s in history:
+            for t in s.tasks:
+                if t.name == node:
+                    return t.result
+        return None
+
+    ref_start_result = first_task_result(ref_history, "__start__")
+    ref_double_result = first_task_result(ref_history, "double")
+    assert ref_start_result == {"num": 1, "text": "one"}
+    assert ref_double_result == {"num": 2, "text": "oneone"}
+
+    # using supersteps
+    bulk_cfg = {"configurable": {"thread_id": "bulk"}}
+    await graph.abulk_update_state(
+        bulk_cfg,
+        [
+            [StateUpdate(values={}, as_node="__input__")],
+            [StateUpdate(values={"num": 1, "text": "one"}, as_node="__start__")],
+            [StateUpdate(values={"num": 2, "text": "oneone"}, as_node="double")],
+        ],
+    )
+    bulk_history = [h async for h in graph.aget_state_history(bulk_cfg)]
+
+    bulk_start_result = first_task_result(bulk_history, "__start__")
+    bulk_double_result = first_task_result(bulk_history, "double")
+
+    assert bulk_start_result == ref_start_result == {"num": 1, "text": "one"}
+    assert bulk_double_result == ref_double_result == {"num": 2, "text": "oneone"}
+
+
+async def test_fork_does_not_apply_pending_writes(
+    async_checkpointer: BaseCheckpointSaver,
+) -> None:
+    """Test that forking with aupdate_state does not apply pending writes from original execution."""
+
+    class State(TypedDict):
+        value: Annotated[int, operator.add]
+
+    def node_a(state: State) -> State:
+        return {"value": 10}
+
+    def node_b(state: State) -> State:
+        return {"value": 100}
+
+    graph = (
+        StateGraph(State)
+        .add_node("node_a", node_a)
+        .add_node("node_b", node_b)
+        .add_edge(START, "node_a")
+        .add_edge("node_a", "node_b")
+        .compile(checkpointer=async_checkpointer)
+    )
+
+    thread1 = {"configurable": {"thread_id": "1"}}
+    await graph.ainvoke({"value": 1}, thread1)
+
+    history = [c async for c in graph.aget_state_history(thread1)]
+    checkpoint_before_a = next(s for s in history if s.next == ("node_a",))
+
+    fork_config = await graph.aupdate_state(
+        checkpoint_before_a.config, {"value": 20}, as_node="node_a"
+    )
+    result = await graph.ainvoke(None, fork_config)
+
+    # 1 (input) + 20 (forked node_a) + 100 (node_b) = 121
+    assert result == {"value": 121}

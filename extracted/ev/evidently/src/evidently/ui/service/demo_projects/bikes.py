@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import time
 from datetime import timedelta
 from itertools import cycle
+from typing import List
 from typing import Tuple
 
 import pandas as pd
@@ -12,9 +13,9 @@ import requests
 from dateutil.relativedelta import relativedelta
 from sklearn import ensemble
 
-from evidently import Regression
 from evidently.core.datasets import DataDefinition
 from evidently.core.datasets import Dataset
+from evidently.core.datasets import Regression
 from evidently.core.report import Report
 from evidently.presets import DataDriftPreset
 from evidently.presets import DataSummaryPreset
@@ -106,6 +107,10 @@ SNAPSHOT_TAGS = snapshot_tags_generator()
 
 def next_snapshot_tags():
     return next(SNAPSHOT_TAGS)
+
+
+def create_datasets() -> List[Tuple[Dataset, str, str]]:
+    return [(create_data()[0], "Bikes Data", "")]
 
 
 def create_snapshot(i: int, data: Tuple[Dataset, Dataset]):
@@ -255,5 +260,6 @@ bikes_demo_project = DemoProject(
     create_data=create_data,
     create_snapshot=create_snapshot,
     create_project=create_project,
+    create_datasets=create_datasets,
     count=28,
 )

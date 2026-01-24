@@ -56,7 +56,7 @@ class LinkerClustering:
         the same entity).
 
         Args:
-            df_predict (SplinkDataFrame): The results of `linker.predict()`
+            df_predict (SplinkDataFrame): The results of `linker.inference.predict()`
             threshold_match_probability (float, optional): Pairwise comparisons with a
                 `match_probability` at or above this threshold are matched
             threshold_match_weight (float, optional): Pairwise comparisons with a
@@ -99,9 +99,8 @@ class LinkerClustering:
 
         nodes_with_composite_ids = db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-        has_match_prob_col = "match_probability" in [
-            c.unquote().name for c in df_predict.columns
-        ]
+        match_prob_col = linker._settings_obj._input_column("match_probability")
+        has_match_prob_col = match_prob_col in df_predict.columns
 
         threshold_match_probability = threshold_args_to_match_prob(
             threshold_match_probability, threshold_match_weight
@@ -186,6 +185,7 @@ class LinkerClustering:
         duplicate_free_datasets: List[str],
         threshold_match_probability: Optional[float] = None,
         threshold_match_weight: Optional[float] = None,
+        ties_method: str = "lowest_id",
     ) -> SplinkDataFrame:
         """
         Clusters the pairwise match predictions that result from
@@ -199,7 +199,7 @@ class LinkerClustering:
         `duplicate_free_datasets`.
 
         Args:
-            df_predict (SplinkDataFrame): The results of `linker.predict()`
+            df_predict (SplinkDataFrame): The results of `linker.inference.predict()`
             duplicate_free_datasets: (List[str]): The source datasets which should be
                 treated as having no duplicates. Clusters will not form with more than
                 one record from each of these datasets. This can be a subset of all of
@@ -209,7 +209,13 @@ class LinkerClustering:
             threshold_match_weight (float, optional): Pairwise comparisons with a
                 `match_weight` at or above this threshold are matched. Only one of
                 threshold_match_probability or threshold_match_weight should be provided
-
+            ties_method (str): How the clustering method should deal with ties. There
+                are two options: 'drop' and 'lowest_id'. After linking datasets A and B,
+                if record A1 is tied between records B1 and B2 from dataset B, then
+                the 'drop' option will drop both links, whereas the 'lowest_id' option
+                will keep the link to record B1. If the links A1 to B1 and
+                A1 to C1 are tied where each record is from a different source dataset
+                then both links will be kept, even with the 'drop' option.
         Returns:
             SplinkDataFrame: A SplinkDataFrame containing a list of all IDs, clustered
                 into groups based on the desired match threshold and the source datasets
@@ -227,6 +233,9 @@ class LinkerClustering:
         """
         linker = self._linker
         db_api = linker._db_api
+
+        if ties_method not in ["drop", "lowest_id"]:
+            raise ValueError("ties_method must be one of 'drop', or 'lowest_id'")
 
         pipeline = CTEPipeline()
 
@@ -251,9 +260,8 @@ class LinkerClustering:
 
         nodes_with_composite_ids = db_api.sql_pipeline_to_splink_dataframe(pipeline)
 
-        has_match_prob_col = "match_probability" in [
-            c.unquote().name for c in df_predict.columns
-        ]
+        match_prob_col = linker._settings_obj._input_column("match_probability")
+        has_match_prob_col = match_prob_col in df_predict.columns
 
         threshold_match_probability = threshold_args_to_match_prob(
             threshold_match_probability, threshold_match_weight
@@ -278,7 +286,9 @@ class LinkerClustering:
         sql = f"""
         select
             {uid_concat_edges_l} as node_id_l,
-            {uid_concat_edges_r} as node_id_r
+            {uid_concat_edges_r} as node_id_r,
+            {source_dataset_column_name}_l as source_dataset_l,
+            {source_dataset_column_name}_r as source_dataset_r
             {match_p_select_expr}
             from {df_predict.templated_name}
             {match_p_expr}
@@ -297,6 +307,7 @@ class LinkerClustering:
             edge_id_column_name_left="node_id_l",
             edge_id_column_name_right="node_id_r",
             duplicate_free_datasets=duplicate_free_datasets,
+            ties_method=ties_method,
             db_api=db_api,
             threshold_match_probability=threshold_match_probability,
         )
@@ -344,16 +355,16 @@ class LinkerClustering:
         Internal function for computing node-level metrics.
 
         Accepts outputs of `linker.inference.predict()` and
-        `linker.clustering.cluster_pairwise_at_threshold()`, along with the clustering
-        threshold and produces a table of node metrics.
+        `linker.clustering.cluster_pairwise_predictions_at_threshold()`, along with
+        the clustering threshold and produces a table of node metrics.
 
         Node metrics produced:
         * node_degree (absolute number of neighbouring nodes)
         * node_centralisation (proportion of neighbours wrt maximum possible number)
 
         Output table has a single row per input node, along with the cluster id (as
-        assigned in `linker.cluster_pairwise_at_threshold()`) and the metrics
-        node_degree and node_centralisation:
+        assigned in `linker.clustering.cluster_pairwise_predictions_at_threshold()`) and
+        the metrics node_degree and node_centralisation:
 
         |-----------------------------------------------------------------------|
         | composite_unique_id | cluster_id  | node_degree | node_centralisation |
@@ -441,7 +452,7 @@ class LinkerClustering:
         Internal function for computing cluster-level metrics.
 
         Accepts output of `linker._compute_node_metrics()` (which has the relevant
-        information from `linker.predict() and
+        information from `linker.inference.predict()` and
         `linker.clustering.cluster_pairwise_at_threshold()`), produces a table of
         cluster metrics.
 

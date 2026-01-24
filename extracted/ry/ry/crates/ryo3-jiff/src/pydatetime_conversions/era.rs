@@ -2,6 +2,7 @@ use crate::jiff_types::JiffEra;
 use jiff::civil::Era;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
+use ryo3_macro_rules::{py_type_err, py_value_err};
 
 const JIFF_ERA_STRINGS: &str = "'BCE'/'BC', 'CE'/'AD' (case insensitive)";
 
@@ -30,22 +31,17 @@ impl<'py> IntoPyObject<'py> for JiffEra {
     }
 }
 
-impl FromPyObject<'_> for JiffEra {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        // downcast to string...
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string().to_ascii_lowercase();
-            match s.as_str() {
-                "bce" | "bc" => Ok(Self(Era::BCE)),
-                "ce" | "ad" => Ok(Self(Era::CE)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid era: {s} (options: {JIFF_ERA_STRINGS})"
-                ))),
+impl<'py> FromPyObject<'_, 'py> for JiffEra {
+    type Error = PyErr;
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(s) = obj.extract::<&str>() {
+            match s {
+                "bce" | "bc" | "BCE" | "BC" => Ok(Self(Era::BCE)),
+                "ce" | "ad" | "CE" | "AD" => Ok(Self(Era::CE)),
+                _ => py_value_err!("Invalid era: {s} (options: {JIFF_ERA_STRINGS})"),
             }
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Expected a string with one of the options: {JIFF_ERA_STRINGS}"
-            )))
+            py_type_err!("Invalid type for era, expected a string (options: {JIFF_ERA_STRINGS})")
         }
     }
 }

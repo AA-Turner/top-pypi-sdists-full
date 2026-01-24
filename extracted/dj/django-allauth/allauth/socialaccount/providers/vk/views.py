@@ -12,9 +12,9 @@ from allauth.utils import get_request_param
 
 class VKOAuth2Adapter(OAuth2Adapter):
     provider_id = "vk"
-    access_token_url = "https://id.vk.com/oauth2/auth"  # nosec
-    authorize_url = "https://id.vk.com/authorize"
-    profile_url = "https://id.vk.com/oauth2/user_info"
+    access_token_url = "https://id.vk.ru/oauth2/auth"  # nosec
+    authorize_url = "https://id.vk.ru/authorize"
+    profile_url = "https://id.vk.ru/oauth2/user_info"
 
     def get_access_token_data(self, request, app, client, pkce_code_verifier=None):
         code = get_request_param(self.request, "code")
@@ -37,11 +37,10 @@ class VKOAuth2Adapter(OAuth2Adapter):
             "access_token": token.token,
             "client_id": app.client_id,
         }
-        resp = (
-            get_adapter().get_requests_session().post(self.profile_url, data=req_data)
-        )
-        resp.raise_for_status()
-        resp_data = resp.json()
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.post(self.profile_url, data=req_data)
+            resp.raise_for_status()
+            resp_data = resp.json()
         if "error" in resp_data or "user" not in resp_data:
             raise RequestException(
                 "Could not get basic data for user being authenticated"

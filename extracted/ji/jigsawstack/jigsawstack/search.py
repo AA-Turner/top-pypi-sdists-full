@@ -193,6 +193,11 @@ class SearchParams(TypedDict):
     Whether to perform spell checking on the query. Defaults to True.
     """
 
+    max_results: NotRequired[int]
+    """
+    Maximum number of search results to return.
+    """
+
     safe_search: NotRequired[Literal["strict", "moderate", "off"]]
     """
     Safe search filtering level. Can be 'strict', 'moderate', or 'off'
@@ -241,13 +246,22 @@ class Search(ClientConfig):
         safe_search = params.get("safe_search", "moderate")
         spell_check = params.get("spell_check", "True")
 
-        body = {
+        body: Dict[str, Any] = {
             "byo_urls": params.get("byo_urls", []),
             "query": query,
             "ai_overview": ai_overview,
             "safe_search": safe_search,
             "spell_check": spell_check,
         }
+
+        if "max_results" in params:
+            body["max_results"] = params["max_results"]
+
+        if "country_code" in params:
+            body["country_code"] = params["country_code"]
+
+        if "auto_scrape" in params:
+            body["auto_scrape"] = params["auto_scrape"]
 
         path = "/web/search"
         resp = Request(
@@ -304,13 +318,23 @@ class AsyncSearch(ClientConfig):
         safe_search = params.get("safe_search", "moderate")
         spell_check = params.get("spell_check", "True")
 
-        body = {
+        body: Dict[str, Any] = {
             "byo_urls": params.get("byo_urls", []),
             "query": query,
             "ai_overview": ai_overview,
             "safe_search": safe_search,
             "spell_check": spell_check,
         }
+
+        if "max_results" in params:
+            body["max_results"] = params["max_results"]
+
+        if "country_code" in params:
+            body["country_code"] = params["country_code"]
+
+        if "auto_scrape" in params:
+            body["auto_scrape"] = params["auto_scrape"]
+
         resp = await AsyncRequest(
             config=self.config,
             path=path,

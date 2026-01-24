@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "slang/ast/ASTDiagMap.h"
+#include "slang/ast/InstanceCacheKey.h"
 #include "slang/ast/OpaqueInstancePath.h"
 #include "slang/ast/Scope.h"
 #include "slang/numeric/Time.h"
@@ -54,18 +55,9 @@ enum class SymbolIndex : uint32_t;
 enum class SymbolKind : int;
 enum class UnconnectedDrive;
 
-/// Specifies which set of min:typ:max expressions should
-/// be used during compilation.
-enum class SLANG_EXPORT MinTypMax {
-    /// Use the "min" delay expressions.
-    Min,
-
-    /// Use the "typical" delay expressions.
-    Typ,
-
-    /// Use the "max" delay expressions.
-    Max
-};
+#define MTM(x) x(Min) x(Typ) x(Max)
+SLANG_ENUM(MinTypMax, MTM)
+#undef MTM
 
 /// Defines flags that control compilation behavior.
 enum class SLANG_EXPORT CompilationFlags {
@@ -119,9 +111,12 @@ enum class SLANG_EXPORT CompilationFlags {
     /// Disallow references to unknown instances by issuing a diagnostic. This is only
     /// relevant when using IgnoreUnknownModules, since otherwise there would already
     /// be errors issued for the unknown instances.
-    DisallowRefsToUnknownInstances = 1 << 12
+    DisallowRefsToUnknownInstances = 1 << 12,
+
+    /// Allow unnamed generate blocks (e.g. genblk) to be referenced
+    AllowUnnamedGenerate = 1 << 13
 };
-SLANG_BITMASK(CompilationFlags, DisallowRefsToUnknownInstances)
+SLANG_BITMASK(CompilationFlags, AllowUnnamedGenerate)
 
 /// Contains various options that can control compilation behavior.
 struct SLANG_EXPORT CompilationOptions {
@@ -154,6 +149,11 @@ struct SLANG_EXPORT CompilationOptions {
     /// The maximum number of iterations to try to resolve defparams before
     /// giving up due to potentially cyclic dependencies in parameter values.
     uint32_t maxDefParamSteps = 128;
+
+    /// The maximum number of blocks that will be allowed before giving up
+    /// on defparam resolution. This is used to keep fuzz testing from
+    /// blowing up on goofy cases.
+    uint32_t maxDefParamBlocks = UINT32_MAX;
 
     /// The maximum number of instances allowed in a single instance array.
     uint32_t maxInstanceArray = 65535;
@@ -309,9 +309,9 @@ public:
     /// resolved and all symbols have been created. This is distinct from being finalized,
     /// which only means that the design has been parsed and syntax trees have been added.
     ///
-    /// This is only set once getAllDiagnostics() is called, after which point the compilation
+    /// This is only set once getSemanticDiagnostics() is called, after which point the compilation
     /// is functionally immutable.
-    bool isElaborated() const { return cachedAllDiagnostics.has_value(); }
+    bool isElaborated() const { return cachedSemanticDiagnostics.has_value(); }
 
     /// Gets the diagnostics produced during lexing, preprocessing, and syntax parsing.
     const Diagnostics& getParseDiagnostics();
@@ -612,8 +612,9 @@ public:
     /// Notes the existence of an assignment to a hierarchical reference.
     void noteHierarchicalAssignment(const HierarchicalReference& ref);
 
-    /// Notes the existence of a virtual interface type declaration for the given instance.
-    void noteVirtualIfaceInstance(const InstanceSymbol& instance);
+    /// Registers and returns the given virtual interface instance with the compilation,
+    /// or if it matches an already existing instance returns that one instead.
+    const InstanceSymbol& getOrAddVirtualIface(const InstanceSymbol& instance);
 
     /// Adds a set of diagnostics to the compilation's list of semantic diagnostics.
     void addDiagnostics(const Diagnostics& diagnostics);
@@ -818,22 +819,18 @@ private:
     TypedBumpAllocator<PointerMap> pointerMapAllocator;
     TypedBumpAllocator<ConstantValue> constantAllocator;
 
-    // A table to look up scalar types based on combinations of the three flags: signed, fourstate,
-    // reg. Two of the entries are not valid and will be nullptr (!fourstate & reg).
-    Type* scalarTypeTable[8]{nullptr};
-
     // Instances of all the built-in types.
-    Type* bitType;
-    Type* logicType;
-    Type* intType;
-    Type* byteType;
-    Type* integerType;
-    Type* realType;
-    Type* shortRealType;
-    Type* stringType;
-    Type* voidType;
-    Type* errorType;
-    NetType* wireNetType;
+    const Type* bitType;
+    const Type* logicType;
+    const Type* intType;
+    const Type* byteType;
+    const Type* integerType;
+    const Type* realType;
+    const Type* shortRealType;
+    const Type* stringType;
+    const Type* voidType;
+    const Type* errorType;
+    const NetType* wireNetType;
 
     // A map of syntax nodes that have been referenced in the AST.
     // The value indicates whether the node has been used as an lvalue vs non-lvalue,
@@ -884,7 +881,7 @@ private:
     };
 
     // Map from syntax nodes to parse-time metadata about them.
-    flat_hash_map<const syntax::SyntaxNode*, SyntaxMetadata> syntaxMetadata;
+    flat_hash_map<const syntax::ModuleDeclarationSyntax*, SyntaxMetadata> syntaxMetadata;
 
     // A list of all created definitions, as storage for their memory.
     std::vector<std::unique_ptr<DefinitionSymbol>> definitionMemory;
@@ -895,21 +892,6 @@ private:
 
     // A list of libraries that control the order in which we search for cell bindings.
     std::vector<const SourceLibrary*> defaultLiblist;
-
-    // A list of instances that have been created by virtual interface type declarations.
-    std::vector<const InstanceSymbol*> virtualInterfaceInstances;
-
-    // A list of assignments via hierarchical reference.
-    std::vector<const HierarchicalReference*> hierarchicalAssignments;
-
-    // A map from class name + decl name + scope to out-of-block declarations. These get
-    // registered when we find the initial declaration and later get used when we see
-    // the class prototype. The value also includes a boolean indicating whether anything
-    // has used this declaration -- an error is issued if it's never used.
-    mutable flat_hash_map<
-        std::tuple<std::string_view, std::string_view, const Scope*>,
-        std::tuple<const syntax::SyntaxNode*, const syntax::ScopedNameSyntax*, SymbolIndex, bool>>
-        outOfBlockDecls;
 
     std::unique_ptr<RootSymbol> root;
     SourceManager* sourceManager = nullptr;
@@ -934,6 +916,22 @@ private:
     // that have been supressed we need space to return *something* to the caller.
     Diagnostic tempDiag;
 
+    // A map of instances that have been created by virtual interface type declarations.
+    flat_hash_map<InstanceCacheKey, const InstanceSymbol*> virtualIfaceCache;
+    std::vector<const InstanceSymbol*> virtualIfaceInstances;
+
+    // A list of assignments via hierarchical reference.
+    std::vector<const HierarchicalReference*> hierarchicalAssignments;
+
+    // A map from class name + decl name + scope to out-of-block declarations. These get
+    // registered when we find the initial declaration and later get used when we see
+    // the class prototype. The value also includes a boolean indicating whether anything
+    // has used this declaration -- an error is issued if it's never used.
+    mutable flat_hash_map<
+        std::tuple<std::string_view, std::string_view, const Scope*>,
+        std::tuple<const syntax::SyntaxNode*, const syntax::ScopedNameSyntax*, SymbolIndex, bool>>
+        outOfBlockDecls;
+
     std::optional<Diagnostics> cachedParseDiagnostics;
     std::optional<Diagnostics> cachedSemanticDiagnostics;
     std::optional<Diagnostics> cachedAllDiagnostics;
@@ -955,7 +953,8 @@ private:
 
     // A map from syntax node to the definition it represents. Used much less frequently
     // than other ways of looking up definitions which is why it's lower down here.
-    flat_hash_map<const syntax::ModuleDeclarationSyntax*, std::vector<DefinitionSymbol*>>
+    flat_hash_map<const syntax::ModuleDeclarationSyntax*,
+                  flat_hash_map<const Scope*, DefinitionSymbol*>>
         definitionFromSyntax;
 
     // A set of all instantiated names in the design; used for determining whether a given

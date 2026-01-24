@@ -3,11 +3,12 @@ from __future__ import annotations
 import os
 import textwrap
 import time
+from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from json.decoder import JSONDecodeError
 from types import GeneratorType
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -20,13 +21,14 @@ from schemathesis.config import ProjectConfig, ReportFormat, SchemathesisWarning
 from schemathesis.core.errors import LoaderError, LoaderErrorKind, format_exception, split_traceback
 from schemathesis.core.failures import MessageBlock, Severity, format_failures
 from schemathesis.core.output import prepare_response_payload
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import Status, events
 from schemathesis.engine.phases import PhaseName, PhaseSkipReason
 from schemathesis.engine.phases.probes import ProbeOutcome
 from schemathesis.engine.recorder import Interaction, ScenarioRecorder
-from schemathesis.generation.meta import CoveragePhaseData
+from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.schemas import ApiStatistic
 
@@ -327,22 +329,45 @@ class WarningData:
     missing_auth: dict[int, set[str]]
     missing_test_data: set[str]
     validation_mismatch: set[str]
+    missing_deserializer: dict[str, set[str]]
+    unused_openapi_auth: set[str]
+    unsupported_regex: dict[str, set[str]]
 
-    __slots__ = ("missing_auth", "missing_test_data", "validation_mismatch")
+    __slots__ = (
+        "missing_auth",
+        "missing_test_data",
+        "validation_mismatch",
+        "missing_deserializer",
+        "unused_openapi_auth",
+        "unsupported_regex",
+    )
 
     def __init__(
         self,
         missing_auth: dict[int, set[str]] | None = None,
         missing_test_data: set[str] | None = None,
         validation_mismatch: set[str] | None = None,
+        missing_deserializer: dict[str, set[str]] | None = None,
+        unused_openapi_auth: set[str] | None = None,
+        unsupported_regex: dict[str, set[str]] | None = None,
     ) -> None:
         self.missing_auth = missing_auth or {}
         self.missing_test_data = missing_test_data or set()
         self.validation_mismatch = validation_mismatch or set()
+        self.missing_deserializer = missing_deserializer or {}
+        self.unused_openapi_auth = unused_openapi_auth or set()
+        self.unsupported_regex = unsupported_regex or {}
 
     @property
     def is_empty(self) -> bool:
-        return not bool(self.missing_auth or self.missing_test_data or self.validation_mismatch)
+        return not bool(
+            self.missing_auth
+            or self.missing_test_data
+            or self.validation_mismatch
+            or self.missing_deserializer
+            or self.unused_openapi_auth
+            or self.unsupported_regex
+        )
 
 
 @dataclass
@@ -816,6 +841,8 @@ class OutputHandler(EventHandler):
             self._on_scenario_started(event)
         elif isinstance(event, events.ScenarioFinished):
             self._on_scenario_finished(ctx, event)
+        elif isinstance(event, events.SchemaAnalysisWarnings):
+            self._on_schema_warnings(ctx, event)
         if isinstance(event, events.EngineFinished):
             self._on_engine_finished(ctx, event)
         elif isinstance(event, events.Interrupted):
@@ -878,6 +905,8 @@ class OutputHandler(EventHandler):
         table.add_row("Specification:", event.specification.name)
         statistic = event.statistic.operations
         table.add_row("Operations:", f"{statistic.selected} selected / {statistic.total} total")
+        if event.config.config_path:
+            table.add_row("Configuration:", event.config.config_path)
 
         message = Padding(table, BLOCK_PADDING)
         self.console.print(message)
@@ -1048,11 +1077,17 @@ class OutputHandler(EventHandler):
             and event.status not in (Status.INTERRUPTED, Status.SKIP, None)
         ):
             assert self.stateful_tests_manager is not None
-            links_seen = {case.transition.id for case in event.recorder.cases.values() if case.transition is not None}
+            links_seen = {
+                case.transition.id
+                for case in event.recorder.cases.values()
+                if case.transition is not None and case.is_transition_applied
+            }
             self.stateful_tests_manager.update(links_seen, event.status)
             self._check_stateful_warnings(ctx, event)
 
     def _check_warnings(self, ctx: ExecutionContext, event: events.ScenarioFinished) -> None:
+        from schemathesis.core.compat import RefResolutionError
+
         statistic = aggregate_status_codes(event.recorder.interactions.values())
 
         if statistic.total == 0:
@@ -1060,7 +1095,11 @@ class OutputHandler(EventHandler):
 
         assert ctx.find_operation_by_label is not None
         assert event.label is not None
-        operation = ctx.find_operation_by_label(event.label)
+        try:
+            operation = ctx.find_operation_by_label(event.label)
+        except RefResolutionError:
+            # This error will be reported elsewhere anyway
+            return None
 
         warnings = self.config.warnings_for(operation=operation)
 
@@ -1069,14 +1108,19 @@ class OutputHandler(EventHandler):
             return bool(
                 case.meta
                 and isinstance(case.meta.phase.data, CoveragePhaseData)
-                and case.meta.phase.data.description == "Missing `Authorization` at header"
+                and case.meta.phase.data.scenario == CoverageScenario.MISSING_PARAMETER
+                and case.meta.phase.data.parameter == "Authorization"
+                and case.meta.phase.data.parameter_location == ParameterLocation.HEADER
             )
 
-        if SchemathesisWarning.MISSING_AUTH in warnings:
+        if warnings.should_display(SchemathesisWarning.MISSING_AUTH):
             if not (len(event.recorder.cases) == 1 and has_only_missing_auth_case()):
                 for status_code in (401, 403):
                     if statistic.ratio_for(status_code) >= AUTH_ERRORS_THRESHOLD:
                         self.warnings.missing_auth.setdefault(status_code, set()).add(event.recorder.label)
+                        # Check if this warning should cause test failure
+                        if warnings.should_fail(SchemathesisWarning.MISSING_AUTH):
+                            ctx.exit_code = 1
 
         # Warn if all positive test cases got 4xx in return and no failure was found
         def all_positive_are_rejected(recorder: ScenarioRecorder) -> bool:
@@ -1098,18 +1142,58 @@ class OutputHandler(EventHandler):
         if (
             event.status == Status.SUCCESS
             and (
-                SchemathesisWarning.MISSING_TEST_DATA in warnings or SchemathesisWarning.VALIDATION_MISMATCH in warnings
+                warnings.should_display(SchemathesisWarning.MISSING_TEST_DATA)
+                or warnings.should_display(SchemathesisWarning.VALIDATION_MISMATCH)
             )
             and GenerationMode.POSITIVE in self.config.generation_for(operation=operation, phase=event.phase.name).modes
             and all_positive_are_rejected(event.recorder)
         ):
-            if SchemathesisWarning.MISSING_TEST_DATA in warnings and statistic.should_warn_about_missing_test_data():
-                self.warnings.missing_test_data.add(event.recorder.label)
-            if (
-                SchemathesisWarning.VALIDATION_MISMATCH in warnings
-                and statistic.should_warn_about_validation_mismatch()
-            ):
-                self.warnings.validation_mismatch.add(event.recorder.label)
+            if statistic.should_warn_about_missing_test_data():
+                self._handle_warning(
+                    ctx,
+                    SchemathesisWarning.MISSING_TEST_DATA,
+                    lambda: self.warnings.missing_test_data.add(event.recorder.label),
+                )
+            if statistic.should_warn_about_validation_mismatch():
+                self._handle_warning(
+                    ctx,
+                    SchemathesisWarning.VALIDATION_MISMATCH,
+                    lambda: self.warnings.validation_mismatch.add(event.recorder.label),
+                )
+
+    def _handle_warning(
+        self, ctx: ExecutionContext, kind: SchemathesisWarning, record_callback: Callable[[], None]
+    ) -> None:
+        """Handle a warning by checking display/fail config and recording it."""
+        if not self.config.warnings.should_display(kind):
+            return
+        record_callback()
+        if self.config.warnings.should_fail(kind):
+            ctx.exit_code = 1
+
+    def _record_missing_deserializer_warning(self, operation_label: str, message: str) -> Callable[[], None]:
+        """Create a callback that records a missing deserializer warning."""
+
+        def record() -> None:
+            self.warnings.missing_deserializer.setdefault(operation_label, set()).add(message)
+
+        return record
+
+    def _record_unused_openapi_auth_warning(self, message: str) -> Callable[[], None]:
+        """Create a callback that records an unused OpenAPI auth warning."""
+
+        def record() -> None:
+            self.warnings.unused_openapi_auth.add(message)
+
+        return record
+
+    def _record_unsupported_regex_warning(self, operation_label: str, message: str) -> Callable[[], None]:
+        """Create a callback that records an unsupported regex warning."""
+
+        def record() -> None:
+            self.warnings.unsupported_regex.setdefault(operation_label, set()).add(message)
+
+        return record
 
     def _check_stateful_warnings(self, ctx: ExecutionContext, event: events.ScenarioFinished) -> None:
         # If stateful testing had successful responses for API operations that were marked with "missing_test_data"
@@ -1122,6 +1206,32 @@ class OutputHandler(EventHandler):
                 if response is not None and response.status_code < 300:
                     self.warnings.missing_test_data.remove(node.value.operation.label)
                     continue
+
+    def _on_schema_warnings(self, ctx: ExecutionContext, event: events.SchemaAnalysisWarnings) -> None:
+        """Process schema-level warnings emitted outside of scenarios."""
+        for warning in event.warnings:
+            if warning.kind is SchemathesisWarning.MISSING_DESERIALIZER:
+                # MissingDeserializerWarning always has operation_label
+                assert warning.operation_label is not None
+                self._handle_warning(
+                    ctx,
+                    warning.kind,
+                    self._record_missing_deserializer_warning(warning.operation_label, warning.message),
+                )
+            elif warning.kind is SchemathesisWarning.UNUSED_OPENAPI_AUTH:
+                # UnusedOpenAPIAuthWarning has no operation_label (schema-level)
+                self._handle_warning(
+                    ctx,
+                    warning.kind,
+                    self._record_unused_openapi_auth_warning(warning.message),
+                )
+            elif warning.kind is SchemathesisWarning.UNSUPPORTED_REGEX:
+                assert warning.operation_label is not None
+                self._handle_warning(
+                    ctx,
+                    warning.kind,
+                    self._record_unsupported_regex_warning(warning.operation_label, warning.message),
+                )
 
     def _on_interrupted(self, event: events.Interrupted) -> None:
         from rich.padding import Padding
@@ -1192,48 +1302,77 @@ class OutputHandler(EventHandler):
 
         raise click.Abort
 
-    def _display_warning_block(
-        self, title: str, operations: set[str] | dict, tips: list[str], operation_suffix: str = ""
-    ) -> None:
-        if isinstance(operations, dict):
-            total = sum(len(ops) for ops in operations.values())
-        else:
-            total = len(operations)
+    def _print_warning_header(self, title: str, count: int, entity_name: str, suffix_text: str) -> None:
+        """Print warning block header."""
+        plural = "" if count == 1 else "s"
+        click.echo(_style(f"{title}: {count} {entity_name}{plural}{suffix_text}\n", fg="yellow"))
 
-        suffix = "" if total == 1 else "s"
-        click.echo(
-            _style(
-                f"{title}: {total} operation{suffix}{operation_suffix}\n",
-                fg="yellow",
-            )
-        )
-
-        # Print up to 3 endpoints, then "+N more"
-        def _print_up_to_three(operations_: list[str] | set[str]) -> None:
-            for operation in sorted(operations_)[:3]:
-                click.echo(_style(f"  - {operation}", fg="yellow"))
-            extra_count = len(operations_) - 3
-            if extra_count > 0:
-                click.echo(_style(f"  + {extra_count} more", fg="yellow"))
-
-        if isinstance(operations, dict):
-            for status_code, ops in operations.items():
-                status_text = "Unauthorized" if status_code == 401 else "Forbidden"
-                count = len(ops)
-                suffix = "" if count == 1 else "s"
-                click.echo(_style(f"{status_code} {status_text} ({count} operation{suffix}):", fg="yellow"))
-
-                _print_up_to_three(ops)
-        else:
-            _print_up_to_three(operations)
-
+    def _print_warning_tips(self, tips: list[str]) -> None:
+        """Print warning tips and footer."""
+        click.echo()
+        for tip in tips:
+            click.echo(_style(tip, fg="yellow"))
         if tips:
             click.echo()
 
-        for tip in tips:
-            click.echo(_style(tip, fg="yellow"))
+    def _print_items(self, items: set[str]) -> None:
+        """Print all items."""
+        for item in sorted(items):
+            click.echo(_style(f"  - {item}", fg="yellow"))
 
-        click.echo()
+    def _display_warning_block(
+        self,
+        title: str,
+        operations: set[str] | dict[int, set[str]],
+        tips: list[str],
+        suffix_text: str = "",
+        entity_name: str = "operation",
+    ) -> None:
+        """Display warnings for operations (simple list or grouped by status code)."""
+        if isinstance(operations, dict):
+            # Status code grouped: dict[int, set[str]]
+            total = sum(len(ops) for ops in operations.values())
+            self._print_warning_header(title, total, entity_name, suffix_text)
+
+            for status_code, ops in operations.items():
+                status_text = "Unauthorized" if status_code == 401 else "Forbidden"
+                count = len(ops)
+                plural = "" if count == 1 else "s"
+                click.echo(_style(f"{status_code} {status_text} ({count} {entity_name}{plural}):", fg="yellow"))
+                self._print_items(ops)
+        else:
+            # Simple set of operations
+            self._print_warning_header(title, len(operations), entity_name, suffix_text)
+            self._print_items(operations)
+
+        self._print_warning_tips(tips)
+
+    def _display_detailed_warning_block(
+        self,
+        title: str,
+        warnings: dict[str, set[str]],
+        entity_name: str,
+        suffix_text: str,
+        tips: list[str],
+        show_entity_label: bool = True,
+    ) -> None:
+        """Display warnings with detailed messages per entity."""
+        self._print_warning_header(title, len(warnings), entity_name, suffix_text)
+
+        for idx, (entity_label, messages) in enumerate(sorted(warnings.items())):
+            if show_entity_label:
+                click.echo(_style(f"  - {entity_label}", fg="yellow"))
+                for message in sorted(messages):
+                    click.echo(_style(f"    {message}", fg="yellow"))
+            else:
+                for message in sorted(messages):
+                    click.echo(_style(f"  {message}", fg="yellow"))
+
+            # Add spacing between entities (but not after the last one)
+            if idx < len(warnings) - 1:
+                click.echo()
+
+        self._print_warning_tips(tips)
 
     def display_warnings(self) -> None:
         display_section_name("WARNINGS")
@@ -1242,7 +1381,7 @@ class OutputHandler(EventHandler):
             self._display_warning_block(
                 title="Authentication failed",
                 operations=self.warnings.missing_auth,
-                operation_suffix=" returned authentication errors",
+                suffix_text=" returned authentication errors",
                 tips=["💡 Ensure valid authentication credentials are set via --auth or -H"],
             )
 
@@ -1250,7 +1389,7 @@ class OutputHandler(EventHandler):
             self._display_warning_block(
                 title="Missing test data",
                 operations=self.warnings.missing_test_data,
-                operation_suffix=" repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
+                suffix_text=" repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
                 tips=[
                     "💡 Provide realistic parameter values in your config file so tests can access existing resources",
                 ],
@@ -1260,8 +1399,35 @@ class OutputHandler(EventHandler):
             self._display_warning_block(
                 title="Schema validation mismatch",
                 operations=self.warnings.validation_mismatch,
-                operation_suffix=" mostly rejected generated data due to validation errors, indicating schema constraints don't match API validation",
+                suffix_text=" mostly rejected generated data due to validation errors, indicating schema constraints don't match API validation",
                 tips=["💡 Check your schema constraints - API validation may be stricter than documented"],
+            )
+
+        if self.warnings.missing_deserializer:
+            self._display_detailed_warning_block(
+                title="Schema validation skipped",
+                warnings=self.warnings.missing_deserializer,
+                entity_name="operation",
+                suffix_text=" cannot validate responses due to missing deserializers",
+                tips=["💡 Register a deserializer with @schemathesis.deserializer() to enable validation"],
+            )
+
+        if self.warnings.unused_openapi_auth:
+            self._display_warning_block(
+                title="Unused OpenAPI auth",
+                operations=self.warnings.unused_openapi_auth,
+                suffix_text=" not defined in the schema",
+                tips=[],
+                entity_name="configured auth scheme",
+            )
+
+        if self.warnings.unsupported_regex:
+            self._display_detailed_warning_block(
+                title="Unsupported regex patterns",
+                warnings=self.warnings.unsupported_regex,
+                entity_name="operation",
+                suffix_text=" contain regex patterns not supported by Python and were removed",
+                tips=["💡 Use Python-compatible regex syntax: https://docs.python.org/3/library/re.html"],
             )
 
     def display_stateful_failures(self, ctx: ExecutionContext) -> None:
@@ -1285,9 +1451,10 @@ class OutputHandler(EventHandler):
                     else:
                         click.echo(f"\n{indent}{failure.error.__class__.__name__}: {failure.error}")
                 else:
-                    description = (
-                        f"\n{indent}Could not resolve parameter `{failure.parameter_name}` via `{failure.expression}`"
-                    )
+                    if failure.parameter_name == "body":
+                        description = f"\n{indent}Could not resolve request body via {failure.expression}"
+                    else:
+                        description = f"\n{indent}Could not resolve parameter `{failure.parameter_name}` via `{failure.expression}`"
                     prefix = "$response.body"
                     if failure.expression.startswith(prefix):
                         description += f"\n{indent}Path `{failure.expression[len(prefix) :]}` not found in response"
@@ -1347,8 +1514,8 @@ class OutputHandler(EventHandler):
         click.echo(_style("Test Phases:", bold=True))
 
         for phase in PhaseName:
-            if phase == PhaseName.PROBING:
-                # It is not a test phase
+            if phase in (PhaseName.PROBING, PhaseName.SCHEMA_ANALYSIS):
+                # Internal phases are not part of the test phase summary
                 continue
             status, skip_reason = self.phases[phase]
 
@@ -1464,12 +1631,13 @@ class OutputHandler(EventHandler):
 
     def display_reports(self) -> None:
         reports = self.config.reports
-        if reports.vcr.enabled or reports.har.enabled or reports.junit.enabled:
+        if reports.vcr.enabled or reports.har.enabled or reports.junit.enabled or reports.ndjson.enabled:
             click.echo(_style("Reports:", bold=True))
             for format, report in (
                 (ReportFormat.JUNIT, reports.junit),
                 (ReportFormat.VCR, reports.vcr),
                 (ReportFormat.HAR, reports.har),
+                (ReportFormat.NDJSON, reports.ndjson),
             ):
                 if report.enabled:
                     path = reports.get_path(format)
@@ -1559,6 +1727,36 @@ class OutputHandler(EventHandler):
                     )
                 )
 
+            if self.warnings.missing_deserializer:
+                count = len(self.warnings.missing_deserializer)
+                suffix = "" if count == 1 else "s"
+                click.echo(
+                    _style(
+                        f"  ⚠️ Schema validation skipped: {bold(str(count))} operation{suffix} cannot validate responses",
+                        fg="yellow",
+                    )
+                )
+
+            if self.warnings.unused_openapi_auth:
+                count = len(self.warnings.unused_openapi_auth)
+                suffix = "" if count == 1 else "s"
+                click.echo(
+                    _style(
+                        f"  ⚠️ Unused OpenAPI auth: {bold(str(count))} configured auth scheme{suffix} not used in the schema",
+                        fg="yellow",
+                    )
+                )
+
+            if self.warnings.unsupported_regex:
+                count = len(self.warnings.unsupported_regex)
+                suffix = "" if count == 1 else "s"
+                click.echo(
+                    _style(
+                        f"  ⚠️ Unsupported regex: {bold(str(count))} operation{suffix} had regex patterns removed",
+                        fg="yellow",
+                    )
+                )
+
             click.echo()
 
         if ctx.summary_lines:
@@ -1597,7 +1795,7 @@ class StatusCodeStatistic:
 
     def _is_only_4xx_responses(self) -> bool:
         """Check if all responses are 4xx (excluding 5xx)."""
-        return all(400 <= code < 500 for code in self.counts.keys() if code not in {500})
+        return all(400 <= code < 500 for code in self.counts.keys() if code != 500)
 
     def _can_warn_about_4xx(self) -> bool:
         """Check basic conditions for 4xx warnings."""

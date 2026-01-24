@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from functools import wraps
 import sys
-from typing import Callable, cast, Dict, Optional, Type, TypeVar, Union
+from typing import Callable, Dict, Optional, Type, TypeVar, Union
 
 import colorama
 from typing_extensions import ParamSpec

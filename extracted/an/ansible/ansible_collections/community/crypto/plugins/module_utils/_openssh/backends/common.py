@@ -12,28 +12,25 @@ import os
 import stat
 import traceback
 import typing as t
+from collections.abc import Callable
 
 from ansible_collections.community.crypto.plugins.module_utils._openssh.utils import (
     parse_openssh_version,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._openssh.certificate import (  # pragma: no cover
         OpensshCertificateTimeParameters,
-    )
-    from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
-        CertificateIssuerPrivateKeyTypes,
-        PrivateKeyTypes,
     )
 
     Param = t.ParamSpec("Param")  # pragma: no cover
 
 
 def restore_on_failure(
-    f: t.Callable[t.Concatenate[AnsibleModule, str | os.PathLike, Param], None],
-) -> t.Callable[t.Concatenate[AnsibleModule, str | os.PathLike, Param], None]:
+    f: Callable[t.Concatenate[AnsibleModule, str | os.PathLike, Param], None],
+) -> Callable[t.Concatenate[AnsibleModule, str | os.PathLike, Param], None]:
     def backup_and_restore(
         module: AnsibleModule,
         path: str | os.PathLike,
@@ -62,13 +59,13 @@ def safe_atomic_move(
 
 
 def _restore_all_on_failure(
-    f: t.Callable[
+    f: Callable[
         t.Concatenate[
             OpensshModule, list[tuple[str | os.PathLike, str | os.PathLike]], Param
         ],
         None,
     ],
-) -> t.Callable[
+) -> Callable[
     t.Concatenate[
         OpensshModule, list[tuple[str | os.PathLike, str | os.PathLike]], Param
     ],
@@ -94,7 +91,7 @@ def _restore_all_on_failure(
                     os.path.abspath(backup), os.path.abspath(destination)
                 )
             raise
-        for destination, backup in backups:
+        for dummy_destination, backup in backups:
             self.module.add_cleanup_file(backup)
 
     return backup_and_restore
@@ -148,8 +145,8 @@ class OpensshModule(metaclass=abc.ABCMeta):
 
     @staticmethod
     def skip_if_check_mode(
-        f: t.Callable[t.Concatenate[_OpensshModule, Param], None],
-    ) -> t.Callable[t.Concatenate[_OpensshModule, Param], None]:
+        f: Callable[t.Concatenate[_OpensshModule, Param], None],
+    ) -> Callable[t.Concatenate[_OpensshModule, Param], None]:
         def wrapper(
             self: _OpensshModule, *args: Param.args, **kwargs: Param.kwargs
         ) -> None:
@@ -160,8 +157,8 @@ class OpensshModule(metaclass=abc.ABCMeta):
 
     @staticmethod
     def trigger_change(
-        f: t.Callable[t.Concatenate[_OpensshModule, Param], None],
-    ) -> t.Callable[t.Concatenate[_OpensshModule, Param], None]:
+        f: Callable[t.Concatenate[_OpensshModule, Param], None],
+    ) -> Callable[t.Concatenate[_OpensshModule, Param], None]:
         def wrapper(
             self: _OpensshModule, *args: Param.args, **kwargs: Param.kwargs
         ) -> None:
@@ -371,7 +368,9 @@ class PrivateKey:
         return self._format
 
     @classmethod
-    def from_string(cls: t.Type[_PrivateKey], string: str) -> _PrivateKey:
+    def from_string(
+        cls: t.Type[_PrivateKey], string: str  # noqa: UP006
+    ) -> _PrivateKey:
         properties = string.split()
 
         return cls(
@@ -437,7 +436,7 @@ class PublicKey:
         return self._type_string
 
     @classmethod
-    def from_string(cls: t.Type[_PublicKey], string: str) -> _PublicKey:
+    def from_string(cls: type[_PublicKey], string: str) -> _PublicKey:
         properties = string.strip("\n").split(" ", 2)
 
         return cls(
@@ -447,7 +446,7 @@ class PublicKey:
         )
 
     @classmethod
-    def load(cls: t.Type[_PublicKey], path: str | os.PathLike) -> _PublicKey | None:
+    def load(cls: type[_PublicKey], path: str | os.PathLike) -> _PublicKey | None:
         with open(path, "r", encoding="utf-8") as f:
             properties = f.read().strip(" \n").split(" ", 2)
 
@@ -485,11 +484,11 @@ def parse_private_key_format(
 
 
 __all__ = (
-    "restore_on_failure",
-    "safe_atomic_move",
-    "OpensshModule",
     "KeygenCommand",
+    "OpensshModule",
     "PrivateKey",
     "PublicKey",
     "parse_private_key_format",
+    "restore_on_failure",
+    "safe_atomic_move",
 )

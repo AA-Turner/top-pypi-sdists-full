@@ -32,7 +32,7 @@ the UPS encoding I{at} the south and north pole.
 Set env variable C{PYGEODESY_GEOCONVERT} to the (fully qualified) path of the
 C{GeoConvert} executable to run this module as I{python[3] -m pygeodesy.mgrs}
 and compare the MGRS results with those from I{Karney}'s utility U{GeoConvert
-<https://GeographicLib.sourceforge.io/C++/doc/GeoConvert.1.html>}.
+<https://GeographicLib.SourceForge.io/C++/doc/GeoConvert.1.html>}.
 '''
 
 from pygeodesy.basics import halfs2, _isin, _splituple, _xinstanceof
@@ -660,7 +660,7 @@ if __name__ == _DMAIN_:
 
 #       from math import fabs  # from .ellipsoidalVincenty
 
-        # <https://GeographicLib.sourceforge.io/C++/doc/GeoConvert.1.html>
+        # <https://GeographicLib.SourceForge.io/C++/doc/GeoConvert.1.html>
         G = _Xables.GeoConvert(_Xables.bin_)
         if _Xables.X_OK(G):
             from pygeodesy.internals import _popen2
@@ -732,7 +732,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -41,12 +42,6 @@ from .literals import (
     SortByEnumType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -320,7 +315,7 @@ class BatchAssociateApprovalRuleTemplateWithRepositoriesInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -401,8 +396,8 @@ class CommentTypeDef(TypedDict):
     authorArn: NotRequired[str]
     deleted: NotRequired[bool]
     clientRequestToken: NotRequired[str]
-    callerReactions: NotRequired[List[str]]
-    reactionCounts: NotRequired[Dict[str, int]]
+    callerReactions: NotRequired[list[str]]
+    reactionCounts: NotRequired[dict[str, int]]
 
 class LocationTypeDef(TypedDict):
     filePath: NotRequired[str]
@@ -537,8 +532,8 @@ class EvaluatePullRequestApprovalRulesInputTypeDef(TypedDict):
 class EvaluationTypeDef(TypedDict):
     approved: NotRequired[bool]
     overridden: NotRequired[bool]
-    approvalRulesSatisfied: NotRequired[List[str]]
-    approvalRulesNotSatisfied: NotRequired[List[str]]
+    approvalRulesSatisfied: NotRequired[list[str]]
+    approvalRulesNotSatisfied: NotRequired[list[str]]
 
 class FileTypeDef(TypedDict):
     blobId: NotRequired[str]
@@ -664,9 +659,9 @@ class GetRepositoryTriggersInputTypeDef(TypedDict):
 class RepositoryTriggerOutputTypeDef(TypedDict):
     name: str
     destinationArn: str
-    events: List[RepositoryTriggerEventEnumType]
+    events: list[RepositoryTriggerEventEnumType]
     customData: NotRequired[str]
-    branches: NotRequired[List[str]]
+    branches: NotRequired[list[str]]
 
 class ListApprovalRuleTemplatesInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
@@ -859,8 +854,8 @@ class ApprovalRuleTypeDef(TypedDict):
     originApprovalRuleTemplate: NotRequired[OriginApprovalRuleTemplateTypeDef]
 
 class BatchAssociateApprovalRuleTemplateWithRepositoriesOutputTypeDef(TypedDict):
-    associatedRepositoryNames: List[str]
-    errors: List[BatchAssociateApprovalRuleTemplateWithRepositoriesErrorTypeDef]
+    associatedRepositoryNames: list[str]
+    errors: list[BatchAssociateApprovalRuleTemplateWithRepositoriesErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateApprovalRuleTemplateOutputTypeDef(TypedDict):
@@ -919,14 +914,14 @@ class GetMergeCommitOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMergeOptionsOutputTypeDef(TypedDict):
-    mergeOptions: List[MergeOptionTypeEnumType]
+    mergeOptions: list[MergeOptionTypeEnumType]
     sourceCommitId: str
     destinationCommitId: str
     baseCommitId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPullRequestApprovalStatesOutputTypeDef(TypedDict):
-    approvals: List[ApprovalTypeDef]
+    approvals: list[ApprovalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPullRequestOverrideStateOutputTypeDef(TypedDict):
@@ -935,32 +930,32 @@ class GetPullRequestOverrideStateOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApprovalRuleTemplatesOutputTypeDef(TypedDict):
-    approvalRuleTemplateNames: List[str]
+    approvalRuleTemplateNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAssociatedApprovalRuleTemplatesForRepositoryOutputTypeDef(TypedDict):
-    approvalRuleTemplateNames: List[str]
+    approvalRuleTemplateNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListBranchesOutputTypeDef(TypedDict):
-    branches: List[str]
+    branches: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPullRequestsOutputTypeDef(TypedDict):
-    pullRequestIds: List[str]
+    pullRequestIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRepositoriesForApprovalRuleTemplateOutputTypeDef(TypedDict):
-    repositoryNames: List[str]
+    repositoryNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1008,14 +1003,14 @@ class UpdateRepositoryEncryptionKeyOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDisassociateApprovalRuleTemplateFromRepositoriesOutputTypeDef(TypedDict):
-    disassociatedRepositoryNames: List[str]
-    errors: List[BatchDisassociateApprovalRuleTemplateFromRepositoriesErrorTypeDef]
+    disassociatedRepositoryNames: list[str]
+    errors: list[BatchDisassociateApprovalRuleTemplateFromRepositoriesErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetRepositoriesOutputTypeDef(TypedDict):
-    repositories: List[RepositoryMetadataTypeDef]
-    repositoriesNotFound: List[str]
-    errors: List[BatchGetRepositoriesErrorTypeDef]
+    repositories: list[RepositoryMetadataTypeDef]
+    repositoriesNotFound: list[str]
+    errors: list[BatchGetRepositoriesErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRepositoryOutputTypeDef(TypedDict):
@@ -1079,7 +1074,7 @@ class CommentsForComparedCommitTypeDef(TypedDict):
     beforeBlobId: NotRequired[str]
     afterBlobId: NotRequired[str]
     location: NotRequired[LocationTypeDef]
-    comments: NotRequired[List[CommentTypeDef]]
+    comments: NotRequired[list[CommentTypeDef]]
 
 class CommentsForPullRequestTypeDef(TypedDict):
     pullRequestId: NotRequired[str]
@@ -1089,7 +1084,7 @@ class CommentsForPullRequestTypeDef(TypedDict):
     beforeBlobId: NotRequired[str]
     afterBlobId: NotRequired[str]
     location: NotRequired[LocationTypeDef]
-    comments: NotRequired[List[CommentTypeDef]]
+    comments: NotRequired[list[CommentTypeDef]]
 
 class PostCommentForComparedCommitInputTypeDef(TypedDict):
     repositoryName: str
@@ -1132,7 +1127,7 @@ class PostCommentForPullRequestOutputTypeDef(TypedDict):
 class CommitTypeDef(TypedDict):
     commitId: NotRequired[str]
     treeId: NotRequired[str]
-    parents: NotRequired[List[str]]
+    parents: NotRequired[list[str]]
     message: NotRequired[str]
     author: NotRequired[UserInfoTypeDef]
     committer: NotRequired[UserInfoTypeDef]
@@ -1153,9 +1148,9 @@ class ConflictMetadataTypeDef(TypedDict):
 class CreateCommitOutputTypeDef(TypedDict):
     commitId: str
     treeId: str
-    filesAdded: List[FileMetadataTypeDef]
-    filesUpdated: List[FileMetadataTypeDef]
-    filesDeleted: List[FileMetadataTypeDef]
+    filesAdded: list[FileMetadataTypeDef]
+    filesUpdated: list[FileMetadataTypeDef]
+    filesDeleted: list[FileMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePullRequestInputTypeDef(TypedDict):
@@ -1214,19 +1209,19 @@ class GetFolderOutputTypeDef(TypedDict):
     commitId: str
     folderPath: str
     treeId: str
-    subFolders: List[FolderTypeDef]
-    files: List[FileTypeDef]
-    symbolicLinks: List[SymbolicLinkTypeDef]
-    subModules: List[SubModuleTypeDef]
+    subFolders: list[FolderTypeDef]
+    files: list[FileTypeDef]
+    symbolicLinks: list[SymbolicLinkTypeDef]
+    subModules: list[SubModuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRepositoryTriggersOutputTypeDef(TypedDict):
     configurationId: str
-    triggers: List[RepositoryTriggerOutputTypeDef]
+    triggers: list[RepositoryTriggerOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRepositoriesOutputTypeDef(TypedDict):
-    repositories: List[RepositoryNameIdPairTypeDef]
+    repositories: list[RepositoryNameIdPairTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1258,12 +1253,12 @@ class PutFileEntryTypeDef(TypedDict):
 
 class ReactionForCommentTypeDef(TypedDict):
     reaction: NotRequired[ReactionValueFormatsTypeDef]
-    reactionUsers: NotRequired[List[str]]
+    reactionUsers: NotRequired[list[str]]
     reactionsFromDeletedUsersCount: NotRequired[int]
 
 class TestRepositoryTriggersOutputTypeDef(TypedDict):
-    successfulExecutions: List[str]
-    failedExecutions: List[RepositoryTriggerExecutionFailureTypeDef]
+    successfulExecutions: list[str]
+    failedExecutions: list[RepositoryTriggerExecutionFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 RepositoryTriggerUnionTypeDef = Union[RepositoryTriggerTypeDef, RepositoryTriggerOutputTypeDef]
@@ -1277,7 +1272,7 @@ class UpdatePullRequestApprovalRuleContentOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDifferencesOutputTypeDef(TypedDict):
-    differences: List[DifferenceTypeDef]
+    differences: list[DifferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1287,25 +1282,25 @@ class ConflictResolutionTypeDef(TypedDict):
     setFileModes: NotRequired[Sequence[SetFileModeEntryTypeDef]]
 
 class GetCommentsForComparedCommitOutputTypeDef(TypedDict):
-    commentsForComparedCommitData: List[CommentsForComparedCommitTypeDef]
+    commentsForComparedCommitData: list[CommentsForComparedCommitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetCommentsForPullRequestOutputTypeDef(TypedDict):
-    commentsForPullRequestData: List[CommentsForPullRequestTypeDef]
+    commentsForPullRequestData: list[CommentsForPullRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class BatchGetCommitsOutputTypeDef(TypedDict):
-    commits: List[CommitTypeDef]
-    errors: List[BatchGetCommitsErrorTypeDef]
+    commits: list[CommitTypeDef]
+    errors: list[BatchGetCommitsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FileVersionTypeDef(TypedDict):
     commit: NotRequired[CommitTypeDef]
     blobId: NotRequired[str]
     path: NotRequired[str]
-    revisionChildren: NotRequired[List[str]]
+    revisionChildren: NotRequired[list[str]]
 
 class GetCommitOutputTypeDef(TypedDict):
     commit: CommitTypeDef
@@ -1316,17 +1311,17 @@ class GetMergeConflictsOutputTypeDef(TypedDict):
     destinationCommitId: str
     sourceCommitId: str
     baseCommitId: str
-    conflictMetadataList: List[ConflictMetadataTypeDef]
+    conflictMetadataList: list[ConflictMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ConflictTypeDef(TypedDict):
     conflictMetadata: NotRequired[ConflictMetadataTypeDef]
-    mergeHunks: NotRequired[List[MergeHunkTypeDef]]
+    mergeHunks: NotRequired[list[MergeHunkTypeDef]]
 
 class DescribeMergeConflictsOutputTypeDef(TypedDict):
     conflictMetadata: ConflictMetadataTypeDef
-    mergeHunks: List[MergeHunkTypeDef]
+    mergeHunks: list[MergeHunkTypeDef]
     destinationCommitId: str
     sourceCommitId: str
     baseCommitId: str
@@ -1358,10 +1353,10 @@ class PullRequestTypeDef(TypedDict):
     creationDate: NotRequired[datetime]
     pullRequestStatus: NotRequired[PullRequestStatusEnumType]
     authorArn: NotRequired[str]
-    pullRequestTargets: NotRequired[List[PullRequestTargetTypeDef]]
+    pullRequestTargets: NotRequired[list[PullRequestTargetTypeDef]]
     clientRequestToken: NotRequired[str]
     revisionId: NotRequired[str]
-    approvalRules: NotRequired[List[ApprovalRuleTypeDef]]
+    approvalRules: NotRequired[list[ApprovalRuleTypeDef]]
 
 class CreateCommitInputTypeDef(TypedDict):
     repositoryName: str
@@ -1376,7 +1371,7 @@ class CreateCommitInputTypeDef(TypedDict):
     setFileModes: NotRequired[Sequence[SetFileModeEntryTypeDef]]
 
 class GetCommentReactionsOutputTypeDef(TypedDict):
-    reactionsForComment: List[ReactionForCommentTypeDef]
+    reactionsForComment: list[ReactionForCommentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1452,13 +1447,13 @@ class MergePullRequestByThreeWayInputTypeDef(TypedDict):
     conflictResolution: NotRequired[ConflictResolutionTypeDef]
 
 class ListFileCommitHistoryResponseTypeDef(TypedDict):
-    revisionDag: List[FileVersionTypeDef]
+    revisionDag: list[FileVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class BatchDescribeMergeConflictsOutputTypeDef(TypedDict):
-    conflicts: List[ConflictTypeDef]
-    errors: List[BatchDescribeMergeConflictsErrorTypeDef]
+    conflicts: list[ConflictTypeDef]
+    errors: list[BatchDescribeMergeConflictsErrorTypeDef]
     destinationCommitId: str
     sourceCommitId: str
     baseCommitId: str
@@ -1466,7 +1461,7 @@ class BatchDescribeMergeConflictsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class DescribePullRequestEventsOutputTypeDef(TypedDict):
-    pullRequestEvents: List[PullRequestEventTypeDef]
+    pullRequestEvents: list[PullRequestEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

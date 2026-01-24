@@ -67,369 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rum.AppMonitorReference",
-    jsii_struct_bases=[],
-    name_mapping={"app_monitor_name": "appMonitorName"},
+from ..interfaces.aws_rum import (
+    AppMonitorReference as _AppMonitorReference_96ecac0d,
+    IAppMonitorRef as _IAppMonitorRef_653b27a4,
 )
-class AppMonitorReference:
-    def __init__(self, *, app_monitor_name: builtins.str) -> None:
-        '''A reference to a AppMonitor resource.
-
-        :param app_monitor_name: The Name of the AppMonitor resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rum as rum
-            
-            app_monitor_reference = rum.AppMonitorReference(
-                app_monitor_name="appMonitorName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7339c2a54b9dc7968d48574cb832d7750e1e9662772c180b1bbffaa3eb5e35b)
-            check_type(argname="argument app_monitor_name", value=app_monitor_name, expected_type=type_hints["app_monitor_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "app_monitor_name": app_monitor_name,
-        }
-
-    @builtins.property
-    def app_monitor_name(self) -> builtins.str:
-        '''The Name of the AppMonitor resource.'''
-        result = self._values.get("app_monitor_name")
-        assert result is not None, "Required property 'app_monitor_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AppMonitorReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rum.CfnAppMonitorProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "app_monitor_configuration": "appMonitorConfiguration",
-        "custom_events": "customEvents",
-        "cw_log_enabled": "cwLogEnabled",
-        "deobfuscation_configuration": "deobfuscationConfiguration",
-        "domain": "domain",
-        "domain_list": "domainList",
-        "resource_policy": "resourcePolicy",
-        "tags": "tags",
-    },
-)
-class CfnAppMonitorProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        domain: typing.Optional[builtins.str] = None,
-        domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAppMonitor``.
-
-        :param name: A name for the app monitor. This parameter is required.
-        :param app_monitor_configuration: A structure that contains much of the configuration data for the app monitor. If you are using Amazon Cognito for authorization, you must include this structure in your request, and it must include the ID of the Amazon Cognito identity pool to use for authorization. If you don't include ``AppMonitorConfiguration`` , you must set up your own authorization method. For more information, see `Authorize your application to send data to AWS <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-get-started-authorization.html>`_ . If you omit this argument, the sample rate used for CloudWatch RUM is set to 10% of the user sessions.
-        :param custom_events: Specifies whether this app monitor allows the web client to define and send custom events. If you omit this parameter, custom events are ``DISABLED`` .
-        :param cw_log_enabled: Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted. This parameter specifies whether CloudWatch RUM sends a copy of this telemetry data to Amazon CloudWatch Logs in your account. This enables you to keep the telemetry data for more than 30 days, but it does incur Amazon CloudWatch Logs charges. If you omit this parameter, the default is ``false`` .
-        :param deobfuscation_configuration: A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
-        :param domain: The top-level internet domain name for which your application has administrative authority. This parameter or the ``DomainList`` parameter is required.
-        :param domain_list: List the domain names for which your application has administrative authority. This parameter or the ``Domain`` parameter is required. You can have a minimum of 1 and a maximum of 5 ``Domain`` under ``DomainList`` . Each ``Domain`` must be a minimum length of 1 and a maximum of 253 characters.
-        :param resource_policy: Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it. Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
-        :param tags: Assigns one or more tags (key-value pairs) to the app monitor. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an app monitor. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rum as rum
-            
-            cfn_app_monitor_props = rum.CfnAppMonitorProps(
-                name="name",
-            
-                # the properties below are optional
-                app_monitor_configuration=rum.CfnAppMonitor.AppMonitorConfigurationProperty(
-                    allow_cookies=False,
-                    enable_xRay=False,
-                    excluded_pages=["excludedPages"],
-                    favorite_pages=["favoritePages"],
-                    guest_role_arn="guestRoleArn",
-                    identity_pool_id="identityPoolId",
-                    included_pages=["includedPages"],
-                    metric_destinations=[rum.CfnAppMonitor.MetricDestinationProperty(
-                        destination="destination",
-            
-                        # the properties below are optional
-                        destination_arn="destinationArn",
-                        iam_role_arn="iamRoleArn",
-                        metric_definitions=[rum.CfnAppMonitor.MetricDefinitionProperty(
-                            name="name",
-            
-                            # the properties below are optional
-                            dimension_keys={
-                                "dimension_keys_key": "dimensionKeys"
-                            },
-                            event_pattern="eventPattern",
-                            namespace="namespace",
-                            unit_label="unitLabel",
-                            value_key="valueKey"
-                        )]
-                    )],
-                    session_sample_rate=123,
-                    telemetries=["telemetries"]
-                ),
-                custom_events=rum.CfnAppMonitor.CustomEventsProperty(
-                    status="status"
-                ),
-                cw_log_enabled=False,
-                deobfuscation_configuration=rum.CfnAppMonitor.DeobfuscationConfigurationProperty(
-                    java_script_source_maps=rum.CfnAppMonitor.JavaScriptSourceMapsProperty(
-                        status="status",
-            
-                        # the properties below are optional
-                        s3_uri="s3Uri"
-                    )
-                ),
-                domain="domain",
-                domain_list=["domainList"],
-                resource_policy=rum.CfnAppMonitor.ResourcePolicyProperty(
-                    policy_document="policyDocument",
-            
-                    # the properties below are optional
-                    policy_revision_id="policyRevisionId"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument app_monitor_configuration", value=app_monitor_configuration, expected_type=type_hints["app_monitor_configuration"])
-            check_type(argname="argument custom_events", value=custom_events, expected_type=type_hints["custom_events"])
-            check_type(argname="argument cw_log_enabled", value=cw_log_enabled, expected_type=type_hints["cw_log_enabled"])
-            check_type(argname="argument deobfuscation_configuration", value=deobfuscation_configuration, expected_type=type_hints["deobfuscation_configuration"])
-            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-            check_type(argname="argument domain_list", value=domain_list, expected_type=type_hints["domain_list"])
-            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if app_monitor_configuration is not None:
-            self._values["app_monitor_configuration"] = app_monitor_configuration
-        if custom_events is not None:
-            self._values["custom_events"] = custom_events
-        if cw_log_enabled is not None:
-            self._values["cw_log_enabled"] = cw_log_enabled
-        if deobfuscation_configuration is not None:
-            self._values["deobfuscation_configuration"] = deobfuscation_configuration
-        if domain is not None:
-            self._values["domain"] = domain
-        if domain_list is not None:
-            self._values["domain_list"] = domain_list
-        if resource_policy is not None:
-            self._values["resource_policy"] = resource_policy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the app monitor.
-
-        This parameter is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def app_monitor_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
-        '''A structure that contains much of the configuration data for the app monitor.
-
-        If you are using Amazon Cognito for authorization, you must include this structure in your request, and it must include the ID of the Amazon Cognito identity pool to use for authorization. If you don't include ``AppMonitorConfiguration`` , you must set up your own authorization method. For more information, see `Authorize your application to send data to AWS <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-get-started-authorization.html>`_ .
-
-        If you omit this argument, the sample rate used for CloudWatch RUM is set to 10% of the user sessions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-appmonitorconfiguration
-        '''
-        result = self._values.get("app_monitor_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.AppMonitorConfigurationProperty"]], result)
-
-    @builtins.property
-    def custom_events(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.CustomEventsProperty"]]:
-        '''Specifies whether this app monitor allows the web client to define and send custom events.
-
-        If you omit this parameter, custom events are ``DISABLED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-customevents
-        '''
-        result = self._values.get("custom_events")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.CustomEventsProperty"]], result)
-
-    @builtins.property
-    def cw_log_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted.
-
-        This parameter specifies whether CloudWatch RUM sends a copy of this telemetry data to Amazon CloudWatch Logs in your account. This enables you to keep the telemetry data for more than 30 days, but it does incur Amazon CloudWatch Logs charges.
-
-        If you omit this parameter, the default is ``false`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-cwlogenabled
-        '''
-        result = self._values.get("cw_log_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def deobfuscation_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
-        '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-deobfuscationconfiguration
-        '''
-        result = self._values.get("deobfuscation_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.DeobfuscationConfigurationProperty"]], result)
-
-    @builtins.property
-    def domain(self) -> typing.Optional[builtins.str]:
-        '''The top-level internet domain name for which your application has administrative authority.
-
-        This parameter or the ``DomainList`` parameter is required.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-domain
-        '''
-        result = self._values.get("domain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List the domain names for which your application has administrative authority. This parameter or the ``Domain`` parameter is required.
-
-        You can have a minimum of 1 and a maximum of 5 ``Domain`` under ``DomainList`` . Each ``Domain`` must be a minimum length of 1 and a maximum of 253 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-domainlist
-        '''
-        result = self._values.get("domain_list")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resource_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.ResourcePolicyProperty"]]:
-        '''Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it.
-
-        Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-resourcepolicy
-        '''
-        result = self._values.get("resource_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.ResourcePolicyProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Assigns one or more tags (key-value pairs) to the app monitor.
-
-        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
-
-        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
-
-        You can associate as many as 50 tags with an app monitor.
-
-        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppMonitorProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_rum.IAppMonitorRef")
-class IAppMonitorRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a AppMonitor.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="appMonitorRef")
-    def app_monitor_ref(self) -> AppMonitorReference:
-        '''(experimental) A reference to a AppMonitor resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAppMonitorRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AppMonitor.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_rum.IAppMonitorRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="appMonitorRef")
-    def app_monitor_ref(self) -> AppMonitorReference:
-        '''(experimental) A reference to a AppMonitor resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AppMonitorReference, jsii.get(self, "appMonitorRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAppMonitorRef).__jsii_proxy_class__ = lambda : _IAppMonitorRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IAppMonitorRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IAppMonitorRef_653b27a4, _ITaggable_36806126)
 class CfnAppMonitor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -447,6 +91,7 @@ class CfnAppMonitor(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_rum as rum
@@ -499,6 +144,7 @@ class CfnAppMonitor(
             ),
             domain="domain",
             domain_list=["domainList"],
+            platform="platform",
             resource_policy=rum.CfnAppMonitor.ResourcePolicyProperty(
                 policy_document="policyDocument",
         
@@ -514,20 +160,22 @@ class CfnAppMonitor(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        app_monitor_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deobfuscation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        platform: typing.Optional[builtins.str] = None,
+        resource_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::RUM::AppMonitor``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A name for the app monitor. This parameter is required.
@@ -537,6 +185,7 @@ class CfnAppMonitor(
         :param deobfuscation_configuration: A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
         :param domain: The top-level internet domain name for which your application has administrative authority. This parameter or the ``DomainList`` parameter is required.
         :param domain_list: List the domain names for which your application has administrative authority. This parameter or the ``Domain`` parameter is required. You can have a minimum of 1 and a maximum of 5 ``Domain`` under ``DomainList`` . Each ``Domain`` must be a minimum length of 1 and a maximum of 253 characters.
+        :param platform: 
         :param resource_policy: Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it. Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
         :param tags: Assigns one or more tags (key-value pairs) to the app monitor. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an app monitor. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
         '''
@@ -552,14 +201,38 @@ class CfnAppMonitor(
             deobfuscation_configuration=deobfuscation_configuration,
             domain=domain,
             domain_list=domain_list,
+            platform=platform,
             resource_policy=resource_policy,
             tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForAppMonitor")
+    @builtins.classmethod
+    def arn_for_app_monitor(cls, resource: "_IAppMonitorRef_653b27a4") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5ae31e63cb972dc25c0a6d05ce54a700b1cfa59fc5f90ebedd81bc703fbae36)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppMonitor", [resource]))
+
+    @jsii.member(jsii_name="isCfnAppMonitor")
+    @builtins.classmethod
+    def is_cfn_app_monitor(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAppMonitor.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb6df632dcb333f52650990603571ea7d557b7fc901b79a7e09d270aef4089dd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppMonitor", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -590,9 +263,9 @@ class CfnAppMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="appMonitorRef")
-    def app_monitor_ref(self) -> AppMonitorReference:
+    def app_monitor_ref(self) -> "_AppMonitorReference_96ecac0d":
         '''A reference to a AppMonitor resource.'''
-        return typing.cast(AppMonitorReference, jsii.get(self, "appMonitorRef"))
+        return typing.cast("_AppMonitorReference_96ecac0d", jsii.get(self, "appMonitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -610,9 +283,9 @@ class CfnAppMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -631,14 +304,14 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="appMonitorConfiguration")
     def app_monitor_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
         '''A structure that contains much of the configuration data for the app monitor.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.AppMonitorConfigurationProperty"]], jsii.get(self, "appMonitorConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]], jsii.get(self, "appMonitorConfiguration"))
 
     @app_monitor_configuration.setter
     def app_monitor_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.AppMonitorConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50034684ba972a040247926397a2abd22cbfe552025aa67e74c062216336d6da)
@@ -649,14 +322,14 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="customEvents")
     def custom_events(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.CustomEventsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]]:
         '''Specifies whether this app monitor allows the web client to define and send custom events.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.CustomEventsProperty"]], jsii.get(self, "customEvents"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]], jsii.get(self, "customEvents"))
 
     @custom_events.setter
     def custom_events(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.CustomEventsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65b3a1fb3e18d745fb1b2892e7cae08e9d46eaf221ccd474f3aaf390ec6e0074)
@@ -667,14 +340,14 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="cwLogEnabled")
     def cw_log_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "cwLogEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "cwLogEnabled"))
 
     @cw_log_enabled.setter
     def cw_log_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd674d3834ab7c9a15c2cc3b7dfc188fd561725f3c30ee84200f63547a955eef)
@@ -685,14 +358,14 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="deobfuscationConfiguration")
     def deobfuscation_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
         '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.DeobfuscationConfigurationProperty"]], jsii.get(self, "deobfuscationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], jsii.get(self, "deobfuscationConfiguration"))
 
     @deobfuscation_configuration.setter
     def deobfuscation_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.DeobfuscationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f2d704d10058b4d7b134a686b042efc84971acf09b892129589706da314ce17)
@@ -729,17 +402,29 @@ class CfnAppMonitor(
         jsii.set(self, "domainList", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="platform")
+    def platform(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "platform"))
+
+    @platform.setter
+    def platform(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065136888b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
     def resource_policy(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.ResourcePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]]:
         '''Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
 
     @resource_policy.setter
     def resource_policy(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.ResourcePolicyProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02ad50a0bedc842a57f77840ff242508a77c0b4d3a7db3dabb035464285b86fa)
@@ -748,12 +433,12 @@ class CfnAppMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Assigns one or more tags (key-value pairs) to the app monitor.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd15333478ba004b01e5eeb19cecf4a73325add1db14df013fda84f63d3c4a4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -779,14 +464,14 @@ class CfnAppMonitor(
         def __init__(
             self,
             *,
-            allow_cookies: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enable_x_ray: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            allow_cookies: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_x_ray: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             excluded_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
             favorite_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
             guest_role_arn: typing.Optional[builtins.str] = None,
             identity_pool_id: typing.Optional[builtins.str] = None,
             included_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
-            metric_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.MetricDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.MetricDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             session_sample_rate: typing.Optional[jsii.Number] = None,
             telemetries: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -880,7 +565,7 @@ class CfnAppMonitor(
         @builtins.property
         def allow_cookies(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If you set this to ``true`` , the CloudWatch RUM web client sets two cookies, a session cookie and a user cookie.
 
             The cookies allow the CloudWatch RUM web client to collect data relating to the number of users an application has and the behavior of the application across a sequence of events. Cookies are stored in the top-level domain of the current page.
@@ -888,12 +573,12 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-allowcookies
             '''
             result = self._values.get("allow_cookies")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def enable_x_ray(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If you set this to ``true`` , CloudWatch RUM sends client-side traces to X-Ray for each sampled session.
 
             You can then see traces and segments from these user sessions in the RUM dashboard and the CloudWatch ServiceLens console. For more information, see `What is AWS X-Ray ? <https://docs.aws.amazon.com/xray/latest/devguide/aws-xray.html>`_
@@ -901,7 +586,7 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-enablexray
             '''
             result = self._values.get("enable_x_ray")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def excluded_pages(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -955,13 +640,13 @@ class CfnAppMonitor(
         @builtins.property
         def metric_destinations(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.MetricDestinationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDestinationProperty"]]]]:
             '''An array of structures that each define a destination that this app monitor will send extended metrics to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-metricdestinations
             '''
             result = self._values.get("metric_destinations")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.MetricDestinationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDestinationProperty"]]]], result)
 
         @builtins.property
         def session_sample_rate(self) -> typing.Optional[jsii.Number]:
@@ -1064,7 +749,7 @@ class CfnAppMonitor(
         def __init__(
             self,
             *,
-            java_script_source_maps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.JavaScriptSourceMapsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            java_script_source_maps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.JavaScriptSourceMapsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
 
@@ -1098,13 +783,13 @@ class CfnAppMonitor(
         @builtins.property
         def java_script_source_maps(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.JavaScriptSourceMapsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.JavaScriptSourceMapsProperty"]]:
             '''A structure that contains the configuration for how an app monitor can unminify JavaScript error stack traces using source maps.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-deobfuscationconfiguration.html#cfn-rum-appmonitor-deobfuscationconfiguration-javascriptsourcemaps
             '''
             result = self._values.get("java_script_source_maps")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.JavaScriptSourceMapsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.JavaScriptSourceMapsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1211,7 +896,7 @@ class CfnAppMonitor(
             self,
             *,
             name: builtins.str,
-            dimension_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+            dimension_keys: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
             event_pattern: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
             unit_label: typing.Optional[builtins.str] = None,
@@ -1302,7 +987,7 @@ class CfnAppMonitor(
         @builtins.property
         def dimension_keys(
             self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
             '''This field is a map of field paths to dimension names.
 
             It defines the dimensions to associate with this metric in CloudWatch . The value of this field is used only if the metric destination is ``CloudWatch`` . If the metric destination is ``Evidently`` , the value of ``DimensionKeys`` is ignored.
@@ -1310,7 +995,7 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-metricdefinition.html#cfn-rum-appmonitor-metricdefinition-dimensionkeys
             '''
             result = self._values.get("dimension_keys")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def event_pattern(self) -> typing.Optional[builtins.str]:
@@ -1386,7 +1071,7 @@ class CfnAppMonitor(
             destination: builtins.str,
             destination_arn: typing.Optional[builtins.str] = None,
             iam_role_arn: typing.Optional[builtins.str] = None,
-            metric_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAppMonitor.MetricDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.MetricDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Creates or updates a destination to receive extended metrics from CloudWatch RUM.
 
@@ -1481,13 +1166,13 @@ class CfnAppMonitor(
         @builtins.property
         def metric_definitions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.MetricDefinitionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDefinitionProperty"]]]]:
             '''An array of structures which define the metrics that you want to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-metricdestination.html#cfn-rum-appmonitor-metricdestination-metricdefinitions
             '''
             result = self._values.get("metric_definitions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAppMonitor.MetricDefinitionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDefinitionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1585,36 +1270,299 @@ class CfnAppMonitor(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rum.CfnAppMonitorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "app_monitor_configuration": "appMonitorConfiguration",
+        "custom_events": "customEvents",
+        "cw_log_enabled": "cwLogEnabled",
+        "deobfuscation_configuration": "deobfuscationConfiguration",
+        "domain": "domain",
+        "domain_list": "domainList",
+        "platform": "platform",
+        "resource_policy": "resourcePolicy",
+        "tags": "tags",
+    },
+)
+class CfnAppMonitorProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        app_monitor_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        deobfuscation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        domain: typing.Optional[builtins.str] = None,
+        domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        platform: typing.Optional[builtins.str] = None,
+        resource_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAppMonitor``.
+
+        :param name: A name for the app monitor. This parameter is required.
+        :param app_monitor_configuration: A structure that contains much of the configuration data for the app monitor. If you are using Amazon Cognito for authorization, you must include this structure in your request, and it must include the ID of the Amazon Cognito identity pool to use for authorization. If you don't include ``AppMonitorConfiguration`` , you must set up your own authorization method. For more information, see `Authorize your application to send data to AWS <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-get-started-authorization.html>`_ . If you omit this argument, the sample rate used for CloudWatch RUM is set to 10% of the user sessions.
+        :param custom_events: Specifies whether this app monitor allows the web client to define and send custom events. If you omit this parameter, custom events are ``DISABLED`` .
+        :param cw_log_enabled: Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted. This parameter specifies whether CloudWatch RUM sends a copy of this telemetry data to Amazon CloudWatch Logs in your account. This enables you to keep the telemetry data for more than 30 days, but it does incur Amazon CloudWatch Logs charges. If you omit this parameter, the default is ``false`` .
+        :param deobfuscation_configuration: A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
+        :param domain: The top-level internet domain name for which your application has administrative authority. This parameter or the ``DomainList`` parameter is required.
+        :param domain_list: List the domain names for which your application has administrative authority. This parameter or the ``Domain`` parameter is required. You can have a minimum of 1 and a maximum of 5 ``Domain`` under ``DomainList`` . Each ``Domain`` must be a minimum length of 1 and a maximum of 253 characters.
+        :param platform: 
+        :param resource_policy: Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it. Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
+        :param tags: Assigns one or more tags (key-value pairs) to the app monitor. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an app monitor. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rum as rum
+            
+            cfn_app_monitor_props = rum.CfnAppMonitorProps(
+                name="name",
+            
+                # the properties below are optional
+                app_monitor_configuration=rum.CfnAppMonitor.AppMonitorConfigurationProperty(
+                    allow_cookies=False,
+                    enable_xRay=False,
+                    excluded_pages=["excludedPages"],
+                    favorite_pages=["favoritePages"],
+                    guest_role_arn="guestRoleArn",
+                    identity_pool_id="identityPoolId",
+                    included_pages=["includedPages"],
+                    metric_destinations=[rum.CfnAppMonitor.MetricDestinationProperty(
+                        destination="destination",
+            
+                        # the properties below are optional
+                        destination_arn="destinationArn",
+                        iam_role_arn="iamRoleArn",
+                        metric_definitions=[rum.CfnAppMonitor.MetricDefinitionProperty(
+                            name="name",
+            
+                            # the properties below are optional
+                            dimension_keys={
+                                "dimension_keys_key": "dimensionKeys"
+                            },
+                            event_pattern="eventPattern",
+                            namespace="namespace",
+                            unit_label="unitLabel",
+                            value_key="valueKey"
+                        )]
+                    )],
+                    session_sample_rate=123,
+                    telemetries=["telemetries"]
+                ),
+                custom_events=rum.CfnAppMonitor.CustomEventsProperty(
+                    status="status"
+                ),
+                cw_log_enabled=False,
+                deobfuscation_configuration=rum.CfnAppMonitor.DeobfuscationConfigurationProperty(
+                    java_script_source_maps=rum.CfnAppMonitor.JavaScriptSourceMapsProperty(
+                        status="status",
+            
+                        # the properties below are optional
+                        s3_uri="s3Uri"
+                    )
+                ),
+                domain="domain",
+                domain_list=["domainList"],
+                platform="platform",
+                resource_policy=rum.CfnAppMonitor.ResourcePolicyProperty(
+                    policy_document="policyDocument",
+            
+                    # the properties below are optional
+                    policy_revision_id="policyRevisionId"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument app_monitor_configuration", value=app_monitor_configuration, expected_type=type_hints["app_monitor_configuration"])
+            check_type(argname="argument custom_events", value=custom_events, expected_type=type_hints["custom_events"])
+            check_type(argname="argument cw_log_enabled", value=cw_log_enabled, expected_type=type_hints["cw_log_enabled"])
+            check_type(argname="argument deobfuscation_configuration", value=deobfuscation_configuration, expected_type=type_hints["deobfuscation_configuration"])
+            check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+            check_type(argname="argument domain_list", value=domain_list, expected_type=type_hints["domain_list"])
+            check_type(argname="argument platform", value=platform, expected_type=type_hints["platform"])
+            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if app_monitor_configuration is not None:
+            self._values["app_monitor_configuration"] = app_monitor_configuration
+        if custom_events is not None:
+            self._values["custom_events"] = custom_events
+        if cw_log_enabled is not None:
+            self._values["cw_log_enabled"] = cw_log_enabled
+        if deobfuscation_configuration is not None:
+            self._values["deobfuscation_configuration"] = deobfuscation_configuration
+        if domain is not None:
+            self._values["domain"] = domain
+        if domain_list is not None:
+            self._values["domain_list"] = domain_list
+        if platform is not None:
+            self._values["platform"] = platform
+        if resource_policy is not None:
+            self._values["resource_policy"] = resource_policy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the app monitor.
+
+        This parameter is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_monitor_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
+        '''A structure that contains much of the configuration data for the app monitor.
+
+        If you are using Amazon Cognito for authorization, you must include this structure in your request, and it must include the ID of the Amazon Cognito identity pool to use for authorization. If you don't include ``AppMonitorConfiguration`` , you must set up your own authorization method. For more information, see `Authorize your application to send data to AWS <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-get-started-authorization.html>`_ .
+
+        If you omit this argument, the sample rate used for CloudWatch RUM is set to 10% of the user sessions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-appmonitorconfiguration
+        '''
+        result = self._values.get("app_monitor_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]], result)
+
+    @builtins.property
+    def custom_events(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]]:
+        '''Specifies whether this app monitor allows the web client to define and send custom events.
+
+        If you omit this parameter, custom events are ``DISABLED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-customevents
+        '''
+        result = self._values.get("custom_events")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]], result)
+
+    @builtins.property
+    def cw_log_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted.
+
+        This parameter specifies whether CloudWatch RUM sends a copy of this telemetry data to Amazon CloudWatch Logs in your account. This enables you to keep the telemetry data for more than 30 days, but it does incur Amazon CloudWatch Logs charges.
+
+        If you omit this parameter, the default is ``false`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-cwlogenabled
+        '''
+        result = self._values.get("cw_log_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def deobfuscation_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
+        '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-deobfuscationconfiguration
+        '''
+        result = self._values.get("deobfuscation_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], result)
+
+    @builtins.property
+    def domain(self) -> typing.Optional[builtins.str]:
+        '''The top-level internet domain name for which your application has administrative authority.
+
+        This parameter or the ``DomainList`` parameter is required.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-domain
+        '''
+        result = self._values.get("domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List the domain names for which your application has administrative authority. This parameter or the ``Domain`` parameter is required.
+
+        You can have a minimum of 1 and a maximum of 5 ``Domain`` under ``DomainList`` . Each ``Domain`` must be a minimum length of 1 and a maximum of 253 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-domainlist
+        '''
+        result = self._values.get("domain_list")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def platform(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-platform
+        '''
+        result = self._values.get("platform")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_policy(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]]:
+        '''Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it.
+
+        Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-resourcepolicy
+        '''
+        result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Assigns one or more tags (key-value pairs) to the app monitor.
+
+        Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
+
+        Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters.
+
+        You can associate as many as 50 tags with an app monitor.
+
+        For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppMonitorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AppMonitorReference",
     "CfnAppMonitor",
     "CfnAppMonitorProps",
-    "IAppMonitorRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__c7339c2a54b9dc7968d48574cb832d7750e1e9662772c180b1bbffaa3eb5e35b(
-    *,
-    app_monitor_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5(
-    *,
-    name: builtins.str,
-    app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    domain: typing.Optional[builtins.str] = None,
-    domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__be8f88e750c0e7122a036d486a439c075fc32835a9e8ecd39a432f9d8a28795b(
     scope: _constructs_77d1e7e8.Construct,
@@ -1627,8 +1575,21 @@ def _typecheckingstub__be8f88e750c0e7122a036d486a439c075fc32835a9e8ecd39a432f9d8
     deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    platform: typing.Optional[builtins.str] = None,
     resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ae31e63cb972dc25c0a6d05ce54a700b1cfa59fc5f90ebedd81bc703fbae36(
+    resource: _IAppMonitorRef_653b27a4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb6df632dcb333f52650990603571ea7d557b7fc901b79a7e09d270aef4089dd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1683,6 +1644,12 @@ def _typecheckingstub__0456aa4886c478c5fc3157398096bfee936719f2df864f6df5d0d99df
 
 def _typecheckingstub__0f86b0a9a53fb7afe4df111651fb954ae88b1fcdc7037dc764fa0b071918819c(
     value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065136888b(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1763,6 +1730,22 @@ def _typecheckingstub__50574a83877817c5c30ff641cfa13fc211766060d3c8591b640545f55
     *,
     policy_document: builtins.str,
     policy_revision_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5(
+    *,
+    name: builtins.str,
+    app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    domain: typing.Optional[builtins.str] = None,
+    domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    platform: typing.Optional[builtins.str] = None,
+    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

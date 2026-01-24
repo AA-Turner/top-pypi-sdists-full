@@ -95,32 +95,6 @@ class CdnClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def CreateDiagnoseUrl(self, request):
-        r"""以上诊断报告, 域名版本管理相关接口功能均废弃,  已确认现网0调用, 申请预下线,(预下线不会影响调用, 只会在接口中添加提示信息, 正式下线仍需人工确认)
-
-        ### <font color=red>**该接口已废弃** </font><br>
-        CreateDiagnoseUrl 用于添加域名诊断任务URL。
-
-        :param request: Request instance for CreateDiagnoseUrl.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.CreateDiagnoseUrlRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.CreateDiagnoseUrlResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("CreateDiagnoseUrl", params, headers=headers)
-            response = json.loads(body)
-            model = models.CreateDiagnoseUrlResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def CreateEdgePackTask(self, request):
         r"""动态打包任务提交接口
 
@@ -218,6 +192,8 @@ class CdnClient(AbstractClient):
 
     def DescribeBillingData(self, request):
         r"""DescribeBillingData 用于查询实际计费数据明细。
+        注意:
+        受计费算法的影响，计费数据接口返回的数据均存在一定延时。小时结算客户预计延时3-5小时。月结算客户预计延迟4-28小时，在凌晨4点（不含4点）之前，仅能查询到前2天数据，4点（含）之后，能查询到前1天数据。若您对数据及时性较强的诉求，建议使用[监控访问数据](https://cloud.tencent.com/document/product/228/30986)。
 
         :param request: Request instance for DescribeBillingData.
         :type request: :class:`tencentcloud.cdn.v20180606.models.DescribeBillingDataRequest`
@@ -359,32 +335,6 @@ class CdnClient(AbstractClient):
             body = self.call("DescribeCertDomains", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeCertDomainsResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def DescribeDiagnoseReport(self, request):
-        r"""以上诊断报告, 域名版本管理相关接口功能均废弃,  已确认现网0调用, 申请预下线,(预下线不会影响调用, 只会在接口中添加提示信息, 正式下线仍需人工确认)
-
-        ### <font color=red>**该接口已废弃** </font><br>
-        DescribeDiagnoseReport 用于获取指定报告id的内容。
-
-        :param request: Request instance for DescribeDiagnoseReport.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.DescribeDiagnoseReportRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DescribeDiagnoseReportResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("DescribeDiagnoseReport", params, headers=headers)
-            response = json.loads(body)
-            model = models.DescribeDiagnoseReportResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -857,30 +807,6 @@ class CdnClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def DisableCaches(self, request):
-        r"""### <font color=red>**该接口已废弃** </font><br>
-        DisableCaches 用于禁用 CDN 上指定 URL 的访问，禁用完成后，中国境内访问会直接返回 403。
-
-        :param request: Request instance for DisableCaches.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.DisableCachesRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DisableCachesResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("DisableCaches", params, headers=headers)
-            response = json.loads(body)
-            model = models.DisableCachesResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def DisableClsLogTopic(self, request):
         r"""DisableClsLogTopic 用于停止日志主题投递。注意：停止后，所有绑定该日志主题域名的日志将不再继续投递至该主题，已经投递的日志将会继续保留。生效时间约为 5~15 分钟。
 
@@ -927,30 +853,6 @@ class CdnClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def EnableCaches(self, request):
-        r"""### <font color=red>**该接口已废弃** </font><br>
-        EnableCaches 用于解禁手工封禁的 URL，解禁成功后，全网生效时间约 5~10 分钟。
-
-        :param request: Request instance for EnableCaches.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.EnableCachesRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.EnableCachesResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("EnableCaches", params, headers=headers)
-            response = json.loads(body)
-            model = models.EnableCachesResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def EnableClsLogTopic(self, request):
         r"""EnableClsLogTopic 用于启动日志主题投递。注意：启动后，所有绑定该日志主题域名的日志将继续投递至该主题。生效时间约为 5~15 分钟。
 
@@ -965,32 +867,6 @@ class CdnClient(AbstractClient):
             body = self.call("EnableClsLogTopic", params, headers=headers)
             response = json.loads(body)
             model = models.EnableClsLogTopicResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def GetDisableRecords(self, request):
-        r"""以上诊断报告, 域名版本管理相关接口功能均废弃,  已确认现网0调用, 申请预下线,(预下线不会影响调用, 只会在接口中添加提示信息, 正式下线仍需人工确认)
-
-        ### <font color=red>**该接口已废弃** </font><br>
-        GetDisableRecords 用于查询资源禁用历史，及 URL 当前状态。
-
-        :param request: Request instance for GetDisableRecords.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.GetDisableRecordsRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.GetDisableRecordsResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("GetDisableRecords", params, headers=headers)
-            response = json.loads(body)
-            model = models.GetDisableRecordsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1037,32 +913,6 @@ class CdnClient(AbstractClient):
             body = self.call("ListClsTopicDomains", params, headers=headers)
             response = json.loads(body)
             model = models.ListClsTopicDomainsResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def ListDiagnoseReport(self, request):
-        r"""以上诊断报告, 域名版本管理相关接口功能均废弃,  已确认现网0调用, 申请预下线,(预下线不会影响调用, 只会在接口中添加提示信息, 正式下线仍需人工确认)
-
-        ### <font color=red>**该接口已废弃** </font><br>
-        ListDiagnoseReport 用于获取用户诊断URL访问后各个子任务的简要详情。
-
-        :param request: Request instance for ListDiagnoseReport.
-        :type request: :class:`tencentcloud.cdn.v20180606.models.ListDiagnoseReportRequest`
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.ListDiagnoseReportResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("ListDiagnoseReport", params, headers=headers)
-            response = json.loads(body)
-            model = models.ListDiagnoseReportResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

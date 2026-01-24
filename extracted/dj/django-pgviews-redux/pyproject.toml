@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-pgviews-redux"
-version = "0.11.0"
+version = "1.1.0"
 description = "Create and manage Postgres SQL Views in Django"
 authors = ["Mikuláš Poul <mikulas.poul@xelix.com>"]
 readme = "README.md"
@@ -9,17 +9,14 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
-    "License :: Public Domain",
-    "License :: OSI Approved :: The Unlicense (Unlicense)",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
 ]
 include = ["UNLICENSE"]
 repository = "https://github.com/xelixdev/django-pgviews-redux"
@@ -30,11 +27,12 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = ">=3.6"
+python = ">=3.10"
+django = ">=5.1"  # first version with OperationCategory
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -66,11 +64,23 @@ select = [
 # Never enforce...
 ignore = [
     "E501",   # line length violations
-    "PT004",  # missing-fixture-name-underscore
     "SIM108", # use-ternary-operator
     "RET505", # superfluous-else-return
     "RET506", # superfluous-else-raise
     "RET507", # superfluous-else-continue
     "RET508", # superfluous-else-break
     "B027",   # empty-method-without-abstract-decorator
+]
+
+[tool.pyrefly]
+project-includes = [
+    "django_pgviews/*.py*",
+]
+
+[dependency-groups]
+dev = [
+    "pyrefly (>=0.46.0,<0.47.0)",
+    "django-stubs (>=5.2.8,<6.0.0)",
+    "psycopg (>=3.3.2,<4.0.0)",
+    "pytest-django (>=4.11.1,<5.0.0)"
 ]

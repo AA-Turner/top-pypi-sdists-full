@@ -40,7 +40,7 @@ from test import (
     unittest,
 )
 from test.pymongo_mocks import DummyMonitor
-from test.unified_format import generate_test_classes
+from test.unified_format import generate_test_classes, get_test_path
 from test.utils import (
     get_pool,
 )
@@ -76,14 +76,7 @@ from pymongo.topology_description import TOPOLOGY_TYPE
 
 _IS_SYNC = True
 
-# Location of JSON test specifications.
-if _IS_SYNC:
-    SDAM_PATH = os.path.join(Path(__file__).resolve().parent, "discovery_and_monitoring")
-else:
-    SDAM_PATH = os.path.join(
-        Path(__file__).resolve().parent.parent,
-        "discovery_and_monitoring",
-    )
+SDAM_PATH = get_test_path("discovery_and_monitoring")
 
 
 def create_mock_topology(uri, monitor_class=DummyMonitor):
@@ -483,7 +476,7 @@ class TestServerMonitoringMode(IntegrationTest):
 
     def test_rtt_connection_is_disabled_auto(self):
         envs = [
-            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.9"},
+            {"AWS_EXECUTION_ENV": "AWS_Lambda_python3.10"},
             {"FUNCTIONS_WORKER_RUNTIME": "python"},
             {"K_SERVICE": "gcpservicename"},
             {"FUNCTION_NAME": "gcpfunctionname"},

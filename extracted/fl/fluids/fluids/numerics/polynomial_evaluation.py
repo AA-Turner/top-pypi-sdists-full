@@ -24,21 +24,48 @@ from math import exp, log
 
 from fluids.numerics.special import trunc_exp
 
-__all__ = ['horner', 'horner_and_der', 'horner_and_der2', 'horner_and_der3',
- 'horner_and_der4', 'horner_backwards', 'exp_horner_backwards',
- 'exp_horner_backwards_and_der', 'exp_horner_backwards_and_der2', 'exp_horner_backwards_and_der3',
- 'horner_backwards_ln_tau', 'horner_backwards_ln_tau_and_der', 'horner_backwards_ln_tau_and_der2', 'horner_backwards_ln_tau_and_der3',
- 'exp_horner_backwards_ln_tau', 'exp_horner_backwards_ln_tau_and_der', 'exp_horner_backwards_ln_tau_and_der2',
- 'horner_domain', 'horner_stable', 'horner_stable_and_der', 'horner_stable_and_der2', 'horner_stable_and_der3', 'horner_stable_and_der4',
- 'horner_stable_ln_tau', 'horner_stable_ln_tau_and_der',
-'horner_stable_ln_tau_and_der2', 'horner_stable_ln_tau_and_der3',
-'exp_horner_stable', 'exp_horner_stable_and_der', 'exp_horner_stable_and_der2', 'exp_horner_stable_and_der3',
-'exp_horner_stable_ln_tau', 'exp_horner_stable_ln_tau_and_der', 'exp_horner_stable_ln_tau_and_der2', 'horner_log',
-'horner_stable_log']
+__all__ = [
+    "exp_horner_backwards",
+    "exp_horner_backwards_and_der",
+    "exp_horner_backwards_and_der2",
+    "exp_horner_backwards_and_der3",
+    "exp_horner_backwards_ln_tau",
+    "exp_horner_backwards_ln_tau_and_der",
+    "exp_horner_backwards_ln_tau_and_der2",
+    "exp_horner_stable",
+    "exp_horner_stable_and_der",
+    "exp_horner_stable_and_der2",
+    "exp_horner_stable_and_der3",
+    "exp_horner_stable_ln_tau",
+    "exp_horner_stable_ln_tau_and_der",
+    "exp_horner_stable_ln_tau_and_der2",
+    "horner",
+    "horner_and_der",
+    "horner_and_der2",
+    "horner_and_der3",
+    "horner_and_der4",
+    "horner_backwards",
+    "horner_backwards_ln_tau",
+    "horner_backwards_ln_tau_and_der",
+    "horner_backwards_ln_tau_and_der2",
+    "horner_backwards_ln_tau_and_der3",
+    "horner_domain",
+    "horner_log",
+    "horner_stable",
+    "horner_stable_and_der",
+    "horner_stable_and_der2",
+    "horner_stable_and_der3",
+    "horner_stable_and_der4",
+    "horner_stable_ln_tau",
+    "horner_stable_ln_tau_and_der",
+    "horner_stable_ln_tau_and_der2",
+    "horner_stable_ln_tau_and_der3",
+    "horner_stable_log",
+]
 
 
 def horner(coeffs, x):
-    r'''Evaluates a polynomial defined by coefficienfs `coeffs` at a specified
+    r"""Evaluates a polynomial defined by coefficienfs `coeffs` at a specified
     scalar `x` value, using the horner method. This is the most efficient
     formula to evaluate a polynomial (assuming non-zero coefficients for all
     terms). This has been added to the `fluids` library because of the need to
@@ -87,7 +114,7 @@ def horner(coeffs, x):
     ----------
     .. [1] "Horner`s Method." Wikipedia, October 6, 2018.
     https://en.wikipedia.org/w/index.php?title=Horner%27s_method&oldid=862709437.
-    '''
+    """
     tot = 0.0
     for c in coeffs:
         tot = tot*x + c
@@ -233,7 +260,7 @@ def exp_horner_backwards_ln_tau_and_der2(T, Tc, coeffs):
     return val, der, der2
 
 def horner_domain(x, coeffs, xmin, xmax):
-    r'''Evaluates a polynomial defined by coefficienfs `coeffs` and domain
+    r"""Evaluates a polynomial defined by coefficienfs `coeffs` and domain
     (`xmin`, `xmax`) which maps the input variable into the window
     (-1, 1) where the polynomial can be evaluated most acccurately.
     The evaluation uses horner's method.
@@ -261,7 +288,7 @@ def horner_domain(x, coeffs, xmin, xmax):
     Notes
     -----
 
-    '''
+    """
     range_inv = 1.0/(xmax - xmin)
     off = (-xmax - xmin)*range_inv
     scl = 2.0*range_inv

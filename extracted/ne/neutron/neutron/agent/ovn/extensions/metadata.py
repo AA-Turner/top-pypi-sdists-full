@@ -19,6 +19,7 @@ import threading
 
 from oslo_config import cfg
 from oslo_log import log
+from ovsdbapp.backend.ovs_idl import event as row_event
 from ovsdbapp.backend.ovs_idl import vlog
 
 from neutron.agent.linux import external_process
@@ -63,6 +64,29 @@ def _sync_lock(f):
         with _SYNC_STATE_LOCK:
             return f(*args, **kwargs)
     return wrapped
+
+
+class ChassisPrivateCreateEvent(extension_manager.OVNExtensionEvent,
+                                row_event.RowEvent):
+    """Row create event - Chassis name == our_chassis."""
+    def __init__(self, ovn_agent):
+        self._first_time = True
+        events = (self.ROW_CREATE,)
+        super().__init__(events, 'Chassis_Private', None,
+                         extension_name='metadata')
+        self._agent = ovn_agent
+        self.conditions = (('name', '=', self._agent.chassis),)
+        self.event_name = self.__class__.__name__
+
+    def run(self, event, row, old):
+        if self._first_time:
+            self._first_time = False
+            return
+
+        # Re-register the OVN agent with the local chassis in case its
+        # entry was re-created (happens when restarting the ovn-controller)
+        self.agent._update_chassis_private_config()
+        self.agent.sync()
 
 
 class MetadataExtension(extension_manager.OVNAgentExtension,
@@ -115,8 +139,8 @@ class MetadataExtension(extension_manager.OVNAgentExtension,
     def sb_idl_events(self):
         return [metadata_agent.PortBindingUpdatedEvent,
                 metadata_agent.PortBindingDeletedEvent,
-                metadata_agent.SbGlobalUpdateEvent,
-                metadata_agent.ChassisPrivateCreateEvent,
+                metadata_agent.PortBindingCreateWithChassis,
+                ChassisPrivateCreateEvent,
                 ]
 
     # NOTE(ralonsoh): the following properties are needed during the migration
@@ -161,6 +185,7 @@ class MetadataExtension(extension_manager.OVNAgentExtension,
         Reload the configuration and sync the agent again.
         """
         self.agent_api.load_config()
+        self._update_chassis_private_config()
         self.sync()
 
     def start(self):
@@ -173,10 +198,10 @@ class MetadataExtension(extension_manager.OVNAgentExtension,
         self._proxy.run()
 
         # Do the initial sync.
-        self.sync()
+        self.sync(provision=False)
 
         # Register the agent with its corresponding Chassis
-        self.register_metadata_agent()
+        self._update_chassis_private_config()
 
         # Start the metadata server.
         proxy_thread = threading.Thread(target=self._proxy.wait)

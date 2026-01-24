@@ -4,6 +4,7 @@ from datetime import timedelta
 import errno
 import json
 import os
+import shutil
 import tempfile
 from typing import Any, List, Optional, Tuple
 
@@ -65,7 +66,169 @@ class LogsController(BaseController):
         last_job_run = self.api_client.get_decorated_job_api_v2_decorated_jobs_job_id_get(
             job_id=last_job_run_id
         )
-        return last_job_run.result.cluster_id
+        job_run = last_job_run.result
+        return job_run.cluster_id
+
+    def get_cluster_id_for_workspace(self, workspace_id: str):
+        try:
+            workspace = self.api_client.get_workspace_api_v2_experimental_workspaces_workspace_id_get(
+                workspace_id
+            )
+            if workspace is None or workspace.result is None:
+                raise click.ClickException(f"Workspace {workspace_id} not found.")
+            workspace_result = workspace.result
+            if (
+                not hasattr(workspace_result, "cluster_id")
+                or workspace_result.cluster_id is None
+            ):
+                raise click.ClickException(
+                    f"Workspace {workspace_id} does not have an associated cluster."
+                )
+            return workspace_result.cluster_id
+        except Exception as e:  # noqa: BLE001
+            if isinstance(e, click.ClickException):
+                raise
+            # Handle 404 errors specifically
+            if hasattr(e, "status") and e.status == 404:
+                raise click.ClickException(
+                    f"Workspace {workspace_id} not found."
+                ) from e
+            raise click.ClickException(
+                f"Failed to get workspace {workspace_id}: {e!s}"
+            ) from e
+
+    def get_cluster_id_for_service(  # noqa: C901, PLR0912
+        self, service_id: str, version_name_or_id: Optional[str] = None
+    ):
+        service = self.api_client.get_service_api_v2_services_v2_service_id_get(
+            service_id=service_id
+        )
+        if service is None or service.result is None:
+            raise click.ClickException(f"Service {service_id} not found.")
+
+        # For services, we need to get the cluster_id from the service's version
+        # Services can have multiple clusters, so we'll get the specified version or latest
+        try:
+            versions = self.api_client.get_service_versions_api_v2_services_v2_service_id_versions_get(
+                service_id=service_id
+            )
+            if not versions or not versions.results:
+                raise click.ClickException(
+                    f"Service {service_id} has no versions available."
+                )
+
+            # Find the specified version or use the latest
+            target_version = None
+            if version_name_or_id:
+                # Try to find by ID first (full ID or truncated ID)
+                for v in versions.results:
+                    if (
+                        hasattr(v, "id")
+                        and v.id
+                        and (
+                            v.id == version_name_or_id
+                            or v.id.endswith(version_name_or_id)
+                        )
+                    ):
+                        target_version = v
+                        break
+                # If not found by ID, try by name
+                if target_version is None:
+                    for v in versions.results:
+                        if (
+                            hasattr(v, "version")
+                            and v.version
+                            and v.version == version_name_or_id
+                        ):
+                            target_version = v
+                            break
+                if target_version is None:
+                    raise click.ClickException(
+                        f"Service version '{version_name_or_id}' not found for service {service_id}. "
+                        f"Available versions: {', '.join([v.version if hasattr(v, 'version') and v.version else v.id[-10:] if hasattr(v, 'id') and v.id else 'unknown' for v in versions.results[:5]])}"
+                    )
+            else:
+                # Get the latest version (first in the list is typically the latest)
+                # Prefer RUNNING versions, but fall back to any version if none are running
+                running_versions = [
+                    v
+                    for v in versions.results
+                    if hasattr(v, "current_state")
+                    and v.current_state
+                    and str(v.current_state).upper() == "RUNNING"
+                ]
+                target_version = (
+                    running_versions[0] if running_versions else versions.results[0]
+                )
+
+            # Print information about which service version was fetched
+            version_name = (
+                getattr(target_version, "version", None)
+                or getattr(target_version, "id", None)
+                or "unknown"
+            )
+            version_state = getattr(target_version, "current_state", None) or "unknown"
+
+            def print_version_info(cluster_id: str):
+                self.console.print(
+                    f"Fetching logs for service version: {version_name} "
+                    f"(Cluster ID: {cluster_id}, State: {version_state})"
+                )
+
+            # Try to get cluster_id from the version's production_job_ids
+            # For services, production_job_ids contains production job IDs (which may be service IDs)
+            if (
+                hasattr(target_version, "production_job_ids")
+                and target_version.production_job_ids
+                and len(target_version.production_job_ids) > 0
+            ):
+                # Try each production_job_id to find the cluster_id
+                # (for services, there may be multiple replicas/jobs per version)
+                for production_job_id in target_version.production_job_ids:
+                    try:
+                        # Get the decorated production job to access cluster_id
+                        job = self.api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
+                            production_job_id=production_job_id
+                        )
+                        if job and job.result and job.result.state:
+                            # Try cluster_id from state first
+                            if (
+                                hasattr(job.result.state, "cluster_id")
+                                and job.result.state.cluster_id
+                            ):
+                                print_version_info(job.result.state.cluster_id)
+                                return job.result.state.cluster_id
+                            # Fall back to cluster.id if cluster object exists
+                            if (
+                                hasattr(job.result.state, "cluster")
+                                and job.result.state.cluster
+                                and hasattr(job.result.state.cluster, "id")
+                                and job.result.state.cluster.id
+                            ):
+                                print_version_info(job.result.state.cluster_id)
+                                return job.result.state.cluster.id
+                    except Exception:  # noqa: BLE001
+                        # Continue to next production_job_id if this one fails
+                        continue
+            # If we can't get it from production_job_ids, try to get from the version directly
+            if hasattr(target_version, "cluster_id") and target_version.cluster_id:
+                print_version_info(job.result.state.cluster_id)
+                return target_version.cluster_id
+        except click.ClickException:
+            # Re-raise click exceptions (like version not found)
+            raise
+        except Exception:  # noqa: BLE001
+            # If we can't get versions, fall through to error message
+            pass
+        # If we can't determine the cluster, provide a helpful error
+        raise click.ClickException(
+            f"Unable to determine cluster ID for service {service_id}"
+            + (f" version '{version_name_or_id}'" if version_name_or_id else "")
+            + ". "
+            "Services may have multiple clusters. "
+            "Please use 'anyscale logs cluster --id <cluster_id>' with a specific cluster ID, "
+            "or view the service in the UI to find the cluster ID."
+        )
 
     def render_logs(
         self, log_group: LogGroup, parallelism: int, read_timeout: timedelta, tail: int
@@ -118,6 +281,7 @@ class LogsController(BaseController):
         download_dir: Optional[str] = None,
         write_to_stdout: bool = False,
         unpack: bool = True,
+        resource_id: Optional[str] = None,
     ) -> None:
         log_group = self.get_log_group(filter, page_size, ttl_seconds, timeout)
         self.console.log(
@@ -132,10 +296,11 @@ class LogsController(BaseController):
             show_progress_bar=True,
             write_to_stdout=write_to_stdout,
             unpack=unpack,
+            resource_id=resource_id,
         )
 
     # TODO (shomilj): Refactor this method. It's too nested.
-    def _download_or_stdout(  # noqa: PLR0913
+    def _download_or_stdout(  # noqa: C901, PLR0913
         self,
         log_group: LogGroup,
         parallelism: int,
@@ -145,12 +310,33 @@ class LogsController(BaseController):
         tail: int = -1,
         show_progress_bar: bool = False,
         unpack: bool = True,
+        resource_id: Optional[str] = None,
     ):
         if len(log_group.get_chunks()) == 0:
             return
 
         try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
+            # Determine the final download directory early
+            if write_to_stdout:
+                final_download_dir = None
+            else:
+                # Determine base directory
+                base_dir = download_dir or os.getcwd()
+
+                # Use resource_id if provided, otherwise fall back to cluster_id
+                if resource_id:
+                    # For workspace/job/service, use {base_dir}/{resource_id}
+                    final_download_dir = os.path.join(base_dir, resource_id)
+                else:
+                    # For cluster, use {base_dir} (existing behavior)
+                    final_download_dir = os.path.join(base_dir)
+
+            # Create target directory before temp dir so temp is on the same partition.
+            # This ensures disk space errors reference the actual target location.
+            if final_download_dir and not os.path.exists(final_download_dir):
+                os.makedirs(final_download_dir)
+
+            with tempfile.TemporaryDirectory(dir=final_download_dir) as tmp_dir:
                 # Download all files to a temporary directory.
                 asyncio.run(
                     # TODO (shomilj): Add efficient tailing method here.
@@ -187,9 +373,10 @@ class LogsController(BaseController):
                                     # Read log lines normally.
                                     print(source.read())
                     else:
+                        assert final_download_dir is not None
                         # Write to destination files
                         real_path = os.path.join(
-                            download_dir or "", log_file.get_target_path()
+                            final_download_dir, log_file.get_target_path()
                         )
                         real_dir = os.path.dirname(real_path)
                         if not os.path.exists(real_dir):
@@ -203,7 +390,8 @@ class LogsController(BaseController):
                                 )
                                 if not os.path.exists(downloaded_chunk_path):
                                     self.log.error(
-                                        "Download failed for file: ", chunk.chunk_name
+                                        "Download failed for file: %s",
+                                        chunk.chunk_name,
                                     )
                                     continue
                                 with open(
@@ -220,14 +408,11 @@ class LogsController(BaseController):
                         if chunks_written == 0:
                             os.remove(real_path)
 
-                if not write_to_stdout:
-                    if not download_dir:
-                        download_dir = os.getcwd()
-                    sample_chunk = log_group.get_chunks()[0]
-                    cluster_id = sample_chunk.cluster_id
-                    download_dir = download_dir + f"/logs/{cluster_id}"
+                if not write_to_stdout and final_download_dir:
+                    # Convert to absolute path for clarity
+                    absolute_path = os.path.abspath(final_download_dir)
                     self.console.log(
-                        f"Download complete! Files have been downloaded to {download_dir}"
+                        f"Download complete! Files have been downloaded to {absolute_path}"
                     )
         except OSError as err:
             if err.errno == errno.EMFILE:
@@ -235,6 +420,7 @@ class LogsController(BaseController):
                     "Too many open files. Try doubling your open files limit by running \n"
                     "ulimit -n $(($(ulimit -n) * 2))"
                 )
+            raise
 
     def _group_log_chunk_list(
         self, chunks: List[LogFileChunk], bearer_token: Optional[str] = None
@@ -292,7 +478,7 @@ class LogsController(BaseController):
         pos: int,  # noqa: ARG002
         file_name: str,
         url: str,
-        size: int,  # noqa: ARG002
+        size: int,
         session: aiohttp.ClientSession,
         read_timeout: timedelta,
         bearer_token: Optional[str] = None,
@@ -310,9 +496,30 @@ class LogsController(BaseController):
             )
             async with session.get(url, timeout=timeout, headers=headers) as response:
                 if response.status == 200:
-                    with open(file_name, "wb") as fhand:
-                        async for chunk in response.content.iter_chunked(1024):
-                            fhand.write(chunk)
+                    try:
+                        with open(file_name, "wb") as fhand:
+                            async for chunk in response.content.iter_chunked(1024):
+                                fhand.write(chunk)
+                    except OSError as err:
+                        if err.errno == errno.ENOSPC:
+                            error_dir = os.path.abspath(download_dir or os.getcwd())
+                            disk_usage = shutil.disk_usage(error_dir)
+                            available_bytes = disk_usage.free
+                            required_bytes = size or 0
+                            delta_bytes = max(required_bytes - available_bytes, 0)
+                            message = (
+                                "Not enough disk space while downloading logs. "
+                                f"Target directory: {error_dir}. "
+                                f"Attempting to write {self._format_bytes(required_bytes)} but "
+                                f"only {self._format_bytes(available_bytes)} is available."
+                            )
+                            if delta_bytes > 0:
+                                message += (
+                                    " Free up approximately "
+                                    f"{self._format_bytes(delta_bytes)} and try again."
+                                )
+                            raise click.ClickException(message) from err
+                        raise
                 else:
                     self.log.error(
                         f"Unable to download file {file_name}! response: [{response.status}, {await response.text()}]"
@@ -363,6 +570,18 @@ class LogsController(BaseController):
 
         return paths
 
+    @staticmethod
+    def _format_bytes(num: int) -> str:
+        value = float(num)
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        for unit in units:
+            if value < 1024 or unit == units[-1]:
+                if unit == "B":
+                    return f"{int(value)} {unit}"
+                return f"{value:.1f} {unit}"
+            value /= 1024
+        return f"{value:.1f} PB"
+
     def _unpack_structured_log(self, log_path: str):
         directory = os.path.dirname(log_path)
         fname = os.path.basename(log_path)
@@ -394,8 +613,8 @@ class LogsController(BaseController):
                         seen.add(filename)
                         mode = "wt"
 
-                    f = fds.get(filename, mode)
-                    f.write(f"{msg}\n")
+                    out_f = fds.get(filename, mode)
+                    out_f.write(f"{msg}\n")
                 except KeyboardInterrupt:
                     raise
                 except OSError as err:

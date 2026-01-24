@@ -7,7 +7,10 @@ import string
 import time
 import unittest
 
-from influxdb_client_3 import InfluxDBClient3, write_client_options, WriteOptions
+from urllib3.exceptions import MaxRetryError, TimeoutError as Url3TimeoutError
+
+from influxdb_client_3 import InfluxDBClient3, write_client_options, WriteOptions, \
+    WriteType, InfluxDB3ClientQueryError
 from influxdb_client_3.exceptions import InfluxDBError
 from tests.util import asyncio_run, lp_to_py_object
 
@@ -247,3 +250,335 @@ IdKIRUY6EyIVG+Z/nbuVqUlgnIWOMp0yg4RRC91zHy3Xvykf3Vai25H/jQpa6cbU
     def test_get_server_version(self):
         version = self.client.get_server_version()
         assert version is not None
+
+    def test_write_timeout(self):
+        with pytest.raises(Url3TimeoutError):
+            InfluxDBClient3(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                write_timeout=30,
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        max_retry_time=0,
+                        timeout=20,
+                        write_type=WriteType.synchronous
+                    )
+                )
+            ).write("test_write_timeout,location=harfa fVal=3.14,iVal=42i")
+
+    def test_write_timeout_sync(self):
+
+        with pytest.raises(Url3TimeoutError):
+            localClient = InfluxDBClient3(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        max_retry_time=0,
+                        timeout=20,
+                        write_type=WriteType.synchronous
+                    )
+                )
+            )
+
+            localClient.write("test_write_timeout,location=harfa fVal=3.14,iVal=42i")
+
+    @asyncio_run
+    async def test_write_timeout_async(self):
+
+        with pytest.raises(Url3TimeoutError):
+            localClient = InfluxDBClient3(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        max_retry_time=0,  # disable retries
+                        timeout=20,
+                        write_type=WriteType.asynchronous
+                    )
+                )
+            )
+
+            applyResult = localClient.write("test_write_timeout,location=harfa fVal=3.14,iVal=42i")
+            applyResult.get()
+
+    def test_write_timeout_batching(self):
+
+        ErrorResult = {"rt": None, "rd": None, "rx": None}
+
+        def set_error_result(rt, rd, rx):
+            nonlocal ErrorResult
+            ErrorResult = {"rt": rt, "rd": rd, "rx": rx}
+
+        localClient = InfluxDBClient3(
+            host=self.host,
+            database=self.database,
+            token=self.token,
+            write_timeout=20,
+            write_client_options=write_client_options(
+                error_callback=set_error_result,
+                write_options=WriteOptions(
+                    max_retry_time=0,  # disable retries
+                    # timeout=20,
+                    write_type=WriteType.batching,
+                    max_retries=0,
+                    batch_size=1,
+                )
+            )
+        )
+        lp = "test_write_timeout,location=harfa fVal=3.14,iVal=42i"
+        localClient.write(lp)
+
+        # wait for batcher attempt last write retry
+        time.sleep(0.1)
+
+        self.assertEqual((self.database, 'default', 'ns'), ErrorResult["rt"])
+        self.assertIsNotNone(ErrorResult["rd"])
+        self.assertIsInstance(ErrorResult["rd"], bytes)
+        self.assertEqual(lp, ErrorResult["rd"].decode('utf-8'))
+        self.assertIsNotNone(ErrorResult["rx"])
+        self.assertIsInstance(ErrorResult["rx"], MaxRetryError)
+        self.assertIsInstance(ErrorResult["rx"].reason, Url3TimeoutError)
+
+    def test_write_timeout_retry(self):
+
+        ErrorResult = {"rt": None, "rd": None, "rx": None}
+
+        def set_error_result(rt, rd, rx):
+            nonlocal ErrorResult
+            ErrorResult = {"rt": rt, "rd": rd, "rx": rx}
+
+        retry_ct = 0
+
+        def retry_cb(args, data, excp):
+            nonlocal retry_ct
+            retry_ct += 1
+
+        localClient = InfluxDBClient3(
+            host=self.host,
+            database=self.database,
+            token=self.token,
+            write_timeout=1,
+            write_client_options=write_client_options(
+                error_callback=set_error_result,
+                retry_callback=retry_cb,
+                write_options=WriteOptions(
+                    max_retry_time=10000,
+                    max_retry_delay=100,
+                    retry_interval=100,
+                    max_retries=3,
+                    batch_size=1,
+                )
+            )
+        )
+
+        lp = "test_write_timeout,location=harfa fVal=3.14,iVal=42i"
+        localClient.write(lp)
+        time.sleep(1)  # await all retries
+
+        self.assertEqual(3, retry_ct)
+        self.assertEqual((self.database, 'default', 'ns'), ErrorResult["rt"])
+        self.assertIsNotNone(ErrorResult["rd"])
+        self.assertIsInstance(ErrorResult["rd"], bytes)
+        self.assertEqual(lp, ErrorResult["rd"].decode('utf-8'))
+        self.assertIsNotNone(ErrorResult["rx"])
+        self.assertIsInstance(ErrorResult["rx"], MaxRetryError)
+        self.assertIsInstance(ErrorResult["rx"].reason, Url3TimeoutError)
+
+    @pytest.mark.skip(reason="flaky in CircleCI - server often responds in less than 1 millisecond.")
+    def test_query_timeout(self):
+        localClient = InfluxDBClient3(
+            host=self.host,
+            token=self.token,
+            database=self.database,
+            query_timeout=1,
+        )
+
+        with self.assertRaisesRegex(InfluxDB3ClientQueryError, ".*Deadline Exceeded.*"):
+            localClient.query("SELECT * FROM data")
+
+    def test_query_timeout_per_call_override(self):
+        localClient = InfluxDBClient3(
+            host=self.host,
+            token=self.token,
+            database=self.database,
+            query_timeout=3,
+        )
+
+        with self.assertRaisesRegex(InfluxDB3ClientQueryError, ".*Deadline Exceeded.*"):
+            localClient.query("SELECT * FROM data", timeout=0.0001)
+
+    def test_write_timeout_per_call_override(self):
+
+        ErrorResult = {"rt": None, "rd": None, "rx": None}
+
+        def set_error_result(rt, rd, rx):
+            nonlocal ErrorResult
+            ErrorResult = {"rt": rt, "rd": rd, "rx": rx}
+
+        retry_ct = 0
+
+        def retry_cb(args, data, excp):
+            nonlocal retry_ct
+            retry_ct += 1
+            if excp is not None:
+                raise excp
+
+        localClient = InfluxDBClient3(
+            host=self.host,
+            token=self.token,
+            database=self.database,
+            # write_timeout=3000,
+            write_client_options=write_client_options(
+                error_callback=set_error_result,
+                retry_callback=retry_cb,
+                write_options=WriteOptions(
+                    batch_size=1,
+                ),
+
+            )
+        )
+
+        lp = "test_write_timeout,location=harfa fVal=3.14,iVal=42i"
+        localClient.write(lp, _request_timeout=1)
+
+        # wait for batcher attempt last write retry
+        time.sleep(0.1)
+
+        self.assertEqual(retry_ct, 1)
+        self.assertEqual((self.database, 'default', 'ns'), ErrorResult["rt"])
+        self.assertIsNotNone(ErrorResult["rd"])
+        self.assertIsInstance(ErrorResult["rd"], bytes)
+        self.assertEqual(lp, ErrorResult["rd"].decode('utf-8'))
+        self.assertIsNotNone(ErrorResult["rx"])
+        self.assertIsInstance(ErrorResult["rx"], Url3TimeoutError)
+
+    def test_disable_grpc_compression(self):
+        """
+        Test that disable_grpc_compression parameter controls query response compression.
+
+        Uses H2HeaderProxy to intercept and verify gRPC headers over HTTP/2.
+        Supports both h2c (cleartext) and h2 (TLS) connections.
+        """
+        from urllib.parse import urlparse
+        from tests.util.h2_proxy import H2HeaderProxy
+
+        # Test cases
+        test_cases = [
+            {
+                'name': 'default',
+                'disable_grpc_compression': None,
+                'expected_req_encoding': 'identity, deflate, gzip',
+                'expected_resp_encoding': 'gzip',
+            },
+            {
+                'name': 'disabled=False',
+                'disable_grpc_compression': False,
+                'expected_req_encoding': 'identity, deflate, gzip',
+                'expected_resp_encoding': 'gzip',
+            },
+            {
+                'name': 'disabled=True',
+                'disable_grpc_compression': True,
+                'expected_req_encoding': 'identity',
+                'expected_resp_encoding': None,
+            },
+        ]
+
+        # Parse upstream host/port from test URL
+        parsed = urlparse(self.host)
+        upstream_host = parsed.hostname or '127.0.0.1'
+        upstream_port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        use_tls = parsed.scheme == 'https'
+
+        test_id = time.time_ns()
+        measurement = f'grpc_compression_test_{random_hex(6)}'
+
+        # Write test data points
+        num_points = 10
+        lines = [
+            f'{measurement},type=test value={i}.0,counter={i}i,test_id={test_id}i {test_id + i * 1000000}'
+            for i in range(num_points)
+        ]
+        self.client.write('\n'.join(lines))
+
+        test_query = f"SELECT * FROM \"{measurement}\" WHERE test_id = {test_id} ORDER BY counter"
+
+        # Wait for data to be available
+        result = None
+        start = time.time()
+        while time.time() - start < 10:
+            result = self.client.query(test_query, mode="all")
+            if len(result) >= num_points:
+                break
+            time.sleep(0.5)
+        self.assertEqual(len(result), num_points, "Data not available after write")
+
+        for tc in test_cases:
+            name = tc['name']
+            proxy = None
+
+            try:
+                # Start proxy - supports both h2c (cleartext) and h2 (TLS)
+                proxy = H2HeaderProxy(
+                    upstream_host=upstream_host,
+                    upstream_port=upstream_port,
+                    tls=use_tls,
+                    upstream_tls=use_tls
+                )
+                proxy.start()
+
+                # Build client kwargs
+                client_kwargs = {
+                    'host': proxy.url,
+                    'database': self.database,
+                    'token': self.token,
+                    'verify_ssl': False,  # Accept proxy's self-signed cert
+                }
+                if tc['disable_grpc_compression'] is not None:
+                    client_kwargs['disable_grpc_compression'] = tc['disable_grpc_compression']
+
+                client = InfluxDBClient3(**client_kwargs)
+                try:
+                    result = client.query(test_query, mode="all")
+                    self.assertEqual(len(result), num_points, f"[{name}] Should return {num_points} rows")
+                finally:
+                    client.close()
+
+                # Verify headers
+                req_encoding = proxy.get_last_request_header('grpc-accept-encoding')
+                resp_encoding = proxy.get_last_response_header('grpc-encoding')
+
+                print(f"\n[{name}] Request grpc-accept-encoding: {req_encoding}")
+                expected_resp = tc['expected_resp_encoding']
+                if expected_resp and resp_encoding != expected_resp:
+                    print(f"[{name}] Response grpc-encoding: {resp_encoding} "
+                          f"(expected: {expected_resp})")
+                else:
+                    print(f"[{name}] Response grpc-encoding: {resp_encoding}")
+
+                self.assertEqual(req_encoding, tc['expected_req_encoding'],
+                                 f"[{name}] Unexpected request encoding")
+
+                if tc['expected_resp_encoding']:
+                    # Note: InfluxDB 3 Core may not compress responses even when client
+                    # advertises gzip support. Per gRPC spec, servers may choose not to
+                    # compress regardless of client settings. InfluxDB Cloud typically
+                    # compresses, but Core may not. We warn instead of failing.
+                    # See: https://grpc.io/docs/guides/compression/
+                    if resp_encoding != tc['expected_resp_encoding']:
+                        import warnings
+                        warnings.warn(
+                            f"[{name}] Server returned '{resp_encoding}' instead of "
+                            f"'{tc['expected_resp_encoding']}'. This is normal for "
+                            f"InfluxDB 3 Core which may not compress responses."
+                        )
+                else:
+                    self.assertTrue(resp_encoding is None or resp_encoding == 'identity',
+                                    f"[{name}] Expected no compression, got: {resp_encoding}")
+            finally:
+                if proxy:
+                    proxy.stop()

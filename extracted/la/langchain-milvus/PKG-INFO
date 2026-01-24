@@ -1,18 +1,17 @@
 Metadata-Version: 2.3
 Name: langchain-milvus
-Version: 0.2.1
+Version: 0.3.3
 Summary: An integration package connecting Milvus and LangChain
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: langchain-core (>=0.2.38,<0.4)
-Requires-Dist: pymilvus (>=2.5.7,<3.0)
+Requires-Dist: langchain-core (>=1.0.0)
+Requires-Dist: pymilvus (>=2.6.0,<3.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-milvus
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-milvus/releases
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-milvus/tree/main/libs/milvus

@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       - run: pip install pre-commit
@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, macos-13, windows-latest]
-        python_version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11']
+        python_version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11']
         exclude:
           # circumvent wierd issue with qh3.asyncio+windows+proactor loop...
           - python_version: pypy-3.9
@@ -48,7 +48,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
@@ -65,11 +65,15 @@ jobs:
       - name: Run test CPython
         if: startsWith(matrix.python_version, 'pypy') == false
         run: nox -s test-${{ matrix.python_version }}
+        env:
+          UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
       - name: Run test PyPy
         if: startsWith(matrix.python_version, 'pypy')
         run: nox -s test-pypy
+        env:
+          UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
       - name: "Upload artifact"
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python_version }}
           path: ".coverage.*"
@@ -85,7 +89,7 @@ jobs:
         uses: "actions/checkout@d632683dd7b4114ad314bca15554477dd762a938"
 
       - name: "Setup Python"
-        uses: "actions/setup-python@3fddbee7870211eda9047db10474808be43c71ec"
+        uses: "actions/setup-python@2e3e4b15a884dc73a63f962bff250a855150a234"
         with:
           python-version: "3.x"
 
@@ -93,7 +97,7 @@ jobs:
         run: "python -m pip install --upgrade coverage"
 
       - name: "Download artifact"
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           pattern: coverage-data-*
           merge-multiple: true
@@ -105,7 +109,7 @@ jobs:
           python -m coverage report --ignore-errors --show-missing --fail-under=98
 
       - name: "Upload report"
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: coverage-report
           path: htmlcov
@@ -116,11 +120,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-22.04, macos-13, windows-latest ]
-        python_version: [ '3.13', 'pypy-3.10' ]
+        python_version: [ '3.13',  ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python_version }}
           allow-prereleases: true
@@ -136,6 +140,8 @@ jobs:
         if: matrix.os == 'windows-latest'
       - name: Run test
         run: nox -s downstream_niquests
+        env:
+          UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
 
   linux:
     runs-on: ubuntu-22.04
@@ -147,7 +153,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [ x86_64, s390x, aarch64, armv7l, ppc64le, ppc64, i686 ]
-        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t' ]
+        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t', '3.14t' ]
         manylinux: [ 'manylinux2014', 'musllinux_1_1' ]
         exclude:
           - manylinux: musllinux_1_1
@@ -156,12 +162,23 @@ jobs:
             target: ppc64
           - manylinux: musllinux_1_1
             target: ppc64le
+        include:
+          - manylinux: manylinux_2_39
+            target: riscv64gc-unknown-linux-gnu
+            python_version: '3.10'
+          - manylinux: manylinux_2_39
+            target: riscv64gc-unknown-linux-gnu
+            python_version: '3.13t'
+          - manylinux: manylinux_2_39
+            target: riscv64gc-unknown-linux-gnu
+            python_version: '3.14t'
 
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python_version }}
+          allow-prereleases: true
       - name: Build wheels (no workarounds)
         if: matrix.target == 'x86_64'
         uses: PyO3/maturin-action@v1
@@ -323,6 +340,29 @@ jobs:
             sudo apt-get install -y gcc-multilib || echo "no apt support"
             export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=/usr/powerpc64-unknown-linux-gnu/powerpc64-unknown-linux-gnu/sysroot"
 
+      - name: Build wheels (riscv+manylinux_2_39 workaround)
+        if: matrix.target == 'riscv64gc-unknown-linux-gnu' && matrix.manylinux == 'manylinux_2_39'
+        uses: PyO3/maturin-action@v1
+        env:
+          UNSAFE_PYO3_SKIP_VERSION_CHECK: 1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --interpreter ${{ matrix.python_version }}
+          sccache: 'true'
+          manylinux: ${{ matrix.manylinux }}
+          docker-options: -e UNSAFE_PYO3_SKIP_VERSION_CHECK=1
+          container: ghcr.io/rust-cross/manylinux_2_39-cross:riscv64
+          before-script-linux: |
+            sudo apt-get update || echo "no apt support"
+            sudo apt-get install -y libclang || echo "no apt support"
+            sudo apt-get install -y libc6 || echo "no apt support"
+            sudo apt-get install -y libc6-dev || echo "no apt support"
+            sudo apt-get install -y libclang-dev || echo "no apt support"
+            sudo apt-get install -y clang || echo "no apt support"
+            sudo apt-get install -y linux-headers-generic || echo "no apt support"
+            sudo apt-get install -y gcc-multilib || echo "no apt support"
+            export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=/usr/riscv64-unknown-linux-gnu/riscv64-unknown-linux-gnu/sysroot"
+
       - name: Build wheels (armv7l+manylinux workaround)
         if: matrix.target == 'armv7l' && matrix.manylinux == 'manylinux2014'
         uses: PyO3/maturin-action@v1
@@ -392,7 +432,7 @@ jobs:
             export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=/usr/local/musl/i686-unknown-linux-musl"
 
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-linux-${{ matrix.target }}-${{ matrix.manylinux }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -407,7 +447,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [ x64, aarch64, x86 ]
-        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t' ]
+        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t', '3.14t' ]
         exclude:
           - target: aarch64
             python_version: pypy-3.7
@@ -431,11 +471,12 @@ jobs:
             python_version: pypy-3.11
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         if: matrix.target != 'aarch64'
         with:
           python-version: ${{ matrix.python_version }}
           architecture: ${{ matrix.target == 'x86' && 'x86' || 'x64' }}
+          allow-prereleases: true
       - uses: ilammy/setup-nasm@v1
       - name: Set up Clang (Cygwin)
         run: choco install llvm -y
@@ -463,7 +504,7 @@ jobs:
           args: --release --out dist -i 3.13t
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-windows-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -478,12 +519,13 @@ jobs:
       fail-fast: false
       matrix:
         target: [ universal2 ]
-        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t' ]
+        python_version: [ '3.10', 'pypy-3.7', 'pypy-3.8', 'pypy-3.9', 'pypy-3.10', 'pypy-3.11', '3.13t', '3.14t' ]
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python_version }}
+          allow-prereleases: true
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         env:
@@ -493,7 +535,7 @@ jobs:
           args: --release --out dist --interpreter ${{ matrix.python_version }}
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-macos-${{ matrix.target }}-${{ matrix.python_version }}
           path: dist/*.whl
@@ -512,7 +554,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: wheels-sdist
           path: dist/*.tar.gz
@@ -526,7 +568,7 @@ jobs:
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - name: Download distributions
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           pattern: wheels-*
           path: dist
@@ -563,7 +605,7 @@ jobs:
       contents: write
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           pattern: wheels-*
           path: dist
@@ -574,6 +616,6 @@ jobs:
         run: |
           gh release upload ${{ github.ref_name }} dist/* --repo ${{ github.repository }}
       - name: Publish to PyPI
-        uses: "pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70" # v1.12.3
+        uses: "pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e" # v1.13.0
         with:
           attestations: true

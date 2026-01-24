@@ -17,29 +17,25 @@ import trafaret as t
 
 from datarobot.models.api_object import APIObject
 
-llm_cost_configuration = t.Dict(
-    {
-        t.Key("input_token_price"): t.Float,
-        t.Key("reference_input_token_count"): t.Int,
-        t.Key("output_token_price"): t.Float,
-        t.Key("reference_output_token_count"): t.Int,
-        t.Key("currency_code"): t.String,
-        t.Key("llm_id"): t.String,
-        t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+llm_cost_configuration = t.Dict({
+    t.Key("input_token_price"): t.Float,
+    t.Key("reference_input_token_count"): t.Int,
+    t.Key("output_token_price"): t.Float,
+    t.Key("reference_output_token_count"): t.Int,
+    t.Key("currency_code"): t.String,
+    t.Key("llm_id"): t.String,
+    t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
-cost_metric_configuration = t.Dict(
-    {
-        t.Key("cost_configuration_id"): t.String,
-        t.Key("use_case_id"): t.String,
-        t.Key("playground_id"): t.String,
-        t.Key("cost_metric_configurations"): t.List(llm_cost_configuration),
-        # New configurations require a name, old ones might not have it
-        t.Key("name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-    }
-).ignore_extra("*")
+cost_metric_configuration = t.Dict({
+    t.Key("cost_configuration_id"): t.String,
+    t.Key("use_case_id"): t.String,
+    t.Key("playground_id"): t.String,
+    t.Key("cost_metric_configurations"): t.List(llm_cost_configuration),
+    # New configurations require a name, old ones might not have it
+    t.Key("name", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+}).ignore_extra("*")
 
 
 class LLMCostConfiguration(APIObject):
@@ -128,9 +124,7 @@ class CostMetricConfiguration(APIObject):
     @classmethod
     def get(cls, cost_metric_configuration_id: str) -> CostMetricConfiguration:
         """Get cost metric configuration by ID."""
-        response_data = cls._client.get(
-            f"{cls._client.domain}/{cls._path}/{cost_metric_configuration_id}/"
-        )
+        response_data = cls._client.get(f"{cls._client.domain}/{cls._path}/{cost_metric_configuration_id}/")
         return cls.from_server_data(response_data.json())
 
     def update(
@@ -138,9 +132,7 @@ class CostMetricConfiguration(APIObject):
     ) -> CostMetricConfiguration:
         """Update the cost configurations."""
         payload: dict[str, Any] = {
-            "cost_metric_configurations": [
-                config.to_dict() for config in cost_metric_configurations
-            ],
+            "cost_metric_configurations": [config.to_dict() for config in cost_metric_configurations],
         }
         if name:
             payload["name"] = name
@@ -159,9 +151,7 @@ class CostMetricConfiguration(APIObject):
         """Create a new cost metric configuration."""
         payload = {
             "use_case_id": use_case_id,
-            "cost_metric_configurations": [
-                config.to_dict() for config in cost_metric_configurations
-            ],
+            "cost_metric_configurations": [config.to_dict() for config in cost_metric_configurations],
             "name": name,
             "playground_id": playground_id,
         }

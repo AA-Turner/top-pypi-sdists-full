@@ -3,7 +3,7 @@ Type annotations for ec2-instance-connect service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2_instance_connect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -35,11 +36,6 @@ from .type_defs import (
     SendSSHPublicKeyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -48,19 +44,19 @@ else:
 __all__ = ("EC2InstanceConnectClient",)
 
 class Exceptions(BaseClientExceptions):
-    AuthException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    EC2InstanceNotFoundException: Type[BotocoreClientError]
-    EC2InstanceStateInvalidException: Type[BotocoreClientError]
-    EC2InstanceTypeInvalidException: Type[BotocoreClientError]
-    EC2InstanceUnavailableException: Type[BotocoreClientError]
-    InvalidArgsException: Type[BotocoreClientError]
-    SerialConsoleAccessDisabledException: Type[BotocoreClientError]
-    SerialConsoleSessionLimitExceededException: Type[BotocoreClientError]
-    SerialConsoleSessionUnavailableException: Type[BotocoreClientError]
-    SerialConsoleSessionUnsupportedException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AuthException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EC2InstanceNotFoundException: type[BotocoreClientError]
+    EC2InstanceStateInvalidException: type[BotocoreClientError]
+    EC2InstanceTypeInvalidException: type[BotocoreClientError]
+    EC2InstanceUnavailableException: type[BotocoreClientError]
+    InvalidArgsException: type[BotocoreClientError]
+    SerialConsoleAccessDisabledException: type[BotocoreClientError]
+    SerialConsoleSessionLimitExceededException: type[BotocoreClientError]
+    SerialConsoleSessionUnavailableException: type[BotocoreClientError]
+    SerialConsoleSessionUnsupportedException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class EC2InstanceConnectClient(AioBaseClient):
     """
@@ -126,7 +122,7 @@ class EC2InstanceConnectClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

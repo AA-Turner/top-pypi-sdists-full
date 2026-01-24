@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import re
 from typing import TYPE_CHECKING
@@ -9,11 +9,11 @@ from typing import Tuple
 
 from pyparsing import Forward
 from pyparsing import Group
-from pyparsing import IndentedBlock
 from pyparsing import Keyword
 from pyparsing import LineEnd
 from pyparsing import Literal
 from pyparsing import OneOrMore
+from pyparsing import OpAssoc
 from pyparsing import Opt
 from pyparsing import ParseException
 from pyparsing import ParseResults
@@ -27,7 +27,6 @@ from pyparsing import ZeroOrMore
 from pyparsing import alphanums
 from pyparsing import infix_notation
 from pyparsing import one_of
-from pyparsing import opAssoc
 
 if TYPE_CHECKING:
     from esp_kconfiglib.kconfig_parser import Parser
@@ -148,10 +147,10 @@ symbol_regex = r"""(?<!\S)
 
 symbol = Regex(symbol_regex, re.X)
 operator_with_precedence = [
-    (Literal("!"), 1, opAssoc.RIGHT),
-    (one_of("= != < > <= >="), 2, opAssoc.LEFT),
-    (one_of("&&"), 2, opAssoc.LEFT),
-    (one_of("||"), 2, opAssoc.LEFT),
+    (Literal("!"), 1, OpAssoc.RIGHT),
+    (one_of("= != < > <= >="), 2, OpAssoc.LEFT),
+    (one_of("&&"), 2, OpAssoc.LEFT),
+    (one_of("||"), 2, OpAssoc.LEFT),
 ]
 
 # Expression has operators above and symbols as operands
@@ -215,6 +214,7 @@ class KconfigOptionBlock(KconfigBlock):
             "set": [],
             "weak_set": [],
             "help": None,
+            "warning": [],
         }
 
         def is_line_with_option(tokens: List[str]) -> bool:
@@ -228,21 +228,31 @@ class KconfigOptionBlock(KconfigBlock):
         def prompt_from_token_list(tokens: List[str]) -> Tuple[str, int]:
             """
             Get prompt (i.e. quoted string) from the list of tokens. Start and end are determined by the quotes.
+            Support nested quotes, e.g. "hello 'world'" or 'hello "world"'.
             """
-            prompt_tokens = []
-            current_token_idx = 1
-            well_formed_prompt = False
+            # Determine the quote type - single or double quote
+            quote_type = tokens[0][0]
+            if quote_type not in ('"', "'"):
+                raise ParseException(instring, loc, "Error parsing option block: prompt missing leading quote.", self)
+            current_token_idx = 0
             for token in tokens:
-                prompt_tokens.append(token)
-                current_token_idx += 1
-                if token.endswith(('"', "'")):
-                    well_formed_prompt = True
+                if not token.endswith(quote_type):
+                    current_token_idx += 1
+                else:
                     break
-            if not well_formed_prompt:
+
+            if not tokens[current_token_idx].endswith(quote_type):
                 raise ParseException(
-                    instring, current_loc, "Error parsing option block: prompt must be a quoted string.", self
+                    instring,
+                    current_loc,
+                    (
+                        "Error parsing option block: prompt either missing ending quote "
+                        "or is ended with a different quote than started with."
+                    ),
+                    self,
                 )
-            return " ".join(prompt_tokens)[1:-1], current_token_idx
+
+            return " ".join(tokens[: current_token_idx + 1])[1:-1], current_token_idx + 1
 
         # Unfortunately, pyparsing sometimes points KconfigOptionBlock to the end of the previous line,
         # sometimes directly to the start of current line,
@@ -443,9 +453,30 @@ class KconfigOptionBlock(KconfigBlock):
                 option_dict["option"].append(option)
                 current_loc += len(line) + 1  # +1 for \n
 
+            elif tokens[0] == "warning":
+                if len(tokens) > 1:  # inline prompt
+                    if not tokens[1].startswith(('"', "'")):
+                        raise ParseException(
+                            instring, current_loc, "Error parsing option block: prompt must be a quoted string.", self
+                        )
+
+                    prompt_str, current_token_idx = prompt_from_token_list(tokens[1:])
+
+                    option_dict["warning"].append(prompt_str)
+                else:
+                    raise ParseException(
+                        instring,
+                        current_loc,
+                        "Error parsing option block: warning option missing prompt.",
+                        self,
+                    )
+                current_loc += len(line) + 1  # +1 for \n
             else:
                 raise ParseException(
-                    instring, current_loc, f"Error parsing option block: unsupported option at line {line}.", self
+                    instring,
+                    current_loc,
+                    f'Error parsing option block: unsupported option at line {loc}:"{line}".',
+                    self,
                 )
 
         return current_loc, option_dict
@@ -511,8 +542,7 @@ class KconfigGrammar:
 
         symbol_name = Word(alphanums.upper() + "_").set_results_name("config_name", list_all_matches=True)
         config_opts = KconfigOptionBlock().leave_whitespace().set_results_name("config_opts")
-        config = Keyword("config") + symbol_name + config_opts
-        config = config.set_parse_action(parser.parse_config)
+        config = (Keyword("config") + symbol_name + config_opts).set_parse_action(parser.parse_config)
 
         ###########################
         # Comment
@@ -552,13 +582,11 @@ class KconfigGrammar:
         # Choice is a group of configs that can have only one active at a time.
         choice = (
             Keyword("choice")
-            + (
-                Opt(symbol_name).set_results_name("name")
-                + Opt(KconfigOptionBlock().set_results_name("config_opts"))
-                + IndentedBlock(entries).set_results_name("entries")
-            ).set_parse_action(parser.parse_choice)
+            + Opt(symbol_name).set_results_name("choice_name")
+            + Opt(KconfigOptionBlock().leave_whitespace()).set_results_name("choice_opts")
+            + entries
             + Keyword("endchoice")
-        )
+        ).set_parse_action(parser.parse_choice)
 
         ########################
         # Menuconfig

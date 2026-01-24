@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-ecr-deployment",
-    "version": "4.0.3",
+    "version": "4.0.6",
     "description": "CDK construct to deploy docker image to Amazon ECR",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-ecr-deployment",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_ecr_deployment._jsii": [
-            "cdk-ecr-deployment@4.0.3.jsii.tgz"
+            "cdk-ecr-deployment@4.0.6.jsii.tgz"
         ],
         "cdk_ecr_deployment": [
             "py.typed"
@@ -36,9 +36,9 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.80.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.113.0, <2.0.0",
+        "jsii>=1.125.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<4.3.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

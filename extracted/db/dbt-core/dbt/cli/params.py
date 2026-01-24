@@ -235,6 +235,7 @@ exclude_resource_type = _create_option_and_track_env_var(
             "exposure",
             "snapshot",
             "seed",
+            "function",
             "default",
         ],
         case_sensitive=False,
@@ -392,8 +393,9 @@ output_keys = _create_option_and_track_env_var(
     "--output-keys",
     envvar=None,
     help=(
-        "Space-delimited listing of node properties to include as custom keys for JSON output "
-        "(e.g. `--output json --output-keys name resource_type description`)"
+        "Space-delimited listing of node properties to include as custom keys for JSON output. "
+        "Supports nested keys using dot notation "
+        "(e.g. `--output json --output-keys name config.materialized resource_type`)"
     ),
     type=tuple,
     cls=MultiOption,
@@ -526,6 +528,7 @@ resource_type = _create_option_and_track_env_var(
             "saved_query",
             "source",
             "analysis",
+            "function",
             "model",
             "test",
             "unit_test",
@@ -548,7 +551,6 @@ sample = _create_option_and_track_env_var(
     help="Run in sample mode with given SAMPLE_WINDOW spec, such that ref/source calls are sampled by the sample window.",
     default=None,
     type=SampleType(),
-    hidden=True,  # TODO: Unhide
 )
 
 # `--select` and `--models` are analogous for most commands except `dbt list` for legacy reasons.

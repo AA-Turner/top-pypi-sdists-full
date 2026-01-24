@@ -8,19 +8,22 @@
 #ifndef SkImageShader_DEFINED
 #define SkImageShader_DEFINED
 
+#include "include/core/SkFlattenable.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkM44.h"
-#include "src/shaders/SkBitmapProcShader.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkSamplingOptions.h"
+#include "include/core/SkTypes.h"
 #include "src/shaders/SkShaderBase.h"
 
-namespace skgpu {
-class Swizzle;
-}
-
-namespace skgpu::graphite {
-class KeyContext;
-enum class ReadSwizzle;
-}
+class SkArenaAlloc;
+class SkMatrix;
+class SkReadBuffer;
+class SkShader;
+class SkWriteBuffer;
+enum class SkTileMode;
+struct SkStageRec;
 
 class SkImageShader : public SkShaderBase {
 public:
@@ -37,7 +40,7 @@ public:
                                    const SkSamplingOptions&,
                                    const SkMatrix* localMatrix);
 
-    // TODO(skbug.com/12784): Requires SkImage to be texture backed, and created SkShader can only
+    // TODO(skbug.com/40043877): Requires SkImage to be texture backed, and created SkShader can only
     // be used on GPU-backed surfaces.
     static sk_sp<SkShader> MakeSubset(sk_sp<SkImage>,
                                       const SkRect& subset,
@@ -56,16 +59,16 @@ public:
 
     bool isOpaque() const override;
 
-#if defined(SK_GANESH)
-    std::unique_ptr<GrFragmentProcessor> asFragmentProcessor(const GrFPArgs&,
-                                                             const MatrixRec&) const override;
-#endif
-#if defined(SK_GRAPHITE)
-    void addToKey(const skgpu::graphite::KeyContext&,
-                  skgpu::graphite::PaintParamsKeyBuilder*,
-                  skgpu::graphite::PipelineDataGatherer*) const override;
-#endif
+    ShaderType type() const override { return ShaderType::kImage; }
+
     static SkM44 CubicResamplerMatrix(float B, float C);
+
+    SkTileMode tileModeX() const { return fTileModeX; }
+    SkTileMode tileModeY() const { return fTileModeY; }
+    sk_sp<SkImage> image() const { return fImage; }
+    SkSamplingOptions sampling() const { return fSampling; }
+    SkRect subset() const { return fSubset; }
+    bool isRaw() const { return fRaw; }
 
 private:
     SK_FLATTENABLE_HOOKS(SkImageShader)
@@ -76,23 +79,14 @@ private:
 #endif
     SkImage* onIsAImage(SkMatrix*, SkTileMode*) const override;
 
-    bool appendStages(const SkStageRec&, const MatrixRec&) const override;
-
-    skvm::Color program(skvm::Builder*,
-                        skvm::Coord device,
-                        skvm::Coord local,
-                        skvm::Color paint,
-                        const MatrixRec&,
-                        const SkColorInfo& dst,
-                        skvm::Uniforms* uniforms,
-                        SkArenaAlloc*) const override;
+    bool appendStages(const SkStageRec&, const SkShaders::MatrixRec&) const override;
 
     sk_sp<SkImage>          fImage;
     const SkSamplingOptions fSampling;
     const SkTileMode        fTileModeX;
     const SkTileMode        fTileModeY;
 
-    // TODO(skbug.com/12784): This is only supported for GPU images currently.
+    // TODO(skbug.com/40043877): This is only supported for GPU images currently.
     // If subset == (0,0,w,h) of the image, then no subset is applied. Subset will not be empty.
     const SkRect            fSubset;
 

@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -58,20 +59,10 @@ class ContextEnteringStrategy(ActivationStrategy):
 
 class PushingStrategy(ActivationStrategy):
     def activate(self):
-        from logbook.concurrency import is_gevent_enabled
-
-        if is_gevent_enabled():
-            self.handler.push_greenlet()
-        else:
-            self.handler.push_thread()
+        self.handler.push_context()
 
     def deactivate(self):
-        from logbook.concurrency import is_gevent_enabled
-
-        if is_gevent_enabled():
-            self.handler.pop_greenlet()
-        else:
-            self.handler.pop_thread()
+        self.handler.pop_context()
 
 
 @pytest.fixture(params=[ContextEnteringStrategy, PushingStrategy])
@@ -101,11 +92,7 @@ def default_handler(request):
     return returned
 
 
-try:
-    import gevent
-except ImportError:
-    pass
-else:
+if importlib.util.find_spec("gevent") is not None:
 
     @pytest.fixture(
         scope="module", autouse=True, params=[False, True], ids=["nogevent", "gevent"]

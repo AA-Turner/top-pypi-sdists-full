@@ -1,18 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx_inline_tabs
-Version: 2023.4.21
+Version: 2025.12.21.14
 Summary: Add inline tabbed content to your Sphinx documentation.
-Home-page: https://github.com/pradyunsg/sphinx-inline-tabs
-Author: Pradyun Gedam
-Author-email: mail@pradyunsg.me
+Author-email: Pradyun Gedam <mail@pradyunsg.me>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: sphinx >= 3
+License-Expression: MIT
+License-File: LICENSE
+Requires-Dist: sphinx>=3
 Requires-Dist: myst-parser ; extra == "doc"
 Requires-Dist: furo ; extra == "doc"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: pytest-xdist ; extra == "test"
+Project-URL: Documentation, https://sphinx-inline-tabs.readthedocs.io
+Project-URL: Homepage, https://github.com/pradyunsg/sphinx-inline-tabs
 Provides-Extra: doc
 Provides-Extra: test
 

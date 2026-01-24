@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: subliminal
-Version: 2.4.0
+Version: 2.5.0
 Summary: Subtitles, faster than your thoughts
 Project-URL: homepage, https://github.com/Diaoul/subliminal
 Project-URL: repository, https://github.com/Diaoul/subliminal
@@ -21,14 +21,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: babelfish>=0.6.1
 Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: chardet>=5.0
+Requires-Dist: click
 Requires-Dist: click-option-group>=0.5.6
-Requires-Dist: click>=8.0
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: dogpile-cache>=1.0
 Requires-Dist: guessit>=3.0.0

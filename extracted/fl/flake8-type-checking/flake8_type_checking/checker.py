@@ -19,7 +19,6 @@ from flake8_type_checking.constants import (
     ANNOTATION_PROPERTY,
     ATTRIBUTE_PROPERTY,
     ATTRS_DECORATORS,
-    ATTRS_IMPORTS,
     BINOP_OPERAND_PROPERTY,
     MISSING,
     TC001,
@@ -53,7 +52,6 @@ if TYPE_CHECKING:
         HasPosition,
         Import,
         ImportTypeValue,
-        Name,
         SupportsIsTyping,
     )
 
@@ -130,53 +128,19 @@ class AttrsMixin:
     """
 
     if TYPE_CHECKING:
-        third_party_imports: dict[str, Import]
 
-    def get_all_attrs_imports(self) -> dict[str | None, str]:
-        """Return a map of all attrs/attr imports."""
-        attrs_imports: dict[str | None, str] = {}  # map of alias to full import name
-
-        for node in self.third_party_imports.values():
-            module = getattr(node, 'module', '')
-            names: list[Name] = getattr(node, 'names', [])
-
-            for name in names:
-                if module in ATTRS_IMPORTS:
-                    alias = name.name if name.asname is None else name.asname
-                    attrs_imports[alias] = f'{module}.{name.name}'
-                elif name.name.split('.')[0] in ATTRS_IMPORTS:
-                    attrs_imports[name.asname] = name.name
-
-        return attrs_imports
+        def lookup_full_name(self, node: ast.AST) -> str | None:  # noqa: D102
+            ...
 
     def is_attrs_class(self, class_node: ast.ClassDef) -> bool:
         """Check whether an ast.ClassDef is an attrs class or not."""
-        attrs_imports = self.get_all_attrs_imports()
-        return any(self.is_attrs_decorator(decorator, attrs_imports) for decorator in class_node.decorator_list)
+        return any(self.is_attrs_decorator(decorator) for decorator in class_node.decorator_list)
 
-    def is_attrs_decorator(self, decorator: Any, attrs_imports: dict[str | None, str]) -> bool:
+    def is_attrs_decorator(self, decorator: ast.AST) -> bool:
         """Check whether a class decorator is an attrs decorator or not."""
         if isinstance(decorator, ast.Call):
-            return self.is_attrs_decorator(decorator.func, attrs_imports)
-        elif isinstance(decorator, ast.Attribute):
-            return self.is_attrs_attribute(decorator)
-        elif isinstance(decorator, ast.Name):
-            return self.is_attrs_str(decorator.id, attrs_imports)
-        return False
-
-    @staticmethod
-    def is_attrs_attribute(attribute: ast.Attribute) -> bool:
-        """Check whether an ast.Attribute is an attrs attribute or not."""
-        s1 = f"attr.{getattr(attribute, 'attr', '')}"
-        s2 = f"attrs.{getattr(attribute, 'attrs', '')}"
-        actual = [s1, s2]
-        return any(e for e in actual if e in ATTRS_DECORATORS)
-
-    @staticmethod
-    def is_attrs_str(attribute: str | ast.expr, attrs_imports: dict[str | None, str]) -> bool:
-        """Check whether an ast.expr or string is an attrs string or not."""
-        actual = attrs_imports.get(str(attribute), '')
-        return actual in ATTRS_DECORATORS
+            decorator = decorator.func
+        return self.lookup_full_name(decorator) in ATTRS_DECORATORS
 
 
 class DunderAllMixin:
@@ -259,7 +223,7 @@ class DunderAllMixin:
             # just needs to be available in global scope anywhere, we handle
             # this by special casing `ast.Constant` when we look for used type
             # checking symbols
-            self.uses[node.value].append((node, self.current_scope))
+            self.uses[node.value].append((node, self.current_scope))  # type: ignore[index]
         return node
 
 
@@ -323,6 +287,7 @@ class SQLAlchemyAnnotationVisitor(AnnotationVisitor):
 
     def visit_annotation_string(self, node: ast.Constant) -> None:
         """Add all the names in the string to mapped names."""
+        assert isinstance(node.value, str)
         visitor = StringAnnotationVisitor(self.plugin)
         visitor.parse_and_visit_string_annotation(node.value)
         self.plugin.soft_uses.update(visitor.names)
@@ -874,6 +839,7 @@ class StringAnnotationVisitor(AnnotationVisitor):
 
     def visit_annotation_string(self, node: ast.Constant) -> None:
         """Parse and visit nested string annotations."""
+        assert isinstance(node.value, str)
         self.parse_and_visit_string_annotation(node.value)
 
 
@@ -938,6 +904,7 @@ class ImportAnnotationVisitor(AnnotationVisitor):
 
     def visit_annotation_string(self, node: ast.Constant) -> None:
         """Register wrapped annotation and invalid binop literals."""
+        assert isinstance(node.value, str)
         setattr(node, ANNOTATION_PROPERTY, True)
         # we don't want to register them as both so we don't emit redundant errors
         if getattr(node, BINOP_OPERAND_PROPERTY, False):
@@ -966,7 +933,7 @@ class ImportAnnotationVisitor(AnnotationVisitor):
         if self.never_evaluates:
             return
 
-        if self.type == 'alias' or (self.type == 'annotation' and not self.import_visitor.futures_annotation):
+        if self.type == 'alias' or (self.type == 'annotation' and not self.import_visitor.are_annotations_deferred):
             # visit nodes in regular runtime context
             self.import_visitor.visit(node)
             return
@@ -998,6 +965,7 @@ class CastTypeExpressionVisitor(AnnotationVisitor):
 
     def visit_annotation_string(self, node: ast.Constant) -> None:
         """Collect all the names referenced inside the forward reference."""
+        assert isinstance(node.value, str)
         visitor = StringAnnotationVisitor(self._typing_lookup)
         visitor.parse_and_visit_string_annotation(node.value)
         self.quoted_names.update(visitor.names)
@@ -1021,6 +989,7 @@ class ImportVisitor(
     def __init__(
         self,
         cwd: Path,
+        py314plus: bool,
         pydantic_enabled: bool,
         fastapi_enabled: bool,
         fastapi_dependency_support_enabled: bool,
@@ -1034,6 +1003,9 @@ class ImportVisitor(
         force_future_annotation: bool = False,
     ) -> None:
         super().__init__()
+
+        #: Whether or not we should be using Python 3.14 semantics for annotations
+        self.py314plus = py314plus
 
         #: Plugin settings
         self.pydantic_enabled = pydantic_enabled
@@ -1201,6 +1173,16 @@ class ImportVisitor(
 
         self._lookup_cache[node] = name
         return name
+
+    @property
+    def are_annotations_deferred(self) -> bool:
+        """
+        Return whether or not annotations are deferred.
+
+        This is the case when either there is a `from __future__ import annotations`
+        import present or we're targetting Python 3.14+.
+        """
+        return self.py314plus or self.futures_annotation is True
 
     def is_typing(self, node: ast.AST, symbol: str) -> bool:
         """Check if the given node matches the given typing symbol."""
@@ -1940,6 +1922,7 @@ class TypingOnlyImportsChecker:
     __slots__ = [
         'cwd',
         'strict_mode',
+        'py314plus',
         'builtin_names',
         'used_type_checking_names',
         'visitor',
@@ -1950,6 +1933,7 @@ class TypingOnlyImportsChecker:
     def __init__(self, node: ast.Module, options: Namespace | None) -> None:
         self.cwd = Path(os.getcwd())
         self.strict_mode = getattr(options, 'type_checking_strict', False)
+        py314plus = getattr(options, 'type_checking_py314plus', False)
 
         # we use the same option as pyflakes to extend the list of builtins
         self.builtin_names = builtin_names
@@ -1982,6 +1966,7 @@ class TypingOnlyImportsChecker:
 
         self.visitor = ImportVisitor(
             self.cwd,
+            py314plus=py314plus,
             pydantic_enabled=pydantic_enabled,
             fastapi_enabled=fastapi_enabled,
             cattrs_enabled=cattrs_enabled,
@@ -2160,13 +2145,13 @@ class TypingOnlyImportsChecker:
                 self.visitor.force_future_annotation
                 and (self.visitor.unwrapped_annotations or self.visitor.wrapped_annotations)
             )
-        ) and not self.visitor.futures_annotation:
+        ) and not self.visitor.are_annotations_deferred:
             yield 1, 0, TC100, None
 
     def futures_excess_quotes(self) -> Flake8Generator:
         """TC101."""
         # If futures imports are present, any ast.Constant captured in add_annotation should yield an error
-        if self.visitor.futures_annotation:
+        if self.visitor.are_annotations_deferred:
             for item in self.visitor.wrapped_annotations:
                 if item.type != 'annotation':  # TypeAlias value will not be affected by a futures import
                     continue
@@ -2240,7 +2225,7 @@ class TypingOnlyImportsChecker:
             else:
                 error = TC201.format(annotation=item.annotation)
 
-                if not self.visitor.futures_annotation:
+                if not self.visitor.are_annotations_deferred:
                     yield item.lineno, item.col_offset, TC101.format(annotation=item.annotation), None
 
             yield item.lineno, item.col_offset, error, None

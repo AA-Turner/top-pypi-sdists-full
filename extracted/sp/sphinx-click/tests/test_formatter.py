@@ -31,6 +31,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS]
@@ -79,6 +81,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS] ARG
@@ -152,6 +156,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS]
@@ -197,6 +203,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS] ARG ARG_NO_HELP
@@ -261,6 +269,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS]
@@ -313,6 +323,8 @@ class CommandTestCase(unittest.TestCase):
         A sample command.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS]
@@ -374,6 +386,8 @@ class CommandTestCase(unittest.TestCase):
             my_cli hello --name "Jack"
 
         .. program:: hello
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             hello [OPTIONS]
@@ -428,6 +442,8 @@ class CommandTestCase(unittest.TestCase):
         dash of bold and even some underlined words.
 
         .. program:: foobar
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             foobar [OPTIONS]
@@ -495,6 +511,8 @@ class CommandTestCase(unittest.TestCase):
         :param click.core.Context ctx: Click context.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS]
@@ -564,6 +582,8 @@ that will be rewrapped again.
         that will be rewrapped again.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS]
@@ -621,6 +641,8 @@ class GroupTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -652,6 +674,8 @@ class GroupTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] ARG COMMAND [ARGS]...
@@ -724,6 +748,8 @@ class NestedCommandsTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -753,6 +779,8 @@ class NestedCommandsTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -776,6 +804,8 @@ class NestedCommandsTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -818,6 +848,8 @@ class CommandFilterTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -840,6 +872,8 @@ class CommandFilterTestCase(unittest.TestCase):
         A sample command group.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -902,6 +936,8 @@ class CustomMultiCommandTestCase(unittest.TestCase):
         A sample custom multicommand.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -960,6 +996,8 @@ class CustomMultiCommandTestCase(unittest.TestCase):
         A sample custom multicommand.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -1017,6 +1055,8 @@ class CommandCollectionTestCase(unittest.TestCase):
         A simple CommandCollection.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -1033,6 +1073,8 @@ class CommandCollectionTestCase(unittest.TestCase):
         A simple CommandCollection.
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS] COMMAND [ARGS]...
@@ -1083,6 +1125,8 @@ class AutoEnvvarPrefixTestCase(unittest.TestCase):
         A simple CLI with auto-env vars .
 
         .. program:: cli
+        .. rubric:: Usage
+
         .. code-block:: shell
 
             cli [OPTIONS]

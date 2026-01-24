@@ -32,6 +32,7 @@ converted into this Resource class' appropriate components and types
 and then returned to the caller.
 """
 
+import builtins
 import collections
 import collections.abc
 import inspect
@@ -512,7 +513,7 @@ class Resource(dict):
         # obj.items() ... but I think the if not obj: is short-circuiting down
         # in the C code and thus since we don't store the data in self[] it's
         # always False even if we override __len__ or __bool__.
-        dict.update(self, self.to_dict())  # type: ignore
+        dict.update(self, self.to_dict())
 
     @classmethod
     def _attributes_iterator(
@@ -703,7 +704,7 @@ class Resource(dict):
         # obj.items() ... but I think the if not obj: is short-circuiting down
         # in the C code and thus since we don't store the data in self[] it's
         # always False even if we override __len__ or __bool__.
-        dict.update(self, self.to_dict())  # type: ignore
+        dict.update(self, self.to_dict())
 
     def _collect_attrs(self, attrs):
         """Given attributes, return a dict per type of attribute
@@ -1114,7 +1115,7 @@ class Resource(dict):
         prepend_key: bool,
         *,
         resource_request_key: str | None = None,
-    ) -> dict[str, ty.Any] | list[ty.Any]:
+    ) -> dict[str, ty.Any] | builtins.list[ty.Any]:
         body: dict[str, ty.Any] | list[ty.Any]
         if patch:
             if not self._store_unknown_attrs_as_properties:
@@ -1268,7 +1269,7 @@ class Resource(dict):
         self._header.attributes.update(headers)
         self._header.clean()
         self._update_location()
-        dict.update(self, self.to_dict())  # type: ignore
+        dict.update(self, self.to_dict())
 
     @classmethod
     def _get_session(cls, session: AdapterT) -> AdapterT:
@@ -1478,7 +1479,7 @@ class Resource(dict):
     def bulk_create(
         cls,
         session: adapter.Adapter,
-        data: list[dict[str, ty.Any]],
+        data: builtins.list[dict[str, ty.Any]],
         prepend_key: bool = True,
         base_path: str | None = None,
         *,
@@ -2481,7 +2482,10 @@ def wait_for_delete(
     orig_resource = resource
     for count in utils.iterate_timeout(
         timeout=wait,
-        message=f"Timeout waiting for {resource.__class__.__name__}:{resource.id} to delete",
+        message=(
+            f"Timeout waiting for {resource.__class__.__name__}:{resource.id} "
+            f"to delete"
+        ),
         wait=interval,
     ):
         try:

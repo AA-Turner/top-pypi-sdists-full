@@ -12,9 +12,16 @@ exclude = [
 # TODO replace with project.requires-python
 target-version = "py37"
 
+[tool.ruff.format]
+# Enable preview style formatting.
+preview = true
+# This is in order to work with black's skip-string-normalization we previously leveraged
+quote-style = "preserve"
+
 [tool.ruff.per-file-target-version]
 "tests/*.py" = "py38"
 "datarobot/auth/*.py" = "py39"
+"datarobot/core/*.py" = "py38"
 "sdk_docs/*.py" = "py311"
 
 [tool.ruff.lint]
@@ -35,23 +42,34 @@ select = [
     # don't blanket noqa something
     "PGH",
     # refurb
-    "FURB"
+    "FURB",
+    # pylint
+    "PL"
 ]
 
 ignore = [
-    # PD901: https://docs.astral.sh/ruff/rules/pandas-df-variable-name/
-    "PD901", # deprecated and will be removed in the future
     "UP006", # TODO lot of errors
     "UP007", # TODO lot of errors
     "UP009", # TODO was added recently, why?
     "UP032", # TODO errors
     "UP035", # TODO review me
     "UP037", # TODO errors
-    # UP038: https://docs.astral.sh/ruff/rules/non-pep604-isinstance/
-    "UP038", # deprecated and will be removed in the future
     "UP045", # TODO lot of errors
     "PGH004", # TODO 23 errors, need to review each noqa
     "FURB122", # TODO 10 errors, needs stronger testing
+    # Pylint rule equivalents (corresponding to .pylintrc disabled rules)
+    "PLC0415", # TODO `import` should be at the top-level of a file
+    "PLR1711", # useless-return
+    "PLR2004", # Magic value used in comparison, consider replacing x with a constant variable
+    "PLW0120", # useless-else-on-loop (corresponds to no-else-* patterns)
+    "PLW0602", # global-variable-not-assigned (corresponds to global patterns)
+    "PLW0603", # global-statement (corresponds to global patterns)
+    "PLR0913", # too-many-arguments (corresponds to design rules)
+    "PLR0912", # too-many-branches (corresponds to design rules)
+    "PLR0915", # too-many-statements (corresponds to design rules)
+    "PLR0911", # too-many-return-statements (corresponds to design rules)
+    "PLW1641", # Object does not implement `__hash__` method
+    "PLW2901", # `for` loop variable `key` overwritten by assignment target
 ]
 
 [tool.ruff.lint.isort]
@@ -60,9 +78,13 @@ known-first-party = ["datarobotx", "datarobot"]
 case-sensitive = true
 required-imports = ["from __future__ import annotations"]
 
-[tool.black]
-line-length = 100
-target-version = ['py37', 'py38', 'py39', 'py310', 'py311', 'py312', 'py313']
+[tool.ruff.lint.per-file-ignores]
+# For tests we can be more lenient
+"tests/*.py" = [
+    "PD901", # Avoid using the generic variable name `df` for DataFrames
+    "PLC0415", # `import` should be at the top-level of a file
+    "PLC0206", # Extracting value from dictionary without calling `.items()`
+]
 
 [tool.mypy]
 python_version = 3.9

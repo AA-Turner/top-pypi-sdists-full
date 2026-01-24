@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import socket
+from typing import cast, Any
 from urllib import parse
 
 import netaddr
@@ -36,7 +37,9 @@ LOG = logging.getLogger(__name__)
 _IS_IPV6_ENABLED = None
 
 
-def parse_host_port(address, default_port=None):
+def parse_host_port(
+    address: str, default_port: int | None = None
+) -> tuple[str | None, int | None]:
     """Interpret a string as a host:port pair.
 
     An IPv6 address MUST be escaped if accompanied by a port,
@@ -64,12 +67,14 @@ def parse_host_port(address, default_port=None):
     if not address:
         return (None, None)
 
+    port: int | str | None
+
     if address[0] == '[':
         # Escaped ipv6
         _host, _port = address[1:].split(']')
         host = _host
         if ':' in _port:
-            port = _port.split(':')[1]
+            port = int(_port.split(':')[1])
         else:
             port = default_port
     else:
@@ -84,7 +89,7 @@ def parse_host_port(address, default_port=None):
     return (host, None if port is None else int(port))
 
 
-def is_valid_ipv4(address, strict=True):
+def is_valid_ipv4(address: str | None, strict: bool = True) -> bool:
     """Verify that address represents a valid IPv4 address.
 
     :param address: Value to verify
@@ -111,7 +116,7 @@ def is_valid_ipv4(address, strict=True):
         return False
 
 
-def is_valid_ipv6(address):
+def is_valid_ipv6(address: str | None) -> bool:
     """Verify that address represents a valid IPv6 address.
 
     :param address: Value to verify
@@ -135,7 +140,7 @@ def is_valid_ipv6(address):
         return False
 
 
-def get_noscope_ipv6(address):
+def get_noscope_ipv6(address: str) -> str:
     """Take an IPv6 address and trim scope out if present.
 
     :param address: Value to change
@@ -150,7 +155,7 @@ def get_noscope_ipv6(address):
     return address
 
 
-def is_valid_cidr(address):
+def is_valid_cidr(address: str) -> bool:
     """Verify that address represents a valid CIDR address.
 
     :param address: Value to verify
@@ -169,14 +174,13 @@ def is_valid_cidr(address):
     # Verify it here
     ip_segment = address.split('/')
 
-    if (len(ip_segment) <= 1 or
-            ip_segment[1] == ''):
+    if len(ip_segment) <= 1 or ip_segment[1] == '':
         return False
 
     return True
 
 
-def is_valid_ipv6_cidr(address):
+def is_valid_ipv6_cidr(address: str) -> bool:
     """Verify that address represents a valid IPv6 CIDR address.
 
     :param address: address to verify
@@ -192,7 +196,7 @@ def is_valid_ipv6_cidr(address):
         return False
 
 
-def get_ipv6_addr_by_EUI64(prefix, mac):
+def get_ipv6_addr_by_EUI64(prefix: str, mac: str) -> netaddr.IPAddress:
     """Calculate IPv6 address using EUI-64 specification.
 
     This method calculates the IPv6 address using the EUI-64
@@ -214,18 +218,28 @@ def get_ipv6_addr_by_EUI64(prefix, mac):
         raise ValueError(msg)
     try:
         eui64 = int(netaddr.EUI(mac).eui64())
-        prefix = netaddr.IPNetwork(prefix)
-        return netaddr.IPAddress(prefix.first + eui64 ^ (1 << 57))
+        return netaddr.IPAddress(
+            netaddr.IPNetwork(prefix).first + eui64 ^ (1 << 57)
+        )
     except (ValueError, netaddr.AddrFormatError):
-        raise ValueError(_('Bad prefix or mac format for generating IPv6 '
-                           'address by EUI-64: %(prefix)s, %(mac)s:')
-                         % {'prefix': prefix, 'mac': mac})
+        raise ValueError(
+            _(
+                'Bad prefix or mac format for generating IPv6 '
+                'address by EUI-64: %(prefix)s, %(mac)s:'
+            )
+            % {'prefix': prefix, 'mac': mac}
+        )
     except TypeError:
-        raise TypeError(_('Bad prefix type for generating IPv6 address by '
-                          'EUI-64: %s') % prefix)
+        raise TypeError(
+            _('Bad prefix type for generating IPv6 address by EUI-64: %s')
+            % prefix
+        )
 
 
-def get_mac_addr_by_ipv6(ipv6, dialect=netaddr.mac_unix_expanded):
+def get_mac_addr_by_ipv6(
+    ipv6: netaddr.IPAddress,
+    dialect: type[netaddr.mac_eui48] = netaddr.mac_unix_expanded,
+) -> netaddr.EUI:
     """Extract MAC address from interface identifier based IPv6 address.
 
     For example from link-local addresses (fe80::/10) generated from MAC.
@@ -242,19 +256,26 @@ def get_mac_addr_by_ipv6(ipv6, dialect=netaddr.mac_unix_expanded):
 
     .. versionadded:: 4.3.0
     """
-    return netaddr.EUI(int(
-        # out of the lowest 8 bytes (byte positions 8-1)
-        # delete the middle 2 bytes (5-4, 0xff_fe)
-        # by shifting the highest 3 bytes to the right by 2 bytes (8-6 -> 6-4)
-        (((ipv6 & 0xff_ff_ff_00_00_00_00_00) >> 16) +
-         # adding the lowest 3 bytes as they are (3-1)
-         (ipv6 & 0xff_ff_ff)) ^
-        # then invert the universal/local bit
-        0x02_00_00_00_00_00),
-        dialect=dialect)
+    return netaddr.EUI(
+        int(
+            # out of the lowest 8 bytes (byte positions 8-1)
+            # delete the middle 2 bytes (5-4, 0xff_fe)
+            # by shifting the highest 3 bytes to the right by 2 bytes (8-6 -> 6-4)
+            (
+                ((ipv6 & 0xFF_FF_FF_00_00_00_00_00) >> 16)
+                +
+                # adding the lowest 3 bytes as they are (3-1)
+                (ipv6 & 0xFF_FF_FF)  # type: ignore
+            )
+            ^
+            # then invert the universal/local bit
+            0x02_00_00_00_00_00
+        ),
+        dialect=dialect,
+    )
 
 
-def is_ipv6_enabled():
+def is_ipv6_enabled() -> bool:
     """Check if IPv6 support is enabled on the platform.
 
     This api will look into the proc entries of the platform to figure
@@ -278,7 +299,7 @@ def is_ipv6_enabled():
     return _IS_IPV6_ENABLED
 
 
-def escape_ipv6(address):
+def escape_ipv6(address: str) -> str:
     """Escape an IP address in square brackets if IPv6
 
     :param address: address to optionaly escape
@@ -288,11 +309,11 @@ def escape_ipv6(address):
     .. versionadded:: 3.29.0
     """
     if is_valid_ipv6(address):
-        return "[%s]" % address
+        return f"[{address}]"
     return address
 
 
-def is_valid_ip(address):
+def is_valid_ip(address: str | None) -> bool:
     """Verify that address represents a valid IP address.
 
     :param address: Value to verify
@@ -304,7 +325,7 @@ def is_valid_ip(address):
     return is_valid_ipv4(address, False) or is_valid_ipv6(address)
 
 
-def is_valid_mac(address):
+def is_valid_mac(address: str) -> bool:
     """Verify the format of a MAC address.
 
     Check if a MAC address is valid and contains six octets. Accepts
@@ -316,10 +337,10 @@ def is_valid_mac(address):
     .. versionadded:: 3.17
     """
     m = "[0-9a-f]{2}(:[0-9a-f]{2}){5}$"
-    return isinstance(address, str) and re.match(m, address.lower())
+    return bool(isinstance(address, str) and re.match(m, address.lower()))
 
 
-def _is_int_in_range(value, start, end):
+def _is_int_in_range(value: int, start: int, end: int) -> bool:
     """Try to convert value to int and check if it lies within
     range 'start' to 'end'.
 
@@ -332,10 +353,10 @@ def _is_int_in_range(value, start, end):
         val = int(value)
     except (ValueError, TypeError):
         return False
-    return (start <= val <= end)
+    return start <= val <= end
 
 
-def is_valid_port(port):
+def is_valid_port(port: int) -> bool:
     """Verify that port represents a valid port number.
 
     Port can be valid integer having a value of 0 up to and
@@ -346,7 +367,7 @@ def is_valid_port(port):
     return _is_int_in_range(port, 0, 65535)
 
 
-def is_valid_icmp_type(type):
+def is_valid_icmp_type(type: int) -> bool:
     """Verify if ICMP type is valid.
 
     :param type: ICMP *type* field can only be a valid integer
@@ -358,7 +379,7 @@ def is_valid_icmp_type(type):
     return _is_int_in_range(type, 0, 255)
 
 
-def is_valid_icmp_code(code):
+def is_valid_icmp_code(code: int | None) -> bool:
     """Verify if ICMP code is valid.
 
     :param code: ICMP *code* field can be valid integer or None
@@ -372,7 +393,7 @@ def is_valid_icmp_code(code):
     return _is_int_in_range(code, 0, 255)
 
 
-def get_my_ipv4():
+def get_my_ipv4() -> str:
     """Returns the actual ipv4 of the local machine.
 
     This code figures out what source address would be used if some traffic
@@ -388,14 +409,13 @@ def get_my_ipv4():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as csock:
             csock.connect(('192.0.2.0', 80))
-            return csock.getsockname()[0]
+            return cast(str, (csock.getsockname()[0]))
     except OSError:
         return _get_my_ipv4_address()
 
 
-def _get_my_ipv4_address():
-    """Figure out the best ipv4
-    """
+def _get_my_ipv4_address() -> str:
+    """Figure out the best ipv4"""
     LOCALHOST = '127.0.0.1'
     interface = None
 
@@ -407,12 +427,16 @@ def _get_my_ipv4_address():
                     interface = route_attrs[0]
                     break
             else:
-                LOG.info('Could not determine default network interface, '
-                         'using %s for IPv4 address', LOCALHOST)
+                LOG.info(
+                    'Could not determine default network interface, '
+                    'using %s for IPv4 address',
+                    LOCALHOST,
+                )
                 return LOCALHOST
     except FileNotFoundError:
-        LOG.info('IPv4 route table not found, '
-                 'using %s for IPv4 address', LOCALHOST)
+        LOG.info(
+            'IPv4 route table not found, using %s for IPv4 address', LOCALHOST
+        )
         return LOCALHOST
 
     try:
@@ -420,17 +444,21 @@ def _get_my_ipv4_address():
         v4addrs = [addr for addr in addrs if addr.family == socket.AF_INET]
         return v4addrs[0].address
     except (KeyError, IndexError):
-        LOG.info('Could not determine IPv4 address for interface %s, '
-                 'using 127.0.0.1',
-                 interface)
+        LOG.info(
+            'Could not determine IPv4 address for interface %s, '
+            'using 127.0.0.1',
+            interface,
+        )
     except Exception as e:
-        LOG.info('Could not determine IPv4 address for '
-                 'interface %(interface)s: %(error)s',
-                 {'interface': interface, 'error': e})
+        LOG.info(
+            'Could not determine IPv4 address for '
+            'interface %(interface)s: %(error)s',
+            {'interface': interface, 'error': e},
+        )
     return LOCALHOST
 
 
-def get_my_ipv6():
+def get_my_ipv6() -> str:
     """Returns the actual IPv6 address of the local machine.
 
     This code figures out what source address would be used if some traffic
@@ -444,14 +472,13 @@ def get_my_ipv6():
     try:
         with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as csock:
             csock.connect(('2001:db8::1', 80))
-            return csock.getsockname()[0]
+            return cast(str, csock.getsockname()[0])
     except OSError:
         return _get_my_ipv6_address()
 
 
-def _get_my_ipv6_address():
-    """Figure out the best IPv6 address
-    """
+def _get_my_ipv6_address() -> str:
+    """Figure out the best IPv6 address"""
     LOCALHOST = '::1'
     interface = None
     ZERO_ADDRESS = '00000000000000000000000000000000'
@@ -461,17 +488,23 @@ def _get_my_ipv6_address():
         with open('/proc/net/ipv6_route') as routes:
             for route in routes:
                 route_attrs = route.strip().split(' ')
-                if ((route_attrs[0], route_attrs[1]) == ZERO_PAIR and
-                        (route_attrs[2], route_attrs[3]) == ZERO_PAIR):
+                if (route_attrs[0], route_attrs[1]) == ZERO_PAIR and (
+                    route_attrs[2],
+                    route_attrs[3],
+                ) == ZERO_PAIR:
                     interface = route_attrs[-1]
                     break
             else:
-                LOG.info('Could not determine default network interface, '
-                         'using %s for IPv6 address', LOCALHOST)
+                LOG.info(
+                    'Could not determine default network interface, '
+                    'using %s for IPv6 address',
+                    LOCALHOST,
+                )
                 return LOCALHOST
     except FileNotFoundError:
-        LOG.info('IPv6 route table not found, '
-                 'using %s for IPv6 address', LOCALHOST)
+        LOG.info(
+            'IPv6 route table not found, using %s for IPv6 address', LOCALHOST
+        )
         return LOCALHOST
 
     try:
@@ -479,20 +512,24 @@ def _get_my_ipv6_address():
         v6addrs = [addr for addr in addrs if addr.family == socket.AF_INET6]
         return v6addrs[0].address
     except (KeyError, IndexError):
-        LOG.info('Could not determine IPv6 address for interface '
-                 '%(interface)s, using %(address)s',
-                 {'interface': interface, 'address': LOCALHOST})
+        LOG.info(
+            'Could not determine IPv6 address for interface '
+            '%(interface)s, using %(address)s',
+            {'interface': interface, 'address': LOCALHOST},
+        )
     except Exception as e:
-        LOG.info('Could not determine IPv6 address for '
-                 'interface %(interface)s: %(error)s',
-                 {'interface': interface, 'error': e})
+        LOG.info(
+            'Could not determine IPv6 address for '
+            'interface %(interface)s: %(error)s',
+            {'interface': interface, 'error': e},
+        )
     return LOCALHOST
 
 
 class _ModifiedSplitResult(parse.SplitResult):
     """Split results class for urlsplit."""
 
-    def params(self, collapse=True):
+    def params(self, collapse: bool = True) -> dict[str, list[str] | str]:
         """Extracts the query parameters from the split urls components.
 
         This method will provide back as a dictionary the query parameter
@@ -510,13 +547,14 @@ class _ModifiedSplitResult(parse.SplitResult):
             if collapse:
                 return dict(parse.parse_qsl(self.query))
             else:
-                params = {}
-                for (key, value) in parse.parse_qsl(self.query):
+                params: dict[str, list[str] | str] = {}
+                for key, value in parse.parse_qsl(self.query):
                     if key in params:
-                        if isinstance(params[key], list):
-                            params[key].append(value)
+                        v = params[key]
+                        if isinstance(v, list):
+                            v.append(value)
                         else:
-                            params[key] = [params[key], value]
+                            params[key] = [v, value]
                     else:
                         params[key] = value
                 return params
@@ -524,7 +562,7 @@ class _ModifiedSplitResult(parse.SplitResult):
             return {}
 
 
-def urlsplit(url, scheme='', allow_fragments=True):
+def urlsplit(url: str, scheme: str = '', allow_fragments: bool = True) -> Any:
     """Parse a URL using urlparse.urlsplit(), splitting query and fragments.
     This function papers over Python issue9374_ when needed.
 
@@ -533,19 +571,22 @@ def urlsplit(url, scheme='', allow_fragments=True):
     The parameters are the same as urlparse.urlsplit.
     """
     scheme, netloc, path, query, fragment = parse.urlsplit(
-        url, scheme, allow_fragments)
+        url, scheme, allow_fragments
+    )
     if allow_fragments and '#' in path:
         path, fragment = path.split('#', 1)
     if '?' in path:
         path, query = path.split('?', 1)
-    return _ModifiedSplitResult(scheme, netloc,
-                                path, query, fragment)
+    return _ModifiedSplitResult(scheme, netloc, path, query, fragment)
 
 
-def set_tcp_keepalive(sock, tcp_keepalive=True,
-                      tcp_keepidle=None,
-                      tcp_keepalive_interval=None,
-                      tcp_keepalive_count=None):
+def set_tcp_keepalive(
+    sock: socket.socket,
+    tcp_keepalive: bool = True,
+    tcp_keepidle: int | None = None,
+    tcp_keepalive_interval: int | None = None,
+    tcp_keepalive_count: int | None = None,
+) -> None:
     """Set values for tcp keepalive parameters
 
     This function configures tcp keepalive parameters if users wish to do
@@ -575,22 +616,24 @@ def set_tcp_keepalive(sock, tcp_keepalive=True,
     # Idle + Count * Interval effectively gives you the total timeout.
     if tcp_keepidle is not None:
         if hasattr(socket, 'TCP_KEEPIDLE'):
-            sock.setsockopt(socket.IPPROTO_TCP,
-                            socket.TCP_KEEPIDLE,
-                            tcp_keepidle)
+            sock.setsockopt(
+                socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, tcp_keepidle
+            )
         else:
             LOG.warning('tcp_keepidle not available on your system')
     if tcp_keepalive_interval is not None:
         if hasattr(socket, 'TCP_KEEPINTVL'):
-            sock.setsockopt(socket.IPPROTO_TCP,
-                            socket.TCP_KEEPINTVL,
-                            tcp_keepalive_interval)
+            sock.setsockopt(
+                socket.IPPROTO_TCP,
+                socket.TCP_KEEPINTVL,
+                tcp_keepalive_interval,
+            )
         else:
             LOG.warning('tcp_keepintvl not available on your system')
     if tcp_keepalive_count is not None:
         if hasattr(socket, 'TCP_KEEPCNT'):
-            sock.setsockopt(socket.IPPROTO_TCP,
-                            socket.TCP_KEEPCNT,
-                            tcp_keepalive_count)
+            sock.setsockopt(
+                socket.IPPROTO_TCP, socket.TCP_KEEPCNT, tcp_keepalive_count
+            )
         else:
             LOG.warning('tcp_keepcnt not available on your system')

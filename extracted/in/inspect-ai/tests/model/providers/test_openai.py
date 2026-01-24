@@ -5,6 +5,7 @@ import pytest
 from test_helpers.utils import skip_if_no_openai
 
 from inspect_ai import Task, eval
+from inspect_ai.dataset._dataset import Sample
 from inspect_ai.model import (
     ChatMessageUser,
     GenerateConfig,
@@ -36,7 +37,17 @@ async def test_openai_api() -> None:
     assert len(response.completion) >= 1
 
 
-@pytest.mark.anyio
+@skip_if_no_openai
+def test_openai_verbosity() -> None:
+    log = eval(
+        Task(dataset=[Sample(input="Please tell a story about toys.")]),
+        model="openai/gpt-5.1",
+        verbosity="low",
+    )[0]
+    assert log.status == "success"
+
+
+@pytest.mark.asyncio
 @skip_if_no_openai
 async def test_openai_o_series_developer_messages() -> None:
     async def check_developer_messages(model_name: str):
@@ -51,12 +62,10 @@ async def test_openai_o_series_developer_messages() -> None:
             ]
         )
 
-    await check_developer_messages("openai/o1")
-    await check_developer_messages("openai/o1-mini")
     await check_developer_messages("openai/o3-mini")
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @skip_if_no_openai
 async def test_openai_o_series_reasoning_effort() -> None:
     async def check_reasoning_effort(model_name: str, effort: str = "medium"):
@@ -68,13 +77,11 @@ async def test_openai_o_series_reasoning_effort() -> None:
         response = await model.generate(input=[message])
         assert len(response.completion) >= 1
 
-    await check_reasoning_effort("openai/o1")
-    await check_reasoning_effort("openai/o1-mini")
     await check_reasoning_effort("openai/o3-mini")
     await check_reasoning_effort("openai/gpt-5-mini", "minimal")
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @skip_if_no_openai
 async def test_openai_o_series_max_tokens() -> None:
     async def check_max_tokens(model_name: str):
@@ -86,8 +93,6 @@ async def test_openai_o_series_max_tokens() -> None:
         response = await model.generate(input=[message])
         assert len(response.completion) >= 1
 
-    await check_max_tokens("openai/o1")
-    await check_max_tokens("openai/o1-mini")
     await check_max_tokens("openai/o3-mini")
 
 

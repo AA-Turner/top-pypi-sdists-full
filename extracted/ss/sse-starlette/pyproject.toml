@@ -1,6 +1,6 @@
 [project]
 name = "sse-starlette"
-version = "3.0.2"
+version = "3.2.0"
 description = "SSE plugin for Starlette"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -18,9 +18,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
+    "starlette>=0.49.1",
     "anyio>=4.7.0",
 ]
 
@@ -29,7 +31,6 @@ examples = [
     "uvicorn>=0.34.0",
     "fastapi>=0.115.12",
     "sqlalchemy[asyncio]>=2.0.41",
-    "starlette>=0.41.3",
     "aiosqlite>=0.21.0",
 ]
 uvicorn = [
@@ -54,11 +55,12 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.8.4",
-    "starlette>=0.41.3",
+    "starlette>=0.49.1",
     "tenacity>=9.0.0",
     "testcontainers>=4.9.0",
     "uvicorn>=0.34.0",
     "build>=1.2.2.post1",
+    "pre-commit>=4.0.0",
 ]
 
 [project.urls]
@@ -68,8 +70,11 @@ Source = "https://github.com/sysid/sse-starlette"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["sse_starlette*"]
+
 [tool.bumpversion]
-current_version = "3.0.2"
+current_version = "3.2.0"
 commit = true
 tag = false
 message = "Bump version to {new_version}"
@@ -101,6 +106,10 @@ markers = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # testcontainers internal deprecation warning (triggered at import time by their own code)
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning",
+]
 #addopts = "--cov=my_package --cov-report=term-missing"
 
 [tool.mypy]

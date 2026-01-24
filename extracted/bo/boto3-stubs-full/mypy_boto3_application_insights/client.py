@@ -3,7 +3,7 @@ Type annotations for application-insights service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -84,12 +85,6 @@ from .type_defs import (
     UpdateWorkloadResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -100,15 +95,15 @@ __all__ = ("ApplicationInsightsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TagsAlreadyExistException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TagsAlreadyExistException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ApplicationInsightsClient(BaseClient):
@@ -166,7 +161,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#create_application)
         """
 
-    def create_component(self, **kwargs: Unpack[CreateComponentRequestTypeDef]) -> Dict[str, Any]:
+    def create_component(self, **kwargs: Unpack[CreateComponentRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a custom component by grouping similar standalone instances to monitor.
 
@@ -186,7 +181,7 @@ class ApplicationInsightsClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified application from monitoring.
 
@@ -194,7 +189,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#delete_application)
         """
 
-    def delete_component(self, **kwargs: Unpack[DeleteComponentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_component(self, **kwargs: Unpack[DeleteComponentRequestTypeDef]) -> dict[str, Any]:
         """
         Ungroups a custom component.
 
@@ -204,7 +199,7 @@ class ApplicationInsightsClient(BaseClient):
 
     def delete_log_pattern(
         self, **kwargs: Unpack[DeleteLogPatternRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified log pattern from a <code>LogPatternSet</code>.
 
@@ -385,7 +380,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#list_workloads)
         """
 
-    def remove_workload(self, **kwargs: Unpack[RemoveWorkloadRequestTypeDef]) -> Dict[str, Any]:
+    def remove_workload(self, **kwargs: Unpack[RemoveWorkloadRequestTypeDef]) -> dict[str, Any]:
         """
         Remove workload from a component.
 
@@ -393,7 +388,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#remove_workload)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add one or more tags (keys and values) to a specified application.
 
@@ -401,7 +396,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags (keys and values) from a specified application.
 
@@ -419,7 +414,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#update_application)
         """
 
-    def update_component(self, **kwargs: Unpack[UpdateComponentRequestTypeDef]) -> Dict[str, Any]:
+    def update_component(self, **kwargs: Unpack[UpdateComponentRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the custom component name and/or the list of resources that make up the
         component.
@@ -430,7 +425,7 @@ class ApplicationInsightsClient(BaseClient):
 
     def update_component_configuration(
         self, **kwargs: Unpack[UpdateComponentConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the monitoring configurations for the component.
 
@@ -448,7 +443,7 @@ class ApplicationInsightsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_insights/client/#update_log_pattern)
         """
 
-    def update_problem(self, **kwargs: Unpack[UpdateProblemRequestTypeDef]) -> Dict[str, Any]:
+    def update_problem(self, **kwargs: Unpack[UpdateProblemRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the visibility of the problem or specifies the problem as
         <code>RESOLVED</code>.

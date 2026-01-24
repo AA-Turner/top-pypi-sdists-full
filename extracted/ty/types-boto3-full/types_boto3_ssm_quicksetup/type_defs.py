@@ -3,7 +3,7 @@ Type annotations for ssm-quicksetup service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm_quicksetup/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import StatusType, StatusTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -84,7 +79,7 @@ ConfigurationDefinitionInputTypeDef = TypedDict(
 ConfigurationDefinitionSummaryTypeDef = TypedDict(
     "ConfigurationDefinitionSummaryTypeDef",
     {
-        "FirstClassParameters": NotRequired[Dict[str, str]],
+        "FirstClassParameters": NotRequired[dict[str, str]],
         "Id": NotRequired[str],
         "Type": NotRequired[str],
         "TypeVersion": NotRequired[str],
@@ -93,7 +88,7 @@ ConfigurationDefinitionSummaryTypeDef = TypedDict(
 ConfigurationDefinitionTypeDef = TypedDict(
     "ConfigurationDefinitionTypeDef",
     {
-        "Parameters": Dict[str, str],
+        "Parameters": dict[str, str],
         "Type": str,
         "Id": NotRequired[str],
         "LocalDeploymentAdministrationRoleArn": NotRequired[str],
@@ -107,7 +102,7 @@ StatusSummaryTypeDef = TypedDict(
         "LastUpdatedAt": datetime,
         "StatusType": StatusTypeType,
         "Status": NotRequired[StatusType],
-        "StatusDetails": NotRequired[Dict[str, str]],
+        "StatusDetails": NotRequired[dict[str, str]],
         "StatusMessage": NotRequired[str],
     },
 )
@@ -116,7 +111,7 @@ StatusSummaryTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -204,10 +199,10 @@ class CreateConfigurationManagerInputTypeDef(TypedDict):
 
 class ConfigurationManagerSummaryTypeDef(TypedDict):
     ManagerArn: str
-    ConfigurationDefinitionSummaries: NotRequired[List[ConfigurationDefinitionSummaryTypeDef]]
+    ConfigurationDefinitionSummaries: NotRequired[list[ConfigurationDefinitionSummaryTypeDef]]
     Description: NotRequired[str]
     Name: NotRequired[str]
-    StatusSummaries: NotRequired[List[StatusSummaryTypeDef]]
+    StatusSummaries: NotRequired[list[StatusSummaryTypeDef]]
 
 
 ConfigurationSummaryTypeDef = TypedDict(
@@ -216,11 +211,11 @@ ConfigurationSummaryTypeDef = TypedDict(
         "Account": NotRequired[str],
         "ConfigurationDefinitionId": NotRequired[str],
         "CreatedAt": NotRequired[datetime],
-        "FirstClassParameters": NotRequired[Dict[str, str]],
+        "FirstClassParameters": NotRequired[dict[str, str]],
         "Id": NotRequired[str],
         "ManagerArn": NotRequired[str],
         "Region": NotRequired[str],
-        "StatusSummaries": NotRequired[List[StatusSummaryTypeDef]],
+        "StatusSummaries": NotRequired[list[StatusSummaryTypeDef]],
         "Type": NotRequired[str],
         "TypeVersion": NotRequired[str],
     },
@@ -237,14 +232,14 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetConfigurationManagerOutputTypeDef(TypedDict):
-    ConfigurationDefinitions: List[ConfigurationDefinitionTypeDef]
+    ConfigurationDefinitions: list[ConfigurationDefinitionTypeDef]
     CreatedAt: datetime
     Description: str
     LastModifiedAt: datetime
     ManagerArn: str
     Name: str
-    StatusSummaries: List[StatusSummaryTypeDef]
-    Tags: Dict[str, str]
+    StatusSummaries: list[StatusSummaryTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -257,9 +252,9 @@ GetConfigurationOutputTypeDef = TypedDict(
         "Id": str,
         "LastModifiedAt": datetime,
         "ManagerArn": str,
-        "Parameters": Dict[str, str],
+        "Parameters": dict[str, str],
         "Region": str,
-        "StatusSummaries": List[StatusSummaryTypeDef],
+        "StatusSummaries": list[StatusSummaryTypeDef],
         "Type": str,
         "TypeVersion": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -299,22 +294,22 @@ class ListConfigurationsInputPaginateTypeDef(TypedDict):
 
 
 class ListQuickSetupTypesOutputTypeDef(TypedDict):
-    QuickSetupTypeList: List[QuickSetupTypeOutputTypeDef]
+    QuickSetupTypeList: list[QuickSetupTypeOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagEntryTypeDef]
+    Tags: list[TagEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListConfigurationManagersOutputTypeDef(TypedDict):
-    ConfigurationManagersList: List[ConfigurationManagerSummaryTypeDef]
+    ConfigurationManagersList: list[ConfigurationManagerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListConfigurationsOutputTypeDef(TypedDict):
-    ConfigurationsList: List[ConfigurationSummaryTypeDef]
+    ConfigurationsList: list[ConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: openedx-forum
-Version: 0.3.6
+Version: 0.4.0
 Summary: Open edX forum application
 Home-page: https://github.com/openedx/forum
 Author: Open edX Project
@@ -29,6 +29,18 @@ Requires-Dist: mysqlclient
 Requires-Dist: openedx-atlas
 Requires-Dist: pymongo
 Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Open edX Forum
 ##############

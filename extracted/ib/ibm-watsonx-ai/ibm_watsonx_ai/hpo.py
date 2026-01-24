@@ -1,7 +1,8 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+from typing import Any
 
 from ibm_watsonx_ai.wml_client_error import UnexpectedType, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -38,8 +39,8 @@ def HPOParameter(
     max: float | None = None,
     min: float | None = None,
     step: float | None = None,
-) -> dict:
-    """Prepares dict element describing hyper parameter. Hyper parameter may be contructed in two ways:
+) -> dict[str, Any]:
+    """Prepares dict element describing hyperparameter. Hyperparameter may be constructed in two ways:
 
     * ``HPOParameter('name', values=['val1', 'val2'])   # values``
     * ``HPOParameter('name', min=0.5, max=10, step=0.1) # range``
@@ -48,12 +49,16 @@ def HPOParameter(
 
     :param name: name of parameter
     :type name: str
+
     :param values: if parameter should have only values provided by user, this param should contain these values
     :type values: list[str] or list[int] or list[float], optional
+
     :param max: if parameter should contain numbers from range, this will be maximal value of this range
     :type max: int or float, optional
+
     :param min: if parameter should contain numbers from range, this will be minimal value of this range
     :type min: int or float, optional
+
     :param step: if parameter should contain numbers from range, this will be step between elements from range
     :type step: int or float, optional
 
@@ -64,22 +69,22 @@ def HPOParameter(
 
     .. code-block:: python
 
-        HPOParameter('param1', values=['a', 'b', 'c']),
-        HPOParameter('param2', values=[0, 1, 9]),
-        HPOParameter('param3', values=[0.1, 0.5, 0.8]),
-        HPOParameter('param4', max=10),
-        HPOParameter('param5', min=2, max=10),
-        HPOParameter('param6', max=10, step=2),
-        HPOParameter('param7', max=10.0),
-        HPOParameter('param8', min=0.1, max=10),
-        HPOParameter('param9', min=0.5, max=10, step=0.1)
+        (HPOParameter("param1", values=["a", "b", "c"]),)
+        (HPOParameter("param2", values=[0, 1, 9]),)
+        (HPOParameter("param3", values=[0.1, 0.5, 0.8]),)
+        (HPOParameter("param4", max=10),)
+        (HPOParameter("param5", min=2, max=10),)
+        (HPOParameter("param6", max=10, step=2),)
+        (HPOParameter("param7", max=10.0),)
+        (HPOParameter("param8", min=0.1, max=10),)
+        HPOParameter("param9", min=0.5, max=10, step=0.1)
 
     """
     WMLResource._validate_type(name, "name", str, True)
     WMLResource._validate_type(values, "values", list, False)
-    WMLResource._validate_type(max, "max", [int, float], False)
-    WMLResource._validate_type(min, "min", [int, float], False)
-    WMLResource._validate_type(step, "step", [int, float], False)
+    WMLResource._validate_type(max, "max", [int, float], False, True)
+    WMLResource._validate_type(min, "min", [int, float], False, True)
+    WMLResource._validate_type(step, "step", [int, float], False, True)
 
     if values is not None and (max is not None or min is not None or step is not None):
         raise BothValuesAndRangePassed()

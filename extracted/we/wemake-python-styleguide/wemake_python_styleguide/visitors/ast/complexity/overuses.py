@@ -46,9 +46,11 @@ class StringOveruseVisitor(base.BaseNodeVisitor):
             '|',
             '"',
             "'",
+            '/',
             '...',
             b'"',
             b"'",
+            b'/',
             b' ',
             b'.',
             b',',
@@ -79,6 +81,10 @@ class StringOveruseVisitor(base.BaseNodeVisitor):
 
     def _check_string_constant(self, node: ast.Constant) -> None:
         if annotations.is_annotation(node):
+            return
+
+        # Part of the f-string:
+        if walk.get_closest_parent(node, parents=(ast.JoinedStr,)):
             return
 
         # Some strings are so common, that it makes no sense to check if

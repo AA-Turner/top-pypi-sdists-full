@@ -188,7 +188,7 @@ class LFSFileOperationsCompatTest(LFSCompatTestCase):
         repo = porcelain.open_repo(repo_dir)
         self.addCleanup(repo.close)
         tree = repo[repo.head()].tree
-        mode, sha = repo.object_store[tree][b"test.bin"]
+        _mode, sha = repo.object_store[tree][b"test.bin"]
         blob = repo.object_store[sha]
         pointer = LFSPointer.from_bytes(blob.data)
         self.assertEqual(pointer.size, 1048576)
@@ -323,6 +323,102 @@ class LFSFilterCompatTest(LFSCompatTestCase):
         # Test smudge
         smudged = lfs_smudge(repo_dir, pointer_data)
         self.assertEqual(smudged, test_content)
+
+
+class LFSStatusCompatTest(LFSCompatTestCase):
+    """Tests for git status with LFS files (issue #1889)."""
+
+    def test_status_with_lfs_files(self):
+        """Test git status works correctly with LFS files.
+
+        This reproduces issue #1889 where git status with LFS files
+        would fail due to incorrect handling of the two-phase filter
+        protocol response.
+        """
+        repo_dir = self.make_temp_dir()
+        run_git_or_fail(["init"], cwd=repo_dir)
+        # Disable autocrlf to avoid line ending issues on Windows
+        run_git_or_fail(["config", "core.autocrlf", "false"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "install", "--local"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "track", "*.bin"], cwd=repo_dir)
+        run_git_or_fail(["add", ".gitattributes"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Track .bin files"], cwd=repo_dir)
+
+        # Add an LFS file
+        test_file = os.path.join(repo_dir, "test.bin")
+        test_content = b"x" * 1024 * 1024  # 1MB
+        with open(test_file, "wb") as f:
+            f.write(test_content)
+        run_git_or_fail(["add", "test.bin"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Add LFS file"], cwd=repo_dir)
+
+        # Now check status with dulwich - this should not raise FilterError
+        # This should work without raising FilterError
+        # Before the fix, this would fail with:
+        # dulwich.filters.FilterError: Process filter smudge failed: error
+        status = porcelain.status(repo_dir, untracked_files="no")
+
+        # Verify status shows clean working tree
+        self.assertEqual(status.staged["add"], [])
+        self.assertEqual(status.staged["delete"], [])
+        self.assertEqual(status.staged["modify"], [])
+        self.assertEqual(status.unstaged, [])
+
+    def test_status_with_modified_lfs_file(self):
+        """Test git status with modified LFS files."""
+        repo_dir = self.make_temp_dir()
+        run_git_or_fail(["init"], cwd=repo_dir)
+        # Disable autocrlf to avoid line ending issues on Windows
+        run_git_or_fail(["config", "core.autocrlf", "false"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "install", "--local"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "track", "*.bin"], cwd=repo_dir)
+        run_git_or_fail(["add", ".gitattributes"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Track .bin files"], cwd=repo_dir)
+
+        # Add an LFS file
+        test_file = os.path.join(repo_dir, "test.bin")
+        with open(test_file, "wb") as f:
+            f.write(b"original content\n")
+        run_git_or_fail(["add", "test.bin"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Add LFS file"], cwd=repo_dir)
+
+        # Modify the file
+        with open(test_file, "wb") as f:
+            f.write(b"slightly modified content\n")
+
+        # Check status - should show file as modified
+        status = porcelain.status(repo_dir, untracked_files="no")
+
+        # File should be in unstaged changes
+        self.assertIn(b"test.bin", status.unstaged)
+
+    def test_status_with_multiple_lfs_files(self):
+        """Test git status with multiple LFS files."""
+        repo_dir = self.make_temp_dir()
+        run_git_or_fail(["init"], cwd=repo_dir)
+        # Disable autocrlf to avoid line ending issues on Windows
+        run_git_or_fail(["config", "core.autocrlf", "false"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "install", "--local"], cwd=repo_dir)
+        run_git_or_fail(["lfs", "track", "*.bin"], cwd=repo_dir)
+        run_git_or_fail(["add", ".gitattributes"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Track .bin files"], cwd=repo_dir)
+
+        # Add multiple LFS files
+        for i in range(3):
+            test_file = os.path.join(repo_dir, f"test{i}.bin")
+            with open(test_file, "wb") as f:
+                f.write(b"content" * 1000)
+        run_git_or_fail(["add", "*.bin"], cwd=repo_dir)
+        run_git_or_fail(["commit", "-m", "Add LFS files"], cwd=repo_dir)
+
+        # Check status - should handle multiple files correctly
+        status = porcelain.status(repo_dir, untracked_files="no")
+
+        # All files should be clean
+        self.assertEqual(status.staged["add"], [])
+        self.assertEqual(status.staged["delete"], [])
+        self.assertEqual(status.staged["modify"], [])
+        self.assertEqual(status.unstaged, [])
 
 
 class LFSCloneCompatTest(LFSCompatTestCase):

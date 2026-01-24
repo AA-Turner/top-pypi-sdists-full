@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
-from typing import Callable, Iterator, Optional, Type, TypeVar, Union
+from typing import Callable, Iterator, Type, TypeVar
 
 import psycopg
 from packaging.version import parse
@@ -26,12 +26,13 @@ class DatabaseJanitor:
         *,
         user: str,
         host: str,
-        port: Union[str, int],
-        version: Union[str, float, Version],  # type: ignore[valid-type]
-        dbname: Optional[str] = None,
-        template_dbname: Optional[str] = None,
-        password: Optional[str] = None,
-        isolation_level: "Optional[psycopg.IsolationLevel]" = None,
+        port: str | int,
+        version: str | float | Version,  # type: ignore[valid-type]
+        dbname: str,
+        template_dbname: str | None = None,
+        as_template: bool = False,
+        password: str | None = None,
+        isolation_level: "psycopg.IsolationLevel | None" = None,
         connection_timeout: int = 60,
     ) -> None:
         """Initialize janitor.
@@ -40,7 +41,8 @@ class DatabaseJanitor:
         :param host: postgresql host
         :param port: postgresql port
         :param dbname: database name
-        :param dbname: template database name
+        :param template_dbname: template database name to clone from
+        :param as_template: whether to mark the database as a template
         :param version: postgresql version number
         :param password: optional postgresql password
         :param isolation_level: optional postgresql isolation level
@@ -52,10 +54,9 @@ class DatabaseJanitor:
         self.password = password
         self.host = host
         self.port = port
-        # At least one of the dbname or template_dbname has to be filled.
-        assert any([dbname, template_dbname])
         self.dbname = dbname
         self.template_dbname = template_dbname
+        self.as_template = as_template
         self._connection_timeout = connection_timeout
         self.isolation_level = isolation_level
         if not isinstance(version, Version):
@@ -66,32 +67,33 @@ class DatabaseJanitor:
     def init(self) -> None:
         """Create database in postgresql."""
         with self.cursor() as cur:
-            if self.is_template():
-                cur.execute(f'CREATE DATABASE "{self.template_dbname}" WITH is_template = true;')
-            elif self.template_dbname is None:
-                cur.execute(f'CREATE DATABASE "{self.dbname}";')
-            else:
+            if self.template_dbname:
                 # And make sure no-one is left connected to the template database.
                 # Otherwise, Creating database from template will fail
                 self._terminate_connection(cur, self.template_dbname)
-                cur.execute(f'CREATE DATABASE "{self.dbname}" TEMPLATE "{self.template_dbname}";')
+                query = f'CREATE DATABASE "{self.dbname}" TEMPLATE "{self.template_dbname}"'
+            else:
+                query = f'CREATE DATABASE "{self.dbname}"'
+
+            if self.as_template:
+                query += " IS_TEMPLATE = true"
+
+            cur.execute(f"{query};")
 
     def is_template(self) -> bool:
         """Determine whether the DatabaseJanitor maintains template or database."""
-        return self.dbname is None
+        return self.as_template
 
     def drop(self) -> None:
         """Drop database in postgresql."""
         # We cannot drop the database while there are connections to it, so we
         # terminate all connections first while not allowing new connections.
-        db_to_drop = self.template_dbname if self.is_template() else self.dbname
-        assert db_to_drop
         with self.cursor() as cur:
-            self._dont_datallowconn(cur, db_to_drop)
-            self._terminate_connection(cur, db_to_drop)
-            if self.is_template():
-                cur.execute(f'ALTER DATABASE "{db_to_drop}" with is_template false;')
-            cur.execute(f'DROP DATABASE IF EXISTS "{db_to_drop}";')
+            self._dont_datallowconn(cur, self.dbname)
+            self._terminate_connection(cur, self.dbname)
+            if self.as_template:
+                cur.execute(f'ALTER DATABASE "{self.dbname}" with is_template false;')
+            cur.execute(f'DROP DATABASE IF EXISTS "{self.dbname}";')
 
     @staticmethod
     def _dont_datallowconn(cur: Cursor, dbname: str) -> None:
@@ -106,7 +108,7 @@ class DatabaseJanitor:
             (dbname,),
         )
 
-    def load(self, load: Union[Callable, str, Path]) -> None:
+    def load(self, load: Callable | str | Path) -> None:
         """Load data into a database.
 
         Expects:
@@ -116,13 +118,12 @@ class DatabaseJanitor:
             * a callable that expects: host, port, user, dbname and password arguments.
 
         """
-        db_to_load = self.template_dbname if self.is_template() else self.dbname
         _loader = build_loader(load)
         _loader(
             host=self.host,
             port=self.port,
             user=self.user,
-            dbname=db_to_load,
+            dbname=self.dbname,
             password=self.password,
         )
 
@@ -139,9 +140,7 @@ class DatabaseJanitor:
                 port=self.port,
             )
 
-        conn = retry(
-            connect, timeout=self._connection_timeout, possible_exception=psycopg.OperationalError
-        )
+        conn = retry(connect, timeout=self._connection_timeout, possible_exception=psycopg.OperationalError)
         conn.isolation_level = self.isolation_level
         # We must not run a transaction since we create a database.
         conn.autocommit = True
@@ -159,9 +158,9 @@ class DatabaseJanitor:
 
     def __exit__(
         self: DatabaseJanitorType,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit from Database janitor context cleaning after itself."""
         self.drop()

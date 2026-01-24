@@ -40,6 +40,7 @@ class DeepLinkButton(Button):
         size: Literal["sm", "md", "lg"] = "lg",
         icon: str | Path | None = utils.get_icon_path("link.svg"),
         link: str | None = None,
+        link_target: Literal["_self", "_blank", "_parent", "_top"] = "_self",
         visible: bool | Literal["hidden"] = True,
         interactive: bool = True,
         elem_id: str | None = None,  # noqa: ARG002
@@ -64,6 +65,7 @@ class DeepLinkButton(Button):
             size=size,
             icon=icon,
             link=link,
+            link_target=link_target,
             visible=visible,
             interactive=interactive,
             elem_id=f"gradio-share-link-button-{self.n_created}",
@@ -85,13 +87,13 @@ class DeepLinkButton(Button):
         _js = self.get_share_link(self.value, self.copied_value)
         # Need to separate events because can't run .then in a pure js
         # function.
-        self.click(fn=None, inputs=[], outputs=[self], js=_js)
+        self.click(fn=None, inputs=[], outputs=[self], js=_js, api_visibility="private")
         self.click(
             fn=lambda: time.sleep(1) or self.value,
             inputs=[],
             outputs=[self],
             queue=False,
-            show_api=False,
+            api_visibility="undocumented",
         )
 
     def get_share_link(

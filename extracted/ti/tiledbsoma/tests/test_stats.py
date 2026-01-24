@@ -11,9 +11,7 @@ def test_stats(tmp_path, capsys: pytest.CaptureFixture[str]):
 
     schema = pa.schema([("soma_joinid", pa.int64())])
     with tiledbsoma.DataFrame.create(
-        tmp_path.as_posix(),
-        schema=schema,
-        index_column_names=["soma_joinid"],
+        tmp_path.as_posix(), schema=schema, index_column_names=["soma_joinid"], domain=((0, 10),)
     ) as sidf:
         data = {
             "soma_joinid": [0],
@@ -26,8 +24,8 @@ def test_stats(tmp_path, capsys: pytest.CaptureFixture[str]):
     tiledbsoma.tiledbsoma_stats_dump()
     tiledbsoma.tiledbsoma_stats_disable()
     stdout, stderr = capsys.readouterr()
-    assert stdout != ""
-    assert stderr == ""
+    assert stdout
+    assert not stderr
     print(f"tiledbsoma_stats_dump() = {stdout}")
     tiledbsoma.show_package_versions()
 

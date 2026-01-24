@@ -5,11 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-// We Handle contains a ConfigFile, which contains a Regex, which has an interior cache.
-// Not relevant because we use the ArcId to compare, and never go inside.
-// Plus it's not actually mutable in practice, just for caching.
-#![allow(clippy::mutable_key_type)]
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
@@ -26,13 +21,10 @@ use std::sync::RwLockReadGuard;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::time::Instant;
 
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use enum_iterator::Sequence;
-use fuzzy_matcher::FuzzyMatcher;
-use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::module::Module;
@@ -47,11 +39,12 @@ use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::locked_map::LockedMap;
 use pyrefly_util::no_hash::BuildNoHash;
-use pyrefly_util::recurser::Recurser;
 use pyrefly_util::small_set1::SmallSet1;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::task_heap::TaskHeap;
+use pyrefly_util::telemetry::TelemetryEvent;
+use pyrefly_util::telemetry::TelemetryTransactionStats;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::uniques::UniqueFactory;
 use pyrefly_util::upgrade_lock::UpgradeLock;
@@ -63,10 +56,10 @@ use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
-use tracing::error;
 use tracing::info;
 use tracing::trace;
 use vec1::vec1;
+use web_time::Instant;
 
 use crate::alt::answers::AnswerEntry;
 use crate::alt::answers::AnswerTable;
@@ -92,18 +85,22 @@ use crate::config::finder::ConfigError;
 use crate::config::finder::ConfigFinder;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
-use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
+use crate::module::bundled::BundledStub;
 use crate::module::finder::find_import_prefixes;
-use crate::module::typeshed::BundledTypeshed;
+use crate::module::typeshed::BundledTypeshedStdlib;
+use crate::solver::solver::VarRecurser;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
 use crate::state::epoch::Epochs;
 use crate::state::errors::Errors;
+use crate::state::load::FileContents;
 use crate::state::load::Load;
 use crate::state::loader::FindError;
+use crate::state::loader::Finding;
+use crate::state::loader::FindingOrError;
 use crate::state::loader::LoaderFindCache;
 use crate::state::memory::MemoryFiles;
 use crate::state::memory::MemoryFilesLookup;
@@ -129,6 +126,9 @@ struct ModuleData {
     /// The dependencies of this module.
     /// Most modules exist in exactly one place, but it can be possible to load the same module multiple times with different paths.
     deps: HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>,
+    /// Imports that failed to resolve. Necessary for incremental invalidation.
+    /// TODO(kylei): Merge this with deps above based on D87952758 once we are confident.
+    failed_deps: HashMap<ModuleName, FindError>,
     rdeps: HashSet<Handle>,
 }
 
@@ -143,6 +143,8 @@ struct ModuleDataMut {
     ///
     /// To ensure that is atomic, we always modify the rdeps while holding the deps write lock.
     deps: RwLock<HashMap<ModuleName, SmallSet1<Handle>, BuildNoHash>>,
+    /// Imports that failed to resolve. Necessary for incremental invalidation.
+    failed_deps: RwLock<HashMap<ModuleName, FindError>>,
     /// The reverse dependencies of this module. This is used to invalidate on change.
     /// Note that if we are only running once, e.g. on the command line, this isn't valuable.
     /// But we create it anyway for simplicity, since it doesn't seem to add much overhead.
@@ -177,6 +179,7 @@ impl ModuleData {
             config: RwLock::new(self.config.dupe()),
             state: UpgradeLock::new(self.state.clone()),
             deps: RwLock::new(self.deps.clone()),
+            failed_deps: RwLock::new(self.failed_deps.clone()),
             rdeps: Mutex::new(self.rdeps.clone()),
         }
     }
@@ -189,6 +192,7 @@ impl ModuleDataMut {
             config: RwLock::new(config),
             state: UpgradeLock::new(ModuleDataInner::new(require, now)),
             deps: Default::default(),
+            failed_deps: Default::default(),
             rdeps: Default::default(),
         }
     }
@@ -201,9 +205,11 @@ impl ModuleDataMut {
             config,
             state,
             deps,
+            failed_deps,
             rdeps,
         } = self;
         let deps = mem::take(&mut *deps.write());
+        let failed_deps = mem::take(&mut *failed_deps.write());
         let rdeps = mem::take(&mut *rdeps.lock());
         let state = state.read().clone();
         ModuleData {
@@ -211,6 +217,7 @@ impl ModuleDataMut {
             config: config.read().dupe(),
             state,
             deps,
+            failed_deps,
             rdeps,
         }
     }
@@ -242,13 +249,15 @@ impl StateData {
 /// `TransactionData` contains most of the information in `Transaction`, but it doesn't lock
 /// the read of `State`.
 /// It is used to store uncommitted transaction state in between transaction runs.
-pub struct TransactionData<'a> {
+pub(crate) struct TransactionData<'a> {
     state: &'a State,
     stdlib: SmallMap<SysInfo, Arc<Stdlib>>,
     updated_modules: LockedMap<Handle, ArcId<ModuleDataMut>>,
     updated_loaders: LockedMap<ArcId<ConfigFile>, Arc<LoaderFindCache>>,
     memory_overlay: MemoryFilesOverlay,
     default_require: Require,
+    /// The epoch when this transaction was created
+    base: Epoch,
     /// The current epoch, gets incremented every time we recompute
     now: Epoch,
     /// Items we still need to process. Stored in a max heap, so that
@@ -264,11 +273,19 @@ pub struct TransactionData<'a> {
 }
 
 impl<'a> TransactionData<'a> {
-    pub fn into_transaction(self) -> Transaction<'a> {
+    /// Convert saved transaction data back into a full transaction. We can only restore if the
+    /// underlying state is unchanged, otherwise the transaction data might make inconsistent
+    /// assumptions, in particular about deps/rdeps.
+    pub(crate) fn restore(self) -> Option<Transaction<'a>> {
         let readable = self.state.state.read();
-        Transaction {
-            data: self,
-            readable,
+        if self.base == readable.now {
+            Some(Transaction {
+                data: self,
+                stats: Default::default(),
+                readable,
+            })
+        } else {
+            None
         }
     }
 }
@@ -280,14 +297,20 @@ impl<'a> TransactionData<'a> {
 /// in a transaction.
 pub struct Transaction<'a> {
     data: TransactionData<'a>,
+    stats: Mutex<TelemetryTransactionStats>,
     readable: RwLockReadGuard<'a, StateData>,
 }
 
 impl<'a> Transaction<'a> {
     /// Drops the lock and retains just the underlying data.
-    pub fn into_data(self) -> TransactionData<'a> {
-        let Transaction { data, readable } = self;
+    pub(crate) fn save(self, telemetry: &mut TelemetryEvent) -> TransactionData<'a> {
+        let Transaction {
+            data,
+            stats,
+            readable,
+        } = self;
         drop(readable);
+        telemetry.set_transaction_stats(stats.into_inner());
         data
     }
 
@@ -369,51 +392,12 @@ impl<'a> Transaction<'a> {
         &self.data.state.config_finder
     }
 
-    pub fn search_exports_exact(&self, name: &str) -> Vec<Handle> {
-        self.search_exports_helper(|handle, exports| {
-            if let Some(export) = exports.get(&Name::new(name)) {
-                match export {
-                    ExportLocation::ThisModule(_) => vec![handle.dupe()],
-                    // Re-exported modules like `foo` in `from from_module import foo`
-                    // should likely be ignored in autoimport suggestions
-                    // because the original export in from_module will show it.
-                    // The current strategy will prevent intended re-exports from showing up in
-                    // result list, but it's better than showing thousands of likely bad results.
-                    ExportLocation::OtherModule(..) => Vec::new(),
-                }
-            } else {
-                Vec::new()
-            }
-        })
-    }
-
-    pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
-        self.search_exports_helper(|handle, exports| {
-            let matcher = SkimMatcherV2::default().smart_case();
-            let mut results = Vec::new();
-            for (name, location) in exports.iter() {
-                let name = name.as_str();
-                if let Some(score) = matcher.fuzzy_match(name, pattern) {
-                    match location {
-                        ExportLocation::OtherModule(..) => {}
-                        ExportLocation::ThisModule(export) => {
-                            results.push((score, handle.dupe(), name.to_owned(), export.clone()));
-                        }
-                    }
-                }
-            }
-            results
-        })
-        .into_iter()
-        .sorted_by_key(|(score, _, _, _)| *score)
-        .rev()
-        .map(|(_, handle, name, export)| (handle, name, export))
-        .collect()
-    }
-
-    fn search_exports_helper<V: Send + Sync>(
+    /// Search through the export table of every module we know about.
+    /// Searches will be performed in parallel on chunks of modules, to speed things up.
+    /// The order of the resulting `Vec` is unspecified.
+    pub fn search_exports<V: Send + Sync>(
         &self,
-        searcher: impl Fn(&Handle, Arc<SmallMap<Name, ExportLocation>>) -> Vec<V> + Sync,
+        searcher: impl Fn(&Handle, &SmallMap<Name, ExportLocation>) -> Vec<V> + Sync,
     ) -> Vec<V> {
         // Make sure all the modules are in updated_modules.
         // We have to get a mutable module data to do the lookup we need anyway.
@@ -438,7 +422,7 @@ impl<'a> Transaction<'a> {
                     let exports = self
                         .lookup_export(module_data)
                         .exports(&self.lookup(module_data.dupe()));
-                    thread_local_results.extend(searcher(handle, exports));
+                    thread_local_results.extend(searcher(handle, &exports));
                 }
                 if !thread_local_results.is_empty() {
                     all_results.lock().push(thread_local_results);
@@ -497,6 +481,21 @@ impl<'a> Transaction<'a> {
             }
             res
         }
+    }
+
+    /// Return all modules for which there is data, in a non-deterministic order.
+    pub fn modules(&self) -> SmallSet<ModuleName> {
+        self.readable
+            .modules
+            .keys()
+            .map(|x| x.module())
+            .chain(
+                self.data
+                    .updated_modules
+                    .iter_unordered()
+                    .map(|x| x.0.module()),
+            )
+            .collect()
     }
 
     pub fn module_count(&self) -> usize {
@@ -561,14 +560,14 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, FindError> {
+    ) -> FindingOrError<Handle> {
         let path = match path {
-            Some(path) => path.dupe(),
+            Some(path) => FindingOrError::new_finding(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import(module, Some(handle.path()))?,
+                .find_import(module, Some(handle.path())),
         };
-        Ok(Handle::new(module, path, handle.sys_info().dupe()))
+        path.map(|path| Handle::new(module, path, handle.sys_info().dupe()))
     }
 
     /// Create a handle for import `module` within the handle `handle`, preferring `.py` over `.pyi`
@@ -577,14 +576,14 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<Handle, FindError> {
+    ) -> FindingOrError<Handle> {
         let path = match path {
-            Some(path) => path.dupe(),
+            Some(path) => FindingOrError::new_finding(path.dupe()),
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
-                .find_import_prefer_executable(module, Some(handle.path()))?,
+                .find_import_prefer_executable(module, Some(handle.path())),
         };
-        Ok(Handle::new(module, path, handle.sys_info().dupe()))
+        path.map(|path| Handle::new(module, path, handle.sys_info().dupe()))
     }
 
     /// Create a handle for import `module` within the handle `handle`
@@ -661,15 +660,29 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.load
             && let Some(old_load) = exclusive.steps.load.dupe()
         {
-            let (code, self_error) =
+            let (file_contents, self_error) =
                 Load::load_from_path(module_data.handle.path(), &self.memory_lookup());
-            if self_error.is_some() || &code != old_load.module_info.contents() {
+            if self_error.is_some()
+                || match &file_contents {
+                    FileContents::Source(code) => {
+                        old_load.module_info.is_notebook()
+                            || code.as_str() != old_load.module_info.contents().as_str()
+                    }
+                    FileContents::Notebook(notebook) => {
+                        if let Some(old_notebook) = old_load.module_info.notebook() {
+                            **notebook != *old_notebook
+                        } else {
+                            false
+                        }
+                    }
+                }
+            {
                 let mut write = exclusive.write();
                 write.steps.load = Some(Arc::new(Load::load_from_data(
                     module_data.handle.module(),
                     module_data.handle.path().dupe(),
                     old_load.errors.style(),
-                    code,
+                    file_contents,
                     self_error,
                 )));
                 rebuild(write, true);
@@ -694,19 +707,49 @@ impl<'a> Transaction<'a> {
         if exclusive.dirty.find {
             let loader = self.get_cached_loader(&module_data.config.read());
             let mut is_dirty = false;
+
+            // Check dependencies for changes
             for dependency_handle in module_data.deps.read().values().flatten() {
                 match loader
                     .find_import(dependency_handle.module(), Some(module_data.handle.path()))
                 {
-                    Ok(path) if &path == dependency_handle.path() => {}
+                    FindingOrError::Finding(path) if &path.finding == dependency_handle.path() => {}
                     _ => {
                         is_dirty = true;
                         break;
                     }
                 }
             }
+
+            // Check import errors for changes
+            for (module_name, import_failure) in module_data.failed_deps.read().iter() {
+                match loader.find_import(*module_name, Some(module_data.handle.path())) {
+                    // If we can now resolve an import, we need to rebuild
+                    FindingOrError::Finding(_) => {
+                        is_dirty = true;
+                        break;
+                    }
+                    // If the error changes, we need to rebuild
+                    FindingOrError::Error(error) if error != *import_failure => {
+                        is_dirty = true;
+                        break;
+                    }
+                    FindingOrError::Error(_) => {}
+                }
+            }
+
             if is_dirty {
-                let write = exclusive.write();
+                let mut write = exclusive.write();
+                // Create new ErrorCollector to clear old errors from the previous config
+                if let Some(old_load) = write.steps.load.dupe() {
+                    write.steps.load = Some(Arc::new(Load {
+                        errors: ErrorCollector::new(
+                            old_load.module_info.dupe(),
+                            old_load.errors.style(),
+                        ),
+                        module_info: old_load.module_info.clone(),
+                    }));
+                }
                 rebuild(write, false);
                 return;
             }
@@ -717,6 +760,41 @@ impl<'a> Transaction<'a> {
         finish(&mut write);
     }
 
+    /// Try to mark a module as dirty due to dependency changes.
+    /// Returns true if the module was newly marked dirty.
+    fn try_mark_module_dirty(
+        &self,
+        module_data: &ArcId<ModuleDataMut>,
+        dirtied: &mut Vec<ArcId<ModuleDataMut>>,
+    ) -> bool {
+        loop {
+            let reader = module_data.state.read();
+            if reader.epochs.computed == self.data.now || reader.dirty.deps {
+                // Either doesn't need setting, or already set
+                return false;
+            }
+            // This can potentially race with `clean`, so make sure we use the `last` as our exclusive key,
+            // which importantly is a different key to the `first` that `clean` uses.
+            // Slight risk of a busy-loop, but better than a deadlock.
+            if let Some(exclusive) = reader.exclusive(Step::last()) {
+                if exclusive.epochs.computed == self.data.now || exclusive.dirty.deps {
+                    return false;
+                }
+                dirtied.push(module_data.dupe());
+                exclusive.write().dirty.deps = true;
+                return true;
+            }
+            // continue around the loop - failed to get the lock, but we really want it
+        }
+    }
+
+    /// Compute a module up to the given step, performing single-level fine-grained
+    /// invalidation of direct dependents when exports change.
+    ///
+    /// When a module's exports change during the Solutions step, this function
+    /// invalidates only those direct rdeps that import the specific names that changed.
+    /// This is the normal incremental path. For transitive invalidation (used when
+    /// mutable dependency cycles are detected), see `invalidate_rdeps`.
     fn demand(&self, module_data: &ArcId<ModuleDataMut>, step: Step) {
         let mut computed = false;
         loop {
@@ -807,35 +885,12 @@ impl<'a> Transaction<'a> {
                 if changed {
                     self.data.changed.lock().push(module_data.dupe());
                     let mut dirtied = Vec::new();
-                    for x in module_data
-                        .rdeps
-                        .lock()
-                        .iter()
-                        .map(|handle| self.get_module(handle))
-                    {
-                        loop {
-                            let reader = x.state.read();
-                            if reader.epochs.computed == self.data.now || reader.dirty.deps {
-                                // Either doesn't need setting, or already set
-                                break;
-                            }
-                            // This can potentially race with `clean`, so make sure we use the `last` as our exclusive key,
-                            // which importantly is a different key to the `first` that `clean` uses.
-                            // Slight risk of a busy-loop, but better than a deadlock.
-                            if let Some(exclusive) = reader.exclusive(Step::last()) {
-                                if exclusive.epochs.computed == self.data.now
-                                    || exclusive.dirty.deps
-                                {
-                                    break;
-                                }
-                                dirtied.push(x.dupe());
-                                let mut writer = exclusive.write();
-                                writer.dirty.deps = true;
-                                break;
-                            }
-                            // continue around the loop - failed to get the lock, but we really want it
-                        }
+                    // We clone so we drop the lock immediately
+                    let rdeps = module_data.rdeps.lock().iter().cloned().collect::<Vec<_>>();
+                    for x in rdeps.iter().map(|handle| self.get_module(handle)) {
+                        self.try_mark_module_dirty(&x, &mut dirtied);
                     }
+                    self.stats.lock().dirty_rdeps += dirtied.len();
                     self.data.dirty.lock().extend(dirtied);
                 }
                 if let Some(load) = load_result
@@ -848,7 +903,46 @@ impl<'a> Transaction<'a> {
                 break; // Fast path - avoid asking again since we just did it.
             }
         }
-        if computed && let Some(next) = step.next() {
+
+        // Eagerly compute the next, if we computed this one. This makes sure that all modules
+        // eventually reach the "Solutions" step, where we can evict previous results to free
+        // memory.
+        //
+        // This can also help with performance by eliminating bottlenecks. By being eager, we can
+        // increase overall thread utilization. In many cases, this eager behavior means that a
+        // result has already been computed when we need it. This is especially useful when imports
+        // form large strongly-connected components.
+        //
+        // !! NOTE !!
+        //
+        // This eager behavior has the effect of checking all modules transitively reachable by
+        // imports. To understand why, consider that computing an all solutions will demand the
+        // types of all imports.
+        //
+        // Usually, a project only uses a small fraction of its 3rd party dependencies. In cases
+        // like this, the additional cost (time + memory) of checking all transitive modules is
+        // much higher than the cost of just keeping Answers around. So, we want some modules to
+        // behave "eagerly" -- for the benefits described at the beginning of this comment -- and
+        // some to behave "lazily" -- to avoid the pitfalls described above.
+        //
+        // For now, we use the "Require" level of a module to determine whether it should be eager
+        // or lazy. This works because in practice we always ask for Require >= Errors for modules
+        // being checked, and only use Require::Exports as the "default" require level, for files
+        // reached _only_ through imports.
+        //
+        // However, this only works for "check" and the IDE. The latter uses the default level
+        // Require::Indexing but falls back to Require::Exports as a performance optimization.
+        //
+        // This does not affect laziness for glean, pysa, or other "tracing" check modes. This is
+        // by design, since those modes currently require all modules to have completed Solutions
+        // to operate correctly.
+        //
+        // TODO: It would be much nicer to identify when a module is a 3rd party dependency directly
+        // instead of approximating it using require levels.
+        if computed
+            && let Some(next) = step.next()
+            && /* See "NOTE" */ module_data.state.read().require.compute_errors()
+        {
             // For a large benchmark, LIFO is 10Gb retained, FIFO is 13Gb.
             // Perhaps we are getting to the heart of the graph with LIFO?
             self.data.todo.push_lifo(next, module_data.dupe());
@@ -890,35 +984,52 @@ impl<'a> Transaction<'a> {
         self.get_module_ex(handle, self.data.default_require).0
     }
 
+    /// Get a module discovered via an import.
+    fn get_imported_module(&self, handle: &Handle, require: Require) -> ArcId<ModuleDataMut> {
+        let require = match require {
+            Require::Indexing(i) => {
+                // If we're building an index to power IDE features, limit the number of times
+                // we'll follow imports for performance reasons. When we hit our limit, we switch
+                // to requiring only exports, which tells Transaction::demand() to stop eagerly
+                // computing results.
+                if i == 0 {
+                    Require::Exports
+                } else {
+                    Require::Indexing(i - 1)
+                }
+            }
+            Require::Exports => Require::Exports,
+            _ => self.data.default_require,
+        };
+        self.get_module_ex(handle, require).0
+    }
+
     /// Return the module, plus true if the module was newly created.
     fn get_module_ex(&self, handle: &Handle, require: Require) -> (ArcId<ModuleDataMut>, bool) {
-        let mut created = None;
-        let res = self
-            .data
-            .updated_modules
-            .ensure(handle, || {
-                if let Some(m) = self.readable.modules.get(handle) {
-                    ArcId::new(m.clone_for_mutation())
-                } else {
-                    let config = self.data.state.get_config(handle.module(), handle.path());
-                    let res = ArcId::new(ModuleDataMut::new(
-                        handle.dupe(),
-                        require,
-                        config,
-                        self.data.now,
-                    ));
-                    created = Some(res.dupe());
-                    res
-                }
-            })
-            .dupe();
+        let mut created = false;
+        let (res, inserted) = self.data.updated_modules.ensure(handle, || {
+            if let Some(m) = self.readable.modules.get(handle) {
+                ArcId::new(m.clone_for_mutation())
+            } else {
+                created = true;
+                let config = self.data.state.get_config(handle);
+                ArcId::new(ModuleDataMut::new(
+                    handle.dupe(),
+                    require,
+                    config,
+                    self.data.now,
+                ))
+            }
+        });
         // Due to race conditions, we might create two ModuleDataMut, but only the first is returned.
         // Figure out if we won the race, and thus are the person who actually did the creation.
-        let created = Some(&res) == created.as_ref();
-        if created && let Some(subscriber) = &self.data.subscriber {
-            subscriber.start_work(handle);
+        if inserted {
+            self.stats.lock().modules += 1;
+            if created && let Some(subscriber) = &self.data.subscriber {
+                subscriber.start_work(handle);
+            }
         }
-        (res, created)
+        (res.dupe(), created)
     }
 
     fn add_error(
@@ -997,6 +1108,31 @@ impl<'a> Transaction<'a> {
         lock.steps.exports.dupe().unwrap()
     }
 
+    /// Look up the location of an exported name in a module.
+    /// Follows re-exports (ExportLocation::OtherModule) to find the original definition.
+    /// Returns the module and text range where the name is defined.
+    fn lookup_export_location(&self, handle: &Handle, name: &Name) -> Option<(Module, TextRange)> {
+        let module_data = self.get_module(handle);
+        let exports = self.lookup_export(&module_data);
+        let export_map = exports.exports(&self.lookup(module_data.dupe()));
+
+        match export_map.get(name)? {
+            ExportLocation::ThisModule(export) => {
+                let load = module_data.state.read().steps.load.dupe()?;
+                Some((load.module_info.dupe(), export.location))
+            }
+            ExportLocation::OtherModule(other_module, alias) => {
+                let actual_name = alias.as_ref().unwrap_or(name);
+                let loader = self.get_cached_loader(&module_data.config.read());
+                let other_path = loader
+                    .find_import(*other_module, Some(handle.path()))
+                    .finding()?;
+                let other_handle = Handle::new(*other_module, other_path, handle.sys_info().dupe());
+                self.lookup_export_location(&other_handle, actual_name)
+            }
+        }
+    }
+
     fn lookup_answer<'b, K: Solve<TransactionHandle<'b>> + Exported>(
         &'b self,
         module_data: ArcId<ModuleDataMut>,
@@ -1053,6 +1189,7 @@ impl<'a> Transaction<'a> {
                 Some(v) => v.dupe(),
                 None => Arc::new(LoaderFindCache::new(loader.dupe())),
             })
+            .0
             .dupe()
     }
 
@@ -1066,16 +1203,26 @@ impl<'a> Transaction<'a> {
     }
 
     fn compute_stdlib(&mut self, sys_infos: SmallSet<SysInfo>) {
-        let loader = self.get_cached_loader(&BundledTypeshed::config());
+        let loader = self.get_cached_loader(&BundledTypeshedStdlib::config());
         let thread_state = ThreadState::new();
         for k in sys_infos.into_iter_hashed() {
             self.data
                 .stdlib
                 .insert_hashed(k.to_owned(), Arc::new(Stdlib::for_bootstrapping()));
-            let v = Arc::new(Stdlib::new(k.version(), &|module, name| {
-                let path = loader.find_import(module, None).ok()?;
-                self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name, &thread_state)
-            }));
+            let v = Arc::new(Stdlib::new(
+                k.version(),
+                // Existing lookup_class callback
+                &|module, name| {
+                    let path = loader.find_import(module, None).finding()?;
+                    self.lookup_stdlib(&Handle::new(module, path, (*k).dupe()), name, &thread_state)
+                },
+                // New lookup_export_location callback
+                &|module, name| {
+                    let path = loader.find_import(module, None).finding()?;
+                    let handle = Handle::new(module, path, (*k).dupe());
+                    self.lookup_export_location(&handle, name)
+                },
+            ));
             self.data.stdlib.insert_hashed(k, v);
         }
     }
@@ -1088,6 +1235,8 @@ impl<'a> Transaction<'a> {
     }
 
     fn run_step(&mut self, handles: &[Handle], require: Require) -> Result<(), Cancelled> {
+        let run_start = Instant::now();
+
         self.data.now.next();
         let sys_infos = handles
             .iter()
@@ -1117,6 +1266,11 @@ impl<'a> Transaction<'a> {
         self.data.state.threads.spawn_many(|| {
             cancelled.fetch_or(self.work().is_err(), Ordering::Relaxed);
         });
+
+        let mut stats = self.stats.lock();
+        stats.run_steps += 1;
+        stats.run_time += run_start.elapsed();
+
         if cancelled.into_inner() {
             Err(Cancelled)
         } else {
@@ -1124,6 +1278,11 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Transitively invalidate all modules in the dependency chain of the changed modules.
+    ///
+    /// This is called from `run_internal` when a mutable dependency cycle is detected
+    /// (i.e., the same module changes twice in one run), as a fallback to ensure all
+    /// cyclic modules reach a stable state.
     fn invalidate_rdeps(&mut self, changed: &[ArcId<ModuleDataMut>]) {
         // Those that I have yet to follow
         let mut follow: Vec<ArcId<ModuleDataMut>> = changed.iter().map(|x| x.dupe()).collect();
@@ -1143,6 +1302,7 @@ impl<'a> Transaction<'a> {
                 }
             }
         }
+        self.stats.lock().cycle_rdeps += dirty.len();
 
         let mut dirty_set: std::sync::MutexGuard<'_, SmallSet<ArcId<ModuleDataMut>>> =
             self.data.dirty.lock();
@@ -1186,7 +1346,7 @@ impl<'a> Transaction<'a> {
         let _ = self.run_internal(handles, require);
     }
 
-    pub fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
+    pub(crate) fn ad_hoc_solve<R: Sized, F: FnOnce(AnswersSolver<TransactionHandle>) -> R>(
         &self,
         handle: &Handle,
         solve: F,
@@ -1197,7 +1357,7 @@ impl<'a> Transaction<'a> {
         let errors = &steps.load.as_ref()?.errors;
         let (bindings, answers) = steps.answers.as_deref().as_ref()?;
         let stdlib = self.get_stdlib(handle);
-        let recurser = Recurser::new();
+        let recurser = VarRecurser::new();
         let thread_state = ThreadState::new();
         let solver = AnswersSolver::new(
             &lookup,
@@ -1257,7 +1417,7 @@ impl<'a> Transaction<'a> {
 
     /// Called if the `find` portion of loading might have changed.
     /// E.g. you have include paths, and a new file appeared earlier on the path.
-    pub fn invalidate_find(&mut self) {
+    fn invalidate_find(&mut self) {
         let new_loaders = LockedMap::new();
         for loader in self.data.updated_loaders.keys() {
             new_loaders.insert(loader.dupe(), Arc::new(LoaderFindCache::new(loader.dupe())));
@@ -1281,7 +1441,7 @@ impl<'a> Transaction<'a> {
         // If they change, set find to dirty.
         let mut dirty_set = self.data.dirty.lock();
         for (handle, module_data) in self.data.updated_modules.iter_unordered() {
-            let config2 = self.data.state.get_config(handle.module(), handle.path());
+            let config2 = self.data.state.get_config(handle);
             if config2 != *module_data.config.read() {
                 *module_data.config.write() = config2;
                 module_data.state.write(Step::Load).unwrap().dirty.find = true;
@@ -1290,7 +1450,7 @@ impl<'a> Transaction<'a> {
         }
         for (handle, module_data) in self.readable.modules.iter() {
             if self.data.updated_modules.get(handle).is_none() {
-                let config2 = self.data.state.get_config(handle.module(), handle.path());
+                let config2 = self.data.state.get_config(handle);
                 if module_data.config != config2 {
                     let module_data = self.get_module(handle);
                     *module_data.config.write() = config2;
@@ -1301,9 +1461,54 @@ impl<'a> Transaction<'a> {
         }
     }
 
+    /// Called if the `find` portion of loading might have changed for specific configs,
+    /// without wanting to fully reload all configs (and pay the performance penalty of
+    /// requerying a build system). If `configs` is empty, we short circuit.
+    /// E.g. a file was opened or closed, changing the set of 'open' build system targets,
+    /// and affecting how a go-to-definition or hover result would be produced.
+    pub fn invalidate_find_for_configs(&mut self, configs: SmallSet<ArcId<ConfigFile>>) {
+        if configs.is_empty() {
+            return;
+        }
+
+        // First do the work of clearing out the loaders for our config, but preserve all the other
+        // loaders.
+        let new_loaders = LockedMap::new();
+        self.data
+            .updated_loaders
+            .iter_unordered()
+            .chain(self.readable.loaders.iter())
+            .filter(|(c, _)| !configs.contains(*c))
+            .for_each(|(c, l)| {
+                new_loaders.insert(c.dupe(), l.dupe());
+            });
+        configs.iter().for_each(|config| {
+            new_loaders.insert(config.dupe(), Arc::new(LoaderFindCache::new(config.dupe())));
+        });
+        self.data.updated_loaders = new_loaders;
+
+        // Then mark all handles under that config as dirty.
+        let mut dirty_set = self.data.dirty.lock();
+        for module_data in self.data.updated_modules.values() {
+            if configs.contains(&*module_data.config.read()) {
+                module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+        for (handle, module_data) in self.readable.modules.iter() {
+            if self.data.updated_modules.get(handle).is_none()
+                && configs.contains(&module_data.config)
+            {
+                let module_data = self.get_module(handle);
+                module_data.state.write(Step::Load).unwrap().dirty.find = true;
+                dirty_set.insert(module_data.dupe());
+            }
+        }
+    }
+
     /// Called if the `load_from_memory` portion of loading might have changed.
     /// Specify which in-memory files might have changed, use None to say they don't exist anymore.
-    pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<String>>)>) {
+    pub fn set_memory(&mut self, files: Vec<(PathBuf, Option<Arc<FileContents>>)>) {
         let mut changed = SmallSet::new();
         for (path, contents) in files {
             if self.memory_lookup().get(&path) != contents.as_ref() {
@@ -1399,20 +1604,6 @@ impl<'a> Transaction<'a> {
                     write(&"Exports-force", start)?;
                 }
             }
-            let start = Instant::now();
-            let diff = lock
-                .steps
-                .solutions
-                .as_ref()
-                .unwrap()
-                .first_difference(alt.solutions.as_deref().unwrap());
-            write(&"Diff", start)?;
-            if false {
-                // Disabled code, but super useful for debugging differences
-                if let Some(diff) = diff {
-                    error!("Not deterministic {}: {}", m.handle.module(), diff)
-                }
-            }
             if let Some(subscriber) = &self.data.subscriber {
                 subscriber.finish_work(&m.handle, &alt.load.unwrap());
             }
@@ -1453,7 +1644,7 @@ impl<'a> Transaction<'a> {
     }
 }
 
-pub struct TransactionHandle<'a> {
+pub(crate) struct TransactionHandle<'a> {
     transaction: &'a Transaction<'a>,
     module_data: ArcId<ModuleDataMut>,
 }
@@ -1463,58 +1654,79 @@ impl<'a> TransactionHandle<'a> {
         &self,
         module: ModuleName,
         path: Option<&ModulePath>,
-    ) -> Result<ArcId<ModuleDataMut>, FindError> {
+    ) -> FindingOrError<ArcId<ModuleDataMut>> {
+        let require = self.module_data.state.read().require;
         if let Some(res) = self.module_data.deps.read().get(&module).map(|x| x.first())
             && path.is_none_or(|path| path == res.path())
         {
-            return Ok(self.transaction.get_module(res));
+            return FindingOrError::new_finding(self.transaction.get_imported_module(res, require));
         }
 
         let handle = self
             .transaction
-            .import_handle(&self.module_data.handle, module, path)?;
-        let res = self.transaction.get_module(&handle);
-        let mut write = self.module_data.deps.write();
-        let did_insert = match write.entry(module) {
-            Entry::Vacant(e) => {
-                e.insert(SmallSet1::new(handle));
-                true
+            .import_handle(&self.module_data.handle, module, path);
+
+        match handle {
+            FindingOrError::Finding(finding) => {
+                let handle = finding.finding;
+                let error = finding.error;
+                let res = self.transaction.get_imported_module(&handle, require);
+                let mut write = self.module_data.deps.write();
+                let did_insert = match write.entry(module) {
+                    Entry::Vacant(e) => {
+                        e.insert(SmallSet1::new(handle));
+                        true
+                    }
+                    Entry::Occupied(mut e) => e.get_mut().insert(handle),
+                };
+                if did_insert {
+                    let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
+                    assert!(inserted);
+                }
+                // Make sure we hold the deps write lock until after we insert into rdeps.
+                drop(write);
+                FindingOrError::Finding(Finding {
+                    finding: res,
+                    error,
+                })
             }
-            Entry::Occupied(mut e) => e.get_mut().insert(handle),
-        };
-        if did_insert {
-            let inserted = res.rdeps.lock().insert(self.module_data.handle.dupe());
-            assert!(inserted);
+            FindingOrError::Error(err) => {
+                // Store the failed import so we can retry it when the config changes
+                self.module_data
+                    .failed_deps
+                    .write()
+                    .insert(module, err.dupe());
+                FindingOrError::Error(err)
+            }
         }
-        // Make sure we hold the deps write lock until after we insert into rdeps.
-        drop(write);
-        Ok(res)
     }
 }
 
 impl<'a> LookupExport for TransactionHandle<'a> {
-    fn get(&self, module: ModuleName) -> Result<Exports, FindError> {
-        let module_data = self.get_module(module, None)?;
-        let exports = self.transaction.lookup_export(&module_data);
+    fn get(&self, module: ModuleName) -> FindingOrError<Exports> {
+        let module_data = self.get_module(module, None);
+        module_data.map(|module_data| {
+            let exports = self.transaction.lookup_export(&module_data);
 
-        // TODO: Design this better.
-        //
-        // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
-        // We write `lookup.get("imported").wildcards(lookup)` to do that.
-        // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
-        //
-        // `lookup.get("imported").wildcards(lookup_for_imported)`
-        //
-        // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
-        // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
-        // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
-        let transaction2 = TransactionHandle {
-            transaction: self.transaction,
-            module_data,
-        };
-        exports.wildcard(&transaction2);
-        exports.exports(&transaction2);
-        Ok(exports)
+            // TODO: Design this better.
+            //
+            // Currently to resolve Exports we have to recursively look at `import *` to get the full set of exported symbols.
+            // We write `lookup.get("imported").wildcards(lookup)` to do that.
+            // But that's no longer correct, because the module resolver for "imported" might be different to our resolver, so should be:
+            //
+            // `lookup.get("imported").wildcards(lookup_for_imported)`
+            //
+            // Since Bindings gets this right, we might have a mismatch from the exports, leading to a crash.
+            // Temporary band-aid is to just force it with the right lookup, but we probably want a type distinction
+            // between templated and resolved exports, or a different API that gives the pair of exports and lookup.
+            let transaction2 = TransactionHandle {
+                transaction: self.transaction,
+                module_data,
+            };
+            exports.wildcard(&transaction2);
+            exports.exports(&transaction2);
+            exports
+        })
     }
 }
 
@@ -1533,7 +1745,7 @@ impl<'a> LookupAnswer for TransactionHandle<'a> {
     {
         // The unwrap is safe because we must have said there were no exports,
         // so no one can be trying to get at them
-        let module_data = self.get_module(module, path).unwrap();
+        let module_data = self.get_module(module, path).finding().unwrap();
         let res = self.transaction.lookup_answer(module_data, k, thread_state);
         if res.is_none() {
             let msg = format!(
@@ -1625,11 +1837,15 @@ impl State {
         &self.config_finder
     }
 
-    fn get_config(&self, name: ModuleName, path: &ModulePath) -> ArcId<ConfigFile> {
-        if matches!(path.details(), ModulePathDetails::BundledTypeshed(_)) {
-            BundledTypeshed::config()
+    fn get_config(&self, handle: &Handle) -> ArcId<ConfigFile> {
+        if matches!(
+            handle.path().details(),
+            ModulePathDetails::BundledTypeshed(_)
+        ) {
+            BundledTypeshedStdlib::config()
         } else {
-            self.config_finder.python_file(name, path)
+            self.config_finder
+                .python_file(handle.module_kind(), handle.path())
         }
     }
 
@@ -1643,12 +1859,14 @@ impl State {
         let stdlib = readable.stdlib.clone();
         Transaction {
             readable,
+            stats: Default::default(),
             data: TransactionData {
                 state: self,
                 stdlib,
                 updated_modules: Default::default(),
                 updated_loaders: Default::default(),
                 memory_overlay: Default::default(),
+                base: now,
                 now,
                 default_require,
                 todo: Default::default(),
@@ -1660,6 +1878,9 @@ impl State {
     }
 
     pub fn transaction<'a>(&'a self) -> Transaction<'a> {
+        // IMPORTANT: the LSP depends on default_require here being Require::Exports for good
+        // startup time performance. See the call to Server::validate_in_memory_without_committing
+        // in Server::did_open for details.
         self.new_transaction(Require::Exports, None)
     }
 
@@ -1669,11 +1890,11 @@ impl State {
 
     pub fn new_committable_transaction<'a>(
         &'a self,
-        require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> CommittingTransaction<'a> {
         let committing_transaction_guard = self.committing_transaction_lock.lock();
-        let transaction = self.new_transaction(require, subscriber);
+        let transaction = self.new_transaction(default_require, subscriber);
         CommittingTransaction {
             transaction,
             committing_transaction_guard,
@@ -1682,11 +1903,11 @@ impl State {
 
     pub fn try_new_committable_transaction<'a>(
         &'a self,
-        require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
     ) -> Option<CommittingTransaction<'a>> {
         if let Some(committing_transaction_guard) = self.committing_transaction_lock.try_lock() {
-            let transaction = self.new_transaction(require, subscriber);
+            let transaction = self.new_transaction(default_require, subscriber);
             Some(CommittingTransaction {
                 transaction,
                 committing_transaction_guard,
@@ -1696,18 +1917,24 @@ impl State {
         }
     }
 
-    pub fn commit_transaction(&self, transaction: CommittingTransaction) {
+    pub fn commit_transaction(
+        &self,
+        transaction: CommittingTransaction,
+        telemetry: Option<&mut TelemetryEvent>,
+    ) {
         debug!("Committing transaction");
         let CommittingTransaction {
             transaction:
                 Transaction {
                     readable,
+                    stats,
                     data:
                         TransactionData {
                             stdlib,
                             updated_modules,
                             updated_loaders,
                             memory_overlay,
+                            base,
                             now,
                             default_require: _,
                             state: _,
@@ -1722,6 +1949,13 @@ impl State {
         // Drop the read lock the transaction holds.
         drop(readable);
 
+        let mut stats = stats.into_inner();
+        stats.committed = true;
+
+        if let Some(telemetry) = telemetry {
+            telemetry.set_transaction_stats(stats);
+        }
+
         // If you make a transaction dirty, e.g. by calling an invalidate method,
         // you must subsequently call `run` to drain the dirty queue.
         // We could relax this restriction by storing `dirty` in the `State`,
@@ -1729,6 +1963,11 @@ impl State {
         assert!(dirty.into_inner().is_empty(), "Transaction is dirty");
 
         let mut state = self.state.write();
+        assert_eq!(
+            state.now, base,
+            "Attempted to commit a stale transaction from epoch {:?} into state at epoch {:?}",
+            base, state.now
+        );
         state.stdlib = stdlib;
         state.now = now;
         for (handle, new_module_data) in updated_modules.iter_unordered() {
@@ -1749,12 +1988,13 @@ impl State {
         &self,
         handles: &[Handle],
         require: Require,
-        new_require: Require,
+        default_require: Require,
         subscriber: Option<Box<dyn Subscriber>>,
+        telemetry: Option<&mut TelemetryEvent>,
     ) {
-        let mut transaction = self.new_committable_transaction(new_require, subscriber);
+        let mut transaction = self.new_committable_transaction(default_require, subscriber);
         transaction.transaction.run(handles, require);
-        self.commit_transaction(transaction);
+        self.commit_transaction(transaction, telemetry);
     }
 
     pub fn run_with_committing_transaction(
@@ -1762,8 +2002,9 @@ impl State {
         mut transaction: CommittingTransaction<'_>,
         handles: &[Handle],
         require: Require,
+        telemetry: Option<&mut TelemetryEvent>,
     ) {
         transaction.transaction.run(handles, require);
-        self.commit_transaction(transaction);
+        self.commit_transaction(transaction, telemetry);
     }
 }

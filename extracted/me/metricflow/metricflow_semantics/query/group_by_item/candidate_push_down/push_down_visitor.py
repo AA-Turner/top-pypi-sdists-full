@@ -4,9 +4,10 @@ import logging
 import typing
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence
 
 from dbt_semantic_interfaces.enum_extension import assert_values_exhausted
+from dbt_semantic_interfaces.protocols import Metric
 from dbt_semantic_interfaces.references import MetricReference
 from dbt_semantic_interfaces.type_enums import MetricType
 from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
@@ -17,7 +18,7 @@ from metricflow_semantics.helpers.string_helpers import mf_indent
 from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
 from metricflow_semantics.mf_logging.pretty_print import mf_pformat, mf_pformat_dict
 from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
-from metricflow_semantics.model.semantics.element_filter import LinkableElementFilter
+from metricflow_semantics.model.semantics.element_filter import GroupByItemSetFilter
 from metricflow_semantics.query.group_by_item.candidate_push_down.group_by_item_candidate import GroupByItemCandidateSet
 from metricflow_semantics.query.group_by_item.filter_spec_resolution.filter_location import (
     WhereFilterLocation,
@@ -27,11 +28,8 @@ from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.ba
     GroupByItemResolutionNode,
     GroupByItemResolutionNodeVisitor,
 )
-from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.measure_source_node import (
-    MeasureGroupByItemSourceNode,
-)
 from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.metric_resolution_node import (
-    MetricGroupByItemResolutionNode,
+    ComplexMetricGroupByItemResolutionNode,
 )
 from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.no_metrics_query_source_node import (
     NoMetricsGroupByItemSourceNode,
@@ -39,16 +37,19 @@ from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.no
 from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.query_resolution_node import (
     QueryGroupByItemResolutionNode,
 )
+from metricflow_semantics.query.group_by_item.resolution_dag.resolution_nodes.simple_metric_source_node import (
+    SimpleMetricGroupByItemSourceNode,
+)
 from metricflow_semantics.query.group_by_item.resolution_path import MetricFlowQueryResolutionPath
 from metricflow_semantics.query.issues.group_by_item_resolver.invalid_use_of_date_part import (
     MetricExcludesDatePartIssue,
 )
 from metricflow_semantics.query.issues.group_by_item_resolver.no_common_items import NoCommonItemsInParents
-from metricflow_semantics.query.issues.group_by_item_resolver.no_matching_items_for_measure import (
-    NoMatchingItemsForMeasure,
-)
 from metricflow_semantics.query.issues.group_by_item_resolver.no_matching_items_for_no_metrics_query import (
     NoMatchingItemsForNoMetricsQuery,
+)
+from metricflow_semantics.query.issues.group_by_item_resolver.no_matching_items_for_simple_metric import (
+    NoMatchingItemsForSimpleMetric,
 )
 from metricflow_semantics.query.issues.group_by_item_resolver.no_parent_candidates import NoParentCandidates
 from metricflow_semantics.query.issues.issues_base import (
@@ -137,8 +138,8 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
     """A visitor that implements the logic for group-by-item resolution using the resolution DAG.
 
     Please see the behavior at each node for more details. Overall, this visitor pushes candidates that match an
-    ambiguous group-by-item pattern from the root nodes (representing measures / the specs available for those
-    measures) to the leaf node (the query for metrics / valid group-by items for querying). For nodes with multiple
+    ambiguous group-by-item pattern from the root nodes (representing simple-metric inputs / the specs available for those
+    simple-metric inputs) to the leaf node (the query for metrics / valid group-by items for querying). For nodes with multiple
     parents, the candidates from each parent are intersected and passed to the child node.
     """
 
@@ -158,7 +159,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
             suggestion_generator: If there are issues with matching patterns to specs, use this to generate suggestions
             that will go in the issue.
             source_spec_patterns: The patterns to apply to the specs available at the measure nodes.
-            LinkableElementProperty).
+            GroupByItemProperty).
             filter_location: If resolving a where filter item, where this filter was defined.
         """
         self._semantic_manifest_lookup = manifest_lookup
@@ -169,55 +170,46 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
         self._group_by_item_resolver_for_query = group_by_item_resolver
 
     @override
-    def visit_measure_node(self, node: MeasureGroupByItemSourceNode) -> PushDownResult:
-        """Push the group-by-item specs that are available to the measure and match the source patterns to the child."""
+    def visit_simple_metric_node(self, node: SimpleMetricGroupByItemSourceNode) -> PushDownResult:
+        """Push the group-by-item specs that are available to the simple-metric input and match the source patterns to the child."""
         with self._path_from_start_node_tracker.track_node_visit(node) as current_traversal_path:
-            logger.debug(LazyFormat(lambda: f"Handling {node.ui_description}"))
+            logger.debug(LazyFormat("Visiting Node", node=node.ui_description))
 
-            items_available_for_measure = self._semantic_manifest_lookup.metric_lookup.linkable_elements_for_measure(
-                measure_reference=node.measure_reference,
-                element_filter=LinkableElementFilter.merge_iterable(
-                    spec_pattern.element_pre_filter for spec_pattern in self._source_spec_patterns
+            group_by_item_set = self._semantic_manifest_lookup.metric_lookup.get_common_group_by_items(
+                metric_references=(node.metric_reference,),
+                # The filter should allow everything, except for the ones blocked by the spec patterns.
+                set_filter=GroupByItemSetFilter.create().merge(
+                    GroupByItemSetFilter.merge_iterable(
+                        spec_pattern.element_pre_filter for spec_pattern in self._source_spec_patterns
+                    ),
                 ),
             )
+            patterns_to_apply = self._source_spec_patterns
 
-            # The following is needed to handle limitation of cumulative metrics. Filtering could be done at the measure
-            # node, but doing it here makes it a little easier to generate the error message.
-            metric = self._semantic_manifest_lookup.metric_lookup.get_metric(node.child_metric_reference)
-
-            patterns_to_apply: Tuple[SpecPattern, ...] = ()
-            if metric.type is MetricType.SIMPLE or metric.type is MetricType.CONVERSION:
-                pass
-            elif metric.type is MetricType.RATIO or metric.type is MetricType.DERIVED:
-                assert False, f"A measure should have a simple or cumulative metric as a child, but got {metric.type}"
-            elif metric.type is MetricType.CUMULATIVE:
-                patterns_to_apply = (
-                    # Date part doesn't make clear sense with cumulative metrics, so we don't allow it.
-                    NoneDatePartPattern(),
+            matching_items = group_by_item_set.filter_by_spec_patterns(patterns_to_apply)
+            logger.debug(
+                LazyFormat(
+                    "Output after applying patterns", patterns_to_apply=patterns_to_apply, matching_items=matching_items
                 )
-            else:
-                assert_values_exhausted(metric.type)
-
-            matching_items = items_available_for_measure.filter_by_spec_patterns(
-                patterns_to_apply + self._source_spec_patterns
             )
 
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    LazyFormat(
-                        lambda: f"For {node.ui_description}:\n"
-                        + mf_indent(
-                            "After applying patterns:\n"
-                            + mf_indent(mf_pformat(patterns_to_apply + self._source_spec_patterns))
-                            + "\n"
-                            + "to inputs, matches are:\n"
-                            + mf_indent(mf_pformat(matching_items.specs))
-                        )
-                    )
+            metric_to_use_for_time_granularity_resolution = self._semantic_manifest_lookup.metric_lookup.get_metric(
+                node.metric_reference
+            )
+            # If this is resolving a filter defined on an input metric, use the outer metric's time_granularity.
+            if (
+                node.metric_input_location
+                and self._filter_location
+                and self._filter_location.location_type == WhereFilterLocationType.INPUT_METRIC
+            ):
+                metric_to_use_for_time_granularity_resolution = self._semantic_manifest_lookup.metric_lookup.get_metric(
+                    node.metric_input_location.derived_metric_reference
                 )
 
-            # The specified patterns don't match to any of the available group-by-items that can be queried for the
-            # measure.
+            metric_default_time_granularity = self._get_metric_default_time_grain(
+                metric_to_use_for_time_granularity_resolution
+            )
+
             if matching_items.is_empty:
                 input_suggestions: Sequence[str] = ()
                 if self._suggestion_generator is not None:
@@ -229,7 +221,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 return PushDownResult(
                     candidate_set=GroupByItemCandidateSet.empty_instance(),
                     issue_set=MetricFlowQueryResolutionIssueSet.from_issue(
-                        NoMatchingItemsForMeasure.from_parameters(
+                        NoMatchingItemsForSimpleMetric.create(
                             parent_issues=(),
                             query_resolution_path=current_traversal_path,
                             input_suggestions=input_suggestions,
@@ -239,11 +231,12 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
 
             return PushDownResult(
                 candidate_set=GroupByItemCandidateSet(
-                    measure_paths=(current_traversal_path,),
+                    simple_metric_input_paths=(current_traversal_path,),
                     linkable_element_set=matching_items,
                     path_from_leaf_node=current_traversal_path,
                 ),
                 issue_set=MetricFlowQueryResolutionIssueSet(),
+                max_metric_default_time_granularity=metric_default_time_granularity,
             )
 
     def _merge_push_down_results_from_parents(
@@ -310,8 +303,24 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
             max_metric_default_time_granularity=max_metric_default_time_granularity,
         )
 
+    def _get_metric_default_time_grain(self, metric: Metric) -> TimeGranularity:
+        # If time granularity is not set for the metric, defaults to DAY if available, else the smallest available granularity.
+        # Note: ignores any granularity set on input metrics.
+        metric_time_granularity: Optional[TimeGranularity] = None
+        if metric.time_granularity is not None:
+            metric_time_granularity = error_if_not_standard_grain(
+                context=f"Metric({metric.name}).time_granularity",
+                input_granularity=metric.time_granularity,
+            )
+        return metric_time_granularity or max(
+            TimeGranularity.DAY,
+            self._semantic_manifest_lookup.metric_lookup.get_min_queryable_time_granularity(
+                MetricReference(metric.name)
+            ),
+        )
+
     @override
-    def visit_metric_node(self, node: MetricGroupByItemResolutionNode) -> PushDownResult:
+    def visit_complex_metric_node(self, node: ComplexMetricGroupByItemResolutionNode) -> PushDownResult:
         """At the metric node, intersect candidates from the parents and pass them to the children.
 
         This node can represent a metric that prevents querying by some types of group-by items. To model that
@@ -324,14 +333,9 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                 },
                 current_traversal_path=current_traversal_path,
             )
-            logger.debug(LazyFormat(lambda: f"Handling {node.ui_description}"))
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    LazyFormat(
-                        lambda: "Candidates from parents:\n"
-                        + mf_indent(mf_pformat(merged_result_from_parents.candidate_set.specs))
-                    )
-                )
+            logger.debug(
+                LazyFormat("Visiting Node", node=node.ui_description, input=merged_result_from_parents.candidate_set)
+            )
             if merged_result_from_parents.candidate_set.is_empty:
                 return merged_result_from_parents
 
@@ -339,12 +343,12 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
 
             # For metrics with offset_to_grain, don't allow date_part group-by-items
             patterns_to_apply: Sequence[SpecPattern] = ()
-            if (
-                metric.type is MetricType.SIMPLE
-                or metric.type is MetricType.CUMULATIVE
-                or metric.type is MetricType.CONVERSION
-            ):
+            if metric.type is MetricType.SIMPLE:
                 pass
+            elif metric.type is MetricType.CONVERSION:
+                pass
+            elif metric.type is MetricType.CUMULATIVE:
+                patterns_to_apply = (NoneDatePartPattern(),)
             elif metric.type is MetricType.RATIO or metric.type is MetricType.DERIVED:
                 for input_metric in metric.input_metrics:
                     if input_metric.offset_to_grain:
@@ -358,26 +362,20 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
             candidate_items = merged_result_from_parents.candidate_set.linkable_element_set
             issue_sets_to_merge = [merged_result_from_parents.issue_set]
 
-            matched_items = candidate_items.filter_by_spec_patterns(patterns_to_apply)
+            matching_items = candidate_items.filter_by_spec_patterns(patterns_to_apply)
 
-            if logger.isEnabledFor(logging.DEBUG):
-                matched_specs = matched_items.specs
-                logger.debug(
-                    LazyFormat(
-                        lambda: f"For {node.ui_description}:\n"
-                        + mf_indent(
-                            "After applying patterns:\n"
-                            + mf_indent(mf_pformat(patterns_to_apply))
-                            + "\n"
-                            + "to inputs, outputs are:\n"
-                            + mf_indent(mf_pformat(matched_specs))
-                        )
-                    )
+            logger.debug(
+                LazyFormat(
+                    "Output after applying patterns",
+                    node=node.ui_description,
+                    patterns_to_apply=patterns_to_apply,
+                    matching_items=matching_items,
                 )
+            )
 
             # There were candidates that were common from the ones passed from parents, but after applying the filters,
             # none of the candidates were valid.
-            if matched_items.is_empty:
+            if matching_items.is_empty:
                 issue_sets_to_merge.append(
                     MetricFlowQueryResolutionIssueSet.from_issue(
                         MetricExcludesDatePartIssue.from_parameters(
@@ -399,22 +397,11 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
                     node.metric_input_location.derived_metric_reference
                 )
 
-            # If time granularity is not set for the metric, defaults to DAY if available, else the smallest available granularity.
-            # Note: ignores any granularity set on input metrics.
-            metric_time_granularity: Optional[TimeGranularity] = None
-            if metric_to_use_for_time_granularity_resolution.time_granularity is not None:
-                metric_time_granularity = error_if_not_standard_grain(
-                    context=f"Metric({metric_to_use_for_time_granularity_resolution}).time_granularity",
-                    input_granularity=metric_to_use_for_time_granularity_resolution.time_granularity,
-                )
-            metric_default_time_granularity = metric_time_granularity or max(
-                TimeGranularity.DAY,
-                self._semantic_manifest_lookup.metric_lookup.get_min_queryable_time_granularity(
-                    MetricReference(metric_to_use_for_time_granularity_resolution.name)
-                ),
+            metric_default_time_granularity = self._get_metric_default_time_grain(
+                metric_to_use_for_time_granularity_resolution
             )
 
-            if matched_items.is_empty:
+            if matching_items.is_empty:
                 return PushDownResult(
                     candidate_set=GroupByItemCandidateSet.empty_instance(),
                     issue_set=MetricFlowQueryResolutionIssueSet.merge_iterable(issue_sets_to_merge),
@@ -423,8 +410,8 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
 
             return PushDownResult(
                 candidate_set=GroupByItemCandidateSet(
-                    linkable_element_set=matched_items,
-                    measure_paths=merged_result_from_parents.candidate_set.measure_paths,
+                    linkable_element_set=matching_items,
+                    simple_metric_input_paths=merged_result_from_parents.candidate_set.simple_metric_input_paths,
                     path_from_leaf_node=current_traversal_path,
                 ),
                 issue_set=MetricFlowQueryResolutionIssueSet.merge_iterable(issue_sets_to_merge),
@@ -460,10 +447,11 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
         with self._path_from_start_node_tracker.track_node_visit(node) as current_traversal_path:
             logger.debug(LazyFormat(lambda: f"Handling {node.ui_description}"))
             # This is a case for distinct dimension values from semantic models.
-            candidate_elements = self._semantic_manifest_lookup.metric_lookup.linkable_elements_for_no_metrics_query()
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(LazyFormat(lambda: f"Candidate elements are:\n{mf_pformat(candidate_elements)}"))
-            candidates_after_filtering = candidate_elements.filter_by_spec_patterns(self._source_spec_patterns)
+            candidate_group_by_items = (
+                self._semantic_manifest_lookup.metric_lookup.get_group_by_items_for_distinct_values_query()
+            )
+            logger.debug(LazyFormat("Retrieved candidates", candidate_group_by_items=candidate_group_by_items))
+            candidates_after_filtering = candidate_group_by_items.filter_by_spec_patterns(self._source_spec_patterns)
 
             if candidates_after_filtering.is_empty:
                 return PushDownResult(
@@ -479,7 +467,7 @@ class _PushDownGroupByItemCandidatesVisitor(GroupByItemResolutionNodeVisitor[Pus
             return PushDownResult(
                 candidate_set=GroupByItemCandidateSet(
                     linkable_element_set=candidates_after_filtering,
-                    measure_paths=(current_traversal_path,),
+                    simple_metric_input_paths=(current_traversal_path,),
                     path_from_leaf_node=current_traversal_path,
                 ),
                 issue_set=MetricFlowQueryResolutionIssueSet.empty_instance(),

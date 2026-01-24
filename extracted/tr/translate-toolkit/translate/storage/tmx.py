@@ -32,7 +32,7 @@ class tmxunit(lisa.LISAunit):
     languageNode = "tuv"
     textNode = "seg"
 
-    def createlanguageNode(self, lang, text, purpose):
+    def createlanguageNode(self, lang, text, purpose):  # ty:ignore[invalid-method-override]
         """Returns a langset xml Element setup with given parameters."""
         langset = etree.Element(self.languageNode)
         setXMLlang(langset, lang)
@@ -42,6 +42,23 @@ class tmxunit(lisa.LISAunit):
         safely_set_text(seg, text)
 
         return langset
+
+    def _insert_element_before(self, element: etree._Element, tag: str) -> None:
+        """
+        Insert an element before the first occurrence of the specified tag.
+
+        According to TMX DTD, elements must follow this order: note, prop, tuv.
+        This helper method finds the first child matching the tag name
+        and inserts the element before it, or appends at the end if none found.
+
+        :param element: The element to insert
+        :param tag: Tag name to search for
+        """
+        needle = self.xmlelement.find(tag)
+        if needle is None:
+            self.xmlelement.append(element)
+        else:
+            self.xmlelement.insert(self.xmlelement.index(needle), element)
 
     def getid(self):
         """
@@ -55,22 +72,28 @@ class tmxunit(lisa.LISAunit):
     def istranslatable(self):
         return bool(self.source)
 
-    def addnote(self, text, origin=None, position="append"):
+    def addnote(self, text, origin=None, position="append") -> None:
         """
         Add a note specifically in a "note" tag.
 
         The origin parameter is ignored
         """
-        note = etree.SubElement(self.xmlelement, self.namespaced("note"))
+        note = etree.Element(self.namespaced("note"))
         safely_set_text(note, text.strip())
 
-    def _getnotelist(self, origin=None):
+        # According to TMX DTD, notes should come before prop and tuv elements
+        # Try to insert before prop first, if not found try tuv
+        if self.xmlelement.find(self.namespaced("prop")) is not None:
+            self._insert_element_before(note, self.namespaced("prop"))
+        else:
+            self._insert_element_before(note, self.namespaced(self.languageNode))
+
+    def _getnotelist(self, origin: str | None = None) -> list[str]:
         """
         Returns the text from notes.
 
         :param origin: Ignored
         :return: The text from notes
-        :rtype: List
         """
         note_nodes = self.xmlelement.iterdescendants(self.namespaced("note"))
         return [lisa.getText(note) for note in note_nodes]
@@ -78,18 +101,18 @@ class tmxunit(lisa.LISAunit):
     def getnotes(self, origin=None):
         return "\n".join(self._getnotelist(origin=origin))
 
-    def removenotes(self, origin=None):
+    def removenotes(self, origin=None) -> None:
         """Remove all the translator notes."""
         notes = self.xmlelement.iterdescendants(self.namespaced("note"))
         for note in notes:
             self.xmlelement.remove(note)
 
-    def adderror(self, errorname, errortext):
+    def adderror(self, errorname, errortext) -> None:
         """Adds an error message to this unit."""
         # TODO: consider factoring out: some duplication between XLIFF and TMX
         text = errorname
         if errortext:
-            text += ": " + errortext
+            text += f": {errortext}"
         self.addnote(text, origin="pofilter")
 
     def geterrors(self):
@@ -102,17 +125,27 @@ class tmxunit(lisa.LISAunit):
             errordict[errorname] = errortext
         return errordict
 
-    def copy(self):
-        """
-        Make a copy of the translation unit.
+    def setcontext(self, context) -> None:
+        context_prop = self.xmlelement.find(
+            f"{self.namespaced('prop')}[@type='x-context']"
+        )
+        if context_prop is None:
+            context_prop = etree.Element(self.namespaced("prop"))
+            context_prop.set("type", "x-context")
 
-        We don't want to make a deep copy - this could duplicate the whole XML
-        tree. For now we just serialise and reparse the unit's XML.
-        """
-        # TODO: check performance
-        new_unit = self.__class__(None, empty=True)
-        new_unit.xmlelement = etree.fromstring(etree.tostring(self.xmlelement))
-        return new_unit
+            # According to TMX DTD, prop elements come after notes but before tuv elements
+            self._insert_element_before(
+                context_prop, self.namespaced(self.languageNode)
+            )
+        safely_set_text(context_prop, context)
+
+    def getcontext(self):
+        context_prop = self.xmlelement.find(
+            f"{self.namespaced('prop')}[@type='x-context']"
+        )
+        if context_prop is not None and context_prop.text is not None:
+            return context_prop.text
+        return ""
 
 
 class tmxfile(lisa.LISAfile):
@@ -131,7 +164,7 @@ class tmxfile(lisa.LISAfile):
 <body></body>
 </tmx>"""
 
-    def addheader(self):
+    def addheader(self) -> None:
         headernode = next(
             self.document.getroot().iterchildren(self.namespaced("header"))
         )
@@ -147,17 +180,21 @@ class tmxfile(lisa.LISAfile):
         # headernode.set("creationdate", "YYYYMMDDTHHMMSSZ"
         # headernode.set("creationid", "CodeSyntax"
 
-    def addtranslation(self, source, srclang, translation, translang, comment=None):
+    def addtranslation(
+        self, source, srclang, translation, translang, comment=None, context=None
+    ) -> None:
         """Addtranslation method for testing old unit tests."""
         unit = self.addsourceunit(source)
         unit.target = translation
         if comment is not None and len(comment) > 0:
             unit.addnote(comment)
+        if context is not None and len(context) > 0:
+            unit.setcontext(context)
 
         tuvs = unit.xmlelement.iterdescendants(self.namespaced("tuv"))
         setXMLlang(next(tuvs), srclang)
         setXMLlang(next(tuvs), translang)
 
-    def translate(self, sourcetext, sourcelang=None, targetlang=None):
+    def translate(self, sourcetext, sourcelang=None, targetlang=None):  # ty:ignore[invalid-method-override]
         """Method to test old unit tests."""
         return getattr(self.findunit(sourcetext), "target", None)

@@ -1,27 +1,38 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 1.28.2
-Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in onnx-tensorflow (onnx-tf).
+Version: 1.29.4
+Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC).
 Home-page: https://github.com/PINTO0309/onnx2tf
 Author: Katsuya Hyodo
 Author-email: rmsdh122@yahoo.co.jp
-License: MIT License
 Platform: linux
 Platform: unix
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE_onnx-tensorflow
+Requires-Dist: requests==2.32.5
+Requires-Dist: numpy==1.26.4
+Requires-Dist: onnx==1.19.0
+Requires-Dist: onnxruntime==1.23.0
+Requires-Dist: opencv-python==4.11.0.86
+Requires-Dist: onnxsim==0.4.30
+Requires-Dist: ai-edge-litert==2.1.0
+Requires-Dist: tensorflow==2.19.0
+Requires-Dist: tf-keras==2.19.0
+Requires-Dist: onnx-graphsurgeon==0.5.8
+Requires-Dist: simple-onnx-processing-tools==1.1.32
+Requires-Dist: psutil==5.9.5
+Requires-Dist: protobuf==4.25.5
+Requires-Dist: h5py==3.11.0
+Requires-Dist: ml_dtypes==0.5.1
+Requires-Dist: flatbuffers==25.12.19
 Dynamic: author
 Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
 Dynamic: platform
 Dynamic: requires-python
-Dynamic: summary
 
 # onnx2tf
 Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in [onnx-tensorflow](https://github.com/onnx/onnx-tensorflow) ([onnx-tf](https://pypi.org/project/onnx-tf/)). I don't need a Star, but give me a pull request. Since I am adding challenging model optimizations and fixing bugs almost daily, I frequently embed potential bugs that would otherwise break through CI's regression testing. Therefore, if you encounter new problems, I recommend that you try a package that is a few versions older, or try the latest package that will be released in a few days.
@@ -95,10 +106,10 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
   |BatchNormalization|:heavy_check_mark:|
   |Bernoulli|:heavy_check_mark:|
   |BitShift|:heavy_check_mark:|
-  |BitwiseAnd|**Help wanted**|
-  |BitwiseNot|**Help wanted**|
-  |BitwiseOr|**Help wanted**|
-  |BitwiseXor|**Help wanted**|
+  |BitwiseAnd|:heavy_check_mark:|
+  |BitwiseNot|:heavy_check_mark:|
+  |BitwiseOr|:heavy_check_mark:|
+  |BitwiseXor|:heavy_check_mark:|
   |Cast|:heavy_check_mark:|
   |Ceil|:heavy_check_mark:|
   |Celu|:heavy_check_mark:|
@@ -334,7 +345,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:1.28.2
+  ghcr.io/pinto0309/onnx2tf:1.29.4
 
   or
 
@@ -342,12 +353,11 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:1.28.2
+  docker.io/pinto0309/onnx2tf:1.29.4
 
   or
 
   pip install -U onnx==1.17.0 \
-  && pip install -U nvidia-pyindex \
   && pip install -U onnx-graphsurgeon \
   && pip install -U onnxruntime==1.18.1 \
   && pip install -U onnxsim==0.4.33 \
@@ -501,7 +511,7 @@ onnx2tf -i resnet18-v1-7.onnx -otfv1pb
 # Automatic JSON generation only
 # Generates an optimal parameter replacement JSON file for model conversion.
 # The JSON file is saved to {model_name}_auto.json when conversion errors occur
-# or accuracy issues are detected.
+# or accuracy issues are detected and the feature is explicitly enabled.
 onnx2tf -i model.onnx -agj
 
 # Accuracy validation only (no JSON generation)
@@ -513,6 +523,11 @@ onnx2tf -i model.onnx -cotof
 # First generates an optimal parameter replacement JSON file, then uses it
 # to validate the model accuracy. This ensures the best possible conversion accuracy.
 onnx2tf -i model.onnx -agj -cotof
+
+# Accuracy validation with opt-in JSON generation on error
+# Generates a parameter replacement JSON only when accuracy errors greater than 1e-2
+# are detected during validation.
+onnx2tf -i model.onnx -cotof -agje
 
 # INT8 Quantization, Full INT8 Quantization
 # INT8 Quantization with INT16 activation, Full INT8 Quantization with INT16 activation
@@ -1663,6 +1678,16 @@ optional arguments:
     Selects whether "per-channel" or "per-tensor" quantization is used.
     Default: "per-channel"
 
+  -qnm QUANT_NORM_MEAN, --quant_norm_mean QUANT_NORM_MEAN
+    Normalized average value during quantization.
+    Only valid when the "-cind" option is not used.
+    Default: "[[[[0.485, 0.456, 0.406]]]]"
+
+  -qns QUANT_NORM_STD, --quant_norm_std QUANT_NORM_STD
+    Normalized standard deviation during quantization.
+    Only valid when the "-cind" option is not used.
+    Default: "[[[[0.229, 0.224, 0.225]]]]"
+
   -cind INPUT_NAME NUMPY_FILE_PATH MEAN STD, \
     --custom_input_op_name_np_data_path INPUT_NAME NUMPY_FILE_PATH MEAN STD
     Input name of OP and path of data file (Numpy) for custom input for -cotof or -oiqt,
@@ -2051,6 +2076,11 @@ optional arguments:
     WARNING: This option performs an exhaustive search to find the optimal conversion patterns,
     which can take a very long time depending on the model complexity.
 
+  -agje, --auto_generate_json_on_error
+    Attempts to generate a parameter replacement JSON when conversion fails or when accuracy
+    validation finds errors greater than 1e-2. Useful for quickly capturing fixes during
+    -cotof runs. Disabled by default to avoid unexpected file generation.
+
   -dms, --disable_model_save
     Does not save the converted model. For CIs RAM savings.
 
@@ -2086,6 +2116,8 @@ convert(
   output_weights: Optional[bool] = False,
   copy_onnx_input_output_names_to_tflite: Optional[bool] = False,
   output_integer_quantized_tflite: Optional[bool] = False,
+  quant_norm_mean: Optional[str] = '[[[[0.485, 0.456, 0.406]]]]',
+  quant_norm_std: Optional[str] = '[[[[0.229, 0.224, 0.225]]]]',
   quant_type: Optional[str] = 'per-channel',
   custom_input_op_name_np_data_path: Optional[List] = None,
   input_quant_dtype: Optional[str] = 'int8',
@@ -2121,6 +2153,7 @@ convert(
   mvn_epsilon: Union[float, NoneType] = 0.0000000001,
   param_replacement_file: Optional[str] = '',
   auto_generate_json: Optional[bool] = False,
+  auto_generate_json_on_error: Optional[bool] = False,
   check_gpu_delegate_compatibility: Optional[bool] = False,
   check_onnx_tf_outputs_elementwise_close: Optional[bool] = False,
   check_onnx_tf_outputs_elementwise_close_full: Optional[bool] = False,
@@ -2179,6 +2212,16 @@ convert(
 
     output_integer_quantized_tflite: Optional[bool]
       Output of integer quantized tflite.
+
+    quant_norm_mean: Optional[str]
+        Normalized average value during quantization.
+        Only valid when the "-cind" option is not used.
+        Default: "[[[[0.485, 0.456, 0.406]]]]"
+
+    quant_norm_std: Optional[str]
+        Normalized standard deviation during quantization.
+        Only valid when the "-cind" option is not used.
+        Default: "[[[[0.229, 0.224, 0.225]]]]"
 
     quant_type: Optional[str]
       Selects whether "per-channel" or "per-tensor" quantization is used.
@@ -2472,6 +2515,11 @@ convert(
       The search stops when the final output OP accuracy check shows "Matches".
       When used together with check_onnx_tf_outputs_elementwise_close_full,
       the generated JSON is used to re-evaluate accuracy.
+      Default: False
+
+    auto_generate_json_on_error: Optional[bool]
+      When conversion fails or accuracy validation detects errors greater than 1e-2,
+      attempts to generate a parameter replacement JSON as a best-effort fix.
       Default: False
 
     check_gpu_delegate_compatibility: Optional[bool]

@@ -38,6 +38,11 @@ class TwoTypedDict(TypedDict):
     provider: str
     user_count: int
     sync_user_attributes: bool
+    allow_subdomains: bool
+    allow_idp_initiated: bool
+    disable_additional_identifications: bool
+    force_authn: bool
+    r"""Enable or deactivate ForceAuthn"""
     created_at: int
     r"""Unix timestamp of creation.
 
@@ -51,9 +56,7 @@ class TwoTypedDict(TypedDict):
     idp_metadata: NotRequired[Nullable[str]]
     organization_id: NotRequired[Nullable[str]]
     attribute_mapping: NotRequired[SAMLConnectionAttributeMappingTypedDict]
-    allow_subdomains: NotRequired[bool]
-    allow_idp_initiated: NotRequired[bool]
-    disable_additional_identifications: NotRequired[bool]
+    enterprise_connection_id: NotRequired[Nullable[str]]
 
 
 class Two(BaseModel):
@@ -85,6 +88,15 @@ class Two(BaseModel):
 
     sync_user_attributes: bool
 
+    allow_subdomains: bool
+
+    allow_idp_initiated: bool
+
+    disable_additional_identifications: bool
+
+    force_authn: bool
+    r"""Enable or deactivate ForceAuthn"""
+
     created_at: int
     r"""Unix timestamp of creation.
 
@@ -110,11 +122,7 @@ class Two(BaseModel):
 
     attribute_mapping: Optional[SAMLConnectionAttributeMapping] = None
 
-    allow_subdomains: Optional[bool] = None
-
-    allow_idp_initiated: Optional[bool] = None
-
-    disable_additional_identifications: Optional[bool] = None
+    enterprise_connection_id: OptionalNullable[str] = UNSET
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -124,9 +132,7 @@ class Two(BaseModel):
             "idp_metadata",
             "organization_id",
             "attribute_mapping",
-            "allow_subdomains",
-            "allow_idp_initiated",
-            "disable_additional_identifications",
+            "enterprise_connection_id",
         ]
         nullable_fields = [
             "idp_entity_id",
@@ -135,6 +141,7 @@ class Two(BaseModel):
             "idp_metadata_url",
             "idp_metadata",
             "organization_id",
+            "enterprise_connection_id",
         ]
         null_default_fields = []
 
@@ -182,6 +189,11 @@ class OneTypedDict(TypedDict):
     provider: str
     user_count: int
     sync_user_attributes: bool
+    allow_subdomains: bool
+    allow_idp_initiated: bool
+    disable_additional_identifications: bool
+    force_authn: bool
+    r"""Enable or deactivate ForceAuthn"""
     created_at: int
     r"""Unix timestamp of creation.
 
@@ -195,9 +207,7 @@ class OneTypedDict(TypedDict):
     idp_metadata: NotRequired[Nullable[str]]
     organization_id: NotRequired[Nullable[str]]
     attribute_mapping: NotRequired[SAMLConnectionAttributeMappingTypedDict]
-    allow_subdomains: NotRequired[bool]
-    allow_idp_initiated: NotRequired[bool]
-    disable_additional_identifications: NotRequired[bool]
+    enterprise_connection_id: NotRequired[Nullable[str]]
 
 
 class One(BaseModel):
@@ -234,6 +244,15 @@ class One(BaseModel):
 
     sync_user_attributes: bool
 
+    allow_subdomains: bool
+
+    allow_idp_initiated: bool
+
+    disable_additional_identifications: bool
+
+    force_authn: bool
+    r"""Enable or deactivate ForceAuthn"""
+
     created_at: int
     r"""Unix timestamp of creation.
 
@@ -254,11 +273,7 @@ class One(BaseModel):
 
     attribute_mapping: Optional[SAMLConnectionAttributeMapping] = None
 
-    allow_subdomains: Optional[bool] = None
-
-    allow_idp_initiated: Optional[bool] = None
-
-    disable_additional_identifications: Optional[bool] = None
+    enterprise_connection_id: OptionalNullable[str] = UNSET
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -268,9 +283,7 @@ class One(BaseModel):
             "idp_metadata",
             "organization_id",
             "attribute_mapping",
-            "allow_subdomains",
-            "allow_idp_initiated",
-            "disable_additional_identifications",
+            "enterprise_connection_id",
         ]
         nullable_fields = [
             "idp_entity_id",
@@ -279,6 +292,7 @@ class One(BaseModel):
             "idp_metadata_url",
             "idp_metadata",
             "organization_id",
+            "enterprise_connection_id",
         ]
         null_default_fields = []
 

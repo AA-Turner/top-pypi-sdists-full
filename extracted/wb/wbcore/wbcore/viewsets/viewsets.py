@@ -60,7 +60,7 @@ class ReadOnlyModelViewSet(
     GenericViewSet,
 ):
     pagination_class = LimitOffsetPagination
-    READ_ONLY = True
+    ONLY_READ_ONLY_ENDPOINT = True
 
 
 class ModelViewSet(

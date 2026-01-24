@@ -77,16 +77,17 @@ def create_neptune_sparql_qa_chain(
         The best way to guard against such negative outcomes is to (as appropriate)
         limit the permissions granted to the credentials used with this tool.
 
-        See https://python.langchain.com/docs/security for more information.
+        See https://docs.langchain.com/oss/python/security-policy for more information.
 
     Example:
-        .. code-block:: python
-
+        ```python
         chain = create_neptune_sparql_qa_chain(
             llm=llm,
             graph=graph
         )
         response = chain.invoke({"query": "your_query_here"})
+        ```
+
     """
     if allow_dangerous_requests is not True:
         raise ValueError(
@@ -98,12 +99,13 @@ def create_neptune_sparql_qa_chain(
             "present in the database. "
             "Only use this chain if you understand the risks and have taken the "
             "necessary precautions. "
-            "See https://python.langchain.com/docs/security for more information."
+            "See https://docs.langchain.com/oss/python/security-policy for more "
+            "information."
         )
 
     qa_chain = qa_prompt | llm
 
-    _sparql_prompt = sparql_prompt or get_prompt(examples)
+    _sparql_prompt = sparql_prompt or get_prompt(examples or "")
     sparql_generation_chain = _sparql_prompt | llm
 
     def normalize_input(raw_input: Union[str, dict]) -> dict:

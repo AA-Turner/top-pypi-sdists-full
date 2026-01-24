@@ -5,16 +5,19 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ...documents import TypeRegistry
 from ...endpoints import EndpointResolverParams
-from ...exceptions import UnsupportedStreamException
+from ...exceptions import UnsupportedStreamError
 from ...interfaces import Endpoint, TypedProperties, URI
 from ...interfaces import StreamingBlob as SyncStreamingBlob
 from .eventstream import EventPublisher, EventReceiver
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeForm
+
     from ...deserializers import DeserializeableShape, ShapeDeserializer
     from ...schemas import APIOperation
     from ...serializers import SerializeableShape
     from ...shapes import ShapeID
+    from .auth import AuthScheme
 
 
 @runtime_checkable
@@ -83,7 +86,9 @@ class EndpointResolver(Protocol):
 
 
 class ClientTransport[I: Request, O: Response](Protocol):
-    """Protocol-agnostic representation of a client tranport (e.g. an HTTP client)."""
+    """Protocol-agnostic representation of a client transport (e.g. an HTTP client)."""
+
+    TIMEOUT_EXCEPTIONS: tuple[type[Exception], ...]
 
     async def send(self, request: I) -> O:
         """Send a request over the transport and receive the response."""
@@ -162,8 +167,9 @@ class ClientProtocol[I: Request, O: Response](Protocol):
         *,
         operation: "APIOperation[OperationInput, OperationOutput]",
         request: I,
-        event_type: type[Event],
+        event_type: "TypeForm[Event]",
         context: TypedProperties,
+        auth_scheme: "AuthScheme[Any, Any, Any, Any] | None" = None,
     ) -> EventPublisher[Event]:
         """Creates an event publisher for a protocol event stream.
 
@@ -171,8 +177,9 @@ class ClientProtocol[I: Request, O: Response](Protocol):
         :param request: The transport request that was sent for this stream.
         :param event_type: The type of event to publish.
         :param context: A context bag for the request.
+        :param auth_scheme: The optional auth scheme used to sign events.
         """
-        raise UnsupportedStreamException()
+        raise UnsupportedStreamError()
 
     def create_event_receiver[
         OperationInput: "SerializeableShape",
@@ -184,7 +191,7 @@ class ClientProtocol[I: Request, O: Response](Protocol):
         operation: "APIOperation[OperationInput, OperationOutput]",
         request: I,
         response: O,
-        event_type: type[Event],
+        event_type: "TypeForm[Event]",
         event_deserializer: Callable[["ShapeDeserializer"], Event],
         context: TypedProperties,
     ) -> EventReceiver[Event]:
@@ -197,4 +204,4 @@ class ClientProtocol[I: Request, O: Response](Protocol):
         :param event_deserializer: The deserializer to be used to deserialize events.
         :param context: A context bag for the request.
         """
-        raise UnsupportedStreamException()
+        raise UnsupportedStreamError()

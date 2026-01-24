@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.util
-Version: 3.22
+Version: 3.23
 Summary: A Dissect module implementing various utility functions for the other Dissect modules
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.9
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT

@@ -21,13 +21,13 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
     '''
     List of :pep:`484`-sorta-compliant **type hint metadata** (i.e.,
     :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintNonpepMetadata`
-    instances describing test-specific :pep:`484`--sorta-compliant sample type
+    instances describing test-specific :pep:`484`-sorta-compliant sample type
     hints with metadata generically leveraged by various PEP-agnostic unit
     tests).
     '''
 
     # ..................{ IMPORTS                            }..................
-    # Defer test-specific imports.
+    # Defer fixture-specific imports.
     import sys
     from beartype import BeartypeConf
     from beartype.typing import (
@@ -119,8 +119,8 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
                         # The type *NOT* satisfied by this object.
                         r'\bint\b',
                     ),
-                    # Match that the exception message raised for this pith
-                    # does *NOT* contain...
+                    # Match that the exception message raised for this pith does
+                    # *NOT* contain...
                     exception_str_not_match_regexes=(
                         # A newline.
                         r'\n',
@@ -195,7 +195,7 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
         # * "float" to "float | int".
         # * "complex" to "complex | float | int".
         #
-        # See also the "data_pep484" submodule, which defines additional
+        # See also the "_data_pep484" submodule, which defines additional
         # PEP 484-compliant type hints nesting type hints pertaining to the
         # implicit numeric tower (e.g., "Union[float, str]").
 

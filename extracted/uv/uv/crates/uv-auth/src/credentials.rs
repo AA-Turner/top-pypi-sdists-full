@@ -9,7 +9,8 @@ use base64::read::DecoderReader;
 use base64::write::EncoderWriter;
 use http::Uri;
 use netrc::Netrc;
-use reqsign::aws::DefaultSigner;
+use reqsign::aws::DefaultSigner as AwsDefaultSigner;
+use reqsign::google::DefaultSigner as GcsDefaultSigner;
 use reqwest::Request;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
@@ -20,15 +21,17 @@ use uv_static::EnvVars;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Credentials {
+    /// RFC 7617 HTTP Basic Authentication
     Basic {
         /// The username to use for authentication.
         username: Username,
         /// The password to use for authentication.
         password: Option<Password>,
     },
+    /// RFC 6750 Bearer Token Authentication
     Bearer {
         /// The token to use for authentication.
-        token: Vec<u8>,
+        token: Token,
     },
 }
 
@@ -100,6 +103,36 @@ impl fmt::Debug for Password {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Default, Deserialize)]
+#[serde(transparent)]
+pub struct Token(Vec<u8>);
+
+impl Token {
+    pub fn new(token: Vec<u8>) -> Self {
+        Self(token)
+    }
+
+    /// Return the [`Token`] as a byte slice.
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    /// Convert the [`Token`] into its underlying [`Vec<u8>`].
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+
+    /// Return whether the [`Token`] is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "****")
+    }
+}
 impl Credentials {
     /// Create a set of HTTP Basic Authentication credentials.
     #[allow(dead_code)]
@@ -113,7 +146,9 @@ impl Credentials {
     /// Create a set of Bearer Authentication credentials.
     #[allow(dead_code)]
     pub fn bearer(token: Vec<u8>) -> Self {
-        Self::Bearer { token }
+        Self::Bearer {
+            token: Token::new(token),
+        }
     }
 
     pub fn username(&self) -> Option<&str> {
@@ -284,7 +319,7 @@ impl Credentials {
         // Parse a `Bearer` authentication header.
         if let Some(token) = header.as_bytes().strip_prefix(b"Bearer ") {
             return Some(Self::Bearer {
-                token: token.to_vec(),
+                token: Token::new(token.to_vec()),
             });
         }
 
@@ -354,14 +389,18 @@ pub(crate) enum Authentication {
     Credentials(Credentials),
 
     /// AWS Signature Version 4 signing.
-    Signer(DefaultSigner),
+    AwsSigner(AwsDefaultSigner),
+
+    /// Google Cloud signing.
+    GcsSigner(GcsDefaultSigner),
 }
 
 impl PartialEq for Authentication {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Credentials(a), Self::Credentials(b)) => a == b,
-            (Self::Signer(..), Self::Signer(..)) => true,
+            (Self::AwsSigner(..), Self::AwsSigner(..)) => true,
+            (Self::GcsSigner(..), Self::GcsSigner(..)) => true,
             _ => false,
         }
     }
@@ -375,9 +414,15 @@ impl From<Credentials> for Authentication {
     }
 }
 
-impl From<DefaultSigner> for Authentication {
-    fn from(signer: DefaultSigner) -> Self {
-        Self::Signer(signer)
+impl From<AwsDefaultSigner> for Authentication {
+    fn from(signer: AwsDefaultSigner) -> Self {
+        Self::AwsSigner(signer)
+    }
+}
+
+impl From<GcsDefaultSigner> for Authentication {
+    fn from(signer: GcsDefaultSigner) -> Self {
+        Self::GcsSigner(signer)
     }
 }
 
@@ -386,7 +431,7 @@ impl Authentication {
     pub(crate) fn password(&self) -> Option<&str> {
         match self {
             Self::Credentials(credentials) => credentials.password(),
-            Self::Signer(..) => None,
+            Self::AwsSigner(..) | Self::GcsSigner(..) => None,
         }
     }
 
@@ -394,7 +439,7 @@ impl Authentication {
     pub(crate) fn username(&self) -> Option<&str> {
         match self {
             Self::Credentials(credentials) => credentials.username(),
-            Self::Signer(..) => None,
+            Self::AwsSigner(..) | Self::GcsSigner(..) => None,
         }
     }
 
@@ -402,7 +447,7 @@ impl Authentication {
     pub(crate) fn as_username(&self) -> Cow<'_, Username> {
         match self {
             Self::Credentials(credentials) => credentials.as_username(),
-            Self::Signer(..) => Cow::Owned(Username::none()),
+            Self::AwsSigner(..) | Self::GcsSigner(..) => Cow::Owned(Username::none()),
         }
     }
 
@@ -410,7 +455,7 @@ impl Authentication {
     pub(crate) fn to_username(&self) -> Username {
         match self {
             Self::Credentials(credentials) => credentials.to_username(),
-            Self::Signer(..) => Username::none(),
+            Self::AwsSigner(..) | Self::GcsSigner(..) => Username::none(),
         }
     }
 
@@ -418,7 +463,7 @@ impl Authentication {
     pub(crate) fn is_authenticated(&self) -> bool {
         match self {
             Self::Credentials(credentials) => credentials.is_authenticated(),
-            Self::Signer(..) => true,
+            Self::AwsSigner(..) | Self::GcsSigner(..) => true,
         }
     }
 
@@ -426,7 +471,7 @@ impl Authentication {
     pub(crate) fn is_empty(&self) -> bool {
         match self {
             Self::Credentials(credentials) => credentials.is_empty(),
-            Self::Signer(..) => false,
+            Self::AwsSigner(..) | Self::GcsSigner(..) => false,
         }
     }
 
@@ -437,7 +482,7 @@ impl Authentication {
     pub(crate) async fn authenticate(&self, mut request: Request) -> Request {
         match self {
             Self::Credentials(credentials) => credentials.authenticate(request),
-            Self::Signer(signer) => {
+            Self::AwsSigner(signer) => {
                 // Build an `http::Request` from the `reqwest::Request`.
                 // SAFETY: If we have a valid `reqwest::Request`, we expect (e.g.) the URL to be valid.
                 let uri = Uri::from_str(request.url().as_str()).unwrap();
@@ -454,6 +499,34 @@ impl Authentication {
                     .sign(&mut parts, None)
                     .await
                     .expect("AWS signing should succeed");
+
+                // Copy over the signed headers.
+                request.headers_mut().extend(parts.headers);
+
+                // Copy over the signed path and query, if any.
+                if let Some(path_and_query) = parts.uri.path_and_query() {
+                    request.url_mut().set_path(path_and_query.path());
+                    request.url_mut().set_query(path_and_query.query());
+                }
+                request
+            }
+            Self::GcsSigner(signer) => {
+                // Build an `http::Request` from the `reqwest::Request`.
+                // SAFETY: If we have a valid `reqwest::Request`, we expect (e.g.) the URL to be valid.
+                let uri = Uri::from_str(request.url().as_str()).unwrap();
+                let mut http_req = http::Request::builder()
+                    .method(request.method().clone())
+                    .uri(uri)
+                    .body(())
+                    .unwrap();
+                *http_req.headers_mut() = request.headers().clone();
+
+                // Sign the parts.
+                let (mut parts, ()) = http_req.into_parts();
+                signer
+                    .sign(&mut parts, None)
+                    .await
+                    .expect("GCS signing should succeed");
 
                 // Copy over the signed headers.
                 request.headers_mut().extend(parts.headers);
@@ -502,6 +575,23 @@ mod tests {
         assert_eq!(credentials.password(), Some("password"));
     }
 
+    /// Test for <https://github.com/astral-sh/uv/issues/17343>
+    ///
+    /// URLs with an empty username but a password (e.g., `https://:token@example.com`)
+    /// should be recognized as having credentials.
+    #[test]
+    fn from_url_empty_username_with_password() {
+        // Parse a URL with the format `:password@host` directly
+        let url = Url::parse("https://:token@example.com/simple/first/").unwrap();
+        let credentials = Credentials::from_url(&url).unwrap();
+        assert_eq!(credentials.username(), None);
+        assert_eq!(credentials.password(), Some("token"));
+        assert!(
+            credentials.is_authenticated(),
+            "URL with empty username but password should be considered authenticated"
+        );
+    }
+
     #[test]
     fn from_url_no_password() {
         let url = &Url::parse("https://example.com/simple/first/").unwrap();
@@ -530,7 +620,7 @@ mod tests {
             .clone();
         header.set_sensitive(false);
 
-        assert_debug_snapshot!(header, @r###""Basic dXNlcjpwYXNzd29yZA==""###);
+        assert_debug_snapshot!(header, @r#""Basic dXNlcjpwYXNzd29yZA==""#);
         assert_eq!(Credentials::from_header_value(&header), Some(credentials));
     }
 
@@ -552,7 +642,7 @@ mod tests {
             .clone();
         header.set_sensitive(false);
 
-        assert_debug_snapshot!(header, @r###""Basic dXNlckBkb21haW46cGFzc3dvcmQ=""###);
+        assert_debug_snapshot!(header, @r#""Basic dXNlckBkb21haW46cGFzc3dvcmQ=""#);
         assert_eq!(Credentials::from_header_value(&header), Some(credentials));
     }
 
@@ -574,7 +664,7 @@ mod tests {
             .clone();
         header.set_sensitive(false);
 
-        assert_debug_snapshot!(header, @r###""Basic dXNlcjpwYXNzd29yZD09""###);
+        assert_debug_snapshot!(header, @r#""Basic dXNlcjpwYXNzd29yZD09""#);
         assert_eq!(Credentials::from_header_value(&header), Some(credentials));
     }
 
@@ -587,6 +677,17 @@ mod tests {
         assert_eq!(
             debugged,
             "Basic { username: Username(Some(\"user\")), password: Some(****) }"
+        );
+    }
+
+    #[test]
+    fn test_bearer_token_obfuscation() {
+        let token = "super_secret_token";
+        let credentials = Credentials::bearer(token.into());
+        let debugged = format!("{credentials:?}");
+        assert!(
+            !debugged.contains(token),
+            "Token should be obfuscated in Debug impl: {debugged}"
         );
     }
 }

@@ -32,8 +32,8 @@ class StageCollection(StageCollectionBase):
 class StageResource(StageResourceBase):
     """Represents a reference to a Snowflake stage.
 
-    With this stage reference, you can drop, list files, put files, get files,
-    and fetch information about stages.
+    With this stage reference, you can fetch information about a stage, as well as perform
+    certain actions on it.
     """
 
     _plural_name = "stages"

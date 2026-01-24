@@ -1,3 +1,4 @@
+import ipaddress
 import time
 from test.integration.conftest import get_region
 from test.integration.helpers import (
@@ -16,6 +17,8 @@ from linode_api4.objects import (
     ConfigInterfaceIPv4,
     Disk,
     Instance,
+    InterfaceGeneration,
+    LinodeInterface,
     Type,
 )
 from linode_api4.objects.linode import InstanceDiskEncryptionType, MigrationType
@@ -66,8 +69,8 @@ def linode_with_volume_firewall(test_linode_client):
     linode_instance.delete()
 
 
-@pytest.fixture(scope="session")
-def linode_for_network_interface_tests(test_linode_client, e2e_test_firewall):
+@pytest.fixture(scope="function")
+def linode_for_legacy_interface_tests(test_linode_client, e2e_test_firewall):
     client = test_linode_client
     region = get_region(client, {"Linodes", "Cloud Firewall"}, site_type="core")
     label = get_test_label(length=8)
@@ -78,11 +81,35 @@ def linode_for_network_interface_tests(test_linode_client, e2e_test_firewall):
         image="linode/debian12",
         label=label,
         firewall=e2e_test_firewall,
+        interface_generation=InterfaceGeneration.LEGACY_CONFIG,
     )
 
     yield linode_instance
 
     linode_instance.delete()
+
+
+@pytest.fixture(scope="function")
+def linode_and_vpc_for_legacy_interface_tests_offline(
+    test_linode_client, create_vpc_with_subnet, e2e_test_firewall
+):
+    vpc, subnet = create_vpc_with_subnet
+
+    label = get_test_label(length=8)
+
+    instance, password = test_linode_client.linode.instance_create(
+        "g6-standard-1",
+        vpc.region,
+        booted=False,
+        image="linode/debian11",
+        label=label,
+        firewall=e2e_test_firewall,
+        interface_generation=InterfaceGeneration.LEGACY_CONFIG,
+    )
+
+    yield vpc, subnet, instance, password
+
+    instance.delete()
 
 
 @pytest.fixture(scope="session")
@@ -589,6 +616,144 @@ def test_linode_initate_migration(test_linode_client, e2e_test_firewall):
     assert res
 
 
+def test_linode_upgrade_interfaces(
+    linode_for_legacy_interface_tests,
+    linode_and_vpc_for_legacy_interface_tests_offline,
+):
+    vpc, subnet, linode, _ = linode_and_vpc_for_legacy_interface_tests_offline
+    config = linode.configs[0]
+
+    new_interfaces = [
+        {"purpose": "public"},
+        ConfigInterface(
+            purpose="vlan", label="cool-vlan", ipam_address="10.0.0.4/32"
+        ),
+        ConfigInterface(
+            purpose="vpc",
+            subnet_id=subnet.id,
+            primary=True,
+            ipv4=ConfigInterfaceIPv4(vpc="10.0.0.2", nat_1_1="any"),
+            ip_ranges=["10.0.0.5/32"],
+        ),
+    ]
+    config.interfaces = new_interfaces
+
+    config.save()
+
+    def __assert_base(iface: LinodeInterface):
+        assert iface.id is not None
+        assert iface.created is not None
+        assert iface.updated is not None
+        assert iface.version is not None
+
+        assert len(iface.mac_address) > 0
+
+    def __assert_public(iface: LinodeInterface):
+        __assert_base(iface)
+
+        assert not iface.default_route.ipv4
+        assert not iface.default_route.ipv6
+
+        assert len(iface.public.ipv4.addresses) == 0
+        assert len(iface.public.ipv4.shared) == 0
+
+        assert len(iface.public.ipv6.slaac) == 1
+        assert iface.public.ipv6.slaac[0].address == linode.ipv6.split("/")[0]
+
+        assert len(iface.public.ipv6.ranges) == 0
+        assert len(iface.public.ipv6.shared) == 0
+
+    def __assert_vpc(iface: LinodeInterface):
+        __assert_base(iface)
+
+        assert iface.default_route.ipv4
+        assert iface.default_route.ipv6
+
+        assert iface.vpc.vpc_id == vpc.id
+        assert iface.vpc.subnet_id == subnet.id
+
+        assert len(iface.vpc.ipv4.addresses) == 1
+        assert iface.vpc.ipv4.addresses[0].address == "10.0.0.2"
+        assert iface.vpc.ipv4.addresses[0].primary
+        assert iface.vpc.ipv4.addresses[0].nat_1_1_address is not None
+
+        assert len(iface.vpc.ipv4.ranges) == 1
+        assert iface.vpc.ipv4.ranges[0].range == "10.0.0.5/32"
+
+        assert len(iface.vpc.ipv6.slaac) == 1
+
+        ipaddress.IPv6Network(iface.vpc.ipv6.slaac[0].range)
+        ipaddress.IPv6Address(iface.vpc.ipv6.slaac[0].address)
+
+        assert len(iface.vpc.ipv6.ranges) == 0
+        assert iface.vpc.ipv6.is_public is False
+
+    def __assert_vlan(iface: LinodeInterface):
+        __assert_base(iface)
+
+        assert not iface.default_route.ipv4
+        assert not iface.default_route.ipv6
+
+        assert iface.vlan.vlan_label == "cool-vlan"
+        assert iface.vlan.ipam_address == "10.0.0.4/32"
+
+    result = linode.upgrade_interfaces(dry_run=True)
+
+    assert result.dry_run
+    assert result.config_id == config.id
+
+    __assert_public(result.interfaces[0])
+    __assert_vlan(result.interfaces[1])
+    __assert_vpc(result.interfaces[2])
+
+    result = linode.upgrade_interfaces(config=config)
+
+    assert not result.dry_run
+    assert result.config_id == config.id
+
+    __assert_public(linode.linode_interfaces[0])
+    __assert_vlan(linode.linode_interfaces[1])
+    __assert_vpc(linode.linode_interfaces[2])
+
+
+def test_linode_interfaces_settings(linode_with_linode_interfaces):
+    linode = linode_with_linode_interfaces
+    settings = linode.interfaces_settings
+
+    assert settings.network_helper is not None
+    assert (
+        settings.default_route.ipv4_interface_id
+        == linode.linode_interfaces[0].id
+    )
+    assert settings.default_route.ipv4_eligible_interface_ids == [
+        linode.linode_interfaces[0].id,
+        linode.linode_interfaces[1].id,
+    ]
+
+    assert (
+        settings.default_route.ipv6_interface_id
+        == linode.linode_interfaces[0].id
+    )
+    assert settings.default_route.ipv6_eligible_interface_ids == [
+        linode.linode_interfaces[0].id,
+        linode.linode_interfaces[1].id,
+    ]
+
+    # Arbitrary updates
+    settings.network_helper = True
+    settings.default_route.ipv4_interface_id = linode.linode_interfaces[1].id
+
+    settings.save()
+    settings.invalidate()
+
+    # Assert updates
+    assert settings.network_helper is not None
+    assert (
+        settings.default_route.ipv4_interface_id
+        == linode.linode_interfaces[1].id
+    )
+
+
 def test_config_update_interfaces(create_linode):
     linode = create_linode
     config = linode.configs[0]
@@ -672,8 +837,8 @@ def test_save_linode_force(test_linode_client, create_linode):
 
 
 class TestNetworkInterface:
-    def test_list(self, linode_for_network_interface_tests):
-        linode = linode_for_network_interface_tests
+    def test_list(self, linode_for_legacy_interface_tests):
+        linode = linode_for_legacy_interface_tests
 
         config: Config = linode.configs[0]
 
@@ -693,8 +858,8 @@ class TestNetworkInterface:
         assert interface[1].label == label
         assert interface[1].ipam_address == "10.0.0.3/32"
 
-    def test_create_public(self, linode_for_network_interface_tests):
-        linode = linode_for_network_interface_tests
+    def test_create_public(self, linode_for_legacy_interface_tests):
+        linode = linode_for_legacy_interface_tests
 
         config: Config = linode.configs[0]
 
@@ -711,8 +876,8 @@ class TestNetworkInterface:
         assert interface.purpose == "public"
         assert interface.primary
 
-    def test_create_vlan(self, linode_for_network_interface_tests):
-        linode = linode_for_network_interface_tests
+    def test_create_vlan(self, linode_for_legacy_interface_tests):
+        linode = linode_for_legacy_interface_tests
 
         config: Config = linode.configs[0]
 
@@ -736,10 +901,11 @@ class TestNetworkInterface:
     def test_create_vpc(
         self,
         test_linode_client,
-        linode_for_network_interface_tests,
-        create_vpc_with_subnet_and_linode,
+        linode_and_vpc_for_legacy_interface_tests_offline,
     ):
-        vpc, subnet, linode, _ = create_vpc_with_subnet_and_linode
+        vpc, subnet, linode, _ = (
+            linode_and_vpc_for_legacy_interface_tests_offline
+        )
 
         config: Config = linode.configs[0]
 
@@ -749,7 +915,7 @@ class TestNetworkInterface:
         interface = config.interface_create_vpc(
             subnet=subnet,
             primary=True,
-            ipv4=ConfigInterfaceIPv4(vpc="10.0.0.2", nat_1_1="any"),
+            ipv4=ConfigInterfaceIPv4(vpc="10.0.0.3", nat_1_1="any"),
             ip_ranges=["10.0.0.5/32"],
         )
 
@@ -758,7 +924,7 @@ class TestNetworkInterface:
         assert interface.id == config.interfaces[0].id
         assert interface.subnet.id == subnet.id
         assert interface.purpose == "vpc"
-        assert interface.ipv4.vpc == "10.0.0.2"
+        assert interface.ipv4.vpc == "10.0.0.3"
         assert interface.ipv4.nat_1_1 == linode.ipv4[0]
         assert interface.ip_ranges == ["10.0.0.5/32"]
 
@@ -776,11 +942,30 @@ class TestNetworkInterface:
         assert vpc_range_ip.address_range == "10.0.0.5/32"
         assert not vpc_range_ip.active
 
+        assert isinstance(vpc.ipv6, list)
+        assert len(vpc.ipv6) > 0
+        assert isinstance(vpc.ipv6[0].range, str)
+        assert ":" in vpc.ipv6[0].range
+
         # TODO:: Add `VPCIPAddress.filters.linode_id == linode.id` filter back
 
         # Attempt to resolve the IP from /vpcs/ips
         all_vpc_ips = test_linode_client.vpcs.ips()
-        assert all_vpc_ips[0].dict == vpc_ip.dict
+        matched_ip = next(
+            (
+                ip
+                for ip in all_vpc_ips
+                if ip.address == vpc_ip.address
+                and ip.vpc_id == vpc_ip.vpc_id
+                and ip.linode_id == vpc_ip.linode_id
+            ),
+            None,
+        )
+
+        assert (
+            matched_ip is not None
+        ), f"Expected VPC IP {vpc_ip.address} not found in /vpcs/ips"
+        assert matched_ip.dict == vpc_ip.dict
 
         # Test getting the ips under this specific VPC
         vpc_ips = vpc.ips
@@ -790,12 +975,47 @@ class TestNetworkInterface:
         assert vpc_ips[0].linode_id == linode.id
         assert vpc_ips[0].nat_1_1 == linode.ips.ipv4.public[0].address
 
+        # Validate VPC IPv6 IPs from /vpcs/ips
+        all_vpc_ipv6 = test_linode_client.get("/vpcs/ipv6s")["data"]
+
+        # Find matching VPC IPv6 entry
+        matched_ipv6 = next(
+            (
+                ip
+                for ip in all_vpc_ipv6
+                if ip["vpc_id"] == vpc.id
+                and ip["linode_id"] == linode.id
+                and ip["interface_id"] == interface.id
+                and ip["subnet_id"] == subnet.id
+            ),
+            None,
+        )
+
+        assert (
+            matched_ipv6
+        ), f"No VPC IPv6 found for Linode {linode.id} in VPC {vpc.id}"
+
+        assert matched_ipv6["ipv6_range"].count(":") >= 2
+        assert not matched_ipv6["ipv6_is_public"]
+
+        ipv6_addresses = matched_ipv6.get("ipv6_addresses", [])
+        assert (
+            isinstance(ipv6_addresses, list) and ipv6_addresses
+        ), "No IPv6 addresses found"
+
+        slaac = ipv6_addresses[0]
+        assert (
+            isinstance(slaac.get("slaac_address"), str)
+            and ":" in slaac["slaac_address"]
+        )
+
     def test_update_vpc(
         self,
-        linode_for_network_interface_tests,
-        create_vpc_with_subnet_and_linode,
+        linode_and_vpc_for_legacy_interface_tests_offline,
     ):
-        vpc, subnet, linode, _ = create_vpc_with_subnet_and_linode
+        vpc, subnet, linode, _ = (
+            linode_and_vpc_for_legacy_interface_tests_offline
+        )
 
         config: Config = linode.configs[0]
 
@@ -805,11 +1025,11 @@ class TestNetworkInterface:
         interface = config.interface_create_vpc(
             subnet=subnet,
             primary=True,
-            ip_ranges=["10.0.0.5/32"],
+            ip_ranges=["10.0.0.8/32"],
         )
 
         interface.primary = False
-        interface.ip_ranges = ["10.0.0.6/32"]
+        interface.ip_ranges = ["10.0.0.9/32"]
         interface.ipv4.vpc = "10.0.0.3"
         interface.ipv4.nat_1_1 = "any"
 
@@ -822,10 +1042,10 @@ class TestNetworkInterface:
         assert interface.purpose == "vpc"
         assert interface.ipv4.vpc == "10.0.0.3"
         assert interface.ipv4.nat_1_1 == linode.ipv4[0]
-        assert interface.ip_ranges == ["10.0.0.6/32"]
+        assert interface.ip_ranges == ["10.0.0.9/32"]
 
-    def test_reorder(self, linode_for_network_interface_tests):
-        linode = linode_for_network_interface_tests
+    def test_reorder(self, linode_for_legacy_interface_tests):
+        linode = linode_for_legacy_interface_tests
 
         config: Config = linode.configs[0]
 

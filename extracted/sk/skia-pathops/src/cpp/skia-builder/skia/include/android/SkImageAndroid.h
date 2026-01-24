@@ -10,22 +10,17 @@
 
 #include "include/core/SkImage.h"
 #include "include/core/SkRefCnt.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrTypes.h"
 
 class SkColorSpace;
 class GrDirectContext;
+class GrRecordingContext;
 class SkPixmap;
 struct AHardwareBuffer;
 
-namespace sk_image_factory {
+namespace SkImages {
 
-/**
- *  Like SkImagePriv::SkMakeImageFromRasterBitmap, except this can be pinned using
- *  skgpu::Pin and CopyPixelMode is never.
- */
-SK_API sk_sp<SkImage> MakePinnableFromRasterBitmap(const SkBitmap&);
-
-/** (See Skia bug 7447)
+/** (See skbug.com/40038695)
     Creates SkImage from Android hardware buffer.
     Returned SkImage takes a reference on the buffer.
     Only available on Android, when __ANDROID_API__ is defined to be 26 or greater.
@@ -33,14 +28,13 @@ SK_API sk_sp<SkImage> MakePinnableFromRasterBitmap(const SkBitmap&);
     @param colorSpace      range of colors; may be nullptr
     @return                created SkImage, or nullptr
 */
-SK_API sk_sp<SkImage> MakeFromAHardwareBuffer(
-                                        AHardwareBuffer* hardwareBuffer,
-                                        SkAlphaType alphaType = kPremul_SkAlphaType);
-SK_API sk_sp<SkImage> MakeFromAHardwareBuffer(
-                                        AHardwareBuffer* hardwareBuffer,
-                                        SkAlphaType alphaType,
-                                        sk_sp<SkColorSpace> colorSpace,
-                                        GrSurfaceOrigin surfaceOrigin = kTopLeft_GrSurfaceOrigin);
+SK_API sk_sp<SkImage> DeferredFromAHardwareBuffer(AHardwareBuffer* hardwareBuffer,
+                                                  SkAlphaType alphaType = kPremul_SkAlphaType);
+SK_API sk_sp<SkImage> DeferredFromAHardwareBuffer(
+        AHardwareBuffer* hardwareBuffer,
+        SkAlphaType alphaType,
+        sk_sp<SkColorSpace> colorSpace,
+        GrSurfaceOrigin surfaceOrigin = kTopLeft_GrSurfaceOrigin);
 
 /** Creates SkImage from Android hardware buffer and uploads the data from the SkPixmap to it.
     Returned SkImage takes a reference on the buffer.
@@ -51,12 +45,19 @@ SK_API sk_sp<SkImage> MakeFromAHardwareBuffer(
     @param surfaceOrigin   surface origin for resulting image
     @return                created SkImage, or nullptr
 */
-SK_API sk_sp<SkImage> MakeFromAHardwareBufferWithData(
-                                        GrDirectContext* context,
-                                        const SkPixmap& pixmap,
-                                        AHardwareBuffer* hardwareBuffer,
-                                        GrSurfaceOrigin surfaceOrigin = kTopLeft_GrSurfaceOrigin);
-} // namespace sk_image_factory
+SK_API sk_sp<SkImage> TextureFromAHardwareBufferWithData(
+        GrDirectContext* context,
+        const SkPixmap& pixmap,
+        AHardwareBuffer* hardwareBuffer,
+        GrSurfaceOrigin surfaceOrigin = kTopLeft_GrSurfaceOrigin);
+
+/**
+ *  Like SkImagePriv::SkMakeImageFromRasterBitmap, except this can be pinned using
+ *  skgpu::ganesh::PinAsTexture and CopyPixelMode is never.
+ */
+SK_API sk_sp<SkImage> PinnableRasterFromBitmap(const SkBitmap&);
+
+}  // namespace SkImages
 
 namespace skgpu::ganesh {
 /**
@@ -65,7 +66,7 @@ namespace skgpu::ganesh {
  *  src). In particular this is intended to use the texture even if the image's original content
  *  changes subsequent to this call (i.e. the src is mutable!).
  *
- *  Only compatible with SkImages created from MakePinnableFromRasterBitmap.
+ *  Only compatible with SkImages created from SkImages::PinnableRasterFromBitmap.
  *
  *  All successful calls must be balanced by an equal number of calls to UnpinTexture().
  *
@@ -83,7 +84,7 @@ bool PinAsTexture(GrRecordingContext*, SkImage*);
  *  also means that a subsequent "pin" call will look at the original content again, and if
  *  its uniqueID/generationID has changed, then a newer texture will be uploaded/pinned.
  *
- *  Only compatible with SkImages created from MakePinnableFromRasterBitmap.
+ *  Only compatible with SkImages created from SkImages::PinnableRasterFromBitmap.
  *
  *  The context passed to unpin must match the one passed to pin.
  */

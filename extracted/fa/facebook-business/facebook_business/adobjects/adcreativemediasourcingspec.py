@@ -24,9 +24,22 @@ class AdCreativeMediaSourcingSpec(
         self._api = api
 
     class Field(AbstractObject.Field):
-        pass
+        bodies = 'bodies'
+        descriptions = 'descriptions'
+        images = 'images'
+        push_metadata_ids = 'push_metadata_ids'
+        related_media = 'related_media'
+        titles = 'titles'
+        videos = 'videos'
 
     _field_types = {
+        'bodies': 'list<Object>',
+        'descriptions': 'list<Object>',
+        'images': 'list<Object>',
+        'push_metadata_ids': 'list<unsigned int>',
+        'related_media': 'Object',
+        'titles': 'list<Object>',
+        'videos': 'list<Object>',
     }
     @classmethod
     def _get_field_enum_info(cls):

@@ -6,7 +6,6 @@ from asyncio import (
     gather,
     get_event_loop,
     iscoroutine,
-    iscoroutinefunction,
 )
 from collections import namedtuple
 from functools import partial
@@ -24,12 +23,17 @@ from typing import (
     Union,
 )
 
+if sys.version_info >= (3, 14):
+    from inspect import iscoroutinefunction
+else:
+    from asyncio import iscoroutinefunction
+
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
 else:
     from typing_extensions import TypeGuard
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 KeyT = TypeVar("KeyT")
 ReturnT = TypeVar("ReturnT")
@@ -196,7 +200,7 @@ class DataLoader(Generic[KeyT, ReturnT]):
             # Cache a rejected future if the value is an Error, in order to match
             # the behavior of load(key).
             future = self.loop.create_future()
-            if not future.cancelled():
+            if not future.done():
                 if isinstance(value, Exception):
                     future.set_exception(value)
                 else:
@@ -295,7 +299,7 @@ async def dispatch_queue_batch(
         # Step through the values, resolving or rejecting each Future in the
         # loaded queue.
         for ql, value in zip(queue, values):
-            if not ql.future.cancelled():
+            if not ql.future.done():
                 if isinstance(value, Exception):
                     ql.future.set_exception(value)
                 else:
@@ -314,5 +318,5 @@ def failed_dispatch(
     """
     for ql in queue:
         loader.clear(ql.key)
-        if not ql.future.cancelled():
+        if not ql.future.done():
             ql.future.set_exception(error)

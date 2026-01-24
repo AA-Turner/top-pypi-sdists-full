@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -173,26 +173,26 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class ActionTarget(TypedDict, total=False):
     """Describes a target for an action."""
 
-    resourceType: Optional[TargetResourceTypeId]
+    resourceType: TargetResourceTypeId | None
 
 
-ActionTargetMap = Dict[ActionTargetName, ActionTarget]
+ActionTargetMap = dict[ActionTargetName, ActionTarget]
 
 
 class ActionParameter(TypedDict, total=False):
     """Describes a parameter for an action."""
 
-    description: Optional[ActionParameterDescription]
-    required: Optional[ActionParameterRequired]
+    description: ActionParameterDescription | None
+    required: ActionParameterRequired | None
 
 
-ActionParameterMap = Dict[ActionParameterName, ActionParameter]
+ActionParameterMap = dict[ActionParameterName, ActionParameter]
 
 
 class Action(TypedDict, total=False):
@@ -201,30 +201,30 @@ class Action(TypedDict, total=False):
     in the *Fault Injection Service User Guide*.
     """
 
-    id: Optional[ActionId]
-    arn: Optional[ResourceArn]
-    description: Optional[ActionDescription]
-    parameters: Optional[ActionParameterMap]
-    targets: Optional[ActionTargetMap]
-    tags: Optional[TagMap]
+    id: ActionId | None
+    arn: ResourceArn | None
+    description: ActionDescription | None
+    parameters: ActionParameterMap | None
+    targets: ActionTargetMap | None
+    tags: TagMap | None
 
 
 class ActionSummary(TypedDict, total=False):
     """Provides a summary of an action."""
 
-    id: Optional[ActionId]
-    arn: Optional[ResourceArn]
-    description: Optional[ActionDescription]
-    targets: Optional[ActionTargetMap]
-    tags: Optional[TagMap]
+    id: ActionId | None
+    arn: ResourceArn | None
+    description: ActionDescription | None
+    targets: ActionTargetMap | None
+    tags: TagMap | None
 
 
-ActionSummaryList = List[ActionSummary]
-ExperimentTemplateActionStartAfterList = List[ExperimentTemplateActionStartAfter]
-ExperimentTemplateActionTargetMap = Dict[
+ActionSummaryList = list[ActionSummary]
+ExperimentTemplateActionStartAfterList = list[ExperimentTemplateActionStartAfter]
+ExperimentTemplateActionTargetMap = dict[
     ExperimentTemplateActionTargetName, ExperimentTemplateTargetName
 ]
-ExperimentTemplateActionParameterMap = Dict[
+ExperimentTemplateActionParameterMap = dict[
     ExperimentTemplateActionParameterName, ExperimentTemplateActionParameter
 ]
 
@@ -238,13 +238,13 @@ class CreateExperimentTemplateActionInput(TypedDict, total=False):
     """
 
     actionId: ActionId
-    description: Optional[ExperimentTemplateActionDescription]
-    parameters: Optional[ExperimentTemplateActionParameterMap]
-    targets: Optional[ExperimentTemplateActionTargetMap]
-    startAfter: Optional[ExperimentTemplateActionStartAfterList]
+    description: ExperimentTemplateActionDescription | None
+    parameters: ExperimentTemplateActionParameterMap | None
+    targets: ExperimentTemplateActionTargetMap | None
+    startAfter: ExperimentTemplateActionStartAfterList | None
 
 
-CreateExperimentTemplateActionInputMap = Dict[
+CreateExperimentTemplateActionInputMap = dict[
     ExperimentTemplateActionName, CreateExperimentTemplateActionInput
 ]
 
@@ -252,15 +252,15 @@ CreateExperimentTemplateActionInputMap = Dict[
 class CreateExperimentTemplateExperimentOptionsInput(TypedDict, total=False):
     """Specifies experiment options for an experiment template."""
 
-    accountTargeting: Optional[AccountTargeting]
-    emptyTargetResolutionMode: Optional[EmptyTargetResolutionMode]
+    accountTargeting: AccountTargeting | None
+    emptyTargetResolutionMode: EmptyTargetResolutionMode | None
 
 
 class ExperimentTemplateS3LogConfigurationInput(TypedDict, total=False):
     """Specifies the configuration for experiment logging to Amazon S3."""
 
     bucketName: S3BucketName
-    prefix: Optional[S3ObjectKey]
+    prefix: S3ObjectKey | None
 
 
 class ExperimentTemplateCloudWatchLogsLogConfigurationInput(TypedDict, total=False):
@@ -274,52 +274,52 @@ class ExperimentTemplateCloudWatchLogsLogConfigurationInput(TypedDict, total=Fal
 class CreateExperimentTemplateLogConfigurationInput(TypedDict, total=False):
     """Specifies the configuration for experiment logging."""
 
-    cloudWatchLogsConfiguration: Optional[ExperimentTemplateCloudWatchLogsLogConfigurationInput]
-    s3Configuration: Optional[ExperimentTemplateS3LogConfigurationInput]
+    cloudWatchLogsConfiguration: ExperimentTemplateCloudWatchLogsLogConfigurationInput | None
+    s3Configuration: ExperimentTemplateS3LogConfigurationInput | None
     logSchemaVersion: LogSchemaVersion
 
 
 class ReportConfigurationCloudWatchDashboardInput(TypedDict, total=False):
     """Specifies the CloudWatch dashboard for the experiment report."""
 
-    dashboardIdentifier: Optional[ReportConfigurationCloudWatchDashboardIdentifier]
+    dashboardIdentifier: ReportConfigurationCloudWatchDashboardIdentifier | None
 
 
-ReportConfigurationCloudWatchDashboardInputList = List[ReportConfigurationCloudWatchDashboardInput]
+ReportConfigurationCloudWatchDashboardInputList = list[ReportConfigurationCloudWatchDashboardInput]
 
 
 class ExperimentTemplateReportConfigurationDataSourcesInput(TypedDict, total=False):
     """Specifies the data sources for the experiment report."""
 
-    cloudWatchDashboards: Optional[ReportConfigurationCloudWatchDashboardInputList]
+    cloudWatchDashboards: ReportConfigurationCloudWatchDashboardInputList | None
 
 
 class ReportConfigurationS3OutputInput(TypedDict, total=False):
     """Specifies the S3 destination for the experiment report."""
 
-    bucketName: Optional[S3BucketName]
-    prefix: Optional[ReportConfigurationS3OutputPrefix]
+    bucketName: S3BucketName | None
+    prefix: ReportConfigurationS3OutputPrefix | None
 
 
 class ExperimentTemplateReportConfigurationOutputsInput(TypedDict, total=False):
     """Specifies the outputs for the experiment templates."""
 
-    s3Configuration: Optional[ReportConfigurationS3OutputInput]
+    s3Configuration: ReportConfigurationS3OutputInput | None
 
 
 class CreateExperimentTemplateReportConfigurationInput(TypedDict, total=False):
     """Specifies the configuration for experiment reports."""
 
-    outputs: Optional[ExperimentTemplateReportConfigurationOutputsInput]
-    dataSources: Optional[ExperimentTemplateReportConfigurationDataSourcesInput]
-    preExperimentDuration: Optional[ReportConfigurationDuration]
-    postExperimentDuration: Optional[ReportConfigurationDuration]
+    outputs: ExperimentTemplateReportConfigurationOutputsInput | None
+    dataSources: ExperimentTemplateReportConfigurationDataSourcesInput | None
+    preExperimentDuration: ReportConfigurationDuration | None
+    postExperimentDuration: ReportConfigurationDuration | None
 
 
-ExperimentTemplateTargetParameterMap = Dict[
+ExperimentTemplateTargetParameterMap = dict[
     ExperimentTemplateTargetParameterName, ExperimentTemplateTargetParameterValue
 ]
-ExperimentTemplateTargetFilterValues = List[ExperimentTemplateTargetFilterValue]
+ExperimentTemplateTargetFilterValues = list[ExperimentTemplateTargetFilterValue]
 
 
 class ExperimentTemplateTargetInputFilter(TypedDict, total=False):
@@ -335,8 +335,8 @@ class ExperimentTemplateTargetInputFilter(TypedDict, total=False):
     values: ExperimentTemplateTargetFilterValues
 
 
-ExperimentTemplateTargetFilterInputList = List[ExperimentTemplateTargetInputFilter]
-ResourceArnList = List[ResourceArn]
+ExperimentTemplateTargetFilterInputList = list[ExperimentTemplateTargetInputFilter]
+ResourceArnList = list[ResourceArn]
 
 
 class CreateExperimentTemplateTargetInput(TypedDict, total=False):
@@ -350,14 +350,14 @@ class CreateExperimentTemplateTargetInput(TypedDict, total=False):
     """
 
     resourceType: TargetResourceTypeId
-    resourceArns: Optional[ResourceArnList]
-    resourceTags: Optional[TagMap]
-    filters: Optional[ExperimentTemplateTargetFilterInputList]
+    resourceArns: ResourceArnList | None
+    resourceTags: TagMap | None
+    filters: ExperimentTemplateTargetFilterInputList | None
     selectionMode: ExperimentTemplateTargetSelectionMode
-    parameters: Optional[ExperimentTemplateTargetParameterMap]
+    parameters: ExperimentTemplateTargetParameterMap | None
 
 
-CreateExperimentTemplateTargetInputMap = Dict[
+CreateExperimentTemplateTargetInputMap = dict[
     ExperimentTemplateTargetName, CreateExperimentTemplateTargetInput
 ]
 
@@ -366,23 +366,23 @@ class CreateExperimentTemplateStopConditionInput(TypedDict, total=False):
     """Specifies a stop condition for an experiment template."""
 
     source: StopConditionSource
-    value: Optional[StopConditionValue]
+    value: StopConditionValue | None
 
 
-CreateExperimentTemplateStopConditionInputList = List[CreateExperimentTemplateStopConditionInput]
+CreateExperimentTemplateStopConditionInputList = list[CreateExperimentTemplateStopConditionInput]
 
 
 class CreateExperimentTemplateRequest(ServiceRequest):
     clientToken: ClientToken
     description: ExperimentTemplateDescription
     stopConditions: CreateExperimentTemplateStopConditionInputList
-    targets: Optional[CreateExperimentTemplateTargetInputMap]
+    targets: CreateExperimentTemplateTargetInputMap | None
     actions: CreateExperimentTemplateActionInputMap
     roleArn: RoleArn
-    tags: Optional[TagMap]
-    logConfiguration: Optional[CreateExperimentTemplateLogConfigurationInput]
-    experimentOptions: Optional[CreateExperimentTemplateExperimentOptionsInput]
-    experimentReportConfiguration: Optional[CreateExperimentTemplateReportConfigurationInput]
+    tags: TagMap | None
+    logConfiguration: CreateExperimentTemplateLogConfigurationInput | None
+    experimentOptions: CreateExperimentTemplateExperimentOptionsInput | None
+    experimentReportConfiguration: CreateExperimentTemplateReportConfigurationInput | None
 
 
 class ExperimentTemplateReportConfigurationCloudWatchDashboard(TypedDict, total=False):
@@ -390,10 +390,10 @@ class ExperimentTemplateReportConfigurationCloudWatchDashboard(TypedDict, total=
     report.
     """
 
-    dashboardIdentifier: Optional[ReportConfigurationCloudWatchDashboardIdentifier]
+    dashboardIdentifier: ReportConfigurationCloudWatchDashboardIdentifier | None
 
 
-ExperimentTemplateReportConfigurationCloudWatchDashboardList = List[
+ExperimentTemplateReportConfigurationCloudWatchDashboardList = list[
     ExperimentTemplateReportConfigurationCloudWatchDashboard
 ]
 
@@ -401,20 +401,20 @@ ExperimentTemplateReportConfigurationCloudWatchDashboardList = List[
 class ExperimentTemplateReportConfigurationDataSources(TypedDict, total=False):
     """Describes the data sources for the experiment report."""
 
-    cloudWatchDashboards: Optional[ExperimentTemplateReportConfigurationCloudWatchDashboardList]
+    cloudWatchDashboards: ExperimentTemplateReportConfigurationCloudWatchDashboardList | None
 
 
 class ReportConfigurationS3Output(TypedDict, total=False):
     """Describes the S3 destination for the experiment report."""
 
-    bucketName: Optional[S3BucketName]
-    prefix: Optional[ReportConfigurationS3OutputPrefix]
+    bucketName: S3BucketName | None
+    prefix: ReportConfigurationS3OutputPrefix | None
 
 
 class ExperimentTemplateReportConfigurationOutputs(TypedDict, total=False):
     """The output destinations of the experiment report."""
 
-    s3Configuration: Optional[ReportConfigurationS3Output]
+    s3Configuration: ReportConfigurationS3Output | None
 
 
 class ExperimentTemplateReportConfiguration(TypedDict, total=False):
@@ -423,10 +423,10 @@ class ExperimentTemplateReportConfiguration(TypedDict, total=False):
     FIS <https://docs.aws.amazon.com/fis/latest/userguide/experiment-report-configuration>`__.
     """
 
-    outputs: Optional[ExperimentTemplateReportConfigurationOutputs]
-    dataSources: Optional[ExperimentTemplateReportConfigurationDataSources]
-    preExperimentDuration: Optional[ReportConfigurationDuration]
-    postExperimentDuration: Optional[ReportConfigurationDuration]
+    outputs: ExperimentTemplateReportConfigurationOutputs | None
+    dataSources: ExperimentTemplateReportConfigurationDataSources | None
+    preExperimentDuration: ReportConfigurationDuration | None
+    postExperimentDuration: ReportConfigurationDuration | None
 
 
 TargetAccountConfigurationsCount = int
@@ -435,15 +435,15 @@ TargetAccountConfigurationsCount = int
 class ExperimentTemplateExperimentOptions(TypedDict, total=False):
     """Describes the experiment options for an experiment template."""
 
-    accountTargeting: Optional[AccountTargeting]
-    emptyTargetResolutionMode: Optional[EmptyTargetResolutionMode]
+    accountTargeting: AccountTargeting | None
+    emptyTargetResolutionMode: EmptyTargetResolutionMode | None
 
 
 class ExperimentTemplateS3LogConfiguration(TypedDict, total=False):
     """Describes the configuration for experiment logging to Amazon S3."""
 
-    bucketName: Optional[S3BucketName]
-    prefix: Optional[S3ObjectKey]
+    bucketName: S3BucketName | None
+    prefix: S3ObjectKey | None
 
 
 class ExperimentTemplateCloudWatchLogsLogConfiguration(TypedDict, total=False):
@@ -451,15 +451,15 @@ class ExperimentTemplateCloudWatchLogsLogConfiguration(TypedDict, total=False):
     Logs.
     """
 
-    logGroupArn: Optional[CloudWatchLogGroupArn]
+    logGroupArn: CloudWatchLogGroupArn | None
 
 
 class ExperimentTemplateLogConfiguration(TypedDict, total=False):
     """Describes the configuration for experiment logging."""
 
-    cloudWatchLogsConfiguration: Optional[ExperimentTemplateCloudWatchLogsLogConfiguration]
-    s3Configuration: Optional[ExperimentTemplateS3LogConfiguration]
-    logSchemaVersion: Optional[LogSchemaVersion]
+    cloudWatchLogsConfiguration: ExperimentTemplateCloudWatchLogsLogConfiguration | None
+    s3Configuration: ExperimentTemplateS3LogConfiguration | None
+    logSchemaVersion: LogSchemaVersion | None
 
 
 LastUpdateTime = datetime
@@ -469,24 +469,24 @@ CreationTime = datetime
 class ExperimentTemplateStopCondition(TypedDict, total=False):
     """Describes a stop condition for an experiment template."""
 
-    source: Optional[StopConditionSource]
-    value: Optional[StopConditionValue]
+    source: StopConditionSource | None
+    value: StopConditionValue | None
 
 
-ExperimentTemplateStopConditionList = List[ExperimentTemplateStopCondition]
+ExperimentTemplateStopConditionList = list[ExperimentTemplateStopCondition]
 
 
 class ExperimentTemplateAction(TypedDict, total=False):
     """Describes an action for an experiment template."""
 
-    actionId: Optional[ActionId]
-    description: Optional[ExperimentTemplateActionDescription]
-    parameters: Optional[ExperimentTemplateActionParameterMap]
-    targets: Optional[ExperimentTemplateActionTargetMap]
-    startAfter: Optional[ExperimentTemplateActionStartAfterList]
+    actionId: ActionId | None
+    description: ExperimentTemplateActionDescription | None
+    parameters: ExperimentTemplateActionParameterMap | None
+    targets: ExperimentTemplateActionTargetMap | None
+    startAfter: ExperimentTemplateActionStartAfterList | None
 
 
-ExperimentTemplateActionMap = Dict[ExperimentTemplateActionName, ExperimentTemplateAction]
+ExperimentTemplateActionMap = dict[ExperimentTemplateActionName, ExperimentTemplateAction]
 
 
 class ExperimentTemplateTargetFilter(TypedDict, total=False):
@@ -494,68 +494,68 @@ class ExperimentTemplateTargetFilter(TypedDict, total=False):
     template.
     """
 
-    path: Optional[ExperimentTemplateTargetFilterPath]
-    values: Optional[ExperimentTemplateTargetFilterValues]
+    path: ExperimentTemplateTargetFilterPath | None
+    values: ExperimentTemplateTargetFilterValues | None
 
 
-ExperimentTemplateTargetFilterList = List[ExperimentTemplateTargetFilter]
+ExperimentTemplateTargetFilterList = list[ExperimentTemplateTargetFilter]
 
 
 class ExperimentTemplateTarget(TypedDict, total=False):
     """Describes a target for an experiment template."""
 
-    resourceType: Optional[TargetResourceTypeId]
-    resourceArns: Optional[ResourceArnList]
-    resourceTags: Optional[TagMap]
-    filters: Optional[ExperimentTemplateTargetFilterList]
-    selectionMode: Optional[ExperimentTemplateTargetSelectionMode]
-    parameters: Optional[ExperimentTemplateTargetParameterMap]
+    resourceType: TargetResourceTypeId | None
+    resourceArns: ResourceArnList | None
+    resourceTags: TagMap | None
+    filters: ExperimentTemplateTargetFilterList | None
+    selectionMode: ExperimentTemplateTargetSelectionMode | None
+    parameters: ExperimentTemplateTargetParameterMap | None
 
 
-ExperimentTemplateTargetMap = Dict[ExperimentTemplateTargetName, ExperimentTemplateTarget]
+ExperimentTemplateTargetMap = dict[ExperimentTemplateTargetName, ExperimentTemplateTarget]
 
 
 class ExperimentTemplate(TypedDict, total=False):
     """Describes an experiment template."""
 
-    id: Optional[ExperimentTemplateId]
-    arn: Optional[ResourceArn]
-    description: Optional[ExperimentTemplateDescription]
-    targets: Optional[ExperimentTemplateTargetMap]
-    actions: Optional[ExperimentTemplateActionMap]
-    stopConditions: Optional[ExperimentTemplateStopConditionList]
-    creationTime: Optional[CreationTime]
-    lastUpdateTime: Optional[LastUpdateTime]
-    roleArn: Optional[RoleArn]
-    tags: Optional[TagMap]
-    logConfiguration: Optional[ExperimentTemplateLogConfiguration]
-    experimentOptions: Optional[ExperimentTemplateExperimentOptions]
-    targetAccountConfigurationsCount: Optional[TargetAccountConfigurationsCount]
-    experimentReportConfiguration: Optional[ExperimentTemplateReportConfiguration]
+    id: ExperimentTemplateId | None
+    arn: ResourceArn | None
+    description: ExperimentTemplateDescription | None
+    targets: ExperimentTemplateTargetMap | None
+    actions: ExperimentTemplateActionMap | None
+    stopConditions: ExperimentTemplateStopConditionList | None
+    creationTime: CreationTime | None
+    lastUpdateTime: LastUpdateTime | None
+    roleArn: RoleArn | None
+    tags: TagMap | None
+    logConfiguration: ExperimentTemplateLogConfiguration | None
+    experimentOptions: ExperimentTemplateExperimentOptions | None
+    targetAccountConfigurationsCount: TargetAccountConfigurationsCount | None
+    experimentReportConfiguration: ExperimentTemplateReportConfiguration | None
 
 
 class CreateExperimentTemplateResponse(TypedDict, total=False):
-    experimentTemplate: Optional[ExperimentTemplate]
+    experimentTemplate: ExperimentTemplate | None
 
 
 class CreateTargetAccountConfigurationRequest(ServiceRequest):
-    clientToken: Optional[ClientToken]
+    clientToken: ClientToken | None
     experimentTemplateId: ExperimentTemplateId
     accountId: TargetAccountId
     roleArn: RoleArn
-    description: Optional[TargetAccountConfigurationDescription]
+    description: TargetAccountConfigurationDescription | None
 
 
 class TargetAccountConfiguration(TypedDict, total=False):
     """Describes a target account configuration."""
 
-    roleArn: Optional[RoleArn]
-    accountId: Optional[TargetAccountId]
-    description: Optional[TargetAccountConfigurationDescription]
+    roleArn: RoleArn | None
+    accountId: TargetAccountId | None
+    description: TargetAccountConfigurationDescription | None
 
 
 class CreateTargetAccountConfigurationResponse(TypedDict, total=False):
-    targetAccountConfiguration: Optional[TargetAccountConfiguration]
+    targetAccountConfiguration: TargetAccountConfiguration | None
 
 
 class DeleteExperimentTemplateRequest(ServiceRequest):
@@ -563,7 +563,7 @@ class DeleteExperimentTemplateRequest(ServiceRequest):
 
 
 class DeleteExperimentTemplateResponse(TypedDict, total=False):
-    experimentTemplate: Optional[ExperimentTemplate]
+    experimentTemplate: ExperimentTemplate | None
 
 
 class DeleteTargetAccountConfigurationRequest(ServiceRequest):
@@ -572,38 +572,38 @@ class DeleteTargetAccountConfigurationRequest(ServiceRequest):
 
 
 class DeleteTargetAccountConfigurationResponse(TypedDict, total=False):
-    targetAccountConfiguration: Optional[TargetAccountConfiguration]
+    targetAccountConfiguration: TargetAccountConfiguration | None
 
 
 class ExperimentReportS3Report(TypedDict, total=False):
     """Describes the S3 destination for the report."""
 
-    arn: Optional[ExperimentReportS3ReportArn]
-    reportType: Optional[ExperimentReportS3ReportType]
+    arn: ExperimentReportS3ReportArn | None
+    reportType: ExperimentReportS3ReportType | None
 
 
-ExperimentReportS3ReportList = List[ExperimentReportS3Report]
+ExperimentReportS3ReportList = list[ExperimentReportS3Report]
 
 
 class ExperimentReportError(TypedDict, total=False):
     """Describes the error when experiment report generation has failed."""
 
-    code: Optional[ExperimentReportErrorCode]
+    code: ExperimentReportErrorCode | None
 
 
 class ExperimentReportState(TypedDict, total=False):
     """Describes the state of the experiment report generation."""
 
-    status: Optional[ExperimentReportStatus]
-    reason: Optional[ExperimentReportReason]
-    error: Optional[ExperimentReportError]
+    status: ExperimentReportStatus | None
+    reason: ExperimentReportReason | None
+    error: ExperimentReportError | None
 
 
 class ExperimentReport(TypedDict, total=False):
     """Describes the experiment report."""
 
-    state: Optional[ExperimentReportState]
-    s3Reports: Optional[ExperimentReportS3ReportList]
+    state: ExperimentReportState | None
+    s3Reports: ExperimentReportS3ReportList | None
 
 
 class ExperimentReportConfigurationCloudWatchDashboard(TypedDict, total=False):
@@ -612,10 +612,10 @@ class ExperimentReportConfigurationCloudWatchDashboard(TypedDict, total=False):
     report.
     """
 
-    dashboardIdentifier: Optional[ReportConfigurationCloudWatchDashboardIdentifier]
+    dashboardIdentifier: ReportConfigurationCloudWatchDashboardIdentifier | None
 
 
-ExperimentReportConfigurationCloudWatchDashboardList = List[
+ExperimentReportConfigurationCloudWatchDashboardList = list[
     ExperimentReportConfigurationCloudWatchDashboard
 ]
 
@@ -623,20 +623,20 @@ ExperimentReportConfigurationCloudWatchDashboardList = List[
 class ExperimentReportConfigurationDataSources(TypedDict, total=False):
     """Describes the data sources for the experiment report."""
 
-    cloudWatchDashboards: Optional[ExperimentReportConfigurationCloudWatchDashboardList]
+    cloudWatchDashboards: ExperimentReportConfigurationCloudWatchDashboardList | None
 
 
 class ExperimentReportConfigurationOutputsS3Configuration(TypedDict, total=False):
     """Specifies the S3 destination for the experiment report."""
 
-    bucketName: Optional[S3BucketName]
-    prefix: Optional[ReportConfigurationS3OutputPrefix]
+    bucketName: S3BucketName | None
+    prefix: ReportConfigurationS3OutputPrefix | None
 
 
 class ExperimentReportConfigurationOutputs(TypedDict, total=False):
     """Describes the output destinations of the experiment report."""
 
-    s3Configuration: Optional[ExperimentReportConfigurationOutputsS3Configuration]
+    s3Configuration: ExperimentReportConfigurationOutputsS3Configuration | None
 
 
 class ExperimentReportConfiguration(TypedDict, total=False):
@@ -645,25 +645,25 @@ class ExperimentReportConfiguration(TypedDict, total=False):
     FIS <https://docs.aws.amazon.com/fis/latest/userguide/experiment-report-configuration>`__.
     """
 
-    outputs: Optional[ExperimentReportConfigurationOutputs]
-    dataSources: Optional[ExperimentReportConfigurationDataSources]
-    preExperimentDuration: Optional[ReportConfigurationDuration]
-    postExperimentDuration: Optional[ReportConfigurationDuration]
+    outputs: ExperimentReportConfigurationOutputs | None
+    dataSources: ExperimentReportConfigurationDataSources | None
+    preExperimentDuration: ReportConfigurationDuration | None
+    postExperimentDuration: ReportConfigurationDuration | None
 
 
 class ExperimentOptions(TypedDict, total=False):
     """Describes the options for an experiment."""
 
-    accountTargeting: Optional[AccountTargeting]
-    emptyTargetResolutionMode: Optional[EmptyTargetResolutionMode]
-    actionsMode: Optional[ActionsMode]
+    accountTargeting: AccountTargeting | None
+    emptyTargetResolutionMode: EmptyTargetResolutionMode | None
+    actionsMode: ActionsMode | None
 
 
 class ExperimentS3LogConfiguration(TypedDict, total=False):
     """Describes the configuration for experiment logging to Amazon S3."""
 
-    bucketName: Optional[S3BucketName]
-    prefix: Optional[S3ObjectKey]
+    bucketName: S3BucketName | None
+    prefix: S3ObjectKey | None
 
 
 class ExperimentCloudWatchLogsLogConfiguration(TypedDict, total=False):
@@ -671,15 +671,15 @@ class ExperimentCloudWatchLogsLogConfiguration(TypedDict, total=False):
     Logs.
     """
 
-    logGroupArn: Optional[CloudWatchLogGroupArn]
+    logGroupArn: CloudWatchLogGroupArn | None
 
 
 class ExperimentLogConfiguration(TypedDict, total=False):
     """Describes the configuration for experiment logging."""
 
-    cloudWatchLogsConfiguration: Optional[ExperimentCloudWatchLogsLogConfiguration]
-    s3Configuration: Optional[ExperimentS3LogConfiguration]
-    logSchemaVersion: Optional[LogSchemaVersion]
+    cloudWatchLogsConfiguration: ExperimentCloudWatchLogsLogConfiguration | None
+    s3Configuration: ExperimentS3LogConfiguration | None
+    logSchemaVersion: LogSchemaVersion | None
 
 
 ExperimentEndTime = datetime
@@ -689,11 +689,11 @@ ExperimentStartTime = datetime
 class ExperimentStopCondition(TypedDict, total=False):
     """Describes the stop condition for an experiment."""
 
-    source: Optional[StopConditionSource]
-    value: Optional[StopConditionValue]
+    source: StopConditionSource | None
+    value: StopConditionValue | None
 
 
-ExperimentStopConditionList = List[ExperimentStopCondition]
+ExperimentStopConditionList = list[ExperimentStopCondition]
 ExperimentActionEndTime = datetime
 ExperimentActionStartTime = datetime
 
@@ -701,141 +701,141 @@ ExperimentActionStartTime = datetime
 class ExperimentActionState(TypedDict, total=False):
     """Describes the state of an action."""
 
-    status: Optional[ExperimentActionStatus]
-    reason: Optional[ExperimentActionStatusReason]
+    status: ExperimentActionStatus | None
+    reason: ExperimentActionStatusReason | None
 
 
-ExperimentActionStartAfterList = List[ExperimentActionStartAfter]
-ExperimentActionTargetMap = Dict[ExperimentActionTargetName, ExperimentTargetName]
-ExperimentActionParameterMap = Dict[ExperimentActionParameterName, ExperimentActionParameter]
+ExperimentActionStartAfterList = list[ExperimentActionStartAfter]
+ExperimentActionTargetMap = dict[ExperimentActionTargetName, ExperimentTargetName]
+ExperimentActionParameterMap = dict[ExperimentActionParameterName, ExperimentActionParameter]
 
 
 class ExperimentAction(TypedDict, total=False):
     """Describes the action for an experiment."""
 
-    actionId: Optional[ActionId]
-    description: Optional[ExperimentActionDescription]
-    parameters: Optional[ExperimentActionParameterMap]
-    targets: Optional[ExperimentActionTargetMap]
-    startAfter: Optional[ExperimentActionStartAfterList]
-    state: Optional[ExperimentActionState]
-    startTime: Optional[ExperimentActionStartTime]
-    endTime: Optional[ExperimentActionEndTime]
+    actionId: ActionId | None
+    description: ExperimentActionDescription | None
+    parameters: ExperimentActionParameterMap | None
+    targets: ExperimentActionTargetMap | None
+    startAfter: ExperimentActionStartAfterList | None
+    state: ExperimentActionState | None
+    startTime: ExperimentActionStartTime | None
+    endTime: ExperimentActionEndTime | None
 
 
-ExperimentActionMap = Dict[ExperimentActionName, ExperimentAction]
-ExperimentTargetParameterMap = Dict[ExperimentTargetParameterName, ExperimentTargetParameterValue]
-ExperimentTargetFilterValues = List[ExperimentTargetFilterValue]
+ExperimentActionMap = dict[ExperimentActionName, ExperimentAction]
+ExperimentTargetParameterMap = dict[ExperimentTargetParameterName, ExperimentTargetParameterValue]
+ExperimentTargetFilterValues = list[ExperimentTargetFilterValue]
 
 
 class ExperimentTargetFilter(TypedDict, total=False):
     """Describes a filter used for the target resources in an experiment."""
 
-    path: Optional[ExperimentTargetFilterPath]
-    values: Optional[ExperimentTargetFilterValues]
+    path: ExperimentTargetFilterPath | None
+    values: ExperimentTargetFilterValues | None
 
 
-ExperimentTargetFilterList = List[ExperimentTargetFilter]
+ExperimentTargetFilterList = list[ExperimentTargetFilter]
 
 
 class ExperimentTarget(TypedDict, total=False):
     """Describes a target for an experiment."""
 
-    resourceType: Optional[TargetResourceTypeId]
-    resourceArns: Optional[ResourceArnList]
-    resourceTags: Optional[TagMap]
-    filters: Optional[ExperimentTargetFilterList]
-    selectionMode: Optional[ExperimentTargetSelectionMode]
-    parameters: Optional[ExperimentTargetParameterMap]
+    resourceType: TargetResourceTypeId | None
+    resourceArns: ResourceArnList | None
+    resourceTags: TagMap | None
+    filters: ExperimentTargetFilterList | None
+    selectionMode: ExperimentTargetSelectionMode | None
+    parameters: ExperimentTargetParameterMap | None
 
 
-ExperimentTargetMap = Dict[ExperimentTargetName, ExperimentTarget]
+ExperimentTargetMap = dict[ExperimentTargetName, ExperimentTarget]
 
 
 class ExperimentError(TypedDict, total=False):
     """Describes the error when an experiment has ``failed``."""
 
-    accountId: Optional[ExperimentErrorAccountId]
-    code: Optional[ExperimentErrorCode]
-    location: Optional[ExperimentErrorLocation]
+    accountId: ExperimentErrorAccountId | None
+    code: ExperimentErrorCode | None
+    location: ExperimentErrorLocation | None
 
 
 class ExperimentState(TypedDict, total=False):
     """Describes the state of an experiment."""
 
-    status: Optional[ExperimentStatus]
-    reason: Optional[ExperimentStatusReason]
-    error: Optional[ExperimentError]
+    status: ExperimentStatus | None
+    reason: ExperimentStatusReason | None
+    error: ExperimentError | None
 
 
 class Experiment(TypedDict, total=False):
     """Describes an experiment."""
 
-    id: Optional[ExperimentId]
-    arn: Optional[ResourceArn]
-    experimentTemplateId: Optional[ExperimentTemplateId]
-    roleArn: Optional[RoleArn]
-    state: Optional[ExperimentState]
-    targets: Optional[ExperimentTargetMap]
-    actions: Optional[ExperimentActionMap]
-    stopConditions: Optional[ExperimentStopConditionList]
-    creationTime: Optional[CreationTime]
-    startTime: Optional[ExperimentStartTime]
-    endTime: Optional[ExperimentEndTime]
-    tags: Optional[TagMap]
-    logConfiguration: Optional[ExperimentLogConfiguration]
-    experimentOptions: Optional[ExperimentOptions]
-    targetAccountConfigurationsCount: Optional[TargetAccountConfigurationsCount]
-    experimentReportConfiguration: Optional[ExperimentReportConfiguration]
-    experimentReport: Optional[ExperimentReport]
+    id: ExperimentId | None
+    arn: ResourceArn | None
+    experimentTemplateId: ExperimentTemplateId | None
+    roleArn: RoleArn | None
+    state: ExperimentState | None
+    targets: ExperimentTargetMap | None
+    actions: ExperimentActionMap | None
+    stopConditions: ExperimentStopConditionList | None
+    creationTime: CreationTime | None
+    startTime: ExperimentStartTime | None
+    endTime: ExperimentEndTime | None
+    tags: TagMap | None
+    logConfiguration: ExperimentLogConfiguration | None
+    experimentOptions: ExperimentOptions | None
+    targetAccountConfigurationsCount: TargetAccountConfigurationsCount | None
+    experimentReportConfiguration: ExperimentReportConfiguration | None
+    experimentReport: ExperimentReport | None
 
 
 class ExperimentSummary(TypedDict, total=False):
     """Provides a summary of an experiment."""
 
-    id: Optional[ExperimentId]
-    arn: Optional[ResourceArn]
-    experimentTemplateId: Optional[ExperimentTemplateId]
-    state: Optional[ExperimentState]
-    creationTime: Optional[CreationTime]
-    tags: Optional[TagMap]
-    experimentOptions: Optional[ExperimentOptions]
+    id: ExperimentId | None
+    arn: ResourceArn | None
+    experimentTemplateId: ExperimentTemplateId | None
+    state: ExperimentState | None
+    creationTime: CreationTime | None
+    tags: TagMap | None
+    experimentOptions: ExperimentOptions | None
 
 
-ExperimentSummaryList = List[ExperimentSummary]
+ExperimentSummaryList = list[ExperimentSummary]
 
 
 class ExperimentTargetAccountConfiguration(TypedDict, total=False):
     """Describes a target account configuration for an experiment."""
 
-    roleArn: Optional[RoleArn]
-    accountId: Optional[TargetAccountId]
-    description: Optional[TargetAccountConfigurationDescription]
+    roleArn: RoleArn | None
+    accountId: TargetAccountId | None
+    description: TargetAccountConfigurationDescription | None
 
 
 class ExperimentTargetAccountConfigurationSummary(TypedDict, total=False):
     """Provides a summary of a target account configuration."""
 
-    roleArn: Optional[RoleArn]
-    accountId: Optional[TargetAccountId]
-    description: Optional[TargetAccountConfigurationDescription]
+    roleArn: RoleArn | None
+    accountId: TargetAccountId | None
+    description: TargetAccountConfigurationDescription | None
 
 
-ExperimentTargetAccountConfigurationList = List[ExperimentTargetAccountConfigurationSummary]
+ExperimentTargetAccountConfigurationList = list[ExperimentTargetAccountConfigurationSummary]
 
 
 class ExperimentTemplateSummary(TypedDict, total=False):
     """Provides a summary of an experiment template."""
 
-    id: Optional[ExperimentTemplateId]
-    arn: Optional[ResourceArn]
-    description: Optional[ExperimentTemplateDescription]
-    creationTime: Optional[CreationTime]
-    lastUpdateTime: Optional[LastUpdateTime]
-    tags: Optional[TagMap]
+    id: ExperimentTemplateId | None
+    arn: ResourceArn | None
+    description: ExperimentTemplateDescription | None
+    creationTime: CreationTime | None
+    lastUpdateTime: LastUpdateTime | None
+    tags: TagMap | None
 
 
-ExperimentTemplateSummaryList = List[ExperimentTemplateSummary]
+ExperimentTemplateSummaryList = list[ExperimentTemplateSummary]
 
 
 class GetActionRequest(ServiceRequest):
@@ -843,7 +843,7 @@ class GetActionRequest(ServiceRequest):
 
 
 class GetActionResponse(TypedDict, total=False):
-    action: Optional[Action]
+    action: Action | None
 
 
 class GetExperimentRequest(ServiceRequest):
@@ -851,7 +851,7 @@ class GetExperimentRequest(ServiceRequest):
 
 
 class GetExperimentResponse(TypedDict, total=False):
-    experiment: Optional[Experiment]
+    experiment: Experiment | None
 
 
 class GetExperimentTargetAccountConfigurationRequest(ServiceRequest):
@@ -860,7 +860,7 @@ class GetExperimentTargetAccountConfigurationRequest(ServiceRequest):
 
 
 class GetExperimentTargetAccountConfigurationResponse(TypedDict, total=False):
-    targetAccountConfiguration: Optional[ExperimentTargetAccountConfiguration]
+    targetAccountConfiguration: ExperimentTargetAccountConfiguration | None
 
 
 class GetExperimentTemplateRequest(ServiceRequest):
@@ -868,7 +868,7 @@ class GetExperimentTemplateRequest(ServiceRequest):
 
 
 class GetExperimentTemplateResponse(TypedDict, total=False):
-    experimentTemplate: Optional[ExperimentTemplate]
+    experimentTemplate: ExperimentTemplate | None
 
 
 class GetSafetyLeverRequest(ServiceRequest):
@@ -878,20 +878,20 @@ class GetSafetyLeverRequest(ServiceRequest):
 class SafetyLeverState(TypedDict, total=False):
     """Describes the state of the safety lever."""
 
-    status: Optional[SafetyLeverStatus]
-    reason: Optional[SafetyLeverStatusReason]
+    status: SafetyLeverStatus | None
+    reason: SafetyLeverStatusReason | None
 
 
 class SafetyLever(TypedDict, total=False):
     """Describes a safety lever."""
 
-    id: Optional[SafetyLeverId]
-    arn: Optional[ResourceArn]
-    state: Optional[SafetyLeverState]
+    id: SafetyLeverId | None
+    arn: ResourceArn | None
+    state: SafetyLeverState | None
 
 
 class GetSafetyLeverResponse(TypedDict, total=False):
-    safetyLever: Optional[SafetyLever]
+    safetyLever: SafetyLever | None
 
 
 class GetTargetAccountConfigurationRequest(ServiceRequest):
@@ -900,7 +900,7 @@ class GetTargetAccountConfigurationRequest(ServiceRequest):
 
 
 class GetTargetAccountConfigurationResponse(TypedDict, total=False):
-    targetAccountConfiguration: Optional[TargetAccountConfiguration]
+    targetAccountConfiguration: TargetAccountConfiguration | None
 
 
 class GetTargetResourceTypeRequest(ServiceRequest):
@@ -912,90 +912,90 @@ class TargetResourceTypeParameter(TypedDict, total=False):
     determine which tasks are identified during target resolution.
     """
 
-    description: Optional[TargetResourceTypeParameterDescription]
-    required: Optional[TargetResourceTypeParameterRequired]
+    description: TargetResourceTypeParameterDescription | None
+    required: TargetResourceTypeParameterRequired | None
 
 
-TargetResourceTypeParameterMap = Dict[TargetResourceTypeParameterName, TargetResourceTypeParameter]
+TargetResourceTypeParameterMap = dict[TargetResourceTypeParameterName, TargetResourceTypeParameter]
 
 
 class TargetResourceType(TypedDict, total=False):
     """Describes a resource type."""
 
-    resourceType: Optional[TargetResourceTypeId]
-    description: Optional[TargetResourceTypeDescription]
-    parameters: Optional[TargetResourceTypeParameterMap]
+    resourceType: TargetResourceTypeId | None
+    description: TargetResourceTypeDescription | None
+    parameters: TargetResourceTypeParameterMap | None
 
 
 class GetTargetResourceTypeResponse(TypedDict, total=False):
-    targetResourceType: Optional[TargetResourceType]
+    targetResourceType: TargetResourceType | None
 
 
 class ListActionsRequest(ServiceRequest):
-    maxResults: Optional[ListActionsMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: ListActionsMaxResults | None
+    nextToken: NextToken | None
 
 
 class ListActionsResponse(TypedDict, total=False):
-    actions: Optional[ActionSummaryList]
-    nextToken: Optional[NextToken]
+    actions: ActionSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListExperimentResolvedTargetsRequest(ServiceRequest):
     experimentId: ExperimentId
-    maxResults: Optional[ListExperimentResolvedTargetsMaxResults]
-    nextToken: Optional[NextToken]
-    targetName: Optional[TargetName]
+    maxResults: ListExperimentResolvedTargetsMaxResults | None
+    nextToken: NextToken | None
+    targetName: TargetName | None
 
 
-TargetInformationMap = Dict[TargetInformationKey, TargetInformationValue]
+TargetInformationMap = dict[TargetInformationKey, TargetInformationValue]
 
 
 class ResolvedTarget(TypedDict, total=False):
     """Describes a resolved target."""
 
-    resourceType: Optional[TargetResourceTypeId]
-    targetName: Optional[TargetName]
-    targetInformation: Optional[TargetInformationMap]
+    resourceType: TargetResourceTypeId | None
+    targetName: TargetName | None
+    targetInformation: TargetInformationMap | None
 
 
-ResolvedTargetList = List[ResolvedTarget]
+ResolvedTargetList = list[ResolvedTarget]
 
 
 class ListExperimentResolvedTargetsResponse(TypedDict, total=False):
-    resolvedTargets: Optional[ResolvedTargetList]
-    nextToken: Optional[NextToken]
+    resolvedTargets: ResolvedTargetList | None
+    nextToken: NextToken | None
 
 
 class ListExperimentTargetAccountConfigurationsRequest(ServiceRequest):
     experimentId: ExperimentId
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListExperimentTargetAccountConfigurationsResponse(TypedDict, total=False):
-    targetAccountConfigurations: Optional[ExperimentTargetAccountConfigurationList]
-    nextToken: Optional[NextToken]
+    targetAccountConfigurations: ExperimentTargetAccountConfigurationList | None
+    nextToken: NextToken | None
 
 
 class ListExperimentTemplatesRequest(ServiceRequest):
-    maxResults: Optional[ListExperimentTemplatesMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: ListExperimentTemplatesMaxResults | None
+    nextToken: NextToken | None
 
 
 class ListExperimentTemplatesResponse(TypedDict, total=False):
-    experimentTemplates: Optional[ExperimentTemplateSummaryList]
-    nextToken: Optional[NextToken]
+    experimentTemplates: ExperimentTemplateSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListExperimentsRequest(ServiceRequest):
-    maxResults: Optional[ListExperimentsMaxResults]
-    nextToken: Optional[NextToken]
-    experimentTemplateId: Optional[ExperimentTemplateId]
+    maxResults: ListExperimentsMaxResults | None
+    nextToken: NextToken | None
+    experimentTemplateId: ExperimentTemplateId | None
 
 
 class ListExperimentsResponse(TypedDict, total=False):
-    experiments: Optional[ExperimentSummaryList]
-    nextToken: Optional[NextToken]
+    experiments: ExperimentSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1003,66 +1003,66 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagMap]
+    tags: TagMap | None
 
 
 class ListTargetAccountConfigurationsRequest(ServiceRequest):
     experimentTemplateId: ExperimentTemplateId
-    maxResults: Optional[ListTargetAccountConfigurationsMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: ListTargetAccountConfigurationsMaxResults | None
+    nextToken: NextToken | None
 
 
 class TargetAccountConfigurationSummary(TypedDict, total=False):
     """Provides a summary of a target account configuration."""
 
-    roleArn: Optional[RoleArn]
-    accountId: Optional[TargetAccountId]
-    description: Optional[TargetAccountConfigurationDescription]
+    roleArn: RoleArn | None
+    accountId: TargetAccountId | None
+    description: TargetAccountConfigurationDescription | None
 
 
-TargetAccountConfigurationList = List[TargetAccountConfigurationSummary]
+TargetAccountConfigurationList = list[TargetAccountConfigurationSummary]
 
 
 class ListTargetAccountConfigurationsResponse(TypedDict, total=False):
-    targetAccountConfigurations: Optional[TargetAccountConfigurationList]
-    nextToken: Optional[NextToken]
+    targetAccountConfigurations: TargetAccountConfigurationList | None
+    nextToken: NextToken | None
 
 
 class ListTargetResourceTypesRequest(ServiceRequest):
-    maxResults: Optional[ListTargetResourceTypesMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: ListTargetResourceTypesMaxResults | None
+    nextToken: NextToken | None
 
 
 class TargetResourceTypeSummary(TypedDict, total=False):
     """Describes a resource type."""
 
-    resourceType: Optional[TargetResourceTypeId]
-    description: Optional[TargetResourceTypeDescription]
+    resourceType: TargetResourceTypeId | None
+    description: TargetResourceTypeDescription | None
 
 
-TargetResourceTypeSummaryList = List[TargetResourceTypeSummary]
+TargetResourceTypeSummaryList = list[TargetResourceTypeSummary]
 
 
 class ListTargetResourceTypesResponse(TypedDict, total=False):
-    targetResourceTypes: Optional[TargetResourceTypeSummaryList]
-    nextToken: Optional[NextToken]
+    targetResourceTypes: TargetResourceTypeSummaryList | None
+    nextToken: NextToken | None
 
 
 class StartExperimentExperimentOptionsInput(TypedDict, total=False):
     """Specifies experiment options for running an experiment."""
 
-    actionsMode: Optional[ActionsMode]
+    actionsMode: ActionsMode | None
 
 
 class StartExperimentRequest(ServiceRequest):
     clientToken: ClientToken
     experimentTemplateId: ExperimentTemplateId
-    experimentOptions: Optional[StartExperimentExperimentOptionsInput]
-    tags: Optional[TagMap]
+    experimentOptions: StartExperimentExperimentOptionsInput | None
+    tags: TagMap | None
 
 
 class StartExperimentResponse(TypedDict, total=False):
-    experiment: Optional[Experiment]
+    experiment: Experiment | None
 
 
 class StopExperimentRequest(ServiceRequest):
@@ -1070,10 +1070,10 @@ class StopExperimentRequest(ServiceRequest):
 
 
 class StopExperimentResponse(TypedDict, total=False):
-    experiment: Optional[Experiment]
+    experiment: Experiment | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1087,7 +1087,7 @@ class TagResourceResponse(TypedDict, total=False):
 
 class UntagResourceRequest(ServiceRequest):
     resourceArn: ResourceArn
-    tagKeys: Optional[TagKeyList]
+    tagKeys: TagKeyList | None
 
 
 class UntagResourceResponse(TypedDict, total=False):
@@ -1097,14 +1097,14 @@ class UntagResourceResponse(TypedDict, total=False):
 class UpdateExperimentTemplateActionInputItem(TypedDict, total=False):
     """Specifies an action for an experiment template."""
 
-    actionId: Optional[ActionId]
-    description: Optional[ExperimentTemplateActionDescription]
-    parameters: Optional[ExperimentTemplateActionParameterMap]
-    targets: Optional[ExperimentTemplateActionTargetMap]
-    startAfter: Optional[ExperimentTemplateActionStartAfterList]
+    actionId: ActionId | None
+    description: ExperimentTemplateActionDescription | None
+    parameters: ExperimentTemplateActionParameterMap | None
+    targets: ExperimentTemplateActionTargetMap | None
+    startAfter: ExperimentTemplateActionStartAfterList | None
 
 
-UpdateExperimentTemplateActionInputMap = Dict[
+UpdateExperimentTemplateActionInputMap = dict[
     ExperimentTemplateActionName, UpdateExperimentTemplateActionInputItem
 ]
 
@@ -1112,24 +1112,24 @@ UpdateExperimentTemplateActionInputMap = Dict[
 class UpdateExperimentTemplateExperimentOptionsInput(TypedDict, total=False):
     """Specifies an experiment option for an experiment template."""
 
-    emptyTargetResolutionMode: Optional[EmptyTargetResolutionMode]
+    emptyTargetResolutionMode: EmptyTargetResolutionMode | None
 
 
 class UpdateExperimentTemplateLogConfigurationInput(TypedDict, total=False):
     """Specifies the configuration for experiment logging."""
 
-    cloudWatchLogsConfiguration: Optional[ExperimentTemplateCloudWatchLogsLogConfigurationInput]
-    s3Configuration: Optional[ExperimentTemplateS3LogConfigurationInput]
-    logSchemaVersion: Optional[LogSchemaVersion]
+    cloudWatchLogsConfiguration: ExperimentTemplateCloudWatchLogsLogConfigurationInput | None
+    s3Configuration: ExperimentTemplateS3LogConfigurationInput | None
+    logSchemaVersion: LogSchemaVersion | None
 
 
 class UpdateExperimentTemplateReportConfigurationInput(TypedDict, total=False):
     """Specifies the input for the experiment report configuration."""
 
-    outputs: Optional[ExperimentTemplateReportConfigurationOutputsInput]
-    dataSources: Optional[ExperimentTemplateReportConfigurationDataSourcesInput]
-    preExperimentDuration: Optional[ReportConfigurationDuration]
-    postExperimentDuration: Optional[ReportConfigurationDuration]
+    outputs: ExperimentTemplateReportConfigurationOutputsInput | None
+    dataSources: ExperimentTemplateReportConfigurationDataSourcesInput | None
+    preExperimentDuration: ReportConfigurationDuration | None
+    postExperimentDuration: ReportConfigurationDuration | None
 
 
 class UpdateExperimentTemplateTargetInput(TypedDict, total=False):
@@ -1139,14 +1139,14 @@ class UpdateExperimentTemplateTargetInput(TypedDict, total=False):
     """
 
     resourceType: TargetResourceTypeId
-    resourceArns: Optional[ResourceArnList]
-    resourceTags: Optional[TagMap]
-    filters: Optional[ExperimentTemplateTargetFilterInputList]
+    resourceArns: ResourceArnList | None
+    resourceTags: TagMap | None
+    filters: ExperimentTemplateTargetFilterInputList | None
     selectionMode: ExperimentTemplateTargetSelectionMode
-    parameters: Optional[ExperimentTemplateTargetParameterMap]
+    parameters: ExperimentTemplateTargetParameterMap | None
 
 
-UpdateExperimentTemplateTargetInputMap = Dict[
+UpdateExperimentTemplateTargetInputMap = dict[
     ExperimentTemplateTargetName, UpdateExperimentTemplateTargetInput
 ]
 
@@ -1157,26 +1157,26 @@ class UpdateExperimentTemplateStopConditionInput(TypedDict, total=False):
     """
 
     source: StopConditionSource
-    value: Optional[StopConditionValue]
+    value: StopConditionValue | None
 
 
-UpdateExperimentTemplateStopConditionInputList = List[UpdateExperimentTemplateStopConditionInput]
+UpdateExperimentTemplateStopConditionInputList = list[UpdateExperimentTemplateStopConditionInput]
 
 
 class UpdateExperimentTemplateRequest(ServiceRequest):
     id: ExperimentTemplateId
-    description: Optional[ExperimentTemplateDescription]
-    stopConditions: Optional[UpdateExperimentTemplateStopConditionInputList]
-    targets: Optional[UpdateExperimentTemplateTargetInputMap]
-    actions: Optional[UpdateExperimentTemplateActionInputMap]
-    roleArn: Optional[RoleArn]
-    logConfiguration: Optional[UpdateExperimentTemplateLogConfigurationInput]
-    experimentOptions: Optional[UpdateExperimentTemplateExperimentOptionsInput]
-    experimentReportConfiguration: Optional[UpdateExperimentTemplateReportConfigurationInput]
+    description: ExperimentTemplateDescription | None
+    stopConditions: UpdateExperimentTemplateStopConditionInputList | None
+    targets: UpdateExperimentTemplateTargetInputMap | None
+    actions: UpdateExperimentTemplateActionInputMap | None
+    roleArn: RoleArn | None
+    logConfiguration: UpdateExperimentTemplateLogConfigurationInput | None
+    experimentOptions: UpdateExperimentTemplateExperimentOptionsInput | None
+    experimentReportConfiguration: UpdateExperimentTemplateReportConfigurationInput | None
 
 
 class UpdateExperimentTemplateResponse(TypedDict, total=False):
-    experimentTemplate: Optional[ExperimentTemplate]
+    experimentTemplate: ExperimentTemplate | None
 
 
 class UpdateSafetyLeverStateInput(TypedDict, total=False):
@@ -1192,23 +1192,23 @@ class UpdateSafetyLeverStateRequest(ServiceRequest):
 
 
 class UpdateSafetyLeverStateResponse(TypedDict, total=False):
-    safetyLever: Optional[SafetyLever]
+    safetyLever: SafetyLever | None
 
 
 class UpdateTargetAccountConfigurationRequest(ServiceRequest):
     experimentTemplateId: ExperimentTemplateId
     accountId: TargetAccountId
-    roleArn: Optional[RoleArn]
-    description: Optional[TargetAccountConfigurationDescription]
+    roleArn: RoleArn | None
+    description: TargetAccountConfigurationDescription | None
 
 
 class UpdateTargetAccountConfigurationResponse(TypedDict, total=False):
-    targetAccountConfiguration: Optional[TargetAccountConfiguration]
+    targetAccountConfiguration: TargetAccountConfiguration | None
 
 
 class FisApi:
-    service = "fis"
-    version = "2020-12-01"
+    service: str = "fis"
+    version: str = "2020-12-01"
 
     @handler("CreateExperimentTemplate")
     def create_experiment_template(

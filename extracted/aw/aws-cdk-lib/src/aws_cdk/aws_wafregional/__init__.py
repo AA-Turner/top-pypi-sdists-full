@@ -64,2017 +64,33 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.ByteMatchSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"byte_match_set_id": "byteMatchSetId"},
+from ..interfaces.aws_wafregional import (
+    ByteMatchSetReference as _ByteMatchSetReference_5c158195,
+    GeoMatchSetReference as _GeoMatchSetReference_d4923ca3,
+    IByteMatchSetRef as _IByteMatchSetRef_b9d7fa32,
+    IGeoMatchSetRef as _IGeoMatchSetRef_f1759bb3,
+    IIPSetRef as _IIPSetRef_9a2f73df,
+    IPSetReference as _IPSetReference_5a056f17,
+    IRateBasedRuleRef as _IRateBasedRuleRef_de35422e,
+    IRegexPatternSetRef as _IRegexPatternSetRef_de6fde66,
+    IRuleRef as _IRuleRef_dd339bf9,
+    ISizeConstraintSetRef as _ISizeConstraintSetRef_737bff91,
+    ISqlInjectionMatchSetRef as _ISqlInjectionMatchSetRef_232c3756,
+    IWebACLAssociationRef as _IWebACLAssociationRef_2298c022,
+    IWebACLRef as _IWebACLRef_0d047f34,
+    IXssMatchSetRef as _IXssMatchSetRef_f894cd38,
+    RateBasedRuleReference as _RateBasedRuleReference_f997101b,
+    RegexPatternSetReference as _RegexPatternSetReference_bd768ee6,
+    RuleReference as _RuleReference_7dc8cbc3,
+    SizeConstraintSetReference as _SizeConstraintSetReference_19288e69,
+    SqlInjectionMatchSetReference as _SqlInjectionMatchSetReference_8a4a45d5,
+    WebACLAssociationReference as _WebACLAssociationReference_732525ba,
+    WebACLReference as _WebACLReference_dd1a0593,
+    XssMatchSetReference as _XssMatchSetReference_3e9904bd,
 )
-class ByteMatchSetReference:
-    def __init__(self, *, byte_match_set_id: builtins.str) -> None:
-        '''A reference to a ByteMatchSet resource.
 
-        :param byte_match_set_id: The Id of the ByteMatchSet resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            byte_match_set_reference = wafregional.ByteMatchSetReference(
-                byte_match_set_id="byteMatchSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7079c78403998c911a688753aaca1dd9f1e5516324343f1f0bee1db9704827b1)
-            check_type(argname="argument byte_match_set_id", value=byte_match_set_id, expected_type=type_hints["byte_match_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "byte_match_set_id": byte_match_set_id,
-        }
-
-    @builtins.property
-    def byte_match_set_id(self) -> builtins.str:
-        '''The Id of the ByteMatchSet resource.'''
-        result = self._values.get("byte_match_set_id")
-        assert result is not None, "Required property 'byte_match_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ByteMatchSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnByteMatchSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "byte_match_tuples": "byteMatchTuples"},
-)
-class CfnByteMatchSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        byte_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnByteMatchSet.ByteMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnByteMatchSet``.
-
-        :param name: A friendly name or description of the ``ByteMatchSet`` . You can't change ``Name`` after you create a ``ByteMatchSet`` .
-        :param byte_match_tuples: Specifies the bytes (typically a string that corresponds with ASCII characters) that you want AWS WAF to search for in web requests, the location in requests that you want AWS WAF to search, and other settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_byte_match_set_props = wafregional.CfnByteMatchSetProps(
-                name="name",
-            
-                # the properties below are optional
-                byte_match_tuples=[wafregional.CfnByteMatchSet.ByteMatchTupleProperty(
-                    field_to_match=wafregional.CfnByteMatchSet.FieldToMatchProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        data="data"
-                    ),
-                    positional_constraint="positionalConstraint",
-                    text_transformation="textTransformation",
-            
-                    # the properties below are optional
-                    target_string="targetString",
-                    target_string_base64="targetStringBase64"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d3315ca0f0c432ea54dc0a28b013ee804e72f866e20f3164467df22a3679b29)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument byte_match_tuples", value=byte_match_tuples, expected_type=type_hints["byte_match_tuples"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if byte_match_tuples is not None:
-            self._values["byte_match_tuples"] = byte_match_tuples
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description of the ``ByteMatchSet`` .
-
-        You can't change ``Name`` after you create a ``ByteMatchSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html#cfn-wafregional-bytematchset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def byte_match_tuples(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.ByteMatchTupleProperty"]]]]:
-        '''Specifies the bytes (typically a string that corresponds with ASCII characters) that you want AWS WAF to search for in web requests, the location in requests that you want AWS WAF to search, and other settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html#cfn-wafregional-bytematchset-bytematchtuples
-        '''
-        result = self._values.get("byte_match_tuples")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.ByteMatchTupleProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnByteMatchSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnGeoMatchSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "geo_match_constraints": "geoMatchConstraints"},
-)
-class CfnGeoMatchSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        geo_match_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGeoMatchSet.GeoMatchConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGeoMatchSet``.
-
-        :param name: A friendly name or description of the ``GeoMatchSet`` . You can't change the name of an ``GeoMatchSet`` after you create it.
-        :param geo_match_constraints: An array of ``GeoMatchConstraint`` objects, which contain the country that you want AWS WAF to search for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_geo_match_set_props = wafregional.CfnGeoMatchSetProps(
-                name="name",
-            
-                # the properties below are optional
-                geo_match_constraints=[wafregional.CfnGeoMatchSet.GeoMatchConstraintProperty(
-                    type="type",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ce26d9ffd24f477f686b44477cc2e54588d1ce675a04c4e2970b3226c84d38e)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument geo_match_constraints", value=geo_match_constraints, expected_type=type_hints["geo_match_constraints"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if geo_match_constraints is not None:
-            self._values["geo_match_constraints"] = geo_match_constraints
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description of the ``GeoMatchSet`` .
-
-        You can't change the name of an ``GeoMatchSet`` after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html#cfn-wafregional-geomatchset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def geo_match_constraints(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]]:
-        '''An array of ``GeoMatchConstraint`` objects, which contain the country that you want AWS WAF to search for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html#cfn-wafregional-geomatchset-geomatchconstraints
-        '''
-        result = self._values.get("geo_match_constraints")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGeoMatchSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnIPSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "ip_set_descriptors": "ipSetDescriptors"},
-)
-class CfnIPSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        ip_set_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIPSet.IPSetDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIPSet``.
-
-        :param name: A friendly name or description of the ``IPSet`` . You can't change the name of an ``IPSet`` after you create it.
-        :param ip_set_descriptors: The IP address type ( ``IPV4`` or ``IPV6`` ) and the IP address range (in CIDR notation) that web requests originate from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_iPSet_props = wafregional.CfnIPSetProps(
-                name="name",
-            
-                # the properties below are optional
-                ip_set_descriptors=[{
-                    "type": "type",
-                    "value": "value"
-                }]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66ca7761765b7ff9b3a37c94c1330ce44b8771049c38acc8da230f52e7db0708)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument ip_set_descriptors", value=ip_set_descriptors, expected_type=type_hints["ip_set_descriptors"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if ip_set_descriptors is not None:
-            self._values["ip_set_descriptors"] = ip_set_descriptors
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description of the ``IPSet`` .
-
-        You can't change the name of an ``IPSet`` after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html#cfn-wafregional-ipset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ip_set_descriptors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIPSet.IPSetDescriptorProperty"]]]]:
-        '''The IP address type ( ``IPV4`` or ``IPV6`` ) and the IP address range (in CIDR notation) that web requests originate from.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html#cfn-wafregional-ipset-ipsetdescriptors
-        '''
-        result = self._values.get("ip_set_descriptors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIPSet.IPSetDescriptorProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIPSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnRateBasedRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "metric_name": "metricName",
-        "name": "name",
-        "rate_key": "rateKey",
-        "rate_limit": "rateLimit",
-        "match_predicates": "matchPredicates",
-    },
-)
-class CfnRateBasedRuleProps:
-    def __init__(
-        self,
-        *,
-        metric_name: builtins.str,
-        name: builtins.str,
-        rate_key: builtins.str,
-        rate_limit: jsii.Number,
-        match_predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRateBasedRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRateBasedRule``.
-
-        :param metric_name: A name for the metrics for a ``RateBasedRule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF , including "All" and "Default_Action." You can't change the name of the metric after you create the ``RateBasedRule`` .
-        :param name: A friendly name or description for a ``RateBasedRule`` . You can't change the name of a ``RateBasedRule`` after you create it.
-        :param rate_key: The field that AWS WAF uses to determine if requests are likely arriving from single source and thus subject to rate monitoring. The only valid value for ``RateKey`` is ``IP`` . ``IP`` indicates that requests arriving from the same IP address are subject to the ``RateLimit`` that is specified in the ``RateBasedRule`` .
-        :param rate_limit: The maximum number of requests, which have an identical value in the field specified by the ``RateKey`` , allowed in a five-minute period. If the number of requests exceeds the ``RateLimit`` and the other predicates specified in the rule are also met, AWS WAF triggers the action that is specified for this rule.
-        :param match_predicates: The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet>`` object that you want to include in a ``RateBasedRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_rate_based_rule_props = wafregional.CfnRateBasedRuleProps(
-                metric_name="metricName",
-                name="name",
-                rate_key="rateKey",
-                rate_limit=123,
-            
-                # the properties below are optional
-                match_predicates=[wafregional.CfnRateBasedRule.PredicateProperty(
-                    data_id="dataId",
-                    negated=False,
-                    type="type"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a5eb8767b8573e01975210155ccbe383a96e2861b6e27912a562e89c4067821)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rate_key", value=rate_key, expected_type=type_hints["rate_key"])
-            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
-            check_type(argname="argument match_predicates", value=match_predicates, expected_type=type_hints["match_predicates"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "metric_name": metric_name,
-            "name": name,
-            "rate_key": rate_key,
-            "rate_limit": rate_limit,
-        }
-        if match_predicates is not None:
-            self._values["match_predicates"] = match_predicates
-
-    @builtins.property
-    def metric_name(self) -> builtins.str:
-        '''A name for the metrics for a ``RateBasedRule`` .
-
-        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF , including "All" and "Default_Action." You can't change the name of the metric after you create the ``RateBasedRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-metricname
-        '''
-        result = self._values.get("metric_name")
-        assert result is not None, "Required property 'metric_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description for a ``RateBasedRule`` .
-
-        You can't change the name of a ``RateBasedRule`` after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rate_key(self) -> builtins.str:
-        '''The field that AWS WAF uses to determine if requests are likely arriving from single source and thus subject to rate monitoring.
-
-        The only valid value for ``RateKey`` is ``IP`` . ``IP`` indicates that requests arriving from the same IP address are subject to the ``RateLimit`` that is specified in the ``RateBasedRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-ratekey
-        '''
-        result = self._values.get("rate_key")
-        assert result is not None, "Required property 'rate_key' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rate_limit(self) -> jsii.Number:
-        '''The maximum number of requests, which have an identical value in the field specified by the ``RateKey`` , allowed in a five-minute period.
-
-        If the number of requests exceeds the ``RateLimit`` and the other predicates specified in the rule are also met, AWS WAF triggers the action that is specified for this rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-ratelimit
-        '''
-        result = self._values.get("rate_limit")
-        assert result is not None, "Required property 'rate_limit' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def match_predicates(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRateBasedRule.PredicateProperty"]]]]:
-        '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet>`` object that you want to include in a ``RateBasedRule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-matchpredicates
-        '''
-        result = self._values.get("match_predicates")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRateBasedRule.PredicateProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRateBasedRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnRegexPatternSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "regex_pattern_strings": "regexPatternStrings"},
-)
-class CfnRegexPatternSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        regex_pattern_strings: typing.Sequence[builtins.str],
-    ) -> None:
-        '''Properties for defining a ``CfnRegexPatternSet``.
-
-        :param name: A friendly name or description of the ``RegexPatternSet`` . You can't change ``Name`` after you create a ``RegexPatternSet`` .
-        :param regex_pattern_strings: Specifies the regular expression (regex) patterns that you want AWS WAF to search for, such as ``B[a@]dB[o0]t`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_regex_pattern_set_props = wafregional.CfnRegexPatternSetProps(
-                name="name",
-                regex_pattern_strings=["regexPatternStrings"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd2ba4ff373b9395d24df058327f71925859a4bbea04883bbecccd2cf281db74)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument regex_pattern_strings", value=regex_pattern_strings, expected_type=type_hints["regex_pattern_strings"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "regex_pattern_strings": regex_pattern_strings,
-        }
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description of the ``RegexPatternSet`` .
-
-        You can't change ``Name`` after you create a ``RegexPatternSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html#cfn-wafregional-regexpatternset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regex_pattern_strings(self) -> typing.List[builtins.str]:
-        '''Specifies the regular expression (regex) patterns that you want AWS WAF to search for, such as ``B[a@]dB[o0]t`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html#cfn-wafregional-regexpatternset-regexpatternstrings
-        '''
-        result = self._values.get("regex_pattern_strings")
-        assert result is not None, "Required property 'regex_pattern_strings' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRegexPatternSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "metric_name": "metricName",
-        "name": "name",
-        "predicates": "predicates",
-    },
-)
-class CfnRuleProps:
-    def __init__(
-        self,
-        *,
-        metric_name: builtins.str,
-        name: builtins.str,
-        predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRule``.
-
-        :param metric_name: A name for the metrics for this ``Rule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``Rule`` .
-        :param name: The friendly name or description for the ``Rule`` . You can't change the name of a ``Rule`` after you create it.
-        :param predicates: The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet`` object that you want to include in a ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_rule_props = wafregional.CfnRuleProps(
-                metric_name="metricName",
-                name="name",
-            
-                # the properties below are optional
-                predicates=[wafregional.CfnRule.PredicateProperty(
-                    data_id="dataId",
-                    negated=False,
-                    type="type"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc102021e417a504401cd27c9a5d604cd6be3ce5473501b852f107ddfdb257b)
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument predicates", value=predicates, expected_type=type_hints["predicates"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "metric_name": metric_name,
-            "name": name,
-        }
-        if predicates is not None:
-            self._values["predicates"] = predicates
-
-    @builtins.property
-    def metric_name(self) -> builtins.str:
-        '''A name for the metrics for this ``Rule`` .
-
-        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-metricname
-        '''
-        result = self._values.get("metric_name")
-        assert result is not None, "Required property 'metric_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The friendly name or description for the ``Rule`` .
-
-        You can't change the name of a ``Rule`` after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def predicates(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.PredicateProperty"]]]]:
-        '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet`` object that you want to include in a ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-predicates
-        '''
-        result = self._values.get("predicates")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.PredicateProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnSizeConstraintSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "size_constraints": "sizeConstraints"},
-)
-class CfnSizeConstraintSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        size_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSizeConstraintSet.SizeConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSizeConstraintSet``.
-
-        :param name: The name, if any, of the ``SizeConstraintSet`` .
-        :param size_constraints: The size constraint and the part of the web request to check.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_size_constraint_set_props = wafregional.CfnSizeConstraintSetProps(
-                name="name",
-            
-                # the properties below are optional
-                size_constraints=[wafregional.CfnSizeConstraintSet.SizeConstraintProperty(
-                    comparison_operator="comparisonOperator",
-                    field_to_match=wafregional.CfnSizeConstraintSet.FieldToMatchProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        data="data"
-                    ),
-                    size=123,
-                    text_transformation="textTransformation"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf80c55882638ea37cfa7a142fc6f1adcee512250a5dc52e55c3ebaf0d3916f9)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument size_constraints", value=size_constraints, expected_type=type_hints["size_constraints"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if size_constraints is not None:
-            self._values["size_constraints"] = size_constraints
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name, if any, of the ``SizeConstraintSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html#cfn-wafregional-sizeconstraintset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def size_constraints(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.SizeConstraintProperty"]]]]:
-        '''The size constraint and the part of the web request to check.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html#cfn-wafregional-sizeconstraintset-sizeconstraints
-        '''
-        result = self._values.get("size_constraints")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.SizeConstraintProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSizeConstraintSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnSqlInjectionMatchSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "sql_injection_match_tuples": "sqlInjectionMatchTuples",
-    },
-)
-class CfnSqlInjectionMatchSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        sql_injection_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSqlInjectionMatchSet``.
-
-        :param name: The name, if any, of the ``SqlInjectionMatchSet`` .
-        :param sql_injection_match_tuples: Specifies the parts of web requests that you want to inspect for snippets of malicious SQL code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_sql_injection_match_set_props = wafregional.CfnSqlInjectionMatchSetProps(
-                name="name",
-            
-                # the properties below are optional
-                sql_injection_match_tuples=[wafregional.CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty(
-                    field_to_match=wafregional.CfnSqlInjectionMatchSet.FieldToMatchProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        data="data"
-                    ),
-                    text_transformation="textTransformation"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb86879a015cba2fd0a9fb28d3c9e047ee07933c06f46f2a05813de3c6381635)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument sql_injection_match_tuples", value=sql_injection_match_tuples, expected_type=type_hints["sql_injection_match_tuples"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if sql_injection_match_tuples is not None:
-            self._values["sql_injection_match_tuples"] = sql_injection_match_tuples
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name, if any, of the ``SqlInjectionMatchSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html#cfn-wafregional-sqlinjectionmatchset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sql_injection_match_tuples(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]]:
-        '''Specifies the parts of web requests that you want to inspect for snippets of malicious SQL code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html#cfn-wafregional-sqlinjectionmatchset-sqlinjectionmatchtuples
-        '''
-        result = self._values.get("sql_injection_match_tuples")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSqlInjectionMatchSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnWebACLAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"resource_arn": "resourceArn", "web_acl_id": "webAclId"},
-)
-class CfnWebACLAssociationProps:
-    def __init__(self, *, resource_arn: builtins.str, web_acl_id: builtins.str) -> None:
-        '''Properties for defining a ``CfnWebACLAssociation``.
-
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to protect with the web ACL.
-        :param web_acl_id: A unique identifier (ID) for the web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_web_aCLAssociation_props = wafregional.CfnWebACLAssociationProps(
-                resource_arn="resourceArn",
-                web_acl_id="webAclId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae44785c9827e49a48b32868ea26704c6bc211021143d19de80d20425709d39)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-            "web_acl_id": web_acl_id,
-        }
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource to protect with the web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html#cfn-wafregional-webaclassociation-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_id(self) -> builtins.str:
-        '''A unique identifier (ID) for the web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html#cfn-wafregional-webaclassociation-webaclid
-        '''
-        result = self._values.get("web_acl_id")
-        assert result is not None, "Required property 'web_acl_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebACLAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnWebACLProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_action": "defaultAction",
-        "metric_name": "metricName",
-        "name": "name",
-        "rules": "rules",
-    },
-)
-class CfnWebACLProps:
-    def __init__(
-        self,
-        *,
-        default_action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
-        metric_name: builtins.str,
-        name: builtins.str,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWebACL``.
-
-        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match. The action is specified by the ``WafAction`` object.
-        :param metric_name: A name for the metrics for this ``WebACL`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``WebACL`` .
-        :param name: A friendly name or description of the ``WebACL`` . You can't change the name of a ``WebACL`` after you create it.
-        :param rules: An array that contains the action for each ``Rule`` in a ``WebACL`` , the priority of the ``Rule`` , and the ID of the ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_web_aCLProps = wafregional.CfnWebACLProps(
-                default_action=wafregional.CfnWebACL.ActionProperty(
-                    type="type"
-                ),
-                metric_name="metricName",
-                name="name",
-            
-                # the properties below are optional
-                rules=[wafregional.CfnWebACL.RuleProperty(
-                    action=wafregional.CfnWebACL.ActionProperty(
-                        type="type"
-                    ),
-                    priority=123,
-                    rule_id="ruleId"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__000aafbc61e54d9f58102054221c8d77d52d3eca2a7cedba5af2e2fcde422968)
-            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
-            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_action": default_action,
-            "metric_name": metric_name,
-            "name": name,
-        }
-        if rules is not None:
-            self._values["rules"] = rules
-
-    @builtins.property
-    def default_action(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"]:
-        '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
-
-        The action is specified by the ``WafAction`` object.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-defaultaction
-        '''
-        result = self._values.get("default_action")
-        assert result is not None, "Required property 'default_action' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"], result)
-
-    @builtins.property
-    def metric_name(self) -> builtins.str:
-        '''A name for the metrics for this ``WebACL`` .
-
-        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``WebACL`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-metricname
-        '''
-        result = self._values.get("metric_name")
-        assert result is not None, "Required property 'metric_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A friendly name or description of the ``WebACL`` .
-
-        You can't change the name of a ``WebACL`` after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]]:
-        '''An array that contains the action for each ``Rule`` in a ``WebACL`` , the priority of the ``Rule`` , and the ID of the ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-rules
-        '''
-        result = self._values.get("rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebACLProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.CfnXssMatchSetProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "xss_match_tuples": "xssMatchTuples"},
-)
-class CfnXssMatchSetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        xss_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnXssMatchSet.XssMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnXssMatchSet``.
-
-        :param name: The name, if any, of the ``XssMatchSet`` .
-        :param xss_match_tuples: Specifies the parts of web requests that you want to inspect for cross-site scripting attacks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            cfn_xss_match_set_props = wafregional.CfnXssMatchSetProps(
-                name="name",
-            
-                # the properties below are optional
-                xss_match_tuples=[wafregional.CfnXssMatchSet.XssMatchTupleProperty(
-                    field_to_match=wafregional.CfnXssMatchSet.FieldToMatchProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        data="data"
-                    ),
-                    text_transformation="textTransformation"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__226d7e9140a891516c1c39937b2335bc5329713cb50c4e5f0758e8d4fc74c4f7)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument xss_match_tuples", value=xss_match_tuples, expected_type=type_hints["xss_match_tuples"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if xss_match_tuples is not None:
-            self._values["xss_match_tuples"] = xss_match_tuples
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name, if any, of the ``XssMatchSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html#cfn-wafregional-xssmatchset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def xss_match_tuples(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.XssMatchTupleProperty"]]]]:
-        '''Specifies the parts of web requests that you want to inspect for cross-site scripting attacks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html#cfn-wafregional-xssmatchset-xssmatchtuples
-        '''
-        result = self._values.get("xss_match_tuples")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.XssMatchTupleProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnXssMatchSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.GeoMatchSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"geo_match_set_id": "geoMatchSetId"},
-)
-class GeoMatchSetReference:
-    def __init__(self, *, geo_match_set_id: builtins.str) -> None:
-        '''A reference to a GeoMatchSet resource.
-
-        :param geo_match_set_id: The Id of the GeoMatchSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            geo_match_set_reference = wafregional.GeoMatchSetReference(
-                geo_match_set_id="geoMatchSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b4ab0f2e6e536a9564a532bd3c5e664f49f57d568f4d2ea9edc48fe3fa7b584)
-            check_type(argname="argument geo_match_set_id", value=geo_match_set_id, expected_type=type_hints["geo_match_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "geo_match_set_id": geo_match_set_id,
-        }
-
-    @builtins.property
-    def geo_match_set_id(self) -> builtins.str:
-        '''The Id of the GeoMatchSet resource.'''
-        result = self._values.get("geo_match_set_id")
-        assert result is not None, "Required property 'geo_match_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GeoMatchSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IByteMatchSetRef")
-class IByteMatchSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ByteMatchSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="byteMatchSetRef")
-    def byte_match_set_ref(self) -> ByteMatchSetReference:
-        '''(experimental) A reference to a ByteMatchSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IByteMatchSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ByteMatchSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IByteMatchSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="byteMatchSetRef")
-    def byte_match_set_ref(self) -> ByteMatchSetReference:
-        '''(experimental) A reference to a ByteMatchSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ByteMatchSetReference, jsii.get(self, "byteMatchSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IByteMatchSetRef).__jsii_proxy_class__ = lambda : _IByteMatchSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IGeoMatchSetRef")
-class IGeoMatchSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a GeoMatchSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="geoMatchSetRef")
-    def geo_match_set_ref(self) -> GeoMatchSetReference:
-        '''(experimental) A reference to a GeoMatchSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IGeoMatchSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a GeoMatchSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IGeoMatchSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="geoMatchSetRef")
-    def geo_match_set_ref(self) -> GeoMatchSetReference:
-        '''(experimental) A reference to a GeoMatchSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(GeoMatchSetReference, jsii.get(self, "geoMatchSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IGeoMatchSetRef).__jsii_proxy_class__ = lambda : _IGeoMatchSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IIPSetRef")
-class IIPSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a IPSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> "IPSetReference":
-        '''(experimental) A reference to a IPSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIPSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a IPSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IIPSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> "IPSetReference":
-        '''(experimental) A reference to a IPSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IPSetReference", jsii.get(self, "ipSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIPSetRef).__jsii_proxy_class__ = lambda : _IIPSetRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.IPSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"ip_set_id": "ipSetId"},
-)
-class IPSetReference:
-    def __init__(self, *, ip_set_id: builtins.str) -> None:
-        '''A reference to a IPSet resource.
-
-        :param ip_set_id: The Id of the IPSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            i_pSet_reference = {
-                "ip_set_id": "ipSetId"
-            }
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2da03a08c5c9497c241cd0f0414386a9f0e3af742e98ca91d481cad9acdc845f)
-            check_type(argname="argument ip_set_id", value=ip_set_id, expected_type=type_hints["ip_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ip_set_id": ip_set_id,
-        }
-
-    @builtins.property
-    def ip_set_id(self) -> builtins.str:
-        '''The Id of the IPSet resource.'''
-        result = self._values.get("ip_set_id")
-        assert result is not None, "Required property 'ip_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IPSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IRateBasedRuleRef")
-class IRateBasedRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RateBasedRule.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="rateBasedRuleRef")
-    def rate_based_rule_ref(self) -> "RateBasedRuleReference":
-        '''(experimental) A reference to a RateBasedRule resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRateBasedRuleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RateBasedRule.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IRateBasedRuleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="rateBasedRuleRef")
-    def rate_based_rule_ref(self) -> "RateBasedRuleReference":
-        '''(experimental) A reference to a RateBasedRule resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RateBasedRuleReference", jsii.get(self, "rateBasedRuleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRateBasedRuleRef).__jsii_proxy_class__ = lambda : _IRateBasedRuleRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IRegexPatternSetRef")
-class IRegexPatternSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> "RegexPatternSetReference":
-        '''(experimental) A reference to a RegexPatternSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRegexPatternSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IRegexPatternSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> "RegexPatternSetReference":
-        '''(experimental) A reference to a RegexPatternSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RegexPatternSetReference", jsii.get(self, "regexPatternSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRegexPatternSetRef).__jsii_proxy_class__ = lambda : _IRegexPatternSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IRuleRef")
-class IRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Rule.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "RuleReference":
-        '''(experimental) A reference to a Rule resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRuleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Rule.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IRuleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "RuleReference":
-        '''(experimental) A reference to a Rule resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RuleReference", jsii.get(self, "ruleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.ISizeConstraintSetRef")
-class ISizeConstraintSetRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a SizeConstraintSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="sizeConstraintSetRef")
-    def size_constraint_set_ref(self) -> "SizeConstraintSetReference":
-        '''(experimental) A reference to a SizeConstraintSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISizeConstraintSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SizeConstraintSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.ISizeConstraintSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="sizeConstraintSetRef")
-    def size_constraint_set_ref(self) -> "SizeConstraintSetReference":
-        '''(experimental) A reference to a SizeConstraintSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SizeConstraintSetReference", jsii.get(self, "sizeConstraintSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISizeConstraintSetRef).__jsii_proxy_class__ = lambda : _ISizeConstraintSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.ISqlInjectionMatchSetRef")
-class ISqlInjectionMatchSetRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a SqlInjectionMatchSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="sqlInjectionMatchSetRef")
-    def sql_injection_match_set_ref(self) -> "SqlInjectionMatchSetReference":
-        '''(experimental) A reference to a SqlInjectionMatchSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISqlInjectionMatchSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SqlInjectionMatchSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.ISqlInjectionMatchSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="sqlInjectionMatchSetRef")
-    def sql_injection_match_set_ref(self) -> "SqlInjectionMatchSetReference":
-        '''(experimental) A reference to a SqlInjectionMatchSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SqlInjectionMatchSetReference", jsii.get(self, "sqlInjectionMatchSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISqlInjectionMatchSetRef).__jsii_proxy_class__ = lambda : _ISqlInjectionMatchSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IWebACLAssociationRef")
-class IWebACLAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> "WebACLAssociationReference":
-        '''(experimental) A reference to a WebACLAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWebACLAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IWebACLAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> "WebACLAssociationReference":
-        '''(experimental) A reference to a WebACLAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WebACLAssociationReference", jsii.get(self, "webAclAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWebACLAssociationRef).__jsii_proxy_class__ = lambda : _IWebACLAssociationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IWebACLRef")
-class IWebACLRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a WebACL.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> "WebACLReference":
-        '''(experimental) A reference to a WebACL resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWebACLRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACL.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IWebACLRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> "WebACLReference":
-        '''(experimental) A reference to a WebACL resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WebACLReference", jsii.get(self, "webAclRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWebACLRef).__jsii_proxy_class__ = lambda : _IWebACLRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafregional.IXssMatchSetRef")
-class IXssMatchSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a XssMatchSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="xssMatchSetRef")
-    def xss_match_set_ref(self) -> "XssMatchSetReference":
-        '''(experimental) A reference to a XssMatchSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IXssMatchSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a XssMatchSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafregional.IXssMatchSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="xssMatchSetRef")
-    def xss_match_set_ref(self) -> "XssMatchSetReference":
-        '''(experimental) A reference to a XssMatchSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("XssMatchSetReference", jsii.get(self, "xssMatchSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IXssMatchSetRef).__jsii_proxy_class__ = lambda : _IXssMatchSetRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.RateBasedRuleReference",
-    jsii_struct_bases=[],
-    name_mapping={"rate_based_rule_id": "rateBasedRuleId"},
-)
-class RateBasedRuleReference:
-    def __init__(self, *, rate_based_rule_id: builtins.str) -> None:
-        '''A reference to a RateBasedRule resource.
-
-        :param rate_based_rule_id: The Id of the RateBasedRule resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            rate_based_rule_reference = wafregional.RateBasedRuleReference(
-                rate_based_rule_id="rateBasedRuleId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d8a40ad513fc7c50389ad0a1095a9db27a683c1a433187a373928e93fec0311)
-            check_type(argname="argument rate_based_rule_id", value=rate_based_rule_id, expected_type=type_hints["rate_based_rule_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rate_based_rule_id": rate_based_rule_id,
-        }
-
-    @builtins.property
-    def rate_based_rule_id(self) -> builtins.str:
-        '''The Id of the RateBasedRule resource.'''
-        result = self._values.get("rate_based_rule_id")
-        assert result is not None, "Required property 'rate_based_rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RateBasedRuleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.RegexPatternSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"regex_pattern_set_id": "regexPatternSetId"},
-)
-class RegexPatternSetReference:
-    def __init__(self, *, regex_pattern_set_id: builtins.str) -> None:
-        '''A reference to a RegexPatternSet resource.
-
-        :param regex_pattern_set_id: The Id of the RegexPatternSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            regex_pattern_set_reference = wafregional.RegexPatternSetReference(
-                regex_pattern_set_id="regexPatternSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__635825e3f6af5a5be946d32439f827d84ad0140cf1228e02ab6bbfac8b1d6482)
-            check_type(argname="argument regex_pattern_set_id", value=regex_pattern_set_id, expected_type=type_hints["regex_pattern_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regex_pattern_set_id": regex_pattern_set_id,
-        }
-
-    @builtins.property
-    def regex_pattern_set_id(self) -> builtins.str:
-        '''The Id of the RegexPatternSet resource.'''
-        result = self._values.get("regex_pattern_set_id")
-        assert result is not None, "Required property 'regex_pattern_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RegexPatternSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.RuleReference",
-    jsii_struct_bases=[],
-    name_mapping={"rule_id": "ruleId"},
-)
-class RuleReference:
-    def __init__(self, *, rule_id: builtins.str) -> None:
-        '''A reference to a Rule resource.
-
-        :param rule_id: The Id of the Rule resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            rule_reference = wafregional.RuleReference(
-                rule_id="ruleId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__820c1bf7801368c247a044d69f4aae80403e4ac526cd4e118f26f9a43ca97a47)
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_id": rule_id,
-        }
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''The Id of the Rule resource.'''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.SizeConstraintSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"size_constraint_set_id": "sizeConstraintSetId"},
-)
-class SizeConstraintSetReference:
-    def __init__(self, *, size_constraint_set_id: builtins.str) -> None:
-        '''A reference to a SizeConstraintSet resource.
-
-        :param size_constraint_set_id: The Id of the SizeConstraintSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            size_constraint_set_reference = wafregional.SizeConstraintSetReference(
-                size_constraint_set_id="sizeConstraintSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4930aa3b0a91c2b27af3f722762be40a5c0eaf084d2e53b8c8f3ff4047446682)
-            check_type(argname="argument size_constraint_set_id", value=size_constraint_set_id, expected_type=type_hints["size_constraint_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "size_constraint_set_id": size_constraint_set_id,
-        }
-
-    @builtins.property
-    def size_constraint_set_id(self) -> builtins.str:
-        '''The Id of the SizeConstraintSet resource.'''
-        result = self._values.get("size_constraint_set_id")
-        assert result is not None, "Required property 'size_constraint_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SizeConstraintSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.SqlInjectionMatchSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"sql_injection_match_set_id": "sqlInjectionMatchSetId"},
-)
-class SqlInjectionMatchSetReference:
-    def __init__(self, *, sql_injection_match_set_id: builtins.str) -> None:
-        '''A reference to a SqlInjectionMatchSet resource.
-
-        :param sql_injection_match_set_id: The Id of the SqlInjectionMatchSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            sql_injection_match_set_reference = wafregional.SqlInjectionMatchSetReference(
-                sql_injection_match_set_id="sqlInjectionMatchSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8d7de2f18322f31b7429e9694d9b9a5ea9c875fc4024dfa7cd0ab387e38abc5)
-            check_type(argname="argument sql_injection_match_set_id", value=sql_injection_match_set_id, expected_type=type_hints["sql_injection_match_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sql_injection_match_set_id": sql_injection_match_set_id,
-        }
-
-    @builtins.property
-    def sql_injection_match_set_id(self) -> builtins.str:
-        '''The Id of the SqlInjectionMatchSet resource.'''
-        result = self._values.get("sql_injection_match_set_id")
-        assert result is not None, "Required property 'sql_injection_match_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SqlInjectionMatchSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.WebACLAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={"web_acl_association_id": "webAclAssociationId"},
-)
-class WebACLAssociationReference:
-    def __init__(self, *, web_acl_association_id: builtins.str) -> None:
-        '''A reference to a WebACLAssociation resource.
-
-        :param web_acl_association_id: The Id of the WebACLAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            web_aCLAssociation_reference = wafregional.WebACLAssociationReference(
-                web_acl_association_id="webAclAssociationId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a4a4cafb6f1347f2eaec805c080cb6f7fa8f1ff546adc4bcd941a2293cfd770)
-            check_type(argname="argument web_acl_association_id", value=web_acl_association_id, expected_type=type_hints["web_acl_association_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "web_acl_association_id": web_acl_association_id,
-        }
-
-    @builtins.property
-    def web_acl_association_id(self) -> builtins.str:
-        '''The Id of the WebACLAssociation resource.'''
-        result = self._values.get("web_acl_association_id")
-        assert result is not None, "Required property 'web_acl_association_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WebACLAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.WebACLReference",
-    jsii_struct_bases=[],
-    name_mapping={"web_acl_id": "webAclId"},
-)
-class WebACLReference:
-    def __init__(self, *, web_acl_id: builtins.str) -> None:
-        '''A reference to a WebACL resource.
-
-        :param web_acl_id: The Id of the WebACL resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            web_aCLReference = wafregional.WebACLReference(
-                web_acl_id="webAclId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a17b2b77c463616ff2a62a72cc8f4cb1176ae14ad50573345288ac1924faaae3)
-            check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "web_acl_id": web_acl_id,
-        }
-
-    @builtins.property
-    def web_acl_id(self) -> builtins.str:
-        '''The Id of the WebACL resource.'''
-        result = self._values.get("web_acl_id")
-        assert result is not None, "Required property 'web_acl_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WebACLReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafregional.XssMatchSetReference",
-    jsii_struct_bases=[],
-    name_mapping={"xss_match_set_id": "xssMatchSetId"},
-)
-class XssMatchSetReference:
-    def __init__(self, *, xss_match_set_id: builtins.str) -> None:
-        '''A reference to a XssMatchSet resource.
-
-        :param xss_match_set_id: The Id of the XssMatchSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafregional as wafregional
-            
-            xss_match_set_reference = wafregional.XssMatchSetReference(
-                xss_match_set_id="xssMatchSetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b123423bbc47768e8e08bac835e423d257d91cc6e24e7aa9a82c0f9ea0c8fafc)
-            check_type(argname="argument xss_match_set_id", value=xss_match_set_id, expected_type=type_hints["xss_match_set_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "xss_match_set_id": xss_match_set_id,
-        }
-
-    @builtins.property
-    def xss_match_set_id(self) -> builtins.str:
-        '''The Id of the XssMatchSet resource.'''
-        result = self._values.get("xss_match_set_id")
-        assert result is not None, "Required property 'xss_match_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "XssMatchSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IByteMatchSetRef)
+@jsii.implements(_IInspectable_c2943556, _IByteMatchSetRef_b9d7fa32)
 class CfnByteMatchSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2124,13 +140,14 @@ class CfnByteMatchSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        byte_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnByteMatchSet.ByteMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        byte_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnByteMatchSet.ByteMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::ByteMatchSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A friendly name or description of the ``ByteMatchSet`` . You can't change ``Name`` after you create a ``ByteMatchSet`` .
@@ -2144,8 +161,34 @@ class CfnByteMatchSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForByteMatchSet")
+    @builtins.classmethod
+    def arn_for_byte_match_set(
+        cls,
+        resource: "_IByteMatchSetRef_b9d7fa32",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7de1f4914f9cf979514887c8c548ce6645875b653d96a4b60638e3e41423d667)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForByteMatchSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnByteMatchSet")
+    @builtins.classmethod
+    def is_cfn_byte_match_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnByteMatchSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2382b67a61b86368ff5fab76fb0b2a4b530e96b01f60542721cc35bef84bc32e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnByteMatchSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2184,9 +227,9 @@ class CfnByteMatchSet(
 
     @builtins.property
     @jsii.member(jsii_name="byteMatchSetRef")
-    def byte_match_set_ref(self) -> ByteMatchSetReference:
+    def byte_match_set_ref(self) -> "_ByteMatchSetReference_5c158195":
         '''A reference to a ByteMatchSet resource.'''
-        return typing.cast(ByteMatchSetReference, jsii.get(self, "byteMatchSetRef"))
+        return typing.cast("_ByteMatchSetReference_5c158195", jsii.get(self, "byteMatchSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2210,14 +253,14 @@ class CfnByteMatchSet(
     @jsii.member(jsii_name="byteMatchTuples")
     def byte_match_tuples(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.ByteMatchTupleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.ByteMatchTupleProperty"]]]]:
         '''Specifies the bytes (typically a string that corresponds with ASCII characters) that you want AWS WAF to search for in web requests, the location in requests that you want AWS WAF to search, and other settings.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.ByteMatchTupleProperty"]]]], jsii.get(self, "byteMatchTuples"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.ByteMatchTupleProperty"]]]], jsii.get(self, "byteMatchTuples"))
 
     @byte_match_tuples.setter
     def byte_match_tuples(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.ByteMatchTupleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.ByteMatchTupleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3bdd0c3bf2f1a3268342f199ac37f3c9d3704be0bf88f0b85a5b4fac81294cf)
@@ -2239,7 +282,7 @@ class CfnByteMatchSet(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnByteMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnByteMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             positional_constraint: builtins.str,
             text_transformation: builtins.str,
             target_string: typing.Optional[builtins.str] = None,
@@ -2307,14 +350,14 @@ class CfnByteMatchSet(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.FieldToMatchProperty"]:
             '''The part of a web request that you want AWS WAF to inspect, such as a specific header or a query string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafregional-bytematchset-bytematchtuple.html#cfn-wafregional-bytematchset-bytematchtuple-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnByteMatchSet.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.FieldToMatchProperty"], result)
 
         @builtins.property
         def positional_constraint(self) -> builtins.str:
@@ -2564,7 +607,98 @@ class CfnByteMatchSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IGeoMatchSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnByteMatchSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "byte_match_tuples": "byteMatchTuples"},
+)
+class CfnByteMatchSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        byte_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnByteMatchSet.ByteMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnByteMatchSet``.
+
+        :param name: A friendly name or description of the ``ByteMatchSet`` . You can't change ``Name`` after you create a ``ByteMatchSet`` .
+        :param byte_match_tuples: Specifies the bytes (typically a string that corresponds with ASCII characters) that you want AWS WAF to search for in web requests, the location in requests that you want AWS WAF to search, and other settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_byte_match_set_props = wafregional.CfnByteMatchSetProps(
+                name="name",
+            
+                # the properties below are optional
+                byte_match_tuples=[wafregional.CfnByteMatchSet.ByteMatchTupleProperty(
+                    field_to_match=wafregional.CfnByteMatchSet.FieldToMatchProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        data="data"
+                    ),
+                    positional_constraint="positionalConstraint",
+                    text_transformation="textTransformation",
+            
+                    # the properties below are optional
+                    target_string="targetString",
+                    target_string_base64="targetStringBase64"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d3315ca0f0c432ea54dc0a28b013ee804e72f866e20f3164467df22a3679b29)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument byte_match_tuples", value=byte_match_tuples, expected_type=type_hints["byte_match_tuples"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if byte_match_tuples is not None:
+            self._values["byte_match_tuples"] = byte_match_tuples
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description of the ``ByteMatchSet`` .
+
+        You can't change ``Name`` after you create a ``ByteMatchSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html#cfn-wafregional-bytematchset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def byte_match_tuples(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.ByteMatchTupleProperty"]]]]:
+        '''Specifies the bytes (typically a string that corresponds with ASCII characters) that you want AWS WAF to search for in web requests, the location in requests that you want AWS WAF to search, and other settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-bytematchset.html#cfn-wafregional-bytematchset-bytematchtuples
+        '''
+        result = self._values.get("byte_match_tuples")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnByteMatchSet.ByteMatchTupleProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnByteMatchSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IGeoMatchSetRef_f1759bb3)
 class CfnGeoMatchSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2605,13 +739,14 @@ class CfnGeoMatchSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        geo_match_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGeoMatchSet.GeoMatchConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        geo_match_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGeoMatchSet.GeoMatchConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::GeoMatchSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A friendly name or description of the ``GeoMatchSet`` . You can't change the name of an ``GeoMatchSet`` after you create it.
@@ -2627,8 +762,34 @@ class CfnGeoMatchSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForGeoMatchSet")
+    @builtins.classmethod
+    def arn_for_geo_match_set(
+        cls,
+        resource: "_IGeoMatchSetRef_f1759bb3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0484db3ea52acb67e76d14c723b440babd9374ee7a82da93c9d3d7682218cef)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGeoMatchSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnGeoMatchSet")
+    @builtins.classmethod
+    def is_cfn_geo_match_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGeoMatchSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17c94f54ec13266b0efbaebc21afd3e8b4c18e7fe3e2d7727c20b777df9be8f1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGeoMatchSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2672,9 +833,9 @@ class CfnGeoMatchSet(
 
     @builtins.property
     @jsii.member(jsii_name="geoMatchSetRef")
-    def geo_match_set_ref(self) -> GeoMatchSetReference:
+    def geo_match_set_ref(self) -> "_GeoMatchSetReference_d4923ca3":
         '''A reference to a GeoMatchSet resource.'''
-        return typing.cast(GeoMatchSetReference, jsii.get(self, "geoMatchSetRef"))
+        return typing.cast("_GeoMatchSetReference_d4923ca3", jsii.get(self, "geoMatchSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2693,14 +854,14 @@ class CfnGeoMatchSet(
     @jsii.member(jsii_name="geoMatchConstraints")
     def geo_match_constraints(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]]:
         '''An array of ``GeoMatchConstraint`` objects, which contain the country that you want AWS WAF to search for.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]], jsii.get(self, "geoMatchConstraints"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]], jsii.get(self, "geoMatchConstraints"))
 
     @geo_match_constraints.setter
     def geo_match_constraints(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64d21a9e81545c51476c160c33fa317b6908f4f1b44d7a03d47b22d5bd55391e)
@@ -2786,7 +947,88 @@ class CfnGeoMatchSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IIPSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnGeoMatchSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "geo_match_constraints": "geoMatchConstraints"},
+)
+class CfnGeoMatchSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        geo_match_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGeoMatchSet.GeoMatchConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGeoMatchSet``.
+
+        :param name: A friendly name or description of the ``GeoMatchSet`` . You can't change the name of an ``GeoMatchSet`` after you create it.
+        :param geo_match_constraints: An array of ``GeoMatchConstraint`` objects, which contain the country that you want AWS WAF to search for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_geo_match_set_props = wafregional.CfnGeoMatchSetProps(
+                name="name",
+            
+                # the properties below are optional
+                geo_match_constraints=[wafregional.CfnGeoMatchSet.GeoMatchConstraintProperty(
+                    type="type",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ce26d9ffd24f477f686b44477cc2e54588d1ce675a04c4e2970b3226c84d38e)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument geo_match_constraints", value=geo_match_constraints, expected_type=type_hints["geo_match_constraints"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if geo_match_constraints is not None:
+            self._values["geo_match_constraints"] = geo_match_constraints
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description of the ``GeoMatchSet`` .
+
+        You can't change the name of an ``GeoMatchSet`` after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html#cfn-wafregional-geomatchset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def geo_match_constraints(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]]:
+        '''An array of ``GeoMatchConstraint`` objects, which contain the country that you want AWS WAF to search for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-geomatchset.html#cfn-wafregional-geomatchset-geomatchconstraints
+        '''
+        result = self._values.get("geo_match_constraints")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGeoMatchSet.GeoMatchConstraintProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGeoMatchSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IIPSetRef_9a2f73df)
 class CfnIPSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2829,13 +1071,14 @@ class CfnIPSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        ip_set_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIPSet.IPSetDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ip_set_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIPSet.IPSetDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::IPSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A friendly name or description of the ``IPSet`` . You can't change the name of an ``IPSet`` after you create it.
@@ -2849,8 +1092,31 @@ class CfnIPSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForIPSet")
+    @builtins.classmethod
+    def arn_for_ip_set(cls, resource: "_IIPSetRef_9a2f73df") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6abadd4269c6895b1fc0e8105ac967b04d586f5068c2627ac321281c5b2ca33)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIPSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnIPSet")
+    @builtins.classmethod
+    def is_cfn_ip_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIPSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b5af03ceb1cc6455b6f49a0cec873ffbefda4655203a61330a8f8bd067bb3ed)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIPSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2894,9 +1160,9 @@ class CfnIPSet(
 
     @builtins.property
     @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> IPSetReference:
+    def ip_set_ref(self) -> "_IPSetReference_5a056f17":
         '''A reference to a IPSet resource.'''
-        return typing.cast(IPSetReference, jsii.get(self, "ipSetRef"))
+        return typing.cast("_IPSetReference_5a056f17", jsii.get(self, "ipSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2915,14 +1181,14 @@ class CfnIPSet(
     @jsii.member(jsii_name="ipSetDescriptors")
     def ip_set_descriptors(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIPSet.IPSetDescriptorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIPSet.IPSetDescriptorProperty"]]]]:
         '''The IP address type ( ``IPV4`` or ``IPV6`` ) and the IP address range (in CIDR notation) that web requests originate from.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIPSet.IPSetDescriptorProperty"]]]], jsii.get(self, "ipSetDescriptors"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIPSet.IPSetDescriptorProperty"]]]], jsii.get(self, "ipSetDescriptors"))
 
     @ip_set_descriptors.setter
     def ip_set_descriptors(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIPSet.IPSetDescriptorProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIPSet.IPSetDescriptorProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6d42c2bbdf2fdfd5f1729c0ee8fa6b528f0ec97e34d0bccd32a470e817f41f0)
@@ -3016,7 +1282,88 @@ class CfnIPSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IRateBasedRuleRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnIPSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "ip_set_descriptors": "ipSetDescriptors"},
+)
+class CfnIPSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        ip_set_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIPSet.IPSetDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIPSet``.
+
+        :param name: A friendly name or description of the ``IPSet`` . You can't change the name of an ``IPSet`` after you create it.
+        :param ip_set_descriptors: The IP address type ( ``IPV4`` or ``IPV6`` ) and the IP address range (in CIDR notation) that web requests originate from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_iPSet_props = wafregional.CfnIPSetProps(
+                name="name",
+            
+                # the properties below are optional
+                ip_set_descriptors=[{
+                    "type": "type",
+                    "value": "value"
+                }]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66ca7761765b7ff9b3a37c94c1330ce44b8771049c38acc8da230f52e7db0708)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument ip_set_descriptors", value=ip_set_descriptors, expected_type=type_hints["ip_set_descriptors"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if ip_set_descriptors is not None:
+            self._values["ip_set_descriptors"] = ip_set_descriptors
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description of the ``IPSet`` .
+
+        You can't change the name of an ``IPSet`` after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html#cfn-wafregional-ipset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ip_set_descriptors(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIPSet.IPSetDescriptorProperty"]]]]:
+        '''The IP address type ( ``IPV4`` or ``IPV6`` ) and the IP address range (in CIDR notation) that web requests originate from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ipset.html#cfn-wafregional-ipset-ipsetdescriptors
+        '''
+        result = self._values.get("ip_set_descriptors")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIPSet.IPSetDescriptorProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIPSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRateBasedRuleRef_de35422e)
 class CfnRateBasedRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3040,7 +1387,7 @@ class CfnRateBasedRule(
 
     Requests that meet both of these conditions and exceed 15,000 requests every five minutes trigger the rule's action (block or count), which is defined in the web ACL.
 
-    Note you can only create rate-based rules using an AWS CloudFormation template. To add the rate-based rules created through AWS CloudFormation to a web ACL, use the AWS WAF console, API, or command line interface (CLI). For more information, see `UpdateWebACL <https://docs.aws.amazon.com/waf/latest/APIReference/API_regional_UpdateWebACL.html>`_ .
+    Note you can only create rate-based rules using an CloudFormation template. To add the rate-based rules created through CloudFormation to a web ACL, use the AWS WAF console, API, or command line interface (CLI). For more information, see `UpdateWebACL <https://docs.aws.amazon.com/waf/latest/APIReference/API_regional_UpdateWebACL.html>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html
     :cloudformationResource: AWS::WAFRegional::RateBasedRule
@@ -3069,16 +1416,17 @@ class CfnRateBasedRule(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         metric_name: builtins.str,
         name: builtins.str,
         rate_key: builtins.str,
         rate_limit: jsii.Number,
-        match_predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRateBasedRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        match_predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRateBasedRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::RateBasedRule``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param metric_name: A name for the metrics for a ``RateBasedRule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF , including "All" and "Default_Action." You can't change the name of the metric after you create the ``RateBasedRule`` .
@@ -3101,8 +1449,34 @@ class CfnRateBasedRule(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForRateBasedRule")
+    @builtins.classmethod
+    def arn_for_rate_based_rule(
+        cls,
+        resource: "_IRateBasedRuleRef_de35422e",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__981e67d8b390ec5404933c0741efb05e41d01951b0265ec7dc354bbec44191ba)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRateBasedRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnRateBasedRule")
+    @builtins.classmethod
+    def is_cfn_rate_based_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRateBasedRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3602f750e20452a0d8491c8e3eabb4ca72ddd4aaf69bc8a889beb6fdb67357c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRateBasedRule", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3146,9 +1520,9 @@ class CfnRateBasedRule(
 
     @builtins.property
     @jsii.member(jsii_name="rateBasedRuleRef")
-    def rate_based_rule_ref(self) -> RateBasedRuleReference:
+    def rate_based_rule_ref(self) -> "_RateBasedRuleReference_f997101b":
         '''A reference to a RateBasedRule resource.'''
-        return typing.cast(RateBasedRuleReference, jsii.get(self, "rateBasedRuleRef"))
+        return typing.cast("_RateBasedRuleReference_f997101b", jsii.get(self, "rateBasedRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="metricName")
@@ -3206,14 +1580,14 @@ class CfnRateBasedRule(
     @jsii.member(jsii_name="matchPredicates")
     def match_predicates(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRateBasedRule.PredicateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRateBasedRule.PredicateProperty"]]]]:
         '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet>`` object that you want to include in a ``RateBasedRule`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRateBasedRule.PredicateProperty"]]]], jsii.get(self, "matchPredicates"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRateBasedRule.PredicateProperty"]]]], jsii.get(self, "matchPredicates"))
 
     @match_predicates.setter
     def match_predicates(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRateBasedRule.PredicateProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRateBasedRule.PredicateProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d03374c15b5e840bcddc8023a356ee3f22e2a776ff29025aa619ae7a754b2559)
@@ -3230,7 +1604,7 @@ class CfnRateBasedRule(
             self,
             *,
             data_id: builtins.str,
-            negated: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            negated: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             type: builtins.str,
         ) -> None:
             '''Specifies the ``ByteMatchSet`` , ``IPSet`` , ``SqlInjectionMatchSet`` , ``XssMatchSet`` , ``RegexMatchSet`` , ``GeoMatchSet`` , and ``SizeConstraintSet`` objects that you want to add to a ``Rule`` and, for each object, indicates whether you want to negate the settings, for example, requests that do NOT originate from the IP address 192.0.2.44.
@@ -3278,7 +1652,7 @@ class CfnRateBasedRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def negated(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def negated(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Set ``Negated`` to ``False`` if you want AWS WAF to allow, block, or count requests based on the settings in the specified ``ByteMatchSet`` , ``IPSet`` , ``SqlInjectionMatchSet`` , ``XssMatchSet`` , ``RegexMatchSet`` , ``GeoMatchSet`` , or ``SizeConstraintSet`` .
 
             For example, if an ``IPSet`` includes the IP address ``192.0.2.44`` , AWS WAF will allow or block requests based on that IP address.
@@ -3289,7 +1663,7 @@ class CfnRateBasedRule(
             '''
             result = self._values.get("negated")
             assert result is not None, "Required property 'negated' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -3313,7 +1687,146 @@ class CfnRateBasedRule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IRegexPatternSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnRateBasedRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_name": "metricName",
+        "name": "name",
+        "rate_key": "rateKey",
+        "rate_limit": "rateLimit",
+        "match_predicates": "matchPredicates",
+    },
+)
+class CfnRateBasedRuleProps:
+    def __init__(
+        self,
+        *,
+        metric_name: builtins.str,
+        name: builtins.str,
+        rate_key: builtins.str,
+        rate_limit: jsii.Number,
+        match_predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRateBasedRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRateBasedRule``.
+
+        :param metric_name: A name for the metrics for a ``RateBasedRule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF , including "All" and "Default_Action." You can't change the name of the metric after you create the ``RateBasedRule`` .
+        :param name: A friendly name or description for a ``RateBasedRule`` . You can't change the name of a ``RateBasedRule`` after you create it.
+        :param rate_key: The field that AWS WAF uses to determine if requests are likely arriving from single source and thus subject to rate monitoring. The only valid value for ``RateKey`` is ``IP`` . ``IP`` indicates that requests arriving from the same IP address are subject to the ``RateLimit`` that is specified in the ``RateBasedRule`` .
+        :param rate_limit: The maximum number of requests, which have an identical value in the field specified by the ``RateKey`` , allowed in a five-minute period. If the number of requests exceeds the ``RateLimit`` and the other predicates specified in the rule are also met, AWS WAF triggers the action that is specified for this rule.
+        :param match_predicates: The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet>`` object that you want to include in a ``RateBasedRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_rate_based_rule_props = wafregional.CfnRateBasedRuleProps(
+                metric_name="metricName",
+                name="name",
+                rate_key="rateKey",
+                rate_limit=123,
+            
+                # the properties below are optional
+                match_predicates=[wafregional.CfnRateBasedRule.PredicateProperty(
+                    data_id="dataId",
+                    negated=False,
+                    type="type"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a5eb8767b8573e01975210155ccbe383a96e2861b6e27912a562e89c4067821)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rate_key", value=rate_key, expected_type=type_hints["rate_key"])
+            check_type(argname="argument rate_limit", value=rate_limit, expected_type=type_hints["rate_limit"])
+            check_type(argname="argument match_predicates", value=match_predicates, expected_type=type_hints["match_predicates"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_name": metric_name,
+            "name": name,
+            "rate_key": rate_key,
+            "rate_limit": rate_limit,
+        }
+        if match_predicates is not None:
+            self._values["match_predicates"] = match_predicates
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''A name for the metrics for a ``RateBasedRule`` .
+
+        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF , including "All" and "Default_Action." You can't change the name of the metric after you create the ``RateBasedRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-metricname
+        '''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description for a ``RateBasedRule`` .
+
+        You can't change the name of a ``RateBasedRule`` after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rate_key(self) -> builtins.str:
+        '''The field that AWS WAF uses to determine if requests are likely arriving from single source and thus subject to rate monitoring.
+
+        The only valid value for ``RateKey`` is ``IP`` . ``IP`` indicates that requests arriving from the same IP address are subject to the ``RateLimit`` that is specified in the ``RateBasedRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-ratekey
+        '''
+        result = self._values.get("rate_key")
+        assert result is not None, "Required property 'rate_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rate_limit(self) -> jsii.Number:
+        '''The maximum number of requests, which have an identical value in the field specified by the ``RateKey`` , allowed in a five-minute period.
+
+        If the number of requests exceeds the ``RateLimit`` and the other predicates specified in the rule are also met, AWS WAF triggers the action that is specified for this rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-ratelimit
+        '''
+        result = self._values.get("rate_limit")
+        assert result is not None, "Required property 'rate_limit' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def match_predicates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRateBasedRule.PredicateProperty"]]]]:
+        '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet>`` object that you want to include in a ``RateBasedRule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-ratebasedrule.html#cfn-wafregional-ratebasedrule-matchpredicates
+        '''
+        result = self._values.get("match_predicates")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRateBasedRule.PredicateProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRateBasedRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRegexPatternSetRef_de6fde66)
 class CfnRegexPatternSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3323,7 +1836,7 @@ class CfnRegexPatternSet(
 
     You can then configure AWS WAF to reject those requests.
 
-    Note that you can only create regex pattern sets using a AWS CloudFormation template. To add the regex pattern sets created through AWS CloudFormation to a RegexMatchSet, use the AWS WAF console, API, or command line interface (CLI). For more information, see `UpdateRegexMatchSet <https://docs.aws.amazon.com/waf/latest/APIReference/API_regional_UpdateRegexMatchSet.html>`_ .
+    Note that you can only create regex pattern sets using a CloudFormation template. To add the regex pattern sets created through CloudFormation to a RegexMatchSet, use the AWS WAF console, API, or command line interface (CLI). For more information, see `UpdateRegexMatchSet <https://docs.aws.amazon.com/waf/latest/APIReference/API_regional_UpdateRegexMatchSet.html>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html
     :cloudformationResource: AWS::WAFRegional::RegexPatternSet
@@ -3343,13 +1856,14 @@ class CfnRegexPatternSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         regex_pattern_strings: typing.Sequence[builtins.str],
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::RegexPatternSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A friendly name or description of the ``RegexPatternSet`` . You can't change ``Name`` after you create a ``RegexPatternSet`` .
@@ -3365,8 +1879,34 @@ class CfnRegexPatternSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForRegexPatternSet")
+    @builtins.classmethod
+    def arn_for_regex_pattern_set(
+        cls,
+        resource: "_IRegexPatternSetRef_de6fde66",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5302e259e3a13b246f9d7e7b9946fc9b975e5c89b51fdf6c1fadf0675e458a3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegexPatternSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnRegexPatternSet")
+    @builtins.classmethod
+    def is_cfn_regex_pattern_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegexPatternSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__639ceac86d633a4f38ff0c9ff57b4049ccc7e47163c0644fdd9de151e22bfeca)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegexPatternSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3410,9 +1950,9 @@ class CfnRegexPatternSet(
 
     @builtins.property
     @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> RegexPatternSetReference:
+    def regex_pattern_set_ref(self) -> "_RegexPatternSetReference_bd768ee6":
         '''A reference to a RegexPatternSet resource.'''
-        return typing.cast(RegexPatternSetReference, jsii.get(self, "regexPatternSetRef"))
+        return typing.cast("_RegexPatternSetReference_bd768ee6", jsii.get(self, "regexPatternSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3441,7 +1981,81 @@ class CfnRegexPatternSet(
         jsii.set(self, "regexPatternStrings", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IRuleRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnRegexPatternSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "regex_pattern_strings": "regexPatternStrings"},
+)
+class CfnRegexPatternSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        regex_pattern_strings: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Properties for defining a ``CfnRegexPatternSet``.
+
+        :param name: A friendly name or description of the ``RegexPatternSet`` . You can't change ``Name`` after you create a ``RegexPatternSet`` .
+        :param regex_pattern_strings: Specifies the regular expression (regex) patterns that you want AWS WAF to search for, such as ``B[a@]dB[o0]t`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_regex_pattern_set_props = wafregional.CfnRegexPatternSetProps(
+                name="name",
+                regex_pattern_strings=["regexPatternStrings"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd2ba4ff373b9395d24df058327f71925859a4bbea04883bbecccd2cf281db74)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument regex_pattern_strings", value=regex_pattern_strings, expected_type=type_hints["regex_pattern_strings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "regex_pattern_strings": regex_pattern_strings,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description of the ``RegexPatternSet`` .
+
+        You can't change ``Name`` after you create a ``RegexPatternSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html#cfn-wafregional-regexpatternset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def regex_pattern_strings(self) -> typing.List[builtins.str]:
+        '''Specifies the regular expression (regex) patterns that you want AWS WAF to search for, such as ``B[a@]dB[o0]t`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-regexpatternset.html#cfn-wafregional-regexpatternset-regexpatternstrings
+        '''
+        result = self._values.get("regex_pattern_strings")
+        assert result is not None, "Required property 'regex_pattern_strings' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRegexPatternSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRuleRef_dd339bf9)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3488,14 +2102,15 @@ class CfnRule(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         metric_name: builtins.str,
         name: builtins.str,
-        predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::Rule``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param metric_name: A name for the metrics for this ``Rule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``Rule`` .
@@ -3510,8 +2125,31 @@ class CfnRule(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForRule")
+    @builtins.classmethod
+    def arn_for_rule(cls, resource: "_IRuleRef_dd339bf9") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5ae8860585d337cdadcc284bc767bee758497b6e7b651c9b56bce2e70d078ca)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnRule")
+    @builtins.classmethod
+    def is_cfn_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7eea23c14d6f534207aad83157af884c4b20f182ab5af78db2e93c8bf587022d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRule", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3555,9 +2193,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> RuleReference:
+    def rule_ref(self) -> "_RuleReference_7dc8cbc3":
         '''A reference to a Rule resource.'''
-        return typing.cast(RuleReference, jsii.get(self, "ruleRef"))
+        return typing.cast("_RuleReference_7dc8cbc3", jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="metricName")
@@ -3589,14 +2227,14 @@ class CfnRule(
     @jsii.member(jsii_name="predicates")
     def predicates(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.PredicateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PredicateProperty"]]]]:
         '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet`` object that you want to include in a ``Rule`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.PredicateProperty"]]]], jsii.get(self, "predicates"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PredicateProperty"]]]], jsii.get(self, "predicates"))
 
     @predicates.setter
     def predicates(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.PredicateProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PredicateProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f724ad55a0692458dfb9454847b548911c8e6b4f0c4ee20bc0195bd82c54f3ec)
@@ -3613,7 +2251,7 @@ class CfnRule(
             self,
             *,
             data_id: builtins.str,
-            negated: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            negated: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             type: builtins.str,
         ) -> None:
             '''Specifies the ``ByteMatchSet`` , ``IPSet`` , ``SqlInjectionMatchSet`` , ``XssMatchSet`` , ``RegexMatchSet`` , ``GeoMatchSet`` , and ``SizeConstraintSet`` objects that you want to add to a ``Rule`` and, for each object, indicates whether you want to negate the settings, for example, requests that do NOT originate from the IP address 192.0.2.44.
@@ -3661,7 +2299,7 @@ class CfnRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def negated(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def negated(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Set ``Negated`` to ``False`` if you want AWS WAF to allow, block, or count requests based on the settings in the specified ``ByteMatchSet`` , ``IPSet`` , ``SqlInjectionMatchSet`` , ``XssMatchSet`` , ``RegexMatchSet`` , ``GeoMatchSet`` , or ``SizeConstraintSet`` .
 
             For example, if an ``IPSet`` includes the IP address ``192.0.2.44`` , AWS WAF will allow or block requests based on that IP address.
@@ -3672,7 +2310,7 @@ class CfnRule(
             '''
             result = self._values.get("negated")
             assert result is not None, "Required property 'negated' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -3696,7 +2334,110 @@ class CfnRule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ISizeConstraintSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "metric_name": "metricName",
+        "name": "name",
+        "predicates": "predicates",
+    },
+)
+class CfnRuleProps:
+    def __init__(
+        self,
+        *,
+        metric_name: builtins.str,
+        name: builtins.str,
+        predicates: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.PredicateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRule``.
+
+        :param metric_name: A name for the metrics for this ``Rule`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``Rule`` .
+        :param name: The friendly name or description for the ``Rule`` . You can't change the name of a ``Rule`` after you create it.
+        :param predicates: The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet`` object that you want to include in a ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_rule_props = wafregional.CfnRuleProps(
+                metric_name="metricName",
+                name="name",
+            
+                # the properties below are optional
+                predicates=[wafregional.CfnRule.PredicateProperty(
+                    data_id="dataId",
+                    negated=False,
+                    type="type"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdc102021e417a504401cd27c9a5d604cd6be3ce5473501b852f107ddfdb257b)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument predicates", value=predicates, expected_type=type_hints["predicates"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "metric_name": metric_name,
+            "name": name,
+        }
+        if predicates is not None:
+            self._values["predicates"] = predicates
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''A name for the metrics for this ``Rule`` .
+
+        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-metricname
+        '''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The friendly name or description for the ``Rule`` .
+
+        You can't change the name of a ``Rule`` after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def predicates(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PredicateProperty"]]]]:
+        '''The ``Predicates`` object contains one ``Predicate`` element for each ``ByteMatchSet`` , ``IPSet`` , or ``SqlInjectionMatchSet`` object that you want to include in a ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-rule.html#cfn-wafregional-rule-predicates
+        '''
+        result = self._values.get("predicates")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.PredicateProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISizeConstraintSetRef_737bff91)
 class CfnSizeConstraintSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3744,13 +2485,14 @@ class CfnSizeConstraintSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        size_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSizeConstraintSet.SizeConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        size_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSizeConstraintSet.SizeConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::SizeConstraintSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name, if any, of the ``SizeConstraintSet`` .
@@ -3764,8 +2506,34 @@ class CfnSizeConstraintSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSizeConstraintSet")
+    @builtins.classmethod
+    def arn_for_size_constraint_set(
+        cls,
+        resource: "_ISizeConstraintSetRef_737bff91",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3111d8ab80eaf348c086219fc4cefc60925a48d7d665f9e8c8a5d4ffc8235a53)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSizeConstraintSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnSizeConstraintSet")
+    @builtins.classmethod
+    def is_cfn_size_constraint_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSizeConstraintSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21d859dec8c6dbeafd696003c27d4f11e7327a4338afd544c2895d97108cda3c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSizeConstraintSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3809,9 +2577,9 @@ class CfnSizeConstraintSet(
 
     @builtins.property
     @jsii.member(jsii_name="sizeConstraintSetRef")
-    def size_constraint_set_ref(self) -> SizeConstraintSetReference:
+    def size_constraint_set_ref(self) -> "_SizeConstraintSetReference_19288e69":
         '''A reference to a SizeConstraintSet resource.'''
-        return typing.cast(SizeConstraintSetReference, jsii.get(self, "sizeConstraintSetRef"))
+        return typing.cast("_SizeConstraintSetReference_19288e69", jsii.get(self, "sizeConstraintSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3830,14 +2598,14 @@ class CfnSizeConstraintSet(
     @jsii.member(jsii_name="sizeConstraints")
     def size_constraints(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.SizeConstraintProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.SizeConstraintProperty"]]]]:
         '''The size constraint and the part of the web request to check.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.SizeConstraintProperty"]]]], jsii.get(self, "sizeConstraints"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.SizeConstraintProperty"]]]], jsii.get(self, "sizeConstraints"))
 
     @size_constraints.setter
     def size_constraints(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.SizeConstraintProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.SizeConstraintProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed10db9ee0b6303854a666f25e1251855886884dd58f67884c32b8f4bdbfe468)
@@ -3948,7 +2716,7 @@ class CfnSizeConstraintSet(
             self,
             *,
             comparison_operator: builtins.str,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSizeConstraintSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSizeConstraintSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             size: jsii.Number,
             text_transformation: builtins.str,
         ) -> None:
@@ -4030,14 +2798,14 @@ class CfnSizeConstraintSet(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.FieldToMatchProperty"]:
             '''The part of a web request that you want AWS WAF to inspect, such as a specific header or a query string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafregional-sizeconstraintset-sizeconstraint.html#cfn-wafregional-sizeconstraintset-sizeconstraint-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSizeConstraintSet.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.FieldToMatchProperty"], result)
 
         @builtins.property
         def size(self) -> jsii.Number:
@@ -4129,7 +2897,93 @@ class CfnSizeConstraintSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ISqlInjectionMatchSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnSizeConstraintSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "size_constraints": "sizeConstraints"},
+)
+class CfnSizeConstraintSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        size_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSizeConstraintSet.SizeConstraintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSizeConstraintSet``.
+
+        :param name: The name, if any, of the ``SizeConstraintSet`` .
+        :param size_constraints: The size constraint and the part of the web request to check.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_size_constraint_set_props = wafregional.CfnSizeConstraintSetProps(
+                name="name",
+            
+                # the properties below are optional
+                size_constraints=[wafregional.CfnSizeConstraintSet.SizeConstraintProperty(
+                    comparison_operator="comparisonOperator",
+                    field_to_match=wafregional.CfnSizeConstraintSet.FieldToMatchProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        data="data"
+                    ),
+                    size=123,
+                    text_transformation="textTransformation"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf80c55882638ea37cfa7a142fc6f1adcee512250a5dc52e55c3ebaf0d3916f9)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument size_constraints", value=size_constraints, expected_type=type_hints["size_constraints"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if size_constraints is not None:
+            self._values["size_constraints"] = size_constraints
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name, if any, of the ``SizeConstraintSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html#cfn-wafregional-sizeconstraintset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def size_constraints(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.SizeConstraintProperty"]]]]:
+        '''The size constraint and the part of the web request to check.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sizeconstraintset.html#cfn-wafregional-sizeconstraintset-sizeconstraints
+        '''
+        result = self._values.get("size_constraints")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSizeConstraintSet.SizeConstraintProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSizeConstraintSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISqlInjectionMatchSetRef_232c3756)
 class CfnSqlInjectionMatchSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4175,13 +3029,14 @@ class CfnSqlInjectionMatchSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        sql_injection_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        sql_injection_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::SqlInjectionMatchSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name, if any, of the ``SqlInjectionMatchSet`` .
@@ -4197,8 +3052,34 @@ class CfnSqlInjectionMatchSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSqlInjectionMatchSet")
+    @builtins.classmethod
+    def arn_for_sql_injection_match_set(
+        cls,
+        resource: "_ISqlInjectionMatchSetRef_232c3756",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8115774eff1b5398b6f13d1bb227c48798d4bbca7a26f60da3cf31c9cf897ea7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSqlInjectionMatchSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnSqlInjectionMatchSet")
+    @builtins.classmethod
+    def is_cfn_sql_injection_match_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSqlInjectionMatchSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__807b6864a802271b0724e5b2741a984933740aa7a2095ace57bc4f23e33a56cf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSqlInjectionMatchSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4242,9 +3123,9 @@ class CfnSqlInjectionMatchSet(
 
     @builtins.property
     @jsii.member(jsii_name="sqlInjectionMatchSetRef")
-    def sql_injection_match_set_ref(self) -> SqlInjectionMatchSetReference:
+    def sql_injection_match_set_ref(self) -> "_SqlInjectionMatchSetReference_8a4a45d5":
         '''A reference to a SqlInjectionMatchSet resource.'''
-        return typing.cast(SqlInjectionMatchSetReference, jsii.get(self, "sqlInjectionMatchSetRef"))
+        return typing.cast("_SqlInjectionMatchSetReference_8a4a45d5", jsii.get(self, "sqlInjectionMatchSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4263,14 +3144,14 @@ class CfnSqlInjectionMatchSet(
     @jsii.member(jsii_name="sqlInjectionMatchTuples")
     def sql_injection_match_tuples(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]]:
         '''Specifies the parts of web requests that you want to inspect for snippets of malicious SQL code.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]], jsii.get(self, "sqlInjectionMatchTuples"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]], jsii.get(self, "sqlInjectionMatchTuples"))
 
     @sql_injection_match_tuples.setter
     def sql_injection_match_tuples(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36e43d4ce4ce856f540724f26bbc23e2cb13b58361de226358a8285ca8e3eba5)
@@ -4378,7 +3259,7 @@ class CfnSqlInjectionMatchSet(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSqlInjectionMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSqlInjectionMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformation: builtins.str,
         ) -> None:
             '''.. epigraph::
@@ -4427,14 +3308,14 @@ class CfnSqlInjectionMatchSet(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.FieldToMatchProperty"]:
             '''The part of a web request that you want AWS WAF to inspect, such as a specific header or a query string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafregional-sqlinjectionmatchset-sqlinjectionmatchtuple.html#cfn-wafregional-sqlinjectionmatchset-sqlinjectionmatchtuple-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSqlInjectionMatchSet.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformation(self) -> builtins.str:
@@ -4508,7 +3389,94 @@ class CfnSqlInjectionMatchSet(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IWebACLRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnSqlInjectionMatchSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "sql_injection_match_tuples": "sqlInjectionMatchTuples",
+    },
+)
+class CfnSqlInjectionMatchSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        sql_injection_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSqlInjectionMatchSet``.
+
+        :param name: The name, if any, of the ``SqlInjectionMatchSet`` .
+        :param sql_injection_match_tuples: Specifies the parts of web requests that you want to inspect for snippets of malicious SQL code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_sql_injection_match_set_props = wafregional.CfnSqlInjectionMatchSetProps(
+                name="name",
+            
+                # the properties below are optional
+                sql_injection_match_tuples=[wafregional.CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty(
+                    field_to_match=wafregional.CfnSqlInjectionMatchSet.FieldToMatchProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        data="data"
+                    ),
+                    text_transformation="textTransformation"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb86879a015cba2fd0a9fb28d3c9e047ee07933c06f46f2a05813de3c6381635)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument sql_injection_match_tuples", value=sql_injection_match_tuples, expected_type=type_hints["sql_injection_match_tuples"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if sql_injection_match_tuples is not None:
+            self._values["sql_injection_match_tuples"] = sql_injection_match_tuples
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name, if any, of the ``SqlInjectionMatchSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html#cfn-wafregional-sqlinjectionmatchset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sql_injection_match_tuples(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]]:
+        '''Specifies the parts of web requests that you want to inspect for snippets of malicious SQL code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-sqlinjectionmatchset.html#cfn-wafregional-sqlinjectionmatchset-sqlinjectionmatchtuples
+        '''
+        result = self._values.get("sql_injection_match_tuples")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSqlInjectionMatchSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IWebACLRef_0d047f34)
 class CfnWebACL(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4557,15 +3525,16 @@ class CfnWebACL(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        default_action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        default_action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
         metric_name: builtins.str,
         name: builtins.str,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::WebACL``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match. The action is specified by the ``WafAction`` object.
@@ -4586,8 +3555,31 @@ class CfnWebACL(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForWebACL")
+    @builtins.classmethod
+    def arn_for_web_acl(cls, resource: "_IWebACLRef_0d047f34") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b021880ae93c9c59b5f3bd8d8dd3afb62e0bcf17f9d510b5622f1420de2034f4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWebACL", [resource]))
+
+    @jsii.member(jsii_name="isCfnWebACL")
+    @builtins.classmethod
+    def is_cfn_web_acl(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebACL.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54dceafa7f065c476dda7f6636867febbb8e5a09177bf19e5b780e4529ecc0a8)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebACL", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4631,22 +3623,22 @@ class CfnWebACL(
 
     @builtins.property
     @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> WebACLReference:
+    def web_acl_ref(self) -> "_WebACLReference_dd1a0593":
         '''A reference to a WebACL resource.'''
-        return typing.cast(WebACLReference, jsii.get(self, "webAclRef"))
+        return typing.cast("_WebACLReference_dd1a0593", jsii.get(self, "webAclRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultAction")
     def default_action(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"]:
         '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"], jsii.get(self, "defaultAction"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"], jsii.get(self, "defaultAction"))
 
     @default_action.setter
     def default_action(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77ebb156369f514370c9d0394df040b6c1a65390666b14f4b2014ed062090372)
@@ -4683,14 +3675,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]]:
         '''An array that contains the action for each ``Rule`` in a ``WebACL`` , the priority of the ``Rule`` , and the ID of the ``Rule`` .'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85b5c49e2fff4c79f26f8fd7230c235f59a86330019aab07ac103a5155cdb287)
@@ -4766,7 +3758,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
             priority: jsii.Number,
             rule_id: builtins.str,
         ) -> None:
@@ -4814,14 +3806,14 @@ class CfnWebACL(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"]:
             '''The action that AWS WAF takes when a web request matches all conditions in the rule, such as allow, block, or count the request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafregional-webacl-rule.html#cfn-wafregional-webacl-rule-action
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ActionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"], result)
 
         @builtins.property
         def priority(self) -> jsii.Number:
@@ -4857,7 +3849,7 @@ class CfnWebACL(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IWebACLAssociationRef)
+@jsii.implements(_IInspectable_c2943556, _IWebACLAssociationRef_2298c022)
 class CfnWebACLAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4892,13 +3884,14 @@ class CfnWebACLAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         resource_arn: builtins.str,
         web_acl_id: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::WebACLAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to protect with the web ACL.
@@ -4914,8 +3907,20 @@ class CfnWebACLAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnWebACLAssociation")
+    @builtins.classmethod
+    def is_cfn_web_acl_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebACLAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__974ac6a8c1dbd3af33187015e9e9dfa45cd5aa18abdadcc772051dd958e7e682)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebACLAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4959,9 +3964,9 @@ class CfnWebACLAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> WebACLAssociationReference:
+    def web_acl_association_ref(self) -> "_WebACLAssociationReference_732525ba":
         '''A reference to a WebACLAssociation resource.'''
-        return typing.cast(WebACLAssociationReference, jsii.get(self, "webAclAssociationRef"))
+        return typing.cast("_WebACLAssociationReference_732525ba", jsii.get(self, "webAclAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -4990,7 +3995,201 @@ class CfnWebACLAssociation(
         jsii.set(self, "webAclId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IXssMatchSetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnWebACLAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn", "web_acl_id": "webAclId"},
+)
+class CfnWebACLAssociationProps:
+    def __init__(self, *, resource_arn: builtins.str, web_acl_id: builtins.str) -> None:
+        '''Properties for defining a ``CfnWebACLAssociation``.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to protect with the web ACL.
+        :param web_acl_id: A unique identifier (ID) for the web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_web_aCLAssociation_props = wafregional.CfnWebACLAssociationProps(
+                resource_arn="resourceArn",
+                web_acl_id="webAclId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ae44785c9827e49a48b32868ea26704c6bc211021143d19de80d20425709d39)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+            "web_acl_id": web_acl_id,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource to protect with the web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html#cfn-wafregional-webaclassociation-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def web_acl_id(self) -> builtins.str:
+        '''A unique identifier (ID) for the web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webaclassociation.html#cfn-wafregional-webaclassociation-webaclid
+        '''
+        result = self._values.get("web_acl_id")
+        assert result is not None, "Required property 'web_acl_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebACLAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnWebACLProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_action": "defaultAction",
+        "metric_name": "metricName",
+        "name": "name",
+        "rules": "rules",
+    },
+)
+class CfnWebACLProps:
+    def __init__(
+        self,
+        *,
+        default_action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        metric_name: builtins.str,
+        name: builtins.str,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebACL``.
+
+        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match. The action is specified by the ``WafAction`` object.
+        :param metric_name: A name for the metrics for this ``WebACL`` . The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``WebACL`` .
+        :param name: A friendly name or description of the ``WebACL`` . You can't change the name of a ``WebACL`` after you create it.
+        :param rules: An array that contains the action for each ``Rule`` in a ``WebACL`` , the priority of the ``Rule`` , and the ID of the ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_web_aCLProps = wafregional.CfnWebACLProps(
+                default_action=wafregional.CfnWebACL.ActionProperty(
+                    type="type"
+                ),
+                metric_name="metricName",
+                name="name",
+            
+                # the properties below are optional
+                rules=[wafregional.CfnWebACL.RuleProperty(
+                    action=wafregional.CfnWebACL.ActionProperty(
+                        type="type"
+                    ),
+                    priority=123,
+                    rule_id="ruleId"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__000aafbc61e54d9f58102054221c8d77d52d3eca2a7cedba5af2e2fcde422968)
+            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_action": default_action,
+            "metric_name": metric_name,
+            "name": name,
+        }
+        if rules is not None:
+            self._values["rules"] = rules
+
+    @builtins.property
+    def default_action(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"]:
+        '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
+
+        The action is specified by the ``WafAction`` object.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-defaultaction
+        '''
+        result = self._values.get("default_action")
+        assert result is not None, "Required property 'default_action' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.ActionProperty"], result)
+
+    @builtins.property
+    def metric_name(self) -> builtins.str:
+        '''A name for the metrics for this ``WebACL`` .
+
+        The name can contain only alphanumeric characters (A-Z, a-z, 0-9), with maximum length 128 and minimum length one. It can't contain whitespace or metric names reserved for AWS WAF, including "All" and "Default_Action." You can't change ``MetricName`` after you create the ``WebACL`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-metricname
+        '''
+        result = self._values.get("metric_name")
+        assert result is not None, "Required property 'metric_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A friendly name or description of the ``WebACL`` .
+
+        You can't change the name of a ``WebACL`` after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]]:
+        '''An array that contains the action for each ``Rule`` in a ``WebACL`` , the priority of the ``Rule`` , and the ID of the ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-webacl.html#cfn-wafregional-webacl-rules
+        '''
+        result = self._values.get("rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebACLProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IXssMatchSetRef_f894cd38)
 class CfnXssMatchSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5036,13 +4235,14 @@ class CfnXssMatchSet(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        xss_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnXssMatchSet.XssMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        xss_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnXssMatchSet.XssMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFRegional::XssMatchSet``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name, if any, of the ``XssMatchSet`` .
@@ -5056,8 +4256,34 @@ class CfnXssMatchSet(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForXssMatchSet")
+    @builtins.classmethod
+    def arn_for_xss_match_set(
+        cls,
+        resource: "_IXssMatchSetRef_f894cd38",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1fcf6cecee0bbd548a82d9d0f614ef3d4ffe0776bc7e9d07c951fb48f1c5a81)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForXssMatchSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnXssMatchSet")
+    @builtins.classmethod
+    def is_cfn_xss_match_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnXssMatchSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9429619d931e71d78d43ee091f0e9a27666f282e38d623002aa2a49656a09079)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnXssMatchSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5101,9 +4327,9 @@ class CfnXssMatchSet(
 
     @builtins.property
     @jsii.member(jsii_name="xssMatchSetRef")
-    def xss_match_set_ref(self) -> XssMatchSetReference:
+    def xss_match_set_ref(self) -> "_XssMatchSetReference_3e9904bd":
         '''A reference to a XssMatchSet resource.'''
-        return typing.cast(XssMatchSetReference, jsii.get(self, "xssMatchSetRef"))
+        return typing.cast("_XssMatchSetReference_3e9904bd", jsii.get(self, "xssMatchSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5122,14 +4348,14 @@ class CfnXssMatchSet(
     @jsii.member(jsii_name="xssMatchTuples")
     def xss_match_tuples(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.XssMatchTupleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.XssMatchTupleProperty"]]]]:
         '''Specifies the parts of web requests that you want to inspect for cross-site scripting attacks.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.XssMatchTupleProperty"]]]], jsii.get(self, "xssMatchTuples"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.XssMatchTupleProperty"]]]], jsii.get(self, "xssMatchTuples"))
 
     @xss_match_tuples.setter
     def xss_match_tuples(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.XssMatchTupleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.XssMatchTupleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7573e70ff835de51119b3f9673f5e0a0ef03d347ac12352c2ecf975d234f0915)
@@ -5237,7 +4463,7 @@ class CfnXssMatchSet(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnXssMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnXssMatchSet.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             text_transformation: builtins.str,
         ) -> None:
             '''.. epigraph::
@@ -5286,14 +4512,14 @@ class CfnXssMatchSet(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.FieldToMatchProperty"]:
             '''The part of a web request that you want AWS WAF to inspect, such as a specified header or a query string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafregional-xssmatchset-xssmatchtuple.html#cfn-wafregional-xssmatchset-xssmatchtuple-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnXssMatchSet.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformation(self) -> builtins.str:
@@ -5367,8 +4593,91 @@ class CfnXssMatchSet(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafregional.CfnXssMatchSetProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "xss_match_tuples": "xssMatchTuples"},
+)
+class CfnXssMatchSetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        xss_match_tuples: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnXssMatchSet.XssMatchTupleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnXssMatchSet``.
+
+        :param name: The name, if any, of the ``XssMatchSet`` .
+        :param xss_match_tuples: Specifies the parts of web requests that you want to inspect for cross-site scripting attacks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafregional as wafregional
+            
+            cfn_xss_match_set_props = wafregional.CfnXssMatchSetProps(
+                name="name",
+            
+                # the properties below are optional
+                xss_match_tuples=[wafregional.CfnXssMatchSet.XssMatchTupleProperty(
+                    field_to_match=wafregional.CfnXssMatchSet.FieldToMatchProperty(
+                        type="type",
+            
+                        # the properties below are optional
+                        data="data"
+                    ),
+                    text_transformation="textTransformation"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__226d7e9140a891516c1c39937b2335bc5329713cb50c4e5f0758e8d4fc74c4f7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument xss_match_tuples", value=xss_match_tuples, expected_type=type_hints["xss_match_tuples"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if xss_match_tuples is not None:
+            self._values["xss_match_tuples"] = xss_match_tuples
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name, if any, of the ``XssMatchSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html#cfn-wafregional-xssmatchset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def xss_match_tuples(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.XssMatchTupleProperty"]]]]:
+        '''Specifies the parts of web requests that you want to inspect for cross-site scripting attacks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafregional-xssmatchset.html#cfn-wafregional-xssmatchset-xssmatchtuples
+        '''
+        result = self._values.get("xss_match_tuples")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnXssMatchSet.XssMatchTupleProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnXssMatchSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ByteMatchSetReference",
     "CfnByteMatchSet",
     "CfnByteMatchSetProps",
     "CfnGeoMatchSet",
@@ -5391,201 +4700,9 @@ __all__ = [
     "CfnWebACLProps",
     "CfnXssMatchSet",
     "CfnXssMatchSetProps",
-    "GeoMatchSetReference",
-    "IByteMatchSetRef",
-    "IGeoMatchSetRef",
-    "IIPSetRef",
-    "IPSetReference",
-    "IRateBasedRuleRef",
-    "IRegexPatternSetRef",
-    "IRuleRef",
-    "ISizeConstraintSetRef",
-    "ISqlInjectionMatchSetRef",
-    "IWebACLAssociationRef",
-    "IWebACLRef",
-    "IXssMatchSetRef",
-    "RateBasedRuleReference",
-    "RegexPatternSetReference",
-    "RuleReference",
-    "SizeConstraintSetReference",
-    "SqlInjectionMatchSetReference",
-    "WebACLAssociationReference",
-    "WebACLReference",
-    "XssMatchSetReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__7079c78403998c911a688753aaca1dd9f1e5516324343f1f0bee1db9704827b1(
-    *,
-    byte_match_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3d3315ca0f0c432ea54dc0a28b013ee804e72f866e20f3164467df22a3679b29(
-    *,
-    name: builtins.str,
-    byte_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnByteMatchSet.ByteMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ce26d9ffd24f477f686b44477cc2e54588d1ce675a04c4e2970b3226c84d38e(
-    *,
-    name: builtins.str,
-    geo_match_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGeoMatchSet.GeoMatchConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__66ca7761765b7ff9b3a37c94c1330ce44b8771049c38acc8da230f52e7db0708(
-    *,
-    name: builtins.str,
-    ip_set_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIPSet.IPSetDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7a5eb8767b8573e01975210155ccbe383a96e2861b6e27912a562e89c4067821(
-    *,
-    metric_name: builtins.str,
-    name: builtins.str,
-    rate_key: builtins.str,
-    rate_limit: jsii.Number,
-    match_predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRateBasedRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cd2ba4ff373b9395d24df058327f71925859a4bbea04883bbecccd2cf281db74(
-    *,
-    name: builtins.str,
-    regex_pattern_strings: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bdc102021e417a504401cd27c9a5d604cd6be3ce5473501b852f107ddfdb257b(
-    *,
-    metric_name: builtins.str,
-    name: builtins.str,
-    predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf80c55882638ea37cfa7a142fc6f1adcee512250a5dc52e55c3ebaf0d3916f9(
-    *,
-    name: builtins.str,
-    size_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSizeConstraintSet.SizeConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb86879a015cba2fd0a9fb28d3c9e047ee07933c06f46f2a05813de3c6381635(
-    *,
-    name: builtins.str,
-    sql_injection_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ae44785c9827e49a48b32868ea26704c6bc211021143d19de80d20425709d39(
-    *,
-    resource_arn: builtins.str,
-    web_acl_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__000aafbc61e54d9f58102054221c8d77d52d3eca2a7cedba5af2e2fcde422968(
-    *,
-    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    metric_name: builtins.str,
-    name: builtins.str,
-    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__226d7e9140a891516c1c39937b2335bc5329713cb50c4e5f0758e8d4fc74c4f7(
-    *,
-    name: builtins.str,
-    xss_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnXssMatchSet.XssMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4b4ab0f2e6e536a9564a532bd3c5e664f49f57d568f4d2ea9edc48fe3fa7b584(
-    *,
-    geo_match_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2da03a08c5c9497c241cd0f0414386a9f0e3af742e98ca91d481cad9acdc845f(
-    *,
-    ip_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d8a40ad513fc7c50389ad0a1095a9db27a683c1a433187a373928e93fec0311(
-    *,
-    rate_based_rule_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__635825e3f6af5a5be946d32439f827d84ad0140cf1228e02ab6bbfac8b1d6482(
-    *,
-    regex_pattern_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__820c1bf7801368c247a044d69f4aae80403e4ac526cd4e118f26f9a43ca97a47(
-    *,
-    rule_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4930aa3b0a91c2b27af3f722762be40a5c0eaf084d2e53b8c8f3ff4047446682(
-    *,
-    size_constraint_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8d7de2f18322f31b7429e9694d9b9a5ea9c875fc4024dfa7cd0ab387e38abc5(
-    *,
-    sql_injection_match_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a4a4cafb6f1347f2eaec805c080cb6f7fa8f1ff546adc4bcd941a2293cfd770(
-    *,
-    web_acl_association_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a17b2b77c463616ff2a62a72cc8f4cb1176ae14ad50573345288ac1924faaae3(
-    *,
-    web_acl_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b123423bbc47768e8e08bac835e423d257d91cc6e24e7aa9a82c0f9ea0c8fafc(
-    *,
-    xss_match_set_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__e708169d746906ecd9d668a57583fd77b92049101a7b42aaf2d48555f189e6e8(
     scope: _constructs_77d1e7e8.Construct,
@@ -5593,6 +4710,18 @@ def _typecheckingstub__e708169d746906ecd9d668a57583fd77b92049101a7b42aaf2d48555f
     *,
     name: builtins.str,
     byte_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnByteMatchSet.ByteMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7de1f4914f9cf979514887c8c548ce6645875b653d96a4b60638e3e41423d667(
+    resource: _IByteMatchSetRef_b9d7fa32,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2382b67a61b86368ff5fab76fb0b2a4b530e96b01f60542721cc35bef84bc32e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5640,12 +4769,32 @@ def _typecheckingstub__640c9a931daf57d6d8a41f83df9bd8de256aec1220f1b860b3316bd91
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3d3315ca0f0c432ea54dc0a28b013ee804e72f866e20f3164467df22a3679b29(
+    *,
+    name: builtins.str,
+    byte_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnByteMatchSet.ByteMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0f5defa886ad07662ce07608ef11d4f182985ba3ca56ba02873d46b5f8629b43(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     geo_match_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGeoMatchSet.GeoMatchConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0484db3ea52acb67e76d14c723b440babd9374ee7a82da93c9d3d7682218cef(
+    resource: _IGeoMatchSetRef_f1759bb3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17c94f54ec13266b0efbaebc21afd3e8b4c18e7fe3e2d7727c20b777df9be8f1(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5682,12 +4831,32 @@ def _typecheckingstub__bdccc52297904d6ff0d4704e82129d56f752a9d570c4f100e64bb95fb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ce26d9ffd24f477f686b44477cc2e54588d1ce675a04c4e2970b3226c84d38e(
+    *,
+    name: builtins.str,
+    geo_match_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGeoMatchSet.GeoMatchConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__24af5fe749b4ec99d6661f61836984c1ee1ea8f65bfb2e1309de62e8148e8adf(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     ip_set_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIPSet.IPSetDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6abadd4269c6895b1fc0e8105ac967b04d586f5068c2627ac321281c5b2ca33(
+    resource: _IIPSetRef_9a2f73df,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b5af03ceb1cc6455b6f49a0cec873ffbefda4655203a61330a8f8bd067bb3ed(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5724,6 +4893,14 @@ def _typecheckingstub__1fc3d521e61aad5c8ee04774898a6f73b99447c7fa553cc634602b002
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__66ca7761765b7ff9b3a37c94c1330ce44b8771049c38acc8da230f52e7db0708(
+    *,
+    name: builtins.str,
+    ip_set_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIPSet.IPSetDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6e3a48130b6ea11cbba89c4d925188b1035288d0d20e62521703f08011393fa3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5733,6 +4910,18 @@ def _typecheckingstub__6e3a48130b6ea11cbba89c4d925188b1035288d0d20e62521703f0801
     rate_key: builtins.str,
     rate_limit: jsii.Number,
     match_predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRateBasedRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__981e67d8b390ec5404933c0741efb05e41d01951b0265ec7dc354bbec44191ba(
+    resource: _IRateBasedRuleRef_de35422e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3602f750e20452a0d8491c8e3eabb4ca72ddd4aaf69bc8a889beb6fdb67357c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5788,12 +4977,35 @@ def _typecheckingstub__2d862aab74caa6d90bd5f556c0ed61443009c5c844166ebbd2e40c13a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7a5eb8767b8573e01975210155ccbe383a96e2861b6e27912a562e89c4067821(
+    *,
+    metric_name: builtins.str,
+    name: builtins.str,
+    rate_key: builtins.str,
+    rate_limit: jsii.Number,
+    match_predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRateBasedRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dc3290467cef7693ba0befd862e65e1c1db0f772a4356bde5baff5c34f116b38(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     regex_pattern_strings: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5302e259e3a13b246f9d7e7b9946fc9b975e5c89b51fdf6c1fadf0675e458a3(
+    resource: _IRegexPatternSetRef_de6fde66,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__639ceac86d633a4f38ff0c9ff57b4049ccc7e47163c0644fdd9de151e22bfeca(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5822,6 +5034,14 @@ def _typecheckingstub__c733d882b2636c9f3e83cbe3d3d3c45524e31baf8e0aefb580fcf4996
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cd2ba4ff373b9395d24df058327f71925859a4bbea04883bbecccd2cf281db74(
+    *,
+    name: builtins.str,
+    regex_pattern_strings: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7e8feae8cde7fd0a6a33c087a6bc2f530d0a2d84faa4c8473adff422fe6705fe(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5829,6 +5049,18 @@ def _typecheckingstub__7e8feae8cde7fd0a6a33c087a6bc2f530d0a2d84faa4c8473adff422f
     metric_name: builtins.str,
     name: builtins.str,
     predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5ae8860585d337cdadcc284bc767bee758497b6e7b651c9b56bce2e70d078ca(
+    resource: _IRuleRef_dd339bf9,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7eea23c14d6f534207aad83157af884c4b20f182ab5af78db2e93c8bf587022d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5872,12 +5104,33 @@ def _typecheckingstub__3cc39471795f985fdd66736c51389bb4064b463605d224670988abb34
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bdc102021e417a504401cd27c9a5d604cd6be3ce5473501b852f107ddfdb257b(
+    *,
+    metric_name: builtins.str,
+    name: builtins.str,
+    predicates: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.PredicateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3617242c65fe4a2405945be806ebc94732125d50948fdc61e6bfc3017667c0b3(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     size_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSizeConstraintSet.SizeConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3111d8ab80eaf348c086219fc4cefc60925a48d7d665f9e8c8a5d4ffc8235a53(
+    resource: _ISizeConstraintSetRef_737bff91,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21d859dec8c6dbeafd696003c27d4f11e7327a4338afd544c2895d97108cda3c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5924,12 +5177,32 @@ def _typecheckingstub__1bd0b350acf83dad556bc4a4642cf56c05406c80b304c48c6f9978cc0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf80c55882638ea37cfa7a142fc6f1adcee512250a5dc52e55c3ebaf0d3916f9(
+    *,
+    name: builtins.str,
+    size_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSizeConstraintSet.SizeConstraintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cd9e0f900ac8b2a5f047d3bd88768dc62f95c2451091386675727ceef64e59a8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     sql_injection_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8115774eff1b5398b6f13d1bb227c48798d4bbca7a26f60da3cf31c9cf897ea7(
+    resource: _ISqlInjectionMatchSetRef_232c3756,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__807b6864a802271b0724e5b2741a984933740aa7a2095ace57bc4f23e33a56cf(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5974,6 +5247,14 @@ def _typecheckingstub__1a28b84fb8065ea3716ec026d7e9acbc436d5c02ce29d073ed967129e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb86879a015cba2fd0a9fb28d3c9e047ee07933c06f46f2a05813de3c6381635(
+    *,
+    name: builtins.str,
+    sql_injection_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSqlInjectionMatchSet.SqlInjectionMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4bbcf3ac61d0d160341c299ed8c698832684f26d4d66c66355b14ce961df6cef(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5982,6 +5263,18 @@ def _typecheckingstub__4bbcf3ac61d0d160341c299ed8c698832684f26d4d66c66355b14ce96
     metric_name: builtins.str,
     name: builtins.str,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b021880ae93c9c59b5f3bd8d8dd3afb62e0bcf17f9d510b5622f1420de2034f4(
+    resource: _IWebACLRef_0d047f34,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54dceafa7f065c476dda7f6636867febbb8e5a09177bf19e5b780e4529ecc0a8(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6048,6 +5341,12 @@ def _typecheckingstub__39793199b53ca00e4e43a3114987c2b16cb141a0a8debae9a9c51e5d5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__974ac6a8c1dbd3af33187015e9e9dfa45cd5aa18abdadcc772051dd958e7e682(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cbe41a5c19e716a5b8ce56955b8a44779f4970efb6934ba18920d0a2eefa95ca(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -6072,12 +5371,42 @@ def _typecheckingstub__40feff6d9c61c27d87193f055fb66ab40c303a0cffbc391a343043044
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1ae44785c9827e49a48b32868ea26704c6bc211021143d19de80d20425709d39(
+    *,
+    resource_arn: builtins.str,
+    web_acl_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__000aafbc61e54d9f58102054221c8d77d52d3eca2a7cedba5af2e2fcde422968(
+    *,
+    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric_name: builtins.str,
+    name: builtins.str,
+    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6b678a59295ccf6f6a1ebf6fd8e7c0db6e955a4478206fd92f0c9021be28f048(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     xss_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnXssMatchSet.XssMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1fcf6cecee0bbd548a82d9d0f614ef3d4ffe0776bc7e9d07c951fb48f1c5a81(
+    resource: _IXssMatchSetRef_f894cd38,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9429619d931e71d78d43ee091f0e9a27666f282e38d623002aa2a49656a09079(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6118,6 +5447,14 @@ def _typecheckingstub__86e49651456c9dd49db43bf292fa1c7bb5f1c316cd7ed28e07995b11e
     *,
     field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union[CfnXssMatchSet.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]],
     text_transformation: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__226d7e9140a891516c1c39937b2335bc5329713cb50c4e5f0758e8d4fc74c4f7(
+    *,
+    name: builtins.str,
+    xss_match_tuples: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnXssMatchSet.XssMatchTupleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -54,11 +54,22 @@ Pure Component Liquid Fit Correlations
 .. autofunction:: chemicals.refractivity.TDE_RIXExpansion
 
 """
+from __future__ import annotations
 
-__all__ = ['RI', 'RI_methods', 'RI_all_methods',
-           'polarizability_from_RI', 'molar_refractivity_from_RI',
-           'RI_from_molar_refractivity', 'RI_IAPWS', 'RI_to_brix',
-           'brix_to_RI', 'TDE_RIXExpansion']
+from typing import TYPE_CHECKING
+
+__all__: list[str] = [
+    "RI",
+    "RI_IAPWS",
+    "RI_all_methods",
+    "RI_from_molar_refractivity",
+    "RI_methods",
+    "RI_to_brix",
+    "TDE_RIXExpansion",
+    "brix_to_RI",
+    "molar_refractivity_from_RI",
+    "polarizability_from_RI",
+]
 
 from fluids.constants import N_A, pi
 from fluids.numerics import horner, interp, isnan, sqrt
@@ -73,35 +84,39 @@ from chemicals.data_reader import (
     retrieve_any_from_df_dict,
     retrieve_from_df_dict,
 )
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
+
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
 
 # Register data sources and lazy load them
 
-folder = os_path_join(source_path, 'Misc')
-register_df_source(folder, 'CRC Handbook Organic RI.csv',
-                   csv_kwargs={'dtype': {'RI': float, 'RIT': float}})
+folder = os_path_join(source_path, "Misc")
 
-CRC = 'CRC'
+# Module-level variables for lazy-loaded data
+RI_data_CRC_organic: DataFrame
+RI_sources: dict[str, DataFrame]
+register_df_source(folder, "CRC Handbook Organic RI.csv",
+                   csv_kwargs={"dtype": {"RI": float, "RIT": float}})
+
+CRC = "CRC"
 
 _RI_data_loaded = False
 @mark_numba_incompatible
-def _load_RI_data():
+def _load_RI_data() -> None:
     global _RI_data_loaded, RI_data_CRC_organic, RI_sources
-    RI_data_CRC_organic = data_source('CRC Handbook Organic RI.csv')
+    RI_data_CRC_organic = data_source("CRC Handbook Organic RI.csv")
     RI_sources = {
         CRC: RI_data_CRC_organic,
         miscdata.WIKIDATA: miscdata.wikidata_data
     }
+    _RI_data_loaded = True
 
-if PY37:
-    def __getattr__(name):
-        if name in ('RI_data_CRC_organic', 'RI_sources'):
-            _load_RI_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else:
-    if can_load_data:
+def __getattr__(name: str) -> DataFrame:
+    if name in ("RI_data_CRC_organic", "RI_sources"):
         _load_RI_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 #  Refractive index functions
 
@@ -109,7 +124,7 @@ RI_all_methods = (CRC, miscdata.WIKIDATA)
 """Tuple of method name keys. See the `RI` for the actual references"""
 
 @mark_numba_incompatible
-def RI_methods(CASRN):
+def RI_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the refractive index for the
     desired chemical.
 
@@ -129,11 +144,11 @@ def RI_methods(CASRN):
     RI
     """
     if not _RI_data_loaded: _load_RI_data()
-    return list_available_methods_from_df_dict(RI_sources, CASRN, 'RI')
+    return list_available_methods_from_df_dict(RI_sources, CASRN, "RI")
 
 @mark_numba_incompatible
-def RI(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's refractive
+def RI(CASRN: str, method: str | None=None) -> tuple[float, float]:
+    r"""This function handles the retrieval of a chemical's refractive
     index. Lookup is based on CASRNs. Will automatically select a data source
     to use if no method is provided; returns None if the data is not available.
 
@@ -179,13 +194,13 @@ def RI(CASRN, method=None):
     .. [1] Haynes, W.M., Thomas J. Bruno, and David R. Lide. CRC Handbook of
        Chemistry and Physics, 95E. Boca Raton, FL: CRC press, 2014.
     .. [2] Wikidata. Wikidata. Accessed via API. https://www.wikidata.org/
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        RI, found = database_constant_lookup(CASRN, 'RI')
-        RIT, _ = database_constant_lookup(CASRN, 'RIT')
+        RI, found = database_constant_lookup(CASRN, "RI")
+        RIT, _ = database_constant_lookup(CASRN, "RIT")
         if found: return (RI, RIT)
     if not _RI_data_loaded: _load_RI_data()
-    key = ('RI', 'RIT')
+    key = ("RI", "RIT")
     if method:
         value = retrieve_from_df_dict(RI_sources, CASRN, key, method)
     else:
@@ -202,8 +217,8 @@ def RI(CASRN, method=None):
     return value
 
 
-def polarizability_from_RI(RI, Vm):
-    r'''Returns the polarizability of a fluid given its molar volume and
+def polarizability_from_RI(RI: float, Vm: float) -> float:
+    r"""Returns the polarizability of a fluid given its molar volume and
     refractive index.
 
     .. math::
@@ -241,11 +256,11 @@ def polarizability_from_RI(RI, Vm):
        Polarizabilities of Nonpolar and Slightly Polar Hydrocarbons."
        International Journal of Thermophysics 37, no. 7 (June 6, 2016): 1-24.
        doi:10.1007/s10765-016-2075-8.
-    '''
+    """
     return 3/(4*pi*N_A)*(RI**2-1)/(RI**2+2)*Vm
 
-def molar_refractivity_from_RI(RI, Vm):
-    r'''Returns the molar refractivity of a fluid given its molar volume and
+def molar_refractivity_from_RI(RI: float, Vm: float) -> float:
+    r"""Returns the molar refractivity of a fluid given its molar volume and
     refractive index.
 
     .. math::
@@ -278,11 +293,11 @@ def molar_refractivity_from_RI(RI, Vm):
        Polarizabilities of Nonpolar and Slightly Polar Hydrocarbons."
        International Journal of Thermophysics 37, no. 7 (June 6, 2016): 1-24.
        doi:10.1007/s10765-016-2075-8.
-    '''
+    """
     return (RI**2 - 1.)/(RI**2 + 2.)*Vm
 
-def RI_from_molar_refractivity(Rm, Vm):
-    r'''Returns the refractive index of a fluid given its molar volume and
+def RI_from_molar_refractivity(Rm: float, Vm: float) -> float:
+    r"""Returns the refractive index of a fluid given its molar volume and
     molar refractivity.
 
     .. math::
@@ -315,13 +330,13 @@ def RI_from_molar_refractivity(Rm, Vm):
        Polarizabilities of Nonpolar and Slightly Polar Hydrocarbons."
        International Journal of Thermophysics 37, no. 7 (June 6, 2016): 1-24.
        doi:10.1007/s10765-016-2075-8.
-    '''
+    """
     Rm = ((-2*Rm - Vm)/(Rm-Vm))**0.5
     return Rm
 
 
-def RI_IAPWS(T, rho, wavelength=0.5893e-6):
-    r'''Calculates the refractive index of water at a given temperature,
+def RI_IAPWS(T: float, rho: float, wavelength: float=0.5893e-6) -> float:
+    r"""Calculates the refractive index of water at a given temperature,
     density, and wavelength.
 
     .. math::
@@ -380,7 +395,7 @@ def RI_IAPWS(T, rho, wavelength=0.5893e-6):
     ----------
     .. [1] IAPWS, 1997. Release on the Refractive Index of Ordinary Water
        Substance as a Function of Wavelength, Temperature and Pressure.
-    '''
+    """
     wavelength *= 1e6
     delta = rho*1e-3
     theta = T*(1.0/273.15)
@@ -398,7 +413,7 @@ def RI_IAPWS(T, rho, wavelength=0.5893e-6):
     return n
 
 def TDE_RIXExpansion(T, Bs, Cs, wavelength=589.26e-9):
-    r'''Calculates the refractive index of a pure liquid at a given temperature,
+    r"""Calculates the refractive index of a pure liquid at a given temperature,
     and wavelength, using the NIST TDE RIXExpansion formula [1]_.
 
     .. math::
@@ -443,7 +458,7 @@ def TDE_RIXExpansion(T, Bs, Cs, wavelength=589.26e-9):
     ----------
     .. [1] "ThermoData Engine (TDE103b V10.1) User`s Guide."
        https://trc.nist.gov/TDE/Help/TDE103b/Eqns-Pure-RefractiveIndex/RIXExpansion.htm.
-    '''
+    """
     t = T - 298.15
     w = (wavelength - 589.26e-9)*1e9
     n_D = horner(Bs, t)
@@ -467,7 +482,7 @@ ICUMSA_1974_RIs = [1.33299, 1.33442, 1.33586, 1.33732, 1.33879, 1.34026, 1.34175
                    1.50129, 1.50398, 1.5067, 1.5094, 1.5122, 1.5149, 1.5177,
                    1.5205, 1.5234, 1.5262, 1.5291, 1.5320]
 
-def brix_to_RI(brix):
+def brix_to_RI(brix: float) -> float:
     """Convert a refractive index measurement on the `brix` scale to a standard
     refractive index.
 
@@ -508,7 +523,7 @@ def brix_to_RI(brix):
     """
     return interp(brix, ICUMSA_1974_brix, ICUMSA_1974_RIs, extrapolate=True)
 
-def RI_to_brix(RI):
+def RI_to_brix(RI: float) -> float:
     """Convert a standard refractive index measurement to the `brix` scale.
 
     Parameters

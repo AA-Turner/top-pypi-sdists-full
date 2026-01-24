@@ -3,7 +3,7 @@ Type annotations for budgets service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -82,12 +83,6 @@ from .type_defs import (
     UpdateSubscriberRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -96,18 +91,19 @@ else:
 __all__ = ("BudgetsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CreationLimitExceededException: Type[BotocoreClientError]
-    DuplicateRecordException: Type[BotocoreClientError]
-    ExpiredNextTokenException: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceLockedException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BillingViewHealthStatusException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CreationLimitExceededException: type[BotocoreClientError]
+    DuplicateRecordException: type[BotocoreClientError]
+    ExpiredNextTokenException: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceLockedException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class BudgetsClient(AioBaseClient):
     """
@@ -144,7 +140,7 @@ class BudgetsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/#generate_presigned_url)
         """
 
-    async def create_budget(self, **kwargs: Unpack[CreateBudgetRequestTypeDef]) -> Dict[str, Any]:
+    async def create_budget(self, **kwargs: Unpack[CreateBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a budget and, if included, notifications and subscribers.
 
@@ -164,7 +160,7 @@ class BudgetsClient(AioBaseClient):
 
     async def create_notification(
         self, **kwargs: Unpack[CreateNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a notification.
 
@@ -174,7 +170,7 @@ class BudgetsClient(AioBaseClient):
 
     async def create_subscriber(
         self, **kwargs: Unpack[CreateSubscriberRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a subscriber.
 
@@ -182,7 +178,7 @@ class BudgetsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/#create_subscriber)
         """
 
-    async def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a budget.
 
@@ -202,7 +198,7 @@ class BudgetsClient(AioBaseClient):
 
     async def delete_notification(
         self, **kwargs: Unpack[DeleteNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a notification.
 
@@ -212,7 +208,7 @@ class BudgetsClient(AioBaseClient):
 
     async def delete_subscriber(
         self, **kwargs: Unpack[DeleteSubscriberRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a subscriber.
 
@@ -341,7 +337,7 @@ class BudgetsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates tags for a budget or budget action resource.
 
@@ -349,7 +345,7 @@ class BudgetsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes tags associated with a budget or budget action resource.
 
@@ -357,7 +353,7 @@ class BudgetsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_budgets/client/#untag_resource)
         """
 
-    async def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> Dict[str, Any]:
+    async def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a budget.
 
@@ -377,7 +373,7 @@ class BudgetsClient(AioBaseClient):
 
     async def update_notification(
         self, **kwargs: Unpack[UpdateNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a notification.
 
@@ -387,7 +383,7 @@ class BudgetsClient(AioBaseClient):
 
     async def update_subscriber(
         self, **kwargs: Unpack[UpdateSubscriberRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a subscriber.
 
@@ -491,7 +487,7 @@ class BudgetsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

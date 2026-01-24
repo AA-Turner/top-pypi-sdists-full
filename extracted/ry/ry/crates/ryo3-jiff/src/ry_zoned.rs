@@ -1,35 +1,35 @@
-use crate::errors::{map_py_overflow_err, map_py_runtime_err, map_py_value_err};
-use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
+use crate::isoformat::PyIsoFormat;
 use crate::round::RyZonedDateTimeRound;
 use crate::ry_datetime::RyDateTime;
 use crate::ry_iso_week_date::RyISOWeekDate;
-use crate::ry_offset::{RyOffset, print_isoformat_offset};
+use crate::ry_offset::RyOffset;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::ry_span::RySpan;
 use crate::ry_time::RyTime;
 use crate::ry_timestamp::RyTimestamp;
 use crate::ry_timezone::RyTimeZone;
+use crate::series::RyZonedSeries;
 use crate::spanish::Spanish;
 use crate::{
     JiffEra, JiffEraYear, JiffRoundMode, JiffTzDisambiguation, JiffTzOffsetConflict, JiffUnit,
     JiffWeekday, JiffZoned, RyDate,
 };
 use jiff::civil::{Date, Time, Weekday};
-use jiff::tz::{Offset, TimeZone};
+use jiff::tz::TimeZone;
 use jiff::{Zoned, ZonedDifference, ZonedRound};
-use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::{PyDict, PyTuple};
+use pyo3::{BoundObject, IntoPyObjectExt};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
 use ryo3_macro_rules::{any_repr, py_type_err};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, PartialEq)]
-#[pyclass(name = "ZonedDateTime", frozen)]
+#[pyclass(name = "ZonedDateTime", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyZoned(pub(crate) Zoned);
 
@@ -99,6 +99,7 @@ impl RyZoned {
     pub(crate) fn utcnow() -> Self {
         Self::from(Zoned::now().with_time_zone(TimeZone::UTC))
     }
+
     #[staticmethod]
     #[pyo3(signature = (timestamp, time_zone))]
     fn from_parts(timestamp: &RyTimestamp, time_zone: &RyTimeZone) -> Self {
@@ -106,25 +107,21 @@ impl RyZoned {
         Self::from(Zoned::new(ts, time_zone.into()))
     }
 
-    #[staticmethod]
-    fn from_str(s: &str) -> PyResult<Self> {
-        Zoned::from_str(s).map(Self::from).map_err(map_py_value_err)
-    }
-
-    #[staticmethod]
-    fn parse(input: &str) -> PyResult<Self> {
-        Self::from_str(input)
-    }
-
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
-    fn __format__(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            self.strftime(fmt)
+        }
     }
 
-    fn strftime(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    #[pyo3(signature = (fmt))]
+    fn strftime(&self, fmt: &str) -> PyResult<String> {
+        let bdt: jiff::fmt::strtime::BrokenDownTime = (&self.0).into();
+        bdt.to_string(fmt).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -136,8 +133,8 @@ impl RyZoned {
     }
 
     #[staticmethod]
-    fn parse_rfc2822(input: &str) -> PyResult<Self> {
-        ::jiff::fmt::rfc2822::parse(input)
+    fn parse_rfc2822(s: &str) -> PyResult<Self> {
+        ::jiff::fmt::rfc2822::parse(s)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
@@ -156,26 +153,6 @@ impl RyZoned {
     fn to_rfc2822(&self) -> PyResult<String> {
         jiff::fmt::rfc2822::to_string(&self.0).map_err(map_py_value_err)
     }
-    // ISO format mismatch:
-    // input datetime: 7639-01-01 00:00:00.395000+00:00 (repr: datetime.datetime(7639, 1, 1, 0, 0, 0, 395000, tzinfo=zoneinfo.ZoneInfo(key='UTC')))
-    // py: 7639-01-01T00:00:00.395000+00:00
-    // ry: 7639-01-01T00:00:00+00
-    // is_eq: False
-    // ry_prefix_ok: False
-    fn isoformat(&self) -> PyResult<String> {
-        let offset: Offset = self.0.offset();
-        // let ts = self.0.timestamp();
-        let dattie = self.0.datetime();
-        let mut s = String::with_capacity(32);
-        if self.0.datetime().microsecond() == 0 && self.0.subsec_nanosecond() == 0 {
-            ISOFORMAT_PRINTER_NO_MICROS.print_datetime(&dattie, &mut s)
-        } else {
-            ISOFORMAT_PRINTER.print_datetime(&dattie, &mut s)
-        }
-        .map_err(map_py_runtime_err)?;
-        print_isoformat_offset(&offset, &mut s).map_err(map_py_runtime_err)?;
-        Ok(s)
-    }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
         match op {
@@ -188,16 +165,17 @@ impl RyZoned {
         }
     }
 
-    fn string(&self) -> String {
-        self.0.to_string()
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> PyAsciiString {
+        self.__str__()
     }
 
-    fn __str__(&self) -> String {
-        self.0.to_string()
+    fn __str__(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
-    fn __repr__(&self) -> String {
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __hash__(&self) -> u64 {
@@ -211,20 +189,20 @@ impl RyZoned {
         hasher.finish()
     }
 
-    pub(crate) fn timestamp(&self) -> RyTimestamp {
-        RyTimestamp::from(self.0.timestamp())
+    fn timestamp(&self) -> RyTimestamp {
+        RyTimestamp::from(self)
     }
 
-    pub(crate) fn date(&self) -> RyDate {
-        RyDate::from(self.0.date())
+    fn date(&self) -> RyDate {
+        RyDate::from(self)
     }
 
-    pub(crate) fn time(&self) -> RyTime {
-        RyTime::from(self.0.time())
+    fn time(&self) -> RyTime {
+        RyTime::from(self)
     }
 
     fn datetime(&self) -> RyDateTime {
-        RyDateTime::from(self.0.datetime())
+        RyDateTime::from(self)
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -265,8 +243,8 @@ impl RyZoned {
     }
 
     #[staticmethod]
-    fn from_pydatetime(d: JiffZoned) -> Self {
-        Self::from(d.0)
+    fn from_pydatetime(datetime: JiffZoned) -> Self {
+        Self::from(datetime.0)
     }
 
     fn in_tz(&self, tz: &str) -> PyResult<Self> {
@@ -297,7 +275,7 @@ impl RyZoned {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         #[expect(clippy::arithmetic_side_effects)]
-        if let Ok(zoned) = other.cast::<Self>() {
+        if let Ok(zoned) = other.cast_exact::<Self>() {
             // if other is a Zoned, return a Span
             let span = &self.0 - &zoned.get().0;
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
@@ -336,32 +314,27 @@ impl RyZoned {
     }
 
     #[pyo3(
-       signature = (smallest=None, *, mode = None, increment = None),
+        signature = (
+            smallest=JiffUnit::NANOSECOND,
+            *,
+            mode=JiffRoundMode(jiff::RoundMode::HalfExpand),
+            increment=1
+        ),
+        text_signature = "(self, smallest=\"nanosecond\", *, mode=\"half-expand\", increment=1)"
     )]
-    fn round(
-        &self,
-        smallest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
-    ) -> PyResult<Self> {
-        let mut zdt_round = ZonedRound::new();
-        if let Some(smallest) = smallest {
-            zdt_round = zdt_round.smallest(smallest.0);
-        }
-        if let Some(mode) = mode {
-            zdt_round = zdt_round.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            zdt_round = zdt_round.increment(increment);
-        }
+    fn round(&self, smallest: JiffUnit, mode: JiffRoundMode, increment: i64) -> PyResult<Self> {
+        let zdt_round = ZonedRound::new()
+            .smallest(smallest.0)
+            .increment(increment)
+            .mode(mode.0);
         self.0
             .round(zdt_round)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    fn _round(&self, zdt_round: &RyZonedDateTimeRound) -> PyResult<Self> {
-        zdt_round.round(self)
+    fn _round(&self, options: &RyZonedDateTimeRound) -> PyResult<Self> {
+        options.round(self)
     }
 
     fn tomorrow(&self) -> PyResult<Self> {
@@ -467,28 +440,30 @@ impl RyZoned {
     }
 
     #[pyo3(
-       signature = (zdt, *, smallest=None, largest = None, mode = None, increment = None),
+        signature=(
+            other,
+            *,
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
+        ),
+        text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn since(
         &self,
-        zdt: &Self,
-        smallest: Option<JiffUnit>,
+        other: &Self,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
-        let mut zdt_diff = ZonedDifference::from(&zdt.0);
-        if let Some(smallest) = smallest {
-            zdt_diff = zdt_diff.smallest(smallest.0);
-        }
+        let mut zdt_diff = ZonedDifference::from(&other.0)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             zdt_diff = zdt_diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            zdt_diff = zdt_diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            zdt_diff = zdt_diff.increment(increment);
         }
         self.0
             .since(zdt_diff)
@@ -497,28 +472,30 @@ impl RyZoned {
     }
 
     #[pyo3(
-       signature = (zdt, *, smallest=None, largest = None, mode = None, increment = None),
+        signature=(
+            other,
+            *,
+            smallest=JiffUnit::NANOSECOND,
+            largest=None,
+            mode=JiffRoundMode::TRUNC,
+            increment=1
+        ),
+        text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn until(
         &self,
-        zdt: &Self,
-        smallest: Option<JiffUnit>,
+        other: &Self,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
-        let mut zdt_diff = ZonedDifference::from(&zdt.0);
-        if let Some(smallest) = smallest {
-            zdt_diff = zdt_diff.smallest(smallest.0);
-        }
+        let mut zdt_diff = ZonedDifference::from(&other.0)
+            .increment(increment)
+            .mode(mode.0)
+            .smallest(smallest.0);
         if let Some(largest) = largest {
             zdt_diff = zdt_diff.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            zdt_diff = zdt_diff.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            zdt_diff = zdt_diff.increment(increment);
         }
         self.0
             .until(zdt_diff)
@@ -530,7 +507,7 @@ impl RyZoned {
         self.0.with_time_zone(tz.into()).into()
     }
 
-    fn iso_week_date(&self) -> RyISOWeekDate {
+    pub(crate) fn iso_week_date(&self) -> RyISOWeekDate {
         let d = self.0.date();
         d.iso_week_date().into()
     }
@@ -563,8 +540,8 @@ impl RyZoned {
     fn replace(
         &self,
         obj: Option<Bound<'_, PyAny>>,
-        date: Option<RyDate>,
-        time: Option<RyTime>,
+        date: Option<&RyDate>,
+        time: Option<&RyTime>,
         year: Option<i16>,
         era_year: Option<(i16, JiffEra)>,
         month: Option<i8>,
@@ -578,7 +555,7 @@ impl RyZoned {
         microsecond: Option<i16>,
         nanosecond: Option<i16>,
         subsec_nanosecond: Option<i32>,
-        offset: Option<RyOffset>,
+        offset: Option<&RyOffset>,
         offset_conflict: Option<JiffTzOffsetConflict>,
         disambiguation: Option<JiffTzDisambiguation>,
     ) -> PyResult<Self> {
@@ -586,17 +563,17 @@ impl RyZoned {
         let mut builder = self.0.with();
         if let Some(obj) = obj {
             // if obj is a Zoned, use it as the base
-            if let Ok(zoned) = obj.cast::<RyDate>() {
+            if let Ok(zoned) = obj.cast_exact::<RyDate>() {
                 // if obj is a Zoned, use it as the base
-                let date = zoned.extract::<RyDate>()?;
-                builder = builder.date(date.0);
-            } else if let Ok(time) = obj.cast::<RyTime>() {
+                builder = builder.date(zoned.get().0);
+            } else if let Ok(time) = obj.cast_exact::<RyTime>() {
                 // if obj is a Time, use it as the base
-                let time = time.extract::<RyTime>()?;
-                builder = builder.time(time.0);
-            } else if let Ok(date) = obj.cast::<RyOffset>() {
-                let offset = date.extract::<RyOffset>()?;
-                builder = builder.offset(offset.0);
+                builder = builder.time(time.get().0);
+            } else if let Ok(dt) = obj.cast_exact::<RyDateTime>() {
+                // if obj is a Time, use it as the base
+                builder = builder.time(dt.get().0.time()).date(dt.get().0.date());
+            } else if let Ok(offset) = obj.cast_exact::<RyOffset>() {
+                builder = builder.offset(offset.get().0);
             } else {
                 return py_type_err!("obj must be a Date, Time or Offset; given: {obj}",);
             }
@@ -659,6 +636,10 @@ impl RyZoned {
         }
         // finally build, mapping any error back to Python
         builder.build().map(Self::from).map_err(map_py_value_err)
+    }
+
+    fn series(&self, period: &RySpan) -> PyResult<RyZonedSeries> {
+        (self, period).try_into()
     }
 
     // -----------------------------------------------------------------------
@@ -738,36 +719,35 @@ impl RyZoned {
     }
 
     #[staticmethod]
-    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         let py = value.py();
-        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
-            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
-            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if value.is_exact_instance_of::<Self>() {
-            value.into_bound_py_any(py)
-        } else if let Ok(d) = value.cast_exact::<RyTimestamp>() {
-            let dt = d.get().0.to_zoned(TimeZone::UTC);
-            dt.into_bound_py_any(py)
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(ts) = value.cast_exact::<RyTimestamp>() {
+            Self::from(ts.get()).into_pyobject(py)
         } else if let Ok(d) = value.extract::<JiffZoned>() {
-            Self::from(d.0).into_bound_py_any(py)
+            Self::from(d.0).into_pyobject(py)
         } else {
             let valtype = any_repr!(value);
             py_type_err!("ZonedDateTime conversion error: {valtype}",)
         }
     }
+
     // ========================================================================
     // PYDANTIC
     // ========================================================================
-
     #[cfg(feature = "pydantic")]
     #[staticmethod]
     fn _pydantic_validate<'py>(
         value: &Bound<'py, PyAny>,
         _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    ) -> PyResult<Bound<'py, Self>> {
         Self::from_any(value).map_err(map_py_value_err)
     }
 
@@ -781,6 +761,27 @@ impl RyZoned {
         use ryo3_pydantic::GetPydanticCoreSchemaCls;
         Self::get_pydantic_core_schema(cls, source, handler)
     }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as PyIsoFormat>::isoformat(self)
+    }
+    // </STD-METHODS>
 }
 
 impl Display for RyZoned {
@@ -801,11 +802,5 @@ impl Display for RyZoned {
         } else {
             write!(f, "ZonedDateTime.parse(\"{}\")", self.0)
         }
-    }
-}
-
-impl From<Zoned> for RyZoned {
-    fn from(value: Zoned) -> Self {
-        Self(value)
     }
 }

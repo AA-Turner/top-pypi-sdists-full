@@ -4,51 +4,36 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: build (Python ${{ matrix.python-version }}, Django ${{ matrix.django-version }})
+    name: build (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 5
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', 'pypy-3.10']
-        django-version: ['2.2', '3.2', '4.0', '4.1', '4.2']
-        include:
-          # Tox configuration for QA environment
-          - python-version: '3.11'
-            django-version: 'qa'
-          # Django main
-          - python-version: '3.10'
-            django-version: 'main'
-            experimental: true
-          - python-version: '3.11'
-            django-version: 'main'
-            experimental: true
-          - python-version: 'pypy-3.10'
-            django-version: 'main'
-            experimental: true
-        exclude:
-          # Exclude Django 2.2 for Python 3.10
-          - python-version: '3.10'
-            django-version: '2.2'
-          # Exclude Django 2.2 for Python 3.11
-          - python-version: '3.11'
-            django-version: '2.2'
-
+        python-version:
+        - '3.9'
+        - '3.10'
+        - '3.11'
+        - '3.12'
+        - '3.13'
+        - 'pypy-3.10'
+        - 'pypy-3.11'
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Get pip cache dir
       id: pip-cache
+      shell: bash
       run: |
-        echo "::set-output name=dir::$(pip cache dir)"
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
 
     - name: Cache
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
         key:
@@ -64,10 +49,8 @@ jobs:
     - name: Tox tests
       run: |
         tox -v
-      env:
-        DJANGO: ${{ matrix.django-version }}
 
     - name: Upload coverage
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v5
       with:
         name: Python ${{ matrix.python-version }}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: janaf
-Version: 1.1.2
+Version: 1.2.0
 Summary: Python wrapper for NIST-JANAF Thermochemical Tables
 Project-URL: Repository, https://github.com/n-takumasa/py-janaf
 Author-email: Takumasa Nakamura <n.takumasa@gmail.com>
@@ -19,38 +19,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.8
+Requires-Dist: importlib-resources>=5.0; python_version < '3.9'
 Requires-Dist: polars>=1.0.0
-Provides-Extra: dev
-Requires-Dist: aiofiles; extra == 'dev'
-Requires-Dist: aiohttp; extra == 'dev'
-Requires-Dist: matplotlib; extra == 'dev'
-Requires-Dist: mypy[install-types]; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-github-actions-annotate-failures; extra == 'dev'
-Requires-Dist: pytest>=8; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
-Requires-Dist: tox-uv; extra == 'dev'
-Requires-Dist: tox>=4; extra == 'dev'
-Provides-Extra: example
-Requires-Dist: matplotlib; extra == 'example'
-Provides-Extra: lint
-Requires-Dist: ruff; extra == 'lint'
-Provides-Extra: script
-Requires-Dist: aiofiles; extra == 'script'
-Requires-Dist: aiohttp; extra == 'script'
-Provides-Extra: test
-Requires-Dist: matplotlib; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-github-actions-annotate-failures; extra == 'test'
-Requires-Dist: pytest>=8; extra == 'test'
-Provides-Extra: type
-Requires-Dist: aiofiles; extra == 'type'
-Requires-Dist: aiohttp; extra == 'type'
-Requires-Dist: matplotlib; extra == 'type'
-Requires-Dist: mypy[install-types]; extra == 'type'
-Requires-Dist: pytest-cov; extra == 'type'
-Requires-Dist: pytest-github-actions-annotate-failures; extra == 'type'
-Requires-Dist: pytest>=8; extra == 'type'
+Provides-Extra: all
+Requires-Dist: xarray>=2023.1.0; extra == 'all'
+Provides-Extra: xarray
+Requires-Dist: xarray>=2023.1.0; extra == 'xarray'
 Description-Content-Type: text/markdown
 
 # py-janaf: Python wrapper for NIST-JANAF Thermochemical Tables

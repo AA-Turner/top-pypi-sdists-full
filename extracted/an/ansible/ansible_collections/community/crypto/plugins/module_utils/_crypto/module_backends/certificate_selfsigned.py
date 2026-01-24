@@ -34,16 +34,16 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_relative_time_option,
 )
 
-
 if t.TYPE_CHECKING:
     import datetime  # pragma: no cover
 
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
-    from ansible_collections.community.crypto.plugins.module_utils._argspec import (  # pragma: no cover
-        ArgumentSpec,
-    )
     from cryptography.hazmat.primitives.asymmetric.types import (  # pragma: no cover
         CertificateIssuerPrivateKeyTypes,
+    )
+
+    from ansible_collections.community.crypto.plugins.module_utils._argspec import (  # pragma: no cover
+        ArgumentSpec,
     )
 
 
@@ -180,7 +180,7 @@ class SelfSignedCertificateBackendCryptography(CertificateBackend):
         assert self.existing_certificate is not None
 
         # Check whether certificate is signed by private key
-        if not cryptography_verify_certificate_signature(
+        if not cryptography_verify_certificate_signature(  # noqa: SIM103
             certificate=self.existing_certificate,
             signer_public_key=self.privatekey.public_key(),
         ):

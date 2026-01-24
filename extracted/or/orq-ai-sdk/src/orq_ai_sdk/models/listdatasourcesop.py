@@ -26,14 +26,14 @@ r"""Filter datasources by status."""
 class ListDatasourcesRequestTypedDict(TypedDict):
     knowledge_id: str
     r"""Unique identifier of the knowledge base"""
-    limit: NotRequired[float]
-    r"""A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10"""
     starting_after: NotRequired[str]
     r"""A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, ending with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `after=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the next page of the list."""
     ending_before: NotRequired[str]
     r"""A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list."""
     q: NotRequired[str]
     r"""Search query to find datasources by name."""
+    limit: NotRequired[float]
+    r"""A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10"""
     status: NotRequired[StatusTypedDict]
     r"""Filter datasources by status."""
 
@@ -43,12 +43,6 @@ class ListDatasourcesRequest(BaseModel):
         str, FieldMetadata(path=PathParamMetadata(style="simple", explode=False))
     ]
     r"""Unique identifier of the knowledge base"""
-
-    limit: Annotated[
-        Optional[float],
-        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
-    ] = 10
-    r"""A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10"""
 
     starting_after: Annotated[
         Optional[str],
@@ -68,11 +62,35 @@ class ListDatasourcesRequest(BaseModel):
     ] = None
     r"""Search query to find datasources by name."""
 
+    limit: Annotated[
+        Optional[float],
+        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
+    ] = 50
+    r"""A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10"""
+
     status: Annotated[
         Optional[Status],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = None
     r"""Filter datasources by status."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["starting_after", "ending_before", "q", "limit", "status"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 ListDatasourcesObject = Literal["list",]
@@ -100,15 +118,15 @@ class ListDatasourcesDataTypedDict(TypedDict):
     chunks_count: float
     r"""The number of chunks in the datasource"""
     id: NotRequired[str]
-    r"""The id of the resource"""
+    r"""The unique identifier of the data source"""
     description: NotRequired[str]
     r"""The description of the knowledge base"""
     file_id: NotRequired[Nullable[str]]
     r"""The unique identifier of the file used to create the datasource."""
     created_by_id: NotRequired[Nullable[str]]
-    r"""The id of the resource"""
+    r"""The user ID of the creator of the knowledge base"""
     update_by_id: NotRequired[Nullable[str]]
-    r"""The id of the resource"""
+    r"""The user ID of the last user who updated the knowledge base"""
 
 
 class ListDatasourcesData(BaseModel):
@@ -130,9 +148,9 @@ class ListDatasourcesData(BaseModel):
     r"""The number of chunks in the datasource"""
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "01K5SN3DYYZXD6BAG8RYXVWR6C"
+        "01KFN8ZQFZ0Z5WE25M0AA6KP2Z"
     )
-    r"""The id of the resource"""
+    r"""The unique identifier of the data source"""
 
     description: Optional[str] = None
     r"""The description of the knowledge base"""
@@ -141,44 +159,35 @@ class ListDatasourcesData(BaseModel):
     r"""The unique identifier of the file used to create the datasource."""
 
     created_by_id: OptionalNullable[str] = UNSET
-    r"""The id of the resource"""
+    r"""The user ID of the creator of the knowledge base"""
 
     update_by_id: OptionalNullable[str] = UNSET
-    r"""The id of the resource"""
+    r"""The user ID of the last user who updated the knowledge base"""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = [
-            "_id",
-            "description",
-            "file_id",
-            "created_by_id",
-            "update_by_id",
-        ]
-        nullable_fields = ["file_id", "created_by_id", "update_by_id"]
-        null_default_fields = []
-
+        optional_fields = set(
+            ["_id", "description", "file_id", "created_by_id", "update_by_id"]
+        )
+        nullable_fields = set(["file_id", "created_by_id", "update_by_id"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m
 

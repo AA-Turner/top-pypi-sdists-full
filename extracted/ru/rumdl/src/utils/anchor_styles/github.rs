@@ -25,37 +25,35 @@
 //! - ReDoS-resistant regex patterns with complexity limits
 //! - Comprehensive emoji detection including country flags and keycaps
 
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 use unicode_normalization::UnicodeNormalization;
 
-// Security limits for input validation
-const MAX_INPUT_LENGTH: usize = 10240; // 10KB maximum input
+use super::common::{
+    DANGEROUS_UNICODE_PATTERN, MAX_INPUT_LENGTH, UnicodeLetterMode, ZERO_WIDTH_PATTERN, is_safe_unicode_letter,
+};
 
-lazy_static! {
-    // ReDoS-resistant patterns with atomic grouping and possessive quantifiers where possible
-    // Limited repetition depth to prevent catastrophic backtracking
-    // Match both asterisk and underscore emphasis (with proper nesting handling)
-    static ref EMPHASIS_ASTERISK: Regex = Regex::new(r"\*{1,3}([^*]+?)\*{1,3}").unwrap();
-    // Match emphasis underscores - only when they wrap text, not in snake_case
-    // This pattern matches _text_ or __text__ but not test_with_underscores
-    static ref EMPHASIS_UNDERSCORE: Regex = Regex::new(r"\b_{1,2}([^_\s][^_]*?)_{1,2}\b").unwrap();
-    static ref CODE_PATTERN: Regex = Regex::new(r"`([^`]{0,500})`").unwrap();
-    // Match image and link patterns
-    // Using simple approach: match the brackets and parentheses, extract only the bracket content
-    static ref IMAGE_PATTERN: Regex = Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap();
-    static ref LINK_PATTERN: Regex = Regex::new(r"\[([^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*)\](?:\([^)]*\)|\[[^\]]*\])").unwrap();
+// ReDoS-resistant patterns with atomic grouping and possessive quantifiers where possible
+// Limited repetition depth to prevent catastrophic backtracking
+// Match both asterisk and underscore emphasis (with proper nesting handling)
+static EMPHASIS_ASTERISK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*{1,3}([^*]+?)\*{1,3}").unwrap());
+// Match emphasis underscores - only when they wrap text, not in snake_case
+// This pattern matches _text_ or __text__ but not test_with_underscores
+static EMPHASIS_UNDERSCORE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b_{1,2}([^_\s][^_]*?)_{1,2}\b").unwrap());
+static CODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]{0,500})`").unwrap());
+// Match image and link patterns
+// Using simple approach: match the brackets and parentheses, extract only the bracket content
+static IMAGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap());
+static LINK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*)\](?:\([^)]*\)|\[[^\]]*\])").unwrap());
 
-    // Zero-width character patterns - remove these entirely for security
-    static ref ZERO_WIDTH_PATTERN: Regex = Regex::new(r"[\u200B-\u200D\u2060\uFEFF]").unwrap();
+// Ampersand and copyright with whitespace patterns
+static AMPERSAND_WITH_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+&\s+").unwrap());
+static COPYRIGHT_WITH_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s+©\s+").unwrap());
 
-    // RTL override and dangerous Unicode control patterns
-    static ref DANGEROUS_UNICODE_PATTERN: Regex = Regex::new(r"[\u202A-\u202E\u2066-\u2069\u061C\u200E\u200F]").unwrap();
-
-    // Ampersand and copyright with whitespace patterns
-    static ref AMPERSAND_WITH_SPACES: Regex = Regex::new(r"\s+&\s+").unwrap();
-    static ref COPYRIGHT_WITH_SPACES: Regex = Regex::new(r"\s+©\s+").unwrap();
-}
+// Angle bracket removal (e.g., Generic<T> → GenericT, import <FILE> → import FILE)
+// GitHub removes only the angle brackets themselves, preserving the content
+static ANGLE_BRACKETS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<([^>]*)>").unwrap());
 
 /// Generate GitHub.com style anchor fragment from heading text with security hardening
 ///
@@ -109,9 +107,6 @@ pub fn heading_to_fragment(heading: &str) -> String {
 
 /// Internal implementation with security hardening
 fn heading_to_fragment_internal(heading: &str) -> String {
-    // Save original heading state for edge detection
-    let _original_heading_lower = heading.to_lowercase();
-
     // Security Step 2: Unicode normalization to prevent homograph attacks
     // NFC normalization ensures canonical representation
     let normalized: String = heading.nfc().collect();
@@ -128,7 +123,7 @@ fn heading_to_fragment_internal(heading: &str) -> String {
     }) {
         process_emoji_sequences(&normalized)
     } else {
-        normalized.clone()
+        normalized
     };
 
     // Security Step 4: Filter dangerous Unicode characters
@@ -138,22 +133,21 @@ fn heading_to_fragment_internal(heading: &str) -> String {
     let mut text = sanitized.to_lowercase();
 
     // Step 5: Remove markdown formatting while preserving inner text
-    // Process multiple times to handle nested emphasis (e.g., **_text_**)
-    // Using ReDoS-resistant patterns with bounded repetition
-    for _ in 0..3 {
-        // Max 3 levels of nesting to prevent infinite loops
-        let prev = text.clone();
-        text = EMPHASIS_ASTERISK.replace_all(&text, "$1").to_string();
-        // Strip emphasis underscores - the regex now properly handles snake_case preservation
-        text = EMPHASIS_UNDERSCORE.replace_all(&text, "$1").to_string();
-        if text == prev {
-            break;
-        } // No more changes
+    if text.contains('*') || text.contains('_') || text.contains('`') || text.contains('[') {
+        // Process emphasis iteratively to handle nesting (e.g., **_text_**)
+        // Bounded to 3 iterations to prevent infinite loops on malformed input
+        for _ in 0..3 {
+            let prev = text.clone();
+            text = EMPHASIS_ASTERISK.replace_all(&text, "$1").to_string();
+            text = EMPHASIS_UNDERSCORE.replace_all(&text, "$1").to_string();
+            if text == prev {
+                break;
+            }
+        }
+        text = CODE_PATTERN.replace_all(&text, "$1").to_string();
+        text = IMAGE_PATTERN.replace_all(&text, "$1").to_string();
+        text = LINK_PATTERN.replace_all(&text, "$1").to_string();
     }
-    text = CODE_PATTERN.replace_all(&text, "$1").to_string();
-    // Handle images first, then links
-    text = IMAGE_PATTERN.replace_all(&text, "$1").to_string();
-    text = LINK_PATTERN.replace_all(&text, "$1").to_string();
 
     // Step 6: Multi-character arrow patterns (order matters!)
     // GitHub.com converts these patterns to specific hyphen sequences
@@ -220,6 +214,11 @@ fn heading_to_fragment_internal(heading: &str) -> String {
     text = text.replace("&", "");
     text = text.replace("©", "");
 
+    // Step 9.5: Remove angle brackets but preserve content (e.g., Generic<T> → GenericT, import <FILE> → import FILE)
+    // GitHub.com removes only the angle brackets themselves, not the content
+    // This handles both type parameters like "Bound<T>" → "boundt" and placeholders like "import <FILE>" → "import file"
+    text = ANGLE_BRACKETS.replace_all(&text, "$1").to_string();
+
     // Step 10: Character-by-character processing
     let mut result = String::with_capacity(text.len()); // Pre-allocate for efficiency
 
@@ -244,7 +243,7 @@ fn heading_to_fragment_internal(heading: &str) -> String {
                 result.push(c);
             }
             // Otherwise filter it out
-        } else if c.is_alphabetic() && is_safe_unicode_letter(c) {
+        } else if c.is_alphabetic() && is_safe_unicode_letter(c, UnicodeLetterMode::GitHub) {
             // Preserve Unicode letters (like é, ñ, etc.) but only safe ones
             result.push(c);
         } else if c.is_numeric() {
@@ -511,48 +510,6 @@ fn sanitize_unicode(input: &str) -> String {
     }
 
     sanitized
-}
-
-/// Check if a Unicode letter is safe to include in anchors
-/// Excludes potentially dangerous or confusing character ranges
-fn is_safe_unicode_letter(c: char) -> bool {
-    let code = c as u32;
-
-    // Exclude potentially dangerous ranges:
-    // - Private Use Areas (could contain malicious content)
-    // - Variation Selectors (can change appearance)
-    // - Format characters (invisible formatting)
-    if (0xE000..=0xF8FF).contains(&code) ||    // Private Use Area
-       (0xF0000..=0xFFFFD).contains(&code) ||  // Supplementary Private Use Area-A
-       (0x100000..=0x10FFFD).contains(&code) || // Supplementary Private Use Area-B
-       (0xFE00..=0xFE0F).contains(&code) ||    // Variation Selectors
-       (0xE0100..=0xE01EF).contains(&code)
-    {
-        // Variation Selectors Supplement
-        return false;
-    }
-
-    // Allow common safe Unicode letter ranges
-    // Basic Latin (already covered by is_alphabetic())
-    (0x0000..=0x007F).contains(&code) ||       // Basic Latin
-    (0x0080..=0x00FF).contains(&code) ||       // Latin-1 Supplement
-    (0x0100..=0x017F).contains(&code) ||       // Latin Extended-A
-    (0x0180..=0x024F).contains(&code) ||       // Latin Extended-B
-    (0x0370..=0x03FF).contains(&code) ||       // Greek and Coptic
-    (0x0400..=0x04FF).contains(&code) ||       // Cyrillic
-    (0x0500..=0x052F).contains(&code) ||       // Cyrillic Supplement
-    (0x0590..=0x05FF).contains(&code) ||       // Hebrew
-    (0x0600..=0x06FF).contains(&code) ||       // Arabic
-    (0x0700..=0x074F).contains(&code) ||       // Syriac
-    (0x0750..=0x077F).contains(&code) ||       // Arabic Supplement
-    (0x1100..=0x11FF).contains(&code) ||       // Hangul Jamo
-    (0x3040..=0x309F).contains(&code) ||       // Hiragana
-    (0x30A0..=0x30FF).contains(&code) ||       // Katakana
-    (0x3130..=0x318F).contains(&code) ||       // Hangul Compatibility Jamo
-    (0x4E00..=0x9FFF).contains(&code) ||       // CJK Unified Ideographs
-    (0xAC00..=0xD7AF).contains(&code) ||       // Hangul Syllables (Korean)
-    (0xA000..=0xA48F).contains(&code) ||       // Yi Syllables
-    (0xA490..=0xA4CF).contains(&code) // Yi Radicals
 }
 
 /// Comprehensive emoji and symbol detection

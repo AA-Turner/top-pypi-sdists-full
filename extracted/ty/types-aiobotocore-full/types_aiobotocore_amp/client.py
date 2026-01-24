@@ -3,7 +3,7 @@ Type annotations for amp service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -29,6 +30,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAnomalyDetectorsPaginator,
     ListRuleGroupsNamespacesPaginator,
     ListScrapersPaginator,
     ListWorkspacesPaginator,
@@ -36,6 +38,8 @@ from .paginator import (
 from .type_defs import (
     CreateAlertManagerDefinitionRequestTypeDef,
     CreateAlertManagerDefinitionResponseTypeDef,
+    CreateAnomalyDetectorRequestTypeDef,
+    CreateAnomalyDetectorResponseTypeDef,
     CreateLoggingConfigurationRequestTypeDef,
     CreateLoggingConfigurationResponseTypeDef,
     CreateQueryLoggingConfigurationRequestTypeDef,
@@ -47,15 +51,19 @@ from .type_defs import (
     CreateWorkspaceRequestTypeDef,
     CreateWorkspaceResponseTypeDef,
     DeleteAlertManagerDefinitionRequestTypeDef,
+    DeleteAnomalyDetectorRequestTypeDef,
     DeleteLoggingConfigurationRequestTypeDef,
     DeleteQueryLoggingConfigurationRequestTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupsNamespaceRequestTypeDef,
+    DeleteScraperLoggingConfigurationRequestTypeDef,
     DeleteScraperRequestTypeDef,
     DeleteScraperResponseTypeDef,
     DeleteWorkspaceRequestTypeDef,
     DescribeAlertManagerDefinitionRequestTypeDef,
     DescribeAlertManagerDefinitionResponseTypeDef,
+    DescribeAnomalyDetectorRequestTypeDef,
+    DescribeAnomalyDetectorResponseTypeDef,
     DescribeLoggingConfigurationRequestTypeDef,
     DescribeLoggingConfigurationResponseTypeDef,
     DescribeQueryLoggingConfigurationRequestTypeDef,
@@ -64,6 +72,8 @@ from .type_defs import (
     DescribeResourcePolicyResponseTypeDef,
     DescribeRuleGroupsNamespaceRequestTypeDef,
     DescribeRuleGroupsNamespaceResponseTypeDef,
+    DescribeScraperLoggingConfigurationRequestTypeDef,
+    DescribeScraperLoggingConfigurationResponseTypeDef,
     DescribeScraperRequestTypeDef,
     DescribeScraperResponseTypeDef,
     DescribeWorkspaceConfigurationRequestTypeDef,
@@ -72,6 +82,8 @@ from .type_defs import (
     DescribeWorkspaceResponseTypeDef,
     EmptyResponseMetadataTypeDef,
     GetDefaultScraperConfigurationResponseTypeDef,
+    ListAnomalyDetectorsRequestTypeDef,
+    ListAnomalyDetectorsResponseTypeDef,
     ListRuleGroupsNamespacesRequestTypeDef,
     ListRuleGroupsNamespacesResponseTypeDef,
     ListScrapersRequestTypeDef,
@@ -82,6 +94,8 @@ from .type_defs import (
     ListWorkspacesResponseTypeDef,
     PutAlertManagerDefinitionRequestTypeDef,
     PutAlertManagerDefinitionResponseTypeDef,
+    PutAnomalyDetectorRequestTypeDef,
+    PutAnomalyDetectorResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
     PutRuleGroupsNamespaceRequestTypeDef,
@@ -92,6 +106,8 @@ from .type_defs import (
     UpdateLoggingConfigurationResponseTypeDef,
     UpdateQueryLoggingConfigurationRequestTypeDef,
     UpdateQueryLoggingConfigurationResponseTypeDef,
+    UpdateScraperLoggingConfigurationRequestTypeDef,
+    UpdateScraperLoggingConfigurationResponseTypeDef,
     UpdateScraperRequestTypeDef,
     UpdateScraperResponseTypeDef,
     UpdateWorkspaceAliasRequestTypeDef,
@@ -99,18 +115,14 @@ from .type_defs import (
     UpdateWorkspaceConfigurationResponseTypeDef,
 )
 from .waiter import (
+    AnomalyDetectorActiveWaiter,
+    AnomalyDetectorDeletedWaiter,
     ScraperActiveWaiter,
     ScraperDeletedWaiter,
     WorkspaceActiveWaiter,
     WorkspaceDeletedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -121,14 +133,14 @@ __all__ = ("PrometheusServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PrometheusServiceClient(AioBaseClient):
@@ -175,6 +187,17 @@ class PrometheusServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/create_alert_manager_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#create_alert_manager_definition)
+        """
+
+    async def create_anomaly_detector(
+        self, **kwargs: Unpack[CreateAnomalyDetectorRequestTypeDef]
+    ) -> CreateAnomalyDetectorResponseTypeDef:
+        """
+        Creates an anomaly detector within a workspace using the Random Cut Forest
+        algorithm for time-series analysis.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/create_anomaly_detector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#create_anomaly_detector)
         """
 
     async def create_logging_configuration(
@@ -239,6 +262,16 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#delete_alert_manager_definition)
         """
 
+    async def delete_anomaly_detector(
+        self, **kwargs: Unpack[DeleteAnomalyDetectorRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes an anomaly detector from a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/delete_anomaly_detector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#delete_anomaly_detector)
+        """
+
     async def delete_logging_configuration(
         self, **kwargs: Unpack[DeleteLoggingConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -291,6 +324,17 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#delete_scraper)
         """
 
+    async def delete_scraper_logging_configuration(
+        self, **kwargs: Unpack[DeleteScraperLoggingConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/delete_scraper_logging_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#delete_scraper_logging_configuration)
+        """
+
     async def delete_workspace(
         self, **kwargs: Unpack[DeleteWorkspaceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -310,6 +354,17 @@ class PrometheusServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_alert_manager_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#describe_alert_manager_definition)
+        """
+
+    async def describe_anomaly_detector(
+        self, **kwargs: Unpack[DescribeAnomalyDetectorRequestTypeDef]
+    ) -> DescribeAnomalyDetectorResponseTypeDef:
+        """
+        Retrieves detailed information about a specific anomaly detector, including its
+        status and configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_anomaly_detector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#describe_anomaly_detector)
         """
 
     async def describe_logging_configuration(
@@ -366,6 +421,17 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#describe_scraper)
         """
 
+    async def describe_scraper_logging_configuration(
+        self, **kwargs: Unpack[DescribeScraperLoggingConfigurationRequestTypeDef]
+    ) -> DescribeScraperLoggingConfigurationResponseTypeDef:
+        """
+        Describes the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_scraper_logging_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#describe_scraper_logging_configuration)
+        """
+
     async def describe_workspace(
         self, **kwargs: Unpack[DescribeWorkspaceRequestTypeDef]
     ) -> DescribeWorkspaceResponseTypeDef:
@@ -395,6 +461,17 @@ class PrometheusServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/get_default_scraper_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#get_default_scraper_configuration)
+        """
+
+    async def list_anomaly_detectors(
+        self, **kwargs: Unpack[ListAnomalyDetectorsRequestTypeDef]
+    ) -> ListAnomalyDetectorsResponseTypeDef:
+        """
+        Returns a paginated list of anomaly detectors for a workspace with optional
+        filtering by alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/list_anomaly_detectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#list_anomaly_detectors)
         """
 
     async def list_rule_groups_namespaces(
@@ -450,6 +527,17 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#put_alert_manager_definition)
         """
 
+    async def put_anomaly_detector(
+        self, **kwargs: Unpack[PutAnomalyDetectorRequestTypeDef]
+    ) -> PutAnomalyDetectorResponseTypeDef:
+        """
+        When you call <code>PutAnomalyDetector</code>, the operation creates a new
+        anomaly detector if one doesn't exist, or updates an existing one.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/put_anomaly_detector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#put_anomaly_detector)
+        """
+
     async def put_resource_policy(
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
     ) -> PutResourcePolicyResponseTypeDef:
@@ -471,7 +559,7 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#put_rule_groups_namespace)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         The <code>TagResource</code> operation associates tags with an Amazon Managed
         Service for Prometheus resource.
@@ -480,7 +568,7 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from an Amazon Managed Service for Prometheus
         resource.
@@ -520,6 +608,17 @@ class PrometheusServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#update_scraper)
         """
 
+    async def update_scraper_logging_configuration(
+        self, **kwargs: Unpack[UpdateScraperLoggingConfigurationRequestTypeDef]
+    ) -> UpdateScraperLoggingConfigurationResponseTypeDef:
+        """
+        Updates the logging configuration for a Amazon Managed Service for Prometheus
+        scraper.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/update_scraper_logging_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#update_scraper_logging_configuration)
+        """
+
     async def update_workspace_alias(
         self, **kwargs: Unpack[UpdateWorkspaceAliasRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -539,6 +638,17 @@ class PrometheusServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/update_workspace_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#update_workspace_configuration)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_anomaly_detectors"]
+    ) -> ListAnomalyDetectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -572,6 +682,28 @@ class PrometheusServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/get_paginator.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["anomaly_detector_active"]
+    ) -> AnomalyDetectorActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["anomaly_detector_deleted"]
+    ) -> AnomalyDetectorDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]
@@ -626,7 +758,7 @@ class PrometheusServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

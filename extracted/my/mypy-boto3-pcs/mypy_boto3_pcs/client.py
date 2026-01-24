@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -36,7 +37,6 @@ from .type_defs import (
     DeleteClusterRequestTypeDef,
     DeleteComputeNodeGroupRequestTypeDef,
     DeleteQueueRequestTypeDef,
-    EmptyResponseMetadataTypeDef,
     GetClusterRequestTypeDef,
     GetClusterResponseTypeDef,
     GetComputeNodeGroupRequestTypeDef,
@@ -55,18 +55,14 @@ from .type_defs import (
     RegisterComputeNodeGroupInstanceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateClusterRequestTypeDef,
+    UpdateClusterResponseTypeDef,
     UpdateComputeNodeGroupRequestTypeDef,
     UpdateComputeNodeGroupResponseTypeDef,
     UpdateQueueRequestTypeDef,
     UpdateQueueResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -77,14 +73,14 @@ __all__ = ("ParallelComputingServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ParallelComputingServiceClient(BaseClient):
@@ -152,7 +148,7 @@ class ParallelComputingServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#create_queue)
         """
 
-    def delete_cluster(self, **kwargs: Unpack[DeleteClusterRequestTypeDef]) -> Dict[str, Any]:
+    def delete_cluster(self, **kwargs: Unpack[DeleteClusterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a cluster and all its linked resources.
 
@@ -162,7 +158,7 @@ class ParallelComputingServiceClient(BaseClient):
 
     def delete_compute_node_group(
         self, **kwargs: Unpack[DeleteComputeNodeGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a compute node group.
 
@@ -170,7 +166,7 @@ class ParallelComputingServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#delete_compute_node_group)
         """
 
-    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a job queue.
 
@@ -252,9 +248,7 @@ class ParallelComputingServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#register_compute_node_group_instance)
         """
 
-    def tag_resource(
-        self, **kwargs: Unpack[TagResourceRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or edits tags on an PCS resource.
 
@@ -262,14 +256,22 @@ class ParallelComputingServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#tag_resource)
         """
 
-    def untag_resource(
-        self, **kwargs: Unpack[UntagResourceRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes tags from an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/untag_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#untag_resource)
+        """
+
+    def update_cluster(
+        self, **kwargs: Unpack[UpdateClusterRequestTypeDef]
+    ) -> UpdateClusterResponseTypeDef:
+        """
+        Updates a cluster configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/update_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/client/#update_cluster)
         """
 
     def update_compute_node_group(

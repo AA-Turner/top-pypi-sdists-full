@@ -31,7 +31,7 @@ def _dask_to_numpy_memmap(dask_array, tmp_dir):
 
     # Sometimes compute() has to be called twice to return a Numpy array,
     # so we need to check here if this is the case and call the first compute()
-    if isinstance(dask_array.ravel()[0].compute(), da.Array):
+    if isinstance(dask_array[(slice(0, 0),) * dask_array.ndim].compute(), da.Array):
         dask_array = dask_array.compute()
 
     # Cast the dask array to regular float for two reasons - first, zarr 3.0.0
@@ -83,7 +83,9 @@ def hdu_to_numpy_memmap(hdu):
     """
 
     if (
-        hdu.header.get("BSCALE", 1) != 1
+        getattr(hdu, "_orig_bscale", 1) != 1
+        or getattr(hdu, "_orig_bzero", 0) != 0
+        or hdu.header.get("BSCALE", 1) != 1
         or hdu.header.get("BZERO", 0) != 0
         or hdu.fileinfo() is None
         or hdu._data_replaced
@@ -302,7 +304,7 @@ def is_png(filename):
 
 def is_jpeg(filename):
     with open(filename, "rb") as f:
-        return f.read(4) == b"\xff\xd8\xff\xe0"
+        return f.read(3) == b"\xff\xd8\xff"
 
 
 def as_transparent_rgb(data, alpha=None):

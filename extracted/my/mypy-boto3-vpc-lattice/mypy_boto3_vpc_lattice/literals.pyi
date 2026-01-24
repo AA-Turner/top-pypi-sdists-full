@@ -28,6 +28,7 @@ __all__ = (
     "IpAddressTypeType",
     "LambdaEventStructureVersionType",
     "ListAccessLogSubscriptionsPaginatorName",
+    "ListDomainVerificationsPaginatorName",
     "ListListenersPaginatorName",
     "ListResourceConfigurationsPaginatorName",
     "ListResourceEndpointAssociationsPaginatorName",
@@ -43,6 +44,7 @@ __all__ = (
     "ListTargetsPaginatorName",
     "ListenerProtocolType",
     "PaginatorName",
+    "PrivateDnsPreferenceType",
     "ProtocolTypeType",
     "RegionName",
     "ResourceConfigurationIpAddressTypeType",
@@ -63,6 +65,7 @@ __all__ = (
     "TargetGroupTypeType",
     "TargetStatusType",
     "VPCLatticeServiceName",
+    "VerificationStatusType",
 )
 
 AuthPolicyStateType = Literal["Active", "Inactive"]
@@ -71,6 +74,7 @@ HealthCheckProtocolVersionType = Literal["HTTP1", "HTTP2"]
 IpAddressTypeType = Literal["IPV4", "IPV6"]
 LambdaEventStructureVersionType = Literal["V1", "V2"]
 ListAccessLogSubscriptionsPaginatorName = Literal["list_access_log_subscriptions"]
+ListDomainVerificationsPaginatorName = Literal["list_domain_verifications"]
 ListListenersPaginatorName = Literal["list_listeners"]
 ListResourceConfigurationsPaginatorName = Literal["list_resource_configurations"]
 ListResourceEndpointAssociationsPaginatorName = Literal["list_resource_endpoint_associations"]
@@ -91,6 +95,12 @@ ListServicesPaginatorName = Literal["list_services"]
 ListTargetGroupsPaginatorName = Literal["list_target_groups"]
 ListTargetsPaginatorName = Literal["list_targets"]
 ListenerProtocolType = Literal["HTTP", "HTTPS", "TLS_PASSTHROUGH"]
+PrivateDnsPreferenceType = Literal[
+    "ALL_DOMAINS",
+    "SPECIFIED_DOMAINS_ONLY",
+    "VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS",
+    "VERIFIED_DOMAINS_ONLY",
+]
 ProtocolTypeType = Literal["TCP"]
 ResourceConfigurationIpAddressTypeType = Literal["DUALSTACK", "IPV4", "IPV6"]
 ResourceConfigurationStatusType = Literal[
@@ -144,6 +154,7 @@ TargetGroupStatusType = Literal[
 ]
 TargetGroupTypeType = Literal["ALB", "INSTANCE", "IP", "LAMBDA"]
 TargetStatusType = Literal["DRAINING", "HEALTHY", "INITIAL", "UNAVAILABLE", "UNHEALTHY", "UNUSED"]
+VerificationStatusType = Literal["PENDING", "VERIFICATION_TIMED_OUT", "VERIFIED"]
 VPCLatticeServiceName = Literal["vpc-lattice"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -171,7 +182,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -183,8 +194,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -238,6 +251,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -336,7 +350,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -375,8 +388,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -411,6 +422,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -420,18 +432,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -453,8 +467,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -469,15 +481,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -508,8 +521,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -560,19 +573,11 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_access_log_subscriptions",
+    "list_domain_verifications",
     "list_listeners",
     "list_resource_configurations",
     "list_resource_endpoint_associations",

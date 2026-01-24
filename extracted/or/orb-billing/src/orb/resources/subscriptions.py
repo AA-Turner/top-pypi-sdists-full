@@ -365,6 +365,10 @@ class Subscriptions(SyncAPIResource):
         subscription. E.g. pass in `10.00` to issue an invoice when usage amounts hit
         \\$$10.00 for a subscription that invoices in USD.
 
+        ## Limits
+
+        By default, Orb limits the number of subscriptions per customer to 100.
+
         Args:
           add_adjustments: Additional adjustments to be added to the subscription. (Only available for
               accounts that have migrated off of legacy subscription overrides)
@@ -590,7 +594,9 @@ class Subscriptions(SyncAPIResource):
         cursor: Optional[str] | Omit = omit,
         customer_id: Optional[SequenceNotStr[str]] | Omit = omit,
         external_customer_id: Optional[SequenceNotStr[str]] | Omit = omit,
+        external_plan_id: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
+        plan_id: Optional[str] | Omit = omit,
         status: Optional[Literal["active", "ended", "upcoming"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -641,7 +647,9 @@ class Subscriptions(SyncAPIResource):
                         "cursor": cursor,
                         "customer_id": customer_id,
                         "external_customer_id": external_customer_id,
+                        "external_plan_id": external_plan_id,
                         "limit": limit,
+                        "plan_id": plan_id,
                         "status": status,
                     },
                     subscription_list_params.SubscriptionListParams,
@@ -1218,6 +1226,7 @@ class Subscriptions(SyncAPIResource):
         add: Iterable[subscription_price_intervals_params.Add] | Omit = omit,
         add_adjustments: Iterable[subscription_price_intervals_params.AddAdjustment] | Omit = omit,
         allow_invoice_credit_or_void: Optional[bool] | Omit = omit,
+        can_defer_billing: Optional[bool] | Omit = omit,
         edit: Iterable[subscription_price_intervals_params.Edit] | Omit = omit,
         edit_adjustments: Iterable[subscription_price_intervals_params.EditAdjustment] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -1311,6 +1320,9 @@ class Subscriptions(SyncAPIResource):
               credit note. Consider using this as a safety mechanism if you do not expect
               existing invoices to be changed.
 
+          can_defer_billing: If set, the default value to use for added/edited price intervals with an
+              end_date set.
+
           edit: A list of price intervals to edit on the subscription.
 
           edit_adjustments: A list of adjustments to edit on the subscription.
@@ -1334,6 +1346,7 @@ class Subscriptions(SyncAPIResource):
                     "add": add,
                     "add_adjustments": add_adjustments,
                     "allow_invoice_credit_or_void": allow_invoice_credit_or_void,
+                    "can_defer_billing": can_defer_billing,
                     "edit": edit,
                     "edit_adjustments": edit_adjustments,
                 },
@@ -2447,6 +2460,10 @@ class AsyncSubscriptions(AsyncAPIResource):
         subscription. E.g. pass in `10.00` to issue an invoice when usage amounts hit
         \\$$10.00 for a subscription that invoices in USD.
 
+        ## Limits
+
+        By default, Orb limits the number of subscriptions per customer to 100.
+
         Args:
           add_adjustments: Additional adjustments to be added to the subscription. (Only available for
               accounts that have migrated off of legacy subscription overrides)
@@ -2672,7 +2689,9 @@ class AsyncSubscriptions(AsyncAPIResource):
         cursor: Optional[str] | Omit = omit,
         customer_id: Optional[SequenceNotStr[str]] | Omit = omit,
         external_customer_id: Optional[SequenceNotStr[str]] | Omit = omit,
+        external_plan_id: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
+        plan_id: Optional[str] | Omit = omit,
         status: Optional[Literal["active", "ended", "upcoming"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -2723,7 +2742,9 @@ class AsyncSubscriptions(AsyncAPIResource):
                         "cursor": cursor,
                         "customer_id": customer_id,
                         "external_customer_id": external_customer_id,
+                        "external_plan_id": external_plan_id,
                         "limit": limit,
+                        "plan_id": plan_id,
                         "status": status,
                     },
                     subscription_list_params.SubscriptionListParams,
@@ -3300,6 +3321,7 @@ class AsyncSubscriptions(AsyncAPIResource):
         add: Iterable[subscription_price_intervals_params.Add] | Omit = omit,
         add_adjustments: Iterable[subscription_price_intervals_params.AddAdjustment] | Omit = omit,
         allow_invoice_credit_or_void: Optional[bool] | Omit = omit,
+        can_defer_billing: Optional[bool] | Omit = omit,
         edit: Iterable[subscription_price_intervals_params.Edit] | Omit = omit,
         edit_adjustments: Iterable[subscription_price_intervals_params.EditAdjustment] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -3393,6 +3415,9 @@ class AsyncSubscriptions(AsyncAPIResource):
               credit note. Consider using this as a safety mechanism if you do not expect
               existing invoices to be changed.
 
+          can_defer_billing: If set, the default value to use for added/edited price intervals with an
+              end_date set.
+
           edit: A list of price intervals to edit on the subscription.
 
           edit_adjustments: A list of adjustments to edit on the subscription.
@@ -3416,6 +3441,7 @@ class AsyncSubscriptions(AsyncAPIResource):
                     "add": add,
                     "add_adjustments": add_adjustments,
                     "allow_invoice_credit_or_void": allow_invoice_credit_or_void,
+                    "can_defer_billing": can_defer_billing,
                     "edit": edit,
                     "edit_adjustments": edit_adjustments,
                 },

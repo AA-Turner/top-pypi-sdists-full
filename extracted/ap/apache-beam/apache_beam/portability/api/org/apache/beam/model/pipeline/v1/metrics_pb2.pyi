@@ -333,7 +333,7 @@ class MonitoringInfo(google.protobuf.message.Message):
         SPANNER_INSTANCE_ID: MonitoringInfo._MonitoringInfoLabels.ValueType  # 26
         SPANNER_QUERY_NAME: MonitoringInfo._MonitoringInfoLabels.ValueType  # 27
         PER_WORKER_METRIC: MonitoringInfo._MonitoringInfoLabels.ValueType  # 28
-        """Label which if has a "true" value indicates that the metric is intended 
+        """Label which if has a "true" value indicates that the metric is intended
         to be aggregated per-worker.
         """
 
@@ -373,7 +373,7 @@ class MonitoringInfo(google.protobuf.message.Message):
     SPANNER_INSTANCE_ID: MonitoringInfo.MonitoringInfoLabels.ValueType  # 26
     SPANNER_QUERY_NAME: MonitoringInfo.MonitoringInfoLabels.ValueType  # 27
     PER_WORKER_METRIC: MonitoringInfo.MonitoringInfoLabels.ValueType  # 28
-    """Label which if has a "true" value indicates that the metric is intended 
+    """Label which if has a "true" value indicates that the metric is intended
     to be aggregated per-worker.
     """
 
@@ -491,6 +491,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
           - sum:   beam:coder:varint:v1
           - min:   beam:coder:varint:v1
           - max:   beam:coder:varint:v1
+
+        Note that when count is zero, the SDK may not send sum, min, and max in
+        the response. If those fields are included in the payload, runners should
+        omit them.
         """
         DISTRIBUTION_DOUBLE_TYPE: MonitoringInfoTypeUrns._Enum.ValueType  # 3
         """Represents a distribution of a double value where:
@@ -504,6 +508,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
           - sum:   beam:coder:double:v1
           - min:   beam:coder:double:v1
           - max:   beam:coder:double:v1
+
+        Note that when count is zero, the SDK may not send sum, min, and max in
+        the response. If those fields are included in the payload, runners should
+        omit them.
         """
         LATEST_INT64_TYPE: MonitoringInfoTypeUrns._Enum.ValueType  # 4
         """Represents the latest seen integer value. The timestamp is used to
@@ -596,6 +604,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
       - sum:   beam:coder:varint:v1
       - min:   beam:coder:varint:v1
       - max:   beam:coder:varint:v1
+
+    Note that when count is zero, the SDK may not send sum, min, and max in
+    the response. If those fields are included in the payload, runners should
+    omit them.
     """
     DISTRIBUTION_DOUBLE_TYPE: MonitoringInfoTypeUrns.Enum.ValueType  # 3
     """Represents a distribution of a double value where:
@@ -609,6 +621,10 @@ class MonitoringInfoTypeUrns(google.protobuf.message.Message):
       - sum:   beam:coder:double:v1
       - min:   beam:coder:double:v1
       - max:   beam:coder:double:v1
+
+    Note that when count is zero, the SDK may not send sum, min, and max in
+    the response. If those fields are included in the payload, runners should
+    omit them.
     """
     LATEST_INT64_TYPE: MonitoringInfoTypeUrns.Enum.ValueType  # 4
     """Represents the latest seen integer value. The timestamp is used to

@@ -1,14 +1,15 @@
 from typing import Any, Dict, Generic, Tuple, Type, TypeVar, get_args
 
 from vellum.workflows.constants import undefined
+from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.nodes.bases import BaseNode
 from vellum.workflows.nodes.bases.base import BaseNodeMeta
 from vellum.workflows.nodes.utils import cast_to_output_type
 from vellum.workflows.ports import NodePorts
-from vellum.workflows.references.output import OutputReference
 from vellum.workflows.types import MergeBehavior
 from vellum.workflows.types.generics import StateType
 from vellum.workflows.types.utils import get_original_base
+from vellum.workflows.utils.validate import validate_target_type
 
 _OutputType = TypeVar("_OutputType")
 
@@ -40,69 +41,16 @@ class _FinalOutputNodeMeta(BaseNodeMeta):
         else:
             return all_args[1]
 
-    def __validate__(cls) -> None:
-        cls._validate_output_type_consistency(cls)
-
-    @classmethod
-    def _validate_output_type_consistency(mcs, cls: Type) -> None:
-        """
-        Validates that the declared output type of FinalOutputNode matches
-        the type of the descriptor assigned to the 'value' attribute in its Outputs class.
-
-        Raises ValueError if there's a type mismatch.
-        """
-        if not hasattr(cls, "Outputs"):
-            return
-
-        outputs_class = cls.Outputs
-        if not hasattr(outputs_class, "value"):
-            return
-
-        declared_output_type = cls.get_output_type()
-        value_descriptor = None
-
-        if "value" in outputs_class.__dict__:
-            value_descriptor = outputs_class.__dict__["value"]
-        else:
-            value_descriptor = getattr(outputs_class, "value")
-
-        if isinstance(value_descriptor, OutputReference):
-            descriptor_types = value_descriptor.types
-
-            type_mismatch = True
-            for descriptor_type in descriptor_types:
-                if descriptor_type == declared_output_type:
-                    type_mismatch = False
-                    break
-                try:
-                    if issubclass(descriptor_type, declared_output_type) or issubclass(
-                        declared_output_type, descriptor_type
-                    ):
-                        type_mismatch = False
-                        break
-                except TypeError:
-                    # Handle cases where types aren't classes (e.g., Union)
-                    if str(descriptor_type) == str(declared_output_type):
-                        type_mismatch = False
-                        break
-
-            if type_mismatch:
-                declared_type_name = getattr(declared_output_type, "__name__", str(declared_output_type))
-                descriptor_type_names = [getattr(t, "__name__", str(t)) for t in descriptor_types]
-
-                raise ValueError(
-                    f"Output type mismatch in {cls.__name__}: "
-                    f"FinalOutputNode is declared with output type '{declared_type_name}' "
-                    f"but the 'value' descriptor has type(s) {descriptor_type_names}. "
-                    f"The output descriptor type must match the declared FinalOutputNode output type."
-                )
-
 
 class FinalOutputNode(BaseNode[StateType], Generic[StateType, _OutputType], metaclass=_FinalOutputNodeMeta):
     """
     Used to directly reference the output of another node.
     This provides backward compatibility with Vellum's Final Output Node.
     """
+
+    class Display(BaseNode.Display):
+        icon = "vellum:icon:circle-stop"
+        color = "teal"
 
     class Trigger(BaseNode.Trigger):
         merge_behavior = MergeBehavior.AWAIT_ANY
@@ -126,3 +74,24 @@ class FinalOutputNode(BaseNode[StateType], Generic[StateType, _OutputType], meta
         )
 
     __simulates_workflow_output__ = True
+
+    @classmethod
+    def __validate__(cls) -> None:
+        cls._validate_output_type_consistency()
+
+    @classmethod
+    def _validate_output_type_consistency(cls) -> None:
+        """
+        Validates that the declared output type of FinalOutputNode matches
+        the type of the descriptor assigned to the 'value' attribute in its Outputs class.
+
+        Raises ValueError if there's a type mismatch.
+        """
+        declared_output_type = cls.get_output_type()
+        value_descriptor = cls.Outputs.value.instance
+
+        if isinstance(value_descriptor, BaseDescriptor):
+            try:
+                validate_target_type(declared_output_type, value_descriptor.normalized_type)
+            except ValueError as e:
+                raise ValueError(f"Failed to validate output type for node '{cls.__name__}': {e}")

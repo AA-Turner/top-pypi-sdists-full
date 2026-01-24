@@ -1,7 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-mermaid
-Version: 1.0.0
-Summary: Mermaid diagrams in yours Sphinx powered docs
+Version: 2.0.0
+Summary: Mermaid diagrams in your Sphinx-powered docs
 Author-email: Martín Gaitán <gaitan@gmail.com>
 License: BSD
 Project-URL: Repository, https://github.com/mgaitan/sphinxcontrib-mermaid
@@ -18,16 +18,17 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE.rst
+License-File: LICENSE
+Requires-Dist: jinja2
 Requires-Dist: sphinx
 Requires-Dist: pyyaml
 Provides-Extra: test
@@ -36,6 +37,7 @@ Requires-Dist: myst-parser; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: ruff; extra == "test"
 Requires-Dist: sphinx; extra == "test"
+Dynamic: license-file
 
 # sphinxcontrib-mermaid
 

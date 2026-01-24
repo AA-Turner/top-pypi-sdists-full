@@ -16,7 +16,6 @@ short_description: Select the real servers that this server load balancing VIP w
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -143,6 +145,13 @@ options:
                 aliases: ['translate-host']
                 type: str
                 description: Enable/disable translation of hostname/IP from virtual server to real server.
+                choices:
+                    - 'disable'
+                    - 'enable'
+            verify_cert:
+                aliases: ['verify-cert']
+                type: str
+                description: Enable/disable certificate verification of the real server.
                 choices:
                     - 'disable'
                     - 'enable'
@@ -243,6 +252,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'vip6': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_vip6_realservers': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -258,7 +268,8 @@ def main():
                 'port': {'type': 'int'},
                 'status': {'choices': ['active', 'standby', 'disable'], 'type': 'str'},
                 'weight': {'type': 'int'},
-                'translate-host': {'v_range': [['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'translate-host': {'v_range': [['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'verify-cert': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

@@ -251,12 +251,12 @@ def test_block_percentage_heights():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('size', (
+@pytest.mark.parametrize('size', [
     ('width: 10%; height: 1000px',),
     ('max-width: 10%; max-height: 1000px; height: 2000px',),
     ('width: 5%; min-width: 10%; min-height: 1000px',),
     ('width: 10%; height: 1000px; min-width: auto; max-height: none',),
-))
+])
 def test_box_sizing(size):
     # https://www.w3.org/TR/css-ui-3/#box-sizing
     page, = render_pages('''
@@ -307,11 +307,11 @@ def test_box_sizing(size):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('size', (
+@pytest.mark.parametrize('size', [
     ('width: 0; height: 0'),
     ('max-width: 0; max-height: 0'),
     ('min-width: 0; min-height: 0; width: 0; height: 0'),
-))
+])
 def test_box_sizing_zero(size):
     # https://www.w3.org/TR/css-ui-3/#box-sizing
     page, = render_pages('''
@@ -357,7 +357,7 @@ NOT_COLLAPSING = (
 )
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_1(margin_1, margin_2, result):
     # Siblings
     page, = render_pages('''
@@ -377,7 +377,7 @@ def test_vertical_space_1(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_2(margin_1, margin_2, result):
     # Not siblings, first is nested
     page, = render_pages('''
@@ -400,7 +400,7 @@ def test_vertical_space_2(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_3(margin_1, margin_2, result):
     # Not siblings, second is nested
     page, = render_pages('''
@@ -423,7 +423,7 @@ def test_vertical_space_3(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_4(margin_1, margin_2, result):
     # Not siblings, second is doubly nested
     page, = render_pages('''
@@ -449,7 +449,7 @@ def test_vertical_space_4(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_5(margin_1, margin_2, result):
     # Collapsing with children
     page, = render_pages('''
@@ -478,7 +478,7 @@ def test_vertical_space_5(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', NOT_COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), NOT_COLLAPSING)
 def test_vertical_space_6(margin_1, margin_2, result):
     # Block formatting context: Not collapsing with children
     page, = render_pages('''
@@ -504,7 +504,7 @@ def test_vertical_space_6(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_7(margin_1, margin_2, result):
     # Collapsing through an empty div
     page, = render_pages('''
@@ -526,7 +526,7 @@ def test_vertical_space_7(margin_1, margin_2, result):
     assert p2_top - p1_bottom == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', NOT_COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), NOT_COLLAPSING)
 def test_vertical_space_8(margin_1, margin_2, result):
     # The root element does not collapse
     page, = render_pages('''
@@ -544,7 +544,7 @@ def test_vertical_space_8(margin_1, margin_2, result):
     assert p1_top == result
 
 
-@pytest.mark.parametrize('margin_1, margin_2, result', COLLAPSING)
+@pytest.mark.parametrize(('margin_1', 'margin_2', 'result'), COLLAPSING)
 def test_vertical_space_9(margin_1, margin_2, result):
     # <body> DOES collapse
     page, = render_pages('''
@@ -732,6 +732,67 @@ def test_box_decoration_break_slice_bottom_padding():  # pragma: no cover
     assert div.position_y == 0
 
 
+@pytest.mark.xfail
+@assert_no_logs
+def test_nested_blocks_padding_border():  # pragma: no cover
+    # Same as previous issue, with nested blocks.
+    page_1, page_2 = render_pages('''
+      <style>
+        @page { size: 4px 12px; margin: 0 }
+        html { font: 2px/1 weasyprint }
+        article, section, div {
+          border-top: 1px solid; border-bottom: 1px solid;
+          padding-top: 1px; padding-bottom: 1px;
+        }
+      </style>
+      <article>
+        <section>
+          <div>
+            aaa
+            bbb
+          </div>
+        </section>
+      </article>''')
+    html, = page_1.children
+    body, = html.children
+    div_1, = body.children
+    div_2, = div_1.children
+    div_3, = div_2.children
+
+    html, = page_2.children
+    body, = html.children
+    div_1, = body.children
+    div_2, = div_1.children
+    div_3, = div_2.children
+
+
+@assert_no_logs
+def test_overflow_non_collapsing_parent():
+    page_1, page_2 = render_pages('''
+      <style>
+        @page { size: 6px 10px; margin: 0 }
+        html { font: 2px/1 weasyprint }
+        div { border-bottom: 3px solid }
+        p { margin-bottom: 2px }
+      </style>
+      abc
+      def
+      <div>
+        <p>
+          aaa
+        </p>
+      </div>
+      ghi''')
+    html, = page_1.children
+    body, = html.children
+    lines, = body.children
+    line_1, line_2 = lines.children
+
+    html, = page_2.children
+    body, = html.children
+    section, lines = body.children
+
+
 @assert_no_logs
 def test_overflow_auto():
     page, = render_pages('''
@@ -744,6 +805,7 @@ def test_overflow_auto():
     assert article.height == 50 + 10 + 10
 
 
+@assert_no_logs
 def test_overflow_hidden_in_flow_layout():
     page, = render_pages('''
       <div style="overflow: hidden; height: 3px;">
@@ -757,6 +819,7 @@ def test_overflow_hidden_in_flow_layout():
     assert parent_div.height == 3
 
 
+@assert_no_logs
 def test_overflow_hidden_out_of_flow_layout():
     page, = render_pages('''
       <div style="overflow: hidden; height: 3px;">

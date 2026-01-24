@@ -1,5 +1,7 @@
 import builtins
 import typing
+import numpy
+
 from enum import Enum
 
 import topk_sdk.data
@@ -12,10 +14,8 @@ class LogicalExpr(Enum):
     Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
     """
 
-    def __repr__(self) -> builtins.str:
-        ...
-    def _expr_eq(self, other: LogicalExpr) -> LogicalExpr:
-        ...
+    def __repr__(self) -> builtins.str: ...
+    def _expr_eq(self, other: LogicalExpr) -> LogicalExpr: ...
     def is_null(self) -> LogicalExpr:
         """
         Check if the expression is null.
@@ -286,6 +286,11 @@ class LogicalExpr(Enum):
         Multiply the scoring expression by the provided `boost` value if the `condition` is true.
         """
         ...
+    def regexp_match(self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None) -> LogicalExpr:
+        """
+        Check if the expression matches the provided regexp pattern.
+        """
+        ...
 
 FlexibleExpr = typing.Union[str, int, float, bool, None, LogicalExpr]
 Numeric = typing.Union[int, float, LogicalExpr]
@@ -293,7 +298,14 @@ Ordered = typing.Union[int, float, str, LogicalExpr]
 Boolish = typing.Union[bool, LogicalExpr]
 Stringy = typing.Union[str, LogicalExpr]
 StringyWithList = typing.Union[str, builtins.list[str], LogicalExpr]
-Iterable = typing.Union[str, builtins.list[int], builtins.list[float], builtins.list[str], topk_sdk.data.List, LogicalExpr]
+Iterable = typing.Union[
+    str,
+    builtins.list[int],
+    builtins.list[float],
+    builtins.list[str],
+    topk_sdk.data.List,
+    LogicalExpr,
+]
 
 class FunctionExpr:
     """
@@ -302,6 +314,7 @@ class FunctionExpr:
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
+
     ...
 
 class TextExpr(Enum):
@@ -332,33 +345,60 @@ class TextExpr(Enum):
         """
         ...
 
-
 class Query:
     def select(
         self,
         *args: builtins.str,
         **kwargs: typing.Union[LogicalExpr, FunctionExpr],
-    ) -> Query: ...
-    def filter(self, expr: LogicalExpr | TextExpr) -> Query: ...
-    def topk(
-        self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
-    ) -> Query: ...
+    ) -> Query:
+        """
+        Adds a select stage to the query.
+        """
+        ...
+    def filter(self, expr: LogicalExpr | TextExpr) -> Query:
+        """
+        Adds a filter stage to the query.
+        """
+        ...
+    def sort(self, expr: LogicalExpr, asc: builtins.bool = True) -> Query:
+        """
+        Adds a sort stage to the query.
+        """
+        ...
+    def limit(self, k: builtins.int) -> Query:
+        """
+        Adds a limit stage to the query.
+        """
+        ...
     def rerank(
         self,
         model: typing.Optional[builtins.str] = None,
         query: typing.Optional[builtins.str] = None,
         fields: typing.Sequence[builtins.str] = [],
         topk_multiple: typing.Optional[builtins.int] = None,
-    ) -> Query: ...
-    def count(self) -> Query: ...
-
+    ) -> Query:
+        """
+        Adds a rerank stage to the query.
+        """
+        ...
+    def count(self) -> Query:
+        """
+        Adds a count stage to the query.
+        """
+        ...
+    def topk(
+        self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
+    ) -> Query:
+        """
+        Adds a top-k stage to the query.
+        """
+        ...
 
 def field(name: builtins.str) -> LogicalExpr:
     """
     Select a field from the document.
     """
     ...
-
 
 def select(
     *args: builtins.str,
@@ -367,7 +407,7 @@ def select(
     """
     # Example:
 
-    Create a select stage of a query.
+    Creates a new query with a select stage.
 
     ```python
     # Example:
@@ -379,12 +419,12 @@ def select(
     )
     ```
     """
-...
 
+...
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
-    Create a filter stage of a query.
+    Creates a new query with a filter stage.
 
     ```python
     # Example:
@@ -398,13 +438,11 @@ def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
     ...
 
-
 def literal(value: typing.Any) -> LogicalExpr:
     """
     Create a literal expression.
     """
     ...
-
 
 def match(
     token: builtins.str,
@@ -421,8 +459,8 @@ def match(
     - Match only on specific fields
     - Use weights to prioritize certain terms
     """
-...
 
+...
 
 def not_(expr: LogicalExpr) -> LogicalExpr:
     """
@@ -440,7 +478,6 @@ def not_(expr: LogicalExpr) -> LogicalExpr:
     """
     ...
 
-
 def abs(expr: LogicalExpr) -> LogicalExpr:
     """
     Compute the absolute value of a logical expression.
@@ -455,7 +492,6 @@ def abs(expr: LogicalExpr) -> LogicalExpr:
     )
     ```
     """
-
 
 def all(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
@@ -475,7 +511,6 @@ def all(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     )
     ```
     """
-
 
 def any(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
@@ -497,7 +532,6 @@ def any(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
     ...
 
-
 def min(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     Create a logical MIN expression.
@@ -514,7 +548,6 @@ def min(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     ...
 
-
 def max(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     Create a logical MAX expression.
@@ -529,11 +562,11 @@ def max(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     ...
 
-
 class fn:
     """
     The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
+
     ...
 
     @staticmethod
@@ -610,6 +643,45 @@ class fn:
           )
           .filter(match("animal"))
           .topk(field("text_score"), 10)
+        )
+        ```
+        """
+        ...
+
+    @staticmethod
+    def multi_vector_distance(
+        field: builtins.str,
+        matrix: typing.Union[
+            topk_sdk.data.Matrix,
+            numpy.ndarray,
+            list[list[float]],
+            list[list[int]],
+        ],
+        candidates: typing.Optional[builtins.int] = None,
+    ) -> FunctionExpr:
+        """
+        Calculate the multi-vector distance between a field and a query matrix.
+
+        The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
+        or a [`Matrix`](https://docs.topk.io/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
+        use [`matrix()`](https://docs.topk.io/sdk/topk-py/data#matrix-2) with `value_type` or a numpy array with the
+        corresponding dtype.
+
+        The optional `candidates` parameter limits the number of candidate vectors considered during search.
+
+        ```python
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_distance=fn.multi_vector_distance(
+              "title_embedding",
+              [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+              candidates=100
+            )
+          )
+          .topk(field("title_distance"), 10)
         )
         ```
         """

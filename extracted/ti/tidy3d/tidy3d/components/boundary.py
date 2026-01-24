@@ -3,19 +3,30 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
 
-from tidy3d.constants import EPSILON_0, MU_0, PML_SIGMA
-from tidy3d.exceptions import DataError, SetupError
+from tidy3d.components.validators import _assert_min_freq, assert_plane
+from tidy3d.components.viz import (
+    ARROW_ALPHA,
+    ARROW_COLOR_ABSORBER,
+    PlotParams,
+    plot_params_absorber,
+)
+from tidy3d.constants import C_0, CONDUCTIVITY, EPSILON_0, HERTZ, MU_0, PML_SIGMA
+from tidy3d.exceptions import DataError, SetupError, ValidationError
 from tidy3d.log import log
 
-from .base import Tidy3dBaseModel, cached_property
+from .base import Tidy3dBaseModel, cached_property, skip_if_fields_missing
+from .geometry.base import Box
 from .medium import Medium
+from .mode_spec import ModeSpec
+from .monitor import ModeMonitor, ModeSolverMonitor
 from .source.field import TFSF, GaussianBeam, ModeSource, PlaneWave
-from .types import TYPE_TAG_STR, Axis, Complex
+from .types import TYPE_TAG_STR, Ax, Axis, Complex, Direction, FreqBound
+from .types.mode_spec import ModeSpecType
 
 MIN_NUM_PML_LAYERS = 6
 MIN_NUM_STABLE_PML_LAYERS = 6
@@ -42,6 +53,14 @@ def warn_num_layers_factory(min_num_layers: int, descr: str):
         return val
 
     return _warn_num_layers
+
+
+DEFAULT_MODE_SPEC_MODE_ABC = ModeSpec()
+DEFAULT_BROADBAND_MODE_ABC_FITTER_TOLERANCE = 1e-6
+DEFAULT_BROADBAND_MODE_ABC_NUM_FREQS = 15
+DEFAULT_BROADBAND_MODE_ABC_NUM_POLES = 5
+MAX_BROADBAND_MODE_ABC_NUM_POLES = 10
+MAX_BROADBAND_MODE_ABC_NUM_FREQS = 101
 
 
 class BoundaryEdge(ABC, Tidy3dBaseModel):
@@ -71,6 +90,360 @@ class PECBoundary(BoundaryEdge):
 # PMC keyword
 class PMCBoundary(BoundaryEdge):
     """Perfect magnetic conductor boundary condition class."""
+
+
+class AbstractABCBoundary(BoundaryEdge, ABC):
+    """One-way wave equation absorbing boundary conditions abstract base class."""
+
+
+class ABCBoundary(AbstractABCBoundary):
+    """One-way wave equation absorbing boundary conditions.
+    See, for example, John B. Schneider, Understanding the Finite-Difference Time-Domain Method, Chapter 6.
+    """
+
+    permittivity: Optional[float] = pd.Field(
+        None,
+        title="Effective Permittivity",
+        description="Effective permittivity for determining propagation constant. "
+        "If ``None``, this value will be automatically inferred from the medium at "
+        "the domain boundary and the central frequency of the source.",
+        ge=1.0,
+    )
+
+    conductivity: Optional[pd.NonNegativeFloat] = pd.Field(
+        None,
+        title="Effective Conductivity",
+        description="Effective conductivity for determining propagation constant. "
+        "If ``None``, this value will be automatically inferred from the medium at "
+        "the domain boundary and the central frequency of the source.",
+        units=CONDUCTIVITY,
+    )
+
+    @pd.validator("conductivity", always=True)
+    @skip_if_fields_missing(["permittivity"])
+    def _conductivity_only_with_float_permittivity(cls, val, values):
+        """Validate that conductivity can be provided only with float permittivity."""
+        perm = values["permittivity"]
+        if val is not None and perm is None:
+            raise ValidationError(
+                "Field 'conductivity' in 'ABCBoundary' can only be provided "
+                "simultaneously with 'permittivity'."
+            )
+        return val
+
+
+class BroadbandModeABCFitterParam(Tidy3dBaseModel):
+    """Parameters for fitting the mode propagation index over the frequency range using pole-residue pair model.
+
+    Notes
+    -----
+    The number of poles and frequency sampling points are constrained to be within the range [1, 10] and [1, 101] respectively.
+
+    Example
+    -------
+    >>> fitter_param = BroadbandModeABCFitterParam(max_num_poles=5, tolerance_rms=1e-4, frequency_sampling_points=10)
+    """
+
+    max_num_poles: int = pd.Field(
+        DEFAULT_BROADBAND_MODE_ABC_NUM_POLES,
+        title="Maximal Number Of Poles",
+        description="Maximal number of poles in complex-conjugate pole residue model for "
+        "fitting the mode propagation index.",
+        gt=0,
+        le=MAX_BROADBAND_MODE_ABC_NUM_POLES,
+    )
+
+    tolerance_rms: pd.NonNegativeFloat = pd.Field(
+        DEFAULT_BROADBAND_MODE_ABC_FITTER_TOLERANCE,
+        title="Fitting Tolerance",
+        description="Tolerance in fitting the mode propagation index.",
+    )
+
+    frequency_sampling_points: int = pd.Field(
+        DEFAULT_BROADBAND_MODE_ABC_NUM_FREQS,
+        title="Number Of Frequencies",
+        description="Number of sampling frequencies used in fitting the mode propagation index.",
+        gt=0,
+        le=MAX_BROADBAND_MODE_ABC_NUM_FREQS,
+    )
+
+
+DEFAULT_BROADBAND_MODE_ABC_FITTER_PARAMS = BroadbandModeABCFitterParam()
+
+
+class BroadbandModeABCSpec(Tidy3dBaseModel):
+    """Specifies the broadband mode absorption boundary conditions. The mode propagation index is approximated by a sum of pole-residue pairs.
+
+    Example
+    -------
+    >>> broadband_mode_abc_spec = BroadbandModeABCSpec(frequency_range=(100e12, 120e12), fit_param=BroadbandModeABCFitterParam())
+    """
+
+    frequency_range: FreqBound = pd.Field(
+        ...,
+        title="Frequency Range",
+        description="Frequency range for the broadband mode absorption boundary conditions.",
+        units=(HERTZ, HERTZ),
+    )
+
+    fit_param: BroadbandModeABCFitterParam = pd.Field(
+        DEFAULT_BROADBAND_MODE_ABC_FITTER_PARAMS,
+        title="Fitting Parameters For Broadband Mode Absorption Boundary Conditions",
+        description="Parameters for fitting the mode propagation index over the frequency range using pole-residue pair model.",
+    )
+
+    @pd.validator("frequency_range", always=True)
+    def validate_frequency_range(cls, val, values):
+        """Validate that max frequency is greater than min frequency."""
+        _assert_min_freq(val[0], "min frequency")
+        if val[1] <= val[0]:
+            raise ValidationError("max frequency must be greater than min frequency.")
+        return val
+
+    @classmethod
+    def from_wavelength_range(
+        cls,
+        wavelength_range: FreqBound,
+        fit_param: BroadbandModeABCFitterParam = DEFAULT_BROADBAND_MODE_ABC_FITTER_PARAMS,
+    ) -> BroadbandModeABCSpec:
+        """Instantiate from a wavelength range.
+
+        Parameters
+        ----------
+        wavelength_range : FreqBound
+            Wavelength range for the broadband mode absorption boundary conditions.
+        fit_param : BroadbandModeABCFitterParam = DEFAULT_BROADBAND_MODE_ABC_FITTER_PARAMS
+            Parameters for fitting the mode propagation index over the frequency range using pole-residue pair model.
+
+        Returns
+        -------
+        :class:`BroadbandModeABCSpec`
+            Broadband mode absorption boundary conditions.
+        """
+        # check that min wavelength > 0
+        if wavelength_range[0] <= 0:
+            raise SetupError("min wavelength must be greater than 0.")
+        # check that max wavelength > min wavelength
+        if wavelength_range[1] <= wavelength_range[0]:
+            raise SetupError("max wavelength must be greater than min wavelength.")
+
+        return cls(
+            frequency_range=(C_0 / wavelength_range[1], C_0 / wavelength_range[0]),
+            fit_param=fit_param,
+        )
+
+    @property
+    def _frequency_grid(self) -> np.ndarray:
+        """Frequency grid for the broadband mode absorption boundary conditions.
+        Propagation constant is sampled at these frequencies and fitted using pole-residue pair model.
+        """
+        return np.linspace(
+            self.frequency_range[0],
+            self.frequency_range[1],
+            self.fit_param.frequency_sampling_points,
+        )
+
+
+class ModeABCBoundary(AbstractABCBoundary):
+    """One-way wave equation absorbing boundary conditions for absorbing a waveguide mode."""
+
+    mode_spec: ModeSpecType = pd.Field(
+        DEFAULT_MODE_SPEC_MODE_ABC,
+        title="Mode Specification",
+        description="Parameters that determine the modes computed by the mode solver.",
+        discriminator=TYPE_TAG_STR,
+    )
+
+    mode_index: pd.NonNegativeInt = pd.Field(
+        0,
+        title="Mode Index",
+        description="Index into the collection of modes returned by mode solver. "
+        "The absorbing boundary conditions are configured to absorb the specified mode. "
+        "If larger than ``mode_spec.num_modes``, "
+        "``num_modes`` in the solver will be set to ``mode_index + 1``.",
+    )
+
+    freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = pd.Field(
+        None,
+        title="Absorption Frequency Specification",
+        description="Specifies the frequency at which field is absorbed. If ``None``, then the central frequency of the source is used. If ``BroadbandModeABCSpec``, then the field is absorbed over the specified frequency range.",
+    )
+
+    plane: Box = pd.Field(
+        ...,
+        title="Plane",
+        description="Cross-sectional plane in which the absorbed mode will be computed.",
+    )
+
+    @pd.validator("plane", always=True)
+    def is_plane(cls, val):
+        """Raise validation error if not planar."""
+        if val.size.count(0.0) != 1:
+            raise ValidationError(
+                f"'ModeABCBoundary' target plane must be planar, given size={val.size}"
+            )
+        return val
+
+    @classmethod
+    def from_source(
+        cls,
+        source: ModeSource,
+        freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None,
+    ) -> ModeABCBoundary:
+        """Instantiate from a ``ModeSource``.
+
+        Parameters
+        ----------
+        source : :class:`ModeSource`
+            Mode source.
+        freq_spec : Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None
+            Specifies the frequency at which field is absorbed. If ``None``, then the central frequency of the source is used. If ``BroadbandModeABCSpec``, then the field is absorbed over the specified frequency range.
+
+        Returns
+        -------
+        :class:`.ModeABCBoundary`
+            Boundary conditions for absorbing the desired mode.
+
+        Example
+        -------
+        >>> from tidy3d import GaussianPulse, ModeSource, inf
+        >>> pulse = GaussianPulse(freq0=200e12, fwidth=20e12)
+        >>> source = ModeSource(size=(1, 1, 0), source_time=pulse, direction='+')
+        >>> abc_boundary = ModeABCBoundary.from_source(source=source)
+        """
+
+        if freq_spec is None:
+            freq_spec = source.source_time._freq0
+
+        return cls(
+            plane=source.bounding_box,
+            mode_spec=source.mode_spec,
+            mode_index=source.mode_index,
+            freq_spec=freq_spec,
+        )
+
+    @classmethod
+    def from_monitor(
+        cls,
+        monitor: Union[ModeMonitor, ModeSolverMonitor],
+        mode_index: pd.NonNegativeInt = 0,
+        freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None,
+    ) -> ModeABCBoundary:
+        """Instantiate from a ``ModeMonitor`` or ``ModeSolverMonitor``.
+
+        Parameters
+        ----------
+        monitor : Union[:class:`ModeMonitor`, :class:`ModeSolverMonitor`]
+            Mode monitor.
+        mode_index : pd.NonNegativeInt = 0
+            Mode index.
+        freq_spec : Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None
+            Specifies the frequency at which field is absorbed. If ``None``, then the central frequency of the source is used. If ``BroadbandModeABCSpec``, then the field is absorbed over the specified frequency range.
+
+        Returns
+        -------
+        :class:`.ModeABCBoundary`
+            Boundary conditions for absorbing the desired mode.
+
+        Example
+        -------
+        >>> from tidy3d import ModeMonitor
+        >>> mnt = ModeMonitor(size=(1, 1, 0), freqs=[1e10], name="mnt")
+        >>> abc_boundary = ModeABCBoundary.from_monitor(monitor=mnt, mode_index=0)
+        """
+
+        return cls(
+            plane=monitor.bounding_box,
+            mode_spec=monitor.mode_spec,
+            mode_index=mode_index,
+            freq_spec=freq_spec,
+        )
+
+
+class InternalAbsorber(Box):
+    """Internally placed plane with one-way wave equation boundary conditions for absorption of electromagnetic waves.
+    Note that internal absorbers are automatically wrapped in a PEC frame with a backing PEC plate on the non-absorbing side.
+    """
+
+    direction: Direction = pd.Field(
+        ...,
+        title="Absorption Direction",
+        description="Indicates which direction of traveling waves are absorbed.",
+    )
+
+    grid_shift: int = pd.Field(
+        0,
+        title="Absorber Shift",
+        description="Displacement of absorber in the normal positive direction in number of cells. "
+        "This could be used to conveniently place an absorber right behind a source: "
+        "one can use the same `size` and `center` as for the source and simply set `shift` to 1.",
+    )
+
+    boundary_spec: Union[ModeABCBoundary, ABCBoundary] = pd.Field(
+        ...,
+        title="Boundary Specification",
+        description="Boundary specification for defining effective propagation index in the one-way wave equation.",
+        discriminator=TYPE_TAG_STR,
+    )
+
+    _plane_validator = assert_plane()
+
+    @pd.validator("boundary_spec", always=True)
+    def _must_provide_permittivity(cls, val):
+        """Validate that permittivity is provided for ABCBoundary."""
+        if isinstance(val, ABCBoundary) and val.permittivity is None:
+            raise ValidationError(
+                "Must provide 'permittivity' in 'ABCBoundary' when used in an internal absorber."
+            )
+        return val
+
+    @cached_property
+    def _dir_vector(self) -> tuple[float, float, float]:
+        """Returns a vector indicating the absorption direction for arrow plotting."""
+
+        dir_vec = [0, 0, 0]
+        dir_vec[self._normal_axis] = 1 if self.direction == "+" else -1
+        return dir_vec
+
+    @cached_property
+    def plot_params(self) -> PlotParams:
+        """Default parameters for plotting a port absorber object."""
+        return plot_params_absorber
+
+    def plot(
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        ax: Ax = None,
+        **patch_kwargs: Any,
+    ) -> Ax:
+        """Plot this absorber."""
+
+        # extract arrow base parameter
+        kwargs_arrow_base = patch_kwargs.pop("arrow_base", None)
+
+        # plot the plane
+        ax = Box.plot(self, x=x, y=y, z=z, ax=ax, **patch_kwargs)
+
+        # get arrow alpha
+        kwargs_alpha = patch_kwargs.get("alpha")
+        arrow_alpha = ARROW_ALPHA if kwargs_alpha is None else kwargs_alpha
+
+        # plot arrow
+        ax = self._plot_arrow(
+            x=x,
+            y=y,
+            z=z,
+            ax=ax,
+            direction=self._dir_vector,
+            color=ARROW_COLOR_ABSORBER,
+            alpha=arrow_alpha,
+            both_dirs=False,
+            arrow_base=kwargs_arrow_base,
+        )
+
+        return ax
 
 
 # """ Bloch boundary """
@@ -157,7 +530,7 @@ class BlochBoundary(BoundaryEdge):
         if medium is None:
             medium = Medium(permittivity=1.0, name="free_space")
 
-        freq0 = source.source_time.freq0
+        freq0 = source.source_time._freq0
         eps_complex = medium.eps_model(freq0)
         kmag = np.real(freq0 * np.sqrt(eps_complex * EPSILON_0 * MU_0))
 
@@ -530,7 +903,15 @@ PMLTypes = Union[PML, StablePML, Absorber, None]
 # types of boundaries that can be used in Simulation
 
 BoundaryEdgeType = Union[
-    Periodic, PECBoundary, PMCBoundary, PML, StablePML, Absorber, BlochBoundary
+    Periodic,
+    PECBoundary,
+    PMCBoundary,
+    PML,
+    StablePML,
+    Absorber,
+    BlochBoundary,
+    ABCBoundary,
+    ModeABCBoundary,
 ]
 
 
@@ -594,9 +975,9 @@ class Boundary(Tidy3dBaseModel):
         plus = values.get("plus")
         minus = values.get("minus")
         num_pbc = isinstance(plus, Periodic) + isinstance(minus, Periodic)
-        num_pml = isinstance(plus, (PML, StablePML, Absorber)) + isinstance(
-            minus, (PML, StablePML, Absorber)
-        )
+        num_pml = isinstance(
+            plus, (PML, StablePML, Absorber, ABCBoundary, ModeABCBoundary)
+        ) + isinstance(minus, (PML, StablePML, Absorber, ABCBoundary, ModeABCBoundary))
         if num_pbc == 1 and num_pml == 1:
             raise SetupError("Cannot have both PML and PBC along the same dimension.")
         return values
@@ -710,6 +1091,123 @@ class Boundary(Tidy3dBaseModel):
         """
         plus = PMCBoundary()
         minus = PMCBoundary()
+        return cls(plus=plus, minus=minus)
+
+    @classmethod
+    def abc(
+        cls,
+        permittivity: Optional[pd.PositiveFloat] = None,
+        conductivity: Optional[pd.NonNegativeFloat] = None,
+    ):
+        """ABC boundary specification on both sides along a dimension.
+
+        Example
+        -------
+        >>> abc = Boundary.abc()
+        """
+        plus = ABCBoundary(
+            permittivity=permittivity,
+            conductivity=conductivity,
+        )
+        minus = ABCBoundary(
+            permittivity=permittivity,
+            conductivity=conductivity,
+        )
+        return cls(plus=plus, minus=minus)
+
+    @classmethod
+    def mode_abc(
+        cls,
+        plane: Box,
+        mode_spec: ModeSpecType = DEFAULT_MODE_SPEC_MODE_ABC,
+        mode_index: pd.NonNegativeInt = 0,
+        freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None,
+    ):
+        """One-way wave equation mode ABC boundary specification on both sides along a dimension.
+
+        Parameters
+        ----------
+        plane: Box
+            Cross-sectional plane in which the absorbed mode will be computed.
+        mode_spec: ModeSpecType = ModeSpec()
+            Parameters that determine the modes computed by the mode solver.
+        mode_index : pd.NonNegativeInt = 0
+            Mode index.
+        freq_spec : Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None
+            Specifies the frequency at which field is absorbed. If ``None``, then the central frequency of the source is used. If ``BroadbandModeABCSpec``, then the field is absorbed over the specified frequency range.
+
+        Example
+        -------
+        >>> from tidy3d import Box
+        >>> abc = Boundary.mode_abc(plane=Box(size=(1, 1, 0)))
+        """
+
+        plus = ModeABCBoundary(
+            plane=plane,
+            mode_spec=mode_spec,
+            mode_index=mode_index,
+            freq_spec=freq_spec,
+        )
+        minus = ModeABCBoundary(
+            plane=plane,
+            mode_spec=mode_spec,
+            mode_index=mode_index,
+            freq_spec=freq_spec,
+        )
+
+        return cls(plus=plus, minus=minus)
+
+    @classmethod
+    def mode_abc_from_source(
+        cls,
+        source: ModeSource,
+        freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None,
+    ):
+        """One-way wave equation mode ABC boundary specification on both sides along a dimension constructed from a mode source.
+
+        Parameters
+        ----------
+        source : :class:`ModeSource`
+            Mode source.
+        freq_spec : Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None
+            Specifies the frequency at which field is absorbed. If ``None``, then the central frequency of the source is used. If ``BroadbandModeABCSpec``, then the field is absorbed over the specified frequency range.
+
+        Example
+        -------
+        >>> from tidy3d import GaussianPulse, ModeSource, inf
+        >>> pulse = GaussianPulse(freq0=200e12, fwidth=20e12)
+        >>> source = ModeSource(size=(1, 1, 0), source_time=pulse, direction='+')
+        >>> abc = Boundary.mode_abc_from_source(source=source)
+        """
+        plus = ModeABCBoundary.from_source(source=source, freq_spec=freq_spec)
+        minus = ModeABCBoundary.from_source(source=source, freq_spec=freq_spec)
+        return cls(plus=plus, minus=minus)
+
+    @classmethod
+    def mode_abc_from_monitor(
+        cls,
+        monitor: Union[ModeMonitor, ModeSolverMonitor],
+        mode_index: pd.NonNegativeInt = 0,
+        freq_spec: Optional[Union[pd.PositiveFloat, BroadbandModeABCSpec]] = None,
+    ):
+        """One-way wave equation mode ABC boundary specification on both sides along a dimension constructed from a mode monitor.
+
+        Example
+        -------
+        >>> from tidy3d import ModeMonitor
+        >>> mnt = ModeMonitor(size=(1, 1, 0), freqs=[1e10], name="mnt")
+        >>> abc = Boundary.mode_abc_from_monitor(monitor=mnt)
+        """
+        plus = ModeABCBoundary.from_monitor(
+            monitor=monitor,
+            mode_index=mode_index,
+            freq_spec=freq_spec,
+        )
+        minus = ModeABCBoundary.from_monitor(
+            monitor=monitor,
+            mode_index=mode_index,
+            freq_spec=freq_spec,
+        )
         return cls(plus=plus, minus=minus)
 
     @classmethod

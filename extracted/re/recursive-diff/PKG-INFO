@@ -1,27 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: recursive_diff
-Version: 1.2.0
+Version: 1.3.0
 Summary: Recursively compare two Python data structures
+Project-URL: homepage, https://github.com/crusaderky/recursive_diff
+Project-URL: issues, https://github.com/crusaderky/recursive_diff/issues
+Project-URL: documentation, https://recursive-diff.readthedocs.io/
+Project-URL: changelog, https://recursive-diff.readthedocs.io/en/latest/whats-new.html
 Author-email: Guido Imperiale <crusaderky@gmail.com>
 License: Apache
-Project-URL: Homepage, https://github.com/crusaderky/recursive_diff
+License-File: LICENSE
+Keywords: diff,pandas,recursive,xarray
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Science/Research
-Classifier: Topic :: Scientific/Engineering
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: numpy>=1.16
-Requires-Dist: pandas>=0.25
-Requires-Dist: xarray>=0.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.9
+Requires-Dist: numpy>=1.23
+Requires-Dist: pandas>=1.5
+Requires-Dist: xarray>=2023.8.0
+Description-Content-Type: text/plain
 
 Recursively compare two Python data structures

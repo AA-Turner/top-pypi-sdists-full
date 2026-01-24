@@ -6,15 +6,12 @@ protocol specification that they must implement.
 import importlib.util
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Optional,
     Protocol,
-    Union,
     cast,
 )
 
@@ -47,6 +44,7 @@ from .types import (
 
 __all__ = [
     "DictLoader",
+    "DotEnvLoader",
     "EnvLoader",
     "FileFormat",
     "FileLoader",
@@ -75,7 +73,7 @@ class Loader(Protocol):
 
     def __call__(
         self, settings_cls: SettingsClass, options: OptionList
-    ) -> Union[LoadedSettings, Iterable[LoadedSettings]]:
+    ) -> LoadedSettings | Iterable[LoadedSettings]:
         """
         Load settings for the given options.
 
@@ -271,6 +269,70 @@ class EnvLoader:
         return f"{self.prefix}{option.path.upper().replace('.', self.nested_delimiter)}"
 
 
+class DotEnvLoader:
+    """
+    Load settings from an ``.env`` file.
+
+    The loader reads variables using :func:`dotenv.dotenv_values()` and otherwise
+    works like the :class:`EnvLoader`.
+
+    Args:
+        prefix: Prefix for environment variables, e.g., ``MYAPP_``.
+        dotenv_path: Load variables from this file.  By default, look for a :file:`.env`
+            file.  See :func:`dotenv.dotenv_values()` for details.
+        nested_delimiter: Delimiter for attribute names of nested classes.
+
+    .. versionadded:: 25.3.0
+    """
+
+    def __init__(
+        self,
+        prefix: str,
+        dotenv_path: Path | str | None = None,
+        nested_delimiter: str = "_",
+    ) -> None:
+        self.prefix = prefix
+        self.dotenv_path = dotenv_path
+        self.nested_delimiter = nested_delimiter
+
+        try:
+            import dotenv
+        except ImportError as e:
+            raise ModuleNotFoundError(
+                "Module 'python-dotenv' not installed.  Please run "
+                "'python -m pip install -U typed-settings[dotenv]'"
+            ) from e
+        self._dotenv = dotenv
+
+    def __call__(
+        self, settings_cls: SettingsClass, options: OptionList
+    ) -> LoadedSettings:
+        """
+        Load settings for the given options.
+
+        Args:
+            options: The list of available settings.
+            settings_cls: The base settings class for all options.
+
+        Return:
+            A dict with the loaded settings.
+        """
+        env = self._dotenv.dotenv_values(self.dotenv_path)
+        values: SettingsDict = {}
+        for o in options:
+            varname = self.get_envvar(o)
+            if varname in env:
+                set_path(values, o.path, env[varname])
+
+        return LoadedSettings(values, LoaderMeta(self))
+
+    def get_envvar(self, option: OptionInfo) -> str:
+        """
+        Return the envvar name for the he given option.
+        """
+        return f"{self.prefix}{option.path.upper().replace('.', self.nested_delimiter)}"
+
+
 class FileLoader:
     """
     Load settings from config files.
@@ -299,8 +361,8 @@ class FileLoader:
     def __init__(
         self,
         formats: dict[str, FileFormat],
-        files: Iterable[Union[str, Path]],
-        env_var: Optional[str] = None,
+        files: Iterable[str | Path],
+        env_var: str | None = None,
     ) -> None:
         self.files = files
         self.env_var = env_var
@@ -357,7 +419,7 @@ class FileLoader:
 
     @staticmethod
     def _get_config_filenames(
-        files: Iterable[Union[str, Path]], env_var: Optional[str]
+        files: Iterable[str | Path], env_var: str | None
     ) -> list[Path]:
         """
         Concatenate *config_files* and files from env var *config_files_var*.
@@ -402,7 +464,7 @@ class PythonFormat:
 
     def __init__(
         self,
-        cls_name: Optional[str],
+        cls_name: str | None,
         key_transformer: Callable[[str], str] = lambda k: k,
         flat: bool = False,
     ) -> None:
@@ -487,7 +549,7 @@ class TomlFormat:
         section: The config file section to load settings from.
     """
 
-    def __init__(self, section: Optional[str]) -> None:
+    def __init__(self, section: str | None) -> None:
         self.section = section
 
     def __call__(
@@ -541,7 +603,7 @@ class OnePasswordLoader:
             vaults.
     """
 
-    def __init__(self, item: str, vault: Optional[str] = None) -> None:
+    def __init__(self, item: str, vault: str | None = None) -> None:
         self.item = item
         self.vault = vault
 

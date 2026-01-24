@@ -32,6 +32,10 @@ email = "jupyter@googlegroups.com"
 
 [project.urls]
 Homepage = "https://jupyter.org"
+Documentation = "https://jupyter-server-terminals.readthedocs.io"
+Funding = "https://jupyter.org/about#donate"
+Source = "https://github.com/jupyter-server/jupyter_server_terminals"
+Tracker = "https://github.com/jupyter-server/jupyter_server_terminals/issues"
 
 [project.optional-dependencies]
 test = [

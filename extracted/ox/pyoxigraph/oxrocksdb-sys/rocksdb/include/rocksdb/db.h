@@ -1118,11 +1118,11 @@ class DB {
   //    // Check ex.what()
   //  }
   virtual std::unique_ptr<MultiScan> NewMultiScan(
-      const ReadOptions& /*options*/, ColumnFamilyHandle* /*column_family*/,
-      const std::vector<ScanOptions>& /*scan_opts*/) {
+      const ReadOptions& /*options*/, ColumnFamilyHandle* column_family,
+      const MultiScanArgs& /*scan_opts*/) {
     std::unique_ptr<Iterator> iter(NewErrorIterator(Status::NotSupported()));
-    std::unique_ptr<MultiScan> ms_iter =
-        std::make_unique<MultiScan>(std::move(iter));
+    std::unique_ptr<MultiScan> ms_iter = std::make_unique<MultiScan>(
+        column_family->GetComparator(), std::move(iter));
     return ms_iter;
   }
 
@@ -1966,7 +1966,9 @@ class DB {
   // In the first mode we will try to find the lowest possible level that
   // the file can fit in, and ingest the file into this level (2). A file that
   // have a key range that overlap with the memtable key range will require us
-  // to Flush the memtable first before ingesting the file.
+  // to Flush the memtable first before ingesting the file. If ingested files
+  // have any overlap with each other, level and sequence number assignment
+  // ensure later files overwrite earlier files.
   // In the second mode we will always ingest in the bottom most level (see
   // docs to IngestExternalFileOptions::ingest_behind).
   // For a column family that enables user-defined timestamps, ingesting
@@ -1984,7 +1986,7 @@ class DB {
   //     even if the file compression doesn't match the level compression
   // (3) If IngestExternalFileOptions->ingest_behind is set to true,
   //     we always ingest at the bottommost level, which should be reserved
-  //     for this purpose (see DBOPtions::allow_ingest_behind flag).
+  //     for this purpose (see ColumnFamilyOptions::cf_allow_ingest_behind).
   // (4) If IngestExternalFileOptions->fail_if_not_bottommost_level is set to
   //     true, then this method can return Status:TryAgain() indicating that
   //     the files cannot be ingested to the bottommost level, and it is the
@@ -2245,12 +2247,9 @@ inline Status DB::GetApproximateSizes(ColumnFamilyHandle* column_family,
                                       uint64_t* sizes,
                                       SizeApproximationFlags include_flags) {
   SizeApproximationOptions options;
-  options.include_memtables =
-      ((include_flags & SizeApproximationFlags::INCLUDE_MEMTABLES) !=
-       SizeApproximationFlags::NONE);
-  options.include_files =
-      ((include_flags & SizeApproximationFlags::INCLUDE_FILES) !=
-       SizeApproximationFlags::NONE);
+  using enum SizeApproximationFlags;  // Require C++20 support
+  options.include_memtables = ((include_flags & INCLUDE_MEMTABLES) != NONE);
+  options.include_files = ((include_flags & INCLUDE_FILES) != NONE);
   return GetApproximateSizes(options, column_family, ranges, n, sizes);
 }
 

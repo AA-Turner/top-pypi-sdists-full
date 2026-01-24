@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from ase.atoms import Atoms
 from ase.io.trajectory import TrajectoryWriter

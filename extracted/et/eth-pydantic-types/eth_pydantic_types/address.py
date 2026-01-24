@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from cchecksum import to_checksum_address
 from eth_typing import ChecksumAddress
@@ -10,6 +10,9 @@ from pydantic_core.core_schema import (
 )
 
 from eth_pydantic_types.hex import HexStr20
+from eth_pydantic_types.utils import (
+    PadDirection,
+)
 
 if TYPE_CHECKING:
     from pydantic_core import CoreSchema
@@ -44,9 +47,9 @@ class Address(HexStr20):
 
     @classmethod
     def __eth_pydantic_validate__(
-        cls, value: Any, info: Optional[ValidationInfo] = None, **kwargs
+        cls, value: Any, info: ValidationInfo | None = None, **kwargs
     ) -> str:
-        value = super().__eth_pydantic_validate__(value)
+        value = super().__eth_pydantic_validate__(value, info, pad=PadDirection.LEFT)
         return cls.to_checksum_address(value)
 
     @classmethod
@@ -87,5 +90,5 @@ def __getattr__(name: str):
 
 __all__ = [
     "Address",
-    "Address",
+    "AddressType",  # noqa: F822
 ]

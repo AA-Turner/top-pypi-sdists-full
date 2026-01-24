@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: environment_kernels
+Version: 1.2.0
+Summary: Launch Jupyter kernels installed in environments
+Home-page: https://github.com/Cadair/jupyter_environment_kernels/
+Author: Stuart Mumford
+Author-email: stuart@cadair.com
+License: BSD
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: BSD License
+License-File: LICENSE.md

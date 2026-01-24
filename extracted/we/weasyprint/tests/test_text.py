@@ -2,8 +2,9 @@
 
 import pytest
 
-from weasyprint.css.properties import INITIAL_VALUES
+from weasyprint.css import InitialStyle
 from weasyprint.formatting_structure.build import capitalize
+from weasyprint.text.fonts import FontConfiguration
 from weasyprint.text.line_break import split_first_line
 
 from .testing_utils import MONO_FONTS, SANS_FONTS, assert_no_logs, render_pages
@@ -11,7 +12,7 @@ from .testing_utils import MONO_FONTS, SANS_FONTS, assert_no_logs, render_pages
 
 def make_text(text, width=None, **style):
     """Wrapper for split_first_line() creating a style dict."""
-    new_style = INITIAL_VALUES.copy()
+    new_style = InitialStyle(FontConfiguration())
     new_style['font_family'] = MONO_FONTS.split(',')
     new_style.update(style)
     return split_first_line(
@@ -457,14 +458,14 @@ def test_text_align_justify_no_break_between_children():
     assert span_3.position_x == 5 * 16  # (3 + 1) characters + 1 space
 
 
-@pytest.mark.parametrize('text', (
+@pytest.mark.parametrize('text', [
     'Lorem ipsum dolor<em>sit amet</em>',
     'Lorem ipsum <em>dolorsit</em> amet',
     'Lorem ipsum <em></em>dolorsit amet',
     'Lorem ipsum<em> </em>dolorsit amet',
     'Lorem ipsum<em> dolorsit</em> amet',
     'Lorem ipsum <em>dolorsit </em>amet',
-))
+])
 @assert_no_logs
 def test_word_spacing(text):
     # Regression test.
@@ -538,14 +539,14 @@ def test_letter_spacing_1():
     assert line1.children[0].width == strong_2.width
 
 
-@pytest.mark.parametrize('spacing', ('word-spacing', 'letter-spacing'))
+@pytest.mark.parametrize('spacing', ['word-spacing', 'letter-spacing'])
 @assert_no_logs
 def test_spacing_ex(spacing):
     # Regression test.
     render_pages(f'<div style="{spacing}: 2ex">abc def')
 
 
-@pytest.mark.parametrize('indent', ('12px', '6%'))
+@pytest.mark.parametrize('indent', ['12px', '6%'])
 @assert_no_logs
 def test_text_indent(indent):
     page, = render_pages('''
@@ -584,7 +585,7 @@ def test_text_indent_inline():
     assert line.width == (4 + 1) * 16
 
 
-@pytest.mark.parametrize('indent', ('12px', '6%'))
+@pytest.mark.parametrize('indent', ['12px', '6%'])
 @assert_no_logs
 def test_text_indent_multipage(indent):
     # Regression test for #706.
@@ -849,7 +850,7 @@ def test_hyphen_nbsp():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css, result', (
+@pytest.mark.parametrize(('css', 'result'), [
     ('auto', 2),
     ('auto auto 0', 2),
     ('0 0 0', 2),
@@ -863,7 +864,7 @@ def test_hyphen_nbsp():
     ('2 4 6', 1),
     ('auto 4', 1),
     ('auto 2', 2),
-))
+])
 def test_hyphenate_limit_chars(css, result):
     page, = render_pages(
         '<html style="width: 1em; font-family: weasyprint">'
@@ -877,12 +878,12 @@ def test_hyphenate_limit_chars(css, result):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css', (
+@pytest.mark.parametrize('css', [
     # light·en
     '3 3 3',  # 'en' is shorter than 3
     '3 6 2',  # 'light' is shorter than 6
     '8',  # 'lighten' is shorter than 8
-))
+])
 def test_hyphenate_limit_chars_punctuation(css):
     # Regression test for #109.
     page, = render_pages(
@@ -897,7 +898,7 @@ def test_hyphenate_limit_chars_punctuation(css):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('wrap, text, test, full_text', (
+@pytest.mark.parametrize(('wrap', 'text', 'test', 'full_text'), [
     ('anywhere', 'aaaaaaaa', lambda a: a > 1, 'aaaaaaaa'),
     ('break-word', 'aaaaaaaa', lambda a: a > 1, 'aaaaaaaa'),
     ('normal', 'aaaaaaaa', lambda a: a == 1, 'aaaaaaaa'),
@@ -905,7 +906,7 @@ def test_hyphenate_limit_chars_punctuation(css):
      'hy\u2010phen\u2010ations'),
     ('break-word', "A splitted word.  An hyphenated word.",
      lambda a: a > 8, "Asplittedword.Anhy\u2010phen\u2010atedword."),
-))
+])
 def test_overflow_wrap(wrap, text, test, full_text):
     page, = render_pages('''
       <style>
@@ -928,7 +929,7 @@ def test_overflow_wrap(wrap, text, test, full_text):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('span_css, expected_lines', (
+@pytest.mark.parametrize(('span_css', 'expected_lines'), [
     # overflow-wrap: anywhere and break-word are only allowed to break a word
     # "if there are no otherwise-acceptable break points in the line", which
     # means they should not split a word if it fits cleanly into the next line.
@@ -939,7 +940,7 @@ def test_overflow_wrap(wrap, text, test, full_text):
     # On the other hand, word-break: break-all mandates a break anywhere at the
     # end of a line, even if the word could fit cleanly onto the next line.
     ('word-break: break-all', ['aaa b', 'bb']),
-))
+])
 def test_wrap_overflow_word_break(span_css, expected_lines):
     page, = render_pages('''
       <style>
@@ -962,12 +963,12 @@ def test_wrap_overflow_word_break(span_css, expected_lines):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('wrap, text, body_width, expected_width', (
+@pytest.mark.parametrize(('wrap', 'text', 'body_width', 'expected_width'), [
     ('anywhere', 'aaaaaa', 10, 20),
     ('anywhere', 'aaaaaa', 40, 40),
     ('break-word', 'aaaaaa', 40, 120),
     ('normal', 'aaaaaa', 40, 120),
-))
+])
 def test_overflow_wrap_2(wrap, text, body_width, expected_width):
     page, = render_pages('''
       <style>
@@ -986,12 +987,12 @@ def test_overflow_wrap_2(wrap, text, body_width, expected_width):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('wrap, text, body_width, expected_width', (
+@pytest.mark.parametrize(('wrap', 'text', 'body_width', 'expected_width'), [
     ('anywhere', 'aaaaaa', 10, 20),
     ('anywhere', 'aaaaaa', 40, 40),
     ('break-word', 'aaaaaa', 40, 120),
     ('normal', 'abcdef', 40, 120),
-))
+])
 def test_overflow_wrap_trailing_space(wrap, text, body_width, expected_width):
     page, = render_pages('''
       <style>
@@ -1222,13 +1223,13 @@ def test_white_space_12():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('value, width', (
+@pytest.mark.parametrize(('value', 'width'), [
     (8, 144),  # (2 + (8 - 1)) * 16
     (4, 80),  # (2 + (4 - 1)) * 16
     ('3em', 64),  # (2 + (3 - 1)) * 16
     ('25px', 41),  # 2 * 16 + 25 - 1 * 16
     # (0, 32),  # See Layout.set_tabs
-))
+])
 def test_tab_size(value, width):
     page, = render_pages('''
       <style>
@@ -1277,24 +1278,68 @@ def test_text_transform():
 
 @assert_no_logs
 @pytest.mark.parametrize(
-    'original, transformed', (
-        ('abc def ghi', 'Abc Def Ghi'),
-        ('AbC def ghi', 'AbC Def Ghi'),
-        ('I’m SO cool', 'I’m SO Cool'),
-        ('Wow.wow!wow', 'Wow.wow!wow'),
-        ('!now not tomorrow', '!Now Not Tomorrow'),
-        ('SUPER cool', 'SUPER Cool'),
-        ('i 😻 non‑breaking characters', 'I 😻 Non‑breaking Characters'),
-        ('3lite 3lite', '3lite 3lite'),
-        ('one/two/three', 'One/two/three'),
-        ('supernatural,super', 'Supernatural,super'),
-        ('éternel αιώνια', 'Éternel Αιώνια'),
-    )
+    ('lang', 'lowercase', 'uppercase'), [
+        ('az', 'ı i', 'I İ'),
+        ('tr', 'ı i', 'I İ'),
+        ('el', 'καλημέρα αύριο θεϊκό ευφυΐα Νεράιδα',
+         'ΚΑΛΗΜΕΡΑ ΑΥΡΙΟ ΘΕΪΚΟ ΕΥΦΥΪΑ ΝΕΡΑΪΔΑ'),
+])
+def test_text_transform_lang_uppercase(lang, lowercase, uppercase):
+    page, = render_pages(f'''
+      <html lang="{lang}">
+        <p style="text-transform: uppercase">{lowercase}
+    ''')
+    html, = page.children
+    body, = html.children
+    p, = body.children
+    line, = p.children
+    text, = line.children
+    assert text.text == uppercase
+
+
+@assert_no_logs
+@pytest.mark.parametrize(
+    ('lang', 'uppercase', 'lowercase'), [
+        ('az', 'İ I', 'i ı'),
+        ('tr', 'İ I', 'i ı'),
+        ('lt', 'Ì Í Ĩ', 'i̇̀ i̇́ i̇̃'),
+])
+def test_text_transform_lang_lowercase(lang, uppercase, lowercase):
+    page, = render_pages(f'''
+      <html lang="{lang}">
+        <p style="text-transform: lowercase">{uppercase}
+    ''')
+    html, = page.children
+    body, = html.children
+    p, = body.children
+    line, = p.children
+    text, = line.children
+    assert text.text == lowercase
+
+
+@assert_no_logs
+@pytest.mark.parametrize(
+    ('original', 'transformed', 'lang_code'), [
+        ('abc def ghi', 'Abc Def Ghi', None),
+        ('AbC def ghi', 'AbC Def Ghi', None),
+        ('I’m SO cool', 'I’m SO Cool', None),
+        ('Wow.wow!wow', 'Wow.wow!wow', None),
+        ('!now not tomorrow', '!Now Not Tomorrow', None),
+        ('SUPER cool', 'SUPER Cool', None),
+        ('i 😻 non‑breaking characters', 'I 😻 Non‑breaking Characters', None),
+        ('3lite 3lite', '3lite 3lite', None),
+        ('one/two/three', 'One/two/three', None),
+        ('supernatural,super', 'Supernatural,super', None),
+        ('éternel αιώνια', 'Éternel Αιώνια', None),
+        ('great ijland', 'Great Ijland', 'fr'),
+        ('great ijland', 'Great IJland', 'nl'),
+        ('great ijland', 'Great İjland', 'az'),
+    ]
 )
-def test_text_transform_capitalize(original, transformed):
+def test_text_transform_capitalize(original, transformed, lang_code):
     # Results are different for different browsers, we almost get the same
     # results as Firefox, that’s good enough!
-    assert capitalize(original) == transformed
+    assert capitalize(original, lang_code) == transformed
 
 
 @assert_no_logs
@@ -1308,12 +1353,12 @@ def test_text_floating_pre_line():
 
 @assert_no_logs
 @pytest.mark.parametrize(
-    'leader, content', (
+    ('leader', 'content'), [
         ('dotted', '.'),
         ('solid', '_'),
         ('space', ' '),
         ('" .-"', ' .-'),
-    )
+    ]
 )
 def test_leader_content(leader, content):
     page, = render_pages('''
@@ -1383,11 +1428,12 @@ def test_continue():
     assert text2.text == 'efgh'
 
 
-def test_first_letter_text_transform():
-    # Regression test for #1906.
+@assert_no_logs
+def test_first_letter_line_height():
     page, = render_pages('''
       <style>
-        p:first-letter { text-transform: uppercase }
+        p { font-family: weasyprint }
+        p:first-letter { line-height: 1; font-size: 20px }
       </style>
       <p>abc
     ''')
@@ -1397,4 +1443,147 @@ def test_first_letter_text_transform():
     line, = paragraph.children
     first_letter, _ = line.children
     first_letter_text, = first_letter.children
+    assert first_letter_text.text == 'a'
+    assert first_letter_text.height == 20
+
+
+@assert_no_logs
+def test_first_letter_text_transform():
+    # Regression test for #1906.
+    page, = render_pages('''
+      <style>
+        p::first-letter { text-transform: uppercase }
+      </style>
+      <p>abc
+    ''')
+    html, = page.children
+    body, = html.children
+    paragraph, = body.children
+    line, = paragraph.children
+    first_letter, next_text = line.children
+    first_letter_text, = first_letter.children
     assert first_letter_text.text == 'A'
+    assert next_text.text == 'bc'
+
+
+@assert_no_logs
+def test_first_letter_nested():
+    page, = render_pages('''
+      <style>
+        body::first-letter { font-style: italic }
+        p::first-letter { font-weight: 700 }
+      </style>
+      <p>abc</p>
+      <p>abc</p>
+    ''')
+    html, = page.children
+    body, = html.children
+    p1, p2 = body.children
+    line, = p1.children
+    first_letter, next_text = line.children
+    first_letter_text, = first_letter.children
+    assert first_letter_text.style['font_style'] == 'italic'
+    assert first_letter_text.style['font_weight'] == 700
+    assert next_text.style['font_style'] == 'normal'
+    assert next_text.style['font_weight'] == 400
+    line, = p2.children
+    first_letter, next_text = line.children
+    first_letter_text, = first_letter.children
+    assert first_letter_text.style['font_style'] == 'normal'
+    assert first_letter_text.style['font_weight'] == 700
+    assert next_text.style['font_style'] == 'normal'
+    assert next_text.style['font_weight'] == 400
+
+
+@assert_no_logs
+def test_first_line_line_height():
+    page, = render_pages('''
+      <style>
+        p { font-family: weasyprint }
+        p:first-line { line-height: 1; font-size: 20px }
+      </style>
+      <p>abc<br>def
+    ''')
+    html, = page.children
+    body, = html.children
+    paragraph, = body.children
+    line1, line2 = paragraph.children
+    first_line_box, = line1.children
+    first_line_text, br = first_line_box.children
+    assert first_line_text.text == 'abc'
+    assert first_line_text.height == 20
+
+
+@assert_no_logs
+def test_first_line_text_transform():
+    page, = render_pages('''
+      <style>
+        p::first-line { text-transform: uppercase }
+      </style>
+      <p>abc<br>def
+    ''')
+    html, = page.children
+    body, = html.children
+    paragraph, = body.children
+    line1, line2 = paragraph.children
+    first_line_box, = line1.children
+    first_line_text, br = first_line_box.children
+    assert first_line_text.text == 'ABC'
+    next_line_text, = line2.children
+    assert next_line_text.text == 'def'
+
+
+@assert_no_logs
+def test_first_line_nested():
+    page, = render_pages('''
+      <style>
+        body::first-line { font-style: italic }
+        p::first-line { font-weight: 700 }
+      </style>
+      <p>abc<br>def</p>
+      <p>abc<br>def</p>
+    ''')
+    html, = page.children
+    body, = html.children
+    p1, p2 = body.children
+    line1, line2 = p1.children
+    first_line_box, = line1.children
+    first_line_text, br = first_line_box.children
+    assert first_line_text.style['font_style'] == 'italic'
+    assert first_line_text.style['font_weight'] == 700
+    next_line_text, = line2.children
+    assert next_line_text.style['font_style'] == 'normal'
+    assert next_line_text.style['font_weight'] == 400
+    line1, line2 = p2.children
+    first_line_box, = line1.children
+    first_line_text, br = first_line_box.children
+    assert first_line_text.style['font_style'] == 'normal'
+    assert first_line_text.style['font_weight'] == 700
+    next_line_text, = line2.children
+    assert next_line_text.style['font_style'] == 'normal'
+    assert next_line_text.style['font_weight'] == 400
+
+
+@assert_no_logs
+def test_first_line_first_letter():
+    page, = render_pages('''
+      <style>
+        p::first-letter { font-style: italic }
+        p::first-line { font-weight: 700 }
+      </style>
+      <p>abc<br>def</p>
+    ''')
+    html, = page.children
+    body, = html.children
+    paragraph, = body.children
+    line1, line2 = paragraph.children
+    first_line_box, = line1.children
+    first_letter_box, first_line_text, br = first_line_box.children
+    first_letter_text, = first_letter_box.children
+    assert first_letter_text.style['font_style'] == 'italic'
+    assert first_letter_text.style['font_weight'] == 700
+    assert first_line_text.style['font_style'] == 'normal'
+    assert first_line_text.style['font_weight'] == 700
+    next_line_text, = line2.children
+    assert next_line_text.style['font_style'] == 'normal'
+    assert next_line_text.style['font_weight'] == 400

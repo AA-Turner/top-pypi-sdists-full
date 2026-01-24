@@ -36,21 +36,20 @@ def permute_along_batch(array: np.ndarray, permutation: np.ndarray) -> np.ndarra
         RuntimeError: if the shape of the permutation does not match
             the batch axis of the array.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import permute_along_batch
+        >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+        >>> out = permute_along_batch(array, np.array([2, 1, 3, 0, 4]))
+        >>> out
+        array([[4, 5],
+               [2, 3],
+               [6, 7],
+               [0, 1],
+               [8, 9]])
 
-    ```pycon
-    >>> import numpy as np
-    >>> from batcharray.array import permute_along_batch
-    >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
-    >>> out = permute_along_batch(array, np.array([2, 1, 3, 0, 4]))
-    >>> out
-    array([[4, 5],
-           [2, 3],
-           [6, 7],
-           [0, 1],
-           [8, 9]])
-
-    ```
+        ```
     """
     if permutation.shape[0] != array.shape[0]:
         msg = (
@@ -81,18 +80,17 @@ def permute_along_seq(array: np.ndarray, permutation: np.ndarray) -> np.ndarray:
         RuntimeError: if the shape of the permutation does not match
             the sequence axis of the array.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import permute_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = permute_along_seq(array, np.array([2, 1, 3, 0, 4]))
+        >>> out
+        array([[2, 1, 3, 0, 4],
+               [7, 6, 8, 5, 9]])
 
-    ```pycon
-    >>> import numpy as np
-    >>> from batcharray.array import permute_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = permute_along_seq(array, np.array([2, 1, 3, 0, 4]))
-    >>> out
-    array([[2, 1, 3, 0, 4],
-           [7, 6, 8, 5, 9]])
-
-    ```
+        ```
     """
     if permutation.shape[0] != array.shape[1]:
         msg = (
@@ -117,17 +115,16 @@ def shuffle_along_batch(array: np.ndarray, rng: np.random.Generator | None = Non
     Returns:
         The shuffled array.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import shuffle_along_batch
+        >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+        >>> out = shuffle_along_batch(array)
+        >>> out
+        array([[...]])
 
-    ```pycon
-    >>> import numpy as np
-    >>> from batcharray.array import shuffle_along_batch
-    >>> array = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
-    >>> out = shuffle_along_batch(array)
-    >>> out
-    array([[...]])
-
-    ```
+        ```
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -151,17 +148,16 @@ def shuffle_along_seq(array: np.ndarray, rng: np.random.Generator | None = None)
     Returns:
         The shuffled array.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import shuffle_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = shuffle_along_seq(array)
+        >>> out
+        array([[...]])
 
-    ```pycon
-    >>> import numpy as np
-    >>> from batcharray.array import shuffle_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = shuffle_along_seq(array)
-    >>> out
-    array([[...]])
-
-    ```
+        ```
     """
     if rng is None:
         rng = np.random.default_rng()

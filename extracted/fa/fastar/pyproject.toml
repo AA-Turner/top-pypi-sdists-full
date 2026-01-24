@@ -1,0 +1,58 @@
+[project]
+name = "fastar"
+description = "High-level bindings for the Rust tar crate"
+authors = [{ name = "Jonathan Ehwald", email = "github@ehwald.info" }]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Rust",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = ["version"]
+dependencies = []
+
+[project.urls]
+homepage = "https://github.com/DoctorJohn/fastar"
+repository = "https://github.com/DoctorJohn/fastar"
+documentation = "https://github.com/DoctorJohn/fastar"
+
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[dependency-groups]
+dev = [
+    "maturin>=1.9.6",
+    "mypy>=1.14.1",
+    "pre-commit>=3.5.0",
+    "psutil>=7.1.2",
+    "pytest>=8.3.5",
+    "pytest-codspeed>=2.2.1",
+    "ruff>=0.14.2",
+    "types-psutil>=6.1.0.20241221",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.mypy]
+check_untyped_defs = true

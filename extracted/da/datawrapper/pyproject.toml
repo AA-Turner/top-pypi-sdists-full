@@ -1,0 +1,184 @@
+[build-system]
+requires = ["setuptools >= 61.0", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datawrapper"
+dynamic = ["version"]
+requires-python = ">=3.10.0"
+dependencies = [
+    'exceptiongroup; python_version<"3.11"',
+    "importlib_metadata",
+    "rich",
+    "requests",
+    "pandas",
+    "pydantic",
+    "ipython",
+]
+authors = [
+  { name="checkos", email="chekos@tacosdedatos.com" },
+  { name="Ben Welsh", email="b@palewi.re"}
+]
+description = "A lightweight Python wrapper for the Datawrapper API"
+license = {text = "MIT"}
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "setuptools-scm",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-asyncio",
+    "pytest-timeout",
+    "pytest-xdist",
+    "pytest-env",
+    "factory-boy",
+    "faker",
+    "responses",
+    "freezegun",
+]
+docs = [
+    "sphinx",
+    "sphinx-autobuild",
+    "myst-parser",
+    "sphinx_rtd_theme",
+]
+mypy = [
+    "mypy",
+    "types-requests",
+    "types-docutils",
+    "pydantic-settings",
+]
+
+[project.urls]
+Documentation = "https://github.com/chekos/datawrapper"
+Maintainer = "https://github.com/chekos/"
+Source = "https://github.com/chekos/datawrapper"
+Issues = "https://github.com/chekos/datawrapper/issues/"
+
+[tool.setuptools]
+packages = ["datawrapper"]
+
+[tool.setuptools.package-data]
+datawrapper = ["py.typed"]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+exclude = [
+    ".ipynb_checkpoints",
+    ".ruff_cache",
+    ".venv",
+    "docs",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "B",    # flake8-bugbear
+    "W",    # pycodestyle warnings
+    "I",    # isort - import sorting
+    "UP",   # pyupgrade - modern Python idioms
+    "N",    # pep8-naming - naming conventions
+    "Q",    # flake8-quotes - quote consistency
+]
+ignore = [
+    "D100",
+    "D104",
+    "E203",
+    "E501",
+    "D400",
+    "D401",
+    "D202"
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["datawrapper"]
+force-single-line = false
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--cov=datawrapper",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--tb=short",
+    "--maxfail=1",
+]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (component interaction)",
+    "functional: Functional tests (end-to-end)",
+    "api: API tests (external dependencies)",
+    "slow: Slow running tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["datawrapper"]
+branch = true
+parallel = true
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.pytest-timeout]
+timeout = 300
+timeout_method = "thread"
+timeout_func_only = false

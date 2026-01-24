@@ -20,17 +20,17 @@ import logging
 
 from cliff import columns as cliff_columns
 from keystoneauth1 import exceptions as ks_exc
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 
 
 LOG = logging.getLogger(__name__)
 
 
-class ProjectColumn(cliff_columns.FormattableColumn):
+class ProjectColumn(cliff_columns.FormattableColumn[str]):
     """Formattable column for project column.
 
     Unlike the parent FormattableColumn class, the initializer of the

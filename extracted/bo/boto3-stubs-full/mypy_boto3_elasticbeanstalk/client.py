@@ -3,7 +3,7 @@ Type annotations for elasticbeanstalk service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elasticbeanstalk/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -110,11 +111,6 @@ from .type_defs import (
 )
 from .waiter import EnvironmentExistsWaiter, EnvironmentTerminatedWaiter, EnvironmentUpdatedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -125,26 +121,26 @@ __all__ = ("ElasticBeanstalkClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CodeBuildNotInServiceRegionException: Type[BotocoreClientError]
-    ElasticBeanstalkServiceException: Type[BotocoreClientError]
-    InsufficientPrivilegesException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ManagedActionInvalidStateException: Type[BotocoreClientError]
-    OperationInProgressException: Type[BotocoreClientError]
-    PlatformVersionStillReferencedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceTypeNotSupportedException: Type[BotocoreClientError]
-    S3LocationNotInServiceRegionException: Type[BotocoreClientError]
-    S3SubscriptionRequiredException: Type[BotocoreClientError]
-    SourceBundleDeletionException: Type[BotocoreClientError]
-    TooManyApplicationVersionsException: Type[BotocoreClientError]
-    TooManyApplicationsException: Type[BotocoreClientError]
-    TooManyBucketsException: Type[BotocoreClientError]
-    TooManyConfigurationTemplatesException: Type[BotocoreClientError]
-    TooManyEnvironmentsException: Type[BotocoreClientError]
-    TooManyPlatformsException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CodeBuildNotInServiceRegionException: type[BotocoreClientError]
+    ElasticBeanstalkServiceException: type[BotocoreClientError]
+    InsufficientPrivilegesException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ManagedActionInvalidStateException: type[BotocoreClientError]
+    OperationInProgressException: type[BotocoreClientError]
+    PlatformVersionStillReferencedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceTypeNotSupportedException: type[BotocoreClientError]
+    S3LocationNotInServiceRegionException: type[BotocoreClientError]
+    S3SubscriptionRequiredException: type[BotocoreClientError]
+    SourceBundleDeletionException: type[BotocoreClientError]
+    TooManyApplicationVersionsException: type[BotocoreClientError]
+    TooManyApplicationsException: type[BotocoreClientError]
+    TooManyBucketsException: type[BotocoreClientError]
+    TooManyConfigurationTemplatesException: type[BotocoreClientError]
+    TooManyEnvironmentsException: type[BotocoreClientError]
+    TooManyPlatformsException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 
 class ElasticBeanstalkClient(BaseClient):

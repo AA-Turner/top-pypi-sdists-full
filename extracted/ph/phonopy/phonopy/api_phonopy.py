@@ -95,9 +95,8 @@ from phonopy.structure.cells import (
     Primitive,
     Supercell,
     get_primitive,
-    get_primitive_matrix,
+    get_primitive_matrix_with_auto,
     get_supercell,
-    guess_primitive_matrix,
     isclose,
     shape_supercell_matrix,
 )
@@ -121,7 +120,7 @@ class Phonopy:
     primitive_symmetry : Symmetry
         Symmetry of primitive cell.
     supercell_matrix : ndarray
-        shape=(3, 3), dtype='intc', order='C'.
+        shape=(3,) or (3, 3), dtype='intc', order='C'.
     primitive_matrix : ndarray
         shape=(3, 3), dtype='double', order='C'.
     unit_conversion_factor : float
@@ -152,8 +151,14 @@ class Phonopy:
     def __init__(
         self,
         unitcell: PhonopyAtoms,
-        supercell_matrix: ArrayLike | None = None,
-        primitive_matrix: str | ArrayLike | None = None,
+        supercell_matrix: Sequence[int]
+        | Sequence[Sequence[int]]
+        | NDArray
+        | None = None,
+        primitive_matrix: Literal["P", "F", "I", "A", "C", "R", "auto"]
+        | Sequence[Sequence[float]]
+        | NDArray
+        | None = None,
         nac_params: dict | None = None,
         factor: float | None = None,
         frequency_scale_factor: float | None = None,
@@ -184,7 +189,8 @@ class Phonopy:
         nac_params : None
             Deprecated.
         factor : None
-            Deprecated.
+            Deprecated at v2.24. The default frequency conversion factor is that
+            to THz for given displacements in Angstroms and forces in eV/Angstrom.
         group_velocity_delta_q : float, optional
             Delta-q distance to calculate group velocity.
         symprec : float, optional
@@ -292,7 +298,9 @@ class Phonopy:
                     "Phonopy class instantiation with factor is deprecated. "
                     "The frequency conversion factor now automatically "
                     "corresponds to the calculator keyword argument if "
-                    "set_factor_by_calculator is True."
+                    "set_factor_by_calculator is True. The default frequency "
+                    "conversion factor is that to THz for given displacements "
+                    "in Angstroms and forces in eV/Angstrom."
                 ),
                 DeprecationWarning,
                 stacklevel=2,
@@ -312,8 +320,10 @@ class Phonopy:
 
         # Create supercell and primitive cell
         self._unitcell = unitcell.copy()
-        self._supercell_matrix = self._shape_supercell_matrix(supercell_matrix)
-        self._primitive_matrix = self._set_primitive_matrix(primitive_matrix)
+        self._supercell_matrix = shape_supercell_matrix(supercell_matrix)
+        self._primitive_matrix = get_primitive_matrix_with_auto(
+            self._unitcell, primitive_matrix, symprec=self._symprec
+        )
         self._supercell: Supercell
         self._primitive: Primitive
         self._build_supercell()
@@ -443,15 +453,21 @@ class Phonopy:
         """Return phonon frequency unit conversion factor.
 
         float
-            Phonon frequency unit conversion factor. This factor
-            converts sqrt(<force>/<distance>/<AMU>)/2pi/1e12 to the
-            other favorite phonon frequency unit. Normally this factor
-            is recommended to be that converts to THz (ordinary
-            frequency) to calculate a variety of phonon properties
-            that assumes that input phonon frequencies have THz unit.
+            Phonon frequency unit conversion factor. This factor converts
+            sqrt(<force>/<distance>/<AMU>)/2pi/1e12 to another preferred phonon
+            frequency unit. This factor should convert to THz (ordinary
+            frequency) to calculate various phonon properties that assume input
+            phonon frequencies are in THz units. When only frequencies are
+            necessary as output, this factor may be used for getting results in
+            other units. The default frequency conversion factor is that to THz
+            for given displacements in Angstroms and forces in eV/Angstrom.
 
         """
         return self._unit_conversion_factor
+
+    @unit_conversion_factor.setter
+    def unit_conversion_factor(self, unit_conversion_factor: float):
+        self._unit_conversion_factor = unit_conversion_factor
 
     @property
     def calculator(self) -> str | None:
@@ -844,19 +860,23 @@ class Phonopy:
 
     @property
     def masses(self) -> NDArray:
-        """Getter and setter of masses of primitive cell atoms."""
+        """Getter and setter of masses of primitive cell atoms.
+
+        By setter, masses of supercell and unit cell atoms are also updated.
+
+        """
         return self._primitive.masses
 
     @masses.setter
     def masses(self, masses):
         p_masses = np.array(masses)
-        self._primitive.set_masses(p_masses)
+        self._primitive.masses = p_masses
         p2p_map = self._primitive.p2p_map
         s_masses = p_masses[[p2p_map[x] for x in self._primitive.s2p_map]]
-        self._supercell.set_masses(s_masses)
+        self._supercell.masses = s_masses
         u2s_map = self._supercell.u2s_map
         u_masses = s_masses[u2s_map]
-        self._unitcell.set_masses(u_masses)
+        self._unitcell.masses = u_masses
         if self._force_constants is not None:
             self._set_dynamical_matrix()
 
@@ -1530,7 +1550,12 @@ class Phonopy:
         self._band_structure.plot(axs)
         return plt
 
-    def write_hdf5_band_structure(self, comment=None, filename="band.hdf5") -> None:
+    def write_hdf5_band_structure(
+        self,
+        comment: dict | None = None,
+        filename: str | os.PathLike = "band.hdf5",
+        compression: Literal["gzip", "lzf"] | int | None = None,
+    ) -> None:
         """Write band structure in hdf5 format.
 
         Parameters
@@ -1542,7 +1567,9 @@ class Phonopy:
 
         """
         assert self._band_structure is not None
-        self._band_structure.write_hdf5(comment=comment, filename=filename)
+        self._band_structure.write_hdf5(
+            comment=comment, filename=filename, compression=compression
+        )
 
     def write_yaml_band_structure(
         self, comment=None, filename=None, compression=None
@@ -1760,12 +1787,15 @@ class Phonopy:
 
         return retdict
 
-    def write_hdf5_mesh(self) -> None:
+    def write_hdf5_mesh(
+        self,
+        compression: Literal["gzip", "lzf"] | int | None = None,
+    ) -> None:
         """Write mesh calculation results in hdf5 format."""
         if not isinstance(self._mesh, Mesh):
             msg = "Mesh is not initialized."
             raise RuntimeError(msg)
-        self._mesh.write_hdf5()
+        self._mesh.write_hdf5(compression=compression)
 
     def write_yaml_mesh(self) -> None:
         """Write mesh calculation results in yaml format."""
@@ -1940,12 +1970,15 @@ class Phonopy:
             "dynamical_matrices": self._qpoints.dynamical_matrices,
         }
 
-    def write_hdf5_qpoints_phonon(self) -> None:
+    def write_hdf5_qpoints_phonon(
+        self,
+        compression: Literal["gzip", "lzf"] | int | None = None,
+    ) -> None:
         """Write phonon properties calculated at q-points in hdf5 format."""
         if self._qpoints is None:
             msg = "Phonopy.run_qpoints() has to be done."
             raise RuntimeError(msg)
-        self._qpoints.write_hdf5()
+        self._qpoints.write_hdf5(compression=compression)
 
     def write_yaml_qpoints_phonon(self) -> None:
         """Write phonon properties calculated at q-points in yaml format."""
@@ -2425,7 +2458,7 @@ class Phonopy:
         assert self._thermal_properties.thermal_properties is not None
 
         keys = ("temperatures", "free_energy", "entropy", "heat_capacity")
-        return dict(zip(keys, self._thermal_properties.thermal_properties))
+        return dict(zip(keys, self._thermal_properties.thermal_properties, strict=True))
 
     def plot_thermal_properties(
         self,
@@ -2844,14 +2877,13 @@ class Phonopy:
         self._irreps = IrReps(
             self._dynamical_matrix,
             q,
+            self._primitive_symmetry,
             is_little_cogroup=is_little_cogroup,
             nac_q_direction=nac_q_direction,
             factor=self._unit_conversion_factor,
-            symprec=self._symprec,
             degeneracy_tolerance=degeneracy_tolerance,
             log_level=self._log_level,
         )
-        self._irreps.run()
 
     def show_irreps(self, show_irreps: bool = False) -> None:
         """Show Ir-reps."""
@@ -3179,7 +3211,11 @@ class Phonopy:
 
         return out_filename
 
-    def ph2ph(self, supercell_matrix: ArrayLike, with_nac: bool = False) -> Phonopy:
+    def ph2ph(
+        self,
+        supercell_matrix: Sequence[Sequence[int]] | NDArray,
+        with_nac: bool = False,
+    ) -> Phonopy:
         """Transform force constants in Phonopy class instance to other shape.
 
         Fourier interpolation of force constants is performed. This Phonopy
@@ -3260,7 +3296,9 @@ class Phonopy:
     # private methods #
     ###################
     def _copy(
-        self, supercell_matrix: ArrayLike | None = None, log_level: int | None = None
+        self,
+        supercell_matrix: Sequence[Sequence[int]] | NDArray | None = None,
+        log_level: int | None = None,
     ) -> Phonopy:
         """Copy this Phonopy class instance with init parameters.
 
@@ -3489,24 +3527,6 @@ class Phonopy:
             )
             raise RuntimeError(msg) from exc
 
-    def _set_primitive_matrix(
-        self, primitive_matrix: str | ArrayLike | None
-    ) -> NDArray | None:
-        if primitive_matrix is None:
-            return None
-
-        if isinstance(primitive_matrix, str):
-            pmat = get_primitive_matrix(primitive_matrix, symprec=self._symprec)
-            if isinstance(pmat, str) and pmat == "auto":
-                return guess_primitive_matrix(self._unitcell, symprec=self._symprec)
-            else:
-                return pmat
-
-        return np.array(primitive_matrix, dtype="double", order="C")
-
-    def _shape_supercell_matrix(self, smat) -> np.ndarray:
-        return shape_supercell_matrix(smat)
-
     def _get_forces_energies(
         self, target: Literal["forces", "supercell_energies"]
     ) -> NDArray:
@@ -3537,7 +3557,7 @@ class Phonopy:
     ):
         assert self._dataset is not None
         if "first_atoms" in self._dataset:  # type-1
-            for disp, v in zip(self._dataset["first_atoms"], values):  # type: ignore
+            for disp, v in zip(self._dataset["first_atoms"], values, strict=True):  # type: ignore
                 if target == "forces":
                     disp[target] = np.array(v, dtype="double", order="C")
                 elif target == "supercell_energies":

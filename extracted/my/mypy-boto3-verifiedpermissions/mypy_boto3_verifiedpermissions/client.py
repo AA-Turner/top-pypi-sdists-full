@@ -3,7 +3,7 @@ Type annotations for verifiedpermissions service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -88,12 +89,6 @@ from .type_defs import (
     UpdatePolicyTemplateOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -104,16 +99,16 @@ __all__ = ("VerifiedPermissionsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class VerifiedPermissionsClient(BaseClient):
@@ -225,7 +220,7 @@ class VerifiedPermissionsClient(BaseClient):
 
     def delete_identity_source(
         self, **kwargs: Unpack[DeleteIdentitySourceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an identity source that references an identity provider (IdP) such as
         Amazon Cognito.
@@ -234,7 +229,7 @@ class VerifiedPermissionsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#delete_identity_source)
         """
 
-    def delete_policy(self, **kwargs: Unpack[DeletePolicyInputTypeDef]) -> Dict[str, Any]:
+    def delete_policy(self, **kwargs: Unpack[DeletePolicyInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified policy from the policy store.
 
@@ -244,7 +239,7 @@ class VerifiedPermissionsClient(BaseClient):
 
     def delete_policy_store(
         self, **kwargs: Unpack[DeletePolicyStoreInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified policy store.
 
@@ -254,7 +249,7 @@ class VerifiedPermissionsClient(BaseClient):
 
     def delete_policy_template(
         self, **kwargs: Unpack[DeletePolicyTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified policy template from the policy store.
 
@@ -392,7 +387,7 @@ class VerifiedPermissionsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#put_schema)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified Amazon Verified
         Permissions resource.
@@ -401,7 +396,7 @@ class VerifiedPermissionsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_verifiedpermissions/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified Amazon Verified Permissions
         resource.

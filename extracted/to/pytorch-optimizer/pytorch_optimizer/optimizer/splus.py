@@ -5,37 +5,38 @@ import torch
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import (
-    BETAS,
-    CLOSURE,
-    DEFAULTS,
-    GROUP,
-    LOSS,
-    PARAMETERS,
+    Betas,
+    Closure,
+    Defaults,
+    Loss,
+    Parameters,
+    ParamGroup,
 )
 
 
 class SPlus(BaseOptimizer):
-    r"""A Stable Whitening Optimizer for Efficient Neural Network Training.
+    """A Stable Whitening Optimizer for Efficient Neural Network Training.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param ema_rate: float. exponential moving average decay rate.
-    :param inverse_steps: int. the number of steps to perform inverse.
-    :param nonstandard_constant: float. scale factor for learning rate in case of non-linear layer.
-    :param max_dim: int. maximum number of dimensions to perform .
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Whether the optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Whether to fix weight decay.
+        ema_rate (float): Exponential moving average decay rate.
+        inverse_steps (int): Number of steps to perform inverse.
+        nonstandard_constant (float): Scale factor for the learning rate in case of a non-linear layer.
+        max_dim (int): Maximum number of dimensions to perform the operation on.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-1,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 1e-2,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
@@ -57,7 +58,7 @@ class SPlus(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -97,7 +98,10 @@ class SPlus(BaseOptimizer):
                         del state['param_buffer']
                 group['train_mode'] = True
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -133,18 +137,15 @@ class SPlus(BaseOptimizer):
         return lr * scale
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

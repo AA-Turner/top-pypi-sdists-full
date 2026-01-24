@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-when
-Version: 3.0.0
+Version: 3.1.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-when
 Author: edX
@@ -131,6 +131,11 @@ Change Log
 
 Unreleased
 ~~~~~~~~~~
+
+[3.1.0] - 2026-01-09
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Add get_overrides_for_course API to retrieve all overrides for a course.
+* Update get_overrides_for_block to also return email and location.
 
 [3.0.0] - 2025-05-15
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

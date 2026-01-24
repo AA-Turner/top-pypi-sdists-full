@@ -8,19 +8,16 @@ import threading
 import time
 import types
 from collections import defaultdict
-from collections.abc import Mapping
-from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol, TypeVar, overload
+from typing import Dict, List, Optional
 
-import httpx
 import msgpack
 import ulid
 
 from kolo.threads import get_thread_id
 
-from .config import CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE, load_config
-from .db import save_trace_in_sqlite, setup_db
+from .config import CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
+from .db import save_trace_in_sqlite
 from .filters.attrs import attrs_filter
 from .filters.core import (
     FrameFilter,
@@ -37,14 +34,11 @@ from .filters.pytest import pytest_generated_filter
 from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import (
-    UserCodeCallSite,
     dump_msgpack,
     dump_msgpack_lightweight_repr,
     frame_path,
-    monkeypatch_queryset_repr,
     user_code_call_site,
 )
-from .upload import upload_to_dashboard
 from .utils import extract_http_trace_name, extract_test_trace_name
 from .version import __version__
 
@@ -204,7 +198,9 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        frame.f_locals,
+                        dict(
+                            frame.f_locals
+                        ),  # Convert for Python 3.13+ FrameLocalsProxy
                         exc_info=e,
                     )
                     continue
@@ -222,7 +218,9 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        frame.f_locals,
+                        dict(
+                            frame.f_locals
+                        ),  # Convert for Python 3.13+ FrameLocalsProxy
                         exc_info=e,
                     )
                     continue
@@ -238,7 +236,9 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        frame.f_locals,
+                        dict(
+                            frame.f_locals
+                        ),  # Convert for Python 3.13+ FrameLocalsProxy
                         exc_info=e,
                     )
                     continue
@@ -254,7 +254,9 @@ class KoloProfiler:
                         frame.f_code.co_filename,
                         frame.f_code.co_name,
                         event,
-                        frame.f_locals,
+                        dict(
+                            frame.f_locals
+                        ),  # Convert for Python 3.13+ FrameLocalsProxy
                         exc_info=e,
                     )
                     continue
@@ -268,35 +270,33 @@ class KoloProfiler:
                     frame.f_code.co_filename,
                     frame.f_code.co_name,
                     event,
-                    frame.f_locals,
+                    dict(frame.f_locals),  # Convert for Python 3.13+ FrameLocalsProxy
                     exc_info=e,
                 )
 
         finally:
-            if not frames:
-                return
+            if frames:
+                if event == "return":
+                    frames.reverse()
+                    frame_types.reverse()
 
-            if event == "return":
-                frames.reverse()
-                frame_types.reverse()
+                if self.one_trace_per_test:  # pragma: no branch
+                    for index, frame_type in enumerate(frame_types):  # pragma: no cover
+                        if frame_type == "start_test":
+                            before, frames = frames[:index], frames[index:]
 
-            if self.one_trace_per_test:  # pragma: no branch
-                for index, frame_type in enumerate(frame_types):  # pragma: no cover
-                    if frame_type == "start_test":
-                        before, frames = frames[:index], frames[index:]
+                            self.push_frame_data(before)
 
-                        self.push_frame_data(before)
+                            self.start_test()
 
-                        self.start_test()
+                        elif frame_type == "end_test":
+                            before, frames = frames[: index + 1], frames[index + 1 :]
 
-                    elif frame_type == "end_test":
-                        before, frames = frames[: index + 1], frames[index + 1 :]
+                            self.push_frame_data(before)
 
-                        self.push_frame_data(before)
+                            self.end_test()
 
-                        self.end_test()
-
-            self.push_frame_data(frames)
+                self.push_frame_data(frames)
 
     def push_frame_data(self, data):
         current_thread = threading.current_thread()
@@ -328,8 +328,11 @@ class KoloProfiler:
         if self.config.get("use_rust", True):
             try:
                 from ._kolo import register_profiler
-            except ImportError:
-                # Useful for PyPY, which doesn't do rust
+            except ImportError as e:
+                # Useful for PyPy, which doesn't do Rust
+                logger.debug(
+                    "Rust profiler import failed (%s), using Python profiler", e
+                )
                 sys.setprofile(self)
                 threading.setprofile(self)
             else:
@@ -520,231 +523,3 @@ def get_qualname(frame: types.FrameType) -> str | None:
         return f"{function.__module__}.{function.__qualname__}"
     except Exception:
         return None
-
-
-def save_trace_in_thread(profiler):
-    if platform.machine() == "wasm32":
-        profiler.save()
-    else:
-        name = "kolo-save_request_in_db"
-        threading.Thread(target=profiler.save, name=name).start()
-
-
-def upload_trace_in_thread(profiler, upload_token):
-    def upload():
-        trace = profiler.build_trace()
-        try:
-            response = upload_to_dashboard(trace, upload_token)
-            response.raise_for_status()
-        except httpx.HTTPError:
-            logger.exception("Failed to upload trace to Kolo dashboard.")
-
-    if platform.machine() == "wasm32":
-        upload()
-    else:
-        name = "kolo-upload_to_dashboard"
-        threading.Thread(target=upload, name=name).start()
-
-
-class Enabled:
-    def __init__(
-        self,
-        config: Mapping[str, Any] | None,
-        source: str,
-        one_trace_per_test: bool,
-        save_in_thread: bool,
-        upload_token: Optional[str],
-        db_path: Optional[Path] = None,
-        name: Optional[str] = None,
-    ):
-        if config is None:
-            config = {}
-        self.config = load_config(config)
-        self._profiler: KoloProfiler | None = None
-        self._monitor = None
-        self.source = source
-        self.one_trace_per_test = one_trace_per_test
-        self.save_in_thread = save_in_thread
-        self.upload_token = upload_token
-        self.db_path = db_path
-        self.name = name
-
-    def __call__(self, func):
-        @wraps(func)
-        def inner(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-
-        return inner
-
-    def __enter__(self) -> None:
-        use_monitoring = self.config.get("use_monitoring", False)
-
-        if use_monitoring and sys.version_info >= (3, 12):
-            if sys.monitoring.get_tool(sys.monitoring.PROFILER_ID):  # type: ignore[attr-defined]
-                return
-        elif sys.getprofile():
-            return
-
-        if sys.version_info < (3, 12) or not use_monitoring:
-            try:
-                thread_profiler = threading.getprofile()  # type: ignore[attr-defined]
-            except AttributeError:
-                thread_profiler = threading._profile_hook
-            if thread_profiler:
-                return
-
-        # self.db_path is typically not set,
-        # but we make use of it in tests.
-        if self.db_path is None:
-            db_path = setup_db()
-        else:
-            db_path = self.db_path
-
-        monkeypatch_queryset_repr()
-
-        if sys.version_info >= (3, 12) and use_monitoring:
-            from .monitoring import activate_monitoring
-
-            monitor = self.register_monitor(db_path)
-            activate_monitoring(monitor)
-            self._monitor = monitor
-        else:
-            self._profiler = KoloProfiler(
-                db_path,
-                config=self.config,
-                source=self.source,
-                one_trace_per_test=self.one_trace_per_test,
-                name=self.name,
-            )
-            self._profiler.__enter__()
-
-    def register_monitor(self, db_path):
-        use_rust = self.config.get("use_rust", True)
-        if use_rust:
-            from ._kolo import register_monitor
-
-            return register_monitor(
-                str(db_path),
-                config=self.config,
-                source=self.source,
-                one_trace_per_test=self.one_trace_per_test,
-                name=self.name,
-            )
-
-        from .monitoring import KoloMonitor  # type: ignore[attr-defined]
-
-        return KoloMonitor(
-            db_path,
-            config=self.config,
-            source=self.source,
-            one_trace_per_test=self.one_trace_per_test,
-            name=self.name,
-        )
-
-    def save_trace_profiler(self):
-        assert self._profiler is not None
-
-        if self.one_trace_per_test:
-            return
-
-        if not self.save_in_thread:
-            self._profiler.save()
-            return
-
-        if self.upload_token:
-            upload_trace_in_thread(self._profiler, self.upload_token)
-        else:
-            save_trace_in_thread(self._profiler)
-
-    def save_trace_monitor(self):
-        assert self._monitor is not None
-
-        if self.one_trace_per_test:
-            return
-
-        if not self.save_in_thread:
-            self._monitor.save()
-            return
-
-        if self.upload_token:
-            upload_trace_in_thread(self._monitor, self.upload_token)
-        else:
-            save_trace_in_thread(self._monitor)
-
-    def __exit__(self, *exc) -> None:
-        if self._profiler is not None:
-            self._profiler.__exit__(*exc)
-            self.save_trace_profiler()
-            self._profiler = None
-
-        if self._monitor is not None:
-            from .monitoring import disable_monitoring  # type: ignore[attr-defined]
-
-            disable_monitoring(self._monitor)
-            self.save_trace_monitor()
-            self._monitor = None
-
-
-F = TypeVar("F", bound=Callable[..., Any])
-
-
-class CallableContextManager(Protocol):
-    def __call__(self, func: F) -> F: ...  # pragma: no cover
-
-    def __enter__(self) -> None: ...  # pragma: no cover
-
-    def __exit__(self, *exc) -> None: ...  # pragma: no cover
-
-
-@overload
-def enable(_func: F) -> F:
-    """Stub"""
-
-
-@overload
-def enable(
-    config: Mapping[str, Any] | None = None,
-    name: Optional[str] = None,
-    source: str = "kolo.enable",
-    _one_trace_per_test: bool = False,
-    _save_in_thread: bool = False,
-    _upload_token: Optional[str] = None,
-    _db_path: Optional[Path] = None,
-) -> CallableContextManager:
-    """Stub"""
-
-
-def enable(
-    config=None,
-    *,
-    name=None,
-    source="kolo.enable",
-    _one_trace_per_test=False,
-    _save_in_thread=False,
-    _upload_token=None,
-    _db_path=None,
-):
-    if config is None or isinstance(config, Mapping):
-        function = None
-    else:
-        # Treat as a decorator called on a function
-        function = config
-        config = None
-
-    enabled = Enabled(
-        config=config,
-        source=source,
-        name=name,
-        one_trace_per_test=_one_trace_per_test,
-        save_in_thread=_save_in_thread,
-        upload_token=_upload_token,
-        db_path=_db_path,
-    )
-
-    if function is None:
-        return enabled
-    return enabled(function)
-
-
-enabled = enable

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 from dataclasses import dataclass, field
 from re import Pattern
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlparse
 
-import httpx
+import impit
+from yarl import URL
 
 from apify_shared.consts import ApifyEnvVars
-from apify_shared.utils import ignore_docs
 from crawlee.proxy_configuration import ProxyConfiguration as CrawleeProxyConfiguration
 from crawlee.proxy_configuration import ProxyInfo as CrawleeProxyInfo
 from crawlee.proxy_configuration import _NewUrlFunction
@@ -21,14 +22,14 @@ from apify.log import logger
 
 if TYPE_CHECKING:
     from apify_client import ApifyClientAsync
-    from crawlee import Request
+
+    from apify import Request
 
 APIFY_PROXY_VALUE_REGEX = re.compile(r'^[\w._~]+$')
 COUNTRY_CODE_REGEX = re.compile(r'^[A-Z]{2}$')
 SESSION_ID_MAX_LENGTH = 50
 
 
-@ignore_docs
 def is_url(url: str) -> bool:
     """Check if the given string is a valid URL."""
     try:
@@ -69,7 +70,7 @@ def _check(
         raise ValueError(f'{error_str} does not match pattern {pattern.pattern!r}')
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 @dataclass
 class ProxyInfo(CrawleeProxyInfo):
     """Provides information about a proxy connection that is used for requests."""
@@ -89,7 +90,7 @@ class ProxyInfo(CrawleeProxyInfo):
     """
 
 
-@docs_group('Classes')
+@docs_group('Configuration')
 class ProxyConfiguration(CrawleeProxyConfiguration):
     """Configures a connection to a proxy server with the provided options.
 
@@ -104,7 +105,6 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
 
     _configuration: Configuration
 
-    @ignore_docs
     def __init__(
         self,
         *,
@@ -233,7 +233,7 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return None
 
         if self._uses_apify_proxy:
-            parsed_url = httpx.URL(proxy_info.url)
+            parsed_url = URL(proxy_info.url)
             username = self._get_username(session_id)
 
             return ProxyInfo(
@@ -277,11 +277,11 @@ class ProxyConfiguration(CrawleeProxyConfiguration):
             return
 
         status = None
-        async with httpx.AsyncClient(proxy=proxy_info.url, timeout=10) as client:
+        async with impit.AsyncClient(proxy=proxy_info.url, timeout=10) as client:
             for _ in range(2):
                 try:
                     response = await client.get(proxy_status_url)
-                    status = response.json()
+                    status = json.loads(response.text)
                     break
                 except Exception:  # noqa: S110
                     # retry on connection errors

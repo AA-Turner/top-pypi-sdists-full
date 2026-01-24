@@ -12,7 +12,6 @@ from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
 from seeq.spy._errors import *
-from seeq.spy._login import get_user_timezone
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -373,7 +372,7 @@ class DateRange(Item):
                 status.warn(
                     f'Date Range "{date_range_output.name}" {date_range_output.id} does not have a start or end time, '
                     f'and is not auto-updating. Defaulting to the last 24 hours.')
-                timezone = get_user_timezone(session) if session is not None else 'UTC'
+                timezone = session.get_user_timezone() if session is not None else 'UTC'
                 now = pd.Timestamp.now(tz=timezone)
                 date_range_dict['Start'] = now - pd.Timedelta(days=1)
                 date_range_dict['End'] = now

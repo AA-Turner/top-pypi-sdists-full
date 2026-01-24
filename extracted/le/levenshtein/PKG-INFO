@@ -1,21 +1,23 @@
 Metadata-Version: 2.4
 Name: Levenshtein
-Version: 0.27.1
+Version: 0.27.3
 Summary: Python extension for computing string edit distances and similarities.
+Author: David Necas, Mikko Ohtamaa, Antti Haapala
 Author-Email: Max Bachmann <pypi@maxbachmann.de>
+Maintainer-Email: Max Bachmann <pypi@maxbachmann.de>
 License-Expression: GPL-2.0-or-later
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/rapidfuzz/Levenshtein
 Project-URL: Documentation, https://rapidfuzz.github.io/Levenshtein/
 Project-URL: Repository, https://github.com/rapidfuzz/Levenshtein.git
 Project-URL: Issues, https://github.com/rapidfuzz/Levenshtein/issues
 Project-URL: Changelog, https://github.com/rapidfuzz/Levenshtein/blob/main/HISTORY.md
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: rapidfuzz<4.0.0,>=3.9.0
 Description-Content-Type: text/markdown
 
@@ -38,7 +40,7 @@ Description-Content-Type: text/markdown
     <img src="https://img.shields.io/badge/-documentation-blue"
          alt="Documentation">
   </a>
-  <a href="https://github.com/rapidfuzz/Levenshtein/blob/main/COPYING">
+  <a href="https://github.com/rapidfuzz/Levenshtein/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/rapidfuzz/Levenshtein"
          alt="GitHub license">
   </a>
@@ -54,7 +56,7 @@ computation of:
 * string sequence and set similarity
 
 ## Requirements
-* Python 3.9 or later
+* Python 3.10 or later
 
 ## Installation
 ```bash
@@ -81,4 +83,4 @@ under the terms of the GNU General Public License as published by the Free
 Software Foundation; either version 2 of the License, or (at your option)
 any later version.
 
-See the file [COPYING](https://github.com/rapidfuzz/Levenshtein/blob/main/COPYING) for the full text of GNU General Public License version 2.
+See the file [LICENSE](https://github.com/rapidfuzz/Levenshtein/blob/main/LICENSE) for the full text of GNU General Public License version 2.

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: deepecho
-Version: 0.7.0
+Version: 0.8.0
 Summary: Create sequential synthetic data of mixed types using a GAN.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License: BSL-1.1
@@ -14,51 +14,55 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.8
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0; python_version < "3.10"
 Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
 Requires-Dist: pandas>=1.4.0; python_version < "3.11"
 Requires-Dist: pandas>=1.5.0; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version >= "3.13"
+Requires-Dist: pandas>=2.2.3; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
 Requires-Dist: torch>=1.9.0; python_version < "3.10"
 Requires-Dist: torch>=1.11.0; python_version >= "3.10" and python_version < "3.11"
 Requires-Dist: torch>=2.0.0; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: torch>=2.2.0; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: torch>=2.6.0; python_version >= "3.13"
+Requires-Dist: torch>=2.6.0; python_version >= "3.13" and python_version < "3.14"
+Requires-Dist: torch>=2.9.0; python_version >= "3.14"
 Requires-Dist: tqdm>=4.29
 Provides-Extra: test
 Requires-Dist: pytest>=3.4.2; extra == "test"
 Requires-Dist: pytest-cov>=2.6.0; extra == "test"
 Requires-Dist: pytest-rerunfailures<15,>=10.3; extra == "test"
 Requires-Dist: jupyter<2,>=1.0.0; extra == "test"
-Requires-Dist: rundoc<0.5,>=0.4.3; extra == "test"
 Requires-Dist: pytest-runner>=2.11.1; extra == "test"
 Requires-Dist: tomli<3,>=2.0.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: deepecho[test]; extra == "dev"
 Requires-Dist: setuptools<70; extra == "dev"
 Requires-Dist: build<2,>=1.0.0; extra == "dev"
-Requires-Dist: bump-my-version<1,>=0.18.3; extra == "dev"
+Requires-Dist: bump-my-version>=0.18.3; extra == "dev"
 Requires-Dist: pip>=9.0.1; extra == "dev"
 Requires-Dist: watchdog<5,>=1.0.1; extra == "dev"
 Requires-Dist: ruff<1,>=0.3.2; extra == "dev"
-Requires-Dist: twine<4,>=1.10.0; extra == "dev"
+Requires-Dist: twine>=1.10.0; extra == "dev"
 Requires-Dist: wheel>=0.30.0; extra == "dev"
 Requires-Dist: coverage<6,>=4.5.1; extra == "dev"
-Requires-Dist: tox<4,>=2.9.1; extra == "dev"
 Requires-Dist: invoke; extra == "dev"
+Provides-Extra: readme
+Requires-Dist: rundoc<0.5,>=0.4.3; extra == "readme"
+Dynamic: license-file
 
 <div align="center">
 <br/>

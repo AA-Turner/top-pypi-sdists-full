@@ -5,12 +5,13 @@ from celery import shared_task
 from django.utils import timezone
 from dynamic_preferences.registries import global_preferences_registry
 
+from ...workers import Queue
 from .models import User
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(queue=Queue.BACKGROUND.value)
 def delete_unregistered_user_account(prune_user_account_before_datetime: datetime | None = None):
     if not prune_user_account_before_datetime:
         global_preferences = global_preferences_registry.manager()

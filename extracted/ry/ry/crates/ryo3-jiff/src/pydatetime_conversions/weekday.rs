@@ -1,7 +1,7 @@
 use crate::JiffWeekday;
 use pyo3::prelude::*;
 use pyo3::types::PyInt;
-use pyo3::types::PyString;
+use ryo3_macro_rules::{py_type_err, py_value_err, py_value_error};
 
 impl<'py> IntoPyObject<'py> for JiffWeekday {
     type Target = PyInt;
@@ -29,34 +29,30 @@ impl<'py> IntoPyObject<'py> for &JiffWeekday {
             jiff::civil::Weekday::Saturday => 6,
             jiff::civil::Weekday::Sunday => 7,
         };
-        num.into_pyobject(py).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (weekday={num})"))
-        })
+        num.into_pyobject(py)
+            .map_err(|e| py_value_error!("{e} (weekday={num})"))
     }
 }
 
 const JIFF_WEEKDAY_STRING: &str =
     "1='monday', 2='tuesday', 3='wednesday', 4='thursday', 5='friday', 6='saturday', 7='sunday'";
 
-impl FromPyObject<'_> for JiffWeekday {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        // downcast to string...
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string().to_ascii_lowercase();
-            match s.as_str() {
-                "monday" => Ok(Self(jiff::civil::Weekday::Monday)),
-                "tuesday" => Ok(Self(jiff::civil::Weekday::Tuesday)),
-                "wednesday" => Ok(Self(jiff::civil::Weekday::Wednesday)),
-                "thursday" => Ok(Self(jiff::civil::Weekday::Thursday)),
-                "friday" => Ok(Self(jiff::civil::Weekday::Friday)),
-                "saturday" => Ok(Self(jiff::civil::Weekday::Saturday)),
-                "sunday" => Ok(Self(jiff::civil::Weekday::Sunday)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid weekday: {s} (options: {JIFF_WEEKDAY_STRING})"
-                ))),
+impl<'py> FromPyObject<'_, 'py> for JiffWeekday {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(s) = ob.extract::<&str>() {
+            match s {
+                "monday" | "MONDAY" => Ok(Self(jiff::civil::Weekday::Monday)),
+                "tuesday" | "TUESDAY" => Ok(Self(jiff::civil::Weekday::Tuesday)),
+                "wednesday" | "WEDNESDAY" => Ok(Self(jiff::civil::Weekday::Wednesday)),
+                "thursday" | "THURSDAY" => Ok(Self(jiff::civil::Weekday::Thursday)),
+                "friday" | "FRIDAY" => Ok(Self(jiff::civil::Weekday::Friday)),
+                "saturday" | "SATURDAY" => Ok(Self(jiff::civil::Weekday::Saturday)),
+                "sunday" | "SUNDAY" => Ok(Self(jiff::civil::Weekday::Sunday)),
+                _ => py_value_err!("Invalid weekday: {s} (options: {JIFF_WEEKDAY_STRING})"),
             }
-        } else {
-            let i = ob.extract::<u8>()?;
+        } else if let Ok(i) = ob.extract::<u8>() {
             match i {
                 1 => Ok(Self(jiff::civil::Weekday::Monday)),
                 2 => Ok(Self(jiff::civil::Weekday::Tuesday)),
@@ -65,10 +61,12 @@ impl FromPyObject<'_> for JiffWeekday {
                 5 => Ok(Self(jiff::civil::Weekday::Friday)),
                 6 => Ok(Self(jiff::civil::Weekday::Saturday)),
                 7 => Ok(Self(jiff::civil::Weekday::Sunday)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid weekday: {i} (options: {JIFF_WEEKDAY_STRING})"
-                ))),
+                _ => py_value_err!("Invalid weekday: {i} (options: {JIFF_WEEKDAY_STRING})"),
             }
+        } else {
+            py_type_err!(
+                "Invalid type for weekday, expected a string or integer (options: {JIFF_WEEKDAY_STRING})"
+            )
         }
     }
 }

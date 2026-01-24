@@ -47,9 +47,10 @@ import threading
 import types
 import zlib
 
-try:
-    # Python >= 3.4, PEP 451 ModuleSpec API
-    import importlib.machinery
+if sys.version_info >= (3, 7):
+    import importlib.resources
+
+if sys.version_info >= (3, 4):
     import importlib.util
     from _imp import is_builtin as _is_builtin
 
@@ -63,20 +64,18 @@ try:
             return maybe_spec.loader
         except AttributeError:
             return None
-except ImportError:
-    # Python < 3.4, PEP 302 Import Hooks
+else:
     import imp
     from imp import is_builtin as _is_builtin
 
-    try:
+    if sys.version_info >= (2, 5):
         from pkgutil import find_loader as _find_loader
-    except ImportError:
-        # Python < 2.5
+    else:
         from mitogen.compat.pkgutil import find_loader as _find_loader
 
-try:
+if sys.version_info >= (2, 7):
     import sysconfig
-except ImportError:
+else:
     sysconfig = None
 
 import mitogen
@@ -370,15 +369,19 @@ class LogForwarder(object):
         if logger is None:
             self._cache[logger_name] = logger = logging.getLogger(logger_name)
 
+        levelno = int(level_s)
         # See logging.Handler.makeRecord()
-        record = logging.LogRecord(
-            name=logger.name,
-            level=int(level_s),
-            pathname='(unknown file)',
-            lineno=0,
-            msg=s,
-            args=(),
-            exc_info=None,
+        record = logging.makeLogRecord(
+            {
+                "name": logger.name,
+                "levelname": logging.getLevelName(levelno),
+                "levelno": levelno,
+                "pathname": "(unknown file)",
+                "lineno": 0,
+                "msg": s,
+                "args": (),
+                "exc_info": None,
+            }
         )
         record.mitogen_message = s
         record.mitogen_context = self._router.context_by_id(msg.src_id)
@@ -839,6 +842,12 @@ class ModuleFinder(object):
     related modules likely needed by a child context requesting the original
     module.
     """
+
+    # Fullnames of modules that should not be sent as a related module
+    _related_modules_denylist = frozenset({
+        '__main__',
+    })
+
     def __init__(self):
         #: Import machinery is expensive, keep :py:meth`:get_module_source`
         #: results around.
@@ -927,6 +936,34 @@ class ModuleFinder(object):
             fullname, _, _ = str_rpartition(to_text(fullname), u'.')
             yield fullname
 
+    def _reject_related_module(self, requested_fullname, related_fullname):
+        def _log_reject(reason):
+            LOG.debug(
+                '%r: Rejected related module %s of requested module %s: %s',
+                self, related_fullname, requested_fullname, reason,
+            )
+            return reason
+
+        try:
+            related_module = sys.modules[related_fullname]
+        except KeyError:
+            return _log_reject('sys.modules entry absent')
+
+        # Python 2.x "indirection entry"
+        if related_module is None:
+            return _log_reject('sys.modules entry is None')
+
+        if is_stdlib_name(related_fullname):
+            return _log_reject('stdlib module')
+
+        if 'six.moves' in related_fullname:
+            return _log_reject('six.moves avoidence')
+
+        if related_fullname in self._related_modules_denylist:
+            return _log_reject('on denylist')
+
+        return False
+
     def find_related_imports(self, fullname):
         """
         Return a list of non-stdlib modules that are directly imported by
@@ -969,9 +1006,7 @@ class ModuleFinder(object):
             set(
                 mitogen.core.to_text(name)
                 for name in maybe_names
-                if sys.modules.get(name) is not None
-                and not is_stdlib_name(name)
-                and u'six.moves' not in name  # TODO: crap
+                if not self._reject_related_module(fullname, name)
             )
         ))
 
@@ -1134,7 +1169,7 @@ class ModuleResponder(object):
         self._cache[fullname] = tup
         return tup
 
-    def _send_load_module(self, stream, fullname):
+    def _send_load_module(self, stream, fullname, reason):
         if fullname not in stream.protocol.sent_modules:
             tup = self._build_tuple(fullname)
             msg = mitogen.core.Message.pickled(
@@ -1142,8 +1177,10 @@ class ModuleResponder(object):
                 dst_id=stream.protocol.remote_id,
                 handle=mitogen.core.LOAD_MODULE,
             )
-            self._log.debug('sending %s (%.2f KiB) to %s',
-                            fullname, len(msg.data) / 1024.0, stream.name)
+            self._log.debug(
+                'sending %s %s (%.2f KiB) to %s',
+                reason, fullname, len(msg.data) / 1024.0, stream.name,
+            )
             self._router._async_route(msg)
             stream.protocol.sent_modules.add(fullname)
             if tup[2] is not None:
@@ -1174,8 +1211,8 @@ class ModuleResponder(object):
                     # Parent hasn't been sent, so don't load submodule yet.
                     continue
 
-                self._send_load_module(stream, name)
-            self._send_load_module(stream, fullname)
+                self._send_load_module(stream, name, 'related')
+            self._send_load_module(stream, fullname, 'requested')
         except Exception:
             LOG.debug('While importing %r', fullname, exc_info=True)
             self._send_module_load_failed(stream, fullname)
@@ -1242,6 +1279,48 @@ class ModuleResponder(object):
 
     def forward_modules(self, context, fullnames):
         self._router.broker.defer(self._forward_modules, context, fullnames)
+
+
+class ResourceResponder(object):
+    def __init__(self, router):
+        self._router = router
+        self._router.add_handler(
+            self._on_get_resource,
+            mitogen.core.GET_RESOURCE,
+        )
+
+    def _on_get_resource(self, msg):
+        if msg.is_dead:
+            return
+        stream = self._router.stream_by_id(msg.src_id)
+        if stream is None:
+            return
+        fullname_b, resource_b = msg.unpickle()
+        fullname, resource = fullname_b.decode(), resource_b.decode()
+        try:
+            content = importlib.resources.read_binary(fullname, resource)
+        except (FileNotFoundError, IsADirectoryError):
+            content = None
+        if content is not None:
+            self._send_resource(stream, fullname, resource, content)
+        else:
+            self._send_not_found(stream, fullname, resource)
+
+    def _send_resource(self, stream, fullname, resource, content):
+        msg = mitogen.core.Message.pickled(
+            (fullname, resource, content),
+            dst_id=stream.protocol.remote_id,
+            handle=mitogen.core.LOAD_RESOURCE,
+        )
+        self._router._async_route(msg)
+
+    def _send_not_found(self, stream, fullname, resource):
+        msg = mitogen.core.Message.pickled(
+            (fullname, resource, None),
+            dst_id=stream.protocol.remote_id,
+            handle=mitogen.core.LOAD_RESOURCE,
+        )
+        stream.protocol.send(msg)
 
 
 class Broker(mitogen.core.Broker):
@@ -1334,6 +1413,7 @@ class Router(mitogen.parent.Router):
     def upgrade(self):
         self.id_allocator = IdAllocator(self)
         self.responder = ModuleResponder(self)
+        self.resource_responder = ResourceResponder(self)
         self.log_forwarder = LogForwarder(self)
         self.route_monitor = mitogen.parent.RouteMonitor(router=self)
         self.add_handler(  # TODO: cutpaste.

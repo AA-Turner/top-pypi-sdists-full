@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 0.1.117
+Version: 1.0.2
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <founders@mem0.ai>
+License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
-Requires-Dist: openai<1.100.0,>=1.90.0
+Requires-Dist: openai>=1.90.0
 Requires-Dist: posthog>=3.5.0
 Requires-Dist: protobuf<6.0.0,>=5.29.0
 Requires-Dist: pydantic>=2.7.3
@@ -19,13 +20,14 @@ Requires-Dist: ruff>=0.6.5; extra == 'dev'
 Provides-Extra: extras
 Requires-Dist: boto3>=1.34.0; extra == 'extras'
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0; extra == 'extras'
+Requires-Dist: fastembed>=0.3.1; extra == 'extras'
 Requires-Dist: langchain-community>=0.0.0; extra == 'extras'
-Requires-Dist: langchain-memgraph>=0.1.0; extra == 'extras'
 Requires-Dist: opensearch-py>=2.0.0; extra == 'extras'
 Requires-Dist: sentence-transformers>=5.0.0; extra == 'extras'
 Provides-Extra: graph
 Requires-Dist: kuzu>=0.11.0; extra == 'graph'
 Requires-Dist: langchain-aws>=0.2.23; extra == 'graph'
+Requires-Dist: langchain-memgraph>=0.1.0; extra == 'graph'
 Requires-Dist: langchain-neo4j>=0.4.0; extra == 'graph'
 Requires-Dist: neo4j>=5.23.1; extra == 'graph'
 Requires-Dist: rank-bm25>=0.2.2; extra == 'graph'
@@ -35,7 +37,7 @@ Requires-Dist: google-generativeai>=0.3.0; extra == 'llms'
 Requires-Dist: groq>=0.3.0; extra == 'llms'
 Requires-Dist: litellm>=1.74.0; extra == 'llms'
 Requires-Dist: ollama>=0.1.0; extra == 'llms'
-Requires-Dist: openai<1.100.0,>=1.90.0; extra == 'llms'
+Requires-Dist: openai>=1.90.0; extra == 'llms'
 Requires-Dist: together>=0.2.10; extra == 'llms'
 Requires-Dist: vertexai>=0.1.0; extra == 'llms'
 Provides-Extra: test
@@ -45,10 +47,13 @@ Requires-Dist: pytest>=8.2.2; extra == 'test'
 Provides-Extra: vector-stores
 Requires-Dist: azure-identity>=1.24.0; extra == 'vector-stores'
 Requires-Dist: azure-search-documents>=11.4.0b8; extra == 'vector-stores'
+Requires-Dist: cassandra-driver>=3.29.0; extra == 'vector-stores'
 Requires-Dist: chromadb>=0.4.24; extra == 'vector-stores'
 Requires-Dist: databricks-sdk>=0.63.0; extra == 'vector-stores'
+Requires-Dist: dbutils>=3.0.3; extra == 'vector-stores'
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0; extra == 'vector-stores'
 Requires-Dist: faiss-cpu>=1.7.4; extra == 'vector-stores'
+Requires-Dist: langchain-aws>=0.2.23; extra == 'vector-stores'
 Requires-Dist: pinecone-text>=0.10.0; extra == 'vector-stores'
 Requires-Dist: pinecone<=7.3.0; extra == 'vector-stores'
 Requires-Dist: psycopg-pool<4.0.0,>=3.2.6; extra == 'vector-stores'
@@ -56,9 +61,11 @@ Requires-Dist: psycopg>=3.2.8; extra == 'vector-stores'
 Requires-Dist: pymilvus<2.6.0,>=2.4.0; extra == 'vector-stores'
 Requires-Dist: pymochow>=2.2.9; extra == 'vector-stores'
 Requires-Dist: pymongo>=4.13.2; extra == 'vector-stores'
+Requires-Dist: pymysql>=1.1.0; extra == 'vector-stores'
 Requires-Dist: redis<6.0.0,>=5.0.0; extra == 'vector-stores'
 Requires-Dist: redisvl<1.0.0,>=0.1.0; extra == 'vector-stores'
 Requires-Dist: upstash-vector>=0.1.0; extra == 'vector-stores'
+Requires-Dist: valkey>=6.0.0; extra == 'vector-stores'
 Requires-Dist: vecs>=0.4.0; extra == 'vector-stores'
 Requires-Dist: weaviate-client<4.15.0,>=4.4.0; extra == 'vector-stores'
 Description-Content-Type: text/markdown
@@ -112,6 +119,8 @@ Description-Content-Type: text/markdown
   <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
 </p>
 
+> **🎉 mem0ai v1.0.0 is now available!** This major release includes API modernization, improved vector store support, and enhanced GCP integration. [See migration guide →](MIGRATION_GUIDE_v1.0.md)
+
 ##  🔥 Research Highlights
 - **+26% Accuracy** over OpenAI Memory on the LOCOMO benchmark
 - **91% Faster Responses** than full-context, ensuring low-latency at scale
@@ -160,7 +169,7 @@ npm install mem0ai
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4o-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
 
 First step is to instantiate the memory:
 
@@ -179,7 +188,7 @@ def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+    response = openai_client.chat.completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation
@@ -231,4 +240,4 @@ We now have a paper you can cite:
 
 ## ⚖️ License
 
-Apache 2.0 — see the [LICENSE](LICENSE) file for details.
+Apache 2.0 — see the [LICENSE](https://github.com/mem0ai/mem0/blob/main/LICENSE) file for details.

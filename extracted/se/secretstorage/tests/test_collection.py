@@ -1,5 +1,5 @@
 # Tests for SecretStorage
-# Author: Dmitry Shachnev, 2013-2018
+# Author: Dmitry Shachnev, 2013-2025
 # License: 3-clause BSD, see LICENSE file
 
 # This file tests the secretstorage.Collection class.
@@ -41,7 +41,7 @@ class CollectionTest(unittest.TestCase):
             item.get_label()
 
     def test_create_empty_item(self) -> None:
-        item = self.collection.create_item('', {}, b'')
+        item = self.collection.create_item('Test', {}, b'')
         item.delete()
 
     def test_label(self) -> None:

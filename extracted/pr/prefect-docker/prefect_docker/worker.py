@@ -53,6 +53,7 @@ from prefect.client.schemas.objects import (
 )
 from prefect.client.schemas.objects import FlowRun
 from prefect.events import Event, RelatedResource, emit_event
+from prefect.exceptions import InfrastructureNotFound
 from prefect.settings import PREFECT_API_URL
 from prefect.states import Pending
 from prefect.utilities.asyncutils import run_sync_in_worker_thread
@@ -480,6 +481,7 @@ class DockerWorker(BaseWorker[DockerWorkerJobConfiguration, Any, DockerWorkerRes
         parameters: dict[str, Any] | None = None,
         job_variables: dict[str, Any] | None = None,
         task_status: anyio.abc.TaskStatus[FlowRun] | None = None,
+        flow_run: FlowRun | None = None,
     ):
         """
         Submit a flow to run in a Docker container.
@@ -542,13 +544,22 @@ class DockerWorker(BaseWorker[DockerWorkerJobConfiguration, Any, DockerWorkerRes
             job_variables = (job_variables or {}) | {
                 "command": " ".join(execute_command)
             }
-        flow_run = await self.client.create_flow_run(
-            flow,
-            parameters=parameters,
-            state=Pending(),
-            job_variables=job_variables,
-            work_pool_name=self.work_pool.name,
-        )
+
+        if flow_run is None:
+            flow_run = await self.client.create_flow_run(
+                flow,
+                parameters=parameters,
+                state=Pending(),
+                job_variables=job_variables,
+                work_pool_name=self.work_pool.name,
+            )
+        else:
+            # Reuse existing flow run - set state to Pending for retry
+            await self.client.set_flow_run_state(
+                flow_run.id,
+                Pending(),
+                force=True,
+            )
         if task_status is not None:
             # Emit the flow run object to .submit to allow it to return a future as soon as possible
             task_status.started(flow_run)
@@ -662,6 +673,17 @@ class DockerWorker(BaseWorker[DockerWorkerJobConfiguration, Any, DockerWorkerRes
             if configuration.container_create_kwargs
             else {}
         )
+
+        # Check if volumes are being passed through container_create_kwargs
+        if "volumes" in container_create_kwargs:
+            warnings.warn(
+                "volumes should be specified in job_variables rather than container_create_kwargs. "
+                "Use job_variables={'volumes': ['/host/path:/container/path']} instead. "
+                "The volumes in container_create_kwargs will be ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         container_create_kwargs = {
             k: v
             for k, v in container_create_kwargs.items()
@@ -710,19 +732,22 @@ class DockerWorker(BaseWorker[DockerWorkerJobConfiguration, Any, DockerWorkerRes
     ) -> Tuple["Container", Event]:
         """Creates and starts a Docker container."""
         docker_client = self._get_client()
-        if configuration.registry_credentials:
-            self._logger.info("Logging into Docker registry...")
-            docker_client.login(
-                username=configuration.registry_credentials.username,
-                password=configuration.registry_credentials.password.get_secret_value(),
-                registry=configuration.registry_credentials.registry_url,
-                reauth=configuration.registry_credentials.reauth,
-            )
         container_settings = self._build_container_settings(
             docker_client, configuration
         )
 
         if self._should_pull_image(docker_client, configuration=configuration):
+            # Only authenticate to the registry when we actually need to pull an image.
+            # This prevents unnecessary authentication attempts when the image already
+            # exists locally, improving resilience when registries are unavailable.
+            if configuration.registry_credentials:
+                self._logger.info("Logging into Docker registry...")
+                docker_client.login(
+                    username=configuration.registry_credentials.username,
+                    password=configuration.registry_credentials.password.get_secret_value(),
+                    registry=configuration.registry_credentials.registry_url,
+                    reauth=configuration.registry_credentials.reauth,
+                )
             self._logger.info(f"Pulling image {configuration.image!r}...")
             self._pull_image(docker_client, configuration)
 
@@ -944,3 +969,50 @@ class DockerWorker(BaseWorker[DockerWorkerJobConfiguration, Any, DockerWorkerRes
             related=related + [worker_related_resource],
             follows=last_event,
         )
+
+    async def kill_infrastructure(
+        self,
+        infrastructure_pid: str,
+        configuration: DockerWorkerJobConfiguration,
+        grace_seconds: int = 30,
+    ) -> None:
+        """
+        Kill a Docker container.
+
+        Args:
+            infrastructure_pid: The infrastructure identifier in format
+                "docker_host_base_url:container_id".
+            configuration: The job configuration (not used for Docker but kept
+                for API compatibility).
+            grace_seconds: Time to allow for graceful shutdown before force killing.
+
+        Raises:
+            InfrastructureNotFound: If the container doesn't exist.
+        """
+        base_url, container_id = self._parse_infrastructure_pid(infrastructure_pid)
+
+        await run_sync_in_worker_thread(
+            self._stop_container, container_id, grace_seconds
+        )
+
+    def _stop_container(self, container_id: str, grace_seconds: int) -> None:
+        """
+        Stop a Docker container.
+
+        Args:
+            container_id: The ID of the container to stop.
+            grace_seconds: Time to allow for graceful shutdown before force killing.
+
+        Raises:
+            InfrastructureNotFound: If the container doesn't exist.
+        """
+        docker_client = self._get_client()
+
+        try:
+            container = docker_client.containers.get(container_id)
+            container.stop(timeout=grace_seconds)
+            self._logger.info(f"Stopped Docker container {container_id!r}")
+        except docker.errors.NotFound:
+            raise InfrastructureNotFound(f"Docker container {container_id!r} not found")
+        finally:
+            docker_client.close()

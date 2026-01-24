@@ -5,8 +5,14 @@ from typing import Any, NamedTuple
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import Location
 
+__all__ = [
+    "BoundLocation",
+    "LocationsPageResult",
+    "LocationsClient",
+]
 
-class BoundLocation(BoundModelBase, Location):
+
+class BoundLocation(BoundModelBase[Location], Location):
     _client: LocationsClient
 
     model = Location
@@ -76,4 +82,4 @@ class LocationsClient(ResourceClientBase):
                Used to get location by name.
         :return: :class:`BoundLocation <hcloud.locations.client.BoundLocation>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)

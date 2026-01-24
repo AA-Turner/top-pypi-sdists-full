@@ -3,6 +3,7 @@
 from .torch_versions import (
     _TORCH_GE_2_4,
     _TORCH_GE_2_6,
+    _TORCH_GE_2_7,
     _TORCH_GE_2_8,
     _TORCH_GE_2_9,
     check_pt2_compile_compatibility,
@@ -13,6 +14,7 @@ from .package_versions import get_current_code_versions
 __all__ = [
     "_TORCH_GE_2_4",
     "_TORCH_GE_2_6",
+    "_TORCH_GE_2_7",
     "_TORCH_GE_2_8",
     "_TORCH_GE_2_9",
     "check_pt2_compile_compatibility",

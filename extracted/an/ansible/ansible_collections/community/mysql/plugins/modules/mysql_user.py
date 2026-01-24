@@ -182,12 +182,14 @@ options:
 
   column_case_sensitive:
     description:
-      - The default is C(false).
+      - The default is C(true).
       - When C(true), the module will not uppercase the field names in the privileges.
       - When C(false), the field names will be upper-cased. This is the default
       - This feature was introduced because MySQL 8 and above uses case sensitive
         fields names in privileges.
+      - The default changed from C(false) to C(true) in v4.0.0
     type: bool
+    default: true
     version_added: '3.8.0'
 
   locked:
@@ -484,7 +486,7 @@ def main():
         resource_limits=dict(type='dict'),
         force_context=dict(type='bool', default=False),
         session_vars=dict(type='dict'),
-        column_case_sensitive=dict(type='bool', default=None),  # TODO 4.0.0 add default=True
+        column_case_sensitive=dict(type='bool', default=True),
         password_expire=dict(type='str', choices=['now', 'never', 'default', 'interval'], no_log=True),
         password_expire_interval=dict(type='int', required_if=[('password_expire', 'interval', True)], no_log=True),
         locked=dict(type='bool'),
@@ -566,13 +568,6 @@ def main():
     except Exception as e:
         module.fail_json(msg="unable to connect to database, check login_user and login_password are correct or %s has the credentials. "
                              "Exception message: %s" % (config_file, to_native(e)))
-
-    # TODO Release 4.0.0 : Remove this test and variable assignation
-    if column_case_sensitive is None:
-        column_case_sensitive = False
-        module.warn("Option column_case_sensitive is not provided. "
-                    "The default is now false, so the column's name will be uppercased. "
-                    "The default will be changed to true in community.mysql 4.0.0.")
 
     if not sql_log_bin:
         cursor.execute("SET SQL_LOG_BIN=0;")

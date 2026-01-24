@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aio-pika
-Version: 9.5.7
+Version: 9.5.8
 Summary: Wrapper around the aiormq for asyncio and humans
 License: Apache-2.0
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,aiormq

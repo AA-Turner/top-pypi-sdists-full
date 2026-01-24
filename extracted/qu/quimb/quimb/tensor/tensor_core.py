@@ -24,6 +24,7 @@ from autoray import (
     infer_backend,
     shape,
     size,
+    get_namespace,
 )
 
 try:
@@ -485,78 +486,81 @@ def tensor_split(
     bond_ind=None,
     right_inds=None,
     matrix_svals=False,
+    info=None,
+    **kwargs,
 ):
-    """Decompose this tensor into two tensors.
+    """Decompose a tensor into two tensors by fusing its indices into left
+    and right sets, and performing a matrix decomposition.
 
     Parameters
     ----------
     T : Tensor or TNLinearOperator
         The tensor (network) to split.
     left_inds : str or sequence of str
-        The index or sequence of inds, which ``T`` should already have, to
-        split to the 'left'. You can supply ``None`` here if you supply
-        ``right_inds`` instead.
+        The index or sequence of inds, which `T` should already have, to
+        split to the 'left'. You can supply `None` here if you supply
+        `right_inds` instead.
     method : str, optional
         How to split the tensor, only some methods allow bond truncation:
 
-        - ``'svd'``: full SVD, allows truncation.
-        - ``'eig'``: full SVD via eigendecomp, allows truncation.
-        - ``'lu'``: full LU decomposition, allows truncation. This method
+        - `'svd'`: full SVD, allows truncation.
+        - `'eig'`: full SVD via eigendecomp, allows truncation.
+        - `'lu'`: full LU decomposition, allows truncation. This method
           favors tensor sparsity but is not rank optimal.
-        - ``'svds'``: iterative svd, allows truncation.
-        - ``'isvd'``: iterative svd using interpolative methods, allows
+        - `'svds'`: iterative svd, allows truncation.
+        - `'isvd'`: iterative svd using interpolative methods, allows
           truncation.
-        - ``'rsvd'`` : randomized iterative svd with truncation.
-        - ``'eigh'``: full eigen-decomposition, tensor must he hermitian.
-        - ``'eigsh'``: iterative eigen-decomposition, tensor must be hermitian.
-        - ``'qr'``: full QR decomposition.
-        - ``'lq'``: full LR decomposition.
-        - ``'polar_right'``: full polar decomposition as ``A = UP``.
-        - ``'polar_left'``: full polar decomposition as ``A = PU``.
-        - ``'cholesky'``: full cholesky decomposition, tensor must be positive.
+        - `'rsvd'` : randomized iterative svd with truncation.
+        - `'eigh'`: full eigen-decomposition, tensor must he hermitian.
+        - `'eigsh'`: iterative eigen-decomposition, tensor must be hermitian.
+        - `'qr'`: full QR decomposition.
+        - `'lq'`: full LQ decomposition.
+        - `'polar_right'`: full polar decomposition as `A = UP`.
+        - `'polar_left'`: full polar decomposition as `A = PU`.
+        - `'cholesky'`: full cholesky decomposition, tensor must be positive.
 
     get : {None, 'arrays', 'tensors', 'values'}
         If given, what to return instead of a TN describing the split:
 
-        - ``None``: a tensor network of the two (or three) tensors.
-        - ``'arrays'``: the raw data arrays as a tuple ``(l, r)`` or
-          ``(l, s, r)`` depending on ``absorb``.
-        - ``'tensors '``: the new tensors as a tuple ``(Tl, Tr)`` or
-          ``(Tl, Ts, Tr)`` depending on ``absorb``.
-        - ``'values'``: only compute and return the singular values ``s``.
+        - `None`: a tensor network of the two (or three) tensors.
+        - `'arrays'`: the raw data arrays as a tuple `(l, r)` or
+          `(l, s, r)` depending on `absorb`.
+        - `'tensors '`: the new tensors as a tuple `(Tl, Tr)` or
+          `(Tl, Ts, Tr)` depending on `absorb`.
+        - `'values'`: only compute and return the singular values `s`.
 
     absorb : {'both', 'left', 'right', None}, optional
         Whether to absorb the singular values into both, the left, or the right
-        unitary matrix respectively, or neither. If neither (``absorb=None``)
+        unitary matrix respectively, or neither. If neither (`absorb=None`)
         then the singular values will be returned separately in their own
-        1D tensor or array. In that case if ``get=None`` the tensor network
+        1D tensor or array. In that case if `get=None` the tensor network
         returned will have a hyperedge corresponding to the new bond index
-        connecting three tensors. If ``get='tensors'`` or ``get='arrays'`` then
-        a tuple like ``(left, s, right)`` is returned.
+        connecting three tensors. If `get='tensors'` or `get='arrays'` then
+        a tuple like `(left, s, right)` is returned.
     max_bond : None or int
         If integer, the maximum number of singular values to keep, regardless
-        of ``cutoff``.
+        of `cutoff`.
     cutoff : float, optional
         The threshold below which to discard singular values, only applies to
         rank revealing methods (not QR, LQ, or cholesky).
     cutoff_mode : {'sum2', 'rel', 'abs', 'rsum2'}
         Method with which to apply the cutoff threshold:
 
-        - ``'rel'``: values less than ``cutoff * s[0]`` discarded.
-        - ``'abs'``: values less than ``cutoff`` discarded.
-        - ``'sum2'``: sum squared of values discarded must be ``< cutoff``.
-        - ``'rsum2'``: sum squared of values discarded must be less than
-          ``cutoff`` times the total sum of squared values.
-        - ``'sum1'``: sum values discarded must be ``< cutoff``.
-        - ``'rsum1'``: sum of values discarded must be less than ``cutoff``
+        - `'rel'`: values less than `cutoff * s[0]` discarded.
+        - `'abs'`: values less than `cutoff` discarded.
+        - `'sum2'`: sum squared of values discarded must be `< cutoff`.
+        - `'rsum2'`: sum squared of values discarded must be less than
+          `cutoff` times the total sum of squared values.
+        - `'sum1'`: sum values discarded must be `< cutoff`.
+        - `'rsum1'`: sum of values discarded must be less than `cutoff`
           times the total sum of values.
 
     renorm : {None, bool, or int}, optional
         Whether to renormalize the kept singular values, assuming the bond has
         a canonical environment, corresponding to maintaining the frobenius
-        or nuclear norm. If ``None`` (the default) then this is automatically
-        turned on only for ``cutoff_method in {'sum2', 'rsum2', 'sum1',
-        'rsum1'}`` with ``method in {'svd', 'eig', 'eigh'}``.
+        or nuclear norm. If `None` (the default) then this is automatically
+        turned on only for `cutoff_method in {'sum2', 'rsum2', 'sum1',
+        'rsum1'}` with `method in {'svd', 'eig', 'eigh'}`.
     ltags : sequence of str, optional
         Add these new tags to the left tensor.
     rtags : sequence of str, optional
@@ -565,24 +569,28 @@ def tensor_split(
         Add these new tags to the singular value tensor.
     bond_ind : str, optional
         Explicitly name the new bond, else a random one will be generated.
-        If ``matrix_svals=True`` then this should be a tuple of two indices,
+        If `matrix_svals=True` then this should be a tuple of two indices,
         one for the left and right bond respectively.
     right_inds : sequence of str, optional
         Explicitly give the right indices, otherwise they will be worked out.
         This is a minor performance feature.
     matrix_svals : bool, optional
-        If ``True``, return the singular values as a diagonal 2D array or
+        If `True`, return the singular values as a diagonal 2D array or
         Tensor, otherwise return them as a 1D array. This is only relevant if
         returning the singular value in some form.
+    info : dict or None, optional
+        If a dict is passed, store truncation info in the dict. Currently only
+        supports the key 'error' for the truncation error, which is only
+        computed if `method in {"svd", "eig"}`.
 
     Returns
     -------
     TensorNetwork or tuple[Tensor] or tuple[array] or 1D-array
-        Depending on if ``get`` is ``None``, ``'tensors'``, ``'arrays'``, or
-        ``'values'``. In the first three cases, if ``absorb`` is set, then the
-        returned objects correspond to ``(left, right)`` whereas if
-        ``absorb=None`` the returned objects correspond to
-        ``(left, singular_values, right)``.
+        Depending on if `get` is `None`, `'tensors'`, `'arrays'`, or
+        `'values'`. In the first three cases, if `absorb` is set, then the
+        returned objects correspond to `(left, right)` whereas if
+        `absorb=None` the returned objects correspond to
+        `(left, singular_values, right)`.
     """
     check_opt("get", get, _VALID_SPLIT_GET)
 
@@ -625,12 +633,23 @@ def tensor_split(
             s = do("diag", s)
         return s
 
-    opts = _parse_split_opts(
-        method, cutoff, absorb, max_bond, cutoff_mode, renorm
+    kwargs.update(
+        # cached lookup of various defaults
+        _parse_split_opts(
+            method,
+            cutoff,
+            absorb,
+            max_bond,
+            cutoff_mode,
+            renorm,
+        )
     )
+    if info is not None:
+        kwargs["info"] = info
 
-    # `s` itself will be None unless `absorb=None` is specified
-    left, s, right = _SPLIT_FNS[method](array, **opts)
+    # do the matrix decomposition!
+    left, s, right = _SPLIT_FNS[method](array, **kwargs)
+    # note `s` itself will be None unless `absorb=None` is specified
 
     if nleft != 1:
         # unfuse dangling left indices
@@ -1725,6 +1744,9 @@ class Tensor:
                 f"Tensor data contains non-finite values: {self.data}."
             )
 
+        if hasattr(self.data, "check"):
+            self.data.check()
+
     @property
     def owners(self):
         return self._owners
@@ -1827,9 +1849,10 @@ class Tensor:
 
     def isel(self, selectors, inplace=False):
         """Select specific values for some dimensions/indices of this tensor,
-        thereby removing them. Analogous to ``X[:, :, 3, :, :]`` with arrays.
-        The indices to select from can be specified either by integer, in which
-        case the correspoding index is removed, or by a slice.
+        thereby removing them. Analogous to __getitem__ syntax like
+        ``X[:, :, 3, :, 4:7]`` with arrays. The indices to select from can be
+        specified either by integer, in which case the correspoding index is
+        removed, or by a slice.
 
         Parameters
         ----------
@@ -1859,30 +1882,58 @@ class Tensor:
         --------
         TensorNetwork.isel, Tensor.rand_reduce
         """
-        T = self if inplace else self.copy()
+        new = self if inplace else self.copy()
 
         new_inds = []
-        data_loc = []
+        ax_to_sel = {}
+        num_reduced = 0
 
-        for ix in T.inds:
-            sel = selectors.get(ix, slice(None))
-            if isinstance(sel, slice):
-                # index will be kept (including a partial slice of entries)
+        for ax, ix in enumerate(new.inds):
+            if ix not in selectors:
+                # index kept as is
                 new_inds.append(ix)
-                data_loc.append(sel)
-            elif isinstance(sel, str) and sel == "r":
-                # eagerly remove any 'random' selections
-                T.rand_reduce_(ix)
             else:
-                # index will be removed by selecting a specific index
-                if isinstance(sel, str):
-                    sel = int(sel)
-                data_loc.append(sel)
+                sel = selectors[ix]
 
-        T.modify(
-            apply=lambda x: x[tuple(data_loc)], inds=new_inds, left_inds=None
-        )
-        return T
+                if isinstance(sel, str):
+                    if sel == "r":
+                        # eagerly remove any 'random' selections
+                        new.rand_reduce_(ix)
+                        num_reduced += 1
+                        continue
+                    else:
+                        # assume single int
+                        sel = int(sel)
+
+                if isinstance(sel, slice):
+                    # index will still be kept (but partial slice of entries)
+                    # XXX: handle iterable as well?
+                    new_inds.append(ix)
+
+                ax_to_sel[ax - num_reduced] = sel
+
+        if len(ax_to_sel) == 1:
+            # single selection, for maximum compatibility
+            # (e.g. with torch.vmap) use `take`
+            ((axis, sel),) = ax_to_sel.items()
+            new.modify(
+                apply=lambda x: do("take", x, sel, axis=axis),
+                inds=new_inds,
+                left_inds=None,
+            )
+
+        elif ax_to_sel:
+            # multiple axes selections
+            data_loc = tuple(
+                ax_to_sel.get(ax, slice(None)) for ax in range(new.ndim)
+            )
+            new.modify(
+                apply=lambda x: x[data_loc],
+                inds=new_inds,
+                left_inds=None,
+            )
+
+        return new
 
     isel_ = functools.partialmethod(isel, inplace=True)
 
@@ -2230,6 +2281,10 @@ class Tensor:
         """The backend inferred from the data."""
         return infer_backend(self._data)
 
+    def get_namespace(self):
+        """Get the namespace of the underlying data array."""
+        return get_namespace(self._data)
+
     def iscomplex(self):
         return iscomplex(self.data)
 
@@ -2511,11 +2566,19 @@ class Tensor:
 
         Parameters
         ----------
+        ind : str
+            The index to contract with a random vector.
+        dtype : str
+            The data type of the random vector.
+        inplace : bool, optional
+            Whether to perform the reduction inplace.
+        kwargs
+            Passed to `quimb.randn`.
         """
         if dtype is None:
             dtype = self.dtype
 
-        v = randn(self.ind_size(ind), dtype=self.dtype, **kwargs)
+        v = randn(self.ind_size(ind), dtype=dtype, **kwargs)
 
         return self.vector_reduce(ind, v, inplace=inplace)
 
@@ -4539,6 +4602,10 @@ class TensorNetwork(object):
                     "Mismatched index dimension for index "
                     f"'{ix}' in tensors {ts}."
                 )
+            if len(ts) == 2 and hasattr(ts[0].data, "check_with"):
+                axa = ts[0].inds.index(ix)
+                axb = ts[1].inds.index(ix)
+                ts[0].data.check_with(ts[1].data, [axa], [axb])
 
     def add_tag(self, tag, where=None, which="all", record=None):
         """Add tag(s) to every tensor in this network, or if ``where`` is
@@ -5498,7 +5565,7 @@ class TensorNetwork(object):
                 )
 
                 # full-rank decompose the outer tensor
-                l, r = self.tensor_map[tid_out].split(
+                _, r = self.tensor_map[tid_out].split(
                     left_inds=None,
                     right_inds=[ix],
                     max_bond=None,
@@ -9593,7 +9660,7 @@ class TensorNetwork(object):
 
     def trace(self, left_inds, right_inds, **contract_opts):
         """Trace over ``left_inds`` joined with ``right_inds``"""
-        tn = self.reindex({u: l for u, l in zip(left_inds, right_inds)})
+        tn = self.reindex(dict(zip(left_inds, right_inds)))
         return tn.contract_tags(..., **contract_opts)
 
     def to_dense(self, *inds_seq, to_qarray=False, **contract_opts):
@@ -9666,15 +9733,20 @@ class TensorNetwork(object):
         if side == "right":
             # form dag(X) @ X --> left_inds are contracted
             ixmap = {ix: rand_uuid() for ix in right_inds}
+            lix = ixmap.values()
+            rix = ixmap.keys()
         else:  # 'left'
             # form X @ dag(X) --> right_inds are contracted
             ixmap = {ix: rand_uuid() for ix in left_inds}
+            lix = ixmap.keys()
+            rix = ixmap.values()
+
+        # note: problem is hermitian but we still need to get
+        # lix and rix correct way round for blocksparse arrays
 
         # contract to dense array
         tnd = self.reindex(ixmap).conj_() & self
-        XX = tnd.to_dense(
-            ixmap.values(), ixmap.keys(), optimize=optimize, **contract_opts
-        )
+        XX = tnd.to_dense(lix, rix, optimize=optimize, **contract_opts)
 
         return decomp.squared_op_to_reduced_factor(
             XX,
@@ -9689,6 +9761,8 @@ class TensorNetwork(object):
         rtags,
         max_bond=None,
         cutoff=1e-10,
+        mode="oblique",
+        max_bond_oversample="auto",
         select_which="any",
         insert_into=None,
         new_tags=None,
@@ -9719,6 +9793,8 @@ class TensorNetwork(object):
             is controlled by ``cutoff``.
         cutoff : float, optional
             The cutoff to use for the compression.
+        mode : {"oblique", "nystrom"}, optional
+            How to compute the projectors.
         select_which : {'any', 'all', 'none'}, optional
             How to select the regions based on the tags, see
             :meth:`~quimb.tensor.tensor_core.TensorNetwork.select`.
@@ -9765,28 +9841,93 @@ class TensorNetwork(object):
 
         # get the connecting indices and corresponding sizes
         bix = bonds(ltn, rtn)
-        bix_sizes = [tn.ind_size(ix) for ix in bix]
+        bix_sizes = [ltn.ind_size(ix) for ix in bix]
 
-        # contract the reduced factors
-        Rl = ltn.compute_reduced_factor("right", None, bix, optimize=optimize)
-        Rr = rtn.compute_reduced_factor("left", bix, None, optimize=optimize)
+        if mode == "nystrom":
+            # only use
+            lix = [ix for ix in ltn.outer_inds() if ix not in bix]
+            rix = [ix for ix in rtn.outer_inds() if ix not in bix]
+            dbond = prod(bix_sizes)
+            dleft = prod(map(ltn.ind_size, lix))
+            dright = prod(map(rtn.ind_size, rix))
+            current_rank = min(dbond, dleft, dright)
+            # if current_rank <= max_bond:
+            # mode = "oblique"
 
-        # then form the 'oblique' projectors
-        Pl, Pr = decomp.compute_oblique_projectors(
-            Rl,
-            Rr,
-            max_bond=max_bond,
-            cutoff=cutoff,
-            **compress_opts,
-        )
+        if mode == "oblique":
+            # contract the reduced factors
+            Rl = ltn.compute_reduced_factor(
+                "right", None, bix, optimize=optimize
+            )
+            Rr = rtn.compute_reduced_factor(
+                "left", bix, None, optimize=optimize
+            )
+
+            # then form the 'oblique' projectors
+            Pl, Pr = decomp.compute_oblique_projectors(
+                Rl,
+                Rr,
+                max_bond=max_bond,
+                cutoff=cutoff,
+                **compress_opts,
+            )
+        elif mode == "nystrom":
+            from .tensor_builder import rand_tensor
+            from .decomp import svd_truncated, rdmul, ldmul
+
+            #
+            max_bond = min(current_rank, max_bond)
+
+            if callable(max_bond_oversample):
+                max_bond_oversample = max_bond_oversample(max_bond)
+            elif max_bond_oversample == "auto":
+                max_bond_oversample = max(max_bond * 2, max_bond + 20)
+
+            ixbl = rand_uuid()
+            for ix in lix:
+                ltn |= rand_tensor(
+                    shape=(max_bond_oversample, ltn.ind_size(ix)),
+                    inds=(ixbl, ix),
+                    dist="rademacher",
+                )
+            tml = ltn.contract(
+                all, optimize="auto-hq", output_inds=(ixbl, *bix)
+            )
+
+            ixbr = rand_uuid()
+            for ix in rix:
+                rtn |= rand_tensor(
+                    shape=(rtn.ind_size(ix), max_bond_oversample),
+                    inds=(ix, ixbr),
+                    dist="rademacher",
+                )
+            tmr = rtn.contract(
+                all, optimize="auto-hq", output_inds=(*bix, ixbr)
+            )
+
+            Ml = tml.to_dense((ixbl,), bix)
+            Mr = tmr.to_dense(bix, (ixbr,))
+
+            U, s, VH = svd_truncated(
+                Ml @ Mr,
+                cutoff=cutoff,
+                max_bond=max_bond,
+                absorb=None,
+                **compress_opts,
+            )
+            sqi = s**-0.5
+            Pl = Mr @ rdmul(dag(VH), sqi)
+            Pr = ldmul(sqi, dag(U)) @ Ml
+        else:
+            raise ValueError(f"mode `{mode}` is invalid.")
 
         Pl = do("reshape", Pl, (*bix_sizes, -1))
         Pr = do("reshape", Pr, (-1, *bix_sizes))
 
         if insert_into is not None:
             tn = insert_into
-            ltn = tn.select(ltags, which=select_which)
-            rtn = tn.select(rtags, which=select_which)
+        ltn = tn.select(ltags, which=select_which)
+        rtn = tn.select(rtags, which=select_which)
 
         # finally cut the bonds
         new_lix = [rand_uuid() for _ in bix]
@@ -11530,7 +11671,9 @@ class TensorNetwork(object):
 
     @property
     def dtype_name(self):
-        """The name of the data type of the array elements."""
+        """The name of the data type of the array elements, asssuming it to be
+        the same for all tensors.
+        """
         return next(iter(self.tensor_map.values())).dtype_name
 
     @property
@@ -11539,6 +11682,12 @@ class TensorNetwork(object):
         the same for all tensors.
         """
         return next(iter(self.tensor_map.values())).backend
+
+    def get_namespace(self):
+        """Get the array namespace of any tensor in this network, asssuming
+        it to be the same for all tensors.
+        """
+        return next(iter(self.tensor_map.values())).get_namespace()
 
     def iscomplex(self):
         return iscomplex(self)

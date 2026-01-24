@@ -6,7 +6,6 @@ import copy
 import datetime
 from typing import Any
 from typing import overload
-import warnings
 
 import optuna
 from optuna import distributions
@@ -14,6 +13,7 @@ from optuna import logging
 from optuna import pruners
 from optuna._convert_positional_args import convert_positional_args
 from optuna._deprecated import deprecated_func
+from optuna._warnings import optuna_warn
 from optuna.distributions import BaseDistribution
 from optuna.distributions import CategoricalChoiceType
 from optuna.distributions import CategoricalDistribution
@@ -58,9 +58,8 @@ class Trial(BaseTrial):
 
         self.study.sampler.before_trial(study, self._cached_frozen_trial)
 
-        self.relative_search_space = self.study.sampler.infer_relative_search_space(
-            study, self._cached_frozen_trial
-        )
+        # NOTE(not522): Evaluate it lazily to get as latest search as possible.
+        self.relative_search_space: dict[str, BaseDistribution] | None = None
         self._relative_params: dict[str, Any] | None = None
         self._fixed_params = self._cached_frozen_trial.system_attrs.get("fixed_params", {})
 
@@ -68,6 +67,9 @@ class Trial(BaseTrial):
     def relative_params(self) -> dict[str, Any]:
         if self._relative_params is None:
             study = pruners._filter_study(self.study, self._cached_frozen_trial)
+            self.relative_search_space = self.study.sampler.infer_relative_search_space(
+                study, self._cached_frozen_trial
+            )
             self._relative_params = self.study.sampler.sample_relative(
                 study, self._cached_frozen_trial, self.relative_search_space
             )
@@ -498,7 +500,7 @@ class Trial(BaseTrial):
 
         if step in self._cached_frozen_trial.intermediate_values:
             # Do nothing if already reported.
-            warnings.warn(
+            optuna_warn(
                 f"The reported value is ignored because this `step` {step} is already reported."
             )
             return
@@ -653,15 +655,18 @@ class Trial(BaseTrial):
 
         contained = distribution._contains(param_value_in_internal_repr)
         if not contained:
-            warnings.warn(
-                "Fixed parameter '{}' with value {} is out of range "
-                "for distribution {}.".format(name, param_value, distribution)
+            optuna_warn(
+                "Fixed parameter '{}' with value {} is out of range for distribution {}.".format(
+                    name, param_value, distribution
+                )
             )
         return True
 
     def _is_relative_param(self, name: str, distribution: BaseDistribution) -> bool:
         if name not in self.relative_params:
             return False
+
+        assert self.relative_search_space is not None
 
         if name not in self.relative_search_space:
             raise ValueError(
@@ -679,7 +684,7 @@ class Trial(BaseTrial):
     def _check_distribution(self, name: str, distribution: BaseDistribution) -> None:
         old_distribution = self._cached_frozen_trial.distributions.get(name, distribution)
         if old_distribution != distribution:
-            warnings.warn(
+            optuna_warn(
                 'Inconsistent parameter values for distribution with name "{}"! '
                 "This might be a configuration mistake. "
                 "Optuna allows to call the same distribution with the same "

@@ -1,0 +1,58 @@
+name: CI
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+  pull-requests: write
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci-pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version-file: pyproject.toml
+      - name: Install project
+        run: uv sync --all-groups
+      - name: run pre-commit
+        run: uv run pre-commit run --all
+  ci-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        pylint-version: [3.3.*, 3.*, 4.0.*, 4.*]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version-file: pyproject.toml
+      - name: Install project
+        run: uv sync --group test
+      - name: Install pylint
+        run: uv pip install -U pylint==${{ matrix.pylint-version }}
+      - name: run tests (with coverage)
+        run: uv run pytest --cov --cov-report xml --cov-config pyproject.toml test/
+      - name: run diff-cover
+        run: uv run diff-cover --config-file pyproject.toml coverage.xml

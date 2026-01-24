@@ -11,6 +11,8 @@ from unittest import mock
 
 import pytest
 
+import structlog
+
 from structlog import dev
 
 
@@ -114,6 +116,43 @@ class TestConsoleRenderer:
             ).rstrip()
         )
 
+    def test_event_key_property(self):
+        """
+        The event_key property can be set and retrieved.
+        """
+        cr = dev.ConsoleRenderer(colors=False)
+
+        assert cr.event_key == "event"
+
+        cr.event_key = "msg"
+
+        assert cr.event_key == "msg"
+        assert "new event name                 event='something custom'" == cr(
+            None,
+            None,
+            {"msg": "new event name", "event": "something custom"},
+        )
+
+    def test_timestamp_key_property(self):
+        """
+        The timestamp_key property can be set and retrieved.
+        """
+        cr = dev.ConsoleRenderer(colors=False)
+
+        assert cr.timestamp_key == "timestamp"
+
+        cr.timestamp_key = "ts"
+
+        assert cr.timestamp_key == "ts"
+        assert (
+            "2023-09-07 le event"
+            == cr(
+                None,
+                None,
+                {"ts": "2023-09-07", "event": "le event"},
+            ).rstrip()
+        )
+
     def test_level(self, cr, styles, padded):
         """
         Levels are rendered aligned, in square brackets, and color-coded.
@@ -174,6 +213,59 @@ class TestConsoleRenderer:
             + "bar"
             + styles.reset
         ) == rv
+
+    def test_returns_colorful_styles_when_colors_true(self):
+        """
+        When colors=True, returns _colorful_styles instance.
+        """
+        styles = dev.ConsoleRenderer.get_default_column_styles(colors=True)
+
+        assert styles is dev._colorful_styles
+
+    def test_returns_plain_styles_when_colors_false(self):
+        """
+        When colors=False, returns _plain_styles instance.
+        """
+        styles = dev.ConsoleRenderer.get_default_column_styles(colors=False)
+
+        assert styles is dev._plain_styles
+        assert styles.reset == ""
+        assert styles.bright == ""
+        assert styles.level_critical == ""
+        assert styles.kv_key == ""
+        assert styles.kv_value == ""
+
+    @pytest.mark.skipif(
+        not dev._IS_WINDOWS or dev.colorama is not None,
+        reason="Only relevant on Windows without colorama",
+    )
+    def test_raises_system_error_on_windows_without_colorama(self):
+        """
+        On Windows without colorama, raises SystemError when colors=True.
+        """
+        with pytest.raises(SystemError, match="requires the colorama package"):
+            dev.ConsoleRenderer.get_default_column_styles(colors=True)
+
+    @pytest.mark.skipif(
+        not dev._IS_WINDOWS or dev.colorama is None,
+        reason="Only relevant on Windows with colorama",
+    )
+    def test_initializes_colorama_on_windows_with_force_colors(self):
+        """
+        On Windows with colorama, force_colors=True reinitializes colorama.
+        """
+        with mock.patch.object(
+            dev.colorama, "init"
+        ) as mock_init, mock.patch.object(
+            dev.colorama, "deinit"
+        ) as mock_deinit:
+            styles = dev.ConsoleRenderer.get_default_column_styles(
+                colors=True, force_colors=True
+            )
+
+            assert styles is dev._colorful_styles
+            mock_deinit.assert_called_once()
+            mock_init.assert_called_once_with(strip=False)
 
     def test_logger_name(self, cr, styles, padded):
         """
@@ -354,9 +446,9 @@ class TestConsoleRenderer:
 
         assert (f"{padded}\n" + exc) == rv
 
-    def test_pad_event_param(self, styles):
+    def test_pad_event_to_param(self, styles):
         """
-        `pad_event` parameter works.
+        `pad_event_to` parameter works.
         """
         rv = dev.ConsoleRenderer(42, dev._has_colors)(
             None, None, {"event": "test", "foo": "bar"}
@@ -474,7 +566,7 @@ class TestConsoleRenderer:
             None, None, {"event": "event", "level": "info", "foo": "bar"}
         )
 
-        assert dev._PlainStyles is plain_cr._styles
+        assert dev._plain_styles is plain_cr._styles
         assert "[info     ] event                          foo=bar" == rv
 
     def test_colorama_force_colors(self, styles, padded):
@@ -507,7 +599,7 @@ class TestConsoleRenderer:
             + styles.reset
         ) == rv
 
-        assert not dev._has_colors or dev._ColorfulStyles is cr._styles
+        assert not dev._has_colors or dev._colorful_styles is cr._styles
 
     @pytest.mark.parametrize("rns", [True, False])
     def test_repr_native_str(self, rns):
@@ -554,11 +646,11 @@ class TestConsoleRenderer:
         """
         dev.ConsoleRenderer(
             columns=[dev.Column("", lambda k, v: "")],
-            pad_event=42,
+            pad_event_to=42,
             colors=not dev._has_colors,
             force_colors=True,
             repr_native_str=True,
-            level_styles=dev._PlainStyles,
+            level_styles=dev._plain_styles,
             event_key="not event",
             timestamp_key="not timestamp",
         )
@@ -566,7 +658,7 @@ class TestConsoleRenderer:
         assert {
             f"The `{arg}` argument is ignored when passing `columns`."
             for arg in (
-                "pad_event",
+                "pad_event_to",
                 "colors",
                 "force_colors",
                 "repr_native_str",
@@ -602,7 +694,7 @@ class TestConsoleRenderer:
 
         with pytest.raises(
             ValueError,
-            match="Only one default column formatter allowed.",
+            match="Only one default column formatter allowed",
         ):
             dev.ConsoleRenderer(
                 columns=[
@@ -623,6 +715,51 @@ class TestConsoleRenderer:
         dev.ConsoleRenderer(level_styles=styles)
 
         assert copy == styles
+
+    def test_exception_formatter_property(self, cr):
+        """
+        The exception formatter can be set and retrieved without
+        re-instantiating ConsoleRenderer.
+        """
+        sentinel = object()
+
+        cr.exception_formatter = sentinel
+
+        assert sentinel is cr.exception_formatter
+        assert sentinel is cr._exception_formatter
+
+    def test_sort_keys_property(self, cr):
+        """
+        The sort_keys setting can be set and retrieved without re-instantiating
+        ConsoleRenderer.
+        """
+        assert cr.sort_keys is True
+        assert cr._sort_keys is True
+
+        cr.sort_keys = False
+
+        assert cr.sort_keys is False
+        assert cr._sort_keys is False
+
+        cr.sort_keys = True
+
+        assert cr.sort_keys is True
+        assert cr._sort_keys is True
+
+    def test_columns_property(self, cr):
+        """
+        The columns property can be set and retrieved without re-instantiating
+        ConsoleRenderer.
+
+        The property also fakes the default column formatter.
+        """
+        cols = [dev.Column("", lambda k, v: "")]
+
+        cr.columns = cols
+
+        assert cols == cr.columns
+        assert [] == cr._columns
+        assert cols[0].formatter == cr._default_column_formatter
 
 
 class TestSetExcInfo:
@@ -649,6 +786,19 @@ class TestSetExcInfo:
         assert {"exc_info": True} == dev.set_exc_info(None, "exception", {})
 
 
+@pytest.mark.skipif(dev.rich is not None, reason="Needs missing Rich.")
+def test_rich_traceback_formatter_no_rich():
+    """
+    Trying to use RichTracebackFormatter without Rich should raise an helpful
+    error.
+    """
+    with pytest.raises(
+        ModuleNotFoundError,
+        match="RichTracebackFormatter requires Rich to be installed",
+    ):
+        dev.rich_traceback(StringIO(), sys.exc_info())
+
+
 @pytest.mark.skipif(dev.rich is None, reason="Needs Rich.")
 class TestRichTracebackFormatter:
     def test_default(self):
@@ -671,17 +821,46 @@ class TestRichTracebackFormatter:
 
     def test_width_minus_one(self, sio):
         """
-        If width is -1, it's replaced by the terminal width on first use.
+        If width is -1, it raises a DeprecationWarning and is replaced by None to let `rich` handle it.
         """
         rtf = dev.RichTracebackFormatter(width=-1)
 
-        with mock.patch("shutil.get_terminal_size", return_value=(42, 0)):
+        with pytest.deprecated_call():
             try:
                 0 / 0
             except ZeroDivisionError:
                 rtf(sio, sys.exc_info())
 
-        assert 42 == rtf.width
+        assert rtf.width is None
+
+    @pytest.mark.parametrize("code_width_support", [True, False])
+    def test_code_width_support(self, sio, code_width_support):
+        """
+        If rich does not support code_width, it should not fail
+        """
+        from rich.traceback import Trace
+
+        tb = mock.Mock(
+            spec=[
+                attr
+                for attr in dir(dev.Traceback(Trace([])))
+                if (code_width_support or attr != "code_width")
+            ]
+        )
+        tb.__rich_console__.return_value = "for Python 3.8 compatibility"
+
+        with mock.patch.object(
+            dev.Traceback, "from_exception", return_value=tb
+        ) as factory:
+            try:
+                0 / 0
+            except ZeroDivisionError:
+                dev.rich_traceback(sio, sys.exc_info())
+
+        assert "code_width" not in factory.call_args.kwargs
+
+        if code_width_support:
+            assert tb.code_width == 88
 
 
 @pytest.mark.skipif(
@@ -719,4 +898,283 @@ class TestLogLevelColumnFormatter:
         """
         assert "[critical]" == dev.LogLevelColumnFormatter(None, "foo")(
             "", "critical"
+        )
+
+
+class TestGetActiveConsoleRenderer:
+    def test_ok(self):
+        """
+        If there's an active ConsoleRenderer, it's returned.
+        """
+        assert (
+            structlog.get_config()["processors"][-1]
+            is dev.ConsoleRenderer.get_active()
+        )
+
+    def test_no_console_renderer(self):
+        """
+        If no ConsoleRenderer is configured, raise
+        NoConsoleRendererConfiguredError.
+        """
+        structlog.configure(processors=[])
+
+        with pytest.raises(
+            structlog.exceptions.NoConsoleRendererConfiguredError
+        ):
+            dev.ConsoleRenderer.get_active()
+
+    def test_multiple_console_renderers(self):
+        """
+        If multiple ConsoleRenderers are configured, raise
+        MultipleConsoleRenderersConfiguredError because it's most likely a bug.
+        """
+        structlog.configure(
+            processors=[dev.ConsoleRenderer(), dev.ConsoleRenderer()]
+        )
+
+        with pytest.raises(
+            structlog.exceptions.MultipleConsoleRenderersConfiguredError
+        ):
+            dev.ConsoleRenderer.get_active()
+
+
+class TestConsoleRendererProperties:
+    def test_level_styles_roundtrip(self):
+        """
+        The level_styles property can be set and retrieved.
+        """
+        cr = dev.ConsoleRenderer(colors=True)
+        custom = {"info": "X", "error": "Y"}
+
+        cr.level_styles = custom
+
+        assert cr.level_styles is custom
+        assert cr._level_styles is custom
+
+    @pytest.mark.parametrize("colors", [True, False])
+    def test_set_level_styles_none_resets_to_defaults(self, colors):
+        """
+        Setting level_styles to None resets to defaults.
+        """
+        cr = dev.ConsoleRenderer(colors=colors)
+        cr.level_styles = {"info": "X"}
+
+        cr.level_styles = None
+
+        assert (
+            dev.ConsoleRenderer.get_default_level_styles(colors=colors)
+            == cr._level_styles
+        )
+
+    def test_roundtrip_pad_level(self):
+        """
+        The pad_level property can be set and retrieved.
+        """
+        cr = dev.ConsoleRenderer(pad_level=True)
+
+        assert cr.pad_level is True
+        assert cr._pad_level is True
+
+        cr.pad_level = False
+
+        assert cr.pad_level is False
+        assert cr._pad_level is False
+
+        cr.pad_level = True
+
+        assert cr.pad_level is True
+        assert cr._pad_level is True
+
+    def test_roundtrip_pad_event_to(self):
+        """
+        The pad_event_to property can be set and retrieved.
+        """
+        cr = dev.ConsoleRenderer()
+
+        assert cr.pad_event_to == dev._EVENT_WIDTH
+        assert cr._pad_event_to == dev._EVENT_WIDTH
+
+        cr.pad_event_to = 50
+
+        assert cr.pad_event_to == 50
+        assert cr._pad_event_to == 50
+
+        cr.pad_event_to = 20
+
+        assert cr.pad_event_to == 20
+        assert cr._pad_event_to == 20
+
+    def test_repr_native_str_property(self, cr):
+        """
+        The repr_native_str property can be set and retrieved, and affects formatting.
+        """
+        cr = dev.ConsoleRenderer(colors=False, repr_native_str=False)
+
+        assert False is cr.repr_native_str
+        assert "event                          key=plain" == cr(
+            None, None, {"event": "event", "key": "plain"}
+        )
+
+        cr.repr_native_str = True
+
+        assert "event                          key='plain'" == cr(
+            None, None, {"event": "event", "key": "plain"}
+        )
+
+    def test_pad_event_deprecation_warning(self, recwarn):
+        """
+        Using pad_event argument raises a deprecation warning.
+        """
+        dev.ConsoleRenderer(pad_event=42)
+
+        (w,) = recwarn.list
+        assert (
+            "The `pad_event` argument is deprecated. Use `pad_event_to` instead."
+        ) == w.message.args[0]
+        assert w.category is DeprecationWarning
+
+    def test_pad_event_to_param_raises_value_error(self):
+        """
+        Using pad_event_to and pad_event raises a ValueError.
+        """
+        with pytest.raises(ValueError):  # noqa: PT011
+            dev.ConsoleRenderer(pad_event_to=42, pad_event=42)
+
+    def test_same_value_resets_level_styles(self, cr):
+        """
+        Setting colors to the same value resets the level styles to the
+        defaults.
+        """
+        val = cr.colors
+        cr._level_styles = {"info": "X", "error": "Y"}
+
+        cr.colors = cr.colors
+
+        assert val is cr.colors
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=val)
+        )
+
+    @pytest.mark.skipif(
+        dev._IS_WINDOWS and dev.colorama is None,
+        reason="Toggling colors=True requires colorama on Windows",
+    )
+    def test_toggle_colors_updates_styles_and_levels(self):
+        """
+        Toggling colors updates the styles and level styles to colorful styles.
+        """
+        cr = dev.ConsoleRenderer(colors=False)
+
+        assert cr.colors is False
+        assert cr._colors is False
+        assert cr._styles is dev._plain_styles
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=False)
+        )
+
+        cr.colors = True
+
+        assert cr.colors is True
+        assert cr._colors is True
+        assert cr._styles is dev._colorful_styles
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=True)
+        )
+
+    @pytest.mark.skipif(
+        dev._IS_WINDOWS and dev.colorama is None,
+        reason="Toggling colors=True requires colorama on Windows",
+    )
+    def test_toggle_colors_resets_custom_level_styles(self):
+        """
+        Toggling colors resets the level styles to the defaults for the new
+        color setting.
+        """
+        custom = {"info": "X", "error": "Y"}
+        cr = dev.ConsoleRenderer(colors=False, level_styles=custom)
+
+        assert custom == cr._level_styles
+
+        cr.colors = True
+        assert (
+            dev.ConsoleRenderer.get_default_level_styles(colors=True)
+            == cr._level_styles
+        )
+
+        # And switching back follows defaults for the new setting again
+        cr.colors = False
+        assert (
+            dev.ConsoleRenderer.get_default_level_styles(colors=False)
+            == cr._level_styles
+        )
+
+    def test_same_force_colors_value_resets_level_styles(self, cr):
+        """
+        Setting force_colors to the same value resets the level styles to the
+        defaults.
+        """
+        val = cr.force_colors
+
+        cr._level_styles = {"info": "X", "error": "Y"}
+
+        cr.force_colors = cr.force_colors
+
+        assert val is cr.force_colors
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=cr.colors)
+        )
+
+    def test_toggle_force_colors_updates_styles_and_levels(self):
+        """
+        Setting force_colors to the same value resets the level styles to the
+        defaults.
+        """
+        cr = dev.ConsoleRenderer(colors=True, force_colors=False)
+
+        assert cr.force_colors is False
+        assert cr._force_colors is False
+        assert cr._styles is dev.ConsoleRenderer.get_default_column_styles(
+            colors=True, force_colors=False
+        )
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=True)
+        )
+
+        cr.force_colors = True
+
+        assert cr.force_colors is True
+        assert cr._force_colors is True
+        assert cr._styles is dev.ConsoleRenderer.get_default_column_styles(
+            colors=True, force_colors=True
+        )
+        assert (
+            cr._level_styles
+            == dev.ConsoleRenderer.get_default_level_styles(colors=True)
+        )
+
+    def test_toggle_force_colors_resets_custom_level_styles(self):
+        """
+        Toggling force_colors resets the level styles to the defaults for the
+        new force_colors setting.
+        """
+        custom = {"info": "X", "error": "Y"}
+        cr = dev.ConsoleRenderer(colors=True, level_styles=custom)
+
+        assert custom == cr._level_styles
+
+        cr.force_colors = True
+        assert (
+            dev.ConsoleRenderer.get_default_level_styles(colors=True)
+            == cr._level_styles
+        )
+
+        cr.force_colors = False
+        assert (
+            dev.ConsoleRenderer.get_default_level_styles(colors=True)
+            == cr._level_styles
         )

@@ -25,88 +25,73 @@ from ..enums import (
 )
 from ..utils import underscorize
 
-_metadata_start_end_dates_trafaret = t.Dict(
-    {
-        t.Key("start_date"): t.Or(t.Null, t.Call(parse_time)),
-        t.Key("end_date"): t.Or(t.Null, t.Call(parse_time)),
-    }
-).ignore_extra("*")
+_metadata_start_end_dates_trafaret = t.Dict({
+    t.Key("start_date"): t.Or(t.Null, t.Call(parse_time)),
+    t.Key("end_date"): t.Or(t.Null, t.Call(parse_time)),
+}).ignore_extra("*")
 
-_backtest_holdout_metadata_trafaret = t.Dict(
-    {
-        t.Key(SOURCE_TYPE.TRAINING): _metadata_start_end_dates_trafaret,
-        t.Key(SOURCE_TYPE.VALIDATION): _metadata_start_end_dates_trafaret,
-    }
-).ignore_extra("*")
+_backtest_holdout_metadata_trafaret = t.Dict({
+    t.Key(SOURCE_TYPE.TRAINING): _metadata_start_end_dates_trafaret,
+    t.Key(SOURCE_TYPE.VALIDATION): _metadata_start_end_dates_trafaret,
+}).ignore_extra("*")
 
-_accuracy_anomaly_over_time_plots_status_trafaret = t.Dict(
-    {
-        t.Key(SOURCE_TYPE.TRAINING): t.Enum(*DATETIME_TREND_PLOTS_STATUS.ALL),
-        t.Key(SOURCE_TYPE.VALIDATION): t.Enum(*DATETIME_TREND_PLOTS_STATUS.ALL),
-    }
-).ignore_extra("*")
+_accuracy_anomaly_over_time_plots_status_trafaret = t.Dict({
+    t.Key(SOURCE_TYPE.TRAINING): t.Enum(*DATETIME_TREND_PLOTS_STATUS.ALL),
+    t.Key(SOURCE_TYPE.VALIDATION): t.Enum(*DATETIME_TREND_PLOTS_STATUS.ALL),
+}).ignore_extra("*")
 
-_forecast_vs_actual_training_validation_status_trafaret = t.Dict(
-    {
-        t.Key(underscorize(status), to_name=status, optional=True): t.List(Int)
-        for status in DATETIME_TREND_PLOTS_STATUS.ALL
-    }
-).ignore_extra("*")
+_forecast_vs_actual_training_validation_status_trafaret = t.Dict({
+    t.Key(underscorize(status), to_name=status, optional=True): t.List(Int)
+    for status in DATETIME_TREND_PLOTS_STATUS.ALL
+}).ignore_extra("*")
 
-_forecast_vs_actual_status_trafaret = t.Dict(
-    {
-        t.Key(SOURCE_TYPE.TRAINING): _forecast_vs_actual_training_validation_status_trafaret,
-        t.Key(SOURCE_TYPE.VALIDATION): _forecast_vs_actual_training_validation_status_trafaret,
-    }
-).ignore_extra("*")
+_forecast_vs_actual_status_trafaret = t.Dict({
+    t.Key(SOURCE_TYPE.TRAINING): _forecast_vs_actual_training_validation_status_trafaret,
+    t.Key(SOURCE_TYPE.VALIDATION): _forecast_vs_actual_training_validation_status_trafaret,
+}).ignore_extra("*")
 
-_accuracy_over_time_plots_bin_trafaret = t.Dict(
-    {
-        t.Key("start_date"): parse_time,
-        t.Key("end_date"): parse_time,
-        t.Key("actual"): t.Or(t.Float, t.Null),
-        t.Key("predicted"): t.Or(t.Float, t.Null),
-        t.Key("frequency"): t.Or(Int, t.Null),
-    }
-).ignore_extra("*")
+_accuracy_over_time_plots_bin_trafaret = t.Dict({
+    t.Key("start_date"): parse_time,
+    t.Key("end_date"): parse_time,
+    t.Key("actual"): t.Or(t.Float, t.Null),
+    t.Key("predicted"): t.Or(t.Float, t.Null),
+    t.Key("frequency"): t.Or(Int, t.Null),
+}).ignore_extra("*")
 
-_forecast_vs_actual_plots_bin_trafaret = t.Dict(
-    {
-        t.Key("start_date"): parse_time,
-        t.Key("end_date"): parse_time,
-        t.Key("actual"): t.Or(t.Float, t.Null),
-        t.Key("error"): t.Or(t.Float, t.Null),
-        t.Key("normalized_error"): t.Or(t.Float, t.Null),
-        t.Key("forecasts"): t.List(t.Or(t.Float, t.Null)),
-        t.Key("frequency"): t.Or(Int, t.Null),
-    }
-).ignore_extra("*")
+_forecast_vs_actual_plots_bin_trafaret = t.Dict({
+    t.Key("start_date"): parse_time,
+    t.Key("end_date"): parse_time,
+    t.Key("actual"): t.Or(t.Float, t.Null),
+    t.Key("error"): t.Or(t.Float, t.Null),
+    t.Key("normalized_error"): t.Or(t.Float, t.Null),
+    t.Key("forecasts"): t.List(t.Or(t.Float, t.Null)),
+    t.Key("frequency"): t.Or(Int, t.Null),
+}).ignore_extra("*")
 
-_anomaly_over_time_plots_bin_trafaret = t.Dict(
-    {
-        t.Key("start_date"): parse_time,
-        t.Key("end_date"): parse_time,
-        t.Key("predicted"): t.Or(t.Float, t.Null),
-        t.Key("frequency"): t.Or(Int, t.Null),
-    }
-).ignore_extra("*")
+_anomaly_over_time_plots_bin_trafaret = t.Dict({
+    t.Key("start_date"): parse_time,
+    t.Key("end_date"): parse_time,
+    t.Key("predicted"): t.Or(t.Float, t.Null),
+    t.Key("frequency"): t.Or(Int, t.Null),
+}).ignore_extra("*")
 
-_datetime_trend_plots_preview_bin_trafaret = t.Dict(
-    {
-        t.Key("start_date"): parse_time,
-        t.Key("end_date"): parse_time,
-        t.Key("actual"): t.Or(t.Float, t.Null),
-        t.Key("predicted"): t.Or(t.Float, t.Null),
-    }
-).ignore_extra("*")
+_datetime_trend_plots_preview_bin_trafaret = t.Dict({
+    t.Key("start_date"): parse_time,
+    t.Key("end_date"): parse_time,
+    t.Key("actual"): t.Or(t.Float, t.Null),
+    t.Key("predicted"): t.Or(t.Float, t.Null),
+}).ignore_extra("*")
 
-_anomaly_over_time_plots_preview_bin_trafaret = t.Dict(
-    {t.Key("start_date"): parse_time, t.Key("end_date"): parse_time}
-).ignore_extra("*")
+_anomaly_over_time_plots_preview_bin_trafaret = t.Dict({
+    t.Key("start_date"): parse_time,
+    t.Key("end_date"): parse_time,
+}).ignore_extra("*")
 
-_calendar_event_trafaret = t.Dict(
-    {t.Key("name"): String, t.Key("date"): parse_time, t.Key("series_id"): t.Or(String, t.Null)}
-).ignore_extra("*")
+_calendar_event_trafaret = t.Dict({
+    t.Key("name"): String,
+    t.Key("date"): parse_time,
+    t.Key("series_id"): t.Or(String, t.Null),
+}).ignore_extra("*")
 
 _statistics_trafaret = t.Dict({t.Key("durbin_watson"): t.Or(t.Float, t.Null)}).ignore_extra("*")
 
@@ -192,18 +177,16 @@ class AccuracyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
         The datetime of the end of the chart data (exclusive). None if chart data is not computed.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("forecast_distance"): t.Or(Int, t.Null),
-            t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
-            t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
-            t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
-            t.Key("backtest_statuses"): t.List(_accuracy_anomaly_over_time_plots_status_trafaret),
-            t.Key("holdout_statuses"): _accuracy_anomaly_over_time_plots_status_trafaret,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("forecast_distance"): t.Or(Int, t.Null),
+        t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
+        t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
+        t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
+        t.Key("backtest_statuses"): t.List(_accuracy_anomaly_over_time_plots_status_trafaret),
+        t.Key("holdout_statuses"): _accuracy_anomaly_over_time_plots_status_trafaret,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -297,18 +280,16 @@ class AccuracyOverTimePlot(DatetimeTrendPlotsAPIObject):
         then this will be None, indicating that the event applies to all series.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
-            t.Key("bins"): t.List(_accuracy_over_time_plots_bin_trafaret),
-            t.Key("statistics"): _statistics_trafaret,
-            t.Key("calendar_events"): t.List(_calendar_event_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
+        t.Key("bins"): t.List(_accuracy_over_time_plots_bin_trafaret),
+        t.Key("statistics"): _statistics_trafaret,
+        t.Key("calendar_events"): t.List(_calendar_event_trafaret),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -375,15 +356,13 @@ class AccuracyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("bins"): t.List(_datetime_trend_plots_preview_bin_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("bins"): t.List(_datetime_trend_plots_preview_bin_trafaret),
+    }).ignore_extra("*")
 
     def __init__(self, project_id, model_id, start_date, end_date, bins):
         self.project_id = project_id
@@ -393,9 +372,7 @@ class AccuracyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
         self.bins = bins
 
     def __repr__(self):
-        return "{}(project_id={}, model_id={})".format(
-            self.__class__.__name__, self.project_id, self.model_id
-        )
+        return "{}(project_id={}, model_id={})".format(self.__class__.__name__, self.project_id, self.model_id)
 
 
 class ForecastVsActualPlotsMetadata(DatetimeTrendPlotsMetadataObject):
@@ -453,17 +430,15 @@ class ForecastVsActualPlotsMetadata(DatetimeTrendPlotsMetadataObject):
         The datetime of the end of the chart data (exclusive). None if chart data is not computed.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
-            t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
-            t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
-            t.Key("backtest_statuses"): t.List(_forecast_vs_actual_status_trafaret),
-            t.Key("holdout_statuses"): _forecast_vs_actual_status_trafaret,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
+        t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
+        t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
+        t.Key("backtest_statuses"): t.List(_forecast_vs_actual_status_trafaret),
+        t.Key("holdout_statuses"): _forecast_vs_actual_status_trafaret,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -552,18 +527,16 @@ class ForecastVsActualPlot(DatetimeTrendPlotsAPIObject):
         then this will be None, indicating that the event applies to all series.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("forecast_distances"): t.List(Int),
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
-            t.Key("bins"): t.List(_forecast_vs_actual_plots_bin_trafaret),
-            t.Key("calendar_events"): t.List(_calendar_event_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("forecast_distances"): t.List(Int),
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
+        t.Key("bins"): t.List(_forecast_vs_actual_plots_bin_trafaret),
+        t.Key("calendar_events"): t.List(_calendar_event_trafaret),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -630,15 +603,13 @@ class ForecastVsActualPlotPreview(DatetimeTrendPlotsAPIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("bins"): t.List(_datetime_trend_plots_preview_bin_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("bins"): t.List(_datetime_trend_plots_preview_bin_trafaret),
+    }).ignore_extra("*")
 
     def __init__(self, project_id, model_id, start_date, end_date, bins):
         self.project_id = project_id
@@ -648,9 +619,7 @@ class ForecastVsActualPlotPreview(DatetimeTrendPlotsAPIObject):
         self.bins = bins
 
     def __repr__(self):
-        return "{}(project_id={}, model_id={})".format(
-            self.__class__.__name__, self.project_id, self.model_id
-        )
+        return "{}(project_id={}, model_id={})".format(self.__class__.__name__, self.project_id, self.model_id)
 
 
 class AnomalyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
@@ -705,17 +674,15 @@ class AnomalyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
         The datetime of the end of the chart data (exclusive). None if chart data is not computed.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
-            t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
-            t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
-            t.Key("backtest_statuses"): t.List(_accuracy_anomaly_over_time_plots_status_trafaret),
-            t.Key("holdout_statuses"): _accuracy_anomaly_over_time_plots_status_trafaret,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("resolutions"): t.List(t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL)),
+        t.Key("backtest_metadata"): t.List(_backtest_holdout_metadata_trafaret),
+        t.Key("holdout_metadata"): _backtest_holdout_metadata_trafaret,
+        t.Key("backtest_statuses"): t.List(_accuracy_anomaly_over_time_plots_status_trafaret),
+        t.Key("holdout_statuses"): _accuracy_anomaly_over_time_plots_status_trafaret,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -736,9 +703,7 @@ class AnomalyOverTimePlotsMetadata(DatetimeTrendPlotsMetadataObject):
         self.holdout_statuses = holdout_statuses
 
     def __repr__(self):
-        return "{}(project_id={}, model_id={})".format(
-            self.__class__.__name__, self.project_id, self.model_id
-        )
+        return "{}(project_id={}, model_id={})".format(self.__class__.__name__, self.project_id, self.model_id)
 
 
 class AnomalyOverTimePlot(DatetimeTrendPlotsAPIObject):
@@ -790,17 +755,15 @@ class AnomalyOverTimePlot(DatetimeTrendPlotsAPIObject):
         then this will be None, indicating that the event applies to all series.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
-            t.Key("bins"): t.List(_anomaly_over_time_plots_bin_trafaret),
-            t.Key("calendar_events"): t.List(_calendar_event_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("resolution"): t.Enum(*DATETIME_TREND_PLOTS_RESOLUTION.ALL),
+        t.Key("bins"): t.List(_anomaly_over_time_plots_bin_trafaret),
+        t.Key("calendar_events"): t.List(_calendar_event_trafaret),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -864,16 +827,14 @@ class AnomalyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("prediction_threshold"): t.Float,
-            t.Key("start_date"): parse_time,
-            t.Key("end_date"): parse_time,
-            t.Key("bins"): t.List(_anomaly_over_time_plots_preview_bin_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("prediction_threshold"): t.Float,
+        t.Key("start_date"): parse_time,
+        t.Key("end_date"): parse_time,
+        t.Key("bins"): t.List(_anomaly_over_time_plots_preview_bin_trafaret),
+    }).ignore_extra("*")
 
     def __init__(self, project_id, model_id, prediction_threshold, start_date, end_date, bins):
         self.project_id = project_id
@@ -884,6 +845,4 @@ class AnomalyOverTimePlotPreview(DatetimeTrendPlotsAPIObject):
         self.bins = bins
 
     def __repr__(self):
-        return "{}(project_id={}, model_id={})".format(
-            self.__class__.__name__, self.project_id, self.model_id
-        )
+        return "{}(project_id={}, model_id={})".format(self.__class__.__name__, self.project_id, self.model_id)

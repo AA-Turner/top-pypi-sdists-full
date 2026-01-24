@@ -30,7 +30,7 @@ LONG_DESCRIPTION = (
 )
 REQUIREMENTS = [
     'opensearch-py>=2.2.0',
-    'dateutils',
+    'python-dateutil',
 ]
 EXTRA_REQUIREMENTS = {
     'celery': ["celery>=4.1.0"],
@@ -38,7 +38,7 @@ EXTRA_REQUIREMENTS = {
 
 setup(
     name='django-opensearch-dsl',
-    version='0.7.0',
+    version='0.8.0',
     description="""Wrapper around opensearch-py for django models""",
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',

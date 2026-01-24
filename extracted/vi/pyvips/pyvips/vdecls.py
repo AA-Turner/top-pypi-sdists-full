@@ -135,9 +135,6 @@ def cdefs(features):
         GType vips_interpretation_get_type (void);
         GType vips_operation_flags_get_type (void);
         GType vips_band_format_get_type (void);
-        GType vips_token_get_type (void);
-        GType vips_saveable_get_type (void);
-        GType vips_image_type_get_type (void);
 
         typedef ... GData;
 
@@ -455,6 +452,12 @@ def cdefs(features):
 
             void vips_block_untrusted_set (int state);
             void vips_operation_block_set (const char *name, int state);
+
+        '''
+
+    if _at_least(features, 8, 18):
+        code += '''
+            VipsImage *vips_image_get_gainmap(VipsImage *image);
 
         '''
 

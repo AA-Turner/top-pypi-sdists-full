@@ -3,6 +3,10 @@
 import pytest
 from pytest_subtests import SubTests
 
+from nebius.aio import request
+
+request.DEFAULT_AUTH_TIMEOUT = 5.0
+
 
 def test_fieldkey() -> None:
     from nebius.base.fieldmask import FieldKey
@@ -200,9 +204,9 @@ def test_fieldpath_to_mask(subtests):
             str_representation = m.marshal()
 
             # Assert no error and correct string representation
-            assert str_representation == case["Res"], (
-                f"Failed on case {i}: " f"{str_representation} !=" f" {case['Res']}"
-            )
+            assert (
+                str_representation == case["Res"]
+            ), f"Failed on case {i}: {str_representation} != {case['Res']}"
 
 
 def test_fieldpath_is_prefix_of(subtests):

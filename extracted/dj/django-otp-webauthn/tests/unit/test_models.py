@@ -118,12 +118,11 @@ def test_credentials_are_unique():
 
     cred1 = WebAuthnCredentialFactory(credential_id=credential_id)
 
+    cred2 = WebAuthnCredentialFactory()
+    assert cred2.pk is not cred1.pk
+    cred2.credential_id = credential_id
+    cred2.credential_id_sha256 = None
     with pytest.raises(IntegrityError):
-        cred2 = WebAuthnCredentialFactory()
-        assert cred2.pk is not cred1.pk
-        cred2.credential_id = credential_id
-        cred2.credential_id_sha256 = None
-
         # At this point, the hash will be generated and the unique constraint will be violated.
         cred2.save()
 
@@ -139,7 +138,10 @@ def test_get_by_credential_id(django_assert_num_queries):
         assert WebAuthnCredential.get_by_credential_id(credential_id) == cred1
 
     with pytest.raises(WebAuthnCredential.DoesNotExist):
-        WebAuthnCredential.get_by_credential_id(b"non_existent_credential_id") is None
+        assert (
+            WebAuthnCredential.get_by_credential_id(b"non_existent_credential_id")
+            is None
+        )
 
 
 def test_get_credential_id_sha256():
@@ -205,14 +207,14 @@ def test_credential_queryset_as_credential_descriptors():
         WebAuthnCredential.objects.all().order_by("id").as_credential_descriptors()
     )
     assert len(descriptors) == 2
-    descriptors[0].id == credential_1.credential_id
-    descriptors[0].transports == [
+    assert descriptors[0].id == credential_1.credential_id
+    assert descriptors[0].transports == [
         AuthenticatorTransport.HYBRID,
         AuthenticatorTransport.BLE,
     ]
-    descriptors[1].id == credential_2.credential_id
+    assert descriptors[1].id == credential_2.credential_id
     # Made up transport is not a real transport, so it should be ignored.
-    descriptors[1].transports == [AuthenticatorTransport.INTERNAL]
+    assert descriptors[1].transports == [AuthenticatorTransport.INTERNAL]
 
 
 class SampleWebAuthnTestHelper(WebAuthnHelper):
@@ -275,7 +277,7 @@ def test_user_handle_unique(user_handle_model):
 @pytest.mark.django_db
 def test_user_handle_get_handle_for_user(user, user_handle_model):
     """Test that the get_handle_for_user method works and creates if a handle if none exists."""
-    user_handle_model.objects.count() == 0
+    assert user_handle_model.objects.count() == 0
     handle = WebAuthnUserHandle.get_handle_for_user(user)
     assert isinstance(handle, bytes)
     assert len(handle) == 64

@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Iterable
 
 import httpx
 
 from ..types import safety_run_shield_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Query, Headers, NotGiven, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -19,7 +25,6 @@ from .._response import (
 )
 from .._base_client import make_request_options
 from ..types.run_shield_response import RunShieldResponse
-from ..types.shared_params.message import Message
 
 __all__ = ["SafetyResource", "AsyncSafetyResource"]
 
@@ -47,26 +52,22 @@ class SafetyResource(SyncAPIResource):
     def run_shield(
         self,
         *,
-        messages: Iterable[Message],
-        params: Dict[str, Union[bool, float, str, Iterable[object], object, None]],
+        messages: Iterable[safety_run_shield_params.Message],
+        params: Dict[str, object],
         shield_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RunShieldResponse:
         """
+        Run shield.
+
         Run a shield.
 
         Args:
-          messages: The messages to run the shield on.
-
-          params: The parameters of the shield.
-
-          shield_id: The identifier of the shield to run.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -115,26 +116,22 @@ class AsyncSafetyResource(AsyncAPIResource):
     async def run_shield(
         self,
         *,
-        messages: Iterable[Message],
-        params: Dict[str, Union[bool, float, str, Iterable[object], object, None]],
+        messages: Iterable[safety_run_shield_params.Message],
+        params: Dict[str, object],
         shield_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RunShieldResponse:
         """
+        Run shield.
+
         Run a shield.
 
         Args:
-          messages: The messages to run the shield on.
-
-          params: The parameters of the shield.
-
-          shield_id: The identifier of the shield to run.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

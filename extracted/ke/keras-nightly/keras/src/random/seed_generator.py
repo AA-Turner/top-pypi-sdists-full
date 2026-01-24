@@ -8,6 +8,8 @@ from keras.src.backend.common import global_state
 from keras.src.utils import jax_utils
 from keras.src.utils.naming import auto_name
 
+GLOBAL_SEED_GENERATOR = "global_seed_generator"
+
 
 @keras_export("keras.random.SeedGenerator")
 class SeedGenerator:
@@ -27,7 +29,7 @@ class SeedGenerator:
     a local `StateGenerator` with either a deterministic or random initial
     state.
 
-    Remark concerning the JAX backen: Note that the use of a local
+    Remark concerning the JAX backend: Note that the use of a local
     `StateGenerator` as seed argument is required for JIT compilation of
     RNG with the JAX backend, because the use of global state is not
     supported.
@@ -109,7 +111,7 @@ class SeedGenerator:
         return new_seed_value
 
     def get_config(self):
-        return {"seed": self._initial_seed}
+        return {"seed": self._initial_seed, "name": self.name}
 
     @classmethod
     def from_config(cls, config):
@@ -133,10 +135,10 @@ def global_seed_generator():
             "out = keras.random.normal(shape=(1,), seed=self.seed_generator)\n"
             "```"
         )
-    gen = global_state.get_global_attribute("global_seed_generator")
+    gen = global_state.get_global_attribute(GLOBAL_SEED_GENERATOR)
     if gen is None:
         gen = SeedGenerator()
-        global_state.set_global_attribute("global_seed_generator", gen)
+        global_state.set_global_attribute(GLOBAL_SEED_GENERATOR, gen)
     return gen
 
 

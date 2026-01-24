@@ -7,10 +7,9 @@ except ImportError:
     import mock
 
 import django
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
-from django_ses import settings
 from django_ses import utils as ses_utils
 from django_ses.inbound import BaseHandler
 from django_ses.signals import (
@@ -30,6 +29,31 @@ from tests.mocks import (
     get_mock_received_sns,
     get_mock_send,
 )
+
+
+def patch_signal_receiver(signal, mock_func):
+    """
+    Patch a Django signal receiver with a mock function.
+
+    Handles differences in receiver structure across Django versions:
+    - Django <5: (lookup_key, weakref)
+    - Django 5.x: (lookup_key, weakref, is_async)
+    - Django >=6: (lookup_key, weakref, sender_weakref, is_async)
+
+    Args:
+        signal: The Django signal to patch
+        mock_func: The mock function to use as replacement
+    """
+    receiver = signal.receivers[0]
+
+    if django.VERSION[0] < 5:
+        patched_receiver = (receiver[0], weakref.ref(mock_func))
+    elif django.VERSION[0] < 6:
+        patched_receiver = (receiver[0], weakref.ref(mock_func), False)
+    else:
+        patched_receiver = (receiver[0], weakref.ref(mock_func), None, False)
+
+    signal.receivers[0] = patched_receiver
 
 
 class HandleBounceTestCase(TestCase):
@@ -98,13 +122,12 @@ class HandleBounceTestCase(TestCase):
 # avoid using transactions. Calls to atomic() will disconnect the signal
 # handlers, which is exactly what we're trying to test here.
 class HandleBounceTestCaseWithBL(TransactionTestCase):
+    @override_settings(AWS_SES_VERIFY_BOUNCE_SIGNATURES=False)
     def test_bounce_event_can_perform_blacklist(self):
         """
         Test if bounce events result in blacklisted emails (if the feature has
         been enabled)
         """
-
-        settings.VERIFY_BOUNCE_SIGNATURES = False
 
         mail_obj, bounce_obj, notification = get_mock_bounce("eventType")
 
@@ -114,33 +137,18 @@ class HandleBounceTestCaseWithBL(TransactionTestCase):
         # The only way is to patch the actual .receivers prop at "this" exact
         # moment.
         mock_func = mock.MagicMock()
-        receiver = bounce_received.receivers[0]
-
-        # Django<5 had only synchronous receivers, but >=5 can have asynchronous
-        # ones as well. This caused the receivers structure to change:
-        #
-        # 4.2.16: https://github.com/django/django/blob/4.2.16/django/dispatch/dispatcher.py#L253
-        # 5.0: https://github.com/django/django/blob/5.0/django/dispatch/dispatcher.py#L431
-        #
-        # We must account for that difference and prepare a tuple that will
-        # match the expected signature.
-        if django.VERSION[0] < 5:
-            receiver = (receiver[0], weakref.ref(mock_func))
-        else:
-            receiver = (receiver[0], weakref.ref(mock_func), False)
-        bounce_received.receivers[0] = receiver
+        patch_signal_receiver(bounce_received, mock_func)
         response = self.client.post(reverse("django_ses_bounce"), json.dumps(notification),
                                     content_type="application/json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(mock_func.call_count, 1)
 
+    @override_settings(AWS_SES_VERIFY_BOUNCE_SIGNATURES=False)
     def test_complaint_event_can_perform_blacklist(self):
         """
         Test if complaint events result in blacklisted emails (if the feature
         has been enabled)
         """
-
-        settings.VERIFY_BOUNCE_SIGNATURES = False
 
         mail_obj, complaint_obj, notification = get_mock_complaint("eventType")
 
@@ -150,22 +158,8 @@ class HandleBounceTestCaseWithBL(TransactionTestCase):
         # The only way is to patch the actual .receivers prop at "this" exact
         # moment.
         mock_func = mock.MagicMock()
-        receiver = complaint_received.receivers[0]
+        patch_signal_receiver(complaint_received, mock_func)
 
-        # Django<5 had only synchronous receivers, but >=5 can have asynchronous
-        # ones as well. This caused the receivers structure to change:
-        #
-        # 4.2.16: https://github.com/django/django/blob/4.2.16/django/dispatch/dispatcher.py#L253
-        # 5.0: https://github.com/django/django/blob/5.0/django/dispatch/dispatcher.py#L431
-        #
-        # We must account for that difference and prepare a tuple that will
-        # match the expected signature.
-        if django.VERSION[0] < 5:
-            receiver = (receiver[0], weakref.ref(mock_func))
-        else:
-            receiver = (receiver[0], weakref.ref(mock_func), False)
-
-        complaint_received.receivers[0] = receiver
         response = self.client.post(reverse("django_ses_bounce"), json.dumps(notification),
                                     content_type="application/json")
         self.assertEqual(response.status_code, 200)
@@ -321,11 +315,11 @@ class HandleEventTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(_handler.call_count, 1)
 
+    @override_settings(AWS_SES_INBOUND_HANDLER="global.DummyClass")
     def test_handle_received_event(self):
         """
         Test handling a received event request.
         """
-        settings.AWS_SES_INBOUND_HANDLER = "global.DummyClass"
 
         req_mail_obj, req_content, req_receipt_obj, notification = get_mock_received_sns()
 

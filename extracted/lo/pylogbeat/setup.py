@@ -11,7 +11,7 @@ from setuptools import setup
 
 
 NAME = 'pylogbeat'
-VERSION = '2.0.1'
+VERSION = '2.1.0'
 
 here = path.abspath(path. dirname(__file__))
 with open(path.join(here, 'README.md'), 'rb') as f:
@@ -40,7 +40,7 @@ setup(
         'Source code': 'https://github.com/eht16/pylogbeat/',
     },
     keywords='logging logstash beats',
-    python_requires='>3.6',
+    python_requires='>=3.11',
     include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',

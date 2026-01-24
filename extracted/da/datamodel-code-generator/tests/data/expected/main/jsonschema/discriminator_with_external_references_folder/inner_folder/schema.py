@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,10 +15,10 @@ from .artificial_folder import type_1
 
 
 class Type3(BaseModel):
-    type_: Literal['c'] = Field(..., const=True, title='Type ')
+    type_: Literal['c'] = Field('c', const=True, title='Type ')
 
 
 class Response(BaseModel):
-    inner: Union[type_1.Type1, type_2.Type2, Type3, type_4.Type4, type_5.Type5] = Field(
+    inner: type_1.Type1 | type_2.Type2 | Type3 | type_4.Type4 | type_5.Type5 = Field(
         ..., discriminator='type_', title='Inner'
     )

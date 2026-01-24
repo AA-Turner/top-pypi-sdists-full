@@ -3,7 +3,7 @@ Main interface for eks service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,6 +24,7 @@ Usage::
         ListAccessPoliciesPaginator,
         ListAddonsPaginator,
         ListAssociatedAccessPoliciesPaginator,
+        ListCapabilitiesPaginator,
         ListClustersPaginator,
         ListEksAnywhereSubscriptionsPaginator,
         ListFargateProfilesPaginator,
@@ -54,6 +55,7 @@ Usage::
     list_access_policies_paginator: ListAccessPoliciesPaginator = client.get_paginator("list_access_policies")
     list_addons_paginator: ListAddonsPaginator = client.get_paginator("list_addons")
     list_associated_access_policies_paginator: ListAssociatedAccessPoliciesPaginator = client.get_paginator("list_associated_access_policies")
+    list_capabilities_paginator: ListCapabilitiesPaginator = client.get_paginator("list_capabilities")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_eks_anywhere_subscriptions_paginator: ListEksAnywhereSubscriptionsPaginator = client.get_paginator("list_eks_anywhere_subscriptions")
     list_fargate_profiles_paginator: ListFargateProfilesPaginator = client.get_paginator("list_fargate_profiles")
@@ -73,6 +75,7 @@ from .paginator import (
     ListAccessPoliciesPaginator,
     ListAddonsPaginator,
     ListAssociatedAccessPoliciesPaginator,
+    ListCapabilitiesPaginator,
     ListClustersPaginator,
     ListEksAnywhereSubscriptionsPaginator,
     ListFargateProfilesPaginator,
@@ -111,6 +114,7 @@ __all__ = (
     "ListAccessPoliciesPaginator",
     "ListAddonsPaginator",
     "ListAssociatedAccessPoliciesPaginator",
+    "ListCapabilitiesPaginator",
     "ListClustersPaginator",
     "ListEksAnywhereSubscriptionsPaginator",
     "ListFargateProfilesPaginator",

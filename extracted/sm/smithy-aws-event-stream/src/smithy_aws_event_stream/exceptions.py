@@ -1,14 +1,16 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Binary Event Stream support for the application/vnd.amazon.eventstream format."""
 
 from typing import Any
 
-from smithy_core.exceptions import SmithyException
+from smithy_core.exceptions import SmithyError
 
 _MAX_HEADERS_LENGTH = 128 * 1024  # 128 Kb
 _MAX_PAYLOAD_LENGTH = 16 * 1024**2  # 16 Mb
 
 
-class EventError(SmithyException):
+class EventError(SmithyError):
     """Base error for all errors thrown during event stream handling."""
 
 

@@ -1,14 +1,9 @@
 import copy
+from collections.abc import AsyncIterator, Callable
 from enum import Enum, auto
 from typing import (
     Any,
     AsyncContextManager,
-    AsyncIterator,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Union,
 )
 
 import httpx
@@ -30,13 +25,13 @@ from typing_extensions import Self
 
 from langchain_google_vertexai._base import _VertexAIBase
 
-_MISTRAL_MODELS: List[str] = [
+_MISTRAL_MODELS: list[str] = [
     "mistral-nemo@2407",
     "mistral-large-2411@001",
     "mistral-small-2503@001",
     "codestral-2501@001",
 ]
-_LLAMA_MODELS: List[str] = [
+_LLAMA_MODELS: list[str] = [
     "meta/llama-3.2-90b-vision-instruct-maas",
     "meta/llama-3.3-70b-instruct-maas",
     "meta/llama-4-maverick-17b-128e-instruct-maas",
@@ -44,17 +39,18 @@ _LLAMA_MODELS: List[str] = [
 ]
 
 
-def _get_token(credentials: Optional[Credentials] = None) -> str:
+def _get_token(credentials: Credentials | None = None) -> str:
     """Returns a valid token for GCP auth."""
     credentials = (
-        auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])[0]
-        if not credentials
-        else credentials
+        credentials
+        if credentials
+        else auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])[0]
     )
     request = auth_requests.Request()
     credentials.refresh(request)
     if not credentials.token:
-        raise ValueError("Couldn't retrieve a token!")
+        msg = "Couldn't retrieve a token!"
+        raise ValueError(msg)
     return credentials.token
 
 
@@ -62,9 +58,12 @@ def _raise_on_error(response: httpx.Response) -> None:
     """Raise an error if the response is an error."""
     if httpx.codes.is_error(response.status_code):
         error_message = response.read().decode("utf-8")
-        raise httpx.HTTPStatusError(
+        msg = (
             f"Error response {response.status_code} "
-            f"while fetching {response.url}: {error_message}",
+            f"while fetching {response.url}: {error_message}"
+        )
+        raise httpx.HTTPStatusError(
+            msg,
             request=response.request,
             response=response,
         )
@@ -74,9 +73,12 @@ async def _araise_on_error(response: httpx.Response) -> None:
     """Raise an error if the response is an error."""
     if httpx.codes.is_error(response.status_code):
         error_message = (await response.aread()).decode("utf-8")
-        raise httpx.HTTPStatusError(
+        msg = (
             f"Error response {response.status_code} "
-            f"while fetching {response.url}: {error_message}",
+            f"while fetching {response.url}: {error_message}"
+        )
+        raise httpx.HTTPStatusError(
+            msg,
             request=response.request,
             response=response,
         )
@@ -84,7 +86,7 @@ async def _araise_on_error(response: httpx.Response) -> None:
 
 async def _aiter_sse(
     event_source_mgr: AsyncContextManager[EventSource],
-) -> AsyncIterator[Dict]:
+) -> AsyncIterator[dict]:
     """Iterate over the server-sent events."""
     async with event_source_mgr as event_source:
         await _araise_on_error(event_source.response)
@@ -107,13 +109,14 @@ class VertexMaaSModelFamily(str, Enum):
             return VertexMaaSModelFamily.LLAMA
         if model_name in _MISTRAL_MODELS:
             return VertexMaaSModelFamily.MISTRAL
-        raise ValueError(f"Model {model_name} is not supported yet!")
+        msg = f"Model {model_name} is not supported yet!"
+        raise ValueError(msg)
 
 
 class _BaseVertexMaasModelGarden(_VertexAIBase):
     append_tools_to_system_message: bool = False
     "Whether to append tools to the system message or not."
-    model_family: Optional[VertexMaaSModelFamily] = None
+    model_family: VertexMaaSModelFamily | None = None
     timeout: int = 120
 
     model_config = ConfigDict(
@@ -121,7 +124,7 @@ class _BaseVertexMaasModelGarden(_VertexAIBase):
         arbitrary_types_allowed=True,
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         token = _get_token(credentials=self.credentials)
         endpoint = self.get_url()
@@ -154,7 +157,7 @@ class _BaseVertexMaasModelGarden(_VertexAIBase):
             self.model_name = model
         return self
 
-    def _enrich_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _enrich_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Fix params to be compliant with Vertex AI."""
         copy_params = copy.deepcopy(params)
         _ = copy_params.pop("safe_prompt", None)
@@ -184,12 +187,9 @@ class _BaseVertexMaasModelGarden(_VertexAIBase):
 
 def _create_retry_decorator(
     llm: _BaseVertexMaasModelGarden,
-    run_manager: Optional[
-        Union[AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun]
-    ] = None,
+    run_manager: AsyncCallbackManagerForLLMRun | CallbackManagerForLLMRun | None = None,
 ) -> Callable[[Any], Any]:
-    """Returns a tenacity retry decorator, preconfigured to handle exceptions"""
-
+    """Returns a tenacity retry decorator, preconfigured to handle exceptions."""
     errors = [httpx.RequestError, httpx.StreamError]
     return create_base_retry_decorator(
         error_types=errors, max_retries=llm.max_retries, run_manager=run_manager
@@ -198,7 +198,7 @@ def _create_retry_decorator(
 
 async def acompletion_with_retry(
     llm: _BaseVertexMaasModelGarden,
-    run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+    run_manager: AsyncCallbackManagerForLLMRun | None = None,
     **kwargs: Any,
 ) -> Any:
     """Use tenacity to retry the async completion call."""
@@ -223,10 +223,9 @@ async def acompletion_with_retry(
                 headers=headers,
             )
             return _aiter_sse(event_source)
-        else:
-            response = await llm.async_client.post(url=llm._get_url_part(), json=kwargs)
-            await _araise_on_error(response)
-            return response.json()
+        response = await llm.async_client.post(url=llm._get_url_part(), json=kwargs)
+        await _araise_on_error(response)
+        return response.json()
 
     kwargs = llm._enrich_params(kwargs)
     return await _completion_with_retry(**kwargs)

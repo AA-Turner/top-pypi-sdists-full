@@ -3,7 +3,7 @@ Type annotations for mediapackage service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediapackage/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -37,12 +38,6 @@ from .literals import (
     UtcTimingType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -162,13 +157,13 @@ class HlsManifestTypeDef(TypedDict):
     PlaylistWindowSeconds: NotRequired[int]
     ProgramDateTimeIntervalSeconds: NotRequired[int]
     Url: NotRequired[str]
-    AdTriggers: NotRequired[List[AdTriggersElementType]]
+    AdTriggers: NotRequired[list[AdTriggersElementType]]
     AdsOnDeliveryRestrictions: NotRequired[AdsOnDeliveryRestrictionsType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -258,7 +253,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateHarvestJobRequestTypeDef(TypedDict):
@@ -306,7 +301,7 @@ class HarvestJobTypeDef(TypedDict):
 class SpekeKeyProviderOutputTypeDef(TypedDict):
     ResourceId: str
     RoleArn: str
-    SystemIds: List[str]
+    SystemIds: list[str]
     Url: str
     CertificateArn: NotRequired[str]
     EncryptionContractConfiguration: NotRequired[EncryptionContractConfigurationTypeDef]
@@ -320,7 +315,7 @@ class SpekeKeyProviderTypeDef(TypedDict):
     EncryptionContractConfiguration: NotRequired[EncryptionContractConfigurationTypeDef]
 
 class HlsIngestTypeDef(TypedDict):
-    IngestEndpoints: NotRequired[List[IngestEndpointTypeDef]]
+    IngestEndpoints: NotRequired[list[IngestEndpointTypeDef]]
 
 class ListChannelsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -335,7 +330,7 @@ class ListOriginEndpointsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListHarvestJobsResponseTypeDef(TypedDict):
-    HarvestJobs: List[HarvestJobTypeDef]
+    HarvestJobs: list[HarvestJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -383,7 +378,7 @@ class ChannelTypeDef(TypedDict):
     HlsIngest: NotRequired[HlsIngestTypeDef]
     Id: NotRequired[str]
     IngressAccessLogs: NotRequired[IngressAccessLogsTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ConfigureLogsResponseTypeDef(TypedDict):
     Arn: str
@@ -393,7 +388,7 @@ class ConfigureLogsResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateChannelResponseTypeDef(TypedDict):
@@ -404,7 +399,7 @@ class CreateChannelResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeChannelResponseTypeDef(TypedDict):
@@ -415,7 +410,7 @@ class DescribeChannelResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RotateChannelCredentialsResponseTypeDef(TypedDict):
@@ -426,7 +421,7 @@ class RotateChannelCredentialsResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RotateIngestEndpointCredentialsResponseTypeDef(TypedDict):
@@ -437,7 +432,7 @@ class RotateIngestEndpointCredentialsResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateChannelResponseTypeDef(TypedDict):
@@ -448,18 +443,18 @@ class UpdateChannelResponseTypeDef(TypedDict):
     HlsIngest: HlsIngestTypeDef
     Id: str
     IngressAccessLogs: IngressAccessLogsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CmafPackageTypeDef(TypedDict):
     Encryption: NotRequired[CmafEncryptionOutputTypeDef]
-    HlsManifests: NotRequired[List[HlsManifestTypeDef]]
+    HlsManifests: NotRequired[list[HlsManifestTypeDef]]
     SegmentDurationSeconds: NotRequired[int]
     SegmentPrefix: NotRequired[str]
     StreamSelection: NotRequired[StreamSelectionTypeDef]
 
 class DashPackageOutputTypeDef(TypedDict):
-    AdTriggers: NotRequired[List[AdTriggersElementType]]
+    AdTriggers: NotRequired[list[AdTriggersElementType]]
     AdsOnDeliveryRestrictions: NotRequired[AdsOnDeliveryRestrictionsType]
     Encryption: NotRequired[DashEncryptionOutputTypeDef]
     IncludeIframeOnlyStream: NotRequired[bool]
@@ -467,7 +462,7 @@ class DashPackageOutputTypeDef(TypedDict):
     ManifestWindowSeconds: NotRequired[int]
     MinBufferTimeSeconds: NotRequired[int]
     MinUpdatePeriodSeconds: NotRequired[int]
-    PeriodTriggers: NotRequired[List[Literal["ADS"]]]
+    PeriodTriggers: NotRequired[list[Literal["ADS"]]]
     Profile: NotRequired[ProfileType]
     SegmentDurationSeconds: NotRequired[int]
     SegmentTemplateFormat: NotRequired[SegmentTemplateFormatType]
@@ -478,7 +473,7 @@ class DashPackageOutputTypeDef(TypedDict):
 
 class HlsPackageOutputTypeDef(TypedDict):
     AdMarkers: NotRequired[AdMarkersType]
-    AdTriggers: NotRequired[List[AdTriggersElementType]]
+    AdTriggers: NotRequired[list[AdTriggersElementType]]
     AdsOnDeliveryRestrictions: NotRequired[AdsOnDeliveryRestrictionsType]
     Encryption: NotRequired[HlsEncryptionOutputTypeDef]
     IncludeDvbSubtitles: NotRequired[bool]
@@ -541,7 +536,7 @@ class CmafEncryptionTypeDef(TypedDict):
     KeyRotationIntervalSeconds: NotRequired[int]
 
 class ListChannelsResponseTypeDef(TypedDict):
-    Channels: List[ChannelTypeDef]
+    Channels: list[ChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -559,10 +554,10 @@ class CreateOriginEndpointResponseTypeDef(TypedDict):
     MssPackage: MssPackageOutputTypeDef
     Origination: OriginationType
     StartoverWindowSeconds: int
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TimeDelaySeconds: int
     Url: str
-    Whitelist: List[str]
+    Whitelist: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeOriginEndpointResponseTypeDef(TypedDict):
@@ -579,10 +574,10 @@ class DescribeOriginEndpointResponseTypeDef(TypedDict):
     MssPackage: MssPackageOutputTypeDef
     Origination: OriginationType
     StartoverWindowSeconds: int
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TimeDelaySeconds: int
     Url: str
-    Whitelist: List[str]
+    Whitelist: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class OriginEndpointTypeDef(TypedDict):
@@ -599,10 +594,10 @@ class OriginEndpointTypeDef(TypedDict):
     MssPackage: NotRequired[MssPackageOutputTypeDef]
     Origination: NotRequired[OriginationType]
     StartoverWindowSeconds: NotRequired[int]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     TimeDelaySeconds: NotRequired[int]
     Url: NotRequired[str]
-    Whitelist: NotRequired[List[str]]
+    Whitelist: NotRequired[list[str]]
 
 class UpdateOriginEndpointResponseTypeDef(TypedDict):
     Arn: str
@@ -618,10 +613,10 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
     MssPackage: MssPackageOutputTypeDef
     Origination: OriginationType
     StartoverWindowSeconds: int
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TimeDelaySeconds: int
     Url: str
-    Whitelist: List[str]
+    Whitelist: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 DashPackageUnionTypeDef = Union[DashPackageTypeDef, DashPackageOutputTypeDef]
@@ -630,7 +625,7 @@ MssPackageUnionTypeDef = Union[MssPackageTypeDef, MssPackageOutputTypeDef]
 CmafEncryptionUnionTypeDef = Union[CmafEncryptionTypeDef, CmafEncryptionOutputTypeDef]
 
 class ListOriginEndpointsResponseTypeDef(TypedDict):
-    OriginEndpoints: List[OriginEndpointTypeDef]
+    OriginEndpoints: list[OriginEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

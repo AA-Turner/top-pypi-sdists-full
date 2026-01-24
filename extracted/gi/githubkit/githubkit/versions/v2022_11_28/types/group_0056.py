@@ -9,35 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
+from .group_0044 import DiscussionType, DiscussionTypeForResponse
 
 
-class GistCommitType(TypedDict):
-    """Gist Commit
+class DiscussionEventType(TypedDict):
+    """DiscussionEvent"""
 
-    Gist Commit
-    """
-
-    url: str
-    version: str
-    user: Union[None, SimpleUserType]
-    change_status: GistCommitPropChangeStatusType
-    committed_at: datetime
+    action: str
+    discussion: DiscussionType
 
 
-class GistCommitPropChangeStatusType(TypedDict):
-    """GistCommitPropChangeStatus"""
+class DiscussionEventTypeForResponse(TypedDict):
+    """DiscussionEvent"""
 
-    total: NotRequired[int]
-    additions: NotRequired[int]
-    deletions: NotRequired[int]
+    action: str
+    discussion: DiscussionTypeForResponse
 
 
 __all__ = (
-    "GistCommitPropChangeStatusType",
-    "GistCommitType",
+    "DiscussionEventType",
+    "DiscussionEventTypeForResponse",
 )

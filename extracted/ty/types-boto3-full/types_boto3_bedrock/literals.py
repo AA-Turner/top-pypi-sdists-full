@@ -3,7 +3,7 @@ Type annotations for bedrock service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -39,7 +39,9 @@ __all__ = (
     "AutomatedReasoningPolicyTestRunStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
+    "ConfigurationOwnerType",
     "CustomModelDeploymentStatusType",
+    "CustomModelDeploymentUpdateStatusType",
     "CustomizationTypeType",
     "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
@@ -66,6 +68,7 @@ __all__ = (
     "InferenceProfileStatusType",
     "InferenceProfileTypeType",
     "InferenceTypeType",
+    "InputTagsType",
     "JobStatusDetailsType",
     "ListAutomatedReasoningPoliciesPaginatorName",
     "ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName",
@@ -73,6 +76,7 @@ __all__ = (
     "ListAutomatedReasoningPolicyTestResultsPaginatorName",
     "ListCustomModelDeploymentsPaginatorName",
     "ListCustomModelsPaginatorName",
+    "ListEnforcedGuardrailsConfigurationPaginatorName",
     "ListEvaluationJobsPaginatorName",
     "ListGuardrailsPaginatorName",
     "ListImportedModelsPaginatorName",
@@ -98,6 +102,7 @@ __all__ = (
     "PromptRouterTypeType",
     "ProvisionedModelStatusType",
     "QueryTransformationTypeType",
+    "ReasoningEffortType",
     "RegionAvailabilityType",
     "RegionName",
     "RerankingMetadataSelectionModeType",
@@ -133,7 +138,7 @@ AutomatedReasoningPolicyAnnotationStatusType = Literal["APPLIED", "FAILED"]
 AutomatedReasoningPolicyBuildDocumentContentTypeType = Literal["pdf", "txt"]
 AutomatedReasoningPolicyBuildMessageTypeType = Literal["ERROR", "INFO", "WARNING"]
 AutomatedReasoningPolicyBuildResultAssetTypeType = Literal[
-    "BUILD_LOG", "POLICY_DEFINITION", "QUALITY_REPORT"
+    "BUILD_LOG", "GENERATED_TEST_CASES", "POLICY_DEFINITION", "POLICY_SCENARIOS", "QUALITY_REPORT"
 ]
 AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
     "BUILDING",
@@ -153,8 +158,12 @@ AutomatedReasoningPolicyTestRunStatusType = Literal[
     "COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED", "SCHEDULED"
 ]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
+ConfigurationOwnerType = Literal["ACCOUNT"]
 CustomModelDeploymentStatusType = Literal["Active", "Creating", "Failed"]
-CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
+CustomModelDeploymentUpdateStatusType = Literal["UpdateCompleted", "UpdateFailed", "Updating"]
+CustomizationTypeType = Literal[
+    "CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED", "REINFORCEMENT_FINE_TUNING"
+]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
@@ -218,6 +227,7 @@ GuardrailWordActionType = Literal["BLOCK", "NONE"]
 InferenceProfileStatusType = Literal["ACTIVE"]
 InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]
 InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
+InputTagsType = Literal["HONOR", "IGNORE"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
 ]
@@ -233,6 +243,7 @@ ListAutomatedReasoningPolicyTestResultsPaginatorName = Literal[
 ]
 ListCustomModelDeploymentsPaginatorName = Literal["list_custom_model_deployments"]
 ListCustomModelsPaginatorName = Literal["list_custom_models"]
+ListEnforcedGuardrailsConfigurationPaginatorName = Literal["list_enforced_guardrails_configuration"]
 ListEvaluationJobsPaginatorName = Literal["list_evaluation_jobs"]
 ListGuardrailsPaginatorName = Literal["list_guardrails"]
 ListImportedModelsPaginatorName = Literal["list_imported_models"]
@@ -270,6 +281,7 @@ PromptRouterStatusType = Literal["AVAILABLE"]
 PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
 QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
+ReasoningEffortType = Literal["high", "low", "medium"]
 RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
@@ -308,7 +320,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -378,6 +389,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -423,7 +435,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -476,7 +487,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -515,8 +525,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -551,6 +559,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -560,6 +569,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -570,6 +580,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -591,8 +604,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -607,15 +618,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -646,6 +658,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -686,6 +699,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -706,6 +720,7 @@ PaginatorName = Literal[
     "list_automated_reasoning_policy_test_results",
     "list_custom_model_deployments",
     "list_custom_models",
+    "list_enforced_guardrails_configuration",
     "list_evaluation_jobs",
     "list_guardrails",
     "list_imported_models",
@@ -719,6 +734,7 @@ PaginatorName = Literal[
     "list_provisioned_model_throughputs",
 ]
 RegionName = Literal[
+    "af-south-1",
     "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
@@ -732,6 +748,7 @@ RegionName = Literal[
     "ap-southeast-5",
     "ap-southeast-7",
     "ca-central-1",
+    "ca-west-1",
     "eu-central-1",
     "eu-central-2",
     "eu-north-1",
@@ -742,6 +759,8 @@ RegionName = Literal[
     "eu-west-3",
     "il-central-1",
     "me-central-1",
+    "me-south-1",
+    "mx-central-1",
     "sa-east-1",
     "us-east-1",
     "us-east-2",

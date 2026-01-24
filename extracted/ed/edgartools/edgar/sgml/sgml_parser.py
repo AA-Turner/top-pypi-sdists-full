@@ -5,10 +5,26 @@ from enum import Enum
 from io import BytesIO
 from typing import Iterator, Optional
 
+from edgar.core import has_html_content
 from edgar.sgml.tools import get_content_between_tags
 from edgar.vendored import uu
 
-__all__ = ['SGMLParser', 'SGMLFormatType', 'SGMLDocument']
+__all__ = ['SGMLParser', 'SGMLFormatType', 'SGMLDocument', 'SECIdentityError', 'SECFilingNotFoundError', 'SECHTMLResponseError']
+
+
+class SECIdentityError(Exception):
+    """Raised when SEC rejects request due to invalid or missing EDGAR_IDENTITY"""
+    pass
+
+
+class SECFilingNotFoundError(Exception):
+    """Raised when SEC returns error for non-existent filing"""
+    pass
+
+
+class SECHTMLResponseError(Exception):
+    """Raised when SEC returns HTML content instead of expected SGML"""
+    pass
 
 class SGMLFormatType(Enum):
     SEC_DOCUMENT = "sec_document"  # <SEC-DOCUMENT>...<SEC-HEADER> style
@@ -91,11 +107,55 @@ class SGMLDocument:
             return 'xbrl'
         return 'text'
 
+def _raise_sec_html_error(content: str):
+    """
+    Analyze HTML/XML error content from SEC and raise appropriate specific exception.
+
+    Args:
+        content: HTML or XML content received from SEC
+
+    Raises:
+        SECIdentityError: For identity-related errors
+        SECFilingNotFoundError: For missing filing errors
+        SECHTMLResponseError: For other HTML/XML responses
+    """
+    # Check for identity error
+    if "Your Request Originates from an Undeclared Automated Tool" in content:
+        raise SECIdentityError(
+            "SEC rejected request due to invalid or missing EDGAR_IDENTITY. "
+            "Please set a valid identity using set_identity('Your Name your.email@domain.com'). "
+            "See https://www.sec.gov/os/accessing-edgar-data"
+        )
+
+    # Check for AWS S3 NoSuchKey error (XML format)
+    if "<Code>NoSuchKey</Code>" in content and "<Message>The specified key does not exist.</Message>" in content:
+        raise SECFilingNotFoundError(
+            "SEC filing not found - the specified key does not exist in EDGAR archives. "
+            "Check that the accession number and filing date are correct."
+        )
+
+    # Check for general not found errors
+    if "Not Found" in content or "404" in content:
+        raise SECFilingNotFoundError(
+            "SEC filing not found. Check that the accession number and filing date are correct."
+        )
+
+    # Generic HTML/XML response error
+    raise SECHTMLResponseError(
+        "SEC returned HTML or XML content instead of expected SGML filing data. "
+        "This may indicate an invalid request or temporary SEC server issue."
+    )
+
+
 class SGMLParser:
     @staticmethod
     def detect_format(content: str) -> SGMLFormatType:
         """Detect SGML format based on root element"""
-        if content.lstrip().startswith('<SUBMISSION>'):
+        # First check for valid SGML structure before checking for HTML content
+        content_stripped = content.lstrip()
+
+        # Check for valid SGML formats first
+        if content_stripped.startswith('<SUBMISSION>'):
             return SGMLFormatType.SUBMISSION
         elif '<SEC-DOCUMENT>' in content:
             return SGMLFormatType.SEC_DOCUMENT
@@ -105,6 +165,16 @@ class SGMLParser:
         elif '<DOCUMENT>' in content[:1000]:
             # For old filings from the 1990's
             return SGMLFormatType.SEC_DOCUMENT
+
+        # Only check for HTML content if it's not valid SGML structure
+        # This prevents false positives when SGML contains HTML within <TEXT> sections
+        if has_html_content(content):
+            _raise_sec_html_error(content)
+
+        # Check if we received XML error content (like AWS S3 NoSuchKey errors)
+        if content_stripped.startswith('<?xml') and '<Error>' in content:
+            _raise_sec_html_error(content)
+
         raise ValueError("Unknown SGML format")
 
     def parse(self, content) -> dict:
@@ -148,6 +218,7 @@ class SubmissionFormatParser:
             'ISSUER',
             'DEPOSITOR',
             'SECURITIZER',
+            'UNDERWRITER',
             'ISSUING_ENTITY',
             'FORMER-COMPANY',
             'SUBJECT-COMPANY',
@@ -167,17 +238,21 @@ class SubmissionFormatParser:
             'SERIES-AND-CLASSES-CONTRACTS-DATA',
             'NEW-SERIES-AND-CLASSES-CONTRACTS',
             'MERGER-SERIES-AND-CLASSES-CONTRACTS',
-            'EXISTING-SERIES-AND-CLASSES-CONTRACTS'
+            'EXISTING-SERIES-AND-CLASSES-CONTRACTS',
+            'RULE',
+            'ITEM'
         }
 
         # Tags that can appear multiple times and should be stored as lists
         self.REPEATABLE_TAGS = {
             'FILER',
             'REPORTING-OWNER',
+            'UNDERWRITER',
             'SERIES',
             'CLASS-CONTRACT',
             'FORMER-COMPANY',
-            'SUBJECT-COMPANY'
+            'SUBJECT-COMPANY',
+            'ITEM'
         }
 
     def _get_current_context(self) -> dict:
@@ -189,7 +264,7 @@ class SubmissionFormatParser:
                 context = context[tag][index]
             else:
                 context = context[tag]
-        return context
+        return context  # type: ignore[return-value]
 
     def _is_unclosed_tag(self, line: str) -> bool:
         """Check if line is an unclosed tag with value."""

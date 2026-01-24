@@ -18,11 +18,13 @@ T = TypeVar("T", bound="GetWebsocketTriggerResponse200Retry")
 
 @_attrs_define
 class GetWebsocketTriggerResponse200Retry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetWebsocketTriggerResponse200RetryConstant]):
-        exponential (Union[Unset, GetWebsocketTriggerResponse200RetryExponential]):
-        retry_if (Union[Unset, GetWebsocketTriggerResponse200RetryRetryIf]):
+        constant (Union[Unset, GetWebsocketTriggerResponse200RetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, GetWebsocketTriggerResponse200RetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, GetWebsocketTriggerResponse200RetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "GetWebsocketTriggerResponse200RetryConstant"] = UNSET

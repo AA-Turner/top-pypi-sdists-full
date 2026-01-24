@@ -9,30 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing import Literal
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0158 import (
+    RepositoryRuleWorkflowsPropParametersType,
+    RepositoryRuleWorkflowsPropParametersTypeForResponse,
+)
 
 
-class SecretScanningLocationDiscussionBodyType(TypedDict):
-    """SecretScanningLocationDiscussionBody
+class RepositoryRuleWorkflowsType(TypedDict):
+    """workflows
 
-    Represents a 'discussion_body' secret scanning location type. This location type
-    shows that a secret was detected in the body of a discussion.
+    Require all changes made to a targeted branch to pass the specified workflows
+    before they can be merged.
     """
 
-    discussion_body_url: str
+    type: Literal["workflows"]
+    parameters: NotRequired[RepositoryRuleWorkflowsPropParametersType]
 
 
-class SecretScanningLocationPullRequestCommentType(TypedDict):
-    """SecretScanningLocationPullRequestComment
+class RepositoryRuleWorkflowsTypeForResponse(TypedDict):
+    """workflows
 
-    Represents a 'pull_request_comment' secret scanning location type. This location
-    type shows that a secret was detected in a comment on a pull request.
+    Require all changes made to a targeted branch to pass the specified workflows
+    before they can be merged.
     """
 
-    pull_request_comment_url: str
+    type: Literal["workflows"]
+    parameters: NotRequired[RepositoryRuleWorkflowsPropParametersTypeForResponse]
 
 
 __all__ = (
-    "SecretScanningLocationDiscussionBodyType",
-    "SecretScanningLocationPullRequestCommentType",
+    "RepositoryRuleWorkflowsType",
+    "RepositoryRuleWorkflowsTypeForResponse",
 )

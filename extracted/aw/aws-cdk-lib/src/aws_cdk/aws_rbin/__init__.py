@@ -77,308 +77,12 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rbin.CfnRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_type": "resourceType",
-        "retention_period": "retentionPeriod",
-        "description": "description",
-        "exclude_resource_tags": "excludeResourceTags",
-        "lock_configuration": "lockConfiguration",
-        "resource_tags": "resourceTags",
-        "status": "status",
-        "tags": "tags",
-    },
+from ..interfaces.aws_rbin import (
+    IRuleRef as _IRuleRef_4e521f27, RuleReference as _RuleReference_c80dfd0f
 )
-class CfnRuleProps:
-    def __init__(
-        self,
-        *,
-        resource_type: builtins.str,
-        retention_period: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRule``.
-
-        :param resource_type: The resource type to be retained by the retention rule. Currently, only Amazon EBS snapshots and EBS-backed AMIs are supported. To retain snapshots, specify ``EBS_SNAPSHOT`` . To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
-        :param retention_period: Information about the retention period for which the retention rule is to retain resources.
-        :param description: The retention rule description.
-        :param exclude_resource_tags: [Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule. Resources that have any of these tags are not retained by the retention rule upon deletion. You can't specify exclusion tags for tag-level retention rules.
-        :param lock_configuration: Information about the retention rule lock configuration.
-        :param resource_tags: [Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule. For tag-level retention rules, only deleted resources, of the specified resource type, that have one or more of the specified tag key and value pairs are retained. If a resource is deleted, but it does not have any of the specified tag key and value pairs, it is immediately deleted without being retained by the retention rule. You can add the same tag key and value pair to a maximum or five retention rules. To create a Region-level retention rule, omit this parameter. A Region-level retention rule does not have any resource tags specified. It retains all deleted resources of the specified resource type in the Region in which the rule is created, even if the resources are not tagged.
-        :param status: The state of the retention rule. Only retention rules that are in the ``available`` state retain resources.
-        :param tags: Information about the tags to assign to the retention rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rbin as rbin
-            
-            cfn_rule_props = rbin.CfnRuleProps(
-                resource_type="resourceType",
-                retention_period=rbin.CfnRule.RetentionPeriodProperty(
-                    retention_period_unit="retentionPeriodUnit",
-                    retention_period_value=123
-                ),
-            
-                # the properties below are optional
-                description="description",
-                exclude_resource_tags=[rbin.CfnRule.ResourceTagProperty(
-                    resource_tag_key="resourceTagKey",
-                    resource_tag_value="resourceTagValue"
-                )],
-                lock_configuration=rbin.CfnRule.UnlockDelayProperty(
-                    unlock_delay_unit="unlockDelayUnit",
-                    unlock_delay_value=123
-                ),
-                resource_tags=[rbin.CfnRule.ResourceTagProperty(
-                    resource_tag_key="resourceTagKey",
-                    resource_tag_value="resourceTagValue"
-                )],
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa)
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument exclude_resource_tags", value=exclude_resource_tags, expected_type=type_hints["exclude_resource_tags"])
-            check_type(argname="argument lock_configuration", value=lock_configuration, expected_type=type_hints["lock_configuration"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_type": resource_type,
-            "retention_period": retention_period,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if exclude_resource_tags is not None:
-            self._values["exclude_resource_tags"] = exclude_resource_tags
-        if lock_configuration is not None:
-            self._values["lock_configuration"] = lock_configuration
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def resource_type(self) -> builtins.str:
-        '''The resource type to be retained by the retention rule.
-
-        Currently, only Amazon EBS snapshots and EBS-backed AMIs are supported. To retain snapshots, specify ``EBS_SNAPSHOT`` . To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-resourcetype
-        '''
-        result = self._values.get("resource_type")
-        assert result is not None, "Required property 'resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def retention_period(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRule.RetentionPeriodProperty"]:
-        '''Information about the retention period for which the retention rule is to retain resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        assert result is not None, "Required property 'retention_period' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.RetentionPeriodProperty"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The retention rule description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def exclude_resource_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]]:
-        '''[Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule.
-
-        Resources that have any of these tags are not retained by the retention rule upon deletion.
-
-        You can't specify exclusion tags for tag-level retention rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-excluderesourcetags
-        '''
-        result = self._values.get("exclude_resource_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]], result)
-
-    @builtins.property
-    def lock_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRule.UnlockDelayProperty"]]:
-        '''Information about the retention rule lock configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-lockconfiguration
-        '''
-        result = self._values.get("lock_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRule.UnlockDelayProperty"]], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]]:
-        '''[Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule.
-
-        For tag-level retention rules, only deleted resources, of the specified resource type, that have one or more of the specified tag key and value pairs are retained. If a resource is deleted, but it does not have any of the specified tag key and value pairs, it is immediately deleted without being retained by the retention rule.
-
-        You can add the same tag key and value pair to a maximum or five retention rules.
-
-        To create a Region-level retention rule, omit this parameter. A Region-level retention rule does not have any resource tags specified. It retains all deleted resources of the specified resource type in the Region in which the rule is created, even if the resources are not tagged.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The state of the retention rule.
-
-        Only retention rules that are in the ``available`` state retain resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Information about the tags to assign to the retention rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_rbin.IRuleRef")
-class IRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Rule.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "RuleReference":
-        '''(experimental) A reference to a Rule resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRuleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Rule.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_rbin.IRuleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> "RuleReference":
-        '''(experimental) A reference to a Rule resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RuleReference", jsii.get(self, "ruleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rbin.RuleReference",
-    jsii_struct_bases=[],
-    name_mapping={"rule_arn": "ruleArn"},
-)
-class RuleReference:
-    def __init__(self, *, rule_arn: builtins.str) -> None:
-        '''A reference to a Rule resource.
-
-        :param rule_arn: The Arn of the Rule resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rbin as rbin
-            
-            rule_reference = rbin.RuleReference(
-                rule_arn="ruleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fb6c4c61a0e8cc0a0d9b79be1343405d85660afbae209f3c5793de58d803c0a)
-            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_arn": rule_arn,
-        }
-
-    @builtins.property
-    def rule_arn(self) -> builtins.str:
-        '''The Arn of the Rule resource.'''
-        result = self._values.get("rule_arn")
-        assert result is not None, "Required property 'rule_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IRuleRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IRuleRef_4e521f27, _ITaggableV2_4e6798f8)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -397,6 +101,7 @@ class CfnRule(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_rbin as rbin
@@ -432,22 +137,23 @@ class CfnRule(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         resource_type: builtins.str,
-        retention_period: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+        retention_period: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        exclude_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Rbin::Rule``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param resource_type: The resource type to be retained by the retention rule. Currently, only Amazon EBS snapshots and EBS-backed AMIs are supported. To retain snapshots, specify ``EBS_SNAPSHOT`` . To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
+        :param resource_type: The resource type to be retained by the retention rule. Currently, only EBS volumes, EBS snapshots, and EBS-backed AMIs are supported. - To retain EBS volumes, specify ``EBS_VOLUME`` . - To retain EBS snapshots, specify ``EBS_SNAPSHOT`` - To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
         :param retention_period: Information about the retention period for which the retention rule is to retain resources.
         :param description: The retention rule description.
         :param exclude_resource_tags: [Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule. Resources that have any of these tags are not retained by the retention rule upon deletion. You can't specify exclusion tags for tag-level retention rules.
@@ -473,8 +179,31 @@ class CfnRule(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForRule")
+    @builtins.classmethod
+    def arn_for_rule(cls, resource: "_IRuleRef_4e521f27") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7da27deaca2198440ed34a5309980243bc9e8578e620ae1d2780c39a98dee670)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnRule")
+    @builtins.classmethod
+    def is_cfn_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7930d1844a2fb30bdc1c6f84cf00255e7313e63639ab82659d1bb857ec18294d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRule", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -537,9 +266,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -548,9 +277,9 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="ruleRef")
-    def rule_ref(self) -> RuleReference:
+    def rule_ref(self) -> "_RuleReference_c80dfd0f":
         '''A reference to a Rule resource.'''
-        return typing.cast(RuleReference, jsii.get(self, "ruleRef"))
+        return typing.cast("_RuleReference_c80dfd0f", jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceType")
@@ -569,14 +298,14 @@ class CfnRule(
     @jsii.member(jsii_name="retentionPeriod")
     def retention_period(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRule.RetentionPeriodProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"]:
         '''Information about the retention period for which the retention rule is to retain resources.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRule.RetentionPeriodProperty"], jsii.get(self, "retentionPeriod"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"], jsii.get(self, "retentionPeriod"))
 
     @retention_period.setter
     def retention_period(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnRule.RetentionPeriodProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0d27934aff5d763d4a0cff90f748b18d817167613cec2de784a19e0980a2fe4)
@@ -600,14 +329,14 @@ class CfnRule(
     @jsii.member(jsii_name="excludeResourceTags")
     def exclude_resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
         '''[Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "excludeResourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "excludeResourceTags"))
 
     @exclude_resource_tags.setter
     def exclude_resource_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20704aef7f8bc3c60046956bdcd1dc4e858b35b183e74b90587dae29d670872b)
@@ -618,14 +347,14 @@ class CfnRule(
     @jsii.member(jsii_name="lockConfiguration")
     def lock_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRule.UnlockDelayProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]]:
         '''Information about the retention rule lock configuration.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRule.UnlockDelayProperty"]], jsii.get(self, "lockConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]], jsii.get(self, "lockConfiguration"))
 
     @lock_configuration.setter
     def lock_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRule.UnlockDelayProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f565c87c44cc6deeef0351aeb8e4b8ead6860f0e90c735ebf7826cdbc04ae0a)
@@ -636,14 +365,14 @@ class CfnRule(
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
         '''[Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e0b94a905f0a4a1448048e0ead85a45b5b5aa837fc74feedc20218875209250)
@@ -665,12 +394,12 @@ class CfnRule(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Information about the tags to assign to the retention rule.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce724038f2c5f6b081624628cfc2e8ecba465376fcb9fc6a115d81b322693c72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -768,7 +497,7 @@ class CfnRule(
             '''Information about the retention period for which the retention rule is to retain resources.
 
             :param retention_period_unit: The unit of time in which the retention period is measured. Currently, only ``DAYS`` is supported.
-            :param retention_period_value: The period value for which the retention rule is to retain resources. The period is measured using the unit specified for *RetentionPeriodUnit* .
+            :param retention_period_value: The period value for which the retention rule is to retain resources, measured in days. The supported retention periods are: - EBS volumes: 1 - 7 days - EBS snapshots and EBS-backed AMIs: 1 - 365 days
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rbin-rule-retentionperiod.html
             :exampleMetadata: fixture=_generated
@@ -807,9 +536,12 @@ class CfnRule(
 
         @builtins.property
         def retention_period_value(self) -> jsii.Number:
-            '''The period value for which the retention rule is to retain resources.
+            '''The period value for which the retention rule is to retain resources, measured in days.
 
-            The period is measured using the unit specified for *RetentionPeriodUnit* .
+            The supported retention periods are:
+
+            - EBS volumes: 1 - 7 days
+            - EBS snapshots and EBS-backed AMIs: 1 - 365 days
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rbin-rule-retentionperiod.html#cfn-rbin-rule-retentionperiod-retentionperiodvalue
             '''
@@ -847,7 +579,7 @@ class CfnRule(
 
             The unlock delay is the period after which a retention rule can be modified or edited after it has been unlocked by a user with the required permissions. The retention rule can't be modified or deleted during the unlock delay.
 
-            :param unlock_delay_unit: The unit of time in which to measure the unlock delay. Currently, the unlock delay can be measure only in days.
+            :param unlock_delay_unit: The unit of time in which to measure the unlock delay. Currently, the unlock delay can be measured only in days.
             :param unlock_delay_value: The unlock delay period, measured in the unit specified for *UnlockDelayUnit* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rbin-rule-unlockdelay.html
@@ -878,7 +610,7 @@ class CfnRule(
         def unlock_delay_unit(self) -> typing.Optional[builtins.str]:
             '''The unit of time in which to measure the unlock delay.
 
-            Currently, the unlock delay can be measure only in days.
+            Currently, the unlock delay can be measured only in days.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rbin-rule-unlockdelay.html#cfn-rbin-rule-unlockdelay-unlockdelayunit
             '''
@@ -906,35 +638,227 @@ class CfnRule(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rbin.CfnRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_type": "resourceType",
+        "retention_period": "retentionPeriod",
+        "description": "description",
+        "exclude_resource_tags": "excludeResourceTags",
+        "lock_configuration": "lockConfiguration",
+        "resource_tags": "resourceTags",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnRuleProps:
+    def __init__(
+        self,
+        *,
+        resource_type: builtins.str,
+        retention_period: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        exclude_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lock_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.UnlockDelayProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRule.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRule``.
+
+        :param resource_type: The resource type to be retained by the retention rule. Currently, only EBS volumes, EBS snapshots, and EBS-backed AMIs are supported. - To retain EBS volumes, specify ``EBS_VOLUME`` . - To retain EBS snapshots, specify ``EBS_SNAPSHOT`` - To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
+        :param retention_period: Information about the retention period for which the retention rule is to retain resources.
+        :param description: The retention rule description.
+        :param exclude_resource_tags: [Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule. Resources that have any of these tags are not retained by the retention rule upon deletion. You can't specify exclusion tags for tag-level retention rules.
+        :param lock_configuration: Information about the retention rule lock configuration.
+        :param resource_tags: [Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule. For tag-level retention rules, only deleted resources, of the specified resource type, that have one or more of the specified tag key and value pairs are retained. If a resource is deleted, but it does not have any of the specified tag key and value pairs, it is immediately deleted without being retained by the retention rule. You can add the same tag key and value pair to a maximum or five retention rules. To create a Region-level retention rule, omit this parameter. A Region-level retention rule does not have any resource tags specified. It retains all deleted resources of the specified resource type in the Region in which the rule is created, even if the resources are not tagged.
+        :param status: The state of the retention rule. Only retention rules that are in the ``available`` state retain resources.
+        :param tags: Information about the tags to assign to the retention rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rbin as rbin
+            
+            cfn_rule_props = rbin.CfnRuleProps(
+                resource_type="resourceType",
+                retention_period=rbin.CfnRule.RetentionPeriodProperty(
+                    retention_period_unit="retentionPeriodUnit",
+                    retention_period_value=123
+                ),
+            
+                # the properties below are optional
+                description="description",
+                exclude_resource_tags=[rbin.CfnRule.ResourceTagProperty(
+                    resource_tag_key="resourceTagKey",
+                    resource_tag_value="resourceTagValue"
+                )],
+                lock_configuration=rbin.CfnRule.UnlockDelayProperty(
+                    unlock_delay_unit="unlockDelayUnit",
+                    unlock_delay_value=123
+                ),
+                resource_tags=[rbin.CfnRule.ResourceTagProperty(
+                    resource_tag_key="resourceTagKey",
+                    resource_tag_value="resourceTagValue"
+                )],
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa)
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument exclude_resource_tags", value=exclude_resource_tags, expected_type=type_hints["exclude_resource_tags"])
+            check_type(argname="argument lock_configuration", value=lock_configuration, expected_type=type_hints["lock_configuration"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_type": resource_type,
+            "retention_period": retention_period,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if exclude_resource_tags is not None:
+            self._values["exclude_resource_tags"] = exclude_resource_tags
+        if lock_configuration is not None:
+            self._values["lock_configuration"] = lock_configuration
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def resource_type(self) -> builtins.str:
+        '''The resource type to be retained by the retention rule.
+
+        Currently, only EBS volumes, EBS snapshots, and EBS-backed AMIs are supported.
+
+        - To retain EBS volumes, specify ``EBS_VOLUME`` .
+        - To retain EBS snapshots, specify ``EBS_SNAPSHOT``
+        - To retain EBS-backed AMIs, specify ``EC2_IMAGE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-resourcetype
+        '''
+        result = self._values.get("resource_type")
+        assert result is not None, "Required property 'resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def retention_period(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"]:
+        '''Information about the retention period for which the retention rule is to retain resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        assert result is not None, "Required property 'retention_period' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRule.RetentionPeriodProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The retention rule description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exclude_resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+        '''[Region-level retention rules only] Specifies the exclusion tags to use to identify resources that are to be excluded, or ignored, by a Region-level retention rule.
+
+        Resources that have any of these tags are not retained by the retention rule upon deletion.
+
+        You can't specify exclusion tags for tag-level retention rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-excluderesourcetags
+        '''
+        result = self._values.get("exclude_resource_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], result)
+
+    @builtins.property
+    def lock_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]]:
+        '''Information about the retention rule lock configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-lockconfiguration
+        '''
+        result = self._values.get("lock_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRule.UnlockDelayProperty"]], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]]:
+        '''[Tag-level retention rules only] Specifies the resource tags to use to identify resources that are to be retained by a tag-level retention rule.
+
+        For tag-level retention rules, only deleted resources, of the specified resource type, that have one or more of the specified tag key and value pairs are retained. If a resource is deleted, but it does not have any of the specified tag key and value pairs, it is immediately deleted without being retained by the retention rule.
+
+        You can add the same tag key and value pair to a maximum or five retention rules.
+
+        To create a Region-level retention rule, omit this parameter. A Region-level retention rule does not have any resource tags specified. It retains all deleted resources of the specified resource type in the Region in which the rule is created, even if the resources are not tagged.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRule.ResourceTagProperty"]]]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The state of the retention rule.
+
+        Only retention rules that are in the ``available`` state retain resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Information about the tags to assign to the retention rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rbin-rule.html#cfn-rbin-rule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnRule",
     "CfnRuleProps",
-    "IRuleRef",
-    "RuleReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa(
-    *,
-    resource_type: builtins.str,
-    retention_period: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8fb6c4c61a0e8cc0a0d9b79be1343405d85660afbae209f3c5793de58d803c0a(
-    *,
-    rule_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__38111a34066818ca2f172524180ec7dec02ce564c681ac0c87097b02350ebe17(
     scope: _constructs_77d1e7e8.Construct,
@@ -948,6 +872,18 @@ def _typecheckingstub__38111a34066818ca2f172524180ec7dec02ce564c681ac0c87097b023
     resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7da27deaca2198440ed34a5309980243bc9e8578e620ae1d2780c39a98dee670(
+    resource: _IRuleRef_4e521f27,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7930d1844a2fb30bdc1c6f84cf00255e7313e63639ab82659d1bb857ec18294d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1032,6 +968,20 @@ def _typecheckingstub__d5cb70d54df5cb782865dd65947c16d9455e200989ec0b11ea250d281
     *,
     unlock_delay_unit: typing.Optional[builtins.str] = None,
     unlock_delay_value: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f246c80846d7b6504b1f19f501c0aca8aa64ad2d5daf1c0f3c805f6f96d87faa(
+    *,
+    resource_type: builtins.str,
+    retention_period: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    exclude_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lock_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.UnlockDelayProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

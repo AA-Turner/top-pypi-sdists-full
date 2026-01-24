@@ -3,7 +3,7 @@ Type annotations for lookoutequipment service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lookoutequipment/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -41,12 +42,6 @@ from .literals import (
     TargetSamplingRateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -207,7 +202,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -590,7 +585,7 @@ class CreateRetrainingSchedulerResponseTypeDef(TypedDict):
 class DescribeLabelGroupResponseTypeDef(TypedDict):
     LabelGroupName: str
     LabelGroupArn: str
-    FaultCodes: List[str]
+    FaultCodes: list[str]
     CreatedAt: datetime
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -653,7 +648,7 @@ class ImportModelVersionResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -779,7 +774,7 @@ class UpdateRetrainingSchedulerRequestTypeDef(TypedDict):
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    DatasetSummaries: List[DatasetSummaryTypeDef]
+    DatasetSummaries: list[DatasetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -787,11 +782,11 @@ class ListDatasetsResponseTypeDef(TypedDict):
 class IngestedFilesSummaryTypeDef(TypedDict):
     TotalNumberOfFiles: int
     IngestedNumberOfFiles: int
-    DiscardedFiles: NotRequired[List[S3ObjectTypeDef]]
+    DiscardedFiles: NotRequired[list[S3ObjectTypeDef]]
 
 
 class ListInferenceEventsResponseTypeDef(TypedDict):
-    InferenceEventSummaries: List[InferenceEventSummaryTypeDef]
+    InferenceEventSummaries: list[InferenceEventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -808,7 +803,7 @@ class InferenceOutputConfigurationTypeDef(TypedDict):
 
 
 class ListInferenceSchedulersResponseTypeDef(TypedDict):
-    InferenceSchedulerSummaries: List[InferenceSchedulerSummaryTypeDef]
+    InferenceSchedulerSummaries: list[InferenceSchedulerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -823,13 +818,13 @@ class InsufficientSensorDataTypeDef(TypedDict):
 
 
 class ListLabelGroupsResponseTypeDef(TypedDict):
-    LabelGroupSummaries: List[LabelGroupSummaryTypeDef]
+    LabelGroupSummaries: list[LabelGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLabelsResponseTypeDef(TypedDict):
-    LabelSummaries: List[LabelSummaryTypeDef]
+    LabelSummaries: list[LabelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -840,13 +835,13 @@ class LabelsInputConfigurationTypeDef(TypedDict):
 
 
 class ListModelVersionsResponseTypeDef(TypedDict):
-    ModelVersionSummaries: List[ModelVersionSummaryTypeDef]
+    ModelVersionSummaries: list[ModelVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListRetrainingSchedulersResponseTypeDef(TypedDict):
-    RetrainingSchedulerSummaries: List[RetrainingSchedulerSummaryTypeDef]
+    RetrainingSchedulerSummaries: list[RetrainingSchedulerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1093,19 +1088,19 @@ class UpdateModelRequestTypeDef(TypedDict):
 
 
 class ListSensorStatisticsResponseTypeDef(TypedDict):
-    SensorStatisticsSummaries: List[SensorStatisticsSummaryTypeDef]
+    SensorStatisticsSummaries: list[SensorStatisticsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListInferenceExecutionsResponseTypeDef(TypedDict):
-    InferenceExecutionSummaries: List[InferenceExecutionSummaryTypeDef]
+    InferenceExecutionSummaries: list[InferenceExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDataIngestionJobsResponseTypeDef(TypedDict):
-    DataIngestionJobSummaries: List[DataIngestionJobSummaryTypeDef]
+    DataIngestionJobSummaries: list[DataIngestionJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1147,6 +1142,6 @@ class DescribeDatasetResponseTypeDef(TypedDict):
 
 
 class ListModelsResponseTypeDef(TypedDict):
-    ModelSummaries: List[ModelSummaryTypeDef]
+    ModelSummaries: list[ModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

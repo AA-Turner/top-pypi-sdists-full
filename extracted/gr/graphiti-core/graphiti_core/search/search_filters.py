@@ -35,9 +35,19 @@ class ComparisonOperator(Enum):
 
 
 class DateFilter(BaseModel):
-    date: datetime | None = Field(description='A datetime to filter on')
+    date: datetime | None = Field(default=None, description='A datetime to filter on')
     comparison_operator: ComparisonOperator = Field(
         description='Comparison operator for date filter'
+    )
+
+
+class PropertyFilter(BaseModel):
+    property_name: str = Field(description='Property name')
+    property_value: str | int | float | None = Field(
+        default=None, description='Value you want to match on for the property'
+    )
+    comparison_operator: ComparisonOperator = Field(
+        description='Comparison operator for the property'
     )
 
 
@@ -52,6 +62,18 @@ class SearchFilters(BaseModel):
     invalid_at: list[list[DateFilter]] | None = Field(default=None)
     created_at: list[list[DateFilter]] | None = Field(default=None)
     expired_at: list[list[DateFilter]] | None = Field(default=None)
+    edge_uuids: list[str] | None = Field(default=None)
+    property_filters: list[PropertyFilter] | None = Field(default=None)
+
+
+def cypher_to_opensearch_operator(op: ComparisonOperator) -> str:
+    mapping = {
+        ComparisonOperator.greater_than: 'gt',
+        ComparisonOperator.less_than: 'lt',
+        ComparisonOperator.greater_than_equal: 'gte',
+        ComparisonOperator.less_than_equal: 'lte',
+    }
+    return mapping.get(op, op.value)
 
 
 def node_search_filter_query_constructor(
@@ -97,6 +119,10 @@ def edge_search_filter_query_constructor(
         edge_types = filters.edge_types
         filter_queries.append('e.name in $edge_types')
         filter_params['edge_types'] = edge_types
+
+    if filters.edge_uuids is not None:
+        filter_queries.append('e.uuid in $edge_uuids')
+        filter_params['edge_uuids'] = filters.edge_uuids
 
     if filters.node_labels is not None:
         if provider == GraphProvider.KUZU:

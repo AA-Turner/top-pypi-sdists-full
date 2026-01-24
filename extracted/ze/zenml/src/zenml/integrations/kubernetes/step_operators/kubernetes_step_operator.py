@@ -21,6 +21,7 @@ from kubernetes import client as k8s_client
 from zenml.config.base_settings import BaseSettings
 from zenml.config.build_configuration import BuildConfiguration
 from zenml.enums import StackComponentType
+from zenml.integrations.kubernetes import kube_utils
 from zenml.integrations.kubernetes.constants import (
     STEP_NAME_ANNOTATION_KEY,
     STEP_OPERATOR_ANNOTATION_KEY,
@@ -29,10 +30,7 @@ from zenml.integrations.kubernetes.flavors import (
     KubernetesStepOperatorConfig,
     KubernetesStepOperatorSettings,
 )
-from zenml.integrations.kubernetes.orchestrators import (
-    kube_utils,
-)
-from zenml.integrations.kubernetes.orchestrators.manifest_utils import (
+from zenml.integrations.kubernetes.manifest_utils import (
     build_job_manifest,
     build_pod_manifest,
     pod_template_manifest_from_pod,
@@ -43,7 +41,7 @@ from zenml.step_operators import BaseStepOperator
 
 if TYPE_CHECKING:
     from zenml.config.step_run_info import StepRunInfo
-    from zenml.models import PipelineDeploymentBase
+    from zenml.models import PipelineSnapshotBase
 
 logger = get_logger(__name__)
 
@@ -117,18 +115,18 @@ class KubernetesStepOperator(BaseStepOperator):
         )
 
     def get_docker_builds(
-        self, deployment: "PipelineDeploymentBase"
+        self, snapshot: "PipelineSnapshotBase"
     ) -> List["BuildConfiguration"]:
         """Gets the Docker builds required for the component.
 
         Args:
-            deployment: The pipeline deployment for which to get the builds.
+            snapshot: The pipeline snapshot for which to get the builds.
 
         Returns:
             The required Docker builds.
         """
         builds = []
-        for step_name, step in deployment.step_configurations.items():
+        for step_name, step in snapshot.step_configurations.items():
             if step.config.uses_step_operator(self.name):
                 build = BuildConfiguration(
                     key=KUBERNETES_STEP_OPERATOR_DOCKER_IMAGE_KEY,
@@ -216,6 +214,9 @@ class KubernetesStepOperator(BaseStepOperator):
         args = entrypoint_command[3:]
 
         step_labels = {
+            "project_id": kube_utils.sanitize_label(
+                str(info.snapshot.project_id)
+            ),
             "run_id": kube_utils.sanitize_label(str(info.run_id)),
             "run_name": kube_utils.sanitize_label(str(info.run_name)),
             "pipeline": kube_utils.sanitize_label(info.pipeline.name),

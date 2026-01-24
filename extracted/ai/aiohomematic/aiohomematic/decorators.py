@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Common Decorators used within aiohomematic.
 
@@ -16,9 +16,12 @@ from time import monotonic
 from typing import Any, Final, cast, overload
 from weakref import WeakKeyDictionary
 
-from aiohomematic.context import IN_SERVICE_VAR
+from aiohomematic.const import ServiceScope
+from aiohomematic.context import RequestContext, is_in_service, reset_request_context, set_request_context
 from aiohomematic.exceptions import BaseHomematicException
+from aiohomematic.metrics import MetricKeys, emit_counter, emit_latency
 from aiohomematic.support import LogContextMixin, log_boundary_error
+from aiohomematic.type_aliases import CallableAny, ServiceMethodMap
 
 _LOGGER_PERFORMANCE: Final = logging.getLogger(f"{__package__}.performance")
 
@@ -28,7 +31,7 @@ _SERVICE_CALLS_CACHE: WeakKeyDictionary[type, tuple[str, ...]] = WeakKeyDictiona
 
 
 @overload
-def inspector[**P, R](
+def inspector[**P, R](  # kwonly: disable
     func: Callable[P, R],
     /,
     *,
@@ -36,11 +39,12 @@ def inspector[**P, R](
     re_raise: bool = ...,
     no_raise_return: Any = ...,
     measure_performance: bool = ...,
+    scope: ServiceScope = ...,
 ) -> Callable[P, R]: ...
 
 
 @overload
-def inspector[**P, R](
+def inspector[**P, R](  # kwonly: disable
     func: None = ...,
     /,
     *,
@@ -48,10 +52,11 @@ def inspector[**P, R](
     re_raise: bool = ...,
     no_raise_return: Any = ...,
     measure_performance: bool = ...,
+    scope: ServiceScope = ...,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
-def inspector[**P, R](  # noqa: C901
+def inspector[**P, R](  # noqa: C901, kwonly: disable
     func: Callable[P, R] | None = None,
     /,
     *,
@@ -59,6 +64,7 @@ def inspector[**P, R](  # noqa: C901
     re_raise: bool = True,
     no_raise_return: Any = None,
     measure_performance: bool = False,
+    scope: ServiceScope = ServiceScope.EXTERNAL,
 ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
     """
     Support with exception handling and performance measurement.
@@ -69,6 +75,7 @@ def inspector[**P, R](  # noqa: C901
     Can be used both with and without parameters:
       - @inspector
       - @inspector(log_level=logging.ERROR, re_raise=True, ...)
+      - @inspector(scope=ServiceScope.INTERNAL)
 
     Args:
         func: The function to decorate when used without parameters.
@@ -76,6 +83,11 @@ def inspector[**P, R](  # noqa: C901
         re_raise: Whether to re-raise exceptions.
         no_raise_return: Value to return when an exception is caught and not re-raised.
         measure_performance: Whether to measure function execution time.
+        scope: The scope of this service method (see ServiceScope enum).
+            EXTERNAL: Methods for external consumers (HA) - user-invokable commands
+                like turn_on, turn_off, set_temperature. Appears in service_method_names.
+            INTERNAL: Infrastructure methods for library operation like
+                load_data_point_value, fetch_*_data. Does NOT appear in service_method_names.
 
     Returns:
         Either the decorated function (when used without parameters) or
@@ -96,7 +108,11 @@ def inspector[**P, R](  # noqa: C901
         """
 
         def handle_exception(
-            exc: Exception, func: Callable, is_sub_service_call: bool, is_homematic: bool, context_obj: Any | None
+            exc: Exception,
+            func: CallableAny,
+            is_sub_service_call: bool,
+            is_homematic: bool,
+            context_obj: Any | None,
         ) -> R:
             """Handle exceptions for decorated functions with structured logging."""
             if not is_sub_service_call and log_level > logging.NOTSET:
@@ -117,85 +133,126 @@ def inspector[**P, R](  # noqa: C901
 
         @wraps(func)
         def wrap_sync_function(*args: P.args, **kwargs: P.kwargs) -> R:
-            """Wrap sync functions."""
+            """Wrap sync functions with minimized per-call overhead."""
+            # Start timing if measure_performance is enabled (for metrics and/or logging)
+            start = monotonic() if measure_performance else None
+            had_error = False
 
-            start = (
-                monotonic() if measure_performance and _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG) else None
-            )
-            token = IN_SERVICE_VAR.set(True) if not IN_SERVICE_VAR.get() else None
+            # Check if already in a service call context
+            in_service = is_in_service()
+            token = None
+            if not in_service:
+                # Create new request context for this service call
+                ctx = RequestContext(operation=f"service:{func.__name__}")
+                token = set_request_context(ctx=ctx)
+            context_obj = args[0] if args else None
             try:
                 return_value: R = func(*args, **kwargs)
             except BaseHomematicException as bhexc:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                had_error = True
+                if token is not None:
+                    reset_request_context(token=token)
                 return handle_exception(
                     exc=bhexc,
                     func=func,
-                    is_sub_service_call=IN_SERVICE_VAR.get(),
+                    is_sub_service_call=in_service,
                     is_homematic=True,
-                    context_obj=(args[0] if args else None),
+                    context_obj=context_obj,
                 )
             except Exception as exc:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                had_error = True
+                if token is not None:
+                    reset_request_context(token=token)
                 return handle_exception(
                     exc=exc,
                     func=func,
-                    is_sub_service_call=IN_SERVICE_VAR.get(),
+                    is_sub_service_call=in_service,
                     is_homematic=False,
-                    context_obj=(args[0] if args else None),
+                    context_obj=context_obj,
                 )
             else:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                if token is not None:
+                    reset_request_context(token=token)
                 return return_value
             finally:
-                if start:
-                    _log_performance_message(func, start, *args, **kwargs)
+                if start is not None:
+                    duration_ms = (monotonic() - start) * 1000
+                    # Emit service call metrics if event_bus is available
+                    _emit_service_metrics(
+                        context_obj=context_obj,
+                        method_name=func.__name__,
+                        duration_ms=duration_ms,
+                        had_error=had_error,
+                    )
+                    # Log performance if debug logging is enabled
+                    if _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG):
+                        _log_performance_message(func, start, *args, **kwargs)
 
         @wraps(func)
         async def wrap_async_function(*args: P.args, **kwargs: P.kwargs) -> R:
-            """Wrap async functions."""
+            """Wrap async functions with minimized per-call overhead."""
+            # Start timing if measure_performance is enabled (for metrics and/or logging)
+            start = monotonic() if measure_performance else None
+            had_error = False
 
-            start = (
-                monotonic() if measure_performance and _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG) else None
-            )
-            token = IN_SERVICE_VAR.set(True) if not IN_SERVICE_VAR.get() else None
+            # Check if already in a service call context
+            in_service = is_in_service()
+            token = None
+            if not in_service:
+                # Create new request context for this service call
+                ctx = RequestContext(operation=f"service:{func.__name__}")
+                token = set_request_context(ctx=ctx)
+            context_obj = args[0] if args else None
             try:
-                return_value = await func(*args, **kwargs)  # type: ignore[misc]  # Await the async call
+                return_value = await func(*args, **kwargs)  # type: ignore[misc]
             except BaseHomematicException as bhexc:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                had_error = True
+                if token is not None:
+                    reset_request_context(token=token)
                 return handle_exception(
                     exc=bhexc,
                     func=func,
-                    is_sub_service_call=IN_SERVICE_VAR.get(),
+                    is_sub_service_call=in_service,
                     is_homematic=True,
-                    context_obj=(args[0] if args else None),
+                    context_obj=context_obj,
                 )
             except Exception as exc:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                had_error = True
+                if token is not None:
+                    reset_request_context(token=token)
                 return handle_exception(
                     exc=exc,
                     func=func,
-                    is_sub_service_call=IN_SERVICE_VAR.get(),
+                    is_sub_service_call=in_service,
                     is_homematic=False,
-                    context_obj=(args[0] if args else None),
+                    context_obj=context_obj,
                 )
             else:
-                if token:
-                    IN_SERVICE_VAR.reset(token)
+                if token is not None:
+                    reset_request_context(token=token)
                 return cast(R, return_value)
             finally:
-                if start:
-                    _log_performance_message(func, start, *args, **kwargs)
+                if start is not None:
+                    duration_ms = (monotonic() - start) * 1000
+                    # Emit service call metrics if event_bus is available
+                    _emit_service_metrics(
+                        context_obj=context_obj,
+                        method_name=func.__name__,
+                        duration_ms=duration_ms,
+                        had_error=had_error,
+                    )
+                    # Log performance if debug logging is enabled
+                    if _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG):
+                        _log_performance_message(func, start, *args, **kwargs)
 
         # Check if the function is a coroutine or not and select the appropriate wrapper
+        is_external = scope == ServiceScope.EXTERNAL
         if inspect.iscoroutinefunction(func):
-            setattr(wrap_async_function, "ha_service", True)
+            if is_external:
+                setattr(wrap_async_function, "lib_service", True)
             return wrap_async_function  # type: ignore[return-value]
-        setattr(wrap_sync_function, "ha_service", True)
+        if is_external:
+            setattr(wrap_sync_function, "lib_service", True)
         return wrap_sync_function
 
     # If used without parameters: @inspector
@@ -204,6 +261,45 @@ def inspector[**P, R](  # noqa: C901
 
     # If used with parameters: @inspector(...)
     return create_wrapped_decorator
+
+
+def _emit_service_metrics(
+    *,
+    context_obj: Any,
+    method_name: str,
+    duration_ms: float,
+    had_error: bool,
+) -> None:
+    """
+    Emit service call metrics via EventBus if available.
+
+    Args:
+        context_obj: The object the method was called on (first arg)
+        method_name: Name of the service method
+        duration_ms: Execution duration in milliseconds
+        had_error: Whether the call raised an exception
+
+    """
+    # Get event_bus from context object if available
+    if (event_bus_provider := getattr(context_obj, "_event_bus_provider", None)) is None:
+        return
+
+    if (event_bus := getattr(event_bus_provider, "event_bus", None)) is None:
+        return
+
+    # Emit latency for all calls
+    emit_latency(
+        event_bus=event_bus,
+        key=MetricKeys.service_call(method=method_name),
+        duration_ms=duration_ms,
+    )
+
+    # Emit error counter if there was an error
+    if had_error:
+        emit_counter(
+            event_bus=event_bus,
+            key=MetricKeys.service_error(method=method_name),
+        )
 
 
 def _log_performance_message[**P](func: Callable[P, Any], start: float, *args: P.args, **kwargs: P.kwargs) -> None:
@@ -223,9 +319,9 @@ def _log_performance_message[**P](func: Callable[P, Any], start: float, *args: P
     _LOGGER_PERFORMANCE.info(message)
 
 
-def get_service_calls(obj: object) -> dict[str, Callable]:
+def get_service_calls(*, obj: object) -> ServiceMethodMap:
     """
-    Get all methods decorated with the service decorator (ha_service attribute).
+    Get all methods decorated with the service decorator (lib_service attribute).
 
     To reduce overhead, we cache the discovered method names per class using a WeakKeyDictionary.
     """
@@ -244,8 +340,8 @@ def get_service_calls(obj: object) -> dict[str, Callable]:
                 attr = getattr(cls, name)
             except Exception:
                 continue
-            # Only consider callables exposed on the instance and marked with ha_service on the function/wrapper
-            if callable(getattr(obj, name, None)) and hasattr(attr, "ha_service"):
+            # Only consider callables exposed on the instance and marked with lib_service on the function/wrapper
+            if callable(getattr(obj, name, None)) and hasattr(attr, "lib_service"):
                 computed.append(name)
         names = tuple(computed)
         _SERVICE_CALLS_CACHE[cls] = names
@@ -254,13 +350,12 @@ def get_service_calls(obj: object) -> dict[str, Callable]:
     return {name: getattr(obj, name) for name in names}
 
 
-def measure_execution_time[CallableT: Callable[..., Any]](func: CallableT) -> CallableT:
+def measure_execution_time[CallableT: CallableAny](func: CallableT) -> CallableT:  # kwonly: disable
     """Decorate function to measure the function execution time."""
 
     @wraps(func)
     async def async_measure_wrapper(*args: Any, **kwargs: Any) -> Any:
         """Wrap method."""
-
         start = monotonic() if _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG) else None
         try:
             return await func(*args, **kwargs)
@@ -271,7 +366,6 @@ def measure_execution_time[CallableT: Callable[..., Any]](func: CallableT) -> Ca
     @wraps(func)
     def measure_wrapper(*args: Any, **kwargs: Any) -> Any:
         """Wrap method."""
-
         start = monotonic() if _LOGGER_PERFORMANCE.isEnabledFor(level=logging.DEBUG) else None
         try:
             return func(*args, **kwargs)

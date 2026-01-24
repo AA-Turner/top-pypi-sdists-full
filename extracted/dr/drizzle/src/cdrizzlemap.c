@@ -1,26 +1,34 @@
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+
 #include <Python.h>
+
 #ifndef NPY_NO_DEPRECATED_API
-#define NPY_NO_DEPRECATED_API NPY_1_10_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_21_API_VERSION
 #endif
+#define NO_IMPORT_ARRAY
+#define PY_ARRAY_UNIQUE_SYMBOL cdrizzle_map_api
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include <numpy/npy_math.h>
 #include <numpy/arrayobject.h>
+#pragma GCC diagnostic pop
 
 #include "driz_portability.h"
 #include "cdrizzlemap.h"
 #include "cdrizzleutil.h"
-
-#include <float.h>
 
 static const double VERTEX_ATOL = 1.0e-12;
 static const double APPROX_ZERO = 1.0e3 * DBL_MIN;
 static const double MAX_INV_ERR = 0.03;
 
 void
-debug_print_polygon(const struct polygon *p, char *msg) {
+debug_print_polygon(const struct polygon *p, char *msg)
+{
     int i;
     if (msg) {
         printf("%s\n", msg);
@@ -33,7 +41,8 @@ debug_print_polygon(const struct polygon *p, char *msg) {
     fflush(stdout);
 }
 
-void rotate_polygon(struct polygon *p, int pos);
+void
+rotate_polygon(struct polygon *p, int pos);
 
 /** ---------------------------------------------------------------------------
  * Find the tighest bounding box around valid (finite) pixmap values.
@@ -55,8 +64,8 @@ void rotate_polygon(struct polygon *p, int pos);
  *
  */
 int
-shrink_image_section(PyArrayObject *pixmap, int *xmin, int *xmax, int *ymin,
-                     int *ymax) {
+shrink_image_section(PyArrayObject *pixmap, int *xmin, int *xmax, int *ymin, int *ymax)
+{
     int i, j, imin, imax, jmin, jmax, i1, i2, j1, j2;
     double *pv;
 
@@ -70,7 +79,7 @@ shrink_image_section(PyArrayObject *pixmap, int *xmin, int *xmax, int *ymin,
 
     for (j = j1; j <= j2; ++j) {
         for (i = i1; i <= i2; ++i) {
-            pv = (double *)PyArray_GETPTR3(pixmap, j, i, 0);
+            pv = (double *) PyArray_GETPTR3(pixmap, j, i, 0);
             if (!(npy_isnan(pv[0]) || npy_isnan(pv[1]))) {
                 if (i < imin) {
                     imin = i;
@@ -88,7 +97,7 @@ shrink_image_section(PyArrayObject *pixmap, int *xmin, int *xmax, int *ymin,
 
     for (j = j2; j >= j1; --j) {
         for (i = i2; i >= i1; --i) {
-            pv = (double *)PyArray_GETPTR3(pixmap, j, i, 0);
+            pv = (double *) PyArray_GETPTR3(pixmap, j, i, 0);
             if (!(npy_isnan(pv[0]) || npy_isnan(pv[1]))) {
                 if (i > imax) {
                     imax = i;
@@ -119,8 +128,8 @@ shrink_image_section(PyArrayObject *pixmap, int *xmin, int *xmax, int *ymin,
  * xyout:  The same (x, y) point on the output image (output)
  */
 int
-interpolate_point(struct driz_param_t *par, double xin, double yin,
-                  double *xout, double *yout) {
+interpolate_point(struct driz_param_t *par, double xin, double yin, double *xout, double *yout)
+{
     int i0, j0, nx2, ny2;
     npy_intp *ndim;
     double x, y, x1, y1, f00, f01, f10, f11, g00, g01, g10, g11;
@@ -132,12 +141,12 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
     /* Bilinear interpolation from
        https://en.wikipedia.org/wiki/Bilinear_interpolation#On_the_unit_square
     */
-    i0 = (int)xin;
-    j0 = (int)yin;
+    i0 = (int) xin;
+    j0 = (int) yin;
 
     ndim = PyArray_DIMS(pixmap);
-    nx2 = (int)ndim[1] - 2;
-    ny2 = (int)ndim[0] - 2;
+    nx2 = (int) ndim[1] - 2;
+    ny2 = (int) ndim[0] - 2;
 
     // point is outside the interpolation range. adjust limits to extrapolate.
     if (i0 < 0) {
@@ -175,7 +184,9 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
     *xout = f00 * x1 * y1 + f10 * x * y1 + f01 * x1 * y + f11 * x * y;
     *yout = g00 * x1 * y1 + g10 * x * y1 + g01 * x1 * y + g11 * x * y;
 
-    if (npy_isnan(*xout) || npy_isnan(*yout)) return 1;
+    if (npy_isnan(*xout) || npy_isnan(*yout)) {
+        return 1;
+    }
 
     return 0;
 }
@@ -194,26 +205,29 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
  *         four x points, then four y points.
  */
 int
-interpolate_four_points(struct driz_param_t *par, int ixcen, int iycen,
-                        double h, double *x1, double *x2, double *x3,
-                        double *x4, double *y1, double *y2, double *y3,
-                        double *y4) {
-    int i, j, nx2, ny2;
-    double fac;
+interpolate_four_points(
+    struct driz_param_t *par, int ixcen, int iycen, double h, double *x1, double *x2, double *x3,
+    double *x4, double *y1, double *y2, double *y3, double *y4)
+{
+    int i, j;
+#if !defined(NDEBUG)
     npy_intp *ndim;
+    int nx2, ny2;
+#endif
+    double fac;
     double f[3][3], g[3][3];
     double *p;
-    PyArrayObject *pixmap;
-
-    pixmap = par->pixmap;
+    PyArrayObject *pixmap = par->pixmap;
 
     /* Bilinear interpolation from
        https://en.wikipedia.org/wiki/Bilinear_interpolation#On_the_unit_square
     */
 
+#if !defined(NDEBUG)
     ndim = PyArray_DIMS(pixmap);
-    nx2 = (int)ndim[1] - 2;
-    ny2 = (int)ndim[0] - 2;
+    nx2 = (int) ndim[1] - 2;
+    ny2 = (int) ndim[0] - 2;
+#endif
 
     /* This is written specifically for the case where I am enclosed
      * by nine pixels.  Since the increments are the same in x and y,
@@ -258,8 +272,8 @@ interpolate_four_points(struct driz_param_t *par, int ixcen, int iycen,
     *x4 = f[0][0] + f[1][0] + f[0][1] + f[1][1];
     *y4 = g[0][0] + g[1][0] + g[0][1] + g[1][1];
 
-    if (npy_isnan(*x1) || npy_isnan(*y1) || npy_isnan(*x2) || npy_isnan(*y2) ||
-        npy_isnan(*x3) || npy_isnan(*y3) || npy_isnan(*x4) || npy_isnan(*y4)) {
+    if (npy_isnan(*x1) || npy_isnan(*y1) || npy_isnan(*x2) || npy_isnan(*y2) || npy_isnan(*x3) ||
+        npy_isnan(*y3) || npy_isnan(*x4) || npy_isnan(*y4)) {
         return 1;
     }
 
@@ -276,8 +290,9 @@ interpolate_four_points(struct driz_param_t *par, int ixcen, int iycen,
  * y - Y-coordinate of the point on the output image (output)
  */
 int
-map_pixel(PyArrayObject *pixmap, int i, int j, double *x, double *y) {
-    double *pv = (double *)PyArray_GETPTR3(pixmap, j, i, 0);
+map_pixel(PyArrayObject *pixmap, int i, int j, double *x, double *y)
+{
+    double *pv = (double *) PyArray_GETPTR3(pixmap, j, i, 0);
     *x = *pv;
     *y = *(pv + 1);
     return ((npy_isnan(*x) || npy_isnan(*y)) ? 1 : 0);
@@ -295,16 +310,15 @@ map_pixel(PyArrayObject *pixmap, int i, int j, double *x, double *y) {
  *
  */
 int
-map_point(struct driz_param_t *par, double xin, double yin, double *xout,
-          double *yout) {
+map_point(struct driz_param_t *par, double xin, double yin, double *xout, double *yout)
+{
     int i, j, status;
 
-    i = (int)xin;
-    j = (int)yin;
+    i = (int) xin;
+    j = (int) yin;
 
-    if ((double)i == xin && (double)j == yin) {
-        if (i >= par->xmin && i <= par->xmax && j >= par->ymin &&
-            j <= par->ymax) {
+    if ((double) i == xin && (double) j == yin) {
+        if (i >= par->xmin && i <= par->xmax && j >= par->ymin && j <= par->ymax) {
             status = map_pixel(par->pixmap, i, j, xout, yout);
             return status;
         } else {
@@ -336,8 +350,9 @@ map_point(struct driz_param_t *par, double xin, double yin, double *xout,
  *
  */
 static int
-eval_inversion(struct driz_param_t *par, double x, double y, double xref,
-               double yref, double *dist2) {
+eval_inversion(
+    struct driz_param_t *par, double x, double y, double xref, double yref, double *dist2)
+{
     double xout, yout, dx, dy;
 
     if (interpolate_point(par, x, y, &xout, &yout)) {
@@ -345,7 +360,7 @@ eval_inversion(struct driz_param_t *par, double x, double y, double xref,
     }
     dx = xout - xref;
     dy = yout - yref;
-    *dist2 = dx * dx + dy * dy;  // sqrt would be slower
+    *dist2 = dx * dx + dy * dy; // sqrt would be slower
 
     return 0;
 }
@@ -368,18 +383,18 @@ eval_inversion(struct driz_param_t *par, double x, double y, double xref,
  *
  */
 int
-invert_pixmap(struct driz_param_t *par, double xout, double yout, double *xin,
-              double *yin) {
-    const double gr = 0.6180339887498948482;  // Golden Ratio: (sqrt(5)-1)/2
+invert_pixmap(struct driz_param_t *par, double xout, double yout, double *xin, double *yin)
+{
+    const double gr = 0.6180339887498948482; // Golden Ratio: (sqrt(5)-1)/2
     const int nmax_iter = 50;
     int niter;
     double xmin, xmax, ymin, ymax, dx, dy, x1, x2, y1, y2;
     double d11, d12, d21, d22;
 
-    xmin = ((double)par->xmin) - 0.5;
-    xmax = ((double)par->xmax) + 0.5;
-    ymin = ((double)par->ymin) - 0.5;
-    ymax = ((double)par->ymax) + 0.5;
+    xmin = ((double) par->xmin) - 0.5;
+    xmax = ((double) par->xmax) + 0.5;
+    ymin = ((double) par->ymin) - 0.5;
+    ymax = ((double) par->ymax) + 0.5;
     dx = xmax - xmin;
     dy = ymax - ymin;
 
@@ -393,10 +408,18 @@ invert_pixmap(struct driz_param_t *par, double xout, double yout, double *xin,
         y1 = ymax - gr * dy;
         y2 = ymin + gr * dy;
 
-        if (eval_inversion(par, x1, y1, xout, yout, &d11)) return 1;
-        if (eval_inversion(par, x1, y2, xout, yout, &d12)) return 1;
-        if (eval_inversion(par, x2, y1, xout, yout, &d21)) return 1;
-        if (eval_inversion(par, x2, y2, xout, yout, &d22)) return 1;
+        if (eval_inversion(par, x1, y1, xout, yout, &d11)) {
+            return 1;
+        }
+        if (eval_inversion(par, x1, y2, xout, yout, &d12)) {
+            return 1;
+        }
+        if (eval_inversion(par, x2, y1, xout, yout, &d21)) {
+            return 1;
+        }
+        if (eval_inversion(par, x2, y2, xout, yout, &d22)) {
+            return 1;
+        }
 
         if (d11 < d12 && d11 < d21 && d11 < d22) {
             xmax = x2;
@@ -419,7 +442,9 @@ invert_pixmap(struct driz_param_t *par, double xout, double yout, double *xin,
     *xin = 0.5 * (xmin + xmax);
     *yin = 0.5 * (ymin + ymax);
 
-    if (niter == nmax_iter) return 1;
+    if (niter == nmax_iter) {
+        return 1;
+    }
 
     return 0;
 }
@@ -429,7 +454,8 @@ invert_pixmap(struct driz_param_t *par, double xout, double yout, double *xin,
 // intersection code will never have a < -1 and so a simplified and faster
 // version was implemented that works for a >= -b.
 inline int
-mod(int a, int b) {
+mod(int a, int b)
+{
     return ((a + b) % b);
     // return (((a % b) + b) % b);
 }
@@ -437,13 +463,15 @@ mod(int a, int b) {
 // test whether two vertices (points) are equal to within a specified
 // absolute tolerance
 static inline int
-equal_vertices(struct vertex a, struct vertex b, double atol) {
+equal_vertices(struct vertex a, struct vertex b, double atol)
+{
     return (fabs(a.x - b.x) < atol && fabs(a.y - b.y) < atol);
 }
 
 // Z-axis/k-component of the cross product a x b
 static inline double
-area(struct vertex a, struct vertex b) {
+area(struct vertex a, struct vertex b)
+{
     return (a.x * b.y - a.y * b.x);
 }
 
@@ -451,8 +479,8 @@ area(struct vertex a, struct vertex b) {
 // vertex v_ to vertex v (including the case of the point lying on the
 // vector (v_, v)). Specifically, it tests (v - v_) x (pt - v_) > 0:
 static inline int
-is_point_strictly_in_hp(const struct vertex pt, const struct vertex v_,
-                        const struct vertex v) {
+is_point_strictly_in_hp(const struct vertex pt, const struct vertex v_, const struct vertex v)
+{
     return ((area(v, pt) - area(v_, pt) - area(v, v_)) > 0.0);
 }
 
@@ -469,7 +497,8 @@ is_point_strictly_in_hp(const struct vertex pt, const struct vertex v_,
  * @param pos Number of positions to rotate the polygon's vertices.
  */
 void
-rotate_polygon(struct polygon *p, int pos) {
+rotate_polygon(struct polygon *p, int pos)
+{
     int i, k, m;
     double x, y;
 
@@ -499,7 +528,8 @@ rotate_polygon(struct polygon *p, int pos) {
  * @return 0 on success and 1 if no more storage for vertices is available.
  */
 static int
-append_vertex(struct polygon *p, struct vertex v) {
+append_vertex(struct polygon *p, struct vertex v)
+{
     if ((p->npv > 0) && equal_vertices(p->v[p->npv - 1], v, VERTEX_ATOL)) {
         return 0;
     }
@@ -523,18 +553,21 @@ append_vertex(struct polygon *p, struct vertex v) {
  *                return.
  */
 static void
-simplify_polygon(struct polygon *p) {
+simplify_polygon(struct polygon *p)
+{
     struct polygon pqhull;
     struct vertex dp, dq, *pv, *pv_, *pvnxt;
     int k;
 
-    if (p->npv < 3) return;
+    if (p->npv < 3) {
+        return;
+    }
 
     pqhull.npv = 0;
 
-    pv_ = (struct vertex *)(p->v) + (p->npv - 1);
-    pv = (struct vertex *)p->v;
-    pvnxt = ((struct vertex *)p->v) + 1;
+    pv_ = (struct vertex *) (p->v) + (p->npv - 1);
+    pv = (struct vertex *) p->v;
+    pvnxt = ((struct vertex *) p->v) + 1;
 
     for (k = 0; k < p->npv; k++) {
         dp.x = pvnxt->x - pv_->x;
@@ -542,13 +575,12 @@ simplify_polygon(struct polygon *p) {
         dq.x = pv->x - pv_->x;
         dq.y = pv->y - pv_->y;
 
-        if (fabs(area(dp, dq)) > APPROX_ZERO &&
-            sqrt(dp.x * dp.x + dp.y * dp.y) > VERTEX_ATOL) {
+        if (fabs(area(dp, dq)) > APPROX_ZERO && sqrt(dp.x * dp.x + dp.y * dp.y) > VERTEX_ATOL) {
             pqhull.v[pqhull.npv++] = *pv;
         }
         pv_ = pv;
         pv = pvnxt;
-        pvnxt = ((struct vertex *)p->v) + (mod(2 + k, p->npv));
+        pvnxt = ((struct vertex *) p->v) + (mod(2 + k, p->npv));
     }
 
     p->npv = pqhull.npv;
@@ -567,13 +599,16 @@ simplify_polygon(struct polygon *p) {
  *                return.
  */
 static void
-orient_ccw(struct polygon *p) {
+orient_ccw(struct polygon *p)
+{
     // re-arrange (reverse the order of the) polygon p (input and output)
     // vertices in such a way that polygon p is oriented counter-clockwise.
     int k, m;
     struct vertex v1, v2, cm = {0, 0};
 
-    if (p->npv < 3) return;
+    if (p->npv < 3) {
+        return;
+    }
 
     // center of mass:
     for (k = 0; k < p->npv; ++k) {
@@ -618,8 +653,8 @@ orient_ccw(struct polygon *p) {
  * @returns 0 - success, 1 - failure (input polygons have less than 3 vertices)
  */
 int
-clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
-                       struct polygon *cp) {
+clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd, struct polygon *cp)
+{
     int k, j;
     int v1_inside, v2_inside;
     struct polygon p1, p2, *ppin, *ppout, *tpp;
@@ -630,16 +665,16 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
         return 1;
     }
 
-    orient_ccw((struct polygon *)p);
-    orient_ccw((struct polygon *)wnd);
+    orient_ccw((struct polygon *) p);
+    orient_ccw((struct polygon *) wnd);
 
     p1 = *p;
 
     ppin = &p2;
     ppout = &p1;
 
-    wv_ = (struct vertex *)(wnd->v + (wnd->npv - 1));
-    wv = (struct vertex *)wnd->v;
+    wv_ = (struct vertex *) (wnd->v + (wnd->npv - 1));
+    wv = (struct vertex *) wnd->v;
 
     for (k = 0; k < wnd->npv; k++) {
         dw.x = wv->x - wv_->x;
@@ -651,8 +686,8 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
         ppout = tpp;
         ppout->npv = 0;
 
-        pv_ = (struct vertex *)(ppin->v + (ppin->npv - 1));
-        pv = (struct vertex *)ppin->v;
+        pv_ = (struct vertex *) (ppin->v + (ppin->npv - 1));
+        pv = (struct vertex *) ppin->v;
 
         for (j = 0; j < ppin->npv; j++) {
             dp.x = pv->x - pv_->x;
@@ -664,7 +699,7 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
             if (v2_inside != v1_inside) {
                 // compute intersection point:
                 // https://en.wikipedia.org/wiki/Line–line_intersection
-                d = area(dp, dw);  // d != 0 because (v2_inside != v1_inside)
+                d = area(dp, dw); // d != 0 because (v2_inside != v1_inside)
 
                 app_ = area(*pv, *pv_);
                 aww_ = area(*wv, *wv_);
@@ -722,13 +757,14 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
  *
  */
 static void
-init_edge(struct edge *e, struct vertex v1, struct vertex v2, int position) {
+init_edge(struct edge *e, struct vertex v1, struct vertex v2, int position)
+{
     e->v1 = v1;
     e->v2 = v2;
-    e->p = position;  // -1 for left-side edge and +1 for right-side edge
+    e->p = position; // -1 for left-side edge and +1 for right-side edge
     e->m = (v2.x - v1.x) / (v2.y - v1.y);
     e->b = (v1.x * v2.y - v1.y * v2.x) / (v2.y - v1.y);
-    e->c = e->b - copysign(0.5 + 0.5 * fabs(e->m), (double)position);
+    e->c = e->b - copysign(0.5 + 0.5 * fabs(e->m), (double) position);
 }
 
 /**
@@ -747,7 +783,8 @@ init_edge(struct edge *e, struct vertex v1, struct vertex v2, int position) {
  *
  */
 int
-init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s) {
+init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s)
+{
     int k, i1, i2;
     int min_right, min_left, max_right, max_left;
     double min_y, max_y;
@@ -760,8 +797,11 @@ init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s) {
     if (p->npv < 3) {
         // not a polygon
         s->overlap_valid = 0;
+        s->bounding_polygon.npv = 0;
         return 1;
     }
+
+    s->bounding_polygon = *p;
 
     // find minimum/minima:
     min_y = p->v[0].y;
@@ -816,8 +856,8 @@ init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s) {
     s->nleft = min_left - max_left;
 
     for (k = 0; k < s->nleft; k++) {
-        i1 = mod(min_left - k, p->npv);  // -k for CW traverse direction
-        i2 = mod(i1 - 1, p->npv);        // -1 for CW traverse direction
+        i1 = mod(min_left - k, p->npv); // -k for CW traverse direction
+        i2 = mod(i1 - 1, p->npv);       // -1 for CW traverse direction
         init_edge(s->left_edges + k, p->v[i1], p->v[i2], -1);
     }
 
@@ -828,13 +868,13 @@ init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s) {
     s->nright = max_right - min_right;
 
     for (k = 0; k < s->nright; k++) {
-        i1 = mod(min_right + k, p->npv);  // +k for CW traverse direction
-        i2 = mod(i1 + 1, p->npv);         // +1 for CW traverse direction
+        i1 = mod(min_right + k, p->npv); // +k for CW traverse direction
+        i2 = mod(i1 + 1, p->npv);        // +1 for CW traverse direction
         init_edge(s->right_edges + k, p->v[i1], p->v[i2], 1);
     }
 
-    s->left = (struct edge *)s->left_edges;
-    s->right = (struct edge *)s->right_edges;
+    s->left = (struct edge *) s->left_edges;
+    s->right = (struct edge *) s->right_edges;
     s->min_y = min_y;
     s->max_y = max_y;
     s->xmin = par->xmin;
@@ -870,20 +910,21 @@ init_scanner(struct polygon *p, struct driz_param_t *par, struct scanner *s) {
  *
  */
 int
-get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
-    double pyb, pyt;  // pixel top and bottom limits
+get_scanline_limits(struct scanner *s, int y, int *x1, int *x2)
+{
+    double pyb, pyt; // pixel top and bottom limits
     double xlb, xlt, xrb, xrt, edge_ymax, xmin, xmax;
     struct edge *el_max, *er_max;
 
-    el_max = ((struct edge *)s->left_edges) + (s->nleft - 1);
-    er_max = ((struct edge *)s->right_edges) + (s->nright - 1);
+    el_max = ((struct edge *) s->left_edges) + (s->nleft - 1);
+    er_max = ((struct edge *) s->right_edges) + (s->nright - 1);
 
     if (s->ymax >= s->ymin && (y < 0 || y > s->ymax)) {
         return 2;
     }
 
-    pyb = (double)y - 0.5;
-    pyt = (double)y + 0.5;
+    pyb = (double) y - 0.5;
+    pyt = (double) y + 0.5;
 
     if (pyt <= s->min_y || pyb >= s->max_y + 1) {
         return 2;
@@ -957,17 +998,17 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
     }
 
     if (xlt >= xrt) {
-        *x1 = (int)round(xlb);
-        *x2 = (int)round(xrb);
+        *x1 = (int) round(xlb);
+        *x2 = (int) round(xrb);
         if (xlb >= xrb) {
             return 3;
         }
     } else if (xlb >= xrb) {
-        *x1 = (int)round(xlt);
-        *x2 = (int)round(xrt);
+        *x1 = (int) round(xlt);
+        *x2 = (int) round(xrt);
     } else {
-        *x1 = (int)round((xlb > xlt) ? xlb : xlt);
-        *x2 = (int)round((xrb < xrt) ? xrb : xrt);
+        *x1 = (int) round((xlb > xlt) ? xlb : xlt);
+        *x2 = (int) round((xrb < xrt) ? xrb : xrt);
     }
 
     return 0;
@@ -983,8 +1024,8 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
  *
  */
 static int
-map_vertex_to_output(struct driz_param_t *par, struct vertex vin,
-                     struct vertex *vout) {
+map_vertex_to_output(struct driz_param_t *par, struct vertex vin, struct vertex *vout)
+{
     // convert coordinates to the output frame
     return map_point(par, vin.x, vin.y, &vout->x, &vout->y);
 }
@@ -999,15 +1040,14 @@ map_vertex_to_output(struct driz_param_t *par, struct vertex vin,
  *
  */
 static int
-map_vertex_to_input(struct driz_param_t *par, struct vertex vout,
-                    struct vertex *vin) {
+map_vertex_to_input(struct driz_param_t *par, struct vertex vout, struct vertex *vin)
+{
     double xin, yin;
     char buf[MAX_DRIZ_ERROR_LEN];
     int n;
     // convert coordinates to the input frame
     if (invert_pixmap(par, vout.x, vout.y, &xin, &yin)) {
-        n = sprintf(buf, "failed to invert pixel map at position (%.2f, %.2f)",
-                    vout.x, vout.y);
+        n = sprintf(buf, "failed to invert pixel map at position (%.2f, %.2f)", vout.x, vout.y);
         if (n < 0) {
             strcpy(buf, "failed to invert pixel map");
         }
@@ -1040,8 +1080,8 @@ map_vertex_to_input(struct driz_param_t *par, struct vertex vout,
  *
  */
 int
-init_image_scanner(struct driz_param_t *par, struct scanner *s, int *ymin,
-                   int *ymax) {
+init_image_scanner(struct driz_param_t *par, struct scanner *s, int *ymin, int *ymax)
+{
     struct polygon p, q, pq, inpq;
     int k, n;
     npy_intp *ndim;
@@ -1064,8 +1104,7 @@ init_image_scanner(struct driz_param_t *par, struct scanner *s, int *ymin,
     for (k = 0; k < inpq.npv; ++k) {
         if (map_vertex_to_output(par, inpq.v[k], p.v + k)) {
             s->overlap_valid = 0;
-            driz_error_set_message(par->error,
-                                   "error computing input image bounding box");
+            driz_error_set_message(par->error, "error computing input image bounding box");
             goto _setup_scanner;
         }
     }
@@ -1076,12 +1115,12 @@ init_image_scanner(struct driz_param_t *par, struct scanner *s, int *ymin,
     q.npv = 4;
     q.v[0].x = -0.5;
     q.v[0].y = -0.5;
-    q.v[1].x = (double)ndim[1] - 0.5;
+    q.v[1].x = (double) ndim[1] - 0.5;
     q.v[1].y = -0.5;
-    q.v[2].x = (double)ndim[1] - 0.5;
-    q.v[2].y = (double)ndim[0] - 0.5;
+    q.v[2].x = (double) ndim[1] - 0.5;
+    q.v[2].y = (double) ndim[0] - 0.5;
     q.v[3].x = -0.5;
-    q.v[3].y = (double)ndim[0] - 0.5;
+    q.v[3].y = (double) ndim[0] - 0.5;
 
     // compute intersection of P and Q (in the output frame):
     if (clip_polygon_to_window(&p, &q, &pq)) {
@@ -1107,7 +1146,69 @@ _setup_scanner:
     // initialize polygon scanner:
     driz_error_unset(par->error);
     n = init_scanner(&inpq, par, s);
-    *ymin = MAX(0, (int)(s->min_y + 0.5 + 2.0 * MAX_INV_ERR));
-    *ymax = MIN(s->ymax, (int)(s->max_y + 2.0 * MAX_INV_ERR));
+    *ymin = MAX(0, (int) (s->min_y + 0.5 + 2.0 * MAX_INV_ERR));
+    *ymax = MIN(s->ymax, (int) (s->max_y + 2.0 * MAX_INV_ERR));
     return n;
+}
+
+/**
+ * Calculates the signed area of a polygon using the shoelace formula.
+ *
+ * The polygon is defined by its vertices in the `struct polygon` object.
+ * The area will be positive if the vertices are ordered counterclockwise,
+ * and negative if they are ordered clockwise.
+ *
+ * @param p Pointer to a `struct polygon` containing the vertices and their
+ * count.
+ * @return The signed area of the polygon as a double.
+ */
+static double
+polygon_area(const struct polygon *p)
+{
+    int k, j;
+    double a;
+
+    a = 0.0;
+    j = p->npv - 1;
+    for (k = 0; k < p->npv; k++) {
+        a += (p->v[j].x + p->v[k].x) * (p->v[j].y - p->v[k].y);
+        j = k;
+    }
+    return 0.5 * a;
+}
+
+/**
+ * Calculates the centroid (geometric center) of a polygon.
+ *
+ * The centroid is computed using the coordinates of the polygon's vertices.
+ * If the polygon is degenerate (area is approximately zero or has fewer than 3
+ * vertices), the function returns 1 and sets cx, cy to 0.0.
+ *
+ * @param[in]  p  Pointer to a polygon structure containing the vertices.
+ * @param[out] cx Pointer to double for centroid x-coordinate.
+ * @param[out] cy Pointer to double for centroid y-coordinate.
+ * @return 0 on success, 1 if the polygon is degenerate.
+ */
+int
+polygon_centroid(const struct polygon *p, double *cx, double *cy)
+{
+    int k, j;
+    double a, sum_x = 0.0, sum_y = 0.0, factor;
+
+    a = polygon_area(p);
+    if (fabs(a) < APPROX_ZERO || p->npv < 3) {
+        *cx = 0.0;
+        *cy = 0.0;
+        return 1; // degenerate polygon
+    }
+    j = p->npv - 1;
+    for (k = 0; k < p->npv; k++) {
+        factor = (p->v[j].x * p->v[k].y - p->v[k].x * p->v[j].y);
+        sum_x += (p->v[j].x + p->v[k].x) * factor;
+        sum_y += (p->v[j].y + p->v[k].y) * factor;
+        j = k;
+    }
+    *cx = sum_x / (6.0 * a);
+    *cy = sum_y / (6.0 * a);
+    return 0;
 }

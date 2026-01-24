@@ -10,14 +10,15 @@ lint.select = [
     # "ERA", # commented out code
 ]
 lint.ignore = [
-    "B019", # memory leaks possible with functools.cache
+#    "RUF100", # unuses ruff noqa directives
+#    "B019", # memory leaks possible with functools.cache
 #    "C408",  # unnecessary-collection-call
     "E501",  # line-too-long
-    "E741",  # ambiguous-variable-name
+#    "E741",  # ambiguous-variable-name
     "E402",  # module-import-not-at-top-of-file
     "FURB189",  # subclassing str
-    "S101",  # use of assert
     "PERF203", # try-except within loop
+    "PGH003",
     "PLC0415",  # import-outside-top-level
     "PLR6301",  # no-self-use
     "PLR0904",  # too-many-public-methods
@@ -35,17 +36,23 @@ lint.ignore = [
     "RUF027",  # possible f-string
     "S102",  # exec-builtin
 #    "S105",  # hardcoded-password-string
+    "S101",  # use of assert
     "S301",  # suspicious-pickle-usage
 #    "S311",  # suspicious-non-cryptographic-random-usage
     "S403",   # insecure modules
     "SIM108",   # use ternary instead of if=else
-    "SIM115",  # open-file-with-context-handler
+#    "SIM115",  # open-file-with-context-handler
     "SIM114",  # if-with-same-arms
     "TRY003",  # raise-vanilla-args
     "TRY300",  # try-consider-else
     "UP031",  # use of % formatting
+#    "UP040",  # TypeAlias insteadd of type
+    "UP046",  # Generic class uses `Generic` subclass instead of type parameters
+    "UP047",  # should use i> 3.12type parameters
 ]
-exclude = []
+exclude = [
+    "docs",
+]
 
 target-version = "py312"
 

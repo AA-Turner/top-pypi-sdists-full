@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -52,7 +53,7 @@ struct Parameter {
     name: String,
     mode: ParameterMode,
     lookup_key_collection: LookupKeyCollection,
-    validator: CombinedValidator,
+    validator: Arc<CombinedValidator>,
 }
 
 impl Parameter {
@@ -80,8 +81,8 @@ impl BuildValidator for ArgumentsV3Validator {
     fn build(
         schema: &Bound<'_, PyDict>,
         config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedValidator>,
-    ) -> PyResult<CombinedValidator> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedValidator>>,
+    ) -> PyResult<Arc<CombinedValidator>> {
         let py = schema.py();
 
         let arguments_schema: Bound<'_, PyList> = schema.get_as_req(intern!(py, "arguments_schema"))?;
@@ -167,8 +168,8 @@ impl BuildValidator for ArgumentsV3Validator {
                 Err(err) => return py_schema_err!("Parameter '{}':\n  {}", name, err),
             };
 
-            let has_default = match validator {
-                CombinedValidator::WithDefault(ref v) => {
+            let has_default = match validator.as_ref() {
+                CombinedValidator::WithDefault(v) => {
                     if v.omit_on_error() {
                         return py_schema_err!("Parameter '{}': omit_on_error cannot be used with arguments", name);
                     }
@@ -204,14 +205,14 @@ impl BuildValidator for ArgumentsV3Validator {
             })
             .count();
 
-        Ok(Self {
+        Ok(CombinedValidator::ArgumentsV3(Self {
             parameters,
             positional_params_count,
             loc_by_alias: config.get_as(intern!(py, "loc_by_alias"))?.unwrap_or(true),
             extra: ExtraBehavior::from_schema_or_config(py, schema, config, ExtraBehavior::Forbid)?,
             validate_by_alias: schema_or_config_same(schema, config, intern!(py, "validate_by_alias"))?,
             validate_by_name: schema_or_config_same(schema, config, intern!(py, "validate_by_name"))?,
-        }
+        })
         .into())
     }
 }
@@ -234,20 +235,22 @@ impl ArgumentsV3Validator {
         original_input: &(impl Input<'py> + ?Sized),
         mapping: impl ValidatedDict<'py>,
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
-        let mut output_args: Vec<PyObject> = Vec::with_capacity(self.positional_params_count);
+    ) -> ValResult<Py<PyAny>> {
+        let mut output_args: Vec<Py<PyAny>> = Vec::with_capacity(self.positional_params_count);
         let output_kwargs = PyDict::new(py);
         let mut errors: Vec<ValLineError> = Vec::new();
 
         let validate_by_alias = state.validate_by_alias_or(self.validate_by_alias);
         let validate_by_name = state.validate_by_name_or(self.validate_by_name);
+        let extra_behavior = state.extra_behavior_or(self.extra);
 
         // Keep track of used keys for extra behavior:
-        let mut used_keys: Option<AHashSet<&str>> = if self.extra == ExtraBehavior::Ignore || mapping.is_py_get_attr() {
-            None
-        } else {
-            Some(AHashSet::with_capacity(self.parameters.len()))
-        };
+        let mut used_keys: Option<AHashSet<&str>> =
+            if extra_behavior == ExtraBehavior::Ignore || mapping.is_py_get_attr() {
+                None
+            } else {
+                Some(AHashSet::with_capacity(self.parameters.len()))
+            };
 
         for parameter in &self.parameters {
             let lookup_key = parameter
@@ -492,7 +495,7 @@ impl ArgumentsV3Validator {
             mapping.iterate(ValidateExtra {
                 used_keys,
                 errors: &mut errors,
-                extra_behavior: self.extra,
+                extra_behavior,
             })??;
         }
 
@@ -516,14 +519,15 @@ impl ArgumentsV3Validator {
         original_input: &(impl Input<'py> + ?Sized),
         args_kwargs: impl Arguments<'py>,
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
-        let mut output_args: Vec<PyObject> = Vec::with_capacity(self.positional_params_count);
+    ) -> ValResult<Py<PyAny>> {
+        let mut output_args: Vec<Py<PyAny>> = Vec::with_capacity(self.positional_params_count);
         let output_kwargs = PyDict::new(py);
         let mut errors: Vec<ValLineError> = Vec::new();
         let mut used_kwargs: AHashSet<&str> = AHashSet::with_capacity(self.parameters.len());
 
         let validate_by_alias = state.validate_by_alias_or(self.validate_by_alias);
         let validate_by_name = state.validate_by_name_or(self.validate_by_name);
+        let extra_behavior = state.extra_behavior_or(self.extra);
 
         // go through non variadic parameters, getting the value from args or kwargs and validating it
         for (index, parameter) in self.parameters.iter().filter(|p| !p.is_variadic()).enumerate() {
@@ -687,7 +691,7 @@ impl ArgumentsV3Validator {
 
                         match maybe_var_kwargs_parameter {
                             None => {
-                                if self.extra == ExtraBehavior::Forbid {
+                                if extra_behavior == ExtraBehavior::Forbid {
                                     errors.push(ValLineError::new_with_loc(
                                         ErrorTypeDefaults::UnexpectedKeywordArgument,
                                         value,
@@ -761,7 +765,7 @@ impl Validator for ArgumentsV3Validator {
         py: Python<'py>,
         input: &(impl Input<'py> + ?Sized),
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         // this validator does not yet support partial validation, disable it to avoid incorrect results
         state.allow_partial = false.into();
 

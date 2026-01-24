@@ -51,8 +51,11 @@ class WorkerPoolArgs:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] client: Arbitrary identifier for the API client.
         :param pulumi.Input[_builtins.str] client_version: Arbitrary version identifier for the API client.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: (Optional, Deprecated)
+               One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
                For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+               
+               > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         :param pulumi.Input[_builtins.str] description: User-provided description of the WorkerPool. This field currently has a 512-character limit.
         :param pulumi.Input[Sequence[pulumi.Input['WorkerPoolInstanceSplitArgs']]] instance_splits: Specifies how to distribute instances over a collection of Revisions belonging to the WorkerPool. If instance split is empty or not provided, defaults to 100% instances assigned to the latest Ready Revision.
                Structure is documented below.
@@ -82,6 +85,9 @@ class WorkerPoolArgs:
             pulumi.set(__self__, "client", client)
         if client_version is not None:
             pulumi.set(__self__, "client_version", client_version)
+        if custom_audiences is not None:
+            warnings.warn("""`custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""", DeprecationWarning)
+            pulumi.log.warn("""custom_audiences is deprecated: `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""")
         if custom_audiences is not None:
             pulumi.set(__self__, "custom_audiences", custom_audiences)
         if deletion_protection is not None:
@@ -182,10 +188,14 @@ class WorkerPoolArgs:
 
     @_builtins.property
     @pulumi.getter(name="customAudiences")
+    @_utilities.deprecated("""`custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""")
     def custom_audiences(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
+        (Optional, Deprecated)
         One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
         For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+
+        > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         """
         return pulumi.get(self, "custom_audiences")
 
@@ -351,8 +361,11 @@ class _WorkerPoolState:
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The creation time.
         :param pulumi.Input[_builtins.str] creator: Email address of the authenticated creator.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: (Optional, Deprecated)
+               One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
                For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+               
+               > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         :param pulumi.Input[_builtins.str] delete_time: The deletion time.
         :param pulumi.Input[_builtins.str] description: User-provided description of the WorkerPool. This field currently has a 512-character limit.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -410,6 +423,9 @@ class _WorkerPoolState:
             pulumi.set(__self__, "create_time", create_time)
         if creator is not None:
             pulumi.set(__self__, "creator", creator)
+        if custom_audiences is not None:
+            warnings.warn("""`custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""", DeprecationWarning)
+            pulumi.log.warn("""custom_audiences is deprecated: `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""")
         if custom_audiences is not None:
             pulumi.set(__self__, "custom_audiences", custom_audiences)
         if delete_time is not None:
@@ -558,10 +574,14 @@ class _WorkerPoolState:
 
     @_builtins.property
     @pulumi.getter(name="customAudiences")
+    @_utilities.deprecated("""`custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""")
     def custom_audiences(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
+        (Optional, Deprecated)
         One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
         For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+
+        > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         """
         return pulumi.get(self, "custom_audiences")
 
@@ -944,6 +964,40 @@ class WorkerPool(pulumi.CustomResource):
                 }],
             })
         ```
+        ### Cloudrunv2 Worker Pool Basic Depends On
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.cloudrunv2.WorkerPool("default",
+            name="cloudrun-worker-pool",
+            location="us-central1",
+            deletion_protection=False,
+            launch_stage="BETA",
+            template={
+                "containers": [
+                    {
+                        "name": "foo-1",
+                        "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                        "depends_ons": ["foo-2"],
+                    },
+                    {
+                        "name": "foo-2",
+                        "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                        "startup_probe": {
+                            "http_get": {
+                                "path": "/healthz",
+                                "port": 8080,
+                            },
+                            "period_seconds": 5,
+                            "timeout_seconds": 2,
+                            "failure_threshold": 3,
+                        },
+                    },
+                ],
+            })
+        ```
         ### Cloudrunv2 Worker Pool Limits
 
         ```python
@@ -1254,22 +1308,59 @@ class WorkerPool(pulumi.CustomResource):
                 }],
             })
         ```
-        ### Cloudrunv2 Worker Pool Custom Audiences
+        ### Cloudrunv2 Worker Pool Startup Liveness Probe
 
         ```python
         import pulumi
         import pulumi_gcp as gcp
 
+        custom_test = gcp.compute.Network("custom_test",
+            name="wp-net",
+            auto_create_subnetworks=False)
+        custom_test_subnetwork = gcp.compute.Subnetwork("custom_test",
+            name="wp-subnet",
+            ip_cidr_range="10.2.0.0/28",
+            region="us-central1",
+            network=custom_test.id)
         default = gcp.cloudrunv2.WorkerPool("default",
             name="cloudrun-worker-pool",
             location="us-central1",
-            deletion_protection=False,
             launch_stage="BETA",
-            custom_audiences=["aud1"],
+            deletion_protection=False,
             template={
+                "annotations": {},
+                "labels": {},
                 "containers": [{
-                    "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                    "image": "us-docker.pkg.dev/cloudrun/container/hello",
+                    "commands": [],
+                    "args": [],
+                    "startup_probe": {
+                        "initial_delay_seconds": 0,
+                        "timeout_seconds": 1,
+                        "period_seconds": 3,
+                        "failure_threshold": 3,
+                        "tcp_socket": {
+                            "port": 8080,
+                        },
+                    },
+                    "liveness_probe": {
+                        "initial_delay_seconds": 0,
+                        "timeout_seconds": 1,
+                        "period_seconds": 10,
+                        "failure_threshold": 3,
+                        "http_get": {
+                            "path": "/",
+                            "port": 8080,
+                        },
+                    },
                 }],
+                "vpc_access": {
+                    "network_interfaces": [{
+                        "network": custom_test.id,
+                        "subnetwork": custom_test_subnetwork.id,
+                        "tags": [],
+                    }],
+                },
             })
         ```
 
@@ -1309,8 +1400,11 @@ class WorkerPool(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] client: Arbitrary identifier for the API client.
         :param pulumi.Input[_builtins.str] client_version: Arbitrary version identifier for the API client.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: (Optional, Deprecated)
+               One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
                For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+               
+               > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         :param pulumi.Input[_builtins.str] description: User-provided description of the WorkerPool. This field currently has a 512-character limit.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkerPoolInstanceSplitArgs', 'WorkerPoolInstanceSplitArgsDict']]]] instance_splits: Specifies how to distribute instances over a collection of Revisions belonging to the WorkerPool. If instance split is empty or not provided, defaults to 100% instances assigned to the latest Ready Revision.
                Structure is documented below.
@@ -1367,6 +1461,40 @@ class WorkerPool(pulumi.CustomResource):
                 }],
             })
         ```
+        ### Cloudrunv2 Worker Pool Basic Depends On
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.cloudrunv2.WorkerPool("default",
+            name="cloudrun-worker-pool",
+            location="us-central1",
+            deletion_protection=False,
+            launch_stage="BETA",
+            template={
+                "containers": [
+                    {
+                        "name": "foo-1",
+                        "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                        "depends_ons": ["foo-2"],
+                    },
+                    {
+                        "name": "foo-2",
+                        "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                        "startup_probe": {
+                            "http_get": {
+                                "path": "/healthz",
+                                "port": 8080,
+                            },
+                            "period_seconds": 5,
+                            "timeout_seconds": 2,
+                            "failure_threshold": 3,
+                        },
+                    },
+                ],
+            })
+        ```
         ### Cloudrunv2 Worker Pool Limits
 
         ```python
@@ -1677,22 +1805,59 @@ class WorkerPool(pulumi.CustomResource):
                 }],
             })
         ```
-        ### Cloudrunv2 Worker Pool Custom Audiences
+        ### Cloudrunv2 Worker Pool Startup Liveness Probe
 
         ```python
         import pulumi
         import pulumi_gcp as gcp
 
+        custom_test = gcp.compute.Network("custom_test",
+            name="wp-net",
+            auto_create_subnetworks=False)
+        custom_test_subnetwork = gcp.compute.Subnetwork("custom_test",
+            name="wp-subnet",
+            ip_cidr_range="10.2.0.0/28",
+            region="us-central1",
+            network=custom_test.id)
         default = gcp.cloudrunv2.WorkerPool("default",
             name="cloudrun-worker-pool",
             location="us-central1",
-            deletion_protection=False,
             launch_stage="BETA",
-            custom_audiences=["aud1"],
+            deletion_protection=False,
             template={
+                "annotations": {},
+                "labels": {},
                 "containers": [{
-                    "image": "us-docker.pkg.dev/cloudrun/container/worker-pool",
+                    "image": "us-docker.pkg.dev/cloudrun/container/hello",
+                    "commands": [],
+                    "args": [],
+                    "startup_probe": {
+                        "initial_delay_seconds": 0,
+                        "timeout_seconds": 1,
+                        "period_seconds": 3,
+                        "failure_threshold": 3,
+                        "tcp_socket": {
+                            "port": 8080,
+                        },
+                    },
+                    "liveness_probe": {
+                        "initial_delay_seconds": 0,
+                        "timeout_seconds": 1,
+                        "period_seconds": 10,
+                        "failure_threshold": 3,
+                        "http_get": {
+                            "path": "/",
+                            "port": 8080,
+                        },
+                    },
                 }],
+                "vpc_access": {
+                    "network_interfaces": [{
+                        "network": custom_test.id,
+                        "subnetwork": custom_test_subnetwork.id,
+                        "tags": [],
+                    }],
+                },
             })
         ```
 
@@ -1864,8 +2029,11 @@ class WorkerPool(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[_builtins.str] create_time: The creation time.
         :param pulumi.Input[_builtins.str] creator: Email address of the authenticated creator.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_audiences: (Optional, Deprecated)
+               One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
                For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+               
+               > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         :param pulumi.Input[_builtins.str] delete_time: The deletion time.
         :param pulumi.Input[_builtins.str] description: User-provided description of the WorkerPool. This field currently has a 512-character limit.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] effective_labels: All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Pulumi, other clients and services.
@@ -2014,10 +2182,14 @@ class WorkerPool(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="customAudiences")
+    @_utilities.deprecated("""`custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.""")
     def custom_audiences(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
+        (Optional, Deprecated)
         One or more custom audiences that you want this worker pool to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
         For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+
+        > **Warning:** `custom_audiences` is deprecated since it is not applicable to WorkerPool resource and will be removed in a future major release.
         """
         return pulumi.get(self, "custom_audiences")
 

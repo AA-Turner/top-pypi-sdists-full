@@ -7,13 +7,13 @@ from __future__ import annotations
 import typing as t
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.pem import (
     extract_first_pem,
     identify_pem_format,
     identify_private_key_format,
     split_pem_list,
 )
-
 
 PEM_TEST_CASES: list[
     tuple[bytes, list[str], bool, t.Literal["raw", "pkcs1", "pkcs8", "unknown-pem"]]

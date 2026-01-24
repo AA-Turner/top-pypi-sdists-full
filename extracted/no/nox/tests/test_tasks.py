@@ -21,8 +21,8 @@ import json
 import os
 import platform
 import typing
+from pathlib import Path
 from textwrap import dedent
-from types import ModuleType
 from unittest import mock
 
 import pytest
@@ -34,7 +34,7 @@ from nox.manifest import WARN_PYTHONS_IGNORED, Manifest
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Generator
-    from pathlib import Path
+    from types import ModuleType
 
 RESOURCES = os.path.join(os.path.dirname(__file__), "resources")
 
@@ -43,7 +43,7 @@ def session_func_raw() -> None:
     pass
 
 
-session_func = typing.cast(nox._decorators.Func, session_func_raw)
+session_func = typing.cast("nox._decorators.Func", session_func_raw)
 
 
 session_func.python = None
@@ -59,7 +59,7 @@ def session_func_with_python_raw() -> None:
 
 
 session_func_with_python = typing.cast(
-    nox._decorators.Func, session_func_with_python_raw
+    "nox._decorators.Func", session_func_with_python_raw
 )
 
 
@@ -74,7 +74,7 @@ def session_func_venv_pythons_warning_raw() -> None:
 
 
 session_func_venv_pythons_warning = typing.cast(
-    nox._decorators.Func, session_func_venv_pythons_warning_raw
+    "nox._decorators.Func", session_func_venv_pythons_warning_raw
 )
 
 
@@ -188,7 +188,7 @@ def test_discover_session_functions_decorator() -> None:
 
     # Mock up a noxfile.py module and configuration.
     mock_module = typing.cast(
-        ModuleType,
+        "ModuleType",
         argparse.Namespace(
             __name__=foo.__module__, foo=foo, bar=bar, notasession=notasession
         ),
@@ -365,9 +365,9 @@ def test_filter_manifest_tags_not_found(
 
 
 @pytest.mark.usefixtures("reset_global_nox_options")
-def test_merge_sessions_and_tags(generate_noxfile_options: Callable[..., str]) -> None:
+def test_merge_tags(generate_noxfile_options: Callable[..., str]) -> None:
     @nox.session(tags=["foobar"])
-    def test() -> None:
+    def testing() -> None:
         pass
 
     @nox.session(tags=["foobar"])
@@ -386,7 +386,7 @@ def test_merge_sessions_and_tags(generate_noxfile_options: Callable[..., str]) -
     nox_module = tasks.load_nox_module(config)
     assert not isinstance(nox_module, int)
     tasks.merge_noxfile_options(nox_module, config)
-    manifest = Manifest({"test": test, "bar": bar}, config)
+    manifest = Manifest({"testing": testing, "bar": bar}, config)
     return_value = tasks.filter_manifest(manifest, config)
     assert return_value is manifest
     assert len(manifest) == 2
@@ -428,7 +428,7 @@ def test_default_false(selection: None | builtins.list[builtins.str]) -> None:
 
 def test_honor_list_request_noop() -> None:
     config = _options.options.namespace(list_sessions=False)
-    manifest = typing.cast(Manifest, {"thing": mock.sentinel.THING})
+    manifest = typing.cast("Manifest", {"thing": mock.sentinel.THING})
     return_value = tasks.honor_list_request(manifest, global_config=config)
     assert return_value is manifest
 
@@ -531,7 +531,7 @@ def test_honor_list_json_request(capsys: pytest.CaptureFixture[builtins.str]) ->
                 name="bar",
                 friendly_name="foo",
                 description="simple",
-                func=argparse.Namespace(python="123"),
+                func=argparse.Namespace(python=Path("123")),
                 tags=[],
             ),
             True,
@@ -622,8 +622,8 @@ def test_run_manifest(with_warnings: builtins.bool) -> None:
     # Set up a valid manifest.
     config = _options.options.namespace(stop_on_first_error=False)
     sessions_ = [
-        typing.cast(sessions.SessionRunner, mock.Mock(spec=sessions.SessionRunner)),
-        typing.cast(sessions.SessionRunner, mock.Mock(spec=sessions.SessionRunner)),
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
     ]
     manifest = Manifest({}, config)
     manifest._queue = copy.copy(sessions_)
@@ -656,8 +656,8 @@ def test_run_manifest_abort_on_first_failure() -> None:
     # Set up a valid manifest.
     config = _options.options.namespace(stop_on_first_error=True)
     sessions_ = [
-        typing.cast(sessions.SessionRunner, mock.Mock(spec=sessions.SessionRunner)),
-        typing.cast(sessions.SessionRunner, mock.Mock(spec=sessions.SessionRunner)),
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
     ]
     manifest = Manifest({}, config)
     manifest._queue = copy.copy(sessions_)
@@ -699,28 +699,28 @@ def test_print_summary() -> None:
         results = [
             sessions.Result(
                 session=typing.cast(
-                    sessions.SessionRunner,
+                    "sessions.SessionRunner",
                     argparse.Namespace(friendly_name="foo"),
                 ),
                 status=sessions.Status.SUCCESS,
             ),
             sessions.Result(
                 session=typing.cast(
-                    sessions.SessionRunner,
+                    "sessions.SessionRunner",
                     argparse.Namespace(friendly_name="bar"),
                 ),
                 status=sessions.Status.FAILED,
             ),
             sessions.Result(
                 session=typing.cast(
-                    sessions.SessionRunner,
+                    "sessions.SessionRunner",
                     argparse.Namespace(friendly_name="baz"),
                 ),
                 status=sessions.Status.SKIPPED,
             ),
             sessions.Result(
                 session=typing.cast(
-                    sessions.SessionRunner,
+                    "sessions.SessionRunner",
                     argparse.Namespace(friendly_name="qux"),
                 ),
                 status=sessions.Status.SKIPPED,
@@ -753,7 +753,7 @@ def test_create_report() -> None:
     results = [
         sessions.Result(
             session=typing.cast(
-                sessions.SessionRunner,
+                "sessions.SessionRunner",
                 argparse.Namespace(signatures=["foosig"], name="foo", func=object()),
             ),
             status=sessions.Status.SUCCESS,
@@ -773,6 +773,7 @@ def test_create_report() -> None:
                             "result": "success",
                             "result_code": 1,
                             "args": {},
+                            "duration": 0.0,
                         }
                     ],
                 },
@@ -784,8 +785,8 @@ def test_create_report() -> None:
 
 def test_final_reduce() -> None:
     config = argparse.Namespace()
-    true = typing.cast(sessions.Result, True)  # noqa: FBT003
-    false = typing.cast(sessions.Result, False)  # noqa: FBT003
+    true = typing.cast("sessions.Result", True)  # noqa: FBT003
+    false = typing.cast("sessions.Result", False)  # noqa: FBT003
     assert tasks.final_reduce([true, true], config) == 0
     assert tasks.final_reduce([true, false], config) == 1
     assert tasks.final_reduce([], config) == 0

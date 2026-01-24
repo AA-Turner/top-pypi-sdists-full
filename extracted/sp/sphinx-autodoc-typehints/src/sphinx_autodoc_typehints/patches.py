@@ -17,24 +17,6 @@ if TYPE_CHECKING:
     from sphinx.ext.autodoc import Options
 
 
-@lru_cache  # A cute way to make sure the function only runs once.
-def fix_autodoc_typehints_for_overloaded_methods() -> None:
-    """
-    sphinx-autodoc-typehints responds to the "autodoc-process-signature" event to remove types from the signature line.
-
-    Normally, `FunctionDocumenter.format_signature` and `MethodDocumenter.format_signature` call
-    `super().format_signature` which ends up going to `Documenter.format_signature`, and this last method emits the
-    `autodoc-process-signature` event. However, if there are overloads, `FunctionDocumenter.format_signature` does
-    something else and the event never occurs. Here we remove this alternative code path by brute force.
-
-    See https://github.com/tox-dev/sphinx-autodoc-typehints/issues/296
-    """
-    from sphinx.ext.autodoc import FunctionDocumenter, MethodDocumenter  # noqa: PLC0415
-
-    del FunctionDocumenter.format_signature
-    del MethodDocumenter.format_signature
-
-
 def napoleon_numpy_docstring_return_type_processor(  # noqa: PLR0913, PLR0917
     app: Sphinx,
     what: str,
@@ -103,7 +85,7 @@ orig_text_indent = Text.indent
 
 def _patched_text_indent(self: Text, *args: Any) -> Any:
     _, line = self.state_machine.get_source_and_line()
-    result = orig_text_indent(self, *args)
+    result = orig_text_indent(self, *args)  # type: ignore[no-untyped-call]
     node = self.parent[-1]
     if node.tagname == "system_message":
         node = self.parent[-2]
@@ -114,6 +96,7 @@ def _patched_text_indent(self: Text, *args: Any) -> Any:
 def _patched_body_doctest(
     self: Body, _match: None, _context: None, next_state: str | None
 ) -> tuple[list[Any], str | None, list[Any]]:
+    assert self.document.current_line is not None  # noqa: S101
     line = self.document.current_line + 1
     data = "\n".join(self.state_machine.get_text_block())
     n = nodes.doctest_block(data, data)
@@ -128,9 +111,36 @@ def _patch_line_numbers() -> None:
 
     When the line numbers are missing, we have a hard time placing the :rtype:.
     """
-    Text.indent = _patched_text_indent
+    Text.indent = _patched_text_indent  # type: ignore[method-assign]
     BaseAdmonition.run = _patched_base_admonition_run  # type: ignore[method-assign,assignment]
-    Body.doctest = _patched_body_doctest
+    Body.doctest = _patched_body_doctest  # type: ignore[method-assign]
+
+
+@lru_cache
+def fix_directive_based_signature_formatting() -> None:
+    """
+    Patch Sphinx 9's new directive-based autodoc to disable overload detection.
+
+    The new architecture adds overload signatures without emitting autodoc-process-signature
+    for each one. By patching ModuleAnalyzer to clear overloads after analysis, we prevent
+    overload detection while preserving other functionality like attribute discovery.
+    """
+    try:
+        from sphinx.pycode import ModuleAnalyzer  # noqa: PLC0415
+    except ImportError:
+        return  # Not Sphinx 9+
+
+    # Store the original analyze method
+    original_analyze = ModuleAnalyzer.analyze
+
+    def patched_analyze(self: Any) -> None:
+        # Call the original analyze method
+        original_analyze(self)
+        # Then clear the overloads to prevent overload signature generation
+        self.overloads = {}
+
+    # Replace the analyze method
+    ModuleAnalyzer.analyze = patched_analyze  # type: ignore[method-assign]
 
 
 def install_patches(app: Sphinx) -> None:
@@ -139,7 +149,8 @@ def install_patches(app: Sphinx) -> None:
 
     :param app: the Sphinx app
     """
-    fix_autodoc_typehints_for_overloaded_methods()
+    # For Sphinx 9+ directive-based architecture
+    fix_directive_based_signature_formatting()
     patch_attribute_handling(app)
     _patch_google_docstring_lookup_annotation()
     fix_napoleon_numpy_docstring_return_type(app)

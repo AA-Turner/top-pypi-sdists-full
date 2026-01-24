@@ -3,7 +3,7 @@ Type annotations for outposts service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -26,11 +26,13 @@ __all__ = (
     "AddressTypeType",
     "AssetStateType",
     "AssetTypeType",
+    "BlockingResourceTypeType",
     "CapacityTaskFailureTypeType",
     "CapacityTaskStatusType",
     "CatalogItemClassType",
     "CatalogItemStatusType",
     "ComputeAssetStateType",
+    "DecommissionRequestStatusType",
     "FiberOpticCableTypeType",
     "GetOutpostBillingInformationPaginatorName",
     "GetOutpostInstanceTypesPaginatorName",
@@ -73,6 +75,15 @@ AWSServiceNameType = Literal["AWS", "EC2", "ELASTICACHE", "ELB", "RDS", "ROUTE53
 AddressTypeType = Literal["OPERATING_ADDRESS", "SHIPPING_ADDRESS"]
 AssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
 AssetTypeType = Literal["COMPUTE"]
+BlockingResourceTypeType = Literal[
+    "EC2_INSTANCE",
+    "LGW_ROUTE_TABLE",
+    "LGW_ROUTING_DOMAIN",
+    "LGW_VIRTUAL_INTERFACE_GROUP",
+    "OUTPOST_ORDER_CANCELLABLE",
+    "OUTPOST_ORDER_INTERVENTION_REQUIRED",
+    "OUTPOST_RAM_SHARE",
+]
 CapacityTaskFailureTypeType = Literal[
     "BLOCKING_INSTANCES_NOT_EVACUATED",
     "INTERNAL_SERVER_ERROR",
@@ -92,6 +103,7 @@ CapacityTaskStatusType = Literal[
 CatalogItemClassType = Literal["RACK", "SERVER"]
 CatalogItemStatusType = Literal["AVAILABLE", "DISCONTINUED"]
 ComputeAssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
+DecommissionRequestStatusType = Literal["BLOCKED", "REQUESTED", "SKIPPED"]
 FiberOpticCableTypeType = Literal["MULTI_MODE", "SINGLE_MODE"]
 GetOutpostBillingInformationPaginatorName = Literal["get_outpost_billing_information"]
 GetOutpostInstanceTypesPaginatorName = Literal["get_outpost_instance_types"]
@@ -201,7 +213,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -271,6 +282,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -316,7 +328,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -369,7 +380,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -408,8 +418,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -444,6 +452,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -453,6 +462,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -463,6 +473,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -484,8 +497,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -500,15 +511,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -539,6 +551,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -579,6 +592,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ghapi
-Version: 1.0.8
+Version: 1.0.10
 Summary: A python client for the GitHub API
 Home-page: https://github.com/fastai/ghapi
 Author: Jeremy Howard
@@ -18,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE

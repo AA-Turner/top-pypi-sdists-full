@@ -185,10 +185,26 @@ class CloudGuardConfiguration(pulumi.CustomResource):
                  status: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Cloud Guard Configuration resource in Oracle Cloud Infrastructure Cloud Guard service.
+        ## Example Usage
 
-        Updates configuration details for a Cloud Guard tenancy, identified by root compartment OCID.
-        The reporting region cannot be updated once created.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_cloud_guard_configuration = oci.cloudguard.CloudGuardConfiguration("test_cloud_guard_configuration",
+            compartment_id=compartment_id,
+            reporting_region=cloud_guard_configuration_reporting_region,
+            status=cloud_guard_configuration_status,
+            self_manage_resources=cloud_guard_configuration_self_manage_resources,
+            service_configurations=[{
+                "serviceConfigurationType": cloud_guard_configuration_service_configurations_service_configuration_type,
+                "status": cloud_guard_configuration_service_configurations_status,
+            }])
+        ```
+
+        ## Import
+
+        Import is not supported for this resource.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -208,10 +224,26 @@ class CloudGuardConfiguration(pulumi.CustomResource):
                  args: CloudGuardConfigurationArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Cloud Guard Configuration resource in Oracle Cloud Infrastructure Cloud Guard service.
+        ## Example Usage
 
-        Updates configuration details for a Cloud Guard tenancy, identified by root compartment OCID.
-        The reporting region cannot be updated once created.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_cloud_guard_configuration = oci.cloudguard.CloudGuardConfiguration("test_cloud_guard_configuration",
+            compartment_id=compartment_id,
+            reporting_region=cloud_guard_configuration_reporting_region,
+            status=cloud_guard_configuration_status,
+            self_manage_resources=cloud_guard_configuration_self_manage_resources,
+            service_configurations=[{
+                "serviceConfigurationType": cloud_guard_configuration_service_configurations_service_configuration_type,
+                "status": cloud_guard_configuration_service_configurations_status,
+            }])
+        ```
+
+        ## Import
+
+        Import is not supported for this resource.
 
         :param str resource_name: The name of the resource.
         :param CloudGuardConfigurationArgs args: The arguments to use to populate this resource's properties.

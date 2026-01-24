@@ -26,8 +26,6 @@ class DatarobotUIMixin:
     def _repr_mimebundle_(  # type: ignore[no-untyped-def]
         self, include=None, exclude=None
     ) -> Union[None, Dict[str, Any]]:
-        if not hasattr(self, "_datarobot_ui_mime_type") or not hasattr(
-            self, "_get_datarobot_ui_data"
-        ):
+        if not hasattr(self, "_datarobot_ui_mime_type") or not hasattr(self, "_get_datarobot_ui_data"):
             return None
         return {self._datarobot_ui_mime_type: {"data": camelize_obj(self._get_datarobot_ui_data())}}

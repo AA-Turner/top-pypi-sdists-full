@@ -11,7 +11,7 @@ from esptool.loader import ESPLoader
 
 import esptest.common.compat_typing as t
 
-from ...common.timestamp import timestamp_str
+from ...common.timestamp import timestamp_slug
 from ...interface.dut import DutInterface
 from ...interface.port import PortInterface
 from ...logger import get_logger
@@ -27,7 +27,8 @@ DEFAULT_SERIAL_CONFIGS = {'timeout': 0.005}
 class DutConfig:
     name: str = ''  # default = dut name / port name
     device: str = ''  # log serial device, eg: '/dev/ttyUSB0', 'COM3', etc.
-    baudrate: int = 0  # 0: get from bin path or 115200
+    baudrate: int = 0  # console baudrate, 0: get from bin path or 115200
+    baudrate_from_bin_path: bool = True  # always get baudrate from bin path if bin_path is set
     serial_configs: t.Optional[t.Dict[str, t.Any]] = None  # serial configs, eg: {'bytesize': 8, 'timeout': 0.1}
     # capabilities
     support_esptool: bool = False  # esp port or serial port
@@ -61,7 +62,7 @@ class DutConfig:
         self._auto_gen_name()
         if not self.log_file:
             _log_path = self.log_path or './dut_logs'
-            _file_name = f'{self.name}_{timestamp_str()}.log'.replace(':', '-')
+            _file_name = f'{self.name}_{timestamp_slug()}.log'.replace(':', '-')
             self.log_file = str(Path(_log_path) / _file_name)
         # serial configs
         _serial_configs = DEFAULT_SERIAL_CONFIGS.copy()
@@ -71,10 +72,14 @@ class DutConfig:
         # bin_path and get variables from bin path
         if self.bin_path:
             self.bin_path = Path(self.bin_path).expanduser().resolve()
-            self.esptool_stub = ParseBinPath(self.bin_path).stub
-            self.esptool_chip = ParseBinPath(self.bin_path).chip
-            if not self.baudrate:
-                self.baudrate = get_baud_from_bin_path(self.bin_path) or 115200
+            parsed_bin = ParseBinPath(self.bin_path)
+            self.esptool_stub = parsed_bin.stub
+            self.esptool_chip = parsed_bin.chip
+            if self.baudrate_from_bin_path:
+                # baudrate from bin path is much reliable than the specified one for uart0
+                self.baudrate = get_baud_from_bin_path(self.bin_path) or self.baudrate or 115200
+        if not self.baudrate:
+            self.baudrate = 115200  # set default baudrate to 115200
         # download device
         if not self.download_device:
             self.download_device = self.device
@@ -225,6 +230,12 @@ class DutBase(VariablesMixin, DutInterface):  # pylint: disable=too-many-public-
         raise NotImplementedError()
 
     @property
+    def log_file(self) -> t.Any:
+        if self._base_port_proxy:
+            return self._base_port_proxy.log_file
+        return None
+
+    @property
     def name(self) -> t.Any:
         return self.dut_config.name
 
@@ -247,9 +258,9 @@ class DutBase(VariablesMixin, DutInterface):  # pylint: disable=too-many-public-
     @overload
     def expect(self, pattern: bytes, timeout: float = 30) -> None: ...
     @overload
-    def expect(self, pattern: re.Pattern[str], timeout: float = 30) -> re.Match[str]: ...
+    def expect(self, pattern: 're.Pattern[str]', timeout: float = 30) -> 're.Match[str]': ...
     @overload
-    def expect(self, pattern: re.Pattern[bytes], timeout: float = 30) -> re.Match[bytes]: ...
+    def expect(self, pattern: 're.Pattern[bytes]', timeout: float = 30) -> 're.Match[bytes]': ...
 
     def expect(self, pattern, timeout=30):  # type: ignore
         if self._base_port_proxy:

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: trytond
-Version: 7.6.7
+Version: 7.8.3
 Summary: Tryton server
 Home-page: http://www.tryton.org/
-Download-URL: http://downloads.tryton.org/7.6/
+Download-URL: http://downloads.tryton.org/7.8/
 Author: Tryton
 Author-email: foundation@tryton.org
 License: GPL-3

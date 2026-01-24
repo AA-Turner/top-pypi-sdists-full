@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import dataclasses
 import json
@@ -6,12 +8,18 @@ import re
 import sys
 import threading
 import traceback
+import typing
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict
-from typing import Type
+from typing import Any
 from typing import TypeVar
 
-from .handlers import SphinxHandler
+# This has to be called here before any imports from sphinx are made.
+# Otherwise we'll be too late and miss the chance to patch things properly
+from .patches import patch_sphinx
+
+patch_sphinx()
+
+from .handlers import SphinxHandler  # type: ignore
 from .util import send_error
 
 HANDLERS = SphinxHandler()
@@ -21,15 +29,15 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def parse_message(obj: Dict, cls: Type[T]) -> T:
+def parse_message(obj: dict, cls: type[T]) -> T:
     """Convert a raw dict into the given type"""
 
     if dataclasses.is_dataclass(cls):
         kwargs = {}
-        fields = {f.name: f for f in dataclasses.fields(cls)}
+        fields = typing.get_type_hints(cls)
 
         for key, value in obj.items():
-            kwargs[key] = parse_message(value, fields[key].type)
+            kwargs[key] = parse_message(value, fields[key])
 
         return cls(**kwargs)  # type: ignore[return-value]
 
@@ -50,7 +58,7 @@ def handle_message(data: bytes):
         raise TypeError(f"Unknown method: '{method}'")
 
     type_, handler = result
-    obj = parse_message(message, type_)
+    obj: Any = parse_message(message, type_)
     try:
         handler(obj)
     except Exception as e:
@@ -58,7 +66,7 @@ def handle_message(data: bytes):
         if msg_id is not None:
             send_error(
                 id=msg_id,
-                code=-32602,
+                code=-32603,
                 message=f"{e}",
                 data=dict(traceback=traceback.format_exc()),
             )

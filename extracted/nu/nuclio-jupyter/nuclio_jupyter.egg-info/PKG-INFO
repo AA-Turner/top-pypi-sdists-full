@@ -1,36 +1,42 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nuclio-jupyter
-Version: 0.11.2
+Version: 0.13.1
 Summary: Convert Jupyter notebook to nuclio
-Home-page: https://github.com/nuclio/nuclio-jupyter
-Author: Miki Tebeka
-Author-email: miki@353solutions.com
-License: MIT
+Author: Iguazio
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/nuclio/nuclio-jupyter
+Project-URL: Repository, https://github.com/nuclio/nuclio-jupyter
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: nbconvert>=6.4.5
 Requires-Dist: pyyaml<7,>=3.13
-Requires-Dist: requests>=2.31.0
-Requires-Dist: boto3>=1.28.0
+Requires-Dist: requests>=2.32.4
 Requires-Dist: importlib-metadata<8.0.0
 Requires-Dist: ipython>=7.27.0
-Requires-Dist: jupyter_server>=2.0.0
 Requires-Dist: ipykernel>=5.0.0
-Requires-Dist: ipython~=7.0; python_version < "3.8"
-Requires-Dist: ipython~=8.0; python_version >= "3.8"
-Provides-Extra: jupyter-server
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pyyaml; extra == "dev"
+Requires-Dist: sphinx~=4.3.0; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Provides-Extra: boto3
+Requires-Dist: boto3>=1.28.0; extra == "boto3"
+Dynamic: license-file
 
 # Nuclio Function Automation for Python and Jupyter 
 
@@ -661,20 +667,6 @@ if we want to print out the debug level logs we can type the following
     
 this logging level only apply to the notebook/emulation, to change the function runtime 
 log level you should use the `config` or nuclio UI.
-
-### using Docker
-
-You can build a docker image and try it out
-
-#### Build
-
-    $ docker build -t jupyter-nuclio .
-
-#### Run
-
-    $ docker run -p 8888:8888 jupyter-nuclio
-
-Then open your browser at http://localhost:8888
 
 ## Links
 

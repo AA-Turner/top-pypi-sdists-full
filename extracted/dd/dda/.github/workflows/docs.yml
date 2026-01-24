@@ -13,26 +13,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         # Fetch all history for applying timestamps to every page
         fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
         python-version: '3.12'
 
     - name: Install ourself
       run: pip install .
 
-    - name: Check documentation
-      run: dda run docs build --check
-
     - name: Build documentation
       run: dda run docs build
 
-    - uses: actions/upload-artifact@v4
+    - name: Check links
+      uses: lycheeverse/lychee-action@885c65f3dc543b57c898c8099f4e08c8afd178a2
+      with:
+        lycheeVersion: "v0.20.1"
+        fail: true
+        failIfEmpty: true
+        # Remove `--index-files index.html` when this fix is released https://github.com/lycheeverse/lychee/pull/1843
+        args: site --index-files index.html
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: documentation
         path: site
@@ -48,12 +54,12 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
       with:
         name: documentation
         path: site
 
-    - uses: peaceiris/actions-gh-pages@v4
+    - uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e # v4.0.0
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./site

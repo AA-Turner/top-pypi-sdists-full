@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import asyncio.subprocess
 import inspect
 import json
 import logging
@@ -19,14 +20,15 @@ import anyio
 import structlog
 
 from meltano.core.behavior.hookable import hook
+from meltano.core.logging import capture_subprocess_output
+from meltano.core.logging.output_logger import OutputLogger
 from meltano.core.plugin.error import PluginExecutionError, PluginLacksCapabilityError
-from meltano.core.setting_definition import SettingDefinition, SettingKind
+from meltano.core.setting_definition import SettingDefinition, SettingKind, json_dumps
 from meltano.core.state_service import SINGER_STATE_KEY, StateService
 from meltano.core.utils import file_has_data, flatten
 
 from . import PluginType, SingerPlugin
 from .catalog import (
-    CatalogDict,
     MetadataExecutor,
     MetadataRule,
     SchemaExecutor,
@@ -37,10 +39,14 @@ from .catalog import (
 )
 
 if t.TYPE_CHECKING:
-    from asyncio.streams import StreamReader
     from pathlib import Path
 
+    from sqlalchemy.orm import Session
+
     from meltano.core.plugin_invoker import PluginInvoker
+    from meltano.core.project import Project
+
+    from .catalog import CatalogDict
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -65,52 +71,6 @@ async def _stream_redirect(
                 await file_like_obj.write(data.decode(encoding) if write_str else data)
             else:
                 file_like_obj.write(data.decode(encoding) if write_str else data)
-
-
-def _debug_logging_handler(
-    name: str,
-    plugin_invoker: PluginInvoker,
-    stderr: StreamReader,
-    *other_dsts,  # noqa: ANN002
-) -> asyncio.Task[None]:
-    """Route debug log lines.
-
-    Routes to stderr, or an `OutputLogger` if one is present in our invocation
-    context.
-
-    Args:
-        name: name of the plugin
-        plugin_invoker: the PluginInvoker to route log lines for
-        stderr: stderr StreamReader to route to
-        other_dsts: other destinations that the stream should be routed too
-            along with logging output
-
-    Returns:
-        asyncio.Task which performs the routing of log lines
-    """
-    if not plugin_invoker.context or not plugin_invoker.context.base_output_logger:
-        return asyncio.ensure_future(
-            _stream_redirect(
-                stderr,
-                sys.stderr,
-                *other_dsts,
-                write_str=True,
-            ),
-        )
-
-    out = plugin_invoker.context.base_output_logger.out(
-        name,
-        logger.bind(type="discovery", stdio="stderr"),
-    )
-    with out.line_writer() as outerr:
-        return asyncio.ensure_future(
-            _stream_redirect(
-                stderr,
-                outerr,
-                *other_dsts,
-                write_str=True,
-            ),
-        )
 
 
 def config_metadata_rules(config: dict[str, t.Any]) -> list[MetadataRule]:
@@ -157,7 +117,7 @@ def config_schema_rules(config: dict[str, t.Any]) -> list[SchemaRule]:
     return [
         SchemaRule(
             tap_stream_id=tap_stream_id,
-            breadcrumb=["properties", prop],
+            breadcrumb=property_breadcrumb([prop]),
             payload=payload,
         )
         for tap_stream_id, stream_config in config.items()
@@ -171,6 +131,7 @@ class SingerTap(SingerPlugin):
     __plugin_type__ = PluginType.EXTRACTORS
 
     EXTRA_SETTINGS: t.ClassVar[list[SettingDefinition]] = [
+        *SingerPlugin.EXTRA_SETTINGS,
         SettingDefinition(name="_catalog"),
         SettingDefinition(name="_state"),
         SettingDefinition(name="_load_schema", value="$MELTANO_EXTRACTOR_NAMESPACE"),
@@ -289,15 +250,12 @@ class SingerTap(SingerPlugin):
                 incremental state
         """
         if "state" not in plugin_invoker.capabilities:
-            raise PluginLacksCapabilityError(
-                f"Extractor '{self.name}' does not support incremental state",  # noqa: EM102
-            )
+            msg = f"Extractor '{self.name}' does not support incremental state"
+            raise PluginLacksCapabilityError(msg)
 
         state_path = plugin_invoker.files["state"]
+        state_path.unlink(missing_ok=True)
 
-        with suppress(FileNotFoundError):
-            # Delete state left over from different pipeline run for same extractor
-            state_path.unlink()
         elt_context = plugin_invoker.context
         if not elt_context or not elt_context.job:
             # Running outside pipeline context: incremental state could not be loaded
@@ -318,35 +276,53 @@ class SingerTap(SingerPlugin):
             try:
                 shutil.copy(custom_state_path, state_path)
             except FileNotFoundError as err:
-                raise PluginExecutionError(
-                    f"Could not find state file {custom_state_path}",  # noqa: EM102
-                ) from err
+                msg = f"Could not find state file {custom_state_path}"
+                raise PluginExecutionError(msg) from err
 
-            logger.info(f"Found state in {custom_state_filename}")  # noqa: G004
+            logger.info("Found state in %s", custom_state_filename)
             return
 
         # the `state.json` is stored in a state backend
-        state_service = StateService(
+        if state := self.get_singer_state(
             project=elt_context.project,
-            session=elt_context.session,
-        )
+            session=elt_context.session,  # type: ignore[arg-type]
+            job_name=elt_context.job.job_name,
+        ):
+            async with await anyio.open_file(state_path, "w") as state_file:
+                content = json.dumps(state, indent=2)
+                await state_file.write(content)
+        else:
+            logger.warning("No state was found, complete import.")
+
+    def get_singer_state(
+        self,
+        *,
+        project: Project,
+        session: Session,
+        job_name: str,
+    ) -> dict | None:
+        """Get the state for the given job.
+
+        Args:
+            project: the project
+            session: the session
+            job_name: the job name
+
+        Returns:
+            the state for the given job
+        """
+        state_service = StateService(project=project, session=session)
         try:
-            state = state_service.get_state(elt_context.job.job_name)
+            state = state_service.get_state(job_name)
         except Exception as err:  # pragma: no cover
-            logger.error(
+            logger.error(  # noqa: TRY400
                 err.args[0],
                 state_backend=state_service.state_store_manager.label,
             )
             msg = "Failed to retrieve state"
             raise PluginExecutionError(msg) from err
 
-        if state:
-            if state.get(SINGER_STATE_KEY):
-                async with await anyio.open_file(state_path, "w") as state_file:
-                    content = json.dumps(state.get(SINGER_STATE_KEY), indent=2)
-                    await state_file.write(content)
-        else:
-            logger.warning("No state was found, complete import.")
+        return state.get(SINGER_STATE_KEY)
 
     @hook("before_invoke")
     async def discover_catalog_hook(
@@ -438,7 +414,7 @@ class SingerTap(SingerPlugin):
             catalog_path.unlink()
             msg = f"Catalog discovery failed: {err}"
             if isinstance(err, json.JSONDecodeError):
-                logger.error(
+                logger.error(  # noqa: TRY400
                     "Invalid JSON: %s [...]",
                     err.doc[max(err.pos - 9, 0) : err.pos + 10],
                 )
@@ -464,7 +440,7 @@ class SingerTap(SingerPlugin):
             Exception: if any other exception occurs.
         """
         if "discover" not in plugin_invoker.capabilities:
-            raise PluginLacksCapabilityError(
+            raise PluginLacksCapabilityError(  # noqa: TRY003
                 f"Extractor '{self.name}' does not support catalog discovery "  # noqa: EM102
                 "(the `discover` capability is not advertised)",
             )
@@ -482,15 +458,17 @@ class SingerTap(SingerPlugin):
                         asyncio.ensure_future(_stream_redirect(handle.stdout, catalog)),
                         asyncio.ensure_future(handle.wait()),
                     ]
-                    if logger.isEnabledFor(logging.DEBUG) and handle.stderr:
-                        invoke_futures.append(
-                            _debug_logging_handler(
-                                self.name,
-                                plugin_invoker,
-                                handle.stderr,
-                                stderr_buff,
-                            ),
+                    if (
+                        plugin_invoker.stderr_logger.isEnabledFor(logging.DEBUG)
+                        and handle.stderr is not None
+                    ):
+                        out = OutputLogger("discovery.log").out(
+                            self.name,
+                            plugin_invoker.stderr_logger.bind(type="discovery"),
+                            log_parser=plugin_invoker.get_log_parser(),
                         )
+                        future = capture_subprocess_output(handle.stderr, out)
+                        invoke_futures.append(asyncio.ensure_future(future))
                     else:
                         invoke_futures.append(
                             asyncio.ensure_future(
@@ -509,7 +487,7 @@ class SingerTap(SingerPlugin):
                         future for future in done if future.exception() is not None
                     ]:
                         failed_future = failed.pop()
-                        raise failed_future.exception()  # type: ignore[misc]
+                        raise failed_future.exception()  # type: ignore[misc]  # noqa: TRY301
                 exit_code = handle.returncode
             except Exception:
                 catalog_path.unlink()
@@ -518,7 +496,7 @@ class SingerTap(SingerPlugin):
             if exit_code != 0:
                 catalog_path.unlink()
                 stderr_buff.seek(0)
-                raise PluginExecutionError(
+                raise PluginExecutionError(  # noqa: TRY003
                     "Catalog discovery failed: command "  # noqa: EM102
                     f"{plugin_invoker.exec_args('--discover')} returned "
                     f"{exit_code} with stderr:\n {stderr_buff.read()}",
@@ -568,7 +546,7 @@ class SingerTap(SingerPlugin):
             "catalog" not in plugin_invoker.capabilities
             and "properties" not in plugin_invoker.capabilities
         ):
-            raise PluginLacksCapabilityError(
+            raise PluginLacksCapabilityError(  # noqa: TRY003
                 f"Extractor '{self.name}' does not support entity selection "  # noqa: EM102
                 "or catalog metadata and schema rules",
             )
@@ -607,7 +585,7 @@ class SingerTap(SingerPlugin):
                 MetadataExecutor(metadata_rules).visit(catalog)  # type: ignore[attr-defined]
 
             async with await anyio.open_file(catalog_path, "w") as catalog_f:
-                await catalog_f.write(json.dumps(catalog, indent=2))
+                await catalog_f.write(json_dumps(catalog, indent=2))
 
             if cache_key := self.catalog_cache_key(plugin_invoker):
                 catalog_cache_key_path.write_text(cache_key)
@@ -615,14 +593,12 @@ class SingerTap(SingerPlugin):
                 with suppress(FileNotFoundError):
                     catalog_cache_key_path.unlink()
         except FileNotFoundError as err:
-            raise PluginExecutionError(
-                "Applying catalog rules failed: catalog file is missing.",  # noqa: EM101
-            ) from err
+            msg = "Applying catalog rules failed: catalog file is missing."
+            raise PluginExecutionError(msg) from err
         except Exception as err:
             catalog_path.unlink()
-            raise PluginExecutionError(
-                f"Applying catalog rules failed: catalog file is invalid: {err}",  # noqa: EM102
-            ) from err
+            msg = f"Applying catalog rules failed: catalog file is invalid: {err}"
+            raise PluginExecutionError(msg) from err
 
     def catalog_cache_key(self, plugin_invoker):  # noqa: ANN001, ANN201
         """Get a cache key for the catalog.
@@ -659,7 +635,7 @@ class SingerTap(SingerPlugin):
             "_metadata": extras["_metadata"],
         }
 
-        key_json = json.dumps(key_dict)
+        key_json = json_dumps(key_dict)
 
         return sha1(key_json.encode()).hexdigest()  # noqa: S324
 

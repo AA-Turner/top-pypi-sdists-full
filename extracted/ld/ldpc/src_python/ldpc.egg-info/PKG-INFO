@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ldpc
-Version: 2.3.9
+Version: 2.4.1
 Summary: LDPC: Python Tools for Low Density Parity Check Codes
 Author-email: Joschka Roffe <joschka@roffe.eu>
 License: MIT License
@@ -27,7 +27,7 @@ License: MIT License
         
 Project-URL: Documentation, https://software.roffe.eu/ldpc
 Classifier: Development Status :: 4 - Beta
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.24.0
@@ -50,7 +50,7 @@ The documentation for `LDPCv2` can be found [here](https://roffe.eu/software/ldp
 
 ## Installation
 
-The easiest way to install the package is via pip. Python versions `>=3.9` are supported.
+The easiest way to install the package is via pip. Python versions `>=3.10` are supported.
 
 ```pip install -U ldpc```
 
@@ -60,7 +60,7 @@ The C++ source code can be found in src_cpp. Python bindings are implemented usi
 
 - Download the repo.
 - Navigate to the root.
-- Pip install with `python>=3.8`.
+- Pip install with `python>=3.10`.
 Note: installation requires a `C` compiler. Eg. `gcc` on Linux or `clang` on Windows.
 
 ```

@@ -83,7 +83,7 @@ class LangfuseResourceManager:
         *,
         public_key: str,
         secret_key: str,
-        host: str,
+        base_url: str,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -115,7 +115,7 @@ class LangfuseResourceManager:
                 instance._initialize_instance(
                     public_key=public_key,
                     secret_key=secret_key,
-                    host=host,
+                    base_url=base_url,
                     timeout=timeout,
                     environment=environment,
                     release=release,
@@ -142,7 +142,7 @@ class LangfuseResourceManager:
         *,
         public_key: str,
         secret_key: str,
-        host: str,
+        base_url: str,
         environment: Optional[str] = None,
         release: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -160,7 +160,7 @@ class LangfuseResourceManager:
         self.public_key = public_key
         self.secret_key = secret_key
         self.tracing_enabled = tracing_enabled
-        self.host = host
+        self.base_url = base_url
         self.mask = mask
         self.environment = environment
 
@@ -173,17 +173,19 @@ class LangfuseResourceManager:
         self.sample_rate = sample_rate
         self.blocked_instrumentation_scopes = blocked_instrumentation_scopes
         self.additional_headers = additional_headers
+        self.tracer_provider: Optional[TracerProvider] = None
 
         # OTEL Tracer
         if tracing_enabled:
             tracer_provider = tracer_provider or _init_tracer_provider(
                 environment=environment, release=release, sample_rate=sample_rate
             )
+            self.tracer_provider = tracer_provider
 
             langfuse_processor = LangfuseSpanProcessor(
                 public_key=self.public_key,
                 secret_key=secret_key,
-                host=host,
+                base_url=base_url,
                 timeout=timeout,
                 flush_at=flush_at,
                 flush_interval=flush_interval,
@@ -212,7 +214,7 @@ class LangfuseResourceManager:
             self.httpx_client = httpx.Client(timeout=timeout, headers=client_headers)
 
         self.api = FernLangfuse(
-            base_url=host,
+            base_url=base_url,
             username=self.public_key,
             password=secret_key,
             x_langfuse_sdk_name="python",
@@ -222,7 +224,7 @@ class LangfuseResourceManager:
             timeout=timeout,
         )
         self.async_api = AsyncFernLangfuse(
-            base_url=host,
+            base_url=base_url,
             username=self.public_key,
             password=secret_key,
             x_langfuse_sdk_name="python",
@@ -233,7 +235,7 @@ class LangfuseResourceManager:
         score_ingestion_client = LangfuseClient(
             public_key=self.public_key,
             secret_key=secret_key,
-            base_url=host,
+            base_url=base_url,
             version=langfuse_version,
             timeout=timeout or 20,
             session=self.httpx_client,
@@ -290,7 +292,7 @@ class LangfuseResourceManager:
         langfuse_logger.info(
             f"Startup: Langfuse tracer successfully initialized | "
             f"public_key={self.public_key} | "
-            f"host={host} | "
+            f"base_url={base_url} | "
             f"environment={environment or 'default'} | "
             f"sample_rate={sample_rate if sample_rate is not None else 1.0} | "
             f"media_threads={media_upload_thread_count or 1}"
@@ -397,12 +399,11 @@ class LangfuseResourceManager:
             )
 
     def flush(self) -> None:
-        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            return
-
-        tracer_provider.force_flush()
-        langfuse_logger.debug("Successfully flushed OTEL tracer provider")
+        if self.tracer_provider is not None and not isinstance(
+            self.tracer_provider, otel_trace_api.ProxyTracerProvider
+        ):
+            self.tracer_provider.force_flush()
+            langfuse_logger.debug("Successfully flushed OTEL tracer provider")
 
         self._score_ingestion_queue.join()
         langfuse_logger.debug("Successfully flushed score ingestion queue")
@@ -414,12 +415,7 @@ class LangfuseResourceManager:
         # Unregister the atexit handler first
         atexit.unregister(self.shutdown)
 
-        tracer_provider = cast(TracerProvider, otel_trace_api.get_tracer_provider())
-        if isinstance(tracer_provider, otel_trace_api.ProxyTracerProvider):
-            return
-
-        tracer_provider.force_flush()
-
+        self.flush()
         self._stop_and_join_consumer_threads()
 
 

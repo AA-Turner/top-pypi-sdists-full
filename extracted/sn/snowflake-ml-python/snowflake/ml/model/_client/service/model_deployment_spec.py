@@ -146,6 +146,7 @@ class ModelDeploymentSpec:
         gpu: Optional[Union[str, int]] = None,
         num_workers: Optional[int] = None,
         max_batch_rows: Optional[int] = None,
+        autocapture: Optional[bool] = None,
     ) -> "ModelDeploymentSpec":
         """Add service specification to the deployment spec.
 
@@ -161,6 +162,7 @@ class ModelDeploymentSpec:
             gpu: GPU requirement.
             num_workers: Number of workers.
             max_batch_rows: Maximum batch rows for inference.
+            autocapture: Whether to enable inference table.
 
         Raises:
             ValueError: If a job spec already exists.
@@ -186,12 +188,14 @@ class ModelDeploymentSpec:
             compute_pool=inference_compute_pool_name.identifier(),
             ingress_enabled=ingress_enabled,
             max_instances=max_instances,
+            autocapture=autocapture,
             **self._inference_spec,
         )
         return self
 
     def add_job_spec(
         self,
+        *,
         job_name: sql_identifier.SqlIdentifier,
         inference_compute_pool_name: sql_identifier.SqlIdentifier,
         function_name: str,
@@ -199,12 +203,14 @@ class ModelDeploymentSpec:
         output_stage_location: str,
         completion_filename: str,
         input_file_pattern: str,
+        column_handling: Optional[str] = None,
+        params: Optional[str] = None,
         warehouse: sql_identifier.SqlIdentifier,
         job_database_name: Optional[sql_identifier.SqlIdentifier] = None,
         job_schema_name: Optional[sql_identifier.SqlIdentifier] = None,
         cpu: Optional[str] = None,
         memory: Optional[str] = None,
-        gpu: Optional[Union[str, int]] = None,
+        gpu: Optional[str] = None,
         num_workers: Optional[int] = None,
         max_batch_rows: Optional[int] = None,
         replicas: Optional[int] = None,
@@ -214,14 +220,16 @@ class ModelDeploymentSpec:
         Args:
             job_name: Name of the job.
             inference_compute_pool_name: Compute pool for inference.
-            warehouse: Warehouse for the job.
             function_name: Function name.
             input_stage_location: Stage location for input data.
             output_stage_location: Stage location for output data.
+            completion_filename: Name of completion file (default: "completion.txt").
+            input_file_pattern: Pattern for input files (optional).
+            column_handling: Column handling mode for input data.
+            params: Additional parameters for the job.
+            warehouse: Warehouse for the job.
             job_database_name: Database name for the job.
             job_schema_name: Schema name for the job.
-            input_file_pattern: Pattern for input files (optional).
-            completion_filename: Name of completion file (default: "completion.txt").
             cpu: CPU requirement.
             memory: Memory requirement.
             gpu: GPU requirement.
@@ -256,7 +264,10 @@ class ModelDeploymentSpec:
             warehouse=warehouse.identifier() if warehouse else None,
             function_name=function_name,
             input=model_deployment_spec_schema.Input(
-                input_stage_location=input_stage_location, input_file_pattern=input_file_pattern
+                input_stage_location=input_stage_location,
+                input_file_pattern=input_file_pattern,
+                column_handling=column_handling,
+                params=params,
             ),
             output=model_deployment_spec_schema.Output(
                 output_stage_location=output_stage_location,
@@ -352,7 +363,7 @@ class ModelDeploymentSpec:
         inference_engine: inference_engine_module.InferenceEngine,
         inference_engine_args: Optional[list[str]] = None,
     ) -> "ModelDeploymentSpec":
-        """Add inference engine specification. This must be called after self.add_service_spec().
+        """Add inference engine specification. This must be called after self.add_service_spec() or self.add_job_spec().
 
         Args:
             inference_engine: Inference engine.
@@ -365,9 +376,10 @@ class ModelDeploymentSpec:
             ValueError: If inference engine specification is called before add_service_spec().
             ValueError: If the argument does not have a '--' prefix.
         """
-        # TODO: needs to eventually support job deployment spec
-        if self._service is None:
-            raise ValueError("Inference engine specification must be called after add_service_spec().")
+        if self._service is None and self._job is None:
+            raise ValueError(
+                "Inference engine specification must be called after add_service_spec() or add_job_spec()."
+            )
 
         if inference_engine_args is None:
             inference_engine_args = []
@@ -420,11 +432,17 @@ class ModelDeploymentSpec:
 
             inference_engine_args = filtered_args
 
-        self._service.inference_engine_spec = model_deployment_spec_schema.InferenceEngineSpec(
+        inference_engine_spec = model_deployment_spec_schema.InferenceEngineSpec(
             # convert to string to be saved in the deployment spec
             inference_engine_name=inference_engine.value,
             inference_engine_args=inference_engine_args,
         )
+
+        if self._service:
+            self._service.inference_engine_spec = inference_engine_spec
+        elif self._job:
+            self._job.inference_engine_spec = inference_engine_spec
+
         return self
 
     def save(self) -> str:

@@ -14,8 +14,8 @@
 #
 
 import functools
+import threading
 
-import eventlet
 import netaddr
 from neutron_lib.agent import constants as agent_consts
 from neutron_lib.agent import topics
@@ -26,7 +26,6 @@ from neutron_lib import constants as lib_const
 from neutron_lib import context as n_context
 from neutron_lib.exceptions import l3 as l3_exc
 from neutron_lib import rpc as n_rpc
-from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_context import context as common_context
 from oslo_log import log as logging
@@ -80,8 +79,7 @@ UPDATE_NETWORK = 5
 RELATED_ACTION_MAP = {DELETE_ROUTER: DELETE_RELATED_ROUTER,
                       ADD_UPDATE_ROUTER: ADD_UPDATE_RELATED_ROUTER}
 
-ROUTER_PROCESS_GREENLET_MAX = 32
-ROUTER_PROCESS_GREENLET_MIN = 8
+ROUTER_PROCESS_THREADS = 32
 
 
 def log_verbose_exc(message, router_payload):
@@ -273,21 +271,26 @@ class L3NATAgent(ha.AgentMixin,
 
         self._check_config_params()
 
+        self.process_monitor = None
+        self._context = n_context.get_admin_context_without_session()
+
+        self.target_ex_net_id = None
+        self.use_ipv6 = netutils.is_ipv6_enabled()
+        self.fullsync = True
+        self._exiting = False
+        self.sync_routers_chunk_size = SYNC_ROUTERS_MAX_CHUNK_SIZE
+        super().__init__(host=self.conf.host)
+
+    def init_host(self):
+        super().init_host()
         self.process_monitor = external_process.ProcessMonitor(
             config=self.conf,
             resource_type='router')
-
-        self._context = n_context.get_admin_context_without_session()
-        self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
-
+        self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, self.host)
         self.driver = common_utils.load_interface_driver(
             self.conf,
             get_networks_callback=functools.partial(
                 self.plugin_rpc.get_networks, self.context))
-
-        self.fullsync = True
-        self.sync_routers_chunk_size = SYNC_ROUTERS_MAX_CHUNK_SIZE
-        self._exiting = False
 
         # Get the HA router count from Neutron Server
         # This is the first place where we contact neutron-server on startup
@@ -317,14 +320,10 @@ class L3NATAgent(ha.AgentMixin,
             self.driver,
             self.metadata_driver)
 
-        # L3 agent router processing green pool
-        self._pool_size = ROUTER_PROCESS_GREENLET_MIN
-        self._pool = eventlet.GreenPool(size=self._pool_size)
+        # L3 agent router processing Thread Pool Executor
+        self._pool = utils.ThreadPoolExecutorWithBlock(
+            max_workers=ROUTER_PROCESS_THREADS)
         self._queue = queue.ResourceProcessingQueue()
-        super().__init__(host=self.conf.host)
-
-        self.target_ex_net_id = None
-        self.use_ipv6 = netutils.is_ipv6_enabled()
 
         # Consume network updates to trigger router resync
         consumers = [[topics.NETWORK, topics.UPDATE]]
@@ -446,18 +445,6 @@ class L3NATAgent(ha.AgentMixin,
 
         return self.router_factory.create(features, **kwargs)
 
-    @lockutils.synchronized('resize_greenpool')
-    def _resize_process_pool(self):
-        pool_size = max([ROUTER_PROCESS_GREENLET_MIN,
-                         min([ROUTER_PROCESS_GREENLET_MAX,
-                              len(self.router_info)])])
-        if pool_size == self._pool_size:
-            return
-        LOG.info("Resizing router processing queue green pool size to: %d",
-                 pool_size)
-        self._pool.resize(pool_size)
-        self._pool_size = pool_size
-
     def _router_added(self, router_id, router):
         ri = self._create_router(router_id, router)
         registry.publish(resources.ROUTER, events.BEFORE_CREATE, self,
@@ -476,8 +463,6 @@ class L3NATAgent(ha.AgentMixin,
                 LOG.exception('Error while initializing router %s',
                               router_id)
                 self._cleanup_failed_router(router_id, delete_router_info=True)
-
-        self._resize_process_pool()
 
     def _cleanup_failed_router(self, router_id, delete_router_info):
         ri = self.router_info.pop(router_id)
@@ -502,7 +487,6 @@ class L3NATAgent(ha.AgentMixin,
             LOG.exception('Error while deleting router %s', router_id)
             return False
 
-        self._resize_process_pool()
         return True
 
     def _router_removed(self, ri, router_id):
@@ -843,7 +827,7 @@ class L3NATAgent(ha.AgentMixin,
     def _process_routers_loop(self):
         LOG.debug("Starting _process_routers_loop")
         while not self._exiting:
-            self._pool.spawn_n(self._process_update)
+            self._pool.submit(self._process_update)
 
     # NOTE(kevinbenton): this is set to 1 second because the actual interval
     # is controlled by a FixedIntervalLoopingCall in neutron/service.py that
@@ -957,31 +941,6 @@ class L3NATAgent(ha.AgentMixin,
 
 
 class L3NATAgentWithStateReport(L3NATAgent):
-
-    def __init__(self, host, conf=None):
-        super().__init__(host=host, conf=conf)
-        self.state_rpc = agent_rpc.PluginReportStateAPI(topics.REPORTS)
-        self.failed_report_state = False
-        self.agent_state = {
-            'binary': lib_const.AGENT_PROCESS_L3,
-            'host': host,
-            'availability_zone': self.conf.AGENT.availability_zone,
-            'topic': topics.L3_AGENT,
-            'configurations': {
-                'agent_mode': self.conf.agent_mode,
-                'handle_internal_only_routers':
-                self.conf.handle_internal_only_routers,
-                'interface_driver': self.conf.interface_driver,
-                'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats,
-                'extensions': self.l3_ext_manager.names()},
-            'start_flag': True,
-            'agent_type': lib_const.AGENT_TYPE_L3}
-        report_interval = self.conf.AGENT.report_interval
-        if report_interval:
-            self.heartbeat = loopingcall.FixedIntervalLoopingCall(
-                self._report_state)
-            self.heartbeat.start(interval=report_interval)
-
     def _report_state(self):
         num_ex_gw_ports = 0
         num_interfaces = 0
@@ -1024,8 +983,32 @@ class L3NATAgentWithStateReport(L3NATAgent):
             self.failed_report_state = False
             LOG.info("Successfully reported state after a previous failure.")
 
+    def init_host(self):
+        super().init_host()
+        self.state_rpc = agent_rpc.PluginReportStateAPI(topics.REPORTS)
+        self.failed_report_state = False
+        self.agent_state = {
+            'binary': lib_const.AGENT_PROCESS_L3,
+            'host': self.host,
+            'availability_zone': self.conf.AGENT.availability_zone,
+            'topic': topics.L3_AGENT,
+            'configurations': {
+                'agent_mode': self.conf.agent_mode,
+                'handle_internal_only_routers':
+                self.conf.handle_internal_only_routers,
+                'interface_driver': self.conf.interface_driver,
+                'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats,
+                'extensions': self.l3_ext_manager.names()},
+            'start_flag': True,
+            'agent_type': lib_const.AGENT_TYPE_L3}
+        report_interval = self.conf.AGENT.report_interval
+        if report_interval:
+            self.heartbeat = loopingcall.FixedIntervalLoopingCall(
+                f=self._report_state)
+            self.heartbeat.start(interval=report_interval)
+
     def after_start(self):
-        eventlet.spawn_n(self._process_routers_loop)
+        threading.Thread(target=self._process_routers_loop).start()
         LOG.info("L3 agent started")
         # Do the report state before we do the first full sync.
         self._report_state()

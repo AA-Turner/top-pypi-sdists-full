@@ -22,6 +22,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesDateTimeResponse,
     ListEntitiesEventResponse,
     ListEntitiesFanResponse,
+    ListEntitiesInfraredResponse,
     ListEntitiesLightResponse,
     ListEntitiesLockResponse,
     ListEntitiesMediaPlayerResponse,
@@ -36,6 +37,7 @@ from .api_pb2 import (  # type: ignore
     ListEntitiesTimeResponse,
     ListEntitiesUpdateResponse,
     ListEntitiesValveResponse,
+    ListEntitiesWaterHeaterResponse,
     LockStateResponse,
     MediaPlayerStateResponse,
     NumberStateResponse,
@@ -48,6 +50,7 @@ from .api_pb2 import (  # type: ignore
     TimeStateResponse,
     UpdateStateResponse,
     ValveStateResponse,
+    WaterHeaterStateResponse,
 )
 from .model import (
     AlarmControlPanelEntityState,
@@ -70,6 +73,7 @@ from .model import (
     EventInfo,
     FanInfo,
     FanState,
+    InfraredInfo,
     LightInfo,
     LightState,
     LockEntityState,
@@ -96,6 +100,8 @@ from .model import (
     UpdateState,
     ValveInfo,
     ValveState,
+    WaterHeaterInfo,
+    WaterHeaterState,
 )
 
 SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
@@ -120,6 +126,7 @@ SUBSCRIBE_STATES_RESPONSE_TYPES: dict[Any, type[EntityState]] = {
     TimeStateResponse: TimeState,
     UpdateStateResponse: UpdateState,
     ValveStateResponse: ValveState,
+    WaterHeaterStateResponse: WaterHeaterState,
 }
 
 LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
@@ -133,6 +140,7 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesDateTimeResponse: DateTimeInfo,
     ListEntitiesEventResponse: EventInfo,
     ListEntitiesFanResponse: FanInfo,
+    ListEntitiesInfraredResponse: InfraredInfo,
     ListEntitiesLightResponse: LightInfo,
     ListEntitiesLockResponse: LockInfo,
     ListEntitiesMediaPlayerResponse: MediaPlayerInfo,
@@ -147,4 +155,5 @@ LIST_ENTITIES_SERVICES_RESPONSE_TYPES: dict[Any, type[EntityInfo] | None] = {
     ListEntitiesTimeResponse: TimeInfo,
     ListEntitiesUpdateResponse: UpdateInfo,
     ListEntitiesValveResponse: ValveInfo,
+    ListEntitiesWaterHeaterResponse: WaterHeaterInfo,
 }

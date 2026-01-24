@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: aws-dynamodb-parallel-scan
-Version: 1.1.0
+Version: 1.2.0
 Summary: Amazon DynamoDB Parallel Scan Paginator for boto3.
+Author: Sami Jaktholm
 Author-email: Sami Jaktholm <sjakthol@outlook.com>
-License-File: LICENSE
-Requires-Python: >=3.8
 Requires-Dist: boto3
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 # aws-dynamodb-parallel-scan

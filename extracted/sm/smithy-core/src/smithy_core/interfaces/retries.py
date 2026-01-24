@@ -1,45 +1,34 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  SPDX-License-Identifier: Apache-2.0
 from dataclasses import dataclass
-from enum import Enum
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
-class RetryErrorType(Enum):
-    """Classification of errors based on desired retry behavior."""
+@runtime_checkable
+class ErrorRetryInfo(Protocol):
+    """A protocol for errors that have retry information embedded."""
 
-    TRANSIENT = 1
-    """A connection level error such as a socket timeout, socket connect error, TLS
-    negotiation timeout."""
+    is_retry_safe: bool | None = None
+    """Whether the error is safe to retry.
 
-    THROTTLING = 2
-    """The server explicitly told the client to back off, for example with HTTP status
-    429 or 503."""
+    A value of True does not mean a retry will occur, but rather that a retry is allowed
+    to occur.
 
-    SERVER_ERROR = 3
-    """A server error that should be retried and does not match the definition of
-    ``THROTTLING``."""
-
-    CLIENT_ERROR = 4
-    """Doesn't count against any budgets.
-
-    This could be something like a 401 challenge in HTTP.
+    A value of None indicates that there is not enough information available to
+    determine if a retry is safe.
     """
 
+    retry_after: float | None = None
+    """The amount of time that should pass before a retry.
 
-@dataclass(kw_only=True)
-class RetryErrorInfo:
-    """Container for information about a retryable error."""
-
-    error_type: RetryErrorType
-    """Classification of error based on desired retry behavior."""
-
-    retry_after_hint: float | None = None
-    """Protocol hint for computing the timespan to delay before the next retry.
-
-    This could come from HTTP's 'retry-after' header or similar mechanisms in other
-    protocols.
+    Retry strategies MAY choose to wait longer.
     """
+
+    is_throttling_error: bool = False
+    """Whether the error is a throttling error."""
+
+    is_timeout_error: bool = False
+    """Whether the error is a timeout error."""
 
 
 class RetryBackoffStrategy(Protocol):
@@ -66,6 +55,7 @@ class RetryToken(Protocol):
     """Delay in seconds to wait before the retry attempt."""
 
 
+@runtime_checkable
 class RetryStrategy(Protocol):
     """Issuer of :py:class:`RetryToken`s."""
 
@@ -78,18 +68,18 @@ class RetryStrategy(Protocol):
     def acquire_initial_retry_token(
         self, *, token_scope: str | None = None
     ) -> RetryToken:
-        """Called before any retries (for the first attempt at the operation).
+        """Create a base retry token for the start of a request.
 
         :param token_scope: An arbitrary string accepted by the retry strategy to
             separate tokens into scopes.
         :returns: A retry token, to be used for determining the retry delay, refreshing
             the token after a failure, and recording success after success.
-        :raises SmithyRetryException: If the retry strategy has no available tokens.
+        :raises RetryError: If the retry strategy has no available tokens.
         """
         ...
 
     def refresh_retry_token_for_retry(
-        self, *, token_to_renew: RetryToken, error_info: RetryErrorInfo
+        self, *, token_to_renew: RetryToken, error: Exception
     ) -> RetryToken:
         """Replace an existing retry token from a failed attempt with a new token.
 
@@ -97,14 +87,11 @@ class RetryStrategy(Protocol):
         that was previously obtained by calling :py:func:`acquire_initial_retry_token`
         or this method with a new retry token for the next attempt. This method can
         either choose to allow another retry and send a new or updated token, or reject
-        the retry attempt and raise the error as exception.
+        the retry attempt and raise the error.
 
         :param token_to_renew: The token used for the previous failed attempt.
-
-        :param error_info: If no further retry is allowed, this information is used to
-        construct the exception.
-
-        :raises SmithyRetryException: If no further retry attempts are allowed.
+        :param error: The error that triggered the need for a retry.
+        :raises RetryError: If no further retry attempts are allowed.
         """
         ...
 

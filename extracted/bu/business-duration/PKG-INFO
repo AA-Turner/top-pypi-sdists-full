@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: business_duration
-Version: 0.67
+Version: 0.68
 Summary: Calculates business duration in days, hours, minutes and seconds by excluding weekends, public holidays and non-business hours
 Home-page: https://github.com/gnaneshwar441/Business_Duration
 Author: Gnaneshwar G
@@ -9,6 +9,14 @@ License: MIT
 Keywords: business,duration,time,hour,day,working
 Requires-Dist: numpy
 Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
 
 Business\_Duration
 ==================

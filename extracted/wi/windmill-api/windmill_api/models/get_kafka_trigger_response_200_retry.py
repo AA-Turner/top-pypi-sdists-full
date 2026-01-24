@@ -16,11 +16,13 @@ T = TypeVar("T", bound="GetKafkaTriggerResponse200Retry")
 
 @_attrs_define
 class GetKafkaTriggerResponse200Retry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetKafkaTriggerResponse200RetryConstant]):
-        exponential (Union[Unset, GetKafkaTriggerResponse200RetryExponential]):
-        retry_if (Union[Unset, GetKafkaTriggerResponse200RetryRetryIf]):
+        constant (Union[Unset, GetKafkaTriggerResponse200RetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, GetKafkaTriggerResponse200RetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, GetKafkaTriggerResponse200RetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "GetKafkaTriggerResponse200RetryConstant"] = UNSET

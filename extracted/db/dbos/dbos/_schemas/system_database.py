@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -19,6 +21,22 @@ class SystemSchema:
     metadata_obj = MetaData(schema="dbos")
     sysdb_suffix = "_dbos_sys"
 
+    @classmethod
+    def set_schema(cls, schema_name: Optional[str]) -> None:
+        """
+        Set the schema for all DBOS system tables.
+
+        Args:
+            schema_name: The name of the schema to use for system tables
+        """
+        cls.metadata_obj.schema = schema_name
+        cls.workflow_status.schema = schema_name
+        cls.operation_outputs.schema = schema_name
+        cls.notifications.schema = schema_name
+        cls.workflow_events.schema = schema_name
+        cls.streams.schema = schema_name
+        cls.workflow_events_history.schema = schema_name
+
     workflow_status = Table(
         "workflow_status",
         metadata_obj,
@@ -35,23 +53,20 @@ class SystemSchema:
             "created_at",
             BigInteger,
             nullable=False,
-            server_default=text("(EXTRACT(epoch FROM now()) * 1000::numeric)::bigint"),
         ),
         Column(
             "updated_at",
             BigInteger,
             nullable=False,
-            server_default=text("(EXTRACT(epoch FROM now()) * 1000::numeric)::bigint"),
         ),
         Column("application_version", Text, nullable=True),
         Column("application_id", Text, nullable=True),
-        Column("class_name", String(255), nullable=True, server_default=text("NULL")),
-        Column("config_name", String(255), nullable=True, server_default=text("NULL")),
+        Column("class_name", String(255), nullable=True),
+        Column("config_name", String(255), nullable=True),
         Column(
             "recovery_attempts",
             BigInteger,
             nullable=True,
-            server_default=text("'0'::bigint"),
         ),
         Column("queue_name", Text, nullable=True),
         Column("workflow_timeout_ms", BigInteger, nullable=True),
@@ -59,7 +74,10 @@ class SystemSchema:
         Column("started_at_epoch_ms", BigInteger(), nullable=True),
         Column("deduplication_id", Text(), nullable=True),
         Column("inputs", Text()),
-        Column("priority", Integer(), nullable=False, server_default=text("'0'::int")),
+        Column("priority", Integer(), nullable=False),
+        Column("queue_partition_key", Text()),
+        Column("forked_from", Text()),
+        Column("owner_xid", Text()),
         Index("workflow_status_created_at_index", "created_at"),
         Index("workflow_status_executor_id_index", "executor_id"),
         Index("workflow_status_status_index", "status"),
@@ -82,10 +100,12 @@ class SystemSchema:
             nullable=False,
         ),
         Column("function_id", Integer, nullable=False),
-        Column("function_name", Text, nullable=False, default=""),
+        Column("function_name", Text, nullable=False),
         Column("output", Text, nullable=True),
         Column("error", Text, nullable=True),
         Column("child_workflow_id", Text, nullable=True),
+        Column("started_at_epoch_ms", BigInteger, nullable=True),
+        Column("completed_at_epoch_ms", BigInteger, nullable=True),
         PrimaryKeyConstraint("workflow_uuid", "function_id"),
     )
 
@@ -106,13 +126,11 @@ class SystemSchema:
             "created_at_epoch_ms",
             BigInteger,
             nullable=False,
-            server_default=text("(EXTRACT(epoch FROM now()) * 1000::numeric)::bigint"),
         ),
         Column(
             "message_uuid",
             Text,
             nullable=False,
-            server_default=text("uuid_generate_v4()"),
         ),
         Index("idx_workflow_topic", "destination_uuid", "topic"),
     )
@@ -133,6 +151,24 @@ class SystemSchema:
         PrimaryKeyConstraint("workflow_uuid", "key"),
     )
 
+    # This is an immutable version of workflow_events. Two tables are needed for backwards compatibility.
+    workflow_events_history = Table(
+        "workflow_events_history",
+        metadata_obj,
+        Column(
+            "workflow_uuid",
+            Text,
+            ForeignKey(
+                "workflow_status.workflow_uuid", onupdate="CASCADE", ondelete="CASCADE"
+            ),
+            nullable=False,
+        ),
+        Column("key", Text, nullable=False),
+        Column("value", Text, nullable=False),
+        Column("function_id", Integer, nullable=False),
+        PrimaryKeyConstraint("workflow_uuid", "key", "function_id"),
+    )
+
     streams = Table(
         "streams",
         metadata_obj,
@@ -147,5 +183,6 @@ class SystemSchema:
         Column("key", Text, nullable=False),
         Column("value", Text, nullable=False),
         Column("offset", Integer, nullable=False),
+        Column("function_id", Integer, nullable=False),
         PrimaryKeyConstraint("workflow_uuid", "key", "offset"),
     )

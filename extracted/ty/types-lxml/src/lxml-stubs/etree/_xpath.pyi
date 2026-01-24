@@ -5,16 +5,19 @@
 
 import sys
 from abc import abstractmethod
+from collections.abc import (
+    Callable,
+    Iterable,
+)
 from types import ModuleType
 from typing import (
     Any,
-    Callable,
     Generic,
-    Iterable,
     Protocol,
     final,
     overload,
 )
+from typing_extensions import disjoint_base
 
 from .._types import (
     _ET,
@@ -50,6 +53,7 @@ class XPathResultError(XPathEvalError):
 class XPathSyntaxError(LxmlSyntaxError, XPathError):
     """Error in XPath expression"""
 
+@disjoint_base
 class _XPathEvaluatorBase(Protocol):
     @property
     def error_log(self) -> _ListErrorLog: ...
@@ -60,6 +64,7 @@ class _XPathEvaluatorBase(Protocol):
     @deprecated("Removed since 5.0; call instance directly instead")
     def evaluate(self, _arg: Any, /, **__var: _XPathVarArg) -> _XPathObject: ...
 
+@disjoint_base
 class XPath(_XPathEvaluatorBase):
     def __init__(
         self,
@@ -86,6 +91,7 @@ class ETXPath(XPath):
         smart_strings: bool = True,
     ) -> None: ...
 
+@disjoint_base
 class XPathElementEvaluator(_XPathEvaluatorBase):
     def __init__(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: marko
-Version: 2.2.0
+Version: 2.2.2
 Summary: A markdown parser with high extensibility.
 Author-Email: Frost Ming <mianghong@gmail.com>
 License: MIT
@@ -8,14 +8,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: homepage, https://github.com/frostming/marko
 Project-URL: Documentation, https://marko-py.readthedocs.io
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Provides-Extra: toc
 Requires-Dist: python-slugify; extra == "toc"
 Provides-Extra: codehilite
@@ -39,7 +40,7 @@ Description-Content-Type: text/markdown
 
 Marko is a pure Python markdown parser that adheres to the specifications of [CommonMark's spec v0.31.2][spec]. It has been designed with high extensibility in mind, as detailed in the [Extensions](#extensions) section.
 
-Marko requires Python 3.8 or higher.
+Marko requires Python 3.9 or higher.
 
 ## Why Marko
 

@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import TYPE_CHECKING
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -37,7 +38,7 @@ class TitilerEndpoint:
         return f"{self.endpoint}/{self.name}/assets"
 
     def url_for_stac_bounds(self):
-        return f"{self.endpoint}/{self.name}/bounds"
+        return f"{self.endpoint}/{self.name}/info.geojson"
 
     def url_for_stac_info(self):
         return f"{self.endpoint}/{self.name}/info"
@@ -118,7 +119,9 @@ def check_titiler_endpoint(titiler_endpoint: Optional[str] = None) -> Any:
     Returns:
         The titiler endpoint.
     """
-    if titiler_endpoint is None:
+    if titiler_endpoint is not None and titiler_endpoint.lower() == "local":
+        titiler_endpoint = run_titiler(show_logs=False)
+    elif titiler_endpoint is None:
         if os.environ.get("TITILER_ENDPOINT") is not None:
             titiler_endpoint = os.environ.get("TITILER_ENDPOINT")
 
@@ -134,7 +137,7 @@ def check_titiler_endpoint(titiler_endpoint: Optional[str] = None) -> Any:
 
 def cog_tile(
     url,
-    bands: str = None,
+    bands: Optional[str] = None,
     titiler_endpoint: Optional[str] = None,
     **kwargs,
 ) -> Tuple:
@@ -142,7 +145,7 @@ def cog_tile(
         Source code adapted from https://developmentseed.org/titiler/examples/notebooks/Working_with_CloudOptimizedGeoTIFF_simple/
 
     Args:
-        url (str): HTTP URL to a COG, e.g., https://opendata.digitalglobe.com/events/mauritius-oil-spill/post-event/2020-08-12/105001001F1B5B00/105001001F1B5B00.tif
+        url (str): HTTP URL to a COG, e.g., https://opendata.digitalglobe.com/events/mauritius-oil-spill/post-event/2020-08-12/105001001F1B5B00/105001001F1B5B00.tif. Default to None
         bands (list, optional): List of bands to use. Defaults to None.
         titiler_endpoint (str, optional): TiTiler endpoint. Defaults to "https://giswqs-titiler-endpoint.hf.space".
         **kwargs (Any): Additional arguments to pass to the titiler endpoint. For more information about the available arguments, see https://developmentseed.org/titiler/endpoints/cog/#tiles.
@@ -151,6 +154,9 @@ def cog_tile(
     Returns:
         The COG tile layer URL and bounds.
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
     import json
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
@@ -202,7 +208,7 @@ def cog_tile(
             titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
             stats = cog_stats(url, titiler_endpoint)
 
-        if "message" not in stats:
+        if stats is not None and "message" not in stats:
             try:
                 rescale = []
                 for i in band_names:
@@ -234,13 +240,17 @@ def cog_tile(
             timeout=10,
         ).json()
     except Exception as e:
-        titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
-        r = requests.get(
-            f"{titiler_endpoint}/cog/{TileMatrixSetId}/tilejson.json",
-            params=kwargs,
-            timeout=10,
-        ).json()
-    return r["tiles"][0]
+        print(e)
+        return None
+    tiles = r["tiles"][0]
+    if titiler_endpoint.startswith("https://") and tiles.startswith("http://"):
+        tiles = tiles.replace("http://", "https://")
+
+    # Convert 127.0.0.1 to localhost for Google Colab browser access
+    if "google.colab" in sys.modules and "127.0.0.1" in tiles:
+        tiles = tiles.replace("http://127.0.0.1", "https://localhost")
+
+    return tiles
 
 
 def cog_tile_vmin_vmax(
@@ -260,6 +270,8 @@ def cog_tile_vmin_vmax(
     Returns:
         tuple: Returns the minimum and maximum values.
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     stats = cog_stats(url, titiler_endpoint)
@@ -339,7 +351,13 @@ def cog_mosaic(
             f"{titiler_endpoint}/mosaicjson/{username}.{layername}/tilejson.json",
         ).json()
 
-        return r2["tiles"][0]
+        tiles = r2["tiles"][0]
+
+        # Convert 127.0.0.1 to localhost for Google Colab browser access
+        if "google.colab" in sys.modules and "127.0.0.1" in tiles:
+            tiles = tiles.replace("http://127.0.0.1", "https://localhost")
+
+        return tiles
 
     except Exception as e:
         raise Exception(e)
@@ -403,15 +421,18 @@ def cog_bounds(
     Returns:
         list: A list of values representing [left, bottom, right, top]
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
-    r = requests.get(f"{titiler_endpoint}/cog/bounds", params={"url": url}).json()
-
-    if "bounds" in r.keys():
-        bounds = r["bounds"]
-    else:
-        bounds = None
-    return bounds
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/cog/info.geojson", params={"url": url}
+        ).json()
+        return r["bbox"]
+    except Exception as e:
+        print(e)
+        return None
 
 
 def cog_center(
@@ -427,10 +448,20 @@ def cog_center(
     Returns:
         A tuple representing (longitude, latitude).
     """
+
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
+
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     bounds = cog_bounds(url, titiler_endpoint)
-    center = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)  # (lat, lon)
-    return center
+    if bounds is None:
+        return (None, None)
+    else:
+        center = (
+            (bounds[0] + bounds[2]) / 2,
+            (bounds[1] + bounds[3]) / 2,
+        )  # (lat, lon)
+        return center
 
 
 def cog_bands(
@@ -447,16 +478,23 @@ def cog_bands(
         A list of band names.
     """
 
-    titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
-    r = requests.get(
-        f"{titiler_endpoint}/cog/info",
-        params={
-            "url": url,
-        },
-    ).json()
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
-    bands = [b[0] for b in r["band_descriptions"]]
-    return bands
+    titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
+    try:
+        r = requests.get(
+            f"{titiler_endpoint}/cog/info",
+            params={
+                "url": url,
+            },
+        ).json()
+
+        bands = [b[0] for b in r["band_descriptions"]]
+        return bands
+    except Exception as e:
+        print(e)
+        return []
 
 
 def cog_stats(
@@ -472,6 +510,8 @@ def cog_stats(
     Returns:
         list: A dictionary of band statistics.
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     try:
@@ -482,17 +522,10 @@ def cog_stats(
             },
             timeout=10,
         ).json()
+        return r
     except Exception as e:
-        titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
-        r = requests.get(
-            f"{titiler_endpoint}/cog/statistics",
-            params={
-                "url": url,
-            },
-            timeout=10,
-        ).json()
-
-    return r
+        print(e)
+        return None
 
 
 def cog_info(
@@ -509,6 +542,8 @@ def cog_info(
     Returns:
         list: A dictionary of band info.
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     info = "info"
@@ -558,6 +593,8 @@ def cog_pixel_value(
     Returns:
         list: A dictionary of band info.
     """
+    if os.environ.get("USE_MKDOCS") is not None:
+        return None
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
     kwargs["url"] = url
@@ -747,12 +784,8 @@ def stac_tile(
                     titiler_endpoint=titiler_endpoint,
                 )
             except Exception as e:
-                titiler_endpoint = "https://giswqs-titiler-endpoint.hf.space"
-                stats = stac_stats(
-                    url=url,
-                    assets=assets,
-                    titiler_endpoint=titiler_endpoint,
-                )
+                print(e)
+                return None
 
             if "detail" not in stats:
                 try:
@@ -817,7 +850,13 @@ def stac_tile(
                 titiler_endpoint.url_for_stac_item(), params=kwargs, timeout=10
             ).json()
 
-    return r["tiles"][0]
+    tiles = r["tiles"][0]
+
+    # Convert 127.0.0.1 to localhost for Google Colab browser access
+    if "google.colab" in sys.modules and "127.0.0.1" in tiles:
+        tiles = tiles.replace("http://127.0.0.1", "https://localhost")
+
+    return tiles
 
 
 def stac_bounds(
@@ -866,13 +905,21 @@ def stac_bounds(
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
 
-    if isinstance(titiler_endpoint, str):
-        r = requests.get(f"{titiler_endpoint}/stac/bounds", params=kwargs).json()
-    else:
-        r = requests.get(titiler_endpoint.url_for_stac_bounds(), params=kwargs).json()
+    try:
+        if isinstance(titiler_endpoint, str):
+            r = requests.get(
+                f"{titiler_endpoint}/stac/info.geojson", params=kwargs
+            ).json()
+        else:
+            r = requests.get(
+                titiler_endpoint.url_for_stac_bounds(), params=kwargs
+            ).json()
 
-    bounds = r["bounds"]
-    return bounds
+        bounds = r["bbox"]
+        return bounds
+    except Exception as e:
+        print(e)
+        return None
 
 
 def stac_center(
@@ -901,8 +948,14 @@ def stac_center(
             print(e)
 
     bounds = stac_bounds(url, collection, item, titiler_endpoint, **kwargs)
-    center = ((bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2)  # (lon, lat)
-    return center
+    if bounds is None:
+        return (None, None)
+    else:
+        center = (
+            (bounds[0] + bounds[2]) / 2,
+            (bounds[1] + bounds[3]) / 2,
+        )  # (lon, lat)
+        return center
 
 
 def stac_bands(
@@ -944,12 +997,18 @@ def stac_bands(
         kwargs["item"] = item
 
     titiler_endpoint = check_titiler_endpoint(titiler_endpoint)
-    if isinstance(titiler_endpoint, str):
-        r = requests.get(f"{titiler_endpoint}/stac/assets", params=kwargs).json()
-    else:
-        r = requests.get(titiler_endpoint.url_for_stac_assets(), params=kwargs).json()
+    try:
+        if isinstance(titiler_endpoint, str):
+            r = requests.get(f"{titiler_endpoint}/stac/assets", params=kwargs).json()
+        else:
+            r = requests.get(
+                titiler_endpoint.url_for_stac_assets(), params=kwargs
+            ).json()
 
-    return r
+        return r
+    except Exception as e:
+        print(e)
+        return []
 
 
 def stac_stats(
@@ -2100,9 +2159,9 @@ def maxar_search(
             crs="epsg:4326",
         )
         if within:
-            data = data[data.within(bbox.unary_union, align=align)]
+            data = data[data.within(bbox.union_all(), align=align)]
         else:
-            data = data[data.intersects(bbox.unary_union, align=align)]
+            data = data[data.intersects(bbox.union_all(), align=align)]
 
     date_field = "datetime"
     new_field = f"{date_field}_temp"
@@ -2474,3 +2533,101 @@ def get_cog_link_from_stac_item(item_url: str) -> str:
     except Exception as e:
         print(f"Failed to retrieve STAC item: {e}")
         return None
+
+
+def run_titiler(
+    show_logs: bool = False,
+    start_port: int = 8000,
+    max_port: int = 8100,
+    return_titiler_endpoint: bool = False,
+):
+    """Run TiTiler as a background service on an available port.
+
+    This function automatically detects Google Colab and adjusts the endpoint URL
+    to use localhost remapping (https://localhost:{port}) for compatibility.
+
+    Args:
+        show_logs (bool): If True, stream logs to the notebook output.
+        start_port (int): First port to try.
+        max_port (int): Last port to try (exclusive).
+        return_titiler_endpoint (bool): If True, return the titiler endpoint. Defaults to False.
+
+    Returns:
+        tuple: (endpoint, port, process)
+    """
+
+    import subprocess
+    import socket
+    import atexit
+    import signal
+    import time
+    import threading
+
+    def find_free_port(start, end):
+        for port in range(start, end):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("127.0.0.1", port))
+                    return port
+                except OSError:
+                    continue
+        raise RuntimeError(f"No free port found between {start} and {end}")
+
+    port = find_free_port(start_port, max_port)
+
+    cmd = [
+        "uvicorn",
+        "titiler.application.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--log-level",
+        "info",
+    ]
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE if show_logs else subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    )
+
+    # Optionally stream logs in a background thread
+    if show_logs:
+
+        def stream_logs():
+            for line in iter(proc.stdout.readline, b""):
+                print(line.decode().rstrip())
+
+        threading.Thread(target=stream_logs, daemon=True).start()
+
+    # Wait a bit for startup
+    time.sleep(2)
+
+    # Always use http://127.0.0.1 for the endpoint so Python requests work
+    # In Google Colab, tile URLs will be converted to https://localhost for browser access
+    endpoint = f"http://127.0.0.1:{port}"
+
+    if "google.colab" in sys.modules:
+        print(f"🚀 TiTiler is running at {endpoint} (Google Colab mode)")
+    else:
+        print(f"🚀 TiTiler is running at {endpoint}")
+
+    # Register cleanup on kernel shutdown
+    def stop_titiler():
+        if proc.poll() is None:
+            print("🛑 Stopping TiTiler...")
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+
+    atexit.register(stop_titiler)
+
+    os.environ["TITILER_ENDPOINT"] = endpoint
+    os.environ["TITILER_PORT"] = str(port)
+    os.environ["TITILER_PROCESS"] = str(proc)
+
+    if return_titiler_endpoint:
+        return endpoint, port, proc

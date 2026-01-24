@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Miscellaneous stuff for coverage.py."""
 
@@ -163,35 +163,44 @@ class Hasher:
     def update(self, v: Any) -> None:
         """Add `v` to the hash, recursively if needed."""
         self.hash.update(str(type(v)).encode("utf-8"))
-        if isinstance(v, str):
-            self.hash.update(v.encode("utf-8"))
-        elif isinstance(v, bytes):
-            self.hash.update(v)
-        elif v is None:
-            pass
-        elif isinstance(v, (int, float)):
-            self.hash.update(str(v).encode("utf-8"))
-        elif isinstance(v, (tuple, list)):
-            for e in v:
-                self.update(e)
-        elif isinstance(v, dict):
-            keys = v.keys()
-            for k in sorted(keys):
-                self.update(k)
-                self.update(v[k])
-        else:
-            for k in dir(v):
-                if k.startswith("__"):
-                    continue
-                a = getattr(v, k)
-                if inspect.isroutine(a):
-                    continue
-                self.update(k)
-                self.update(a)
+        match v:
+            case None:
+                pass
+            case str():
+                self.hash.update(f"{len(v)}:".encode("utf-8"))
+                self.hash.update(v.encode("utf-8"))
+            case bytes():
+                self.hash.update(f"{len(v)}:".encode("utf-8"))
+                self.hash.update(v)
+            case int() | float():
+                self.hash.update(str(v).encode("utf-8"))
+            case tuple() | list():
+                for e in v:
+                    self.update(e)
+            case dict():
+                for k, kv in sorted(v.items()):
+                    self.update(k)
+                    self.update(kv)
+            case set():
+                for e in sorted(v):
+                    self.update(e)
+            case _:
+                for k in dir(v):
+                    if k.startswith("__"):
+                        continue
+                    a = getattr(v, k)
+                    if inspect.isroutine(a):
+                        continue
+                    self.update(k)
+                    self.update(a)
         self.hash.update(b".")
 
+    def digest(self) -> bytes:
+        """Get the full binary digest of the hash."""
+        return self.hash.digest()
+
     def hexdigest(self) -> str:
-        """Retrieve the hex digest of the hash."""
+        """Retrieve a 32-char hex digest of the hash."""
         return self.hash.hexdigest()[:32]
 
 

@@ -8,11 +8,11 @@ from crawlee._utils.docs import docs_group
 from crawlee.statistics import StatisticsState
 
 
-@docs_group('Data structures')
+@docs_group('Statistics')
 class AdaptivePlaywrightCrawlerStatisticState(StatisticsState):
     """Statistic data about a crawler run with additional information related to adaptive crawling."""
 
-    model_config = ConfigDict(populate_by_name=True, ser_json_inf_nan='constants')
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True, ser_json_inf_nan='constants')
 
     http_only_request_handler_runs: Annotated[int, Field(alias='http_only_request_handler_runs')] = 0
     """Number representing how many times static http based crawling was used."""

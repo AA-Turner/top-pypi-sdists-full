@@ -2,8 +2,6 @@
 """
 # pyright: reportPrivateImportUsage=false
 
-from __future__ import annotations
-
 import gc
 import multiprocessing
 import os
@@ -404,7 +402,7 @@ def init(nvidia_uuid: str):
 def size():
     return _total_unpacked_size() + sum([pack.total_size for pack in tensor_packs])
 
-def _move(callback: Callable[[int]] | None = None):
+def _move(callback: Callable[[int], Any] | None = None):
     callback = callback if callback is not None else lambda _: None
     # CPU -> CUDA
     pinned_limit = _total_unpacked_size() * PINNED_MEMORY_RATIO_LIMIT
@@ -429,7 +427,7 @@ def _move(callback: Callable[[int]] | None = None):
         pack_to_cuda(tensor_pack, callback=callback)
     bitsandbytes().move()
 
-def move(callback: Callable[[int]] | None = None):
+def move(callback: Callable[[int], Any] | None = None):
     callback = callback if callback is not None else lambda _: None
     with ThreadPoolExecutor(1) as e:
         e.submit(copy_context().run, _move, callback=callback).result()

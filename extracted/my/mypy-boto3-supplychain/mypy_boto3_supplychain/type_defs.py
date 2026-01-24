@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -37,12 +38,6 @@ from .literals import (
     InstanceStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -187,7 +182,7 @@ class CreateBillOfMaterialsImportJobRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -463,7 +458,7 @@ class GetBillOfMaterialsImportJobResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -483,7 +478,7 @@ class GetDataLakeNamespaceResponseTypeDef(TypedDict):
 
 
 class ListDataLakeNamespacesResponseTypeDef(TypedDict):
-    namespaces: List[DataLakeNamespaceTypeDef]
+    namespaces: list[DataLakeNamespaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -509,7 +504,7 @@ class GetInstanceResponseTypeDef(TypedDict):
 
 
 class ListInstancesResponseTypeDef(TypedDict):
-    instances: List[InstanceTypeDef]
+    instances: list[InstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -532,7 +527,7 @@ class DataIntegrationFlowExecutionSourceInfoTypeDef(TypedDict):
 
 
 class DataIntegrationFlowFieldPriorityDedupeStrategyConfigurationOutputTypeDef(TypedDict):
-    fields: List[DataIntegrationFlowFieldPriorityDedupeFieldTypeDef]
+    fields: list[DataIntegrationFlowFieldPriorityDedupeFieldTypeDef]
 
 
 class DataIntegrationFlowFieldPriorityDedupeStrategyConfigurationTypeDef(TypedDict):
@@ -563,8 +558,8 @@ class DataLakeDatasetPartitionFieldTypeDef(TypedDict):
 
 class DataLakeDatasetSchemaOutputTypeDef(TypedDict):
     name: str
-    fields: List[DataLakeDatasetSchemaFieldTypeDef]
-    primaryKeys: NotRequired[List[DataLakeDatasetPrimaryKeyFieldTypeDef]]
+    fields: list[DataLakeDatasetSchemaFieldTypeDef]
+    primaryKeys: NotRequired[list[DataLakeDatasetPrimaryKeyFieldTypeDef]]
 
 
 class DataLakeDatasetSchemaTypeDef(TypedDict):
@@ -654,7 +649,7 @@ DataIntegrationFlowFieldPriorityDedupeStrategyConfigurationUnionTypeDef = Union[
 
 
 class DataLakeDatasetPartitionSpecOutputTypeDef(TypedDict):
-    fields: List[DataLakeDatasetPartitionFieldTypeDef]
+    fields: list[DataLakeDatasetPartitionFieldTypeDef]
 
 
 class DataLakeDatasetPartitionSpecTypeDef(TypedDict):
@@ -672,7 +667,7 @@ class GetDataIntegrationEventResponseTypeDef(TypedDict):
 
 
 class ListDataIntegrationEventsResponseTypeDef(TypedDict):
-    events: List[DataIntegrationEventTypeDef]
+    events: list[DataIntegrationEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -683,7 +678,7 @@ class GetDataIntegrationFlowExecutionResponseTypeDef(TypedDict):
 
 
 class ListDataIntegrationFlowExecutionsResponseTypeDef(TypedDict):
-    flowExecutions: List[DataIntegrationFlowExecutionTypeDef]
+    flowExecutions: list[DataIntegrationFlowExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -748,7 +743,7 @@ class GetDataLakeDatasetResponseTypeDef(TypedDict):
 
 
 class ListDataLakeDatasetsResponseTypeDef(TypedDict):
-    datasets: List[DataLakeDatasetTypeDef]
+    datasets: list[DataLakeDatasetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -790,7 +785,7 @@ class DataIntegrationFlowDatasetOptionsTypeDef(TypedDict):
 class DataIntegrationFlowTypeDef(TypedDict):
     instanceId: str
     name: str
-    sources: List[DataIntegrationFlowSourceOutputTypeDef]
+    sources: list[DataIntegrationFlowSourceOutputTypeDef]
     transformation: DataIntegrationFlowTransformationTypeDef
     target: DataIntegrationFlowTargetOutputTypeDef
     createdTime: datetime
@@ -813,7 +808,7 @@ class GetDataIntegrationFlowResponseTypeDef(TypedDict):
 
 
 class ListDataIntegrationFlowsResponseTypeDef(TypedDict):
-    flows: List[DataIntegrationFlowTypeDef]
+    flows: list[DataIntegrationFlowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyfactory
-Version: 2.22.2
+Version: 3.2.0
 Summary: Mock data generation factories
 Project-URL: Issue Tracker, https://github.com/litestar-org/polyfactory/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
 Project-URL: Changelog, https://github.com/litestar-org/polyfactory/releases/
@@ -12,7 +12,7 @@ Project-URL: homepage, https://github.com/litestar-org/polyfactory
 Project-URL: repository, https://github.com/litestar-org/polyfactory
 Project-URL: documentation, https://github.com/litestar-org/polyfactory
 Author-email: Na'aman Hirschfeld <nhirschfeld@gmail.com>
-Maintainer-email: Visakh Unnikrishnan <guacs@litestar.dev>, Cody Fincher <cody@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Peter Schutt <peter@litestar.dev>, Alc <alc@litestar.dev>, Andy <adh.truong@gmail.com>
+Maintainer-email: Cody Fincher <cody@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Peter Schutt <peter@litestar.dev>, Alc <alc@litestar.dev>, Andy <adh.truong@gmail.com>
 License: MIT
 License-File: LICENSE
 Keywords: attrs,dataclasses,msgspec,pydantic,sqlalchemy
@@ -24,19 +24,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Testing :: Unit
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: <4.0,>=3.8
+Requires-Python: <4.0,>=3.9
 Requires-Dist: faker>=5.0.0
 Requires-Dist: typing-extensions>=4.6.0
 Provides-Extra: attrs
@@ -53,11 +53,12 @@ Requires-Dist: odmantic; extra == 'full'
 Requires-Dist: pydantic; extra == 'full'
 Requires-Dist: sqlalchemy; extra == 'full'
 Provides-Extra: msgspec
-Requires-Dist: msgspec; extra == 'msgspec'
+Requires-Dist: msgspec>=0.20.0; extra == 'msgspec'
 Provides-Extra: odmantic
 Requires-Dist: odmantic<1.0.0; extra == 'odmantic'
 Requires-Dist: pydantic[email]; extra == 'odmantic'
 Provides-Extra: pydantic
+Requires-Dist: eval-type-backport>=0.2.2; extra == 'pydantic'
 Requires-Dist: pydantic[email]>=1.10; extra == 'pydantic'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>=1.4.29; extra == 'sqlalchemy'

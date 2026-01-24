@@ -2,6 +2,9 @@ __all__ = [
     "Adlsgen2Info",
     "Adlsgen2InfoDict",
     "Adlsgen2InfoParam",
+    "AutoFullRefreshPolicy",
+    "AutoFullRefreshPolicyDict",
+    "AutoFullRefreshPolicyParam",
     "AwsAttributes",
     "AwsAttributesDict",
     "AwsAttributesParam",
@@ -15,6 +18,9 @@ __all__ = [
     "ClusterLogConf",
     "ClusterLogConfDict",
     "ClusterLogConfParam",
+    "ConnectionParameters",
+    "ConnectionParametersDict",
+    "ConnectionParametersParam",
     "DayOfWeek",
     "DayOfWeekParam",
     "DbfsStorageInfo",
@@ -51,8 +57,12 @@ __all__ = [
     "IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfig",
     "IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfigDict",
     "IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfigParam",
-    "IngestionSourceType",
-    "IngestionSourceTypeParam",
+    "IngestionPipelineDefinitionWorkdayReportParameters",
+    "IngestionPipelineDefinitionWorkdayReportParametersDict",
+    "IngestionPipelineDefinitionWorkdayReportParametersParam",
+    "IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValue",
+    "IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValueDict",
+    "IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValueParam",
     "InitScriptInfo",
     "InitScriptInfoDict",
     "InitScriptInfoParam",
@@ -74,6 +84,9 @@ __all__ = [
     "Notifications",
     "NotificationsDict",
     "NotificationsParam",
+    "OperationTimeWindow",
+    "OperationTimeWindowDict",
+    "OperationTimeWindowParam",
     "PathPattern",
     "PathPatternDict",
     "PathPatternParam",
@@ -148,6 +161,11 @@ from databricks.bundles.pipelines._models.adlsgen2_info import (
     Adlsgen2InfoDict,
     Adlsgen2InfoParam,
 )
+from databricks.bundles.pipelines._models.auto_full_refresh_policy import (
+    AutoFullRefreshPolicy,
+    AutoFullRefreshPolicyDict,
+    AutoFullRefreshPolicyParam,
+)
 from databricks.bundles.pipelines._models.aws_attributes import (
     AwsAttributes,
     AwsAttributesDict,
@@ -170,6 +188,11 @@ from databricks.bundles.pipelines._models.cluster_log_conf import (
     ClusterLogConf,
     ClusterLogConfDict,
     ClusterLogConfParam,
+)
+from databricks.bundles.pipelines._models.connection_parameters import (
+    ConnectionParameters,
+    ConnectionParametersDict,
+    ConnectionParametersParam,
 )
 from databricks.bundles.pipelines._models.day_of_week import DayOfWeek, DayOfWeekParam
 from databricks.bundles.pipelines._models.dbfs_storage_info import (
@@ -230,9 +253,15 @@ from databricks.bundles.pipelines._models.ingestion_pipeline_definition_table_sp
     IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfigDict,
     IngestionPipelineDefinitionTableSpecificConfigQueryBasedConnectorConfigParam,
 )
-from databricks.bundles.pipelines._models.ingestion_source_type import (
-    IngestionSourceType,
-    IngestionSourceTypeParam,
+from databricks.bundles.pipelines._models.ingestion_pipeline_definition_workday_report_parameters import (
+    IngestionPipelineDefinitionWorkdayReportParameters,
+    IngestionPipelineDefinitionWorkdayReportParametersDict,
+    IngestionPipelineDefinitionWorkdayReportParametersParam,
+)
+from databricks.bundles.pipelines._models.ingestion_pipeline_definition_workday_report_parameters_query_key_value import (
+    IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValue,
+    IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValueDict,
+    IngestionPipelineDefinitionWorkdayReportParametersQueryKeyValueParam,
 )
 from databricks.bundles.pipelines._models.init_script_info import (
     InitScriptInfo,
@@ -268,6 +297,11 @@ from databricks.bundles.pipelines._models.notifications import (
     Notifications,
     NotificationsDict,
     NotificationsParam,
+)
+from databricks.bundles.pipelines._models.operation_time_window import (
+    OperationTimeWindow,
+    OperationTimeWindowDict,
+    OperationTimeWindowParam,
 )
 from databricks.bundles.pipelines._models.path_pattern import (
     PathPattern,

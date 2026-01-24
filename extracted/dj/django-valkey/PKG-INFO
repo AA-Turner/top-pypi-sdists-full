@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: django-valkey
-Version: 0.3.0
+Version: 0.4.0
 Summary: a valkey backend for django
-Project-URL: Homepage, https://github.com/django-utils/django-valkey
-Project-URL: Source, https://github.com/django-utils/django-valkey
-Project-URL: Issues, https://github.com/django-utils/django-valkey/issues
+Project-URL: Homepage, https://github.com/django-commons/django-valkey
+Project-URL: Source, https://github.com/django-commons/django-valkey
+Project-URL: Issues, https://github.com/django-commons/django-valkey/issues
 Project-URL: Documentation, https://django-valkey.readthedocs.io/en/latest/
 Maintainer-email: amirreza <amir.rsf1380@gmail.com>
 License-Expression: BSD-3-Clause
@@ -12,9 +12,9 @@ License-File: AUTHORS.rst
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -25,10 +25,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
-Requires-Dist: django>=4.2
+Requires-Dist: django!=5.0.*,!=5.1.*,>=4.2
 Requires-Dist: valkey>=6.0.2
 Provides-Extra: brotli
 Requires-Dist: brotli>=1.1.0; extra == 'brotli'
@@ -38,8 +39,12 @@ Provides-Extra: lz4
 Requires-Dist: lz4>=4.3.3; extra == 'lz4'
 Provides-Extra: msgpack
 Requires-Dist: msgpack>=1.1.0; extra == 'msgpack'
+Provides-Extra: msgspec
+Requires-Dist: msgspec>=0.19.0; extra == 'msgspec'
 Provides-Extra: pyzstd
-Requires-Dist: pyzstd>=0.16.2; extra == 'pyzstd'
+Requires-Dist: backports-zstd>=1.0.0; extra == 'pyzstd'
+Provides-Extra: zstd
+Requires-Dist: backports-zstd>=1.0.0; extra == 'zstd'
 Description-Content-Type: text/x-rst
 
 ===============================
@@ -97,6 +102,7 @@ Requirements
 
 - `Python`_ 3.10+
 - `Django`_ 4.2.20+
+    - `Django~=5.0` and `Django~=5.1` are not supported, because they are end of life: https://endoflife.date/django
 - `valkey-py`_ 6.0.2+
 - `Valkey server`_ 7.2.6+
 
@@ -135,12 +141,21 @@ Install 3rd party compression
 
 .. code-block:: console
 
-    python -m pip install django-valkey[pyzstd]
+    python -m pip install django-valkey[zstd]  # not needed since python 3.14
 
 .. code-block:: console
 
     python -m pip install django-valkey[brotli]
 
+Install with 3rd party serializers
+
+.. code-block:: console
+
+   python -m pip install django-valkey[msgpack]
+
+.. code-block:: console
+
+   python -m pip install django-valkey[msgspec]
 
 
 

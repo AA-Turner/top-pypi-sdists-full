@@ -15,7 +15,6 @@ from virtualenv.app_data import AppDataDiskFolder
 from virtualenv.discovery.py_info import PythonInfo
 from virtualenv.info import IS_GRAALPY, IS_PYPY, IS_WIN, fs_supports_symlink
 from virtualenv.report import LOGGER
-from virtualenv.run.plugin.creators import CreatorSelector
 
 
 def pytest_addoption(parser):
@@ -309,7 +308,7 @@ def special_name_dir(tmp_path, special_char_name):
 
 @pytest.fixture(scope="session")
 def current_creators(session_app_data):
-    return CreatorSelector.for_interpreter(PythonInfo.current_system(session_app_data))
+    return PythonInfo.current_system(session_app_data).creators()
 
 
 @pytest.fixture(scope="session")

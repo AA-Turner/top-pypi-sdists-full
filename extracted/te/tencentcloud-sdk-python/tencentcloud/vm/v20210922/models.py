@@ -64,6 +64,10 @@ class AudioResult(AbstractModel):
         :type LabelResults: list of LabelResult
         :param _HitType: 审核命中类型
         :type HitType: str
+        :param _Sentences: ASR句子的起止时间
+        :type Sentences: list of Sentence
+        :param _RequestId: 切片请求ID
+        :type RequestId: str
         """
         self._HitFlag = None
         self._Label = None
@@ -84,6 +88,8 @@ class AudioResult(AbstractModel):
         self._SubTagCode = None
         self._LabelResults = None
         self._HitType = None
+        self._Sentences = None
+        self._RequestId = None
 
     @property
     def HitFlag(self):
@@ -295,6 +301,28 @@ class AudioResult(AbstractModel):
     def HitType(self, HitType):
         self._HitType = HitType
 
+    @property
+    def Sentences(self):
+        r"""ASR句子的起止时间
+        :rtype: list of Sentence
+        """
+        return self._Sentences
+
+    @Sentences.setter
+    def Sentences(self, Sentences):
+        self._Sentences = Sentences
+
+    @property
+    def RequestId(self):
+        r"""切片请求ID
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
 
     def _deserialize(self, params):
         self._HitFlag = params.get("HitFlag")
@@ -351,6 +379,13 @@ class AudioResult(AbstractModel):
                 obj._deserialize(item)
                 self._LabelResults.append(obj)
         self._HitType = params.get("HitType")
+        if params.get("Sentences") is not None:
+            self._Sentences = []
+            for item in params.get("Sentences"):
+                obj = Sentence()
+                obj._deserialize(item)
+                self._Sentences.append(obj)
+        self._RequestId = params.get("RequestId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -958,7 +993,7 @@ class CreateVideoModerationTaskRequest(AbstractModel):
         r"""
         :param _BizType: 该字段表示特定审核策略的编号，用于接口调度。需要提前在[内容安全控制台](https://console.cloud.tencent.com/cms/clouds/manage)中创建策略后获取该Biztype字段，传入该字段，会根据业务场景在审核时调用相应的审核策略。 备注：Biztype仅为数字、字母与下划线的组合，长度为3-32个字符；不同Biztype关联不同的业务场景与识别能力策略，调用前请确认正确的Biztype。
         :type BizType: str
-        :param _Type: 任务类型：可选VIDEO（点播视频），LIVE_VIDEO（直播视频）
+        :param _Type: 任务类型：可选VIDEO（点播视频），LIVE_VIDEO（直播视频），VIDEO_AIGC（AI生成检测）
         :type Type: str
         :param _Tasks: 输入的任务信息，最多可以同时创建10个任务
         :type Tasks: list of TaskInput
@@ -992,7 +1027,7 @@ class CreateVideoModerationTaskRequest(AbstractModel):
 
     @property
     def Type(self):
-        r"""任务类型：可选VIDEO（点播视频），LIVE_VIDEO（直播视频）
+        r"""任务类型：可选VIDEO（点播视频），LIVE_VIDEO（直播视频），VIDEO_AIGC（AI生成检测）
         :rtype: str
         """
         return self._Type
@@ -1199,7 +1234,7 @@ class DescribeTaskDetailResponse(AbstractModel):
         :param _Status: 该字段用于返回所查询内容的任务状态。
 <br>取值：**FINISH**（任务已完成）、**PENDING** （任务等待中）、**RUNNING** （任务进行中）、**ERROR** （任务出错）、**CANCELLED** （任务已取消）。
         :type Status: str
-        :param _Type: 该字段用于返回调用视频审核接口时输入的视频审核类型，取值为：**VIDEO**（点播视频）和**LIVE_VIDEO**（直播视频），默认值为VIDEO。
+        :param _Type: 该字段用于返回调用视频审核接口时输入的视频审核类型，取值为：**VIDEO**（点播视频）、**LIVE_VIDEO**（直播视频）和**VIDEO_AIGC**（AI生成检测），默认值为VIDEO。
         :type Type: str
         :param _Suggestion: 该字段用于返回基于恶意标签的后续操作建议。当您获取到判定结果后，返回值表示系统推荐的后续操作；建议您按照业务所需，对不同违规类型与建议值进行处理。<br>返回值：**Block**：建议屏蔽，**Review** ：建议人工复审，**Pass**：建议通过
         :type Suggestion: str
@@ -1322,7 +1357,7 @@ class DescribeTaskDetailResponse(AbstractModel):
 
     @property
     def Type(self):
-        r"""该字段用于返回调用视频审核接口时输入的视频审核类型，取值为：**VIDEO**（点播视频）和**LIVE_VIDEO**（直播视频），默认值为VIDEO。
+        r"""该字段用于返回调用视频审核接口时输入的视频审核类型，取值为：**VIDEO**（点播视频）、**LIVE_VIDEO**（直播视频）和**VIDEO_AIGC**（AI生成检测），默认值为VIDEO。
         :rtype: str
         """
         return self._Type
@@ -1781,6 +1816,8 @@ Block 确认违规
         :type RecognitionResults: list of RecognitionResult
         :param _HitType: 审核命中类型
         :type HitType: str
+        :param _RequestId: 截帧请求ID
+        :type RequestId: str
         """
         self._HitFlag = None
         self._Label = None
@@ -1792,6 +1829,7 @@ Block 确认违规
         self._SubLabel = None
         self._RecognitionResults = None
         self._HitType = None
+        self._RequestId = None
 
     @property
     def HitFlag(self):
@@ -1915,6 +1953,17 @@ Block 确认违规
     def HitType(self, HitType):
         self._HitType = HitType
 
+    @property
+    def RequestId(self):
+        r"""截帧请求ID
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
 
     def _deserialize(self, params):
         self._HitFlag = params.get("HitFlag")
@@ -1937,6 +1986,7 @@ Block 确认违规
                 obj._deserialize(item)
                 self._RecognitionResults.append(obj)
         self._HitType = params.get("HitType")
+        self._RequestId = params.get("RequestId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3109,6 +3159,72 @@ class SegmentCosUrlList(AbstractModel):
         self._ImageBlockUrl = params.get("ImageBlockUrl")
         self._AudioBlockUrl = params.get("AudioBlockUrl")
         self._AsrUrl = params.get("AsrUrl")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Sentence(AbstractModel):
+    r"""ASR识别结果在音频中的起止时间
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Text: ASR句子
+        :type Text: str
+        :param _StartTime: 起始时间
+        :type StartTime: str
+        :param _EndTime: 结束时间
+        :type EndTime: str
+        """
+        self._Text = None
+        self._StartTime = None
+        self._EndTime = None
+
+    @property
+    def Text(self):
+        r"""ASR句子
+        :rtype: str
+        """
+        return self._Text
+
+    @Text.setter
+    def Text(self, Text):
+        self._Text = Text
+
+    @property
+    def StartTime(self):
+        r"""起始时间
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""结束时间
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+
+    def _deserialize(self, params):
+        self._Text = params.get("Text")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

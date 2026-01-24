@@ -25,7 +25,7 @@ from pyathena.pandas.converter import (
     DefaultPandasTypeConverter,
     DefaultPandasUnloadTypeConverter,
 )
-from pyathena.pandas.result_set import AthenaPandasResultSet, DataFrameIterator
+from pyathena.pandas.result_set import AthenaPandasResultSet, PandasDataFrameIterator
 from pyathena.result_set import WithResultSet
 
 if TYPE_CHECKING:
@@ -179,6 +179,11 @@ class PandasCursor(BaseCursor, CursorIterator, WithResultSet):
     def rownumber(self) -> Optional[int]:
         return self.result_set.rownumber if self.result_set else None
 
+    @property
+    def rowcount(self) -> int:
+        """Get the number of rows affected by the last operation."""
+        return self.result_set.rowcount if self.result_set else -1
+
     def close(self) -> None:
         if self.result_set and not self.result_set.is_closed:
             self.result_set.close()
@@ -326,11 +331,11 @@ class PandasCursor(BaseCursor, CursorIterator, WithResultSet):
         result_set = cast(AthenaPandasResultSet, self.result_set)
         return result_set.fetchall()
 
-    def as_pandas(self) -> Union["DataFrame", DataFrameIterator]:
-        """Return DataFrame or DataFrameIterator based on chunksize setting.
+    def as_pandas(self) -> Union["DataFrame", PandasDataFrameIterator]:
+        """Return DataFrame or PandasDataFrameIterator based on chunksize setting.
 
         Returns:
-            DataFrame when chunksize is None, DataFrameIterator when chunksize is set.
+            DataFrame when chunksize is None, PandasDataFrameIterator when chunksize is set.
         """
         if not self.has_result_set:
             raise ProgrammingError("No result set.")
@@ -375,18 +380,13 @@ class PandasCursor(BaseCursor, CursorIterator, WithResultSet):
         """
         if not self.has_result_set:
             raise ProgrammingError("No result set.")
+        result_set = cast(AthenaPandasResultSet, self.result_set)
 
-        result = self.as_pandas()
-        if isinstance(result, DataFrameIterator):
-            # It's an iterator (chunked mode)
-            import gc
+        import gc
 
-            for chunk_count, chunk in enumerate(result, 1):
-                yield chunk
+        for chunk_count, chunk in enumerate(result_set.iter_chunks(), 1):
+            yield chunk
 
-                # Suggest garbage collection every 10 chunks for large datasets
-                if chunk_count % 10 == 0:
-                    gc.collect()
-        else:
-            # Single DataFrame - yield as one chunk
-            yield result
+            # Suggest garbage collection every 10 chunks for large datasets
+            if chunk_count % 10 == 0:
+                gc.collect()

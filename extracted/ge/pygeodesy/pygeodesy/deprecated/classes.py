@@ -18,11 +18,12 @@ from pygeodesy.namedTuples import Forward4Tuple as _Forward4Tuple, \
                                   UtmUps5Tuple  as _UtmUps5Tuple,  _NamedTuple
 from pygeodesy.props import deprecated_class, deprecated_method
 from pygeodesy.resections import TriAngle5Tuple as _TriAngle5Tuple
+from pygeodesy.triaxials import Conformal, ConformalSphere, Conformal2Tuple
 from pygeodesy.trf import TRFXform7Tuple as _TRFXform7Tuple
 from pygeodesy.units import Bearing, Int, Lamd, Lat, Lon, Meter, Phid
 
 __all__ = _ALL_DEPRECATED.deprecated_classes
-__version__ = '25.04.11'
+__version__ = '25.11.11'
 
 
 class _Deprecated_NamedTuple(_NamedTuple):
@@ -44,6 +45,13 @@ class ClipCS3Tuple(_Deprecated_NamedTuple):  # PYCHOK no cover
     assert _ClipCS4Tuple._Names_.index(_i_) == 2
     _Names_ = _reNames(_ClipCS4Tuple._Names_[:3], _i_, 'index')
     _Units_ =          _ClipCS4Tuple._Units_[:3]
+
+
+class ConformalTriaxial(Conformal):
+    '''DEPRECATED on 2025.11.11, use class L{Conformal}.'''
+    def __init__(self, *args, **kwds):  # PYCHOK no cover
+        deprecated_class(self.__class__)
+        Conformal.__init__(self, *args, **kwds)
 
 
 class EasNorExact4Tuple(_Deprecated_NamedTuple):
@@ -235,6 +243,28 @@ def HeightIDWcosineForsytheAndoyerLambert(knots, **kwds):  # PYCHOK no cover
     return HeightIDWcosineForsytheAndoyerLambert(knots, **kwds)
 
 
+class JacobiConformal(Conformal):
+    '''DEPRECATED on 2025.10.25, use class L{Conformal}.'''
+    def __init__(self, *args, **kwds):  # PYCHOK no cover
+        deprecated_class(self.__class__)
+        Conformal.__init__(self, *args, **kwds)
+
+
+class JacobiConformalSpherical(ConformalSphere):
+    '''DEPRECATED on 2025.10.25, use class L{ConformalSphere}.'''
+    def __init__(self, *args, **kwds):  # PYCHOK no cover
+        deprecated_class(self.__class__)
+        ConformalSphere.__init__(self, *args, **kwds)
+
+
+class Jacobi2Tuple(Conformal2Tuple):
+    '''DEPRECATED on 25.11.11, use class L{Conformal2Tuple}.
+    '''
+    def __new__(cls, *args, **kwds):
+        deprecated_class(cls)
+        return Conformal2Tuple.__new__(cls, *args, **kwds)
+
+
 class Lam_(Lamd):
     '''DEPRECATED on 2024.06.15, use class L{Lamd}.'''
     def __init__(self, *args, **kwds):  # PYCHOK no cover
@@ -359,7 +389,7 @@ __all__ += _ALL_DOCS(_Deprecated_NamedTuple)
 
 # **) MIT License
 #
-# Copyright (C) 2018-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

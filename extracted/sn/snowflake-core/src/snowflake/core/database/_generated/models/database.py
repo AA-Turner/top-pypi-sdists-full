@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -33,29 +33,29 @@ class Database(BaseModel):
     name : str
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     created_on : datetime, optional
-        Date and time the database was created.
+        Date and time the database was created — **Read-only:** *any user-provided value will be ignored.*
     kind : str,  default 'PERMANENT'
         Database type, permanent (default) or transient.
     is_default : bool, optional
-        Whether the database is the default database for a user.
+        Whether the database is the default database for a user — **Read-only:** *any user-provided value will be ignored.*
     is_current : bool, optional
-        Current database for the session.
+        Current database for the session — **Read-only:** *any user-provided value will be ignored.*
     origin : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Name of the role that owns the database.
+        Name of the role that owns the database — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
         Optional comment in which to store information related to the database.
     options : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     retention_time : int, optional
-        Number of days that historical data is retained for Time Travel.
+        Number of days that historical data is retained for Time Travel — **Read-only:** *any user-provided value will be ignored.*
     dropped_on : datetime, optional
-        Date and time the database was dropped.
+        Date and time the database was dropped — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Budget that defines a monthly spending limit on the compute costs for a Snowflake account or a custom group of Snowflake objects.
+        Budget that defines a monthly spending limit on the compute costs for a Snowflake account or a custom group of Snowflake objects — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        Type of role that owns the object, either ROLE or DATABASE_ROLE
+        Type of role that owns the object, either ROLE or DATABASE_ROLE — **Read-only:** *any user-provided value will be ignored.*
     data_retention_time_in_days : int, optional
         Specifies the number of days for which Time Travel actions (CLONE and UNDROP) can be performed on the database, as well as specifying the default Time Travel retention time for all schemas created in the database.
     default_ddl_collation : str, optional
@@ -164,9 +164,10 @@ class Database(BaseModel):
             raise ValueError("must validate the enum values ('PERMANENT','TRANSIENT')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -204,7 +205,7 @@ class Database(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if dropped_on (nullable) is None
         if self.dropped_on is None:
@@ -223,9 +224,9 @@ class Database(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Database.parse_obj(obj)
+            return Database.model_validate(obj)
 
-        _obj = Database.parse_obj(
+        _obj = Database.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "name": obj.get("name"),

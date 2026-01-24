@@ -58,7 +58,7 @@ def replica_list():
 @click.option("--human", default=True, hidden=True)
 @click.pass_context
 def list_(ctx, dids, protocols, all_states, pfns, domain, link, missing, metalink, no_resolve_archives, sort, rses, human):
-    """List the replicas of a DID and its PFNs. By default all states, even unavailable, are shown"""
+    """List the replicas of a DID and its PFNs. By default, only available replicas are shown."""
     args = {"dids": dids, "protocols": protocols, "all_states": all_states, "pfns": pfns, "domain": domain, "link": link, "missing": missing, "metalink": metalink, "no_resolve_archives": no_resolve_archives, "sort": sort, "rses": rses, "human": human}
     list_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)
 
@@ -129,11 +129,15 @@ def update_bad(ctx, replicas, reason, as_file, collection, lfn, scope, rse):
     """Mark a replica bad"""
     args = {"reason": reason, "allow_collection": collection, "scope": scope, "rse": rse}
     if as_file:
-        args["inputfile"] = replicas
+        if len(replicas) != 1:
+            raise ValueError("Exactly one positional argument expected in case as-file")
+        args["inputfile"] = replicas[0]
     elif lfn:
         if (scope is None) or (rse is None):
             raise ValueError("Scope and RSE are required when using LFNs")
-        args["lfns"] = replicas
+        if len(replicas) != 1:
+            raise ValueError("Exactly one positional argument expected in case of LFN list")
+        args["lfns"] = replicas[0]
     else:
         args["listbadfiles"] = replicas
     declare_bad_file_replicas(Arguments(args), ctx.obj.client, ctx.obj.logger, ctx.obj.console, ctx.obj.spinner)

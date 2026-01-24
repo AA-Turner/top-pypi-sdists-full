@@ -28,6 +28,10 @@ class AuthorWithAge(Author):
     age = models.IntegerField()
 
 
+class AuthorWithAgeChild(AuthorWithAge):
+    pass
+
+
 class FavoriteAuthors(models.Model):
     author = models.ForeignKey(
         Author, models.CASCADE, to_field="name", related_name="i_like"
@@ -214,6 +218,15 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+
+class ArticleCustomUUID(models.Model):
+    class CustomUUIDField(models.UUIDField):
+        def get_prep_value(self, value):
+            return str(value)
+
+    id = CustomUUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=30)
 
 
 # Models for lookup ordering tests

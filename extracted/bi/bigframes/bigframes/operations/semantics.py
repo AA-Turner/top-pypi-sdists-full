@@ -21,7 +21,8 @@ import warnings
 import numpy as np
 
 from bigframes import dtypes, exceptions
-from bigframes.core import guid, log_adapter
+from bigframes.core import guid
+from bigframes.core.logging import log_adapter
 
 
 @log_adapter.class_logger
@@ -52,7 +53,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -247,7 +247,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -321,7 +320,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -435,7 +433,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -558,7 +555,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -697,7 +693,6 @@ class Semantics:
         ** Examples: **
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
 
             >>> import bigframes
             >>> bigframes.options.experiments.semantic_operators = True
@@ -800,7 +795,6 @@ class Semantics:
         **Examples:**
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 
@@ -1001,7 +995,6 @@ class Semantics:
         ** Examples: **
 
             >>> import bigframes.pandas as bpd
-            >>> bpd.options.display.progress_bar = None
             >>> bpd.options.experiments.semantic_operators = True
             >>> bpd.options.compute.semantic_ops_confirmation_threshold = 25
 

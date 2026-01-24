@@ -253,7 +253,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_reference_deletion(self):
         ts = msprime.simulate(10, mutation_rate=1, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         # Get references to all the tables
         tables = [
             tc.individuals,
@@ -334,7 +334,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_simplify_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         with pytest.raises(TypeError):
             tc.simplify()
         with pytest.raises(ValueError):
@@ -375,7 +375,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_link_ancestors_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         with pytest.raises(TypeError):
             tc.link_ancestors()
         with pytest.raises(TypeError):
@@ -391,7 +391,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_link_ancestors(self):
         ts = msprime.simulate(2, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         edges = tc.link_ancestors([0, 1], [3])
         assert isinstance(edges, _tskit.EdgeTable)
         del edges
@@ -399,7 +399,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_subset_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         with pytest.raises(TypeError):
             tc.subset(np.array(["a"]))
         with pytest.raises(ValueError):
@@ -411,7 +411,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_union_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         tc2 = tc
         with pytest.raises(TypeError):
             tc.union(tc2, np.array(["a"]))
@@ -433,9 +433,28 @@ class TestTableCollection(LowLevelTestCase):
         with pytest.raises(ValueError):
             tc.union(tc2, np.array([[1], [2]], dtype="int32"))
 
+    @pytest.mark.parametrize("value", [True, False])
+    @pytest.mark.parametrize(
+        "flag",
+        [
+            "all_edges",
+            "all_mutations",
+            "check_shared_equality",
+            "add_populations",
+        ],
+    )
+    def test_union_options(self, flag, value):
+        ts = msprime.simulate(10, random_seed=1)
+        tc = ts.dump_tables()._ll_tables
+        empty_tables = ts.dump_tables()
+        for table in empty_tables.table_name_map.keys():
+            getattr(empty_tables, table).clear()
+        tc2 = empty_tables._ll_tables
+        tc.union(tc2, np.arange(0, dtype="int32"), **{flag: value})
+
     def test_equals_bad_args(self):
         ts = msprime.simulate(10, random_seed=1242)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         with pytest.raises(TypeError):
             tc.equals()
         with pytest.raises(TypeError):
@@ -477,7 +496,7 @@ class TestTableCollection(LowLevelTestCase):
 
     def test_asdict_bad_args(self):
         ts = msprime.simulate(10, random_seed=1242)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         for bad_type in [None, 0.1, "str"]:
             with pytest.raises(TypeError):
                 tc.asdict(force_offset_64=bad_type)
@@ -517,14 +536,14 @@ class TestIbd:
 
     def test_get_keys(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         pairs = [[0, 1], [0, 2], [1, 2]]
         result = tc.ibd_segments_within([0, 1, 2], store_pairs=True)
         np.testing.assert_array_equal(result.get_keys(), pairs)
 
     def test_store_pairs(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         # By default we can't get any information about pairs.
         result = tc.ibd_segments_within()
         with pytest.raises(_tskit.IdentityPairsNotStoredError):
@@ -551,7 +570,7 @@ class TestIbd:
 
     def test_within_all_pairs(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         num_pairs = ts.num_samples * (ts.num_samples - 1) / 2
         result = tc.ibd_segments_within(store_pairs=True)
         assert result.num_pairs == num_pairs
@@ -560,7 +579,7 @@ class TestIbd:
 
     def test_between_all_pairs(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         result = tc.ibd_segments_between([5, 5], range(10), store_pairs=True)
         assert result.num_pairs == 25
         pairs = np.array(list(itertools.product(range(5), range(5, 10))))
@@ -568,7 +587,7 @@ class TestIbd:
 
     def test_within_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         for bad_samples in ["sdf", {}]:
             with pytest.raises(ValueError):
                 tc.ibd_segments_within(bad_samples)
@@ -587,7 +606,7 @@ class TestIbd:
 
     def test_between_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         with pytest.raises(TypeError):
             tc.ibd_segments_between()
         with pytest.raises(TypeError):
@@ -615,7 +634,7 @@ class TestIbd:
 
     def test_get_output(self):
         ts = msprime.simulate(5, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         pairs = [(0, 1), (2, 3)]
         result = tc.ibd_segments_within([0, 1, 2, 3], store_segments=True)
         assert isinstance(result, _tskit.IdentitySegments)
@@ -634,7 +653,7 @@ class TestIbd:
 
     def test_get_bad_args(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         result = tc.ibd_segments_within([0, 1, 2], store_segments=True)
         with pytest.raises(TypeError):
             result.get()
@@ -651,7 +670,7 @@ class TestIbd:
 
     def test_print_state(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         result = tc.ibd_segments_within()
         with pytest.raises(TypeError):
             result.print_state()
@@ -687,7 +706,7 @@ class TestIdentitySegmentList:
 
     def test_memory_management_within(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         result = tc.ibd_segments_within(store_segments=True)
         del ts, tc
         lst = result.get(0, 1)
@@ -702,7 +721,7 @@ class TestIdentitySegmentList:
 
     def test_memory_management_between(self):
         ts = msprime.simulate(10, random_seed=1)
-        tc = ts.tables._ll_tables
+        tc = ts.dump_tables()._ll_tables
         result = tc.ibd_segments_between([2, 2], range(4), store_segments=True)
         del ts, tc
         lst = result.get(0, 2)
@@ -723,7 +742,7 @@ class TestTableMethods:
 
     @pytest.mark.parametrize("table_name", tskit.TABLE_NAMES)
     def test_table_extend(self, table_name, ts_fixture):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         assert len(table) >= 5
         ll_table = table.ll_table
         table_copy = table.copy()
@@ -753,7 +772,7 @@ class TestTableMethods:
     def test_table_extend_types(
         self, ts_fixture, table_name, row_indexes, expected_rows
     ):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         assert len(table) >= 5
         ll_table = table.ll_table
         table_copy = table.copy()
@@ -765,7 +784,7 @@ class TestTableMethods:
 
     @pytest.mark.parametrize("table_name", tskit.TABLE_NAMES)
     def test_table_keep_rows_errors(self, table_name, ts_fixture):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         n = len(table)
         ll_table = table.ll_table
         with pytest.raises(ValueError, match="must be of length"):
@@ -777,7 +796,7 @@ class TestTableMethods:
 
     @pytest.mark.parametrize("table_name", tskit.TABLE_NAMES)
     def test_table_keep_rows_all(self, table_name, ts_fixture):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         n = len(table)
         ll_table = table.ll_table
         a = ll_table.keep_rows(np.ones(n, dtype=bool))
@@ -788,7 +807,7 @@ class TestTableMethods:
 
     @pytest.mark.parametrize("table_name", tskit.TABLE_NAMES)
     def test_table_keep_rows_none(self, table_name, ts_fixture):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         n = len(table)
         ll_table = table.ll_table
         a = ll_table.keep_rows(np.zeros(n, dtype=bool))
@@ -821,7 +840,7 @@ class TestTableMethods:
         ],
     )
     def test_table_update(self, ts_fixture, table_name, column_name):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         copy = table.copy()
         ll_table = table.ll_table
 
@@ -985,7 +1004,7 @@ class TestTableMethodsErrors:
     """
 
     def yield_tables(self, ts):
-        for table in ts.tables.table_name_map.values():
+        for table in ts.dump_tables().table_name_map.values():
             yield table.ll_table
 
     @pytest.mark.parametrize(
@@ -993,7 +1012,7 @@ class TestTableMethodsErrors:
         tskit.TABLE_NAMES,
     )
     def test_table_extend_bad_args(self, ts_fixture, table_name):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         ll_table = table.ll_table
         ll_table_copy = table.copy().ll_table
 
@@ -1026,7 +1045,7 @@ class TestTableMethodsErrors:
 
     @pytest.mark.parametrize("table_name", tskit.TABLE_NAMES)
     def test_update_bad_row_index(self, ts_fixture, table_name):
-        table = getattr(ts_fixture.tables, table_name)
+        table = getattr(ts_fixture.dump_tables(), table_name)
         ll_table = table.ll_table
         row_data = ll_table.get_row(0)
         with pytest.raises(_tskit.LibraryError, match="out of bounds"):
@@ -1077,7 +1096,7 @@ class TestTableMethodsErrors:
             table.add_row(flags=-1)
 
     def test_index(self):
-        tc = msprime.simulate(10, random_seed=42).tables._ll_tables
+        tc = msprime.simulate(10, random_seed=42).dump_tables()._ll_tables
         assert tc.indexes["edge_insertion_order"].dtype == np.int32
         assert tc.indexes["edge_removal_order"].dtype == np.int32
         assert np.array_equal(
@@ -1110,12 +1129,12 @@ class TestTableMethodsErrors:
         )
 
     def test_no_indexes(self):
-        tc = msprime.simulate(10, random_seed=42).tables._ll_tables
+        tc = msprime.simulate(10, random_seed=42).dump_tables()._ll_tables
         tc.drop_index()
         assert tc.indexes == {}
 
     def test_bad_indexes(self):
-        tc = msprime.simulate(10, random_seed=42).tables._ll_tables
+        tc = msprime.simulate(10, random_seed=42).dump_tables()._ll_tables
         for col in ("insertion", "removal"):
             d = tc.indexes
             d[f"edge_{col}_order"] = d[f"edge_{col}_order"][:-1]
@@ -1148,9 +1167,11 @@ class TestTableMethodsErrors:
             ):
                 tc.indexes = d
 
-        tc = msprime.simulate(
-            10, recombination_rate=10, random_seed=42
-        ).tables._ll_tables
+        tc = (
+            msprime.simulate(10, recombination_rate=10, random_seed=42)
+            .dump_tables()
+            ._ll_tables
+        )
         modify_indexes = tc.indexes
         shape = modify_indexes["edge_insertion_order"].shape
         modify_indexes["edge_insertion_order"] = np.zeros(shape, dtype=np.int32)
@@ -1178,6 +1199,10 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
 
     ARRAY_NAMES = [
         "individuals_flags",
+        "individuals_location",
+        "individuals_location_offset",
+        "individuals_parents",
+        "individuals_parents_offset",
         "individuals_metadata",
         "individuals_metadata_offset",
         "nodes_time",
@@ -1201,6 +1226,14 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
         "mutations_time",
         "mutations_metadata",
         "mutations_metadata_offset",
+        "sites_ancestral_state",
+        "sites_ancestral_state_offset",
+        "mutations_derived_state",
+        "mutations_derived_state_offset",
+        "provenances_record",
+        "provenances_record_offset",
+        "provenances_timestamp",
+        "provenances_timestamp_offset",
         "migrations_left",
         "migrations_right",
         "migrations_node",
@@ -1336,7 +1369,16 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
             assert len(mutations) == ts.get_num_mutations()
             # Check the form of the mutations
             for packed in mutations:
-                site, node, derived_state, parent, metadata, time, edge = packed
+                (
+                    site,
+                    node,
+                    derived_state,
+                    parent,
+                    metadata,
+                    time,
+                    edge,
+                    inherited_state,
+                ) = packed
                 assert isinstance(site, int)
                 assert isinstance(node, int)
                 assert isinstance(derived_state, str)
@@ -1344,6 +1386,7 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
                 assert isinstance(metadata, bytes)
                 assert isinstance(time, float)
                 assert isinstance(edge, int)
+                assert isinstance(inherited_state, str)
 
     def test_get_edge_interface(self):
         for ts in self.get_example_tree_sequences():
@@ -1451,6 +1494,47 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
             focal = ts.get_samples()
             A = ts.mean_descendants([focal[2:], focal[:2]])
             assert A.shape == (ts.get_num_nodes(), 2)
+
+    def test_link_ancestors_bad_args(self):
+        ts = self.get_example_tree_sequence()
+        with pytest.raises(TypeError):
+            ts.link_ancestors()
+        with pytest.raises(TypeError):
+            ts.link_ancestors([0, 1])
+        with pytest.raises(ValueError):
+            ts.link_ancestors(samples=[0, 1], ancestors="sdf")
+        with pytest.raises(ValueError):
+            ts.link_ancestors(samples="sdf", ancestors=[0, 1])
+        with pytest.raises(_tskit.LibraryError):
+            ts.link_ancestors(samples=[0, 1], ancestors=[ts.get_num_nodes(), -1])
+        with pytest.raises(_tskit.LibraryError):
+            ts.link_ancestors(samples=[0, -1], ancestors=[0])
+
+    def test_link_ancestors(self):
+        # Check that the low-level method runs and does not mutate the tree sequence
+        # and that it matches the TableCollection implementation.
+        high_ts = msprime.simulate(4, random_seed=1)
+        ts = high_ts.ll_tree_sequence
+        samples = list(range(ts.get_num_samples()))
+        ancestors = list(range(ts.get_num_nodes()))
+        num_edges_before = ts.get_num_edges()
+        edges = ts.link_ancestors(samples, ancestors)
+        assert isinstance(edges, _tskit.EdgeTable)
+        assert edges.num_rows >= 0
+        if edges.num_rows > 0:
+            assert np.all(edges.left >= 0)
+            assert np.all(edges.right <= ts.get_sequence_length())
+            assert np.all(edges.left < edges.right)
+            assert np.all(edges.parent >= 0)
+            assert np.all(edges.parent < ts.get_num_nodes())
+            assert np.all(edges.child >= 0)
+            assert np.all(edges.child < ts.get_num_nodes())
+        assert ts.get_num_edges() == num_edges_before
+
+        # Parity with low-level TableCollection.link_ancestors
+        tc = high_ts.dump_tables()._ll_tables
+        edges_from_tables = tc.link_ancestors(samples, ancestors)
+        assert edges.equals(edges_from_tables)
 
     def test_metadata_schemas(self):
         tables = _tskit.TableCollection(1.0)
@@ -1711,6 +1795,210 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
         with pytest.raises(_tskit.LibraryError, match="TSK_ERR_UNSUPPORTED_STAT_MODE"):
             stat_method(ss_sizes, ss, col_sites, row_sites, None, None, "node")
 
+    @pytest.mark.parametrize(
+        "stat_method_name",
+        [
+            "D2_ij_matrix",
+            "r2_ij_matrix",
+            "D2_ij_unbiased_matrix",
+        ],
+    )
+    def test_ld_matrix_multipop(self, stat_method_name):
+        ts = self.get_example_tree_sequence(10)
+        stat_method = getattr(ts, stat_method_name)
+
+        num_samples = len(ts.get_samples())
+        ss = np.hstack([ts.get_samples(), ts.get_samples()])  # sample sets
+        ss_sizes = np.array([num_samples, num_samples], dtype=np.uint32)
+        indexes = [(0, 0), (0, 1)]
+        row_sites = np.arange(ts.get_num_sites(), dtype=np.int32)
+        col_sites = row_sites
+        row_pos = ts.get_breakpoints()[:-1]
+        col_pos = row_pos
+        row_pos_list = list(map(float, ts.get_breakpoints()[:-1]))
+        col_pos_list = row_pos_list
+        row_sites_list = list(range(ts.get_num_sites()))
+        col_sites_list = row_sites_list
+
+        # happy path
+        a = stat_method(ss_sizes, ss, indexes, row_sites, col_sites, None, None, "site")
+        assert a.shape == (10, 10, 2)
+        a = stat_method(
+            ss_sizes, ss, indexes, row_sites_list, col_sites_list, None, None, "site"
+        )
+        assert a.shape == (10, 10, 2)
+        a = stat_method(ss_sizes, ss, indexes, None, None, None, None, "site")
+        assert a.shape == (10, 10, 2)
+
+        a = stat_method(ss_sizes, ss, indexes, None, None, row_pos, col_pos, "branch")
+        assert a.shape == (2, 2, 2)
+        a = stat_method(
+            ss_sizes, ss, indexes, None, None, row_pos_list, col_pos_list, "branch"
+        )
+        assert a.shape == (2, 2, 2)
+        a = stat_method(ss_sizes, ss, indexes, None, None, None, None, "branch")
+        assert a.shape == (2, 2, 2)
+
+        # CPython API errors
+        with pytest.raises(ValueError, match="Sum of sample_set_sizes"):
+            bad_ss = np.array([], dtype=np.int32)
+            stat_method(
+                ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(TypeError, match="cast array data"):
+            bad_ss = np.array(ts.get_samples(), dtype=np.uint32)
+            stat_method(
+                ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(ValueError, match="Unrecognised stats mode"):
+            stat_method(ss_sizes, ss, indexes, row_sites, col_sites, None, None, "bla")
+        with pytest.raises(TypeError, match="at most"):
+            stat_method(
+                ss_sizes, ss, indexes, row_sites, col_sites, None, None, "site", "abc"
+            )
+        with pytest.raises(ValueError, match="invalid literal"):
+            bad_sites = ["abadsite", 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(TypeError):
+            bad_sites = [None, 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(TypeError):
+            bad_sites = [{}, 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(TypeError, match="Cannot cast array data"):
+            bad_sites = np.array([0, 1, 2], dtype=np.uint32)
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(ValueError, match="invalid literal"):
+            bad_sites = ["abadsite", 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(TypeError):
+            bad_sites = [None, 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(TypeError):
+            bad_sites = [{}, 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(TypeError, match="Cannot cast array data"):
+            bad_sites = np.array([0, 1, 2], dtype=np.uint32)
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(ValueError):
+            bad_pos = ["abadpos", 0.1, 0.2, 2.0]
+            stat_method(ss_sizes, ss, indexes, None, None, bad_pos, col_pos, "branch")
+        with pytest.raises(TypeError):
+            bad_pos = [{}, 0.1, 0.2, 2.0]
+            stat_method(ss_sizes, ss, indexes, None, None, bad_pos, col_pos, "branch")
+        with pytest.raises(ValueError):
+            bad_pos = ["abadpos", 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, bad_pos, "branch")
+        with pytest.raises(TypeError):
+            bad_pos = [{}, 0, 3, 2]
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, bad_pos, "branch")
+        with pytest.raises(ValueError, match="Cannot specify sites in branch mode"):
+            stat_method(
+                ss_sizes, ss, indexes, row_sites, col_sites, None, None, "branch"
+            )
+        with pytest.raises(ValueError, match="Cannot specify positions in site mode"):
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, col_pos, "site")
+        # C API errors
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_UNSORTED_SITES"):
+            bad_sites = np.array([1, 0, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_UNSORTED_SITES"):
+            bad_sites = np.array([1, 0, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_DUPLICATE_SITES"):
+            bad_sites = np.array([1, 1, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_DUPLICATE_SITES"):
+            bad_sites = np.array([1, 1, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_SITE_OUT_OF_BOUNDS"):
+            bad_sites = np.array([-1, 0, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, bad_sites, col_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_SITE_OUT_OF_BOUNDS"):
+            bad_sites = np.array([-1, 0, 2], dtype=np.int32)
+            stat_method(ss_sizes, ss, indexes, row_sites, bad_sites, None, None, "site")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_UNSORTED_POSITIONS"):
+            bad_pos = np.array([0.7, 0, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, bad_pos, col_pos, "branch")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_STAT_UNSORTED_POSITIONS"):
+            bad_pos = np.array([0.7, 0, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, bad_pos, "branch")
+        with pytest.raises(
+            tskit.LibraryError, match="TSK_ERR_STAT_DUPLICATE_POSITIONS"
+        ):
+            bad_pos = np.array([0.7, 0.7, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, bad_pos, col_pos, "branch")
+        with pytest.raises(
+            tskit.LibraryError, match="TSK_ERR_STAT_DUPLICATE_POSITIONS"
+        ):
+            bad_pos = np.array([0.7, 0.7, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, bad_pos, "branch")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_POSITION_OUT_OF_BOUNDS"):
+            bad_pos = np.array([-0.1, 0.7, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, bad_pos, col_pos, "branch")
+        with pytest.raises(tskit.LibraryError, match="TSK_ERR_POSITION_OUT_OF_BOUNDS"):
+            bad_pos = np.array([-0.1, 0.7, 0.8], dtype=np.float64)
+            stat_method(ss_sizes, ss, indexes, None, None, row_pos, bad_pos, "branch")
+        with pytest.raises(
+            _tskit.LibraryError, match="TSK_ERR_INSUFFICIENT_SAMPLE_SETS"
+        ):
+            bad_ss = np.array([], dtype=np.int32)
+            bad_ss_sizes = np.array([], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(
+            _tskit.LibraryError, match="TSK_ERR_INSUFFICIENT_SAMPLE_SETS"
+        ):
+            bad_ss = np.array([], dtype=np.int32)
+            bad_ss_sizes = np.array([], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, None, None, row_pos, col_pos, "branch"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_SAMPLE_SET_INDEX"):
+            bad_ss = np.array([], dtype=np.int32)
+            bad_ss_sizes = np.array([0], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_SAMPLE_SET_INDEX"):
+            bad_ss = np.array([], dtype=np.int32)
+            bad_ss_sizes = np.array([0], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, None, None, row_pos, col_pos, "branch"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_NODE_OUT_OF_BOUNDS"):
+            bad_ss = np.array([1000, 1000], dtype=np.int32)
+            bad_ss_sizes = np.array([1, 1], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_NODE_OUT_OF_BOUNDS"):
+            bad_ss = np.array([1000, 1000], dtype=np.int32)
+            bad_ss_sizes = np.array([1, 1], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, None, None, row_pos, col_pos, "branch"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_DUPLICATE_SAMPLE"):
+            bad_ss = np.array([1, 1, 2, 3], dtype=np.int32)
+            bad_ss_sizes = np.array([2, 2], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_DUPLICATE_SAMPLE"):
+            bad_ss = np.array([1, 1, 2, 3], dtype=np.int32)
+            bad_ss_sizes = np.array([2, 2], dtype=np.uint32)
+            stat_method(
+                bad_ss_sizes, bad_ss, indexes, None, None, row_pos, col_pos, "branch"
+            )
+        with pytest.raises(ValueError, match="indexes must be a"):
+            bad_indexes = np.array([[0, 0, 1, 1], [0, 0, 1, 1]], dtype=np.int32)
+            stat_method(
+                ss_sizes, ss, bad_indexes, row_sites, col_sites, None, None, "site"
+            )
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_UNSUPPORTED_STAT_MODE"):
+            stat_method(ss_sizes, ss, indexes, col_sites, row_sites, None, None, "node")
+
     def test_kc_distance_errors(self):
         ts1 = self.get_example_tree_sequence(10)
         with pytest.raises(TypeError):
@@ -1922,11 +2210,11 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
     def test_array_properties(self, name, ts_fixture):
         ts_fixture = ts_fixture.ll_tree_sequence
         a = getattr(ts_fixture, name)
-        assert a.base == ts_fixture
         assert not a.flags.writeable
         assert a.flags.aligned
         assert a.flags.c_contiguous
         assert not a.flags.owndata
+        assert a.base == ts_fixture
         b = getattr(ts_fixture, name)
         assert a is not b
         assert np.all(a == b)
@@ -1949,23 +2237,183 @@ class TestTreeSequence(LowLevelTestCase, MetadataTestMixin):
         a2[:] = 0
         assert a3 is not a2
 
-    def test_individuals_nodes(self, ts_fixture):
+    @pytest.mark.parametrize("name", ("individuals_nodes", "mutations_edge"))
+    def test_generated_columns(self, ts_fixture, name):
+        name = f"get_{name}"
         ts_fixture = ts_fixture.ll_tree_sequence
 
         # Properties
-        a = ts_fixture.get_individuals_nodes()
+        a = getattr(ts_fixture, name)()
         assert a.flags.aligned
         assert a.flags.c_contiguous
         assert a.flags.owndata
-        b = ts_fixture.get_individuals_nodes()
+        b = getattr(ts_fixture, name)()
         assert a is not b
         assert np.all(a == b)
 
         # Lifetime
-        a1 = ts_fixture.get_individuals_nodes()
+        a1 = getattr(ts_fixture, name)()
         a2 = a1.copy()
         assert a1 is not a2
         del ts_fixture
+        # Do some memory operations
+        a3 = np.ones(10**6)
+        assert np.all(a1 == a2)
+        del a1
+        # Just do something to touch memory
+        a2[:] = 0
+        assert a3 is not a2
+
+    @pytest.mark.skipif(not _tskit.HAS_NUMPY_2, reason="Requires NumPy 2.0+")
+    @pytest.mark.parametrize(
+        "string_array",
+        [
+            "sites_ancestral_state_string",
+            "mutations_derived_state_string",
+            "mutations_inherited_state_string",
+            "provenances_timestamp_string",
+            "provenances_record_string",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "str_lengths",
+        ["none", "all-0", "all-1", "all-2", "mixed", "very_long", "unicode"],
+    )
+    def test_string_arrays(self, ts_fixture, str_lengths, string_array):
+        if str_lengths == "none":
+            ts = tskit.TableCollection(1.0).tree_sequence()
+        else:
+            if str_lengths == "all-1":
+                ts = ts_fixture
+                if string_array == "sites_ancestral_state_string":
+                    assert ts.num_sites > 0
+                    assert {len(site.ancestral_state) for site in ts.sites()} == {1}
+                elif string_array == "mutations_derived_state_string":
+                    assert ts.num_mutations > 0
+                    assert {len(mut.derived_state) for mut in ts.mutations()} == {1}
+                elif string_array == "mutations_inherited_state_string":
+                    assert ts.num_mutations > 0
+                    assert {len(mut.inherited_state) for mut in ts.mutations()} == {1}
+                elif string_array == "provenances_timestamp_string":
+                    assert ts.num_provenances > 0
+                    assert len(ts.provenance(3).timestamp) == 1
+                elif string_array == "provenances_record_string":
+                    assert ts.num_provenances > 0
+                    assert len(ts.provenance(3).record) == 1
+            else:
+                tables = ts_fixture.dump_tables()
+
+                str_map = {
+                    "all-0": lambda i, item: "",
+                    "all-2": lambda i, item: chr(ord("A") + (i % 26)) * 2,
+                    "mixed": lambda i, item: chr(ord("A") + (i % 26)) * (i % 20),
+                    "very_long": lambda i, item: "A" * 100_000_000 if i == 1 else "T",
+                    "unicode": lambda i, item: "🧬" * (i + 1),
+                }
+
+                if string_array == "sites_ancestral_state_string":
+                    sites = tables.sites.copy()
+                    tables.sites.clear()
+                    get_ancestral_state = str_map[str_lengths]
+                    for i, site in enumerate(sites):
+                        tables.sites.append(
+                            site.replace(ancestral_state=get_ancestral_state(i, site))
+                        )
+                elif string_array == "mutations_derived_state_string":
+                    mutations = tables.mutations.copy()
+                    tables.mutations.clear()
+                    get_derived_state = str_map[str_lengths]
+                    for i, mutation in enumerate(mutations):
+                        tables.mutations.append(
+                            mutation.replace(
+                                derived_state=get_derived_state(i, mutation)
+                            )
+                        )
+                elif string_array == "mutations_inherited_state_string":
+                    # For inherited state, we modify sites and mutations to create
+                    # varied lengths
+                    sites = tables.sites.copy()
+                    tables.sites.clear()
+                    get_ancestral_state = str_map[str_lengths]
+                    for i, site in enumerate(sites):
+                        tables.sites.append(
+                            site.replace(ancestral_state=get_ancestral_state(i, site))
+                        )
+                    mutations = tables.mutations.copy()
+                    tables.mutations.clear()
+                    get_derived_state = str_map[str_lengths]
+                    for i, mutation in enumerate(mutations):
+                        tables.mutations.append(
+                            mutation.replace(
+                                derived_state=get_derived_state(i, mutation)
+                            )
+                        )
+                elif string_array == "provenances_timestamp_string":
+                    provenances = tables.provenances.copy()
+                    tables.provenances.clear()
+                    get_timestamp = str_map[str_lengths]
+                    for i, provenance in enumerate(provenances):
+                        tables.provenances.append(
+                            provenance.replace(timestamp=get_timestamp(i, provenance))
+                        )
+                elif string_array == "provenances_record_string":
+                    provenances = tables.provenances.copy()
+                    tables.provenances.clear()
+                    get_record = str_map[str_lengths]
+                    for i, provenance in enumerate(provenances):
+                        tables.provenances.append(
+                            provenance.replace(record=get_record(i, provenance))
+                        )
+
+                ts = tables.tree_sequence()
+        ll_ts = ts.ll_tree_sequence
+
+        a = getattr(ll_ts, string_array)
+
+        # Contents
+        if str_lengths == "none":
+            assert a.size == 0
+        else:
+            if string_array == "sites_ancestral_state_string":
+                for site in ts.sites():
+                    assert a[site.id] == site.ancestral_state
+            elif string_array == "mutations_derived_state_string":
+                for mutation in ts.mutations():
+                    assert a[mutation.id] == mutation.derived_state
+            elif string_array == "mutations_inherited_state_string":
+                for mutation in ts.mutations():
+                    assert a[mutation.id] == mutation.inherited_state
+            elif string_array == "provenances_timestamp_string":
+                for provenance in ts.provenances():
+                    assert a[provenance.id] == provenance.timestamp
+            elif string_array == "provenances_record_string":
+                for provenance in ts.provenances():
+                    assert a[provenance.id] == provenance.record
+
+        # Read only
+        with pytest.raises(AttributeError, match="not writable"):
+            setattr(ll_ts, string_array, None)
+        with pytest.raises(AttributeError, match="not writable"):
+            delattr(ll_ts, string_array)
+
+        with pytest.raises(ValueError, match="assignment destination"):
+            a[:] = 0
+        with pytest.raises(ValueError, match="assignment destination"):
+            a[0] = 0
+
+        # Properties
+        assert a.dtype == np.dtypes.StringDType()
+        assert a.flags.aligned
+        assert a.flags.c_contiguous
+        b = getattr(ll_ts, string_array)
+        assert a is not b
+        assert np.all(a == b)
+
+        # Lifetime
+        a1 = getattr(ll_ts, string_array)
+        a2 = a1.copy()
+        assert a1 is not a2
+        del ll_ts
         # Do some memory operations
         a3 = np.ones(10**6)
         assert np.all(a1 == a2)
@@ -2013,6 +2461,29 @@ class StatsInterfaceMixin:
         for bad_window in bad_windows:
             with pytest.raises(_tskit.LibraryError):
                 f(windows=bad_window, **params)
+
+    def test_time_window_errors(self):
+        ts, f, params = self.get_example()
+        if "time_windows" in params:
+            del params["time_windows"]
+
+            for bad_time_windows in [[], [0]]:
+                with pytest.raises(ValueError, match="must have at least 2"):
+                    f(
+                        time_windows=bad_time_windows,
+                        **params,
+                    )
+            bad_time_windows = [
+                [-1, np.inf],
+                [0, 0, np.inf],
+                [0, 10, 5, np.inf],
+                [0, np.inf, np.inf],
+            ]
+            for bad_time_window in bad_time_windows:
+                with pytest.raises(
+                    _tskit.LibraryError, match="TSK_ERR_BAD_TIME_WINDOWS"
+                ):
+                    f(time_windows=bad_time_window, **params)
 
     def test_polarisation(self):
         ts, f, params = self.get_example()
@@ -2197,12 +2668,10 @@ class OneWaySampleStatsMixin(SampleSetMixin):
 
     def test_polarised(self):
         # TODO move this to the top level.
-        ts, method = self.get_method()
-        samples = ts.get_samples()
-        n = len(samples)
-        windows = [0, ts.get_sequence_length()]
-        method([n], samples, windows, polarised=True)
-        method([n], samples, windows, polarised=False)
+        ts, method, params = self.get_example()
+        out_u = method(**params, polarised=True)
+        out_p = method(**params, polarised=False)
+        assert np.all(out_u.shape == out_p.shape)
 
 
 class TestDiversity(LowLevelTestCase, OneWaySampleStatsMixin):
@@ -2274,37 +2743,73 @@ class TestAlleleFrequencySpectrum(LowLevelTestCase, OneWaySampleStatsMixin):
         ts = self.get_example_tree_sequence()
         return ts, ts.allele_frequency_spectrum
 
-    def test_basic_example(self):
+    def get_example(self):
+        # temporary duplicate from OneWaySampleStatsMixin to include time windows
+        ts, method = self.get_method()
+        params = {
+            "sample_set_sizes": [ts.get_num_samples()],
+            "sample_sets": ts.get_samples(),
+            "windows": [0, ts.get_sequence_length()],
+            "time_windows": [0, np.inf],
+        }
+        return ts, method, params
+
+    @pytest.mark.parametrize("mode", ["site", "branch"])
+    def test_basic_example(self, mode):
         ts = self.get_example_tree_sequence()
         n = ts.get_num_samples()
         result = ts.allele_frequency_spectrum(
-            [n], ts.get_samples(), [0, ts.get_sequence_length()]
+            [n],
+            ts.get_samples(),
+            [0, ts.get_sequence_length()],
+            time_windows=[0, np.inf],
+            mode=mode,
         )
-        assert result.shape == (1, n + 1)
+        assert result.shape == (1, 1, n + 1)
         result = ts.allele_frequency_spectrum(
-            [n], ts.get_samples(), [0, ts.get_sequence_length()], polarised=True
+            [n],
+            ts.get_samples(),
+            [0, ts.get_sequence_length()],
+            time_windows=[0, np.inf],
+            mode=mode,
+            polarised=True,
         )
-        assert result.shape == (1, n + 1)
+        assert result.shape == (1, 1, n + 1)
 
-    def test_output_dims(self):
+    @pytest.mark.parametrize("mode", ["site", "branch"])
+    def test_output_dims(self, mode):
         ts = self.get_example_tree_sequence()
         samples = ts.get_samples()
         L = ts.get_sequence_length()
         n = len(samples)
+        time_windows = [0, np.inf]
 
-        for mode in ["site", "branch"]:
-            for s in [[n], [n - 2, 2], [n - 4, 2, 2], [1] * n]:
-                s = np.array(s, dtype=np.uint32)
-                windows = [0, L]
-                for windows in [[0, L], [0, L / 2, L], np.linspace(0, L, num=10)]:
-                    jafs = ts.allele_frequency_spectrum(
-                        s, samples, windows, mode=mode, polarised=True
-                    )
-                    assert jafs.shape == tuple([len(windows) - 1] + list(s + 1))
-                    jafs = ts.allele_frequency_spectrum(
-                        s, samples, windows, mode=mode, polarised=False
-                    )
-                    assert jafs.shape == tuple([len(windows) - 1] + list(s + 1))
+        for s in [[n], [n - 2, 2], [n - 4, 2, 2], [1] * n]:
+            s = np.array(s, dtype=np.uint32)
+            windows = [0, L]
+            for windows in [[0, L], [0, L / 2, L], np.linspace(0, L, num=10)]:
+                jafs = ts.allele_frequency_spectrum(
+                    s,
+                    samples,
+                    windows,
+                    mode=mode,
+                    time_windows=time_windows,
+                    polarised=True,
+                )
+                assert jafs.shape == tuple(
+                    [len(windows) - 1] + [len(time_windows) - 1] + list(s + 1)
+                )
+                jafs = ts.allele_frequency_spectrum(
+                    s,
+                    samples,
+                    windows,
+                    mode=mode,
+                    time_windows=time_windows,
+                    polarised=False,
+                )
+                assert jafs.shape == tuple(
+                    [len(windows) - 1] + [len(time_windows) - 1] + list(s + 1)
+                )
 
     def test_node_mode_not_supported(self):
         ts = self.get_example_tree_sequence()
@@ -2314,6 +2819,7 @@ class TestAlleleFrequencySpectrum(LowLevelTestCase, OneWaySampleStatsMixin):
                 ts.get_samples(),
                 [0, ts.get_sequence_length()],
                 mode="node",
+                time_windows=[0, np.inf],
             )
 
 
@@ -2834,6 +3340,128 @@ class TestGeneticRelatednessVector(LowLevelTestCase):
                 ts.genetic_relatedness_vector(
                     windows=bad_window, mode="branch", **params
                 )
+
+
+class TestDecodeAlignmentsLowLevel(LowLevelTestCase):
+    def get_simple_example(self):
+        # Simple 3-sample balanced tree with two sites, mirroring high-level tests.
+        ts = tskit.Tree.generate_balanced(3, span=10).tree_sequence
+        tables = ts.dump_tables()
+        tables.sites.add_row(2, ancestral_state="A")
+        tables.sites.add_row(9, ancestral_state="T")
+        tables.mutations.add_row(site=0, node=0, derived_state="G")
+        tables.mutations.add_row(site=1, node=3, derived_state="C")
+        return tables.tree_sequence().ll_tree_sequence
+
+    def test_basic_bytes_roundtrip(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        buf = ts.decode_alignments(
+            ref,
+            nodes,
+            0,
+            ts.get_sequence_length(),
+            "N",
+            True,
+        )
+        assert isinstance(buf, (bytes, bytearray))
+        L = int(ts.get_sequence_length())
+        rows = [buf[i * L : (i + 1) * L].decode("ascii") for i in range(nodes.shape[0])]
+        assert rows == ["NNGNNNNNNT", "NNANNNNNNC", "NNANNNNNNC"]
+
+    def test_nodes_type_and_bounds(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        # Bad nodes type
+        with pytest.raises(ValueError, match="desired array"):
+            ts.decode_alignments(ref, [[0, 1]], 0, ts.get_sequence_length(), "N", True)
+        # Out of bounds
+        bad_nodes = np.array([ts.get_num_nodes()], dtype=np.int32)
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_NODE_OUT_OF_BOUNDS"):
+            ts.decode_alignments(ref, bad_nodes, 0, ts.get_sequence_length(), "N", True)
+
+    def test_missing_char_validation(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        # missing_data_character must be str of length 1
+        with pytest.raises(TypeError, match="single character"):
+            ts.decode_alignments(ref, nodes, 0, ts.get_sequence_length(), "NN", True)
+
+    def test_argument_parsing_error(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        # left must be a float-like value
+        with pytest.raises(TypeError):
+            ts.decode_alignments(
+                ref, nodes, "bad_left", ts.get_sequence_length(), "N", True
+            )
+
+    def test_reference_sequence_type_validation(self):
+        ts = self.get_simple_example()
+        ref = "NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        with pytest.raises(TypeError, match="must be bytes"):
+            ts.decode_alignments(ref, nodes, 0, ts.get_sequence_length(), "N", True)
+
+    def test_missing_char_type_validation(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        with pytest.raises(TypeError, match="length 1"):
+            ts.decode_alignments(ref, nodes, 0, ts.get_sequence_length(), b"N", True)
+
+    def test_missing_char_unicode_error(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        with pytest.raises(UnicodeEncodeError):
+            ts.decode_alignments(
+                ref,
+                nodes,
+                0,
+                ts.get_sequence_length(),
+                NON_UTF8_STRING,
+                True,
+            )
+
+    def test_isolated_as_missing_flag_false(self):
+        ts = self.get_simple_example()
+        ref = b"NNNNNNNNNN"
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        buf = ts.decode_alignments(
+            ref,
+            nodes,
+            0,
+            ts.get_sequence_length(),
+            "N",
+            False,
+        )
+        assert isinstance(buf, (bytes, bytearray))
+        L = int(ts.get_sequence_length())
+        rows = [buf[i * L : (i + 1) * L].decode("ascii") for i in range(nodes.shape[0])]
+        assert rows == ["NNGNNNNNNT", "NNANNNNNNC", "NNANNNNNNC"]
+
+    def test_length_and_interval_validation(self):
+        ts = self.get_simple_example()
+        nodes = np.array(ts.get_samples(), dtype=np.int32)
+        # Wrong reference length
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_PARAM_VALUE"):
+            ts.decode_alignments(
+                b"NNNNNNNNN", nodes, 0, ts.get_sequence_length(), "N", True
+            )
+        # Negative left
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_PARAM_VALUE"):
+            ts.decode_alignments(
+                b"NNNNNNNNNN", nodes, -1, ts.get_sequence_length(), "N", True
+            )
+        # Non-integer left
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_PARAM_VALUE"):
+            ts.decode_alignments(
+                b"NNNNNNNNNN", nodes, 0.5, ts.get_sequence_length(), "N", True
+            )
 
 
 class TestGeneralStatsInterface(LowLevelTestCase, StatsInterfaceMixin):
@@ -3505,6 +4133,7 @@ class TestTree(LowLevelTestCase):
                             metadata,
                             time,
                             edge,
+                            inherited_state,
                         ) = ts.get_mutation(mut_id)
                         assert site == index
                         assert mutation_id == mut_id
@@ -3540,6 +4169,15 @@ class TestTree(LowLevelTestCase):
             with pytest.raises(_tskit.LibraryError):
                 tree.seek(bad_pos)
 
+    def seek_skip_errors(self):
+        ts = self.get_example_tree_sequence()
+        tree = _tskit.Tree(ts)
+        for bad_type in ["", "x", {}]:
+            with pytest.raises(TypeError):
+                tree.seek(0, bad_type)
+            with pytest.raises(TypeError):
+                tree.seek_index(0, bad_type)
+
     def test_seek_index_errors(self):
         ts = self.get_example_tree_sequence()
         tree = _tskit.Tree(ts)
@@ -3549,6 +4187,16 @@ class TestTree(LowLevelTestCase):
         for bad_index in [-1, 10**6]:
             with pytest.raises(_tskit.LibraryError):
                 tree.seek_index(bad_index)
+
+    @pytest.mark.parametrize("skip", [True, False])
+    def test_seek_zero(self, skip):
+        ts = self.get_example_tree_sequence()
+        tree1 = _tskit.Tree(ts)
+        tree1.seek_index(0, skip)
+        assert tree1.get_left() == 0
+        tree2 = _tskit.Tree(ts)
+        tree2.seek(0, skip)
+        assert tree2.get_left() == 0
 
     def test_root_threshold(self):
         for ts in self.get_example_tree_sequences():
@@ -4441,7 +5089,7 @@ class TestModuleFunctions:
 
     def test_tskit_version(self):
         version = _tskit.get_tskit_version()
-        assert version == (1, 1, 4)
+        assert version == (1, 3, 0)
 
     def test_tskit_version_file(self):
         maj, min_, patch = _tskit.get_tskit_version()
@@ -4810,6 +5458,8 @@ class TestPairCoalescenceRatesErrors:
         ts = self.example_ts()
         with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_TIME_WINDOWS"):
             self.pair_coalescence_rates(ts, time_windows=np.array([np.inf, 0.0]))
+        with pytest.raises(_tskit.LibraryError, match="TSK_ERR_BAD_TIME_WINDOWS_END"):
+            self.pair_coalescence_rates(ts, time_windows=np.array([0.0, 10.0]))
 
     def test_c_tsk_err_bad_node_time_window(self):
         ts = self.example_ts()

@@ -54,11 +54,11 @@ class CharacterPerformanceResource(SyncAPIResource):
         *,
         character: character_performance_create_params.Character,
         model: Literal["act_two"],
-        ratio: Literal["1280:720", "720:1280", "960:960", "1104:832", "832:1104", "1584:672"],
         reference: character_performance_create_params.Reference,
         body_control: bool | Omit = omit,
         content_moderation: character_performance_create_params.ContentModeration | Omit = omit,
         expression_intensity: int | Omit = omit,
+        ratio: Literal["1280:720", "720:1280", "960:960", "1104:832", "832:1104", "1584:672"] | Omit = omit,
         seed: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -75,9 +75,8 @@ class CharacterPerformanceResource(SyncAPIResource):
           character: The character to control. You can either provide a video or an image. A visually
               recognizable face must be visible and stay within the frame.
 
-          model: The model variant to use.
-
-          ratio: The resolution of the output video.
+          reference: A video of a person performing in the manner that you would like your character
+              to perform. The video must be between 3 and 30 seconds in duration.
 
           body_control: A boolean indicating whether to enable body control. When enabled, non-facial
               movements and gestures will be applied to the character in addition to facial
@@ -87,6 +86,8 @@ class CharacterPerformanceResource(SyncAPIResource):
 
           expression_intensity: An integer between 1 and 5 (inclusive). A larger value increases the intensity
               of the character's expression.
+
+          ratio: The resolution of the output video.
 
           seed: If unspecified, a random number is chosen. Varying the seed integer is a way to
               get different results for the same other request parameters. Using the same seed
@@ -106,11 +107,11 @@ class CharacterPerformanceResource(SyncAPIResource):
                 {
                     "character": character,
                     "model": model,
-                    "ratio": ratio,
                     "reference": reference,
                     "body_control": body_control,
                     "content_moderation": content_moderation,
                     "expression_intensity": expression_intensity,
+                    "ratio": ratio,
                     "seed": seed,
                 },
                 character_performance_create_params.CharacterPerformanceCreateParams,
@@ -147,11 +148,11 @@ class AsyncCharacterPerformanceResource(AsyncAPIResource):
         *,
         character: character_performance_create_params.Character,
         model: Literal["act_two"],
-        ratio: Literal["1280:720", "720:1280", "960:960", "1104:832", "832:1104", "1584:672"],
         reference: character_performance_create_params.Reference,
         body_control: bool | Omit = omit,
         content_moderation: character_performance_create_params.ContentModeration | Omit = omit,
         expression_intensity: int | Omit = omit,
+        ratio: Literal["1280:720", "720:1280", "960:960", "1104:832", "832:1104", "1584:672"] | Omit = omit,
         seed: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -168,9 +169,8 @@ class AsyncCharacterPerformanceResource(AsyncAPIResource):
           character: The character to control. You can either provide a video or an image. A visually
               recognizable face must be visible and stay within the frame.
 
-          model: The model variant to use.
-
-          ratio: The resolution of the output video.
+          reference: A video of a person performing in the manner that you would like your character
+              to perform. The video must be between 3 and 30 seconds in duration.
 
           body_control: A boolean indicating whether to enable body control. When enabled, non-facial
               movements and gestures will be applied to the character in addition to facial
@@ -180,6 +180,8 @@ class AsyncCharacterPerformanceResource(AsyncAPIResource):
 
           expression_intensity: An integer between 1 and 5 (inclusive). A larger value increases the intensity
               of the character's expression.
+
+          ratio: The resolution of the output video.
 
           seed: If unspecified, a random number is chosen. Varying the seed integer is a way to
               get different results for the same other request parameters. Using the same seed
@@ -199,11 +201,11 @@ class AsyncCharacterPerformanceResource(AsyncAPIResource):
                 {
                     "character": character,
                     "model": model,
-                    "ratio": ratio,
                     "reference": reference,
                     "body_control": body_control,
                     "content_moderation": content_moderation,
                     "expression_intensity": expression_intensity,
+                    "ratio": ratio,
                     "seed": seed,
                 },
                 character_performance_create_params.CharacterPerformanceCreateParams,

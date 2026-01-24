@@ -11,9 +11,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from _qwak_proto.qwak.feature_store.features import feature_set_types_pb2 as qwak_dot_feature__store_dot_features_dot_feature__set__types__pb2
+from _qwak_proto.qwak.feature_store.features import execution_pb2 as qwak_dot_feature__store_dot_features_dot_execution__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-qwak/execution/v1/streaming_aggregation.proto\x12\x1fqwak.feature.store.execution.v1\"@\n%RowLevelStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\xf8\x01\n\'CompactionStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12T\n\x14scheduled_compaction\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.execution.v1.ScheduledCompactionH\x00\x12N\n\x11manual_compaction\x18\x03 \x01(\x0b\x32\x31.qwak.feature.store.execution.v1.ManualCompactionH\x00\x42\x0e\n\x0ctrigger_type\"\x15\n\x13ScheduledCompaction\"\x12\n\x10ManualCompaction\"@\n%StreamingAggregationBackfillIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\tB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-qwak/execution/v1/streaming_aggregation.proto\x12\x1fqwak.feature.store.execution.v1\x1a\x33qwak/feature_store/features/feature_set_types.proto\x1a+qwak/feature_store/features/execution.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"@\n%RowLevelStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\"\xf8\x01\n\'CompactionStreamingAggregationIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12T\n\x14scheduled_compaction\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.execution.v1.ScheduledCompactionH\x00\x12N\n\x11manual_compaction\x18\x03 \x01(\x0b\x32\x31.qwak.feature.store.execution.v1.ManualCompactionH\x00\x42\x0e\n\x0ctrigger_type\"\x15\n\x13ScheduledCompaction\"\x12\n\x10ManualCompaction\"\x8b\x03\n%StreamingAggregationBackfillIngestion\x12\x17\n\x0f\x66\x65\x61tureset_name\x18\x01 \x01(\t\x12L\n\x0e\x65xecution_spec\x18\x02 \x01(\x0b\x32\x34.qwak.feature.store.features.execution.ExecutionSpec\x12\x33\n\x0fstart_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x43\n\x0etransformation\x18\x05 \x01(\x0b\x32+.qwak.feature.store.features.Transformation\x12N\n\x11\x64\x61ta_source_specs\x18\x06 \x03(\x0b\x32\x33.qwak.feature.store.execution.v1.BackfillDataSource\"n\n\x12\x42\x61\x63kfillDataSource\x12\x18\n\x10\x64\x61ta_source_name\x18\x01 \x01(\t\x12>\n\ntime_range\x18\x02 \x01(\x0b\x32*.qwak.feature.store.execution.v1.TimeRange\"\x99\x01\n\tTimeRange\x12\x35\n\x0fstart_timestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x12\x33\n\rend_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01\x42\x10\n\x0estart_optionalB\x0e\n\x0c\x65nd_optionalB)\n%com.qwak.ai.features.execution.api.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -22,14 +25,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n%com.qwak.ai.features.execution.api.v1P\001'
-  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_start=82
-  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_end=146
-  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_start=149
-  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_end=397
-  _globals['_SCHEDULEDCOMPACTION']._serialized_start=399
-  _globals['_SCHEDULEDCOMPACTION']._serialized_end=420
-  _globals['_MANUALCOMPACTION']._serialized_start=422
-  _globals['_MANUALCOMPACTION']._serialized_end=440
-  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_start=442
-  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_end=506
+  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_start=213
+  _globals['_ROWLEVELSTREAMINGAGGREGATIONINGESTION']._serialized_end=277
+  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_start=280
+  _globals['_COMPACTIONSTREAMINGAGGREGATIONINGESTION']._serialized_end=528
+  _globals['_SCHEDULEDCOMPACTION']._serialized_start=530
+  _globals['_SCHEDULEDCOMPACTION']._serialized_end=551
+  _globals['_MANUALCOMPACTION']._serialized_start=553
+  _globals['_MANUALCOMPACTION']._serialized_end=571
+  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_start=574
+  _globals['_STREAMINGAGGREGATIONBACKFILLINGESTION']._serialized_end=969
+  _globals['_BACKFILLDATASOURCE']._serialized_start=971
+  _globals['_BACKFILLDATASOURCE']._serialized_end=1081
+  _globals['_TIMERANGE']._serialized_start=1084
+  _globals['_TIMERANGE']._serialized_end=1237
 # @@protoc_insertion_point(module_scope)

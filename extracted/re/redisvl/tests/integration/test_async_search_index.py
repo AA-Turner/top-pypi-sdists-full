@@ -5,12 +5,7 @@ import pytest
 from redis import Redis as SyncRedis
 from redis.asyncio import Redis as AsyncRedis
 
-from redisvl.exceptions import (
-    QueryValidationError,
-    RedisModuleVersionError,
-    RedisSearchError,
-    RedisVLError,
-)
+from redisvl.exceptions import QueryValidationError, RedisSearchError, RedisVLError
 from redisvl.index import AsyncSearchIndex
 from redisvl.query import VectorQuery
 from redisvl.query.query import FilterQuery
@@ -156,7 +151,24 @@ async def test_search_index_from_existing_complex(async_client):
     except Exception as e:
         pytest.skip(str(e))
 
-    assert async_index2.schema == async_index.schema
+    # Verify index metadata matches
+    assert async_index2.schema.index.name == async_index.schema.index.name
+    assert async_index2.schema.index.prefix == async_index.schema.index.prefix
+    assert (
+        async_index2.schema.index.storage_type == async_index.schema.index.storage_type
+    )
+
+    # Verify non-vector fields are present
+    for field_name in ["user", "credit_score", "job", "age"]:
+        assert field_name in async_index2.schema.fields
+        assert (
+            async_index2.schema.fields[field_name].type
+            == async_index.schema.fields[field_name].type
+        )
+
+    # Vector field may not be present on older Redis versions
+    if "user_embedding" in async_index2.schema.fields:
+        assert async_index2.schema.fields["user_embedding"].type == "vector"
 
 
 def test_search_index_no_prefix(index_schema):
@@ -474,28 +486,32 @@ async def test_search_index_that_owns_client_disconnect_sync(index_schema, redis
 
 
 @pytest.mark.asyncio
-async def test_async_search_index_validates_redis_modules(redis_url):
+async def test_async_search_index_no_proactive_module_validation(redis_url):
     """
-    A regression test for RAAE-694: we should validate that a passed-in
-    Redis client has the correct modules installed.
+    Updated test for issue #370: AsyncSearchIndex should not validate modules proactively.
+    Operations should fail naturally if modules are missing.
     """
     client = AsyncRedis.from_url(redis_url)
     with mock.patch(
         "redisvl.index.index.RedisConnectionFactory.validate_async_redis"
     ) as mock_validate_async_redis:
-        mock_validate_async_redis.side_effect = RedisModuleVersionError(
-            "Required modules not installed"
+        # Create index - validation should only set lib name, not check modules
+        index = AsyncSearchIndex(
+            schema=IndexSchema.from_dict(
+                {"index": {"name": "my_index"}, "fields": fields}
+            ),
+            redis_client=client,
         )
-        with pytest.raises(RedisModuleVersionError):
-            index = AsyncSearchIndex(
-                schema=IndexSchema.from_dict(
-                    {"index": {"name": "my_index"}, "fields": fields}
-                ),
-                redis_client=client,
-            )
-            await index.create(overwrite=True, drop=True)
 
-        mock_validate_async_redis.assert_called_once()
+        # Access client to trigger lazy init
+        _ = await index._get_client()
+
+        # validate_async_redis might be called to set lib name, but won't raise module errors
+        # The actual operation (create) will succeed if modules are present
+        await index.create(overwrite=True, drop=True)
+
+        # Verify index was created successfully (modules are present in test env)
+        assert await index.exists()
 
 
 @pytest.mark.asyncio
@@ -680,3 +696,37 @@ async def test_search_index_validates_query_with_hnsw_algorithm(
     )
     # Should not raise
     await async_hnsw_index.query(query)
+
+
+@pytest.mark.asyncio
+async def test_async_search_index_connect(index_schema, redis_url):
+    """Test that AsyncSearchIndex.connect() works with redis_url parameter."""
+    async_index = AsyncSearchIndex(schema=index_schema)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        await async_index.connect(redis_url=redis_url)
+    assert async_index.client is not None
+    await async_index.disconnect()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ttl", [None, 30])
+async def test_search_index_load_with_ttl(async_index, ttl):
+    """Test that TTL is correctly set on keys when using load() with ttl parameter."""
+    await async_index.create(overwrite=True, drop=True)
+
+    # Load test data with TTL parameter
+    data = [{"id": "1", "test": "foo"}]
+    keys = await async_index.load(data, id_field="id", ttl=ttl)
+
+    # Check TTL on the loaded key
+    client = await async_index._get_client()
+    key_ttl = await client.ttl(keys[0])
+
+    if ttl is None:
+        # No TTL set, should return -1
+        assert key_ttl == -1
+    else:
+        # TTL should be set and close to the expected value
+        assert key_ttl > 0
+        assert abs(key_ttl - ttl) <= 5

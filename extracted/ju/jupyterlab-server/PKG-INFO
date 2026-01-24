@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jupyterlab_server
-Version: 2.27.3
+Version: 2.28.0
 Summary: A set of server components for JupyterLab and JupyterLab like applications.
 Project-URL: Homepage, https://jupyterlab-server.readthedocs.io
 Project-URL: Documentation, https://jupyterlab-server.readthedocs.io

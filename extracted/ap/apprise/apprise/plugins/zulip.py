@@ -99,7 +99,7 @@ class NotifyZulip(NotifyBase):
     secure_protocol = "zulip"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_zulip"
+    setup_url = "https://appriseit.com/services/zulip/"
 
     # Zulip uses the http protocol with JSON requests
     notify_url = "https://{org}.{hostname}/api/v1/messages"
@@ -314,7 +314,8 @@ class NotifyZulip(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

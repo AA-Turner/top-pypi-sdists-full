@@ -1,0 +1,119 @@
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1.7,<2.0"]
+
+[project]
+authors = [
+  { name = "Andreas Albert", email = "andreas.albert@quantco.com" },
+  { name = "Daniel Elsner", email = "daniel.elsner@quantco.com" },
+  { name = "Oliver Borchert", email = "oliver.borchert@quantco.com" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "fsspec>=2025.9",
+  "numpy",
+  "polars>=1.35",
+  # Conditional
+  'typing-extensions; python_version <= "3.10"',
+]
+description = "A declarative, polars-native data frame validation library"
+name = "dataframely"
+readme = "README.md"
+requires-python = ">=3.10"
+version = "2.6.0"
+
+[project.optional-dependencies]
+deltalake = ["deltalake"]
+pyarrow = ["pyarrow"]
+pydantic = ["pydantic>=2"]
+s3 = ["s3fs>=2025.9"]
+sqlalchemy = ["sqlalchemy"]
+
+[project.urls]
+Documentation = "https://dataframely.readthedocs.io/"
+Repository = "https://github.com/quantco/dataframely"
+
+[tool.maturin]
+module-name = "dataframely._native"
+
+[tool.setuptools.packages.find]
+include = ["dataframely"]
+namespaces = false
+
+[project.scripts]
+
+[tool.docformatter]
+black = true # only sets the style options to the default values of black
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+  "E501", # https://docs.astral.sh/ruff/faq/#is-the-ruff-linter-compatible-with-black
+  "N803", # https://docs.astral.sh/ruff/rules/invalid-argument-name
+  "N806", # https://docs.astral.sh/ruff/rules/non-lowercase-variable-in-function
+]
+select = [
+  # pyflakes
+  "F",
+  # pycodestyle
+  "E",
+  "W",
+  # isort
+  "I",
+  # pep8-naming
+  "N",
+  # pyupgrade
+  "UP",
+]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["dataframely.rule"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_defs = true
+exclude = ["docs/"]
+explicit_package_bases = true
+no_implicit_optional = true
+plugins = ["pydantic.mypy"]
+python_version = '3.10'
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = ["boto3.*", "fsspec.*", "pyarrow.*", "pytest_benchmark.*", "sklearn.*"]
+
+[tool.typos.default.extend-identifiers]
+plain_serializer_function_ser_schema = "plain_serializer_function_ser_schema"
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib --benchmark-skip -m 'not s3'"
+filterwarnings = [
+  # By default, all warnings should yield errors
+  "error",
+  # Almost all tests are oblivious to the value of `nullable`. Let's ignore the warning as long as it exists.
+  "ignore:The 'nullable' argument was not explicitly set:FutureWarning",
+  # boto3 still uses .utcnow()
+  "ignore::DeprecationWarning:botocore.*:",
+]
+markers = [
+  "s3: tests that run against and S3 backend",
+  "with_optionals: tests that require optional dependencies to be installed",
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+omit = ["dataframely/testing/generate.py"]

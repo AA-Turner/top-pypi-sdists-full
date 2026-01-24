@@ -8,22 +8,46 @@
 #ifndef SkRuntimeEffectPriv_DEFINED
 #define SkRuntimeEffectPriv_DEFINED
 
+#include "include/core/SkColor.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkString.h"
 #include "include/effects/SkRuntimeEffect.h"
-#include "include/private/SkColorData.h"
-#include "src/core/SkVM.h"
+#include "include/private/SkSLSampleUsage.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkSpan_impl.h"
+#include "include/private/base/SkTArray.h"
+#include "src/core/SkEffectPriv.h"
+#include "src/core/SkKnownRuntimeEffects.h"
+#include "src/sksl/codegen/SkSLRasterPipelineBuilder.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <memory>
+#include <vector>
 
-#ifdef SK_ENABLE_SKSL
+#include "include/sksl/SkSLVersion.h"
+
+class SkArenaAlloc;
+class SkCapabilities;
+class SkColorSpace;
+class SkData;
+class SkMatrix;
+class SkReadBuffer;
+class SkShader;
+class SkWriteBuffer;
+struct SkColorSpaceXformSteps;
+
+namespace SkShaders {
+class MatrixRec;
+}
 
 namespace SkSL {
 class Context;
 class Variable;
 struct Program;
 }
-
-class SkCapabilities;
-struct SkColorSpaceXformSteps;
 
 class SkRuntimeEffectPriv {
 public:
@@ -40,17 +64,51 @@ public:
     using UniformsCallback = std::function<sk_sp<const SkData>(const UniformsCallbackContext&)>;
     static sk_sp<SkShader> MakeDeferredShader(const SkRuntimeEffect* effect,
                                               UniformsCallback uniformsCallback,
-                                              SkSpan<SkRuntimeEffect::ChildPtr> children,
+                                              SkSpan<const SkRuntimeEffect::ChildPtr> children,
                                               const SkMatrix* localMatrix = nullptr);
 
     // Helper function when creating an effect for a GrSkSLFP that verifies an effect will
-    // implement the constant output for constant input optimization flag.
+    // implement the GrFragmentProcessor "constant output for constant input" optimization flag.
     static bool SupportsConstantOutputForConstantInput(const SkRuntimeEffect* effect) {
-        return effect->getFilterColorProgram();
+        // This optimization is only implemented for color filters without any children.
+        if (!effect->allowColorFilter() || !effect->children().empty()) {
+            return false;
+        }
+        return true;
     }
 
     static uint32_t Hash(const SkRuntimeEffect& effect) {
         return effect.hash();
+    }
+
+    static bool HasName(const SkRuntimeEffect& effect) {
+        return !effect.fName.isEmpty();
+    }
+
+    static const char* GetName(const SkRuntimeEffect& effect) {
+        return effect.fName.c_str();
+    }
+
+    static uint32_t StableKey(const SkRuntimeEffect& effect) {
+        return effect.fStableKey;
+    }
+
+    // This method is only used on user-defined known runtime effects
+    static void SetStableKey(SkRuntimeEffect* effect, uint32_t stableKey) {
+        SkASSERT(!effect->fStableKey);
+        SkASSERT(SkKnownRuntimeEffects::IsViableUserDefinedKnownRuntimeEffect(stableKey));
+        effect->fStableKey = stableKey;
+    }
+
+    // This method is only used for Skia-internal known runtime effects
+    static void SetStableKeyOnOptions(SkRuntimeEffect::Options* options, uint32_t stableKey) {
+        SkASSERT(!options->fStableKey);
+        SkASSERT(SkKnownRuntimeEffects::IsSkiaKnownRuntimeEffect(stableKey));
+        options->fStableKey = stableKey;
+    }
+
+    static void ResetStableKey(SkRuntimeEffect* effect) {
+        effect->fStableKey = 0;
     }
 
     static const SkSL::Program& Program(const SkRuntimeEffect& effect) {
@@ -71,6 +129,11 @@ public:
                                                  const SkSL::Context&,
                                                  size_t* offset);
 
+    static SkRuntimeEffect::Child VarAsChild(const SkSL::Variable& var,
+                                             int index);
+
+    static const char* ChildTypeToStr(SkRuntimeEffect::ChildType type);
+
     // If there are layout(color) uniforms then this performs color space transformation on the
     // color values and returns a new SkData. Otherwise, the original data is returned.
     static sk_sp<const SkData> TransformUniforms(SkSpan<const SkRuntimeEffect::Uniform> uniforms,
@@ -79,9 +142,28 @@ public:
     static sk_sp<const SkData> TransformUniforms(SkSpan<const SkRuntimeEffect::Uniform> uniforms,
                                                  sk_sp<const SkData> originalData,
                                                  const SkColorSpace* dstCS);
+    static SkSpan<const float> UniformsAsSpan(
+        SkSpan<const SkRuntimeEffect::Uniform> uniforms,
+        sk_sp<const SkData> originalData,
+        bool alwaysCopyIntoAlloc,
+        const SkColorSpace* destColorSpace,
+        SkArenaAlloc* alloc);
 
     static bool CanDraw(const SkCapabilities*, const SkSL::Program*);
     static bool CanDraw(const SkCapabilities*, const SkRuntimeEffect*);
+
+    static bool ReadChildEffects(SkReadBuffer& buffer,
+                                 const SkRuntimeEffect* effect,
+                                 skia_private::TArray<SkRuntimeEffect::ChildPtr>* children);
+    static void WriteChildEffects(SkWriteBuffer& buffer,
+                                  SkSpan<const SkRuntimeEffect::ChildPtr> children);
+
+    static bool UsesColorTransform(const SkRuntimeEffect* effect) {
+        return effect->usesColorTransform();
+    }
+    static SkSL::SampleUsage ChildSampleUsage(const SkRuntimeEffect* effect, int child) {
+        return effect->fSampleUsages[child];
+    }
 };
 
 // These internal APIs for creating runtime effects vary from the public API in two ways:
@@ -104,7 +186,7 @@ inline sk_sp<SkRuntimeEffect> SkMakeCachedRuntimeEffect(
 
 // Internal API that assumes (and asserts) that the shader code is valid, but does no internal
 // caching. Used when the caller will cache the result in a static variable. Ownership is passed to
-// the caller; the effect will be leaked if it the pointer is not stored or explicitly deleted.
+// the caller; the effect will be leaked if the pointer is not stored or explicitly deleted.
 inline SkRuntimeEffect* SkMakeRuntimeEffect(
         SkRuntimeEffect::Result (*make)(SkString, const SkRuntimeEffect::Options&),
         const char* sksl,
@@ -124,53 +206,43 @@ inline SkRuntimeEffect* SkMakeRuntimeEffect(
     return result.effect.release();
 }
 
-/**
- * Runtime effects are often long lived & cached. Individual color filters or FPs created from them
- * and are often short-lived. However, color filters and FPs may need to operate on a single color
- * (on the CPU). This may be done at the paint level (eg, filter the paint color), or as part of
- * FP tree analysis.
- *
- * SkFilterColorProgram is an skvm program representing a (color filter) SkRuntimeEffect. It can
- * process a single color, without knowing the details of a particular instance (uniform values or
- * children).
- */
-class SkFilterColorProgram {
+class RuntimeEffectRPCallbacks : public SkSL::RP::Callbacks {
 public:
-    static std::unique_ptr<SkFilterColorProgram> Make(const SkRuntimeEffect* effect);
+    // SkStageRec::fPaintColor is used (strictly) to tint alpha-only image shaders with the paint
+    // color. We want to suppress that behavior when they're sampled from runtime effects, so we
+    // just override the paint color here. See also: SkImageShader::appendStages.
+    RuntimeEffectRPCallbacks(const SkStageRec& s,
+                             const SkShaders::MatrixRec& m,
+                             SkSpan<const SkRuntimeEffect::ChildPtr> c,
+                             SkSpan<const SkSL::SampleUsage> u)
+            : fStage{s.fPipeline,
+                     s.fAlloc,
+                     s.fDstColorType,
+                     s.fDstCS,
+                     SkColors::kTransparent,
+                     s.fSurfaceProps,
+                     s.fDstBounds}
+            , fMatrix(m)
+            , fChildren(c)
+            , fSampleUsages(u) {}
 
-    SkPMColor4f eval(const SkPMColor4f& inColor,
-                     const void* uniformData,
-                     std::function<SkPMColor4f(int, SkPMColor4f)> evalChild) const;
+    bool appendShader(int index) override;
+    bool appendColorFilter(int index) override;
+    bool appendBlender(int index) override;
 
-    bool isAlphaUnchanged() const { return fAlphaUnchanged; }
+    // TODO: If an effect calls these intrinsics more than once, we could cache and re-use the steps
+    // object(s), rather than re-creating them in the arena repeatedly.
+    void toLinearSrgb(const void* color) override;
+
+    void fromLinearSrgb(const void* color) override;
 
 private:
-    struct SampleCall {
-        enum class Kind {
-            kInputColor,  // eg child.eval(inputColor)
-            kImmediate,   // eg child.eval(half4(1))
-            kPrevious,    // eg child1.eval(child2.eval(...))
-            kUniform,     // eg uniform half4 color; ... child.eval(color)
-        };
+    void applyColorSpaceXform(const SkColorSpaceXformSteps& tempXform, const void* color);
 
-        int  fChild;
-        Kind fKind;
-        union {
-            SkPMColor4f fImm;       // for kImmediate
-            int         fPrevious;  // for kPrevious
-            int         fOffset;    // for kUniform
-        };
-    };
-
-    SkFilterColorProgram(skvm::Program program,
-                         std::vector<SampleCall> sampleCalls,
-                         bool alphaUnchanged);
-
-    skvm::Program           fProgram;
-    std::vector<SampleCall> fSampleCalls;
-    bool                    fAlphaUnchanged;
+    const SkStageRec fStage;
+    const SkShaders::MatrixRec& fMatrix;
+    SkSpan<const SkRuntimeEffect::ChildPtr> fChildren;
+    SkSpan<const SkSL::SampleUsage> fSampleUsages;
 };
-
-#endif  // SK_ENABLE_SKSL
 
 #endif  // SkRuntimeEffectPriv_DEFINED

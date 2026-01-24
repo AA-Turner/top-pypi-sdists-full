@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyftpdlib
-Version: 2.0.1
+Version: 2.1.0
 Summary: Very fast asynchronous FTP server library
 Home-page: https://github.com/giampaolo/pyftpdlib/
 Author: Giampaolo Rodola'
@@ -12,7 +12,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
@@ -40,10 +39,27 @@ Provides-Extra: test
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: pyopenssl; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-instafail; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: setuptools; extra == "test"
+Requires-Dist: pyasyncore; extra == "test"
+Requires-Dist: pyasynchat; extra == "test"
 Provides-Extra: ssl
 Requires-Dist: PyOpenSSL; extra == "ssl"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 |  |downloads| |stars| |forks| |contributors|
 |  |version| |packages| |license|
@@ -202,6 +218,9 @@ Start a FTP server, with an anonymous user with write permissions, on port 2121:
     [I 2024-06-23 13:49:35] masquerade (NAT) address: None
     [I 2024-06-23 13:49:35] passive ports: None
     [I 2024-06-23 13:49:35] >>> starting FTP server on 0.0.0.0:2121, pid=763634 <<<
+
+Also see `CLI doc <https://pyftpdlib.readthedocs.io/en/latest/cli.html>`__
+for more examples.
 
 API usage
 =========

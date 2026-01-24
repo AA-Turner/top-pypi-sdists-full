@@ -2,8 +2,15 @@ import os
 import json
 from typing import Tuple, Union
 
+import requests
+from .utils import safe_requests_wrapper
+from .exceptions import OuterboundsConfigurationException
+
 
 class PerimeterExtractor:
+
+    config = None
+
     @classmethod
     def for_ob_cli(
         cls, config_dir: str, profile: str
@@ -40,7 +47,7 @@ class PerimeterExtractor:
         return perimeter, api_server  # type: ignore
 
     @classmethod
-    def during_metaflow_execution(cls) -> Union[Tuple[str, str], Tuple[None, None]]:
+    def during_programmatic_access(cls) -> Union[Tuple[str, str], Tuple[None, None]]:
         from metaflow.metaflow_config_funcs import init_config
 
         clean_url = (
@@ -55,9 +62,7 @@ class PerimeterExtractor:
             "OBP_PERIMETER", os.environ.get("OBP_PERIMETER", perimeter)
         )
         if perimeter is None:
-            raise RuntimeError(
-                "Perimeter not found in metaflow config or environment variables"
-            )
+            raise OuterboundsConfigurationException("OBP_PERIMETER")
 
         api_server = config.get(
             "OBP_API_SERVER", os.environ.get("OBP_API_SERVER", api_server)
@@ -80,8 +85,39 @@ class PerimeterExtractor:
             api_server = integrations_url.rstrip("/integrations")
 
         if api_server is None:
-            raise RuntimeError(
-                "API server not found in metaflow config or environment variables"
-            )
+            raise OuterboundsConfigurationException("OBP_API_SERVER")
 
         return perimeter, api_server
+
+    @classmethod
+    def config_during_programmatic_access(cls) -> dict:
+        #!HACK: Resolving remote configs is a PITA (all the variable piping we need to do via metaflow)
+        # So instead we will just derive the URL. We are in this situation because its a pain
+        # to load configurations at arbitrary points in the runtime.
+        if cls.config is not None:
+            return json.loads(json.dumps(cls.config))  # Return fresh copy
+        from metaflow.metaflow_config import SERVICE_HEADERS
+
+        perimeter, api_server = cls.during_programmatic_access()
+        response = safe_requests_wrapper(
+            requests.get,
+            f"{api_server}/v1/perimeters/{perimeter}/metaflowconfigs/default",
+            headers=SERVICE_HEADERS,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Server error: {response.text}. Please reach out to your Outerbounds support team."
+            )
+        try:
+            remote_config = response.json()
+
+            if not remote_config.get("config"):
+                raise json.JSONDecodeError
+        except json.JSONDecodeError:
+            raise RuntimeError(
+                "Exception retrieving remote outerbounds configuration. "
+                "Please reach out to Outerbounds suport team with this stack trace."
+            )
+
+        cls.config = remote_config.get("config")
+        return json.loads(json.dumps(cls.config))  # Return fresh copy

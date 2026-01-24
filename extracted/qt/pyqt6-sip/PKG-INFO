@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyQt6_sip
-Version: 13.10.2
+Version: 13.11.0
 Summary: The sip module support for PyQt6
 Home-page: https://github.com/Python-SIP/sip
 Author: Phil Thompson
@@ -9,7 +9,7 @@ License: BSD-2-Clause
 Platform: X11
 Platform: macOS
 Platform: Windows
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Dynamic: license
 Dynamic: license-file

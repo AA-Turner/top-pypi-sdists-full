@@ -154,3 +154,22 @@ releases:
     - cs_instance-user_data_name.yml
     - cs_service_offering-storage-tag.yml
     release_date: '2024-09-26'
+  3.0.0:
+    changes:
+      bugfixes:
+      - Ensure tags are applied when creating or updating a template (https://github.com/ngine-io/ansible-collection-cloudstack/pull/154).
+      major_changes:
+      - Ensuring backwards compatibility and integration tests with CloudStack 4.17
+        and 4.18.
+      - General overhaul (black code style) and renaming of all modules (dropping
+        ``cs_`` prefix) (https://github.com/ngine-io/ansible-collection-cloudstack/pull/141).
+      - Update cs dependency to >=3.4.0.
+    fragments:
+    - 124-template-ensure-tags.yml
+    - v3.yml
+    modules:
+    - description: Gathering information about configurations from Apache CloudStack
+        based clouds.
+      name: configuration_info
+      namespace: ''
+    release_date: '2025-10-22'

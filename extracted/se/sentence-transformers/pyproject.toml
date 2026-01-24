@@ -1,6 +1,6 @@
 [project]
 name = "sentence-transformers"
-version = "5.1.1"
+version = "5.2.0"
 description = "Embeddings, Retrieval, and Reranking"
 license = { text = "Apache 2.0" }
 readme = "README.md"
@@ -11,7 +11,7 @@ authors = [
 maintainers = [
     { name = "Tom Aarsen", email = "tom.aarsen@huggingface.co" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = [
     "Transformer Networks",
     "BERT",
@@ -25,34 +25,34 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "transformers>=4.41.0,<5.0.0",
+    "transformers>=4.41.0,<6.0.0",
     "tqdm",
     "torch>=1.11.0",
     "scikit-learn",
     "scipy",
     "huggingface-hub>=0.20.0",
-    "Pillow",
     "typing_extensions>=4.5.0",
 ]
 
 [project.urls]
 Homepage = "https://www.SBERT.net"
-Repository = "https://github.com/UKPLab/sentence-transformers/"
+Repository = "https://github.com/huggingface/sentence-transformers/"
 
 
 [project.optional-dependencies]
+image = ["Pillow"]
 train = ["datasets", "accelerate>=0.20.3"]
-onnx = ["optimum[onnxruntime]>=1.23.1"]
-onnx-gpu = ["optimum[onnxruntime-gpu]>=1.23.1"]
-openvino = ["optimum-intel[openvino]>=1.20.0"]
-dev = ["datasets", "accelerate>=0.20.3", "pre-commit", "pytest", "pytest-cov", "peft"]
+onnx = ["optimum-onnx[onnxruntime]"]
+onnx-gpu = ["optimum-onnx[onnxruntime-gpu]"]
+openvino = ["optimum-intel[openvino]"]
+dev = ["datasets", "accelerate>=0.20.3", "pre-commit", "pytest", "pytest-cov", "peft", "Pillow"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]

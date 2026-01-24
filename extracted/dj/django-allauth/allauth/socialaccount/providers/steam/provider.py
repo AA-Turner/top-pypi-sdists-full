@@ -1,19 +1,27 @@
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.http import urlencode
 
+from openid.consumer.discover import DiscoveryFailure
+
 from allauth.socialaccount.adapter import get_adapter
+from allauth.socialaccount.helpers import render_authentication_error
 from allauth.socialaccount.providers.openid.provider import (
     OpenIDAccount,
     OpenIDProvider,
 )
+from allauth.socialaccount.providers.openid.views import _openid_consumer
 
 
 if "allauth.socialaccount.providers.openid" not in settings.INSTALLED_APPS:
     raise ImproperlyConfigured(
         "The steam provider requires 'allauth.socialaccount.providers.openid' to be installed"
     )
+
+
+STEAM_OPENID_URL = "https://steamcommunity.com/openid"
 
 
 class SteamAccount(OpenIDAccount):
@@ -44,9 +52,10 @@ def request_steam_account_summary(api_key, steam_id):
     method = "ISteamUser/GetPlayerSummaries/v0002/"
     params = {"key": api_key, "steamids": steam_id}
 
-    resp = get_adapter().get_requests_session().get(api_base + method, params=params)
-    resp.raise_for_status()
-    data = resp.json()
+    with get_adapter().get_requests_session() as sess:
+        resp = sess.get(api_base + method, params=params)
+        resp.raise_for_status()
+        data = resp.json()
 
     playerlist = data.get("response", {}).get("players", [])
     return playerlist[0] if playerlist else {"steamid": steam_id}
@@ -57,6 +66,7 @@ class SteamOpenIDProvider(OpenIDProvider):
     name = "Steam"
     account_class = SteamAccount
     uses_apps = True
+    supports_redirect = True
 
     def __init__(self, request, app=None):
         if app is None:
@@ -66,7 +76,7 @@ class SteamOpenIDProvider(OpenIDProvider):
     def get_login_url(self, request, **kwargs):
         url = reverse("steam_login")
         if kwargs:
-            url += "?" + urlencode(kwargs)
+            url += f"?{urlencode(kwargs)}"
         return url
 
     def sociallogin_from_response(self, request, response):
@@ -98,6 +108,25 @@ class SteamOpenIDProvider(OpenIDProvider):
             "last_name": last_name,
             "full_name": full_name,
         }
+
+    def get_realm(self, request):
+        return self.get_settings().get("REALM", request.build_absolute_uri("/"))
+
+    def redirect(self, request, process, next_url=None, data=None, **kwargs):
+        endpoint = STEAM_OPENID_URL
+        realm = self.get_realm(request)
+        try:
+            client = _openid_consumer(request, self, endpoint)
+            auth_request = client.begin(endpoint)
+        except (UnicodeDecodeError, DiscoveryFailure) as e:
+            return render_authentication_error(request, self, exception=e)
+
+        self.stash_redirect_state(request, process, next_url, data, **kwargs)
+
+        redirect_url = auth_request.redirectURL(
+            realm, request.build_absolute_uri(reverse("steam_callback"))
+        )
+        return HttpResponseRedirect(redirect_url)
 
 
 provider_classes = [SteamOpenIDProvider]

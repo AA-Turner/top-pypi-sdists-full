@@ -1,13 +1,11 @@
 // Copyright 2019 Google LLC.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #include "tools/fiddle/examples.h"
-// HASH=ee47ae6b813bfaa55e1a7b7c053ed60d
 REG_FIDDLE(Canvas_clipPath, 256, 256, false, 0) {
 void draw(SkCanvas* canvas) {
     SkPaint paint;
     paint.setAntiAlias(true);
-    SkPath path;
-    path.addRect({20, 30, 100, 110});
+    SkPath path = SkPath::Rect({20, 30, 100, 110});
     path.setFillType(SkPathFillType::kInverseWinding);
     canvas->save();
     canvas->clipPath(path, SkClipOp::kDifference, false);

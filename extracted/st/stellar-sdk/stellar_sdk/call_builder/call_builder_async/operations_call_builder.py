@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Dict
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from ...call_builder.base import BaseOperationsCallBuilder
 from ...call_builder.call_builder_async.base_call_builder import BaseCallBuilder
@@ -11,7 +12,7 @@ class OperationsCallBuilder(BaseCallBuilder, BaseOperationsCallBuilder):
     """Creates a new :class:`OperationsCallBuilder` pointed to server defined by horizon_url.
     Do not create this object directly, use :func:`stellar_sdk.ServerAsync.operations`.
 
-    See `List All Operations <https://developers.stellar.org/api/resources/operations/list/>`__ for more information.
+    See `List All Operations <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-all-operations>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -22,7 +23,7 @@ class OperationsCallBuilder(BaseCallBuilder, BaseOperationsCallBuilder):
 
     def stream(
         self,
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Creates an EventSource that listens for events from the `Operations` endpoint.
 
         See `Streaming <https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming>`__ for more information.

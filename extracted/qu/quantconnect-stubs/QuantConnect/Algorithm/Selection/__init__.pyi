@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -80,9 +80,10 @@ class OptionContractUniverse(QuantConnect.Data.UniverseSelection.UserDefinedUniv
 
     def on_collection_changed(self, e: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
         """
-        Event invocator for the UserDefinedUniverse.CollectionChanged event
+        Event invocator for the UserDefinedUniverse.collection_changed event
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param e: The notify collection changed event arguments
         """

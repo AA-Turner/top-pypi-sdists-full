@@ -1,0 +1,32 @@
+## Used to test Herbie GitHub Actions for windows
+
+name: herbie-test
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.12
+  - pip
+
+  #==============
+  # Dependencies
+  #==============
+  - cartopy>=0.20.3
+  - cfgrib>=0.9.10.1
+  - matplotlib>=3.5.3
+  - metpy
+  - numpy
+  - pandas
+  - pygrib
+  - pytest
+  - pytest-cov
+  - requests
+  - scikit-learn
+  - toml
+  - xarray>=2022.6.0
+
+  #====================
+  # Other Dependencies
+  #====================
+  - eccodes # required by cfgrib
+  - geos # required by cartopy
+  - proj # required by cartopy

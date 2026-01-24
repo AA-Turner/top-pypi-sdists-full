@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 
 from PIL import BmpImagePlugin, Image, _binary
+from PIL._binary import o16le as o16
+from PIL._binary import o32le as o32
 
 from .helper import (
     assert_image_equal,
@@ -114,7 +116,7 @@ def test_save_float_dpi(tmp_path: Path) -> None:
 
 
 def test_load_dib() -> None:
-    # test for #1293, Imagegrab returning Unsupported Bitfields Format
+    # test for #1293, ImageGrab returning Unsupported Bitfields Format
     with Image.open("Tests/images/clipboard.dib") as im:
         assert im.format == "DIB"
         assert im.get_format_mimetype() == "image/bmp"
@@ -163,9 +165,9 @@ def test_rgba_bitfields() -> None:
     with Image.open("Tests/images/rgb32bf-rgba.bmp") as im:
         # So before the comparing the image, swap the channels
         b, g, r = im.split()[1:]
-        im = Image.merge("RGB", (r, g, b))
+        im_rgb = Image.merge("RGB", (r, g, b))
 
-    assert_image_equal_tofile(im, "Tests/images/bmp/q/rgb32bf-xbgr.bmp")
+    assert_image_equal_tofile(im_rgb, "Tests/images/bmp/q/rgb32bf-xbgr.bmp")
 
     # This test image has been manually hexedited
     # to change the bitfield compression in the header from XBGR to ABGR
@@ -217,6 +219,18 @@ def test_rle8_eof(file_name: str, length: int) -> None:
     with Image.open(io.BytesIO(data)) as im:
         with pytest.raises(ValueError):
             im.load()
+
+
+def test_unsupported_bmp_bitfields_layout() -> None:
+    fp = io.BytesIO(
+        o32(40)  # header size
+        + b"\x00" * 10
+        + o16(1)  # bits
+        + o32(3)  # BITFIELDS compression
+        + b"\x00" * 32
+    )
+    with pytest.raises(OSError, match="Unsupported BMP bitfields layout"):
+        Image.open(fp)
 
 
 def test_offset() -> None:

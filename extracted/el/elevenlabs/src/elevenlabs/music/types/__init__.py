@@ -6,13 +6,9 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .music_compose_detailed_request_output_format import MusicComposeDetailedRequestOutputFormat
-    from .music_compose_request_output_format import MusicComposeRequestOutputFormat
-    from .music_stream_request_output_format import MusicStreamRequestOutputFormat
+    from .music_separate_stems_request_stem_variation_id import MusicSeparateStemsRequestStemVariationId
 _dynamic_imports: typing.Dict[str, str] = {
-    "MusicComposeDetailedRequestOutputFormat": ".music_compose_detailed_request_output_format",
-    "MusicComposeRequestOutputFormat": ".music_compose_request_output_format",
-    "MusicStreamRequestOutputFormat": ".music_stream_request_output_format",
+    "MusicSeparateStemsRequestStemVariationId": ".music_separate_stems_request_stem_variation_id"
 }
 
 
@@ -22,8 +18,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -35,8 +33,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = [
-    "MusicComposeDetailedRequestOutputFormat",
-    "MusicComposeRequestOutputFormat",
-    "MusicStreamRequestOutputFormat",
-]
+__all__ = ["MusicSeparateStemsRequestStemVariationId"]

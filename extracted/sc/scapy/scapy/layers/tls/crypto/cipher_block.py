@@ -33,6 +33,15 @@ if conf.crypto_valid:
     except ImportError:
         decrepit_algorithms = algorithms
 
+    # cryptography's TripleDES can be used to simulate DES behavior
+    DES = lambda key: decrepit_algorithms.TripleDES(key * 3)
+
+    try:
+        # cryptography > 47.0
+        Camellia = decrepit_algorithms.Camellia
+    except AttributeError:
+        Camellia = algorithms.Camellia
+
 
 _tls_block_cipher_algs = {}
 
@@ -64,17 +73,22 @@ class _BlockCipher(metaclass=_BlockCipherMetaclass):
             else:
                 key_len = self.key_len
             key = b"\0" * key_len
-        if not iv:
-            self.ready["iv"] = False
-            iv = b"\0" * self.block_size
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_BlockCipher, self).__setattr__("key", key)
-        super(_BlockCipher, self).__setattr__("iv", iv)
+        if self.pc_cls_mode == modes.ECB:
+            self._cipher = Cipher(self.pc_cls(key),
+                                  self.pc_cls_mode(),
+                                  backend=backend)
+        else:
+            if not iv:
+                self.ready["iv"] = False
+                iv = b"\0" * self.block_size
+            super(_BlockCipher, self).__setattr__("iv", iv)
 
-        self._cipher = Cipher(self.pc_cls(key),
-                              self.pc_cls_mode(iv),
-                              backend=backend)
+            self._cipher = Cipher(self.pc_cls(key),
+                                  self.pc_cls_mode(iv),
+                                  backend=backend)
 
     def __setattr__(self, name, val):
         if name == "key":
@@ -129,7 +143,7 @@ if conf.crypto_valid:
         key_len = 32
 
     class Cipher_CAMELLIA_128_CBC(_BlockCipher):
-        pc_cls = algorithms.Camellia
+        pc_cls = Camellia
         pc_cls_mode = modes.CBC
         block_size = 16
         key_len = 16
@@ -143,8 +157,14 @@ if conf.crypto_valid:
 _sslv2_block_cipher_algs = {}
 
 if conf.crypto_valid:
+    class Cipher_DES_ECB(_BlockCipher):
+        pc_cls = staticmethod(DES)
+        pc_cls_mode = modes.ECB
+        block_size = 8
+        key_len = 8
+
     class Cipher_DES_CBC(_BlockCipher):
-        pc_cls = decrepit_algorithms.TripleDES
+        pc_cls = staticmethod(DES)
         pc_cls_mode = modes.CBC
         block_size = 8
         key_len = 8

@@ -28,6 +28,9 @@
 #include <utility>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/log/absl_check.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/batch.h"
@@ -49,33 +52,65 @@
 namespace tensorstore {
 namespace internal_kvstore_batch {
 
-// Common portion of read request used with `BatchReadEntry`.
+// Type trait that checks if a type is a valid `ReadRequest` type as required
+// by `BatchReadEntry`.  Valid types include any structs with the following
+// members:
 //
-// This is combined in `ReadRequest` with additional fields only used for some
-// kvstore implementations.
+//    Promise<kvstore::ReadResult> promise;
+//    OptionalByteRangeRequest byte_range;
+//
+// Additional members may be present, such as
+// `kvstore::ReadGenerationConditions` or `kvstore::Key`, but at least those two
+// members must be present.
+//
+// See `ByteRangeReadRequest` and `ByteRangeGenerationReadRequest` below for
+// specific types that satisfy this requirement.
+template <typename T, typename = void>
+struct IsByteRangeReadRequestLike : std::false_type {};
+
+template <typename T>
+struct IsByteRangeReadRequestLike<
+    T, std::void_t<decltype(std::declval<T&>().promise),
+                   decltype(std::declval<T&>().byte_range)>>
+    : public std::conjunction<
+          std::is_same<decltype(std::declval<T&>().promise),
+                       Promise<kvstore::ReadResult>>,
+          std::is_same<decltype(std::declval<T&>().byte_range),
+                       OptionalByteRangeRequest>> {};
+
+template <typename T>
+constexpr bool IsByteRangeReadRequestLikeV =
+    IsByteRangeReadRequestLike<T>::value;
+
+// Common `BatchReadEntry` ReadRequest type.
 struct ByteRangeReadRequest {
   Promise<kvstore::ReadResult> promise;
   OptionalByteRangeRequest byte_range;
 };
 
-// Individual read request (entry in batch) used with `BatchReadEntry`.
+// Common `BatchReadEntry` ReadRequest type request with generation conditions.
 //
-// Possibly `Member` types include:
-//
-// - `kvstore::ReadGenerationConditions`
-// - `kvstore::Key`
-// - some derived key type, like `uint64_t`.
-template <typename... Member>
-using ReadRequest = std::tuple<ByteRangeReadRequest, Member...>;
+// This is used when generation conditions are not included in the batch entry
+// key.
+struct ByteRangeGenerationReadRequest {
+  Promise<kvstore::ReadResult> promise;
+  OptionalByteRangeRequest byte_range;
+  kvstore::ReadGenerationConditions generation_conditions;
+};
 
 // Batch of read requests with an aggregate staleness bound, used by
 // `BatchReadEntry`.
 //
 // The aggregate staleness bound is set to the maximum staleness bound of all
 // individual requests.
+//
+// \tparam RequestType Must satisfy `IsByteRangeReadRequestLikeV`.
 template <typename RequestType>
 struct RequestBatch {
+  static_assert(IsByteRangeReadRequestLikeV<RequestType>);
+
   using Request = RequestType;
+
   absl::Time staleness_bound = absl::InfinitePast();
   absl::InlinedVector<Request, 1> requests;
 
@@ -122,10 +157,13 @@ template <typename DerivedDriver, typename RequestType,
           typename... BatchEntryKeyMember>
 class BatchReadEntry : public Batch::Impl::Entry {
  public:
+  static_assert(IsByteRangeReadRequestLikeV<RequestType>);
+
   using Driver = DerivedDriver;
   using BatchEntryKey =
       std::tuple<internal::IntrusivePtr<DerivedDriver>, BatchEntryKeyMember...>;
   using Request = RequestType;
+
   using KeyParam =
       std::tuple<DerivedDriver*, KeyParamType<BatchEntryKeyMember>...>;
 
@@ -185,7 +223,7 @@ class BatchReadEntry : public Batch::Impl::Entry {
   // This may be useful for implementing retry logic.
   template <typename DerivedEntry>
   std::unique_ptr<DerivedEntry> MigrateExistingRequestsToNewEntry(
-      span<Request> existing_requests) {
+      tensorstore::span<Request> existing_requests) {
     using Self =
         BatchReadEntry<DerivedDriver, RequestType, BatchEntryKeyMember...>;
     static_assert(std::is_base_of_v<Self, DerivedEntry>);
@@ -203,7 +241,7 @@ class BatchReadEntry : public Batch::Impl::Entry {
   absl::Mutex mutex_;
 
   void AddRequest(absl::Time staleness_bound, Request&& request) {
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(mutex_);
     request_batch.AddRequest(staleness_bound, std::move(request));
   }
 };
@@ -212,89 +250,152 @@ class BatchReadEntry : public Batch::Impl::Entry {
 //
 // This may be useful for setting error results.
 template <typename Request>
-void SetCommonResult(span<const Request> requests,
+void SetCommonResult(tensorstore::span<const Request> requests,
                      Result<kvstore::ReadResult>&& result) {
   if (requests.empty()) return;
   for (size_t i = 1; i < requests.size(); ++i) {
-    std::get<ByteRangeReadRequest>(requests[i]).promise.SetResult(result);
+    if (requests[i].promise.result_needed()) {
+      requests[i].promise.SetResult(result);
+    }
   }
-  std::get<ByteRangeReadRequest>(requests[0])
-      .promise.SetResult(std::move(result));
+  if (requests[0].promise.result_needed()) {
+    requests[0].promise.SetResult(std::move(result));
+  }
 }
 template <typename Requests>
 void SetCommonResult(const Requests& requests,
                      Result<kvstore::ReadResult>&& result) {
-  SetCommonResult(span<const typename Requests::value_type>(requests),
-                  std::move(result));
+  SetCommonResult(
+      tensorstore::span<const typename Requests::value_type>(requests),
+      std::move(result));
 }
 
 template <typename Request>
-void SortRequestsByStartByte(span<Request> requests) {
-  std::sort(
-      requests.begin(), requests.end(), [](const Request& a, const Request& b) {
-        return std::get<ByteRangeReadRequest>(a).byte_range.inclusive_min <
-               std::get<ByteRangeReadRequest>(b).byte_range.inclusive_min;
-      });
+void SortRequestsByStartByte(tensorstore::span<Request> requests) {
+  std::sort(requests.begin(), requests.end(),
+            [](const Request& a, const Request& b) {
+              if (a.byte_range.inclusive_min == b.byte_range.inclusive_min) {
+                return a.byte_range.exclusive_max < b.byte_range.exclusive_max;
+              }
+              return a.byte_range.inclusive_min < b.byte_range.inclusive_min;
+            });
 }
 
-// Resolves coalescsed requests with the appropriate cord subranges.
+// Resolves coalesced requests with the appropriate cord subranges.
 template <typename Request>
 void ResolveCoalescedRequests(ByteRange coalesced_byte_range,
-                              span<Request> coalesced_requests,
+                              tensorstore::span<Request> coalesced_requests,
                               kvstore::ReadResult&& read_result) {
-  for (auto& request : coalesced_requests) {
-    auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
+  static_assert(IsByteRangeReadRequestLikeV<Request>);
+  if (read_result.state == kvstore::ReadResult::kValue) {
+    ABSL_DCHECK_EQ(coalesced_byte_range.size(), read_result.value.size());
+  }
+
+  for (auto& r : coalesced_requests) {
     kvstore::ReadResult sub_read_result;
     sub_read_result.stamp = read_result.stamp;
     sub_read_result.state = read_result.state;
     if (read_result.state == kvstore::ReadResult::kValue) {
-      assert(coalesced_byte_range.size() == read_result.value.size());
-      int64_t request_start = byte_range_request.byte_range.inclusive_min -
-                              coalesced_byte_range.inclusive_min;
-      int64_t request_size = byte_range_request.byte_range.size();
-      sub_read_result.value =
-          read_result.value.Subcord(request_start, request_size);
+      int64_t inclusive_min =
+          r.byte_range.inclusive_min >= 0
+              ? r.byte_range.inclusive_min
+              : coalesced_byte_range.exclusive_max + r.byte_range.inclusive_min;
+
+      int64_t exclusive_max = r.byte_range.exclusive_max == -1
+                                  ? coalesced_byte_range.exclusive_max
+                                  : r.byte_range.exclusive_max;
+      if (inclusive_min == exclusive_max) {
+        // Satisfy 0-size reads in all valid cases.
+        sub_read_result.value = absl::Cord();
+      } else if (inclusive_min < coalesced_byte_range.inclusive_min ||
+                 exclusive_max > coalesced_byte_range.exclusive_max ||
+                 inclusive_min >= coalesced_byte_range.exclusive_max) {
+        r.promise.SetResult(absl::OutOfRangeError(
+            tensorstore::StrCat("Requested byte range ", r.byte_range,
+                                " is not valid for returned value of size ",
+                                read_result.value.size(), " with byte range ",
+                                coalesced_byte_range)));
+        continue;
+      } else {
+        sub_read_result.value = read_result.value.Subcord(
+            inclusive_min - coalesced_byte_range.inclusive_min,
+            exclusive_max - inclusive_min);
+      }
     }
-    byte_range_request.promise.SetResult(std::move(sub_read_result));
+    r.promise.SetResult(std::move(sub_read_result));
   }
 }
 
 // Determines a set of coalesced requests that will satisfy all requests in
 // `requests`.
 //
-// \param requests Requests to attempt to coalesce. All byte ranges must have
-//     already been resolved and satisfy `OptionalByteRangeRequest::IsRange()`.
+// \param requests Requests to attempt to coalesce. When the input ranges have
+//     already been resolved and satisfy `OptionalByteRangeRequest::IsRange()`,
+//     then the output ranges will also satisfy `IsRange()`.
 // \param predicate Function with signature `bool (ByteRange
 //     coalesced_byte_range, int64_t next_inclusive_min)` that determines
 //     whether an additional non-overlapping byte range starting at the
 //     specified offset should be coalesced with an existing (possibly
 //     coalesced) byte range. Overlapping byte ranges are always coalesced.
 //     Commonly a `CoalescingOptions` object may be specified as the predicate.
-// \param callback Callback with signature `void (ByteRange
-//     coalesced_byte_range, span<Request> coalesced_requests)` to be invoked
-//     for each coalesced set of requests.
+// \param callback Callback with signature `void (OptionalByteRangeRequest
+//     coalesced_byte_range, tensorstore::span<Request> coalesced_requests)` to
+//     be invoked for each coalesced set of requests.
 template <typename Request, typename Predicate, typename Callback>
-void ForEachCoalescedRequest(span<Request> requests, Predicate predicate,
-                             Callback callback) {
+void ForEachCoalescedRequest(tensorstore::span<Request> requests,
+                             Predicate predicate, Callback callback) {
+  static_assert(std::is_invocable_v<Predicate, ByteRange, int64_t>);
+  static_assert(std::is_invocable_v<Callback, OptionalByteRangeRequest,
+                                    tensorstore::span<Request>>);
+
   SortRequestsByStartByte(requests);
 
+  // Find the first non-suffix request.
   size_t request_i = 0;
+  for (request_i = 0; request_i < requests.size(); ++request_i) {
+    if (!requests[request_i].byte_range.IsSuffixLength()) {
+      break;
+    }
+  }
+
+  // If the first request is a full request, then all requests may be issued
+  // as a combined request for the full range.
+  if (request_i < requests.size() && requests[request_i].byte_range.IsFull()) {
+    OptionalByteRangeRequest full_byte_range;
+    callback(full_byte_range, requests);
+    return;
+  }
+
+  // Otherwise all suffix requests can be issued together, but they cannot be
+  // coalesced with other requests.
+  if (request_i != 0) {
+    OptionalByteRangeRequest coalesced_byte_range = requests[0].byte_range;
+    callback(coalesced_byte_range, requests.subspan(0, request_i));
+  }
+
   while (request_i < requests.size()) {
-    auto coalesced_byte_range =
-        std::get<ByteRangeReadRequest>(requests[request_i])
-            .byte_range.AsByteRange();
+    // Coalesce overlapping requests.
+    OptionalByteRangeRequest coalesced_byte_range =
+        requests[request_i].byte_range;
+
     size_t end_request_i;
     for (end_request_i = request_i + 1; end_request_i < requests.size();
          ++end_request_i) {
-      auto next_byte_range =
-          std::get<ByteRangeReadRequest>(requests[end_request_i])
-              .byte_range.AsByteRange();
-      if (next_byte_range.inclusive_min < coalesced_byte_range.exclusive_max ||
-          predicate(coalesced_byte_range, next_byte_range.inclusive_min)) {
+      if (coalesced_byte_range.exclusive_max == -1) {
+        end_request_i = requests.size();
+        break;
+      }
+      auto next_byte_range = requests[end_request_i].byte_range;
+      if (next_byte_range.inclusive_min >= coalesced_byte_range.exclusive_max &&
+          !predicate(coalesced_byte_range.AsByteRange(),
+                     next_byte_range.inclusive_min)) {
+        break;
+      }
+      if (next_byte_range.IsRange()) {
         coalesced_byte_range.exclusive_max = std::max(
             coalesced_byte_range.exclusive_max, next_byte_range.exclusive_max);
       } else {
-        break;
+        coalesced_byte_range.exclusive_max = -1;
       }
     }
     callback(coalesced_byte_range,
@@ -313,12 +414,9 @@ void ForEachCoalescedRequest(span<Request> requests, Predicate predicate,
 template <typename Request>
 bool ValidateRequestGeneration(Request& request,
                                const TimestampedStorageGeneration& stamp) {
-  auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
-  if (!byte_range_request.promise.result_needed()) return false;
-  if (!std::get<kvstore::ReadGenerationConditions>(request).Matches(
-          stamp.generation)) {
-    byte_range_request.promise.SetResult(
-        kvstore::ReadResult::Unspecified(stamp));
+  if (!request.promise.result_needed()) return false;
+  if (!request.generation_conditions.Matches(stamp.generation)) {
+    request.promise.SetResult(kvstore::ReadResult::Unspecified(stamp));
     return false;
   }
   return true;
@@ -333,14 +431,15 @@ bool ValidateRequestGeneration(Request& request,
 template <typename Request>
 bool ValidateRequestGenerationAndByteRange(
     Request& request, const TimestampedStorageGeneration& stamp, int64_t size) {
+  static_assert(IsByteRangeReadRequestLikeV<Request>);
+  static_assert(
+      std::is_member_pointer<decltype(&Request::generation_conditions)>::value);
   if (!ValidateRequestGeneration(request, stamp)) {
     return false;
   }
-  auto& byte_range_request = std::get<ByteRangeReadRequest>(request);
   TENSORSTORE_ASSIGN_OR_RETURN(
-      byte_range_request.byte_range,
-      byte_range_request.byte_range.Validate(size),
-      (byte_range_request.promise.SetResult(std::move(_)), false));
+      request.byte_range, request.byte_range.Validate(size),
+      (request.promise.SetResult(std::move(_)), false));
   return true;
 }
 
@@ -372,9 +471,9 @@ struct CoalescingOptions {
   // Maximum target size for coalescing. Once this size limit is reached,
   // additional non-overlapping requests won't be added. However, this limit may
   // still be exceeded if an individual request, or set of overlapping requests,
-  // exceeds this size. This can be set to balance per-request overhead with
-  // additional parallelism that may be obtained from a greater number of
-  // requests.
+  // exceeds this size, or when reading to the end of a file.
+  // This can be set to balance per-request overhead with additional parallelism
+  // that may be obtained from a greater number of requests.
   int64_t target_coalesced_size = std::numeric_limits<int64_t>::max();
 
   // Checks if a new byte range starting at `next_inclusive_min` should be

@@ -9,33 +9,76 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal, Union
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0010 import IntegrationType, IntegrationTypeForResponse
 
 
-class ReleaseAssetType(TypedDict):
-    """Release Asset
+class MovedColumnInProjectIssueEventType(TypedDict):
+    """Moved Column in Project Issue Event
 
-    Data related to a release.
+    Moved Column in Project Issue Event
     """
 
-    url: str
-    browser_download_url: str
     id: int
     node_id: str
-    name: str
-    label: Union[str, None]
-    state: Literal["uploaded", "open"]
-    content_type: str
-    size: int
-    digest: Union[str, None]
-    download_count: int
-    created_at: datetime
-    updated_at: datetime
-    uploader: Union[None, SimpleUserType]
+    url: str
+    actor: SimpleUserType
+    event: Literal["moved_columns_in_project"]
+    commit_id: Union[str, None]
+    commit_url: Union[str, None]
+    created_at: str
+    performed_via_github_app: Union[None, IntegrationType, None]
+    project_card: NotRequired[MovedColumnInProjectIssueEventPropProjectCardType]
 
 
-__all__ = ("ReleaseAssetType",)
+class MovedColumnInProjectIssueEventTypeForResponse(TypedDict):
+    """Moved Column in Project Issue Event
+
+    Moved Column in Project Issue Event
+    """
+
+    id: int
+    node_id: str
+    url: str
+    actor: SimpleUserTypeForResponse
+    event: Literal["moved_columns_in_project"]
+    commit_id: Union[str, None]
+    commit_url: Union[str, None]
+    created_at: str
+    performed_via_github_app: Union[None, IntegrationTypeForResponse, None]
+    project_card: NotRequired[
+        MovedColumnInProjectIssueEventPropProjectCardTypeForResponse
+    ]
+
+
+class MovedColumnInProjectIssueEventPropProjectCardType(TypedDict):
+    """MovedColumnInProjectIssueEventPropProjectCard"""
+
+    id: int
+    url: str
+    project_id: int
+    project_url: str
+    column_name: str
+    previous_column_name: NotRequired[str]
+
+
+class MovedColumnInProjectIssueEventPropProjectCardTypeForResponse(TypedDict):
+    """MovedColumnInProjectIssueEventPropProjectCard"""
+
+    id: int
+    url: str
+    project_id: int
+    project_url: str
+    column_name: str
+    previous_column_name: NotRequired[str]
+
+
+__all__ = (
+    "MovedColumnInProjectIssueEventPropProjectCardType",
+    "MovedColumnInProjectIssueEventPropProjectCardTypeForResponse",
+    "MovedColumnInProjectIssueEventType",
+    "MovedColumnInProjectIssueEventTypeForResponse",
+)

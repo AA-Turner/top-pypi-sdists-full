@@ -112,6 +112,30 @@ class ForwardConfig(AWSProperty):
     }
 
 
+class JwtValidationActionAdditionalClaim(AWSProperty):
+    """
+    `JwtValidationActionAdditionalClaim <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-jwtvalidationactionadditionalclaim.html>`__
+    """
+
+    props: PropsDictType = {
+        "Format": (str, True),
+        "Name": (str, True),
+        "Values": ([str], True),
+    }
+
+
+class JwtValidationConfig(AWSProperty):
+    """
+    `JwtValidationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-jwtvalidationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalClaims": ([JwtValidationActionAdditionalClaim], False),
+        "Issuer": (str, True),
+        "JwksEndpoint": (str, True),
+    }
+
+
 class RedirectConfig(AWSProperty):
     """
     `RedirectConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-redirectconfig.html>`__
@@ -140,6 +164,7 @@ class Action(AWSProperty):
         "AuthenticateOidcConfig": (AuthenticateOidcConfig, False),
         "FixedResponseConfig": (FixedResponseConfig, False),
         "ForwardConfig": (ForwardConfig, False),
+        "JwtValidationConfig": (JwtValidationConfig, False),
         "Order": (integer, False),
         "RedirectConfig": (RedirectConfig, False),
         "TargetGroupArn": (str, False),
@@ -223,6 +248,7 @@ class HostHeaderConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "RegexValues": ([str], False),
         "Values": ([str], False),
     }
 
@@ -234,6 +260,7 @@ class HttpHeaderConfig(AWSProperty):
 
     props: PropsDictType = {
         "HttpHeaderName": (str, False),
+        "RegexValues": ([str], False),
         "Values": ([str], False),
     }
 
@@ -254,6 +281,7 @@ class PathPatternConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "RegexValues": ([str], False),
         "Values": ([str], False),
     }
 
@@ -301,6 +329,7 @@ class Condition(AWSProperty):
         "HttpRequestMethodConfig": (HttpRequestMethodConfig, False),
         "PathPatternConfig": (PathPatternConfig, False),
         "QueryStringConfig": (QueryStringConfig, False),
+        "RegexValues": ([str], False),
         "SourceIpConfig": (SourceIpConfig, False),
         "Values": ([str], False),
     }
@@ -337,10 +366,44 @@ class ListenerRuleAction(AWSProperty):
         "AuthenticateOidcConfig": (ListenerRuleAuthenticateOidcConfig, False),
         "FixedResponseConfig": (FixedResponseConfig, False),
         "ForwardConfig": (ForwardConfig, False),
+        "JwtValidationConfig": (JwtValidationConfig, False),
         "Order": (integer, False),
         "RedirectConfig": (RedirectConfig, False),
         "TargetGroupArn": (str, False),
         "Type": (str, True),
+    }
+
+
+class RewriteConfig(AWSProperty):
+    """
+    `RewriteConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rewriteconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Regex": (str, True),
+        "Replace": (str, True),
+    }
+
+
+class RewriteConfigObject(AWSProperty):
+    """
+    `RewriteConfigObject <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-rewriteconfigobject.html>`__
+    """
+
+    props: PropsDictType = {
+        "Rewrites": ([RewriteConfig], True),
+    }
+
+
+class Transform(AWSProperty):
+    """
+    `Transform <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-transform.html>`__
+    """
+
+    props: PropsDictType = {
+        "HostHeaderRewriteConfig": (RewriteConfigObject, False),
+        "Type": (str, True),
+        "UrlRewriteConfig": (RewriteConfigObject, False),
     }
 
 
@@ -356,6 +419,7 @@ class ListenerRule(AWSObject):
         "Conditions": ([Condition], True),
         "ListenerArn": (str, False),
         "Priority": (integer, True),
+        "Transforms": ([Transform], False),
     }
 
 
@@ -402,6 +466,7 @@ class LoadBalancer(AWSObject):
     resource_type = "AWS::ElasticLoadBalancingV2::LoadBalancer"
 
     props: PropsDictType = {
+        "EnableCapacityReservationProvisionStabilize": (boolean, False),
         "EnablePrefixForIpv6SourceNat": (str, False),
         "EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic": (str, False),
         "IpAddressType": (str, False),
@@ -441,6 +506,7 @@ class TargetDescription(AWSProperty):
         "AvailabilityZone": (str, False),
         "Id": (str, True),
         "Port": (validate_network_port, False),
+        "QuicServerId": (str, False),
     }
 
 
@@ -477,6 +543,7 @@ class TargetGroup(AWSObject):
         "Protocol": (str, False),
         "ProtocolVersion": (str, False),
         "Tags": (validate_tags_or_list, False),
+        "TargetControlPort": (integer, False),
         "TargetGroupAttributes": ([TargetGroupAttribute], False),
         "TargetType": (validate_target_type, False),
         "Targets": ([TargetDescription], False),

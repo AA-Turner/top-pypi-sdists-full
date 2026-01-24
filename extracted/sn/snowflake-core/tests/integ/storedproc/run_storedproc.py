@@ -23,7 +23,7 @@ storedproc_create_sql = """
 CREATE OR REPLACE PROCEDURE testing_storedproc()
 RETURNS STRING
 LANGUAGE PYTHON
-RUNTIME_VERSION = '3.9'
+RUNTIME_VERSION = '3.13'
 PACKAGES = ('snowflake-snowpark-python', 'asn1crypto','atpublic','certifi','cffi','charset-normalizer','cryptography','docker-py','filelock','idna','packaging','platformdirs','pycparser','pydantic','pyjwt','pyopenssl','pytest','pytest-cov','python-dateutil','urllib3','tomlkit','sortedcontainers')
 HANDLER = 'run_integration_test'
 execute as caller

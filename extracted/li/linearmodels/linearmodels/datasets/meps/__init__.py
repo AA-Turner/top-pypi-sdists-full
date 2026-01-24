@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 age               Age
@@ -36,6 +36,5 @@ vgh               vg or good health
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "meps.csv.bz2")

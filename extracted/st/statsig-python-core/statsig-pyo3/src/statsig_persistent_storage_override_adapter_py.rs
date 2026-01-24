@@ -4,8 +4,9 @@ use pyo3::{
 };
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
-    event_logging::exposable_string::ExposableString, interned_string::InternedString, log_d,
-    log_e, log_w, PersistentStorage, SecondaryExposure, StickyValues as StickyValuesActual,
+    interned_string::InternedString, log_d, log_e, log_w,
+    specs_response::explicit_params::ExplicitParameters, DynamicReturnable, PersistentStorage,
+    SecondaryExposure, StickyValues as StickyValuesActual,
     UserPersistedValues as UserPersistedValuesActual,
 };
 use std::collections::HashMap;
@@ -64,16 +65,18 @@ pub fn convert_dict_to_user_persisted_values(
 
             let sticky_value = StickyValuesActual {
                 value,
-                rule_id: rule_id.map(|r| ExposableString::from_str_ref(r.as_str())),
-                group_name,
-                config_delegate,
+                rule_id: rule_id.map(InternedString::from_string),
+                group_name: group_name.map(InternedString::from_string),
+                config_delegate: config_delegate.map(InternedString::from_string),
                 time,
-                json_value: json_value.map(|v| py_dict_to_json_value_map(&v)),
+                json_value: json_value
+                    .map(|v| DynamicReturnable::from_map(py_dict_to_json_value_map(&v))),
                 secondary_exposures: convert_py_lists_to_secondary_exposures(&secondary_exposures)?,
                 undelegated_secondary_exposures: Some(convert_py_lists_to_secondary_exposures(
                     &undelegated_secondary_exposures,
                 )?),
-                explicit_parameters: converted_explicit_parameters,
+                explicit_parameters: converted_explicit_parameters
+                    .map(ExplicitParameters::from_vec),
                 config_version,
             };
             user_persisted_value.insert(config_name.to_string(), sticky_value);
@@ -91,10 +94,9 @@ fn convert_stick_value_to_py_obj(
     let sticky_value_class = module.getattr("StickyValues")?;
     let py_dict = PyDict::new(py);
     py_dict.set_item("value", sticky_values.value)?;
-    let json_value = sticky_values
-        .json_value
-        .as_ref()
-        .map(|v| map_to_py_dict(py, v));
+
+    let json_map = sticky_values.json_value.as_ref().and_then(|v| v.get_json());
+    let json_value = json_map.map(|v| map_to_py_dict(py, &v));
     py_dict.set_item("json_value", json_value)?;
     py_dict.set_item(
         "rule_id",
@@ -103,15 +105,30 @@ fn convert_stick_value_to_py_obj(
             .map(|r| r.unperformant_to_string())
             .unwrap_or_default(),
     )?;
-    py_dict.set_item("group_name", sticky_values.group_name.clone())?;
+    py_dict.set_item(
+        "group_name",
+        sticky_values
+            .group_name
+            .clone()
+            .map(|g| g.unperformant_to_string()),
+    )?;
     let secondary_exposures: Vec<Bound<PyDict>> =
         convert_secondary_exposures_to_py_dict(py, sticky_values.secondary_exposures)?;
     py_dict.set_item("secondary_exposures", secondary_exposures)?;
     py_dict.set_item(
         "explicit_parameters",
-        sticky_values.explicit_parameters.clone(),
+        sticky_values
+            .explicit_parameters
+            .as_ref()
+            .map(|p| p.unperformant_to_vec()),
     )?;
-    py_dict.set_item("config_delegate", sticky_values.config_delegate.clone())?;
+    py_dict.set_item(
+        "config_delegate",
+        sticky_values
+            .config_delegate
+            .as_ref()
+            .map(|d| d.unperformant_to_string()),
+    )?;
     let undelegated_secondary_exposures = match sticky_values.undelegated_secondary_exposures {
         Some(exp) => {
             let dict = convert_secondary_exposures_to_py_dict(py, exp)?;
@@ -170,7 +187,7 @@ fn convert_py_dict_to_secondary_exposure(py_dict: &Bound<PyDict>) -> PyResult<Se
     Ok(SecondaryExposure {
         gate: InternedString::from_string(gate),
         gate_value: InternedString::from_string(gate_value),
-        rule_id: ExposableString::from_str_ref(rule_id.as_str()),
+        rule_id: InternedString::from_string(rule_id),
     })
 }
 

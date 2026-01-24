@@ -13,7 +13,7 @@
 #  permissions and limitations under the License.
 """Step invocation class definition."""
 
-from typing import TYPE_CHECKING, Any, Dict, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Union
 
 from zenml.models import ArtifactVersionResponse
 
@@ -34,7 +34,7 @@ class StepInvocation:
         self,
         id: str,
         step: "BaseStep",
-        input_artifacts: Dict[str, "StepArtifact"],
+        input_artifacts: Dict[str, List["StepArtifact"]],
         external_artifacts: Dict[
             str, Union["ExternalArtifact", "ArtifactVersionResponse"]
         ],
@@ -71,7 +71,11 @@ class StepInvocation:
         self.upstream_steps = upstream_steps
         self.pipeline = pipeline
 
-    def finalize(self, parameters_to_ignore: Set[str]) -> "StepConfiguration":
+    def finalize(
+        self,
+        parameters_to_ignore: Set[str],
+        skip_input_validation: bool = False,
+    ) -> "StepConfiguration":
         """Finalizes a step invocation.
 
         It will validate the upstream steps and run final configurations on the
@@ -80,6 +84,7 @@ class StepInvocation:
         Args:
             parameters_to_ignore: Set of parameters that should not be applied
                 to the step instance.
+            skip_input_validation: If True, will skip the input validation.
 
         Returns:
             The finalized step configuration.
@@ -119,4 +124,5 @@ class StepInvocation:
             external_artifacts=external_artifacts,
             model_artifacts_or_metadata=self.model_artifacts_or_metadata,
             client_lazy_loaders=self.client_lazy_loaders,
+            skip_input_validation=skip_input_validation,
         )

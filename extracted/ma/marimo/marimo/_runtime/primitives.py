@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import inspect
@@ -83,7 +83,7 @@ def is_data_primitive(value: Any) -> bool:
     elif hasattr(value, "dtypes"):
         # Bit of discrepancy between objects like polars and pandas, so use
         # narwhals to normalize the dataframe.
-        import narwhals as nw
+        import narwhals.stable.v2 as nw
 
         try:
             return bool(

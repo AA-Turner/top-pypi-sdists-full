@@ -45,6 +45,10 @@ class DatabaseInterface(object):
     def drop(cls, connection, database_name):
         raise NotImplementedError
 
+    @classmethod
+    def clear_cache(cls):
+        pass
+
     def list(self, hostname=None):
         raise NotImplementedError
 
@@ -100,9 +104,6 @@ class DatabaseInterface(object):
 
     def get_select_for_skip_locked(self):
         return For
-
-    def has_window_functions(self):
-        return False
 
     def has_unaccent(self):
         return False
@@ -183,6 +184,19 @@ class DatabaseInterface(object):
 
     def has_channel(self):
         return False
+
+    @classmethod
+    def has_materialized_views(cls):
+        return False
+
+    def create_materialized_view(self, connection, view_name, query):
+        raise NotImplementedError
+
+    def drop_materialized_view(self, connection):
+        raise NotImplementedError
+
+    def refresh_materialized_view(self, connection, view_name):
+        raise NotImplementedError
 
     def sql_type(self, type_):
         pass

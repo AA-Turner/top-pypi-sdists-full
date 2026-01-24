@@ -1,9 +1,159 @@
-// Adapted from "Simon Willison’s TILs" (https://til.simonwillison.net/deno/pyodide-sandbox)
+// Adapted from "Simon Willison's TILs" (https://til.simonwillison.net/deno/pyodide-sandbox)
 
 import pyodideModule from "npm:pyodide/pyodide.js";
 import { readLines } from "https://deno.land/std@0.186.0/io/mod.ts";
 
+// =============================================================================
+// Python Code Templates
+// =============================================================================
+
+// Setup code run before each user code execution.
+// Captures stdout, defines SUBMIT for early termination, and
+// provides a helper to extract exception args across the JS/Python boundary.
+const PYTHON_SETUP_CODE = `
+import sys, io, json
+old_stdout, old_stderr = sys.stdout, sys.stderr
+buf_stdout, buf_stderr = io.StringIO(), io.StringIO()
+sys.stdout, sys.stderr = buf_stdout, buf_stderr
+
+def last_exception_args():
+    return json.dumps(sys.last_exc.args) if sys.last_exc else None
+
+class FinalOutput(BaseException):
+    # Control-flow exception to signal completion (like StopIteration)
+    pass
+
+# Default SUBMIT for single-output signatures (e.g., Program of Thought).
+# Only define if not already registered with typed signatures.
+if 'SUBMIT' not in dir():
+    def SUBMIT(output):
+        raise FinalOutput({"output": output})
+`;
+
+// Generate a tool wrapper function with typed signature.
+// Parameters is an array of {name, type?, default?} objects.
+// Convert a JavaScript/JSON value to Python literal syntax
+const toPythonLiteral = (value) => {
+  if (value === null) return 'None';
+  if (value === true) return 'True';
+  if (value === false) return 'False';
+  return JSON.stringify(value);  // Works for strings, numbers, arrays, objects
+};
+
+const makeToolWrapper = (toolName, parameters = []) => {
+  // Build signature parts: "query: str, limit: int = 10"
+  const sigParts = parameters.map(p => {
+    let part = p.name;
+    if (p.type) part += `: ${p.type}`;
+    if (p.default !== undefined) part += ` = ${toPythonLiteral(p.default)}`;
+    return part;
+  });
+  const signature = sigParts.join(', ');
+  const argNames = parameters.map(p => p.name);
+
+  // If no parameters, fall back to *args, **kwargs for flexibility
+  if (parameters.length === 0) {
+    return `
+import json
+from pyodide.ffi import run_sync, JsProxy
+def ${toolName}(*args, **kwargs):
+    result = run_sync(_js_tool_call("${toolName}", json.dumps({"args": args, "kwargs": kwargs})))
+    return result.to_py() if isinstance(result, JsProxy) else result
+`;
+  }
+
+  return `
+import json
+from pyodide.ffi import run_sync, JsProxy
+def ${toolName}(${signature}):
+    _args = [${argNames.join(', ')}]
+    result = run_sync(_js_tool_call("${toolName}", json.dumps({"args": _args, "kwargs": {}})))
+    return result.to_py() if isinstance(result, JsProxy) else result
+`;
+};
+
+// Generate SUBMIT function with output field signature.
+// Outputs is an array of {name, type?} objects.
+const makeSubmitWrapper = (outputs) => {
+  if (!outputs || outputs.length === 0) {
+    // Fallback to single-arg SUBMIT if no outputs defined
+    return `
+def SUBMIT(output):
+    raise FinalOutput({"output": output})
+`;
+  }
+
+  const sigParts = outputs.map(o => {
+    let part = o.name;
+    if (o.type) part += `: ${o.type}`;
+    return part;
+  });
+  const dictParts = outputs.map(o => `"${o.name}": ${o.name}`);
+
+  return `
+def SUBMIT(${sigParts.join(', ')}):
+    raise FinalOutput({${dictParts.join(', ')}})
+`;
+};
+
+// Global handler to prevent uncaught promise rejections from crashing Deno
+// These can occur during async Python <-> JS interop
+globalThis.addEventListener("unhandledrejection", (event) => {
+  event.preventDefault();
+  console.log(JSON.stringify({
+    error: `Unhandled async error: ${event.reason?.message || event.reason}`,
+    errorType: "UnhandledPromiseRejection"
+  }));
+});
+
 const pyodide = await pyodideModule.loadPyodide();
+
+// Tool call support: allows Python code to call host-side functions
+// The stdin reader is shared so tool_call can read responses during execution
+const stdinReader = readLines(Deno.stdin);
+let requestIdCounter = 0;
+
+// This function is called from Python to invoke a host-side tool
+async function toolCallBridge(name, argsJson) {
+  const requestId = `req_${Date.now()}_${++requestIdCounter}`;
+
+  try {
+    // Send tool call request to host
+    console.log(JSON.stringify({
+      type: "tool_call",
+      id: requestId,
+      name: name,
+      args: JSON.parse(argsJson)
+    }));
+
+    // Wait for response from host
+    const { value: responseLine, done } = await stdinReader.next();
+    if (done) {
+      throw new Error("stdin closed while waiting for tool response");
+    }
+
+    const response = JSON.parse(responseLine);
+    if (response.type !== "tool_response" || response.id !== requestId) {
+      throw new Error(`Unexpected response: expected tool_response with id ${requestId}`);
+    }
+
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // Deserialize result based on type
+    if (response.result_type === "json") {
+      return JSON.parse(response.result);
+    }
+    return response.result;
+  } catch (error) {
+    // Re-throw with context so Python can catch it properly
+    throw new Error(`Tool bridge error for '${name}': ${error.message}`);
+  }
+}
+
+// Expose the bridge to Python
+pyodide.globals.set("_js_tool_call", toolCallBridge);
 
 try {
   const env_vars = (Deno.args[0] ?? "").split(",").filter(Boolean);
@@ -20,7 +170,11 @@ os.environ[${JSON.stringify(key)}] = ${JSON.stringify(val)}
   console.error("Error setting environment variables in Pyodide:", e);
 }
 
-for await (const line of readLines(Deno.stdin)) {
+// Main loop using shared stdin reader
+while (true) {
+  const { value: line, done } = await stdinReader.next();
+  if (done) break;
+
   let input;
   try {
     input = JSON.parse(line);
@@ -33,127 +187,84 @@ for await (const line of readLines(Deno.stdin)) {
   }
 
   if (input.mount_file) {
-      const hostPath = input.mount_file;
-      const virtualPath = input.virtual_path || hostPath;
-      try {
-          const contents = await Deno.readFile(hostPath);
-          const dirs = virtualPath.split('/').slice(1, -1);
-          let cur = '';
-          for (const d of dirs) {
-              cur += '/' + d;
-              try {
-                  pyodide.FS.mkdir(cur);
-              } catch (e) {
-                  if (!(e && e.message && e.message.includes('File exists'))) {
-                      console.log("[DEBUG] Error creating directory in Pyodide file system:", cur, "|", e.message);
-                  }
-              }
+    const virtualPath = input.virtual_path || input.mount_file;
+    try {
+      const contents = await Deno.readFile(input.mount_file);
+      const dirs = virtualPath.split('/').slice(1, -1);
+      let cur = '';
+      for (const d of dirs) {
+        cur += '/' + d;
+        try {
+          pyodide.FS.mkdir(cur);
+        } catch (e) {
+          if (!e.message?.includes('File exists')) {
+            throw e;
           }
-          pyodide.FS.writeFile(virtualPath, contents);
-      } catch (e) {
-          console.log(JSON.stringify({error: "Failed to mount file: " + e.message}));
+        }
       }
-      continue;      
+      pyodide.FS.writeFile(virtualPath, contents);
+    } catch (e) {
+      console.log(JSON.stringify({error: "Failed to mount file: " + e.message}));
+    }
+    continue;
   }
 
   if (input.sync_file) {
-      const virtualPath = input.sync_file;
-      const hostPath = input.host_file || virtualPath;
-      try {
-          const contents = pyodide.FS.readFile(virtualPath);
-          await Deno.writeFile(hostPath, contents);
-      } catch (e) {
-          console.log("[DEBUG] Failed to sync file:", hostPath, "|", e.message);
-      }
-      continue;
+    try {
+      await Deno.writeFile(input.host_file || input.sync_file, pyodide.FS.readFile(input.sync_file));
+    } catch (e) { /* ignore sync errors */ }
+    continue;
   }
 
-
-  // Expecting an object like { "code": "...", ... }
   if (typeof input !== 'object' || input === null) {
+    console.log(JSON.stringify({ error: "Input is not a JSON object", errorType: "ValueError" }));
+    continue;
+  }
+
+  if (input.shutdown) break;
+
+  // Register tools and/or output fields
+  if (input.register_tools || input.register_outputs) {
+    const toolNames = [];
+
+    // Register tools with typed signatures
+    if (input.register_tools) {
+      for (const tool of input.register_tools) {
+        // Support both old format (string) and new format (object with parameters)
+        if (typeof tool === 'string') {
+          pyodide.runPython(makeToolWrapper(tool, []));
+          toolNames.push(tool);
+        } else {
+          pyodide.runPython(makeToolWrapper(tool.name, tool.parameters || []));
+          toolNames.push(tool.name);
+        }
+      }
+    }
+
+    // Register SUBMIT with output signature
+    if (input.register_outputs) {
+      pyodide.runPython(makeSubmitWrapper(input.register_outputs));
+    }
+
     console.log(JSON.stringify({
-      error: "Input is not a JSON object",
-      errorType: "ValueError"
+      tools_registered: toolNames,
+      outputs_registered: input.register_outputs ? input.register_outputs.map(o => o.name) : []
     }));
     continue;
   }
 
-  // Check for shutdown
-  if (input.shutdown) {
-    break;
-  }
-
   const code = input.code || "";
 
-  // Wrap execution in a try/catch so we can handle syntax errors, etc.
   try {
     await pyodide.loadPackagesFromImports(code);
-    // 1. Temporarily override stdout/stderr so we can capture prints.
-    pyodide.runPython(`
-import sys
-import io
-
-# Keep references to the old stdout/stderr so we can restore them later
-old_stdout = sys.stdout
-old_stderr = sys.stderr
-
-# New "file-like" buffers
-buf_stdout = io.StringIO()
-buf_stderr = io.StringIO()
-
-sys.stdout = buf_stdout
-sys.stderr = buf_stderr
-    `);
-
-    // 2. Setup proper exception arguments extractor and FinalAnswer bridge
-    // The idea is borrowed from `smolagents` that uses the exception to simulate non-local exit
-    pyodide.runPython(`
-import json
-
-def last_exception_args():
-    return json.dumps(sys.last_exc.args) if sys.last_exc else None 
-
-class FinalAnswer(Exception):
-    pass
-
-def final_answer(*args):
-    raise FinalAnswer(*args)
-      `);
-
-    // 3. Run the user's code asynchronously
+    pyodide.runPython(PYTHON_SETUP_CODE);
+    // Run the user's code
     const result = await pyodide.runPythonAsync(code);
-
-    // 4. Retrieve captured stdout/stderr
     const capturedStdout = pyodide.runPython("buf_stdout.getvalue()");
-    const capturedStderr = pyodide.runPython("buf_stderr.getvalue()");
+    pyodide.runPython("sys.stdout, sys.stderr = old_stdout, old_stderr");
 
-    // 5. Restore original stdout/stderr
-    pyodide.runPython(`
-sys.stdout = old_stdout
-sys.stderr = old_stderr
-    `);
-
-    // 6. Build our output object according to the rules:
-    //    - If result is None (or Python "None" => JS null), output all prints
-    //    - Else output the result only
-    // Note: `None` in Python becomes `null` in JS.
-    let output;
-    if (result === null || result === undefined) {
-      // The final statement was None or no return => deliver printed output
-      // If you want to combine capturedStderr as well, you can append it
-      // But here we'll just do stdout for clarity
-      output = capturedStdout;
-      // If there's something in stderr, you might want to include that or log it
-      // output += capturedStderr;
-    } else {
-      // If the code returned a real value, just return that
-      try {
-        output = result.toJs();
-      } catch (e) {
-        output = result;
-      }
-    }
-
+    // If result is None, output prints; otherwise output the result
+    let output = (result === null || result === undefined) ? capturedStdout : (result.toJs?.() ?? result);
     console.log(JSON.stringify({ output }));
   } catch (error) {
     // We have an error => check if it's a SyntaxError or something else
@@ -172,12 +283,6 @@ sys.stderr = old_stderr
       // we do a additional `json.dumps` and `JSON.parse` on the values, to avoid the possible memory leak.
       errorArgs = JSON.parse(last_exception_args()) || [];
     }
-
-
-    console.log(JSON.stringify({
-      error: errorMessage,
-      errorArgs: errorArgs,
-      errorType: errorType
-    }));
+    console.log(JSON.stringify({ error: errorMessage, errorArgs, errorType }));
   }
 }

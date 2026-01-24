@@ -13,6 +13,7 @@
 
 #include "StoichManager.h"
 #include "cantera/base/ValueCache.h"
+#include "MultiRate.h"
 
 namespace Cantera
 {
@@ -136,6 +137,14 @@ public:
     Kinetics(const Kinetics&) = delete;
     Kinetics& operator=(const Kinetics&)= delete;
 
+    //! Create a new Kinetics object with the same kinetics model and reactions as
+    //! this one.
+    //! @param phases Phases used to specify the state for the newly cloned Kinetics
+    //!     object. These can be created from the phases used by this object using the
+    //!     ThermoPhase::clone() method.
+    //! @since New in %Cantera 3.2.
+    shared_ptr<Kinetics> clone(const vector<shared_ptr<ThermoPhase>>& phases) const;
+
     //! Identifies the Kinetics manager type.
     //! Each class derived from Kinetics should override this method to return
     //! a meaningful identifier.
@@ -154,21 +163,29 @@ public:
     }
 
     //! Check that the specified reaction index is in range
-    //! Throws an exception if i is greater than nReactions()
-    void checkReactionIndex(size_t m) const;
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input reaction index, if valid.
+     * @exception Throws an IndexError if m is greater than nReactions()-1
+     */
+    size_t checkReactionIndex(size_t m) const;
 
     //! Check that an array size is at least nReactions()
     //! Throws an exception if ii is less than nReactions(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkReactionArraySize(size_t ii) const;
 
     //! Check that the specified species index is in range
-    //! Throws an exception if k is greater than nSpecies()-1
-    void checkSpeciesIndex(size_t k) const;
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input species index, if valid.
+     * @exception Throws an IndexError if k is greater than nSpecies()-1
+     */
+    size_t checkSpeciesIndex(size_t k) const;
 
     //! Check that an array size is at least nSpecies()
     //! Throws an exception if kk is less than nSpecies(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkSpeciesArraySize(size_t mm) const;
 
     //! @}
@@ -186,12 +203,16 @@ public:
     }
 
     //! Check that the specified phase index is in range
-    //! Throws an exception if m is greater than nPhases()
-    void checkPhaseIndex(size_t m) const;
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input phase index, if valid.
+     * @exception Throws an IndexError if m is greater than nPhases()-1
+     */
+    size_t checkPhaseIndex(size_t m) const;
 
     //! Check that an array size is at least nPhases()
     //! Throws an exception if mm is less than nPhases(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Unused
     void checkPhaseArraySize(size_t mm) const;
 
     /**
@@ -202,33 +223,40 @@ public:
      *
      * If a -1 is returned, then the phase is not defined in the Kinetics
      * object.
+     * @deprecated  To be removed after %Cantera 3.2. Use 2-parameter version instead.
      */
-    size_t phaseIndex(const string& ph) const {
-        if (m_phaseindex.find(ph) == m_phaseindex.end()) {
-            return npos;
-        } else {
-            return m_phaseindex.at(ph) - 1;
-        }
-    }
+    size_t phaseIndex(const string& ph) const;
 
     /**
-     * Phase where the reactions occur. For heterogeneous mechanisms, one of
-     * the phases in the list of phases represents the 2D interface or 1D edge
-     * at which the reactions take place. This method returns the index of the
-     * phase with the smallest spatial dimension (1, 2, or 3) among the list
-     * of phases. If there is more than one, the index of the first one is
-     * returned. For homogeneous mechanisms, the value 0 is returned.
+     * Return the index of a phase among the phases participating in this kinetic
+     * mechanism.
      *
-     * @deprecated Starting in %Cantera 3.0, the reacting phase is always be the
-     *     first phase in the InterfaceKinetics object. To be removed after %Cantera 3.1.
+     * @param ph string name of the phase
+     * @param raise  If `true`, raise exception if the specified phase is not defined
+     *      in the Kinetics object.
+     * @since Added the `raise` argument in %Cantera 3.2. If not specified, the default
+     *      behavior if a phase is not found in %Cantera 3.2 is to return `npos`.
+     *      After %Cantera 3.2, the default behavior will be to throw an exception.
+     * @exception Throws a CanteraError if the specified phase is not found and
+     *      `raise` is `true`.
      */
-    size_t reactionPhaseIndex() const;
+    size_t phaseIndex(const string& ph, bool raise) const;
 
     /**
      * Return pointer to phase where the reactions occur.
      * @since New in %Cantera 3.0
      */
     shared_ptr<ThermoPhase> reactionPhase() const;
+
+    /**
+     * Return pointer to phase associated with Kinetics by index.
+     * @param n Index of the ThermoPhase being sought.
+     * @since New in %Cantera 3.2.
+     * @see thermo
+     */
+    shared_ptr<ThermoPhase> phase(size_t n=0) const {
+        return m_thermo[n];
+    }
 
     /**
      * This method returns a reference to the nth ThermoPhase object defined
@@ -279,14 +307,32 @@ public:
 
     //! Return the name of the kth species in the kinetics manager.
     /*!
-     *  k is an integer from 0 to ktot - 1, where ktot is the number of
+     * k is an integer from 0 to ktot - 1, where ktot is the number of
      * species in the kinetics manager, which is the sum of the number of
      * species in all phases participating in the kinetics manager. If k is
      * out of bounds, the string "<unknown>" is returned.
      *
      * @param k species index
+     * @todo Update docstring after %Cantera 3.2 to reflect that future versions
+     *      raise exception.
      */
     string kineticsSpeciesName(size_t k) const;
+
+    /**
+     * Return the name of the kth species in the kinetics manager.
+     * k is an integer from 0 to ktot - 1, where ktot is the number of
+     * species in the kinetics manager, which is the sum of the number of
+     * species in all phases participating in the kinetics manager.
+     *
+     * @param k species index
+     * @param raise  If `true`, raise exception if the species index is out of bounds.
+     * @since New in %Cantera 3.2.
+     * @deprecated  To be removed after %Cantera 3.2. Only used for transitional
+     *      behavior.
+     * @exception Throws an IndexError if the specified species index is out of bounds
+     *      and `raise` is `true`.
+     */
+    string kineticsSpeciesName(size_t k, bool raise) const;
 
     /**
      * This routine will look up a species number based on the input
@@ -298,8 +344,25 @@ public:
      *   - If no match is found, the value -1 is returned.
      *
      * @param nm   Input string name of the species
+     * @deprecated  To be removed after %Cantera 3.2. Use 2-parameter version instead.
      */
     size_t kineticsSpeciesIndex(const string& nm) const;
+
+    /**
+     * Return the index of a species within the phases participating in this kinetic
+     * mechanism.
+     * This routine will look up a species number based on the input string `nm`. The
+     * lookup of species will occur for all phases listed in the Kinetics object.
+     * @param nm  Name of the species.
+     * @param raise  If `true`, raise exception if the specified species is not defined
+     *      in the Kinetics object.
+     * @since Added the `raise` argument in %Cantera 3.2. If not specified, the default
+     *      behavior if a phase is not found in %Cantera 3.2 is to return `npos`.
+     *      After %Cantera 3.2, the default behavior will be to throw an exception.
+     * @exception Throws a CanteraError if the specified species is not found and
+     *      `raise` is `true`.
+     */
+    size_t kineticsSpeciesIndex(const string& nm, bool raise) const;
 
     /**
      * This function looks up the name of a species and returns a
@@ -1193,6 +1256,7 @@ public:
     /*!
      *  @param[out] conc  Vector of activity concentrations. Length is equal
      *               to the number of species in the kinetics object
+     *  @deprecated  To be removed after %Cantera 3.2.
      */
     virtual void getActivityConcentrations(double* const conc) {
         throw NotImplementedError("Kinetics::getActivityConcentrations");
@@ -1205,8 +1269,8 @@ public:
      *
      * @param i   reaction index
      */
-    virtual bool isReversible(size_t i) {
-        throw NotImplementedError("Kinetics::isReversible");
+    bool isReversible(size_t i) const {
+        return std::find(m_revindex.begin(), m_revindex.end(), i) < m_revindex.end();
     }
 
     /**
@@ -1279,10 +1343,14 @@ public:
      */
     virtual void init() {}
 
+    //! Set kinetics-related parameters from an AnyMap phase description.
+    //! @since New in %Cantera 3.2.
+    virtual void setParameters(const AnyMap& phaseNode);
+
     //! Return the parameters for a phase definition which are needed to
     //! reconstruct an identical object using the newKinetics function. This
     //! excludes the reaction definitions, which are handled separately.
-    AnyMap parameters();
+    AnyMap parameters() const;
 
     /**
      * Resize arrays with sizes that depend on the total number of species.
@@ -1385,16 +1453,19 @@ public:
 
     //! @}
     //! Check for unmarked duplicate reactions and unmatched marked duplicates
-    /**
-     * If `throw_err` is true, then an exception will be thrown if either any
-     * unmarked duplicate reactions are found, or if any marked duplicate
-     * reactions do not have a matching duplicate reaction. If `throw_err` is
-     * false, the indices of the first pair of duplicate reactions found will be
-     * returned, or the index of the unmatched duplicate will be returned as
-     * both elements of the pair. If no unmarked duplicates or unmatched marked
-     * duplicate reactions are found, returns `(npos, npos)`.
-     */
-    virtual pair<size_t, size_t> checkDuplicates(bool throw_err=true) const;
+    //!
+    //! @param throw_err  If `true`, raise an exception that identifies any unmarked
+    //!     duplicate reactions and any reactions marked as duplicate that do not
+    //!     actually have a matching reaction.
+    //! @param fix  If `true` (and if `throw_err` is false), update the `duplicate`
+    //!     flag on all reactions to correctly indicate whether or not they are
+    //!     duplicates.
+    //! @return  If `throw_err` and `fix` are `false`, the indices of the first pair
+    //!     of duplicate reactions or the index of an unmatched duplicate as both
+    //!     elements of the `pair`. Otherwise, `(npos, npos)` if no errors were detected
+    //!     or if the errors were fixed.
+    //! @since  The `fix` argument was added in %Cantera 3.2.
+    virtual pair<size_t, size_t> checkDuplicates(bool throw_err=true, bool fix=false);
 
     //! Set root Solution holding all phase information
     virtual void setRoot(shared_ptr<Solution> root) {
@@ -1405,6 +1476,26 @@ public:
     //! ThermoPhase objects
     shared_ptr<Solution> root() const {
         return m_root.lock();
+    }
+
+    //! Register a function to be called if reaction is added.
+    //! @param id  A unique ID corresponding to the object affected by the callback.
+    //!   Typically, this is a pointer to an object that also holds a reference to the
+    //!   Kinetics object.
+    //! @param callback  The callback function to be called after any reaction is added.
+    //! When the callback becomes invalid (for example, the corresponding object is
+    //! being deleted, the removeReactionAddedCallback() method must be invoked.
+    //! @since New in %Cantera 3.1
+    void registerReactionAddedCallback(void* id, const function<void()>& callback)
+    {
+        m_reactionAddedCallbacks[id] = callback;
+    }
+
+    //! Remove the reaction-changed callback function associated with the specified object.
+    //! @since New in %Cantera 3.1
+    void removeReactionAddedCallback(void* id)
+    {
+        m_reactionAddedCallbacks.erase(id);
     }
 
 protected:
@@ -1429,6 +1520,10 @@ protected:
      */
     double checkDuplicateStoich(map<int, double>& r1, map<int, double>& r2) const;
 
+    //! Vector of rate handlers
+    vector<unique_ptr<MultiRateBase>> m_rateHandlers;
+    map<string, size_t> m_rateTypes; //!< Mapping of rate handlers
+
     //! @name Stoichiometry management
     //!
     //! These objects and functions handle turning reaction extents into species
@@ -1449,9 +1544,6 @@ protected:
     Eigen::SparseMatrix<double> m_stoichMatrix;
     //! @}
 
-    //! Boolean indicating whether Kinetics object is fully configured
-    bool m_ready = false;
-
     //! The number of species in all of the phases
     //! that participate in this kinetics mechanism.
     size_t m_kk = 0;
@@ -1459,6 +1551,10 @@ protected:
     //! Vector of perturbation factors for each reaction's rate of
     //! progress vector. It is initialized to one.
     vector<double> m_perturb;
+
+    //! Default values for perturbations defined in the phase definition's
+    //! `rate-multipliers` field. Key -1 contains the default multiplier.
+    map<size_t, double> m_defaultPerturb = {{-1, 1.0}};
 
     //! Vector of Reaction objects represented by this Kinetics manager
     vector<shared_ptr<Reaction>> m_reactions;
@@ -1510,6 +1606,9 @@ protected:
     //! Net rate-of-progress for each reaction
     vector<double> m_ropnet;
 
+    vector<size_t> m_revindex; //!< Indices of reversible reactions
+    vector<size_t> m_irrev; //!< Indices of irreversible reactions
+
     //! The enthalpy change for each reaction to calculate Blowers-Masel rates
     vector<double> m_dH;
 
@@ -1530,6 +1629,9 @@ protected:
 
     //! reference to Solution
     std::weak_ptr<Solution> m_root;
+
+    //! Callback functions that are invoked when the reaction is added.
+    map<void*, function<void()>> m_reactionAddedCallbacks;
 };
 
 }

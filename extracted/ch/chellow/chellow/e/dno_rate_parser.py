@@ -238,6 +238,15 @@ PERIODS = {
             "finish-day": 31,
         },
     ],
+    "monday to friday mar to oct": [
+        {
+            "weekend": False,
+            "start-month": 3,
+            "start-day": 1,
+            "finish-month": 10,
+            "finish-day": 31,
+        },
+    ],
     "monday to friday (including bank holidays) nov to feb inclusive": [
         {
             "weekend": False,
@@ -255,29 +264,55 @@ PERIODS = {
         },
     ],
     (
-        "monday to friday nov to feb (excluding 22nd dec to 4th jan inclusive)"
-        "monday to friday (including bank holidays) nov to feb inclusive "
-        "(excluding 22nd dec to 4th jan inclusive)"
+        "monday to friday (including bank holidays) "
+        "mar to oct inclusive (plus 22nd dec to 4th jan inclusive)"
     ): [
         {
             "weekend": False,
-            "start-month": 11,
+            "start-month": 3,
             "start-day": 1,
+            "finish-month": 10,
+            "finish-day": 31,
+        },
+        {
+            "weekend": False,
+            "start-month": 12,
+            "start-day": 22,
             "finish-month": 12,
-            "finish-day": 21,
+            "finish-day": 31,
         },
         {
             "weekend": False,
             "start-month": 1,
-            "start-day": 5,
-            "finish-month": 2,
-            "finish-day": "last",
+            "start-day": 1,
+            "finish-month": 1,
+            "finish-day": 4,
         },
     ],
-    (
-        "monday to friday (including bank holidays) "
-        "mar to oct inclusive (plus 22nd dec to 4th jan inclusive)"
-    ): [
+    "monday to friday (including bank holidays) [month] to [month] inclusive": [
+        {
+            "weekend": False,
+            "start-month": 3,
+            "start-day": 1,
+            "finish-month": 10,
+            "finish-day": 31,
+        },
+        {
+            "weekend": False,
+            "start-month": 12,
+            "start-day": 22,
+            "finish-month": 12,
+            "finish-day": 31,
+        },
+        {
+            "weekend": False,
+            "start-month": 1,
+            "start-day": 1,
+            "finish-month": 1,
+            "finish-day": 4,
+        },
+    ],
+    "monday to friday mar to oct (plus 22nd dec to 4th jan inclusive)": [
         {
             "weekend": False,
             "start-month": 3,
@@ -320,6 +355,22 @@ PERIODS = {
             "finish-day": "last",
         },
     ],
+    "monday to friday nov to feb (excluding 22nd dec to 4th jan inclusive)": [
+        {
+            "weekend": False,
+            "start-month": 11,
+            "start-day": 1,
+            "finish-month": 12,
+            "finish-day": 21,
+        },
+        {
+            "weekend": False,
+            "start-month": 1,
+            "start-day": 4,
+            "finish-month": 2,
+            "finish-day": "last",
+        },
+    ],
     "saturday and sunday all year": [
         {
             "weekend": True,
@@ -333,6 +384,15 @@ PERIODS = {
         "monday to friday (including bank holidays) november to february "
         "monday to friday nov to feb"
     ): [
+        {
+            "weekend": False,
+            "start-month": 11,
+            "start-day": 1,
+            "finish-month": 2,
+            "finish-day": "last",
+        }
+    ],
+    "monday to friday nov to feb": [
         {
             "weekend": False,
             "start-month": 11,
@@ -643,6 +703,20 @@ GSP_MAP = (
     ("gsp_m", "_M"),
     ("gsp_n", "_N"),
     ("gsp_p", "_P"),
+    ("lmel_a_", "_A"),
+    ("lmel_b_", "_B"),
+    ("lmel_c_", "_C"),
+    ("lmel_d_", "_D"),
+    ("lmel_e_", "_E"),
+    ("lmel_f_", "_F"),
+    ("lmel_g_", "_G"),
+    ("lmel_h_", "_H"),
+    ("lmel_j_", "_J"),
+    ("lmel_k_", "_K"),
+    ("lmel_l_", "_L"),
+    ("lmel_m_", "_M"),
+    ("lmel_n_", "_N"),
+    ("lmel_p_", "_P"),
 )
 
 
@@ -676,11 +750,13 @@ def find_gsp_group_rates(file_name, file_like):
                 vls = tab_llfs(sheet)
     except BadRequest as e:
         raise BadRequest(f"Problem with file '{file_name}': {e.description}")
+    except BaseException as e:
+        raise BadRequest(f"Problem with file '{file_name}'") from e
 
     return gsp_code, rates, vls
 
 
-def rate_server_import(sess, log, set_progress, s, paths):
+def rate_server_import(sess, log, set_progress, paths):
     log("Starting to check for new DNO spreadsheets")
     year_entries = {}
     for path, url in paths:
@@ -721,7 +797,7 @@ def rate_server_import(sess, log, set_progress, s, paths):
             rs_script = rs.make_script()
             if rs_script.get("a_file_name") != file_name:
                 try:
-                    fl = BytesIO(download(s, url))
+                    fl = BytesIO(download(url))
                     rates, vls = find_rates(file_name, fl)
                     rs.update(rates)
                     log(
@@ -753,6 +829,8 @@ EHV_SUB = ("EHV", True)
 
 
 VL_LOOKUP = {
+    "132 kv to 33kv generic": EHV_NET,
+    "132kv/32kv generic": EHV_NET,
     "132/33kv": EHV_NET,
     "132/33kv generic": EHV_NET,
     "132/33kv substation": EHV_SUB,
@@ -771,6 +849,7 @@ VL_LOOKUP = {
     "33kv generic (generation)": EHV_NET,
     "33kv generic export": EHV_NET,
     "33kv generic import": EHV_NET,
+    "ehv 33 kv": EHV_NET,
     "ehv 33kv export": EHV_NET,
     "ehv 33kv import": EHV_NET,
     "ehv connected": EHV_NET,
@@ -784,6 +863,8 @@ VL_LOOKUP = {
     "high voltage substation export": HV_SUB,
     "high voltage substation import": HV_SUB,
     "high-voltage substation": HV_SUB,
+    "hv net": HV_NET,
+    "hv sub": HV_SUB,
     "low voltage network": LV_NET,
     "low voltage network export": LV_NET,
     "low voltage network import": LV_NET,
@@ -792,6 +873,8 @@ VL_LOOKUP = {
     "low voltage substation export": LV_SUB,
     "low voltage substation import": LV_SUB,
     "low-voltage substation": LV_SUB,
+    "lv net": LV_NET,
+    "lv sub": LV_SUB,
 }
 
 

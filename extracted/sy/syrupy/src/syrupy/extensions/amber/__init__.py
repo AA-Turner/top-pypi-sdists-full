@@ -4,8 +4,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Optional,
-    Set,
-    Type,
 )
 
 from syrupy.data import SnapshotCollection
@@ -26,9 +24,9 @@ class AmberSnapshotExtension(AbstractSyrupyExtension):
     An amber snapshot file stores data in the following format:
     """
 
-    _file_extension = "ambr"
+    file_extension = "ambr"
 
-    serializer_class: Type["AmberDataSerializer"] = AmberDataSerializer
+    serializer_class: type["AmberDataSerializer"] = AmberDataSerializer
 
     def serialize(self, data: "SerializableData", **kwargs: Any) -> str:
         """
@@ -38,7 +36,7 @@ class AmberSnapshotExtension(AbstractSyrupyExtension):
         return self.serializer_class.serialize(data, **kwargs)
 
     def delete_snapshots(
-        self, snapshot_location: str, snapshot_names: Set[str]
+        self, snapshot_location: str, snapshot_names: set[str]
     ) -> None:
         snapshot_collection_to_update = AmberDataSerializer.read_file(snapshot_location)
         for snapshot_name in snapshot_names:
@@ -49,7 +47,7 @@ class AmberSnapshotExtension(AbstractSyrupyExtension):
         else:
             Path(snapshot_location).unlink()
 
-    def _read_snapshot_collection(self, snapshot_location: str) -> "SnapshotCollection":
+    def read_snapshot_collection(self, snapshot_location: str) -> "SnapshotCollection":
         return self.serializer_class.read_file(snapshot_location)
 
     @classmethod
@@ -59,7 +57,7 @@ class AmberSnapshotExtension(AbstractSyrupyExtension):
     ) -> "SnapshotCollection":
         return cls.serializer_class.read_file(snapshot_location)
 
-    def _read_snapshot_data_from_location(
+    def read_snapshot_data_from_location(
         self, snapshot_location: str, snapshot_name: str, session_id: str
     ) -> Optional["SerializableData"]:
         snapshots = self.__cacheable_read_snapshot(
@@ -73,7 +71,7 @@ class AmberSnapshotExtension(AbstractSyrupyExtension):
         return data
 
     @classmethod
-    def _write_snapshot_collection(
+    def write_snapshot_collection(
         cls, *, snapshot_collection: "SnapshotCollection"
     ) -> None:
         cls.serializer_class.write_file(snapshot_collection, merge=True)

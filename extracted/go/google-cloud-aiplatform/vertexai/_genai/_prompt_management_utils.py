@@ -122,13 +122,8 @@ def _create_prompt_from_dataset_metadata(
 
 
 def _raise_for_invalid_prompt(
-    prompt: types.Prompt, config: types.CreatePromptConfig
+    prompt: types.Prompt,
 ) -> None:
-
-    if config.encryption_spec and config.prompt_id:
-        raise ValueError(
-            "Encryption spec can only be used for creating new prompts, not for creating new prompt versions."
-        )
 
     if not prompt.prompt_data:
         raise ValueError("Prompt data must be provided.")

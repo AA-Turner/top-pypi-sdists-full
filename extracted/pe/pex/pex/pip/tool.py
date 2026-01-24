@@ -307,9 +307,8 @@ class _PexIssue2113Analyzer(ErrorAnalyzer):
 @attr.s(frozen=True)
 class PipVenv(object):
     venv_dir = attr.ib()  # type: str
-    pex_hash = attr.ib()  # type: str
-    execute_env = attr.ib(default=())  # type: Tuple[Tuple[str, str], ...]
-    _execute_args = attr.ib(default=())  # type: Tuple[str, ...]
+    execute_env = attr.ib()  # type: Tuple[Tuple[str, str], ...]
+    _execute_args = attr.ib()  # type: Tuple[str, ...]
 
     def execute_args(self, *args):
         # type: (*str) -> List[str]
@@ -321,12 +320,12 @@ class PipVenv(object):
 
 
 @attr.s(frozen=True)
-class Pip(object):
+class BootstrapPip(object):
     _PATCHES_PACKAGE_ENV_VAR_NAME = "_PEX_PIP_RUNTIME_PATCHES_PACKAGE"
     _PATCHES_PACKAGE_NAME = "_pex_pip_patches"
 
-    _pip_pex = attr.ib()  # type: PipPexDir
     _pip_venv = attr.ib()  # type: PipVenv
+    version = attr.ib()  # type: PipVersionValue
 
     @property
     def venv_dir(self):
@@ -334,24 +333,9 @@ class Pip(object):
         return self._pip_venv.venv_dir
 
     @property
-    def pex_hash(self):
-        # type: () -> str
-        return self._pip_venv.pex_hash
-
-    @property
-    def version(self):
-        # type: () -> PipVersionValue
-        return self._pip_pex.version
-
-    @property
-    def pex_dir(self):
-        # type: () -> PipPexDir
-        return self._pip_pex
-
-    @property
     def cache_dir(self):
         # type: () -> str
-        return self._pip_pex.cache_dir
+        return os.path.join(self._pip_venv.venv_dir, ".bootstrap-cache")
 
     @staticmethod
     def _calculate_resolver_version(package_index_configuration=None):
@@ -381,7 +365,7 @@ class Pip(object):
         if (
             resolver_version == ResolverVersion.PIP_2020
             and interpreter.version[0] == 2
-            and self.version.version < PipVersion.v22_3.version
+            and PipVersion.VENDORED <= self.version < PipVersion.v22_3
         ):
             yield "--use-feature"
             yield "2020-resolver"
@@ -414,7 +398,7 @@ class Pip(object):
             # We are not interactive.
             "--no-input",
         ]
-        if self.version < PipVersion.v25_0:
+        if PipVersion.VENDORED <= self.version < PipVersion.v25_0:
             # If we want to warn about a version of python we support, we should do it, not pip.
             # That said, the option does nothing in Pip 25.0 and is deprecated and slated for
             # removal.
@@ -491,9 +475,7 @@ class Pip(object):
         # since Pip relies upon `shutil.move` which is only atomic when `os.rename` can be used.
         # See https://github.com/pex-tool/pex/issues/1776 for an example of the issues non-atomic
         # moves lead to in the `pip wheel` case.
-        pip_tmpdir = os.path.join(self.cache_dir, ".tmp")
-        safe_mkdir(pip_tmpdir)
-        extra_env.update(TMPDIR=pip_tmpdir)
+        extra_env.update(TMPDIR=safe_mkdtemp(dir=safe_mkdir(self.cache_dir), prefix=".tmp."))
 
         with ENV.strip().patch(
             PEX_ROOT=ENV.PEX_ROOT,
@@ -554,8 +536,7 @@ class Pip(object):
         )
         return Job(command=command, process=process, finalizer=finalizer, context="pip")
 
-    @staticmethod
-    def _iter_build_configuration_options(build_configuration):
+    def _iter_build_configuration_options(self, build_configuration):
         # type: (BuildConfiguration) -> Iterator[str]
 
         # N.B.: BuildConfiguration maintains invariants that ensure --only-binary, --no-binary,
@@ -564,25 +545,66 @@ class Pip(object):
         if not build_configuration.allow_builds:
             yield "--only-binary"
             yield ":all:"
-        elif not build_configuration.allow_wheels:
+        if not build_configuration.allow_wheels:
             yield "--no-binary"
             yield ":all:"
-        else:
-            for project in build_configuration.only_wheels:
-                yield "--only-binary"
-                yield str(project)
-            for project in build_configuration.only_builds:
-                yield "--no-binary"
-                yield str(project)
+        for project in build_configuration.only_wheels:
+            yield "--only-binary"
+            yield str(project)
+        for project in build_configuration.only_builds:
+            yield "--no-binary"
+            yield str(project)
 
         if build_configuration.prefer_older_binary:
             yield "--prefer-binary"
 
-        if build_configuration.use_pep517 is not None:
+        # N.B.: In 25.3 `--use-pep517` became the default and only option.
+        if build_configuration.use_pep517 is not None and self.version < PipVersion.v25_3:
             yield "--use-pep517" if build_configuration.use_pep517 else "--no-use-pep517"
 
         if not build_configuration.build_isolation:
             yield "--no-build-isolation"
+
+    def spawn_report(
+        self,
+        report_path,  # type: str
+        requirements=None,  # type: Optional[Iterable[str]]
+        requirement_files=None,  # type: Optional[Iterable[str]]
+        constraint_files=None,  # type: Optional[Iterable[str]]
+        allow_prereleases=False,  # type: bool
+        transitive=True,  # type: bool
+        target=None,  # type: Optional[Target]
+        package_index_configuration=None,  # type: Optional[PackageIndexConfiguration]
+        build_configuration=BuildConfiguration(),  # type: BuildConfiguration
+        observer=None,  # type: Optional[DownloadObserver]
+        dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
+        universal_target=None,  # type: Optional[UniversalTarget]
+        log=None,  # type: Optional[str]
+    ):
+        # type: (...) -> Job
+        report_cmd = [
+            "install",
+            "--no-clean",
+            "--dry-run",
+            "--ignore-installed",
+            "--report",
+            report_path,
+        ]
+        return self._spawn_install_compatible_command(
+            cmd=report_cmd,
+            requirements=requirements,
+            requirement_files=requirement_files,
+            constraint_files=constraint_files,
+            allow_prereleases=allow_prereleases,
+            transitive=transitive,
+            target=target,
+            package_index_configuration=package_index_configuration,
+            build_configuration=build_configuration,
+            observer=observer,
+            dependency_configuration=dependency_configuration,
+            universal_target=universal_target,
+            log=log,
+        )
 
     def spawn_download_distributions(
         self,
@@ -601,32 +623,66 @@ class Pip(object):
         log=None,  # type: Optional[str]
     ):
         # type: (...) -> Job
-        target = target or targets.current()
 
         download_cmd = ["download", "--dest", download_dir]
+        return self._spawn_install_compatible_command(
+            cmd=download_cmd,
+            requirements=requirements,
+            requirement_files=requirement_files,
+            constraint_files=constraint_files,
+            allow_prereleases=allow_prereleases,
+            transitive=transitive,
+            target=target,
+            package_index_configuration=package_index_configuration,
+            build_configuration=build_configuration,
+            observer=observer,
+            dependency_configuration=dependency_configuration,
+            universal_target=universal_target,
+            log=log,
+        )
+
+    def _spawn_install_compatible_command(
+        self,
+        cmd,  # type: List[str]
+        requirements=None,  # type: Optional[Iterable[str]]
+        requirement_files=None,  # type: Optional[Iterable[str]]
+        constraint_files=None,  # type: Optional[Iterable[str]]
+        allow_prereleases=False,  # type: bool
+        transitive=True,  # type: bool
+        target=None,  # type: Optional[Target]
+        package_index_configuration=None,  # type: Optional[PackageIndexConfiguration]
+        build_configuration=BuildConfiguration(),  # type: BuildConfiguration
+        observer=None,  # type: Optional[DownloadObserver]
+        dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
+        universal_target=None,  # type: Optional[UniversalTarget]
+        log=None,  # type: Optional[str]
+    ):
+        # type: (...) -> Job
+        target = target or targets.current()
+
         extra_env = {}  # type: Dict[str, str]
         pex_extra_sys_path = []  # type: List[str]
 
-        download_cmd.extend(self._iter_build_configuration_options(build_configuration))
+        cmd.extend(self._iter_build_configuration_options(build_configuration))
         if not build_configuration.build_isolation:
             pex_extra_sys_path.extend(sys.path)
 
         if allow_prereleases:
-            download_cmd.append("--pre")
+            cmd.append("--pre")
 
         if not transitive:
-            download_cmd.append("--no-deps")
+            cmd.append("--no-deps")
 
         if requirement_files:
             for requirement_file in requirement_files:
-                download_cmd.extend(["--requirement", requirement_file])
+                cmd.extend(["--requirement", requirement_file])
 
         if constraint_files:
             for constraint_file in constraint_files:
-                download_cmd.extend(["--constraint", constraint_file])
+                cmd.extend(["--constraint", constraint_file])
 
         if requirements:
-            download_cmd.extend(requirements)
+            cmd.extend(requirements)
 
         foreign_platform_observer = foreign_platform.patch(target)
         if (
@@ -722,7 +778,7 @@ class Pip(object):
                 tailer.stop()
 
         command, process = self._spawn_pip_isolated(
-            download_cmd,
+            cmd,
             package_index_configuration=package_index_configuration,
             interpreter=target.get_interpreter(),
             log=log,
@@ -754,19 +810,23 @@ class Pip(object):
 
     def spawn_build_wheels(
         self,
-        distributions,  # type: Iterable[str]
+        requirements,  # type: Iterable[str]
         wheel_dir,  # type: str
         interpreter=None,  # type: Optional[PythonInterpreter]
         package_index_configuration=None,  # type: Optional[PackageIndexConfiguration]
         build_configuration=BuildConfiguration(),  # type: BuildConfiguration
         verify=True,  # type: bool
+        transitive=False,
     ):
         # type: (...) -> Job
 
         if self.version is PipVersion.VENDORED:
             self._ensure_wheel_installed(package_index_configuration=package_index_configuration)
 
-        wheel_cmd = ["wheel", "--no-deps", "--wheel-dir", wheel_dir]
+        wheel_cmd = ["wheel", "--wheel-dir", wheel_dir]
+        if not transitive:
+            wheel_cmd.append("--no-deps")
+
         extra_env = {}  # type: Dict[str, str]
 
         # It's not clear if Pip's implementation of PEP-517 builds respects all build configuration
@@ -779,7 +839,7 @@ class Pip(object):
         if not verify:
             wheel_cmd.append("--no-verify")
 
-        wheel_cmd.extend(distributions)
+        wheel_cmd.extend(requirements)
 
         return self._spawn_pip_isolated_job(
             wheel_cmd,
@@ -830,3 +890,19 @@ class Pip(object):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+
+
+@attr.s(frozen=True)
+class Pip(BootstrapPip):
+    _pip_pex = attr.ib()  # type: PipPexDir
+    pex_hash = attr.ib()  # type: str
+
+    @property
+    def pex_dir(self):
+        # type: () -> PipPexDir
+        return self._pip_pex
+
+    @property
+    def cache_dir(self):
+        # type: () -> str
+        return self._pip_pex.cache_dir

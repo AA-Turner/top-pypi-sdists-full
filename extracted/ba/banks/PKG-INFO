@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: banks
-Version: 2.2.0
+Version: 2.3.0
 Summary: A prompt programming language
 Project-URL: Documentation, https://github.com/masci/banks#readme
 Project-URL: Issues, https://github.com/masci/banks/issues
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
@@ -125,11 +126,11 @@ print(p.chat_messages({"persona": "helpful assistant"}))
 # [
 #   ChatMessage(role='system', content=[
 #      ContentBlock(type=<ContentBlockType.text: 'text'>, cache_control=None, text='You are a helpful assistant.', 
-#                  image_url=None, input_audio=None)
+#                  image_url=None, input_audio=None, input_video=None, input_document=None)
 #   ], tool_call_id=None, name=None), 
 #   ChatMessage(role='user', content=[
 #      ContentBlock(type=<ContentBlockType.text: 'text'>, cache_control=None, text='Hello, how are you?', 
-#                  image_url=None, input_audio=None)
+#                  image_url=None, input_audio=None, input_video=None, input_document=None)
 #   ], tool_call_id=None, name=None)
 # ]
 ```

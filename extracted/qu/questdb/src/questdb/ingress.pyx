@@ -104,7 +104,7 @@ cnp.import_array()
 # This value is automatically updated by the `bump2version` tool.
 # If you need to update it, also update the search definition in
 # .bumpversion.cfg.
-VERSION = '3.0.0'
+VERSION = '4.1.0'
 
 WARN_HIGH_RECONNECTS = True
 
@@ -142,7 +142,8 @@ class IngressErrorCode(Enum):
     ConfigError = line_sender_error_config_error
     ArrayError = line_sender_error_array_error
     ProtocolVersionError = line_sender_error_protocol_version_error
-    BadDataFrame = <int>line_sender_error_protocol_version_error + 1
+    DecimalError = line_sender_error_invalid_decimal
+    BadDataFrame = <int>line_sender_error_invalid_decimal + 1
 
     def __str__(self) -> str:
         """Return the name of the enum."""
@@ -188,6 +189,8 @@ cdef inline object c_err_code_to_py(line_sender_error_code code):
         return IngressErrorCode.ArrayError
     elif code == line_sender_error_protocol_version_error:
         return IngressErrorCode.ProtocolVersionError
+    elif code == line_sender_error_invalid_decimal:
+        return IngressErrorCode.DecimalError
     else:
         raise ValueError('Internal error converting error code.')
 
@@ -648,7 +651,7 @@ cdef class SenderTransaction:
             symbols: Optional[Dict[str, Optional[str]]]=None,
             columns: Optional[Dict[
                 str,
-                Union[None, bool, int, float, str, TimestampMicros, datetime.datetime, numpy.ndarray]]
+                Union[None, bool, int, float, str, TimestampMicros, TimestampNanos, datetime.datetime, numpy.ndarray]]
                 ]=None,
             at: Union[ServerTimestampType, TimestampNanos, datetime.datetime]):
         """
@@ -824,10 +827,10 @@ cdef class Buffer:
         :param int init_buf_size: Initial capacity of the buffer in bytes.
         :param int max_name_len: Maximum length of a table or column name.
         """
-        if protocol_version not in (1, 2):
+        if protocol_version not in range(1, 4):
             raise IngressError(
                 IngressErrorCode.ProtocolVersionError,
-                'Invalid protocol version. Supported versions are 1 and 2.')
+                'Invalid protocol version. Supported versions are 1-3.')
         self._cinit_impl(protocol_version, init_buf_size, max_name_len)
 
     cdef inline _cinit_impl(self, line_sender_protocol_version version, size_t init_buf_size, size_t max_name_len):
@@ -941,6 +944,10 @@ cdef class Buffer:
         if not line_sender_buffer_column_bool(self._impl, c_name, value, &err):
             raise c_err_to_py(err)
 
+    cdef inline void_int _column_decimal(
+            self, line_sender_column_name c_name, object value) except -1:
+        return serialize_decimal_py_obj(self._impl, c_name, <PyObject*>value)
+
     cdef inline void_int _column_i64(
             self, line_sender_column_name c_name, int64_t value) except -1:
         cdef line_sender_error* err = NULL
@@ -962,10 +969,16 @@ cdef class Buffer:
         if not line_sender_buffer_column_str(self._impl, c_name, c_value, &err):
             raise c_err_to_py(err)
 
-    cdef inline void_int _column_ts(
+    cdef inline void_int _column_ts_micros(
             self, line_sender_column_name c_name, TimestampMicros ts) except -1:
         cdef line_sender_error* err = NULL
         if not line_sender_buffer_column_ts_micros(self._impl, c_name, ts._value, &err):
+            raise c_err_to_py(err)
+
+    cdef inline void_int _column_ts_nanos(
+            self, line_sender_column_name c_name, TimestampNanos ts) except -1:
+        cdef line_sender_error* err = NULL
+        if not line_sender_buffer_column_ts_nanos(self._impl, c_name, ts._value, &err):
             raise c_err_to_py(err)
 
     cdef inline void_int _column_numpy(
@@ -1004,6 +1017,8 @@ cdef class Buffer:
     cdef inline void_int _column_dt(
             self, line_sender_column_name c_name, cp_datetime dt) except -1:
         cdef line_sender_error* err = NULL
+        # We limit ourselves to micros, since this is the maxium precision
+        # exposed by the datetime library in Python.
         if not line_sender_buffer_column_ts_micros(
                 self._impl, c_name, datetime_to_micros(dt), &err):
             raise c_err_to_py(err)
@@ -1020,11 +1035,15 @@ cdef class Buffer:
         elif PyUnicode_CheckExact(<PyObject*>value):
             self._column_str(c_name, value)
         elif isinstance(value, TimestampMicros):
-            self._column_ts(c_name, value)
+            self._column_ts_micros(c_name, value)
+        elif isinstance(value, TimestampNanos):
+            self._column_ts_nanos(c_name, value)
         elif PyArray_CheckExact(<PyObject *> value):
             self._column_numpy(c_name, value)
         elif isinstance(value, cp_datetime):
             self._column_dt(c_name, value)
+        elif isinstance(value, Decimal):
+            self._column_decimal(c_name, value)
         else:
             valid = ', '.join((
                 'bool',
@@ -1032,7 +1051,7 @@ cdef class Buffer:
                 'float',
                 'str',
                 'TimestampMicros',
-                'datetime.datetime'
+                'datetime.datetime',
                 'numpy.ndarray'))
             raise TypeError(
                 f'Unsupported type: {_fqn(type(value))}. Must be one of: {valid}')
@@ -1045,15 +1064,20 @@ cdef class Buffer:
             if sender != NULL:
                 may_flush_on_row_complete(self, <Sender><object>sender)
 
-    cdef inline void_int _at_ts(self, TimestampNanos ts) except -1:
+    cdef inline void_int _at_ts_us(self, TimestampMicros ts) except -1:
+        cdef line_sender_error* err = NULL
+        if not line_sender_buffer_at_micros(self._impl, ts._value, &err):
+            raise c_err_to_py(err)
+
+    cdef inline void_int _at_ts_ns(self, TimestampNanos ts) except -1:
         cdef line_sender_error* err = NULL
         if not line_sender_buffer_at_nanos(self._impl, ts._value, &err):
             raise c_err_to_py(err)
 
     cdef inline void_int _at_dt(self, cp_datetime dt) except -1:
-        cdef int64_t value = datetime_to_nanos(dt)
+        cdef int64_t value = datetime_to_micros(dt)
         cdef line_sender_error* err = NULL
-        if not line_sender_buffer_at_nanos(self._impl, value, &err):
+        if not line_sender_buffer_at_micros(self._impl, value, &err):
             raise c_err_to_py(err)
 
     cdef inline void_int _at_now(self) except -1:
@@ -1064,8 +1088,10 @@ cdef class Buffer:
     cdef inline void_int _at(self, object ts) except -1:
         if ts is None:
             self._at_now()
+        elif isinstance(ts, TimestampMicros):
+            self._at_ts_us(ts)
         elif isinstance(ts, TimestampNanos):
-            self._at_ts(ts)
+            self._at_ts_ns(ts)
         elif isinstance(ts, cp_datetime):
             self._at_dt(ts)
         else:
@@ -1115,7 +1141,7 @@ cdef class Buffer:
             symbols: Optional[Dict[str, Optional[str]]]=None,
             columns: Optional[Dict[
                 str,
-                Union[None, bool, int, float, str, TimestampMicros, datetime.datetime, numpy.ndarray]]
+                Union[None, bool, int, float, str, TimestampMicros, TimestampNanos, datetime.datetime, numpy.ndarray]]
                 ]=None,
             at: Union[ServerTimestampType, TimestampNanos, datetime.datetime]):
         """
@@ -1159,7 +1185,7 @@ cdef class Buffer:
         values to ``columns`` are going to be encoded as the ``STRING`` type.
 
         Refer to the
-        `QuestDB documentation <https://questdb.io/docs/concept/symbol/>`_ to
+        `QuestDB documentation <https://questdb.com/docs/concept/symbol/>`_ to
         understand the difference between the ``SYMBOL`` and ``STRING`` types
         (TL;DR: symbols are interned strings).
 
@@ -1171,17 +1197,19 @@ cdef class Buffer:
             * - Python type
               - Serialized as ILP type
             * - ``bool``
-              - `BOOLEAN <https://questdb.io/docs/reference/api/ilp/columnset-types#boolean>`_
+              - `BOOLEAN <https://questdb.com/docs/reference/api/ilp/columnset-types#boolean>`_
+            * - ``decimal``
+              - `DECIMAL <https://questdb.com/docs/reference/api/ilp/columnset-types#decimal>`_
             * - ``int``
-              - `INTEGER <https://questdb.io/docs/reference/api/ilp/columnset-types#integer>`_
+              - `INTEGER <https://questdb.com/docs/reference/api/ilp/columnset-types#integer>`_
             * - ``float``
-              - `FLOAT <https://questdb.io/docs/reference/api/ilp/columnset-types#float>`_
+              - `FLOAT <https://questdb.com/docs/reference/api/ilp/columnset-types#float>`_
             * - ``str``
-              - `STRING <https://questdb.io/docs/reference/api/ilp/columnset-types#string>`_
+              - `STRING <https://questdb.com/docs/reference/api/ilp/columnset-types#string>`_
             * - ``numpy.ndarray``
-              - `ARRAY <https://questdb.io/docs/reference/api/ilp/columnset-types#array>`_
+              - `ARRAY <https://questdb.com/docs/reference/api/ilp/columnset-types#array>`_
             * - ``datetime.datetime`` and ``TimestampMicros``
-              - `TIMESTAMP <https://questdb.io/docs/reference/api/ilp/columnset-types#timestamp>`_
+              - `TIMESTAMP <https://questdb.com/docs/reference/api/ilp/columnset-types#timestamp>`_
             * - ``None``
               - *Column is skipped and not serialized.*
 
@@ -1285,7 +1313,7 @@ cdef class Buffer:
 
             Only columns containing strings can be serialized as symbols.
 
-        :type symbols: str or bool or list of str or list of int
+        :type symbols: str or bool or list[str] or list[int]
 
         :param at: The designated timestamp of the rows.
         
@@ -1347,7 +1375,7 @@ cdef class Buffer:
 
         **Pandas to ILP datatype mappings**
 
-        .. seealso:: https://questdb.io/docs/reference/api/ilp/columnset-types/
+        .. seealso:: https://questdb.com/docs/reference/api/ilp/columnset-types/
 
         .. list-table:: Pandas Mappings
             :header-rows: 1
@@ -1442,6 +1470,9 @@ cdef class Buffer:
             * - ``'datetime64[ns, tz]'``
               - Y
               - ``TIMESTAMP`` **ζ**
+            * - ``'object'`` (``Decimal`` objects)
+              - Y (``NaN``)
+              - ``DECIMAL``
 
         .. note::
 
@@ -1936,10 +1967,14 @@ cdef class Sender:
                 if not line_sender_opts_protocol_version(
                         self._opts, line_sender_protocol_version_2, &err):
                     raise c_err_to_py(err)
+            elif (protocol_version == 3) or (protocol_version == '3'):
+                if not line_sender_opts_protocol_version(
+                        self._opts, line_sender_protocol_version_3, &err):
+                    raise c_err_to_py(err)
             else:
                 raise IngressError(
                     IngressErrorCode.ConfigError,
-                    '"protocol_version" must be None, "auto", 1 or 2' +
+                    '"protocol_version" must be None, "auto", 1-3' +
                     f' not {protocol_version!r}')
 
         if auth_timeout is not None:
@@ -2498,7 +2533,7 @@ cdef class Sender:
             symbols: Optional[Dict[str, str]]=None,
             columns: Optional[Dict[
                 str,
-                Union[bool, int, float, str, TimestampMicros, datetime.datetime, numpy.ndarray]]]=None,
+                Union[None, bool, int, float, str, TimestampMicros, datetime.datetime, numpy.ndarray]]]=None,
             at: Union[TimestampNanos, datetime.datetime, ServerTimestampType]):
         """
         Write a row to the internal buffer.

@@ -3,11 +3,11 @@ import json
 from uuid import UUID, uuid4
 from typing import Annotated, Any, List, Literal, Optional, Union, get_args
 
-from pydantic import Field, GetCoreSchemaHandler, Tag, ValidationInfo
+from pydantic import Field, GetCoreSchemaHandler, PrivateAttr, Tag, ValidationInfo
 from pydantic_core import CoreSchema, core_schema
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
-from vellum.workflows.state.encoder import DefaultStateEncoder
+from vellum.utils.json_encoder import VellumJsonEncoder
 from vellum.workflows.types.definition import VellumCodeResourceDefinition
 from vellum.workflows.types.utils import datetime_now
 
@@ -24,7 +24,7 @@ def default_serializer(obj: Any) -> Any:
     return json.loads(
         json.dumps(
             obj,
-            cls=DefaultStateEncoder,
+            cls=VellumJsonEncoder,
         )
     )
 
@@ -74,6 +74,9 @@ class WorkflowSandboxParentContext(BaseParentContext):
 
 class APIRequestParentContext(BaseParentContext):
     type: Literal["API_REQUEST"] = "API_REQUEST"
+    api_actor_id: Optional[str] = None
+    api_actor_type: Optional[str] = None
+    api_actor_label: Optional[str] = None
 
 
 class UnknownParentContext(BaseParentContext):
@@ -83,6 +86,16 @@ class UnknownParentContext(BaseParentContext):
 # Setting external parent context for external workflows
 class ExternalParentContext(BaseParentContext):
     type: Literal["EXTERNAL"] = "EXTERNAL"
+
+
+class ScheduledTriggerContext(BaseParentContext):
+    type: Literal["SCHEDULED"] = "SCHEDULED"
+    trigger_id: UUID
+
+
+class IntegrationTriggerContext(BaseParentContext):
+    type: Literal["INTEGRATION"] = "INTEGRATION"
+    trigger_id: UUID
 
 
 class SpanLink(UniversalBaseModel):
@@ -150,6 +163,8 @@ ParentContext = Annotated[
         WorkflowSandboxParentContext,
         APIRequestParentContext,
         ExternalParentContext,
+        ScheduledTriggerContext,
+        IntegrationTriggerContext,
         UnknownParentContext,
     ],
     ParentContextDiscriminator(),
@@ -171,3 +186,4 @@ class BaseEvent(UniversalBaseModel):
     span_id: UUID
     parent: Optional[ParentContext] = None
     links: Optional[List[SpanLink]] = None
+    _event_max_size: Optional[int] = PrivateAttr(default=None)

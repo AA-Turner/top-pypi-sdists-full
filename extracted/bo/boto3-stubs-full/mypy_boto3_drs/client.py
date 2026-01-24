@@ -3,7 +3,7 @@ Type annotations for drs service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -124,12 +125,6 @@ from .type_defs import (
     UpdateReplicationConfigurationTemplateRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -140,15 +135,15 @@ __all__ = ("DrsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UninitializedAccountException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UninitializedAccountException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DrsClient(BaseClient):
@@ -238,7 +233,7 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#create_source_network)
         """
 
-    def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> Dict[str, Any]:
+    def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a single Job by ID.
 
@@ -248,7 +243,7 @@ class DrsClient(BaseClient):
 
     def delete_launch_action(
         self, **kwargs: Unpack[DeleteLaunchActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource launch action.
 
@@ -258,7 +253,7 @@ class DrsClient(BaseClient):
 
     def delete_launch_configuration_template(
         self, **kwargs: Unpack[DeleteLaunchConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Launch Configuration Template by ID.
 
@@ -278,7 +273,7 @@ class DrsClient(BaseClient):
 
     def delete_replication_configuration_template(
         self, **kwargs: Unpack[DeleteReplicationConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Replication Configuration Template by ID.
 
@@ -288,7 +283,7 @@ class DrsClient(BaseClient):
 
     def delete_source_network(
         self, **kwargs: Unpack[DeleteSourceNetworkRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete Source Network resource.
 
@@ -298,7 +293,7 @@ class DrsClient(BaseClient):
 
     def delete_source_server(
         self, **kwargs: Unpack[DeleteSourceServerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Source Server by ID.
 
@@ -447,7 +442,7 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_replication_configuration)
         """
 
-    def initialize_service(self) -> Dict[str, Any]:
+    def initialize_service(self) -> dict[str, Any]:
         """
         Initialize Elastic Disaster Recovery.
 

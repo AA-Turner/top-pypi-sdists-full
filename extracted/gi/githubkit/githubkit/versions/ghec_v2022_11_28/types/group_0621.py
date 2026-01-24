@@ -9,25 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0003 import SimpleUserType
-from .group_0507 import OrganizationSimpleWebhooksType
-from .group_0508 import RepositoryWebhooksType
-from .group_0519 import WebhooksAnswerType
-from .group_0520 import DiscussionType
+from typing_extensions import TypedDict
 
 
-class WebhookDiscussionUnansweredType(TypedDict):
-    """discussion unanswered event"""
+class WebhookCheckRunRerequestedFormEncodedType(TypedDict):
+    """Check Run Re-Requested Event
 
-    action: Literal["unanswered"]
-    discussion: DiscussionType
-    old_answer: WebhooksAnswerType
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    repository: RepositoryWebhooksType
-    sender: NotRequired[SimpleUserType]
+    The check_run.rerequested webhook encoded with URL encoding
+    """
+
+    payload: str
 
 
-__all__ = ("WebhookDiscussionUnansweredType",)
+class WebhookCheckRunRerequestedFormEncodedTypeForResponse(TypedDict):
+    """Check Run Re-Requested Event
+
+    The check_run.rerequested webhook encoded with URL encoding
+    """
+
+    payload: str
+
+
+__all__ = (
+    "WebhookCheckRunRerequestedFormEncodedType",
+    "WebhookCheckRunRerequestedFormEncodedTypeForResponse",
+)

@@ -21,17 +21,18 @@ from __future__ import annotations
 
 import logging
 import zlib
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import sqlalchemy_jsonfield
 import uuid6
-from sqlalchemy import Column, ForeignKey, LargeBinary, String, exc, select, tuple_
+from sqlalchemy import Column, ForeignKey, LargeBinary, String, exc, select, tuple_, update
 from sqlalchemy.orm import backref, foreign, relationship
 from sqlalchemy.sql.expression import func, literal
 from sqlalchemy_utils import UUIDType
 
+from airflow._shared.timezones import timezone
 from airflow.exceptions import TaskNotFound
 from airflow.models.asset import (
     AssetAliasModel,
@@ -44,9 +45,8 @@ from airflow.models.dagcode import DagCode
 from airflow.models.dagrun import DagRun
 from airflow.sdk.definitions.asset import AssetUniqueKey
 from airflow.serialization.dag_dependency import DagDependency
-from airflow.serialization.serialized_objects import SerializedDAG
+from airflow.serialization.serialized_objects import LazyDeserializedDAG, SerializedDAG
 from airflow.settings import COMPRESS_SERIALIZED_DAGS, json
-from airflow.utils import timezone
 from airflow.utils.hashlib_wrapper import md5
 from airflow.utils.session import NEW_SESSION, provide_session
 from airflow.utils.sqlalchemy import UtcDateTime
@@ -57,8 +57,6 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
     from airflow.models import Operator
-    from airflow.sdk import DAG
-    from airflow.serialization.serialized_objects import LazyDeserializedDAG
 
 log = logging.getLogger(__name__)
 
@@ -295,13 +293,13 @@ class SerializedDagModel(Base):
 
     dag_runs = relationship(
         DagRun,
-        primaryjoin=dag_id == foreign(DagRun.dag_id),  # type: ignore
+        primaryjoin=dag_id == foreign(DagRun.dag_id),  # type: ignore[has-type]
         backref=backref("serialized_dag", uselist=False, innerjoin=True),
     )
 
     dag_model = relationship(
         DagModel,
-        primaryjoin=dag_id == DagModel.dag_id,  # type: ignore
+        primaryjoin=dag_id == DagModel.dag_id,  # type: ignore[has-type]
         foreign_keys=dag_id,
         uselist=False,
         innerjoin=True,
@@ -317,16 +315,9 @@ class SerializedDagModel(Base):
 
     load_op_links = True
 
-    def __init__(self, dag: DAG | LazyDeserializedDAG) -> None:
-        from airflow.sdk import DAG
-
+    def __init__(self, dag: LazyDeserializedDAG) -> None:
         self.dag_id = dag.dag_id
-        dag_data = {}
-        if isinstance(dag, DAG):
-            dag_data = SerializedDAG.to_dict(dag)
-        else:
-            dag_data = dag.data
-
+        dag_data = dag.data
         self.dag_hash = SerializedDagModel.hash(dag_data)
 
         # partially ordered json data
@@ -383,7 +374,7 @@ class SerializedDagModel(Base):
     @provide_session
     def write_dag(
         cls,
-        dag: DAG | LazyDeserializedDAG,
+        dag: LazyDeserializedDAG,
         bundle_name: str,
         bundle_version: str | None = None,
         min_update_interval: int | None = None,
@@ -436,14 +427,23 @@ class SerializedDagModel(Base):
             # This is for dynamic DAGs that the hashes changes often. We should update
             # the serialized dag, the dag_version and the dag_code instead of a new version
             # if the dag_version is not associated with any task instances
-            latest_ser_dag = cls.get(dag.dag_id, session=session)
-            if TYPE_CHECKING:
-                assert latest_ser_dag is not None
-            # Update the serialized DAG with the new_serialized_dag
-            latest_ser_dag._data = new_serialized_dag._data
-            latest_ser_dag._data_compressed = new_serialized_dag._data_compressed
-            latest_ser_dag.dag_hash = new_serialized_dag.dag_hash
-            session.merge(latest_ser_dag)
+
+            # Use direct UPDATE to avoid loading the full serialized DAG
+            result = session.execute(
+                update(cls)
+                .where(cls.dag_version_id == dag_version.id)
+                .values(
+                    {
+                        cls._data: new_serialized_dag._data,
+                        cls._data_compressed: new_serialized_dag._data_compressed,
+                        cls.dag_hash: new_serialized_dag.dag_hash,
+                    }
+                )
+            )
+
+            if result.rowcount == 0:
+                # No rows updated - serialized DAG doesn't exist
+                return False
             # The dag_version and dag_code may not have changed, still we should
             # do the below actions:
             # Update the latest dag version
@@ -469,6 +469,15 @@ class SerializedDagModel(Base):
 
     @classmethod
     def latest_item_select_object(cls, dag_id):
+        from airflow.settings import engine
+
+        if engine.dialect.name == "mysql":
+            # Prevent "Out of sort memory" caused by large values in cls.data column for MySQL.
+            # Details in https://github.com/apache/airflow/pull/55589
+            latest_item_id = (
+                select(cls.id).where(cls.dag_id == dag_id).order_by(cls.created_at.desc()).limit(1)
+            )
+            return select(cls).where(cls.id == latest_item_id)
         return select(cls).where(cls.dag_id == dag_id).order_by(cls.created_at.desc()).limit(1)
 
     @classmethod
@@ -485,8 +494,8 @@ class SerializedDagModel(Base):
         """
         # Subquery to get the latest serdag per dag_id
         latest_serdag_subquery = (
-            session.query(cls.dag_id, func.max(cls.created_at).label("created_at"))
-            .filter(cls.dag_id.in_(dag_ids))
+            select(cls.dag_id, func.max(cls.created_at).label("created_at"))
+            .where(cls.dag_id.in_(dag_ids))
             .group_by(cls.dag_id)
             .subquery()
         )
@@ -510,9 +519,7 @@ class SerializedDagModel(Base):
         :returns: a dict of DAGs read from database
         """
         latest_serialized_dag_subquery = (
-            session.query(cls.dag_id, func.max(cls.created_at).label("max_created"))
-            .group_by(cls.dag_id)
-            .subquery()
+            select(cls.dag_id, func.max(cls.created_at).label("max_created")).group_by(cls.dag_id).subquery()
         )
         serialized_dags = session.scalars(
             select(cls).join(

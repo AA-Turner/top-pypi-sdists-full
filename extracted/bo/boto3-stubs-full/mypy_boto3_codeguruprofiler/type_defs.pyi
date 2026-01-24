@@ -3,7 +3,7 @@ Type annotations for codeguruprofiler service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codeguruprofiler/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -31,12 +32,6 @@ from .literals import (
     OrderByType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -117,14 +112,14 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class AgentConfigurationTypeDef(TypedDict):
     periodInSeconds: int
     shouldProfile: bool
-    agentParameters: NotRequired[Dict[AgentParameterFieldType, str]]
+    agentParameters: NotRequired[dict[AgentParameterFieldType, str]]
 
 class AgentOrchestrationConfigTypeDef(TypedDict):
     profilingEnabled: bool
@@ -143,7 +138,7 @@ MetricTypeDef = TypedDict(
     "MetricTypeDef",
     {
         "frameName": str,
-        "threadStates": List[str],
+        "threadStates": list[str],
         "type": Literal["AggregatedRelativeTotalTime"],
     },
 )
@@ -156,7 +151,7 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 ChannelOutputTypeDef = TypedDict(
     "ChannelOutputTypeDef",
     {
-        "eventPublishers": List[Literal["AnomalyDetection"]],
+        "eventPublishers": list[Literal["AnomalyDetection"]],
         "uri": str,
         "id": NotRequired[str],
     },
@@ -195,7 +190,7 @@ FrameMetricOutputTypeDef = TypedDict(
     "FrameMetricOutputTypeDef",
     {
         "frameName": str,
-        "threadStates": List[str],
+        "threadStates": list[str],
         "type": Literal["AggregatedRelativeTotalTime"],
     },
 )
@@ -243,12 +238,12 @@ class MatchTypeDef(TypedDict):
 PatternTypeDef = TypedDict(
     "PatternTypeDef",
     {
-        "countersToAggregate": NotRequired[List[str]],
+        "countersToAggregate": NotRequired[list[str]],
         "description": NotRequired[str],
         "id": NotRequired[str],
         "name": NotRequired[str],
         "resolutionSteps": NotRequired[str],
-        "targetFrames": NotRequired[List[List[str]]],
+        "targetFrames": NotRequired[list[list[str]]],
         "thresholdPercent": NotRequired[float],
     },
 )
@@ -298,7 +293,7 @@ class GetProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutPermissionResponseTypeDef(TypedDict):
@@ -379,23 +374,23 @@ class PostAgentProfileRequestTypeDef(TypedDict):
     profileToken: NotRequired[str]
 
 class NotificationConfigurationTypeDef(TypedDict):
-    channels: NotRequired[List[ChannelOutputTypeDef]]
+    channels: NotRequired[list[ChannelOutputTypeDef]]
 
 ChannelUnionTypeDef = Union[ChannelTypeDef, ChannelOutputTypeDef]
 
 class GetFindingsReportAccountSummaryResponseTypeDef(TypedDict):
-    reportSummaries: List[FindingsReportSummaryTypeDef]
+    reportSummaries: list[FindingsReportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListFindingsReportsResponseTypeDef(TypedDict):
-    findingsReportSummaries: List[FindingsReportSummaryTypeDef]
+    findingsReportSummaries: list[FindingsReportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class FrameMetricDatumTypeDef(TypedDict):
     frameMetric: FrameMetricOutputTypeDef
-    values: List[float]
+    values: list[float]
 
 FrameMetricUnionTypeDef = Union[FrameMetricTypeDef, FrameMetricOutputTypeDef]
 
@@ -408,7 +403,7 @@ class ListProfileTimesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProfileTimesResponseTypeDef(TypedDict):
-    profileTimes: List[ProfileTimeTypeDef]
+    profileTimes: list[ProfileTimeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -418,7 +413,7 @@ class RecommendationTypeDef(TypedDict):
     endTime: datetime
     pattern: PatternTypeDef
     startTime: datetime
-    topMatches: List[MatchTypeDef]
+    topMatches: list[MatchTypeDef]
 
 class ProfilingGroupDescriptionTypeDef(TypedDict):
     agentOrchestrationConfig: NotRequired[AgentOrchestrationConfigTypeDef]
@@ -427,11 +422,11 @@ class ProfilingGroupDescriptionTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     name: NotRequired[str]
     profilingStatus: NotRequired[ProfilingStatusTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     updatedAt: NotRequired[datetime]
 
 class AnomalyTypeDef(TypedDict):
-    instances: List[AnomalyInstanceTypeDef]
+    instances: list[AnomalyInstanceTypeDef]
     metric: MetricTypeDef
     reason: str
 
@@ -453,11 +448,11 @@ class AddNotificationChannelsRequestTypeDef(TypedDict):
 
 class BatchGetFrameMetricDataResponseTypeDef(TypedDict):
     endTime: datetime
-    endTimes: List[TimestampStructureTypeDef]
-    frameMetricData: List[FrameMetricDatumTypeDef]
+    endTimes: list[TimestampStructureTypeDef]
+    frameMetricData: list[FrameMetricDatumTypeDef]
     resolution: AggregationPeriodType
     startTime: datetime
-    unprocessedEndTimes: Dict[str, List[TimestampStructureTypeDef]]
+    unprocessedEndTimes: dict[str, list[TimestampStructureTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetFrameMetricDataRequestTypeDef(TypedDict):
@@ -477,8 +472,8 @@ class DescribeProfilingGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProfilingGroupsResponseTypeDef(TypedDict):
-    profilingGroupNames: List[str]
-    profilingGroups: List[ProfilingGroupDescriptionTypeDef]
+    profilingGroupNames: list[str]
+    profilingGroups: list[ProfilingGroupDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -487,9 +482,9 @@ class UpdateProfilingGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRecommendationsResponseTypeDef(TypedDict):
-    anomalies: List[AnomalyTypeDef]
+    anomalies: list[AnomalyTypeDef]
     profileEndTime: datetime
     profileStartTime: datetime
     profilingGroupName: str
-    recommendations: List[RecommendationTypeDef]
+    recommendations: list[RecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

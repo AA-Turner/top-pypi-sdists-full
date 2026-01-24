@@ -22,47 +22,42 @@ from typing import Union
 import numpy as np
 
 from jax._src.lib import xla_client as xc
-from jax._src.lib import jaxlib_extension_version
 
 
 def get_num_ways_dim_sharded(
-    hlo_sharding: xc.HloSharding) -> tuple[list[int], int]:
+    hlo_sharding: xc.HloSharding, allow_partial_manual: bool = False
+) -> tuple[list[int], int]:
+  assert not hlo_sharding.is_manual()
   if hlo_sharding.is_replicated():
     return [], 1
-  if jaxlib_extension_version >= 371 and hlo_sharding.is_unreduced():
+  if hlo_sharding.is_unreduced():
     return [], 1
   partitions = hlo_sharding.tile_assignment_dimensions()
   subgroup_types = hlo_sharding.subgroup_types()
 
-  replicate_on_last_tile_dim = False
-  unreduced_on_last_tile_dim = False
-  unreduced_and_replicated = False
   if subgroup_types == [xc.OpSharding.Type.REPLICATED]:
-    replicate_on_last_tile_dim = True
-  elif (jaxlib_extension_version >= 371 and
-        subgroup_types == [xc.OpSharding.Type.UNREDUCED]):
-    unreduced_on_last_tile_dim = True
-  elif (jaxlib_extension_version >= 371 and len(subgroup_types) == 2 and
-        xc.OpSharding.Type.REPLICATED in subgroup_types and
-        xc.OpSharding.Type.UNREDUCED in subgroup_types):
-    unreduced_and_replicated = True
-  else:
-    replicate_on_last_tile_dim = hlo_sharding.replicate_on_last_tile_dim()
-    if subgroup_types:
-      raise NotImplementedError(
-          "Unhandled OpSharding type. Please open a bug report!")
-  num_replicas = 1
-  if replicate_on_last_tile_dim:
-    num_replicas = partitions[-1]
-    partitions = partitions[:-1]
-  if unreduced_on_last_tile_dim:
-    num_replicas = 1
-    partitions = partitions[:-1]
-  if unreduced_and_replicated:
+    return list(partitions[:-1]), partitions[-1]
+  elif subgroup_types == [xc.OpSharding.Type.UNREDUCED]:
+    return list(partitions[:-1]), 1
+  elif set(subgroup_types) == {xc.OpSharding.Type.REPLICATED,
+                               xc.OpSharding.Type.UNREDUCED}:
     replicated_loc = subgroup_types.index(xc.OpSharding.Type.REPLICATED)
-    num_replicas = partitions[-2:][replicated_loc]
-    partitions = partitions[:-2]
-  return list(partitions), num_replicas
+    return list(partitions[:-2]), partitions[-2:][replicated_loc]
+  elif allow_partial_manual and xc.OpSharding.Type.MANUAL in subgroup_types:
+    if subgroup_types == [xc.OpSharding.Type.MANUAL]:
+      return list(partitions[:-1]), 1
+    else:
+      assert (set(subgroup_types) ==
+              {xc.OpSharding.Type.REPLICATED, xc.OpSharding.Type.MANUAL})
+      replicated_loc = subgroup_types.index(xc.OpSharding.Type.REPLICATED)
+      return list(partitions[:-2]), partitions[-2:][replicated_loc]
+  elif hlo_sharding.replicate_on_last_tile_dim():
+    return list(partitions[:-1]), partitions[-1]
+  else:
+    if subgroup_types:
+      raise NotImplementedError(f"Unhandled OpSharding type: {hlo_sharding}. "
+                                "Please open a bug report!")
+    return list(partitions), 1
 
 
 def is_hlo_sharding_replicated(hc: xc.HloSharding) -> bool:

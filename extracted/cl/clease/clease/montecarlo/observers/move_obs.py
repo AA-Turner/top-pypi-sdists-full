@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterator, List
+from collections.abc import Iterator
 
 import ase
 
@@ -42,7 +42,7 @@ class MoveObserver(MCObserver):
     def reset(self) -> None:
         self.steps = []
 
-    def reconstruct(self) -> List[ase.Atoms]:
+    def reconstruct(self) -> list[ase.Atoms]:
         """Rebuild the atoms objects as defined by the observed changes."""
         return list(self.reconstruct_iter())
 

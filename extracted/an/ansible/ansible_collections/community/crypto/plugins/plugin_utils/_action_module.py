@@ -21,12 +21,10 @@ import traceback
 import typing as t
 
 from ansible.errors import AnsibleError
-from ansible.module_utils.basic import SEQUENCETYPE, remove_values
-from ansible.module_utils.common._collections_compat import Mapping
+from ansible.module_utils.basic import remove_values
 from ansible.module_utils.common.arg_spec import ArgumentSpecValidator
 from ansible.module_utils.errors import UnsupportedError
 from ansible.plugins.action import ActionBase
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._argspec import (
@@ -164,38 +162,8 @@ class AnsibleActionModule:
         if "invocation" not in kwargs:
             kwargs["invocation"] = {"module_args": self.params}
 
-        if "warnings" in kwargs:
-            if isinstance(kwargs["warnings"], list):
-                for w in kwargs["warnings"]:
-                    self.warn(w)
-            else:
-                self.warn(kwargs["warnings"])
-
         if self.__warnings:
             kwargs["warnings"] = self.__warnings
-
-        if "deprecations" in kwargs:
-            if isinstance(kwargs["deprecations"], list):
-                for d in kwargs["deprecations"]:
-                    if isinstance(d, SEQUENCETYPE) and len(d) == 2:
-                        self.deprecate(d[0], version=d[1])
-                    elif isinstance(d, Mapping):
-                        self.deprecate(
-                            d["msg"],
-                            version=d.get("version"),
-                            date=d.get("date"),
-                            collection_name=d.get("collection_name"),
-                        )
-                    else:
-                        # pylint: disable-next=unknown-option-value
-                        self.deprecate(  # pylint: disable=ansible-deprecated-no-version
-                            d
-                        )
-            else:
-                # pylint: disable-next=unknown-option-value
-                self.deprecate(  # pylint: disable=ansible-deprecated-no-version
-                    kwargs["deprecations"]
-                )
 
         if self.__deprecations:
             kwargs["deprecations"] = self.__deprecations
@@ -254,4 +222,4 @@ class ActionModuleBase(ActionBase, metaclass=abc.ABCMeta):
             return result
 
 
-__all__ = ("AnsibleActionModule", "ActionModuleBase")
+__all__ = ("ActionModuleBase", "AnsibleActionModule")

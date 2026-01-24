@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -36,7 +36,7 @@ class AudioModelInference(WMLResource):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :param api_client: initialized APIClient object with a set project ID or space ID. If passed, ``credentials`` and ``project_id``/``space_id`` are not required.
     :type api_client: APIClient, optional
@@ -51,10 +51,9 @@ class AudioModelInference(WMLResource):
         audio_model = AudioModelInference(
             model="<AUDIO MODEL>",
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
             ),
-            project_id=project_id
+            project_id=project_id,
         )
 
     """
@@ -65,10 +64,13 @@ class AudioModelInference(WMLResource):
         credentials: Credentials | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: bool | str | None = None,
+        verify: bool | str | Path | None = None,
         api_client: APIClient | None = None,
     ) -> None:
         self.model = model
+
+        if isinstance(verify, Path):
+            verify = str(verify)
 
         if credentials:
             from ibm_watsonx_ai import APIClient

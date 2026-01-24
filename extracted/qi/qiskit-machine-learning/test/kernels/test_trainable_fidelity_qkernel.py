@@ -9,7 +9,7 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
-""" Test trainable quantum kernels using primitives """
+"""Test trainable quantum kernels using primitives"""
 
 import itertools
 import unittest
@@ -19,7 +19,7 @@ from test import QiskitMachineLearningTestCase
 import numpy as np
 from ddt import ddt, data, idata, unpack
 from qiskit.circuit import Parameter
-from qiskit.circuit.library import ZZFeatureMap
+from qiskit.circuit.library import zz_feature_map
 
 from qiskit_machine_learning import QiskitMachineLearningError
 from qiskit_machine_learning.kernels import (
@@ -36,8 +36,8 @@ class TestPrimitivesTrainableQuantumKernelClassify(QiskitMachineLearningTestCase
         super().setUp()
 
         # Create an arbitrary 3-qubit feature map circuit
-        circ1 = ZZFeatureMap(3)
-        circ2 = ZZFeatureMap(3, parameter_prefix="θ")
+        circ1 = zz_feature_map(3)
+        circ2 = zz_feature_map(3, parameter_prefix="θ")
         self.feature_map = circ1.compose(circ2).compose(circ1)
         self.num_features = circ1.num_parameters
         self.training_parameters = circ2.parameters
@@ -181,23 +181,16 @@ class TestPrimitivesTrainableQuantumKernelClassify(QiskitMachineLearningTestCase
         self.assertEqual(len(self.training_parameters), kernel.num_training_parameters)
         self.assertEqual(self.num_features, kernel.num_features)
 
-    # Testing changes related to the bug fix for
-    # https://github.com/qiskit-community/qiskit-machine-learning/issues/911
     @data(TrainableFidelityQuantumKernel, TrainableFidelityStatevectorKernel)
     def test_default_feature_map(self, trainable_kernel_type):
-        """Test properties of the trainable quantum kernel."""
+        """Default feature map was removed; constructing without one should error."""
         with self.subTest("Do not pass feature map at all"):
-            kernel = trainable_kernel_type()
-            # The above would crash as per the reference issue. This following checks
-            # just make sure feature map is present and built as expected
-            self.assertIsNotNone(kernel.feature_map)
-            self.assertEqual(len(kernel.feature_map.parameters), 2)
+            with self.assertRaises(QiskitMachineLearningError):
+                _ = trainable_kernel_type()
 
-        # As above but explicitly pass None
         with self.subTest("Pass feature map with value None"):
-            kernel = trainable_kernel_type(feature_map=None)
-            self.assertIsNotNone(kernel.feature_map)
-            self.assertEqual(len(kernel.feature_map.parameters), 2)
+            with self.assertRaises(QiskitMachineLearningError):
+                _ = trainable_kernel_type(feature_map=None)
 
 
 if __name__ == "__main__":

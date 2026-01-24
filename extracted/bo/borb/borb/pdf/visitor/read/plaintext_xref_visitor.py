@@ -19,6 +19,7 @@ This class:
 PDFs that use uncompressed XRef tables, supporting document reconstruction and
 efficient navigation within the PDF byte stream.
 """
+import logging
 import typing
 
 from borb.pdf.primitives import PDFType, reference
@@ -76,6 +77,24 @@ class PlaintextXRefVisitor(XRefVisitor):
         if not isinstance(node, int):
             return None
 
+        # IF the bytes do not align with 'xref' being present at the right position
+        # THEN look-ahead/back 8 bytes
+        xref_offset: int = 0
+        for potential_xref_offset in range(-8, 8):
+            if (
+                self.get_bytes()[
+                    node + potential_xref_offset : node + potential_xref_offset + 4
+                ]
+                == b"xref"
+            ):
+                xref_offset = potential_xref_offset
+                break
+
+        if xref_offset != 0:
+            logger = logging.getLogger(__name__)
+            logger.debug(f"XREF found at {node+xref_offset} instead of {node}")
+            node = node + xref_offset
+
         # XREF should start with 'xref'
         if self.get_bytes()[node : node + 4] != b"xref":
             return None
@@ -107,7 +126,7 @@ class PlaintextXRefVisitor(XRefVisitor):
             # read 'f' or 'n'
             i = j + 1
             j = PDFBytes.next_newline(pdf_bytes=self.get_bytes(), start=i + 1)
-            f_or_n: str = self.get_bytes()[i:j].decode()
+            f_or_n: str = self.get_bytes()[i : i + 1].decode()
 
             # add to XREF
             xref += [
@@ -120,7 +139,7 @@ class PlaintextXRefVisitor(XRefVisitor):
             ]
 
         # add to (root) xref tables
-        self._ReadVisitor__root._RootVisitor__xref += xref  # type: ignore[attr-defined]
+        self._ReadVisitor__parent._RootVisitor__xref += xref  # type: ignore[attr-defined]
 
         # IF the /Prev key has been set
         # THEN process the previous xref as well

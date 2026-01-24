@@ -66,6 +66,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -82,7 +83,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -164,6 +165,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -180,7 +182,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -262,6 +264,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -278,7 +281,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -360,6 +363,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -376,7 +380,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -452,6 +456,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -468,7 +473,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -544,6 +549,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -560,7 +566,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -636,6 +642,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -652,7 +659,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -728,6 +735,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -744,7 +752,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -817,6 +825,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -833,7 +842,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -906,6 +915,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -922,7 +932,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -995,6 +1005,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1011,7 +1022,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1084,6 +1095,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1100,7 +1112,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1173,6 +1185,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1189,7 +1202,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1262,6 +1275,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1278,7 +1292,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1351,6 +1365,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1367,7 +1382,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1440,6 +1455,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1456,7 +1472,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1531,6 +1547,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1547,7 +1564,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingCategories",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1622,6 +1639,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1638,7 +1656,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingCategories",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1711,6 +1729,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1727,7 +1746,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingCustomers",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1800,6 +1819,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1816,7 +1836,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingCustomers",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1889,6 +1909,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1905,7 +1926,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingNotes",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1978,6 +1999,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1994,7 +2016,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingNotes",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2067,6 +2089,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2083,7 +2106,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingTickets",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2156,6 +2179,7 @@ class Ticketing(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2172,7 +2196,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listTicketingTickets",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2252,6 +2276,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2268,7 +2293,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2348,6 +2373,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2364,7 +2390,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2444,6 +2470,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2460,7 +2487,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2540,6 +2567,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2556,7 +2584,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2632,6 +2660,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2648,7 +2677,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2724,6 +2753,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2740,7 +2770,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2816,6 +2846,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2832,7 +2863,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2908,6 +2939,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2924,7 +2956,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2999,6 +3031,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3015,7 +3048,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3095,6 +3128,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3111,7 +3145,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3191,6 +3225,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3207,7 +3242,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3287,6 +3322,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3303,7 +3339,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3381,6 +3417,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3397,7 +3434,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3475,6 +3512,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3491,7 +3529,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3569,6 +3607,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3585,7 +3624,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3663,6 +3702,7 @@ class Ticketing(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3679,7 +3719,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3766,6 +3806,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3782,7 +3823,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3864,6 +3905,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCategory,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3880,7 +3922,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingCategory",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3962,6 +4004,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3978,7 +4021,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4060,6 +4103,7 @@ class Ticketing(BaseSDK):
                 "json",
                 shared.TicketingCustomer,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4076,7 +4120,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingCustomer",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4152,6 +4196,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4168,7 +4213,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4244,6 +4289,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_note, False, False, "json", shared.TicketingNote
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4260,7 +4306,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingNote",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4336,6 +4382,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4352,7 +4399,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4428,6 +4475,7 @@ class Ticketing(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ticketing_ticket, False, False, "json", shared.TicketingTicket
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4444,7 +4492,7 @@ class Ticketing(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateTicketingTicket",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

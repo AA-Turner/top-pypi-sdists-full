@@ -1,19 +1,20 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: tomlkit
-Version: 0.13.3
+Version: 0.14.0
 Summary: Style preserving TOML library
 License: MIT
+License-File: LICENSE
 Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/sdispater/tomlkit
 Project-URL: Repository, https://github.com/sdispater/tomlkit
 Description-Content-Type: text/markdown

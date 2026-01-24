@@ -3,27 +3,35 @@
 from .basesdk import BaseSDK
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
+from orq_ai_sdk.models import (
+    createcontactop as models_createcontactop,
+    listcontactsop as models_listcontactsop,
+)
 from orq_ai_sdk.types import BaseModel, OptionalNullable, UNSET
 from orq_ai_sdk.utils import get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
 from typing import Any, Dict, List, Mapping, Optional, Union, cast
+from typing_extensions import deprecated
 
 
 class Contacts(BaseSDK):
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def create(
         self,
         *,
         request: Optional[
             Union[
-                models.CreateContactRequestBody,
-                models.CreateContactRequestBodyTypedDict,
+                models_createcontactop.CreateContactRequestBody,
+                models_createcontactop.CreateContactRequestBodyTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateContactResponseBody]:
+    ) -> models.CreateContactResponseBody:
         r"""Create a contact
 
         Creates a new contact with a unique external_id. If a contact with the same external_id already exists, the operation will fail. Use this endpoint to add users from your system to orq.ai for tracking their usage and engagement.
@@ -69,6 +77,7 @@ class Contacts(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateContactRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -85,7 +94,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -96,9 +105,7 @@ class Contacts(BaseSDK):
         )
 
         if utils.match_response(http_res, "201", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CreateContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.CreateContactResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -108,20 +115,23 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def create_async(
         self,
         *,
         request: Optional[
             Union[
-                models.CreateContactRequestBody,
-                models.CreateContactRequestBodyTypedDict,
+                models_createcontactop.CreateContactRequestBody,
+                models_createcontactop.CreateContactRequestBodyTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateContactResponseBody]:
+    ) -> models.CreateContactResponseBody:
         r"""Create a contact
 
         Creates a new contact with a unique external_id. If a contact with the same external_id already exists, the operation will fail. Use this endpoint to add users from your system to orq.ai for tracking their usage and engagement.
@@ -167,6 +177,7 @@ class Contacts(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateContactRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -183,7 +194,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -194,9 +205,7 @@ class Contacts(BaseSDK):
         )
 
         if utils.match_response(http_res, "201", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CreateContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.CreateContactResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -206,21 +215,28 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def list(
         self,
         *,
         limit: Optional[float] = 10,
         starting_after: Optional[str] = None,
         ending_before: Optional[str] = None,
+        search: Optional[str] = None,
         filter_by: Optional[
-            Union[models.QueryParamFilterBy, models.QueryParamFilterByTypedDict]
+            Union[
+                models_listcontactsop.ListContactsQueryParamFilterBy,
+                models_listcontactsop.ListContactsQueryParamFilterByTypedDict,
+            ]
         ] = None,
         include_metrics: OptionalNullable[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListContactsResponseBody]:
+    ) -> models.ListContactsResponseBody:
         r"""List contacts
 
         Retrieves a paginated list of contacts in your workspace. Use pagination parameters to navigate through large contact lists efficiently.
@@ -228,8 +244,9 @@ class Contacts(BaseSDK):
         :param limit: A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10
         :param starting_after: A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, ending with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `after=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the next page of the list.
         :param ending_before: A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list.
+        :param search: Search contacts by display name or email address. Minimum 2 characters required.
         :param filter_by: Filter contacts by tags. Can be provided as JSON object {\"tags\": [\"premium\", \"beta-user\"]} or as query format \"tags=premium,beta-user\"
-        :param include_metrics:
+        :param include_metrics: Include usage metrics of the last 30 days for each contact.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -252,8 +269,9 @@ class Contacts(BaseSDK):
             limit=limit,
             starting_after=starting_after,
             ending_before=ending_before,
+            search=search,
             filter_by=utils.get_pydantic_model(
-                filter_by, Optional[models.QueryParamFilterBy]
+                filter_by, Optional[models.ListContactsQueryParamFilterBy]
             ),
             include_metrics=include_metrics,
         )
@@ -271,6 +289,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -287,7 +306,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -298,9 +317,7 @@ class Contacts(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.ListContactsResponseBody], http_res
-            )
+            return unmarshal_json_response(models.ListContactsResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -310,21 +327,28 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def list_async(
         self,
         *,
         limit: Optional[float] = 10,
         starting_after: Optional[str] = None,
         ending_before: Optional[str] = None,
+        search: Optional[str] = None,
         filter_by: Optional[
-            Union[models.QueryParamFilterBy, models.QueryParamFilterByTypedDict]
+            Union[
+                models_listcontactsop.ListContactsQueryParamFilterBy,
+                models_listcontactsop.ListContactsQueryParamFilterByTypedDict,
+            ]
         ] = None,
         include_metrics: OptionalNullable[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ListContactsResponseBody]:
+    ) -> models.ListContactsResponseBody:
         r"""List contacts
 
         Retrieves a paginated list of contacts in your workspace. Use pagination parameters to navigate through large contact lists efficiently.
@@ -332,8 +356,9 @@ class Contacts(BaseSDK):
         :param limit: A limit on the number of objects to be returned. Limit can range between 1 and 50, and the default is 10
         :param starting_after: A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, ending with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `after=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the next page of the list.
         :param ending_before: A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 20 objects, starting with `01JJ1HDHN79XAS7A01WB3HYSDB`, your subsequent call can include `before=01JJ1HDHN79XAS7A01WB3HYSDB` in order to fetch the previous page of the list.
+        :param search: Search contacts by display name or email address. Minimum 2 characters required.
         :param filter_by: Filter contacts by tags. Can be provided as JSON object {\"tags\": [\"premium\", \"beta-user\"]} or as query format \"tags=premium,beta-user\"
-        :param include_metrics:
+        :param include_metrics: Include usage metrics of the last 30 days for each contact.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -356,8 +381,9 @@ class Contacts(BaseSDK):
             limit=limit,
             starting_after=starting_after,
             ending_before=ending_before,
+            search=search,
             filter_by=utils.get_pydantic_model(
-                filter_by, Optional[models.QueryParamFilterBy]
+                filter_by, Optional[models.ListContactsQueryParamFilterBy]
             ),
             include_metrics=include_metrics,
         )
@@ -375,6 +401,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -391,7 +418,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -402,9 +429,7 @@ class Contacts(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.ListContactsResponseBody], http_res
-            )
+            return unmarshal_json_response(models.ListContactsResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -414,6 +439,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def retrieve(
         self,
         *,
@@ -422,7 +450,7 @@ class Contacts(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveContactResponseBody]:
+    ) -> models.RetrieveContactResponseBody:
         r"""Retrieve a contact
 
         Retrieves detailed information about a specific contact using their contact ID or external ID from your system.
@@ -463,6 +491,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -479,7 +508,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -491,9 +520,7 @@ class Contacts(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.RetrieveContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.RetrieveContactResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(
                 models.RetrieveContactContactsResponseBodyData, http_res
@@ -508,6 +535,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def retrieve_async(
         self,
         *,
@@ -516,7 +546,7 @@ class Contacts(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.RetrieveContactResponseBody]:
+    ) -> models.RetrieveContactResponseBody:
         r"""Retrieve a contact
 
         Retrieves detailed information about a specific contact using their contact ID or external ID from your system.
@@ -557,6 +587,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -573,7 +604,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RetrieveContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -585,9 +616,7 @@ class Contacts(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.RetrieveContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.RetrieveContactResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(
                 models.RetrieveContactContactsResponseBodyData, http_res
@@ -602,6 +631,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def update(
         self,
         *,
@@ -615,7 +647,7 @@ class Contacts(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateContactResponseBody]:
+    ) -> models.UpdateContactResponseBody:
         r"""Update a contact
 
         Updates specific fields of an existing contact. Only the fields provided in the request body will be updated.
@@ -675,6 +707,7 @@ class Contacts(BaseSDK):
                 "json",
                 Optional[models.UpdateContactRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -691,7 +724,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -703,9 +736,7 @@ class Contacts(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateContactResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(
                 models.UpdateContactContactsResponseBodyData, http_res
@@ -720,6 +751,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def update_async(
         self,
         *,
@@ -733,7 +767,7 @@ class Contacts(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.UpdateContactResponseBody]:
+    ) -> models.UpdateContactResponseBody:
         r"""Update a contact
 
         Updates specific fields of an existing contact. Only the fields provided in the request body will be updated.
@@ -793,6 +827,7 @@ class Contacts(BaseSDK):
                 "json",
                 Optional[models.UpdateContactRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -809,7 +844,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -821,9 +856,7 @@ class Contacts(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.UpdateContactResponseBody], http_res
-            )
+            return unmarshal_json_response(models.UpdateContactResponseBody, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(
                 models.UpdateContactContactsResponseBodyData, http_res
@@ -838,6 +871,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def delete(
         self,
         *,
@@ -887,6 +923,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -903,7 +940,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -930,6 +967,9 @@ class Contacts(BaseSDK):
 
         raise models.APIError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def delete_async(
         self,
         *,
@@ -979,6 +1019,7 @@ class Contacts(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -995,7 +1036,7 @@ class Contacts(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),

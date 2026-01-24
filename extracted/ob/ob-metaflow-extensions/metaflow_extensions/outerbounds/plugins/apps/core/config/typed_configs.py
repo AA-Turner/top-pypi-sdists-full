@@ -73,6 +73,100 @@ class PackageConfigDict(TypedDict, total=False):
 
 
 class TypedCoreConfig:
+    """
+    Parameters
+    ----------
+    name : str, optional
+        The name of the app to deploy.
+
+    port : int, optional
+        Port where the app is hosted. When deployed this will be port on which we will deploy the app.
+
+    description : str, optional
+        The description of the app to deploy.
+
+    app_type : str, optional
+        The User defined type of app to deploy. Its only used for bookkeeping purposes.
+
+    image : str, optional
+        The Docker image to deploy with the App.
+
+    tags : list, optional
+        The tags of the app to deploy.
+
+    secrets : list, optional
+        Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code.
+
+    compute_pools : list, optional
+        A list of compute pools to deploy the app to.
+
+    environment : dict, optional
+        Environment variables to deploy with the App.
+
+    commands : list, optional
+        A list of commands to run the app with.
+
+    resources : ResourceConfigDict, optional
+        Resource configuration for the app.
+            - cpu (str)
+                CPU requests
+            - memory (str)
+                Memory requests
+            - gpu (str)
+                GPU requests
+            - disk (str)
+                Storage disk size.
+            - shared_memory (str)
+                Shared memory
+
+    auth : AuthConfigDict, optional
+        Auth related configurations.
+            - type (str)
+                The type of authentication to use for the app.
+            - public (bool)
+                Whether the app is public or not.
+
+    replicas : ReplicaConfigDict, optional
+        The number of replicas to deploy the app with.
+            - fixed (int)
+                The fixed number of replicas to deploy the app with. If min and max are set, this will raise an error.
+            - min (int)
+                The minimum number of replicas to deploy the app with.
+            - max (int)
+                The maximum number of replicas to deploy the app with.
+            - scaling_policy (ScalingPolicyConfigDict)
+                Scaling policy defines the the metric based on which the replicas will horizontally scale. If min and max replicas are set and are not the same, then a scaling policy will be applied. Default scaling policies can be 60 rpm (ie 1 rps).
+                - rpm (int)
+                    Scale up replicas when the requests per minute crosses this threshold. If nothing is provided and the replicas.max and replicas.min is set then the default rpm would be 60.
+
+    code_package : tuple, optional
+        Pre-packaged code from package_code(). A PackagedCode namedtuple containing url and key.
+
+    force_upgrade : bool, optional
+        Force upgrade the app even if it is currently being upgraded.
+
+    persistence : str, optional
+        The persistence mode to deploy the app with.
+        [Experimental] May change in the future.
+
+    project : str, optional
+        The project name to deploy the app to.
+        [Experimental] May change in the future.
+
+    branch : str, optional
+        The branch name to deploy the app to.
+        [Experimental] May change in the future.
+
+    models : list, optional
+        [Experimental] May change in the future.
+
+    data : list, optional
+        [Experimental] May change in the future.
+
+    generate_static_url : bool, optional
+        Generate a static URL for the app based on its name.
+    """
+
     def __init__(
         self,
         name: Optional[str] = None,
@@ -88,15 +182,14 @@ class TypedCoreConfig:
         resources: Optional[ResourceConfigDict] = None,
         auth: Optional[AuthConfigDict] = None,
         replicas: Optional[ReplicaConfigDict] = None,
-        dependencies: Optional[DependencyConfigDict] = None,
-        package: Optional[PackageConfigDict] = None,
-        no_deps: Optional[bool] = None,
+        code_package: Optional[tuple] = None,
         force_upgrade: Optional[bool] = None,
         persistence: Optional[str] = None,
         project: Optional[str] = None,
         branch: Optional[str] = None,
         models: Optional[list] = None,
         data: Optional[list] = None,
+        generate_static_url: Optional[bool] = None,
         **kwargs
     ) -> None:
         self._kwargs = {
@@ -113,15 +206,14 @@ class TypedCoreConfig:
             "resources": resources,
             "auth": auth,
             "replicas": replicas,
-            "dependencies": dependencies,
-            "package": package,
-            "no_deps": no_deps,
+            "code_package": code_package,
             "force_upgrade": force_upgrade,
             "persistence": persistence,
             "project": project,
             "branch": branch,
             "models": models,
             "data": data,
+            "generate_static_url": generate_static_url,
         }
         # Add any additional kwargs
         self._kwargs.update(kwargs)
@@ -129,9 +221,13 @@ class TypedCoreConfig:
         self._kwargs = {k: v for k, v in self._kwargs.items() if v is not None}
         self._config_class = CoreConfig
         self._config = self.create_config()
+        self._init()
 
     def create_config(self) -> CoreConfig:
         return CoreConfig.from_dict(self._kwargs)
 
     def to_dict(self) -> Dict[str, Any]:
         return self._config.to_dict()
+
+    def _init(self):
+        raise NotImplementedError

@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -19,23 +19,16 @@
 
 from typing import Iterable
 
+from ...data_model.container import CoverageContainer
+from ...data_model.coverage import FileCoverage
+from ...data_model.stats import CoverageStat
 from ...options import Options
-
-from ...utils import (
-    force_unix_separator,
-    presentable_filename,
-    open_text_for_writing,
-)
-from ...coverage import (
-    CoverageContainer,
-    CoverageStat,
-    FileCoverage,
-)
+from ...utils import force_unix_separator, open_text_for_writing
 
 # Widths of the various columns
 COL_FILE_WIDTH = 40
 COL_TOTAL_COUNT_WIDTH = 8
-COL_COVERED_COUNT_WIDTH = 8
+COL_COVERED_COUNT_WIDTH = 9
 COL_PERCENTAGE_WIDTH = 7  # including "%" percentage sign
 UN_COVERED_SEPARATOR = "   "
 LINE_WIDTH = 78
@@ -119,37 +112,37 @@ def write_summary_report(
             print_stat("conditions", stats.condition)
         if options.show_decision:
             print_stat("decisions", stats.decision.to_coverage_stat)
-        if not options.exclude_calls:
+        if options.show_calls:
             print_stat("calls", stats.call)
 
 
 def _summarize_file_coverage(
-    coverage: FileCoverage, options: Options
+    filecov: FileCoverage, options: Options
 ) -> tuple[CoverageStat, str]:
-    filename = presentable_filename(coverage.filename, root_filter=options.root_filter)
+    filename = filecov.presentable_filename(options.root_filter)
 
     if options.txt_report_covered:
         if options.txt_metric == "branch":
-            stat = coverage.branch_coverage()
-            covered_lines = _covered_branches_str(coverage)
+            stat = filecov.branch_coverage()
+            covered_lines = _covered_branches_str(filecov)
         elif options.txt_metric == "decision":
-            stat = coverage.decision_coverage().to_coverage_stat
-            covered_lines = _covered_decisions_str(coverage)
+            stat = filecov.decision_coverage().to_coverage_stat
+            covered_lines = _covered_decisions_str(filecov)
         else:
-            stat = coverage.line_coverage()
-            covered_lines = _covered_lines_str(coverage)
+            stat = filecov.line_coverage()
+            covered_lines = _covered_lines_str(filecov)
 
         return stat, _format_line(filename, stat, covered_lines)
 
     if options.txt_metric == "branch":
-        stat = coverage.branch_coverage()
-        uncovered_lines = _uncovered_branches_str(coverage)
+        stat = filecov.branch_coverage()
+        uncovered_lines = _uncovered_branches_str(filecov)
     elif options.txt_metric == "decision":
-        stat = coverage.decision_coverage().to_coverage_stat
-        uncovered_lines = _uncovered_decisions_str(coverage)
+        stat = filecov.decision_coverage().to_coverage_stat
+        uncovered_lines = _uncovered_decisions_str(filecov)
     else:
-        stat = coverage.line_coverage()
-        uncovered_lines = _uncovered_lines_str(coverage)
+        stat = filecov.line_coverage()
+        uncovered_lines = _uncovered_lines_str(filecov)
 
     return stat, _format_line(filename, stat, uncovered_lines)
 
@@ -181,7 +174,7 @@ def _format_line(name: str, stat: CoverageStat, uncovered_lines: str) -> str:
 
 def _covered_lines_str(filecov: FileCoverage) -> str:
     covered_lines = sorted(
-        linecov.lineno for linecov in filecov.lines.values() if not linecov.is_uncovered
+        linecov.lineno for linecov in filecov.linecov() if not linecov.is_uncovered
     )
 
     # Walk through the covered lines in sorted order.
@@ -199,7 +192,7 @@ def _covered_lines_str(filecov: FileCoverage) -> str:
 
 def _uncovered_lines_str(filecov: FileCoverage) -> str:
     uncovered_lines = sorted(
-        linecov.lineno for linecov in filecov.lines.values() if linecov.is_uncovered
+        linecov.lineno for linecov in filecov.linecov() if linecov.is_uncovered
     )
 
     # Walk through the uncovered lines in sorted order.
@@ -218,7 +211,7 @@ def _uncovered_lines_str(filecov: FileCoverage) -> str:
 def _covered_branches_str(filecov: FileCoverage) -> str:
     covered_lines = sorted(
         linecov.lineno
-        for linecov in filecov.lines.values()
+        for linecov in filecov.linecov()
         if not linecov.has_uncovered_branch
     )
 
@@ -229,7 +222,7 @@ def _covered_branches_str(filecov: FileCoverage) -> str:
 def _covered_decisions_str(filecov: FileCoverage) -> str:
     covered_decisions = sorted(
         linecov.lineno
-        for linecov in filecov.lines.values()
+        for linecov in filecov.linecov()
         if not linecov.has_uncovered_decision
     )
     return ",".join(str(lineno) for lineno in covered_decisions)
@@ -238,7 +231,7 @@ def _covered_decisions_str(filecov: FileCoverage) -> str:
 def _uncovered_decisions_str(filecov: FileCoverage) -> str:
     uncovered_decisions = sorted(
         linecov.lineno
-        for linecov in filecov.lines.values()
+        for linecov in filecov.linecov()
         if linecov.has_uncovered_decision
     )
     return ",".join(str(lineno) for lineno in uncovered_decisions)
@@ -246,9 +239,7 @@ def _uncovered_decisions_str(filecov: FileCoverage) -> str:
 
 def _uncovered_branches_str(filecov: FileCoverage) -> str:
     uncovered_lines = sorted(
-        linecov.lineno
-        for linecov in filecov.lines.values()
-        if linecov.has_uncovered_branch
+        linecov.lineno for linecov in filecov.linecov() if linecov.has_uncovered_branch
     )
 
     # Don't do any aggregation on branch results.

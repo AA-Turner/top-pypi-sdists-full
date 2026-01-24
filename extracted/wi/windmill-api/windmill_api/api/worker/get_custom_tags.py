@@ -10,14 +10,11 @@ from ...types import UNSET, Response, Unset
 
 def _get_kwargs(
     *,
-    workspace: Union[Unset, None, str] = UNSET,
     show_workspace_restriction: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
-    params["workspace"] = workspace
-
     params["show_workspace_restriction"] = show_workspace_restriction
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -52,13 +49,11 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-    workspace: Union[Unset, None, str] = UNSET,
     show_workspace_restriction: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """get all instance custom tags (tags are used to dispatch jobs to different worker groups)
 
     Args:
-        workspace (Union[Unset, None, str]):
         show_workspace_restriction (Union[Unset, None, bool]):
 
     Raises:
@@ -70,7 +65,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        workspace=workspace,
         show_workspace_restriction=show_workspace_restriction,
     )
 
@@ -84,13 +78,11 @@ def sync_detailed(
 def sync(
     *,
     client: Union[AuthenticatedClient, Client],
-    workspace: Union[Unset, None, str] = UNSET,
     show_workspace_restriction: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """get all instance custom tags (tags are used to dispatch jobs to different worker groups)
 
     Args:
-        workspace (Union[Unset, None, str]):
         show_workspace_restriction (Union[Unset, None, bool]):
 
     Raises:
@@ -103,7 +95,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        workspace=workspace,
         show_workspace_restriction=show_workspace_restriction,
     ).parsed
 
@@ -111,13 +102,11 @@ def sync(
 async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
-    workspace: Union[Unset, None, str] = UNSET,
     show_workspace_restriction: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """get all instance custom tags (tags are used to dispatch jobs to different worker groups)
 
     Args:
-        workspace (Union[Unset, None, str]):
         show_workspace_restriction (Union[Unset, None, bool]):
 
     Raises:
@@ -129,7 +118,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        workspace=workspace,
         show_workspace_restriction=show_workspace_restriction,
     )
 
@@ -141,13 +129,11 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
-    workspace: Union[Unset, None, str] = UNSET,
     show_workspace_restriction: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """get all instance custom tags (tags are used to dispatch jobs to different worker groups)
 
     Args:
-        workspace (Union[Unset, None, str]):
         show_workspace_restriction (Union[Unset, None, bool]):
 
     Raises:
@@ -161,7 +147,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            workspace=workspace,
             show_workspace_restriction=show_workspace_restriction,
         )
     ).parsed

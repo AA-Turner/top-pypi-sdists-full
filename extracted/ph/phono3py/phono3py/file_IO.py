@@ -33,17 +33,18 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+
 from __future__ import annotations
 
 import os
 import pathlib
 import warnings
 from collections.abc import Sequence
-from typing import Optional, TextIO, Union
+from typing import Literal, Optional, TextIO
 
 import h5py
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from phonopy.cui.load_helper import read_force_constants_from_hdf5
 
 # This import is deactivated for a while.
@@ -51,6 +52,7 @@ from phonopy.cui.load_helper import read_force_constants_from_hdf5
 from phonopy.file_IO import (
     check_force_constants_indices,
     get_cell_from_disp_yaml,
+    get_io_module_to_decompress,
     write_FORCE_SETS,
 )
 
@@ -191,7 +193,12 @@ def write_disp_fc2_yaml(dataset, supercell, filename="disp_fc2.yaml"):
     return num_first
 
 
-def write_FORCES_FC2(disp_dataset, forces_fc2=None, fp=None, filename="FORCES_FC2"):
+def write_FORCES_FC2(
+    disp_dataset: dict,
+    forces_fc2: Sequence | NDArray | None = None,
+    fp: TextIO | None = None,
+    filename: str | os.PathLike = "FORCES_FC2",
+):
     """Write FORCES_FC2.
 
     fp : IO object, optional, default=None
@@ -220,8 +227,9 @@ def write_FORCES_FC2(disp_dataset, forces_fc2=None, fp=None, filename="FORCES_FC
         else:
             if forces_fc2 is None:
                 raise RuntimeError("No forces are found.")
-            dataset = disp_dataset.copy()
+            dataset = {}
             dataset["forces"] = forces_fc2
+            dataset["displacements"] = disp_dataset["displacements"][: len(forces_fc2)]
             write_FORCE_SETS(dataset, filename="FORCES_FC2")
 
     if fp is None:
@@ -230,9 +238,9 @@ def write_FORCES_FC2(disp_dataset, forces_fc2=None, fp=None, filename="FORCES_FC
 
 def write_FORCES_FC3(
     disp_dataset: dict,
-    forces_fc3: Optional[Sequence] = None,
-    fp: Optional[TextIO] = None,
-    filename: str = "FORCES_FC3",
+    forces_fc3: Sequence | NDArray | None = None,
+    fp: TextIO | None = None,
+    filename: str | os.PathLike = "FORCES_FC3",
 ):
     """Write FORCES_FC3.
 
@@ -252,8 +260,9 @@ def write_FORCES_FC3(
         else:
             if forces_fc3 is None:
                 raise RuntimeError("No forces are found.")
-            dataset = disp_dataset.copy()
+            dataset = {}
             dataset["forces"] = forces_fc3
+            dataset["displacements"] = disp_dataset["displacements"][: len(forces_fc3)]
             write_FORCE_SETS(dataset, filename="FORCES_FC3")
 
 
@@ -309,7 +318,7 @@ def write_fc3_to_hdf5(
     filename: str = "fc3.hdf5",
     p2s_map: NDArray | None = None,
     fc3_cutoff: float | None = None,
-    compression: str = "gzip",
+    compression: Literal["gzip", "lzf"] | int | None = "gzip",
 ):
     """Write fc3 in fc3.hdf5.
 
@@ -403,11 +412,12 @@ def read_fc3_from_hdf5(
 
 
 def write_fc2_to_hdf5(
-    force_constants,
-    filename="fc2.hdf5",
-    p2s_map=None,
-    physical_unit=None,
-    compression="gzip",
+    force_constants: NDArray,
+    filename: str = "fc2.hdf5",
+    p2s_map: NDArray | None = None,
+    physical_unit: str | None = None,
+    compression: str | int | None = "gzip",
+    cutoff: float | None = None,
 ):
     """Write fc2 in fc2.hdf5.
 
@@ -417,22 +427,20 @@ def write_fc2_to_hdf5(
     """
 
     def write_force_constants_to_hdf5(
-        force_constants,
-        filename="force_constants.hdf5",
-        p2s_map=None,
-        physical_unit=None,
-        compression=None,
-        version=None,
+        force_constants: NDArray,
+        filename: str = "force_constants.hdf5",
+        p2s_map: NDArray | None = None,
+        physical_unit: str | None = None,
+        compression: str | int | None = "gzip",
+        cutoff: float | None = None,
+        version: str | None = None,
     ):
-        try:
-            import h5py
-        except ImportError as exc:
-            raise ModuleNotFoundError("You need to install python-h5py.") from exc
-
         with h5py.File(filename, "w") as w:
             w.create_dataset(
                 "force_constants", data=force_constants, compression=compression
             )
+            if cutoff is not None:
+                w.create_dataset("cutoff", data=cutoff)
             if p2s_map is not None:
                 w.create_dataset("p2s_map", data=p2s_map)
             if physical_unit is not None:
@@ -449,6 +457,7 @@ def write_fc2_to_hdf5(
         p2s_map=p2s_map,
         physical_unit=physical_unit,
         compression=compression,
+        cutoff=cutoff,
         version=__version__,
     )
 
@@ -540,7 +549,7 @@ def write_imag_self_energy_at_grid_point(
     gammas_filename += ".dat"
 
     w = open(gammas_filename, "w")
-    for freq, g in zip(frequencies, gammas):
+    for freq, g in zip(frequencies, gammas, strict=True):
         w.write("%15.7f %20.15e\n" % (freq, g))
     w.close()
 
@@ -570,7 +579,7 @@ def write_joint_dos(
             is_mesh_symmetry=is_mesh_symmetry,
         )
     else:
-        for jdos_at_t, t in zip(jdos, temperatures):
+        for jdos_at_t, t in zip(jdos, temperatures, strict=True):
             return _write_joint_dos_at_t(
                 gp,
                 mesh,
@@ -606,7 +615,7 @@ def _write_joint_dos_at_t(
     jdos_filename += ".dat"
 
     with open(jdos_filename, "w") as w:
-        for omega, vals in zip(frequencies, jdos):
+        for omega, vals in zip(frequencies, jdos, strict=True):
             w.write("%15.7f" % omega)
             w.write((" %20.15e" * len(vals)) % tuple(vals))
             w.write("\n")
@@ -642,7 +651,7 @@ def write_real_self_energy_at_grid_point(
     deltas_filename += ".dat"
 
     with open(deltas_filename, "w") as w:
-        for freq, v in zip(frequency_points, deltas):
+        for freq, v in zip(frequency_points, deltas, strict=True):
             w.write("%15.7f %20.15e\n" % (freq, v))
 
     return deltas_filename
@@ -728,7 +737,7 @@ def write_spectral_function_at_grid_point(
     spectral_filename += ".dat"
 
     with open(spectral_filename, "w") as w:
-        for freq, v in zip(frequency_points, spectral_functions):
+        for freq, v in zip(frequency_points, spectral_functions, strict=True):
             w.write("%15.7f %20.15e\n" % (freq, v))
 
     return spectral_filename
@@ -1116,12 +1125,12 @@ def write_kappa_to_hdf5(
 
 
 def read_gamma_from_hdf5(
-    mesh,
-    grid_point=None,
-    band_index=None,
-    sigma=None,
-    sigma_cutoff=None,
-    filename=None,
+    mesh: NDArray,
+    grid_point: int | None = None,
+    band_index: int | None = None,
+    sigma: float | None = None,
+    sigma_cutoff: float | None = None,
+    filename: str | None = None,
 ):
     """Read gamma from kappa-*.hdf5 file."""
     if band_index is None:
@@ -1329,12 +1338,12 @@ def write_pp_to_hdf5(
 
 def read_pp_from_hdf5(
     mesh,
-    grid_point=None,
-    sigma=None,
-    sigma_cutoff=None,
-    filename=None,
-    verbose=True,
-    check_consistency=False,
+    grid_point: int | None = None,
+    sigma: float | None = None,
+    sigma_cutoff: float | None = None,
+    filename: str | None = None,
+    verbose: bool = True,
+    check_consistency: bool = False,
 ) -> tuple:
     """Read ph-ph interaction strength from its hdf5 file."""
     suffix = _get_filename_suffix(
@@ -1492,7 +1501,7 @@ def write_phonon_to_hdf5(
     bz_grid=None,
     ir_grid_points=None,
     ir_grid_weights=None,
-    compression="gzip",
+    compression: Literal["gzip", "lzf"] | int | None = "gzip",
     filename=None,
 ):
     """Write phonon on grid in its hdf5 file."""
@@ -1551,15 +1560,15 @@ def write_ir_grid_points(bz_grid, grid_points, grid_weights, primitive_lattice):
     lines = []
     lines.append("mesh: [ %d, %d, %d ]" % tuple(bz_grid.D_diag))
     lines.append("reciprocal_lattice:")
-    for vec, axis in zip(primitive_lattice.T, ("a*", "b*", "c*")):
+    for vec, axis in zip(primitive_lattice.T, ("a*", "b*", "c*"), strict=True):
         lines.append("- [ %12.8f, %12.8f, %12.8f ] # %2s" % (tuple(vec) + (axis,)))
     lines.append("microzone_lattice:")
-    for vec, axis in zip(bz_grid.microzone_lattice.T, ("a*", "b*", "c*")):
+    for vec, axis in zip(bz_grid.microzone_lattice.T, ("a*", "b*", "c*"), strict=True):
         lines.append("- [ %12.8f, %12.8f, %12.8f ] # %2s" % (tuple(vec) + (axis,)))
     lines.append("num_reduced_ir_grid_points: %d" % len(grid_points))
     lines.append("ir_grid_points:  # [address, weight]")
 
-    for g, weight in zip(grid_points, grid_weights):
+    for g, weight in zip(grid_points, grid_weights, strict=True):
         lines.append("- grid_point: %d" % g)
         lines.append("  weight: %d" % weight)
         lines.append(
@@ -1653,7 +1662,8 @@ def parse_FORCES_FC2(
     num_atom = disp_dataset["natom"]
     num_disp = len(disp_dataset["first_atoms"])
     forces_fc2 = []
-    with open(filename, "r") as f2:
+    myio = get_io_module_to_decompress(filename)
+    with myio.open(filename, "rt") as f2:
         for _ in range(num_disp):
             forces = _parse_force_lines(f2, num_atom)
             if forces is None:
@@ -1671,7 +1681,7 @@ def parse_FORCES_FC2(
 def parse_FORCES_FC3(
     disp_dataset: dict,
     filename: str | os.PathLike = "FORCES_FC3",
-    use_loadtxt: bool = False,
+    use_loadtxt: bool = True,
     unit_conversion_factor: float | None = None,
 ):
     """Parse type1 FORCES_FC3 and store forces in disp_dataset."""
@@ -1680,11 +1690,14 @@ def parse_FORCES_FC3(
     for disp1 in disp_dataset["first_atoms"]:
         num_disp += len(disp1["second_atoms"])
 
-    if use_loadtxt:
-        forces_fc3 = np.loadtxt(filename).reshape((num_disp, -1, 3))
-    else:
-        forces_fc3 = np.zeros((num_disp, num_atom, 3), dtype="double", order="C")
-        with open(filename, "r") as f3:
+    myio = get_io_module_to_decompress(filename)
+    with myio.open(filename, "rt") as f3:
+        if use_loadtxt:
+            forces_fc3 = np.loadtxt(f3, dtype="double").reshape((num_disp, -1, 3))
+            if not forces_fc3.flags["C_CONTIGUOUS"]:
+                forces_fc3 = np.array(forces_fc3, dtype="double", order="C")
+        else:
+            forces_fc3 = np.zeros((num_disp, num_atom, 3), dtype="double", order="C")
             for i in range(num_disp):
                 forces = _parse_force_lines(f3, num_atom)
                 if forces is None:
@@ -1748,12 +1761,12 @@ def get_length_of_first_line(f):
 
 def _get_filename_suffix(
     mesh,
-    grid_point: Optional[int] = None,
-    band_indices: Optional[Union[np.ndarray, Sequence]] = None,
-    sigma: Optional[float] = None,
-    sigma_cutoff: Optional[float] = None,
-    temperature: Optional[float] = None,
-    filename: Optional[str] = None,
+    grid_point: int | None = None,
+    band_indices: ArrayLike | None = None,
+    sigma: float | None = None,
+    sigma_cutoff: float | None = None,
+    temperature: float | None = None,
+    filename: str | None = None,
 ):
     """Return filename suffix corresponding to parameters."""
     suffix = "-m%d%d%d" % tuple(mesh)
@@ -1838,6 +1851,6 @@ def _write_cell_yaml(w, supercell):
     symbols = supercell.get_chemical_symbols()
     positions = supercell.get_scaled_positions()
     w.write("atoms:\n")
-    for i, (s, v) in enumerate(zip(symbols, positions)):
+    for i, (s, v) in enumerate(zip(symbols, positions, strict=True)):
         w.write("- symbol: %-2s # %d\n" % (s, i + 1))
         w.write("  position: [ %18.14f,%18.14f,%18.14f ]\n" % tuple(v))

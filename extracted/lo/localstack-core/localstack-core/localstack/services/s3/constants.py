@@ -1,4 +1,5 @@
 from localstack.aws.api.s3 import (
+    BucketLocationConstraint,
     ChecksumAlgorithm,
     Grantee,
     Permission,
@@ -10,8 +11,6 @@ from localstack.aws.api.s3 import (
 )
 from localstack.aws.api.s3 import Type as GranteeType
 
-S3_VIRTUAL_HOST_FORWARDED_HEADER = "x-s3-vhost-forwarded-for"
-
 S3_UPLOAD_PART_MIN_SIZE = 5242880
 """
 This is minimum size allowed by S3 when uploading more than one part for a Multipart Upload, except for the last part
@@ -20,6 +19,11 @@ This is minimum size allowed by S3 when uploading more than one part for a Multi
 # These 2 values have been the historical hardcoded values for S3 credentials if needing to validate S3 pre-signed URLs
 DEFAULT_PRE_SIGNED_ACCESS_KEY_ID = "test"
 DEFAULT_PRE_SIGNED_SECRET_ACCESS_KEY = "test"
+
+S3_HOST_ID = "9Gjjt1m+cjU4OPvX9O9/8RuvnG41MRb/18Oux2o5H5MY7ISNTlXN+Dz9IG62/ILVxhAGI0qyPfg="
+"""
+S3 is returning a Host Id as part of its exceptions
+"""
 
 AUTHENTICATED_USERS_ACL_GROUP = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
 ALL_USERS_ACL_GROUP = "http://acs.amazonaws.com/groups/global/AllUsers"
@@ -62,6 +66,10 @@ CHECKSUM_ALGORITHMS: list[ChecksumAlgorithm] = [
     ChecksumAlgorithm.CRC32C,
     ChecksumAlgorithm.CRC64NVME,
 ]
+
+BUCKET_LOCATION_CONSTRAINTS = [constraint.value for constraint in BucketLocationConstraint]
+
+EU_WEST_1_LOCATION_CONSTRAINTS = [BucketLocationConstraint.EU, BucketLocationConstraint.eu_west_1]
 
 # response header overrides the client may request
 ALLOWED_HEADER_OVERRIDES = {

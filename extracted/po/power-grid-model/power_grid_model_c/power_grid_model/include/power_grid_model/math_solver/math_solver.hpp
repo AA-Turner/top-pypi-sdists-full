@@ -32,7 +32,9 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
           all_const_y_{std::all_of(topo_ptr->load_gen_type.cbegin(), topo_ptr->load_gen_type.cend(),
                                    [](LoadGenType x) { return x == LoadGenType::const_y; })} {}
 
-    MathSolver<sym>* clone() const final { return new MathSolver<sym>(*this); }
+    MathSolver<sym>* clone() const final {
+        return new MathSolver<sym>(*this); // NOSONAR(S5025)
+    }
 
     SolverOutput<sym> run_power_flow(PowerFlowInput<sym> const& input, double err_tol, Idx max_iter, Logger& log,
                                      CalculationMethod calculation_method, YBus<sym> const& y_bus) final {
@@ -85,7 +87,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
         // construct model if needed
         if (!iec60909_sc_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            iec60909_sc_solver_.emplace(y_bus, topo_ptr_);
+            iec60909_sc_solver_.emplace(y_bus, *topo_ptr_);
         }
 
         // call calculation
@@ -119,7 +121,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
                                                     Logger& log, YBus<sym> const& y_bus) {
         if (!newton_raphson_pf_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            newton_raphson_pf_solver_.emplace(y_bus, topo_ptr_);
+            newton_raphson_pf_solver_.emplace(y_bus, *topo_ptr_);
         }
         return newton_raphson_pf_solver_.value().run_power_flow(y_bus, input, err_tol, max_iter, log);
     }
@@ -128,7 +130,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
                                             Logger& log, YBus<sym> const& y_bus) {
         if (!linear_pf_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            linear_pf_solver_.emplace(y_bus, topo_ptr_);
+            linear_pf_solver_.emplace(y_bus, *topo_ptr_);
         }
         return linear_pf_solver_.value().run_power_flow(y_bus, input, log);
     }
@@ -137,7 +139,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
                                                        Logger& log, YBus<sym> const& y_bus) {
         if (!iterative_current_pf_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            iterative_current_pf_solver_.emplace(y_bus, topo_ptr_);
+            iterative_current_pf_solver_.emplace(y_bus, *topo_ptr_);
         }
         return iterative_current_pf_solver_.value().run_power_flow(y_bus, input, err_tol, max_iter, log);
     }
@@ -152,7 +154,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
         // construct model if needed
         if (!iterative_linear_se_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            iterative_linear_se_solver_.emplace(y_bus, topo_ptr_);
+            iterative_linear_se_solver_.emplace(y_bus, *topo_ptr_);
         }
 
         // call calculation
@@ -164,7 +166,7 @@ template <symmetry_tag sym> class MathSolver : public MathSolverBase<sym> {
         // construct model if needed
         if (!newton_raphson_se_solver_.has_value()) {
             Timer const timer{log, LogEvent::create_math_solver};
-            newton_raphson_se_solver_.emplace(y_bus, topo_ptr_);
+            newton_raphson_se_solver_.emplace(y_bus, *topo_ptr_);
         }
 
         // call calculation

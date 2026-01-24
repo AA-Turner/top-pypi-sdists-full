@@ -15,21 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{common::schema::PyConstraints, expr::PyExpr, sql::logical::PyLogicalPlan};
-use std::{
-    collections::HashMap,
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::sync::Arc;
 
 use datafusion::logical_expr::CreateExternalTable;
-use pyo3::{prelude::*, IntoPyObjectExt};
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
+use super::logical_node::LogicalNode;
+use super::sort_expr::PySortExpr;
 use crate::common::df_schema::PyDFSchema;
+use crate::common::schema::PyConstraints;
+use crate::expr::PyExpr;
+use crate::sql::logical::PyLogicalPlan;
 
-use super::{logical_node::LogicalNode, sort_expr::PySortExpr};
-
-#[pyclass(name = "CreateExternalTable", module = "datafusion.expr", subclass)]
+#[pyclass(
+    frozen,
+    name = "CreateExternalTable",
+    module = "datafusion.expr",
+    subclass
+)]
 #[derive(Clone)]
 pub struct PyCreateExternalTable {
     create: CreateExternalTable,
@@ -61,7 +67,7 @@ impl Display for PyCreateExternalTable {
 impl PyCreateExternalTable {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (schema, name, location, file_type, table_partition_cols, if_not_exists, temporary, order_exprs, unbounded, options, constraints, column_defaults, definition=None))]
+    #[pyo3(signature = (schema, name, location, file_type, table_partition_cols, if_not_exists, or_replace, temporary, order_exprs, unbounded, options, constraints, column_defaults, definition=None))]
     pub fn new(
         schema: PyDFSchema,
         name: String,
@@ -69,6 +75,7 @@ impl PyCreateExternalTable {
         file_type: String,
         table_partition_cols: Vec<String>,
         if_not_exists: bool,
+        or_replace: bool,
         temporary: bool,
         order_exprs: Vec<Vec<PySortExpr>>,
         unbounded: bool,
@@ -84,6 +91,7 @@ impl PyCreateExternalTable {
             file_type,
             table_partition_cols,
             if_not_exists,
+            or_replace,
             temporary,
             definition,
             order_exprs: order_exprs

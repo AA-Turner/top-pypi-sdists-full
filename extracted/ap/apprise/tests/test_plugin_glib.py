@@ -152,11 +152,43 @@ def test_plugin_glib_send_raises_glib_error(mocker, enabled_glib_environment):
 
 def test_plugin_glib_send_raises_generic(mocker, enabled_glib_environment):
     """Simulate generic error in gio_iface.Notify()"""
+    # Re: https://github.com/caronc/apprise/issues/1383
+    # This test validates that the NotifyGLib plugin correctly handles a
+    # generic exception raised by the `Notify()` method call on a mocked
+    # DBus interface. However, it is only meaningful in environments that:
+    #
+    #  1. Do NOT have PyGObject (`gi`) installed, OR
+    #  2. Have `gi`, but without introspection or live bindings activated.
+    #
+    # When PyGObject is installed and active, the `gi.repository` namespace
+    # becomes populated by introspected C-based objects that do not behave
+    # like regular Python functions. This causes mock patching via
+    # `mocker.patch("gi.repository.Gio.DBusProxy.new_for_bus_sync")` to
+    # silently fail or be ignored, as Python's mocking machinery cannot
+    # reliably override these introspected symbols.
+    #
+    # This test exists to ensure coverage of legacy or minimal environments
+    # where Apprise's GLib support can still be used through soft mocks,
+    # such as CI/CD pipelines or headless test setups where PyGObject is
+    # absent or stubbed (as done via `enabled_glib_environment`).
+    #
+    # Note: In production environments with active PyGObject, exception
+    # handling is already tested via `GLib.Error` branches or during actual
+    # usage of `NotifyGLib.send()`. This test supplements that by simulating
+    # the rare fallback case of a non-GLib-related exception during Notify().
+    import gi
+    if hasattr(gi, "repository"):
+        pytest.skip(
+            "pygobject introspection active, test won't behave as expected")
+
     fake_iface = Mock()
     fake_iface.Notify.side_effect = RuntimeError("boom")
+
     mocker.patch(
         "gi.repository.Gio.DBusProxy.new_for_bus_sync",
-        return_value=fake_iface)
+        return_value=fake_iface,
+    )
+
     obj = apprise.Apprise.instantiate("glib://", suppress_exceptions=False)
     logger = mocker.spy(obj, "logger")
     assert obj.notify("boom", title="fail") is False
@@ -291,3 +323,38 @@ def test_plugin_glib_gdkpixbuf_require_version_valueerror(monkeypatch):
     # Step 4: Confirm GdkPixbuf image support was not enabled
     from apprise.plugins import glib as plugin_glib
     assert plugin_glib.NOTIFY_GLIB_IMAGE_SUPPORT is False
+
+
+def test_plugin_glib_notify_generic_exception(
+        mocker, enabled_glib_environment):
+    """
+    Test that a generic exception occurring during the notification send
+    is caught and handled (returning False).
+    """
+    import gi
+
+    # 1. Create a mock object to act as the DBus Proxy
+    mock_proxy = mocker.Mock()
+
+    # 2. Force the Notify method to raise a generic Exception
+    #    This triggers the 'except Exception as e:'
+    mock_proxy.Notify.side_effect = Exception("Simulated Generic Failure")
+
+    # 3. Patch the Gio constructor to return our crashing mock
+    #    The code calls: Gio.DBusProxy.new_for_bus_sync(...)
+    gi.repository.Gio.DBusProxy.new_for_bus_sync.return_value = mock_proxy
+
+    # 4. Instantiate the plugin
+    from apprise.plugins.glib import NotifyGLib
+    obj = NotifyGLib(targets=["glib://"])
+
+    # 5. Spy on the logger to ensure the warning is logged
+    logger_spy = mocker.spy(obj, "logger")
+
+    # 6. Execute notify()
+    #    It should catch the exception and return False
+    assert obj.notify(title="Title", body="Body") is False
+
+    # 7. Verify the specific log message from glib.py
+    logger_spy.warning.assert_called_with(
+        "Failed to send GLib/Gio notification.")

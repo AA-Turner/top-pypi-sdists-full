@@ -11,7 +11,8 @@ use crate::{
     Keyword, ValidationError, Validator,
 };
 use ahash::AHashMap;
-use referencing::{uri, Draft, Resource, Retrieve};
+use email_address::Options as EmailAddressOptions;
+use referencing::{Draft, Resource, Retrieve};
 use serde_json::Value;
 use std::{fmt, marker::PhantomData, sync::Arc};
 
@@ -34,6 +35,7 @@ pub struct ValidationOptions<R = Arc<dyn Retrieve>> {
     ignore_unknown_formats: bool,
     keywords: AHashMap<String, Arc<dyn KeywordFactory>>,
     pattern_options: PatternEngineOptions,
+    email_options: Option<EmailAddressOptions>,
 }
 
 impl Default for ValidationOptions<Arc<dyn Retrieve>> {
@@ -52,6 +54,7 @@ impl Default for ValidationOptions<Arc<dyn Retrieve>> {
             ignore_unknown_formats: true,
             keywords: AHashMap::default(),
             pattern_options: PatternEngineOptions::default(),
+            email_options: None,
         }
     }
 }
@@ -73,6 +76,7 @@ impl Default for ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
             ignore_unknown_formats: true,
             keywords: AHashMap::default(),
             pattern_options: PatternEngineOptions::default(),
+            email_options: None,
         }
     }
 }
@@ -90,9 +94,20 @@ impl<R> ValidationOptions<R> {
     /// let options = jsonschema::options()
     ///     .with_draft(Draft::Draft4);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `Draft::Unknown` is provided. `Draft::Unknown` is internal-only
+    /// and represents custom meta-schemas that are resolved automatically from
+    /// the registry.
     #[inline]
     #[must_use]
     pub fn with_draft(mut self, draft: Draft) -> Self {
+        assert!(
+            draft != Draft::Unknown,
+            "Draft::Unknown is internal-only and cannot be explicitly set. \
+             Custom meta-schemas are resolved automatically when registered in the Registry."
+        );
         self.draft = Some(draft);
         self
     }
@@ -270,7 +285,7 @@ impl<R> ValidationOptions<R> {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use jsonschema::Resource;
     ///
-    /// let extra = Resource::from_contents(json!({"minimum": 5}))?;
+    /// let extra = Resource::from_contents(json!({"minimum": 5}));
     ///
     /// let validator = jsonschema::options()
     ///     .with_resource("urn:minimum-schema", extra)
@@ -300,11 +315,11 @@ impl<R> ValidationOptions<R> {
     ///     .with_resources([
     ///         (
     ///             "urn:minimum-schema",
-    ///             Resource::from_contents(json!({"minimum": 5}))?,
+    ///             Resource::from_contents(json!({"minimum": 5})),
     ///         ),
     ///         (
     ///             "urn:maximum-schema",
-    ///             Resource::from_contents(json!({"maximum": 10}))?,
+    ///             Resource::from_contents(json!({"maximum": 10})),
     ///         ),
     ///       ].into_iter())
     ///     .build(&json!({"$ref": "urn:minimum-schema"}))?;
@@ -335,7 +350,7 @@ impl<R> ValidationOptions<R> {
     ///
     /// let registry = Registry::try_new(
     ///     "urn:name-schema",
-    ///     Resource::from_contents(json!({"type": "string"}))?
+    ///     Resource::from_contents(json!({"type": "string"}))
     /// )?;
     /// let schema = json!({
     ///     "properties": {
@@ -429,44 +444,28 @@ impl<R> ValidationOptions<R> {
     /// ## Example
     ///
     /// ```rust
-    /// # use jsonschema::{
-    /// #    paths::{LazyLocation, Location},
-    /// #    ErrorIterator, Keyword, ValidationError,
-    /// # };
+    /// # use jsonschema::{paths::Location, Keyword, ValidationError};
     /// # use serde_json::{json, Map, Value};
-    /// # use std::iter::once;
     ///
     /// struct MyCustomValidator;
     ///
     /// impl Keyword for MyCustomValidator {
-    ///     fn validate<'i>(
-    ///         &self,
-    ///         instance: &'i Value,
-    ///         location: &LazyLocation,
-    ///     ) -> Result<(), ValidationError<'i>> {
-    ///         // ... validate instance ...
+    ///     fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
     ///         if !instance.is_object() {
-    ///             return Err(ValidationError::custom(
-    ///                 Location::new(),
-    ///                 location.into(),
-    ///                 instance,
-    ///                 "Boom!",
-    ///             ));
-    ///         } else {
-    ///             Ok(())
+    ///             return Err(ValidationError::custom("expected an object"));
     ///         }
+    ///         Ok(())
     ///     }
+    ///
     ///     fn is_valid(&self, instance: &Value) -> bool {
-    ///         // ... determine if instance is valid ...
-    ///         true
+    ///         instance.is_object()
     ///     }
     /// }
     ///
-    /// // You can create a factory function, or use a closure to create new validator instances.
     /// fn custom_validator_factory<'a>(
-    ///     parent: &'a Map<String, Value>,
-    ///     value: &'a Value,
-    ///     path: Location,
+    ///     _parent: &'a Map<String, Value>,
+    ///     _value: &'a Value,
+    ///     _path: Location,
     /// ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
     ///     Ok(Box::new(MyCustomValidator))
     /// }
@@ -517,39 +516,106 @@ impl ValidationOptions<Arc<dyn referencing::Retrieve>> {
     /// assert!(validator.is_valid(&json!("Hello")));
     /// assert!(!validator.is_valid(&json!(42)));
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `schema` is invalid for the selected draft or if referenced resources
+    /// cannot be retrieved or resolved.
+    ///
+    /// # Panics
+    ///
+    /// This method **must not** be called from within an async runtime if the schema contains
+    /// external references that require network requests, or it will panic when attempting to block.
+    /// Use `async_options` and its async `build` method for async contexts, or run this
+    /// in a separate blocking thread via `tokio::task::spawn_blocking`.
     pub fn build(&self, schema: &Value) -> Result<Validator, ValidationError<'static>> {
-        compiler::build_validator(self.clone(), schema)
+        compiler::build_validator(self, schema)
     }
     pub(crate) fn draft_for(&self, contents: &Value) -> Result<Draft, ValidationError<'static>> {
         // Preference:
         //  - Explicitly set
-        //  - Autodetected
+        //  - Autodetected (with registry resolution for custom meta-schemas)
         //  - Default
         if let Some(draft) = self.draft {
             Ok(draft)
         } else {
             let default = Draft::default();
-            match default.detect(contents) {
-                Ok(draft) => Ok(draft),
-                Err(referencing::Error::UnknownSpecification { specification }) => {
-                    // Try to retrieve the specification and detect its draft
-                    if let Ok(Ok(retrieved)) =
-                        uri::from_str(&specification).map(|uri| self.retriever.retrieve(&uri))
+            let detected = default.detect(contents);
+
+            // If detected draft is Unknown (custom meta-schema), try to resolve it
+            if detected == Draft::Unknown {
+                if let Some(registry) = &self.registry {
+                    if let Some(meta_schema_uri) = contents
+                        .as_object()
+                        .and_then(|obj| obj.get("$schema"))
+                        .and_then(|s| s.as_str())
                     {
-                        Ok(default.detect(&retrieved)?)
-                    } else {
-                        Err(referencing::Error::UnknownSpecification { specification }.into())
+                        // Walk the meta-schema chain to find the underlying draft
+                        return Self::resolve_draft_from_registry(meta_schema_uri, registry);
                     }
                 }
-                Err(error) => Err(error.into()),
             }
+
+            Ok(detected)
         }
+    }
+
+    fn resolve_draft_from_registry(
+        uri: &str,
+        registry: &referencing::Registry,
+    ) -> Result<Draft, ValidationError<'static>> {
+        let uri = uri.trim_end_matches('#');
+        crate::meta::walk_meta_schema_chain(uri, |current_uri| {
+            let resolver = registry.try_resolver(current_uri)?;
+            let resolved = resolver.lookup("")?;
+            Ok(resolved.contents().clone())
+        })
     }
     /// Set a retriever to fetch external resources.
     #[must_use]
     pub fn with_retriever(mut self, retriever: impl Retrieve + 'static) -> Self {
         self.retriever = Arc::new(retriever);
         self
+    }
+    /// Configure HTTP client options for the built-in HTTP retriever.
+    ///
+    /// This creates an [`HttpRetriever`](crate::HttpRetriever) with the provided options
+    /// and configures it as the retriever for external schemas.
+    ///
+    /// **Note:** If both `connect_timeout` and `timeout` are set, the `timeout` acts as an
+    /// upper bound on the total request time, including connection. If `timeout < connect_timeout`,
+    /// the connection may be aborted before the connect timeout is reached.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use std::time::Duration;
+    /// use serde_json::json;
+    /// use jsonschema::HttpOptions;
+    ///
+    /// let schema = json!({"$ref": "https://example.com/schema.json"});
+    /// let http_options = HttpOptions::new()
+    ///     .connect_timeout(Duration::from_secs(10))
+    ///     .timeout(Duration::from_secs(30));
+    /// let validator = jsonschema::options()
+    ///     .with_http_options(&http_options)
+    ///     .expect("Failed to create HTTP retriever")
+    ///     .build(&schema);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The certificate file cannot be read
+    /// - The certificate is not valid PEM
+    /// - The HTTP client cannot be built
+    #[cfg(all(feature = "resolve-http", not(target_arch = "wasm32")))]
+    pub fn with_http_options(
+        self,
+        options: &crate::HttpOptions,
+    ) -> Result<Self, crate::HttpRetrieverError> {
+        let retriever = crate::retriever::HttpRetriever::new(options)?;
+        Ok(self.with_retriever(retriever))
     }
     /// Configure the regular expression engine used during validation for keywords like `pattern`
     /// or `patternProperties`.
@@ -577,6 +643,7 @@ impl ValidationOptions<Arc<dyn referencing::Retrieve>> {
     ///     .expect("A valid schema");
     /// ```
     #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn with_pattern_options<E>(mut self, options: PatternOptions<E>) -> Self {
         self.pattern_options = options.inner;
         self
@@ -584,12 +651,43 @@ impl ValidationOptions<Arc<dyn referencing::Retrieve>> {
     pub(crate) fn pattern_options(&self) -> PatternEngineOptions {
         self.pattern_options
     }
+
+    /// Set email validation options to customize email format validation behavior.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    ///
+    /// let schema = serde_json::json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    /// ```
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn with_email_options(mut self, options: EmailOptions) -> Self {
+        self.email_options = Some(options.inner);
+        self
+    }
+
+    pub(crate) fn email_options(&self) -> Option<&EmailAddressOptions> {
+        self.email_options.as_ref()
+    }
 }
 
 #[cfg(feature = "resolve-async")]
 impl ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
+    /// Build a JSON Schema validator using the current async options.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `schema` is invalid for the selected draft or if referenced resources
+    /// cannot be retrieved or resolved.
     pub async fn build(&self, schema: &Value) -> Result<Validator, ValidationError<'static>> {
-        compiler::build_validator_async(self.clone(), schema).await
+        compiler::build_validator_async(self, schema).await
     }
     #[must_use]
     pub fn with_retriever(
@@ -610,8 +708,10 @@ impl ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
             ignore_unknown_formats: self.ignore_unknown_formats,
             keywords: self.keywords,
             pattern_options: self.pattern_options,
+            email_options: self.email_options,
         }
     }
+    #[allow(clippy::unused_async)]
     pub(crate) async fn draft_for(
         &self,
         contents: &Value,
@@ -624,19 +724,7 @@ impl ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
             Ok(draft)
         } else {
             let default = Draft::default();
-            match default.detect(contents) {
-                Ok(draft) => Ok(draft),
-                Err(referencing::Error::UnknownSpecification { specification }) => {
-                    // Try to retrieve the specification and detect its draft
-                    if let Ok(uri) = uri::from_str(&specification) {
-                        if let Ok(retrieved) = self.retriever.retrieve(&uri).await {
-                            return Ok(default.detect(&retrieved)?);
-                        }
-                    }
-                    Err(referencing::Error::UnknownSpecification { specification }.into())
-                }
-                Err(error) => Err(error.into()),
-            }
+            Ok(default.detect(contents))
         }
     }
     /// Set a retriever to fetch external resources.
@@ -658,6 +746,7 @@ impl ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
             ignore_unknown_formats: self.ignore_unknown_formats,
             keywords: self.keywords,
             pattern_options: self.pattern_options,
+            email_options: self.email_options,
         }
     }
 }
@@ -682,7 +771,7 @@ pub struct PatternOptions<E> {
     _marker: PhantomData<E>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub(crate) enum PatternEngineOptions {
     FancyRegex {
         backtrack_limit: Option<usize>,
@@ -802,6 +891,232 @@ impl Default for PatternEngineOptions {
     }
 }
 
+/// Configuration for email validation options.
+///
+/// This allows customization of email format validation behavior beyond the default
+/// JSON Schema spec requirements. For example, you can configure stricter validation
+/// that rejects addresses like "missing@domain" which are technically valid per the
+/// spec but may not be desirable in real-world usage.
+///
+/// # Example
+///
+/// ```rust
+/// use jsonschema::EmailOptions;
+/// use serde_json::json;
+///
+/// let schema = json!({"format": "email", "type": "string"});
+/// let validator = jsonschema::options()
+///     .with_email_options(
+///         EmailOptions::default()
+///             .with_required_tld()
+///             .without_display_text()
+///     )
+///     .should_validate_formats(true)
+///     .build(&schema)
+///     .expect("A valid schema");
+///
+/// // Stricter validation rejects addresses without TLD
+/// assert!(!validator.is_valid(&json!("user@localhost")));
+/// // And rejects display text
+/// assert!(!validator.is_valid(&json!("Name <user@example.com>")));
+/// // But accepts valid emails with TLD
+/// assert!(validator.is_valid(&json!("user@example.com")));
+/// ```
+#[derive(Debug, Clone, Default)]
+pub struct EmailOptions {
+    pub(crate) inner: EmailAddressOptions,
+}
+
+impl EmailOptions {
+    /// Set the minimum number of domain segments that must exist to parse successfully.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().with_minimum_sub_domains(3))
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Requires 3+ domain segments
+    /// assert!(!validator.is_valid(&json!("user@example.com")));
+    /// assert!(validator.is_valid(&json!("user@sub.example.com")));
+    /// ```
+    #[must_use]
+    pub const fn with_minimum_sub_domains(mut self, min: usize) -> Self {
+        self.inner = self.inner.with_minimum_sub_domains(min);
+        self
+    }
+
+    /// Set the minimum number of domain segments to zero, allowing single-segment domains like "localhost".
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().with_no_minimum_sub_domains())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Allows single-segment domains
+    /// assert!(validator.is_valid(&json!("user@localhost")));
+    /// assert!(validator.is_valid(&json!("user@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn with_no_minimum_sub_domains(mut self) -> Self {
+        self.inner = self.inner.with_no_minimum_sub_domains();
+        self
+    }
+
+    /// Require a domain name with a top-level domain (TLD).
+    ///
+    /// This sets the minimum number of domain segments to two, effectively requiring
+    /// addresses like "user@example.com" instead of "user@localhost".
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().with_required_tld())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Requires TLD
+    /// assert!(!validator.is_valid(&json!("user@localhost")));
+    /// assert!(validator.is_valid(&json!("user@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn with_required_tld(mut self) -> Self {
+        self.inner = self.inner.with_required_tld();
+        self
+    }
+
+    /// Allow domain literals (e.g., `email@[127.0.0.1]` or `email@[IPv6:2001:db8::1]`).
+    ///
+    /// This is enabled by default.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().with_domain_literal())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Domain literals are allowed
+    /// assert!(validator.is_valid(&json!("email@[127.0.0.1]")));
+    /// assert!(validator.is_valid(&json!("user@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn with_domain_literal(mut self) -> Self {
+        self.inner = self.inner.with_domain_literal();
+        self
+    }
+
+    /// Disallow domain literals, requiring regular domain names only.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().without_domain_literal())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Domain literals are rejected
+    /// assert!(!validator.is_valid(&json!("email@[127.0.0.1]")));
+    /// assert!(validator.is_valid(&json!("user@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn without_domain_literal(mut self) -> Self {
+        self.inner = self.inner.without_domain_literal();
+        self
+    }
+
+    /// Allow display text (e.g., `Simon <simon@example.com>`).
+    ///
+    /// This is enabled by default.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().with_display_text())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Display text is allowed
+    /// assert!(validator.is_valid(&json!("Simon <simon@example.com>")));
+    /// assert!(validator.is_valid(&json!("simon@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn with_display_text(mut self) -> Self {
+        self.inner = self.inner.with_display_text();
+        self
+    }
+
+    /// Disallow display text, requiring plain email addresses only.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::EmailOptions;
+    /// use serde_json::json;
+    ///
+    /// let schema = json!({"format": "email", "type": "string"});
+    /// let validator = jsonschema::options()
+    ///     .with_email_options(EmailOptions::default().without_display_text())
+    ///     .should_validate_formats(true)
+    ///     .build(&schema)
+    ///     .expect("A valid schema");
+    ///
+    /// // Display text is rejected
+    /// assert!(!validator.is_valid(&json!("Simon <simon@example.com>")));
+    /// assert!(validator.is_valid(&json!("simon@example.com")));
+    /// ```
+    #[must_use]
+    pub const fn without_display_text(mut self) -> Self {
+        self.inner = self.inner.without_display_text();
+        self
+    }
+}
+
+impl From<EmailAddressOptions> for EmailOptions {
+    fn from(options: EmailAddressOptions) -> Self {
+        Self { inner: options }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -828,7 +1143,7 @@ mod tests {
     fn with_registry() {
         let registry = Registry::try_new(
             "urn:name-schema",
-            Resource::from_contents(json!({"type": "string"})).expect("Invalid resource"),
+            Resource::from_contents(json!({"type": "string"})),
         )
         .expect("Invalid URI");
         let schema = json!({
@@ -866,6 +1181,25 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Draft::Unknown is internal-only and cannot be explicitly set")]
+    fn with_draft_rejects_unknown() {
+        let _options = crate::options().with_draft(Draft::Unknown);
+    }
+
+    #[test]
+    fn custom_meta_schema_allowed_when_draft_overridden() {
+        let schema = json!({
+            "$schema": "json-schema:///custom/meta",
+            "type": "string"
+        });
+
+        crate::options()
+            .with_draft(Draft::Draft7)
+            .build(&schema)
+            .expect("Explicit draft override should bypass custom meta-schema registry checks");
+    }
+
+    #[test]
     fn test_regex_options_builder() {
         let options = PatternOptions::regex()
             .size_limit(20_000)
@@ -881,5 +1215,53 @@ mod tests {
         } else {
             panic!("Expected Regex variant");
         }
+    }
+
+    #[test]
+    fn test_validate_against_definition() {
+        // Root schema with multiple definitions
+        let root_schema = json!({
+            "$id": "https://example.com/root",
+            "definitions": {
+                "User": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "age": {"type": "integer", "minimum": 0}
+                    },
+                    "required": ["name"]
+                },
+                "Product": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "title": {"type": "string"}
+                    },
+                    "required": ["id", "title"]
+                }
+            }
+        });
+
+        // Create a schema that references the specific definition
+        let user_schema = json!({"$ref": "https://example.com/root#/definitions/User"});
+
+        // Build validator with the root schema registered as a resource
+        let validator = crate::options()
+            .with_resource(
+                "https://example.com/root",
+                Resource::from_contents(root_schema),
+            )
+            .build(&user_schema)
+            .expect("Valid schema");
+
+        // Valid user
+        assert!(validator.is_valid(&json!({"name": "Alice", "age": 30})));
+        assert!(validator.is_valid(&json!({"name": "Bob"})));
+
+        // Invalid: missing required field
+        assert!(!validator.is_valid(&json!({"age": 25})));
+
+        // Invalid: wrong type for age
+        assert!(!validator.is_valid(&json!({"name": "Charlie", "age": "thirty"})));
     }
 }

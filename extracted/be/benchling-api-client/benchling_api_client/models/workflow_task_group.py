@@ -3,6 +3,7 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 import attr
 
 from ..extensions import NotPresentError
+from ..models.archive_record import ArchiveRecord
 from ..models.creation_origin import CreationOrigin
 from ..models.folder import Folder
 from ..models.team_summary import TeamSummary
@@ -28,6 +29,8 @@ class WorkflowTaskGroup:
     _flowchart_task_groups: Union[Unset, List[WorkflowNodeTaskGroupSummary]] = UNSET
     _node_config: Union[Unset, WorkflowFlowchartNodeConfig] = UNSET
     _root_task_group: Union[Unset, WorkflowTaskGroupSummary] = UNSET
+    _workflow_outputs: Union[Unset, List[WorkflowOutputSummary]] = UNSET
+    _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
     _created_at: Union[Unset, str] = UNSET
     _creation_origin: Union[Unset, CreationOrigin] = UNSET
     _creator: Union[Unset, UserSummary] = UNSET
@@ -51,6 +54,8 @@ class WorkflowTaskGroup:
         fields.append("flowchart_task_groups={}".format(repr(self._flowchart_task_groups)))
         fields.append("node_config={}".format(repr(self._node_config)))
         fields.append("root_task_group={}".format(repr(self._root_task_group)))
+        fields.append("workflow_outputs={}".format(repr(self._workflow_outputs)))
+        fields.append("archive_record={}".format(repr(self._archive_record)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creation_origin={}".format(repr(self._creation_origin)))
         fields.append("creator={}".format(repr(self._creator)))
@@ -89,6 +94,18 @@ class WorkflowTaskGroup:
         root_task_group: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._root_task_group, Unset):
             root_task_group = self._root_task_group.to_dict()
+
+        workflow_outputs: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._workflow_outputs, Unset):
+            workflow_outputs = []
+            for workflow_outputs_item_data in self._workflow_outputs:
+                workflow_outputs_item = workflow_outputs_item_data.to_dict()
+
+                workflow_outputs.append(workflow_outputs_item)
+
+        archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self._archive_record, Unset):
+            archive_record = self._archive_record.to_dict() if self._archive_record else None
 
         created_at = self._created_at
         creation_origin: Union[Unset, Dict[str, Any]] = UNSET
@@ -154,6 +171,10 @@ class WorkflowTaskGroup:
             field_dict["nodeConfig"] = node_config
         if root_task_group is not UNSET:
             field_dict["rootTaskGroup"] = root_task_group
+        if workflow_outputs is not UNSET:
+            field_dict["workflowOutputs"] = workflow_outputs
+        if archive_record is not UNSET:
+            field_dict["archiveRecord"] = archive_record
         if created_at is not UNSET:
             field_dict["createdAt"] = created_at
         if creation_origin is not UNSET:
@@ -268,6 +289,41 @@ class WorkflowTaskGroup:
             if strict:
                 raise
             root_task_group = cast(Union[Unset, WorkflowTaskGroupSummary], UNSET)
+
+        def get_workflow_outputs() -> Union[Unset, List[WorkflowOutputSummary]]:
+            workflow_outputs = []
+            _workflow_outputs = d.pop("workflowOutputs")
+            for workflow_outputs_item_data in _workflow_outputs or []:
+                workflow_outputs_item = WorkflowOutputSummary.from_dict(
+                    workflow_outputs_item_data, strict=False
+                )
+
+                workflow_outputs.append(workflow_outputs_item)
+
+            return workflow_outputs
+
+        try:
+            workflow_outputs = get_workflow_outputs()
+        except KeyError:
+            if strict:
+                raise
+            workflow_outputs = cast(Union[Unset, List[WorkflowOutputSummary]], UNSET)
+
+        def get_archive_record() -> Union[Unset, None, ArchiveRecord]:
+            archive_record = None
+            _archive_record = d.pop("archiveRecord")
+
+            if _archive_record is not None and not isinstance(_archive_record, Unset):
+                archive_record = ArchiveRecord.from_dict(_archive_record)
+
+            return archive_record
+
+        try:
+            archive_record = get_archive_record()
+        except KeyError:
+            if strict:
+                raise
+            archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
 
         def get_created_at() -> Union[Unset, str]:
             created_at = d.pop("createdAt")
@@ -472,6 +528,8 @@ class WorkflowTaskGroup:
             flowchart_task_groups=flowchart_task_groups,
             node_config=node_config,
             root_task_group=root_task_group,
+            workflow_outputs=workflow_outputs,
+            archive_record=archive_record,
             created_at=created_at,
             creation_origin=creation_origin,
             creator=creator,
@@ -582,6 +640,35 @@ class WorkflowTaskGroup:
     @root_task_group.deleter
     def root_task_group(self) -> None:
         self._root_task_group = UNSET
+
+    @property
+    def workflow_outputs(self) -> List[WorkflowOutputSummary]:
+        """ The outputs of the workflow task group """
+        if isinstance(self._workflow_outputs, Unset):
+            raise NotPresentError(self, "workflow_outputs")
+        return self._workflow_outputs
+
+    @workflow_outputs.setter
+    def workflow_outputs(self, value: List[WorkflowOutputSummary]) -> None:
+        self._workflow_outputs = value
+
+    @workflow_outputs.deleter
+    def workflow_outputs(self) -> None:
+        self._workflow_outputs = UNSET
+
+    @property
+    def archive_record(self) -> Optional[ArchiveRecord]:
+        if isinstance(self._archive_record, Unset):
+            raise NotPresentError(self, "archive_record")
+        return self._archive_record
+
+    @archive_record.setter
+    def archive_record(self, value: Optional[ArchiveRecord]) -> None:
+        self._archive_record = value
+
+    @archive_record.deleter
+    def archive_record(self) -> None:
+        self._archive_record = UNSET
 
     @property
     def created_at(self) -> str:

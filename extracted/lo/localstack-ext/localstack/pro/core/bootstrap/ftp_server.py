@@ -30,8 +30,8 @@ def apply_patches():
 		with open(C)as G:H=connect_to().s3;H.put_object(Bucket=D,Key=A,Body=G.read());LOG.info('Received file via FTP -- target: s3://%s/%s',D,A)
 	def E(self,line):A,B,C,D=line.split(' ')[1:];self.authorizer.add_user(A,B,C,D);self.respond('201 Add User OK.')
 	B.proto_cmds=C;A.proto_cmds=C;B.on_file_received=D;B.ftp_SITE_ADDUSER=E;A.on_file_received=D;A.ftp_SITE_ADDUSER=E
-def add_ftp_user(user,server_port):C=server_port;B=user;A=FTP();A.connect(constants.LOCALHOST_HOSTNAME,port=C);A.login(ROOT_USER[0],ROOT_USER[1]);D=new_tmp_dir();A.sendcmd(f"SITE ADDUSER  {B.user_name} {FTP_USER_DEFAULT_PASSWD} {D} {FTP_USER_PERMISSIONS}");A.quit();F=get_dir_mapping_key(B.user_name,C);E=B.get_directory_configuration();E.update({_B:D});set_directory_mapping(F,E)
-def update_ftp_user(user,server_port):A=get_dir_mapping_key(user.user_name,server_port);set_directory_mapping(A,user.get_directory_configuration())
+def add_ftp_user(user:'User',server_port:int):C=server_port;B=user;A=FTP();A.connect(constants.LOCALHOST_HOSTNAME,port=C);A.login(ROOT_USER[0],ROOT_USER[1]);D=new_tmp_dir();A.sendcmd(f"SITE ADDUSER  {B.user_name} {FTP_USER_DEFAULT_PASSWD} {D} {FTP_USER_PERMISSIONS}");A.quit();F=get_dir_mapping_key(B.user_name,C);E=B.get_directory_configuration();E.update({_B:D});set_directory_mapping(F,E)
+def update_ftp_user(user:'User',server_port:int):A=get_dir_mapping_key(user.user_name,server_port);set_directory_mapping(A,user.get_directory_configuration())
 def start_ftp(port):
 	G='PYTHONPATH';F='SERVICES';D=port
 	if USE_SUBPROCESS:

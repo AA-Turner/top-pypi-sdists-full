@@ -1,32 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio import timeout as asyncio_timeout
 from collections.abc import Coroutine
 import contextlib
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 import enum
 import itertools
 import logging
 import math
-import sys
 import time
 import typing
 from typing import Any, TypeVar
 import warnings
-
-from zigpy.backports.contextlib import nullcontext
-from zigpy.exceptions import DeliveryError
-from zigpy.ota.manager import update_firmware
-from zigpy.profiles import zha, zll
-from zigpy.zcl.clusters.general import Ota, PollControl
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
-
-
-from dataclasses import dataclass
 
 from zigpy import zdo
 from zigpy.const import (
@@ -44,11 +31,15 @@ from zigpy.const import (
 import zigpy.datastructures
 import zigpy.endpoint
 import zigpy.exceptions
+from zigpy.exceptions import DeliveryError
 import zigpy.listeners
+from zigpy.ota.manager import update_firmware
+from zigpy.profiles import zha, zll
 import zigpy.types as t
 from zigpy.typing import AddressingMode
 import zigpy.util
 from zigpy.zcl import Cluster, ClusterType, foundation
+from zigpy.zcl.clusters.general import Ota, PollControl
 import zigpy.zdo.types as zdo_t
 
 if typing.TYPE_CHECKING:
@@ -70,8 +61,7 @@ OTA_RETRY_DECORATOR = zigpy.util.retryable_request(
 )
 
 
-# TODO: Only Python 3.10+ support `slots=True` for dataclasses
-@dataclass(frozen=True, **({"slots": True} if sys.version_info[:2] >= (3, 10) else {}))
+@dataclass(frozen=True, slots=True)
 class ResponseKey:
     """Key for request/response matching."""
 
@@ -186,7 +176,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 priority,
                 self._concurrent_requests_semaphore.waiting_requests,
             )
-            manager = nullcontext()
+            manager = contextlib.nullcontext()
             was_locked = False
         else:
             manager = self._concurrent_requests_semaphore(priority=priority)
@@ -223,7 +213,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             "Calling `update_last_seen` directly is deprecated", DeprecationWarning
         )
 
-        self.last_seen = datetime.now(timezone.utc)
+        self.last_seen = datetime.now(UTC)
 
     @property
     def last_seen(self) -> float | None:
@@ -231,8 +221,8 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
 
     @last_seen.setter
     def last_seen(self, value: datetime | float):
-        if isinstance(value, (int, float)):
-            value = datetime.fromtimestamp(value, timezone.utc)
+        if isinstance(value, int | float):
+            value = datetime.fromtimestamp(value, UTC)
 
         self._last_seen = value
         self.listener_event("device_last_seen_updated", self._last_seen)
@@ -318,7 +308,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
             # Perform initialization with critical priority
             async with self._application.request_priority(t.PacketPriority.CRITICAL):
                 await self._initialize()
-        except (asyncio.TimeoutError, zigpy.exceptions.ZigbeeException):
+        except (TimeoutError, zigpy.exceptions.ZigbeeException):
             self.application.listener_event("device_init_failure", self)
         except Exception:  # noqa: BLE001
             LOGGER.warning(
@@ -364,12 +354,16 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                     start_fast_polling=True,
                     fast_poll_timeout=int(DEFAULT_FAST_POLL_TIMEOUT * 4),
                     tsn=zcl_hdr.tsn,
+                    expect_reply=False,
+                    disable_default_response=True,
                 )
             else:
                 await poll_control.checkin_response(
                     start_fast_polling=False,
                     fast_poll_timeout=0,
                     tsn=zcl_hdr.tsn,
+                    expect_reply=False,
+                    disable_default_response=True,
                 )
 
     async def begin_fast_polling(
@@ -478,7 +472,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                     # aware of a PollControl cluster
                     try:
                         await self.begin_fast_polling()
-                    except (asyncio.TimeoutError, DeliveryError):
+                    except (TimeoutError, DeliveryError):
                         pass
                     else:
                         initiated_fast_polling = True
@@ -502,6 +496,15 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
 
                     if manufacturer is not None:
                         self.manufacturer = manufacturer
+
+        try:
+            ota = self.find_cluster(
+                cluster_id=Ota.cluster_id, cluster_type=ClusterType.Client
+            )
+        except ValueError:
+            self.debug("Device does not support OTA cluster")
+        else:
+            await ota.read_attributes([Ota.AttributeDefs.current_file_version.name])
 
         self.status = Status.ENDPOINTS_INIT
 
@@ -671,7 +674,7 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
                 ),
                 packet,
             )
-            LOGGER.warning(
+            LOGGER.debug(
                 (
                     "Cluster 0x%04x on %r has incorrect direction (got %r for %r cluster)."
                     " Please report this here: https://github.com/zigpy/zigpy/issues/1640"
@@ -778,6 +781,16 @@ class Device(zigpy.util.LocalLogMixin, zigpy.util.ListenableMixin):
         """Handle response matching for pending requests, returns True if packet was matched."""
         future = self._requests.get(rsp_key)
         if future is None:
+            return False
+
+        # Attribute reports often collide with command responses, they should never be
+        # matched up
+        if isinstance(
+            cmd,
+            foundation.GENERAL_COMMANDS[
+                foundation.GeneralCommand.Report_Attributes
+            ].schema,
+        ):
             return False
 
         try:

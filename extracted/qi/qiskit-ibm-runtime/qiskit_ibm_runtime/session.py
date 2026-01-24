@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Type, Union, Callable, Any
+from typing import Any
 from types import TracebackType
 from functools import wraps
 
@@ -23,7 +23,6 @@ from qiskit.providers.backend import BackendV2
 from qiskit_ibm_runtime import QiskitRuntimeService
 from .api.exceptions import RequestsApiError
 from .exceptions import IBMInputValueError, IBMRuntimeError
-from .runtime_job import RuntimeJob
 from .runtime_job_v2 import RuntimeJobV2
 from .utils.result_decoder import ResultDecoder
 from .ibm_backend import IBMBackend
@@ -58,7 +57,7 @@ class Session:
 
         from qiskit.circuit import QuantumCircuit, QuantumRegister, ClassicalRegister
         from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-        from qiskit_ibm_runtime import Session, SamplerV2 as Sampler
+        from qiskit_ibm_runtime import QiskitRuntimeService, Session, SamplerV2 as Sampler
 
         service = QiskitRuntimeService()
         backend = service.least_busy(operational=True, simulator=False)
@@ -85,9 +84,9 @@ class Session:
     def __init__(
         self,
         backend: BackendV2,
-        max_time: Optional[Union[int, str]] = None,
+        max_time: int | str | None = None,
         *,
-        create_new: Optional[bool] = True,
+        create_new: bool | None = True,
     ):  # pylint: disable=line-too-long
         """Session constructor.
 
@@ -105,8 +104,8 @@ class Session:
         Raises:
             ValueError: If an input value is invalid.
         """
-        self._service: Optional[QiskitRuntimeService | QiskitRuntimeLocalService] = None
-        self._backend: Optional[BackendV2] = None
+        self._service: QiskitRuntimeService | QiskitRuntimeLocalService | None = None
+        self._backend: BackendV2 | None = None
         self._instance = None
         self._active = True
         self._session_id = None
@@ -131,7 +130,7 @@ class Session:
             if not self._backend.configuration().simulator:
                 self._session_id = self._create_session(create_new=create_new)
 
-    def _create_session(self, *, create_new: Optional[bool] = True) -> Optional[str]:
+    def _create_session(self, *, create_new: bool | None = True) -> str | None:
         """Create a session."""
         if isinstance(self._service, QiskitRuntimeService) and create_new:
             session = self._service._get_api_client(self._instance).create_session(
@@ -144,11 +143,11 @@ class Session:
     def _run(
         self,
         program_id: str,
-        inputs: Dict,
-        options: Optional[Dict] = None,
-        callback: Optional[Callable] = None,
-        result_decoder: Optional[Type[ResultDecoder]] = None,
-    ) -> Union[RuntimeJob, RuntimeJobV2]:
+        inputs: dict,
+        options: dict | None = None,
+        result_decoder: type[ResultDecoder] | None = None,
+        calibration_id: str | None = None,
+    ) -> RuntimeJobV2:
         """Run a program in the session.
 
         Args:
@@ -156,7 +155,7 @@ class Session:
             inputs: Program input parameters. These input values are passed
                 to the runtime program.
             options: Runtime options that control the execution environment.
-            callback: Callback function to be invoked for any interim results and final result.
+            calibration_id: The calibration id to use with the program execution
 
         Returns:
             Submitted job.
@@ -170,13 +169,13 @@ class Session:
 
         if isinstance(self._service, QiskitRuntimeService):
             job = self._service._run(
-                program_id=program_id,  # type: ignore[arg-type]
+                program_id=program_id,
                 options=options,
                 inputs=inputs,
                 session_id=self._session_id,
                 start_session=False,
-                callback=callback,
                 result_decoder=result_decoder,
+                calibration_id=calibration_id,
             )
 
             if self._backend is None:
@@ -186,6 +185,7 @@ class Session:
                 program_id=program_id,  # type: ignore[arg-type]
                 options=options,
                 inputs=inputs,
+                calibration_id=calibration_id,
             )
 
         return job
@@ -204,7 +204,7 @@ class Session:
         if self._session_id and isinstance(self._service, QiskitRuntimeService):
             self._service._get_api_client(self._instance).close_session(self._session_id)
 
-    def backend(self) -> Optional[str]:
+    def backend(self) -> str | None:
         """Return backend for this session.
 
         Returns:
@@ -214,7 +214,7 @@ class Session:
             return self._backend.name if self._backend.version == 2 else self._backend.name()
         return None
 
-    def status(self) -> Optional[str]:
+    def status(self) -> str | None:
         """Return current session status.
 
         Returns:
@@ -241,7 +241,7 @@ class Session:
 
         return None
 
-    def usage(self) -> Optional[float]:
+    def usage(self) -> float | None:
         """Return session usage in seconds.
 
         Session usage is the time from when the first job starts until the session goes inactive,
@@ -257,7 +257,7 @@ class Session:
                 return response.get("elapsed_time")
         return None
 
-    def details(self) -> Optional[Dict[str, Any]]:
+    def details(self) -> dict[str, Any] | None:
         """Return session details.
 
         Returns:
@@ -304,7 +304,7 @@ class Session:
         return None
 
     @property
-    def session_id(self) -> Optional[str]:
+    def session_id(self) -> str | None:
         """Return the session ID.
 
         Returns:
@@ -319,11 +319,20 @@ class Session:
         Returns:
             :class:`qiskit_ibm_runtime.QiskitRuntimeService` associated with this session.
         """
-        return self._service
+        return self._service  # type: ignore[return-value]
 
     @classmethod
-    def from_id(cls, session_id: str, service: QiskitRuntimeService) -> "Session":
-        """Construct a Session object with a given session_id
+    def from_id(cls, session_id: str, service: QiskitRuntimeService) -> Session:
+        """Construct a Session object with a given ``session_id``. For example:
+
+        .. code-block::
+
+            from qiskit_ibm_runtime import QiskitRuntimeService, Session
+            service = QiskitRuntimeService()
+            job = service.job(<job_id>)
+            existing_session_id = job.session_id
+
+            new_session = Session.from_id(existing_session_id, service)
 
         Args:
             session_id: the id of the session to be created. This must be an already
@@ -376,15 +385,15 @@ class Session:
         session._session_id = session_id
         return session
 
-    def __enter__(self) -> "Session":
+    def __enter__(self) -> Session:
         set_cm_session(self)
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         set_cm_session(None)
         self.close()

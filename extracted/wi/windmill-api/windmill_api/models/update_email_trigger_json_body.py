@@ -25,7 +25,7 @@ class UpdateEmailTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateEmailTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateEmailTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateEmailTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     path: str

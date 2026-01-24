@@ -1,12 +1,14 @@
 Metadata-Version: 2.1
 Name: opteryx
-Version: 0.25.1
-Summary: Python SQL Query Engine
+Version: 0.26.7
+Summary: Query your data, where it lives
 Home-page: https://github.com/mabel-dev/opteryx/
-Author: @joocer
-Author-email: justin.joyce@joocer.com
-Maintainer: @joocer
-Requires-Python: >=3.9
+Author-email: Justin Joyce <justin.joyce@joocer.com>
+Maintainer-email: Justin Joyce <justin.joyce@joocer.com>
+Project-URL: Homepage, https://opteryx.dev/
+Project-URL: Documentation, https://opteryx.dev/
+Project-URL: Repository, https://github.com/mabel-dev/opteryx.git
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
@@ -15,23 +17,23 @@ License-File: LICENSE
 
 _A unified SQL interface to unlock insights across your diverse data sources, from blobs stores to databases - **effortless cross-platform data analytics**._
 
-![Opteryx](https://raw.githubusercontent.com/mabel-dev/opteryx.dev/main/assets/terminal.gif)
-
-Resource      | Location
-------------- | -------------
-Source Code   | https://github.com/mabel-dev/opteryx
-Documentation | https://opteryx.dev/
-Download      | https://pypi.org/project/opteryx/
+![Opteryx](https://raw.githubusercontent.com/mabel-dev/opteryx.dev/main/assets/terminal.gif) We're excited to have you join our journey. Let us know how we can help!
 
 [![PyPI Latest Release](https://img.shields.io/pypi/v/opteryx.svg)](https://pypi.org/project/opteryx/)
 [![Downloads](https://static.pepy.tech/badge/opteryx)](https://pepy.tech/project/opteryx)
 [![codecov](https://codecov.io/gh/mabel-dev/opteryx/branch/main/graph/badge.svg?token=sIgKpzzd95)](https://codecov.io/gh/mabel-dev/opteryx)
 [![opteryx](https://snyk.io/advisor/python/opteryx/badge.svg?style=flat-square)](https://snyk.io/advisor/python/opteryx)
-[![PyPI Latest Release](https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?logo=python)](https://pypi.org/project/opteryx/)
+[![PyPI Latest Release](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue?logo=python)](https://pypi.org/project/opteryx/)
 
 [**Install**](#install) •
 [**Examples**](#examples) •
 [**Get Involved**](#community)
+
+Resource        | Location
+--------------- | -------------
+Source Code     | https://github.com/mabel-dev/opteryx
+Documentation   | https://opteryx.dev/
+Download        | https://pypi.org/project/opteryx/
 
 ## What is Opteryx?
 
@@ -179,7 +181,7 @@ aggregated_df.head()
 1  FALSE POSITIVE      5023
 2       CANDIDATE      2248 
 ~~~
-_this example is complete and should run as-is_
+_this example requires network access to download the data file_
 
 </details>
 
@@ -210,6 +212,37 @@ result.head()
   4 | US Navy   | LC-18A, Cape Canaveral AFS, Fl | _null_ | 1958-02-05 07:33:00 | Vanguard       | Retired       | Vanguard TV3BU | Failure        
 
 _this example requires a data file, [space_missions.parquet](https://storage.googleapis.com/opteryx/space_missions/space_missions.parquet)._
+
+</details>
+
+<details>
+<summary>Query Multiple Files with Wildcards</summary>
+
+In this example, we are querying multiple files using wildcard patterns. Opteryx supports `*` (any characters), `?` (single character), and `[range]` patterns in file paths.
+
+~~~python
+# Import the Opteryx query engine.
+import opteryx
+
+# Execute a SQL query to select data from all parquet files in a directory.
+# The wildcard '*' matches any characters in the filename.
+result = opteryx.query("SELECT * FROM 'data/*.parquet' LIMIT 10;")
+
+# Display the result.
+result.head()
+~~~
+
+You can also use more specific patterns:
+
+~~~python
+# Query files matching a range pattern, e.g., file1.parquet through file9.parquet
+result = opteryx.query("SELECT COUNT(*) FROM 'data/file[1-9].parquet';")
+
+# Query files with specific naming patterns
+result = opteryx.query("SELECT * FROM 'logs/2024-01-*.jsonl';")
+~~~
+
+_Wildcards work with all supported file formats (Parquet, JSONL, CSV, etc.) and prevent path traversal for security._
 
 </details>
 
@@ -256,7 +289,7 @@ _this example requires a data file, [database.db](https://storage.googleapis.com
 <details>
 <summary>Query Data on GCS</summary>
 
-In this example, we are to querying a dataset on GCS in a public bucket called 'opteryx'.
+In this example, we are querying a dataset on GCS in a public bucket called 'opteryx'.
 
 ~~~python
 # Import the Opteryx query engine and the GcpCloudStorageConnector from its connectors module.
@@ -272,7 +305,7 @@ opteryx.register_store(
 
 # Execute a SQL query to select all columns from the 'space_missions' table located in the 'opteryx' store,
 # and limit the output to 5 rows. The result is stored in the 'result' variable.
-result = opteryx.query("SELECT * FROM opteryx.space_missions LIMIT 5;")
+result = opteryx.query("SELECT * FROM opteryx.space_missions WITH(NO_PARTITION) LIMIT 5;")
 
 # Display the result.
 # This is useful for quickly verifying that the query executed correctly.
@@ -301,7 +334,28 @@ You can also try Opteryx right now using our [interactive labs](https://github.c
 [![Discord](https://img.shields.io/badge/discuss%20on-discord-5865F2.svg?logo=discord)](https://discord.gg/qpv2tr989x)
 [![Medium](https://img.shields.io/badge/Read%20on-Medium-5865F2.svg?logo=medium)](https://medium.com/opteryx)
 
-**Get Involved**
+If you're interested in contributing to Opteryx or understanding how it works:
+
+Resource        | Location | Description
+--------------- | ------------- | --
+Examples        | [examples/](examples/) | Code examples and tutorials for various use cases
+Developer Guide | [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | Guide to Opteryx's architecture and development patterns
+Contributing    | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute to the project
+
+### Project Structure
+
+- `opteryx/` - Main source code
+  - `planner/` - Query planning and optimization
+  - `operators/` - Physical execution operators  
+  - `connectors/` - Data source adapters
+  - `functions/` - SQL function implementations
+  - `managers/` - Resource and cache management
+- `tests/` - Comprehensive test suite
+- `dev/` - Development tools and build scripts
+- `examples/` - Usage examples and tutorials
+- `tools/` - Development utilities and profiling tools
+
+### Get Involved
 
 🌟 **Star this repo** to show your support and help others discover Opteryx.  
 💬 [Join the discussion](https://github.com/mabel-dev/opteryx/discussions) — share your ideas, tell us how you’re using Opteryx, or suggest [features](https://github.com/mabel-dev/opteryx/issues/new/choose).  
@@ -315,15 +369,15 @@ We’re excited to have you join our journey. Let us know how we can help!
 
 We take security seriously. If you find any weaknesses please review our [Security Policy](https://github.com/mabel-dev/opteryx/blob/main/SECURITY.md) let us know through our [reporting process](https://github.com/mabel-dev/opteryx/security/advisories/new).
 
-[![Static Analysis](https://github.com/mabel-dev/opteryx/actions/workflows/static_analysis.yaml/badge.svg)](https://github.com/mabel-dev/opteryx/actions/workflows/static_analysis.yml)
+[![Static Analysis](https://github.com/mabel-dev/opteryx/actions/workflows/static_analysis.yaml/badge.svg)](https://github.com/mabel-dev/opteryx/actions/workflows/static_analysis.yaml)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=mabel-dev_opteryx&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=mabel-dev_opteryx)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=mabel-dev_opteryx&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=mabel-dev_opteryx)
 
 ## License
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/mabel-dev/opteryx/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/mabel-dev/opteryx/blob/main/LICENSE)
 
-Opteryx is licensed under [Apache 2.0](https://github.com/mabel-dev/opteryx/blob/master/LICENSE) except where specific modules note otherwise.
+Opteryx is licensed under [Apache 2.0](https://github.com/mabel-dev/opteryx/blob/main/LICENSE) except where specific modules note otherwise.
 
 ## Status
 
@@ -342,7 +396,8 @@ We’re actively adding features and improving performance.
 ## Related Projects
 
 - **[orso](https://github.com/mabel-dev/orso)** DataFrame library
-- **[mabel](https://github.com/mabel-dev/mabel)** Streaming data APIs
+- **[draken](https://github.com/mabel-dev/draken)** Cython bindings for Arrow
+- **[rugo](https://github.com/mabel-dev/rugo)** File Reader
 
 <!---
 ## Thank You

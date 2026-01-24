@@ -60,6 +60,29 @@ variable in order to provide a custom Docker executable command or path. This ma
 be needed when building in environments where the standard docker cannot be executed
 (see https://github.com/aws/aws-cdk/issues/8460 for details).
 
+### Docker Alternatives
+
+The CDK supports several Docker alternatives through the `CDK_DOCKER` environment variable:
+
+#### Finch (AWS-supported)
+
+```bash
+export CDK_DOCKER=finch
+```
+
+**Note**: For Finch, you may also need to set the `DOCKER_HOST` environment variable. The socket path is OS-specific (e.g., on macOS: `unix:///Applications/Finch/lima/data/finch/sock/finch.sock`).
+
+#### Podman (Community-tested)
+
+```bash
+export CDK_DOCKER=podman
+export DOCKER_HOST=$(podman machine inspect --format 'unix://{{.ConnectionInfo.PodmanSocket.Path}}')
+```
+
+**Note**: While Finch receives official AWS support, Podman is community-tested and may work for many use cases. The CDK doesn't check which Docker replacement you are using to determine if it's supported. If the tool has equivalent Docker commands and behaves similarly, it should work.
+
+For some container runtimes, you may need to set the `DOCKER_HOST` environment variable to specify the correct socket path for the CDK to communicate with the container daemon.
+
 SSH agent sockets or keys may be passed to docker build via `buildSsh`.
 
 ```python
@@ -391,7 +414,7 @@ class DockerImageAsset(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         directory: builtins.str,
@@ -400,8 +423,8 @@ class DockerImageAsset(
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         display_name: typing.Optional[builtins.str] = None,
         file: typing.Optional[builtins.str] = None,
         invalidation: typing.Optional[typing.Union["DockerImageAssetInvalidationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -411,8 +434,8 @@ class DockerImageAsset(
         target: typing.Optional[builtins.str] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -468,7 +491,7 @@ class DockerImageAsset(
     @jsii.member(jsii_name="addResourceMetadata")
     def add_resource_metadata(
         self,
-        resource: _CfnResource_9df397a6,
+        resource: "_CfnResource_9df397a6",
         resource_property: builtins.str,
     ) -> None:
         '''Adds CloudFormation template metadata to the specified resource with information that indicates which resource property is mapped to this local asset.
@@ -536,12 +559,12 @@ class DockerImageAsset(
 
     @builtins.property
     @jsii.member(jsii_name="repository")
-    def repository(self) -> _IRepository_e6004aa6:
+    def repository(self) -> "_IRepository_e6004aa6":
         '''Repository where the image is stored.'''
-        return typing.cast(_IRepository_e6004aa6, jsii.get(self, "repository"))
+        return typing.cast("_IRepository_e6004aa6", jsii.get(self, "repository"))
 
     @repository.setter
-    def repository(self, value: _IRepository_e6004aa6) -> None:
+    def repository(self, value: "_IRepository_e6004aa6") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6ceab41a9ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -774,19 +797,19 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         self,
         *,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         display_name: typing.Optional[builtins.str] = None,
         file: typing.Optional[builtins.str] = None,
-        invalidation: typing.Optional[typing.Union[DockerImageAssetInvalidationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        invalidation: typing.Optional[typing.Union["DockerImageAssetInvalidationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         network_mode: typing.Optional["NetworkMode"] = None,
         outputs: typing.Optional[typing.Sequence[builtins.str]] = None,
         platform: typing.Optional["Platform"] = None,
@@ -950,22 +973,22 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional[_SymlinkFollowMode_047ec1f6]:
+    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional[_SymlinkFollowMode_047ec1f6], result)
+        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional[_IgnoreMode_655a98e8]:
+    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional[_IgnoreMode_655a98e8], result)
+        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
 
     @builtins.property
     def extra_hash(self) -> typing.Optional[builtins.str]:
@@ -1047,7 +1070,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cache_from(self) -> typing.Optional[typing.List[DockerCacheOption]]:
+    def cache_from(self) -> typing.Optional[typing.List["DockerCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -1055,10 +1078,10 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[DockerCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["DockerCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[DockerCacheOption]:
+    def cache_to(self) -> typing.Optional["DockerCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -1066,7 +1089,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[DockerCacheOption], result)
+        return typing.cast(typing.Optional["DockerCacheOption"], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
@@ -1103,13 +1126,13 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def invalidation(self) -> typing.Optional[DockerImageAssetInvalidationOptions]:
+    def invalidation(self) -> typing.Optional["DockerImageAssetInvalidationOptions"]:
         '''Options to control which parameters are used to invalidate the asset hash.
 
         :default: - hash all parameters
         '''
         result = self._values.get("invalidation")
-        return typing.cast(typing.Optional[DockerImageAssetInvalidationOptions], result)
+        return typing.cast(typing.Optional["DockerImageAssetInvalidationOptions"], result)
 
     @builtins.property
     def network_mode(self) -> typing.Optional["NetworkMode"]:
@@ -1195,19 +1218,19 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         self,
         *,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         display_name: typing.Optional[builtins.str] = None,
         file: typing.Optional[builtins.str] = None,
-        invalidation: typing.Optional[typing.Union[DockerImageAssetInvalidationOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        invalidation: typing.Optional[typing.Union["DockerImageAssetInvalidationOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         network_mode: typing.Optional["NetworkMode"] = None,
         outputs: typing.Optional[typing.Sequence[builtins.str]] = None,
         platform: typing.Optional["Platform"] = None,
@@ -1331,22 +1354,22 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def follow_symlinks(self) -> typing.Optional[_SymlinkFollowMode_047ec1f6]:
+    def follow_symlinks(self) -> typing.Optional["_SymlinkFollowMode_047ec1f6"]:
         '''A strategy for how to handle symlinks.
 
         :default: SymlinkFollowMode.NEVER
         '''
         result = self._values.get("follow_symlinks")
-        return typing.cast(typing.Optional[_SymlinkFollowMode_047ec1f6], result)
+        return typing.cast(typing.Optional["_SymlinkFollowMode_047ec1f6"], result)
 
     @builtins.property
-    def ignore_mode(self) -> typing.Optional[_IgnoreMode_655a98e8]:
+    def ignore_mode(self) -> typing.Optional["_IgnoreMode_655a98e8"]:
         '''The ignore behavior to use for ``exclude`` patterns.
 
         :default: IgnoreMode.GLOB
         '''
         result = self._values.get("ignore_mode")
-        return typing.cast(typing.Optional[_IgnoreMode_655a98e8], result)
+        return typing.cast(typing.Optional["_IgnoreMode_655a98e8"], result)
 
     @builtins.property
     def extra_hash(self) -> typing.Optional[builtins.str]:
@@ -1428,7 +1451,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cache_from(self) -> typing.Optional[typing.List[DockerCacheOption]]:
+    def cache_from(self) -> typing.Optional[typing.List["DockerCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -1436,10 +1459,10 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[DockerCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["DockerCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[DockerCacheOption]:
+    def cache_to(self) -> typing.Optional["DockerCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -1447,7 +1470,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[DockerCacheOption], result)
+        return typing.cast(typing.Optional["DockerCacheOption"], result)
 
     @builtins.property
     def display_name(self) -> typing.Optional[builtins.str]:
@@ -1484,13 +1507,13 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def invalidation(self) -> typing.Optional[DockerImageAssetInvalidationOptions]:
+    def invalidation(self) -> typing.Optional["DockerImageAssetInvalidationOptions"]:
         '''Options to control which parameters are used to invalidate the asset hash.
 
         :default: - hash all parameters
         '''
         result = self._values.get("invalidation")
-        return typing.cast(typing.Optional[DockerImageAssetInvalidationOptions], result)
+        return typing.cast(typing.Optional["DockerImageAssetInvalidationOptions"], result)
 
     @builtins.property
     def network_mode(self) -> typing.Optional["NetworkMode"]:
@@ -1697,7 +1720,7 @@ class TarballImageAsset(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         tarball_file: builtins.str,
@@ -1758,12 +1781,12 @@ class TarballImageAsset(
 
     @builtins.property
     @jsii.member(jsii_name="repository")
-    def repository(self) -> _IRepository_e6004aa6:
+    def repository(self) -> "_IRepository_e6004aa6":
         '''Repository where the image is stored.'''
-        return typing.cast(_IRepository_e6004aa6, jsii.get(self, "repository"))
+        return typing.cast("_IRepository_e6004aa6", jsii.get(self, "repository"))
 
     @repository.setter
-    def repository(self, value: _IRepository_e6004aa6) -> None:
+    def repository(self, value: "_IRepository_e6004aa6") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccb91ed092745a33fafd3df8d94f545ae143be6b4949103c115bc71350c947bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])

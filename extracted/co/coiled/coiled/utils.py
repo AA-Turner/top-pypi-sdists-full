@@ -131,7 +131,8 @@ class VmType(TypedDict):
 
 def session_certifi_ssl() -> dict[str, Any]:
     try:
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_cert_file = os.getenv("SSL_CERT_FILE", certifi.where())
+        ssl_context = ssl.create_default_context(cafile=ssl_cert_file)
         return {"connector": aiohttp.TCPConnector(ssl=ssl_context)}
     except Exception:
         pass
@@ -1571,7 +1572,8 @@ def _parse_targets(targets):
         elif target == "me":
             # get public/internet routable address from which local user will be hitting scheduler
             if not my_public_ip:
-                with urllib3.PoolManager(ca_certs=certifi.where()) as pool:
+                ssl_cert_file = os.getenv("SSL_CERT_FILE", certifi.where())
+                with urllib3.PoolManager(ca_certs=ssl_cert_file) as pool:
                     try:
                         my_public_ip = pool.request("GET", "https://checkip.amazonaws.com").data.decode("utf-8").strip()
                     except Exception as aws_ip_exception:
@@ -2176,6 +2178,8 @@ class SimpleRichProgressPanel(Progress):
 
     def update_progress(self, tasks: list[dict]):
         for task in tasks:
+            if not task:
+                continue
             if task["label"] not in self._tasks_from_dicts:
                 self._tasks_from_dicts[task["label"]] = self.add_task(task["label"])
 

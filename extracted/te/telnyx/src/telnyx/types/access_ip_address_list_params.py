@@ -8,7 +8,7 @@ from typing_extensions import Annotated, TypeAlias, TypedDict
 
 from .._utils import PropertyInfo
 
-__all__ = ["AccessIPAddressListParams", "Filter", "FilterCreatedAt", "FilterCreatedAtDateRangeFilter", "Page"]
+__all__ = ["AccessIPAddressListParams", "Filter", "FilterCreatedAt", "FilterCreatedAtDateRangeFilter"]
 
 
 class AccessIPAddressListParams(TypedDict, total=False):
@@ -19,14 +19,14 @@ class AccessIPAddressListParams(TypedDict, total=False):
     complex bracket operations for dynamic filtering.
     """
 
-    page: Page
-    """Consolidated page parameter (deepObject style).
+    page_number: Annotated[int, PropertyInfo(alias="page[number]")]
 
-    Originally: page[number], page[size]
-    """
+    page_size: Annotated[int, PropertyInfo(alias="page[size]")]
 
 
 class FilterCreatedAtDateRangeFilter(TypedDict, total=False):
+    """Date range filtering operations"""
+
     gt: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Filter for creation date-time greater than"""
 
@@ -44,6 +44,11 @@ FilterCreatedAt: TypeAlias = Union[Union[str, datetime], FilterCreatedAtDateRang
 
 
 class FilterTyped(TypedDict, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[ip_source], filter[ip_address], filter[created_at]. Supports complex bracket operations for dynamic filtering.
+    """
+
     created_at: Annotated[FilterCreatedAt, PropertyInfo(format="iso8601")]
     """Filter by exact creation date-time"""
 
@@ -55,9 +60,3 @@ class FilterTyped(TypedDict, total=False):
 
 
 Filter: TypeAlias = Union[FilterTyped, Dict[str, object]]
-
-
-class Page(TypedDict, total=False):
-    number: int
-
-    size: int

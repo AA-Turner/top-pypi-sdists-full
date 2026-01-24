@@ -17,6 +17,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from appconf import AppConf
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
@@ -25,35 +29,38 @@ from django.db.models.signals import pre_save
 from django.dispatch.dispatcher import receiver
 from django.utils import timezone
 from weblate.auth.models import User
-from weblate.billing.models import Billing, Invoice, Plan
+from weblate.billing.models import Billing, BillingEvent, Invoice, Plan
 from weblate.utils.decorators import disable_for_loaddata
 
 from wlhosted.payments.models import Payment, get_period_delta
 
+if TYPE_CHECKING:
+    from datetime import datetime
 
-def end_interval(payment, start):
+
+def end_interval(payment: Payment, start: datetime) -> datetime:
     return start + get_period_delta(payment.extra["period"])
 
 
+@transaction.atomic
 @transaction.atomic(using="payments_db")
 def handle_received_payment(payment: Payment) -> Billing | None:
-    params = {
-        "state": Billing.STATE_ACTIVE,
-        "removal": None,
-    }
-    if plan := payment.extra.get("plan"):
+    plan: Plan | None = None
+    if plan_id := payment.extra.get("plan"):
         # Needed for new payments only
-        params["plan"] = Plan.objects.get(pk=plan)
+        plan = Plan.objects.get(pk=plan_id)
     if "billing" in payment.extra:
-        billing = Billing.objects.get(pk=payment.extra["billing"])
+        billing = Billing.objects.select_for_update().get(pk=payment.extra["billing"])
         if billing.removal:
-            from wlhosted.integrations.tasks import notify_paid_removal
+            from wlhosted.integrations.tasks import notify_paid_removal  # noqa: PLC0415
 
-            notify_paid_removal(billing.id)
-        for key, value in params.items():
-            setattr(billing, key, value)
-    elif "plan" in payment.extra:
-        billing = Billing.objects.create(**params)
+            notify_paid_removal.delay(billing.id)
+        billing.removal = None
+        billing.state = Billing.STATE_ACTIVE
+        if plan is not None:
+            billing.plan = plan
+    elif plan is not None:
+        billing = Billing.objects.create(state=Billing.STATE_ACTIVE, plan=plan)
         billing.owners.add(User.objects.get(pk=payment.customer.user_id))
     else:
         return None
@@ -71,6 +78,9 @@ def handle_received_payment(payment: Payment) -> Billing | None:
     billing.payment["all"].append(payment.pk)
 
     billing.save()
+    billing.billinglog_set.create(
+        event=BillingEvent.PAYMENT, summary=f"Billing paid via {payment.pk}"
+    )
 
     start = billing.invoice_set.aggregate(Max("end"))["end__max"]
     if start is not None:
@@ -105,7 +115,7 @@ class HostedConf(AppConf):
 @receiver(pre_save, sender=User)
 @disable_for_loaddata
 def propagate_user_changes(sender, instance, **kwargs) -> None:
-    from wlhosted.integrations.tasks import notify_user_change
+    from wlhosted.integrations.tasks import notify_user_change  # noqa: PLC0415
 
     if instance.is_anonymous:
         return

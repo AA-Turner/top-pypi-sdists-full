@@ -44,6 +44,7 @@ class InfraEnv(object):
         'ssh_authorized_key': 'str',
         'pull_secret_set': 'bool',
         'static_network_config': 'str',
+        'rendezvous_ip': 'str',
         'type': 'ImageType',
         'ignition_config_override': 'str',
         'cluster_id': 'str',
@@ -72,6 +73,7 @@ class InfraEnv(object):
         'ssh_authorized_key': 'ssh_authorized_key',
         'pull_secret_set': 'pull_secret_set',
         'static_network_config': 'static_network_config',
+        'rendezvous_ip': 'rendezvous_ip',
         'type': 'type',
         'ignition_config_override': 'ignition_config_override',
         'cluster_id': 'cluster_id',
@@ -86,7 +88,7 @@ class InfraEnv(object):
         'additional_trust_bundle': 'additional_trust_bundle'
     }
 
-    def __init__(self, kind=None, id=None, href=None, openshift_version=None, name=None, user_name=None, org_id=None, email_domain=None, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret_set=None, static_network_config=None, type=None, ignition_config_override=None, cluster_id=None, size_bytes=None, download_url=None, generator_version=None, updated_at=None, created_at=None, expires_at=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None):  # noqa: E501
+    def __init__(self, kind=None, id=None, href=None, openshift_version=None, name=None, user_name=None, org_id=None, email_domain=None, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret_set=None, static_network_config=None, rendezvous_ip=None, type=None, ignition_config_override=None, cluster_id=None, size_bytes=None, download_url=None, generator_version=None, updated_at=None, created_at=None, expires_at=None, cpu_architecture='x86_64', kernel_arguments=None, additional_trust_bundle=None):  # noqa: E501
         """InfraEnv - a model defined in Swagger"""  # noqa: E501
 
         self._kind = None
@@ -102,6 +104,7 @@ class InfraEnv(object):
         self._ssh_authorized_key = None
         self._pull_secret_set = None
         self._static_network_config = None
+        self._rendezvous_ip = None
         self._type = None
         self._ignition_config_override = None
         self._cluster_id = None
@@ -138,6 +141,8 @@ class InfraEnv(object):
             self.pull_secret_set = pull_secret_set
         if static_network_config is not None:
             self.static_network_config = static_network_config
+        if rendezvous_ip is not None:
+            self.rendezvous_ip = rendezvous_ip
         self.type = type
         if ignition_config_override is not None:
             self.ignition_config_override = ignition_config_override
@@ -464,6 +469,29 @@ class InfraEnv(object):
         """
 
         self._static_network_config = static_network_config
+
+    @property
+    def rendezvous_ip(self):
+        """Gets the rendezvous_ip of this InfraEnv.  # noqa: E501
+
+        The IP address of the host that will act as the rendezvous (bootstrap) node for agent-based installations. This is optional for disconnected-iso image type and specifies which host will run the assisted service during the bootstrap phase. All other hosts will connect to this IP to coordinate the installation.  # noqa: E501
+
+        :return: The rendezvous_ip of this InfraEnv.  # noqa: E501
+        :rtype: str
+        """
+        return self._rendezvous_ip
+
+    @rendezvous_ip.setter
+    def rendezvous_ip(self, rendezvous_ip):
+        """Sets the rendezvous_ip of this InfraEnv.
+
+        The IP address of the host that will act as the rendezvous (bootstrap) node for agent-based installations. This is optional for disconnected-iso image type and specifies which host will run the assisted service during the bootstrap phase. All other hosts will connect to this IP to coordinate the installation.  # noqa: E501
+
+        :param rendezvous_ip: The rendezvous_ip of this InfraEnv.  # noqa: E501
+        :type: str
+        """
+
+        self._rendezvous_ip = rendezvous_ip
 
     @property
     def type(self):

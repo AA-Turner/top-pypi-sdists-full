@@ -13,10 +13,7 @@ def armature_apply(
 ) -> None:
     """Apply the current pose as the new rest pose
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param selected: Selected Only, Only apply the selected bones (with propagation to children)
-    :type selected: bool | None
     """
 
 def autoside_names(
@@ -28,8 +25,6 @@ def autoside_names(
 ) -> None:
     """Automatically renames the selected bones according to which side of the target axis they fall on
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param axis: Axis, Axis to tag names with
 
     XAXIS
@@ -40,7 +35,6 @@ def autoside_names(
 
     ZAXIS
     Z-Axis -- Top/Bottom.
-        :type axis: typing.Literal['XAXIS','YAXIS','ZAXIS'] | None
     """
 
 def blend_to_neighbor(
@@ -57,14 +51,9 @@ def blend_to_neighbor(
 ) -> None:
     """Blend from current position to previous or next keyframe
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Factor, Weighting factor for which keyframe is favored more
-        :type factor: float | None
         :param prev_frame: Previous Keyframe, Frame number of keyframe immediately before the current frame
-        :type prev_frame: int | None
         :param next_frame: Next Keyframe, Frame number of keyframe immediately after the current frame
-        :type next_frame: int | None
         :param channels: Channels, Set of properties that are affected
 
     ALL
@@ -84,7 +73,6 @@ def blend_to_neighbor(
 
     CUSTOM
     Custom Properties -- Custom properties.
-        :type channels: typing.Literal['ALL','LOC','ROT','SIZE','BBONE','CUSTOM'] | None
         :param axis_lock: Axis Lock, Transform axis to restrict effects to
 
     FREE
@@ -98,7 +86,6 @@ def blend_to_neighbor(
 
     Z
     Z -- Only Z-axis transforms are affected.
-        :type axis_lock: typing.Literal['FREE','X','Y','Z'] | None
     """
 
 def blend_with_rest(
@@ -115,14 +102,9 @@ def blend_with_rest(
 ) -> None:
     """Make the current pose more similar to, or further away from, the rest pose
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Factor, Weighting factor for which keyframe is favored more
-        :type factor: float | None
         :param prev_frame: Previous Keyframe, Frame number of keyframe immediately before the current frame
-        :type prev_frame: int | None
         :param next_frame: Next Keyframe, Frame number of keyframe immediately after the current frame
-        :type next_frame: int | None
         :param channels: Channels, Set of properties that are affected
 
     ALL
@@ -142,7 +124,6 @@ def blend_with_rest(
 
     CUSTOM
     Custom Properties -- Custom properties.
-        :type channels: typing.Literal['ALL','LOC','ROT','SIZE','BBONE','CUSTOM'] | None
         :param axis_lock: Axis Lock, Transform axis to restrict effects to
 
     FREE
@@ -156,7 +137,6 @@ def blend_with_rest(
 
     Z
     Z -- Only Z-axis transforms are affected.
-        :type axis_lock: typing.Literal['FREE','X','Y','Z'] | None
     """
 
 def breakdown(
@@ -173,14 +153,9 @@ def breakdown(
 ) -> None:
     """Create a suitable breakdown pose on the current frame
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Factor, Weighting factor for which keyframe is favored more
-        :type factor: float | None
         :param prev_frame: Previous Keyframe, Frame number of keyframe immediately before the current frame
-        :type prev_frame: int | None
         :param next_frame: Next Keyframe, Frame number of keyframe immediately after the current frame
-        :type next_frame: int | None
         :param channels: Channels, Set of properties that are affected
 
     ALL
@@ -200,7 +175,6 @@ def breakdown(
 
     CUSTOM
     Custom Properties -- Custom properties.
-        :type channels: typing.Literal['ALL','LOC','ROT','SIZE','BBONE','CUSTOM'] | None
         :param axis_lock: Axis Lock, Transform axis to restrict effects to
 
     FREE
@@ -214,7 +188,6 @@ def breakdown(
 
     Z
     Z -- Only Z-axis transforms are affected.
-        :type axis_lock: typing.Literal['FREE','X','Y','Z'] | None
     """
 
 def constraint_add(
@@ -226,10 +199,7 @@ def constraint_add(
 ) -> None:
     """Add a constraint to the active bone
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None
     """
 
 def constraint_add_with_targets(
@@ -241,10 +211,7 @@ def constraint_add_with_targets(
 ) -> None:
     """Add a constraint to the active bone, with target (where applicable) set to the selected Objects/Bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.ConstraintTypeItems | None
     """
 
 def constraints_clear(
@@ -252,33 +219,21 @@ def constraints_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear all constraints from the selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear all constraints from the selected bones"""
 
 def constraints_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy constraints to other selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy constraints to other selected bones"""
 
 def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the current pose of the selected bones to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the current pose of the selected bones to the internal clipboard"""
 
 def flip_names(
     execution_context: int | str | None = None,
@@ -289,10 +244,7 @@ def flip_names(
 ) -> None:
     """Flips (and corrects) the axis suffixes of the names of selected bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param do_strip_numbers: Strip Numbers, Try to remove right-most dot-number from flipped names.Warning: May result in incoherent naming in some cases
-    :type do_strip_numbers: bool | None
     """
 
 def hide(
@@ -304,10 +256,7 @@ def hide(
 ) -> None:
     """Tag selected bones to not be visible in Pose Mode
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected
-    :type unselected: bool | None
     """
 
 def ik_add(
@@ -317,12 +266,9 @@ def ik_add(
     *,
     with_targets: bool | None = True,
 ) -> None:
-    """Add IK Constraint to the active Bone
+    """Add an IK Constraint to the active Bone. The target can be a selected bone or object
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param with_targets: With Targets, Assign IK Constraint with targets derived from the select bones/objects
-    :type with_targets: bool | None
     """
 
 def ik_clear(
@@ -330,22 +276,14 @@ def ik_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove all IK Constraints from selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove all IK Constraints from selected bones"""
 
 def loc_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset locations of selected bones to their default values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset locations of selected bones to their default values"""
 
 def paste(
     execution_context: int | str | None = None,
@@ -357,12 +295,8 @@ def paste(
 ) -> None:
     """Paste the stored pose on to the current pose
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param flipped: Flipped on X-Axis, Paste the stored pose flipped on to current pose
-    :type flipped: bool | None
     :param selected_mask: On Selected Only, Only paste the stored pose on to selected bones in the current pose
-    :type selected_mask: bool | None
     """
 
 def paths_calculate(
@@ -378,14 +312,9 @@ def paths_calculate(
 ) -> None:
     """Calculate paths for the selected bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param display_type: Display Type
-    :type display_type: bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems | None
     :param range: Computation Range
-    :type range: bpy.stub_internal.rna_enums.MotionpathRangeItems | None
     :param bake_location: Bake Location, Which point on the bones is used when calculating paths
-    :type bake_location: bpy.stub_internal.rna_enums.MotionpathBakeLocationItems | None
     """
 
 def paths_clear(
@@ -397,10 +326,7 @@ def paths_clear(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_selected: Only Selected, Only clear motion paths of selected bones
-    :type only_selected: bool | None
     """
 
 def paths_range_update(
@@ -408,22 +334,14 @@ def paths_range_update(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update frame range for motion paths from the Scenes current frame range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update frame range for motion paths from the Scenes current frame range"""
 
 def paths_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Recalculate paths for bones that already have them
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Recalculate paths for bones that already have them"""
 
 def propagate(
     execution_context: int | str | None = None,
@@ -443,8 +361,6 @@ def propagate(
 ) -> None:
     """Copy selected aspects of the current pose to subsequent poses already keyframed
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Terminate Mode, Method used to determine when to stop propagating pose to keyframes
 
     NEXT_KEY
@@ -464,9 +380,7 @@ def propagate(
 
     SELECTED_MARKERS
     On Selected Markers -- Propagate pose to all keyframes occurring on frames with Scene Markers after the current frame.
-        :type mode: typing.Literal['NEXT_KEY','LAST_KEY','BEFORE_FRAME','BEFORE_END','SELECTED_KEYS','SELECTED_MARKERS'] | None
         :param end_frame: End Frame, Frame to stop propagating frames to (for Before Frame mode)
-        :type end_frame: float | None
     """
 
 def push(
@@ -483,14 +397,9 @@ def push(
 ) -> None:
     """Exaggerate the current pose in regards to the breakdown pose
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Factor, Weighting factor for which keyframe is favored more
-        :type factor: float | None
         :param prev_frame: Previous Keyframe, Frame number of keyframe immediately before the current frame
-        :type prev_frame: int | None
         :param next_frame: Next Keyframe, Frame number of keyframe immediately after the current frame
-        :type next_frame: int | None
         :param channels: Channels, Set of properties that are affected
 
     ALL
@@ -510,7 +419,6 @@ def push(
 
     CUSTOM
     Custom Properties -- Custom properties.
-        :type channels: typing.Literal['ALL','LOC','ROT','SIZE','BBONE','CUSTOM'] | None
         :param axis_lock: Axis Lock, Transform axis to restrict effects to
 
     FREE
@@ -524,7 +432,6 @@ def push(
 
     Z
     Z -- Only Z-axis transforms are affected.
-        :type axis_lock: typing.Literal['FREE','X','Y','Z'] | None
     """
 
 def quaternions_flip(
@@ -532,11 +439,7 @@ def quaternions_flip(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Flip quaternion values to achieve desired rotations, while maintaining the same orientations
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Flip quaternion values to achieve desired rotations, while maintaining the same orientations"""
 
 def relax(
     execution_context: int | str | None = None,
@@ -552,14 +455,9 @@ def relax(
 ) -> None:
     """Make the current pose more similar to its breakdown pose
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param factor: Factor, Weighting factor for which keyframe is favored more
-        :type factor: float | None
         :param prev_frame: Previous Keyframe, Frame number of keyframe immediately before the current frame
-        :type prev_frame: int | None
         :param next_frame: Next Keyframe, Frame number of keyframe immediately after the current frame
-        :type next_frame: int | None
         :param channels: Channels, Set of properties that are affected
 
     ALL
@@ -579,7 +477,6 @@ def relax(
 
     CUSTOM
     Custom Properties -- Custom properties.
-        :type channels: typing.Literal['ALL','LOC','ROT','SIZE','BBONE','CUSTOM'] | None
         :param axis_lock: Axis Lock, Transform axis to restrict effects to
 
     FREE
@@ -593,7 +490,6 @@ def relax(
 
     Z
     Z -- Only Z-axis transforms are affected.
-        :type axis_lock: typing.Literal['FREE','X','Y','Z'] | None
     """
 
 def reveal(
@@ -605,10 +501,7 @@ def reveal(
 ) -> None:
     """Reveal all bones hidden in Pose Mode
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select
-    :type select: bool | None
     """
 
 def rot_clear(
@@ -616,11 +509,7 @@ def rot_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset rotations of selected bones to their default values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset rotations of selected bones to their default values"""
 
 def rotation_mode_set(
     execution_context: int | str | None = None,
@@ -631,10 +520,7 @@ def rotation_mode_set(
 ) -> None:
     """Set the rotation representation used by selected bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Rotation Mode
-    :type type: bpy.stub_internal.rna_enums.ObjectRotationModeItems | None
     """
 
 def scale_clear(
@@ -642,11 +528,7 @@ def scale_clear(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset scaling of selected bones to their default values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset scaling of selected bones to their default values"""
 
 def select_all(
     execution_context: int | str | None = None,
@@ -657,8 +539,6 @@ def select_all(
 ) -> None:
     """Toggle selection status of all bones
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -672,7 +552,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_constraint_target(
@@ -680,11 +559,7 @@ def select_constraint_target(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select bones used as targets for the currently selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select bones used as targets for the currently selected bones"""
 
 def select_grouped(
     execution_context: int | str | None = None,
@@ -699,16 +574,13 @@ def select_grouped(
         "CHILDREN",
         "CHILDREN_IMMEDIATE",
         "PARENT",
-        "SIBILINGS",
+        "SIBLINGS",
     ]
     | None = "COLLECTION",
 ) -> None:
     """Select all visible bones grouped by similar properties
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param extend: Extend, Extend selection instead of deselecting everything first
-        :type extend: bool | None
         :param type: Type
 
     COLLECTION
@@ -729,9 +601,8 @@ def select_grouped(
     PARENT
     Parents -- Select the parents of currently selected bones.
 
-    SIBILINGS
+    SIBLINGS
     Siblings -- Select all bones that have the same parent as currently selected bones.
-        :type type: typing.Literal['COLLECTION','COLOR','KEYINGSET','CHILDREN','CHILDREN_IMMEDIATE','PARENT','SIBILINGS'] | None
     """
 
 def select_hierarchy(
@@ -744,12 +615,8 @@ def select_hierarchy(
 ) -> None:
     """Select immediate parent/children of selected bones
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction
-    :type direction: typing.Literal['PARENT','CHILD'] | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def select_linked(
@@ -757,11 +624,7 @@ def select_linked(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all bones linked by parent/child connections to the current selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all bones linked by parent/child connections to the current selection"""
 
 def select_linked_pick(
     execution_context: int | str | None = None,
@@ -772,10 +635,7 @@ def select_linked_pick(
 ) -> None:
     """Select bones linked by parent/child connections under the mouse cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     """
 
 def select_mirror(
@@ -788,12 +648,8 @@ def select_mirror(
 ) -> None:
     """Mirror the bone selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_active: Active Only, Only operate on the active bone
-    :type only_active: bool | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def select_parent(
@@ -801,77 +657,49 @@ def select_parent(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select bones that are parents of the currently selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select bones that are parents of the currently selected bones"""
 
 def selection_set_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new empty Selection Set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new empty Selection Set"""
 
 def selection_set_add_and_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new Selection Set with the currently selected bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new Selection Set with the currently selected bones"""
 
 def selection_set_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add selected bones to Selection Set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add selected bones to Selection Set"""
 
 def selection_set_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the selected Selection Set(s) to the clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the selected Selection Set(s) to the clipboard"""
 
 def selection_set_delete_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove all Selection Sets from this Armature
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove all Selection Sets from this Armature"""
 
 def selection_set_deselect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove Selection Set bones from current selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove Selection Set bones from current selection"""
 
 def selection_set_move(
     execution_context: int | str | None = None,
@@ -882,10 +710,7 @@ def selection_set_move(
 ) -> None:
     """Move the active Selection Set up/down the list of sets
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Move Direction, Direction to move the active Selection Set: UP (default) or DOWN
-    :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def selection_set_paste(
@@ -893,33 +718,21 @@ def selection_set_paste(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new Selection Set(s) from the clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new Selection Set(s) from the clipboard"""
 
 def selection_set_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove a Selection Set from this Armature
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove a Selection Set from this Armature"""
 
 def selection_set_remove_bones(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the selected bones from all Selection Sets
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the selected bones from all Selection Sets"""
 
 def selection_set_select(
     execution_context: int | str | None = None,
@@ -930,10 +743,7 @@ def selection_set_select(
 ) -> None:
     """Select the bones from this Selection Set
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param selection_set_index: Selection Set Index, Which Selection Set to select; -1 uses the active Selection Set
-    :type selection_set_index: int | None
     """
 
 def selection_set_unassign(
@@ -941,22 +751,14 @@ def selection_set_unassign(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove selected bones from Selection Set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove selected bones from Selection Set"""
 
 def transforms_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset location, rotation, and scaling of selected bones to their default values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset location, rotation, and scaling of selected bones to their default values"""
 
 def user_transforms_clear(
     execution_context: int | str | None = None,
@@ -967,10 +769,7 @@ def user_transforms_clear(
 ) -> None:
     """Reset pose bone transforms to keyframed state
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param only_selected: Only Selected, Only visible/selected bones
-    :type only_selected: bool | None
     """
 
 def visual_transform_apply(
@@ -978,8 +777,4 @@ def visual_transform_apply(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Apply final constrained position of pose bones to their transform
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Apply final constrained position of pose bones to their transform"""

@@ -27,6 +27,14 @@ class OpenAiWebChatRequest(UncheckedBaseModel):
     If not provided or expired, a new session will be created.
     """
 
+    session_expiration_seconds: typing_extensions.Annotated[
+        typing.Optional[float], FieldMetadata(alias="sessionExpirationSeconds")
+    ] = pydantic.Field(default=None)
+    """
+    This is the expiration time for the session. This can ONLY be set if starting a new chat and therefore a new session is created.
+    If session already exists, this will be ignored and NOT be updated for the existing session. Use PATCH /session/:id to update the session expiration time.
+    """
+
     assistant_overrides: typing_extensions.Annotated[
         typing.Optional[ChatAssistantOverrides], FieldMetadata(alias="assistantOverrides")
     ] = pydantic.Field(default=None)
@@ -50,6 +58,15 @@ class OpenAiWebChatRequest(UncheckedBaseModel):
     stream: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether to stream the response or not.
+    """
+
+    session_end: typing_extensions.Annotated[typing.Optional[bool], FieldMetadata(alias="sessionEnd")] = pydantic.Field(
+        default=None
+    )
+    """
+    This is a flag to indicate end of session. When true, the session will be marked as completed and the chat will be ended.
+    Used to end session to send End-of-session report to the customer.
+    When flag is set to true, any messages sent will not be processed and session will directly be marked as completed.
     """
 
     if IS_PYDANTIC_V2:

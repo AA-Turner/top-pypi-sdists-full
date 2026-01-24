@@ -24,6 +24,11 @@ from typing import Optional, List, Tuple, Union, Dict, Any
 
 import os
 import locale
+import urllib.request
+import urllib.error
+import tarfile
+import zipfile
+import tempfile
 
 
 # Setup basic logging
@@ -59,14 +64,14 @@ class PackageManager:
                 using python_executable (if provided) or sys.executable.
         """
         self._executable = None
-
-        # 1. priorité à pip_command_base
+        
+        # 1. prioritÃ© Ã  pip_command_base
         if pip_command_base:
             self.pip_command_base = pip_command_base
             logger.info(f"Using custom pip command base: {' '.join(pip_command_base)}")
             self._executable = pip_command_base[0]
 
-        # 2. sinon priorité au venv_path
+        # 2. sinon prioritÃ© au venv_path
         elif venv_path:
             venv_path = Path(venv_path).resolve()
             if os.name == "nt":
@@ -74,15 +79,26 @@ class PackageManager:
             else:
                 venv_python = venv_path / "bin" / "python"
 
-            # créer si manquant
+            # crÃ©er si manquant
             if not venv_python.exists():
                 base_python = python_executable or sys.executable
                 logger.info(
                     f"Virtual environment not found at {venv_path}, creating it with {base_python}..."
                 )
                 venv_path.parent.mkdir(parents=True, exist_ok=True)
-                subprocess.run([base_python, "-m", "venv", str(venv_path)], check=True)
-                logger.info(f"Virtual environment created at {venv_path}")
+                try:
+                    subprocess.run([base_python, "-m", "venv", str(venv_path)], check=True, capture_output=True, text=True)
+                    logger.info(f"Virtual environment created at {venv_path}")
+                except subprocess.CalledProcessError as e:
+                    error_msg = (
+                        f"Failed to create virtual environment at {venv_path}.\n"
+                        f"Command: {' '.join(e.cmd)}\n"
+                        f"Exit Code: {e.returncode}\n"
+                        f"Stdout: {e.stdout.strip()}\n"
+                        f"Stderr: {e.stderr.strip()}"
+                    )
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg) from e
 
             if not venv_python.exists():
                 raise RuntimeError(f"Failed to create or locate virtual environment at {venv_path}")
@@ -106,6 +122,15 @@ class PackageManager:
             )
 
         self.target_python_executable = self._executable
+        
+        # Determine if the selected executable is the same as the current environment's
+        try:
+            target_path = Path(self._executable).resolve(strict=True)
+            current_path = Path(sys.executable).resolve(strict=True)
+            self._is_current_env = (target_path == current_path)
+        except (FileNotFoundError, TypeError):
+             # TypeError can happen if self._executable is None, though logic should prevent this.
+            self._is_current_env = False
 
 
     def _run_command(
@@ -116,8 +141,8 @@ class PackageManager:
         verbose: bool = False,
     ) -> Tuple[bool, str]:
         full_command_list = self.pip_command_base + command
-        log_command_list = [self.pip_command_base[0]] + self.pip_command_base[1:] + command
-        command_str_for_log = " ".join(log_command_list)
+        # FIX: Ensure all items are strings before joining
+        command_str_for_log = " ".join(map(str, full_command_list))
 
         if dry_run:
             if command[0] in ["install", "uninstall", "download"]:
@@ -126,7 +151,7 @@ class PackageManager:
                     self.pip_command_base + command[:insert_pos] + ["--dry-run"] + command[insert_pos:]
                     if insert_pos != -1 else self.pip_command_base + command + ["--dry-run"]
                 )
-                dry_run_cmd_str_for_log = " ".join([self.pip_command_base[0]] + dry_run_command_list[1:])
+                dry_run_cmd_str_for_log = " ".join(map(str, dry_run_command_list))
                 logger.info(f"DRY RUN: Would execute: {dry_run_cmd_str_for_log}")
                 return True, f"Dry run: Command would be '{dry_run_cmd_str_for_log}'"
             else:
@@ -136,7 +161,7 @@ class PackageManager:
         logger.info(f"Executing: {command_str_for_log}")
 
         try:
-            # Détection automatique de l’encodage système
+            # Auto detect system encoding
             encoding = locale.getpreferredencoding(False)
 
             # Forcer UTF-8 si possible (Python >=3.7)
@@ -190,6 +215,11 @@ class PackageManager:
                         error_message += f"\n--- stderr ---\n{error_out.strip()}"
                 else:
                     error_message += "\nCheck console output for details."
+
+                permission_errors = ["permission denied", "access is denied", "[winerror 5]"]
+                if any(p_error in error_out.lower() for p_error in permission_errors):
+                    self._show_manual_command_message(full_command_list)
+
                 logger.error(error_message)
                 return False, error_message
 
@@ -198,9 +228,37 @@ class PackageManager:
             logger.exception(error_message)
             return False, error_message
         except Exception as e:
-            error_message = f"An unexpected error occurred while running command '{command_str_for_log}': {e}"
-            logger.exception(error_message)
-            return False, error_message
+            if "denied" in str(e).lower():
+                error_message = f"Permission Denied while executing command: {command_str_for_log}"
+                logger.exception(error_message)
+                self._show_manual_command_message(full_command_list)
+                return False, error_message
+            else:
+                error_message = f"An unexpected error occurred while running command '{command_str_for_log}': {e}"
+                logger.exception(error_message)
+                return False, error_message
+
+    def _show_manual_command_message(self, command: List[str]):
+        """
+        Displays a user-friendly message asking to run a command manually with elevated privileges.
+        """
+        command_str = " ".join(command)
+        
+        from ascii_colors import ASCIIColors
+        
+        ASCIIColors.orange("="*80)
+        ASCIIColors.bold("                    PIPMASTER - MANUAL ACTION REQUIRED")
+        ASCIIColors.orange("="*80)
+        ASCIIColors.cyan("\nPipmaster encountered a 'Permission Denied' error.")
+        ASCIIColors.print("This is often caused by an antivirus program or insufficient user privileges.")
+        
+        if platform.system() == "Windows":
+            ASCIIColors.multicolor(["\nPlease open an ", "Administrator Command Prompt or PowerShell"," and run the following command:"],[ ASCIIColors.color_white, ASCIIColors.style_bold, ASCIIColors.color_white])
+        else:
+            ASCIIColors.multicolor(["\nPlease open a terminal and run the following command, possibly with ", "sudo", ":"],[ ASCIIColors.color_white, ASCIIColors.style_bold, ASCIIColors.color_white])
+            
+        ASCIIColors.multicolor(["\n" + " "*4, f" {command_str} ", "\n"],[ ASCIIColors.color_white, ASCIIColors.style_bold, ASCIIColors.color_white])
+        ASCIIColors.orange("="*80)
 
 
     # --- Core Package Methods ---
@@ -364,7 +422,7 @@ class PackageManager:
                 )
                 return True
             install_target = (
-                package if req.specifier else f"{pkg_name}{effective_specifier or ''}"
+                package if 'req' in locals() and req.specifier else f"{pkg_name}{effective_specifier or ''}"
             )
             logger.info(
                 f"Attempting to install/update '{pkg_name}' to satisfy '{install_target}'..."
@@ -513,20 +571,83 @@ class PackageManager:
             bool: True if installed (and meets specifier if provided), False otherwise.
         """
         try:
-            dist = importlib.metadata.distribution(package_name)
-            if version_specifier:
-                return self.is_version_compatible(
-                    package_name, version_specifier, _dist=dist
-                )
-            return True  # Installed, no version check needed
+            if self._is_current_env:
+                # For VCS installs with #egg=name, this will check 'name'
+                dist = importlib.metadata.distribution(package_name)
+                if version_specifier:
+                    return self.is_version_compatible(
+                        package_name, version_specifier, _dist=dist
+                    )
+                return True  # Installed, no version check needed
+            else:
+                check_script = f"import importlib.metadata; exit(0) if '{package_name}' in [d.metadata['name'] for d in importlib.metadata.distributions()] else exit(1)"
+                command = [self.target_python_executable, "-c", check_script]
+                
+                try:
+                    result = subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if result.returncode != 0:
+                        return False  # Package not found
+                    
+                    # If found, and a version specifier is provided, check compatibility
+                    if version_specifier:
+                        return self.is_version_compatible(package_name, version_specifier)
+                    
+                    return True  # Installed, no version check needed                
+                except Exception as e:
+                    logger.error(f"Error checking installation of '{package_name}': {e}")
+                    return False
         except importlib.metadata.PackageNotFoundError:
             return False
 
     def get_installed_version(self, package_name: str) -> Optional[str]:
         """Gets the installed version of a package using importlib.metadata."""
         try:
-            return importlib.metadata.version(package_name)
+            if self._is_current_env:
+                return importlib.metadata.version(package_name)
+            else:
+                # Command to execute in the target environment
+                command = [
+                    self.target_python_executable,
+                    "-c",
+                    f"import importlib.metadata; print(importlib.metadata.version('{package_name}'))",
+                ]
+
+                # Execute the command and capture the output
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=False,  # Don't raise an exception on non-zero exit codes
+                    encoding=locale.getpreferredencoding(False),
+                    errors="replace"
+                )
+
+                # If the command was successful, return the stripped output
+                if result.returncode == 0:
+                    return result.stdout.strip()
+                else:
+                    # FIX: Check if the error is an expected "PackageNotFoundError"
+                    stderr_output = result.stderr.strip() if result.stderr else ""
+                    if "PackageNotFoundError" in stderr_output:
+                        # This is expected if the package isn't installed. Don't log as an error.
+                        logger.debug(f"Package '{package_name}' not found in target environment. This is expected before installation.")
+                    elif stderr_output:
+                        # Log a real error if stderr contains something else
+                        logger.error(
+                            f"Error getting version for '{package_name}' in target environment ({self.target_python_executable}):\n{stderr_output}"
+                        )
+                    return None
         except importlib.metadata.PackageNotFoundError:
+            return None
+        except FileNotFoundError:
+            logger.error(
+                f"The python executable '{self.target_python_executable}' was not found."
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred while getting version for '{package_name}': {e}"
+            )
             return None
 
     def get_current_package_version(self, package_name: str) -> Optional[str]:
@@ -555,7 +676,7 @@ class PackageManager:
 
         Args:
             package_name (str): The name of the package.
-            version_specifier (str): A PEP 440 version specifier string (e.g., ">=1.0").
+            version_specifier (str): A PEP 440 version specifier string (e.g., ">=1.0", "<2.0").
             _dist (Distribution, optional): Pre-fetched distribution object.
 
         Returns:
@@ -783,10 +904,10 @@ class PackageManager:
             logger.exception(f"Failed to run pip-audit: {e}")
             return True, f"Error running pip-audit: {e}"  # Assume vulnerable on error
 
-    def _get_packages_to_process(self, requirements: Union[str, Dict[str, Optional[str]], List[str]], verbose: bool) -> List[str]:
+    def _get_packages_to_process(self, requirements: Union[str, Dict[str, Optional[str]], List[str]], always_update: bool, verbose: bool) -> List[str]:
         """
         Parses requirements and checks which packages need installation/update.
-        Internal helper for ensure_packages and async_ensure_packages.
+        Internal helper for ensure_packages.
         """
         if not requirements:
             return []
@@ -801,87 +922,127 @@ class PackageManager:
             logger.info("--- Checking Package Requirements ---")
 
         items_to_check = []
-        is_dict_input = False
-        if isinstance(requirements, dict):
+        is_dict_input = isinstance(requirements, dict)
+        
+        if is_dict_input:
             items_to_check = list(requirements.items())
-            is_dict_input = True
         elif isinstance(requirements, list):
             items_to_check = requirements
         else:
-            logger.error(
-                f"Invalid requirements type: {type(requirements)}. Must be dict or list."
-            )
+            logger.error(f"Invalid requirements type: {type(requirements)}. Must be dict or list.")
             return []
 
         for item in items_to_check:
-            package_name: str = ""
-            effective_specifier: Optional[str] = None
-            install_target_string: str = ""
-
             try:
+                # Handle structured dictionary for conditional VCS install
+                if isinstance(item, dict):
+                    package_name = item.get("name")
+                    vcs_url = item.get("vcs")
+                    version_requirement = item.get("condition")
+
+                    if not all([package_name, vcs_url, version_requirement]):
+                        logger.error(f"Invalid dictionary requirement. Must contain 'name', 'vcs', and 'condition'. Got: {item}")
+                        continue
+                    
+                    if package_name in processed_packages: continue
+                    processed_packages.add(package_name)
+
+                    # CORRECTED LOGIC: Install from VCS only if the requirement is NOT met.
+                    requirement_is_met = self.is_installed(package_name, version_specifier=version_requirement)
+
+                    if not requirement_is_met:
+                        installed_version = self.get_installed_version(package_name)
+                        if installed_version:
+                            install_reason = f"Installed version {installed_version} of '{package_name}' does not meet requirement '{version_requirement}'."
+                        else:
+                            install_reason = f"Package '{package_name}' is not installed."
+                        
+                        logger.warning(f"{install_reason} Adding '{vcs_url}' to the install list.")
+                        packages_to_process.append(vcs_url)
+                    elif verbose:
+                        installed_version = self.get_installed_version(package_name)
+                        logger.info(f"Requirement for '{package_name}' is met. Installed version {installed_version} satisfies '{version_requirement}'. Skipping VCS install.")
+                    
+                    continue
+
+                # --- Existing logic for str and simple dict items ---
+                package_name: str = ""
+                effective_specifier: Optional[str] = None
+                install_target_string: str = ""
+                is_vcs = False
+                is_pinned = False
+
                 if is_dict_input:
                     package_name, effective_specifier = item
-                    req_check = Requirement(package_name)
-                    if str(req_check.specifier):
-                        logger.warning(
-                            f"Specifier found in dictionary key '{package_name}'. It should be in the value. Using specifier from value: '{effective_specifier}'."
-                        )
-                    package_name = req_check.name
                     install_target_string = f"{package_name}{effective_specifier or ''}"
-                else:
-                    package_input_str = item
-                    req = Requirement(package_input_str)
+                    req = Requirement(install_target_string)
                     package_name = req.name
-                    effective_specifier = str(req.specifier) or None
+                    is_pinned = "==" in (effective_specifier or "")
+                else: # str or list item
+                    package_input_str = item
                     install_target_string = package_input_str
+                    if any(package_input_str.startswith(vcs) for vcs in ["git+", "hg+", "svn+", "bzr+"]):
+                        is_vcs = True
+                        if "#egg=" in package_input_str:
+                            package_name = package_input_str.split("#egg=")[-1].split("&")[0]
+                        else:
+                            package_name = package_input_str 
+                    else:
+                        req = Requirement(package_input_str)
+                        package_name = req.name
+                        effective_specifier = str(req.specifier) or None
+                        is_pinned = "==" in (effective_specifier or "")
 
-                if not is_dict_input and package_name in processed_packages:
-                    continue
+                if package_name in processed_packages: continue
                 processed_packages.add(package_name)
 
-                specifier_str = (
-                    f" (requires '{effective_specifier}')" if effective_specifier else ""
-                )
                 if verbose:
-                    logger.info(f"Checking requirement: '{package_name}'{specifier_str}")
+                    logger.info(f"Checking requirement: '{install_target_string}'")
 
-                if self.is_installed(
-                    package_name, version_specifier=effective_specifier
-                ):
-                    if verbose:
-                        logger.info(f"Requirement met for '{package_name}'{specifier_str}.")
+                if is_vcs:
+                    if always_update:
+                        logger.info(f"VCS requirement '{install_target_string}' will be updated as always_update is True.")
+                        packages_to_process.append(install_target_string)
+                    elif package_name and not self.is_installed(package_name):
+                         logger.warning(f"VCS Requirement '{package_name}' not found. Adding to install list.")
+                         packages_to_process.append(install_target_string)
+                    elif verbose:
+                         logger.info(f"VCS requirement '{package_name or install_target_string}' is assumed to be installed and always_update is False.")
+                    continue
+
+                if self.is_installed(package_name, version_specifier=effective_specifier):
+                    if always_update and not is_pinned:
+                        logger.info(f"'{package_name}' is installed, but always_update=True and not pinned. Adding to update list.")
+                        packages_to_process.append(package_name) # Add bare package name for upgrade
+                    elif verbose:
+                        spec_str = f" (satisfies '{effective_specifier}')" if effective_specifier else ""
+                        logger.info(f"Requirement met for '{package_name}'{spec_str}.")
                 else:
                     installed_version = self.get_installed_version(package_name)
                     if installed_version:
-                        logger.warning(
-                            f"Requirement NOT met for '{package_name}'. Installed: {installed_version}, Required: '{effective_specifier or 'latest'}'. Adding to update list."
-                        )
+                        logger.warning(f"Requirement NOT met for '{package_name}'. Installed: {installed_version}, Required: '{effective_specifier or 'latest'}'. Adding to update list.")
                     else:
-                        logger.warning(
-                            f"Requirement NOT met for '{package_name}'. Package not installed. Adding to install list."
-                        )
+                        logger.warning(f"Requirement NOT met for '{package_name}'. Package not installed. Adding to install list.")
                     packages_to_process.append(install_target_string)
 
-            except ValueError as e:
-                logger.error(f"Invalid package/requirement string '{item}': {e}")
-                continue
             except Exception as e:
-                logger.error(f"Error checking requirement for '{package_name or item}': {e}")
-                if install_target_string:
+                logger.error(f"Error checking requirement for '{item}': {e}", exc_info=True)
+                if 'install_target_string' in locals() and install_target_string:
                     packages_to_process.append(install_target_string)
         
         return packages_to_process
 
     def ensure_packages(
         self,
-        requirements: Union[str, Dict[str, Optional[str]], List[str]], # Updated hint
+        requirements: Union[str, Dict[str, Optional[str]], List[str]],
+        always_update: bool = False,
         index_url: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> bool:
         """
-        Ensures that required packages are installed and meet version requirements.
+        Ensures that required packages, including from GitHub, are installed and meet version requirements.
 
         This is the most efficient method for managing a set of dependencies, as it
         checks all requirements first and then performs a single 'pip install'
@@ -889,10 +1050,15 @@ class PackageManager:
 
         Args:
             requirements (Union[str, Dict[str, Optional[str]], List[str]]):
-                - str: A single package requirement string (e.g., "requests>=2.25").
-                - List[str]: A list of package requirement strings.
+                - str: A single package requirement string (e.g., "requests>=2.25", "git+https://github.com/user/repo.git").
+                - List[str]: A list of package requirement strings. Can also contain dictionaries for advanced cases.
                 - Dict[str, Optional[str]]: A dictionary mapping package names to
-                  optional PEP 440 version specifiers.
+                  optional PEP 440 version specifiers. GitHub URLs are not supported in this format.
+                - **Advanced List Usage**: A list item can be a dictionary for conditional VCS installation:
+                  `{"name": "pkg", "vcs": "git+...", "condition": ">=1.0"}`.
+                  This installs from the VCS URL if `pkg` is not installed or if its installed version does not satisfy ">=1.0".
+            always_update (bool): If True, updates packages to the latest version if they
+                                 don't have a specific version pin (e.g., "package==1.2.3").
             index_url (str, optional): Custom index URL for installations.
             extra_args (List[str], optional): Additional arguments for the pip install command.
             dry_run (bool): If True, simulate installations without making changes.
@@ -912,10 +1078,10 @@ class PackageManager:
             logger.info("ensure_packages called with empty requirements.")
             return True
 
-        packages_to_process = self._get_packages_to_process(requirements, verbose)
+        packages_to_process = self._get_packages_to_process(requirements, always_update, verbose)
 
         if not packages_to_process:
-            logger.debug("[success]All specified package requirements are already met.[/success]")
+            logger.debug("All specified package requirements are already met.")
             return True
 
         # If we need to install/update packages
@@ -924,7 +1090,7 @@ class PackageManager:
             f"Found {len(packages_to_process)} packages requiring installation/update: '{package_list_str}'"
         )
         if dry_run:
-            logger.info("Dry run enabled. Simulating installation...")
+            logger.debug("Dry run enabled. Simulating installation...")
         else:
             logger.info("Running installation/update command...")
 
@@ -932,11 +1098,11 @@ class PackageManager:
         success = self.install_multiple(
             packages=packages_to_process,
             index_url=index_url,
-            force_reinstall=False,
+            force_reinstall=False, # Let --upgrade handle it
             upgrade=True,  # Important to handle version updates/latest install
             extra_args=extra_args,
             dry_run=dry_run,
-            verbose=verbose,  # Pass verbose flag
+            verbose=verbose,
         )
 
         if dry_run and success:
@@ -950,7 +1116,7 @@ class PackageManager:
         else:
             logger.error(
                 "Failed to install/update one or more required packages."
-            )  # Changed log level
+            )
             return False
 
         return True
@@ -958,32 +1124,82 @@ class PackageManager:
     def ensure_requirements(
         self,
         requirements_file: str,
+        always_update: bool = False,
+        index_url: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> bool:
         """
-        Installs all packages listed in a requirements.txt file using pip's native -r option.
+        Ensures all packages from a requirements.txt file are installed, with an option to update.
+
+        This method parses a requirements file, including pip options like '--extra-index-url',
+        and uses the efficient `ensure_packages` method to install any missing or outdated packages.
+
+        Args:
+            requirements_file (str): Path to the requirements.txt file.
+            always_update (bool): If True, updates packages to the latest version if they
+                                 are not explicitly pinned with '=='.
+            index_url (str, optional): Custom index URL for installations, can be overridden by the file.
+            extra_args (List[str], optional): Additional arguments for pip, can be supplemented by the file.
+            dry_run (bool): If True, simulate installations without making changes.
+            verbose (bool): If True, show detailed output during checks and installation.
+
+        Returns:
+            bool: True if all requirements were met or successfully installed, False otherwise.
         """
-        if not Path(requirements_file).exists():
+        req_path = Path(requirements_file)
+        if not req_path.is_file():
             logger.error(f"Requirements file not found: {requirements_file}")
             return False
 
-        command = ["install", "-r", str(requirements_file)]
+        try:
+            with open(req_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            requirements_list = []
+            extra_args_from_file = []
 
-        success, _ = self._run_command(
-            command, dry_run=dry_run, verbose=verbose, capture_output=not verbose
-        )
+            # Parse the file to separate packages from pip options
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue  # Skip empty lines and comments
+                
+                # Check if the line is a pip option
+                if line.startswith('-'):
+                    # Use shlex to correctly split arguments like --extra-index-url <url>
+                    extra_args_from_file.extend(shlex.split(line))
+                else:
+                    # Otherwise, it's a package requirement
+                    requirements_list.append(line)
 
-        if dry_run and success:
-            logger.info("Dry run successful. No changes were made.")
-        elif success:
-            logger.info(f"Successfully processed requirements from {requirements_file}.")
-        else:
-            logger.error(f"Failed to install requirements from {requirements_file}.")
+            if not requirements_list:
+                logger.info(f"Requirements file '{requirements_file}' contains no package definitions.")
+                # If there are only options, we still return True as there's nothing to install.
+                return True
+
+            logger.info(f"Processing {len(requirements_list)} requirements from '{requirements_file}'.")
+            
+            # Combine args passed to the function with args found in the file
+            combined_extra_args = list(extra_args) if extra_args else []
+            combined_extra_args.extend(extra_args_from_file)
+            
+            # Delegate to the powerful ensure_packages method
+            return self.ensure_packages(
+                requirements=requirements_list,
+                always_update=always_update,
+                index_url=index_url,
+                extra_args=combined_extra_args,
+                dry_run=dry_run,
+                verbose=verbose
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to read or parse requirements file '{requirements_file}': {e}", exc_info=True)
             return False
-
-        return True
-
+        
+        
 # --- Module-level Convenience Functions (using default PackageManager) ---
 _default_pm = PackageManager()
 
@@ -1005,6 +1221,42 @@ def get_pip_manager(python_executable: Optional[str] = None) -> PackageManager:
         return PackageManager(python_executable=python_executable)
     # Return the cached default instance for the current environment
     return _default_pm
+
+
+def remove_venv(venv_path: str) -> bool:
+    """
+    Safely removes a virtual environment directory.
+    
+    Checks for the existence of 'pyvenv.cfg' to ensure the target is likely
+    a virtual environment before deletion, preventing accidental data loss.
+
+    Args:
+        venv_path (str): The path to the virtual environment directory.
+
+    Returns:
+        bool: True if removed successfully or didn't exist, False on failure or safety check.
+    """
+    path = Path(venv_path).resolve()
+    
+    if not path.exists():
+        logger.info(f"Virtual environment not found at {path}, nothing to remove.")
+        return True
+    
+    # Safety check
+    if not (path / "pyvenv.cfg").exists():
+        logger.warning(
+            f"Safety check failed: '{path}' does not contain 'pyvenv.cfg'. "
+            "Aborting deletion to prevent accidental data loss of non-venv directories."
+        )
+        return False
+
+    try:
+        shutil.rmtree(path)
+        logger.info(f"Virtual environment at {path} successfully removed.")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to remove virtual environment at {path}: {e}")
+        return False
 
 
 # --- Wrapped Methods ---
@@ -1480,11 +1732,12 @@ def check_vulnerabilities(
 
 
 def ensure_packages(
-    requirements: Union[str, Dict[str, Optional[str]], List[str]],  # Updated hint
+    requirements: Union[str, Dict[str, Optional[str]], List[str]],
+    always_update: bool = False,
     index_url: Optional[str] = None,
     extra_args: Optional[List[str]] = None,
     dry_run: bool = False,
-    verbose: bool = False,  # Added verbose
+    verbose: bool = False,
 ) -> bool:
     """
     Ensures packages meet requirements in the current environment using the default PackageManager.
@@ -1494,10 +1747,14 @@ def ensure_packages(
 
     Args:
         requirements (Union[str, Dict[str, Optional[str]], List[str]]):
-            Either a string (the package name), a dictionary mapping package names to optional PEP 440 version
-            specifiers (e.g., {"requests": ">=2.25", "numpy": None}) OR a list
-            of package strings (e.g., ["requests>=2.25", "numpy"]). If a list
-            item has no specifier, the latest version is assumed.
+            - str: A single package requirement string (e.g., "requests>=2.25", "git+https://github.com/user/repo.git").
+            - List[str]: A list of package requirement strings. Can also contain dictionaries for advanced cases.
+            - Dict[str, Optional[str]]: A dictionary mapping package names to optional PEP 440 version specifiers.
+            - **Advanced List Usage**: A list item can be a dictionary for conditional VCS installation:
+              `{"name": "pkg", "vcs": "git+...", "condition": ">=1.0"}`.
+              This installs from the VCS URL if `pkg` is not installed or if its installed version does not satisfy ">=1.0".
+        always_update (bool): If True, updates packages to the latest version if they
+                             don't have a specific version pin (e.g., "package==1.2.3").
         index_url (str, optional): Custom index URL for installations.
         extra_args (List[str], optional): Additional arguments for the pip install command.
         dry_run (bool): If True, simulate installations without making changes.
@@ -1511,29 +1768,29 @@ def ensure_packages(
     """
     return _default_pm.ensure_packages(
         requirements=requirements,
+        always_update=always_update,
         index_url=index_url,
         extra_args=extra_args,
         dry_run=dry_run,
-        verbose=verbose,  # Pass verbose
+        verbose=verbose,
     )
 
 def ensure_requirements(
     requirements_file: str,
+    always_update: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> bool:
     """
     Ensures that all packages from a requirements.txt file are installed.
 
-    This method parses a requirements file, respecting comments and some pip
-    options like --index-url or --extra-index-url, and then uses the efficient
+    This method parses a requirements file and uses the efficient
     `ensure_packages` method to install any missing or outdated packages.
-
-    Note: Does not support recursive '-r' includes or editable '-e' installs from
-    within the file. For editable installs, use `install_edit()`.
 
     Args:
         requirements_file (str): Path to the requirements.txt file.
+        always_update (bool): If True, updates packages to the latest version if they
+                             are not explicitly pinned with '=='.
         dry_run (bool): If True, simulate installations without making changes.
         verbose (bool): If True, show detailed output during checks and installation.
 
@@ -1544,6 +1801,7 @@ def ensure_requirements(
     """
     return _default_pm.ensure_requirements(
         requirements_file=requirements_file,
+        always_update=always_update,
         dry_run=dry_run,
         verbose=verbose,
     )
@@ -1561,8 +1819,253 @@ def is_version_exact(package_name: str, required_version: str) -> bool:
     return _default_pm.is_version_compatible(package_name, f"=={required_version}")
 
 
+# --- PORTABLE PYTHON MANAGER (NATIVE) ---
+
+def clear_portable_python_cache() -> bool:
+    """
+    Clears the entire cache of downloaded portable Python versions.
+    Deletes the contents of ~/.pipmaster/python_versions.
+
+    Returns:
+        bool: True if successful, False on failure.
+    """
+    return PythonVersionManager().clear_cache()
+
+class PythonVersionManager:
+    """
+    Manages portable Python versions natively by downloading and extracting
+    pre-compiled standalone builds (via indygreg/python-build-standalone).
+    Does NOT require 'uv' or other external tools.
+    """
+    
+    # Base URL for a stable release of python-build-standalone. 
+    # Using 20251217 release tag.
+    BASE_URL_TEMPLATE = "https://github.com/astral-sh/python-build-standalone/releases/download/20251217/cpython-{version}+20251217-{arch}-{os}-install_only.tar.gz"
+    
+    # Mapping for the 20251217 release
+    VERSION_MAP = {
+        "3.10": "3.10.19",
+        "3.11": "3.11.14",
+        "3.12": "3.12.12",
+        "3.13": "3.13.10",
+        "3.14": "3.14.1",
+        "3.9": "3.9.24"
+    }
+
+    def __init__(self):
+        self.base_dir = Path.home() / ".pipmaster" / "python_versions"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    def _get_platform_info(self) -> Tuple[str, str]:
+        """Returns (arch, os) strings suitable for the build URL."""
+        machine = platform.machine().lower()
+        system = platform.system().lower()
+
+        # Architecture mapping
+        if machine in ["x86_64", "amd64"]:
+            arch = "x86_64"
+        elif machine in ["aarch64", "arm64"]:
+            arch = "aarch64"
+        elif machine in ["i386", "i686", "x86"]:
+            arch = "i686"
+        else:
+            raise RuntimeError(f"Unsupported architecture: {machine}")
+
+        # OS mapping and suffix
+        if system == "linux":
+            os_str = "unknown-linux-gnu"
+        elif system == "darwin": # MacOS
+            os_str = "apple-darwin"
+        elif system == "windows":
+            os_str = "pc-windows-msvc" # Changed from pc-windows-msvc-shared
+        else:
+            raise RuntimeError(f"Unsupported OS: {system}")
+
+        return arch, os_str
+
+    def _get_download_url(self, version: str) -> str:
+        """Constructs the download URL for the requested version and current platform."""
+        arch, os_str = self._get_platform_info()
+        return self.BASE_URL_TEMPLATE.format(version=version, arch=arch, os=os_str)
+    
+    def _resolve_version(self, version: str) -> str:
+        """Resolves a short version string (e.g. '3.10') to the full version in the map."""
+        return self.VERSION_MAP.get(version, version)
+
+    def install_version(self, version: str) -> bool:
+        """
+        Downloads and installs a specific Python version (e.g., '3.12.9').
+        
+        Args:
+            version (str): The specific Python version to install (e.g., "3.12.9").
+                           Note: Must be a full version string available in the release.
+            
+        Returns:
+            bool: True if successful or already installed.
+        """
+        target_version = self._resolve_version(version)
+        install_dir = self.base_dir / target_version
+        
+        if install_dir.exists():
+            # Check if it looks valid (has python executable)
+            if self._find_python_in_dir(install_dir):
+                logger.info(f"Python {target_version} is already installed at {install_dir}")
+                return True
+            else:
+                logger.warning(f"Found directory for {target_version} but it seems corrupt. Re-installing.")
+                shutil.rmtree(install_dir)
+
+        url = self._get_download_url(target_version)
+        logger.info(f"Downloading Python {target_version} from {url}...")
+        
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".tar.gz") as tmp_file:
+                # Add User-Agent header to avoid 403 Forbidden from GitHub
+                req = urllib.request.Request(
+                    url, 
+                    headers={'User-Agent': 'pipmaster-installer/1.0'}
+                )
+                try:
+                    with urllib.request.urlopen(req) as response:
+                        shutil.copyfileobj(response, tmp_file)
+                except urllib.error.HTTPError as e:
+                    logger.error(f"HTTP Error downloading Python: {e.code} {e.reason}")
+                    logger.error(f"URL Attempted: {url}")
+                    return False
+                except Exception as e:
+                    logger.error(f"Failed to download from {url}: {e}")
+                    return False
+                tmp_path = Path(tmp_file.name)
+
+            logger.info("Extracting...")
+            try:
+                # Extract to a temporary directory first
+                with tempfile.TemporaryDirectory() as extract_tmp:
+                    if url.endswith(".zip"):
+                         with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                            zip_ref.extractall(extract_tmp)
+                    else:
+                        with tarfile.open(tmp_path, "r:*") as tar:
+                            tar.extractall(extract_tmp)
+                    
+                    # The archive usually contains a 'python' folder.
+                    # We move that content to our final install_dir.
+                    extracted_root = Path(extract_tmp)
+                    # Find the 'python' directory inside
+                    content_dir = extracted_root / "python"
+                    if not content_dir.exists():
+                        # Fallback: maybe it extracted directly?
+                        content_dir = extracted_root
+                    
+                    # Ensure parent exists
+                    install_dir.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Ensure target doesn't exist (it shouldn't, but for safety on Windows)
+                    if install_dir.exists():
+                         shutil.rmtree(install_dir, ignore_errors=True)
+
+                    shutil.move(str(content_dir), str(install_dir))
+                    
+            finally:
+                if tmp_path.exists():
+                    try:
+                        tmp_path.unlink()
+                    except Exception:
+                        pass # Ignore cleanup errors on Windows temp files if locked
+            
+            logger.info(f"Python {target_version} installed successfully.")
+            return True
+
+        except Exception as e:
+            logger.error(f"Installation failed for {target_version}: {e}")
+            if install_dir.exists():
+                shutil.rmtree(install_dir, ignore_errors=True)
+            return False
+
+    def remove_version(self, version: str) -> bool:
+        """
+        Removes a specific portable Python version from the cache.
+
+        Args:
+            version (str): The version to remove (e.g., "3.12" or "3.12.12").
+        
+        Returns:
+            bool: True if removed or didn't exist, False on error.
+        """
+        target_version = self._resolve_version(version)
+        install_dir = self.base_dir / target_version
+
+        if not install_dir.exists():
+            logger.info(f"Portable Python {target_version} not found in cache.")
+            return True
+
+        try:
+            shutil.rmtree(install_dir)
+            logger.info(f"Portable Python {target_version} removed from cache.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to remove Python {target_version}: {e}")
+            return False
+
+    def clear_cache(self) -> bool:
+        """
+        Clears the entire cache of downloaded portable Python versions.
+        
+        Returns:
+            bool: True if successful, False on failure.
+        """
+        if not self.base_dir.exists():
+            return True
+            
+        try:
+            shutil.rmtree(self.base_dir)
+            self.base_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Portable Python cache cleared successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear portable Python cache: {e}")
+            return False
+
+    def _find_python_in_dir(self, directory: Path) -> Optional[str]:
+        """Finds the python executable inside a directory."""
+        if platform.system() == "Windows":
+            candidates = [directory / "python.exe", directory / "Scripts" / "python.exe"]
+        else:
+            candidates = [directory / "bin" / "python3", directory / "bin" / "python"]
+            
+        for cand in candidates:
+            if cand.exists():
+                # On Windows, os.access(X_OK) can be unreliable.
+                if platform.system() != "Windows" and not os.access(cand, os.X_OK):
+                     continue
+                return str(cand)
+        
+        return None
+
+    def get_executable_path(self, version: str, auto_install: bool = True) -> Optional[str]:
+        """
+        Finds the executable path for a specific Python version.
+        
+        Args:
+            version (str): The Python version (e.g., "3.12" or "3.12.9").
+            auto_install (bool): If True, attempts to download if missing.
+        """
+        target_version = self._resolve_version(version)
+        install_dir = self.base_dir / target_version
+        
+        exe = self._find_python_in_dir(install_dir)
+        if exe:
+            return exe
+            
+        if auto_install:
+            logger.info(f"Portable Python {target_version} not found locally. Installing...")
+            if self.install_version(version):
+                return self._find_python_in_dir(install_dir)
+        
+        return None
+
+
 # --- UV / Conda Backends ---
-# In pipmaster/package_manager.py
 
 class UvPackageManager:
     """
@@ -1772,3 +2275,38 @@ def get_conda_manager(environment_name_or_path: Optional[str] = None) -> Any:
     """Gets a Conda Package Manager instance (Not Implemented)."""
     logger.warning("get_conda_manager is not yet implemented.")
     raise NotImplementedError("Conda backend support is not yet implemented.")
+
+def get_pip_manager_for_version(target_python_version: str, venv_path: str) -> PackageManager:
+    """
+    Creates a PackageManager that targets a specific Python version.
+    
+    This function checks if the requested portable Python version (e.g., "3.12")
+    is available locally. If not, it downloads it using the built-in native
+    downloader (from indygreg/python-build-standalone).
+    
+    It then creates or uses a virtual environment at 'venv_path' using that
+    specific Python executable.
+
+    Args:
+        target_python_version (str): The Python version to use (e.g., "3.10", "3.12").
+        venv_path (str): The path where the virtual environment should be created.
+
+    Returns:
+        PackageManager: A manager instance for the requested Python environment.
+        
+    Raises:
+        RuntimeError: If the Python version cannot be found or installed.
+    """
+    pvm = PythonVersionManager()
+    
+    # Get executable (auto-installing if missing)
+    python_exe = pvm.get_executable_path(target_python_version, auto_install=True)
+    
+    if not python_exe:
+        raise RuntimeError(f"Could not find or install portable Python version {target_python_version}. Check logs for download errors.")
+    
+    logger.info(f"Using portable Python {target_python_version} at: {python_exe}")
+    
+    # Initialize PackageManager
+    # The PackageManager will handle venv creation using this executable if venv_path doesn't exist.
+    return PackageManager(python_executable=python_exe, venv_path=venv_path)

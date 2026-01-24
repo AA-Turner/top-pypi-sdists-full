@@ -42,6 +42,9 @@ class PaymentCreateParams(TypedDict, total=False):
     discount_code: Optional[str]
     """Discount Code to apply to the transaction"""
 
+    force_3ds: Optional[bool]
+    """Override merchant default 3DS behaviour for this payment"""
+
     metadata: Dict[str, str]
     """
     Additional metadata associated with the payment. Defaults to empty if not
@@ -51,11 +54,27 @@ class PaymentCreateParams(TypedDict, total=False):
     payment_link: Optional[bool]
     """Whether to generate a payment link. Defaults to false if not specified."""
 
+    payment_method_id: Optional[str]
+    """
+    Optional payment method ID to use for this payment. If provided, customer_id
+    must also be provided. The payment method will be validated for eligibility with
+    the payment's currency.
+    """
+
+    redirect_immediately: bool
+    """
+    If true, redirects the customer immediately after payment completion False by
+    default
+    """
+
     return_url: Optional[str]
     """
     Optional URL to redirect the customer after payment. Must be a valid URL if
     provided.
     """
+
+    short_link: Optional[bool]
+    """If true, returns a shortened payment link. Defaults to false if not specified."""
 
     show_saved_payment_methods: bool
     """Display saved payment methods of a returning customer False by default"""

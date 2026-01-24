@@ -5,7 +5,7 @@ import os
 import random
 import string
 import time
-from typing import Any, cast, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 import tabulate
@@ -29,6 +29,7 @@ from anyscale.client.openapi_client.models.decorated_production_job import (
     DecoratedProductionJob,
 )
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
+from anyscale.commands.util import flatten_tag_dict_to_api_list
 from anyscale.controllers.base_controller import BaseController
 from anyscale.models.job_model import JobConfig
 from anyscale.project_utils import infer_project_id
@@ -43,7 +44,6 @@ from anyscale.sdk.anyscale_client.models.sort_order import SortOrder
 from anyscale.util import (
     get_endpoint,
     is_anyscale_workspace,
-    poll,
     populate_unspecified_cluster_configs_from_current_workspace,
     validate_job_config_dict,
 )
@@ -213,6 +213,7 @@ class JobController(BaseController):
                 workspace_id=job_config.workspace_id,
                 config=config_object,
                 job_queue_config=job_queue_config,
+                tags=job_config.tags,
             )
         ).result
         self.log.info(
@@ -247,46 +248,12 @@ class JobController(BaseController):
             config_dict = yaml.safe_load(f)
         return config_dict
 
-    def wait(
-        self,
-        job_name: Optional[str] = None,
-        job_id: Optional[str] = None,
-        target_state: str = HaJobStates.SUCCESS,
-        interval_secs: float = 10.0,
-        timeout_secs=None,
-    ):
-        if target_state not in HaJobStates.allowable_values:
-            raise click.ClickException(
-                f"`{target_state}` is not a valid Job state. Allowed states are {HaJobStates.allowable_values}"
-            )
-        job_id_or_name = job_name or job_id
-        job_id = cast(str, self._resolve_job_object(job_id, job_name).id,)
-        with self.log.spinner(f"Waiting for Job `{job_id_or_name}`...") as spinner:
-            state = None
-            for _ in poll(interval_secs=interval_secs, timeout_secs=timeout_secs):
-                state = self._get_job_state(job_id)
-                spinner.text = f"Job `{job_id_or_name}` is in state `{state}`. Waiting to reach state `{target_state}`."
+    def resolve_job_id(self, job_id: Optional[str], job_name: Optional[str]) -> str:
+        """Resolve and return a job's ID from either an explicit ID or a name.
 
-                if state == target_state:
-                    spinner.succeed(
-                        f"Job `{job_id_or_name}` reached state `{target_state}`."
-                    )
-                    return job_id
-
-                if state in _TERMINAL_STATES:
-                    msg = f"Job `{job_id_or_name}` reached terminal state `{state}`, and will not reach `{target_state}`."
-                    spinner.fail(msg)
-                    raise click.ClickException(msg)
-
-            msg = f"Timed out after waiting for {timeout_secs} seconds. The current state is {state}."
-            spinner.fail(msg)
-            raise click.ClickException(msg)
-
-    def _get_job_state(self, job_id: str):
-        job = self.api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
-            job_id
-        ).result
-        return job.state.current_state
+        Raises click.ClickException if neither is provided or if the name is ambiguous.
+        """
+        return self._resolve_job_object(job_id, job_name).id
 
     def list(  # noqa: PLR0913
         self,
@@ -297,6 +264,7 @@ class JobController(BaseController):
         include_archived: bool,
         max_items: int,
         states: List[HaJobStates],
+        tags: Optional[Dict[str, List[str]]] = None,
     ) -> None:
         """
         This function will list jobs.
@@ -349,6 +317,7 @@ class JobController(BaseController):
                 archive_status="ALL" if include_archived else "NOT_ARCHIVED",
                 count=DEFAULT_PAGE_LIMIT,
                 state_filter=states,
+                tag_filter=flatten_tag_dict_to_api_list(tags),
             )
             jobs_list.extend(resp.results)
             paging_token = resp.metadata.next_paging_token
@@ -363,6 +332,7 @@ class JobController(BaseController):
                     count=DEFAULT_PAGE_LIMIT,
                     paging_token=paging_token,
                     state_filter=states,
+                    tag_filter=flatten_tag_dict_to_api_list(tags),
                 )
                 jobs_list.extend(resp.results)
                 paging_token = resp.metadata.next_paging_token
@@ -486,15 +456,11 @@ class JobController(BaseController):
         job = self._resolve_job_object(job_id, job_name)
         last_job_run_id: str = job.last_job_run_id
         job_state = job.state.current_state
-        with self.log.spinner("Waiting for job run...") as spinner:
+        with self.log.spinner("Waiting for job run..."):
             while last_job_run_id is None or job_state in _PENDING_STATES:
                 if job_state in _TERMINAL_STATES:
                     raise click.ClickException(
                         f"Can't find latest job run for {job_state} job."
-                    )
-                if self._cluster_journal_events_start_line == 0:
-                    spinner.text = (
-                        f"Waiting for a job run, current state is {job_state}..."
                     )
                 time.sleep(max(0, 3 - (time.monotonic() - start)))
                 start = time.monotonic()
@@ -509,7 +475,7 @@ class JobController(BaseController):
                     ).result
                     lines = cluster_journal_events.lines.splitlines()
                     if len(lines):
-                        spinner.succeed("Job run found. Cluster launching...")
+                        self.log.info("Job run found. Cluster launching...")
                     self._cluster_journal_events_start_line = (
                         cluster_journal_events.start_line
                         + cluster_journal_events.num_lines

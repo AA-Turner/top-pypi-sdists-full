@@ -86,6 +86,11 @@ class RequestTests(GeneratorTestCase):
             "unsupported request body",
         )
 
+    def test_parse_body_content_length_zero(self):
+        self.reader.feed_data(b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\n")
+        request = self.assertGeneratorReturns(self.parse())
+        self.assertEqual(request.headers["Content-Length"], "0")
+
     def test_parse_body_with_transfer_encoding(self):
         self.reader.feed_data(b"GET / HTTP/1.1\r\nTransfer-Encoding: compress\r\n\r\n")
         with self.assertRaises(NotImplementedError) as raised:
@@ -323,10 +328,27 @@ class ResponseTests(GeneratorTestCase):
         response = self.assertGeneratorReturns(self.parse())
         self.assertEqual(response.body, b"")
 
-    def test_parse_without_body(self):
+    def test_parse_proxy_response_does_not_read_body(self):
         self.reader.feed_data(b"HTTP/1.1 200 Connection Established\r\n\r\n")
-        response = self.assertGeneratorReturns(self.parse(include_body=False))
+        response = self.assertGeneratorReturns(self.parse(proxy=True))
         self.assertEqual(response.body, b"")
+
+    def test_parse_proxy_http10(self):
+        self.reader.feed_data(b"HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n")
+        response = self.assertGeneratorReturns(self.parse(proxy=True))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.reason_phrase, "OK")
+        self.assertEqual(response.body, b"")
+
+    def test_parse_proxy_unsupported_protocol(self):
+        self.reader.feed_data(b"HTTP/1.2 400 Bad Request\r\n\r\n")
+        with self.assertRaises(ValueError) as raised:
+            next(self.parse(proxy=True))
+        self.assertEqual(
+            str(raised.exception),
+            "unsupported protocol; expected HTTP/1.1 or HTTP/1.0: "
+            "HTTP/1.2 400 Bad Request",
+        )
 
     def test_serialize(self):
         # Example from the protocol overview in RFC 6455

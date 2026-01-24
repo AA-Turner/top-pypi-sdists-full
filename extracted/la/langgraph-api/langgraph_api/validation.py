@@ -8,6 +8,9 @@ with open(pathlib.Path(__file__).parent.parent / "openapi.json") as f:
 
 openapi = orjson.loads(openapi_str)
 
+ConfigValidator = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["Config"]
+)
 AssistantVersionsSearchRequest = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["AssistantVersionsSearchRequest"]
 )
@@ -48,6 +51,9 @@ ThreadCreate = jsonschema_rs.validator_for(
 )
 ThreadPatch = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["ThreadPatch"]
+)
+ThreadPruneRequest = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["ThreadPruneRequest"]
 )
 ThreadStateUpdate = jsonschema_rs.validator_for(
     {
@@ -121,6 +127,9 @@ RunCreateStateful = jsonschema_rs.validator_for(
 )
 RunsCancel = jsonschema_rs.validator_for(openapi["components"]["schemas"]["RunsCancel"])
 CronCreate = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronCreate"])
+ThreadCronCreate = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["ThreadCronCreate"]
+)
 CronSearch = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronSearch"])
 CronCountRequest = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["CronCountRequest"]

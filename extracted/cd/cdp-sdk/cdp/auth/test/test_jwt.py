@@ -101,6 +101,23 @@ def test_parse_private_key_ed25519(ed25519_private_key_factory):
     assert isinstance(key, ed25519.Ed25519PrivateKey)
 
 
+def test_parse_private_key_ec_with_literal_newlines(ec_private_key_factory):
+    r"""Test parsing an EC private key with literal \n sequences.
+
+    This handles the case where a PEM key is provided in an env file without quotes,
+    causing the newline escape sequences to remain as literal characters.
+    """
+    # Setup - convert actual newlines to literal \n sequences
+    key_data = ec_private_key_factory()
+    key_with_literal_newlines = key_data.replace("\n", "\\n")
+
+    # Execute
+    key = _parse_private_key(key_with_literal_newlines)
+
+    # Verify
+    assert isinstance(key, ec.EllipticCurvePrivateKey)
+
+
 def test_parse_private_key_invalid():
     """Test parsing an invalid private key."""
     # Execute & Verify
@@ -134,7 +151,7 @@ def test_generate_jwt_ec(ec_private_key_factory, jwt_options_factory):
     decoded = jwt_lib.decode(token, options={"verify_signature": False})
     assert decoded["sub"] == options.api_key_id
     assert decoded["iss"] == "cdp"
-    assert decoded["aud"] == ["cdp_service"]
+    assert decoded["aud"] is None
     assert isinstance(decoded["nbf"], int)
     assert isinstance(decoded["exp"], int)
     assert decoded["exp"] - decoded["nbf"] == options.expires_in
@@ -142,6 +159,20 @@ def test_generate_jwt_ec(ec_private_key_factory, jwt_options_factory):
     parsed_url = urlparse(f"{options.request_host}{options.request_path}")
     expected_uri = f"{options.request_method} {parsed_url.netloc}{parsed_url.path}"
     assert decoded["uris"] == [expected_uri]
+
+
+def test_generate_jwt_ec_with_audience(ec_private_key_factory, jwt_options_factory):
+    """Test JWT generation with EC key and audience."""
+    # Setup
+    key_data = ec_private_key_factory()
+    options = jwt_options_factory(api_key_secret=key_data, audience=["test-audience"])
+
+    # Execute
+    token = generate_jwt(options)
+
+    # Verify
+    decoded = jwt_lib.decode(token, options={"verify_signature": False})
+    assert decoded["aud"] == ["test-audience"]
 
 
 def test_generate_jwt_ed25519(ed25519_private_key_factory, jwt_options_factory):
@@ -173,7 +204,7 @@ def test_generate_websocket_jwt_ec(ec_private_key_factory, websocket_jwt_options
     decoded = jwt_lib.decode(token, options={"verify_signature": False})
     assert decoded["sub"] == options.api_key_id
     assert decoded["iss"] == "cdp"
-    assert decoded["aud"] == ["cdp_service"]
+    assert decoded["aud"] is None
     assert isinstance(decoded["nbf"], int)
     assert isinstance(decoded["exp"], int)
     assert decoded["exp"] - decoded["nbf"] == options.expires_in

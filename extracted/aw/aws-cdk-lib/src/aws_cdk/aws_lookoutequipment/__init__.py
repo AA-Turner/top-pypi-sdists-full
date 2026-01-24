@@ -67,321 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lookoutequipment.CfnInferenceSchedulerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_input_configuration": "dataInputConfiguration",
-        "data_output_configuration": "dataOutputConfiguration",
-        "data_upload_frequency": "dataUploadFrequency",
-        "model_name": "modelName",
-        "role_arn": "roleArn",
-        "data_delay_offset_in_minutes": "dataDelayOffsetInMinutes",
-        "inference_scheduler_name": "inferenceSchedulerName",
-        "server_side_kms_key_id": "serverSideKmsKeyId",
-        "tags": "tags",
-    },
+from ..interfaces.aws_lookoutequipment import (
+    IInferenceSchedulerRef as _IInferenceSchedulerRef_ff214e3d,
+    InferenceSchedulerReference as _InferenceSchedulerReference_0ddafe2a,
 )
-class CfnInferenceSchedulerProps:
-    def __init__(
-        self,
-        *,
-        data_input_configuration: typing.Any,
-        data_output_configuration: typing.Any,
-        data_upload_frequency: builtins.str,
-        model_name: builtins.str,
-        role_arn: builtins.str,
-        data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
-        inference_scheduler_name: typing.Optional[builtins.str] = None,
-        server_side_kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInferenceScheduler``.
-
-        :param data_input_configuration: Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
-        :param data_output_configuration: Specifies configuration information for the output results for the inference scheduler, including the Amazon S3 location for the output.
-        :param data_upload_frequency: How often data is uploaded to the source S3 bucket for the input data. This value is the length of time between data uploads. For instance, if you select 5 minutes, Amazon Lookout for Equipment will upload the real-time data to the source bucket once every 5 minutes. This frequency also determines how often Amazon Lookout for Equipment starts a scheduled inference on your data. In this example, it starts once every 5 minutes.
-        :param model_name: The name of the machine learning model used for the inference scheduler.
-        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the data source being used for the inference.
-        :param data_delay_offset_in_minutes: A period of time (in minutes) by which inference on the data is delayed after the data starts. For instance, if an offset delay time of five minutes was selected, inference will not begin on the data until the first data measurement after the five minute mark. For example, if five minutes is selected, the inference scheduler will wake up at the configured frequency with the additional five minute delay time to check the customer S3 bucket. The customer can upload data at the same frequency and they don't need to stop and restart the scheduler when uploading new data.
-        :param inference_scheduler_name: The name of the inference scheduler.
-        :param server_side_kms_key_id: Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by Amazon Lookout for Equipment .
-        :param tags: Any tags associated with the inference scheduler. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lookoutequipment as lookoutequipment
-            
-            # data_input_configuration: Any
-            # data_output_configuration: Any
-            
-            cfn_inference_scheduler_props = lookoutequipment.CfnInferenceSchedulerProps(
-                data_input_configuration=data_input_configuration,
-                data_output_configuration=data_output_configuration,
-                data_upload_frequency="dataUploadFrequency",
-                model_name="modelName",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                data_delay_offset_in_minutes=123,
-                inference_scheduler_name="inferenceSchedulerName",
-                server_side_kms_key_id="serverSideKmsKeyId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026)
-            check_type(argname="argument data_input_configuration", value=data_input_configuration, expected_type=type_hints["data_input_configuration"])
-            check_type(argname="argument data_output_configuration", value=data_output_configuration, expected_type=type_hints["data_output_configuration"])
-            check_type(argname="argument data_upload_frequency", value=data_upload_frequency, expected_type=type_hints["data_upload_frequency"])
-            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument data_delay_offset_in_minutes", value=data_delay_offset_in_minutes, expected_type=type_hints["data_delay_offset_in_minutes"])
-            check_type(argname="argument inference_scheduler_name", value=inference_scheduler_name, expected_type=type_hints["inference_scheduler_name"])
-            check_type(argname="argument server_side_kms_key_id", value=server_side_kms_key_id, expected_type=type_hints["server_side_kms_key_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_input_configuration": data_input_configuration,
-            "data_output_configuration": data_output_configuration,
-            "data_upload_frequency": data_upload_frequency,
-            "model_name": model_name,
-            "role_arn": role_arn,
-        }
-        if data_delay_offset_in_minutes is not None:
-            self._values["data_delay_offset_in_minutes"] = data_delay_offset_in_minutes
-        if inference_scheduler_name is not None:
-            self._values["inference_scheduler_name"] = inference_scheduler_name
-        if server_side_kms_key_id is not None:
-            self._values["server_side_kms_key_id"] = server_side_kms_key_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def data_input_configuration(self) -> typing.Any:
-        '''Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration
-        '''
-        result = self._values.get("data_input_configuration")
-        assert result is not None, "Required property 'data_input_configuration' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def data_output_configuration(self) -> typing.Any:
-        '''Specifies configuration information for the output results for the inference scheduler, including the Amazon S3 location for the output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-dataoutputconfiguration
-        '''
-        result = self._values.get("data_output_configuration")
-        assert result is not None, "Required property 'data_output_configuration' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def data_upload_frequency(self) -> builtins.str:
-        '''How often data is uploaded to the source S3 bucket for the input data.
-
-        This value is the length of time between data uploads. For instance, if you select 5 minutes, Amazon Lookout for Equipment will upload the real-time data to the source bucket once every 5 minutes. This frequency also determines how often Amazon Lookout for Equipment starts a scheduled inference on your data. In this example, it starts once every 5 minutes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datauploadfrequency
-        '''
-        result = self._values.get("data_upload_frequency")
-        assert result is not None, "Required property 'data_upload_frequency' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_name(self) -> builtins.str:
-        '''The name of the machine learning model used for the inference scheduler.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-modelname
-        '''
-        result = self._values.get("model_name")
-        assert result is not None, "Required property 'model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a role with permission to access the data source being used for the inference.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_delay_offset_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''A period of time (in minutes) by which inference on the data is delayed after the data starts.
-
-        For instance, if an offset delay time of five minutes was selected, inference will not begin on the data until the first data measurement after the five minute mark. For example, if five minutes is selected, the inference scheduler will wake up at the configured frequency with the additional five minute delay time to check the customer S3 bucket. The customer can upload data at the same frequency and they don't need to stop and restart the scheduler when uploading new data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datadelayoffsetinminutes
-        '''
-        result = self._values.get("data_delay_offset_in_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def inference_scheduler_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the inference scheduler.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-inferenceschedulername
-        '''
-        result = self._values.get("inference_scheduler_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def server_side_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by Amazon Lookout for Equipment .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-serversidekmskeyid
-        '''
-        result = self._values.get("server_side_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Any tags associated with the inference scheduler.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInferenceSchedulerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_lookoutequipment.IInferenceSchedulerRef")
-class IInferenceSchedulerRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a InferenceScheduler.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="inferenceSchedulerRef")
-    def inference_scheduler_ref(self) -> "InferenceSchedulerReference":
-        '''(experimental) A reference to a InferenceScheduler resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInferenceSchedulerRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a InferenceScheduler.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lookoutequipment.IInferenceSchedulerRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="inferenceSchedulerRef")
-    def inference_scheduler_ref(self) -> "InferenceSchedulerReference":
-        '''(experimental) A reference to a InferenceScheduler resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InferenceSchedulerReference", jsii.get(self, "inferenceSchedulerRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInferenceSchedulerRef).__jsii_proxy_class__ = lambda : _IInferenceSchedulerRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lookoutequipment.InferenceSchedulerReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "inference_scheduler_arn": "inferenceSchedulerArn",
-        "inference_scheduler_name": "inferenceSchedulerName",
-    },
-)
-class InferenceSchedulerReference:
-    def __init__(
-        self,
-        *,
-        inference_scheduler_arn: builtins.str,
-        inference_scheduler_name: builtins.str,
-    ) -> None:
-        '''A reference to a InferenceScheduler resource.
-
-        :param inference_scheduler_arn: The ARN of the InferenceScheduler resource.
-        :param inference_scheduler_name: The InferenceSchedulerName of the InferenceScheduler resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lookoutequipment as lookoutequipment
-            
-            inference_scheduler_reference = lookoutequipment.InferenceSchedulerReference(
-                inference_scheduler_arn="inferenceSchedulerArn",
-                inference_scheduler_name="inferenceSchedulerName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddc3ed88b7609aa1710ce963a5059012df9f7d5faaf571c4b920c051b9f85349)
-            check_type(argname="argument inference_scheduler_arn", value=inference_scheduler_arn, expected_type=type_hints["inference_scheduler_arn"])
-            check_type(argname="argument inference_scheduler_name", value=inference_scheduler_name, expected_type=type_hints["inference_scheduler_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "inference_scheduler_arn": inference_scheduler_arn,
-            "inference_scheduler_name": inference_scheduler_name,
-        }
-
-    @builtins.property
-    def inference_scheduler_arn(self) -> builtins.str:
-        '''The ARN of the InferenceScheduler resource.'''
-        result = self._values.get("inference_scheduler_arn")
-        assert result is not None, "Required property 'inference_scheduler_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def inference_scheduler_name(self) -> builtins.str:
-        '''The InferenceSchedulerName of the InferenceScheduler resource.'''
-        result = self._values.get("inference_scheduler_name")
-        assert result is not None, "Required property 'inference_scheduler_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InferenceSchedulerReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IInferenceSchedulerRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IInferenceSchedulerRef_ff214e3d, _ITaggable_36806126)
 class CfnInferenceScheduler(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -392,7 +84,7 @@ class CfnInferenceScheduler(
     Scheduling an inference is setting up a continuous real-time inference plan to analyze new measurement data. When setting up the schedule, you provide an Amazon S3 bucket location for the input data, assign it a delimiter between separate entries in the data, set an offset delay if desired, and set the frequency of inferencing. You must also provide an Amazon S3 bucket location for the output data.
     .. epigraph::
 
-       Updating some properties below (for example, InferenceSchedulerName and ServerSideKmsKeyId) triggers a resource replacement, which requires a new model. To replace such a property using AWS CloudFormation , but without creating a completely new stack, you must replace ModelName. If you need to replace the property, but want to use the same model, delete the current stack and create a new one with the updated properties.
+       Updating some properties below (for example, InferenceSchedulerName and ServerSideKmsKeyId) triggers a resource replacement, which requires a new model. To replace such a property using CloudFormation , but without creating a completely new stack, you must replace ModelName. If you need to replace the property, but want to use the same model, delete the current stack and create a new one with the updated properties.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html
     :cloudformationResource: AWS::LookoutEquipment::InferenceScheduler
@@ -400,6 +92,7 @@ class CfnInferenceScheduler(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_lookoutequipment as lookoutequipment
@@ -427,7 +120,7 @@ class CfnInferenceScheduler(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         data_input_configuration: typing.Any,
@@ -438,9 +131,10 @@ class CfnInferenceScheduler(
         data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
         inference_scheduler_name: typing.Optional[builtins.str] = None,
         server_side_kms_key_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::LookoutEquipment::InferenceScheduler``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_input_configuration: Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
@@ -450,7 +144,7 @@ class CfnInferenceScheduler(
         :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the data source being used for the inference.
         :param data_delay_offset_in_minutes: A period of time (in minutes) by which inference on the data is delayed after the data starts. For instance, if an offset delay time of five minutes was selected, inference will not begin on the data until the first data measurement after the five minute mark. For example, if five minutes is selected, the inference scheduler will wake up at the configured frequency with the additional five minute delay time to check the customer S3 bucket. The customer can upload data at the same frequency and they don't need to stop and restart the scheduler when uploading new data.
         :param inference_scheduler_name: The name of the inference scheduler.
-        :param server_side_kms_key_id: Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by Amazon Lookout for Equipment .
+        :param server_side_kms_key_id: Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by .
         :param tags: Any tags associated with the inference scheduler. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
@@ -471,8 +165,34 @@ class CfnInferenceScheduler(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForInferenceScheduler")
+    @builtins.classmethod
+    def arn_for_inference_scheduler(
+        cls,
+        resource: "_IInferenceSchedulerRef_ff214e3d",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d594f91a9fa8232ca01fb5bcb3f8410a2ccc44f0e52c1d53510222a8d27c1b6c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInferenceScheduler", [resource]))
+
+    @jsii.member(jsii_name="isCfnInferenceScheduler")
+    @builtins.classmethod
+    def is_cfn_inference_scheduler(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInferenceScheduler.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9802ab233a458aec61a0b741e480308e960cfffcb7f2618a7000af54b802551a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInferenceScheduler", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -517,15 +237,15 @@ class CfnInferenceScheduler(
 
     @builtins.property
     @jsii.member(jsii_name="inferenceSchedulerRef")
-    def inference_scheduler_ref(self) -> InferenceSchedulerReference:
+    def inference_scheduler_ref(self) -> "_InferenceSchedulerReference_0ddafe2a":
         '''A reference to a InferenceScheduler resource.'''
-        return typing.cast(InferenceSchedulerReference, jsii.get(self, "inferenceSchedulerRef"))
+        return typing.cast("_InferenceSchedulerReference_0ddafe2a", jsii.get(self, "inferenceSchedulerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dataInputConfiguration")
@@ -621,7 +341,7 @@ class CfnInferenceScheduler(
     @builtins.property
     @jsii.member(jsii_name="serverSideKmsKeyId")
     def server_side_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by Amazon Lookout for Equipment .'''
+        '''Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by  .'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serverSideKmsKeyId"))
 
     @server_side_kms_key_id.setter
@@ -633,12 +353,12 @@ class CfnInferenceScheduler(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Any tags associated with the inference scheduler.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1cecca5c973b2c7607351e4c566be545c3f3776bb96c66814d141f60e64f10e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -657,8 +377,8 @@ class CfnInferenceScheduler(
         def __init__(
             self,
             *,
-            s3_input_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInferenceScheduler.S3InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
-            inference_input_name_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInferenceScheduler.InputNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_input_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.S3InputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            inference_input_name_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.InputNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             input_time_zone_offset: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
@@ -708,25 +428,25 @@ class CfnInferenceScheduler(
         @builtins.property
         def s3_input_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.S3InputConfigurationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3InputConfigurationProperty"]:
             '''Specifies configuration information for the input data for the inference, including input data S3 location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-datainputconfiguration.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration-s3inputconfiguration
             '''
             result = self._values.get("s3_input_configuration")
             assert result is not None, "Required property 's3_input_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.S3InputConfigurationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3InputConfigurationProperty"], result)
 
         @builtins.property
         def inference_input_name_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.InputNameConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.InputNameConfigurationProperty"]]:
             '''Specifies configuration information for the input data for the inference, including timestamp format and delimiter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-datainputconfiguration.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration-inferenceinputnameconfiguration
             '''
             result = self._values.get("inference_input_name_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.InputNameConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.InputNameConfigurationProperty"]], result)
 
         @builtins.property
         def input_time_zone_offset(self) -> typing.Optional[builtins.str]:
@@ -760,7 +480,7 @@ class CfnInferenceScheduler(
         def __init__(
             self,
             *,
-            s3_output_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnInferenceScheduler.S3OutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_output_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInferenceScheduler.S3OutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies configuration information for the output results for the inference scheduler, including the S3 location for the output.
@@ -802,14 +522,14 @@ class CfnInferenceScheduler(
         @builtins.property
         def s3_output_configuration(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.S3OutputConfigurationProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3OutputConfigurationProperty"]:
             '''Specifies configuration information for the output results from the inference, including output S3 location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lookoutequipment-inferencescheduler-dataoutputconfiguration.html#cfn-lookoutequipment-inferencescheduler-dataoutputconfiguration-s3outputconfiguration
             '''
             result = self._values.get("s3_output_configuration")
             assert result is not None, "Required property 's3_output_configuration' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnInferenceScheduler.S3OutputConfigurationProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInferenceScheduler.S3OutputConfigurationProperty"], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -1047,37 +767,214 @@ class CfnInferenceScheduler(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lookoutequipment.CfnInferenceSchedulerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_input_configuration": "dataInputConfiguration",
+        "data_output_configuration": "dataOutputConfiguration",
+        "data_upload_frequency": "dataUploadFrequency",
+        "model_name": "modelName",
+        "role_arn": "roleArn",
+        "data_delay_offset_in_minutes": "dataDelayOffsetInMinutes",
+        "inference_scheduler_name": "inferenceSchedulerName",
+        "server_side_kms_key_id": "serverSideKmsKeyId",
+        "tags": "tags",
+    },
+)
+class CfnInferenceSchedulerProps:
+    def __init__(
+        self,
+        *,
+        data_input_configuration: typing.Any,
+        data_output_configuration: typing.Any,
+        data_upload_frequency: builtins.str,
+        model_name: builtins.str,
+        role_arn: builtins.str,
+        data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
+        inference_scheduler_name: typing.Optional[builtins.str] = None,
+        server_side_kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInferenceScheduler``.
+
+        :param data_input_configuration: Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
+        :param data_output_configuration: Specifies configuration information for the output results for the inference scheduler, including the Amazon S3 location for the output.
+        :param data_upload_frequency: How often data is uploaded to the source S3 bucket for the input data. This value is the length of time between data uploads. For instance, if you select 5 minutes, Amazon Lookout for Equipment will upload the real-time data to the source bucket once every 5 minutes. This frequency also determines how often Amazon Lookout for Equipment starts a scheduled inference on your data. In this example, it starts once every 5 minutes.
+        :param model_name: The name of the machine learning model used for the inference scheduler.
+        :param role_arn: The Amazon Resource Name (ARN) of a role with permission to access the data source being used for the inference.
+        :param data_delay_offset_in_minutes: A period of time (in minutes) by which inference on the data is delayed after the data starts. For instance, if an offset delay time of five minutes was selected, inference will not begin on the data until the first data measurement after the five minute mark. For example, if five minutes is selected, the inference scheduler will wake up at the configured frequency with the additional five minute delay time to check the customer S3 bucket. The customer can upload data at the same frequency and they don't need to stop and restart the scheduler when uploading new data.
+        :param inference_scheduler_name: The name of the inference scheduler.
+        :param server_side_kms_key_id: Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by .
+        :param tags: Any tags associated with the inference scheduler. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lookoutequipment as lookoutequipment
+            
+            # data_input_configuration: Any
+            # data_output_configuration: Any
+            
+            cfn_inference_scheduler_props = lookoutequipment.CfnInferenceSchedulerProps(
+                data_input_configuration=data_input_configuration,
+                data_output_configuration=data_output_configuration,
+                data_upload_frequency="dataUploadFrequency",
+                model_name="modelName",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                data_delay_offset_in_minutes=123,
+                inference_scheduler_name="inferenceSchedulerName",
+                server_side_kms_key_id="serverSideKmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026)
+            check_type(argname="argument data_input_configuration", value=data_input_configuration, expected_type=type_hints["data_input_configuration"])
+            check_type(argname="argument data_output_configuration", value=data_output_configuration, expected_type=type_hints["data_output_configuration"])
+            check_type(argname="argument data_upload_frequency", value=data_upload_frequency, expected_type=type_hints["data_upload_frequency"])
+            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument data_delay_offset_in_minutes", value=data_delay_offset_in_minutes, expected_type=type_hints["data_delay_offset_in_minutes"])
+            check_type(argname="argument inference_scheduler_name", value=inference_scheduler_name, expected_type=type_hints["inference_scheduler_name"])
+            check_type(argname="argument server_side_kms_key_id", value=server_side_kms_key_id, expected_type=type_hints["server_side_kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_input_configuration": data_input_configuration,
+            "data_output_configuration": data_output_configuration,
+            "data_upload_frequency": data_upload_frequency,
+            "model_name": model_name,
+            "role_arn": role_arn,
+        }
+        if data_delay_offset_in_minutes is not None:
+            self._values["data_delay_offset_in_minutes"] = data_delay_offset_in_minutes
+        if inference_scheduler_name is not None:
+            self._values["inference_scheduler_name"] = inference_scheduler_name
+        if server_side_kms_key_id is not None:
+            self._values["server_side_kms_key_id"] = server_side_kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_input_configuration(self) -> typing.Any:
+        '''Specifies configuration information for the input data for the inference scheduler, including delimiter, format, and dataset location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datainputconfiguration
+        '''
+        result = self._values.get("data_input_configuration")
+        assert result is not None, "Required property 'data_input_configuration' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def data_output_configuration(self) -> typing.Any:
+        '''Specifies configuration information for the output results for the inference scheduler, including the Amazon S3 location for the output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-dataoutputconfiguration
+        '''
+        result = self._values.get("data_output_configuration")
+        assert result is not None, "Required property 'data_output_configuration' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def data_upload_frequency(self) -> builtins.str:
+        '''How often data is uploaded to the source S3 bucket for the input data.
+
+        This value is the length of time between data uploads. For instance, if you select 5 minutes, Amazon Lookout for Equipment will upload the real-time data to the source bucket once every 5 minutes. This frequency also determines how often Amazon Lookout for Equipment starts a scheduled inference on your data. In this example, it starts once every 5 minutes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datauploadfrequency
+        '''
+        result = self._values.get("data_upload_frequency")
+        assert result is not None, "Required property 'data_upload_frequency' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_name(self) -> builtins.str:
+        '''The name of the machine learning model used for the inference scheduler.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-modelname
+        '''
+        result = self._values.get("model_name")
+        assert result is not None, "Required property 'model_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a role with permission to access the data source being used for the inference.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_delay_offset_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''A period of time (in minutes) by which inference on the data is delayed after the data starts.
+
+        For instance, if an offset delay time of five minutes was selected, inference will not begin on the data until the first data measurement after the five minute mark. For example, if five minutes is selected, the inference scheduler will wake up at the configured frequency with the additional five minute delay time to check the customer S3 bucket. The customer can upload data at the same frequency and they don't need to stop and restart the scheduler when uploading new data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-datadelayoffsetinminutes
+        '''
+        result = self._values.get("data_delay_offset_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def inference_scheduler_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the inference scheduler.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-inferenceschedulername
+        '''
+        result = self._values.get("inference_scheduler_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def server_side_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''Provides the identifier of the AWS KMS key used to encrypt inference scheduler data by  .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-serversidekmskeyid
+        '''
+        result = self._values.get("server_side_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Any tags associated with the inference scheduler.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lookoutequipment-inferencescheduler.html#cfn-lookoutequipment-inferencescheduler-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInferenceSchedulerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnInferenceScheduler",
     "CfnInferenceSchedulerProps",
-    "IInferenceSchedulerRef",
-    "InferenceSchedulerReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026(
-    *,
-    data_input_configuration: typing.Any,
-    data_output_configuration: typing.Any,
-    data_upload_frequency: builtins.str,
-    model_name: builtins.str,
-    role_arn: builtins.str,
-    data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
-    inference_scheduler_name: typing.Optional[builtins.str] = None,
-    server_side_kms_key_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ddc3ed88b7609aa1710ce963a5059012df9f7d5faaf571c4b920c051b9f85349(
-    *,
-    inference_scheduler_arn: builtins.str,
-    inference_scheduler_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__28ccba613c6dd6bc7182eb74423ae99fe0414b38931a2a99663f062232c146fb(
     scope: _constructs_77d1e7e8.Construct,
@@ -1092,6 +989,18 @@ def _typecheckingstub__28ccba613c6dd6bc7182eb74423ae99fe0414b38931a2a99663f06223
     inference_scheduler_name: typing.Optional[builtins.str] = None,
     server_side_kms_key_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d594f91a9fa8232ca01fb5bcb3f8410a2ccc44f0e52c1d53510222a8d27c1b6c(
+    resource: _IInferenceSchedulerRef_ff214e3d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9802ab233a458aec61a0b741e480308e960cfffcb7f2618a7000af54b802551a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1199,6 +1108,21 @@ def _typecheckingstub__fb0d81a8f7d08eb09064e590d12abb5c157e04a91342de057e7389f26
     *,
     bucket: builtins.str,
     prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ad2f96489b881fc79bd8dd7e8fcd74803d4875e0701e8b25ca77d8fd78bf026(
+    *,
+    data_input_configuration: typing.Any,
+    data_output_configuration: typing.Any,
+    data_upload_frequency: builtins.str,
+    model_name: builtins.str,
+    role_arn: builtins.str,
+    data_delay_offset_in_minutes: typing.Optional[jsii.Number] = None,
+    inference_scheduler_name: typing.Optional[builtins.str] = None,
+    server_side_kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

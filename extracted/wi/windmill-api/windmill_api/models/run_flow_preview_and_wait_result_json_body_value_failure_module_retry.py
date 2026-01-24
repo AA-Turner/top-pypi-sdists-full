@@ -22,11 +22,15 @@ T = TypeVar("T", bound="RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRet
 
 @_attrs_define
 class RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryConstant]):
-        exponential (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryExponential]):
-        retry_if (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryRetryIf]):
+        constant (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryConstant]): Retry with constant
+            delay between attempts
+        exponential (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryExponential]): Retry with
+            exponential backoff (delay doubles each time)
+        retry_if (Union[Unset, RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryRetryIf]): Conditional retry
+            based on error or result
     """
 
     constant: Union[Unset, "RunFlowPreviewAndWaitResultJsonBodyValueFailureModuleRetryConstant"] = UNSET

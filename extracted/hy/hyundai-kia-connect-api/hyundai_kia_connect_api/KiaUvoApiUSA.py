@@ -3,21 +3,19 @@
 # pylint:disable=logging-fstring-interpolation,unused-argument,missing-timeout,bare-except,missing-function-docstring,invalid-name,unnecessary-pass,broad-exception-raised
 import datetime as dt
 import logging
-import random
-import secrets
 import ssl
-import string
 import time
-import typing
+import typing as ty
 from datetime import datetime
 
 import certifi
+import uuid
 import requests
 from requests import RequestException, Response
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
-from .ApiImpl import ApiImpl, ClimateRequestOptions
+from .ApiImpl import ApiImpl, ClimateRequestOptions, OTPRequest
 from .Token import Token
 from .Vehicle import Vehicle
 from .const import (
@@ -27,8 +25,10 @@ from .const import (
     ORDER_STATUS,
     TEMPERATURE_UNITS,
     VEHICLE_LOCK_ACTION,
+    OTP_NOTIFY_TYPE,
 )
 from .utils import get_child_value, parse_datetime
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,8 +63,14 @@ def request_with_active_session(func):
             self = args[0]
             token = kwargs["token"]
             vehicle = kwargs["vehicle"]
-            new_token = self.login(token.username, token.password)
+            new_token = self.login(
+                token.username,
+                token.password,
+                token,
+                getattr(self, "_otp_handler", None),
+            )
             token.access_token = new_token.access_token
+            token.refresh_token = new_token.refresh_token
             token.valid_until = new_token.valid_until
             json_body = kwargs.get("json_body", None)
             vehicle = self.refresh_vehicles(token, vehicle)
@@ -110,17 +116,13 @@ class KiaUvoApiUSA(ApiImpl):
         self.temperature_range = range(62, 83)
 
         # Randomly generate a plausible device id on startup
-        self.device_id = (
-            "".join(
-                random.choice(string.ascii_letters + string.digits) for _ in range(22)
-            )
-            + ":"
-            + secrets.token_urlsafe(105)
-        )
+        self.device_id = str(uuid.uuid4()).upper()
 
         self.BASE_URL: str = "api.owners.kia.com"
         self.API_URL: str = "https://" + self.BASE_URL + "/apigw/v1/"
         self._session = None
+
+        self._otp_handler = None
 
     @property
     def session(self):
@@ -131,27 +133,31 @@ class KiaUvoApiUSA(ApiImpl):
 
     def api_headers(self) -> dict:
         offset = time.localtime().tm_gmtoff / 60 / 60
+        # Generate clientuuid as hash of device_id (similar to iOS app)
+        client_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, self.device_id))
+
         headers = {
-            "content-type": "application/json;charset=UTF-8",
-            "accept": "application/json, text/plain, */*",
+            "content-type": "application/json;charset=utf-8",
+            "accept": "application/json",
             "accept-encoding": "gzip, deflate, br",
             "accept-language": "en-US,en;q=0.9",
+            "accept-charset": "utf-8",
             "apptype": "L",
-            "appversion": "7.15.2",
-            "clientid": "MWAMOBILE",
+            "appversion": "7.22.0",
+            "clientid": "SPACL716-APL",
+            "clientuuid": client_uuid,
             "from": "SPA",
             "host": self.BASE_URL,
             "language": "0",
             "offset": str(int(offset)),
-            "ostype": "Android",
-            "osversion": "11",
-            "secretkey": "98er-w34rf-ibf3-3f6h",
+            "ostype": "iOS",
+            "osversion": "15.8.5",
+            "phonebrand": "iPhone",
+            "secretkey": "sydnat-9kykci-Kuhtep-h5nK",
             "to": "APIGW",
-            "tokentype": "G",
-            "user-agent": "okhttp/4.10.0",
+            "tokentype": "A",
+            "user-agent": "KIAPrimo_iOS/37 CFNetwork/1335.0.3.4 Darwin/21.6.0",
         }
-        # Should produce something like "Mon, 18 Oct 2021 07:06:26 GMT".
-        # May require adjusting locale to en_US
         date = datetime.now(tz=dt.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
         headers["date"] = date
         headers["deviceid"] = self.device_id
@@ -179,32 +185,171 @@ class KiaUvoApiUSA(ApiImpl):
         headers = self.authed_api_headers(token, vehicle)
         return self.session.get(url, headers=headers)
 
-    def login(self, username: str, password: str) -> Token:
-        """Login into cloud endpoints and return Token"""
+    def _send_otp(self, otp_key: str, notify_type: str, xid: str) -> dict:
+        """Send OTP to email or phone"""
+        url = self.API_URL + "cmm/sendOTP"
+        headers = self.api_headers()
+        headers["otpkey"] = otp_key
+        headers["notifytype"] = notify_type
+        _LOGGER.debug(f"{DOMAIN} - Sending OTP to {notify_type}")
+        headers["xid"] = xid
+        response = self.session.post(url, json={}, headers=headers)
+        _LOGGER.debug(f"{DOMAIN} - Send OTP Response {response.text}")
+        return response.json()
 
+    def _verify_otp(self, otp_key: str, otp_code: str, xid: str) -> tuple[str, str]:
+        """Verify OTP code and return sid and rmtoken"""
+        url = self.API_URL + "cmm/verifyOTP"
+        headers = self.api_headers()
+        headers["otpkey"] = otp_key
+        headers["xid"] = xid
+        data = {"otp": otp_code}
+        response = self.session.post(url, json=data, headers=headers)
+        _LOGGER.debug(f"{DOMAIN} - Verify OTP Response {response.text}")
+        response_json = response.json()
+        if response_json["status"]["statusCode"] != 0:
+            raise Exception(
+                f"{DOMAIN} - OTP verification failed: {response_json['status']['errorMessage']}"
+            )
+        sid = response.headers.get("sid")
+        rmtoken = response.headers.get("rmtoken")
+        if not sid or not rmtoken:
+            raise Exception(
+                f"{DOMAIN} - No sid or rmtoken in OTP verification response. Headers: {response.headers}"
+            )
+        return sid, rmtoken
+
+    def _complete_login_with_otp(
+        self, username: str, password: str, sid: str, rmtoken: str
+    ) -> str:
+        """Complete login with sid and rmtoken to get final session id"""
         url = self.API_URL + "prof/authUser"
-
         data = {
-            "deviceKey": "",
+            "deviceKey": self.device_id,
             "deviceType": 2,
             "userCredential": {"userId": username, "password": password},
         }
         headers = self.api_headers()
+        headers["sid"] = sid
+        headers["rmtoken"] = rmtoken
         response = self.session.post(url, json=data, headers=headers)
-        _LOGGER.debug(f"{DOMAIN} - Sign In Response {response.text}")
-        session_id = response.headers.get("sid")
-        if not session_id:
+        _LOGGER.debug(f"{DOMAIN} - Complete Login Response {response.text}")
+        final_sid = response.headers.get("sid")
+        if not final_sid:
             raise Exception(
-                f"{DOMAIN} - No session id returned in login. Response: {response.text} headers {response.headers} cookies {response.cookies}"  # noqa
+                f"{DOMAIN} - No final sid returned. Response: {response.text}"
             )
-        _LOGGER.debug(f"got session id {session_id}")
+        return final_sid
+
+    def send_otp(self, otp_request: OTPRequest, notify_type: OTP_NOTIFY_TYPE) -> dict:
+        """Public helper to send OTP to the selected destination."""
+        return self._send_otp(
+            otp_request.otp_key, notify_type.value, otp_request.request_id
+        )
+
+    def verify_otp_and_complete_login(
+        self,
+        username: str,
+        password: str,
+        otp_code: str,
+        otp_request: OTPRequest,
+        pin: str | None,
+    ) -> Token:
+        """Verify OTP and complete the login producing a Token."""
+        sid, rmtoken = self._verify_otp(
+            otp_request.otp_key, otp_code, otp_request.request_id
+        )
+        final_sid = self._complete_login_with_otp(username, password, sid, rmtoken)
+        _LOGGER.debug("OTP Successful, obtained final session id")
         valid_until = dt.datetime.now(dt.timezone.utc) + LOGIN_TOKEN_LIFETIME
         return Token(
             username=username,
             password=password,
-            access_token=session_id,
+            access_token=final_sid,
+            refresh_token=rmtoken,
             valid_until=valid_until,
+            device_id=self.device_id,
+            pin=pin,
         )
+
+    def login(
+        self,
+        username: str,
+        password: str,
+        token: Token = None,
+        pin: str | None = None,
+    ) -> Token:
+        """Login into cloud endpoints and return Token
+
+        Parameters
+        ----------
+        username : str
+            User email address
+        password : str
+            User password
+        token : Token, optional
+            Existing token with stored rmtoken for reuse
+        otp_handler : Callable[[dict], dict], optional
+            Non-interactive OTP handler. Called twice:
+            - stage='choose_destination' -> return {'notify_type': 'EMAIL'|'SMS'}
+            - stage='input_code' -> return {'otp_code': '<code>'}
+        pin : str, optional
+
+        Returns
+        -------
+        Token
+            Token object with access_token (sid) and refresh_token (rmtoken)
+        """
+        url = self.API_URL + "prof/authUser"
+        data = {
+            "deviceKey": self.device_id,
+            "deviceType": 2,
+            "userCredential": {"userId": username, "password": password},
+            "tncFlag": 1,
+        }
+        if token and getattr(token, "device_id", None):
+            self.device_id = token.device_id
+        headers = self.api_headers()
+        if token and token.refresh_token:
+            data["deviceKey"] = self.device_id
+            _LOGGER.debug(f"{DOMAIN} - Attempting login with stored Refresh Token")
+            headers["rmtoken"] = token.refresh_token
+        response = self.session.post(url, json=data, headers=headers)
+        _LOGGER.debug(f"{DOMAIN} - Sign In Response {response.text}")
+        response_json = response.json()
+        session_id = response.headers.get("sid")
+        if session_id:
+            _LOGGER.debug(f"Got session id {session_id}")
+            valid_until = dt.datetime.now(dt.timezone.utc) + LOGIN_TOKEN_LIFETIME
+            existing_rmtoken = token.refresh_token if token else None
+            return Token(
+                username=username,
+                password=password,
+                access_token=session_id,
+                refresh_token=existing_rmtoken,
+                valid_until=valid_until,
+                device_id=self.device_id,
+                pin=pin,
+            )
+        if "payload" in response_json and "otpKey" in response_json["payload"]:
+            payload = response_json["payload"]
+            if payload.get("rmTokenExpired"):
+                _LOGGER.info(f"{DOMAIN} - Stored rmtoken has expired, need new OTP")
+            return OTPRequest(
+                otp_key=payload["otpKey"],
+                request_id=response.headers.get("xid", ""),
+                email=payload.get("email"),
+                sms=payload.get("phone"),
+                has_email=bool(payload.get("hasEmail")),
+                has_sms=bool(payload.get("hasPhone")),
+            )
+        raise Exception(
+            f"{DOMAIN} - No session id returned in login. Response: {response.text} headers {response.headers} cookies {response.cookies}"
+        )
+
+    def refresh_access_token(self, token: Token) -> Token | OTPRequest:
+        """Refresh the token using the refresh token"""
+        return self.login(token.username, token.password, token)
 
     def get_vehicles(self, token: Token) -> list[Vehicle]:
         """Return all Vehicle instances for a given Token"""
@@ -227,8 +372,8 @@ class KiaUvoApiUSA(ApiImpl):
         return result
 
     def refresh_vehicles(
-        self, token: Token, vehicles: typing.Union[list[Vehicle], Vehicle]
-    ) -> typing.Union[list[Vehicle], Vehicle]:
+        self, token: Token, vehicles: ty.Union[list[Vehicle], Vehicle]
+    ) -> ty.Union[list[Vehicle], Vehicle]:
         """
         Refresh the vehicle data provided in get_vehicles.
         Required for Kia USA as key is session specific
@@ -244,20 +389,24 @@ class KiaUvoApiUSA(ApiImpl):
         response = response.json()
         if isinstance(vehicles, dict):
             for entry in response["payload"]["vehicleSummary"]:
-                if vehicles[entry["vehicleIdentifier"]]:
-                    vehicles[entry["vehicleIdentifier"]].name = entry["nickName"]
-                    vehicles[entry["vehicleIdentifier"]].model = entry["modelName"]
-                    vehicles[entry["vehicleIdentifier"]].key = entry["vehicleKey"]
+                vid = entry.get("vehicleIdentifier")
+                if vid is None:
+                    continue
+                vobj = vehicles.get(vid)
+                if vobj is not None:
+                    vobj.name = entry.get("nickName")
+                    vobj.model = entry.get("modelName")
+                    vobj.key = entry.get("vehicleKey")
                 else:
                     vehicle: Vehicle = Vehicle(
-                        id=entry["vehicleIdentifier"],
-                        name=entry["nickName"],
-                        model=entry["modelName"],
-                        key=entry["vehicleKey"],
+                        id=vid,
+                        name=entry.get("nickName"),
+                        model=entry.get("modelName"),
+                        key=entry.get("vehicleKey"),
                         timezone=self.data_timezone,
                     )
-                    vehicles.append(vehicle)
-                return vehicles
+                    vehicles[vid] = vehicle
+            return vehicles
         else:
             # For readability work with vehicle without s
             vehicle = vehicles

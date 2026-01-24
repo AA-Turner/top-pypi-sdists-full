@@ -4,15 +4,15 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "langchain-milvus"
-version = "0.2.1"
+version = "0.3.3"
 description = "An integration package connecting Milvus and LangChain"
 authors = []
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.10,<4.0"
 dependencies = [
-    "pymilvus>=2.5.7,<3.0",
-    "langchain-core>=0.2.38,<0.4",
+    "pymilvus>=2.6.0,<3.0",
+    "langchain-core>=1.0.0",
 ]
 
 [project.urls]
@@ -38,6 +38,7 @@ markers = [
     "requires: mark tests as requiring a specific library",
     "asyncio: mark tests as requiring asyncio",
     "compile: mark placeholder test used to compile integration tests without running them",
+    "requires_apikey: mark tests as requiring API key configured in Milvus server (e.g., OpenAI)",
 ]
 asyncio_mode = "auto"
 
@@ -64,7 +65,8 @@ syrupy = "^4.0.2"
 pytest-watcher = "^0.3.4"
 pytest-asyncio = "^0.21.1"
 "pymilvus.model" = "^0.3.1"
-onnxruntime = "<= 1.19.2"  # the higher version of onnxruntime can not be found in the CI installation
+milvus-lite = "^2.5.1"
+onnxruntime = "^1.19.2"
 langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
 
 [tool.poetry.group.codespell.dependencies]
@@ -72,13 +74,13 @@ codespell = "^2.2.0"
 
 [tool.poetry.group.test_integration.dependencies]
 "pymilvus.model" = "^0.3.1"
-onnxruntime = "<= 1.19.2"
+onnxruntime = "^1.19.2"
 
 [tool.poetry.group.lint.dependencies]
 ruff = "^0.1.5"
 
 [tool.poetry.group.typing.dependencies]
-mypy = "^0.991"
+mypy = "^1.11"
 types-requests = "^2"
 simsimd = "^5.0.0"
 langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }

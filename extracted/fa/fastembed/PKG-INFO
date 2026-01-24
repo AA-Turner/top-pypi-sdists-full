@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fastembed
-Version: 0.7.3
+Version: 0.7.4
 Summary: Fast, light, accurate library built for retrieval embedding generation
 License: Apache License
+License-File: LICENSE
+License-File: NOTICE
 Keywords: vector,embedding,neural,search,qdrant,sentence-transformers
 Author: Qdrant Team
 Author-email: info@qdrant.tech
@@ -14,17 +16,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: huggingface-hub (>=0.20,<1.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: huggingface-hub (>=0.20,<2.0)
 Requires-Dist: loguru (>=0.7.2,<0.8.0)
 Requires-Dist: mmh3 (>=4.1.0,<6.0.0)
-Requires-Dist: numpy (>=1.21) ; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: numpy (>=1.21) ; python_version == "3.11"
 Requires-Dist: numpy (>=1.21,<2.1.0) ; python_version < "3.10"
+Requires-Dist: numpy (>=1.21,<2.3.0) ; python_version == "3.10"
 Requires-Dist: numpy (>=1.26) ; python_version == "3.12"
-Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
+Requires-Dist: numpy (>=2.1.0) ; python_version == "3.13"
+Requires-Dist: numpy (>=2.3.0) ; python_version >= "3.14"
 Requires-Dist: onnxruntime (>1.20.0) ; python_version >= "3.13"
 Requires-Dist: onnxruntime (>=1.17.0,!=1.20.0) ; python_version >= "3.10" and python_version < "3.13"
 Requires-Dist: onnxruntime (>=1.17.0,<1.20.0) ; python_version < "3.10"
-Requires-Dist: pillow (>=10.3.0,<12.0.0)
+Requires-Dist: pillow (>=10.3.0,<11.0) ; python_version < "3.10"
+Requires-Dist: pillow (>=10.3.0,<12.0) ; python_version >= "3.10" and python_version < "3.13"
+Requires-Dist: pillow (>=11.0.0,<12.0) ; python_version >= "3.13"
 Requires-Dist: py-rust-stemmers (>=0.1.0,<0.2.0)
 Requires-Dist: requests (>=2.31,<3.0)
 Requires-Dist: tokenizers (>=0.15,<1.0)

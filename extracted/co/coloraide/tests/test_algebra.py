@@ -2198,8 +2198,8 @@ class TestAlgebra(unittest.TestCase):
         with self.assertRaises(TypeError):
             log([10, 100], base=[10, math.e])
 
-    def test_vectorize1(self):
-        """Test `vectorize1`."""
+    def test_vectorize2(self):
+        """Test `vectorize2`."""
 
         cbrt = alg.vectorize2(lambda x: alg.nth_root(x, 3), params=1)
 
@@ -2250,9 +2250,6 @@ class TestAlgebra(unittest.TestCase):
                     [[8, 27, 27], [8, 27, 27], [8, 27, 27]]
                 ]
             )
-
-    def test_vectorize2(self):
-        """Test `vectorize2`."""
 
         log = alg.vectorize2(math.log)
 
@@ -2820,6 +2817,8 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(math.copysign(1, alg.sign(-math.nan)), -1)
         self.assertTrue(math.isnan(alg.sign(-math.nan)))
         self.assertEqual(math.copysign(1, alg.sign(math.nan)), 1)
+        self.assertEqual(alg.sign(float('inf')), 1)
+        self.assertEqual(alg.sign(float('-inf')), -1)
 
     def test_solve_newton_and_halley(self):
         """Test solving with Newton."""
@@ -3627,6 +3626,12 @@ class TestAlgebra(unittest.TestCase):
             ]
         )
 
+    def test_prod(self):
+        """Test product."""
+
+        self.assertEqual(alg.prod(3), 3.0)
+        self.assertEqual(alg.prod([3, 2, 4]), 24.0)
+        self.assertEqual(alg.prod([[1, 2, 3], [4, 5, 6], [7, 8, 9]]), 362880.0)
 
 def test_pprint(capsys):
     """Test matrix print."""

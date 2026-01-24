@@ -55,6 +55,16 @@ class TestRemoteExecutionUtils(unittest.TestCase):
         )
         self.assertEqual(result, expected)
 
+        # Test case 7: Lite project - unified storage
+        project_s3_path = "s3://bucket/shared/"
+        local_file_path = "shared/folder/getting_started.ipynb"
+        is_git_project = False
+        expected = "s3://bucket/shared/folder/getting_started.ipynb"
+        result = RemoteExecutionUtils.pack_s3_path_for_input_file(
+            project_s3_path, local_file_path, is_git_project
+        )
+        self.assertEqual(result, expected)
+
     def test_pack_full_path_for_input_file(self):
         local_file_path = "src/getting_started.ipynb"
         result = RemoteExecutionUtils.pack_full_path_for_input_file(local_file_path)

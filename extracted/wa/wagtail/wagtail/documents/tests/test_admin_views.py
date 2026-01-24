@@ -51,6 +51,9 @@ class TestDocumentIndexView(WagtailTestUtils, TestCase):
         self.assertContains(response, "Hello document")
         self.assertContains(response, "Bonjour document")
 
+        with self.assertNumQueries(12):
+            self.get()
+
     def make_docs(self):
         for i in range(50):
             document = models.Document(title="Test " + str(i))
@@ -301,6 +304,100 @@ class TestDocumentIndexView(WagtailTestUtils, TestCase):
             "?p=3&amp;tag=even" in response_body or "?tag=even&amp;p=3" in response_body
         )
 
+    def test_usage_count_column(self):
+        used_document = models.Document.objects.create(title="Used document")
+        unused_document = models.Document.objects.create(title="Unused document")
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(protected_document=used_document)
+
+        response = self.client.get(reverse("wagtaildocs:index"))
+        self.assertEqual(response.status_code, 200)
+        soup = self.get_soup(response.content)
+
+        expected_url = reverse(
+            "wagtaildocs:document_usage",
+            args=(used_document.pk,),
+        )
+        link = soup.select_one(f"a[href='{expected_url}']")
+        self.assertIsNotNone(link)
+        self.assertEqual(link.text.strip(), "Used 1 time")
+
+        expected_url = reverse(
+            "wagtaildocs:document_usage",
+            args=(unused_document.pk,),
+        )
+        link = soup.select_one(f"a[href='{expected_url}']")
+        self.assertIsNotNone(link)
+        self.assertEqual(link.text.strip(), "Used 0 times")
+
+    def test_order_by_usage_count(self):
+        doc1 = models.Document.objects.create(title="Used twice document")
+        doc2 = models.Document.objects.create(title="Used once document")
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(protected_document=doc1)
+            VariousOnDeleteModel.objects.create(protected_document=doc1)
+            VariousOnDeleteModel.objects.create(protected_document=doc2)
+
+        cases = {
+            "usage_count": [doc2, doc1],
+            "-usage_count": [doc1, doc2],
+        }
+        for ordering, expected_order in cases.items():
+            response = self.client.get(
+                reverse("wagtaildocs:index"),
+                {"ordering": ordering},
+            )
+            with self.subTest(ordering=ordering), self.assertNumQueries(11):
+                response = self.client.get(
+                    reverse("wagtaildocs:index"),
+                    {"ordering": ordering},
+                )
+                self.assertEqual(response.status_code, 200)
+                context = response.context
+                self.assertSequenceEqual(
+                    context["page_obj"].object_list,
+                    expected_order,
+                )
+
+    def test_filter_by_usage_count(self):
+        doc1 = models.Document.objects.create(title="Used twice document")
+        doc2 = models.Document.objects.create(title="Used once document")
+        doc3 = models.Document.objects.create(title="Unused document")
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(protected_document=doc1)
+            VariousOnDeleteModel.objects.create(protected_document=doc1)
+            VariousOnDeleteModel.objects.create(protected_document=doc2)
+
+        response = self.client.get(
+            reverse("wagtaildocs:index"),
+            {"usage_count_min": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [doc1, doc2],
+        )
+
+        response = self.client.get(
+            reverse("wagtaildocs:index"),
+            {"usage_count_min": "1", "usage_count_max": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [doc2],
+        )
+
+        response = self.client.get(
+            reverse("wagtaildocs:index"),
+            {"usage_count_max": "0"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [doc3],
+        )
+
 
 class TestDocumentIndexViewSearch(WagtailTestUtils, TransactionTestCase):
     def setUp(self):
@@ -405,6 +502,31 @@ class TestDocumentIndexViewSearch(WagtailTestUtils, TransactionTestCase):
                 self.assertIn("ordering", response.context)
                 self.assertEqual(response.context["ordering"], ordering)
 
+    def test_order_by_usage_count_disabled_when_searching(self):
+        # Ordering by usage count not currently available when searching,
+        # due to https://github.com/wagtail/django-modelsearch/issues/51
+        doc1 = models.Document.objects.create(title="Used twice document")
+        doc2 = models.Document.objects.create(title="Used once document")
+        VariousOnDeleteModel.objects.create(protected_document=doc1)
+        VariousOnDeleteModel.objects.create(protected_document=doc1)
+        VariousOnDeleteModel.objects.create(protected_document=doc2)
+
+        response = self.client.get(
+            reverse("wagtaildocs:index"),
+            {"q": "used", "ordering": "-usage_count"},
+        )
+        self.assertEqual(response.status_code, 200)
+        context = response.context
+        # Will fall back to default ordering (by title)
+        self.assertSequenceEqual(context["page_obj"].object_list, [doc2, doc1])
+
+        soup = self.get_soup(response.content)
+        ths = soup.select("main table th")
+        self.assertTrue(ths)
+        usage_count_th = ths[-1]
+        self.assertEqual(usage_count_th.text.strip(), "Usage")
+        self.assertIsNone(usage_count_th.select_one("a"))
+
 
 class TestDocumentIndexResultsView(WagtailTestUtils, TransactionTestCase):
     def setUp(self):
@@ -468,6 +590,25 @@ class TestDocumentAddView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
             ],
             response.content,
         )
+
+        soup = self.get_soup(response.content)
+        form = soup.select_one("main form")
+        self.assertIsNotNone(form)
+        title_input = form.select_one('input[type="text"][name="title"]')
+        self.assertIsNotNone(title_input)
+        self.assertEqual(title_input.get("id"), "id_title")
+        file_input = form.select_one('input[type="file"][name="file"]')
+        self.assertIsNotNone(file_input)
+        expected_attributes = {
+            "data-controller": "w-sync",
+            "data-action": "input->w-sync#apply",
+            "data-w-sync-bubbles-param": "true",
+            "data-w-sync-name-value": "wagtail:documents-upload",
+            "data-w-sync-normalize-value": "true",
+            "data-w-sync-target-value": "#id_title",
+        }
+        for attr, expected_value in expected_attributes.items():
+            self.assertEqual(file_input.get(attr), expected_value)
 
     def test_get_with_collections(self):
         root_collection = Collection.get_first_root_node()
@@ -1791,6 +1932,29 @@ class TestDocumentChooserView(WagtailTestUtils, TestCase):
         # draftail should NOT be a standard JS include on this page
         self.assertNotIn("wagtailadmin/js/draftail.js", response_json["html"])
 
+        soup = self.get_soup(response_json["html"])
+        form = soup.select_one("form[data-chooser-modal-creation-form]")
+        self.assertIsNotNone(form)
+        title_input = form.select_one(
+            'input[type="text"][name="document-chooser-upload-title"]'
+        )
+        self.assertIsNotNone(title_input)
+        self.assertEqual(title_input.get("id"), "id_document-chooser-upload-title")
+        file_input = form.select_one(
+            'input[type="file"][name="document-chooser-upload-file"]'
+        )
+        self.assertIsNotNone(file_input)
+        expected_attributes = {
+            "data-controller": "w-sync",
+            "data-action": "input->w-sync#apply",
+            "data-w-sync-bubbles-param": "true",
+            "data-w-sync-name-value": "wagtail:documents-upload",
+            "data-w-sync-normalize-value": "true",
+            "data-w-sync-target-value": "#id_document-chooser-upload-title",
+        }
+        for attr, expected_value in expected_attributes.items():
+            self.assertEqual(file_input.get(attr), expected_value)
+
     def test_simple_with_collection_nesting(self):
         root_collection = Collection.get_first_root_node()
         evil_plans = root_collection.add_child(name="Evil plans")
@@ -2117,32 +2281,6 @@ class TestUsageCount(WagtailTestUtils, TestCase):
     def test_usage_count_zero_appears(self):
         response = self.client.get(reverse("wagtaildocs:edit", args=(1,)))
         self.assertContains(response, "Used 0 times")
-
-    def test_usage_count_column_with_document_usage(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            doc = models.Document.objects.get(id=1)
-            page = EventPage.objects.get(id=4)
-            event_page_related_link = EventPageRelatedLink()
-            event_page_related_link.page = page
-            event_page_related_link.link_document = doc
-            event_page_related_link.save()
-
-        response = self.client.get(reverse("wagtaildocs:index"), {"layout": "list"})
-        self.assertEqual(response.status_code, 200)
-
-        self.assertContains(response, "Used 1 time")
-
-        expected_url = "/admin/documents/usage/1/"
-        self.assertContains(response, expected_url)
-
-    def test_usage_count_column_no_document_usage(self):
-        response = self.client.get(reverse("wagtaildocs:index"), {"layout": "list"})
-        self.assertEqual(response.status_code, 200)
-
-        self.assertContains(response, "Used 0 times")
-
-        expected_url = "/admin/documents/usage/1/"
-        self.assertContains(response, expected_url)
 
 
 class TestGetUsage(AdminTemplateTestUtils, WagtailTestUtils, TestCase):

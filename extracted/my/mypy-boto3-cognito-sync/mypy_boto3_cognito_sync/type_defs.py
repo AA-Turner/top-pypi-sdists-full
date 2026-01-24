@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import BulkPublishStatusType, OperationType, PlatformType, StreamingStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -88,7 +83,7 @@ class BulkPublishRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -158,7 +153,7 @@ class GetIdentityPoolConfigurationRequestTypeDef(TypedDict):
 
 
 class PushSyncOutputTypeDef(TypedDict):
-    ApplicationArns: NotRequired[List[str]]
+    ApplicationArns: NotRequired[list[str]]
     RoleArn: NotRequired[str]
 
 
@@ -246,7 +241,7 @@ class GetBulkPublishDetailsResponseTypeDef(TypedDict):
 
 
 class GetCognitoEventsResponseTypeDef(TypedDict):
-    Events: Dict[str, str]
+    Events: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -266,7 +261,7 @@ class DescribeDatasetResponseTypeDef(TypedDict):
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    Datasets: List[DatasetTypeDef]
+    Datasets: list[DatasetTypeDef]
     Count: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -278,7 +273,7 @@ class DescribeIdentityPoolUsageResponseTypeDef(TypedDict):
 
 
 class ListIdentityPoolUsageResponseTypeDef(TypedDict):
-    IdentityPoolUsages: List[IdentityPoolUsageTypeDef]
+    IdentityPoolUsages: list[IdentityPoolUsageTypeDef]
     MaxResults: int
     Count: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -305,11 +300,11 @@ class SetIdentityPoolConfigurationResponseTypeDef(TypedDict):
 
 
 class ListRecordsResponseTypeDef(TypedDict):
-    Records: List[RecordTypeDef]
+    Records: list[RecordTypeDef]
     Count: int
     DatasetSyncCount: int
     LastModifiedBy: str
-    MergedDatasetNames: List[str]
+    MergedDatasetNames: list[str]
     DatasetExists: bool
     DatasetDeletedAfterRequestedSyncCount: bool
     SyncSessionToken: str
@@ -318,7 +313,7 @@ class ListRecordsResponseTypeDef(TypedDict):
 
 
 class UpdateRecordsResponseTypeDef(TypedDict):
-    Records: List[RecordTypeDef]
+    Records: list[RecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

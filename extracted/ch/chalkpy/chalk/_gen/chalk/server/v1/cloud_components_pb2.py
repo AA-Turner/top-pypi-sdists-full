@@ -15,11 +15,13 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.server.v1 import environment_pb2 as chalk_dot_server_dot_v1_dot_environment__pb2
+from chalk._gen.chalk.server.v1 import team_pb2 as chalk_dot_server_dot_v1_dot_team__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/server/v1/cloud_components.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"`\n\x11\x43loudComponentVpc\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x37\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.CloudVpcConfigR\x06\x63onfig"\xf0\x03\n\x19\x43loudComponentVpcResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12\x36\n\x04spec\x18\x05 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_id"\xcd\x01\n\x18\x43loudComponentVpcRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x42\x16\n\x14_cloud_credential_id"]\n\x1e\x43reateCloudComponentVpcRequest\x12;\n\x03vpc\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudComponentVpcRequestR\x03vpc"_\n\x1f\x43reateCloudComponentVpcResponse\x12<\n\x03vpc\x18\x01 \x01(\x0b\x32*.chalk.server.v1.CloudComponentVpcResponseR\x03vpc"-\n\x1bGetCloudComponentVpcRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\\\n\x1cGetCloudComponentVpcResponse\x12<\n\x03vpc\x18\x01 \x01(\x0b\x32*.chalk.server.v1.CloudComponentVpcResponseR\x03vpc"0\n\x1e\x44\x65leteCloudComponentVpcRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"!\n\x1f\x44\x65leteCloudComponentVpcResponse"\x80\x01\n\x0e\x43loudVpcConfig\x12\x31\n\x03\x61ws\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.AWSVpcConfigH\x00R\x03\x61ws\x12\x31\n\x03gcp\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.GCPVpcConfigH\x00R\x03gcpB\x08\n\x06\x63onfig"\x8b\x03\n\x0c\x41WSVpcConfig\x12\x1d\n\ncidr_block\x18\x01 \x01(\tR\tcidrBlock\x12\x34\n\x16\x61\x64\x64itional_cidr_blocks\x18\x02 \x03(\tR\x14\x61\x64\x64itionalCidrBlocks\x12:\n\x07subnets\x18\x03 \x03(\x0b\x32 .chalk.server.v1.AwsSubnetConfigR\x07subnets\x12V\n\x18\x61\x64\x64itional_public_routes\x18\x04 \x03(\x0b\x32\x1c.chalk.server.v1.AWSVpcRouteR\x16\x61\x64\x64itionalPublicRoutes\x12X\n\x19\x61\x64\x64itional_private_routes\x18\x05 \x03(\x0b\x32\x1c.chalk.server.v1.AWSVpcRouteR\x17\x61\x64\x64itionalPrivateRoutes\x12\x38\n\x18\x64isable_internet_gateway\x18\x06 \x01(\x08R\x16\x64isableInternetGateway"p\n\x0b\x41WSVpcRoute\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x34\n\x16\x64\x65stination_cidr_block\x18\x02 \x01(\tR\x14\x64\x65stinationCidrBlock\x12\x17\n\x07peer_id\x18\x03 \x01(\tR\x06peerId"\xac\x01\n\x0f\x41wsSubnetConfig\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12,\n\x12private_cidr_block\x18\x02 \x01(\tR\x10privateCidrBlock\x12*\n\x11public_cidr_block\x18\x03 \x01(\tR\x0fpublicCidrBlock\x12+\n\x11\x61vailability_zone\x18\x04 \x01(\tR\x10\x61vailabilityZone"\x0e\n\x0cGCPVpcConfig"\xa4\x02\n\x15\x43loudComponentStorage\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1e\n\ndesignator\x18\x02 \x01(\tR\ndesignator\x12\x31\n\x12plan_stages_bucket\x18\x03 \x01(\tH\x00R\x10planStagesBucket\x88\x01\x01\x12\x35\n\x14source_upload_bucket\x18\x04 \x01(\tH\x01R\x12sourceUploadBucket\x88\x01\x01\x12*\n\x0e\x64\x61taset_bucket\x18\x05 \x01(\tH\x02R\rdatasetBucket\x88\x01\x01\x42\x15\n\x13_plan_stages_bucketB\x17\n\x15_source_upload_bucketB\x11\n\x0f_dataset_bucket"\xf8\x03\n\x1d\x43loudComponentStorageResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.server.v1.CloudComponentStorageR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_id"\xd5\x01\n\x1c\x43loudComponentStorageRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12:\n\x04spec\x18\x02 \x01(\x0b\x32&.chalk.server.v1.CloudComponentStorageR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x42\x16\n\x14_cloud_credential_id"\x8e\x01\n\x15\x43loudComponentCluster\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12#\n\ndesignator\x18\x02 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12-\n\x12kubernetes_version\x18\x03 \x01(\tR\x11kubernetesVersionB\r\n\x0b_designator"\x9f\x04\n\x1d\x43loudComponentClusterResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.server.v1.CloudComponentClusterR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x1a\n\x06vpc_id\x18\t \x01(\tH\x02R\x05vpcId\x88\x01\x01\x12\x39\n\ncreated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_idB\t\n\x07_vpc_id"\xfc\x01\n\x1c\x43loudComponentClusterRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12:\n\x04spec\x18\x02 \x01(\x0b\x32&.chalk.server.v1.CloudComponentClusterR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x12\x1a\n\x06vpc_id\x18\x05 \x01(\tH\x01R\x05vpcId\x88\x01\x01\x42\x16\n\x14_cloud_credential_idB\t\n\x07_vpc_id"m\n"CreateCloudComponentClusterRequest\x12G\n\x07\x63luster\x18\x01 \x01(\x0b\x32-.chalk.server.v1.CloudComponentClusterRequestR\x07\x63luster"o\n#CreateCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"}\n"UpdateCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12G\n\x07\x63luster\x18\x02 \x01(\x0b\x32-.chalk.server.v1.CloudComponentClusterRequestR\x07\x63luster"o\n#UpdateCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"1\n\x1fGetCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n GetCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"4\n"DeleteCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteCloudComponentClusterResponse"m\n"CreateCloudComponentStorageRequest\x12G\n\x07storage\x18\x01 \x01(\x0b\x32-.chalk.server.v1.CloudComponentStorageRequestR\x07storage"o\n#CreateCloudComponentStorageResponse\x12H\n\x07storage\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentStorageResponseR\x07storage"1\n\x1fGetCloudComponentStorageRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n GetCloudComponentStorageResponse\x12H\n\x07storage\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentStorageResponseR\x07storage"4\n"DeleteCloudComponentStorageRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteCloudComponentStorageResponse"q\n"CreateBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12,\n\x12\x63luster_gateway_id\x18\x02 \x01(\tR\x10\x63lusterGatewayId"%\n#CreateBindingClusterGatewayResponse"C\n"DeleteBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"%\n#DeleteBindingClusterGatewayResponse"@\n\x1fGetBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"o\n GetBindingClusterGatewayResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12,\n\x12\x63luster_gateway_id\x18\x02 \x01(\tR\x10\x63lusterGatewayId"\xac\x01\n:CreateBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12O\n$background_persistence_deployment_id\x18\x02 \x01(\tR!backgroundPersistenceDeploymentId"=\n;CreateBindingClusterBackgroundPersistenceDeploymentResponse"[\n:DeleteBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"=\n;DeleteBindingClusterBackgroundPersistenceDeploymentResponse"X\n7GetBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"\xaa\x01\n8GetBindingClusterBackgroundPersistenceDeploymentResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12O\n$background_persistence_deployment_id\x18\x02 \x01(\tR!backgroundPersistenceDeploymentId"\x87\x01\n.CreateBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x36\n\x17telemetry_deployment_id\x18\x02 \x01(\tR\x15telemetryDeploymentId"1\n/CreateBindingClusterTelemetryDeploymentResponse"O\n.DeleteBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"1\n/DeleteBindingClusterTelemetryDeploymentResponse"L\n+GetBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"\x85\x01\n,GetBindingClusterTelemetryDeploymentResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x36\n\x17telemetry_deployment_id\x18\x02 \x01(\tR\x15telemetryDeploymentId2\xcb\x1c\n\x16\x43loudComponentsService\x12\xa4\x01\n\x17\x43reateCloudComponentVpc\x12/.chalk.server.v1.CreateCloudComponentVpcRequest\x1a\x30.chalk.server.v1.CreateCloudComponentVpcResponse"&\x80}\n\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x43reated cloud component VPC\x12{\n\x14GetCloudComponentVpc\x12,.chalk.server.v1.GetCloudComponentVpcRequest\x1a-.chalk.server.v1.GetCloudComponentVpcResponse"\x06\x90\x02\x01\x80}\x02\x12\xa4\x01\n\x17\x44\x65leteCloudComponentVpc\x12/.chalk.server.v1.DeleteCloudComponentVpcRequest\x1a\x30.chalk.server.v1.DeleteCloudComponentVpcResponse"&\x80}\x1a\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x44\x65leted cloud component VPC\x12\xb4\x01\n\x1b\x43reateCloudComponentCluster\x12\x33.chalk.server.v1.CreateCloudComponentClusterRequest\x1a\x34.chalk.server.v1.CreateCloudComponentClusterResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x43reated cloud component cluster\x12\xb3\x01\n\x1bUpdateCloudComponentCluster\x12\x33.chalk.server.v1.UpdateCloudComponentClusterRequest\x1a\x34.chalk.server.v1.UpdateCloudComponentClusterResponse")\x80}\x1a\x8a\xd3\x0e"\x08\x02\x12\x1eUpdate cloud component cluster\x12\x87\x01\n\x18GetCloudComponentCluster\x12\x30.chalk.server.v1.GetCloudComponentClusterRequest\x1a\x31.chalk.server.v1.GetCloudComponentClusterResponse"\x06\x90\x02\x01\x80}\x02\x12\xb4\x01\n\x1b\x44\x65leteCloudComponentCluster\x12\x33.chalk.server.v1.DeleteCloudComponentClusterRequest\x1a\x34.chalk.server.v1.DeleteCloudComponentClusterResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x44\x65leted cloud component cluster\x12\xb4\x01\n\x1b\x43reateCloudComponentStorage\x12\x33.chalk.server.v1.CreateCloudComponentStorageRequest\x1a\x34.chalk.server.v1.CreateCloudComponentStorageResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x43reated cloud component storage\x12\x87\x01\n\x18GetCloudComponentStorage\x12\x30.chalk.server.v1.GetCloudComponentStorageRequest\x1a\x31.chalk.server.v1.GetCloudComponentStorageResponse"\x06\x90\x02\x01\x80}\x02\x12\xb4\x01\n\x1b\x44\x65leteCloudComponentStorage\x12\x33.chalk.server.v1.DeleteCloudComponentStorageRequest\x1a\x34.chalk.server.v1.DeleteCloudComponentStorageResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x44\x65leted cloud component storage\x12\xc0\x01\n\x1b\x43reateBindingClusterGateway\x12\x33.chalk.server.v1.CreateBindingClusterGatewayRequest\x1a\x34.chalk.server.v1.CreateBindingClusterGatewayResponse"6\x80}\x1a\x8a\xd3\x0e/\x08\x02\x12+Created binding between cluster and gateway\x12\x87\x01\n\x18GetBindingClusterGateway\x12\x30.chalk.server.v1.GetBindingClusterGatewayRequest\x1a\x31.chalk.server.v1.GetBindingClusterGatewayResponse"\x06\x90\x02\x01\x80}\x02\x12\xc0\x01\n\x1b\x44\x65leteBindingClusterGateway\x12\x33.chalk.server.v1.DeleteBindingClusterGatewayRequest\x1a\x34.chalk.server.v1.DeleteBindingClusterGatewayResponse"6\x80}\x1a\x8a\xd3\x0e/\x08\x02\x12+Deleted binding between cluster and gateway\x12\xa2\x02\n3CreateBindingClusterBackgroundPersistenceDeployment\x12K.chalk.server.v1.CreateBindingClusterBackgroundPersistenceDeploymentRequest\x1aL.chalk.server.v1.CreateBindingClusterBackgroundPersistenceDeploymentResponse"P\x80}\x1a\x8a\xd3\x0eI\x08\x02\x12\x45\x43reated binding between cluster and background persistence deployment\x12\xcf\x01\n0GetBindingClusterBackgroundPersistenceDeployment\x12H.chalk.server.v1.GetBindingClusterBackgroundPersistenceDeploymentRequest\x1aI.chalk.server.v1.GetBindingClusterBackgroundPersistenceDeploymentResponse"\x06\x90\x02\x01\x80}\x02\x12\xa2\x02\n3DeleteBindingClusterBackgroundPersistenceDeployment\x12K.chalk.server.v1.DeleteBindingClusterBackgroundPersistenceDeploymentRequest\x1aL.chalk.server.v1.DeleteBindingClusterBackgroundPersistenceDeploymentResponse"P\x80}\x1a\x8a\xd3\x0eI\x08\x02\x12\x45\x44\x65leted binding between cluster and background persistence deployment\x12\xf1\x01\n\'CreateBindingClusterTelemetryDeployment\x12?.chalk.server.v1.CreateBindingClusterTelemetryDeploymentRequest\x1a@.chalk.server.v1.CreateBindingClusterTelemetryDeploymentResponse"C\x80}\x1a\x8a\xd3\x0e<\x08\x02\x12\x38\x43reated binding between cluster and telemetry deployment\x12\xab\x01\n$GetBindingClusterTelemetryDeployment\x12<.chalk.server.v1.GetBindingClusterTelemetryDeploymentRequest\x1a=.chalk.server.v1.GetBindingClusterTelemetryDeploymentResponse"\x06\x90\x02\x01\x80}\x02\x12\xf1\x01\n\'DeleteBindingClusterTelemetryDeployment\x12?.chalk.server.v1.DeleteBindingClusterTelemetryDeploymentRequest\x1a@.chalk.server.v1.DeleteBindingClusterTelemetryDeploymentResponse"C\x80}\x1a\x8a\xd3\x0e<\x08\x02\x12\x38\x44\x65leted binding between cluster and telemetry deploymentB\x9d\x01\n\x13\x63om.chalk.server.v1B\x14\x43loudComponentsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n&chalk/server/v1/cloud_components.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/server/v1/environment.proto\x1a\x1a\x63halk/server/v1/team.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x94\x01\n\x11\x43loudComponentVpc\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x37\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.CloudVpcConfigR\x06\x63onfig\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x42\r\n\x0b_designator"\xf0\x03\n\x19\x43loudComponentVpcResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12\x36\n\x04spec\x18\x05 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_id"\xcd\x01\n\x18\x43loudComponentVpcRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12\x36\n\x04spec\x18\x02 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x42\x16\n\x14_cloud_credential_id"]\n\x1e\x43reateCloudComponentVpcRequest\x12;\n\x03vpc\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudComponentVpcRequestR\x03vpc"_\n\x1f\x43reateCloudComponentVpcResponse\x12<\n\x03vpc\x18\x01 \x01(\x0b\x32*.chalk.server.v1.CloudComponentVpcResponseR\x03vpc"-\n\x1bGetCloudComponentVpcRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\\\n\x1cGetCloudComponentVpcResponse\x12<\n\x03vpc\x18\x01 \x01(\x0b\x32*.chalk.server.v1.CloudComponentVpcResponseR\x03vpc"0\n\x1e\x44\x65leteCloudComponentVpcRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"!\n\x1f\x44\x65leteCloudComponentVpcResponse"7\n\x1cListCloudComponentVpcRequest\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId"_\n\x1dListCloudComponentVpcResponse\x12>\n\x04vpcs\x18\x01 \x03(\x0b\x32*.chalk.server.v1.CloudComponentVpcResponseR\x04vpcs"\x80\x01\n\x0e\x43loudVpcConfig\x12\x31\n\x03\x61ws\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.AWSVpcConfigH\x00R\x03\x61ws\x12\x31\n\x03gcp\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.GCPVpcConfigH\x00R\x03gcpB\x08\n\x06\x63onfig"\x8b\x03\n\x0c\x41WSVpcConfig\x12\x1d\n\ncidr_block\x18\x01 \x01(\tR\tcidrBlock\x12\x34\n\x16\x61\x64\x64itional_cidr_blocks\x18\x02 \x03(\tR\x14\x61\x64\x64itionalCidrBlocks\x12:\n\x07subnets\x18\x03 \x03(\x0b\x32 .chalk.server.v1.AwsSubnetConfigR\x07subnets\x12V\n\x18\x61\x64\x64itional_public_routes\x18\x04 \x03(\x0b\x32\x1c.chalk.server.v1.AWSVpcRouteR\x16\x61\x64\x64itionalPublicRoutes\x12X\n\x19\x61\x64\x64itional_private_routes\x18\x05 \x03(\x0b\x32\x1c.chalk.server.v1.AWSVpcRouteR\x17\x61\x64\x64itionalPrivateRoutes\x12\x38\n\x18\x64isable_internet_gateway\x18\x06 \x01(\x08R\x16\x64isableInternetGateway"p\n\x0b\x41WSVpcRoute\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x34\n\x16\x64\x65stination_cidr_block\x18\x02 \x01(\tR\x14\x64\x65stinationCidrBlock\x12\x17\n\x07peer_id\x18\x03 \x01(\tR\x06peerId"\xac\x01\n\x0f\x41wsSubnetConfig\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12,\n\x12private_cidr_block\x18\x02 \x01(\tR\x10privateCidrBlock\x12*\n\x11public_cidr_block\x18\x03 \x01(\tR\x0fpublicCidrBlock\x12+\n\x11\x61vailability_zone\x18\x04 \x01(\tR\x10\x61vailabilityZone"\x0e\n\x0cGCPVpcConfig"\xa4\x02\n\x15\x43loudComponentStorage\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1e\n\ndesignator\x18\x02 \x01(\tR\ndesignator\x12\x31\n\x12plan_stages_bucket\x18\x03 \x01(\tH\x00R\x10planStagesBucket\x88\x01\x01\x12\x35\n\x14source_upload_bucket\x18\x04 \x01(\tH\x01R\x12sourceUploadBucket\x88\x01\x01\x12*\n\x0e\x64\x61taset_bucket\x18\x05 \x01(\tH\x02R\rdatasetBucket\x88\x01\x01\x42\x15\n\x13_plan_stages_bucketB\x17\n\x15_source_upload_bucketB\x11\n\x0f_dataset_bucket"\xf8\x03\n\x1d\x43loudComponentStorageResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.server.v1.CloudComponentStorageR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_id"\xd5\x01\n\x1c\x43loudComponentStorageRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12:\n\x04spec\x18\x02 \x01(\x0b\x32&.chalk.server.v1.CloudComponentStorageR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x42\x16\n\x14_cloud_credential_id"\xbb\x01\n\x15\x43loudComponentCluster\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12#\n\ndesignator\x18\x02 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12-\n\x12kubernetes_version\x18\x03 \x01(\tR\x11kubernetesVersion\x12\x1e\n\x08\x64ns_zone\x18\x04 \x01(\tH\x01R\x07\x64nsZone\x88\x01\x01\x42\r\n\x0b_designatorB\x0b\n\t_dns_zone"\xd7\x03\n\x12\x44\x65ploymentManifest\x12[\n\x12\x63luster_deployment\x18\x01 \x01(\x0b\x32*.chalk.server.v1.ClusterDeploymentManifestH\x00R\x11\x63lusterDeployment\x12O\n\x0evpc_deployment\x18\x02 \x01(\x0b\x32&.chalk.server.v1.VpcDeploymentManifestH\x00R\rvpcDeployment\x12\x43\n\x06\x63reate\x18\x03 \x01(\x0b\x32).chalk.server.v1.DeploymentManifestCreateH\x01R\x06\x63reate\x12\x43\n\x06\x64\x65lete\x18\x04 \x01(\x0b\x32).chalk.server.v1.DeploymentManifestDeleteH\x01R\x06\x64\x65lete\x12\x43\n\x06update\x18\x05 \x01(\x0b\x32).chalk.server.v1.DeploymentManifestUpdateH\x01R\x06update\x12 \n\tevent_bus\x18\x06 \x01(\tH\x02R\x08\x65ventBus\x88\x01\x01\x42\n\n\x08manifestB\x08\n\x06\x61\x63tionB\x0c\n\n_event_bus"\x1a\n\x18\x44\x65ploymentManifestCreate"\x1a\n\x18\x44\x65ploymentManifestDelete"\x1a\n\x18\x44\x65ploymentManifestUpdate"\xff\x01\n\x19\x43lusterDeploymentManifest\x12@\n\x07\x63luster\x18\x01 \x01(\x0b\x32&.chalk.server.v1.CloudComponentClusterR\x07\x63luster\x12?\n\x0c\x63loud_config\x18\x02 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x0b\x63loudConfig\x12)\n\x04team\x18\x03 \x01(\x0b\x32\x15.chalk.server.v1.TeamR\x04team\x12\x34\n\x03vpc\x18\x04 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x03vpc"\xb9\x01\n\x15VpcDeploymentManifest\x12\x34\n\x03vpc\x18\x01 \x01(\x0b\x32".chalk.server.v1.CloudComponentVpcR\x03vpc\x12?\n\x0c\x63loud_config\x18\x02 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x0b\x63loudConfig\x12)\n\x04team\x18\x03 \x01(\x0b\x32\x15.chalk.server.v1.TeamR\x04team"\x9f\x04\n\x1d\x43loudComponentClusterResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n\x02id\x18\x02 \x01(\tR\x02id\x12#\n\ndesignator\x18\x03 \x01(\tH\x00R\ndesignator\x88\x01\x01\x12\x17\n\x07team_id\x18\x04 \x01(\tR\x06teamId\x12:\n\x04spec\x18\x05 \x01(\x0b\x32&.chalk.server.v1.CloudComponentClusterR\x04spec\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x18\n\x07managed\x18\x07 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x08 \x01(\tH\x01R\x11\x63loudCredentialId\x88\x01\x01\x12\x1a\n\x06vpc_id\x18\t \x01(\tH\x02R\x05vpcId\x88\x01\x01\x12\x39\n\ncreated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x39\n\napplied_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tappliedAtB\r\n\x0b_designatorB\x16\n\x14_cloud_credential_idB\t\n\x07_vpc_id"\xfc\x01\n\x1c\x43loudComponentClusterRequest\x12\x12\n\x04kind\x18\x01 \x01(\tR\x04kind\x12:\n\x04spec\x18\x02 \x01(\x0b\x32&.chalk.server.v1.CloudComponentClusterR\x04spec\x12\x18\n\x07managed\x18\x03 \x01(\x08R\x07managed\x12\x33\n\x13\x63loud_credential_id\x18\x04 \x01(\tH\x00R\x11\x63loudCredentialId\x88\x01\x01\x12\x1a\n\x06vpc_id\x18\x05 \x01(\tH\x01R\x05vpcId\x88\x01\x01\x42\x16\n\x14_cloud_credential_idB\t\n\x07_vpc_id"m\n"CreateCloudComponentClusterRequest\x12G\n\x07\x63luster\x18\x01 \x01(\x0b\x32-.chalk.server.v1.CloudComponentClusterRequestR\x07\x63luster"o\n#CreateCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"}\n"UpdateCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12G\n\x07\x63luster\x18\x02 \x01(\x0b\x32-.chalk.server.v1.CloudComponentClusterRequestR\x07\x63luster"o\n#UpdateCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"1\n\x1fGetCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n GetCloudComponentClusterResponse\x12H\n\x07\x63luster\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x07\x63luster"4\n"DeleteCloudComponentClusterRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteCloudComponentClusterResponse"\x84\x01\n\x1cTestClusterConnectionRequest\x12\x10\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x12G\n\x06\x63onfig\x18\x02 \x01(\x0b\x32-.chalk.server.v1.CloudComponentClusterRequestH\x00R\x06\x63onfigB\t\n\x07\x63luster"i\n\x1dTestClusterConnectionResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rror";\n ListCloudComponentClusterRequest\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId"o\n!ListCloudComponentClusterResponse\x12J\n\x08\x63lusters\x18\x01 \x03(\x0b\x32..chalk.server.v1.CloudComponentClusterResponseR\x08\x63lusters"m\n"CreateCloudComponentStorageRequest\x12G\n\x07storage\x18\x01 \x01(\x0b\x32-.chalk.server.v1.CloudComponentStorageRequestR\x07storage"o\n#CreateCloudComponentStorageResponse\x12H\n\x07storage\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentStorageResponseR\x07storage"1\n\x1fGetCloudComponentStorageRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n GetCloudComponentStorageResponse\x12H\n\x07storage\x18\x01 \x01(\x0b\x32..chalk.server.v1.CloudComponentStorageResponseR\x07storage"4\n"DeleteCloudComponentStorageRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteCloudComponentStorageResponse";\n ListCloudComponentStorageRequest\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId"o\n!ListCloudComponentStorageResponse\x12J\n\x08storages\x18\x01 \x03(\x0b\x32..chalk.server.v1.CloudComponentStorageResponseR\x08storages"q\n"CreateBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12,\n\x12\x63luster_gateway_id\x18\x02 \x01(\tR\x10\x63lusterGatewayId"%\n#CreateBindingClusterGatewayResponse"C\n"DeleteBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"%\n#DeleteBindingClusterGatewayResponse"@\n\x1fGetBindingClusterGatewayRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"o\n GetBindingClusterGatewayResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12,\n\x12\x63luster_gateway_id\x18\x02 \x01(\tR\x10\x63lusterGatewayId"\xac\x01\n:CreateBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12O\n$background_persistence_deployment_id\x18\x02 \x01(\tR!backgroundPersistenceDeploymentId"=\n;CreateBindingClusterBackgroundPersistenceDeploymentResponse"[\n:DeleteBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"=\n;DeleteBindingClusterBackgroundPersistenceDeploymentResponse"X\n7GetBindingClusterBackgroundPersistenceDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"\xaa\x01\n8GetBindingClusterBackgroundPersistenceDeploymentResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12O\n$background_persistence_deployment_id\x18\x02 \x01(\tR!backgroundPersistenceDeploymentId"\x87\x01\n.CreateBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x36\n\x17telemetry_deployment_id\x18\x02 \x01(\tR\x15telemetryDeploymentId"1\n/CreateBindingClusterTelemetryDeploymentResponse"O\n.DeleteBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"1\n/DeleteBindingClusterTelemetryDeploymentResponse"L\n+GetBindingClusterTelemetryDeploymentRequest\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId"\x85\x01\n,GetBindingClusterTelemetryDeploymentResponse\x12\x1d\n\ncluster_id\x18\x01 \x01(\tR\tclusterId\x12\x36\n\x17telemetry_deployment_id\x18\x02 \x01(\tR\x15telemetryDeploymentId2\xe5 \n\x16\x43loudComponentsService\x12\xa4\x01\n\x17\x43reateCloudComponentVpc\x12/.chalk.server.v1.CreateCloudComponentVpcRequest\x1a\x30.chalk.server.v1.CreateCloudComponentVpcResponse"&\x80}\n\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x43reated cloud component VPC\x12{\n\x14GetCloudComponentVpc\x12,.chalk.server.v1.GetCloudComponentVpcRequest\x1a-.chalk.server.v1.GetCloudComponentVpcResponse"\x06\x90\x02\x01\x80}\x02\x12~\n\x15ListCloudComponentVpc\x12-.chalk.server.v1.ListCloudComponentVpcRequest\x1a..chalk.server.v1.ListCloudComponentVpcResponse"\x06\x90\x02\x01\x80}\x02\x12\xa4\x01\n\x17\x44\x65leteCloudComponentVpc\x12/.chalk.server.v1.DeleteCloudComponentVpcRequest\x1a\x30.chalk.server.v1.DeleteCloudComponentVpcResponse"&\x80}\x1a\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x44\x65leted cloud component VPC\x12\xb4\x01\n\x1b\x43reateCloudComponentCluster\x12\x33.chalk.server.v1.CreateCloudComponentClusterRequest\x1a\x34.chalk.server.v1.CreateCloudComponentClusterResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x43reated cloud component cluster\x12\xb3\x01\n\x1bUpdateCloudComponentCluster\x12\x33.chalk.server.v1.UpdateCloudComponentClusterRequest\x1a\x34.chalk.server.v1.UpdateCloudComponentClusterResponse")\x80}\x1a\x8a\xd3\x0e"\x08\x02\x12\x1eUpdate cloud component cluster\x12\x87\x01\n\x18GetCloudComponentCluster\x12\x30.chalk.server.v1.GetCloudComponentClusterRequest\x1a\x31.chalk.server.v1.GetCloudComponentClusterResponse"\x06\x90\x02\x01\x80}\x02\x12\x8a\x01\n\x19ListCloudComponentCluster\x12\x31.chalk.server.v1.ListCloudComponentClusterRequest\x1a\x32.chalk.server.v1.ListCloudComponentClusterResponse"\x06\x90\x02\x01\x80}\x02\x12\xb4\x01\n\x1b\x44\x65leteCloudComponentCluster\x12\x33.chalk.server.v1.DeleteCloudComponentClusterRequest\x1a\x34.chalk.server.v1.DeleteCloudComponentClusterResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x44\x65leted cloud component cluster\x12~\n\x15TestClusterConnection\x12-.chalk.server.v1.TestClusterConnectionRequest\x1a..chalk.server.v1.TestClusterConnectionResponse"\x06\x90\x02\x01\x80}\x02\x12\xb4\x01\n\x1b\x43reateCloudComponentStorage\x12\x33.chalk.server.v1.CreateCloudComponentStorageRequest\x1a\x34.chalk.server.v1.CreateCloudComponentStorageResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x43reated cloud component storage\x12\x87\x01\n\x18GetCloudComponentStorage\x12\x30.chalk.server.v1.GetCloudComponentStorageRequest\x1a\x31.chalk.server.v1.GetCloudComponentStorageResponse"\x06\x90\x02\x01\x80}\x02\x12\x8a\x01\n\x19ListCloudComponentStorage\x12\x31.chalk.server.v1.ListCloudComponentStorageRequest\x1a\x32.chalk.server.v1.ListCloudComponentStorageResponse"\x06\x90\x02\x01\x80}\x02\x12\xb4\x01\n\x1b\x44\x65leteCloudComponentStorage\x12\x33.chalk.server.v1.DeleteCloudComponentStorageRequest\x1a\x34.chalk.server.v1.DeleteCloudComponentStorageResponse"*\x80}\x1a\x8a\xd3\x0e#\x08\x02\x12\x1f\x44\x65leted cloud component storage\x12\xc0\x01\n\x1b\x43reateBindingClusterGateway\x12\x33.chalk.server.v1.CreateBindingClusterGatewayRequest\x1a\x34.chalk.server.v1.CreateBindingClusterGatewayResponse"6\x80}\x1a\x8a\xd3\x0e/\x08\x02\x12+Created binding between cluster and gateway\x12\x87\x01\n\x18GetBindingClusterGateway\x12\x30.chalk.server.v1.GetBindingClusterGatewayRequest\x1a\x31.chalk.server.v1.GetBindingClusterGatewayResponse"\x06\x90\x02\x01\x80}\x02\x12\xc0\x01\n\x1b\x44\x65leteBindingClusterGateway\x12\x33.chalk.server.v1.DeleteBindingClusterGatewayRequest\x1a\x34.chalk.server.v1.DeleteBindingClusterGatewayResponse"6\x80}\x1a\x8a\xd3\x0e/\x08\x02\x12+Deleted binding between cluster and gateway\x12\xa2\x02\n3CreateBindingClusterBackgroundPersistenceDeployment\x12K.chalk.server.v1.CreateBindingClusterBackgroundPersistenceDeploymentRequest\x1aL.chalk.server.v1.CreateBindingClusterBackgroundPersistenceDeploymentResponse"P\x80}\x1a\x8a\xd3\x0eI\x08\x02\x12\x45\x43reated binding between cluster and background persistence deployment\x12\xcf\x01\n0GetBindingClusterBackgroundPersistenceDeployment\x12H.chalk.server.v1.GetBindingClusterBackgroundPersistenceDeploymentRequest\x1aI.chalk.server.v1.GetBindingClusterBackgroundPersistenceDeploymentResponse"\x06\x90\x02\x01\x80}\x02\x12\xa2\x02\n3DeleteBindingClusterBackgroundPersistenceDeployment\x12K.chalk.server.v1.DeleteBindingClusterBackgroundPersistenceDeploymentRequest\x1aL.chalk.server.v1.DeleteBindingClusterBackgroundPersistenceDeploymentResponse"P\x80}\x1a\x8a\xd3\x0eI\x08\x02\x12\x45\x44\x65leted binding between cluster and background persistence deployment\x12\xf1\x01\n\'CreateBindingClusterTelemetryDeployment\x12?.chalk.server.v1.CreateBindingClusterTelemetryDeploymentRequest\x1a@.chalk.server.v1.CreateBindingClusterTelemetryDeploymentResponse"C\x80}\x1a\x8a\xd3\x0e<\x08\x02\x12\x38\x43reated binding between cluster and telemetry deployment\x12\xab\x01\n$GetBindingClusterTelemetryDeployment\x12<.chalk.server.v1.GetBindingClusterTelemetryDeploymentRequest\x1a=.chalk.server.v1.GetBindingClusterTelemetryDeploymentResponse"\x06\x90\x02\x01\x80}\x02\x12\xf1\x01\n\'DeleteBindingClusterTelemetryDeployment\x12?.chalk.server.v1.DeleteBindingClusterTelemetryDeploymentRequest\x1a@.chalk.server.v1.DeleteBindingClusterTelemetryDeploymentResponse"C\x80}\x1a\x8a\xd3\x0e<\x08\x02\x12\x38\x44\x65leted binding between cluster and telemetry deploymentB\x9d\x01\n\x13\x63om.chalk.server.v1B\x14\x43loudComponentsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -38,6 +40,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "GetCloudComponentVpc"
     ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["ListCloudComponentVpc"]._options = None
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
+        "ListCloudComponentVpc"
+    ]._serialized_options = b"\220\002\001\200}\002"
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["DeleteCloudComponentVpc"]._options = None
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "DeleteCloudComponentVpc"
@@ -54,10 +60,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "GetCloudComponentCluster"
     ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["ListCloudComponentCluster"]._options = None
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
+        "ListCloudComponentCluster"
+    ]._serialized_options = b"\220\002\001\200}\002"
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["DeleteCloudComponentCluster"]._options = None
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "DeleteCloudComponentCluster"
     ]._serialized_options = b"\200}\032\212\323\016#\010\002\022\037Deleted cloud component cluster"
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["TestClusterConnection"]._options = None
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
+        "TestClusterConnection"
+    ]._serialized_options = b"\220\002\001\200}\002"
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["CreateCloudComponentStorage"]._options = None
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "CreateCloudComponentStorage"
@@ -65,6 +79,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["GetCloudComponentStorage"]._options = None
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
         "GetCloudComponentStorage"
+    ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["ListCloudComponentStorage"]._options = None
+    _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
+        "ListCloudComponentStorage"
     ]._serialized_options = b"\220\002\001\200}\002"
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name["DeleteCloudComponentStorage"]._options = None
     _globals["_CLOUDCOMPONENTSSERVICE"].methods_by_name[
@@ -120,110 +138,138 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = (
         b"\200}\032\212\323\016<\010\002\0228Deleted binding between cluster and telemetry deployment"
     )
-    _globals["_CLOUDCOMPONENTVPC"]._serialized_start = 152
-    _globals["_CLOUDCOMPONENTVPC"]._serialized_end = 248
-    _globals["_CLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 251
-    _globals["_CLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 747
-    _globals["_CLOUDCOMPONENTVPCREQUEST"]._serialized_start = 750
-    _globals["_CLOUDCOMPONENTVPCREQUEST"]._serialized_end = 955
-    _globals["_CREATECLOUDCOMPONENTVPCREQUEST"]._serialized_start = 957
-    _globals["_CREATECLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1050
-    _globals["_CREATECLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1052
-    _globals["_CREATECLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1147
-    _globals["_GETCLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1149
-    _globals["_GETCLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1194
-    _globals["_GETCLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1196
-    _globals["_GETCLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1288
-    _globals["_DELETECLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1290
-    _globals["_DELETECLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1338
-    _globals["_DELETECLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1340
-    _globals["_DELETECLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1373
-    _globals["_CLOUDVPCCONFIG"]._serialized_start = 1376
-    _globals["_CLOUDVPCCONFIG"]._serialized_end = 1504
-    _globals["_AWSVPCCONFIG"]._serialized_start = 1507
-    _globals["_AWSVPCCONFIG"]._serialized_end = 1902
-    _globals["_AWSVPCROUTE"]._serialized_start = 1904
-    _globals["_AWSVPCROUTE"]._serialized_end = 2016
-    _globals["_AWSSUBNETCONFIG"]._serialized_start = 2019
-    _globals["_AWSSUBNETCONFIG"]._serialized_end = 2191
-    _globals["_GCPVPCCONFIG"]._serialized_start = 2193
-    _globals["_GCPVPCCONFIG"]._serialized_end = 2207
-    _globals["_CLOUDCOMPONENTSTORAGE"]._serialized_start = 2210
-    _globals["_CLOUDCOMPONENTSTORAGE"]._serialized_end = 2502
-    _globals["_CLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 2505
-    _globals["_CLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 3009
-    _globals["_CLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 3012
-    _globals["_CLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 3225
-    _globals["_CLOUDCOMPONENTCLUSTER"]._serialized_start = 3228
-    _globals["_CLOUDCOMPONENTCLUSTER"]._serialized_end = 3370
-    _globals["_CLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 3373
-    _globals["_CLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 3916
-    _globals["_CLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 3919
-    _globals["_CLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 4171
-    _globals["_CREATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 4173
-    _globals["_CREATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 4282
-    _globals["_CREATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 4284
-    _globals["_CREATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 4395
-    _globals["_UPDATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 4397
-    _globals["_UPDATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 4522
-    _globals["_UPDATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 4524
-    _globals["_UPDATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 4635
-    _globals["_GETCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 4637
-    _globals["_GETCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 4686
-    _globals["_GETCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 4688
-    _globals["_GETCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 4796
-    _globals["_DELETECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 4798
-    _globals["_DELETECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 4850
-    _globals["_DELETECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 4852
-    _globals["_DELETECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 4889
-    _globals["_CREATECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 4891
-    _globals["_CREATECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 5000
-    _globals["_CREATECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 5002
-    _globals["_CREATECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 5113
-    _globals["_GETCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 5115
-    _globals["_GETCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 5164
-    _globals["_GETCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 5166
-    _globals["_GETCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 5274
-    _globals["_DELETECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 5276
-    _globals["_DELETECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 5328
-    _globals["_DELETECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 5330
-    _globals["_DELETECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 5367
-    _globals["_CREATEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 5369
-    _globals["_CREATEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 5482
-    _globals["_CREATEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 5484
-    _globals["_CREATEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 5521
-    _globals["_DELETEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 5523
-    _globals["_DELETEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 5590
-    _globals["_DELETEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 5592
-    _globals["_DELETEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 5629
-    _globals["_GETBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 5631
-    _globals["_GETBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 5695
-    _globals["_GETBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 5697
-    _globals["_GETBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 5808
-    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 5811
-    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 5983
-    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 5985
-    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 6046
-    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 6048
-    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 6139
-    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 6141
-    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 6202
-    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 6204
-    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 6292
-    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 6295
-    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 6465
-    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 6468
-    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 6603
-    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 6605
-    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 6654
-    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 6656
-    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 6735
-    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 6737
-    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 6786
-    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 6788
-    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 6864
-    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 6867
-    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 7000
-    _globals["_CLOUDCOMPONENTSSERVICE"]._serialized_start = 7003
-    _globals["_CLOUDCOMPONENTSSERVICE"]._serialized_end = 10662
+    _globals["_CLOUDCOMPONENTVPC"]._serialized_start = 216
+    _globals["_CLOUDCOMPONENTVPC"]._serialized_end = 364
+    _globals["_CLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 367
+    _globals["_CLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 863
+    _globals["_CLOUDCOMPONENTVPCREQUEST"]._serialized_start = 866
+    _globals["_CLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1071
+    _globals["_CREATECLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1073
+    _globals["_CREATECLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1166
+    _globals["_CREATECLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1168
+    _globals["_CREATECLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1263
+    _globals["_GETCLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1265
+    _globals["_GETCLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1310
+    _globals["_GETCLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1312
+    _globals["_GETCLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1404
+    _globals["_DELETECLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1406
+    _globals["_DELETECLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1454
+    _globals["_DELETECLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1456
+    _globals["_DELETECLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1489
+    _globals["_LISTCLOUDCOMPONENTVPCREQUEST"]._serialized_start = 1491
+    _globals["_LISTCLOUDCOMPONENTVPCREQUEST"]._serialized_end = 1546
+    _globals["_LISTCLOUDCOMPONENTVPCRESPONSE"]._serialized_start = 1548
+    _globals["_LISTCLOUDCOMPONENTVPCRESPONSE"]._serialized_end = 1643
+    _globals["_CLOUDVPCCONFIG"]._serialized_start = 1646
+    _globals["_CLOUDVPCCONFIG"]._serialized_end = 1774
+    _globals["_AWSVPCCONFIG"]._serialized_start = 1777
+    _globals["_AWSVPCCONFIG"]._serialized_end = 2172
+    _globals["_AWSVPCROUTE"]._serialized_start = 2174
+    _globals["_AWSVPCROUTE"]._serialized_end = 2286
+    _globals["_AWSSUBNETCONFIG"]._serialized_start = 2289
+    _globals["_AWSSUBNETCONFIG"]._serialized_end = 2461
+    _globals["_GCPVPCCONFIG"]._serialized_start = 2463
+    _globals["_GCPVPCCONFIG"]._serialized_end = 2477
+    _globals["_CLOUDCOMPONENTSTORAGE"]._serialized_start = 2480
+    _globals["_CLOUDCOMPONENTSTORAGE"]._serialized_end = 2772
+    _globals["_CLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 2775
+    _globals["_CLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 3279
+    _globals["_CLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 3282
+    _globals["_CLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 3495
+    _globals["_CLOUDCOMPONENTCLUSTER"]._serialized_start = 3498
+    _globals["_CLOUDCOMPONENTCLUSTER"]._serialized_end = 3685
+    _globals["_DEPLOYMENTMANIFEST"]._serialized_start = 3688
+    _globals["_DEPLOYMENTMANIFEST"]._serialized_end = 4159
+    _globals["_DEPLOYMENTMANIFESTCREATE"]._serialized_start = 4161
+    _globals["_DEPLOYMENTMANIFESTCREATE"]._serialized_end = 4187
+    _globals["_DEPLOYMENTMANIFESTDELETE"]._serialized_start = 4189
+    _globals["_DEPLOYMENTMANIFESTDELETE"]._serialized_end = 4215
+    _globals["_DEPLOYMENTMANIFESTUPDATE"]._serialized_start = 4217
+    _globals["_DEPLOYMENTMANIFESTUPDATE"]._serialized_end = 4243
+    _globals["_CLUSTERDEPLOYMENTMANIFEST"]._serialized_start = 4246
+    _globals["_CLUSTERDEPLOYMENTMANIFEST"]._serialized_end = 4501
+    _globals["_VPCDEPLOYMENTMANIFEST"]._serialized_start = 4504
+    _globals["_VPCDEPLOYMENTMANIFEST"]._serialized_end = 4689
+    _globals["_CLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 4692
+    _globals["_CLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 5235
+    _globals["_CLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 5238
+    _globals["_CLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 5490
+    _globals["_CREATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 5492
+    _globals["_CREATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 5601
+    _globals["_CREATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 5603
+    _globals["_CREATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 5714
+    _globals["_UPDATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 5716
+    _globals["_UPDATECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 5841
+    _globals["_UPDATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 5843
+    _globals["_UPDATECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 5954
+    _globals["_GETCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 5956
+    _globals["_GETCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 6005
+    _globals["_GETCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 6007
+    _globals["_GETCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 6115
+    _globals["_DELETECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 6117
+    _globals["_DELETECLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 6169
+    _globals["_DELETECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 6171
+    _globals["_DELETECLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 6208
+    _globals["_TESTCLUSTERCONNECTIONREQUEST"]._serialized_start = 6211
+    _globals["_TESTCLUSTERCONNECTIONREQUEST"]._serialized_end = 6343
+    _globals["_TESTCLUSTERCONNECTIONRESPONSE"]._serialized_start = 6345
+    _globals["_TESTCLUSTERCONNECTIONRESPONSE"]._serialized_end = 6450
+    _globals["_LISTCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_start = 6452
+    _globals["_LISTCLOUDCOMPONENTCLUSTERREQUEST"]._serialized_end = 6511
+    _globals["_LISTCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_start = 6513
+    _globals["_LISTCLOUDCOMPONENTCLUSTERRESPONSE"]._serialized_end = 6624
+    _globals["_CREATECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 6626
+    _globals["_CREATECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 6735
+    _globals["_CREATECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 6737
+    _globals["_CREATECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 6848
+    _globals["_GETCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 6850
+    _globals["_GETCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 6899
+    _globals["_GETCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 6901
+    _globals["_GETCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 7009
+    _globals["_DELETECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 7011
+    _globals["_DELETECLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 7063
+    _globals["_DELETECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 7065
+    _globals["_DELETECLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 7102
+    _globals["_LISTCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_start = 7104
+    _globals["_LISTCLOUDCOMPONENTSTORAGEREQUEST"]._serialized_end = 7163
+    _globals["_LISTCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_start = 7165
+    _globals["_LISTCLOUDCOMPONENTSTORAGERESPONSE"]._serialized_end = 7276
+    _globals["_CREATEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 7278
+    _globals["_CREATEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 7391
+    _globals["_CREATEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 7393
+    _globals["_CREATEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 7430
+    _globals["_DELETEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 7432
+    _globals["_DELETEBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 7499
+    _globals["_DELETEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 7501
+    _globals["_DELETEBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 7538
+    _globals["_GETBINDINGCLUSTERGATEWAYREQUEST"]._serialized_start = 7540
+    _globals["_GETBINDINGCLUSTERGATEWAYREQUEST"]._serialized_end = 7604
+    _globals["_GETBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_start = 7606
+    _globals["_GETBINDINGCLUSTERGATEWAYRESPONSE"]._serialized_end = 7717
+    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 7720
+    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 7892
+    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 7894
+    _globals["_CREATEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 7955
+    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 7957
+    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 8048
+    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 8050
+    _globals["_DELETEBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 8111
+    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_start = 8113
+    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTREQUEST"]._serialized_end = 8201
+    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_start = 8204
+    _globals["_GETBINDINGCLUSTERBACKGROUNDPERSISTENCEDEPLOYMENTRESPONSE"]._serialized_end = 8374
+    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 8377
+    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 8512
+    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 8514
+    _globals["_CREATEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 8563
+    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 8565
+    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 8644
+    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 8646
+    _globals["_DELETEBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 8695
+    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_start = 8697
+    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTREQUEST"]._serialized_end = 8773
+    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_start = 8776
+    _globals["_GETBINDINGCLUSTERTELEMETRYDEPLOYMENTRESPONSE"]._serialized_end = 8909
+    _globals["_CLOUDCOMPONENTSSERVICE"]._serialized_start = 8912
+    _globals["_CLOUDCOMPONENTSSERVICE"]._serialized_end = 13109
 # @@protoc_insertion_point(module_scope)

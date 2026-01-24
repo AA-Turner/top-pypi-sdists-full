@@ -2,26 +2,78 @@
 
 from __future__ import annotations
 
+import copy
+import warnings
 from functools import singledispatch
-from typing import Any
 
 import pandas as pd
 import pandas_flavor as pf
-from pandas.api.types import is_scalar
 from pandas.core.common import apply_if_callable
 from pandas.core.groupby.generic import DataFrameGroupBy
 
 from janitor.functions.select import get_index_labels
-from janitor.utils import check
+from janitor.utils import find_stack_level, refactored_function
 
 
+@pf.register_dataframe_groupby_method
+@refactored_function(
+    message=("This function is deprecated. Please use `jn.get_columns` instead.")
+)
+def ungroup(
+    df: DataFrameGroupBy,
+) -> pd.DataFrame:
+    """
+
+    !!! info "New in version 0.32.0"
+
+    Ungroups a GroupBy object into a DataFrame.
+
+    Examples:
+        >>> import pandas as pd
+        >>> import janitor
+        >>> data = {
+        ...     "avg_jump": [3, 4, 1, 2, 3, 4],
+        ...     "avg_run": [3, 4, 1, 3, 2, 4],
+        ...     "combine_id": [100200, 100200, 101200, 101200, 102201, 103202],
+        ... }
+        >>> df = pd.DataFrame(data)
+        >>> df
+           avg_jump  avg_run  combine_id
+        0         3        3      100200
+        1         4        4      100200
+        2         1        1      101200
+        3         2        3      101200
+        4         3        2      102201
+        5         4        4      103202
+        >>> df.groupby("combine_id").mutate("mean").ungroup()
+           avg_jump  avg_run  combine_id
+        0       3.5      3.5      100200
+        1       3.5      3.5      100200
+        2       1.5      2.0      101200
+        3       1.5      2.0      101200
+        4       3.0      2.0      102201
+        5       4.0      4.0      103202
+
+    Args:
+        df: A pandas GroupBy object.
+
+    Returns:
+        A pandas DataFrame.
+    """
+    warnings.warn(
+        "This function is deprecated. Kindly use `jn.get_columns` instead.",
+        DeprecationWarning,
+        stacklevel=find_stack_level(),
+    )
+    return df.obj
+
+
+@pf.register_dataframe_groupby_method
 @pf.register_dataframe_method
 def mutate(
-    df: pd.DataFrame,
+    df: pd.DataFrame | DataFrameGroupBy,
     *args: tuple[dict | tuple],
-    by: Any = None,
-    copy: bool = True,
-) -> pd.DataFrame:
+) -> pd.DataFrame | DataFrameGroupBy:
     """
 
     !!! info "New in version 0.31.0"
@@ -94,37 +146,26 @@ def mutate(
 
     - **callable argument**:
     If the argument is a callable, the callable is applied
-    on the DataFrame or GroupBy object.
+    on the DataFrame.
     The result from the callable should be a pandas Series
     or DataFrame.
 
-    `by` can be a `DataFrameGroupBy` object; it is assumed that
-    `by` was created from `df` - the onus is on the user to
-    ensure that, or the aggregations may yield incorrect results.
-
-    `by` accepts anything supported by `pd.DataFrame.groupby`.
-
-    Arguments supported in `pd.DataFrame.groupby`
-    can also be passed to `by` via a dictionary.
-
-    Mutation does not occur on the original DataFrame;
-    change this behaviour by passing `copy=False`.
+    Mutation does not occur on the original DataFrame.
 
     Examples:
         >>> import pandas as pd
         >>> import numpy as np
         >>> import janitor
-        >>> df = pd.DataFrame({
-        ...     "col1": [5, 10, 15],
-        ...     "col2": [3, 6, 9],
-        ...     "col3": [10, 100, 1_000],
-        ... })
+        >>> df = pd.DataFrame(
+        ...     {
+        ...         "col1": [5, 10, 15],
+        ...         "col2": [3, 6, 9],
+        ...         "col3": [10, 100, 1_000],
+        ...     }
+        ... )
 
         Transformation via a dictionary:
-        >>> df.mutate(
-        ...     {"col4": ('col1',np.log10),
-        ...      "col1": np.log10}
-        ...     )
+        >>> df.mutate({"col4": ("col1", np.log10), "col1": np.log10})
                col1  col2  col3      col4
         0  0.698970     3    10  0.698970
         1  1.000000     6   100  1.000000
@@ -143,55 +184,32 @@ def mutate(
         2  1.176091  0.954243   3.0
 
         Transformation via a callable:
-        >>> df.mutate(lambda df: df.sum(axis=1).rename('total'))
+        >>> df.mutate(lambda df: df.sum(axis=1).rename("total"))
            col1  col2  col3  total
         0     5     3    10     18
         1    10     6   100    116
         2    15     9  1000   1024
 
-        Transformation in the presence of a groupby:
-        >>> data = {'avg_jump': [3, 4, 1, 2, 3, 4],
-        ...         'avg_run': [3, 4, 1, 3, 2, 4],
-        ...         'combine_id': [100200, 100200,
-        ...                        101200, 101200,
-        ...                        102201, 103202]}
-        >>> df = pd.DataFrame(data)
-        >>> df.mutate({"avg_run_2":("avg_run","mean")}, by='combine_id')
-           avg_jump  avg_run  combine_id  avg_run_2
-        0         3        3      100200        3.5
-        1         4        4      100200        3.5
-        2         1        1      101200        2.0
-        3         2        3      101200        2.0
-        4         3        2      102201        2.0
-        5         4        4      103202        4.0
-
     Args:
-        df: A pandas DataFrame.
+        df: A pandas DataFrame or GroupBy object.
         args: Either a dictionary or a tuple.
-        by: Column(s) to group by.
 
     Raises:
         ValueError: If a tuple is passed and the length is not 2.
 
     Returns:
-        A pandas DataFrame or Series with aggregated columns.
+        A pandas DataFrame, Series, or GroupBy object.
     """  # noqa: E501
-    check("copy", copy, [bool])
-    if by is not None:
-        if isinstance(by, DataFrameGroupBy):
-            # it is assumed that by is created from df
-            # onus is on user to ensure that
-            pass
-        elif isinstance(by, dict):
-            by = df.groupby(**by)
-        else:
-            if is_scalar(by):
-                by = [by]
-            by = df.groupby(by, sort=False, observed=True)
-    if copy:
-        df = df.copy(deep=None)
+    if isinstance(df, DataFrameGroupBy):
+        df = copy.copy(df)
+        df_ = df.obj.copy(deep=None)
+        df.obj = df_
+        for arg in args:
+            df_ = _mutator(arg, df=df_, by=df)
+        return df
+    df = df.copy(deep=None)
     for arg in args:
-        df = _mutator(arg, df=df, by=by)
+        df = _mutator(arg, df=df, by=None)
     return df
 
 
@@ -226,11 +244,9 @@ def _(arg, df, by):
     for column_name, mutator in arg.items():
         if isinstance(mutator, tuple):
             column, func = mutator
-            column = _process_within_dict(mutator=func, obj=val[column])
+            column = _apply_func_to_obj(mutator=func, obj=val[column])
         else:
-            column = _process_within_dict(
-                mutator=mutator, obj=val[column_name]
-            )
+            column = _apply_func_to_obj(mutator=mutator, obj=val[column_name])
         df[column_name] = column
     return df
 
@@ -262,7 +278,7 @@ def _process_maybe_string(func: str, obj):
     return obj.transform(func)
 
 
-def _process_within_dict(mutator, obj):
+def _apply_func_to_obj(mutator, obj):
     """Handle str/callables within a dictionary"""
     if isinstance(mutator, str):
         return _process_maybe_string(func=mutator, obj=obj)

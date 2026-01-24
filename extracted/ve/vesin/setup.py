@@ -12,11 +12,11 @@ from wheel.bdist_wheel import bdist_wheel
 
 ROOT = os.path.realpath(os.path.dirname(__file__))
 
-VESIN_BUILD_TYPE = os.environ.get("VESIN_BUILD_TYPE", "release")
-if VESIN_BUILD_TYPE not in ["debug", "release"]:
+VESIN_BUILD_TYPE = os.environ.get("VESIN_BUILD_TYPE", "Release")
+if VESIN_BUILD_TYPE not in ["Debug", "Release"]:
     raise Exception(
         f"invalid build type passed: '{VESIN_BUILD_TYPE}', "
-        "expected 'debug' or 'release'"
+        "expected 'Debug' or 'Release'"
     )
 
 
@@ -55,13 +55,27 @@ class cmake_ext(build_ext):
             "-DBUILD_SHARED_LIBS=ON",
         ]
 
+        CUDA_HOME = os.environ.get("CUDA_HOME")
+
+        if CUDA_HOME is not None:
+            cmake_options.append(f"-DCUDA_TOOLKIT_ROOT_DIR={CUDA_HOME}")
+            cmake_options.append("-DVESIN_ENABLE_CUDA=ON")
+
         subprocess.run(
             ["cmake", source_dir, *cmake_options],
             cwd=build_dir,
             check=True,
         )
         subprocess.run(
-            ["cmake", "--build", build_dir, "--target", "install"],
+            [
+                "cmake",
+                "--build",
+                build_dir,
+                "--config",
+                VESIN_BUILD_TYPE,
+                "--target",
+                "install",
+            ],
             check=True,
         )
 

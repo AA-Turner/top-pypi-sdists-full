@@ -1,10 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 __all__ = [
     "WrongDeploymnetType",
+    "WrongDeploymentType",
     "ModelTypeNotSupported",
     "NotAutoAIExperiment",
     "EnvironmentNotSupported",
@@ -19,14 +20,24 @@ __all__ = [
 ]
 
 
+from warnings import warn
+
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
 class WrongDeploymnetType(WMLClientError, ValueError):
     def __init__(self, value_name: str, reason: str | None = None):
+        warning_message = "'WrongDeploymnetType' error is deprecated, please use 'WrongDeploymentType' instead."
+        warn(warning_message, category=DeprecationWarning)
+
         WMLClientError.__init__(
             self, f"This deployment is not of type: {value_name} ", reason
         )
+
+
+class WrongDeploymentType(
+    WrongDeploymnetType
+): ...  # Added to kept backward compatibility
 
 
 class ModelTypeNotSupported(WMLClientError, ValueError):

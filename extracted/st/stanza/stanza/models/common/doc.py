@@ -46,10 +46,14 @@ TYPE = 'type'
 SENTIMENT = 'sentiment'
 CONSTITUENCY = 'constituency'
 COREF_CHAINS = 'coref_chains'
+LINE_NUMBER = 'line_number'
 
 # field indices when converting the document to conll
 FIELD_TO_IDX = {ID: 0, TEXT: 1, LEMMA: 2, UPOS: 3, XPOS: 4, FEATS: 5, HEAD: 6, DEPREL: 7, DEPS: 8, MISC: 9}
 FIELD_NUM = len(FIELD_TO_IDX)
+
+DEFAULT_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, START_CHAR, END_CHAR, NER, MULTI_NER, MEXP, COREF_CHAINS]
+NO_OFFSETS_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, NER, MULTI_NER, MEXP, COREF_CHAINS]
 
 class DocJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -396,13 +400,16 @@ class Document(StanzaObject):
                     word.sent = sentence
                     word.parent = token
                     sentence.words.append(word)
-                if token.start_char is not None and token.end_char is not None and "".join(word.text for word in token.words) == token.text:
-                    start_char = token.start_char
-                    for word in token.words:
-                        end_char = start_char + len(word.text)
-                        word.start_char = start_char
-                        word.end_char = end_char
-                        start_char = end_char
+                if len(token.words) == 1:
+                    word.start_char = token.start_char
+                    word.end_char = token.end_char
+                elif token.start_char is not None and token.end_char is not None:
+                    search_string = "^%s$" % ("\\s*".join("(%s)" % re.escape(word.text) for word in token.words))
+                    match = re.compile(search_string).match(token.text)
+                    if match:
+                        for word_idx, word in enumerate(token.words):
+                            word.start_char = match.start(word_idx+1) + token.start_char
+                            word.end_char = match.end(word_idx+1) + token.start_char
 
             if fake_dependencies:
                 sentence.build_fake_dependencies()
@@ -447,7 +454,7 @@ class Document(StanzaObject):
                 if not word.feats:
                     continue
                 pieces = word.feats.split("|")
-                pieces = sorted(pieces)
+                pieces = sorted(pieces, key=str.casefold)
                 word.feats = "|".join(pieces)
 
     def iter_words(self):
@@ -479,18 +486,22 @@ class Document(StanzaObject):
 
     def _attach_coref_mentions(self, chains):
         for sentence in self.sentences:
-            for word in sentence.words:
+            for word in sentence.all_words:
                 word.coref_chains = []
 
         for chain in chains:
             for mention_idx, mention in enumerate(chain.mentions):
                 sentence = self.sentences[mention.sentence]
-                for word_idx in range(mention.start_word, mention.end_word):
-                    is_start = word_idx == mention.start_word
-                    is_end = word_idx == mention.end_word - 1
-                    is_representative = mention_idx == chain.representative_index
-                    attachment = CorefAttachment(chain, is_start, is_end, is_representative)
-                    sentence.words[word_idx].coref_chains.append(attachment)
+                if isinstance(mention.start_word, tuple):
+                    attachment = CorefAttachment(chain, True, True, False)
+                    sentence._empty_words[mention.start_word[1]-1].coref_chains.append(attachment)
+                else:
+                    for word_idx in range(mention.start_word, mention.end_word):
+                            is_start = word_idx == mention.start_word
+                            is_end = word_idx == mention.end_word - 1
+                            is_representative = mention_idx == chain.representative_index
+                            attachment = CorefAttachment(chain, is_start, is_end, is_representative)
+                            sentence.words[word_idx].coref_chains.append(attachment)
 
     def reindex_sentences(self, start_index):
         for sent_id, sentence in zip(range(start_index, start_index + len(self.sentences)), self.sentences):
@@ -505,10 +516,9 @@ class Document(StanzaObject):
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False, cls=DocJSONEncoder)
 
     def __format__(self, spec):
-        if spec == 'c':
-            return "\n\n".join("{:c}".format(s) for s in self.sentences)
-        elif spec == 'C':
-            return "\n\n".join("{:C}".format(s) for s in self.sentences)
+        if spec and spec[0] in ('c', 'C'):
+            spec = "{:%s}" % spec
+            return "\n\n".join(spec.format(s) for s in self.sentences)
         else:
             return str(self)
 
@@ -735,6 +745,17 @@ class Sentence(StanzaObject):
         self._empty_words = value
 
     @property
+    def all_words(self):
+        """ Access the list of words + empty words for this sentence. """
+        words = self._words
+        empty_words = self._empty_words
+
+        all_words = sorted(words + empty_words,
+                           key=lambda x:(x.id,) if isinstance(x.id, int) else x.id)
+
+        return all_words
+
+    @property
     def ents(self):
         """ Access the list of entities in this sentence. """
         return self._ents
@@ -890,6 +911,14 @@ class Sentence(StanzaObject):
         self.print_dependencies(file=dep_string)
         return dep_string.getvalue().strip()
 
+    def get_roots(self):
+        """ Return a list of root(s) from a sentence """
+        roots = []
+        for word in self.words:
+            if word.head == 0:
+                roots.append(word)
+        return roots
+
     def print_tokens(self, file=None):
         """ Print the tokens for this sentence. """
         for tok in self.tokens:
@@ -930,22 +959,28 @@ class Sentence(StanzaObject):
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False, cls=DocJSONEncoder)
 
     def __format__(self, spec):
-        if spec != 'c' and spec != 'C':
+        if not spec:
             return str(self)
+        if not spec[0] == 'c' and not spec[0] == 'C':
+            return str(self)
+        if "-o" in spec:
+            fields = NO_OFFSETS_OUTPUT_FIELDS
+        else:
+            fields = DEFAULT_OUTPUT_FIELDS
 
         pieces = []
         empty_idx = 0
         for token_idx, token in enumerate(self.tokens):
             while empty_idx < len(self._empty_words) and self._empty_words[empty_idx].id[0] < token.id[0]:
-                pieces.append(self._empty_words[empty_idx].to_conll_text())
+                pieces.append(self._empty_words[empty_idx].to_conll_text(fields))
                 empty_idx += 1
-            pieces.append(token.to_conll_text())
+            pieces.append(token.to_conll_text(fields))
         for empty_word in self._empty_words[empty_idx:]:
-            pieces.append(empty_word.to_conll_text())
+            pieces.append(empty_word.to_conll_text(fields))
 
-        if spec == 'c':
+        if spec[0] == 'c':
             return "\n".join(pieces)
-        elif spec == 'C':
+        elif spec[0] == 'C':
             tokens = "\n".join(pieces)
             if len(self.comments) > 0:
                 text = "\n".join(self.comments)
@@ -965,7 +1000,7 @@ def init_from_misc(unit):
             # some key_value can not be split
             key, value = key_value
             # start & end char are kept as ints
-            if key in (START_CHAR, END_CHAR):
+            if key in (START_CHAR, END_CHAR, LINE_NUMBER):
                 value = int(value)
             # set attribute
             attr = f'_{key}'
@@ -981,39 +1016,54 @@ def init_from_misc(unit):
 
 def dict_to_conll_text(token_dict, id_connector="-"):
     token_conll = ['_' for i in range(FIELD_NUM)]
+
     misc = []
-    for key in token_dict:
-        if key == START_CHAR or key == END_CHAR:
+    if token_dict.get(MISC):
+        # avoid appending a blank misc entry.
+        # otherwise the resulting misc field in the conll doc will wind up being blank text
+        # TODO: potentially need to escape =|\ in the MISC as well
+        misc.append(token_dict[MISC])
+
+    # for other items meant to be in the MISC field,
+    # we try to operate on those columns in a deterministic order
+    # so that the output doesn't change based on the order of keys
+    # in the token_dict
+    for key in [START_CHAR, END_CHAR, NER]:
+        if key in token_dict:
             misc.append("{}={}".format(key, token_dict[key]))
-        elif key == NER:
-            # TODO: potentially need to escape =|\ in the NER
-            misc.append("{}={}".format(key, token_dict[key]))
-        elif key == COREF_CHAINS:
-            chains = token_dict[key]
-            if len(chains) > 0:
-                misc_chains = []
-                for chain in chains:
-                    if chain.is_start and chain.is_end:
-                        coref_position = "unit-"
-                    elif chain.is_start:
-                        coref_position = "start-"
-                    elif chain.is_end:
-                        coref_position = "end-"
-                    else:
-                        coref_position = "middle-"
-                    is_representative = "repr-" if chain.is_representative else ""
-                    misc_chains.append("%s%sid%d" % (coref_position, is_representative, chain.chain.index))
-                misc.append("{}={}".format(key, ",".join(misc_chains)))
-        elif key == MISC:
-            # avoid appending a blank misc entry.
-            # otherwise the resulting misc field in the conll doc will wind up being blank text
-            # TODO: potentially need to escape =|\ in the MISC as well
-            if token_dict[key]:
-                misc.append(token_dict[key])
-        elif key == ID:
+
+    if COREF_CHAINS in token_dict:
+        chains = token_dict[COREF_CHAINS]
+        if len(chains) > 0:
+            misc_chains = []
+            for chain in chains:
+                if chain.is_start and chain.is_end:
+                    coref_position = "unit-"
+                elif chain.is_start:
+                    coref_position = "start-"
+                elif chain.is_end:
+                    coref_position = "end-"
+                else:
+                    coref_position = "middle-"
+                is_representative = "repr-" if chain.is_representative else ""
+                misc_chains.append("%s%sid%d" % (coref_position, is_representative, chain.chain.index))
+            misc.append("{}={}".format(key, ",".join(misc_chains)))
+
+    for key in token_dict.keys():
+        if key == ID:
             token_conll[FIELD_TO_IDX[key]] = id_connector.join([str(x) for x in token_dict[key]]) if isinstance(token_dict[key], tuple) else str(token_dict[key])
+        elif key == FEATS:
+            feats = token_dict[key]
+            if feats:
+                pieces = feats.split("|")
+                pieces = sorted(pieces, key=str.casefold)
+                feats = "|".join(pieces)
+            token_conll[FIELD_TO_IDX[key]] = str(feats)
         elif key in FIELD_TO_IDX:
             token_conll[FIELD_TO_IDX[key]] = str(token_dict[key])
+        elif key == LINE_NUMBER:
+            # skip this when converting back for now
+            pass
     if misc:
         token_conll[FIELD_TO_IDX[MISC]] = "|".join(misc)
     else:
@@ -1051,6 +1101,7 @@ class Token(StanzaObject):
         self._mexp = token_entry.get(MEXP, None)
         self._spaces_before = ""
         self._spaces_after = " "
+        self._line_number = None
 
         if self._misc is not None:
             init_from_misc(self)
@@ -1179,6 +1230,11 @@ class Token(StanzaObject):
             w.parent = self
 
     @property
+    def line_number(self):
+        """ Access the line number from the original document, if set """
+        return self._line_number
+
+    @property
     def start_char(self):
         """ Access the start character index for this token in the raw text. """
         return self._start_char
@@ -1223,16 +1279,16 @@ class Token(StanzaObject):
 
     def __format__(self, spec):
         if spec == 'C':
-            return "\n".join(self.to_conll_text())
+            return "\n".join(self.to_conll_text(DEFAULT_OUTPUT_FIELDS))
         elif spec == 'P':
             return self.pretty_print()
         else:
             return str(self)
 
-    def to_conll_text(self):
-        return "\n".join(dict_to_conll_text(x) for x in self.to_dict())
+    def to_conll_text(self, fields=DEFAULT_OUTPUT_FIELDS):
+        return "\n".join(dict_to_conll_text(x) for x in self.to_dict(fields))
 
-    def to_dict(self, fields=[ID, TEXT, MISC, START_CHAR, END_CHAR, NER, MULTI_NER, MEXP]):
+    def to_dict(self, fields=DEFAULT_OUTPUT_FIELDS):
         """ Dumps the token into a list of dictionary for this token with its extended words
         if the token is a multi-word token.
         """
@@ -1240,7 +1296,7 @@ class Token(StanzaObject):
         if len(self.id) > 1:
             token_dict = {}
             for field in fields:
-                if getattr(self, field) is not None:
+                if getattr(self, field, None) is not None:
                     token_dict[field] = getattr(self, field)
             if MISC in fields:
                 spaces_after = self.spaces_after
@@ -1261,7 +1317,7 @@ class Token(StanzaObject):
 
             ret.append(token_dict)
         for word in self.words:
-            word_dict = word.to_dict()
+            word_dict = word.to_dict(fields)
             if len(self.id) == 1 and NER in fields and getattr(self, NER) is not None: # propagate NER label to Word if it is a single-word token
                 word_dict[NER] = getattr(self, NER)
             if len(self.id) == 1 and MULTI_NER in fields and getattr(self, MULTI_NER) is not None: # propagate MULTI_NER label to Word if it is a single-word token
@@ -1323,6 +1379,7 @@ class Word(StanzaObject):
         self._sent = sentence
         self._mexp = word_entry.get(MEXP, None)
         self._coref_chains = None
+        self._line_number = None
 
         if self._misc is not None:
             init_from_misc(self)
@@ -1486,6 +1543,11 @@ class Word(StanzaObject):
         self._misc = value if self._is_null(value) == False else None
 
     @property
+    def line_number(self):
+        """ Access the line number from the original document, if set """
+        return self._line_number
+
+    @property
     def start_char(self):
         """ Access the start character index for this token in the raw text. """
         return self._start_char
@@ -1560,25 +1622,25 @@ class Word(StanzaObject):
 
     def __format__(self, spec):
         if spec == 'C':
-            return self.to_conll_text()
+            return self.to_conll_text(DEFAULT_OUTPUT_FIELDS)
         elif spec == 'P':
             return self.pretty_print()
         else:
             return str(self)
 
-    def to_conll_text(self):
+    def to_conll_text(self, fields=DEFAULT_OUTPUT_FIELDS):
         """
         Turn a word into a conll representation (10 column tab separated)
         """
-        token_dict = self.to_dict()
+        token_dict = self.to_dict(fields)
         return dict_to_conll_text(token_dict, '.')
 
-    def to_dict(self, fields=[ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, START_CHAR, END_CHAR, MEXP, COREF_CHAINS]):
+    def to_dict(self, fields=DEFAULT_OUTPUT_FIELDS):
         """ Dumps the word into a dictionary.
         """
         word_dict = {}
         for field in fields:
-            if getattr(self, field) is not None:
+            if getattr(self, field, None) is not None:
                 word_dict[field] = getattr(self, field)
         return word_dict
 
@@ -1634,9 +1696,16 @@ class Span(StanzaObject):
             self.text = self.doc.text[self.start_char:self.end_char]
         elif tokens[0].sent is tokens[-1].sent:
             sentence = tokens[0].sent
-            text_start = tokens[0].start_char - sentence.tokens[0].start_char
-            text_end = tokens[-1].end_char - sentence.tokens[0].start_char
-            self.text = sentence.text[text_start:text_end]
+            if tokens[-1].end_char is not None and tokens[0].start_char is not None and sentence.tokens[0].start_char is not None:
+                text_start = tokens[0].start_char - sentence.tokens[0].start_char
+                text_end = tokens[-1].end_char - sentence.tokens[0].start_char
+                self.text = sentence.text[text_start:text_end]
+            else:
+                text = []
+                for token in tokens:
+                    text.append(token.text)
+                    text.append(token.spaces_after)
+                self.text = "".join(text[:-1])
         else:
             # TODO: do any spans ever cross sentences?
             raise RuntimeError("Document text does not exist, and the span tested crosses two sentences, so it is impossible to extract the entity text!")

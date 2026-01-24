@@ -23,19 +23,19 @@ setup(
     description="Package for performing ETL/ELT tasks with Sling in Dagster.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-sling",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_sling_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
-        "dagster==1.11.11",
+        "dagster==1.12.12",
         "sling>=1.1.5",
         # Required due to a bug in uv that can cause sling-linux-amd64 to be installed instead.
         # See: https://github.com/astral-sh/uv/issues/10945

@@ -39,25 +39,36 @@ T = TypeVar("T", bound="RunFlowPreviewJsonBodyValueModulesItem")
 
 @_attrs_define
 class RunFlowPreviewJsonBodyValueModulesItem:
-    """
+    """A single step in a flow. Can be a script, subflow, loop, or branch
+
     Attributes:
-        id (str):
+        id (str): Unique identifier for this step. Used to reference results via 'results.step_id'. Must be a valid
+            identifier (alphanumeric, underscore, hyphen)
         value (Any):
-        stop_after_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemStopAfterIf]):
-        stop_after_all_iters_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemStopAfterAllItersIf]):
-        skip_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSkipIf]):
+        stop_after_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemStopAfterIf]): Early termination condition for
+            a module
+        stop_after_all_iters_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemStopAfterAllItersIf]): Early
+            termination condition for a module
+        skip_if (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSkipIf]): Conditionally skip this step based on
+            previous results or flow inputs
         sleep (Union['RunFlowPreviewJsonBodyValueModulesItemSleepType0',
-            'RunFlowPreviewJsonBodyValueModulesItemSleepType1', Unset]):
-        cache_ttl (Union[Unset, float]):
+            'RunFlowPreviewJsonBodyValueModulesItemSleepType1', Unset]): Maps input parameters for a step. Can be a static
+            value or a JavaScript expression that references previous results or flow inputs
+        cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
+        cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['RunFlowPreviewJsonBodyValueModulesItemTimeoutType0',
-            'RunFlowPreviewJsonBodyValueModulesItemTimeoutType1', Unset]):
-        delete_after_use (Union[Unset, bool]):
-        summary (Union[Unset, str]):
-        mock (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemMock]):
-        suspend (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSuspend]):
-        priority (Union[Unset, float]):
-        continue_on_error (Union[Unset, bool]):
-        retry (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemRetry]):
+            'RunFlowPreviewJsonBodyValueModulesItemTimeoutType1', Unset]): Maps input parameters for a step. Can be a static
+            value or a JavaScript expression that references previous results or flow inputs
+        delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
+        summary (Union[Unset, str]): Short description of what this step does
+        mock (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemMock]): Mock configuration for testing without
+            executing the actual step
+        suspend (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemSuspend]): Configuration for approval/resume steps
+            that wait for user input
+        priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
+        continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
+        retry (Union[Unset, RunFlowPreviewJsonBodyValueModulesItemRetry]): Retry configuration for failed module
+            executions
     """
 
     id: str
@@ -69,6 +80,7 @@ class RunFlowPreviewJsonBodyValueModulesItem:
         "RunFlowPreviewJsonBodyValueModulesItemSleepType0", "RunFlowPreviewJsonBodyValueModulesItemSleepType1", Unset
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
         "RunFlowPreviewJsonBodyValueModulesItemTimeoutType0",
         "RunFlowPreviewJsonBodyValueModulesItemTimeoutType1",
@@ -120,6 +132,7 @@ class RunFlowPreviewJsonBodyValueModulesItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
         timeout: Union[Dict[str, Any], Unset]
         if isinstance(self.timeout, Unset):
             timeout = UNSET
@@ -168,6 +181,8 @@ class RunFlowPreviewJsonBodyValueModulesItem:
             field_dict["sleep"] = sleep
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if timeout is not UNSET:
             field_dict["timeout"] = timeout
         if delete_after_use is not UNSET:
@@ -285,6 +300,8 @@ class RunFlowPreviewJsonBodyValueModulesItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
         def _parse_timeout(
             data: object,
         ) -> Union[
@@ -357,6 +374,7 @@ class RunFlowPreviewJsonBodyValueModulesItem:
             skip_if=skip_if,
             sleep=sleep,
             cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
             timeout=timeout,
             delete_after_use=delete_after_use,
             summary=summary,

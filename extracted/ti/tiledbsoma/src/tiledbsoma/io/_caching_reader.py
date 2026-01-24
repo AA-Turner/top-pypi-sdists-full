@@ -1,3 +1,5 @@
+# Copyright (c) TileDB, Inc. and The Chan Zuckerberg Initiative Foundation
+
 from __future__ import annotations
 
 import ctypes
@@ -52,17 +54,15 @@ class CachingReader:
 
     def __init__(
         self,
-        file: Any,  # file-like object. Unfortunately, Python lacks a good typing signature for this concept.
+        file: Any,  # noqa: ANN401 file-like object. Unfortunately, Python lacks a good typing signature for this concept.
         *,
         memory_budget: int = 64 * 1024**2,
         cache_block_size: int = 1024**2,
-    ):
+    ) -> None:
         if not file.readable():
             raise io.UnsupportedOperation("File must be readable")
         if memory_budget < cache_block_size:
-            raise ValueError(
-                "The memory_budget parameter must be greater than or equal to the cache_block_size"
-            )
+            raise ValueError("The memory_budget parameter must be greater than or equal to the cache_block_size")
 
         self._file = file
         self._file_length = file.seek(0, io.SEEK_END)
@@ -71,13 +71,11 @@ class CachingReader:
 
         self._cache_block_size = cache_block_size
         self._max_cache_blocks = max(1, memory_budget // cache_block_size)
-        _n_blocks = (self._file_length + cache_block_size - 1) // cache_block_size
+        n_blocks = (self._file_length + cache_block_size - 1) // cache_block_size
 
         self._cache_lock = threading.Lock()
         self._cache: OrderedDict[int, pa.UInt8Array] = OrderedDict()
-        self._cache_stats: list[CacheStats] = [
-            CacheStats(block_idx) for block_idx in range(_n_blocks)
-        ]
+        self._cache_stats: list[CacheStats] = [CacheStats(block_idx) for block_idx in range(n_blocks)]
 
     def _read_block(self, block_idx: int) -> pa.UInt8Array:
         nbytes = min(
@@ -90,24 +88,19 @@ class CachingReader:
         self._file.seek(block_idx * self._cache_block_size)
         bytes_read = self._file.readinto(memoryview(buffer))
         assert nbytes == bytes_read == len(buffer)
-        a = pa.UInt8Array.from_buffers(pa.uint8(), len(buffer), [None, buffer])
-        return a
+        return pa.UInt8Array.from_buffers(pa.uint8(), len(buffer), [None, buffer])
 
     def _load_cache(self, start: int, end: int) -> list[pa.UInt8Array]:
         end = min(end, self._file_length)
         start_block = start // self._cache_block_size
         end_block = (end + self._cache_block_size - 1) // self._cache_block_size
         with self._cache_lock:
-            missing_blocks = [
-                i for i in range(start_block, end_block) if i not in self._cache
-            ]
+            missing_blocks = [i for i in range(start_block, end_block) if i not in self._cache]
             for block_idx in missing_blocks:
                 self._cache_stats[block_idx].miss += 1
                 self._cache[block_idx] = self._read_block(block_idx)
 
-            requested_blocks = [
-                self._cache[block_idx] for block_idx in range(start_block, end_block)
-            ]
+            requested_blocks = [self._cache[block_idx] for block_idx in range(start_block, end_block)]
 
             self._mark_and_sweep_blocks(start_block, end_block)
 
@@ -118,7 +111,7 @@ class CachingReader:
             self._cache.move_to_end(block_idx)
             self._cache_stats[block_idx].hit += 1
 
-        for i in range(max(0, len(self._cache) - self._max_cache_blocks)):
+        for _i in range(max(0, len(self._cache) - self._max_cache_blocks)):
             self._cache.popitem(last=False)
 
     def _reset_cache(self) -> None:
@@ -147,7 +140,7 @@ class CachingReader:
         assert arr.offset == 0
         b = arr.buffers()[1].to_pybytes()  # NB: copy
         self._pos += len(b)
-        return cast(bytes, b)
+        return cast("bytes", b)
 
     def readinto(self, buf: WritableBuffer) -> int | None:
         """Read bytes into a pre-allocated, writable bytes-like object b,
@@ -206,7 +199,7 @@ class CachingReader:
         elif whence == io.SEEK_END:
             new_pos = self._file_length + offset
         else:
-            raise ValueError("Invalid whence value {whence})")
+            raise ValueError(f"Invalid whence value {whence})")
 
         if new_pos < 0:
             raise OSError("seek() returned invalid position")

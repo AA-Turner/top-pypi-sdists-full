@@ -6,7 +6,6 @@ use std::io::Write as _;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::str;
-use std::str::FromStr as _;
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context as _, Error, Result};
@@ -14,20 +13,17 @@ use console::style;
 use indicatif::ProgressStyle;
 use log::{debug, info, warn};
 use sentry::types::DebugId;
-use sha1_smol::Digest;
 use sourcemap::{DecodedMap, SourceMap};
 use symbolic::debuginfo::js::discover_sourcemaps_location;
 use symbolic::debuginfo::sourcebundle::SourceFileType;
 use url::Url;
 
-use crate::api::Api;
 use crate::utils::file_search::ReleaseFileMatch;
-use crate::utils::file_upload::{
-    initialize_legacy_release_upload, FileUpload, SourceFile, SourceFiles, UploadContext,
-};
+use crate::utils::file_upload::{FileUpload, SourceFile, SourceFiles, UploadContext};
+use crate::utils::fs;
 use crate::utils::logging::is_quiet_mode;
 use crate::utils::progress::ProgressBar;
-use crate::utils::sourcemaps::inject::InjectReport;
+use crate::utils::sourcemaps::inject::{InjectReportBuilder, ReportItem};
 
 pub mod inject;
 
@@ -165,13 +161,14 @@ fn guess_sourcemap_reference(
         }
     }
 
-    bail!("Could not auto-detect referenced sourcemap for {}", min_url);
+    bail!("Could not auto-detect referenced sourcemap for {min_url}");
 }
 
 /// Container to cary relative computed source map url.
 /// and original url with which the file was added to the processor.
 /// This enable us to look up the source map file based on the original url.
 /// Which can be used for example for debug id referencing.
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct SourceMapReference {
     url: String,
     original_url: Option<String>,
@@ -289,51 +286,44 @@ impl SourceMapProcessor {
     fn collect_sourcemap_references(&mut self) {
         let sourcemaps = self
             .sources
-            .iter()
-            .map(|x| x.1)
+            .values()
             .filter(|x| x.ty == SourceFileType::SourceMap)
             .map(|x| x.url.clone())
-            .collect();
+            .collect::<HashSet<_>>();
 
-        for source in self.sources.values_mut() {
-            // Skip everything but minified JS files.
-            if source.ty != SourceFileType::MinifiedSource {
-                continue;
-            }
+        let (sources_with_location, sources_without_location) = self
+            .sources
+            .values_mut()
+            .filter(|source| {
+                source.ty == SourceFileType::MinifiedSource
+                    && !self.sourcemap_references.contains_key(&source.url)
+            })
+            .collect_sourcemap_locations();
 
-            if self.sourcemap_references.contains_key(&source.url) {
-                continue;
-            }
+        // First pass: if location discovered, add to sourcemap_references. Also, keep track of
+        // the sourcemaps we associate, and the source file we associate them with.
+        let explicitly_associated_sourcemaps = sources_with_location
+            .iter()
+            .map(|(source, location)| {
+                let sourcemap_reference = SourceMapReference::from_url(location.clone());
+                let sourcemap_path = full_sourcemap_path(source, location);
 
-            let Ok(contents) = std::str::from_utf8(&source.contents) else {
-                continue;
-            };
+                self.sourcemap_references
+                    .insert(source.url.clone(), Some(sourcemap_reference));
 
-            // If this is a full external URL, the code below is going to attempt
-            // to "normalize" it with the source path, resulting in a bogus path
-            // like "path/to/source/dir/https://some-static-host.example.com/path/to/foo.js.map"
-            // that can't be resolved to a source map file.
-            // Instead, we pretend we failed to discover the location, and we fall back to
-            // guessing the source map location based on the source location.
-            let location =
-                discover_sourcemaps_location(contents).filter(|loc| !is_remote_sourcemap(loc));
-            let sourcemap_reference = match location {
-                Some(url) => SourceMapReference::from_url(url.to_owned()),
-                None => match guess_sourcemap_reference(&sourcemaps, &source.url) {
-                    Ok(target) => target,
-                    Err(err) => {
-                        source.warn(format!(
-                            "could not determine a source map reference ({err})"
-                        ));
-                        self.sourcemap_references.insert(source.url.clone(), None);
-                        continue;
-                    }
-                },
-            };
+                (fs::path_as_url(&sourcemap_path), source.url.clone())
+            })
+            .collect::<HashMap<_, _>>();
 
-            self.sourcemap_references
-                .insert(source.url.clone(), Some(sourcemap_reference));
-        }
+        // Second pass: for remaining sourcemaps, try to guess the location
+        let guessed_sourcemap_references = guess_sourcemap_references(
+            sources_without_location,
+            sourcemaps,
+            explicitly_associated_sourcemaps,
+        );
+
+        self.sourcemap_references
+            .extend(guessed_sourcemap_references);
     }
 
     pub fn dump_log(&self, title: &str) {
@@ -491,7 +481,7 @@ impl SourceMapProcessor {
         for result in ram_bundle_iter {
             let (name, sourceview, sourcemap) = result?;
 
-            debug!("Inserting source for {}", name);
+            debug!("Inserting source for {name}");
             let source_url = join_url(bundle_source_url, &name)?;
             self.sources.insert(
                 source_url.clone(),
@@ -506,7 +496,7 @@ impl SourceMapProcessor {
                 },
             );
 
-            debug!("Inserting sourcemap for {}", name);
+            debug!("Inserting sourcemap for {name}");
             let sourcemap_name = format!("{name}.map");
             let sourcemap_url = join_url(bundle_source_url, &sourcemap_name)?;
             let mut sourcemap_content: Vec<u8> = vec![];
@@ -632,9 +622,8 @@ impl SourceMapProcessor {
 
                 if !self.debug_ids.contains_key(sourcemap_url) {
                     debug!(
-                        "{} No debug id found for {} to reference",
-                        style(">").dim(),
-                        sourcemap_url
+                        "{} No debug id found for {sourcemap_url} to reference",
+                        style(">").dim()
                     );
                     continue;
                 }
@@ -656,7 +645,7 @@ impl SourceMapProcessor {
                 debug!(
                     "{} Adding debug id {} reference to {}",
                     style(">").dim(),
-                    self.debug_ids[sourcemap_url].to_string(),
+                    self.debug_ids[sourcemap_url],
                     source.url
                 );
                 source.set_debug_id(self.debug_ids[sourcemap_url].to_string());
@@ -672,58 +661,9 @@ impl SourceMapProcessor {
         }
     }
 
-    /// Flags the collected sources whether they have already been uploaded before
-    /// (based on their checksum), and returns the number of files that *do* need an upload.
-    fn flag_uploaded_sources(&mut self, context: &UploadContext<'_>) -> usize {
-        let mut files_needing_upload = self.sources.len();
-
-        if !context.dedupe {
-            return files_needing_upload;
-        }
-
-        // This endpoint only supports at most one project, and a release is required.
-        // If the upload contains multiple projects or no release, we do not use deduplication.
-        let (project, release) = match (context.projects, context.release) {
-            ([project], Some(release)) => (Some(project.as_str()), release),
-            ([], Some(release)) => (None, release),
-            _ => return files_needing_upload,
-        };
-
-        let mut sources_checksums: Vec<_> = self
-            .sources
-            .values()
-            .filter_map(|s| s.checksum().map(|c| c.to_string()).ok())
-            .collect();
-
-        // Checksums need to be sorted in order to satisfy integration tests constraints.
-        sources_checksums.sort();
-
-        let api = Api::current();
-
-        if let Ok(artifacts) = api.authenticated().and_then(|api| {
-            api.list_release_files_by_checksum(context.org, project, release, &sources_checksums)
-        }) {
-            let already_uploaded_checksums: HashSet<_> = artifacts
-                .into_iter()
-                .filter_map(|artifact| Digest::from_str(&artifact.sha1).ok())
-                .collect();
-
-            for source in self.sources.values_mut() {
-                if let Ok(checksum) = source.checksum() {
-                    if already_uploaded_checksums.contains(&checksum) {
-                        source.already_uploaded = true;
-                        files_needing_upload -= 1;
-                    }
-                }
-            }
-        }
-        files_needing_upload
-    }
-
     /// Uploads all files, and on success, returns the number of files that were
     /// uploaded, wrapped in Ok()
     pub fn upload(&mut self, context: &UploadContext<'_>) -> Result<usize> {
-        initialize_legacy_release_upload(context)?;
         self.flush_pending_sources();
 
         // If there is no release, we have to check that the files at least
@@ -758,7 +698,7 @@ impl SourceMapProcessor {
                 }
             }
         }
-        let files_needing_upload = self.flag_uploaded_sources(context);
+        let files_needing_upload = self.sources.len();
         if files_needing_upload > 0 {
             let mut uploader = FileUpload::new(context);
             uploader.files(&self.sources);
@@ -801,7 +741,7 @@ impl SourceMapProcessor {
         self.collect_sourcemap_references();
         println!("{} Injecting debug ids", style(">").dim());
 
-        let mut report = InjectReport::default();
+        let mut report_builder = InjectReportBuilder::default();
 
         let mut sourcemaps = self
             .sources
@@ -814,16 +754,17 @@ impl SourceMapProcessor {
             // We only allow injection into files that match the extension
             if !url_matches_extension(source_url, js_extensions) {
                 debug!(
-                    "skipping potential js file {} because it does not match extension",
-                    source_url
+                    "skipping potential js file {source_url} because it does not match extension"
                 );
                 continue;
             }
 
             if let Some(debug_id) = self.debug_ids.get(source_url) {
-                report
-                    .previously_injected
-                    .push((source_url.into(), *debug_id));
+                report_builder.previously_injected.push(ReportItem::new(
+                    source_url.into(),
+                    source_url.clone(),
+                    *debug_id,
+                ));
                 continue;
             }
 
@@ -1017,20 +958,24 @@ impl SourceMapProcessor {
                             }
 
                             if debug_id_fresh {
-                                report
-                                    .sourcemaps
-                                    .push((sourcemap_file.path.clone(), debug_id));
+                                report_builder.sourcemaps.push(ReportItem::new(
+                                    sourcemap_file.path.clone(),
+                                    sourcemap_file.url.clone(),
+                                    debug_id,
+                                ));
                             } else {
-                                report
-                                    .skipped_sourcemaps
-                                    .push((sourcemap_file.path.clone(), debug_id));
+                                report_builder.skipped_sourcemaps.push(ReportItem::new(
+                                    sourcemap_file.path.clone(),
+                                    sourcemap_file.url.clone(),
+                                    debug_id,
+                                ));
                             }
 
                             debug_id
                         } else {
                             // Case 4: We have a URL for the external sourcemap, but we can't find it.
                             // This is substantially the same as case 1.
-                            debug!("Sourcemap file {} not found", sourcemap_url);
+                            debug!("Sourcemap file {sourcemap_url} not found");
                             // source map cannot be found, fall back to hashing the contents.
                             let source_file = self.sources.get_mut(source_url).unwrap();
                             let debug_id =
@@ -1065,17 +1010,179 @@ impl SourceMapProcessor {
                 ))?;
             }
 
-            report.injected.push((source_file.path.clone(), debug_id));
+            report_builder.injected.push(ReportItem::new(
+                source_file.path.clone(),
+                source_file.url.clone(),
+                debug_id,
+            ));
         }
 
-        if !report.is_empty() {
-            println!("{report}");
+        if !report_builder.is_empty() {
+            println!("{}", report_builder.into_report(&self.sources));
         } else {
             println!("> Nothing to inject")
         }
 
         Ok(())
     }
+}
+
+/// For a set of source files without a sourcemap location, guess the sourcemap references.
+///
+/// Parameters:
+///   - `sources_without_location`: The set of source files without a sourcemap location.
+///   - `sourcemaps`: The set of available sourcemaps.
+///   - `explicitly_associated_sourcemaps`: The set of sourcemaps that are explicitly associated
+///     with a source file, and thus, cannot be guessed. If we guess such a sourcemap, we will
+///     warn the user. This is stored in a map, where the key is the sourcemap URL, and the value
+///     is the source file URL that is explicitly associated with the sourcemap.
+///
+/// Returns:
+///   - A map from sourcemap URLs to the sourcemap references, which may be `None` if we couldn't
+///     guess the sourcemap reference.
+fn guess_sourcemap_references(
+    sources_without_location: HashSet<&mut SourceFile>,
+    sourcemaps: HashSet<String>,
+    explicitly_associated_sourcemaps: HashMap<String, String>,
+) -> HashMap<String, Option<SourceMapReference>> {
+    let mut sourcemap_references = HashMap::new();
+
+    sources_without_location
+        .into_iter()
+        .fold(
+            // Collect sources guessed as associated with each sourcemap. This way, we ensure
+            // we only associate the sourcemap with any sources if it is only guessed once.
+            HashMap::new(),
+            |mut sources_associated_with_sm, source| {
+                let sourcemap_reference = guess_sourcemap_reference(&sourcemaps, &source.url)
+                    .inspect_err(|err| {
+                        source.warn(format!(
+                            "could not determine a source map reference ({err})"
+                        ));
+                    })
+                    .ok()
+                    .filter(|sourcemap_reference| {
+                        explicitly_associated_sourcemaps
+                            .get(
+                                sourcemap_reference
+                                    .original_url
+                                    .as_ref()
+                                    .expect("original url set in guess_sourcemap_reference"),
+                            )
+                            .inspect(|url| {
+                                source.warn(format!(
+                                    "based on the file name, we guessed a source map \
+                                    reference ({}), which is already associated with source \
+                                    {url}. Please explicitly set the sourcemap URL with a \
+                                    `//# sourceMappingURL=...` comment in the source file.",
+                                    sourcemap_reference.url
+                                ));
+                            })
+                            .is_none()
+                    });
+
+                if let Some(sourcemap_reference) = sourcemap_reference {
+                    sources_associated_with_sm
+                        .entry(sourcemap_reference)
+                        .or_insert_with(Vec::new)
+                        .push(source);
+                } else {
+                    sourcemap_references.insert(source.url.clone(), None);
+                }
+
+                sources_associated_with_sm
+            },
+        )
+        .into_iter()
+        .for_each(|(sourcemap_reference, mut sources)| {
+            if let [source] = sources.as_slice() {
+                // One source -> we can safely associate the sourcemap with it.
+                sourcemap_references.insert(source.url.clone(), Some(sourcemap_reference));
+            } else {
+                // Multiple sources -> it is unclear which source we should associate
+                // the sourcemap with, so don't associate it with any of them.
+                sources.iter_mut().for_each(|source| {
+                    source.warn(format!(
+                        "Could not associate this source with a source map. We \
+                        guessed the sourcemap reference {} for multiple sources, including \
+                        this one. Please explicitly set the sourcemap URL with a \
+                        `//# sourceMappingURL=...` comment in the source file, to make the \
+                        association clear.",
+                        sourcemap_reference.url
+                    ));
+                    sourcemap_references.insert(source.url.clone(), None);
+                });
+            }
+        });
+
+    sourcemap_references
+}
+
+/// Compute the full path to a sourcemap file, given the sourcemap's source file and the relative
+/// path to the sourcemap from the source file.
+fn full_sourcemap_path(source: &SourceFile, sourcemap_relative_path: &String) -> PathBuf {
+    let full_sourcemap_path = source
+        .path
+        .parent()
+        .expect("source path has a parent")
+        .join(sourcemap_relative_path);
+
+    full_sourcemap_path
+}
+
+/// A tuple of a map and a set, returned by `collect_sourcemap_locations`.
+/// The map contains the sourcefiles for which we found a sourcemap location listed in the file, with
+/// the sourcemap location as the value.
+/// The set contains the sourcefiles for which we did not find a sourcemap location listed in the file.
+type SourcemapLocations<'s> = (
+    HashMap<&'s mut SourceFile, String>,
+    HashSet<&'s mut SourceFile>,
+);
+
+trait SourcesIteratorExt<'s> {
+    fn collect_sourcemap_locations(self) -> SourcemapLocations<'s>;
+}
+
+impl<'s, I> SourcesIteratorExt<'s> for I
+where
+    I: IntoIterator<Item = &'s mut SourceFile>,
+{
+    /// Consume this iterator of sources, collecting the sourcemap locations for them.
+    fn collect_sourcemap_locations(self) -> SourcemapLocations<'s> {
+        self.into_iter()
+            .map(|source| {
+                let location = location_from_contents(&source.contents).map(String::from);
+                (source, location)
+            })
+            .fold(
+                (HashMap::new(), HashSet::new()),
+                |(mut sources_with_location, mut sources_without_location), (source, location)| {
+                    match location {
+                        Some(location) => {
+                            sources_with_location.insert(source, location);
+                        }
+                        None => {
+                            sources_without_location.insert(source);
+                        }
+                    }
+                    (sources_with_location, sources_without_location)
+                },
+            )
+    }
+}
+
+/// Extract the sourcemap location from the contents of a source file.
+fn location_from_contents(contents: &[u8]) -> Option<&str> {
+    str::from_utf8(contents)
+        .map(discover_sourcemaps_location)
+        .ok()
+        .flatten()
+        // If this is a full external URL, the code above is going to attempt
+        // to "normalize" it with the source path, resulting in a bogus path
+        // like "path/to/source/dir/https://some-static-host.example.com/path/to/foo.js.map"
+        // that can't be resolved to a source map file.
+        // So, we filter out such locations.
+        .filter(|loc| !is_remote_sourcemap(loc))
 }
 
 fn adjust_regular_sourcemap(
@@ -1107,7 +1214,7 @@ fn validate_script(source: &mut SourceFile) -> Result<()> {
             );
         } else {
             let full_url = join_url(&source.url, url)?;
-            info!("found sourcemap for {} at {}", &source.url, full_url);
+            info!("found sourcemap for {} at {full_url}", &source.url);
         };
     } else if source.ty == SourceFileType::MinifiedSource {
         source.error("missing sourcemap!".into());
@@ -1124,7 +1231,7 @@ fn validate_regular(
     for idx in 0..sm.get_source_count() {
         let source_url = sm.get_source(idx).unwrap_or("??");
         if sm.get_source_contents(idx).is_some() || source_urls.contains(source_url) {
-            info!("validator found source ({})", source_url);
+            info!("validator found source ({source_url})");
         } else {
             source.warn(format!("missing sourcecode ({source_url})"));
         }

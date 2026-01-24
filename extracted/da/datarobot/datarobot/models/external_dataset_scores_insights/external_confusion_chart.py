@@ -69,15 +69,9 @@ class ExternalConfusionChart(APIObject):
     """
 
     _path = "projects/{project_id}/models/{model_id}/datasetConfusionCharts/"
-    _single_chart_path = (
-        "projects/{project_id}/models/{model_id}/datasetConfusionCharts/{dataset_id}/"
-    )
-    _metadata_path = (
-        "projects/{project_id}/models/{model_id}/datasetConfusionCharts/{dataset_id}/metadata/"
-    )
-    _converter = t.Dict(
-        {t.Key("dataset_id"): String(), t.Key("data"): ConfusionChartTrafaret}
-    ).ignore_extra("*")
+    _single_chart_path = "projects/{project_id}/models/{model_id}/datasetConfusionCharts/{dataset_id}/"
+    _metadata_path = "projects/{project_id}/models/{model_id}/datasetConfusionCharts/{dataset_id}/metadata/"
+    _converter = t.Dict({t.Key("dataset_id"): String(), t.Key("data"): ConfusionChartTrafaret}).ignore_extra("*")
 
     def __init__(self, dataset_id, data):
         self.dataset_id = dataset_id
@@ -87,9 +81,7 @@ class ExternalConfusionChart(APIObject):
         self.classes = data["classes"]
 
     def __repr__(self):
-        return "ExternalConfusionChart(dataset_id={}, classes={})".format(
-            self.dataset_id, self.classes
-        )
+        return "ExternalConfusionChart(dataset_id={}, classes={})".format(self.dataset_id, self.classes)
 
     @classmethod
     def list(cls, project_id, model_id, dataset_id=None, offset=0, limit=100):
@@ -143,14 +135,10 @@ class ExternalConfusionChart(APIObject):
         """
         if dataset_id is None:
             raise ValueError("dataset_id must be specified")
-        url = cls._single_chart_path.format(
-            project_id=project_id, model_id=model_id, dataset_id=dataset_id
-        )
+        url = cls._single_chart_path.format(project_id=project_id, model_id=model_id, dataset_id=dataset_id)
 
         confusion_chart = cls._client.get(url).json()
-        metadata = cls._get_metadata(
-            project_id=project_id, model_id=model_id, dataset_id=dataset_id
-        )
+        metadata = cls._get_metadata(project_id=project_id, model_id=model_id, dataset_id=dataset_id)
         confusion_chart["data"]["classes"] = metadata["classNames"]
         return cls.from_server_data(confusion_chart)
 
@@ -173,7 +161,5 @@ class ExternalConfusionChart(APIObject):
                 metadata of the confusion chart
 
         """
-        url = cls._metadata_path.format(
-            project_id=project_id, model_id=model_id, dataset_id=dataset_id
-        )
+        url = cls._metadata_path.format(project_id=project_id, model_id=model_id, dataset_id=dataset_id)
         return cls._client.get(url).json()

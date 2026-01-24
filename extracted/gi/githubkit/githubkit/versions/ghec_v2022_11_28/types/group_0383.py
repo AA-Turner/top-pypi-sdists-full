@@ -9,38 +9,51 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0010 import IntegrationType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0236 import MinimalRepositoryType, MinimalRepositoryTypeForResponse
 
 
-class DemilestonedIssueEventType(TypedDict):
-    """Demilestoned Issue Event
+class RepositoryInvitationType(TypedDict):
+    """Repository Invitation
 
-    Demilestoned Issue Event
+    Repository invitations let you manage who you collaborate with.
     """
 
     id: int
-    node_id: str
+    repository: MinimalRepositoryType
+    invitee: Union[None, SimpleUserType]
+    inviter: Union[None, SimpleUserType]
+    permissions: Literal["read", "write", "admin", "triage", "maintain"]
+    created_at: _dt.datetime
+    expired: NotRequired[bool]
     url: str
-    actor: SimpleUserType
-    event: Literal["demilestoned"]
-    commit_id: Union[str, None]
-    commit_url: Union[str, None]
+    html_url: str
+    node_id: str
+
+
+class RepositoryInvitationTypeForResponse(TypedDict):
+    """Repository Invitation
+
+    Repository invitations let you manage who you collaborate with.
+    """
+
+    id: int
+    repository: MinimalRepositoryTypeForResponse
+    invitee: Union[None, SimpleUserTypeForResponse]
+    inviter: Union[None, SimpleUserTypeForResponse]
+    permissions: Literal["read", "write", "admin", "triage", "maintain"]
     created_at: str
-    performed_via_github_app: Union[None, IntegrationType, None]
-    milestone: DemilestonedIssueEventPropMilestoneType
-
-
-class DemilestonedIssueEventPropMilestoneType(TypedDict):
-    """DemilestonedIssueEventPropMilestone"""
-
-    title: str
+    expired: NotRequired[bool]
+    url: str
+    html_url: str
+    node_id: str
 
 
 __all__ = (
-    "DemilestonedIssueEventPropMilestoneType",
-    "DemilestonedIssueEventType",
+    "RepositoryInvitationType",
+    "RepositoryInvitationTypeForResponse",
 )

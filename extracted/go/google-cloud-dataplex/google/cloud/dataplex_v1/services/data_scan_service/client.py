@@ -74,6 +74,7 @@ from google.protobuf import timestamp_pb2  # type: ignore
 from google.cloud.dataplex_v1.services.data_scan_service import pagers
 from google.cloud.dataplex_v1.types import (
     data_discovery,
+    data_documentation,
     data_profile,
     data_quality,
     datascans,
@@ -170,6 +171,34 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "dataplex.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -449,12 +478,8 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = DataScanServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -462,7 +487,7 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -494,20 +519,14 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = DataScanServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -938,6 +957,12 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
                      Storage
                      data](https://cloud.google.com/bigquery/docs/automatic-discovery).
 
+                   \* Data documentation: analyzes the table details and
+                   generates insights including descriptions and sample
+                   SQL queries for the table. For more information, see
+                   [Generate data insights in
+                   BigQuery](https://cloud.google.com/bigquery/docs/data-insights).
+
         """
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
@@ -1092,6 +1117,12 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
                      information, see [Discover and catalog Cloud
                      Storage
                      data](https://cloud.google.com/bigquery/docs/automatic-discovery).
+
+                   \* Data documentation: analyzes the table details and
+                   generates insights including descriptions and sample
+                   SQL queries for the table. For more information, see
+                   [Generate data insights in
+                   BigQuery](https://cloud.google.com/bigquery/docs/data-insights).
 
         """
         # Create or coerce a protobuf request object.
@@ -1365,6 +1396,12 @@ class DataScanServiceClient(metaclass=DataScanServiceClientMeta):
                      information, see [Discover and catalog Cloud
                      Storage
                      data](https://cloud.google.com/bigquery/docs/automatic-discovery).
+
+                   \* Data documentation: analyzes the table details and
+                   generates insights including descriptions and sample
+                   SQL queries for the table. For more information, see
+                   [Generate data insights in
+                   BigQuery](https://cloud.google.com/bigquery/docs/data-insights).
 
         """
         # Create or coerce a protobuf request object.

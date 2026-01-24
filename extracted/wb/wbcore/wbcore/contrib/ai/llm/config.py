@@ -7,16 +7,18 @@ from django.db.models.signals import ModelSignal
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel
+
+from wbcore.workers import Queue
 
 from ..exceptions import APIStatusErrors, BadRequestErrors
 from .utils import run_llm
 
 logger = logging.getLogger("llm")
-from pydantic import BaseModel
 
 
 @shared_task(
-    queue="llm",
+    queue=Queue.BACKGROUND.value,
     autoretry_for=tuple(APIStatusErrors),
     retry_backoff=10,
     max_retries=5,  # retry 5 times maximum

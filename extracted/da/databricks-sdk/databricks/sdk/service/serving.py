@@ -13,8 +13,10 @@ from typing import Any, BinaryIO, Callable, Dict, Iterator, List, Optional
 
 import requests
 
+from databricks.sdk.service._internal import (Wait, _enum, _from_dict,
+                                              _repeated_dict)
+
 from ..errors import OperationFailed
-from ._internal import Wait, _enum, _from_dict, _repeated_dict
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -1035,24 +1037,6 @@ class DataframeSplitInput:
 
 
 @dataclass
-class DeleteResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
-        """Deserializes the DeleteResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
 class EmailNotifications:
     on_update_failure: Optional[List[str]] = None
     """A list of email addresses to be notified when an endpoint fails to update its configuration or
@@ -1139,14 +1123,14 @@ class EmbeddingsV1ResponseEmbeddingElementObject(Enum):
 
 @dataclass
 class EndpointCoreConfigInput:
+    name: str
+    """The name of the serving endpoint to update. This field is required."""
+
     auto_capture_config: Optional[AutoCaptureConfigInput] = None
     """Configuration for Inference Tables which automatically logs requests and responses to Unity
     Catalog. Note: this field is deprecated for creating new provisioned throughput endpoints, or
     updating existing provisioned throughput endpoints that never have inference table configured;
     in these cases please use AI Gateway to manage inference tables."""
-
-    name: Optional[str] = None
-    """The name of the serving endpoint to update. This field is required."""
 
     served_entities: Optional[List[ServedEntityInput]] = None
     """The list of served entities under the serving endpoint config."""
@@ -2205,6 +2189,11 @@ class PtServedModel:
     provisioned_model_units: int
     """The number of model units to be provisioned."""
 
+    burst_scaling_enabled: Optional[bool] = None
+    """Whether burst scaling is enabled. When enabled (default), the endpoint can automatically scale
+    up beyond provisioned capacity to handle traffic spikes. When disabled, the endpoint maintains
+    fixed capacity at provisioned_model_units."""
+
     entity_version: Optional[str] = None
 
     name: Optional[str] = None
@@ -2216,6 +2205,8 @@ class PtServedModel:
     def as_dict(self) -> dict:
         """Serializes the PtServedModel into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.burst_scaling_enabled is not None:
+            body["burst_scaling_enabled"] = self.burst_scaling_enabled
         if self.entity_name is not None:
             body["entity_name"] = self.entity_name
         if self.entity_version is not None:
@@ -2229,6 +2220,8 @@ class PtServedModel:
     def as_shallow_dict(self) -> dict:
         """Serializes the PtServedModel into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.burst_scaling_enabled is not None:
+            body["burst_scaling_enabled"] = self.burst_scaling_enabled
         if self.entity_name is not None:
             body["entity_name"] = self.entity_name
         if self.entity_version is not None:
@@ -2243,6 +2236,7 @@ class PtServedModel:
     def from_dict(cls, d: Dict[str, Any]) -> PtServedModel:
         """Deserializes the PtServedModel from a dictionary."""
         return cls(
+            burst_scaling_enabled=d.get("burst_scaling_enabled", None),
             entity_name=d.get("entity_name", None),
             entity_version=d.get("entity_version", None),
             name=d.get("name", None),
@@ -2364,6 +2358,9 @@ class QueryEndpointResponse:
     """The type of object returned by the __external/foundation model__ serving endpoint, one of
     [text_completion, chat.completion, list (of embeddings)]."""
 
+    outputs: Optional[List[any]] = None
+    """The outputs of the feature serving endpoint."""
+
     predictions: Optional[List[Any]] = None
     """The predictions returned by the serving endpoint."""
 
@@ -2390,6 +2387,8 @@ class QueryEndpointResponse:
             body["model"] = self.model
         if self.object is not None:
             body["object"] = self.object.value
+        if self.outputs:
+            body["outputs"] = [v for v in self.outputs]
         if self.predictions:
             body["predictions"] = [v for v in self.predictions]
         if self.served_model_name is not None:
@@ -2413,6 +2412,8 @@ class QueryEndpointResponse:
             body["model"] = self.model
         if self.object is not None:
             body["object"] = self.object
+        if self.outputs:
+            body["outputs"] = self.outputs
         if self.predictions:
             body["predictions"] = self.predictions
         if self.served_model_name is not None:
@@ -2431,6 +2432,7 @@ class QueryEndpointResponse:
             id=d.get("id", None),
             model=d.get("model", None),
             object=_enum(d, "object", QueryEndpointResponseObject),
+            outputs=d.get("outputs", None),
             predictions=d.get("predictions", None),
             served_model_name=d.get("served-model-name", None),
             usage=_from_dict(d, "usage", ExternalModelUsageElement),
@@ -3906,6 +3908,38 @@ class TrafficConfig:
 
 
 @dataclass
+class UpdateInferenceEndpointNotificationsResponse:
+    email_notifications: Optional[EmailNotifications] = None
+
+    name: Optional[str] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the UpdateInferenceEndpointNotificationsResponse into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.email_notifications:
+            body["email_notifications"] = self.email_notifications.as_dict()
+        if self.name is not None:
+            body["name"] = self.name
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the UpdateInferenceEndpointNotificationsResponse into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.email_notifications:
+            body["email_notifications"] = self.email_notifications
+        if self.name is not None:
+            body["name"] = self.name
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> UpdateInferenceEndpointNotificationsResponse:
+        """Deserializes the UpdateInferenceEndpointNotificationsResponse from a dictionary."""
+        return cls(
+            email_notifications=_from_dict(d, "email_notifications", EmailNotifications), name=d.get("name", None)
+        )
+
+
+@dataclass
 class V1ResponseChoiceElement:
     finish_reason: Optional[str] = None
     """The finish reason returned by the endpoint."""
@@ -4075,6 +4109,7 @@ class ServingEndpointsAPI:
           Long-running operation waiter for :class:`ServingEndpointDetailed`.
           See :method:wait_get_serving_endpoint_not_updating for more details.
         """
+
         body = {}
         if ai_gateway is not None:
             body["ai_gateway"] = ai_gateway.as_dict()
@@ -4162,6 +4197,7 @@ class ServingEndpointsAPI:
           Long-running operation waiter for :class:`ServingEndpointDetailed`.
           See :method:wait_get_serving_endpoint_not_updating for more details.
         """
+
         body = {}
         if ai_gateway is not None:
             body["ai_gateway"] = ai_gateway.as_dict()
@@ -4332,6 +4368,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`HttpRequestResponse`
         """
+
         body = {}
         if connection_name is not None:
             body["connection_name"] = connection_name
@@ -4402,6 +4439,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`EndpointTags`
         """
+
         body = {}
         if add_tags is not None:
             body["add_tags"] = [v.as_dict() for v in add_tags]
@@ -4425,6 +4463,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`PutResponse`
         """
+
         body = {}
         if rate_limits is not None:
             body["rate_limits"] = [v.as_dict() for v in rate_limits]
@@ -4467,6 +4506,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`PutAiGatewayResponse`
         """
+
         body = {}
         if fallback_config is not None:
             body["fallback_config"] = fallback_config.as_dict()
@@ -4559,6 +4599,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`QueryEndpointResponse`
         """
+
         body = {}
         if client_request_id is not None:
             body["client_request_id"] = client_request_id
@@ -4622,6 +4663,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`ServingEndpointPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -4667,6 +4709,7 @@ class ServingEndpointsAPI:
           Long-running operation waiter for :class:`ServingEndpointDetailed`.
           See :method:wait_get_serving_endpoint_not_updating for more details.
         """
+
         body = {}
         if auto_capture_config is not None:
             body["auto_capture_config"] = auto_capture_config.as_dict()
@@ -4706,6 +4749,31 @@ class ServingEndpointsAPI:
             traffic_config=traffic_config,
         ).result(timeout=timeout)
 
+    def update_notifications(
+        self, name: str, *, email_notifications: Optional[EmailNotifications] = None
+    ) -> UpdateInferenceEndpointNotificationsResponse:
+        """Updates the email and webhook notification settings for an endpoint.
+
+        :param name: str
+          The name of the serving endpoint whose notifications are being updated. This field is required.
+        :param email_notifications: :class:`EmailNotifications` (optional)
+          The email notification settings to update. Specify email addresses to notify when endpoint state
+          changes occur.
+
+        :returns: :class:`UpdateInferenceEndpointNotificationsResponse`
+        """
+
+        body = {}
+        if email_notifications is not None:
+            body["email_notifications"] = email_notifications.as_dict()
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        res = self._api.do("PATCH", f"/api/2.0/serving-endpoints/{name}/notifications", body=body, headers=headers)
+        return UpdateInferenceEndpointNotificationsResponse.from_dict(res)
+
     def update_permissions(
         self,
         serving_endpoint_id: str,
@@ -4721,6 +4789,7 @@ class ServingEndpointsAPI:
 
         :returns: :class:`ServingEndpointPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -4749,6 +4818,7 @@ class ServingEndpointsAPI:
           Long-running operation waiter for :class:`ServingEndpointDetailed`.
           See :method:wait_get_serving_endpoint_not_updating for more details.
         """
+
         body = {}
         if config is not None:
             body["config"] = config.as_dict()
@@ -4873,6 +4943,7 @@ class ServingEndpointsDataPlaneAPI:
 
         :returns: :class:`QueryEndpointResponse`
         """
+
         body = {}
         if client_request_id is not None:
             body["client_request_id"] = client_request_id

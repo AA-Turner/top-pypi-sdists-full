@@ -8,7 +8,7 @@ import requests
 from tqdm.auto import tqdm
 
 from modelscope.hub.utils.utils import (MODELSCOPE_URL_SCHEME,
-                                        encode_image_to_base64, get_endpoint)
+                                        encode_media_to_base64, get_endpoint)
 from modelscope.utils.logger import get_logger
 
 logger = get_logger()
@@ -58,16 +58,32 @@ class AigcModel:
         'WAN_VIDEO_2_1_FLF2V_14_B'
     }
 
-    def __init__(self,
-                 aigc_type: str,
-                 base_model_type: str,
-                 model_path: str,
-                 base_model_id: str = '',
-                 tag: Optional[str] = 'v1.0',
-                 description: Optional[str] = 'this is an aigc model',
-                 cover_images: Optional[List[str]] = None,
-                 path_in_repo: Optional[str] = '',
-                 trigger_words: Optional[List[str]] = None):
+    OFFICIAL_TAGS = {
+        'photography', 'illustration-design', 'e-commerce-design', 'dimension',
+        '3d', 'hand-drawn-style', 'logo', 'commodity', 'toy-figurines',
+        'flat-abstraction', 'character-enhancement', 'scenery', 'animal',
+        'art-style-strong', 'other-styles', 'architectural-design',
+        'classic-painting-style', 'cg-fantasy', 'artware', 'construction',
+        'man', 'woman', 'food', 'automobile-traffic', 'sci-fi-mecha',
+        'clothing', 'plant', 'other-functions', 'picture-control',
+        'main-strong', 'character-strong'
+    }
+
+    def __init__(
+        self,
+        aigc_type: str,
+        base_model_type: str,
+        model_path: str,
+        base_model_id: str = '',
+        tag: Optional[str] = 'v1.0',
+        description: Optional[str] = 'this is an aigc model',
+        cover_images: Optional[List[str]] = None,
+        path_in_repo: Optional[str] = '',
+        trigger_words: Optional[List[str]] = None,
+        official_tags: Optional[List[str]] = None,
+        model_source: Optional[str] = 'USER_UPLOAD',
+        base_model_sub_type: Optional[str] = '',
+    ):
         """
         Initializes the AigcModel helper.
 
@@ -81,12 +97,18 @@ class AigcModel:
             base_model_id (str, optional): Base model name. e.g., 'AI-ModelScope/FLUX.1-dev'.
             path_in_repo (str, optional): Path in the repository.
             trigger_words (List[str], optional): Trigger words for the AIGC Lora model.
+            official_tags (List[str], optional): Official tags for the AIGC model. Defaults to None.
+            model_source (str, optional): Source of the model.
+                `USER_UPLOAD`, `TRAINED_FROM_MODELSCOPE` or `TRAINED_FROM_ALIYUN_FC`. Defaults to 'USER_UPLOAD'.
+            base_model_sub_type (str, Optional): Sub vision foundation model type. Defaults to ''. e.g. `SD_1_5`
         """
         self.model_path = model_path
         self.aigc_type = aigc_type
         self.base_model_type = base_model_type
         self.tag = tag
         self.description = description
+        self.model_source = model_source
+        self.base_model_sub_type = base_model_sub_type
         # Process cover images - convert local paths to base64 data URLs
         if cover_images is not None:
             processed_cover_images = []
@@ -98,7 +120,7 @@ class AigcModel:
                             or img.startswith('data:')):
                         try:
                             # Convert local path to base64 data URL
-                            processed_img = encode_image_to_base64(img)
+                            processed_img = encode_media_to_base64(img)
                             processed_cover_images.append(processed_img)
                             logger.info('Converted local image to base64: %s',
                                         os.path.basename(img))
@@ -123,6 +145,12 @@ class AigcModel:
         self._validate_aigc_type()
         self._validate_base_model_type()
 
+        if official_tags:
+            self.official_tags = official_tags
+            self._validate_official_tags()
+        else:
+            self.official_tags = None
+
         # Process model path and calculate weights information
         self._process_model_path()
 
@@ -142,6 +170,19 @@ class AigcModel:
                 f'Your base_model_type: "{self.base_model_type}" may not be supported. '
                 f'Recommended values: {supported_types}. '
                 f'Custom values are allowed but may cause issues. ')
+
+    def _validate_official_tags(self):
+        """Validate official tags and provide warning for unsupported tags."""
+        invalid_tags = {
+            tag
+            for tag in self.official_tags if tag not in self.OFFICIAL_TAGS
+        }
+        if invalid_tags:
+            supported_tags = ', '.join(self.OFFICIAL_TAGS)
+            invalid_tags_str = ', '.join(f'"{tag}"' for tag in invalid_tags)
+            logger.warning(
+                f'Your tag(s): {invalid_tags_str} may not be supported. '
+                f'Recommended values: {supported_tags}. ')
 
     def _process_model_path(self):
         """Process model_path to extract weight information"""
@@ -350,7 +391,10 @@ class AigcModel:
             'weight_filename': self.weight_filename,
             'weight_sha256': self.weight_sha256,
             'weight_size': self.weight_size,
-            'trigger_words': self.trigger_words
+            'trigger_words': self.trigger_words,
+            'official_tags': self.official_tags,
+            'model_source': self.model_source,
+            'base_model_sub_type': self.base_model_sub_type,
         }
 
     @classmethod

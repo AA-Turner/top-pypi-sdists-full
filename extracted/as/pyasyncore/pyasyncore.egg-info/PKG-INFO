@@ -1,18 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyasyncore
-Version: 1.0.4
+Version: 1.0.5
 Summary: Make asyncore available for Python 3.12 onwards
 Home-page: https://github.com/simonrob/pyasyncore
 Author: Simon Robinson
 Author-email: simon@robinson.ac
 License: Python Software Foundation License Version 2
 Platform: any
+Classifier: Topic :: Software Development :: Libraries
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Python Software Foundation License
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: summary
 
 [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
@@ -61,6 +73,8 @@ Run them using:
 ```shell
 python -m unittest
 ```
+
+A [minor class name change](https://github.com/simonrob/pyasyncore/compare/9b5e373..24bb18e) has been made to the test suite to allow running with [pytest](https://pypi.org/project/pytest/) if desired, but otherwise the tests are unmodified.
 
 
 ## Maintenance

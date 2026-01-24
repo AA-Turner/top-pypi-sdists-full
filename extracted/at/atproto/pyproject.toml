@@ -1,30 +1,47 @@
-[tool.poetry]
+[project]
 name = "atproto"
-version = "0.0.62" # This is a placeholder. Dynamic version from Git Tag will be used.
+dynamic = ["dependencies"]
 description = "The AT Protocol SDK"
-authors = ["Ilya (Marshal) <ilya@marshal.dev>"]
+authors = [
+    {name = "Ilya (Marshal)", email = "ilya@marshal.dev"}
+]
 license = "MIT"
-repository = "https://github.com/MarshalX/atproto"
+requires-python = ">=3.9,<3.15"
 readme = "README.md"
 keywords = ["library", "sdk", "codegen", "xrpc", "xrpc-client", "atprotocol", "atproto", "lexicon", "parser", "schema", "bluesky", "bluesky-api", "at", "uri", "atp", "nsid", "did", "cid"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Pre-processors",
 ]
+version = "0.0.65"
+
+[project.scripts]
+atp = "atproto_cli:atproto_cli"
+atproto = "atproto_cli:atproto_cli"
+
+[project.urls]
+homepage = "https://atproto.blue"
+repository = "https://github.com/MarshalX/atproto"
+documentation = "https://atproto.blue"
+changes = "https://github.com/MarshalX/atproto/blob/main/CHANGES.md"
+issues = "https://github.com/MarshalX/atproto/issues"
+sponsoring = "https://github.com/sponsors/MarshalX"
+
+[tool.poetry]
+requires-poetry = ">=2.0"
 packages = [
     { include = "atproto", from = "packages" },
     { include = "atproto_cli", from = "packages" },
@@ -38,46 +55,35 @@ packages = [
     { include = "atproto_server", from = "packages" },
 ]
 
-[tool.poetry.urls]
-"Documentation" = "https://atproto.blue"
-"Changes" = "https://github.com/MarshalX/atproto/blob/main/CHANGES.md"
-"Tracker" = "https://github.com/MarshalX/atproto/issues"
-"Author" = "https://github.com/MarshalX"
-
-[tool.poetry.scripts]
-atp = "atproto_cli:atproto_cli"
-atproto = "atproto_cli:atproto_cli"
-
 [tool.poetry.dependencies]
-python = ">=3.8,<3.14"
 httpx = ">=0.25.0,<0.29.0"
 typing-extensions = ">=4.8.0,<5"
 click = ">=8.1.3,<9"
-websockets = ">=12,<14"
+websockets = ">=15,<16"
 pydantic = ">=2.7,<3"
 libipld = ">=3.0.1,<4"
 dnspython = ">=2.4.0,<3"
-cryptography = ">=41.0.7,<46"
+cryptography = ">=41.0.7,<47"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "0.7.0"
-mypy = "1.9"
-pyright = "1.1.362"
+ruff = "0.14.1"
+mypy = "1.18.2"
+pyright = "1.1.406"
 
 [tool.poetry.group.docs.dependencies]
-sphinx = "7.1.2" # they dropped Python 3.8 support in 7.2.0
+sphinx = "7.1.2" # newer sphinx works incorrectly with autodoc-pydantic
 myst-parser = "3.0.1"
-furo = "2024.8.6"
-autodoc-pydantic = "2.1.0" # for some reason 2.2.0 requirs Python > 3.8.1
+furo = "2025.9.25"
+autodoc-pydantic = "2.2.0"
 sphinx-copybutton = "0.5.2"
 sphinx-favicon = "1.0.1"
-sphinxext-opengraph = "0.9.1"
-sphinxcontrib-googleanalytics = "0.4"
+sphinxext-opengraph = "0.13.0"
+sphinxcontrib-googleanalytics = "0.5"
 
 [tool.poetry.group.test.dependencies]
-pytest = ">=8.0.0,<9"
-pytest-asyncio = ">=0.22.0"
-coverage = ">=7.3"
+pytest = ">=8.4.2,<9"
+pytest-asyncio = ">=1.2.0"
+coverage = "7.6.1"
 
 [tool.poetry-dynamic-versioning]
 # poetry self add "poetry-dynamic-versioning[plugin]"
@@ -90,11 +96,11 @@ vcs = "git"
 style = "pep440"
 
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+requires = ["poetry-core>=2.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
 build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 disallow_untyped_defs = false # TODO(MarshalX) enable
 
 [tool.pyright]
@@ -102,7 +108,7 @@ reportMissingTypeStubs = false
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.format]
 quote-style = "single"
@@ -134,7 +140,7 @@ extend-select = [
     "RUF",
     "SIM",
     "T20",
-    "TCH",
+    "TC",
     "TID",
     "YTT",
 ]
@@ -142,8 +148,6 @@ ignore = [
     "PGH004", # use specific rule code with noqa; works bad with JetBrains IDE Warnings
     "ANN401", # t.Any in **kwargs
     "ANN002", # Missing type annotation for `*args`
-    "ANN101", # Missing type annotation for `self` in method
-    "ANN102", # Missing type annotation for `cls` in classmethod
     "D203", "D413", # we are not using too many blank lines
     "D213", # we are using the first line for summary
     "D406", "D407", # we are using google style docstring

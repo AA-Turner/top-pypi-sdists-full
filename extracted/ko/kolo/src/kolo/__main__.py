@@ -8,7 +8,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
@@ -21,12 +21,14 @@ import msgpack
 
 from . import django_schema
 from .cli_mcp_shared import (
+    format_trace_for_display,
     get_compact_traces,
     get_execution_tree,
     get_formatted_traces,
     get_node_data,
 )
 from .config import load_config
+from .core import enable
 from .db import (
     TraceNotFoundError,
     convert_json_to_msgpack,
@@ -34,6 +36,7 @@ from .db import (
     db_connection,
     delete_traces_before,
     delete_traces_by_id,
+    get_pinned_traces,
     list_traces_from_db,
     load_trace_from_db,
     pin_trace,
@@ -44,8 +47,8 @@ from .db import (
     vacuum_db,
 )
 from .generate_tests import generate_from_trace_ids, generate_test_intermediate_format
-from .profiler import enable
 from .serialize import load_msgpack, monkeypatch_queryset_repr
+from .trace import Trace
 from .upload import upload_to_dashboard
 from .utils import (
     extract_main_frames_from_data,
@@ -100,12 +103,18 @@ def python_noop_profiler(frame, event, arg):  # pragma: no cover
 )
 @click.option("--noop", default=False, is_flag=True, hidden=True)
 @click.option(
-    "--use-monitoring",
+    "--inline",
     default=False,
     is_flag=True,
-    help="Enable Kolo implementation using sys.monitoring",
+    help="Output the compact tree representation of the trace to stderr after execution.",
 )
-def run(path, args, one_trace_per_test, noop, use_monitoring):
+@click.option(
+    "--returns",
+    default=False,
+    is_flag=True,
+    help="Include return values in the compact tree representation.",
+)
+def run(path, args, one_trace_per_test, noop, inline, returns):
     """
     Profile Python code using Kolo.
 
@@ -152,12 +161,15 @@ def run(path, args, one_trace_per_test, noop, use_monitoring):
             sys.setprofile(None)
         return
 
-    if use_monitoring:
-        config = {"use_monitoring": True}
-    else:
-        config = {}
+    config = load_config()
     monkeypatch_queryset_repr()
-    with enable(config, source="kolo run", _one_trace_per_test=one_trace_per_test):
+    with enable(
+        config,
+        source="kolo run",
+        _one_trace_per_test=one_trace_per_test,
+        _inline=inline,
+        _inline_returns=returns,
+    ):
         if module:
             run_module(path, run_name="__main__", alter_sys=True)
         else:
@@ -290,27 +302,62 @@ def dump(trace_id, file, as_python, syntax_highlight):
     default=False,
     is_flag=True,
 )
-def list(count, reverse):
+@click.option(
+    "--pinned",
+    help="Show only pinned traces.",
+    default=False,
+    is_flag=True,
+)
+def list(count, reverse, pinned):
     """
     Concisely list available traces, ordered by most recent first.
 
     This is useful for getting an overview of what traces are available and
     finding specific traces you might want to analyze further.
 
-    After listing the trace, you can use `kolo trace compact <trace_id> to get more
-    details about the trace.
+    Use `kolo cat <trace_id>` to view a trace or `kolo cat --recent` to view recent traces.
 
     If you're an LLM, use `kolo trace list` often to orient yourself.
     """
     db_path = setup_db()
     found_any = False
 
-    for formatted_trace in get_formatted_traces(db_path, count=count, reverse=reverse):
+    if not pinned:
+        # Regular trace listing
+        for formatted_trace in get_formatted_traces(
+            db_path, count=count, reverse=reverse
+        ):
+            found_any = True
+            click.echo(formatted_trace)
+
+        if not found_any:
+            click.echo("No traces found")
+        return
+
+    # Pinned trace listing
+    for (
+        trace_id,
+        timestamp_str,
+        size,
+        msgpack_data,
+        auto_generated_name,
+    ) in get_pinned_traces(db_path):
         found_any = True
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(
+            tzinfo=timezone.utc
+        )
+
+        trace_name = Trace.resolve_display_name(
+            msgpack_data, auto_generated_name, db_path, trace_id
+        )
+
+        formatted_trace = format_trace_for_display(
+            trace_id, timestamp, size, trace_name
+        )
         click.echo(formatted_trace)
 
     if not found_any:
-        click.echo("No traces found")
+        click.echo("No pinned traces found")
 
 
 @trace.command()
@@ -347,7 +394,13 @@ def list_queries(trace_id, syntax_highlight):
 @trace.command()
 @click.argument("trace_id")
 @click.argument("node_index", type=int)
-def node(trace_id: str, node_index: int):
+@click.option(
+    "--js",
+    is_flag=True,
+    hidden=True,
+    help="Use Node.js implementation instead of Python (for comparison/testing)",
+)
+def node(trace_id: str, node_index: int, js: bool):
     """Get detailed information about a specific node in a trace.
     This is useful when you need to deeply understand what happened at a specific
     point in the execution, like examining function arguments, local variables,
@@ -358,7 +411,7 @@ def node(trace_id: str, node_index: int):
     async def _get_node():
         try:
             trace_data, _ = load_trace_from_db(db_path, trace_id)
-            node_data = await get_node_data(trace_id, node_index, trace_data)
+            node_data = await get_node_data(trace_id, node_index, trace_data, use_js=js)
             click.echo(json.dumps(node_data, indent=2))
         except TraceNotFoundError:
             raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
@@ -424,7 +477,7 @@ def delete(trace_ids, old, before, vacuum):
 @click.argument("trace_id")
 def pin(trace_id):
     """Pin a trace.
-    This includes the trace in the output of using `kolo trace compact --pinned`,
+    This includes the trace in the output of using `kolo cat --pinned`,
     which can be helpful to give an LLM an overview of the key transactions in your project.
     """
     db_path = setup_db()
@@ -468,22 +521,40 @@ def unpin(trace_id):
     flag_value=5,
     help="Show compact representation of the N most recent traces (default: 5)",
 )
-def compact(trace_id: str | None, pinned: bool, returns: bool, recent: int | None):
+@click.option(
+    "--js",
+    is_flag=True,
+    hidden=True,
+    help="Use Node.js implementation instead of Python (for comparison/testing)",
+)
+def compact(
+    trace_id: str | None, pinned: bool, returns: bool, recent: int | None, js: bool
+):
     """Get a compact representation of a specific trace.
+
+    [LEGACY] This command is deprecated. Use `kolo cat` instead.
 
     Get a concise yet detailed overview of everything that happened in the trace.
     You will see a tree representation of all function calls (and optionally return values),
     as well as other relevant information and points of interest in the trace like logs or sql queries.
+
+    When called without arguments, shows the most recent trace.
     """
+    # Default to showing the most recent trace if no arguments provided
     if not any([pinned, trace_id is not None, recent is not None]):
-        raise click.UsageError("Please provide a trace_id, --pinned, or --recent")
+        recent = 1
 
     db_path = setup_db()
 
     async def _get_compact():
         try:
             results = await get_compact_traces(
-                db_path, trace_id, pinned=pinned, returns=returns, recent=recent or 0
+                db_path,
+                trace_id,
+                pinned=pinned,
+                returns=returns,
+                recent=recent or 0,
+                use_js=js,
             )
             for tid, compact_repr in results:
                 if pinned or recent is not None:
@@ -497,16 +568,22 @@ def compact(trace_id: str | None, pinned: bool, returns: bool, recent: int | Non
 
 @trace.command()
 @click.argument("trace_id")
-def tree(trace_id: str):
+@click.option(
+    "--js",
+    is_flag=True,
+    hidden=True,
+    help="Use Node.js implementation instead of Python (for comparison/testing)",
+)
+def tree(trace_id: str, js: bool):
     """Get the full JSON execution tree for a trace. Very verbose.
-    Most likely you want to use `kolo trace compact` instead.
+    Most likely you want to use `kolo cat` instead.
     """
     db_path = setup_db()
 
     async def _get_tree():
         try:
             trace_data, _ = load_trace_from_db(db_path, trace_id)
-            tree_data = await get_execution_tree(trace_id, trace_data)
+            tree_data = await get_execution_tree(trace_id, trace_data, use_js=js)
             click.echo(json.dumps(tree_data, indent=2))
         except TraceNotFoundError:
             raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
@@ -774,6 +851,68 @@ def json_to_msgpack():  # pragma: no cover
     db_path = setup_db()
     count = convert_json_to_msgpack(db_path)
     click.echo(f"{count} traces converted!")
+
+
+@cli.command()
+@click.argument("trace_id", required=False)
+@click.option(
+    "--pinned", is_flag=True, help="Show compact representation of all pinned traces"
+)
+@click.option(
+    "--returns",
+    is_flag=True,
+    help="Include return values in compact representation (warning: can be verbose)",
+)
+@click.option(
+    "--recent",
+    type=int,
+    is_flag=False,
+    flag_value=5,
+    help="Show compact representation of the N most recent traces (default: 5)",
+)
+@click.option(
+    "--js",
+    is_flag=True,
+    hidden=True,
+    help="Use Node.js implementation instead of Python (for comparison/testing)",
+)
+def cat(
+    trace_id: str | None, pinned: bool, returns: bool, recent: int | None, js: bool
+):
+    """Get a compact, text-based representation of a trace.
+
+    Shows a concise yet detailed overview of everything that happened in the trace.
+    You will see a tree representation of all function calls (and optionally return values),
+    as well as other relevant information and points of interest in the trace like logs or sql queries.
+
+    This is the canonical command for viewing compact trace representations.
+
+    When called without arguments, shows the most recent trace.
+    """
+    # Default to showing the most recent trace if no arguments provided
+    if not any([pinned, trace_id is not None, recent is not None]):
+        recent = 1
+
+    db_path = setup_db()
+
+    async def _get_compact():
+        try:
+            results = await get_compact_traces(
+                db_path,
+                trace_id,
+                pinned=pinned,
+                returns=returns,
+                recent=recent or 0,
+                use_js=js,
+            )
+            for tid, compact_repr in results:
+                if pinned or recent is not None:
+                    click.echo(f"\n=== Trace {tid} ===")
+                click.echo(compact_repr)
+        except TraceNotFoundError as e:
+            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
+
+    asyncio.run(_get_compact())
 
 
 @cli.group()

@@ -3,7 +3,7 @@ Type annotations for iot-data service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -47,11 +48,6 @@ from .type_defs import (
     UpdateThingShadowResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -60,18 +56,18 @@ else:
 __all__ = ("IoTDataPlaneClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    MethodNotAllowedException: Type[BotocoreClientError]
-    RequestEntityTooLargeException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    UnsupportedDocumentEncodingException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    MethodNotAllowedException: type[BotocoreClientError]
+    RequestEntityTooLargeException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    UnsupportedDocumentEncodingException: type[BotocoreClientError]
 
 class IoTDataPlaneClient(AioBaseClient):
     """
@@ -206,7 +202,7 @@ class IoTDataPlaneClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

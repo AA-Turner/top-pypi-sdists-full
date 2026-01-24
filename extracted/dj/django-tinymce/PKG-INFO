@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-tinymce
-Version: 4.1.0
+Version: 5.0.0
 Summary: A Django application that contains a widget to render a
 Author-email: Aljosa Mohorovic <aljosa.mohorovic@gmail.com>
 Maintainer-email: Rémy Hubscher <hubscher.remy@gmail.com>, Claude Paroz <claude@2xlibre.net>
-License: MIT License
+License-Expression: MIT AND GPL-2.0-or-later
 Project-URL: Homepage, https://github.com/jazzband/django-tinymce
 Project-URL: Documentation, https://django-tinymce.readthedocs.org/
 Project-URL: Changelog, https://github.com/jazzband/django-tinymce/blob/master/CHANGELOG.rst
@@ -12,32 +12,34 @@ Keywords: django,widget,tinymce
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: django>=3.2
+License-File: tinymce/static/tinymce/license.md
+Requires-Dist: django>=4.2
+Dynamic: license-file
 
 django-tinymce
 ==============
 
 **django-tinymce** is a Django application that contains a widget to render a form field as a TinyMCE editor.
 
-It supports Python 3.8+ and Django 3.2 to 5.0. Using TinyMCE 6.8.4.
+It supports Python 3.9+ and Django 4.2 to 5.2. Using TinyMCE 7.8.0.
 
 .. image:: https://jazzband.co/static/img/badge.svg
         :target: https://jazzband.co/

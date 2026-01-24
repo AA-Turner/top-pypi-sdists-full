@@ -34,6 +34,7 @@ class ClusterArgs:
                  data_security_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  docker_image: Optional[pulumi.Input['ClusterDockerImageArgs']] = None,
                  driver_instance_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 driver_node_type_flexibility: Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']] = None,
                  driver_node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_elastic_disk: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_local_disk_encryption: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -49,6 +50,7 @@ class ClusterArgs:
                  node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  num_workers: Optional[pulumi.Input[_builtins.int]] = None,
                  policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['ClusterProviderConfigArgs']] = None,
                  remote_disk_throughput: Optional[pulumi.Input[_builtins.int]] = None,
                  runtime_engine: Optional[pulumi.Input[_builtins.str]] = None,
                  single_user_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -57,6 +59,7 @@ class ClusterArgs:
                  ssh_public_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  total_initial_remote_disk_size: Optional[pulumi.Input[_builtins.int]] = None,
                  use_ml_runtime: Optional[pulumi.Input[_builtins.bool]] = None,
+                 worker_node_type_flexibility: Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']] = None,
                  workload_type: Optional[pulumi.Input['ClusterWorkloadTypeArgs']] = None):
         """
         The set of arguments for constructing a Cluster resource.
@@ -99,33 +102,10 @@ class ClusterArgs:
         :param pulumi.Input[_builtins.bool] is_single_node: When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`.
         :param pulumi.Input[_builtins.str] kind: The kind of compute described by this compute specification.  Possible values (see [API docs](https://docs.databricks.com/api/workspace/clusters/create#kind) for full list): `CLASSIC_PREVIEW` (if corresponding public preview is enabled).
         :param pulumi.Input[_builtins.bool] no_wait: If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-               
-               The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-               
-               ```python
-               import pulumi
-               import pulumi_databricks as databricks
-               
-               smallest = databricks.get_node_type(local_disk=True)
-               latest_lts = databricks.get_spark_version(long_term_support=True)
-               shared_autoscaling = databricks.Cluster("shared_autoscaling",
-                   cluster_name="Shared Autoscaling",
-                   spark_version=latest_lts.id,
-                   node_type_id=smallest.id,
-                   autotermination_minutes=20,
-                   autoscale={
-                       "min_workers": 1,
-                       "max_workers": 50,
-                   },
-                   spark_conf={
-                       "spark.databricks.io.cache.enabled": "true",
-                       "spark.databricks.io.cache.maxDiskUsage": "50g",
-                       "spark.databricks.io.cache.maxMetaDataCache": "1g",
-                   })
-               ```
         :param pulumi.Input[_builtins.str] node_type_id: Any supported get_node_type id. If `instance_pool_id` is specified, this field is not needed.
         :param pulumi.Input[_builtins.int] num_workers: Number of worker nodes that this cluster should have. A cluster has one Spark driver and `num_workers` executors for a total of `num_workers` + 1 Spark nodes.
         :param pulumi.Input[_builtins.str] policy_id: Identifier of Cluster Policy to validate cluster and preset certain defaults. *The primary use for cluster policies is to allow users to create policy-scoped clusters via UI rather than sharing configuration for API-created clusters.* For example, when you specify `policy_id` of [external metastore](https://docs.databricks.com/administration-guide/clusters/policies.html#external-metastore-policy) policy, you still have to fill in relevant keys for `spark_conf`.  If relevant fields aren't filled in, then it will cause the configuration drift detected on each plan/apply, and Pulumi will try to apply the detected changes.
+        :param pulumi.Input['ClusterProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] runtime_engine: The type of runtime engine to use. If not specified, the runtime engine type is inferred based on the spark_version value. Allowed values include: `PHOTON`, `STANDARD`.
         :param pulumi.Input[_builtins.str] single_user_name: The optional user name of the user (or group name if `kind` if specified) to assign to an interactive cluster. This field is required when using `data_security_mode` set to `SINGLE_USER` or AAD Passthrough for Azure Data Lake Storage (ADLS) with a single-user cluster (i.e., not high-concurrency clusters).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] spark_conf: should have following items:
@@ -160,6 +140,8 @@ class ClusterArgs:
             pulumi.set(__self__, "docker_image", docker_image)
         if driver_instance_pool_id is not None:
             pulumi.set(__self__, "driver_instance_pool_id", driver_instance_pool_id)
+        if driver_node_type_flexibility is not None:
+            pulumi.set(__self__, "driver_node_type_flexibility", driver_node_type_flexibility)
         if driver_node_type_id is not None:
             pulumi.set(__self__, "driver_node_type_id", driver_node_type_id)
         if enable_elastic_disk is not None:
@@ -190,6 +172,8 @@ class ClusterArgs:
             pulumi.set(__self__, "num_workers", num_workers)
         if policy_id is not None:
             pulumi.set(__self__, "policy_id", policy_id)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if remote_disk_throughput is not None:
             pulumi.set(__self__, "remote_disk_throughput", remote_disk_throughput)
         if runtime_engine is not None:
@@ -206,6 +190,8 @@ class ClusterArgs:
             pulumi.set(__self__, "total_initial_remote_disk_size", total_initial_remote_disk_size)
         if use_ml_runtime is not None:
             pulumi.set(__self__, "use_ml_runtime", use_ml_runtime)
+        if worker_node_type_flexibility is not None:
+            pulumi.set(__self__, "worker_node_type_flexibility", worker_node_type_flexibility)
         if workload_type is not None:
             pulumi.set(__self__, "workload_type", workload_type)
 
@@ -371,6 +357,15 @@ class ClusterArgs:
         pulumi.set(self, "driver_instance_pool_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="driverNodeTypeFlexibility")
+    def driver_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]:
+        return pulumi.get(self, "driver_node_type_flexibility")
+
+    @driver_node_type_flexibility.setter
+    def driver_node_type_flexibility(self, value: Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]):
+        pulumi.set(self, "driver_node_type_flexibility", value)
+
+    @_builtins.property
     @pulumi.getter(name="driverNodeTypeId")
     def driver_node_type_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -498,30 +493,6 @@ class ClusterArgs:
     def no_wait(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
         If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-
-        The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-
-        ```python
-        import pulumi
-        import pulumi_databricks as databricks
-
-        smallest = databricks.get_node_type(local_disk=True)
-        latest_lts = databricks.get_spark_version(long_term_support=True)
-        shared_autoscaling = databricks.Cluster("shared_autoscaling",
-            cluster_name="Shared Autoscaling",
-            spark_version=latest_lts.id,
-            node_type_id=smallest.id,
-            autotermination_minutes=20,
-            autoscale={
-                "min_workers": 1,
-                "max_workers": 50,
-            },
-            spark_conf={
-                "spark.databricks.io.cache.enabled": "true",
-                "spark.databricks.io.cache.maxDiskUsage": "50g",
-                "spark.databricks.io.cache.maxMetaDataCache": "1g",
-            })
-        ```
         """
         return pulumi.get(self, "no_wait")
 
@@ -564,6 +535,18 @@ class ClusterArgs:
     @policy_id.setter
     def policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "policy_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['ClusterProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['ClusterProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="remoteDiskThroughput")
@@ -658,6 +641,15 @@ class ClusterArgs:
         pulumi.set(self, "use_ml_runtime", value)
 
     @_builtins.property
+    @pulumi.getter(name="workerNodeTypeFlexibility")
+    def worker_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]:
+        return pulumi.get(self, "worker_node_type_flexibility")
+
+    @worker_node_type_flexibility.setter
+    def worker_node_type_flexibility(self, value: Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]):
+        pulumi.set(self, "worker_node_type_flexibility", value)
+
+    @_builtins.property
     @pulumi.getter(name="workloadType")
     def workload_type(self) -> Optional[pulumi.Input['ClusterWorkloadTypeArgs']]:
         return pulumi.get(self, "workload_type")
@@ -684,6 +676,7 @@ class _ClusterState:
                  default_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  docker_image: Optional[pulumi.Input['ClusterDockerImageArgs']] = None,
                  driver_instance_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 driver_node_type_flexibility: Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']] = None,
                  driver_node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_elastic_disk: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_local_disk_encryption: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -699,6 +692,7 @@ class _ClusterState:
                  node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  num_workers: Optional[pulumi.Input[_builtins.int]] = None,
                  policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['ClusterProviderConfigArgs']] = None,
                  remote_disk_throughput: Optional[pulumi.Input[_builtins.int]] = None,
                  runtime_engine: Optional[pulumi.Input[_builtins.str]] = None,
                  single_user_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -710,6 +704,7 @@ class _ClusterState:
                  total_initial_remote_disk_size: Optional[pulumi.Input[_builtins.int]] = None,
                  url: Optional[pulumi.Input[_builtins.str]] = None,
                  use_ml_runtime: Optional[pulumi.Input[_builtins.bool]] = None,
+                 worker_node_type_flexibility: Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']] = None,
                  workload_type: Optional[pulumi.Input['ClusterWorkloadTypeArgs']] = None):
         """
         Input properties used for looking up and filtering Cluster resources.
@@ -752,33 +747,10 @@ class _ClusterState:
         :param pulumi.Input[_builtins.bool] is_single_node: When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`.
         :param pulumi.Input[_builtins.str] kind: The kind of compute described by this compute specification.  Possible values (see [API docs](https://docs.databricks.com/api/workspace/clusters/create#kind) for full list): `CLASSIC_PREVIEW` (if corresponding public preview is enabled).
         :param pulumi.Input[_builtins.bool] no_wait: If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-               
-               The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-               
-               ```python
-               import pulumi
-               import pulumi_databricks as databricks
-               
-               smallest = databricks.get_node_type(local_disk=True)
-               latest_lts = databricks.get_spark_version(long_term_support=True)
-               shared_autoscaling = databricks.Cluster("shared_autoscaling",
-                   cluster_name="Shared Autoscaling",
-                   spark_version=latest_lts.id,
-                   node_type_id=smallest.id,
-                   autotermination_minutes=20,
-                   autoscale={
-                       "min_workers": 1,
-                       "max_workers": 50,
-                   },
-                   spark_conf={
-                       "spark.databricks.io.cache.enabled": "true",
-                       "spark.databricks.io.cache.maxDiskUsage": "50g",
-                       "spark.databricks.io.cache.maxMetaDataCache": "1g",
-                   })
-               ```
         :param pulumi.Input[_builtins.str] node_type_id: Any supported get_node_type id. If `instance_pool_id` is specified, this field is not needed.
         :param pulumi.Input[_builtins.int] num_workers: Number of worker nodes that this cluster should have. A cluster has one Spark driver and `num_workers` executors for a total of `num_workers` + 1 Spark nodes.
         :param pulumi.Input[_builtins.str] policy_id: Identifier of Cluster Policy to validate cluster and preset certain defaults. *The primary use for cluster policies is to allow users to create policy-scoped clusters via UI rather than sharing configuration for API-created clusters.* For example, when you specify `policy_id` of [external metastore](https://docs.databricks.com/administration-guide/clusters/policies.html#external-metastore-policy) policy, you still have to fill in relevant keys for `spark_conf`.  If relevant fields aren't filled in, then it will cause the configuration drift detected on each plan/apply, and Pulumi will try to apply the detected changes.
+        :param pulumi.Input['ClusterProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] runtime_engine: The type of runtime engine to use. If not specified, the runtime engine type is inferred based on the spark_version value. Allowed values include: `PHOTON`, `STANDARD`.
         :param pulumi.Input[_builtins.str] single_user_name: The optional user name of the user (or group name if `kind` if specified) to assign to an interactive cluster. This field is required when using `data_security_mode` set to `SINGLE_USER` or AAD Passthrough for Azure Data Lake Storage (ADLS) with a single-user cluster (i.e., not high-concurrency clusters).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] spark_conf: should have following items:
@@ -818,6 +790,8 @@ class _ClusterState:
             pulumi.set(__self__, "docker_image", docker_image)
         if driver_instance_pool_id is not None:
             pulumi.set(__self__, "driver_instance_pool_id", driver_instance_pool_id)
+        if driver_node_type_flexibility is not None:
+            pulumi.set(__self__, "driver_node_type_flexibility", driver_node_type_flexibility)
         if driver_node_type_id is not None:
             pulumi.set(__self__, "driver_node_type_id", driver_node_type_id)
         if enable_elastic_disk is not None:
@@ -848,6 +822,8 @@ class _ClusterState:
             pulumi.set(__self__, "num_workers", num_workers)
         if policy_id is not None:
             pulumi.set(__self__, "policy_id", policy_id)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if remote_disk_throughput is not None:
             pulumi.set(__self__, "remote_disk_throughput", remote_disk_throughput)
         if runtime_engine is not None:
@@ -870,6 +846,8 @@ class _ClusterState:
             pulumi.set(__self__, "url", url)
         if use_ml_runtime is not None:
             pulumi.set(__self__, "use_ml_runtime", use_ml_runtime)
+        if worker_node_type_flexibility is not None:
+            pulumi.set(__self__, "worker_node_type_flexibility", worker_node_type_flexibility)
         if workload_type is not None:
             pulumi.set(__self__, "workload_type", workload_type)
 
@@ -1044,6 +1022,15 @@ class _ClusterState:
         pulumi.set(self, "driver_instance_pool_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="driverNodeTypeFlexibility")
+    def driver_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]:
+        return pulumi.get(self, "driver_node_type_flexibility")
+
+    @driver_node_type_flexibility.setter
+    def driver_node_type_flexibility(self, value: Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]):
+        pulumi.set(self, "driver_node_type_flexibility", value)
+
+    @_builtins.property
     @pulumi.getter(name="driverNodeTypeId")
     def driver_node_type_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1171,30 +1158,6 @@ class _ClusterState:
     def no_wait(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
         If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-
-        The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-
-        ```python
-        import pulumi
-        import pulumi_databricks as databricks
-
-        smallest = databricks.get_node_type(local_disk=True)
-        latest_lts = databricks.get_spark_version(long_term_support=True)
-        shared_autoscaling = databricks.Cluster("shared_autoscaling",
-            cluster_name="Shared Autoscaling",
-            spark_version=latest_lts.id,
-            node_type_id=smallest.id,
-            autotermination_minutes=20,
-            autoscale={
-                "min_workers": 1,
-                "max_workers": 50,
-            },
-            spark_conf={
-                "spark.databricks.io.cache.enabled": "true",
-                "spark.databricks.io.cache.maxDiskUsage": "50g",
-                "spark.databricks.io.cache.maxMetaDataCache": "1g",
-            })
-        ```
         """
         return pulumi.get(self, "no_wait")
 
@@ -1237,6 +1200,18 @@ class _ClusterState:
     @policy_id.setter
     def policy_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "policy_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['ClusterProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['ClusterProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="remoteDiskThroughput")
@@ -1364,6 +1339,15 @@ class _ClusterState:
         pulumi.set(self, "use_ml_runtime", value)
 
     @_builtins.property
+    @pulumi.getter(name="workerNodeTypeFlexibility")
+    def worker_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]:
+        return pulumi.get(self, "worker_node_type_flexibility")
+
+    @worker_node_type_flexibility.setter
+    def worker_node_type_flexibility(self, value: Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]):
+        pulumi.set(self, "worker_node_type_flexibility", value)
+
+    @_builtins.property
     @pulumi.getter(name="workloadType")
     def workload_type(self) -> Optional[pulumi.Input['ClusterWorkloadTypeArgs']]:
         return pulumi.get(self, "workload_type")
@@ -1391,6 +1375,7 @@ class Cluster(pulumi.CustomResource):
                  data_security_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  docker_image: Optional[pulumi.Input[Union['ClusterDockerImageArgs', 'ClusterDockerImageArgsDict']]] = None,
                  driver_instance_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 driver_node_type_flexibility: Optional[pulumi.Input[Union['ClusterDriverNodeTypeFlexibilityArgs', 'ClusterDriverNodeTypeFlexibilityArgsDict']]] = None,
                  driver_node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_elastic_disk: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_local_disk_encryption: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1406,6 +1391,7 @@ class Cluster(pulumi.CustomResource):
                  node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  num_workers: Optional[pulumi.Input[_builtins.int]] = None,
                  policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['ClusterProviderConfigArgs', 'ClusterProviderConfigArgsDict']]] = None,
                  remote_disk_throughput: Optional[pulumi.Input[_builtins.int]] = None,
                  runtime_engine: Optional[pulumi.Input[_builtins.str]] = None,
                  single_user_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1415,6 +1401,7 @@ class Cluster(pulumi.CustomResource):
                  ssh_public_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  total_initial_remote_disk_size: Optional[pulumi.Input[_builtins.int]] = None,
                  use_ml_runtime: Optional[pulumi.Input[_builtins.bool]] = None,
+                 worker_node_type_flexibility: Optional[pulumi.Input[Union['ClusterWorkerNodeTypeFlexibilityArgs', 'ClusterWorkerNodeTypeFlexibilityArgsDict']]] = None,
                  workload_type: Optional[pulumi.Input[Union['ClusterWorkloadTypeArgs', 'ClusterWorkloadTypeArgsDict']]] = None,
                  __props__=None):
         """
@@ -1468,33 +1455,10 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] is_single_node: When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`.
         :param pulumi.Input[_builtins.str] kind: The kind of compute described by this compute specification.  Possible values (see [API docs](https://docs.databricks.com/api/workspace/clusters/create#kind) for full list): `CLASSIC_PREVIEW` (if corresponding public preview is enabled).
         :param pulumi.Input[_builtins.bool] no_wait: If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-               
-               The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-               
-               ```python
-               import pulumi
-               import pulumi_databricks as databricks
-               
-               smallest = databricks.get_node_type(local_disk=True)
-               latest_lts = databricks.get_spark_version(long_term_support=True)
-               shared_autoscaling = databricks.Cluster("shared_autoscaling",
-                   cluster_name="Shared Autoscaling",
-                   spark_version=latest_lts.id,
-                   node_type_id=smallest.id,
-                   autotermination_minutes=20,
-                   autoscale={
-                       "min_workers": 1,
-                       "max_workers": 50,
-                   },
-                   spark_conf={
-                       "spark.databricks.io.cache.enabled": "true",
-                       "spark.databricks.io.cache.maxDiskUsage": "50g",
-                       "spark.databricks.io.cache.maxMetaDataCache": "1g",
-                   })
-               ```
         :param pulumi.Input[_builtins.str] node_type_id: Any supported get_node_type id. If `instance_pool_id` is specified, this field is not needed.
         :param pulumi.Input[_builtins.int] num_workers: Number of worker nodes that this cluster should have. A cluster has one Spark driver and `num_workers` executors for a total of `num_workers` + 1 Spark nodes.
         :param pulumi.Input[_builtins.str] policy_id: Identifier of Cluster Policy to validate cluster and preset certain defaults. *The primary use for cluster policies is to allow users to create policy-scoped clusters via UI rather than sharing configuration for API-created clusters.* For example, when you specify `policy_id` of [external metastore](https://docs.databricks.com/administration-guide/clusters/policies.html#external-metastore-policy) policy, you still have to fill in relevant keys for `spark_conf`.  If relevant fields aren't filled in, then it will cause the configuration drift detected on each plan/apply, and Pulumi will try to apply the detected changes.
+        :param pulumi.Input[Union['ClusterProviderConfigArgs', 'ClusterProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] runtime_engine: The type of runtime engine to use. If not specified, the runtime engine type is inferred based on the spark_version value. Allowed values include: `PHOTON`, `STANDARD`.
         :param pulumi.Input[_builtins.str] single_user_name: The optional user name of the user (or group name if `kind` if specified) to assign to an interactive cluster. This field is required when using `data_security_mode` set to `SINGLE_USER` or AAD Passthrough for Azure Data Lake Storage (ADLS) with a single-user cluster (i.e., not high-concurrency clusters).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] spark_conf: should have following items:
@@ -1549,6 +1513,7 @@ class Cluster(pulumi.CustomResource):
                  data_security_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  docker_image: Optional[pulumi.Input[Union['ClusterDockerImageArgs', 'ClusterDockerImageArgsDict']]] = None,
                  driver_instance_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 driver_node_type_flexibility: Optional[pulumi.Input[Union['ClusterDriverNodeTypeFlexibilityArgs', 'ClusterDriverNodeTypeFlexibilityArgsDict']]] = None,
                  driver_node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  enable_elastic_disk: Optional[pulumi.Input[_builtins.bool]] = None,
                  enable_local_disk_encryption: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1564,6 +1529,7 @@ class Cluster(pulumi.CustomResource):
                  node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
                  num_workers: Optional[pulumi.Input[_builtins.int]] = None,
                  policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['ClusterProviderConfigArgs', 'ClusterProviderConfigArgsDict']]] = None,
                  remote_disk_throughput: Optional[pulumi.Input[_builtins.int]] = None,
                  runtime_engine: Optional[pulumi.Input[_builtins.str]] = None,
                  single_user_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1573,6 +1539,7 @@ class Cluster(pulumi.CustomResource):
                  ssh_public_keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  total_initial_remote_disk_size: Optional[pulumi.Input[_builtins.int]] = None,
                  use_ml_runtime: Optional[pulumi.Input[_builtins.bool]] = None,
+                 worker_node_type_flexibility: Optional[pulumi.Input[Union['ClusterWorkerNodeTypeFlexibilityArgs', 'ClusterWorkerNodeTypeFlexibilityArgsDict']]] = None,
                  workload_type: Optional[pulumi.Input[Union['ClusterWorkloadTypeArgs', 'ClusterWorkloadTypeArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -1595,6 +1562,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["data_security_mode"] = data_security_mode
             __props__.__dict__["docker_image"] = docker_image
             __props__.__dict__["driver_instance_pool_id"] = driver_instance_pool_id
+            __props__.__dict__["driver_node_type_flexibility"] = driver_node_type_flexibility
             __props__.__dict__["driver_node_type_id"] = driver_node_type_id
             __props__.__dict__["enable_elastic_disk"] = enable_elastic_disk
             __props__.__dict__["enable_local_disk_encryption"] = enable_local_disk_encryption
@@ -1610,6 +1578,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["node_type_id"] = node_type_id
             __props__.__dict__["num_workers"] = num_workers
             __props__.__dict__["policy_id"] = policy_id
+            __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["remote_disk_throughput"] = remote_disk_throughput
             __props__.__dict__["runtime_engine"] = runtime_engine
             __props__.__dict__["single_user_name"] = single_user_name
@@ -1621,6 +1590,7 @@ class Cluster(pulumi.CustomResource):
             __props__.__dict__["ssh_public_keys"] = ssh_public_keys
             __props__.__dict__["total_initial_remote_disk_size"] = total_initial_remote_disk_size
             __props__.__dict__["use_ml_runtime"] = use_ml_runtime
+            __props__.__dict__["worker_node_type_flexibility"] = worker_node_type_flexibility
             __props__.__dict__["workload_type"] = workload_type
             __props__.__dict__["cluster_id"] = None
             __props__.__dict__["default_tags"] = None
@@ -1650,6 +1620,7 @@ class Cluster(pulumi.CustomResource):
             default_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             docker_image: Optional[pulumi.Input[Union['ClusterDockerImageArgs', 'ClusterDockerImageArgsDict']]] = None,
             driver_instance_pool_id: Optional[pulumi.Input[_builtins.str]] = None,
+            driver_node_type_flexibility: Optional[pulumi.Input[Union['ClusterDriverNodeTypeFlexibilityArgs', 'ClusterDriverNodeTypeFlexibilityArgsDict']]] = None,
             driver_node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
             enable_elastic_disk: Optional[pulumi.Input[_builtins.bool]] = None,
             enable_local_disk_encryption: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1665,6 +1636,7 @@ class Cluster(pulumi.CustomResource):
             node_type_id: Optional[pulumi.Input[_builtins.str]] = None,
             num_workers: Optional[pulumi.Input[_builtins.int]] = None,
             policy_id: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['ClusterProviderConfigArgs', 'ClusterProviderConfigArgsDict']]] = None,
             remote_disk_throughput: Optional[pulumi.Input[_builtins.int]] = None,
             runtime_engine: Optional[pulumi.Input[_builtins.str]] = None,
             single_user_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1676,6 +1648,7 @@ class Cluster(pulumi.CustomResource):
             total_initial_remote_disk_size: Optional[pulumi.Input[_builtins.int]] = None,
             url: Optional[pulumi.Input[_builtins.str]] = None,
             use_ml_runtime: Optional[pulumi.Input[_builtins.bool]] = None,
+            worker_node_type_flexibility: Optional[pulumi.Input[Union['ClusterWorkerNodeTypeFlexibilityArgs', 'ClusterWorkerNodeTypeFlexibilityArgsDict']]] = None,
             workload_type: Optional[pulumi.Input[Union['ClusterWorkloadTypeArgs', 'ClusterWorkloadTypeArgsDict']]] = None) -> 'Cluster':
         """
         Get an existing Cluster resource's state with the given name, id, and optional extra
@@ -1723,33 +1696,10 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] is_single_node: When set to true, Databricks will automatically set single node related `custom_tags`, `spark_conf`, and `num_workers`.
         :param pulumi.Input[_builtins.str] kind: The kind of compute described by this compute specification.  Possible values (see [API docs](https://docs.databricks.com/api/workspace/clusters/create#kind) for full list): `CLASSIC_PREVIEW` (if corresponding public preview is enabled).
         :param pulumi.Input[_builtins.bool] no_wait: If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-               
-               The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-               
-               ```python
-               import pulumi
-               import pulumi_databricks as databricks
-               
-               smallest = databricks.get_node_type(local_disk=True)
-               latest_lts = databricks.get_spark_version(long_term_support=True)
-               shared_autoscaling = databricks.Cluster("shared_autoscaling",
-                   cluster_name="Shared Autoscaling",
-                   spark_version=latest_lts.id,
-                   node_type_id=smallest.id,
-                   autotermination_minutes=20,
-                   autoscale={
-                       "min_workers": 1,
-                       "max_workers": 50,
-                   },
-                   spark_conf={
-                       "spark.databricks.io.cache.enabled": "true",
-                       "spark.databricks.io.cache.maxDiskUsage": "50g",
-                       "spark.databricks.io.cache.maxMetaDataCache": "1g",
-                   })
-               ```
         :param pulumi.Input[_builtins.str] node_type_id: Any supported get_node_type id. If `instance_pool_id` is specified, this field is not needed.
         :param pulumi.Input[_builtins.int] num_workers: Number of worker nodes that this cluster should have. A cluster has one Spark driver and `num_workers` executors for a total of `num_workers` + 1 Spark nodes.
         :param pulumi.Input[_builtins.str] policy_id: Identifier of Cluster Policy to validate cluster and preset certain defaults. *The primary use for cluster policies is to allow users to create policy-scoped clusters via UI rather than sharing configuration for API-created clusters.* For example, when you specify `policy_id` of [external metastore](https://docs.databricks.com/administration-guide/clusters/policies.html#external-metastore-policy) policy, you still have to fill in relevant keys for `spark_conf`.  If relevant fields aren't filled in, then it will cause the configuration drift detected on each plan/apply, and Pulumi will try to apply the detected changes.
+        :param pulumi.Input[Union['ClusterProviderConfigArgs', 'ClusterProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] runtime_engine: The type of runtime engine to use. If not specified, the runtime engine type is inferred based on the spark_version value. Allowed values include: `PHOTON`, `STANDARD`.
         :param pulumi.Input[_builtins.str] single_user_name: The optional user name of the user (or group name if `kind` if specified) to assign to an interactive cluster. This field is required when using `data_security_mode` set to `SINGLE_USER` or AAD Passthrough for Azure Data Lake Storage (ADLS) with a single-user cluster (i.e., not high-concurrency clusters).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] spark_conf: should have following items:
@@ -1779,6 +1729,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["default_tags"] = default_tags
         __props__.__dict__["docker_image"] = docker_image
         __props__.__dict__["driver_instance_pool_id"] = driver_instance_pool_id
+        __props__.__dict__["driver_node_type_flexibility"] = driver_node_type_flexibility
         __props__.__dict__["driver_node_type_id"] = driver_node_type_id
         __props__.__dict__["enable_elastic_disk"] = enable_elastic_disk
         __props__.__dict__["enable_local_disk_encryption"] = enable_local_disk_encryption
@@ -1794,6 +1745,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["node_type_id"] = node_type_id
         __props__.__dict__["num_workers"] = num_workers
         __props__.__dict__["policy_id"] = policy_id
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["remote_disk_throughput"] = remote_disk_throughput
         __props__.__dict__["runtime_engine"] = runtime_engine
         __props__.__dict__["single_user_name"] = single_user_name
@@ -1805,6 +1757,7 @@ class Cluster(pulumi.CustomResource):
         __props__.__dict__["total_initial_remote_disk_size"] = total_initial_remote_disk_size
         __props__.__dict__["url"] = url
         __props__.__dict__["use_ml_runtime"] = use_ml_runtime
+        __props__.__dict__["worker_node_type_flexibility"] = worker_node_type_flexibility
         __props__.__dict__["workload_type"] = workload_type
         return Cluster(resource_name, opts=opts, __props__=__props__)
 
@@ -1923,6 +1876,11 @@ class Cluster(pulumi.CustomResource):
         return pulumi.get(self, "driver_instance_pool_id")
 
     @_builtins.property
+    @pulumi.getter(name="driverNodeTypeFlexibility")
+    def driver_node_type_flexibility(self) -> pulumi.Output[Optional['outputs.ClusterDriverNodeTypeFlexibility']]:
+        return pulumi.get(self, "driver_node_type_flexibility")
+
+    @_builtins.property
     @pulumi.getter(name="driverNodeTypeId")
     def driver_node_type_id(self) -> pulumi.Output[_builtins.str]:
         """
@@ -2006,30 +1964,6 @@ class Cluster(pulumi.CustomResource):
     def no_wait(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
         If true, the provider will not wait for the cluster to reach `RUNNING` state when creating the cluster, allowing cluster creation and library installation to continue asynchronously. Defaults to false (the provider will wait for cluster creation and library installation to succeed).
-
-        The following example demonstrates how to create an autoscaling cluster with [Delta Cache](https://docs.databricks.com/delta/optimizations/delta-cache.html) enabled:
-
-        ```python
-        import pulumi
-        import pulumi_databricks as databricks
-
-        smallest = databricks.get_node_type(local_disk=True)
-        latest_lts = databricks.get_spark_version(long_term_support=True)
-        shared_autoscaling = databricks.Cluster("shared_autoscaling",
-            cluster_name="Shared Autoscaling",
-            spark_version=latest_lts.id,
-            node_type_id=smallest.id,
-            autotermination_minutes=20,
-            autoscale={
-                "min_workers": 1,
-                "max_workers": 50,
-            },
-            spark_conf={
-                "spark.databricks.io.cache.enabled": "true",
-                "spark.databricks.io.cache.maxDiskUsage": "50g",
-                "spark.databricks.io.cache.maxMetaDataCache": "1g",
-            })
-        ```
         """
         return pulumi.get(self, "no_wait")
 
@@ -2056,6 +1990,14 @@ class Cluster(pulumi.CustomResource):
         Identifier of Cluster Policy to validate cluster and preset certain defaults. *The primary use for cluster policies is to allow users to create policy-scoped clusters via UI rather than sharing configuration for API-created clusters.* For example, when you specify `policy_id` of [external metastore](https://docs.databricks.com/administration-guide/clusters/policies.html#external-metastore-policy) policy, you still have to fill in relevant keys for `spark_conf`.  If relevant fields aren't filled in, then it will cause the configuration drift detected on each plan/apply, and Pulumi will try to apply the detected changes.
         """
         return pulumi.get(self, "policy_id")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.ClusterProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="remoteDiskThroughput")
@@ -2137,6 +2079,11 @@ class Cluster(pulumi.CustomResource):
         Whenever ML runtime should be selected or not.  Actual runtime is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is GPU node or not.
         """
         return pulumi.get(self, "use_ml_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workerNodeTypeFlexibility")
+    def worker_node_type_flexibility(self) -> pulumi.Output[Optional['outputs.ClusterWorkerNodeTypeFlexibility']]:
+        return pulumi.get(self, "worker_node_type_flexibility")
 
     @_builtins.property
     @pulumi.getter(name="workloadType")

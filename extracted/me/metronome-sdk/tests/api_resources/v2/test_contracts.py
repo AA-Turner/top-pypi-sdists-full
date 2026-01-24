@@ -126,6 +126,14 @@ class TestContracts:
         contract = client.v2.contracts.edit(
             contract_id="d7abd0cd-4ae9-4db7-8676-e986a4ebd8dc",
             customer_id="13117714-3f05-48e5-a6e9-a66093f13b4d",
+            add_billing_provider_configuration_update={
+                "billing_provider_configuration": {
+                    "billing_provider": "aws_marketplace",
+                    "billing_provider_configuration_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "delivery_method": "direct_to_billing_provider",
+                },
+                "schedule": {"effective_at": "START_OF_CURRENT_PERIOD"},
+            },
             add_commits=[
                 {
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -522,6 +530,11 @@ class TestContracts:
                     "initial_quantity": 0,
                     "name": "name",
                     "quantity_management_mode": "SEAT_BASED",
+                    "seat_config": {
+                        "initial_seat_ids": ["string"],
+                        "seat_group_key": "seat_group_key",
+                        "initial_unassigned_seats": 0,
+                    },
                     "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "temporary_id": "temporary_id",
                 }
@@ -555,6 +568,7 @@ class TestContracts:
                     },
                     "applicable_product_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                     "applicable_product_tags": ["string"],
+                    "description": "description",
                     "hierarchy_configuration": {"child_access": {"type": "ALL"}},
                     "invoice_schedule": {
                         "add_schedule_items": [
@@ -576,6 +590,7 @@ class TestContracts:
                             }
                         ],
                     },
+                    "name": "name",
                     "netsuite_sales_order_id": "netsuite_sales_order_id",
                     "priority": 0,
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -608,7 +623,9 @@ class TestContracts:
                     },
                     "applicable_product_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                     "applicable_product_tags": ["string"],
+                    "description": "description",
                     "hierarchy_configuration": {"child_access": {"type": "ALL"}},
+                    "name": "name",
                     "netsuite_sales_order_id": "netsuite_sales_order_id",
                     "priority": 0,
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -660,6 +677,7 @@ class TestContracts:
                         "quantity": 0,
                         "unit_price": 0,
                     },
+                    "rate_type": "LIST_RATE",
                 }
             ],
             update_recurring_credits=[
@@ -670,6 +688,7 @@ class TestContracts:
                         "unit_price": 0,
                     },
                     "ending_before": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "rate_type": "LIST_RATE",
                 }
             ],
             update_scheduled_charges=[
@@ -723,6 +742,10 @@ class TestContracts:
                 {
                     "subscription_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "ending_before": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "quantity_management_mode_update": {
+                        "quantity_management_mode": "SEAT_BASED",
+                        "seat_config": {"seat_group_key": "seat_group_key"},
+                    },
                     "quantity_updates": [
                         {
                             "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -730,6 +753,32 @@ class TestContracts:
                             "quantity_delta": 0,
                         }
                     ],
+                    "seat_updates": {
+                        "add_seat_ids": [
+                            {
+                                "seat_ids": ["string"],
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "add_unassigned_seats": [
+                            {
+                                "quantity": 1,
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "remove_seat_ids": [
+                            {
+                                "seat_ids": ["string"],
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "remove_unassigned_seats": [
+                            {
+                                "quantity": 1,
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -794,6 +843,8 @@ class TestContracts:
             },
             applicable_product_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             applicable_product_tags=["string"],
+            description="description",
+            hierarchy_configuration={"child_access": {"type": "ALL"}},
             invoice_contract_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             invoice_schedule={
                 "add_schedule_items": [
@@ -815,6 +866,7 @@ class TestContracts:
                     }
                 ],
             },
+            name="name",
             priority=0,
             product_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             rate_type="LIST_RATE",
@@ -888,6 +940,9 @@ class TestContracts:
             },
             applicable_product_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             applicable_product_tags=["string"],
+            description="description",
+            hierarchy_configuration={"child_access": {"type": "ALL"}},
+            name="name",
             priority=0,
             product_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             rate_type="LIST_RATE",
@@ -1069,6 +1124,14 @@ class TestAsyncContracts:
         contract = await async_client.v2.contracts.edit(
             contract_id="d7abd0cd-4ae9-4db7-8676-e986a4ebd8dc",
             customer_id="13117714-3f05-48e5-a6e9-a66093f13b4d",
+            add_billing_provider_configuration_update={
+                "billing_provider_configuration": {
+                    "billing_provider": "aws_marketplace",
+                    "billing_provider_configuration_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "delivery_method": "direct_to_billing_provider",
+                },
+                "schedule": {"effective_at": "START_OF_CURRENT_PERIOD"},
+            },
             add_commits=[
                 {
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -1465,6 +1528,11 @@ class TestAsyncContracts:
                     "initial_quantity": 0,
                     "name": "name",
                     "quantity_management_mode": "SEAT_BASED",
+                    "seat_config": {
+                        "initial_seat_ids": ["string"],
+                        "seat_group_key": "seat_group_key",
+                        "initial_unassigned_seats": 0,
+                    },
                     "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
                     "temporary_id": "temporary_id",
                 }
@@ -1498,6 +1566,7 @@ class TestAsyncContracts:
                     },
                     "applicable_product_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                     "applicable_product_tags": ["string"],
+                    "description": "description",
                     "hierarchy_configuration": {"child_access": {"type": "ALL"}},
                     "invoice_schedule": {
                         "add_schedule_items": [
@@ -1519,6 +1588,7 @@ class TestAsyncContracts:
                             }
                         ],
                     },
+                    "name": "name",
                     "netsuite_sales_order_id": "netsuite_sales_order_id",
                     "priority": 0,
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -1551,7 +1621,9 @@ class TestAsyncContracts:
                     },
                     "applicable_product_ids": ["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
                     "applicable_product_tags": ["string"],
+                    "description": "description",
                     "hierarchy_configuration": {"child_access": {"type": "ALL"}},
+                    "name": "name",
                     "netsuite_sales_order_id": "netsuite_sales_order_id",
                     "priority": 0,
                     "product_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
@@ -1603,6 +1675,7 @@ class TestAsyncContracts:
                         "quantity": 0,
                         "unit_price": 0,
                     },
+                    "rate_type": "LIST_RATE",
                 }
             ],
             update_recurring_credits=[
@@ -1613,6 +1686,7 @@ class TestAsyncContracts:
                         "unit_price": 0,
                     },
                     "ending_before": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "rate_type": "LIST_RATE",
                 }
             ],
             update_scheduled_charges=[
@@ -1666,6 +1740,10 @@ class TestAsyncContracts:
                 {
                     "subscription_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                     "ending_before": parse_datetime("2019-12-27T18:11:19.117Z"),
+                    "quantity_management_mode_update": {
+                        "quantity_management_mode": "SEAT_BASED",
+                        "seat_config": {"seat_group_key": "seat_group_key"},
+                    },
                     "quantity_updates": [
                         {
                             "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -1673,6 +1751,32 @@ class TestAsyncContracts:
                             "quantity_delta": 0,
                         }
                     ],
+                    "seat_updates": {
+                        "add_seat_ids": [
+                            {
+                                "seat_ids": ["string"],
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "add_unassigned_seats": [
+                            {
+                                "quantity": 1,
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "remove_seat_ids": [
+                            {
+                                "seat_ids": ["string"],
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                        "remove_unassigned_seats": [
+                            {
+                                "quantity": 1,
+                                "starting_at": parse_datetime("2019-12-27T18:11:19.117Z"),
+                            }
+                        ],
+                    },
                 }
             ],
         )
@@ -1737,6 +1841,8 @@ class TestAsyncContracts:
             },
             applicable_product_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             applicable_product_tags=["string"],
+            description="description",
+            hierarchy_configuration={"child_access": {"type": "ALL"}},
             invoice_contract_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             invoice_schedule={
                 "add_schedule_items": [
@@ -1758,6 +1864,7 @@ class TestAsyncContracts:
                     }
                 ],
             },
+            name="name",
             priority=0,
             product_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             rate_type="LIST_RATE",
@@ -1831,6 +1938,9 @@ class TestAsyncContracts:
             },
             applicable_product_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             applicable_product_tags=["string"],
+            description="description",
+            hierarchy_configuration={"child_access": {"type": "ALL"}},
+            name="name",
             priority=0,
             product_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             rate_type="LIST_RATE",

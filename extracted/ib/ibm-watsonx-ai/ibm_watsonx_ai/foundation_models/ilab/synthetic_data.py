@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from ibm_watsonx_ai.foundation_models.ilab.helper import BaseRuns, wait_for_run_finish
 from ibm_watsonx_ai.foundation_models.ilab.taxonomies import Taxonomy
 from ibm_watsonx_ai.helpers.connections import DataConnection
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -63,7 +64,7 @@ class SyntheticDataGeneration:
         :return: status of synthetic data generation
         :rtype: str
         """
-        return self.get_run_details()["entity"].get("status", {}).get("state")
+        return get_from_json(self.get_run_details(), ["entity", "status", "state"])
 
     def delete_run(self) -> str:
         """Delete synthetic data generation run"""
@@ -121,7 +122,7 @@ class SDGRuns(BaseRuns):
         """
         sdg_details = self.get_run_details(sdg_id)
         sdg = SyntheticDataGeneration(
-            sdg_details.get("metadata", {}).get("name"), self._client
+            get_from_json(sdg_details, ["metadata", "name"]), self._client
         )
         sdg.id = sdg_id
         return sdg

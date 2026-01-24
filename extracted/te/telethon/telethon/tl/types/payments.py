@@ -5,7 +5,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftCollection, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
+    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftCollection, TypeStarGiftUpgradePrice, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
 
 
 
@@ -1083,25 +1083,31 @@ class StarGiftCollectionsNotModified(TLObject):
 
 
 class StarGiftUpgradePreview(TLObject):
-    CONSTRUCTOR_ID = 0x167bd90b
+    CONSTRUCTOR_ID = 0x3de1dfed
     SUBCLASS_OF_ID = 0x5e2b68c7
 
-    def __init__(self, sample_attributes: List['TypeStarGiftAttribute']):
+    def __init__(self, sample_attributes: List['TypeStarGiftAttribute'], prices: List['TypeStarGiftUpgradePrice'], next_prices: List['TypeStarGiftUpgradePrice']):
         """
         Constructor for payments.StarGiftUpgradePreview: Instance of StarGiftUpgradePreview.
         """
         self.sample_attributes = sample_attributes
+        self.prices = prices
+        self.next_prices = next_prices
 
     def to_dict(self):
         return {
             '_': 'StarGiftUpgradePreview',
-            'sample_attributes': [] if self.sample_attributes is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.sample_attributes]
+            'sample_attributes': [] if self.sample_attributes is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.sample_attributes],
+            'prices': [] if self.prices is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.prices],
+            'next_prices': [] if self.next_prices is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.next_prices]
         }
 
     def _bytes(self):
         return b''.join((
-            b'\x0b\xd9{\x16',
+            b'\xed\xdf\xe1=',
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.sample_attributes)),b''.join(x._bytes() for x in self.sample_attributes),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.prices)),b''.join(x._bytes() for x in self.prices),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.next_prices)),b''.join(x._bytes() for x in self.next_prices),
         ))
 
     @classmethod
@@ -1112,7 +1118,19 @@ class StarGiftUpgradePreview(TLObject):
             _x = reader.tgread_object()
             _sample_attributes.append(_x)
 
-        return cls(sample_attributes=_sample_attributes)
+        reader.read_int()
+        _prices = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _prices.append(_x)
+
+        reader.read_int()
+        _next_prices = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _next_prices.append(_x)
+
+        return cls(sample_attributes=_sample_attributes, prices=_prices, next_prices=_next_prices)
 
 
 class StarGiftWithdrawalUrl(TLObject):

@@ -2,103 +2,104 @@
 import re
 from typing import Optional, Union, Dict, List
 
+
 class ProductCode:
-    """Класс для формирования тега 1162 на основе кода в формате Data Matrix.""" # noqa: E501
+    """Класс для формирования тега 1162 на основе кода в формате Data Matrix."""  # noqa: E501
 
     PREFIX_DATA_MATRIX = '444D'
-    """Код типа маркировки DataMatrix""" # noqa: E501
+    """Код типа маркировки DataMatrix"""  # noqa: E501
 
     PREFIX_UNKNOWN = '0000'
-    """Код типа маркировки UNKNOWN""" # noqa: E501
+    """Код типа маркировки UNKNOWN"""  # noqa: E501
 
     PREFIX_EAN_8 = '4508'
-    """Код типа маркировки EAN_8""" # noqa: E501
+    """Код типа маркировки EAN_8"""  # noqa: E501
 
     PREFIX_EAN_13 = '450D'
-    """Код типа маркировки EAN_13""" # noqa: E501
+    """Код типа маркировки EAN_13"""  # noqa: E501
 
     PREFIX_ITF_14 = '4909'
-    """Код типа маркировки ITF_14""" # noqa: E501
+    """Код типа маркировки ITF_14"""  # noqa: E501
 
     PREFIX_FUR = '5246'
-    """Код типа маркировки FUR""" # noqa: E501
+    """Код типа маркировки FUR"""  # noqa: E501
 
     PREFIX_EGAIS_20 = 'C514'
-    """Код типа маркировки EGAIS_20""" # noqa: E501
+    """Код типа маркировки EGAIS_20"""  # noqa: E501
 
     PREFIX_EGAIS_30 = 'C51E'
-    """Код типа маркировки EGAIS_30""" # noqa: E501
+    """Код типа маркировки EGAIS_30"""  # noqa: E501
 
     TYPE_UNKNOWN = 'unknown'
-    """Тип маркировки UNKNOWN""" # noqa: E501
+    """Тип маркировки UNKNOWN"""  # noqa: E501
 
     TYPE_EAN_8 = 'ean_8'
-    """Тип маркировки EAN_8""" # noqa: E501
+    """Тип маркировки EAN_8"""  # noqa: E501
 
     TYPE_EAN_13 = 'ean_13'
-    """Тип маркировки EAN_13""" # noqa: E501
+    """Тип маркировки EAN_13"""  # noqa: E501
 
     TYPE_ITF_14 = 'itf_14'
-    """Тип маркировки ITF_14""" # noqa: E501
+    """Тип маркировки ITF_14"""  # noqa: E501
 
     TYPE_GS_10 = 'gs_10'
-    """Тип маркировки GS_10""" # noqa: E501
+    """Тип маркировки GS_10"""  # noqa: E501
 
     TYPE_GS_1M = 'gs_1m'
-    """Тип маркировки GS_1M""" # noqa: E501
+    """Тип маркировки GS_1M"""  # noqa: E501
 
     TYPE_SHORT = 'short'
-    """Тип маркировки SHORT""" # noqa: E501
+    """Тип маркировки SHORT"""  # noqa: E501
 
     TYPE_FUR = 'fur'
-    """Тип маркировки FUR""" # noqa: E501
+    """Тип маркировки FUR"""  # noqa: E501
 
     TYPE_EGAIS_20 = 'egais_20'
-    """Тип маркировки EGAIS_20""" # noqa: E501
+    """Тип маркировки EGAIS_20"""  # noqa: E501
 
     TYPE_EGAIS_30 = 'egais_30'
-    """Тип маркировки EGAIS_30""" # noqa: E501
+    """Тип маркировки EGAIS_30"""  # noqa: E501
 
     AI_GTIN = '01'
-    """Идентификатор применения (идентификационный номер единицы товара)""" # noqa: E501
+    """Идентификатор применения (идентификационный номер единицы товара)"""  # noqa: E501
 
     AI_SERIAL = '21'
-    """Идентификатор применения (серийный номер)""" # noqa: E501
+    """Идентификатор применения (серийный номер)"""  # noqa: E501
 
     AI_SUM = '8005'
-    """Дополнительный идентификатор применения (цена единицы измерения товара)""" # noqa: E501
+    """Дополнительный идентификатор применения (цена единицы измерения товара)"""  # noqa: E501
 
     MAX_PRODUCT_CODE_LENGTH = 30
-    """Максимальная длина последовательности для кода продукта unknown""" # noqa: E501
+    """Максимальная длина последовательности для кода продукта unknown"""  # noqa: E501
 
     MAX_MARK_CODE_LENGTH = 32
-    """Максимальная длина последовательности для кода маркировки типа unknown""" # noqa: E501
+    """Максимальная длина последовательности для кода маркировки типа unknown"""  # noqa: E501
 
     _prefix = None
-    """Код типа маркировки""" # noqa: E501
+    """Код типа маркировки"""  # noqa: E501
 
     _type = None
-    """Тип маркировки""" # noqa: E501
+    """Тип маркировки"""  # noqa: E501
 
     _gtin = None
-    """Глобальный номер товарной продукции в единой международной базе товаров GS1 https://ru.wikipedia.org/wiki/GS1. Пример: 04630037591316""" # noqa: E501
+    """Глобальный номер товарной продукции в единой международной базе товаров GS1 https://ru.wikipedia.org/wiki/GS1. Пример: 04630037591316"""  # noqa: E501
 
     _serial = None
-    """Серийный номер товара. Пример: sgEKKPPcS25y5""" # noqa: E501
+    """Серийный номер товара. Пример: sgEKKPPcS25y5"""  # noqa: E501
 
     _app_identifiers = None
-    """Массив дополнительных идентификаторов применения.""" # noqa: E501
+    """Массив дополнительных идентификаторов применения."""  # noqa: E501
 
     _result = None
-    """Сформированный тег 1162. Формат: hex([prefix]+gtin+serial). Пример: 04 36 03 BE F5 14 73  67  45  4b  4b  50  50  63  53  32  35  79  35""" # noqa: E501
+    """Сформированный тег 1162. Формат: hex([prefix]+gtin+serial). Пример: 04 36 03 BE F5 14 73  67  45  4b  4b  50  50  63  53  32  35  79  35"""  # noqa: E501
 
     _mark_code_info = None
-    """Сформированный код товара (тег в 54 ФЗ — 1163).""" # noqa: E501
+    """Сформированный код товара (тег в 54 ФЗ — 1163)."""  # noqa: E501
 
     _use_prefix = False
-    """Флаг использования кода типа маркировки.""" # noqa: E501
+    """Флаг использования кода типа маркировки."""  # noqa: E501
 
-    def __init__(self, code_data_matrix, use_prefix = True):
+    def __init__(self, code_data_matrix, use_prefix=True):
         """
         Инициализация объекта ProductCode.
 
@@ -398,7 +399,7 @@ class ProductCode:
 
     def _chunk_str(self, string: str) -> str:
         """Разбивает строку на пары символов с пробелами."""
-        return ' '.join([string[i:i+2] for i in range(0, len(string), 2)]).upper()
+        return ' '.join([string[i:i + 2] for i in range(0, len(string), 2)]).upper()
 
     def _num_to_hex(self, number: str) -> str:
         """Конвертирует число в шестнадцатеричный вид."""
@@ -435,4 +436,4 @@ class ProductCode:
 
     def _hex_to_str(self, hex_str: str) -> str:
         """Конвертирует шестнадцатеричную строку в обычную (для тестирования)."""
-        return ''.join(chr(int(hex_str[i:i+2], 16)) for i in range(0, len(hex_str), 2))
+        return ''.join(chr(int(hex_str[i:i + 2], 16)) for i in range(0, len(hex_str), 2))

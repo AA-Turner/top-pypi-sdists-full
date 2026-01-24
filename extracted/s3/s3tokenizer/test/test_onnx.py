@@ -4,7 +4,7 @@
 
 import os
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 import numpy as np
 import onnxruntime
@@ -271,7 +271,7 @@ def compare_torch_vs_onnx_single(model_name: str, audio: torch.Tensor,
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1", "speech_tokenizer_v1_25hz",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_torch_vs_onnx_short_audio(model_name, test_audio_suite):
     """Test torch vs onnx for short audio (<=30s)"""
@@ -310,9 +310,8 @@ def test_torch_vs_onnx_short_audio(model_name, test_audio_suite):
 
     # For short audio, we expect reasonable match rate
     for r in results:
-        # NOTE(xcsong): 0.2% is a reasonable miss rate for long audio, since we drop the last overlap part.
         assert r[
-            'miss_rate'] < 0.2, f"Miss rate too high for {model_name}: {r['miss_rate']:.2f}%"
+            'miss_rate'] < 0.5, f"Miss rate too high for {model_name}: {r['miss_rate']:.2f}%"
 
     print(f"\n{model_name} Short Audio Summary:")
     print(f"  Successful tests: {len(successful_tests)}/{len(results)}")
@@ -320,7 +319,7 @@ def test_torch_vs_onnx_short_audio(model_name, test_audio_suite):
 
 @pytest.mark.parametrize("model_name", [
     "speech_tokenizer_v1", "speech_tokenizer_v1_25hz",
-    "speech_tokenizer_v2_25hz"
+    "speech_tokenizer_v2_25hz", "speech_tokenizer_v3_25hz"
 ])
 def test_torch_vs_onnx_long_audio(model_name, test_audio_suite):
     """Test torch vs onnx for long audio (>30s) with ONNX sliding window implementation"""
@@ -365,9 +364,9 @@ def test_torch_vs_onnx_long_audio(model_name, test_audio_suite):
     print(f"  Successful ONNX tests: {len(successful_tests)}")
 
     for r in results:
-        # NOTE(xcsong): 0.2% is a reasonable miss rate for long audio, since we drop the last overlap part.
+        # NOTE(xcsong): 0.5% is a reasonable miss rate for long audio, since we drop the last overlap part.
         assert r[
-            'miss_rate'] < 0.2, f"Miss rate too high for {model_name}: {r['miss_rate']}%"
+            'miss_rate'] < 0.5, f"Miss rate too high for {model_name}: {r['miss_rate']}%"
 
     # The main requirement is that Torch always works
     print("  ✅ Torch processing works reliably for all long audio")

@@ -7,14 +7,29 @@
 
 #include "src/gpu/ganesh/gl/GrGLRenderTarget.h"
 
+#include "include/core/SkString.h"
 #include "include/core/SkTraceMemoryDump.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/GpuTypes.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "include/gpu/ganesh/gl/GrGLFunctions.h"
+#include "include/gpu/ganesh/gl/GrGLInterface.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/gpu/ganesh/GrAttachment.h"
 #include "src/gpu/ganesh/GrBackendUtils.h"
+#include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
-#include "src/gpu/ganesh/GrGpuResourcePriv.h"
+#include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/GrResourceProvider.h"
+#include "src/gpu/ganesh/gl/GrGLCaps.h"
 #include "src/gpu/ganesh/gl/GrGLGpu.h"
+#include "src/gpu/ganesh/gl/GrGLTexture.h"
 #include "src/gpu/ganesh/gl/GrGLUtil.h"
+
+#include <utility>
 
 #define GPUGL static_cast<GrGLGpu*>(this->getGpu())
 #define GL_CALL(X) GR_GL_CALL(GPUGL->glInterface(), X)
@@ -28,9 +43,10 @@ GrGLRenderTarget::GrGLRenderTarget(GrGLGpu* gpu,
                                    int sampleCount,
                                    const IDs& ids,
                                    sk_sp<GrGLAttachment> stencil,
+                                   skgpu::Protected isProtected,
                                    std::string_view label)
-        : GrSurface(gpu, dimensions, GrProtected::kNo, label)
-        , INHERITED(gpu, dimensions, sampleCount, GrProtected::kNo, label, std::move(stencil)) {
+        : GrSurface(gpu, dimensions, isProtected, label)
+        , GrRenderTarget(gpu, dimensions, sampleCount, isProtected, label, std::move(stencil)) {
     this->init(format, ids);
     this->setFlags(gpu->glCaps(), ids);
     this->registerWithCacheWrapped(GrWrapCacheable::kNo);
@@ -41,9 +57,10 @@ GrGLRenderTarget::GrGLRenderTarget(GrGLGpu* gpu,
                                    GrGLFormat format,
                                    int sampleCount,
                                    const IDs& ids,
+                                   skgpu::Protected isProtected,
                                    std::string_view label)
-        : GrSurface(gpu, dimensions, GrProtected::kNo, label)
-        , INHERITED(gpu, dimensions, sampleCount, GrProtected::kNo, label) {
+        : GrSurface(gpu, dimensions, isProtected, label)
+        , GrRenderTarget(gpu, dimensions, sampleCount, isProtected, label) {
     this->init(format, ids);
     this->setFlags(gpu->glCaps(), ids);
 }
@@ -85,6 +102,7 @@ sk_sp<GrGLRenderTarget> GrGLRenderTarget::MakeWrapped(GrGLGpu* gpu,
                                                       int sampleCount,
                                                       const IDs& idDesc,
                                                       int stencilBits,
+                                                      skgpu::Protected isProtected,
                                                       std::string_view label) {
     sk_sp<GrGLAttachment> sb;
     if (stencilBits) {
@@ -106,7 +124,7 @@ sk_sp<GrGLRenderTarget> GrGLRenderTarget::MakeWrapped(GrGLGpu* gpu,
                                                      sFmt);
     }
     return sk_sp<GrGLRenderTarget>(new GrGLRenderTarget(
-            gpu, dimensions, format, sampleCount, idDesc, std::move(sb), label));
+            gpu, dimensions, format, sampleCount, idDesc, std::move(sb), isProtected, label));
 }
 
 GrBackendRenderTarget GrGLRenderTarget::getBackendRenderTarget() const {
@@ -114,24 +132,27 @@ GrBackendRenderTarget GrGLRenderTarget::getBackendRenderTarget() const {
     GrGLFramebufferInfo fbi;
     fbi.fFBOID = (useMultisampleFBO) ? fMultisampleFBOID : fSingleSampleFBOID;
     fbi.fFormat = GrGLFormatToEnum(this->format());
+    fbi.fProtected = skgpu::Protected(this->isProtected());
     int numStencilBits = 0;
     if (GrAttachment* stencil = this->getStencilAttachment(useMultisampleFBO)) {
         numStencilBits = GrBackendFormatStencilBits(stencil->backendFormat());
     }
 
-    return GrBackendRenderTarget(
+    return GrBackendRenderTargets::MakeGL(
             this->width(), this->height(), this->numSamples(), numStencilBits, fbi);
 }
 
 GrBackendFormat GrGLRenderTarget::backendFormat() const {
     // We should never have a GrGLRenderTarget (even a textureable one with a target that is not
     // texture 2D.
-    return GrBackendFormat::MakeGL(GrGLFormatToEnum(fRTFormat), GR_GL_TEXTURE_2D);
+    return GrBackendFormats::MakeGL(GrGLFormatToEnum(fRTFormat), GR_GL_TEXTURE_2D);
 }
 
 size_t GrGLRenderTarget::onGpuMemorySize() const {
-    return GrSurface::ComputeSize(this->backendFormat(), this->dimensions(),
-                                  fTotalMemorySamplesPerPixel, GrMipmapped::kNo);
+    return GrSurface::ComputeSize(this->backendFormat(),
+                                  this->dimensions(),
+                                  fTotalMemorySamplesPerPixel,
+                                  skgpu::Mipmapped::kNo);
 }
 
 void GrGLRenderTarget::onSetLabel() {
@@ -262,7 +283,7 @@ void GrGLRenderTarget::bindInternal(GrGLenum fboTarget, bool useMultisampleFBO) 
             GL_CALL_RET(status, CheckFramebufferStatus(fboTarget));
             if (status != GR_GL_FRAMEBUFFER_COMPLETE) {
                 // This can fail if the context has been asynchronously abandoned (see
-                // skbug.com/5200).
+                // skbug.com/40036375).
                 SkDebugf("WARNING: failed to attach stencil.\n");
             }
         }
@@ -303,15 +324,15 @@ void GrGLRenderTarget::onRelease() {
             GL_CALL(DeleteRenderbuffers(1, &fMSColorRenderbufferID));
         }
     }
-    fMultisampleFBOID       = 0;
-    fSingleSampleFBOID      = 0;
+    fMultisampleFBOID       = kUnresolvableFBOID;
+    fSingleSampleFBOID      = kUnresolvableFBOID;
     fMSColorRenderbufferID  = 0;
     INHERITED::onRelease();
 }
 
 void GrGLRenderTarget::onAbandon() {
-    fMultisampleFBOID       = 0;
-    fSingleSampleFBOID      = 0;
+    fMultisampleFBOID       = kUnresolvableFBOID;
+    fSingleSampleFBOID      = kUnresolvableFBOID;
     fMSColorRenderbufferID  = 0;
     INHERITED::onAbandon();
 }
@@ -347,8 +368,10 @@ void GrGLRenderTarget::dumpMemoryStatistics(SkTraceMemoryDump* traceMemoryDump) 
         --numSamplesNotInTexture;  // GrGLTexture::dumpMemoryStatistics accounts for 1 sample.
     }
     if (numSamplesNotInTexture >= 1) {
-        size_t size = GrSurface::ComputeSize(this->backendFormat(), this->dimensions(),
-                                             numSamplesNotInTexture, GrMipmapped::kNo);
+        size_t size = GrSurface::ComputeSize(this->backendFormat(),
+                                             this->dimensions(),
+                                             numSamplesNotInTexture,
+                                             skgpu::Mipmapped::kNo);
 
         // Due to this resource having both a texture and a renderbuffer component, dump as
         // skia/gpu_resources/resource_#/renderbuffer

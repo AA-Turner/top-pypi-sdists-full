@@ -9,29 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
 
+class AutolinkType(TypedDict):
+    """Autolink reference
 
-class CodeScanningCodeqlDatabaseType(TypedDict):
-    """CodeQL Database
-
-    A CodeQL database.
+    An autolink reference.
     """
 
     id: int
-    name: str
-    language: str
-    uploader: SimpleUserType
-    content_type: str
-    size: int
-    created_at: datetime
-    updated_at: datetime
-    url: str
-    commit_oid: NotRequired[Union[str, None]]
+    key_prefix: str
+    url_template: str
+    is_alphanumeric: bool
+    updated_at: NotRequired[Union[_dt.datetime, None]]
 
 
-__all__ = ("CodeScanningCodeqlDatabaseType",)
+class AutolinkTypeForResponse(TypedDict):
+    """Autolink reference
+
+    An autolink reference.
+    """
+
+    id: int
+    key_prefix: str
+    url_template: str
+    is_alphanumeric: bool
+    updated_at: NotRequired[Union[str, None]]
+
+
+__all__ = (
+    "AutolinkType",
+    "AutolinkTypeForResponse",
+)

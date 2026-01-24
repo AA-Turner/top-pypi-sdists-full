@@ -7,6 +7,7 @@
 // There are two modes of use:
 //   - Specify a single file via --url and --sha256.
 //   - Copy a JSON array of objects (or Starlark list of dictionaries) via standard in.
+//
 // This should only need to be called when we add new dependencies or update existing ones. Calling
 // it with already archived files should be fine - the mirror is a CAS, so the update should be a
 // no-op. The files will be uploaded to the mirror with some metadata about where they came from.
@@ -30,7 +31,7 @@ import (
 )
 
 const (
-	gcsBucketAndPrefix = "gs://skia-world-readable/bazel/"
+	gcsBucketAndPrefix = "gs://skia-cdn/bazel/"
 )
 
 func main() {
@@ -71,12 +72,12 @@ func main() {
 		if err := processOneDownload(workDir, *url, *sha256Hash, *addSuffix, *noSuffix); err != nil {
 			fatalf("Error while processing entry: %s", err)
 		}
-		fmt.Printf("https://storage.googleapis.com/skia-world-readable/bazel/%s%s%s\n", *sha256Hash, getSuffix(*url), *addSuffix)
+		fmt.Printf("https://cdn.skia.org/bazel/%s%s%s\n", *sha256Hash, getSuffix(*url), *addSuffix)
 	} else {
 		if err := processOneLocalFile(*file, *sha256Hash); err != nil {
 			fatalf("Error while processing entry: %s", err)
 		}
-		fmt.Printf("https://storage.googleapis.com/skia-world-readable/bazel/%s%s\n", *sha256Hash, getSuffix(*file))
+		fmt.Printf("https://cdn.skia.org/bazel/%s%s\n", *sha256Hash, getSuffix(*file))
 	}
 }
 

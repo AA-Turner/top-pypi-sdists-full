@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stamina
-Version: 25.1.0
+Version: 25.2.0
 Summary: Production-grade retries made easy.
 Project-URL: Documentation, https://stamina.hynek.me/
 Project-URL: GitHub, https://github.com/hynek/stamina
@@ -17,41 +17,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: tenacity
 Requires-Dist: typing-extensions; python_version < '3.10'
-Provides-Extra: dev
-Requires-Dist: anyio; extra == 'dev'
-Requires-Dist: dirty-equals; extra == 'dev'
-Requires-Dist: mypy>=1.4; extra == 'dev'
-Requires-Dist: nox>=2024.3.2; extra == 'dev'
-Requires-Dist: prometheus-client; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: structlog; extra == 'dev'
-Requires-Dist: tomli; (python_version < '3.11') and extra == 'dev'
-Requires-Dist: trio; extra == 'dev'
-Requires-Dist: uv; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: furo; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: prometheus-client; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-notfound-page; extra == 'docs'
-Requires-Dist: sphinx>=7.2.2; extra == 'docs'
-Requires-Dist: structlog; extra == 'docs'
-Provides-Extra: tests
-Requires-Dist: anyio; extra == 'tests'
-Requires-Dist: dirty-equals; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
-Provides-Extra: typing
-Requires-Dist: mypy>=1.4; extra == 'typing'
 Description-Content-Type: text/markdown
 
 # *stamina*: Production-grade Retries Made Easy
@@ -64,7 +38,7 @@ But bad retries can make things *much worse*.
 Our goal is to be as **ergonomic** as possible, while doing the **right thing by default**, and minimizing the potential for **misuse**.
 It is the result of years of copy-pasting the same configuration over and over again:
 
-- Retry only on certain exceptions – or even a subset of them by introspecting them first using a predicate.
+- Retry only on certain exceptions – or even a subset of them by introspecting them first using a backoff hook.
 - Exponential **backoff** with **jitter** between retries.
 - Limit the number of retries **and** total time.
 - Automatic **async** support – including [Trio](https://trio.readthedocs.io/).
@@ -100,19 +74,37 @@ Or, if you prefer video, here's a brief introduction into retries and *stamina*:
 
 ## Release Information
 
+### Removed
+
+- Support for Python 3.8 and 3.9.
+
+
 ### Added
 
-- *cap* argument to `stamina.set_testing()`.
-  By default, the value passed as *attempts* is used strictly.
-  When `cap=True`, it is used as an upper cap; that means that if the original attempts number is lower, it's not changed.
-  [#80](https://github.com/hynek/stamina/pull/80)
+- The type hints for our public API are now also verified using [Pyrefly](https://pyrefly.org/) and [*ty*](https://docs.astral.sh/ty/).
+  [#124](https://github.com/hynek/stamina/pull/124)
 
-- `stamina.set_testing()` can now be used as a context manager.
-  [#94](https://github.com/hynek/stamina/pull/94)
+- `stamina.retry()` now retries wrapped generator functions and async generator functions.
 
-- Instrumentation hooks can now can return context managers.
-  If they do, they are entered when a retry is scheduled and exited right before the retry is attempted.
-  [#95](https://github.com/hynek/stamina/pull/95)
+  **Warning**: Being able to `asend` and `athrow` into wrapped async generators introduced nontrivial complexity in the implementation and is therefore **provisional**.
+  If supporting these features causes problems, they may be removed again in a future version.
+  [#123](https://github.com/hynek/stamina/pull/123)
+
+- An *on* hook can now return a float or a `datetime.timedelta` to specify a custom backoff that overrides the default backoff.
+  [#103](https://github.com/hynek/stamina/discussions/103)
+  [#125](https://github.com/hynek/stamina/pull/125)
+
+
+### Fixed
+
+- Prevent unbounded stop condition when both *attempts* and *timeout* are non-`None` falsy values.
+  [#109](https://github.com/hynek/stamina/pull/109)
+
+- Default `wait_exp_base` parameter is now an integer to prevent an `OverflowError` after the 1023th retry.
+  [#104](https://github.com/hynek/stamina/pull/104)
+
+- `Attempt.next_wait` now returns the correct value.
+  [#115](https://github.com/hynek/stamina/pull/115)
 
 
 ---

@@ -10,6 +10,10 @@ __all__ = ["BillingConfigRetrieveResponse", "Data"]
 
 
 class Data(BaseModel):
+    aws_customer_account_id: Optional[str] = None
+
+    aws_customer_id: Optional[str] = None
+
     aws_expiration_date: Optional[datetime] = None
     """Contract expiration date for the customer.
 
@@ -77,6 +81,10 @@ class Data(BaseModel):
     stripe_collection_method: Optional[
         Literal["charge_automatically", "send_invoice", "auto_charge_payment_intent", "manually_charge_payment_intent"]
     ] = None
+    """
+    The collection method for the customer's invoices. NOTE:
+    `auto_charge_payment_intent` and `manually_charge_payment_intent` are in beta.
+    """
 
 
 class BillingConfigRetrieveResponse(BaseModel):

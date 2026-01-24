@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec
-Version: 2025.9.0
+Version: 2026.1.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -12,12 +12,12 @@ Keywords: file
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Provides-Extra: abfs
 Requires-Dist: adlfs; extra == 'abfs'
 Provides-Extra: adl
@@ -49,7 +49,7 @@ Requires-Dist: distributed; extra == 'full'
 Requires-Dist: dropbox; extra == 'full'
 Requires-Dist: dropboxdrivefs; extra == 'full'
 Requires-Dist: fusepy; extra == 'full'
-Requires-Dist: gcsfs; extra == 'full'
+Requires-Dist: gcsfs>2024.2.0; extra == 'full'
 Requires-Dist: libarchive-c; extra == 'full'
 Requires-Dist: ocifs; extra == 'full'
 Requires-Dist: panel; extra == 'full'
@@ -57,7 +57,7 @@ Requires-Dist: paramiko; extra == 'full'
 Requires-Dist: pyarrow>=1; extra == 'full'
 Requires-Dist: pygit2; extra == 'full'
 Requires-Dist: requests; extra == 'full'
-Requires-Dist: s3fs; extra == 'full'
+Requires-Dist: s3fs>2024.2.0; extra == 'full'
 Requires-Dist: smbprotocol; extra == 'full'
 Requires-Dist: tqdm; extra == 'full'
 Provides-Extra: fuse
@@ -108,6 +108,7 @@ Requires-Dist: xarray; extra == 'test-downstream'
 Provides-Extra: test-full
 Requires-Dist: adlfs; extra == 'test-full'
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1; extra == 'test-full'
+Requires-Dist: backports-zstd; (python_version < '3.14') and extra == 'test-full'
 Requires-Dist: cloudpickle; extra == 'test-full'
 Requires-Dist: dask; extra == 'test-full'
 Requires-Dist: distributed; extra == 'test-full'
@@ -143,7 +144,6 @@ Requires-Dist: smbprotocol; extra == 'test-full'
 Requires-Dist: tqdm; extra == 'test-full'
 Requires-Dist: urllib3; extra == 'test-full'
 Requires-Dist: zarr; extra == 'test-full'
-Requires-Dist: zstandard; (python_version < '3.14') and extra == 'test-full'
 Provides-Extra: tqdm
 Requires-Dist: tqdm; extra == 'tqdm'
 Description-Content-Type: text/markdown
@@ -197,7 +197,7 @@ CI runtime. For local use, pick a version suitable for you.
 
 ```bash
 # For a new environment (mamba / conda).
-mamba create -n fsspec -c conda-forge  python=3.9 -y
+mamba create -n fsspec -c conda-forge  python=3.10 -y
 conda activate fsspec
 
 # Standard dev install with docs and tests.

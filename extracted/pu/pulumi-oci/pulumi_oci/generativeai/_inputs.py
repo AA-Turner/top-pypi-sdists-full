@@ -87,6 +87,8 @@ __all__ = [
     'DedicatedAiClusterCapacityArgsDict',
     'EndpointContentModerationConfigArgs',
     'EndpointContentModerationConfigArgsDict',
+    'ImportedModelDataSourceArgs',
+    'ImportedModelDataSourceArgsDict',
     'ModelFineTuneDetailsArgs',
     'ModelFineTuneDetailsArgsDict',
     'ModelFineTuneDetailsTrainingConfigArgs',
@@ -111,6 +113,10 @@ __all__ = [
     'GetDedicatedAiClustersFilterArgsDict',
     'GetEndpointsFilterArgs',
     'GetEndpointsFilterArgsDict',
+    'GetGenerativeAiPrivateEndpointsFilterArgs',
+    'GetGenerativeAiPrivateEndpointsFilterArgsDict',
+    'GetImportedModelsFilterArgs',
+    'GetImportedModelsFilterArgsDict',
     'GetModelsFilterArgs',
     'GetModelsFilterArgsDict',
 ]
@@ -2761,17 +2767,33 @@ if not MYPY:
         """
         (Updatable) Whether to enable the content moderation feature.
         """
+        mode: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Updatable) Enum for the modes of operation for inference protection.
+        """
+        model_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Updatable) The OCID of the model used for the feature.
+        """
 elif False:
     EndpointContentModerationConfigArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class EndpointContentModerationConfigArgs:
     def __init__(__self__, *,
-                 is_enabled: pulumi.Input[_builtins.bool]):
+                 is_enabled: pulumi.Input[_builtins.bool],
+                 mode: Optional[pulumi.Input[_builtins.str]] = None,
+                 model_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.bool] is_enabled: (Updatable) Whether to enable the content moderation feature.
+        :param pulumi.Input[_builtins.str] mode: (Updatable) Enum for the modes of operation for inference protection.
+        :param pulumi.Input[_builtins.str] model_id: (Updatable) The OCID of the model used for the feature.
         """
         pulumi.set(__self__, "is_enabled", is_enabled)
+        if mode is not None:
+            pulumi.set(__self__, "mode", mode)
+        if model_id is not None:
+            pulumi.set(__self__, "model_id", model_id)
 
     @_builtins.property
     @pulumi.getter(name="isEnabled")
@@ -2784,6 +2806,222 @@ class EndpointContentModerationConfigArgs:
     @is_enabled.setter
     def is_enabled(self, value: pulumi.Input[_builtins.bool]):
         pulumi.set(self, "is_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) Enum for the modes of operation for inference protection.
+        """
+        return pulumi.get(self, "mode")
+
+    @mode.setter
+    def mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelId")
+    def model_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) The OCID of the model used for the feature.
+        """
+        return pulumi.get(self, "model_id")
+
+    @model_id.setter
+    def model_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_id", value)
+
+
+if not MYPY:
+    class ImportedModelDataSourceArgsDict(TypedDict):
+        access_token: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Hugging Face access token to authenticate requests for restricted models.  This token will be securely stored in Oracle Cloud Infrastructure Vault.
+        """
+        branch: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the branch in the Hugging Face repository to import the model from.  If not specified, "main" will be used by default.  If you provide both a branch and a commit hash, the model will be imported from the specified commit.
+        """
+        bucket: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the Object Storage bucket.
+        """
+        commit: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The commit hash in the Hugging Face repository to import the model from.  If both a branch and a commit are provided, the commit hash will be used.
+        """
+        model_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The full model OCID from Hugging Face, typically in the format "org/model-name" (e.g., "meta-llama/Llama-2-7b").
+        """
+        namespace: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The namespace of the Object Storage where the files are stored.
+        """
+        prefix_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The prefix path (or folder) within the bucket where files are located.
+        """
+        region: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The full canonical Oracle Cloud region identifier (e.g., "us-ashburn-1") where the object storage bucket  containing the files resides.
+        """
+        source_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Specifies the source type for model import.
+        """
+elif False:
+    ImportedModelDataSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ImportedModelDataSourceArgs:
+    def __init__(__self__, *,
+                 access_token: Optional[pulumi.Input[_builtins.str]] = None,
+                 branch: Optional[pulumi.Input[_builtins.str]] = None,
+                 bucket: Optional[pulumi.Input[_builtins.str]] = None,
+                 commit: Optional[pulumi.Input[_builtins.str]] = None,
+                 model_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 namespace: Optional[pulumi.Input[_builtins.str]] = None,
+                 prefix_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 region: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] access_token: Hugging Face access token to authenticate requests for restricted models.  This token will be securely stored in Oracle Cloud Infrastructure Vault.
+        :param pulumi.Input[_builtins.str] branch: The name of the branch in the Hugging Face repository to import the model from.  If not specified, "main" will be used by default.  If you provide both a branch and a commit hash, the model will be imported from the specified commit.
+        :param pulumi.Input[_builtins.str] bucket: The name of the Object Storage bucket.
+        :param pulumi.Input[_builtins.str] commit: The commit hash in the Hugging Face repository to import the model from.  If both a branch and a commit are provided, the commit hash will be used.
+        :param pulumi.Input[_builtins.str] model_id: The full model OCID from Hugging Face, typically in the format "org/model-name" (e.g., "meta-llama/Llama-2-7b").
+        :param pulumi.Input[_builtins.str] namespace: The namespace of the Object Storage where the files are stored.
+        :param pulumi.Input[_builtins.str] prefix_name: The prefix path (or folder) within the bucket where files are located.
+        :param pulumi.Input[_builtins.str] region: The full canonical Oracle Cloud region identifier (e.g., "us-ashburn-1") where the object storage bucket  containing the files resides.
+        :param pulumi.Input[_builtins.str] source_type: Specifies the source type for model import.
+        """
+        if access_token is not None:
+            pulumi.set(__self__, "access_token", access_token)
+        if branch is not None:
+            pulumi.set(__self__, "branch", branch)
+        if bucket is not None:
+            pulumi.set(__self__, "bucket", bucket)
+        if commit is not None:
+            pulumi.set(__self__, "commit", commit)
+        if model_id is not None:
+            pulumi.set(__self__, "model_id", model_id)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+        if prefix_name is not None:
+            pulumi.set(__self__, "prefix_name", prefix_name)
+        if region is not None:
+            pulumi.set(__self__, "region", region)
+        if source_type is not None:
+            pulumi.set(__self__, "source_type", source_type)
+
+    @_builtins.property
+    @pulumi.getter(name="accessToken")
+    def access_token(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Hugging Face access token to authenticate requests for restricted models.  This token will be securely stored in Oracle Cloud Infrastructure Vault.
+        """
+        return pulumi.get(self, "access_token")
+
+    @access_token.setter
+    def access_token(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "access_token", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def branch(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the branch in the Hugging Face repository to import the model from.  If not specified, "main" will be used by default.  If you provide both a branch and a commit hash, the model will be imported from the specified commit.
+        """
+        return pulumi.get(self, "branch")
+
+    @branch.setter
+    def branch(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "branch", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the Object Storage bucket.
+        """
+        return pulumi.get(self, "bucket")
+
+    @bucket.setter
+    def bucket(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bucket", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def commit(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The commit hash in the Hugging Face repository to import the model from.  If both a branch and a commit are provided, the commit hash will be used.
+        """
+        return pulumi.get(self, "commit")
+
+    @commit.setter
+    def commit(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "commit", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelId")
+    def model_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The full model OCID from Hugging Face, typically in the format "org/model-name" (e.g., "meta-llama/Llama-2-7b").
+        """
+        return pulumi.get(self, "model_id")
+
+    @model_id.setter
+    def model_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_id", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The namespace of the Object Storage where the files are stored.
+        """
+        return pulumi.get(self, "namespace")
+
+    @namespace.setter
+    def namespace(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "namespace", value)
+
+    @_builtins.property
+    @pulumi.getter(name="prefixName")
+    def prefix_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The prefix path (or folder) within the bucket where files are located.
+        """
+        return pulumi.get(self, "prefix_name")
+
+    @prefix_name.setter
+    def prefix_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "prefix_name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The full canonical Oracle Cloud region identifier (e.g., "us-ashburn-1") where the object storage bucket  containing the files resides.
+        """
+        return pulumi.get(self, "region")
+
+    @region.setter
+    def region(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "region", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceType")
+    def source_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specifies the source type for model import.
+        """
+        return pulumi.get(self, "source_type")
+
+    @source_type.setter
+    def source_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "source_type", value)
 
 
 if not MYPY:
@@ -3616,6 +3854,100 @@ elif False:
 
 @pulumi.input_type
 class GetEndpointsFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+    @regex.setter
+    def regex(self, value: Optional[_builtins.bool]):
+        pulumi.set(self, "regex", value)
+
+
+if not MYPY:
+    class GetGenerativeAiPrivateEndpointsFilterArgsDict(TypedDict):
+        name: _builtins.str
+        values: Sequence[_builtins.str]
+        regex: NotRequired[_builtins.bool]
+elif False:
+    GetGenerativeAiPrivateEndpointsFilterArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GetGenerativeAiPrivateEndpointsFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+    @regex.setter
+    def regex(self, value: Optional[_builtins.bool]):
+        pulumi.set(self, "regex", value)
+
+
+if not MYPY:
+    class GetImportedModelsFilterArgsDict(TypedDict):
+        name: _builtins.str
+        values: Sequence[_builtins.str]
+        regex: NotRequired[_builtins.bool]
+elif False:
+    GetImportedModelsFilterArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GetImportedModelsFilterArgs:
     def __init__(__self__, *,
                  name: _builtins.str,
                  values: Sequence[_builtins.str],

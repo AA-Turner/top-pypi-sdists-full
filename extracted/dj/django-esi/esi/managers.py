@@ -1,13 +1,14 @@
 import logging
 from datetime import timedelta
-from typing import Any, Union
+from typing import Any
 
 import requests
-from django.db import models
-from django.utils import timezone
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError, JWTError
 from requests_oauthlib import OAuth2Session
+
+from django.db import models
+from django.utils import timezone
 
 from . import app_settings
 from .errors import IncompleteResponseError, TokenError
@@ -15,7 +16,7 @@ from .errors import IncompleteResponseError, TokenError
 logger = logging.getLogger(__name__)
 
 
-def _process_scopes(scopes):
+def _process_scopes(scopes) -> set[str]:
     if scopes is None:
         # support filtering by no scopes with None passed
         scopes = []
@@ -28,8 +29,8 @@ def _process_scopes(scopes):
     return {str(s) for s in scopes}
 
 
-class TokenQueryset(models.QuerySet):
-    def get_expired(self) -> models.QuerySet:
+class TokenQueryset(models.QuerySet["Token"]):
+    def get_expired(self) -> "TokenQueryset":
         """Get all tokens which have expired.
 
         Returns:
@@ -39,7 +40,7 @@ class TokenQueryset(models.QuerySet):
             timezone.now() - timedelta(seconds=app_settings.ESI_TOKEN_VALID_DURATION)
         return self.filter(created__lte=max_age)
 
-    def bulk_refresh(self) -> models.QuerySet:
+    def bulk_refresh(self) -> "TokenQueryset":
         """Refresh all refreshable tokens in the queryset and delete any expired token
         that fails to refresh or can not be refreshed.
 
@@ -65,7 +66,7 @@ class TokenQueryset(models.QuerySet):
         self.filter(refresh_token__isnull=True).get_expired().delete()
         return self.exclude(pk__in=incomplete)
 
-    def require_valid(self) -> models.QuerySet:
+    def require_valid(self) -> "TokenQueryset":
         """Ensure all tokens are still valid and attempt to refresh any which are expired
 
         Deletes those which fail to refresh or cannot be refreshed.
@@ -80,7 +81,7 @@ class TokenQueryset(models.QuerySet):
         qs = self.filter(pk__in=fresh_pks | refreshed_pks)
         return qs
 
-    def require_scopes(self, scope_string: Union[str, list]) -> models.QuerySet:
+    def require_scopes(self, scope_string: str | list) -> "TokenQueryset":
         """Filter tokens which have at least a subset of given scopes.
 
         Args:
@@ -103,7 +104,7 @@ class TokenQueryset(models.QuerySet):
             tokens = tokens.filter(scopes__pk=pk)
         return tokens
 
-    def require_scopes_exact(self, scope_string: Union[str, list]) -> models.QuerySet:
+    def require_scopes_exact(self, scope_string: str | list) -> "TokenQueryset":
         """Filter tokens which exactly have the given scopes.
 
         Args:
@@ -121,7 +122,7 @@ class TokenQueryset(models.QuerySet):
         pks = [v['pk'] for v in scopes_qs]
         return self.filter(pk__in=pks)
 
-    def equivalent_to(self, token) -> models.QuerySet:
+    def equivalent_to(self, token) -> "TokenQueryset":
         """Fetch all tokens which match the character and scopes of given reference token
 
         Args:
@@ -134,8 +135,8 @@ class TokenQueryset(models.QuerySet):
             .exclude(pk=token.pk)
 
 
-class TokenManager(models.Manager):
-    def get_queryset(self):
+class TokenManager(models.Manager["Token"]):
+    def get_queryset(self) -> TokenQueryset:
         """
         Replace base queryset model with custom TokenQueryset
         :rtype: :class:`esi.managers.TokenQueryset`
@@ -143,7 +144,7 @@ class TokenManager(models.Manager):
         return TokenQueryset(self.model, using=self._db)
 
     @staticmethod
-    def _decode_jwt(jwt_token: dict, jwk_set: dict, issuer: Any):
+    def _decode_jwt(jwt_token: str, jwk_set: dict, issuer: Any) -> dict[str, Any]:
         """
         Helper function to decide the JWT access token supplied by EVE SSO
         """
@@ -162,7 +163,7 @@ class TokenManager(models.Manager):
         return token_data
 
     @staticmethod
-    def validate_access_token(token: str):
+    def validate_access_token(token: str) -> dict[str, Any] | None:
         """
         Validate a JWT token retrieved from the EVE SSO.
         :param token: A JWT token originating from the EVE SSO v2
@@ -200,7 +201,7 @@ class TokenManager(models.Manager):
             logger.warning("The JWT signature was invalid: %s", e)
             return None
 
-    def create_from_code(self, code, user=None):
+    def create_from_code(self, code, user=None) -> "Token":
         """
         Perform OAuth code exchange to retrieve a token.
         :param code: OAuth grant code.
@@ -282,7 +283,7 @@ class TokenManager(models.Manager):
         logger.debug("Successfully created %r for user %s", model, user)
         return model
 
-    def create_from_request(self, request):
+    def create_from_request(self, request) -> "Token":
         """
         Generate a token from the OAuth callback request. Must contain 'code' in GET.
         :param request: OAuth callback request.

@@ -10,7 +10,7 @@
 
 #include "include/private/base/SkAssert.h"
 #include "include/private/base/SkFixed.h"
-#include "include/private/base/SkFloatBits.h"
+#include "src/base/SkFloatBits.h"
 
 #include <cstdint>
 
@@ -27,7 +27,7 @@ typedef float SkScalar;
 class SkRandom {
 public:
     SkRandom() { init(0); }
-    SkRandom(uint32_t seed) { init(seed); }
+    explicit SkRandom(uint32_t seed) { init(seed); }
     SkRandom(const SkRandom& rand) : fK(rand.fK), fJ(rand.fJ) {}
 
     SkRandom& operator=(const SkRandom& rand) {
@@ -53,7 +53,7 @@ public:
      *  Returns value [0...1) as an IEEE float
      */
     float nextF() {
-        int floatint = 0x3f800000 | (int)(this->nextU() >> 9);
+        uint32_t floatint = 0x3f800000 | (this->nextU() >> 9);
         float f = SkBits2Float(floatint) - 1.0f;
         return f;
     }

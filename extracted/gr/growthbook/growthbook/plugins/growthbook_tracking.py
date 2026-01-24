@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from .base import GrowthBookPlugin
 
 if TYPE_CHECKING:
-    import requests  # type: ignore
+    import requests
 else:
     try:
         import requests  # type: ignore
@@ -132,8 +132,8 @@ class GrowthBookTrackingPlugin(GrowthBookPlugin):
         """Setup feature evaluation tracking."""
         original_eval_feature = gb_instance.eval_feature
         
-        def eval_feature_wrapper(key: str):
-            result = original_eval_feature(key)
+        def eval_feature_wrapper(key: str, *args, **kwargs):
+            result = original_eval_feature(key, *args, **kwargs)
             self._track_feature_evaluated(key, result, gb_instance)
             return result
         

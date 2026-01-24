@@ -6,7 +6,7 @@ UI widgets for the Scene Settings tab.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from copy import deepcopy
 
 from qtpy.QtCore import QRegularExpression, Qt, Signal  # type: ignore
@@ -62,7 +62,7 @@ class OpenJDParametersWidget(QWidget):
         *,
         parameter_definitions: List[JobParameter] = [],
         async_loading_state: str = "",
-        parent=None,
+        parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
 
@@ -803,8 +803,9 @@ class _JobTemplateHiddenWidget(_JobTemplateWidget):
         "FLOAT",
         "STRING",
     ]
-    OPENJD_DEFAULT_VALUE: str = ""  # All hidden fields require a default value to be provided
-    OPENJD_REQUIRED_PARAMETER_FIELDS: List[str] = ["default"]
+
+    OPENJD_DEFAULT_VALUE: str = ""  # Hidden parameters do not require defaults
+    OPENJD_REQUIRED_PARAMETER_FIELDS: List[str] = []
     OPENJD_DISALLOWED_PARAMETER_FIELDS: List[str] = []
 
     def __init__(self, parent: QWidget, parameter: Dict[str, Any]):

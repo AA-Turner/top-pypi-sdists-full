@@ -25,8 +25,10 @@ from edgar._party import Address
 from edgar.core import IntString, get_bool
 from edgar.datatools import convert_to_numeric
 from edgar.entity import Entity
-from edgar.formatting import reverse_name, yes_no
-from edgar.ownership.core import format_amount, format_currency, format_numeric, safe_numeric
+from edgar.display.formatting import reverse_name, yes_no
+from edgar.ownership.core import (
+    format_amount, format_currency, format_numeric, safe_numeric, detect_10b5_1_plan
+)
 from edgar.ownership.html_render import ownership_to_html
 from edgar.richtools import df_to_rich_table, repr_rich
 from edgar.xmltools import child_text, child_value
@@ -126,7 +128,7 @@ class ReportingRelationship:
                  is_officer: bool,
                  is_other: bool,
                  is_ten_pct_owner: bool,
-                 officer_title: str = None):
+                 officer_title: Optional[str] = None):
         self.is_director: bool = is_director
         self.is_officer: bool = is_officer
         self.is_ten_pct_owner: bool = is_ten_pct_owner
@@ -291,7 +293,7 @@ class Footnotes:
 
     def get(self,
             footnote_id: str,
-            default_value: str = None):
+            default_value: Optional[str] = None):
         return self._footnotes.get(footnote_id, default_value)
 
     def summary(self) -> pd.DataFrame:
@@ -319,19 +321,31 @@ class Footnotes:
         footnotes_el = tag.find("footnotes")
         return cls(
             {el.attrs['id']: el.text.strip()
-             for el in footnotes_el.find_all("footnote")
-             } if footnotes_el else {}
+             for el in footnotes_el.find_all("footnote") if isinstance(el, Tag)
+             } if footnotes_el and isinstance(footnotes_el, Tag) else {}
         )
 
 
-def transaction_footnote_id(tag: Tag) -> Tuple[str, str]:
-    return 'footnote', tag.attrs.get("id") if tag else None
+def transaction_footnote_id(tag: Tag) -> Tuple[str, Optional[str]]:
+    footnote_id = tag.attrs.get("id") if tag else None
+    # Ensure we get a string, not AttributeValueList
+    if isinstance(footnote_id, list):
+        footnote_id = footnote_id[0] if footnote_id else None
+    return 'footnote', str(footnote_id) if footnote_id else None
 
 
 def get_footnotes(tag: Tag) -> str:
-    return '\n'.join([
-        el.attrs.get('id') for el in tag.find_all("footnoteId")
-    ])
+    footnotes = []
+    for el in tag.find_all("footnoteId"):
+        if isinstance(el, Tag):
+            footnote_id = el.attrs.get('id')
+            if footnote_id:
+                # Ensure string type (handle AttributeValueList)
+                if isinstance(footnote_id, list):
+                    footnote_id = footnote_id[0] if footnote_id else None
+                if footnote_id:
+                    footnotes.append(str(footnote_id))
+    return '\n'.join(footnotes)
 
 
 @dataclass(frozen=True)
@@ -393,7 +407,7 @@ class NonDerivativeTransaction:
 class DerivativeHoldings(DataHolder):
 
     def __init__(self,
-                 data: pd.DataFrame = None):
+                 data: Optional[pd.DataFrame] = None):
         super().__init__(data, "DerivativeHoldings")
 
     def __getitem__(self, item):
@@ -433,7 +447,7 @@ class DerivativeHoldings(DataHolder):
 class NonDerivativeHoldings(DataHolder):
 
     def __init__(self,
-                 data: pd.DataFrame = None):
+                 data: Optional[pd.DataFrame] = None):
         super().__init__(data, "NonDerivativeHoldings")
 
     def __getitem__(self, item):
@@ -465,7 +479,7 @@ class NonDerivativeHoldings(DataHolder):
 class DerivativeTransactions(DataHolder):
 
     def __init__(self,
-                 data: pd.DataFrame = None):
+                 data: Optional[pd.DataFrame] = None):
         super().__init__(data, "DerivativeTransactions")
 
     def __getitem__(self, item):
@@ -530,7 +544,7 @@ class DerivativeTransactions(DataHolder):
 class NonDerivativeTransactions(DataHolder):
 
     def __init__(self,
-                 data: pd.DataFrame = None):
+                 data: Optional[pd.DataFrame] = None):
         super().__init__(data, "NonDerivativeTransactions")
 
     def trades(self):
@@ -648,7 +662,11 @@ class NonDerivativeTable:
 
         holdings = []
         for holding_tag in holding_tags:
+            if not isinstance(holding_tag, Tag):
+                continue
             ownership_nature_tag = holding_tag.find("ownershipNature")
+            if not isinstance(ownership_nature_tag, Tag):
+                continue
             holding = dict(
                 [
                     ('Security', child_value(holding_tag, 'securityTitle')),
@@ -683,9 +701,17 @@ class NonDerivativeTable:
             )
         transactions = []
         for transaction_tag in transaction_tags:
+            if not isinstance(transaction_tag, Tag):
+                continue
             transaction_amt_tag = transaction_tag.find("transactionAmounts")
+            if not isinstance(transaction_amt_tag, Tag):
+                continue
             ownership_nature_tag = transaction_tag.find("ownershipNature")
+            if not isinstance(ownership_nature_tag, Tag):
+                continue
             post_transaction_tag = transaction_tag.find("postTransactionAmounts")
+            if not isinstance(post_transaction_tag, Tag):
+                continue
 
             transaction = dict(
                 [
@@ -700,7 +726,7 @@ class NonDerivativeTable:
                 ]
             )
             transaction_coding_tag = transaction_tag.find("transactionCoding")
-            if transaction_coding_tag:
+            if transaction_coding_tag and isinstance(transaction_coding_tag, Tag):
                 transaction_coding = dict(
                     [
                         ('form', child_text(transaction_coding_tag, 'transactionFormType')),
@@ -789,10 +815,20 @@ class DerivativeTable:
 
         transactions = []
         for transaction_tag in trans_tags:
+            if not isinstance(transaction_tag, Tag):
+                continue
             transaction_amt_tag = transaction_tag.find("transactionAmounts")
+            if not isinstance(transaction_amt_tag, Tag):
+                continue
             underlying_tag = transaction_tag.find("underlyingSecurity")
+            if not isinstance(underlying_tag, Tag):
+                continue
             ownership_nature_tag = transaction_tag.find("ownershipNature")
+            if not isinstance(ownership_nature_tag, Tag):
+                continue
             post_transaction_tag = transaction_tag.find("postTransactionAmounts")
+            if not isinstance(post_transaction_tag, Tag):
+                continue
 
             transaction = dict(
                 [
@@ -813,7 +849,7 @@ class DerivativeTable:
 
             # Add transaction coding
             transaction_coding_tag = transaction_tag.find("transactionCoding")
-            if transaction_coding_tag:
+            if transaction_coding_tag and isinstance(transaction_coding_tag, Tag):
                 transaction_coding = dict(
                     [
                         ('form', child_text(transaction_coding_tag, 'transactionFormType')),
@@ -848,8 +884,14 @@ class DerivativeTable:
             return DerivativeHoldings()
         holdings = []
         for holding_tag in holding_tags:
+            if not isinstance(holding_tag, Tag):
+                continue
             underlying_security_tag = holding_tag.find("underlyingSecurity")
+            if not isinstance(underlying_security_tag, Tag):
+                continue
             ownership_nature = holding_tag.find("ownershipNature")
+            if not isinstance(ownership_nature, Tag):
+                continue
 
             holding = dict(
                 [
@@ -891,6 +933,7 @@ class Owner:
     cik: str
     is_company: bool
     name: str
+    name_unreversed: str
     address: Address
     is_director: bool
     is_officer: bool
@@ -907,7 +950,7 @@ class Owner:
                                    is_ten_pct_owner=self.is_ten_pct_owner)
 
     @staticmethod
-    def display_title(officer_title: str = None,
+    def display_title(officer_title: Optional[str] = None,
                       is_officer: bool = False,
                       is_director: bool = False,
                       is_other: bool = False,
@@ -968,7 +1011,7 @@ class ReportingOwners():
             reporting_owner_id_tag = reporting_owner_tag.find("reportingOwnerId")
 
             cik = child_text(reporting_owner_id_tag, "rptOwnerCik")
-            owner_name = child_text(reporting_owner_id_tag, "rptOwnerName")
+            unreversed_owner_name = child_text(reporting_owner_id_tag, "rptOwnerName")
 
             # Check if it is a company. If not, reverse the name
             entity = Entity(int(cik))
@@ -976,7 +1019,9 @@ class ReportingOwners():
             # Check if the entity is a company or an individual
             is_company = entity and entity.data.is_company
             if not is_company:
-                owner_name = reverse_name(owner_name)
+                owner_name = reverse_name(unreversed_owner_name)
+            else:
+                owner_name = unreversed_owner_name
 
             reporting_owner_address_tag = reporting_owner_tag.find("reportingOwnerAddress")
 
@@ -997,6 +1042,7 @@ class ReportingOwners():
                 cik=cik,
                 is_company=is_company,
                 name=owner_name,
+                name_unreversed=unreversed_owner_name,
                 address=Address(
                     street1=child_text(reporting_owner_address_tag, "rptOwnerStreet1"),
                     street2=child_text(reporting_owner_address_tag, "rptOwnerStreet2"),
@@ -1059,9 +1105,11 @@ class TransactionActivity:
     underlying_security: str = ""  # For derivative securities
     exercise_date: Optional[str] = None
     expiration_date: Optional[str] = None
+    footnote_ids: str = ""  # Newline-separated footnote IDs (e.g., "F1\nF2")
+    footnotes_text: str = ""  # Combined text of all footnotes for this transaction
 
     @property
-    def shares_numeric(self) -> Optional[int]:
+    def shares_numeric(self) -> Optional[Union[int, float]]:
         """Get shares as a numeric value, handling footnotes"""
         return safe_numeric(self.shares)
 
@@ -1079,6 +1127,21 @@ class TransactionActivity:
     def is_derivative(self) -> bool:
         """Check if this is a derivative transaction"""
         return self.security_type == "derivative"
+
+    @property
+    def is_10b5_1_plan(self) -> Optional[bool]:
+        """
+        Check if this transaction was executed under a Rule 10b5-1 trading plan.
+
+        Rule 10b5-1 trading plans allow insiders to set up predetermined trading
+        schedules to avoid accusations of insider trading.
+
+        Returns:
+            True if 10b5-1 plan detected in transaction footnotes
+            False if footnotes exist but no plan mentioned
+            None if no footnotes available for this transaction
+        """
+        return detect_10b5_1_plan(self.footnotes_text)
 
     @property
     def code_description(self) -> str:
@@ -1181,7 +1244,7 @@ class InitialOwnershipSummary(OwnershipSummary):
     @property
     def total_shares(self) -> int:
         """Get total non-derivative shares owned"""
-        return sum(safe_numeric(h.shares) or 0 for h in self.holdings if not h.is_derivative)
+        return int(sum(safe_numeric(h.shares) or 0 for h in self.holdings if not h.is_derivative))
 
     @property
     def has_derivatives(self) -> bool:
@@ -1357,13 +1420,40 @@ class TransactionSummary(OwnershipSummary):
         return any(not t.is_derivative for t in self.transactions)
 
     @property
+    def has_10b5_1_plan(self) -> Optional[bool]:
+        """
+        Check if any transaction in this summary was executed under a Rule 10b5-1 trading plan.
+
+        Returns:
+            True if any transaction has 10b5-1 plan detected
+            False if transactions have footnotes but no 10b5-1 plan mentioned
+            None if no transactions or no footnotes available
+        """
+        if not self.transactions:
+            return None
+
+        # Check each transaction
+        results = [t.is_10b5_1_plan for t in self.transactions]
+
+        # If any transaction is under a 10b5-1 plan, return True
+        if any(r is True for r in results):
+            return True
+
+        # If we have footnotes but no plan detected, return False
+        if any(r is False for r in results):
+            return False
+
+        # No footnotes available
+        return None
+
+    @property
     def net_change(self) -> int:
         """Calculate total net change in shares"""
         purchases = sum(t.shares_numeric or 0 for t in self.transactions
                         if t.transaction_type == "purchase")
         sales = sum(t.shares_numeric or 0 for t in self.transactions
                     if t.transaction_type == "sale")
-        return purchases - sales
+        return int(purchases - sales)
 
     @property
     def net_value(self) -> float:
@@ -1708,6 +1798,29 @@ class Ownership:
 
         return holdings
 
+    def _resolve_footnotes(self, footnote_ids: str) -> str:
+        """
+        Resolve footnote IDs to their full text.
+
+        Args:
+            footnote_ids: Newline-separated string of footnote IDs (e.g., "F1\nF2")
+
+        Returns:
+            Combined text of all footnotes, separated by spaces
+        """
+        if not footnote_ids or not footnote_ids.strip():
+            return ""
+
+        texts = []
+        for fid in footnote_ids.strip().split('\n'):
+            fid = fid.strip()
+            if fid and self.footnotes:
+                text = self.footnotes.get(fid, "")
+                if text:
+                    texts.append(text)
+
+        return " ".join(texts)
+
     def get_transaction_activities(self) -> List[TransactionActivity]:
         """Extract all transaction activities from the filing"""
         activities = []
@@ -1718,6 +1831,7 @@ class Ownership:
                 transaction_type = "purchase" if row.AcquiredDisposed == 'A' else "sale"
                 row_shares = int("0" + "".join(itertools.takewhile(str.isdigit, row.Shares))) \
                     if isinstance(row.Shares, str) else row.Shares
+                footnote_ids = getattr(row, 'footnotes', '') or ''
                 activities.append(TransactionActivity(
                     transaction_type=transaction_type,
                     code=row.Code,
@@ -1726,6 +1840,8 @@ class Ownership:
                     value=row_shares * row.Price if not pd.isna(row.Price) else 0,
                     security_type="non-derivative",
                     security_title=row.Security,
+                    footnote_ids=footnote_ids,
+                    footnotes_text=self._resolve_footnotes(footnote_ids),
                 ))
 
         # Process non-derivative non-market transactions (other codes)
@@ -1750,6 +1866,7 @@ class Ownership:
 
                 row_shares = int("0" + "".join(itertools.takewhile(str.isdigit, row.Shares))) \
                     if isinstance(row.Shares, str) else row.Shares
+                footnote_ids = getattr(row, 'footnotes', '') or ''
                 activities.append(TransactionActivity(
                     transaction_type=transaction_type,
                     code=row.Code,
@@ -1759,6 +1876,8 @@ class Ownership:
                     value=row_shares * row.Price if pd.notna(row.Price) and row.Price > 0 else 0,
                     security_type="non-derivative",
                     security_title=row.Security,
+                    footnote_ids=footnote_ids,
+                    footnotes_text=self._resolve_footnotes(footnote_ids),
                 ))
 
         # Process derivative transactions
@@ -1771,6 +1890,7 @@ class Ownership:
 
                     row_underlying_shares = int("0" + "".join(itertools.takewhile(str.isdigit, row.UnderlyingShares))) \
                         if isinstance(row.UnderlyingShares, str) else row.UnderlyingShares
+                    footnote_ids = getattr(row, 'footnotes', '') or ''
                     activities.append(TransactionActivity(
                         transaction_type=transaction_type,
                         code=row.Code,
@@ -1782,6 +1902,8 @@ class Ownership:
                         underlying_security=row.Underlying,
                         exercise_date=row.ExerciseDate if pd.notna(row.ExerciseDate) else None,
                         expiration_date=row.ExpirationDate if pd.notna(row.ExpirationDate) else None,
+                        footnote_ids=footnote_ids,
+                        footnotes_text=self._resolve_footnotes(footnote_ids),
                     ))
         return activities
 
@@ -1905,11 +2027,13 @@ class Ownership:
         soup = BeautifulSoup(content, "xml")
 
         root = soup.find("ownershipDocument")
+        if not isinstance(root, Tag):
+            raise ValueError("Could not find ownershipDocument in XML")
 
         # Period of report
         report_period = child_text(root, "periodOfReport")
 
-        remarks = child_text(root, "remarks")
+        remarks = child_text(root, "remarks") or ""
 
         no_securities = child_text(root, "noSecuritiesOwned") == "1"
 
@@ -1918,30 +2042,32 @@ class Ownership:
 
         # Issuer
         issuer_tag = root.find("issuer")
+        if not isinstance(issuer_tag, Tag):
+            raise ValueError("Could not find issuer in XML")
         issuer = Issuer(
-            cik=child_text(issuer_tag, "issuerCik"),
-            name=child_text(issuer_tag, "issuerName"),
-            ticker=child_text(issuer_tag, "issuerTradingSymbol")
+            cik=child_text(issuer_tag, "issuerCik") or "",
+            name=child_text(issuer_tag, "issuerName") or "",
+            ticker=child_text(issuer_tag, "issuerTradingSymbol") or ""
         )
 
         # Signature
         ownership_signatures = OwnerSignatures([OwnerSignature(
-            signature=child_text(el, "signatureName").strip(),
-            date=child_text(el, "signatureDate")
-        ) for el in root.find_all("ownerSignature")]
+            signature=(child_text(el, "signatureName") or "").strip(),
+            date=child_text(el, "signatureDate") or ""
+        ) for el in root.find_all("ownerSignature") if isinstance(el, Tag)]
         )
 
         # Reporting Owner
         reporting_owner = ReportingOwners.from_reporting_owner_tags(root.find_all("reportingOwner"), remarks=remarks)
 
-        form = child_text(root, "documentType")
+        form = child_text(root, "documentType") or ""
         # Non derivatives
         non_derivative_table_tag = root.find("nonDerivativeTable")
-        non_derivative_table = NonDerivativeTable.extract(non_derivative_table_tag, form=form)
+        non_derivative_table = NonDerivativeTable.extract(non_derivative_table_tag, form=form) if isinstance(non_derivative_table_tag, Tag) else NonDerivativeTable(holdings=NonDerivativeHoldings(), transactions=NonDerivativeTransactions(), form=form)
 
         # Derivatives
         derivative_table_tag = root.find("derivativeTable")
-        derivative_table = DerivativeTable.extract(derivative_table_tag, form=form)
+        derivative_table = DerivativeTable.extract(derivative_table_tag, form=form) if isinstance(derivative_table_tag, Tag) else DerivativeTable(holdings=DerivativeHoldings(), transactions=DerivativeTransactions(), form=form)
 
         ownership_document = {
             'form': form,

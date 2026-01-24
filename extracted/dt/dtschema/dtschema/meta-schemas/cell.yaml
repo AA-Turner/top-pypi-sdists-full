@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2018 Linaro Ltd.
+# Copyright 2018 Arm Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/meta-schemas/cell.yaml#
+$schema: https://json-schema.org/draft/2019-09/schema
+
+array:
+  description: cell array properties must define how many entries and what the
+    entries are when there is more than one entry.
+  anyOf:
+    - description: Only "maxItems" is required for a single entry if there are
+        no constraints defined for the values.
+      properties:
+        maxItems:
+          const: 1
+      required: [maxItems]
+      propertyNames:
+        enum: [maxItems, description, deprecated]
+    - description:
+        Arrays must be described with a combination of minItems/maxItems/items
+      properties:
+        minItems:
+          minimum: 1
+        maxItems:
+          minimum: 2
+        oneOf:
+          type: array
+          items:
+            $ref: '#/array'
+        anyOf:
+          type: array
+          items:
+            $ref: '#/array'
+        items:
+          description: '"items" can be a list defining each entry or a schema
+            applying to all items. A list has an implicit size. A schema
+            requires minItems/maxItems to define the size.'
+          if:
+            type: object
+          then:
+            $ref: '#/array'
+          else:
+            type: array
+            if:
+              items:
+                required: [ items ]
+            then:
+              maxItems: 1 # for more than 1, outer 'items' should be a schema
+              items:
+                $ref: '#/array'
+            else:
+              items:
+                $ref: '#/single'
+        additionalItems:
+          type: boolean
+          const: true
+        default: true
+        description: true
+        deprecated: true
+        uniqueItems: true
+
+      additionalProperties: false
+
+    - $ref: '#/single'
+
+single:
+  description: A singular entry should be described with scalar constraints
+  properties:
+    description: true
+    const:
+      type: integer
+    enum:
+      items:
+        type: integer
+    minimum: {}
+    maximum: {}
+    default:
+      type: integer
+    oneOf:
+      items:
+        $ref: '#/single'
+
+  propertyNames:
+    enum: [ description, deprecated, const, enum, minimum, maximum, multipleOf, default, $ref, oneOf ]

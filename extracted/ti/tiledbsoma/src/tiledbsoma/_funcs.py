@@ -5,10 +5,10 @@
 """Utilities and decorators around modifying functions."""
 
 import inspect
+from collections.abc import Collection
 from typing import (
     Any,
     Callable,
-    Collection,
     TypeVar,
 )
 
@@ -33,9 +33,7 @@ except ImportError:
         return f
 
 
-def forwards_kwargs_to(
-    dst: Callable[..., Any], *, exclude: Collection[str] = ()
-) -> Callable[[_CT], _CT]:
+def forwards_kwargs_to(dst: Callable[..., Any], *, exclude: Collection[str] = ()) -> Callable[[_CT], _CT]:
     """Decorator function to update the signature with ``dst``'s kwargs.
 
     Example:
@@ -69,18 +67,15 @@ def forwards_kwargs_to(
                     if dst_param.kind == inspect.Parameter.VAR_KEYWORD:
                         # This is dst's **kwargs parameter. Pass it directly.
                         merged.append(dst_param)
-                    elif _can_be_kwarg(dst_param):
+                    elif _can_be_kwarg(dst_param) and dst_param.name not in claimed_names:
                         # In this case:
-                        #     def internal(a, b): ...
+                        #     def internal(a, b): ...  # noqa: ERA001
                         #     @forwards_kwargs_to(internal)
-                        #     def public(b, **kwargs): ...
+                        #     def public(b, **kwargs): ...  # noqa: ERA001
                         # `b` cannot be forwarded to `internal`, so we skip it.
-                        if dst_param.name not in claimed_names:
-                            # ...however, `a` can.
-                            merged.append(
-                                dst_param.replace(kind=inspect.Parameter.KEYWORD_ONLY)
-                            )
-                            claimed_names.add(dst_param.name)
+                        # ...however, `a` can.
+                        merged.append(dst_param.replace(kind=inspect.Parameter.KEYWORD_ONLY))
+                        claimed_names.add(dst_param.name)
                     # else: this param is positional-only.
             else:
                 # This is one of our other params; add it to the signature.
@@ -102,9 +97,7 @@ def forwards_kwargs_to(
             claimed_names.add(param.name)
             merged[idx] = param
 
-        me.__signature__ = my_sig.replace(  # type: ignore[attr-defined]
-            parameters=merged
-        )
+        me.__signature__ = my_sig.replace(parameters=merged)  # type: ignore[attr-defined]
         return me
 
     return wrap

@@ -18,8 +18,6 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-
-import cuequivariance as cue
 from cuequivariance_torch.primitives.segmented_polynomial_fused_tp import (
     SegmentedPolynomialFusedTP,
 )
@@ -32,6 +30,8 @@ from cuequivariance_torch.primitives.segmented_polynomial_naive import (
 from cuequivariance_torch.primitives.segmented_polynomial_uniform_1d import (
     SegmentedPolynomialFromUniform1dJit,
 )
+
+import cuequivariance as cue
 
 try:
     import cuequivariance_ops_torch  # noqa: F401
@@ -58,6 +58,15 @@ class SegmentedPolynomial(nn.Module):
             If specified, internal buffers will be of this dtype,
             and operands will be converted to this type for all computations.
 
+            Values can be specified as a string corresponding to a torch.dtype,
+            or as a torch.dtype.
+            For some methods, special values can be used:
+
+            - For method ``"naive"``: Any torch.dtype or corresponding string.
+            - For method ``"uniform_1d"``: ``torch.float32`` or ``torch.float64`` or corresponding strings.
+            - For method ``"fused_tp"``: ``torch.float32`` or ``torch.float64`` or corresponding strings.
+            - For method ``"indexed_linear"``: this is not supported and will be ignored.
+
             .. note::
                This will not be affected by changes to the module dtype,
                and not all methods support all dtypes.
@@ -68,8 +77,7 @@ class SegmentedPolynomial(nn.Module):
             - For method ``"uniform_1d"``, the dtype of the input tensors will be used if allowed
               (FP32 or FP64), otherwise float32 will be used.
             - For method ``"fused_tp"``, the default dtype (FP32) will be used.
-            - For method ``"indexed_linear"``, the dtype of the input tensors will be used
-              (this is the only option available for this method).
+            - For method ``"indexed_linear"``, the dtype of the input tensors will be used.
 
         output_dtype_map: Optional list that, for each output buffer, specifies
             the index of the input buffer from which it inherits its data type.
@@ -132,7 +140,7 @@ class SegmentedPolynomial(nn.Module):
         self,
         polynomial: cue.SegmentedPolynomial,
         method: str = "",
-        math_dtype: torch.dtype = None,
+        math_dtype: str | torch.dtype = None,
         output_dtype_map: List[int] = None,
         name: str = "segmented_polynomial",
     ):
@@ -156,6 +164,12 @@ class SegmentedPolynomial(nn.Module):
                 "• 'indexed_linear' - A CUDA implementation for linear layers with indexed weights.\n"
             )
             method = "uniform_1d"
+
+        if not isinstance(polynomial, cue.SegmentedPolynomial):
+            raise ValueError(
+                f"The polynomial is not a cue.SegmentedPolynomial, but a {type(polynomial)}",
+                "Did you forget to call `.polynomial` on the descriptor?",
+            )
 
         if method != "naive" and not HAS_CUE_OPS:
             method = "naive"
@@ -244,32 +258,51 @@ class SegmentedPolynomial(nn.Module):
             output_indices = dict(empty_dict)
 
         inputs = list(inputs)
-        torch._assert(
-            len(inputs) == self.num_inputs,
-            "the number of inputs must match the number of inputs of the polynomial",
-        )
+        if not torch.jit.is_scripting():
+            if (
+                not torch.jit.is_tracing()
+                and not torch.compiler.is_compiling()
+                and not torch.fx._symbolic_trace.is_fx_tracing()
+            ):
+                torch._assert(
+                    len(inputs) == self.num_inputs,
+                    "the number of inputs must match the number of inputs of the polynomial",
+                )
 
-        for k, v in input_indices.items():
-            torch._assert(0 <= k < self.num_inputs, "input index must be in range")
-            torch._assert(v.ndim == 1, "input index must be one-dimensional")
-            torch._assert(
-                v.dtype in [torch.int32, torch.int64], "input index must be integral"
-            )
-        for k, v in output_indices.items():
-            torch._assert(0 <= k < self.num_outputs, "output index must be in range")
-            torch._assert(v.ndim == 1, "input index must be one-dimensional")
-            torch._assert(
-                v.dtype in [torch.int32, torch.int64], "input index must be integral"
-            )
-        for k, v in output_shapes.items():
-            torch._assert(0 <= k < self.num_outputs, "output index must be in range")
-            torch._assert(v.ndim == 2, "output shape must be two-dimensional")
+                for k, v in input_indices.items():
+                    torch._assert(
+                        0 <= k < self.num_inputs, "input index must be in range"
+                    )
+                    torch._assert(v.ndim == 1, "input index must be one-dimensional")
+                    torch._assert(
+                        v.dtype in [torch.int32, torch.int64],
+                        "input index must be integral",
+                    )
+                for k, v in output_indices.items():
+                    torch._assert(
+                        0 <= k < self.num_outputs, "output index must be in range"
+                    )
+                    torch._assert(v.ndim == 1, "input index must be one-dimensional")
+                    torch._assert(
+                        v.dtype in [torch.int32, torch.int64],
+                        "input index must be integral",
+                    )
+                for k, v in output_shapes.items():
+                    torch._assert(
+                        0 <= k < self.num_outputs, "output index must be in range"
+                    )
+                    torch._assert(v.ndim == 2, "output shape must be two-dimensional")
 
-        # If the input is on the CPU and we're using fused_tp, we need to fall back to naive
-        if inputs[0].device == torch.device("cpu") and self.method == "fused_tp":
-            warnings.warn(
-                "Fused TP is not supported on CPU. Falling back to naive implementation."
-            )
-            return self.fallback(inputs, input_indices, output_shapes, output_indices)
+                # If the input is on the CPU and we're using fused_tp, we need to fall back to naive
+                if (
+                    inputs[0].device == torch.device("cpu")
+                    and self.method == "fused_tp"
+                ):
+                    warnings.warn(
+                        "Fused TP is not supported on CPU. Falling back to naive implementation."
+                    )
+                    return self.fallback(
+                        inputs, input_indices, output_shapes, output_indices
+                    )
 
         return self.m(inputs, input_indices, output_shapes, output_indices)

@@ -1,5 +1,7 @@
 """Simple tests verifying basic functionality."""
+
 import asyncio
+
 from aiofiles import threadpool
 
 
@@ -43,7 +45,7 @@ async def test_serve_small_bin_file(tmpdir, unused_tcp_port):
     async def serve_file(reader, writer):
         full_filename = str(file)
         f = await threadpool.open(full_filename, mode="rb")
-        writer.write((await f.read()))
+        writer.write(await f.read())
         await f.close()
         writer.close()
 

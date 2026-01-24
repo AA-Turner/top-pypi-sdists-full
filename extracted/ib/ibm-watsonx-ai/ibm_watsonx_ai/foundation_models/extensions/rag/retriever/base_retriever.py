@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -10,12 +10,12 @@ from typing import Any
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
-try:
-    from langchain_core.documents import Document
-except ImportError:
-    raise MissingExtension("langchain")
+if not is_lib_installed(ext := "langchain-core"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_core.documents import Document
 
 
 class BaseRetriever(ABC):

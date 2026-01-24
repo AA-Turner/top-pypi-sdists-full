@@ -1,8 +1,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
-# Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,11 +23,13 @@
 # SOFTWARE.
 #
 
+import warnings
 from copy import copy
 import os
 import sys
 import datetime
-from gams.connect.agents.excelagent import ExcelAgent
+from gams.connect.agents._excel import ExcelAgent
+from gams.connect.agents._excel import Workbook
 from gams.connect.connectvalidator import ConnectValidator
 from gams.core.gdx import GMS_SV_UNDEF
 import gams.transfer as gt
@@ -37,7 +39,6 @@ from gams.transfer.syms._methods.tables import (
     _flatten_and_convert,
 )
 import numpy as np
-import openpyxl
 from openpyxl.utils.cell import column_index_from_string
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 import pandas as pd
@@ -60,6 +61,7 @@ class ExcelReader(ExcelAgent):
 
     def __init__(self, cdb, inst, agent_index):
         super().__init__(cdb, inst, agent_index)
+        self._wb = None
         self._parse_options(self._inst)
         if os.path.splitext(self._file)[1] in [".xls"]:
             self._connect_error("The ExcelReader does not support .xls files.")
@@ -79,6 +81,15 @@ class ExcelReader(ExcelAgent):
         self._auto_merge = inst["autoMerge"]
         self._ignore_text = inst["ignoreText"]
         self._trace = inst["trace"]
+        self._is_xlsb = self._file.endswith(".xlsb")
+        if self._is_xlsb:
+            if not sys.platform.startswith("win"):
+                self._connect_error(
+                    f"Excel binary files (.xlsb) are supported on Windows only."
+                )
+            self._engine = "xlwings"
+        else:
+            self._engine = "openpyxl"
 
     def _apply_skip_empty(self, dim, idx, skip_empty):
         stop = None
@@ -104,7 +115,9 @@ class ExcelReader(ExcelAgent):
         def _keep_list(idx):
             keep = list(range(idx.shape[1]))
             for i in reversed(range(idx.shape[1])):
-                if method(v is None or v != v for v in idx[:, i]):  # drop None and float('nan') records
+                if method(
+                    v is None or v != v for v in idx[:, i]
+                ):  # drop None and float('nan') records
                     del keep[i]
             return keep
 
@@ -139,12 +152,12 @@ class ExcelReader(ExcelAgent):
             df = pd.DataFrame(values.flatten())
         elif cdim == 0:
             if values.size == 0:
-                return pd.DataFrame([np.nan]* len(row_idx), index=row_idx)
+                return pd.DataFrame([np.nan] * len(row_idx), index=row_idx)
             values = values[:, 0]
             df = pd.DataFrame(values.flatten(), index=row_idx)
         elif rdim == 0:
             if values.size == 0:
-                return pd.DataFrame([np.nan]* len(col_idx), index=col_idx)
+                return pd.DataFrame([np.nan] * len(col_idx), index=col_idx)
             values = values[0, :]
             df = pd.DataFrame(values.flatten(), index=col_idx)
         else:
@@ -153,8 +166,34 @@ class ExcelReader(ExcelAgent):
 
     def _resolve_merged_cells(self, sheet, data):
         # TODO: do this only on the used range for better performance
-        for mr in sheet.merged_cells.ranges:
-            nwc, nwr, sec, ser = mr.bounds
+        if self._engine == "xlwings":
+            ## Windows and macOS compatible approach
+            #last_cell = sheet.used_range.last_cell
+            #used = sheet.range(sheet.range("A1"), last_cell)
+            #ranges = set()
+            #for row in range(used.rows.count):
+            #    for col in range(used.columns.count):
+            #        cell = used[row, col]
+            #        merge_area = cell.merge_area
+            #        if merge_area.address != cell.address:
+            #            ranges.add(merge_area)
+
+            # Windows only approach using COM
+            ranges = {sheet.range(c.MergeArea.Address) for c in sheet.api.UsedRange.Cells if c.MergeCells}
+            mr = []
+            for rng in ranges:
+                mr.append(
+                    (
+                        rng.column,
+                        rng.row,
+                        rng.column + rng.columns.count - 1,
+                        rng.row + rng.rows.count - 1,
+                    )
+                )
+        else:
+            mr = [x.bounds for x in sheet.merged_cells.ranges]
+        for b in mr:
+            nwc, nwr, sec, ser = b
             value = data[nwr - 1][nwc - 1]
             data[nwr - 1 : ser, nwc - 1 : sec] = value
         return data
@@ -453,9 +492,7 @@ class ExcelReader(ExcelAgent):
                     f"Invalid range >{sym_range}<. With rowDimension: >{rdim}< and {len(ignore_columns)} columns to be ignored, the range must include at least {required_cols} columns."
                 )
 
-        data = np.array(
-            list(sheet.values), dtype=object
-        )  # dtype=object is required to not convert int values (e.g. 1) to float automatically (e.g. 1.0)
+        data = self._wb.get_sheet_data(sheet)
 
         if len(data) == 0:  # no data at all
             self._write(None, sym_name, sym_type, rdim, cdim)
@@ -482,7 +519,7 @@ class ExcelReader(ExcelAgent):
         data = self._apply_ignore_rows_columns(
             data, ignore_rows, ignore_columns, nw_row, nw_col, sym_name
         )
-        if len(data) == 0:
+        if data.size == 0:
             self._write(None, sym_name, sym_type, rdim, cdim)
             return
         # if data.shape[0] < required_rows - len(ignore_rows):
@@ -535,6 +572,11 @@ class ExcelReader(ExcelAgent):
 
         if self._trace > 2:
             self._cdb.print_log(f"Values {(sym_name)}: {values}\n")
+
+        if self._engine == "xlwings":
+            col_idx = self._to_int_if_whole(col_idx)
+            row_idx = self._to_int_if_whole(row_idx)
+            values = self._to_int_if_whole(values)
 
         if auto_merge:
             if cdim > 1:
@@ -622,11 +664,14 @@ class ExcelReader(ExcelAgent):
             any(sym["mergedCells"] for sym in self._symbols) or self._merged_cells
         )
         try:
-            self._wb = openpyxl.load_workbook(
-                self._file, read_only=read_only, data_only=True
+            self._wb = Workbook(
+                self._file, engine=self._engine, read_only=read_only, data_only=True
             )  # data_only=True is required to read values instead of formulas
         except PermissionError as e:
-            self._connect_error(str(e) + "\nThe file may already be open and might need to be closed first.")
+            self._connect_error(
+                str(e)
+                + "\nThe file may already be open and might need to be closed first."
+            )
 
     def _read_symbols(self, symbols, validate=False):
         if validate:
@@ -669,14 +714,20 @@ class ExcelReader(ExcelAgent):
                 self._dict_get(sym, "mergedCells", self._merged_cells)
                 for sym in symbols
             )
-            if not read_only:
+            if not read_only and not self._is_xlsb:
                 self._wb.close()
                 try:
-                    self._wb = openpyxl.load_workbook(
-                        self._file, read_only=read_only, data_only=True
+                    self._wb = Workbook(
+                        self._file,
+                        engine=self._engine,
+                        read_only=read_only,
+                        data_only=True,
                     )  # data_only=True is required to read values instead of formulas
                 except PermissionError as e:
-                    self._connect_error(str(e) + "\nThe file may already be open and might need to be closed first.")
+                    self._connect_error(
+                        str(e)
+                        + "\nThe file may already be open and might need to be closed first."
+                    )
         self._read_symbols(symbols, True)
 
     def execute(self):
@@ -684,18 +735,22 @@ class ExcelReader(ExcelAgent):
             self._log_instructions(self._inst, self._inst_raw)
             self._describe_container(self._cdb.container, "Connect Container (before):")
 
-        self._open()
+        try:
+            self._open()
 
-        if self._index:
-            self._read_from_index()
-        else:
-            self._read_symbols(self._symbols)
-        if self._trace > 2:
-            for name, sym in self._cdb.container.data.items():
-                self._cdb.print_log(
-                    f"Connect Container symbol >{name}<:\n {sym.records}\n"
+            if self._index:
+                self._read_from_index()
+            else:
+                self._read_symbols(self._symbols)
+            if self._trace > 2:
+                for name, sym in self._cdb.container.data.items():
+                    self._cdb.print_log(
+                        f"Connect Container symbol >{name}<:\n {sym.records}\n"
+                    )
+            if self._trace > 0:
+                self._describe_container(
+                    self._cdb.container, "Connect Container (after):"
                 )
-        if self._trace > 0:
-            self._describe_container(self._cdb.container, "Connect Container (after):")
-
-        self._wb.close()
+        finally:
+            if self._wb is not None:
+                self._wb.close()

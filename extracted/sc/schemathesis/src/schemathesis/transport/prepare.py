@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis.config import SanitizationConfig
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER, NotSet
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import USER_AGENT
-from schemathesis.generation.meta import CoveragePhaseData
+from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData, StatefulPhaseData
 
 if TYPE_CHECKING:
     from requests import PreparedRequest
@@ -18,7 +20,7 @@ if TYPE_CHECKING:
     from schemathesis.generation.case import Case
 
 
-@lru_cache()
+@lru_cache
 def get_default_headers() -> CaseInsensitiveDict:
     from requests.utils import default_headers
 
@@ -38,14 +40,29 @@ def prepare_headers(case: Case, headers: dict[str, str] | None = None) -> CaseIn
 
 
 def get_exclude_headers(case: Case) -> list[str]:
+    if case.meta is None:
+        return []
+
+    phase_data = case.meta.phase.data
+
+    # Exclude headers that are intentionally missing
+
     if (
-        case.meta is not None
-        and isinstance(case.meta.phase.data, CoveragePhaseData)
-        and case.meta.phase.data.description.startswith("Missing")
-        and case.meta.phase.data.description.endswith("at header")
-        and case.meta.phase.data.parameter is not None
+        isinstance(phase_data, CoveragePhaseData)
+        and phase_data.scenario == CoverageScenario.MISSING_PARAMETER
+        and phase_data.parameter_location == ParameterLocation.HEADER
+        and phase_data.parameter is not None
     ):
-        return [case.meta.phase.data.parameter]
+        return [phase_data.parameter]
+
+    if (
+        isinstance(phase_data, (FuzzingPhaseData | StatefulPhaseData))
+        and case.meta.generation.mode.is_negative
+        and phase_data.parameter_location == ParameterLocation.HEADER
+        and phase_data.parameter is not None
+    ):
+        return [phase_data.parameter]
+
     return []
 
 
@@ -73,7 +90,7 @@ def prepare_body(case: Case) -> list | dict[str, Any] | str | int | float | bool
     from schemathesis.specs.graphql.schemas import GraphQLSchema
 
     if isinstance(case.operation.schema, GraphQLSchema):
-        return case.body if isinstance(case.body, (NotSet, bytes)) else {"query": case.body}
+        return case.body if isinstance(case.body, NotSet | bytes) else {"query": case.body}
     return case.body
 
 

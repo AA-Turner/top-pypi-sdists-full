@@ -3,7 +3,7 @@ Type annotations for devops-guru service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_guru/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -96,12 +97,6 @@ from .type_defs import (
     UpdateServiceIntegrationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -110,14 +105,14 @@ else:
 __all__ = ("DevOpsGuruClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class DevOpsGuruClient(BaseClient):
     """
@@ -164,7 +159,7 @@ class DevOpsGuruClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_guru/client/#add_notification_channel)
         """
 
-    def delete_insight(self, **kwargs: Unpack[DeleteInsightRequestTypeDef]) -> Dict[str, Any]:
+    def delete_insight(self, **kwargs: Unpack[DeleteInsightRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the insight along with the associated anomalies, events and
         recommendations.
@@ -390,7 +385,7 @@ class DevOpsGuruClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_guru/client/#list_recommendations)
         """
 
-    def put_feedback(self, **kwargs: Unpack[PutFeedbackRequestTypeDef]) -> Dict[str, Any]:
+    def put_feedback(self, **kwargs: Unpack[PutFeedbackRequestTypeDef]) -> dict[str, Any]:
         """
         Collects customer feedback about the specified insight.
 
@@ -400,7 +395,7 @@ class DevOpsGuruClient(BaseClient):
 
     def remove_notification_channel(
         self, **kwargs: Unpack[RemoveNotificationChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a notification channel from DevOps Guru.
 
@@ -430,7 +425,7 @@ class DevOpsGuruClient(BaseClient):
 
     def start_cost_estimation(
         self, **kwargs: Unpack[StartCostEstimationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the creation of an estimate of the monthly cost to analyze your Amazon
         Web Services resources.
@@ -441,7 +436,7 @@ class DevOpsGuruClient(BaseClient):
 
     def update_event_sources_config(
         self, **kwargs: Unpack[UpdateEventSourcesConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables integration with a service that can be integrated with
         DevOps Guru.
@@ -452,7 +447,7 @@ class DevOpsGuruClient(BaseClient):
 
     def update_resource_collection(
         self, **kwargs: Unpack[UpdateResourceCollectionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the collection of resources that DevOps Guru analyzes.
 
@@ -462,7 +457,7 @@ class DevOpsGuruClient(BaseClient):
 
     def update_service_integration(
         self, **kwargs: Unpack[UpdateServiceIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables integration with a service that can be integrated with
         DevOps Guru.

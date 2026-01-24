@@ -7,9 +7,16 @@ from urllib.parse import unquote_plus
 
 from .credential import AsyncCredentials, Credentials
 from .item import AsyncItem, Item, append_slash, new_item, snake
-from .mix import (AsyncConfigurationMixIn, AsyncDeletionMixIn,
-                  AsyncDescriptionMixIn, AsyncEnableMixIn, ConfigurationMixIn,
-                  DeletionMixIn, DescriptionMixIn, EnableMixIn)
+from .mix import (
+    AsyncConfigurationMixIn,
+    AsyncDeletionMixIn,
+    AsyncDescriptionMixIn,
+    AsyncEnableMixIn,
+    ConfigurationMixIn,
+    DeletionMixIn,
+    DescriptionMixIn,
+    EnableMixIn,
+)
 from .queue import AsyncQueueItem, QueueItem
 from .view import Views
 
@@ -26,18 +33,15 @@ class NameMixIn:
 
 
 class Job(Item, ConfigurationMixIn, DescriptionMixIn, DeletionMixIn, NameMixIn):
-
     def move(self, path):
         path = path.strip('/')
-        params = {'destination': f'/{path}',
-                  'json': json.dumps({'destination': f'/{path}'})}
+        params = {'destination': f'/{path}', 'json': json.dumps({'destination': f'/{path}'})}
         resp = self.handle_req('POST', 'move/move', data=params)
         self.url = resp.headers['Location']
         return resp
 
     def rename(self, name):
-        resp = self.handle_req('POST', 'confirmRename',
-                               params={'newName': name})
+        resp = self.handle_req('POST', 'confirmRename', params={'newName': name})
         self.url = append_slash(resp.headers['Location'])
         return resp
 
@@ -67,10 +71,8 @@ def _iter_jobs(jenkins, item):
 
 
 class Folder(Job):
-
     def create(self, name, xml):
-        return self.handle_req('POST', 'createItem', params={'name': name},
-                               headers=self.headers, content=xml)
+        return self.handle_req('POST', 'createItem', params={'name': name}, headers=self.headers, content=xml)
 
     def get(self, name):
         for item in self.api_json(tree='jobs[name,url]')['jobs']:
@@ -102,7 +104,6 @@ class Folder(Job):
 
 
 class WorkflowMultiBranchProject(Folder, EnableMixIn):
-
     def scan(self, delay=0):
         return self.handle_req('POST', 'build', params={'delay': delay})
 
@@ -122,9 +123,16 @@ class OrganizationFolder(WorkflowMultiBranchProject):
 
 
 def _set_get_methods(job, func):
-    for key in ['firstBuild', 'lastBuild', 'lastCompletedBuild',
-                'lastFailedBuild', 'lastStableBuild', 'lastUnstableBuild',
-                'lastSuccessfulBuild', 'lastUnsuccessfulBuild']:
+    for key in [
+        'firstBuild',
+        'lastBuild',
+        'lastCompletedBuild',
+        'lastFailedBuild',
+        'lastStableBuild',
+        'lastUnstableBuild',
+        'lastSuccessfulBuild',
+        'lastUnsuccessfulBuild',
+    ]:
         setattr(job, snake(f'get_{key}'), partial(func, key))
 
 
@@ -134,8 +142,20 @@ def _get_build(job, api_json, number):
             return job._new_item('api4jenkins.build', item)
 
 
-class Project(Job, EnableMixIn):
+def _parse_build_params(params):
+    reserved = ['token', 'delay']
+    entry = 'buildWithParameters'
+    if not params or all(k in reserved for k in params):
+        entry = 'build'
+    files = {}
+    for k in list(params):
+        v = params[k]
+        if hasattr(v, 'read') or (isinstance(v, tuple) and hasattr(v[1], 'read')):
+            files[k] = params.pop(k)
+    return entry, params, files
 
+
+class Project(Job, EnableMixIn):
     def __init__(self, jenkins, url):
         super().__init__(jenkins, url)
 
@@ -143,15 +163,12 @@ class Project(Job, EnableMixIn):
             item = self.api_json(tree=f'{key}[url]')[key]
             if item:
                 return self._new_item('api4jenkins.build', item)
+
         _set_get_methods(self, _get_build_by_key)
 
     def build(self, **params):
-        reserved = ['token', 'delay']
-        if not params or all(k in reserved for k in params):
-            entry = 'build'
-        else:
-            entry = 'buildWithParameters'
-        resp = self.handle_req('POST', entry, params=params)
+        entry, params, files = _parse_build_params(params)
+        resp = self.handle_req('POST', entry, params=params, files=files)
         return QueueItem(self.jenkins, resp.headers['Location'])
 
     def get(self, number):
@@ -166,8 +183,9 @@ class Project(Job, EnableMixIn):
             yield self._new_item('api4jenkins.build', item)
 
     def set_next_build_number(self, number):
-        self.handle_req('POST', 'nextbuildnumber/submit',
-                        params={'nextBuildNumber': number})
+        data = {'nextBuildNumber': number, 'Submit': 'Submit'} | self.jenkins.crumb
+        data['json'] = json.dumps(data)
+        self.handle_req('POST', 'nextbuildnumber/submit', data=data)
 
     def get_parameters(self):
         params = []
@@ -231,22 +249,20 @@ class GitHubSCMNavigator(Project):
 class PipelineMultiBranchDefaultsProject(Project):
     pass
 
+
 # async class
 
 
 class AsyncJob(AsyncItem, AsyncConfigurationMixIn, AsyncDescriptionMixIn, AsyncDeletionMixIn, NameMixIn):
-
     async def move(self, path):
         path = path.strip('/')
-        params = {'destination': f'/{path}',
-                  'json': json.dumps({'destination': f'/{path}'})}
+        params = {'destination': f'/{path}', 'json': json.dumps({'destination': f'/{path}'})}
         resp = await self.handle_req('POST', 'move/move', data=params)
         self.url = resp.headers['Location']
         return resp
 
     async def rename(self, name):
-        resp = await self.handle_req('POST', 'confirmRename',
-                                     params={'newName': name})
+        resp = await self.handle_req('POST', 'confirmRename', params={'newName': name})
         self.url = append_slash(resp.headers['Location'])
         return resp
 
@@ -262,10 +278,8 @@ class AsyncJob(AsyncItem, AsyncConfigurationMixIn, AsyncDescriptionMixIn, AsyncD
 
 
 class AsyncFolder(AsyncJob):
-
     async def create(self, name, xml):
-        return await self.handle_req('POST', 'createItem', params={'name': name},
-                                     headers=self.headers, content=xml)
+        return await self.handle_req('POST', 'createItem', params={'name': name}, headers=self.headers, content=xml)
 
     async def get(self, name):
         resp = await self.api_json(tree='jobs[name,url]')
@@ -292,8 +306,7 @@ class AsyncFolder(AsyncJob):
 
     @property
     def credentials(self):
-        return AsyncCredentials(self.jenkins,
-                                f'{self.url}credentials/store/folder/')
+        return AsyncCredentials(self.jenkins, f'{self.url}credentials/store/folder/')
 
     async def __call__(self, depth):
         async for job in self.aiter(depth):
@@ -301,7 +314,6 @@ class AsyncFolder(AsyncJob):
 
 
 class AsyncWorkflowMultiBranchProject(AsyncFolder, AsyncEnableMixIn):
-
     async def scan(self, delay=0):
         return await self.handle_req('POST', 'build', params={'delay': delay})
 
@@ -323,7 +335,6 @@ class AsyncOrganizationFolder(AsyncWorkflowMultiBranchProject):
 
 
 class AsyncProject(AsyncJob, AsyncEnableMixIn):
-
     def __init__(self, jenkins, url):
         super().__init__(jenkins, url)
 
@@ -335,12 +346,8 @@ class AsyncProject(AsyncJob, AsyncEnableMixIn):
         _set_get_methods(self, _get_build_by_key)
 
     async def build(self, **params):
-        reserved = ['token', 'delay']
-        if not params or all(k in reserved for k in params):
-            entry = 'build'
-        else:
-            entry = 'buildWithParameters'
-        resp = await self.handle_req('POST', entry, params=params)
+        entry, params, files = _parse_build_params(params)
+        resp = await self.handle_req('POST', entry, params=params, files=files)
         return AsyncQueueItem(self.jenkins, resp.headers['Location'])
 
     async def get(self, number):
@@ -357,8 +364,9 @@ class AsyncProject(AsyncJob, AsyncEnableMixIn):
             yield self._new_item('api4jenkins.build', item)
 
     async def set_next_build_number(self, number):
-        await self.handle_req('POST', 'nextbuildnumber/submit',
-                              params={'nextBuildNumber': number})
+        data = {'nextBuildNumber': number, 'Submit': 'Submit'} | await self.jenkins.crumb
+        data['json'] = json.dumps(data)
+        await self.handle_req('POST', 'nextbuildnumber/submit', data=data)
 
     async def get_parameters(self):
         params = []

@@ -1,9 +1,9 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import subprocess
 import sys
-from typing import Optional
+from typing import Literal, Optional
 
 import click
 from click import echo
@@ -16,16 +16,18 @@ from marimo._utils.url import is_url
 LOGGER = _loggers.marimo_logger()
 
 
-def prompt_run_in_docker_container(name: str | None) -> bool:
+def prompt_run_in_docker_container(
+    name: str | None, trusted: Optional[bool] = None
+) -> bool:
     if GLOBAL_SETTINGS.IN_SECURE_ENVIRONMENT:
         return False
     if GLOBAL_SETTINGS.MANAGE_SCRIPT_METADATA:
         return False
 
-    # Only prompt for remote files
-    if name is None:
-        return False
-    if not is_url(name):
+    if trusted is not None:
+        return not trusted
+
+    if name is None or not is_url(name):
         return False
 
     if GLOBAL_SETTINGS.YES:
@@ -92,7 +94,8 @@ def _check_port_in_use(port: int) -> Optional[str]:
 
 
 def run_in_docker(
-    file_path: str,
+    file_path: str | None,
+    mode: Literal["edit", "run"],
     *,
     port: Optional[int],
     debug: bool = False,
@@ -127,19 +130,19 @@ def run_in_docker(
         sys.exit(1)
 
     # Define the container image and command
-    image = "ghcr.io/astral-sh/uv:0.4.21-python3.12-bookworm"
+    image = "ghcr.io/astral-sh/uv:0.9.25-python3.14-bookworm"
     container_command = [
         "uvx",
         "marimo",
         "-d" if debug else "",
-        "edit",
+        mode,
         "--sandbox",
         "--no-token",
         "-p",
         f"{port}",
         "--host",
         host,
-        file_path,
+        file_path if file_path is not None else "",
     ]
     # Remove empty strings from command
     container_command = [arg for arg in container_command if arg]
@@ -157,7 +160,7 @@ def run_in_docker(
         "-e",
         "MARIMO_IN_SECURE_ENVIRONMENT=true",
         "-w",
-        "/app",
+        "/home",
         image,
     ] + container_command
 

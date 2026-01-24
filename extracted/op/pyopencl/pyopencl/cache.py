@@ -24,11 +24,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import hashlib
 import logging
 import os
 import re
 import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 import pyopencl._cl as _cl
 
@@ -36,13 +38,14 @@ import pyopencl._cl as _cl
 logger = logging.getLogger(__name__)
 
 
-import hashlib
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 new_hash = hashlib.md5
 
 
-def _erase_dir(directory):
+def _erase_dir(directory: str):
     from os import listdir, rmdir, unlink
     from os.path import join
 
@@ -166,26 +169,26 @@ class ModuleCacheDirManager(CleanupBase):
 
 # {{{ #include dependency handling
 
-C_INCLUDE_RE = re.compile(r'^\s*\#\s*include\s+[<"](.+)[">]\s*$',
+C_INCLUDE_RE = re.compile(rb'^\s*\#\s*include\s+[<"](.+)[">]\s*$',
         re.MULTILINE)
 
 
-def get_dependencies(src, include_path):
-    result = {}
+def get_dependencies(src: bytes, include_path: Sequence[str]):
+    result: dict[str, tuple[float, str] | None] = {}
 
     from os.path import join, realpath
 
-    def _inner(src):
+    def _inner(src: bytes):
         for match in C_INCLUDE_RE.finditer(src):
             included = match.group(1)
 
             found = False
             for ipath in include_path:
-                included_file_name = realpath(join(ipath, included))
+                included_file_name = realpath(join(ipath, included.decode()))
 
                 if included_file_name not in result:
                     try:
-                        src_file = open(included_file_name)
+                        src_file = open(included_file_name, "rb")
                     except OSError:
                         continue
 
@@ -215,13 +218,16 @@ def get_dependencies(src, include_path):
 
     _inner(src)
 
-    result = [(name, *vals) for name, vals in result.items()]
-    result.sort()
+    result_list = [
+            (name, *vals) for name, vals in result.items()
+            if vals is not None
+        ]
+    result_list.sort()
 
-    return result
+    return result_list
 
 
-def get_file_md5sum(fname):
+def get_file_md5sum(fname: str):
     checksum = new_hash()
     inf = open(fname)
     try:
@@ -339,12 +345,17 @@ def retrieve_from_cache(cache_dir, cache_key):
 
 @dataclass(frozen=True)
 class _SourceInfo:
-    dependencies: list[tuple[str, ...]]
+    dependencies: list[tuple[str, float, str]]
     log: str | None
 
 
-def _create_built_program_from_source_cached(ctx, src, options_bytes,
-        devices, cache_dir, include_path):
+def _create_built_program_from_source_cached(
+            ctx: _cl.Context,
+            src: str | bytes,
+            options_bytes: bytes,
+            devices: Sequence[_cl.Device] | None,
+            cache_dir: str | None,
+            include_path: Sequence[str] | None):
     from os.path import join
 
     if cache_dir is None:
@@ -352,10 +363,11 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
 
         # Determine the cache directory in the same way as pytools.PersistentDict,
         # which PyOpenCL uses for invoker caches.
-        if sys.platform == "darwin" and os.getenv("XDG_CACHE_HOME") is not None:
+        xdg_cache_home = os.getenv("XDG_CACHE_HOME")
+        if sys.platform == "darwin" and xdg_cache_home is not None:
             # platformdirs does not handle XDG_CACHE_HOME on macOS
             # https://github.com/platformdirs/platformdirs/issues/269
-            cache_dir = join(os.getenv("XDG_CACHE_HOME"), "pyopencl")
+            cache_dir = join(xdg_cache_home, "pyopencl")
         else:
             cache_dir = platformdirs.user_cache_dir("pyopencl", "pyopencl")
 
@@ -371,7 +383,7 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
     cache_keys = [get_cache_key(device, options_bytes, src) for device in devices]
 
     binaries = []
-    to_be_built_indices = []
+    to_be_built_indices: list[int] = []
     logs = []
     for i, (_device, cache_key) in enumerate(zip(devices, cache_keys, strict=True)):
         cache_result = retrieve_from_cache(cache_dir, cache_key)
@@ -406,11 +418,14 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
     already_built = False
     was_cached = not to_be_built_indices
 
+    if isinstance(src, str):
+        src = src.encode()
+
     if to_be_built_indices:
         # defeat implementation caches:
         from uuid import uuid4
-        src = src + "\n\n__constant int pyopencl_defeat_cache_%s = 0;" % (
-                uuid4().hex)
+        src = src + b"\n\n__constant int pyopencl_defeat_cache_%s = 0;" % (
+                uuid4().hex.encode())
 
         logger.debug(
                 "build program: start building program from source on %s",
@@ -462,7 +477,7 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
                     binary_path = mod_cache_dir_m.sub("binary")
                     source_path = mod_cache_dir_m.sub("source.cl")
 
-                    with open(source_path, "w") as outf:
+                    with open(source_path, "wb") as outf:
                         outf.write(src)
 
                     with open(binary_path, "wb") as outf:
@@ -471,7 +486,7 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
                     from pickle import dump
                     info_file = open(info_path, "wb")
                     dump(_SourceInfo(
-                        dependencies=get_dependencies(src, include_path),
+                        dependencies=get_dependencies(src, include_path or []),
                         log=logs[i]), info_file)
                     info_file.close()
 
@@ -486,8 +501,14 @@ def _create_built_program_from_source_cached(ctx, src, options_bytes,
     return result, already_built, was_cached
 
 
-def create_built_program_from_source_cached(ctx, src, options_bytes, devices=None,
-        cache_dir=None, include_path=None):
+def create_built_program_from_source_cached(
+            ctx: _cl.Context,
+            src: str | bytes,
+            options_bytes: bytes,
+            devices: Sequence[_cl.Device] | None = None,
+            cache_dir: str | Literal[False] | None = None,
+            include_path: Sequence[str] | None = None
+        ):
     try:
         was_cached = False
         already_built = False
@@ -514,12 +535,15 @@ def create_built_program_from_source_cached(ctx, src, options_bytes, devices=Non
             raise
 
         if not build_program_failure:
-            from traceback import format_exc
-            from warnings import warn
-            warn(
-                "PyOpenCL compiler caching failed with an exception:\n"
-                f"[begin exception]\n{format_exc()}[end exception]",
-                stacklevel=2)
+            if os.environ["PYOPENCL_CACHE_FAILURE_FATAL"]:
+                raise
+            else:
+                from traceback import format_exc
+                from warnings import warn
+                warn(
+                    "PyOpenCL compiler caching failed with an exception:\n"
+                    f"[begin exception]\n{format_exc()}[end exception]",
+                    stacklevel=2)
 
         prg = _cl._Program(ctx, src)
         was_cached = False

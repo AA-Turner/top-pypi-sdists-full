@@ -7,6 +7,7 @@ from libcpp.vector cimport vector
 cimport cython
 
 from _common cimport int64, pointing, rangeset, vec3, Healpix_Ordering_Scheme, RING, NEST, SET_NSIDE, T_Healpix_Base
+import healpy.pixelfunc
 from ._pixelfunc import isnsideok
 
 @cython.boundscheck(False)
@@ -45,7 +46,11 @@ def query_disc(nside, vec, radius, inclusive = False, fact = 4, nest = False, np
 
     Note
     ----
-    This method is more efficient in the RING scheme.
+    The performance characteristics of RING vs. NESTED schemes depend on the 
+    query parameters. For simple disks with inclusive=False, RING scheme may 
+    be faster. For inclusive=True, NESTED scheme often performs better due to 
+    more efficient pixel indexing.
+    
     For inclusive=True, the algorithm may return some pixels which don't overlap
     with the disk at all. The higher fact is chosen, the fewer false positives
     are returned, at the cost of increased run time.
@@ -108,9 +113,13 @@ def query_polygon(nside, vertices, inclusive = False, fact = 4, nest = False, np
 
     Note
     ----
-    This method is more efficient in the RING scheme.
+    The performance characteristics of RING vs. NESTED schemes depend on the 
+    query parameters. For simple polygons with inclusive=False, RING scheme may 
+    be faster. For inclusive=True, NESTED scheme often performs better due to 
+    more efficient pixel indexing, especially for complex polygons.
+    
     For inclusive=True, the algorithm may return some pixels which don't overlap
-    with the disk at all. The higher fact is chosen, the fewer false positives
+    with the polygon at all. The higher fact is chosen, the fewer false positives
     are returned, at the cost of increased run time.
     """
     # Check Nside value
@@ -178,17 +187,22 @@ def query_strip(nside, theta1, theta2, inclusive = False, nest = False, np.ndarr
     if not isnsideok(nside, nest):
         raise ValueError('Wrong nside value, must be a power of 2, less than 2**30')
     # Create the Healpix_Base2 structure
-    cdef Healpix_Ordering_Scheme scheme
-    if nest:
-        scheme = NEST
-    else:
-        scheme = RING
-    cdef T_Healpix_Base[int64] hb = T_Healpix_Base[int64](nside, scheme, SET_NSIDE)
-    # Call query_polygon
+    cdef Healpix_Ordering_Scheme scheme_internal
+    cdef T_Healpix_Base[int64] hb
     cdef rangeset[int64] pixset
-    hb.query_strip(theta1, theta2, inclusive, pixset)
+    cdef np.ndarray[np.int64_t, ndim=1] result_pixels
 
-    return pixset_to_array(pixset, buff)
+    # Always call with RING ordering internally, as query_strip_internal does not support NESTED
+    scheme_internal = RING
+    hb = T_Healpix_Base[int64](nside, scheme_internal, SET_NSIDE)
+    hb.query_strip(theta1, theta2, inclusive, pixset)
+    result_pixels = pixset_to_array(pixset, buff)
+
+    if nest:
+        # If original request was for NESTED, convert the result
+        result_pixels = healpy.pixelfunc.ring2nest(nside, result_pixels)
+
+    return result_pixels
 
 
 def _boundaries_single(nside, pix, step=1, nest=False):

@@ -1,6 +1,6 @@
 [project]
 name = "connect-python"
-version = "0.5.0"
+version = "0.8.0"
 description = "Server and client runtime library for Connect RPC"
 maintainers = [
     { name = "Anuraag Agrawal", email = "anuraaga@gmail.com" },
@@ -9,9 +9,9 @@ maintainers = [
     { name = "Yasushi Itoh", email = "i2y.may.roku@gmail.com" },
 ]
 requires-python = ">= 3.10"
-dependencies = ["httpx", "protobuf>=5.28"]
+dependencies = ["protobuf>=5.28", "pyqwest>=0.3.3"]
 readme = "README.md"
-license-files = ["LICENSE"]
+license = "Apache-2.0"
 keywords = ["rpc", "grpc", "connect", "protobuf", "http"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
@@ -35,33 +36,52 @@ Issues = "https://github.com/connectrpc/connect-python/issues"
 
 [dependency-groups]
 dev = [
-    "asgiref",
-    "brotli",
+    "asgiref==3.11.0",
+    "brotli==1.2.0",
+    "bump-my-version==1.2.6",
     "connect-python-example",
-    "coverage",
-    "flask",
-    "just-bin; sys_platform != 'win32'",
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocstrings[python]",
-    "pyright[nodejs]",
+    "daphne==4.2.1",
+    "hypercorn==0.18.0",
+    "granian==2.6.1",
+    "grpcio-tools==1.76.0",
+    "gunicorn==23.0.0",
+    "just-bin==1.46.0; sys_platform != 'win32'",
+    "pyright[nodejs]==1.1.408",
+    "pyvoy==0.3.0",
+    "ruff~=0.14.13",
+    "uvicorn==0.40.0",
+    # Needed to enable HTTP/2 in daphne
+    "Twisted[tls,http2]==25.5.0",
+    "typing_extensions==4.15.0",
+    "zstandard==0.25.0",
+
+    # Versions locked in constraint-dependencies
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "ruff",
-    "typing_extensions",
-    "zstandard",
+    "pytest-timeout",
 ]
 
 [build-system]
 requires = ["uv_build>=0.8.13,<0.9.0"]
 build-backend = "uv_build"
 
+[tool.uv]
+resolution = "lowest-direct"
+constraint-dependencies = [
+    "pytest==9.0.2",
+    "pytest-asyncio==1.3.0",
+    "pytest-cov==7.0.0",
+    "pytest-timeout==2.4.0",
+]
+
 [tool.uv.build-backend]
 module-name = "connectrpc"
 
-[tool.pytest.ini_options]
+[tool.pytest]
+strict = true
 testpaths = ["test"]
+timeout = "1800"     # 30 min
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true
@@ -98,7 +118,7 @@ extend-select = [
     "RET",
     # This rule is a bit strict since accessing private members within this package can be
     # useful to reduce public API exposure. But it is important to not access private members
-    # of dependencies like httpx so we enable it and ignore the locations where we need to.
+    # of external dependencies so we enable it and ignore the locations where we need to.
     "SLF",
     "SIM",
     "SLOT",
@@ -171,8 +191,10 @@ extend-ignore = [
     "PLR",
 ]
 
+typing-extensions = false
+
 [tool.ruff.lint.per-file-ignores]
-"conformance/test/**" = ["ANN", "INP", "SLF", "SIM115", "D"]
+"conformance/test/**" = ["ANN", "INP", "SLF", "SIM115", "S101", "D"]
 "example/**" = [
     "ANN",
     "S",   # Keep examples simpler, e.g. allow normal random
@@ -191,8 +213,10 @@ extend-ignore = [
     "PERF",
     "D",
 ]
+"**/*_grpc.py" = ["N", "FBT"]
 
 [tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false
 
 [tool.ruff]
@@ -215,8 +239,24 @@ exclude = [
 ]
 
 [tool.uv.workspace]
-members = ["conformance", "example", "noextras"]
+members = ["example", "noextras"]
 
 [tool.uv.sources]
 connect-python = { workspace = true }
 connect-python-example = { workspace = true }
+
+[tool.bumpversion]
+current_version = "0.8.0"
+files = [
+    { filename = "pyproject.toml" },
+    { filename = "protoc-gen-connect-python/pyproject.toml" },
+]
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+regex = false
+tag = false
+allow_dirty = false
+ignore_missing_version = false
+commit = false

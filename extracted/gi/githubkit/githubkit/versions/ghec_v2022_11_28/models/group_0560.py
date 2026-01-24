@@ -9,6 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
@@ -17,209 +18,327 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0505 import EnterpriseWebhooks
-from .group_0506 import SimpleInstallation
-from .group_0507 import OrganizationSimpleWebhooks
-from .group_0508 import RepositoryWebhooks
-from .group_0509 import WebhooksRule
+from .group_0559 import ExemptionResponse
 
 
-class WebhookBranchProtectionRuleEdited(GitHubModel):
-    """branch protection rule edited event"""
+class ExemptionRequest(GitHubModel):
+    """Exemption Request
 
-    action: Literal["edited"] = Field()
-    changes: Missing[WebhookBranchProtectionRuleEditedPropChanges] = Field(
-        default=UNSET,
-        description="If the action was `edited`, the changes to the rule.",
-    )
-    enterprise: Missing[EnterpriseWebhooks] = Field(
-        default=UNSET,
-        title="Enterprise",
-        description='An enterprise on GitHub. Webhook payloads contain the `enterprise` property when the webhook is configured\non an enterprise account or an organization that\'s part of an enterprise account. For more information,\nsee "[About enterprise accounts](https://docs.github.com/enterprise-cloud@latest//admin/overview/about-enterprise-accounts)."',
-    )
-    installation: Missing[SimpleInstallation] = Field(
-        default=UNSET,
-        title="Simple Installation",
-        description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/enterprise-cloud@latest//apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
-    )
-    organization: Missing[OrganizationSimpleWebhooks] = Field(
-        default=UNSET,
-        title="Organization Simple",
-        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
-    )
-    repository: RepositoryWebhooks = Field(
-        title="Repository",
-        description="The repository on GitHub where the event occurred. Webhook payloads contain the `repository` property\nwhen the event occurs from activity in a repository.",
-    )
-    rule: WebhooksRule = Field(
-        title="branch protection rule",
-        description="The branch protection rule. Includes a `name` and all the [branch protection settings](https://docs.github.com/enterprise-cloud@latest//github/administering-a-repository/defining-the-mergeability-of-pull-requests/about-protected-branches#about-branch-protection-settings) applied to branches that match the name. Binary settings are boolean. Multi-level configurations are one of `off`, `non_admins`, or `everyone`. Actor and build lists are arrays of strings.",
-    )
-    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-
-
-class WebhookBranchProtectionRuleEditedPropChanges(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChanges
-
-    If the action was `edited`, the changes to the rule.
+    A request from a user to be exempted from a set of rules.
     """
 
-    admin_enforced: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced
+    id: Missing[int] = Field(
+        default=UNSET, description="The ID of the exemption request."
+    )
+    number: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The number uniquely identifying the exemption request within it's repository.",
+    )
+    repository_id: Missing[int] = Field(
+        default=UNSET,
+        description="The ID of the repository the exemption request is for.",
+    )
+    requester_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the user who requested the exemption."
+    )
+    requester_login: Missing[str] = Field(
+        default=UNSET, description="The login of the user who requested the exemption."
+    )
+    request_type: Missing[
+        Literal[
+            "push_ruleset_bypass",
+            "secret_scanning",
+            "secret_scanning_closure",
+            "code_scanning_alert_dismissal",
+            "dependabot_alert_dismissal",
+        ]
+    ] = Field(default=UNSET, description="The type of request.")
+    exemption_request_data: Missing[
+        Union[
+            ExemptionRequestPushRulesetBypass,
+            ExemptionRequestSecretScanning,
+            DismissalRequestSecretScanning,
+            DismissalRequestCodeScanning,
+            DismissalRequestDependabot,
+        ]
     ] = Field(default=UNSET)
-    authorized_actor_names: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames
-    ] = Field(default=UNSET)
-    authorized_actors_only: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly
-    ] = Field(default=UNSET)
-    authorized_dismissal_actors_only: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly
-    ] = Field(default=UNSET)
-    linear_history_requirement_enforcement_level: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevel
-    ] = Field(default=UNSET)
-    lock_branch_enforcement_level: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel
-    ] = Field(default=UNSET)
-    lock_allows_fork_sync: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync
-    ] = Field(default=UNSET)
-    pull_request_reviews_enforcement_level: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevel
-    ] = Field(default=UNSET)
-    require_last_push_approval: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval
-    ] = Field(default=UNSET)
-    required_status_checks: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks
-    ] = Field(default=UNSET)
-    required_status_checks_enforcement_level: Missing[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevel
-    ] = Field(default=UNSET)
+    resource_identifier: Missing[str] = Field(
+        default=UNSET,
+        description="The unique identifier for the request type of the exemption request. For example, a commit SHA.",
+    )
+    status: Missing[Literal["pending", "rejected", "cancelled", "completed"]] = Field(
+        default=UNSET, description="The status of the exemption request."
+    )
+    requester_comment: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The comment the requester provided when creating the exemption request.",
+    )
+    metadata: Missing[
+        Union[
+            ExemptionRequestSecretScanningMetadata,
+            DismissalRequestSecretScanningMetadata,
+            DismissalRequestCodeScanningMetadata,
+            DismissalRequestDependabotMetadata,
+            None,
+        ]
+    ] = Field(default=UNSET, description="Metadata about the exemption request.")
+    expires_at: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="The date and time the exemption request will expire.",
+    )
+    created_at: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="The date and time the exemption request was created.",
+    )
+    responses: Missing[Union[list[ExemptionResponse], None]] = Field(
+        default=UNSET, description="The responses to the exemption request."
+    )
+    html_url: Missing[str] = Field(
+        default=UNSET, description="The URL to view the exemption request in a browser."
+    )
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced"""
+class ExemptionRequestSecretScanningMetadata(GitHubModel):
+    """Secret Scanning Push Protection Exemption Request Metadata
 
-    from_: Union[bool, None] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames"""
-
-    from_: list[str] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly"""
-
-    from_: Union[bool, None] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly"""
-
-    from_: Union[bool, None] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevel(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcem
-    entLevel
+    Metadata for a secret scanning push protection exemption request.
     """
 
-    from_: Literal["off", "non_admins", "everyone"] = Field(alias="from")
+    label: Missing[str] = Field(
+        default=UNSET, description="The label for the secret type"
+    )
+    reason: Missing[Literal["fixed_later", "false_positive", "tests"]] = Field(
+        default=UNSET, description="The reason for the exemption request"
+    )
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel"""
+class DismissalRequestSecretScanningMetadata(GitHubModel):
+    """Secret scanning alert dismissal request metadata
 
-    from_: Literal["off", "non_admins", "everyone"] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync"""
-
-    from_: Union[bool, None] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevel(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLev
-    el
+    Metadata for a secret scanning alert dismissal request.
     """
 
-    from_: Literal["off", "non_admins", "everyone"] = Field(alias="from")
+    alert_title: Missing[str] = Field(
+        default=UNSET, description="The title of the secret alert"
+    )
+    reason: Missing[Literal["fixed_later", "false_positive", "tests", "revoked"]] = (
+        Field(default=UNSET, description="The reason for the dismissal request")
+    )
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval"""
+class DismissalRequestCodeScanningMetadata(GitHubModel):
+    """Code scanning alert dismissal request metadata
 
-    from_: Union[bool, None] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks(GitHubModel):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks"""
-
-    from_: list[str] = Field(alias="from")
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevel(
-    GitHubModel
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementL
-    evel
+    Metadata for a code scanning alert dismissal request.
     """
 
-    from_: Literal["off", "non_admins", "everyone"] = Field(alias="from")
+    alert_title: Missing[str] = Field(
+        default=UNSET, description="The title of the code scanning alert"
+    )
+    reason: Missing[Literal["false positive", "won't fix", "used in tests"]] = Field(
+        default=UNSET, description="The reason for the dismissal request"
+    )
 
 
-model_rebuild(WebhookBranchProtectionRuleEdited)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChanges)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly)
-model_rebuild(
-    WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly
-)
-model_rebuild(
-    WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevel
-)
-model_rebuild(
-    WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel
-)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync)
-model_rebuild(
-    WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevel
-)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval)
-model_rebuild(WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks)
-model_rebuild(
-    WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevel
-)
+class DismissalRequestDependabotMetadata(GitHubModel):
+    """Dependabot alert dismissal request metadata
+
+    Metadata for a Dependabot alert dismissal request.
+    """
+
+    alert_title: Missing[str] = Field(
+        default=UNSET, description="The title of the Dependabot alert"
+    )
+    reason: Missing[
+        Literal[
+            "fix_started", "inaccurate", "no_bandwidth", "not_used", "tolerable_risk"
+        ]
+    ] = Field(default=UNSET, description="The reason for the dismissal request")
+
+
+class ExemptionRequestPushRulesetBypass(GitHubModel):
+    """Push ruleset bypass exemption request data
+
+    Push rules that are being requested to be bypassed.
+    """
+
+    type: Missing[Literal["push_ruleset_bypass"]] = Field(
+        default=UNSET, description="The type of request"
+    )
+    data: Missing[list[ExemptionRequestPushRulesetBypassPropDataItems]] = Field(
+        default=UNSET,
+        description="The data pertaining to the push rules that are being requested to be bypassed.",
+    )
+
+
+class ExemptionRequestPushRulesetBypassPropDataItems(GitHubModel):
+    """ExemptionRequestPushRulesetBypassPropDataItems"""
+
+    ruleset_id: Missing[int] = Field(
+        default=UNSET,
+        description="The ID of the ruleset for the rules that were violated",
+    )
+    ruleset_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the ruleset for the rules that were violated",
+    )
+    total_violations: Missing[int] = Field(
+        default=UNSET, description="The number of violations"
+    )
+    rule_type: Missing[str] = Field(
+        default=UNSET, description="The type of rule that was violated"
+    )
+
+
+class DismissalRequestSecretScanning(GitHubModel):
+    """Secret scanning alert dismissal request data
+
+    Secret scanning alerts that have dismissal requests.
+    """
+
+    type: Missing[Literal["secret_scanning_closure"]] = Field(
+        default=UNSET, description="The type of request"
+    )
+    data: Missing[list[DismissalRequestSecretScanningPropDataItems]] = Field(
+        default=UNSET,
+        description="The data related to the secret scanning alerts that have dismissal requests.",
+    )
+
+
+class DismissalRequestSecretScanningPropDataItems(GitHubModel):
+    """DismissalRequestSecretScanningPropDataItems"""
+
+    reason: Missing[Literal["fixed_later", "false_positive", "tests", "revoked"]] = (
+        Field(default=UNSET, description="The reason for the dismissal request")
+    )
+    secret_type: Missing[str] = Field(
+        default=UNSET, description="The type of secret that was detected"
+    )
+    alert_number: Missing[str] = Field(
+        default=UNSET, description="The number of the alert that was detected"
+    )
+
+
+class DismissalRequestCodeScanning(GitHubModel):
+    """Code scanning alert dismissal request data
+
+    Code scanning alerts that have dismissal requests.
+    """
+
+    type: Missing[Literal["code_scanning_alert_dismissal"]] = Field(
+        default=UNSET, description="The type of request"
+    )
+    data: Missing[list[DismissalRequestCodeScanningPropDataItems]] = Field(
+        default=UNSET,
+        description="The data related to the code scanning alerts that have dismissal requests.",
+    )
+
+
+class DismissalRequestCodeScanningPropDataItems(GitHubModel):
+    """DismissalRequestCodeScanningPropDataItems"""
+
+    alert_number: Missing[str] = Field(
+        default=UNSET, description="The number of the alert to be dismissed"
+    )
+
+
+class DismissalRequestDependabot(GitHubModel):
+    """Dependabot alert dismissal request data
+
+    Dependabot alerts that have dismissal requests.
+    """
+
+    type: Missing[Literal["dependabot_alert_dismissal"]] = Field(
+        default=UNSET, description="The type of request"
+    )
+    data: Missing[list[DismissalRequestDependabotPropDataItems]] = Field(
+        default=UNSET,
+        description="The data related to the Dependabot alerts that have dismissal requests.",
+    )
+
+
+class DismissalRequestDependabotPropDataItems(GitHubModel):
+    """DismissalRequestDependabotPropDataItems"""
+
+    alert_number: Missing[str] = Field(
+        default=UNSET, description="The number of the alert to be dismissed"
+    )
+
+
+class ExemptionRequestSecretScanning(GitHubModel):
+    """Secret scanning push protection exemption request data
+
+    Secret scanning push protections that are being requested to be bypassed.
+    """
+
+    type: Missing[Literal["secret_scanning"]] = Field(
+        default=UNSET, description="The type of request"
+    )
+    data: Missing[list[ExemptionRequestSecretScanningPropDataItems]] = Field(
+        default=UNSET,
+        description="The data pertaining to the secret scanning push protections that are being requested to be bypassed.",
+    )
+
+
+class ExemptionRequestSecretScanningPropDataItems(GitHubModel):
+    """ExemptionRequestSecretScanningPropDataItems"""
+
+    secret_type: Missing[str] = Field(
+        default=UNSET, description="The type of secret that was detected"
+    )
+    locations: Missing[
+        list[ExemptionRequestSecretScanningPropDataItemsPropLocationsItems]
+    ] = Field(
+        default=UNSET, description="The location data of the secret that was detected"
+    )
+
+
+class ExemptionRequestSecretScanningPropDataItemsPropLocationsItems(GitHubModel):
+    """ExemptionRequestSecretScanningPropDataItemsPropLocationsItems"""
+
+    commit: Missing[str] = Field(
+        default=UNSET, description="The commit SHA where the secret was detected"
+    )
+    branch: Missing[str] = Field(
+        default=UNSET, description="The branch where the secret was detected"
+    )
+    path: Missing[str] = Field(
+        default=UNSET, description="The path of the file where the secret was detected"
+    )
+
+
+model_rebuild(ExemptionRequest)
+model_rebuild(ExemptionRequestSecretScanningMetadata)
+model_rebuild(DismissalRequestSecretScanningMetadata)
+model_rebuild(DismissalRequestCodeScanningMetadata)
+model_rebuild(DismissalRequestDependabotMetadata)
+model_rebuild(ExemptionRequestPushRulesetBypass)
+model_rebuild(ExemptionRequestPushRulesetBypassPropDataItems)
+model_rebuild(DismissalRequestSecretScanning)
+model_rebuild(DismissalRequestSecretScanningPropDataItems)
+model_rebuild(DismissalRequestCodeScanning)
+model_rebuild(DismissalRequestCodeScanningPropDataItems)
+model_rebuild(DismissalRequestDependabot)
+model_rebuild(DismissalRequestDependabotPropDataItems)
+model_rebuild(ExemptionRequestSecretScanning)
+model_rebuild(ExemptionRequestSecretScanningPropDataItems)
+model_rebuild(ExemptionRequestSecretScanningPropDataItemsPropLocationsItems)
 
 __all__ = (
-    "WebhookBranchProtectionRuleEdited",
-    "WebhookBranchProtectionRuleEditedPropChanges",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevel",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel",
-    "WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevel",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevel",
+    "DismissalRequestCodeScanning",
+    "DismissalRequestCodeScanningMetadata",
+    "DismissalRequestCodeScanningPropDataItems",
+    "DismissalRequestDependabot",
+    "DismissalRequestDependabotMetadata",
+    "DismissalRequestDependabotPropDataItems",
+    "DismissalRequestSecretScanning",
+    "DismissalRequestSecretScanningMetadata",
+    "DismissalRequestSecretScanningPropDataItems",
+    "ExemptionRequest",
+    "ExemptionRequestPushRulesetBypass",
+    "ExemptionRequestPushRulesetBypassPropDataItems",
+    "ExemptionRequestSecretScanning",
+    "ExemptionRequestSecretScanningMetadata",
+    "ExemptionRequestSecretScanningPropDataItems",
+    "ExemptionRequestSecretScanningPropDataItemsPropLocationsItems",
 )

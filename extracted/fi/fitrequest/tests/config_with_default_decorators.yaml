@@ -1,0 +1,29 @@
+---
+
+class_name: ConfigWithDefaultDecoratorsString
+client_name: client_with_default_decorators
+base_url: 'https://test.skillcorner'
+
+method_decorators:
+  - 'decorator_with_params(return_value="decorator_with_params")'
+  - 'simple_decorator'
+
+method_config_list:
+  - name: 'get_index'
+    endpoint: '/'
+    decorators: ['simple_decorator']
+
+  - name: 'get_version'
+    endpoint: '/version/'
+    decorators: ['decorator_with_params(return_value="decorator_with_params")']
+
+  - base_name: 'item'
+    endpoint: '/items/{item_id}'
+    add_verbs: ["GET", "POST"]
+    add_async_method: true
+    decorators: ['simple_decorator', 'decorator_with_params(return_value="decorator_with_params")']
+
+  - base_name: 'items'
+    endpoint: '/items/'
+    add_async_method: true
+    add_save_method: true

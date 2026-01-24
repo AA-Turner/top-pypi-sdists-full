@@ -21,6 +21,139 @@ class EntryModelDisplay(DisplayViewConfig):
         return create_simple_display([["computed_str"]])
 
 
+# CONTACT_PAGE = Page(
+#     title=_("Contacts"),
+#     layouts={
+#         default(): Layout(
+#             grid_template_areas=[
+#                 ["addresses_table", "addresses_table"],
+#                 ["telephones_table", "emails_table"],
+#                 ["websites_table", "social_media_table"],
+#                 ["bankings_table", "bankings_table"],
+#                 ["relationships_table", "relationships_table"],
+#             ],
+#             grid_auto_rows=Style.AUTO,
+#             grid_template_rows=[
+#                 "200px",
+#                 "200px",
+#                 "200px",
+#                 "200px",
+#                 "200px",
+#             ],
+#             inlines=[
+#                 Inline(
+#                     key="addresses_table",
+#                     endpoint="addresses",
+#                     title="Addresses",
+#                 ),
+#                 Inline(
+#                     key="telephones_table",
+#                     endpoint="telephones",
+#                     title="Telephones",
+#                 ),
+#                 Inline(
+#                     key="emails_table",
+#                     endpoint="emails",
+#                     title="Emails",
+#                 ),
+#                 Inline(
+#                     key="websites_table",
+#                     endpoint="websites",
+#                     title="Websites",
+#                 ),
+#                 Inline(
+#                     key="bankings_table",
+#                     endpoint="bankings",
+#                     title="Banking",
+#                 ),
+#                 Inline(
+#                     key="social_media_table",
+#                     endpoint="social_media",
+#                     title="Socials",
+#                 ),
+#                 Inline(
+#                     key="relationships_table",
+#                     endpoint="relationships",
+#                     title="Relationships",
+#                 ),
+#             ],
+#         ),
+#     },
+# )
+contact_section = Section(
+    key="contact_section",
+    collapsible=False,
+    title=_("Contacts"),
+    display=Display(
+        pages=[
+            Page(
+                title=_("Telephones"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["telephone_table"]],
+                        inlines=[Inline(key="telephone_table", endpoint="telephones")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Emails"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["email_table"]],
+                        inlines=[Inline(key="email_table", endpoint="emails")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Addresses"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["addresses_table"]],
+                        inlines=[Inline(key="addresses_table", endpoint="addresses")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Websites"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["website_table"]],
+                        inlines=[Inline(key="website_table", endpoint="websites")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Bankings"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["banking_table"]],
+                        inlines=[Inline(key="banking_table", endpoint="bankings")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Socials"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["socials_table"]],
+                        inlines=[Inline(key="socials_table", endpoint="social_media")],
+                    )
+                },
+            ),
+            Page(
+                title=_("Relationships"),
+                layouts={
+                    default(): Layout(
+                        grid_template_areas=[["relationship_table"]],
+                        inlines=[Inline(key="relationship_table", endpoint="relationships")],
+                    )
+                },
+            ),
+        ]
+    ),
+)
+
+
 class PersonModelDisplay(EntryModelDisplay):
     @classmethod
     def _get_person_instance_display(cls) -> Display:
@@ -66,7 +199,7 @@ class PersonModelDisplay(EntryModelDisplay):
                                     "personality_profile_blue",
                                     "activity_table",
                                 ],
-                                ["employers_section", "employers_section", "employers_section", "employers_section"],
+                                ["employers_section", "employers_section", "employers_section", "contact_section"],
                             ],
                             grid_template_columns=[
                                 Style.MIN_CONTENT,
@@ -76,7 +209,7 @@ class PersonModelDisplay(EntryModelDisplay):
                             ],
                             grid_template_rows=[Style.rem(6), Style.rem(6), Style.rem(6), Style.rem(6)],
                             grid_auto_rows=Style.MIN_CONTENT,
-                            sections=[employers_section],
+                            sections=[employers_section, contact_section],
                             inlines=[
                                 Inline(
                                     key="activity_table",
@@ -285,13 +418,23 @@ class PersonModelDisplay(EntryModelDisplay):
         return dp.ListDisplay(
             fields=[
                 dp.Field(key="name", label=_("Name")),
-                dp.Field(key="primary_employer_repr", label=_("Primary Employer")),
                 dp.Field(key="customer_status", label=_("Status")),
                 dp.Field(key="position_in_company", label=_("Position")),
                 dp.Field(key="cities", label=_("City")),
-                dp.Field(key="primary_telephone", label=_("Primary Phone Number")),
                 dp.Field(key="tier", label=_("Tier")),
-                dp.Field(key="primary_manager_repr", label=_("Primary Relationship Manager")),
+                dp.Field(
+                    key=None,
+                    label=_("Primary Contacts"),
+                    children=[
+                        dp.Field(key="primary_employer_repr", label=_("Primary Employer")),
+                        dp.Field(key="primary_manager_repr", label=_("Relationship Manager")),
+                        dp.Field(key="primary_telephone", label=_("Telephone")),
+                        dp.Field(key="primary_email", label=_("Email")),
+                        dp.Field(key="primary_address", label=_("Address"), show="open"),
+                        dp.Field(key="primary_website", label=_("Website"), show="open"),
+                        dp.Field(key="primary_social", label=_("Social"), show="open"),
+                    ],
+                ),
                 dp.Field(
                     key=None,
                     label=_("Last Event"),
@@ -347,19 +490,36 @@ class CompanyModelDisplay(EntryModelDisplay):
             ),
         )
 
-        display = Display(
+        grid_template_areas = [
+            ["profile_image", "name", "customer_status", "activity_table"],
+            ["profile_image", "primary_telephone", "primary_telephone", "activity_table"],
+            ["profile_image", "type", "tier", "activity_table"],
+            ["profile_image", "activity_heat", "activity_heat", "activity_table"],
+            ["employees_section", "employees_section", "employees_section", "contact_section"],
+        ]
+        sections = [employees_section, contact_section]
+        if portfolio_fields:
+            grid_template_areas.insert(
+                4,
+                [
+                    portfolio_fields.key,
+                    portfolio_fields.key,
+                    portfolio_fields.key,
+                    "activity_table",
+                ],
+            )
+            sections.append(portfolio_fields)
+        if aum_table:
+            grid_template_areas.append([aum_table.key, aum_table.key, aum_table.key, aum_table.key])
+            sections.append(aum_table)
+
+        return Display(
             pages=[
                 Page(
                     title=_("Main Information"),
                     layouts={
                         default(): Layout(
-                            grid_template_areas=[
-                                ["profile_image", "name", "customer_status", "activity_table"],
-                                ["profile_image", "primary_telephone", "primary_telephone", "activity_table"],
-                                ["profile_image", "type", "tier", "activity_table"],
-                                ["profile_image", "activity_heat", "activity_heat", "activity_table"],
-                                ["employees_section", "employees_section", "employees_section", "employees_section"],
-                            ],
+                            grid_template_areas=grid_template_areas,
                             grid_template_columns=[
                                 Style.MIN_CONTENT,
                                 "minmax(min-content, 1fr)",
@@ -368,7 +528,7 @@ class CompanyModelDisplay(EntryModelDisplay):
                             ],
                             grid_template_rows=[Style.rem(6), Style.rem(6), Style.rem(6)],
                             grid_auto_rows=Style.MIN_CONTENT,
-                            sections=[employees_section],
+                            sections=sections,
                             inlines=[
                                 Inline(
                                     key="activity_table",
@@ -392,29 +552,6 @@ class CompanyModelDisplay(EntryModelDisplay):
                 ),
             ]
         )
-
-        # Need to insert the portfolio fields into the display
-        for page in display.pages:
-            if page.title == "Main Information":
-                for layout_key in page.layouts.keys():
-                    if portfolio_fields:
-                        # Insert the section with the AUM fields below the profile picture at the left
-                        page.layouts[layout_key].grid_template_areas.insert(
-                            4,
-                            [
-                                portfolio_fields.key,
-                                portfolio_fields.key,
-                                portfolio_fields.key,
-                                "activity_table",
-                            ],
-                        )
-                        page.layouts[layout_key].sections.append(portfolio_fields)
-                    if aum_table:
-                        # Insert the section with the AUM table at the bottom right
-                        page.layouts[layout_key].grid_template_areas[-1][-1] = aum_table.key
-                        page.layouts[layout_key].sections.append(aum_table)
-                break
-        return display
 
     @classmethod
     def _get_new_company_instance_display(cls) -> Display:
@@ -468,7 +605,18 @@ class CompanyModelDisplay(EntryModelDisplay):
                 dp.Field(key="type", label=_("Type")),
                 dp.Field(key="tier", label=_("Tier")),
                 dp.Field(key="customer_status", label=_("Status")),
-                dp.Field(key="primary_manager_repr", label=_("Primary Relationship Manager")),
+                dp.Field(
+                    key=None,
+                    label=_("Primary Contacts"),
+                    children=[
+                        dp.Field(key="primary_manager_repr", label=_("Relationship Manager")),
+                        dp.Field(key="primary_telephone", label=_("Telephone")),
+                        dp.Field(key="primary_email", label=_("Email")),
+                        dp.Field(key="primary_address", label=_("Address"), show="open"),
+                        dp.Field(key="primary_website", label=_("Website"), show="open"),
+                        dp.Field(key="primary_social", label=_("Social"), show="open"),
+                    ],
+                ),
                 dp.Field(
                     key=None,
                     label=_("Last Event"),

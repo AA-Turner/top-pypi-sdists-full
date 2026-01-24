@@ -3,7 +3,6 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
-from jaxtyping import Float
 from torch import nn
 from typing_extensions import override
 
@@ -106,6 +105,7 @@ class JumpReLUSAE(SAE[JumpReLUSAEConfig]):
     activation function (e.g., ReLU etc.).
 
     It implements:
+
       - initialize_weights: sets up parameters, including a threshold.
       - encode: computes the feature activations using JumpReLU.
       - decode: reconstructs the input from the feature activations.
@@ -130,9 +130,7 @@ class JumpReLUSAE(SAE[JumpReLUSAEConfig]):
             torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
         )
 
-    def encode(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> Float[torch.Tensor, "... d_sae"]:
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
         Encode the input tensor into the feature space using JumpReLU.
         The threshold parameter determines which units remain active.
@@ -150,9 +148,7 @@ class JumpReLUSAE(SAE[JumpReLUSAEConfig]):
         # 3) Multiply the normally activated units by that mask.
         return self.hook_sae_acts_post(base_acts * jump_relu_mask)
 
-    def decode(
-        self, feature_acts: Float[torch.Tensor, "... d_sae"]
-    ) -> Float[torch.Tensor, "... d_in"]:
+    def decode(self, feature_acts: torch.Tensor) -> torch.Tensor:
         """
         Decode the feature activations back to the input space.
         Follows the same steps as StandardSAE: apply scaling, transform, hook, and optionally reshape.
@@ -172,8 +168,8 @@ class JumpReLUSAE(SAE[JumpReLUSAEConfig]):
         # Save the current threshold before calling parent method
         current_thresh = self.threshold.clone()
 
-        # Get W_dec norms that will be used for scaling
-        W_dec_norms = self.W_dec.norm(dim=-1)
+        # Get W_dec norms that will be used for scaling (clamped to avoid division by zero)
+        W_dec_norms = self.W_dec.norm(dim=-1).clamp(min=1e-8)
 
         # Call parent implementation to handle W_enc, W_dec, and b_enc adjustment
         super().fold_W_dec_norm()
@@ -221,10 +217,12 @@ class JumpReLUTrainingSAE(TrainingSAE[JumpReLUTrainingSAEConfig]):
     JumpReLUTrainingSAE is a training-focused implementation of a SAE using a JumpReLU activation.
 
     Similar to the inference-only JumpReLUSAE, but with:
+
       - A learnable log-threshold parameter (instead of a raw threshold).
       - A specialized auxiliary loss term for sparsity (L0 or similar).
 
     Methods of interest include:
+
     - initialize_weights: sets up W_enc, b_enc, W_dec, b_dec, and log_threshold.
     - encode_with_hidden_pre_jumprelu: runs a forward pass for training.
     - training_forward_pass: calculates MSE and auxiliary losses, returning a TrainStepOutput.
@@ -265,8 +263,8 @@ class JumpReLUTrainingSAE(TrainingSAE[JumpReLUTrainingSAEConfig]):
         return torch.exp(self.log_threshold)
 
     def encode_with_hidden_pre(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> tuple[Float[torch.Tensor, "... d_sae"], Float[torch.Tensor, "... d_sae"]]:
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         sae_in = self.process_sae_in(x)
 
         hidden_pre = sae_in @ self.W_enc + self.b_enc
@@ -330,8 +328,8 @@ class JumpReLUTrainingSAE(TrainingSAE[JumpReLUTrainingSAEConfig]):
         # Save the current threshold before we call the parent method
         current_thresh = self.threshold.clone()
 
-        # Get W_dec norms
-        W_dec_norms = self.W_dec.norm(dim=-1).unsqueeze(1)
+        # Get W_dec norms (clamped to avoid division by zero)
+        W_dec_norms = self.W_dec.norm(dim=-1).clamp(min=1e-8).unsqueeze(1)
 
         # Call parent implementation to handle W_enc and W_dec adjustment
         super().fold_W_dec_norm()

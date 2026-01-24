@@ -14,7 +14,6 @@ from importlib import resources
 from operator import getitem
 from tempfile import NamedTemporaryFile
 
-import flatten_dict
 import structlog
 import yaml
 
@@ -22,7 +21,7 @@ from meltano import schemas
 from meltano.core.manifest.jsonschema import meltano_config_env_locations
 from meltano.core.plugin.base import PluginType
 from meltano.core.plugin.settings_service import PluginSettingsService
-from meltano.core.plugin_lock_service import PluginLock
+from meltano.core.plugin_lock_service import PluginLockService
 from meltano.core.utils import (
     EnvVarMissingBehavior,
     MergeStrategy,
@@ -30,20 +29,15 @@ from meltano.core.utils import (
     default_deep_merge_strategies,
     expand_env_vars,
     get_no_color_flag,
+    unflatten,
 )
 
 if t.TYPE_CHECKING:
-    import sys
     from collections.abc import Iterable, MutableMapping
     from pathlib import Path
 
     from meltano.core.plugin.project_plugin import ProjectPlugin
     from meltano.core.project import Project
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias  # noqa: ICN003
-    else:
-        from typing_extensions import TypeAlias
 
 # NOTE: We do not use `Project(...).meltano.canonical` for 3 reasons:
 # - It will make it difficult to refactor the rest of the Meltano core to be
@@ -60,9 +54,9 @@ logger = structlog.getLogger(__name__)
 JSON_LOCATION_PATTERN = re.compile(r"\.|(\[\])")
 MANIFEST_SCHEMA_PATH = resources.files(schemas) / "meltano.schema.json"
 
-Trie: TypeAlias = dict[str, "Trie"]
-PluginsByType: TypeAlias = Mapping[str, list[Mapping[str, t.Any]]]
-PluginsByNameByType: TypeAlias = Mapping[str, Mapping[str, Mapping[str, t.Any]]]
+Trie: t.TypeAlias = dict[str, "Trie"]
+PluginsByType: t.TypeAlias = Mapping[str, list[Mapping[str, t.Any]]]
+PluginsByNameByType: t.TypeAlias = Mapping[str, Mapping[str, Mapping[str, t.Any]]]
 
 
 # Ruamel doesn't have this problem where YAML tags like timestamps are
@@ -189,7 +183,7 @@ class Manifest:
 
     @cached_property
     def _project_files(self) -> dict[str, t.Any]:
-        project_files = flatten_dict.unflatten(
+        project_files = unflatten(
             deep_merge(
                 yaml.load(
                     self._meltano_file,
@@ -203,7 +197,6 @@ class Manifest:
                     for x in self.project.project_files.include_paths
                 ),
             ),
-            "dot",
         )
         if self.check_schema:
             self._validate_against_manifest_schema(
@@ -218,11 +211,12 @@ class Manifest:
         plugins: dict[PluginType, list[ProjectPlugin]],
         manifest: dict[str, t.Any],
     ) -> None:
+        lock_service = PluginLockService(self.project)
         locked_plugins = t.cast(
             "dict[str, list[Mapping[str, t.Any]]]",
             {
                 plugin_type.value: [
-                    PluginLock(self.project, plugin).load(create=True, loader=json.load)
+                    lock_service.get_standalone_data(plugin=plugin)
                     for plugin in plugins
                 ]
                 for (plugin_type, plugins) in plugins.items()
@@ -460,7 +454,7 @@ def _apply_scaffold(
     for key, sub_trie in trie.items():
         if key == "[]":
             if not isinstance(manifest_component, list):
-                raise TypeError(
+                raise TypeError(  # noqa: TRY003
                     "Expected list during manifest scaffolding, "  # noqa: EM102
                     f"got {type(manifest_component)}",
                 )
@@ -472,7 +466,7 @@ def _apply_scaffold(
                 manifest_component.setdefault(key, [] if "[]" in sub_trie else {}),
             )
         else:
-            raise TypeError(
+            raise TypeError(  # noqa: TRY003
                 "Expected dict during manifest scaffolding, "  # noqa: EM102
                 f"got {type(manifest_component)}",
             )

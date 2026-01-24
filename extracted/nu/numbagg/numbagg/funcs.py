@@ -6,7 +6,13 @@ import numpy as np
 from numba import bool_, float32, float64, int32, int64
 from numpy.typing import NDArray
 
-from numbagg.decorators import ndaggregate, ndfill, ndmatrix, ndquantile, ndreduce
+from numbagg.decorators import (
+    ndaggregate,
+    ndfill,
+    ndmatrix,
+    ndquantile,
+    ndreduce,
+)
 
 from .utils import FloatArray, NumericArray
 
@@ -23,6 +29,7 @@ F = TypeVar("F", bound=FloatArray)
     ]
 )
 def allnan(a: NumericArray, out: NumericArray) -> None:
+    out[0] = True
     for ai in a:
         if not np.isnan(ai):
             out[0] = False
@@ -38,7 +45,8 @@ def allnan(a: NumericArray, out: NumericArray) -> None:
     ]
 )
 def anynan(a: NumericArray, out: NumericArray) -> None:
-    for ai in a.flat:
+    out[0] = False
+    for ai in a:
         if np.isnan(ai):
             out[0] = True
             return
@@ -54,7 +62,7 @@ def anynan(a: NumericArray, out: NumericArray) -> None:
 )
 def nancount(a: T, out: T) -> None:
     non_missing = 0
-    for ai in a.flat:
+    for ai in a:
         if not np.isnan(ai):
             non_missing += 1
     out[0] = non_missing
@@ -70,7 +78,7 @@ def nancount(a: T, out: T) -> None:
 )
 def nansum(a, out):
     asum = a.dtype.type(0)
-    for ai in a.flat:
+    for ai in a:
         if not np.isnan(ai):
             asum += ai
     out[0] = asum
@@ -85,7 +93,7 @@ def nansum(a, out):
 def nanmean(a, out):
     asum = 0.0
     count = 0
-    for ai in a.flat:
+    for ai in a:
         if not np.isnan(ai):
             asum += ai
             count += 1
@@ -117,7 +125,7 @@ def nanvar(a: F, ddof: int, out: F) -> None:
     if count > ddof:
         amean = asum / count
         asum = 0
-        for ai in a.flat:
+        for ai in a:
             if not np.isnan(ai):
                 ai -= amean
                 asum += ai * ai
@@ -143,7 +151,7 @@ def nanstd(a: F, ddof: int, out: F) -> None:
     if count > ddof:
         amean = asum / count
         asum = 0
-        for ai in a.flat:
+        for ai in a:
             if not np.isnan(ai):
                 ai -= amean
                 asum += ai * ai
@@ -285,14 +293,15 @@ def nanquantile(
 
 
 @ndfill.wrap()
-def bfill(a: F, limit: int, out: F) -> None:
+def bfill(a: T, limit: int, out: T) -> None:
+    """Backward fill missing values."""
     lives_remaining = limit
     current = np.nan
     # Ugly `range` expression, but can't do 'enumerate(reversed(a))', and adding a
     # `list` will cause a copy.
     for i in range(len(a) - 1, -1, -1):
         val = a[i]
-        if np.isnan(val):
+        if np.isnan(val):  # Always False for integers, True for float NaN
             if lives_remaining <= 0:
                 current = np.nan
             lives_remaining -= 1
@@ -303,11 +312,12 @@ def bfill(a: F, limit: int, out: F) -> None:
 
 
 @ndfill.wrap()
-def ffill(a: F, limit: int, out: F) -> None:
+def ffill(a: T, limit: int, out: T) -> None:
+    """Forward fill missing values."""
     lives_remaining = limit
     current = np.nan
     for i, val in enumerate(a):
-        if np.isnan(val):
+        if np.isnan(val):  # Always False for integers, True for float NaN
             if lives_remaining <= 0:
                 current = np.nan
             lives_remaining -= 1

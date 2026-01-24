@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ansible-pylibssh
-Version: 1.2.2
+Version: 1.3.0
 Summary: Python bindings for libssh client specific to Ansible use case
 Home-page: https://github.com/ansible/pylibssh
 Author: Ansible, Inc.
@@ -17,9 +17,6 @@ Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or l
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Security
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 
@@ -86,7 +83,7 @@ The web view is @ https://ansible.github.io/pylibssh/.
 Requirements
 ------------
 
-You need Python 3.6+
+You need Python 3.9+
 
 pylibssh requires libssh to be installed in particular:
 
@@ -125,6 +122,18 @@ are set properly:
     # to enable shell script debug mode use
     $ tox -e build-dists-manylinux1-x86_64 -- -e DEBUG=1
 
+Communication
+-------------
+
+Join the Ansible forum:
+
+* `Get Help <https://forum.ansible.com/c/help/6>`_: get help or help others. Please add the appropriate tags if you start new discussions, for example the ``pylibssh`` tag.
+* `Posts tagged with 'pylibssh' <https://forum.ansible.com/tag/pylibssh>`_: subscribe to participate in project-related conversations.
+* `News & Announcements <https://forum.ansible.com/c/news/5>`_: track project-wide announcements including social events and the `Bullhorn newsletter <https://docs.ansible.com/ansible/devel/community/communication.html#the-bullhorn>`_.
+* `Social Spaces <https://forum.ansible.com/c/chat/4>`_: gather and interact with fellow enthusiasts.
+
+For more information about getting in touch with us, see the `Ansible communication guide <https://docs.ansible.com/ansible/devel/community/communication.html>`_.
+
 License
 -------
 
@@ -146,6 +155,444 @@ Changelog
     WARNING: Don't drop the next directive!
 
 .. towncrier release notes start
+
+v1.3.0
+======
+
+*(2025-10-12)*
+
+
+Bug fixes
+---------
+
+- The bundled libssh 0.11.2 no longer fails, when the SFTP server announces
+  protocol version 3, but does not provide error message and language tag
+  in the ``SSH_FXP_STATUS`` message -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#222 <https://github.com/ansible/pylibssh/issues/222>`__.
+
+- Fixed reading files over SFTP that go over the pre-defined chunk size.
+
+  Prior to this change, the files could end up being corrupted, ending up with the last read chunk written to the file instead of the entire payload.
+
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#638 <https://github.com/ansible/pylibssh/issues/638>`__.
+
+- Repetitive calls to ``exec_channel()`` no longer crash and return reliable output -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#658 <https://github.com/ansible/pylibssh/issues/658>`__.
+
+- Uploading large files over SCP no longer fails -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#661 <https://github.com/ansible/pylibssh/issues/661>`__.
+
+- Improved performance of SFTP transfers by using larger transfer chunks -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#664 <https://github.com/ansible/pylibssh/issues/664>`__.
+
+- Fixed crash when more operations were called after ``session.close()`` -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#709 <https://github.com/ansible/pylibssh/issues/709>`__.
+
+
+Features
+--------
+
+- The underlying ``SSH_OPTIONS_KEY_EXCHANGE`` option of ``libssh`` is
+  now available as ``key_exchange_algorithms`` -- by `@NilashishC <https://github.com/sponsors/NilashishC>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#675 <https://github.com/ansible/pylibssh/issues/675>`__.
+
+- Added a ``pylibsshext.session.connect()`` parameter
+  ``open_session_retries`` -- by `@justin-stephenson <https://github.com/sponsors/justin-stephenson>`__.
+
+  The ``open_session_retries`` session ``connect()``
+  parameter allows a configurable number of retries if
+  libssh ``ssh_channel_open_session()`` returns ``SSH_AGAIN``.
+  The default option value is 0, no retries will be
+  attempted.
+
+  *Related issues and pull requests on GitHub:*
+  `#756 <https://github.com/ansible/pylibssh/issues/756>`__.
+
+- Added a ``pylibsshext.session.connect()`` parameter
+  ``timeout_usec`` to set ``SSH_OPTIONS_TIMEOUT_USEC``.
+
+  This allows setting the ``SSH_OPTIONS_TIMEOUT_USEC``
+  ssh option, though ``SSH_OPTIONS_TIMEOUT`` is a more
+  practical option.
+
+  -- by `@justin-stephenson <https://github.com/sponsors/justin-stephenson>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#756 <https://github.com/ansible/pylibssh/issues/756>`__.
+
+
+Deprecations (removal in next major release)
+--------------------------------------------
+
+- The project stopped being tested under Ubuntu 20.04 VM since
+  GitHub has sunset their CI images -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#708 <https://github.com/ansible/pylibssh/issues/708>`__.
+
+
+Removals and backward incompatible breaking changes
+---------------------------------------------------
+
+- Dropped support for Python 3.6, 3.7 and 3.8
+  -- by `@Qalthos <https://github.com/sponsors/Qalthos>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#532 <https://github.com/ansible/pylibssh/issues/532>`__, `#718 <https://github.com/ansible/pylibssh/issues/718>`__.
+
+- PyPI no longer ships year-versioned manylinux wheels. One may
+  have to update their version of pip to pick up the new ones.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#562 <https://github.com/ansible/pylibssh/issues/562>`__.
+
+
+Improved documentation
+----------------------
+
+- Added a ``Communication`` section to the main
+  documentation page -- by `@Andersson007 <https://github.com/sponsors/Andersson007>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#640 <https://github.com/ansible/pylibssh/issues/640>`__.
+
+- Fixed the argument order in the ``scp.put()`` usage example
+  -- by `@kucharskim <https://github.com/sponsors/kucharskim>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#646 <https://github.com/ansible/pylibssh/issues/646>`__.
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- PyPI now only ships `PEP 600 <https://peps.python.org/pep-600>`__-compatible manylinux wheels
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#562 <https://github.com/ansible/pylibssh/issues/562>`__.
+
+- The ``pytest-forked`` dependency of build, development and test environments was removed -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#658 <https://github.com/ansible/pylibssh/issues/658>`__, `#760 <https://github.com/ansible/pylibssh/issues/760>`__.
+
+- The wheels are now built in cached container images with a
+  correctly set platform identifier.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#692 <https://github.com/ansible/pylibssh/issues/692>`__.
+
+- The ``manylinux`` build scripts now limit ``cmake`` below
+  version 4 -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#713 <https://github.com/ansible/pylibssh/issues/713>`__.
+
+- Stopped skipping SCP tests in the RPM spec -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#714 <https://github.com/ansible/pylibssh/issues/714>`__.
+
+- Started bundling a copy of libssh 0.11.1 in platform-specific
+  wheels published on PyPI -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#735 <https://github.com/ansible/pylibssh/issues/735>`__.
+
+- Updated the bundled copy of OpenSSL to the latest version 3.5.0
+  in ``manylinux`` wheels -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#738 <https://github.com/ansible/pylibssh/issues/738>`__.
+
+- Updated the bundled version of libssh to 0.11.2 in platform-specific
+  wheels published on PyPI -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#753 <https://github.com/ansible/pylibssh/issues/753>`__.
+
+- The RPM spec file no longer makes use of unpackaged dists
+  from PyPI on RHEL. The configuration is almost identical to
+  the one for Fedora. Only the ``setuptools-scm`` spec is
+  temporarily patched to allow older versions under RHEL.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#759 <https://github.com/ansible/pylibssh/issues/759>`__.
+
+- A workaround has been applied to the in-tree build backend that prevents
+  Cython from hanging when ``libssh`` header files are missing
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  The patch makes ``cythonize()`` single-threaded because ``multiprocessing``
+  gets stuck. The upstream will eventually fix this by migrating to
+  ``concurrent.futures``.
+
+  *Related issues and pull requests on GitHub:*
+  `#762 <https://github.com/ansible/pylibssh/issues/762>`__, `#769 <https://github.com/ansible/pylibssh/issues/769>`__, `#770 <https://github.com/ansible/pylibssh/issues/770>`__.
+
+- Updated the bundled version of libssh to 0.11.3 in platform-specific
+  wheels published on PyPI -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#766 <https://github.com/ansible/pylibssh/issues/766>`__.
+
+
+Contributor-facing changes
+--------------------------
+
+- The manylinux build scripts have been adjusted to resolve the
+  dependency conflict between certain ``packaging`` and ``setuptools``
+  versions -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  Previously, this was making some of the CI jobs crash with a traceback
+  when building said wheels.
+
+  *Related commits on GitHub:*
+  `1dfbf70fdfd99ae75068fdb3630790c96101a96a <https://github.com/ansible/pylibssh/commit/1dfbf70fdfd99ae75068fdb3630790c96101a96a>`__.
+
+- The Git archives are now immutable per the packaging recommendations.
+  This allows downstreams safely use GitHub archive URLs when
+  re-packaging -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related commits on GitHub:*
+  `ea34887831a0c6547b32cd8c6a035bb77b91e771 <https://github.com/ansible/pylibssh/commit/ea34887831a0c6547b32cd8c6a035bb77b91e771>`__.
+
+- Manylinux wheels are no longer built using custom shell scripts.
+  Instead, this is delegated to the ``cibuildwheel`` tool.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#562 <https://github.com/ansible/pylibssh/issues/562>`__.
+
+- Updated the version of ``libssh`` to the latest release v0.11.1
+  in the cached ``manylinux`` build environment container images
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#636 <https://github.com/ansible/pylibssh/issues/636>`__.
+
+- All the uses of ``actions/upload-artifact@v3`` and
+  ``actions/download-artifact@v3`` have been updated to use
+  ``v4``. This also includes bumping
+  ``re-actors/checkout-python-sdist`` to ``release/v2`` as it
+  uses ``actions/download-artifact`` internally.
+
+  -- by `@NilashishC <https://github.com/sponsors/NilashishC>`__ and `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#676 <https://github.com/ansible/pylibssh/issues/676>`__.
+
+- The ``dumb-pypi``-produced static package index now renders correct
+  URLs to the distribution packages -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#678 <https://github.com/ansible/pylibssh/issues/678>`__, `#679 <https://github.com/ansible/pylibssh/issues/679>`__, `#749 <https://github.com/ansible/pylibssh/issues/749>`__.
+
+- The CI is now configured to use
+  :external+tox``tox-run---installpkg`` when testing
+  pre-built dists. This replaces the previously existing
+  tox-level hacks in ``test-binary-dists`` and
+  ``test-source-dists`` environments that have now been
+  removed.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#688 <https://github.com/ansible/pylibssh/issues/688>`__.
+
+- The wheel building workflows have been updated to set the
+  OCI image platform identifiers to legal values like
+  ``linux/arm64``.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#692 <https://github.com/ansible/pylibssh/issues/692>`__.
+
+- The CI is now configured to always set job timeout values.
+  This will ensure that the jobs that get stuck don't consume
+  all 6 hours just hanging, improving responsiveness and the
+  overall CI/CD resource usage.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#706 <https://github.com/ansible/pylibssh/issues/706>`__.
+
+- The linting is now configured to check schemas of the
+  Read The Docs configuration file and the GitHub Actions
+  CI/CD workflow files in addition to enforcing timeouts.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#707 <https://github.com/ansible/pylibssh/issues/707>`__.
+
+- The ``multiarch/qemu-user-static`` image got replaced with
+  ``tonistiigi/binfmt`` because the latter is no longer
+  maintained and the former includes the fixed version of QEMU.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#713 <https://github.com/ansible/pylibssh/issues/713>`__.
+
+- Added Fedora 41 and 42 to CI configuration -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#715 <https://github.com/ansible/pylibssh/issues/715>`__.
+
+- Removed needless step from CI adjusting centos8 repositories -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#716 <https://github.com/ansible/pylibssh/issues/716>`__.
+
+- The CI/CD infrastructure no longer pre-builds custom manylinux images
+  for building wheel targeting ``manylinux1``, ``manylinux2010`` and
+  ``manylinux2014`` tags.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#730 <https://github.com/ansible/pylibssh/issues/730>`__.
+
+- The host OS is now ARM-based when building ``manylinux_*_*_aarch64``
+  images for CI/CD -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#731 <https://github.com/ansible/pylibssh/issues/731>`__.
+
+- False negative warnings reported by ``coveragepy`` when are now
+  disabled. They are evident when ``pytest-cov`` runs with the
+  ``pytest-xdist`` integration. ``pytest`` 8.4 gives them more
+  visibility and out ``filterwarnings = error`` setting was turning
+  them into errors before this change.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#732 <https://github.com/ansible/pylibssh/issues/732>`__.
+
+- GitHub Actions CI/CD no longer runs jobs that install source
+  distributions into the tox environments for testing
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  This is a temporary workaround for an upstream bug in tox and
+  said jobs are non-essential.
+
+  *Related issues and pull requests on GitHub:*
+  `#733 <https://github.com/ansible/pylibssh/issues/733>`__.
+
+- Updated the pre-built ``libffi`` version to 3.4.8 in the
+  cached ``manylinux`` build environment container images
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#734 <https://github.com/ansible/pylibssh/issues/734>`__.
+
+- Reverted workaround keeping the old CMake version installed
+  as the new ``libssh`` works with newer versions -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#737 <https://github.com/ansible/pylibssh/issues/737>`__.
+
+- The CI infrastructure now produces ``manylinux_2_31_armv7l`` base images
+  with ``libssh`` and ``openssl`` pre-built -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__ and
+  `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#740 <https://github.com/ansible/pylibssh/issues/740>`__.
+
+- Started caching ``manylinux`` build images to be used for producing ``2_34`` tagged wheels
+  in ``build-manylinux-container-images`` workflow -- by `@KB-perByte <https://github.com/sponsors/KB-perByte>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#741 <https://github.com/ansible/pylibssh/issues/741>`__.
+
+- The ``reusable-cibuildwheel.yml`` workflow has been refactored to
+  be more generic and ``ci-cd.yml`` now holds all the configuration
+  toggles -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#750 <https://github.com/ansible/pylibssh/issues/750>`__.
+
+- Updated the version of ``libssh`` to the latest release v0.11.2
+  in the cached ``manylinux`` build environment container images
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#752 <https://github.com/ansible/pylibssh/issues/752>`__.
+
+- When building wheels, the source distribution is now passed directly
+  to the ``cibuildwheel`` invocation -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#754 <https://github.com/ansible/pylibssh/issues/754>`__.
+
+- Fixed link to python3-pytest for CentOS 9 Stream as it was recently moved from
+  CRB to AppStream -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#758 <https://github.com/ansible/pylibssh/issues/758>`__.
+
+- The CI/CD jobs for smoke-testing RPMs have been simplified
+  and now, they execute the same steps for all distro types.
+  They make use of ``pyproject-rpm-macros`` even under RHEL.
+  Installing external RPMs is the only conditional step that
+  is skipped on Fedora.
+
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#759 <https://github.com/ansible/pylibssh/issues/759>`__.
+
+- The ``requires`` setting has been removed from ``tox.ini``, which
+  works around the upstream tool bug. This enabled us to re-introduce
+  CI jobs testing against sdist under Python 3.12 and newer
+  -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#764 <https://github.com/ansible/pylibssh/issues/764>`__.
+
+- Updated the version of ``libssh`` to the latest release v0.11.3
+  in the cached ``manylinux`` build environment container images
+  -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#765 <https://github.com/ansible/pylibssh/issues/765>`__.
+
+- Changed tests to use more lightweight ECDSA keys to avoid
+  timeouts -- by `@Jakuje <https://github.com/sponsors/Jakuje>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#768 <https://github.com/ansible/pylibssh/issues/768>`__.
+
+
+----
+
 
 v1.2.2
 ======
@@ -564,8 +1011,8 @@ Deprecations (removal in next major release)
 --------------------------------------------
 
 - The project stopped being tested under Ubuntu 18.04 VM since
-  GitHub is sunetting their CI images -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
-  (`#379 <https://github.com/ansible/pylibssh/issues/379>`__)
+  GitHub is sunsetting their CI images -- by `@webknjaz <https://github.com/sponsors/webknjaz>`__
+  (`#381 <https://github.com/ansible/pylibssh/issues/381>`__)
 
 
 Documentation

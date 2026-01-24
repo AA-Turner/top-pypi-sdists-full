@@ -4,8 +4,8 @@ use std::io::{Read, Seek, SeekFrom};
 use bytes::Bytes;
 use more_asserts::{debug_assert_ge, debug_assert_le};
 
-use crate::constants::{MAXIMUM_CHUNK_MULTIPLIER, MINIMUM_CHUNK_DIVISOR, TARGET_CHUNK_SIZE};
 use crate::Chunk;
+use crate::constants::{MAXIMUM_CHUNK_MULTIPLIER, MINIMUM_CHUNK_DIVISOR, TARGET_CHUNK_SIZE};
 
 /// Chunk Generator given an input stream. Do not use directly.
 /// Use `chunk_target_default`.
@@ -290,7 +290,7 @@ pub fn find_partitions<R: Read + Seek>(
     assert!(min_partition_size > 0);
     let mut partitions: Vec<usize> = Vec::new();
     partitions.push(0);
-    // minumum chunk must be at least the hash window size.
+    // minimum chunk must be at least the hash window size.
     // the way the chunker works, the minimum may be up to
     // target_min_chunk_size - 64
     let minimum_chunk = target_chunk_size / *MINIMUM_CHUNK_DIVISOR;

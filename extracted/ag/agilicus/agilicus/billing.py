@@ -27,6 +27,7 @@ from .output.table import (
 from .licensing.licenses import apply_constraint_and_vars
 
 BILLING_SUBSCRIPTIONS_FILTER_TYPES = ["no-license-id"]
+LIFECYCLE_STRATEGIES = ["start_now", "start_next_cycle"]
 
 
 def delete_billing_account(ctx, billing_account_id=None, **kwargs):
@@ -853,3 +854,22 @@ def list_billing_checkout_sessions(ctx, billing_account_id, **kwargs):
     client = get_apiclient_from_ctx(ctx)
     pop_item_if_none(kwargs)
     return client.billing_api.list_checkout_sessions(billing_account_id, **kwargs)
+
+
+def migrate_billing_account_currency(
+    ctx, billing_account_id, new_currency, subscription_lifecycle_strategy
+):
+    spec = agilicus.BillingAccountCurrencyMigrationSpec(
+        new_currency=new_currency,
+        subscription_lifecycle=agilicus.BillingAccountMigrationSubscriptionLifecycle(
+            strategy=subscription_lifecycle_strategy,
+        ),
+    )
+
+    client = get_apiclient_from_ctx(ctx)
+    return client.billing_api.create_currency_migration(
+        billing_account_id,
+        billing_account_currency_migration=agilicus.BillingAccountCurrencyMigration(
+            spec=spec,
+        ),
+    )

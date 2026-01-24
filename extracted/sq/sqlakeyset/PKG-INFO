@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: sqlakeyset
-Version: 2.0.1746777265
+Version: 2.0.1762907931
 Summary: offset-free paging for sqlalchemy
 Project-URL: homepage, https://github.com/djrobstep/sqlakeyset
 Project-URL: repository, https://github.com/djrobstep/sqlakeyset
 Author-email: Robert Lechte <robertlechte@gmail.com>, Anthony Carapetis <anthony.carapetis@gmail.com>
 License: Unlicense
 License-File: LICENSE
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: packaging>=20.0
 Requires-Dist: python-dateutil>=2.0
 Requires-Dist: sqlalchemy>=1.3.11

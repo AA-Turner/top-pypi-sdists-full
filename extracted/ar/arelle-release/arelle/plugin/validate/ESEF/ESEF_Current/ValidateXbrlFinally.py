@@ -15,6 +15,7 @@ import tinycss2.ast  # type: ignore[import-untyped]
 from lxml.etree import _Comment, _Element, _ElementTree, _Entity, _ProcessingInstruction
 
 from arelle import LeiUtil, ModelDocument, XbrlConst
+from arelle.FunctionIxt import ixtNamespacesByVersion
 from arelle.ModelDtsObject import ModelConcept
 from arelle.ModelDtsObject import ModelResource
 from arelle.ModelInstanceObject import ModelContext
@@ -33,7 +34,7 @@ from arelle.PythonUtil import strTruncate
 from arelle.utils.Contexts import partitionModelXbrlContexts
 from arelle.utils.Units import partitionModelXbrlUnits
 from arelle.utils.validate.DetectScriptsInXhtml import containsScriptMarkers
-from arelle.UrlUtil import isHttpUrl
+from arelle.UrlUtil import isHttpUrl, isExternalUrl
 from arelle.ValidateUtr import ValidateUtr
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.ValidateXbrlCalcs import inferredDecimals, rangeValue
@@ -56,7 +57,6 @@ from .DTS import checkFilingDTS
 from ..Const import (
     DefaultDimensionLinkroles,
     FOOTNOTE_LINK_CHILDREN,
-    IXT_NAMESPACES,
     LineItemsNotQualifiedLinkroles,
     PERCENT_TYPES, datetimePattern,
     docTypeXhtmlPattern,
@@ -64,9 +64,10 @@ from ..Const import (
     esefPrimaryStatementPlaceholderNames,
     mandatory,
     styleCssHiddenPattern,
-    styleIxHiddenPattern,
     supportedImgTypes,
     untransformableTypes,
+    reportBasenamePattern,
+    reportBasenameRegex
 )
 from ..Dimensions import checkFilingDimensions
 from ..Util import checkForMultiLangDuplicates, getEsefNotesStatementConcepts, isExtension, getDisclosureSystemYear
@@ -74,6 +75,7 @@ from ..Util import checkForMultiLangDuplicates, getEsefNotesStatementConcepts, i
 _: TypeGetText  # Handle gettext
 
 ifrsNsPattern = re.compile(r"https?://xbrl.ifrs.org/taxonomy/[0-9-]{10}/ifrs-full")
+escapeWorthyStr = re.compile(r".*[<&]")
 
 
 def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
@@ -294,6 +296,12 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                 "http://www.xbrl.org/WGN/report-packages/WGN-2018-08-14/report-packages-WGN-2018-08-14"
                                 ".html: %(fileName)s (Document file not in correct place in package)"),
                                 modelObject=doc, fileName=doc.basename)
+                    elif esefDisclosureSystemYear >= 2025:
+                        m = reportBasenameRegex.match(_baseName)
+                        if not m:
+                            modelXbrl.error("ESEF.2.6.3.incorrectNamingConventionReportPackageReportFile",
+                                _("Inline XBRL document filename SHOULD match %(pattern)s"),
+                                modelObject=doc, fileName=doc.basename, pattern=reportBasenamePattern)
                 else: # non-consolidated
                     if docTypeMatch:
                         if not docTypeMatch.group(1) or docTypeMatch.group(1).lower() == "html":
@@ -311,6 +319,17 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                        "%(url)s: %(documentSets)s (Document files appear to be in multiple document sets)"),
                 modelObject=doc, documentSets=", ".join(sorted(ixdsDocDirs)), url=reportIncorrectlyPlacedInPackageRef)
         ixTargetUsage = val.authParam["ixTargetUsage"]
+        earliestTRVersion = val.authParam.get("earliestTransformationRegistryVersion", min(ixtNamespacesByVersion.keys()))
+        if earliestTRVersion not in ixtNamespacesByVersion:
+            raise ValueError(f'Unsupported "earliestTransformationRegistryVersion" disclosure system config setting: {earliestTRVersion}')
+        allowedTRnamespaces = frozenset(
+            ns for version, ns in ixtNamespacesByVersion.items()
+            if version >= earliestTRVersion
+        )
+        if styleIxHiddenProperty := val.authParam.get("styleIxHiddenProperty"):
+            styleIxHiddenPattern = re.compile(rf"(.*[^\w]|^){styleIxHiddenProperty}\s*:\s*([\w.-]+).*")
+        else:
+            styleIxHiddenPattern = None
         if modelDocument.type in (ModelDocument.Type.INLINEXBRL, ModelDocument.Type.INLINEXBRLDOCUMENTSET, ModelDocument.Type.UnknownXML):
             hiddenEltIds = {}
             presentedHiddenEltIds = defaultdict(list)
@@ -355,6 +374,27 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                             modelXbrl.error(f"{contentOtherThanXHTMLGuidance}.executableCodePresent",
                                 _("Inline XBRL documents MUST NOT contain executable code: %(element)s"),
                                 modelObject=elt, element=eltTag)
+                            externalReferenceFound = False
+                            if eltTag == "object":
+                                # Check if the attribute 'archive' contains an external reference!
+                                archiveAttr = elt.get("archive", "").strip()
+                                for possibleURI in archiveAttr.split(" "):
+                                    if isExternalUrl(possibleURI.strip()):
+                                        externalReferenceFound = True
+                                        break
+                            elif eltTag == "script":
+                                # Check if the attribute 'src' contains an external reference!
+                                srcAttr = elt.get("src", "").strip()
+                                if isExternalUrl(srcAttr):
+                                    externalReferenceFound = True
+                            if externalReferenceFound:
+                                modelXbrl.error(
+                                    "ESEF.4.1.6.xHTMLDocumentContainsExternalReferences" if val.unconsolidated
+                                    else "ESEF.3.5.1.inlineXbrlDocumentContainsExternalReferences",
+                                    _("Inline XBRL instance documents MUST NOT contain any reference pointing to resources outside the reporting package: %(element)s"),
+                                    modelObject=elt, element=eltTag,
+                                    messageCodes=("ESEF.3.5.1.inlineXbrlDocumentContainsExternalReferences",
+                                                  "ESEF.4.1.6.xHTMLDocumentContainsExternalReferences"))
                         elif eltTag == "a" and "mailto" in elt.get("href", ""):
                             modelXbrl.warning(f"{contentOtherThanXHTMLGuidance}.executableCodePresent.mailto",
                                             _("Inline XBRL documents SHOULD NOT contain any 'mailto' URI: %(element)s"),
@@ -371,7 +411,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                         #    or to other sections of the annual financial report.'''
                         #elif eltTag == "a":
                         #    href = elt.get("href","").strip()
-                        #    if scheme(href) in ("http", "https", "ftp"):
+                        #    if isExternalUrl(href):
                         #        modelXbrl.error("ESEF.4.1.6.xHTMLDocumentContainsExternalReferences" if val.unconsolidated
                         #                        else "ESEF.3.5.1.inlineXbrlDocumentContainsExternalReferences",
                         #            _("Inline XBRL instance documents MUST NOT contain any reference pointing to resources outside the reporting package: %(element)s"),
@@ -465,9 +505,9 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                     if isinstance(elt, ModelInlineFootnote):
                         checkFootnote(elt, elt.value)
                     elif isinstance(elt, ModelResource) and elt.qname == XbrlConst.qnLinkFootnote:
-                        checkFootnote(elt, elt.value)
+                        checkFootnote(elt, elt.value)  # type: ignore[attr-defined]
                     elif isinstance(elt, ModelInlineFact):
-                        if elt.format is not None and elt.format.namespaceURI not in IXT_NAMESPACES:
+                        if elt.format is not None and elt.format.namespaceURI not in allowedTRnamespaces:
                             transformRegistryErrors.add(elt)
                 ixHiddenFacts = set()
                 for ixHiddenElt in ixdsHtmlRootElt.iterdescendants(tag=ixNStag + "hidden"):
@@ -509,11 +549,15 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
             for ixdsHtmlRootElt in modelXbrl.ixdsHtmlElements:
                 for ixElt in ixdsHtmlRootElt.getroottree().iterfind(".//{http://www.w3.org/1999/xhtml}*[@style]"):
                     styleValue = ixElt.get("style","")
-                    hiddenFactRefMatch = styleIxHiddenPattern.match(styleValue)
 
                     if styleValue:
                         for declaration in tinycss2.parse_blocks_contents(styleValue):
                             if isinstance(declaration, tinycss2.ast.Declaration):
+                                disallowedHiddenStyle = val.authParam.get("disallowedHiddenStyle")
+                                if declaration.lower_name == disallowedHiddenStyle:
+                                    modelXbrl.error("ESEF.2.4.1.IxHiddenStyleDisallowed",
+                                                    _("Usage of disallowed hidden style: %(styleName)s"),
+                                                    modelObject=ixElt, styleName=disallowedHiddenStyle)
                                 validateCssUrlContent(declaration.value, ixElt.modelDocument.baseForElement(ixElt),
                                                       modelXbrl, val, ixElt, imageValidationParameters)
                             elif isinstance(declaration, tinycss2.ast.ParseError):
@@ -521,14 +565,16 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                                   _("The style attribute contains erroneous CSS declaration \"%(styleContent)s\": %(parseError)s"),
                                                   modelObject=ixElt, parseError=declaration.message,
                                                   styleContent=styleValue)
-                    if hiddenFactRefMatch:
-                        hiddenFactRef = hiddenFactRefMatch.group(2)
-                        if hiddenFactRef not in hiddenEltIds:
-                            modelXbrl.error("ESEF.2.4.1.esefIxHiddenStyleNotLinkingFactInHiddenSection",
-                                _("\"-esef-ix-hidden\" style identifies id attribute of a fact that is not in ix:hidden section: %(factId)s"),
-                                modelObject=ixElt, factId=hiddenFactRef)
-                        else:
-                            presentedHiddenEltIds[hiddenFactRef].append(ixElt)
+                    if styleIxHiddenPattern is not None:
+                        hiddenFactRefMatch = styleIxHiddenPattern.match(styleValue)
+                        if hiddenFactRefMatch:
+                            hiddenFactRef = hiddenFactRefMatch.group(2)
+                            if hiddenFactRef not in hiddenEltIds:
+                                modelXbrl.error("ESEF.2.4.1.esefIxHiddenStyleNotLinkingFactInHiddenSection",
+                                    _("\"%(styleIxHiddenProperty)s\" style identifies id attribute of a fact that is not in ix:hidden section: %(factId)s"),
+                                    modelObject=ixElt, styleIxHiddenProperty=styleIxHiddenProperty, factId=hiddenFactRef)
+                            else:
+                                presentedHiddenEltIds[hiddenFactRef].append(ixElt)
             for hiddenEltId, ixElt in hiddenEltIds.items():
                 if (hiddenEltId not in presentedHiddenEltIds and
                     getattr(ixElt, "xValid", 0) >= VALID and # may not be validated
@@ -536,9 +582,10 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                     requiredToDisplayFacts.append(ixElt)
             if requiredToDisplayFacts:
                 modelXbrl.error("ESEF.2.4.1.factInHiddenSectionNotInReport",
-                    _("The ix:hidden section contains %(countUnreferenced)s fact(s) whose @id is not applied on any \"-esef-ix- hidden\" style: %(elements)s"),
+                    _("The ix:hidden section contains %(countUnreferenced)s fact(s) whose @id is not applied on any \"%(styleIxHiddenProperty)s\" style: %(elements)s"),
                     modelObject=requiredToDisplayFacts,
                     countUnreferenced=len(requiredToDisplayFacts),
+                    styleIxHiddenProperty=styleIxHiddenProperty,
                     elements=", ".join(sorted(set(str(f.qname) for f in requiredToDisplayFacts))))
             del eligibleForTransformHiddenFacts, hiddenEltIds, presentedHiddenEltIds, requiredToDisplayFacts
         elif modelDocument.type == ModelDocument.Type.INSTANCE:
@@ -598,7 +645,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
             modelXbrl.error("ESEF.2.1.4.multipleIdentifiers",
                 _("All entity identifiers in contexts MUST have identical content: %(contextIds)s"),
                 modelObject=modelXbrl, contextIds=", ".join(i[1] for i in contextIdentifiers))
-        requiredScheme = val.authParam["identiferScheme"]
+        requiredScheme = val.authParam["identifierScheme"]
         for (contextScheme, contextIdentifier), contextElts in contextIdentifiers.items():
             if contextScheme != requiredScheme:
                 modelXbrl.warning("ESEF.2.1.1.nonLEIContextScheme" if requiredScheme == iso17442 else "UK.ESEF.2.1.1.contextScheme",
@@ -669,10 +716,22 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                 if esefDisclosureSystemYear >= 2024:
                     if not f.id:
                         factsMissingId.append(f)
-                    if isinstance(f, ModelInlineFact) and f.concept is not None and f.isEscaped != f.concept.isTextBlock:
-                        modelXbrl.error("ESEF.2.2.7.improperApplicationOfEscapeAttribute",
-                                          _("Facts with datatype 'dtr-types:textBlockItemType' MUST use the 'escape' attribute set to 'true'. Facts with any other datatype MUST use the 'escape' attribute set to 'false' - fact %(conceptName)s"),
-                                          modelObject=f, conceptName=f.concept.qname)
+                    errorMsg = _("Facts with datatype 'dtr-types:textBlockItemType' MUST use the 'escape' attribute set to 'true'.")
+                    if isinstance(f, ModelInlineFact) and f.concept is not None and esefDisclosureSystemYear >= 2024:
+                        if esefDisclosureSystemYear == 2024:
+                            errorMsg +=  _(" Facts with any other datatype MUST use the 'escape' attribute set to 'false'")
+                            hasEscapeIssue = f.isEscaped != f.concept.isTextBlock
+                        elif esefDisclosureSystemYear >= 2025:
+                            hasEscapeIssue = not f.isEscaped and (
+                                f.concept.isTextBlock or
+                                (f.value and escapeWorthyStr.match(f.value)))
+                            if f.value and escapeWorthyStr.match(f.value):
+                                errorMsg = _("Facts containing special characters like '&' or '<' must be escaped")
+                        if hasEscapeIssue:
+                            errorMsg += _(" - fact %(conceptName)s")
+                            modelXbrl.error("ESEF.2.2.7.improperApplicationOfEscapeAttribute",
+                                              errorMsg,
+                                              modelObject=f, conceptName=f.concept.qname)
                     if f.effectiveValue in ["0", "-0"] and f.xValue != 0:
                         modelXbrl.warning("ESEF.2.2.5.roundedValueBelowScaleNotNull",
                                           _("A value that has been rounded and is below the scale should show a value of zero. It has been found to have the value %(value)s - fact %(conceptName)s"),
@@ -707,6 +766,17 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                         #elif dim.isTyped:
                         #    conceptsUsed.add(dim.typedMember)
                 '''
+        # identify report date
+        reportDate = None
+        for f in modelXbrl.factsByLocalName.get("DateOfEndOfReportingPeriod2013", ()):
+            if getattr(f, "xValid", 0) >= VALID:
+                reportDate = f.xValue
+                break
+        if not reportDate: # no report period, take name's end context
+            for f in modelXbrl.factsByLocalName.get("NameOfReportingEntityOrOtherMeansOfIdentification", ()):
+                if getattr(f, "xValid", 0) >= VALID:
+                    reportDate = f.context.endDate
+                    break
 
         if esefDisclosureSystemYear >= 2024 and factsMissingId:
             modelXbrl.warning("ESEF.2.2.8.missingFactID",
@@ -776,8 +846,8 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
 
         if transformRegistryErrors:
             modelXbrl.error("ESEF.2.2.3.incorrectTransformationRuleApplied",
-                              _("ESMA recommends applying the Transformation Rules Registry 4, as published by XBRL International or any more recent versions of the Transformation Rules Registry provided with a 'Recommendation' status, for these elements: %(elements)s."),
-                              modelObject=transformRegistryErrors,
+                              _("ESMA recommends applying the Transformation Rules Registry %(earliestTrNum)s, as published by XBRL International or any more recent versions of the Transformation Rules Registry provided with a 'Recommendation' status, for these elements: %(elements)s."),
+                              modelObject=transformRegistryErrors, earliestTrNum=earliestTRVersion,
                               elements=", ".join(sorted(str(fact.qname) for fact in transformRegistryErrors)))
 
         if orphanedFootnotes:
@@ -833,7 +903,12 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
 
         # 3.1.1 test
         hasOutdatedUrl = False
-        for e in val.authParam["outdatedTaxonomyURLs"]:
+        outdatedTaxonomyURLs = val.authParam["outdatedTaxonomyURLs"].copy()
+        if reportDate:
+            for expiringTaxonomyURLs in val.authParam.get("expiringTaxonomyURLs", ()):
+                if expiringTaxonomyURLs["lastReportableDate"] < str(reportDate):
+                    outdatedTaxonomyURLs.update(expiringTaxonomyURLs["URLs"])
+        for e in outdatedTaxonomyURLs:
             if e in val.extensionImportedUrls:
                 val.modelXbrl.error("ESEF.3.1.2.incorrectEsefTaxonomyVersionUsed",
                      _("The issuer's extension taxonomies MUST import the applicable version of the taxonomy files prepared by ESMA. Outdated entry point: %(url)s"),

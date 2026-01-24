@@ -1,0 +1,100 @@
+Metadata-Version: 2.1
+Name: regionmask
+Version: 0.13.0
+Summary: create masks of geospatial regions for arbitrary grids
+Home-page: https://github.com/regionmask/regionmask
+Author: regionmask Developers
+Author-email: mathias.hauser@env.ethz.com
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: geopandas>=0.13
+Requires-Dist: numpy>=1.24
+Requires-Dist: packaging>=23.1
+Requires-Dist: pooch>=1.7
+Requires-Dist: rasterio>=1.3
+Requires-Dist: shapely>=2.0
+Requires-Dist: xarray>=2023.07
+Provides-Extra: plot
+Requires-Dist: cartopy>=0.22; extra == "plot"
+Requires-Dist: matplotlib>=3.7; extra == "plot"
+Provides-Extra: full
+Requires-Dist: cartopy>=0.22; extra == "full"
+Requires-Dist: matplotlib>=3.7; extra == "full"
+Requires-Dist: cf_xarray>=0.8; extra == "full"
+Provides-Extra: docs
+Requires-Dist: cartopy>=0.22; extra == "docs"
+Requires-Dist: matplotlib>=3.7; extra == "docs"
+Requires-Dist: cf_xarray>=0.8; extra == "docs"
+Requires-Dist: netcdf4; extra == "docs"
+Requires-Dist: aiohttp; extra == "docs"
+Requires-Dist: fsspec; extra == "docs"
+Requires-Dist: intake_geopandas; extra == "docs"
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: pickleshare; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: sphinxext-rediraffe; extra == "docs"
+
+![regionmask logo](docs/source/logo/logo.png)
+
+# create *masks* of geospatial *regions* for arbitrary grids
+
+[![CI Status](https://github.com/regionmask/regionmask/workflows/CI/badge.svg?branch=main)](https://github.com/regionmask/regionmask/actions?query=workflow%3ACI)
+[![Code Coverage Badge](https://codecov.io/gh/regionmask/regionmask/branch/main/graph/badge.svg)](https://codecov.io/gh/regionmask/regionmask)
+[![Documentation Status](https://readthedocs.org/projects/regionmask/badge/?version=stable)](https://regionmask.readthedocs.io/en/stable/?badge=stable)
+[![PyPi Badge](https://img.shields.io/pypi/v/regionmask.svg)](https://pypi.python.org/pypi/regionmask/)
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/regionmask/badges/version.svg)](https://anaconda.org/conda-forge/regionmask)
+[![zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10849860.svg)](https://doi.org/10.5281/zenodo.10849860)
+
+
+When working with gridded data such as climate model output or reanalysis data it is
+often important to create regional averages, e.g., over countries, continents or
+regions defined in the literature. To do so we need to know for each grid point to which
+region it belongs to.
+
+**regionmask** is a python package that:
+
+- can be used to create *masks* of (geo)spatial *regions* for arbitrary (longitude and latitude) grids. These masks indicate which region a gridpoint belongs to and can then be used to aggregate gridded data over the regions. The masks come in three variants:
+  - 2D integer masks
+  - 3D boolean masks
+  - 3D approximate fractional masks
+- takes great care to create consistent masks for
+  - region edges and interiors
+  - overlapping regions
+- contains a number of defined regions, including:
+  - countries
+  - landmasks
+  - regions used in the scientific literature
+- can plot figures of these regions
+- supports using arbitrary existing or user-defined region definitions:
+  - regions defined as shapefiles can be accessed via geopandas
+  - user-defined regions can be created via numpy or shapely
+
+## Documentation
+
+Learn more about regionmask in its official documentation at https://regionmask.readthedocs.io
+
+## Get in touch
+
+Dont hesitate to ask usage questions, report bugs, suggest features or view the source
+code on GitHub under [regionmask/regionmask](https://github.com/regionmask/regionmask).
+
+## License
+
+regionmask is published under a MIT license.

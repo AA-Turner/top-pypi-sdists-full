@@ -90,7 +90,7 @@ class BaseProvider(AbstractProvider[Requirement, Candidate, str]):
         editable = requirement.editable
         is_named = requirement.is_named
         is_pinned = requirement.is_pinned
-        is_prerelease = bool(requirement.prerelease) and bool(requirement.specifier.prereleases)
+        is_prerelease = bool(requirement.prerelease) or bool(requirement.specifier.prereleases)
         specifier_parts = len(requirement.specifier)
         return (not editable, is_named, not is_pinned, not is_prerelease, -specifier_parts)
 
@@ -209,9 +209,9 @@ class BaseProvider(AbstractProvider[Requirement, Candidate, str]):
                     # If there are wheels for the given version, we should only return wheels
                     # to avoid build steps.
                     if collected_wheels:
-                        yield from collected_wheels
-                    else:
-                        yield from collected_others
+                        yield collected_wheels[0]
+                    elif collected_others:
+                        yield collected_others[0]
                     current_version = candidate.version
                     collected_wheels.clear()
                     collected_others.clear()
@@ -220,9 +220,9 @@ class BaseProvider(AbstractProvider[Requirement, Candidate, str]):
                 else:
                     collected_others.append(candidate)
             if collected_wheels:
-                yield from collected_wheels
-            else:
-                yield from collected_others
+                yield collected_wheels[0]
+            elif collected_others:
+                yield collected_others[0]
 
     def find_matches(
         self,

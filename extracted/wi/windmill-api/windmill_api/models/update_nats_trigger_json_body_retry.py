@@ -16,11 +16,13 @@ T = TypeVar("T", bound="UpdateNatsTriggerJsonBodyRetry")
 
 @_attrs_define
 class UpdateNatsTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, UpdateNatsTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, UpdateNatsTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, UpdateNatsTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, UpdateNatsTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, UpdateNatsTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, UpdateNatsTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "UpdateNatsTriggerJsonBodyRetryConstant"] = UNSET

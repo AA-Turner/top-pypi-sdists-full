@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core", "nanobind", "numpy"]
+requires = ["scikit-build-core", "nanobind<2.10.0", "numpy"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -8,13 +8,13 @@ dynamic = ["version"]
 readme = { file = "README.md", content-type = "text/markdown" }
 description = "This is the phonopy module."
 authors = [{ name = "Atsushi Togo", email = "atz.togo@gmail.com" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.17.0",
     "PyYAML>=5.3",
     "matplotlib>=2.2.2",
     "h5py>=3.0",
-    "spglib>=2.3",
+    "spglib>=2.5",
     "symfc>=1.5"
 ]
 license = "BSD-3-Clause"

@@ -25,45 +25,35 @@ class MMCollisionInt;
 class GasTransport : public Transport
 {
 public:
-    //! Viscosity of the mixture  (kg /m /s)
+    //! Get the viscosity [Pa·s] of the mixture
     /*!
-     * The viscosity is computed using the Wilke mixture rule (kg /m /s)
-     *
+     * The viscosity is computed using the Wilke mixture rule, as given in Poling et al.
+     * @cite poling2001, Eqs. (9-5.13 and 9-5.14):
      * @f[
-     *     \mu = \sum_k \frac{\mu_k X_k}{\sum_j \Phi_{k,j} X_j}.
+     *     \eta = \sum_k \frac{\eta_k X_k}{\sum_j \Phi_{k,j} X_j}.
      * @f]
      *
-     * Here @f$ \mu_k @f$ is the viscosity of pure species @e k, and
-     *
+     * Here, @f$ \eta_k @f$ is the viscosity of pure species *k* and the weighting
+     * function @f$ \Phi_{k,j} @f$ is:
      * @f[
-     *     \Phi_{k,j} = \frac{\left[1
-     *                  + \sqrt{\left(\frac{\mu_k}{\mu_j}\sqrt{\frac{M_j}{M_k}}\right)}\right]^2}
-     *                  {\sqrt{8}\sqrt{1 + M_k/M_j}}
+     *     \Phi_{k,j} = \frac{ \left[ 1 + \left( \eta_k / \eta_j \right)^{1/2}
+     *                               \left( M_j / M_k \right)^{1/4} \right]^2 }
+     *                      {\left[ 8 \left( 1 + M_k / M_j \right) \right]^{1/2}}
      * @f]
-     *
-     * @returns the viscosity of the mixture (units =  Pa s = kg /m /s)
-     *
      * @see updateViscosity_T()
      */
     double viscosity() override;
 
-    //! Get the pure-species viscosities
+    //! Get the pure-species viscosities [Pa·s]
     void getSpeciesViscosities(double* const visc) override {
         update_T();
         updateViscosity_T();
         std::copy(m_visc.begin(), m_visc.end(), visc);
     }
 
-    //! Returns the matrix of binary diffusion coefficients.
-    /*!
-     * d[ld*j + i] = rp * m_bdiff(i,j);
-     *
-     * @param ld   offset of rows in the storage
-     * @param d    output vector of diffusion coefficients. Units of m**2 / s
-     */
     void getBinaryDiffCoeffs(const size_t ld, double* const d) override;
 
-    //! Returns the Mixture-averaged diffusion coefficients [m^2/s].
+    //! Returns the Mixture-averaged diffusion coefficients [m²/s].
     /*!
      * Returns the mixture averaged diffusion coefficients for a gas,
      * appropriate for calculating the mass averaged diffusive flux with respect
@@ -75,15 +65,16 @@ public:
      * This is Eqn. 12.180 from "Chemically Reacting Flow"
      *
      * @f[
-     *     D_{km}' = \frac{\left( \bar{M} - X_k M_k \right)}{ \bar{\qquad M \qquad } }  {\left( \sum_{j \ne k} \frac{X_j}{D_{kj}} \right) }^{-1}
+     *     D_{km}' = \frac{\left( \bar{M} - X_k M_k \right)}{ \bar{\qquad M \qquad } }
+     *               {\left( \sum_{j \ne k} \frac{X_j}{\mathcal{D}_{kj}} \right) }^{-1}
      * @f]
      *
      * @param[out] d  Vector of mixture diffusion coefficients, @f$ D_{km}' @f$ ,
-     *     for each species (m^2/s). length m_nsp
+     *     for each species; length is the number of species.
      */
     void getMixDiffCoeffs(double* const d) override;
 
-    //! Returns the mixture-averaged diffusion coefficients [m^2/s].
+    //! Returns the mixture-averaged diffusion coefficients [m²/s].
     //! These are the coefficients for calculating the molar diffusive fluxes
     //! from the species mole fraction gradients, computed according to
     //! Eq. 12.176 in "Chemically Reacting Flow":
@@ -91,10 +82,10 @@ public:
     //! @f[  D_{km}^* = \frac{1-X_k}{\sum_{j \ne k}^K X_j/\mathcal{D}_{kj}} @f]
     //!
     //! @param[out] d vector of mixture-averaged diffusion coefficients for
-    //!     each species, length m_nsp.
+    //!     each species, length #m_nsp.
     void getMixDiffCoeffsMole(double* const d) override;
 
-    //! Returns the mixture-averaged diffusion coefficients [m^2/s].
+    //! Returns the mixture-averaged diffusion coefficients [m²/s].
     /*!
      * These are the coefficients for calculating the diffusive mass fluxes
      * from the species mass fraction gradients, computed according to
@@ -106,15 +97,15 @@ public:
      * @f]
      *
      * @param[out] d vector of mixture-averaged diffusion coefficients for
-     *     each species, length m_nsp.
+     *     each species, length #m_nsp.
      */
     void getMixDiffCoeffsMass(double* const d) override;
 
-    //! Return the polynomial fits to the viscosity of species i
+    //! Return the polynomial fits to the viscosity of species `i`.
     //! @see fitProperties()
     void getViscosityPolynomial(size_t i, double* coeffs) const override;
 
-    //! Return the temperature fits of the heat conductivity of species i
+    //! Return the temperature fits of the heat conductivity of species `i`.
     //! @see fitProperties()
     void getConductivityPolynomial(size_t i, double* coeffs) const override;
 
@@ -129,11 +120,11 @@ public:
                                         double* bstar_coeffs,
                                         double* cstar_coeffs) const override;
 
-    //! Modify the polynomial fits to the viscosity of species i
+    //! Modify the polynomial fits to the viscosity of species `i`
     //! @see fitProperties()
     void setViscosityPolynomial(size_t i, double* coeffs) override;
 
-    //! Modify the temperature fits of the heat conductivity of species i
+    //! Modify the temperature fits of the heat conductivity of species `i`
     //! @see fitProperties()
     void setConductivityPolynomial(size_t i, double* coeffs) override;
 
@@ -148,7 +139,7 @@ public:
                                         double* bstar_coeffs,
                                         double* cstar_coeffs, bool actualT) override;
 
-    void init(ThermoPhase* thermo, int mode=0, int log_level=-7) override;
+    void init(ThermoPhase* thermo, int mode=0) override;
 
     bool CKMode() const override {
         return m_mode == CK_Mode;
@@ -165,14 +156,8 @@ protected:
     //! Update the temperature-dependent viscosity terms.
     /**
      * Updates the array of pure species viscosities, and the weighting
-     * functions in the viscosity mixture rule. The flag m_visc_ok is set to true.
-     *
-     * The formula for the weighting function is from Poling et al. @cite poling2001,
-     * Eq. (9-5.14):
-     *  @f[
-     *      \phi_{ij} = \frac{ \left[ 1 + \left( \mu_i / \mu_j \right)^{1/2} \left( M_j / M_i \right)^{1/4} \right]^2 }
-     *                    {\left[ 8 \left( 1 + M_i / M_j \right) \right]^{1/2}}
-     *  @f]
+     * functions in the viscosity mixture rule. The flag #m_visc_ok is set to true.
+     * @see viscosity()
      */
     virtual void updateViscosity_T();
 
@@ -205,7 +190,7 @@ protected:
      * name of a file containing transport property parameters and a list of
      * species names.
      */
-    void getTransportData();
+    virtual void getTransportData();
 
     //! Corrections for polar-nonpolar binary diffusion coefficients
     /*!
@@ -230,7 +215,7 @@ protected:
     //! Generate polynomial fits to the viscosity @f$ \eta @f$ and conductivity
     //! @f$ \lambda @f$.
     /*!
-     * If CK_mode, then the fits are of the form
+     * If CKMode(), then the fits are of the form
      * @f[
      *      \ln \eta(i) = \sum_{n=0}^3 a_n(i) \, (\ln T)^n
      * @f]
@@ -253,13 +238,13 @@ protected:
 
     //! Generate polynomial fits to the binary diffusion coefficients
     /*!
-     * If CK_mode, then the fits are of the form
+     * If CKMode(), then the fits are of the form
      * @f[
-     *      \ln D(i,j) = \sum_{n=0}^3 c_n(i,j) \, (\ln T)^n
+     *      \ln \mathcal{D}(i,j) = \frac{1}{p} \sum_{n=0}^3 c_n(i,j) \, (\ln T)^n
      * @f]
      * Otherwise the fits are of the form
      * @f[
-     *      D(i,j) = T^{3/2} \sum_{n=0}^4 c_n(i,j) \, (\ln T)^n
+     *      \mathcal{D}(i,j) = \frac{T^{3/2}}{p} \sum_{n=0}^4 c_n(i,j) \, (\ln T)^n
      * @f]
      *
      * @param integrals interpolator for the collision integrals
@@ -295,10 +280,10 @@ protected:
     //! @}
 
     //! Vector of species mole fractions. These are processed so that all mole
-    //! fractions are >= *Tiny*. Length = m_kk.
+    //! fractions are >= #Tiny. Length = #m_nsp.
     vector<double> m_molefracs;
 
-    //! Internal storage for the viscosity of the mixture  (kg /m /s)
+    //! Internal storage for the viscosity of the mixture [Pa·s]
     double m_viscmix = 0.0;
 
     //! Update boolean for mixture rule for the mixture viscosity
@@ -317,18 +302,18 @@ protected:
     //! Any other value means to use %Cantera's preferred fitting functions.
     int m_mode = 0;
 
-    //! m_phi is a Viscosity Weighting Function. size = m_nsp * n_nsp
+    //! Viscosity weighting function. size = #m_nsp * #m_nsp
     DenseMatrix m_phi;
 
-    //! work space length = m_kk
+    //! work space length = #m_nsp
     vector<double> m_spwork;
 
-    //! vector of species viscosities (kg /m /s). These are used in Wilke's
-    //! rule to calculate the viscosity of the solution. length = m_kk.
+    //! vector of species viscosities [Pa·s]. These are used in Wilke's
+    //! rule to calculate the viscosity of the solution. length = #m_nsp.
     vector<double> m_visc;
 
-    //! Polynomial fits to the viscosity of each species. m_visccoeffs[k] is
-    //! the vector of polynomial coefficients for species k that fits the
+    //! Polynomial fits to the viscosity of each species. `m_visccoeffs[k]` is
+    //! the vector of polynomial coefficients for species `k` that fits the
     //! viscosity as a function of temperature.
     vector<vector<double>> m_visccoeffs;
 
@@ -350,19 +335,18 @@ protected:
      */
     DenseMatrix m_wratkj1;
 
-    //! vector of square root of species viscosities sqrt(kg /m /s). These are
-    //! used in Wilke's rule to calculate the viscosity of the solution.
-    //! length = m_kk.
+    //! vector of square root of species viscosities. These are used in Wilke's rule to
+    //! calculate the viscosity of the solution. length = #m_nsp.
     vector<double> m_sqvisc;
 
     //! Powers of the ln temperature, up to fourth order
     vector<double> m_polytempvec;
 
-    //! Current value of the temperature at which the properties in this object
-    //! are calculated (Kelvin).
+    //! Current value of the temperature [K] at which the properties in this object
+    //! are calculated.
     double m_temp = -1.0;
 
-    //! Current value of Boltzmann constant times the temperature (Joules)
+    //! Current value of Boltzmann constant times the temperature [J]
     double m_kbt = 0.0;
 
     //! current value of temperature to 1/2 power
@@ -376,42 +360,42 @@ protected:
 
     //! Polynomial fits to the binary diffusivity of each species
     /*!
-     * m_diffcoeff[ic] is vector of polynomial coefficients for species i
-     * species j that fits the binary diffusion coefficient. The relationship
-     * between i j and ic is determined from the following algorithm:
-     *
-     *      int ic = 0;
-     *      for (i = 0; i < m_nsp; i++) {
-     *         for (j = i; j < m_nsp; j++) {
-     *           ic++;
-     *         }
-     *      }
+     * `m_diffcoeff[ic]` is the vector of polynomial coefficients that fits the binary
+     * diffusion coefficient for species `i` and `j`. The relationship between `i`, `j`,
+     * and `ic` is determined from the following algorithm:
+     * @code
+     * int ic = 0;
+     * for (i = 0; i < m_nsp; i++) {
+     *    for (j = i; j < m_nsp; j++) {
+     *      ic++;
+     *    }
+     * }
+     * @endcode
      */
     vector<vector<double>> m_diffcoeffs;
 
     //! Matrix of binary diffusion coefficients at the reference pressure and
-    //! the current temperature Size is nsp x nsp.
+    //! the current temperature Size is #m_nsp x #m_nsp.
     DenseMatrix m_bdiff;
 
     //! temperature fits of the heat conduction
     /*!
-     *  Dimensions are number of species (nsp) polynomial order of the collision
+     *  Dimensions are number of species (#m_nsp) and polynomial order of the collision
      *  integral fit (degree+1).
      */
     vector<vector<double>> m_condcoeffs;
 
     //! Indices for the (i,j) interaction in collision integral fits
     /*!
-     *  m_poly[i][j] contains the index for (i,j) interactions in
+     *  `m_poly[i][j]` contains the index for (i,j) interactions in
      *  #m_omega22_poly, #m_astar_poly, #m_bstar_poly, and #m_cstar_poly.
      */
     vector<vector<int>> m_poly;
 
     //! Fit for omega22 collision integral
     /*!
-     * m_omega22_poly[m_poly[i][j]] is the vector of polynomial coefficients
-     * (length degree+1) for the collision integral fit for the species pair
-     * (i,j).
+     * `m_omega22_poly[m_poly[i][j]]` is the vector of polynomial coefficients
+     * (length degree+1) for the collision integral fit for the species pair (i,j).
      */
     vector<vector<double>> m_omega22_poly;
 
@@ -421,25 +405,22 @@ protected:
 
     //! Fit for astar collision integral
     /*!
-     * m_astar_poly[m_poly[i][j]] is the vector of polynomial coefficients
-     * (length degree+1) for the collision integral fit for the species pair
-     * (i,j).
+     * `m_astar_poly[m_poly[i][j]]` is the vector of polynomial coefficients
+     * (length degree+1) for the collision integral fit for the species pair (i,j).
      */
     vector<vector<double>> m_astar_poly;
 
     //! Fit for bstar collision integral
     /*!
-     * m_bstar_poly[m_poly[i][j]] is the vector of polynomial coefficients
-     * (length degree+1) for the collision integral fit for the species pair
-     * (i,j).
+     * `m_bstar_poly[m_poly[i][j]]` is the vector of polynomial coefficients
+     * (length degree+1) for the collision integral fit for the species pair (i,j).
      */
     vector<vector<double>> m_bstar_poly;
 
     //! Fit for cstar collision integral
     /*!
-     * m_bstar_poly[m_poly[i][j]] is the vector of polynomial coefficients
-     * (length degree+1) for the collision integral fit for the species pair
-     * (i,j).
+     * `m_bstar_poly[m_poly[i][j]]` is the vector of polynomial coefficients
+     * (length degree+1) for the collision integral fit for the species pair (i,j).
      */
     vector<vector<double>> m_cstar_poly;
 
@@ -452,100 +433,91 @@ protected:
     //! Dimensionless rotational heat capacity of each species
     /*!
      * These values are 0, 1 and 1.5 for single-molecule, linear, and nonlinear
-     * species respectively length is the number of species in the phase.
+     * species respectively. length is the number of species in the phase.
      * Dimensionless  (Cr / R)
      */
     vector<double> m_crot;
 
     //! Vector of booleans indicating whether a species is a polar molecule
     /*!
-     * Length is nsp
+     * Length is #m_nsp.
      */
     vector<bool> m_polar;
 
-    //! Polarizability of each species in the phase
-    /*!
-     * Length = nsp. Units = m^3
-     */
+    //! Polarizability [m³] of each species in the phase
     vector<double> m_alpha;
 
-    //! Lennard-Jones well-depth of the species in the current phase
+    //! Lennard-Jones well-depth [J] of the species in the current phase
     /*!
-     * length is the number of species in the phase. Units are Joules (Note this
-     * is not Joules/kmol) (note, no kmol -> this is a per molecule amount)
+     * length is the number of species in the phase. Note this is not J/kmol; this is a
+     * per molecule amount.
      */
     vector<double> m_eps;
 
-    //! Lennard-Jones diameter of the species in the current phase
-    /*!
-     * length is the number of species in the phase. units are in meters.
-     */
+    //! Lennard-Jones diameter [m] of the species in the current phase
     vector<double> m_sigma;
 
-    //! This is the reduced mass of the interaction between species i and j
+    //! This is the reduced mass [kg] of the interaction between species i and j
     /*!
-     *  reducedMass(i,j) =  mw[i] * mw[j] / (Avogadro * (mw[i] + mw[j]));
-     *
-     *  Units are kg (note, no kmol -> this is a per molecule amount)
-     *
-     *  Length nsp * nsp. This is a symmetric matrix
+     * @f[
+     *     m_{ij} = \frac{M_i M_j}{N_A (M_i + M_j)}
+     * @f]
+     *  Length #m_nsp * #m_nsp. This is a symmetric matrix
      */
     DenseMatrix m_reducedMass;
 
-    //! hard-sphere diameter for (i,j) collision
+    //! hard-sphere diameter [m] for (i,j) collision
     /*!
-     *  diam(i,j) = 0.5*(sigma[i] + sigma[j]);
-     *  Units are m (note, no kmol -> this is a per molecule amount)
-     *
-     *  Length nsp * nsp. This is a symmetric matrix.
+     * @f[
+     *     \sigma_{ij} = \frac{\sigma_i + \sigma_j}{2}
+     * @f]
+     *  Length #m_nsp * #m_nsp. This is a symmetric matrix.
      */
     DenseMatrix m_diam;
 
-    //! The effective well depth for (i,j) collisions
+    //! The effective well depth [J] for (i,j) collisions
     /*!
-     *     epsilon(i,j) = sqrt(eps[i]*eps[j]);
-     *     Units are Joules (note, no kmol -> this is a per molecule amount)
-     *
-     * Length nsp * nsp. This is a symmetric matrix.
+     * @f[
+     *     \epsilon_{ij} = \sqrt{\epsilon_i \epsilon_j}
+     * @f]
+     * Length #m_nsp * #m_nsp. This is a symmetric matrix.
      */
     DenseMatrix m_epsilon;
 
-    //! The effective dipole moment for (i,j) collisions
+    //! The effective dipole moment [Coulomb·m] for (i,j) collisions
     /*!
-     *  Given `dipoleMoment` in Debye (a Debye is 3.335e-30 C-m):
+     * @f[
+     *    \mu_{ij} = \sqrt{\mu_i \mu_j}
+     * @f]
      *
-     *    dipole(i,i) = 1.e-21 / lightSpeed * dipoleMoment;
-     *    dipole(i,j) = sqrt(dipole(i,i) * dipole(j,j));
-     *  (note, no kmol -> this is a per molecule amount)
+     * Dipole moments are conventionally given in Debye. The conversion factor to
+     * Coulomb·m is @f$ 10^{-21} / c \approx 3.335 \times 10^{-30} @f$.
      *
-     *  Length nsp * nsp. This is a symmetric matrix.
+     * Length #m_nsp * #m_nsp. This is a symmetric matrix.
      */
     DenseMatrix m_dipole;
 
     //! Reduced dipole moment of the interaction between two species
     /*!
-     *  This is the reduced dipole moment of the interaction between two species
-     *       0.5 * dipole(i,j)^2 / (4 * Pi * epsilon_0 * epsilon(i,j) * d^3);
-     *
-     *  Length nsp * nsp .This is a symmetric matrix
+     * @f[
+     *     \tilde{\delta}^*_{ij} =
+     *         \frac{ \mu_{ij}^2 }{ 8 \pi \varepsilon_0 \epsilon_{ij} \sigma_{ij}^3 }
+     * @f]
+     *  Length #m_nsp * #m_nsp. This is a symmetric matrix
      */
     DenseMatrix m_delta;
 
-    //! Pitzer acentric factor
+    //! Pitzer acentric factor [dimensionless]
     /*!
-     * Length is the number of species in the phase. Dimensionless.
+     * Length is the number of species in the phase.
      */
     vector<double> m_w_ac;
 
-    //! Dispersion coefficient
+    //! Dispersion coefficient normalized by the square of the elementary charge [m⁵].
     vector<double> m_disp;
 
     //! Quadrupole polarizability
     vector<double> m_quad_polar;
-
-    //! Level of verbose printing during initialization.
-    //! @deprecated To be removed after %Cantera 3.1.
-    int m_log_level = 0;
 };
 
 } // namespace Cantera

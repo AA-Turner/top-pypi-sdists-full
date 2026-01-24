@@ -20,43 +20,36 @@ on:  # yamllint disable-line rule:truthy
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.IMAGE.HOST_OS || 'ubuntu-latest' }}
+
+    timeout-minutes: 50
+
     strategy:
       matrix:
+        # All cached images we prebuild now target PEP 600 tags only
         IMAGE:
         # Build containers for x86_64
         - ARCH: x86_64
           QEMU_ARCH: amd64
         # Build containers for aarch64 (ARM 64)
         - ARCH: aarch64
-          QEMU_ARCH: arm64
+          HOST_OS: ubuntu-24.04-arm
         # Build containers for ppc64le
         - ARCH: ppc64le
         # Build containers for s390x
         - ARCH: s390x
-        # There are no base containers for these archs
-        # at https://quay.io/organization/pypa.
-        # Build containers for armv7l (ARM v7)
-        # - ARCH: armv7l
-        #   QEMU_ARCH: arm/v7
-        # Build containers for ppc64
-        # - ARCH: ppc64
         YEAR:
-        - 2014
-        - _2_24  # PEP 600
+        - _2_24
         - _2_28
+        - _2_34
         include:
         - IMAGE:
-            ARCH: x86_64
-            QEMU_ARCH: amd64
-          YEAR: 1
-        - IMAGE:
-            ARCH: x86_64
-            QEMU_ARCH: amd64
-          YEAR: 2010
+            ARCH: armv7l
+            HOST_OS: ubuntu-24.04-arm
+          YEAR: _2_31  # There are no base images prior to 2.31 for this arch
 
     env:
-      LIBSSH_VERSION: 0.9.6
+      LIBSSH_VERSION: 0.11.3
       PYPA_MANYLINUX_TAG: >-
         manylinux${{ matrix.YEAR }}_${{ matrix.IMAGE.ARCH }}
       FULL_IMAGE_NAME: >-
@@ -82,17 +75,24 @@ jobs:
     - name: >-
         Set up QEMU ${{ env.QEMU_ARCH }} arch emulation
         with Podman
-      if: env.QEMU_ARCH != 'amd64'
-      run: >-
+      if: >-
+        !contains(fromJSON('["aarch64", "amd64", "armv7l"]'), env.QEMU_ARCH)
+      run: >
         sudo podman run
         --rm --privileged
-        multiarch/qemu-user-static
-        --reset -p yes
+        tonistiigi/binfmt
+        --uninstall 'qemu-*'
+
+
+        sudo podman run
+        --rm --privileged
+        tonistiigi/binfmt
+        --install all
     - name: Build the image with Buildah
       id: build-image
       uses: redhat-actions/buildah-build@v2.13
       with:
-        arch: linux/${{ env.QEMU_ARCH }}
+        arch: ${{ env.QEMU_ARCH }}
         image: ${{ env.FULL_IMAGE_NAME }}
         tags: >-
           ${{ github.sha }}

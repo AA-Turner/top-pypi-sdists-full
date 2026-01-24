@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import pathlib
+
+from yandex_cloud_ml_sdk import YCloudML
+from yandex_cloud_ml_sdk.exceptions import DatasetValidationError
+
+PATH = pathlib.Path(__file__)
+NAME = f'example-{PATH.parent.name}-{PATH.name}'
+
+
+def local_path(path: str) -> pathlib.Path:
+    return pathlib.Path(__file__).parent / path
+
+
+def main() -> None:
+    # You can set authentication using environment variables instead of the 'auth' argument:
+    # YC_OAUTH_TOKEN, YC_TOKEN, YC_IAM_TOKEN, or YC_API_KEY
+    # You can also set 'folder_id' using the YC_FOLDER_ID environment variable
+    sdk = YCloudML(
+        # folder_id="<YC_FOLDER_ID>",
+        # auth="<YC_API_KEY/YC_IAM_TOKEN>",
+    )
+    sdk.setup_default_logging()
+
+    dataset_draft = sdk.datasets.completions.draft_from_path(
+        local_path('example_bad_dataset'),
+        upload_format='jsonlines',
+        name=NAME,
+    )
+
+    operation = dataset_draft.upload_deferred()
+
+    # We deliberately pass a bad data to dataset, to show how and when it will fail
+    try:
+        dataset = operation.wait()
+    except DatasetValidationError as error:
+        # There are some detaile in error info about what's wrong:
+        print(f"dataset creation was failed with an {error=}")
+        bad_dataset = sdk.datasets.get(error.dataset_id)
+        print(f"going to delete {bad_dataset=}")
+        bad_dataset.delete()
+
+    # We reusing dataset_draft to make an another upload;
+    # Note it still contains bad data
+    bad_dataset = dataset_draft.upload(raise_on_validation_failure=False)
+    print(f"New {bad_dataset=} have a bad status {bad_dataset.status=}")
+    bad_dataset.delete()
+
+    for dataset in sdk.datasets.list(name_pattern=NAME):
+        dataset.delete()
+
+
+if __name__ == '__main__':
+    main()

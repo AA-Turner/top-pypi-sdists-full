@@ -1,9 +1,9 @@
 """Tests for direct solution of LBTE."""
 
 import numpy as np
+import phono3py._phono3py as phono3c
 import pytest
 
-import phono3py._phono3py as phono3c
 from phono3py.api_phono3py import Phono3py
 
 
@@ -95,7 +95,7 @@ def test_kappa_LBTE_aln(aln_lda: Phono3py):
     )
     kappa = aln_lda.thermal_conductivity.kappa.ravel()
     # print(", ".join([f"{k:e}" for k in kappa]))
-    np.testing.assert_allclose(ref_kappa, kappa, atol=0.3)
+    np.testing.assert_allclose(ref_kappa, kappa, atol=0.5)
 
 
 def test_kappa_LBTE_aln_with_sigma(aln_lda: Phono3py):

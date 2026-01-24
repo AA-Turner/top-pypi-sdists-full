@@ -37,6 +37,7 @@ extensions = [
     "sphinx.ext.linkcode",
     "aafig",
     "sphinxarg.ext",  # sphinx-argparse
+    "pretty_argparse",  # Enhanced sphinx-argparse: strip ANSI, format examples
     "sphinx_inline_tabs",
     "sphinx_copybutton",
     "sphinxext.opengraph",
@@ -118,6 +119,13 @@ autodoc_default_options = {
     "show-inheritance": True,
     "member-order": "bysource",
 }
+
+# sphinx-autodoc-typehints
+# Suppress warnings for forward references that can't be resolved
+# (types in TYPE_CHECKING blocks used for circular import avoidance)
+suppress_warnings = [
+    "sphinx_autodoc_typehints.forward_reference",
+]
 
 # sphinxext.opengraph
 ogp_site_url = about["__docs__"]

@@ -8,10 +8,39 @@ from datetime import date, datetime, time, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, Tuple
 
+from io import BytesIO
+
+import msgpack
+
 from .config import create_kolo_directory
-from .serialize import dump_msgpack, load_msgpack
+from .serialize import dump_msgpack
 
 logger = logging.getLogger("kolo")
+
+
+def extract_trace_name_fast(msgpack_bytes: bytes) -> str | None:
+    """Extract just trace_name from msgpack without full deserialization.
+
+    Uses msgpack's skip() to avoid deserializing the bulk of the trace data.
+    Returns None if trace_name is not set or not found.
+    """
+    unpacker = msgpack.Unpacker(BytesIO(msgpack_bytes), raw=False)
+
+    # Read map header
+    num_items = unpacker.read_map_header()
+
+    for _ in range(num_items):
+        key = unpacker.unpack()
+        if key == "trace_name":
+            value = unpacker.unpack()
+            # Return only if it's actually set (not None or empty)
+            if value:
+                return value
+            return None
+        else:
+            unpacker.skip()  # Skip without deserializing
+
+    return None
 
 
 class SchemaNotFoundError(Exception):
@@ -64,7 +93,8 @@ def create_traces_table(connection) -> None:
         created_at TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL,
         data text NULL,
         msgpack blob NULL,
-        is_pinned INTEGER DEFAULT 0
+        is_pinned INTEGER DEFAULT 0,
+        auto_generated_name TEXT NULL
     );
     """
     create_timestamp_index_query = """
@@ -77,11 +107,29 @@ def create_traces_table(connection) -> None:
     connection.execute(create_timestamp_index_query)
 
 
+def migrate_db(connection) -> None:
+    """Apply database migrations."""
+    try:
+        connection.execute("ALTER TABLE traces ADD COLUMN is_pinned INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
+    try:
+        connection.execute(
+            "ALTER TABLE traces ADD COLUMN auto_generated_name TEXT NULL"
+        )
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
+
 def setup_db() -> Path:
     db_path = get_db_path()
 
     with db_connection(db_path) as connection:
         create_traces_table(connection)
+        migrate_db(connection)
 
     return db_path
 
@@ -158,10 +206,15 @@ def list_traces_from_db(db_path: Path, count=500, reverse=False):
     return rows
 
 
-def list_traces_with_data_from_db(db_path: Path, count=500, reverse=False):
-    """Like list_traces_from_db but includes the msgpack data for each trace."""
+def list_traces_with_data_from_db(
+    db_path: Path, count: int = 500, reverse: bool = False
+) -> Iterator[Tuple[str, str, int, bytes, str | None]]:
+    """Like list_traces_from_db but includes the msgpack data for each trace.
+
+    Returns tuples of (id, created_at, size, msgpack, auto_generated_name).
+    """
     list_sql = """
-    SELECT id, created_at, LENGTH(msgpack), msgpack
+    SELECT id, created_at, LENGTH(msgpack), msgpack, auto_generated_name
     FROM traces ORDER BY id DESC LIMIT ?
     """
 
@@ -182,12 +235,17 @@ def list_traces_with_data_from_db(db_path: Path, count=500, reverse=False):
             yield row
 
 
-def get_pinned_traces(db_path: Path) -> Iterator[Tuple[str, str, int, bytes]]:
-    """Get all pinned traces from the database."""
+def get_pinned_traces(
+    db_path: Path,
+) -> Iterator[Tuple[str, str, int, bytes, str | None]]:
+    """Get all pinned traces from the database.
+
+    Returns tuples of (id, created_at, size, msgpack, auto_generated_name).
+    """
     with db_connection(db_path) as connection:
         cursor = connection.execute(
             """
-            SELECT id, created_at, LENGTH(msgpack), msgpack
+            SELECT id, created_at, LENGTH(msgpack), msgpack, auto_generated_name
             FROM traces
             WHERE is_pinned = 1
             ORDER BY id DESC
@@ -198,6 +256,15 @@ def get_pinned_traces(db_path: Path) -> Iterator[Tuple[str, str, int, bytes]]:
             if row is None:
                 break
             yield row
+
+
+def update_auto_generated_name(db_path: Path, trace_id: str, auto_name: str) -> None:
+    """Update the auto_generated_name for a trace (lazy migration)."""
+    with db_connection(db_path) as connection:
+        connection.execute(
+            "UPDATE traces SET auto_generated_name = ? WHERE id = ?",
+            (auto_name, trace_id),
+        )
 
 
 def delete_traces_by_id(db_path: Path, trace_ids: Tuple[str, ...]):

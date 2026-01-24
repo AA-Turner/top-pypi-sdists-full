@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, Union, Optional
+from datetime import datetime
 
 import httpx
 
 from ...types import customer_list_params, customer_create_params, customer_update_params
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -36,6 +37,7 @@ from .wallets.wallets import (
     AsyncWalletsResourceWithStreamingResponse,
 )
 from ...types.customer import Customer
+from ...types.customer_retrieve_payment_methods_response import CustomerRetrievePaymentMethodsResponse
 
 __all__ = ["CustomersResource", "AsyncCustomersResource"]
 
@@ -73,16 +75,19 @@ class CustomersResource(SyncAPIResource):
         *,
         email: str,
         name: str,
-        phone_number: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Dict[str, str] | Omit = omit,
+        phone_number: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
+          metadata: Additional metadata for the customer
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -97,6 +102,7 @@ class CustomersResource(SyncAPIResource):
                 {
                     "email": email,
                     "name": name,
+                    "metadata": metadata,
                     "phone_number": phone_number,
                 },
                 customer_create_params.CustomerCreateParams,
@@ -116,7 +122,7 @@ class CustomersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
@@ -142,17 +148,20 @@ class CustomersResource(SyncAPIResource):
         self,
         customer_id: str,
         *,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_number: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        phone_number: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
+          metadata: Additional metadata for the customer
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -167,6 +176,7 @@ class CustomersResource(SyncAPIResource):
             f"/customers/{customer_id}",
             body=maybe_transform(
                 {
+                    "metadata": metadata,
                     "name": name,
                     "phone_number": phone_number,
                 },
@@ -181,19 +191,28 @@ class CustomersResource(SyncAPIResource):
     def list(
         self,
         *,
-        email: str | NotGiven = NOT_GIVEN,
-        page_number: int | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        email: str | Omit = omit,
+        name: str | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncDefaultPageNumberPagination[Customer]:
         """
         Args:
+          created_at_gte: Filter customers created on or after this timestamp
+
+          created_at_lte: Filter customers created on or before this timestamp
+
           email: Filter by customer email
+
+          name: Filter by customer name (partial match, case-insensitive)
 
           page_number: Page number default is 0
 
@@ -217,7 +236,10 @@ class CustomersResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "created_at_gte": created_at_gte,
+                        "created_at_lte": created_at_lte,
                         "email": email,
+                        "name": name,
                         "page_number": page_number,
                         "page_size": page_size,
                     },
@@ -225,6 +247,37 @@ class CustomersResource(SyncAPIResource):
                 ),
             ),
             model=Customer,
+        )
+
+    def retrieve_payment_methods(
+        self,
+        customer_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CustomerRetrievePaymentMethodsResponse:
+        """
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not customer_id:
+            raise ValueError(f"Expected a non-empty value for `customer_id` but received {customer_id!r}")
+        return self._get(
+            f"/customers/{customer_id}/payment-methods",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=CustomerRetrievePaymentMethodsResponse,
         )
 
 
@@ -261,16 +314,19 @@ class AsyncCustomersResource(AsyncAPIResource):
         *,
         email: str,
         name: str,
-        phone_number: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Dict[str, str] | Omit = omit,
+        phone_number: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
+          metadata: Additional metadata for the customer
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -285,6 +341,7 @@ class AsyncCustomersResource(AsyncAPIResource):
                 {
                     "email": email,
                     "name": name,
+                    "metadata": metadata,
                     "phone_number": phone_number,
                 },
                 customer_create_params.CustomerCreateParams,
@@ -304,7 +361,7 @@ class AsyncCustomersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
@@ -330,17 +387,20 @@ class AsyncCustomersResource(AsyncAPIResource):
         self,
         customer_id: str,
         *,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        phone_number: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        phone_number: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Customer:
         """
         Args:
+          metadata: Additional metadata for the customer
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -355,6 +415,7 @@ class AsyncCustomersResource(AsyncAPIResource):
             f"/customers/{customer_id}",
             body=await async_maybe_transform(
                 {
+                    "metadata": metadata,
                     "name": name,
                     "phone_number": phone_number,
                 },
@@ -369,19 +430,28 @@ class AsyncCustomersResource(AsyncAPIResource):
     def list(
         self,
         *,
-        email: str | NotGiven = NOT_GIVEN,
-        page_number: int | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        email: str | Omit = omit,
+        name: str | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Customer, AsyncDefaultPageNumberPagination[Customer]]:
         """
         Args:
+          created_at_gte: Filter customers created on or after this timestamp
+
+          created_at_lte: Filter customers created on or before this timestamp
+
           email: Filter by customer email
+
+          name: Filter by customer name (partial match, case-insensitive)
 
           page_number: Page number default is 0
 
@@ -405,7 +475,10 @@ class AsyncCustomersResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "created_at_gte": created_at_gte,
+                        "created_at_lte": created_at_lte,
                         "email": email,
+                        "name": name,
                         "page_number": page_number,
                         "page_size": page_size,
                     },
@@ -413,6 +486,37 @@ class AsyncCustomersResource(AsyncAPIResource):
                 ),
             ),
             model=Customer,
+        )
+
+    async def retrieve_payment_methods(
+        self,
+        customer_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CustomerRetrievePaymentMethodsResponse:
+        """
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not customer_id:
+            raise ValueError(f"Expected a non-empty value for `customer_id` but received {customer_id!r}")
+        return await self._get(
+            f"/customers/{customer_id}/payment-methods",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=CustomerRetrievePaymentMethodsResponse,
         )
 
 
@@ -431,6 +535,9 @@ class CustomersResourceWithRawResponse:
         )
         self.list = to_raw_response_wrapper(
             customers.list,
+        )
+        self.retrieve_payment_methods = to_raw_response_wrapper(
+            customers.retrieve_payment_methods,
         )
 
     @cached_property
@@ -458,6 +565,9 @@ class AsyncCustomersResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             customers.list,
         )
+        self.retrieve_payment_methods = async_to_raw_response_wrapper(
+            customers.retrieve_payment_methods,
+        )
 
     @cached_property
     def customer_portal(self) -> AsyncCustomerPortalResourceWithRawResponse:
@@ -484,6 +594,9 @@ class CustomersResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             customers.list,
         )
+        self.retrieve_payment_methods = to_streamed_response_wrapper(
+            customers.retrieve_payment_methods,
+        )
 
     @cached_property
     def customer_portal(self) -> CustomerPortalResourceWithStreamingResponse:
@@ -509,6 +622,9 @@ class AsyncCustomersResourceWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             customers.list,
+        )
+        self.retrieve_payment_methods = async_to_streamed_response_wrapper(
+            customers.retrieve_payment_methods,
         )
 
     @cached_property

@@ -6,28 +6,29 @@ from crewai.cli.authentication.token import get_auth_token
 from crewai.cli.plus_api import PlusAPI
 from crewai.telemetry.telemetry import Telemetry
 
+
 console = Console()
 
 
 class BaseCommand:
-    def __init__(self):
+    def __init__(self) -> None:
         self._telemetry = Telemetry()
         self._telemetry.set_tracer()
 
 
 class PlusAPIMixin:
-    def __init__(self, telemetry):
+    def __init__(self, telemetry: Telemetry) -> None:
         try:
             telemetry.set_tracer()
             self.plus_api_client = PlusAPI(api_key=get_auth_token())
         except Exception:
-            self._deploy_signup_error_span = telemetry.deploy_signup_error_span()
+            telemetry.deploy_signup_error_span()
             console.print(
                 "Please sign up/login to CrewAI+ before using the CLI.",
                 style="bold red",
             )
             console.print("Run 'crewai login' to sign up/login.", style="bold green")
-            raise SystemExit
+            raise SystemExit from None
 
     def _validate_response(self, response: requests.Response) -> None:
         """
@@ -44,8 +45,10 @@ class PlusAPIMixin:
                 style="bold red",
             )
             console.print(f"Status Code: {response.status_code}")
-            console.print(f"Response:\n{response.content}")
-            raise SystemExit
+            console.print(
+                f"Response:\n{response.content.decode('utf-8', errors='replace')}"
+            )
+            raise SystemExit from None
 
         if response.status_code == 422:
             console.print(
@@ -66,7 +69,7 @@ class PlusAPIMixin:
             details = (
                 json_response.get("error")
                 or json_response.get("message")
-                or response.content
+                or response.content.decode("utf-8", errors="replace")
             )
             console.print(f"{details}")
             raise SystemExit

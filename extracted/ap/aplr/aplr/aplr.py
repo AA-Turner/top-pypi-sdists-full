@@ -1,5 +1,6 @@
 from typing import List, Callable, Optional, Dict, Union
 import numpy as np
+import pandas as pd
 import aplr_cpp
 import itertools
 
@@ -7,6 +8,56 @@ FloatVector = np.ndarray
 FloatMatrix = np.ndarray
 IntVector = np.ndarray
 IntMatrix = np.ndarray
+
+
+def _dataframe_to_cpp_dataframe(df: pd.DataFrame) -> aplr_cpp.CppDataFrame:
+    """Converts a pandas DataFrame to a CppDataFrame."""
+    cpp_df = aplr_cpp.CppDataFrame()
+    for col_name in df.columns:
+        col = df[col_name]
+        if pd.api.types.is_numeric_dtype(col.dtype):
+            # Convert numeric columns to std::vector<double>
+            # NaNs are preserved and handled in C++
+            cpp_df.add_numeric_column(
+                col_name, col.to_numpy(dtype=np.float64, na_value=np.nan)
+            )
+        elif (
+            isinstance(col.dtype, pd.CategoricalDtype)
+            or pd.api.types.is_object_dtype(col.dtype)
+            or pd.api.types.is_string_dtype(col.dtype)
+        ):
+            # Convert categorical/object/string columns to std::vector<std::string>
+            # Missing values (None, np.nan) are converted to empty strings for C++ handling
+            cpp_df.add_categorical_column(col_name, col.astype(str).fillna("").tolist())
+        else:
+            raise TypeError(
+                f"Unsupported column type for column '{col_name}': {col.dtype}"
+            )
+    return cpp_df
+
+
+def _prepare_input_data(
+    X: Union[pd.DataFrame, FloatMatrix], preprocess: bool
+) -> Union[aplr_cpp.CppDataFrame, FloatMatrix]:
+    """
+    Prepares the input data for the C++ backend.
+
+    If X is a pandas DataFrame, it's converted. If preprocess is True, it becomes
+    a CppDataFrame. If preprocess is False, it's converted to a NumPy array.
+    NumPy arrays are passed through as is.
+    """
+    if isinstance(X, pd.DataFrame):
+        if preprocess:
+            return _dataframe_to_cpp_dataframe(X)
+        else:
+            # Check if all columns are numeric before converting
+            if not all(pd.api.types.is_numeric_dtype(X[col]) for col in X.columns):
+                raise RuntimeError(
+                    "Cannot convert DataFrame to matrix if it contains non-numeric columns. "
+                    "Please ensure all columns are numeric or set preprocess=True."
+                )
+            return X.to_numpy(dtype=np.float64)
+    return X
 
 
 class APLRRegressor:
@@ -75,6 +126,9 @@ class APLRRegressor:
         penalty_for_interactions: float = 0.0,
         max_terms: int = 0,
         ridge_penalty: float = 0.0001,
+        mean_bias_correction: bool = False,
+        faster_convergence: bool = False,
+        preprocess: bool = True,
     ):
         self.m = m
         self.v = v
@@ -122,6 +176,9 @@ class APLRRegressor:
         self.penalty_for_interactions = penalty_for_interactions
         self.max_terms = max_terms
         self.ridge_penalty = ridge_penalty
+        self.mean_bias_correction = mean_bias_correction
+        self.faster_convergence = faster_convergence
+        self.preprocess = preprocess
 
         # Creating aplr_cpp and setting parameters
         self.APLRRegressor = aplr_cpp.APLRRegressor()
@@ -183,10 +240,13 @@ class APLRRegressor:
         self.APLRRegressor.penalty_for_interactions = self.penalty_for_interactions
         self.APLRRegressor.max_terms = self.max_terms
         self.APLRRegressor.ridge_penalty = self.ridge_penalty
+        self.APLRRegressor.mean_bias_correction = self.mean_bias_correction
+        self.APLRRegressor.faster_convergence = self.faster_convergence
+        self.APLRRegressor.preprocess = self.preprocess
 
     def fit(
         self,
-        X: FloatMatrix,
+        X: Union[pd.DataFrame, FloatMatrix],
         y: FloatVector,
         sample_weight: FloatVector = np.empty(0),
         X_names: List[str] = [],
@@ -202,6 +262,8 @@ class APLRRegressor:
         predictor_min_observations_in_split: List[int] = [],
     ):
         self.__set_params_cpp()
+        X = _prepare_input_data(X, self.preprocess)
+
         self.APLRRegressor.fit(
             X,
             y,
@@ -220,8 +282,12 @@ class APLRRegressor:
         )
 
     def predict(
-        self, X: FloatMatrix, cap_predictions_to_minmax_in_training: bool = True
+        self,
+        X: Union[pd.DataFrame, FloatMatrix],
+        cap_predictions_to_minmax_in_training: bool = True,
     ) -> FloatVector:
+        X = _prepare_input_data(X, self.preprocess)
+
         if self.link_function == "custom_function":
             self.APLRRegressor.calculate_custom_transform_linear_predictor_to_predictions_function = (
                 self.calculate_custom_transform_linear_predictor_to_predictions_function
@@ -232,29 +298,43 @@ class APLRRegressor:
         self.APLRRegressor.set_term_names(X_names)
 
     def calculate_feature_importance(
-        self, X: FloatMatrix, sample_weight: FloatVector = np.empty(0)
+        self,
+        X: Union[pd.DataFrame, FloatMatrix],
+        sample_weight: FloatVector = np.empty(0),
     ) -> FloatVector:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_feature_importance(X, sample_weight)
 
     def calculate_term_importance(
-        self, X: FloatMatrix, sample_weight: FloatVector = np.empty(0)
+        self,
+        X: Union[pd.DataFrame, FloatMatrix],
+        sample_weight: FloatVector = np.empty(0),
     ) -> FloatVector:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_term_importance(X, sample_weight)
 
-    def calculate_local_feature_contribution(self, X: FloatMatrix) -> FloatMatrix:
+    def calculate_local_feature_contribution(
+        self, X: Union[pd.DataFrame, FloatMatrix]
+    ) -> FloatMatrix:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_local_feature_contribution(X)
 
-    def calculate_local_term_contribution(self, X: FloatMatrix) -> FloatMatrix:
+    def calculate_local_term_contribution(
+        self, X: Union[pd.DataFrame, FloatMatrix]
+    ) -> FloatMatrix:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_local_term_contribution(X)
 
     def calculate_local_contribution_from_selected_terms(
-        self, X: FloatMatrix, predictor_indexes: List[int]
+        self, X: Union[pd.DataFrame, FloatMatrix], predictor_indexes: List[int]
     ) -> FloatVector:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_local_contribution_from_selected_terms(
             X, predictor_indexes
         )
 
-    def calculate_terms(self, X: FloatMatrix) -> FloatMatrix:
+    def calculate_terms(self, X: Union[pd.DataFrame, FloatMatrix]) -> FloatMatrix:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRRegressor.calculate_terms(X)
 
     def get_term_names(self) -> List[str]:
@@ -311,6 +391,53 @@ class APLRRegressor:
 
     def get_cv_error(self) -> float:
         return self.APLRRegressor.get_cv_error()
+
+    def get_num_cv_folds(self) -> int:
+        """
+        Gets the number of cross-validation folds used during training.
+
+        :return: The number of folds.
+        """
+        return self.APLRRegressor.get_num_cv_folds()
+
+    def get_cv_validation_predictions(self, fold_index: int) -> FloatVector:
+        """
+        Gets the validation predictions for a specific cross-validation fold.
+
+        Note that these predictions may be conservative, as the final model is an ensemble of the models
+        from all cross-validation folds, which has a variance-reducing effect similar to bagging.
+
+        :param fold_index: The index of the fold.
+        :return: A numpy array containing the validation predictions.
+        """
+        return self.APLRRegressor.get_cv_validation_predictions(fold_index)
+
+    def get_cv_y(self, fold_index: int) -> FloatVector:
+        """
+        Gets the validation response values (y) for a specific cross-validation fold.
+
+        :param fold_index: The index of the fold.
+        :return: A numpy array containing the validation response values.
+        """
+        return self.APLRRegressor.get_cv_y(fold_index)
+
+    def get_cv_sample_weight(self, fold_index: int) -> FloatVector:
+        """
+        Gets the validation sample weights for a specific cross-validation fold.
+
+        :param fold_index: The index of the fold.
+        :return: A numpy array containing the validation sample weights.
+        """
+        return self.APLRRegressor.get_cv_sample_weight(fold_index)
+
+    def get_cv_validation_indexes(self, fold_index: int) -> IntVector:
+        """
+        Gets the original indexes of the validation observations for a specific cross-validation fold.
+
+        :param fold_index: The index of the fold.
+        :return: A numpy array containing the original indexes.
+        """
+        return self.APLRRegressor.get_cv_validation_indexes(fold_index)
 
     def set_intercept(self, value: float):
         self.APLRRegressor.set_intercept(value)
@@ -430,6 +557,12 @@ class APLRRegressor:
         self.calculate_custom_loss_function = None
         self.calculate_custom_negative_gradient_function = None
 
+    def clear_cv_results(self):
+        """
+        Clears the stored cross-validation results (predictions, y, etc.) to free up memory.
+        """
+        self.APLRRegressor.clear_cv_results()
+
     # For sklearn
     def get_params(self, deep=True):
         return {
@@ -465,6 +598,9 @@ class APLRRegressor:
             "penalty_for_interactions": self.penalty_for_interactions,
             "max_terms": self.max_terms,
             "ridge_penalty": self.ridge_penalty,
+            "mean_bias_correction": self.mean_bias_correction,
+            "faster_convergence": self.faster_convergence,
+            "preprocess": self.preprocess,
         }
 
     # For sklearn
@@ -473,6 +609,19 @@ class APLRRegressor:
             setattr(self, parameter, value)
         self.__set_params_cpp()
         return self
+
+    def __setstate__(self, state):
+        # For backwards compatibility with older pickled models
+        if "ridge_penalty" not in state:
+            state["ridge_penalty"] = 0.0
+        if "mean_bias_correction" not in state:
+            state["mean_bias_correction"] = False
+        if "faster_convergence" not in state:
+            state["faster_convergence"] = False
+        if "preprocess" not in state:
+            state["preprocess"] = False
+        self.__dict__.update(state)
+        self.__set_params_cpp()
 
 
 class APLRClassifier:
@@ -498,6 +647,7 @@ class APLRClassifier:
         penalty_for_interactions: float = 0.0,
         max_terms: int = 0,
         ridge_penalty: float = 0.0001,
+        preprocess: bool = True,
     ):
         self.m = m
         self.v = v
@@ -525,6 +675,7 @@ class APLRClassifier:
         self.penalty_for_interactions = penalty_for_interactions
         self.max_terms = max_terms
         self.ridge_penalty = ridge_penalty
+        self.preprocess = preprocess
 
         # Creating aplr_cpp and setting parameters
         self.APLRClassifier = aplr_cpp.APLRClassifier()
@@ -560,11 +711,12 @@ class APLRClassifier:
         self.APLRClassifier.penalty_for_interactions = self.penalty_for_interactions
         self.APLRClassifier.max_terms = self.max_terms
         self.APLRClassifier.ridge_penalty = self.ridge_penalty
+        self.APLRClassifier.preprocess = self.preprocess
 
     def fit(
         self,
-        X: FloatMatrix,
-        y: List[str],
+        X: Union[pd.DataFrame, FloatMatrix],
+        y: Union[FloatVector, List[str]],
         sample_weight: FloatVector = np.empty(0),
         X_names: List[str] = [],
         cv_observations: IntMatrix = np.empty([0, 0]),
@@ -577,6 +729,14 @@ class APLRClassifier:
         predictor_min_observations_in_split: List[int] = [],
     ):
         self.__set_params_cpp()
+
+        X = _prepare_input_data(X, self.preprocess)
+
+        if isinstance(y, np.ndarray):
+            y = y.astype(str).tolist()
+        elif isinstance(y, list) and y and not isinstance(y[0], str):
+            y = [str(val) for val in y]
+
         self.APLRClassifier.fit(
             X,
             y,
@@ -595,18 +755,29 @@ class APLRClassifier:
         self.classes_ = np.arange(len(self.APLRClassifier.get_categories()))
 
     def predict_class_probabilities(
-        self, X: FloatMatrix, cap_predictions_to_minmax_in_training: bool = False
+        self,
+        X: Union[pd.DataFrame, FloatMatrix],
+        cap_predictions_to_minmax_in_training: bool = False,
     ) -> FloatMatrix:
+        X = _prepare_input_data(X, self.preprocess)
+
         return self.APLRClassifier.predict_class_probabilities(
             X, cap_predictions_to_minmax_in_training
         )
 
     def predict(
-        self, X: FloatMatrix, cap_predictions_to_minmax_in_training: bool = False
+        self,
+        X: Union[pd.DataFrame, FloatMatrix],
+        cap_predictions_to_minmax_in_training: bool = False,
     ) -> List[str]:
+        X = _prepare_input_data(X, self.preprocess)
+
         return self.APLRClassifier.predict(X, cap_predictions_to_minmax_in_training)
 
-    def calculate_local_feature_contribution(self, X: FloatMatrix) -> FloatMatrix:
+    def calculate_local_feature_contribution(
+        self, X: Union[pd.DataFrame, FloatMatrix]
+    ) -> FloatMatrix:
+        X = _prepare_input_data(X, self.preprocess)
         return self.APLRClassifier.calculate_local_feature_contribution(X)
 
     def get_categories(self) -> List[str]:
@@ -638,6 +809,7 @@ class APLRClassifier:
             penalty_for_interactions=self.penalty_for_interactions,
             max_terms=self.max_terms,
             ridge_penalty=self.ridge_penalty,
+            preprocess=self.preprocess,
         )
 
         logit_model_py.APLRRegressor = logit_model_cpp
@@ -658,6 +830,12 @@ class APLRClassifier:
 
     def get_base_predictors_in_each_unique_term_affiliation(self) -> List[List[int]]:
         return self.APLRClassifier.get_base_predictors_in_each_unique_term_affiliation()
+
+    def clear_cv_results(self):
+        """
+        Clears the stored cross-validation results from all underlying logit models to free up memory.
+        """
+        self.APLRClassifier.clear_cv_results()
 
     # For sklearn
     def get_params(self, deep=True):
@@ -682,6 +860,7 @@ class APLRClassifier:
             "penalty_for_interactions": self.penalty_for_interactions,
             "max_terms": self.max_terms,
             "ridge_penalty": self.ridge_penalty,
+            "preprocess": self.preprocess,
         }
 
     # For sklearn
@@ -694,6 +873,15 @@ class APLRClassifier:
     # For sklearn
     def predict_proba(self, X: FloatMatrix) -> FloatMatrix:
         return self.predict_class_probabilities(X)
+
+    def __setstate__(self, state):
+        # For backwards compatibility with older pickled models
+        if "ridge_penalty" not in state:
+            state["ridge_penalty"] = 0.0
+        if "preprocess" not in state:
+            state["preprocess"] = False
+        self.__dict__.update(state)
+        self.__set_params_cpp()
 
 
 class APLRTuner:
@@ -716,7 +904,7 @@ class APLRTuner:
         grid = [dict(zip(keys, combination)) for combination in combinations]
         return grid
 
-    def fit(self, X: FloatMatrix, y: FloatVector, **kwargs):
+    def fit(self, X: Union[pd.DataFrame, FloatMatrix], y: FloatVector, **kwargs):
         self.cv_results: List[Dict[str, float]] = []
         best_validation_result = np.inf
         for params in self.parameter_grid:
@@ -734,10 +922,14 @@ class APLRTuner:
                 self.best_model = model
         self.cv_results = sorted(self.cv_results, key=lambda x: x["cv_error"])
 
-    def predict(self, X: FloatMatrix, **kwargs) -> Union[FloatVector, List[str]]:
+    def predict(
+        self, X: Union[pd.DataFrame, FloatMatrix], **kwargs
+    ) -> Union[FloatVector, List[str]]:
         return self.best_model.predict(X, **kwargs)
 
-    def predict_class_probabilities(self, X: FloatMatrix, **kwargs) -> FloatMatrix:
+    def predict_class_probabilities(
+        self, X: Union[pd.DataFrame, FloatMatrix], **kwargs
+    ) -> FloatMatrix:
         if self.is_regressor == False:
             return self.best_model.predict_class_probabilities(X, **kwargs)
         else:
@@ -745,7 +937,9 @@ class APLRTuner:
                 "predict_class_probabilities is only possible when is_regressor is False"
             )
 
-    def predict_proba(self, X: FloatMatrix, **kwargs) -> FloatMatrix:
+    def predict_proba(
+        self, X: Union[pd.DataFrame, FloatMatrix], **kwargs
+    ) -> FloatMatrix:
         return self.predict_class_probabilities(X, **kwargs)
 
     def get_best_estimator(self) -> Union[APLRClassifier, APLRRegressor]:

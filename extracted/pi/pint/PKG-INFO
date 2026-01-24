@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Pint
-Version: 0.25
+Version: 0.25.2
 Summary: Physical quantities module
 Project-URL: Homepage, https://github.com/hgrecco/pint
 Project-URL: Documentation, https://pint.readthedocs.io/
@@ -51,6 +51,7 @@ Requires-Dist: dask<2025.3.0; extra == 'dask'
 Provides-Extra: docs
 Requires-Dist: babel; extra == 'docs'
 Requires-Dist: commonmark==0.8.1; extra == 'docs'
+Requires-Dist: currencyconverter; extra == 'docs'
 Requires-Dist: docutils; extra == 'docs'
 Requires-Dist: graphviz; extra == 'docs'
 Requires-Dist: ipykernel; extra == 'docs'

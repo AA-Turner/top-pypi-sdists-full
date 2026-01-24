@@ -1,6 +1,3 @@
-import dateutil.parser
-
-
 def add_observation(acc, path):
 
     node = acc
@@ -18,19 +15,26 @@ def add_observations(acc, path, data):
         for key in data:
             add_observations(acc, path + ["object", key], data[key])
     elif isinstance(data, list):
+        if len(data) == 0:
+            add_observations(acc, path + ["array"], None)
         for item in data:
             add_observations(acc, path + ["array"], item)
     elif isinstance(data, str):
-        # If the string parses as a date, add an observation that its a date
         try:
-            data = dateutil.parser.parse(data)
-        except (dateutil.parser.ParserError, OverflowError):
-            data = None
-        if data:
-            add_observation(acc, path + ["date"])
-        else:
-            add_observation(acc, path + ["string"])
-
+            # If the string parses as a int, add an observation that it's a integer
+            int(data)
+            add_observation(acc, path + ["integer"])
+            return acc
+        except (ValueError, TypeError):
+            pass
+        try:
+            # If the string parses as a float, add an observation that it's a number
+            float(data)
+            add_observation(acc, path + ["number"])
+            return acc
+        except (ValueError, TypeError):
+            pass
+        add_observation(acc, path + ["string"])
     elif isinstance(data, bool):
         add_observation(acc, path + ["boolean"])
     elif isinstance(data, int):
@@ -40,14 +44,18 @@ def add_observations(acc, path, data):
     elif data is None:
         add_observation(acc, path + ["null"])
     else:
-        raise Exception("Unexpected value " + repr(data) + " at path " + repr(path))
+        add_observation(acc, path + ["string"])
 
     return acc
 
 def to_json_schema(obs):
-    result = {'type': ['null']}
+    types = []
+    # add schema types in a specific order to anyOf list
+    for key in ['array', 'object', 'number', 'integer', 'boolean', 'string', 'null']:
+        if key not in obs:
+            continue
 
-    for key in obs:
+        result = {'type': ['null']}
 
         if key == 'object':
             result['type'] += ['object']
@@ -60,9 +68,6 @@ def to_json_schema(obs):
             result['type'] += ['array']
             result['items'] = to_json_schema(obs['array'])
 
-        elif key == 'date':
-            result['type'] += ['string']
-            result['format'] = 'date-time'
         elif key == 'string':
             result['type'] += ['string']
 
@@ -83,7 +88,15 @@ def to_json_schema(obs):
         else:
             raise Exception("Unexpected data type " + key)
 
-    return result
+        types.append(result)
+
+    if len(types) == 0:
+        return {'type': ['null', 'string']}
+
+    if len(types) == 1:
+        return types[0]
+
+    return {'anyOf': types}
 
 def generate_schema(records):
     obs = {}

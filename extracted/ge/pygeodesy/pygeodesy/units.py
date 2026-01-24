@@ -820,6 +820,11 @@ def _isMeter(obj, iscalar=True):
     return isinstance(obj, _Meters) or (iscalar and _isScalar(obj))
 
 
+def _isRadians(obj, iscalar=True):
+    # Check for valid radian types.
+    return isinstance(obj, _Radians) or (iscalar and _isScalar(obj))
+
+
 def _isRadius(obj, iscalar=True):
     # Check for valid earth radius types.
     return isinstance(obj, _Radii) or (iscalar and _isScalar(obj))
@@ -872,7 +877,7 @@ __all__ += _ALL_DOCS(_NamedUnit)
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

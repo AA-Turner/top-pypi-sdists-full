@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use pyo3::intern;
 use pyo3::prelude::*;
@@ -8,9 +9,10 @@ use pyo3::types::{PyDict, PyList};
 use crate::definitions::DefinitionsBuilder;
 use crate::definitions::{DefinitionRef, RecursionSafeCache};
 
+use crate::serializers::SerializationState;
 use crate::tools::SchemaDict;
 
-use super::{py_err_se_err, BuildSerializer, CombinedSerializer, Extra, TypeSerializer};
+use super::{py_err_se_err, BuildSerializer, CombinedSerializer, TypeSerializer};
 
 #[derive(Debug)]
 pub struct DefinitionsSerializerBuilder;
@@ -21,8 +23,8 @@ impl BuildSerializer for DefinitionsSerializerBuilder {
     fn build(
         schema: &Bound<'_, PyDict>,
         config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
         let py = schema.py();
 
         let schema_definitions: Bound<'_, PyList> = schema.get_as_req(intern!(py, "definitions"))?;
@@ -40,18 +42,8 @@ impl BuildSerializer for DefinitionsSerializerBuilder {
 }
 
 pub struct DefinitionRefSerializer {
-    definition: DefinitionRef<CombinedSerializer>,
+    definition: DefinitionRef<Arc<CombinedSerializer>>,
     retry_with_lax_check: RecursionSafeCache<bool>,
-}
-
-// TODO(DH): Remove the need to clone serializers
-impl Clone for DefinitionRefSerializer {
-    fn clone(&self) -> Self {
-        Self {
-            definition: self.definition.clone(),
-            retry_with_lax_check: RecursionSafeCache::new(),
-        }
-    }
 }
 
 impl std::fmt::Debug for DefinitionRefSerializer {
@@ -69,14 +61,14 @@ impl BuildSerializer for DefinitionRefSerializer {
     fn build(
         schema: &Bound<'_, PyDict>,
         _config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
         let schema_ref: PyBackedStr = schema.get_as_req(intern!(schema.py(), "schema_ref"))?;
         let definition = definitions.get_definition(&schema_ref);
-        Ok(Self {
+        Ok(CombinedSerializer::Recursive(Self {
             definition,
             retry_with_lax_check: RecursionSafeCache::new(),
-        }
+        })
         .into())
     }
 }
@@ -84,38 +76,38 @@ impl BuildSerializer for DefinitionRefSerializer {
 impl_py_gc_traverse!(DefinitionRefSerializer {});
 
 impl TypeSerializer for DefinitionRefSerializer {
-    fn to_python(
+    fn to_python<'py>(
         &self,
-        value: &Bound<'_, PyAny>,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        mut extra: &Extra,
-    ) -> PyResult<PyObject> {
+        value: &Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Py<PyAny>> {
         self.definition.read(|comb_serializer| {
             let comb_serializer = comb_serializer.unwrap();
-            let mut guard = extra.recursion_guard(value, self.definition.id())?;
-            comb_serializer.to_python_no_infer(value, include, exclude, guard.state())
+            let mut guard = state.recursion_guard(value, self.definition.id())?;
+            comb_serializer.to_python_no_infer(value, guard.state())
         })
     }
 
-    fn json_key<'a>(&self, key: &'a Bound<'_, PyAny>, extra: &Extra) -> PyResult<Cow<'a, str>> {
-        self.definition.read(|s| s.unwrap().json_key_no_infer(key, extra))
+    fn json_key<'a, 'py>(
+        &self,
+        key: &'a Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Cow<'a, str>> {
+        self.definition.read(|s| s.unwrap().json_key_no_infer(key, state))
     }
 
-    fn serde_serialize<S: serde::ser::Serializer>(
+    fn serde_serialize<'py, S: serde::ser::Serializer>(
         &self,
-        value: &Bound<'_, PyAny>,
+        value: &Bound<'py, PyAny>,
         serializer: S,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        mut extra: &Extra,
+        state: &mut SerializationState<'_, 'py>,
     ) -> Result<S::Ok, S::Error> {
         self.definition.read(|comb_serializer| {
             let comb_serializer = comb_serializer.unwrap();
-            let mut guard = extra
+            let mut guard = state
                 .recursion_guard(value, self.definition.id())
                 .map_err(py_err_se_err)?;
-            comb_serializer.serde_serialize_no_infer(value, serializer, include, exclude, guard.state())
+            comb_serializer.serde_serialize_no_infer(value, serializer, guard.state())
         })
     }
 

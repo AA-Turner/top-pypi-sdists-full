@@ -16,8 +16,8 @@ from io import StringIO
 from itertools import chain, groupby, islice
 from operator import itemgetter
 
+import trytond.config as config
 from trytond.cache import Cache, LRUDictTransaction, freeze, unfreeze
-from trytond.config import config
 from trytond.const import OPERATORS
 from trytond.exceptions import UserError
 from trytond.i18n import gettext, lazy_gettext
@@ -36,13 +36,6 @@ from .descriptors import dualmethod
 from .model import Model
 
 __all__ = ['ModelStorage', 'EvalEnvironment']
-_cache_field = config.getint('cache', 'field')
-_cache_count_timeout = config.getint(
-    'cache', 'count_timeout', default=60 * 60 * 24)
-_cache_count_clear = config.getint(
-    'cache', 'count_clear', default=1000)
-_request_timeout = config.getint('request', 'timeout', default=0)
-_request_records_limit = config.getint('request', 'records_limit')
 
 
 def local_cache(Model, transaction=None):
@@ -125,7 +118,10 @@ class ModelStorage(Model):
     xml_id = fields.Function(
         fields.Char(lazy_gettext('ir.msg_xml_id')), 'get_xml_id')
     _count_cache = Cache(
-        'modelstorage.count', duration=_cache_count_timeout, context=False)
+        'modelstorage.count',
+        duration=config.getint(
+            'cache', 'count_timeout', default=60 * 60 * 24),
+        context=False)
     _log = None
 
     @classmethod
@@ -133,74 +129,76 @@ class ModelStorage(Model):
         from .modelview import ModelView
         super().__setup__()
         if issubclass(cls, ModelView):
+            request_timeout = config.getint('request', 'timeout', default=0)
+            request_records_limit = config.getint('request', 'records_limit')
             cls.__rpc__.update({
                     'create': RPC(
                         readonly=False,
                         size_limits={
-                            0: _request_records_limit,
+                            0: request_records_limit,
                             },
                         result=lambda r: list(map(int, r))),
                     'read': RPC(
-                        timeout=_request_timeout,
+                        timeout=request_timeout,
                         size_limits={
-                            0: _request_records_limit,
+                            0: request_records_limit,
                             }),
                     'write': RPC(
                         readonly=False,
                         instantiate=slice(0, None, 2),
                         size_limits={
-                            (0, None, 2): _request_records_limit,
+                            (0, None, 2): request_records_limit,
                             }),
                     'delete': RPC(
                         readonly=False,
                         instantiate=0,
                         size_limits={
-                            (0, None, 2): _request_records_limit,
+                            (0, None, 2): request_records_limit,
                             }),
                     'copy': RPC(
                         readonly=False,
                         instantiate=0,
                         unique=False,
                         size_limits={
-                            0: _request_records_limit,
+                            0: request_records_limit,
                             },
                         result=lambda r: list(map(int, r))),
                     'search': RPC(
                         result=lambda r: list(map(int, r)),
                         size_limits={
-                            2: _request_records_limit,
+                            2: request_records_limit,
                             },
-                        timeout=_request_timeout),
+                        timeout=request_timeout),
                     'search_count': RPC(
-                        timeout=_request_timeout,
+                        timeout=request_timeout,
                         size_limits={
-                            2: _request_records_limit,
+                            2: request_records_limit,
                             }),
                     'search_read': RPC(
-                        timeout=_request_timeout,
+                        timeout=request_timeout,
                         size_limits={
-                            2: _request_records_limit,
+                            2: request_records_limit,
                             }),
                     'resources': RPC(
                         instantiate=0,
                         unique=False,
-                        timeout=_request_timeout),
+                        timeout=request_timeout),
                     'export_data_domain': RPC(
-                        timeout=_request_timeout,
+                        timeout=request_timeout,
                         size_limits={
-                            4: _request_records_limit,
+                            4: request_records_limit,
                             }),
                     'export_data': RPC(
                         instantiate=0,
                         unique=False,
                         size_limits={
-                            0: _request_records_limit,
+                            0: request_records_limit,
                             },
-                        timeout=_request_timeout),
+                        timeout=request_timeout),
                     'import_data': RPC(
                         readonly=False,
                         size_limits={
-                            1: _request_records_limit,
+                            1: request_records_limit,
                             }),
                     })
         if cls._log is None:
@@ -236,14 +234,16 @@ class ModelStorage(Model):
             return
         pool = Pool()
         Log = pool.get('ir.model.log')
-        transaction = Transaction()
-        if user is None:
-            user = transaction.user
-        for record in records:
-            assert record.id >= 0
-            transaction.log_records.append(Log(
-                    resource=record, event=event, target=target, user=user,
-                    **extra))
+        for transaction, sub_records in groupby(
+                records, lambda r: r._transaction):
+            with Transaction().set_current_transaction(transaction):
+                if user is None:
+                    user = transaction.user
+                for record in records:
+                    assert record.id >= 0
+                    transaction.log_records.append(Log(
+                            resource=record, event=event, target=target,
+                            user=user, **extra))
 
     @classmethod
     def preprocess_values(cls, mode, values):
@@ -267,7 +267,8 @@ class ModelStorage(Model):
 
         count = cls._count_cache.get(cls.__name__)
         if count is not None:
-            if random.random() < 1 / _cache_count_clear:
+            if random.random() < 1 / config.getint(
+                    'cache', 'count_clear', default=1000):
                 cls._count_cache.set(cls.__name__, None)
             else:
                 cls._count_cache.set(cls.__name__, count + len(vlist))
@@ -300,7 +301,7 @@ class ModelStorage(Model):
                     for trigger in triggers:
                         trigger.queue_trigger_action(records)
 
-            transaction.create_records[cls.__name__].update(ids)
+            transaction.create_records[cls.__name__].extend(ids)
             return ids
 
     @classmethod
@@ -464,7 +465,8 @@ class ModelStorage(Model):
 
         count = cls._count_cache.get(cls.__name__)
         if count is not None:
-            if random.random() < 1 / _cache_count_clear:
+            if random.random() < 1 / config.getint(
+                    'cache', 'count_clear', default=1000):
                 cls._count_cache.set(cls.__name__, None)
             else:
                 cls._count_cache.set(cls.__name__, count - len(records))
@@ -539,10 +541,9 @@ class ModelStorage(Model):
                 for name, value in default.items()
                 if name.startswith(prefix)}
 
-        def convert_data(field_defs, origin, default_values):
+        def convert_data(fields_, origin, default_values):
             data = origin.copy()
-            for field_name in field_defs:
-                ftype = field_defs[field_name]['type']
+            for field_name, field in fields_.items():
                 field = cls._fields[field_name]
 
                 if field_name in (
@@ -564,25 +565,25 @@ class ModelStorage(Model):
                 elif (isinstance(field, fields.Function)
                         and not isinstance(field, fields.MultiValue)):
                     del data[field_name]
-                elif ftype in ('many2one', 'one2one'):
+                elif field._type in ('many2one', 'one2one'):
                     try:
                         data[field_name] = data[field_name] and \
                             data[field_name][0]
                     except Exception:
                         pass
-                elif ftype == 'one2many':
+                elif field._type == 'one2many':
                     if is_readonly(field) or field.filter:
                         del data[field_name]
                     elif data[field_name]:
                         data[field_name] = [(
                                 'copy', data[field_name],
                                 get_default(field_name))]
-                elif ftype == 'many2many':
+                elif field._type == 'many2many':
                     if is_readonly(field) or field.filter:
                         del data[field_name]
                     elif data[field_name]:
                         data[field_name] = [('add', data[field_name])]
-                elif ftype == 'binary':
+                elif field._type == 'binary':
                     # Copy only file_id
                     if (field.file_id
                             and origin.get(field.file_id)
@@ -600,32 +601,31 @@ class ModelStorage(Model):
                     and field.left and field.right):
                 mptt.add(field.left)
                 mptt.add(field.right)
-        fields_names = [n for n, f in cls._fields.items()
+        fields_ = {n: f for n, f in cls._fields.items()
             if (not isinstance(f, fields.Function)
                 or isinstance(f, fields.MultiValue))
-            and n not in mptt]
+            and n not in mptt}
+        fields_names = list(fields_.keys())
 
         def _default_fields():
             return {k.split('.', 1)[0] for k in default.keys()}
-        assert _default_fields() <= set(fields_names), (
-            f"Invalid default fields {_default_fields() - set(fields_names)} "
+        assert _default_fields() <= fields_.keys(), (
+            f"Invalid default fields {_default_fields() - fields_.keys()} "
             f"for {cls.__name__}")
         ids = list(map(int, records))
         with without_check_access():
             values = {
                 d['id']: d for d in cls.read(ids, fields_names=fields_names)}
-        field_defs = cls.fields_get(fields_names=fields_names)
         default_values = cls.default_get(fields_names, with_rec_name=False)
         to_create = []
         for id_ in ids:
-            data = convert_data(field_defs, values[id_], default_values)
+            data = convert_data(fields_, values[id_], default_values)
             to_create.append(data)
         new_records = cls.create(to_create)
 
         fields_translate = {}
-        for field_name, field in field_defs.items():
-            if (field_name in cls._fields
-                    and getattr(cls._fields[field_name], 'translate', False)):
+        for field_name, field in fields_.items():
+            if getattr(field, 'translate', False):
                 fields_translate[field_name] = field
 
         if fields_translate:
@@ -809,10 +809,11 @@ class ModelStorage(Model):
         Return the rec_name of the instance.
         It is used by the Function field rec_name.
         '''
-        rec_name = self._rec_name
-        if rec_name not in self._fields:
-            rec_name = 'id'
-        return str(getattr(self, rec_name))
+        if self._rec_name in self._fields:
+            name = getattr(self, self._rec_name)
+        else:
+            name = None
+        return str(name or f'({self.id})')
 
     @classmethod
     def search_rec_name(cls, name, clause):
@@ -865,6 +866,11 @@ class ModelStorage(Model):
 
     def __export_row(self, fields_names):
         pool = Pool()
+        ModelAccess = pool.get('ir.model.access')
+        ModelFieldAccess = pool.get('ir.model.field.access')
+        Rule = pool.get('ir.rule')
+        IrModel = pool.get('ir.model')
+
         lines = []
         data = ['' for x in range(len(fields_names))]
         done = []
@@ -886,6 +892,24 @@ class ModelStorage(Model):
                     field_name, language = field_name.split(':lang=')
                 eModel = pool.get(value.__name__)
                 field = eModel._fields[field_name]
+
+                ModelAccess.check(eModel.__name__, 'read')
+                ModelFieldAccess.check(eModel.__name__, [field_name], 'read')
+                domain = Rule.domain_get(eModel.__name__, mode='read')
+                if (domain
+                        and not eval_domain(
+                            domain, EvalEnvironment(value, eModel))):
+                    clause, clause_global = Rule.get(
+                        eModel.__name__, mode='read')
+                    rules = []
+                    rules.extend(clause.keys())
+                    rules.extend(clause_global.keys())
+                    raise AccessError(gettext(
+                            'ir.msg_read_rule_error',
+                            ids=str(value.id),
+                            model=IrModel.get_name(eModel.__name__),
+                            rules='\n'.join(r.name for r in rules)))
+
                 if field.states and 'invisible' in field.states:
                     invisible = _record_eval_pyson(
                         value, field.states['invisible'])
@@ -902,29 +926,35 @@ class ModelStorage(Model):
                     first = True
                     child_fields_names = [(x[:i + 1] == fields_tree[:i + 1]
                             and x[i + 1:]) or [] for x in fields_names]
-                    if child_fields_names in done:
+                    if any(child_fields_names):
+                        if child_fields_names in done:
+                            break
+                        done.append(child_fields_names)
+                        for child_record in value:
+                            child_lines = child_record.__export_row(
+                                child_fields_names)
+                            if first:
+                                if child_lines:
+                                    for child_fpos in range(len(fields_names)):
+                                        if child_fields_names[child_fpos]:
+                                            data[child_fpos] = (
+                                                child_lines[0][child_fpos])
+                                lines += child_lines[1:]
+                                first = False
+                            else:
+                                lines += child_lines
                         break
-                    done.append(child_fields_names)
-                    for child_record in value:
-                        child_lines = child_record.__export_row(
-                            child_fields_names)
-                        if first:
-                            if child_lines:
-                                for child_fpos in range(len(fields_names)):
-                                    if child_fields_names[child_fpos]:
-                                        data[child_fpos] = (
-                                            child_lines[0][child_fpos])
-                            lines += child_lines[1:]
-                            first = False
-                        else:
-                            lines += child_lines
-                    break
+                    else:
+                        value = [r.rec_name for r in value]
                 i += 1
             if i == len(fields_tree):
                 if value is None:
                     value = ''
                 elif isinstance(value, Model):
-                    value = str(value)
+                    if field._type == 'reference':
+                        value = f'{value.__name__},{value.rec_name}'
+                    else:
+                        value = value.rec_name
                 elif isinstance(value, (list, tuple)):
                     output = StringIO()
                     writer = csv.writer(
@@ -1016,10 +1046,9 @@ class ModelStorage(Model):
 
         @error
         @lru_cache(maxsize=1000)
-        def get_many2one(value, relation):
+        def get_many2one(value, Relation):
             if not value:
                 return None
-            Relation = pool.get(relation)
             res = Relation.search([
                 ('rec_name', '=', value),
                 ], limit=2)
@@ -1039,11 +1068,10 @@ class ModelStorage(Model):
 
         @error
         @lru_cache(maxsize=1000)
-        def get_many2many(value, relation):
+        def get_many2many(value, Relation):
             if not value:
                 return None
             res = []
-            Relation = pool.get(relation)
             for word in next(csv.reader(value.splitlines(), delimiter=',',
                     quoting=csv.QUOTE_NONE, escapechar='\\')):
                 res2 = Relation.search([
@@ -1189,7 +1217,8 @@ class ModelStorage(Model):
                     value=value,
                     **klass.__names__(field)) from e
 
-        def process_lines(data, prefix, fields_def, position=0, klass=cls):
+        def process_lines(data, prefix, position=0, klass=cls):
+            fields_ = klass._fields
             line = data[position]
             row = {}
             translate = {}
@@ -1215,27 +1244,25 @@ class ModelStorage(Model):
                     translate.setdefault(lang, {})[field_name] = line[i]
                 elif is_prefix_len and prefix == field[:-1]:
                     field_name = field[-1]
-                    this_field_def = fields_def[field_name]
-                    field_type = this_field_def['type']
+                    field = fields_[field_name]
                     res = None
                     if field_name == 'id':
                         try:
                             res = int(line[i])
                         except ValueError:
-                            res = get_many2one(line, i, klass.__name__)
-                    elif field_type == 'many2one':
-                        res = get_many2one(line, i, this_field_def['relation'])
-                    elif field_type == 'many2many':
+                            res = get_many2one(line, i, klass)
+                    elif field._type == 'many2one':
+                        res = get_many2one(line, i, field.get_target())
+                    elif field._type in {'many2many', 'one2many'}:
                         many2many.add(field_name)
-                        res = get_many2many(
-                            line, i, this_field_def['relation'])
+                        res = get_many2many(line, i, field.get_target())
                         res = [('add', res)] if res else []
-                    elif field_type == 'one2one':
-                        res = get_one2one(line, i, this_field_def['relation'])
-                    elif field_type == 'reference':
+                    elif field._type == 'one2one':
+                        res = get_one2one(line, i, field.get_target())
+                    elif field._type == 'reference':
                         res = get_reference(line, i, field_name, klass)
                     else:
-                        res = convert(line, i, field_type, field_name, klass)
+                        res = convert(line, i, field._type, field_name, klass)
                     row[field_name] = res
                 elif prefix == field[0:prefix_len]:
                     todo.add(field[prefix_len])
@@ -1251,11 +1278,11 @@ class ModelStorage(Model):
 
             # Import one2many fields
             nbrmax = 1
-            for field in todo:
-                Relation = pool.get(fields_def[field]['relation'])
-                newfd = Relation.fields_get()
+            for field_name in todo:
+                field = fields_[field_name]
+                Relation = field.get_target()
                 newrow, max2, _ = process_lines(
-                    data, prefix + [field], newfd, position, klass=Relation)
+                    data, prefix + [field_name], position, klass=Relation)
                 nbrmax = max(nbrmax, max2)
                 create, write = [], []
                 dispatch(create, write, newrow, Relation)
@@ -1270,23 +1297,23 @@ class ModelStorage(Model):
                     if not test:
                         break
                     newrow, max2, _ = process_lines(
-                        data, prefix + [field], newfd, position + i,
+                        data, prefix + [field_name], position + i,
                         klass=Relation)
                     dispatch(create, write, newrow, Relation)
                     i += max2
                     nbrmax = max(nbrmax, i)
-                row[field] = []
+                row[field_name] = []
                 create = [v for v in create if any(v.values())]
                 if create:
-                    row[field].append(('create', create))
+                    row[field_name].append(('create', create))
                 if write:
-                    row[field].append(('write',) + tuple(write))
+                    row[field_name].append(('write',) + tuple(write))
                 if record:
                     written = set(map(int, sum(write[0:None:2], [])))
                     delete = [
-                        r.id for r in getattr(record, field)
+                        r.id for r in getattr(record, field_name)
                         if r.id not in written]
-                    row[field].append(('delete', delete))
+                    row[field_name].append(('delete', delete))
 
             if prefix_len == 0:
                 for i in range(max(nbrmax, 1)):
@@ -1294,15 +1321,13 @@ class ModelStorage(Model):
             return (row, nbrmax, translate)
 
         fields_names = [x.split('/') for x in fields_names]
-        fields_def = cls.fields_get()
 
         to_create, to_create_translations = [], []
         to_write, to_write_translations = [], []
         languages = set()
         data = data.copy()
         while data:
-            (row, _, translate) = \
-                process_lines(data, [], fields_def)
+            (row, _, translate) = process_lines(data, [])
             if dispatch(to_create, to_write, row):
                 to_write_translations.append(translate)
             else:
@@ -1890,7 +1915,7 @@ class ModelStorage(Model):
             ifields = filter(to_load,
                 filter(not_cached,
                     iter(self._fields.items())))
-            ifields = islice(ifields, 0, _cache_field)
+            ifields = islice(ifields, 0, config.getint('cache', 'field'))
             ffields.update(ifields)
 
         # add datetime_field
@@ -2203,7 +2228,7 @@ class ModelStorage(Model):
                 for record in chain(to_create, to_write):
                     record._values = values.get(record)
                 raise
-            for record in to_create + to_write:
+            for record in chain(to_create, to_write):
                 record._init_values = None
                 record._deleted = None
                 record._removed = None

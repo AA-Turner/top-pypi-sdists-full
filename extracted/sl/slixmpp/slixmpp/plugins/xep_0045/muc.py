@@ -3,7 +3,6 @@
 # Copyright (C) 2020 "Maxime “pep” Buquet <pep@bouah.net>"
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from __future__ import with_statement
 
 import asyncio
 import logging
@@ -390,8 +389,8 @@ class XEP_0045(BasePlugin):
         A muc join, once the join stanza is sent, is:
             occupant presences → self-presence → room history → room subject
         """
-        presence_done: asyncio.Future = asyncio.Future()
-        topic_received: asyncio.Future = asyncio.Future()
+        presence_done: asyncio.Future = asyncio.Future(loop=self.xmpp.loop)
+        topic_received: asyncio.Future = asyncio.Future(loop=self.xmpp.loop)
         history_buffer: List[Message] = []
         occupant_buffer: List[Presence] = []
 
@@ -784,7 +783,7 @@ class XEP_0045(BasePlugin):
         new_jid.resource = new_nick
         if presence_options is None:
             presence_options = {}
-        future = asyncio.Future()
+        future = asyncio.Future(loop=self.xmpp.loop)
 
         def nickname_set(presence):
             codes = presence['muc']['status_codes']

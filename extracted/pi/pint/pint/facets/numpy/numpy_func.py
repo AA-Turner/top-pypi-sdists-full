@@ -284,7 +284,9 @@ def implement_func(func_type, func_str, input_units=None, output_unit=None):
     if func is None:
         return
     for func_str_piece in func_str_split[1:]:
-        func = getattr(func, func_str_piece)
+        func = getattr(func, func_str_piece, None)
+        if func is None:
+            return
 
     @implements(func_str, func_type)
     def implementation(*args, **kwargs):
@@ -788,6 +790,25 @@ def _correlate(a, v, mode="valid", **kwargs):
     return a.units._REGISTRY.Quantity(ret, units)
 
 
+def _dimensionless_if_needed(*args):
+    registry = None
+    for arg in args:
+        if _is_quantity(arg):
+            registry = arg.units._REGISTRY
+            break
+    if registry is None:
+        raise ValueError(
+            "At least one argument must be a Quantity to determine the registry."
+        )
+    new_args = []
+    for arg in args:
+        if _is_quantity(arg):
+            new_args.append(arg)
+        else:
+            new_args.append(registry.Quantity(arg, "dimensionless"))
+    return new_args
+
+
 def implement_mul_func(func):
     # If NumPy is not available, do not attempt implement that which does not exist
     if np is None:
@@ -797,15 +818,12 @@ def implement_mul_func(func):
 
     @implements(func_str, "function")
     def implementation(a, b, **kwargs):
+        a, b = _dimensionless_if_needed(a, b)
         a = _base_unit_if_needed(a)
-        units = a.units
-        if hasattr(b, "units"):
-            b = _base_unit_if_needed(b)
-            units *= b.units
-            b = b._magnitude
-
-        mag = func(a._magnitude, b, **kwargs)
-        return a.units._REGISTRY.Quantity(mag, units)
+        b = _base_unit_if_needed(b)
+        units = a.units * b.units
+        mag = func(a._magnitude, b._magnitude, **kwargs)
+        return mag * units
 
 
 for func_str in ("cross", "dot"):
@@ -869,6 +887,7 @@ for func_str, unit_arguments, wrap_output in (
     ("moveaxis", "a", True),
     ("around", "a", True),
     ("diagonal", "a", True),
+    ("linalg.diagonal", "x", True),
     ("mean", "a", True),
     ("ptp", "a", True),
     ("ravel", "a", True),
@@ -878,6 +897,7 @@ for func_str, unit_arguments, wrap_output in (
     ("median", "a", True),
     ("nanmedian", "a", True),
     ("transpose", "a", True),
+    ("linalg.matrix_transpose", "x", True),
     ("roll", "a", True),
     ("copy", "a", True),
     ("average", "a", True),
@@ -1034,10 +1054,17 @@ for func_str in (
 # Handle functions with output unit defined by operation
 for func_str in (
     "sum",
+    "diag",
+    "tril",
+    "triu",
     "nansum",
     "cumsum",
     "nancumsum",
     "linalg.norm",
+    "linalg.eigvals",
+    "linalg.eigvalsh",
+    "linalg.matrix_norm",
+    "linalg.vector_norm",
 ):
     implement_func("function", func_str, input_units=None, output_unit="sum")
 for func_str in ("diff", "ediff1d", "std", "nanstd"):
@@ -1048,6 +1075,22 @@ for func_str in ("linalg.solve",):
     implement_func("function", func_str, input_units=None, output_unit="invdiv")
 for func_str in ("var", "nanvar"):
     implement_func("function", func_str, input_units=None, output_unit="variance")
+
+
+@implements("geomspace", "function")
+def _geomspace(start, stop, num=50, endpoint=True, dtype=None, axis=0):
+    if all(not _is_quantity(arg) for arg in (start, stop)):
+        return np.geomspace(start, stop, num, endpoint, dtype, axis)
+    first_input_units = _get_first_input_units((start, stop))
+    if not _is_quantity(start):
+        start = start * first_input_units._REGISTRY.parse_units("dimensionless")
+    if not _is_quantity(stop):
+        stop = stop * first_input_units._REGISTRY.parse_units("dimensionless")
+
+    start = _base_unit_if_needed(start)
+    stop = _base_unit_if_needed(stop)
+    (start, stop), output_wrap = unwrap_and_wrap_consistent_units(start, stop)
+    return output_wrap(np.geomspace(start, stop, num, endpoint, dtype, axis))
 
 
 def numpy_wrap(func_type, func, args, kwargs, types):

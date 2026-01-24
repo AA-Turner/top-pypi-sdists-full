@@ -29,10 +29,11 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
                 typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 import aws_cdk._jsii
+import aws_cdk.cloud_assembly_schema._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@aws-solutions-constructs/core", "2.92.2", __name__[0:-6], "core@2.92.2.jsii.tgz"
+    "@aws-solutions-constructs/core", "2.97.0", __name__[0:-6], "core@2.97.0.jsii.tgz"
 )
 
 __all__ = [

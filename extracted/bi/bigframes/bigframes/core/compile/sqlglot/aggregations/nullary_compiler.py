@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import typing
 
-import sqlglot.expressions as sge
+import bigframes_vendored.sqlglot.expressions as sge
 
 from bigframes.core import window_spec
 import bigframes.core.compile.sqlglot.aggregations.op_registration as reg
@@ -39,3 +39,15 @@ def _(
     window: typing.Optional[window_spec.WindowSpec] = None,
 ) -> sge.Expression:
     return apply_window_if_present(sge.func("COUNT", sge.convert(1)), window)
+
+
+@NULLARY_OP_REGISTRATION.register(agg_ops.RowNumberOp)
+def _(
+    op: agg_ops.RowNumberOp,
+    window: typing.Optional[window_spec.WindowSpec] = None,
+) -> sge.Expression:
+    result: sge.Expression = sge.func("ROW_NUMBER")
+    if window is None:
+        # ROW_NUMBER always needs an OVER clause.
+        return sge.Window(this=result) - 1
+    return apply_window_if_present(result, window, include_framing_clauses=False) - 1

@@ -3,7 +3,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from pycognito.exceptions import MFAChallengeException
 import pytest
 
@@ -52,6 +52,23 @@ async def test_login_user_not_confirmed(mock_cognito, mock_cloud):
     mock_cognito.authenticate.side_effect = aws_error("UserNotConfirmedException")
 
     with pytest.raises(auth_api.UserNotConfirmed):
+        await auth.async_login("user", "pass")
+
+    assert len(mock_cloud.update_token.mock_calls) == 0
+
+
+async def test_login_connection_error(mock_cognito, mock_cloud):
+    """Test login raises CloudConnectionError instead of UnknownError."""
+    auth = auth_api.CognitoAuth(mock_cloud)
+    mock_cognito.authenticate.side_effect = EndpointConnectionError(
+        endpoint_url="https://cognito-idp.us-east-1.amazonaws.com/",
+        error="Failed to establish a new connection: [Errno 111] Connection refused",
+    )
+
+    with pytest.raises(
+        auth_api.CloudConnectionError,
+        match="Connection refused",
+    ):
         await auth.async_login("user", "pass")
 
     assert len(mock_cloud.update_token.mock_calls) == 0
@@ -284,13 +301,13 @@ async def test_guard_no_login_authenticated_cognito(auth_mock_kwargs: dict[str, 
 @pytest.mark.parametrize(
     "exp_value,random_value,expected_sleep",
     [
-        [None, 2220, 2220],
-        [120, 120, 120],
-        [121, 120, 120],
-        [124, 120, 4],
-        [-124, 120, 120],
-        [7800, 60, 7740],
-        [1330, 60, 1270],
+        [None, 2220, "37m"],
+        [120, 120, "2m"],
+        [121, 120, "2m"],
+        [124, 120, "4s"],
+        [-124, 120, "2m"],
+        [7800, 60, "2h:9m"],
+        [1330, 60, "21m:10s"],
     ],
 )
 async def test_sleep_time_calculation(
@@ -304,10 +321,10 @@ async def test_sleep_time_calculation(
     auth = auth_api.CognitoAuth(mock_cloud)
 
     with (
-        patch("hass_nabucasa.auth.expiration_from_token") as mock_exp,
-        patch("hass_nabucasa.auth.asyncio.sleep", AsyncMock()),
+        patch("hass_nabucasa.auth.cognito.expiration_from_token") as mock_exp,
+        patch("hass_nabucasa.auth.cognito.asyncio.sleep", AsyncMock()),
         patch(
-            "hass_nabucasa.auth.CognitoAuth.async_renew_access_token",
+            "hass_nabucasa.auth.cognito.CognitoAuth.async_renew_access_token",
             side_effect=asyncio.CancelledError,
         ),
         patch("random.randint") as mock_random,
@@ -319,7 +336,4 @@ async def test_sleep_time_calculation(
 
         await auth._async_handle_token_refresh()
 
-        assert (
-            f"Sleeping for {expected_sleep} seconds before refreshing token"
-            in caplog.text
-        )
+        assert f"Sleeping for {expected_sleep} before refreshing token" in caplog.text

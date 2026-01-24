@@ -11,12 +11,15 @@ from .conversation_history_transcript_common_model_output import ConversationHis
 from .test_condition_result_common_model import TestConditionResultCommonModel
 from .test_run_metadata import TestRunMetadata
 from .test_run_status import TestRunStatus
+from .unit_test_common_model import UnitTestCommonModel
 
 
 class UnitTestRunResponseModel(UncheckedBaseModel):
     test_run_id: str
+    test_info: typing.Optional[UnitTestCommonModel] = None
     test_invocation_id: str
     agent_id: str
+    branch_id: typing.Optional[str] = None
     workflow_node_id: typing.Optional[str] = None
     status: TestRunStatus
     agent_responses: typing.Optional[typing.List[ConversationHistoryTranscriptCommonModelOutput]] = None
@@ -35,11 +38,5 @@ class UnitTestRunResponseModel(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .conversation_history_transcript_workflow_tools_result_common_model_output import (
-    ConversationHistoryTranscriptWorkflowToolsResultCommonModelOutput,
-)  # noqa: E402, F401, I001
-from .workflow_tool_nested_tools_step_model_output import WorkflowToolNestedToolsStepModelOutput  # noqa: E402, F401, I001
-from .workflow_tool_response_model_output import WorkflowToolResponseModelOutput  # noqa: E402, F401, I001
 
 update_forward_refs(UnitTestRunResponseModel)

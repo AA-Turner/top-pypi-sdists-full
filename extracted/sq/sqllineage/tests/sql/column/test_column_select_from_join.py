@@ -155,3 +155,40 @@ FROM tab1
             ),
         ],
     )
+
+
+def test_column_lineage_with_table_alias_in_nested_parentheses():
+    sql = """INSERT INTO tab3
+SELECT t2.col1
+FROM (
+        (tab2 AS t2
+            JOIN tab1 AS t1 
+                ON t2.id = t1.t2_id)
+)"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                ColumnQualifierTuple("col1", "tab2"),
+                ColumnQualifierTuple("col1", "tab3"),
+            ),
+        ],
+    )
+
+
+def test_insert_overwrite_from_self_with_join():
+    assert_column_lineage_equal(
+        """INSERT INTO tab1
+    SELECT max(t1.price) + min(t2.price) AS price FROM tab2 t2
+                  INNER JOIN tab1 t1 ON t1.id = t2.id""",
+        [
+            (
+                ColumnQualifierTuple("price", "tab1"),
+                ColumnQualifierTuple("price", "tab1"),
+            ),
+            (
+                ColumnQualifierTuple("price", "tab2"),
+                ColumnQualifierTuple("price", "tab1"),
+            ),
+        ],
+    )

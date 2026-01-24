@@ -60,6 +60,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -241,6 +243,7 @@ class Item(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -257,7 +260,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -330,6 +333,7 @@ class Item(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -346,7 +350,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -419,6 +423,7 @@ class Item(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -435,7 +440,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCommerceItems",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -508,6 +513,7 @@ class Item(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -524,7 +530,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCommerceItems",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -600,6 +606,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -616,7 +623,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -692,6 +699,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -708,7 +716,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -781,6 +789,7 @@ class Item(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -797,7 +806,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -875,6 +884,7 @@ class Item(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -891,7 +901,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -972,6 +982,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -988,7 +999,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1064,6 +1075,7 @@ class Item(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_item, False, False, "json", shared.CommerceItem
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1080,7 +1092,7 @@ class Item(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCommerceItem",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

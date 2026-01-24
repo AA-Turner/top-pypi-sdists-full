@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from types import ModuleType
 from typing import TYPE_CHECKING, Generic, TypeVar, cast
 
@@ -24,7 +25,7 @@ from array_api_extra.testing import lazy_xp_function
 
 from .conftest import np_compat
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     # TODO import from typing (requires Python >=3.12)
     from typing_extensions import override
 else:
@@ -32,7 +33,6 @@ else:
     def override(func):
         return func
 
-# mypy: disable-error-code=no-untyped-usage
 
 T = TypeVar("T")
 
@@ -40,7 +40,7 @@ T = TypeVar("T")
 lazy_xp_function(in1d, jax_jit=False)
 
 
-@pytest.mark.skip_xp_backend(Backend.SPARSE, reason="no unique_inverse")
+@pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="no unique_inverse")
 @pytest.mark.skip_xp_backend(Backend.ARRAY_API_STRICTEST, reason="no unique_inverse")
 class TestIn1D:
     # cover both code paths
@@ -79,7 +79,6 @@ class TestIn1D:
 
 
 class TestAsArrays:
-    @pytest.mark.xfail_xp_backend(Backend.SPARSE, reason="no isdtype")
     @pytest.mark.parametrize(
         ("dtype", "b", "defined"),
         [
@@ -183,11 +182,14 @@ def test_eager_shape(xp: ModuleType, library: Backend):
     # Lazy arrays, like Dask, have an eager shape until you slice them with
     # a lazy boolean mask
     assert eager_shape(a) == a.shape == (3,)
+    assert eager_shape(a, axis=0) == a.shape == (3,)
 
     b = a[a > 2]
     if library is Backend.DASK:
         with pytest.raises(TypeError, match="Unsupported lazy shape"):
             _ = eager_shape(b)
+        with pytest.raises(TypeError, match="Unsupported lazy shape"):
+            _ = eager_shape(b, axis=0)
     # FIXME can't test use case for None in the shape until we add support for
     # other lazy backends
     else:
@@ -212,14 +214,34 @@ class TestMetaNamespace:
         assert meta_namespace(*args, xp=xp) in (xp, np_compat)
 
 
-def test_capabilities(xp: ModuleType):
-    expect = {"boolean indexing", "data-dependent shapes"}
-    if xp.__array_api_version__ >= "2024.12":
-        expect.add("max dimensions")
-    assert capabilities(xp).keys() == expect
+class TestCapabilities:
+    def test_basic(self, xp: ModuleType):
+        expect = {"boolean indexing", "data-dependent shapes"}
+        if xp.__array_api_version__ >= "2024.12":
+            expect.add("max dimensions")
+        assert capabilities(xp).keys() == expect
+
+    def test_device(self, xp: ModuleType, library: Backend, device: Device):
+        expect_keys = {"boolean indexing", "data-dependent shapes"}
+        if xp.__array_api_version__ >= "2024.12":
+            expect_keys.add("max dimensions")
+        assert capabilities(xp, device=device).keys() == expect_keys
+
+        if library.like(Backend.TORCH):
+            # The output of capabilities is device-specific.
+
+            # Test that device=None gets the current default device.
+            expect = capabilities(xp, device=device)
+            with xp.device(device):
+                actual = capabilities(xp)
+            assert actual == expect
+
+            # Test that we're accepting anything that is accepted by the
+            # device= parameter in other functions
+            actual = capabilities(xp, device=device.type)  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
 
 
-class Wrapper(Generic[T]):
+class Wrapper(Generic[T]):  # noqa: PLW1641
     """Trivial opaque wrapper. Must be pickleable."""
 
     x: T
@@ -245,7 +267,7 @@ class TestPickleFlatten:
 
         # Note: NotHashable() instances can be reduced to an
         # unserializable local class
-        class NotHashable:
+        class NotHashable:  # noqa: PLW1641
             @override
             def __eq__(self, other: object) -> bool:
                 return isinstance(other, type(self)) and other.__dict__ == self.__dict__
@@ -313,16 +335,16 @@ class TestPickleFlatten:
         obj2 = [Wrapper(2), Wrapper(3)]
         instances1, rest1 = pickle_flatten(obj1, Wrapper)
         instances2, rest2 = pickle_flatten(obj2, Wrapper)
-        it = iter(instances1 + instances2 + [Wrapper(4)])  # pyright: ignore[reportUnknownArgumentType]
-        assert pickle_unflatten(it, rest1) == obj1  # pyright: ignore[reportUnknownArgumentType]
-        assert pickle_unflatten(it, rest2) == obj2  # pyright: ignore[reportUnknownArgumentType]
-        assert list(it) == [Wrapper(4)]  # pyright: ignore[reportUnknownArgumentType]
+        it = iter(instances1 + instances2 + [Wrapper(4)])
+        assert pickle_unflatten(it, rest1) == obj1
+        assert pickle_unflatten(it, rest2) == obj2
+        assert list(it) == [Wrapper(4)]
 
     def test_too_short(self):
         obj = [Wrapper(1), Wrapper(2)]
         instances, rest = pickle_flatten(obj, Wrapper)
         with pytest.raises(ValueError, match="Not enough"):
-            pickle_unflatten(instances[:1], rest)  # pyright: ignore[reportUnknownArgumentType]
+            pickle_unflatten(instances[:1], rest)
 
     def test_recursion(self):
         obj: list[object] = [Wrapper(1)]
@@ -331,7 +353,7 @@ class TestPickleFlatten:
         instances, rest = pickle_flatten(obj, Wrapper)
         assert instances == [Wrapper(1)]
 
-        obj2 = pickle_unflatten(instances, rest)  # pyright: ignore[reportUnknownArgumentType]
+        obj2 = pickle_unflatten(instances, rest)
         assert len(obj2) == 2
         assert obj2[0] is obj[0]
         assert obj2[1] is obj2
@@ -368,7 +390,7 @@ class TestJAXAutoJIT:
         """Static argument/return value is hashable, but not serializable"""
 
         class C:
-            def __reduce__(self) -> object:  # type: ignore[explicit-override,override]  # pyright: ignore[reportIncompatibleMethodOverride,reportImplicitOverride]
+            def __reduce__(self) -> object:  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride,reportImplicitOverride]
                 raise Exception()
 
         @jax_autojit
@@ -380,12 +402,12 @@ class TestJAXAutoJIT:
         assert out is inp
 
         # Serializable opaque input contains non-serializable object plus array
-        inp = Wrapper((C(), jnp.asarray([1, 2])))
-        out = f(inp)
+        winp = Wrapper((C(), jnp.asarray([1, 2])))
+        out = f(winp)
         assert isinstance(out, Wrapper)
-        assert out.x[0] is inp.x[0]
-        assert out.x[1] is not inp.x[1]
-        xp_assert_equal(out.x[1], inp.x[1])  # pyright: ignore[reportUnknownArgumentType]
+        assert out.x[0] is winp.x[0]
+        assert out.x[1] is not winp.x[1]
+        xp_assert_equal(out.x[1], winp.x[1])
 
     def test_arraylikes_are_static(self):
         pytest.importorskip("jax")
@@ -399,3 +421,16 @@ class TestJAXAutoJIT:
         out = f([1, 2])
         assert isinstance(out, list)
         assert out == [3, 4]
+
+    def test_iterators(self, jnp: ModuleType):
+        @jax_autojit
+        def f(x: Array) -> Iterator[Array]:
+            return (x + i for i in range(2))
+
+        inp = jnp.asarray([1, 2])
+        out = f(inp)
+        assert isinstance(out, Iterator)
+        xp_assert_equal(next(out), jnp.asarray([1, 2]))
+        xp_assert_equal(next(out), jnp.asarray([2, 3]))
+        with pytest.raises(StopIteration):
+            _ = next(out)

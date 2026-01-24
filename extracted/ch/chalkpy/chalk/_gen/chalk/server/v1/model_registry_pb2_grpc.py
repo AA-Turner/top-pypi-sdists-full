@@ -50,6 +50,16 @@ class ModelRegistryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionResponse.FromString,
         )
+        self.CreateModelArtifact = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/CreateModelArtifact",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactResponse.FromString,
+        )
+        self.CreateModelVersionFromArtifact = channel.unary_unary(
+            "/chalk.server.v1.ModelRegistryService/CreateModelVersionFromArtifact",
+            request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactResponse.FromString,
+        )
         self.UpdateModelVersion = channel.unary_unary(
             "/chalk.server.v1.ModelRegistryService/UpdateModelVersion",
             request_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.UpdateModelVersionRequest.SerializeToString,
@@ -117,6 +127,18 @@ class ModelRegistryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateModelArtifact(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateModelVersionFromArtifact(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def UpdateModelVersion(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -178,6 +200,16 @@ def add_ModelRegistryServiceServicer_to_server(servicer, server):
             servicer.CreateModelVersion,
             request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionResponse.SerializeToString,
+        ),
+        "CreateModelArtifact": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateModelArtifact,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactResponse.SerializeToString,
+        ),
+        "CreateModelVersionFromArtifact": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateModelVersionFromArtifact,
+            request_deserializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactResponse.SerializeToString,
         ),
         "UpdateModelVersion": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateModelVersion,
@@ -401,6 +433,64 @@ class ModelRegistryService(object):
             "/chalk.server.v1.ModelRegistryService/CreateModelVersion",
             chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateModelArtifact(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/CreateModelArtifact",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelArtifactResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateModelVersionFromArtifact(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ModelRegistryService/CreateModelVersionFromArtifact",
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_model__registry__pb2.CreateModelVersionFromArtifactResponse.FromString,
             options,
             channel_credentials,
             insecure,

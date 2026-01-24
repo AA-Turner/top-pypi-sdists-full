@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: angr
-Version: 9.2.175
+Version: 9.2.194
 Summary: A multi-architecture binary analysis toolkit, with the ability to perform dynamic symbolic execution and various static analyses on binaries
-License: BSD-2-Clause
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/
 Project-URL: Repository, https://github.com/angr/angr
 Classifier: Programming Language :: Python :: 3
@@ -16,22 +16,23 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cxxheaderparser
 Requires-Dist: GitPython
-Requires-Dist: archinfo==9.2.175
+Requires-Dist: archinfo==9.2.194
 Requires-Dist: cachetools
 Requires-Dist: capstone==5.0.3
 Requires-Dist: cffi>=1.14.0
-Requires-Dist: claripy==9.2.175
-Requires-Dist: cle==9.2.175
+Requires-Dist: claripy==9.2.194
+Requires-Dist: cle==9.2.194
+Requires-Dist: lmdb
 Requires-Dist: msgspec
 Requires-Dist: mulpyplexer
 Requires-Dist: networkx!=2.8.1,>=2.0
-Requires-Dist: protobuf>=5.28.2
+Requires-Dist: protobuf>=6.33.0
 Requires-Dist: psutil
-Requires-Dist: pycparser>=2.18
+Requires-Dist: pycparser<3.0,>=2.18
 Requires-Dist: pydemumble
 Requires-Dist: pyformlang
 Requires-Dist: pypcode<4.0,>=3.2.1
-Requires-Dist: pyvex==9.2.175
+Requires-Dist: pyvex==9.2.194
 Requires-Dist: rich>=13.1.0
 Requires-Dist: sortedcontainers
 Requires-Dist: sympy
@@ -46,6 +47,7 @@ Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == "telemetry"
 Provides-Extra: unicorn
 Requires-Dist: unicorn==2.0.1.post1; extra == "unicorn"
+Requires-Dist: setuptools; extra == "unicorn"
 Dynamic: license-file
 
 # angr
@@ -65,7 +67,7 @@ Project repository: https://github.com/angr/angr
 
 Documentation: https://docs.angr.io
 
-API Documentation: https://api.angr.io/en/latest/
+API Documentation: https://docs.angr.io/en/latest/api.html
 
 ## What is angr?
 
@@ -79,7 +81,7 @@ angr is a suite of Python 3 libraries that let you load a binary and do a lot of
 - Value-set analysis (VSA)
 - Decompilation
 
-The most common angr operation is loading a binary: `p = angr.Project('/bin/bash')` If you do this in an enhanced REPL like IPython, you can use tab-autocomplete to browse the [top-level-accessible methods](https://docs.angr.io/docs/toplevel) and their docstrings.
+The most common angr operation is loading a binary: `p = angr.Project('/bin/bash')` If you do this in an enhanced REPL like IPython, you can use tab-autocomplete to browse the [top-level-accessible methods](https://docs.angr.io/core-concepts/toplevel) and their docstrings.
 
 The short version of "how to install angr" is `mkvirtualenv --python=$(which python3) angr && python -m pip install angr`.
 
@@ -107,5 +109,5 @@ project.execute()
 - Documentation as [HTML](https://docs.angr.io/) and sources in the angr [Github repository](https://github.com/angr/angr/tree/master/docs)
 - Dive right in: [top-level-accessible methods](https://docs.angr.io/core-concepts/toplevel)
 - [Examples using angr to solve CTF challenges](https://docs.angr.io/examples).
-- [API Reference](https://angr.io/api-doc/)
+- [API Reference](https://docs.angr.io/en/latest/api.html)
 - [awesome-angr repo](https://github.com/degrigis/awesome-angr)

@@ -89,7 +89,7 @@ class Proxy(proxy.Proxy):
             * share_type_id: The UUID of a share type to query resources by.
             * name: The user defined name of the resource to filter resources
               by.
-            * snapshot_id: The UUID of the share’s base snapshot to filter
+            * snapshot_id: The UUID of the share's base snapshot to filter
               the request based on.
             * host: The host name of the resource to query with.
             * share_network_id: The UUID of the share network to filter
@@ -273,7 +273,7 @@ class Proxy(proxy.Proxy):
                 to filter resources.
             * project_id: The project ID of the user or service.
             * share_server_id: The UUID of the share server.
-            * snapshot_id: The UUID of the share’s base snapshot to filter
+            * snapshot_id: The UUID of the share's base snapshot to filter
                 the request based on.
             * host: The host name for the back end.
             * share_network_id: The UUID of the share network to filter
@@ -590,7 +590,7 @@ class Proxy(proxy.Proxy):
             the share snapshot instance being returned.
             Available parameters include:
 
-            * snapshot_id: The UUID of the share’s base snapshot to filter
+            * snapshot_id: The UUID of the share's base snapshot to filter
                 the request based on.
             * project_id: The project ID of the user or service making the
                 request.
@@ -1019,7 +1019,8 @@ class Proxy(proxy.Proxy):
 
         :param share_id: The ID of the share
         :param keys: The list of share metadata keys to be deleted
-        :param ignore_missing: Boolean indicating if missing keys should be ignored.
+        :param ignore_missing: Boolean indicating if missing keys should be
+            ignored.
 
         :returns: None
         :rtype: None
@@ -1060,14 +1061,14 @@ class Proxy(proxy.Proxy):
                 locks.
             * resource_type: The type of the resource that the locks pertain
                 to filter resource locks by.
-            * lock_context: The lock creator’s context to filter locks by.
+            * lock_context: The lock creator's context to filter locks by.
             * lock_reason: The lock reason that can be used to filter resource
                 locks. (Inexact search is also available with lock_reason~)
             * created_since: Search for the list of resources that were created
-                after the specified date. The date is in ‘yyyy-mm-dd’ format.
+                after the specified date. The date is in 'yyyy-mm-dd' format.
             * created_before: Search for the list of resources that were
                 created prior to the specified date. The date is in
-                ‘yyyy-mm-dd’ format.
+                'yyyy-mm-dd' format.
             * limit: The maximum number of resource locks to return.
             * offset: The offset to define start point of resource lock
                 listing.

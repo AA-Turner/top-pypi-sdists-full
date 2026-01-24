@@ -14,20 +14,18 @@
 # limitations under the License.
 
 
-import typing as t
 from enum import Enum
 from logging import getLogger
 from ssl import SSLSocket
 
+from ... import _typing as t
 from ..._api import TelemetryAPI
 from ..._async_compat.util import Util
 from ..._codec.hydration import v2 as hydration_v2
 from ..._exceptions import BoltProtocolError
+from ..._io import BoltProtocolVersion
 from ..._meta import BOLT_AGENT_DICT
-from ...api import (
-    READ_ACCESS,
-    Version,
-)
+from ...api import READ_ACCESS
 from ...exceptions import (
     DatabaseUnavailable,
     ForbiddenOnReadOnlyDatabase,
@@ -47,7 +45,6 @@ from ._bolt3 import (
     ServerStateManager,
 )
 from ._common import (
-    check_supported_server_product,
     CommitResponse,
     InitResponse,
     LogonResponse,
@@ -62,7 +59,7 @@ log = getLogger("neo4j.io")
 class Bolt5x0(Bolt):
     """Protocol handler for Bolt 5.0."""
 
-    PROTOCOL_VERSION = Version(5, 0)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 0)
 
     HYDRATION_HANDLER_CLS = hydration_v2.HydrationHandler
 
@@ -152,7 +149,7 @@ class Bolt5x0(Bolt):
                     "connection.recv_timeout_seconds"
                 ]
                 if isinstance(recv_timeout, int) and recv_timeout > 0:
-                    self.socket.settimeout(recv_timeout)
+                    self.socket.set_read_timeout(recv_timeout)
                 else:
                     log.info(
                         "[#%04X]  _: <CONNECTION> Server supplied an "
@@ -179,7 +176,6 @@ class Bolt5x0(Bolt):
         )
         self.send_all()
         self.fetch_all()
-        check_supported_server_product(self.server_info.agent)
 
     def logon(self, dehydration_hooks=None, hydration_hooks=None):
         """Append a LOGON message to the outgoing queue."""
@@ -593,7 +589,7 @@ class ClientStateManager5x1(ClientStateManager):
 class Bolt5x1(Bolt5x0):
     """Protocol handler for Bolt 5.1."""
 
-    PROTOCOL_VERSION = Version(5, 1)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 1)
 
     supports_re_auth = True
 
@@ -626,7 +622,7 @@ class Bolt5x1(Bolt5x0):
                     "connection.recv_timeout_seconds"
                 ]
                 if isinstance(recv_timeout, int) and recv_timeout > 0:
-                    self.socket.settimeout(recv_timeout)
+                    self.socket.set_read_timeout(recv_timeout)
                 else:
                     log.info(
                         "[#%04X]  _: <CONNECTION> Server supplied an "
@@ -654,7 +650,6 @@ class Bolt5x1(Bolt5x0):
         )
         self.send_all()
         self.fetch_all()
-        check_supported_server_product(self.server_info.agent)
 
     def logon(self, dehydration_hooks=None, hydration_hooks=None):
         dehydration_hooks, hydration_hooks = self._default_hydration_hooks(
@@ -684,7 +679,7 @@ class Bolt5x1(Bolt5x0):
 
 
 class Bolt5x2(Bolt5x1):
-    PROTOCOL_VERSION = Version(5, 2)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 2)
 
     supports_notification_filtering = True
 
@@ -713,7 +708,7 @@ class Bolt5x2(Bolt5x1):
                     "connection.recv_timeout_seconds"
                 ]
                 if isinstance(recv_timeout, int) and recv_timeout > 0:
-                    self.socket.settimeout(recv_timeout)
+                    self.socket.set_read_timeout(recv_timeout)
                 else:
                     log.info(
                         "[#%04X]  _: <CONNECTION> Server supplied an "
@@ -738,7 +733,6 @@ class Bolt5x2(Bolt5x1):
         self.logon(dehydration_hooks, hydration_hooks)
         self.send_all()
         self.fetch_all()
-        check_supported_server_product(self.server_info.agent)
 
     def run(
         self,
@@ -869,7 +863,7 @@ class Bolt5x2(Bolt5x1):
 
 
 class Bolt5x3(Bolt5x2):
-    PROTOCOL_VERSION = Version(5, 3)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 3)
 
     def get_base_headers(self):
         headers = super().get_base_headers()
@@ -878,7 +872,7 @@ class Bolt5x3(Bolt5x2):
 
 
 class Bolt5x4(Bolt5x3):
-    PROTOCOL_VERSION = Version(5, 4)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 4)
 
     def telemetry(
         self,
@@ -907,7 +901,7 @@ class Bolt5x4(Bolt5x3):
 
 
 class Bolt5x5(Bolt5x4):
-    PROTOCOL_VERSION = Version(5, 5)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 5)
 
     def get_base_headers(self):
         headers = super().get_base_headers()
@@ -1107,7 +1101,7 @@ class Bolt5x5(Bolt5x4):
 
 
 class Bolt5x6(Bolt5x5):
-    PROTOCOL_VERSION = Version(5, 6)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 6)
 
     def _make_enrich_statuses_handler(self, wrapped_handler=None):
         def handler(metadata):
@@ -1139,7 +1133,7 @@ class Bolt5x6(Bolt5x5):
 
 
 class Bolt5x7(Bolt5x6):
-    PROTOCOL_VERSION = Version(5, 7)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 7)
 
     DEFAULT_ERROR_DIAGNOSTIC_RECORD = (
         Bolt5x5.DEFAULT_STATUS_DIAGNOSTIC_RECORD
@@ -1232,7 +1226,7 @@ class Bolt5x7(Bolt5x6):
 
 
 class Bolt5x8(Bolt5x7):
-    PROTOCOL_VERSION = Version(5, 8)
+    PROTOCOL_VERSION = BoltProtocolVersion(5, 8)
 
     @property
     def ssr_enabled(self) -> bool:

@@ -14,6 +14,13 @@ from langgraph_runtime_inmem.database import start_pool, stop_pool
 logger = structlog.stdlib.get_logger(__name__)
 
 
+_LAST_LIFESPAN_ERROR: BaseException | None = None
+
+
+def get_last_error() -> BaseException | None:
+    return _LAST_LIFESPAN_ERROR
+
+
 @asynccontextmanager
 async def lifespan(
     app: Starlette | None = None,
@@ -23,6 +30,9 @@ async def lifespan(
 ):
     import langgraph_api.config as config
     from langgraph_api import __version__, feature_flags, graph, thread_ttl
+    from langgraph_api import (
+        _checkpointer as api_checkpointer,
+    )
     from langgraph_api import store as api_store
     from langgraph_api.asyncio import SimpleTaskGroup, set_event_loop
     from langgraph_api.http import start_http_client, stop_http_client
@@ -42,9 +52,28 @@ async def lifespan(
     except RuntimeError:
         await logger.aerror("Failed to set loop")
 
+    global _LAST_LIFESPAN_ERROR
+    _LAST_LIFESPAN_ERROR = None
+
     await start_http_client()
     await start_pool()
+    await api_checkpointer.start_checkpointer()
     await start_ui_bundler()
+
+    async def _log_graph_load_failure(err: graph.GraphLoadError) -> None:
+        cause = err.__cause__ or err.cause
+        log_fields = err.log_fields()
+        log_fields["action"] = "fix_user_graph"
+        await logger.aerror(
+            f"Graph '{err.spec.id}' failed to load: {err.cause_message}",
+            **log_fields,
+        )
+        await logger.adebug(
+            "Full graph load failure traceback (internal)",
+            **{k: v for k, v in log_fields.items() if k != "user_traceback"},
+            exc_info=cause,
+        )
+
     try:
         async with SimpleTaskGroup(
             cancel=True,
@@ -77,13 +106,24 @@ async def lifespan(
             var_child_runnable_config.set(langgraph_config)
 
             # Keep after the setter above so users can access the store from within the factory function
-            await graph.collect_graphs_from_env(True)
+            try:
+                await graph.collect_graphs_from_env(True)
+            except graph.GraphLoadError as exc:
+                _LAST_LIFESPAN_ERROR = exc
+                await _log_graph_load_failure(exc)
+                raise
             if config.N_JOBS_PER_WORKER > 0:
                 tg.create_task(queue_with_signal())
 
             yield
+    except graph.GraphLoadError as exc:
+        _LAST_LIFESPAN_ERROR = exc
+        raise
+    except asyncio.CancelledError:
+        pass
     finally:
         await api_store.exit_store()
+        await api_checkpointer.exit_checkpointer()
         await stop_ui_bundler()
         await graph.stop_remote_graphs()
         await stop_http_client()
@@ -98,3 +138,6 @@ async def queue_with_signal():
     except Exception as exc:
         logger.exception("Queue failed. Signaling shutdown", exc_info=exc)
         signal.raise_signal(signal.SIGINT)
+
+
+lifespan.get_last_error = get_last_error  # type: ignore[attr-defined]

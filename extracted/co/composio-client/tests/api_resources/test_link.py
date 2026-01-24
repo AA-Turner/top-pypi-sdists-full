@@ -9,11 +9,7 @@ import pytest
 
 from tests.utils import assert_matches_type
 from composio_client import Composio, AsyncComposio
-from composio_client.types import (
-    LinkCreateResponse,
-    LinkSubmitResponse,
-    LinkRetrieveResponse,
-)
+from composio_client.types import LinkCreateResponse
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -35,6 +31,30 @@ class TestLink:
             auth_config_id="auth_config_id",
             user_id="x",
             callback_url="callback_url",
+            connection_data={
+                "account_id": "account_id",
+                "account_url": "account_url",
+                "api_url": "api_url",
+                "base_url": "base_url",
+                "borneo_dashboard_url": "borneo_dashboard_url",
+                "companydomain": "COMPANYDOMAIN",
+                "dc": "dc",
+                "domain": "domain",
+                "extension": "extension",
+                "form_api_base_url": "form_api_base_url",
+                "instance_endpoint": "instanceEndpoint",
+                "instance_name": "instanceName",
+                "proxy_password": "proxy_password",
+                "proxy_username": "proxy_username",
+                "region": "region",
+                "server_location": "server_location",
+                "shop": "shop",
+                "site_name": "site_name",
+                "subdomain": "subdomain",
+                "version": "version",
+                "your_server": "your_server",
+                "your_domain": "your-domain",
+            },
         )
         assert_matches_type(LinkCreateResponse, link, path=["response"])
 
@@ -64,86 +84,6 @@ class TestLink:
 
         assert cast(Any, response.is_closed) is True
 
-    @parametrize
-    def test_method_retrieve(self, client: Composio) -> None:
-        link = client.link.retrieve(
-            "token",
-        )
-        assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-    @parametrize
-    def test_raw_response_retrieve(self, client: Composio) -> None:
-        response = client.link.with_raw_response.retrieve(
-            "token",
-        )
-
-        assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        link = response.parse()
-        assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-    @parametrize
-    def test_streaming_response_retrieve(self, client: Composio) -> None:
-        with client.link.with_streaming_response.retrieve(
-            "token",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-
-            link = response.parse()
-            assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-        assert cast(Any, response.is_closed) is True
-
-    @parametrize
-    def test_path_params_retrieve(self, client: Composio) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `token` but received ''"):
-            client.link.with_raw_response.retrieve(
-                "",
-            )
-
-    @parametrize
-    def test_method_submit(self, client: Composio) -> None:
-        link = client.link.submit(
-            token="token",
-            input={"foo": "bar"},
-        )
-        assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-    @parametrize
-    def test_raw_response_submit(self, client: Composio) -> None:
-        response = client.link.with_raw_response.submit(
-            token="token",
-            input={"foo": "bar"},
-        )
-
-        assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        link = response.parse()
-        assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-    @parametrize
-    def test_streaming_response_submit(self, client: Composio) -> None:
-        with client.link.with_streaming_response.submit(
-            token="token",
-            input={"foo": "bar"},
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-
-            link = response.parse()
-            assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-        assert cast(Any, response.is_closed) is True
-
-    @parametrize
-    def test_path_params_submit(self, client: Composio) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `token` but received ''"):
-            client.link.with_raw_response.submit(
-                token="",
-                input={"foo": "bar"},
-            )
-
 
 class TestAsyncLink:
     parametrize = pytest.mark.parametrize(
@@ -164,6 +104,30 @@ class TestAsyncLink:
             auth_config_id="auth_config_id",
             user_id="x",
             callback_url="callback_url",
+            connection_data={
+                "account_id": "account_id",
+                "account_url": "account_url",
+                "api_url": "api_url",
+                "base_url": "base_url",
+                "borneo_dashboard_url": "borneo_dashboard_url",
+                "companydomain": "COMPANYDOMAIN",
+                "dc": "dc",
+                "domain": "domain",
+                "extension": "extension",
+                "form_api_base_url": "form_api_base_url",
+                "instance_endpoint": "instanceEndpoint",
+                "instance_name": "instanceName",
+                "proxy_password": "proxy_password",
+                "proxy_username": "proxy_username",
+                "region": "region",
+                "server_location": "server_location",
+                "shop": "shop",
+                "site_name": "site_name",
+                "subdomain": "subdomain",
+                "version": "version",
+                "your_server": "your_server",
+                "your_domain": "your-domain",
+            },
         )
         assert_matches_type(LinkCreateResponse, link, path=["response"])
 
@@ -192,83 +156,3 @@ class TestAsyncLink:
             assert_matches_type(LinkCreateResponse, link, path=["response"])
 
         assert cast(Any, response.is_closed) is True
-
-    @parametrize
-    async def test_method_retrieve(self, async_client: AsyncComposio) -> None:
-        link = await async_client.link.retrieve(
-            "token",
-        )
-        assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-    @parametrize
-    async def test_raw_response_retrieve(self, async_client: AsyncComposio) -> None:
-        response = await async_client.link.with_raw_response.retrieve(
-            "token",
-        )
-
-        assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        link = await response.parse()
-        assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-    @parametrize
-    async def test_streaming_response_retrieve(self, async_client: AsyncComposio) -> None:
-        async with async_client.link.with_streaming_response.retrieve(
-            "token",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-
-            link = await response.parse()
-            assert_matches_type(LinkRetrieveResponse, link, path=["response"])
-
-        assert cast(Any, response.is_closed) is True
-
-    @parametrize
-    async def test_path_params_retrieve(self, async_client: AsyncComposio) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `token` but received ''"):
-            await async_client.link.with_raw_response.retrieve(
-                "",
-            )
-
-    @parametrize
-    async def test_method_submit(self, async_client: AsyncComposio) -> None:
-        link = await async_client.link.submit(
-            token="token",
-            input={"foo": "bar"},
-        )
-        assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-    @parametrize
-    async def test_raw_response_submit(self, async_client: AsyncComposio) -> None:
-        response = await async_client.link.with_raw_response.submit(
-            token="token",
-            input={"foo": "bar"},
-        )
-
-        assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-        link = await response.parse()
-        assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-    @parametrize
-    async def test_streaming_response_submit(self, async_client: AsyncComposio) -> None:
-        async with async_client.link.with_streaming_response.submit(
-            token="token",
-            input={"foo": "bar"},
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
-
-            link = await response.parse()
-            assert_matches_type(LinkSubmitResponse, link, path=["response"])
-
-        assert cast(Any, response.is_closed) is True
-
-    @parametrize
-    async def test_path_params_submit(self, async_client: AsyncComposio) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `token` but received ''"):
-            await async_client.link.with_raw_response.submit(
-                token="",
-                input={"foo": "bar"},
-            )

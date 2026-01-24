@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TA-Lib
-Version: 0.6.7
+Version: 0.6.8
 Summary: Python wrapper for TA-Lib
 Author-email: John Benediktsson <mrjbq7@gmail.com>
 Project-URL: homepage, http://github.com/ta-lib/ta-lib-python
@@ -28,7 +28,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: build
-Requires-Dist: cython
 Requires-Dist: numpy
 Dynamic: license-file
 

@@ -141,7 +141,7 @@ class Options(object):
 		else:
 			return options
 
-	def has(self, options: str or List[str]) -> bool:
+	def has(self, options: str | List[str]) -> bool:
 		"""Returns true, if the entered options (case-insensitive) matches at least one of the installed options (OR-logic).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.
 		If K0 is present, all the K-options are reported as present. B-options are not affected by K0.
@@ -157,7 +157,7 @@ class Options(object):
 				return True
 		return False
 
-	def has_regex(self, re_options: str or List[str]) -> bool:
+	def has_regex(self, re_options: str | List[str]) -> bool:
 		"""Returns true, if the entered regex string (case-insensitive) matches at least one of the installed options.
 		The match must be complete, not just partial (search).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.

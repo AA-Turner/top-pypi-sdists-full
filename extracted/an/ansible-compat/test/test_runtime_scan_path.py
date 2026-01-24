@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -20,6 +21,10 @@ V2_COLLECTION_VERSION = "0.1.0"
 V2_COLLECTION_FULL_NAME = f"{V2_COLLECTION_NAMESPACE}.{V2_COLLECTION_NAME}"
 
 
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason="Python 3.14 requires unreleased ansible-core which will fail this test.",
+)
 @pytest.mark.parametrize(
     ("scan", "raises_not_found"),
     (
@@ -107,10 +112,12 @@ def test_ro_venv() -> None:
     commands = [
         f"mkdir -p {venv_path}",
         f"chmod -R a+w {venv_path}",
-        f"python -m venv --symlinks {venv_path}",
-        f"{venv_path}/bin/python -m pip install -q -e .",
+        f"uv venv --no-project --clear {venv_path}",
+        f"VIRTUAL_ENV={venv_path} uv pip install -q -e .",
         f"chmod -R a-w {venv_path}",
         f"{venv_path}/bin/python -c \"from ansible_compat.runtime import Runtime; r = Runtime(); r.install_collection('ansible.posix:>=2.0.0')\"",
+        f"chmod -R a+w {venv_path}",
+        f"rm -rf {venv_path}",
     ]
     for cmd in commands:
         result = subprocess.run(  # noqa: S602
@@ -120,6 +127,6 @@ def test_ro_venv() -> None:
             text=True,
             capture_output=True,
         )
-        assert (
-            result.returncode == 0
-        ), f"Got {result.returncode} running {cmd}\n\tstderr: {result.stderr}\n\tstdout: {result.stdout}"
+        assert result.returncode == 0, (
+            f"Got {result.returncode} running {cmd}\n\tstderr: {result.stderr}\n\tstdout: {result.stdout}"
+        )

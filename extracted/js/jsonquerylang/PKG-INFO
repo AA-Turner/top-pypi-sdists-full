@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonquerylang
-Version: 2.0.1
+Version: 2.1.0
 Summary: A lightweight, flexible, and expandable JSON query language
 Home-page: https://jsonquerylang.org/
 Author: Jos de Jong
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
+Requires-Dist: regex
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -28,6 +29,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: requires-dist
 Dynamic: summary
 
 # jsonquery-python

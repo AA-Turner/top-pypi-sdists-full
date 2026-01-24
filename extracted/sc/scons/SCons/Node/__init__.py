@@ -215,7 +215,7 @@ def get_contents_dir(node):
         contents.append('%s %s\n' % (n.get_csig(), n.name))
     return ''.join(contents)
 
-def get_contents_file(node):
+def get_contents_file(node) -> bytes:
     if not node.rexists():
         return b''
     fname = node.rfile().get_abspath()
@@ -560,6 +560,12 @@ class Node(metaclass=NoSlotsPyPy):
                  '_func_target_from_source']
 
     class Attrs:
+        """A generic place to store extra information about the Node.
+
+        Defines ``__slots__`` for performance, but different consumers
+        define their own attributes, so to avoid having to collect them
+        all here, we add a ``__dict__`` slot to get dynamic attributes.
+        """
         __slots__ = ('shared', '__dict__')
 
 
@@ -621,6 +627,9 @@ class Node(metaclass=NoSlotsPyPy):
         # annotate this Node with its own info (like a description of
         # what line in what file created the node, for example).
         Annotate(self)
+
+    def __fspath__(self) -> str:
+        return str(self)
 
     def disambiguate(self, must_exist: bool = False):
         return self

@@ -1,4 +1,4 @@
-# Generated from PS.g4 by ANTLR 4.13.2
+# Generated from src/latex2sympy2_extended/PS.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .PSParser import PSParser

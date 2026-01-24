@@ -8,7 +8,7 @@
 #include "bench/Benchmark.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkPath.h"
-#include "include/pathops/SkPathOps.h"
+#include "include/core/SkPathBuilder.h"
 
 class ClipStrategyBench : public Benchmark {
 public:
@@ -24,9 +24,11 @@ public:
 
         if (fMode == Mode::kClipPath) {
             fName.append("path_");
+            SkPathBuilder builder;
             this->forEachClipCircle([&](float x, float y, float r) {
-                fClipPath.addCircle(x, y, r);
+                builder.addCircle(x, y, r);
             });
+            fClipPath = builder.detach();
         } else {
             fName.append("mask_");
         }
@@ -65,7 +67,7 @@ protected:
 private:
     template <typename Func>
     void forEachClipCircle(Func&& func) {
-        auto q = static_cast<float>(this->getSize().x()) / (fCount + 1);
+        auto q = static_cast<float>(this->getSize().width()) / (fCount + 1);
         for (size_t i = 1; i <= fCount; ++i) {
             auto x = q * i;
             func(x, x, q / 2);

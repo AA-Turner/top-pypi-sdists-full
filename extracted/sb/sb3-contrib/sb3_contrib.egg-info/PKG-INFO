@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sb3_contrib
-Version: 2.7.0
+Version: 2.7.1
 Summary: Contrib package of Stable Baselines3, experimental code.
 Home-page: https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
 Author: Antonin Raffin

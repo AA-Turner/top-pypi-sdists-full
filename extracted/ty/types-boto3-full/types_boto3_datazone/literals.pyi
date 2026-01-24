@@ -3,7 +3,7 @@ Type annotations for datazone service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,11 +23,14 @@ else:
 
 __all__ = (
     "AcceptRuleBehaviorType",
+    "AttributeEntityTypeType",
     "AuthTypeType",
     "AuthenticationTypeType",
     "ChangeActionType",
     "ComputeEnvironmentsType",
     "ConfigurableActionTypeAuthorizationType",
+    "ConfigurationStatusType",
+    "ConnectionScopeType",
     "ConnectionStatusType",
     "ConnectionTypeType",
     "DataAssetActivityStatusType",
@@ -50,6 +53,7 @@ __all__ = (
     "EntityTypeType",
     "EnvironmentStatusType",
     "FilterExpressionTypeType",
+    "FilterOperatorType",
     "FilterStatusType",
     "FormTypeStatusType",
     "GlossaryStatusType",
@@ -118,10 +122,12 @@ __all__ = (
     "RejectRuleBehaviorType",
     "ResolutionStrategyType",
     "ResourceServiceName",
+    "ResourceTagSourceType",
     "RuleActionType",
     "RuleScopeSelectionModeType",
     "RuleTargetTypeType",
     "RuleTypeType",
+    "S3PermissionType",
     "SearchGroupProfilesPaginatorName",
     "SearchListingsPaginatorName",
     "SearchOutputAdditionalAttributeType",
@@ -136,6 +142,7 @@ __all__ = (
     "SortKeyType",
     "SortOrderType",
     "StatusType",
+    "SubscriptionGrantCreationModeType",
     "SubscriptionGrantOverallStatusType",
     "SubscriptionGrantStatusType",
     "SubscriptionRequestStatusType",
@@ -154,11 +161,14 @@ __all__ = (
 )
 
 AcceptRuleBehaviorType = Literal["ALL", "NONE"]
+AttributeEntityTypeType = Literal["ASSET", "LISTING"]
 AuthTypeType = Literal["DISABLED", "IAM_IDC"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "OAUTH2"]
 ChangeActionType = Literal["PUBLISH", "UNPUBLISH"]
 ComputeEnvironmentsType = Literal["ATHENA", "PYTHON", "SPARK"]
 ConfigurableActionTypeAuthorizationType = Literal["HTTPS", "IAM"]
+ConfigurationStatusType = Literal["COMPLETED", "FAILED"]
+ConnectionScopeType = Literal["DOMAIN", "PROJECT"]
 ConnectionStatusType = Literal[
     "CREATE_FAILED",
     "CREATING",
@@ -170,6 +180,7 @@ ConnectionStatusType = Literal[
     "UPDATING",
 ]
 ConnectionTypeType = Literal[
+    "AMAZON_Q",
     "ATHENA",
     "BIGQUERY",
     "DATABRICKS",
@@ -177,6 +188,7 @@ ConnectionTypeType = Literal[
     "DYNAMODB",
     "HYPERPOD",
     "IAM",
+    "MLFLOW",
     "MYSQL",
     "OPENSEARCH",
     "ORACLE",
@@ -254,6 +266,7 @@ EnvironmentStatusType = Literal[
     "VALIDATION_FAILED",
 ]
 FilterExpressionTypeType = Literal["EXCLUDE", "INCLUDE"]
+FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "TEXT_SEARCH"]
 FilterStatusType = Literal["INVALID", "VALID"]
 FormTypeStatusType = Literal["DISABLED", "ENABLED"]
 GlossaryStatusType = Literal["DISABLED", "ENABLED"]
@@ -346,9 +359,11 @@ ManagedPolicyTypeType = Literal[
     "USE_ASSET_TYPE",
 ]
 MetadataGenerationRunStatusType = Literal[
-    "CANCELED", "FAILED", "IN_PROGRESS", "SUBMITTED", "SUCCEEDED"
+    "CANCELED", "FAILED", "IN_PROGRESS", "PARTIALLY_SUCCEEDED", "SUBMITTED", "SUCCEEDED"
 ]
-MetadataGenerationRunTypeType = Literal["BUSINESS_DESCRIPTIONS"]
+MetadataGenerationRunTypeType = Literal[
+    "BUSINESS_DESCRIPTIONS", "BUSINESS_GLOSSARY_ASSOCIATIONS", "BUSINESS_NAMES"
+]
 MetadataGenerationTargetTypeType = Literal["ASSET"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
@@ -369,10 +384,12 @@ ProtocolType = Literal[
 ]
 RejectRuleBehaviorType = Literal["ALL", "NONE"]
 ResolutionStrategyType = Literal["MANUAL"]
+ResourceTagSourceType = Literal["PROJECT", "PROJECT_PROFILE"]
 RuleActionType = Literal["CREATE_LISTING_CHANGE_SET", "CREATE_SUBSCRIPTION_REQUEST"]
 RuleScopeSelectionModeType = Literal["ALL", "SPECIFIC"]
 RuleTargetTypeType = Literal["DOMAIN_UNIT"]
-RuleTypeType = Literal["METADATA_FORM_ENFORCEMENT"]
+RuleTypeType = Literal["GLOSSARY_TERM_ENFORCEMENT", "METADATA_FORM_ENFORCEMENT"]
+S3PermissionType = Literal["READ", "WRITE"]
 SearchGroupProfilesPaginatorName = Literal["search_group_profiles"]
 SearchListingsPaginatorName = Literal["search_listings"]
 SearchOutputAdditionalAttributeType = Literal[
@@ -396,6 +413,7 @@ SortFieldProjectType = Literal["NAME"]
 SortKeyType = Literal["CREATED_AT", "UPDATED_AT"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 StatusType = Literal["DISABLED", "ENABLED"]
+SubscriptionGrantCreationModeType = Literal["AUTOMATIC", "MANUAL"]
 SubscriptionGrantOverallStatusType = Literal[
     "COMPLETED",
     "GRANT_AND_REVOKE_FAILED",
@@ -528,7 +546,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -598,6 +615,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -643,7 +661,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -696,7 +713,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -735,8 +751,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -771,6 +785,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -780,6 +795,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -790,6 +806,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -811,8 +830,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -827,15 +844,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -866,6 +884,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -906,6 +925,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

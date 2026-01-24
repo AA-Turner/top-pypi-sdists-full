@@ -148,7 +148,7 @@ class Dataset:
     """
 
     def __init__(self, *args, **kwargs):
-        self._data = list(Row(arg) for arg in args)
+        self._data = [Row(arg) for arg in args]
         self.__headers = None
 
         # ('title', index) tuples
@@ -206,7 +206,7 @@ class Dataset:
 
     def __repr__(self):
         try:
-            return '<%s dataset>' % (self.title.lower())
+            return f'<{self.title.lower()} dataset>'
         except AttributeError:
             return '<dataset object>'
 
@@ -227,7 +227,7 @@ class Dataset:
         if self.__headers:
             result.insert(1, ['-' * length for length in field_lens])
 
-        format_string = '|'.join('{%s:%s}' % item for item in enumerate(field_lens))
+        format_string = '|'.join('{{{}:{}}}'.format(*item) for item in enumerate(field_lens))
 
         return '\n'.join(format_string.format(*row) for row in result)
 
@@ -712,7 +712,7 @@ class Dataset:
         _dset = Dataset()
 
         # Add columns as rows in new instance
-        for index in range(0, len(self._data[0])):
+        for index in range(len(self._data[0])):
             row_data = self.get_col(index)
             _dset.append(row=row_data)
 
@@ -747,8 +747,8 @@ class Dataset:
         # Copy the source data
         _dset = copy(self)
 
-        rows_to_stack = [row for row in _dset._data]
-        other_rows = [row for row in other._data]
+        rows_to_stack = list(_dset._data)
+        other_rows = list(other._data)
 
         rows_to_stack.extend(other_rows)
         _dset._data = rows_to_stack
@@ -798,7 +798,7 @@ class Dataset:
 
     def wipe(self):
         """Removes all content and headers from the :class:`Dataset` object."""
-        self._data = list()
+        self._data = []
         self.__headers = None
 
     def subset(self, rows=None, cols=None):
@@ -850,7 +850,7 @@ class Databook:
 
     def __repr__(self):
         try:
-            return '<%s databook>' % (self.title.lower())
+            return f'<{self.title.lower()} databook>'
         except AttributeError:
             return '<databook object>'
 

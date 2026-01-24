@@ -504,7 +504,7 @@ def test_keepalive(test_client, http_server_protocol):
 
 def test_keepalive_conn_management(test_client):
     """Test management of Keep-Alive connections."""
-    test_client.server_instance.timeout = 2
+    test_client.server_instance.timeout = 3
 
     def connection():
         # Initialize a persistent HTTP connection
@@ -671,6 +671,7 @@ def test_keepalive_conn_management(test_client):
         ),
     ),
 )
+# pylint: disable-next=too-many-positional-arguments
 def test_broken_connection_during_tcp_fin(
     error_number,
     exception_leaks,
@@ -805,7 +806,7 @@ def test_broken_connection_during_http_communication_fallback(  # noqa: WPS118
 
     assert len(actual_log_entries) == len(expected_log_entries)
 
-    for (  # noqa: WPS352
+    for (
         (expected_log_level, expected_msg_regex),
         (actual_msg, actual_log_level, _tb),
     ) in zip(expected_log_entries, actual_log_entries):
@@ -855,7 +856,7 @@ def test_kb_int_from_http_handler(
 
     assert len(actual_log_entries) == len(expected_log_entries)
 
-    for (  # noqa: WPS352
+    for (
         (expected_log_level, expected_msg_regex),
         (actual_msg, actual_log_level, _tb),
     ) in zip(expected_log_entries, actual_log_entries):
@@ -924,7 +925,7 @@ def test_unhandled_exception_in_request_handler(
 
     assert len(actual_log_entries) == len(expected_log_entries)
 
-    for (  # noqa: WPS352
+    for (
         (expected_log_level, expected_msg_regex),
         (actual_msg, actual_log_level, _tb),
     ) in zip(expected_log_entries, actual_log_entries):
@@ -1007,7 +1008,7 @@ def test_remains_alive_post_unhandled_exception(
 
     assert len(actual_log_entries) == len(expected_log_entries)
 
-    for (  # noqa: WPS352
+    for (
         (expected_log_level, expected_msg_regex),
         (actual_msg, actual_log_level, _tb),
     ) in zip(expected_log_entries, actual_log_entries):

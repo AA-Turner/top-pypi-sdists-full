@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "time-machine"
-version = "2.19.0"
+version = "3.2.0"
 description = "Travel through time in your tests."
 readme = "README.rst"
 keywords = [
@@ -24,7 +24,7 @@ license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
@@ -32,7 +32,6 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -40,11 +39,11 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
-dependencies = [
-  "python-dateutil",
-]
 optional-dependencies.cli = [
   "tokenize-rt",
+]
+optional-dependencies.dateutil = [
+  "python-dateutil>=2.8.2",
 ]
 urls.Changelog = "https://time-machine.readthedocs.io/en/latest/changelog.html"
 urls.Documentation = "https://time-machine.readthedocs.io/"
@@ -54,8 +53,8 @@ entry-points.pytest11.time_machine = "time_machine"
 
 [dependency-groups]
 test = [
-  "backports-zoneinfo; python_version<'3.9'",
   "coverage[toml]",
+  "freezegun",
   "pytest",
   "pytest-randomly",
   "python-dateutil",
@@ -67,6 +66,9 @@ docs = [
   "sphinx-copybutton>=0.5.2",
 ]
 
+[tool.uv.sources]
+sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }
+
 [tool.cibuildwheel]
 build = [
   "cp314-*",
@@ -76,7 +78,6 @@ build = [
   "cp312-*",
   "cp311-*",
   "cp310-*",
-  "cp39-*",
 ]
 enable = [
   # Enable free-threaded wheels on Python 3.13 (where it was experimental)
@@ -172,6 +173,3 @@ ignore_directives = [
   "autodata",
 ]
 report_level = "ERROR"
-
-[tool.uv.sources]
-sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }

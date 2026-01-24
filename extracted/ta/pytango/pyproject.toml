@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.10.0",
+    "pybind11>=3.0.1",
 
     # Comments on numpy build requirement range:
     #
@@ -10,10 +11,11 @@ requires = [
     #   2. Note that building against numpy 1.x works fine too - users and
     #      redistributors can do this by installing the numpy version they like
     #      and disabling build isolation.
-    #   3. The <2.3 upper bound due to removal of the deprecated v1.7 API used by our Boost extension.
-    "numpy>=2.0.0rc1,<2.3",
+    #   3. The <3 upper bound is to pre-empt problems with the next major release.
+    "numpy>=2.0.0rc1,<3",
 
     "pybind11-stubgen",
+    "ruff",
     "typing_extensions >= 4.5.0; python_version < '3.13'",
 ]
 build-backend = "scikit_build_core.build"
@@ -26,10 +28,10 @@ changelog = "https://gitlab.com/tango-controls/pytango/-/releases"
 
 [project]
 name = "pytango"
-version = "10.0.3"
+version = "10.1.2"
 description = "Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {'name' = "Coutinho"}]
 maintainers = [
@@ -48,11 +50,11 @@ classifiers = [
         "Operating System :: Unix",
         "Programming Language :: C",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development :: Libraries",
     ]
@@ -61,7 +63,11 @@ dependencies = [
     "numpy (>=1.19.3,<3)",
     "packaging",
     "psutil >=5.3.0",
-    "typing_extensions >= 4.5.0; python_version < '3.13'"
+    "typing_extensions >= 4.5.0; python_version < '3.13'",
+
+    # Note: docstring_parser dependency is needed for full functionallity,
+    # but it could be removed without any additional changes
+    "docstring_parser"
 ]
 
 [project.optional-dependencies]
@@ -75,7 +81,8 @@ tests = [
     "gevent >= 20.0",
     "pytest",
     "pytest-asyncio >=0.24",
-    "pytest-cov",
+    "pytest-cov>=7.0.0",
+    "pytest-env",
     "pytest-forked",
     "pytest-timeout",
 ]
@@ -98,23 +105,29 @@ Tango_USE_PKG_CONFIG="OFF"
 [tool.pytest.ini_options]
 # see also pytest_win_config.toml
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-v --forked"
-# it is important to put the "ignore::tango.PyTangoUserWarning:tango.utils" option before the "error" option.
-# If "error" is first, we can get an error when pytest imports tango.utils to resolve the warning type.
-filterwarnings = ["ignore::tango.PyTangoUserWarning:tango.utils", "error", "ignore::ResourceWarning"]
+addopts = "-v --showlocals --forked"
+env = ["PYTANGO_TESTS_RUNNING=True"]
+filterwarnings = ["error", "ignore::ResourceWarning"]
 testpaths = [
     "tests"
 ]
+log_format = "%(threadName)-14s %(levelname)-8s %(asctime)s %(name)s: %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S,%f"
+log_level = "DEBUG"
 
 [tool.coverage.run]
 branch = true
+core = "ctrace"
 source = ["tango", "PyTango", "tests"]
 omit = [
-    # omit deprecated modules
+    # environment files
+    "*/.pixi/*",
+    # deprecated modules
     "tango/client.py",
     "tango/codec.py",
     "tango/tango_object.py",
 ]
+patch = ["subprocess", "fork", "_exit"]
 
 [tool.ruff]
 exclude = [
@@ -122,6 +135,7 @@ exclude = [
     "__pycache__",
     ".eggs",
     "*.egg",
+    "*.pyi",
     "build",
     "databaseds",
     "examples",

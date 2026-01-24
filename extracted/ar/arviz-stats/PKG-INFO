@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: arviz-stats
+Version: 0.8.0
+Summary: Statistical computation and diagnostics for ArviZ.
+Author-email: ArviZ team <arvizdevs@gmail.com>
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE
+Requires-Dist: numpy>=2
+Requires-Dist: scipy>=1.10
+Requires-Dist: sphinx-book-theme ; extra == "doc"
+Requires-Dist: myst-parser[linkify] ; extra == "doc"
+Requires-Dist: myst-nb ; extra == "doc"
+Requires-Dist: sphinx-copybutton ; extra == "doc"
+Requires-Dist: numpydoc ; extra == "doc"
+Requires-Dist: sphinx ; extra == "doc"
+Requires-Dist: sphinx-design ; extra == "doc"
+Requires-Dist: jupyter-sphinx ; extra == "doc"
+Requires-Dist: h5netcdf ; extra == "doc"
+Requires-Dist: sphinx_autosummary_accessors ; extra == "doc"
+Requires-Dist: numba ; extra == "numba"
+Requires-Dist: xarray_einstats[einops, numba] ; extra == "numba"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: pytest ; extra == "test-xarray"
+Requires-Dist: pytest-cov ; extra == "test-xarray"
+Requires-Dist: h5netcdf ; extra == "test-xarray"
+Requires-Dist: arviz-base>=0.8.0,<0.9.0 ; extra == "xarray"
+Requires-Dist: xarray-einstats ; extra == "xarray"
+Requires-Dist: xarray ; extra == "xarray"
+Project-URL: documentation, https://arviz-stats.readthedocs.io
+Project-URL: funding, https://opencollective.com/arviz
+Project-URL: source, https://github.com/arviz-devs/arviz-stats
+Project-URL: tracker, https://github.com/arviz-devs/arviz-stats/issues
+Provides-Extra: doc
+Provides-Extra: numba
+Provides-Extra: test
+Provides-Extra: test-xarray
+Provides-Extra: xarray
+
+# arviz-stats
+
+[![Run tests](https://github.com/arviz-devs/arviz-stats/actions/workflows/test.yml/badge.svg)](https://github.com/arviz-devs/arviz-stats/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/arviz-devs/arviz-stats/branch/main/graph/badge.svg?token=95N0B8O005)](https://codecov.io/gh/arviz-devs/arviz-stats)
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
+
+ArviZ computational/numeric features: statistical summaries, diagnostics, model comparison... (once finished).
+
+We are currently working on splitting ArviZ into independent modules.
+See https://github.com/arviz-devs/arviz/issues/2088 for more details.
+

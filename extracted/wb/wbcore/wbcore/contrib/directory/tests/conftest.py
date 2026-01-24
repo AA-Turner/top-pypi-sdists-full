@@ -5,6 +5,7 @@ from django.db.models.signals import pre_migrate
 from pytest_factoryboy import register
 from wbcore.contrib.authentication.factories import InternalUserFactory, UserFactory
 from wbcore.contrib.geography.tests.signals import app_pre_migration
+from wbcore.contrib.currency.factories import CurrencyFactory
 from wbcore.tests.conftest import *
 
 from ..factories import (
@@ -45,6 +46,7 @@ register(RelationshipFactory)
 register(RelationshipTypeFactory)
 register(CustomerStatusFactory)
 register(CompanyTypeFactory)
+register(CurrencyFactory)
 
 
 @pytest.fixture(autouse=True, scope="session")

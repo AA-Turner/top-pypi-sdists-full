@@ -6,8 +6,22 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from . import knowledge_base, link, llm_usage, widget
-_dynamic_imports: typing.Dict[str, str] = {"knowledge_base": ".", "link": ".", "llm_usage": ".", "widget": "."}
+    from . import knowledge_base, link, llm_usage, summaries, widget
+    from .summaries import (
+        SummariesGetResponseValue,
+        SummariesGetResponseValue_Failure,
+        SummariesGetResponseValue_Success,
+    )
+_dynamic_imports: typing.Dict[str, str] = {
+    "SummariesGetResponseValue": ".summaries",
+    "SummariesGetResponseValue_Failure": ".summaries",
+    "SummariesGetResponseValue_Success": ".summaries",
+    "knowledge_base": ".knowledge_base",
+    "link": ".link",
+    "llm_usage": ".llm_usage",
+    "summaries": ".summaries",
+    "widget": ".widget",
+}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -16,8 +30,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -29,4 +45,13 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["knowledge_base", "link", "llm_usage", "widget"]
+__all__ = [
+    "SummariesGetResponseValue",
+    "SummariesGetResponseValue_Failure",
+    "SummariesGetResponseValue_Success",
+    "knowledge_base",
+    "link",
+    "llm_usage",
+    "summaries",
+    "widget",
+]

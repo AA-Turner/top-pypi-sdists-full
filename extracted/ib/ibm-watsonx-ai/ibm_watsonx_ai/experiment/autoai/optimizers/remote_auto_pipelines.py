@@ -1,9 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import json
 from copy import deepcopy
+from pathlib import Path
 from typing import TYPE_CHECKING, List, Union
 from warnings import warn
 
@@ -20,9 +21,7 @@ from ibm_watsonx_ai.helpers.connections import (
     S3Location,
 )
 from ibm_watsonx_ai.utils import WMLClientError
-from ibm_watsonx_ai.utils.autoai.connection import (
-    validate_source_data_connections,
-)
+from ibm_watsonx_ai.utils.autoai.connection import validate_source_data_connections
 from ibm_watsonx_ai.utils.autoai.enums import (
     ClassificationAlgorithms,
     DataConnectionTypes,
@@ -45,6 +44,7 @@ from ibm_watsonx_ai.utils.autoai.errors import (
     TestDataNotPresent,
 )
 from ibm_watsonx_ai.utils.autoai.utils import try_import_lale
+from ibm_watsonx_ai.wml_client_error import InvalidValue
 
 from .base_auto_pipelines import BaseAutoPipelines
 
@@ -86,8 +86,8 @@ class RemoteAutoPipelines(BaseAutoPipelines):
     :param desc: description
     :type desc: str, optional
 
-    :param holdout_size: percentage of the entire dataset to leave as a holdout, default 0.1
-    :type holdout_size: float, optional
+    :param holdout_size: percentage of the entire dataset to leave as a holdout, for AutoAI Forecasting it can be a number of rows of data
+    :type holdout_size: float | int, optional
 
     :param max_num_daub_ensembles: maximum number (top-K ranked by DAUB model selection) of the selected algorithm,
         or estimator types, for example `LGBMClassifierEstimator`, `XGBoostClassifierEstimator`, or
@@ -102,7 +102,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
     :param include_only_estimators: list of estimators to include in computation process
     :type include_only_estimators: list[ClassificationAlgorithms or RegressionAlgorithms], optional
 
-    :param cognito_transform_names: list of transformers to include in the feature enginnering computation process,
+    :param cognito_transform_names: list of transformers to include in the feature engineering computation process,
         see: AutoAI.Transformers
     :type cognito_transform_names: list[Transformers], optional
 
@@ -125,7 +125,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         only applicable to a remote scenario
     :type t_shirt_size: TShirtSize, optional
 
-    :param time_ordered_data: defines user preference about time-based analise. If True, the analysis will
+    :param time_ordered_data: defines user preference about time-based analyse. If True, the analysis will
         consider the data as time-ordered and time-based. Supported only for regression.
     :type time_ordered_data: bool, optional
 
@@ -149,7 +149,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         engine: Union["WMLEngine", "ServiceEngine"],
         scoring: "Metrics" = None,
         desc: str = None,
-        holdout_size: float = None,
+        holdout_size: float | int | None = None,
         max_num_daub_ensembles: int = None,
         t_shirt_size: "TShirtSize" = TShirtSize.M,
         train_sample_rows_test_size: float = None,
@@ -215,6 +215,15 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                 "Please set excel sheet with name of the sheet."
             )
             warn(excel_sheet_as_number_deprecated_warning, category=DeprecationWarning)
+
+        if isinstance(holdout_size, int) and prediction_type not in {
+            PredictionType.FORECASTING,
+            "timeseries",
+        }:
+            raise InvalidValue(
+                value_name="holdout_size",
+                reason="Integer value is only valid for AutoAI Forecasting",
+            )
 
         self.params = {
             "name": name,
@@ -302,6 +311,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
@@ -401,7 +411,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             raise NoneDataConnection("training_data_references")
 
         for conn in training_data_reference:
-            if self._workspace.api_client.project_type == "local_git_storage":
+            if self._workspace.api_client.is_git_based_project:
                 conn.location.userfs = "true"
             conn.set_client(self._workspace.api_client)
             # TODO: remove S3 implementation
@@ -418,7 +428,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             for conn in test_data_references:
                 # Update test data ref with client object, experiment parameters
                 if isinstance(conn, DataConnection):
-                    if self._workspace.api_client.project_type == "local_git_storage":
+                    if self._workspace.api_client.is_git_based_project:
                         conn.location.userfs = "true"
                     conn.set_client(self._workspace.api_client)
                     # TODO: remove S3 implementation
@@ -647,6 +657,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
@@ -682,6 +693,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
@@ -711,11 +723,12 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
             remote_optimizer.get_pipeline_details()
-            remote_optimizer.get_pipeline_details(pipeline_name='Pipeline_4')
+            remote_optimizer.get_pipeline_details(pipeline_name="Pipeline_4")
 
             # Result:
             # {
@@ -754,15 +767,22 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
-            pipeline_1 = remote_optimizer.get_pipeline(pipeline_name='Pipeline_1')
-            pipeline_2 = remote_optimizer.get_pipeline(pipeline_name='Pipeline_1', astype=AutoAI.PipelineTypes.LALE)
-            pipeline_3 = remote_optimizer.get_pipeline(pipeline_name='Pipeline_1', astype=AutoAI.PipelineTypes.SKLEARN)
+            pipeline_1 = remote_optimizer.get_pipeline(pipeline_name="Pipeline_1")
+            pipeline_2 = remote_optimizer.get_pipeline(
+                pipeline_name="Pipeline_1", astype=AutoAI.PipelineTypes.LALE
+            )
+            pipeline_3 = remote_optimizer.get_pipeline(
+                pipeline_name="Pipeline_1", astype=AutoAI.PipelineTypes.SKLEARN
+            )
             type(pipeline_3)
             # <class 'sklearn.pipeline.Pipeline'>
-            pipeline_4 = remote_optimizer.get_pipeline(pipeline_name='Pipeline_1', persist=True)
+            pipeline_4 = remote_optimizer.get_pipeline(
+                pipeline_name="Pipeline_1", persist=True
+            )
             # Selected pipeline stored under: "absolute_local_path_to_model/model.pickle"
 
         """
@@ -816,8 +836,8 @@ class RemoteAutoPipelines(BaseAutoPipelines):
 
     def get_pipeline_notebook(
         self,
-        pipeline_name: str = None,
-        filename: str = None,
+        pipeline_name: str | None = None,
+        filename: str | None = None,
         insert_to_cell: bool = False,
     ) -> str:
         """Download specified pipeline notebook from Service.
@@ -842,20 +862,24 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
             remote_optimizer = experiment.optimizer(...)
 
-            pipeline_notebook_path = remote_optimizer.get_pipeline_notebook(pipeline_name='Pipeline_1')
+            pipeline_notebook_path = remote_optimizer.get_pipeline_notebook(
+                pipeline_name="Pipeline_1"
+            )
 
         """
         if pipeline_name is None:
             pipeline_name = self._engine.summary().index[0]
 
-        path = self._engine.get_pipeline_notebook(pipeline_name, filename=filename)
+        path = Path(
+            self._engine.get_pipeline_notebook(pipeline_name, filename=filename)
+        )
 
         if insert_to_cell:
-            with open(path, "r") as f:
-                content = json.loads(f.read())
+            content = json.loads(path.read_text())
 
             def translate_cell_to_str(cell):
                 if cell["cell_type"] == "code":
@@ -894,7 +918,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             comment = "# generated by get_pipeline_notebook(insert_to_cell=True) from previous cell\n\n"
             ipython.set_next_input(comment + result, replace=False)
 
-        return path
+        return str(path)
 
     # note: predict on top of the best computed pipeline, best pipeline is downloaded for the first time
     def predict(

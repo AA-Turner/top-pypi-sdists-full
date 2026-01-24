@@ -3,7 +3,7 @@ Type annotations for ram service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -36,12 +37,6 @@ from .literals import (
     ResourceStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -145,7 +140,7 @@ class AcceptResourceShareInvitationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -470,7 +465,7 @@ class EnableSharingWithAwsOrganizationResponseTypeDef(TypedDict):
 
 
 class GetResourcePoliciesResponseTypeDef(TypedDict):
-    policies: List[str]
+    policies: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -487,19 +482,19 @@ class SetDefaultPermissionVersionResponseTypeDef(TypedDict):
 
 
 class AssociateResourceShareResponseTypeDef(TypedDict):
-    resourceShareAssociations: List[ResourceShareAssociationTypeDef]
+    resourceShareAssociations: list[ResourceShareAssociationTypeDef]
     clientToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DisassociateResourceShareResponseTypeDef(TypedDict):
-    resourceShareAssociations: List[ResourceShareAssociationTypeDef]
+    resourceShareAssociations: list[ResourceShareAssociationTypeDef]
     clientToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetResourceShareAssociationsResponseTypeDef(TypedDict):
-    resourceShareAssociations: List[ResourceShareAssociationTypeDef]
+    resourceShareAssociations: list[ResourceShareAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -512,12 +507,12 @@ class ResourceShareInvitationTypeDef(TypedDict):
     receiverAccountId: NotRequired[str]
     invitationTimestamp: NotRequired[datetime]
     status: NotRequired[ResourceShareInvitationStatusType]
-    resourceShareAssociations: NotRequired[List[ResourceShareAssociationTypeDef]]
+    resourceShareAssociations: NotRequired[list[ResourceShareAssociationTypeDef]]
     receiverArn: NotRequired[str]
 
 
 class ListPermissionAssociationsResponseTypeDef(TypedDict):
-    permissions: List[AssociatedPermissionTypeDef]
+    permissions: list[AssociatedPermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -554,7 +549,7 @@ class ResourceSharePermissionDetailTypeDef(TypedDict):
     permissionType: NotRequired[PermissionTypeType]
     featureSet: NotRequired[PermissionFeatureSetType]
     status: NotRequired[PermissionStatusType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class ResourceSharePermissionSummaryTypeDef(TypedDict):
@@ -569,7 +564,7 @@ class ResourceSharePermissionSummaryTypeDef(TypedDict):
     isResourceTypeDefault: NotRequired[bool]
     permissionType: NotRequired[PermissionTypeType]
     featureSet: NotRequired[PermissionFeatureSetType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class ResourceShareTypeDef(TypedDict):
@@ -579,7 +574,7 @@ class ResourceShareTypeDef(TypedDict):
     allowExternalPrincipals: NotRequired[bool]
     status: NotRequired[ResourceShareStatusType]
     statusMessage: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     creationTime: NotRequired[datetime]
     lastUpdatedTime: NotRequired[datetime]
     featureSet: NotRequired[ResourceShareFeatureSetType]
@@ -655,25 +650,25 @@ class GetResourceSharesRequestTypeDef(TypedDict):
 
 
 class ListPendingInvitationResourcesResponseTypeDef(TypedDict):
-    resources: List[ResourceTypeDef]
+    resources: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResourcesResponseTypeDef(TypedDict):
-    resources: List[ResourceTypeDef]
+    resources: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPrincipalsResponseTypeDef(TypedDict):
-    principals: List[PrincipalTypeDef]
+    principals: list[PrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListReplacePermissionAssociationsWorkResponseTypeDef(TypedDict):
-    replacePermissionAssociationsWorks: List[ReplacePermissionAssociationsWorkTypeDef]
+    replacePermissionAssociationsWorks: list[ReplacePermissionAssociationsWorkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -685,7 +680,7 @@ class ReplacePermissionAssociationsResponseTypeDef(TypedDict):
 
 
 class ListResourceTypesResponseTypeDef(TypedDict):
-    resourceTypes: List[ServiceNameAndResourceTypeTypeDef]
+    resourceTypes: list[ServiceNameAndResourceTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -697,7 +692,7 @@ class AcceptResourceShareInvitationResponseTypeDef(TypedDict):
 
 
 class GetResourceShareInvitationsResponseTypeDef(TypedDict):
-    resourceShareInvitations: List[ResourceShareInvitationTypeDef]
+    resourceShareInvitations: list[ResourceShareInvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -726,19 +721,19 @@ class CreatePermissionResponseTypeDef(TypedDict):
 
 
 class ListPermissionVersionsResponseTypeDef(TypedDict):
-    permissions: List[ResourceSharePermissionSummaryTypeDef]
+    permissions: list[ResourceSharePermissionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPermissionsResponseTypeDef(TypedDict):
-    permissions: List[ResourceSharePermissionSummaryTypeDef]
+    permissions: list[ResourceSharePermissionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResourceSharePermissionsResponseTypeDef(TypedDict):
-    permissions: List[ResourceSharePermissionSummaryTypeDef]
+    permissions: list[ResourceSharePermissionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -756,7 +751,7 @@ class CreateResourceShareResponseTypeDef(TypedDict):
 
 
 class GetResourceSharesResponseTypeDef(TypedDict):
-    resourceShares: List[ResourceShareTypeDef]
+    resourceShares: list[ResourceShareTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

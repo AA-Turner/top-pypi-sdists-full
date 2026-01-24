@@ -39,6 +39,8 @@ Self = TypeVar("Self")
 AnyDateTime = TypeVar("AnyDateTime", bound="DateTime[Optional[_tzinfo]]")
 AnyTime = TypeVar("AnyTime", bound="Time[Optional[_tzinfo]]")
 
+_missing = object()
+
 if sys.version_info >= (3, 9):
 
     class _IsoCalendarDate(NamedTuple):
@@ -415,8 +417,7 @@ class DateTime(Protocol[_GMaybeTZDT]):
         microsecond: int = ...,
         *,
         fold: int = ...,
-    ) -> Self:
-        "If no replacement tz is specified then we inherit"
+    ) -> Self: ...
 
     @property
     def year(self) -> int: ...
@@ -457,7 +458,10 @@ class DateTime(Protocol[_GMaybeTZDT]):
     def __sub__(self: Self, __other: _timedelta) -> Self: ...
 
     @overload
-    def __sub__(self: DTSelf, __other: DTSelf) -> _timedelta: ...
+    def __sub__(self: DateTime[None], __other: DateTime[None]) -> _timedelta: ...
+
+    @overload
+    def __sub__(self: DateTime[_tzinfo], __other: DateTime[_tzinfo]) -> _timedelta: ...
 
     def __add__(self: Self, __other: _timedelta) -> Self: ...
 
@@ -511,8 +515,10 @@ class DateTime(Protocol[_GMaybeTZDT]):
             cls,
             date: Date,
             time: Time[Optional[_tzinfo]],
-            tzinfo: Optional[_tzinfo] = None,
+            tzinfo: Optional[_tzinfo] = _missing,  # type: ignore[assignment]
         ) -> DateTime[Optional[_tzinfo]]:
+            if tzinfo is _missing:
+                tzinfo = time.tzinfo
             return _datetime.combine(
                 concrete(date), concrete(time), tzinfo
             )  # type:ignore[return-value]

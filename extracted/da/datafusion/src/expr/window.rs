@@ -15,6 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt::{self, Display, Formatter};
+
+use datafusion::common::{DataFusionError, ScalarValue};
+use datafusion::logical_expr::{Expr, Window, WindowFrame, WindowFrameBound, WindowFrameUnits};
+use pyo3::exceptions::PyNotImplementedError;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
+
+use super::py_expr_list;
 use crate::common::data_type::PyScalarValue;
 use crate::common::df_schema::PyDFSchema;
 use crate::errors::{py_type_err, PyDataFusionResult};
@@ -22,21 +31,14 @@ use crate::expr::logical_node::LogicalNode;
 use crate::expr::sort_expr::{py_sort_expr_list, PySortExpr};
 use crate::expr::PyExpr;
 use crate::sql::logical::PyLogicalPlan;
-use datafusion::common::{DataFusionError, ScalarValue};
-use datafusion::logical_expr::{Expr, Window, WindowFrame, WindowFrameBound, WindowFrameUnits};
-use pyo3::exceptions::PyNotImplementedError;
-use pyo3::{prelude::*, IntoPyObjectExt};
-use std::fmt::{self, Display, Formatter};
 
-use super::py_expr_list;
-
-#[pyclass(name = "WindowExpr", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "WindowExpr", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyWindowExpr {
     window: Window,
 }
 
-#[pyclass(name = "WindowFrame", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "WindowFrame", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyWindowFrame {
     window_frame: WindowFrame,
@@ -54,7 +56,12 @@ impl From<WindowFrame> for PyWindowFrame {
     }
 }
 
-#[pyclass(name = "WindowFrameBound", module = "datafusion.expr", subclass)]
+#[pyclass(
+    frozen,
+    name = "WindowFrameBound",
+    module = "datafusion.expr",
+    subclass
+)]
 #[derive(Clone)]
 pub struct PyWindowFrameBound {
     frame_bound: WindowFrameBound,

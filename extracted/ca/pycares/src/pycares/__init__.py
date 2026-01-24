@@ -5,6 +5,9 @@ import _cffi_backend  # hint for bundler tools
 if _lib.ARES_SUCCESS != _lib.ares_library_init(_lib.ARES_LIB_INIT_ALL) or _ffi is None:
     raise RuntimeError('Could not initialize c-ares')
 
+if not _lib.ares_threadsafety():
+    raise RuntimeError("c-ares is not built with thread safety")
+
 from . import errno
 from .utils import ascii_bytes, maybe_str, parse_name
 from ._version import __version__
@@ -13,7 +16,8 @@ import math
 import socket
 import threading
 from collections.abc import Callable, Iterable
-from typing import Any, Callable, Final, Optional, Dict, Union
+from dataclasses import dataclass
+from typing import Any, Callable, Literal, Optional, Dict, Union
 from queue import SimpleQueue
 
 IP4 = tuple[str, int]
@@ -52,25 +56,28 @@ ARES_NI_IDN_USE_STD3_ASCII_RULES = _lib.ARES_NI_IDN_USE_STD3_ASCII_RULES
 ARES_SOCKET_BAD = _lib.ARES_SOCKET_BAD
 
 # Query types
-QUERY_TYPE_A = _lib.T_A
-QUERY_TYPE_AAAA = _lib.T_AAAA
-QUERY_TYPE_ANY = _lib.T_ANY
-QUERY_TYPE_CAA = _lib.T_CAA
-QUERY_TYPE_CNAME = _lib.T_CNAME
-QUERY_TYPE_MX = _lib.T_MX
-QUERY_TYPE_NAPTR = _lib.T_NAPTR
-QUERY_TYPE_NS = _lib.T_NS
-QUERY_TYPE_PTR = _lib.T_PTR
-QUERY_TYPE_SOA = _lib.T_SOA
-QUERY_TYPE_SRV = _lib.T_SRV
-QUERY_TYPE_TXT = _lib.T_TXT
+QUERY_TYPE_A = _lib.ARES_REC_TYPE_A
+QUERY_TYPE_AAAA = _lib.ARES_REC_TYPE_AAAA
+QUERY_TYPE_ANY = _lib.ARES_REC_TYPE_ANY
+QUERY_TYPE_CAA = _lib.ARES_REC_TYPE_CAA
+QUERY_TYPE_CNAME = _lib.ARES_REC_TYPE_CNAME
+QUERY_TYPE_MX = _lib.ARES_REC_TYPE_MX
+QUERY_TYPE_NAPTR = _lib.ARES_REC_TYPE_NAPTR
+QUERY_TYPE_NS = _lib.ARES_REC_TYPE_NS
+QUERY_TYPE_PTR = _lib.ARES_REC_TYPE_PTR
+QUERY_TYPE_SOA = _lib.ARES_REC_TYPE_SOA
+QUERY_TYPE_SRV = _lib.ARES_REC_TYPE_SRV
+QUERY_TYPE_TXT = _lib.ARES_REC_TYPE_TXT
+QUERY_TYPE_TLSA = _lib.ARES_REC_TYPE_TLSA
+QUERY_TYPE_HTTPS = _lib.ARES_REC_TYPE_HTTPS
+QUERY_TYPE_URI = _lib.ARES_REC_TYPE_URI
 
 # Query classes
-QUERY_CLASS_IN = _lib.C_IN
-QUERY_CLASS_CHAOS = _lib.C_CHAOS
-QUERY_CLASS_HS = _lib.C_HS
-QUERY_CLASS_NONE = _lib.C_NONE
-QUERY_CLASS_ANY = _lib.C_ANY
+QUERY_CLASS_IN = _lib.ARES_CLASS_IN
+QUERY_CLASS_CHAOS = _lib.ARES_CLASS_CHAOS
+QUERY_CLASS_HS = _lib.ARES_CLASS_HESOID
+QUERY_CLASS_NONE = _lib.ARES_CLASS_NONE
+QUERY_CLASS_ANY = _lib.ARES_CLASS_ANY
 
 ARES_VERSION = maybe_str(_ffi.string(_lib.ares_version(_ffi.NULL)))
 PYCARES_ADDRTTL_SIZE = 256
@@ -103,7 +110,7 @@ def _host_cb(arg, status, timeouts, hostent):
     if status != _lib.ARES_SUCCESS:
         result = None
     else:
-        result = ares_host_result(hostent)
+        result = parse_hostent(hostent)
         status = None
 
     callback(result, status)
@@ -120,42 +127,34 @@ def _nameinfo_cb(arg, status, timeouts, node, service):
     if status != _lib.ARES_SUCCESS:
         result = None
     else:
-        result = ares_nameinfo_result(node, service)
+        result = parse_nameinfo(node, service)
         status = None
 
     callback(result, status)
     _handle_to_channel.pop(arg, None)
 
 @_ffi.def_extern()
-def _query_cb(arg, status, timeouts, abuf, alen):
+def _query_dnsrec_cb(arg, status, timeouts, dnsrec):
+    """Callback for new DNS record API queries"""
     # Get callback data without removing the reference yet
     if arg not in _handle_to_channel:
         return
 
-    callback, query_type = _ffi.from_handle(arg)
+    callback = _ffi.from_handle(arg)
 
-    if status == _lib.ARES_SUCCESS:
-        if query_type == _lib.T_ANY:
-            result = []
-            for qtype in (_lib.T_A, _lib.T_AAAA, _lib.T_CAA, _lib.T_CNAME, _lib.T_MX, _lib.T_NAPTR, _lib.T_NS, _lib.T_PTR, _lib.T_SOA, _lib.T_SRV, _lib.T_TXT):
-                r, status = parse_result(qtype, abuf, alen)
-                if status not in (None, _lib.ARES_ENODATA, _lib.ARES_EBADRESP):
-                    result = None
-                    break
-                if r is not None:
-                    if isinstance(r, Iterable):
-                        result.extend(r)
-                    else:
-                        result.append(r)
-            else:
-                status = None
-        else:
-            result, status = parse_result(query_type, abuf, alen)
-    else:
+    if status != _lib.ARES_SUCCESS:
         result = None
+    else:
+        result, parse_status = parse_dnsrec(dnsrec)
+        if parse_status is not None:
+            status = parse_status
+        else:
+            # Success - set status to None
+            status = None
 
     callback(result, status)
     _handle_to_channel.pop(arg, None)
+
 
 @_ffi.def_extern()
 def _addrinfo_cb(arg, status, timeouts, res):
@@ -168,169 +167,252 @@ def _addrinfo_cb(arg, status, timeouts, res):
     if status != _lib.ARES_SUCCESS:
         result = None
     else:
-        result = ares_addrinfo_result(res)
+        result = parse_addrinfo(res)
         status = None
 
     callback(result, status)
     _handle_to_channel.pop(arg, None)
 
-def parse_result(query_type, abuf, alen):
-    if query_type == _lib.T_A:
-        addrttls = _ffi.new("struct ares_addrttl[]", PYCARES_ADDRTTL_SIZE)
-        naddrttls = _ffi.new("int*", PYCARES_ADDRTTL_SIZE)
-        parse_status = _lib.ares_parse_a_reply(abuf, alen, _ffi.NULL, addrttls, naddrttls)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = [ares_query_a_result(addrttls[i]) for i in range(naddrttls[0])]
-            status = None
-    elif query_type == _lib.T_AAAA:
-        addrttls = _ffi.new("struct ares_addr6ttl[]", PYCARES_ADDRTTL_SIZE)
-        naddrttls = _ffi.new("int*", PYCARES_ADDRTTL_SIZE)
-        parse_status = _lib.ares_parse_aaaa_reply(abuf, alen, _ffi.NULL, addrttls, naddrttls)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = [ares_query_aaaa_result(addrttls[i]) for i in range(naddrttls[0])]
-            status = None
-    elif query_type == _lib.T_CAA:
-        caa_reply = _ffi.new("struct ares_caa_reply **")
-        parse_status = _lib.ares_parse_caa_reply(abuf, alen, caa_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            caa_reply_ptr = caa_reply[0]
-            while caa_reply_ptr != _ffi.NULL:
-                result.append(ares_query_caa_result(caa_reply_ptr))
-                caa_reply_ptr = caa_reply_ptr.next
-            _lib.ares_free_data(caa_reply[0])
-            status = None
-    elif query_type == _lib.T_CNAME:
-        host = _ffi.new("struct hostent **")
-        parse_status = _lib.ares_parse_a_reply(abuf, alen, host, _ffi.NULL, _ffi.NULL)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = ares_query_cname_result(host[0])
-            _lib.ares_free_hostent(host[0])
-            status = None
-    elif query_type == _lib.T_MX:
-        mx_reply = _ffi.new("struct ares_mx_reply **")
-        parse_status = _lib.ares_parse_mx_reply(abuf, alen, mx_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            mx_reply_ptr = mx_reply[0]
-            while mx_reply_ptr != _ffi.NULL:
-                result.append(ares_query_mx_result(mx_reply_ptr))
-                mx_reply_ptr = mx_reply_ptr.next
-            _lib.ares_free_data(mx_reply[0])
-            status = None
-    elif query_type == _lib.T_NAPTR:
-        naptr_reply = _ffi.new("struct ares_naptr_reply **")
-        parse_status = _lib.ares_parse_naptr_reply(abuf, alen, naptr_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            naptr_reply_ptr = naptr_reply[0]
-            while naptr_reply_ptr != _ffi.NULL:
-                result.append(ares_query_naptr_result(naptr_reply_ptr))
-                naptr_reply_ptr = naptr_reply_ptr.next
-            _lib.ares_free_data(naptr_reply[0])
-            status = None
-    elif query_type == _lib.T_NS:
-        hostent = _ffi.new("struct hostent **")
-        parse_status = _lib.ares_parse_ns_reply(abuf, alen, hostent)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            host = hostent[0]
-            i = 0
-            while host.h_aliases[i] != _ffi.NULL:
-                result.append(ares_query_ns_result(host.h_aliases[i]))
-                i += 1
-            _lib.ares_free_hostent(host)
-            status = None
-    elif query_type == _lib.T_PTR:
-        hostent = _ffi.new("struct hostent **")
-        parse_status = _lib.ares_parse_ptr_reply(abuf, alen, _ffi.NULL, 0, socket.AF_UNSPEC, hostent)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            aliases = []
-            host = hostent[0]
-            i = 0
-            while host.h_aliases[i] != _ffi.NULL:
-                aliases.append(maybe_str(_ffi.string(host.h_aliases[i])))
-                i += 1
-            result = ares_query_ptr_result(host, aliases)
-            _lib.ares_free_hostent(host)
-            status = None
-    elif query_type == _lib.T_SOA:
-        soa_reply = _ffi.new("struct ares_soa_reply **")
-        parse_status = _lib.ares_parse_soa_reply(abuf, alen, soa_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = ares_query_soa_result(soa_reply[0])
-            _lib.ares_free_data(soa_reply[0])
-            status = None
-    elif query_type == _lib.T_SRV:
-        srv_reply = _ffi.new("struct ares_srv_reply **")
-        parse_status = _lib.ares_parse_srv_reply(abuf, alen, srv_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            srv_reply_ptr = srv_reply[0]
-            while srv_reply_ptr != _ffi.NULL:
-                result.append(ares_query_srv_result(srv_reply_ptr))
-                srv_reply_ptr = srv_reply_ptr.next
-            _lib.ares_free_data(srv_reply[0])
-            status = None
-    elif query_type == _lib.T_TXT:
-        txt_reply = _ffi.new("struct ares_txt_ext **")
-        parse_status = _lib.ares_parse_txt_reply_ext(abuf, alen, txt_reply)
-        if parse_status != _lib.ARES_SUCCESS:
-            result = None
-            status = parse_status
-        else:
-            result = []
-            txt_reply_ptr = txt_reply[0]
-            tmp_obj = None
-            while True:
-                if txt_reply_ptr == _ffi.NULL:
-                    if tmp_obj is not None:
-                        result.append(ares_query_txt_result(tmp_obj))
-                    break
-                if txt_reply_ptr.record_start == 1:
-                    if tmp_obj is not None:
-                        result.append(ares_query_txt_result(tmp_obj))
-                    tmp_obj = ares_query_txt_result_chunk(txt_reply_ptr)
-                else:
-                    new_chunk = ares_query_txt_result_chunk(txt_reply_ptr)
-                    tmp_obj.text += new_chunk.text
-                txt_reply_ptr = txt_reply_ptr.next
-            _lib.ares_free_data(txt_reply[0])
-            status = None
-    else:
-        raise ValueError("invalid query type specified")
 
-    return result, status
+def _extract_opt_params(rr, key):
+    """Extract OPT params as list of (key, value) tuples for HTTPS/SVCB records."""
+    opt_cnt = _lib.ares_dns_rr_get_opt_cnt(rr, key)
+    if opt_cnt == 0:
+        return []
+    # Collect all options as a list of (key, value) tuples
+    params = []
+    for i in range(opt_cnt):
+        val_ptr = _ffi.new("unsigned char **")
+        val_len = _ffi.new("size_t *")
+        opt_key = _lib.ares_dns_rr_get_opt(rr, key, i, val_ptr, val_len)
+        if val_ptr[0] != _ffi.NULL:
+            val = bytes(_ffi.buffer(val_ptr[0], val_len[0]))
+        else:
+            val = b''
+        params.append((opt_key, val))
+    return params
+
+
+def extract_record_data(rr, record_type):
+    """Extract type-specific data from a DNS resource record and return appropriate dataclass"""
+    if record_type == _lib.ARES_REC_TYPE_A:
+        addr = _lib.ares_dns_rr_get_addr(rr, _lib.ARES_RR_A_ADDR)
+        buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
+        _lib.ares_inet_ntop(socket.AF_INET, addr, buf, _lib.INET6_ADDRSTRLEN)
+        return ARecordData(addr=maybe_str(_ffi.string(buf)))
+
+    elif record_type == _lib.ARES_REC_TYPE_AAAA:
+        addr = _lib.ares_dns_rr_get_addr6(rr, _lib.ARES_RR_AAAA_ADDR)
+        buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
+        _lib.ares_inet_ntop(socket.AF_INET6, addr, buf, _lib.INET6_ADDRSTRLEN)
+        return AAAARecordData(addr=maybe_str(_ffi.string(buf)))
+
+    elif record_type == _lib.ARES_REC_TYPE_MX:
+        priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_MX_PREFERENCE)
+        exchange = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_MX_EXCHANGE)
+        return MXRecordData(priority=priority, exchange=maybe_str(_ffi.string(exchange)))
+
+    elif record_type == _lib.ARES_REC_TYPE_TXT:
+        # TXT records use ABIN (array of binary) for chunks
+        cnt = _lib.ares_dns_rr_get_abin_cnt(rr, _lib.ARES_RR_TXT_DATA)
+        chunks = []
+        for i in range(cnt):
+            length = _ffi.new("size_t *")
+            data = _lib.ares_dns_rr_get_abin(rr, _lib.ARES_RR_TXT_DATA, i, length)
+            if data != _ffi.NULL:
+                chunks.append(_ffi.buffer(data, length[0])[:])
+        return TXTRecordData(data=b''.join(chunks))
+
+    elif record_type == _lib.ARES_REC_TYPE_CAA:
+        critical = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_CAA_CRITICAL)
+        tag = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_CAA_TAG)
+        length = _ffi.new("size_t *")
+        value = _lib.ares_dns_rr_get_bin(rr, _lib.ARES_RR_CAA_VALUE, length)
+        value_str = maybe_str(_ffi.buffer(value, length[0])[:])
+        return CAARecordData(critical=critical, tag=maybe_str(_ffi.string(tag)), value=value_str)
+
+    elif record_type == _lib.ARES_REC_TYPE_CNAME:
+        cname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_CNAME_CNAME)
+        return CNAMERecordData(cname=maybe_str(_ffi.string(cname)))
+
+    elif record_type == _lib.ARES_REC_TYPE_NAPTR:
+        order = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_NAPTR_ORDER)
+        preference = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_NAPTR_PREFERENCE)
+        flags = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_FLAGS)
+        service = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_SERVICES)
+        regexp = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_REGEXP)
+        replacement = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_REPLACEMENT)
+        return NAPTRRecordData(
+            order=order,
+            preference=preference,
+            flags=maybe_str(_ffi.string(flags)),
+            service=maybe_str(_ffi.string(service)),
+            regexp=maybe_str(_ffi.string(regexp)),
+            replacement=maybe_str(_ffi.string(replacement))
+        )
+
+    elif record_type == _lib.ARES_REC_TYPE_NS:
+        nsdname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NS_NSDNAME)
+        return NSRecordData(nsdname=maybe_str(_ffi.string(nsdname)))
+
+    elif record_type == _lib.ARES_REC_TYPE_PTR:
+        dname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_PTR_DNAME)
+        return PTRRecordData(dname=maybe_str(_ffi.string(dname)))
+
+    elif record_type == _lib.ARES_REC_TYPE_SOA:
+        mname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SOA_MNAME)
+        rname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SOA_RNAME)
+        serial = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_SERIAL)
+        refresh = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_REFRESH)
+        retry = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_RETRY)
+        expire = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_EXPIRE)
+        minimum = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_MINIMUM)
+        return SOARecordData(
+            mname=maybe_str(_ffi.string(mname)),
+            rname=maybe_str(_ffi.string(rname)),
+            serial=serial,
+            refresh=refresh,
+            retry=retry,
+            expire=expire,
+            minimum=minimum
+        )
+
+    elif record_type == _lib.ARES_REC_TYPE_SRV:
+        priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_PRIORITY)
+        weight = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_WEIGHT)
+        port = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_PORT)
+        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SRV_TARGET)
+        return SRVRecordData(
+            priority=priority,
+            weight=weight,
+            port=port,
+            target=maybe_str(_ffi.string(target))
+        )
+
+    elif record_type == _lib.ARES_REC_TYPE_TLSA:
+        cert_usage = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_CERT_USAGE)
+        selector = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_SELECTOR)
+        matching_type = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_MATCH)
+        data_len = _ffi.new("size_t *")
+        data_ptr = _lib.ares_dns_rr_get_bin(rr, _lib.ARES_RR_TLSA_DATA, data_len)
+        cert_data = bytes(_ffi.buffer(data_ptr, data_len[0])) if data_ptr != _ffi.NULL else b''
+        return TLSARecordData(
+            cert_usage=cert_usage,
+            selector=selector,
+            matching_type=matching_type,
+            cert_association_data=cert_data
+        )
+
+    elif record_type == _lib.ARES_REC_TYPE_HTTPS:
+        priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_HTTPS_PRIORITY)
+        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_HTTPS_TARGET)
+        params = _extract_opt_params(rr, _lib.ARES_RR_HTTPS_PARAMS)
+        return HTTPSRecordData(
+            priority=priority,
+            target=maybe_str(_ffi.string(target)),
+            params=params
+        )
+
+    elif record_type == _lib.ARES_REC_TYPE_URI:
+        priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_URI_PRIORITY)
+        weight = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_URI_WEIGHT)
+        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_URI_TARGET)
+        return URIRecordData(
+            priority=priority,
+            weight=weight,
+            target=maybe_str(_ffi.string(target))
+        )
+
+    else:
+        # Unknown record type - return None or raise error
+        raise ValueError(f"Unsupported DNS record type: {record_type}")
+
+
+def parse_dnsrec(dnsrec):
+    """Parse ares_dns_record_t into DNSResult with all sections"""
+    if dnsrec == _ffi.NULL:
+        return None, _lib.ARES_EBADRESP
+
+    answer_records = []
+    authority_records = []
+    additional_records = []
+
+    # Parse answer section
+    answer_count = _lib.ares_dns_record_rr_cnt(dnsrec, _lib.ARES_SECTION_ANSWER)
+    for i in range(answer_count):
+        rr = _lib.ares_dns_record_rr_get_const(dnsrec, _lib.ARES_SECTION_ANSWER, i)
+        if rr != _ffi.NULL:
+            name = maybe_str(_ffi.string(_lib.ares_dns_rr_get_name(rr)))
+            rec_type = _lib.ares_dns_rr_get_type(rr)
+            rec_class = _lib.ares_dns_rr_get_class(rr)
+            ttl = _lib.ares_dns_rr_get_ttl(rr)
+
+            try:
+                data = extract_record_data(rr, rec_type)
+                answer_records.append(DNSRecord(
+                    name=name,
+                    type=rec_type,
+                    record_class=rec_class,
+                    ttl=ttl,
+                    data=data
+                ))
+            except (ValueError, Exception):
+                # Skip unsupported record types
+                pass
+
+    # Parse authority section
+    authority_count = _lib.ares_dns_record_rr_cnt(dnsrec, _lib.ARES_SECTION_AUTHORITY)
+    for i in range(authority_count):
+        rr = _lib.ares_dns_record_rr_get_const(dnsrec, _lib.ARES_SECTION_AUTHORITY, i)
+        if rr != _ffi.NULL:
+            name = maybe_str(_ffi.string(_lib.ares_dns_rr_get_name(rr)))
+            rec_type = _lib.ares_dns_rr_get_type(rr)
+            rec_class = _lib.ares_dns_rr_get_class(rr)
+            ttl = _lib.ares_dns_rr_get_ttl(rr)
+
+            try:
+                data = extract_record_data(rr, rec_type)
+                authority_records.append(DNSRecord(
+                    name=name,
+                    type=rec_type,
+                    record_class=rec_class,
+                    ttl=ttl,
+                    data=data
+                ))
+            except (ValueError, Exception):
+                # Skip unsupported record types
+                pass
+
+    # Parse additional section
+    additional_count = _lib.ares_dns_record_rr_cnt(dnsrec, _lib.ARES_SECTION_ADDITIONAL)
+    for i in range(additional_count):
+        rr = _lib.ares_dns_record_rr_get_const(dnsrec, _lib.ARES_SECTION_ADDITIONAL, i)
+        if rr != _ffi.NULL:
+            name = maybe_str(_ffi.string(_lib.ares_dns_rr_get_name(rr)))
+            rec_type = _lib.ares_dns_rr_get_type(rr)
+            rec_class = _lib.ares_dns_rr_get_class(rr)
+            ttl = _lib.ares_dns_rr_get_ttl(rr)
+
+            try:
+                data = extract_record_data(rr, rec_type)
+                additional_records.append(DNSRecord(
+                    name=name,
+                    type=rec_type,
+                    record_class=rec_class,
+                    ttl=ttl,
+                    data=data
+                ))
+            except (ValueError, Exception):
+                # Skip unsupported record types
+                pass
+
+    result = DNSResult(
+        answer=answer_records,
+        authority=authority_records,
+        additional=additional_records
+    )
+
+    return result, None
 
 
 class _ChannelShutdownManager:
@@ -345,7 +427,7 @@ class _ChannelShutdownManager:
         """Process channel destruction requests from the queue."""
         while True:
             # Block forever until we get a channel to destroy
-            channel = self._queue.get()
+            channel, _ = self._queue.get()
 
             # Cancel all pending queries - this will trigger callbacks with ARES_ECANCELLED
             _lib.ares_cancel(channel[0])
@@ -368,16 +450,19 @@ class _ChannelShutdownManager:
             self._thread = threading.Thread(target=self._run_safe_shutdown_loop, daemon=True)
             self._thread.start()
 
-    def destroy_channel(self, channel) -> None:
+    def destroy_channel(self, channel, sock_state_cb_handle) -> None:
         """
-        Schedule channel destruction on the background thread with a safety delay.
+        Schedule channel destruction on the background thread.
+
+        The socket state callback handle is passed along to ensure it remains
+        alive until the channel is destroyed.
 
         Thread Safety and Synchronization:
         This method uses SimpleQueue which is thread-safe for putting items
         from multiple threads. The background thread processes channels
         sequentially waiting for queries to end before each destruction.
         """
-        self._queue.put(channel)
+        self._queue.put((channel, sock_state_cb_handle))
 
 
 # Global shutdown manager instance
@@ -385,10 +470,11 @@ _shutdown_manager = _ChannelShutdownManager()
 
 
 class Channel:
-    __qtypes__ = (_lib.T_A, _lib.T_AAAA, _lib.T_ANY, _lib.T_CAA, _lib.T_CNAME, _lib.T_MX, _lib.T_NAPTR, _lib.T_NS, _lib.T_PTR, _lib.T_SOA, _lib.T_SRV, _lib.T_TXT)
-    __qclasses__ = (_lib.C_IN, _lib.C_CHAOS, _lib.C_HS, _lib.C_NONE, _lib.C_ANY)
+    __qtypes__ = (_lib.ARES_REC_TYPE_A, _lib.ARES_REC_TYPE_AAAA, _lib.ARES_REC_TYPE_ANY, _lib.ARES_REC_TYPE_CAA, _lib.ARES_REC_TYPE_CNAME, _lib.ARES_REC_TYPE_HTTPS, _lib.ARES_REC_TYPE_MX, _lib.ARES_REC_TYPE_NAPTR, _lib.ARES_REC_TYPE_NS, _lib.ARES_REC_TYPE_PTR, _lib.ARES_REC_TYPE_SOA, _lib.ARES_REC_TYPE_SRV, _lib.ARES_REC_TYPE_TLSA, _lib.ARES_REC_TYPE_TXT, _lib.ARES_REC_TYPE_URI)
+    __qclasses__ = (_lib.ARES_CLASS_IN, _lib.ARES_CLASS_CHAOS, _lib.ARES_CLASS_HESOID, _lib.ARES_CLASS_NONE, _lib.ARES_CLASS_ANY)
 
     def __init__(self,
+                 *,
                  flags: Optional[int] = None,
                  timeout: Optional[float] = None,
                  tries: Optional[int] = None,
@@ -404,11 +490,13 @@ class Channel:
                  rotate: bool = False,
                  local_ip: Union[str, bytes, None] = None,
                  local_dev: Optional[str] = None,
-                 resolvconf_path: Union[str, bytes, None] = None,
-                 event_thread: bool = False) -> None:
+                 resolvconf_path: Union[str, bytes, None] = None) -> None:
 
         # Initialize _channel to None first to ensure __del__ doesn't fail
         self._channel = None
+
+        # Store flags for later use (default is 0 if not specified)
+        self._flags = flags if flags is not None else 0
 
         channel = _ffi.new("ares_channel *")
         options = _ffi.new("struct ares_options *")
@@ -449,8 +537,6 @@ class Channel:
         if sock_state_cb:
             if not callable(sock_state_cb):
                 raise TypeError("sock_state_cb is not callable")
-            if event_thread:
-                raise RuntimeError("sock_state_cb and event_thread cannot be used together")
 
             userdata = _ffi.new_handle(sock_state_cb)
 
@@ -460,12 +546,8 @@ class Channel:
             options.sock_state_cb = _lib._sock_state_cb
             options.sock_state_cb_data = userdata
             optmask = optmask |  _lib.ARES_OPT_SOCK_STATE_CB
-
-        if event_thread:
-            if not ares_threadsafety():
-                raise RuntimeError("c-ares is not built with thread safety")
-            if sock_state_cb:
-                raise RuntimeError("sock_state_cb and event_thread cannot be used together")
+        else:
+            self._sock_state_cb_handle = None
             optmask = optmask |  _lib.ARES_OPT_EVENT_THREAD
             options.evsys = _lib.ARES_EVSYS_DEFAULT
 
@@ -494,8 +576,6 @@ class Channel:
         if r != _lib.ARES_SUCCESS:
             raise AresError('Failed to initialize c-ares channel')
 
-        # Initialize all attributes for consistency
-        self._event_thread = event_thread
         self._channel = channel
         if servers:
             self.servers = servers
@@ -548,57 +628,26 @@ class Channel:
 
     @property
     def servers(self) -> list[str]:
-        servers = _ffi.new("struct ares_addr_node **")
+        csv_str = _lib.ares_get_servers_csv(self._channel[0])
 
-        r = _lib.ares_get_servers(self._channel[0], servers)
-        if r != _lib.ARES_SUCCESS:
-            raise AresError(r, errno.strerror(r))
+        if csv_str == _ffi.NULL:
+            raise AresError(_lib.ARES_ENOMEM, errno.strerror(_lib.ARES_ENOMEM))
 
         server_list = []
-        server = _ffi.new("struct ares_addr_node **", servers[0])
-        while True:
-            if server == _ffi.NULL:
-                break
-
-            ip = _ffi.new("char []", _lib.INET6_ADDRSTRLEN)
-            s = server[0]
-            if _ffi.NULL != _lib.ares_inet_ntop(s.family, _ffi.addressof(s.addr), ip, _lib.INET6_ADDRSTRLEN):
-                server_list.append(maybe_str(_ffi.string(ip, _lib.INET6_ADDRSTRLEN)))
-
-            server = s.next
+        csv_string = maybe_str(_ffi.string(csv_str))
+        _lib.ares_free_string(csv_str)
+        server_list = [s.strip() for s in csv_string.split(',')]
 
         return server_list
 
     @servers.setter
     def servers(self, servers: Iterable[Union[str, bytes]]) -> None:
-        c = _ffi.new("struct ares_addr_node[%d]" % len(servers))
-        for i, server in enumerate(servers):
-            if _lib.ares_inet_pton(socket.AF_INET, ascii_bytes(server), _ffi.addressof(c[i].addr.addr4)) == 1:
-                c[i].family = socket.AF_INET
-            elif _lib.ares_inet_pton(socket.AF_INET6, ascii_bytes(server), _ffi.addressof(c[i].addr.addr6)) == 1:
-                c[i].family = socket.AF_INET6
-            else:
-                raise ValueError("invalid IP address")
+        server_list = [ascii_bytes(s).decode('ascii') if isinstance(s, bytes) else s for s in servers]
+        csv_str = ','.join(server_list)
 
-            if i > 0:
-                c[i - 1].next = _ffi.addressof(c[i])
-
-        r = _lib.ares_set_servers(self._channel[0], c)
+        r = _lib.ares_set_servers_csv(self._channel[0], csv_str.encode('ascii'))
         if r != _lib.ARES_SUCCESS:
             raise AresError(r, errno.strerror(r))
-
-    def getsock(self):
-        rfds = []
-        wfds = []
-        socks = _ffi.new("ares_socket_t [%d]" % _lib.ARES_GETSOCK_MAXNUM)
-        bitmask = _lib.ares_getsock(self._channel[0], socks, _lib.ARES_GETSOCK_MAXNUM)
-        for i in range(_lib.ARES_GETSOCK_MAXNUM):
-            if _lib.ARES_GETSOCK_READABLE(bitmask, i):
-                rfds.append(socks[i])
-            if _lib.ARES_GETSOCK_WRITABLE(bitmask, i):
-                wfds.append(socks[i])
-
-        return rfds, wfds
 
     def process_fd(self, read_fd: int, write_fd: int) -> None:
         _lib.ares_process_fd(self._channel[0], _ffi.cast("ares_socket_t", read_fd), _ffi.cast("ares_socket_t", write_fd))
@@ -628,7 +677,7 @@ class Channel:
 
         return (tv.tv_sec + tv.tv_usec / 1000000.0)
 
-    def gethostbyaddr(self, addr: str, callback: Callable[[Any, int], None]) -> None:
+    def gethostbyaddr(self, addr: str, *, callback: Callable[[Any, int], None]) -> None:
         if not callable(callback):
             raise TypeError("a callable is required")
 
@@ -646,22 +695,16 @@ class Channel:
         userdata = self._create_callback_handle(callback)
         _lib.ares_gethostbyaddr(self._channel[0], address, _ffi.sizeof(address[0]), family, _lib._host_cb, userdata)
 
-    def gethostbyname(self, name: str, family: socket.AddressFamily, callback: Callable[[Any, int], None]) -> None:
-        if not callable(callback):
-            raise TypeError("a callable is required")
-
-        userdata = self._create_callback_handle(callback)
-        _lib.ares_gethostbyname(self._channel[0], parse_name(name), family, _lib._host_cb, userdata)
-
     def getaddrinfo(
         self,
         host: str,
         port: Optional[int],
-        callback: Callable[[Any, int], None],
+        *,
         family: socket.AddressFamily = 0,
         type: int = 0,
         proto: int = 0,
-        flags: int = 0
+        flags: int = 0,
+        callback: Callable[[Any, int], None]
     ) -> None:
         if not callable(callback):
             raise TypeError("a callable is required")
@@ -682,27 +725,112 @@ class Channel:
         hints.ai_protocol = proto
         _lib.ares_getaddrinfo(self._channel[0], parse_name(host), service, hints, _lib._addrinfo_cb, userdata)
 
-    def query(self, name: str, query_type: str, callback: Callable[[Any, int], None], query_class: Optional[str] = None) -> None:
-        self._do_query(_lib.ares_query, name, query_type, callback, query_class=query_class)
+    def query(self, name: str, query_type: int, *, query_class: int = QUERY_CLASS_IN, callback: Callable[[Any, int], None]) -> None:
+        """
+        Perform a DNS query.
 
-    def search(self, name, query_type, callback, query_class=None):
-        self._do_query(_lib.ares_search, name, query_type, callback, query_class=query_class)
+        Args:
+            name: Domain name to query
+            query_type: Type of query (e.g., QUERY_TYPE_A, QUERY_TYPE_AAAA, etc.)
+            query_class: Query class (default: QUERY_CLASS_IN)
+            callback: Callback function that receives (result, errno)
 
-    def _do_query(self, func, name, query_type, callback, query_class=None):
+        The callback will receive a DNSResult object containing answer, authority, and additional sections.
+        """
         if not callable(callback):
             raise TypeError('a callable is required')
 
         if query_type not in self.__qtypes__:
             raise ValueError('invalid query type specified')
 
-        if query_class is None:
-            query_class = _lib.C_IN
+        if query_class not in self.__qclasses__:
+            raise ValueError('invalid query class specified')
+
+        userdata = self._create_callback_handle(callback)
+        qid = _ffi.new("unsigned short *")
+        status = _lib.ares_query_dnsrec(
+            self._channel[0],
+            parse_name(name),
+            query_class,
+            query_type,
+            _lib._query_dnsrec_cb,
+            userdata,
+            qid
+        )
+        if status != _lib.ARES_SUCCESS:
+            _handle_to_channel.pop(userdata, None)
+            raise AresError(status, errno.strerror(status))
+
+    def search(self, name: str, query_type: int, *, query_class: int = QUERY_CLASS_IN, callback: Callable[[Any, int], None]) -> None:
+        """
+        Perform a DNS search (honors resolv.conf search domains).
+
+        Args:
+            name: Domain name to search
+            query_type: Type of query (e.g., QUERY_TYPE_A, QUERY_TYPE_AAAA, etc.)
+            query_class: Query class (default: QUERY_CLASS_IN)
+            callback: Callback function that receives (result, errno)
+
+        The callback will receive a DNSResult object containing answer, authority, and additional sections.
+        """
+        if not callable(callback):
+            raise TypeError('a callable is required')
+
+        if query_type not in self.__qtypes__:
+            raise ValueError('invalid query type specified')
 
         if query_class not in self.__qclasses__:
             raise ValueError('invalid query class specified')
 
-        userdata = self._create_callback_handle((callback, query_type))
-        func(self._channel[0], parse_name(name), query_class, query_type, _lib._query_cb, userdata)
+        # Create a DNS record for the search query
+        # Set RD (Recursion Desired) flag unless ARES_FLAG_NORECURSE is set
+        dns_flags = 0 if (self._flags & _lib.ARES_FLAG_NORECURSE) else _lib.ARES_FLAG_RD
+
+        dnsrec_p = _ffi.new("ares_dns_record_t **")
+        status = _lib.ares_dns_record_create(
+            dnsrec_p,
+            0,  # id (will be set by c-ares)
+            dns_flags,  # flags - include RD for recursive queries
+            _lib.ARES_OPCODE_QUERY,
+            _lib.ARES_RCODE_NOERROR
+        )
+        if status != _lib.ARES_SUCCESS:
+            raise AresError(status, errno.strerror(status))
+
+        dnsrec = dnsrec_p[0]
+
+        # Add the query to the DNS record
+        status = _lib.ares_dns_record_query_add(
+            dnsrec,
+            parse_name(name),
+            query_type,
+            query_class
+        )
+        if status != _lib.ARES_SUCCESS:
+            _lib.ares_dns_record_destroy(dnsrec)
+            raise AresError(status, errno.strerror(status))
+
+        # Wrap callback to destroy DNS record after it's called
+        original_callback = callback
+        def cleanup_callback(result, error):
+            try:
+                original_callback(result, error)
+            finally:
+                # Clean up the DNS record after the callback completes
+                _lib.ares_dns_record_destroy(dnsrec)
+
+        # Perform the search with the created DNS record
+        userdata = self._create_callback_handle(cleanup_callback)
+        status = _lib.ares_search_dnsrec(
+            self._channel[0],
+            dnsrec,
+            _lib._query_dnsrec_cb,
+            userdata
+        )
+        if status != _lib.ARES_SUCCESS:
+            _handle_to_channel.pop(userdata, None)
+            _lib.ares_dns_record_destroy(dnsrec)
+            raise AresError(status, errno.strerror(status))
 
     def set_local_ip(self, ip):
         addr4 = _ffi.new("struct in_addr*")
@@ -714,7 +842,7 @@ class Channel:
         else:
             raise ValueError("invalid IP address")
 
-    def getnameinfo(self, address: Union[IP4, IP6], flags: int, callback: Callable[[Any, int], None]) -> None:
+    def getnameinfo(self, address: Union[IP4, IP6], flags: int, *, callback: Callable[[Any, int], None]) -> None:
         if not callable(callback):
             raise TypeError("a callable is required")
 
@@ -766,245 +894,274 @@ class Channel:
 
         # Schedule channel destruction
         channel, self._channel = self._channel, None
-        _shutdown_manager.destroy_channel(channel)
+        _shutdown_manager.destroy_channel(channel, self._sock_state_cb_handle)
 
+    def wait(self, timeout: float=None) -> bool:
+        """
+        Wait until all pending queries are complete or timeout occurs.
 
-class AresResult:
-    __slots__ = ()
-
-    def __repr__(self):
-        attrs = ['%s=%s' % (a, getattr(self, a)) for a in self.__slots__]
-        return '<%s> %s' % (self.__class__.__name__, ', '.join(attrs))
-
-
-# DNS query result types
-#
-
-class ares_query_a_result(AresResult):
-    __slots__ = ('host', 'ttl')
-    type: Final = 'A'
-
-    def __init__(self, ares_addrttl):
-        buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
-        _lib.ares_inet_ntop(socket.AF_INET, _ffi.addressof(ares_addrttl.ipaddr), buf, _lib.INET6_ADDRSTRLEN)
-        self.host = maybe_str(_ffi.string(buf, _lib.INET6_ADDRSTRLEN))
-        self.ttl = ares_addrttl.ttl
-
-
-class ares_query_aaaa_result(AresResult):
-    __slots__ = ('host', 'ttl')
-    type: Final = 'AAAA'
-
-    def __init__(self, ares_addrttl):
-        buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
-        _lib.ares_inet_ntop(socket.AF_INET6, _ffi.addressof(ares_addrttl.ip6addr), buf, _lib.INET6_ADDRSTRLEN)
-        self.host = maybe_str(_ffi.string(buf, _lib.INET6_ADDRSTRLEN))
-        self.ttl = ares_addrttl.ttl
-
-
-class  ares_query_caa_result(AresResult):
-    __slots__ = ('critical', 'property', 'value', 'ttl')
-    type: Final = 'CAA'
-
-    def __init__(self, caa):
-        self.critical = caa.critical
-        self.property = maybe_str(_ffi.string(caa.property, caa.plength))
-        self.value = maybe_str(_ffi.string(caa.value, caa.length))
-        self.ttl = -1
-
-
-class ares_query_cname_result(AresResult):
-    __slots__ = ('cname', 'ttl')
-    type: Final = 'CNAME'
-
-    def __init__(self, host):
-        self.cname = maybe_str(_ffi.string(host.h_name))
-        self.ttl = -1
-
-
-class ares_query_mx_result(AresResult):
-    __slots__ = ('host', 'priority', 'ttl')
-    type: Final = 'MX'
-
-    def __init__(self, mx):
-        self.host = maybe_str(_ffi.string(mx.host))
-        self.priority = mx.priority
-        self.ttl = -1
-
-
-class ares_query_naptr_result(AresResult):
-    __slots__ = ('order', 'preference', 'flags', 'service', 'regex', 'replacement', 'ttl')
-    type: Final = 'NAPTR'
-
-    def __init__(self, naptr):
-        self.order = naptr.order
-        self.preference = naptr.preference
-        self.flags = maybe_str(_ffi.string(naptr.flags))
-        self.service = maybe_str(_ffi.string(naptr.service))
-        self.regex = maybe_str(_ffi.string(naptr.regexp))
-        self.replacement = maybe_str(_ffi.string(naptr.replacement))
-        self.ttl = -1
-
-
-class ares_query_ns_result(AresResult):
-    __slots__ = ('host', 'ttl')
-    type: Final = 'NS'
-
-    def __init__(self, ns):
-        self.host = maybe_str(_ffi.string(ns))
-        self.ttl = -1
-
-
-class ares_query_ptr_result(AresResult):
-    __slots__ = ('name', 'ttl', 'aliases')
-    type: Final = 'PTR'
-
-    def __init__(self, hostent, aliases):
-        self.name = maybe_str(_ffi.string(hostent.h_name))
-        self.aliases = aliases
-        self.ttl = -1
-
-
-class ares_query_soa_result(AresResult):
-    __slots__ = ('nsname', 'hostmaster', 'serial', 'refresh', 'retry', 'expires', 'minttl', 'ttl')
-    type: Final = 'SOA'
-
-    def __init__(self, soa):
-        self.nsname = maybe_str(_ffi.string(soa.nsname))
-        self.hostmaster = maybe_str(_ffi.string(soa.hostmaster))
-        self.serial = soa.serial
-        self.refresh = soa.refresh
-        self.retry = soa.retry
-        self.expires = soa.expire
-        self.minttl = soa.minttl
-        self.ttl = -1
-
-
-class  ares_query_srv_result(AresResult):
-    __slots__ = ('host', 'port', 'priority', 'weight', 'ttl')
-    type: Final = 'SRV'
-
-    def __init__(self, srv):
-        self.host = maybe_str(_ffi.string(srv.host))
-        self.port = srv.port
-        self.priority = srv.priority
-        self.weight = srv.weight
-        self.ttl = -1
-
-
-class ares_query_txt_result(AresResult):
-    __slots__ = ('text', 'ttl')
-    type: Final = 'TXT'
-
-    def __init__(self, txt_chunk):
-        self.text = maybe_str(txt_chunk.text)
-        self.ttl = -1
-
-
-class ares_query_txt_result_chunk(AresResult):
-    __slots__ = ('text', 'ttl')
-    type: Final = 'TXT'
-
-    def __init__(self, txt):
-        self.text = _ffi.string(txt.txt)
-        self.ttl = -1
-
-
-# Other result types
-#
-
-class ares_host_result(AresResult):
-    __slots__ = ('name', 'aliases', 'addresses')
-
-    def __init__(self, hostent):
-        self.name = maybe_str(_ffi.string(hostent.h_name))
-        self.aliases = []
-        self.addresses = []
-        i = 0
-        while hostent.h_aliases[i] != _ffi.NULL:
-            self.aliases.append(maybe_str(_ffi.string(hostent.h_aliases[i])))
-            i += 1
-
-        i = 0
-        while hostent.h_addr_list[i] != _ffi.NULL:
-            buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
-            if _ffi.NULL != _lib.ares_inet_ntop(hostent.h_addrtype, hostent.h_addr_list[i], buf, _lib.INET6_ADDRSTRLEN):
-                self.addresses.append(maybe_str(_ffi.string(buf, _lib.INET6_ADDRSTRLEN)))
-            i += 1
-
-
-class ares_nameinfo_result(AresResult):
-    __slots__ = ('node', 'service')
-
-    def __init__(self, node, service):
-        self.node = maybe_str(_ffi.string(node))
-        self.service = maybe_str(_ffi.string(service)) if service != _ffi.NULL else None
-
-
-class ares_addrinfo_node_result(AresResult):
-    __slots__ = ('ttl', 'flags', 'family', 'socktype', 'protocol', 'addr')
-
-    def __init__(self, ares_node):
-        self.ttl = ares_node.ai_ttl
-        self.flags = ares_node.ai_flags
-        self.socktype = ares_node.ai_socktype
-        self.protocol = ares_node.ai_protocol
-
-        addr = ares_node.ai_addr
-        assert addr.sa_family == ares_node.ai_family
-        ip = _ffi.new("char []", _lib.INET6_ADDRSTRLEN)
-        if addr.sa_family == socket.AF_INET:
-            self.family = socket.AF_INET
-            s = _ffi.cast("struct sockaddr_in*", addr)
-            if _ffi.NULL != _lib.ares_inet_ntop(s.sin_family, _ffi.addressof(s.sin_addr), ip, _lib.INET6_ADDRSTRLEN):
-                # (address, port) 2-tuple for AF_INET
-                self.addr = (_ffi.string(ip, _lib.INET6_ADDRSTRLEN), socket.ntohs(s.sin_port))
-        elif addr.sa_family == socket.AF_INET6:
-            self.family = socket.AF_INET6
-            s = _ffi.cast("struct sockaddr_in6*", addr)
-            if _ffi.NULL != _lib.ares_inet_ntop(s.sin6_family, _ffi.addressof(s.sin6_addr), ip, _lib.INET6_ADDRSTRLEN):
-                # (address, port, flow info, scope id) 4-tuple for AF_INET6
-                self.addr = (_ffi.string(ip, _lib.INET6_ADDRSTRLEN), socket.ntohs(s.sin6_port), s.sin6_flowinfo, s.sin6_scope_id)
+        Args:
+            timeout: Maximum time to wait in seconds. Use -1 for infinite wait.
+        """
+        r = _lib.ares_queue_wait_empty(self._channel[0],  int(timeout * 1000) if timeout is not None and timeout >= 0 else -1)
+        if r == _lib.ARES_SUCCESS:
+            return True
+        elif r == _lib.ARES_ETIMEOUT:
+            return False
         else:
-            raise ValueError("invalid sockaddr family")
+            raise AresError(r, errno.strerror(r))
 
 
-class ares_addrinfo_cname_result(AresResult):
-    __slots__ = ('ttl', 'alias', 'name')
+# DNS query result types - New dataclass-based API
+#
 
-    def __init__(self, ares_cname):
-        self.ttl = ares_cname.ttl
-        self.alias = maybe_str(_ffi.string(ares_cname.alias))
-        self.name = maybe_str(_ffi.string(ares_cname.name))
+@dataclass
+class ARecordData:
+    """Data for A (IPv4 address) record"""
+    addr: str
+
+@dataclass
+class AAAARecordData:
+    """Data for AAAA (IPv6 address) record"""
+    addr: str
+
+@dataclass
+class MXRecordData:
+    """Data for MX (mail exchange) record"""
+    priority: int
+    exchange: str
+
+@dataclass
+class TXTRecordData:
+    """Data for TXT (text) record"""
+    data: bytes
+
+@dataclass
+class CAARecordData:
+    """Data for CAA (certification authority authorization) record"""
+    critical: int
+    tag: str
+    value: str
+
+@dataclass
+class CNAMERecordData:
+    """Data for CNAME (canonical name) record"""
+    cname: str
+
+@dataclass
+class NAPTRRecordData:
+    """Data for NAPTR (naming authority pointer) record"""
+    order: int
+    preference: int
+    flags: str
+    service: str
+    regexp: str
+    replacement: str
+
+@dataclass
+class NSRecordData:
+    """Data for NS (name server) record"""
+    nsdname: str
+
+@dataclass
+class PTRRecordData:
+    """Data for PTR (pointer) record"""
+    dname: str
+
+@dataclass
+class SOARecordData:
+    """Data for SOA (start of authority) record"""
+    mname: str
+    rname: str
+    serial: int
+    refresh: int
+    retry: int
+    expire: int
+    minimum: int
+
+@dataclass
+class SRVRecordData:
+    """Data for SRV (service) record"""
+    priority: int
+    weight: int
+    port: int
+    target: str
+
+@dataclass
+class TLSARecordData:
+    """Data for TLSA (DANE TLS authentication) record - RFC 6698"""
+    cert_usage: int
+    selector: int
+    matching_type: int
+    cert_association_data: bytes
+
+@dataclass
+class HTTPSRecordData:
+    """Data for HTTPS (service binding) record - RFC 9460"""
+    priority: int
+    target: str
+    params: list  # List of (key: int, value: bytes) tuples
+
+@dataclass
+class URIRecordData:
+    """Data for URI (Uniform Resource Identifier) record - RFC 7553"""
+    priority: int
+    weight: int
+    target: str
+
+@dataclass
+class DNSRecord:
+    """Represents a single DNS resource record"""
+    name: str
+    type: int
+    record_class: int
+    ttl: int
+    data: Union[ARecordData, AAAARecordData, MXRecordData, TXTRecordData,
+                CAARecordData, CNAMERecordData, HTTPSRecordData, NAPTRRecordData,
+                NSRecordData, PTRRecordData, SOARecordData, SRVRecordData,
+                TLSARecordData, URIRecordData]
+
+@dataclass
+class DNSResult:
+    """Represents a complete DNS query result with all sections"""
+    answer: list[DNSRecord]
+    authority: list[DNSRecord]
+    additional: list[DNSRecord]
 
 
-class ares_addrinfo_result(AresResult):
-    __slots__ = ('cnames', 'nodes')
+# Host/AddrInfo result types
 
-    def __init__(self, ares_addrinfo):
-        self.cnames = []
-        self.nodes = []
-        cname_ptr = ares_addrinfo.cnames
-        while cname_ptr != _ffi.NULL:
-            self.cnames.append(ares_addrinfo_cname_result(cname_ptr))
-            cname_ptr = cname_ptr.next
-        node_ptr = ares_addrinfo.nodes
-        while node_ptr != _ffi.NULL:
-            self.nodes.append(ares_addrinfo_node_result(node_ptr))
-            node_ptr = node_ptr.ai_next
-        _lib.ares_freeaddrinfo(ares_addrinfo)
+@dataclass
+class HostResult:
+    """Result from gethostbyaddr() operation"""
+    name: str
+    aliases: list[str]
+    addresses: list[str]
+
+@dataclass
+class NameInfoResult:
+    """Result from getnameinfo() operation"""
+    node: str
+    service: Optional[str]
+
+@dataclass
+class AddrInfoNode:
+    """Single address node from getaddrinfo() result"""
+    ttl: int
+    flags: int
+    family: int
+    socktype: int
+    protocol: int
+    addr: tuple  # (ip, port) or (ip, port, flowinfo, scope_id)
+
+@dataclass
+class AddrInfoCname:
+    """CNAME information from getaddrinfo() result"""
+    ttl: int
+    alias: str
+    name: str
+
+@dataclass
+class AddrInfoResult:
+    """Complete result from getaddrinfo() operation"""
+    cnames: list[AddrInfoCname]
+    nodes: list[AddrInfoNode]
 
 
-def ares_threadsafety() -> bool:
-    """
-    Check if c-ares was compiled with thread safety support.
+# Parser functions for Host/AddrInfo results
 
-    :return: True if thread-safe, False otherwise.
-    :rtype: bool
-    """
-    return bool(_lib.ares_threadsafety())
+def parse_hostent(hostent) -> HostResult:
+    """Parse c-ares hostent structure into HostResult"""
+    name = maybe_str(_ffi.string(hostent.h_name))
+    aliases = []
+    addresses = []
+
+    i = 0
+    while hostent.h_aliases[i] != _ffi.NULL:
+        aliases.append(maybe_str(_ffi.string(hostent.h_aliases[i])))
+        i += 1
+
+    i = 0
+    while hostent.h_addr_list[i] != _ffi.NULL:
+        buf = _ffi.new("char[]", _lib.INET6_ADDRSTRLEN)
+        if _ffi.NULL != _lib.ares_inet_ntop(hostent.h_addrtype, hostent.h_addr_list[i], buf, _lib.INET6_ADDRSTRLEN):
+            addresses.append(maybe_str(_ffi.string(buf, _lib.INET6_ADDRSTRLEN)))
+        i += 1
+
+    return HostResult(name=name, aliases=aliases, addresses=addresses)
+
+
+def parse_nameinfo(node, service) -> NameInfoResult:
+    """Parse c-ares nameinfo into NameInfoResult"""
+    node_str = maybe_str(_ffi.string(node))
+    service_str = maybe_str(_ffi.string(service)) if service != _ffi.NULL else None
+    return NameInfoResult(node=node_str, service=service_str)
+
+
+def parse_addrinfo_node(ares_node) -> AddrInfoNode:
+    """Parse a single c-ares addrinfo node into AddrInfoNode"""
+    ttl = ares_node.ai_ttl
+    flags = ares_node.ai_flags
+    socktype = ares_node.ai_socktype
+    protocol = ares_node.ai_protocol
+
+    addr_struct = ares_node.ai_addr
+    assert addr_struct.sa_family == ares_node.ai_family
+    ip = _ffi.new("char []", _lib.INET6_ADDRSTRLEN)
+
+    if addr_struct.sa_family == socket.AF_INET:
+        family = socket.AF_INET
+        s = _ffi.cast("struct sockaddr_in*", addr_struct)
+        if _ffi.NULL != _lib.ares_inet_ntop(s.sin_family, _ffi.addressof(s.sin_addr), ip, _lib.INET6_ADDRSTRLEN):
+            # (address, port) 2-tuple for AF_INET
+            addr = (_ffi.string(ip, _lib.INET6_ADDRSTRLEN), socket.ntohs(s.sin_port))
+        else:
+            raise ValueError("failed to convert IPv4 address")
+    elif addr_struct.sa_family == socket.AF_INET6:
+        family = socket.AF_INET6
+        s = _ffi.cast("struct sockaddr_in6*", addr_struct)
+        if _ffi.NULL != _lib.ares_inet_ntop(s.sin6_family, _ffi.addressof(s.sin6_addr), ip, _lib.INET6_ADDRSTRLEN):
+            # (address, port, flow info, scope id) 4-tuple for AF_INET6
+            addr = (_ffi.string(ip, _lib.INET6_ADDRSTRLEN), socket.ntohs(s.sin6_port), s.sin6_flowinfo, s.sin6_scope_id)
+        else:
+            raise ValueError("failed to convert IPv6 address")
+    else:
+        raise ValueError("invalid sockaddr family")
+
+    return AddrInfoNode(ttl=ttl, flags=flags, family=family, socktype=socktype, protocol=protocol, addr=addr)
+
+
+def parse_addrinfo_cname(ares_cname) -> AddrInfoCname:
+    """Parse a single c-ares addrinfo cname into AddrInfoCname"""
+    return AddrInfoCname(
+        ttl=ares_cname.ttl,
+        alias=maybe_str(_ffi.string(ares_cname.alias)),
+        name=maybe_str(_ffi.string(ares_cname.name))
+    )
+
+
+def parse_addrinfo(ares_addrinfo) -> AddrInfoResult:
+    """Parse c-ares addrinfo structure into AddrInfoResult"""
+    cnames = []
+    nodes = []
+
+    cname_ptr = ares_addrinfo.cnames
+    while cname_ptr != _ffi.NULL:
+        cnames.append(parse_addrinfo_cname(cname_ptr))
+        cname_ptr = cname_ptr.next
+
+    node_ptr = ares_addrinfo.nodes
+    while node_ptr != _ffi.NULL:
+        nodes.append(parse_addrinfo_node(node_ptr))
+        node_ptr = node_ptr.ai_next
+
+    _lib.ares_freeaddrinfo(ares_addrinfo)
+
+    return AddrInfoResult(cnames=cnames, nodes=nodes)
+
 
 __all__ = (
+    # Channel flags
     "ARES_FLAG_USEVC",
     "ARES_FLAG_PRIMARY",
     "ARES_FLAG_IGNTC",
@@ -1036,20 +1193,22 @@ __all__ = (
     # Bad socket
     "ARES_SOCKET_BAD",
 
-
     # Query types
     "QUERY_TYPE_A",
     "QUERY_TYPE_AAAA",
     "QUERY_TYPE_ANY",
     "QUERY_TYPE_CAA",
     "QUERY_TYPE_CNAME",
+    "QUERY_TYPE_HTTPS",
     "QUERY_TYPE_MX",
     "QUERY_TYPE_NAPTR",
     "QUERY_TYPE_NS",
     "QUERY_TYPE_PTR",
     "QUERY_TYPE_SOA",
     "QUERY_TYPE_SRV",
+    "QUERY_TYPE_TLSA",
     "QUERY_TYPE_TXT",
+    "QUERY_TYPE_URI",
 
     # Query classes
     "QUERY_CLASS_IN",
@@ -1058,11 +1217,35 @@ __all__ = (
     "QUERY_CLASS_NONE",
     "QUERY_CLASS_ANY",
 
-
+    # Core stuff
     "ARES_VERSION",
     "AresError",
     "Channel",
-    "ares_threadsafety",
     "errno",
-    "__version__"
+    "__version__",
+
+    # DNS record result types
+    "DNSResult",
+    "DNSRecord",
+    "ARecordData",
+    "AAAARecordData",
+    "MXRecordData",
+    "TXTRecordData",
+    "CAARecordData",
+    "CNAMERecordData",
+    "HTTPSRecordData",
+    "NAPTRRecordData",
+    "NSRecordData",
+    "PTRRecordData",
+    "SOARecordData",
+    "SRVRecordData",
+    "TLSARecordData",
+    "URIRecordData",
+
+    # Host/AddrInfo result types
+    "HostResult",
+    "NameInfoResult",
+    "AddrInfoResult",
+    "AddrInfoNode",
+    "AddrInfoCname",
 )

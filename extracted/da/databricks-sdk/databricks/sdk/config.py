@@ -4,14 +4,16 @@ import datetime
 import logging
 import os
 import pathlib
+import re
 import sys
 import urllib.parse
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 import requests
 
 from . import useragent
 from ._base_client import _fix_host_if_needed
+from .client_types import ClientType, HostType
 from .clock import Clock, RealClock
 from .credentials_provider import (CredentialsStrategy, DefaultCredentials,
                                    OAuthCredentialsProvider)
@@ -19,7 +21,7 @@ from .environments import (ALL_ENVS, AzureEnvironment, Cloud,
                            DatabricksEnvironment, get_environment_for_hostname)
 from .oauth import (OidcEndpoints, Token, get_account_endpoints,
                     get_azure_entra_id_workspace_endpoints,
-                    get_workspace_endpoints)
+                    get_unified_endpoints, get_workspace_endpoints)
 
 logger = logging.getLogger("databricks.sdk")
 
@@ -30,11 +32,13 @@ class ConfigAttribute:
     # name and transform are discovered from Config.__new__
     name: str = None
     transform: type = str
+    _custom_transform = None
 
-    def __init__(self, env: str = None, auth: str = None, sensitive: bool = False):
+    def __init__(self, env: str = None, auth: str = None, sensitive: bool = False, transform=None):
         self.env = env
         self.auth = auth
         self.sensitive = sensitive
+        self._custom_transform = transform
 
     def __get__(self, cfg: "Config", owner):
         if not cfg:
@@ -46,6 +50,19 @@ class ConfigAttribute:
 
     def __repr__(self) -> str:
         return f"<ConfigAttribute '{self.name}' {self.transform.__name__}>"
+
+
+def _parse_scopes(value):
+    """Parse scopes into a deduplicated, sorted list."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        result = sorted(set(s for s in value if s))
+        return result if result else None
+    if isinstance(value, str):
+        parsed: list = sorted(set(s for s in re.split(r"[, ]+", value) if s))
+        return parsed if parsed else None
+    return None
 
 
 def with_product(product: str, product_version: str):
@@ -61,6 +78,10 @@ def with_user_agent_extra(key: str, value: str):
 class Config:
     host: str = ConfigAttribute(env="DATABRICKS_HOST")
     account_id: str = ConfigAttribute(env="DATABRICKS_ACCOUNT_ID")
+    workspace_id: str = ConfigAttribute(env="DATABRICKS_WORKSPACE_ID")
+
+    # Experimental flag to indicate if the host is a unified host (supports both workspace and account APIs)
+    experimental_is_unified_host: bool = ConfigAttribute(env="DATABRICKS_EXPERIMENTAL_IS_UNIFIED_HOST")
 
     # PAT token.
     token: str = ConfigAttribute(env="DATABRICKS_TOKEN", auth="pat", sensitive=True)
@@ -110,18 +131,34 @@ class Config:
 
     disable_async_token_refresh: bool = ConfigAttribute(env="DATABRICKS_DISABLE_ASYNC_TOKEN_REFRESH")
 
-    enable_experimental_files_api_client: bool = ConfigAttribute(env="DATABRICKS_ENABLE_EXPERIMENTAL_FILES_API_CLIENT")
-    files_api_client_download_max_total_recovers = None
-    files_api_client_download_max_total_recovers_without_progressing = 1
+    disable_experimental_files_api_client: bool = ConfigAttribute(
+        env="DATABRICKS_DISABLE_EXPERIMENTAL_FILES_API_CLIENT"
+    )
 
-    # File multipart upload parameters
+    scopes: list = ConfigAttribute(transform=_parse_scopes)
+    authorization_details: str = ConfigAttribute()
+
+    # disable_oauth_refresh_token controls whether a refresh token should be requested
+    # during the U2M authentication flow (default to false).
+    disable_oauth_refresh_token: bool = ConfigAttribute(env="DATABRICKS_DISABLE_OAUTH_REFRESH_TOKEN")
+
+    files_ext_client_download_streaming_chunk_size: int = 2 * 1024 * 1024  # 2 MiB
+
+    # When downloading a file, the maximum number of attempts to retry downloading the whole file. Default is no limit.
+    files_ext_client_download_max_total_recovers: Optional[int] = None
+
+    # When downloading a file, the maximum number of attempts to retry downloading from the same offset without progressing.
+    # This is to avoid infinite retrying when the download is not making any progress. Default is 1.
+    files_ext_client_download_max_total_recovers_without_progressing = 1
+
+    # File multipart upload/download parameters
     # ----------------------
 
     # Minimal input stream size (bytes) to use multipart / resumable uploads.
     # For small files it's more efficient to make one single-shot upload request.
     # When uploading a file, SDK will initially buffer this many bytes from input stream.
     # This parameter can be less or bigger than multipart_upload_chunk_size.
-    multipart_upload_min_stream_size: int = 5 * 1024 * 1024
+    files_ext_multipart_upload_min_stream_size: int = 50 * 1024 * 1024
 
     # Maximum number of presigned URLs that can be requested at a time.
     #
@@ -131,23 +168,59 @@ class Config:
     # the stream back. In case of a non-seekable stream we cannot rewind, so we'll abort
     # the upload. To reduce the chance of this, we're requesting presigned URLs one by one
     # and using them immediately.
-    multipart_upload_batch_url_count: int = 1
+    files_ext_multipart_upload_batch_url_count: int = 1
 
-    # Size of the chunk to use for multipart uploads.
+    # Size of the chunk to use for multipart uploads & downloads.
     #
     # The smaller chunk is, the less chance for network errors (or URL get expired),
     # but the more requests we'll make.
     # For AWS, minimum is 5Mb: https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
     # For GCP, minimum is 256 KiB (and also recommended multiple is 256 KiB)
     # boto uses 8Mb: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/customizations/s3.html#boto3.s3.transfer.TransferConfig
-    multipart_upload_chunk_size: int = 10 * 1024 * 1024
+    files_ext_multipart_upload_default_part_size: int = 10 * 1024 * 1024  # 10 MiB
 
-    # use maximum duration of 1 hour
-    multipart_upload_url_expiration_duration: datetime.timedelta = datetime.timedelta(hours=1)
+    # List of multipart upload part sizes that can be automatically selected
+    files_ext_multipart_upload_part_size_options: List[int] = [
+        10 * 1024 * 1024,  # 10 MiB
+        20 * 1024 * 1024,  # 20 MiB
+        50 * 1024 * 1024,  # 50 MiB
+        100 * 1024 * 1024,  # 100 MiB
+        200 * 1024 * 1024,  # 200 MiB
+        500 * 1024 * 1024,  # 500 MiB
+        1 * 1024 * 1024 * 1024,  # 1 GiB
+        2 * 1024 * 1024 * 1024,  # 2 GiB
+        4 * 1024 * 1024 * 1024,  # 4 GiB
+    ]
+
+    # Maximum size of a single part in multipart upload.
+    # For AWS, maximum is 5 GiB: https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+    # For Azure, maximum is 4 GiB: https://learn.microsoft.com/en-us/rest/api/storageservices/put-block
+    # For CloudFlare R2, maximum is 5 GiB: https://developers.cloudflare.com/r2/objects/multipart-objects/
+    files_ext_multipart_upload_max_part_size: int = 4 * 1024 * 1024 * 1024  # 4 GiB
+
+    # Default parallel multipart upload concurrency. Set to 10 because of the experiment results show that it
+    # gives good performance result.
+    files_ext_multipart_upload_default_parallelism: int = 10
+
+    # The expiration duration for presigned URLs used in multipart uploads and downloads.
+    # The client will request new presigned URLs if the previous one is expired. The duration should be long enough
+    # to complete the upload or download of a single part.
+    files_ext_multipart_upload_url_expiration_duration: datetime.timedelta = datetime.timedelta(hours=1)
+    files_ext_presigned_download_url_expiration_duration: datetime.timedelta = datetime.timedelta(hours=1)
+
+    # When downloading a file in parallel, how many worker threads to use.
+    files_ext_parallel_download_default_parallelism: int = 10
+
+    # When downloading a file, if the file size is smaller than this threshold,
+    # We'll use a single-threaded download even if the parallel download is enabled.
+    files_ext_parallel_download_min_file_size: int = 50 * 1024 * 1024  # 50 MiB
+
+    # Default chunk size to use when downloading a file in parallel. Not effective for single threaded download.
+    files_ext_parallel_download_default_part_size: int = 10 * 1024 * 1024  # 10 MiB
 
     # This is not a "wall time" cutoff for the whole upload request,
     # but a maximum time between consecutive data reception events (even 1 byte) from the server
-    multipart_upload_single_chunk_upload_timeout_seconds: float = 60
+    files_ext_network_transfer_inactivity_timeout_seconds: float = 60
 
     # Cap on the number of custom retries during incremental uploads:
     # 1) multipart: upload part URL is expired, so new upload URLs must be requested to continue upload
@@ -155,7 +228,10 @@ class Config:
     # retrieved to continue the upload.
     # In these two cases standard SDK retries (which are capped by the `retry_timeout_seconds` option) are not used.
     # Note that retry counter is reset when upload is successfully resumed.
-    multipart_upload_max_retries = 3
+    files_ext_multipart_upload_max_retries = 3
+
+    # Cap on the number of custom retries during parallel downloads.
+    files_ext_parallel_download_max_retries = 3
 
     def __init__(
         self,
@@ -288,7 +364,64 @@ class Config:
         return self.environment.cloud == Cloud.AWS
 
     @property
+    def host_type(self) -> HostType:
+        """Determine the type of host based on the configuration.
+
+        Returns the HostType which can be ACCOUNTS, WORKSPACE, or UNIFIED.
+        """
+        # Check if explicitly marked as unified host
+        if self.experimental_is_unified_host:
+            return HostType.UNIFIED
+
+        if not self.host:
+            return HostType.WORKSPACE
+
+        # Check for accounts host pattern
+        if self.host.startswith("https://accounts.") or self.host.startswith("https://accounts-dod."):
+            return HostType.ACCOUNTS
+
+        return HostType.WORKSPACE
+
+    @property
+    def client_type(self) -> ClientType:
+        """Determine the type of client configuration.
+
+        This is separate from host_type. For example, a unified host can support both
+        workspace and account client types.
+
+        Returns ClientType.ACCOUNT or ClientType.WORKSPACE based on the configuration.
+
+        For unified hosts, account_id must be set. If workspace_id is also set,
+        returns WORKSPACE, otherwise returns ACCOUNT.
+        """
+        host_type = self.host_type
+
+        if host_type == HostType.ACCOUNTS:
+            return ClientType.ACCOUNT
+
+        if host_type == HostType.WORKSPACE:
+            return ClientType.WORKSPACE
+
+        if host_type == HostType.UNIFIED:
+            if not self.account_id:
+                raise ValueError("Unified host requires account_id to be set")
+            if self.workspace_id:
+                return ClientType.WORKSPACE
+            return ClientType.ACCOUNT
+
+        # Default to workspace for backward compatibility
+        return ClientType.WORKSPACE
+
+    @property
     def is_account_client(self) -> bool:
+        """[Deprecated] Use host_type or client_type instead.
+
+        Determines if this is an account client based on the host URL.
+        """
+        if self.experimental_is_unified_host:
+            raise ValueError(
+                "is_account_client cannot be used with unified hosts; use host_type or client_type instead"
+            )
         if not self.host:
             return False
         return self.host.startswith("https://accounts.") or self.host.startswith("https://accounts-dod.")
@@ -343,8 +476,18 @@ class Config:
             return None
         if self.is_azure and self.azure_client_id:
             return get_azure_entra_id_workspace_endpoints(self.host)
-        if self.is_account_client and self.account_id:
+
+        # Handle unified hosts
+        if self.host_type == HostType.UNIFIED:
+            if not self.account_id:
+                raise ValueError("Unified host requires account_id to be set for OAuth endpoints")
+            return get_unified_endpoints(self.host, self.account_id)
+
+        # Handle traditional account hosts
+        if self.host_type == HostType.ACCOUNTS and self.account_id:
             return get_account_endpoints(self.host, self.account_id)
+
+        # Default to workspace endpoints
         return get_workspace_endpoints(self.host)
 
     def debug_string(self) -> str:
@@ -415,7 +558,7 @@ class Config:
             if type(v) != ConfigAttribute:
                 continue
             v.name = name
-            v.transform = anno.get(name, str)
+            v.transform = v._custom_transform if v._custom_transform else anno.get(name, str)
             attrs.append(v)
         cls._attributes = attrs
         return cls._attributes
@@ -546,6 +689,21 @@ class Config:
             )
         else:
             self._product_info = None
+
+    def get_scopes(self) -> list:
+        """Get OAuth scopes with proper defaulting.
+
+        Returns ["all-apis"] if no scopes configured.
+        This is the single source of truth for scope defaulting across all OAuth methods.
+        """
+        return self.scopes if self.scopes else ["all-apis"]
+
+    def get_scopes_as_string(self) -> str:
+        """Get OAuth scopes as a space-separated string.
+
+        Returns "all-apis" if no scopes configured.
+        """
+        return " ".join(self.get_scopes())
 
     def __repr__(self):
         return f"<{self.debug_string()}>"

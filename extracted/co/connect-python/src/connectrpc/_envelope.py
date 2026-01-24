@@ -1,15 +1,21 @@
-import json
-import struct
-from collections.abc import Iterator
-from typing import Any, Generic, TypeVar
+from __future__ import annotations
 
-from ._client_shared import handle_response_trailers
-from ._codec import Codec
+import struct
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
 from ._compression import Compression, IdentityCompression
-from ._protocol import ConnectWireError
 from .code import Code
 from .errors import ConnectError
-from .request import Headers
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from pyqwest import Response, SyncResponse
+
+    from ._codec import Codec
+    from ._protocol import ConnectWireError
+    from .request import Headers
 
 _RES = TypeVar("_RES")
 _T = TypeVar("_T")
@@ -33,7 +39,7 @@ class EnvelopeReader(Generic[_RES]):
 
         self._next_message_length = None
 
-    def feed(self, data: bytes) -> Iterator[_RES]:
+    def feed(self, data: bytes | memoryview | bytearray) -> Iterator[_RES]:
         self._buffer.extend(data)
         return self._read_messages()
 
@@ -43,8 +49,8 @@ class EnvelopeReader(Generic[_RES]):
                 if len(self._buffer) < self._next_message_length + 5:
                     return
 
-                compressed = self._buffer[0] & 0b01 != 0
-                end_stream = self._buffer[0] & 0b10 != 0
+                prefix_byte = self._buffer[0]
+                compressed = prefix_byte & 0b01 != 0
 
                 message_data = self._buffer[5 : 5 + self._next_message_length]
                 self._buffer = self._buffer[5 + self._next_message_length :]
@@ -66,18 +72,7 @@ class EnvelopeReader(Generic[_RES]):
                         f"message is larger than configured max {self._read_max_bytes}",
                     )
 
-                if end_stream:
-                    end_stream_message: dict = json.loads(message_data)
-                    metadata = end_stream_message.get("metadata")
-                    if metadata:
-                        handle_response_trailers(metadata)
-                    error = end_stream_message.get("error")
-                    if error:
-                        # Most likely a bug in the protocol, handling of unknown code is different for unary
-                        # and streaming.
-                        raise ConnectWireError.from_dict(
-                            error, 500, Code.UNKNOWN
-                        ).to_exception()
+                if self.handle_end_message(prefix_byte, message_data):
                     return
 
                 res = self._message_class()
@@ -89,8 +84,23 @@ class EnvelopeReader(Generic[_RES]):
 
             self._next_message_length = int.from_bytes(self._buffer[1:5], "big")
 
+    def handle_end_message(
+        self, prefix_byte: int, message_data: bytes | bytearray
+    ) -> bool:
+        """For client protocols with an end message like Connect and gRPC-Web, handle the end message.
+        Returns True if the end message was handled, False otherwise.
+        """
+        return False
 
-class EnvelopeWriter(Generic[_T]):
+    def handle_response_complete(
+        self, response: Response | SyncResponse, e: ConnectError | None = None
+    ) -> None:
+        """Handle any client finalization needed when the response is complete.
+        This is typically used to process trailers for gRPC.
+        """
+
+
+class EnvelopeWriter(ABC, Generic[_T]):
     def __init__(self, codec: Codec[_T, Any], compression: Compression | None) -> None:
         self._codec = codec
         self._compression = compression
@@ -106,16 +116,7 @@ class EnvelopeWriter(Generic[_T]):
         # I/O multiple times for small prefix / length elements.
         return struct.pack(">BI", self._prefix, len(data)) + data
 
-    def end(self, trailers: Headers, error: ConnectWireError | None) -> bytes:
-        end_message = {}
-        if trailers:
-            metadata: dict[str, list[str]] = {}
-            for key, value in trailers.allitems():
-                metadata.setdefault(key, []).append(value)
-            end_message["metadata"] = metadata
-        if error:
-            end_message["error"] = error.to_dict()
-        data = json.dumps(end_message).encode()
-        if self._compression:
-            data = self._compression.compress(data)
-        return struct.pack(">BI", self._prefix | 0b10, len(data)) + data
+    @abstractmethod
+    def end(
+        self, user_trailers: Headers, error: ConnectWireError | None
+    ) -> bytes | Headers: ...

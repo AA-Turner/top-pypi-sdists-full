@@ -34,58 +34,67 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     # keep python versions in sync with
     #   - pyproject.toml
     #   - tests.yml
     # all python versions need to be present for linking to succeed
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.8'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.9'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.10'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.13'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
 
-    - uses: PyO3/maturin-action@v1.49.3
+    - uses: PyO3/maturin-action@v1.49.4
       with:
         target: ${{ matrix.target }}
         manylinux: ${{ matrix.manylinux }}
         # keep python versions in sync with tests.yml
-        args: --release --out dist --interpreter '3.8 3.9 3.10 3.11 3.12 3.13'
+        args: --release --out dist --interpreter '3.8 3.9 3.10 3.11 3.12 3.13 3.14'
         rust-toolchain: stable
         docker-options: -e CI
 
-    # the following two steps are separated out because of a setup-python issue on windows causing maturin-action to pick up 3.13t exe instead of 3.13t exe https://github.com/oconnor663/blake3-py/issues/52
-    - uses: actions/setup-python@v5
+    # The freethreaded builds are separated out because of a setup-python issue
+    # on Windows causing maturin-action to pick up e.g. the 3.13t exe instead
+    # of the 3.13 exe. See https://github.com/oconnor663/blake3-py/issues/52.
+    - uses: actions/setup-python@v6
       with:
         python-version: '3.13t'
         architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
-
-    - uses: PyO3/maturin-action@v1.49.3
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14t'
+        architecture: ${{ ( startsWith(matrix.os, 'windows') && matrix.target == 'i686' ) && 'x86' || null }}
+    - uses: PyO3/maturin-action@v1.49.4
       with:
         target: ${{ matrix.target }}
         manylinux: ${{ matrix.manylinux }}
         # keep python versions in sync with tests.yml
-        args: --release --out dist --interpreter '3.13t'
+        args: --release --out dist --interpreter '3.13t 3.14t'
         rust-toolchain: stable
         docker-options: -e CI
 
@@ -100,9 +109,9 @@ jobs:
     name: sdist
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - uses: PyO3/maturin-action@v1.49.3
+    - uses: PyO3/maturin-action@v1.49.4
       with:
         command: sdist
         args: --out dist
@@ -123,7 +132,7 @@ jobs:
       id-token: write  # pypa/gh-action-pypi-publish
 
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         path: dist/
         pattern: dist-*
@@ -132,12 +141,12 @@ jobs:
     - run: ls -ltra dist/
 
     - name: Upload release assets
-      uses: softprops/action-gh-release@v2.3.2
+      uses: softprops/action-gh-release@v2.3.3
       with:
         files: dist/*
 
     # trusted publisher in https://pypi.org/manage/project/blake3/settings/publishing/
     - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.12.4
+      uses: pypa/gh-action-pypi-publish@v1.13.0
       with:
         skip-existing: true

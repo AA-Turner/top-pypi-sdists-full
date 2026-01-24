@@ -3,15 +3,18 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import pathlib
 import queue
 import threading
 from collections.abc import Iterable
 from concurrent import futures
+from datetime import date
+from datetime import datetime
 from os import PathLike
 from typing import IO
 
 import databento_dbn
+import pandas as pd
+from databento_dbn import DBNRecord
 from databento_dbn import Schema
 from databento_dbn import SType
 
@@ -21,12 +24,14 @@ from databento.common.enums import ReconnectPolicy
 from databento.common.error import BentoError
 from databento.common.parsing import optional_datetime_to_unix_nanoseconds
 from databento.common.publishers import Dataset
-from databento.common.types import DBNRecord
+from databento.common.types import ClientRecordCallback
+from databento.common.types import ClientStream
 from databento.common.types import ExceptionCallback
 from databento.common.types import ReconnectCallback
 from databento.common.types import RecordCallback
 from databento.common.validation import validate_enum
 from databento.common.validation import validate_semantic_string
+from databento.live.gateway import SubscriptionRequest
 from databento.live.session import DEFAULT_REMOTE_PORT
 from databento.live.session import LiveSession
 from databento.live.session import SessionMetadata
@@ -52,7 +57,8 @@ class Live:
         gateway.
     heartbeat_interval_s: int, optional
         The interval in seconds at which the gateway will send heartbeat records if no
-        other data records are sent.
+        other data records are sent. By default heartbeats will be sent at the gateway's
+        default interval. Minimum interval is 5 seconds.
     reconnect_policy: ReconnectPolicy | str, optional
         The reconnect policy for the live session.
             - "none": the client will not reconnect (default)
@@ -108,7 +114,7 @@ class Live:
             reconnect_policy=reconnect_policy,
         )
 
-        self._session._user_callbacks.append((self._map_symbol, None))
+        self._session._user_callbacks.append(ClientRecordCallback(self._map_symbol))
 
         with Live._lock:
             if not Live._thread.is_alive():
@@ -212,6 +218,51 @@ class Live:
         return self._port
 
     @property
+    def session_id(self) -> str | None:
+        """
+        Return the session ID for the current session. If `None`, the client is
+        not connected.
+
+        Returns
+        -------
+        str | None
+
+        """
+        return self._session.session_id
+
+    @property
+    def subscription_requests(
+        self,
+    ) -> list[tuple[SubscriptionRequest, ...]]:
+        """
+        Return a list of tuples containing every `SubscriptionRequest` message
+        sent for the session. The list is in order of the subscriptions made
+        and can be indexed using the value returned by each call to
+        `Live.subscribe()`.
+
+        Subscriptions which contain a large
+        list of symbols are batched. Because of this, a single `subscription_id` may have
+        more than one associated `SubscriptionRequest`.
+
+        Returns
+        -------
+        list[tuple[SubscriptionRequest, ...]]
+            A list of tuples containing every subscription request.
+            Each entry in the list corresponds to a single subscription.
+
+        Raises
+        ------
+        IndexError
+            If the subscription ID is invalid.
+
+        See Also
+        --------
+        Live.subscribe()
+
+        """
+        return self._session._subscriptions
+
+    @property
     def symbology_map(self) -> dict[int, str | int]:
         """
         Return the symbology map for this client session. A symbol mapping is
@@ -254,7 +305,9 @@ class Live:
             A callback to register for handling live records as they arrive.
         exception_callback : Callable[[Exception], None], optional
             An error handling callback to process exceptions that are raised
-            in `record_callback`.
+            in `record_callback`. If no exception callback is provided,
+            any exceptions encountered will be logged and raised as warnings
+            for visibility.
 
         Raises
         ------
@@ -267,15 +320,13 @@ class Live:
         Live.add_stream
 
         """
-        if not callable(record_callback):
-            raise ValueError(f"{record_callback} is not callable")
+        client_callback = ClientRecordCallback(
+            fn=record_callback,
+            exc_fn=exception_callback,
+        )
 
-        if exception_callback is not None and not callable(exception_callback):
-            raise ValueError(f"{exception_callback} is not callable")
-
-        callback_name = getattr(record_callback, "__name__", str(record_callback))
-        logger.info("adding user callback %s", callback_name)
-        self._session._user_callbacks.append((record_callback, exception_callback))
+        logger.info("adding user callback %s", client_callback.callback_name)
+        self._session._user_callbacks.append(client_callback)
 
     def add_stream(
         self,
@@ -291,7 +342,9 @@ class Live:
             The IO stream to write to when handling live records as they arrive.
         exception_callback : Callable[[Exception], None], optional
             An error handling callback to process exceptions that are raised
-            when writing to the stream.
+            when writing to the stream. If no exception callback is provided,
+            any exceptions encountered will be logged and raised as warnings
+            for visibility.
 
         Raises
         ------
@@ -306,23 +359,12 @@ class Live:
         Live.add_callback
 
         """
-        if isinstance(stream, (str, PathLike)):
-            stream = pathlib.Path(stream).open("xb")
+        client_stream = ClientStream(stream=stream, exc_fn=exception_callback)
 
-        if not hasattr(stream, "write"):
-            raise ValueError(f"{type(stream).__name__} does not support write()")
-
-        if not hasattr(stream, "writable") or not stream.writable():
-            raise ValueError(f"{type(stream).__name__} is not a writable stream")
-
-        if exception_callback is not None and not callable(exception_callback):
-            raise ValueError(f"{exception_callback} is not callable")
-
-        stream_name = getattr(stream, "name", str(stream))
-        logger.info("adding user stream %s", stream_name)
+        logger.info("adding user stream %s", client_stream.stream_name)
         if self.metadata is not None:
-            stream.write(bytes(self.metadata))
-        self._session._user_streams.append((stream, exception_callback))
+            client_stream.write(self.metadata.encode())
+        self._session._user_streams.append(client_stream)
 
     def add_reconnect_callback(
         self,
@@ -362,32 +404,36 @@ class Live:
 
         callback_name = getattr(reconnect_callback, "__name__", str(reconnect_callback))
         logger.info("adding user reconnect callback %s", callback_name)
-        self._session._user_reconnect_callbacks.append((reconnect_callback, exception_callback))
+        self._session._user_reconnect_callbacks.append(
+            (reconnect_callback, exception_callback),
+        )
 
     def start(
         self,
     ) -> None:
         """
-        Start the live client session.
+        Start the session.
 
-        It is not necessary to call `Live.start` before iterating a `Live` client and doing so will result in an error.
+        It is not necessary to call this method before iterating a `Live` client and doing so
+        will result in an error.
 
         Raises
         ------
         ValueError
-            If `Live.start` is called before a subscription has been made.
-            If `Live.start` is called after streaming has already started.
-            If `Live.start` is called after the live session has closed.
+            If called before a subscription has been made.
+            If called after the session has already started.
+            If called after the session has closed.
 
         See Also
         --------
         Live.stop
+        Live.terminate
 
         """
         logger.info("starting live client")
         if not self.is_connected():
             if self.dataset == "":
-                raise ValueError("cannot start a live client without a subscription")
+                raise ValueError("must call subscribe() before starting live client")
             raise ValueError("cannot start a live client after it is closed")
         if self._session.is_streaming():
             raise ValueError("client is already started")
@@ -396,17 +442,25 @@ class Live:
 
     def stop(self) -> None:
         """
-        Stop the live client session as soon as possible. Once stopped, a
-        client cannot be restarted.
+        Stop the session and finish processing received records.
+
+        A client can only be stopped after a successful connection is made with `Live.start`.
+
+        This method does not block waiting for the connection to close.
+
+        The connection will eventually close after calling this method. Once the connection
+        is closed, the client can be reused, but the session state is not preserved.
 
         Raises
         ------
         ValueError
-            If `Live.stop` is called before a connection has been made.
+            If called before a connection has started.
 
         See Also
         --------
-        Live.start
+        Live.terminate
+        Live.block_for_close
+        Live.wait_for_close
 
         """
         logger.info("stopping live client")
@@ -424,17 +478,18 @@ class Live:
         schema: Schema | str,
         symbols: Iterable[str | int] | str | int = ALL_SYMBOLS,
         stype_in: SType | str = SType.RAW_SYMBOL,
-        start: str | int | None = None,
+        start: pd.Timestamp | datetime | date | str | int | None = None,
         snapshot: bool = False,
-    ) -> None:
+    ) -> int:
         """
-        Subscribe to a data stream. Multiple subscription requests can be made
-        for a streaming session. Once one subscription has been made, future
-        subscriptions must all belong to the same dataset.
+        Add a new subscription to the session.
 
-        When creating the first subscription this method will also create
-        the TCP connection to the remote gateway. All subscriptions must
-        have the same dataset.
+        All subscriptions must be for the same `dataset`.
+
+        Multiple subscriptions for different schemas can be made.
+
+        When creating the first subscription, this method will also create
+        the TCP connection to the remote gateway.
 
         Parameters
         ----------
@@ -446,12 +501,19 @@ class Live:
             The symbols to subscribe to.
         stype_in : SType or str, default 'raw_symbol'
             The input symbology type to resolve from.
-        start : str or int, optional
-            UNIX nanosecond epoch timestamp to start streaming from (inclusive), based on `ts_event`. Must be within 24 hours except when requesting the mbo or definition schemas.
+        start : pd.Timestamp, datetime, date, str or int, optional
+            The inclusive start of subscription replay.
+            Pass `0` to request all available data.
+            Cannot be specified after the session is started.
+            See `Intraday Replay` https://databento.com/docs/api-reference-live/basics/intraday-replay.
         snapshot: bool, default to 'False'
             Request subscription with snapshot. The `start` parameter must be `None`.
+            Only supported with `mbo` schema.
 
-
+        Returns
+        -------
+        int
+            The numeric identifier for this subscription request.
 
         Raises
         ------
@@ -471,7 +533,7 @@ class Live:
 
         """
         logger.info(
-            "subscribing to %s:%s %s start=%s snapshot=%s",
+            "subscribing to schema=%s stype_in=%s symbols='%s' start=%s snapshot=%s",
             schema,
             stype_in,
             symbols,
@@ -486,7 +548,7 @@ class Live:
         if snapshot and start is not None:
             raise ValueError("Subscription with snapshot expects start=None")
 
-        self._session.subscribe(
+        return self._session.subscribe(
             dataset=dataset,
             schema=schema,
             stype_in=stype_in,
@@ -497,17 +559,23 @@ class Live:
 
     def terminate(self) -> None:
         """
-        Terminate the live client session and stop processing records as soon
-        as possible.
+        Terminate the session and stop processing records immediately.
+
+        A client can only be terminated after a connection is started with `Live.start`.
+
+        Once terminated, the client can be reused, but the session state
+        is not preserved.
 
         Raises
         ------
         ValueError
-            If the client is not connected.
+            If called before a connection has started.
 
         See Also
         --------
         Live.stop
+        Live.block_for_close
+        Live.wait_for_close
 
         """
         logger.info("terminating live client")
@@ -521,10 +589,13 @@ class Live:
     ) -> None:
         """
         Block until the session closes or a timeout is reached. A session will
-        close after `Live.stop` is called or the remote gateway disconnects.
+        close after the remote gateway disconnects, or after `Live.stop` or
+        `Live.terminate` are called.
 
-        If a `timeout` is specified, `Live.stop` will be called when the
+        If a `timeout` is specified, `Live.terminate` will be called when the
         timeout is reached.
+
+        When this method unblocks, the session is guaranteed to be closed.
 
         Parameters
         ----------
@@ -541,7 +612,7 @@ class Live:
 
         See Also
         --------
-        wait_for_close
+        Live.wait_for_close
 
         """
         try:
@@ -565,11 +636,13 @@ class Live:
     ) -> None:
         """
         Coroutine to wait until the session closes or a timeout is reached. A
-        session will close after `Live.stop` is called or the remote gateway
-        disconnects.
+        session will close when the remote gateway disconnects, or after
+        `Live.stop` or `Live.terminate` are called.
 
-        If a `timeout` is specified, `Live.stop` will be called when the
+        If a `timeout` is specified, `Live.terminate` will be called when the
         timeout is reached.
+
+        When this method unblocks, the session is guaranteed to be closed.
 
         Parameters
         ----------
@@ -586,7 +659,7 @@ class Live:
 
         See Also
         --------
-        block_for_close
+        Live.block_for_close
 
         """
         waiter = asyncio.wrap_future(

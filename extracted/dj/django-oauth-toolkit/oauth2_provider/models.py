@@ -3,7 +3,10 @@ import logging
 import time
 import uuid
 from contextlib import suppress
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
+from typing import Callable, Optional, Union
 from urllib.parse import parse_qsl, urlparse
 
 from django.apps import apps
@@ -40,7 +43,7 @@ class ClientSecretField(models.CharField):
             logger.debug(f"{model_instance}: {self.attname} is already hashed with {hasher}.")
         except ValueError:
             logger.debug(f"{model_instance}: {self.attname} is not hashed; hashing it now.")
-            hashed_secret = make_password(secret)
+            hashed_secret = make_password(secret, hasher=oauth2_settings.CLIENT_SECRET_HASHER)
             setattr(model_instance, self.attname, hashed_secret)
             return hashed_secret
         return super().pre_save(model_instance, add)
@@ -86,12 +89,14 @@ class AbstractApplication(models.Model):
     )
 
     GRANT_AUTHORIZATION_CODE = "authorization-code"
+    GRANT_DEVICE_CODE = "urn:ietf:params:oauth:grant-type:device_code"
     GRANT_IMPLICIT = "implicit"
     GRANT_PASSWORD = "password"
     GRANT_CLIENT_CREDENTIALS = "client-credentials"
     GRANT_OPENID_HYBRID = "openid-hybrid"
     GRANT_TYPES = (
         (GRANT_AUTHORIZATION_CODE, _("Authorization code")),
+        (GRANT_DEVICE_CODE, _("Device Code")),
         (GRANT_IMPLICIT, _("Implicit")),
         (GRANT_PASSWORD, _("Resource owner password-based")),
         (GRANT_CLIENT_CREDENTIALS, _("Client credentials")),
@@ -127,7 +132,7 @@ class AbstractApplication(models.Model):
         default="",
     )
     client_type = models.CharField(max_length=32, choices=CLIENT_TYPES)
-    authorization_grant_type = models.CharField(max_length=32, choices=GRANT_TYPES)
+    authorization_grant_type = models.CharField(max_length=44, choices=GRANT_TYPES)
     client_secret = ClientSecretField(
         max_length=255,
         blank=True,
@@ -213,7 +218,11 @@ class AbstractApplication(models.Model):
 
         if redirect_uris:
             validator = AllowedURIValidator(
-                allowed_schemes, name="redirect uri", allow_path=True, allow_query=True
+                allowed_schemes,
+                name="redirect uri",
+                allow_path=True,
+                allow_query=True,
+                allow_hostname_wildcard=oauth2_settings.ALLOW_URI_WILDCARDS,
             )
             for uri in redirect_uris:
                 validator(uri)
@@ -227,7 +236,11 @@ class AbstractApplication(models.Model):
         allowed_origins = self.allowed_origins.strip().split()
         if allowed_origins:
             # oauthlib allows only https scheme for CORS
-            validator = AllowedURIValidator(oauth2_settings.ALLOWED_SCHEMES, "allowed origin")
+            validator = AllowedURIValidator(
+                oauth2_settings.ALLOWED_SCHEMES,
+                "allowed origin",
+                allow_hostname_wildcard=oauth2_settings.ALLOW_URI_WILDCARDS,
+            )
             for uri in allowed_origins:
                 validator(uri)
 
@@ -642,9 +655,107 @@ class IDToken(AbstractIDToken):
         swappable = "OAUTH2_PROVIDER_ID_TOKEN_MODEL"
 
 
+class AbstractDeviceGrant(models.Model):
+    class Meta:
+        abstract = True
+        constraints = [
+            models.UniqueConstraint(
+                fields=["device_code"],
+                name="%(app_label)s_%(class)s_unique_device_code",
+            ),
+        ]
+
+    AUTHORIZED = "authorized"
+    AUTHORIZATION_PENDING = "authorization-pending"
+    EXPIRED = "expired"
+    DENIED = "denied"
+
+    DEVICE_FLOW_STATUS = (
+        (AUTHORIZED, _("Authorized")),
+        (AUTHORIZATION_PENDING, _("Authorization pending")),
+        (EXPIRED, _("Expired")),
+        (DENIED, _("Denied")),
+    )
+
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="%(app_label)s_%(class)s",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+    device_code = models.CharField(max_length=100, unique=True)
+    user_code = models.CharField(max_length=100)
+    scope = models.CharField(max_length=64, null=True)
+    interval = models.IntegerField(default=5)
+    expires = models.DateTimeField()
+    status = models.CharField(
+        max_length=64, blank=True, choices=DEVICE_FLOW_STATUS, default=AUTHORIZATION_PENDING
+    )
+    client_id = models.CharField(max_length=100, db_index=True)
+    last_checked = models.DateTimeField(auto_now=True)
+
+    def is_expired(self):
+        """
+        Check device flow session expiration and set the status to "expired" if current time
+        is past the "expires" deadline.
+        """
+        if self.status == self.EXPIRED:
+            return True
+
+        now = datetime.now(tz=dt_timezone.utc)
+        if now >= self.expires:
+            self.status = self.EXPIRED
+            self.save(update_fields=["status"])
+            return True
+
+        return False
+
+
+class DeviceGrant(AbstractDeviceGrant):
+    class Meta(AbstractDeviceGrant.Meta):
+        swappable = "OAUTH2_PROVIDER_DEVICE_GRANT_MODEL"
+
+
+@dataclass
+class DeviceRequest:
+    # https://datatracker.ietf.org/doc/html/rfc8628#section-3.1
+    # scope is optional
+    client_id: str
+    scope: Optional[str] = None
+
+
+@dataclass
+class DeviceCodeResponse:
+    verification_uri: str
+    expires_in: int
+    user_code: int
+    device_code: str
+    interval: int
+    verification_uri_complete: Optional[Union[str, Callable]] = None
+
+
+def create_device_grant(device_request: DeviceRequest, device_response: DeviceCodeResponse) -> DeviceGrant:
+    now = datetime.now(tz=dt_timezone.utc)
+
+    return DeviceGrant.objects.create(
+        client_id=device_request.client_id,
+        device_code=device_response.device_code,
+        user_code=device_response.user_code,
+        scope=device_request.scope,
+        expires=now + timedelta(seconds=device_response.expires_in),
+    )
+
+
 def get_application_model():
     """Return the Application model that is active in this project."""
     return apps.get_model(oauth2_settings.APPLICATION_MODEL)
+
+
+def get_device_grant_model():
+    """Return the DeviceGrant model that is active in this project."""
+    return apps.get_model(oauth2_settings.DEVICE_GRANT_MODEL)
 
 
 def get_grant_model():
@@ -707,7 +818,7 @@ def clear_expired():
             flat_queryset = queryset.values_list("id", flat=True)[:CLEAR_EXPIRED_TOKENS_BATCH_SIZE]
             batch_length = flat_queryset.count()
             queryset.model.objects.filter(id__in=list(flat_queryset)).delete()
-            logger.debug(f"{batch_length} tokens deleted, {current_no-batch_length} left")
+            logger.debug(f"{batch_length} tokens deleted, {current_no - batch_length} left")
             queryset = queryset.model.objects.filter(query)
             time.sleep(CLEAR_EXPIRED_TOKENS_BATCH_INTERVAL)
             current_no = queryset.count()
@@ -777,12 +888,28 @@ def redirect_to_uri_allowed(uri, allowed_uris):
     :param allowed_uris: A list of URIs that are allowed
     """
 
+    if not isinstance(allowed_uris, list):
+        raise ValueError("allowed_uris must be a list")
+
     parsed_uri = urlparse(uri)
     uqs_set = set(parse_qsl(parsed_uri.query))
     for allowed_uri in allowed_uris:
         parsed_allowed_uri = urlparse(allowed_uri)
 
+        if parsed_allowed_uri.scheme != parsed_uri.scheme:
+            # match failed, continue
+            continue
+
+        """ check hostname """
+        if oauth2_settings.ALLOW_URI_WILDCARDS and parsed_allowed_uri.hostname.startswith("*"):
+            """ wildcard hostname """
+            if not parsed_uri.hostname.endswith(parsed_allowed_uri.hostname[1:]):
+                continue
+        elif parsed_allowed_uri.hostname != parsed_uri.hostname:
+            continue
+
         # From RFC 8252 (Section 7.3)
+        # https://datatracker.ietf.org/doc/html/rfc8252#section-7.3
         #
         # Loopback redirect URIs use the "http" scheme
         # [...]
@@ -790,26 +917,26 @@ def redirect_to_uri_allowed(uri, allowed_uris):
         # time of the request for loopback IP redirect URIs, to accommodate
         # clients that obtain an available ephemeral port from the operating
         # system at the time of the request.
+        allowed_uri_is_loopback = parsed_allowed_uri.scheme == "http" and parsed_allowed_uri.hostname in [
+            "127.0.0.1",
+            "::1",
+        ]
+        """ check port """
+        if not allowed_uri_is_loopback and parsed_allowed_uri.port != parsed_uri.port:
+            continue
 
-        allowed_uri_is_loopback = (
-            parsed_allowed_uri.scheme == "http"
-            and parsed_allowed_uri.hostname in ["127.0.0.1", "::1"]
-            and parsed_allowed_uri.port is None
-        )
-        if (
-            allowed_uri_is_loopback
-            and parsed_allowed_uri.scheme == parsed_uri.scheme
-            and parsed_allowed_uri.hostname == parsed_uri.hostname
-            and parsed_allowed_uri.path == parsed_uri.path
-        ) or (
-            parsed_allowed_uri.scheme == parsed_uri.scheme
-            and parsed_allowed_uri.netloc == parsed_uri.netloc
-            and parsed_allowed_uri.path == parsed_uri.path
-        ):
-            aqs_set = set(parse_qsl(parsed_allowed_uri.query))
-            if aqs_set.issubset(uqs_set):
-                return True
+        """ check path """
+        if parsed_allowed_uri.path != parsed_uri.path:
+            continue
 
+        """ check querystring """
+        aqs_set = set(parse_qsl(parsed_allowed_uri.query))
+        if not aqs_set.issubset(uqs_set):
+            continue  # circuit break
+
+        return True
+
+    # if uris matched then it's not allowed
     return False
 
 
@@ -833,4 +960,5 @@ def is_origin_allowed(origin, allowed_origins):
             and parsed_allowed_origin.netloc == parsed_origin.netloc
         ):
             return True
+
     return False

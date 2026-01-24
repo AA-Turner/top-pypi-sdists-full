@@ -699,32 +699,8 @@ class TableModel(QtCore.QAbstractTableModel):
                     has_ranges = bool(self.view.ranges.get(signal.entry, False))
                     if has_ranges:
                         icon = utils.RANGE_INDICATOR_ICON
-                        if icon is None:
-                            utils.RANGE_INDICATOR_ICON = QtGui.QIcon()
-                            utils.RANGE_INDICATOR_ICON.addPixmap(
-                                QtGui.QPixmap(":/paint.png"),
-                                QtGui.QIcon.Mode.Normal,
-                                QtGui.QIcon.State.Off,
-                            )
-
-                            utils.NO_ERROR_ICON = QtGui.QIcon()
-                            utils.NO_ICON = QtGui.QIcon()
-
-                            icon = utils.RANGE_INDICATOR_ICON
                     else:
                         icon = utils.NO_ERROR_ICON
-                        if icon is None:
-                            utils.RANGE_INDICATOR_ICON = QtGui.QIcon()
-                            utils.RANGE_INDICATOR_ICON.addPixmap(
-                                QtGui.QPixmap(":/paint.png"),
-                                QtGui.QIcon.Mode.Normal,
-                                QtGui.QIcon.State.Off,
-                            )
-
-                            utils.NO_ERROR_ICON = QtGui.QIcon()
-                            utils.NO_ICON = QtGui.QIcon()
-
-                            icon = utils.NO_ERROR_ICON
 
                     return icon
 
@@ -850,9 +826,9 @@ class TableView(QtWidgets.QTableView):
                     parent=self,
                     brush=True,
                 )
-                dlg.exec_()
+                dlg.exec()
                 if dlg.pressed_button == "apply":
-                    ranges = dlg.result
+                    ranges = dlg.payload
                     for row in selected_items:
                         signal = self.backend.signals[row]
                         self.ranges[signal.entry] = copy_ranges(ranges)
@@ -1079,9 +1055,9 @@ class TableView(QtWidgets.QTableView):
         signal = self.backend.signals[row]
 
         dlg = RangeEditor(signal.name, signal.unit, self.ranges[signal.entry], parent=self, brush=True)
-        dlg.exec_()
+        dlg.exec()
         if dlg.pressed_button == "apply":
-            ranges = dlg.result
+            ranges = dlg.payload
             self.ranges[signal.entry] = ranges
 
     def set_format(self, fmt):
@@ -1466,6 +1442,30 @@ class Numeric(Ui_NumericDisplay, QtWidgets.QWidget):
         *args,
         **kwargs,
     ):
+        if utils.RANGE_INDICATOR_ICON is None:
+            utils.RANGE_INDICATOR_ICON = QtGui.QIcon()
+            utils.RANGE_INDICATOR_ICON.addPixmap(
+                QtGui.QPixmap(":/paint.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.NO_ICON = QtGui.QIcon()
+            utils.NO_ERROR_ICON = QtGui.QIcon()
+
+            utils.COMPUTED_ICON = QtGui.QIcon()
+            utils.COMPUTED_ICON.addPixmap(
+                QtGui.QPixmap(":/computation.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.USER_EDITED_ICON = QtGui.QIcon()
+            utils.USER_EDITED_ICON.addPixmap(
+                QtGui.QPixmap(":/edit.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.ERROR_ICON = QtGui.QIcon()
+            utils.ERROR_ICON.addPixmap(
+                QtGui.QPixmap(":/error.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
         super().__init__(*args, **kwargs)
         self.setupUi(self)
 
@@ -1493,13 +1493,13 @@ class Numeric(Ui_NumericDisplay, QtWidgets.QWidget):
 
         self.float_precision.currentIndexChanged.connect(self.set_float_precision)
 
-        format = format or self._settings.value("numeric_format", "Physical")
+        format = format or self._settings.value("numeric/integer_format", "Physical")
         if format not in ("Physical", "Hex", "Binary", "Ascii"):
             format = "Physical"
-            self._settings.setValue("numeric_format", format)
+            self._settings.setValue("numeric/integer_format", format)
 
         if float_precision is None:
-            float_precision = self._settings.value("numeric_float_precision", -1, type=int)
+            float_precision = self._settings.value("numeric/float_precision", -1, type=int)
         self.float_precision.setCurrentIndex(float_precision + 1)
 
         self.timebase = np.array([])
@@ -1932,11 +1932,11 @@ class Numeric(Ui_NumericDisplay, QtWidgets.QWidget):
             fmt = "phys"
 
         self.channels.dataView.set_format(fmt)
-        self._settings.setValue("numeric_format", fmt_s)
+        self._settings.setValue("numeric/integer_format", fmt_s)
         self.channels.backend.data_changed()
 
     def set_float_precision(self, index):
-        self._settings.setValue("numeric_float_precision", index - 1)
+        self._settings.setValue("numeric/float_precision", index - 1)
         self.channels.dataView.model().float_precision = index - 1
         self.channels.backend.data_changed()
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-option-group
-Version: 0.5.7
+Version: 0.5.9
 Summary: Option groups missing in Click
 Project-URL: Homepage, https://github.com/click-contrib/click-option-group
 Project-URL: Code, https://github.com/click-contrib/click-option-group

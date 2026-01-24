@@ -9,6 +9,11 @@
     - depends:
         - 'asyncio'
 
+- module-name: '_ctypes' # checksum: b31a8f6b
+  implicit-imports:
+    - depends:
+        - 'ctypes._layout'
+
 - module-name: '_curses_panel' # checksum: c9b072ec
   implicit-imports:
     - depends:
@@ -461,8 +466,9 @@
       change_function:
         'main': "'(lambda: None)'"
 
-- module-name: 'zoneinfo' # checksum: 70450440
+- module-name: 'zoneinfo' # checksum: 149e81f3
   # This tries to find non-stdlib module when being used.
   implicit-imports:
     - depends:
         - 'tzdata.zoneinfo'
+      when: 'win32'

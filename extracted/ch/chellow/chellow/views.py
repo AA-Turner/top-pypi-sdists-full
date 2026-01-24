@@ -38,6 +38,7 @@ from pympler import muppy, summary
 
 from sqlalchemy import (
     Float,
+    Integer,
     cast,
     false,
     func,
@@ -67,8 +68,8 @@ import chellow.e.rcrc
 import chellow.e.system_price
 import chellow.e.tlms
 import chellow.general_import
-import chellow.national_grid
 import chellow.rate_server
+from chellow.e.issues import make_issue_bundles
 from chellow.edi_lib import SEGMENTS, parse_edi
 from chellow.models import (
     Batch,
@@ -89,6 +90,7 @@ from chellow.models import (
     GeneratorType,
     GspGroup,
     HhDatum,
+    Issue,
     MarketRole,
     Participant,
     Party,
@@ -115,7 +117,7 @@ from chellow.utils import (
     ct_datetime,
     ct_datetime_now,
     hh_range,
-    req_bool,
+    req_checkbox,
     req_date,
     req_decimal,
     req_file,
@@ -149,6 +151,20 @@ def requires_editor(f):
             raise Forbidden("You must be an editor to do this.")
 
     return decorated_function
+
+
+@home.route("/bank_holidays")
+def bank_holidays_get():
+    importer = chellow.bank_holidays.importer
+
+    return render_template("bank_holidays.html", importer=importer)
+
+
+@home.route("/bank_holidays", methods=["POST"])
+def bank_holidays_post():
+    importer = chellow.bank_holidays.importer
+    importer.go()
+    return redirect("/bank_holidays", 303)
 
 
 @home.route("/configuration", methods=["GET"])
@@ -432,9 +448,7 @@ def system_get():
                 traces.append(f"  {line.strip()}")
     pg_stats = g.sess.execute(text("select * from pg_stat_activity")).fetchall()
 
-    pg_indexes = g.sess.execute(
-        text(
-            """
+    pg_indexes = g.sess.execute(text("""
         select
             t.relname as table_name,
             i.relname as index_name,
@@ -456,9 +470,7 @@ def system_get():
         order by
             t.relname,
             i.relname;
-        """
-        )
-    ).fetchall()
+        """)).fetchall()
 
     version_number = chellow.__version__
 
@@ -691,8 +703,54 @@ def users_post():
         )
 
 
-@home.route("/users/<int:user_id>", methods=["POST"])
-def user_post(user_id):
+@home.route("/users/<int:user_id>")
+def user_get(user_id):
+    parties = (
+        g.sess.query(Party)
+        .join(MarketRole)
+        .join(Participant)
+        .order_by(MarketRole.code, Participant.code)
+    )
+    user = User.get_by_id(g.sess, user_id)
+    config_contract = Contract.get_non_core_by_name(g.sess, "configuration")
+    props = config_contract.make_properties()
+    ad_props = props.get("ad_authentication", {})
+    ad_auth_on = ad_props.get("on", False)
+    issues = g.sess.scalars(
+        select(Issue)
+        .where(cast(Issue.properties["owner_id"], Integer) == user.id)
+        .order_by(Issue.date_created.desc())
+    )
+    issue_bundles = make_issue_bundles(g.sess, issues)
+    return render_template(
+        "user.html",
+        parties=parties,
+        user=user,
+        ad_auth_on=ad_auth_on,
+        issue_bundles=issue_bundles,
+    )
+
+
+@home.route("/users/<int:user_id>/edit")
+def user_edit_get(user_id):
+    parties = (
+        g.sess.query(Party)
+        .join(MarketRole)
+        .join(Participant)
+        .order_by(MarketRole.code, Participant.code)
+    )
+    user = User.get_by_id(g.sess, user_id)
+    config_contract = Contract.get_non_core_by_name(g.sess, "configuration")
+    props = config_contract.make_properties()
+    ad_props = props.get("ad_authentication", {})
+    ad_auth_on = ad_props.get("on", False)
+    return render_template(
+        "user_edit.html", parties=parties, user=user, ad_auth_on=ad_auth_on
+    )
+
+
+@home.route("/users/<int:user_id>/edit", methods=["POST"])
+def user_edit_post(user_id):
     try:
         user = User.get_by_id(g.sess, user_id)
         if "current_password" in request.values:
@@ -707,11 +765,7 @@ def user_post(user_id):
                 raise BadRequest("The password must be at least 6 characters long.")
             user.set_password(new_password)
             g.sess.commit()
-            return redirect("/users/" + str(user.id), 303)
-        elif "delete" in request.values:
-            g.sess.delete(user)
-            g.sess.commit()
-            return redirect("/users", 303)
+            return redirect(f"/users/{user.id}", 303)
         else:
             email_address = req_str("email_address")
             user_role_code = req_str("user_role_code")
@@ -722,7 +776,7 @@ def user_post(user_id):
                 party = Party.get_by_id(g.sess, party_id)
             user.update(email_address, user_role, party)
             g.sess.commit()
-            return redirect("/users/" + str(user.id), 303)
+            return redirect(f"/users/{user.id}", 303)
     except BadRequest as e:
         flash(e.description)
         parties = (
@@ -737,28 +791,37 @@ def user_post(user_id):
         ad_auth_on = ad_props.get("on", False)
         return make_response(
             render_template(
-                "user.html", parties=parties, user=user, ad_auth_on=ad_auth_on
+                "user_edit.html", parties=parties, user=user, ad_auth_on=ad_auth_on
             ),
             400,
         )
 
 
-@home.route("/users/<int:user_id>")
-def user_get(user_id):
-    parties = (
-        g.sess.query(Party)
-        .join(MarketRole)
-        .join(Participant)
-        .order_by(MarketRole.code, Participant.code)
-    )
-    user = User.get_by_id(g.sess, user_id)
-    config_contract = Contract.get_non_core_by_name(g.sess, "configuration")
-    props = config_contract.make_properties()
-    ad_props = props.get("ad_authentication", {})
-    ad_auth_on = ad_props.get("on", False)
-    return render_template(
-        "user.html", parties=parties, user=user, ad_auth_on=ad_auth_on
-    )
+@home.route("/users/<int:user_id>/edit", methods=["DELETE"])
+def user_edit_delete(user_id):
+    try:
+        user = User.get_by_id(g.sess, user_id)
+        g.sess.delete(user)
+        g.sess.commit()
+        return redirect("/users", 303)
+    except BadRequest as e:
+        flash(e.description)
+        parties = (
+            g.sess.query(Party)
+            .join(MarketRole)
+            .join(Participant)
+            .order_by(MarketRole.code, Participant.code)
+        )
+        config_contract = Contract.get_non_core_by_name(g.sess, "configuration")
+        props = config_contract.make_properties()
+        ad_props = props.get("ad_authentication", {})
+        ad_auth_on = ad_props.get("on", False)
+        return make_response(
+            render_template(
+                "user_edit.html", parties=parties, user=user, ad_auth_on=ad_auth_on
+            ),
+            400,
+        )
 
 
 @home.route("/general_imports")
@@ -1147,8 +1210,6 @@ def supplies_get():
                     "or replace(lower(e2.exp_mpan_core), ' ', '') "
                     "like lower(:reduced_pattern) "
                     "or lower(e2.exp_supplier_account) like lower(:pattern) "
-                    "or lower(e2.dc_account) like lower(:pattern) "
-                    "or lower(e2.mop_account) like lower(:pattern) "
                     "or lower(e2.msn) like lower(:pattern) "
                     "group by e2.supply_id) as sq "
                     "on e1.supply_id = sq.supply_id "
@@ -1165,9 +1226,7 @@ def supplies_get():
 
         g_eras = (
             g.sess.query(GEra)
-            .from_statement(
-                text(
-                    """
+            .from_statement(text("""
 select e1.* from g_era as e1 inner join
   (select e2.g_supply_id, max(e2.start_date) as max_start_date
   from g_era as e2 join g_supply on e2.g_supply_id = g_supply.id
@@ -1177,9 +1236,7 @@ select e1.* from g_era as e1 inner join
     or lower(e2.msn) like lower(:pattern)
   group by e2.g_supply_id) as sq
 on e1.g_supply_id = sq.g_supply_id and e1.start_date = sq.max_start_date
-limit :max_results"""
-                )
-            )
+limit :max_results"""))
             .params(pattern="%" + pattern + "%", max_results=max_results)
             .all()
         )
@@ -1368,48 +1425,72 @@ def report_run_get(run_id):
             pass
 
         else:
-            titles = row.data["titles"]
-            diff_titles = [
-                t for t in titles if t.startswith("difference-") and t.endswith("-gbp")
-            ]
-            diff_selects = [
-                func.sum(ReportRunRow.data["values"][t].as_float()) for t in diff_titles
-            ]
-            sum_diffs = (
-                g.sess.query(*diff_selects).filter(ReportRunRow.report_run == run).one()
+            summary["sum_difference"] = g.sess.scalar(
+                select(
+                    func.sum(ReportRunRow.data["data"]["difference_net_gbp"].as_float())
+                ).where(ReportRunRow.report_run == run)
             )
+            element_names = g.sess.scalars(
+                select(func.jsonb_object_keys(ReportRunRow.data["data"]["elements"]))
+                .where(ReportRunRow.report_run == run)
+                .distinct()
+            ).all()
+            diff_selects = [
+                func.sum(
+                    func.coalesce(
+                        ReportRunRow.data["data"]["elements"][n]["parts"]["gbp"][
+                            "difference"
+                        ].as_float(),
+                        0,
+                    )
+                )
+                for n in element_names
+            ]
+            if len(diff_selects) > 0:
+                sum_diffs = g.sess.execute(
+                    select(*diff_selects).where(ReportRunRow.report_run == run)
+                ).one()
 
-            for t, sum_diff in zip(diff_titles, sum_diffs):
-                elem = t[11:-4]
-                if elem == "net":
-                    summary["sum_difference"] = sum_diff
-                else:
+                for elem, sum_diff in zip(element_names, sum_diffs):
                     elements.append((elem, sum_diff))
 
-            elements.sort(key=lambda x: abs(x[1]), reverse=True)
-            elements.insert(0, ("net", summary["sum_difference"]))
+                elements.sort(
+                    key=lambda x: 0 if x[1] is None else abs(x[1]), reverse=True
+                )
 
         if "element" in request.values:
             element = req_str("element")
         else:
-            element = "net"
+            element = "problem"
 
-        hide_checked = req_bool("hide_checked")
+        hide_checked = req_checkbox("hide_checked")
 
-        order_by = f"difference-{element}-gbp"
-        q = g.sess.query(ReportRunRow).filter(ReportRunRow.report_run == run)
+        ROW_LIMIT = 200
+        q = select(ReportRunRow).where(ReportRunRow.report_run == run).limit(ROW_LIMIT)
         if hide_checked:
-            q = q.filter(
+            q = q.where(
                 ReportRunRow.data["properties"]["is_checked"].as_boolean() == false()
             )
-        ROW_LIMIT = 200
-        rows = (
-            q.order_by(
-                func.abs(ReportRunRow.data["values"][order_by].as_float()).desc()
+        if element == "problem":
+            order_by = (
+                ReportRunRow.data["data"]["problem"].as_string().desc(),
+                func.abs(
+                    func.coalesce(
+                        ReportRunRow.data["data"]["difference_net_gbp"].as_float(), 0
+                    )
+                ).desc(),
             )
-            .limit(ROW_LIMIT)
-            .all()
-        )
+        else:
+            if element == "net":
+                ob = ReportRunRow.data["data"]["difference_net_gbp"]
+            else:
+                ob = ReportRunRow.data["data"]["elements"][element]["parts"]["gbp"][
+                    "difference"
+                ]
+            order_by = (func.abs(func.coalesce(ob.as_float(), 0)).desc(),)
+        q = q.order_by(*order_by)
+
+        rows = g.sess.scalars(q).all()
         return render_template(
             "report_run_bill_check.html",
             run=run,
@@ -1603,7 +1684,7 @@ def report_run_delete(run_id):
 @home.route("/report_runs/<int:run_id>", methods=["POST"])
 def report_run_post(run_id):
     run = g.sess.scalar(select(ReportRun).where(ReportRun.id == run_id))
-    keep = req_bool("keep")
+    keep = req_checkbox("keep")
 
     run_data = run.data
     run_data["keep"] = keep
@@ -1654,44 +1735,13 @@ def report_run_row_get(row_id):
     tables = []
 
     if row.report_run.name == "bill_check":
-        values = row.data["values"]
-        elements = {}
-        for t in values.keys():
-
-            if (
-                t.startswith("covered-")
-                or t.startswith("virtual-")
-                or t.startswith("difference-")
-            ) and t.endswith("-gbp"):
-                toks = t.split("-")
-                name = "-".join(toks[1:-1])
-                if name in ("vat", "gross", "net", "tpr"):
-                    continue
-                try:
-                    table = elements[name]
-                except KeyError:
-                    table = elements[name] = {"order": 0, "name": name, "parts": set()}
-                    tables.append(table)
-
-                if t.startswith("difference-"):
-                    table["order"] = abs(values[t])
-
-        for t in values.keys():
-
-            toks = t.split("-")
-            if toks[0] in ("covered", "virtual", "difference"):
-                tail = "-".join(toks[1:])
-                for element in sorted(elements.keys(), key=len, reverse=True):
-
-                    table = elements[element]
-                    elstr = f"{element}-"
-                    if tail.startswith(elstr):
-                        part = tail[len(elstr) :]
-                        if part != "gbp":
-                            table["parts"].add(part)
-                        break
-
-        tables.sort(key=lambda t: t["order"], reverse=True)
+        elements = row.data["data"]["elements"]
+        for el_name, _ in sorted(
+            list(elements.items()),
+            key=lambda x: abs(x[1]["parts"]["gbp"]["difference"]),
+            reverse=True,
+        ):
+            tables.append(el_name)
         return render_template(
             "report_run_row_bill_check.html", row=row, raw_data=raw_data, tables=tables
         )
@@ -1756,7 +1806,7 @@ def report_run_row_post(row_id):
     row = g.sess.query(ReportRunRow).filter(ReportRunRow.id == row_id).one()
 
     if row.report_run.name == "bill_check":
-        is_checked = req_bool("is_checked")
+        is_checked = req_checkbox("is_checked")
         note = req_str("note")
 
         properties = row.data.get("properties", {})
@@ -1917,7 +1967,7 @@ def site_used_graph_get(site_id):
             )
 
             if hh_start.day == 15:
-                month_list.append({"name": hh_start.strftime("%B"), "x": i})
+                month_list.append({"name": hh_start.strftime("%B %Y"), "x": i})
 
     scale_lines = []
     for height in chain(
@@ -1926,16 +1976,8 @@ def site_used_graph_get(site_id):
         scale_lines.append({"height": height, "y": int(x_axis - height * scale_factor)})
 
     title = (
-        "Electricity use at site "
-        + site.code
-        + " "
-        + site.name
-        + " for "
-        + str(months)
-        + " month"
-        + ("s" if months > 1 else "")
-        + " ending "
-        + finish_date.strftime("%B %Y")
+        f"Electricity use at site {site.code} {site.name} for {months} "
+        f"month{'s' if months > 1 else ''} ending {finish_date.strftime('%B %Y')}"
     )
 
     return render_template(
@@ -2041,42 +2083,6 @@ def site_months_get(site_id):
     months.append(totals)
 
     return render_template("site_months.html", site=site, months=months)
-
-
-@home.route("/national_grid")
-def national_grid_get():
-    importer = chellow.national_grid.importer
-    config = Contract.get_non_core_by_name(g.sess, "configuration")
-    props = config.make_properties()
-    now_ct = ct_datetime_now()
-    fy_year = now_ct.year if now_ct.month > 3 else now_ct.year - 1
-    fy_start = to_utc(ct_datetime(fy_year, 4, 1))
-    tnuos_rs = g.sess.execute(
-        select(RateScript)
-        .join(RateScript.contract)
-        .join(MarketRole)
-        .where(
-            MarketRole.code == "Z",
-            RateScript.start_date >= fy_start,
-            Contract.name == "tnuos",
-        )
-        .order_by(RateScript.start_date.desc())
-    ).scalars()
-
-    return render_template(
-        "national_grid.html",
-        importer=importer,
-        config_state=config.make_state(),
-        config_properties=props.get("rate_server", {}),
-        tnuos_rs=tnuos_rs,
-    )
-
-
-@home.route("/national_grid", methods=["POST"])
-def national_grid_post():
-    importer = chellow.national_grid.importer
-    importer.go()
-    return redirect("/national_grid", 303)
 
 
 @home.route("/non_core_contracts/<int:contract_id>/add_rate_script")
@@ -2304,6 +2310,17 @@ def rate_server_get():
         )
         .order_by(GRateScript.start_date.desc())
     ).scalars()
+    ro_rs = g.sess.scalars(
+        select(RateScript)
+        .join(RateScript.contract)
+        .join(MarketRole)
+        .where(
+            MarketRole.code == "Z",
+            RateScript.start_date >= fy_start,
+            Contract.name == "ro",
+        )
+        .order_by(RateScript.start_date.desc())
+    )
 
     return render_template(
         "rate_server.html",
@@ -2317,6 +2334,7 @@ def rate_server_get():
         triad_dates_rs=triad_dates_rs,
         gas_ccl_rs=gas_ccl_rs,
         ccl_rs=ccl_rs,
+        ro_rs=ro_rs,
     )
 
 
@@ -2469,7 +2487,7 @@ def site_gen_graph_get(site_id):
                 graph["ticks"].append({"x": x})
 
             if day == 15:
-                month_points.append({"x": x, "text": hh_date_ct.strftime("%B")})
+                month_points.append({"x": x, "text": hh_date_ct.strftime("%B %Y")})
 
         is_complete = None
 

@@ -272,6 +272,7 @@ class PublicHttpClient:
         if not isinstance(data, str):
             data = json.dumps(data, default=self._make_serializable)
 
+        # return data
         return gzip.compress(data.encode("utf-8"))
 
     def _to_params(

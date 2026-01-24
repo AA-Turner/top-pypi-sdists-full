@@ -1,16 +1,18 @@
-from typing import cast
-
 import langgraph.version
 import structlog
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from langgraph_api import __version__, config, metadata
+from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.grpc.ops import Runs as GrpcRuns
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.route import ApiRequest
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect, pool_stats
 from langgraph_runtime.metrics import get_metrics
 from langgraph_runtime.ops import Runs
+
+CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
 
 METRICS_FORMATS = {"prometheus", "json"}
 
@@ -26,7 +28,8 @@ async def meta_info(request: ApiRequest):
             "flags": {
                 "assistants": True,
                 "crons": plus and config.FF_CRONS_ENABLED,
-                "langsmith": bool(config.LANGSMITH_API_KEY) and bool(config.TRACING),
+                "langsmith": bool(config.LANGSMITH_CONTROL_PLANE_API_KEY)
+                and bool(config.TRACING),
                 "langsmith_tracing_replicas": True,
             },
             "host": {
@@ -48,7 +51,7 @@ async def meta_metrics(request: ApiRequest):
 
     # collect stats
     metrics = get_metrics()
-    worker_metrics = cast(dict[str, int], metrics["workers"])
+    worker_metrics = metrics["workers"]
     workers_max = worker_metrics["max"]
     workers_active = worker_metrics["active"]
     workers_available = worker_metrics["available"]
@@ -67,7 +70,7 @@ async def meta_metrics(request: ApiRequest):
         async with connect() as conn:
             resp = {
                 **pg_redis_stats,
-                "queue": await Runs.stats(conn),
+                "queue": await CrudRuns.stats(conn),
                 **http_metrics,
             }
             if config.N_JOBS_PER_WORKER > 0:
@@ -77,7 +80,7 @@ async def meta_metrics(request: ApiRequest):
         metrics = []
         try:
             async with connect() as conn:
-                queue_stats = await Runs.stats(conn)
+                queue_stats = await CrudRuns.stats(conn)
 
                 metrics.extend(
                     [
@@ -87,6 +90,15 @@ async def meta_metrics(request: ApiRequest):
                         "# HELP lg_api_num_running_runs The number of runs currently running.",
                         "# TYPE lg_api_num_running_runs gauge",
                         f'lg_api_num_running_runs{{project_id="{metadata.PROJECT_ID}", revision_id="{metadata.HOST_REVISION_ID}"}} {queue_stats["n_running"]}',
+                        "# HELP lg_api_pending_runs_wait_time_max The maximum time a run has been pending, in seconds.",
+                        "# TYPE lg_api_pending_runs_wait_time_max gauge",
+                        f'lg_api_pending_runs_wait_time_max{{project_id="{metadata.PROJECT_ID}", revision_id="{metadata.HOST_REVISION_ID}"}} {queue_stats.get("pending_runs_wait_time_max_secs") or 0}',
+                        "# HELP lg_api_pending_runs_wait_time_med The median pending wait time across runs, in seconds.",
+                        "# TYPE lg_api_pending_runs_wait_time_med gauge",
+                        f'lg_api_pending_runs_wait_time_med{{project_id="{metadata.PROJECT_ID}", revision_id="{metadata.HOST_REVISION_ID}"}} {queue_stats.get("pending_runs_wait_time_med_secs") or 0}',
+                        "# HELP lg_api_pending_unblocked_runs_wait_time_max The maximum time a run has been pending excluding runs blocked by another run on the same thread, in seconds.",
+                        "# TYPE lg_api_pending_unblocked_runs_wait_time_max gauge",
+                        f'lg_api_pending_unblocked_runs_wait_time_max{{project_id="{metadata.PROJECT_ID}", revision_id="{metadata.HOST_REVISION_ID}"}} {queue_stats.get("pending_unblocked_runs_wait_time_max_secs") or 0}',
                     ]
                 )
         except Exception as e:

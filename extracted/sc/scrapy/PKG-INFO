@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Scrapy
-Version: 2.13.3
+Version: 2.14.1
 Summary: A high-level Web Crawling and Web Scraping framework
 Project-URL: Homepage, https://scrapy.org/
 Project-URL: Documentation, https://docs.scrapy.org/
@@ -19,7 +19,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,13 +28,13 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: cryptography>=37.0.0
 Requires-Dist: cssselect>=0.9.1
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: itemadapter>=0.1.0
 Requires-Dist: itemloaders>=1.0.1
-Requires-Dist: lxml>=4.6.0
+Requires-Dist: lxml>=4.6.4
 Requires-Dist: packaging
 Requires-Dist: parsel>=1.5.0
 Requires-Dist: protego>=0.1.15
@@ -45,7 +44,7 @@ Requires-Dist: pypydispatcher>=2.1.0; platform_python_implementation == 'PyPy'
 Requires-Dist: queuelib>=1.4.2
 Requires-Dist: service-identity>=18.1.0
 Requires-Dist: tldextract
-Requires-Dist: twisted>=21.7.0
+Requires-Dist: twisted<=25.5.0,>=21.7.0
 Requires-Dist: w3lib>=1.17.0
 Requires-Dist: zope-interface>=5.1.0
 Description-Content-Type: text/x-rst
@@ -92,7 +91,7 @@ Description-Content-Type: text/x-rst
    :alt: Ask DeepWiki
 
 Scrapy_ is a web scraping framework to extract structured data from websites.
-It is cross-platform, and requires Python 3.9+. It is maintained by Zyte_
+It is cross-platform, and requires Python 3.10+. It is maintained by Zyte_
 (formerly Scrapinghub) and `many other contributors`_.
 
 .. _many other contributors: https://github.com/scrapy/scrapy/graphs/contributors

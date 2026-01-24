@@ -30,8 +30,11 @@ class OrganizationPermissionLevel(object):
     """
     OWNER = "owner"
     COLLABORATOR = "collaborator"
+    IMAGE_READER = "image_reader"
+    IMAGE_READER_NO_BASE_IMAGES = "image_reader_no_base_images"
+    UNSPECIFIED = "unspecified"
 
-    allowable_values = [OWNER, COLLABORATOR]  # noqa: E501
+    allowable_values = [OWNER, COLLABORATOR, IMAGE_READER, IMAGE_READER_NO_BASE_IMAGES, UNSPECIFIED]  # noqa: E501
 
     """
     Attributes:

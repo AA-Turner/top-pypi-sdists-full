@@ -35,8 +35,19 @@ else:
         ["xasm", "bytes", "classic", "dis", "extended", "extended-bytes", "header"],
         **case_sensitive
     ),
-    help="Select disassembly style",
+    help="Select disassembly style.",
 )
+@click.option(
+    "--method",
+    "-m",
+    metavar="FUNCTION-OR-METHOD",
+    multiple=True,
+    type=str,
+    help=("Specify which specific methods or functions to show. "
+          "If omitted all, functions are shown. "
+          "Can be given multiple times.")
+)
+
 @click.option(
     "--show-source/--no-show-source",
     "-S",
@@ -44,7 +55,7 @@ else:
 )
 @click.version_option(version=__version__)
 @click.argument("files", nargs=-1, type=click.Path(readable=True), required=True)
-def main(format, show_source: bool, files):
+def main(format: list[str], method: tuple, show_source: bool, files):
     """Disassembles a Python bytecode file.
 
     We handle bytecode for virtually every release of Python and some releases of PyPy.
@@ -52,8 +63,8 @@ def main(format, show_source: bool, files):
     the Python interpreter used to run this program. For example, you can disassemble Python 3.6.9
     bytecode from Python 2.7.15 and vice versa.
     """
-    if not ((2, 7) <= PYTHON_VERSION_TRIPLE < (3, 14)):
-        mess = "This code works on 3.6 to 3.13; you have %s."
+    if not ((2, 7) <= PYTHON_VERSION_TRIPLE < (3, 16)):
+        mess = "This code works on 3.6 to 3.15; you have %s."
         if (2, 4) <= PYTHON_VERSION_TRIPLE <= (2, 7):
             mess += " Code that works for %s can be found in the python-2.4 branch\n"
         elif (3, 1) <= PYTHON_VERSION_TRIPLE <= (3, 2):
@@ -63,6 +74,7 @@ def main(format, show_source: bool, files):
         sys.stderr.write(mess % PYTHON_VERSION_STR)
         sys.exit(2)
 
+    rc = 0
     for path in files:
         # Some sanity checks
         if not osp.exists(path):
@@ -78,8 +90,12 @@ def main(format, show_source: bool, files):
             )
             continue
 
-        disassemble_file(path, sys.stdout, format, show_source=show_source)
-    return
+        try:
+            disassemble_file(path, sys.stdout, format, show_source=show_source, methods=method)
+        except (ImportError, NotImplementedError, ValueError) as e:
+            print(e)
+            rc = 3
+    sys.exit(rc)
 
 
 if __name__ == "__main__":

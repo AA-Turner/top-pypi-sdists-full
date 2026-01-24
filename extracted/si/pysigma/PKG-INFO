@@ -1,27 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pySigma
-Version: 0.11.23
+Version: 1.1.0
 Summary: Sigma rule processing and conversion tools
-License: LGPL-2.1-only
+License-Expression: LGPL-2.1-only
+License-File: LICENSE
 Author: Thomas Patzke
 Author-email: thomas@patzke.org
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
+Requires-Dist: diskcache (>=5.6.3,<6.0.0)
+Requires-Dist: diskcache-stubs (>=5.6.3.6.20240818,<6.0.0.0.0)
 Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
-Requires-Dist: packaging (>=24.1,<25.0)
-Requires-Dist: pyparsing (>=3.1,<4.0)
-Requires-Dist: pyyaml (>=6.0,<7.0)
-Requires-Dist: requests (>=2.31,<3.0)
+Requires-Dist: packaging (>=25.0,<26.0)
+Requires-Dist: pyparsing (>=3.2.5,<4.0.0)
+Requires-Dist: pyyaml (>=6.0.3,<7.0.0)
+Requires-Dist: requests (>=2.32.5,<3.0.0)
+Requires-Dist: types-pyyaml (>=6.0.12.20250915,<7.0.0.0)
+Requires-Dist: typing-extensions (>=4.15.0,<5.0.0)
 Project-URL: Repository, https://github.com/SigmaHQ/pySigma
 Description-Content-Type: text/markdown
 
@@ -39,7 +42,7 @@ vendor-agnostic. See the *Related Projects* section below to get an overview.
 
 ## Getting Started
 
-To start using `pySigma`, install it using your python package manager of choice. Examples:
+To start using `pySigma`, you need Python 3.10 or later. Install it using your python package manager of choice. Examples:
 
 ```
 pip install pysigma
@@ -120,6 +123,7 @@ query languages and log data models is provided by additional packages that exte
 * [pySigma-pipeline-sysmon](https://github.com/SigmaHQ/pySigma-pipeline-sysmon)
 * [pySigma-pipeline-crowdstrike](https://github.com/SigmaHQ/pySigma-pipeline-crowdstrike)
 * [pySigma-backend-netwitness](https://github.com/marcelkwaschny/pySigma-backend-netwitness)
+* [pySigma-backend-panther](https://github.com/panther-labs/pySigma-backend-panther)
 
 All packages can also be installed from PyPI if not mentioned otherwise by the Python package
 manager of your choice.

@@ -205,10 +205,6 @@ def find_next_opening_tag_pos(
         chunk = file_obj.read(current_chunk_size)
         if not chunk:
             raise EOFError("Reached end of file before finding opening tag")
-        # If the chunk is smaller than expected, we are near the end.
-        if len(chunk) < current_chunk_size:
-            if chunk.find(tag_start_1) == -1 and chunk.find(tag_start_2) == -1:
-                raise EOFError("Reached end of file before finding opening tag")
 
         # Combine leftover from previous read with the new chunk.
         data = overlap + chunk
@@ -232,9 +228,6 @@ def find_next_opening_tag_pos(
         # No tag was found in this block.
         # Update the overlap from the end of the combined data.
         overlap = data[-overlap_size:] if len(data) >= overlap_size else data
-
-        # Otherwise, rewind by the length of the overlap so that a tag spanning the boundary isn't missed.
-        file_obj.seek(-len(overlap), 1)
 
         # Check that progress is being made to avoid infinite loops.
         if file_obj.tell() <= pos_before:
@@ -468,7 +461,22 @@ def process_xml_range(
                     # to parse undeclared namespaces, we have to use recover mode
                     recover = bool(":" in tag_name)
                     parser = ET.XMLParser(recover=recover, ns_clean=True)
-                    element = ET.fromstring(record_str, parser)
+                    try:
+                        element = ET.fromstring(record_str, parser)
+                    except ET.XMLSyntaxError:
+                        # when ignoring namespaces, strip attribute prefixes
+                        # like xyz:id -> id so records with undeclared prefixes can still parse.
+                        if ignore_namespace:
+                            try:
+                                cleaned_record = re.sub(
+                                    r"\s+(\w+):(\w+)=", r" \2=", record_str
+                                )
+                                element = ET.fromstring(cleaned_record, parser)
+                            except Exception as inner_ex:
+                                # avoid chained exceptions
+                                raise inner_ex from None
+                        else:
+                            raise
                 else:
                     element = ET.fromstring(record_str)
 
@@ -503,7 +511,8 @@ def process_xml_range(
                     yield {column_name_of_corrupt_record: record_str}
                 elif mode == "FAILFAST":
                     raise RuntimeError(
-                        f"Malformed XML record at bytes {record_start}-{record_end}: {e}"
+                        f"Malformed XML record at bytes {record_start}-{record_end}: {e}\n"
+                        f"XML record string: {record_str}"
                     )
 
             if record_end > approx_end:

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.cortex.search_service._generated.models.functions import Functions, FunctionsModel
 from snowflake.core.cortex.search_service._generated.models.ranking_weights import RankingWeights, RankingWeightsModel
@@ -59,9 +59,10 @@ class ScoringConfig(BaseModel):
 
     __properties = ["functions", "reranker", "weights", "retrieval_weights", "ranking_weights"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -86,7 +87,7 @@ class ScoringConfig(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of functions
         if self.functions:
@@ -117,9 +118,9 @@ class ScoringConfig(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ScoringConfig.parse_obj(obj)
+            return ScoringConfig.model_validate(obj)
 
-        _obj = ScoringConfig.parse_obj(
+        _obj = ScoringConfig.model_validate(
             {
                 "functions": Functions.from_dict(obj.get("functions")) if obj.get("functions") is not None else None,
                 "reranker": obj.get("reranker"),

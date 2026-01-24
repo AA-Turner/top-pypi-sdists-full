@@ -18,6 +18,7 @@ from typing import Any, ClassVar, Dict, List
 from connector_sdk_types.generated.models.activity_record_actor import ActivityRecordActor
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class ListApplicationsActivityRecords(BaseModel):
@@ -84,3 +85,6 @@ class ListApplicationsActivityRecords(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

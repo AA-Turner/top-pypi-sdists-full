@@ -4,6 +4,7 @@ import sys
 import warnings
 from types import TracebackType
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncContextManager,
     Callable,
@@ -15,12 +16,17 @@ from typing import (
     Union,
     cast,
 )
+
+if TYPE_CHECKING:
+    from stream_chat.async_chat.channel_batch_updater import ChannelBatchUpdater
+
 from urllib.parse import urlparse
 
 from stream_chat.async_chat.campaign import Campaign
 from stream_chat.async_chat.segment import Segment
 from stream_chat.types.base import SortParam
 from stream_chat.types.campaign import CampaignData, QueryCampaignsOptions
+from stream_chat.types.channel_batch import ChannelsBatchOptions
 from stream_chat.types.draft import QueryDraftsFilter, QueryDraftsOptions
 from stream_chat.types.segment import (
     QuerySegmentsOptions,
@@ -109,7 +115,7 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
         headers["Authorization"] = self.auth_token
         headers["stream-auth-type"] = "jwt"
 
-        if method.__name__ in ["post", "put", "patch"]:
+        if method.__name__ in ["post", "put", "patch", "delete"]:
             serialized = json.dumps(data)
 
         async with method(
@@ -134,8 +140,10 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
     async def get(self, relative_url: str, params: Dict = None) -> StreamResponse:
         return await self._make_request(self.session.get, relative_url, params, None)
 
-    async def delete(self, relative_url: str, params: Dict = None) -> StreamResponse:
-        return await self._make_request(self.session.delete, relative_url, params, None)
+    async def delete(
+        self, relative_url: str, params: Dict = None, data: Any = None
+    ) -> StreamResponse:
+        return await self._make_request(self.session.delete, relative_url, params, data)
 
     async def patch(
         self, relative_url: str, params: Dict = None, data: Any = None
@@ -355,8 +363,23 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
         data.update(options)
         return await self.put(f"messages/{message_id}", data=data)
 
-    async def delete_message(self, message_id: str, **options: Any) -> StreamResponse:
-        return await self.delete(f"messages/{message_id}", options)
+    async def delete_message(
+        self,
+        message_id: str,
+        delete_for_me: bool = False,
+        deleted_by: str = None,
+        **options: Any,
+    ) -> StreamResponse:
+        if delete_for_me and not deleted_by:
+            raise ValueError("deleted_by is required when delete_for_me is True")
+
+        params = options.copy()
+        if delete_for_me:
+            body = {"delete_for_me": True, "user": {"id": deleted_by}}
+            return await self.delete(f"messages/{message_id}", None, body)
+        if deleted_by:
+            params["deleted_by"] = deleted_by
+        return await self.delete(f"messages/{message_id}", params)
 
     async def undelete_message(self, message_id: str, user_id: str) -> StreamResponse:
         return await self.post(
@@ -948,7 +971,7 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
         :return: API response with reminders
         """
         params = options.copy()
-        params["filter_conditions"] = filter_conditions or {}
+        params["filter"] = filter_conditions or {}
         params["sort"] = sort or [{"field": "remind_at", "direction": 1}]
         params["user_id"] = user_id
         return await self.post("reminders/query", data=params)
@@ -968,6 +991,72 @@ class StreamChatAsync(StreamChatInterface, AsyncContextManager):
             data.update(cast(dict, options))
         params = {"user_id": user_id, **options}
         return await self.put("users/live_locations", data=data, params=params)
+
+    async def mark_delivered(self, data: Dict[str, Any]) -> Optional[StreamResponse]:
+        """
+        Send the mark delivered event for this user, only works if the `delivery_receipts` setting is enabled
+
+        :param data: MarkDeliveredOptions containing latest_delivered_messages and other optional fields
+        :return: The server response or None if delivery receipts are disabled
+        """
+        # Validate required fields
+        if not data.get("latest_delivered_messages"):
+            raise ValueError("latest_delivered_messages must not be empty")
+
+        # Ensure either user or user_id is provided
+        if not data.get("user") and not data.get("user_id"):
+            raise ValueError("either user or user_id must be provided")
+
+        return await self.post("channels/delivered", data=data)
+
+    async def mark_delivered_simple(
+        self, user_id: str, message_id: str, channel_cid: str
+    ) -> Optional[StreamResponse]:
+        """
+        Convenience method to mark a message as delivered for a specific user.
+
+        :param user_id: The user ID
+        :param message_id: The message ID
+        :param channel_cid: The channel CID (channel_type:channel_id)
+        :return: The server response or None if delivery receipts are disabled
+        """
+        if not user_id:
+            raise ValueError("user ID must not be empty")
+        if not message_id:
+            raise ValueError("message ID must not be empty")
+        if not channel_cid:
+            raise ValueError("channel CID must not be empty")
+
+        data = {
+            "latest_delivered_messages": [{"cid": channel_cid, "id": message_id}],
+            "user_id": user_id,
+        }
+
+        return await self.mark_delivered(data)
+
+    async def update_channels_batch(
+        self, options: ChannelsBatchOptions
+    ) -> StreamResponse:
+        """
+        Updates channels in batch based on the provided options.
+
+        :param options: ChannelsBatchOptions containing operation, filter, and operation-specific data.
+        :return: StreamResponse containing task_id.
+        """
+        if options is None:
+            raise ValueError("options must not be None")
+
+        return await self.put("channels/batch", data=options)
+
+    def channel_batch_updater(self) -> "ChannelBatchUpdater":
+        """
+        Returns a ChannelBatchUpdater instance for batch channel operations.
+
+        :return: ChannelBatchUpdater instance.
+        """
+        from stream_chat.async_chat.channel_batch_updater import ChannelBatchUpdater
+
+        return ChannelBatchUpdater(self)
 
     async def close(self) -> None:
         await self.session.close()

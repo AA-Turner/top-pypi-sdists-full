@@ -93,6 +93,7 @@ class Building(_BaseGeometry):
         * floor_area
         * exterior_wall_area
         * exterior_aperture_area
+        * sub_face_area
         * volume
         * min
         * max
@@ -312,13 +313,13 @@ class Building(_BaseGeometry):
         # assign all other properties that are not a part of initializer
         if 'roof' in data and data['roof'] is not None and 'geometry' in data['roof'] \
                 and len(data['roof']['geometry']) > 0:
-            roof = RoofSpecification.from_dict(data['roof'])
+            roof = RoofSpecification.from_dict(data['roof'], tolerance)
             building.add_roof_geometry(roof.geometry, tolerance)
         if '_roofs' in data and data['_roofs'] is not None:  # secret for filtered roofs
             bldg_roofs = []
             for st_id, r_spec in data['_roofs']:
                 if r_spec is not None:
-                    roof = RoofSpecification.from_dict(r_spec)
+                    roof = RoofSpecification.from_dict(r_spec, tolerance)
                     rf_height = (roof.max_height + roof.min_height) / 2
                     bldg_roofs.append((st_id, rf_height, roof))
                 else:
@@ -690,6 +691,22 @@ class Building(_BaseGeometry):
                       for story in self._unique_stories])
         eaa_r3 = sum([room.exterior_wall_aperture_area * room.multiplier
                       for room in self._room_3ds])
+        return eaa_r2 + eaa_r3
+
+    @property
+    def sub_face_area(self):
+        """Get a number for the total sub-face area in the Building.
+
+        This property uses both the 2D Story multipliers and the 3D Room multipliers
+        to determine the total sub-face area.
+        """
+        eaa_r2 = sum([story.sub_face_area * story.multiplier
+                      for story in self._unique_stories])
+        eaa_r3 = 0
+        for r in self.room_3ds:
+            for face in r.faces:
+                eaa_r3 += sum(ap.area for ap in face.apertures) * r.multiplier
+                eaa_r3 += sum(dr.area for dr in face.doors) * r.multiplier
         return eaa_r2 + eaa_r3
 
     @property
@@ -1079,7 +1096,7 @@ class Building(_BaseGeometry):
                 area that must be covered by a given roof geometry for it to be
                 considered overlapping with that room. This is intended to prevent
                 incorrect roof assignment in cases where roofs extend slightly
-                past the room they are intended for. (Default: 0.05).
+                past the room they are intended for.
         """
         # convert all roof geometries to clean 2D polygons
         roof_polygons, clean_roofs = [], []
@@ -1150,8 +1167,11 @@ class Building(_BaseGeometry):
                     story_roofs[i].append(rf_geo)
                     break
             else:  # if it did not overlap any story, just add it to the top
-                if rf_geo.max.z > st_ht:  # make sure it is not below all stories
-                    story_roofs[0].append(rf_geo)
+                try:
+                    if rf_geo.max.z > story_heights[-1]:  # make sure it is not below all stories
+                        story_roofs[0].append(rf_geo)
+                except IndexError:
+                    pass  # no stories in the building; must be made of 3D Room
 
         # create the RoofSpecification objects and assign them to the stories
         for story, roof_geos in zip(rev_stories, story_roofs):
@@ -1231,11 +1251,22 @@ class Building(_BaseGeometry):
         for story in self._unique_stories:
             if story.display_name == hb_room.story:
                 story.add_room_2d(df_room)
+                rel_story = story
                 break
         else:  # a new Story object has to be initialized
             new_story = Story(clean_string(hb_room.story), (df_room,))
             new_story.display_name = hb_room.story
             self.add_stories([new_story])
+            rel_story = new_story
+        # process any roofs
+        roof_geos = []
+        for face in hb_room.roof_ceilings:
+            if 1 < face.tilt < 89:
+                roof_geos.append(face.geometry)
+        all_geo = rel_story.roof.geometry + tuple(roof_geos) \
+            if rel_story.roof is not None else roof_geos
+        if len(all_geo) != 0:
+            rel_story.roof = RoofSpecification.from_geometry_to_join(all_geo, tolerance)
         return df_room
 
     def convert_room_3ds_to_2d(self, room_3d_identifiers, tolerance=0.01):
@@ -1259,6 +1290,7 @@ class Building(_BaseGeometry):
         """
         df_rooms = []
         for r3_id in room_3d_identifiers:
+            # create the new Room2D
             new_r2 = self.convert_room_3d_to_2d(r3_id, tolerance)
             if new_r2 is not None:
                 df_rooms.append(new_r2)
@@ -1373,7 +1405,7 @@ class Building(_BaseGeometry):
             rfs, skylights = [], []
             if method == 'extrudedonly':
                 for face in hb_room.roof_ceilings:
-                    if face.tilt > angle_tolerance:
+                    if angle_tolerance < face.tilt < 90 - angle_tolerance:
                         rfs.append(face.geometry)
             elif method == 'allroom2d':
                 for face in hb_room.faces:
@@ -1697,6 +1729,9 @@ class Building(_BaseGeometry):
         property on all relevant Room2Ds that are a basement or have a basement
         story below them.
 
+        This method will also ensure that all floors above the basement have
+        outdoor boundary conditions.
+
         Args:
             basement_count: A positive integer for the number of unique Stories
                 on this Building to make into basements. (Default: 1).
@@ -1712,13 +1747,14 @@ class Building(_BaseGeometry):
                 suitable for objects in meters.
         """
         # check that the basement count is appropriate
-        if basement_count <= 0:
-            return
         if basement_count > len(self._unique_stories):
             basement_count = len(self._unique_stories)
         # assign underground walls to all basement stories
         for story in self._unique_stories[:basement_count]:
             story.make_underground(remove_windows)
+        for story in self._unique_stories[basement_count:]:
+            story.make_aboveground()
+            story.set_ground_contact(False)
         # set the ground contact property for basement Room2Ds
         self._unique_stories[0].set_ground_contact()
         max_gnd_count = basement_count + 1 \
@@ -1915,33 +1951,39 @@ class Building(_BaseGeometry):
                         else:
                             pln_story.add_room_2d(plenum_room)
 
+        # note the vertical domain of each room so we can correctly assign adjacencies
+        new_room_domains = {}
+        for room in new_rooms:
+            new_room_domains[room.identifier] = (room.floor_height, room.ceiling_height)
+
         # set up any adjacencies across the plenums
+        tol = tolerance
         try:  # get the boundary condition to be used for adiabatic cases
             ad_bc = bcs.adiabatic
         except AttributeError:
             ad_bc = bcs.outdoors  # honeybee_energy is not loaded; no adiabatic BC
         for new_room in new_rooms:
-            new_bcs = []
+            new_bcs, self_dom = [], new_room_domains[new_room.identifier]
             for i, bc in enumerate(new_room.boundary_conditions):
                 if isinstance(bc, Surface):
-                    if bc.boundary_condition_objects[-1] in plenum_rm_ids:
+                    adj_room_id = bc.boundary_condition_objects[-1]
+                    try:
+                        adj_dom = new_room_domains[adj_room_id]
+                        z_ov_1 = self_dom[1] < adj_dom[0] + tol
+                        z_ov_2 = adj_dom[1] < self_dom[0] + tol
+                        z_overlap = not (z_ov_1 or z_ov_2)
+                    except KeyError:  # missing adjacency
+                        z_overlap = False
+                    if adj_room_id in plenum_rm_ids and z_overlap:
                         clean_bc = bc
                     else:
-                        clean_bc = ad_bc
-                        if not isinstance(ad_bc, Outdoors):
+                        clean_bc = ad_bc if not new_room.is_top_exposed else bcs.outdoors
+                        if not isinstance(clean_bc, Outdoors):
                             new_room._window_parameters[i] = None
                     new_bcs.append(clean_bc)
                 else:
                     new_bcs.append(bc)
             new_room.boundary_conditions = new_bcs
-
-        # remove adjacencies if plenum floor heights differ too much to be adjacent
-        for story in new_stories:
-            if story.check_room2d_floor_heights_valid(raise_exception=False) != '':
-                min_ciel = min(rm.floor_to_ceiling_height for rm in story.room_2ds)
-                room_groups, _ = Room2D.group_by_floor_height(story.room_2ds, min_ciel)
-                for rm_group in room_groups:
-                    Room2D.patch_missing_adjacencies(rm_group)
 
         # insert any newly-created stories into the Building
         for n_st in new_stories:
@@ -2821,7 +2863,7 @@ class Building(_BaseGeometry):
                 elif isinstance(face.type, RoofCeiling):
                     if v_ang <= min_v_ang or v_ang >= max_v_ang:
                         continue
-                    elif v_ang <= min_h_ang:
+                    elif v_ang <= max_h_ang:
                         sloped_count += 1
                         continue
                 else:  # AirBoundary Faces must be vertical or horizontal
@@ -2833,9 +2875,6 @@ class Building(_BaseGeometry):
             except AssertionError:  # degenerate face to ignore
                 pass
 
-        # if there are too many roof faces (like a dome), just keep it 3D
-        if sloped_count > 25:
-            return False
         return True
 
     @staticmethod

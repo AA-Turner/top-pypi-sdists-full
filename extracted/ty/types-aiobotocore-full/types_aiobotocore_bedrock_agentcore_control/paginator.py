@@ -3,14 +3,14 @@ Type annotations for bedrock-agentcore-control service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
     from aiobotocore.session import get_session
 
-    from types_aiobotocore_bedrock_agentcore_control.client import BedrockAgentCoreControlPlaneFrontingLayerClient
+    from types_aiobotocore_bedrock_agentcore_control.client import BedrockAgentCoreControlClient
     from types_aiobotocore_bedrock_agentcore_control.paginator import (
         ListAgentRuntimeEndpointsPaginator,
         ListAgentRuntimeVersionsPaginator,
@@ -18,16 +18,22 @@ Usage::
         ListApiKeyCredentialProvidersPaginator,
         ListBrowsersPaginator,
         ListCodeInterpretersPaginator,
+        ListEvaluatorsPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
+        ListOnlineEvaluationConfigsPaginator,
+        ListPoliciesPaginator,
+        ListPolicyEnginesPaginator,
+        ListPolicyGenerationAssetsPaginator,
+        ListPolicyGenerationsPaginator,
         ListWorkloadIdentitiesPaginator,
     )
 
     session = get_session()
     with session.create_client("bedrock-agentcore-control") as client:
-        client: BedrockAgentCoreControlPlaneFrontingLayerClient
+        client: BedrockAgentCoreControlClient
 
         list_agent_runtime_endpoints_paginator: ListAgentRuntimeEndpointsPaginator = client.get_paginator("list_agent_runtime_endpoints")
         list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
@@ -35,10 +41,16 @@ Usage::
         list_api_key_credential_providers_paginator: ListApiKeyCredentialProvidersPaginator = client.get_paginator("list_api_key_credential_providers")
         list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
         list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
+        list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
         list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
         list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
         list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
         list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
+        list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = client.get_paginator("list_online_evaluation_configs")
+        list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+        list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
+        list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
+        list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
         list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator("list_workload_identities")
     ```
 """
@@ -63,6 +75,8 @@ from .type_defs import (
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestPaginateTypeDef,
     ListCodeInterpretersResponseTypeDef,
+    ListEvaluatorsRequestPaginateTypeDef,
+    ListEvaluatorsResponseTypeDef,
     ListGatewaysRequestPaginateTypeDef,
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestPaginateTypeDef,
@@ -71,6 +85,16 @@ from .type_defs import (
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestPaginateTypeDef,
     ListOauth2CredentialProvidersResponseTypeDef,
+    ListOnlineEvaluationConfigsRequestPaginateTypeDef,
+    ListOnlineEvaluationConfigsResponseTypeDef,
+    ListPoliciesRequestPaginateTypeDef,
+    ListPoliciesResponseTypeDef,
+    ListPolicyEnginesRequestPaginateTypeDef,
+    ListPolicyEnginesResponseTypeDef,
+    ListPolicyGenerationAssetsRequestPaginateTypeDef,
+    ListPolicyGenerationAssetsResponseTypeDef,
+    ListPolicyGenerationsRequestPaginateTypeDef,
+    ListPolicyGenerationsResponseTypeDef,
     ListWorkloadIdentitiesRequestPaginateTypeDef,
     ListWorkloadIdentitiesResponseTypeDef,
 )
@@ -88,10 +112,16 @@ __all__ = (
     "ListApiKeyCredentialProvidersPaginator",
     "ListBrowsersPaginator",
     "ListCodeInterpretersPaginator",
+    "ListEvaluatorsPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
+    "ListOnlineEvaluationConfigsPaginator",
+    "ListPoliciesPaginator",
+    "ListPolicyEnginesPaginator",
+    "ListPolicyGenerationAssetsPaginator",
+    "ListPolicyGenerationsPaginator",
     "ListWorkloadIdentitiesPaginator",
 )
 
@@ -104,7 +134,7 @@ else:
 
 class ListAgentRuntimeEndpointsPaginator(_ListAgentRuntimeEndpointsPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeEndpoints.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimeEndpoints)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeEndpoints.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimeEndpoints)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimeendpointspaginator)
     """
 
@@ -112,7 +142,7 @@ class ListAgentRuntimeEndpointsPaginator(_ListAgentRuntimeEndpointsPaginatorBase
         self, **kwargs: Unpack[ListAgentRuntimeEndpointsRequestPaginateTypeDef]
     ) -> AioPageIterator[ListAgentRuntimeEndpointsResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeEndpoints.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimeEndpoints.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeEndpoints.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimeEndpoints.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimeendpointspaginator)
         """
 
@@ -125,7 +155,7 @@ else:
 
 class ListAgentRuntimeVersionsPaginator(_ListAgentRuntimeVersionsPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeVersions.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimeVersions)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeVersions.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimeVersions)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimeversionspaginator)
     """
 
@@ -133,7 +163,7 @@ class ListAgentRuntimeVersionsPaginator(_ListAgentRuntimeVersionsPaginatorBase):
         self, **kwargs: Unpack[ListAgentRuntimeVersionsRequestPaginateTypeDef]
     ) -> AioPageIterator[ListAgentRuntimeVersionsResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeVersions.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimeVersions.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimeVersions.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimeVersions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimeversionspaginator)
         """
 
@@ -146,7 +176,7 @@ else:
 
 class ListAgentRuntimesPaginator(_ListAgentRuntimesPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimes.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimes)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimes.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimes)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimespaginator)
     """
 
@@ -154,7 +184,7 @@ class ListAgentRuntimesPaginator(_ListAgentRuntimesPaginatorBase):
         self, **kwargs: Unpack[ListAgentRuntimesRequestPaginateTypeDef]
     ) -> AioPageIterator[ListAgentRuntimesResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimes.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListAgentRuntimes.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentRuntimes.html#BedrockAgentCoreControl.Paginator.ListAgentRuntimes.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listagentruntimespaginator)
         """
 
@@ -169,7 +199,7 @@ else:
 
 class ListApiKeyCredentialProvidersPaginator(_ListApiKeyCredentialProvidersPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListApiKeyCredentialProviders.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListApiKeyCredentialProviders)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListApiKeyCredentialProviders.html#BedrockAgentCoreControl.Paginator.ListApiKeyCredentialProviders)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listapikeycredentialproviderspaginator)
     """
 
@@ -177,7 +207,7 @@ class ListApiKeyCredentialProvidersPaginator(_ListApiKeyCredentialProvidersPagin
         self, **kwargs: Unpack[ListApiKeyCredentialProvidersRequestPaginateTypeDef]
     ) -> AioPageIterator[ListApiKeyCredentialProvidersResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListApiKeyCredentialProviders.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListApiKeyCredentialProviders.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListApiKeyCredentialProviders.html#BedrockAgentCoreControl.Paginator.ListApiKeyCredentialProviders.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listapikeycredentialproviderspaginator)
         """
 
@@ -190,7 +220,7 @@ else:
 
 class ListBrowsersPaginator(_ListBrowsersPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowsers.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListBrowsers)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowsers.html#BedrockAgentCoreControl.Paginator.ListBrowsers)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listbrowserspaginator)
     """
 
@@ -198,7 +228,7 @@ class ListBrowsersPaginator(_ListBrowsersPaginatorBase):
         self, **kwargs: Unpack[ListBrowsersRequestPaginateTypeDef]
     ) -> AioPageIterator[ListBrowsersResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowsers.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListBrowsers.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListBrowsers.html#BedrockAgentCoreControl.Paginator.ListBrowsers.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listbrowserspaginator)
         """
 
@@ -211,7 +241,7 @@ else:
 
 class ListCodeInterpretersPaginator(_ListCodeInterpretersPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListCodeInterpreters.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListCodeInterpreters)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListCodeInterpreters.html#BedrockAgentCoreControl.Paginator.ListCodeInterpreters)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listcodeinterpreterspaginator)
     """
 
@@ -219,8 +249,29 @@ class ListCodeInterpretersPaginator(_ListCodeInterpretersPaginatorBase):
         self, **kwargs: Unpack[ListCodeInterpretersRequestPaginateTypeDef]
     ) -> AioPageIterator[ListCodeInterpretersResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListCodeInterpreters.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListCodeInterpreters.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListCodeInterpreters.html#BedrockAgentCoreControl.Paginator.ListCodeInterpreters.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listcodeinterpreterspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListEvaluatorsPaginatorBase = AioPaginator[ListEvaluatorsResponseTypeDef]
+else:
+    _ListEvaluatorsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListEvaluatorsPaginator(_ListEvaluatorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListEvaluators.html#BedrockAgentCoreControl.Paginator.ListEvaluators)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listevaluatorspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEvaluatorsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListEvaluatorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListEvaluators.html#BedrockAgentCoreControl.Paginator.ListEvaluators.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listevaluatorspaginator)
         """
 
 
@@ -232,7 +283,7 @@ else:
 
 class ListGatewayTargetsPaginator(_ListGatewayTargetsPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayTargets.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListGatewayTargets)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayTargets.html#BedrockAgentCoreControl.Paginator.ListGatewayTargets)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewaytargetspaginator)
     """
 
@@ -240,7 +291,7 @@ class ListGatewayTargetsPaginator(_ListGatewayTargetsPaginatorBase):
         self, **kwargs: Unpack[ListGatewayTargetsRequestPaginateTypeDef]
     ) -> AioPageIterator[ListGatewayTargetsResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayTargets.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListGatewayTargets.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGatewayTargets.html#BedrockAgentCoreControl.Paginator.ListGatewayTargets.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewaytargetspaginator)
         """
 
@@ -253,7 +304,7 @@ else:
 
 class ListGatewaysPaginator(_ListGatewaysPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListGateways)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControl.Paginator.ListGateways)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewayspaginator)
     """
 
@@ -261,7 +312,7 @@ class ListGatewaysPaginator(_ListGatewaysPaginatorBase):
         self, **kwargs: Unpack[ListGatewaysRequestPaginateTypeDef]
     ) -> AioPageIterator[ListGatewaysResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListGateways.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControl.Paginator.ListGateways.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listgatewayspaginator)
         """
 
@@ -274,7 +325,7 @@ else:
 
 class ListMemoriesPaginator(_ListMemoriesPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListMemories.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListMemories)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListMemories.html#BedrockAgentCoreControl.Paginator.ListMemories)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listmemoriespaginator)
     """
 
@@ -282,7 +333,7 @@ class ListMemoriesPaginator(_ListMemoriesPaginatorBase):
         self, **kwargs: Unpack[ListMemoriesInputPaginateTypeDef]
     ) -> AioPageIterator[ListMemoriesOutputTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListMemories.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListMemories.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListMemories.html#BedrockAgentCoreControl.Paginator.ListMemories.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listmemoriespaginator)
         """
 
@@ -297,7 +348,7 @@ else:
 
 class ListOauth2CredentialProvidersPaginator(_ListOauth2CredentialProvidersPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOauth2CredentialProviders.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListOauth2CredentialProviders)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOauth2CredentialProviders.html#BedrockAgentCoreControl.Paginator.ListOauth2CredentialProviders)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listoauth2credentialproviderspaginator)
     """
 
@@ -305,8 +356,117 @@ class ListOauth2CredentialProvidersPaginator(_ListOauth2CredentialProvidersPagin
         self, **kwargs: Unpack[ListOauth2CredentialProvidersRequestPaginateTypeDef]
     ) -> AioPageIterator[ListOauth2CredentialProvidersResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOauth2CredentialProviders.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListOauth2CredentialProviders.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOauth2CredentialProviders.html#BedrockAgentCoreControl.Paginator.ListOauth2CredentialProviders.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listoauth2credentialproviderspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListOnlineEvaluationConfigsPaginatorBase = AioPaginator[
+        ListOnlineEvaluationConfigsResponseTypeDef
+    ]
+else:
+    _ListOnlineEvaluationConfigsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListOnlineEvaluationConfigsPaginator(_ListOnlineEvaluationConfigsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOnlineEvaluationConfigs.html#BedrockAgentCoreControl.Paginator.ListOnlineEvaluationConfigs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listonlineevaluationconfigspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOnlineEvaluationConfigsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListOnlineEvaluationConfigsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOnlineEvaluationConfigs.html#BedrockAgentCoreControl.Paginator.ListOnlineEvaluationConfigs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listonlineevaluationconfigspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPoliciesPaginatorBase = AioPaginator[ListPoliciesResponseTypeDef]
+else:
+    _ListPoliciesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListPoliciesPaginator(_ListPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicies.html#BedrockAgentCoreControl.Paginator.ListPolicies)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpoliciespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPoliciesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicies.html#BedrockAgentCoreControl.Paginator.ListPolicies.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpoliciespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPolicyEnginesPaginatorBase = AioPaginator[ListPolicyEnginesResponseTypeDef]
+else:
+    _ListPolicyEnginesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListPolicyEnginesPaginator(_ListPolicyEnginesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyEngines.html#BedrockAgentCoreControl.Paginator.ListPolicyEngines)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicyenginespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyEnginesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPolicyEnginesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyEngines.html#BedrockAgentCoreControl.Paginator.ListPolicyEngines.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicyenginespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPolicyGenerationAssetsPaginatorBase = AioPaginator[
+        ListPolicyGenerationAssetsResponseTypeDef
+    ]
+else:
+    _ListPolicyGenerationAssetsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListPolicyGenerationAssetsPaginator(_ListPolicyGenerationAssetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerationAssets.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerationAssets)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicygenerationassetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyGenerationAssetsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPolicyGenerationAssetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerationAssets.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerationAssets.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicygenerationassetspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPolicyGenerationsPaginatorBase = AioPaginator[ListPolicyGenerationsResponseTypeDef]
+else:
+    _ListPolicyGenerationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListPolicyGenerationsPaginator(_ListPolicyGenerationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerations.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicygenerationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyGenerationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPolicyGenerationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPolicyGenerations.html#BedrockAgentCoreControl.Paginator.ListPolicyGenerations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listpolicygenerationspaginator)
         """
 
 
@@ -318,7 +478,7 @@ else:
 
 class ListWorkloadIdentitiesPaginator(_ListWorkloadIdentitiesPaginatorBase):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListWorkloadIdentities.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListWorkloadIdentities)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListWorkloadIdentities.html#BedrockAgentCoreControl.Paginator.ListWorkloadIdentities)
     [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listworkloadidentitiespaginator)
     """
 
@@ -326,6 +486,6 @@ class ListWorkloadIdentitiesPaginator(_ListWorkloadIdentitiesPaginatorBase):
         self, **kwargs: Unpack[ListWorkloadIdentitiesRequestPaginateTypeDef]
     ) -> AioPageIterator[ListWorkloadIdentitiesResponseTypeDef]:
         """
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListWorkloadIdentities.html#BedrockAgentCoreControlPlaneFrontingLayer.Paginator.ListWorkloadIdentities.paginate)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListWorkloadIdentities.html#BedrockAgentCoreControl.Paginator.ListWorkloadIdentities.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/paginators/#listworkloadidentitiespaginator)
         """

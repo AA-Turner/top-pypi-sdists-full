@@ -80,14 +80,20 @@ from .sources import (
     SourceControlledI,
     BatteryCell,
     Battery,
+    BatteryDouble,
     MeterV,
     MeterI,
     MeterA,
     MeterOhm,
+    MeterArrow,
     Lamp,
     Lamp2,
     Solar,
-    Neon
+    Neon,
+    MeterBox,
+    MeterAnalog,
+    MeterDigital,
+    Oscilloscope
 )
 from .switches import (
     Switch,
@@ -155,7 +161,7 @@ from .intcircuits import (
     sevensegdigit
 )
 from .lines import (
-      Line,
+    Line,
     DataBusLine,
     Dot,
     Arrowhead,
@@ -167,6 +173,7 @@ from .lines import (
     Tag,
     CurrentLabel,
     CurrentLabelInline,
+    VoltageLabelArc,
     ZLabel,
     LoopCurrent,
     LoopArrow,
@@ -229,7 +236,17 @@ from .outlets import (
     OutletK,
     OutletL
 )
+from .tubes import (
+    VacuumTube,
+    DualVacuumTube,
+    NixieTube,
+    TubeDiode,
+    Triode,
+    Tetrode,
+    Pentode
+    )
 from .image import ElementImage
+
 
 
 __all__ = [
@@ -314,14 +331,20 @@ __all__ = [
 "SourceControlledI",
 "BatteryCell",
 "Battery",
+"BatteryDouble",
 "MeterV",
 "MeterI",
 "MeterA",
 "MeterOhm",
+"MeterArrow",
 "Lamp",
 "Lamp2",
 "Solar",
 "Neon",
+"MeterBox",
+"MeterAnalog",
+"MeterDigital",
+"Oscilloscope",
 "Switch",
 "SwitchSpdt",
 "SwitchSpdt2",
@@ -394,6 +417,7 @@ __all__ = [
 "Tag",
 "CurrentLabel",
 "CurrentLabelInline",
+"VoltageLabelArc",
 "LoopCurrent",
 "LoopArrow",
 "Rect",
@@ -444,7 +468,15 @@ __all__ = [
 "OutletI",
 "OutletJ",
 "OutletK",
-"OutletL"]
+"OutletL",
+"VacuumTube",
+"DualVacuumTube",
+"NixieTube",
+"TubeDiode",
+"Triode",
+"Tetrode",
+"Pentode"
+]
 
 
 STYLE_IEEE = {'Resistor': ResistorIEEE,

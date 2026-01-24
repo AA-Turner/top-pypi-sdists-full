@@ -23,11 +23,11 @@
  ******************************************************************************/
 
 use crate::{
-    ingress::{
-        Buffer, F64Serializer, Sender, TableName, Timestamp, TimestampMicros, TimestampNanos,
-        DOUBLE_BINARY_FORMAT_TYPE,
-    },
     ErrorCode,
+    ingress::{
+        Buffer, DOUBLE_BINARY_FORMAT_TYPE, F64Serializer, Sender, TableName, Timestamp,
+        TimestampMicros, TimestampNanos,
+    },
 };
 
 use crate::ingress::ProtocolVersion;
@@ -38,12 +38,12 @@ use core::time::Duration;
 use crate::ingress::ndarr::write_array_data;
 
 #[cfg(feature = "ndarray")]
-use ndarray::{arr2, ArrayD};
+use ndarray::{ArrayD, arr2};
 
 #[cfg(feature = "sync-sender-tcp")]
 use crate::tests::{
     assert_err_contains,
-    mock::{certs_dir, MockServer},
+    mock::{MockServer, certs_dir},
     ndarr::ArrayColumnTypeTag,
 };
 
@@ -51,7 +51,7 @@ use crate::tests::{
 use rstest::rstest;
 
 #[cfg(feature = "sync-sender-tcp")]
-use crate::ingress::{CertificateAuthority, ARRAY_BINARY_FORMAT_TYPE};
+use crate::ingress::{ARRAY_BINARY_FORMAT_TYPE, CertificateAuthority};
 
 #[cfg(feature = "sync-sender-tcp")]
 #[rstest]
@@ -86,14 +86,19 @@ fn test_basics(
         .at(ts_nanos)?;
 
     assert_eq!(server.recv_q()?, 0);
+    let (ts3_num, ts3_suffix, dts_suffix) = if version == ProtocolVersion::V1 {
+        (ts_nanos_num / 1000, "t", "")
+    } else {
+        (ts_nanos_num, "n", "n")
+    };
     let exp = &[
         "test,t1=v1 ".as_bytes(),
         f64_to_bytes("f1", 0.5, version).as_slice(),
         format!(
-            ",ts1=12345t,ts2={}t,ts3={}t {}\n",
-            ts_micros_num,
-            ts_nanos_num / 1000i64,
-            ts_nanos_num
+            ",ts1=12345t,\
+            ts2={ts_micros_num}t,\
+            ts3={ts3_num}{ts3_suffix} \
+            {ts_nanos_num}{dts_suffix}\n"
         )
         .as_bytes(),
     ]
@@ -141,7 +146,7 @@ fn test_array_f64_basic() -> TestResult {
         &1.0f64.to_le_bytes(),
         &2.0f64.to_le_bytes(),
         &3.0f64.to_le_bytes(),
-        format!(" {}\n", ts.as_i64()).as_bytes(),
+        format!(" {}n\n", ts.as_i64()).as_bytes(),
     ]
     .concat();
 
@@ -219,7 +224,7 @@ fn test_array_f64_for_ndarray() -> TestResult {
         ",arr3d=".as_bytes(),
         array_header3d,
         array_data3d.as_slice(),
-        format!(" {}\n", ts.as_i64()).as_bytes(),
+        format!(" {}n\n", ts.as_i64()).as_bytes(),
     ]
     .concat();
 
@@ -236,7 +241,8 @@ fn test_array_f64_for_ndarray() -> TestResult {
 #[cfg(feature = "sync-sender-tcp")]
 #[rstest]
 fn test_max_buf_size(
-    #[values(ProtocolVersion::V1, ProtocolVersion::V2)] version: ProtocolVersion,
+    #[values(ProtocolVersion::V1, ProtocolVersion::V2, ProtocolVersion::V3)]
+    version: ProtocolVersion,
 ) -> TestResult {
     let max = 1024;
     let mut server = MockServer::new()?;
@@ -266,7 +272,7 @@ fn test_max_buf_size(
                 "Could not flush buffer: Buffer size of 1026 exceeds maximum configured allowed size of 1024 bytes."
             );
         }
-        ProtocolVersion::V2 => {
+        ProtocolVersion::V2 | ProtocolVersion::V3 => {
             assert_eq!(
                 err.msg(),
                 "Could not flush buffer: Buffer size of 1025 exceeds maximum configured allowed size of 1024 bytes."
@@ -394,10 +400,11 @@ fn test_transactional() -> TestResult {
 #[cfg(feature = "sync-sender-tcp")]
 #[test]
 fn test_auth_inconsistent_keys() -> TestResult {
-    test_bad_key("fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // d
-                 "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // x
-                 "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac",
-                 "Misconfigured ILP authentication keys: InconsistentComponents. Hint: Check the keys for a possible typo."
+    test_bad_key(
+        "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // d
+        "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // x
+        "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac",
+        "Misconfigured ILP authentication keys: InconsistentComponents. Hint: Check the keys for a possible typo.",
     )
 }
 
@@ -408,14 +415,14 @@ fn test_auth_bad_base64_private_key() -> TestResult {
         "bad key",                                     // d
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // x
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // y
-        "Misconfigured ILP authentication keys. Could not decode private authentication key: invalid Base64 encoding. Hint: Check the keys for a possible typo."
+        "Misconfigured ILP authentication keys. Could not decode private authentication key: invalid Base64 encoding. Hint: Check the keys for a possible typo.",
     )
 }
 
 #[cfg(feature = "sync-sender-tcp")]
 #[test]
 fn test_auth_private_key_too_long() -> TestResult {
-    #[cfg(feature = "aws-lc-crypto")]    
+    #[cfg(feature = "aws-lc-crypto")]
     let expected = "Misconfigured ILP authentication keys: InvalidEncoding. Hint: Check the keys for a possible typo.";
 
     #[cfg(feature = "ring-crypto")]
@@ -425,7 +432,7 @@ fn test_auth_private_key_too_long() -> TestResult {
         "ZkxLWUVhb0ViOWxybjNua3dMREEtTV94bnVGT2RTdDl5MFo3X3ZXU0hMVWZMS1lFYW9FYjlscm4zbmt3TERBLU1feG51Rk9kU3Q5eTBaN192V1NITFU",
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // x
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // y
-        expected
+        expected,
     )
 }
 
@@ -436,7 +443,7 @@ fn test_auth_public_key_x_too_long() -> TestResult {
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU",
         "ZkxLWUVhb0ViOWxybjNua3dMREEtTV94bnVGT2RTdDl5MFo3X3ZXU0hMVWZMS1lFYW9FYjlscm4zbmt3TERBLU1feG51Rk9kU3Q5eTBaN192V1NITFU", // x
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // y
-        "Misconfigured ILP authentication keys. Public key x is too long. Hint: Check the keys for a possible typo."
+        "Misconfigured ILP authentication keys. Public key x is too long. Hint: Check the keys for a possible typo.",
     )
 }
 
@@ -447,7 +454,7 @@ fn test_auth_public_key_y_too_long() -> TestResult {
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU",
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // x
         "ZkxLWUVhb0ViOWxybjNua3dMREEtTV94bnVGT2RTdDl5MFo3X3ZXU0hMVWZMS1lFYW9FYjlscm4zbmt3TERBLU1feG51Rk9kU3Q5eTBaN192V1NITFU", // y
-        "Misconfigured ILP authentication keys. Public key y is too long. Hint: Check the keys for a possible typo."
+        "Misconfigured ILP authentication keys. Public key y is too long. Hint: Check the keys for a possible typo.",
     )
 }
 
@@ -456,9 +463,9 @@ fn test_auth_public_key_y_too_long() -> TestResult {
 fn test_auth_bad_base64_public_key_x() -> TestResult {
     test_bad_key(
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // d
-        "bad base64 encoding",                       // x
+        "bad base64 encoding",                         // x
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // y
-        "Misconfigured ILP authentication keys. Could not decode public key x: invalid Base64 encoding. Hint: Check the keys for a possible typo."
+        "Misconfigured ILP authentication keys. Could not decode public key x: invalid Base64 encoding. Hint: Check the keys for a possible typo.",
     )
 }
 
@@ -468,8 +475,8 @@ fn test_auth_bad_base64_public_key_y() -> TestResult {
     test_bad_key(
         "fLKYEaoEb9lrn3nkwLDA-M_xnuFOdSt9y0Z7_vWSHLU", // d
         "Dt5tbS1dEDMSYfym3fgMv0B99szno-dFc1rYF9t0aac", // x
-        "bad base64 encoding", // y
-        "Misconfigured ILP authentication keys. Could not decode public key y: invalid Base64 encoding. Hint: Check the keys for a possible typo."
+        "bad base64 encoding",                         // y
+        "Misconfigured ILP authentication keys. Could not decode public key y: invalid Base64 encoding. Hint: Check the keys for a possible typo.",
     )
 }
 
@@ -508,12 +515,12 @@ fn test_bad_key(
 }
 
 #[test]
-fn test_timestamp_overloads() -> TestResult {
+fn test_timestamp_overloads_v1() -> TestResult {
     use std::time::SystemTime;
 
     let tbl_name = TableName::new("tbl_name")?;
 
-    let mut buffer = Buffer::new(ProtocolVersion::V2);
+    let mut buffer = Buffer::new(ProtocolVersion::V1);
     buffer
         .table(tbl_name)?
         .column_ts("a", TimestampMicros::new(12345))?
@@ -549,6 +556,48 @@ fn test_timestamp_overloads() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn test_timestamp_overloads_v2() -> TestResult {
+    use std::time::SystemTime;
+
+    let tbl_name = TableName::new("tbl_name")?;
+
+    let mut buffer = Buffer::new(ProtocolVersion::V2);
+    buffer
+        .table(tbl_name)?
+        .column_ts("a", TimestampMicros::new(12345))?
+        .column_ts("b", TimestampMicros::new(-100000000))?
+        .column_ts("c", TimestampNanos::new(12345678))?
+        .column_ts("d", TimestampNanos::new(-12345678))?
+        .column_ts("e", Timestamp::Micros(TimestampMicros::new(-1)))?
+        .column_ts("f", Timestamp::Nanos(TimestampNanos::new(-10000)))?
+        .at(TimestampMicros::new(1))?;
+    buffer
+        .table(tbl_name)?
+        .column_ts(
+            "a",
+            TimestampMicros::from_systemtime(
+                SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_secs(1))
+                    .unwrap(),
+            )?,
+        )?
+        .at(TimestampNanos::from_systemtime(
+            SystemTime::UNIX_EPOCH
+                .checked_add(Duration::from_secs(5))
+                .unwrap(),
+        )?)?;
+
+    let exp = concat!(
+        "tbl_name a=12345t,b=-100000000t,c=12345678n,d=-12345678n,e=-1t,f=-10000n 1t\n",
+        "tbl_name a=1000000t 5000000000n\n"
+    )
+    .as_bytes();
+    assert_eq!(buffer.as_bytes(), exp);
+
+    Ok(())
+}
+
 #[cfg(feature = "chrono_timestamp")]
 #[test]
 fn test_chrono_timestamp() -> TestResult {
@@ -561,7 +610,7 @@ fn test_chrono_timestamp() -> TestResult {
     let mut buffer = Buffer::new(ProtocolVersion::V2);
     buffer.table(tbl_name)?.column_ts("a", ts)?.at(ts)?;
 
-    let exp = b"tbl_name a=1000000t 1000000000\n";
+    let exp = b"tbl_name a=1000000000n 1000000000n\n";
     assert_eq!(buffer.as_bytes(), exp);
 
     Ok(())
@@ -614,7 +663,8 @@ fn test_arr_column_name_too_long() -> TestResult {
 #[cfg(feature = "sync-sender-tcp")]
 #[rstest]
 fn test_tls_with_file_ca(
-    #[values(ProtocolVersion::V1, ProtocolVersion::V2)] version: ProtocolVersion,
+    #[values(ProtocolVersion::V1, ProtocolVersion::V2, ProtocolVersion::V3)]
+    version: ProtocolVersion,
 ) -> TestResult {
     let mut ca_path = certs_dir();
     ca_path.push("server_rootCA.pem");
@@ -635,11 +685,17 @@ fn test_tls_with_file_ca(
         .column_f64("f1", 0.5)?
         .at(TimestampNanos::new(10000000))?;
 
+    let designated_ts = if version == ProtocolVersion::V1 {
+        " 10000000\n"
+    } else {
+        " 10000000n\n"
+    };
+
     assert_eq!(server.recv_q()?, 0);
     let exp = &[
         "test,t1=v1 ".as_bytes(),
         f64_to_bytes("f1", 0.5, version).as_slice(),
-        " 10000000\n".as_bytes(),
+        designated_ts.as_bytes(),
     ]
     .concat();
     assert_eq!(buffer.as_bytes(), exp);
@@ -723,7 +779,8 @@ fn test_plain_to_tls_server() -> TestResult {
 #[cfg(feature = "insecure-skip-verify")]
 #[rstest]
 fn test_tls_insecure_skip_verify(
-    #[values(ProtocolVersion::V1, ProtocolVersion::V2)] version: ProtocolVersion,
+    #[values(ProtocolVersion::V1, ProtocolVersion::V2, ProtocolVersion::V3)]
+    version: ProtocolVersion,
 ) -> TestResult {
     let server = MockServer::new()?;
     let lsb = server
@@ -742,10 +799,15 @@ fn test_tls_insecure_skip_verify(
         .at(TimestampNanos::new(10000000))?;
 
     assert_eq!(server.recv_q()?, 0);
+    let designated_ts = if version == ProtocolVersion::V1 {
+        " 10000000\n"
+    } else {
+        " 10000000n\n"
+    };
     let exp = &[
         "test,t1=v1 ".as_bytes(),
         f64_to_bytes("f1", 0.5, version).as_slice(),
-        " 10000000\n".as_bytes(),
+        designated_ts.as_bytes(),
     ]
     .concat();
     assert_eq!(buffer.as_bytes(), exp);
@@ -804,7 +866,7 @@ pub(crate) fn f64_to_bytes(name: &str, value: f64, version: ProtocolVersion) -> 
             let mut ser = F64Serializer::new(value);
             buf.extend_from_slice(ser.as_str().as_bytes());
         }
-        ProtocolVersion::V2 => {
+        ProtocolVersion::V2 | ProtocolVersion::V3 => {
             buf.push(b'=');
             buf.push(DOUBLE_BINARY_FORMAT_TYPE);
             buf.extend_from_slice(&value.to_le_bytes());

@@ -3,7 +3,7 @@ Main interface for sagemaker service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -58,6 +58,7 @@ Usage::
         ListLabelingJobsForWorkteamPaginator,
         ListLabelingJobsPaginator,
         ListLineageGroupsPaginator,
+        ListMlflowAppsPaginator,
         ListMlflowTrackingServersPaginator,
         ListModelBiasJobDefinitionsPaginator,
         ListModelCardExportJobsPaginator,
@@ -166,6 +167,7 @@ Usage::
     list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
     list_labeling_jobs_paginator: ListLabelingJobsPaginator = client.get_paginator("list_labeling_jobs")
     list_lineage_groups_paginator: ListLineageGroupsPaginator = client.get_paginator("list_lineage_groups")
+    list_mlflow_apps_paginator: ListMlflowAppsPaginator = client.get_paginator("list_mlflow_apps")
     list_mlflow_tracking_servers_paginator: ListMlflowTrackingServersPaginator = client.get_paginator("list_mlflow_tracking_servers")
     list_model_bias_job_definitions_paginator: ListModelBiasJobDefinitionsPaginator = client.get_paginator("list_model_bias_job_definitions")
     list_model_card_export_jobs_paginator: ListModelCardExportJobsPaginator = client.get_paginator("list_model_card_export_jobs")
@@ -253,6 +255,7 @@ from .paginator import (
     ListLabelingJobsForWorkteamPaginator,
     ListLabelingJobsPaginator,
     ListLineageGroupsPaginator,
+    ListMlflowAppsPaginator,
     ListMlflowTrackingServersPaginator,
     ListModelBiasJobDefinitionsPaginator,
     ListModelCardExportJobsPaginator,
@@ -364,6 +367,7 @@ __all__ = (
     "ListLabelingJobsForWorkteamPaginator",
     "ListLabelingJobsPaginator",
     "ListLineageGroupsPaginator",
+    "ListMlflowAppsPaginator",
     "ListMlflowTrackingServersPaginator",
     "ListModelBiasJobDefinitionsPaginator",
     "ListModelCardExportJobsPaginator",

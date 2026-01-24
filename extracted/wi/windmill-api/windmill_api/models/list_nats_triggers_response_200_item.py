@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.list_nats_triggers_response_200_item_mode import ListNatsTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,7 +26,6 @@ class ListNatsTriggersResponse200Item:
         nats_resource_path (str):
         use_jetstream (bool):
         subjects (List[str]):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -34,6 +34,7 @@ class ListNatsTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListNatsTriggersResponse200ItemMode): job trigger mode
         stream_name (Union[Unset, str]):
         consumer_name (Union[Unset, str]):
         server_id (Union[Unset, str]):
@@ -42,13 +43,12 @@ class ListNatsTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListNatsTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, ListNatsTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListNatsTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     nats_resource_path: str
     use_jetstream: bool
     subjects: List[str]
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -57,6 +57,7 @@ class ListNatsTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListNatsTriggersResponse200ItemMode
     stream_name: Union[Unset, str] = UNSET
     consumer_name: Union[Unset, str] = UNSET
     server_id: Union[Unset, str] = UNSET
@@ -72,7 +73,6 @@ class ListNatsTriggersResponse200Item:
         use_jetstream = self.use_jetstream
         subjects = self.subjects
 
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -83,6 +83,8 @@ class ListNatsTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         stream_name = self.stream_name
         consumer_name = self.consumer_name
         server_id = self.server_id
@@ -107,7 +109,6 @@ class ListNatsTriggersResponse200Item:
                 "nats_resource_path": nats_resource_path,
                 "use_jetstream": use_jetstream,
                 "subjects": subjects,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -116,6 +117,7 @@ class ListNatsTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if stream_name is not UNSET:
@@ -152,8 +154,6 @@ class ListNatsTriggersResponse200Item:
 
         subjects = cast(List[str], d.pop("subjects"))
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -169,6 +169,8 @@ class ListNatsTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListNatsTriggersResponse200ItemMode(d.pop("mode"))
 
         stream_name = d.pop("stream_name", UNSET)
 
@@ -205,7 +207,6 @@ class ListNatsTriggersResponse200Item:
             nats_resource_path=nats_resource_path,
             use_jetstream=use_jetstream,
             subjects=subjects,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -214,6 +215,7 @@ class ListNatsTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             stream_name=stream_name,
             consumer_name=consumer_name,
             server_id=server_id,

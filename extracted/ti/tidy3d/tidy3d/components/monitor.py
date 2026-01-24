@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Any, Literal, Optional
 
 import numpy as np
 import pydantic.v1 as pydantic
@@ -16,6 +16,7 @@ from .apodization import ApodizationSpec
 from .base import Tidy3dBaseModel, cached_property, skip_if_fields_missing
 from .base_sim.monitor import AbstractMonitor
 from .medium import MediumType
+from .microwave.base import MicrowaveBaseModel
 from .mode_spec import ModeSpec
 from .types import (
     ArrayFloat1D,
@@ -29,11 +30,14 @@ from .types import (
     EMField,
     FreqArray,
     FreqBound,
-    Literal,
     ObsGridArray,
     Size,
 )
-from .validators import assert_plane, validate_freqs_min, validate_freqs_not_empty
+from .validators import (
+    assert_plane,
+    validate_freqs_min,
+    validate_freqs_not_empty,
+)
 from .viz import ARROW_ALPHA, ARROW_COLOR_MONITOR
 
 BYTES_REAL = 4
@@ -352,13 +356,19 @@ class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
         "primal grid nodes).",
     )
 
+    conjugated_dot_product: bool = pydantic.Field(
+        True,
+        title="Conjugated Dot Product",
+        description="Use conjugated or non-conjugated dot product for mode decomposition.",
+    )
+
     def plot(
         self,
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot this monitor."""
         # call the monitor.plot() function first
@@ -418,10 +428,17 @@ class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
             )
         return val
 
+    @property
+    def _stored_freqs(self) -> list[float]:
+        """Return actually stored frequencies of the data."""
+        return self.mode_spec._sampling_freqs_mode_solver_data(freqs=self.freqs)
+
     def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of intermediate data recorded by the monitor during a solver run."""
         # Need to store all fields on the mode surface
-        bytes_single = BYTES_COMPLEX * num_cells * len(self.freqs) * self.mode_spec.num_modes * 6
+        bytes_single = (
+            BYTES_COMPLEX * num_cells * len(self._stored_freqs) * self.mode_spec.num_modes * 6
+        )
         if self.mode_spec.precision == "double":
             return 2 * bytes_single
         return bytes_single
@@ -538,7 +555,63 @@ class AuxFieldTimeMonitor(AbstractAuxFieldMonitor, TimeMonitor):
         return BYTES_REAL * num_steps * num_cells * len(self.fields)
 
 
-class PermittivityMonitor(FreqMonitor):
+class AbstractMediumPropertyMonitor(FreqMonitor, ABC):
+    """:class:`Monitor` that records material properties in the frequency domain."""
+
+    colocate: Literal[False] = pydantic.Field(
+        False,
+        title="Colocate Fields",
+        description="Colocation turned off, since colocated medium property values do not have a "
+        "physical meaning - they do not correspond to the subpixel-averaged ones.",
+    )
+
+    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
+        pydantic.Field(
+            (1, 1, 1),
+            title="Spatial Interval",
+            description="Number of grid step intervals between monitor recordings. If equal to 1, "
+            "there will be no downsampling. If greater than 1, the step will be applied, but the "
+            "first and last point of the monitor grid are always included.",
+        )
+    )
+
+    apodization: ApodizationSpec = pydantic.Field(
+        ApodizationSpec(),
+        title="Apodization Specification",
+        description="This field is ignored in this monitor.",
+    )
+
+
+class MediumMonitor(AbstractMediumPropertyMonitor):
+    """:class:`Monitor` that records the diagonal components of the complex-valued relative
+    permittivity and permeability tensor in the frequency domain. The recorded data has the same shape as a
+    :class:`.FieldMonitor` of the same geometry: the permittivity and permeability values are saved at the
+    Yee grid locations, and can be interpolated to any point inside the monitor.
+
+    Notes
+    -----
+
+        If 2D materials are present, then the permittivity values correspond to the
+        volumetric equivalent of the 2D materials.
+
+        .. TODO add links to relevant areas
+
+    Example
+    -------
+    >>> monitor = MediumMonitor(
+    ...     center=(1,2,3),
+    ...     size=(2,2,2),
+    ...     freqs=[250e12, 300e12],
+    ...     name='medium_monitor')
+    """
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of points after discretization."""
+        # stores 6 complex number per grid cell, per frequency
+        return BYTES_COMPLEX * num_cells * len(self.freqs) * 6
+
+
+class PermittivityMonitor(AbstractMediumPropertyMonitor):
     """:class:`Monitor` that records the diagonal components of the complex-valued relative
     permittivity tensor in the frequency domain. The recorded data has the same shape as a
     :class:`.FieldMonitor` of the same geometry: the permittivity values are saved at the
@@ -560,29 +633,6 @@ class PermittivityMonitor(FreqMonitor):
     ...     freqs=[250e12, 300e12],
     ...     name='eps_monitor')
     """
-
-    colocate: Literal[False] = pydantic.Field(
-        False,
-        title="Colocate Fields",
-        description="Colocation turned off, since colocated permittivity values do not have a "
-        "physical meaning - they do not correspond to the subpixel-averaged ones.",
-    )
-
-    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
-        pydantic.Field(
-            (1, 1, 1),
-            title="Spatial Interval",
-            description="Number of grid step intervals between monitor recordings. If equal to 1, "
-            "there will be no downsampling. If greater than 1, the step will be applied, but the "
-            "first and last point of the monitor grid are always included.",
-        )
-    )
-
-    apodization: ApodizationSpec = pydantic.Field(
-        ApodizationSpec(),
-        title="Apodization Specification",
-        description="This field is ignored in this monitor.",
-    )
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of monitor storage given the number of points after discretization."""
@@ -766,12 +816,20 @@ class ModeMonitor(AbstractModeMonitor):
         stepping."""
         return self.updated_copy(colocate=False)
 
+    @property
+    def _stored_freqs(self) -> list[float]:
+        """Return actually stored frequencies of the data."""
+        # always stored at original frequencies, no matter whether interp_spec is used
+        return self.freqs
+
     def storage_size(self, num_cells: int, tmesh: int) -> int:
         """Size of monitor storage given the number of points after discretization."""
-        amps_size = 3 * BYTES_COMPLEX * len(self.freqs) * self.mode_spec.num_modes
+        amps_size = 3 * BYTES_COMPLEX * len(self._stored_freqs) * self.mode_spec.num_modes
         fields_size = 0
         if self.store_fields_direction is not None:
-            fields_size = 6 * BYTES_COMPLEX * num_cells * len(self.freqs) * self.mode_spec.num_modes
+            fields_size = (
+                6 * BYTES_COMPLEX * num_cells * len(self._stored_freqs) * self.mode_spec.num_modes
+            )
             if self.mode_spec.precision == "double":
                 fields_size *= 2
         return amps_size + fields_size
@@ -807,6 +865,11 @@ class ModeSolverMonitor(AbstractModeMonitor):
         "like ``mode_area`` require all E-field components.",
     )
 
+    @property
+    def _stored_freqs(self) -> list[float]:
+        """Return actually stored frequencies of the data."""
+        return self.mode_spec._sampling_freqs_mode_solver_data(freqs=self.freqs)
+
     @pydantic.root_validator(skip_on_failure=True)
     def set_store_fields(cls, values):
         """Ensure 'store_fields_direction' is compatible with 'direction'."""
@@ -823,7 +886,9 @@ class ModeSolverMonitor(AbstractModeMonitor):
 
     def storage_size(self, num_cells: int, tmesh: int) -> int:
         """Size of monitor storage given the number of points after discretization."""
-        bytes_single = 6 * BYTES_COMPLEX * num_cells * len(self.freqs) * self.mode_spec.num_modes
+        bytes_single = (
+            6 * BYTES_COMPLEX * num_cells * len(self._stored_freqs) * self.mode_spec.num_modes
+        )
         if self.mode_spec.precision == "double":
             return 2 * bytes_single
         return bytes_single
@@ -876,7 +941,7 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
     and projects them to a given set of observation points.
     """
 
-    custom_origin: Coordinate = pydantic.Field(
+    custom_origin: Optional[Coordinate] = pydantic.Field(
         None,
         title="Local Origin",
         description="Local origin used for defining observation points. If ``None``, uses the "
@@ -1083,7 +1148,7 @@ class FieldProjectionAngleMonitor(AbstractFieldProjectionMonitor):
         **Server-side field projection Application**
 
         Provide the :class:`FieldProjectionAngleMonitor` monitor as an input to the
-        :class:`Simulation` object as one of its monitors. Now, we no longer need to provide a separate near-field
+        :class:`.Simulation` object as one of its monitors. Now, we no longer need to provide a separate near-field
         :class:`FieldMonitor` - the near fields will automatically be recorded based on the size and location of the
         ``FieldProjectionAngleMonitor``. Note also that in some cases, the server-side computations may be slightly
         more accurate than client-side ones, because on the server, the near fields are not downsampled at all.
@@ -1180,7 +1245,7 @@ class FieldProjectionAngleMonitor(AbstractFieldProjectionMonitor):
         return BYTES_COMPLEX * len(self.theta) * len(self.phi) * len(self.freqs) * 6
 
 
-class DirectivityMonitor(FieldProjectionAngleMonitor, FluxMonitor):
+class DirectivityMonitor(MicrowaveBaseModel, FieldProjectionAngleMonitor, FluxMonitor):
     """
     :class:`Monitor` that records the radiation characteristics of antennas in the frequency domain
     at specified observation angles.
@@ -1198,7 +1263,26 @@ class DirectivityMonitor(FieldProjectionAngleMonitor, FluxMonitor):
 
         Balanis, Constantine A., "Antenna Theory: Analysis and Design,"
         John Wiley & Sons, Chapter 2.12 (2016).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> monitor = DirectivityMonitor(  # doctest: +SKIP
+    ...     center=(0, 0, 0),
+    ...     size=(2, 2, 2),
+    ...     freqs=[1e9, 2e9, 3e9],
+    ...     name='directivity_monitor',
+    ...     theta=np.linspace(0, np.pi, 10),
+    ...     phi=np.linspace(0, 2*np.pi, 20),
+    ... )
     """
+
+    far_field_approx: Literal[True] = pydantic.Field(
+        True,
+        title="Far Field Approximation",
+        description="Directivity calculations require the far field approximation. "
+        "This field is hard-coded to be ``True`` and cannot be changed.",
+    )
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of monitor storage given the number of points after discretization."""
@@ -1208,14 +1292,6 @@ class DirectivityMonitor(FieldProjectionAngleMonitor, FluxMonitor):
         return BYTES_COMPLEX * len(self.theta) * len(self.phi) * len(
             self.freqs
         ) * 6 + BYTES_REAL * len(self.freqs)
-
-    @pydantic.root_validator(pre=False)
-    def _warn_rf_license(cls, values):
-        log.warning(
-            "ℹ️ ⚠️ RF simulations are subject to new license requirements in the future. You have instantiated at least one RF-specific component.",
-            log_once=True,
-        )
-        return values
 
 
 class FieldProjectionCartesianMonitor(AbstractFieldProjectionMonitor):
@@ -1485,6 +1561,25 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
     """:class:`Monitor` that uses a 2D Fourier transform to compute the
     diffraction amplitudes and efficiency for allowed diffraction orders.
 
+    Note
+    ----
+
+        The diffraction data are separated into S and P polarizations. At normal incidence when
+        S and P are undefined, P(S) corresponds to ``Ey``(``Ez``) polarization for monitor normal
+        to x, P(S) corresponds to ``Ex``(``Ez``) polarization for monitor normal to y, and P(S)
+        corresponds to ``Ex``(``Ey``) polarization for monitor normal to z.
+
+    Note
+    ----
+
+        The power amplitudes per polarization and diffraction order, and correspondingly the power
+        per diffraction order, correspond to the power carried by each diffraction order in the
+        monitor normal direction. They are not to be confused with power carried by plane waves
+        in the propagation direction of each diffraction order, which can be obtained from the
+        spherical-coordinate fields which are also stored. The power definition is such that the
+        grating efficiency is the recorded power over the input source power, and the direct sum
+        over the power in all orders should equal the total power flowing through the monitor.
+
     Example
     -------
     >>> monitor = DiffractionMonitor(
@@ -1536,21 +1631,3 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
     def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of intermediate data recorded by the monitor during a solver run."""
         return BYTES_COMPLEX * num_cells * len(self.freqs) * 6
-
-
-# types of monitors that are accepted by simulation
-MonitorType = Union[
-    FieldMonitor,
-    FieldTimeMonitor,
-    AuxFieldTimeMonitor,
-    PermittivityMonitor,
-    FluxMonitor,
-    FluxTimeMonitor,
-    ModeMonitor,
-    ModeSolverMonitor,
-    FieldProjectionAngleMonitor,
-    FieldProjectionCartesianMonitor,
-    FieldProjectionKSpaceMonitor,
-    DiffractionMonitor,
-    DirectivityMonitor,
-]

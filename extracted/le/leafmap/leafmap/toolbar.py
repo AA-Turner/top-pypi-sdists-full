@@ -13,7 +13,7 @@ from . import pc
 from .common import *
 
 
-def tool_template(m, opened: Optional[bool] = True) -> widgets.Widget:
+def tool_template(m, opened: Optional[bool] = True) -> Optional[widgets.Widget]:
     """Generates a tool GUI template using ipywidgets. Icons can be found at https://fontawesome.com/v4/icons
 
     Args:
@@ -21,7 +21,9 @@ def tool_template(m, opened: Optional[bool] = True) -> widgets.Widget:
         opened (bool, optional): Whether to open the toolbar. Defaults to True.
 
     Returns:
-        ipywidgets: The tool GUI widget.
+        Optional[ipywidgets]: The tool GUI widget, or None if map object is provide.
+                              (Assuming it should will be return the widget in all cases)
+                              Or, if it always return a widget, the return type should ipywidgets.
     """
     widget_width = "250px"
     padding = "0px 0px 0px 5px"  # upper, right, bottom, left
@@ -204,7 +206,7 @@ def tool_template(m, opened: Optional[bool] = True) -> widgets.Widget:
         )
 
         if toolbar_control not in m.controls:
-            m.add_control(toolbar_control)
+            m.add(toolbar_control)
             m.tool_control = toolbar_control
     else:
         return toolbar_widget
@@ -306,7 +308,7 @@ def tool_header_template(m, opened: Optional[bool] = True):
         )
 
         if toolbar_control not in m.controls:
-            m.add_control(toolbar_control)
+            m.add(toolbar_control)
             m.tool_control = toolbar_control
     else:
         return toolbar_widget
@@ -1746,7 +1748,7 @@ def split_basemaps(
 
     controls = m.controls
     layers = m.layers
-    m.clear_controls()
+    m.clear()
 
     add_zoom = True
     add_fullscreen = True
@@ -1856,6 +1858,7 @@ def time_slider(
     position: Optional[str] = "bottomright",
     slider_length: Optional[str] = "150px",
     zoom_to_layer: Optional[bool] = False,
+    tile_args: Optional[Dict] = None,
     **kwargs,
 ):
     """Adds a time slider to the map.
@@ -1867,11 +1870,13 @@ def time_slider(
         position (str, optional): Position to place the time slider, can be any of ['topleft', 'topright', 'bottomleft', 'bottomright']. Defaults to "bottomright".
         slider_length (str, optional): Length of the time slider. Defaults to "150px".
         zoom_to_layer (bool, optional): Whether to zoom to the extent of the layer. Defaults to False.
-
+        tile_args (dict, optional): Additional arguments to pass to the get_local_tile_layer function. Defaults to None.
     """
     import threading
     import time
 
+    if tile_args is None:
+        tile_args = {}
     bounds = None
 
     if isinstance(layers, str):
@@ -1965,14 +1970,22 @@ def time_slider(
 
     keys = list(layers.keys())
     layer = layers[keys[0]]
+    if isinstance(layer, str) and layer.startswith("http"):
+        layer = ipyleaflet.TileLayer(url=layer, **tile_args)
     m.add(layer)
 
     def slider_changed(change):
         m.default_style = {"cursor": "wait"}
         index = slider.value - 1
         label.value = labels[index]
-        layer.url = layers[label.value].url
-        layer.name = layers[label.value].name
+        if isinstance(layers[label.value], str) and layers[label.value].startswith(
+            "http"
+        ):
+            layer.url = layers[label.value]
+            layer.name = labels[index]
+        else:
+            layer.url = layers[label.value].url
+            layer.name = layers[label.value].name
         m.default_style = {"cursor": "default"}
 
     slider.observe(slider_changed, "value")
@@ -2775,8 +2788,8 @@ def inspector_gui(
 
     def handle_interaction(**kwargs):
         latlon = kwargs.get("coordinates")
-        lat = round(latlon[0], 4)
-        lon = round(latlon[1], 4)
+        lat = round(latlon[0], 8)
+        lon = round(latlon[1], 8)
         if (
             kwargs.get("type") == "click"
             and hasattr(m, "inspector_mode")
@@ -2812,7 +2825,7 @@ def inspector_gui(
                     with output:
                         output.clear_output()
                         output.outputs = ()
-                        output.append_stdout(f"lat, lon: {lat:.4f}, {lon:.4f}\n")
+                        output.append_stdout(f"lat: {lat:.8f}\nlon: {lon:.8f}\n")
                         for key in result:
                             output.append_stdout(f"{key}: {result[key]}\n")
 
@@ -2846,7 +2859,7 @@ def inspector_gui(
                     with output:
                         output.clear_output()
                         output.outputs = ()
-                        output.append_stdout(f"lat, lon: {lat:.4f}, {lon:.4f}\n")
+                        output.append_stdout(f"lat: {lat:.8f}\nlon: {lon:.8f}\n")
                         for key in result:
                             output.append_stdout(f"{key}: {result[key]}\n")
 
@@ -2891,7 +2904,7 @@ def inspector_gui(
                     with output:
                         output.clear_output()
                         output.outputs = ()
-                        output.append_stdout(f"lat, lon: {lat:.4f}, {lon:.4f}\n")
+                        output.append_stdout(f"lat: {lat:.8f}\nlon: {lon:.8f}\n")
                         for key in result:
                             output.append_stdout(f"{key}: {result[key]}\n")
 
@@ -6420,7 +6433,7 @@ def layer_manager_gui(
         )
 
         if layer_control not in m.controls:
-            m.add_control(layer_control)
+            m.add(layer_control)
             m.layer_manager = layer_control
 
 
@@ -7541,7 +7554,7 @@ def time_slider_for_gdf(
 
     # Add the control to the map
     slider_ctrl = WidgetControl(widget=slider_widget, position=position)
-    m.add_control(slider_ctrl)
+    m.add(slider_ctrl)
     m.slider_ctrl = slider_ctrl  # Store reference to the control
 
     return geojson_layer

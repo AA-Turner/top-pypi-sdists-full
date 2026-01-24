@@ -31,8 +31,9 @@ class ServiceSortField(object):
     STATUS = "STATUS"
     NAME = "NAME"
     CREATED_AT = "CREATED_AT"
+    LAST_DEPLOYED_AT = "LAST_DEPLOYED_AT"
 
-    allowable_values = [STATUS, NAME, CREATED_AT]  # noqa: E501
+    allowable_values = [STATUS, NAME, CREATED_AT, LAST_DEPLOYED_AT]  # noqa: E501
 
     """
     Attributes:

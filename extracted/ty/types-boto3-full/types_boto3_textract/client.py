@@ -3,7 +3,7 @@ Type annotations for textract service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_textract/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -75,12 +76,6 @@ from .type_defs import (
     UpdateAdapterResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -91,25 +86,25 @@ __all__ = ("TextractClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadDocumentException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DocumentTooLargeException: Type[BotocoreClientError]
-    HumanLoopQuotaExceededException: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidJobIdException: Type[BotocoreClientError]
-    InvalidKMSKeyException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidS3ObjectException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedDocumentException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadDocumentException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DocumentTooLargeException: type[BotocoreClientError]
+    HumanLoopQuotaExceededException: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidJobIdException: type[BotocoreClientError]
+    InvalidKMSKeyException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidS3ObjectException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ProvisionedThroughputExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedDocumentException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class TextractClient(BaseClient):
@@ -197,7 +192,7 @@ class TextractClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_textract/client/#create_adapter_version)
         """
 
-    def delete_adapter(self, **kwargs: Unpack[DeleteAdapterRequestTypeDef]) -> Dict[str, Any]:
+    def delete_adapter(self, **kwargs: Unpack[DeleteAdapterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Amazon Textract adapter.
 
@@ -207,7 +202,7 @@ class TextractClient(BaseClient):
 
     def delete_adapter_version(
         self, **kwargs: Unpack[DeleteAdapterVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Textract adapter version.
 
@@ -374,7 +369,7 @@ class TextractClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_textract/client/#start_lending_analysis)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to the specified resource.
 
@@ -382,7 +377,7 @@ class TextractClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_textract/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes any tags with the specified keys from the specified resource.
 

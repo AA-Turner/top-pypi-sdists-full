@@ -25,55 +25,39 @@ from datarobot.models.genai.playground_moderation_configuration import (
     moderation_configuration_without_id,
 )
 
-nemo_llm_configuration = t.Dict(
-    {
-        t.Key("llm_type"): t.Enum(*enum_to_list(NemoLLMType)),
-        t.Key("openai_api_key_id"): t.String,
-        t.Key("openai_api_base", optional=True): t.Or(t.String, t.Null),
-        t.Key("openai_api_deployment_id", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+nemo_llm_configuration = t.Dict({
+    t.Key("llm_type"): t.Enum(*enum_to_list(NemoLLMType)),
+    t.Key("openai_api_key_id"): t.String,
+    t.Key("openai_api_base", optional=True): t.Or(t.String, t.Null),
+    t.Key("openai_api_deployment_id", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-nemo_file_contents = t.Dict(
-    {
-        t.Key("config_yaml_file_contents"): t.String,
-        t.Key("flow_definition_file_contents"): t.String,
-        t.Key("prompts_file_contents"): t.String,
-    }
-).ignore_extra("*")
+nemo_file_contents = t.Dict({
+    t.Key("config_yaml_file_contents"): t.String,
+    t.Key("flow_definition_file_contents"): t.String,
+    t.Key("prompts_file_contents"): t.String,
+}).ignore_extra("*")
 
-nemo_file_contents_for_response = t.Dict(
-    {
-        t.Key("actions_file_contents"): t.String,
-        t.Key("config_yaml_file_contents"): t.String,
-        t.Key("flow_definition_file_contents"): t.String,
-        t.Key("prompts_file_contents"): t.String,
-    }
-).ignore_extra("*")
+nemo_file_contents_for_response = t.Dict({
+    t.Key("actions_file_contents"): t.String,
+    t.Key("config_yaml_file_contents"): t.String,
+    t.Key("flow_definition_file_contents"): t.String,
+    t.Key("prompts_file_contents"): t.String,
+}).ignore_extra("*")
 
-nemo_configuration = t.Dict(
-    {
-        t.Key("prompt_pipeline_metric_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("prompt_pipeline_files", optional=True): t.Or(
-            nemo_file_contents_for_response, t.Null
-        ),
-        t.Key("prompt_llm_configuration", optional=True): t.Or(nemo_llm_configuration, t.Null),
-        t.Key("prompt_moderation_configuration", optional=True): t.Or(
-            moderation_configuration_without_id, t.Null
-        ),
-        t.Key("prompt_pipeline_template_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("response_pipeline_metric_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("response_pipeline_files", optional=True): t.Or(
-            nemo_file_contents_for_response, t.Null
-        ),
-        t.Key("response_llm_configuration", optional=True): t.Or(nemo_llm_configuration, t.Null),
-        t.Key("response_moderation_configuration", optional=True): t.Or(
-            moderation_configuration_without_id, t.Null
-        ),
-        t.Key("response_pipeline_template_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("blocked_terms_file_contents"): t.String,
-    }
-).ignore_extra("*")
+nemo_configuration = t.Dict({
+    t.Key("prompt_pipeline_metric_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("prompt_pipeline_files", optional=True): t.Or(nemo_file_contents_for_response, t.Null),
+    t.Key("prompt_llm_configuration", optional=True): t.Or(nemo_llm_configuration, t.Null),
+    t.Key("prompt_moderation_configuration", optional=True): t.Or(moderation_configuration_without_id, t.Null),
+    t.Key("prompt_pipeline_template_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("response_pipeline_metric_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("response_pipeline_files", optional=True): t.Or(nemo_file_contents_for_response, t.Null),
+    t.Key("response_llm_configuration", optional=True): t.Or(nemo_llm_configuration, t.Null),
+    t.Key("response_moderation_configuration", optional=True): t.Or(moderation_configuration_without_id, t.Null),
+    t.Key("response_pipeline_template_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("blocked_terms_file_contents"): t.String,
+}).ignore_extra("*")
 
 
 class NemoLLMConfiguration(APIObject):
@@ -342,9 +326,7 @@ class NemoConfiguration(APIObject):
         """
 
         def _get_dict(
-            value: Union[
-                NemoFileContents, NemoLLMConfiguration, ModerationConfigurationWithoutId, None
-            ]
+            value: Union[NemoFileContents, NemoLLMConfiguration, ModerationConfigurationWithoutId, None],
         ) -> Union[Dict[str, Any], None]:
             return value.to_dict() if value is not None else None
 

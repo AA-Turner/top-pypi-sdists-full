@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodataloader
-Version: 0.4.2
+Version: 0.4.3
 Summary: Asyncio DataLoader implementation for Python
 Project-URL: Homepage, https://github.com/syrusakbary/aiodataloader
 Author-email: Syrus Akbary <me@syrusakbary.com>
@@ -15,6 +15,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
 Requires-Dist: typing-extensions>=4.1.1

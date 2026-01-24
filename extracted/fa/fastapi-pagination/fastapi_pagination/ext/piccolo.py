@@ -1,9 +1,9 @@
 __all__ = ["apaginate", "paginate"]
 
 from contextlib import suppress
-from copy import copy
+from copy import deepcopy
 from functools import partial
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 from piccolo.query import Select
 from piccolo.query.methods.select import Count
@@ -14,7 +14,7 @@ from fastapi_pagination.bases import AbstractParams
 from fastapi_pagination.config import Config
 from fastapi_pagination.flow import flow, flow_expr, run_async_flow
 from fastapi_pagination.flows import TotalFlow, generic_flow
-from fastapi_pagination.types import AdditionalData, SyncItemsTransformer
+from fastapi_pagination.types import AdditionalData, AsyncItemsTransformer
 
 from .utils import generic_query_apply_params
 
@@ -28,7 +28,7 @@ def _copy_query(query: Select[TTable_co]) -> Select[TTable_co]:
 
     for s in select_cls.__slots__:
         with suppress(AttributeError):
-            setattr(q, s, copy(getattr(query, s)))
+            setattr(q, s, deepcopy(getattr(query, s)))
 
     return q
 
@@ -50,12 +50,12 @@ def _total_flow(query: Select[TTable_co]) -> TotalFlow:
 
 
 async def apaginate(
-    query: Union[Select[TTable_co], type[TTable_co]],
-    params: Optional[AbstractParams] = None,
+    query: Select[TTable_co] | type[TTable_co],
+    params: AbstractParams | None = None,
     *,
-    transformer: Optional[SyncItemsTransformer] = None,
-    additional_data: Optional[AdditionalData] = None,
-    config: Optional[Config] = None,
+    transformer: AsyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
 ) -> Any:
     if not isinstance(query, Select):
         query = query.select()
@@ -73,14 +73,14 @@ async def apaginate(
     )
 
 
-@deprecated("Use `apaginate` instead. This function will be removed in v0.15.0")
+@deprecated("Use `apaginate` instead. This function will be removed in v0.16.0")
 async def paginate(
-    query: Union[Select[TTable_co], type[TTable_co]],
-    params: Optional[AbstractParams] = None,
+    query: Select[TTable_co] | type[TTable_co],
+    params: AbstractParams | None = None,
     *,
-    transformer: Optional[SyncItemsTransformer] = None,
-    additional_data: Optional[AdditionalData] = None,
-    config: Optional[Config] = None,
+    transformer: AsyncItemsTransformer | None = None,
+    additional_data: AdditionalData | None = None,
+    config: Config | None = None,
 ) -> Any:
     return await apaginate(
         query,

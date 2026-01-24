@@ -177,8 +177,8 @@ class ComputePoolCollection(ComputePoolCollectionBase):
 class ComputePoolResource(ComputePoolResourceBase):
     """Represents a reference to a Snowflake compute pool.
 
-    With this compute pool reference, you can create and fetch information about compute pools, as well as
-    perform certain actions on them.
+    With this compute pool reference, you can fetch information about a compute pool, as well as
+    perform certain actions on it.
     """
 
     _plural_name = "compute_pools"

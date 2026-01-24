@@ -19,16 +19,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-__all__ = ['df_sources',
-           'data_source',
-           'register_df_source',
-           'load_df',
-           'retrieve_any_from_df_dict',
-           'retrieve_from_df_dict',
-           'retrieve_any_from_df',
-           'retrieve_from_df',
-           'list_available_methods_from_df_dict',
-           'list_available_methods_from_df']
+__all__ = [
+    "data_source",
+    "df_sources",
+    "list_available_methods_from_df",
+    "list_available_methods_from_df_dict",
+    "load_df",
+    "register_df_source",
+    "retrieve_any_from_df",
+    "retrieve_any_from_df_dict",
+    "retrieve_from_df",
+    "retrieve_from_df_dict",
+]
 
 import os
 from math import isnan, nan
@@ -52,8 +54,8 @@ try:
 except:
     pass
 try:
-    import threading
     import sqlite3
+    import threading
 except:
     pass
 from chemicals.identifiers import CAS_to_int
@@ -67,9 +69,9 @@ df_sources = {}
 load_cmds = {}
 
 def make_df_sparse(df, non_sparse_columns=[]):
-    '''Take a dataframe, and convert any floating-point columns which are mostly
+    """Take a dataframe, and convert any floating-point columns which are mostly
     missing into sparse series. Return the resulting dataframe.
-    '''
+    """
     sparse_float = pd.SparseDtype("float", nan)
     for col, dtype in zip(df.columns, df.dtypes):
         if col not in non_sparse_columns and id(dtype) in float_dtype_ids:
@@ -80,7 +82,7 @@ def make_df_sparse(df, non_sparse_columns=[]):
     return df
 
 
-def register_df_source(folder, name, sep='\t', index_col=0, csv_kwargs=None,
+def register_df_source(folder, name, sep="\t", index_col=0, csv_kwargs=None,
                        postload=None, sparsify=False, int_CAS=False):
     if csv_kwargs is None: csv_kwargs = {}
     load_cmds[name] = (folder, name, sep, index_col, csv_kwargs, postload, sparsify, int_CAS)
@@ -89,13 +91,13 @@ def register_df_source(folder, name, sep='\t', index_col=0, csv_kwargs=None,
 chemical metadata information.
 """
 try:
-    low_mem = bool(int(os.environ.get('CHEDL_LOW_MEMORY', '0')))
+    low_mem = bool(int(os.environ.get("CHEDL_LOW_MEMORY", "0")))
 except:
     low_mem = False
 
-spurious_columns = {'name', 'formula', 'MW', 'InChI', 'InChI_key', 'Chemical',
-                    'Data Type', 'Uncertainty', 'Fluid', 'Name', 'Names', 'Name ',
-                    'Formula', 'Formula '}
+spurious_columns = {"name", "formula", "MW", "InChI", "InChI_key", "Chemical",
+                    "Data Type", "Uncertainty", "Fluid", "Name", "Names", "Name ",
+                    "Formula", "Formula "}
 
 def load_df(key):
     global pd
@@ -104,9 +106,9 @@ def load_df(key):
     folder, name, sep, index_col, csv_kwargs, postload, sparsify, int_CAS = load_cmds[key]
     path = path_join(folder, name)
     if int_CAS:
-        dtype = csv_kwargs.get('dtype', {})
-        dtype['CAS'] = int64_dtype
-        csv_kwargs['dtype'] = dtype
+        dtype = csv_kwargs.get("dtype", {})
+        dtype["CAS"] = int64_dtype
+        csv_kwargs["dtype"] = dtype
     df = pd.read_csv(path, sep=sep, index_col=index_col, **csv_kwargs)
     if postload: postload(df)
     if sparsify:
@@ -154,7 +156,7 @@ def retrieve_from_df_dict(df_dict, index, key, method):
     try:
         df = df_dict[method]
     except KeyError:
-        raise ValueError(f'Invalid method: {method}, allowed methods are {list(df_dict)}')
+        raise ValueError(f"Invalid method: {method}, allowed methods are {list(df_dict)}")
     except TypeError: # pragma: no cover
         raise TypeError(f"Method must be a string, not a {type(method).__name__} object")
     return retrieve_from_df(df, index, key)
@@ -213,23 +215,23 @@ def list_available_methods_from_df_dict(df_dict, index, key):
 def list_available_methods_from_df(df, index, keys_by_method):
     if index in df.index:
         return [method for method, key in keys_by_method.items()
-                if not pd.isnull(df.at[index, key])]
+                if not pd.isna(df.at[index, key])]
     else:
         return []
 
 ### Database
 
 try:
-    USE_CONSTANTS_DATABASE = os.path.exists(path_join(source_path, 'Misc', 'default.sqlite'))
+    USE_CONSTANTS_DATABASE = os.path.exists(path_join(source_path, "Misc", "default.sqlite"))
 except:
     USE_CONSTANTS_DATABASE = False
 
-CONSTANT_DATABASE_COLUMNS = ['index', 'MW', 'Tt', 'Tm', 'Tb', 'Tc', 'Pt', 'Pc', 'Vc',
-'Zc', 'omega', 'T_flash', 'T_autoignition', 'LFL', 'UFL',
-'Hfs', 'Hfl', 'Hfg', 'S0s', 'S0l', 'S0g',
-'Hfus', 'Stockmayer', 'molecular_diameter',
-'dipole_moment', 'logP', 'RG', 'RON', 'MON', 'ignition_delay', 'linear',
-'GWP', 'ODP', 'RI', 'RIT', 'GTP', 'HANSEN_DELTA_D', 'HANSEN_DELTA_P', 'HANSEN_DELTA_H']
+CONSTANT_DATABASE_COLUMNS = ["index", "MW", "Tt", "Tm", "Tb", "Tc", "Pt", "Pc", "Vc",
+"Zc", "omega", "T_flash", "T_autoignition", "LFL", "UFL",
+"Hfs", "Hfl", "Hfg", "S0s", "S0l", "S0g",
+"Hfus", "Stockmayer", "molecular_diameter",
+"dipole_moment", "logP", "RG", "RON", "MON", "ignition_delay", "linear",
+"GWP", "ODP", "RI", "RIT", "GTP", "HANSEN_DELTA_D", "HANSEN_DELTA_P", "HANSEN_DELTA_H"]
 
 
 
@@ -243,8 +245,8 @@ except:
 DATABASE_CONSTANTS_CACHE = {}
 
 def cached_constant_lookup(CASi, prop):
-    '''Look up a constant property for a compound, either from cache or the database.'''
-    if not hasattr(thread_local_storage, 'cursor'):
+    """Look up a constant property for a compound, either from cache or the database."""
+    if not hasattr(thread_local_storage, "cursor"):
         init_constants_db()
 
     # Check if the result is cached
@@ -264,11 +266,11 @@ def cached_constant_lookup(CASi, prop):
     return result[prop_idx], True
 
 def init_constants_db():
-    '''Initialize the database connection and cursor for the current thread if not already done.'''
-    if not hasattr(thread_local_storage, 'conn'):
+    """Initialize the database connection and cursor for the current thread if not already done."""
+    if not hasattr(thread_local_storage, "conn"):
         # Create a new connection and cursor for the thread
         thread_local_storage.conn = sqlite3.connect(
-            path_join(source_path, 'Misc', 'default.sqlite'),
+            path_join(source_path, "Misc", "default.sqlite"),
             check_same_thread=False
         )
         thread_local_storage.cursor = thread_local_storage.conn.cursor()

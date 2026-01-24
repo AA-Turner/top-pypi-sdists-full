@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
+use pyrefly_python::ignore::Tool;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_util::absolutize::Absolutize as _;
@@ -36,6 +37,17 @@ fn absolute_path_parser(s: &str) -> Result<PathBuf, String> {
 #[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone, Default)]
 pub struct ConfigOverrideArgs {
+    /// Configures Pyrefly to replace `project-excludes` fully rather than
+    /// append whatever is in your configuration or passed by CLI to Pyrefly's
+    /// defaults.
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1,
+    )]
+    disable_project_excludes_heuristics: Option<bool>,
+
     /// The list of directories where imports are imported from, including
     /// type checked files.
     #[arg(long, value_parser = absolute_path_parser)]
@@ -45,7 +57,12 @@ pub struct ConfigOverrideArgs {
     /// constructing a modified search path. Setting this flag will instruct
     /// Pyrefly to use the exact `search_path` you give it through your config
     /// file and CLI args.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1,
+    )]
     disable_search_path_heuristics: Option<bool>,
 
     /// The Python version any `sys.version` checks should evaluate against.
@@ -66,12 +83,22 @@ pub struct ConfigOverrideArgs {
     #[arg(long, group = "env_source")]
     conda_environment: Option<String>,
 
-    /// The Python executable that will be queried for `python_version`
-    /// `python_platform`, or `site_package_path` if any of the values are missing.
+    /// The path to a Python executable that will be queried for `python-version`
+    /// `python-platform`, or `site-package-path` if any of the values are missing.
     #[arg(long, value_name = "EXE_PATH", group = "env_source")]
-    python_interpreter: Option<PathBuf>,
+    python_interpreter_path: Option<PathBuf>,
 
-    /// Skip doing any automatic querying for `python-interpreter` or `conda-environment`
+    /// The Python executable name available on your PATH that will be queried for your
+    /// `python-version`, `python-platform`, or `site-package-path` if any of the values
+    /// are missing. We execute `which <COMMAND>` to fill in your `python-interpreter-path`,
+    /// which is useful if you don't know where the Python executable will be on a given
+    /// machine, but want to use one other than the default.
+    /// When this and `python-interpreter-path` are unset, we query for `python3` and `python`.
+    #[arg(long, value_name = "COMMAND", group = "env_source")]
+    fallback_python_interpreter_name: Option<String>,
+
+    /// Skip doing any automatic querying for `python-interpreter-path`,
+    /// `fallback-python-interpreter-name`, or `conda-environment`
     #[arg(long, group = "env_source")]
     skip_interpreter_query: bool,
 
@@ -86,36 +113,61 @@ pub struct ConfigOverrideArgs {
     /// related import errors.
     #[arg(long)]
     ignore_missing_imports: Option<Vec<String>>,
-    /// Ignore missing source packages when only type stubs are available, allowing imports to proceed without source validation.
-    #[arg(long)]
-    ignore_missing_source: Option<bool>,
     /// Whether to ignore type errors in generated code.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     ignore_errors_in_generated_code: Option<bool>,
     /// If this is true, infer type variables not determined by a call or constructor based on their first usage.
     /// For example, the type of an empty container would be determined by the first thing you put into it.
     /// If this is false, any unsolved type variables at the end of a call or constructor will be replaced with `Any`.
     /// Defaults to true.
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     infer_with_first_use: Option<bool>,
     /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
-    #[arg(long)]
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     use_ignore_files: Option<bool>,
     /// Controls how Pyrefly analyzes function definitions that lack type annotations on parameters and return values.
     #[arg(long)]
     untyped_def_behavior: Option<UntypedDefBehavior>,
-    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# mypy: ignore`.
-    #[arg(long)]
+    /// Whether Pyrefly will respect ignore statements for other tools, e.g. `# pyright: ignore`.
+    /// Equivalent to passing the names of all tools to `--enabled-ignores`.
+    #[arg(
+        long,
+        default_missing_value = "true",
+        require_equals = true,
+        num_args = 0..=1
+    )]
     permissive_ignores: Option<bool>,
-    /// Force this rule to emit an error. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Respect ignore directives from only these tools. Can be passed multiple times or as a comma-separated list.
+    /// Defaults to type,pyrefly. Passing the names of all tools is equivalent to `--permissive-ignores`.
+    #[arg(long, value_delimiter = ',')]
+    enabled_ignores: Option<Vec<Tool>>,
+    /// Force this rule to emit an error. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     error: Vec<ErrorKind>,
-    /// Force this rule to emit a warning. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Force this rule to emit a warning. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     warn: Vec<ErrorKind>,
-    /// Do not emit diagnostics for this rule. Can be used multiple times.
-    #[arg(long, hide_possible_values = true)]
+    /// Do not emit diagnostics for this rule. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
     ignore: Vec<ErrorKind>,
+    /// Force this rule to emit an info-level diagnostic. Can be passed multiple times or as a comma-separated list.
+    #[arg(long, hide_possible_values = true, value_delimiter = ',')]
+    info: Vec<ErrorKind>,
 }
 
 impl ConfigOverrideArgs {
@@ -133,6 +185,7 @@ impl ConfigOverrideArgs {
         let ignored_errors = &self.ignore.iter().collect::<HashSet<_>>();
         let warn_errors = &self.warn.iter().collect::<HashSet<_>>();
         let error_errors = self.error.iter().collect::<HashSet<_>>();
+        let info_errors = self.info.iter().collect::<HashSet<_>>();
         let error_ignore_conflicts: Vec<_> = error_errors.intersection(ignored_errors).collect();
         if !error_ignore_conflicts.is_empty() {
             return Err(anyhow::anyhow!(
@@ -154,6 +207,32 @@ impl ConfigOverrideArgs {
                 display::commas_iter(|| ignore_warn_conflicts.iter().map(|&&s| s))
             ));
         }
+        let error_info_conflicts: Vec<_> = error_errors.intersection(&info_errors).collect();
+        if !error_info_conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types are specified for both --info and --error: [{}]",
+                display::commas_iter(|| error_info_conflicts.iter().map(|&&s| s))
+            ));
+        }
+        let warn_info_conflicts: Vec<_> = warn_errors.intersection(&info_errors).collect();
+        if !warn_info_conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types are specified for both --info and --warn: [{}]",
+                display::commas_iter(|| warn_info_conflicts.iter().map(|&&s| s))
+            ));
+        }
+        let ignore_info_conflicts: Vec<_> = ignored_errors.intersection(&info_errors).collect();
+        if !ignore_info_conflicts.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Error types are specified for both --info and --ignore: [{}]",
+                display::commas_iter(|| ignore_info_conflicts.iter().map(|&&s| s))
+            ));
+        }
+        if self.permissive_ignores.is_some() && self.enabled_ignores.is_some() {
+            return Err(anyhow::anyhow!(
+                "Cannot use both `--permissive-ignores` and `--enabled-ignores`"
+            ));
+        }
         Ok(())
     }
 
@@ -170,38 +249,75 @@ impl ConfigOverrideArgs {
         if let Some(x) = &self.disable_search_path_heuristics {
             config.disable_search_path_heuristics = *x;
         }
+        if let Some(x) = &self.disable_project_excludes_heuristics {
+            config.disable_project_excludes_heuristics = *x;
+        }
         if let Some(x) = &self.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());
         }
 
         if self.skip_interpreter_query || config.interpreters.skip_interpreter_query {
             config.interpreters.skip_interpreter_query = true;
-            config.interpreters.python_interpreter = None;
+            config.interpreters.python_interpreter_path = None;
+            config.interpreters.fallback_python_interpreter_name = None;
+            config.interpreters.conda_environment = None;
+        }
+        if let Some(x) = &self.python_interpreter_path {
+            config.interpreters.python_interpreter_path = Some(ConfigOrigin::cli(x.clone()));
+            config.interpreters.fallback_python_interpreter_name = None;
+            config.interpreters.conda_environment = None;
+        }
+        if let Some(x) = &self.fallback_python_interpreter_name {
+            config.interpreters.fallback_python_interpreter_name =
+                Some(ConfigOrigin::cli(x.clone()));
+            config.interpreters.python_interpreter_path = None;
             config.interpreters.conda_environment = None;
         }
         if let Some(conda_environment) = &self.conda_environment {
             config.interpreters.conda_environment =
                 Some(ConfigOrigin::cli(conda_environment.clone()));
-            config.interpreters.python_interpreter = None;
+            config.interpreters.python_interpreter_path = None;
+            config.interpreters.fallback_python_interpreter_name = None;
         }
         if let Some(x) = &self.typeshed_path {
             config.typeshed_path = Some(x.clone());
         }
-        if let Some(x) = &self.python_interpreter {
-            config.interpreters.python_interpreter = Some(ConfigOrigin::cli(x.clone()));
-            config.interpreters.conda_environment = None;
-        }
         if let Some(x) = &self.use_ignore_files {
             config.use_ignore_files = *x;
-        }
-        if let Some(x) = &self.ignore_missing_source {
-            config.ignore_missing_source = *x;
         }
         if let Some(x) = &self.untyped_def_behavior {
             config.root.untyped_def_behavior = Some(*x);
         }
-        if let Some(x) = self.permissive_ignores {
-            config.root.permissive_ignores = Some(x);
+        match (self.permissive_ignores, &self.enabled_ignores) {
+            // Special case: if the underlying config sets enabled-ignores and --permissive-ignores
+            // is passed on the command-line, we overwrite enabled-ignores.
+            (Some(x), None)
+                if config.root.permissive_ignores.is_none()
+                    && config.root.enabled_ignores.is_some() =>
+            {
+                config.root.enabled_ignores = Some(if x {
+                    Tool::all()
+                } else {
+                    Tool::default_enabled()
+                });
+            }
+            // Special case: if the underlying config sets permissive-ignores and --enabled-ignores
+            // is passed on the command-line, we disable permissive-ignores and use the specified tools.
+            (None, Some(x))
+                if config.root.permissive_ignores.is_some()
+                    && config.root.enabled_ignores.is_none() =>
+            {
+                config.root.permissive_ignores = None;
+                config.root.enabled_ignores = Some(x.iter().cloned().collect());
+            }
+            _ => {
+                if let Some(x) = self.permissive_ignores {
+                    config.root.permissive_ignores = Some(x);
+                }
+                if let Some(x) = &self.enabled_ignores {
+                    config.root.enabled_ignores = Some(x.iter().cloned().collect());
+                }
+            }
         }
         if let Some(wildcards) = &self.replace_imports_with_any {
             config.root.replace_imports_with_any = Some(
@@ -235,6 +351,9 @@ impl ConfigOverrideArgs {
             for error_kind in &self.ignore {
                 error_config.set_error_severity(*error_kind, Severity::Ignore);
             }
+            for error_kind in &self.info {
+                error_config.set_error_severity(*error_kind, Severity::Info);
+            }
         };
         let root_errors = config.root.errors.get_or_insert_default();
         apply_error_settings(root_errors);
@@ -244,5 +363,9 @@ impl ConfigOverrideArgs {
         }
         let errors = config.configure();
         (ArcId::new(config), errors)
+    }
+
+    pub fn disable_project_excludes_heuristics(&self) -> Option<bool> {
+        self.disable_project_excludes_heuristics
     }
 }

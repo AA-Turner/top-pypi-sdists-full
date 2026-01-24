@@ -33,6 +33,7 @@ from typing import Dict
 
 if TYPE_CHECKING:
     from . import AnswerOption
+    from . import DefaultAnswer
     from . import VisibilityCondition
 
 class EvaluationQuestion(object):
@@ -60,6 +61,7 @@ class EvaluationQuestion(object):
             'visibility_condition': 'VisibilityCondition',
             'answer_options': 'list[AnswerOption]',
             'multiple_select_option_questions': 'list[EvaluationQuestion]',
+            'default_answer': 'DefaultAnswer',
             'is_kill': 'bool',
             'is_critical': 'bool'
         }
@@ -75,6 +77,7 @@ class EvaluationQuestion(object):
             'visibility_condition': 'visibilityCondition',
             'answer_options': 'answerOptions',
             'multiple_select_option_questions': 'multipleSelectOptionQuestions',
+            'default_answer': 'defaultAnswer',
             'is_kill': 'isKill',
             'is_critical': 'isCritical'
         }
@@ -89,6 +92,7 @@ class EvaluationQuestion(object):
         self._visibility_condition = None
         self._answer_options = None
         self._multiple_select_option_questions = None
+        self._default_answer = None
         self._is_kill = None
         self._is_critical = None
 
@@ -336,6 +340,30 @@ class EvaluationQuestion(object):
         
 
         self._multiple_select_option_questions = multiple_select_option_questions
+
+    @property
+    def default_answer(self) -> 'DefaultAnswer':
+        """
+        Gets the default_answer of this EvaluationQuestion.
+        The default selected answer for the question
+
+        :return: The default_answer of this EvaluationQuestion.
+        :rtype: DefaultAnswer
+        """
+        return self._default_answer
+
+    @default_answer.setter
+    def default_answer(self, default_answer: 'DefaultAnswer') -> None:
+        """
+        Sets the default_answer of this EvaluationQuestion.
+        The default selected answer for the question
+
+        :param default_answer: The default_answer of this EvaluationQuestion.
+        :type: DefaultAnswer
+        """
+        
+
+        self._default_answer = default_answer
 
     @property
     def is_kill(self) -> bool:

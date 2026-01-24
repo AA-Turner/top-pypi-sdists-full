@@ -21,15 +21,13 @@ from datarobot.models.api_object import APIObject
 class GuardNemoInfo(APIObject):
     """Details of a NeMo Guardrails moderation guard."""
 
-    _converter = t.Dict(
-        {
-            t.Key("main_config"): t.String(),
-            t.Key("rails_config"): t.String(),
-            t.Key("blocked_terms"): t.String(),
-            t.Key("llm_prompts"): t.String(),
-            t.Key("actions"): t.String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("main_config"): t.String(),
+        t.Key("rails_config"): t.String(),
+        t.Key("blocked_terms"): t.String(),
+        t.Key("llm_prompts"): t.String(),
+        t.Key("actions"): t.String(),
+    }).ignore_extra("*")
 
     schema = _converter
 

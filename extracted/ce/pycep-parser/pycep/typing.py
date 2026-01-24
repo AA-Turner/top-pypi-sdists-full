@@ -1,29 +1,26 @@
-# noqa: A005
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 
-from typing_extensions import NotRequired, TypeAlias
+from typing_extensions import NotRequired
 
 PossibleValue: TypeAlias = "bool | int | str | list[bool | int | str] | dict[str, PossibleValue]"
-PossibleNoneValue: TypeAlias = "PossibleValue | None"
+PossibleNoneValue: TypeAlias = "PossibleValue | None"  # noqa: TC008
 
 ModulePath: TypeAlias = "LocalModulePath | BicepRegistryModulePath | BicepRegistryAliasModulePath | TemplateSpecModulePath | TemplateSpecAliasModulePath"
 ModuleDetail: TypeAlias = "_LocalModulePathDetail | _BicepRegistryModulePathDetail | _BicepRegistryAliasModulePathDetail | _TemplateSpecModulePathDetail | _TemplateSpecAliasModulePathDetail"
 LoopType: TypeAlias = "LoopArray | LoopArrayIndex | LoopObject | LoopRange"
-ElementResponse: TypeAlias = (
-    "ParamResponse | VarResponse | ResourceResponse | ModuleResponse | OutputResponse | TypeResponse"
-)
-Decorator: TypeAlias = "DecoratorAllowed | DecoratorBatchSize | DecoratorDescription | DecoratorMinLength | DecoratorMaxLength | DecoratorMinValue | DecoratorMaxValue | DecoratorMetadata | DecoratorSecure"
+ElementResponse: TypeAlias = "ImportResponse | ParamResponse | VarResponse | ResourceResponse | ModuleResponse | OutputResponse | TypeResponse | ExtensionResponse | FunctionResponse"
+Decorator: TypeAlias = "DecoratorAllowed | DecoratorBatchSize | DecoratorDescription | DecoratorExport | DecoratorMinLength | DecoratorMaxLength | DecoratorMinValue | DecoratorMaxValue | DecoratorMetadata | DecoratorSealed | DecoratorSecure | UnknownDecorator"
 
 ComparisonOperators: TypeAlias = "GreaterThanOrEquals | GreaterThan | LessThanOrEquals | LessThan | Equals | NotEquals | EqualsCaseInsensitive | NotEqualsCaseInsensitive"
 LogicalOperators: TypeAlias = "And | Or | Not | Coalesce | Conditional"
 NumericOperators: TypeAlias = "Add | Divide | Minus | Modulo | Multiply | Substract"
 AccessorOperators: TypeAlias = "IndexAccessor | FunctionAccessor | NestedResourceAccessor | PropertyAccessor"
-Operators: TypeAlias = "ComparisonOperators | LogicalOperators | NumericOperators | AccessorOperators"
+Operators: TypeAlias = "ComparisonOperators | LogicalOperators | NumericOperators | AccessorOperators"  # noqa: TC008
 
 AnyFunctions: TypeAlias = "AnyFunc"
-ArrayFunctions: TypeAlias = "Array | Concat | Contains | Empty | First | Flatten | Intersection | Last | Length | Max | Min | Skip | Take | UnionFunc"
+ArrayFunctions: TypeAlias = "Array | Concat | Contains | Empty | First | Flatten | Intersection | Last | Length | Max | Min | Range | Skip | Take | UnionFunc"
 DateFunctions: TypeAlias = "DateTimeAdd | DateTimeFromEpoch | DateTimeToEpoch | UtcNow"
 DeploymentFunctions: TypeAlias = "Deployment | Environment"
 FileFunctions: TypeAlias = "LoadFileAsBase64 | LoadJsonContent | LoadYamlContent | LoadTextContent"
@@ -33,8 +30,8 @@ NumericFunctions: TypeAlias = "IntFunc"
 ObjectFunctions: TypeAlias = "Json"
 ResourceFunctions: TypeAlias = "ExtensionResourceId | ListFunc | ManagementGroupResourceId | PickZones | Reference | ResourceId | SubscriptionResourceId | TenantResourceId"
 ScopeFunctions: TypeAlias = "ManagementGroup | ResourceGroup | Subscription | Tenant"
-StringFunctions: TypeAlias = "Base64 | Base64ToJson | Base64ToString | DataUri | DataUriToString | EndsWith | Format | Guid | IndexOf | LastIndexOf | NewGuid | Split | Join | StartsWith | String | Substring | ToLower | ToUpper | Trim | UniqueString | Uri | UriComponent | UriComponentToString"
-Functions: TypeAlias = "AnyFunctions | ArrayFunctions | DateFunctions | DeploymentFunctions | FileFunctions | LambdaFunctions | LogicalFunctions | NumericFunctions | ObjectFunctions | ResourceFunctions | ScopeFunctions | StringFunctions"
+StringFunctions: TypeAlias = "Base64 | Base64ToJson | Base64ToString | DataUri | DataUriToString | EndsWith | Format | Guid | IndexOf | Join | LastIndexOf | NewGuid | PadLeft | Replace | Split | StartsWith | String | Substring | ToLower | ToUpper | Trim | UniqueString | Uri | UriComponent | UriComponentToString"
+Functions: TypeAlias = "AnyFunctions | ArrayFunctions | DateFunctions | DeploymentFunctions | FileFunctions | LambdaFunctions | LogicalFunctions | NumericFunctions | ObjectFunctions | ResourceFunctions | ScopeFunctions | StringFunctions | UnknownFunction"
 
 
 ####################
@@ -67,6 +64,27 @@ class ScopeResponse(TypedDict):
     globals: _Scope
 
 
+class ImportAttributes(TypedDict):
+    alias: NotRequired[str]
+    file_path: NotRequired[str]
+    __start_line__: NotRequired[int]
+    __end_line__: NotRequired[int]
+
+
+class _Import(TypedDict):
+    __name__: str
+    __attrs__: ImportAttributes
+
+
+class ImportResponse(TypedDict):
+    imports: _Import
+
+
+class ImportNameAlias(TypedDict):
+    name: str
+    alias: NotRequired[str]
+
+
 class MetadataAttributes(TypedDict):
     value: str
     __start_line__: NotRequired[int]
@@ -80,6 +98,22 @@ class _Metadata(TypedDict):
 
 class MetadataResponse(TypedDict):
     metadata: _Metadata
+
+
+class ExtensionAttributes(TypedDict):
+    alias: NotRequired[str]
+    config: NotRequired[dict[str, Any]]
+    __start_line__: NotRequired[int]
+    __end_line__: NotRequired[int]
+
+
+class _Extension(TypedDict):
+    __name__: str
+    __attrs__: ExtensionAttributes
+
+
+class ExtensionResponse(TypedDict):
+    extensions: _Extension
 
 
 class ParameterAttributes(TypedDict):
@@ -101,6 +135,7 @@ class ParamResponse(TypedDict):
 
 class VariableAttributes(TypedDict):
     decorators: list[Decorator]
+    type: NotRequired[str]
     value: PossibleValue
     __start_line__: NotRequired[int]
     __end_line__: NotRequired[int]
@@ -174,8 +209,34 @@ class ApiTypeVersion(TypedDict):
     api_version: str
 
 
+TypeAttributes: TypeAlias = VariableAttributes
+
+
+class _Types(TypedDict):
+    __name__: str
+    __attrs__: TypeAttributes
+
+
 class TypeResponse(TypedDict):
-    types: _Variables
+    types: _Types
+
+
+class FunctionAttributes(TypedDict):
+    decorators: list[Decorator]
+    args: dict[str, str]
+    type: str
+    expression: PossibleValue
+    __start_line__: NotRequired[int]
+    __end_line__: NotRequired[int]
+
+
+class _Functions(TypedDict):
+    __name__: str
+    __attrs__: FunctionAttributes
+
+
+class FunctionResponse(TypedDict):
+    functions: _Functions
 
 
 ####################
@@ -278,7 +339,7 @@ class LoopArray(TypedDict):
 class _LoopArrayIndexDetail(TypedDict):
     item_name: str
     index_name: str
-    array_name: str
+    array_name: PossibleValue
 
 
 class LoopArrayIndex(TypedDict):
@@ -336,6 +397,10 @@ class DecoratorDescription(TypedDict):
     argument: str
 
 
+class DecoratorExport(TypedDict):
+    type: Literal["export"]
+
+
 class DecoratorMinLength(TypedDict):
     type: Literal["min_length"]
     argument: int
@@ -361,8 +426,31 @@ class DecoratorMetadata(TypedDict):
     argument: dict[str, Any]
 
 
+class DecoratorSealed(TypedDict):
+    type: Literal["sealed"]
+
+
 class DecoratorSecure(TypedDict):
     type: Literal["secure"]
+
+
+####################
+#
+# lambda expression
+#
+####################
+
+
+class _LambdaExpressionDetail(TypedDict):
+    var_1: str
+    var_2: NotRequired[str]
+    var_3: NotRequired[str]
+    expression: PossibleValue
+
+
+class LambdaExpression(TypedDict):
+    type: Literal["lambda_expression"]
+    detail: _LambdaExpressionDetail
 
 
 ####################
@@ -435,7 +523,6 @@ class Empty(TypedDict):
 class First(TypedDict):
     type: Literal["first"]
     parameters: _LengthParameters
-    property_name: NotRequired[str]
 
 
 class _FlattenParameters(TypedDict):
@@ -445,19 +532,16 @@ class _FlattenParameters(TypedDict):
 class Flatten(TypedDict):
     type: Literal["flatten"]
     parameters: _FlattenParameters
-    property_name: NotRequired[str]
 
 
 class Intersection(TypedDict):
     type: Literal["intersection"]
     parameters: _UnionParameters
-    property_name: NotRequired[str]
 
 
 class Last(TypedDict):
     type: Literal["last"]
     parameters: _LengthParameters
-    property_name: NotRequired[str]
 
 
 class _LengthParameters(TypedDict):
@@ -477,6 +561,16 @@ class Max(TypedDict):
 class Min(TypedDict):
     type: Literal["min"]
     parameters: _UnionParameters
+
+
+class _RangeParameters(TypedDict):
+    start_index: PossibleValue
+    count: PossibleValue
+
+
+class Range(TypedDict):
+    type: Literal["range"]
+    parameters: _RangeParameters
 
 
 class _SkipParameters(TypedDict):
@@ -508,7 +602,6 @@ class _UnionParameters(TypedDict):
 class UnionFunc(TypedDict):
     type: Literal["union"]
     parameters: _UnionParameters
-    property_name: NotRequired[str]
 
 
 ####################
@@ -565,12 +658,10 @@ class UtcNow(TypedDict):
 
 class Deployment(TypedDict):
     type: Literal["deployment"]
-    property_name: NotRequired[str]
 
 
 class Environment(TypedDict):
     type: Literal["environment"]
-    property_name: NotRequired[str]
 
 
 ####################
@@ -598,7 +689,6 @@ class _LoadJsonContentParameters(TypedDict):
 class LoadJsonContent(TypedDict):
     type: Literal["load_json_content"]
     parameters: _LoadJsonContentParameters
-    property_name: NotRequired[str]
 
 
 class _LoadYamlContentParameters(TypedDict):
@@ -610,7 +700,6 @@ class _LoadYamlContentParameters(TypedDict):
 class LoadYamlContent(TypedDict):
     type: Literal["load_yaml_content"]
     parameters: _LoadYamlContentParameters
-    property_name: NotRequired[str]
 
 
 class _LoadTextContentParameters(TypedDict):
@@ -632,7 +721,6 @@ class LoadTextContent(TypedDict):
 
 class _FilterParameters(TypedDict):
     input_array: PossibleValue
-    input_element: str
     expression: PossibleValue
 
 
@@ -679,7 +767,6 @@ class _JsonParameters(TypedDict):
 class Json(TypedDict):
     type: Literal["json"]
     parameters: _JsonParameters
-    property_name: NotRequired[str]
 
 
 ####################
@@ -739,7 +826,6 @@ class _ReferenceParameters(TypedDict):
 class Reference(TypedDict):
     type: Literal["reference"]
     parameters: _ReferenceParameters
-    property_name: NotRequired[str]
 
 
 class _ResourceIdParameters(TypedDict):
@@ -792,7 +878,6 @@ class _ManagementGroupParameters(TypedDict):
 class ManagementGroup(TypedDict):
     type: Literal["management_group"]
     parameters: _ManagementGroupParameters
-    property_name: NotRequired[str]
 
 
 class _ResourceGroupParameters(TypedDict):
@@ -803,7 +888,6 @@ class _ResourceGroupParameters(TypedDict):
 class ResourceGroup(TypedDict):
     type: Literal["resource_group"]
     parameters: _ResourceGroupParameters
-    property_name: NotRequired[str]
 
 
 class _SubscriptionParameters(TypedDict):
@@ -813,12 +897,10 @@ class _SubscriptionParameters(TypedDict):
 class Subscription(TypedDict):
     type: Literal["subscription"]
     parameters: _SubscriptionParameters
-    property_name: NotRequired[str]
 
 
 class Tenant(TypedDict):
     type: Literal["tenant"]
-    property_name: NotRequired[str]
 
 
 ####################
@@ -1045,6 +1127,29 @@ class UriComponentToString(TypedDict):
 
 ####################
 #
+# placeholders for unknown built-in and self-defined types
+#
+####################
+
+
+class UnknownDecorator(TypedDict):
+    type: str
+    argument: NotRequired[PossibleValue]
+
+
+class _UnknownFunctionParameters(TypedDict):
+    arg_1: NotRequired[str]
+    arg_2: NotRequired[str]
+    arg_3: NotRequired[str]  # and many more possible
+
+
+class UnknownFunction(TypedDict):
+    type: str
+    parameters: _UnknownFunctionParameters
+
+
+####################
+#
 # Operators
 #
 ####################
@@ -1257,6 +1362,10 @@ class PropertyAccessor(TypedDict):
 
 class BicepJson(TypedDict):
     globals: GlobalsAttributes
+    imports: NotRequired[dict[str, ImportAttributes]]
+    extensions: NotRequired[dict[str, ExtensionAttributes]]
+    types: NotRequired[dict[str, VariableAttributes]]
+    functions: NotRequired[dict[str, FunctionAttributes]]
     parameters: NotRequired[dict[str, ParameterAttributes]]
     variables: NotRequired[dict[str, VariableAttributes]]
     resources: NotRequired[dict[str, ResourceAttributes]]

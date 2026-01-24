@@ -46,12 +46,12 @@ from beartype._check.checkmake import (
 )
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
-from beartype._data.hint.datahintpep import (
+from beartype._data.typing.datatypingport import (
     Hint,
     HintBare,
     TypeIs,
 )
-from beartype._data.hint.datahinttyping import T
+from beartype._data.typing.datatyping import T
 
 # ....................{ VALIDATORS                         }....................
 def die_if_unbearable(
@@ -224,7 +224,7 @@ def is_bearable(
     # Since make_func_tester() is memoized, passing parameters by keyword would
     # raise a non-fatal
     # "_BeartypeUtilCallableCachedKwargsWarning" warning.
-    func_tester = make_func_tester(hint, conf)
+    func_tester = make_func_tester(hint, conf)  # pyright: ignore
 
     # Return true only if the passed object satisfies this hint.
     return func_tester(obj)  # pyright: ignore

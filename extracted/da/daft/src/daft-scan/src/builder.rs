@@ -116,6 +116,7 @@ impl ParquetScanBuilder {
                 self.schema,
                 self.file_path_column,
                 self.hive_partitioning,
+                false,
             )
             .await?,
         );
@@ -251,6 +252,7 @@ impl CsvScanBuilder {
                 self.schema,
                 self.file_path_column,
                 self.hive_partitioning,
+                false,
             )
             .await?,
         );
@@ -269,6 +271,7 @@ pub struct JsonScanBuilder {
     pub hive_partitioning: bool,
     pub buffer_size: Option<usize>,
     pub chunk_size: Option<usize>,
+    pub skip_empty_files: bool,
 }
 
 impl JsonScanBuilder {
@@ -287,6 +290,7 @@ impl JsonScanBuilder {
             hive_partitioning: false,
             buffer_size: None,
             chunk_size: None,
+            skip_empty_files: false,
         }
     }
 
@@ -325,11 +329,17 @@ impl JsonScanBuilder {
         self
     }
 
+    pub fn skip_empty_files(mut self, skip_empty_files: bool) -> Self {
+        self.skip_empty_files = skip_empty_files;
+        self
+    }
+
     /// Creates a logical table scan backed by a JSON scan operator.
     pub async fn finish(self) -> DaftResult<LogicalPlanBuilder> {
         let cfg = JsonSourceConfig {
             buffer_size: self.buffer_size,
             chunk_size: self.chunk_size,
+            skip_empty_files: self.skip_empty_files,
         };
         let operator = Arc::new(
             GlobScanOperator::try_new(
@@ -340,6 +350,7 @@ impl JsonScanBuilder {
                 self.schema,
                 self.file_path_column,
                 self.hive_partitioning,
+                false,
             )
             .await?,
         );
@@ -355,7 +366,7 @@ pub fn delta_scan<T: AsRef<str>>(
 ) -> DaftResult<LogicalPlanBuilder> {
     use crate::storage_config::StorageConfig;
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let io_config = io_config.unwrap_or_default();
 
         let storage_config = StorageConfig {
@@ -401,7 +412,7 @@ pub fn iceberg_scan<T: AsRef<str>>(
 ) -> DaftResult<LogicalPlanBuilder> {
     use pyo3::IntoPyObjectExt;
     let storage_config: StorageConfig = io_config.unwrap_or_default().into();
-    let scan_operator = Python::with_gil(|py| -> DaftResult<ScanOperatorHandle> {
+    let scan_operator = Python::attach(|py| -> DaftResult<ScanOperatorHandle> {
         // iceberg_table = pyiceberg.table.StaticTable.from_metadata(metadata_location)
         let iceberg_table_module = PyModule::import(py, "pyiceberg.table")?;
         let iceberg_static_table = iceberg_table_module.getattr("StaticTable")?;

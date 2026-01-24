@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: ctc-segmentation
+Version: 1.7.4
+Summary: CTC segmentation to align utterances within large audio files.
+Home-page: https://github.com/lumaku/ctc-segmentation
+Author: Ludwig Kuerzinger <ludwig.kuerzinger@tum.de>, Dominik Winkelbauer <dominik.winkelbauer@tum.de>
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+
+# CTC segmentation
+
+CTC segmentation is used to align utterances within audio files.
+It can be combined with CTC-based ASR models.
+This package includes the core functions.
+
+https://github.com/lumaku/ctc-segmentation

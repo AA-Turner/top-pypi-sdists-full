@@ -297,10 +297,19 @@ static PyObject *t_measureunit_createBeaufort(PyTypeObject *type);
 static PyObject *t_measureunit_createGasolineEnergyDensity(PyTypeObject *type);
 #endif
 
+#if U_ICU_VERSION_HEX >= VERSION_HEX(76, 0, 0)
+static PyObject *t_measureunit_createLightSpeed(PyTypeObject *type);
+static PyObject *t_measureunit_createNight(PyTypeObject *type);
+#endif
+
 #if U_ICU_VERSION_HEX >= VERSION_HEX(77, 0, 0)
-static PyObject *t_measureunit_createPortionPer1E9(PyTypeObject *type);
 static PyObject *t_measureunit_withConstantDenominator(t_measureunit *self, PyObject *arg);
 static PyObject *t_measureunit_getConstantDenominator(t_measureunit *self);
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
+static PyObject *t_measureunit_createPartPer1E6(PyTypeObject *type);
+static PyObject *t_measureunit_createPartPer1E9(PyTypeObject *type);
 #endif
 
 static PyMethodDef t_measureunit_methods[] = {
@@ -543,10 +552,17 @@ static PyMethodDef t_measureunit_methods[] = {
 #if U_ICU_VERSION_HEX >= VERSION_HEX(74, 0, 0)
     DECLARE_METHOD(t_measureunit, createGasolineEnergyDensity, METH_NOARGS | METH_CLASS),
 #endif
+#if U_ICU_VERSION_HEX >= VERSION_HEX(76, 0, 0)
+    DECLARE_METHOD(t_measureunit, createLightSpeed, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createNight, METH_NOARGS | METH_CLASS),
+#endif
 #if U_ICU_VERSION_HEX >= VERSION_HEX(77, 0, 0)
-    DECLARE_METHOD(t_measureunit, createPortionPer1E9, METH_NOARGS | METH_CLASS),
     DECLARE_METHOD(t_measureunit, withConstantDenominator, METH_O),
     DECLARE_METHOD(t_measureunit, getConstantDenominator, METH_NOARGS),
+#endif
+#if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
+    DECLARE_METHOD(t_measureunit, createPartPer1E6, METH_NOARGS | METH_CLASS),
+    DECLARE_METHOD(t_measureunit, createPartPer1E9, METH_NOARGS | METH_CLASS),
 #endif
     { NULL, NULL, 0, NULL }
 };
@@ -1174,8 +1190,14 @@ createMU(Beaufort)
 createMU(GasolineEnergyDensity)
 #endif
 
-#if U_ICU_VERSION_HEX >= VERSION_HEX(77, 0, 0)
-createMU(PortionPer1E9)
+#if U_ICU_VERSION_HEX >= VERSION_HEX(76, 0, 0)
+createMU(LightSpeed)
+createMU(Night)
+#endif
+
+#if U_ICU_VERSION_HEX >= VERSION_HEX(78, 0, 0)
+createMU(PartPer1E6)
+createMU(PartPer1E9)
 #endif
 
 /* Measure */

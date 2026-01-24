@@ -201,6 +201,9 @@ class Client(object):
             if http_method == "GET":
                 params["testmode"] = params.get("testmode") or "true"
             elif not data or "testmode" not in data:
+                if not data:
+                    data = {}
+
                 data["testmode"] = params.get("testmode") or True
 
                 # Delete from the params since it's not a valid parameter when the request is not GET
@@ -355,9 +358,26 @@ class Client(object):
         )
         self.set_token(token)
 
-    # TODO Implement https://docs.mollie.com/reference/oauth2/revoke-token
-    # def revoke_oauth_token(self, token, type_hint):
-    #     ...
+    def revoke_oauth_token(self, client_id: str, token: str, type_hint: str) -> requests.Response:
+        """
+        :param client_id: The client ID (string)
+        :param token: The access token to revoke (string)
+        :param type_hint: The type of the token, either 'access_token' or 'refresh_token' (string)
+            Revoking a refresh token revokes all access tokens that were created using the same authorization.
+        """
+        if not hasattr(self, "_oauth_client"):
+            raise RequestSetupError("You need to setup OAuth before you can revoke a token.")
+
+        return self._oauth_client.request(
+            method="DELETE",
+            url=self.OAUTH_TOKEN_URL,
+            data={
+                "token": token,
+                "token_type_hint": type_hint,
+                "client_id": client_id,
+                "client_secret": self.client_secret,
+            },
+        )
 
     def _setup_retry(self) -> None:
         """Configure a retry behaviour on the HTTP client."""

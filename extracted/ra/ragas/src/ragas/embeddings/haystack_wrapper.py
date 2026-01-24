@@ -7,6 +7,20 @@ from ragas.cache import CacheInterface
 from ragas.embeddings.base import BaseRagasEmbeddings
 from ragas.run_config import RunConfig
 
+if t.TYPE_CHECKING:
+    from haystack.components.embedders.azure_text_embedder import (
+        AzureOpenAITextEmbedder,
+    )
+    from haystack.components.embedders.hugging_face_api_text_embedder import (
+        HuggingFaceAPITextEmbedder,
+    )
+    from haystack.components.embedders.openai_text_embedder import (
+        OpenAITextEmbedder,
+    )
+    from haystack.components.embedders.sentence_transformers_text_embedder import (
+        SentenceTransformersTextEmbedder,
+    )
+
 
 class HaystackEmbeddingsWrapper(BaseRagasEmbeddings):
     """
@@ -28,7 +42,12 @@ class HaystackEmbeddingsWrapper(BaseRagasEmbeddings):
 
     def __init__(
         self,
-        embedder: t.Any,
+        embedder: t.Union[
+            "AzureOpenAITextEmbedder",
+            "HuggingFaceAPITextEmbedder",
+            "OpenAITextEmbedder",
+            "SentenceTransformersTextEmbedder",
+        ],
         run_config: t.Optional[RunConfig] = None,
         cache: t.Optional[CacheInterface] = None,
     ):
@@ -74,7 +93,7 @@ class HaystackEmbeddingsWrapper(BaseRagasEmbeddings):
 
         # Initialize an asynchronous pipeline and add the embedder component
         self.async_pipeline = AsyncPipeline()
-        self.async_pipeline.add_component("embedder", self.embedder)
+        self.async_pipeline.add_component("embedder", self.embedder)  # type: ignore[reportArgumentType]
 
         # Set or create the run configuration
         if run_config is None:
@@ -82,7 +101,7 @@ class HaystackEmbeddingsWrapper(BaseRagasEmbeddings):
         self.set_run_config(run_config)
 
     def embed_query(self, text: str) -> t.List[float]:
-        result = self.embedder.run(text=text)
+        result = self.embedder.run(text=text)  # type: ignore[reportAttributeAccessIssue]
         embedding = result["embedding"]
         # Force conversion to float using NumPy's vectorized conversion.
         return t.cast(t.List[float], np.asarray(embedding, dtype=float).tolist())

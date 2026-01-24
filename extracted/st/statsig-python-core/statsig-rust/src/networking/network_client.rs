@@ -13,7 +13,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
-const NON_RETRY_CODES: [u16; 4] = [400, 403, 405, 501];
+const NON_RETRY_CODES: [u16; 6] = [
+    400, // Bad Request
+    403, // Forbidden
+    413, // Payload Too Large
+    405, // Method Not Allowed
+    429, // Too Many Requests
+    501, // Not Implemented
+];
 const SHUTDOWN_ERROR: &str = "Request was aborted because the client is shutting down";
 
 const TAG: &str = stringify!(NetworkClient);
@@ -26,6 +33,7 @@ pub struct NetworkClient {
     disable_network: bool,
     proxy_config: Option<ProxyConfig>,
     silent_on_network_failure: bool,
+    disable_file_streaming: bool,
 }
 
 impl NetworkClient {
@@ -53,6 +61,9 @@ impl NetworkClient {
             disable_network,
             proxy_config,
             silent_on_network_failure: false,
+            disable_file_streaming: options
+                .map(|opts| opts.disable_disk_access.unwrap_or(false))
+                .unwrap_or(false),
         }
     }
 
@@ -91,6 +102,10 @@ impl NetworkClient {
 
         request_args.populate_headers(self.headers.clone());
 
+        if request_args.disable_file_streaming.is_none() {
+            request_args.disable_file_streaming = Some(self.disable_file_streaming);
+        }
+
         let mut merged_headers = request_args.headers.unwrap_or_default();
         if !self.headers.is_empty() {
             merged_headers.extend(self.headers.clone());
@@ -122,7 +137,7 @@ impl NetworkClient {
                 return Err(NetworkError::ShutdownError(request_args.url));
             }
 
-            let response = match self.net_provider.upgrade() {
+            let mut response = match self.net_provider.upgrade() {
                 Some(net_provider) => net_provider.send(&method, &request_args).await,
                 None => {
                     return Err(NetworkError::RequestFailed(
@@ -133,24 +148,30 @@ impl NetworkClient {
                 }
             };
 
+            let content_type = response
+                .data
+                .as_ref()
+                .and_then(|data| data.get_header_ref("content-type"));
+
             log_d!(
                 TAG,
-                "Response ({}): {:?}",
+                "Response url({}) status({:?}) content-type({:?})",
                 &request_args.url,
-                response.status_code
+                response.status_code,
+                content_type
             );
 
             let status = response.status_code;
             let sdk_region_str = response
-                .headers
+                .data
                 .as_ref()
-                .and_then(|h| h.get("x-statsig-region"));
+                .and_then(|data| data.get_header_ref("x-statsig-region").cloned());
             let success = (200..300).contains(&status.unwrap_or(0));
 
             let error_message = response
                 .error
                 .clone()
-                .unwrap_or_else(|| get_error_message_for_status(status, response.data.as_deref()));
+                .unwrap_or_else(|| get_error_message_for_status(status, response.data.as_mut()));
 
             if let Some(key) = request_args.diagnostics_key {
                 let mut end_marker =
@@ -249,14 +270,17 @@ impl NetworkClient {
     }
 }
 
-fn get_error_message_for_status(status: Option<u16>, data: Option<&[u8]>) -> String {
+fn get_error_message_for_status(
+    status: Option<u16>,
+    data: Option<&mut super::ResponseData>,
+) -> String {
     if (200..300).contains(&status.unwrap_or(0)) {
         return String::new();
     }
 
     let mut message = String::new();
     if let Some(data) = data {
-        let lossy_str = String::from_utf8_lossy(data);
+        let lossy_str = data.read_to_string().unwrap_or_default();
         if lossy_str.is_ascii() {
             message = lossy_str.to_string();
         }

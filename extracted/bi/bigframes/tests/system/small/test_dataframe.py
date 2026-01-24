@@ -35,7 +35,7 @@ import bigframes.pandas as bpd
 import bigframes.series as series
 from bigframes.testing.utils import (
     assert_dfs_equivalent,
-    assert_pandas_df_equal,
+    assert_frame_equal,
     assert_series_equal,
     assert_series_equivalent,
 )
@@ -263,7 +263,7 @@ def test_get_rows_with_slice(scalars_dfs, row_slice):
     scalars_df, scalars_pandas_df = scalars_dfs
     bf_result = scalars_df[row_slice].to_pandas()
     pd_result = scalars_pandas_df[row_slice]
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_hasattr(scalars_dfs):
@@ -290,7 +290,7 @@ def test_head_with_custom_column_labels(
     bf_df = scalars_df_index.rename(columns=rename_mapping).head(3)
     bf_result = bf_df.to_pandas(ordered=ordered)
     pd_result = scalars_pandas_df_index.rename(columns=rename_mapping).head(3)
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=not ordered)
+    assert_frame_equal(bf_result, pd_result, ignore_order=not ordered)
 
 
 def test_tail_with_custom_column_labels(scalars_df_index, scalars_pandas_df_index):
@@ -635,7 +635,7 @@ def test_drop_with_custom_column_labels(scalars_dfs):
     pd_result = scalars_pandas_df.rename(columns=rename_mapping).drop(
         columns=dropped_columns
     )
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_df_memory_usage(scalars_dfs):
@@ -671,11 +671,57 @@ def test_df_info(scalars_dfs):
         "dtypes: Float64(1), Int64(3), binary[pyarrow](1), boolean(1), date32[day][pyarrow](1), decimal128(38, 9)[pyarrow](1), duration[us][pyarrow](1), geometry(1), string(1), time64[us][pyarrow](1), timestamp[us, tz=UTC][pyarrow](1), timestamp[us][pyarrow](1)\n"
         "memory usage: 1341 bytes\n"
     )
-
     scalars_df, _ = scalars_dfs
-    bf_result = io.StringIO()
 
+    bf_result = io.StringIO()
     scalars_df.info(buf=bf_result)
+
+    assert expected == bf_result.getvalue()
+
+
+def test_df_info_no_rows(session):
+    expected = (
+        "<class 'bigframes.dataframe.DataFrame'>\n"
+        "Index: 0 entries\n"
+        "Data columns (total 1 columns):\n"
+        "  #  Column    Non-Null Count    Dtype\n"
+        "---  --------  ----------------  -------\n"
+        "  0  col       0 non-null        Float64\n"
+        "dtypes: Float64(1)\n"
+        "memory usage: 0 bytes\n"
+    )
+    df = session.DataFrame({"col": []})
+
+    bf_result = io.StringIO()
+    df.info(buf=bf_result)
+
+    assert expected == bf_result.getvalue()
+
+
+def test_df_info_no_cols(session):
+    expected = (
+        "<class 'bigframes.dataframe.DataFrame'>\n"
+        "Index: 3 entries, 1 to 3\n"
+        "Empty DataFrame\n"
+    )
+    df = session.DataFrame({}, index=[1, 2, 3])
+
+    bf_result = io.StringIO()
+    df.info(buf=bf_result)
+
+    assert expected == bf_result.getvalue()
+
+
+def test_df_info_no_cols_no_rows(session):
+    expected = (
+        "<class 'bigframes.dataframe.DataFrame'>\n"
+        "Index: 0 entries\n"
+        "Empty DataFrame\n"
+    )
+    df = session.DataFrame({})
+
+    bf_result = io.StringIO()
+    df.info(buf=bf_result)
 
     assert expected == bf_result.getvalue()
 
@@ -912,7 +958,7 @@ def test_repr_w_display_options(scalars_dfs, session):
     assert (executions_post - executions_pre) <= 3
 
 
-def test_repr_html_w_all_rows(scalars_dfs, session):
+def test_mimebundle_html_repr_w_all_rows(scalars_dfs, session):
     metrics = session._metrics
     scalars_df, _ = scalars_dfs
     # get a pandas df of the expected format
@@ -922,7 +968,8 @@ def test_repr_html_w_all_rows(scalars_dfs, session):
 
     executions_pre = metrics.execution_count
     # When there are 10 or fewer rows, the outputs should be identical except for the extra note.
-    actual = scalars_df.head(10)._repr_html_()
+    bundle = scalars_df.head(10)._repr_mimebundle_()
+    actual = bundle["text/html"]
     executions_post = metrics.execution_count
 
     with display_options.pandas_repr(bigframes.options.display):
@@ -978,7 +1025,7 @@ def test_take_df(scalars_dfs, indices, axis):
     bf_result = scalars_df.take(indices, axis=axis).to_pandas()
     pd_result = scalars_pandas_df.take(indices, axis=axis)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_filter_df(scalars_dfs):
@@ -990,7 +1037,13 @@ def test_filter_df(scalars_dfs):
     pd_bool_series = scalars_pandas_df["bool_col"]
     pd_result = scalars_pandas_df[pd_bool_series]
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
+
+
+def test_read_gbq_direct_to_batches_row_count(unordered_session):
+    df = unordered_session.read_gbq("bigquery-public-data.usa_names.usa_1910_2013")
+    iter = df.to_pandas_batches()
+    assert iter.total_rows == 5552452
 
 
 def test_df_to_pandas_batches(scalars_dfs):
@@ -1005,7 +1058,7 @@ def test_df_to_pandas_batches(scalars_dfs):
 
     assert 6 == capped_unfiltered_batches.total_rows
     assert len(pd_result) == filtered_batches.total_rows
-    assert_pandas_df_equal(pd.concat(filtered_batches), pd_result)
+    assert_frame_equal(pd.concat(filtered_batches), pd_result)
 
 
 @pytest.mark.parametrize(
@@ -1056,7 +1109,7 @@ def test_assign_new_column_w_literal(scalars_dfs, literal, expected_dtype):
     pd_result = scalars_pandas_df.assign(new_col=new_col_pd)
     pd_result["new_col"] = pd_result["new_col"].astype(expected_dtype)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_assign_new_column_w_loc(scalars_dfs):
@@ -1260,7 +1313,7 @@ def test_assign_existing_column(scalars_dfs):
     # Convert default pandas dtypes `int64` to match BigQuery DataFrames dtypes.
     pd_result["int64_col"] = pd_result["int64_col"].astype("Int64")
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_assign_listlike_to_empty_df(session):
@@ -1272,7 +1325,7 @@ def test_assign_listlike_to_empty_df(session):
 
     pd_result["new_col"] = pd_result["new_col"].astype("Int64")
     pd_result.index = pd_result.index.astype("Int64")
-    assert_pandas_df_equal(bf_result.to_pandas(), pd_result)
+    assert_frame_equal(bf_result.to_pandas(), pd_result)
 
 
 def test_assign_to_empty_df_multiindex_error(session):
@@ -1306,7 +1359,7 @@ def test_assign_series(scalars_dfs, ordered):
     bf_result = df.to_pandas(ordered=ordered)
     pd_result = scalars_pandas_df.assign(new_col=scalars_pandas_df[column_name])
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=not ordered)
+    assert_frame_equal(bf_result, pd_result, ignore_order=not ordered)
 
 
 def test_assign_series_overwrite(scalars_dfs):
@@ -1318,7 +1371,7 @@ def test_assign_series_overwrite(scalars_dfs):
         **{column_name: scalars_pandas_df[column_name] + 3}
     )
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_assign_sequential(scalars_dfs):
@@ -1333,7 +1386,7 @@ def test_assign_sequential(scalars_dfs):
     pd_result["new_col"] = pd_result["new_col"].astype("Int64")
     pd_result["new_col2"] = pd_result["new_col2"].astype("Int64")
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 # Require an index so that the self-join is consistent each time.
@@ -1367,7 +1420,7 @@ def test_assign_different_df(
         new_col=scalars_pandas_df_index[column_name]
     )
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_assign_different_df_w_loc(
@@ -1418,7 +1471,7 @@ def test_assign_callable_lambda(scalars_dfs):
     # Convert default pandas dtypes `int64` to match BigQuery DataFrames dtypes.
     pd_result["new_col"] = pd_result["new_col"].astype("Int64")
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.parametrize(
@@ -1815,9 +1868,7 @@ def test_df_merge(scalars_dfs, merge_how):
         sort=True,
     )
 
-    assert_pandas_df_equal(
-        bf_result, pd_result, ignore_order=True, check_index_type=False
-    )
+    assert_frame_equal(bf_result, pd_result, ignore_order=True, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -1850,9 +1901,7 @@ def test_df_merge_multi_key(scalars_dfs, left_on, right_on):
         sort=True,
     )
 
-    assert_pandas_df_equal(
-        bf_result, pd_result, ignore_order=True, check_index_type=False
-    )
+    assert_frame_equal(bf_result, pd_result, ignore_order=True, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -1882,9 +1931,7 @@ def test_merge_custom_col_name(scalars_dfs, merge_how):
     pandas_right_df = scalars_pandas_df[right_columns]
     pd_result = pandas_left_df.merge(pandas_right_df, merge_how, on, sort=True)
 
-    assert_pandas_df_equal(
-        bf_result, pd_result, ignore_order=True, check_index_type=False
-    )
+    assert_frame_equal(bf_result, pd_result, ignore_order=True, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -1917,9 +1964,7 @@ def test_merge_left_on_right_on(scalars_dfs, merge_how):
         sort=True,
     )
 
-    assert_pandas_df_equal(
-        bf_result, pd_result, ignore_order=True, check_index_type=False
-    )
+    assert_frame_equal(bf_result, pd_result, ignore_order=True, check_index_type=False)
 
 
 def test_self_merge_self_w_on_args():
@@ -1961,7 +2006,7 @@ def test_dataframe_round(scalars_dfs, decimals):
     bf_result = scalars_df.round(decimals).to_pandas()
     pd_result = scalars_pandas_df.round(decimals)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_get_dtypes(scalars_df_default_index):
@@ -2400,13 +2445,19 @@ def test_set_index_key_error(scalars_dfs):
     ("na_position",),
     (("first",), ("last",)),
 )
-def test_sort_index(scalars_dfs, ascending, na_position):
+@pytest.mark.parametrize(
+    ("axis",),
+    ((0,), ("columns",)),
+)
+def test_sort_index(scalars_dfs, ascending, na_position, axis):
     index_column = "int64_col"
     scalars_df, scalars_pandas_df = scalars_dfs
     df = scalars_df.set_index(index_column)
-    bf_result = df.sort_index(ascending=ascending, na_position=na_position).to_pandas()
+    bf_result = df.sort_index(
+        ascending=ascending, na_position=na_position, axis=axis
+    ).to_pandas()
     pd_result = scalars_pandas_df.set_index(index_column).sort_index(
-        ascending=ascending, na_position=na_position
+        ascending=ascending, na_position=na_position, axis=axis
     )
     pandas.testing.assert_frame_equal(bf_result, pd_result)
 
@@ -2437,7 +2488,7 @@ def test_df_pos(scalars_dfs):
     bf_result = (+scalars_df[["int64_col", "numeric_col"]]).to_pandas()
     pd_result = +scalars_pandas_df[["int64_col", "numeric_col"]]
 
-    assert_pandas_df_equal(pd_result, bf_result)
+    assert_frame_equal(pd_result, bf_result)
 
 
 def test_df_neg(scalars_dfs):
@@ -2445,7 +2496,17 @@ def test_df_neg(scalars_dfs):
     bf_result = (-scalars_df[["int64_col", "numeric_col"]]).to_pandas()
     pd_result = -scalars_pandas_df[["int64_col", "numeric_col"]]
 
-    assert_pandas_df_equal(pd_result, bf_result)
+    assert_frame_equal(pd_result, bf_result)
+
+
+def test_df__abs__(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_result = (
+        abs(scalars_df[["int64_col", "numeric_col", "float64_col"]])
+    ).to_pandas()
+    pd_result = abs(scalars_pandas_df[["int64_col", "numeric_col", "float64_col"]])
+
+    assert_frame_equal(pd_result, bf_result)
 
 
 def test_df_invert(scalars_dfs):
@@ -2455,7 +2516,7 @@ def test_df_invert(scalars_dfs):
     bf_result = (~scalars_df[columns]).to_pandas()
     pd_result = ~scalars_pandas_df[columns]
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_df_isnull(scalars_dfs):
@@ -2472,7 +2533,7 @@ def test_df_isnull(scalars_dfs):
     pd_result["string_col"] = pd_result["string_col"].astype(pd.BooleanDtype())
     pd_result["bool_col"] = pd_result["bool_col"].astype(pd.BooleanDtype())
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_df_notnull(scalars_dfs):
@@ -2489,7 +2550,7 @@ def test_df_notnull(scalars_dfs):
     pd_result["string_col"] = pd_result["string_col"].astype(pd.BooleanDtype())
     pd_result["bool_col"] = pd_result["bool_col"].astype(pd.BooleanDtype())
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.parametrize(
@@ -2862,7 +2923,7 @@ def test_scalar_binop(scalars_dfs, op, other_scalar, reverse_operands):
     bf_result = maybe_reversed_op(scalars_df[columns], other_scalar).to_pandas()
     pd_result = maybe_reversed_op(scalars_pandas_df[columns], other_scalar)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_dataframe_string_radd_const(scalars_dfs):
@@ -2878,7 +2939,7 @@ def test_dataframe_string_radd_const(scalars_dfs):
     bf_result = ("prefix" + scalars_df[columns]).to_pandas()
     pd_result = "prefix" + scalars_pandas_df[columns]
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.parametrize(("other_scalar"), [1, -2])
@@ -2890,7 +2951,7 @@ def test_mod(scalars_dfs, other_scalar):
     bf_result = (scalars_df[["int64_col", "int64_too"]] % other_scalar).to_pandas()
     pd_result = scalars_pandas_df[["int64_col", "int64_too"]] % other_scalar
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_scalar_binop_str_exception(scalars_dfs):
@@ -2946,7 +3007,7 @@ def test_series_binop_axis_index(
     bf_result = op(scalars_df[df_columns], scalars_df[series_column]).to_pandas()
     pd_result = op(scalars_pandas_df[df_columns], scalars_pandas_df[series_column])
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.parametrize(
@@ -2974,7 +3035,7 @@ def test_listlike_binop_axis_1_in_memory_data(scalars_dfs, input):
         input = input.to_pandas()
     pd_result = scalars_pandas_df[df_columns].add(input, axis=1)
 
-    assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
 def test_df_reverse_binop_pandas(scalars_dfs):
@@ -2989,7 +3050,7 @@ def test_df_reverse_binop_pandas(scalars_dfs):
     bf_result = pd_series + scalars_df[df_columns].to_pandas()
     pd_result = pd_series + scalars_pandas_df[df_columns]
 
-    assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
 def test_listlike_binop_axis_1_bf_index(scalars_dfs):
@@ -3004,7 +3065,7 @@ def test_listlike_binop_axis_1_bf_index(scalars_dfs):
     )
     pd_result = scalars_pandas_df[df_columns].add(pd.Index([1000, 2000, 3000]), axis=1)
 
-    assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
 def test_binop_with_self_aggregate(scalars_dfs_maybe_ordered):
@@ -3024,7 +3085,7 @@ def test_binop_with_self_aggregate(scalars_dfs_maybe_ordered):
     executions = execution_count_after - execution_count_before
 
     assert executions == 1
-    assert_pandas_df_equal(bf_result, pd_result, check_dtype=False)
+    assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
 def test_binop_with_self_aggregate_w_index_reset(scalars_dfs_maybe_ordered):
@@ -3045,9 +3106,7 @@ def test_binop_with_self_aggregate_w_index_reset(scalars_dfs_maybe_ordered):
 
     assert executions == 1
     pd_result.index = pd_result.index.astype("Int64")
-    assert_pandas_df_equal(
-        bf_result, pd_result, check_dtype=False, check_index_type=False
-    )
+    assert_frame_equal(bf_result, pd_result, check_dtype=False, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -3115,7 +3174,7 @@ def test_series_binop_add_different_table(
         scalars_pandas_df_index[series_column], axis="index"
     )
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=not ordered)
+    assert_frame_equal(bf_result, pd_result, ignore_order=not ordered)
 
 
 # TODO(garrettwu): Test series binop with different index
@@ -3129,8 +3188,6 @@ all_joins = pytest.mark.parametrize(
 @all_joins
 def test_join_same_table(scalars_dfs_maybe_ordered, how):
     bf_df, pd_df = scalars_dfs_maybe_ordered
-    if not bf_df._session._strictly_ordered and how == "cross":
-        pytest.skip("Cross join not supported in partial ordering mode.")
 
     bf_df_a = bf_df.set_index("int64_too")[["string_col", "int64_col"]]
     bf_df_a = bf_df_a.sort_index()
@@ -3150,7 +3207,22 @@ def test_join_same_table(scalars_dfs_maybe_ordered, how):
 
     pd_result = pd_df_a.join(pd_df_b, how=how)
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
+
+
+def test_join_incompatible_key_type_error(scalars_dfs):
+    bf_df, _ = scalars_dfs
+
+    bf_df_a = bf_df.set_index("int64_too")[["string_col", "int64_col"]]
+    bf_df_a = bf_df_a.sort_index()
+
+    bf_df_b = bf_df.set_index("date_col")[["float64_col"]]
+    bf_df_b = bf_df_b[bf_df_b.float64_col > 0]
+    bf_df_b = bf_df_b.sort_values("float64_col")
+
+    with pytest.raises(TypeError):
+        # joining incompatible date, int columns
+        bf_df_a.join(bf_df_b, how="left")
 
 
 @all_joins
@@ -3163,7 +3235,7 @@ def test_join_different_table(
     pd_df_a = scalars_pandas_df_index[["string_col", "int64_col"]]
     pd_df_b = scalars_pandas_df_index.dropna()[["float64_col"]]
     pd_result = pd_df_a.join(pd_df_b, how=how)
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 @all_joins
@@ -3282,7 +3354,7 @@ def test_join_param_on(scalars_dfs, how):
         pd_df_a = pd_df_a.assign(rowindex_2=pd_df_a["rowindex_2"] + 2)
         pd_df_b = pd_df[["float64_col"]]
         pd_result = pd_df_a.join(pd_df_b, on="rowindex_2", how=how)
-        assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+        assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 @all_joins
@@ -3303,7 +3375,7 @@ def test_df_join_series(scalars_dfs, how):
         pd_df_a = pd_df_a.assign(rowindex_2=pd_df_a["rowindex_2"] + 2)
         pd_series_b = pd_df["float64_col"]
         pd_result = pd_df_a.join(pd_series_b, on="rowindex_2", how=how)
-        assert_pandas_df_equal(bf_result, pd_result, ignore_order=True)
+        assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
 @pytest.mark.parametrize(
@@ -3466,7 +3538,8 @@ def test_dataframe_diff(scalars_df_index, scalars_pandas_df_index, periods):
 def test_dataframe_pct_change(scalars_df_index, scalars_pandas_df_index, periods):
     col_names = ["int64_too", "float64_col", "int64_col"]
     bf_result = scalars_df_index[col_names].pct_change(periods=periods).to_pandas()
-    pd_result = scalars_pandas_df_index[col_names].pct_change(periods=periods)
+    # pandas 3.0 does not automatically ffill anymore
+    pd_result = scalars_pandas_df_index[col_names].ffill().pct_change(periods=periods)
     pd.testing.assert_frame_equal(
         pd_result,
         bf_result,
@@ -3582,7 +3655,7 @@ def test_df_transpose():
     pd_result = pd_df.T
     bf_result = bf_df.T.to_pandas()
 
-    pd.testing.assert_frame_equal(pd_result, bf_result, check_dtype=False)
+    assert_frame_equal(pd_result, bf_result, check_dtype=False, nulls_are_nan=True)  # type: ignore
 
 
 def test_df_transpose_error():
@@ -3749,12 +3822,18 @@ def test_df_pivot_hockey(hockey_df, hockey_pandas_df, values, index, columns):
 
 
 @pytest.mark.parametrize(
-    ("values", "index", "columns", "aggfunc"),
+    ("values", "index", "columns", "aggfunc", "fill_value"),
     [
-        (("culmen_length_mm", "body_mass_g"), "species", "sex", "std"),
-        (["body_mass_g", "culmen_length_mm"], ("species", "island"), "sex", "sum"),
-        ("body_mass_g", "sex", ["island", "species"], "mean"),
-        ("culmen_depth_mm", "island", "species", "max"),
+        (("culmen_length_mm", "body_mass_g"), "species", "sex", "std", 1.0),
+        (
+            ["body_mass_g", "culmen_length_mm"],
+            ("species", "island"),
+            "sex",
+            "sum",
+            None,
+        ),
+        ("body_mass_g", "sex", ["island", "species"], "mean", None),
+        ("culmen_depth_mm", "island", "species", "max", -1),
     ],
 )
 def test_df_pivot_table(
@@ -3764,12 +3843,21 @@ def test_df_pivot_table(
     index,
     columns,
     aggfunc,
+    fill_value,
 ):
     bf_result = penguins_df_default_index.pivot_table(
-        values=values, index=index, columns=columns, aggfunc=aggfunc
+        values=values,
+        index=index,
+        columns=columns,
+        aggfunc=aggfunc,
+        fill_value=fill_value,
     ).to_pandas()
     pd_result = penguins_pandas_df_default_index.pivot_table(
-        values=values, index=index, columns=columns, aggfunc=aggfunc
+        values=values,
+        index=index,
+        columns=columns,
+        aggfunc=aggfunc,
+        fill_value=fill_value,
     )
     pd.testing.assert_frame_equal(
         bf_result, pd_result, check_dtype=False, check_column_type=False
@@ -3915,7 +4003,7 @@ def test_iloc_slice_nested(scalars_df_index, scalars_pandas_df_index, ordered):
     bf_result = scalars_df_index.iloc[1:].iloc[1:].to_pandas(ordered=ordered)
     pd_result = scalars_pandas_df_index.iloc[1:].iloc[1:]
 
-    assert_pandas_df_equal(bf_result, pd_result, ignore_order=not ordered)
+    assert_frame_equal(bf_result, pd_result, ignore_order=not ordered)
 
 
 @pytest.mark.parametrize(
@@ -4280,10 +4368,8 @@ def test_dataframe_aggregates_axis_1(scalars_df_index, scalars_pandas_df_index, 
     bf_result = op(scalars_df_index[col_names]).to_pandas()
     pd_result = op(scalars_pandas_df_index[col_names])
 
-    # Pandas may produce narrower numeric types, but bigframes always produces Float64
-    pd_result = pd_result.astype("Float64")
     # Pandas has object index type
-    pd.testing.assert_series_equal(pd_result, bf_result, check_index_type=False)
+    assert_series_equal(pd_result, bf_result, check_index_type=False, check_dtype=False)
 
 
 def test_dataframe_aggregates_median(scalars_df_index, scalars_pandas_df_index):
@@ -4438,7 +4524,7 @@ def test_df_kurt(scalars_dfs):
         "n_default",
     ],
 )
-def test_sample(scalars_dfs, frac, n, random_state):
+def test_df_to_pandas_sample(scalars_dfs, frac, n, random_state):
     scalars_df, _ = scalars_dfs
     df = scalars_df.sample(frac=frac, n=n, random_state=random_state)
     bf_result = df.to_pandas()
@@ -4449,7 +4535,7 @@ def test_sample(scalars_dfs, frac, n, random_state):
     assert bf_result.shape[1] == scalars_df.shape[1]
 
 
-def test_sample_determinism(penguins_df_default_index):
+def test_df_to_pandas_sample_determinism(penguins_df_default_index):
     df = penguins_df_default_index.sample(n=100, random_state=12345).head(15)
     bf_result = df.to_pandas()
     bf_result2 = df.to_pandas()
@@ -4457,7 +4543,7 @@ def test_sample_determinism(penguins_df_default_index):
     pandas.testing.assert_frame_equal(bf_result, bf_result2)
 
 
-def test_sample_raises_value_error(scalars_dfs):
+def test_df_to_pandas_sample_raises_value_error(scalars_dfs):
     scalars_df, _ = scalars_dfs
     with pytest.raises(
         ValueError, match="Only one of 'n' or 'frac' parameter can be specified."
@@ -4581,7 +4667,7 @@ def test_df_rows_filter_items(scalars_df_index, scalars_pandas_df_index):
     # Pandas uses int64 instead of Int64 (nullable) dtype.
     pd_result.index = pd_result.index.astype(pd.Int64Dtype())
     # Ignore ordering as pandas order differently depending on version
-    assert_pandas_df_equal(
+    assert_frame_equal(
         bf_result,
         pd_result,
         ignore_order=True,
@@ -4853,7 +4939,7 @@ def test_df_setattr_index():
     pd_df.index = pandas.Index([4, 5])
     bf_df.index = [4, 5]
 
-    assert_pandas_df_equal(
+    assert_frame_equal(
         pd_df, bf_df.to_pandas(), check_index_type=False, check_dtype=False
     )
 
@@ -4868,7 +4954,7 @@ def test_df_setattr_columns():
 
     bf_df.columns = pandas.Index([4, 5, 6])
 
-    assert_pandas_df_equal(
+    assert_frame_equal(
         pd_df, bf_df.to_pandas(), check_index_type=False, check_dtype=False
     )
 
@@ -4881,7 +4967,7 @@ def test_df_setattr_modify_column():
     pd_df.my_column = [4, 5]
     bf_df.my_column = [4, 5]
 
-    assert_pandas_df_equal(
+    assert_frame_equal(
         pd_df, bf_df.to_pandas(), check_index_type=False, check_dtype=False
     )
 
@@ -5163,9 +5249,7 @@ def test_df_from_dict_columns_orient():
     data = {"a": [1, 2], "b": [3.3, 2.4]}
     bf_result = dataframe.DataFrame.from_dict(data, orient="columns").to_pandas()
     pd_result = pd.DataFrame.from_dict(data, orient="columns")
-    assert_pandas_df_equal(
-        pd_result, bf_result, check_dtype=False, check_index_type=False
-    )
+    assert_frame_equal(pd_result, bf_result, check_dtype=False, check_index_type=False)
 
 
 def test_df_from_dict_index_orient():
@@ -5174,9 +5258,7 @@ def test_df_from_dict_index_orient():
         data, orient="index", columns=["col1", "col2"]
     ).to_pandas()
     pd_result = pd.DataFrame.from_dict(data, orient="index", columns=["col1", "col2"])
-    assert_pandas_df_equal(
-        pd_result, bf_result, check_dtype=False, check_index_type=False
-    )
+    assert_frame_equal(pd_result, bf_result, check_dtype=False, check_index_type=False)
 
 
 def test_df_from_dict_tight_orient():
@@ -5190,9 +5272,7 @@ def test_df_from_dict_tight_orient():
 
     bf_result = dataframe.DataFrame.from_dict(data, orient="tight").to_pandas()
     pd_result = pd.DataFrame.from_dict(data, orient="tight")
-    assert_pandas_df_equal(
-        pd_result, bf_result, check_dtype=False, check_index_type=False
-    )
+    assert_frame_equal(pd_result, bf_result, check_dtype=False, check_index_type=False)
 
 
 def test_df_from_records():
@@ -5202,9 +5282,7 @@ def test_df_from_records():
         records, columns=["c1", "c2"]
     ).to_pandas()
     pd_result = pd.DataFrame.from_records(records, columns=["c1", "c2"])
-    assert_pandas_df_equal(
-        pd_result, bf_result, check_dtype=False, check_index_type=False
-    )
+    assert_frame_equal(pd_result, bf_result, check_dtype=False, check_index_type=False)
 
 
 def test_df_to_dict(scalars_df_index, scalars_pandas_df_index):
@@ -5518,6 +5596,23 @@ def test_df_cached(scalars_df_index):
     pandas.testing.assert_frame_equal(df.to_pandas(), df_cached_copy.to_pandas())
 
 
+def test_df_cached_many_index_cols(scalars_df_index):
+    index_cols = [
+        "int64_too",
+        "time_col",
+        "int64_col",
+        "bool_col",
+        "date_col",
+        "timestamp_col",
+        "string_col",
+    ]
+    df = scalars_df_index.set_index(index_cols)
+    df = df[df["rowindex_2"] % 2 == 0]
+
+    df_cached_copy = df.cache()
+    pandas.testing.assert_frame_equal(df.to_pandas(), df_cached_copy.to_pandas())
+
+
 def test_assign_after_binop_row_joins():
     pd_df = pd.DataFrame(
         {
@@ -5534,7 +5629,7 @@ def test_assign_after_binop_row_joins():
     bf_df["metric_diff"] = bf_df.metric1 - bf_df.metric2
     pd_df["metric_diff"] = pd_df.metric1 - pd_df.metric2
 
-    assert_pandas_df_equal(bf_df.to_pandas(), pd_df)
+    assert_frame_equal(bf_df.to_pandas(), pd_df)
 
 
 def test_df_cache_with_implicit_join(scalars_df_index):
@@ -5703,7 +5798,7 @@ def test_query_complexity_repeated_joins(
 
     bf_result = bf_df.to_pandas()
     pd_result = pd_df
-    assert_pandas_df_equal(bf_result, pd_result, check_index_type=False)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
 def test_query_complexity_repeated_subtrees(
@@ -5717,7 +5812,7 @@ def test_query_complexity_repeated_subtrees(
         bf_df = bpd.concat(10 * [bf_df]).head(5)
     bf_result = bf_df.to_pandas()
     pd_result = pd_df
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.skipif(
@@ -5734,7 +5829,7 @@ def test_query_complexity_repeated_analytic(scalars_df_index, scalars_pandas_df_
         pd_df = pd_df.diff()
     bf_result = bf_df.to_pandas()
     pd_result = pd_df
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_to_gbq_and_create_dataset(session, scalars_df_index, dataset_id_not_created):
@@ -5863,21 +5958,15 @@ def test_dataframe_explode_xfail(col_names):
         pytest.param("datetime_col", "5M", "epoch"),
         pytest.param("datetime_col", "3Q", "start_day"),
         pytest.param("datetime_col", "3YE", "start"),
-        pytest.param(
-            "int64_col", "100D", "start", marks=pytest.mark.xfail(raises=TypeError)
-        ),
-        pytest.param(
-            "datetime_col", "100D", "end", marks=pytest.mark.xfail(raises=ValueError)
-        ),
     ],
 )
-def test__resample_with_column(
+def test_resample_with_column(
     scalars_df_index, scalars_pandas_df_index, on, rule, origin
 ):
     # TODO: supply a reason why this isn't compatible with pandas 1.x
     pytest.importorskip("pandas", minversion="2.0.0")
     bf_result = (
-        scalars_df_index._resample(rule=rule, on=on, origin=origin)[
+        scalars_df_index.resample(rule=rule, on=on, origin=origin)[
             ["int64_col", "int64_too"]
         ]
         .max()
@@ -5891,33 +5980,57 @@ def test__resample_with_column(
     )
 
 
+@pytest.mark.parametrize("index_col", ["timestamp_col", "datetime_col"])
 @pytest.mark.parametrize(
-    ("append", "level", "col", "rule"),
+    ("index_append", "level"),
+    [(True, 1), (False, None), (False, 0)],
+)
+@pytest.mark.parametrize(
+    "rule",
     [
-        pytest.param(False, None, "timestamp_col", "100d"),
-        pytest.param(True, 1, "timestamp_col", "1200h"),
-        pytest.param(False, None, "datetime_col", "100d"),
+        # TODO(tswast): support timedeltas and dataoffsets.
+        # TODO(tswast): support bins that default to "right".
+        "100d",
+        "1200h",
     ],
 )
-def test__resample_with_index(
-    scalars_df_index, scalars_pandas_df_index, append, level, col, rule
+# TODO(tswast): support "right"
+@pytest.mark.parametrize("closed", ["left", None])
+# TODO(tswast): support "right"
+@pytest.mark.parametrize("label", ["left", None])
+@pytest.mark.parametrize(
+    "origin",
+    ["epoch", "start", "start_day"],  # TODO(tswast): support end, end_day.
+)
+def test_resample_with_index(
+    scalars_df_index,
+    scalars_pandas_df_index,
+    index_append,
+    level,
+    index_col,
+    rule,
+    closed,
+    origin,
+    label,
 ):
     # TODO: supply a reason why this isn't compatible with pandas 1.x
     pytest.importorskip("pandas", minversion="2.0.0")
-    scalars_df_index = scalars_df_index.set_index(col, append=append)
-    scalars_pandas_df_index = scalars_pandas_df_index.set_index(col, append=append)
+    scalars_df_index = scalars_df_index.set_index(index_col, append=index_append)
+    scalars_pandas_df_index = scalars_pandas_df_index.set_index(
+        index_col, append=index_append
+    )
     bf_result = (
         scalars_df_index[["int64_col", "int64_too"]]
-        ._resample(rule=rule, level=level)
+        .resample(rule=rule, level=level, closed=closed, origin=origin, label=label)
         .min()
         .to_pandas()
     )
     pd_result = (
         scalars_pandas_df_index[["int64_col", "int64_too"]]
-        .resample(rule=rule, level=level)
+        .resample(rule=rule, level=level, closed=closed, origin=origin, label=label)
         .min()
     )
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.parametrize(
@@ -5958,7 +6071,7 @@ def test__resample_with_index(
         ),
     ],
 )
-def test__resample_start_time(rule, origin, data):
+def test_resample_start_time(rule, origin, data):
     # TODO: supply a reason why this isn't compatible with pandas 1.x
     pytest.importorskip("pandas", minversion="2.0.0")
     col = "timestamp_col"
@@ -5966,7 +6079,7 @@ def test__resample_start_time(rule, origin, data):
     scalars_pandas_df_index = pd.DataFrame(data).set_index(col)
     scalars_pandas_df_index.index.name = None
 
-    bf_result = scalars_df_index._resample(rule=rule, origin=origin).min().to_pandas()
+    bf_result = scalars_df_index.resample(rule=rule, origin=origin).min().to_pandas()
 
     pd_result = scalars_pandas_df_index.resample(rule=rule, origin=origin).min()
 
@@ -6015,7 +6128,7 @@ def test_df_astype_python_types(scalars_dfs):
 def test_astype_invalid_type_fail(scalars_dfs):
     bf_df, _ = scalars_dfs
 
-    with pytest.raises(TypeError, match=r".*Share your usecase with.*"):
+    with pytest.raises(TypeError, match=r".*Share your use case with.*"):
         bf_df.astype(123)
 
 
@@ -6077,6 +6190,28 @@ def test_agg_with_dict_strs(scalars_dfs):
     pd_result.index = pd_result.index.astype("string[pyarrow]")
 
     pd.testing.assert_series_equal(
+        bf_result, pd_result, check_dtype=False, check_index_type=False
+    )
+
+
+def test_df_agg_with_builtins(scalars_dfs):
+    bf_df, pd_df = scalars_dfs
+
+    bf_result = (
+        bf_df[["int64_col", "bool_col"]]
+        .dropna()
+        .groupby(bf_df.int64_too % 2)
+        .agg({"int64_col": [len, sum, min, max, list], "bool_col": [all, any, max]})
+        .to_pandas()
+    )
+    pd_result = (
+        pd_df[["int64_col", "bool_col"]]
+        .dropna()
+        .groupby(pd_df.int64_too % 2)
+        .agg({"int64_col": [len, sum, min, max, list], "bool_col": [all, any, max]})
+    )
+
+    pd.testing.assert_frame_equal(
         bf_result, pd_result, check_dtype=False, check_index_type=False
     )
 

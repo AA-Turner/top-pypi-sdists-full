@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 from huggingface_hub import constants
 from huggingface_hub._space_api import SpaceHardware
@@ -30,7 +30,7 @@ class JobStage(str, Enum):
     ```py
     assert JobStage.COMPLETED == "COMPLETED"
     ```
-
+    Possible values are: `COMPLETED`, `CANCELED`, `ERROR`, `DELETED`, `RUNNING`.
     Taken from https://github.com/huggingface/moon-landing/blob/main/server/job_types/JobInfo.ts#L61 (private url).
     """
 
@@ -71,13 +71,13 @@ class JobInfo:
         space_id (`str` or `None`):
             The Docker image from Hugging Face Spaces used for the Job.
             Can be None if docker_image is present instead.
-        command (`List[str]` or `None`):
+        command (`list[str]` or `None`):
             Command of the Job, e.g. `["python", "-c", "print('hello world')"]`
-        arguments (`List[str]` or `None`):
+        arguments (`list[str]` or `None`):
             Arguments passed to the command
-        environment (`Dict[str]` or `None`):
+        environment (`dict[str]` or `None`):
             Environment variables of the Job as a dictionary.
-        secrets (`Dict[str]` or `None`):
+        secrets (`dict[str]` or `None`):
             Secret environment variables of the Job (encrypted).
         flavor (`str` or `None`):
             Flavor for the hardware, as in Hugging Face Spaces. See [`SpaceHardware`] for possible values.
@@ -111,10 +111,10 @@ class JobInfo:
     created_at: Optional[datetime]
     docker_image: Optional[str]
     space_id: Optional[str]
-    command: Optional[List[str]]
-    arguments: Optional[List[str]]
-    environment: Optional[Dict[str, Any]]
-    secrets: Optional[Dict[str, Any]]
+    command: Optional[list[str]]
+    arguments: Optional[list[str]]
+    environment: Optional[dict[str, Any]]
+    secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     status: JobStatus
     owner: JobOwner
@@ -148,13 +148,13 @@ class JobInfo:
 class JobSpec:
     docker_image: Optional[str]
     space_id: Optional[str]
-    command: Optional[List[str]]
-    arguments: Optional[List[str]]
-    environment: Optional[Dict[str, Any]]
-    secrets: Optional[Dict[str, Any]]
+    command: Optional[list[str]]
+    arguments: Optional[list[str]]
+    environment: Optional[dict[str, Any]]
+    secrets: Optional[dict[str, Any]]
     flavor: Optional[SpaceHardware]
     timeout: Optional[int]
-    tags: Optional[List[str]]
+    tags: Optional[list[str]]
     arch: Optional[str]
 
     def __init__(self, **kwargs) -> None:
@@ -202,7 +202,7 @@ class ScheduledJobInfo:
             Scheduled Job ID.
         created_at (`datetime` or `None`):
             When the scheduled Job was created.
-        tags (`List[str]` or `None`):
+        tags (`list[str]` or `None`):
             The tags of the scheduled Job.
         schedule (`str` or `None`):
             One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
@@ -260,17 +260,105 @@ class ScheduledJobInfo:
         self.owner = JobOwner(id=owner["id"], name=owner["name"], type=owner["type"])
 
 
+@dataclass
+class JobAccelerator:
+    """
+    Contains information about a Job accelerator (GPU).
+
+    Args:
+        type (`str`):
+            Type of accelerator, e.g. `"gpu"`.
+        model (`str`):
+            Model of accelerator, e.g. `"T4"`, `"A10G"`, `"A100"`, `"L4"`, `"L40S"`.
+        quantity (`str`):
+            Number of accelerators, e.g. `"1"`, `"2"`, `"4"`, `"8"`.
+        vram (`str`):
+            Total VRAM, e.g. `"16 GB"`, `"24 GB"`.
+        manufacturer (`str`):
+            Manufacturer of the accelerator, e.g. `"Nvidia"`.
+    """
+
+    type: str
+    model: str
+    quantity: str
+    vram: str
+    manufacturer: str
+
+    def __init__(self, **kwargs) -> None:
+        self.type = kwargs["type"]
+        self.model = kwargs["model"]
+        self.quantity = kwargs["quantity"]
+        self.vram = kwargs["vram"]
+        self.manufacturer = kwargs["manufacturer"]
+
+
+@dataclass
+class JobHardware:
+    """
+    Contains information about available Job hardware.
+
+    Args:
+        name (`str`):
+            Machine identifier, e.g. `"cpu-basic"`, `"a10g-large"`.
+        pretty_name (`str`):
+            Human-readable name, e.g. `"CPU Basic"`, `"Nvidia A10G - large"`.
+        cpu (`str`):
+            CPU specification, e.g. `"2 vCPU"`, `"12 vCPU"`.
+        ram (`str`):
+            RAM specification, e.g. `"16 GB"`, `"46 GB"`.
+        accelerator (`JobAccelerator` or `None`):
+            GPU/accelerator details if available.
+        unit_cost_micro_usd (`int`):
+            Cost in micro-dollars per unit, e.g. `167` (= $0.000167).
+        unit_cost_usd (`float`):
+            Cost in USD per unit, e.g. `0.000167`.
+        unit_label (`str`):
+            Cost unit period, e.g. `"minute"`.
+
+    Example:
+
+    ```python
+    >>> from huggingface_hub import list_jobs_hardware
+    >>> hardware_list = list_jobs_hardware()
+    >>> hardware_list[0]
+    JobHardware(name='cpu-basic', pretty_name='CPU Basic', cpu='2 vCPU', ram='16 GB', accelerator=None, unit_cost_micro_usd=167, unit_cost_usd=0.000167, unit_label='minute')
+    >>> hardware_list[0].name
+    'cpu-basic'
+    ```
+    """
+
+    name: str
+    pretty_name: str
+    cpu: str
+    ram: str
+    accelerator: Optional[JobAccelerator]
+    unit_cost_micro_usd: int
+    unit_cost_usd: float
+    unit_label: str
+
+    def __init__(self, **kwargs) -> None:
+        self.name = kwargs["name"]
+        self.pretty_name = kwargs["prettyName"]
+        self.cpu = kwargs["cpu"]
+        self.ram = kwargs["ram"]
+        accelerator = kwargs.get("accelerator")
+        self.accelerator = JobAccelerator(**accelerator) if accelerator else None
+        self.unit_cost_micro_usd = kwargs["unitCostMicroUSD"]
+        self.unit_cost_usd = kwargs["unitCostUSD"]
+        self.unit_label = kwargs["unitLabel"]
+
+
 def _create_job_spec(
     *,
     image: str,
-    command: List[str],
-    env: Optional[Dict[str, Any]],
-    secrets: Optional[Dict[str, Any]],
+    command: list[str],
+    env: Optional[dict[str, Any]],
+    secrets: Optional[dict[str, Any]],
     flavor: Optional[SpaceHardware],
     timeout: Optional[Union[int, float, str]],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     # prepare job spec to send to HF Jobs API
-    job_spec: Dict[str, Any] = {
+    job_spec: dict[str, Any] = {
         "command": command,
         "arguments": [],
         "environment": env or {},

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpy2-robjects
-Version: 3.6.2
+Version: 3.6.3
 Summary: Python interface to the R language (embedded R)
 Author-email: Laurent Gautier <lgautier@gmail.com>
 License: GPLv2+

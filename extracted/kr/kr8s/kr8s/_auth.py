@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 import base64
 import ipaddress
@@ -75,6 +75,8 @@ class KubeAuth:
             self.server = ""
             if self._url:
                 logger.debug("URL specified manually")
+                if self._kubeconfig_path_or_dict is not False:
+                    await self._load_kubeconfig()
                 self.server = self._url
             else:
                 if self._kubeconfig_path_or_dict is not False:
@@ -115,6 +117,12 @@ class KubeAuth:
     @namespace.setter
     def namespace(self, value: str):
         self._namespace = value
+
+    @property
+    def proxy(self) -> Optional[str]:
+        if "proxy-url" in self._cluster:
+            return self._cluster["proxy-url"]
+        return None
 
     async def _load_kubeconfig(self) -> None:
         """Load kubernetes auth from kubeconfig."""

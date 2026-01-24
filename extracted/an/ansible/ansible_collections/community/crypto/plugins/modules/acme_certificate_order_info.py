@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = """
 module: acme_certificate_order_info
 author: Felix Fontein (@felixfontein)
@@ -15,9 +14,8 @@ description:
   - Obtain information for an ACME v2 order.
     This can be used during the process of obtaining a new certificate with the
     L(ACME protocol,https://tools.ietf.org/html/rfc8555) from a Certificate
-    Authority such as L(Let's Encrypt,https://letsencrypt.org/) or
-    L(Buypass,https://www.buypass.com/). This module does not support ACME v1, the
-    original version of the ACME protocol before standardization.
+    Authority such as L(Let's Encrypt,https://letsencrypt.org/).
+    This module does not support ACME v1, the original version of the ACME protocol before standardization.
   - This module needs to be used in conjunction with the
     M(community.crypto.acme_certificate_order_create),
     M(community.crypto.acme_certificate_order_validate), and
@@ -136,7 +134,7 @@ order:
         - Encoded in the date format defined in L(RFC 3339, https://www.rfc-editor.org/rfc/rfc3339).
       type: str
       returned: depending on order
-    notAfter (optional, string):
+    notAfter:
       description:
         - The requested value of the C(notAfter) field in the certificate.
         - Encoded in the date format defined in L(RFC 3339, https://www.rfc-editor.org/rfc/rfc3339).

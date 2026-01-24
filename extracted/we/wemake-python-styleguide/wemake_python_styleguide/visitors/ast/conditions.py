@@ -4,15 +4,22 @@ from collections.abc import Mapping
 from typing import ClassVar, TypeAlias, final
 
 from wemake_python_styleguide.logic import source
+from wemake_python_styleguide.logic.nodes import get_context
 from wemake_python_styleguide.logic.tree import (
     attributes,
     compares,
     ifs,
     operators,
+    pattern_matching,
+)
+from wemake_python_styleguide.logic.walk import (
+    are_variables_deleted,
+    get_names_from_target,
 )
 from wemake_python_styleguide.types import AnyIf, AnyNodes
 from wemake_python_styleguide.violations import (
     best_practices,
+    consistency,
     refactoring,
 )
 from wemake_python_styleguide.visitors.base import BaseNodeVisitor
@@ -188,3 +195,57 @@ class ChainedIsVisitor(BaseNodeVisitor):
             self.add_violation(refactoring.ChainedIsViolation(node))
 
         self.generic_visit(node)
+
+
+@final
+class SimplifiableMatchVisitor(BaseNodeVisitor):
+    """Checks for match statements that can be simplified to if/else."""
+
+    def visit_Match(self, node: ast.Match) -> None:
+        """Checks match statements."""
+        self._check_simplifiable_match(node)
+        self.generic_visit(node)
+
+    def _check_simplifiable_match(self, node: ast.Match) -> None:
+        cases = node.cases
+        if len(cases) == 2:
+            first, second = cases
+
+            if not pattern_matching.is_wildcard_pattern(second):
+                return
+
+            if pattern_matching.is_irrefutable_binding(
+                first.pattern
+            ) or pattern_matching.is_simple_pattern(first.pattern):
+                self.add_violation(consistency.SimplifiableMatchViolation(node))
+
+
+@final
+class LeakingForLoopVisitor(BaseNodeVisitor):
+    """Finds 'for' loops directly inside class or module bodies."""
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Checks that there are no 'for' loops inside class body."""
+        self._check_for_loops(node.body)
+        self.generic_visit(node)
+
+    def visit_Module(self, node: ast.Module) -> None:
+        """Checks that there are no 'for' loops inside module body."""
+        self._check_for_loops(node.body)
+        self.generic_visit(node)
+
+    def _check_for_loops(self, body: list[ast.stmt]) -> None:
+        for subnode in body:
+            if not isinstance(subnode, ast.For):
+                continue
+
+            loop_vars = get_names_from_target(subnode.target)
+
+            if not are_variables_deleted(
+                loop_vars,
+                body,
+                context=get_context(subnode),
+            ):
+                self.add_violation(
+                    best_practices.LeakingForLoopViolation(subnode),
+                )

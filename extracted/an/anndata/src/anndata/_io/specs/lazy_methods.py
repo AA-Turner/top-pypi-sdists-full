@@ -25,7 +25,7 @@ from anndata.compat import (
     ZarrGroup,
 )
 
-from .registry import _LAZY_REGISTRY, IOSpec
+from .registry import _LAZY_REGISTRY, IOSpec, read_elem
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from .registry import LazyDataStructures, LazyReader
 
     BlockInfo = Mapping[
-        Literal[None],
+        None,
         dict[str, Sequence[tuple[int, int]]],
     ]
 
@@ -195,6 +195,9 @@ def resolve_chunks(
     return elem.chunks
 
 
+# TODO: `map_blocks` of a string array in h5py is so insanely slow on benchmarking that in the case someone has
+# a pure string annotation (not categoricals! or nullables strings!), it's probably better to pay the memory penalty.
+# In the long run, it might be good to figure out what exactly is going on here but for now, this will do.
 @_LAZY_REGISTRY.register_read(H5Array, IOSpec("string-array", "0.2.0"))
 def read_h5_string_array(
     elem: H5Array,
@@ -204,10 +207,8 @@ def read_h5_string_array(
 ) -> DaskArray:
     import dask.array as da
 
-    from anndata._io.h5ad import read_dataset
-
     chunks = resolve_chunks(elem, chunks, tuple(elem.shape))
-    return da.from_array(read_dataset(elem), chunks=chunks)
+    return da.from_array(read_elem(elem), chunks=chunks)
 
 
 @_LAZY_REGISTRY.register_read(H5Array, IOSpec("array", "0.2.0"))
@@ -269,7 +270,10 @@ def _gen_xarray_dict_iterator_from_elems(
                     "base_path_or_zarr_group": v.base_path_or_zarr_group,
                     "elem_name": v.elem_name,
                     "is_nullable_string": isinstance(v, MaskedArray)
-                    and v.dtype == NULLABLE_NUMPY_STRING_TYPE,
+                    and (
+                        v.dtype == NULLABLE_NUMPY_STRING_TYPE
+                        or isinstance(v.dtype, pd.StringDtype | np.dtypes.StringDType)
+                    ),
                 },
             )
         elif k == dim_name:
@@ -295,6 +299,10 @@ def read_dataframe(
     use_range_index: bool = False,
     chunks: tuple[int] | None = None,
 ) -> Dataset2D:
+    from xarray.core.indexing import BasicIndexer
+
+    from ...experimental.backed._lazy_arrays import MaskedArray
+
     elem_dict = {
         k: _reader.read_elem(elem[k], chunks=chunks)
         for k in [*elem.attrs["column-order"], elem.attrs["_index"]]
@@ -303,8 +311,13 @@ def read_dataframe(
     # which is used below as well.
     if not use_range_index:
         dim_name = elem.attrs["_index"]
-        # no sense in reading this in multiple times
-        index = elem_dict[dim_name].compute()
+        # no sense in reading this in multiple times since xarray requires an in-memory index
+        if isinstance(elem_dict[dim_name], DaskArray):
+            index = elem_dict[dim_name].compute()
+        elif isinstance(elem_dict[dim_name], MaskedArray):
+            index = elem_dict[dim_name][BasicIndexer((slice(None),))]
+        else:
+            raise NotImplementedError()
     else:
         dim_name = DUMMY_RANGE_INDEX_KEY
         index = pd.RangeIndex(len(elem_dict[elem.attrs["_index"]])).astype("str")

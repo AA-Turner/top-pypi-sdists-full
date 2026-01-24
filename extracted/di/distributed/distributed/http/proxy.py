@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 
 from tornado import web
@@ -46,7 +47,7 @@ try:
 
             worker = f"{self.host}:{port}"
             if not check_worker_dashboard_exits(self.scheduler, worker):
-                msg = "Worker <%s> does not exist" % worker
+                msg = f"Worker &lt;{html.escape(worker)}&gt; does not exist"
                 self.set_status(400)
                 self.finish(msg)
                 return
@@ -97,8 +98,8 @@ except ImportError:
 
         def get(self, port, host, proxied_path):
             worker_url = f"{host}:{port}/{proxied_path}"
-            msg = """
-                <p> Try navigating to <a href=http://{}>{}</a> for your worker dashboard </p>
+            msg = f"""
+                <p> Try navigating to <a href=http://{worker_url}>{worker_url}</a> for your worker dashboard </p>
 
                 <p>
                 Dask tried to proxy you to that page through your
@@ -116,10 +117,7 @@ except ImportError:
                 but less common in production clusters.  Your IT administrators
                 will know more
                 </p>
-            """.format(
-                worker_url,
-                worker_url,
-            )
+            """
             self.write(msg)
 
 

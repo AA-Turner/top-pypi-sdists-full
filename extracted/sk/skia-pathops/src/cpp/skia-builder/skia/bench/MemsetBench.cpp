@@ -7,7 +7,7 @@
 
 #include "bench/Benchmark.h"
 #include "include/private/base/SkTemplates.h"
-#include "src/core/SkOpts.h"
+#include "src/core/SkMemset.h"
 
 using namespace skia_private;
 
@@ -19,7 +19,7 @@ public:
         , fBuffer(fN)
         , fName(SkStringPrintf("memset%zu_%zu", sizeof(T)*8, bytes)) {}
 
-    bool isSuitableFor(Backend backend) override { return backend == kNonRendering_Backend; }
+    bool isSuitableFor(Backend backend) override { return backend == Backend::kNonRendering; }
     const char* onGetName() override { return fName.c_str(); }
 
     void onDraw(int loops, SkCanvas*) override;
@@ -48,32 +48,32 @@ template <> void MemsetBench<uint16_t>::onDraw(int loops, SkCanvas*) {
     }
 }
 
-DEF_BENCH(return (new MemsetBench<uint64_t>(16)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(64)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(256)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(512)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(768)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(1024)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(2048)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(4096)));
-DEF_BENCH(return (new MemsetBench<uint64_t>(65536)));
+DEF_BENCH(return (new MemsetBench<uint64_t>(16)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(64)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(256)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(512)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(768)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(1024)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(2048)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(4096)))
+DEF_BENCH(return (new MemsetBench<uint64_t>(65536)))
 
-DEF_BENCH(return (new MemsetBench<uint32_t>(16)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(64)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(256)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(512)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(768)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(1024)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(2048)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(4096)));
-DEF_BENCH(return (new MemsetBench<uint32_t>(65536)));
+DEF_BENCH(return (new MemsetBench<uint32_t>(16)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(64)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(256)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(512)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(768)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(1024)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(2048)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(4096)))
+DEF_BENCH(return (new MemsetBench<uint32_t>(65536)))
 
-DEF_BENCH(return (new MemsetBench<uint16_t>(16)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(64)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(256)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(512)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(768)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(1024)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(2048)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(4096)));
-DEF_BENCH(return (new MemsetBench<uint16_t>(65536)));
+DEF_BENCH(return (new MemsetBench<uint16_t>(16)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(64)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(256)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(512)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(768)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(1024)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(2048)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(4096)))
+DEF_BENCH(return (new MemsetBench<uint16_t>(65536)))

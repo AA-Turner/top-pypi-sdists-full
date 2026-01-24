@@ -1,9 +1,14 @@
+"""Pydantic v1 type manager.
+
+Maps schema types to Pydantic v1 specific types (constr, conint, AnyUrl, etc.).
+"""
+
 from __future__ import annotations
 
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from datamodel_code_generator.format import DatetimeClassType, PythonVersion, PythonVersionMin
+from datamodel_code_generator.format import DateClassType, DatetimeClassType, PythonVersion, PythonVersionMin
 from datamodel_code_generator.imports import (
     IMPORT_ANY,
     IMPORT_DATE,
@@ -16,6 +21,7 @@ from datamodel_code_generator.imports import (
     IMPORT_PENDULUM_TIME,
     IMPORT_TIME,
     IMPORT_TIMEDELTA,
+    IMPORT_ULID,
     IMPORT_UUID,
 )
 from datamodel_code_generator.model.pydantic.imports import (
@@ -63,6 +69,7 @@ def type_map_factory(
     pattern_key: str,
     use_pendulum: bool,  # noqa: FBT001
 ) -> dict[Types, DataType]:
+    """Create a mapping of schema types to Pydantic v1 data types."""
     data_type_int = data_type(type="int")
     data_type_float = data_type(type="float")
     data_type_str = data_type(type="str")
@@ -80,6 +87,8 @@ def type_map_factory(
         Types.binary: data_type(type="bytes"),
         Types.date: data_type.from_import(IMPORT_DATE),
         Types.date_time: data_type.from_import(IMPORT_DATETIME),
+        Types.date_time_local: data_type.from_import(IMPORT_DATETIME),
+        Types.time_local: data_type.from_import(IMPORT_TIME),
         Types.timedelta: data_type.from_import(IMPORT_TIMEDELTA),
         Types.path: data_type.from_import(IMPORT_PATH),
         Types.password: data_type.from_import(IMPORT_SECRET_STR),
@@ -90,6 +99,7 @@ def type_map_factory(
         Types.uuid3: data_type.from_import(IMPORT_UUID3),
         Types.uuid4: data_type.from_import(IMPORT_UUID4),
         Types.uuid5: data_type.from_import(IMPORT_UUID5),
+        Types.ulid: data_type.from_import(IMPORT_ULID),
         Types.uri: data_type.from_import(IMPORT_ANYURL),
         Types.hostname: data_type.from_import(
             IMPORT_CONSTR,
@@ -121,6 +131,7 @@ def type_map_factory(
 
 
 def strict_type_map_factory(data_type: type[DataType]) -> dict[StrictTypes, DataType]:
+    """Create a mapping of strict types to Pydantic v1 strict data types."""
     return {
         StrictTypes.int: data_type.from_import(IMPORT_STRICT_INT, strict=True),
         StrictTypes.float: data_type.from_import(IMPORT_STRICT_FLOAT, strict=True),
@@ -151,9 +162,17 @@ escape_characters = str.maketrans({
     "\t": r"\t",
 })
 
+HOSTNAME_REGEX = (  # Pydantic v1 requires \Z anchor (not $) to avoid matching trailing newline
+    r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])\.)*"
+    r"([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9])\Z"
+)
+
 
 class DataTypeManager(_DataTypeManager):
+    """Manage data type mappings for Pydantic v1 models."""
+
     PATTERN_KEY: ClassVar[str] = "regex"
+    HOSTNAME_REGEX: ClassVar[str] = HOSTNAME_REGEX
 
     def __init__(  # noqa: PLR0913, PLR0917
         self,
@@ -162,21 +181,28 @@ class DataTypeManager(_DataTypeManager):
         use_generic_container_types: bool = False,  # noqa: FBT001, FBT002
         strict_types: Sequence[StrictTypes] | None = None,
         use_non_positive_negative_number_constrained_types: bool = False,  # noqa: FBT001, FBT002
+        use_decimal_for_multiple_of: bool = False,  # noqa: FBT001, FBT002
         use_union_operator: bool = False,  # noqa: FBT001, FBT002
         use_pendulum: bool = False,  # noqa: FBT001, FBT002
+        use_standard_primitive_types: bool = False,  # noqa: FBT001, FBT002, ARG002
         target_datetime_class: DatetimeClassType | None = None,
-        treat_dot_as_module: bool = False,  # noqa: FBT001, FBT002
+        target_date_class: DateClassType | None = None,  # noqa: ARG002
+        treat_dot_as_module: bool | None = None,  # noqa: FBT001
+        use_serialize_as_any: bool = False,  # noqa: FBT001, FBT002
     ) -> None:
+        """Initialize the DataTypeManager with Pydantic v1 type mappings."""
         super().__init__(
-            python_version,
-            use_standard_collections,
-            use_generic_container_types,
-            strict_types,
-            use_non_positive_negative_number_constrained_types,
-            use_union_operator,
-            use_pendulum,
-            target_datetime_class,
-            treat_dot_as_module,
+            python_version=python_version,
+            use_standard_collections=use_standard_collections,
+            use_generic_container_types=use_generic_container_types,
+            strict_types=strict_types,
+            use_non_positive_negative_number_constrained_types=use_non_positive_negative_number_constrained_types,
+            use_decimal_for_multiple_of=use_decimal_for_multiple_of,
+            use_union_operator=use_union_operator,
+            use_pendulum=use_pendulum,
+            target_datetime_class=target_datetime_class,
+            treat_dot_as_module=treat_dot_as_module,
+            use_serialize_as_any=use_serialize_as_any,
         )
 
         self.type_map: dict[Types, DataType] = self.type_map_factory(
@@ -209,6 +235,7 @@ class DataTypeManager(_DataTypeManager):
         pattern_key: str,
         target_datetime_class: DatetimeClassType | None,  # noqa: ARG002
     ) -> dict[Types, DataType]:
+        """Create type mapping with Pydantic v1 specific types."""
         return type_map_factory(
             data_type,
             strict_types,
@@ -217,6 +244,7 @@ class DataTypeManager(_DataTypeManager):
         )
 
     def transform_kwargs(self, kwargs: dict[str, Any], filter_: set[str]) -> dict[str, str]:
+        """Transform schema kwargs to Pydantic v1 field kwargs."""
         return {self.kwargs_schema_to_model.get(k, k): v for (k, v) in kwargs.items() if v is not None and k in filter_}
 
     def get_data_int_type(  # noqa: PLR0911
@@ -224,6 +252,7 @@ class DataTypeManager(_DataTypeManager):
         types: Types,
         **kwargs: Any,
     ) -> DataType:
+        """Get int data type with constraints (conint, PositiveInt, etc.)."""
         data_type_kwargs: dict[str, Any] = self.transform_kwargs(kwargs, number_kwargs)
         strict = StrictTypes.int in self.strict_types
         if data_type_kwargs:
@@ -249,9 +278,16 @@ class DataTypeManager(_DataTypeManager):
         types: Types,
         **kwargs: Any,
     ) -> DataType:
+        """Get float data type with constraints (confloat, PositiveFloat, etc.)."""
         data_type_kwargs = self.transform_kwargs(kwargs, number_kwargs)
         strict = StrictTypes.float in self.strict_types
         if data_type_kwargs:
+            # Use Decimal instead of float when multipleOf is present to avoid floating-point precision issues
+            if self.use_decimal_for_multiple_of and "multiple_of" in data_type_kwargs:
+                return self.data_type.from_import(
+                    IMPORT_CONDECIMAL,
+                    kwargs={k: Decimal(str(v)) for k, v in data_type_kwargs.items()},
+                )
             if not strict:
                 if data_type_kwargs == {"gt": 0}:
                     return self.data_type.from_import(IMPORT_POSITIVE_FLOAT)
@@ -270,6 +306,7 @@ class DataTypeManager(_DataTypeManager):
         return self.type_map[types]
 
     def get_data_decimal_type(self, types: Types, **kwargs: Any) -> DataType:
+        """Get decimal data type with constraints (condecimal)."""
         data_type_kwargs = self.transform_kwargs(kwargs, number_kwargs)
         if data_type_kwargs:
             return self.data_type.from_import(
@@ -279,11 +316,12 @@ class DataTypeManager(_DataTypeManager):
         return self.type_map[types]
 
     def get_data_str_type(self, types: Types, **kwargs: Any) -> DataType:
+        """Get string data type with constraints (constr)."""
         data_type_kwargs: dict[str, Any] = self.transform_kwargs(kwargs, string_kwargs)
         strict = StrictTypes.str in self.strict_types
         if data_type_kwargs:
             if strict:
-                data_type_kwargs["strict"] = True
+                data_type_kwargs["strict"] = True  # ty: ignore
             if self.PATTERN_KEY in data_type_kwargs:
                 escaped_regex = data_type_kwargs[self.PATTERN_KEY].translate(escape_characters)
                 # TODO: remove unneeded escaped characters
@@ -294,6 +332,7 @@ class DataTypeManager(_DataTypeManager):
         return self.type_map[types]
 
     def get_data_bytes_type(self, types: Types, **kwargs: Any) -> DataType:
+        """Get bytes data type with constraints (conbytes)."""
         data_type_kwargs: dict[str, Any] = self.transform_kwargs(kwargs, bytes_kwargs)
         strict = StrictTypes.bytes in self.strict_types
         if data_type_kwargs and not strict:
@@ -307,8 +346,11 @@ class DataTypeManager(_DataTypeManager):
     def get_data_type(  # noqa: PLR0911
         self,
         types: Types,
+        *,
+        field_constraints: bool = False,
         **kwargs: Any,
     ) -> DataType:
+        """Get data type with appropriate constraints for the given type."""
         if types == Types.string:
             return self.get_data_str_type(types, **kwargs)
         if types in {Types.int32, Types.int64, Types.integer}:
@@ -321,5 +363,10 @@ class DataTypeManager(_DataTypeManager):
             return self.get_data_bytes_type(types, **kwargs)
         if types == Types.boolean and StrictTypes.bool in self.strict_types:
             return self.strict_type_map[StrictTypes.bool]
+        if types == Types.hostname and field_constraints:
+            strict = StrictTypes.str in self.strict_types
+            if strict:
+                return self.strict_type_map[StrictTypes.str]
+            return self.data_type(type="str")
 
         return self.type_map[types]

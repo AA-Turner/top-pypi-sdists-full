@@ -29,6 +29,7 @@ class IsolationLevel(str, Enum):
     ONLINE_READONLY_INCONSISTENT = "ONLINE READONLY INCONSISTENT"
     STALE_READONLY = "STALE READONLY"
     SNAPSHOT_READONLY = "SNAPSHOT READONLY"
+    SNAPSHOT_READWRITE = "SNAPSHOT READWRITE"
     AUTOCOMMIT = "AUTOCOMMIT"
 
 
@@ -56,6 +57,9 @@ _ydb_isolation_settings_map = {
     ),
     IsolationLevel.SNAPSHOT_READONLY: _IsolationSettings(
         ydb.QuerySnapshotReadOnly(), interactive=True
+    ),
+    IsolationLevel.SNAPSHOT_READWRITE: _IsolationSettings(
+        ydb.QuerySnapshotReadWrite(), interactive=True
     ),
 }
 
@@ -117,6 +121,7 @@ class BaseConnection:
         self.request_settings: ydb.BaseRequestSettings = (
             ydb.BaseRequestSettings()
         )
+        self.retry_settings: ydb.RetrySettings = ydb.RetrySettings()
 
     def set_isolation_level(self, isolation_level: IsolationLevel) -> None:
         if self._tx_context and self._tx_context.tx_id:
@@ -150,6 +155,12 @@ class BaseConnection:
 
     def get_ydb_request_settings(self) -> ydb.BaseRequestSettings:
         return self.request_settings
+
+    def set_ydb_retry_settings(self, value: ydb.RetrySettings) -> None:
+        self.retry_settings = value
+
+    def get_ydb_retry_settings(self) -> ydb.RetrySettings:
+        return self.retry_settings
 
     def _get_request_settings(self) -> ydb.BaseRequestSettings:
         settings = self.request_settings.make_copy()
@@ -210,6 +221,7 @@ class Connection(BaseConnection):
             tx_context=self._tx_context,
             table_path_prefix=self.table_path_prefix,
             request_settings=self.request_settings,
+            retry_settings=self.retry_settings,
         )
 
     def wait_ready(self, timeout: int = 10) -> None:
@@ -234,20 +246,22 @@ class Connection(BaseConnection):
 
     @handle_ydb_errors
     def commit(self) -> None:
-        if self._tx_context and self._tx_context.tx_id:
+        if self._tx_context:
             settings = self._get_request_settings()
             self._tx_context.commit(settings=settings)
-            self._session_pool.release(self._session)
             self._tx_context = None
+        if self._session:
+            self._session_pool.release(self._session)
             self._session = None
 
     @handle_ydb_errors
     def rollback(self) -> None:
-        if self._tx_context and self._tx_context.tx_id:
+        if self._tx_context:
             settings = self._get_request_settings()
             self._tx_context.rollback(settings=settings)
-            self._session_pool.release(self._session)
             self._tx_context = None
+        if self._session:
+            self._session_pool.release(self._session)
             self._session = None
 
     @handle_ydb_errors
@@ -400,6 +414,7 @@ class AsyncConnection(BaseConnection):
             tx_context=self._tx_context,
             table_path_prefix=self.table_path_prefix,
             request_settings=self.request_settings,
+            retry_settings=self.retry_settings,
         )
 
     async def wait_ready(self, timeout: int = 10) -> None:
@@ -424,21 +439,23 @@ class AsyncConnection(BaseConnection):
 
     @handle_ydb_errors
     async def commit(self) -> None:
-        if self._session and self._tx_context and self._tx_context.tx_id:
+        if self._tx_context:
             settings = self._get_request_settings()
             await self._tx_context.commit(settings=settings)
+            self._tx_context = None
+        if self._session:
             await self._session_pool.release(self._session)
             self._session = None
-            self._tx_context = None
 
     @handle_ydb_errors
     async def rollback(self) -> None:
-        if self._session and self._tx_context and self._tx_context.tx_id:
+        if self._tx_context:
             settings = self._get_request_settings()
             await self._tx_context.rollback(settings=settings)
+            self._tx_context = None
+        if self._session:
             await self._session_pool.release(self._session)
             self._session = None
-            self._tx_context = None
 
     @handle_ydb_errors
     async def close(self) -> None:

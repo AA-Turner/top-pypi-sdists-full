@@ -11,15 +11,13 @@ def brush_stroke(
     *,
     stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
     | None = None,
-    mode: typing.Literal["NORMAL", "INVERT", "SMOOTH", "ERASE"] | None = "NORMAL",
+    mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
+    brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
 ) -> None:
     """Sculpt curves using a brush
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param stroke: Stroke
-        :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
         :param mode: Stroke Mode, Action taken when a paint stroke is made
 
     NORMAL
@@ -27,15 +25,20 @@ def brush_stroke(
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+
+    None
+    None -- Apply brush normally.
 
     SMOOTH
-    Smooth -- Switch brush to smooth mode for duration of stroke.
+    Smooth -- Switch to smooth brush for duration of stroke.
 
     ERASE
-    Erase -- Switch brush to erase mode for duration of stroke.
-        :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
+    Erase -- Switch to erase brush for duration of stroke.
+
+    MASK
+    Mask -- Switch to mask brush for duration of stroke.
         :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :type pen_flip: bool | None
     """
 
 def min_distance_edit(
@@ -43,11 +46,7 @@ def min_distance_edit(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Change the minimum distance used by the density brush
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Change the minimum distance used by the density brush"""
 
 def select_grow(
     execution_context: int | str | None = None,
@@ -58,10 +57,7 @@ def select_grow(
 ) -> None:
     """Select curves which are close to curves that are selected already
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param distance: Distance, By how much to grow the selection
-    :type distance: float | None
     """
 
 def select_random(
@@ -77,16 +73,9 @@ def select_random(
 ) -> None:
     """Randomizes existing selection or create new random selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param seed: Seed, Source of randomness
-    :type seed: int | None
     :param partial: Partial, Allow points or curves to be selected partially
-    :type partial: bool | None
     :param probability: Probability, Chance of every point or curve being included in the selection
-    :type probability: float | None
     :param min: Min, Minimum value for the random selection
-    :type min: float | None
     :param constant_per_curve: Constant per Curve, The generated random number is the same for every control point of a curve
-    :type constant_per_curve: bool | None
     """

@@ -1,0 +1,13 @@
+[project]
+name = "langgraph-continuous-test"
+version = "0.1.0"
+description = "Continuous stress test for Agent Server"
+requires-python = ">=3.13"
+dependencies = [
+    "langgraph-sdk>=0.2.10",
+    "click>=8.0.0",
+    "structlog>=24.1.0",
+    "datadog-api-client>=2.0.0",
+    "python-dateutil>=2.8.0",
+    "httpx>=0.27.0",
+]

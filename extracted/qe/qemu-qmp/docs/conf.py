@@ -137,7 +137,6 @@ html_theme = 'sphinx_rtd_theme'
 # https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html#theme-options
 html_theme_options = {
     'collapse_navigation': False,
-    'display_version': True,
     'prev_next_buttons_location': 'both',
 }
 
@@ -183,6 +182,8 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'qemu': ('https://www.qemu.org/docs/master', None),
 }
+
+intersphinx_disabled_reftypes = []
 
 # -- Options for todo extension ----------------------------------------------
 

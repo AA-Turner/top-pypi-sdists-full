@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from emmet.core.utils import utcnow
-
 from typing import Literal
 
-from datetime import datetime
+from emmet.core.types.typing import DateTimeType
 
 
 class GeneralStoreDoc(BaseModel):
@@ -20,9 +18,8 @@ class GeneralStoreDoc(BaseModel):
 
     markdown: str | None = Field(None, description="Markdown data.")
 
-    meta: dict | None = Field(None, description="Metadata.")
+    meta: dict[str, str] | None = Field(None, description="Metadata.")
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for when this document was last updated",
-        default_factory=utcnow,
     )

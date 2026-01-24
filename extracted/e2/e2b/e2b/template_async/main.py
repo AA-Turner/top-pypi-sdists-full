@@ -1,23 +1,175 @@
+from datetime import datetime
 from typing import Callable, Optional
 
+from typing_extensions import Unpack
+
+from e2b.api.client.client import AuthenticatedClient
+from e2b.connection_config import ApiParams, ConnectionConfig
+from e2b.template.consts import RESOLVE_SYMLINKS
+from e2b.template.logger import LogEntry, LogEntryEnd, LogEntryStart
 from e2b.template.main import TemplateBase, TemplateClass
+from e2b.template.types import BuildInfo, InstructionType
+from e2b.template.utils import read_dockerignore
 
-import os
-from datetime import datetime
-
-from e2b.connection_config import ConnectionConfig
-from e2b.api import AsyncApiClient
-from e2b.template.types import LogEntry, InstructionType
 from .build_api import (
+    check_alias_exists,
+    get_build_status,
     get_file_upload_link,
     request_build,
     trigger_build,
     upload_file,
     wait_for_build_finish,
 )
+from e2b.api.client_async import get_api_client
 
 
 class AsyncTemplate(TemplateBase):
+    """
+    Asynchronous template builder for E2B sandboxes.
+    """
+
+    @staticmethod
+    async def _build(
+        template: TemplateClass,
+        api_client: AuthenticatedClient,
+        alias: str,
+        cpu_count: int = 2,
+        memory_mb: int = 1024,
+        skip_cache: bool = False,
+        on_build_logs: Optional[Callable[[LogEntry], None]] = None,
+    ) -> BuildInfo:
+        """
+        Internal implementation of the template build process
+
+        :param template: The template to build
+        :param api_client: Authenticated API client
+        :param alias: Alias name for the template
+        :param cpu_count: Number of CPUs allocated to the sandbox
+        :param memory_mb: Amount of memory in MB allocated to the sandbox
+        :param skip_cache: If True, forces a complete rebuild ignoring cache
+        :param on_build_logs: Callback function to receive build logs during the build process
+        """
+        if skip_cache:
+            template._template._force = True
+
+        # Create template
+        if on_build_logs:
+            on_build_logs(
+                LogEntry(
+                    timestamp=datetime.now(),
+                    level="info",
+                    message=f"Requesting build for template: {alias}",
+                )
+            )
+
+        response = await request_build(
+            api_client,
+            name=alias,
+            cpu_count=cpu_count,
+            memory_mb=memory_mb,
+        )
+
+        template_id = response.template_id
+        build_id = response.build_id
+
+        if on_build_logs:
+            on_build_logs(
+                LogEntry(
+                    timestamp=datetime.now(),
+                    level="info",
+                    message=f"Template created with ID: {template_id}, Build ID: {build_id}",
+                )
+            )
+
+        instructions_with_hashes = template._template._instructions_with_hashes()
+
+        # Upload files
+        for index, file_upload in enumerate(instructions_with_hashes):
+            if file_upload["type"] != InstructionType.COPY:
+                continue
+
+            args = file_upload.get("args", [])
+            src = args[0] if len(args) > 0 else None
+            force_upload = file_upload.get("forceUpload")
+            files_hash = file_upload.get("filesHash", None)
+            resolve_symlinks = file_upload.get("resolveSymlinks", RESOLVE_SYMLINKS)
+
+            if src is None or files_hash is None:
+                raise ValueError("Source path and files hash are required")
+
+            stack_trace = None
+            if index + 1 < len(template._template._stack_traces):
+                stack_trace = template._template._stack_traces[index + 1]
+
+            file_info = await get_file_upload_link(
+                api_client, template_id, files_hash, stack_trace
+            )
+
+            if (force_upload and file_info.url) or (
+                file_info.present is False and file_info.url
+            ):
+                await upload_file(
+                    api_client,
+                    src,
+                    template._template._file_context_path,
+                    file_info.url,
+                    [
+                        *template._template._file_ignore_patterns,
+                        *read_dockerignore(template._template._file_context_path),
+                    ],
+                    resolve_symlinks,
+                    stack_trace,
+                )
+                if on_build_logs:
+                    on_build_logs(
+                        LogEntry(
+                            timestamp=datetime.now(),
+                            level="info",
+                            message=f"Uploaded '{src}'",
+                        )
+                    )
+            else:
+                if on_build_logs:
+                    on_build_logs(
+                        LogEntry(
+                            timestamp=datetime.now(),
+                            level="info",
+                            message=f"Skipping upload of '{src}', already cached",
+                        )
+                    )
+
+        if on_build_logs:
+            on_build_logs(
+                LogEntry(
+                    timestamp=datetime.now(),
+                    level="info",
+                    message="All file uploads completed",
+                )
+            )
+
+        # Start build
+        if on_build_logs:
+            on_build_logs(
+                LogEntry(
+                    timestamp=datetime.now(),
+                    level="info",
+                    message="Starting building...",
+                )
+            )
+
+        await trigger_build(
+            api_client,
+            template_id,
+            build_id,
+            template._template._serialize(instructions_with_hashes),
+        )
+
+        return BuildInfo(
+            alias=alias,
+            template_id=template_id,
+            build_id=build_id,
+        )
+
     @staticmethod
     async def build(
         template: TemplateClass,
@@ -26,126 +178,61 @@ class AsyncTemplate(TemplateBase):
         memory_mb: int = 1024,
         skip_cache: bool = False,
         on_build_logs: Optional[Callable[[LogEntry], None]] = None,
-        api_key: Optional[str] = None,
-        domain: Optional[str] = None,
-    ) -> None:
-        domain = domain or os.environ.get("E2B_DOMAIN", "e2b.dev")
-        config = ConnectionConfig(
-            domain=domain, api_key=api_key or os.environ.get("E2B_API_KEY")
-        )
-        client = AsyncApiClient(
-            config,
-            require_api_key=True,
-            require_access_token=False,
-            limits=TemplateBase._limits,
+        **opts: Unpack[ApiParams],
+    ) -> BuildInfo:
+        """
+        Build and deploy a template to E2B infrastructure.
+
+        :param template: The template to build
+        :param alias: Alias name for the template
+        :param cpu_count: Number of CPUs allocated to the sandbox
+        :param memory_mb: Amount of memory in MB allocated to the sandbox
+        :param skip_cache: If True, forces a complete rebuild ignoring cache
+        :param on_build_logs: Callback function to receive build logs during the build process
+
+        Example
+        ```python
+        from e2b import AsyncTemplate
+
+        template = (
+            AsyncTemplate()
+            .from_python_image('3')
+            .copy('requirements.txt', '/home/user/')
+            .run_cmd('pip install -r /home/user/requirements.txt')
         )
 
-        if skip_cache:
-            template._template._force = True
-
-        with client as api_client:
-            # Create template
+        await AsyncTemplate.build(
+            template,
+            alias='my-python-env',
+            cpu_count=2,
+            memory_mb=1024
+        )
+        ```
+        """
+        try:
             if on_build_logs:
                 on_build_logs(
-                    LogEntry(
+                    LogEntryStart(
                         timestamp=datetime.now(),
-                        level="info",
-                        message=f"Requesting build for template: {alias}",
+                        message="Build started",
                     )
                 )
 
-            response = await request_build(
-                api_client,
-                name=alias,
-                cpu_count=cpu_count,
-                memory_mb=memory_mb,
+            config = ConnectionConfig(**opts)
+            api_client = get_api_client(
+                config,
+                require_api_key=True,
+                require_access_token=False,
             )
 
-            template_id = response.template_id
-            build_id = response.build_id
-
-            if on_build_logs:
-                on_build_logs(
-                    LogEntry(
-                        timestamp=datetime.now(),
-                        level="info",
-                        message=f"Template created with ID: {template_id}, Build ID: {build_id}",
-                    )
-                )
-
-            instructions_with_hashes = template._template._instructions_with_hashes()
-
-            # Upload files
-            for index, file_upload in enumerate(instructions_with_hashes):
-                if file_upload["type"] != InstructionType.COPY:
-                    continue
-
-                args = file_upload.get("args", [])
-                src = args[0] if len(args) > 0 else None
-                force_upload = file_upload.get("forceUpload")
-                files_hash = file_upload.get("filesHash", None)
-
-                if src is None or files_hash is None:
-                    raise ValueError("Source path and files hash are required")
-
-                stack_trace = None
-                if index + 1 < len(template._template._stack_traces):
-                    stack_trace = template._template._stack_traces[index + 1]
-
-                file_info = await get_file_upload_link(
-                    api_client, template_id, files_hash, stack_trace
-                )
-
-                if (force_upload and file_info.url) or (
-                    file_info.present is False and file_info.url
-                ):
-                    await upload_file(
-                        src,
-                        template._template._file_context_path,
-                        file_info.url,
-                    )
-                    if on_build_logs:
-                        on_build_logs(
-                            LogEntry(
-                                timestamp=datetime.now(),
-                                level="info",
-                                message=f"Uploaded '{src}'",
-                            )
-                        )
-                else:
-                    if on_build_logs:
-                        on_build_logs(
-                            LogEntry(
-                                timestamp=datetime.now(),
-                                level="info",
-                                message=f"Skipping upload of '{src}', already cached",
-                            )
-                        )
-
-            if on_build_logs:
-                on_build_logs(
-                    LogEntry(
-                        timestamp=datetime.now(),
-                        level="info",
-                        message="All file uploads completed",
-                    )
-                )
-
-            # Start build
-            if on_build_logs:
-                on_build_logs(
-                    LogEntry(
-                        timestamp=datetime.now(),
-                        level="info",
-                        message="Starting building...",
-                    )
-                )
-
-            await trigger_build(
+            data = await AsyncTemplate._build(
+                template,
                 api_client,
-                template_id,
-                build_id,
-                template._template._serialize(instructions_with_hashes),
+                alias,
+                cpu_count,
+                memory_mb,
+                skip_cache,
+                on_build_logs,
             )
 
             if on_build_logs:
@@ -159,9 +246,138 @@ class AsyncTemplate(TemplateBase):
 
             await wait_for_build_finish(
                 api_client,
-                template_id,
-                build_id,
+                data.template_id,
+                data.build_id,
                 on_build_logs,
                 logs_refresh_frequency=TemplateBase._logs_refresh_frequency,
                 stack_traces=template._template._stack_traces,
             )
+
+            return data
+        finally:
+            if on_build_logs:
+                on_build_logs(
+                    LogEntryEnd(
+                        timestamp=datetime.now(),
+                        message="Build finished",
+                    )
+                )
+
+    @staticmethod
+    async def build_in_background(
+        template: TemplateClass,
+        alias: str,
+        cpu_count: int = 2,
+        memory_mb: int = 1024,
+        skip_cache: bool = False,
+        on_build_logs: Optional[Callable[[LogEntry], None]] = None,
+        **opts: Unpack[ApiParams],
+    ) -> BuildInfo:
+        """
+        Build and deploy a template to E2B infrastructure without waiting for completion.
+
+        :param template: The template to build
+        :param alias: Alias name for the template
+        :param cpu_count: Number of CPUs allocated to the sandbox
+        :param memory_mb: Amount of memory in MB allocated to the sandbox
+        :param skip_cache: If True, forces a complete rebuild ignoring cache
+        :return: BuildInfo containing the template ID and build ID
+
+        Example
+        ```python
+        from e2b import AsyncTemplate
+
+        template = (
+            AsyncTemplate()
+            .from_python_image('3')
+            .run_cmd('echo "test"')
+            .set_start_cmd('echo "Hello"', 'sleep 1')
+        )
+
+        build_info = await AsyncTemplate.build_in_background(
+            template,
+            alias='my-python-env',
+            cpu_count=2,
+            memory_mb=1024
+        )
+        ```
+        """
+        config = ConnectionConfig(**opts)
+        api_client = get_api_client(
+            config,
+            require_api_key=True,
+            require_access_token=False,
+        )
+
+        return await AsyncTemplate._build(
+            template,
+            api_client,
+            alias,
+            cpu_count,
+            memory_mb,
+            skip_cache,
+            on_build_logs,
+        )
+
+    @staticmethod
+    async def get_build_status(
+        build_info: BuildInfo,
+        logs_offset: int = 0,
+        **opts: Unpack[ApiParams],
+    ):
+        """
+        Get the status of a build.
+
+        :param build_info: Build identifiers returned from build_in_background
+        :param logs_offset: Offset for fetching logs
+        :return: TemplateBuild containing the build status and logs
+
+        Example
+        ```python
+        from e2b import AsyncTemplate
+
+        build_info = await AsyncTemplate.build_in_background(template, alias='my-template')
+        status = await AsyncTemplate.get_build_status(build_info, logs_offset=0)
+        ```
+        """
+        config = ConnectionConfig(**opts)
+        api_client = get_api_client(
+            config,
+            require_api_key=True,
+            require_access_token=False,
+        )
+        return await get_build_status(
+            api_client,
+            build_info.template_id,
+            build_info.build_id,
+            logs_offset,
+        )
+
+    @staticmethod
+    async def alias_exists(
+        alias: str,
+        **opts: Unpack[ApiParams],
+    ) -> bool:
+        """
+        Check if a template with the given alias exists.
+
+        :param alias: Template alias to check
+        :return: True if the alias exists, False otherwise
+
+        Example
+        ```python
+        from e2b import AsyncTemplate
+
+        exists = await AsyncTemplate.alias_exists('base')
+        if exists:
+            print('Template exists!')
+        ```
+        """
+        config = ConnectionConfig(**opts)
+        api_client = get_api_client(
+            config,
+            require_api_key=True,
+            require_access_token=False,
+        )
+
+        return await check_alias_exists(api_client, alias)

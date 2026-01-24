@@ -4,6 +4,7 @@ from chalk._gen.chalk.auth.v1 import displayagent_pb2 as _displayagent_pb2
 from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
+from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -27,6 +28,16 @@ class GetEnvRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetEnvResponse(_message.Message):
+    __slots__ = ("environment",)
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: _environment_pb2.Environment
+    def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
+
+class GetEnvIncludingArchivedRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetEnvIncludingArchivedResponse(_message.Message):
     __slots__ = ("environment",)
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     environment: _environment_pb2.Environment
@@ -238,18 +249,20 @@ class CreateEnvironmentResponse(_message.Message):
 
 class UpdateEnvironmentOperation(_message.Message):
     __slots__ = (
+        "is_default",
         "specs_config_json",
         "additional_env_vars",
         "private_pip_repositories",
+        "online_store_kind",
         "online_store_secret",
         "feature_store_secret",
-        "is_default",
         "service_url",
         "worker_url",
+        "branch_url",
         "kube_job_namespace",
         "kube_service_account_name",
         "environment_buckets",
-        "online_store_kind",
+        "default_build_profile",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -259,44 +272,50 @@ class UpdateEnvironmentOperation(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     SPECS_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     ADDITIONAL_ENV_VARS_FIELD_NUMBER: _ClassVar[int]
     PRIVATE_PIP_REPOSITORIES_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_STORE_KIND_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
     FEATURE_STORE_SECRET_FIELD_NUMBER: _ClassVar[int]
-    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     SERVICE_URL_FIELD_NUMBER: _ClassVar[int]
     WORKER_URL_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_URL_FIELD_NUMBER: _ClassVar[int]
     KUBE_JOB_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     KUBE_SERVICE_ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
-    ONLINE_STORE_KIND_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    is_default: bool
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
     private_pip_repositories: str
+    online_store_kind: str
     online_store_secret: str
     feature_store_secret: str
-    is_default: bool
     service_url: str
     worker_url: str
+    branch_url: str
     kube_job_namespace: str
     kube_service_account_name: str
     environment_buckets: _environment_pb2.EnvironmentObjectStorageConfig
-    online_store_kind: str
+    default_build_profile: _environment_pb2.DeploymentBuildProfile
     def __init__(
         self,
+        is_default: bool = ...,
         specs_config_json: _Optional[str] = ...,
         additional_env_vars: _Optional[_Mapping[str, str]] = ...,
         private_pip_repositories: _Optional[str] = ...,
+        online_store_kind: _Optional[str] = ...,
         online_store_secret: _Optional[str] = ...,
         feature_store_secret: _Optional[str] = ...,
-        is_default: bool = ...,
         service_url: _Optional[str] = ...,
         worker_url: _Optional[str] = ...,
+        branch_url: _Optional[str] = ...,
         kube_job_namespace: _Optional[str] = ...,
         kube_service_account_name: _Optional[str] = ...,
         environment_buckets: _Optional[_Union[_environment_pb2.EnvironmentObjectStorageConfig, _Mapping]] = ...,
-        online_store_kind: _Optional[str] = ...,
+        default_build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):
@@ -315,10 +334,16 @@ class UpdateEnvironmentRequest(_message.Message):
     ) -> None: ...
 
 class UpdateEnvironmentResponse(_message.Message):
-    __slots__ = ("environment",)
+    __slots__ = ("environment", "field_changes")
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    FIELD_CHANGES_FIELD_NUMBER: _ClassVar[int]
     environment: _environment_pb2.Environment
-    def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
+    field_changes: _containers.RepeatedCompositeFieldContainer[_field_change_pb2.FieldChange]
+    def __init__(
+        self,
+        environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...,
+        field_changes: _Optional[_Iterable[_Union[_field_change_pb2.FieldChange, _Mapping]]] = ...,
+    ) -> None: ...
 
 class GetTeamRequest(_message.Message):
     __slots__ = ()
@@ -776,3 +801,24 @@ class ReactivateUserRequest(_message.Message):
 class ReactivateUserResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class CreateVectorDBConfigurationRequest(_message.Message):
+    __slots__ = ("environment_id", "vector_db_uri", "vector_db_kind")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_DB_URI_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_DB_KIND_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    vector_db_uri: str
+    vector_db_kind: _environment_pb2.VectorDBKind
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        vector_db_uri: _Optional[str] = ...,
+        vector_db_kind: _Optional[_Union[_environment_pb2.VectorDBKind, str]] = ...,
+    ) -> None: ...
+
+class CreateVectorDBConfigurationResponse(_message.Message):
+    __slots__ = ("environment",)
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: _environment_pb2.Environment
+    def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...

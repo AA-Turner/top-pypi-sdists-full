@@ -13,20 +13,17 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0003 import SimpleUser
-from .group_0078 import Team
 
+class ShortBlob(GitHubModel):
+    """Short Blob
 
-class PullRequestReviewRequest(GitHubModel):
-    """Pull Request Review Request
-
-    Pull Request Review Request
+    Short Blob
     """
 
-    users: list[SimpleUser] = Field()
-    teams: list[Team] = Field()
+    url: str = Field()
+    sha: str = Field()
 
 
-model_rebuild(PullRequestReviewRequest)
+model_rebuild(ShortBlob)
 
-__all__ = ("PullRequestReviewRequest",)
+__all__ = ("ShortBlob",)

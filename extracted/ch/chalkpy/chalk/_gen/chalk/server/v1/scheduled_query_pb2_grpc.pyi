@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import (
     GetScheduledQueryRunRequest,
     GetScheduledQueryRunResponse,
+    GetScheduledQueryRunsRequest,
+    GetScheduledQueryRunsResponse,
 )
 from grpc import (
     Channel,
@@ -24,6 +26,10 @@ class ScheduledQueryServiceStub:
         GetScheduledQueryRunRequest,
         GetScheduledQueryRunResponse,
     ]
+    GetScheduledQueryRuns: UnaryUnaryMultiCallable[
+        GetScheduledQueryRunsRequest,
+        GetScheduledQueryRunsResponse,
+    ]
 
 class ScheduledQueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -32,5 +38,11 @@ class ScheduledQueryServiceServicer(metaclass=ABCMeta):
         request: GetScheduledQueryRunRequest,
         context: ServicerContext,
     ) -> GetScheduledQueryRunResponse: ...
+    @abstractmethod
+    def GetScheduledQueryRuns(
+        self,
+        request: GetScheduledQueryRunsRequest,
+        context: ServicerContext,
+    ) -> GetScheduledQueryRunsResponse: ...
 
 def add_ScheduledQueryServiceServicer_to_server(servicer: ScheduledQueryServiceServicer, server: Server) -> None: ...

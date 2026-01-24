@@ -3,10 +3,13 @@
 from t_desktop.config import IS_WINDOWS_OS
 
 if IS_WINDOWS_OS:
+    from pywinauto import mouse
     from pywinauto.application import WindowSpecification
     from pywinauto.controls.uia_controls import ListItemWrapper
     from pywinauto.keyboard import send_keys
     from pywinauto.uia_element_info import UIAElementInfo
+    from pywinauto.base_wrapper import ElementNotEnabled
+from t_nextgen.exceptions import MaxScrollTriesException
 from t_nextgen.nextgen_window import NextGenWindow
 from datetime import datetime
 import contextlib
@@ -119,15 +122,19 @@ class COBWindow(NextGenWindow):
             amount (Decimal): The amount to be entered
         """
         self.logger.debug(f"Typing amount: {amount}")
-        with contextlib.suppress(_ctypes.COMError):
-            rsn_amt_element.click_input()
-        amount_value = rsn_amt_element.get_value()
-
-        if amount_value == "0.00":
-            self.logger.info(f"Setting amount: {amount}")
-            self.desktop_app.set_text(rsn_amt_element, str(amount))
-        else:
-            self.logger.debug(f"Amount already set: {amount_value}.")
+        max_scroll_attempts = 3
+        scroll_attempts = 0
+        while scroll_attempts < max_scroll_attempts:
+            try:
+                element = rsn_amt_element
+                element.click_input()
+                element.set_text(amount)
+                return  # Exit loop if successful
+            except ElementNotEnabled:
+                cob_window = self.desktop_app.dialog.child_window(auto_id="frmCOBInfoEntry")
+                self.click_center_and_scroll(cob_window)
+                scroll_attempts += 1
+        raise MaxScrollTriesException("Maximum scroll attempts reached without success")
 
     def set_text_in_adj_date(self, adj_date_element: UIAElementInfo, text: str) -> None:
         """This method sets the text in the adj date field.
@@ -200,3 +207,19 @@ class COBWindow(NextGenWindow):
         self.logger.debug("Clicking OK button.")
         with contextlib.suppress(_ctypes.COMError):
             self.window.type_keys("%o")
+
+    def click_center_and_scroll(self, element: WindowSpecification) -> None:
+        """Clicks at the center of the given element and performs a downward scroll.
+
+        Args:
+            element: The element on which the click and scroll action is performed.
+
+        Raises:
+            Exception: If any error occurs during the click or scroll operation,
+                including failure to capture a screenshot if an error occurs.
+        """
+        rect = element.rectangle()
+        center_x = rect.left + (rect.width() // 2)
+        center_y = rect.top + (rect.height() // 2)
+        mouse.click("left", (center_x, center_y))
+        mouse.scroll(coords=(center_x, center_y), wheel_dist=-1)

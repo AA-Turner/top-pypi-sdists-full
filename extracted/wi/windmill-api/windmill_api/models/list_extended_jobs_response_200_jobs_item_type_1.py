@@ -63,7 +63,8 @@ class ListExtendedJobsResponse200JobsItemType1:
         schedule_path (Union[Unset, str]):
         flow_status (Union[Unset, ListExtendedJobsResponse200JobsItemType1FlowStatus]):
         workflow_as_code_status (Union[Unset, ListExtendedJobsResponse200JobsItemType1WorkflowAsCodeStatus]):
-        raw_flow (Union[Unset, ListExtendedJobsResponse200JobsItemType1RawFlow]):
+        raw_flow (Union[Unset, ListExtendedJobsResponse200JobsItemType1RawFlow]): The flow structure containing modules
+            and optional preprocessor/failure handlers
         language (Union[Unset, ListExtendedJobsResponse200JobsItemType1Language]):
         mem_peak (Union[Unset, int]):
         priority (Union[Unset, int]):

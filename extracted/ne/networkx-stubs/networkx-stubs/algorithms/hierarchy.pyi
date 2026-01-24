@@ -1,3 +1,0 @@
-from typing import Any
-
-def flow_hierarchy(G, weight: Any | None = ...): ...

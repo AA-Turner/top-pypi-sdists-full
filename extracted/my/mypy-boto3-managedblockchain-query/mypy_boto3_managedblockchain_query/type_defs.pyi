@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -30,12 +31,6 @@ from .literals import (
     SortOrderType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -115,7 +110,7 @@ class TokenIdentifierTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -304,32 +299,32 @@ class ListTokenBalancesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class ListTransactionsOutputTypeDef(TypedDict):
-    transactions: List[TransactionOutputItemTypeDef]
+    transactions: list[TransactionOutputItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAssetContractsOutputTypeDef(TypedDict):
-    contracts: List[AssetContractTypeDef]
+    contracts: list[AssetContractTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListFilteredTransactionEventsOutputTypeDef(TypedDict):
-    events: List[TransactionEventTypeDef]
+    events: list[TransactionEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTransactionEventsOutputTypeDef(TypedDict):
-    events: List[TransactionEventTypeDef]
+    events: list[TransactionEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class BatchGetTokenBalanceOutputTypeDef(TypedDict):
-    tokenBalances: List[BatchGetTokenBalanceOutputItemTypeDef]
-    errors: List[BatchGetTokenBalanceErrorItemTypeDef]
+    tokenBalances: list[BatchGetTokenBalanceOutputItemTypeDef]
+    errors: list[BatchGetTokenBalanceErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTokenBalancesOutputTypeDef(TypedDict):
-    tokenBalances: List[TokenBalanceTypeDef]
+    tokenBalances: list[TokenBalanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

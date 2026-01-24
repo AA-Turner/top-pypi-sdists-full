@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-redshift-alpha
-Version: 2.216.0a0
+Version: 2.236.0a0
 Summary: The CDK Construct Library for AWS::Redshift
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.216.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: jsii<2.0.0,>=1.125.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # Amazon Redshift Construct Library
 
@@ -50,6 +50,7 @@ To set up a Redshift cluster, define a `Cluster`. It will be launched in a VPC.
 You can specify a VPC, otherwise one will be created. The nodes are always launched in private subnets and are encrypted by default.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 
@@ -66,6 +67,7 @@ By default, the master password will be generated and stored in AWS Secrets Mana
 You can specify characters to not include in generated passwords by setting `excludeCharacters` property.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 
@@ -89,6 +91,7 @@ Depending on your use case, you can make the cluster publicly accessible with th
 Amazon Redshift logs information about connections and user activities in your database. These logs help you to monitor the database for security and troubleshooting purposes, a process called database auditing. To send these logs to an S3 bucket, specify the `loggingProperties` when creating a new cluster.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login, LoggingProperties
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_s3 as s3
 
@@ -117,6 +120,7 @@ To enable this feature, set the `availabilityZoneRelocation` property to `true`.
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 
 # vpc: ec2.IVpc
@@ -242,6 +246,7 @@ construct. This will make a query to the Redshift cluster to create a new databa
 with the supplied schema.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)"), Column(name="col2", data_type="float")],
     cluster=cluster,
@@ -254,6 +259,7 @@ Therefore, changing of table names for <= v2.114.1 have been disabled.
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_name="oldTableName",  # This value can be change for versions greater than v2.114.1
     table_columns=[Column(name="col1", data_type="varchar(4)"), Column(name="col2", data_type="float")],
@@ -265,6 +271,7 @@ Table(self, "Table",
 The table can be configured to have distStyle attribute and a distKey column:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", dist_key=True), Column(name="col2", data_type="float")
     ],
@@ -277,6 +284,7 @@ Table(self, "Table",
 The table can also be configured to have sortStyle attribute and sortKey columns:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", sort_key=True), Column(name="col2", data_type="float", sort_key=True)
     ],
@@ -289,6 +297,7 @@ Table(self, "Table",
 Tables and their respective columns can be configured to contain comments:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(name="col1", data_type="varchar(4)", comment="This is a column comment"), Column(name="col2", data_type="float", comment="This is a another column comment")
     ],
@@ -301,6 +310,7 @@ Table(self, "Table",
 Table columns can be configured to use a specific compression encoding:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 from aws_cdk.aws_redshift_alpha import ColumnEncoding
 
 
@@ -317,6 +327,7 @@ Table columns can also contain an `id` attribute, which can allow table columns 
 **NOTE** To use the `id` attribute, you must also enable the `@aws-cdk/aws-redshift:columnId` feature flag.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 Table(self, "Table",
     table_columns=[Column(id="col1", name="col1", data_type="varchar(4)"), Column(id="col2", name="col2", data_type="float")
     ],
@@ -330,6 +341,7 @@ Query execution duration is limited to 1 minute by default. You can change this 
 Valid timeout values are between 1 seconds and 15 minutes.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 from aws_cdk import Duration
 
 
@@ -348,6 +360,7 @@ You can give a user privileges to perform certain actions on a table by using th
 `Table.grant()` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 user = User(self, "User",
     cluster=cluster,
     database_name="databaseName"
@@ -368,6 +381,7 @@ to the same user and table. In application 1, the resources are created and the 
 given `INSERT` permissions on the table:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 database_name = "databaseName"
 username = "myuser"
 table_name = "mytable"
@@ -389,6 +403,7 @@ In application 2, the resources are imported and the user is given `INSERT` perm
 the table:
 
 ```python
+from aws_cdk.aws_redshift_alpha import Column, Column
 database_name = "databaseName"
 username = "myuser"
 table_name = "mytable"
@@ -462,6 +477,7 @@ params.add_parameter("enable_user_activity_logging", "true")
 Additionally, you can add a parameter to the cluster's associated parameter group with `Cluster.addToParameterGroup()`. If the cluster does not have an associated parameter group, a new parameter group is created.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -483,6 +499,7 @@ cluster.add_to_parameter_group("enable_user_activity_logging", "true")
 In most cases, existing clusters [must be manually rebooted](https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html) to apply parameter changes. You can automate parameter related reboots by setting the cluster's `rebootForParameterChanges` property to `true` , or by using `Cluster.enableRebootForParameterChanges()`.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -507,6 +524,7 @@ including [pausing and resuming the cluster](https://docs.aws.amazon.com/redshif
 
 ```python
 # Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Login, Login, Login
 import aws_cdk.aws_ec2 as ec2
 from aws_cdk.aws_redshift_alpha import ResourceAction
 
@@ -549,6 +567,7 @@ Cluster(self, "FailOverCluster",
 If you configure your cluster to be publicly accessible, you can optionally select an *elastic IP address* to use for the external IP address. An elastic IP address is a static IP address that is associated with your AWS account. You can use an elastic IP address to connect to your cluster from outside the VPC. An elastic IP address gives you the ability to change your underlying configuration without affecting the IP address that clients use to connect to your cluster. This approach can be helpful for situations such as recovery after a failure.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -591,6 +610,7 @@ In some cases, you might want to associate the cluster with an elastic IP addres
 When you use Amazon Redshift enhanced VPC routing, Amazon Redshift forces all COPY and UNLOAD traffic between your cluster and your data repositories through your virtual private cloud (VPC) based on the Amazon VPC service. By using enhanced VPC routing, you can use standard VPC features, such as VPC security groups, network access control lists (ACLs), VPC endpoints, VPC endpoint policies, internet gateways, and Domain Name System (DNS) servers, as described in the Amazon VPC User Guide. You use these features to tightly manage the flow of data between your Amazon Redshift cluster and other resources. When you use enhanced VPC routing to route traffic through your VPC, you can also use VPC flow logs to monitor COPY and UNLOAD traffic.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk as cdk
 # vpc: ec2.Vpc
@@ -615,6 +635,7 @@ Some Amazon Redshift features require Amazon Redshift to access other AWS servic
 When you create an IAM role and set it as the default for the cluster using console, you don't have to provide the IAM role's Amazon Resource Name (ARN) to perform authentication and authorization.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -637,6 +658,7 @@ Cluster(self, "Redshift",
 A default role can also be added to a cluster using the `addDefaultIamRole` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -662,6 +684,7 @@ redshift_cluster.add_default_iam_role(default_role)
 Attaching IAM roles to a Redshift Cluster grants permissions to the Redshift service to perform actions on your behalf.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc
@@ -682,6 +705,7 @@ cluster = Cluster(self, "Redshift",
 Additional IAM roles can be attached to a cluster using the `addIamRole` method.
 
 ```python
+from aws_cdk.aws_redshift_alpha import Login
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 # vpc: ec2.Vpc

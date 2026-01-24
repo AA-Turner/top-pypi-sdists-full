@@ -8,7 +8,7 @@ from adam.sso.id_token import IdToken
 
 from .idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import log2
+from adam.utils import debug, log2, log_exc
 
 class OktaException(Exception):
     pass
@@ -49,7 +49,7 @@ class OktaAuthenticator(Authenticator):
 
         session = requests.Session()
         response = session.post(authn_uri, headers=headers, data=json.dumps(payload))
-        Config().debug(f'{response.status_code} {authn_uri}')
+        debug(f'{response.status_code} {authn_uri}')
         auth_response = response.json()
 
         if 'sessionToken' not in auth_response:
@@ -59,7 +59,7 @@ class OktaAuthenticator(Authenticator):
 
         url = f'{idp_uri}&sessionToken={session_token}'
         r = session.get(url)
-        Config().debug(f'{r.status_code} {url}')
+        debug(f'{r.status_code} {url}')
 
         id_token = OktaAuthenticator().extract(r.text, r'.*name=\"id_token\" value=\"(.*?)\".*')
         if not id_token:
@@ -95,7 +95,7 @@ class OktaAuthenticator(Authenticator):
             return None
 
         jwks_url = Config().get('idps.okta.jwks-uri', 'https://c3energy.okta.com/oauth2/v1/keys')
-        try:
+        with log_exc():
             jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=360)
             signing_key = jwks_client.get_signing_key_from_jwt(id_token)
             data = jwt.decode(
@@ -121,7 +121,5 @@ class OktaAuthenticator(Authenticator):
                 nbf=data['nbf'] if 'nbf' in data else 0,
                 exp=data['exp'] if 'exp' in data else 0
             )
-        except:
-            pass
 
         return None

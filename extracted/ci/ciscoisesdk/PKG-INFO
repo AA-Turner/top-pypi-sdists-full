@@ -1,15 +1,14 @@
 Metadata-Version: 2.3
 Name: ciscoisesdk
-Version: 2.3.1
+Version: 2.4.1
 Summary: Cisco Identity Services Engine Platform SDK
 License: MIT
 Keywords: Cisco,Identity Services Engine,SDK
 Author: Jose Bogarin Solano
 Author-email: jbogarin@cloverhound.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -165,6 +164,8 @@ The following table shows the supported versions.
      - 2.1.2
    * - 3.3_patch_1
      - 2.3.1
+   * - 3.5.0
+     - 2.4.1
 
 If your SDK is older please consider updating it first.
 

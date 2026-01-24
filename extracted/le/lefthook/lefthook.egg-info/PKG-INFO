@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lefthook
-Version: 1.13.4
+Version: 2.0.15
 Summary: Git hooks manager. Fast, powerful, simple.
 Home-page: https://github.com/evilmartians/lefthook
 Author: Evil Martians
@@ -22,7 +22,7 @@ Dynamic: requires-python
 Dynamic: summary
 
 ![Build Status](https://github.com/evilmartians/lefthook/actions/workflows/test.yml/badge.svg?branch=master)
-[![Coverage Status](https://coveralls.io/repos/github/evilmartians/lefthook/badge.svg?branch=master)](https://coveralls.io/github/evilmartians/lefthook?branch=master)
+[![codecov](https://codecov.io/gh/evilmartians/lefthook/graph/badge.svg?token=d93ya8MfmB)](https://codecov.io/gh/evilmartians/lefthook)
 
 # Lefthook
 

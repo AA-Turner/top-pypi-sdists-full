@@ -4,14 +4,14 @@ use futures::future::join_all;
 use indexmap::IndexSet;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_json::StringNode;
-use tombi_x_keyword::StringFormat;
+use tombi_x_keyword::{StringFormat, TableKeysOrder, X_TOMBI_TABLE_KEYS_ORDER};
 
 use super::{
-    referable_schema::CurrentSchema, AllOfSchema, AnyOfSchema, ArraySchema, BooleanSchema,
-    FindSchemaCandidates, FloatSchema, IntegerSchema, LocalDateSchema, LocalDateTimeSchema,
-    LocalTimeSchema, OffsetDateTimeSchema, OneOfSchema, SchemaUri, StringSchema, TableSchema,
+    AllOfSchema, AnyOfSchema, ArraySchema, BooleanSchema, FindSchemaCandidates, FloatSchema,
+    IntegerSchema, LocalDateSchema, LocalDateTimeSchema, LocalTimeSchema, OffsetDateTimeSchema,
+    OneOfSchema, SchemaUri, StringSchema, TableSchema, referable_schema::CurrentSchema,
 };
-use crate::{Accessor, Referable, SchemaDefinitions, SchemaStore};
+use crate::{Accessor, Referable, SchemaDefinitions, SchemaStore, schema::not_schema::NotSchema};
 
 #[derive(Debug, Clone)]
 pub enum ValueSchema {
@@ -38,7 +38,7 @@ impl ValueSchema {
     ) -> Option<Self> {
         match object.get("type") {
             Some(tombi_json::ValueNode::String(type_str)) => {
-                return Self::new_single(type_str.value.as_str(), object, string_formats)
+                return Self::new_single(type_str.value.as_str(), object, string_formats);
             }
             Some(tombi_json::ValueNode::Array(types)) => {
                 let schemas = types
@@ -78,6 +78,26 @@ impl ValueSchema {
             return Self::new_enum_value(object, enum_values, string_formats);
         }
 
+        // Handle "const" keyword without explicit "type"
+        // Infer the type from the const value itself
+        if let Some(const_value) = object.get("const") {
+            let inferred_type = match const_value {
+                tombi_json::ValueNode::Null(_) => "null",
+                tombi_json::ValueNode::Bool(_) => "boolean",
+                tombi_json::ValueNode::Number(n) => {
+                    if n.value.is_i64() {
+                        "integer"
+                    } else {
+                        "number"
+                    }
+                }
+                tombi_json::ValueNode::String(_) => "string",
+                tombi_json::ValueNode::Array(_) => "array",
+                tombi_json::ValueNode::Object(_) => "object",
+            };
+            return Self::new_single(inferred_type, object, string_formats);
+        }
+
         None
     }
 
@@ -102,7 +122,7 @@ impl ValueSchema {
                         "date-time" => {
                             return Some(ValueSchema::OffsetDateTime(OffsetDateTimeSchema::new(
                                 object,
-                            )))
+                            )));
                         }
                         "date-time-local" | "partial-date-time" => {
                             // NOTE: It's defined in OpenAPI.
@@ -113,7 +133,7 @@ impl ValueSchema {
                             )));
                         }
                         "date" => {
-                            return Some(ValueSchema::LocalDate(LocalDateSchema::new(object)))
+                            return Some(ValueSchema::LocalDate(LocalDateSchema::new(object)));
                         }
                         "time-local" | "partial-time" => {
                             // NOTE: It's defined in OpenAPI.
@@ -122,10 +142,10 @@ impl ValueSchema {
                             return Some(ValueSchema::LocalTime(LocalTimeSchema::new(object)));
                         }
                         _ => string_formats.and_then(|string_formats| {
-                            if let Ok(string_format) = StringFormat::from_str(format_str.as_str()) {
-                                if string_formats.contains(&string_format) {
-                                    return Some(string_format);
-                                }
+                            if let Ok(string_format) = StringFormat::from_str(format_str.as_str())
+                                && string_formats.contains(&string_format)
+                            {
+                                return Some(string_format);
                             }
                             None
                         }),
@@ -159,8 +179,12 @@ impl ValueSchema {
                 tombi_json::ValueNode::Bool(_) => {
                     enum_types.insert("boolean");
                 }
-                tombi_json::ValueNode::Number(_) => {
-                    enum_types.insert("number");
+                tombi_json::ValueNode::Number(n) => {
+                    if n.value.is_i64() {
+                        enum_types.insert("integer");
+                    } else {
+                        enum_types.insert("number");
+                    }
                 }
                 tombi_json::ValueNode::String(_) => {
                     enum_types.insert("string");
@@ -169,6 +193,10 @@ impl ValueSchema {
                     continue;
                 }
             }
+        }
+
+        if enum_types.contains("number") && enum_types.contains("integer") {
+            enum_types.shift_remove("integer");
         }
 
         match enum_types.len() {
@@ -207,6 +235,10 @@ impl ValueSchema {
                         .and_then(|v| v.as_array())
                         .map(|array| array.items.iter().map(|v| v.into()).collect()),
                     deprecated: object.get("deprecated").and_then(|v| v.as_bool()),
+                    keys_order: object
+                        .get(X_TOMBI_TABLE_KEYS_ORDER)
+                        .and_then(|v| v.as_str().and_then(|s| TableKeysOrder::try_from(s).ok())),
+                    not: NotSchema::new(object, string_formats),
                 }))
             }
         }
@@ -273,11 +305,7 @@ impl ValueSchema {
                             has_deprecated = true;
                         }
                     }
-                    if has_deprecated {
-                        Some(true)
-                    } else {
-                        None
-                    }
+                    if has_deprecated { Some(true) } else { None }
                 }
             }
         }
@@ -596,5 +624,214 @@ impl FindSchemaCandidates for ValueSchema {
             }
         }
         .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ValueType;
+
+    use super::*;
+    use std::str::FromStr;
+
+    fn parse_schema(json: &str) -> Option<ValueSchema> {
+        let value_node = tombi_json::ValueNode::from_str(json).unwrap();
+        let object = value_node.as_object().unwrap();
+        ValueSchema::new(object, None)
+    }
+
+    #[test]
+    fn test_const_string_creates_string_schema() {
+        let schema = parse_schema(r#"{ "const": "dynamic" }"#);
+        assert!(matches!(schema, Some(ValueSchema::String(_))));
+
+        let Some(ValueSchema::String(s)) = schema else {
+            panic!("schema is not a String schema");
+        };
+        assert_eq!(s.const_value, Some("dynamic".to_string()));
+    }
+
+    #[test]
+    fn test_const_boolean_creates_boolean_schema() {
+        let schema = parse_schema(r#"{ "const": true }"#);
+        assert!(matches!(schema, Some(ValueSchema::Boolean(_))));
+
+        let Some(ValueSchema::Boolean(b)) = schema else {
+            panic!("schema is not a Boolean schema");
+        };
+        assert_eq!(b.const_value, Some(true));
+    }
+
+    #[test]
+    fn test_const_integer_creates_integer_schema() {
+        let schema = parse_schema(r#"{ "const": 42 }"#);
+        assert!(matches!(schema, Some(ValueSchema::Integer(_))));
+
+        let Some(ValueSchema::Integer(i)) = schema else {
+            panic!("schema is not an Integer schema");
+        };
+        assert_eq!(i.const_value, Some(42));
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)]
+    fn test_const_float_creates_float_schema() {
+        let schema = parse_schema(r#"{ "const": 3.14 }"#);
+        assert!(matches!(schema, Some(ValueSchema::Float(_))));
+
+        if let Some(ValueSchema::Float(f)) = schema {
+            assert_eq!(f.const_value, Some(3.14));
+        }
+    }
+
+    #[test]
+    fn test_const_null_creates_null_schema() {
+        let schema = parse_schema(r#"{ "const": null }"#);
+        assert!(matches!(schema, Some(ValueSchema::Null)));
+    }
+
+    #[tokio::test]
+    async fn test_anyof_with_const_and_ref_style_integer() {
+        // Simulates ruff schema: anyOf with integer and const "dynamic"
+        let schema = parse_schema(
+            r#"{
+                "anyOf": [
+                    { "type": "integer" },
+                    { "const": "dynamic" }
+                ]
+            }"#,
+        );
+        assert!(matches!(schema, Some(ValueSchema::AnyOf(_))));
+
+        let Some(ValueSchema::AnyOf(any_of)) = schema else {
+            panic!("schema is not an AnyOf schema");
+        };
+
+        let schemas = any_of.schemas.read().await;
+        assert!(matches!(
+            schemas.get(0).unwrap().value_type().await,
+            ValueType::Integer
+        ));
+        assert!(matches!(
+            schemas.get(1).unwrap().value_type().await,
+            ValueType::String
+        ));
+    }
+
+    #[test]
+    fn test_const_array_creates_array_schema() {
+        let schema = parse_schema(r#"{ "const": [1, 2, 3] }"#);
+        assert!(matches!(schema, Some(ValueSchema::Array(_))));
+    }
+
+    #[test]
+    fn test_const_empty_array_creates_array_schema() {
+        let schema = parse_schema(r#"{ "const": [] }"#);
+        assert!(matches!(schema, Some(ValueSchema::Array(_))));
+    }
+
+    #[test]
+    fn test_const_object_creates_table_schema() {
+        let schema = parse_schema(r#"{ "const": {"key": "value"} }"#);
+        assert!(matches!(schema, Some(ValueSchema::Table(_))));
+    }
+
+    #[test]
+    fn test_const_empty_object_creates_table_schema() {
+        let schema = parse_schema(r#"{ "const": {} }"#);
+        assert!(matches!(schema, Some(ValueSchema::Table(_))));
+    }
+
+    #[test]
+    fn test_const_nested_array_creates_array_schema() {
+        let schema = parse_schema(r#"{ "const": [[1, 2], [3, 4]] }"#);
+        assert!(matches!(schema, Some(ValueSchema::Array(_))));
+    }
+
+    #[test]
+    fn test_const_nested_object_creates_table_schema() {
+        let schema = parse_schema(r#"{ "const": {"nested": {"key": "value"}} }"#);
+        assert!(matches!(schema, Some(ValueSchema::Table(_))));
+    }
+
+    fn parse_schema_with_formats(json: &str, formats: &[StringFormat]) -> Option<ValueSchema> {
+        let value_node = tombi_json::ValueNode::from_str(json).unwrap();
+        let object = value_node.as_object().unwrap();
+        ValueSchema::new(object, Some(formats))
+    }
+
+    #[test]
+    fn test_const_string_with_format_uses_new_single() {
+        // When const has a format field, it should be processed through new_single
+        // which handles date-time formats properly
+        let schema = parse_schema(r#"{ "const": "2024-01-10", "format": "date" }"#);
+        // Should create LocalDateSchema, not StringSchema
+        assert!(matches!(schema, Some(ValueSchema::LocalDate(_))));
+    }
+
+    #[test]
+    fn test_const_string_with_datetime_format() {
+        let schema = parse_schema(r#"{ "const": "2024-01-10T12:00:00Z", "format": "date-time" }"#);
+        assert!(matches!(schema, Some(ValueSchema::OffsetDateTime(_))));
+    }
+
+    #[test]
+    fn test_const_string_with_custom_format_and_string_formats() {
+        // Custom format (e.g., email) should be validated against string_formats
+        let schema = parse_schema_with_formats(
+            r#"{ "const": "test@example.com", "format": "email" }"#,
+            &[StringFormat::Email],
+        );
+        assert!(matches!(schema, Some(ValueSchema::String(_))));
+
+        if let Some(ValueSchema::String(s)) = schema {
+            assert_eq!(s.format, Some(StringFormat::Email));
+        }
+    }
+
+    #[test]
+    fn test_enum_integer_creates_integer_schema() {
+        // enum with integers should create IntegerSchema, not FloatSchema
+        let schema = parse_schema(r#"{ "enum": [1, 2, 3] }"#);
+        assert!(matches!(schema, Some(ValueSchema::Integer(_))));
+    }
+
+    #[test]
+    fn test_enum_float_creates_float_schema() {
+        // enum with floats should create FloatSchema
+        let schema = parse_schema(r#"{ "enum": [1.5, 2.5, 3.5] }"#);
+        assert!(matches!(schema, Some(ValueSchema::Float(_))));
+    }
+
+    #[test]
+    fn test_enum_mixed_int_float_removes_integer() {
+        // When enum contains both integers and floats, integer should be removed
+        // and only number should remain, resulting in FloatSchema
+        // This tests the logic at lines 198-200: if enum_types contains both
+        // "number" and "integer", "integer" is removed
+        let schema = parse_schema(r#"{ "enum": [1, 2.5] }"#);
+        // After removing integer, only number remains, so FloatSchema should be created
+        assert!(matches!(schema, Some(ValueSchema::Float(_))));
+    }
+
+    #[tokio::test]
+    async fn test_enum_mixed_int_float_with_other_types() {
+        // When enum contains integers, floats, and other types (e.g., string),
+        // integer should be removed (lines 198-200), leaving number and string,
+        // resulting in OneOf with FloatSchema and StringSchema (but not IntegerSchema)
+        let schema = parse_schema(r#"{ "enum": [1, 2.5, "text"] }"#);
+
+        let Some(ValueSchema::OneOf(one_of)) = schema else {
+            panic!("schema is not a OneOf schema");
+        };
+        let schemars = one_of.schemas.read().await;
+        assert!(matches!(
+            schemars.get(0).unwrap().value_type().await,
+            ValueType::Float
+        ));
+        assert!(matches!(
+            schemars.get(1).unwrap().value_type().await,
+            ValueType::String
+        ));
     }
 }

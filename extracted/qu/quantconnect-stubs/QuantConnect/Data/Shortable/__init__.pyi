@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -17,7 +17,8 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
     """
     The data provider instance to use
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     @property
@@ -25,7 +26,8 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
         """
         The short availability provider
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 

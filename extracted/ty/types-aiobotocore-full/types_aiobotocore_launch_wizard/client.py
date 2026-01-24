@@ -3,7 +3,7 @@ Type annotations for launch-wizard service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -30,6 +31,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListDeploymentEventsPaginator,
+    ListDeploymentPatternVersionsPaginator,
     ListDeploymentsPaginator,
     ListWorkloadDeploymentPatternsPaginator,
     ListWorkloadsPaginator,
@@ -41,12 +43,16 @@ from .type_defs import (
     DeleteDeploymentOutputTypeDef,
     GetDeploymentInputTypeDef,
     GetDeploymentOutputTypeDef,
+    GetDeploymentPatternVersionInputTypeDef,
+    GetDeploymentPatternVersionOutputTypeDef,
     GetWorkloadDeploymentPatternInputTypeDef,
     GetWorkloadDeploymentPatternOutputTypeDef,
     GetWorkloadInputTypeDef,
     GetWorkloadOutputTypeDef,
     ListDeploymentEventsInputTypeDef,
     ListDeploymentEventsOutputTypeDef,
+    ListDeploymentPatternVersionsInputTypeDef,
+    ListDeploymentPatternVersionsOutputTypeDef,
     ListDeploymentsInputTypeDef,
     ListDeploymentsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
@@ -57,14 +63,10 @@ from .type_defs import (
     ListWorkloadsOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateDeploymentInputTypeDef,
+    UpdateDeploymentOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -75,11 +77,11 @@ __all__ = ("LaunchWizardClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceLimitException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceLimitException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class LaunchWizardClient(AioBaseClient):
@@ -147,6 +149,16 @@ class LaunchWizardClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#get_deployment)
         """
 
+    async def get_deployment_pattern_version(
+        self, **kwargs: Unpack[GetDeploymentPatternVersionInputTypeDef]
+    ) -> GetDeploymentPatternVersionOutputTypeDef:
+        """
+        Returns information about a deployment pattern version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/client/get_deployment_pattern_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#get_deployment_pattern_version)
+        """
+
     async def get_workload(
         self, **kwargs: Unpack[GetWorkloadInputTypeDef]
     ) -> GetWorkloadOutputTypeDef:
@@ -176,6 +188,16 @@ class LaunchWizardClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/client/list_deployment_events.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#list_deployment_events)
+        """
+
+    async def list_deployment_pattern_versions(
+        self, **kwargs: Unpack[ListDeploymentPatternVersionsInputTypeDef]
+    ) -> ListDeploymentPatternVersionsOutputTypeDef:
+        """
+        Lists the deployment pattern versions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/client/list_deployment_pattern_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#list_deployment_pattern_versions)
         """
 
     async def list_deployments(
@@ -218,7 +240,7 @@ class LaunchWizardClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#list_workloads)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the given resource.
 
@@ -226,7 +248,7 @@ class LaunchWizardClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the given resource.
 
@@ -234,10 +256,31 @@ class LaunchWizardClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#untag_resource)
         """
 
+    async def update_deployment(
+        self, **kwargs: Unpack[UpdateDeploymentInputTypeDef]
+    ) -> UpdateDeploymentOutputTypeDef:
+        """
+        Updates a deployment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/client/update_deployment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#update_deployment)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_deployment_events"]
     ) -> ListDeploymentEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_deployment_pattern_versions"]
+    ) -> ListDeploymentPatternVersionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -286,7 +329,7 @@ class LaunchWizardClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

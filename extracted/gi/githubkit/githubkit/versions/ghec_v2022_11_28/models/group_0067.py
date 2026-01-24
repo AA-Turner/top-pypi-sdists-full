@@ -9,7 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import datetime as _dt
+from typing import Literal
 
 from pydantic import Field
 
@@ -18,71 +19,48 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class CodeScanningAlertInstance(GitHubModel):
-    """CodeScanningAlertInstance"""
+class BypassResponse(GitHubModel):
+    """Bypass response
 
-    ref: Missing[str] = Field(
-        default=UNSET,
-        description="The Git reference, formatted as `refs/pull/<number>/merge`, `refs/pull/<number>/head`,\n`refs/heads/<branch name>` or simply `<branch name>`.",
-    )
-    analysis_key: Missing[str] = Field(
-        default=UNSET,
-        description="Identifies the configuration under which the analysis was executed. For example, in GitHub Actions this includes the workflow filename and job name.",
-    )
-    environment: Missing[str] = Field(
-        default=UNSET,
-        description="Identifies the variable values associated with the environment in which the analysis that generated this alert instance was performed, such as the language that was analyzed.",
-    )
-    category: Missing[str] = Field(
-        default=UNSET,
-        description="Identifies the configuration under which the analysis was executed. Used to distinguish between multiple analyses for the same tool and commit, but performed on different languages or different parts of the code.",
-    )
-    state: Missing[Union[None, Literal["open", "dismissed", "fixed"]]] = Field(
-        default=UNSET, description="State of a code scanning alert."
-    )
-    commit_sha: Missing[str] = Field(default=UNSET)
-    message: Missing[CodeScanningAlertInstancePropMessage] = Field(default=UNSET)
-    location: Missing[CodeScanningAlertLocation] = Field(
-        default=UNSET, description="Describe a region within a file for the alert."
-    )
-    html_url: Missing[str] = Field(default=UNSET)
-    classifications: Missing[
-        list[
-            Union[
-                None, Literal["source", "generated", "test", "library", "documentation"]
-            ]
-        ]
-    ] = Field(
-        default=UNSET,
-        description="Classifications that have been applied to the file that triggered the alert.\nFor example identifying it as documentation, or a generated file.",
-    )
-
-
-class CodeScanningAlertLocation(GitHubModel):
-    """CodeScanningAlertLocation
-
-    Describe a region within a file for the alert.
+    A response made by a delegated bypasser to a bypass request.
     """
 
-    path: Missing[str] = Field(default=UNSET)
-    start_line: Missing[int] = Field(default=UNSET)
-    end_line: Missing[int] = Field(default=UNSET)
-    start_column: Missing[int] = Field(default=UNSET)
-    end_column: Missing[int] = Field(default=UNSET)
+    id: Missing[int] = Field(
+        default=UNSET, description="The ID of the response to the bypass request."
+    )
+    reviewer: Missing[BypassResponsePropReviewer] = Field(
+        default=UNSET, description="The user who reviewed the bypass request."
+    )
+    status: Missing[Literal["approved", "denied", "dismissed"]] = Field(
+        default=UNSET,
+        description="The response status to the bypass request until dismissed.",
+    )
+    created_at: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="The date and time the response to the bypass request was created.",
+    )
 
 
-class CodeScanningAlertInstancePropMessage(GitHubModel):
-    """CodeScanningAlertInstancePropMessage"""
+class BypassResponsePropReviewer(GitHubModel):
+    """BypassResponsePropReviewer
 
-    text: Missing[str] = Field(default=UNSET)
+    The user who reviewed the bypass request.
+    """
+
+    actor_id: Missing[int] = Field(
+        default=UNSET,
+        description="The ID of the GitHub user who reviewed the bypass request.",
+    )
+    actor_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the GitHub user who reviewed the bypass request.",
+    )
 
 
-model_rebuild(CodeScanningAlertInstance)
-model_rebuild(CodeScanningAlertLocation)
-model_rebuild(CodeScanningAlertInstancePropMessage)
+model_rebuild(BypassResponse)
+model_rebuild(BypassResponsePropReviewer)
 
 __all__ = (
-    "CodeScanningAlertInstance",
-    "CodeScanningAlertInstancePropMessage",
-    "CodeScanningAlertLocation",
+    "BypassResponse",
+    "BypassResponsePropReviewer",
 )

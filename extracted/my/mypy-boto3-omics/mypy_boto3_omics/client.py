@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -246,12 +247,6 @@ from .waiter import (
     WorkflowVersionActiveWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -262,17 +257,17 @@ __all__ = ("OmicsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotSupportedOperationException: Type[BotocoreClientError]
-    RangeNotSatisfiableException: Type[BotocoreClientError]
-    RequestTimeoutException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotSupportedOperationException: type[BotocoreClientError]
+    RangeNotSatisfiableException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OmicsClient(BaseClient):
@@ -312,7 +307,7 @@ class OmicsClient(BaseClient):
 
     def abort_multipart_read_set_upload(
         self, **kwargs: Unpack[AbortMultipartReadSetUploadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a multipart read set upload into a sequence store and returns a response
         with no body if the operation is successful.
@@ -343,9 +338,10 @@ class OmicsClient(BaseClient):
 
     def cancel_annotation_import_job(
         self, **kwargs: Unpack[CancelAnnotationImportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Cancels an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_annotation_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#cancel_annotation_import_job)
@@ -362,9 +358,10 @@ class OmicsClient(BaseClient):
 
     def cancel_variant_import_job(
         self, **kwargs: Unpack[CancelVariantImportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Cancels a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_variant_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#cancel_variant_import_job)
@@ -386,7 +383,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[CreateAnnotationStoreRequestTypeDef]
     ) -> CreateAnnotationStoreResponseTypeDef:
         """
-        Creates an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_annotation_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_annotation_store)
@@ -469,7 +467,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[CreateVariantStoreRequestTypeDef]
     ) -> CreateVariantStoreResponseTypeDef:
         """
-        Creates a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_variant_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_variant_store)
@@ -500,7 +499,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[DeleteAnnotationStoreRequestTypeDef]
     ) -> DeleteAnnotationStoreResponseTypeDef:
         """
-        Deletes an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_annotation_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_annotation_store)
@@ -516,7 +516,7 @@ class OmicsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_annotation_store_versions)
         """
 
-    def delete_reference(self, **kwargs: Unpack[DeleteReferenceRequestTypeDef]) -> Dict[str, Any]:
+    def delete_reference(self, **kwargs: Unpack[DeleteReferenceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a reference genome and returns a response with no body if the operation
         is successful.
@@ -527,7 +527,7 @@ class OmicsClient(BaseClient):
 
     def delete_reference_store(
         self, **kwargs: Unpack[DeleteReferenceStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a reference store and returns a response with no body if the operation
         is successful.
@@ -569,7 +569,7 @@ class OmicsClient(BaseClient):
 
     def delete_s3_access_policy(
         self, **kwargs: Unpack[DeleteS3AccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access policy for the specified store.
 
@@ -579,7 +579,7 @@ class OmicsClient(BaseClient):
 
     def delete_sequence_store(
         self, **kwargs: Unpack[DeleteSequenceStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a sequence store and returns a response with no body if the operation
         is successful.
@@ -602,7 +602,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[DeleteVariantStoreRequestTypeDef]
     ) -> DeleteVariantStoreResponseTypeDef:
         """
-        Deletes a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_variant_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_variant_store)
@@ -632,7 +633,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetAnnotationImportRequestTypeDef]
     ) -> GetAnnotationImportResponseTypeDef:
         """
-        Gets information about an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_annotation_import_job)
@@ -642,7 +644,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetAnnotationStoreRequestTypeDef]
     ) -> GetAnnotationStoreResponseTypeDef:
         """
-        Gets information about an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_annotation_store)
@@ -820,7 +823,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetVariantImportRequestTypeDef]
     ) -> GetVariantImportResponseTypeDef:
         """
-        Gets information about a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_variant_import_job)
@@ -830,7 +834,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetVariantStoreRequestTypeDef]
     ) -> GetVariantStoreResponseTypeDef:
         """
-        Gets information about a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_variant_store)
@@ -860,7 +865,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListAnnotationImportJobsRequestTypeDef]
     ) -> ListAnnotationImportJobsResponseTypeDef:
         """
-        Retrieves a list of annotation import jobs.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_import_jobs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_annotation_import_jobs)
@@ -880,7 +886,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListAnnotationStoresRequestTypeDef]
     ) -> ListAnnotationStoresResponseTypeDef:
         """
-        Retrieves a list of annotation stores.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_stores.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_annotation_stores)
@@ -1052,7 +1059,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListVariantImportJobsRequestTypeDef]
     ) -> ListVariantImportJobsResponseTypeDef:
         """
-        Retrieves a list of variant import jobs.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_import_jobs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_variant_import_jobs)
@@ -1062,7 +1070,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListVariantStoresRequestTypeDef]
     ) -> ListVariantStoresResponseTypeDef:
         """
-        Retrieves a list of variant stores.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_stores.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_variant_stores)
@@ -1102,7 +1111,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[StartAnnotationImportRequestTypeDef]
     ) -> StartAnnotationImportResponseTypeDef:
         """
-        Starts an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_annotation_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#start_annotation_import_job)
@@ -1162,13 +1172,14 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[StartVariantImportRequestTypeDef]
     ) -> StartVariantImportResponseTypeDef:
         """
-        Starts a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_variant_import_job.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#start_variant_import_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
 
@@ -1176,7 +1187,7 @@ class OmicsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -1188,7 +1199,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[UpdateAnnotationStoreRequestTypeDef]
     ) -> UpdateAnnotationStoreResponseTypeDef:
         """
-        Updates an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_annotation_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#update_annotation_store)
@@ -1240,7 +1252,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[UpdateVariantStoreRequestTypeDef]
     ) -> UpdateVariantStoreResponseTypeDef:
         """
-        Updates a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_variant_store.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#update_variant_store)

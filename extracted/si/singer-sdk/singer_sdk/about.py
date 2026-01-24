@@ -12,6 +12,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 if t.TYPE_CHECKING:
+    from collections.abc import Sequence
     from importlib.metadata import PackageMetadata
 
     from singer_sdk.helpers.capabilities import CapabilitiesEnum
@@ -88,7 +89,7 @@ def python_versions(package_metadata: PackageMetadata) -> list[str]:
     classifiers = [
         classifier.split("::")[-1].strip()
         for classifier in package_metadata.get_all("Classifier", [])
-        if classifier.startswith("Programming Language :: Python ::")
+        if classifier.startswith("Programming Language :: Python :: 3.")
     ]
 
     return list(
@@ -107,9 +108,9 @@ class AboutInfo:
     description: str | None
     version: str
     sdk_version: str
-    supported_python_versions: list[str] | None
+    supported_python_versions: Sequence[str] | None
 
-    capabilities: list[CapabilitiesEnum]
+    capabilities: Sequence[CapabilitiesEnum]
     settings: dict
     env_var_prefix: str
 
@@ -317,8 +318,10 @@ class MarkdownFormatter(AboutFormatter, format_name="markdown"):
             "\n\n"
             + "\n".join(
                 [
-                    "A full list of supported settings and capabilities "
-                    f"is available by running: `{about_info.name} --about`",
+                    (
+                        "A full list of supported settings and capabilities "
+                        f"is available by running: `{about_info.name} --about`"
+                    ),
                 ],
             )
             + "\n"

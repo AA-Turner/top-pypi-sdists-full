@@ -30,7 +30,8 @@ class Azerbaijan(ObservedHolidayBase, InternationalHolidays, IslamicHolidays, St
     References:
         * <https://en.wikipedia.org/wiki/Public_holidays_in_Azerbaijan>
         * <https://az.wikipedia.org/wiki/Azərbaycanın_dövlət_bayramları_və_xüsusi_günləri>
-        * <https://web.archive.org/web/20240615110243/https://sosial.gov.az/en/prod-calendar>
+        * <https://web.archive.org/web/20221007162312/https://sosial.gov.az/en/prod-calendar>
+        * <https://web.archive.org/web/20251211151027/https://sosial.gov.az/az/faydali/istehsalat-teqvimi>
     """
 
     country = "AZ"
@@ -162,7 +163,7 @@ class Azerbaijan(ObservedHolidayBase, InternationalHolidays, IslamicHolidays, St
         # 5. If interweekly rest days and holidays that are not considered working days overlap,
         # that rest day is immediately transferred to the next working day.
         if self.observed and self._year >= 2006:
-            self._populate_observed(dts_observed.union(dts_bairami))
+            self._populate_observed(dts_observed.union(dts_bairami), multiple=True)
 
             bayrami_names = (self.tr("Qurban bayrami"), self.tr("Ramazan bayrami"))
             # 6. If the holidays of Qurban and Ramadan coincide with another holiday
@@ -172,7 +173,7 @@ class Azerbaijan(ObservedHolidayBase, InternationalHolidays, IslamicHolidays, St
                     continue
                 for holiday_name in dt_holidays:
                     if any(bayrami_name in holiday_name for bayrami_name in bayrami_names):
-                        self._add_observed(dt_observed, holiday_name, WORKDAY_TO_NEXT_WORKDAY)
+                        self._add_observed(dt_observed, holiday_name, rule=WORKDAY_TO_NEXT_WORKDAY)
 
     def _populate_workday_holidays(self):
         if self._year >= 2021:
@@ -206,7 +207,7 @@ class AZE(Azerbaijan):
 
 
 class AzerbaijanIslamicHolidays(_CustomIslamicHolidays):
-    EID_AL_ADHA_DATES_CONFIRMED_YEARS = (2002, 2025)
+    EID_AL_ADHA_DATES_CONFIRMED_YEARS = (2002, 2026)
     EID_AL_ADHA_DATES = {
         2002: (FEB, 21),
         2005: (JAN, 22),
@@ -217,7 +218,7 @@ class AzerbaijanIslamicHolidays(_CustomIslamicHolidays):
         2019: (AUG, 12),
     }
 
-    EID_AL_FITR_DATES_CONFIRMED_YEARS = (2002, 2025)
+    EID_AL_FITR_DATES_CONFIRMED_YEARS = (2002, 2026)
     EID_AL_FITR_DATES = {
         2002: (DEC, 4),
         2007: (OCT, 12),
@@ -242,6 +243,7 @@ class AzerbaijanStaticHolidays:
         * <https://web.archive.org/web/20241015224204/https://nk.gov.az/az/senedler/qerarlar/is-ve-istirahet-gunlerinin-yerlerinin-deyisdirilme-8332>
         * <https://web.archive.org/web/20250410132503/https://nk.gov.az/az/senedler/qerarlar/is-ve-istirahet-gunlerinin-yerlerinin-deyisdirilme-8449>
         * <https://web.archive.org/web/20250216200846/https://nk.gov.az/az/senedler/qerarlar/is-ve-istirahet-gunlerinin-yerlerinin-deyisdirilme-8623>
+        * <https://web.archive.org/web/20250711211545/https://nk.gov.az/az/senedler/qerarlar/is-ve-istirahet-gunlerinin-yerlerinin-deyisdirilme-8864>
 
     Special holidays references:
         * <https://web.archive.org/web/20250421013220/https://www.msk.gov.az/en/elections/pages/municipal-elections/belediyye-29-01-2025>
@@ -308,6 +310,7 @@ class AzerbaijanStaticHolidays:
         2025: (
             (JAN, 3, DEC, 29, 2024),
             (JAN, 29, municipal_elections),
+            (JUN, 27, JUN, 21),
         ),
     }
 

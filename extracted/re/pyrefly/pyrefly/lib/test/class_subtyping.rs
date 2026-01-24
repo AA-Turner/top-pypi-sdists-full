@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -31,7 +32,6 @@ s: object = ""
 "#,
 );
 
-// T is bivariant in A since it's not used nor in a covariant nor contravariant position.
 testcase!(
     test_simple_generic_subtyping,
     r#"
@@ -42,8 +42,9 @@ class D[T]: pass
 
 b: A[int] = B[int]()
 c: A[int] = C()
-oops: A[int] = D[int]()  # E: `D[int]` is not assignable to `A[int]`
-ok: A[int] = A[str]()
+oops1: A[int] = D[int]()  # E: `D[int]` is not assignable to `A[int]`
+# Although T is bivariant in A, we follow mypy and pyright's lead in treating it as invariant.
+oops2: A[int] = A[str]()  # E: `A[str]` is not assignable to `A[int]`
 "#,
 );
 
@@ -260,4 +261,168 @@ class B(type(A)):  # E: Invalid expression form for base class: `type(A)`
     pass
 assert_type(B.x, Any)
     "#,
+);
+
+testcase!(
+    test_multiple_inheritance_incompatible_field,
+    r#"
+class Foo:
+    p: int
+class Bar:
+    p: str
+
+class Both(Foo, Bar): # E: Field `p` has inconsistent types inherited from multiple base classes
+    ...
+"#,
+);
+
+testcase!(
+    test_nested_multiple_inheritance_incompatible_field_without_override,
+    r#"
+class A:
+    x: int
+class B:
+    x: str
+class C(A, B): # E: Field `x` has inconsistent types inherited from multiple base classes
+    pass
+class D:
+    x: int
+
+# We do not report the error for E, since it has already been reported on C
+class E(C, D):
+    pass
+"#,
+);
+
+testcase!(
+    test_nested_multiple_inheritance_incompatible_field_with_override,
+    r#"
+class A:
+    x: int
+class B:
+    x: str
+class C(A, B):
+    x: int # E: Class member `C.x` overrides parent class `B` in an inconsistent manner
+class D:
+    x: int
+
+# We do not report the error on E, since we already reported an error on C
+class E(C, D):
+    pass
+"#,
+);
+
+testcase!(
+    test_multiple_inheritance_incompatible_methods,
+    r#"
+class Foo:
+    def foo(self) -> int: ...
+class Bar:
+    def foo(self) -> str: ...
+
+class Both(Foo, Bar): # E: Field `foo` has inconsistent types inherited from multiple base classes
+    ...
+"#,
+);
+
+testcase!(
+    test_multiple_inheritance_compatible_generic_methods,
+    r#"
+class Foo[T1]:
+    def foo(self) -> T1: ...
+class Bar[T2]:
+    def foo(self) -> T2: ...
+
+class Both[T](Foo[T], Bar[T]): # Should have no error here
+    ...
+"#,
+);
+
+testcase!(
+    test_multiple_inheritance_special_methods,
+    r#"
+class Foo:
+    def __init__(self, x: int) -> None: ...
+class Bar:
+    def __init__(self, x: str) -> None: ...
+
+class Both(Foo, Bar): # No error here, because __init__ is special
+    ...
+"#,
+);
+
+testcase!(
+    test_multiple_inheritance_read_write,
+    r#"
+class Foo:
+    x: int
+    @property
+    def y(self) -> int:
+        return 1
+class Bar:
+    x: float
+    @property
+    def y(self) -> float:
+        return 1
+
+# For read-write fields, the inherited type from each parent should be assignable to the intersection
+class Both(Foo, Bar):  # E: Field `x` is declared `float`
+    ...
+"#,
+);
+
+fn env_conditional_import() -> TestEnv {
+    TestEnv::one(
+        "foo",
+        r#"
+class Foo1: pass
+class Foo2: pass
+"#,
+    )
+}
+
+testcase!(
+    test_conditional_import_base_class,
+    env_conditional_import(),
+    r#"
+if int("1"):
+    from foo import Foo1 as Foo
+else:
+    from foo import Foo2 as Foo
+
+class Document(Foo): pass  # E: Invalid base class: `Foo1 | Foo2`
+
+from abc import ABC, abstractmethod
+class CustomModel[T: Document](ABC):
+    @abstractmethod
+    async def to_db(self) -> T:
+        pass
+"#,
+);
+
+testcase!(
+    test_multiple_inheritance_property,
+    r#"
+from typing import overload
+
+class A:
+    @property
+    def x(self, /) -> int: ...
+    @x.setter
+    def x(self, x: int, /) -> None: ...
+
+class B:
+    @property
+    def x(self, /) -> int: ...
+
+class C(A, B): ...
+
+class D:
+    @property
+    def x(self, /) -> str: ...
+    @x.setter
+    def x(self, x: str, /) -> None: ...
+
+class E(D, B): ...  # E: Field `x` has inconsistent types inherited from multiple base classes
+"#,
 );

@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import ApplicationStatusType, InputStartingPositionType, RecordFormatTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -156,7 +151,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -371,13 +366,13 @@ class CreateApplicationResponseTypeDef(TypedDict):
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    ApplicationSummaries: List[ApplicationSummaryTypeDef]
+    ApplicationSummaries: list[ApplicationSummaryTypeDef]
     HasMoreApplications: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -473,7 +468,7 @@ class InputSchemaUpdateTypeDef(TypedDict):
 
 class SourceSchemaOutputTypeDef(TypedDict):
     RecordFormat: RecordFormatTypeDef
-    RecordColumns: List[RecordColumnTypeDef]
+    RecordColumns: list[RecordColumnTypeDef]
     RecordEncoding: NotRequired[str]
 
 
@@ -495,16 +490,16 @@ class InputUpdateTypeDef(TypedDict):
 
 class DiscoverInputSchemaResponseTypeDef(TypedDict):
     InputSchema: SourceSchemaOutputTypeDef
-    ParsedInputRecords: List[List[str]]
-    ProcessedInputRecords: List[str]
-    RawInputRecords: List[str]
+    ParsedInputRecords: list[list[str]]
+    ProcessedInputRecords: list[str]
+    RawInputRecords: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class InputDescriptionTypeDef(TypedDict):
     InputId: NotRequired[str]
     NamePrefix: NotRequired[str]
-    InAppStreamNames: NotRequired[List[str]]
+    InAppStreamNames: NotRequired[list[str]]
     InputProcessingConfigurationDescription: NotRequired[
         InputProcessingConfigurationDescriptionTypeDef
     ]
@@ -533,11 +528,11 @@ class ApplicationDetailTypeDef(TypedDict):
     ApplicationDescription: NotRequired[str]
     CreateTimestamp: NotRequired[datetime]
     LastUpdateTimestamp: NotRequired[datetime]
-    InputDescriptions: NotRequired[List[InputDescriptionTypeDef]]
-    OutputDescriptions: NotRequired[List[OutputDescriptionTypeDef]]
-    ReferenceDataSourceDescriptions: NotRequired[List[ReferenceDataSourceDescriptionTypeDef]]
+    InputDescriptions: NotRequired[list[InputDescriptionTypeDef]]
+    OutputDescriptions: NotRequired[list[OutputDescriptionTypeDef]]
+    ReferenceDataSourceDescriptions: NotRequired[list[ReferenceDataSourceDescriptionTypeDef]]
     CloudWatchLoggingOptionDescriptions: NotRequired[
-        List[CloudWatchLoggingOptionDescriptionTypeDef]
+        list[CloudWatchLoggingOptionDescriptionTypeDef]
     ]
     ApplicationCode: NotRequired[str]
 

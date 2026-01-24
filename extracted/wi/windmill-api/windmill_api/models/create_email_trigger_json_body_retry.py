@@ -16,11 +16,13 @@ T = TypeVar("T", bound="CreateEmailTriggerJsonBodyRetry")
 
 @_attrs_define
 class CreateEmailTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreateEmailTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, CreateEmailTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, CreateEmailTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, CreateEmailTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreateEmailTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, CreateEmailTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreateEmailTriggerJsonBodyRetryConstant"] = UNSET

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import datetime
-import unittest
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from scrapy.extensions.periodic_log import PeriodicLog
 from scrapy.utils.test import get_crawler
 
 from .spiders import MetaSpider
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 stats_dump_1 = {
     "log_count/INFO": 10,
@@ -66,7 +69,7 @@ def extension(settings: dict[str, Any] | None = None) -> CustomPeriodicLog:
     return CustomPeriodicLog.from_crawler(crawler)
 
 
-class TestPeriodicLog(unittest.TestCase):
+class TestPeriodicLog:
     def test_extension_enabled(self):
         # Expected that settings for this extension loaded successfully
         # And on certain conditions - extension raising NotConfigured

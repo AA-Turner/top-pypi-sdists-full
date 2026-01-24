@@ -1,0 +1,67 @@
+
+name: certbot-dns-multi
+summary: Certbot DNS plugin supporting multiple providers
+description: Certbot DNS plugin supporting multiple providers, using github.com/go-acme/lego
+website: https://github.com/alexzorin/certbot-dns-multi
+license: MIT
+confinement: strict
+grade: stable
+base: core24
+adopt-info: certbot-dns-multi
+platforms:
+  amd64:
+  arm64:
+    build-on: [arm64]
+  armhf:
+    build-on: [armhf]
+parts:
+  install-go:
+    plugin: nil
+    override-pull: |
+      apt-get update
+      apt-get -y install software-properties-common
+      add-apt-repository -y ppa:longsleep/golang-backports
+      apt-get update
+      apt-get -y install golang-go
+  install-rust:
+    plugin: nil
+    override-pull: |
+      if [ "$SNAP_ARCH" = "armhf" ]; then
+        apt-get update
+        apt-get -y install curl
+        curl https://sh.rustup.rs -sSf | sh -s -- -y
+      fi
+  certbot-dns-multi:
+    plugin: python
+    source: .
+    override-pull: |
+        craftctl default
+        craftctl set version=`git describe --tags`
+    build-environment:
+      - SNAP_BUILD: "True"
+    build-packages:
+      - gcc
+      - git
+      - build-essential
+      - libffi-dev
+      - python3-dev
+    after: [install-go, install-rust]
+  certbot-metadata:
+    plugin: dump
+    source: .
+    stage: [setup.py, certbot-shared]
+    override-pull: |
+        craftctl default
+        mkdir -p $CRAFT_PART_SRC/certbot-shared
+slots:
+  certbot:
+    interface: content
+    content: certbot-1
+    read:
+      - $SNAP/lib/python3.12/site-packages
+
+plugs:
+  certbot-metadata:
+    interface: content
+    content: metadata-1
+    target: $SNAP/certbot-shared

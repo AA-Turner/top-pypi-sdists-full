@@ -1,11 +1,11 @@
 import pickle
-import tempfile
 from unittest import mock
 from unittest.case import skipUnless
 
 import django
 import pytest
 from django.core import checks, validators
+from django.core.files.temp import NamedTemporaryFile
 from django.core.management import call_command
 from django.db import models
 from django.forms import Select
@@ -97,6 +97,58 @@ class TestCountryField(TestCase):
         ):
             self.assertEqual(person.country.flag, "https://flags.example.com/NZ.PNG")
 
+    def test_COUNTRIES_OVERRIDE_flag_url(self):
+        # Test custom flag_url from COUNTRIES_OVERRIDE
+        from django_countries import countries
+
+        with self.settings(
+            COUNTRIES_OVERRIDE={
+                "ID": None,
+                "IND": {
+                    "names": ["Indonesia"],
+                    "ioc_code": "INA",
+                    "flag_url": "flags/id.gif",
+                },
+                "NZ": {"flag_url": "custom/nz.png"},
+            },
+            STATIC_URL="/static-assets/",
+        ):
+            # Clear the countries cache
+            del countries.countries
+            # Test custom country code with custom flag_url
+            person_ind = Person(name="Test User", country="IND")
+            self.assertEqual(person_ind.country.flag, "/static-assets/flags/id.gif")
+            # Test existing country with custom flag_url
+            person_nz = Person(name="Chris Beaven", country="NZ")
+            self.assertEqual(person_nz.country.flag, "/static-assets/custom/nz.png")
+            # Test that default flag_url is used for countries without override
+            person_au = Person(name="Test User", country="AU")
+            self.assertEqual(person_au.country.flag, "/static-assets/flags/au.gif")
+        # Clear the cache after the test to prevent affecting other tests
+        del countries.countries
+
+    def test_COUNTRIES_OVERRIDE_flag_url_with_placeholders(self):
+        # Test that flag_url supports {code} and {code_upper} placeholders
+        from django_countries import countries
+
+        with self.settings(
+            COUNTRIES_OVERRIDE={
+                "US": {"flag_url": "flags/{code_upper}.png"},
+                "GB": {"flag_url": "custom/{code}.svg"},
+            },
+            STATIC_URL="/static-assets/",
+        ):
+            # Clear the countries cache
+            del countries.countries
+            # Test {code_upper} placeholder
+            person_us = Person(name="Test User", country="US")
+            self.assertEqual(person_us.country.flag, "/static-assets/flags/US.png")
+            # Test {code} placeholder (lowercase)
+            person_gb = Person(name="Test User", country="GB")
+            self.assertEqual(person_gb.country.flag, "/static-assets/custom/gb.svg")
+        # Clear the cache after the test
+        del countries.countries
+
     def test_flag_css(self):
         person = Person(name="Chris Beaven", country="NZ")
         self.assertEqual(person.country.flag_css, "flag-sprite flag-n flag-_z")
@@ -119,8 +171,13 @@ class TestCountryField(TestCase):
         person = AllowNull.objects.get(pk=person.pk)
         self.assertIsNone(person.country.code)
 
-    @override_settings(SILENCED_SYSTEM_CHECKS=["django_countries.E100"])
-    def test_multi_null_country(self):
+    def test_multi_null_country_allowed(self):
+        """
+        Test that multiple=True with null=True is now allowed.
+
+        Historical note: This used to raise django_countries.E100 error,
+        but that check has been removed. E100 should not be reused.
+        """
         try:
 
             class MultiNullCountry(models.Model):
@@ -129,25 +186,25 @@ class TestCountryField(TestCase):
             class MultiNullCountryNoBlank(models.Model):
                 countries = fields.CountryField(multiple=True, null=True)
 
+            # Should not have E100 errors anymore
             errors = checks.run_checks()
-            self.assertEqual([e.id for e in errors], ["django_countries.E100"] * 2)
-            errors_dict = {e.obj: e for e in errors}
-            self.assertFalse(
-                "blank=True"
-                in errors_dict[MultiNullCountry._meta.get_field("countries")].hint
-            )
-            self.assertTrue(
-                "blank=True"
-                in errors_dict[
-                    MultiNullCountryNoBlank._meta.get_field("countries")
-                ].hint
-            )
+            e100_errors = [e for e in errors if e.id == "django_countries.E100"]
+            self.assertEqual(e100_errors, [])
+
+            # Verify fields work correctly
+            field1 = MultiNullCountry._meta.get_field("countries")
+            field2 = MultiNullCountryNoBlank._meta.get_field("countries")
+            self.assertTrue(field1.null)
+            self.assertTrue(field2.null)
+            self.assertTrue(field1.multiple)
+            self.assertTrue(field2.multiple)
+
         finally:
             from django.apps import apps
 
             test_config = apps.get_app_config("django_countries_tests")
-            test_config.models.pop("multinullcountry")
-            test_config.models.pop("multinullcountrynoblank")
+            test_config.models.pop("multinullcountry", None)
+            test_config.models.pop("multinullcountrynoblank", None)
 
     def test_deferred(self):
         Person.objects.create(name="Person", country="NZ")
@@ -168,7 +225,11 @@ class TestCountryField(TestCase):
         person = Person(name="Chris Beaven", country="NZ")
         self.assertEqual(len(person.country), 2)
 
+        # Both None and empty string should have length 0
         person = Person(name="The Outsider", country=None)
+        self.assertEqual(len(person.country), 0)
+
+        person = Person(name="The Outsider", country="")
         self.assertEqual(len(person.country), 0)
 
     def test_lookup_text(self):
@@ -294,6 +355,55 @@ class TestCountryField(TestCase):
         self.assertEqual(list(Person.objects.filter(country__regex="MP")), [pp])
         self.assertEqual(list(Person.objects.filter(country__regex="mp")), [])
         self.assertEqual(list(Person.objects.filter(country__iregex="mp")), [pp])
+
+    def test_formfield_empty_label_default(self):
+        """Test that formfield() uses default '---------' blank label."""
+        field = fields.CountryField(blank=True)
+        form_field = field.formfield()
+        choices = list(form_field.choices)
+        self.assertEqual(choices[0], ("", "---------"))
+
+    def test_formfield_empty_label_custom(self):
+        """Test that formfield() accepts custom empty_label."""
+        field = fields.CountryField(blank=True)
+        form_field = field.formfield(empty_label="Select a country")
+        choices = list(form_field.choices)
+        self.assertEqual(choices[0], ("", "Select a country"))
+
+    def test_formfield_empty_label_empty_string(self):
+        """Test that formfield() accepts empty string as empty_label (issue #466)."""
+        field = fields.CountryField(blank=True)
+        form_field = field.formfield(empty_label="")
+        choices = list(form_field.choices)
+        self.assertEqual(choices[0], ("", ""))
+
+    def test_formfield_empty_label_none(self):
+        """Test that empty_label=None keeps the default blank label."""
+        field = fields.CountryField(blank=True)
+        form_field = field.formfield(empty_label=None)
+        choices = list(form_field.choices)
+        # None should keep the default '---------'
+        self.assertEqual(choices[0], ("", "---------"))
+
+    def test_formfield_empty_label_without_blank(self):
+        """Test that empty_label is ignored when field is not blank."""
+        field = fields.CountryField(blank=False)
+        form_field = field.formfield(empty_label="Custom")
+        choices = list(form_field.choices)
+        # When blank=False, empty_label should be ignored
+        # (though Django still adds a blank choice for required fields without defaults)
+        # The empty_label customization should only work when blank=True
+        self.assertEqual(choices[0], ("", "---------"))
+
+    def test_formfield_empty_label_multiple_field(self):
+        """Test that multiple=True fields don't have a blank choice."""
+        # Multiple choice fields don't have a blank choice by design
+        # (you can just select nothing), so empty_label doesn't apply
+        field = fields.CountryField(blank=True, multiple=True)
+        form_field = field.formfield(empty_label="Select countries")
+        choices = list(form_field.choices)
+        # First choice should be a country, not a blank option
+        self.assertEqual(choices[0][0], "AF")  # Afghanistan
 
 
 class TestValidation(TestCase):
@@ -467,6 +577,38 @@ class TestCountryMultiple(TestCase):
         obj.countries = [fields.Country("NZ"), fields.Country("AU")]
         self.assertEqual(obj.countries, ["AU", "NZ"])
 
+    def test_add_countries(self):
+        obj = MultiCountry()
+        obj.countries += [fields.Country("NZ"), fields.Country("AU")]
+        self.assertEqual(obj.countries, ["AU", "NZ"])
+
+    def test_add_country_codes(self):
+        obj = MultiCountry()
+        obj.countries += ["NZ", "AU"]
+        self.assertEqual(obj.countries, ["AU", "NZ"])
+
+    def test_contains_country_code(self):
+        """Test __contains__ method with country codes."""
+        obj = MultiCountry.objects.create(countries=["NZ", "AU", "DE"])
+        # Verify we have a MultipleCountriesDescriptor
+        from django_countries.fields import MultipleCountriesDescriptor
+
+        self.assertIsInstance(obj.countries, MultipleCountriesDescriptor)
+        # Test with country code string
+        self.assertIn("NZ", obj.countries)
+        self.assertIn("AU", obj.countries)
+        self.assertIn("DE", obj.countries)
+        self.assertNotIn("US", obj.countries)
+        self.assertNotIn("FR", obj.countries)
+
+    def test_contains_country_object(self):
+        """Test __contains__ method with Country objects."""
+        obj = MultiCountry.objects.create(countries=["NZ", "AU"])
+        # Test with Country object
+        self.assertIn(fields.Country("NZ"), obj.countries)
+        self.assertIn(fields.Country("AU"), obj.countries)
+        self.assertNotIn(fields.Country("US"), obj.countries)
+
     def test_all_countries(self):
         all_codes = sorted(c[0] for c in countries)
         MultiCountry.objects.create(countries=all_codes)
@@ -490,6 +632,25 @@ class TestCountryMultiple(TestCase):
         obj = MultiCountry.objects.create(countries=["NZ", "AU"])
         qs = MultiCountry.objects.filter(countries__contains="NZ")
         self.assertEqual(list(qs), [obj])
+
+
+class TestCountryFieldFirstRepeatMultiple(TestCase):
+    def setUp(self):
+        del countries.countries
+
+    def tearDown(self):
+        del countries.countries
+
+    @override_settings(COUNTRIES_FIRST=["NZ", "AU"], COUNTRIES_FIRST_REPEAT=True)
+    def test_max_length(self):
+        field = CountryField(multiple=True)
+
+        # verify there are two additional choices
+        self.assertEqual(len(list(field.get_choices())), len(data.COUNTRIES) + 2)
+
+        # but they should not change the field's max_length
+        expected_max_length = len(data.COUNTRIES) * 3 - 1
+        self.assertEqual(field.max_length, expected_max_length)
 
 
 class TestCountryObject(TestCase):
@@ -629,6 +790,12 @@ class TestModelForm(TestCase):
             form.fields["favourite_country"].choices[0], ("AF", "Afghanistan")
         )
 
+    def test_selected_default(self):
+        form = forms.PersonForm()
+        self.assertEqual(form.fields["favourite_country"].initial, "NZ")
+        html = str(form["favourite_country"])
+        self.assertIn('<option value="NZ" selected>', html)
+
     def test_blank_choice_label(self):
         form = forms.AllowNullForm()
         self.assertEqual(form.fields["country"].choices[0], ("", "(select country)"))
@@ -638,6 +805,40 @@ class TestModelForm(TestCase):
     def test_validation(self):
         form = forms.MultiCountryForm(data={"countries": ["NZ", "AU"]})
         self.assertEqual(form.errors, {})
+
+    def test_multiple_form_initial_string(self):
+        """Test form with string initial value to trigger prepare_value fallback."""
+        # When initial data is a string (not a list), prepare_value should handle it
+        form = forms.MultiCountryForm(initial={"countries": "NZ"})
+        # The form should still render correctly
+        html = str(form["countries"])
+        # Check that the field is rendered (basic sanity check)
+        self.assertIn('name="countries"', html)
+
+    def test_multiple_selected_options(self):
+        """Test that selected countries are marked as selected in the rendered form."""
+        # Create an instance with multiple countries
+        multi = MultiCountry.objects.create(countries=["DE", "NZ", "AU"])
+
+        # Create a form from this instance
+        form = forms.MultiCountryForm(instance=multi)
+
+        # Render the countries field
+        html = str(form["countries"])
+
+        # Check that the selected countries have the 'selected' attribute
+        self.assertIn('<option value="DE" selected>', html)
+        self.assertIn('<option value="NZ" selected>', html)
+        self.assertIn('<option value="AU" selected>', html)
+
+        # Check that a non-selected country doesn't have the 'selected' attribute
+        # Use a regex to ensure we're checking the right thing
+        import re
+
+        # Find the US option and verify it's not selected
+        us_match = re.search(r'<option value="US"[^>]*>', html)
+        self.assertIsNotNone(us_match)
+        self.assertNotIn("selected", us_match.group(0))
 
 
 class TestPickling(TestCase):
@@ -679,7 +880,7 @@ class TestLoadData(TestCase):
     def test_basic(self):
         single = Person.objects.create(name="Chris Beaven", country="NZ")
         multi = MultiCountry.objects.create(countries=["NZ", "AU"])
-        with tempfile.NamedTemporaryFile(suffix=".json", mode="w+") as capture:
+        with NamedTemporaryFile(suffix=".json", mode="w+") as capture:
             call_command("dumpdata", "django_countries_tests", stdout=capture)
             single.delete()
             multi.delete()

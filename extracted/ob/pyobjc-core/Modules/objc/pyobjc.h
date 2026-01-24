@@ -6,7 +6,7 @@
  *
  */
 
-#define OBJC_VERSION "11.1"
+#define OBJC_VERSION "12.1"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -49,12 +49,9 @@
 #define PyObjC_DEBUG 1
 #endif
 
-#ifdef USE_STATIC_ANALYZER
 /* Add some annotations to the CPython API functions we use */
 #import "python-api-used.h"
-#endif
 
-#import "pyobjc-assert.h"
 #import "pyobjc-compat.h"
 
 /* When this is defined the bridge adds a category to NSCFType (and known variants)
@@ -103,8 +100,8 @@
 #import "OC_PythonNumber.h"
 #import "OC_PythonObject.h"
 #import "OC_PythonSet.h"
-#import "OC_PythonUnicode.h"
 #import "OC_PythonURL.h"
+#import "OC_PythonUnicode.h"
 
 #import "OC_BuiltinPythonArray.h"
 #import "OC_BuiltinPythonData.h"
@@ -168,11 +165,6 @@
 #if __has_feature(objc_arc_weak)
 #error "It is not possible to compile PyObjC with ARC enabled"
 #endif
-
-/*
- * XXX: All definitions below here should be moved to different/new
- * headers
- */
 
 /* module.m */
 NS_ASSUME_NONNULL_BEGIN

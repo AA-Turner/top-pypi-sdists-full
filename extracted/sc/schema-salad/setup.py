@@ -86,7 +86,7 @@ install_requires = [
     "requests >= 1.0",
     "ruamel.yaml >= 0.17.6, < 0.19",
     "rdflib >= 4.2.2, < 8.0.0",
-    "mistune>=3,<3.1",
+    "mistune>=3,<3.2",
     "CacheControl[filecache] >= 0.13.1, < 0.15",
     "mypy_extensions",
 ]
@@ -116,7 +116,7 @@ setup(
     license="Apache 2.0",
     python_requires=">=3.9,<3.15",
     use_scm_version=True,
-    setup_requires=pytest_runner + ["setuptools_scm>=8.0.4,<9"],
+    setup_requires=pytest_runner + ["setuptools_scm>=8.0.4,<10"],
     packages=["schema_salad", "schema_salad.tests", "schema_salad.avro"],
     package_data={
         "schema_salad": [
@@ -148,8 +148,6 @@ setup(
     },
     install_requires=install_requires,
     extras_require=extras_require,
-    test_suite="tests",
-    tests_require=["pytest<9"],
     entry_points={
         "console_scripts": [
             "schema-salad-tool=schema_salad.main:main",

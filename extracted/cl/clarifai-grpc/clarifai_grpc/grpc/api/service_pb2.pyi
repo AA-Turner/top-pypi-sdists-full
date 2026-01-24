@@ -379,6 +379,208 @@ class ListAnnotationsRequest(google.protobuf.message.Message):
 global___ListAnnotationsRequest = ListAnnotationsRequest
 
 @typing_extensions.final
+class PostTrackAnnotationsSearchesRequest(google.protobuf.message.Message):
+    """ListVideoTrackAnnotationsRequest"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    INPUT_ID_FIELD_NUMBER: builtins.int
+    TRACK_ID_FIELD_NUMBER: builtins.int
+    FRAME_NUMBER_START_FIELD_NUMBER: builtins.int
+    FRAME_TIME_START_FIELD_NUMBER: builtins.int
+    ANNOTATION_TYPE_FIELD_NUMBER: builtins.int
+    MAX_FRAMES_FIELD_NUMBER: builtins.int
+    MAX_DURATION_FIELD_NUMBER: builtins.int
+    WORKER_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    input_id: builtins.str
+    """The input ID containing the video track annotations to list"""
+    track_id: builtins.str
+    """Filter annotations by track_id"""
+    frame_number_start: builtins.int
+    """Filter annotations starting from this frame number (inclusive)"""
+    frame_time_start: builtins.int
+    """Filter annotations starting from this time in milliseconds (inclusive)"""
+    annotation_type: proto.clarifai.api.resources_pb2.AnnotationDataType.ValueType
+    """Filter by annotation type (e.g., "bounding_box", "point", "mask")"""
+    max_frames: builtins.int
+    """Maximum number of frames to return (default and max: 60)"""
+    max_duration: builtins.int
+    """Maximum duration in milliseconds to return (default and max: 3000)"""
+    @property
+    def worker(self) -> proto.clarifai.api.resources_pb2.Worker:
+        """Filtering by model version ID within a worker (optional).
+        Point annotations don't need filtering by worker.
+        For non-point types, a model version ID must be provided.
+        """
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        input_id: builtins.str = ...,
+        track_id: builtins.str = ...,
+        frame_number_start: builtins.int = ...,
+        frame_time_start: builtins.int = ...,
+        annotation_type: proto.clarifai.api.resources_pb2.AnnotationDataType.ValueType = ...,
+        max_frames: builtins.int = ...,
+        max_duration: builtins.int = ...,
+        worker: proto.clarifai.api.resources_pb2.Worker | None = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal["user_app_id", b"user_app_id", "worker", b"worker"],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "annotation_type",
+            b"annotation_type",
+            "frame_number_start",
+            b"frame_number_start",
+            "frame_time_start",
+            b"frame_time_start",
+            "input_id",
+            b"input_id",
+            "max_duration",
+            b"max_duration",
+            "max_frames",
+            b"max_frames",
+            "track_id",
+            b"track_id",
+            "user_app_id",
+            b"user_app_id",
+            "worker",
+            b"worker",
+        ],
+    ) -> None: ...
+
+global___PostTrackAnnotationsSearchesRequest = PostTrackAnnotationsSearchesRequest
+
+@typing_extensions.final
+class StreamAnnotationsRequest(google.protobuf.message.Message):
+    """StreamAnnotationsRequest"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    INPUT_ID_FIELD_NUMBER: builtins.int
+    TRACK_IDS_FIELD_NUMBER: builtins.int
+    FRAME_NUMBER_START_FIELD_NUMBER: builtins.int
+    FRAME_TIME_START_FIELD_NUMBER: builtins.int
+    ANNOTATION_TYPE_FIELD_NUMBER: builtins.int
+    MAX_FRAMES_FIELD_NUMBER: builtins.int
+    MAX_DURATION_FIELD_NUMBER: builtins.int
+    WORKER_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    input_id: builtins.str
+    """The input ID containing the annotations to stream"""
+    @property
+    def track_ids(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Filter annotations by track_ids (optional - omit to stream all tracks for the input).
+        This is useful for historical playback where you want to stream all annotations in a time range.
+        """
+    frame_number_start: builtins.int
+    """Filter annotations starting from this frame number (inclusive)"""
+    frame_time_start: builtins.int
+    """Filter annotations starting from this time in milliseconds (inclusive)"""
+    annotation_type: proto.clarifai.api.resources_pb2.AnnotationDataType.ValueType
+    """Filter by annotation type (e.g., "bounding_box", "point", "mask")"""
+    max_frames: builtins.int
+    """Maximum number of frames to return. Returns annotations from frames in range [frame_number_start, frame_number_start + max_frames - 1] (inclusive on both ends).
+    For example: frame_number_start=5, max_frames=3 returns frames 5, 6, and 7.
+    Default and max: 216000 frames (60 minutes at 60 FPS)
+    """
+    max_duration: builtins.int
+    """Maximum duration in milliseconds to return. Returns annotations from time range [frame_time_start, frame_time_start + max_duration - 1] (inclusive on both ends).
+    Default and max: 3600000 ms (60 minutes)
+    """
+    @property
+    def worker(self) -> proto.clarifai.api.resources_pb2.Worker:
+        """Filtering by model version ID within a worker (optional).
+        Point annotations don't need filtering by worker.
+        For non-point types, a model version ID must be provided.
+        """
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        input_id: builtins.str = ...,
+        track_ids: collections.abc.Iterable[builtins.str] | None = ...,
+        frame_number_start: builtins.int = ...,
+        frame_time_start: builtins.int = ...,
+        annotation_type: proto.clarifai.api.resources_pb2.AnnotationDataType.ValueType = ...,
+        max_frames: builtins.int = ...,
+        max_duration: builtins.int = ...,
+        worker: proto.clarifai.api.resources_pb2.Worker | None = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal["user_app_id", b"user_app_id", "worker", b"worker"],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "annotation_type",
+            b"annotation_type",
+            "frame_number_start",
+            b"frame_number_start",
+            "frame_time_start",
+            b"frame_time_start",
+            "input_id",
+            b"input_id",
+            "max_duration",
+            b"max_duration",
+            "max_frames",
+            b"max_frames",
+            "track_ids",
+            b"track_ids",
+            "user_app_id",
+            b"user_app_id",
+            "worker",
+            b"worker",
+        ],
+    ) -> None: ...
+
+global___StreamAnnotationsRequest = StreamAnnotationsRequest
+
+@typing_extensions.final
+class StreamLivestreamAnnotationsRequest(google.protobuf.message.Message):
+    """StreamLivestreamAnnotationsRequest
+    Streams live annotations from Redis as they are being created by the runner
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    INPUT_ID_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    input_id: builtins.str
+    """The input ID containing the video being processed"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        input_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "input_id", b"input_id", "user_app_id", b"user_app_id"
+        ],
+    ) -> None: ...
+
+global___StreamLivestreamAnnotationsRequest = StreamLivestreamAnnotationsRequest
+
+@typing_extensions.final
 class PostAnnotationsRequest(google.protobuf.message.Message):
     """PostAnnotationsRequest"""
 
@@ -902,6 +1104,48 @@ class SingleAnnotationResponse(google.protobuf.message.Message):
 global___SingleAnnotationResponse = SingleAnnotationResponse
 
 @typing_extensions.final
+class SingleStreamAnnotationResponse(google.protobuf.message.Message):
+    """SingleStreamAnnotationResponse similar to SingleAnnotationResponse but with an extra field"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    ANNOTATION_FIELD_NUMBER: builtins.int
+    FRAME_FULLY_PROCESSED_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
+    @property
+    def annotation(self) -> proto.clarifai.api.resources_pb2.Annotation: ...
+    frame_fully_processed: builtins.bool
+    """Indicates if this frame has been fully processed
+    Needed in case client needs to decide whether to stop and wait for more data or continue playback
+    """
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        annotation: proto.clarifai.api.resources_pb2.Annotation | None = ...,
+        frame_fully_processed: builtins.bool = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal["annotation", b"annotation", "status", b"status"],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "annotation",
+            b"annotation",
+            "frame_fully_processed",
+            b"frame_fully_processed",
+            "status",
+            b"status",
+        ],
+    ) -> None: ...
+
+global___SingleStreamAnnotationResponse = SingleStreamAnnotationResponse
+
+@typing_extensions.final
 class MultiAnnotationResponse(google.protobuf.message.Message):
     """MultiAnnotationResponse"""
 
@@ -1074,6 +1318,7 @@ class ListAppsRequest(google.protobuf.message.Message):
     SORT_BY_CREATED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_STAR_COUNT_FIELD_NUMBER: builtins.int
     SORT_BY_ID_FIELD_NUMBER: builtins.int
+    SORT_BY_RELEVANCE_FIELD_NUMBER: builtins.int
     FEATURED_ONLY_FIELD_NUMBER: builtins.int
     STARRED_ONLY_FIELD_NUMBER: builtins.int
     TEMPLATE_ONLY_FIELD_NUMBER: builtins.int
@@ -1113,6 +1358,8 @@ class ListAppsRequest(google.protobuf.message.Message):
     """Whether to order by the number of users stared the app"""
     sort_by_id: builtins.bool
     """Whether to order by the id"""
+    sort_by_relevance: builtins.bool
+    """Whether to order by search query relevance. Can only be used if search is not empty."""
     featured_only: builtins.bool
     """Filtering options:
     If true, we only return apps that are handpicked by clarifai staff
@@ -1165,6 +1412,7 @@ class ListAppsRequest(google.protobuf.message.Message):
         sort_by_created_at: builtins.bool = ...,
         sort_by_star_count: builtins.bool = ...,
         sort_by_id: builtins.bool = ...,
+        sort_by_relevance: builtins.bool = ...,
         featured_only: builtins.bool = ...,
         starred_only: builtins.bool = ...,
         template_only: builtins.bool = ...,
@@ -1187,6 +1435,8 @@ class ListAppsRequest(google.protobuf.message.Message):
             b"sort_by_modified_at",
             "sort_by_name",
             b"sort_by_name",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "user_app_id",
@@ -1226,6 +1476,8 @@ class ListAppsRequest(google.protobuf.message.Message):
             b"sort_by_modified_at",
             "sort_by_name",
             b"sort_by_name",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "starred_only",
@@ -1247,6 +1499,7 @@ class ListAppsRequest(google.protobuf.message.Message):
             "sort_by_created_at",
             "sort_by_star_count",
             "sort_by_id",
+            "sort_by_relevance",
         ]
         | None
     ): ...
@@ -3579,6 +3832,7 @@ class ListDatasetsRequest(google.protobuf.message.Message):
     SORT_BY_STAR_COUNT_FIELD_NUMBER: builtins.int
     SORT_BY_MODIFIED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_ID_FIELD_NUMBER: builtins.int
+    SORT_BY_RELEVANCE_FIELD_NUMBER: builtins.int
     STARRED_ONLY_FIELD_NUMBER: builtins.int
     BOOKMARK_FIELD_NUMBER: builtins.int
     SEARCH_FIELD_NUMBER: builtins.int
@@ -3609,6 +3863,8 @@ class ListDatasetsRequest(google.protobuf.message.Message):
     """If neither sort option is set to true, will sort by modified_at."""
     sort_by_id: builtins.bool
     """Whether to order by the external id"""
+    sort_by_relevance: builtins.bool
+    """Whether to order by search query relevance. Can only be used if search is not empty."""
     starred_only: builtins.bool
     """Filtering options:"""
     bookmark: builtins.bool
@@ -3644,6 +3900,7 @@ class ListDatasetsRequest(google.protobuf.message.Message):
         sort_by_star_count: builtins.bool = ...,
         sort_by_modified_at: builtins.bool = ...,
         sort_by_id: builtins.bool = ...,
+        sort_by_relevance: builtins.bool = ...,
         starred_only: builtins.bool = ...,
         bookmark: builtins.bool = ...,
         search: builtins.str = ...,
@@ -3660,6 +3917,8 @@ class ListDatasetsRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "user_app_id",
@@ -3691,6 +3950,8 @@ class ListDatasetsRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "starred_only",
@@ -3703,7 +3964,11 @@ class ListDatasetsRequest(google.protobuf.message.Message):
         self, oneof_group: typing_extensions.Literal["sort_by", b"sort_by"]
     ) -> (
         typing_extensions.Literal[
-            "sort_by_created_at", "sort_by_star_count", "sort_by_modified_at", "sort_by_id"
+            "sort_by_created_at",
+            "sort_by_star_count",
+            "sort_by_modified_at",
+            "sort_by_id",
+            "sort_by_relevance",
         ]
         | None
     ): ...
@@ -5465,12 +5730,14 @@ class ListModelsRequest(google.protobuf.message.Message):
     PAGE_FIELD_NUMBER: builtins.int
     PER_PAGE_FIELD_NUMBER: builtins.int
     ADDITIONAL_FIELDS_FIELD_NUMBER: builtins.int
+    SHOW_REPLICAS_FIELD_NUMBER: builtins.int
     SORT_ASCENDING_FIELD_NUMBER: builtins.int
     SORT_BY_NAME_FIELD_NUMBER: builtins.int
     SORT_BY_NUM_INPUTS_FIELD_NUMBER: builtins.int
     SORT_BY_MODIFIED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_CREATED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_STAR_COUNT_FIELD_NUMBER: builtins.int
+    SORT_BY_RELEVANCE_FIELD_NUMBER: builtins.int
     MODEL_TYPE_ID_FIELD_NUMBER: builtins.int
     TRAINED_ONLY_FIELD_NUMBER: builtins.int
     INPUT_FIELDS_FIELD_NUMBER: builtins.int
@@ -5483,17 +5750,16 @@ class ListModelsRequest(google.protobuf.message.Message):
     LANGUAGES_FIELD_NUMBER: builtins.int
     DONT_FETCH_FROM_MAIN_FIELD_NUMBER: builtins.int
     BOOKMARK_FIELD_NUMBER: builtins.int
-    SEARCH_FIELD_NUMBER: builtins.int
-    QUERY_FIELD_NUMBER: builtins.int
-    NAME_FIELD_NUMBER: builtins.int
-    FILTER_BY_USER_ID_FIELD_NUMBER: builtins.int
     MODEL_VERSION_IDS_FIELD_NUMBER: builtins.int
     LICENSE_TYPE_FIELD_NUMBER: builtins.int
     SOURCE_FIELD_NUMBER: builtins.int
     CREATOR_FIELD_NUMBER: builtins.int
     MIN_REPLICAS_FIELD_NUMBER: builtins.int
-    SHOW_REPLICAS_FIELD_NUMBER: builtins.int
     VISIBILITY_FIELD_NUMBER: builtins.int
+    SEARCH_FIELD_NUMBER: builtins.int
+    QUERY_FIELD_NUMBER: builtins.int
+    NAME_FIELD_NUMBER: builtins.int
+    FILTER_BY_USER_ID_FIELD_NUMBER: builtins.int
     @property
     def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
     page: builtins.int
@@ -5509,6 +5775,8 @@ class ListModelsRequest(google.protobuf.message.Message):
         self,
     ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """(optional URL parameter) List of additional fields to be included in the response. Currently supported: all, stars, outputs, presets, counts"""
+    show_replicas: builtins.bool
+    """If true, show replica counts for models."""
     sort_ascending: builtins.bool
     """Sorting options:
     Whether to sort in ascending order. If false, will order in descending order.
@@ -5525,6 +5793,8 @@ class ListModelsRequest(google.protobuf.message.Message):
     """Whether to order by the created_at"""
     sort_by_star_count: builtins.bool
     """Whether to order by count of stars"""
+    sort_by_relevance: builtins.bool
+    """Whether to order by search query relevance. Can only be used if search is not empty."""
     model_type_id: builtins.str
     """Filtering options:
     Filter models by the specific model_type_id. See ListModelTypes for the list of ModelType.Id's
@@ -5577,6 +5847,22 @@ class ListModelsRequest(google.protobuf.message.Message):
     Note: you can not filter `trained_only` and bookmark at the same time.
     When filter by bookmark, we will return trained and untrained models.
     """
+    @property
+    def model_version_ids(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Filter by the model version ids. If set, only return the model of these versions."""
+    license_type: proto.clarifai.api.resources_pb2.LicenseType.ValueType
+    """Filter by LicenseType"""
+    source: builtins.int
+    """Filter by Source"""
+    creator: builtins.str
+    """Filter by Creator"""
+    min_replicas: builtins.int
+    """Filter by model versions runners with replicas >= min_replicas."""
+    @property
+    def visibility(self) -> proto.clarifai.api.resources_pb2.Visibility:
+        """Filter by visibility of the model. If set, only return models with the specified visibility."""
     search: builtins.str
     """Searching options:
     Specify a search parameter in order to perform keyword search on the
@@ -5605,24 +5891,6 @@ class ListModelsRequest(google.protobuf.message.Message):
     """Extends the name filter to include the user_id of the application owner that the model belongs to.
     Deprecated: use search instead of name.
     """
-    @property
-    def model_version_ids(
-        self,
-    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """Filter by the model version ids. If set, only return the model of these versions."""
-    license_type: proto.clarifai.api.resources_pb2.LicenseType.ValueType
-    """Filter by LicenseType"""
-    source: builtins.int
-    """Filter by Source"""
-    creator: builtins.str
-    """Filter by Creator"""
-    min_replicas: builtins.int
-    """Filter by model versions runners with replicas >= min_replicas."""
-    show_replicas: builtins.bool
-    """If true, show replica counts for models."""
-    @property
-    def visibility(self) -> proto.clarifai.api.resources_pb2.Visibility:
-        """Filter by visibility of the model. If set, only return models with the specified visibility."""
     def __init__(
         self,
         *,
@@ -5630,12 +5898,14 @@ class ListModelsRequest(google.protobuf.message.Message):
         page: builtins.int = ...,
         per_page: builtins.int = ...,
         additional_fields: collections.abc.Iterable[builtins.str] | None = ...,
+        show_replicas: builtins.bool = ...,
         sort_ascending: builtins.bool = ...,
         sort_by_name: builtins.bool = ...,
         sort_by_num_inputs: builtins.bool = ...,
         sort_by_modified_at: builtins.bool = ...,
         sort_by_created_at: builtins.bool = ...,
         sort_by_star_count: builtins.bool = ...,
+        sort_by_relevance: builtins.bool = ...,
         model_type_id: builtins.str = ...,
         trained_only: builtins.bool = ...,
         input_fields: collections.abc.Iterable[builtins.str] | None = ...,
@@ -5648,17 +5918,16 @@ class ListModelsRequest(google.protobuf.message.Message):
         languages: collections.abc.Iterable[builtins.str] | None = ...,
         dont_fetch_from_main: builtins.bool = ...,
         bookmark: builtins.bool = ...,
-        search: builtins.str = ...,
-        query: builtins.str = ...,
-        name: builtins.str = ...,
-        filter_by_user_id: builtins.bool = ...,
         model_version_ids: collections.abc.Iterable[builtins.str] | None = ...,
         license_type: proto.clarifai.api.resources_pb2.LicenseType.ValueType = ...,
         source: builtins.int = ...,
         creator: builtins.str = ...,
         min_replicas: builtins.int = ...,
-        show_replicas: builtins.bool = ...,
         visibility: proto.clarifai.api.resources_pb2.Visibility | None = ...,
+        search: builtins.str = ...,
+        query: builtins.str = ...,
+        name: builtins.str = ...,
+        filter_by_user_id: builtins.bool = ...,
     ) -> None: ...
     def HasField(
         self,
@@ -5673,6 +5942,8 @@ class ListModelsRequest(google.protobuf.message.Message):
             b"sort_by_name",
             "sort_by_num_inputs",
             b"sort_by_num_inputs",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "user_app_id",
@@ -5736,6 +6007,8 @@ class ListModelsRequest(google.protobuf.message.Message):
             b"sort_by_name",
             "sort_by_num_inputs",
             b"sort_by_num_inputs",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "source",
@@ -5763,6 +6036,7 @@ class ListModelsRequest(google.protobuf.message.Message):
             "sort_by_modified_at",
             "sort_by_created_at",
             "sort_by_star_count",
+            "sort_by_relevance",
         ]
         | None
     ): ...
@@ -5804,6 +6078,7 @@ class GetResourceCountsResponse(google.protobuf.message.Message):
     WORKFLOWS_FIELD_NUMBER: builtins.int
     MODULES_FIELD_NUMBER: builtins.int
     INPUTS_FIELD_NUMBER: builtins.int
+    PIPELINES_FIELD_NUMBER: builtins.int
     @property
     def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
     datasets: builtins.int
@@ -5811,6 +6086,7 @@ class GetResourceCountsResponse(google.protobuf.message.Message):
     workflows: builtins.int
     modules: builtins.int
     inputs: builtins.int
+    pipelines: builtins.int
     def __init__(
         self,
         *,
@@ -5820,6 +6096,7 @@ class GetResourceCountsResponse(google.protobuf.message.Message):
         workflows: builtins.int = ...,
         modules: builtins.int = ...,
         inputs: builtins.int = ...,
+        pipelines: builtins.int = ...,
     ) -> None: ...
     def HasField(
         self, field_name: typing_extensions.Literal["status", b"status"]
@@ -5835,6 +6112,8 @@ class GetResourceCountsResponse(google.protobuf.message.Message):
             b"models",
             "modules",
             b"modules",
+            "pipelines",
+            b"pipelines",
             "status",
             b"status",
             "workflows",
@@ -6562,12 +6841,12 @@ class ListModelVersionsRequest(google.protobuf.message.Message):
     PER_PAGE_FIELD_NUMBER: builtins.int
     CONCEPT_IDS_FIELD_NUMBER: builtins.int
     TRAINED_ONLY_FIELD_NUMBER: builtins.int
+    MIN_REPLICAS_FIELD_NUMBER: builtins.int
     SORT_ASCENDING_FIELD_NUMBER: builtins.int
     SORT_BY_STATUS_CODE_FIELD_NUMBER: builtins.int
     SORT_BY_NUM_INPUTS_FIELD_NUMBER: builtins.int
     SORT_BY_DESCRIPTION_FIELD_NUMBER: builtins.int
     SORT_BY_CREATED_AT_FIELD_NUMBER: builtins.int
-    MIN_REPLICAS_FIELD_NUMBER: builtins.int
     @property
     def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
     model_id: builtins.str
@@ -6588,6 +6867,8 @@ class ListModelVersionsRequest(google.protobuf.message.Message):
         """
     trained_only: builtins.bool
     """To list only the model versions that have been trained."""
+    min_replicas: builtins.int
+    """Filter by model versions runners with replicas >= min_replicas."""
     sort_ascending: builtins.bool
     """Sorting options:
     Whether to sort in ascending order. If false, will order in descending order.
@@ -6602,8 +6883,6 @@ class ListModelVersionsRequest(google.protobuf.message.Message):
     """Whether to order by the created_at time
     If neither sort option is set to true, will sort by created_at.
     """
-    min_replicas: builtins.int
-    """Filter by model versions runners with replicas >= min_replicas."""
     def __init__(
         self,
         *,
@@ -6613,12 +6892,12 @@ class ListModelVersionsRequest(google.protobuf.message.Message):
         per_page: builtins.int = ...,
         concept_ids: collections.abc.Iterable[builtins.str] | None = ...,
         trained_only: builtins.bool = ...,
+        min_replicas: builtins.int = ...,
         sort_ascending: builtins.bool = ...,
         sort_by_status_code: builtins.bool = ...,
         sort_by_num_inputs: builtins.bool = ...,
         sort_by_description: builtins.bool = ...,
         sort_by_created_at: builtins.bool = ...,
-        min_replicas: builtins.int = ...,
     ) -> None: ...
     def HasField(
         self,
@@ -9103,32 +9382,6 @@ class PostAnnotationsSearchesRequest(google.protobuf.message.Message):
 global___PostAnnotationsSearchesRequest = PostAnnotationsSearchesRequest
 
 @typing_extensions.final
-class DeleteAnnotationSearchMetricsRequest(google.protobuf.message.Message):
-    """DeleteAnnotationSearchMetricsRequest"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    USER_APP_ID_FIELD_NUMBER: builtins.int
-    ID_FIELD_NUMBER: builtins.int
-    @property
-    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
-    id: builtins.str
-    def __init__(
-        self,
-        *,
-        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
-        id: builtins.str = ...,
-    ) -> None: ...
-    def HasField(
-        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
-    ) -> builtins.bool: ...
-    def ClearField(
-        self, field_name: typing_extensions.Literal["id", b"id", "user_app_id", b"user_app_id"]
-    ) -> None: ...
-
-global___DeleteAnnotationSearchMetricsRequest = DeleteAnnotationSearchMetricsRequest
-
-@typing_extensions.final
 class PostInputsSearchesRequest(google.protobuf.message.Message):
     """Execute a new input search and optionally save it"""
 
@@ -9289,166 +9542,6 @@ class MultiSearchResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___MultiSearchResponse = MultiSearchResponse
-
-@typing_extensions.final
-class PostAnnotationSearchMetricsRequest(google.protobuf.message.Message):
-    """PostAnnotationSearchMetricsRequest"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    USER_APP_ID_FIELD_NUMBER: builtins.int
-    ID_FIELD_NUMBER: builtins.int
-    GROUND_TRUTH_FIELD_NUMBER: builtins.int
-    SEARCH_TO_EVAL_FIELD_NUMBER: builtins.int
-    DATA_FIELD_NUMBER: builtins.int
-    EVALUATION_TYPE_FIELD_NUMBER: builtins.int
-    @property
-    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
-    id: builtins.str
-    """A unique customer facing id to identify this eval request"""
-    @property
-    def ground_truth(self) -> proto.clarifai.api.resources_pb2.Search:
-        """The ground truth we are evaluating against"""
-    @property
-    def search_to_eval(self) -> proto.clarifai.api.resources_pb2.Search:
-        """The set we are evaluating"""
-    @property
-    def data(self) -> proto.clarifai.api.resources_pb2.Data:
-        """List of concepts to evaluate are expected to be in data.concepts
-        If nil, then all app concepts are used
-        """
-    evaluation_type: proto.clarifai.api.resources_pb2.EvaluationType.ValueType
-    """The type of evaluation to use"""
-    def __init__(
-        self,
-        *,
-        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
-        id: builtins.str = ...,
-        ground_truth: proto.clarifai.api.resources_pb2.Search | None = ...,
-        search_to_eval: proto.clarifai.api.resources_pb2.Search | None = ...,
-        data: proto.clarifai.api.resources_pb2.Data | None = ...,
-        evaluation_type: proto.clarifai.api.resources_pb2.EvaluationType.ValueType = ...,
-    ) -> None: ...
-    def HasField(
-        self,
-        field_name: typing_extensions.Literal[
-            "data",
-            b"data",
-            "ground_truth",
-            b"ground_truth",
-            "search_to_eval",
-            b"search_to_eval",
-            "user_app_id",
-            b"user_app_id",
-        ],
-    ) -> builtins.bool: ...
-    def ClearField(
-        self,
-        field_name: typing_extensions.Literal[
-            "data",
-            b"data",
-            "evaluation_type",
-            b"evaluation_type",
-            "ground_truth",
-            b"ground_truth",
-            "id",
-            b"id",
-            "search_to_eval",
-            b"search_to_eval",
-            "user_app_id",
-            b"user_app_id",
-        ],
-    ) -> None: ...
-
-global___PostAnnotationSearchMetricsRequest = PostAnnotationSearchMetricsRequest
-
-@typing_extensions.final
-class GetAnnotationSearchMetricsRequest(google.protobuf.message.Message):
-    """GetAnnotationSearchMetricsRequest"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    USER_APP_ID_FIELD_NUMBER: builtins.int
-    ID_FIELD_NUMBER: builtins.int
-    @property
-    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
-    id: builtins.str
-    """Unique custom facing id that identifies the eval to get"""
-    def __init__(
-        self,
-        *,
-        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
-        id: builtins.str = ...,
-    ) -> None: ...
-    def HasField(
-        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
-    ) -> builtins.bool: ...
-    def ClearField(
-        self, field_name: typing_extensions.Literal["id", b"id", "user_app_id", b"user_app_id"]
-    ) -> None: ...
-
-global___GetAnnotationSearchMetricsRequest = GetAnnotationSearchMetricsRequest
-
-@typing_extensions.final
-class ListAnnotationSearchMetricsRequest(google.protobuf.message.Message):
-    """ListAnnotationSearchMetricsRequest"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    USER_APP_ID_FIELD_NUMBER: builtins.int
-    @property
-    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
-    def __init__(
-        self,
-        *,
-        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
-    ) -> None: ...
-    def HasField(
-        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
-    ) -> builtins.bool: ...
-    def ClearField(
-        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
-    ) -> None: ...
-
-global___ListAnnotationSearchMetricsRequest = ListAnnotationSearchMetricsRequest
-
-@typing_extensions.final
-class MultiAnnotationSearchMetricsResponse(google.protobuf.message.Message):
-    """MultiAnnotationSearchMetricsResponse"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    STATUS_FIELD_NUMBER: builtins.int
-    ANNOTATION_SEARCH_METRICS_FIELD_NUMBER: builtins.int
-    @property
-    def status(self) -> proto.clarifai.api.status.status_pb2.Status:
-        """Status of the request"""
-    @property
-    def annotation_search_metrics(
-        self,
-    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
-        proto.clarifai.api.resources_pb2.AnnotationSearchMetrics
-    ]: ...
-    def __init__(
-        self,
-        *,
-        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
-        annotation_search_metrics: collections.abc.Iterable[
-            proto.clarifai.api.resources_pb2.AnnotationSearchMetrics
-        ]
-        | None = ...,
-    ) -> None: ...
-    def HasField(
-        self, field_name: typing_extensions.Literal["status", b"status"]
-    ) -> builtins.bool: ...
-    def ClearField(
-        self,
-        field_name: typing_extensions.Literal[
-            "annotation_search_metrics", b"annotation_search_metrics", "status", b"status"
-        ],
-    ) -> None: ...
-
-global___MultiAnnotationSearchMetricsResponse = MultiAnnotationSearchMetricsResponse
 
 @typing_extensions.final
 class ListAnnotationFiltersRequest(google.protobuf.message.Message):
@@ -9899,6 +9992,7 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
     SORT_BY_MODIFIED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_CREATED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_STAR_COUNT_FIELD_NUMBER: builtins.int
+    SORT_BY_RELEVANCE_FIELD_NUMBER: builtins.int
     FEATURED_ONLY_FIELD_NUMBER: builtins.int
     STARRED_ONLY_FIELD_NUMBER: builtins.int
     BOOKMARK_FIELD_NUMBER: builtins.int
@@ -9936,6 +10030,8 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
     """Whether to order by the created_at time."""
     sort_by_star_count: builtins.bool
     """Whether to order by the number of users stared the workflow"""
+    sort_by_relevance: builtins.bool
+    """Whether to order by search query relevance. Can only be used if search is not empty."""
     featured_only: builtins.bool
     """Filtering options:
     If true, we only return workflows that are handpicked by clarifai staff
@@ -9986,6 +10082,7 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
         sort_by_modified_at: builtins.bool = ...,
         sort_by_created_at: builtins.bool = ...,
         sort_by_star_count: builtins.bool = ...,
+        sort_by_relevance: builtins.bool = ...,
         featured_only: builtins.bool = ...,
         starred_only: builtins.bool = ...,
         bookmark: builtins.bool = ...,
@@ -10006,6 +10103,8 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "user_app_id",
@@ -10045,6 +10144,8 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "starred_only",
@@ -10059,7 +10160,11 @@ class ListWorkflowsRequest(google.protobuf.message.Message):
         self, oneof_group: typing_extensions.Literal["sort_by", b"sort_by"]
     ) -> (
         typing_extensions.Literal[
-            "sort_by_id", "sort_by_modified_at", "sort_by_created_at", "sort_by_star_count"
+            "sort_by_id",
+            "sort_by_modified_at",
+            "sort_by_created_at",
+            "sort_by_star_count",
+            "sort_by_relevance",
         ]
         | None
     ): ...
@@ -11044,6 +11149,7 @@ class ListTasksRequest(google.protobuf.message.Message):
     IDS_FIELD_NUMBER: builtins.int
     INPUT_SOURCE_TYPE_FIELD_NUMBER: builtins.int
     INPUT_SOURCE_IDS_FIELD_NUMBER: builtins.int
+    WORKER_IDS_FIELD_NUMBER: builtins.int
     @property
     def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
     page: builtins.int
@@ -11058,7 +11164,9 @@ class ListTasksRequest(google.protobuf.message.Message):
     def worker_user_ids(
         self,
     ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """Get tasks that have ANY user from this list assigned as worker."""
+        """Get tasks that have ANY user from this list assigned as worker.
+        Deprecated: Use worker_ids.
+        """
     @property
     def review_user_ids(
         self,
@@ -11105,6 +11213,12 @@ class ListTasksRequest(google.protobuf.message.Message):
         self,
     ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """(optional) ids of input source to be filtered"""
+    @property
+    def worker_ids(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.WorkerIDSet
+    ]: ...
     def __init__(
         self,
         *,
@@ -11119,6 +11233,8 @@ class ListTasksRequest(google.protobuf.message.Message):
         ids: collections.abc.Iterable[builtins.str] | None = ...,
         input_source_type: proto.clarifai.api.resources_pb2.TaskInputSource.TaskInputSourceType.ValueType = ...,
         input_source_ids: collections.abc.Iterable[builtins.str] | None = ...,
+        worker_ids: collections.abc.Iterable[proto.clarifai.api.resources_pb2.WorkerIDSet]
+        | None = ...,
     ) -> None: ...
     def HasField(
         self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
@@ -11146,6 +11262,8 @@ class ListTasksRequest(google.protobuf.message.Message):
             b"review_user_ids",
             "user_app_id",
             b"user_app_id",
+            "worker_ids",
+            b"worker_ids",
             "worker_user_ids",
             b"worker_user_ids",
         ],
@@ -11171,8 +11289,11 @@ class PatchTasksRequest(google.protobuf.message.Message):
         proto.clarifai.api.resources_pb2.Task
     ]: ...
     action: builtins.str
-    """The action to perform on the patched objects
-    For now, only 'overwrite' action is supported
+    """The action to perform on the patched tasks
+    Supported operations:
+    * 'overwrite' - overwrite the task with the fields provided in the request
+    * 'merge' - update only the fields provided in the request, leave other fields unchanged
+    For now, the 'merge' operation only supports updating task status.
     """
     def __init__(
         self,
@@ -11522,7 +11643,7 @@ class PatchLabelOrdersRequest(google.protobuf.message.Message):
     ]: ...
     action: builtins.str
     """The action to perform on the patched objects
-    For now actions 'merge', 'overwrite', and 'remove' are supported
+    For now, only 'overwrite' option is supported
     """
     def __init__(
         self,
@@ -12083,6 +12204,7 @@ class ListModulesRequest(google.protobuf.message.Message):
     SORT_BY_STAR_COUNT_FIELD_NUMBER: builtins.int
     SORT_BY_MODIFIED_AT_FIELD_NUMBER: builtins.int
     SORT_BY_ID_FIELD_NUMBER: builtins.int
+    SORT_BY_RELEVANCE_FIELD_NUMBER: builtins.int
     STARRED_ONLY_FIELD_NUMBER: builtins.int
     BOOKMARK_FIELD_NUMBER: builtins.int
     SEARCH_FIELD_NUMBER: builtins.int
@@ -12115,6 +12237,8 @@ class ListModulesRequest(google.protobuf.message.Message):
     """If neither sort option is set to true, will sort by modified_at."""
     sort_by_id: builtins.bool
     """Whether to order by the external id"""
+    sort_by_relevance: builtins.bool
+    """Whether to order by search query relevance. Can only be used if search is not empty."""
     starred_only: builtins.bool
     """Filtering options:"""
     bookmark: builtins.bool
@@ -12156,6 +12280,7 @@ class ListModulesRequest(google.protobuf.message.Message):
         sort_by_star_count: builtins.bool = ...,
         sort_by_modified_at: builtins.bool = ...,
         sort_by_id: builtins.bool = ...,
+        sort_by_relevance: builtins.bool = ...,
         starred_only: builtins.bool = ...,
         bookmark: builtins.bool = ...,
         search: builtins.str = ...,
@@ -12174,6 +12299,8 @@ class ListModulesRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "user_app_id",
@@ -12209,6 +12336,8 @@ class ListModulesRequest(google.protobuf.message.Message):
             b"sort_by_id",
             "sort_by_modified_at",
             b"sort_by_modified_at",
+            "sort_by_relevance",
+            b"sort_by_relevance",
             "sort_by_star_count",
             b"sort_by_star_count",
             "starred_only",
@@ -12223,7 +12352,11 @@ class ListModulesRequest(google.protobuf.message.Message):
         self, oneof_group: typing_extensions.Literal["sort_by", b"sort_by"]
     ) -> (
         typing_extensions.Literal[
-            "sort_by_created_at", "sort_by_star_count", "sort_by_modified_at", "sort_by_id"
+            "sort_by_created_at",
+            "sort_by_star_count",
+            "sort_by_modified_at",
+            "sort_by_id",
+            "sort_by_relevance",
         ]
         | None
     ): ...
@@ -14790,6 +14923,7 @@ class RunnerItem(google.protobuf.message.Message):
     PROCESSING_INFO_FIELD_NUMBER: builtins.int
     POST_MODEL_OUTPUTS_REQUEST_FIELD_NUMBER: builtins.int
     SYNC_STATE_REQUEST_FIELD_NUMBER: builtins.int
+    AUTO_ANNOTATION_REQUEST_FIELD_NUMBER: builtins.int
     id: builtins.str
     """A UUID hash for this work item."""
     description: builtins.str
@@ -14802,7 +14936,10 @@ class RunnerItem(google.protobuf.message.Message):
         """Model prediction request from a user."""
     @property
     def sync_state_request(self) -> global___SyncStateRequest:
-        """Agent sync request from control plane.
+        """Agent sync request from control plane."""
+    @property
+    def auto_annotation_request(self) -> global___AutoAnnotationRequest:
+        """Auto annotation request from a user.
         Workflow request from a user.  // FUTURE
         training request next, etc.
         """
@@ -14814,10 +14951,13 @@ class RunnerItem(google.protobuf.message.Message):
         processing_info: proto.clarifai.api.resources_pb2.ProcessingInfo | None = ...,
         post_model_outputs_request: global___PostModelOutputsRequest | None = ...,
         sync_state_request: global___SyncStateRequest | None = ...,
+        auto_annotation_request: global___AutoAnnotationRequest | None = ...,
     ) -> None: ...
     def HasField(
         self,
         field_name: typing_extensions.Literal[
+            "auto_annotation_request",
+            b"auto_annotation_request",
             "post_model_outputs_request",
             b"post_model_outputs_request",
             "processing_info",
@@ -14831,6 +14971,8 @@ class RunnerItem(google.protobuf.message.Message):
     def ClearField(
         self,
         field_name: typing_extensions.Literal[
+            "auto_annotation_request",
+            b"auto_annotation_request",
             "description",
             b"description",
             "id",
@@ -14847,9 +14989,56 @@ class RunnerItem(google.protobuf.message.Message):
     ) -> None: ...
     def WhichOneof(
         self, oneof_group: typing_extensions.Literal["request", b"request"]
-    ) -> typing_extensions.Literal["post_model_outputs_request", "sync_state_request"] | None: ...
+    ) -> (
+        typing_extensions.Literal[
+            "post_model_outputs_request", "sync_state_request", "auto_annotation_request"
+        ]
+        | None
+    ): ...
 
 global___RunnerItem = RunnerItem
+
+@typing_extensions.final
+class AutoAnnotationRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    POST_MODEL_OUTPUTS_REQUEST_FIELD_NUMBER: builtins.int
+    TASK_FIELD_NUMBER: builtins.int
+    AUTHORIZATION_VALUE_FIELD_NUMBER: builtins.int
+    @property
+    def post_model_outputs_request(self) -> global___PostModelOutputsRequest:
+        """Perform prediction request and call PostAnnotations endpoint using prediction results."""
+    @property
+    def task(self) -> proto.clarifai.api.resources_pb2.Task:
+        """Task used to create annotations ."""
+    authorization_value: builtins.str
+    """Authorization value to be used when calling PostAnnotations endpoint."""
+    def __init__(
+        self,
+        *,
+        post_model_outputs_request: global___PostModelOutputsRequest | None = ...,
+        task: proto.clarifai.api.resources_pb2.Task | None = ...,
+        authorization_value: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal[
+            "post_model_outputs_request", b"post_model_outputs_request", "task", b"task"
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "authorization_value",
+            b"authorization_value",
+            "post_model_outputs_request",
+            b"post_model_outputs_request",
+            "task",
+            b"task",
+        ],
+    ) -> None: ...
+
+global___AutoAnnotationRequest = AutoAnnotationRequest
 
 @typing_extensions.final
 class RunnerItemOutput(google.protobuf.message.Message):
@@ -15082,23 +15271,35 @@ class MultiCloudRegionResponse(google.protobuf.message.Message):
 
     STATUS_FIELD_NUMBER: builtins.int
     REGIONS_FIELD_NUMBER: builtins.int
+    CLOUD_REGIONS_FIELD_NUMBER: builtins.int
     @property
     def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
     @property
     def regions(
         self,
     ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    @property
+    def cloud_regions(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.CloudRegion
+    ]: ...
     def __init__(
         self,
         *,
         status: proto.clarifai.api.status.status_pb2.Status | None = ...,
         regions: collections.abc.Iterable[builtins.str] | None = ...,
+        cloud_regions: collections.abc.Iterable[proto.clarifai.api.resources_pb2.CloudRegion]
+        | None = ...,
     ) -> None: ...
     def HasField(
         self, field_name: typing_extensions.Literal["status", b"status"]
     ) -> builtins.bool: ...
     def ClearField(
-        self, field_name: typing_extensions.Literal["regions", b"regions", "status", b"status"]
+        self,
+        field_name: typing_extensions.Literal[
+            "cloud_regions", b"cloud_regions", "regions", b"regions", "status", b"status"
+        ],
     ) -> None: ...
 
 global___MultiCloudRegionResponse = MultiCloudRegionResponse
@@ -15270,6 +15471,52 @@ class PostComputeClustersRequest(google.protobuf.message.Message):
     ) -> None: ...
 
 global___PostComputeClustersRequest = PostComputeClustersRequest
+
+@typing_extensions.final
+class PatchComputeClustersRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    COMPUTE_CLUSTERS_FIELD_NUMBER: builtins.int
+    ACTION_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet:
+        """Only the user_id is used from this."""
+    @property
+    def compute_clusters(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.ComputeCluster
+    ]:
+        """This allows you to patch one or more compute_clusters"""
+    action: builtins.str
+    """The action to perform on the patched objects
+    For now 'overwrite' is supported
+    """
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        compute_clusters: collections.abc.Iterable[proto.clarifai.api.resources_pb2.ComputeCluster]
+        | None = ...,
+        action: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "action",
+            b"action",
+            "compute_clusters",
+            b"compute_clusters",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___PatchComputeClustersRequest = PatchComputeClustersRequest
 
 @typing_extensions.final
 class DeleteComputeClustersRequest(google.protobuf.message.Message):
@@ -17281,6 +17528,113 @@ class MultiPipelineVersionRunResponse(google.protobuf.message.Message):
 global___MultiPipelineVersionRunResponse = MultiPipelineVersionRunResponse
 
 @typing_extensions.final
+class ListPipelineVersionRunStatusLogsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    PIPELINE_ID_FIELD_NUMBER: builtins.int
+    PIPELINE_VERSION_ID_FIELD_NUMBER: builtins.int
+    PIPELINE_VERSION_RUN_ID_FIELD_NUMBER: builtins.int
+    STATUS_CODES_FIELD_NUMBER: builtins.int
+    PAGE_FIELD_NUMBER: builtins.int
+    PER_PAGE_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet:
+        """User App ID"""
+    pipeline_id: builtins.str
+    """Pipeline ID"""
+    pipeline_version_id: builtins.str
+    """Pipeline Version ID"""
+    pipeline_version_run_id: builtins.str
+    """Pipeline Version Run ID"""
+    @property
+    def status_codes(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[
+        proto.clarifai.api.status.status_code_pb2.StatusCode.ValueType
+    ]:
+        """Status codes to filter by (optional)"""
+    page: builtins.int
+    """Pagination"""
+    per_page: builtins.int
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        pipeline_id: builtins.str = ...,
+        pipeline_version_id: builtins.str = ...,
+        pipeline_version_run_id: builtins.str = ...,
+        status_codes: collections.abc.Iterable[
+            proto.clarifai.api.status.status_code_pb2.StatusCode.ValueType
+        ]
+        | None = ...,
+        page: builtins.int = ...,
+        per_page: builtins.int = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "page",
+            b"page",
+            "per_page",
+            b"per_page",
+            "pipeline_id",
+            b"pipeline_id",
+            "pipeline_version_id",
+            b"pipeline_version_id",
+            "pipeline_version_run_id",
+            b"pipeline_version_run_id",
+            "status_codes",
+            b"status_codes",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___ListPipelineVersionRunStatusLogsRequest = ListPipelineVersionRunStatusLogsRequest
+
+@typing_extensions.final
+class MultiPipelineVersionRunStatusLogResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    PIPELINE_VERSION_RUN_STATUS_LOGS_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
+    @property
+    def pipeline_version_run_status_logs(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.PipelineVersionRunStatusLog
+    ]: ...
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        pipeline_version_run_status_logs: collections.abc.Iterable[
+            proto.clarifai.api.resources_pb2.PipelineVersionRunStatusLog
+        ]
+        | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["status", b"status"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "pipeline_version_run_status_logs",
+            b"pipeline_version_run_status_logs",
+            "status",
+            b"status",
+        ],
+    ) -> None: ...
+
+global___MultiPipelineVersionRunStatusLogResponse = MultiPipelineVersionRunStatusLogResponse
+
+@typing_extensions.final
 class PostPipelineStepsRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -17750,6 +18104,74 @@ class SinglePipelineStepVersionResponse(google.protobuf.message.Message):
 global___SinglePipelineStepVersionResponse = SinglePipelineStepVersionResponse
 
 @typing_extensions.final
+class DeletePipelineStepsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    IDS_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    @property
+    def ids(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The ids of the pipeline steps to delete"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self, field_name: typing_extensions.Literal["ids", b"ids", "user_app_id", b"user_app_id"]
+    ) -> None: ...
+
+global___DeletePipelineStepsRequest = DeletePipelineStepsRequest
+
+@typing_extensions.final
+class DeletePipelineStepVersionsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    PIPELINE_STEP_ID_FIELD_NUMBER: builtins.int
+    PIPELINE_STEP_VERSION_IDS_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    pipeline_step_id: builtins.str
+    """The id of the pipeline step for which versions are being deleted"""
+    @property
+    def pipeline_step_version_ids(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The ids of the pipeline step versions to delete"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        pipeline_step_id: builtins.str = ...,
+        pipeline_step_version_ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "pipeline_step_id",
+            b"pipeline_step_id",
+            "pipeline_step_version_ids",
+            b"pipeline_step_version_ids",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___DeletePipelineStepVersionsRequest = DeletePipelineStepVersionsRequest
+
+@typing_extensions.final
 class GetSecretRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -18087,3 +18509,514 @@ class MultiMetricLabelsResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___MultiMetricLabelsResponse = MultiMetricLabelsResponse
+
+@typing_extensions.final
+class PostArtifactsRequest(google.protobuf.message.Message):
+    """Artifact requests and responses"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACTS_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    @property
+    def artifacts(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.Artifact
+    ]: ...
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifacts: collections.abc.Iterable[proto.clarifai.api.resources_pb2.Artifact]
+        | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifacts", b"artifacts", "user_app_id", b"user_app_id"
+        ],
+    ) -> None: ...
+
+global___PostArtifactsRequest = PostArtifactsRequest
+
+@typing_extensions.final
+class MultiArtifactResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    ARTIFACTS_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
+    @property
+    def artifacts(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.Artifact
+    ]: ...
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        artifacts: collections.abc.Iterable[proto.clarifai.api.resources_pb2.Artifact]
+        | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["status", b"status"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self, field_name: typing_extensions.Literal["artifacts", b"artifacts", "status", b"status"]
+    ) -> None: ...
+
+global___MultiArtifactResponse = MultiArtifactResponse
+
+@typing_extensions.final
+class ListArtifactsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    PAGE_FIELD_NUMBER: builtins.int
+    PER_PAGE_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    page: builtins.int
+    """(optional URL parameter) The page number. Pagination is used to split the results into chunks.
+    Defaults to 1.
+    """
+    per_page: builtins.int
+    """(optional URL parameter) The number of results that will be contained in each page. Defaults
+    to 128.
+    """
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        page: builtins.int = ...,
+        per_page: builtins.int = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "page", b"page", "per_page", b"per_page", "user_app_id", b"user_app_id"
+        ],
+    ) -> None: ...
+
+global___ListArtifactsRequest = ListArtifactsRequest
+
+@typing_extensions.final
+class GetArtifactRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    artifact_id: builtins.str
+    """The id of the artifact to get"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id", b"artifact_id", "user_app_id", b"user_app_id"
+        ],
+    ) -> None: ...
+
+global___GetArtifactRequest = GetArtifactRequest
+
+@typing_extensions.final
+class SingleArtifactResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    ARTIFACT_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status: ...
+    @property
+    def artifact(self) -> proto.clarifai.api.resources_pb2.Artifact: ...
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        artifact: proto.clarifai.api.resources_pb2.Artifact | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["artifact", b"artifact", "status", b"status"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self, field_name: typing_extensions.Literal["artifact", b"artifact", "status", b"status"]
+    ) -> None: ...
+
+global___SingleArtifactResponse = SingleArtifactResponse
+
+@typing_extensions.final
+class DeleteArtifactRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    artifact_id: builtins.str
+    """The id of the artifact to be deleted"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id", b"artifact_id", "user_app_id", b"user_app_id"
+        ],
+    ) -> None: ...
+
+global___DeleteArtifactRequest = DeleteArtifactRequest
+
+@typing_extensions.final
+class PostArtifactVersionsUploadRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    UPLOAD_CONFIG_FIELD_NUMBER: builtins.int
+    CONTENT_PART_FIELD_NUMBER: builtins.int
+    @property
+    def upload_config(self) -> global___PostArtifactVersionsUploadConfig:
+        """Upload a new artifact version."""
+    @property
+    def content_part(self) -> proto.clarifai.api.resources_pb2.UploadContentPart:
+        """Upload a part of a multipart upload."""
+    def __init__(
+        self,
+        *,
+        upload_config: global___PostArtifactVersionsUploadConfig | None = ...,
+        content_part: proto.clarifai.api.resources_pb2.UploadContentPart | None = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal[
+            "content_part",
+            b"content_part",
+            "upload_config",
+            b"upload_config",
+            "upload_data",
+            b"upload_data",
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "content_part",
+            b"content_part",
+            "upload_config",
+            b"upload_config",
+            "upload_data",
+            b"upload_data",
+        ],
+    ) -> None: ...
+    def WhichOneof(
+        self, oneof_group: typing_extensions.Literal["upload_data", b"upload_data"]
+    ) -> typing_extensions.Literal["upload_config", "content_part"] | None: ...
+
+global___PostArtifactVersionsUploadRequest = PostArtifactVersionsUploadRequest
+
+@typing_extensions.final
+class PostArtifactVersionsUploadResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    BYTES_REMAINING_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSION_ID_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status:
+        """Status of the upload"""
+    bytes_remaining: builtins.int
+    """Bytes remaining to be uploaded - This is total_size - bytes_uploaded"""
+    artifact_version_id: builtins.str
+    """ID of the artifact version being uploaded"""
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        bytes_remaining: builtins.int = ...,
+        artifact_version_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["status", b"status"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_version_id",
+            b"artifact_version_id",
+            "bytes_remaining",
+            b"bytes_remaining",
+            "status",
+            b"status",
+        ],
+    ) -> None: ...
+
+global___PostArtifactVersionsUploadResponse = PostArtifactVersionsUploadResponse
+
+@typing_extensions.final
+class PostArtifactVersionsUploadConfig(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSION_FIELD_NUMBER: builtins.int
+    TOTAL_SIZE_FIELD_NUMBER: builtins.int
+    STORAGE_REQUEST_SIZE_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet:
+        """User ID and App ID of the user uploading the artifact"""
+    artifact_id: builtins.str
+    """Artifact to create version for"""
+    @property
+    def artifact_version(self) -> proto.clarifai.api.resources_pb2.ArtifactVersion:
+        """Specification for the artifact version to be uploaded"""
+    total_size: builtins.int
+    """Number of bytes in the artifact files to be uploaded"""
+    storage_request_size: builtins.int
+    """Number of bytes requested for the build process."""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+        artifact_version: proto.clarifai.api.resources_pb2.ArtifactVersion | None = ...,
+        total_size: builtins.int = ...,
+        storage_request_size: builtins.int = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_version", b"artifact_version", "user_app_id", b"user_app_id"
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id",
+            b"artifact_id",
+            "artifact_version",
+            b"artifact_version",
+            "storage_request_size",
+            b"storage_request_size",
+            "total_size",
+            b"total_size",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___PostArtifactVersionsUploadConfig = PostArtifactVersionsUploadConfig
+
+@typing_extensions.final
+class ListArtifactVersionsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    PAGE_FIELD_NUMBER: builtins.int
+    PER_PAGE_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    artifact_id: builtins.str
+    """List versions for the artifact identified by this id"""
+    page: builtins.int
+    """(optional URL parameter) The page number. Pagination is used to split the results into chunks.
+    Defaults to 1.
+    """
+    per_page: builtins.int
+    """(optional URL parameter) The number of results that will be contained in each page. Defaults
+    to 128.
+    """
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+        page: builtins.int = ...,
+        per_page: builtins.int = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id",
+            b"artifact_id",
+            "page",
+            b"page",
+            "per_page",
+            b"per_page",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___ListArtifactVersionsRequest = ListArtifactVersionsRequest
+
+@typing_extensions.final
+class MultiArtifactVersionResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSIONS_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status:
+        """The status of the request"""
+    @property
+    def artifact_versions(
+        self,
+    ) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[
+        proto.clarifai.api.resources_pb2.ArtifactVersion
+    ]:
+        """The artifact versions that were requested"""
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        artifact_versions: collections.abc.Iterable[
+            proto.clarifai.api.resources_pb2.ArtifactVersion
+        ]
+        | None = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["status", b"status"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_versions", b"artifact_versions", "status", b"status"
+        ],
+    ) -> None: ...
+
+global___MultiArtifactVersionResponse = MultiArtifactVersionResponse
+
+@typing_extensions.final
+class GetArtifactVersionRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSION_ID_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    artifact_id: builtins.str
+    """The id of the artifact that has the requested version."""
+    artifact_version_id: builtins.str
+    """Get the artifact version identified by this id"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+        artifact_version_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id",
+            b"artifact_id",
+            "artifact_version_id",
+            b"artifact_version_id",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___GetArtifactVersionRequest = GetArtifactVersionRequest
+
+@typing_extensions.final
+class SingleArtifactVersionResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STATUS_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSION_FIELD_NUMBER: builtins.int
+    @property
+    def status(self) -> proto.clarifai.api.status.status_pb2.Status:
+        """The status of the request"""
+    @property
+    def artifact_version(self) -> proto.clarifai.api.resources_pb2.ArtifactVersion:
+        """The artifact version that was requested"""
+    def __init__(
+        self,
+        *,
+        status: proto.clarifai.api.status.status_pb2.Status | None = ...,
+        artifact_version: proto.clarifai.api.resources_pb2.ArtifactVersion | None = ...,
+    ) -> None: ...
+    def HasField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_version", b"artifact_version", "status", b"status"
+        ],
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_version", b"artifact_version", "status", b"status"
+        ],
+    ) -> None: ...
+
+global___SingleArtifactVersionResponse = SingleArtifactVersionResponse
+
+@typing_extensions.final
+class DeleteArtifactVersionRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    USER_APP_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_ID_FIELD_NUMBER: builtins.int
+    ARTIFACT_VERSION_ID_FIELD_NUMBER: builtins.int
+    @property
+    def user_app_id(self) -> proto.clarifai.api.resources_pb2.UserAppIDSet: ...
+    artifact_id: builtins.str
+    """The id of the artifact for which versions are being deleted"""
+    artifact_version_id: builtins.str
+    """The id of the artifact versions to be deleted"""
+    def __init__(
+        self,
+        *,
+        user_app_id: proto.clarifai.api.resources_pb2.UserAppIDSet | None = ...,
+        artifact_id: builtins.str = ...,
+        artifact_version_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["user_app_id", b"user_app_id"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "artifact_id",
+            b"artifact_id",
+            "artifact_version_id",
+            b"artifact_version_id",
+            "user_app_id",
+            b"user_app_id",
+        ],
+    ) -> None: ...
+
+global___DeleteArtifactVersionRequest = DeleteArtifactVersionRequest

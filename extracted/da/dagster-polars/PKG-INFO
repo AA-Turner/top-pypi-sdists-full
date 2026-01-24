@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-polars
-Version: 0.27.7
+Version: 0.27.8
 Summary: Dagster integration library for Polars
 Author-email: Daniel Gafni <danielgafni16@gmail.com>
 Project-URL: Repository, https://github.com/dagster-io/community-integrations/tree/main/libraries/dagster-polars
@@ -9,7 +9,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: dagster
 Requires-Dist: polars>=0.20.0

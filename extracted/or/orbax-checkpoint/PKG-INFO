@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.11.25
+Version: 0.11.32
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
@@ -20,12 +20,13 @@ Requires-Dist: msgpack
 Requires-Dist: jax >= 0.6.0
 Requires-Dist: numpy
 Requires-Dist: pyyaml
-Requires-Dist: tensorstore >= 0.1.71
+Requires-Dist: tensorstore >= 0.1.74
 Requires-Dist: nest_asyncio
 Requires-Dist: aiofiles
 Requires-Dist: protobuf
 Requires-Dist: humanize
 Requires-Dist: simplejson >= 3.16.0
+Requires-Dist: psutil
 Requires-Dist: flax ; extra == "docs"
 Requires-Dist: google-cloud-logging ; extra == "docs"
 Requires-Dist: grain ; extra == "docs"
@@ -33,6 +34,7 @@ Requires-Dist: aiofiles ; extra == "docs"
 Requires-Dist: tensorflow_datasets ; extra == "docs"
 Requires-Dist: opencv-python ; extra == "docs"
 Requires-Dist: safetensors ; extra == "docs"
+Requires-Dist: clu ; extra == "docs"
 Requires-Dist: google-cloud-logging ; extra == "testing"
 Requires-Dist: mock ; extra == "testing"
 Requires-Dist: flax ; extra == "testing"
@@ -41,6 +43,9 @@ Requires-Dist: pytest-xdist ; extra == "testing"
 Requires-Dist: chex ; extra == "testing"
 Requires-Dist: aiofiles ; extra == "testing"
 Requires-Dist: safetensors ; extra == "testing"
+Requires-Dist: torch ; extra == "testing"
+Requires-Dist: clu ; extra == "testing"
+Requires-Dist: tensorflow ; extra == "testing"
 Project-URL: homepage, http://github.com/google/orbax
 Project-URL: repository, http://github.com/google/orbax
 Provides-Extra: docs

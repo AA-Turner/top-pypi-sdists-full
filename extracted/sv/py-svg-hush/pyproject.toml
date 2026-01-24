@@ -1,0 +1,60 @@
+[project]
+name = "py_svg_hush"
+version = "0.2.0"
+authors = [
+    {name = "Joshua Munn", email = "public@elysee-munn.family"},
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+license = {file = "LICENSE.txt"}
+
+[project.urls]
+homepage = "https://github.com/jams2/py-svg-hush"
+documentation = "https://github.com/jams2/py-svg-hush"
+repository = "https://github.com/jams2/py-svg-hush"
+changelog = "https://github.com/jams2/py-svg-hush/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "maturin==1.8.3",
+    "ruff==0.11.0",
+    "pytest==8.3.3",
+    "pip>=24.2",		# maturin needs this for dev builds.
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "I",   # isort
+    "ARG", # unused arguments
+    "PT",  # pytest style
+    "T10", # flake8-debugger
+    "C4",  # flake8-comprehensions
+]
+ignore = [
+    "UP007",  # use X | Y
+    "UP006",  # use dict, list instead of Dict, List
+    "E501",   # line too long
+]
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+minversion = 7.0
+
+[build-system]
+requires = ["maturin==1.8.3"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

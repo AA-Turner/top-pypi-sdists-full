@@ -4,7 +4,7 @@
 from distutils.core import setup
 
 packages = \
-['wheel', 'wheel.cli', 'wheel.vendored', 'wheel.vendored.packaging']
+['wheel', 'wheel._commands']
 
 package_data = \
 {'': ['*']}
@@ -12,23 +12,27 @@ package_data = \
 package_dir = \
 {'': 'src'}
 
+install_requires = \
+['packaging >= 24.0']
+
 extras_require = \
-{'test': ['pytest >= 6.0.0', 'setuptools >= 65']}
+{'test': ['pytest >= 6.0.0', 'setuptools >= 77']}
 
 entry_points = \
-{'console_scripts': ['wheel = wheel.cli:main'],
+{'console_scripts': ['wheel = wheel._commands:main'],
  'distutils.commands': ['bdist_wheel = wheel.bdist_wheel:bdist_wheel']}
 
 setup(name='wheel',
-      version='0.45.1',
-      description='A built-package format for Python',
+      version='0.46.3',
+      description='Command line tool for manipulating wheel files',
       author=None,
       author_email='Daniel Holth <dholth@fastmail.fm>',
       url=None,
       packages=packages,
       package_data=package_data,
       package_dir=package_dir,
+      install_requires=install_requires,
       extras_require=extras_require,
       entry_points=entry_points,
-      python_requires='>=3.8',
+      python_requires='>=3.9',
      )

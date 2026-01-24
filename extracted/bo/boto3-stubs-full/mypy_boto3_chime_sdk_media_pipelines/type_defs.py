@@ -3,7 +3,7 @@ Type annotations for chime-sdk-media-pipelines service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_chime_sdk_media_pipelines/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -54,12 +55,6 @@ from .literals import (
     VoiceAnalyticsConfigurationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -326,7 +321,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -445,7 +440,7 @@ class IssueDetectionConfigurationTypeDef(TypedDict):
 
 class KeywordMatchConfigurationOutputTypeDef(TypedDict):
     RuleName: str
-    Keywords: List[str]
+    Keywords: list[str]
     Negate: NotRequired[bool]
 
 
@@ -567,8 +562,8 @@ class SentimentConfigurationTypeDef(TypedDict):
 
 
 class SelectedVideoStreamsOutputTypeDef(TypedDict):
-    AttendeeIds: NotRequired[List[str]]
-    ExternalUserIds: NotRequired[List[str]]
+    AttendeeIds: NotRequired[list[str]]
+    ExternalUserIds: NotRequired[list[str]]
 
 
 class SelectedVideoStreamsTypeDef(TypedDict):
@@ -612,7 +607,7 @@ class AmazonTranscribeCallAnalyticsProcessorConfigurationOutputTypeDef(TypedDict
     PiiEntityTypes: NotRequired[str]
     FilterPartialResults: NotRequired[bool]
     PostCallAnalyticsSettings: NotRequired[PostCallAnalyticsSettingsTypeDef]
-    CallAnalyticsStreamCategories: NotRequired[List[str]]
+    CallAnalyticsStreamCategories: NotRequired[list[str]]
 
 
 class AmazonTranscribeCallAnalyticsProcessorConfigurationTypeDef(TypedDict):
@@ -643,7 +638,7 @@ class ArtifactsConcatenationConfigurationTypeDef(TypedDict):
 
 class StreamChannelDefinitionOutputTypeDef(TypedDict):
     NumberOfChannels: int
-    ChannelDefinitions: NotRequired[List[ChannelDefinitionTypeDef]]
+    ChannelDefinitions: NotRequired[list[ChannelDefinitionTypeDef]]
 
 
 class StreamChannelDefinitionTypeDef(TypedDict):
@@ -670,7 +665,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -705,8 +700,8 @@ class MediaStreamPipelineTypeDef(TypedDict):
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
     Status: NotRequired[MediaPipelineStatusType]
-    Sources: NotRequired[List[MediaStreamSourceTypeDef]]
-    Sinks: NotRequired[List[MediaStreamSinkTypeDef]]
+    Sources: NotRequired[list[MediaStreamSourceTypeDef]]
+    Sinks: NotRequired[list[MediaStreamSinkTypeDef]]
 
 
 class FragmentSelectorOutputTypeDef(TypedDict):
@@ -750,7 +745,7 @@ class UpdateMediaPipelineKinesisVideoStreamPoolRequestTypeDef(TypedDict):
 
 
 class ListMediaPipelineKinesisVideoStreamPoolsResponseTypeDef(TypedDict):
-    KinesisVideoStreamPools: List[KinesisVideoStreamPoolSummaryTypeDef]
+    KinesisVideoStreamPools: list[KinesisVideoStreamPoolSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -774,19 +769,19 @@ class StartVoiceToneAnalysisTaskRequestTypeDef(TypedDict):
 
 
 class ListMediaCapturePipelinesResponseTypeDef(TypedDict):
-    MediaCapturePipelines: List[MediaCapturePipelineSummaryTypeDef]
+    MediaCapturePipelines: list[MediaCapturePipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMediaInsightsPipelineConfigurationsResponseTypeDef(TypedDict):
-    MediaInsightsPipelineConfigurations: List[MediaInsightsPipelineConfigurationSummaryTypeDef]
+    MediaInsightsPipelineConfigurations: list[MediaInsightsPipelineConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMediaPipelinesResponseTypeDef(TypedDict):
-    MediaPipelines: List[MediaPipelineSummaryTypeDef]
+    MediaPipelines: list[MediaPipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -896,7 +891,7 @@ class CreateMediaStreamPipelineResponseTypeDef(TypedDict):
 
 
 class KinesisVideoStreamRecordingSourceRuntimeConfigurationOutputTypeDef(TypedDict):
-    Streams: List[RecordingStreamConfigurationTypeDef]
+    Streams: list[RecordingStreamConfigurationTypeDef]
     FragmentSelector: FragmentSelectorOutputTypeDef
 
 
@@ -908,7 +903,7 @@ class CompositedVideoArtifactsConfigurationTypeDef(TypedDict):
 
 class RealTimeAlertConfigurationOutputTypeDef(TypedDict):
     Disabled: NotRequired[bool]
-    Rules: NotRequired[List[RealTimeAlertRuleOutputTypeDef]]
+    Rules: NotRequired[list[RealTimeAlertRuleOutputTypeDef]]
 
 
 class RealTimeAlertConfigurationTypeDef(TypedDict):
@@ -956,7 +951,7 @@ class MediaCapturePipelineSourceConfigurationTypeDef(TypedDict):
 
 
 class KinesisVideoStreamSourceRuntimeConfigurationOutputTypeDef(TypedDict):
-    Streams: List[StreamConfigurationOutputTypeDef]
+    Streams: list[StreamConfigurationOutputTypeDef]
     MediaEncoding: Literal["pcm"]
     MediaSampleRate: int
 
@@ -986,7 +981,7 @@ class MediaInsightsPipelineConfigurationTypeDef(TypedDict):
     MediaInsightsPipelineConfigurationArn: NotRequired[str]
     ResourceAccessRoleArn: NotRequired[str]
     RealTimeAlertConfiguration: NotRequired[RealTimeAlertConfigurationOutputTypeDef]
-    Elements: NotRequired[List[MediaInsightsPipelineConfigurationElementOutputTypeDef]]
+    Elements: NotRequired[list[MediaInsightsPipelineConfigurationElementOutputTypeDef]]
     MediaInsightsPipelineConfigurationId: NotRequired[str]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
@@ -1026,13 +1021,13 @@ class MediaInsightsPipelineTypeDef(TypedDict):
     KinesisVideoStreamSourceRuntimeConfiguration: NotRequired[
         KinesisVideoStreamSourceRuntimeConfigurationOutputTypeDef
     ]
-    MediaInsightsRuntimeMetadata: NotRequired[Dict[str, str]]
+    MediaInsightsRuntimeMetadata: NotRequired[dict[str, str]]
     KinesisVideoStreamRecordingSourceRuntimeConfiguration: NotRequired[
         KinesisVideoStreamRecordingSourceRuntimeConfigurationOutputTypeDef
     ]
     S3RecordingSinkRuntimeConfiguration: NotRequired[S3RecordingSinkRuntimeConfigurationTypeDef]
     CreatedTimestamp: NotRequired[datetime]
-    ElementStatuses: NotRequired[List[MediaInsightsPipelineElementStatusTypeDef]]
+    ElementStatuses: NotRequired[list[MediaInsightsPipelineElementStatusTypeDef]]
 
 
 KinesisVideoStreamSourceRuntimeConfigurationUnionTypeDef = Union[
@@ -1112,8 +1107,8 @@ class CreateMediaConcatenationPipelineRequestTypeDef(TypedDict):
 class MediaConcatenationPipelineTypeDef(TypedDict):
     MediaPipelineId: NotRequired[str]
     MediaPipelineArn: NotRequired[str]
-    Sources: NotRequired[List[ConcatenationSourceTypeDef]]
-    Sinks: NotRequired[List[ConcatenationSinkTypeDef]]
+    Sources: NotRequired[list[ConcatenationSourceTypeDef]]
+    Sinks: NotRequired[list[ConcatenationSinkTypeDef]]
     Status: NotRequired[MediaPipelineStatusType]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
@@ -1145,8 +1140,8 @@ ChimeSdkMeetingConfigurationUnionTypeDef = Union[
 
 
 class MediaLiveConnectorPipelineTypeDef(TypedDict):
-    Sources: NotRequired[List[LiveConnectorSourceConfigurationOutputTypeDef]]
-    Sinks: NotRequired[List[LiveConnectorSinkConfigurationTypeDef]]
+    Sources: NotRequired[list[LiveConnectorSourceConfigurationOutputTypeDef]]
+    Sinks: NotRequired[list[LiveConnectorSinkConfigurationTypeDef]]
     MediaPipelineId: NotRequired[str]
     MediaPipelineArn: NotRequired[str]
     Status: NotRequired[MediaPipelineStatusType]

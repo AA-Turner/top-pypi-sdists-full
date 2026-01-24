@@ -1,61 +1,61 @@
 [build-system]
-requires = [
-    "pdm-backend",
-]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-authors = []
-requires-python = ">=3.9"
-dependencies = [
-    "langsmith>=0.3.45",
-    "tenacity!=8.4.0,<10.0.0,>=8.1.0",
-    "jsonpatch<2.0,>=1.33",
-    "PyYAML>=5.3",
-    "typing-extensions>=4.7",
-    "packaging>=23.2",
-    "pydantic>=2.7.4",
-]
 name = "langchain-core"
-version = "0.3.76"
 description = "Building applications with LLMs through composability"
+license = {text = "MIT"}
 readme = "README.md"
+authors = []
 
-[project.license]
-text = "MIT"
+version = "1.2.7"
+requires-python = ">=3.10.0,<4.0.0"
+dependencies = [
+    "langsmith>=0.3.45,<1.0.0",
+    "tenacity!=8.4.0,>=8.1.0,<10.0.0",
+    "jsonpatch>=1.33.0,<2.0.0",
+    "PyYAML>=5.3.0,<7.0.0",
+    "typing-extensions>=4.7.0,<5.0.0",
+    "packaging>=23.2.0,<26.0.0",
+    "pydantic>=2.7.4,<3.0.0",
+    "uuid-utils>=0.12.0,<1.0",
+]
 
 [project.urls]
-"Source Code" = "https://github.com/langchain-ai/langchain/tree/master/libs/core"
-"Release Notes" = "https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-core%3D%3D0%22&expanded=true"
-repository = "https://github.com/langchain-ai/langchain"
+Homepage = "https://docs.langchain.com/"
+Documentation = "https://reference.langchain.com/python/langchain_core/"
+Source = "https://github.com/langchain-ai/langchain/tree/master/libs/core"
+Changelog = "https://github.com/langchain-ai/langchain/releases?q=%22langchain-core%3D%3D1%22"
+Twitter = "https://x.com/LangChainAI"
+Slack = "https://www.langchain.com/join-community"
+Reddit = "https://www.reddit.com/r/LangChain/"
 
 [dependency-groups]
-lint = [
-    "ruff<0.13,>=0.12.2",
-]
+lint = ["ruff>=0.14.10,<0.15.0"]
 typing = [
-    "mypy<1.18,>=1.17.1",
-    "types-pyyaml<7.0.0.0,>=6.0.12.2",
-    "types-requests<3.0.0.0,>=2.28.11.5",
+    "mypy>=1.19.1,<1.20.0",
+    "types-pyyaml>=6.0.12.2,<7.0.0.0",
+    "types-requests>=2.28.11.5,<3.0.0.0",
     "langchain-text-splitters",
 ]
 dev = [
-    "jupyter<2.0.0,>=1.0.0",
-    "setuptools<68.0.0,>=67.6.1",
-    "grandalf<1.0,>=0.8",
+    "jupyter>=1.0.0,<2.0.0",
+    "setuptools>=67.6.1,<68.0.0",
+    "grandalf>=0.8.0,<1.0.0",
 ]
 test = [
-    "pytest<9,>=8",
-    "freezegun<2.0.0,>=1.2.2",
-    "pytest-mock<4.0.0,>=3.10.0",
-    "syrupy<5.0.0,>=4.0.2",
-    "pytest-watcher<1.0.0,>=0.3.4",
-    "pytest-asyncio<1.0.0,>=0.21.1",
-    "grandalf<1.0,>=0.8",
-    "responses<1.0.0,>=0.25.0",
-    "pytest-socket<1.0.0,>=0.7.0",
+    "pytest>=8.0.0,<9.0.0",
+    "freezegun>=1.2.2,<2.0.0",
+    "pytest-mock>=3.10.0,<4.0.0",
+    "syrupy>=4.0.2,<5.0.0",
+    "pytest-watcher>=0.3.4,<1.0.0",
+    "pytest-asyncio>=0.21.1,<1.0.0",
+    "grandalf>=0.8.0,<1.0.0",
+    "responses>=0.25.0,<1.0.0",
+    "pytest-socket>=0.7.0,<1.0.0",
     "pytest-xdist<4.0.0,>=3.6.1",
-    "blockbuster~=1.5.18",
+    "blockbuster>=1.5.18,<1.6.0",
     "numpy>=1.26.4; python_version<'3.13'",
     "numpy>=2.1.0; python_version>='3.13'",
     "langchain-tests",
@@ -64,110 +64,64 @@ test = [
 ]
 test_integration = []
 
-[tool.uv.sources.langchain-tests]
-path = "../standard-tests"
+[tool.uv.sources]
+langchain-tests = { path = "../standard-tests" }
+langchain-text-splitters = { path = "../text-splitters" }
 
-[tool.uv.sources.langchain-text-splitters]
-path = "../text-splitters"
 
 [tool.mypy]
-plugins = [
-    "pydantic.mypy",
-]
+plugins = ["pydantic.mypy"]
 strict = true
 enable_error_code = "deprecated"
-disallow_any_generics = false
-warn_return_any = false
 
-[tool.ruff]
-target-version = "py39"
+# TODO: activate for 'strict' checking
+disallow_any_generics = false
+
 
 [tool.ruff.format]
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
-    "ALL",
-]
+select = [ "ALL",]
 ignore = [
-    "C90",
-    "COM812",
-    "CPY",
-    "FIX002",
-    "ISC001",
-    "PERF203",
-    "PLR09",
-    "RUF012",
-    "TC001",
-    "TC002",
-    "TC003",
-    "TD002",
-    "TD003",
-    "ANN401",
-    "BLE",
-    "DOC",
-    "ERA",
-    "PLR2004",
+    "C90",     # McCabe complexity
+    "COM812",  # Messes with the formatter
+    "CPY",     # No copyright
+    "FIX002",  # Line contains TODO
+    "PERF203", # Rarely useful
+    "PLR09",   # Too many something (arg, statements, etc)
+    "TD002",   # Missing author in TODO
+    "TD003",   # Missing issue link in TODO
+
+    # TODO rules
+    "ANN401",  # No Any types
+    "BLE",     # Blind exceptions
+    "ERA",     # No commented-out code
 ]
 unfixable = [
-    "B028",
-    "PLW1510",
+    "B028",    # People should intentionally tune the stacklevel
+    "PLW1510", # People should intentionally set the check argument
 ]
 
-[tool.ruff.lint.flake8-annotations]
-allow-star-arg-any = true
-mypy-init-return = true
-
-[tool.ruff.lint.flake8-builtins]
-ignorelist = [
-    "id",
-    "input",
-    "type",
-]
-
-[tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = [
-    "pydantic.BaseModel",
-    "langchain_core.load.serializable.Serializable",
-    "langchain_core.runnables.base.RunnableSerializable",
-]
-
-[tool.ruff.lint.pep8-naming]
-classmethod-decorators = [
-    "classmethod",
-    "langchain_core.utils.pydantic.pre_init",
-    "pydantic.field_validator",
-    "pydantic.v1.root_validator",
-]
+flake8-annotations.allow-star-arg-any = true
+flake8-annotations.mypy-init-return = true
+flake8-builtins.ignorelist = ["id", "input", "type"]
+flake8-type-checking.runtime-evaluated-base-classes = [ "pydantic.BaseModel", "langchain_core.load.serializable.Serializable", "langchain_core.runnables.base.RunnableSerializable", "langchain_core.language_models.base.BaseLanguageModel", "langchain_core.outputs.generation.Generation", "langchain_core.tools.base.BaseTool",]
+pep8-naming.classmethod-decorators = [ "classmethod", "langchain_core.utils.pydantic.pre_init", "pydantic.field_validator", "pydantic.v1.root_validator",]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-ignore-var-parameters = true
-
-[tool.ruff.lint.pyupgrade]
-keep-runtime-typing = true
+ignore-var-parameters = true  # ignore missing documentation for *args and **kwargs parameters
 
 [tool.ruff.lint.per-file-ignores]
-"langchain_core/utils/mustache.py" = [
-    "PLW0603",
-]
-"tests/unit_tests/test_tools.py" = [
-    "ARG",
-]
-"tests/**" = [
-    "D1",
-    "S",
-    "SLF",
-]
-"scripts/**" = [
-    "INP",
-    "S",
-]
+"langchain_core/utils/mustache.py" = [ "PLW0603",]
+"langchain_core/sys_info.py" = [ "T201",]
+"tests/unit_tests/test_tools.py" = [ "ARG",]
+"tests/**" = [ "D1", "PLR2004", "S", "SLF",]
+"scripts/**" = [ "INP", "S",]
 
 [tool.coverage.run]
-omit = [
-    "tests/*",
-]
+omit = [ "tests/*",]
 
 [tool.pytest.ini_options]
 addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5"
@@ -176,7 +130,5 @@ markers = [
     "compile: mark placeholder test used to compile integration tests without running them",
 ]
 asyncio_mode = "auto"
-filterwarnings = [
-    "ignore::langchain_core._api.beta_decorator.LangChainBetaWarning",
-]
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [ "ignore::langchain_core._api.beta_decorator.LangChainBetaWarning",]

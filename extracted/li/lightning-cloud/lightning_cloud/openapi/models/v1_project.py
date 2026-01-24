@@ -44,10 +44,14 @@ class V1Project(object):
         'abac_enabled': 'bool',
         'created_at': 'datetime',
         'creator_id': 'str',
+        'current_storage_bytes': 'str',
         'description': 'str',
         'display_name': 'str',
+        'free_storage_bytes': 'str',
         'id': 'str',
         'is_default': 'bool',
+        'layout_config': 'list[V1ProjectTab]',
+        'lock_out_uploads': 'bool',
         'name': 'str',
         'number_of_files_uploads': 'str',
         'owner_id': 'str',
@@ -55,6 +59,7 @@ class V1Project(object):
         'private': 'bool',
         'project_settings': 'V1ProjectSettings',
         'quotas': 'V1Quotas',
+        'requires_uploads_sync': 'bool',
         'total_size_uploads_bytes': 'str',
         'updated_at': 'datetime'
     }
@@ -63,10 +68,14 @@ class V1Project(object):
         'abac_enabled': 'abacEnabled',
         'created_at': 'createdAt',
         'creator_id': 'creatorId',
+        'current_storage_bytes': 'currentStorageBytes',
         'description': 'description',
         'display_name': 'displayName',
+        'free_storage_bytes': 'freeStorageBytes',
         'id': 'id',
         'is_default': 'isDefault',
+        'layout_config': 'layoutConfig',
+        'lock_out_uploads': 'lockOutUploads',
         'name': 'name',
         'number_of_files_uploads': 'numberOfFilesUploads',
         'owner_id': 'ownerId',
@@ -74,19 +83,24 @@ class V1Project(object):
         'private': 'private',
         'project_settings': 'projectSettings',
         'quotas': 'quotas',
+        'requires_uploads_sync': 'requiresUploadsSync',
         'total_size_uploads_bytes': 'totalSizeUploadsBytes',
         'updated_at': 'updatedAt'
     }
 
-    def __init__(self, abac_enabled: 'bool' =None, created_at: 'datetime' =None, creator_id: 'str' =None, description: 'str' =None, display_name: 'str' =None, id: 'str' =None, is_default: 'bool' =None, name: 'str' =None, number_of_files_uploads: 'str' =None, owner_id: 'str' =None, owner_type: 'V1OwnerType' =None, private: 'bool' =None, project_settings: 'V1ProjectSettings' =None, quotas: 'V1Quotas' =None, total_size_uploads_bytes: 'str' =None, updated_at: 'datetime' =None):  # noqa: E501
+    def __init__(self, abac_enabled: 'bool' =None, created_at: 'datetime' =None, creator_id: 'str' =None, current_storage_bytes: 'str' =None, description: 'str' =None, display_name: 'str' =None, free_storage_bytes: 'str' =None, id: 'str' =None, is_default: 'bool' =None, layout_config: 'list[V1ProjectTab]' =None, lock_out_uploads: 'bool' =None, name: 'str' =None, number_of_files_uploads: 'str' =None, owner_id: 'str' =None, owner_type: 'V1OwnerType' =None, private: 'bool' =None, project_settings: 'V1ProjectSettings' =None, quotas: 'V1Quotas' =None, requires_uploads_sync: 'bool' =None, total_size_uploads_bytes: 'str' =None, updated_at: 'datetime' =None):  # noqa: E501
         """V1Project - a model defined in Swagger"""  # noqa: E501
         self._abac_enabled = None
         self._created_at = None
         self._creator_id = None
+        self._current_storage_bytes = None
         self._description = None
         self._display_name = None
+        self._free_storage_bytes = None
         self._id = None
         self._is_default = None
+        self._layout_config = None
+        self._lock_out_uploads = None
         self._name = None
         self._number_of_files_uploads = None
         self._owner_id = None
@@ -94,6 +108,7 @@ class V1Project(object):
         self._private = None
         self._project_settings = None
         self._quotas = None
+        self._requires_uploads_sync = None
         self._total_size_uploads_bytes = None
         self._updated_at = None
         self.discriminator = None
@@ -103,14 +118,22 @@ class V1Project(object):
             self.created_at = created_at
         if creator_id is not None:
             self.creator_id = creator_id
+        if current_storage_bytes is not None:
+            self.current_storage_bytes = current_storage_bytes
         if description is not None:
             self.description = description
         if display_name is not None:
             self.display_name = display_name
+        if free_storage_bytes is not None:
+            self.free_storage_bytes = free_storage_bytes
         if id is not None:
             self.id = id
         if is_default is not None:
             self.is_default = is_default
+        if layout_config is not None:
+            self.layout_config = layout_config
+        if lock_out_uploads is not None:
+            self.lock_out_uploads = lock_out_uploads
         if name is not None:
             self.name = name
         if number_of_files_uploads is not None:
@@ -125,6 +148,8 @@ class V1Project(object):
             self.project_settings = project_settings
         if quotas is not None:
             self.quotas = quotas
+        if requires_uploads_sync is not None:
+            self.requires_uploads_sync = requires_uploads_sync
         if total_size_uploads_bytes is not None:
             self.total_size_uploads_bytes = total_size_uploads_bytes
         if updated_at is not None:
@@ -194,6 +219,27 @@ class V1Project(object):
         self._creator_id = creator_id
 
     @property
+    def current_storage_bytes(self) -> 'str':
+        """Gets the current_storage_bytes of this V1Project.  # noqa: E501
+
+
+        :return: The current_storage_bytes of this V1Project.  # noqa: E501
+        :rtype: str
+        """
+        return self._current_storage_bytes
+
+    @current_storage_bytes.setter
+    def current_storage_bytes(self, current_storage_bytes: 'str'):
+        """Sets the current_storage_bytes of this V1Project.
+
+
+        :param current_storage_bytes: The current_storage_bytes of this V1Project.  # noqa: E501
+        :type: str
+        """
+
+        self._current_storage_bytes = current_storage_bytes
+
+    @property
     def description(self) -> 'str':
         """Gets the description of this V1Project.  # noqa: E501
 
@@ -236,6 +282,27 @@ class V1Project(object):
         self._display_name = display_name
 
     @property
+    def free_storage_bytes(self) -> 'str':
+        """Gets the free_storage_bytes of this V1Project.  # noqa: E501
+
+
+        :return: The free_storage_bytes of this V1Project.  # noqa: E501
+        :rtype: str
+        """
+        return self._free_storage_bytes
+
+    @free_storage_bytes.setter
+    def free_storage_bytes(self, free_storage_bytes: 'str'):
+        """Sets the free_storage_bytes of this V1Project.
+
+
+        :param free_storage_bytes: The free_storage_bytes of this V1Project.  # noqa: E501
+        :type: str
+        """
+
+        self._free_storage_bytes = free_storage_bytes
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1Project.  # noqa: E501
 
@@ -276,6 +343,48 @@ class V1Project(object):
         """
 
         self._is_default = is_default
+
+    @property
+    def layout_config(self) -> 'list[V1ProjectTab]':
+        """Gets the layout_config of this V1Project.  # noqa: E501
+
+
+        :return: The layout_config of this V1Project.  # noqa: E501
+        :rtype: list[V1ProjectTab]
+        """
+        return self._layout_config
+
+    @layout_config.setter
+    def layout_config(self, layout_config: 'list[V1ProjectTab]'):
+        """Sets the layout_config of this V1Project.
+
+
+        :param layout_config: The layout_config of this V1Project.  # noqa: E501
+        :type: list[V1ProjectTab]
+        """
+
+        self._layout_config = layout_config
+
+    @property
+    def lock_out_uploads(self) -> 'bool':
+        """Gets the lock_out_uploads of this V1Project.  # noqa: E501
+
+
+        :return: The lock_out_uploads of this V1Project.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lock_out_uploads
+
+    @lock_out_uploads.setter
+    def lock_out_uploads(self, lock_out_uploads: 'bool'):
+        """Sets the lock_out_uploads of this V1Project.
+
+
+        :param lock_out_uploads: The lock_out_uploads of this V1Project.  # noqa: E501
+        :type: bool
+        """
+
+        self._lock_out_uploads = lock_out_uploads
 
     @property
     def name(self) -> 'str':
@@ -423,6 +532,27 @@ class V1Project(object):
         """
 
         self._quotas = quotas
+
+    @property
+    def requires_uploads_sync(self) -> 'bool':
+        """Gets the requires_uploads_sync of this V1Project.  # noqa: E501
+
+
+        :return: The requires_uploads_sync of this V1Project.  # noqa: E501
+        :rtype: bool
+        """
+        return self._requires_uploads_sync
+
+    @requires_uploads_sync.setter
+    def requires_uploads_sync(self, requires_uploads_sync: 'bool'):
+        """Sets the requires_uploads_sync of this V1Project.
+
+
+        :param requires_uploads_sync: The requires_uploads_sync of this V1Project.  # noqa: E501
+        :type: bool
+        """
+
+        self._requires_uploads_sync = requires_uploads_sync
 
     @property
     def total_size_uploads_bytes(self) -> 'str':

@@ -3,7 +3,7 @@ Main interface for emr-serverless service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_serverless/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

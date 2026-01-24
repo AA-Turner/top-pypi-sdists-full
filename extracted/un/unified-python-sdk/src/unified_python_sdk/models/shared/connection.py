@@ -8,11 +8,10 @@ from .property_connection_auth import (
 from .property_connection_categories import PropertyConnectionCategories
 from .property_connection_permissions import PropertyConnectionPermissions
 from datetime import datetime
-from pydantic.functional_validators import PlainValidator
+from pydantic import model_serializer
 from typing import List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from typing_extensions import NotRequired, TypedDict
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class ConnectionTypedDict(TypedDict):
@@ -25,6 +24,9 @@ class ConnectionTypedDict(TypedDict):
     auth: NotRequired[PropertyConnectionAuthTypedDict]
     r"""An authentication object that represents a specific authorized user's connection to an integration."""
     auth_aws_arn: NotRequired[str]
+    auth_azure_keyvault_id: NotRequired[str]
+    auth_gcp_secret_name: NotRequired[str]
+    auth_hashi_vault_path: NotRequired[str]
     created_at: NotRequired[datetime]
     environment: NotRequired[str]
     external_xref: NotRequired[str]
@@ -40,25 +42,23 @@ class ConnectionTypedDict(TypedDict):
 class Connection(BaseModel):
     r"""A connection represents a specific authentication of an integration."""
 
-    categories: List[
-        Annotated[
-            PropertyConnectionCategories, PlainValidator(validate_open_enum(False))
-        ]
-    ]
+    categories: List[PropertyConnectionCategories]
     r"""The Integration categories that this connection supports"""
 
     integration_type: str
 
-    permissions: List[
-        Annotated[
-            PropertyConnectionPermissions, PlainValidator(validate_open_enum(False))
-        ]
-    ]
+    permissions: List[PropertyConnectionPermissions]
 
     auth: Optional[PropertyConnectionAuth] = None
     r"""An authentication object that represents a specific authorized user's connection to an integration."""
 
     auth_aws_arn: Optional[str] = None
+
+    auth_azure_keyvault_id: Optional[str] = None
+
+    auth_gcp_secret_name: Optional[str] = None
+
+    auth_hashi_vault_path: Optional[str] = None
 
     created_at: Optional[datetime] = None
 
@@ -79,3 +79,37 @@ class Connection(BaseModel):
     updated_at: Optional[datetime] = None
 
     workspace_id: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "auth",
+                "auth_aws_arn",
+                "auth_azure_keyvault_id",
+                "auth_gcp_secret_name",
+                "auth_hashi_vault_path",
+                "created_at",
+                "environment",
+                "external_xref",
+                "id",
+                "integration_name",
+                "is_paused",
+                "last_healthy_at",
+                "last_unhealthy_at",
+                "updated_at",
+                "workspace_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

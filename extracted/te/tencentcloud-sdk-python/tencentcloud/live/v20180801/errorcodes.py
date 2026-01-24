@@ -212,8 +212,14 @@ FAILEDOPERATION_MONITORNOTEXIST = 'FailedOperation.MonitorNotExist'
 # 当前 CA 机构访问繁忙，请稍后重试。
 FAILEDOPERATION_NETWORKERROR = 'FailedOperation.NetworkError'
 
+# 未设置备播流
+FAILEDOPERATION_NOBACKUPINPUT = 'FailedOperation.NoBackupInput'
+
 # 直播未配置推流或播放域名
 FAILEDOPERATION_NOLVBPUSHORPLAYDOMAIN = 'FailedOperation.NoLVBPushOrPlayDomain'
+
+# 无运行中的PGM
+FAILEDOPERATION_NOPGMRUNNING = 'FailedOperation.NoPgmRunning'
 
 # 您没有该项目的操作权限。
 FAILEDOPERATION_NOPROJECTPERMISSION = 'FailedOperation.NoProjectPermission'
@@ -667,6 +673,9 @@ RESOURCENOTFOUND_FREEZESERVICE = 'ResourceNotFound.FreezeService'
 
 # 用户不支持此接口。
 RESOURCENOTFOUND_INVALIDUSER = 'ResourceNotFound.InvalidUser'
+
+# 预付费客户，未绑定套餐包
+RESOURCENOTFOUND_NOTBINDPACKAGE = 'ResourceNotFound.NotBindPackage'
 
 # 播放域名不存在。
 RESOURCENOTFOUND_PLAYDOMAINNORECORD = 'ResourceNotFound.PlayDomainNoRecord'

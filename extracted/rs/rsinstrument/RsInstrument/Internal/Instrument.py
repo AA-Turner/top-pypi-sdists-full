@@ -7,7 +7,8 @@ from typing import Callable, Dict, AnyStr
 from datetime import datetime, timedelta
 from pyvisa import VisaIOError
 
-from . import Utilities, InstrumentSettings, Conversions as Conv
+from . import Utilities, Conversions as Conv
+from .InstrumentSettings import InstrumentSettings, OpcSyncQueryMechanism
 from .InstrumentOptions import Options, ParseMode
 from .ArgSingleSuppressed import ArgSingleSuppressed
 from .ArgStructList import ArgStructList
@@ -35,9 +36,9 @@ class Instrument(object):
 		self._simulating: bool = simulate
 		self._settings = settings
 		self._direct_session = direct_session
-		self.logger: ScpiLogger or None = None
-		self._last_exc_log: str or None = None
-		self._start_time: datetime or None = None
+		self.logger: ScpiLogger | None = None
+		self._last_exc_log: str | None = None
+		self._start_time: datetime | None = None
 		self.__session = None
 		self._global_repcaps: Dict[str, RepeatedCapability] = {}
 		self._linker = InternalLinker()
@@ -207,7 +208,7 @@ class Instrument(object):
 			self._log_info(log_info, 'Session was active, closing the session', None)
 			self.close(log_info)
 			active = False
-		if active is True:
+		if active:
 			self._log_info(log_info, 'Session is still active, no action needed', None)
 			return False
 
@@ -263,7 +264,7 @@ class Instrument(object):
 		"""Clears the existing thread lock, making the current session thread-independent from others that might share the current thread lock."""
 		self.assign_lock(threading.RLock())
 
-	def lock_resource(self, timeout: int, requested_key: str or bytes = None) -> bytes or None:
+	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str | None:
 		"""Locks the instrument to prevent it from communicating with other clients."""
 		return self._session.lock_resource(timeout, requested_key)
 
@@ -280,22 +281,22 @@ class Instrument(object):
 			self._start_time = datetime.now()
 		self.logger.start_new_segment()
 
-	def _log_info(self, log_string_info: str, log_string: str, cmd: str or None) -> None:
+	def _log_info(self, log_string_info: str, log_string: str, cmd: str | None) -> None:
 		"""Logs an ASCII entry."""
 		self._last_exc_log = None
 		self.logger.info(self._start_time, datetime.now(), log_string_info, log_string, cmd)
 
-	def _log_info_list(self, log_string_info: str, list_data: List, cmd: str or None) -> None:
+	def _log_info_list(self, log_string_info: str, list_data: List, cmd: str | None) -> None:
 		"""Logs a List entry."""
 		self._last_exc_log = None
 		self.logger.info_list(self._start_time, datetime.now(), log_string_info, list_data, cmd)
 
-	def _log_info_bin(self, log_string_info: str, log_data: bytes, cmd: str or None) -> None:
+	def _log_info_bin(self, log_string_info: str, log_data: bytes, cmd: str | None) -> None:
 		"""Logs a binary entry."""
 		self._last_exc_log = None
 		self.logger.info_bin(self._start_time, datetime.now(), log_string_info, log_data, cmd)
 
-	def _log_info_var_stream(self, log_string_info: str, binary: bool, content: AnyStr, cmd: str or None) -> None:
+	def _log_info_var_stream(self, log_string_info: str, binary: bool, content: AnyStr, cmd: str | None) -> None:
 		"""Logs a stream entry - must be variable only, but can be binary or ascii."""
 		self._last_exc_log = None
 		if binary:
@@ -308,11 +309,11 @@ class Instrument(object):
 		self._last_exc_log = None
 		self.logger.info(start_time, end_time, 'Status check', 'OK', '*STB?')
 
-	def _log_error(self, log_string_info: str, log_string: str, cmd: str or None, start_time: datetime = None, end_time: datetime = None) -> None:
+	def _log_error(self, log_string_info: str, log_string: str, cmd: str | None, start_time: datetime = None, end_time: datetime = None) -> None:
 		"""Logs an ASCII error entry."""
 		self.logger.error(start_time, end_time, log_string_info, log_string, cmd)
 
-	def _log_exception(self, e: Exception, cmd: str or None, context: str = None, start_time: datetime = None, end_time: datetime = None) -> None:
+	def _log_exception(self, e: Exception, cmd: str | None, context: str = None, start_time: datetime = None, end_time: datetime = None) -> None:
 		"""Logs an ASCII error entry taken from the exception message."""
 		if start_time is None:
 			start_time = self._start_time
@@ -421,12 +422,12 @@ class Instrument(object):
 		return self._session.data_chunk_size
 
 	@property
-	def opc_sync_query_mechanism(self) -> InstrumentSettings.OpcSyncQueryMechanism:
+	def opc_sync_query_mechanism(self) -> OpcSyncQueryMechanism:
 		"""Returns the current setting of the OPC-Sync query mechanism."""
 		return self._session.opc_sync_query_mechanism
 
 	@opc_sync_query_mechanism.setter
-	def opc_sync_query_mechanism(self, mechanism: InstrumentSettings.OpcSyncQueryMechanism) -> None:
+	def opc_sync_query_mechanism(self, mechanism: OpcSyncQueryMechanism) -> None:
 		"""Sets the current setting of the OPC-Sync query mechanism."""
 		self._session.opc_sync_query_mechanism = mechanism
 
@@ -463,7 +464,7 @@ class Instrument(object):
 		if items_count >= 2:
 			self.full_model_name = Utilities.trim_str_response(items[1].strip())
 		self.model = self.full_model_name
-		if self._settings.idn_model_full_name is False:
+		if not self._settings.idn_model_full_name:
 			m = re.search(r'([a-zA-Z ]+)([\-\da-zA-Z ]*)', self.full_model_name)
 			if m:
 				self.model = m.group(1)
@@ -507,7 +508,7 @@ class Instrument(object):
 		if mode == ParseMode.Skip:
 			self._instr_options = Options('', mode)
 			return
-		if self._simulating is False:
+		if not self._simulating:
 			with self._lock:
 				log_info = 'Query Instrument Options'
 				try:
@@ -595,7 +596,7 @@ class Instrument(object):
 				self._log_end_segment()
 			return opc
 
-	def query_all_syst_errors(self, include_codes: bool = True, enable_log: bool = True) -> List[str] or List[Tuple[int, str]] or None:
+	def query_all_syst_errors(self, include_codes: bool = True, enable_log: bool = True) -> List[str] | List[Tuple[int, str]] | None:
 		"""Returns all errors in the instrument's error queue. If no error is detected, the return value is None.
 		If include_codes is False:
 			- you get List of strings with messages.
@@ -603,7 +604,7 @@ class Instrument(object):
 			- you get List of Tuples (code, message)"""
 		with self._lock:
 			log_info = 'Query all system errors'
-			if enable_log is True:
+			if enable_log:
 				if self._start_time is None:
 					self._start_time = datetime.now()
 			try:
@@ -617,7 +618,7 @@ class Instrument(object):
 						errors = [x[1] for x in errors]
 						entries = errors
 				# Return errors as list of strings
-				if enable_log is True:
+				if enable_log:
 					if errors is None or len(errors) == 0:
 						self._log_info(log_info, 'No errors', 'SYST:ERROR?')
 					elif len(errors) == 1:
@@ -630,7 +631,7 @@ class Instrument(object):
 							i += 1
 			except RsInstrException as e:
 				# General errors: log the exception message
-				if enable_log is True:
+				if enable_log:
 					self._log_exception(e, 'SYST:ERROR?', log_info, start_time=self._start_time, end_time=datetime.now())
 				raise
 
@@ -670,7 +671,7 @@ class Instrument(object):
 		This is achieved by:
 		- checking the session property timeout
 		- sending the *IDN? query"""
-		if self._session_exists() is False:
+		if not self._session_exists():
 			return False
 		return self._session.is_connection_active()
 
@@ -1069,7 +1070,7 @@ class Instrument(object):
 		cmd = f"MMEM:DATA? '{source_instr_file}'"
 		self.query_bin_block_to_file(cmd, target_pc_file, append_to_pc_file, log_info='Read file from instrument to the PC')
 
-	def get_file_size(self, instr_file: str) -> int or None:
+	def get_file_size(self, instr_file: str) -> int | None:
 		"""Returns the size of the file if it exists. If not, the method returns None.
 		Warning!!! - for non-VXI sessions (SOCKET, ASRL) this method transfers the entire file to the control PC, which might take a long time."""
 		query = f"MMEM:DATA? '{instr_file}'"
@@ -1321,13 +1322,16 @@ class Instrument(object):
 			self.check_status()
 			return code, msg
 
-	def go_to_local(self) -> None:
-		"""Puts the instrument into local state."""
+	def go_to_local(self, mixed_mode: bool) -> None:
+		"""Puts the instrument into local state.
+		By default, the method uses a mechanism to keep the instrument in a mixed mode: remote and local.
+		That means, you can remote-control your instrument, and at the same time it still allows manual control.
+		Set the mixed_mode to False, if you want your instrument to go to remote mode as soon as it receives the first remote command."""
 		with self._lock:
 			log_info = 'Go To Local'
 			try:
 				self._log_start_segment()
-				self._session.go_to_local()
+				self._session.go_to_local(mixed_mode)
 				self._log_info(log_info, 'Going to Local State', '@GTL')
 			except RsInstrException as e:
 				self._log_exception(e, '@GTL', log_info)
@@ -1403,6 +1407,7 @@ class Instrument(object):
 		args = self.event_args_append_instr_info(args)
 		if self._io_events_include_data:
 			args.data = cmd
+		# noinspection PyCallingNonCallable
 		self.on_write_handler(args)
 
 	def start_send_read_event(self, query: str, opc_sync: bool) -> None:
@@ -1421,6 +1426,7 @@ class Instrument(object):
 			args.total_size = visa_args.total_size
 			args.data = visa_args.data
 			args.binary = visa_args.binary
+			# noinspection PyCallingNonCallable
 			self.on_read_handler(args)
 
 		args = IoTransferEventArgs.read_chunk(opc_sync, query)
@@ -1448,6 +1454,7 @@ class Instrument(object):
 			args.total_size = visa_args.total_size
 			args.data = visa_args.data
 			args.binary = visa_args.binary
+			# noinspection PyCallingNonCallable
 			self.on_write_handler(args)
 
 		args = IoTransferEventArgs.write_bin(cmd)

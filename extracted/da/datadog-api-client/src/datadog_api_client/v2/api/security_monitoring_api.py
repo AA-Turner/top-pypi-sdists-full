@@ -36,11 +36,24 @@ from datadog_api_client.v2.model.finding import Finding
 from datadog_api_client.v2.model.bulk_mute_findings_response import BulkMuteFindingsResponse
 from datadog_api_client.v2.model.bulk_mute_findings_request import BulkMuteFindingsRequest
 from datadog_api_client.v2.model.get_finding_response import GetFindingResponse
-from datadog_api_client.v2.model.list_vulnerable_assets_response import ListVulnerableAssetsResponse
-from datadog_api_client.v2.model.asset_type import AssetType
+from datadog_api_client.v2.model.list_security_findings_response import ListSecurityFindingsResponse
+from datadog_api_client.v2.model.security_findings_sort import SecurityFindingsSort
+from datadog_api_client.v2.model.security_findings_data import SecurityFindingsData
+from datadog_api_client.v2.model.detach_case_request import DetachCaseRequest
+from datadog_api_client.v2.model.finding_case_response_array import FindingCaseResponseArray
+from datadog_api_client.v2.model.create_case_request_array import CreateCaseRequestArray
+from datadog_api_client.v2.model.finding_case_response import FindingCaseResponse
+from datadog_api_client.v2.model.attach_case_request import AttachCaseRequest
+from datadog_api_client.v2.model.attach_jira_issue_request import AttachJiraIssueRequest
+from datadog_api_client.v2.model.create_jira_issue_request_array import CreateJiraIssueRequestArray
+from datadog_api_client.v2.model.security_findings_search_request import SecurityFindingsSearchRequest
 from datadog_api_client.v2.model.list_assets_sbo_ms_response import ListAssetsSBOMsResponse
+from datadog_api_client.v2.model.asset_type import AssetType
 from datadog_api_client.v2.model.sbom_component_license_type import SBOMComponentLicenseType
 from datadog_api_client.v2.model.get_sbom_response import GetSBOMResponse
+from datadog_api_client.v2.model.sbom_format import SBOMFormat
+from datadog_api_client.v2.model.scanned_assets_metadata import ScannedAssetsMetadata
+from datadog_api_client.v2.model.cloud_asset_type import CloudAssetType
 from datadog_api_client.v2.model.notification_rule_response import NotificationRuleResponse
 from datadog_api_client.v2.model.create_notification_rule_parameters import CreateNotificationRuleParameters
 from datadog_api_client.v2.model.patch_notification_rule_parameters import PatchNotificationRuleParameters
@@ -50,6 +63,19 @@ from datadog_api_client.v2.model.vulnerability_severity import VulnerabilitySeve
 from datadog_api_client.v2.model.vulnerability_status import VulnerabilityStatus
 from datadog_api_client.v2.model.vulnerability_tool import VulnerabilityTool
 from datadog_api_client.v2.model.vulnerability_ecosystem import VulnerabilityEcosystem
+from datadog_api_client.v2.model.list_vulnerable_assets_response import ListVulnerableAssetsResponse
+from datadog_api_client.v2.model.security_monitoring_critical_assets_response import (
+    SecurityMonitoringCriticalAssetsResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_critical_asset_response import (
+    SecurityMonitoringCriticalAssetResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_critical_asset_create_request import (
+    SecurityMonitoringCriticalAssetCreateRequest,
+)
+from datadog_api_client.v2.model.security_monitoring_critical_asset_update_request import (
+    SecurityMonitoringCriticalAssetUpdateRequest,
+)
 from datadog_api_client.v2.model.security_filters_response import SecurityFiltersResponse
 from datadog_api_client.v2.model.security_filter_response import SecurityFilterResponse
 from datadog_api_client.v2.model.security_filter_create_request import SecurityFilterCreateRequest
@@ -70,6 +96,7 @@ from datadog_api_client.v2.model.cloud_configuration_rule_create_payload import 
 from datadog_api_client.v2.model.security_monitoring_suppression_update_request import (
     SecurityMonitoringSuppressionUpdateRequest,
 )
+from datadog_api_client.v2.model.get_suppression_version_history_response import GetSuppressionVersionHistoryResponse
 from datadog_api_client.v2.model.security_monitoring_list_rules_response import SecurityMonitoringListRulesResponse
 from datadog_api_client.v2.model.security_monitoring_rule_response import SecurityMonitoringRuleResponse
 from datadog_api_client.v2.model.security_monitoring_rule_convert_response import SecurityMonitoringRuleConvertResponse
@@ -99,11 +126,14 @@ from datadog_api_client.v2.model.security_monitoring_signal_incidents_update_req
 from datadog_api_client.v2.model.security_monitoring_signal_state_update_request import (
     SecurityMonitoringSignalStateUpdateRequest,
 )
-from datadog_api_client.v2.model.list_historical_jobs_response import ListHistoricalJobsResponse
+from datadog_api_client.v2.model.list_threat_hunting_jobs_response import ListThreatHuntingJobsResponse
 from datadog_api_client.v2.model.job_create_response import JobCreateResponse
-from datadog_api_client.v2.model.run_historical_job_request import RunHistoricalJobRequest
+from datadog_api_client.v2.model.run_threat_hunting_job_request import RunThreatHuntingJobRequest
 from datadog_api_client.v2.model.convert_job_results_to_signals_request import ConvertJobResultsToSignalsRequest
-from datadog_api_client.v2.model.historical_job_response import HistoricalJobResponse
+from datadog_api_client.v2.model.threat_hunting_job_response import ThreatHuntingJobResponse
+from datadog_api_client.v2.model.get_multiple_rulesets_response import GetMultipleRulesetsResponse
+from datadog_api_client.v2.model.get_multiple_rulesets_request import GetMultipleRulesetsRequest
+from datadog_api_client.v2.model.secret_rule_array import SecretRuleArray
 
 
 class SecurityMonitoringApi:
@@ -116,12 +146,58 @@ class SecurityMonitoringApi:
             api_client = ApiClient(Configuration())
         self.api_client = api_client
 
-        self._cancel_historical_job_endpoint = _Endpoint(
+        self._attach_case_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/cases/{case_id}",
+                "operation_id": "attach_case",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (AttachCaseRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._attach_jira_issue_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/jira_issues",
+                "operation_id": "attach_jira_issue",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (AttachJiraIssueRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._cancel_threat_hunting_job_endpoint = _Endpoint(
             settings={
                 "response_type": None,
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs/{job_id}/cancel",
-                "operation_id": "cancel_historical_job",
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs/{job_id}/cancel",
+                "operation_id": "cancel_threat_hunting_job",
                 "http_method": "PATCH",
                 "version": "v2",
             },
@@ -166,7 +242,7 @@ class SecurityMonitoringApi:
             settings={
                 "response_type": None,
                 "auth": ["apiKeyAuth", "appKeyAuth"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs/signal_convert",
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs/signal_convert",
                 "operation_id": "convert_job_result_to_signal",
                 "http_method": "POST",
                 "version": "v2",
@@ -202,6 +278,26 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._create_cases_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponseArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/cases",
+                "operation_id": "create_cases",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (CreateCaseRequestArray,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._create_custom_framework_endpoint = _Endpoint(
             settings={
                 "response_type": (CreateCustomFrameworkResponse,),
@@ -222,6 +318,26 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._create_jira_issues_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponseArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/jira_issues",
+                "operation_id": "create_jira_issues",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (CreateJiraIssueRequestArray,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._create_security_filter_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityFilterResponse,),
@@ -235,6 +351,26 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (SecurityFilterCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_security_monitoring_critical_asset_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringCriticalAssetResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets",
+                "operation_id": "create_security_monitoring_critical_asset",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringCriticalAssetCreateRequest,),
                     "location": "body",
                 },
             },
@@ -351,29 +487,6 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
-        self._delete_historical_job_endpoint = _Endpoint(
-            settings={
-                "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs/{job_id}",
-                "operation_id": "delete_historical_job",
-                "http_method": "DELETE",
-                "version": "v2",
-            },
-            params_map={
-                "job_id": {
-                    "required": True,
-                    "openapi_types": (str,),
-                    "attribute": "job_id",
-                    "location": "path",
-                },
-            },
-            headers_map={
-                "accept": ["*/*"],
-            },
-            api_client=api_client,
-        )
-
         self._delete_security_filter_endpoint = _Endpoint(
             settings={
                 "response_type": None,
@@ -388,6 +501,29 @@ class SecurityMonitoringApi:
                     "required": True,
                     "openapi_types": (str,),
                     "attribute": "security_filter_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_security_monitoring_critical_asset_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets/{critical_asset_id}",
+                "operation_id": "delete_security_monitoring_critical_asset",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "critical_asset_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "critical_asset_id",
                     "location": "path",
                 },
             },
@@ -466,6 +602,29 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._delete_threat_hunting_job_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs/{job_id}",
+                "operation_id": "delete_threat_hunting_job",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "job_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "job_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
         self._delete_vulnerability_notification_rule_endpoint = _Endpoint(
             settings={
                 "response_type": None,
@@ -486,6 +645,26 @@ class SecurityMonitoringApi:
             headers_map={
                 "accept": ["*/*"],
             },
+            api_client=api_client,
+        )
+
+        self._detach_case_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/cases",
+                "operation_id": "detach_case",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (DetachCaseRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
             api_client=api_client,
         )
 
@@ -567,6 +746,29 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._get_critical_assets_affecting_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringCriticalAssetsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets/rules/{rule_id}",
+                "operation_id": "get_critical_assets_affecting_rule",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_custom_framework_endpoint = _Endpoint(
             settings={
                 "response_type": (GetCustomFrameworkResponse,),
@@ -619,29 +821,6 @@ class SecurityMonitoringApi:
                     "openapi_types": (int,),
                     "attribute": "snapshot_timestamp",
                     "location": "query",
-                },
-            },
-            headers_map={
-                "accept": ["application/json"],
-            },
-            api_client=api_client,
-        )
-
-        self._get_historical_job_endpoint = _Endpoint(
-            settings={
-                "response_type": (HistoricalJobResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs/{job_id}",
-                "operation_id": "get_historical_job",
-                "http_method": "GET",
-                "version": "v2",
-            },
-            params_map={
-                "job_id": {
-                    "required": True,
-                    "openapi_types": (str,),
-                    "attribute": "job_id",
-                    "location": "path",
                 },
             },
             headers_map={
@@ -742,7 +921,28 @@ class SecurityMonitoringApi:
                     "attribute": "filter[repo_digest]",
                     "location": "query",
                 },
+                "ext_format": {
+                    "openapi_types": (SBOMFormat,),
+                    "attribute": "ext:format",
+                    "location": "query",
+                },
             },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_secrets_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecretRuleArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/static-analysis/secrets/rules",
+                "operation_id": "get_secrets_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
             headers_map={
                 "accept": ["application/json"],
             },
@@ -772,11 +972,34 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._get_security_monitoring_critical_asset_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringCriticalAssetResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets/{critical_asset_id}",
+                "operation_id": "get_security_monitoring_critical_asset",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "critical_asset_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "critical_asset_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_security_monitoring_histsignal_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringSignalResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/histsignals/{histsignal_id}",
+                "endpoint_path": "/api/v2/siem-threat-hunting/histsignals/{histsignal_id}",
                 "operation_id": "get_security_monitoring_histsignal",
                 "http_method": "GET",
                 "version": "v2",
@@ -799,7 +1022,7 @@ class SecurityMonitoringApi:
             settings={
                 "response_type": (SecurityMonitoringSignalsListResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs/{job_id}/histsignals",
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs/{job_id}/histsignals",
                 "operation_id": "get_security_monitoring_histsignals_by_job_id",
                 "http_method": "GET",
                 "version": "v2",
@@ -993,6 +1216,62 @@ class SecurityMonitoringApi:
                     "required": True,
                     "openapi_types": (str,),
                     "attribute": "rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_suppression_version_history_endpoint = _Endpoint(
+            settings={
+                "response_type": (GetSuppressionVersionHistoryResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/suppressions/{suppression_id}/version_history",
+                "operation_id": "get_suppression_version_history",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "suppression_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "suppression_id",
+                    "location": "path",
+                },
+                "page_size": {
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_threat_hunting_job_endpoint = _Endpoint(
+            settings={
+                "response_type": (ThreatHuntingJobResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs/{job_id}",
+                "operation_id": "get_threat_hunting_job",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "job_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "job_id",
                     "location": "path",
                 },
             },
@@ -1201,34 +1480,67 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
-        self._list_historical_jobs_endpoint = _Endpoint(
+        self._list_multiple_rulesets_endpoint = _Endpoint(
             settings={
-                "response_type": (ListHistoricalJobsResponse,),
+                "response_type": (GetMultipleRulesetsResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs",
-                "operation_id": "list_historical_jobs",
+                "endpoint_path": "/api/v2/static-analysis/rulesets",
+                "operation_id": "list_multiple_rulesets",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (GetMultipleRulesetsRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._list_scanned_assets_metadata_endpoint = _Endpoint(
+            settings={
+                "response_type": (ScannedAssetsMetadata,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security/scanned-assets-metadata",
+                "operation_id": "list_scanned_assets_metadata",
                 "http_method": "GET",
                 "version": "v2",
             },
             params_map={
-                "page_size": {
-                    "openapi_types": (int,),
-                    "attribute": "page[size]",
+                "page_token": {
+                    "openapi_types": (str,),
+                    "attribute": "page[token]",
                     "location": "query",
                 },
                 "page_number": {
+                    "validation": {
+                        "inclusive_minimum": 1,
+                    },
                     "openapi_types": (int,),
                     "attribute": "page[number]",
                     "location": "query",
                 },
-                "sort": {
-                    "openapi_types": (str,),
-                    "attribute": "sort",
+                "filter_asset_type": {
+                    "openapi_types": (CloudAssetType,),
+                    "attribute": "filter[asset.type]",
                     "location": "query",
                 },
-                "filter_query": {
+                "filter_asset_name": {
                     "openapi_types": (str,),
-                    "attribute": "filter[query]",
+                    "attribute": "filter[asset.name]",
+                    "location": "query",
+                },
+                "filter_last_success_origin": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[last_success.origin]",
+                    "location": "query",
+                },
+                "filter_last_success_env": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[last_success.env]",
                     "location": "query",
                 },
             },
@@ -1254,11 +1566,74 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._list_security_findings_endpoint = _Endpoint(
+            settings={
+                "response_type": (ListSecurityFindingsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings",
+                "operation_id": "list_security_findings",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_query": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[query]",
+                    "location": "query",
+                },
+                "page_cursor": {
+                    "openapi_types": (str,),
+                    "attribute": "page[cursor]",
+                    "location": "query",
+                },
+                "page_limit": {
+                    "validation": {
+                        "inclusive_maximum": 150,
+                        "inclusive_minimum": 1,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[limit]",
+                    "location": "query",
+                },
+                "sort": {
+                    "openapi_types": (SecurityFindingsSort,),
+                    "attribute": "sort",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_security_monitoring_critical_assets_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringCriticalAssetsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets",
+                "operation_id": "list_security_monitoring_critical_assets",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "query": {
+                    "openapi_types": (str,),
+                    "attribute": "query",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._list_security_monitoring_histsignals_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringSignalsListResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/histsignals",
+                "endpoint_path": "/api/v2/siem-threat-hunting/histsignals",
                 "operation_id": "list_security_monitoring_histsignals",
                 "http_method": "GET",
                 "version": "v2",
@@ -1322,6 +1697,11 @@ class SecurityMonitoringApi:
                 "page_number": {
                     "openapi_types": (int,),
                     "attribute": "page[number]",
+                    "location": "query",
+                },
+                "query": {
+                    "openapi_types": (str,),
+                    "attribute": "query",
                     "location": "query",
                 },
             },
@@ -1390,7 +1770,50 @@ class SecurityMonitoringApi:
                 "http_method": "GET",
                 "version": "v2",
             },
-            params_map={},
+            params_map={
+                "query": {
+                    "openapi_types": (str,),
+                    "attribute": "query",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_threat_hunting_jobs_endpoint = _Endpoint(
+            settings={
+                "response_type": (ListThreatHuntingJobsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs",
+                "operation_id": "list_threat_hunting_jobs",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "page_size": {
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
+                    "location": "query",
+                },
+                "sort": {
+                    "openapi_types": (str,),
+                    "attribute": "sort",
+                    "location": "query",
+                },
+                "filter_query": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[query]",
+                    "location": "query",
+                },
+            },
             headers_map={
                 "accept": ["application/json"],
             },
@@ -1485,7 +1908,7 @@ class SecurityMonitoringApi:
                 },
                 "filter_advisory_id": {
                     "openapi_types": (str,),
-                    "attribute": "filter[advisory_id]",
+                    "attribute": "filter[advisory.id]",
                     "location": "query",
                 },
                 "filter_risks_exploitation_probability": {
@@ -1555,6 +1978,11 @@ class SecurityMonitoringApi:
                 "filter_origin": {
                     "openapi_types": (str,),
                     "attribute": "filter[origin]",
+                    "location": "query",
+                },
+                "filter_running_kernel": {
+                    "openapi_types": (bool,),
+                    "attribute": "filter[running_kernel]",
                     "location": "query",
                 },
                 "filter_asset_name": {
@@ -1643,7 +2071,7 @@ class SecurityMonitoringApi:
             settings={
                 "response_type": (ListVulnerableAssetsResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth"],
-                "endpoint_path": "/api/v2/security/assets",
+                "endpoint_path": "/api/v2/security/vulnerable-assets",
                 "operation_id": "list_vulnerable_assets",
                 "http_method": "GET",
                 "version": "v2",
@@ -1747,7 +2175,7 @@ class SecurityMonitoringApi:
         self._mute_findings_endpoint = _Endpoint(
             settings={
                 "response_type": (BulkMuteFindingsResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/posture_management/findings",
                 "operation_id": "mute_findings",
                 "http_method": "PATCH",
@@ -1816,19 +2244,39 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
-        self._run_historical_job_endpoint = _Endpoint(
+        self._run_threat_hunting_job_endpoint = _Endpoint(
             settings={
                 "response_type": (JobCreateResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/jobs",
-                "operation_id": "run_historical_job",
+                "endpoint_path": "/api/v2/siem-threat-hunting/jobs",
+                "operation_id": "run_threat_hunting_job",
                 "http_method": "POST",
                 "version": "v2",
             },
             params_map={
                 "body": {
                     "required": True,
-                    "openapi_types": (RunHistoricalJobRequest,),
+                    "openapi_types": (RunThreatHuntingJobRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._search_security_findings_endpoint = _Endpoint(
+            settings={
+                "response_type": (ListSecurityFindingsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/search",
+                "operation_id": "search_security_findings",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityFindingsSearchRequest,),
                     "location": "body",
                 },
             },
@@ -1840,7 +2288,7 @@ class SecurityMonitoringApi:
             settings={
                 "response_type": (SecurityMonitoringSignalsListResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
-                "endpoint_path": "/api/v2/siem-historical-detections/histsignals/search",
+                "endpoint_path": "/api/v2/siem-threat-hunting/histsignals/search",
                 "operation_id": "search_security_monitoring_histsignals",
                 "http_method": "GET",
                 "version": "v2",
@@ -1998,6 +2446,32 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._update_security_monitoring_critical_asset_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringCriticalAssetResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/critical_assets/{critical_asset_id}",
+                "operation_id": "update_security_monitoring_critical_asset",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "critical_asset_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "critical_asset_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringCriticalAssetUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._update_security_monitoring_rule_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringRuleResponse,),
@@ -2090,13 +2564,52 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
-    def cancel_historical_job(
+    def attach_case(
+        self,
+        case_id: str,
+        body: AttachCaseRequest,
+    ) -> FindingCaseResponse:
+        """Attach security findings to a case.
+
+        Attach security findings to a case.
+        You can attach up to 50 security findings per case. Security findings that are already attached to another case will be detached from their previous case and attached to the specified case.
+
+        :param case_id: Unique identifier of the case to attach security findings to
+        :type case_id: str
+        :type body: AttachCaseRequest
+        :rtype: FindingCaseResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._attach_case_endpoint.call_with_http_info(**kwargs)
+
+    def attach_jira_issue(
+        self,
+        body: AttachJiraIssueRequest,
+    ) -> FindingCaseResponse:
+        """Attach security findings to a Jira issue.
+
+        Attach security findings to a Jira issue by providing the Jira issue URL.
+        You can attach up to 50 security findings per Jira issue. If the Jira issue is not linked to any case, this operation will create a case for the security findings and link the Jira issue to the newly created case. To configure the Jira integration, see `Bidirectional ticket syncing with Jira <https://docs.datadoghq.com/security/ticketing_integrations/#bidirectional-ticket-syncing-with-jira>`_. Security findings that are already attached to another Jira issue will be detached from their previous Jira issue and attached to the specified Jira issue.
+
+        :type body: AttachJiraIssueRequest
+        :rtype: FindingCaseResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._attach_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def cancel_threat_hunting_job(
         self,
         job_id: str,
     ) -> None:
-        """Cancel a historical job.
+        """Cancel a threat hunting job.
 
-        Cancel a historical job.
+        Cancel a threat hunting job.
 
         :param job_id: The ID of the job.
         :type job_id: str
@@ -2105,7 +2618,7 @@ class SecurityMonitoringApi:
         kwargs: Dict[str, Any] = {}
         kwargs["job_id"] = job_id
 
-        return self._cancel_historical_job_endpoint.call_with_http_info(**kwargs)
+        return self._cancel_threat_hunting_job_endpoint.call_with_http_info(**kwargs)
 
     def convert_existing_security_monitoring_rule(
         self,
@@ -2113,8 +2626,14 @@ class SecurityMonitoringApi:
     ) -> SecurityMonitoringRuleConvertResponse:
         """Convert an existing rule from JSON to Terraform.
 
-        Convert an existing rule from JSON to Terraform for datadog provider
-        resource datadog_security_monitoring_rule.
+        Convert an existing rule from JSON to Terraform for Datadog provider
+        resource ``datadog_security_monitoring_rule``. You can do so for the following rule types:
+
+        * App and API Protection
+        * Cloud SIEM (log detection and signal correlation)
+        * Workload Protection
+
+        You can convert Cloud Security configuration rules using Terraform's `Datadog Cloud Configuration Rule resource <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/cloud_configuration_rule>`_.
 
         :param rule_id: The ID of the rule.
         :type rule_id: str
@@ -2151,8 +2670,14 @@ class SecurityMonitoringApi:
     ) -> SecurityMonitoringRuleConvertResponse:
         """Convert a rule from JSON to Terraform.
 
-        Convert a rule that doesn't (yet) exist from JSON to Terraform for datadog provider
-        resource datadog_security_monitoring_rule.
+        Convert a rule that doesn't (yet) exist from JSON to Terraform for Datadog provider
+        resource ``datadog_security_monitoring_rule``. You can do so for the following rule types:
+
+        * App and API Protection
+        * Cloud SIEM (log detection and signal correlation)
+        * Workload Protection
+
+        You can convert Cloud Security configuration rules using Terraform's `Datadog Cloud Configuration Rule resource <https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/cloud_configuration_rule>`_.
 
         :type body: SecurityMonitoringRuleConvertPayload
         :rtype: SecurityMonitoringRuleConvertResponse
@@ -2161,6 +2686,23 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._convert_security_monitoring_rule_from_json_to_terraform_endpoint.call_with_http_info(**kwargs)
+
+    def create_cases(
+        self,
+        body: CreateCaseRequestArray,
+    ) -> FindingCaseResponseArray:
+        """Create cases for security findings.
+
+        Create cases for security findings.
+        You can create up to 50 cases per request and associate up to 50 security findings per case. Security findings that are already attached to another case will be detached from their previous case and attached to the newly created case.
+
+        :type body: CreateCaseRequestArray
+        :rtype: FindingCaseResponseArray
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_cases_endpoint.call_with_http_info(**kwargs)
 
     def create_custom_framework(
         self,
@@ -2177,6 +2719,23 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._create_custom_framework_endpoint.call_with_http_info(**kwargs)
+
+    def create_jira_issues(
+        self,
+        body: CreateJiraIssueRequestArray,
+    ) -> FindingCaseResponseArray:
+        """Create Jira issues for security findings.
+
+        Create Jira issues for security findings.
+        This operation creates a case in Datadog and a Jira issue linked to that case for bidirectional sync between Datadog and Jira. To configure the Jira integration, see `Bidirectional ticket syncing with Jira <https://docs.datadoghq.com/security/ticketing_integrations/#bidirectional-ticket-syncing-with-jira>`_. You can create up to 50 Jira issues per request and associate up to 50 security findings per Jira issue. Security findings that are already attached to another Jira issue will be detached from their previous Jira issue and attached to the newly created Jira issue.
+
+        :type body: CreateJiraIssueRequestArray
+        :rtype: FindingCaseResponseArray
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_jira_issues_endpoint.call_with_http_info(**kwargs)
 
     def create_security_filter(
         self,
@@ -2197,6 +2756,23 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._create_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def create_security_monitoring_critical_asset(
+        self,
+        body: SecurityMonitoringCriticalAssetCreateRequest,
+    ) -> SecurityMonitoringCriticalAssetResponse:
+        """Create a critical asset.
+
+        Create a new critical asset.
+
+        :param body: The definition of the new critical asset.
+        :type body: SecurityMonitoringCriticalAssetCreateRequest
+        :rtype: SecurityMonitoringCriticalAssetResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_security_monitoring_critical_asset_endpoint.call_with_http_info(**kwargs)
 
     def create_security_monitoring_rule(
         self,
@@ -2294,23 +2870,6 @@ class SecurityMonitoringApi:
 
         return self._delete_custom_framework_endpoint.call_with_http_info(**kwargs)
 
-    def delete_historical_job(
-        self,
-        job_id: str,
-    ) -> None:
-        """Delete an existing job.
-
-        Delete an existing job.
-
-        :param job_id: The ID of the job.
-        :type job_id: str
-        :rtype: None
-        """
-        kwargs: Dict[str, Any] = {}
-        kwargs["job_id"] = job_id
-
-        return self._delete_historical_job_endpoint.call_with_http_info(**kwargs)
-
     def delete_security_filter(
         self,
         security_filter_id: str,
@@ -2327,6 +2886,23 @@ class SecurityMonitoringApi:
         kwargs["security_filter_id"] = security_filter_id
 
         return self._delete_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def delete_security_monitoring_critical_asset(
+        self,
+        critical_asset_id: str,
+    ) -> None:
+        """Delete a critical asset.
+
+        Delete a specific critical asset.
+
+        :param critical_asset_id: The ID of the critical asset.
+        :type critical_asset_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["critical_asset_id"] = critical_asset_id
+
+        return self._delete_security_monitoring_critical_asset_endpoint.call_with_http_info(**kwargs)
 
     def delete_security_monitoring_rule(
         self,
@@ -2379,6 +2955,23 @@ class SecurityMonitoringApi:
 
         return self._delete_signal_notification_rule_endpoint.call_with_http_info(**kwargs)
 
+    def delete_threat_hunting_job(
+        self,
+        job_id: str,
+    ) -> None:
+        """Delete an existing job.
+
+        Delete an existing job.
+
+        :param job_id: The ID of the job.
+        :type job_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["job_id"] = job_id
+
+        return self._delete_threat_hunting_job_endpoint.call_with_http_info(**kwargs)
+
     def delete_vulnerability_notification_rule(
         self,
         id: str,
@@ -2395,6 +2988,23 @@ class SecurityMonitoringApi:
         kwargs["id"] = id
 
         return self._delete_vulnerability_notification_rule_endpoint.call_with_http_info(**kwargs)
+
+    def detach_case(
+        self,
+        body: DetachCaseRequest,
+    ) -> None:
+        """Detach security findings from their case.
+
+        Detach security findings from their case.
+        This operation dissociates security findings from their associated cases without deleting the cases themselves. You can detach security findings from multiple different cases in a single request, with a limit of 50 security findings per request. Security findings that are not currently attached to any case will be ignored.
+
+        :type body: DetachCaseRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._detach_case_endpoint.call_with_http_info(**kwargs)
 
     def edit_security_monitoring_signal_assignee(
         self,
@@ -2462,6 +3072,23 @@ class SecurityMonitoringApi:
 
         return self._edit_security_monitoring_signal_state_endpoint.call_with_http_info(**kwargs)
 
+    def get_critical_assets_affecting_rule(
+        self,
+        rule_id: str,
+    ) -> SecurityMonitoringCriticalAssetsResponse:
+        """Get critical assets affecting a specific rule.
+
+        Get the list of critical assets that affect a specific existing rule by the rule's ID.
+
+        :param rule_id: The ID of the rule.
+        :type rule_id: str
+        :rtype: SecurityMonitoringCriticalAssetsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["rule_id"] = rule_id
+
+        return self._get_critical_assets_affecting_rule_endpoint.call_with_http_info(**kwargs)
+
     def get_custom_framework(
         self,
         handle: str,
@@ -2507,23 +3134,6 @@ class SecurityMonitoringApi:
             kwargs["snapshot_timestamp"] = snapshot_timestamp
 
         return self._get_finding_endpoint.call_with_http_info(**kwargs)
-
-    def get_historical_job(
-        self,
-        job_id: str,
-    ) -> HistoricalJobResponse:
-        """Get a job's details.
-
-        Get a job's details.
-
-        :param job_id: The ID of the job.
-        :type job_id: str
-        :rtype: HistoricalJobResponse
-        """
-        kwargs: Dict[str, Any] = {}
-        kwargs["job_id"] = job_id
-
-        return self._get_historical_job_endpoint.call_with_http_info(**kwargs)
 
     def get_resource_evaluation_filters(
         self,
@@ -2592,6 +3202,7 @@ class SecurityMonitoringApi:
         filter_asset_name: str,
         *,
         filter_repo_digest: Union[str, UnsetType] = unset,
+        ext_format: Union[SBOMFormat, UnsetType] = unset,
     ) -> GetSBOMResponse:
         """Get SBOM.
 
@@ -2603,6 +3214,8 @@ class SecurityMonitoringApi:
         :type filter_asset_name: str
         :param filter_repo_digest: The container image ``repo_digest`` for the SBOM request. When the requested asset type is 'Image', this filter is mandatory.
         :type filter_repo_digest: str, optional
+        :param ext_format: The standard of the SBOM.
+        :type ext_format: SBOMFormat, optional
         :rtype: GetSBOMResponse
         """
         kwargs: Dict[str, Any] = {}
@@ -2613,7 +3226,22 @@ class SecurityMonitoringApi:
         if filter_repo_digest is not unset:
             kwargs["filter_repo_digest"] = filter_repo_digest
 
+        if ext_format is not unset:
+            kwargs["ext_format"] = ext_format
+
         return self._get_sbom_endpoint.call_with_http_info(**kwargs)
+
+    def get_secrets_rules(
+        self,
+    ) -> SecretRuleArray:
+        """Returns a list of Secrets rules.
+
+        Returns a list of Secrets rules with ID, Pattern, Description, Priority, and SDS ID.
+
+        :rtype: SecretRuleArray
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_secrets_rules_endpoint.call_with_http_info(**kwargs)
 
     def get_security_filter(
         self,
@@ -2635,6 +3263,23 @@ class SecurityMonitoringApi:
 
         return self._get_security_filter_endpoint.call_with_http_info(**kwargs)
 
+    def get_security_monitoring_critical_asset(
+        self,
+        critical_asset_id: str,
+    ) -> SecurityMonitoringCriticalAssetResponse:
+        """Get a critical asset.
+
+        Get the details of a specific critical asset.
+
+        :param critical_asset_id: The ID of the critical asset.
+        :type critical_asset_id: str
+        :rtype: SecurityMonitoringCriticalAssetResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["critical_asset_id"] = critical_asset_id
+
+        return self._get_security_monitoring_critical_asset_endpoint.call_with_http_info(**kwargs)
+
     def get_security_monitoring_histsignal(
         self,
         histsignal_id: str,
@@ -2643,7 +3288,7 @@ class SecurityMonitoringApi:
 
         Get a hist signal's details.
 
-        :param histsignal_id: The ID of the historical signal.
+        :param histsignal_id: The ID of the threat hunting signal.
         :type histsignal_id: str
         :rtype: SecurityMonitoringSignalResponse
         """
@@ -2823,6 +3468,53 @@ class SecurityMonitoringApi:
         kwargs["rule_id"] = rule_id
 
         return self._get_suppressions_affecting_rule_endpoint.call_with_http_info(**kwargs)
+
+    def get_suppression_version_history(
+        self,
+        suppression_id: str,
+        *,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+    ) -> GetSuppressionVersionHistoryResponse:
+        """Get a suppression's version history.
+
+        Get a suppression's version history.
+
+        :param suppression_id: The ID of the suppression rule
+        :type suppression_id: str
+        :param page_size: Size for a given page. The maximum allowed value is 100.
+        :type page_size: int, optional
+        :param page_number: Specific page number to return.
+        :type page_number: int, optional
+        :rtype: GetSuppressionVersionHistoryResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["suppression_id"] = suppression_id
+
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
+
+        return self._get_suppression_version_history_endpoint.call_with_http_info(**kwargs)
+
+    def get_threat_hunting_job(
+        self,
+        job_id: str,
+    ) -> ThreatHuntingJobResponse:
+        """Get a job's details.
+
+        Get a job's details.
+
+        :param job_id: The ID of the job.
+        :type job_id: str
+        :rtype: ThreatHuntingJobResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["job_id"] = job_id
+
+        return self._get_threat_hunting_job_endpoint.call_with_http_info(**kwargs)
 
     def get_vulnerability_notification_rule(
         self,
@@ -3189,42 +3881,138 @@ class SecurityMonitoringApi:
         }
         return endpoint.call_with_http_info_paginated(pagination)
 
-    def list_historical_jobs(
+    def list_multiple_rulesets(
         self,
-        *,
-        page_size: Union[int, UnsetType] = unset,
-        page_number: Union[int, UnsetType] = unset,
-        sort: Union[str, UnsetType] = unset,
-        filter_query: Union[str, UnsetType] = unset,
-    ) -> ListHistoricalJobsResponse:
-        """List historical jobs.
+        body: GetMultipleRulesetsRequest,
+    ) -> GetMultipleRulesetsResponse:
+        """Ruleset get multiple.
 
-        List historical jobs.
+        Get rules for multiple rulesets in batch.
 
-        :param page_size: Size for a given page. The maximum allowed value is 100.
-        :type page_size: int, optional
-        :param page_number: Specific page number to return.
-        :type page_number: int, optional
-        :param sort: The order of the jobs in results.
-        :type sort: str, optional
-        :param filter_query: Query used to filter items from the fetched list.
-        :type filter_query: str, optional
-        :rtype: ListHistoricalJobsResponse
+        :type body: GetMultipleRulesetsRequest
+        :rtype: GetMultipleRulesetsResponse
         """
         kwargs: Dict[str, Any] = {}
-        if page_size is not unset:
-            kwargs["page_size"] = page_size
+        kwargs["body"] = body
+
+        return self._list_multiple_rulesets_endpoint.call_with_http_info(**kwargs)
+
+    def list_scanned_assets_metadata(
+        self,
+        *,
+        page_token: Union[str, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+        filter_asset_type: Union[CloudAssetType, UnsetType] = unset,
+        filter_asset_name: Union[str, UnsetType] = unset,
+        filter_last_success_origin: Union[str, UnsetType] = unset,
+        filter_last_success_env: Union[str, UnsetType] = unset,
+    ) -> ScannedAssetsMetadata:
+        """List scanned assets metadata.
+
+        Get a list of security scanned assets metadata for an organization.
+
+        **Pagination**
+
+        For the "List Vulnerabilities" endpoint, see the `Pagination section <#pagination>`_.
+
+        **Filtering**
+
+        For the "List Vulnerabilities" endpoint, see the `Filtering section <#filtering>`_.
+
+        **Metadata**
+
+         For the "List Vulnerabilities" endpoint, see the `Metadata section <#metadata>`_.
+
+        **Related endpoints**
+
+        This endpoint returns additional metadata for cloud resources that is not available from the standard resource endpoints. To access a richer dataset, call this endpoint together with the relevant resource endpoint(s) and merge (join) their results using the resource identifier.
+
+        **Hosts**
+
+        To enrich host data, join the response from the `Hosts <https://docs.datadoghq.com/api/latest/hosts/>`_ endpoint with the response from the scanned-assets-metadata endpoint on the following key fields:
+
+        .. list-table::
+           :header-rows: 1
+
+           * - ENDPOINT
+             - JOIN KEY
+             - TYPE
+           * - `/api/v1/hosts <https://docs.datadoghq.com/api/latest/hosts/>`_
+             - host_list.host_name
+             - string
+           * - /api/v2/security/scanned-assets-metadata
+             - data.attributes.asset.name
+             - string
+
+        **Host Images**
+
+        To enrich host image data, join the response from the `Hosts <https://docs.datadoghq.com/api/latest/hosts/>`_ endpoint with the response from the scanned-assets-metadata endpoint on the following key fields:
+
+        .. list-table::
+           :header-rows: 1
+
+           * - ENDPOINT
+             - JOIN KEY
+             - TYPE
+           * - `/api/v1/hosts <https://docs.datadoghq.com/api/latest/hosts/>`_
+             - host_list.tags_by_source["Amazon Web Services"]["image"]
+             - string
+           * - /api/v2/security/scanned-assets-metadata
+             - data.attributes.asset.name
+             - string
+
+        **Container Images**
+
+        To enrich container image data, join the response from the `Container Images <https://docs.datadoghq.com/api/latest/container-images/>`_ endpoint with the response from the scanned-assets-metadata endpoint on the following key fields:
+
+        .. list-table::
+           :header-rows: 1
+
+           * - ENDPOINT
+             - JOIN KEY
+             - TYPE
+           * - `/api/v2/container_images <https://docs.datadoghq.com/api/latest/container-images/>`_
+             - ``data.attributes.name`` @ ``data.attributes.repo_digest``
+             - string
+           * - /api/v2/security/scanned-assets-metadata
+             - data.attributes.asset.name
+             - string
+
+
+        :param page_token: Its value must come from the ``links`` section of the response of the first request. Do not manually edit it.
+        :type page_token: str, optional
+        :param page_number: The page number to be retrieved. It should be equal to or greater than 1.
+        :type page_number: int, optional
+        :param filter_asset_type: The type of the scanned asset.
+        :type filter_asset_type: CloudAssetType, optional
+        :param filter_asset_name: The name of the scanned asset.
+        :type filter_asset_name: str, optional
+        :param filter_last_success_origin: The origin of last success scan.
+        :type filter_last_success_origin: str, optional
+        :param filter_last_success_env: The environment of last success scan.
+        :type filter_last_success_env: str, optional
+        :rtype: ScannedAssetsMetadata
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_token is not unset:
+            kwargs["page_token"] = page_token
 
         if page_number is not unset:
             kwargs["page_number"] = page_number
 
-        if sort is not unset:
-            kwargs["sort"] = sort
+        if filter_asset_type is not unset:
+            kwargs["filter_asset_type"] = filter_asset_type
 
-        if filter_query is not unset:
-            kwargs["filter_query"] = filter_query
+        if filter_asset_name is not unset:
+            kwargs["filter_asset_name"] = filter_asset_name
 
-        return self._list_historical_jobs_endpoint.call_with_http_info(**kwargs)
+        if filter_last_success_origin is not unset:
+            kwargs["filter_last_success_origin"] = filter_last_success_origin
+
+        if filter_last_success_env is not unset:
+            kwargs["filter_last_success_env"] = filter_last_success_env
+
+        return self._list_scanned_assets_metadata_endpoint.call_with_http_info(**kwargs)
 
     def list_security_filters(
         self,
@@ -3237,6 +4025,118 @@ class SecurityMonitoringApi:
         """
         kwargs: Dict[str, Any] = {}
         return self._list_security_filters_endpoint.call_with_http_info(**kwargs)
+
+    def list_security_findings(
+        self,
+        *,
+        filter_query: Union[str, UnsetType] = unset,
+        page_cursor: Union[str, UnsetType] = unset,
+        page_limit: Union[int, UnsetType] = unset,
+        sort: Union[SecurityFindingsSort, UnsetType] = unset,
+    ) -> ListSecurityFindingsResponse:
+        """List security findings.
+
+        Get a list of security findings that match a search query. `See the schema for security findings <https://docs.datadoghq.com/security/guide/findings-schema/>`_.
+
+        **Query Syntax**
+
+        This endpoint uses the logs query syntax. Findings attributes (living in the attributes.attributes. namespace) are prefixed by @ when queried. Tags are queried without a prefix.
+
+        Example: ``@severity:(critical OR high) @status:open team:platform``
+
+        :param filter_query: The search query following log search syntax.
+        :type filter_query: str, optional
+        :param page_cursor: Get the next page of results with a cursor provided in the previous query.
+        :type page_cursor: str, optional
+        :param page_limit: The maximum number of findings in the response.
+        :type page_limit: int, optional
+        :param sort: Sorts by @detection_changed_at.
+        :type sort: SecurityFindingsSort, optional
+        :rtype: ListSecurityFindingsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if filter_query is not unset:
+            kwargs["filter_query"] = filter_query
+
+        if page_cursor is not unset:
+            kwargs["page_cursor"] = page_cursor
+
+        if page_limit is not unset:
+            kwargs["page_limit"] = page_limit
+
+        if sort is not unset:
+            kwargs["sort"] = sort
+
+        return self._list_security_findings_endpoint.call_with_http_info(**kwargs)
+
+    def list_security_findings_with_pagination(
+        self,
+        *,
+        filter_query: Union[str, UnsetType] = unset,
+        page_cursor: Union[str, UnsetType] = unset,
+        page_limit: Union[int, UnsetType] = unset,
+        sort: Union[SecurityFindingsSort, UnsetType] = unset,
+    ) -> collections.abc.Iterable[SecurityFindingsData]:
+        """List security findings.
+
+        Provide a paginated version of :meth:`list_security_findings`, returning all items.
+
+        :param filter_query: The search query following log search syntax.
+        :type filter_query: str, optional
+        :param page_cursor: Get the next page of results with a cursor provided in the previous query.
+        :type page_cursor: str, optional
+        :param page_limit: The maximum number of findings in the response.
+        :type page_limit: int, optional
+        :param sort: Sorts by @detection_changed_at.
+        :type sort: SecurityFindingsSort, optional
+
+        :return: A generator of paginated results.
+        :rtype: collections.abc.Iterable[SecurityFindingsData]
+        """
+        kwargs: Dict[str, Any] = {}
+        if filter_query is not unset:
+            kwargs["filter_query"] = filter_query
+
+        if page_cursor is not unset:
+            kwargs["page_cursor"] = page_cursor
+
+        if page_limit is not unset:
+            kwargs["page_limit"] = page_limit
+
+        if sort is not unset:
+            kwargs["sort"] = sort
+
+        local_page_size = get_attribute_from_path(kwargs, "page_limit", 10)
+        endpoint = self._list_security_findings_endpoint
+        set_attribute_from_path(kwargs, "page_limit", local_page_size, endpoint.params_map)
+        pagination = {
+            "limit_value": local_page_size,
+            "results_path": "data",
+            "cursor_param": "page_cursor",
+            "cursor_path": "meta.page.after",
+            "endpoint": endpoint,
+            "kwargs": kwargs,
+        }
+        return endpoint.call_with_http_info_paginated(pagination)
+
+    def list_security_monitoring_critical_assets(
+        self,
+        *,
+        query: Union[str, UnsetType] = unset,
+    ) -> SecurityMonitoringCriticalAssetsResponse:
+        """Get all critical assets.
+
+        Get the list of all critical assets.
+
+        :param query: Query string.
+        :type query: str, optional
+        :rtype: SecurityMonitoringCriticalAssetsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if query is not unset:
+            kwargs["query"] = query
+
+        return self._list_security_monitoring_critical_assets_endpoint.call_with_http_info(**kwargs)
 
     def list_security_monitoring_histsignals(
         self,
@@ -3292,6 +4192,7 @@ class SecurityMonitoringApi:
         *,
         page_size: Union[int, UnsetType] = unset,
         page_number: Union[int, UnsetType] = unset,
+        query: Union[str, UnsetType] = unset,
     ) -> SecurityMonitoringListRulesResponse:
         """List rules.
 
@@ -3301,6 +4202,8 @@ class SecurityMonitoringApi:
         :type page_size: int, optional
         :param page_number: Specific page number to return.
         :type page_number: int, optional
+        :param query: A search query to filter security rules. You can filter by attributes such as ``type`` , ``source`` , ``tags``.
+        :type query: str, optional
         :rtype: SecurityMonitoringListRulesResponse
         """
         kwargs: Dict[str, Any] = {}
@@ -3309,6 +4212,9 @@ class SecurityMonitoringApi:
 
         if page_number is not unset:
             kwargs["page_number"] = page_number
+
+        if query is not unset:
+            kwargs["query"] = query
 
         return self._list_security_monitoring_rules_endpoint.call_with_http_info(**kwargs)
 
@@ -3427,15 +4333,59 @@ class SecurityMonitoringApi:
 
     def list_security_monitoring_suppressions(
         self,
+        *,
+        query: Union[str, UnsetType] = unset,
     ) -> SecurityMonitoringSuppressionsResponse:
         """Get all suppression rules.
 
         Get the list of all suppression rules.
 
+        :param query: Query string.
+        :type query: str, optional
         :rtype: SecurityMonitoringSuppressionsResponse
         """
         kwargs: Dict[str, Any] = {}
+        if query is not unset:
+            kwargs["query"] = query
+
         return self._list_security_monitoring_suppressions_endpoint.call_with_http_info(**kwargs)
+
+    def list_threat_hunting_jobs(
+        self,
+        *,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+        sort: Union[str, UnsetType] = unset,
+        filter_query: Union[str, UnsetType] = unset,
+    ) -> ListThreatHuntingJobsResponse:
+        """List threat hunting jobs.
+
+        List threat hunting jobs.
+
+        :param page_size: Size for a given page. The maximum allowed value is 100.
+        :type page_size: int, optional
+        :param page_number: Specific page number to return.
+        :type page_number: int, optional
+        :param sort: The order of the jobs in results.
+        :type sort: str, optional
+        :param filter_query: Query used to filter items from the fetched list.
+        :type filter_query: str, optional
+        :rtype: ListThreatHuntingJobsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
+
+        if sort is not unset:
+            kwargs["sort"] = sort
+
+        if filter_query is not unset:
+            kwargs["filter_query"] = filter_query
+
+        return self._list_threat_hunting_jobs_endpoint.call_with_http_info(**kwargs)
 
     def list_vulnerabilities(
         self,
@@ -3467,6 +4417,7 @@ class SecurityMonitoringApi:
         filter_fix_available: Union[bool, UnsetType] = unset,
         filter_repo_digests: Union[str, UnsetType] = unset,
         filter_origin: Union[str, UnsetType] = unset,
+        filter_running_kernel: Union[bool, UnsetType] = unset,
         filter_asset_name: Union[str, UnsetType] = unset,
         filter_asset_type: Union[AssetType, UnsetType] = unset,
         filter_asset_version_first: Union[str, UnsetType] = unset,
@@ -3525,6 +4476,8 @@ class SecurityMonitoringApi:
 
         This token can then be used in the subsequent paginated requests.
 
+        *Note: The first request may take longer to complete than subsequent requests.*
+
         **Subsequent requests**
 
         Any request containing valid ``page[token]`` and ``page[number]`` parameters will be considered a subsequent request.
@@ -3532,6 +4485,8 @@ class SecurityMonitoringApi:
         If the ``token`` is invalid, a ``404`` response will be returned.
 
         If the page ``number`` is invalid, a ``400`` response will be returned.
+
+        The returned ``token`` is valid for all requests in the pagination sequence. To send paginated requests in parallel, reuse the same ``token`` and change only the ``page[number]`` parameter.
 
         **Filtering**
 
@@ -3564,6 +4519,12 @@ class SecurityMonitoringApi:
              },
              "links": {...}
            }
+
+        **Extensions**
+
+        Requests may include extensions to modify the behavior of the requested endpoint. The filter parameters follow the `JSON:API format <https://jsonapi.org/extensions/#extensions>`_ format: ``ext:$extension_name`` , where ``extension_name`` is the name of the modifier that is being applied.
+
+        Extensions can only include one value: ``ext:modifier=value``.
 
         :param page_token: Its value must come from the ``links`` section of the response of the first request. Do not manually edit it.
         :type page_token: str, optional
@@ -3619,7 +4580,9 @@ class SecurityMonitoringApi:
         :type filter_repo_digests: str, optional
         :param filter_origin: Filter by origin.
         :type filter_origin: str, optional
-        :param filter_asset_name: Filter by asset name.
+        :param filter_running_kernel: Filter for whether the vulnerability affects a running kernel (for vulnerabilities related to a ``Host`` asset).
+        :type filter_running_kernel: bool, optional
+        :param filter_asset_name: Filter by asset name. This field supports the usage of wildcards (*).
         :type filter_asset_name: str, optional
         :param filter_asset_type: Filter by asset type.
         :type filter_asset_type: AssetType, optional
@@ -3733,6 +4696,9 @@ class SecurityMonitoringApi:
         if filter_origin is not unset:
             kwargs["filter_origin"] = filter_origin
 
+        if filter_running_kernel is not unset:
+            kwargs["filter_running_kernel"] = filter_running_kernel
+
         if filter_asset_name is not unset:
             kwargs["filter_asset_name"] = filter_asset_name
 
@@ -3821,7 +4787,7 @@ class SecurityMonitoringApi:
         :type page_token: str, optional
         :param page_number: The page number to be retrieved. It should be equal or greater than ``1``
         :type page_number: int, optional
-        :param filter_name: Filter by name.
+        :param filter_name: Filter by name. This field supports the usage of wildcards (*).
         :type filter_name: str, optional
         :param filter_type: Filter by type.
         :type filter_type: AssetType, optional
@@ -3976,21 +4942,72 @@ class SecurityMonitoringApi:
 
         return self._patch_vulnerability_notification_rule_endpoint.call_with_http_info(**kwargs)
 
-    def run_historical_job(
+    def run_threat_hunting_job(
         self,
-        body: RunHistoricalJobRequest,
+        body: RunThreatHuntingJobRequest,
     ) -> JobCreateResponse:
-        """Run a historical job.
+        """Run a threat hunting job.
 
-        Run a historical job.
+        Run a threat hunting job.
 
-        :type body: RunHistoricalJobRequest
+        :type body: RunThreatHuntingJobRequest
         :rtype: JobCreateResponse
         """
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
 
-        return self._run_historical_job_endpoint.call_with_http_info(**kwargs)
+        return self._run_threat_hunting_job_endpoint.call_with_http_info(**kwargs)
+
+    def search_security_findings(
+        self,
+        body: SecurityFindingsSearchRequest,
+    ) -> ListSecurityFindingsResponse:
+        """Search security findings.
+
+        Get a list of security findings that match a search query. `See the schema for security findings <https://docs.datadoghq.com/security/guide/findings-schema/>`_.
+
+        **Query Syntax**
+
+        The API uses the logs query syntax. Findings attributes (living in the attributes.attributes. namespace) are prefixed by @ when queried. Tags are queried without a prefix.
+
+        Example: ``@severity:(critical OR high) @status:open team:platform``
+
+        :type body: SecurityFindingsSearchRequest
+        :rtype: ListSecurityFindingsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._search_security_findings_endpoint.call_with_http_info(**kwargs)
+
+    def search_security_findings_with_pagination(
+        self,
+        body: SecurityFindingsSearchRequest,
+    ) -> collections.abc.Iterable[SecurityFindingsData]:
+        """Search security findings.
+
+        Provide a paginated version of :meth:`search_security_findings`, returning all items.
+
+        :type body: SecurityFindingsSearchRequest
+
+        :return: A generator of paginated results.
+        :rtype: collections.abc.Iterable[SecurityFindingsData]
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        local_page_size = get_attribute_from_path(kwargs, "body.data.attributes.page.limit", 10)
+        endpoint = self._search_security_findings_endpoint
+        set_attribute_from_path(kwargs, "body.data.attributes.page.limit", local_page_size, endpoint.params_map)
+        pagination = {
+            "limit_value": local_page_size,
+            "results_path": "data",
+            "cursor_param": "body.data.attributes.page.cursor",
+            "cursor_path": "meta.page.after",
+            "endpoint": endpoint,
+            "kwargs": kwargs,
+        }
+        return endpoint.call_with_http_info_paginated(pagination)
 
     def search_security_monitoring_histsignals(
         self,
@@ -4162,6 +5179,28 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._update_security_filter_endpoint.call_with_http_info(**kwargs)
+
+    def update_security_monitoring_critical_asset(
+        self,
+        critical_asset_id: str,
+        body: SecurityMonitoringCriticalAssetUpdateRequest,
+    ) -> SecurityMonitoringCriticalAssetResponse:
+        """Update a critical asset.
+
+        Update a specific critical asset.
+
+        :param critical_asset_id: The ID of the critical asset.
+        :type critical_asset_id: str
+        :param body: New definition of the critical asset. Supports partial updates.
+        :type body: SecurityMonitoringCriticalAssetUpdateRequest
+        :rtype: SecurityMonitoringCriticalAssetResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["critical_asset_id"] = critical_asset_id
+
+        kwargs["body"] = body
+
+        return self._update_security_monitoring_critical_asset_endpoint.call_with_http_info(**kwargs)
 
     def update_security_monitoring_rule(
         self,

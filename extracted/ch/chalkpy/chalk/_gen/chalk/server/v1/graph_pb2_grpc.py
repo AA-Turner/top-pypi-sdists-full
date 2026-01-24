@@ -40,6 +40,16 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphResponse.FromString,
         )
+        self.ApplyGraphUpdates = channel.unary_unary(
+            "/chalk.server.v1.GraphService/ApplyGraphUpdates",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesResponse.FromString,
+        )
+        self.TestGraphMutations = channel.unary_unary(
+            "/chalk.server.v1.GraphService/TestGraphMutations",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.FromString,
+        )
 
 
 class GraphServiceServicer(object):
@@ -75,6 +85,20 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ApplyGraphUpdates(self, request, context):
+        """ApplyGraphUpdates applies a series of mutations to a deployment's graph"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def TestGraphMutations(self, request, context):
+        """TestGraphMutations applies a series of mutations to a deployment's graph without persisting state
+        This allows testing graph updates before actually applying them
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_GraphServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +126,16 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.GetCodegenFeaturesFromGraph,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphResponse.SerializeToString,
+        ),
+        "ApplyGraphUpdates": grpc.unary_unary_rpc_method_handler(
+            servicer.ApplyGraphUpdates,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesResponse.SerializeToString,
+        ),
+        "TestGraphMutations": grpc.unary_unary_rpc_method_handler(
+            servicer.TestGraphMutations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.GraphService", rpc_method_handlers)
@@ -247,6 +281,64 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/GetCodegenFeaturesFromGraph",
             chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.GetCodegenFeaturesFromGraphResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ApplyGraphUpdates(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/ApplyGraphUpdates",
+            chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.ApplyGraphUpdatesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TestGraphMutations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/TestGraphMutations",
+            chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.FromString,
             options,
             channel_credentials,
             insecure,

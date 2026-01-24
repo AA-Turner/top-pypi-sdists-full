@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from git import Optional
 
+from socketsecurity import USER_AGENT
 from socketsecurity.core import log
 from socketsecurity.core.classes import Comment
 from socketsecurity.core.scm_comments import Comments
@@ -83,7 +84,7 @@ class GithubConfig:
             event_action=event_action,
             headers={
                 'Authorization': f"Bearer {token}",
-                'User-Agent': 'SocketPythonScript/0.0.1',
+                'User-Agent': USER_AGENT,
                 "accept": "application/json"
             }
         )
@@ -99,7 +100,7 @@ class Github:
             sys.exit(2)
 
     def check_event_type(self) -> str:
-        if self.config.event_name.lower() == "push":
+        if self.config.event_name.lower() in ["push", "workflow_dispatch"]:
             if not self.config.pr_number:
                 return "main"
             return "diff"

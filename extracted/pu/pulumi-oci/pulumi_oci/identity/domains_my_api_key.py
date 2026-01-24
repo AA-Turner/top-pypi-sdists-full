@@ -922,9 +922,30 @@ class DomainsMyApiKey(pulumi.CustomResource):
                  user: Optional[pulumi.Input[Union['DomainsMyApiKeyUserArgs', 'DomainsMyApiKeyUserArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the My Api Key resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Add a user's own API key.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_api_key = oci.identity.DomainsMyApiKey("test_my_api_key",
+            idcs_endpoint=test_domain["url"],
+            key=my_api_key_key,
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:apikey"],
+            authorization=my_api_key_authorization,
+            description=my_api_key_description,
+            id=my_api_key_id,
+            ocid=my_api_key_ocid,
+            resource_type_schema_version=my_api_key_resource_type_schema_version,
+            tags=[{
+                "key": my_api_key_tags_key,
+                "value": my_api_key_tags_value,
+            }],
+            user={
+                "ocid": my_api_key_user_ocid,
+                "value": my_api_key_user_value,
+            })
+        ```
 
         ## Import
 
@@ -1012,9 +1033,30 @@ class DomainsMyApiKey(pulumi.CustomResource):
                  args: DomainsMyApiKeyArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the My Api Key resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Add a user's own API key.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_my_api_key = oci.identity.DomainsMyApiKey("test_my_api_key",
+            idcs_endpoint=test_domain["url"],
+            key=my_api_key_key,
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:apikey"],
+            authorization=my_api_key_authorization,
+            description=my_api_key_description,
+            id=my_api_key_id,
+            ocid=my_api_key_ocid,
+            resource_type_schema_version=my_api_key_resource_type_schema_version,
+            tags=[{
+                "key": my_api_key_tags_key,
+                "value": my_api_key_tags_value,
+            }],
+            user={
+                "ocid": my_api_key_user_ocid,
+                "value": my_api_key_user_value,
+            })
+        ```
 
         ## Import
 

@@ -27,7 +27,10 @@ class GetDrPlanExecutionResult:
     """
     A collection of values returned by getDrPlanExecution.
     """
-    def __init__(__self__, compartment_id=None, defined_tags=None, display_name=None, dr_plan_execution_id=None, dr_protection_group_id=None, execution_duration_in_sec=None, execution_options=None, freeform_tags=None, group_executions=None, id=None, life_cycle_details=None, log_locations=None, peer_dr_protection_group_id=None, peer_region=None, plan_execution_type=None, plan_id=None, state=None, system_tags=None, time_created=None, time_ended=None, time_started=None, time_updated=None):
+    def __init__(__self__, automatic_execution_details=None, compartment_id=None, defined_tags=None, display_name=None, dr_plan_execution_id=None, dr_protection_group_id=None, execution_duration_in_sec=None, execution_options=None, freeform_tags=None, group_executions=None, id=None, is_automatic=None, life_cycle_details=None, log_locations=None, peer_dr_protection_group_id=None, peer_region=None, plan_execution_type=None, plan_id=None, state=None, step_status_counts=None, system_tags=None, time_created=None, time_ended=None, time_started=None, time_updated=None):
+        if automatic_execution_details and not isinstance(automatic_execution_details, list):
+            raise TypeError("Expected argument 'automatic_execution_details' to be a list")
+        pulumi.set(__self__, "automatic_execution_details", automatic_execution_details)
         if compartment_id and not isinstance(compartment_id, str):
             raise TypeError("Expected argument 'compartment_id' to be a str")
         pulumi.set(__self__, "compartment_id", compartment_id)
@@ -58,6 +61,9 @@ class GetDrPlanExecutionResult:
         if id and not isinstance(id, str):
             raise TypeError("Expected argument 'id' to be a str")
         pulumi.set(__self__, "id", id)
+        if is_automatic and not isinstance(is_automatic, bool):
+            raise TypeError("Expected argument 'is_automatic' to be a bool")
+        pulumi.set(__self__, "is_automatic", is_automatic)
         if life_cycle_details and not isinstance(life_cycle_details, str):
             raise TypeError("Expected argument 'life_cycle_details' to be a str")
         pulumi.set(__self__, "life_cycle_details", life_cycle_details)
@@ -79,6 +85,9 @@ class GetDrPlanExecutionResult:
         if state and not isinstance(state, str):
             raise TypeError("Expected argument 'state' to be a str")
         pulumi.set(__self__, "state", state)
+        if step_status_counts and not isinstance(step_status_counts, list):
+            raise TypeError("Expected argument 'step_status_counts' to be a list")
+        pulumi.set(__self__, "step_status_counts", step_status_counts)
         if system_tags and not isinstance(system_tags, dict):
             raise TypeError("Expected argument 'system_tags' to be a dict")
         pulumi.set(__self__, "system_tags", system_tags)
@@ -94,6 +103,14 @@ class GetDrPlanExecutionResult:
         if time_updated and not isinstance(time_updated, str):
             raise TypeError("Expected argument 'time_updated' to be a str")
         pulumi.set(__self__, "time_updated", time_updated)
+
+    @_builtins.property
+    @pulumi.getter(name="automaticExecutionDetails")
+    def automatic_execution_details(self) -> Sequence['outputs.GetDrPlanExecutionAutomaticExecutionDetailResult']:
+        """
+        The details of the event that started the automatic DR plan execution.
+        """
+        return pulumi.get(self, "automatic_execution_details")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -173,6 +190,14 @@ class GetDrPlanExecutionResult:
         return pulumi.get(self, "id")
 
     @_builtins.property
+    @pulumi.getter(name="isAutomatic")
+    def is_automatic(self) -> _builtins.bool:
+        """
+        A flag indicating whether execution was submitted automatically by Automatic DR Configuration.  Example: `false`
+        """
+        return pulumi.get(self, "is_automatic")
+
+    @_builtins.property
     @pulumi.getter(name="lifeCycleDetails")
     def life_cycle_details(self) -> _builtins.str:
         """
@@ -229,6 +254,14 @@ class GetDrPlanExecutionResult:
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="stepStatusCounts")
+    def step_status_counts(self) -> Sequence['outputs.GetDrPlanExecutionStepStatusCountResult']:
+        """
+        A categorized summary of step execution statuses and their corresponding counts.
+        """
+        return pulumi.get(self, "step_status_counts")
+
+    @_builtins.property
     @pulumi.getter(name="systemTags")
     def system_tags(self) -> Mapping[str, _builtins.str]:
         """
@@ -275,6 +308,7 @@ class AwaitableGetDrPlanExecutionResult(GetDrPlanExecutionResult):
         if False:
             yield self
         return GetDrPlanExecutionResult(
+            automatic_execution_details=self.automatic_execution_details,
             compartment_id=self.compartment_id,
             defined_tags=self.defined_tags,
             display_name=self.display_name,
@@ -285,6 +319,7 @@ class AwaitableGetDrPlanExecutionResult(GetDrPlanExecutionResult):
             freeform_tags=self.freeform_tags,
             group_executions=self.group_executions,
             id=self.id,
+            is_automatic=self.is_automatic,
             life_cycle_details=self.life_cycle_details,
             log_locations=self.log_locations,
             peer_dr_protection_group_id=self.peer_dr_protection_group_id,
@@ -292,6 +327,7 @@ class AwaitableGetDrPlanExecutionResult(GetDrPlanExecutionResult):
             plan_execution_type=self.plan_execution_type,
             plan_id=self.plan_id,
             state=self.state,
+            step_status_counts=self.step_status_counts,
             system_tags=self.system_tags,
             time_created=self.time_created,
             time_ended=self.time_ended,
@@ -324,6 +360,7 @@ def get_dr_plan_execution(dr_plan_execution_id: Optional[_builtins.str] = None,
     __ret__ = pulumi.runtime.invoke('oci:DisasterRecovery/getDrPlanExecution:getDrPlanExecution', __args__, opts=opts, typ=GetDrPlanExecutionResult).value
 
     return AwaitableGetDrPlanExecutionResult(
+        automatic_execution_details=pulumi.get(__ret__, 'automatic_execution_details'),
         compartment_id=pulumi.get(__ret__, 'compartment_id'),
         defined_tags=pulumi.get(__ret__, 'defined_tags'),
         display_name=pulumi.get(__ret__, 'display_name'),
@@ -334,6 +371,7 @@ def get_dr_plan_execution(dr_plan_execution_id: Optional[_builtins.str] = None,
         freeform_tags=pulumi.get(__ret__, 'freeform_tags'),
         group_executions=pulumi.get(__ret__, 'group_executions'),
         id=pulumi.get(__ret__, 'id'),
+        is_automatic=pulumi.get(__ret__, 'is_automatic'),
         life_cycle_details=pulumi.get(__ret__, 'life_cycle_details'),
         log_locations=pulumi.get(__ret__, 'log_locations'),
         peer_dr_protection_group_id=pulumi.get(__ret__, 'peer_dr_protection_group_id'),
@@ -341,6 +379,7 @@ def get_dr_plan_execution(dr_plan_execution_id: Optional[_builtins.str] = None,
         plan_execution_type=pulumi.get(__ret__, 'plan_execution_type'),
         plan_id=pulumi.get(__ret__, 'plan_id'),
         state=pulumi.get(__ret__, 'state'),
+        step_status_counts=pulumi.get(__ret__, 'step_status_counts'),
         system_tags=pulumi.get(__ret__, 'system_tags'),
         time_created=pulumi.get(__ret__, 'time_created'),
         time_ended=pulumi.get(__ret__, 'time_ended'),
@@ -370,6 +409,7 @@ def get_dr_plan_execution_output(dr_plan_execution_id: Optional[pulumi.Input[_bu
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('oci:DisasterRecovery/getDrPlanExecution:getDrPlanExecution', __args__, opts=opts, typ=GetDrPlanExecutionResult)
     return __ret__.apply(lambda __response__: GetDrPlanExecutionResult(
+        automatic_execution_details=pulumi.get(__response__, 'automatic_execution_details'),
         compartment_id=pulumi.get(__response__, 'compartment_id'),
         defined_tags=pulumi.get(__response__, 'defined_tags'),
         display_name=pulumi.get(__response__, 'display_name'),
@@ -380,6 +420,7 @@ def get_dr_plan_execution_output(dr_plan_execution_id: Optional[pulumi.Input[_bu
         freeform_tags=pulumi.get(__response__, 'freeform_tags'),
         group_executions=pulumi.get(__response__, 'group_executions'),
         id=pulumi.get(__response__, 'id'),
+        is_automatic=pulumi.get(__response__, 'is_automatic'),
         life_cycle_details=pulumi.get(__response__, 'life_cycle_details'),
         log_locations=pulumi.get(__response__, 'log_locations'),
         peer_dr_protection_group_id=pulumi.get(__response__, 'peer_dr_protection_group_id'),
@@ -387,6 +428,7 @@ def get_dr_plan_execution_output(dr_plan_execution_id: Optional[pulumi.Input[_bu
         plan_execution_type=pulumi.get(__response__, 'plan_execution_type'),
         plan_id=pulumi.get(__response__, 'plan_id'),
         state=pulumi.get(__response__, 'state'),
+        step_status_counts=pulumi.get(__response__, 'step_status_counts'),
         system_tags=pulumi.get(__response__, 'system_tags'),
         time_created=pulumi.get(__response__, 'time_created'),
         time_ended=pulumi.get(__response__, 'time_ended'),

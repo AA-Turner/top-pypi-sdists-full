@@ -49,7 +49,7 @@ class NotifyPushjet(NotifyBase):
     secure_protocol = "pjets"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_pushjet"
+    setup_url = "https://appriseit.com/services/pushjet/"
 
     # Disable throttle rate for Pushjet requests since they are normally
     # local anyway (the remote/online service is no more)
@@ -232,7 +232,8 @@ class NotifyPushjet(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antimeridian
-Version: 0.4.3
+Version: 0.4.5
 Summary: Correct GeoJSON geometries that cross the 180th meridian
 Project-URL: Documentation, https://www.gadom.ski/antimeridian
 Project-URL: Github, https://github.com/gadomski/antimeridian
@@ -10,12 +10,13 @@ Author-email: Pete Gadomski <pete.gadomski@gmail.com>
 License: Apache-2.0
 License-File: LICENSE
 Keywords: antimeridian,geojson,shapely
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: numpy>=1.22.4
 Requires-Dist: shapely>=2.0
@@ -46,6 +47,11 @@ Can fix:
 - Shapely [`Polygon`](https://shapely.readthedocs.io/en/stable/reference/shapely.Polygon.html#shapely.Polygon), [`MultiPolygon`](https://shapely.readthedocs.io/en/stable/reference/shapely.MultiPolygon.html#shapely.MultiPolygon), [`LineString`](https://shapely.readthedocs.io/en/stable/reference/shapely.LineString.html#shapely.LineString), and [`MultiLineString`](https://shapely.readthedocs.io/en/stable/reference/shapely.MultiLineString.html#shapely.MultiLineString) objects
 - GeoJSON [Polygons](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.6), [MultiPolygons](https://datatracker.ietf.org/doc/html/rfc7946#section-3.1.7), [Features](https://datatracker.ietf.org/doc/html/rfc7946#section-3.2) and [FeatureCollections](https://datatracker.ietf.org/doc/html/rfc7946#section-3.3), as dictionaries
 - Anything that has a [`__geo_interface__`](https://gist.github.com/sgillies/2217756)
+
+This repo has been ported to a few other languages:
+
+- Typescript: https://github.com/krisaoe/antimeridian-ts
+- Go: https://github.com/go-geospatial/antimeridian
 
 ## Usage
 

@@ -2,6 +2,9 @@
 from .._impl import (
     security_api_workspace_PreferredRefNameConfiguration as PreferredRefNameConfiguration,
     security_api_workspace_PreferredRefNameConfigurationVisitor as PreferredRefNameConfigurationVisitor,
+    security_api_workspace_ProcedureSettings as ProcedureSettings,
+    security_api_workspace_ProcedureSettingsV1 as ProcedureSettingsV1,
+    security_api_workspace_ProcedureSettingsVisitor as ProcedureSettingsVisitor,
     security_api_workspace_RemoveType as RemoveType,
     security_api_workspace_UpdateOrRemoveWorkspaceDisplayName as UpdateOrRemoveWorkspaceDisplayName,
     security_api_workspace_UpdateOrRemoveWorkspaceDisplayNameVisitor as UpdateOrRemoveWorkspaceDisplayNameVisitor,
@@ -18,6 +21,9 @@ from .._impl import (
 __all__ = [
     'PreferredRefNameConfiguration',
     'PreferredRefNameConfigurationVisitor',
+    'ProcedureSettings',
+    'ProcedureSettingsVisitor',
+    'ProcedureSettingsV1',
     'RemoveType',
     'UpdateOrRemoveWorkspaceDisplayName',
     'UpdateOrRemoveWorkspaceDisplayNameVisitor',

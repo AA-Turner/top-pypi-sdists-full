@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -599,7 +599,7 @@ class InvalidParameterException(ServiceException):
     code: str = "InvalidParameterException"
     sender_fault: bool = False
     status_code: int = 400
-    reasonCode: Optional[InvalidParameterExceptionReasonCodeType]
+    reasonCode: InvalidParameterExceptionReasonCodeType | None
 
 
 class InvalidPasswordException(ServiceException):
@@ -993,7 +993,7 @@ class RecoveryOptionType(TypedDict, total=False):
     Name: RecoveryOptionNameType
 
 
-RecoveryMechanismsType = List[RecoveryOptionType]
+RecoveryMechanismsType = list[RecoveryOptionType]
 
 
 class AccountRecoverySettingType(TypedDict, total=False):
@@ -1002,7 +1002,7 @@ class AccountRecoverySettingType(TypedDict, total=False):
     codes, or for admin-only password reset.
     """
 
-    RecoveryMechanisms: Optional[RecoveryMechanismsType]
+    RecoveryMechanisms: RecoveryMechanismsType | None
 
 
 class AccountTakeoverActionType(TypedDict, total=False):
@@ -1020,9 +1020,9 @@ class AccountTakeoverActionsType(TypedDict, total=False):
     Cognito might assess with threat protection features.
     """
 
-    LowAction: Optional[AccountTakeoverActionType]
-    MediumAction: Optional[AccountTakeoverActionType]
-    HighAction: Optional[AccountTakeoverActionType]
+    LowAction: AccountTakeoverActionType | None
+    MediumAction: AccountTakeoverActionType | None
+    HighAction: AccountTakeoverActionType | None
 
 
 class NotifyEmailType(TypedDict, total=False):
@@ -1031,8 +1031,8 @@ class NotifyEmailType(TypedDict, total=False):
     """
 
     Subject: EmailNotificationSubjectType
-    HtmlBody: Optional[EmailNotificationBodyType]
-    TextBody: Optional[EmailNotificationBodyType]
+    HtmlBody: EmailNotificationBodyType | None
+    TextBody: EmailNotificationBodyType | None
 
 
 class NotifyConfigurationType(TypedDict, total=False):
@@ -1041,12 +1041,12 @@ class NotifyConfigurationType(TypedDict, total=False):
     a *Notify* action.
     """
 
-    From: Optional[StringType]
-    ReplyTo: Optional[StringType]
+    From: StringType | None
+    ReplyTo: StringType | None
     SourceArn: ArnType
-    BlockEmail: Optional[NotifyEmailType]
-    NoActionEmail: Optional[NotifyEmailType]
-    MfaEmail: Optional[NotifyEmailType]
+    BlockEmail: NotifyEmailType | None
+    NoActionEmail: NotifyEmailType | None
+    MfaEmail: NotifyEmailType | None
 
 
 class AccountTakeoverRiskConfigurationType(TypedDict, total=False):
@@ -1054,7 +1054,7 @@ class AccountTakeoverRiskConfigurationType(TypedDict, total=False):
     adaptive authentication with threat protection features.
     """
 
-    NotifyConfiguration: Optional[NotifyConfigurationType]
+    NotifyConfiguration: NotifyConfigurationType | None
     Actions: AccountTakeoverActionsType
 
 
@@ -1063,8 +1063,8 @@ class StringAttributeConstraintsType(TypedDict, total=False):
     string type, for example ``custom:department``.
     """
 
-    MinLength: Optional[StringType]
-    MaxLength: Optional[StringType]
+    MinLength: StringType | None
+    MaxLength: StringType | None
 
 
 class NumberAttributeConstraintsType(TypedDict, total=False):
@@ -1072,8 +1072,8 @@ class NumberAttributeConstraintsType(TypedDict, total=False):
     type, for example ``custom:age``.
     """
 
-    MinValue: Optional[StringType]
-    MaxValue: Optional[StringType]
+    MinValue: StringType | None
+    MaxValue: StringType | None
 
 
 class SchemaAttributeType(TypedDict, total=False):
@@ -1089,16 +1089,16 @@ class SchemaAttributeType(TypedDict, total=False):
     Use app client read/write permissions instead.
     """
 
-    Name: Optional[CustomAttributeNameType]
-    AttributeDataType: Optional[AttributeDataType]
-    DeveloperOnlyAttribute: Optional[BooleanType]
-    Mutable: Optional[BooleanType]
-    Required: Optional[BooleanType]
-    NumberAttributeConstraints: Optional[NumberAttributeConstraintsType]
-    StringAttributeConstraints: Optional[StringAttributeConstraintsType]
+    Name: CustomAttributeNameType | None
+    AttributeDataType: AttributeDataType | None
+    DeveloperOnlyAttribute: BooleanType | None
+    Mutable: BooleanType | None
+    Required: BooleanType | None
+    NumberAttributeConstraints: NumberAttributeConstraintsType | None
+    StringAttributeConstraints: StringAttributeConstraintsType | None
 
 
-CustomAttributesListType = List[SchemaAttributeType]
+CustomAttributesListType = list[SchemaAttributeType]
 
 
 class AddCustomAttributesRequest(ServiceRequest):
@@ -1122,7 +1122,7 @@ class AdminAddUserToGroupRequest(ServiceRequest):
     GroupName: GroupNameType
 
 
-ClientMetadataType = Dict[StringType, StringType]
+ClientMetadataType = dict[StringType, StringType]
 
 
 class AdminConfirmSignUpRequest(ServiceRequest):
@@ -1130,7 +1130,7 @@ class AdminConfirmSignUpRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     Username: UsernameType
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientMetadata: ClientMetadataType | None
 
 
 class AdminConfirmSignUpResponse(TypedDict, total=False):
@@ -1144,9 +1144,9 @@ class AdminConfirmSignUpResponse(TypedDict, total=False):
 class MessageTemplateType(TypedDict, total=False):
     """The message template structure."""
 
-    SMSMessage: Optional[SmsInviteMessageType]
-    EmailMessage: Optional[EmailInviteMessageType]
-    EmailSubject: Optional[EmailVerificationSubjectType]
+    SMSMessage: SmsInviteMessageType | None
+    EmailMessage: EmailInviteMessageType | None
+    EmailSubject: EmailVerificationSubjectType | None
 
 
 class AdminCreateUserConfigType(TypedDict, total=False):
@@ -1156,22 +1156,22 @@ class AdminCreateUserConfigType(TypedDict, total=False):
     expire.
     """
 
-    AllowAdminCreateUserOnly: Optional[BooleanType]
-    UnusedAccountValidityDays: Optional[AdminCreateUserUnusedAccountValidityDaysType]
-    InviteMessageTemplate: Optional[MessageTemplateType]
+    AllowAdminCreateUserOnly: BooleanType | None
+    UnusedAccountValidityDays: AdminCreateUserUnusedAccountValidityDaysType | None
+    InviteMessageTemplate: MessageTemplateType | None
 
 
-DeliveryMediumListType = List[DeliveryMediumType]
+DeliveryMediumListType = list[DeliveryMediumType]
 
 
 class AttributeType(TypedDict, total=False):
     """The name and value of a user attribute."""
 
     Name: AttributeNameType
-    Value: Optional[AttributeValueType]
+    Value: AttributeValueType | None
 
 
-AttributeListType = List[AttributeType]
+AttributeListType = list[AttributeType]
 
 
 class AdminCreateUserRequest(ServiceRequest):
@@ -1179,13 +1179,13 @@ class AdminCreateUserRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     Username: UsernameType
-    UserAttributes: Optional[AttributeListType]
-    ValidationData: Optional[AttributeListType]
-    TemporaryPassword: Optional[PasswordType]
-    ForceAliasCreation: Optional[ForceAliasCreation]
-    MessageAction: Optional[MessageActionType]
-    DesiredDeliveryMediums: Optional[DeliveryMediumListType]
-    ClientMetadata: Optional[ClientMetadataType]
+    UserAttributes: AttributeListType | None
+    ValidationData: AttributeListType | None
+    TemporaryPassword: PasswordType | None
+    ForceAliasCreation: ForceAliasCreation | None
+    MessageAction: MessageActionType | None
+    DesiredDeliveryMediums: DeliveryMediumListType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class MFAOptionType(TypedDict, total=False):
@@ -1194,24 +1194,24 @@ class MFAOptionType(TypedDict, total=False):
     time-based one-time password (TOTP) software token MFA configurations.
     """
 
-    DeliveryMedium: Optional[DeliveryMediumType]
-    AttributeName: Optional[AttributeNameType]
+    DeliveryMedium: DeliveryMediumType | None
+    AttributeName: AttributeNameType | None
 
 
-MFAOptionListType = List[MFAOptionType]
+MFAOptionListType = list[MFAOptionType]
 DateType = datetime
 
 
 class UserType(TypedDict, total=False):
     """A user profile in a Amazon Cognito user pool."""
 
-    Username: Optional[UsernameType]
-    Attributes: Optional[AttributeListType]
-    UserCreateDate: Optional[DateType]
-    UserLastModifiedDate: Optional[DateType]
-    Enabled: Optional[BooleanType]
-    UserStatus: Optional[UserStatusType]
-    MFAOptions: Optional[MFAOptionListType]
+    Username: UsernameType | None
+    Attributes: AttributeListType | None
+    UserCreateDate: DateType | None
+    UserLastModifiedDate: DateType | None
+    Enabled: BooleanType | None
+    UserStatus: UserStatusType | None
+    MFAOptions: MFAOptionListType | None
 
 
 class AdminCreateUserResponse(TypedDict, total=False):
@@ -1219,10 +1219,10 @@ class AdminCreateUserResponse(TypedDict, total=False):
     user.
     """
 
-    User: Optional[UserType]
+    User: UserType | None
 
 
-AttributeNameListType = List[AttributeNameType]
+AttributeNameListType = list[AttributeNameType]
 
 
 class AdminDeleteUserAttributesRequest(ServiceRequest):
@@ -1253,9 +1253,9 @@ class ProviderUserIdentifierType(TypedDict, total=False):
     federated user profile to a local user profile.
     """
 
-    ProviderName: Optional[ProviderNameType]
-    ProviderAttributeName: Optional[StringType]
-    ProviderAttributeValue: Optional[StringType]
+    ProviderName: ProviderNameType | None
+    ProviderAttributeName: StringType | None
+    ProviderAttributeValue: StringType | None
 
 
 class AdminDisableProviderForUserRequest(ServiceRequest):
@@ -1320,11 +1320,11 @@ class DeviceType(TypedDict, total=False):
     pool <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-device-tracking.html>`__.
     """
 
-    DeviceKey: Optional[DeviceKeyType]
-    DeviceAttributes: Optional[AttributeListType]
-    DeviceCreateDate: Optional[DateType]
-    DeviceLastModifiedDate: Optional[DateType]
-    DeviceLastAuthenticatedDate: Optional[DateType]
+    DeviceKey: DeviceKeyType | None
+    DeviceAttributes: AttributeListType | None
+    DeviceCreateDate: DateType | None
+    DeviceLastModifiedDate: DateType | None
+    DeviceLastAuthenticatedDate: DateType | None
 
 
 class AdminGetDeviceResponse(TypedDict, total=False):
@@ -1340,7 +1340,7 @@ class AdminGetUserRequest(ServiceRequest):
     Username: UsernameType
 
 
-UserMFASettingListType = List[StringType]
+UserMFASettingListType = list[StringType]
 
 
 class AdminGetUserResponse(TypedDict, total=False):
@@ -1349,24 +1349,24 @@ class AdminGetUserResponse(TypedDict, total=False):
     """
 
     Username: UsernameType
-    UserAttributes: Optional[AttributeListType]
-    UserCreateDate: Optional[DateType]
-    UserLastModifiedDate: Optional[DateType]
-    Enabled: Optional[BooleanType]
-    UserStatus: Optional[UserStatusType]
-    MFAOptions: Optional[MFAOptionListType]
-    PreferredMfaSetting: Optional[StringType]
-    UserMFASettingList: Optional[UserMFASettingListType]
+    UserAttributes: AttributeListType | None
+    UserCreateDate: DateType | None
+    UserLastModifiedDate: DateType | None
+    Enabled: BooleanType | None
+    UserStatus: UserStatusType | None
+    MFAOptions: MFAOptionListType | None
+    PreferredMfaSetting: StringType | None
+    UserMFASettingList: UserMFASettingListType | None
 
 
 class HttpHeader(TypedDict, total=False):
     """The HTTP header in the ``ContextData`` parameter."""
 
-    headerName: Optional[StringType]
-    headerValue: Optional[StringType]
+    headerName: StringType | None
+    headerValue: StringType | None
 
 
-HttpHeaderList = List[HttpHeader]
+HttpHeaderList = list[HttpHeader]
 
 
 class ContextDataType(TypedDict, total=False):
@@ -1378,7 +1378,7 @@ class ContextDataType(TypedDict, total=False):
     ServerName: StringType
     ServerPath: StringType
     HttpHeaders: HttpHeaderList
-    EncodedData: Optional[StringType]
+    EncodedData: StringType | None
 
 
 class AnalyticsMetadataType(TypedDict, total=False):
@@ -1394,10 +1394,10 @@ class AnalyticsMetadataType(TypedDict, total=False):
     pools <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-pinpoint-integration.html>`__.
     """
 
-    AnalyticsEndpointId: Optional[StringType]
+    AnalyticsEndpointId: StringType | None
 
 
-AuthParametersType = Dict[StringType, StringType]
+AuthParametersType = dict[StringType, StringType]
 
 
 class AdminInitiateAuthRequest(ServiceRequest):
@@ -1406,14 +1406,14 @@ class AdminInitiateAuthRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
     AuthFlow: AuthFlowType
-    AuthParameters: Optional[AuthParametersType]
-    ClientMetadata: Optional[ClientMetadataType]
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    ContextData: Optional[ContextDataType]
-    Session: Optional[SessionType]
+    AuthParameters: AuthParametersType | None
+    ClientMetadata: ClientMetadataType | None
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    ContextData: ContextDataType | None
+    Session: SessionType | None
 
 
-AvailableChallengeListType = List[ChallengeNameType]
+AvailableChallengeListType = list[ChallengeNameType]
 
 
 class NewDeviceMetadataType(TypedDict, total=False):
@@ -1425,8 +1425,8 @@ class NewDeviceMetadataType(TypedDict, total=False):
     in a "Remember me on this device" authentication model.
     """
 
-    DeviceKey: Optional[DeviceKeyType]
-    DeviceGroupKey: Optional[StringType]
+    DeviceKey: DeviceKeyType | None
+    DeviceGroupKey: StringType | None
 
 
 class AuthenticationResultType(TypedDict, total=False):
@@ -1434,25 +1434,25 @@ class AuthenticationResultType(TypedDict, total=False):
     tokens and information for device authentication.
     """
 
-    AccessToken: Optional[TokenModelType]
-    ExpiresIn: Optional[IntegerType]
-    TokenType: Optional[StringType]
-    RefreshToken: Optional[TokenModelType]
-    IdToken: Optional[TokenModelType]
-    NewDeviceMetadata: Optional[NewDeviceMetadataType]
+    AccessToken: TokenModelType | None
+    ExpiresIn: IntegerType | None
+    TokenType: StringType | None
+    RefreshToken: TokenModelType | None
+    IdToken: TokenModelType | None
+    NewDeviceMetadata: NewDeviceMetadataType | None
 
 
-ChallengeParametersType = Dict[StringType, StringType]
+ChallengeParametersType = dict[StringType, StringType]
 
 
 class AdminInitiateAuthResponse(TypedDict, total=False):
     """Initiates the authentication response, as an administrator."""
 
-    ChallengeName: Optional[ChallengeNameType]
-    Session: Optional[SessionType]
-    ChallengeParameters: Optional[ChallengeParametersType]
-    AuthenticationResult: Optional[AuthenticationResultType]
-    AvailableChallenges: Optional[AvailableChallengeListType]
+    ChallengeName: ChallengeNameType | None
+    Session: SessionType | None
+    ChallengeParameters: ChallengeParametersType | None
+    AuthenticationResult: AuthenticationResultType | None
+    AvailableChallenges: AvailableChallengeListType | None
 
 
 class AdminLinkProviderForUserRequest(ServiceRequest):
@@ -1470,25 +1470,25 @@ class AdminListDevicesRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     Username: UsernameType
-    Limit: Optional[QueryLimitType]
-    PaginationToken: Optional[SearchPaginationTokenType]
+    Limit: QueryLimitType | None
+    PaginationToken: SearchPaginationTokenType | None
 
 
-DeviceListType = List[DeviceType]
+DeviceListType = list[DeviceType]
 
 
 class AdminListDevicesResponse(TypedDict, total=False):
     """Lists the device's response, as an administrator."""
 
-    Devices: Optional[DeviceListType]
-    PaginationToken: Optional[SearchPaginationTokenType]
+    Devices: DeviceListType | None
+    PaginationToken: SearchPaginationTokenType | None
 
 
 class AdminListGroupsForUserRequest(ServiceRequest):
     Username: UsernameType
     UserPoolId: UserPoolIdType
-    Limit: Optional[QueryLimitType]
-    NextToken: Optional[PaginationKey]
+    Limit: QueryLimitType | None
+    NextToken: PaginationKey | None
 
 
 class GroupType(TypedDict, total=False):
@@ -1499,28 +1499,28 @@ class GroupType(TypedDict, total=False):
     group.
     """
 
-    GroupName: Optional[GroupNameType]
-    UserPoolId: Optional[UserPoolIdType]
-    Description: Optional[DescriptionType]
-    RoleArn: Optional[ArnType]
-    Precedence: Optional[PrecedenceType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
+    GroupName: GroupNameType | None
+    UserPoolId: UserPoolIdType | None
+    Description: DescriptionType | None
+    RoleArn: ArnType | None
+    Precedence: PrecedenceType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
 
 
-GroupListType = List[GroupType]
+GroupListType = list[GroupType]
 
 
 class AdminListGroupsForUserResponse(TypedDict, total=False):
-    Groups: Optional[GroupListType]
-    NextToken: Optional[PaginationKey]
+    Groups: GroupListType | None
+    NextToken: PaginationKey | None
 
 
 class AdminListUserAuthEventsRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Username: UsernameType
-    MaxResults: Optional[QueryLimitType]
-    NextToken: Optional[PaginationKey]
+    MaxResults: QueryLimitType | None
+    NextToken: PaginationKey | None
 
 
 class EventFeedbackType(TypedDict, total=False):
@@ -1530,7 +1530,7 @@ class EventFeedbackType(TypedDict, total=False):
 
     FeedbackValue: FeedbackValueType
     Provider: StringType
-    FeedbackDate: Optional[DateType]
+    FeedbackDate: DateType | None
 
 
 class EventContextDataType(TypedDict, total=False):
@@ -1539,11 +1539,11 @@ class EventContextDataType(TypedDict, total=False):
     ``AdminListUserAuthEvents`` response.
     """
 
-    IpAddress: Optional[StringType]
-    DeviceName: Optional[StringType]
-    Timezone: Optional[StringType]
-    City: Optional[StringType]
-    Country: Optional[StringType]
+    IpAddress: StringType | None
+    DeviceName: StringType | None
+    Timezone: StringType | None
+    City: StringType | None
+    Country: StringType | None
 
 
 class ChallengeResponseType(TypedDict, total=False):
@@ -1653,11 +1653,11 @@ class ChallengeResponseType(TypedDict, total=False):
     pool <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-device-tracking.html>`__.
     """
 
-    ChallengeName: Optional[ChallengeName]
-    ChallengeResponse: Optional[ChallengeResponse]
+    ChallengeName: ChallengeName | None
+    ChallengeResponse: ChallengeResponse | None
 
 
-ChallengeResponseListType = List[ChallengeResponseType]
+ChallengeResponseListType = list[ChallengeResponseType]
 
 
 class EventRiskType(TypedDict, total=False):
@@ -1667,9 +1667,9 @@ class EventRiskType(TypedDict, total=False):
     taken by adaptive authentication.
     """
 
-    RiskDecision: Optional[RiskDecisionType]
-    RiskLevel: Optional[RiskLevelType]
-    CompromisedCredentialsDetected: Optional[WrappedBooleanType]
+    RiskDecision: RiskDecisionType | None
+    RiskLevel: RiskLevelType | None
+    CompromisedCredentialsDetected: WrappedBooleanType | None
 
 
 class AuthEventType(TypedDict, total=False):
@@ -1678,22 +1678,22 @@ class AuthEventType(TypedDict, total=False):
     assessment from your user pool.
     """
 
-    EventId: Optional[StringType]
-    EventType: Optional[EventType]
-    CreationDate: Optional[DateType]
-    EventResponse: Optional[EventResponseType]
-    EventRisk: Optional[EventRiskType]
-    ChallengeResponses: Optional[ChallengeResponseListType]
-    EventContextData: Optional[EventContextDataType]
-    EventFeedback: Optional[EventFeedbackType]
+    EventId: StringType | None
+    EventType: EventType | None
+    CreationDate: DateType | None
+    EventResponse: EventResponseType | None
+    EventRisk: EventRiskType | None
+    ChallengeResponses: ChallengeResponseListType | None
+    EventContextData: EventContextDataType | None
+    EventFeedback: EventFeedbackType | None
 
 
-AuthEventsType = List[AuthEventType]
+AuthEventsType = list[AuthEventType]
 
 
 class AdminListUserAuthEventsResponse(TypedDict, total=False):
-    AuthEvents: Optional[AuthEventsType]
-    NextToken: Optional[PaginationKey]
+    AuthEvents: AuthEventsType | None
+    NextToken: PaginationKey | None
 
 
 class AdminRemoveUserFromGroupRequest(ServiceRequest):
@@ -1707,7 +1707,7 @@ class AdminResetUserPasswordRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     Username: UsernameType
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientMetadata: ClientMetadataType | None
 
 
 class AdminResetUserPasswordResponse(TypedDict, total=False):
@@ -1718,7 +1718,7 @@ class AdminResetUserPasswordResponse(TypedDict, total=False):
     pass
 
 
-ChallengeResponsesType = Dict[StringType, StringType]
+ChallengeResponsesType = dict[StringType, StringType]
 
 
 class AdminRespondToAuthChallengeRequest(ServiceRequest):
@@ -1729,20 +1729,20 @@ class AdminRespondToAuthChallengeRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
     ChallengeName: ChallengeNameType
-    ChallengeResponses: Optional[ChallengeResponsesType]
-    Session: Optional[SessionType]
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    ContextData: Optional[ContextDataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    ChallengeResponses: ChallengeResponsesType | None
+    Session: SessionType | None
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    ContextData: ContextDataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class AdminRespondToAuthChallengeResponse(TypedDict, total=False):
     """Responds to the authentication challenge, as an administrator."""
 
-    ChallengeName: Optional[ChallengeNameType]
-    Session: Optional[SessionType]
-    ChallengeParameters: Optional[ChallengeParametersType]
-    AuthenticationResult: Optional[AuthenticationResultType]
+    ChallengeName: ChallengeNameType | None
+    Session: SessionType | None
+    ChallengeParameters: ChallengeParametersType | None
+    AuthenticationResult: AuthenticationResultType | None
 
 
 class EmailMfaSettingsType(TypedDict, total=False):
@@ -1754,8 +1754,8 @@ class EmailMfaSettingsType(TypedDict, total=False):
     or higher.
     """
 
-    Enabled: Optional[BooleanType]
-    PreferredMfa: Optional[BooleanType]
+    Enabled: BooleanType | None
+    PreferredMfa: BooleanType | None
 
 
 class SoftwareTokenMfaSettingsType(TypedDict, total=False):
@@ -1766,8 +1766,8 @@ class SoftwareTokenMfaSettingsType(TypedDict, total=False):
     user pool; you can only set the type that your user prefers.
     """
 
-    Enabled: Optional[BooleanType]
-    PreferredMfa: Optional[BooleanType]
+    Enabled: BooleanType | None
+    PreferredMfa: BooleanType | None
 
 
 class SMSMfaSettingsType(TypedDict, total=False):
@@ -1778,14 +1778,14 @@ class SMSMfaSettingsType(TypedDict, total=False):
     that your user prefers.
     """
 
-    Enabled: Optional[BooleanType]
-    PreferredMfa: Optional[BooleanType]
+    Enabled: BooleanType | None
+    PreferredMfa: BooleanType | None
 
 
 class AdminSetUserMFAPreferenceRequest(ServiceRequest):
-    SMSMfaSettings: Optional[SMSMfaSettingsType]
-    SoftwareTokenMfaSettings: Optional[SoftwareTokenMfaSettingsType]
-    EmailMfaSettings: Optional[EmailMfaSettingsType]
+    SMSMfaSettings: SMSMfaSettingsType | None
+    SoftwareTokenMfaSettings: SoftwareTokenMfaSettingsType | None
+    EmailMfaSettings: EmailMfaSettingsType | None
     Username: UsernameType
     UserPoolId: UserPoolIdType
 
@@ -1798,7 +1798,7 @@ class AdminSetUserPasswordRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Username: UsernameType
     Password: PasswordType
-    Permanent: Optional[BooleanType]
+    Permanent: BooleanType | None
 
 
 class AdminSetUserPasswordResponse(TypedDict, total=False):
@@ -1840,7 +1840,7 @@ class AdminUpdateDeviceStatusRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Username: UsernameType
     DeviceKey: DeviceKeyType
-    DeviceRememberedStatus: Optional[DeviceRememberedStatusType]
+    DeviceRememberedStatus: DeviceRememberedStatusType | None
 
 
 class AdminUpdateDeviceStatusResponse(TypedDict, total=False):
@@ -1859,7 +1859,7 @@ class AdminUpdateUserAttributesRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Username: UsernameType
     UserAttributes: AttributeListType
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientMetadata: ClientMetadataType | None
 
 
 class AdminUpdateUserAttributesResponse(TypedDict, total=False):
@@ -1888,11 +1888,11 @@ class AdvancedSecurityAdditionalFlowsType(TypedDict, total=False):
     types in your user pool, including custom authentication.
     """
 
-    CustomAuthMode: Optional[AdvancedSecurityEnabledModeType]
+    CustomAuthMode: AdvancedSecurityEnabledModeType | None
 
 
-AliasAttributesListType = List[AliasAttributeType]
-AllowedFirstAuthFactorsListType = List[AuthFactorType]
+AliasAttributesListType = list[AliasAttributeType]
+AllowedFirstAuthFactorsListType = list[AuthFactorType]
 
 
 class AnalyticsConfigurationType(TypedDict, total=False):
@@ -1906,11 +1906,11 @@ class AnalyticsConfigurationType(TypedDict, total=False):
     availability <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-pinpoint-integration.html#cognito-user-pools-find-region-mappings>`__.
     """
 
-    ApplicationId: Optional[HexStringType]
-    ApplicationArn: Optional[ArnType]
-    RoleArn: Optional[ArnType]
-    ExternalId: Optional[StringType]
-    UserDataShared: Optional[BooleanType]
+    ApplicationId: HexStringType | None
+    ApplicationArn: ArnType | None
+    RoleArn: ArnType | None
+    ExternalId: StringType | None
+    UserDataShared: BooleanType | None
 
 
 AssetBytesType = bytes
@@ -1922,33 +1922,33 @@ class AssetType(TypedDict, total=False):
     Category: AssetCategoryType
     ColorMode: ColorSchemeModeType
     Extension: AssetExtensionType
-    Bytes: Optional[AssetBytesType]
-    ResourceId: Optional[ResourceIdType]
+    Bytes: AssetBytesType | None
+    ResourceId: ResourceIdType | None
 
 
-AssetListType = List[AssetType]
+AssetListType = list[AssetType]
 
 
 class AssociateSoftwareTokenRequest(ServiceRequest):
-    AccessToken: Optional[TokenModelType]
-    Session: Optional[SessionType]
+    AccessToken: TokenModelType | None
+    Session: SessionType | None
 
 
 class AssociateSoftwareTokenResponse(TypedDict, total=False):
-    SecretCode: Optional[SecretCodeType]
-    Session: Optional[SessionType]
+    SecretCode: SecretCodeType | None
+    Session: SessionType | None
 
 
-AttributeMappingType = Dict[AttributeMappingKeyType, StringType]
-AttributesRequireVerificationBeforeUpdateType = List[VerifiedAttributeType]
-BlockedIPRangeListType = List[StringType]
-CallbackURLsListType = List[RedirectUrlType]
+AttributeMappingType = dict[AttributeMappingKeyType, StringType]
+AttributesRequireVerificationBeforeUpdateType = list[VerifiedAttributeType]
+BlockedIPRangeListType = list[StringType]
+CallbackURLsListType = list[RedirectUrlType]
 
 
 class ChangePasswordRequest(ServiceRequest):
     """Represents the request to change a user password."""
 
-    PreviousPassword: Optional[PasswordType]
+    PreviousPassword: PasswordType | None
     ProposedPassword: PasswordType
     AccessToken: TokenModelType
 
@@ -1959,7 +1959,7 @@ class ChangePasswordResponse(TypedDict, total=False):
     pass
 
 
-ClientPermissionListType = List[ClientPermissionType]
+ClientPermissionListType = list[ClientPermissionType]
 
 
 class CloudWatchLogsConfigurationType(TypedDict, total=False):
@@ -1968,7 +1968,7 @@ class CloudWatchLogsConfigurationType(TypedDict, total=False):
     protection.
     """
 
-    LogGroupArn: Optional[ArnType]
+    LogGroupArn: ArnType | None
 
 
 class CodeDeliveryDetailsType(TypedDict, total=False):
@@ -1976,12 +1976,12 @@ class CodeDeliveryDetailsType(TypedDict, total=False):
     sent for authentication or verification.
     """
 
-    Destination: Optional[StringType]
-    DeliveryMedium: Optional[DeliveryMediumType]
-    AttributeName: Optional[AttributeNameType]
+    Destination: StringType | None
+    DeliveryMedium: DeliveryMediumType | None
+    AttributeName: AttributeNameType | None
 
 
-CodeDeliveryDetailsListType = List[CodeDeliveryDetailsType]
+CodeDeliveryDetailsListType = list[CodeDeliveryDetailsType]
 
 
 class Document(TypedDict, total=False):
@@ -2005,7 +2005,7 @@ class CompromisedCredentialsActionsType(TypedDict, total=False):
     EventAction: CompromisedCredentialsEventActionType
 
 
-EventFiltersType = List[EventFilterType]
+EventFiltersType = list[EventFilterType]
 
 
 class CompromisedCredentialsRiskConfigurationType(TypedDict, total=False):
@@ -2013,11 +2013,11 @@ class CompromisedCredentialsRiskConfigurationType(TypedDict, total=False):
     sources with threat protection in full-function ``ENFORCED`` mode.
     """
 
-    EventFilter: Optional[EventFiltersType]
+    EventFilter: EventFiltersType | None
     Actions: CompromisedCredentialsActionsType
 
 
-ConfiguredUserAuthFactorsListType = List[AuthFactorType]
+ConfiguredUserAuthFactorsListType = list[AuthFactorType]
 
 
 class DeviceSecretVerifierConfigType(TypedDict, total=False):
@@ -2027,8 +2027,8 @@ class DeviceSecretVerifierConfigType(TypedDict, total=False):
     key <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-device-tracking.html#user-pools-remembered-devices-getting-a-device-key>`__.
     """
 
-    PasswordVerifier: Optional[StringType]
-    Salt: Optional[StringType]
+    PasswordVerifier: StringType | None
+    Salt: StringType | None
 
 
 class ConfirmDeviceRequest(ServiceRequest):
@@ -2036,14 +2036,14 @@ class ConfirmDeviceRequest(ServiceRequest):
 
     AccessToken: TokenModelType
     DeviceKey: DeviceKeyType
-    DeviceSecretVerifierConfig: Optional[DeviceSecretVerifierConfigType]
-    DeviceName: Optional[DeviceNameType]
+    DeviceSecretVerifierConfig: DeviceSecretVerifierConfigType | None
+    DeviceName: DeviceNameType | None
 
 
 class ConfirmDeviceResponse(TypedDict, total=False):
     """The confirm-device response."""
 
-    UserConfirmationNecessary: Optional[BooleanType]
+    UserConfirmationNecessary: BooleanType | None
 
 
 class UserContextDataType(TypedDict, total=False):
@@ -2052,21 +2052,21 @@ class UserContextDataType(TypedDict, total=False):
     Cognito threat protection.
     """
 
-    IpAddress: Optional[StringType]
-    EncodedData: Optional[StringType]
+    IpAddress: StringType | None
+    EncodedData: StringType | None
 
 
 class ConfirmForgotPasswordRequest(ServiceRequest):
     """The request representing the confirmation for a password reset."""
 
     ClientId: ClientIdType
-    SecretHash: Optional[SecretHashType]
+    SecretHash: SecretHashType | None
     Username: UsernameType
     ConfirmationCode: ConfirmationCodeType
     Password: PasswordType
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    UserContextData: Optional[UserContextDataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    UserContextData: UserContextDataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class ConfirmForgotPasswordResponse(TypedDict, total=False):
@@ -2081,14 +2081,14 @@ class ConfirmSignUpRequest(ServiceRequest):
     """Represents the request to confirm registration of a user."""
 
     ClientId: ClientIdType
-    SecretHash: Optional[SecretHashType]
+    SecretHash: SecretHashType | None
     Username: UsernameType
     ConfirmationCode: ConfirmationCodeType
-    ForceAliasCreation: Optional[ForceAliasCreation]
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    UserContextData: Optional[UserContextDataType]
-    ClientMetadata: Optional[ClientMetadataType]
-    Session: Optional[SessionType]
+    ForceAliasCreation: ForceAliasCreation | None
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    UserContextData: UserContextDataType | None
+    ClientMetadata: ClientMetadataType | None
+    Session: SessionType | None
 
 
 class ConfirmSignUpResponse(TypedDict, total=False):
@@ -2096,23 +2096,23 @@ class ConfirmSignUpResponse(TypedDict, total=False):
     confirmation.
     """
 
-    Session: Optional[SessionType]
+    Session: SessionType | None
 
 
 class CreateGroupRequest(ServiceRequest):
     GroupName: GroupNameType
     UserPoolId: UserPoolIdType
-    Description: Optional[DescriptionType]
-    RoleArn: Optional[ArnType]
-    Precedence: Optional[PrecedenceType]
+    Description: DescriptionType | None
+    RoleArn: ArnType | None
+    Precedence: PrecedenceType | None
 
 
 class CreateGroupResponse(TypedDict, total=False):
-    Group: Optional[GroupType]
+    Group: GroupType | None
 
 
-IdpIdentifiersListType = List[IdpIdentifierType]
-ProviderDetailsType = Dict[StringType, StringType]
+IdpIdentifiersListType = list[IdpIdentifierType]
+ProviderDetailsType = dict[StringType, StringType]
 
 
 class CreateIdentityProviderRequest(ServiceRequest):
@@ -2120,8 +2120,8 @@ class CreateIdentityProviderRequest(ServiceRequest):
     ProviderName: ProviderNameTypeV2
     ProviderType: IdentityProviderTypeType
     ProviderDetails: ProviderDetailsType
-    AttributeMapping: Optional[AttributeMappingType]
-    IdpIdentifiers: Optional[IdpIdentifiersListType]
+    AttributeMapping: AttributeMappingType | None
+    IdpIdentifiers: IdpIdentifiersListType | None
 
 
 class IdentityProviderType(TypedDict, total=False):
@@ -2130,14 +2130,14 @@ class IdentityProviderType(TypedDict, total=False):
     profiles, and the trust relationship between the IdP and your user pool.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    ProviderName: Optional[ProviderNameType]
-    ProviderType: Optional[IdentityProviderTypeType]
-    ProviderDetails: Optional[ProviderDetailsType]
-    AttributeMapping: Optional[AttributeMappingType]
-    IdpIdentifiers: Optional[IdpIdentifiersListType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
+    UserPoolId: UserPoolIdType | None
+    ProviderName: ProviderNameType | None
+    ProviderType: IdentityProviderTypeType | None
+    ProviderDetails: ProviderDetailsType | None
+    AttributeMapping: AttributeMappingType | None
+    IdpIdentifiers: IdpIdentifiersListType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
 
 
 class CreateIdentityProviderResponse(TypedDict, total=False):
@@ -2147,9 +2147,9 @@ class CreateIdentityProviderResponse(TypedDict, total=False):
 class CreateManagedLoginBrandingRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
-    UseCognitoProvidedValues: Optional[BooleanType]
-    Settings: Optional[Document]
-    Assets: Optional[AssetListType]
+    UseCognitoProvidedValues: BooleanType | None
+    Settings: Document | None
+    Assets: AssetListType | None
 
 
 class ManagedLoginBrandingType(TypedDict, total=False):
@@ -2157,17 +2157,17 @@ class ManagedLoginBrandingType(TypedDict, total=False):
     client.
     """
 
-    ManagedLoginBrandingId: Optional[ManagedLoginBrandingIdType]
-    UserPoolId: Optional[UserPoolIdType]
-    UseCognitoProvidedValues: Optional[BooleanType]
-    Settings: Optional[Document]
-    Assets: Optional[AssetListType]
-    CreationDate: Optional[DateType]
-    LastModifiedDate: Optional[DateType]
+    ManagedLoginBrandingId: ManagedLoginBrandingIdType | None
+    UserPoolId: UserPoolIdType | None
+    UseCognitoProvidedValues: BooleanType | None
+    Settings: Document | None
+    Assets: AssetListType | None
+    CreationDate: DateType | None
+    LastModifiedDate: DateType | None
 
 
 class CreateManagedLoginBrandingResponse(TypedDict, total=False):
-    ManagedLoginBranding: Optional[ManagedLoginBrandingType]
+    ManagedLoginBranding: ManagedLoginBrandingType | None
 
 
 class ResourceServerScopeType(TypedDict, total=False):
@@ -2181,14 +2181,14 @@ class ResourceServerScopeType(TypedDict, total=False):
     ScopeDescription: ResourceServerScopeDescriptionType
 
 
-ResourceServerScopeListType = List[ResourceServerScopeType]
+ResourceServerScopeListType = list[ResourceServerScopeType]
 
 
 class CreateResourceServerRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Identifier: ResourceServerIdentifierType
     Name: ResourceServerNameType
-    Scopes: Optional[ResourceServerScopeListType]
+    Scopes: ResourceServerScopeListType | None
 
 
 class ResourceServerType(TypedDict, total=False):
@@ -2196,17 +2196,17 @@ class ResourceServerType(TypedDict, total=False):
     scopes in a user pool.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    Identifier: Optional[ResourceServerIdentifierType]
-    Name: Optional[ResourceServerNameType]
-    Scopes: Optional[ResourceServerScopeListType]
+    UserPoolId: UserPoolIdType | None
+    Identifier: ResourceServerIdentifierType | None
+    Name: ResourceServerNameType | None
+    Scopes: ResourceServerScopeListType | None
 
 
 class CreateResourceServerResponse(TypedDict, total=False):
     ResourceServer: ResourceServerType
 
 
-LinksType = Dict[LanguageIdType, LinkUrlType]
+LinksType = dict[LanguageIdType, LinkUrlType]
 
 
 class CreateTermsRequest(ServiceRequest):
@@ -2215,7 +2215,7 @@ class CreateTermsRequest(ServiceRequest):
     TermsName: TermsNameType
     TermsSource: TermsSourceType
     Enforcement: TermsEnforcementType
-    Links: Optional[LinksType]
+    Links: LinksType | None
 
 
 class TermsType(TypedDict, total=False):
@@ -2236,7 +2236,7 @@ class TermsType(TypedDict, total=False):
 
 
 class CreateTermsResponse(TypedDict, total=False):
-    Terms: Optional[TermsType]
+    Terms: TermsType | None
 
 
 class CreateUserImportJobRequest(ServiceRequest):
@@ -2257,19 +2257,19 @@ class UserImportJobType(TypedDict, total=False):
     file <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-using-import-tool.html>`__.
     """
 
-    JobName: Optional[UserImportJobNameType]
-    JobId: Optional[UserImportJobIdType]
-    UserPoolId: Optional[UserPoolIdType]
-    PreSignedUrl: Optional[PreSignedUrlType]
-    CreationDate: Optional[DateType]
-    StartDate: Optional[DateType]
-    CompletionDate: Optional[DateType]
-    Status: Optional[UserImportJobStatusType]
-    CloudWatchLogsRoleArn: Optional[ArnType]
-    ImportedUsers: Optional[LongType]
-    SkippedUsers: Optional[LongType]
-    FailedUsers: Optional[LongType]
-    CompletionMessage: Optional[CompletionMessageType]
+    JobName: UserImportJobNameType | None
+    JobId: UserImportJobIdType | None
+    UserPoolId: UserPoolIdType | None
+    PreSignedUrl: PreSignedUrlType | None
+    CreationDate: DateType | None
+    StartDate: DateType | None
+    CompletionDate: DateType | None
+    Status: UserImportJobStatusType | None
+    CloudWatchLogsRoleArn: ArnType | None
+    ImportedUsers: LongType | None
+    SkippedUsers: LongType | None
+    FailedUsers: LongType | None
+    CompletionMessage: CompletionMessageType | None
 
 
 class CreateUserImportJobResponse(TypedDict, total=False):
@@ -2277,7 +2277,7 @@ class CreateUserImportJobResponse(TypedDict, total=False):
     user import job.
     """
 
-    UserImportJob: Optional[UserImportJobType]
+    UserImportJob: UserImportJobType | None
 
 
 class RefreshTokenRotationType(TypedDict, total=False):
@@ -2288,14 +2288,14 @@ class RefreshTokenRotationType(TypedDict, total=False):
     """
 
     Feature: FeatureType
-    RetryGracePeriodSeconds: Optional[RetryGracePeriodSecondsType]
+    RetryGracePeriodSeconds: RetryGracePeriodSecondsType | None
 
 
-ScopeListType = List[ScopeType]
-OAuthFlowsType = List[OAuthFlowType]
-LogoutURLsListType = List[RedirectUrlType]
-SupportedIdentityProvidersListType = List[ProviderNameType]
-ExplicitAuthFlowsListType = List[ExplicitAuthFlowsType]
+ScopeListType = list[ScopeType]
+OAuthFlowsType = list[OAuthFlowType]
+LogoutURLsListType = list[RedirectUrlType]
+SupportedIdentityProvidersListType = list[ProviderNameType]
+ExplicitAuthFlowsListType = list[ExplicitAuthFlowsType]
 
 
 class TokenValidityUnitsType(TypedDict, total=False):
@@ -2305,9 +2305,9 @@ class TokenValidityUnitsType(TypedDict, total=False):
     token validity unit to each type of token.
     """
 
-    AccessToken: Optional[TimeUnitsType]
-    IdToken: Optional[TimeUnitsType]
-    RefreshToken: Optional[TimeUnitsType]
+    AccessToken: TimeUnitsType | None
+    IdToken: TimeUnitsType | None
+    RefreshToken: TimeUnitsType | None
 
 
 class CreateUserPoolClientRequest(ServiceRequest):
@@ -2315,64 +2315,64 @@ class CreateUserPoolClientRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     ClientName: ClientNameType
-    GenerateSecret: Optional[GenerateSecret]
-    RefreshTokenValidity: Optional[RefreshTokenValidityType]
-    AccessTokenValidity: Optional[AccessTokenValidityType]
-    IdTokenValidity: Optional[IdTokenValidityType]
-    TokenValidityUnits: Optional[TokenValidityUnitsType]
-    ReadAttributes: Optional[ClientPermissionListType]
-    WriteAttributes: Optional[ClientPermissionListType]
-    ExplicitAuthFlows: Optional[ExplicitAuthFlowsListType]
-    SupportedIdentityProviders: Optional[SupportedIdentityProvidersListType]
-    CallbackURLs: Optional[CallbackURLsListType]
-    LogoutURLs: Optional[LogoutURLsListType]
-    DefaultRedirectURI: Optional[RedirectUrlType]
-    AllowedOAuthFlows: Optional[OAuthFlowsType]
-    AllowedOAuthScopes: Optional[ScopeListType]
-    AllowedOAuthFlowsUserPoolClient: Optional[BooleanType]
-    AnalyticsConfiguration: Optional[AnalyticsConfigurationType]
-    PreventUserExistenceErrors: Optional[PreventUserExistenceErrorTypes]
-    EnableTokenRevocation: Optional[WrappedBooleanType]
-    EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
-    AuthSessionValidity: Optional[AuthSessionValidityType]
-    RefreshTokenRotation: Optional[RefreshTokenRotationType]
+    GenerateSecret: GenerateSecret | None
+    RefreshTokenValidity: RefreshTokenValidityType | None
+    AccessTokenValidity: AccessTokenValidityType | None
+    IdTokenValidity: IdTokenValidityType | None
+    TokenValidityUnits: TokenValidityUnitsType | None
+    ReadAttributes: ClientPermissionListType | None
+    WriteAttributes: ClientPermissionListType | None
+    ExplicitAuthFlows: ExplicitAuthFlowsListType | None
+    SupportedIdentityProviders: SupportedIdentityProvidersListType | None
+    CallbackURLs: CallbackURLsListType | None
+    LogoutURLs: LogoutURLsListType | None
+    DefaultRedirectURI: RedirectUrlType | None
+    AllowedOAuthFlows: OAuthFlowsType | None
+    AllowedOAuthScopes: ScopeListType | None
+    AllowedOAuthFlowsUserPoolClient: BooleanType | None
+    AnalyticsConfiguration: AnalyticsConfigurationType | None
+    PreventUserExistenceErrors: PreventUserExistenceErrorTypes | None
+    EnableTokenRevocation: WrappedBooleanType | None
+    EnablePropagateAdditionalUserContextData: WrappedBooleanType | None
+    AuthSessionValidity: AuthSessionValidityType | None
+    RefreshTokenRotation: RefreshTokenRotationType | None
 
 
 class UserPoolClientType(TypedDict, total=False):
     """The configuration of a user pool client."""
 
-    UserPoolId: Optional[UserPoolIdType]
-    ClientName: Optional[ClientNameType]
-    ClientId: Optional[ClientIdType]
-    ClientSecret: Optional[ClientSecretType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
-    RefreshTokenValidity: Optional[RefreshTokenValidityType]
-    AccessTokenValidity: Optional[AccessTokenValidityType]
-    IdTokenValidity: Optional[IdTokenValidityType]
-    TokenValidityUnits: Optional[TokenValidityUnitsType]
-    ReadAttributes: Optional[ClientPermissionListType]
-    WriteAttributes: Optional[ClientPermissionListType]
-    ExplicitAuthFlows: Optional[ExplicitAuthFlowsListType]
-    SupportedIdentityProviders: Optional[SupportedIdentityProvidersListType]
-    CallbackURLs: Optional[CallbackURLsListType]
-    LogoutURLs: Optional[LogoutURLsListType]
-    DefaultRedirectURI: Optional[RedirectUrlType]
-    AllowedOAuthFlows: Optional[OAuthFlowsType]
-    AllowedOAuthScopes: Optional[ScopeListType]
-    AllowedOAuthFlowsUserPoolClient: Optional[BooleanType]
-    AnalyticsConfiguration: Optional[AnalyticsConfigurationType]
-    PreventUserExistenceErrors: Optional[PreventUserExistenceErrorTypes]
-    EnableTokenRevocation: Optional[WrappedBooleanType]
-    EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
-    AuthSessionValidity: Optional[AuthSessionValidityType]
-    RefreshTokenRotation: Optional[RefreshTokenRotationType]
+    UserPoolId: UserPoolIdType | None
+    ClientName: ClientNameType | None
+    ClientId: ClientIdType | None
+    ClientSecret: ClientSecretType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
+    RefreshTokenValidity: RefreshTokenValidityType | None
+    AccessTokenValidity: AccessTokenValidityType | None
+    IdTokenValidity: IdTokenValidityType | None
+    TokenValidityUnits: TokenValidityUnitsType | None
+    ReadAttributes: ClientPermissionListType | None
+    WriteAttributes: ClientPermissionListType | None
+    ExplicitAuthFlows: ExplicitAuthFlowsListType | None
+    SupportedIdentityProviders: SupportedIdentityProvidersListType | None
+    CallbackURLs: CallbackURLsListType | None
+    LogoutURLs: LogoutURLsListType | None
+    DefaultRedirectURI: RedirectUrlType | None
+    AllowedOAuthFlows: OAuthFlowsType | None
+    AllowedOAuthScopes: ScopeListType | None
+    AllowedOAuthFlowsUserPoolClient: BooleanType | None
+    AnalyticsConfiguration: AnalyticsConfigurationType | None
+    PreventUserExistenceErrors: PreventUserExistenceErrorTypes | None
+    EnableTokenRevocation: WrappedBooleanType | None
+    EnablePropagateAdditionalUserContextData: WrappedBooleanType | None
+    AuthSessionValidity: AuthSessionValidityType | None
+    RefreshTokenRotation: RefreshTokenRotationType | None
 
 
 class CreateUserPoolClientResponse(TypedDict, total=False):
     """Represents the response from the server to create a user pool client."""
 
-    UserPoolClient: Optional[UserPoolClientType]
+    UserPoolClient: UserPoolClientType | None
 
 
 class CustomDomainConfigType(TypedDict, total=False):
@@ -2384,13 +2384,13 @@ class CustomDomainConfigType(TypedDict, total=False):
 class CreateUserPoolDomainRequest(ServiceRequest):
     Domain: DomainType
     UserPoolId: UserPoolIdType
-    ManagedLoginVersion: Optional[WrappedIntegerType]
-    CustomDomainConfig: Optional[CustomDomainConfigType]
+    ManagedLoginVersion: WrappedIntegerType | None
+    CustomDomainConfig: CustomDomainConfigType | None
 
 
 class CreateUserPoolDomainResponse(TypedDict, total=False):
-    ManagedLoginVersion: Optional[WrappedIntegerType]
-    CloudFrontDomain: Optional[DomainType]
+    ManagedLoginVersion: WrappedIntegerType | None
+    CloudFrontDomain: DomainType | None
 
 
 class UsernameConfigurationType(TypedDict, total=False):
@@ -2413,11 +2413,11 @@ class UserPoolAddOnsType(TypedDict, total=False):
     """
 
     AdvancedSecurityMode: AdvancedSecurityModeType
-    AdvancedSecurityAdditionalFlows: Optional[AdvancedSecurityAdditionalFlowsType]
+    AdvancedSecurityAdditionalFlows: AdvancedSecurityAdditionalFlowsType | None
 
 
-SchemaAttributesListType = List[SchemaAttributeType]
-UserPoolTagsType = Dict[TagKeysType, TagValueType]
+SchemaAttributesListType = list[SchemaAttributeType]
+UserPoolTagsType = dict[TagKeysType, TagValueType]
 
 
 class SmsConfigurationType(TypedDict, total=False):
@@ -2429,8 +2429,8 @@ class SmsConfigurationType(TypedDict, total=False):
     """
 
     SnsCallerArn: ArnType
-    ExternalId: Optional[StringType]
-    SnsRegion: Optional[RegionCodeType]
+    ExternalId: StringType | None
+    SnsRegion: RegionCodeType | None
 
 
 class EmailConfigurationType(TypedDict, total=False):
@@ -2445,11 +2445,11 @@ class EmailConfigurationType(TypedDict, total=False):
     pools <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-email.html>`__.
     """
 
-    SourceArn: Optional[ArnType]
-    ReplyToEmailAddress: Optional[EmailAddressType]
-    EmailSendingAccount: Optional[EmailSendingAccountType]
-    From: Optional[StringType]
-    ConfigurationSet: Optional[SESConfigurationSet]
+    SourceArn: ArnType | None
+    ReplyToEmailAddress: EmailAddressType | None
+    EmailSendingAccount: EmailSendingAccountType | None
+    From: StringType | None
+    ConfigurationSet: SESConfigurationSet | None
 
 
 class DeviceConfigurationType(TypedDict, total=False):
@@ -2459,8 +2459,8 @@ class DeviceConfigurationType(TypedDict, total=False):
     you activate the device remembering for the user pool.
     """
 
-    ChallengeRequiredOnNewDevice: Optional[BooleanType]
-    DeviceOnlyRememberedOnUserPrompt: Optional[BooleanType]
+    ChallengeRequiredOnNewDevice: BooleanType | None
+    DeviceOnlyRememberedOnUserPrompt: BooleanType | None
 
 
 class UserAttributeUpdateSettingsType(TypedDict, total=False):
@@ -2472,9 +2472,7 @@ class UserAttributeUpdateSettingsType(TypedDict, total=False):
     numbers <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-email-phone-verification.html#user-pool-settings-verifications-verify-attribute-updates>`__.
     """
 
-    AttributesRequireVerificationBeforeUpdate: Optional[
-        AttributesRequireVerificationBeforeUpdateType
-    ]
+    AttributesRequireVerificationBeforeUpdate: AttributesRequireVerificationBeforeUpdateType | None
 
 
 class VerificationMessageTemplateType(TypedDict, total=False):
@@ -2482,16 +2480,16 @@ class VerificationMessageTemplateType(TypedDict, total=False):
     to users who set an email address or phone number attribute.
     """
 
-    SmsMessage: Optional[SmsVerificationMessageType]
-    EmailMessage: Optional[EmailVerificationMessageType]
-    EmailSubject: Optional[EmailVerificationSubjectType]
-    EmailMessageByLink: Optional[EmailVerificationMessageByLinkType]
-    EmailSubjectByLink: Optional[EmailVerificationSubjectByLinkType]
-    DefaultEmailOption: Optional[DefaultEmailOptionType]
+    SmsMessage: SmsVerificationMessageType | None
+    EmailMessage: EmailVerificationMessageType | None
+    EmailSubject: EmailVerificationSubjectType | None
+    EmailMessageByLink: EmailVerificationMessageByLinkType | None
+    EmailSubjectByLink: EmailVerificationSubjectByLinkType | None
+    DefaultEmailOption: DefaultEmailOptionType | None
 
 
-UsernameAttributesListType = List[UsernameAttributeType]
-VerifiedAttributesListType = List[VerifiedAttributeType]
+UsernameAttributesListType = list[UsernameAttributeType]
+VerifiedAttributesListType = list[VerifiedAttributeType]
 
 
 class CustomEmailLambdaVersionConfigType(TypedDict, total=False):
@@ -2521,20 +2519,20 @@ class LambdaConfigType(TypedDict, total=False):
     can modify the outcome of the operations that invoked them.
     """
 
-    PreSignUp: Optional[ArnType]
-    CustomMessage: Optional[ArnType]
-    PostConfirmation: Optional[ArnType]
-    PreAuthentication: Optional[ArnType]
-    PostAuthentication: Optional[ArnType]
-    DefineAuthChallenge: Optional[ArnType]
-    CreateAuthChallenge: Optional[ArnType]
-    VerifyAuthChallengeResponse: Optional[ArnType]
-    PreTokenGeneration: Optional[ArnType]
-    UserMigration: Optional[ArnType]
-    PreTokenGenerationConfig: Optional[PreTokenGenerationVersionConfigType]
-    CustomSMSSender: Optional[CustomSMSLambdaVersionConfigType]
-    CustomEmailSender: Optional[CustomEmailLambdaVersionConfigType]
-    KMSKeyID: Optional[ArnType]
+    PreSignUp: ArnType | None
+    CustomMessage: ArnType | None
+    PostConfirmation: ArnType | None
+    PreAuthentication: ArnType | None
+    PostAuthentication: ArnType | None
+    DefineAuthChallenge: ArnType | None
+    CreateAuthChallenge: ArnType | None
+    VerifyAuthChallengeResponse: ArnType | None
+    PreTokenGeneration: ArnType | None
+    UserMigration: ArnType | None
+    PreTokenGenerationConfig: PreTokenGenerationVersionConfigType | None
+    CustomSMSSender: CustomSMSLambdaVersionConfigType | None
+    CustomEmailSender: CustomEmailLambdaVersionConfigType | None
+    KMSKeyID: ArnType | None
 
 
 class SignInPolicyType(TypedDict, total=False):
@@ -2544,7 +2542,7 @@ class SignInPolicyType(TypedDict, total=False):
     or higher.
     """
 
-    AllowedFirstAuthFactors: Optional[AllowedFirstAuthFactorsListType]
+    AllowedFirstAuthFactors: AllowedFirstAuthFactorsListType | None
 
 
 class PasswordPolicyType(TypedDict, total=False):
@@ -2552,13 +2550,13 @@ class PasswordPolicyType(TypedDict, total=False):
     history, and length requirements.
     """
 
-    MinimumLength: Optional[PasswordPolicyMinLengthType]
-    RequireUppercase: Optional[BooleanType]
-    RequireLowercase: Optional[BooleanType]
-    RequireNumbers: Optional[BooleanType]
-    RequireSymbols: Optional[BooleanType]
-    PasswordHistorySize: Optional[PasswordHistorySizeType]
-    TemporaryPasswordValidityDays: Optional[TemporaryPasswordValidityDaysType]
+    MinimumLength: PasswordPolicyMinLengthType | None
+    RequireUppercase: BooleanType | None
+    RequireLowercase: BooleanType | None
+    RequireNumbers: BooleanType | None
+    RequireSymbols: BooleanType | None
+    PasswordHistorySize: PasswordHistorySizeType | None
+    TemporaryPasswordValidityDays: TemporaryPasswordValidityDaysType | None
 
 
 class UserPoolPolicyType(TypedDict, total=False):
@@ -2566,76 +2564,76 @@ class UserPoolPolicyType(TypedDict, total=False):
     password-complexity requirements.
     """
 
-    PasswordPolicy: Optional[PasswordPolicyType]
-    SignInPolicy: Optional[SignInPolicyType]
+    PasswordPolicy: PasswordPolicyType | None
+    SignInPolicy: SignInPolicyType | None
 
 
 class CreateUserPoolRequest(ServiceRequest):
     """Represents the request to create a user pool."""
 
     PoolName: UserPoolNameType
-    Policies: Optional[UserPoolPolicyType]
-    DeletionProtection: Optional[DeletionProtectionType]
-    LambdaConfig: Optional[LambdaConfigType]
-    AutoVerifiedAttributes: Optional[VerifiedAttributesListType]
-    AliasAttributes: Optional[AliasAttributesListType]
-    UsernameAttributes: Optional[UsernameAttributesListType]
-    SmsVerificationMessage: Optional[SmsVerificationMessageType]
-    EmailVerificationMessage: Optional[EmailVerificationMessageType]
-    EmailVerificationSubject: Optional[EmailVerificationSubjectType]
-    VerificationMessageTemplate: Optional[VerificationMessageTemplateType]
-    SmsAuthenticationMessage: Optional[SmsVerificationMessageType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    UserAttributeUpdateSettings: Optional[UserAttributeUpdateSettingsType]
-    DeviceConfiguration: Optional[DeviceConfigurationType]
-    EmailConfiguration: Optional[EmailConfigurationType]
-    SmsConfiguration: Optional[SmsConfigurationType]
-    UserPoolTags: Optional[UserPoolTagsType]
-    AdminCreateUserConfig: Optional[AdminCreateUserConfigType]
-    Schema: Optional[SchemaAttributesListType]
-    UserPoolAddOns: Optional[UserPoolAddOnsType]
-    UsernameConfiguration: Optional[UsernameConfigurationType]
-    AccountRecoverySetting: Optional[AccountRecoverySettingType]
-    UserPoolTier: Optional[UserPoolTierType]
+    Policies: UserPoolPolicyType | None
+    DeletionProtection: DeletionProtectionType | None
+    LambdaConfig: LambdaConfigType | None
+    AutoVerifiedAttributes: VerifiedAttributesListType | None
+    AliasAttributes: AliasAttributesListType | None
+    UsernameAttributes: UsernameAttributesListType | None
+    SmsVerificationMessage: SmsVerificationMessageType | None
+    EmailVerificationMessage: EmailVerificationMessageType | None
+    EmailVerificationSubject: EmailVerificationSubjectType | None
+    VerificationMessageTemplate: VerificationMessageTemplateType | None
+    SmsAuthenticationMessage: SmsVerificationMessageType | None
+    MfaConfiguration: UserPoolMfaType | None
+    UserAttributeUpdateSettings: UserAttributeUpdateSettingsType | None
+    DeviceConfiguration: DeviceConfigurationType | None
+    EmailConfiguration: EmailConfigurationType | None
+    SmsConfiguration: SmsConfigurationType | None
+    UserPoolTags: UserPoolTagsType | None
+    AdminCreateUserConfig: AdminCreateUserConfigType | None
+    Schema: SchemaAttributesListType | None
+    UserPoolAddOns: UserPoolAddOnsType | None
+    UsernameConfiguration: UsernameConfigurationType | None
+    AccountRecoverySetting: AccountRecoverySettingType | None
+    UserPoolTier: UserPoolTierType | None
 
 
 class UserPoolType(TypedDict, total=False):
     """The configuration of a user pool."""
 
-    Id: Optional[UserPoolIdType]
-    Name: Optional[UserPoolNameType]
-    Policies: Optional[UserPoolPolicyType]
-    DeletionProtection: Optional[DeletionProtectionType]
-    LambdaConfig: Optional[LambdaConfigType]
-    Status: Optional[StatusType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
-    SchemaAttributes: Optional[SchemaAttributesListType]
-    AutoVerifiedAttributes: Optional[VerifiedAttributesListType]
-    AliasAttributes: Optional[AliasAttributesListType]
-    UsernameAttributes: Optional[UsernameAttributesListType]
-    SmsVerificationMessage: Optional[SmsVerificationMessageType]
-    EmailVerificationMessage: Optional[EmailVerificationMessageType]
-    EmailVerificationSubject: Optional[EmailVerificationSubjectType]
-    VerificationMessageTemplate: Optional[VerificationMessageTemplateType]
-    SmsAuthenticationMessage: Optional[SmsVerificationMessageType]
-    UserAttributeUpdateSettings: Optional[UserAttributeUpdateSettingsType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    DeviceConfiguration: Optional[DeviceConfigurationType]
-    EstimatedNumberOfUsers: Optional[IntegerType]
-    EmailConfiguration: Optional[EmailConfigurationType]
-    SmsConfiguration: Optional[SmsConfigurationType]
-    UserPoolTags: Optional[UserPoolTagsType]
-    SmsConfigurationFailure: Optional[StringType]
-    EmailConfigurationFailure: Optional[StringType]
-    Domain: Optional[DomainType]
-    CustomDomain: Optional[DomainType]
-    AdminCreateUserConfig: Optional[AdminCreateUserConfigType]
-    UserPoolAddOns: Optional[UserPoolAddOnsType]
-    UsernameConfiguration: Optional[UsernameConfigurationType]
-    Arn: Optional[ArnType]
-    AccountRecoverySetting: Optional[AccountRecoverySettingType]
-    UserPoolTier: Optional[UserPoolTierType]
+    Id: UserPoolIdType | None
+    Name: UserPoolNameType | None
+    Policies: UserPoolPolicyType | None
+    DeletionProtection: DeletionProtectionType | None
+    LambdaConfig: LambdaConfigType | None
+    Status: StatusType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
+    SchemaAttributes: SchemaAttributesListType | None
+    AutoVerifiedAttributes: VerifiedAttributesListType | None
+    AliasAttributes: AliasAttributesListType | None
+    UsernameAttributes: UsernameAttributesListType | None
+    SmsVerificationMessage: SmsVerificationMessageType | None
+    EmailVerificationMessage: EmailVerificationMessageType | None
+    EmailVerificationSubject: EmailVerificationSubjectType | None
+    VerificationMessageTemplate: VerificationMessageTemplateType | None
+    SmsAuthenticationMessage: SmsVerificationMessageType | None
+    UserAttributeUpdateSettings: UserAttributeUpdateSettingsType | None
+    MfaConfiguration: UserPoolMfaType | None
+    DeviceConfiguration: DeviceConfigurationType | None
+    EstimatedNumberOfUsers: IntegerType | None
+    EmailConfiguration: EmailConfigurationType | None
+    SmsConfiguration: SmsConfigurationType | None
+    UserPoolTags: UserPoolTagsType | None
+    SmsConfigurationFailure: StringType | None
+    EmailConfigurationFailure: StringType | None
+    Domain: DomainType | None
+    CustomDomain: DomainType | None
+    AdminCreateUserConfig: AdminCreateUserConfigType | None
+    UserPoolAddOns: UserPoolAddOnsType | None
+    UsernameConfiguration: UsernameConfigurationType | None
+    Arn: ArnType | None
+    AccountRecoverySetting: AccountRecoverySettingType | None
+    UserPoolTier: UserPoolTierType | None
 
 
 class CreateUserPoolResponse(TypedDict, total=False):
@@ -2643,7 +2641,7 @@ class CreateUserPoolResponse(TypedDict, total=False):
     pool.
     """
 
-    UserPool: Optional[UserPoolType]
+    UserPool: UserPoolType | None
 
 
 class DeleteGroupRequest(ServiceRequest):
@@ -2733,21 +2731,21 @@ class DescribeIdentityProviderResponse(TypedDict, total=False):
 class DescribeManagedLoginBrandingByClientRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
-    ReturnMergedResources: Optional[BooleanType]
+    ReturnMergedResources: BooleanType | None
 
 
 class DescribeManagedLoginBrandingByClientResponse(TypedDict, total=False):
-    ManagedLoginBranding: Optional[ManagedLoginBrandingType]
+    ManagedLoginBranding: ManagedLoginBrandingType | None
 
 
 class DescribeManagedLoginBrandingRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ManagedLoginBrandingId: ManagedLoginBrandingIdType
-    ReturnMergedResources: Optional[BooleanType]
+    ReturnMergedResources: BooleanType | None
 
 
 class DescribeManagedLoginBrandingResponse(TypedDict, total=False):
-    ManagedLoginBranding: Optional[ManagedLoginBrandingType]
+    ManagedLoginBranding: ManagedLoginBrandingType | None
 
 
 class DescribeResourceServerRequest(ServiceRequest):
@@ -2761,10 +2759,10 @@ class DescribeResourceServerResponse(TypedDict, total=False):
 
 class DescribeRiskConfigurationRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    ClientId: Optional[ClientIdType]
+    ClientId: ClientIdType | None
 
 
-SkippedIPRangeListType = List[StringType]
+SkippedIPRangeListType = list[StringType]
 
 
 class RiskExceptionConfigurationType(TypedDict, total=False):
@@ -2772,8 +2770,8 @@ class RiskExceptionConfigurationType(TypedDict, total=False):
     and always-block IP address ranges.
     """
 
-    BlockedIPRangeList: Optional[BlockedIPRangeListType]
-    SkippedIPRangeList: Optional[SkippedIPRangeListType]
+    BlockedIPRangeList: BlockedIPRangeListType | None
+    SkippedIPRangeList: SkippedIPRangeListType | None
 
 
 class RiskConfigurationType(TypedDict, total=False):
@@ -2781,12 +2779,12 @@ class RiskConfigurationType(TypedDict, total=False):
     protection in a user pool.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    ClientId: Optional[ClientIdType]
-    CompromisedCredentialsRiskConfiguration: Optional[CompromisedCredentialsRiskConfigurationType]
-    AccountTakeoverRiskConfiguration: Optional[AccountTakeoverRiskConfigurationType]
-    RiskExceptionConfiguration: Optional[RiskExceptionConfigurationType]
-    LastModifiedDate: Optional[DateType]
+    UserPoolId: UserPoolIdType | None
+    ClientId: ClientIdType | None
+    CompromisedCredentialsRiskConfiguration: CompromisedCredentialsRiskConfigurationType | None
+    AccountTakeoverRiskConfiguration: AccountTakeoverRiskConfigurationType | None
+    RiskExceptionConfiguration: RiskExceptionConfigurationType | None
+    LastModifiedDate: DateType | None
 
 
 class DescribeRiskConfigurationResponse(TypedDict, total=False):
@@ -2799,7 +2797,7 @@ class DescribeTermsRequest(ServiceRequest):
 
 
 class DescribeTermsResponse(TypedDict, total=False):
-    Terms: Optional[TermsType]
+    Terms: TermsType | None
 
 
 class DescribeUserImportJobRequest(ServiceRequest):
@@ -2814,7 +2812,7 @@ class DescribeUserImportJobResponse(TypedDict, total=False):
     user import job.
     """
 
-    UserImportJob: Optional[UserImportJobType]
+    UserImportJob: UserImportJobType | None
 
 
 class DescribeUserPoolClientRequest(ServiceRequest):
@@ -2829,7 +2827,7 @@ class DescribeUserPoolClientResponse(TypedDict, total=False):
     user pool client.
     """
 
-    UserPoolClient: Optional[UserPoolClientType]
+    UserPoolClient: UserPoolClientType | None
 
 
 class DescribeUserPoolDomainRequest(ServiceRequest):
@@ -2841,19 +2839,19 @@ class DomainDescriptionType(TypedDict, total=False):
     the hosted UI and OAuth endpoints.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    AWSAccountId: Optional[AWSAccountIdType]
-    Domain: Optional[DomainType]
-    S3Bucket: Optional[S3BucketType]
-    CloudFrontDistribution: Optional[StringType]
-    Version: Optional[DomainVersionType]
-    Status: Optional[DomainStatusType]
-    CustomDomainConfig: Optional[CustomDomainConfigType]
-    ManagedLoginVersion: Optional[WrappedIntegerType]
+    UserPoolId: UserPoolIdType | None
+    AWSAccountId: AWSAccountIdType | None
+    Domain: DomainType | None
+    S3Bucket: S3BucketType | None
+    CloudFrontDistribution: StringType | None
+    Version: DomainVersionType | None
+    Status: DomainStatusType | None
+    CustomDomainConfig: CustomDomainConfigType | None
+    ManagedLoginVersion: WrappedIntegerType | None
 
 
 class DescribeUserPoolDomainResponse(TypedDict, total=False):
-    DomainDescription: Optional[DomainDescriptionType]
+    DomainDescription: DomainDescriptionType | None
 
 
 class DescribeUserPoolRequest(ServiceRequest):
@@ -2865,7 +2863,7 @@ class DescribeUserPoolRequest(ServiceRequest):
 class DescribeUserPoolResponse(TypedDict, total=False):
     """Represents the response to describe the user pool."""
 
-    UserPool: Optional[UserPoolType]
+    UserPool: UserPoolType | None
 
 
 class EmailMfaConfigType(TypedDict, total=False):
@@ -2877,8 +2875,8 @@ class EmailMfaConfigType(TypedDict, total=False):
     or higher.
     """
 
-    Message: Optional[EmailMfaMessageType]
-    Subject: Optional[EmailMfaSubjectType]
+    Message: EmailMfaMessageType | None
+    Subject: EmailMfaSubjectType | None
 
 
 class FirehoseConfigurationType(TypedDict, total=False):
@@ -2886,13 +2884,13 @@ class FirehoseConfigurationType(TypedDict, total=False):
     activity log export with threat protection.
     """
 
-    StreamArn: Optional[ArnType]
+    StreamArn: ArnType | None
 
 
 class ForgetDeviceRequest(ServiceRequest):
     """Represents the request to forget the device."""
 
-    AccessToken: Optional[TokenModelType]
+    AccessToken: TokenModelType | None
     DeviceKey: DeviceKeyType
 
 
@@ -2900,17 +2898,17 @@ class ForgotPasswordRequest(ServiceRequest):
     """Represents the request to reset a user's password."""
 
     ClientId: ClientIdType
-    SecretHash: Optional[SecretHashType]
-    UserContextData: Optional[UserContextDataType]
+    SecretHash: SecretHashType | None
+    UserContextData: UserContextDataType | None
     Username: UsernameType
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class ForgotPasswordResponse(TypedDict, total=False):
     """The response from Amazon Cognito to a request to reset a password."""
 
-    CodeDeliveryDetails: Optional[CodeDeliveryDetailsType]
+    CodeDeliveryDetails: CodeDeliveryDetailsType | None
 
 
 class GetCSVHeaderRequest(ServiceRequest):
@@ -2921,7 +2919,7 @@ class GetCSVHeaderRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
 
 
-ListOfStringTypes = List[StringType]
+ListOfStringTypes = list[StringType]
 
 
 class GetCSVHeaderResponse(TypedDict, total=False):
@@ -2929,15 +2927,15 @@ class GetCSVHeaderResponse(TypedDict, total=False):
     information of the CSV file for the user import job.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    CSVHeader: Optional[ListOfStringTypes]
+    UserPoolId: UserPoolIdType | None
+    CSVHeader: ListOfStringTypes | None
 
 
 class GetDeviceRequest(ServiceRequest):
     """Represents the request to get the device."""
 
     DeviceKey: DeviceKeyType
-    AccessToken: Optional[TokenModelType]
+    AccessToken: TokenModelType | None
 
 
 class GetDeviceResponse(TypedDict, total=False):
@@ -2952,7 +2950,7 @@ class GetGroupRequest(ServiceRequest):
 
 
 class GetGroupResponse(TypedDict, total=False):
-    Group: Optional[GroupType]
+    Group: GroupType | None
 
 
 class GetIdentityProviderByIdentifierRequest(ServiceRequest):
@@ -2973,7 +2971,7 @@ class S3ConfigurationType(TypedDict, total=False):
     export with threat protection.
     """
 
-    BucketArn: Optional[S3ArnType]
+    BucketArn: S3ArnType | None
 
 
 class LogConfigurationType(TypedDict, total=False):
@@ -2983,12 +2981,12 @@ class LogConfigurationType(TypedDict, total=False):
 
     LogLevel: LogLevel
     EventSource: EventSourceName
-    CloudWatchLogsConfiguration: Optional[CloudWatchLogsConfigurationType]
-    S3Configuration: Optional[S3ConfigurationType]
-    FirehoseConfiguration: Optional[FirehoseConfigurationType]
+    CloudWatchLogsConfiguration: CloudWatchLogsConfigurationType | None
+    S3Configuration: S3ConfigurationType | None
+    FirehoseConfiguration: FirehoseConfigurationType | None
 
 
-LogConfigurationListType = List[LogConfigurationType]
+LogConfigurationListType = list[LogConfigurationType]
 
 
 class LogDeliveryConfigurationType(TypedDict, total=False):
@@ -3001,7 +2999,7 @@ class LogDeliveryConfigurationType(TypedDict, total=False):
 
 
 class GetLogDeliveryConfigurationResponse(TypedDict, total=False):
-    LogDeliveryConfiguration: Optional[LogDeliveryConfigurationType]
+    LogDeliveryConfiguration: LogDeliveryConfigurationType | None
 
 
 class GetSigningCertificateRequest(ServiceRequest):
@@ -3013,24 +3011,24 @@ class GetSigningCertificateRequest(ServiceRequest):
 class GetSigningCertificateResponse(TypedDict, total=False):
     """Response from Amazon Cognito for a signing certificate request."""
 
-    Certificate: Optional[StringType]
+    Certificate: StringType | None
 
 
 class GetTokensFromRefreshTokenRequest(ServiceRequest):
     RefreshToken: TokenModelType
     ClientId: ClientIdType
-    ClientSecret: Optional[ClientSecretType]
-    DeviceKey: Optional[DeviceKeyType]
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientSecret: ClientSecretType | None
+    DeviceKey: DeviceKeyType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class GetTokensFromRefreshTokenResponse(TypedDict, total=False):
-    AuthenticationResult: Optional[AuthenticationResultType]
+    AuthenticationResult: AuthenticationResultType | None
 
 
 class GetUICustomizationRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    ClientId: Optional[ClientIdType]
+    ClientId: ClientIdType | None
 
 
 class UICustomizationType(TypedDict, total=False):
@@ -3038,13 +3036,13 @@ class UICustomizationType(TypedDict, total=False):
     user pool.
     """
 
-    UserPoolId: Optional[UserPoolIdType]
-    ClientId: Optional[ClientIdType]
-    ImageUrl: Optional[ImageUrlType]
-    CSS: Optional[CSSType]
-    CSSVersion: Optional[CSSVersionType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
+    UserPoolId: UserPoolIdType | None
+    ClientId: ClientIdType | None
+    ImageUrl: ImageUrlType | None
+    CSS: CSSType | None
+    CSSVersion: CSSVersionType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
 
 
 class GetUICustomizationResponse(TypedDict, total=False):
@@ -3056,7 +3054,7 @@ class GetUserAttributeVerificationCodeRequest(ServiceRequest):
 
     AccessToken: TokenModelType
     AttributeName: AttributeNameType
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientMetadata: ClientMetadataType | None
 
 
 class GetUserAttributeVerificationCodeResponse(TypedDict, total=False):
@@ -3064,7 +3062,7 @@ class GetUserAttributeVerificationCodeResponse(TypedDict, total=False):
     the user attribute verification code.
     """
 
-    CodeDeliveryDetails: Optional[CodeDeliveryDetailsType]
+    CodeDeliveryDetails: CodeDeliveryDetailsType | None
 
 
 class GetUserAuthFactorsRequest(ServiceRequest):
@@ -3073,9 +3071,9 @@ class GetUserAuthFactorsRequest(ServiceRequest):
 
 class GetUserAuthFactorsResponse(TypedDict, total=False):
     Username: UsernameType
-    PreferredMfaSetting: Optional[StringType]
-    UserMFASettingList: Optional[UserMFASettingListType]
-    ConfiguredUserAuthFactors: Optional[ConfiguredUserAuthFactorsListType]
+    PreferredMfaSetting: StringType | None
+    UserMFASettingList: UserMFASettingListType | None
+    ConfiguredUserAuthFactors: ConfiguredUserAuthFactorsListType | None
 
 
 class GetUserPoolMfaConfigRequest(ServiceRequest):
@@ -3096,8 +3094,8 @@ class WebAuthnConfigurationType(TypedDict, total=False):
        authentication.
     """
 
-    RelyingPartyId: Optional[RelyingPartyIdType]
-    UserVerification: Optional[UserVerificationType]
+    RelyingPartyId: RelyingPartyIdType | None
+    UserVerification: UserVerificationType | None
 
 
 class SoftwareTokenMfaConfigType(TypedDict, total=False):
@@ -3106,7 +3104,7 @@ class SoftwareTokenMfaConfigType(TypedDict, total=False):
     of this feature.
     """
 
-    Enabled: Optional[BooleanType]
+    Enabled: BooleanType | None
 
 
 class SmsMfaConfigType(TypedDict, total=False):
@@ -3114,16 +3112,16 @@ class SmsMfaConfigType(TypedDict, total=False):
     in a user pool.
     """
 
-    SmsAuthenticationMessage: Optional[SmsVerificationMessageType]
-    SmsConfiguration: Optional[SmsConfigurationType]
+    SmsAuthenticationMessage: SmsVerificationMessageType | None
+    SmsConfiguration: SmsConfigurationType | None
 
 
 class GetUserPoolMfaConfigResponse(TypedDict, total=False):
-    SmsMfaConfiguration: Optional[SmsMfaConfigType]
-    SoftwareTokenMfaConfiguration: Optional[SoftwareTokenMfaConfigType]
-    EmailMfaConfiguration: Optional[EmailMfaConfigType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    WebAuthnConfiguration: Optional[WebAuthnConfigurationType]
+    SmsMfaConfiguration: SmsMfaConfigType | None
+    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigType | None
+    EmailMfaConfiguration: EmailMfaConfigType | None
+    MfaConfiguration: UserPoolMfaType | None
+    WebAuthnConfiguration: WebAuthnConfigurationType | None
 
 
 class GetUserRequest(ServiceRequest):
@@ -3139,9 +3137,9 @@ class GetUserResponse(TypedDict, total=False):
 
     Username: UsernameType
     UserAttributes: AttributeListType
-    MFAOptions: Optional[MFAOptionListType]
-    PreferredMfaSetting: Optional[StringType]
-    UserMFASettingList: Optional[UserMFASettingListType]
+    MFAOptions: MFAOptionListType | None
+    PreferredMfaSetting: StringType | None
+    UserMFASettingList: UserMFASettingListType | None
 
 
 class GlobalSignOutRequest(ServiceRequest):
@@ -3163,54 +3161,54 @@ class InitiateAuthRequest(ServiceRequest):
     """Initiates the authentication request."""
 
     AuthFlow: AuthFlowType
-    AuthParameters: Optional[AuthParametersType]
-    ClientMetadata: Optional[ClientMetadataType]
+    AuthParameters: AuthParametersType | None
+    ClientMetadata: ClientMetadataType | None
     ClientId: ClientIdType
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    UserContextData: Optional[UserContextDataType]
-    Session: Optional[SessionType]
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    UserContextData: UserContextDataType | None
+    Session: SessionType | None
 
 
 class InitiateAuthResponse(TypedDict, total=False):
     """Initiates the authentication response."""
 
-    ChallengeName: Optional[ChallengeNameType]
-    Session: Optional[SessionType]
-    ChallengeParameters: Optional[ChallengeParametersType]
-    AuthenticationResult: Optional[AuthenticationResultType]
-    AvailableChallenges: Optional[AvailableChallengeListType]
+    ChallengeName: ChallengeNameType | None
+    Session: SessionType | None
+    ChallengeParameters: ChallengeParametersType | None
+    AuthenticationResult: AuthenticationResultType | None
+    AvailableChallenges: AvailableChallengeListType | None
 
 
 class ListDevicesRequest(ServiceRequest):
     """Represents the request to list the devices."""
 
     AccessToken: TokenModelType
-    Limit: Optional[QueryLimitType]
-    PaginationToken: Optional[SearchPaginationTokenType]
+    Limit: QueryLimitType | None
+    PaginationToken: SearchPaginationTokenType | None
 
 
 class ListDevicesResponse(TypedDict, total=False):
     """Represents the response to list devices."""
 
-    Devices: Optional[DeviceListType]
-    PaginationToken: Optional[SearchPaginationTokenType]
+    Devices: DeviceListType | None
+    PaginationToken: SearchPaginationTokenType | None
 
 
 class ListGroupsRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    Limit: Optional[QueryLimitType]
-    NextToken: Optional[PaginationKey]
+    Limit: QueryLimitType | None
+    NextToken: PaginationKey | None
 
 
 class ListGroupsResponse(TypedDict, total=False):
-    Groups: Optional[GroupListType]
-    NextToken: Optional[PaginationKey]
+    Groups: GroupListType | None
+    NextToken: PaginationKey | None
 
 
 class ListIdentityProvidersRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    MaxResults: Optional[ListProvidersLimitType]
-    NextToken: Optional[PaginationKeyType]
+    MaxResults: ListProvidersLimitType | None
+    NextToken: PaginationKeyType | None
 
 
 class ProviderDescription(TypedDict, total=False):
@@ -3218,32 +3216,32 @@ class ProviderDescription(TypedDict, total=False):
     type.
     """
 
-    ProviderName: Optional[ProviderNameType]
-    ProviderType: Optional[IdentityProviderTypeType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
+    ProviderName: ProviderNameType | None
+    ProviderType: IdentityProviderTypeType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
 
 
-ProvidersListType = List[ProviderDescription]
+ProvidersListType = list[ProviderDescription]
 
 
 class ListIdentityProvidersResponse(TypedDict, total=False):
     Providers: ProvidersListType
-    NextToken: Optional[PaginationKeyType]
+    NextToken: PaginationKeyType | None
 
 
 class ListResourceServersRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    MaxResults: Optional[ListResourceServersLimitType]
-    NextToken: Optional[PaginationKeyType]
+    MaxResults: ListResourceServersLimitType | None
+    NextToken: PaginationKeyType | None
 
 
-ResourceServersListType = List[ResourceServerType]
+ResourceServersListType = list[ResourceServerType]
 
 
 class ListResourceServersResponse(TypedDict, total=False):
     ResourceServers: ResourceServersListType
-    NextToken: Optional[PaginationKeyType]
+    NextToken: PaginationKeyType | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -3251,13 +3249,13 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[UserPoolTagsType]
+    Tags: UserPoolTagsType | None
 
 
 class ListTermsRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    MaxResults: Optional[ListTermsRequestMaxResultsInteger]
-    NextToken: Optional[StringType]
+    MaxResults: ListTermsRequestMaxResultsInteger | None
+    NextToken: StringType | None
 
 
 class TermsDescriptionType(TypedDict, total=False):
@@ -3273,12 +3271,12 @@ class TermsDescriptionType(TypedDict, total=False):
     LastModifiedDate: DateType
 
 
-TermsDescriptionListType = List[TermsDescriptionType]
+TermsDescriptionListType = list[TermsDescriptionType]
 
 
 class ListTermsResponse(TypedDict, total=False):
     Terms: TermsDescriptionListType
-    NextToken: Optional[StringType]
+    NextToken: StringType | None
 
 
 class ListUserImportJobsRequest(ServiceRequest):
@@ -3286,10 +3284,10 @@ class ListUserImportJobsRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     MaxResults: PoolQueryLimitType
-    PaginationToken: Optional[PaginationKeyType]
+    PaginationToken: PaginationKeyType | None
 
 
-UserImportJobsListType = List[UserImportJobType]
+UserImportJobsListType = list[UserImportJobType]
 
 
 class ListUserImportJobsResponse(TypedDict, total=False):
@@ -3297,106 +3295,106 @@ class ListUserImportJobsResponse(TypedDict, total=False):
     import jobs.
     """
 
-    UserImportJobs: Optional[UserImportJobsListType]
-    PaginationToken: Optional[PaginationKeyType]
+    UserImportJobs: UserImportJobsListType | None
+    PaginationToken: PaginationKeyType | None
 
 
 class ListUserPoolClientsRequest(ServiceRequest):
     """Represents the request to list the user pool clients."""
 
     UserPoolId: UserPoolIdType
-    MaxResults: Optional[QueryLimit]
-    NextToken: Optional[PaginationKey]
+    MaxResults: QueryLimit | None
+    NextToken: PaginationKey | None
 
 
 class UserPoolClientDescription(TypedDict, total=False):
     """A short description of a user pool app client."""
 
-    ClientId: Optional[ClientIdType]
-    UserPoolId: Optional[UserPoolIdType]
-    ClientName: Optional[ClientNameType]
+    ClientId: ClientIdType | None
+    UserPoolId: UserPoolIdType | None
+    ClientName: ClientNameType | None
 
 
-UserPoolClientListType = List[UserPoolClientDescription]
+UserPoolClientListType = list[UserPoolClientDescription]
 
 
 class ListUserPoolClientsResponse(TypedDict, total=False):
     """Represents the response from the server that lists user pool clients."""
 
-    UserPoolClients: Optional[UserPoolClientListType]
-    NextToken: Optional[PaginationKey]
+    UserPoolClients: UserPoolClientListType | None
+    NextToken: PaginationKey | None
 
 
 class ListUserPoolsRequest(ServiceRequest):
     """Represents the request to list user pools."""
 
-    NextToken: Optional[PaginationKeyType]
+    NextToken: PaginationKeyType | None
     MaxResults: PoolQueryLimitType
 
 
 class UserPoolDescriptionType(TypedDict, total=False):
     """A short description of a user pool."""
 
-    Id: Optional[UserPoolIdType]
-    Name: Optional[UserPoolNameType]
-    LambdaConfig: Optional[LambdaConfigType]
-    Status: Optional[StatusType]
-    LastModifiedDate: Optional[DateType]
-    CreationDate: Optional[DateType]
+    Id: UserPoolIdType | None
+    Name: UserPoolNameType | None
+    LambdaConfig: LambdaConfigType | None
+    Status: StatusType | None
+    LastModifiedDate: DateType | None
+    CreationDate: DateType | None
 
 
-UserPoolListType = List[UserPoolDescriptionType]
+UserPoolListType = list[UserPoolDescriptionType]
 
 
 class ListUserPoolsResponse(TypedDict, total=False):
     """Represents the response to list user pools."""
 
-    UserPools: Optional[UserPoolListType]
-    NextToken: Optional[PaginationKeyType]
+    UserPools: UserPoolListType | None
+    NextToken: PaginationKeyType | None
 
 
 class ListUsersInGroupRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     GroupName: GroupNameType
-    Limit: Optional[QueryLimitType]
-    NextToken: Optional[PaginationKey]
+    Limit: QueryLimitType | None
+    NextToken: PaginationKey | None
 
 
-UsersListType = List[UserType]
+UsersListType = list[UserType]
 
 
 class ListUsersInGroupResponse(TypedDict, total=False):
-    Users: Optional[UsersListType]
-    NextToken: Optional[PaginationKey]
+    Users: UsersListType | None
+    NextToken: PaginationKey | None
 
 
-SearchedAttributeNamesListType = List[AttributeNameType]
+SearchedAttributeNamesListType = list[AttributeNameType]
 
 
 class ListUsersRequest(ServiceRequest):
     """Represents the request to list users."""
 
     UserPoolId: UserPoolIdType
-    AttributesToGet: Optional[SearchedAttributeNamesListType]
-    Limit: Optional[QueryLimitType]
-    PaginationToken: Optional[SearchPaginationTokenType]
-    Filter: Optional[UserFilterType]
+    AttributesToGet: SearchedAttributeNamesListType | None
+    Limit: QueryLimitType | None
+    PaginationToken: SearchPaginationTokenType | None
+    Filter: UserFilterType | None
 
 
 class ListUsersResponse(TypedDict, total=False):
     """The response from the request to list users."""
 
-    Users: Optional[UsersListType]
-    PaginationToken: Optional[SearchPaginationTokenType]
+    Users: UsersListType | None
+    PaginationToken: SearchPaginationTokenType | None
 
 
 class ListWebAuthnCredentialsRequest(ServiceRequest):
     AccessToken: TokenModelType
-    NextToken: Optional[PaginationKey]
-    MaxResults: Optional[WebAuthnCredentialsQueryLimitType]
+    NextToken: PaginationKey | None
+    MaxResults: WebAuthnCredentialsQueryLimitType | None
 
 
-WebAuthnAuthenticatorTransportsList = List[WebAuthnAuthenticatorTransportType]
+WebAuthnAuthenticatorTransportsList = list[WebAuthnAuthenticatorTransportType]
 
 
 class WebAuthnCredentialDescription(TypedDict, total=False):
@@ -3407,28 +3405,28 @@ class WebAuthnCredentialDescription(TypedDict, total=False):
     CredentialId: StringType
     FriendlyCredentialName: StringType
     RelyingPartyId: StringType
-    AuthenticatorAttachment: Optional[WebAuthnAuthenticatorAttachmentType]
+    AuthenticatorAttachment: WebAuthnAuthenticatorAttachmentType | None
     AuthenticatorTransports: WebAuthnAuthenticatorTransportsList
     CreatedAt: DateType
 
 
-WebAuthnCredentialDescriptionListType = List[WebAuthnCredentialDescription]
+WebAuthnCredentialDescriptionListType = list[WebAuthnCredentialDescription]
 
 
 class ListWebAuthnCredentialsResponse(TypedDict, total=False):
     Credentials: WebAuthnCredentialDescriptionListType
-    NextToken: Optional[PaginationKey]
+    NextToken: PaginationKey | None
 
 
 class ResendConfirmationCodeRequest(ServiceRequest):
     """Represents the request to resend the confirmation code."""
 
     ClientId: ClientIdType
-    SecretHash: Optional[SecretHashType]
-    UserContextData: Optional[UserContextDataType]
+    SecretHash: SecretHashType | None
+    UserContextData: UserContextDataType | None
     Username: UsernameType
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class ResendConfirmationCodeResponse(TypedDict, total=False):
@@ -3436,7 +3434,7 @@ class ResendConfirmationCodeResponse(TypedDict, total=False):
     resend a confirmation code.
     """
 
-    CodeDeliveryDetails: Optional[CodeDeliveryDetailsType]
+    CodeDeliveryDetails: CodeDeliveryDetailsType | None
 
 
 class RespondToAuthChallengeRequest(ServiceRequest):
@@ -3444,26 +3442,26 @@ class RespondToAuthChallengeRequest(ServiceRequest):
 
     ClientId: ClientIdType
     ChallengeName: ChallengeNameType
-    Session: Optional[SessionType]
-    ChallengeResponses: Optional[ChallengeResponsesType]
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    UserContextData: Optional[UserContextDataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    Session: SessionType | None
+    ChallengeResponses: ChallengeResponsesType | None
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    UserContextData: UserContextDataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class RespondToAuthChallengeResponse(TypedDict, total=False):
     """The response to respond to the authentication challenge."""
 
-    ChallengeName: Optional[ChallengeNameType]
-    Session: Optional[SessionType]
-    ChallengeParameters: Optional[ChallengeParametersType]
-    AuthenticationResult: Optional[AuthenticationResultType]
+    ChallengeName: ChallengeNameType | None
+    Session: SessionType | None
+    ChallengeParameters: ChallengeParametersType | None
+    AuthenticationResult: AuthenticationResultType | None
 
 
 class RevokeTokenRequest(ServiceRequest):
     Token: TokenModelType
     ClientId: ClientIdType
-    ClientSecret: Optional[ClientSecretType]
+    ClientSecret: ClientSecretType | None
 
 
 class RevokeTokenResponse(TypedDict, total=False):
@@ -3476,15 +3474,15 @@ class SetLogDeliveryConfigurationRequest(ServiceRequest):
 
 
 class SetLogDeliveryConfigurationResponse(TypedDict, total=False):
-    LogDeliveryConfiguration: Optional[LogDeliveryConfigurationType]
+    LogDeliveryConfiguration: LogDeliveryConfigurationType | None
 
 
 class SetRiskConfigurationRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    ClientId: Optional[ClientIdType]
-    CompromisedCredentialsRiskConfiguration: Optional[CompromisedCredentialsRiskConfigurationType]
-    AccountTakeoverRiskConfiguration: Optional[AccountTakeoverRiskConfigurationType]
-    RiskExceptionConfiguration: Optional[RiskExceptionConfigurationType]
+    ClientId: ClientIdType | None
+    CompromisedCredentialsRiskConfiguration: CompromisedCredentialsRiskConfigurationType | None
+    AccountTakeoverRiskConfiguration: AccountTakeoverRiskConfigurationType | None
+    RiskExceptionConfiguration: RiskExceptionConfigurationType | None
 
 
 class SetRiskConfigurationResponse(TypedDict, total=False):
@@ -3493,9 +3491,9 @@ class SetRiskConfigurationResponse(TypedDict, total=False):
 
 class SetUICustomizationRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    ClientId: Optional[ClientIdType]
-    CSS: Optional[CSSType]
-    ImageFile: Optional[ImageFileType]
+    ClientId: ClientIdType | None
+    CSS: CSSType | None
+    ImageFile: ImageFileType | None
 
 
 class SetUICustomizationResponse(TypedDict, total=False):
@@ -3503,9 +3501,9 @@ class SetUICustomizationResponse(TypedDict, total=False):
 
 
 class SetUserMFAPreferenceRequest(ServiceRequest):
-    SMSMfaSettings: Optional[SMSMfaSettingsType]
-    SoftwareTokenMfaSettings: Optional[SoftwareTokenMfaSettingsType]
-    EmailMfaSettings: Optional[EmailMfaSettingsType]
+    SMSMfaSettings: SMSMfaSettingsType | None
+    SoftwareTokenMfaSettings: SoftwareTokenMfaSettingsType | None
+    EmailMfaSettings: EmailMfaSettingsType | None
     AccessToken: TokenModelType
 
 
@@ -3515,19 +3513,19 @@ class SetUserMFAPreferenceResponse(TypedDict, total=False):
 
 class SetUserPoolMfaConfigRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
-    SmsMfaConfiguration: Optional[SmsMfaConfigType]
-    SoftwareTokenMfaConfiguration: Optional[SoftwareTokenMfaConfigType]
-    EmailMfaConfiguration: Optional[EmailMfaConfigType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    WebAuthnConfiguration: Optional[WebAuthnConfigurationType]
+    SmsMfaConfiguration: SmsMfaConfigType | None
+    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigType | None
+    EmailMfaConfiguration: EmailMfaConfigType | None
+    MfaConfiguration: UserPoolMfaType | None
+    WebAuthnConfiguration: WebAuthnConfigurationType | None
 
 
 class SetUserPoolMfaConfigResponse(TypedDict, total=False):
-    SmsMfaConfiguration: Optional[SmsMfaConfigType]
-    SoftwareTokenMfaConfiguration: Optional[SoftwareTokenMfaConfigType]
-    EmailMfaConfiguration: Optional[EmailMfaConfigType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    WebAuthnConfiguration: Optional[WebAuthnConfigurationType]
+    SmsMfaConfiguration: SmsMfaConfigType | None
+    SoftwareTokenMfaConfiguration: SoftwareTokenMfaConfigType | None
+    EmailMfaConfiguration: EmailMfaConfigType | None
+    MfaConfiguration: UserPoolMfaType | None
+    WebAuthnConfiguration: WebAuthnConfigurationType | None
 
 
 class SetUserSettingsRequest(ServiceRequest):
@@ -3547,23 +3545,23 @@ class SignUpRequest(ServiceRequest):
     """Represents the request to register a user."""
 
     ClientId: ClientIdType
-    SecretHash: Optional[SecretHashType]
+    SecretHash: SecretHashType | None
     Username: UsernameType
-    Password: Optional[PasswordType]
-    UserAttributes: Optional[AttributeListType]
-    ValidationData: Optional[AttributeListType]
-    AnalyticsMetadata: Optional[AnalyticsMetadataType]
-    UserContextData: Optional[UserContextDataType]
-    ClientMetadata: Optional[ClientMetadataType]
+    Password: PasswordType | None
+    UserAttributes: AttributeListType | None
+    ValidationData: AttributeListType | None
+    AnalyticsMetadata: AnalyticsMetadataType | None
+    UserContextData: UserContextDataType | None
+    ClientMetadata: ClientMetadataType | None
 
 
 class SignUpResponse(TypedDict, total=False):
     """The response from the server for a registration request."""
 
     UserConfirmed: BooleanType
-    CodeDeliveryDetails: Optional[CodeDeliveryDetailsType]
+    CodeDeliveryDetails: CodeDeliveryDetailsType | None
     UserSub: StringType
-    Session: Optional[SessionType]
+    Session: SessionType | None
 
 
 class StartUserImportJobRequest(ServiceRequest):
@@ -3578,7 +3576,7 @@ class StartUserImportJobResponse(TypedDict, total=False):
     import job.
     """
 
-    UserImportJob: Optional[UserImportJobType]
+    UserImportJob: UserImportJobType | None
 
 
 class StartWebAuthnRegistrationRequest(ServiceRequest):
@@ -3601,7 +3599,7 @@ class StopUserImportJobResponse(TypedDict, total=False):
     import job.
     """
 
-    UserImportJob: Optional[UserImportJobType]
+    UserImportJob: UserImportJobType | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -3613,7 +3611,7 @@ class TagResourceResponse(TypedDict, total=False):
     pass
 
 
-UserPoolTagsListType = List[TagKeysType]
+UserPoolTagsListType = list[TagKeysType]
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -3642,7 +3640,7 @@ class UpdateDeviceStatusRequest(ServiceRequest):
 
     AccessToken: TokenModelType
     DeviceKey: DeviceKeyType
-    DeviceRememberedStatus: Optional[DeviceRememberedStatusType]
+    DeviceRememberedStatus: DeviceRememberedStatusType | None
 
 
 class UpdateDeviceStatusResponse(TypedDict, total=False):
@@ -3654,21 +3652,21 @@ class UpdateDeviceStatusResponse(TypedDict, total=False):
 class UpdateGroupRequest(ServiceRequest):
     GroupName: GroupNameType
     UserPoolId: UserPoolIdType
-    Description: Optional[DescriptionType]
-    RoleArn: Optional[ArnType]
-    Precedence: Optional[PrecedenceType]
+    Description: DescriptionType | None
+    RoleArn: ArnType | None
+    Precedence: PrecedenceType | None
 
 
 class UpdateGroupResponse(TypedDict, total=False):
-    Group: Optional[GroupType]
+    Group: GroupType | None
 
 
 class UpdateIdentityProviderRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     ProviderName: ProviderNameType
-    ProviderDetails: Optional[ProviderDetailsType]
-    AttributeMapping: Optional[AttributeMappingType]
-    IdpIdentifiers: Optional[IdpIdentifiersListType]
+    ProviderDetails: ProviderDetailsType | None
+    AttributeMapping: AttributeMappingType | None
+    IdpIdentifiers: IdpIdentifiersListType | None
 
 
 class UpdateIdentityProviderResponse(TypedDict, total=False):
@@ -3676,22 +3674,22 @@ class UpdateIdentityProviderResponse(TypedDict, total=False):
 
 
 class UpdateManagedLoginBrandingRequest(ServiceRequest):
-    UserPoolId: Optional[UserPoolIdType]
-    ManagedLoginBrandingId: Optional[ManagedLoginBrandingIdType]
-    UseCognitoProvidedValues: Optional[BooleanType]
-    Settings: Optional[Document]
-    Assets: Optional[AssetListType]
+    UserPoolId: UserPoolIdType | None
+    ManagedLoginBrandingId: ManagedLoginBrandingIdType | None
+    UseCognitoProvidedValues: BooleanType | None
+    Settings: Document | None
+    Assets: AssetListType | None
 
 
 class UpdateManagedLoginBrandingResponse(TypedDict, total=False):
-    ManagedLoginBranding: Optional[ManagedLoginBrandingType]
+    ManagedLoginBranding: ManagedLoginBrandingType | None
 
 
 class UpdateResourceServerRequest(ServiceRequest):
     UserPoolId: UserPoolIdType
     Identifier: ResourceServerIdentifierType
     Name: ResourceServerNameType
-    Scopes: Optional[ResourceServerScopeListType]
+    Scopes: ResourceServerScopeListType | None
 
 
 class UpdateResourceServerResponse(TypedDict, total=False):
@@ -3701,14 +3699,14 @@ class UpdateResourceServerResponse(TypedDict, total=False):
 class UpdateTermsRequest(ServiceRequest):
     TermsId: TermsIdType
     UserPoolId: UserPoolIdType
-    TermsName: Optional[TermsNameType]
-    TermsSource: Optional[TermsSourceType]
-    Enforcement: Optional[TermsEnforcementType]
-    Links: Optional[LinksType]
+    TermsName: TermsNameType | None
+    TermsSource: TermsSourceType | None
+    Enforcement: TermsEnforcementType | None
+    Links: LinksType | None
 
 
 class UpdateTermsResponse(TypedDict, total=False):
-    Terms: Optional[TermsType]
+    Terms: TermsType | None
 
 
 class UpdateUserAttributesRequest(ServiceRequest):
@@ -3716,7 +3714,7 @@ class UpdateUserAttributesRequest(ServiceRequest):
 
     UserAttributes: AttributeListType
     AccessToken: TokenModelType
-    ClientMetadata: Optional[ClientMetadataType]
+    ClientMetadata: ClientMetadataType | None
 
 
 class UpdateUserAttributesResponse(TypedDict, total=False):
@@ -3724,7 +3722,7 @@ class UpdateUserAttributesResponse(TypedDict, total=False):
     attributes.
     """
 
-    CodeDeliveryDetailsList: Optional[CodeDeliveryDetailsListType]
+    CodeDeliveryDetailsList: CodeDeliveryDetailsListType | None
 
 
 class UpdateUserPoolClientRequest(ServiceRequest):
@@ -3732,27 +3730,27 @@ class UpdateUserPoolClientRequest(ServiceRequest):
 
     UserPoolId: UserPoolIdType
     ClientId: ClientIdType
-    ClientName: Optional[ClientNameType]
-    RefreshTokenValidity: Optional[RefreshTokenValidityType]
-    AccessTokenValidity: Optional[AccessTokenValidityType]
-    IdTokenValidity: Optional[IdTokenValidityType]
-    TokenValidityUnits: Optional[TokenValidityUnitsType]
-    ReadAttributes: Optional[ClientPermissionListType]
-    WriteAttributes: Optional[ClientPermissionListType]
-    ExplicitAuthFlows: Optional[ExplicitAuthFlowsListType]
-    SupportedIdentityProviders: Optional[SupportedIdentityProvidersListType]
-    CallbackURLs: Optional[CallbackURLsListType]
-    LogoutURLs: Optional[LogoutURLsListType]
-    DefaultRedirectURI: Optional[RedirectUrlType]
-    AllowedOAuthFlows: Optional[OAuthFlowsType]
-    AllowedOAuthScopes: Optional[ScopeListType]
-    AllowedOAuthFlowsUserPoolClient: Optional[BooleanType]
-    AnalyticsConfiguration: Optional[AnalyticsConfigurationType]
-    PreventUserExistenceErrors: Optional[PreventUserExistenceErrorTypes]
-    EnableTokenRevocation: Optional[WrappedBooleanType]
-    EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
-    AuthSessionValidity: Optional[AuthSessionValidityType]
-    RefreshTokenRotation: Optional[RefreshTokenRotationType]
+    ClientName: ClientNameType | None
+    RefreshTokenValidity: RefreshTokenValidityType | None
+    AccessTokenValidity: AccessTokenValidityType | None
+    IdTokenValidity: IdTokenValidityType | None
+    TokenValidityUnits: TokenValidityUnitsType | None
+    ReadAttributes: ClientPermissionListType | None
+    WriteAttributes: ClientPermissionListType | None
+    ExplicitAuthFlows: ExplicitAuthFlowsListType | None
+    SupportedIdentityProviders: SupportedIdentityProvidersListType | None
+    CallbackURLs: CallbackURLsListType | None
+    LogoutURLs: LogoutURLsListType | None
+    DefaultRedirectURI: RedirectUrlType | None
+    AllowedOAuthFlows: OAuthFlowsType | None
+    AllowedOAuthScopes: ScopeListType | None
+    AllowedOAuthFlowsUserPoolClient: BooleanType | None
+    AnalyticsConfiguration: AnalyticsConfigurationType | None
+    PreventUserExistenceErrors: PreventUserExistenceErrorTypes | None
+    EnableTokenRevocation: WrappedBooleanType | None
+    EnablePropagateAdditionalUserContextData: WrappedBooleanType | None
+    AuthSessionValidity: AuthSessionValidityType | None
+    RefreshTokenRotation: RefreshTokenRotationType | None
 
 
 class UpdateUserPoolClientResponse(TypedDict, total=False):
@@ -3760,7 +3758,7 @@ class UpdateUserPoolClientResponse(TypedDict, total=False):
     user pool client.
     """
 
-    UserPoolClient: Optional[UserPoolClientType]
+    UserPoolClient: UserPoolClientType | None
 
 
 class UpdateUserPoolDomainRequest(ServiceRequest):
@@ -3768,41 +3766,41 @@ class UpdateUserPoolDomainRequest(ServiceRequest):
 
     Domain: DomainType
     UserPoolId: UserPoolIdType
-    ManagedLoginVersion: Optional[WrappedIntegerType]
-    CustomDomainConfig: Optional[CustomDomainConfigType]
+    ManagedLoginVersion: WrappedIntegerType | None
+    CustomDomainConfig: CustomDomainConfigType | None
 
 
 class UpdateUserPoolDomainResponse(TypedDict, total=False):
     """The UpdateUserPoolDomain response output."""
 
-    ManagedLoginVersion: Optional[WrappedIntegerType]
-    CloudFrontDomain: Optional[DomainType]
+    ManagedLoginVersion: WrappedIntegerType | None
+    CloudFrontDomain: DomainType | None
 
 
 class UpdateUserPoolRequest(ServiceRequest):
     """Represents the request to update the user pool."""
 
     UserPoolId: UserPoolIdType
-    Policies: Optional[UserPoolPolicyType]
-    DeletionProtection: Optional[DeletionProtectionType]
-    LambdaConfig: Optional[LambdaConfigType]
-    AutoVerifiedAttributes: Optional[VerifiedAttributesListType]
-    SmsVerificationMessage: Optional[SmsVerificationMessageType]
-    EmailVerificationMessage: Optional[EmailVerificationMessageType]
-    EmailVerificationSubject: Optional[EmailVerificationSubjectType]
-    VerificationMessageTemplate: Optional[VerificationMessageTemplateType]
-    SmsAuthenticationMessage: Optional[SmsVerificationMessageType]
-    UserAttributeUpdateSettings: Optional[UserAttributeUpdateSettingsType]
-    MfaConfiguration: Optional[UserPoolMfaType]
-    DeviceConfiguration: Optional[DeviceConfigurationType]
-    EmailConfiguration: Optional[EmailConfigurationType]
-    SmsConfiguration: Optional[SmsConfigurationType]
-    UserPoolTags: Optional[UserPoolTagsType]
-    AdminCreateUserConfig: Optional[AdminCreateUserConfigType]
-    UserPoolAddOns: Optional[UserPoolAddOnsType]
-    AccountRecoverySetting: Optional[AccountRecoverySettingType]
-    PoolName: Optional[UserPoolNameType]
-    UserPoolTier: Optional[UserPoolTierType]
+    Policies: UserPoolPolicyType | None
+    DeletionProtection: DeletionProtectionType | None
+    LambdaConfig: LambdaConfigType | None
+    AutoVerifiedAttributes: VerifiedAttributesListType | None
+    SmsVerificationMessage: SmsVerificationMessageType | None
+    EmailVerificationMessage: EmailVerificationMessageType | None
+    EmailVerificationSubject: EmailVerificationSubjectType | None
+    VerificationMessageTemplate: VerificationMessageTemplateType | None
+    SmsAuthenticationMessage: SmsVerificationMessageType | None
+    UserAttributeUpdateSettings: UserAttributeUpdateSettingsType | None
+    MfaConfiguration: UserPoolMfaType | None
+    DeviceConfiguration: DeviceConfigurationType | None
+    EmailConfiguration: EmailConfigurationType | None
+    SmsConfiguration: SmsConfigurationType | None
+    UserPoolTags: UserPoolTagsType | None
+    AdminCreateUserConfig: AdminCreateUserConfigType | None
+    UserPoolAddOns: UserPoolAddOnsType | None
+    AccountRecoverySetting: AccountRecoverySettingType | None
+    PoolName: UserPoolNameType | None
+    UserPoolTier: UserPoolTierType | None
 
 
 class UpdateUserPoolResponse(TypedDict, total=False):
@@ -3814,15 +3812,15 @@ class UpdateUserPoolResponse(TypedDict, total=False):
 
 
 class VerifySoftwareTokenRequest(ServiceRequest):
-    AccessToken: Optional[TokenModelType]
-    Session: Optional[SessionType]
+    AccessToken: TokenModelType | None
+    Session: SessionType | None
     UserCode: SoftwareTokenMFAUserCodeType
-    FriendlyDeviceName: Optional[StringType]
+    FriendlyDeviceName: StringType | None
 
 
 class VerifySoftwareTokenResponse(TypedDict, total=False):
-    Status: Optional[VerifySoftwareTokenResponseType]
-    Session: Optional[SessionType]
+    Status: VerifySoftwareTokenResponseType | None
+    Session: SessionType | None
 
 
 class VerifyUserAttributeRequest(ServiceRequest):
@@ -3842,8 +3840,8 @@ class VerifyUserAttributeResponse(TypedDict, total=False):
 
 
 class CognitoIdpApi:
-    service = "cognito-idp"
-    version = "2016-04-18"
+    service: str = "cognito-idp"
+    version: str = "2016-04-18"
 
     @handler("AddCustomAttributes")
     def add_custom_attributes(

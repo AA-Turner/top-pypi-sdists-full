@@ -3,8 +3,9 @@ Tests for "typed_settings.argparse_utils".
 """
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, Literal, TypeVar
 
 import attrs
 import pytest
@@ -17,6 +18,7 @@ from typed_settings import (
     default_converter,
     default_loaders,
     option,
+    secret,
     settings,
 )
 
@@ -94,7 +96,11 @@ def test_cli_desc_from_func(invoke: Invoke, capsys: pytest.CaptureFixture) -> No
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    assert out.startswith("usage: cli [-h] --o INT\n\nLe description.\n")
+    if _compat.PY_314:
+        cli_name = "python3 -m pytest"
+    else:
+        cli_name = "cli"
+    assert out.startswith(f"usage: {cli_name} [-h] --o INT\n\nLe description.\n")
     assert err == ""
 
 
@@ -113,7 +119,97 @@ def test_cli_desc_from_kwarg(invoke: Invoke, capsys: pytest.CaptureFixture) -> N
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    assert out.startswith("usage: cli [-h] --o INT\n\nLe description\n")
+    if _compat.PY_314:
+        cli_name = "python3 -m pytest"
+    else:
+        cli_name = "cli"
+    assert out.startswith(f"usage: {cli_name} [-h] --o INT\n\nLe description\n")
+    assert err == ""
+
+
+def test_help_text(invoke: Invoke, capsys: pytest.CaptureFixture) -> None:
+    """
+    options/secrets can specify a help text for CLI options.
+    """
+
+    @settings
+    class Settings:
+        a: str = option(default="spam", help="Help for 'a'")
+        b: str = secret(default="eggs", help="bbb")
+
+    @cli_argparse.cli(Settings, "test")
+    def cli(settings: Settings) -> None:
+        """
+        Le description.
+        """
+
+    with pytest.raises(SystemExit):
+        invoke(cli, "--help")
+
+    out, err = capsys.readouterr()
+    if _compat.PY_314:
+        cli_name = "python3 -m pytest"
+    else:
+        cli_name = "cli"
+    assert out == (
+        f"usage: {cli_name} [-h] [--a TEXT] [--b TEXT]\n"
+        "\n"
+        "Le description.\n"
+        "\n"
+        "options:\n"
+        "  -h, --help  show this help message and exit\n"
+        "\n"
+        "Settings:\n"
+        "  Settings options\n"
+        "\n"
+        "  --a TEXT    Help for 'a' [default: spam]\n"
+        "  --b TEXT    bbb [default: (*******)]\n"
+    )
+    assert err == ""
+
+
+def test_help_from_docstring(invoke: Invoke, capsys: pytest.CaptureFixture) -> None:
+    """
+    If docstrings are defined, they are used as help text, but they can be
+    overriden.
+    """
+
+    @settings
+    class Settings:
+        a: str = "spam"
+        """Help for 'a' from docstring."""
+
+        b: str = option(default="spam", help="Help for 'b' from option.")
+        """Help for 'b' from docstring."""
+
+    @cli_argparse.cli(Settings, "test")
+    def cli(settings: Settings) -> None:
+        """
+        Le description.
+        """
+
+    with pytest.raises(SystemExit):
+        invoke(cli, "--help")
+
+    out, err = capsys.readouterr()
+    if _compat.PY_314:
+        cli_name = "python3 -m pytest"
+    else:
+        cli_name = "cli"
+    assert out == (
+        f"usage: {cli_name} [-h] [--a TEXT] [--b TEXT]\n"
+        "\n"
+        "Le description.\n"
+        "\n"
+        "options:\n"
+        "  -h, --help  show this help message and exit\n"
+        "\n"
+        "Settings:\n"
+        "  Settings options\n"
+        "\n"
+        "  --a TEXT    Help for 'a' from docstring. [default: spam]\n"
+        "  --b TEXT    Help for 'b' from option. [default: spam]\n"
+    )
     assert err == ""
 
 
@@ -162,7 +258,7 @@ def test_invalid_bool_flag() -> None:
     class Settings:
         flag: bool = option(argparse={"param_decls": ("-f")})
 
-    with pytest.raises(ValueError, match="boolean flags.*--.*supported"):
+    with pytest.raises(ValueError, match=r"boolean flags.*--.*supported"):
         cli_argparse.make_parser(Settings, "test")
 
 
@@ -246,9 +342,6 @@ def test_multiple_invocations(invoke: Invoke) -> None:
     assert loaded_settings == [S(3), S(0)]
 
 
-@pytest.mark.skipif(
-    not _compat.PY_310, reason='The output of arparse\'s "--help" has changed in 3.10'
-)
 def test_default_factory_multiple_invocations(
     invoke: Invoke, capsys: pytest.CaptureFixture
 ) -> None:
@@ -270,8 +363,12 @@ def test_default_factory_multiple_invocations(
     with pytest.raises(SystemExit):
         invoke(cli, "--help")
     out, err = capsys.readouterr()
+    if _compat.PY_314:
+        cli_name = "python3 -m pytest"
+    else:
+        cli_name = "cli"
     assert out == (
-        "usage: cli [-h] [--o INT]\n"
+        f"usage: {cli_name} [-h] [--o INT]\n"
         "\n"
         "options:\n"
         "  -h, --help  show this help message and exit\n"
@@ -319,3 +416,40 @@ def test_lazy_load_defaults(
     invoke(cli, "--o1=0")
 
     assert loaded_settings == [Settings(0, 1), Settings(0, 2)]
+
+
+def test_aliases(invoke: Invoke) -> None:
+    """
+    Aliases are used instead of names when defined.
+    """
+
+    @settings
+    class Settings:
+        o1: int = option(alias="o2")
+
+    @cli_argparse.cli(Settings, "test")
+    def cli(settings: Settings) -> None:
+        assert settings == Settings(3)
+
+    invoke(cli, "--o2=3")
+
+    with pytest.raises(SystemExit):
+        invoke(cli, "--o1=3")
+
+
+def test_invalid_literal(invoke: Invoke) -> None:
+    """
+    Literals must only use string values.
+    """
+
+    @settings
+    class Settings:
+        o1: Literal["spam", 42]
+
+    @cli_argparse.cli(Settings, "test")
+    def cli(settings: Settings) -> None: ...
+
+    with pytest.raises(
+        ValueError, match=r"All Literal values must be strings: \('spam', 42\)"
+    ):
+        invoke(cli, "--help")

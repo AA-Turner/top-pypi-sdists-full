@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use common_error::DaftResult;
 use common_treenode::{DynTreeNode, Transformed, TreeNode};
+use daft_dsl::{Expr, ExprRef, functions::scalar::ScalarFn};
 
 use super::OptimizerRule;
 use crate::{
     LogicalPlan,
     ops::{
-        Limit as LogicalLimit, Sort as LogicalSort, Source as LogicalSource, TopN as LogicalTopN,
+        Limit as LogicalLimit, Project as LogicalProject, Sort as LogicalSort,
+        Source as LogicalSource, TopN as LogicalTopN,
     },
     source_info::SourceInfo,
 };
@@ -19,6 +21,16 @@ pub struct PushDownLimit {}
 impl PushDownLimit {
     pub fn new() -> Self {
         Self {}
+    }
+
+    fn contains_explode(expr: &ExprRef) -> bool {
+        expr.exists(|e| {
+            if let Expr::ScalarFn(ScalarFn::Builtin(sf)) = e.as_ref() {
+                sf.is_function_type::<daft_functions_list::Explode>()
+            } else {
+                false
+            }
+        })
     }
 }
 
@@ -47,15 +59,27 @@ impl PushDownLimit {
                     // Naive commuting with unary ops.
                     //
                     // Limit-UnaryOp -> UnaryOp-Limit
-                    LogicalPlan::Repartition(_)
-                    | LogicalPlan::Project(_)
-                    | LogicalPlan::IntoBatches(_) => {
+                    LogicalPlan::Repartition(_) | LogicalPlan::IntoBatches(_) => {
                         let new_limit = plan
                             .with_new_children(&[input.arc_children()[0].clone()])
                             .into();
                         Ok(Transformed::yes(
                             input.with_new_children(&[new_limit]).into(),
                         ))
+                    }
+                    LogicalPlan::Project(LogicalProject { projection, .. }) => {
+                        let has_explode = projection.iter().any(Self::contains_explode);
+
+                        if has_explode {
+                            Ok(Transformed::no(plan))
+                        } else {
+                            let new_limit = plan
+                                .with_new_children(&[input.arc_children()[0].clone()])
+                                .into();
+                            Ok(Transformed::yes(
+                                input.with_new_children(&[new_limit]).into(),
+                            ))
+                        }
                     }
                     // Push limit into source as a "local" limit.
                     //
@@ -69,6 +93,26 @@ impl PushDownLimit {
                         match source_info.as_ref() {
                             // Limit pushdown is not supported for in-memory sources.
                             SourceInfo::InMemory(_) => Ok(Transformed::no(plan)),
+                            SourceInfo::GlobScan(glob_info)
+                                if let Some(existing_limit) = glob_info.pushdowns.limit
+                                    && existing_limit <= pushdown_limit =>
+                            {
+                                Ok(Transformed::no(plan))
+                            }
+                            SourceInfo::GlobScan(glob_info) => {
+                                // Create a new GlobScanSource node with the new limit
+                                let new_pushdowns =
+                                    glob_info.pushdowns.with_limit(Some(pushdown_limit));
+                                let new_glob_info = glob_info.with_pushdowns(new_pushdowns);
+                                let new_source = LogicalPlan::Source(LogicalSource::new(
+                                    output_schema.clone(),
+                                    SourceInfo::GlobScan(new_glob_info).into(),
+                                ))
+                                .into();
+                                // Set the GlobScanSource node as the child of the Limit node
+                                let limit_plan = plan.with_new_children(&[new_source]).into();
+                                Ok(Transformed::yes(limit_plan))
+                            }
                             // Do not pushdown if Source node is already more limited than `limit`
                             SourceInfo::Physical(external_info)
                                 if let Some(existing_limit) = external_info.pushdowns.limit
@@ -86,16 +130,14 @@ impl PushDownLimit {
                                     SourceInfo::Physical(new_external_info).into(),
                                 ))
                                 .into();
-                                let out_plan = if external_info
-                                    .scan_state
-                                    .get_scan_op()
-                                    .0
-                                    .can_absorb_limit()
-                                {
-                                    new_source
-                                } else {
-                                    plan.with_new_children(&[new_source]).into()
-                                };
+                                let out_plan =
+                                    if external_info.scan_state.get_scan_op().0.can_absorb_limit()
+                                        && offset.is_none()
+                                    {
+                                        new_source
+                                    } else {
+                                        plan.with_new_children(&[new_source]).into()
+                                    };
                                 Ok(Transformed::yes(out_plan))
                             }
                             SourceInfo::PlaceHolder(..) => {
@@ -175,7 +217,8 @@ impl PushDownLimit {
                     | LogicalPlan::MonotonicallyIncreasingId(..)
                     | LogicalPlan::SubqueryAlias(..)
                     | LogicalPlan::Window(..)
-                    | LogicalPlan::Concat(_) => Ok(Transformed::no(plan)),
+                    | LogicalPlan::Concat(_)
+                    | LogicalPlan::VLLMProject(..) => Ok(Transformed::no(plan)),
                 }
             }
             _ => Ok(Transformed::no(plan)),
@@ -336,7 +379,7 @@ mod tests {
     #[test]
     #[cfg(feature = "python")]
     fn limit_does_not_push_into_in_memory_source() -> DaftResult<()> {
-        let py_obj = Python::with_gil(|py| py.None());
+        let py_obj = Python::attach(|py| py.None());
         let schema: Arc<Schema> = Schema::new(vec![Field::new("a", DataType::Int64)]).into();
         let plan = LogicalPlanBuilder::in_memory_scan(
             "foo",

@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, constr, validator 
 from lusid.models.model_property import ModelProperty
 
 class UpsertValuationPointRequest(BaseModel):
@@ -27,12 +29,14 @@ class UpsertValuationPointRequest(BaseModel):
     A definition for the period you wish to close  # noqa: E501
     """
     diary_entry_code:  StrictStr = Field(...,alias="diaryEntryCode", description="Unique code for the Valuation Point.") 
+    diary_entry_variant:  Optional[StrictStr] = Field(None,alias="diaryEntryVariant", description="Optional variant code. Only required when it is necessary to choose between scenarios with multiple estimates.") 
     name:  Optional[StrictStr] = Field(None,alias="name", description="Identifiable Name assigned to the Valuation Point.") 
-    effective_at: datetime = Field(..., alias="effectiveAt", description="The effective time of the diary entry.")
-    query_as_at: Optional[datetime] = Field(None, alias="queryAsAt", description="The query time of the diary entry. Defaults to latest.")
-    properties: Optional[Dict[str, ModelProperty]] = Field(None, description="A set of properties for the diary entry.")
-    apply_clear_down: Optional[StrictBool] = Field(None, alias="applyClearDown", description="Defaults to false. Set to true if you want that the closed period to have the clear down applied.")
-    __properties = ["diaryEntryCode", "name", "effectiveAt", "queryAsAt", "properties", "applyClearDown"]
+    effective_at: datetime = Field(description="The effective time of the diary entry.", alias="effectiveAt")
+    query_as_at: Optional[datetime] = Field(default=None, description="The query time of the diary entry. Defaults to latest.", alias="queryAsAt")
+    properties: Optional[Dict[str, ModelProperty]] = Field(default=None, description="A set of properties for the diary entry.")
+    apply_clear_down: Optional[StrictBool] = Field(default=None, description="Defaults to false. Set to true if you want that the closed period to have the clear down applied.", alias="applyClearDown")
+    update_inclusion_date_nav_adjustments: Optional[StrictBool] = Field(default=None, description="Defaults to false. Set to true if you have the required licence and want the InclusionDate property values to be used to determine whether items should be automatically included in the post close activities.", alias="updateInclusionDateNavAdjustments")
+    __properties = ["diaryEntryCode", "diaryEntryVariant", "name", "effectiveAt", "queryAsAt", "properties", "applyClearDown", "updateInclusionDateNavAdjustments"]
 
     class Config:
         """Pydantic configuration"""
@@ -73,6 +77,11 @@ class UpsertValuationPointRequest(BaseModel):
                 if self.properties[_key]:
                     _field_dict[_key] = self.properties[_key].to_dict()
             _dict['properties'] = _field_dict
+        # set to None if diary_entry_variant (nullable) is None
+        # and __fields_set__ contains the field
+        if self.diary_entry_variant is None and "diary_entry_variant" in self.__fields_set__:
+            _dict['diaryEntryVariant'] = None
+
         # set to None if name (nullable) is None
         # and __fields_set__ contains the field
         if self.name is None and "name" in self.__fields_set__:
@@ -101,6 +110,7 @@ class UpsertValuationPointRequest(BaseModel):
 
         _obj = UpsertValuationPointRequest.parse_obj({
             "diary_entry_code": obj.get("diaryEntryCode"),
+            "diary_entry_variant": obj.get("diaryEntryVariant"),
             "name": obj.get("name"),
             "effective_at": obj.get("effectiveAt"),
             "query_as_at": obj.get("queryAsAt"),
@@ -110,6 +120,9 @@ class UpsertValuationPointRequest(BaseModel):
             )
             if obj.get("properties") is not None
             else None,
-            "apply_clear_down": obj.get("applyClearDown")
+            "apply_clear_down": obj.get("applyClearDown"),
+            "update_inclusion_date_nav_adjustments": obj.get("updateInclusionDateNavAdjustments")
         })
         return _obj
+
+UpsertValuationPointRequest.update_forward_refs()

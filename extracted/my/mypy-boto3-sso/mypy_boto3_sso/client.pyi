@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -37,11 +38,6 @@ from .type_defs import (
     LogoutRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -50,11 +46,11 @@ else:
 __all__ = ("SSOClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 class SSOClient(BaseClient):
     """

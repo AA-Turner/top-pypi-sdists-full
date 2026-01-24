@@ -447,6 +447,14 @@ class TransformerConfig:
       config[key] = value
     return cls(**config)
 
+  def __post_init__(self):
+      if self.num_heads != self.num_kv_heads:
+        if self.num_heads % self.num_kv_heads != 0:
+          raise ValueError(
+            f"Number of query heads ({self.num_heads}) must be divisible by "
+            f"number of key/value heads ({self.num_kv_heads})."
+          )
+
 
 def _map_linen_var_names(key: tuple[str, ...]) -> tuple[str | int, ...]:
   """Maps linen variable names to nnx variable names."""
@@ -479,10 +487,10 @@ def _assign_linen_params_to_nnx_state(
   if 'gate_proj' in mapped_path:
     if transpose_gating_einsum:
       val = jnp.swapaxes(val, 1, 2)
-    state[mapped_path].value = val[0]
-    state[mapped_path[:-2] + ('up_proj', 'kernel')].value = val[1]
+    state[mapped_path].set_value(val[0])
+    state[mapped_path[:-2] + ('up_proj', 'kernel')].set_value(val[1])
   else:
-    state[mapped_path].value = val
+    state[mapped_path].set_value(val)
   return state
 
 
@@ -529,7 +537,7 @@ class Transformer(nnx.Module):
         dtype=config.dtype,
         rngs=rngs,
     )
-    self.layers = [
+    self.layers = nnx.List([
         modules.Block(
           config=config,
           attn_type=attn_type,
@@ -539,7 +547,7 @@ class Transformer(nnx.Module):
         for _, attn_type in zip(
             range(config.num_layers), config.attention_types
         )
-    ]
+    ])
     self.final_norm = layers.RMSNorm(
       config.embed_dim,
       scale_init=modules.maybe_with_partitioning(

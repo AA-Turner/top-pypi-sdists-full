@@ -15,6 +15,7 @@ from pyathena.model import AthenaCompression, AthenaFileFormat, AthenaQueryExecu
 from pyathena.result_set import WithResultSet
 
 if TYPE_CHECKING:
+    import polars as pl
     from pyarrow import Table
 
 _logger = logging.getLogger(__name__)  # type: ignore
@@ -63,8 +64,41 @@ class ArrowCursor(BaseCursor, CursorIterator, WithResultSet):
         result_reuse_enable: bool = False,
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         on_start_query_execution: Optional[Callable[[str], None]] = None,
+        connect_timeout: Optional[float] = None,
+        request_timeout: Optional[float] = None,
         **kwargs,
     ) -> None:
+        """Initialize an ArrowCursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option (SSE_S3, SSE_KMS, CSE_KMS).
+            kms_key: KMS key ARN for encryption.
+            kill_on_interrupt: Cancel running query on keyboard interrupt.
+            unload: Enable UNLOAD for high-performance Parquet output.
+            result_reuse_enable: Enable Athena query result reuse.
+            result_reuse_minutes: Minutes to reuse cached results.
+            on_start_query_execution: Callback invoked when query starts.
+            connect_timeout: Socket connection timeout in seconds for S3 operations.
+                Defaults to AWS SDK default (typically 1 second) if not specified.
+            request_timeout: Request timeout in seconds for S3 operations.
+                Defaults to AWS SDK default (typically 3 seconds) if not specified.
+                Increase this value if you experience timeout errors when using
+                role assumption with STS or have high latency to S3.
+            **kwargs: Additional connection parameters.
+
+        Example:
+            >>> # Use higher timeouts for role assumption scenarios
+            >>> cursor = connection.cursor(
+            ...     ArrowCursor,
+            ...     connect_timeout=10,
+            ...     request_timeout=30
+            ... )
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -80,6 +114,8 @@ class ArrowCursor(BaseCursor, CursorIterator, WithResultSet):
         )
         self._unload = unload
         self._on_start_query_execution = on_start_query_execution
+        self._connect_timeout = connect_timeout
+        self._request_timeout = request_timeout
         self._query_id: Optional[str] = None
         self._result_set: Optional[AthenaArrowResultSet] = None
 
@@ -120,6 +156,11 @@ class ArrowCursor(BaseCursor, CursorIterator, WithResultSet):
     @property
     def rownumber(self) -> Optional[int]:
         return self.result_set.rownumber if self.result_set else None
+
+    @property
+    def rowcount(self) -> int:
+        """Get the number of rows affected by the last operation."""
+        return self.result_set.rowcount if self.result_set else -1
 
     def close(self) -> None:
         if self.result_set and not self.result_set.is_closed:
@@ -205,6 +246,8 @@ class ArrowCursor(BaseCursor, CursorIterator, WithResultSet):
                 retry_config=self._retry_config,
                 unload=self._unload,
                 unload_location=unload_location,
+                connect_timeout=self._connect_timeout,
+                request_timeout=self._request_timeout,
                 **kwargs,
             )
         else:
@@ -274,3 +317,27 @@ class ArrowCursor(BaseCursor, CursorIterator, WithResultSet):
             raise ProgrammingError("No result set.")
         result_set = cast(AthenaArrowResultSet, self.result_set)
         return result_set.as_arrow()
+
+    def as_polars(self) -> "pl.DataFrame":
+        """Return query results as a Polars DataFrame.
+
+        Converts the Apache Arrow Table to a Polars DataFrame for
+        interoperability with the Polars data processing library.
+
+        Returns:
+            Polars DataFrame containing all query results.
+
+        Raises:
+            ProgrammingError: If no query has been executed or no results are available.
+            ImportError: If polars is not installed.
+
+        Example:
+            >>> cursor = connection.cursor(ArrowCursor)
+            >>> cursor.execute("SELECT * FROM my_table")
+            >>> df = cursor.as_polars()
+            >>> print(f"DataFrame has {df.height} rows and {df.width} columns")
+        """
+        if not self.has_result_set:
+            raise ProgrammingError("No result set.")
+        result_set = cast(AthenaArrowResultSet, self.result_set)
+        return result_set.as_polars()

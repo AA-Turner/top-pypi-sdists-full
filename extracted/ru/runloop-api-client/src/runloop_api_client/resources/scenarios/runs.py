@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import NOT_GIVEN, Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -62,7 +62,7 @@ class RunsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScenarioRunView:
         """
         Get a ScenarioRun given ID.
@@ -89,25 +89,34 @@ class RunsResource(SyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        scenario_id: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        benchmark_run_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        name: str | Omit = omit,
+        scenario_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
+        state: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncBenchmarkRunsCursorIDPage[ScenarioRunView]:
         """
         List all ScenarioRuns matching filter.
 
         Args:
-          limit: The limit of items to return. Default is 20.
+          benchmark_run_id: Filter by benchmark run ID
+
+          limit: The limit of items to return. Default is 20. Max is 5000.
+
+          name: Filter by name
 
           scenario_id: Filter runs associated to Scenario given ID
 
           starting_after: Load the next page of data starting after the item with the given ID.
+
+          state: Filter by state
 
           extra_headers: Send extra headers
 
@@ -127,9 +136,12 @@ class RunsResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "benchmark_run_id": benchmark_run_id,
                         "limit": limit,
+                        "name": name,
                         "scenario_id": scenario_id,
                         "starting_after": starting_after,
+                        "state": state,
                     },
                     run_list_params.RunListParams,
                 ),
@@ -146,7 +158,7 @@ class RunsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """Cancel a currently running Scenario run.
@@ -188,7 +200,7 @@ class RunsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """Complete a currently running ScenarioRun.
@@ -230,7 +242,7 @@ class RunsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> BinaryAPIResponse:
         """
@@ -272,7 +284,7 @@ class RunsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """
@@ -470,7 +482,7 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScenarioRunView:
         """
         Get a ScenarioRun given ID.
@@ -497,25 +509,34 @@ class AsyncRunsResource(AsyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        scenario_id: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        benchmark_run_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        name: str | Omit = omit,
+        scenario_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
+        state: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ScenarioRunView, AsyncBenchmarkRunsCursorIDPage[ScenarioRunView]]:
         """
         List all ScenarioRuns matching filter.
 
         Args:
-          limit: The limit of items to return. Default is 20.
+          benchmark_run_id: Filter by benchmark run ID
+
+          limit: The limit of items to return. Default is 20. Max is 5000.
+
+          name: Filter by name
 
           scenario_id: Filter runs associated to Scenario given ID
 
           starting_after: Load the next page of data starting after the item with the given ID.
+
+          state: Filter by state
 
           extra_headers: Send extra headers
 
@@ -535,9 +556,12 @@ class AsyncRunsResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "benchmark_run_id": benchmark_run_id,
                         "limit": limit,
+                        "name": name,
                         "scenario_id": scenario_id,
                         "starting_after": starting_after,
+                        "state": state,
                     },
                     run_list_params.RunListParams,
                 ),
@@ -554,7 +578,7 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """Cancel a currently running Scenario run.
@@ -596,7 +620,7 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """Complete a currently running ScenarioRun.
@@ -638,7 +662,7 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> AsyncBinaryAPIResponse:
         """
@@ -680,7 +704,7 @@ class AsyncRunsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ScenarioRunView:
         """

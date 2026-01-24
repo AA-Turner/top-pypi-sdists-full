@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Dict, Generator, List
+from collections.abc import Callable, Generator
+from typing import Any
 
+from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
 
-Generated = Dict[str, Any]
-Definition = Dict[str, Any]
-DefinitionList = List[Definition]
+Generated = dict[str, Any]
+Definition = dict[str, Any]
+DefinitionList = list[Definition]
 MapFunction = Callable[[Generated], Generated]
 
 
@@ -57,7 +58,11 @@ def _serialize_openapi3(definitions: DefinitionList) -> Generator[Callable | Non
             # Simple serialization
             style = definition.get("style")
             explode = definition.get("explode")
-            type_ = definition.get("schema", {}).get("type")
+            schema = definition.get("schema", {})
+            if isinstance(schema, dict):
+                type_ = schema.get("type")
+            else:
+                type_ = None
             if definition["in"] == "path":
                 yield from _serialize_path_openapi3(name, type_, style, explode)
             elif definition["in"] == "query":
@@ -69,13 +74,13 @@ def _serialize_openapi3(definitions: DefinitionList) -> Generator[Callable | Non
 
 
 def _serialize_path_openapi3(
-    name: str, type_: str, style: str | None, explode: bool | None
+    name: str, type_: str | None, style: str | None, explode: bool | None
 ) -> Generator[Callable | None, None, None]:
     if style == "simple":
         if type_ == "object":
             if explode is False:
                 yield comma_delimited_object(name)
-            if explode is True:
+            if explode:
                 yield delimited_object(name)
         if type_ == "array":
             yield delimited(name, delimiter=",")
@@ -96,7 +101,7 @@ def _serialize_path_openapi3(
 
 
 def _serialize_query_openapi3(
-    name: str, type_: str, style: str | None, explode: bool | None
+    name: str, type_: str | None, style: str | None, explode: bool | None
 ) -> Generator[Callable | None, None, None]:
     if type_ == "object":
         if style == "deepObject":
@@ -104,7 +109,7 @@ def _serialize_query_openapi3(
         if style is None or style == "form":
             if explode is False:
                 yield comma_delimited_object(name)
-            if explode is True:
+            if explode:
                 yield extracted_object(name)
     elif type_ == "array" and explode is False:
         if style == "pipeDelimited":
@@ -115,7 +120,9 @@ def _serialize_query_openapi3(
             yield delimited(name, delimiter=",")
 
 
-def _serialize_header_openapi3(name: str, type_: str, explode: bool | None) -> Generator[Callable | None, None, None]:
+def _serialize_header_openapi3(
+    name: str, type_: str | None, explode: bool | None
+) -> Generator[Callable | None, None, None]:
     # Headers should be coerced to a string so we can check it for validity later
     yield to_string(name)
     # Header parameters always use the "simple" style, that is, comma-separated values
@@ -124,11 +131,13 @@ def _serialize_header_openapi3(name: str, type_: str, explode: bool | None) -> G
     if type_ == "object":
         if explode is False:
             yield comma_delimited_object(name)
-        if explode is True:
+        if explode:
             yield delimited_object(name)
 
 
-def _serialize_cookie_openapi3(name: str, type_: str, explode: bool | None) -> Generator[Callable | None, None, None]:
+def _serialize_cookie_openapi3(
+    name: str, type_: str | None, explode: bool | None
+) -> Generator[Callable | None, None, None]:
     # Cookies should be coerced to a string so we can check it for validity later
     yield to_string(name)
     # Cookie parameters always use the "form" style
@@ -190,7 +199,7 @@ def force_iterable(value: Any) -> list | tuple:
 
     Only relevant for negative test scenarios where the original types might be changed.
     """
-    if isinstance(value, (tuple, list)):
+    if isinstance(value, tuple | list):
         return value
     return [value]
 
@@ -213,7 +222,7 @@ def to_json(item: Generated, name: str) -> None:
 
 @conversion
 def delimited(item: Generated, name: str, delimiter: str) -> None:
-    item[name] = delimiter.join(map(str, force_iterable(item[name] or ())))
+    item[name] = delimiter.join(map(str, force_iterable(item[name] if item[name] is not None else ())))
 
 
 @conversion

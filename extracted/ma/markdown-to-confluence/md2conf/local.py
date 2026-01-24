@@ -1,7 +1,7 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
@@ -9,12 +9,11 @@ Copyright 2022-2025, Levente Hunyadi
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
+from .compatibility import override
 from .converter import ConfluenceDocument
-from .domain import ConfluenceDocumentOptions, ConfluencePageID
-from .extra import override
 from .metadata import ConfluencePageMetadata, ConfluenceSiteMetadata
+from .options import ConfluencePageID, DocumentOptions
 from .processor import Converter, DocumentNode, Processor, ProcessorFactory
 
 LOGGER = logging.getLogger(__name__)
@@ -27,10 +26,10 @@ class LocalProcessor(Processor):
 
     def __init__(
         self,
-        options: ConfluenceDocumentOptions,
+        options: DocumentOptions,
         site: ConfluenceSiteMetadata,
         *,
-        out_dir: Optional[Path],
+        out_dir: Path | None,
         root_dir: Path,
     ) -> None:
         """
@@ -46,14 +45,14 @@ class LocalProcessor(Processor):
         self.out_dir = out_dir or root_dir
 
     @override
-    def _synchronize_tree(self, root: DocumentNode, root_id: Optional[ConfluencePageID]) -> None:
+    def _synchronize_tree(self, tree: DocumentNode, root_id: ConfluencePageID | None) -> None:
         """
         Creates the cross-reference index.
 
         Does not change Markdown files.
         """
 
-        for node in root.all():
+        for node in tree.all():
             if node.page_id is not None:
                 page_id = node.page_id
             else:
@@ -89,13 +88,13 @@ class LocalProcessor(Processor):
 
 
 class LocalProcessorFactory(ProcessorFactory):
-    out_dir: Optional[Path]
+    out_dir: Path | None
 
     def __init__(
         self,
-        options: ConfluenceDocumentOptions,
+        options: DocumentOptions,
         site: ConfluenceSiteMetadata,
-        out_dir: Optional[Path] = None,
+        out_dir: Path | None = None,
     ) -> None:
         super().__init__(options, site)
         self.out_dir = out_dir
@@ -111,8 +110,8 @@ class LocalConverter(Converter):
 
     def __init__(
         self,
-        options: ConfluenceDocumentOptions,
+        options: DocumentOptions,
         site: ConfluenceSiteMetadata,
-        out_dir: Optional[Path] = None,
+        out_dir: Path | None = None,
     ) -> None:
         super().__init__(LocalProcessorFactory(options, site, out_dir))

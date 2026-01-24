@@ -3,7 +3,7 @@ Type annotations for pipes service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pipes/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -43,12 +44,6 @@ from .literals import (
     TimeFieldTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -179,8 +174,8 @@ __all__ = (
 
 
 class AwsVpcConfigurationOutputTypeDef(TypedDict):
-    Subnets: List[str]
-    SecurityGroups: NotRequired[List[str]]
+    Subnets: list[str]
+    SecurityGroups: NotRequired[list[str]]
     AssignPublicIp: NotRequired[AssignPublicIpType]
 
 
@@ -236,7 +231,7 @@ class CloudwatchLogsLogDestinationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -356,9 +351,9 @@ class MultiMeasureAttributeMappingTypeDef(TypedDict):
 
 
 class PipeEnrichmentHttpParametersOutputTypeDef(TypedDict):
-    PathParameterValues: NotRequired[List[str]]
-    HeaderParameters: NotRequired[Dict[str, str]]
-    QueryStringParameters: NotRequired[Dict[str, str]]
+    PathParameterValues: NotRequired[list[str]]
+    HeaderParameters: NotRequired[dict[str, str]]
+    QueryStringParameters: NotRequired[dict[str, str]]
 
 
 class PipeEnrichmentHttpParametersTypeDef(TypedDict):
@@ -397,8 +392,8 @@ class SelfManagedKafkaAccessConfigurationCredentialsTypeDef(TypedDict):
 
 
 class SelfManagedKafkaAccessConfigurationVpcOutputTypeDef(TypedDict):
-    Subnets: NotRequired[List[str]]
-    SecurityGroup: NotRequired[List[str]]
+    Subnets: NotRequired[list[str]]
+    SecurityGroup: NotRequired[list[str]]
 
 
 class SelfManagedKafkaAccessConfigurationVpcTypeDef(TypedDict):
@@ -436,7 +431,7 @@ class PipeTargetEventBridgeEventBusParametersOutputTypeDef(TypedDict):
     EndpointId: NotRequired[str]
     DetailType: NotRequired[str]
     Source: NotRequired[str]
-    Resources: NotRequired[List[str]]
+    Resources: NotRequired[list[str]]
     Time: NotRequired[str]
 
 
@@ -449,9 +444,9 @@ class PipeTargetEventBridgeEventBusParametersTypeDef(TypedDict):
 
 
 class PipeTargetHttpParametersOutputTypeDef(TypedDict):
-    PathParameterValues: NotRequired[List[str]]
-    HeaderParameters: NotRequired[Dict[str, str]]
-    QueryStringParameters: NotRequired[Dict[str, str]]
+    PathParameterValues: NotRequired[list[str]]
+    HeaderParameters: NotRequired[dict[str, str]]
+    QueryStringParameters: NotRequired[dict[str, str]]
 
 
 class PipeTargetHttpParametersTypeDef(TypedDict):
@@ -470,7 +465,7 @@ class PipeTargetLambdaFunctionParametersTypeDef(TypedDict):
 
 class PipeTargetRedshiftDataParametersOutputTypeDef(TypedDict):
     Database: str
-    Sqls: List[str]
+    Sqls: list[str]
     SecretManagerArn: NotRequired[str]
     DbUser: NotRequired[str]
     StatementName: NotRequired[str]
@@ -538,10 +533,10 @@ class NetworkConfigurationTypeDef(TypedDict):
 
 
 class BatchContainerOverridesOutputTypeDef(TypedDict):
-    Command: NotRequired[List[str]]
-    Environment: NotRequired[List[BatchEnvironmentVariableTypeDef]]
+    Command: NotRequired[list[str]]
+    Environment: NotRequired[list[BatchEnvironmentVariableTypeDef]]
     InstanceType: NotRequired[str]
-    ResourceRequirements: NotRequired[List[BatchResourceRequirementTypeDef]]
+    ResourceRequirements: NotRequired[list[BatchResourceRequirementTypeDef]]
 
 
 class BatchContainerOverridesTypeDef(TypedDict):
@@ -572,7 +567,7 @@ class DeletePipeResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -650,14 +645,14 @@ class UpdatePipeSourceKinesisStreamParametersTypeDef(TypedDict):
 
 
 class EcsContainerOverrideOutputTypeDef(TypedDict):
-    Command: NotRequired[List[str]]
+    Command: NotRequired[list[str]]
     Cpu: NotRequired[int]
-    Environment: NotRequired[List[EcsEnvironmentVariableTypeDef]]
-    EnvironmentFiles: NotRequired[List[EcsEnvironmentFileTypeDef]]
+    Environment: NotRequired[list[EcsEnvironmentVariableTypeDef]]
+    EnvironmentFiles: NotRequired[list[EcsEnvironmentFileTypeDef]]
     Memory: NotRequired[int]
     MemoryReservation: NotRequired[int]
     Name: NotRequired[str]
-    ResourceRequirements: NotRequired[List[EcsResourceRequirementTypeDef]]
+    ResourceRequirements: NotRequired[list[EcsResourceRequirementTypeDef]]
 
 
 class EcsContainerOverrideTypeDef(TypedDict):
@@ -672,7 +667,7 @@ class EcsContainerOverrideTypeDef(TypedDict):
 
 
 class FilterCriteriaOutputTypeDef(TypedDict):
-    Filters: NotRequired[List[FilterTypeDef]]
+    Filters: NotRequired[list[FilterTypeDef]]
 
 
 class FilterCriteriaTypeDef(TypedDict):
@@ -689,7 +684,7 @@ class ListPipesRequestPaginateTypeDef(TypedDict):
 
 
 class ListPipesResponseTypeDef(TypedDict):
-    Pipes: List[PipeTypeDef]
+    Pipes: list[PipeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -738,7 +733,7 @@ class UpdatePipeSourceManagedStreamingKafkaParametersTypeDef(TypedDict):
 
 class MultiMeasureMappingOutputTypeDef(TypedDict):
     MultiMeasureName: str
-    MultiMeasureAttributeMappings: List[MultiMeasureAttributeMappingTypeDef]
+    MultiMeasureAttributeMappings: list[MultiMeasureAttributeMappingTypeDef]
 
 
 class MultiMeasureMappingTypeDef(TypedDict):
@@ -769,7 +764,7 @@ class PipeLogConfigurationTypeDef(TypedDict):
     FirehoseLogDestination: NotRequired[FirehoseLogDestinationTypeDef]
     CloudwatchLogsLogDestination: NotRequired[CloudwatchLogsLogDestinationTypeDef]
     Level: NotRequired[LogLevelType]
-    IncludeExecutionData: NotRequired[List[Literal["ALL"]]]
+    IncludeExecutionData: NotRequired[list[Literal["ALL"]]]
 
 
 class PipeSourceKinesisStreamParametersTypeDef(TypedDict):
@@ -787,7 +782,7 @@ class PipeSourceKinesisStreamParametersTypeDef(TypedDict):
 class PipeSourceSelfManagedKafkaParametersOutputTypeDef(TypedDict):
     TopicName: str
     StartingPosition: NotRequired[SelfManagedKafkaStartPositionType]
-    AdditionalBootstrapServers: NotRequired[List[str]]
+    AdditionalBootstrapServers: NotRequired[list[str]]
     BatchSize: NotRequired[int]
     MaximumBatchingWindowInSeconds: NotRequired[int]
     ConsumerGroupID: NotRequired[str]
@@ -815,7 +810,7 @@ SelfManagedKafkaAccessConfigurationVpcUnionTypeDef = Union[
 
 
 class PipeTargetSageMakerPipelineParametersOutputTypeDef(TypedDict):
-    PipelineParameterList: NotRequired[List[SageMakerPipelineParameterTypeDef]]
+    PipelineParameterList: NotRequired[list[SageMakerPipelineParameterTypeDef]]
 
 
 class PipeTargetSageMakerPipelineParametersTypeDef(TypedDict):
@@ -828,8 +823,8 @@ class PipeTargetBatchJobParametersOutputTypeDef(TypedDict):
     ArrayProperties: NotRequired[BatchArrayPropertiesTypeDef]
     RetryStrategy: NotRequired[BatchRetryStrategyTypeDef]
     ContainerOverrides: NotRequired[BatchContainerOverridesOutputTypeDef]
-    DependsOn: NotRequired[List[BatchJobDependencyTypeDef]]
-    Parameters: NotRequired[Dict[str, str]]
+    DependsOn: NotRequired[list[BatchJobDependencyTypeDef]]
+    Parameters: NotRequired[dict[str, str]]
 
 
 class PipeTargetBatchJobParametersTypeDef(TypedDict):
@@ -843,11 +838,11 @@ class PipeTargetBatchJobParametersTypeDef(TypedDict):
 
 
 class EcsTaskOverrideOutputTypeDef(TypedDict):
-    ContainerOverrides: NotRequired[List[EcsContainerOverrideOutputTypeDef]]
+    ContainerOverrides: NotRequired[list[EcsContainerOverrideOutputTypeDef]]
     Cpu: NotRequired[str]
     EphemeralStorage: NotRequired[EcsEphemeralStorageTypeDef]
     ExecutionRoleArn: NotRequired[str]
-    InferenceAcceleratorOverrides: NotRequired[List[EcsInferenceAcceleratorOverrideTypeDef]]
+    InferenceAcceleratorOverrides: NotRequired[list[EcsInferenceAcceleratorOverrideTypeDef]]
     Memory: NotRequired[str]
     TaskRoleArn: NotRequired[str]
 
@@ -868,12 +863,12 @@ FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTy
 class PipeTargetTimestreamParametersOutputTypeDef(TypedDict):
     TimeValue: str
     VersionValue: str
-    DimensionMappings: List[DimensionMappingTypeDef]
+    DimensionMappings: list[DimensionMappingTypeDef]
     EpochTimeUnit: NotRequired[EpochTimeUnitType]
     TimeFieldType: NotRequired[TimeFieldTypeType]
     TimestampFormat: NotRequired[str]
-    SingleMeasureMappings: NotRequired[List[SingleMeasureMappingTypeDef]]
-    MultiMeasureMappings: NotRequired[List[MultiMeasureMappingOutputTypeDef]]
+    SingleMeasureMappings: NotRequired[list[SingleMeasureMappingTypeDef]]
+    MultiMeasureMappings: NotRequired[list[MultiMeasureMappingOutputTypeDef]]
 
 
 class PipeTargetTimestreamParametersTypeDef(TypedDict):
@@ -929,15 +924,15 @@ class PipeTargetEcsTaskParametersOutputTypeDef(TypedDict):
     NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     PlatformVersion: NotRequired[str]
     Group: NotRequired[str]
-    CapacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    CapacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     EnableECSManagedTags: NotRequired[bool]
     EnableExecuteCommand: NotRequired[bool]
-    PlacementConstraints: NotRequired[List[PlacementConstraintTypeDef]]
-    PlacementStrategy: NotRequired[List[PlacementStrategyTypeDef]]
+    PlacementConstraints: NotRequired[list[PlacementConstraintTypeDef]]
+    PlacementStrategy: NotRequired[list[PlacementStrategyTypeDef]]
     PropagateTags: NotRequired[Literal["TASK_DEFINITION"]]
     ReferenceId: NotRequired[str]
     Overrides: NotRequired[EcsTaskOverrideOutputTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class PipeTargetEcsTaskParametersTypeDef(TypedDict):
@@ -1022,7 +1017,7 @@ class DescribePipeResponseTypeDef(TypedDict):
     Target: str
     TargetParameters: PipeTargetParametersOutputTypeDef
     RoleArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     CreationTime: datetime
     LastModifiedTime: datetime
     LogConfiguration: PipeLogConfigurationTypeDef

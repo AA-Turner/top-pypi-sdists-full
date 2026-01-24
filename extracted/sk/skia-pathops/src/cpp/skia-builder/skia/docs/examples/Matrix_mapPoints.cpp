@@ -1,7 +1,6 @@
 // Copyright 2019 Google LLC.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #include "tools/fiddle/examples.h"
-// HASH=f99dcb00296d0c56b6c0e178e94b3534
 REG_FIDDLE(Matrix_mapPoints, 256, 256, false, 0) {
 void draw(SkCanvas* canvas) {
     SkMatrix matrix;
@@ -13,8 +12,8 @@ void draw(SkCanvas* canvas) {
     paint.setARGB(77, 23, 99, 154);
     for (int i = 0; i < 5; ++i) {
         SkPoint dst[count];
-        matrix.mapPoints(dst, src, count);
-        canvas->drawPoints(SkCanvas::kPolygon_PointMode, count, dst, paint);
+        matrix.mapPoints(dst, src);
+        canvas->drawPoints(SkCanvas::kPolygon_PointMode, dst, paint);
         matrix.preRotate(35, 128, 128);
     }
 }

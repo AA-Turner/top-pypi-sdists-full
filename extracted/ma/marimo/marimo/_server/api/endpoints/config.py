@@ -1,7 +1,7 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, cast
 
 from starlette.authentication import requires
 from starlette.background import BackgroundTask
@@ -9,8 +9,12 @@ from starlette.responses import JSONResponse
 
 from marimo import _loggers
 from marimo._config.config import PartialMarimoConfig
+from marimo._dependencies.dependencies import DependencyManager
 from marimo._messaging.msgspec_encoder import asdict
-from marimo._runtime.requests import SetUserConfigRequest
+from marimo._messaging.notification import MissingPackageAlertNotification
+from marimo._runtime.commands import UpdateUserConfigCommand
+from marimo._runtime.packages.utils import is_python_isolated
+from marimo._server.ai.mcp.config import is_mcp_config_empty
 from marimo._server.api.deps import AppState
 from marimo._server.api.utils import parse_request
 from marimo._server.models.models import (
@@ -18,6 +22,7 @@ from marimo._server.models.models import (
     SuccessResponse,
 )
 from marimo._server.router import APIRouter
+from marimo._session import send_message_to_consumer
 from marimo._types.ids import ConsumerId
 
 if TYPE_CHECKING:
@@ -36,6 +41,12 @@ async def save_user_config(
     request: Request,
 ) -> JSONResponse:
     """
+    parameters:
+        - in: header
+          name: Marimo-Session-Id
+          schema:
+            type: string
+          required: false
     requestBody:
         content:
             application/json:
@@ -50,6 +61,8 @@ async def save_user_config(
                         $ref: "#/components/schemas/SuccessResponse"
     """  # noqa: E501
     app_state = AppState(request)
+    session_id = app_state.get_current_session_id()
+    session = app_state.get_current_session()
     # Allow unknown keys to handle backward/forward compatibility
     body = await parse_request(
         request, cls=SaveUserConfigurationRequest, allow_unknown_keys=True
@@ -60,20 +73,51 @@ async def save_user_config(
         cast(PartialMarimoConfig, body.config)
     )
 
-    background_task: Optional[BackgroundTask] = None
-    # Update the server's view of the config
-    if config["completion"]["copilot"]:
-        LOGGER.debug("Starting copilot server")
-        background_task = BackgroundTask(
-            app_state.session_manager.start_lsp_server
-        )
+    async def handle_background_tasks() -> None:
+        # Update the server's view of the config
+        if config["completion"]["copilot"]:
+            LOGGER.debug("Starting copilot server")
+            await app_state.session_manager.start_lsp_server()
+
+        # Reconfigure MCP servers if config changed
+        mcp_config = config.get("mcp")
+
+        # Handle missing MCP dependencies
+        if (
+            not is_mcp_config_empty(mcp_config)
+            and not DependencyManager.mcp.has()
+        ):
+            # If we're in an edit session, send an package installation request
+            if session_id is not None and session is not None:
+                send_message_to_consumer(
+                    session=session,
+                    operation=MissingPackageAlertNotification(
+                        packages=["mcp"],
+                        isolated=is_python_isolated(),
+                    ),
+                    consumer_id=ConsumerId(session_id),
+                )
+
+        try:
+            from marimo._server.ai.mcp import get_mcp_client
+
+            if mcp_config and not is_mcp_config_empty(mcp_config):
+                LOGGER.debug("Reconfiguring MCP servers with updated config")
+                mcp_client = get_mcp_client()
+                await mcp_client.configure(mcp_config)
+                LOGGER.info(
+                    f"MCP servers reconfigured: {list(mcp_client.servers.keys())}"
+                )
+        except Exception as e:
+            LOGGER.warning(f"Failed to reconfigure MCP servers: {e}")
+
+    background_task = BackgroundTask(handle_background_tasks)
 
     # Update the kernel's view of the config
     # Session could be None if the user is on the home page
-    session = app_state.get_current_session()
     if session is not None:
         session.put_control_request(
-            SetUserConfigRequest(config),
+            UpdateUserConfigCommand(config),
             from_consumer_id=ConsumerId(
                 app_state.require_current_session_id()
             ),

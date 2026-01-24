@@ -68,44 +68,36 @@ export async function resolve_config(
 	this: Client,
 	endpoint: string
 ): Promise<Config | undefined> {
-	const headers: Record<string, string> = this.options.hf_token
-		? { Authorization: `Bearer ${this.options.hf_token}` }
+	const headers: Record<string, string> = this.options.token
+		? { Authorization: `Bearer ${this.options.token}` }
 		: {};
 
 	headers["Content-Type"] = "application/json";
 
-	if (
-		typeof window !== "undefined" &&
-		window.gradio_config &&
-		location.origin !== "http://localhost:9876" &&
-		!window.gradio_config.dev_mode
-	) {
-		if (window.gradio_config.current_page) {
-			endpoint = endpoint.substring(0, endpoint.lastIndexOf("/"));
-		}
-		window.gradio_config.root = endpoint;
-		// @ts-ignore
-		return { ...window.gradio_config } as Config;
-	} else if (endpoint) {
-		let config_url = join_urls(
-			endpoint,
-			this.deep_link ? CONFIG_URL + "?deep_link=" + this.deep_link : CONFIG_URL
-		);
-
-		const response = await this.fetch(config_url, {
-			headers,
-			credentials: "include"
-		});
-
-		return handleConfigResponse(response, endpoint, !!this.options.auth);
+	if (typeof window !== "undefined" && window?.gradio_config?.current_page) {
+		endpoint = endpoint.substring(0, endpoint.lastIndexOf("/"));
 	}
 
-	throw new Error(CONFIG_ERROR_MSG);
+	let config_url = join_urls(
+		endpoint,
+		this.deep_link ? CONFIG_URL + "?deep_link=" + this.deep_link : CONFIG_URL
+	);
+
+	const response = await this.fetch(config_url, {
+		headers,
+		credentials: "include"
+	});
+	const config = await handleConfigResponse(response, !!this.options.auth);
+
+	if (typeof window !== "undefined" && window?.BUILD_MODE === "dev") {
+		config.root = endpoint || config.root;
+	}
+
+	return config;
 }
 
 async function handleConfigResponse(
 	response: Response,
-	endpoint: string,
 	authorized: boolean
 ): Promise<Config> {
 	if (response?.status === 401 && !authorized) {
@@ -118,7 +110,6 @@ async function handleConfigResponse(
 
 	if (response?.status === 200) {
 		let config = await response.json();
-		config.root = endpoint;
 		config.dependencies?.forEach((dep: any, i: number) => {
 			if (dep.id === undefined) {
 				dep.id = i;
@@ -135,7 +126,7 @@ async function handleConfigResponse(
 export async function resolve_cookies(this: Client): Promise<void> {
 	const { http_protocol, host } = await process_endpoint(
 		this.app_reference,
-		this.options.hf_token
+		this.options.token
 	);
 
 	try {
@@ -145,7 +136,7 @@ export async function resolve_cookies(this: Client): Promise<void> {
 				host,
 				this.options.auth,
 				this.fetch,
-				this.options.hf_token
+				this.options.token
 			);
 
 			if (cookie_header) this.set_cookies(cookie_header);
@@ -161,7 +152,7 @@ export async function get_cookie_header(
 	host: string,
 	auth: [string, string],
 	_fetch: typeof fetch,
-	hf_token?: `hf_${string}`
+	token?: `hf_${string}`
 ): Promise<string | null> {
 	const formData = new FormData();
 	formData.append("username", auth?.[0]);
@@ -169,8 +160,8 @@ export async function get_cookie_header(
 
 	let headers: { Authorization?: string } = {};
 
-	if (hf_token) {
-		headers.Authorization = `Bearer ${hf_token}`;
+	if (token) {
+		headers.Authorization = `Bearer ${token}`;
 	}
 
 	const res = await _fetch(`${http_protocol}//${host}/${LOGIN_URL}`, {

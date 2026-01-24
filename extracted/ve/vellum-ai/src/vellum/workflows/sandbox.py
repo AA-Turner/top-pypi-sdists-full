@@ -1,4 +1,4 @@
-from typing import Generic, Optional, Sequence, Union
+from typing import Any, Dict, Generic, Optional, Sequence, Union
 
 import dotenv
 
@@ -6,6 +6,7 @@ from vellum.workflows.events.workflow import WorkflowEventStream
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.inputs.dataset_row import DatasetRow
 from vellum.workflows.logging import load_logger
+from vellum.workflows.triggers.base import BaseTrigger
 from vellum.workflows.types.generics import WorkflowType
 from vellum.workflows.workflows.event_filters import root_workflow_event_filter
 
@@ -51,12 +52,30 @@ class WorkflowSandboxRunner(Generic[WorkflowType]):
 
         selected_inputs = self._inputs[index]
 
+        raw_inputs: Union[BaseInputs, Dict[str, Any]]
+        trigger_value: Optional[BaseTrigger] = None
+        node_output_mocks = None
         if isinstance(selected_inputs, DatasetRow):
-            selected_inputs = selected_inputs.inputs
+            raw_inputs = selected_inputs.inputs
+            trigger_value = selected_inputs.workflow_trigger
+            node_output_mocks = selected_inputs.mocks
+        else:
+            raw_inputs = selected_inputs
+
+        inputs_for_stream: BaseInputs
+        if isinstance(raw_inputs, dict):
+            inputs_class = type(self._workflow).get_inputs_class()
+            inputs_for_stream = inputs_class(**raw_inputs)
+        else:
+            inputs_for_stream = raw_inputs
+
+        trigger_instance: Optional[BaseTrigger] = trigger_value
 
         events = self._workflow.stream(
-            inputs=selected_inputs,
+            inputs=inputs_for_stream,
             event_filter=root_workflow_event_filter,
+            trigger=trigger_instance,
+            node_output_mocks=node_output_mocks,
         )
 
         self._process_events(events)
@@ -75,3 +94,5 @@ class WorkflowSandboxRunner(Generic[WorkflowType]):
             elif event.name == "node.execution.rejected":
                 self._logger.debug(f"Error: {event.error}")
                 self._logger.error(f"Failed to run Node: {event.node_definition.__name__}")
+            elif event.name == "workflow.execution.rejected":
+                self._logger.error(f"Workflow rejected! Error: {event.error}")

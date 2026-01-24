@@ -159,16 +159,27 @@ def set_ssh_port(port, force=False):
 @click.argument("site")
 @click.option("--custom-domain")
 @click.option(
+	"--custom-server",
+	default=None,
+	help="Custom ACME server URL",
+)
+@click.option(
 	"-n",
 	"--non-interactive",
 	default=False,
 	is_flag=True,
 	help="Run command non-interactively. This flag restarts nginx and runs certbot non interactively. Shouldn't be used on 1'st attempt",
 )
-def setup_letsencrypt(site, custom_domain, non_interactive):
+def setup_letsencrypt(site, custom_domain, custom_server, non_interactive):
 	from bench.config.lets_encrypt import setup_letsencrypt
 
-	setup_letsencrypt(site, custom_domain, bench_path=".", interactive=not non_interactive)
+	setup_letsencrypt(
+		site,
+		custom_domain,
+		bench_path=".",
+		interactive=not non_interactive,
+		custom_server=custom_server,
+	)
 
 
 @click.command(
@@ -177,16 +188,25 @@ def setup_letsencrypt(site, custom_domain, non_interactive):
 @click.argument("domain")
 @click.option("--email")
 @click.option(
+	"--custom-server",
+	default=None,
+	help="Custom ACME server URL",
+)
+@click.option(
 	"--exclude-base-domain",
 	default=False,
 	is_flag=True,
 	help="SSL Certificate not applicable for base domain",
 )
-def setup_wildcard_ssl(domain, email, exclude_base_domain):
+def setup_wildcard_ssl(domain, email, exclude_base_domain, custom_server):
 	from bench.config.lets_encrypt import setup_wildcard_ssl
 
 	setup_wildcard_ssl(
-		domain, email, bench_path=".", exclude_base_domain=exclude_base_domain
+		domain,
+		email,
+		bench_path=".",
+		exclude_base_domain=exclude_base_domain,
+		custom_server=custom_server,
 	)
 
 

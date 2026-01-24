@@ -9,6 +9,8 @@ import re
 import sys
 import typing
 import uuid
+import warnings
+from abc import ABC, abstractmethod
 from collections import Counter, OrderedDict, UserDict, defaultdict, deque
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
@@ -105,6 +107,7 @@ from pydantic import (
     StringConstraints,
     Tag,
     TypeAdapter,
+    ValidateAs,
     ValidationError,
     conbytes,
     condate,
@@ -1046,6 +1049,20 @@ def test_import_string_sys_stdout() -> None:
 
     import_things = ImportThings(obj='sys.stdout')
     assert import_things.model_dump_json() == '{"obj":"sys.stdout"}'
+
+
+def test_import_string_thing_with_name() -> None:
+    """https://github.com/pydantic/pydantic/issues/12218"""
+
+    class ImportThings(BaseModel):
+        obj: ImportString
+
+    @dataclass
+    class ThingWithName:
+        name: str
+
+    import_things = ImportThings(obj=ThingWithName('foo'))
+    assert import_things.model_dump_json() == '{"obj":{"name":"foo"}}'
 
 
 def test_decimal():
@@ -6016,6 +6033,37 @@ def test_skip_validation_json_schema():
     }
 
 
+def test_validate_from() -> None:
+    class Arbitrary:
+        def __init__(self, a: int) -> None:
+            self.a = a
+
+        def __eq__(self, other) -> bool:
+            return self.a == other.a
+
+    class ArbitraryModel(BaseModel):
+        a: int
+
+    ta = TypeAdapter(Annotated[Arbitrary, ValidateAs(ArbitraryModel, instantiation_hook=lambda v: Arbitrary(a=v.a))])
+
+    assert ta.validate_python({'a': 1}) == Arbitrary(1)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="`Annotated` doesn't allow instances in <3.12")
+def test_skip_validation_arbitrary_type_object() -> None:
+    """https://github.com/pydantic/pydantic/issues/11997.
+
+    Using an arbitrary object (and not a type) normally raises a warning,
+    which should be suppressed when using `SkipValidation`.
+    """
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+
+        class Model(BaseModel, arbitrary_types_allowed=True):
+            field: Annotated[object(), SkipValidation]
+
+
 def test_transform_schema():
     ValidateStrAsInt = Annotated[str, GetPydanticSchema(lambda _s, h: core_schema.int_schema())]
 
@@ -6391,13 +6439,13 @@ def test_constraints_arbitrary_type() -> None:
         {
             'type': 'predicate_failed',
             'loc': ('predicate',),
-            'msg': 'Predicate test_constraints_arbitrary_type.<locals>.Model.<lambda> failed',
+            'msg': "Predicate 'test_constraints_arbitrary_type.<locals>.Model.<lambda>' failed",
             'input': CustomType(-1),
         },
         {
             'type': 'not_operation_failed',
             'loc': ('not_multiple_of_3',),
-            'msg': 'Not of test_constraints_arbitrary_type.<locals>.Model.<lambda> failed',
+            'msg': "Not of 'test_constraints_arbitrary_type.<locals>.Model.<lambda>' failed",
             'input': CustomType(6),
         },
     ]
@@ -7120,3 +7168,34 @@ def test_union_respects_local_strict() -> None:
 
     m = Model(a=[1, 2])
     assert m.a == (1, 2)
+
+
+def test_union_abc() -> None:
+    """https://github.com/pydantic/pydantic/issues/12230"""
+
+    class ABC_1(BaseModel, ABC):
+        @abstractmethod
+        def do_something(self):
+            pass
+
+    class ABC_2(BaseModel, ABC):
+        @abstractmethod
+        def do_something_else(self):
+            pass
+
+    class A1(ABC_1):
+        def do_something(self):
+            print('Doing something in A1')
+
+    class A2(ABC_2):
+        def do_something_else(self):
+            print('Doing something else in A2')
+
+    class X(BaseModel):
+        x: Union[ABC_1, ABC_2]
+
+    a1 = A1()
+    a2 = A2()
+
+    X(x=a1)
+    X(x=a2)

@@ -1,6 +1,6 @@
 from datetime import date
 
-from inspect_ai.analysis._prepare.model_data.model_data import read_model_info
+from inspect_ai.model._model_data.model_data import read_model_info
 
 
 def test_read_model_info():
@@ -23,4 +23,4 @@ def test_read_model_info():
     )
 
     # Assert GDM is present
-    assert models.get("google/gemini-1.5-flash").context_length == 1048576
+    assert models.get("google/gemini-2.5-flash").context_length == 1048576

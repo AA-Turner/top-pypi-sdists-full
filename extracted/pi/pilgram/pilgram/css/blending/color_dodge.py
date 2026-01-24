@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from PIL import Image, ImageMath
+from PIL.ImageMath import _Operand
 from PIL.ImageMath import imagemath_convert as _convert
 from PIL.ImageMath import imagemath_float as _float
 
@@ -20,16 +21,16 @@ from pilgram.css.blending.alpha import alpha_blend
 from pilgram.util import invert
 
 
-def _color_dodge_image_math(cb, cs_inv):
+def _color_dodge_image_math(cb: _Operand, cs_inv: _Operand) -> _Operand:
     """Returns ImageMath operands for color dodge blend mode"""
     cb = _float(cb)
     cs_inv = _float(cs_inv)
 
     cm = ((cb != 0) * (cs_inv == 0) + (cb / cs_inv)) * 255
-    return _convert(cm, 'L')
+    return _convert(cm, "L")
 
 
-def _color_dodge(im1, im2):
+def _color_dodge(im1: Image.Image, im2: Image.Image) -> Image.Image:
     """The color dodge blend mode.
 
     Arguments:
@@ -40,14 +41,20 @@ def _color_dodge(im1, im2):
         The output image.
     """
 
-    return Image.merge('RGB', [
-        ImageMath.eval(
-            'f(cb, cs_inv)', f=_color_dodge_image_math, cb=cb, cs_inv=cs_inv)
-        for cb, cs_inv in zip(im1.split(), invert(im2).split())
-    ])
+    return Image.merge(
+        "RGB",
+        [
+            ImageMath.lambda_eval(
+                lambda args: _color_dodge_image_math(args["cb"], args["cs_inv"]),
+                cb=cb,
+                cs_inv=cs_inv,
+            )
+            for cb, cs_inv in zip(im1.split(), invert(im2).split(), strict=False)
+        ],
+    )
 
 
-def color_dodge(im1, im2):
+def color_dodge(im1: Image.Image, im2: Image.Image) -> Image.Image:
     """Brightens the backdrop color to reflect the source color.
 
     The color dodge formula is defined as:

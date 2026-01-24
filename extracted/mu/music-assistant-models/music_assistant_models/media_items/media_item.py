@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from mashumaro import DataClassDictMixin
@@ -115,6 +116,7 @@ class MediaItem(_MediaItemBase):
     metadata: MediaItemMetadata = field(default_factory=MediaItemMetadata)
     favorite: bool = False
     position: int | None = None  # required for playlist tracks, optional for all other
+    date_added: datetime | None = None  # when item was added to library/collection
 
     def __hash__(self) -> int:
         """Return hash of MediaItem."""
@@ -123,13 +125,13 @@ class MediaItem(_MediaItemBase):
     @property
     def available(self) -> bool:
         """Return (calculated) availability."""
-        if not (available_providers := get_global_cache_value("unique_providers")):
+        if not (available_providers := get_global_cache_value("available_providers")):
             # this is probably the client
             return any(x.available for x in self.provider_mappings)
         if TYPE_CHECKING:
             available_providers = cast("set[str]", available_providers)
         for x in self.provider_mappings:
-            if available_providers.intersection({x.provider_domain, x.provider_instance}):
+            if x.available and x.provider_instance in available_providers:
                 return True
         return False
 
@@ -139,6 +141,18 @@ class MediaItem(_MediaItemBase):
         if self.metadata is None or self.metadata.images is None:
             return None
         return next((x for x in self.metadata.images if x.type == ImageType.THUMB), None)
+
+
+@dataclass
+class Genre(MediaItem):
+    """Model for a Genre."""
+
+    __hash__ = _MediaItemBase.__hash__
+    __eq__ = _MediaItemBase.__eq__
+    # Specific for mapping logic
+    aliases: set[str] = field(default_factory=set)
+
+    media_type: MediaType = MediaType.GENRE
 
 
 @dataclass(kw_only=True)
@@ -235,10 +249,6 @@ class Playlist(MediaItem):
     owner: str = ""
     is_editable: bool = False
 
-    # cache_checksum: optional value to (in)validate cache
-    # detect changes to the playlist tracks listing
-    cache_checksum: str | None = None
-
 
 @dataclass(kw_only=True)
 class Radio(MediaItem):
@@ -310,6 +320,17 @@ class PodcastEpisode(MediaItem):
 
 
 @dataclass(kw_only=True)
+class SoundEffect(MediaItem):
+    """Model for a Sound Effect."""
+
+    __hash__ = _MediaItemBase.__hash__
+    __eq__ = _MediaItemBase.__eq__
+
+    duration: int = 0
+    media_type: MediaType = MediaType.SOUND_EFFECT
+
+
+@dataclass(kw_only=True)
 class BrowseFolder(_MediaItemBase):
     """Representation of a Folder used in Browse (which contains media items)."""
 
@@ -354,5 +375,7 @@ class RecommendationFolder(BrowseFolder):
 # some type aliases
 # NOTE: BrowseFolder is not part of the MediaItemType alias, as it lacks
 # provider mappings, i.e. we do not map a provider item to a BrowseFolder.
-MediaItemType = Artist | Album | Track | Radio | Playlist | Audiobook | Podcast | PodcastEpisode
+MediaItemType = (
+    Artist | Album | Track | Radio | Playlist | Audiobook | Podcast | PodcastEpisode | Genre
+)
 PlayableMediaItemType = Track | Radio | Audiobook | PodcastEpisode

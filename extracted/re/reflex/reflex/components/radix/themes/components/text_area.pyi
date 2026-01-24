@@ -20,278 +20,24 @@ class TextArea(RadixThemesComponent, elements.Textarea):
     def create(
         cls,
         *children,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        resize: Breakpoints[str, Literal["both", "horizontal", "none", "vertical"]]
-        | Literal["both", "horizontal", "none", "vertical"]
-        | Var[
-            Breakpoints[str, Literal["both", "horizontal", "none", "vertical"]]
-            | Literal["both", "horizontal", "none", "vertical"]
-        ]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        radius: Literal["full", "large", "medium", "none", "small"]
-        | Var[Literal["full", "large", "medium", "none", "small"]]
-        | None = None,
-        auto_complete: Var[bool] | bool | None = None,
+        auto_complete: Var[str] | str | None = None,
         auto_focus: Var[bool] | bool | None = None,
+        auto_height: Var[bool] | bool | None = None,
+        cols: Var[int | str] | int | str | None = None,
         default_value: Var[str] | str | None = None,
         dirname: Var[str] | str | None = None,
         disabled: Var[bool] | bool | None = None,
+        enter_key_submit: Var[bool] | bool | None = None,
         form: Var[str] | str | None = None,
-        max_length: Var[int] | int | None = None,
-        min_length: Var[int] | int | None = None,
+        max_length: Var[int | str] | int | str | None = None,
+        min_length: Var[int | str] | int | str | None = None,
         name: Var[str] | str | None = None,
         placeholder: Var[str] | str | None = None,
         read_only: Var[bool] | bool | None = None,
         required: Var[bool] | bool | None = None,
-        rows: Var[str] | str | None = None,
+        rows: Var[int | str] | int | str | None = None,
         value: Var[str] | str | None = None,
         wrap: Var[str] | str | None = None,
-        auto_height: Var[bool] | bool | None = None,
-        cols: Var[int | str] | int | str | None = None,
-        enter_key_submit: Var[bool] | bool | None = None,
-        access_key: Var[str] | str | None = None,
-        auto_capitalize: Literal[
-            "characters", "none", "off", "on", "sentences", "words"
-        ]
-        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
-        | None = None,
-        content_editable: Literal["inherit", "plaintext-only", False, True]
-        | Var[Literal["inherit", "plaintext-only", False, True]]
-        | None = None,
-        context_menu: Var[str] | str | None = None,
-        dir: Var[str] | str | None = None,
-        draggable: Var[bool] | bool | None = None,
-        enter_key_hint: Literal[
-            "done", "enter", "go", "next", "previous", "search", "send"
-        ]
-        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
-        | None = None,
-        hidden: Var[bool] | bool | None = None,
-        input_mode: Literal[
-            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-        ]
-        | Var[
-            Literal[
-                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-            ]
-        ]
-        | None = None,
-        item_prop: Var[str] | str | None = None,
-        lang: Var[str] | str | None = None,
-        role: Literal[
-            "alert",
-            "alertdialog",
-            "application",
-            "article",
-            "banner",
-            "button",
-            "cell",
-            "checkbox",
-            "columnheader",
-            "combobox",
-            "complementary",
-            "contentinfo",
-            "definition",
-            "dialog",
-            "directory",
-            "document",
-            "feed",
-            "figure",
-            "form",
-            "grid",
-            "gridcell",
-            "group",
-            "heading",
-            "img",
-            "link",
-            "list",
-            "listbox",
-            "listitem",
-            "log",
-            "main",
-            "marquee",
-            "math",
-            "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "navigation",
-            "none",
-            "note",
-            "option",
-            "presentation",
-            "progressbar",
-            "radio",
-            "radiogroup",
-            "region",
-            "row",
-            "rowgroup",
-            "rowheader",
-            "scrollbar",
-            "search",
-            "searchbox",
-            "separator",
-            "slider",
-            "spinbutton",
-            "status",
-            "switch",
-            "tab",
-            "table",
-            "tablist",
-            "tabpanel",
-            "term",
-            "textbox",
-            "timer",
-            "toolbar",
-            "tooltip",
-            "tree",
-            "treegrid",
-            "treeitem",
-        ]
-        | Var[
-            Literal[
-                "alert",
-                "alertdialog",
-                "application",
-                "article",
-                "banner",
-                "button",
-                "cell",
-                "checkbox",
-                "columnheader",
-                "combobox",
-                "complementary",
-                "contentinfo",
-                "definition",
-                "dialog",
-                "directory",
-                "document",
-                "feed",
-                "figure",
-                "form",
-                "grid",
-                "gridcell",
-                "group",
-                "heading",
-                "img",
-                "link",
-                "list",
-                "listbox",
-                "listitem",
-                "log",
-                "main",
-                "marquee",
-                "math",
-                "menu",
-                "menubar",
-                "menuitem",
-                "menuitemcheckbox",
-                "menuitemradio",
-                "navigation",
-                "none",
-                "note",
-                "option",
-                "presentation",
-                "progressbar",
-                "radio",
-                "radiogroup",
-                "region",
-                "row",
-                "rowgroup",
-                "rowheader",
-                "scrollbar",
-                "search",
-                "searchbox",
-                "separator",
-                "slider",
-                "spinbutton",
-                "status",
-                "switch",
-                "tab",
-                "table",
-                "tablist",
-                "tabpanel",
-                "term",
-                "textbox",
-                "timer",
-                "toolbar",
-                "tooltip",
-                "tree",
-                "treegrid",
-                "treeitem",
-            ]
-        ]
-        | None = None,
-        slot: Var[str] | str | None = None,
-        spell_check: Var[bool] | bool | None = None,
-        tab_index: Var[int] | int | None = None,
-        title: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -333,11 +79,6 @@ class TextArea(RadixThemesComponent, elements.Textarea):
 
         Args:
             *children: The children of the component.
-            size: The size of the text area: "1" | "2" | "3"
-            variant: The variant of the text area
-            resize: The resize behavior of the text area: "none" | "vertical" | "horizontal" | "both"
-            color_scheme: The color of the text area
-            radius: The radius of the text area: "none" | "small" | "medium" | "large" | "full"
             auto_complete: Whether the form control should have autocomplete enabled
             auto_focus: Automatically focuses the textarea when the page loads
             default_value: The default value of the textarea when initially rendered
@@ -361,22 +102,6 @@ class TextArea(RadixThemesComponent, elements.Textarea):
             on_blur: Fired when the input loses focus
             on_key_down: Fired when a key is pressed down
             on_key_up: Fired when a key is released
-            access_key: Provides a hint for generating a keyboard shortcut for the current element.
-            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
-            content_editable: Indicates whether the element's content is editable.
-            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
-            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
-            draggable: Defines whether the element can be dragged.
-            enter_key_hint: Hints what media types the media element is able to play.
-            hidden: Defines whether the element is hidden.
-            input_mode: Defines the type of the element.
-            item_prop: Defines the name of the element for metadata purposes.
-            lang: Defines the language used in the element.
-            role: Defines the role of the element.
-            slot: Assigns a slot in a shadow DOM shadow tree to an element.
-            spell_check: Defines whether the element may be checked for spelling errors.
-            tab_index: Defines the position of the current element in the tabbing order.
-            title: Defines a tooltip for the element.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

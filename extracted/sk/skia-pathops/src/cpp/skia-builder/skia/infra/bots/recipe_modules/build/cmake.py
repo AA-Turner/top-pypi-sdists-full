@@ -4,12 +4,13 @@
 
 from . import util
 
-DOCKER_IMAGE = 'gcr.io/skia-public/cmake-release:3.13.4_v4'
+# This git revision refers to the Skia version of the cmake-release/Dockerfile that was built.
+DOCKER_IMAGE = 'gcr.io/skia-public/cmake-release:git-376aa231c94dd9fabb170903dcfb8e95f2da502c'
 INNER_BUILD_SCRIPT = '/SRC/skia/infra/cmake/build_skia.sh'
 
 
 def compile_fn(api, checkout_root, _ignore):
-  out_dir = api.vars.cache_dir.join('docker', 'cmake')
+  out_dir = api.vars.cache_dir.joinpath('docker', 'cmake')
   configuration = api.vars.builder_cfg.get('configuration', '')
   if configuration != 'Release': # pragma: nocover
     # If a debug mode is wanted, update the infra/cmake/build_skia.sh

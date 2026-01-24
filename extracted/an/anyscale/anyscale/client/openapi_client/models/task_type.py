@@ -28,10 +28,12 @@ class TaskType(object):
     """
     allowed enum values
     """
-    NORMAL = "NORMAL"
-    ACTOR = "ACTOR"
+    NORMAL_TASK = "NORMAL_TASK"
+    ACTOR_TASK = "ACTOR_TASK"
+    ACTOR_CREATION_TASK = "ACTOR_CREATION_TASK"
+    DRIVER_TASK = "DRIVER_TASK"
 
-    allowable_values = [NORMAL, ACTOR]  # noqa: E501
+    allowable_values = [NORMAL_TASK, ACTOR_TASK, ACTOR_CREATION_TASK, DRIVER_TASK]  # noqa: E501
 
     """
     Attributes:

@@ -29,6 +29,7 @@ class _Versioning:
 class _VersioningEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_Versioning.ValueType], builtins.type):
     DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
     VERSIONING_UNSPECIFIED: _Versioning.ValueType  # 0
+    """Versioning unspecified."""
     VERSIONING_DISABLED: _Versioning.ValueType  # 1
     """The bucket is unversioned, i.e. versioning has never been enabled for the bucket, including at its creation.
     Objects that are stored in the bucket have a version ID of `null`.
@@ -55,6 +56,7 @@ class _VersioningEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._Enu
 class Versioning(_Versioning, metaclass=_VersioningEnumTypeWrapper): ...
 
 VERSIONING_UNSPECIFIED: Versioning.ValueType  # 0
+"""Versioning unspecified."""
 VERSIONING_DISABLED: Versioning.ValueType  # 1
 """The bucket is unversioned, i.e. versioning has never been enabled for the bucket, including at its creation.
 Objects that are stored in the bucket have a version ID of `null`.
@@ -105,6 +107,7 @@ class Bucket(google.protobuf.message.Message):
     ENCRYPTION_FIELD_NUMBER: builtins.int
     ALLOWED_PRIVATE_ENDPOINTS_FIELD_NUMBER: builtins.int
     RESOURCE_ID_FIELD_NUMBER: builtins.int
+    DISABLED_STATICKEY_AUTH_FIELD_NUMBER: builtins.int
     id: builtins.str
     """ID of the bucket. Always equal to [name], which has priority."""
     name: builtins.str
@@ -130,6 +133,8 @@ class Bucket(google.protobuf.message.Message):
     """
     resource_id: builtins.str
     """ID of the Yandex.Cloud entity that owns the bucket."""
+    disabled_statickey_auth: builtins.bool
+    """An option to disable static key auth for a bucket."""
     @property
     def anonymous_access_flags(self) -> global___AnonymousAccessFlags:
         """Flags for configuring public (anonymous) access to the bucket's content and settings.
@@ -213,9 +218,10 @@ class Bucket(google.protobuf.message.Message):
         encryption: global___Encryption | None = ...,
         allowed_private_endpoints: global___BucketAllowedPrivateEndpoints | None = ...,
         resource_id: builtins.str = ...,
+        disabled_statickey_auth: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["acl", b"acl", "allowed_private_endpoints", b"allowed_private_endpoints", "anonymous_access_flags", b"anonymous_access_flags", "created_at", b"created_at", "encryption", b"encryption", "object_lock", b"object_lock", "policy", b"policy", "website_settings", b"website_settings"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["acl", b"acl", "allowed_private_endpoints", b"allowed_private_endpoints", "anonymous_access_flags", b"anonymous_access_flags", "cors", b"cors", "created_at", b"created_at", "default_storage_class", b"default_storage_class", "encryption", b"encryption", "folder_id", b"folder_id", "id", b"id", "lifecycle_rules", b"lifecycle_rules", "max_size", b"max_size", "name", b"name", "object_lock", b"object_lock", "policy", b"policy", "resource_id", b"resource_id", "tags", b"tags", "versioning", b"versioning", "website_settings", b"website_settings"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["acl", b"acl", "allowed_private_endpoints", b"allowed_private_endpoints", "anonymous_access_flags", b"anonymous_access_flags", "cors", b"cors", "created_at", b"created_at", "default_storage_class", b"default_storage_class", "disabled_statickey_auth", b"disabled_statickey_auth", "encryption", b"encryption", "folder_id", b"folder_id", "id", b"id", "lifecycle_rules", b"lifecycle_rules", "max_size", b"max_size", "name", b"name", "object_lock", b"object_lock", "policy", b"policy", "resource_id", b"resource_id", "tags", b"tags", "versioning", b"versioning", "website_settings", b"website_settings"]) -> None: ...
 
 global___Bucket = Bucket
 
@@ -256,6 +262,7 @@ class ACL(google.protobuf.message.Message):
         class _PermissionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ACL.Grant._Permission.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             PERMISSION_UNSPECIFIED: ACL.Grant._Permission.ValueType  # 0
+            """Permission unspecified."""
             PERMISSION_FULL_CONTROL: ACL.Grant._Permission.ValueType  # 1
             """Allows grantee the `PERMISSION_WRITE`, `PERMISSION_WRITE_ACP`, `PERMISSION_READ`, and `PERMISSION_READ_ACP`
             on the bucket.
@@ -291,6 +298,7 @@ class ACL(google.protobuf.message.Message):
 
         class Permission(_Permission, metaclass=_PermissionEnumTypeWrapper): ...
         PERMISSION_UNSPECIFIED: ACL.Grant.Permission.ValueType  # 0
+        """Permission unspecified."""
         PERMISSION_FULL_CONTROL: ACL.Grant.Permission.ValueType  # 1
         """Allows grantee the `PERMISSION_WRITE`, `PERMISSION_WRITE_ACP`, `PERMISSION_READ`, and `PERMISSION_READ_ACP`
         on the bucket.
@@ -331,6 +339,7 @@ class ACL(google.protobuf.message.Message):
         class _GrantTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ACL.Grant._GrantType.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             GRANT_TYPE_UNSPECIFIED: ACL.Grant._GrantType.ValueType  # 0
+            """Grant type unspecified."""
             GRANT_TYPE_ACCOUNT: ACL.Grant._GrantType.ValueType  # 1
             """A grantee is an [account on the platform](/docs/iam/concepts/#accounts).
 
@@ -358,6 +367,7 @@ class ACL(google.protobuf.message.Message):
 
         class GrantType(_GrantType, metaclass=_GrantTypeEnumTypeWrapper): ...
         GRANT_TYPE_UNSPECIFIED: ACL.Grant.GrantType.ValueType  # 0
+        """Grant type unspecified."""
         GRANT_TYPE_ACCOUNT: ACL.Grant.GrantType.ValueType  # 1
         """A grantee is an [account on the platform](/docs/iam/concepts/#accounts).
 
@@ -464,6 +474,7 @@ class CorsRule(google.protobuf.message.Message):
     class _MethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[CorsRule._Method.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         METHOD_UNSPECIFIED: CorsRule._Method.ValueType  # 0
+        """Method unspecified."""
         METHOD_GET: CorsRule._Method.ValueType  # 1
         """HTTP `GET` method."""
         METHOD_HEAD: CorsRule._Method.ValueType  # 2
@@ -485,6 +496,7 @@ class CorsRule(google.protobuf.message.Message):
         """
 
     METHOD_UNSPECIFIED: CorsRule.Method.ValueType  # 0
+    """Method unspecified."""
     METHOD_GET: CorsRule.Method.ValueType  # 1
     """HTTP `GET` method."""
     METHOD_HEAD: CorsRule.Method.ValueType  # 2
@@ -571,6 +583,7 @@ class WebsiteSettings(google.protobuf.message.Message):
     class _ProtocolEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[WebsiteSettings._Protocol.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         PROTOCOL_UNSPECIFIED: WebsiteSettings._Protocol.ValueType  # 0
+        """Protocol unspecified."""
         PROTOCOL_HTTP: WebsiteSettings._Protocol.ValueType  # 1
         """`http` scheme."""
         PROTOCOL_HTTPS: WebsiteSettings._Protocol.ValueType  # 2
@@ -578,6 +591,7 @@ class WebsiteSettings(google.protobuf.message.Message):
 
     class Protocol(_Protocol, metaclass=_ProtocolEnumTypeWrapper): ...
     PROTOCOL_UNSPECIFIED: WebsiteSettings.Protocol.ValueType  # 0
+    """Protocol unspecified."""
     PROTOCOL_HTTP: WebsiteSettings.Protocol.ValueType  # 1
     """`http` scheme."""
     PROTOCOL_HTTPS: WebsiteSettings.Protocol.ValueType  # 2
@@ -928,12 +942,19 @@ class LifecycleRule(google.protobuf.message.Message):
             OBJECT_SIZE_LESS_THAN_FIELD_NUMBER: builtins.int
             TAG_FIELD_NUMBER: builtins.int
             prefix: builtins.str
+            """Key prefix that the object must have in order for the rule to apply."""
             @property
-            def object_size_greater_than(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+            def object_size_greater_than(self) -> google.protobuf.wrappers_pb2.Int64Value:
+                """Size that the object must be greater."""
+
             @property
-            def object_size_less_than(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+            def object_size_less_than(self) -> google.protobuf.wrappers_pb2.Int64Value:
+                """Size that the object must be less than."""
+
             @property
-            def tag(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tag]: ...
+            def tag(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tag]:
+                """Tags that the object's tag set must have for the rule to apply."""
+
             def __init__(
                 self,
                 *,
@@ -1290,6 +1311,7 @@ class HTTPSConfig(google.protobuf.message.Message):
     class _SourceTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[HTTPSConfig._SourceType.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         SOURCE_TYPE_UNSPECIFIED: HTTPSConfig._SourceType.ValueType  # 0
+        """Source type unspecified."""
         SOURCE_TYPE_SELF_MANAGED: HTTPSConfig._SourceType.ValueType  # 1
         """Your certificate, uploaded directly."""
         SOURCE_TYPE_MANAGED_BY_CERTIFICATE_MANAGER: HTTPSConfig._SourceType.ValueType  # 2
@@ -1299,6 +1321,7 @@ class HTTPSConfig(google.protobuf.message.Message):
         """A resource for type of TLS certificate source."""
 
     SOURCE_TYPE_UNSPECIFIED: HTTPSConfig.SourceType.ValueType  # 0
+    """Source type unspecified."""
     SOURCE_TYPE_SELF_MANAGED: HTTPSConfig.SourceType.ValueType  # 1
     """Your certificate, uploaded directly."""
     SOURCE_TYPE_MANAGED_BY_CERTIFICATE_MANAGER: HTTPSConfig.SourceType.ValueType  # 2
@@ -1374,15 +1397,21 @@ class ObjectLock(google.protobuf.message.Message):
     class _ObjectLockStatusEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ObjectLock._ObjectLockStatus.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         OBJECT_LOCK_STATUS_UNSPECIFIED: ObjectLock._ObjectLockStatus.ValueType  # 0
+        """Object lock status unspecified."""
         OBJECT_LOCK_STATUS_DISABLED: ObjectLock._ObjectLockStatus.ValueType  # 1
+        """Object lock status disabled."""
         OBJECT_LOCK_STATUS_ENABLED: ObjectLock._ObjectLockStatus.ValueType  # 2
+        """Object lock status enabled."""
 
     class ObjectLockStatus(_ObjectLockStatus, metaclass=_ObjectLockStatusEnumTypeWrapper):
         """Activity status of the object lock settings on the bucket"""
 
     OBJECT_LOCK_STATUS_UNSPECIFIED: ObjectLock.ObjectLockStatus.ValueType  # 0
+    """Object lock status unspecified."""
     OBJECT_LOCK_STATUS_DISABLED: ObjectLock.ObjectLockStatus.ValueType  # 1
+    """Object lock status disabled."""
     OBJECT_LOCK_STATUS_ENABLED: ObjectLock.ObjectLockStatus.ValueType  # 2
+    """Object lock status enabled."""
 
     @typing.final
     class DefaultRetention(google.protobuf.message.Message):
@@ -1397,20 +1426,27 @@ class ObjectLock(google.protobuf.message.Message):
         class _ModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[ObjectLock.DefaultRetention._Mode.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             MODE_UNSPECIFIED: ObjectLock.DefaultRetention._Mode.ValueType  # 0
+            """Mode unspecified."""
             MODE_GOVERNANCE: ObjectLock.DefaultRetention._Mode.ValueType  # 1
+            """Mode governance."""
             MODE_COMPLIANCE: ObjectLock.DefaultRetention._Mode.ValueType  # 2
+            """Mode compliance."""
 
         class Mode(_Mode, metaclass=_ModeEnumTypeWrapper):
             """Lock type"""
 
         MODE_UNSPECIFIED: ObjectLock.DefaultRetention.Mode.ValueType  # 0
+        """Mode unspecified."""
         MODE_GOVERNANCE: ObjectLock.DefaultRetention.Mode.ValueType  # 1
+        """Mode governance."""
         MODE_COMPLIANCE: ObjectLock.DefaultRetention.Mode.ValueType  # 2
+        """Mode compliance."""
 
         MODE_FIELD_NUMBER: builtins.int
         DAYS_FIELD_NUMBER: builtins.int
         YEARS_FIELD_NUMBER: builtins.int
         mode: global___ObjectLock.DefaultRetention.Mode.ValueType
+        """Mode"""
         days: builtins.int
         """Number of days for locking"""
         years: builtins.int
@@ -1429,8 +1465,11 @@ class ObjectLock(google.protobuf.message.Message):
     STATUS_FIELD_NUMBER: builtins.int
     DEFAULT_RETENTION_FIELD_NUMBER: builtins.int
     status: global___ObjectLock.ObjectLockStatus.ValueType
+    """Status"""
     @property
-    def default_retention(self) -> global___ObjectLock.DefaultRetention: ...
+    def default_retention(self) -> global___ObjectLock.DefaultRetention:
+        """Default retention"""
+
     def __init__(
         self,
         *,
@@ -1453,7 +1492,9 @@ class Encryption(google.protobuf.message.Message):
         KMS_MASTER_KEY_ID_FIELD_NUMBER: builtins.int
         SSE_ALGORITHM_FIELD_NUMBER: builtins.int
         kms_master_key_id: builtins.str
+        """KMS master key ID"""
         sse_algorithm: builtins.str
+        """SSE algorithm"""
         def __init__(
             self,
             *,
@@ -1464,7 +1505,9 @@ class Encryption(google.protobuf.message.Message):
 
     RULES_FIELD_NUMBER: builtins.int
     @property
-    def rules(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Encryption.EncryptionRule]: ...
+    def rules(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Encryption.EncryptionRule]:
+        """Rules"""
+
     def __init__(
         self,
         *,
@@ -1480,9 +1523,14 @@ class BucketAllowedPrivateEndpoints(google.protobuf.message.Message):
 
     ENABLED_FIELD_NUMBER: builtins.int
     PRIVATE_ENDPOINTS_FIELD_NUMBER: builtins.int
+    FORCE_CLOUD_CONSOLE_ACCESS_FIELD_NUMBER: builtins.int
     enabled: builtins.bool
     """if true, private endpoints white list check is enabled
     even if private_endpoints list is empty
+    """
+    force_cloud_console_access: builtins.bool
+    """if true, cloud console will be able to access a bucket
+    regardless of private_endpoints list
     """
     @property
     def private_endpoints(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
@@ -1493,7 +1541,253 @@ class BucketAllowedPrivateEndpoints(google.protobuf.message.Message):
         *,
         enabled: builtins.bool = ...,
         private_endpoints: collections.abc.Iterable[builtins.str] | None = ...,
+        force_cloud_console_access: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["enabled", b"enabled", "private_endpoints", b"private_endpoints"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["enabled", b"enabled", "force_cloud_console_access", b"force_cloud_console_access", "private_endpoints", b"private_endpoints"]) -> None: ...
 
 global___BucketAllowedPrivateEndpoints = BucketAllowedPrivateEndpoints
+
+@typing.final
+class InventoryConfiguration(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class _IncludedObjectVersions:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _IncludedObjectVersionsEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[InventoryConfiguration._IncludedObjectVersions.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        INCLUDED_OBJECT_VERSIONS_UNSPECIFIED: InventoryConfiguration._IncludedObjectVersions.ValueType  # 0
+        """UNSPECIFIED"""
+        ALL: InventoryConfiguration._IncludedObjectVersions.ValueType  # 1
+        """Include all versions."""
+        CURRENT: InventoryConfiguration._IncludedObjectVersions.ValueType  # 2
+        """Include only the current version."""
+
+    class IncludedObjectVersions(_IncludedObjectVersions, metaclass=_IncludedObjectVersionsEnumTypeWrapper):
+        """Types of object versions to include in the inventory list."""
+
+    INCLUDED_OBJECT_VERSIONS_UNSPECIFIED: InventoryConfiguration.IncludedObjectVersions.ValueType  # 0
+    """UNSPECIFIED"""
+    ALL: InventoryConfiguration.IncludedObjectVersions.ValueType  # 1
+    """Include all versions."""
+    CURRENT: InventoryConfiguration.IncludedObjectVersions.ValueType  # 2
+    """Include only the current version."""
+
+    class _OptionalField:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _OptionalFieldEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[InventoryConfiguration._OptionalField.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        OPTIONAL_FIELD_UNSPECIFIED: InventoryConfiguration._OptionalField.ValueType  # 0
+        """UNSPECIFIED"""
+        SIZE: InventoryConfiguration._OptionalField.ValueType  # 1
+        """The object size in bytes."""
+        LAST_MODIFIED_DATE: InventoryConfiguration._OptionalField.ValueType  # 2
+        """The object creation date or the last modified date, whichever is the latest."""
+        STORAGE_CLASS: InventoryConfiguration._OptionalField.ValueType  # 3
+        """The storage class that's used for storing the object."""
+        ETAG: InventoryConfiguration._OptionalField.ValueType  # 4
+        """The entity tag (ETag) is a hash of the object."""
+        IS_MULTIPART_UPLOADED: InventoryConfiguration._OptionalField.ValueType  # 5
+        """Specifies that the object was uploaded as a multipart upload."""
+        ENCRYPTION_STATUS: InventoryConfiguration._OptionalField.ValueType  # 6
+        """The server-side encryption type that's used to encrypt the object."""
+        OBJECT_LOCK_RETAIN_UNTIL_DATE: InventoryConfiguration._OptionalField.ValueType  # 7
+        """The date until which the object is locked."""
+        OBJECT_LOCK_MODE: InventoryConfiguration._OptionalField.ValueType  # 8
+        """The level of protection applied to the object, either Governance or Compliance."""
+        OBJECT_LOCK_LEGAL_HOLD_STATUS: InventoryConfiguration._OptionalField.ValueType  # 9
+        """The legal hold status of the locked object."""
+        CHECKSUM_ALGORITHM: InventoryConfiguration._OptionalField.ValueType  # 10
+        """Indicates the algorithm that is used to create the checksum for the object."""
+        OBJECT_ACCESS_CONTROL_LIST: InventoryConfiguration._OptionalField.ValueType  # 11
+        """An access control list (ACL) for each object."""
+        OBJECT_OWNER: InventoryConfiguration._OptionalField.ValueType  # 12
+        """The owner of the object."""
+
+    class OptionalField(_OptionalField, metaclass=_OptionalFieldEnumTypeWrapper):
+        """Type of optional field."""
+
+    OPTIONAL_FIELD_UNSPECIFIED: InventoryConfiguration.OptionalField.ValueType  # 0
+    """UNSPECIFIED"""
+    SIZE: InventoryConfiguration.OptionalField.ValueType  # 1
+    """The object size in bytes."""
+    LAST_MODIFIED_DATE: InventoryConfiguration.OptionalField.ValueType  # 2
+    """The object creation date or the last modified date, whichever is the latest."""
+    STORAGE_CLASS: InventoryConfiguration.OptionalField.ValueType  # 3
+    """The storage class that's used for storing the object."""
+    ETAG: InventoryConfiguration.OptionalField.ValueType  # 4
+    """The entity tag (ETag) is a hash of the object."""
+    IS_MULTIPART_UPLOADED: InventoryConfiguration.OptionalField.ValueType  # 5
+    """Specifies that the object was uploaded as a multipart upload."""
+    ENCRYPTION_STATUS: InventoryConfiguration.OptionalField.ValueType  # 6
+    """The server-side encryption type that's used to encrypt the object."""
+    OBJECT_LOCK_RETAIN_UNTIL_DATE: InventoryConfiguration.OptionalField.ValueType  # 7
+    """The date until which the object is locked."""
+    OBJECT_LOCK_MODE: InventoryConfiguration.OptionalField.ValueType  # 8
+    """The level of protection applied to the object, either Governance or Compliance."""
+    OBJECT_LOCK_LEGAL_HOLD_STATUS: InventoryConfiguration.OptionalField.ValueType  # 9
+    """The legal hold status of the locked object."""
+    CHECKSUM_ALGORITHM: InventoryConfiguration.OptionalField.ValueType  # 10
+    """Indicates the algorithm that is used to create the checksum for the object."""
+    OBJECT_ACCESS_CONTROL_LIST: InventoryConfiguration.OptionalField.ValueType  # 11
+    """An access control list (ACL) for each object."""
+    OBJECT_OWNER: InventoryConfiguration.OptionalField.ValueType  # 12
+    """The owner of the object."""
+
+    @typing.final
+    class InventoryBucketDestination(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Format:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _FormatEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[InventoryConfiguration.InventoryBucketDestination._Format.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            FORMAT_UNSPECIFIED: InventoryConfiguration.InventoryBucketDestination._Format.ValueType  # 0
+            CSV: InventoryConfiguration.InventoryBucketDestination._Format.ValueType  # 1
+            """CSV format."""
+
+        class Format(_Format, metaclass=_FormatEnumTypeWrapper):
+            """Output format."""
+
+        FORMAT_UNSPECIFIED: InventoryConfiguration.InventoryBucketDestination.Format.ValueType  # 0
+        CSV: InventoryConfiguration.InventoryBucketDestination.Format.ValueType  # 1
+        """CSV format."""
+
+        BUCKET_FIELD_NUMBER: builtins.int
+        FORMAT_FIELD_NUMBER: builtins.int
+        PREFIX_FIELD_NUMBER: builtins.int
+        bucket: builtins.str
+        """Bucket where inventory results will be published."""
+        format: global___InventoryConfiguration.InventoryBucketDestination.Format.ValueType
+        """Specifies the output format of the inventory results."""
+        @property
+        def prefix(self) -> google.protobuf.wrappers_pb2.StringValue:
+            """The prefix that is prepended to all inventory results."""
+
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str = ...,
+            format: global___InventoryConfiguration.InventoryBucketDestination.Format.ValueType = ...,
+            prefix: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing.Literal["prefix", b"prefix"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["bucket", b"bucket", "format", b"format", "prefix", b"prefix"]) -> None: ...
+
+    @typing.final
+    class InventoryDestination(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        BUCKET_DESTINATION_FIELD_NUMBER: builtins.int
+        @property
+        def bucket_destination(self) -> global___InventoryConfiguration.InventoryBucketDestination:
+            """Destination bucket settings"""
+
+        def __init__(
+            self,
+            *,
+            bucket_destination: global___InventoryConfiguration.InventoryBucketDestination | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing.Literal["bucket_destination", b"bucket_destination"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["bucket_destination", b"bucket_destination"]) -> None: ...
+
+    @typing.final
+    class InventorySchedule(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Frequency:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _FrequencyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[InventoryConfiguration.InventorySchedule._Frequency.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            FREQUENCY_UNSPECIFIED: InventoryConfiguration.InventorySchedule._Frequency.ValueType  # 0
+            """UNSPECIFIED"""
+            DAILY: InventoryConfiguration.InventorySchedule._Frequency.ValueType  # 1
+            """Daily generation."""
+            WEEKLY: InventoryConfiguration.InventorySchedule._Frequency.ValueType  # 2
+            """Weekly generation."""
+
+        class Frequency(_Frequency, metaclass=_FrequencyEnumTypeWrapper):
+            """Types of generation frequency"""
+
+        FREQUENCY_UNSPECIFIED: InventoryConfiguration.InventorySchedule.Frequency.ValueType  # 0
+        """UNSPECIFIED"""
+        DAILY: InventoryConfiguration.InventorySchedule.Frequency.ValueType  # 1
+        """Daily generation."""
+        WEEKLY: InventoryConfiguration.InventorySchedule.Frequency.ValueType  # 2
+        """Weekly generation."""
+
+        FREQUENCY_FIELD_NUMBER: builtins.int
+        frequency: global___InventoryConfiguration.InventorySchedule.Frequency.ValueType
+        """Specifies how frequently inventory results are produced."""
+        def __init__(
+            self,
+            *,
+            frequency: global___InventoryConfiguration.InventorySchedule.Frequency.ValueType = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["frequency", b"frequency"]) -> None: ...
+
+    @typing.final
+    class InventoryFilter(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        PREFIX_FIELD_NUMBER: builtins.int
+        prefix: builtins.str
+        """The prefix that an object must have to be included in the inventory results."""
+        def __init__(
+            self,
+            *,
+            prefix: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["prefix", b"prefix"]) -> None: ...
+
+    ID_FIELD_NUMBER: builtins.int
+    DESTINATION_FIELD_NUMBER: builtins.int
+    INCLUDED_OBJECT_VERSIONS_FIELD_NUMBER: builtins.int
+    IS_ENABLED_FIELD_NUMBER: builtins.int
+    SCHEDULE_FIELD_NUMBER: builtins.int
+    FILTER_FIELD_NUMBER: builtins.int
+    OPTIONAL_FIELDS_FIELD_NUMBER: builtins.int
+    id: builtins.str
+    """The ID used to identify the inventory configuration."""
+    included_object_versions: global___InventoryConfiguration.IncludedObjectVersions.ValueType
+    """Object versions to include in the inventory list."""
+    is_enabled: builtins.bool
+    """Specifies whether the inventory is enabled."""
+    @property
+    def destination(self) -> global___InventoryConfiguration.InventoryDestination:
+        """Contains information about where to publish the inventory results."""
+
+    @property
+    def schedule(self) -> global___InventoryConfiguration.InventorySchedule:
+        """Specifies the schedule for generating inventory results."""
+
+    @property
+    def filter(self) -> global___InventoryConfiguration.InventoryFilter:
+        """Specifies the filter for objects to include in the inventory."""
+
+    @property
+    def optional_fields(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___InventoryConfiguration.OptionalField.ValueType]:
+        """Contains the optional fields that are included in the inventory results."""
+
+    def __init__(
+        self,
+        *,
+        id: builtins.str = ...,
+        destination: global___InventoryConfiguration.InventoryDestination | None = ...,
+        included_object_versions: global___InventoryConfiguration.IncludedObjectVersions.ValueType = ...,
+        is_enabled: builtins.bool = ...,
+        schedule: global___InventoryConfiguration.InventorySchedule | None = ...,
+        filter: global___InventoryConfiguration.InventoryFilter | None = ...,
+        optional_fields: collections.abc.Iterable[global___InventoryConfiguration.OptionalField.ValueType] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["destination", b"destination", "filter", b"filter", "schedule", b"schedule"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["destination", b"destination", "filter", b"filter", "id", b"id", "included_object_versions", b"included_object_versions", "is_enabled", b"is_enabled", "optional_fields", b"optional_fields", "schedule", b"schedule"]) -> None: ...
+
+global___InventoryConfiguration = InventoryConfiguration

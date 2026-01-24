@@ -71,7 +71,7 @@ class ClusterArgs:
         :param pulumi.Input['ClusterEncryptionConfigArgs'] encryption_config: EncryptionConfig describes the encryption config of a cluster or a backup that is encrypted with a CMEK (customer-managed encryption key).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] etag: For Resource freshness validation (https://google.aip.dev/154)
-        :param pulumi.Input['ClusterInitialUserArgs'] initial_user: Initial user to setup during cluster creation.
+        :param pulumi.Input['ClusterInitialUserArgs'] initial_user: Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels for the alloydb cluster.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -300,7 +300,7 @@ class ClusterArgs:
     @pulumi.getter(name="initialUser")
     def initial_user(self) -> Optional[pulumi.Input['ClusterInitialUserArgs']]:
         """
-        Initial user to setup during cluster creation.
+        Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
         Structure is documented below.
         """
         return pulumi.get(self, "initial_user")
@@ -514,7 +514,7 @@ class _ClusterState:
                Output only. The encryption information for the WALs and backups required for ContinuousBackup.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] etag: For Resource freshness validation (https://google.aip.dev/154)
-        :param pulumi.Input['ClusterInitialUserArgs'] initial_user: Initial user to setup during cluster creation.
+        :param pulumi.Input['ClusterInitialUserArgs'] initial_user: Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels for the alloydb cluster.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -831,7 +831,7 @@ class _ClusterState:
     @pulumi.getter(name="initialUser")
     def initial_user(self) -> Optional[pulumi.Input['ClusterInitialUserArgs']]:
         """
-        Initial user to setup during cluster creation.
+        Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
         Structure is documented below.
         """
         return pulumi.get(self, "initial_user")
@@ -1223,6 +1223,67 @@ class Cluster(pulumi.CustomResource):
             deletion_protection=False)
         project = gcp.organizations.get_project()
         ```
+        ### Alloydb Cluster Restore
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.compute.get_network(name="alloydb-network")
+        source = gcp.alloydb.Cluster("source",
+            cluster_id="alloydb-source-cluster",
+            location="us-central1",
+            network=default.id,
+            initial_user={
+                "password": "alloydb-source-cluster",
+            },
+            deletion_protection=False)
+        private_ip_alloc = gcp.compute.GlobalAddress("private_ip_alloc",
+            name="alloydb-source-cluster",
+            address_type="INTERNAL",
+            purpose="VPC_PEERING",
+            prefix_length=16,
+            network=default.id)
+        vpc_connection = gcp.servicenetworking.Connection("vpc_connection",
+            network=default.id,
+            service="servicenetworking.googleapis.com",
+            reserved_peering_ranges=[private_ip_alloc.name])
+        source_instance = gcp.alloydb.Instance("source",
+            cluster=source.name,
+            instance_id="alloydb-instance",
+            instance_type="PRIMARY",
+            machine_config={
+                "cpu_count": 2,
+            },
+            opts = pulumi.ResourceOptions(depends_on=[vpc_connection]))
+        source_backup = gcp.alloydb.Backup("source",
+            backup_id="alloydb-backup",
+            location="us-central1",
+            cluster_name=source.name,
+            opts = pulumi.ResourceOptions(depends_on=[source_instance]))
+        restored_from_backup = gcp.alloydb.Cluster("restored_from_backup",
+            cluster_id="alloydb-backup-restored",
+            location="us-central1",
+            network_config={
+                "network": default.id,
+            },
+            restore_backup_source={
+                "backup_name": source_backup.name,
+            },
+            deletion_protection=False)
+        restored_via_pitr = gcp.alloydb.Cluster("restored_via_pitr",
+            cluster_id="alloydb-pitr-restored",
+            location="us-central1",
+            network_config={
+                "network": default.id,
+            },
+            restore_continuous_backup_source={
+                "cluster": source.name,
+                "point_in_time": "2023-08-03T19:19:00.094Z",
+            },
+            deletion_protection=False)
+        project = gcp.organizations.get_project()
+        ```
         ### Alloydb Secondary Cluster Basic
 
         ```python
@@ -1329,7 +1390,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[Union['ClusterEncryptionConfigArgs', 'ClusterEncryptionConfigArgsDict']] encryption_config: EncryptionConfig describes the encryption config of a cluster or a backup that is encrypted with a CMEK (customer-managed encryption key).
                Structure is documented below.
         :param pulumi.Input[_builtins.str] etag: For Resource freshness validation (https://google.aip.dev/154)
-        :param pulumi.Input[Union['ClusterInitialUserArgs', 'ClusterInitialUserArgsDict']] initial_user: Initial user to setup during cluster creation.
+        :param pulumi.Input[Union['ClusterInitialUserArgs', 'ClusterInitialUserArgsDict']] initial_user: Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels for the alloydb cluster.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -1476,6 +1537,67 @@ class Cluster(pulumi.CustomResource):
             },
             labels={
                 "test": "alloydb-cluster-full",
+            },
+            deletion_protection=False)
+        project = gcp.organizations.get_project()
+        ```
+        ### Alloydb Cluster Restore
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.compute.get_network(name="alloydb-network")
+        source = gcp.alloydb.Cluster("source",
+            cluster_id="alloydb-source-cluster",
+            location="us-central1",
+            network=default.id,
+            initial_user={
+                "password": "alloydb-source-cluster",
+            },
+            deletion_protection=False)
+        private_ip_alloc = gcp.compute.GlobalAddress("private_ip_alloc",
+            name="alloydb-source-cluster",
+            address_type="INTERNAL",
+            purpose="VPC_PEERING",
+            prefix_length=16,
+            network=default.id)
+        vpc_connection = gcp.servicenetworking.Connection("vpc_connection",
+            network=default.id,
+            service="servicenetworking.googleapis.com",
+            reserved_peering_ranges=[private_ip_alloc.name])
+        source_instance = gcp.alloydb.Instance("source",
+            cluster=source.name,
+            instance_id="alloydb-instance",
+            instance_type="PRIMARY",
+            machine_config={
+                "cpu_count": 2,
+            },
+            opts = pulumi.ResourceOptions(depends_on=[vpc_connection]))
+        source_backup = gcp.alloydb.Backup("source",
+            backup_id="alloydb-backup",
+            location="us-central1",
+            cluster_name=source.name,
+            opts = pulumi.ResourceOptions(depends_on=[source_instance]))
+        restored_from_backup = gcp.alloydb.Cluster("restored_from_backup",
+            cluster_id="alloydb-backup-restored",
+            location="us-central1",
+            network_config={
+                "network": default.id,
+            },
+            restore_backup_source={
+                "backup_name": source_backup.name,
+            },
+            deletion_protection=False)
+        restored_via_pitr = gcp.alloydb.Cluster("restored_via_pitr",
+            cluster_id="alloydb-pitr-restored",
+            location="us-central1",
+            network_config={
+                "network": default.id,
+            },
+            restore_continuous_backup_source={
+                "cluster": source.name,
+                "point_in_time": "2023-08-03T19:19:00.094Z",
             },
             deletion_protection=False)
         project = gcp.organizations.get_project()
@@ -1732,7 +1854,7 @@ class Cluster(pulumi.CustomResource):
                Output only. The encryption information for the WALs and backups required for ContinuousBackup.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] etag: For Resource freshness validation (https://google.aip.dev/154)
-        :param pulumi.Input[Union['ClusterInitialUserArgs', 'ClusterInitialUserArgsDict']] initial_user: Initial user to setup during cluster creation.
+        :param pulumi.Input[Union['ClusterInitialUserArgs', 'ClusterInitialUserArgsDict']] initial_user: Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
                Structure is documented below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: User-defined labels for the alloydb cluster.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
@@ -1955,7 +2077,7 @@ class Cluster(pulumi.CustomResource):
     @pulumi.getter(name="initialUser")
     def initial_user(self) -> pulumi.Output[Optional['outputs.ClusterInitialUser']]:
         """
-        Initial user to setup during cluster creation.
+        Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
         Structure is documented below.
         """
         return pulumi.get(self, "initial_user")

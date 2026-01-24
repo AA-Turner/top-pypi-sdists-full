@@ -11,11 +11,10 @@ import typing as t
 
 import pytest
 
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, has_version
 from libtmux.server import Server
 
 if t.TYPE_CHECKING:
+    from libtmux._internal.types import StrPath
     from libtmux.session import Session
 
 logger = logging.getLogger(__name__)
@@ -134,10 +133,7 @@ def test_new_session_shell(server: Server) -> None:
     pane_start_command = pane.pane_start_command
     assert pane_start_command is not None
 
-    if has_gte_version("3.2"):
-        assert pane_start_command.replace('"', "") == cmd
-    else:
-        assert pane_start_command == cmd
+    assert pane_start_command.replace('"', "") == cmd
 
 
 def test_new_session_shell_env(server: Server) -> None:
@@ -158,13 +154,10 @@ def test_new_session_shell_env(server: Server) -> None:
     pane_start_command = pane.pane_start_command
     assert pane_start_command is not None
 
-    if has_gte_version("3.2"):
-        assert pane_start_command.replace('"', "") == cmd
-    else:
-        assert pane_start_command == cmd
+    assert pane_start_command.replace('"', "") == cmd
 
 
-@pytest.mark.skipif(has_version("3.2"), reason="Wrong width returned with 3.2")
+@pytest.mark.skipif(True, reason="tmux 3.2 returns wrong width - test needs rework")
 def test_new_session_width_height(server: Server) -> None:
     """Verify ``Server.new_session`` creates valid session running w/ dimensions."""
     cmd = "/usr/bin/env PS1='$ ' sh"
@@ -182,17 +175,11 @@ def test_new_session_width_height(server: Server) -> None:
 
 def test_new_session_environmental_variables(
     server: Server,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Server.new_session creates and returns valid session."""
     my_session = server.new_session("test_new_session", environment={"FOO": "HI"})
 
-    if has_gte_version("3.2"):
-        assert my_session.show_environment()["FOO"] == "HI"
-    else:
-        assert any(
-            "Environment flag ignored" in record.msg for record in caplog.records
-        ), "Warning missing"
+    assert my_session.show_environment()["FOO"] == "HI"
 
 
 def test_no_server_sessions() -> None:
@@ -365,8 +352,8 @@ def test_new_session_start_directory(
     actual_start_directory = start_directory
     expected_path = None
 
-    if start_directory and str(start_directory) not in ["", "None"]:
-        if "{user_path}" in str(start_directory):
+    if start_directory and str(start_directory) not in {"", "None"}:
+        if f"{user_path}" in str(start_directory):
             # Replace placeholder with actual user_path
             actual_start_directory = str(start_directory).format(user_path=user_path)
             expected_path = str(user_path)
@@ -397,7 +384,8 @@ def test_new_session_start_directory(
 
 
 def test_new_session_start_directory_pathlib(
-    server: Server, user_path: pathlib.Path
+    server: Server,
+    user_path: pathlib.Path,
 ) -> None:
     """Test Server.new_session accepts pathlib.Path for start_directory."""
     # Pass pathlib.Path directly to test pathlib.Path acceptance

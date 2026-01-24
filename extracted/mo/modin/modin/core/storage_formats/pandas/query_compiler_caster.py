@@ -31,7 +31,7 @@ import pandas
 from pandas.core.indexes.frozen import FrozenList
 from typing_extensions import Self
 
-from modin.config import AutoSwitchBackend, Backend
+from modin.config import AutoSwitchBackend, Backend, BackendMergeCastInPlace
 from modin.config import context as config_context
 from modin.core.storage_formats.base.query_compiler import (
     BaseQueryCompiler,
@@ -39,6 +39,7 @@ from modin.core.storage_formats.base.query_compiler import (
 )
 from modin.core.storage_formats.base.query_compiler_calculator import (
     BackendCostCalculator,
+    all_switchable_backends,
 )
 from modin.error_message import ErrorMessage
 from modin.logging import disable_logging, get_logger
@@ -92,12 +93,12 @@ _NON_EXTENDABLE_ATTRIBUTES = {
     "_getattr__from_extension_impl",
     "get_backend",
     "move_to",
-    "_update_inplace",
     "set_backend",
     "_get_extension",
     "_query_compiler",
     "_get_query_compiler",
     "_copy_into",
+    "_update_inplace",
     "is_backend_pinned",
     "_set_backend_pinned",
     "pin_backend",
@@ -121,6 +122,7 @@ EXTENSION_NO_LOOKUP = {
     "_set_backend_pinned",
     "pin_backend",
     "unpin_backend",
+    "_update_inplace",
 }
 
 
@@ -796,14 +798,7 @@ def _get_backend_for_auto_switch(
         f"hybrid.auto.current.{starting_backend}.group.{metrics_group}.cols",
         data_max_shape[1],
     )
-    for backend in Backend.get_active_backends():
-        if backend in ("Ray", "Unidist", "Dask"):
-            # Disable automatically switching to these engines for now, because
-            # 1) _get_prepared_factory_for_backend() currently calls
-            # _initialize_engine(), which starts up the ray/dask/unidist
-            #  processes
-            # 2) we can't decide to switch to unidist in the middle of execution.
-            continue
+    for backend in all_switchable_backends():
         if backend == starting_backend:
             continue
         move_to_class = FactoryDispatcher._get_prepared_factory_for_backend(
@@ -1099,14 +1094,22 @@ def wrap_function_in_argument_caster(
                 arguments=args_dict,
             )
         else:
+            preop_switch = (
+                name
+                in _CLASS_AND_BACKEND_TO_PRE_OP_SWITCH_METHODS[
+                    BackendAndClassName(
+                        backend=input_backend,
+                        class_name=class_of_wrapped_fn,
+                    )
+                ]
+            )
             calculator: BackendCostCalculator = BackendCostCalculator(
                 operation_arguments=args_dict,
                 api_cls_name=class_of_wrapped_fn,
                 operation=name,
+                query_compilers=input_query_compilers,
+                preop_switch=preop_switch,
             )
-
-            for qc in input_query_compilers:
-                calculator.add_query_compiler(qc)
 
             if pin_target_backend is None:
                 result_backend = calculator.calculate()
@@ -1120,10 +1123,20 @@ def wrap_function_in_argument_caster(
                     and arg.get_backend() != result_backend
                 ):
                     return arg
-                cast = arg.set_backend(
-                    result_backend,
-                    switch_operation=f"{_normalize_class_name(class_of_wrapped_fn)}.{name}",
-                )
+                if BackendMergeCastInPlace.get():
+                    arg.set_backend(
+                        result_backend,
+                        switch_operation=f"{_normalize_class_name(class_of_wrapped_fn)}.{name}",
+                        inplace=True,
+                    )
+                    assert arg.get_backend() == result_backend
+                    cast = arg
+                else:
+                    cast = arg.set_backend(
+                        result_backend,
+                        switch_operation=f"{_normalize_class_name(class_of_wrapped_fn)}.{name}",
+                        inplace=False,
+                    )
                 inplace_update_trackers.append(
                     InplaceUpdateTracker(
                         input_castable=arg,
@@ -1156,7 +1169,7 @@ def wrap_function_in_argument_caster(
             new_castable,
         ) in inplace_update_trackers:
             new_qc = new_castable._get_query_compiler()
-            if original_qc is not new_qc:
+            if BackendMergeCastInPlace.get() or original_qc is not new_qc:
                 new_castable._copy_into(original_castable)
 
         return _maybe_switch_backend_post_op(

@@ -140,6 +140,12 @@ def run_git(
     env["LC_ALL"] = env["LANG"] = "C"
     env["PATH"] = os.getenv("PATH")
 
+    # Isolate from system and user git config to prevent config leakage
+    # This prevents issues like Apple Git's system-wide init.defaultBranch=main
+    # from affecting test behavior (see issue #1188)
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_CONFIG_GLOBAL"] = "/dev/null"
+
     # Preserve Git identity environment variables if they exist, otherwise set dummy values
     git_env_defaults = {
         "GIT_AUTHOR_NAME": "Test User",
@@ -228,7 +234,7 @@ def check_for_daemon(limit=10, delay=0.1, timeout=0.1, port=TCP_GIT_PORT) -> boo
         try:
             s.connect(("localhost", port))
             return True
-        except socket.timeout:
+        except TimeoutError:
             pass
         except OSError as e:
             if getattr(e, "errno", False) and e.errno != errno.ECONNREFUSED:
@@ -247,7 +253,7 @@ class CompatTestCase(TestCase):
     min_git_version.
     """
 
-    min_git_version: tuple[int, ...] = (1, 5, 0)
+    min_git_version: tuple[int, ...] = (2, 32, 0)
 
     def setUp(self) -> None:
         super().setUp()

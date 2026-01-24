@@ -3,14 +3,14 @@ Type annotations for ecs service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_ecs.literals import AgentUpdateStatusType
+    from types_aiobotocore_ecs.literals import AcceleratorManufacturerType
 
-    data: AgentUpdateStatusType = "FAILED"
+    data: AcceleratorManufacturerType = "amazon-web-services"
     ```
 """
 
@@ -23,13 +23,21 @@ else:
 
 
 __all__ = (
+    "AcceleratorManufacturerType",
+    "AcceleratorNameType",
+    "AcceleratorTypeType",
+    "AccessTypeType",
     "AgentUpdateStatusType",
     "ApplicationProtocolType",
     "AssignPublicIpType",
     "AvailabilityZoneRebalancingType",
+    "BareMetalType",
+    "BurstablePerformanceType",
     "CPUArchitectureType",
+    "CapacityOptionTypeType",
     "CapacityProviderFieldType",
     "CapacityProviderStatusType",
+    "CapacityProviderTypeType",
     "CapacityProviderUpdateStatusType",
     "ClusterFieldType",
     "ClusterSettingNameType",
@@ -38,6 +46,7 @@ __all__ = (
     "ContainerConditionType",
     "ContainerInstanceFieldType",
     "ContainerInstanceStatusType",
+    "CpuManufacturerType",
     "DeploymentControllerTypeType",
     "DeploymentLifecycleHookStageType",
     "DeploymentRolloutStateType",
@@ -50,8 +59,12 @@ __all__ = (
     "EFSTransitEncryptionType",
     "EnvironmentFileTypeType",
     "ExecuteCommandLoggingType",
+    "ExpressGatewayServiceIncludeType",
+    "ExpressGatewayServiceScalingMetricType",
+    "ExpressGatewayServiceStatusCodeType",
     "FirelensConfigurationTypeType",
     "HealthStatusType",
+    "InstanceGenerationType",
     "InstanceHealthCheckStateType",
     "InstanceHealthCheckTypeType",
     "IpcModeType",
@@ -65,9 +78,13 @@ __all__ = (
     "ListTaskDefinitionFamiliesPaginatorName",
     "ListTaskDefinitionsPaginatorName",
     "ListTasksPaginatorName",
+    "LocalStorageType",
+    "LocalStorageTypeType",
     "LogDriverType",
     "ManagedAgentNameType",
     "ManagedDrainingType",
+    "ManagedInstancesMonitoringOptionsType",
+    "ManagedResourceStatusType",
     "ManagedScalingStatusType",
     "ManagedTerminationProtectionType",
     "NetworkModeType",
@@ -77,14 +94,18 @@ __all__ = (
     "PlacementConstraintTypeType",
     "PlacementStrategyTypeType",
     "PlatformDeviceTypeType",
+    "PropagateMITagsType",
     "PropagateTagsType",
     "ProxyConfigurationTypeType",
     "RegionName",
+    "ResourceManagementTypeType",
     "ResourceServiceName",
     "ResourceTypeType",
     "ScaleUnitType",
     "SchedulingStrategyType",
     "ScopeType",
+    "ServiceConnectAccessLoggingFormatType",
+    "ServiceConnectIncludeQueryParametersType",
     "ServiceDeploymentLifecycleStageType",
     "ServiceDeploymentRollbackMonitorsStatusType",
     "ServiceDeploymentStatusType",
@@ -115,14 +136,40 @@ __all__ = (
 )
 
 
+AcceleratorManufacturerType = Literal["amazon-web-services", "amd", "habana", "nvidia", "xilinx"]
+AcceleratorNameType = Literal[
+    "a100",
+    "a10g",
+    "h100",
+    "inferentia",
+    "k520",
+    "k80",
+    "m60",
+    "radeon-pro-v520",
+    "t4",
+    "t4g",
+    "v100",
+    "vu9p",
+]
+AcceleratorTypeType = Literal["fpga", "gpu", "inference"]
+AccessTypeType = Literal["PRIVATE", "PUBLIC"]
 AgentUpdateStatusType = Literal["FAILED", "PENDING", "STAGED", "STAGING", "UPDATED", "UPDATING"]
 ApplicationProtocolType = Literal["grpc", "http", "http2"]
 AssignPublicIpType = Literal["DISABLED", "ENABLED"]
 AvailabilityZoneRebalancingType = Literal["DISABLED", "ENABLED"]
+BareMetalType = Literal["excluded", "included", "required"]
+BurstablePerformanceType = Literal["excluded", "included", "required"]
 CPUArchitectureType = Literal["ARM64", "X86_64"]
+CapacityOptionTypeType = Literal["ON_DEMAND", "SPOT"]
 CapacityProviderFieldType = Literal["TAGS"]
-CapacityProviderStatusType = Literal["ACTIVE", "INACTIVE"]
+CapacityProviderStatusType = Literal["ACTIVE", "DEPROVISIONING", "INACTIVE", "PROVISIONING"]
+CapacityProviderTypeType = Literal[
+    "EC2_AUTOSCALING", "FARGATE", "FARGATE_SPOT", "MANAGED_INSTANCES"
+]
 CapacityProviderUpdateStatusType = Literal[
+    "CREATE_COMPLETE",
+    "CREATE_FAILED",
+    "CREATE_IN_PROGRESS",
     "DELETE_COMPLETE",
     "DELETE_FAILED",
     "DELETE_IN_PROGRESS",
@@ -132,13 +179,14 @@ CapacityProviderUpdateStatusType = Literal[
 ]
 ClusterFieldType = Literal["ATTACHMENTS", "CONFIGURATIONS", "SETTINGS", "STATISTICS", "TAGS"]
 ClusterSettingNameType = Literal["containerInsights"]
-CompatibilityType = Literal["EC2", "EXTERNAL", "FARGATE"]
+CompatibilityType = Literal["EC2", "EXTERNAL", "FARGATE", "MANAGED_INSTANCES"]
 ConnectivityType = Literal["CONNECTED", "DISCONNECTED"]
 ContainerConditionType = Literal["COMPLETE", "HEALTHY", "START", "SUCCESS"]
 ContainerInstanceFieldType = Literal["CONTAINER_INSTANCE_HEALTH", "TAGS"]
 ContainerInstanceStatusType = Literal[
     "ACTIVE", "DEREGISTERING", "DRAINING", "REGISTERING", "REGISTRATION_FAILED"
 ]
+CpuManufacturerType = Literal["amazon-web-services", "amd", "intel"]
 DeploymentControllerTypeType = Literal["CODE_DEPLOY", "ECS", "EXTERNAL"]
 DeploymentLifecycleHookStageType = Literal[
     "POST_PRODUCTION_TRAFFIC_SHIFT",
@@ -150,7 +198,7 @@ DeploymentLifecycleHookStageType = Literal[
     "TEST_TRAFFIC_SHIFT",
 ]
 DeploymentRolloutStateType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
-DeploymentStrategyType = Literal["BLUE_GREEN", "ROLLING"]
+DeploymentStrategyType = Literal["BLUE_GREEN", "CANARY", "LINEAR", "ROLLING"]
 DesiredStatusType = Literal["PENDING", "RUNNING", "STOPPED"]
 DeviceCgroupPermissionType = Literal["mknod", "read", "write"]
 EBSResourceTypeType = Literal["volume"]
@@ -158,12 +206,18 @@ EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
 EnvironmentFileTypeType = Literal["s3"]
 ExecuteCommandLoggingType = Literal["DEFAULT", "NONE", "OVERRIDE"]
+ExpressGatewayServiceIncludeType = Literal["TAGS"]
+ExpressGatewayServiceScalingMetricType = Literal[
+    "AVERAGE_CPU", "AVERAGE_MEMORY", "REQUEST_COUNT_PER_TARGET"
+]
+ExpressGatewayServiceStatusCodeType = Literal["ACTIVE", "DRAINING", "INACTIVE"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 HealthStatusType = Literal["HEALTHY", "UNHEALTHY", "UNKNOWN"]
+InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthCheckStateType = Literal["IMPAIRED", "INITIALIZING", "INSUFFICIENT_DATA", "OK"]
 InstanceHealthCheckTypeType = Literal["CONTAINER_RUNTIME"]
 IpcModeType = Literal["host", "none", "task"]
-LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE"]
+LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE", "MANAGED_INSTANCES"]
 ListAccountSettingsPaginatorName = Literal["list_account_settings"]
 ListAttributesPaginatorName = Literal["list_attributes"]
 ListClustersPaginatorName = Literal["list_clusters"]
@@ -173,11 +227,15 @@ ListServicesPaginatorName = Literal["list_services"]
 ListTaskDefinitionFamiliesPaginatorName = Literal["list_task_definition_families"]
 ListTaskDefinitionsPaginatorName = Literal["list_task_definitions"]
 ListTasksPaginatorName = Literal["list_tasks"]
+LocalStorageType = Literal["excluded", "included", "required"]
+LocalStorageTypeType = Literal["hdd", "ssd"]
 LogDriverType = Literal[
     "awsfirelens", "awslogs", "fluentd", "gelf", "journald", "json-file", "splunk", "syslog"
 ]
 ManagedAgentNameType = Literal["ExecuteCommandAgent"]
 ManagedDrainingType = Literal["DISABLED", "ENABLED"]
+ManagedInstancesMonitoringOptionsType = Literal["BASIC", "DETAILED"]
+ManagedResourceStatusType = Literal["ACTIVE", "DELETED", "DEPROVISIONING", "FAILED", "PROVISIONING"]
 ManagedScalingStatusType = Literal["DISABLED", "ENABLED"]
 ManagedTerminationProtectionType = Literal["DISABLED", "ENABLED"]
 NetworkModeType = Literal["awsvpc", "bridge", "host", "none"]
@@ -197,12 +255,16 @@ PidModeType = Literal["host", "task"]
 PlacementConstraintTypeType = Literal["distinctInstance", "memberOf"]
 PlacementStrategyTypeType = Literal["binpack", "random", "spread"]
 PlatformDeviceTypeType = Literal["GPU"]
+PropagateMITagsType = Literal["CAPACITY_PROVIDER", "NONE"]
 PropagateTagsType = Literal["NONE", "SERVICE", "TASK_DEFINITION"]
 ProxyConfigurationTypeType = Literal["APPMESH"]
+ResourceManagementTypeType = Literal["CUSTOMER", "ECS"]
 ResourceTypeType = Literal["GPU", "InferenceAccelerator"]
 ScaleUnitType = Literal["PERCENT"]
 SchedulingStrategyType = Literal["DAEMON", "REPLICA"]
 ScopeType = Literal["shared", "task"]
+ServiceConnectAccessLoggingFormatType = Literal["JSON", "TEXT"]
+ServiceConnectIncludeQueryParametersType = Literal["DISABLED", "ENABLED"]
 ServiceDeploymentLifecycleStageType = Literal[
     "BAKE_TIME",
     "CLEAN_UP",
@@ -237,6 +299,7 @@ SettingNameType = Literal[
     "containerInsights",
     "containerInstanceLongArnFormat",
     "defaultLogDriverMode",
+    "fargateEventWindows",
     "fargateFIPSMode",
     "fargateTaskRetirementWaitPeriod",
     "guardDutyActivate",
@@ -312,7 +375,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -382,6 +444,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -427,7 +490,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -480,7 +542,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -519,8 +580,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -555,6 +614,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -564,18 +624,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -597,8 +659,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -613,15 +673,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -652,8 +713,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -693,6 +754,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -704,16 +766,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_account_settings",
@@ -741,6 +794,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

@@ -12,6 +12,7 @@ pub(crate) mod ban_drop_database;
 pub(crate) mod ban_drop_not_null;
 pub(crate) mod ban_drop_table;
 pub(crate) mod ban_truncate_cascade;
+pub(crate) mod ban_uncommitted_transaction;
 pub(crate) mod changing_column_type;
 pub(crate) mod constraint_missing_not_valid;
 pub(crate) mod disallow_unique_constraint;
@@ -25,6 +26,7 @@ pub(crate) mod renaming_column;
 pub(crate) mod renaming_table;
 pub(crate) mod require_concurrent_index_creation;
 pub(crate) mod require_concurrent_index_deletion;
+pub(crate) mod require_timeout_settings;
 pub(crate) mod transaction_nesting;
 // xtask:new-rule:mod-decl
 
@@ -42,6 +44,7 @@ pub(crate) use ban_drop_database::ban_drop_database;
 pub(crate) use ban_drop_not_null::ban_drop_not_null;
 pub(crate) use ban_drop_table::ban_drop_table;
 pub(crate) use ban_truncate_cascade::ban_truncate_cascade;
+pub(crate) use ban_uncommitted_transaction::ban_uncommitted_transaction;
 pub(crate) use changing_column_type::changing_column_type;
 pub(crate) use constraint_missing_not_valid::constraint_missing_not_valid;
 pub(crate) use disallow_unique_constraint::disallow_unique_constraint;
@@ -55,5 +58,6 @@ pub(crate) use renaming_column::renaming_column;
 pub(crate) use renaming_table::renaming_table;
 pub(crate) use require_concurrent_index_creation::require_concurrent_index_creation;
 pub(crate) use require_concurrent_index_deletion::require_concurrent_index_deletion;
+pub(crate) use require_timeout_settings::require_timeout_settings;
 pub(crate) use transaction_nesting::transaction_nesting;
 // xtask:new-rule:export

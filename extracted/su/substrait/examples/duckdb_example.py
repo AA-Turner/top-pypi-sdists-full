@@ -9,12 +9,12 @@
 
 
 import duckdb
-from substrait.builders.plan import read_named_table, project, filter
-from substrait.builders.extended_expression import column, scalar_function, literal
+import pyarrow.substrait as pa_substrait
+
+from substrait.builders.extended_expression import column, literal, scalar_function
+from substrait.builders.plan import filter, read_named_table, select
 from substrait.builders.type import i32
 from substrait.extension_registry import ExtensionRegistry
-from substrait.json import dump_json
-import pyarrow.substrait as pa_substrait
 
 try:
     duckdb.install_extension("substrait")
@@ -42,14 +42,13 @@ table = read_duckdb_named_table("customer", duckdb)
 table = filter(
     table,
     expression=scalar_function(
-        "functions_comparison.yaml",
+        "extension:io.substrait:functions_comparison",
         "equal",
         expressions=[column("c_nationkey"), literal(3, i32())],
     ),
 )
-table = project(
+table = select(
     table, expressions=[column("c_name"), column("c_address"), column("c_nationkey")]
 )
-
-sql = f"CALL from_substrait_json('{dump_json(table(registry))}')"
-print(duckdb.sql(sql))
+sql = "CALL from_substrait(?)"
+print(duckdb.sql(sql, params=[table(registry).SerializeToString()]))

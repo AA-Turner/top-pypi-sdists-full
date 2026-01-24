@@ -43,6 +43,10 @@ def nequip_make_fx(
         extra_inputs (List[torch.Tensor]): list of additional ``torch.Tensor`` input data that are not ``AtomicDataDict`` fields
         seed (int): optional seed for reproducibility
     """
+    # === preprocess data ===
+    data = data.copy()
+    data = {key: data[key] for key in fields}
+
     # we do it twice
     # 1. once with the original input data
     test_data_list = [data[key] for key in fields]

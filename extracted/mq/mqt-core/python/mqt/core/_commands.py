@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -23,7 +23,7 @@ def include_dir() -> Path:
     """
     try:
         dist = distribution("mqt-core")
-        located_include_dir = Path(dist.locate_file("mqt/core/include/mqt-core"))
+        located_include_dir = Path(str(dist.locate_file("mqt/core/include/mqt-core")))
         if located_include_dir.exists() and located_include_dir.is_dir():
             return located_include_dir
         msg = "mqt-core include files not found."
@@ -42,7 +42,7 @@ def cmake_dir() -> Path:
     """
     try:
         dist = distribution("mqt-core")
-        located_cmake_dir = Path(dist.locate_file("mqt/core/share/cmake"))
+        located_cmake_dir = Path(str(dist.locate_file("mqt/core/share/cmake")))
         if located_cmake_dir.exists() and located_cmake_dir.is_dir():
             return located_cmake_dir
         msg = "mqt-core CMake files not found."

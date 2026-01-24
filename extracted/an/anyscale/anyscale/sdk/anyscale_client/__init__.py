@@ -47,7 +47,6 @@ from anyscale_client.models.cloud_providers import CloudProviders
 from anyscale_client.models.cloud_response import CloudResponse
 from anyscale_client.models.cloud_state import CloudState
 from anyscale_client.models.cloud_status import CloudStatus
-from anyscale_client.models.cloud_type import CloudType
 from anyscale_client.models.cloud_types import CloudTypes
 from anyscale_client.models.cloud_version import CloudVersion
 from anyscale_client.models.clouds_query import CloudsQuery
@@ -55,6 +54,7 @@ from anyscale_client.models.cluster import Cluster
 from anyscale_client.models.cluster_compute import ClusterCompute
 from anyscale_client.models.cluster_compute_config import ClusterComputeConfig
 from anyscale_client.models.cluster_computes_query import ClusterComputesQuery
+from anyscale_client.models.cluster_computes_sort_field import ClusterComputesSortField
 from anyscale_client.models.cluster_environment import ClusterEnvironment
 from anyscale_client.models.cluster_environment_build import ClusterEnvironmentBuild
 from anyscale_client.models.cluster_environment_build_operation import ClusterEnvironmentBuildOperation
@@ -133,6 +133,7 @@ from anyscale_client.models.organization import Organization
 from anyscale_client.models.organization_response import OrganizationResponse
 from anyscale_client.models.page_query import PageQuery
 from anyscale_client.models.pause_schedule import PauseSchedule
+from anyscale_client.models.physical_resources import PhysicalResources
 from anyscale_client.models.production_job import ProductionJob
 from anyscale_client.models.production_job_config import ProductionJobConfig
 from anyscale_client.models.production_job_state_transition import ProductionJobStateTransition
@@ -176,6 +177,7 @@ from anyscale_client.models.session_starting_up_data import SessionStartingUpDat
 from anyscale_client.models.session_state import SessionState
 from anyscale_client.models.session_state_data import SessionStateData
 from anyscale_client.models.session_stopping_data import SessionStoppingData
+from anyscale_client.models.sort_by_clause_cluster_computes_sort_field import SortByClauseClusterComputesSortField
 from anyscale_client.models.sort_by_clause_jobs_sort_field import SortByClauseJobsSortField
 from anyscale_client.models.sort_order import SortOrder
 from anyscale_client.models.ssoconfig_response import SsoconfigResponse
@@ -185,7 +187,6 @@ from anyscale_client.models.system_workload_name import SystemWorkloadName
 from anyscale_client.models.terminate_cluster_options import TerminateClusterOptions
 from anyscale_client.models.text_query import TextQuery
 from anyscale_client.models.tracing_config import TracingConfig
-from anyscale_client.models.ux_instance import UXInstance
 from anyscale_client.models.update_cluster import UpdateCluster
 from anyscale_client.models.update_organization import UpdateOrganization
 from anyscale_client.models.user_service_access_types import UserServiceAccessTypes

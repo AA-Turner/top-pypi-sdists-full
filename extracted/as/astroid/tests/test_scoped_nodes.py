@@ -29,7 +29,7 @@ from astroid import (
     util,
 )
 from astroid.bases import BoundMethod, Generator, Instance, UnboundMethod
-from astroid.const import WIN32
+from astroid.const import PY312_PLUS, WIN32
 from astroid.exceptions import (
     AstroidBuildingError,
     AttributeInferenceError,
@@ -42,6 +42,7 @@ from astroid.exceptions import (
     ResolveError,
     TooManyLevelsError,
 )
+from astroid.manager import AstroidManager
 from astroid.nodes.scoped_nodes.scoped_nodes import _is_metaclass
 
 from . import resources
@@ -268,21 +269,21 @@ class ModuleNodeTest(ModuleLoader, unittest.TestCase):
 
     def test_file_stream_physical(self) -> None:
         path = resources.find("data/all.py")
-        astroid = builder.AstroidBuilder().file_build(path, "all")
+        astroid = builder.AstroidBuilder(AstroidManager()).file_build(path, "all")
         with open(path, "rb") as file_io:
             with astroid.stream() as stream:
                 self.assertEqual(stream.read(), file_io.read())
 
     def test_file_stream_api(self) -> None:
         path = resources.find("data/all.py")
-        file_build = builder.AstroidBuilder().file_build(path, "all")
+        file_build = builder.AstroidBuilder(AstroidManager()).file_build(path, "all")
         with self.assertRaises(AttributeError):
             # pylint: disable=pointless-statement, no-member
             file_build.file_stream  # noqa: B018
 
     def test_stream_api(self) -> None:
         path = resources.find("data/all.py")
-        astroid = builder.AstroidBuilder().file_build(path, "all")
+        astroid = builder.AstroidBuilder(AstroidManager()).file_build(path, "all")
         stream = astroid.stream()
         self.assertTrue(hasattr(stream, "close"))
         with stream:
@@ -981,6 +982,46 @@ class FunctionNodeTest(ModuleLoader, unittest.TestCase):
         with pytest.raises(AttributeInferenceError):
             func.getattr("")
 
+    @staticmethod
+    def test_blockstart_tolineno() -> None:
+        code = textwrap.dedent(
+            """\
+        def f1(bar: str) -> None:  #@
+            pass
+
+        def f2(  #@
+               bar: str) -> None:
+            pass
+
+        def f3(  #@
+            bar: str
+        ) -> None:
+            pass
+
+        def f4(  #@
+            bar: str
+        ):
+            pass
+
+        def f5(  #@
+               bar: str):
+            pass
+        """
+        )
+        ast_nodes: list[nodes.FunctionDef] = builder.extract_node(code)  # type: ignore[assignment]
+        assert len(ast_nodes) == 5
+
+        assert ast_nodes[0].blockstart_tolineno == 1
+
+        assert ast_nodes[1].blockstart_tolineno == 5
+
+        assert ast_nodes[2].blockstart_tolineno == 10
+
+        # Unimplemented, will return line 14 for now.
+        # assert ast_nodes[3].blockstart_tolineno == 15
+
+        assert ast_nodes[4].blockstart_tolineno == 19
+
 
 class ClassNodeTest(ModuleLoader, unittest.TestCase):
     def test_dict_interface(self) -> None:
@@ -1002,8 +1043,7 @@ class ClassNodeTest(ModuleLoader, unittest.TestCase):
         self.assertIsInstance(cls.getattr("__module__")[0], nodes.Const)
         self.assertEqual(cls.getattr("__module__")[0].value, "data.module")
         self.assertEqual(len(cls.getattr("__dict__")), 1)
-        if not cls.newstyle:
-            self.assertRaises(AttributeInferenceError, cls.getattr, "__mro__")
+
         for cls in (nodes.List._proxied, nodes.Const(1)._proxied):
             self.assertEqual(len(cls.getattr("__bases__")), 1)
             self.assertEqual(len(cls.getattr("__name__")), 1)
@@ -1927,6 +1967,34 @@ class ClassNodeTest(ModuleLoader, unittest.TestCase):
             cls, [".E", ".C", ".A", ".B", "typing.Generic", ".D", "builtins.object"]
         )
 
+    @pytest.mark.skipif(not PY312_PLUS, reason="PEP 695 syntax requires Python 3.12")
+    def test_mro_generic_8(self):
+        cls = builder.extract_node(
+            """
+        class A: ...
+        class B[T]: ...
+        class C[T](A, B[T]): ...
+        """
+        )
+        assert isinstance(cls, nodes.ClassDef)
+        self.assertEqualMroQName(cls, [".C", ".A", ".B", "builtins.object"])
+
+    @pytest.mark.skipif(not PY312_PLUS, reason="PEP 695 syntax requires Python 3.12")
+    def test_mro_generic_9(self):
+        cls = builder.extract_node(
+            """
+        from dataclasses import dataclass
+        @dataclass
+        class A: ...
+        @dataclass
+        class B[T]: ...
+        @dataclass
+        class C[T](A, B[T]): ...
+        """
+        )
+        assert isinstance(cls, nodes.ClassDef)
+        self.assertEqualMroQName(cls, [".C", ".A", ".B", "builtins.object"])
+
     def test_mro_generic_error_1(self):
         cls = builder.extract_node(
             """
@@ -2154,7 +2222,7 @@ class ClassNodeTest(ModuleLoader, unittest.TestCase):
 
         # Test that objects analyzed through the live introspection
         # aren't considered to have dynamic getattr implemented.
-        astroid_builder = builder.AstroidBuilder()
+        astroid_builder = builder.AstroidBuilder(AstroidManager())
         module = astroid_builder.module_build(difflib)
         self.assertFalse(module["SequenceMatcher"].has_dynamic_getattr())
 
@@ -2801,6 +2869,31 @@ def test_slots_duplicate_bases_issue_1089() -> None:
     )
     with pytest.raises(NotImplementedError):
         astroid["First"].slots()
+
+
+def test_import_with_global() -> None:
+    code = builder.parse(
+        """
+    def f1():
+        global platform
+        from sys import platform as plat
+        platform = plat
+
+    def f2():
+        global os, RE, deque, VERSION, Path
+        import os
+        import re as RE
+        from collections import deque
+        from sys import version as VERSION
+        from pathlib import *
+    """
+    )
+    assert "platform" in code.locals
+    assert "os" in code.locals
+    assert "RE" in code.locals
+    assert "deque" in code.locals
+    assert "VERSION" in code.locals
+    assert "Path" in code.locals
 
 
 class TestFrameNodes:

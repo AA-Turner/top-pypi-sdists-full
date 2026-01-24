@@ -175,8 +175,14 @@ static unsigned long long payload_size = 0;
 #include <mach-o/getsect.h>
 #include <mach-o/ldsyms.h>
 
+#ifdef __LP64__
+#define mach_header_arch mach_header_64
+#else
+#define mach_header_arch mach_header
+#endif
+
 static void initPayloadData2(void) {
-    const struct mach_header *header = &_mh_execute_header;
+    const struct mach_header_arch *header = &_mh_execute_header;
 
     unsigned long section_size;
 
@@ -765,6 +771,8 @@ static void cleanupChildProcess(bool send_sigint) {
 
 #if defined(_WIN32)
 BOOL WINAPI ourConsoleCtrlHandler(DWORD fdwCtrlType) {
+    NUITKA_PRINT_TIMING("ONEFILE: ourConsoleCtrlHandler().");
+
     switch (fdwCtrlType) {
         // Handle the CTRL-C signal.
     case CTRL_C_EVENT:
@@ -974,6 +982,19 @@ static int runPythonCodeDLL(filename_char_t const *dll_filename, int argc, nativ
 }
 #endif
 
+#if defined(__OpenBSD__) || defined(_AIX) || defined(_NUITKA_EXPERIMENTAL_FORCE_UNIX_BINARY_NAME)
+#define NEEDS_ORIGINAL_ARGV0
+#endif
+
+#if defined(NEEDS_ORIGINAL_ARGV0)
+static native_command_line_argument_t const *original_argv0 = NULL;
+
+native_command_line_argument_t const *getOriginalArgv0(void) {
+    assert(original_argv0 != NULL);
+    return original_argv0;
+}
+#endif
+
 #ifdef _NUITKA_WINMAIN_ENTRY_POINT
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lpCmdLine, int nCmdShow) {
     int argc = __argc;
@@ -981,13 +1002,20 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, wchar_t *lp
 #else
 #if defined(_WIN32)
 int wmain(int argc, wchar_t **argv) {
-#if defined(_NUITKA_HIDE_CONSOLE_WINDOW)
-    hideConsoleIfSpawned();
-#endif
 #else
 int main(int argc, char **argv) {
 #endif
 #endif
+
+#if defined(NEEDS_ORIGINAL_ARGV0)
+    original_argv0 = argv[0];
+#endif
+
+    // Hide the console window if asked to do so.
+#if defined(_NUITKA_HIDE_CONSOLE_WINDOW)
+    hideConsoleIfSpawned();
+#endif
+
     // Attach to the parent console respecting redirection only, otherwise we cannot
     // even output traces.
 #if defined(_WIN32) && defined(_NUITKA_ATTACH_CONSOLE_WINDOW)
@@ -1093,16 +1121,18 @@ int main(int argc, char **argv) {
     wprintf(L"payload path: '%lS'\n", payload_path);
 #endif
 
+    if (process_role == NULL) {
 #if defined(_WIN32)
-    bool_res = SetConsoleCtrlHandler(ourConsoleCtrlHandler, true);
-    if (bool_res == false) {
-        fatalError("Error, failed to register signal handler.");
-    }
+        bool_res = SetConsoleCtrlHandler(ourConsoleCtrlHandler, true);
+        if (bool_res == false) {
+            fatalError("Error, failed to register signal handler.");
+        }
 #else
-    signal(SIGINT, ourConsoleCtrlHandler);
-    signal(SIGQUIT, ourConsoleCtrlHandler);
-    signal(SIGTERM, ourConsoleCtrlHandler);
+        signal(SIGINT, ourConsoleCtrlHandler);
+        signal(SIGQUIT, ourConsoleCtrlHandler);
+        signal(SIGTERM, ourConsoleCtrlHandler);
 #endif
+    }
 
 #if _NUITKA_AUTO_UPDATE_BOOL
     checkAutoUpdates();
@@ -1304,6 +1334,11 @@ int main(int argc, char **argv) {
     filename_char_t const *fork_binary = getBinaryPath();
 #else
     filename_char_t const *fork_binary = first_filename;
+#endif
+
+#if defined(_AIX)
+    // Force DLL loading from the distribution.
+    setEnvironmentVariable("LIBPATH", payload_path);
 #endif
 
 #if defined(_WIN32)

@@ -141,7 +141,7 @@ import constructs as _constructs_77d1e7e8
     name_mapping={"role": "role"},
 )
 class ActionBindOptions:
-    def __init__(self, *, role: _aws_cdk_aws_iam_ceddda9d.IRole) -> None:
+    def __init__(self, *, role: "_aws_cdk_aws_iam_ceddda9d.IRole") -> None:
         '''(experimental) Options when binding a Action to a detector model.
 
         :param role: (experimental) The IAM role assumed by IoT Events to perform the action.
@@ -170,14 +170,14 @@ class ActionBindOptions:
         }
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role assumed by IoT Events to perform the action.
 
         :stability: experimental
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -200,7 +200,7 @@ class ActionConfig:
     def __init__(
         self,
         *,
-        configuration: typing.Union[_aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty, typing.Dict[builtins.str, typing.Any]],
+        configuration: typing.Union["_aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Properties for a AWS IoT Events action.
 
@@ -211,6 +211,24 @@ class ActionConfig:
 
         Example::
 
+            from aws_cdk.aws_iotevents.ActionProperty import ActionProperty
+            from aws_cdk.aws_iotevents.ClearTimerProperty import ClearTimerProperty
+            from aws_cdk.aws_iotevents.DynamoDBProperty import DynamoDBProperty
+            from aws_cdk.aws_iotevents.PayloadProperty import PayloadProperty, PayloadProperty, PayloadProperty, PayloadProperty, PayloadProperty, PayloadProperty, PayloadProperty, PayloadProperty
+            from aws_cdk.aws_iotevents.DynamoDBv2Property import DynamoDBv2Property
+            from aws_cdk.aws_iotevents.FirehoseProperty import FirehoseProperty
+            from aws_cdk.aws_iotevents.IotEventsProperty import IotEventsProperty
+            from aws_cdk.aws_iotevents.IotSiteWiseProperty import IotSiteWiseProperty
+            from aws_cdk.aws_iotevents.AssetPropertyValueProperty import AssetPropertyValueProperty
+            from aws_cdk.aws_iotevents.AssetPropertyVariantProperty import AssetPropertyVariantProperty
+            from aws_cdk.aws_iotevents.AssetPropertyTimestampProperty import AssetPropertyTimestampProperty
+            from aws_cdk.aws_iotevents.IotTopicPublishProperty import IotTopicPublishProperty
+            from aws_cdk.aws_iotevents.LambdaProperty import LambdaProperty
+            from aws_cdk.aws_iotevents.ResetTimerProperty import ResetTimerProperty
+            from aws_cdk.aws_iotevents.SetTimerProperty import SetTimerProperty
+            from aws_cdk.aws_iotevents.SetVariableProperty import SetVariableProperty
+            from aws_cdk.aws_iotevents.SnsProperty import SnsProperty
+            from aws_cdk.aws_iotevents.SqsProperty import SqsProperty
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_iotevents_alpha as iotevents_alpha
@@ -356,14 +374,14 @@ class ActionConfig:
     @builtins.property
     def configuration(
         self,
-    ) -> _aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty:
+    ) -> "_aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty":
         '''(experimental) The configuration for this action.
 
         :stability: experimental
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(_aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty, result)
+        return typing.cast("_aws_cdk_aws_iotevents_ceddda9d.CfnDetectorModel.ActionProperty", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -398,7 +416,7 @@ class DetectorModelProps:
         detector_key: typing.Optional[builtins.str] = None,
         detector_model_name: typing.Optional[builtins.str] = None,
         evaluation_method: typing.Optional["EventEvaluation"] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) Properties for defining an AWS IoT Events detector model.
 
@@ -557,7 +575,7 @@ class DetectorModelProps:
         return typing.cast(typing.Optional["EventEvaluation"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The role that grants permission to AWS IoT Events to perform its operations.
 
         :default: - a role will be created with default permissions
@@ -565,7 +583,7 @@ class DetectorModelProps:
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1242,9 +1260,9 @@ class IInput(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the indicated permissions on this input to the given IAM principal (Role/Group/User).
 
         :param grantee: the principal.
@@ -1257,8 +1275,8 @@ class IInput(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant write permissions on this input and its contents to an IAM principal (Role/Group/User).
 
         :param grantee: the principal.
@@ -1301,9 +1319,9 @@ class _IInputProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant the indicated permissions on this input to the given IAM principal (Role/Group/User).
 
         :param grantee: the principal.
@@ -1315,13 +1333,13 @@ class _IInputProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__a07908005477c33cbef478a78f4bc98aeb9279c1c6e351886cdf2e5f0a9722a9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
         '''(experimental) Grant write permissions on this input and its contents to an IAM principal (Role/Group/User).
 
         :param grantee: the principal.
@@ -1331,7 +1349,7 @@ class _IInputProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40be6f6250ceea796c11fa1915d4e36aba135380312fd5e2c8fd455b69e6704c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IInput).__jsii_proxy_class__ = lambda : _IInputProxy
@@ -1373,7 +1391,7 @@ class Input(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         attribute_json_paths: typing.Sequence[builtins.str],
@@ -1401,10 +1419,10 @@ class Input(
     @builtins.classmethod
     def from_input_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         input_name: builtins.str,
-    ) -> IInput:
+    ) -> "IInput":
         '''(experimental) Import an existing input.
 
         :param scope: -
@@ -1418,15 +1436,15 @@ class Input(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
-        return typing.cast(IInput, jsii.sinvoke(cls, "fromInputName", [scope, id, input_name]))
+        return typing.cast("IInput", jsii.sinvoke(cls, "fromInputName", [scope, id, input_name]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         *actions: builtins.str,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant the indicated permissions on this input to the given IAM principal (Role/Group/User).
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
@@ -1437,14 +1455,14 @@ class Input(
             type_hints = typing.get_type_hints(_typecheckingstub__08c8bce12719999ba437b9d271c94d5a64ea8f7ec3195e3590af06b04f17cdf6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(
         self,
-        grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
-    ) -> _aws_cdk_aws_iam_ceddda9d.Grant:
-        '''(experimental) Grant write permissions on this input and its contents to an IAM principal (Role/Group/User).
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) [disable-awslint:no-grants].
 
         :param grantee: -
 
@@ -1453,7 +1471,7 @@ class Input(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ccf828d87dc30a5ca383166bc3b63f5e7c539e64335595946ba8c9a07ae980b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Grant, jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -1641,9 +1659,9 @@ class State(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-iotevents-alpha.Sta
         self,
         *,
         state_name: builtins.str,
-        on_enter: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_exit: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_input: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_enter: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_exit: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_input: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param state_name: (experimental) The name of the state.
@@ -1667,9 +1685,9 @@ class State(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-iotevents-alpha.Sta
         self,
         target_state: "State",
         *,
-        when: Expression,
+        when: "Expression",
         event_name: typing.Optional[builtins.str] = None,
-        executing: typing.Optional[typing.Sequence[IAction]] = None,
+        executing: typing.Optional[typing.Sequence["IAction"]] = None,
     ) -> None:
         '''(experimental) Add a transition event to the state.
 
@@ -1716,9 +1734,9 @@ class StateProps:
         self,
         *,
         state_name: builtins.str,
-        on_enter: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_exit: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
-        on_input: typing.Optional[typing.Sequence[typing.Union[Event, typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_enter: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_exit: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_input: typing.Optional[typing.Sequence[typing.Union["Event", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''(experimental) Properties for defining a state of a detector.
 
@@ -1778,7 +1796,7 @@ class StateProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def on_enter(self) -> typing.Optional[typing.List[Event]]:
+    def on_enter(self) -> typing.Optional[typing.List["Event"]]:
         '''(experimental) Specifies the events on enter.
 
         The conditions of the events will be evaluated when entering this state.
@@ -1789,10 +1807,10 @@ class StateProps:
         :stability: experimental
         '''
         result = self._values.get("on_enter")
-        return typing.cast(typing.Optional[typing.List[Event]], result)
+        return typing.cast(typing.Optional[typing.List["Event"]], result)
 
     @builtins.property
-    def on_exit(self) -> typing.Optional[typing.List[Event]]:
+    def on_exit(self) -> typing.Optional[typing.List["Event"]]:
         '''(experimental) Specifies the events on exit.
 
         The conditions of the events are evaluated when an exiting this state.
@@ -1803,10 +1821,10 @@ class StateProps:
         :stability: experimental
         '''
         result = self._values.get("on_exit")
-        return typing.cast(typing.Optional[typing.List[Event]], result)
+        return typing.cast(typing.Optional[typing.List["Event"]], result)
 
     @builtins.property
-    def on_input(self) -> typing.Optional[typing.List[Event]]:
+    def on_input(self) -> typing.Optional[typing.List["Event"]]:
         '''(experimental) Specifies the events on input.
 
         The conditions of the events will be evaluated when any input is received.
@@ -1817,7 +1835,7 @@ class StateProps:
         :stability: experimental
         '''
         result = self._values.get("on_input")
-        return typing.cast(typing.Optional[typing.List[Event]], result)
+        return typing.cast(typing.Optional[typing.List["Event"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1840,9 +1858,9 @@ class TransitionOptions:
     def __init__(
         self,
         *,
-        when: Expression,
+        when: "Expression",
         event_name: typing.Optional[builtins.str] = None,
-        executing: typing.Optional[typing.Sequence[IAction]] = None,
+        executing: typing.Optional[typing.Sequence["IAction"]] = None,
     ) -> None:
         '''(experimental) Properties for options of state transition.
 
@@ -1922,7 +1940,7 @@ class TransitionOptions:
             self._values["executing"] = executing
 
     @builtins.property
-    def when(self) -> Expression:
+    def when(self) -> "Expression":
         '''(experimental) The condition that is used to determine to cause the state transition and the actions.
 
         When this was evaluated to ``true``, the state transition and the actions are triggered.
@@ -1931,7 +1949,7 @@ class TransitionOptions:
         '''
         result = self._values.get("when")
         assert result is not None, "Required property 'when' is missing"
-        return typing.cast(Expression, result)
+        return typing.cast("Expression", result)
 
     @builtins.property
     def event_name(self) -> typing.Optional[builtins.str]:
@@ -1945,7 +1963,7 @@ class TransitionOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def executing(self) -> typing.Optional[typing.List[IAction]]:
+    def executing(self) -> typing.Optional[typing.List["IAction"]]:
         '''(experimental) The actions to be performed with the transition.
 
         :default: - no actions will be performed
@@ -1953,7 +1971,7 @@ class TransitionOptions:
         :stability: experimental
         '''
         result = self._values.get("executing")
-        return typing.cast(typing.Optional[typing.List[IAction]], result)
+        return typing.cast(typing.Optional[typing.List["IAction"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2036,15 +2054,15 @@ class DetectorModel(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        initial_state: State,
+        initial_state: "State",
         description: typing.Optional[builtins.str] = None,
         detector_key: typing.Optional[builtins.str] = None,
         detector_model_name: typing.Optional[builtins.str] = None,
-        evaluation_method: typing.Optional[EventEvaluation] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        evaluation_method: typing.Optional["EventEvaluation"] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -2077,10 +2095,10 @@ class DetectorModel(
     @builtins.classmethod
     def from_detector_model_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         detector_model_name: builtins.str,
-    ) -> IDetectorModel:
+    ) -> "IDetectorModel":
         '''(experimental) Import an existing detector model.
 
         :param scope: -
@@ -2094,7 +2112,7 @@ class DetectorModel(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
-        return typing.cast(IDetectorModel, jsii.sinvoke(cls, "fromDetectorModelName", [scope, id, detector_model_name]))
+        return typing.cast("IDetectorModel", jsii.sinvoke(cls, "fromDetectorModelName", [scope, id, detector_model_name]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -2415,3 +2433,6 @@ def _typecheckingstub__6b301f20279c5f2e72ae53d77871525685e63f098d5614659271ab5eb
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAction, IDetectorModel, IInput]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

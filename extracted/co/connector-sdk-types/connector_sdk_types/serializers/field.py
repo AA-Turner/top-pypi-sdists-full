@@ -71,6 +71,7 @@ def AnnotatedField(
     hidden: bool = False,
     discriminator: Discriminator | None = None,
     enum_mapping: type[Enum] | None = None,
+    unique: bool = False,
     **kwargs,
 ):
     """
@@ -84,6 +85,7 @@ def AnnotatedField(
     :param semantic_type: The semantic type of the field. See the SemanticType enum for more information. Sets `x-semantic`.
     :param hidden: Whether the field should be hidden from the user.
     :param discriminator: The field should be hidden from the user if the discriminator field doesn't have the expected value.
+    :param unique: Whether this field should be used for fingerprinting/deduplication. Sets `x-unique`.
 
     """
     json_schema_extra = _extract_json_schema_extra(**kwargs)
@@ -113,4 +115,6 @@ def AnnotatedField(
             "expected_value": discriminator.expected_value,
             "one_of_expected_values": discriminator.one_of_expected_values,
         }
+    if unique:
+        json_schema_extra["x-unique"] = True
     return pydantic.Field(*args, json_schema_extra=json_schema_extra, **kwargs)

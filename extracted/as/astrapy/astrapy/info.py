@@ -25,10 +25,12 @@ from astrapy.data.info.collection_descriptor import (
 )
 from astrapy.data.info.database_info import (
     AstraDBAdminDatabaseInfo,
+    AstraDBAvailableRegionInfo,
     AstraDBDatabaseInfo,
 )
 from astrapy.data.info.reranking import (
     FindRerankingProvidersResult,
+    RerankingAPIModelSupport,
     RerankingProvider,
     RerankingProviderAuthentication,
     RerankingProviderModel,
@@ -45,8 +47,10 @@ from astrapy.data.info.table_descriptor.table_altering import (
 from astrapy.data.info.table_descriptor.table_columns import (
     TableAPISupportDescriptor,
     TableKeyValuedColumnTypeDescriptor,
+    TablePassthroughColumnTypeDescriptor,
     TablePrimaryKeyDescriptor,
     TableScalarColumnTypeDescriptor,
+    TableUDTColumnDescriptor,
     TableUnsupportedColumnTypeDescriptor,
     TableValuedColumnTypeDescriptor,
     TableVectorColumnTypeDescriptor,
@@ -61,6 +65,8 @@ from astrapy.data.info.table_descriptor.table_indexes import (
     TableIndexDescriptor,
     TableIndexOptions,
     TableIndexType,
+    TableTextIndexDefinition,
+    TableTextIndexOptions,
     TableUnsupportedIndexDefinition,
     TableVectorIndexDefinition,
     TableVectorIndexOptions,
@@ -70,7 +76,15 @@ from astrapy.data.info.table_descriptor.table_listing import (
     ListTableDescriptor,
     TableInfo,
 )
+from astrapy.data.info.table_descriptor.type_altering import (
+    AlterTypeAddFields,
+    AlterTypeOperation,
+    AlterTypeRenameFields,
+)
+from astrapy.data.info.table_descriptor.type_creation import CreateTypeDefinition
+from astrapy.data.info.table_descriptor.type_listing import ListTypeDescriptor
 from astrapy.data.info.vectorize import (
+    EmbeddingAPIModelSupport,
     EmbeddingProvider,
     EmbeddingProviderAuthentication,
     EmbeddingProviderModel,
@@ -90,7 +104,11 @@ __all__ = [
     "AlterTableAddVectorize",
     "AlterTableDropColumns",
     "AlterTableDropVectorize",
+    "AlterTypeAddFields",
+    "AlterTypeOperation",
+    "AlterTypeRenameFields",
     "AstraDBAdminDatabaseInfo",
+    "AstraDBAvailableRegionInfo",
     "AstraDBDatabaseInfo",
     "CollectionDefaultIDOptions",
     "CollectionDefinition",
@@ -101,6 +119,8 @@ __all__ = [
     "CollectionVectorOptions",
     "ColumnType",
     "CreateTableDefinition",
+    "CreateTypeDefinition",
+    "EmbeddingAPIModelSupport",
     "EmbeddingProvider",
     "EmbeddingProviderAuthentication",
     "EmbeddingProviderModel",
@@ -110,6 +130,8 @@ __all__ = [
     "FindRerankingProvidersResult",
     "ListTableDefinition",
     "ListTableDescriptor",
+    "ListTypeDescriptor",
+    "RerankingAPIModelSupport",
     "RerankingProvider",
     "RerankingProviderAuthentication",
     "RerankingProviderModel",
@@ -126,9 +148,13 @@ __all__ = [
     "TableInfo",
     "TableKeyValuedColumnType",
     "TableKeyValuedColumnTypeDescriptor",
+    "TablePassthroughColumnTypeDescriptor",
     "TablePrimaryKeyDescriptor",
     "TableScalarColumnTypeDescriptor",
+    "TableTextIndexDefinition",
+    "TableTextIndexOptions",
     "TableUnsupportedColumnTypeDescriptor",
+    "TableUDTColumnDescriptor",
     "TableUnsupportedIndexDefinition",
     "TableValuedColumnType",
     "TableValuedColumnTypeDescriptor",

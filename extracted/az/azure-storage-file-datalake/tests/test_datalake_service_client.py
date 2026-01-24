@@ -18,7 +18,9 @@ from azure.storage.filedatalake import (
     FileSystemClient,
     Metrics,
     RetentionPolicy,
-    StaticWebsite)
+    StaticWebsite
+)
+from azure.storage.filedatalake._shared.parser import DEVSTORE_ACCOUNT_KEY, DEVSTORE_ACCOUNT_NAME
 
 from devtools_testutils import recorded_by_proxy
 from devtools_testutils.storage import StorageRecordedTestCase
@@ -108,6 +110,14 @@ class TestDatalakeService(StorageRecordedTestCase):
     def _assert_retention_equal(self, ret1, ret2):
         assert ret1.enabled == ret2.enabled
         assert ret1.days == ret2.days
+
+    def _assert_devstore_conn_str(self, service):
+        assert service is not None
+        assert service.scheme == "http"
+        assert service.account_name == DEVSTORE_ACCOUNT_NAME
+        assert service.credential.account_name == DEVSTORE_ACCOUNT_NAME
+        assert service.credential.account_key == DEVSTORE_ACCOUNT_KEY
+        assert f"127.0.0.1:10000/{DEVSTORE_ACCOUNT_NAME}" in service.url
 
     # --Test cases per service ---------------------------------------
     @DataLakePreparer()
@@ -399,6 +409,22 @@ class TestDatalakeService(StorageRecordedTestCase):
         assert not client.secondary_hostname
 
     @DataLakePreparer()
+    def test_connectionstring_use_development_storage(self):
+        test_conn_str = "UseDevelopmentStorage=true;"
+
+        dsc = DataLakeServiceClient.from_connection_string(test_conn_str)
+        self._assert_devstore_conn_str(dsc)
+
+        fsc = FileSystemClient.from_connection_string(test_conn_str, "fsname")
+        self._assert_devstore_conn_str(fsc)
+
+        dfc = DataLakeFileClient.from_connection_string(test_conn_str, "fsname", "fpath")
+        self._assert_devstore_conn_str(dfc)
+
+        ddc = DataLakeDirectoryClient.from_connection_string(test_conn_str, "fsname", "dname")
+        self._assert_devstore_conn_str(ddc)
+
+    @DataLakePreparer()
     @recorded_by_proxy
     def test_azure_named_key_credential_access(self, **kwargs):
         datalake_storage_account_name = kwargs.pop("datalake_storage_account_name")
@@ -424,14 +450,14 @@ class TestDatalakeService(StorageRecordedTestCase):
         file_client = dir_client.get_file_client(file='testfile')
 
         # Mocks
-        self.dsc._blob_service_client.close = MagicMock()
+        self.dsc._blob_service_client.__exit__ = MagicMock()
         self.dsc._client.__exit__ = MagicMock()
         file_system_client._client.__exit__ = MagicMock()
-        file_system_client._datalake_client_for_blob_operation.close = MagicMock()
+        file_system_client._datalake_client_for_blob_operation.__exit__ = MagicMock()
         dir_client._client.__exit__ = MagicMock()
-        dir_client._datalake_client_for_blob_operation.close = MagicMock()
+        dir_client._datalake_client_for_blob_operation.__exit__ = MagicMock()
         file_client._client.__exit__ = MagicMock()
-        file_client._datalake_client_for_blob_operation.close = MagicMock()
+        file_client._datalake_client_for_blob_operation.__exit__ = MagicMock()
 
         # Act
         with self.dsc as dsc:
@@ -444,14 +470,14 @@ class TestDatalakeService(StorageRecordedTestCase):
                         pass
 
         # Assert
-        self.dsc._blob_service_client.close.assert_called_once()
+        self.dsc._blob_service_client.__exit__.assert_called_once()
         self.dsc._client.__exit__.assert_called_once()
         file_system_client._client.__exit__.assert_called_once()
-        file_system_client._datalake_client_for_blob_operation.close.assert_called_once()
+        file_system_client._datalake_client_for_blob_operation.__exit__.assert_called_once()
         dir_client._client.__exit__.assert_called_once()
-        dir_client._datalake_client_for_blob_operation.close.assert_called_once()
+        dir_client._datalake_client_for_blob_operation.__exit__.assert_called_once()
         file_client._client.__exit__.assert_called_once()
-        file_client._datalake_client_for_blob_operation.close.assert_called_once()
+        file_client._datalake_client_for_blob_operation.__exit__.assert_called_once()
 
     @DataLakePreparer()
     @recorded_by_proxy

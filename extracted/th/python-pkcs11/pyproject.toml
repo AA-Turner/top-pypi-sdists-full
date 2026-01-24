@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security :: Cryptography",
 ]
 dependencies = ["asn1crypto>=1.5.1"]
@@ -54,6 +55,9 @@ combine-as-imports = true
 ext-modules = [
     {name = "pkcs11._pkcs11", sources = ["pkcs11/_pkcs11.pyx"]}
 ]
+
+[tool.cibuildwheel]
+skip = "cp3??t-*"
 
 [tool.cibuildwheel.linux]
 archs = ["auto64"]

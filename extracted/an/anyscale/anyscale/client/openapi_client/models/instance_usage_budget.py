@@ -36,6 +36,7 @@ class InstanceUsageBudget(object):
         'name': 'str',
         'budget_amount': 'float',
         'evaluation_period': 'InstanceUsageBudgetEvaluationPeriod',
+        'budget_unit': 'InstanceUsageBudgetUnit',
         'project_id': 'str',
         'cloud_id': 'str',
         'notification_channel': 'CreateNotificationChannelRecord',
@@ -57,6 +58,7 @@ class InstanceUsageBudget(object):
         'name': 'name',
         'budget_amount': 'budget_amount',
         'evaluation_period': 'evaluation_period',
+        'budget_unit': 'budget_unit',
         'project_id': 'project_id',
         'cloud_id': 'cloud_id',
         'notification_channel': 'notification_channel',
@@ -74,7 +76,7 @@ class InstanceUsageBudget(object):
         'last_usage_updated_at': 'last_usage_updated_at'
     }
 
-    def __init__(self, name=None, budget_amount=None, evaluation_period=None, project_id=None, cloud_id=None, notification_channel=None, id=None, creator_id=None, creator=None, organization_id=None, project=None, cloud=None, curr_instance_usage=None, created_at=None, deleted_at=None, is_enabled=None, last_notified_at=None, last_usage_updated_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, budget_amount=None, evaluation_period=None, budget_unit=None, project_id=None, cloud_id=None, notification_channel=None, id=None, creator_id=None, creator=None, organization_id=None, project=None, cloud=None, curr_instance_usage=None, created_at=None, deleted_at=None, is_enabled=None, last_notified_at=None, last_usage_updated_at=None, local_vars_configuration=None):  # noqa: E501
         """InstanceUsageBudget - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +85,7 @@ class InstanceUsageBudget(object):
         self._name = None
         self._budget_amount = None
         self._evaluation_period = None
+        self._budget_unit = None
         self._project_id = None
         self._cloud_id = None
         self._notification_channel = None
@@ -103,6 +106,8 @@ class InstanceUsageBudget(object):
         self.name = name
         self.budget_amount = budget_amount
         self.evaluation_period = evaluation_period
+        if budget_unit is not None:
+            self.budget_unit = budget_unit
         if project_id is not None:
             self.project_id = project_id
         if cloud_id is not None:
@@ -195,6 +200,27 @@ class InstanceUsageBudget(object):
             raise ValueError("Invalid value for `evaluation_period`, must not be `None`")  # noqa: E501
 
         self._evaluation_period = evaluation_period
+
+    @property
+    def budget_unit(self):
+        """Gets the budget_unit of this InstanceUsageBudget.  # noqa: E501
+
+
+        :return: The budget_unit of this InstanceUsageBudget.  # noqa: E501
+        :rtype: InstanceUsageBudgetUnit
+        """
+        return self._budget_unit
+
+    @budget_unit.setter
+    def budget_unit(self, budget_unit):
+        """Sets the budget_unit of this InstanceUsageBudget.
+
+
+        :param budget_unit: The budget_unit of this InstanceUsageBudget.  # noqa: E501
+        :type: InstanceUsageBudgetUnit
+        """
+
+        self._budget_unit = budget_unit
 
     @property
     def project_id(self):

@@ -1,7 +1,7 @@
 [project]
 name = "pyxirr"
 description-content-type = "text/markdown; charset=UTF-8; variant=GFM"
-requires-python = ">=3.7,<3.14"
+requires-python = ">=3.7"
 dynamic = ["version"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -15,6 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: The Unlicense (Unlicense)",
 ]
 
@@ -25,7 +26,7 @@ build-backend = "maturin"
 [tool.maturin]
 python-source = "python"
 module-name = "pyxirr._pyxirr"
-features = ["pyo3/extension-module"]
+features = ["extension"]
 strip = true
 include = [
     { path = "pyproject.toml", format = ["sdist", "wheel"] },

@@ -2,10 +2,9 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+from __future__ import annotations
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 name: a_module
 short_description: Test whether a given string refers to an existing module or action plugin
 version_added: 4.0.0
@@ -18,9 +17,9 @@ options:
     description: A string denoting a fully qualified collection name (FQCN) of a module or action plugin.
     type: string
     required: true
-'''
+"""
 
-EXAMPLES = '''
+EXAMPLES = """
 - name: Make sure that community.aws.route53 is available
   ansible.builtin.assert:
     that:
@@ -31,28 +30,34 @@ EXAMPLES = '''
   ansible.builtin.assert:
     that:
       - "'community.general.does_not_exist' is not community.general.a_module"
-'''
+"""
 
-RETURN = '''
+RETURN = """
 _value:
   description: Whether the module or action plugin denoted by the input exists.
   type: boolean
-'''
+"""
+
+import typing as t
+from collections.abc import Callable
 
 from ansible.plugins.loader import action_loader, module_loader
+from ansible.errors import AnsibleFilterError
 
 try:
     from ansible.errors import AnsiblePluginRemovedError
 except ImportError:
-    AnsiblePluginRemovedError = Exception
+    AnsiblePluginRemovedError = Exception  # type: ignore
 
 
-def a_module(term):
+def a_module(term: t.Any) -> bool:
     """
     Example:
       - 'community.general.ufw' is community.general.a_module
       - 'community.general.does_not_exist' is not community.general.a_module
     """
+    if not isinstance(term, str):
+        raise AnsibleFilterError(f"Parameter must be a string, got {term!r} of type {type(term)}")
     try:
         for loader in (action_loader, module_loader):
             data = loader.find_plugin(term)
@@ -63,10 +68,10 @@ def a_module(term):
         return False
 
 
-class TestModule(object):
-    ''' Ansible jinja2 tests '''
+class TestModule:
+    """Ansible jinja2 tests"""
 
-    def tests(self):
+    def tests(self) -> dict[str, Callable]:
         return {
-            'a_module': a_module,
+            "a_module": a_module,
         }

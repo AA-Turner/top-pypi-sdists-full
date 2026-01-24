@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import functools
 import json
+from os import PathLike
+from pathlib import Path
 from typing import Callable, Optional
 
 import pydantic.v1 as pd
@@ -89,26 +91,20 @@ class Updater(pd.BaseModel):
     sim_dict: dict
 
     @classmethod
-    def from_file(cls, fname: str) -> Updater:
+    def from_file(cls, fname: PathLike) -> Updater:
         """Dictionary representing the simulation loaded from file."""
-
+        path = Path(fname)
         # TODO: fix this, it broke
-        if any(ext in fname for ext in (".hdf5", ".gz")):
-            sim_dict = Tidy3dBaseModel.from_file(fname=fname).dict()
-
+        if path.suffix in {".hdf5", ".gz"}:
+            sim_dict = Tidy3dBaseModel.from_file(fname=str(path)).dict()
         else:
-            # try:
-            with open(fname, encoding="utf-8") as f:
-                if ".json" in fname:
+            with path.open(encoding="utf-8") as f:
+                if path.suffix == ".json":
                     sim_dict = json.load(f)
-                elif ".yaml" in fname:
+                elif path.suffix == ".yaml":
                     sim_dict = yaml.safe_load(f)
                 else:
                     raise FileError('file extension must be ".json", ".yaml", ".hdf5", or ".gz"')
-
-            # except Exception as e:
-            #     raise FileError(f"Could not load file {fname}") from e
-
         return cls(sim_dict=sim_dict)
 
     @classmethod
@@ -186,7 +182,7 @@ def updates_from_version(version_from_string: str):
     return decorator
 
 
-def iterate_update_dict(update_dict: dict, update_types: dict[str, Callable]):
+def iterate_update_dict(update_dict: dict, update_types: dict[str, Callable]) -> None:
     """Recursively iterate nested ``update_dict``. For any nested ``nested_dict`` found,
     apply an update function if its ``nested_dict["type"]`` is in the keys of the ``update_types``
     dictionary. Also iterates lists and tuples.
@@ -300,12 +296,12 @@ def update_1_5(sim_dict: dict) -> dict:
 def update_1_4(sim_dict: dict) -> dict:
     """Updates version 1.4."""
 
-    def fix_polyslab(geo_dict):
+    def fix_polyslab(geo_dict) -> None:
         """Fix a PolySlab dictionary."""
         geo_dict.pop("length", None)
         geo_dict.pop("center", None)
 
-    def fix_modespec(ms_dict):
+    def fix_modespec(ms_dict) -> None:
         """Fix a ModeSpec dictionary."""
         sort_by = ms_dict.pop("sort_by", None)
         if sort_by and sort_by != "largest_neff":
@@ -314,7 +310,7 @@ def update_1_4(sim_dict: dict) -> dict:
                 "largest effective index. Use ModeSpec.filter_pol to select polarization instead."
             )
 
-    def fix_geometry_group(geo_dict):
+    def fix_geometry_group(geo_dict) -> None:
         """Fix a GeometryGroup dictionary."""
         geo_dict.pop("center", None)
 

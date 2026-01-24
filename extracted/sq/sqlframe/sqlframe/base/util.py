@@ -108,7 +108,7 @@ def get_tables_from_expression_with_join(expression: exp.Select) -> t.List[exp.T
     if not expression.args.get("joins"):
         return []
 
-    left_table = expression.args["from"].this
+    left_table = expression.args["from_"].this
     other_tables = [join.this for join in expression.args["joins"]]
     return [left_table] + other_tables
 
@@ -239,7 +239,7 @@ def soundex(s):
     result = [s[0]]
     count = 1
 
-    # find would-be replacment for first character
+    # find would-be replacement for first character
     for lset, sub in replacements:
         if s[0] in lset:
             last = sub

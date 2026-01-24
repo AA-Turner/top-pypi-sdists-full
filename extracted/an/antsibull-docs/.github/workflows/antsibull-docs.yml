@@ -30,10 +30,10 @@ jobs:
           - '--use-current --sphinx-theme sphinx_rtd_theme'
           - '--no-indexes --squash-hierarchy --intersphinx ansible7:https://docs.ansible.com/ansible/6/ community.crypto --collection-version 2.0.0'
         python:
-          - '3.13'
+          - '3.14'
         antsibull_core_ref:
           - main
-          - '3.4.0'
+          - '3.5.0'
         antsibull_docs_parser_ref:
           - main
         antsibull_changelog_ref:
@@ -50,13 +50,13 @@ jobs:
 
     steps:
       - name: Check out antsibull-docs
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: antsibull-docs
           persist-credentials: false
 
       - name: Check out dependent project antsibull-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-core
           path: antsibull-core
@@ -64,7 +64,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docs-parser
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docs-parser
           path: antsibull-docs-parser
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out dependent project antsibull-changelog
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-changelog
           path: antsibull-changelog
@@ -80,7 +80,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docutils
           path: antsibull-docutils
@@ -88,7 +88,7 @@ jobs:
           persist-credentials: false
 
       - name: Check out dependent project antsibull-fileutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-fileutils
           path: antsibull-fileutils
@@ -96,7 +96,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
 
@@ -188,50 +188,50 @@ jobs:
 
     steps:
       - name: Check out antsibull-docs
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: antsibull-docs
           persist-credentials: false
 
       - name: Check out dependent project antsibull-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-core
           path: antsibull-core
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docs-parser
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docs-parser
           path: antsibull-docs-parser
           persist-credentials: false
 
       - name: Check out dependent project antsibull-changelog
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-changelog
           path: antsibull-changelog
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docutils
           path: antsibull-docutils
           persist-credentials: false
 
       - name: Check out dependent project antsibull-fileutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-fileutils
           path: antsibull-fileutils
           persist-credentials: false
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Install dependencies
         run: |
@@ -273,50 +273,50 @@ jobs:
 
     steps:
       - name: Check out antsibull-docs
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: antsibull-docs
           persist-credentials: false
 
       - name: Check out dependent project antsibull-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-core
           path: antsibull-core
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docs-parser
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docs-parser
           path: antsibull-docs-parser
           persist-credentials: false
 
       - name: Check out dependent project antsibull-changelog
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-changelog
           path: antsibull-changelog
           persist-credentials: false
 
       - name: Check out dependent project antsibull-docutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-docutils
           path: antsibull-docutils
           persist-credentials: false
 
       - name: Check out dependent project antsibull-fileutils
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ansible-community/antsibull-fileutils
           path: antsibull-fileutils
           persist-credentials: false
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Install dependencies
         run: |

@@ -30,6 +30,12 @@ Keyword arguments:
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
 
+- anchorProps (dict; optional):
+    Props passed down to the `Anchor` component.
+
+    `anchorProps` is a dict with keys:
+
+
 - aria-* (string; optional):
     Wild card aria attributes.
 
@@ -178,7 +184,7 @@ Keyword arguments:
 - ml (number; optional):
     MarginLeft, theme key: theme.spacing.
 
-- mod (string; optional):
+- mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Element modifiers transformed into `data-` attributes, for
     example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -278,10 +284,17 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Anchor'
+    AnchorProps = TypedDict(
+        "AnchorProps",
+            {
+
+        }
+    )
+
     Gradient = TypedDict(
         "Gradient",
             {
@@ -308,13 +321,14 @@ Keyword arguments:
         href: typing.Optional[str] = None,
         refresh: typing.Optional[bool] = None,
         underline: typing.Optional[Literal["always", "hover", "never"]] = None,
+        anchorProps: typing.Optional["AnchorProps"] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         visibleFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
-        mod: typing.Optional[typing.Union[str]] = None,
+        mod: typing.Optional[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         m: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         my: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         mx: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -381,9 +395,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'href', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'refresh', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'truncate', 'tt', 'underline', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'anchorProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'href', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'refresh', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'truncate', 'tt', 'underline', 'unstyled', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'href', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'refresh', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'truncate', 'tt', 'underline', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'anchorProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'href', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'refresh', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'truncate', 'tt', 'underline', 'unstyled', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

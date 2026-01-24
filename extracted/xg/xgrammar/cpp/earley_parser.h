@@ -47,14 +47,16 @@ struct ParserState {
       const int32_t& element_id,
       const int32_t& rule_start_pos,
       const int32_t& sub_element_id,
-      const int32_t& repeat_count = 0
+      const int32_t& repeat_count = 0,
+      const int32_t& partial_codepoint = 0
   )
       : rule_id(rule_id),
         sequence_id(sequence_id),
         element_id(element_id),
         rule_start_pos(rule_start_pos),
         sub_element_id(sub_element_id),
-        repeat_count(repeat_count) {}
+        repeat_count(repeat_count),
+        partial_codepoint(partial_codepoint) {}
 
   /*!
    * \brief A sequence_id value of kUnexpandedRuleStartSequenceId means a rule hasn't been
@@ -90,6 +92,9 @@ struct ParserState {
 
   /*! \brief The number of times the element is repeated. It will be used in kRepeat.*/
   int32_t repeat_count = 0;
+
+  /*! \brief Partial codepoint accumulated during UTF-8 decoding for positive character classes. */
+  int32_t partial_codepoint = 0;
 
   /*! \brief The element is invalid when sequence_id is -1. */
   bool IsInvalid() const { return sequence_id == -1; }
@@ -131,7 +136,8 @@ XGRAMMAR_MEMBER_ARRAY(
     &ParserState::element_id,
     &ParserState::rule_start_pos,
     &ParserState::sub_element_id,
-    &ParserState::repeat_count
+    &ParserState::repeat_count,
+    &ParserState::partial_codepoint
 );
 
 /*!
@@ -153,7 +159,8 @@ class StateEqualForParsing {
   bool operator()(const ParserState& lhs, const ParserState& rhs) const {
     return lhs.rule_id == rhs.rule_id && lhs.sequence_id == rhs.sequence_id &&
            lhs.element_id == rhs.element_id && lhs.rule_start_pos == rhs.rule_start_pos &&
-           lhs.sub_element_id == rhs.sub_element_id && lhs.repeat_count == rhs.repeat_count;
+           lhs.sub_element_id == rhs.sub_element_id && lhs.repeat_count == rhs.repeat_count &&
+           lhs.partial_codepoint == rhs.partial_codepoint;
   }
 };
 
@@ -170,7 +177,8 @@ class StateHashForParsing {
         state.element_id,
         state.rule_start_pos,
         state.sub_element_id,
-        state.repeat_count
+        state.repeat_count,
+        state.partial_codepoint
     );
   }
 };
@@ -276,20 +284,24 @@ class EarleyParser {
 
   /*!
    * \brief The completion operation of the Earley parser.
+   * \param state The state to be completed.
+   * \param debug_print Whether to print the debug information.
    * \details The reason is that if the state can't be scanned, then
    * add it into the next states is useless. Moreover, the end
    * of the grammar is used to check if the grammar is completed,
    * so it should be added into the next states.
    */
-  void Complete(const ParserState& state);
+  void Complete(const ParserState& state, bool debug_print = false);
 
   /*!
    * \brief The prediction operation of the Earley parser.
+   * \param state The state to be predicted.
+   * \param debug_print Whether to print the debug information.
    * \return First: If the state scanable, or the state is the end of the grammar,
    * then return true, otherwise return false.
    * \return Second: If the state is completable, then return true, otherwise return false.
    */
-  std::pair<bool, bool> Predict(const ParserState& state);
+  std::pair<bool, bool> Predict(const ParserState& state, bool debug_print = false);
 
   /*!
    * \brief Handle the unexpanded rule, used for pushing initial state.
@@ -307,16 +319,21 @@ class EarleyParser {
    * \param grammar_expr The grammar expression to be expanded.
    * \param sub_grammar_expr The sub grammar expression to be expanded, especially
    * when the rule is a kSequence, and the sub rule is a kRuleRef.
+   * \param debug_print Whether to print the debug information.
    */
   void ExpandNextRuleRefElement(
-      const ParserState& state, const GrammarExpr& grammar_expr, const GrammarExpr* sub_grammar_expr
+      const ParserState& state,
+      const GrammarExpr& grammar_expr,
+      const GrammarExpr* sub_grammar_expr,
+      bool debug_print = false
   );
 
   /*!
    * \brief Expand the rule, used for RuleRef and kTagDispatch.
    * \param state The state to be expanded, and it's should be on the FSM.
+   * \param debug_print Whether to print the debug information.
    */
-  void ExpandNextRuleRefElementOnFSM(const ParserState& state);
+  void ExpandNextRuleRefElementOnFSM(const ParserState& state, bool debug_print = false);
 
   /*!
    * \brief Advance the parser to the next state, with the sub sequence is kCharacterClass.
@@ -396,10 +413,11 @@ class EarleyParser {
   /*!
    * \brief From the current states, advance to the next state.
    * \param ch The character to be advanced.
+   * \param debug_print Whether to print the debug information.
    * \return True if the character is accepted, false otherwise.
    * \note If the character isn't accepted, then the states won't be changed.
    */
-  bool Advance(const uint8_t ch);
+  bool Advance(const uint8_t ch, bool debug_print = false);
 
   /*!
    * \brief Remove the newly added states.

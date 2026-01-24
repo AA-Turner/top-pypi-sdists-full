@@ -28,11 +28,14 @@ from typing import Any, Callable, Optional, Union
 import google.auth
 from google.auth.credentials import Credentials
 from google.auth.credentials import with_scopes_if_required
+
 import google.cloud.sql.connector.asyncpg as asyncpg
 from google.cloud.sql.connector.client import CloudSQLClient
 from google.cloud.sql.connector.enums import DriverMapping
 from google.cloud.sql.connector.enums import IPTypes
 from google.cloud.sql.connector.enums import RefreshStrategy
+from google.cloud.sql.connector.exceptions import ClosedConnectorError
+from google.cloud.sql.connector.exceptions import ConnectorLoopError
 from google.cloud.sql.connector.instance import RefreshAheadCache
 from google.cloud.sql.connector.lazy import LazyRefreshCache
 from google.cloud.sql.connector.monitored_cache import MonitoredCache
@@ -153,6 +156,7 @@ class Connector:
         # connection name string and enable_iam_auth boolean flag
         self._cache: dict[tuple[str, bool], MonitoredCache] = {}
         self._client: Optional[CloudSQLClient] = None
+        self._closed: bool = False
 
         # initialize credentials
         scopes = ["https://www.googleapis.com/auth/sqlservice.admin"]
@@ -242,6 +246,12 @@ class Connector:
         # connect runs sync database connections on background thread.
         # Async database connections should call 'connect_async' directly to
         # avoid hanging indefinitely.
+
+        # Check if the connector is closed before attempting to connect.
+        if self._closed:
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
         connect_future = asyncio.run_coroutine_threadsafe(
             self.connect_async(instance_connection_string, driver, **kwargs),
             self._loop,
@@ -279,7 +289,22 @@ class Connector:
                 and then subsequent attempt with IAM database authentication.
             KeyError: Unsupported database driver Must be one of pymysql, asyncpg,
                 pg8000, and pytds.
+            RuntimeError: Connector has been closed. Cannot connect using a closed
+                Connector.
         """
+        if self._closed:
+            raise ClosedConnectorError(
+                "Connection attempt failed because the connector has already been closed."
+            )
+        # check if event loop is running in current thread
+        if self._loop != asyncio.get_running_loop():
+            raise ConnectorLoopError(
+                "Running event loop does not match 'connector._loop'. "
+                "Connector.connect_async() must be called from the event loop "
+                "the Connector was initialized with. If you need to connect "
+                "across event loops, please use a new Connector object."
+            )
+
         if self._keys is None:
             self._keys = asyncio.create_task(generate_keys())
         if self._client is None:
@@ -365,6 +390,33 @@ class Connector:
             # the cache and re-raise the error
             await self._remove_cached(str(conn_name), enable_iam_auth)
             raise
+
+        # If the connector is configured with a custom DNS name, attempt to use
+        # that DNS name to connect to the instance. Fall back to the metadata IP
+        # address if the DNS name does not resolve to an IP address.
+        if conn_info.conn_name.domain_name and isinstance(self._resolver, DnsResolver):
+            try:
+                ips = await self._resolver.resolve_a_record(conn_info.conn_name.domain_name)
+                if ips:
+                    ip_address = ips[0]
+                    logger.debug(
+                        f"['{instance_connection_string}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved to '{ip_address}', "
+                        "using it to connect"
+                    )
+                else:
+                    logger.debug(
+                        f"['{instance_connection_string}']: Custom DNS name "
+                        f"'{conn_info.conn_name.domain_name}' resolved but returned no "
+                        f"entries, using '{ip_address}' from instance metadata"
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"['{instance_connection_string}']: Custom DNS name "
+                    f"'{conn_info.conn_name.domain_name}' did not resolve to an IP "
+                    f"address: {e}, using '{ip_address}' from instance metadata"
+                )
+
         logger.debug(f"['{conn_info.conn_name}']: Connecting to {ip_address}:3307")
         # format `user` param for automatic IAM database authn
         if enable_iam_auth:
@@ -466,9 +518,10 @@ class Connector:
     async def close_async(self) -> None:
         """Helper function to cancel the cache's tasks
         and close aiohttp.ClientSession."""
-        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
+        self._closed = True
         if self._client:
             await self._client.close()
+        await asyncio.gather(*[cache.close() for cache in self._cache.values()])
 
 
 async def create_async_connector(

@@ -71,6 +71,18 @@ class Project:
                 raise ValueError("Domain ID not found in environment. Please specify a domain ID.")
             self.domain_id = domain_from_env
 
+        # Fetch domain info to identify express domain using iamSignIns and domainVersion
+        domain_response = self._sagemaker_studio_api.datazone_api.get_domain(
+            identifier=self.domain_id
+        )
+        iam_sign_ins = domain_response.get("iamSignIns", [])
+        domain_version = domain_response.get("domainVersion")
+        # Express domains have both IAM_ROLE and IAM_USER in iamSignIns and domainVersion is V2
+        # If domainVersion is missing, treat as non-express
+        self._is_express_mode = (
+            "IAM_ROLE" in iam_sign_ins and "IAM_USER" in iam_sign_ins and domain_version == "V2"
+        )
+
         if not self.id:
             self.id = self._utils._get_project_id(
                 self._sagemaker_studio_api.datazone_api, self.domain_id, self.name
@@ -85,12 +97,21 @@ class Project:
             datazone_api=self._sagemaker_studio_api.datazone_api,
             glue_api=self._sagemaker_studio_api.glue_api,
             secrets_manager_api=self._sagemaker_studio_api.secrets_manager_api,
+            kms_api=self._sagemaker_studio_api.kms_api,
             project_config=self.config,
         )
         self.name = get_project_response.get("name")
         self.project_status = get_project_response.get("projectStatus")
         self.project_profile_id = get_project_response.get("projectProfileId")
         self.domain_unit_id = get_project_response.get("domainUnitId")
+
+    def _get_iam_connection_name(self) -> str:
+        """
+        Determine IAM connection name based on domain mode.
+        Returns 'default.iam' if domain is in EXPRESS mode,
+        otherwise returns 'project.iam'.
+        """
+        return "default.iam" if self._is_express_mode else "project.iam"
 
     @property
     def kms_key_arn(self) -> str:
@@ -121,37 +142,58 @@ class Project:
             project_id=self.id,
         )
 
-    def connection(self, name: Optional[str] = None) -> Connection:
+    def connection(
+        self, name: Optional[str] = None, *, id: Optional[str] = None, type: Optional[str] = None
+    ) -> Connection:
         """
-        Retrieves a specific connection associated with the project by its name.
-        If no name is provided, it defaults to "project.iam".
+        Retrieves a specific connection associated with the project by its name or ID.
+        If no name or id is provided, it gets the default IAM connection based on domain mode.
 
         Args:
             name (Optional[str]): The name of the connection.
+            id (Optional[str]): The ID of the connection.
 
         Returns:
             Connection: The Connection object.
+
+        Raises:
+            ValueError: If both name and id are provided.
         """
-        connection_name = name or "project.iam"
-        return self._connection_service.get_connection_by_name(name=connection_name)
+        if id is not None and name is not None:
+            raise ValueError(
+                "Cannot specify both 'name' and 'id' parameters. Use one or the other."
+            )
+
+        if id is not None:
+            return self._connection_service.get_connection_by_id(connection_id=id)
+        elif name is not None:
+            return self._connection_service.get_connection_by_name(name=name)
+        elif type is not None:
+            return self._connection_service.get_connection_by_type(type=type)
+        else:
+            # No name or id provided, use domain-based selection
+            connection_name = self._get_iam_connection_name()
+            return self._connection_service.get_connection_by_name(name=connection_name)
 
     @property
     def connections(self) -> List[Connection]:
         """
         Retrieves a list of all connections associated with the project.
+        The appropriate IAM connection based on domain mode is moved to index 0.
 
         Returns:
             List[Connection]: A list of Connection objects.
         """
         connections: List[Connection] = self._connection_service.list_connections()
 
-        # Move "project.iam" connection to index 0, as it is the default connection for a project
-        project_iam_connection_index = next(
-            (i for i, conn in enumerate(connections) if conn.name == "project.iam"), -1
+        # Move the appropriate IAM connection to index 0 based on domain mode
+        target_connection_name = self._get_iam_connection_name()
+        target_connection_index = next(
+            (i for i, conn in enumerate(connections) if conn.name == target_connection_name), -1
         )
-        if project_iam_connection_index != -1:
-            project_iam_connection = connections.pop(project_iam_connection_index)
-            connections.insert(0, project_iam_connection)
+        if target_connection_index != -1:
+            target_connection = connections.pop(target_connection_index)
+            connections.insert(0, target_connection)
 
         return connections
 
@@ -159,11 +201,12 @@ class Project:
     def iam_role(self) -> str:
         """
         Retrieves the IAM role ARN associated with the project.
+        Uses the appropriate IAM connection based on domain mode.
 
         Returns:
             str: The IAM role ARN.
         """
-        project_iam_connection = "project.iam"
+        project_iam_connection = self._get_iam_connection_name()
         connection = self.connection(name=project_iam_connection)
         project_role = connection.iam_role
         if not project_role:

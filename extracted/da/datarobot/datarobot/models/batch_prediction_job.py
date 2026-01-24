@@ -88,87 +88,73 @@ class BatchPredictionJob(AbstractBatchJob):
         the id of the job
     """
 
-    _job_spec = t.Dict(
-        {
-            t.Key("num_concurrent"): Int(),
-            t.Key("threshold_high", optional=True): t.Float(),
-            t.Key("threshold_low", optional=True): t.Float(),
-            t.Key("explanation_class_names", optional=True): t.List(t.String),
-            t.Key("explanation_num_top_classes", optional=True): t.Int(),
-            t.Key("deployment_id", optional=True): String(),
-            t.Key("model_id", optional=True): String(),
-            t.Key("passthrough_columns", optional=True): t.List(String(allow_blank=True)),
-            t.Key("passthrough_columns_set", optional=True): String(),
-            t.Key("max_explanations", optional=True): Int(),
-            t.Key("max_ngram_explanations", optional=True): t.Int(gte=0) | t.Atom("all"),
-            t.Key("explanation_algorithm", optional=True): String(),
-            t.Key("prediction_threshold", optional=True): t.Float(gte=0.0, lte=1.0) | t.Null(),
-            t.Key("prediction_warning_enabled", optional=True): t.Bool(),
-            t.Key("intake_settings", optional=True): t.Dict().allow_extra("*"),
-            t.Key("output_settings", optional=True): t.Dict().allow_extra("*"),
-            t.Key("timeseries_settings", optional=True): t.Dict().allow_extra("*"),
-        }
-    ).allow_extra("*")
-    _links = t.Dict(
-        {t.Key("download", optional=True): String(allow_blank=True), t.Key("self"): String()}
-    ).allow_extra("*")
-    _converter_extra = t.Dict(
-        {
-            t.Key("percentage_completed"): t.Float(),
-            t.Key("elapsed_time_sec"): Int(),
-            t.Key("links"): _links,
-            t.Key("job_spec"): _job_spec,
-            t.Key("status_details"): String(),
-        }
-    ).allow_extra("*")
-
-    _converter_common = t.Dict(
-        {
-            t.Key("id", optional=True): String,
-            t.Key("status", optional=True): t.Enum(
-                QUEUE_STATUS.ABORTED,
-                QUEUE_STATUS.COMPLETED,
-                QUEUE_STATUS.RUNNING,
-                QUEUE_STATUS.INITIALIZING,
-                "FAILED",
-            ),
-            t.Key("project_id", optional=True): String,
-            t.Key("is_blocked", optional=True): t.Bool,
-        }
+    _job_spec = t.Dict({
+        t.Key("num_concurrent"): Int(),
+        t.Key("threshold_high", optional=True): t.Float(),
+        t.Key("threshold_low", optional=True): t.Float(),
+        t.Key("explanation_class_names", optional=True): t.List(t.String),
+        t.Key("explanation_num_top_classes", optional=True): t.Int(),
+        t.Key("deployment_id", optional=True): String(),
+        t.Key("model_id", optional=True): String(),
+        t.Key("passthrough_columns", optional=True): t.List(String(allow_blank=True)),
+        t.Key("passthrough_columns_set", optional=True): String(),
+        t.Key("max_explanations", optional=True): Int(),
+        t.Key("max_ngram_explanations", optional=True): t.Int(gte=0) | t.Atom("all"),
+        t.Key("explanation_algorithm", optional=True): String(),
+        t.Key("prediction_threshold", optional=True): t.Float(gte=0.0, lte=1.0) | t.Null(),
+        t.Key("prediction_warning_enabled", optional=True): t.Bool(),
+        t.Key("intake_settings", optional=True): t.Dict().allow_extra("*"),
+        t.Key("output_settings", optional=True): t.Dict().allow_extra("*"),
+        t.Key("timeseries_settings", optional=True): t.Dict().allow_extra("*"),
+    }).allow_extra("*")
+    _links = t.Dict({t.Key("download", optional=True): String(allow_blank=True), t.Key("self"): String()}).allow_extra(
+        "*"
     )
+    _converter_extra = t.Dict({
+        t.Key("percentage_completed"): t.Float(),
+        t.Key("elapsed_time_sec"): Int(),
+        t.Key("links"): _links,
+        t.Key("job_spec"): _job_spec,
+        t.Key("status_details"): String(),
+    }).allow_extra("*")
+
+    _converter_common = t.Dict({
+        t.Key("id", optional=True): String,
+        t.Key("status", optional=True): t.Enum(
+            QUEUE_STATUS.ABORTED,
+            QUEUE_STATUS.COMPLETED,
+            QUEUE_STATUS.RUNNING,
+            QUEUE_STATUS.INITIALIZING,
+            "FAILED",
+        ),
+        t.Key("project_id", optional=True): String,
+        t.Key("is_blocked", optional=True): t.Bool,
+    })
 
     _timeseries_settings = (
-        t.Dict(
-            {
-                t.Key("type"): t.Atom("forecast"),
-                t.Key("forecast_point", optional=True): parse_time,
-                t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
-            }
-        )
-        | t.Dict(
-            {
-                t.Key("type"): t.Atom("historical"),
-                t.Key("predictions_start_date", optional=True): parse_time,
-                t.Key("predictions_end_date", optional=True): parse_time,
-                t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
-            }
-        )
-        | t.Dict(
-            {
-                t.Key("type"): t.Atom("training"),
-                t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
-            }
-        )
+        t.Dict({
+            t.Key("type"): t.Atom("forecast"),
+            t.Key("forecast_point", optional=True): parse_time,
+            t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
+        })
+        | t.Dict({
+            t.Key("type"): t.Atom("historical"),
+            t.Key("predictions_start_date", optional=True): parse_time,
+            t.Key("predictions_end_date", optional=True): parse_time,
+            t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
+        })
+        | t.Dict({
+            t.Key("type"): t.Atom("training"),
+            t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
+        })
     )
 
-    _prediction_instance = t.Dict(
-        {
-            t.Key("hostName"): String(),
-            t.Key("sslEnabled", optional=True): t.Bool(),
-            t.Key("datarobotKey", optional=True): String(),
-            t.Key("apiKey", optional=True): String(),
-        }
-    )
+    _prediction_instance = t.Dict({
+        t.Key("hostName"): String(),
+        t.Key("sslEnabled", optional=True): t.Bool(),
+        t.Key("datarobotKey", optional=True): String(),
+        t.Key("apiKey", optional=True): String(),
+    })
 
     _column_names_remapping = t.Mapping(String, t.Or(String, t.Null()))
 
@@ -298,20 +284,13 @@ class BatchPredictionJob(AbstractBatchJob):
                 end_date = timeseries_settings.get("predictions_end_date")
 
                 if start_date and not isinstance(start_date, datetime.datetime):
-                    raise ValueError(
-                        "The value provided for predictions_start_date was not a valid format."
-                    )
+                    raise ValueError("The value provided for predictions_start_date was not a valid format.")
 
                 if end_date and not isinstance(end_date, datetime.datetime):
-                    raise ValueError(
-                        "The value provided for predictions_end_date was not a valid format."
-                    )
+                    raise ValueError("The value provided for predictions_end_date was not a valid format.")
 
                 if start_date and not end_date:
-                    raise ValueError(
-                        "You must also provide predictions_end_date if you "
-                        "provide predictions_start_date"
-                    )
+                    raise ValueError("You must also provide predictions_end_date if you provide predictions_start_date")
 
                 if start_date and end_date and start_date > end_date:
                     raise ValueError(
@@ -323,9 +302,7 @@ class BatchPredictionJob(AbstractBatchJob):
                 forecast_point = timeseries_settings.get("forecast_point")
 
                 if forecast_point and not isinstance(forecast_point, datetime.datetime):
-                    raise ValueError(
-                        "The value provided for forecast_point was not a valid format."
-                    )
+                    raise ValueError("The value provided for forecast_point was not a valid format.")
 
             job_data["timeseriesSettings"] = to_api(timeseries_settings)
 
@@ -370,9 +347,7 @@ class BatchPredictionJob(AbstractBatchJob):
             # We must download the result to `output_file`
             # And clean up any thread we spawned during uploading
             try:
-                job.download(
-                    output_file, timeout=download_timeout, read_timeout=download_read_timeout
-                )
+                job.download(output_file, timeout=download_timeout, read_timeout=download_read_timeout)
             finally:
                 output_file.close()
                 if upload_thread is not None:
@@ -959,9 +934,7 @@ class BatchPredictionJob(AbstractBatchJob):
             "path": output_path,
         }
 
-        return cls.apply_time_series_data_prep_and_score(
-            deployment, timeseries_settings=timeseries_settings, **kwargs
-        )
+        return cls.apply_time_series_data_prep_and_score(deployment, timeseries_settings=timeseries_settings, **kwargs)
 
     @classmethod
     def score_s3(
@@ -1267,12 +1240,8 @@ class BatchPredictionJob(AbstractBatchJob):
 
         def csv_stream():
             LOG.info("Streaming DataFrame as CSV data to DataRobot")
-            for chunk_no, chunked_df in enumerate(
-                df[i : i + chunk_size] for i in range(0, df.shape[0], chunk_size)
-            ):
-                yield chunked_df.to_csv(
-                    index_label=index_label, header=(chunk_no == 0), quoting=csv.QUOTE_ALL
-                ).encode()
+            for chunk_no, chunked_df in enumerate(df[i : i + chunk_size] for i in range(0, df.shape[0], chunk_size)):
+                yield chunked_df.to_csv(index_label=index_label, header=(chunk_no == 0), quoting=csv.QUOTE_ALL).encode()
 
         kwargs["intake_settings"] = {
             "type": IntakeAdapters.LOCAL_FILE,
@@ -1298,10 +1267,9 @@ class BatchPredictionJob(AbstractBatchJob):
         resp = job._client.get(status["links"]["download"], stream=True, timeout=read_timeout)
         if resp.status_code != 200:
             raise RuntimeError(
-                (
-                    "Got invalid response when downloading job data. "
-                    "Status code: {}, Reponse: {}, Job ID: {}"
-                ).format(resp.status_code, resp.content, job.id)
+                ("Got invalid response when downloading job data. Status code: {}, Reponse: {}, Job ID: {}").format(
+                    resp.status_code, resp.content, job.id
+                )
             )
 
         scored_df = pd.read_csv(resp.raw, index_col=index_label)
@@ -1363,8 +1331,10 @@ class BatchPredictionJob(AbstractBatchJob):
 
             - file : file-like object, string path to file or a pandas.DataFrame of scoring data.
 
-            To score subset of training data, use `dss` intake type and specify
-            following parameters:
+            To score a subset of the training data, use the `dss` intake type
+            and specify the following parameters. Note that you must also
+            specify 'timeseries_settings="type": "training"' to score the
+            training data.
 
             - project_id : project to fetch training data from. Access to project is required.
             - partition : subset of training data to score, one of ``datarobot.enums.TrainingDataSubsets``.
@@ -1526,18 +1496,10 @@ class BatchPredictionJob(AbstractBatchJob):
             IntakeAdapters.DATASET,
             IntakeAdapters.DSS,
         }:
-            raise ValueError(
-                "Unsupported type parameter for intake_settings: {}".format(
-                    intake_settings.get("type")
-                )
-            )
+            raise ValueError("Unsupported type parameter for intake_settings: {}".format(intake_settings.get("type")))
 
         if output_settings and output_settings.get("type") != OutputAdapters.LOCAL_FILE:
-            raise ValueError(
-                "Unsupported type parameter for output_settings: {}".format(
-                    output_settings.get("type")
-                )
-            )
+            raise ValueError("Unsupported type parameter for output_settings: {}".format(output_settings.get("type")))
 
         return cls._score(
             model_id=model_id,
@@ -1683,41 +1645,35 @@ class BatchPredictionJob(AbstractBatchJob):
 class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-docstring
     _path = "batchPredictionJobDefinitions/"
 
-    _user = t.Dict(
-        {
-            t.Key("username"): String(),
-            t.Key("full_name", optional=True): String(),
-            t.Key("user_id"): String(),
-        }
-    ).allow_extra("*")
+    _user = t.Dict({
+        t.Key("username"): String(),
+        t.Key("full_name", optional=True): String(),
+        t.Key("user_id"): String(),
+    }).allow_extra("*")
 
-    _schedule = t.Dict(
-        {
-            t.Key("day_of_week"): t.List(t.Or(String, Int)),
-            t.Key("month"): t.List(t.Or(String, Int)),
-            t.Key("hour"): t.List(t.Or(String, Int)),
-            t.Key("minute"): t.List(t.Or(String, Int)),
-            t.Key("day_of_month"): t.List(t.Or(String, Int)),
-        }
-    ).allow_extra("*")
+    _schedule = t.Dict({
+        t.Key("day_of_week"): t.List(t.Or(String, Int)),
+        t.Key("month"): t.List(t.Or(String, Int)),
+        t.Key("hour"): t.List(t.Or(String, Int)),
+        t.Key("minute"): t.List(t.Or(String, Int)),
+        t.Key("day_of_month"): t.List(t.Or(String, Int)),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("name"): String,
-            t.Key("enabled"): t.Bool(),
-            t.Key("schedule", optional=True): _schedule,
-            t.Key("batch_prediction_job"): BatchPredictionJob._job_spec,
-            t.Key("created"): String(),
-            t.Key("updated"): String(),
-            t.Key("created_by"): _user,
-            t.Key("updated_by"): _user,
-            t.Key("last_failed_run_time", optional=True): String(),
-            t.Key("last_successful_run_time", optional=True): String(),
-            t.Key("last_successful_run_time", optional=True): String(),
-            t.Key("last_scheduled_run_time", optional=True): String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("name"): String,
+        t.Key("enabled"): t.Bool(),
+        t.Key("schedule", optional=True): _schedule,
+        t.Key("batch_prediction_job"): BatchPredictionJob._job_spec,
+        t.Key("created"): String(),
+        t.Key("updated"): String(),
+        t.Key("created_by"): _user,
+        t.Key("updated_by"): _user,
+        t.Key("last_failed_run_time", optional=True): String(),
+        t.Key("last_successful_run_time", optional=True): String(),
+        t.Key("last_successful_run_time", optional=True): String(),
+        t.Key("last_scheduled_run_time", optional=True): String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1849,9 +1805,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
             response = cls._client.get(cls._path, params=params).json()
             r_data = response["data"]
 
-        records = cast(
-            List["BatchPredictionJobDefinition"], [cls.from_server_data(item) for item in r_data]
-        )
+        records = cast(List["BatchPredictionJobDefinition"], [cls.from_server_data(item) for item in r_data])
         return records
 
     @classmethod
@@ -2085,9 +2039,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
             job_spec = to_api(batch_prediction_job)
             payload.update(**job_spec)
 
-        return self.from_server_data(
-            self._client.patch(f"{self._path}{self.id}", data=payload).json()
-        )
+        return self.from_server_data(self._client.patch(f"{self._path}{self.id}", data=payload).json())
 
     def run_on_schedule(self, schedule: Schedule) -> BatchPredictionJobDefinition:
         """
@@ -2137,9 +2089,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
             "schedule": to_api(schedule),
         }
 
-        return self.from_server_data(
-            self._client.patch(f"{self._path}{self.id}", data=payload).json()
-        )
+        return self.from_server_data(self._client.patch(f"{self._path}{self.id}", data=payload).json())
 
     def run_once(self) -> BatchPredictionJob:
         """
@@ -2165,9 +2115,7 @@ class BatchPredictionJobDefinition(APIObject):  # pylint: disable=missing-class-
 
         payload = {"jobDefinitionId": definition.id}
 
-        response = self._client.post(
-            f"{BatchPredictionJob._jobs_path()}fromJobDefinition/", data=payload
-        ).json()
+        response = self._client.post(f"{BatchPredictionJob._jobs_path()}fromJobDefinition/", data=payload).json()
 
         job_id = response["id"]
         return BatchPredictionJob.get(job_id)

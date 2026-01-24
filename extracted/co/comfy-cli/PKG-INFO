@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.5.1
+Version: 1.5.4
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only
-Project-URL: Repository, https://github.com/drip-art/comfy-cli.git
+Project-URL: Repository, https://github.com/Comfy-Org/comfy-cli.git
 Keywords: comfyui,stable diffusion
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: charset-normalizer>=3
@@ -174,7 +173,7 @@ Comfy provides commands that allow you to easily run the installed ComfyUI.
 
   ```
   comfy launch --frontend-pr "#456"
-  comfy launch --frontend-pr "username:branch-name" 
+  comfy launch --frontend-pr "username:branch-name"
   comfy launch --frontend-pr "https://github.com/Comfy-Org/ComfyUI_frontend/pull/456"
   ```
 
@@ -189,7 +188,7 @@ Comfy provides commands that allow you to easily run the installed ComfyUI.
   comfy pr-cache clean             # Clean all cached builds
   comfy pr-cache clean 456         # Clean specific PR cache
   ```
-  
+
   - Cache automatically expires after 7 days
   - Maximum of 10 PR builds are kept (oldest are removed automatically)
   - Cache limits help manage disk space while keeping recent builds available

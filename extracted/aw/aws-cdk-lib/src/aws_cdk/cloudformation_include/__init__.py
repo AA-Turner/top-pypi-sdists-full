@@ -534,7 +534,7 @@ class CfnInclude(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         template_file: builtins.str,
@@ -570,7 +570,7 @@ class CfnInclude(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="getCondition")
-    def get_condition(self, condition_name: builtins.str) -> _CfnCondition_ac3c7d25:
+    def get_condition(self, condition_name: builtins.str) -> "_CfnCondition_ac3c7d25":
         '''Returns the CfnCondition object from the 'Conditions' section of the CloudFormation template with the given name.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -583,10 +583,10 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dfdc3baf6bf8e46f580841d902753af49289b342fdcbc7053c9314d63aa7eb72)
             check_type(argname="argument condition_name", value=condition_name, expected_type=type_hints["condition_name"])
-        return typing.cast(_CfnCondition_ac3c7d25, jsii.invoke(self, "getCondition", [condition_name]))
+        return typing.cast("_CfnCondition_ac3c7d25", jsii.invoke(self, "getCondition", [condition_name]))
 
     @jsii.member(jsii_name="getHook")
-    def get_hook(self, hook_logical_id: builtins.str) -> _CfnHook_1d3dbe57:
+    def get_hook(self, hook_logical_id: builtins.str) -> "_CfnHook_1d3dbe57":
         '''Returns the CfnHook object from the 'Hooks' section of the included CloudFormation template with the given logical ID.
 
         Any modifications performed on the returned object will be reflected in the resulting CDK template.
@@ -599,10 +599,10 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25c5b6f4b9e985a3ca491693f4edbc7c23e5ef3a820220ed3b121e47cec61047)
             check_type(argname="argument hook_logical_id", value=hook_logical_id, expected_type=type_hints["hook_logical_id"])
-        return typing.cast(_CfnHook_1d3dbe57, jsii.invoke(self, "getHook", [hook_logical_id]))
+        return typing.cast("_CfnHook_1d3dbe57", jsii.invoke(self, "getHook", [hook_logical_id]))
 
     @jsii.member(jsii_name="getMapping")
-    def get_mapping(self, mapping_name: builtins.str) -> _CfnMapping_00f8fc17:
+    def get_mapping(self, mapping_name: builtins.str) -> "_CfnMapping_00f8fc17":
         '''Returns the CfnMapping object from the 'Mappings' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -615,7 +615,7 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fef39fd8f5ff4e76d8270fd817c9d8eb4a8d89399e7cd4ad3c1b426ecf5860e2)
             check_type(argname="argument mapping_name", value=mapping_name, expected_type=type_hints["mapping_name"])
-        return typing.cast(_CfnMapping_00f8fc17, jsii.invoke(self, "getMapping", [mapping_name]))
+        return typing.cast("_CfnMapping_00f8fc17", jsii.invoke(self, "getMapping", [mapping_name]))
 
     @jsii.member(jsii_name="getNestedStack")
     def get_nested_stack(self, logical_id: builtins.str) -> "IncludedNestedStack":
@@ -633,7 +633,7 @@ class CfnInclude(
         return typing.cast("IncludedNestedStack", jsii.invoke(self, "getNestedStack", [logical_id]))
 
     @jsii.member(jsii_name="getOutput")
-    def get_output(self, logical_id: builtins.str) -> _CfnOutput_7273f911:
+    def get_output(self, logical_id: builtins.str) -> "_CfnOutput_7273f911":
         '''Returns the CfnOutput object from the 'Outputs' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -646,10 +646,10 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51feb7c844e6986c4703dc16d92978a639f0bef0e6fc677fd84625bedd25f1e0)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
-        return typing.cast(_CfnOutput_7273f911, jsii.invoke(self, "getOutput", [logical_id]))
+        return typing.cast("_CfnOutput_7273f911", jsii.invoke(self, "getOutput", [logical_id]))
 
     @jsii.member(jsii_name="getParameter")
-    def get_parameter(self, parameter_name: builtins.str) -> _CfnParameter_48fc1866:
+    def get_parameter(self, parameter_name: builtins.str) -> "_CfnParameter_48fc1866":
         '''Returns the CfnParameter object from the 'Parameters' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -662,10 +662,10 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c7269102b214cdeb3fcc3da004ae2f41866723648ea084e5eebea16e3c93ce2)
             check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-        return typing.cast(_CfnParameter_48fc1866, jsii.invoke(self, "getParameter", [parameter_name]))
+        return typing.cast("_CfnParameter_48fc1866", jsii.invoke(self, "getParameter", [parameter_name]))
 
     @jsii.member(jsii_name="getResource")
-    def get_resource(self, logical_id: builtins.str) -> _CfnResource_9df397a6:
+    def get_resource(self, logical_id: builtins.str) -> "_CfnResource_9df397a6":
         '''Returns the low-level CfnResource from the template with the given logical ID.
 
         Any modifications performed on that resource will be reflected in the resulting CDK template.
@@ -685,10 +685,10 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd3c5e46dcacf54cf69606d9e214b10ea546d33f5aec335f84c2e709e780df91)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
-        return typing.cast(_CfnResource_9df397a6, jsii.invoke(self, "getResource", [logical_id]))
+        return typing.cast("_CfnResource_9df397a6", jsii.invoke(self, "getResource", [logical_id]))
 
     @jsii.member(jsii_name="getRule")
-    def get_rule(self, rule_name: builtins.str) -> _CfnRule_1d9ee4c6:
+    def get_rule(self, rule_name: builtins.str) -> "_CfnRule_1d9ee4c6":
         '''Returns the CfnRule object from the 'Rules' section of the CloudFormation template with the given name.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -701,7 +701,7 @@ class CfnInclude(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20ba00e1d33346f6b5c5629a14e683c03700d80b4ef6dd86c6bb6077fe00c79e)
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-        return typing.cast(_CfnRule_1d9ee4c6, jsii.invoke(self, "getRule", [rule_name]))
+        return typing.cast("_CfnRule_1d9ee4c6", jsii.invoke(self, "getRule", [rule_name]))
 
     @jsii.member(jsii_name="loadNestedStack")
     def load_nested_stack(
@@ -922,8 +922,8 @@ class IncludedNestedStack:
     def __init__(
         self,
         *,
-        included_template: CfnInclude,
-        stack: _NestedStack_dd393a45,
+        included_template: "CfnInclude",
+        stack: "_NestedStack_dd393a45",
     ) -> None:
         '''The type returned from ``CfnInclude.getNestedStack``. Contains both the NestedStack object and CfnInclude representations of the child stack.
 
@@ -951,18 +951,18 @@ class IncludedNestedStack:
         }
 
     @builtins.property
-    def included_template(self) -> CfnInclude:
+    def included_template(self) -> "CfnInclude":
         '''The CfnInclude that represents the template, which can be used to access Resources and other template elements.'''
         result = self._values.get("included_template")
         assert result is not None, "Required property 'included_template' is missing"
-        return typing.cast(CfnInclude, result)
+        return typing.cast("CfnInclude", result)
 
     @builtins.property
-    def stack(self) -> _NestedStack_dd393a45:
+    def stack(self) -> "_NestedStack_dd393a45":
         '''The NestedStack object which represents the scope of the template.'''
         result = self._values.get("stack")
         assert result is not None, "Required property 'stack' is missing"
-        return typing.cast(_NestedStack_dd393a45, result)
+        return typing.cast("_NestedStack_dd393a45", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

@@ -42,7 +42,7 @@ from singer_sdk.typing import (
 )
 
 if t.TYPE_CHECKING:
-    from types import FrameType
+    from types import FrameType, TracebackType
 
     from jsonschema import ValidationError
 
@@ -117,6 +117,23 @@ class SingerCommand(click.Command):
         super().__init__(*args, **kwargs)
         self.logger = logger
 
+    def excepthook(
+        self,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: TracebackType | None,
+    ) -> None:
+        """Custom excepthook function."""
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        self.logger.error(
+            "%s",
+            exc_value.args[0] if exc_value.args else exc_type.__name__,
+            exc_info=(exc_type, exc_value, exc_traceback),
+        )
+
     def invoke(self, ctx: click.Context) -> t.Any:  # noqa: ANN401
         """Invoke the command, capturing warnings and logging them.
 
@@ -128,12 +145,17 @@ class SingerCommand(click.Command):
         """
         logging.captureWarnings(capture=True)
         warnings.filterwarnings("once", category=DeprecationWarning)
+        sys.excepthook = self.excepthook
         try:
             return super().invoke(ctx)
         except ConfigValidationError as exc:
             for error in exc.errors:
-                self.logger.error("Config validation error: %s", error)  # noqa: TRY400
-            sys.exit(1)
+                self.logger.error(error)  # noqa: TRY400
+            self.logger.error(  # noqa: TRY400
+                "Config validation failed",
+                extra={"schema": exc.schema},
+            )
+            ctx.exit(1)
 
 
 def _format_validation_error(error: ValidationError) -> str:
@@ -181,10 +203,12 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
 
     #: Developers may override this property in order to add or remove
     #: advertised capabilities for this plugin.
-    capabilities: t.ClassVar[list[CapabilitiesEnum]] = [
+    capabilities: t.ClassVar[t.Sequence[CapabilitiesEnum]] = [
+        PluginCapabilities.ABOUT,
         PluginCapabilities.STREAM_MAPS,
         PluginCapabilities.FLATTENING,
         PluginCapabilities.BATCH,
+        PluginCapabilities.STRUCTURED_LOGGING,
     ]
 
     _config: dict
@@ -251,20 +275,7 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
             self.logger.info("Skipping parse of env var settings...")
         self._config = config_dict
         self.metrics_logger = metrics.get_metrics_logger()
-        if metrics_level := self.config.get(
-            metrics.METRICS_LOG_LEVEL_SETTING,
-        ):  # pragma: no cover
-            self.metrics_logger.setLevel(metrics_level.upper())
-            warnings.warn(
-                f"Using {metrics.METRICS_LOG_LEVEL_SETTING} to set metrics log level "
-                "is deprecated and will be removed by September 2025. "
-                "Please use the logging level environment variables "
-                "or a custom logging configuration file.",
-                SingerSDKDeprecationWarning,
-                stacklevel=2,
-            )
-        else:
-            self.metrics_logger.setLevel(_plugin_log_level(plugin_name=self.name))
+        self.metrics_logger.setLevel(_plugin_log_level(plugin_name=self.name))
 
         self._validate_config(raise_errors=validate_config)
         self._mapper: PluginMapper | None = None
@@ -467,12 +478,13 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
             ]
 
         if errors:
-            summary = (
-                f"Config validation failed: {'; '.join(errors)}\n"
-                f"JSONSchema was: {config_jsonschema}"
-            )
+            summary = "Config validation failed"
             if raise_errors:
-                raise ConfigValidationError(summary, errors=errors)
+                raise ConfigValidationError(
+                    summary,
+                    errors=errors,
+                    schema=config_jsonschema,
+                )
 
             self.logger.warning(summary)
 

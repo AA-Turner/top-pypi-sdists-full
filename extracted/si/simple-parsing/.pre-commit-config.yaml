@@ -1,0 +1,90 @@
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # list of supported hooks: https://pre-commit.com/hooks.html
+      - id: trailing-whitespace
+        require_serial: true
+      - id: end-of-file-fixer
+        require_serial: true
+      # - id: check-docstring-first
+      - id: check-yaml
+        require_serial: true
+      - id: debug-statements
+        require_serial: true
+      - id: detect-private-key
+        require_serial: true
+      - id: check-executables-have-shebangs
+        require_serial: true
+      - id: check-toml
+        require_serial: true
+      - id: check-case-conflict
+        require_serial: true
+      - id: check-added-large-files
+        require_serial: true
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    # Ruff version.
+    rev: 'v0.1.14'
+    hooks:
+      # Run the linter.
+      - id: ruff
+        require_serial: true
+        args: ["--fix"]
+      # Run the formatter.
+      - id: ruff-format
+        require_serial: true
+
+  # python docstring formatting
+  - repo: https://github.com/myint/docformatter
+    rev: eb1df347edd128b30cd3368dddc3aa65edcfac38 # Don't autoupdate until https://github.com/PyCQA/docformatter/issues/293 is fixed
+    hooks:
+      - id: docformatter
+        exclude: ^test/test_docstrings.py
+        require_serial: true
+        additional_dependencies: [tomli]
+
+
+  # NOTE: Disabling this, since I'm having the glib-c2.29 weird bug.
+  # # yaml formatting
+  # - repo: https://github.com/pre-commit/mirrors-prettier
+  #   rev: v2.7.1
+  #   hooks:
+  #     - id: prettier
+  #       types: [yaml]
+
+  # jupyter notebook cell output clearing
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.6.1
+    hooks:
+      - id: nbstripout
+        require_serial: true
+
+
+  # md formatting
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.21
+    hooks:
+      - id: mdformat
+        args: ["--number"]
+        exclude: ^.github/ISSUE_TEMPLATE/.*\.md$
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-tables
+          - mdformat_frontmatter
+          # - mdformat-toc
+          # - mdformat-black
+        require_serial: true
+
+  # word spelling linter
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.2
+    hooks:
+      - id: codespell
+        args:
+          - --skip=logs/**,data/**
+          # - --ignore-words-list=abc,def
+        require_serial: true

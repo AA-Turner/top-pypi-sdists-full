@@ -32,6 +32,8 @@ class SparkExpectationsContext:
         self._custom_dataframe: DataFrame = None
         self._se_dq_obs_alert_flag: bool = False
         self._run_date: str = self.set_run_date()
+        self._basic_default_template: Optional[str] = None
+        self._custom_default_template: Optional[str] = None
         self._dq_stats_table_name: Optional[str] = None
         self._dq_detailed_stats_table_name: Optional[str] = None
         self._final_table_name: Optional[str] = None
@@ -48,11 +50,16 @@ class SparkExpectationsContext:
         self._dq_expectations: Optional[Dict[str, str]] = None
         self._se_enable_error_table: bool = True
         self._dq_rules_params: Dict[str, str] = {}
-
         # above configuration variable value has to be set to python
         self._dq_project_env_name = "spark_expectations"
         self._dq_config_file_name = "dq_spark_expectations_config.ini"
         self._dq_config_abs_path: Optional[str] = None
+
+        self._min_priority_email: str
+        self._min_priority_pagerduty: str
+        self._min_priority_slack: str
+        self._min_priority_teams: str
+        self._min_priority_zoom: str
 
         self._enable_mail: bool = False
         self._enable_smtp_server_auth: bool = False
@@ -78,15 +85,17 @@ class SparkExpectationsContext:
         self._zoom_webhook_url: Optional[str] = None
         self._zoom_token: Optional[str] = None
 
+        self._enable_pagerduty: bool = False
+        self._pagerduty_webhook_url: Optional[str] = None
+        self._pagerduty_integration_key: Optional[str] = None
+        self._pagerduty_creds_dict: Dict[str, str] = {}
+
         self._table_name: Optional[str] = None
         self._input_count: int = 0
         self._error_count: int = 0
         self._output_count: int = 0
 
         self._env: Optional[str] = None
-
-        self._se_streaming_stats_topic_name: str = "dq-sparkexpectations-stats"
-        self._se_streaming_row_dq_res_topic_name: str = "dq-sparkexpectations-row-dq-results"
 
         self._source_agg_dq_result: Optional[List[Dict[str, str]]] = None
         self._final_agg_dq_result: Optional[List[Dict[str, str]]] = None
@@ -112,6 +121,9 @@ class SparkExpectationsContext:
         self._se_streaming_stats_dict: Dict[str, str]
         self._enable_se_streaming: bool = False
         self._se_streaming_secret_env: str = ""
+        self._se_streaming_stats_kafka_custom_config_enable: bool = False
+        self._se_streaming_stats_topic_name: str = ""
+        self._se_streaming_stats_kafka_bootstrap_server: str = ""
 
         self._debugger_mode: bool = False
         self._supported_df_query_dq: DataFrame = self.set_supported_df_query_dq()
@@ -149,6 +161,9 @@ class SparkExpectationsContext:
         self._summarized_row_dq_res: Optional[List[Dict[str, str]]] = None
         self._rules_error_per: Optional[List[dict]] = None
 
+        # The below config is used to set the type of the writer for the target and error table and stats table
+        self._target_and_error_table_writer_type: str = "batch"
+        self._stats_table_writer_type: str = "batch"
         self._target_and_error_table_writer_config: dict = {}
         self._stats_table_writer_config: dict = {}
 
@@ -166,6 +181,11 @@ class SparkExpectationsContext:
         self._query_dq_output_custom_table_name: str
 
         self._stats_dict: List[dict] = []
+
+        # Kafka write status tracking
+        self._kafka_write_status: str = "Disabled"
+        self._kafka_write_error_message: str = ""
+
 
     @property
     def get_dbr_version(self) -> Optional[float]:
@@ -220,7 +240,7 @@ class SparkExpectationsContext:
     @property
     def get_dq_expectations(self) -> dict:
         """
-        Get dq_expectations to which has rule infromation
+        Get dq_expectations to which has rule information
 
         Returns:
             str: returns the rules_df
@@ -267,14 +287,74 @@ class SparkExpectationsContext:
             """The spark expectations context is not set completely, please assign '_error_table_name' before 
             accessing it"""
         )
+    
+    def set_min_priority_email(self, min_priority_email: str) -> None:
+        self._min_priority_email = min_priority_email
+    
+    @property
+    def get_min_priority_email(self) -> str:
+        """
+        Returns the min priority for email notifications
+        Returns:
+            str: The minimum priority for email notifications
+        """
+        return self._min_priority_email
+    
+    def set_min_priority_pagerduty(self, min_priority_pagerduty: str) -> None:
+        self._min_priority_pagerduty = min_priority_pagerduty
+    
+    @property
+    def get_min_priority_pagerduty(self) -> str:
+        """
+        Returns the min priority for pagerduty notifications
+        Returns:
+            str: The minimum priority for pagerduty notifications
+        """
+        return self._min_priority_pagerduty
+    
+    def set_min_priority_slack(self, min_priority_slack: str) -> None:
+        self._min_priority_slack = min_priority_slack
+    
+    @property
+    def get_min_priority_slack(self) -> str:
+        """
+        Returns the min priority for slack notifications
+        Returns:
+            str: The minimum priority for slack notifications
+        """
+        return self._min_priority_slack
+    
+    def set_min_priority_teams(self, min_priority_teams: str) -> None:
+        self._min_priority_teams = min_priority_teams
+
+    @property
+    def get_min_priority_teams(self) -> str:
+        """
+        Returns the min priority for teams notifications
+        Returns:
+            str: The minimum priority for teams notifications
+        """
+        return self._min_priority_teams
+    
+    def set_min_priority_zoom(self, min_priority_zoom: str) -> None:
+        self._min_priority_zoom = min_priority_zoom
+    
+    @property
+    def get_min_priority_zoom(self) -> str:
+        """
+        Returns the min priority for zoom notifications
+        Returns:
+            str: The minimum priority for zoom notifications
+        """
+        return self._min_priority_zoom
 
     @staticmethod
     def set_run_date() -> str:
         """
-        This function is used to generate the current datatime in UTC
+        This function is used to generate the current datetime in UTC
 
         Returns:
-            str: Returns the current utc datatime in the format - "%Y-%m-%d %H:%M:%S"
+            str: Returns the current utc datetime in the format - "%Y-%m-%d %H:%M:%S"
 
         """
         current_datetime: datetime = datetime.now(timezone.utc)
@@ -441,6 +521,42 @@ class SparkExpectationsContext:
             """The spark expectations context is not set completely, please assign '_dq_run_status' before 
             accessing it"""
         )
+
+    def set_kafka_write_status(self, kafka_write_status: str = "Disabled") -> None:
+        """
+        This function sets the Kafka write status
+        Args:
+            kafka_write_status: Status of Kafka write operation ("Success", "Failed", "Disabled")
+        Returns: None
+        """
+        self._kafka_write_status = kafka_write_status
+
+    @property
+    def get_kafka_write_status(self) -> str:
+        """
+        This function returns the Kafka write status
+        Returns:
+            str: _kafka_write_status ("Success", "Failed", "Disabled")
+        """
+        return getattr(self, "_kafka_write_status", "Disabled")
+
+    def set_kafka_write_error_message(self, error_message: str = "") -> None:
+        """
+        This function sets the Kafka write error message
+        Args:
+            error_message: Error message from Kafka write failure
+        Returns: None
+        """
+        self._kafka_write_error_message = error_message
+
+    @property
+    def get_kafka_write_error_message(self) -> str:
+        """
+        This function returns the Kafka write error message
+        Returns:
+            str: Returns _kafka_write_error_message
+        """
+        return getattr(self, "_kafka_write_error_message", "")
 
     @property
     def get_config_file_path(self) -> str:
@@ -809,6 +925,87 @@ class SparkExpectationsContext:
             """The spark expectations context is not set completely, please assign '_zoom_token' before 
             accessing it"""
         )
+
+    def set_enable_pagerduty(self, enable_pagerduty: bool) -> None:
+        """
+        Set whether to enable pagerduty notification or not
+
+        Args:
+            enable_pagerduty (bool): Whether to enable pagerduty incidents or not
+        """
+        self._enable_pagerduty = enable_pagerduty
+
+    @property
+    def get_enable_pagerduty(self) -> bool:
+        """
+        This function returns if pagerduty notifications are enabled or not.
+
+        Returns:
+            bool: Whether to enable pagerduty incidents or not
+        """
+        return self._enable_pagerduty
+
+    def set_pagerduty_integration_key(self, pagerduty_integration_key: str) -> None:
+        """
+        Set the pagerduty integration key manually.
+
+        Args:
+            pagerduty_integration_key (str): Integration key for PagerDuty when creating incidents.
+        """
+        self._pagerduty_integration_key = pagerduty_integration_key
+
+    @property
+    def get_pagerduty_integration_key(self) -> Optional[str]:
+        """
+        This function returns pagerduty integration key
+        Returns:
+            str: Returns _pagerduty_integration_key(str)
+
+        """
+        if self._pagerduty_integration_key:
+            return self._pagerduty_integration_key
+        raise SparkExpectationsMiscException(
+            """The spark expectations context is not set completely, please assign '_pagerduty_integration_key' before 
+            accessing it"""
+        )
+
+    def set_pagerduty_webhook_url(self, pagerduty_webhook_url: str) -> None:
+        """
+        This function helps to set pagerduty webhook url
+        Args:
+            pagerduty_webhook_url (str): PagerDuty webhook url to create incidents
+        """
+        self._pagerduty_webhook_url = pagerduty_webhook_url
+
+    @property
+    def get_pagerduty_webhook_url(self) -> str:
+        """
+        This function returns pagerduty webhook url
+        Returns:
+            str: Returns _pagerduty_webhook_url(str)
+
+        """
+        if self._pagerduty_webhook_url:
+            return self._pagerduty_webhook_url
+        raise SparkExpectationsMiscException(
+            """The spark expectations context is not set completely, please assign '_pagerduty_webhook_url' before 
+            accessing it"""
+        )
+
+    def set_pagerduty_creds_dict(self, pagerduty_creds_dict: Dict[str, str]) -> None:
+        """
+        This function helps to set secret keys dict for pagerduty authentication
+        Args:
+            pagerduty_creds_dict (Dict[str, str]): Dictionary containing secrets for PagerDuty authentication
+        """
+        self._pagerduty_creds_dict = pagerduty_creds_dict
+
+    @property
+    def get_pagerduty_creds_dict(self) -> Dict[str, str]:
+        """
+        This function returns secret keys dict for pagerduty authentication
+        """
+        return self._pagerduty_creds_dict
 
     def set_table_name(self, table_name: str) -> None:
         self._table_name = table_name
@@ -1206,11 +1403,17 @@ class SparkExpectationsContext:
         Returns:
             topic name key / path in Optional[str]
         """
+        
         _topic_name: Optional[str] = (
-            self._se_streaming_stats_dict.get(user_config.cbs_topic_name)
-            if self.get_secret_type == "cerberus"
-            else self._se_streaming_stats_dict.get(user_config.dbx_topic_name)
+            self._se_streaming_stats_dict.get(user_config.se_streaming_stats_topic_name)
+            if self.get_se_streaming_stats_kafka_custom_config_enable or self.get_env == "local"
+            else (
+                self._se_streaming_stats_dict.get(user_config.cbs_topic_name)
+                if self.get_secret_type == "cerberus"
+                else self._se_streaming_stats_dict.get(user_config.dbx_topic_name)
+            )
         )
+        
         if _topic_name:
             return _topic_name
         raise SparkExpectationsMiscException(
@@ -1218,23 +1421,39 @@ class SparkExpectationsContext:
             'UserConfig.cbs_topic_name' before 
             accessing it"""
         )
-
-    def set_se_streaming_stats_topic_name(self, se_streaming_stats_topic_name: str) -> None:
-        self._se_streaming_stats_topic_name = se_streaming_stats_topic_name
+    
+    def set_se_streaming_stats_kafka_custom_config_enable(self, se_streaming_stats_kafka_config_enable: bool) -> None:
+        self._se_streaming_stats_kafka_custom_config_enable = se_streaming_stats_kafka_config_enable
 
     @property
-    def get_se_streaming_stats_topic_name(self) -> str:
+    def get_se_streaming_stats_kafka_custom_config_enable(self) -> bool:
         """
-        This function returns kafka topic name
+        This function returns whether it's enabled to use the custom kafka config
         Returns:
-            str: Returns _se_streaming_stats_topic_name
+            bool: Returns _se_streaming_stats_kafka_custom_config_enable
 
         """
-        if self._se_streaming_stats_topic_name:
-            return self._se_streaming_stats_topic_name
+        if self._se_streaming_stats_kafka_custom_config_enable:
+            return self._se_streaming_stats_kafka_custom_config_enable
+        return False
+
+    
+    def set_se_streaming_stats_kafka_bootstrap_server(self, se_streaming_stats_kafka_server: str) -> None:
+        self._se_streaming_stats_kafka_bootstrap_server = se_streaming_stats_kafka_server
+
+    @property
+    def get_se_streaming_stats_kafka_bootstrap_server(self) -> str:
+        """
+        This function returns kafka bootstrap server that was specified in custom config
+        Returns:
+            str: Returns _se_streaming_stats_kafka_bootstrap_server
+
+        """
+        if self._se_streaming_stats_kafka_bootstrap_server:
+            return self._se_streaming_stats_kafka_bootstrap_server
         raise SparkExpectationsMiscException(
             """The spark expectations context is not set completely, please assign 
-            '_se_streaming_stats_topic_name' before 
+            'se_streaming_stats_kafka_bootstrap_server' before 
             accessing it"""
         )
 
@@ -1730,6 +1949,45 @@ class SparkExpectationsContext:
         This function returns error percentage for each rule
         """
         return self._rules_error_per
+
+    def set_target_and_error_table_writer_type(self, writer_type: str) -> None:
+        """
+        This function returns target and error table writer type
+        Args:
+            writer_type: str
+        Returns:
+            str: Returns target_and_error_table_writer_type which in str
+        """
+        self._target_and_error_table_writer_type = writer_type
+
+    @property
+    def get_target_and_error_table_writer_type(self) -> str:
+        """
+        This function returns target and error table writer type
+        Returns:
+            str: Returns target_and_error_table_writer_type which in str
+        """
+        return self._target_and_error_table_writer_type
+
+    def set_stats_table_writer_type(self, writer_type: str) -> None:
+        """
+        This function returns stats table writer type
+        Args:
+            writer_type: str
+        Returns:
+            str: Returns stats_table_writer_type which in str
+        """
+        self._stats_table_writer_type = writer_type
+
+    @property
+    def get_stats_table_writer_type(self) -> str:
+        """
+        This function returns stats table writer type
+        Returns:
+            str: Returns stats_table_writer_type which in str
+        """
+        return self._stats_table_writer_type    
+
 
     def set_target_and_error_table_writer_config(self, config: dict) -> None:
         """

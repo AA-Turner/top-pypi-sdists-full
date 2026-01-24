@@ -14,6 +14,7 @@ from typing import Any
 
 from rich.console import Console
 
+from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
 
@@ -34,9 +35,9 @@ def parse_prompt(args: argparse.Namespace) -> None:
 
     try:
         client = LogfireClient.from_url(args.logfire_url)
-    except LogfireConfigError as e:  # pragma: no cover
-        console.print(e.args[0], style='red')
-        return
+    except LogfireConfigError:  # pragma: no cover
+        parse_auth(args)
+        client = LogfireClient.from_url(args.logfire_url)
 
     if args.claude:
         configure_claude(client, args.organization, args.project, console)
@@ -119,9 +120,14 @@ def configure_opencode(client: LogfireClient, organization: str, project: str, c
         console.print('Logfire MCP server added to OpenCode.', style='green')
 
 
-def logfire_mcp_json(token: str) -> dict[str, Any]:
-    return {'command': 'uvx', 'args': ['logfire-mcp@latest'], 'env': {'LOGFIRE_READ_TOKEN': token}}
-
-
+# https://opencode.ai/docs/mcp-servers/#local
 def opencode_mcp_json(token: str) -> dict[str, Any]:
-    return {'mcp': {'logfire-mcp': logfire_mcp_json(token)}}
+    return {
+        'mcp': {
+            'logfire-mcp': {
+                'type': 'local',
+                'command': ['uvx', 'logfire-mcp@latest'],
+                'environment': {'LOGFIRE_READ_TOKEN': token},
+            }
+        }
+    }

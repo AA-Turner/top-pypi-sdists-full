@@ -1,8 +1,14 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable
+from typing import Dict, Union, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 __all__ = [
@@ -16,34 +22,34 @@ __all__ = [
 
 class FileCreateParams(TypedDict, total=False):
     file_id: Required[str]
-    """The ID of the file to attach to the vector store."""
 
-    attributes: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
-    """The key-value attributes stored with the file, which can be used for filtering."""
+    attributes: Optional[Dict[str, object]]
 
-    chunking_strategy: ChunkingStrategy
-    """The chunking strategy to use for the file."""
+    chunking_strategy: Optional[ChunkingStrategy]
+    """Automatic chunking strategy for vector store files."""
 
 
 class ChunkingStrategyVectorStoreChunkingStrategyAuto(TypedDict, total=False):
-    type: Required[Literal["auto"]]
-    """Strategy type, always "auto" for automatic chunking"""
+    """Automatic chunking strategy for vector store files."""
+
+    type: Literal["auto"]
 
 
 class ChunkingStrategyVectorStoreChunkingStrategyStaticStatic(TypedDict, total=False):
-    chunk_overlap_tokens: Required[int]
-    """Number of tokens to overlap between adjacent chunks"""
+    """Configuration for static chunking strategy."""
 
-    max_chunk_size_tokens: Required[int]
-    """Maximum number of tokens per chunk, must be between 100 and 4096"""
+    chunk_overlap_tokens: int
+
+    max_chunk_size_tokens: int
 
 
 class ChunkingStrategyVectorStoreChunkingStrategyStatic(TypedDict, total=False):
-    static: Required[ChunkingStrategyVectorStoreChunkingStrategyStaticStatic]
-    """Configuration parameters for the static chunking strategy"""
+    """Static chunking strategy with configurable parameters."""
 
-    type: Required[Literal["static"]]
-    """Strategy type, always "static" for static chunking"""
+    static: Required[ChunkingStrategyVectorStoreChunkingStrategyStaticStatic]
+    """Configuration for static chunking strategy."""
+
+    type: Literal["static"]
 
 
 ChunkingStrategy: TypeAlias = Union[

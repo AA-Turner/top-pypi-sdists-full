@@ -22,7 +22,7 @@ class ProxyChecks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ProxyCheck]:
+    ) -> models.ProxyCheck:
         r"""Verify the proxy configuration for your domain
 
         This endpoint can be used to validate that a proxy-enabled domain is operational.
@@ -76,6 +76,7 @@ class ProxyChecks(BaseSDK):
                 "json",
                 Optional[models.VerifyDomainProxyRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -96,7 +97,7 @@ class ProxyChecks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="VerifyDomainProxy",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -106,7 +107,7 @@ class ProxyChecks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.ProxyCheck], http_res)
+            return unmarshal_json_response(models.ProxyCheck, http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -132,7 +133,7 @@ class ProxyChecks(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ProxyCheck]:
+    ) -> models.ProxyCheck:
         r"""Verify the proxy configuration for your domain
 
         This endpoint can be used to validate that a proxy-enabled domain is operational.
@@ -186,6 +187,7 @@ class ProxyChecks(BaseSDK):
                 "json",
                 Optional[models.VerifyDomainProxyRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -206,7 +208,7 @@ class ProxyChecks(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="VerifyDomainProxy",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -216,7 +218,7 @@ class ProxyChecks(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.ProxyCheck], http_res)
+            return unmarshal_json_response(models.ProxyCheck, http_res)
         if utils.match_response(http_res, ["400", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

@@ -1,7 +1,8 @@
+import json
 import os
 import re
 import tempfile
-from typing import Dict, List, Optional, Protocol, Union
+from typing import Dict, List, Optional, Protocol, Union, Literal
 
 from dockerfile_parse import DockerfileParser
 from e2b.template.types import CopyItem
@@ -24,7 +25,8 @@ class DockerfileParserInterface(Protocol):
         self,
         src: Union[str, List[CopyItem]],
         dest: Optional[str] = None,
-        force_upload: Optional[bool] = None,
+        force_upload: Optional[Literal[True]] = None,
+        resolve_symlinks: Optional[bool] = None,
         user: Optional[str] = None,
         mode: Optional[int] = None,
     ) -> "DockerfileParserInterface":
@@ -53,18 +55,15 @@ class DockerfileParserInterface(Protocol):
 def parse_dockerfile(
     dockerfile_content_or_path: str, template_builder: DockerfileParserInterface
 ) -> str:
-    """Parse a Dockerfile and convert it to Template SDK format.
+    """
+    Parse a Dockerfile and convert it to Template SDK format.
 
-    Args:
-        dockerfile_content_or_path: Either the Dockerfile content as a string,
-                                   or a path to a Dockerfile file
-        template_builder: Interface providing template builder methods
+    :param dockerfile_content_or_path: Either the Dockerfile content as a string, or a path to a Dockerfile file
+    :param template_builder: Interface providing template builder methods
 
-    Returns:
-        The base image from the Dockerfile
+    :return: The base image from the Dockerfile
 
-    Raises:
-        ValueError: If the Dockerfile is invalid or unsupported
+    :raises ValueError: If the Dockerfile is invalid or unsupported
     """
     # Check if input is a file path that exists
     if os.path.isfile(dockerfile_content_or_path):
@@ -103,6 +102,13 @@ def parse_dockerfile(
         if " as " in base_image.lower():
             base_image = base_image.split(" as ")[0].strip()
 
+        user_changed = False
+        workdir_changed = False
+
+        # Set the user and workdir to the Docker defaults
+        template_builder.set_user("root")
+        template_builder.set_workdir("/")
+
         # Process all other instructions
         for instruction_data in dfp.structure:
             instruction = instruction_data["instruction"]
@@ -117,8 +123,10 @@ def parse_dockerfile(
                 _handle_copy_instruction(value, template_builder)
             elif instruction == "WORKDIR":
                 _handle_workdir_instruction(value, template_builder)
+                workdir_changed = True
             elif instruction == "USER":
                 _handle_user_instruction(value, template_builder)
+                user_changed = True
             elif instruction in ["ENV", "ARG"]:
                 _handle_env_instruction(value, instruction, template_builder)
             elif instruction in ["CMD", "ENTRYPOINT"]:
@@ -126,6 +134,12 @@ def parse_dockerfile(
             else:
                 print(f"Unsupported instruction: {instruction}")
                 continue
+
+    # Set the user and workdir to the E2B defaults
+    if not user_changed:
+        template_builder.set_user("user")
+    if not workdir_changed:
+        template_builder.set_workdir("/home/user")
 
     return base_image
 
@@ -177,10 +191,20 @@ def _handle_copy_instruction(
     if current_part:
         parts.append(current_part)
 
-    if len(parts) >= 2:
-        src = parts[0]
-        dest = parts[-1]  # Last part is destination
-        template_builder.copy(src, dest)
+    # Extract --chown flag and separate from paths
+    user = None
+    non_flag_parts = []
+    for part in parts:
+        if part.startswith("--chown="):
+            user = part[8:]  # Extract value after "--chown="
+        elif not part.startswith("--"):
+            non_flag_parts.append(part)
+
+    if len(non_flag_parts) >= 2:
+        src = non_flag_parts[0]
+        dest = non_flag_parts[-1]  # Last part is destination
+
+        template_builder.copy(src, dest, user=user)
 
 
 def _handle_workdir_instruction(
@@ -239,10 +263,18 @@ def _handle_env_instruction(
 def _handle_cmd_entrypoint_instruction(
     value: str, template_builder: DockerfileParserInterface
 ) -> None:
-    """Handle CMD/ENTRYPOINT instruction - convert to setStartCmd with 20s timeout"""
+    """Handle CMD/ENTRYPOINT instruction - convert to set_start_cmd with 20s timeout"""
     if not value.strip():
         return
     command = value.strip()
+
+    # Try to parse as JSON (for array format like CMD ["sleep", "infinity"])
+    try:
+        parsed_command = json.loads(command)
+        if isinstance(parsed_command, list):
+            command = " ".join(str(item) for item in parsed_command)
+    except Exception:
+        pass
 
     # Import wait_for_timeout locally to avoid circular dependency
     def wait_for_timeout(timeout: int) -> str:

@@ -1,25 +1,23 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sphinx-markdown-builder
-Version: 0.6.8
+Version: 0.6.9
 Summary: A Sphinx extension to add markdown generation support.
 Author-email: Liran Funaro <liran.funaro@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/liran-funaro/sphinx-markdown-builder
 Keywords: sphinx,sphinx-extension,markdown,docs,documentation,builder
 Classifier: Framework :: Sphinx :: Extension
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: sphinx>=5.1.0
 Requires-Dist: tabulate
 Requires-Dist: docutils
 Provides-Extra: dev
-Requires-Dist: sphinx>=5.3.0; extra == "dev"
+Requires-Dist: sphinx>=9.0.4; extra == "dev"
 Requires-Dist: bumpver; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: isort; extra == "dev"
@@ -34,14 +32,14 @@ Requires-Dist: sphinxcontrib.httpdomain; extra == "dev"
 
 # sphinx-markdown-builder
 
-[![Coverage Status](https://coveralls.io/repos/github/liran-funaro/sphinx-markdown-builder/badge.svg?branch=main)](https://coveralls.io/github/liran-funaro/sphinx-markdown-builder?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/liran-funaro/sphinx-markdown-builder/badge.svg?branch=main&cache-bust=1)](https://coveralls.io/github/liran-funaro/sphinx-markdown-builder?branch=main)
 
 A Sphinx extension to add markdown generation support.
 
 ## Install
 
 ```sh
-pip3 install sphinx-markdown-builder==0.6.8
+pip3 install sphinx-markdown-builder==0.6.9
 ```
 
 ## Usage
@@ -70,7 +68,9 @@ You can add the following configurations to your `conf.py` file:
 * `markdown_docinfo`: Adds metadata to the top of each document containing author, copyright, and version.
 * `markdown_http_base`: If set, all references will link to this prefix address
 * `markdown_uri_doc_suffix`: If set, all references will link to documents with this suffix.
+* `markdown_file_suffix`: Sets the file extension for generated markdown files (default: `.md`).
 * `markdown_bullet`: Sets the bullet marker.
+* `markdown_flavor`: If set to `github`, output will suit GitHub's flavor of Markdown.
 
 For example, if your `conf.py` file have the following configuration:
 

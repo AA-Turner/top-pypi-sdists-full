@@ -49,8 +49,77 @@ class PrivatednsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateExtendEndpoint(self, request):
+        r"""创建终端节点
+
+        :param request: Request instance for CreateExtendEndpoint.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.CreateExtendEndpointRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.CreateExtendEndpointResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateExtendEndpoint", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateExtendEndpointResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateForwardRule(self, request):
+        r"""创建自定义转发规则
+
+        :param request: Request instance for CreateForwardRule.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.CreateForwardRuleRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.CreateForwardRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateForwardRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateForwardRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateInboundEndpoint(self, request):
+        r"""删除入站终端节点
+
+        :param request: Request instance for CreateInboundEndpoint.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.CreateInboundEndpointRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.CreateInboundEndpointResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateInboundEndpoint", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateInboundEndpointResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreatePrivateDNSAccount(self, request):
-        r"""跨账号关联VPC时绑定其他账号
+        r"""跨账号关联VPC时，可通过该API接口添加关联账号
 
         :param request: Request instance for CreatePrivateDNSAccount.
         :type request: :class:`tencentcloud.privatedns.v20201028.models.CreatePrivateDNSAccountRequest`
@@ -95,6 +164,29 @@ class PrivatednsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreatePrivateZoneList(self, request):
+        r"""批量创建私有域
+
+        :param request: Request instance for CreatePrivateZoneList.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.CreatePrivateZoneListRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.CreatePrivateZoneListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreatePrivateZoneList", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreatePrivateZoneListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreatePrivateZoneRecord(self, request):
         r"""添加私有域解析记录
 
@@ -118,8 +210,100 @@ class PrivatednsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreatePrivateZoneRecordList(self, request):
+        r"""批量添加私有域解析记录
+
+        :param request: Request instance for CreatePrivateZoneRecordList.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.CreatePrivateZoneRecordListRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.CreatePrivateZoneRecordListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreatePrivateZoneRecordList", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreatePrivateZoneRecordListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteEndPoint(self, request):
+        r"""删除终端节点
+
+        :param request: Request instance for DeleteEndPoint.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DeleteEndPointRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DeleteEndPointResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteEndPoint", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteEndPointResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteForwardRule(self, request):
+        r"""删除转发规则并停止转发
+
+        :param request: Request instance for DeleteForwardRule.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DeleteForwardRuleRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DeleteForwardRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteForwardRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteForwardRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteInboundEndpoint(self, request):
+        r"""删除入站终端节点
+
+        :param request: Request instance for DeleteInboundEndpoint.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DeleteInboundEndpointRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DeleteInboundEndpointResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteInboundEndpoint", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteInboundEndpointResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeletePrivateDNSAccount(self, request):
-        r"""删除私有域解析账号
+        r"""适用于跨账号绑定VPC时需要移除关联账号的场景，解除账号关联后，将无法获取对应账号下的 VPC资源。
 
         :param request: Request instance for DeletePrivateDNSAccount.
         :type request: :class:`tencentcloud.privatedns.v20201028.models.DeletePrivateDNSAccountRequest`
@@ -211,7 +395,7 @@ class PrivatednsClient(AbstractClient):
 
 
     def DescribeAccountVpcList(self, request):
-        r"""获取私有域解析账号的VPC列表
+        r"""获取关联账号的VPC列表
 
         :param request: Request instance for DescribeAccountVpcList.
         :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeAccountVpcListRequest`
@@ -256,6 +440,52 @@ class PrivatednsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeCreateRecordListResult(self, request):
+        r"""查询批量添加私有域解析记录结果
+
+        :param request: Request instance for DescribeCreateRecordListResult.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeCreateRecordListResultRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DescribeCreateRecordListResultResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCreateRecordListResult", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCreateRecordListResultResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeCreateZoneListResult(self, request):
+        r"""查询批量添加私有域结果
+
+        :param request: Request instance for DescribeCreateZoneListResult.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeCreateZoneListResultRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DescribeCreateZoneListResultResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeCreateZoneListResult", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeCreateZoneListResultResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeDashboard(self, request):
         r"""获取私有域解析概览
 
@@ -279,8 +509,77 @@ class PrivatednsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeExtendEndpointList(self, request):
+        r"""获取终端节点列表
+
+        :param request: Request instance for DescribeExtendEndpointList.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeExtendEndpointListRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DescribeExtendEndpointListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeExtendEndpointList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeExtendEndpointListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeForwardRuleList(self, request):
+        r"""查询转发规则列表
+
+        :param request: Request instance for DescribeForwardRuleList.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeForwardRuleListRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DescribeForwardRuleListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeForwardRuleList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeForwardRuleListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeInboundEndpointList(self, request):
+        r"""获取入站终端节点列表
+
+        :param request: Request instance for DescribeInboundEndpointList.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribeInboundEndpointListRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.DescribeInboundEndpointListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeInboundEndpointList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeInboundEndpointListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribePrivateDNSAccountList(self, request):
-        r"""获取私有域解析账号列表
+        r"""在跨账号绑定VPC的场景下，可通过该API接口获取所有已关联账号的列表
 
         :param request: Request instance for DescribePrivateDNSAccountList.
         :type request: :class:`tencentcloud.privatedns.v20201028.models.DescribePrivateDNSAccountListRequest`
@@ -454,6 +753,52 @@ class PrivatednsClient(AbstractClient):
             body = self.call("DescribeRequestData", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeRequestDataResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyForwardRule(self, request):
+        r"""修改转发规则
+
+        :param request: Request instance for ModifyForwardRule.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.ModifyForwardRuleRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.ModifyForwardRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyForwardRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyForwardRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyInboundEndpoint(self, request):
+        r"""删除入站终端节点
+
+        :param request: Request instance for ModifyInboundEndpoint.
+        :type request: :class:`tencentcloud.privatedns.v20201028.models.ModifyInboundEndpointRequest`
+        :rtype: :class:`tencentcloud.privatedns.v20201028.models.ModifyInboundEndpointResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyInboundEndpoint", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyInboundEndpointResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

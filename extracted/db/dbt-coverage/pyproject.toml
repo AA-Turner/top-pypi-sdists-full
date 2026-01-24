@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dbt-coverage"
-version = "0.3.9"
+version = "0.4.1"
 description = "One-stop-shop for docs and test coverage of dbt projects"
 authors = ["Andrej Švec <asvec@slido.com>"]
 readme = 'README.md'
@@ -40,10 +40,11 @@ colorama = { version = "*", python = "^3.7" }  # Needed for a successful resolut
 [tool.poetry.group.test.dependencies]
 pytest = "^7"
 pytest-docker = "^2"
+packaging = "*"  # Required for version comparison in tests
 
-dbt-core = { version = "~1.8.0", python = "^3.8" }
-dbt-postgres = { version = "~1.8.0", python = "^3.8" }
-importlib-metadata = { version = "*", python = "^3.8" }  # Needed for a successful resolution of dbt's transitive dependencies
+dbt-core = { version = "~1.9.0", python = "^3.9" }
+dbt-postgres = { version = "~1.9.0", python = "^3.9" }
+importlib-metadata = { version = "*", python = "^3.9" }  # Needed for a successful resolution of dbt's transitive dependencies
 
 [tool.poetry.scripts]
 dbt-coverage = 'dbt_coverage.__init__:app'

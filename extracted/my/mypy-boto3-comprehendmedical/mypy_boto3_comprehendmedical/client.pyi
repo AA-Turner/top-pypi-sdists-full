@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -80,11 +81,6 @@ from .type_defs import (
     StopSNOMEDCTInferenceJobResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -93,15 +89,15 @@ else:
 __all__ = ("ComprehendMedicalClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidEncodingException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TextSizeLimitExceededException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidEncodingException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TextSizeLimitExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ComprehendMedicalClient(BaseClient):
     """

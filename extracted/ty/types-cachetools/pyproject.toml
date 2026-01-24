@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-cachetools"
-version = "6.2.0.20250827"
+version = "6.2.0.20251022"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cachetools"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.406
 
 It was generated from typeshed commit
-[`4fa56fbc236c99159c6132254d8f182598469df8`](https://github.com/python/typeshed/commit/4fa56fbc236c99159c6132254d8f182598469df8).
+[`a205439338a4ad3debec1eeae7d300e3781c066d`](https://github.com/python/typeshed/commit/a205439338a4ad3debec1eeae7d300e3781c066d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

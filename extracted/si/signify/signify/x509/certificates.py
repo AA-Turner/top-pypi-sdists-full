@@ -26,7 +26,7 @@ AlgorithmIdentifier = collections.namedtuple(
 
 
 class Certificate:
-    """Representation of a Certificate. It is built from an ASN.1 structure."""
+    """Representation of a certificate. It is built from an ASN.1 structure."""
 
     asn1: asn1crypto.x509.Certificate
 
@@ -190,12 +190,11 @@ class Certificate:
         algorithm. Supports RSA and EC keys. Note that not all hashing algorithms
         are supported.
 
-        :param bytes signature: The signature to verify
-        :param bytes data: The data that must be verified
-        :type algorithm: a hashlib function
+        :param signature: The signature to verify
+        :param data: The data that must be verified
         :param algorithm: The hashing algorithm to use
-        :param bool allow_legacy: If True, allows a legacy signature verification.
-            This method is intended for the case where the encryptedDigest does not
+        :param allow_legacy: If :const:`True`, allows legacy signature verification.
+            This method is intended for the case where the ``signature`` does not
             contain an ASN.1 structure, but a raw hash value instead. It is attempted
             automatically when verification of the RSA signature fails.
 
@@ -259,10 +258,6 @@ class CertificateName:
         "2.5.4.11": "OU",  # organizationalUnitName
         "0.9.2342.19200300.100.1.25": "DC",  # domainComponent
         "1.2.840.113549.1.9.1": "EMAIL",  # emailAddress (shortcut not in OpenSSL)
-        # Related to Microsoft EV certificates
-        "1.3.6.1.4.1.311.60.2.1.1": "jurisdictionOfIncorporationLocalityName",
-        "1.3.6.1.4.1.311.60.2.1.2": "jurisdictionOfIncorporationStateOrProvinceName",
-        "1.3.6.1.4.1.311.60.2.1.3": "jurisdictionOfIncorporationCountryName",
         # The remainder of this list is based on the OIDs present in OpenSSL
         # See https://github.com/openssl/openssl/blob/master/crypto/objects/objects.txt
         # Note that the official list is with IANA at
@@ -370,6 +365,10 @@ class CertificateName:
         "2.5.4.98": "c3",
         "2.5.4.99": "n3",
         "2.5.4.100": "dnsName",
+        # Related to Microsoft EV certificates (names from OpenSSL)
+        "1.3.6.1.4.1.311.60.2.1.1": "jurisdictionL",
+        "1.3.6.1.4.1.311.60.2.1.2": "jurisdictionST",
+        "1.3.6.1.4.1.311.60.2.1.3": "jurisdictionC",
     }
 
     def __init__(self, asn1: asn1crypto.x509.Name | asn1crypto.x509.GeneralName):
@@ -429,7 +428,7 @@ class CertificateName:
         """Get individual components of this CertificateName
 
         :param component_type: if provided, yields only values of this type,
-            if not provided, yields tuples of (type, value)
+            if not provided, yields tuples of ``(type, value)``
         """
 
         for n in list(self.asn1.chosen)[::-1]:

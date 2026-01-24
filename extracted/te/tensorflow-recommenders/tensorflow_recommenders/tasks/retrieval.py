@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,15 @@
 # Lint-as: python3
 """A factorized retrieval task."""
 
-from typing import Optional, Sequence, Union, Text, List
+from typing import List, Optional, Sequence, Text, Union
 
+import numpy as np
 import tensorflow as tf
-
 from tensorflow_recommenders import layers
 from tensorflow_recommenders import metrics as tfrs_metrics
 from tensorflow_recommenders.tasks import base
+
+MIN_FLOAT = np.finfo(np.float32).min / 100.0
 
 
 class Retrieval(tf.keras.layers.Layer, base.Task):
@@ -116,14 +118,17 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
 
     self._factorized_metrics = value
 
-  def call(self,
-           query_embeddings: tf.Tensor,
-           candidate_embeddings: tf.Tensor,
-           sample_weight: Optional[tf.Tensor] = None,
-           candidate_sampling_probability: Optional[tf.Tensor] = None,
-           candidate_ids: Optional[tf.Tensor] = None,
-           compute_metrics: bool = True,
-           compute_batch_metrics: bool = True) -> tf.Tensor:
+  def call(
+      self,
+      query_embeddings: tf.Tensor,
+      candidate_embeddings: tf.Tensor,
+      sample_weight: Optional[tf.Tensor] = None,
+      candidate_sampling_probability: Optional[tf.Tensor] = None,
+      candidate_ids: Optional[tf.Tensor] = None,
+      compute_metrics: bool = True,
+      compute_batch_metrics: bool = True,
+      score_mask: Optional[tf.Tensor] = None,
+  ) -> tf.Tensor:
     """Computes the task loss and metrics.
 
     The main argument are pairs of query and candidate embeddings: the first row
@@ -136,7 +141,10 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
 
     Args:
       query_embeddings: [num_queries, embedding_dim] tensor of query
-        representations.
+        representations, or [num_queries, num_heads, embedding_dim]. If latter,
+        we do "maxsim" scoring over those multiple query heads. This applies to
+        the loss computation and batch metrics. Factorized metrics won't be
+        computed in this case.
       candidate_embeddings: [num_candidates, embedding_dim] tensor of candidate
         representations. Normally, `num_candidates` is the same as
         `num_queries`: there is a positive candidate corresponding for every
@@ -149,16 +157,27 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
         reflect the sampling probability of negative candidates.
       candidate_ids: Optional tensor containing candidate ids. When given,
         factorized top-K evaluation will be id-based rather than score-based.
-      compute_metrics: Whether to compute metrics. Set this to False
-        during training for faster training.
-      compute_batch_metrics: Whether to compute batch level metrics.
-        In-batch loss_metrics will still be computed.
+      compute_metrics: Whether to compute metrics. Set this to False during
+        training for faster training.
+      compute_batch_metrics: Whether to compute batch level metrics. In-batch
+        loss_metrics will still be computed.
+      score_mask: [num_queries, num_candidates] boolean tensor indicating for
+        each query, which candidates should be considered for loss and
+        metrics computation (false means the candidate is not considered).
+
     Returns:
       loss: Tensor of loss values.
     """
 
-    scores = tf.linalg.matmul(
-        query_embeddings, candidate_embeddings, transpose_b=True)
+    if len(tf.shape(query_embeddings)) == 3:
+      scores = tf.einsum(
+          "qne,ce->qnc", query_embeddings, candidate_embeddings
+      )
+      scores = tf.math.reduce_max(scores, axis=1)
+    else:
+      scores = tf.linalg.matmul(
+          query_embeddings, candidate_embeddings, transpose_b=True
+      )
 
     num_queries = tf.shape(scores)[0]
     num_candidates = tf.shape(scores)[1]
@@ -180,6 +199,9 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
         )
       scores = layers.loss.RemoveAccidentalHits()(labels, scores, candidate_ids)
 
+    if score_mask is not None:
+      scores = tf.where(score_mask, scores, MIN_FLOAT)
+
     if self._num_hard_negatives is not None:
       scores, labels = layers.loss.HardNegativeMining(self._num_hard_negatives)(
           scores,
@@ -189,10 +211,9 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
 
     update_ops = []
     for metric in self._loss_metrics:
-      update_ops.append(
-          metric.update_state(loss, sample_weight=sample_weight))
+      update_ops.append(metric.update_state(loss))
 
-    if compute_metrics:
+    if compute_metrics and len(tf.shape(query_embeddings)) == 2:
       for metric in self._factorized_metrics:
         update_ops.append(
             metric.update_state(
@@ -200,12 +221,15 @@ class Retrieval(tf.keras.layers.Layer, base.Task):
                 # Slice to the size of query embeddings
                 # if `candidate_embeddings` contains extra negatives.
                 candidate_embeddings[:tf.shape(query_embeddings)[0]],
-                true_candidate_ids=candidate_ids)
+                true_candidate_ids=candidate_ids,
+                sample_weight=sample_weight)
         )
 
     if compute_batch_metrics:
       for metric in self._batch_metrics:
-        update_ops.append(metric.update_state(labels, scores))
+        update_ops.append(
+            metric.update_state(labels, scores, sample_weight=sample_weight)
+        )
 
     with tf.control_dependencies(update_ops):
       return tf.identity(loss)

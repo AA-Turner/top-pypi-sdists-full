@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -65,12 +66,6 @@ from .literals import (
     UnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -106,6 +101,8 @@ __all__ = (
     "CloudWatchAlarmDefinitionOutputTypeDef",
     "CloudWatchAlarmDefinitionTypeDef",
     "CloudWatchAlarmDefinitionUnionTypeDef",
+    "CloudWatchLogConfigurationOutputTypeDef",
+    "CloudWatchLogConfigurationTypeDef",
     "ClusterStateChangeReasonTypeDef",
     "ClusterStatusTypeDef",
     "ClusterSummaryTypeDef",
@@ -249,6 +246,9 @@ __all__ = (
     "ModifyClusterOutputTypeDef",
     "ModifyInstanceFleetInputTypeDef",
     "ModifyInstanceGroupsInputTypeDef",
+    "MonitoringConfigurationOutputTypeDef",
+    "MonitoringConfigurationTypeDef",
+    "MonitoringConfigurationUnionTypeDef",
     "NotebookExecutionSummaryTypeDef",
     "NotebookExecutionTypeDef",
     "NotebookS3LocationForOutputTypeDef",
@@ -279,6 +279,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RunJobFlowInputTypeDef",
     "RunJobFlowOutputTypeDef",
+    "S3MonitoringConfigurationTypeDef",
     "ScalingActionTypeDef",
     "ScalingConstraintsTypeDef",
     "ScalingRuleOutputTypeDef",
@@ -311,6 +312,7 @@ __all__ = (
     "StepConfigUnionTypeDef",
     "StepDetailTypeDef",
     "StepExecutionStatusDetailTypeDef",
+    "StepMonitoringConfigurationTypeDef",
     "StepStateChangeReasonTypeDef",
     "StepStatusTypeDef",
     "StepSummaryTypeDef",
@@ -334,7 +336,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -345,8 +347,8 @@ class TagTypeDef(TypedDict):
 class ApplicationOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Version: NotRequired[str]
-    Args: NotRequired[List[str]]
-    AdditionalInfo: NotRequired[Dict[str, str]]
+    Args: NotRequired[list[str]]
+    AdditionalInfo: NotRequired[dict[str, str]]
 
 class ApplicationTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -375,7 +377,7 @@ class PortRangeTypeDef(TypedDict):
 
 class ScriptBootstrapActionConfigOutputTypeDef(TypedDict):
     Path: str
-    Args: NotRequired[List[str]]
+    Args: NotRequired[list[str]]
 
 class CancelStepsInfoTypeDef(TypedDict):
     StepId: NotRequired[str]
@@ -391,6 +393,20 @@ class MetricDimensionTypeDef(TypedDict):
     Key: NotRequired[str]
     Value: NotRequired[str]
 
+class CloudWatchLogConfigurationOutputTypeDef(TypedDict):
+    Enabled: bool
+    LogGroupName: NotRequired[str]
+    LogStreamNamePrefix: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[dict[str, list[str]]]
+
+class CloudWatchLogConfigurationTypeDef(TypedDict):
+    Enabled: bool
+    LogGroupName: NotRequired[str]
+    LogStreamNamePrefix: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    LogTypes: NotRequired[Mapping[str, Sequence[str]]]
+
 class ClusterStateChangeReasonTypeDef(TypedDict):
     Code: NotRequired[ClusterStateChangeReasonCodeType]
     Message: NotRequired[str]
@@ -402,26 +418,26 @@ class ClusterTimelineTypeDef(TypedDict):
 
 class ErrorDetailTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
-    ErrorData: NotRequired[List[Dict[str, str]]]
+    ErrorData: NotRequired[list[dict[str, str]]]
     ErrorMessage: NotRequired[str]
 
 class ConfigurationOutputTypeDef(TypedDict):
     Classification: NotRequired[str]
-    Configurations: NotRequired[List[Dict[str, Any]]]
-    Properties: NotRequired[Dict[str, str]]
+    Configurations: NotRequired[list[dict[str, Any]]]
+    Properties: NotRequired[dict[str, str]]
 
 class Ec2InstanceAttributesTypeDef(TypedDict):
     Ec2KeyName: NotRequired[str]
     Ec2SubnetId: NotRequired[str]
-    RequestedEc2SubnetIds: NotRequired[List[str]]
+    RequestedEc2SubnetIds: NotRequired[list[str]]
     Ec2AvailabilityZone: NotRequired[str]
-    RequestedEc2AvailabilityZones: NotRequired[List[str]]
+    RequestedEc2AvailabilityZones: NotRequired[list[str]]
     IamInstanceProfile: NotRequired[str]
     EmrManagedMasterSecurityGroup: NotRequired[str]
     EmrManagedSlaveSecurityGroup: NotRequired[str]
     ServiceAccessSecurityGroup: NotRequired[str]
-    AdditionalMasterSecurityGroups: NotRequired[List[str]]
-    AdditionalSlaveSecurityGroups: NotRequired[List[str]]
+    AdditionalMasterSecurityGroups: NotRequired[list[str]]
+    AdditionalSlaveSecurityGroups: NotRequired[list[str]]
 
 class KerberosAttributesTypeDef(TypedDict):
     Realm: str
@@ -437,7 +453,7 @@ class PlacementGroupConfigTypeDef(TypedDict):
 class CommandTypeDef(TypedDict):
     Name: NotRequired[str]
     ScriptPath: NotRequired[str]
-    Args: NotRequired[List[str]]
+    Args: NotRequired[list[str]]
 
 ComputeLimitsTypeDef = TypedDict(
     "ComputeLimitsTypeDef",
@@ -452,8 +468,8 @@ ComputeLimitsTypeDef = TypedDict(
 
 class ConfigurationPaginatorTypeDef(TypedDict):
     Classification: NotRequired[str]
-    Configurations: NotRequired[List[Dict[str, Any]]]
-    Properties: NotRequired[Dict[str, str]]
+    Configurations: NotRequired[list[dict[str, Any]]]
+    Properties: NotRequired[dict[str, str]]
 
 class ConfigurationTypeDef(TypedDict):
     Classification: NotRequired[str]
@@ -597,9 +613,9 @@ class KeyValueTypeDef(TypedDict):
 
 class HadoopStepConfigTypeDef(TypedDict):
     Jar: NotRequired[str]
-    Properties: NotRequired[Dict[str, str]]
+    Properties: NotRequired[dict[str, str]]
     MainClass: NotRequired[str]
-    Args: NotRequired[List[str]]
+    Args: NotRequired[list[str]]
 
 class SpotProvisioningSpecificationTypeDef(TypedDict):
     TimeoutDurationMinutes: int
@@ -647,8 +663,8 @@ class InstanceGroupTimelineTypeDef(TypedDict):
     EndDateTime: NotRequired[datetime]
 
 class InstanceResizePolicyOutputTypeDef(TypedDict):
-    InstancesToTerminate: NotRequired[List[str]]
-    InstancesToProtect: NotRequired[List[str]]
+    InstancesToTerminate: NotRequired[list[str]]
+    InstancesToProtect: NotRequired[list[str]]
     InstanceTerminationTimeout: NotRequired[int]
 
 class InstanceResizePolicyTypeDef(TypedDict):
@@ -675,7 +691,7 @@ class JobFlowExecutionStatusDetailTypeDef(TypedDict):
 
 class PlacementTypeOutputTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -814,6 +830,10 @@ class SupportedProductConfigTypeDef(TypedDict):
     Name: NotRequired[str]
     Args: NotRequired[Sequence[str]]
 
+class S3MonitoringConfigurationTypeDef(TypedDict):
+    LogUri: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+
 class SimpleScalingPolicyConfigurationTypeDef(TypedDict):
     ScalingAdjustment: int
     AdjustmentType: NotRequired[AdjustmentTypeType]
@@ -884,12 +904,12 @@ class AddInstanceFleetOutputTypeDef(TypedDict):
 
 class AddInstanceGroupsOutputTypeDef(TypedDict):
     JobFlowId: str
-    InstanceGroupIds: List[str]
+    InstanceGroupIds: list[str]
     ClusterArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AddJobFlowStepsOutputTypeDef(TypedDict):
-    StepIds: List[str]
+    StepIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePersistentAppUIOutputTypeDef(TypedDict):
@@ -927,7 +947,7 @@ class GetPersistentAppUIPresignedURLOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListReleaseLabelsOutputTypeDef(TypedDict):
-    ReleaseLabels: List[str]
+    ReleaseLabels: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -970,13 +990,13 @@ class CreateStudioInputTypeDef(TypedDict):
 
 class PersistentAppUITypeDef(TypedDict):
     PersistentAppUIId: NotRequired[str]
-    PersistentAppUITypeList: NotRequired[List[PersistentAppUITypeType]]
+    PersistentAppUITypeList: NotRequired[list[PersistentAppUITypeType]]
     PersistentAppUIStatus: NotRequired[str]
     AuthorId: NotRequired[str]
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     LastStateChangeReason: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 class StudioTypeDef(TypedDict):
     StudioId: NotRequired[str]
@@ -985,7 +1005,7 @@ class StudioTypeDef(TypedDict):
     Description: NotRequired[str]
     AuthMode: NotRequired[AuthModeType]
     VpcId: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
     ServiceRole: NotRequired[str]
     UserRole: NotRequired[str]
     WorkspaceSecurityGroupId: NotRequired[str]
@@ -995,7 +1015,7 @@ class StudioTypeDef(TypedDict):
     DefaultS3Location: NotRequired[str]
     IdpAuthUrl: NotRequired[str]
     IdpRelayStateParameterName: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     IdcInstanceArn: NotRequired[str]
     TrustedIdentityPropagationEnabled: NotRequired[bool]
     IdcUserAssignment: NotRequired[IdcUserAssignmentType]
@@ -1017,7 +1037,7 @@ class PutAutoTerminationPolicyInputTypeDef(TypedDict):
 
 class BlockPublicAccessConfigurationOutputTypeDef(TypedDict):
     BlockPublicSecurityGroupRules: bool
-    PermittedPublicSecurityGroupRuleRanges: NotRequired[List[PortRangeTypeDef]]
+    PermittedPublicSecurityGroupRuleRanges: NotRequired[list[PortRangeTypeDef]]
 
 class BlockPublicAccessConfigurationTypeDef(TypedDict):
     BlockPublicSecurityGroupRules: bool
@@ -1028,7 +1048,7 @@ class BootstrapActionConfigOutputTypeDef(TypedDict):
     ScriptBootstrapAction: ScriptBootstrapActionConfigOutputTypeDef
 
 class CancelStepsOutputTypeDef(TypedDict):
-    CancelStepsInfoList: List[CancelStepsInfoTypeDef]
+    CancelStepsInfoList: list[CancelStepsInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CloudWatchAlarmDefinitionOutputTypeDef(TypedDict):
@@ -1040,7 +1060,7 @@ class CloudWatchAlarmDefinitionOutputTypeDef(TypedDict):
     Namespace: NotRequired[str]
     Statistic: NotRequired[StatisticType]
     Unit: NotRequired[UnitType]
-    Dimensions: NotRequired[List[MetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[MetricDimensionTypeDef]]
 
 class CloudWatchAlarmDefinitionTypeDef(TypedDict):
     ComparisonOperator: ComparisonOperatorType
@@ -1053,14 +1073,20 @@ class CloudWatchAlarmDefinitionTypeDef(TypedDict):
     Unit: NotRequired[UnitType]
     Dimensions: NotRequired[Sequence[MetricDimensionTypeDef]]
 
+class MonitoringConfigurationOutputTypeDef(TypedDict):
+    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationOutputTypeDef]
+
+class MonitoringConfigurationTypeDef(TypedDict):
+    CloudWatchLogConfiguration: NotRequired[CloudWatchLogConfigurationTypeDef]
+
 class ClusterStatusTypeDef(TypedDict):
     State: NotRequired[ClusterStateType]
     StateChangeReason: NotRequired[ClusterStateChangeReasonTypeDef]
     Timeline: NotRequired[ClusterTimelineTypeDef]
-    ErrorDetails: NotRequired[List[ErrorDetailTypeDef]]
+    ErrorDetails: NotRequired[list[ErrorDetailTypeDef]]
 
 class ListBootstrapActionsOutputTypeDef(TypedDict):
-    BootstrapActions: List[CommandTypeDef]
+    BootstrapActions: list[CommandTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1116,8 +1142,8 @@ class ListNotebookExecutionsInputTypeDef(TypedDict):
 
 class DescribeReleaseLabelOutputTypeDef(TypedDict):
     ReleaseLabel: str
-    Applications: List[SimplifiedApplicationTypeDef]
-    AvailableOSReleases: List[OSReleaseTypeDef]
+    Applications: list[SimplifiedApplicationTypeDef]
+    AvailableOSReleases: list[OSReleaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1135,9 +1161,9 @@ class GetStudioSessionMappingOutputTypeDef(TypedDict):
 
 class HadoopJarStepConfigOutputTypeDef(TypedDict):
     Jar: str
-    Properties: NotRequired[List[KeyValueTypeDef]]
+    Properties: NotRequired[list[KeyValueTypeDef]]
     MainClass: NotRequired[str]
-    Args: NotRequired[List[str]]
+    Args: NotRequired[list[str]]
 
 class HadoopJarStepConfigTypeDef(TypedDict):
     Jar: str
@@ -1174,7 +1200,7 @@ class JobFlowInstancesDetailTypeDef(TypedDict):
     InstanceCount: int
     MasterPublicDnsName: NotRequired[str]
     MasterInstanceId: NotRequired[str]
-    InstanceGroups: NotRequired[List[InstanceGroupDetailTypeDef]]
+    InstanceGroups: NotRequired[list[InstanceGroupDetailTypeDef]]
     NormalizedInstanceHours: NotRequired[int]
     Ec2KeyName: NotRequired[str]
     Ec2SubnetId: NotRequired[str]
@@ -1242,22 +1268,22 @@ class ListReleaseLabelsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class ListSecurityConfigurationsOutputTypeDef(TypedDict):
-    SecurityConfigurations: List[SecurityConfigurationSummaryTypeDef]
+    SecurityConfigurations: list[SecurityConfigurationSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListStudioSessionMappingsOutputTypeDef(TypedDict):
-    SessionMappings: List[SessionMappingSummaryTypeDef]
+    SessionMappings: list[SessionMappingSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListStudiosOutputTypeDef(TypedDict):
-    Studios: List[StudioSummaryTypeDef]
+    Studios: list[StudioSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSupportedInstanceTypesOutputTypeDef(TypedDict):
-    SupportedInstanceTypes: List[SupportedInstanceTypeTypeDef]
+    SupportedInstanceTypes: list[SupportedInstanceTypeTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1284,11 +1310,11 @@ class NotebookExecutionTypeDef(TypedDict):
     OutputNotebookURI: NotRequired[str]
     LastStateChangeReason: NotRequired[str]
     NotebookInstanceSecurityGroupId: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     NotebookS3Location: NotRequired[NotebookS3LocationForOutputTypeDef]
     OutputNotebookS3Location: NotRequired[OutputNotebookS3LocationForOutputTypeDef]
     OutputNotebookFormat: NotRequired[Literal["HTML"]]
-    EnvironmentVariables: NotRequired[Dict[str, str]]
+    EnvironmentVariables: NotRequired[dict[str, str]]
 
 class OnDemandProvisioningSpecificationTypeDef(TypedDict):
     AllocationStrategy: OnDemandProvisioningAllocationStrategyType
@@ -1314,6 +1340,9 @@ class StartNotebookExecutionInputTypeDef(TypedDict):
     EnvironmentVariables: NotRequired[Mapping[str, str]]
 
 PlacementTypeUnionTypeDef = Union[PlacementTypeTypeDef, PlacementTypeOutputTypeDef]
+
+class StepMonitoringConfigurationTypeDef(TypedDict):
+    S3MonitoringConfiguration: NotRequired[S3MonitoringConfigurationTypeDef]
 
 class ScalingActionTypeDef(TypedDict):
     SimpleScalingPolicyConfiguration: SimpleScalingPolicyConfigurationTypeDef
@@ -1355,6 +1384,9 @@ class ScalingTriggerOutputTypeDef(TypedDict):
 CloudWatchAlarmDefinitionUnionTypeDef = Union[
     CloudWatchAlarmDefinitionTypeDef, CloudWatchAlarmDefinitionOutputTypeDef
 ]
+MonitoringConfigurationUnionTypeDef = Union[
+    MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
+]
 
 class ClusterSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -1379,12 +1411,12 @@ class ClusterTypeDef(TypedDict):
     TerminationProtected: NotRequired[bool]
     UnhealthyNodeReplacement: NotRequired[bool]
     VisibleToAllUsers: NotRequired[bool]
-    Applications: NotRequired[List[ApplicationOutputTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    Applications: NotRequired[list[ApplicationOutputTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     ServiceRole: NotRequired[str]
     NormalizedInstanceHours: NotRequired[int]
     MasterPublicDnsName: NotRequired[str]
-    Configurations: NotRequired[List[ConfigurationOutputTypeDef]]
+    Configurations: NotRequired[list[ConfigurationOutputTypeDef]]
     SecurityConfiguration: NotRequired[str]
     AutoScalingRole: NotRequired[str]
     ScaleDownBehavior: NotRequired[ScaleDownBehaviorType]
@@ -1395,11 +1427,12 @@ class ClusterTypeDef(TypedDict):
     ClusterArn: NotRequired[str]
     OutpostArn: NotRequired[str]
     StepConcurrencyLevel: NotRequired[int]
-    PlacementGroups: NotRequired[List[PlacementGroupConfigTypeDef]]
+    PlacementGroups: NotRequired[list[PlacementGroupConfigTypeDef]]
     OSReleaseLabel: NotRequired[str]
     EbsRootVolumeIops: NotRequired[int]
     EbsRootVolumeThroughput: NotRequired[int]
     ExtendedSupport: NotRequired[bool]
+    MonitoringConfiguration: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 class GetManagedScalingPolicyOutputTypeDef(TypedDict):
     ManagedScalingPolicy: ManagedScalingPolicyTypeDef
@@ -1423,8 +1456,8 @@ class InstanceTypeSpecificationPaginatorTypeDef(TypedDict):
     WeightedCapacity: NotRequired[int]
     BidPrice: NotRequired[str]
     BidPriceAsPercentageOfOnDemandPrice: NotRequired[float]
-    Configurations: NotRequired[List[ConfigurationPaginatorTypeDef]]
-    EbsBlockDevices: NotRequired[List[EbsBlockDeviceTypeDef]]
+    Configurations: NotRequired[list[ConfigurationPaginatorTypeDef]]
+    EbsBlockDevices: NotRequired[list[EbsBlockDeviceTypeDef]]
     EbsOptimized: NotRequired[bool]
     CustomAmiId: NotRequired[str]
     Priority: NotRequired[float]
@@ -1434,16 +1467,11 @@ class InstanceTypeSpecificationTypeDef(TypedDict):
     WeightedCapacity: NotRequired[int]
     BidPrice: NotRequired[str]
     BidPriceAsPercentageOfOnDemandPrice: NotRequired[float]
-    Configurations: NotRequired[List[ConfigurationOutputTypeDef]]
-    EbsBlockDevices: NotRequired[List[EbsBlockDeviceTypeDef]]
+    Configurations: NotRequired[list[ConfigurationOutputTypeDef]]
+    EbsBlockDevices: NotRequired[list[EbsBlockDeviceTypeDef]]
     EbsOptimized: NotRequired[bool]
     CustomAmiId: NotRequired[str]
     Priority: NotRequired[float]
-
-class StepConfigOutputTypeDef(TypedDict):
-    Name: str
-    HadoopJarStep: HadoopJarStepConfigOutputTypeDef
-    ActionOnFailure: NotRequired[ActionOnFailureType]
 
 HadoopJarStepConfigUnionTypeDef = Union[
     HadoopJarStepConfigTypeDef, HadoopJarStepConfigOutputTypeDef
@@ -1465,10 +1493,10 @@ class InstanceTypeDef(TypedDict):
     InstanceFleetId: NotRequired[str]
     Market: NotRequired[MarketTypeType]
     InstanceType: NotRequired[str]
-    EbsVolumes: NotRequired[List[EbsVolumeTypeDef]]
+    EbsVolumes: NotRequired[list[EbsVolumeTypeDef]]
 
 class ListNotebookExecutionsOutputTypeDef(TypedDict):
-    NotebookExecutions: List[NotebookExecutionSummaryTypeDef]
+    NotebookExecutions: list[NotebookExecutionSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1484,6 +1512,12 @@ class InstanceFleetResizingSpecificationsTypeDef(TypedDict):
     SpotResizeSpecification: NotRequired[SpotResizingSpecificationTypeDef]
     OnDemandResizeSpecification: NotRequired[OnDemandResizingSpecificationTypeDef]
 
+class StepConfigOutputTypeDef(TypedDict):
+    Name: str
+    HadoopJarStep: HadoopJarStepConfigOutputTypeDef
+    ActionOnFailure: NotRequired[ActionOnFailureType]
+    StepMonitoringConfiguration: NotRequired[StepMonitoringConfigurationTypeDef]
+
 class BootstrapActionConfigTypeDef(TypedDict):
     Name: str
     ScriptBootstrapAction: ScriptBootstrapActionConfigUnionTypeDef
@@ -1494,6 +1528,8 @@ class StepSummaryTypeDef(TypedDict):
     Config: NotRequired[HadoopStepConfigTypeDef]
     ActionOnFailure: NotRequired[ActionOnFailureType]
     Status: NotRequired[StepStatusTypeDef]
+    LogUri: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
 
 class StepTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -1502,6 +1538,8 @@ class StepTypeDef(TypedDict):
     ActionOnFailure: NotRequired[ActionOnFailureType]
     Status: NotRequired[StepStatusTypeDef]
     ExecutionRoleArn: NotRequired[str]
+    LogUri: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
 
 class PutBlockPublicAccessConfigurationInputTypeDef(TypedDict):
     BlockPublicAccessConfiguration: BlockPublicAccessConfigurationUnionTypeDef
@@ -1516,7 +1554,7 @@ class ScalingTriggerTypeDef(TypedDict):
     CloudWatchAlarmDefinition: CloudWatchAlarmDefinitionUnionTypeDef
 
 class ListClustersOutputTypeDef(TypedDict):
-    Clusters: List[ClusterSummaryTypeDef]
+    Clusters: list[ClusterSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1534,19 +1572,16 @@ class InstanceTypeConfigTypeDef(TypedDict):
     CustomAmiId: NotRequired[str]
     Priority: NotRequired[float]
 
-class StepDetailTypeDef(TypedDict):
-    StepConfig: StepConfigOutputTypeDef
-    ExecutionStatusDetail: StepExecutionStatusDetailTypeDef
-
 class StepConfigTypeDef(TypedDict):
     Name: str
     HadoopJarStep: HadoopJarStepConfigUnionTypeDef
     ActionOnFailure: NotRequired[ActionOnFailureType]
+    StepMonitoringConfiguration: NotRequired[StepMonitoringConfigurationTypeDef]
 
 ShrinkPolicyUnionTypeDef = Union[ShrinkPolicyTypeDef, ShrinkPolicyOutputTypeDef]
 
 class ListInstancesOutputTypeDef(TypedDict):
-    Instances: List[InstanceTypeDef]
+    Instances: list[InstanceTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1559,7 +1594,7 @@ class InstanceFleetPaginatorTypeDef(TypedDict):
     TargetSpotCapacity: NotRequired[int]
     ProvisionedOnDemandCapacity: NotRequired[int]
     ProvisionedSpotCapacity: NotRequired[int]
-    InstanceTypeSpecifications: NotRequired[List[InstanceTypeSpecificationPaginatorTypeDef]]
+    InstanceTypeSpecifications: NotRequired[list[InstanceTypeSpecificationPaginatorTypeDef]]
     LaunchSpecifications: NotRequired[InstanceFleetProvisioningSpecificationsTypeDef]
     ResizeSpecifications: NotRequired[InstanceFleetResizingSpecificationsTypeDef]
     Context: NotRequired[str]
@@ -1573,17 +1608,21 @@ class InstanceFleetTypeDef(TypedDict):
     TargetSpotCapacity: NotRequired[int]
     ProvisionedOnDemandCapacity: NotRequired[int]
     ProvisionedSpotCapacity: NotRequired[int]
-    InstanceTypeSpecifications: NotRequired[List[InstanceTypeSpecificationTypeDef]]
+    InstanceTypeSpecifications: NotRequired[list[InstanceTypeSpecificationTypeDef]]
     LaunchSpecifications: NotRequired[InstanceFleetProvisioningSpecificationsTypeDef]
     ResizeSpecifications: NotRequired[InstanceFleetResizingSpecificationsTypeDef]
     Context: NotRequired[str]
+
+class StepDetailTypeDef(TypedDict):
+    StepConfig: StepConfigOutputTypeDef
+    ExecutionStatusDetail: StepExecutionStatusDetailTypeDef
 
 BootstrapActionConfigUnionTypeDef = Union[
     BootstrapActionConfigTypeDef, BootstrapActionConfigOutputTypeDef
 ]
 
 class ListStepsOutputTypeDef(TypedDict):
-    Steps: List[StepSummaryTypeDef]
+    Steps: list[StepSummaryTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1594,7 +1633,7 @@ class DescribeStepOutputTypeDef(TypedDict):
 class AutoScalingPolicyDescriptionTypeDef(TypedDict):
     Status: NotRequired[AutoScalingPolicyStatusTypeDef]
     Constraints: NotRequired[ScalingConstraintsTypeDef]
-    Rules: NotRequired[List[ScalingRuleOutputTypeDef]]
+    Rules: NotRequired[list[ScalingRuleOutputTypeDef]]
 
 ScalingTriggerUnionTypeDef = Union[ScalingTriggerTypeDef, ScalingTriggerOutputTypeDef]
 
@@ -1616,23 +1655,6 @@ class InstanceFleetModifyConfigTypeDef(TypedDict):
     InstanceTypeConfigs: NotRequired[Sequence[InstanceTypeConfigTypeDef]]
     Context: NotRequired[str]
 
-class JobFlowDetailTypeDef(TypedDict):
-    JobFlowId: str
-    Name: str
-    ExecutionStatusDetail: JobFlowExecutionStatusDetailTypeDef
-    Instances: JobFlowInstancesDetailTypeDef
-    LogUri: NotRequired[str]
-    LogEncryptionKmsKeyId: NotRequired[str]
-    AmiVersion: NotRequired[str]
-    Steps: NotRequired[List[StepDetailTypeDef]]
-    BootstrapActions: NotRequired[List[BootstrapActionDetailTypeDef]]
-    SupportedProducts: NotRequired[List[str]]
-    VisibleToAllUsers: NotRequired[bool]
-    JobFlowRole: NotRequired[str]
-    ServiceRole: NotRequired[str]
-    AutoScalingRole: NotRequired[str]
-    ScaleDownBehavior: NotRequired[ScaleDownBehaviorType]
-
 StepConfigUnionTypeDef = Union[StepConfigTypeDef, StepConfigOutputTypeDef]
 
 class InstanceGroupModifyConfigTypeDef(TypedDict):
@@ -1644,14 +1666,31 @@ class InstanceGroupModifyConfigTypeDef(TypedDict):
     Configurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
 
 class ListInstanceFleetsOutputPaginatorTypeDef(TypedDict):
-    InstanceFleets: List[InstanceFleetPaginatorTypeDef]
+    InstanceFleets: list[InstanceFleetPaginatorTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInstanceFleetsOutputTypeDef(TypedDict):
-    InstanceFleets: List[InstanceFleetTypeDef]
+    InstanceFleets: list[InstanceFleetTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class JobFlowDetailTypeDef(TypedDict):
+    JobFlowId: str
+    Name: str
+    ExecutionStatusDetail: JobFlowExecutionStatusDetailTypeDef
+    Instances: JobFlowInstancesDetailTypeDef
+    LogUri: NotRequired[str]
+    LogEncryptionKmsKeyId: NotRequired[str]
+    AmiVersion: NotRequired[str]
+    Steps: NotRequired[list[StepDetailTypeDef]]
+    BootstrapActions: NotRequired[list[BootstrapActionDetailTypeDef]]
+    SupportedProducts: NotRequired[list[str]]
+    VisibleToAllUsers: NotRequired[bool]
+    JobFlowRole: NotRequired[str]
+    ServiceRole: NotRequired[str]
+    AutoScalingRole: NotRequired[str]
+    ScaleDownBehavior: NotRequired[ScaleDownBehaviorType]
 
 class InstanceGroupPaginatorTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -1663,11 +1702,11 @@ class InstanceGroupPaginatorTypeDef(TypedDict):
     RequestedInstanceCount: NotRequired[int]
     RunningInstanceCount: NotRequired[int]
     Status: NotRequired[InstanceGroupStatusTypeDef]
-    Configurations: NotRequired[List[ConfigurationPaginatorTypeDef]]
+    Configurations: NotRequired[list[ConfigurationPaginatorTypeDef]]
     ConfigurationsVersion: NotRequired[int]
-    LastSuccessfullyAppliedConfigurations: NotRequired[List[ConfigurationPaginatorTypeDef]]
+    LastSuccessfullyAppliedConfigurations: NotRequired[list[ConfigurationPaginatorTypeDef]]
     LastSuccessfullyAppliedConfigurationsVersion: NotRequired[int]
-    EbsBlockDevices: NotRequired[List[EbsBlockDeviceTypeDef]]
+    EbsBlockDevices: NotRequired[list[EbsBlockDeviceTypeDef]]
     EbsOptimized: NotRequired[bool]
     ShrinkPolicy: NotRequired[ShrinkPolicyOutputTypeDef]
     AutoScalingPolicy: NotRequired[AutoScalingPolicyDescriptionTypeDef]
@@ -1683,11 +1722,11 @@ class InstanceGroupTypeDef(TypedDict):
     RequestedInstanceCount: NotRequired[int]
     RunningInstanceCount: NotRequired[int]
     Status: NotRequired[InstanceGroupStatusTypeDef]
-    Configurations: NotRequired[List[ConfigurationOutputTypeDef]]
+    Configurations: NotRequired[list[ConfigurationOutputTypeDef]]
     ConfigurationsVersion: NotRequired[int]
-    LastSuccessfullyAppliedConfigurations: NotRequired[List[ConfigurationOutputTypeDef]]
+    LastSuccessfullyAppliedConfigurations: NotRequired[list[ConfigurationOutputTypeDef]]
     LastSuccessfullyAppliedConfigurationsVersion: NotRequired[int]
-    EbsBlockDevices: NotRequired[List[EbsBlockDeviceTypeDef]]
+    EbsBlockDevices: NotRequired[list[EbsBlockDeviceTypeDef]]
     EbsOptimized: NotRequired[bool]
     ShrinkPolicy: NotRequired[ShrinkPolicyOutputTypeDef]
     AutoScalingPolicy: NotRequired[AutoScalingPolicyDescriptionTypeDef]
@@ -1714,10 +1753,6 @@ class ModifyInstanceFleetInputTypeDef(TypedDict):
     ClusterId: str
     InstanceFleet: InstanceFleetModifyConfigTypeDef
 
-class DescribeJobFlowsOutputTypeDef(TypedDict):
-    JobFlows: List[JobFlowDetailTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class AddJobFlowStepsInputTypeDef(TypedDict):
     JobFlowId: str
     Steps: Sequence[StepConfigUnionTypeDef]
@@ -1727,13 +1762,17 @@ class ModifyInstanceGroupsInputTypeDef(TypedDict):
     ClusterId: NotRequired[str]
     InstanceGroups: NotRequired[Sequence[InstanceGroupModifyConfigTypeDef]]
 
+class DescribeJobFlowsOutputTypeDef(TypedDict):
+    JobFlows: list[JobFlowDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListInstanceGroupsOutputPaginatorTypeDef(TypedDict):
-    InstanceGroups: List[InstanceGroupPaginatorTypeDef]
+    InstanceGroups: list[InstanceGroupPaginatorTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInstanceGroupsOutputTypeDef(TypedDict):
-    InstanceGroups: List[InstanceGroupTypeDef]
+    InstanceGroups: list[InstanceGroupTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1817,3 +1856,4 @@ class RunJobFlowInputTypeDef(TypedDict):
     EbsRootVolumeIops: NotRequired[int]
     EbsRootVolumeThroughput: NotRequired[int]
     ExtendedSupport: NotRequired[bool]
+    MonitoringConfiguration: NotRequired[MonitoringConfigurationUnionTypeDef]

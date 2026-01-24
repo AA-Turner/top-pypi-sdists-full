@@ -7,6 +7,7 @@
 
 #include "src/pathops/SkPathOpsTSect.h"
 
+#include "include/private/base/SkFloatingPoint.h"
 #include "include/private/base/SkMacros.h"
 #include "include/private/base/SkTArray.h"
 #include "src/base/SkTSort.h"
@@ -20,6 +21,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+
+using namespace skia_private;
 
 #define COINCIDENT_SPAN_COUNT 9
 
@@ -232,7 +235,7 @@ void SkTSpan::init(const SkTCurve& c) {
 }
 
 bool SkTSpan::initBounds(const SkTCurve& c) {
-    if (SkDoubleIsNaN(fStartT) || SkDoubleIsNaN(fEndT)) {
+    if (SkIsNaN(fStartT) || SkIsNaN(fEndT)) {
         return false;
     }
     c.subDivide(fStartT, fEndT, fPart);
@@ -1767,7 +1770,7 @@ struct SkClosestSect {
     }
 
     void finish(SkIntersections* intersections) const {
-        SkSTArray<SkDCubic::kMaxIntersections * 3,
+        STArray<SkDCubic::kMaxIntersections * 3,
                 const SkClosestRecord*, true> closestPtrs;
         for (int index = 0; index < fUsed; ++index) {
             closestPtrs.push_back(&fClosest[index]);
@@ -1780,7 +1783,7 @@ struct SkClosestSect {
     }
 
     // this is oversized so that an extra records can merge into final one
-    SkSTArray<SkDCubic::kMaxIntersections * 2, SkClosestRecord, true> fClosest;
+    STArray<SkDCubic::kMaxIntersections * 2, SkClosestRecord, true> fClosest;
     int fUsed;
 };
 

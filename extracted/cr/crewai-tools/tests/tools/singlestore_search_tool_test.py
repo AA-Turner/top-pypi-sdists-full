@@ -1,12 +1,11 @@
+from collections.abc import Generator
 import os
-from typing import Generator
-
-import pytest
-from singlestoredb import connect
-from singlestoredb.server import docker
 
 from crewai_tools import SingleStoreSearchTool
 from crewai_tools.tools.singlestore_search_tool import SingleStoreSearchToolSchema
+import pytest
+from singlestoredb import connect
+from singlestoredb.server import docker
 
 
 @pytest.fixture(scope="session")
@@ -74,7 +73,7 @@ def sample_table_setup(clean_db_url):
     # Insert sample data
     curr.execute(
         """
-        INSERT INTO employees VALUES 
+        INSERT INTO employees VALUES
         (1, 'Alice Smith', 'Engineering', 75000.00),
         (2, 'Bob Johnson', 'Marketing', 65000.00),
         (3, 'Carol Davis', 'Engineering', 80000.00)
@@ -83,7 +82,7 @@ def sample_table_setup(clean_db_url):
 
     curr.execute(
         """
-        INSERT INTO departments VALUES 
+        INSERT INTO departments VALUES
         (1, 'Engineering', 500000.00),
         (2, 'Marketing', 300000.00)
     """

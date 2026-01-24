@@ -306,7 +306,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['data[].label', 'expandedIcon', 'collapsedIcon']
+    _children_props: typing.List[str] = ['data[].label', 'expandedIcon', 'collapsedIcon']
     _base_nodes = ['expandedIcon', 'collapsedIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Tree'

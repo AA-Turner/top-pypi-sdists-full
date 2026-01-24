@@ -41,6 +41,16 @@ from ._aspm import (
     retrieve_relay_node_payload
 )
 from ._correlation_rules import correlation_rules_payload, correlation_rules_export_payload
+from ._case_management import (
+    case_management_notification_groups_payload,
+    case_management_create_notification_payload,
+    case_management_sla_payload,
+    case_management_template_payload,
+    specified_case_payload,
+    case_manage_payload,
+    case_evidence_payload,
+    update_case_payload
+    )
 from ._host_group import host_group_create_payload, host_group_update_payload
 from ._recon import (
     recon_action_payload,
@@ -54,13 +64,27 @@ from ._malquery import malquery_exact_search_payload, malquery_hunt_payload, mal
 from ._cloud_aws_registration import cloud_aws_registration_payload
 from ._cloud_azure_registration import (
     cloud_azure_registration_payload,
-    cloud_azure_registration_create_payload
+    cloud_azure_registration_create_payload,
+    cloud_azure_registration_legacy_payload
     )
+from ._cloud_google_cloud_registration import (
+    cloud_google_registration_create_payload
+)
 from ._cloud_oci_registration import (
     cloud_oci_refresh_payload,
     cloud_oci_validate_payload,
     cloud_oci_create_payload
     )
+from ._cloud_policies import (
+    cloud_policies_rule_assign_payload,
+    cloud_policies_compliance_control_payload,
+    cloud_policies_evaluation_payload,
+    cloud_policies_rule_override_payload,
+    cloud_policies_rule_create_payload,
+    cloud_policies_rule_update_payload
+    )
+from ._cloud_security import cloud_security_create_group_payload
+
 from ._container import (
     image_payload,
     registry_payload,
@@ -72,6 +96,17 @@ from ._container import (
     inventory_scan_payload
     )
 from ._content_update_policy import content_update_policy_action_payload, content_update_policy_payload
+from ._correlation_rules_admin import correlation_rules_admin_payload
+
+from ._data_protection_configuration import (
+    data_protection_classification_payload,
+    data_protection_cloud_app_payload,
+    data_protection_content_pattern_payload,
+    data_protection_enterprise_account_payload,
+    data_protection_sensitivity_label_payload,
+    data_protection_policy_payload,
+    data_protection_web_locations_payload
+    )
 from ._delivery_settings import delivery_settings_payload
 from ._detects import update_detects_payload
 from ._identity_protection import idp_policy_payload
@@ -86,10 +121,11 @@ from ._it_automation import (
     scheduled_task_payload,
     automation_policy_payload,
     policy_host_group_payload,
-    automation_live_query_payload
+    automation_live_query_payload,
+    automation_user_group_payload
     )
 from ._mobile_enrollment import mobile_enrollment_payload
-from ._ngsiem import ngsiem_search_payload
+from ._ngsiem import ngsiem_search_payload, ngsiem_parser_payload
 from ._prevention_policy import prevention_policy_payload
 from ._sensor_update_policy import sensor_policy_payload
 from ._response_policy import response_policy_payload
@@ -191,5 +227,16 @@ __all__ = [
     "retrieve_relay_node_payload", "inventory_scan_payload", "cloud_azure_registration_create_payload",
     "task_payload", "task_execution_payload", "execution_results_search_payload", "rerun_payload",
     "scheduled_task_payload", "automation_policy_payload", "policy_host_group_payload",
-    "automation_live_query_payload"
+    "automation_live_query_payload", "automation_user_group_payload", "ngsiem_parser_payload",
+    "case_management_notification_groups_payload", "case_management_create_notification_payload",
+    "case_management_sla_payload", "case_management_template_payload", "data_protection_classification_payload",
+    "data_protection_cloud_app_payload", "data_protection_content_pattern_payload",
+    "data_protection_enterprise_account_payload", "data_protection_sensitivity_label_payload",
+    "data_protection_policy_payload", "data_protection_web_locations_payload", "correlation_rules_admin_payload",
+    "cloud_policies_rule_assign_payload", "cloud_policies_compliance_control_payload",
+    "cloud_policies_evaluation_payload", "cloud_policies_rule_override_payload",
+    "cloud_policies_rule_create_payload", "cloud_policies_rule_update_payload", "specified_case_payload",
+    "case_manage_payload", "case_evidence_payload", "update_case_payload",
+    "cloud_azure_registration_legacy_payload", "cloud_google_registration_create_payload",
+    "cloud_security_create_group_payload"
 ]

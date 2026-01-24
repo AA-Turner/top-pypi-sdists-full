@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence, cast
+from typing import Any, Callable, cast
 
 import anndata as ad
 import attrs
@@ -21,10 +22,11 @@ import tiledbsoma
 import tiledbsoma.io
 import tiledbsoma.logging as logging
 from tiledbsoma import DataFrame, Experiment, SOMAError
+from tiledbsoma._types import PDIndex
+from tiledbsoma.io._util import read_h5ad
 from tiledbsoma.options import SOMATileDBContext
 from tiledbsoma.options._soma_tiledb_context import _validate_soma_tiledb_context
 
-from .._util import read_h5ad
 from .enum import extend_enumerations, get_enumerations
 from .id_mappings import AxisIDMapping, ExperimentIDMapping, get_dataframe_values
 
@@ -33,7 +35,7 @@ ColumnName: TypeAlias = str
 
 
 @attrs.define(kw_only=True, frozen=True)
-class AxisAmbientLabelMapping:
+class AxisAmbientLabelMapping:  # noqa: PLW1641
     """For all the to-be-appended AnnData/H5AD inputs in SOMA multi-file append-mode ingestion, this
     class tracks the mapping of input-data ``obs`` or ``var`` ID-column name (barcode ID, gene
     symbol) to SOMA join IDs for SOMA experiment ``obs`` or ``var``, as well as any dictionary/enumeration
@@ -45,22 +47,20 @@ class AxisAmbientLabelMapping:
     field_name: str
     joinid_map: pd.DataFrame  # id -> soma_joinid
     enum_values: dict[str, pd.CategoricalDtype]
+    allow_duplicate_ids: bool
 
     shape: int = attrs.field(init=False)
 
     def __attrs_post_init__(self) -> None:
         assert self.joinid_map.empty or self.joinid_map.soma_joinid.dtype == np.int64
+        assert self.joinid_map.index.is_unique
         object.__setattr__(
             self,
             "shape",
-            (
-                int(self.joinid_map.soma_joinid.max() + 1)
-                if len(self.joinid_map) > 0
-                else 0
-            ),
+            (int(self.joinid_map.soma_joinid.max() + 1) if len(self.joinid_map) > 0 else 0),
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: Any) -> bool:  # noqa: ANN401
         if not isinstance(other, AxisAmbientLabelMapping):
             raise NotImplementedError("Cannot compare to non-AxisAmbientLabelMapping")
         return (
@@ -77,7 +77,7 @@ class AxisAmbientLabelMapping:
         new_joinid_map = self.joinid_map.reindex(labels=input_ids, fill_value=-1)
         if new_joinid_map.soma_joinid.isin([-1]).any():
             raise ValueError(
-                f"The input_ids for {self.field_name} [{input_ids[:10]}...] were not found in registration data."
+                f"The input_ids for {self.field_name} [{input_ids[:10]}...] were not found in registration data.",
             )
         return AxisIDMapping(data=new_joinid_map.soma_joinid.to_numpy())
 
@@ -105,35 +105,24 @@ class ExperimentAmbientLabelMapping:
     var_axes: dict[str, AxisAmbientLabelMapping]
     prepared: bool = False
 
-    def id_mappings_for_anndata(
-        self, adata: ad.AnnData, *, measurement_name: str = "RNA"
-    ) -> ExperimentIDMapping:
-
+    def id_mappings_for_anndata(self, adata: ad.AnnData, *, measurement_name: str = "RNA") -> ExperimentIDMapping:
         obs_axis = AxisIDMapping(
             data=self.obs_axis.joinid_map.loc[
                 _get_dataframe_joinid_index(adata.obs, self.obs_axis.field_name)
-            ].soma_joinid.to_numpy()
+            ].soma_joinid.to_numpy(),
         )
         var_axes = {
             measurement_name: AxisIDMapping(
                 data=self.var_axes[measurement_name]
-                .joinid_map.loc[
-                    _get_dataframe_joinid_index(
-                        adata.var, self.var_axes[measurement_name].field_name
-                    )
-                ]
-                .soma_joinid.to_numpy()
-            )
+                .joinid_map.loc[_get_dataframe_joinid_index(adata.var, self.var_axes[measurement_name].field_name)]
+                .soma_joinid.to_numpy(),
+            ),
         }
         if adata.raw is not None:
             var_axes["raw"] = AxisIDMapping(
                 data=self.var_axes["raw"]
-                .joinid_map.loc[
-                    _get_dataframe_joinid_index(
-                        adata.raw.var, self.var_axes["raw"].field_name
-                    )
-                ]
-                .soma_joinid.to_numpy()
+                .joinid_map.loc[_get_dataframe_joinid_index(adata.raw.var, self.var_axes["raw"].field_name)]
+                .soma_joinid.to_numpy(),
             )
 
         return ExperimentIDMapping(obs_axis=obs_axis, var_axes=var_axes)
@@ -183,9 +172,7 @@ class ExperimentAmbientLabelMapping:
         with read_h5ad(h5ad_path, mode="r") as adata:
             return self.subset_for_anndata(adata)
 
-    def prepare_experiment(
-        self, experiment_uri: str, context: SOMATileDBContext | None = None
-    ) -> None:
+    def prepare_experiment(self, experiment_uri: str, context: SOMATileDBContext | None = None) -> None:
         """Prepare experiment for ingestion.
 
         Currently performs two operations:
@@ -211,49 +198,42 @@ class ExperimentAmbientLabelMapping:
         def _check_experiment_structure(exp: tiledbsoma.Experiment) -> None:
             # Verify that the experiment has been created correctly - check for existence of obs & var
             # and raise error if Experiment does not contain expected structure.
-            did_you_create = (
-                "Did you create the Experiment using `from_anndata` or `from_h5ad`?"
-            )
+            did_you_create = "Did you create the Experiment using `from_anndata` or `from_h5ad`?"
             if "obs" not in exp:
-                raise ValueError(
-                    f"SOMA Experiment is missing required 'obs' DataFrame. {did_you_create}"
-                )
+                raise ValueError(f"SOMA Experiment is missing required 'obs' DataFrame. {did_you_create}")
             for ms_name in self.var_axes:
                 if len(self.var_axes[ms_name].joinid_map) > 0:
                     if ms_name not in exp.ms:
                         raise ValueError(
-                            f"SOMA Experiment is missing required Measurement '{ms_name}'. {did_you_create}"
+                            f"SOMA Experiment is missing required Measurement '{ms_name}'. {did_you_create}",
                         )
                     if "var" not in exp.ms[ms_name]:
                         raise ValueError(
-                            f"SOMA Experiment is missing required `var` Dataframe in Measurement '{ms_name}'. {did_you_create}"
+                            f"SOMA Experiment is missing required `var` Dataframe in Measurement '{ms_name}'. {did_you_create}",
                         )
 
         with Experiment.open(experiment_uri, context=context) as E:
-
             _check_experiment_structure(E)
 
             # Resize is done only if we have an Experiment supporting current domain.
             # Code assumes that if obs is of a given era (i.e. pre/post current domain change),
             # so are all other arrays in the experiment.
-            ok_to_resize, _ = E.obs.tiledbsoma_resize_soma_joinid_shape(
-                self.get_obs_shape(), check_only=True
-            )
+            ok_to_resize, _ = E.obs.tiledbsoma_resize_soma_joinid_shape(self.get_obs_shape(), check_only=True)
             if ok_to_resize:
                 tiledbsoma.io.resize_experiment(
                     experiment_uri,
                     nobs=self.get_obs_shape(),
-                    nvars=self.get_var_shapes(),
+                    nvars={k: v for k, v in self.get_var_shapes().items() if v > 0},
                     context=context,
                 )
             else:
                 warnings.warn(
                     "Experiment does not support resizing. Please consider upgrading the dataset "
-                    "using 'tiledbsoma.io.upgrade_experiment_shapes'."
+                    "using 'tiledbsoma.io.upgrade_experiment_shapes'.",
+                    stacklevel=2,
                 )
 
         with Experiment.open(experiment_uri, context=context, mode="w") as E:
-
             # Enumerations schema evolution
             extend_enumerations(E.obs, self.obs_axis.enum_values)
 
@@ -263,7 +243,7 @@ class ExperimentAmbientLabelMapping:
 
         # The class is a frozen `attrs` instance, to protect from user modification of the data.
         # This is the "blessed" way for an implementation to modify itself (per attrs docs).
-        object.__setattr__(self, "prepared", True)
+        object.__setattr__(self, "prepared", True)  # noqa: PLC2801
 
     @staticmethod
     def _load_axes_metadata_from_anndatas(
@@ -283,12 +263,11 @@ class ExperimentAmbientLabelMapping:
 
         def categorical_columns(df: pd.DataFrame) -> dict[Any, pd.CategoricalDtype]:
             return cast(
-                dict[str, pd.CategoricalDtype],
+                "dict[str, pd.CategoricalDtype]",
                 {k: v.dtype for k, v in df.items() if v.dtype == "category"},
             )
 
         for adata in adatas:
-
             validate_anndata(adata)  # may throw
 
             obs_metadata.append(
@@ -296,24 +275,22 @@ class ExperimentAmbientLabelMapping:
                     field_name=obs_field_name,
                     field_index=_get_dataframe_joinid_index(adata.obs, obs_field_name),
                     enum_values=categorical_columns(adata.obs),
-                )
+                ),
             )
             var_metadata.append(
                 AnnDataAxisMetadata(
                     field_name=var_field_name,
                     field_index=_get_dataframe_joinid_index(adata.var, var_field_name),
                     enum_values=categorical_columns(adata.var),
-                )
+                ),
             )
             if adata.raw is not None:
                 raw_var_metadata.append(
                     AnnDataAxisMetadata(
                         field_name=var_field_name,
-                        field_index=_get_dataframe_joinid_index(
-                            adata.raw.var, var_field_name
-                        ),
+                        field_index=_get_dataframe_joinid_index(adata.raw.var, var_field_name),
                         enum_values=categorical_columns(adata.raw.var),
-                    )
+                    ),
                 )
 
         obs, var, raw_var = (
@@ -342,10 +319,11 @@ class ExperimentAmbientLabelMapping:
 
         for p in paths:
             with read_h5ad(p, mode="r") as adata:
-                obs, var, raw_var = (
-                    ExperimentAmbientLabelMapping._load_axes_metadata_from_anndatas(
-                        [adata], obs_field_name, var_field_name, validate_anndata
-                    )
+                obs, var, raw_var = ExperimentAmbientLabelMapping._load_axes_metadata_from_anndatas(
+                    [adata],
+                    obs_field_name,
+                    var_field_name,
+                    validate_anndata,
                 )
             obs_metadata.append(obs)
             var_metadata.append(var)
@@ -363,7 +341,10 @@ class ExperimentAmbientLabelMapping:
 
     @staticmethod
     def _load_existing_experiment_metadata(
-        uri: str, obs_field_name: str, var_field_name: str, context: SOMATileDBContext
+        uri: str,
+        obs_field_name: str,
+        var_field_name: str,
+        context: SOMATileDBContext,
     ) -> tuple[
         pd.DataFrame,
         dict[ColumnName, pd.DataFrame],
@@ -376,17 +357,12 @@ class ExperimentAmbientLabelMapping:
         """
 
         def _get_enum_values(df: DataFrame) -> dict[str, pd.CategoricalDtype]:
-            return get_enumerations(
-                df, [f.name for f in df.schema if pa.types.is_dictionary(f.type)]
-            )
+            return get_enumerations(df, [f.name for f in df.schema if pa.types.is_dictionary(f.type)])
 
         def _get_joinid_map(df: DataFrame, field_name: str) -> pd.DataFrame:
             return cast(
-                pd.DataFrame,
-                df.read(column_names=["soma_joinid", field_name])
-                .concat()
-                .to_pandas()
-                .set_index(field_name),
+                "pd.DataFrame",
+                df.read(column_names=["soma_joinid", field_name]).concat().to_pandas().set_index(field_name),
             )
 
         with Experiment.open(uri, context=context) as E:
@@ -394,17 +370,10 @@ class ExperimentAmbientLabelMapping:
             existing_obs_enum_values = _get_enum_values(E.obs)
             existing_var_joinid_maps = {}
             existing_var_enum_values = {}
-            for ms_name in E.ms.keys():
-                if (
-                    "var" in E.ms[ms_name]
-                    and var_field_name in E.ms[ms_name].var.keys()
-                ):
-                    existing_var_joinid_maps[ms_name] = _get_joinid_map(
-                        E.ms[ms_name].var, var_field_name
-                    )
-                    existing_var_enum_values[ms_name] = _get_enum_values(
-                        E.ms[ms_name].var
-                    )
+            for ms_name in E.ms:
+                if "var" in E.ms[ms_name] and (var_field_name in E.ms[ms_name].var.keys()):  # noqa: SIM118
+                    existing_var_joinid_maps[ms_name] = _get_joinid_map(E.ms[ms_name].var, var_field_name)
+                    existing_var_enum_values[ms_name] = _get_enum_values(E.ms[ms_name].var)
 
         return (
             existing_obs_joinid_map,
@@ -416,14 +385,13 @@ class ExperimentAmbientLabelMapping:
     @staticmethod
     def _register_common(
         experiment_uri: str | None,
-        axes_metadata: list[
-            tuple[AnnDataAxisMetadata, AnnDataAxisMetadata, AnnDataAxisMetadata | None]
-        ],
+        axes_metadata: list[tuple[AnnDataAxisMetadata, AnnDataAxisMetadata, AnnDataAxisMetadata | None]],
         *,
         measurement_name: str,
         obs_field_name: str,
         var_field_name: str,
         context: SOMATileDBContext,
+        allow_duplicate_obs_ids: bool,
     ) -> ExperimentAmbientLabelMapping:
         """Private method used by various constructor paths -- shared code for registration.
 
@@ -471,6 +439,22 @@ class ExperimentAmbientLabelMapping:
                 [t[2] for t in axes_metadata if t[2] is not None],  # raw.var
             ],
         )
+
+        var_axis_metadata = attrs.evolve(var_axis_metadata, field_index=var_axis_metadata.field_index.drop_duplicates())
+        raw_var_axis_metadata = attrs.evolve(
+            raw_var_axis_metadata,
+            field_index=raw_var_axis_metadata.field_index.drop_duplicates(),
+        )
+
+        if allow_duplicate_obs_ids:
+            obs_axis_metadata = attrs.evolve(
+                obs_axis_metadata,
+                field_index=obs_axis_metadata.field_index.drop_duplicates(),
+            )
+        elif not obs_axis_metadata.field_index.is_unique:
+            examples = obs_axis_metadata.field_index[obs_axis_metadata.field_index.duplicated().nonzero()[0]]
+            _raise_non_unique_obs_id_error(examples)
+
         logging.log_io_same("Finished reducing axis metadata")
 
         # And, grab the result of step 1 from the futures
@@ -497,12 +481,18 @@ class ExperimentAmbientLabelMapping:
         def _make_joinid_map(
             joinids_index: pd.Index,
             prev_joinid_map: pd.DataFrame,
+            raise_on_dups: bool,
         ) -> pd.DataFrame:
             maps = []
             if len(prev_joinid_map) > 0:
-                joinids_index = joinids_index.difference(
-                    prev_joinid_map.index, sort=False
-                )
+                # find any joinids not already in he prev_joinid_map
+                new_joinids_index = joinids_index.difference(prev_joinid_map.index, sort=False)
+                if raise_on_dups and len(new_joinids_index) != len(joinids_index):
+                    examples = joinids_index.intersection(prev_joinid_map.index)
+                    _raise_non_unique_obs_id_error(examples)
+                else:
+                    joinids_index = new_joinids_index
+
                 next_soma_joinid = prev_joinid_map.soma_joinid.max() + 1
                 maps.append(prev_joinid_map)
             else:
@@ -517,53 +507,56 @@ class ExperimentAmbientLabelMapping:
                             next_soma_joinid,
                             next_soma_joinid + len(joinids_index),
                             dtype=np.int64,
-                        )
+                        ),
                     },
-                )
+                ),
             )
             return pd.concat(maps)
 
         obs_joinid_map_future = tp.submit(
-            _make_joinid_map, obs_axis_metadata.field_index, existing_obs_joinid_map
+            _make_joinid_map,
+            obs_axis_metadata.field_index,
+            existing_obs_joinid_map,
+            not allow_duplicate_obs_ids,
         )
         var_joinid_maps_future = {
             measurement_name: tp.submit(
                 _make_joinid_map,
                 var_axis_metadata.field_index,
                 existing_var_joinid_maps.get(measurement_name, pd.DataFrame()),
-            )
+                False,
+            ),
         }
         if len(raw_var_axis_metadata.field_index) > 0:
             var_joinid_maps_future["raw"] = tp.submit(
                 _make_joinid_map,
                 raw_var_axis_metadata.field_index,
                 existing_var_joinid_maps.get("raw", pd.DataFrame()),
+                False,
             )
 
         obs_joinid_map = obs_joinid_map_future.result()
-        var_joinid_maps = existing_var_joinid_maps | {
-            k: f.result() for k, f in var_joinid_maps_future.items()
-        }
+        var_joinid_maps = existing_var_joinid_maps | {k: f.result() for k, f in var_joinid_maps_future.items()}
 
         #
         # Step 4: create merged enum values for all axis dataframes
         #
         obs_enum_values = AnnDataAxisMetadata.reduce_enum_values(
-            [existing_obs_enum_values, obs_axis_metadata.enum_values]
+            [existing_obs_enum_values, obs_axis_metadata.enum_values],
         )
         var_enum_values = existing_var_enum_values.copy()
         var_enum_values[measurement_name] = AnnDataAxisMetadata.reduce_enum_values(
             [
                 existing_var_enum_values.get(measurement_name, {}),
                 var_axis_metadata.enum_values,
-            ]
+            ],
         )
         if len(raw_var_axis_metadata.enum_values) > 0:
             var_enum_values["raw"] = AnnDataAxisMetadata.reduce_enum_values(
                 [
                     existing_var_enum_values.get("raw", {}),
                     raw_var_axis_metadata.enum_values,
-                ]
+                ],
             )
 
         #
@@ -573,14 +566,14 @@ class ExperimentAmbientLabelMapping:
             field_name=obs_field_name,
             joinid_map=obs_joinid_map,
             enum_values=obs_enum_values,
+            allow_duplicate_ids=allow_duplicate_obs_ids,
         )
         var_axes = {
             k: AxisAmbientLabelMapping(
                 field_name=var_field_name,
-                joinid_map=(
-                    var_joinid_maps[k] if k in var_joinid_maps else pd.DataFrame()
-                ),
-                enum_values=var_enum_values[k] if k in var_enum_values else {},
+                joinid_map=(var_joinid_maps[k] if k in var_joinid_maps else pd.DataFrame()),
+                enum_values=var_enum_values.get(k, {}),
+                allow_duplicate_ids=True,
             )
             for k in set(var_joinid_maps.keys()) | set(var_enum_values.keys())
         }
@@ -592,35 +585,29 @@ class ExperimentAmbientLabelMapping:
 
         def check_df(df: pd.DataFrame | None, df_name: str) -> None:
             if df is None or df.index.empty:
-                raise ValueError(
-                    f"Unable to ingest AnnData with empty {df_name} dataframe."
-                )
-            elif not df.index.is_unique:
-                raise ValueError(
-                    f"Non-unique registration values have been provided in {df_name} dataframe."
-                )
+                raise ValueError(f"Unable to ingest AnnData with empty {df_name} dataframe.")
+            if not df.index.is_unique:
+                raise ValueError(f"Non-unique registration values have been provided in {df_name} dataframe.")
 
         check_df(adata.obs, "obs")
         check_df(adata.var, "var")
         if adata.raw is not None:
             check_df(adata.raw.var, "raw.var")
 
-        if not append_obsm_varm:
-            if len(adata.obsm) > 0 or len(adata.varm) > 0:
-                raise ValueError(
-                    "The append-mode ingest of obsm and varm is only supported via explicit opt-in. Please drop them from the inputs, or retry with append_obsm_varm=True."
-                )
+        if not append_obsm_varm and (len(adata.obsm) > 0 or len(adata.varm) > 0):
+            raise ValueError(
+                "The append-mode ingest of obsm and varm is only supported via explicit opt-in. Please drop them from the inputs, or retry with append_obsm_varm=True.",
+            )
 
         if len(adata.obsp) > 0 or len(adata.varp) > 0:
-            raise ValueError(
-                "The append-mode ingest of obsp and varp is not supported. Please retry without them."
-            )
+            raise ValueError("The append-mode ingest of obsp and varp is not supported. Please retry without them.")
 
         if adata.uns:
             warnings.warn(
                 "The append-mode ingest of 'uns' is typically an error due to uns key collisions "
                 "across multiple AnnData. Drop 'uns' from AnnData to remove this warning, or if you "
-                "intend for 'uns' to merge, ensure each AnnData uses unique keys."
+                "intend for 'uns' to merge, ensure each AnnData uses unique keys.",
+                stacklevel=3,
             )
 
 
@@ -639,7 +626,7 @@ class AnnDataAxisMetadata:
     @classmethod
     def reduce(cls, ams: list[Self]) -> AnnDataAxisMetadata:
         assert all(isinstance(a, cls) for a in ams)
-        assert all([a.field_name == ams[0].field_name for a in ams])
+        assert all(a.field_name == ams[0].field_name for a in ams)
         if not all(a.field_index.dtype == ams[0].field_index.dtype for a in ams):
             raise SOMAError("All AnnData must have a common dtype for their index.")
 
@@ -654,13 +641,11 @@ class AnnDataAxisMetadata:
                 return pd.Index([])
             if len(indices) == 1:
                 return indices[0]
-            return cast("pd.Index[Any]", indices[0].append(indices[1:]).drop_duplicates())  # type: ignore[no-untyped-call]
+            return indices[0].append(indices[1:])
 
         return cls(
             field_name=ams[0].field_name,
-            field_index=_reduce_field_index(
-                [a.field_index for a in ams if not a.field_index.empty]
-            ),
+            field_index=_reduce_field_index([a.field_index for a in ams if not a.field_index.empty]),
             enum_values=cls.reduce_enum_values([a.enum_values for a in ams]),
         )
 
@@ -681,14 +666,12 @@ class AnnDataAxisMetadata:
             ordered = enums[0].ordered
             if not all(e.ordered == ordered for e in enums[1:]):
                 raise SOMAError(
-                    f"Unable to register AnnData -- for column `{col_name}`, all AnnData dtype must have the same categorical ordering."
+                    f"Unable to register AnnData -- for column `{col_name}`, all AnnData dtype must have the same categorical ordering.",
                 )
 
             if not ordered:
                 return pd.CategoricalDtype(
-                    enums[0]
-                    .categories.append([e.categories for e in enums[1:]])  # type: ignore[no-untyped-call]
-                    .drop_duplicates(),
+                    enums[0].categories.append([e.categories for e in enums[1:]]).drop_duplicates(),
                     ordered=False,
                 )
 
@@ -697,7 +680,7 @@ class AnnDataAxisMetadata:
             for e in enums[1:]:
                 if e != enums[0]:
                     raise SOMAError(
-                        f"Unable to register AnnData -- for column `{col_name}`, all AnnData must have the same dtype."
+                        f"Unable to register AnnData -- for column `{col_name}`, all AnnData must have the same dtype.",
                     )
             return enums[0]
 
@@ -713,7 +696,17 @@ class AnnDataAxisMetadata:
 def _get_dataframe_joinid_index(df: pd.DataFrame, field_name: str) -> pd.Index:
     """Given an AnnData obs/var, extract the index for the user-selected join column."""
     if field_name in df:
-        return cast("pd.Index[Any]", pd.Index(df[field_name]))
+        return pd.Index(df[field_name])  # type: ignore[no-any-return]
     if df.index.name in (field_name, "index", None):
-        return cast("pd.Index[Any]", df.index)
+        return df.index
     raise ValueError(f"Could not find field name {field_name} in dataframe.")
+
+
+def _raise_non_unique_obs_id_error(examples: PDIndex) -> None:
+    a_few_examples = examples[0:4].to_list()
+    msg = f"""Duplicate obs IDs found during registration. {len(examples)} obs IDs are not unique across the provided inputs.
+Example duplicate obs ID(s): {a_few_examples}.
+
+Please ensure obs IDs are unique across all inputs for append operations.
+If you are intentionally adding a new Measurement to existing observations, use the 'allow_duplicate_obs_ids=True' flag."""
+    raise SOMAError(msg)

@@ -5,7 +5,7 @@
  * found in the LICENSE file.
  */
 
-// This test only works with the GPU backend.
+// This test only works with the Ganesh backend.
 
 #include "gm/gm.h"
 #include "include/core/SkBitmap.h"
@@ -18,6 +18,7 @@
 #include "include/core/SkString.h"
 #include "include/private/base/SkTArray.h"
 #include "src/core/SkCanvasPriv.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/GrProxyProvider.h"
@@ -25,8 +26,9 @@
 #include "src/gpu/ganesh/SkGr.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "src/gpu/ganesh/effects/GrTextureEffect.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
-#include "tools/gpu/TestOps.h"
+#include "tools/ganesh/TestOps.h"
 
 #include <memory>
 #include <utility>
@@ -49,7 +51,7 @@ public:
     }
 
 protected:
-    SkString onShortName() override {
+    SkString getName() const override {
         SkString name("texel_subset");
         switch (fFilter) {
             case Filter::kNearest:
@@ -73,7 +75,7 @@ protected:
         return name;
     }
 
-    SkISize onISize() override {
+    SkISize getISize() override {
         static constexpr int kN = GrSamplerState::kWrapModeCount;
         int w = kTestPad + 2*kN*(kImageSize.width()  + 2*kDrawPad + kTestPad);
         int h = kTestPad + 2*kN*(kImageSize.height() + 2*kDrawPad + kTestPad);
@@ -81,22 +83,22 @@ protected:
     }
 
     void onOnceBeforeDraw() override {
-        GetResourceAsBitmap("images/mandrill_128.png", &fBitmap);
+        SkAssertResult(ToolUtils::GetResourceAsBitmap("images/mandrill_128.png", &fBitmap));
         // Make the bitmap non-square to detect any width/height confusion.
         fBitmap.extractSubset(&fBitmap, SkIRect::MakeSize(fBitmap.dimensions()).makeInset(0, 20));
         SkASSERT(fBitmap.dimensions() == kImageSize);
     }
 
     DrawResult onDraw(GrRecordingContext* rContext, SkCanvas* canvas, SkString* errorMsg) override {
-        auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+        auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
         if (!sdc) {
             *errorMsg = kErrorMsg_DrawSkippedGpuOnly;
             return DrawResult::kSkip;
         }
 
-        GrMipmapped mipmapped = (fMipmapMode != MipmapMode::kNone) ? GrMipmapped::kYes
-                                                                   : GrMipmapped::kNo;
-        if (mipmapped == GrMipmapped::kYes && !rContext->priv().caps()->mipmapSupport()) {
+        skgpu::Mipmapped mipmapped =
+                (fMipmapMode != MipmapMode::kNone) ? skgpu::Mipmapped::kYes : skgpu::Mipmapped::kNo;
+        if (mipmapped == skgpu::Mipmapped::kYes && !rContext->priv().caps()->mipmapSupport()) {
             return DrawResult::kSkip;
         }
         auto view = std::get<0>(GrMakeCachedBitmapProxyView(
@@ -122,11 +124,11 @@ protected:
         SkRect a = SkRect::Make(texelSubset);
         SkRect b = fUpscale ? a.makeInset (.31f * a.width(), .31f * a.height())
                             : a.makeOutset(.25f * a.width(), .25f * a.height());
-        textureMatrices.push_back() = SkMatrix::RectToRect(a, b);
+        textureMatrices.push_back() = SkMatrix::RectToRectOrIdentity(a, b);
 
         b = fUpscale ? a.makeInset (.25f * a.width(), .35f * a.height())
                      : a.makeOutset(.20f * a.width(), .35f * a.height());
-        textureMatrices.push_back() = SkMatrix::RectToRect(a, b);
+        textureMatrices.push_back() = SkMatrix::RectToRectOrIdentity(a, b);
         textureMatrices.back().preRotate(45.f, a.centerX(), a.centerY());
         textureMatrices.back().postSkew(.05f, -.05f);
 
@@ -138,7 +140,7 @@ protected:
 
         SkRect localRect = SkRect::Make(fBitmap.bounds()).makeOutset(kDrawPad, kDrawPad);
 
-        auto size = this->onISize();
+        auto size = this->getISize();
 
         SkScalar y = kDrawPad + kTestPad;
         SkRect drawRect;

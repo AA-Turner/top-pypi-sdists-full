@@ -1,0 +1,566 @@
+# Copyright 2018-2026 Jérôme Dumonteil
+# Copyright (c) 2009-2010 Ars Aperta, Itaapy, Pierlis, Talend.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+# Authors (odfdo project): jerome.dumonteil@gmail.com
+# The odfdo project is a derivative work of the lpod-python project:
+# https://github.com/lpod/lpod-python
+# Authors: David Versmisse <david.versmisse@itaapy.com>
+#          Hervé Cauwelier <herve@itaapy.com>
+"""Frame class for "draw:frame" tag and DrawTextBox for "draw:text-box" tag."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Union, cast
+
+from odfdo.mixin_list import ListMixin
+
+from .element import Element, PropDef, register_element_class
+from .image import DrawImage
+from .mixin_md import MDDrawFrame, MDDrawTextBox
+from .mixin_toc import TocMixin
+from .paragraph import Paragraph
+from .section import SectionMixin
+from .style import Style
+from .svg import SvgMixin
+from .unit import Unit
+
+if TYPE_CHECKING:
+    from .element import PropDefBool
+
+# This DPI is computed to have:
+# 640 px (width of your wiki) <==> 17 cm (width of a normal ODT page)
+DPI: Decimal = 640 * Decimal("2.54") / 17
+
+
+def default_frame_position_style(
+    name: str = "FramePosition",
+    horizontal_pos: str = "from-left",
+    vertical_pos: str = "from-top",
+    horizontal_rel: str = "paragraph",
+    vertical_rel: str = "paragraph",
+) -> Style:
+    """Generate a style for positioning frames in desktop applications.
+
+    Default arguments should be enough.
+
+    Use the returned Style as the frame style or build a new graphic style with
+    this style as the parent.
+    """
+    return Style(
+        family="graphic",
+        name=name,
+        horizontal_pos=horizontal_pos,
+        horizontal_rel=horizontal_rel,
+        vertical_pos=vertical_pos,
+        vertical_rel=vertical_rel,
+    )
+
+
+class AnchorMix(Element):
+    """Anchor parameter, how the element is attached to its environment.
+
+    value can be: 'page', 'frame', 'paragraph', 'char' or 'as-char'
+    """
+
+    _tag = "draw:anchormix-odfdo-notodf"
+    _properties: tuple[PropDef | PropDefBool, ...] = ()
+
+    ANCHOR_VALUE_CHOICE = {  # noqa: RUF012
+        "page",
+        "frame",
+        "paragraph",
+        "char",
+        "as-char",
+    }
+
+    @property
+    def anchor_type(self) -> str | None:
+        'Get or set the anchor type "text:anchor-type".'
+        return self.get_attribute_string("text:anchor-type")
+
+    @anchor_type.setter
+    def anchor_type(self, anchor_type: str) -> None:
+        if anchor_type not in self.ANCHOR_VALUE_CHOICE:
+            raise TypeError(f"anchor_type not valid: '{anchor_type!r}'")
+        self.set_attribute("text:anchor-type", anchor_type)
+
+    @property
+    def anchor_page(self) -> int | None:
+        """Get or set the number of the page when the anchor type is 'page'.
+
+        type : int or None
+        """
+        anchor_page = self.get_attribute("text:anchor-page-number")
+        if anchor_page is None:
+            return None
+        return int(anchor_page)
+
+    @anchor_page.setter
+    def anchor_page(self, anchor_page: int | None) -> None:
+        self._set_attribute_int("text:anchor-page-number", anchor_page)
+
+
+class PosMix(Element):
+    """Position relative to anchor point.
+
+    Setting the position may require a specific style for actual display on
+    some graphical rendering softwares.
+
+    Position is a (left, top) tuple with items including the unit, e.g.
+    ('10cm', '15cm').
+    """
+
+    _tag = "draw:posmixin-odfdo-notodf"
+    _properties: tuple[PropDef | PropDefBool, ...] = (
+        PropDef("pos_x", "svg:x"),
+        PropDef("pos_y", "svg:y"),
+    )
+
+    @property
+    def position(self) -> tuple[str | None, str | None]:
+        'Get or set the tuple of position ("svg:x", "svg:y").'
+        get_attr = self.get_attribute_string
+        return get_attr("svg:x"), get_attr("svg:y")
+
+    @position.setter
+    def position(self, position: tuple[str, str] | list[str]) -> None:
+        self.pos_x = position[0]
+        self.pos_y = position[1]
+
+
+PosMix._define_attribut_property()
+
+
+class ZMix(Element):
+    """Z-index position.
+
+    z-index is an integer.
+    """
+
+    _tag = "draw:zmix-odfdo-notodf"
+    _properties: tuple[PropDef | PropDefBool, ...] = ()
+
+    @property
+    def z_index(self) -> int | None:
+        'Get or set the z index "draw:z-index"'
+        return cast(
+            Union[None, int],
+            self.get_attribute_integer("draw:z-index"),
+        )
+
+    @z_index.setter
+    def z_index(self, z_index: int | None) -> None:
+        self._set_attribute_int("draw:z-index", z_index)
+
+
+class SizeMix(Element):
+    """Size of the frame.
+
+    Size is a (width, height) tuple with items including the unit, e.g.
+    ('10cm', '15cm').
+    """
+
+    _tag = "draw:sizemix-odfdo-notodf"
+    _properties: tuple[PropDef | PropDefBool, ...] = (
+        PropDef("width", "svg:width"),
+        PropDef("height", "svg:height"),
+    )
+
+    @property
+    def size(self) -> tuple[str | None, str | None]:
+        'Get or set the tuple of size ("svg:width", "svg:height").'
+        return (self.width, self.height)
+
+    @size.setter
+    def size(self, size: tuple[str, str] | list[str]) -> None:
+        self.width = size[0]
+        self.height = size[1]
+
+
+SizeMix._define_attribut_property()
+
+
+class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
+    """ODF Frame, "draw:frame".
+
+    Frames are not useful by themselves. Consider calling Frame.image_frame()
+    or Frame.text_frame directly.
+    """
+
+    _tag = "draw:frame"
+    _properties: tuple[PropDef | PropDefBool, ...] = (
+        PropDef("name", "draw:name"),
+        PropDef("draw_id", "draw:id"),
+        PropDef("style", "draw:style-name"),
+        PropDef("presentation_class", "presentation:class"),
+        PropDef("layer", "draw:layer"),
+        PropDef("presentation_style", "presentation:style-name"),
+    )
+
+    def __init__(
+        self,
+        name: str | None = None,
+        draw_id: str | None = None,
+        style: str | None = None,
+        position: tuple | None = None,
+        size: tuple = ("1cm", "1cm"),
+        z_index: int = 0,
+        presentation_class: str | None = None,
+        anchor_type: str | None = None,
+        anchor_page: int | None = None,
+        layer: str | None = None,
+        presentation_style: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """ODF Frame, "draw:frame".
+
+        Frames are not useful by themselves. Consider calling
+        Frame.image_frame() or Frame.text_frame directly.
+
+        Create a frame element of the given size. Position is relative to the
+        context the frame is inserted in. If positioned by page, give the page
+        number and the x, y position.
+
+        Size is a (width, height) tuple and position is a (left, top) tuple; items
+        are strings including the unit, e.g. ('10cm', '15cm').
+
+        Frames are not useful by themselves. You should consider calling:
+            Frame.image_frame()
+        or
+            Frame.text_frame()
+
+        Args:
+            name: The name of the frame.
+            draw_id: The ID of the drawing object.
+            style: The name of the style to apply to the frame.
+            position: The position of the frame as a (x, y) tuple of strings
+                including units (e.g., ('1cm', '1cm')).
+            size: The size of the frame as a (width, height) tuple of strings
+                including units (e.g., ('1cm', '1cm')). Defaults to ('1cm', '1cm').
+            z_index: The z-index for stacking order. Defaults to 0.
+            presentation_class: The presentation class of the frame.
+            anchor_type: How the frame is anchored to the document. Can be
+                'page', 'frame', 'paragraph', 'char', or 'as-char'.
+            anchor_page: The page number if `anchor_type` is 'page'.
+            layer: The drawing layer to which the frame belongs.
+            presentation_style: The presentation style of the frame.
+        """
+        super().__init__(**kwargs)
+        if self._do_init:
+            self.size = size
+            self.z_index = z_index
+            if name:
+                self.name = name
+            if draw_id is not None:
+                self.draw_id = draw_id
+            if style is not None:
+                self.style = style
+            if position is not None:
+                self.position = position
+            if presentation_class is not None:
+                self.presentation_class = presentation_class
+            if anchor_type:
+                self.anchor_type = anchor_type
+            if position and not anchor_type:
+                self.anchor_type = "paragraph"
+            if anchor_page is not None:
+                self.anchor_page = anchor_page
+            if layer is not None:
+                self.layer = layer
+            if presentation_style is not None:
+                self.presentation_style = presentation_style
+
+    @classmethod
+    def image_frame(
+        cls,
+        image: DrawImage | str,
+        text: str | None = None,
+        name: str | None = None,
+        draw_id: str | None = None,
+        style: str | None = None,
+        position: tuple | None = None,
+        size: tuple = ("1cm", "1cm"),
+        z_index: int = 0,
+        presentation_class: str | None = None,
+        anchor_type: str | None = None,
+        anchor_page: int | None = None,
+        layer: str | None = None,
+        presentation_style: str | None = None,
+        **kwargs: Any,
+    ) -> Frame:
+        """Create a ready-to-use image, since image must be embedded in a
+        frame.
+
+        The optional text will appear above the image.
+
+        Args:
+            image: A `DrawImage` element or the URL of the image.
+            text: Optional text to appear above the image.
+            name: The name of the frame.
+            draw_id: The ID of the drawing object.
+            style: The name of the style to apply to the frame.
+            position: The position of the frame as a (x, y) tuple of strings
+                including units (e.g., ('1cm', '1cm')).
+            size: The size of the frame as a (width, height) tuple of strings
+                including units (e.g., ('1cm', '1cm')). Defaults to ('1cm', '1cm').
+            z_index: The z-index for stacking order. Defaults to 0.
+            presentation_class: The presentation class of the frame.
+            anchor_type: How the frame is anchored to the document. Can be
+                'page', 'frame', 'paragraph', 'char', or 'as-char'.
+            anchor_page: The page number if `anchor_type` is 'page'.
+            layer: The drawing layer to which the frame belongs.
+            presentation_style: The presentation style of the frame.
+
+        Returns:
+            Frame: The created Frame element.
+        """
+        frame = cls(
+            name=name,
+            draw_id=draw_id,
+            style=style,
+            position=position,
+            size=size,
+            z_index=z_index,
+            presentation_class=presentation_class,
+            anchor_type=anchor_type,
+            anchor_page=anchor_page,
+            layer=layer,
+            presentation_style=presentation_style,
+            **kwargs,
+        )
+        image_element = frame.set_image(image)
+        if text:
+            image_element.text_content = text
+        return frame
+
+    @classmethod
+    def text_frame(
+        cls,
+        text_or_element: Iterable[Element] | Element | str,
+        text_style: str | None = None,
+        name: str | None = None,
+        draw_id: str | None = None,
+        style: str | None = None,
+        position: tuple | None = None,
+        size: tuple = ("1cm", "1cm"),
+        z_index: int = 0,
+        presentation_class: str | None = None,
+        anchor_type: str | None = None,
+        anchor_page: int | None = None,
+        layer: str | None = None,
+        presentation_style: str | None = None,
+        **kwargs: Any,
+    ) -> Frame:
+        """Create a ready-to-use text box, since text box must be embedded in a
+        frame.
+
+        The optional text will appear above the image.
+
+        Args:
+            text_or_element: The text content of the text box, can be a string,
+                an `Element`, or an iterable of strings/Elements.
+            text_style: The name of the style for the text within the text box.
+            name: The name of the frame.
+            draw_id: The ID of the drawing object.
+            style: The name of the style to apply to the frame.
+            position: The position of the frame as a (x, y) tuple of strings
+                including units (e.g., ('1cm', '1cm')).
+            size: The size of the frame as a (width, height) tuple of strings
+                including units (e.g., ('1cm', '1cm')). Defaults to ('1cm', '1cm').
+            z_index: The z-index for stacking order. Defaults to 0.
+            presentation_class: The presentation class of the frame.
+            anchor_type: How the frame is anchored to the document. Can be
+                'page', 'frame', 'paragraph', 'char', or 'as-char'.
+            anchor_page: The page number if `anchor_type` is 'page'.
+            layer: The drawing layer to which the frame belongs.
+            presentation_style: The presentation style of the frame.
+
+        Returns:
+            Frame: The created Frame element.
+        """
+        frame = cls(
+            name=name,
+            draw_id=draw_id,
+            style=style,
+            position=position,
+            size=size,
+            z_index=z_index,
+            presentation_class=presentation_class,
+            anchor_type=anchor_type,
+            anchor_page=anchor_page,
+            layer=layer,
+            presentation_style=presentation_style,
+            **kwargs,
+        )
+        frame.set_text_box(text_or_element, text_style)
+        return frame
+
+    @property
+    def text_content(self) -> str:
+        'Get or set the "draw:text-box" text content.'
+        text_box = self.get_element("draw:text-box")
+        if text_box is None:
+            return ""
+        return text_box.text_content
+
+    @text_content.setter
+    def text_content(self, text: str | Element | None) -> None:
+        text_box = self.get_element("draw:text-box")
+        if text_box is None:
+            text_box = Element.from_tag("draw:text-box")
+            self.append(text_box)
+        if isinstance(text, Element):
+            text_box.clear()
+            text_box.append(text)
+        else:
+            text_box.text_content = text
+
+    def get_image(
+        self,
+        position: int = 0,
+        name: str | None = None,
+        url: str | None = None,
+        content: str | None = None,
+    ) -> DrawImage | None:
+        return cast(Union[None, DrawImage], self.get_element("draw:image"))
+
+    def set_image(self, url_or_element: DrawImage | str) -> DrawImage:
+        image: DrawImage | None = self.get_image()
+        if image is None:
+            if isinstance(url_or_element, str):
+                draw_image = DrawImage(url_or_element)
+                self.append(draw_image)
+            else:
+                draw_image = url_or_element
+                self.append(draw_image)
+        else:
+            if isinstance(url_or_element, str):
+                draw_image = image
+                draw_image.url = url_or_element
+            else:
+                image.delete()
+                draw_image = url_or_element
+                self.append(draw_image)
+        return draw_image
+
+    def get_text_box(self) -> DrawTextBox | None:
+        return cast(Union[None, DrawTextBox], self.get_element("draw:text-box"))
+
+    def set_text_box(
+        self,
+        text_or_element: Iterable[Element | str] | Element | str,
+        text_style: str | None = None,
+    ) -> DrawTextBox:
+        """Set the text box content of the frame.
+
+        Args:
+            text_or_element: The text content of the text box, can be a string,
+                an `Element`, or an iterable of strings/Elements.
+            text_style: The name of the style for the text within the text box.
+
+        Returns:
+            DrawTextBox: The text box element.
+        """
+        text_box: DrawTextBox | None = self.get_text_box()
+        if text_box is None:
+            text_box = DrawTextBox()
+            self.append(text_box)
+        else:
+            text_box.clear()
+        if isinstance(text_or_element, (Element, str)):
+            text_or_element_list: Iterable[Element | str] = [text_or_element]
+        else:
+            text_or_element_list = text_or_element
+        for item in text_or_element_list:
+            if isinstance(item, str):
+                text_box.append(Paragraph(item, style=text_style))
+            else:
+                text_box.append(item)
+        return text_box
+
+    @staticmethod
+    def _get_formatted_text_subresult(context: dict, element: Element) -> str:
+        str_list = ["  "]
+        for child in element.children:
+            str_list.append(child.get_formatted_text(context))
+        subresult = "".join(str_list)
+        subresult = subresult.replace("\n", "\n  ")
+        return subresult.rstrip(" ")
+
+    def get_formatted_text(
+        self,
+        context: dict | None = None,
+    ) -> str:
+        if not context:
+            context = {}
+        result = []
+        for element in self.children:
+            tag = element.tag
+            if tag == "draw:image":
+                if context.get("rst_mode"):
+                    filename = element.get_attribute("xlink:href")
+                    # Compute width and height
+                    width, height = self.size
+                    if width is not None:
+                        uwidth = Unit(width)
+                        uwidth = uwidth.convert("px", DPI)
+                        width = str(uwidth)
+                    if height is not None:
+                        uheight = Unit(height)
+                        uheight = uheight.convert("px", DPI)
+                        height = str(uheight)
+                    # Insert or not ?
+                    if context.get("no_img_level"):
+                        counter = context.get("img_counter") or 0
+                        counter += 1
+                        context["img_counter"] = counter
+                        ref = f"|img{counter}|"
+                        result.append(ref)
+                        images = context.get("images") or []
+                        images.append((ref, filename, width, height))
+                        context["images"] = images
+                    else:
+                        result.append(f"\n.. image:: {filename}\n")
+                        if width is not None:
+                            result.append(f"   :width: {width}\n")
+                        if height is not None:
+                            result.append(f"   :height: {height}\n")
+                else:
+                    result.append(f"[Image {element.get_attribute('xlink:href')}]\n")
+            elif tag == "draw:text-box":
+                result.append(self._get_formatted_text_subresult(context, element))
+            else:
+                result.append(element.get_formatted_text(context))
+        result.append("\n")
+        return "".join(result)
+
+
+Frame._define_attribut_property()
+
+
+class DrawTextBox(MDDrawTextBox, ListMixin, TocMixin, SectionMixin):
+    """ODF text box, "draw:text-box".
+
+    Minimal class to facilitate internal iterations.
+    """
+
+    _tag = "draw:text-box"
+
+
+register_element_class(Frame)
+register_element_class(DrawTextBox)

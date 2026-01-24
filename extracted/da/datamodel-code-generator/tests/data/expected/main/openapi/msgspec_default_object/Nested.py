@@ -4,23 +4,23 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TypeAlias
 
-from msgspec import Struct, convert, field
+from msgspec import Struct, UnsetType, convert, field
 
 from . import Foo as Foo_1
 
-Foo = str
+Foo: TypeAlias = str
 
 
 class Bar(Struct):
-    foo: Optional[Foo_1] = field(
+    foo: Foo_1 | UnsetType = field(
         default_factory=lambda: convert({'text': 'abc', 'number': 123}, type=Foo_1)
     )
-    baz: Optional[List[Foo_1]] = field(
+    baz: list[Foo_1] | UnsetType = field(
         default_factory=lambda: convert(
             [{'text': 'abc', 'number': 123}, {'text': 'efg', 'number': 456}],
             type=list[Foo_1],
         )
     )
-    nested_foo: Optional[Foo] = 'default foo'
+    nested_foo: Foo | UnsetType = 'default foo'

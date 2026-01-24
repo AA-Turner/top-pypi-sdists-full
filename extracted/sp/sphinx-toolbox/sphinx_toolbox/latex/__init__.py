@@ -168,12 +168,13 @@ API Reference
 import re
 from os.path import join as joinpath
 from textwrap import dedent
-from typing import Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, Type, cast
 
 # 3rd party
 import sphinx
 from docutils import nodes
 from docutils.frontend import OptionParser
+from docutils.parsers.rst import Directive
 from docutils.transforms.references import Footnotes
 from domdf_python_tools.paths import PathPlus
 from domdf_python_tools.stringlist import DelimitedList
@@ -389,7 +390,7 @@ class LaTeXDomain(Domain):
 
 	name = "latex"
 	label = "LaTeX"
-	directives = {
+	directives: Dict[str, Type[Directive]] = {
 			"samepage": SamepageDirective,
 			"clearpage": ClearPageDirective,
 			"cleardoublepage": ClearDoublePageDirective,
@@ -551,7 +552,7 @@ class PatchedLaTeXBuilder(LaTeXBuilder):
 			destination = SphinxFileOutput(
 					destination_path=joinpath(self.outdir, targetname),
 					encoding="utf-8",
-					overwrite_if_changed=True
+					overwrite_if_changed=True,
 					)
 			with progress_message(__("processing %s") % targetname):
 				doctree = self.env.get_doctree(docname)
@@ -570,7 +571,7 @@ class PatchedLaTeXBuilder(LaTeXBuilder):
 				doctree = self.assemble_doctree(
 						docname,
 						toctree_only,
-						appendices=(self.config.latex_appendices if theme.name != "howto" else [])
+						appendices=(self.config.latex_appendices if theme.name != "howto" else []),
 						)
 				doctree["docclass"] = theme.docclass
 				doctree["contentsname"] = self.get_contentsname(docname)

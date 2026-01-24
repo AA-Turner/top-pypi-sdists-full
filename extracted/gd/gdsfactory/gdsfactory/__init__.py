@@ -16,8 +16,9 @@ from kfactory import LayerEnum, show, Instance
 from kfactory.layout import kcl
 from kfactory import logger
 import klayout.db as kdb
+from kfactory import DSchematic as Schematic
 
-from gdsfactory._cell import cell, vcell, cell_with_module_name
+from gdsfactory._cell import cell, vcell, cell_with_module_name, schematic_cell
 from gdsfactory.path import Path
 from gdsfactory.component import (
     Component,
@@ -55,6 +56,7 @@ from gdsfactory import technology
 from gdsfactory import routing
 from gdsfactory import export
 from gdsfactory import functions
+from gdsfactory import gpdk
 
 from gdsfactory.add_padding import (
     add_padding,
@@ -113,6 +115,7 @@ __all__ = (
     "Pdk",
     "Port",
     "Region",
+    "Schematic",
     "Section",
     "__version__",
     "add_padding",
@@ -147,6 +150,7 @@ __all__ = (
     "get_layer_name",
     "get_layer_tuple",
     "get_padding_points",
+    "gpdk",
     "grid",
     "grid_with_text",
     "import_gds",
@@ -161,6 +165,7 @@ __all__ = (
     "port",
     "read",
     "routing",
+    "schematic_cell",
     "show",
     "snap",
     "technology",

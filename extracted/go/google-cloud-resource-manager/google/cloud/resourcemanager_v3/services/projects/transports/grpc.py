@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,12 +72,11 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
                 f"Sending request for {client_call_details.method}",
                 extra={
                     "serviceName": "google.cloud.resourcemanager.v3.Projects",
-                    "rpcName": client_call_details.method,
+                    "rpcName": str(client_call_details.method),
                     "request": grpc_request,
                     "metadata": grpc_request["metadata"],
                 },
             )
-
         response = continuation(client_call_details, request)
         if logging_enabled:  # pragma: NO COVER
             response_metadata = response.trailing_metadata()
@@ -154,9 +153,10 @@ class ProjectsGrpcTransport(ProjectsTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -290,9 +290,10 @@ class ProjectsGrpcTransport(ProjectsTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -683,41 +684,41 @@ class ProjectsGrpcTransport(ProjectsTransport):
 
         The following constraints apply when using ``setIamPolicy()``:
 
-        -  Project does not support ``allUsers`` and
-           ``allAuthenticatedUsers`` as ``members`` in a ``Binding`` of
-           a ``Policy``.
+        - Project does not support ``allUsers`` and
+          ``allAuthenticatedUsers`` as ``members`` in a ``Binding`` of a
+          ``Policy``.
 
-        -  The owner role can be granted to a ``user``,
-           ``serviceAccount``, or a group that is part of an
-           organization. For example, group@myownpersonaldomain.com
-           could be added as an owner to a project in the
-           myownpersonaldomain.com organization, but not the
-           examplepetstore.com organization.
+        - The owner role can be granted to a ``user``,
+          ``serviceAccount``, or a group that is part of an
+          organization. For example, group@myownpersonaldomain.com could
+          be added as an owner to a project in the
+          myownpersonaldomain.com organization, but not the
+          examplepetstore.com organization.
 
-        -  Service accounts can be made owners of a project directly
-           without any restrictions. However, to be added as an owner, a
-           user must be invited using the Cloud Platform console and
-           must accept the invitation.
+        - Service accounts can be made owners of a project directly
+          without any restrictions. However, to be added as an owner, a
+          user must be invited using the Cloud Platform console and must
+          accept the invitation.
 
-        -  A user cannot be granted the owner role using
-           ``setIamPolicy()``. The user must be granted the owner role
-           using the Cloud Platform Console and must explicitly accept
-           the invitation.
+        - A user cannot be granted the owner role using
+          ``setIamPolicy()``. The user must be granted the owner role
+          using the Cloud Platform Console and must explicitly accept
+          the invitation.
 
-        -  Invitations to grant the owner role cannot be sent using
-           ``setIamPolicy()``; they must be sent only using the Cloud
-           Platform Console.
+        - Invitations to grant the owner role cannot be sent using
+          ``setIamPolicy()``; they must be sent only using the Cloud
+          Platform Console.
 
-        -  If the project is not part of an organization, there must be
-           at least one owner who has accepted the Terms of Service
-           (ToS) agreement in the policy. Calling ``setIamPolicy()`` to
-           remove the last ToS-accepted owner from the policy will fail.
-           This restriction also applies to legacy projects that no
-           longer have owners who have accepted the ToS. Edits to IAM
-           policies will be rejected until the lack of a ToS-accepting
-           owner is rectified. If the project is part of an
-           organization, you can remove all owners, potentially making
-           the organization inaccessible.
+        - If the project is not part of an organization, there must be
+          at least one owner who has accepted the Terms of Service (ToS)
+          agreement in the policy. Calling ``setIamPolicy()`` to remove
+          the last ToS-accepted owner from the policy will fail. This
+          restriction also applies to legacy projects that no longer
+          have owners who have accepted the ToS. Edits to IAM policies
+          will be rejected until the lack of a ToS-accepting owner is
+          rectified. If the project is part of an organization, you can
+          remove all owners, potentially making the organization
+          inaccessible.
 
         Returns:
             Callable[[~.SetIamPolicyRequest],

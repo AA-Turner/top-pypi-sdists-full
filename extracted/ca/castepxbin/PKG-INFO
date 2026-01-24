@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: castepxbin
-Version: 0.3.0
+Version: 0.3.1
 Summary: Collection of binary file readers for CASTEP
 Author-email: Bonan Zhu <zhubonan@outlook.com>
 Requires-Python: >=3.7
@@ -11,15 +11,17 @@ Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Development Status :: 4 - Beta
-Requires-Dist: numpy>=1,<2
+License-File: LICENSE
+Requires-Dist: numpy>=1,<3
 Requires-Dist: scipy>=1,<2
 Requires-Dist: sphinx-click>=4,<5 ; extra == "doc"
 Requires-Dist: sphinx-autodoc2>=0.4,<0.5 ; extra == "doc"
 Requires-Dist: sphinx-book-theme>=1,<2 ; extra == "doc"
 Requires-Dist: sphinx-copybutton>=0.3,<0.4 ; extra == "doc"
 Requires-Dist: myst-parser[linkify] ; extra == "doc"
-Requires-Dist: sphinx ; extra == "doc"
+Requires-Dist: sphinx>=6,<7 ; extra == "doc"
 Requires-Dist: linkify-it-py ; extra == "doc"
+Requires-Dist: astroid<3 ; extra == "doc"
 Requires-Dist: pre-commit~=2.2 ; extra == "pre-commit"
 Requires-Dist: pylint~=2.4.4 ; extra == "pre-commit" and ( python_version>='3.0')
 Requires-Dist: pylint-pytest ; extra == "pre-commit"

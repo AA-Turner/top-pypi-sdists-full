@@ -1,12 +1,13 @@
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser, Namespace
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Tuple
+from typing import Any
 
 from taskiq.acks import AcknowledgeType
 from taskiq.cli.common_args import LogLevel
 
 
-def receiver_arg_type(string: str) -> Tuple[str, str]:
+def receiver_arg_type(string: str) -> tuple[str, str]:
     """
     Parse cli --receiver_arg argument value.
 
@@ -25,7 +26,8 @@ class WorkerArgs:
     """Taskiq worker CLI arguments."""
 
     broker: str
-    modules: List[str]
+    modules: list[str]
+    app_dir: str | None = None
     tasks_pattern: Sequence[str] = ("**/tasks.py",)
     fs_discover: bool = False
     configure_logging: bool = True
@@ -34,34 +36,36 @@ class WorkerArgs:
         "[%(asctime)s][%(name)s][%(levelname)-7s][%(processName)s] %(message)s"
     )
     workers: int = 2
-    max_threadpool_threads: Optional[int] = None
-    max_process_pool_processes: Optional[int] = None
+    max_threadpool_threads: int | None = None
+    max_process_pool_processes: int | None = None
     no_parse: bool = False
     shutdown_timeout: float = 5
     reload: bool = False
-    reload_dirs: List[str] = field(default_factory=list)
+    reload_dirs: list[str] = field(default_factory=list)
     no_gitignore: bool = False
     max_async_tasks: int = 100
     receiver: str = "taskiq.receiver:Receiver"
-    receiver_arg: List[Tuple[str, str]] = field(default_factory=list)
+    receiver_arg: list[tuple[str, str]] = field(default_factory=list)
     max_prefetch: int = 0
     no_propagate_errors: bool = False
     max_fails: int = -1
     ack_type: AcknowledgeType = AcknowledgeType.WHEN_SAVED
-    max_tasks_per_child: Optional[int] = None
-    wait_tasks_timeout: Optional[float] = None
+    max_tasks_per_child: int | None = None
+    wait_tasks_timeout: float | None = None
     hardkill_count: int = 3
     use_process_pool: bool = False
 
     @classmethod
     def from_cli(
         cls,
-        args: Optional[Sequence[str]] = None,
+        args: Sequence[str] | None = None,
+        defaults: dict[str, Any] | None = None,
     ) -> "WorkerArgs":
         """
         Construct TaskiqArgs instanc from CLI arguments.
 
         :param args: list of args as for cli.
+        :param defaults: default worker arguments.
         :return: TaskiqArgs instance.
         """
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -71,6 +75,16 @@ class WorkerArgs:
                 "Where to search for broker or broker factory function. "
                 "This string must be specified in "
                 "'module.module:variable' format."
+            ),
+        )
+        parser.add_argument(
+            "--app-dir",
+            "-d",
+            default=None,
+            help=(
+                "Path to application directory. "
+                "This path will be used to import tasks modules. "
+                "If not specified, current working directory will be used."
             ),
         )
         parser.add_argument(
@@ -256,9 +270,14 @@ class WorkerArgs:
             help="Maximum number of processes in process pool.",
         )
 
-        namespace = parser.parse_args(args)
+        namespace = parser.parse_args(
+            args,
+            namespace=None if defaults is None else Namespace(**defaults),
+        )
         # If there are any patterns specified, remove default.
         # This is an argparse limitation.
         if len(namespace.tasks_pattern) > 1:
             namespace.tasks_pattern.pop(0)
+        # Convert log_level string to LogLevel enum
+        namespace.log_level = LogLevel[namespace.log_level]
         return WorkerArgs(**namespace.__dict__)

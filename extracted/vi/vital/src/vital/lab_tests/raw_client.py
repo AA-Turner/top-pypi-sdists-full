@@ -12,6 +12,7 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..errors.not_found_error import NotFoundError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.allowed_radius import AllowedRadius
 from ..types.ao_e_answer import AoEAnswer
@@ -41,6 +42,7 @@ from ..types.lab_test_collection_method import LabTestCollectionMethod
 from ..types.lab_test_generation_method_filter import LabTestGenerationMethodFilter
 from ..types.lab_test_resources_response import LabTestResourcesResponse
 from ..types.lab_test_status import LabTestStatus
+from ..types.not_found_error_body import NotFoundErrorBody
 from ..types.order_activation_type import OrderActivationType
 from ..types.order_low_level_status import OrderLowLevelStatus
 from ..types.order_set_request import OrderSetRequest
@@ -53,6 +55,7 @@ from ..types.post_order_response import PostOrderResponse
 from ..types.psc_info import PscInfo
 from ..types.simulation_flags import SimulationFlags
 from ..types.us_address import UsAddress
+from ..types.validate_icd_codes_response import ValidateIcdCodesResponse
 from .types.lab_tests_get_orders_request_order_direction import LabTestsGetOrdersRequestOrderDirection
 from .types.lab_tests_get_orders_request_order_key import LabTestsGetOrdersRequestOrderKey
 from .types.lab_tests_get_paginated_request_order_direction import LabTestsGetPaginatedRequestOrderDirection
@@ -240,7 +243,11 @@ class RawLabTestsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_by_id(
-        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        lab_test_id: str,
+        *,
+        lab_account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ClientFacingLabTest]:
         """
         GET all the lab tests the team has access to.
@@ -248,6 +255,9 @@ class RawLabTestsClient:
         Parameters
         ----------
         lab_test_id : str
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -260,6 +270,9 @@ class RawLabTestsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"v3/lab_tests/{jsonable_encoder(lab_test_id)}",
             method="GET",
+            params={
+                "lab_account_id": lab_account_id,
+            },
             request_options=request_options,
         )
         try:
@@ -358,6 +371,7 @@ class RawLabTestsClient:
         lab_id: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         name: typing.Optional[str] = None,
         a_la_carte_enabled: typing.Optional[bool] = None,
+        lab_account_id: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -374,6 +388,9 @@ class RawLabTestsClient:
             The name or test code of an individual biomarker or a panel.
 
         a_la_carte_enabled : typing.Optional[bool]
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         page : typing.Optional[int]
 
@@ -394,6 +411,7 @@ class RawLabTestsClient:
                 "lab_id": lab_id,
                 "name": name,
                 "a_la_carte_enabled": a_la_carte_enabled,
+                "lab_account_id": lab_account_id,
                 "page": page,
                 "size": size,
             },
@@ -494,6 +512,7 @@ class RawLabTestsClient:
         self,
         lab_test_id: str,
         *,
+        lab_account_id: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -502,6 +521,9 @@ class RawLabTestsClient:
         Parameters
         ----------
         lab_test_id : str
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         page : typing.Optional[int]
 
@@ -519,6 +541,7 @@ class RawLabTestsClient:
             f"v3/lab_tests/{jsonable_encoder(lab_test_id)}/markers",
             method="GET",
             params={
+                "lab_account_id": lab_account_id,
                 "page": page,
                 "size": size,
             },
@@ -551,7 +574,12 @@ class RawLabTestsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def get_markers_by_lab_and_provider_id(
-        self, provider_id: str, lab_id: int, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        provider_id: str,
+        lab_id: int,
+        *,
+        lab_account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ClientFacingMarker]:
         """
         GET a specific marker for the given lab and provider_id
@@ -561,6 +589,9 @@ class RawLabTestsClient:
         provider_id : str
 
         lab_id : int
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -573,6 +604,9 @@ class RawLabTestsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"v3/lab_tests/{jsonable_encoder(lab_id)}/markers/{jsonable_encoder(provider_id)}",
             method="GET",
+            params={
+                "lab_account_id": lab_account_id,
+            },
             request_options=request_options,
         )
         try:
@@ -632,6 +666,304 @@ class RawLabTestsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_paginated(
+        self,
+        *,
+        lab_test_limit: typing.Optional[int] = None,
+        next_cursor: typing.Optional[str] = None,
+        generation_method: typing.Optional[LabTestGenerationMethodFilter] = None,
+        lab_slug: typing.Optional[str] = None,
+        collection_method: typing.Optional[LabTestCollectionMethod] = None,
+        status: typing.Optional[LabTestStatus] = None,
+        marker_ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
+        provider_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        name: typing.Optional[str] = None,
+        order_key: typing.Optional[LabTestsGetPaginatedRequestOrderKey] = None,
+        order_direction: typing.Optional[LabTestsGetPaginatedRequestOrderDirection] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[LabTestResourcesResponse]:
+        """
+        GET lab tests the team has access to as a paginated list.
+
+        Parameters
+        ----------
+        lab_test_limit : typing.Optional[int]
+
+        next_cursor : typing.Optional[str]
+
+        generation_method : typing.Optional[LabTestGenerationMethodFilter]
+            Filter on whether auto-generated lab tests created by Vital, manually created lab tests, or all lab tests should be returned.
+
+        lab_slug : typing.Optional[str]
+            Filter by the slug of the lab for these lab tests.
+
+        collection_method : typing.Optional[LabTestCollectionMethod]
+            Filter by the collection method for these lab tests.
+
+        status : typing.Optional[LabTestStatus]
+            Filter by the status of these lab tests.
+
+        marker_ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Filter to only include lab tests containing these marker IDs.
+
+        provider_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to only include lab tests containing these provider IDs.
+
+        name : typing.Optional[str]
+            Filter by the name of the lab test (a case-insensitive substring search).
+
+        order_key : typing.Optional[LabTestsGetPaginatedRequestOrderKey]
+
+        order_direction : typing.Optional[LabTestsGetPaginatedRequestOrderDirection]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[LabTestResourcesResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "v3/lab_test",
+            method="GET",
+            params={
+                "lab_test_limit": lab_test_limit,
+                "next_cursor": next_cursor,
+                "generation_method": generation_method,
+                "lab_slug": lab_slug,
+                "collection_method": collection_method,
+                "status": status,
+                "marker_ids": marker_ids,
+                "provider_ids": provider_ids,
+                "name": name,
+                "order_key": order_key,
+                "order_direction": order_direction,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    LabTestResourcesResponse,
+                    parse_obj_as(
+                        type_=LabTestResourcesResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    @contextlib.contextmanager
+    def get_lab_test_collection_instruction_pdf(
+        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Iterator[HttpResponse[typing.Iterator[bytes]]]:
+        """
+        Parameters
+        ----------
+        lab_test_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.Iterator[HttpResponse[typing.Iterator[bytes]]]
+            PDF with collection instructions
+        """
+        with self._client_wrapper.httpx_client.stream(
+            f"v3/lab_test/{jsonable_encoder(lab_test_id)}/collection_instruction_pdf",
+            method="GET",
+            request_options=request_options,
+        ) as _response:
+
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
+                try:
+                    if 200 <= _response.status_code < 300:
+                        _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
+                        return HttpResponse(
+                            response=_response, data=(_chunk for _chunk in _response.iter_bytes(chunk_size=_chunk_size))
+                        )
+                    _response.read()
+                    if _response.status_code == 422:
+                        raise UnprocessableEntityError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                HttpValidationError,
+                                parse_obj_as(
+                                    type_=HttpValidationError,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
+                    _response_json = _response.json()
+                except JSONDecodeError:
+                    raise ApiError(
+                        status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+                    )
+                raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+            yield _stream()
+
+    def get_orders(
+        self,
+        *,
+        search_input: typing.Optional[str] = None,
+        start_date: typing.Optional[dt.datetime] = None,
+        end_date: typing.Optional[dt.datetime] = None,
+        updated_start_date: typing.Optional[dt.datetime] = None,
+        updated_end_date: typing.Optional[dt.datetime] = None,
+        status: typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]] = None,
+        order_key: typing.Optional[LabTestsGetOrdersRequestOrderKey] = None,
+        order_direction: typing.Optional[LabTestsGetOrdersRequestOrderDirection] = None,
+        order_type: typing.Optional[
+            typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]
+        ] = None,
+        is_critical: typing.Optional[bool] = None,
+        interpretation: typing.Optional[Interpretation] = None,
+        order_activation_types: typing.Optional[
+            typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]
+        ] = None,
+        user_id: typing.Optional[str] = None,
+        patient_name: typing.Optional[str] = None,
+        shipping_recipient_name: typing.Optional[str] = None,
+        order_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        page: typing.Optional[int] = None,
+        size: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[GetOrdersResponse]:
+        """
+        GET many orders with filters.
+
+        Parameters
+        ----------
+        search_input : typing.Optional[str]
+            Search by order id, user id, patient name, shipping dob, or shipping recipient name.
+
+        start_date : typing.Optional[dt.datetime]
+            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        end_date : typing.Optional[dt.datetime]
+            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 23:59:59
+
+        updated_start_date : typing.Optional[dt.datetime]
+            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        updated_end_date : typing.Optional[dt.datetime]
+            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        status : typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]]
+            Filter by low level status.
+
+        order_key : typing.Optional[LabTestsGetOrdersRequestOrderKey]
+            Order key to sort by.
+
+        order_direction : typing.Optional[LabTestsGetOrdersRequestOrderDirection]
+            Order direction to sort by.
+
+        order_type : typing.Optional[typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]]
+            Filter by method used to perform the lab test.
+
+        is_critical : typing.Optional[bool]
+            Filter by critical order status.
+
+        interpretation : typing.Optional[Interpretation]
+            Filter by result interpretation of the lab test.
+
+        order_activation_types : typing.Optional[typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]]
+            Filter by activation type.
+
+        user_id : typing.Optional[str]
+            Filter by user ID.
+
+        patient_name : typing.Optional[str]
+            Filter by patient name.
+
+        shipping_recipient_name : typing.Optional[str]
+            Filter by shipping recipient name.
+
+        order_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter by order ids.
+
+        page : typing.Optional[int]
+
+        size : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[GetOrdersResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "v3/orders",
+            method="GET",
+            params={
+                "search_input": search_input,
+                "start_date": serialize_datetime(start_date) if start_date is not None else None,
+                "end_date": serialize_datetime(end_date) if end_date is not None else None,
+                "updated_start_date": serialize_datetime(updated_start_date)
+                if updated_start_date is not None
+                else None,
+                "updated_end_date": serialize_datetime(updated_end_date) if updated_end_date is not None else None,
+                "status": status,
+                "order_key": order_key,
+                "order_direction": order_direction,
+                "order_type": order_type,
+                "is_critical": is_critical,
+                "interpretation": interpretation,
+                "order_activation_types": order_activation_types,
+                "user_id": user_id,
+                "patient_name": patient_name,
+                "shipping_recipient_name": shipping_recipient_name,
+                "order_ids": order_ids,
+                "page": page,
+                "size": size,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetOrdersResponse,
+                    parse_obj_as(
+                        type_=GetOrdersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1052,6 +1384,7 @@ class RawLabTestsClient:
         radius: typing.Optional[AllowedRadius] = None,
         lab: typing.Optional[ClientFacingLabs] = None,
         labs: typing.Optional[typing.Union[ClientFacingLabs, typing.Sequence[ClientFacingLabs]]] = None,
+        lab_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AreaInfo]:
         """
@@ -1075,6 +1408,9 @@ class RawLabTestsClient:
         labs : typing.Optional[typing.Union[ClientFacingLabs, typing.Sequence[ClientFacingLabs]]]
             List of labs to check for PSCs
 
+        lab_account_id : typing.Optional[str]
+            Lab Account ID to use for availability checks
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1091,6 +1427,7 @@ class RawLabTestsClient:
                 "radius": radius,
                 "lab": lab,
                 "labs": labs,
+                "lab_account_id": lab_account_id,
             },
             request_options=request_options,
         )
@@ -1129,6 +1466,7 @@ class RawLabTestsClient:
         capabilities: typing.Optional[
             typing.Union[LabLocationCapability, typing.Sequence[LabLocationCapability]]
         ] = None,
+        lab_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PscInfo]:
         """
@@ -1141,10 +1479,13 @@ class RawLabTestsClient:
             Lab ID to check for PSCs
 
         radius : typing.Optional[AllowedRadius]
-            Radius in which to search in miles
+            Radius in which to search in miles. Note that we limit to 30 PSCs.
 
         capabilities : typing.Optional[typing.Union[LabLocationCapability, typing.Sequence[LabLocationCapability]]]
             Filter for only locations with certain capabilities
+
+        lab_account_id : typing.Optional[str]
+            Lab Account ID to use for availability checks
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1162,6 +1503,7 @@ class RawLabTestsClient:
                 "lab_id": lab_id,
                 "radius": radius,
                 "capabilities": capabilities,
+                "lab_account_id": lab_account_id,
             },
             request_options=request_options,
         )
@@ -1281,7 +1623,7 @@ class RawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -1307,7 +1649,7 @@ class RawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield stream()
+            yield _stream()
 
     def get_result_metadata(
         self, order_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -1448,7 +1790,7 @@ class RawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -1474,7 +1816,7 @@ class RawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield stream()
+            yield _stream()
 
     def get_psc_appointment_availability(
         self,
@@ -1530,6 +1872,17 @@ class RawLabTestsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        NotFoundErrorBody,
+                        parse_obj_as(
+                            type_=NotFoundErrorBody,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -1839,7 +2192,7 @@ class RawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -1865,7 +2218,7 @@ class RawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield stream()
+            yield _stream()
 
     @contextlib.contextmanager
     def get_order_requistion_pdf(
@@ -1893,7 +2246,7 @@ class RawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -1919,7 +2272,7 @@ class RawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield stream()
+            yield _stream()
 
     @contextlib.contextmanager
     def get_order_abn_pdf(
@@ -1947,7 +2300,7 @@ class RawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
+            def _stream() -> HttpResponse[typing.Iterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -1973,7 +2326,7 @@ class RawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield stream()
+            yield _stream()
 
     def get_order(
         self, order_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -2031,6 +2384,8 @@ class RawLabTestsClient:
         user_id: str,
         patient_details: PatientDetailsWithValidation,
         patient_address: PatientAddressWithValidation,
+        idempotency_key: typing.Optional[str] = None,
+        idempotency_error: typing.Optional[typing.Literal["no-cache"]] = None,
         lab_test_id: typing.Optional[str] = OMIT,
         order_set: typing.Optional[OrderSetRequest] = OMIT,
         collection_method: typing.Optional[LabTestCollectionMethod] = OMIT,
@@ -2043,6 +2398,8 @@ class RawLabTestsClient:
         activate_by: typing.Optional[str] = OMIT,
         aoe_answers: typing.Optional[typing.Sequence[AoEAnswer]] = OMIT,
         passthrough: typing.Optional[str] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
+        creator_member_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PostOrderResponse]:
         """
@@ -2053,6 +2410,10 @@ class RawLabTestsClient:
         patient_details : PatientDetailsWithValidation
 
         patient_address : PatientAddressWithValidation
+
+        idempotency_key : typing.Optional[str]
+
+        idempotency_error : typing.Optional[typing.Literal["no-cache"]]
 
         lab_test_id : typing.Optional[str]
 
@@ -2080,6 +2441,10 @@ class RawLabTestsClient:
 
         passthrough : typing.Optional[str]
 
+        lab_account_id : typing.Optional[str]
+
+        creator_member_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2105,11 +2470,15 @@ class RawLabTestsClient:
                 "activate_by": activate_by,
                 "aoe_answers": aoe_answers,
                 "passthrough": passthrough,
+                "lab_account_id": lab_account_id,
+                "creator_member_id": creator_member_id,
                 "patient_details": patient_details,
                 "patient_address": patient_address,
             },
             headers={
                 "content-type": "application/json",
+                "X-Idempotency-Key": str(idempotency_key) if idempotency_key is not None else None,
+                "X-Idempotency-Error": str(idempotency_error) if idempotency_error is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -2151,6 +2520,7 @@ class RawLabTestsClient:
         patient_address: PatientAddress,
         sample_id: str,
         physician: typing.Optional[PhysicianCreateRequest] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PostOrderResponse]:
         """
@@ -2172,6 +2542,8 @@ class RawLabTestsClient:
 
         physician : typing.Optional[PhysicianCreateRequest]
 
+        lab_account_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2192,6 +2564,7 @@ class RawLabTestsClient:
                 "patient_details": patient_details,
                 "patient_address": patient_address,
                 "sample_id": sample_id,
+                "lab_account_id": lab_account_id,
             },
             headers={
                 "content-type": "application/json",
@@ -2283,7 +2656,7 @@ class RawLabTestsClient:
         delay: typing.Optional[int] = None,
         request: typing.Optional[SimulationFlags] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[typing.Any]:
         """
         Get available test kits.
 
@@ -2302,7 +2675,7 @@ class RawLabTestsClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[typing.Any]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -2320,11 +2693,13 @@ class RawLabTestsClient:
             omit=OMIT,
         )
         try:
+            if _response is None or not _response.text.strip():
+                return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2395,131 +2770,40 @@ class RawLabTestsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def get_orders(
-        self,
-        *,
-        search_input: typing.Optional[str] = None,
-        start_date: typing.Optional[dt.datetime] = None,
-        end_date: typing.Optional[dt.datetime] = None,
-        updated_start_date: typing.Optional[dt.datetime] = None,
-        updated_end_date: typing.Optional[dt.datetime] = None,
-        status: typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]] = None,
-        order_key: typing.Optional[LabTestsGetOrdersRequestOrderKey] = None,
-        order_direction: typing.Optional[LabTestsGetOrdersRequestOrderDirection] = None,
-        order_type: typing.Optional[
-            typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]
-        ] = None,
-        is_critical: typing.Optional[bool] = None,
-        interpretation: typing.Optional[Interpretation] = None,
-        order_activation_types: typing.Optional[
-            typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]
-        ] = None,
-        user_id: typing.Optional[str] = None,
-        patient_name: typing.Optional[str] = None,
-        shipping_recipient_name: typing.Optional[str] = None,
-        order_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        page: typing.Optional[int] = None,
-        size: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[GetOrdersResponse]:
+    def validate_icd_codes(
+        self, *, codes: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ValidateIcdCodesResponse]:
         """
-        GET many orders with filters.
-
         Parameters
         ----------
-        search_input : typing.Optional[str]
-            Search by order id, user id, patient name, shipping dob, or shipping recipient name.
-
-        start_date : typing.Optional[dt.datetime]
-            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        end_date : typing.Optional[dt.datetime]
-            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 23:59:59
-
-        updated_start_date : typing.Optional[dt.datetime]
-            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        updated_end_date : typing.Optional[dt.datetime]
-            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        status : typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]]
-            Filter by low level status.
-
-        order_key : typing.Optional[LabTestsGetOrdersRequestOrderKey]
-            Order key to sort by.
-
-        order_direction : typing.Optional[LabTestsGetOrdersRequestOrderDirection]
-            Order direction to sort by.
-
-        order_type : typing.Optional[typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]]
-            Filter by method used to perform the lab test.
-
-        is_critical : typing.Optional[bool]
-            Filter by critical order status.
-
-        interpretation : typing.Optional[Interpretation]
-            Filter by result interpretation of the lab test.
-
-        order_activation_types : typing.Optional[typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]]
-            Filter by activation type.
-
-        user_id : typing.Optional[str]
-            Filter by user ID.
-
-        patient_name : typing.Optional[str]
-            Filter by patient name.
-
-        shipping_recipient_name : typing.Optional[str]
-            Filter by shipping recipient name.
-
-        order_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter by order ids.
-
-        page : typing.Optional[int]
-
-        size : typing.Optional[int]
+        codes : typing.Sequence[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[GetOrdersResponse]
+        HttpResponse[ValidateIcdCodesResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
-            "v3/orders",
-            method="GET",
-            params={
-                "search_input": search_input,
-                "start_date": serialize_datetime(start_date) if start_date is not None else None,
-                "end_date": serialize_datetime(end_date) if end_date is not None else None,
-                "updated_start_date": serialize_datetime(updated_start_date)
-                if updated_start_date is not None
-                else None,
-                "updated_end_date": serialize_datetime(updated_end_date) if updated_end_date is not None else None,
-                "status": status,
-                "order_key": order_key,
-                "order_direction": order_direction,
-                "order_type": order_type,
-                "is_critical": is_critical,
-                "interpretation": interpretation,
-                "order_activation_types": order_activation_types,
-                "user_id": user_id,
-                "patient_name": patient_name,
-                "shipping_recipient_name": shipping_recipient_name,
-                "order_ids": order_ids,
-                "page": page,
-                "size": size,
+            "v3/insurance/validate_icd_codes",
+            method="POST",
+            json={
+                "codes": codes,
+            },
+            headers={
+                "content-type": "application/json",
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetOrdersResponse,
+                    ValidateIcdCodesResponse,
                     parse_obj_as(
-                        type_=GetOrdersResponse,  # type: ignore
+                        type_=ValidateIcdCodesResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2539,159 +2823,6 @@ class RawLabTestsClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def get_paginated(
-        self,
-        *,
-        lab_test_limit: typing.Optional[int] = None,
-        next_cursor: typing.Optional[str] = None,
-        generation_method: typing.Optional[LabTestGenerationMethodFilter] = None,
-        lab_slug: typing.Optional[str] = None,
-        collection_method: typing.Optional[LabTestCollectionMethod] = None,
-        status: typing.Optional[LabTestStatus] = None,
-        marker_ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
-        provider_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        name: typing.Optional[str] = None,
-        order_key: typing.Optional[LabTestsGetPaginatedRequestOrderKey] = None,
-        order_direction: typing.Optional[LabTestsGetPaginatedRequestOrderDirection] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[LabTestResourcesResponse]:
-        """
-        GET lab tests the team has access to as a paginated list.
-
-        Parameters
-        ----------
-        lab_test_limit : typing.Optional[int]
-
-        next_cursor : typing.Optional[str]
-
-        generation_method : typing.Optional[LabTestGenerationMethodFilter]
-            Filter on whether auto-generated lab tests created by Vital, manually created lab tests, or all lab tests should be returned.
-
-        lab_slug : typing.Optional[str]
-            Filter by the slug of the lab for these lab tests.
-
-        collection_method : typing.Optional[LabTestCollectionMethod]
-            Filter by the collection method for these lab tests.
-
-        status : typing.Optional[LabTestStatus]
-            Filter by the status of these lab tests.
-
-        marker_ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
-            Filter to only include lab tests containing these marker IDs.
-
-        provider_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter to only include lab tests containing these provider IDs.
-
-        name : typing.Optional[str]
-            Filter by the name of the lab test (a case-insensitive substring search).
-
-        order_key : typing.Optional[LabTestsGetPaginatedRequestOrderKey]
-
-        order_direction : typing.Optional[LabTestsGetPaginatedRequestOrderDirection]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[LabTestResourcesResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "v3/lab_test",
-            method="GET",
-            params={
-                "lab_test_limit": lab_test_limit,
-                "next_cursor": next_cursor,
-                "generation_method": generation_method,
-                "lab_slug": lab_slug,
-                "collection_method": collection_method,
-                "status": status,
-                "marker_ids": marker_ids,
-                "provider_ids": provider_ids,
-                "name": name,
-                "order_key": order_key,
-                "order_direction": order_direction,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LabTestResourcesResponse,
-                    parse_obj_as(
-                        type_=LabTestResourcesResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    @contextlib.contextmanager
-    def get_lab_test_collection_instruction_pdf(
-        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Iterator[HttpResponse[typing.Iterator[bytes]]]:
-        """
-        Parameters
-        ----------
-        lab_test_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
-
-        Returns
-        -------
-        typing.Iterator[HttpResponse[typing.Iterator[bytes]]]
-            PDF with collection instructions
-        """
-        with self._client_wrapper.httpx_client.stream(
-            f"v3/lab_test/{jsonable_encoder(lab_test_id)}/collection_instruction_pdf",
-            method="GET",
-            request_options=request_options,
-        ) as _response:
-
-            def stream() -> HttpResponse[typing.Iterator[bytes]]:
-                try:
-                    if 200 <= _response.status_code < 300:
-                        _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
-                        return HttpResponse(
-                            response=_response, data=(_chunk for _chunk in _response.iter_bytes(chunk_size=_chunk_size))
-                        )
-                    _response.read()
-                    if _response.status_code == 422:
-                        raise UnprocessableEntityError(
-                            headers=dict(_response.headers),
-                            body=typing.cast(
-                                HttpValidationError,
-                                parse_obj_as(
-                                    type_=HttpValidationError,  # type: ignore
-                                    object_=_response.json(),
-                                ),
-                            ),
-                        )
-                    _response_json = _response.json()
-                except JSONDecodeError:
-                    raise ApiError(
-                        status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
-                    )
-                raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-            yield stream()
 
 
 class AsyncRawLabTestsClient:
@@ -2870,7 +3001,11 @@ class AsyncRawLabTestsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_by_id(
-        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        lab_test_id: str,
+        *,
+        lab_account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ClientFacingLabTest]:
         """
         GET all the lab tests the team has access to.
@@ -2878,6 +3013,9 @@ class AsyncRawLabTestsClient:
         Parameters
         ----------
         lab_test_id : str
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2890,6 +3028,9 @@ class AsyncRawLabTestsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"v3/lab_tests/{jsonable_encoder(lab_test_id)}",
             method="GET",
+            params={
+                "lab_account_id": lab_account_id,
+            },
             request_options=request_options,
         )
         try:
@@ -2988,6 +3129,7 @@ class AsyncRawLabTestsClient:
         lab_id: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         name: typing.Optional[str] = None,
         a_la_carte_enabled: typing.Optional[bool] = None,
+        lab_account_id: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -3004,6 +3146,9 @@ class AsyncRawLabTestsClient:
             The name or test code of an individual biomarker or a panel.
 
         a_la_carte_enabled : typing.Optional[bool]
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         page : typing.Optional[int]
 
@@ -3024,6 +3169,7 @@ class AsyncRawLabTestsClient:
                 "lab_id": lab_id,
                 "name": name,
                 "a_la_carte_enabled": a_la_carte_enabled,
+                "lab_account_id": lab_account_id,
                 "page": page,
                 "size": size,
             },
@@ -3124,6 +3270,7 @@ class AsyncRawLabTestsClient:
         self,
         lab_test_id: str,
         *,
+        lab_account_id: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -3132,6 +3279,9 @@ class AsyncRawLabTestsClient:
         Parameters
         ----------
         lab_test_id : str
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         page : typing.Optional[int]
 
@@ -3149,6 +3299,7 @@ class AsyncRawLabTestsClient:
             f"v3/lab_tests/{jsonable_encoder(lab_test_id)}/markers",
             method="GET",
             params={
+                "lab_account_id": lab_account_id,
                 "page": page,
                 "size": size,
             },
@@ -3181,7 +3332,12 @@ class AsyncRawLabTestsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_markers_by_lab_and_provider_id(
-        self, provider_id: str, lab_id: int, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        provider_id: str,
+        lab_id: int,
+        *,
+        lab_account_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ClientFacingMarker]:
         """
         GET a specific marker for the given lab and provider_id
@@ -3191,6 +3347,9 @@ class AsyncRawLabTestsClient:
         provider_id : str
 
         lab_id : int
+
+        lab_account_id : typing.Optional[str]
+            The lab account ID. This lab account is used to determine the availability of markers and lab tests.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3203,6 +3362,9 @@ class AsyncRawLabTestsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"v3/lab_tests/{jsonable_encoder(lab_id)}/markers/{jsonable_encoder(provider_id)}",
             method="GET",
+            params={
+                "lab_account_id": lab_account_id,
+            },
             request_options=request_options,
         )
         try:
@@ -3262,6 +3424,305 @@ class AsyncRawLabTestsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_paginated(
+        self,
+        *,
+        lab_test_limit: typing.Optional[int] = None,
+        next_cursor: typing.Optional[str] = None,
+        generation_method: typing.Optional[LabTestGenerationMethodFilter] = None,
+        lab_slug: typing.Optional[str] = None,
+        collection_method: typing.Optional[LabTestCollectionMethod] = None,
+        status: typing.Optional[LabTestStatus] = None,
+        marker_ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
+        provider_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        name: typing.Optional[str] = None,
+        order_key: typing.Optional[LabTestsGetPaginatedRequestOrderKey] = None,
+        order_direction: typing.Optional[LabTestsGetPaginatedRequestOrderDirection] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[LabTestResourcesResponse]:
+        """
+        GET lab tests the team has access to as a paginated list.
+
+        Parameters
+        ----------
+        lab_test_limit : typing.Optional[int]
+
+        next_cursor : typing.Optional[str]
+
+        generation_method : typing.Optional[LabTestGenerationMethodFilter]
+            Filter on whether auto-generated lab tests created by Vital, manually created lab tests, or all lab tests should be returned.
+
+        lab_slug : typing.Optional[str]
+            Filter by the slug of the lab for these lab tests.
+
+        collection_method : typing.Optional[LabTestCollectionMethod]
+            Filter by the collection method for these lab tests.
+
+        status : typing.Optional[LabTestStatus]
+            Filter by the status of these lab tests.
+
+        marker_ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Filter to only include lab tests containing these marker IDs.
+
+        provider_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter to only include lab tests containing these provider IDs.
+
+        name : typing.Optional[str]
+            Filter by the name of the lab test (a case-insensitive substring search).
+
+        order_key : typing.Optional[LabTestsGetPaginatedRequestOrderKey]
+
+        order_direction : typing.Optional[LabTestsGetPaginatedRequestOrderDirection]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[LabTestResourcesResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "v3/lab_test",
+            method="GET",
+            params={
+                "lab_test_limit": lab_test_limit,
+                "next_cursor": next_cursor,
+                "generation_method": generation_method,
+                "lab_slug": lab_slug,
+                "collection_method": collection_method,
+                "status": status,
+                "marker_ids": marker_ids,
+                "provider_ids": provider_ids,
+                "name": name,
+                "order_key": order_key,
+                "order_direction": order_direction,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    LabTestResourcesResponse,
+                    parse_obj_as(
+                        type_=LabTestResourcesResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    @contextlib.asynccontextmanager
+    async def get_lab_test_collection_instruction_pdf(
+        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]:
+        """
+        Parameters
+        ----------
+        lab_test_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]
+            PDF with collection instructions
+        """
+        async with self._client_wrapper.httpx_client.stream(
+            f"v3/lab_test/{jsonable_encoder(lab_test_id)}/collection_instruction_pdf",
+            method="GET",
+            request_options=request_options,
+        ) as _response:
+
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+                try:
+                    if 200 <= _response.status_code < 300:
+                        _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
+                        return AsyncHttpResponse(
+                            response=_response,
+                            data=(_chunk async for _chunk in _response.aiter_bytes(chunk_size=_chunk_size)),
+                        )
+                    await _response.aread()
+                    if _response.status_code == 422:
+                        raise UnprocessableEntityError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                HttpValidationError,
+                                parse_obj_as(
+                                    type_=HttpValidationError,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
+                    _response_json = _response.json()
+                except JSONDecodeError:
+                    raise ApiError(
+                        status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+                    )
+                raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+            yield await _stream()
+
+    async def get_orders(
+        self,
+        *,
+        search_input: typing.Optional[str] = None,
+        start_date: typing.Optional[dt.datetime] = None,
+        end_date: typing.Optional[dt.datetime] = None,
+        updated_start_date: typing.Optional[dt.datetime] = None,
+        updated_end_date: typing.Optional[dt.datetime] = None,
+        status: typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]] = None,
+        order_key: typing.Optional[LabTestsGetOrdersRequestOrderKey] = None,
+        order_direction: typing.Optional[LabTestsGetOrdersRequestOrderDirection] = None,
+        order_type: typing.Optional[
+            typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]
+        ] = None,
+        is_critical: typing.Optional[bool] = None,
+        interpretation: typing.Optional[Interpretation] = None,
+        order_activation_types: typing.Optional[
+            typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]
+        ] = None,
+        user_id: typing.Optional[str] = None,
+        patient_name: typing.Optional[str] = None,
+        shipping_recipient_name: typing.Optional[str] = None,
+        order_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        page: typing.Optional[int] = None,
+        size: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[GetOrdersResponse]:
+        """
+        GET many orders with filters.
+
+        Parameters
+        ----------
+        search_input : typing.Optional[str]
+            Search by order id, user id, patient name, shipping dob, or shipping recipient name.
+
+        start_date : typing.Optional[dt.datetime]
+            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        end_date : typing.Optional[dt.datetime]
+            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 23:59:59
+
+        updated_start_date : typing.Optional[dt.datetime]
+            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        updated_end_date : typing.Optional[dt.datetime]
+            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
+
+        status : typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]]
+            Filter by low level status.
+
+        order_key : typing.Optional[LabTestsGetOrdersRequestOrderKey]
+            Order key to sort by.
+
+        order_direction : typing.Optional[LabTestsGetOrdersRequestOrderDirection]
+            Order direction to sort by.
+
+        order_type : typing.Optional[typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]]
+            Filter by method used to perform the lab test.
+
+        is_critical : typing.Optional[bool]
+            Filter by critical order status.
+
+        interpretation : typing.Optional[Interpretation]
+            Filter by result interpretation of the lab test.
+
+        order_activation_types : typing.Optional[typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]]
+            Filter by activation type.
+
+        user_id : typing.Optional[str]
+            Filter by user ID.
+
+        patient_name : typing.Optional[str]
+            Filter by patient name.
+
+        shipping_recipient_name : typing.Optional[str]
+            Filter by shipping recipient name.
+
+        order_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter by order ids.
+
+        page : typing.Optional[int]
+
+        size : typing.Optional[int]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[GetOrdersResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "v3/orders",
+            method="GET",
+            params={
+                "search_input": search_input,
+                "start_date": serialize_datetime(start_date) if start_date is not None else None,
+                "end_date": serialize_datetime(end_date) if end_date is not None else None,
+                "updated_start_date": serialize_datetime(updated_start_date)
+                if updated_start_date is not None
+                else None,
+                "updated_end_date": serialize_datetime(updated_end_date) if updated_end_date is not None else None,
+                "status": status,
+                "order_key": order_key,
+                "order_direction": order_direction,
+                "order_type": order_type,
+                "is_critical": is_critical,
+                "interpretation": interpretation,
+                "order_activation_types": order_activation_types,
+                "user_id": user_id,
+                "patient_name": patient_name,
+                "shipping_recipient_name": shipping_recipient_name,
+                "order_ids": order_ids,
+                "page": page,
+                "size": size,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    GetOrdersResponse,
+                    parse_obj_as(
+                        type_=GetOrdersResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        parse_obj_as(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -3682,6 +4143,7 @@ class AsyncRawLabTestsClient:
         radius: typing.Optional[AllowedRadius] = None,
         lab: typing.Optional[ClientFacingLabs] = None,
         labs: typing.Optional[typing.Union[ClientFacingLabs, typing.Sequence[ClientFacingLabs]]] = None,
+        lab_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AreaInfo]:
         """
@@ -3705,6 +4167,9 @@ class AsyncRawLabTestsClient:
         labs : typing.Optional[typing.Union[ClientFacingLabs, typing.Sequence[ClientFacingLabs]]]
             List of labs to check for PSCs
 
+        lab_account_id : typing.Optional[str]
+            Lab Account ID to use for availability checks
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -3721,6 +4186,7 @@ class AsyncRawLabTestsClient:
                 "radius": radius,
                 "lab": lab,
                 "labs": labs,
+                "lab_account_id": lab_account_id,
             },
             request_options=request_options,
         )
@@ -3759,6 +4225,7 @@ class AsyncRawLabTestsClient:
         capabilities: typing.Optional[
             typing.Union[LabLocationCapability, typing.Sequence[LabLocationCapability]]
         ] = None,
+        lab_account_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PscInfo]:
         """
@@ -3771,10 +4238,13 @@ class AsyncRawLabTestsClient:
             Lab ID to check for PSCs
 
         radius : typing.Optional[AllowedRadius]
-            Radius in which to search in miles
+            Radius in which to search in miles. Note that we limit to 30 PSCs.
 
         capabilities : typing.Optional[typing.Union[LabLocationCapability, typing.Sequence[LabLocationCapability]]]
             Filter for only locations with certain capabilities
+
+        lab_account_id : typing.Optional[str]
+            Lab Account ID to use for availability checks
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3792,6 +4262,7 @@ class AsyncRawLabTestsClient:
                 "lab_id": lab_id,
                 "radius": radius,
                 "capabilities": capabilities,
+                "lab_account_id": lab_account_id,
             },
             request_options=request_options,
         )
@@ -3911,7 +4382,7 @@ class AsyncRawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -3938,7 +4409,7 @@ class AsyncRawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield await stream()
+            yield await _stream()
 
     async def get_result_metadata(
         self, order_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -4079,7 +4550,7 @@ class AsyncRawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -4106,7 +4577,7 @@ class AsyncRawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield await stream()
+            yield await _stream()
 
     async def get_psc_appointment_availability(
         self,
@@ -4162,6 +4633,17 @@ class AsyncRawLabTestsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        NotFoundErrorBody,
+                        parse_obj_as(
+                            type_=NotFoundErrorBody,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
@@ -4471,7 +4953,7 @@ class AsyncRawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -4498,7 +4980,7 @@ class AsyncRawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield await stream()
+            yield await _stream()
 
     @contextlib.asynccontextmanager
     async def get_order_requistion_pdf(
@@ -4526,7 +5008,7 @@ class AsyncRawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -4553,7 +5035,7 @@ class AsyncRawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield await stream()
+            yield await _stream()
 
     @contextlib.asynccontextmanager
     async def get_order_abn_pdf(
@@ -4581,7 +5063,7 @@ class AsyncRawLabTestsClient:
             request_options=request_options,
         ) as _response:
 
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
+            async def _stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
                 try:
                     if 200 <= _response.status_code < 300:
                         _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
@@ -4608,7 +5090,7 @@ class AsyncRawLabTestsClient:
                     )
                 raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-            yield await stream()
+            yield await _stream()
 
     async def get_order(
         self, order_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -4666,6 +5148,8 @@ class AsyncRawLabTestsClient:
         user_id: str,
         patient_details: PatientDetailsWithValidation,
         patient_address: PatientAddressWithValidation,
+        idempotency_key: typing.Optional[str] = None,
+        idempotency_error: typing.Optional[typing.Literal["no-cache"]] = None,
         lab_test_id: typing.Optional[str] = OMIT,
         order_set: typing.Optional[OrderSetRequest] = OMIT,
         collection_method: typing.Optional[LabTestCollectionMethod] = OMIT,
@@ -4678,6 +5162,8 @@ class AsyncRawLabTestsClient:
         activate_by: typing.Optional[str] = OMIT,
         aoe_answers: typing.Optional[typing.Sequence[AoEAnswer]] = OMIT,
         passthrough: typing.Optional[str] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
+        creator_member_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PostOrderResponse]:
         """
@@ -4688,6 +5174,10 @@ class AsyncRawLabTestsClient:
         patient_details : PatientDetailsWithValidation
 
         patient_address : PatientAddressWithValidation
+
+        idempotency_key : typing.Optional[str]
+
+        idempotency_error : typing.Optional[typing.Literal["no-cache"]]
 
         lab_test_id : typing.Optional[str]
 
@@ -4715,6 +5205,10 @@ class AsyncRawLabTestsClient:
 
         passthrough : typing.Optional[str]
 
+        lab_account_id : typing.Optional[str]
+
+        creator_member_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -4740,11 +5234,15 @@ class AsyncRawLabTestsClient:
                 "activate_by": activate_by,
                 "aoe_answers": aoe_answers,
                 "passthrough": passthrough,
+                "lab_account_id": lab_account_id,
+                "creator_member_id": creator_member_id,
                 "patient_details": patient_details,
                 "patient_address": patient_address,
             },
             headers={
                 "content-type": "application/json",
+                "X-Idempotency-Key": str(idempotency_key) if idempotency_key is not None else None,
+                "X-Idempotency-Error": str(idempotency_error) if idempotency_error is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -4786,6 +5284,7 @@ class AsyncRawLabTestsClient:
         patient_address: PatientAddress,
         sample_id: str,
         physician: typing.Optional[PhysicianCreateRequest] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PostOrderResponse]:
         """
@@ -4807,6 +5306,8 @@ class AsyncRawLabTestsClient:
 
         physician : typing.Optional[PhysicianCreateRequest]
 
+        lab_account_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -4827,6 +5328,7 @@ class AsyncRawLabTestsClient:
                 "patient_details": patient_details,
                 "patient_address": patient_address,
                 "sample_id": sample_id,
+                "lab_account_id": lab_account_id,
             },
             headers={
                 "content-type": "application/json",
@@ -4918,7 +5420,7 @@ class AsyncRawLabTestsClient:
         delay: typing.Optional[int] = None,
         request: typing.Optional[SimulationFlags] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[typing.Any]:
         """
         Get available test kits.
 
@@ -4937,7 +5439,7 @@ class AsyncRawLabTestsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[typing.Any]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -4955,11 +5457,13 @@ class AsyncRawLabTestsClient:
             omit=OMIT,
         )
         try:
+            if _response is None or not _response.text.strip():
+                return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -5030,131 +5534,40 @@ class AsyncRawLabTestsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def get_orders(
-        self,
-        *,
-        search_input: typing.Optional[str] = None,
-        start_date: typing.Optional[dt.datetime] = None,
-        end_date: typing.Optional[dt.datetime] = None,
-        updated_start_date: typing.Optional[dt.datetime] = None,
-        updated_end_date: typing.Optional[dt.datetime] = None,
-        status: typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]] = None,
-        order_key: typing.Optional[LabTestsGetOrdersRequestOrderKey] = None,
-        order_direction: typing.Optional[LabTestsGetOrdersRequestOrderDirection] = None,
-        order_type: typing.Optional[
-            typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]
-        ] = None,
-        is_critical: typing.Optional[bool] = None,
-        interpretation: typing.Optional[Interpretation] = None,
-        order_activation_types: typing.Optional[
-            typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]
-        ] = None,
-        user_id: typing.Optional[str] = None,
-        patient_name: typing.Optional[str] = None,
-        shipping_recipient_name: typing.Optional[str] = None,
-        order_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        page: typing.Optional[int] = None,
-        size: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[GetOrdersResponse]:
+    async def validate_icd_codes(
+        self, *, codes: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ValidateIcdCodesResponse]:
         """
-        GET many orders with filters.
-
         Parameters
         ----------
-        search_input : typing.Optional[str]
-            Search by order id, user id, patient name, shipping dob, or shipping recipient name.
-
-        start_date : typing.Optional[dt.datetime]
-            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        end_date : typing.Optional[dt.datetime]
-            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 23:59:59
-
-        updated_start_date : typing.Optional[dt.datetime]
-            Date from in YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        updated_end_date : typing.Optional[dt.datetime]
-            Date to YYYY-MM-DD or ISO formatted date time. If a date is provided without a time, the time will be set to 00:00:00
-
-        status : typing.Optional[typing.Union[OrderLowLevelStatus, typing.Sequence[OrderLowLevelStatus]]]
-            Filter by low level status.
-
-        order_key : typing.Optional[LabTestsGetOrdersRequestOrderKey]
-            Order key to sort by.
-
-        order_direction : typing.Optional[LabTestsGetOrdersRequestOrderDirection]
-            Order direction to sort by.
-
-        order_type : typing.Optional[typing.Union[LabTestCollectionMethod, typing.Sequence[LabTestCollectionMethod]]]
-            Filter by method used to perform the lab test.
-
-        is_critical : typing.Optional[bool]
-            Filter by critical order status.
-
-        interpretation : typing.Optional[Interpretation]
-            Filter by result interpretation of the lab test.
-
-        order_activation_types : typing.Optional[typing.Union[OrderActivationType, typing.Sequence[OrderActivationType]]]
-            Filter by activation type.
-
-        user_id : typing.Optional[str]
-            Filter by user ID.
-
-        patient_name : typing.Optional[str]
-            Filter by patient name.
-
-        shipping_recipient_name : typing.Optional[str]
-            Filter by shipping recipient name.
-
-        order_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter by order ids.
-
-        page : typing.Optional[int]
-
-        size : typing.Optional[int]
+        codes : typing.Sequence[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[GetOrdersResponse]
+        AsyncHttpResponse[ValidateIcdCodesResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
-            "v3/orders",
-            method="GET",
-            params={
-                "search_input": search_input,
-                "start_date": serialize_datetime(start_date) if start_date is not None else None,
-                "end_date": serialize_datetime(end_date) if end_date is not None else None,
-                "updated_start_date": serialize_datetime(updated_start_date)
-                if updated_start_date is not None
-                else None,
-                "updated_end_date": serialize_datetime(updated_end_date) if updated_end_date is not None else None,
-                "status": status,
-                "order_key": order_key,
-                "order_direction": order_direction,
-                "order_type": order_type,
-                "is_critical": is_critical,
-                "interpretation": interpretation,
-                "order_activation_types": order_activation_types,
-                "user_id": user_id,
-                "patient_name": patient_name,
-                "shipping_recipient_name": shipping_recipient_name,
-                "order_ids": order_ids,
-                "page": page,
-                "size": size,
+            "v3/insurance/validate_icd_codes",
+            method="POST",
+            json={
+                "codes": codes,
+            },
+            headers={
+                "content-type": "application/json",
             },
             request_options=request_options,
+            omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    GetOrdersResponse,
+                    ValidateIcdCodesResponse,
                     parse_obj_as(
-                        type_=GetOrdersResponse,  # type: ignore
+                        type_=ValidateIcdCodesResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -5174,157 +5587,3 @@ class AsyncRawLabTestsClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def get_paginated(
-        self,
-        *,
-        lab_test_limit: typing.Optional[int] = None,
-        next_cursor: typing.Optional[str] = None,
-        generation_method: typing.Optional[LabTestGenerationMethodFilter] = None,
-        lab_slug: typing.Optional[str] = None,
-        collection_method: typing.Optional[LabTestCollectionMethod] = None,
-        status: typing.Optional[LabTestStatus] = None,
-        marker_ids: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
-        provider_ids: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
-        name: typing.Optional[str] = None,
-        order_key: typing.Optional[LabTestsGetPaginatedRequestOrderKey] = None,
-        order_direction: typing.Optional[LabTestsGetPaginatedRequestOrderDirection] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[LabTestResourcesResponse]:
-        """
-        GET lab tests the team has access to as a paginated list.
-
-        Parameters
-        ----------
-        lab_test_limit : typing.Optional[int]
-
-        next_cursor : typing.Optional[str]
-
-        generation_method : typing.Optional[LabTestGenerationMethodFilter]
-            Filter on whether auto-generated lab tests created by Vital, manually created lab tests, or all lab tests should be returned.
-
-        lab_slug : typing.Optional[str]
-            Filter by the slug of the lab for these lab tests.
-
-        collection_method : typing.Optional[LabTestCollectionMethod]
-            Filter by the collection method for these lab tests.
-
-        status : typing.Optional[LabTestStatus]
-            Filter by the status of these lab tests.
-
-        marker_ids : typing.Optional[typing.Union[int, typing.Sequence[int]]]
-            Filter to only include lab tests containing these marker IDs.
-
-        provider_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter to only include lab tests containing these provider IDs.
-
-        name : typing.Optional[str]
-            Filter by the name of the lab test (a case-insensitive substring search).
-
-        order_key : typing.Optional[LabTestsGetPaginatedRequestOrderKey]
-
-        order_direction : typing.Optional[LabTestsGetPaginatedRequestOrderDirection]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[LabTestResourcesResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "v3/lab_test",
-            method="GET",
-            params={
-                "lab_test_limit": lab_test_limit,
-                "next_cursor": next_cursor,
-                "generation_method": generation_method,
-                "lab_slug": lab_slug,
-                "collection_method": collection_method,
-                "status": status,
-                "marker_ids": marker_ids,
-                "provider_ids": provider_ids,
-                "name": name,
-                "order_key": order_key,
-                "order_direction": order_direction,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    LabTestResourcesResponse,
-                    parse_obj_as(
-                        type_=LabTestResourcesResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        HttpValidationError,
-                        parse_obj_as(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    @contextlib.asynccontextmanager
-    async def get_lab_test_collection_instruction_pdf(
-        self, lab_test_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]:
-        """
-        Parameters
-        ----------
-        lab_test_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
-
-        Returns
-        -------
-        typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]
-            PDF with collection instructions
-        """
-        async with self._client_wrapper.httpx_client.stream(
-            f"v3/lab_test/{jsonable_encoder(lab_test_id)}/collection_instruction_pdf",
-            method="GET",
-            request_options=request_options,
-        ) as _response:
-
-            async def stream() -> AsyncHttpResponse[typing.AsyncIterator[bytes]]:
-                try:
-                    if 200 <= _response.status_code < 300:
-                        _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
-                        return AsyncHttpResponse(
-                            response=_response,
-                            data=(_chunk async for _chunk in _response.aiter_bytes(chunk_size=_chunk_size)),
-                        )
-                    await _response.aread()
-                    if _response.status_code == 422:
-                        raise UnprocessableEntityError(
-                            headers=dict(_response.headers),
-                            body=typing.cast(
-                                HttpValidationError,
-                                parse_obj_as(
-                                    type_=HttpValidationError,  # type: ignore
-                                    object_=_response.json(),
-                                ),
-                            ),
-                        )
-                    _response_json = _response.json()
-                except JSONDecodeError:
-                    raise ApiError(
-                        status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
-                    )
-                raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-            yield await stream()

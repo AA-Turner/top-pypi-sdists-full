@@ -1,6 +1,7 @@
 from uuid import UUID
 from typing import Generic, Optional, TypeVar
 
+from vellum.workflows.expressions.accessor import AccessorExpression
 from vellum.workflows.nodes.core.templating_node import TemplatingNode
 from vellum.workflows.types.core import JsonObject
 from vellum.workflows.utils.vellum_variables import primitive_type_to_vellum_variable_type
@@ -8,6 +9,7 @@ from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
 from vellum_ee.workflows.display.nodes.utils import raise_if_descriptor
 from vellum_ee.workflows.display.nodes.vellum.utils import create_node_input
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
+from vellum_ee.workflows.display.utils.exceptions import UnsupportedSerializationException
 
 _TemplatingNodeType = TypeVar("_TemplatingNodeType", bound=TemplatingNode)
 
@@ -33,6 +35,21 @@ class BaseTemplatingNodeDisplay(BaseNodeDisplay[_TemplatingNodeType], Generic[_T
             input_id=template_input_id,
         )
         template_node_inputs = raise_if_descriptor(node.inputs)
+
+        # Validate that no inputs use accessor expressions, which are not supported for Templating Nodes
+        for variable_name, variable_value in template_node_inputs.items():
+            if variable_name == TEMPLATE_INPUT_NAME:
+                continue
+            if isinstance(variable_value, AccessorExpression):
+                display_context.add_validation_error(
+                    UnsupportedSerializationException(
+                        f"Accessor expressions are not supported for Templating Node inputs. "
+                        f"Instead of using '{variable_value.name}' for input '{variable_name}', "
+                        f"pass the full JSON output to the Templating Node and access the key "
+                        f"within the template itself, e.g. '{{{{ {variable_name}.key }}}}'."
+                    )
+                )
+
         template_inputs = [
             create_node_input(
                 node_id=node_id,
@@ -50,7 +67,7 @@ class BaseTemplatingNodeDisplay(BaseNodeDisplay[_TemplatingNodeType], Generic[_T
         # Misc type ignore is due to `node.Outputs` being generic
         # https://app.shortcut.com/vellum/story/4784
         output_descriptor = node.Outputs.result  # type: ignore [misc]
-        output_display = display_context.global_node_output_displays[output_descriptor]
+        output_display = self.get_node_output_display(output_descriptor)
         inferred_output_type = primitive_type_to_vellum_variable_type(output_descriptor)
 
         return {
@@ -66,5 +83,5 @@ class BaseTemplatingNodeDisplay(BaseNodeDisplay[_TemplatingNodeType], Generic[_T
                 "template_node_input_id": str(template_node_input.id),
                 "output_type": inferred_output_type,
             },
-            **self.serialize_generic_fields(display_context),
+            **self.serialize_generic_fields(display_context, exclude=["outputs"]),
         }

@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -14,37 +14,6 @@ import QuantConnect.Lean.Engine.Results
 import QuantConnect.Securities
 import System
 import System.Collections.Generic
-
-
-class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory, System.IDisposable):
-    """Provides an implementation of ISubscriptionEnumeratorFactory that used the SubscriptionDataReader"""
-
-    def __init__(self, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, cache_provider: QuantConnect.Interfaces.IDataCacheProvider, algorithm: QuantConnect.Interfaces.IAlgorithm, enable_price_scaling: bool = True) -> None:
-        """
-        Initializes a new instance of the SubscriptionDataReaderSubscriptionEnumeratorFactory class
-        
-        :param result_handler: The result handler for the algorithm
-        :param map_file_provider: The map file provider
-        :param factor_file_provider: The factor file provider
-        :param cache_provider: Provider used to get data when it is not present on disk
-        :param algorithm: The algorithm instance to use
-        :param enable_price_scaling: Applies price factor
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates a SubscriptionDataReader to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
 
 
 class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
@@ -101,7 +70,8 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
         """
         Gets the ISubscriptionDataSourceReader for the specified source
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -109,17 +79,16 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
 class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """
     Provides an implementation of ISubscriptionEnumeratorFactory to emit
-    ticks based on UserDefinedUniverse.GetTriggerTimes, allowing universe
+    ticks based on UserDefinedUniverse.get_trigger_times, allowing universe
     selection to fire at planned times.
     """
 
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse, market_hours_database: QuantConnect.Securities.MarketHoursDatabase, time_provider: QuantConnect.ITimeProvider) -> None:
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
         """
         Initializes a new instance of the TimeTriggeredUniverseSubscriptionEnumeratorFactory class
         
         :param universe: The user defined universe
         :param market_hours_database: The market hours database
-        :param time_provider: The time provider
         """
         ...
 
@@ -131,6 +100,37 @@ class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantCon
         :param data_provider: Provider used to get data when it is not present on disk
         :returns: An enumerator reading the subscription request.
         """
+        ...
+
+
+class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory, System.IDisposable):
+    """Provides an implementation of ISubscriptionEnumeratorFactory that used the SubscriptionDataReader"""
+
+    def __init__(self, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, cache_provider: QuantConnect.Interfaces.IDataCacheProvider, algorithm: QuantConnect.Interfaces.IAlgorithm, enable_price_scaling: bool = True) -> None:
+        """
+        Initializes a new instance of the SubscriptionDataReaderSubscriptionEnumeratorFactory class
+        
+        :param result_handler: The result handler for the algorithm
+        :param map_file_provider: The map file provider
+        :param factor_file_provider: The factor file provider
+        :param cache_provider: Provider used to get data when it is not present on disk
+        :param algorithm: The algorithm instance to use
+        :param enable_price_scaling: Applies price factor
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates a SubscriptionDataReader to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
 
@@ -153,7 +153,8 @@ class CorporateEventEnumeratorFactory(System.Object):
         :param tradable_day_notifier: Tradable dates provider
         :param map_file_provider: The MapFile provider to use
         :param start_time: Start date for the data request
-        :param end_time: End date for the data request. This will be used for DataNormalizationMode.ScaledRaw data normalization mode to adjust prices to the given end date
+        :param end_time: End date for the data request.
+        This will be used for DataNormalizationMode.SCALED_RAW data normalization mode to adjust prices to the given end date
         :param enable_price_scaling: Applies price factor
         :returns: The new auxiliary data enumerator.
         """

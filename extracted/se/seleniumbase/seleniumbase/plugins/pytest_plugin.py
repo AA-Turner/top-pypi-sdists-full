@@ -7,6 +7,7 @@ import time
 from contextlib import suppress
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
+from seleniumbase.core import detect_b_ver
 from seleniumbase.core import log_helper
 from seleniumbase.fixtures import constants
 from seleniumbase.fixtures import shared_utils
@@ -28,6 +29,11 @@ def pytest_addoption(parser):
     --edge  (Shortcut for "--browser=edge".)
     --firefox  (Shortcut for "--browser=firefox".)
     --safari  (Shortcut for "--browser=safari".)
+    --opera  (Shortcut for "--browser=opera".)
+    --brave  (Shortcut for "--browser=brave".)
+    --comet  (Shortcut for "--browser=comet".)
+    --atlas  (Shortcut for "--browser=atlas".)
+    --use-chromium  (Shortcut for using base `Chromium`)
     --cft  (Shortcut for using `Chrome for Testing`)
     --chs  (Shortcut for using `Chrome-Headless-Shell`)
     --settings-file=FILE  (Override default SeleniumBase settings.)
@@ -185,6 +191,41 @@ def pytest_addoption(parser):
         dest="use_safari",
         default=False,
         help="""Shortcut for --browser=safari""",
+    )
+    parser.addoption(
+        "--opera",
+        action="store_true",
+        dest="use_opera",
+        default=False,
+        help="""Shortcut for --browser=opera""",
+    )
+    parser.addoption(
+        "--brave",
+        action="store_true",
+        dest="use_brave",
+        default=False,
+        help="""Shortcut for --browser=brave""",
+    )
+    parser.addoption(
+        "--comet",
+        action="store_true",
+        dest="use_comet",
+        default=False,
+        help="""Shortcut for --browser=comet""",
+    )
+    parser.addoption(
+        "--atlas",
+        action="store_true",
+        dest="use_atlas",
+        default=False,
+        help="""Shortcut for --browser=atlas""",
+    )
+    parser.addoption(
+        "--use-chromium",
+        action="store_true",
+        dest="use_chromium",
+        default=False,
+        help="""Shortcut for using base `Chromium`""",
     )
     parser.addoption(
         "--cft",
@@ -592,7 +633,7 @@ def pytest_addoption(parser):
         help="""Designates the three device metrics of the mobile
                 emulator: CSS Width, CSS Height, and Pixel-Ratio.
                 Format: A comma-separated string with the 3 values.
-                Examples: "375,734,5" or "411,731,3" or "390,715,3"
+                Examples: "375,734,5" or "412,732,3" or "390,715,3"
                 Default: None. (Will use default values if None)""",
     )
     parser.addoption(
@@ -1388,8 +1429,14 @@ def pytest_addoption(parser):
 
     arg_join = " ".join(sys_argv)
     sb_config._browser_shortcut = None
+    sb_config._cdp_browser = None
+    sb_config._cdp_bin_loc = None
     sb_config._vd_list = []
-
+    # Check if binary-location in options
+    bin_loc_in_options = False
+    for arg in sys_argv:
+        if arg in ["--binary-location", "--binary_location", "--bl"]:
+            bin_loc_in_options = True
     # SeleniumBase does not support pytest-timeout due to hanging browsers.
     for arg in sys_argv:
         if "--timeout=" in arg:
@@ -1465,6 +1512,46 @@ def pytest_addoption(parser):
         browser_changes += 1
         browser_set = "remote"
         browser_list.append("--browser=remote")
+    if "--browser=opera" in sys_argv or "--browser opera" in sys_argv:
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("opera")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_set = "opera"
+                sb_config._browser_shortcut = "opera"
+                sb_config._cdp_browser = "opera"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--browser=opera")
+    if "--browser=brave" in sys_argv or "--browser brave" in sys_argv:
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("brave")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_set = "brave"
+                sb_config._browser_shortcut = "brave"
+                sb_config._cdp_browser = "brave"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--browser=brave")
+    if "--browser=comet" in sys_argv or "--browser comet" in sys_argv:
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("comet")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_set = "comet"
+                sb_config._browser_shortcut = "comet"
+                sb_config._cdp_browser = "comet"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--browser=comet")
+    if "--browser=atlas" in sys_argv or "--browser atlas" in sys_argv:
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("atlas")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_set = "atlas"
+                sb_config._browser_shortcut = "atlas"
+                sb_config._cdp_browser = "atlas"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--browser=atlas")
     browser_text = browser_set
     if "--chrome" in sys_argv and not browser_set == "chrome":
         browser_changes += 1
@@ -1491,6 +1578,46 @@ def pytest_addoption(parser):
         browser_text = "safari"
         sb_config._browser_shortcut = "safari"
         browser_list.append("--safari")
+    if "--opera" in sys_argv and not browser_set == "opera":
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("opera")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_text = "opera"
+                sb_config._browser_shortcut = "opera"
+                sb_config._cdp_browser = "opera"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--opera")
+    if "--brave" in sys_argv and not browser_set == "brave":
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("brave")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_text = "brave"
+                sb_config._browser_shortcut = "brave"
+                sb_config._cdp_browser = "brave"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--brave")
+    if "--comet" in sys_argv and not browser_set == "comet":
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("comet")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_text = "comet"
+                sb_config._browser_shortcut = "comet"
+                sb_config._cdp_browser = "comet"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--comet")
+    if "--atlas" in sys_argv and not browser_set == "atlas":
+        if not bin_loc_in_options:
+            bin_loc = detect_b_ver.get_binary_location("atlas")
+            if os.path.exists(bin_loc):
+                browser_changes += 1
+                browser_text = "atlas"
+                sb_config._browser_shortcut = "atlas"
+                sb_config._cdp_browser = "atlas"
+                sb_config._cdp_bin_loc = bin_loc
+                browser_list.append("--atlas")
     if browser_changes > 1:
         message = "\n  TOO MANY browser types were entered!"
         message += "\n  There were %s found:\n  >  %s" % (
@@ -1503,10 +1630,12 @@ def pytest_addoption(parser):
     if (
         using_recorder
         and browser_changes == 1
-        and browser_text not in ["chrome", "edge"]
+        and browser_text not in [
+            "chrome", "edge", "opera", "brave", "comet", "atlas", "chromium"
+        ]
     ):
         message = (
-            "\n  Recorder Mode ONLY supports Chrome and Edge!"
+            "\n  Recorder Mode ONLY supports Chromium browsers!"
             '\n  (Your browser choice was: "%s")\n' % browser_list[0]
         )
         raise Exception(message)
@@ -1525,7 +1654,9 @@ def pytest_addoption(parser):
         undetectable = True
     if (
         browser_changes == 1
-        and browser_text not in ["chrome"]
+        and browser_text not in [
+            "chrome", "opera", "brave", "comet", "atlas", "chromium"
+        ]
         and undetectable
     ):
         message = (
@@ -1557,6 +1688,23 @@ def pytest_configure(config):
     sb_config.browser = config.getoption("browser")
     if sb_config._browser_shortcut:
         sb_config.browser = sb_config._browser_shortcut
+    elif sys_argv == ["-c"]:  # Multithreading messes with args
+        if config.getoption("use_opera"):
+            bin_loc = detect_b_ver.get_binary_location("opera")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.browser = "opera"
+        elif config.getoption("use_brave"):
+            bin_loc = detect_b_ver.get_binary_location("brave")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.browser = "brave"
+        elif config.getoption("use_comet"):
+            bin_loc = detect_b_ver.get_binary_location("comet")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.browser = "comet"
+        elif config.getoption("use_atlas"):
+            bin_loc = detect_b_ver.get_binary_location("atlas")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.browser = "atlas"
     sb_config.account = config.getoption("account")
     sb_config.data = config.getoption("data")
     sb_config.var1 = config.getoption("var1")
@@ -1576,7 +1724,11 @@ def pytest_configure(config):
     if sb_config.headless2 and sb_config.browser == "firefox":
         sb_config.headless2 = False  # Only for Chromium browsers
         sb_config.headless = True  # Firefox has regular headless
-    elif sb_config.browser not in ["chrome", "edge"]:
+    elif (
+        sb_config.browser not in [
+            "chrome", "edge", "opera", "brave", "comet", "atlas", "chromium"
+        ]
+    ):
         sb_config.headless2 = False  # Only for Chromium browsers
     sb_config.headed = config.getoption("headed")
     sb_config.xvfb = config.getoption("xvfb")
@@ -1591,7 +1743,40 @@ def pytest_configure(config):
     sb_config.extension_dir = config.getoption("extension_dir")
     sb_config.disable_features = config.getoption("disable_features")
     sb_config.binary_location = config.getoption("binary_location")
-    if config.getoption("use_cft") and not sb_config.binary_location:
+    if getattr(sb_config, "_cdp_bin_loc", None):
+        sb_config.binary_location = sb_config._cdp_bin_loc
+    elif not sb_config.binary_location:
+        if (
+            config.getoption("use_opera")
+            or sb_config._browser_shortcut == "opera"
+        ):
+            bin_loc = detect_b_ver.get_binary_location("opera")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.binary_location = bin_loc
+        elif (
+            config.getoption("use_brave")
+            or sb_config._browser_shortcut == "brave"
+        ):
+            bin_loc = detect_b_ver.get_binary_location("brave")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.binary_location = bin_loc
+        elif (
+            config.getoption("use_comet")
+            or sb_config._browser_shortcut == "comet"
+        ):
+            bin_loc = detect_b_ver.get_binary_location("comet")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.binary_location = bin_loc
+        elif (
+            config.getoption("use_atlas")
+            or sb_config._browser_shortcut == "atlas"
+        ):
+            bin_loc = detect_b_ver.get_binary_location("atlas")
+            if bin_loc and os.path.exists(bin_loc):
+                sb_config.binary_location = bin_loc
+    if config.getoption("use_chromium") and not sb_config.binary_location:
+        sb_config.binary_location = "_chromium_"
+    elif config.getoption("use_cft") and not sb_config.binary_location:
         sb_config.binary_location = "cft"
     elif config.getoption("use_chs") and not sb_config.binary_location:
         sb_config.binary_location = "chs"
@@ -1603,6 +1788,10 @@ def pytest_configure(config):
         sb_config.headless = True
         sb_config.headless1 = False
         sb_config.headless2 = False
+    if sb_config.browser in constants.ChromiumSubs.chromium_subs:
+        if not sb_config.binary_location:
+            sb_config.browser = "chrome"  # Still uses chromedriver
+            sb_config._browser_shortcut = sb_config.browser
     sb_config.driver_version = config.getoption("driver_version")
     sb_config.page_load_strategy = config.getoption("page_load_strategy")
     sb_config.with_testing_base = config.getoption("with_testing_base")
@@ -1747,26 +1936,16 @@ def pytest_configure(config):
         or " -n=" in arg_join
         or " -n" in arg_join
         or "-c" in sys_argv
-        or (
-            "addopts" in config.inicfg.keys()
-            and (
-                "-n=" in config.inicfg["addopts"]
-                or "-n " in config.inicfg["addopts"]
-                or "-n" in config.inicfg["addopts"]
-            )
-        )
+        or "-n=" in config.getini("addopts")
+        or "-n " in config.getini("addopts")
+        or "-n" in config.getini("addopts")
     ):
         sb_config._multithreaded = True
     if (
         "--html" in sys_argv
         or " --html=" in arg_join
-        or (
-            "addopts" in config.inicfg.keys()
-            and (
-                "--html=" in config.inicfg["addopts"]
-                or "--html " in config.inicfg["addopts"]
-            )
-        )
+        or "--html=" in config.getini("addopts")
+        or "--html " in config.getini("addopts")
     ):
         sb_config._using_html_report = True
         sb_config._html_report_name = config.getoption("htmlpath")
@@ -1898,7 +2077,6 @@ def _get_test_ids_(the_item):
 
 
 def _create_dashboard_assets_():
-    import codecs
     from seleniumbase.js_code.live_js import live_js
     from seleniumbase.core.style_sheet import get_pytest_style
 
@@ -1911,24 +2089,24 @@ def _create_dashboard_assets_():
     add_pytest_style_css = True
     if os.path.exists(pytest_style_css):
         existing_pytest_style = None
-        with open(pytest_style_css, "r") as f:
+        with open(pytest_style_css, mode="r") as f:
             existing_pytest_style = f.read()
         if existing_pytest_style == get_pytest_style():
             add_pytest_style_css = False
     if add_pytest_style_css:
-        out_file = codecs.open(pytest_style_css, "w+", encoding="utf-8")
+        out_file = open(pytest_style_css, mode="w+", encoding="utf-8")
         out_file.writelines(get_pytest_style())
         out_file.close()
     live_js_file = os.path.join(assets_folder, "live.js")
     add_live_js_file = True
     if os.path.exists(live_js_file):
         existing_live_js = None
-        with open(live_js_file, "r") as f:
+        with open(live_js_file, mode="r") as f:
             existing_live_js = f.read()
         if existing_live_js == live_js:
             add_live_js_file = False
     if add_live_js_file:
-        out_file = codecs.open(live_js_file, "w+", encoding="utf-8")
+        out_file = open(live_js_file, mode="w+", encoding="utf-8")
         out_file.writelines(live_js)
         out_file.close()
 
@@ -2025,16 +2203,12 @@ def pytest_runtest_teardown(item):
                 self = item._testcase
                 with suppress(Exception):
                     if (
-                        hasattr(self, "driver")
-                        and self.driver
+                        getattr(self, "driver", None)
                         and "--pdb" not in sys_argv
                     ):
                         if not (is_windows or self.driver.service.process):
                             self.driver.quit()
-            elif (
-                hasattr(sb_config, "_sb_pdb_driver")
-                and sb_config._sb_pdb_driver
-            ):
+            elif getattr(sb_config, "_sb_pdb_driver", None):
                 with suppress(Exception):
                     if (
                         not is_windows
@@ -2044,32 +2218,18 @@ def pytest_runtest_teardown(item):
                         sb_config._sb_pdb_driver = None
         with suppress(Exception):
             if (
-                hasattr(self, "_xvfb_display")
-                and self._xvfb_display
+                getattr(self, "_xvfb_display", None)
                 and hasattr(self._xvfb_display, "stop")
-                and (
-                    not hasattr(sb_config, "reuse_session")
-                    or (
-                        hasattr(sb_config, "reuse_session")
-                        and not sb_config.reuse_session
-                    )
-                )
+                and not getattr(sb_config, "reuse_session", None)
             ):
                 self.headless_active = False
                 sb_config.headless_active = False
                 self._xvfb_display.stop()
                 self._xvfb_display = None
             if (
-                hasattr(sb_config, "_virtual_display")
-                and sb_config._virtual_display
+                getattr(sb_config, "_virtual_display", None)
                 and hasattr(sb_config._virtual_display, "stop")
-                and (
-                    not hasattr(sb_config, "reuse_session")
-                    or (
-                        hasattr(sb_config, "reuse_session")
-                        and not sb_config.reuse_session
-                    )
-                )
+                and not getattr(sb_config, "reuse_session", None)
             ):
                 sb_config._virtual_display.stop()
                 sb_config._virtual_display = None
@@ -2168,12 +2328,9 @@ def _perform_pytest_unconfigure_(config):
     else:
         start_time = reporter._session_start.time  # (pytest >= 8.4.0)
     duration = time.time() - start_time
-    if (
-        (hasattr(sb_config, "multi_proxy") and not sb_config.multi_proxy)
-        or not hasattr(sb_config, "multi_proxy")
-    ):
+    if not getattr(sb_config, "multi_proxy", None):
         proxy_helper.remove_proxy_zip_if_present()
-    if hasattr(sb_config, "reuse_session") and sb_config.reuse_session:
+    if getattr(sb_config, "reuse_session", None):
         # Close the shared browser session
         if sb_config.shared_driver:
             try:
@@ -2190,14 +2347,13 @@ def _perform_pytest_unconfigure_(config):
         sb_config.shared_driver = None
         with suppress(Exception):
             if (
-                hasattr(sb_config, "_virtual_display")
-                and sb_config._virtual_display
+                getattr(sb_config, "_virtual_display", None)
                 and hasattr(sb_config._virtual_display, "stop")
             ):
                 sb_config._virtual_display.stop()
                 sb_config._virtual_display = None
                 sb_config.headless_active = False
-            if hasattr(sb_config, "_vd_list") and sb_config._vd_list:
+            if getattr(sb_config, "_vd_list", None):
                 if isinstance(sb_config._vd_list, list):
                     for display in sb_config._vd_list:
                         if display:
@@ -2212,7 +2368,7 @@ def _perform_pytest_unconfigure_(config):
                 shared_utils.make_dir_files_writable("./assets/")
     log_helper.clear_empty_logs()
     # Dashboard post-processing: Disable time-based refresh and stamp complete
-    if not hasattr(sb_config, "dashboard") or not sb_config.dashboard:
+    if not getattr(sb_config, "dashboard", None):
         html_report_path = None
         the_html_r = None
         abs_path = os.path.abspath(".")
@@ -2229,7 +2385,7 @@ def _perform_pytest_unconfigure_(config):
             and html_report_path
             and os.path.exists(html_report_path)
         ):
-            with open(html_report_path, "r", encoding="utf-8") as f:
+            with open(html_report_path, mode="r", encoding="utf-8") as f:
                 the_html_r = f.read()
             assets_chunk = "if (assets.length === 1) {"
             remove_media = "container.classList.remove('media-container')"
@@ -2275,18 +2431,18 @@ def _perform_pytest_unconfigure_(config):
             the_html_r = (
                 the_html_r[:rc_loc] + new_time + the_html_r[end_rc_loc:]
             )
-            with open(html_report_path, "w", encoding="utf-8") as f:
+            with open(html_report_path, mode="w", encoding="utf-8") as f:
                 f.write(the_html_r)  # Finalize the HTML report
             with suppress(Exception):
                 shared_utils.make_writable(html_report_path)
-            with open(html_report_path_copy, "w", encoding="utf-8") as f:
+            with open(html_report_path_copy, mode="w", encoding="utf-8") as f:
                 f.write(the_html_r)  # Finalize the HTML report copy
             with suppress(Exception):
                 shared_utils.make_writable(html_report_path_copy)
             assets_style = "./assets/style.css"
             if os.path.exists(assets_style):
                 html_style = None
-                with open(assets_style, "r", encoding="utf-8") as f:
+                with open(assets_style, mode="r", encoding="utf-8") as f:
                     html_style = f.read()
                 if html_style:
                     html_style = html_style.replace("top: -50px;", "top: 2px;")
@@ -2298,7 +2454,7 @@ def _perform_pytest_unconfigure_(config):
                     html_style = html_style.replace(".collapsible", ".oldc")
                     html_style = html_style.replace(" (hide details)", "")
                     html_style = html_style.replace(" (show details)", "")
-                with open(assets_style, "w", encoding="utf-8") as f:
+                with open(assets_style, mode="w", encoding="utf-8") as f:
                     f.write(html_style)
                 with suppress(Exception):
                     shared_utils.make_writable(assets_style)
@@ -2333,7 +2489,7 @@ def _perform_pytest_unconfigure_(config):
         # Part 1: Finalizing the dashboard / integrating html report
         if os.path.exists(dashboard_path):
             the_html_d = None
-            with open(dashboard_path, "r", encoding="utf-8") as f:
+            with open(dashboard_path, mode="r", encoding="utf-8") as f:
                 the_html_d = f.read()
             if sb_config._multithreaded and "-c" in sys_argv:
                 # Threads have "-c" in sys.argv, except for the last
@@ -2344,7 +2500,7 @@ def _perform_pytest_unconfigure_(config):
                 if os.path.exists(pie_path):
                     import json
 
-                    with open(pie_path, "r") as f:
+                    with open(pie_path, mode="r") as f:
                         dash_pie = f.read().strip()
                     sb_config._saved_dashboard_pie = json.loads(dash_pie)
             # If the test run doesn't complete by itself, stop refresh
@@ -2375,20 +2531,20 @@ def _perform_pytest_unconfigure_(config):
                 if sb_config._dash_final_summary:
                     the_html_d += sb_config._dash_final_summary
                 time.sleep(0.1)  # Add time for "livejs" to detect changes
-                with open(dashboard_path, "w", encoding="utf-8") as f:
+                with open(dashboard_path, mode="w", encoding="utf-8") as f:
                     f.write(the_html_d)  # Finalize the dashboard
                 time.sleep(0.1)  # Add time for "livejs" to detect changes
                 the_html_d = the_html_d.replace(
                     "</head>", "</head><!-- Dashboard Report Done -->"
                 )
-            with open(dashboard_path, "w", encoding="utf-8") as f:
+            with open(dashboard_path, mode="w", encoding="utf-8") as f:
                 f.write(the_html_d)  # Finalize the dashboard
             with suppress(Exception):
                 shared_utils.make_writable(dashboard_path)
             assets_style = "./assets/style.css"
             if os.path.exists(assets_style):
                 html_style = None
-                with open(assets_style, "r", encoding="utf-8") as f:
+                with open(assets_style, mode="r", encoding="utf-8") as f:
                     html_style = f.read()
                 if html_style:
                     html_style = html_style.replace("top: -50px;", "top: 2px;")
@@ -2400,7 +2556,7 @@ def _perform_pytest_unconfigure_(config):
                     html_style = html_style.replace(".collapsible", ".oldc")
                     html_style = html_style.replace(" (hide details)", "")
                     html_style = html_style.replace(" (show details)", "")
-                with open(assets_style, "w", encoding="utf-8") as f:
+                with open(assets_style, mode="w", encoding="utf-8") as f:
                     f.write(html_style)
                 with suppress(Exception):
                     shared_utils.make_writable(assets_style)
@@ -2422,7 +2578,7 @@ def _perform_pytest_unconfigure_(config):
             ):
                 # Add the dashboard pie to the pytest html report
                 the_html_r = None
-                with open(html_report_path, "r", encoding="utf-8") as f:
+                with open(html_report_path, mode="r", encoding="utf-8") as f:
                     the_html_r = f.read()
                 if sb_config._saved_dashboard_pie:
                     h_r_name = sb_config._html_report_name
@@ -2485,11 +2641,13 @@ def _perform_pytest_unconfigure_(config):
                 the_html_r = (
                     the_html_r[:rc_loc] + new_time + the_html_r[end_rc_loc:]
                 )
-                with open(html_report_path, "w", encoding="utf-8") as f:
+                with open(html_report_path, mode="w", encoding="utf-8") as f:
                     f.write(the_html_r)  # Finalize the HTML report
                 with suppress(Exception):
                     shared_utils.make_writable(html_report_path)
-                with open(html_report_path_copy, "w", encoding="utf-8") as f:
+                with open(
+                    html_report_path_copy, mode="w", encoding="utf-8"
+                ) as f:
                     f.write(the_html_r)  # Finalize the HTML report copy
                 with suppress(Exception):
                     shared_utils.make_writable(html_report_path_copy)
@@ -2515,11 +2673,11 @@ def pytest_unconfigure(config):
         )
     ):
         return
-    if hasattr(sb_config, "_multithreaded") and sb_config._multithreaded:
+    if getattr(sb_config, "_multithreaded", None):
         import fasteners
 
         dash_lock = fasteners.InterProcessLock(constants.Dashboard.LOCKFILE)
-        if hasattr(sb_config, "dashboard") and sb_config.dashboard:
+        if getattr(sb_config, "dashboard", None):
             # Multi-threaded tests with the Dashboard
             abs_path = os.path.abspath(".")
             dash_lock_file = constants.Dashboard.LOCKFILE
@@ -2534,7 +2692,9 @@ def pytest_unconfigure(config):
                     ):
                         # Dash is HTML Report (Multithreaded)
                         sb_config._dash_is_html_report = True
-                        with open(dashboard_path, "w", encoding="utf-8") as f:
+                        with open(
+                            dashboard_path, mode="w", encoding="utf-8"
+                        ) as f:
                             f.write(sb_config._dash_html)
                     # Dashboard Multithreaded
                     _perform_pytest_unconfigure_(config)

@@ -75,6 +75,29 @@ class TioneClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateExport(self, request):
+        r"""创建任务式建模训练任务，Notebook，在线服务和批量预测任务日志下载任务API
+
+        :param request: Request instance for CreateExport.
+        :type request: :class:`tencentcloud.tione.v20211111.models.CreateExportRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.CreateExportResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateExport", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateExportResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateModelService(self, request):
         r"""用于创建、发布一个新的模型服务
 
@@ -227,6 +250,29 @@ class TioneClient(AbstractClient):
             body = self.call("DeleteDataset", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteDatasetResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteExport(self, request):
+        r"""删除任务式建模训练任务，Notebook，在线服务和批量预测任务日志导出任务API
+
+        :param request: Request instance for DeleteExport.
+        :type request: :class:`tencentcloud.tione.v20211111.models.DeleteExportRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.DeleteExportResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteExport", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteExportResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -581,6 +627,29 @@ class TioneClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeExport(self, request):
+        r"""查看任务式建模训练任务，Notebook，在线服务和批量预测任务日志下载任务状态API
+
+        :param request: Request instance for DescribeExport.
+        :type request: :class:`tencentcloud.tione.v20211111.models.DescribeExportRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.DescribeExportResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeExport", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeExportResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeInferTemplates(self, request):
         r"""已废弃，收敛到统一接口
 
@@ -859,6 +928,29 @@ class TioneClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeSubAccountLinuxUserInfos(self, request):
+        r"""批量查询子账号Linux用户信息
+
+        :param request: Request instance for DescribeSubAccountLinuxUserInfos.
+        :type request: :class:`tencentcloud.tione.v20211111.models.DescribeSubAccountLinuxUserInfosRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.DescribeSubAccountLinuxUserInfosResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSubAccountLinuxUserInfos", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSubAccountLinuxUserInfosResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeTrainingModelVersion(self, request):
         r"""查询模型版本
 
@@ -1043,6 +1135,29 @@ class TioneClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyNotebook(self, request):
+        r"""修改Notebook
+
+        :param request: Request instance for ModifyNotebook.
+        :type request: :class:`tencentcloud.tione.v20211111.models.ModifyNotebookRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ModifyNotebookResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyNotebook", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyNotebookResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyNotebookTags(self, request):
         r"""修改Notebook标签
 
@@ -1057,6 +1172,29 @@ class TioneClient(AbstractClient):
             body = self.call("ModifyNotebookTags", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyNotebookTagsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyServiceGroupWeights(self, request):
+        r"""更新推理服务组流量分配
+
+        :param request: Request instance for ModifyServiceGroupWeights.
+        :type request: :class:`tencentcloud.tione.v20211111.models.ModifyServiceGroupWeightsRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.ModifyServiceGroupWeightsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyServiceGroupWeights", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyServiceGroupWeightsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1195,6 +1333,29 @@ class TioneClient(AbstractClient):
             body = self.call("StopTrainingTask", params, headers=headers)
             response = json.loads(body)
             model = models.StopTrainingTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpdateSubAccountLinuxUserInfo(self, request):
+        r"""更新子账号Linux用户信息
+
+        :param request: Request instance for UpdateSubAccountLinuxUserInfo.
+        :type request: :class:`tencentcloud.tione.v20211111.models.UpdateSubAccountLinuxUserInfoRequest`
+        :rtype: :class:`tencentcloud.tione.v20211111.models.UpdateSubAccountLinuxUserInfoResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpdateSubAccountLinuxUserInfo", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpdateSubAccountLinuxUserInfoResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

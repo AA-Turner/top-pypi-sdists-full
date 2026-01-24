@@ -1,8 +1,6 @@
 from functools import reduce
 from operator import add
-from typing import Optional, Union
 
-import networkx as nx
 from sqlfluff.core.parser import BaseSegment
 
 from sqllineage.core.holders import SubQueryLineageHolder
@@ -54,7 +52,7 @@ class BaseExtractor:
         raise NotImplementedError
 
     @classmethod
-    def find_table(cls, segment: BaseSegment) -> Optional[Table]:
+    def find_table(cls, segment: BaseSegment) -> Table | None:
         table = None
         if segment.type in ["table_reference", "object_reference"]:
             table = SqlFluffTable.of(segment)
@@ -89,7 +87,7 @@ class BaseExtractor:
 
     def _list_table_from_from_clause_or_join_clause(
         self, segment: BaseSegment, holder: SubQueryLineageHolder
-    ) -> list[Union[Table, SubQuery, Path]]:
+    ) -> list[Table | SubQuery | Path]:
         """
         Extract table from from_clause or join_clause, join_clause is a child node of from_clause.
         """
@@ -119,12 +117,12 @@ class BaseExtractor:
     @staticmethod
     def _add_dataset_from_expression_element(
         segment: BaseSegment, holder: SubQueryLineageHolder
-    ) -> list[Union[Table, SubQuery, Path]]:
+    ) -> list[Table | SubQuery | Path]:
         """
         Append tables and subqueries identified in the 'from_expression_element' type segment to the table and
         holder extra subqueries sets
         """
-        tables: list[Union[Table, SubQuery, Path]] = []
+        tables: list[Table | SubQuery | Path] = []
         all_segments = [
             seg for seg in list_child_segments(segment) if seg.type != "keyword"
         ]
@@ -148,9 +146,17 @@ class BaseExtractor:
             table_identifier = find_table_identifier(segment)
             if table_identifier:
                 subquery_flag = False
-                alias = None
+                alias_expression = None
                 if len(all_segments) > 1 and all_segments[1].type == "alias_expression":
-                    all_segments = list_child_segments(all_segments[1])
+                    alias_expression = all_segments[1]
+                elif len(all_segments) == 1 and all_segments[0].type == "bracketed":
+                    # the alias_expression may be deeply nested in the bracketed segment
+                    alias_expression = next(
+                        all_segments[0].recursive_crawl("alias_expression"), None
+                    )
+                alias = None
+                if alias_expression is not None:
+                    all_segments = list_child_segments(alias_expression)
                     alias = str(
                         all_segments[1].raw
                         if len(all_segments) > 1
@@ -226,7 +232,7 @@ class BaseExtractor:
                 self.dialect, self.metadata_provider
             ).extract(sq.query, AnalyzerContext(cte=holder.cte, write={sq}))
             # remove WRITE tag from subquery so that the combined holder won't have multiple WRITE dataset
-            nx.set_node_attributes(subquery_holder.graph, {sq: False}, NodeTag.WRITE)
+            subquery_holder.go.update_vertices(sq, **{NodeTag.WRITE: False})
             holder |= subquery_holder
 
     @staticmethod

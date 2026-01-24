@@ -1,12 +1,13 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from ibm_watsonx_ai.libs.repo.swagger_client.apis.repository_api import RepositoryApi
 from ibm_watsonx_ai.libs.repo.swagger_client.rest import ApiException
+from ibm_watsonx_ai._wrappers.httpx_wrapper import set_verify_for_httpx
 
-import ibm_watsonx_ai._wrappers.requests as requests
+import httpx
 import certifi, os
 
 try:
@@ -37,24 +38,27 @@ class MLRepositoryApi(RepositoryApi):
     def upload_pipeline_version(self, pipeline_id, version_id, content_stream):
         os.environ["DEPLOYMENT_PLATFORM"] = "private"
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            r = requests.put('{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+
+            r = decorated_put(url='{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
                 self.api_client.repository_path,
                 pipeline_id,
                 version_id
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
         else:
-            r = requests.put('{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v3/ml_assets/training_definitions/{}/versions/{}/content'.format(
                 self.api_client.repository_path,
                 pipeline_id,
                 version_id
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
@@ -67,30 +71,33 @@ class MLRepositoryApi(RepositoryApi):
 
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            r = requests.put('{}/ml/v4/models/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
                 self.api_client.repository_path,
                 model_id
 
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream,
+                content=content_stream,
                 params=query_parameters
             )
             if (r.status_code != 200 and r.status_code !=202):
                 raise ApiException(r.status_code, r.text)
         else:
-            r = requests.put('{}/ml/v4/models/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
                 self.api_client.repository_path,
                 model_id
 
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream,
+                content=content_stream,
                 params=query_parameters
             )
 
-            if (r.status_code != 200 and r.status_code !=202):
-                r = requests.delete('{}/ml/v4/models/{}'.format(
+            if r.status_code not in (200, 202):
+                decorated_delete = set_verify_for_httpx(httpx.delete)
+                r = decorated_delete(url='{}/ml/v4/models/{}'.format(
                     self.api_client.repository_path,
                     model_id
                 ),
@@ -106,18 +113,20 @@ class MLRepositoryApi(RepositoryApi):
         else:
             query_parameters = {}
 
-        r = requests.put('{}/ml/v4/models/{}/content'.format(
+        decorated_put = set_verify_for_httpx(httpx.put)
+        r = decorated_put(url='{}/ml/v4/models/{}/content'.format(
             self.api_client.repository_path,
             model_id
 
         ),
             headers=self.api_client.default_headers,
-            data=content_stream,
+            content=content_stream,
             params=query_parameters
         )
         if (r.status_code != 201 and r.status_code !=202):
             if no_delete is False or no_delete is None:
-                r = requests.delete('{}/ml/v4/models/{}'.format(
+                decorated_delete = set_verify_for_httpx(httpx.delete)
+                r = decorated_delete(url='{}/ml/v4/models/{}'.format(
                     self.api_client.repository_path,
                     model_id
                 ),
@@ -194,35 +203,32 @@ class MLRepositoryApi(RepositoryApi):
 
         except ApiException as ex:
             raise ApiException(500, 'Internal server error during download content for: {}. Error message: {}'.format(artifact_content_href, ex))
-        #else:
-        #    raise ValueError('The artifact content href: {} is not within the client host: {}'
-        #                     .format(artifact_content_href,
-        #                             self.api_client.repository_path))
-
 
 
     def upload_function_revision(self, function_id, revision_id, content_stream):
 
         os.environ["DEPLOYMENT_PLATFORM"] = "private"
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            r = requests.put('{}/v4/functions/{}/revisions/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/functions/{}/revisions/{}/content'.format(
                 self.api_client.repository_path,
                 function_id,
                 revision_id
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
         else:
-            r = requests.put('{}/v4/functions/{}/revisions/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/functions/{}/revisions/{}/content'.format(
                 self.api_client.repository_path,
                 function_id,
                 revision_id
             ),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200:
                 raise ApiException(r.status_code, r.text)
@@ -230,20 +236,22 @@ class MLRepositoryApi(RepositoryApi):
     def upload_libraries(self, library_id, content_stream):
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            r = requests.put('{}/v4/libraries/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/libraries/{}/content'.format(
                 self.api_client.repository_path,
                 library_id),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)
         else:
-            r = requests.put('{}/v4/libraries/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/libraries/{}/content'.format(
                 self.api_client.repository_path,
                 library_id),
                 headers=self.api_client.default_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)
@@ -254,22 +262,24 @@ class MLRepositoryApi(RepositoryApi):
         tmp_headers.update(header_params)
 
         if 'DEPLOYMENT_PLATFORM' in os.environ and os.environ['DEPLOYMENT_PLATFORM'] == 'private':
-            r = requests.put('{}/v4/runtimes/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/runtimes/{}/content'.format(
                 self.api_client.repository_path,
                 runtimespec_id
             ),
                 headers=tmp_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)
         else:
-            r = requests.put('{}/v4/runtimes/{}/content'.format(
+            decorated_put = set_verify_for_httpx(httpx.put)
+            r = decorated_put(url='{}/v4/runtimes/{}/content'.format(
                 self.api_client.repository_path,
                 runtimespec_id
             ),
                 headers=tmp_headers,
-                data=content_stream
+                content=content_stream
             )
             if r.status_code != 200 and r.status_code !=202:
                 raise ApiException(r.status_code, r.text)

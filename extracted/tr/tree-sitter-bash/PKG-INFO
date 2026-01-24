@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tree-sitter-bash
-Version: 0.25.0
+Version: 0.25.1
 Summary: Bash grammar for tree-sitter
 Author-email: Max Brunsfeld <maxbrunsfeld@gmail.com>, Amaan Qureshi <amaanq12@gmail.com>
 License: MIT

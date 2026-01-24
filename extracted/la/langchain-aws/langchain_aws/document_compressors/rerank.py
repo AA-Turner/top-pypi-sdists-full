@@ -1,7 +1,6 @@
-from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence, Union
 
-from langchain_core.callbacks.manager import Callbacks
+from langchain_core.callbacks.base import Callbacks
 from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.utils import from_env, secret_from_env
 from pydantic import ConfigDict, Field, SecretStr, model_validator
@@ -15,17 +14,17 @@ class BedrockRerank(BaseDocumentCompressor):
     model_arn: str
     """The ARN of the reranker model."""
 
-    client: Any = Field(default=None, exclude=True)  #: :meta private:
+    client: Any = Field(default=None, exclude=True)
     """Bedrock client to use for compressing documents."""
 
     top_n: Optional[int] = 3
     """Number of documents to return."""
 
     region_name: Optional[str] = None
-    """The aws region, e.g., `us-west-2`. 
+    """The aws region, e.g., `us-west-2`.
 
-    Falls back to AWS_REGION or AWS_DEFAULT_REGION env variable or region specified in 
-    ~/.aws/config in case it is not provided here.
+    Falls back to `AWS_REGION` or `AWS_DEFAULT_REGION` env variable or region
+    specified in  `~/.aws/config` in case it is not provided here.
     """
 
     credentials_profile_name: Optional[str] = Field(
@@ -36,39 +35,45 @@ class BedrockRerank(BaseDocumentCompressor):
     aws_access_key_id: Optional[SecretStr] = Field(
         default_factory=secret_from_env("AWS_ACCESS_KEY_ID", default=None)
     )
-    """AWS access key id. 
+    """AWS access key id.
 
-    If provided, aws_secret_access_key must also be provided.
+    If provided, `aws_secret_access_key` must also be provided.
     If not specified, the default credential profile or, if on an EC2 instance,
     credentials from IMDS will be used.
+
     See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
 
-    If not provided, will be read from 'AWS_ACCESS_KEY_ID' environment variable.
+    If not provided, will be read from `AWS_ACCESS_KEY_ID` environment variable.
+
     """
 
     aws_secret_access_key: Optional[SecretStr] = Field(
         default_factory=secret_from_env("AWS_SECRET_ACCESS_KEY", default=None)
     )
-    """AWS secret_access_key. 
+    """AWS secret_access_key.
 
     If provided, aws_access_key_id must also be provided.
     If not specified, the default credential profile or, if on an EC2 instance,
     credentials from IMDS will be used.
+
     See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
 
-    If not provided, will be read from 'AWS_SECRET_ACCESS_KEY' environment variable.
+    If not provided, will be read from `AWS_SECRET_ACCESS_KEY` environment variable.
+
     """
 
     aws_session_token: Optional[SecretStr] = Field(
         default_factory=secret_from_env("AWS_SESSION_TOKEN", default=None)
     )
-    """AWS session token. 
+    """AWS session token.
 
-    If provided, aws_access_key_id and aws_secret_access_key must 
+    If provided, aws_access_key_id and aws_secret_access_key must
     also be provided. Not required unless using temporary credentials.
+
     See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
 
-    If not provided, will be read from 'AWS_SESSION_TOKEN' environment variable.
+    If not provided, will be read from `AWS_SESSION_TOKEN` environment variable.
+
     """
 
     endpoint_url: Optional[str] = Field(default=None, alias="base_url")
@@ -115,10 +120,15 @@ class BedrockRerank(BaseDocumentCompressor):
             additional_model_request_fields: Additional fields to pass to the model.
 
         Returns:
-            List[Dict[str, Any]]: A list of ranked documents with relevance scores.
+            A list of ranked documents with relevance scores.
+
         """
         if len(documents) == 0:
             return []
+
+        effective_top_n = top_n if top_n is not None else self.top_n
+        if effective_top_n is not None:
+            effective_top_n = min(effective_top_n, len(documents))
 
         # Serialize documents for the Bedrock API
         serialized_documents = [
@@ -139,7 +149,7 @@ class BedrockRerank(BaseDocumentCompressor):
                         "additionalModelRequestFields": additional_model_request_fields
                         or {},
                     },
-                    "numberOfResults": top_n or self.top_n,
+                    "numberOfResults": effective_top_n,
                 },
                 "type": "BEDROCK_RERANKING_MODEL",
             },
@@ -175,6 +185,7 @@ class BedrockRerank(BaseDocumentCompressor):
 
         Returns:
             A sequence of compressed documents.
+
         """
         compressed = []
         for res in self.rerank(documents, query):

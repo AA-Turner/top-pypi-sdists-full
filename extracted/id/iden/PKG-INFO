@@ -1,69 +1,77 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: iden
-Version: 0.2.0
+Version: 0.3.0
+Dynamic: Maintainer
+Dynamic: Maintainer-email
 Summary: simple library to manage a dataset of shards to train machine learning models
-License: BSD-3-Clause
+Project-URL: homepage, https://github.com/durandtibo/iden
+Project-URL: repository, https://github.com/durandtibo/iden
+Project-URL: documentation, https://durandtibo.github.io/iden/
+Author-email: Thibaut Durand <durand.tibo+gh@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Keywords: dataset,shard
-Author: Thibaut Durand
-Author-email: durand.tibo+gh@gmail.com
-Requires-Python: >=3.9,<3.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: coola<1.0,>=0.11.0
+Requires-Dist: objectory<1.0,>=0.3.0
 Provides-Extra: all
-Requires-Dist: cloudpickle (>=3.0,<4.0) ; extra == "all"
-Requires-Dist: coola (>=0.8.4,<1.0)
-Requires-Dist: joblib (>=1.3,<2.0) ; extra == "all"
-Requires-Dist: numpy (>=1.22,<3.0) ; extra == "all"
-Requires-Dist: objectory (>=0.2,<1.0)
-Requires-Dist: pyyaml (>=6.0,<7.0) ; extra == "all"
-Requires-Dist: safetensors (>=0.4,<1.0) ; extra == "all"
-Requires-Dist: torch (>=1.11,<2.3) ; (sys_platform == "darwin" and platform_machine != "arm64" and python_version >= "3.9" and python_version < "3.13") and (extra == "all")
-Requires-Dist: torch (>=1.11,<3.0) ; (python_version >= "3.9" and python_version < "3.13") and (extra == "all")
-Project-URL: Homepage, https://github.com/durandtibo/iden
-Project-URL: Repository, https://github.com/durandtibo/iden
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == 'all'
+Requires-Dist: joblib<2.0,>=1.3; extra == 'all'
+Requires-Dist: numpy<3.0,>=1.24; extra == 'all'
+Requires-Dist: pyyaml<7.0,>=6.0; extra == 'all'
+Requires-Dist: safetensors<1.0,>=0.6; extra == 'all'
+Requires-Dist: torch<2.3,>=2.0; (sys_platform == 'darwin' and platform_machine != 'arm64' and python_version < '3.13') and extra == 'all'
+Requires-Dist: torch<3.0,>=2.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'all'
+Provides-Extra: cloudpickle
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == 'cloudpickle'
+Provides-Extra: joblib
+Requires-Dist: joblib<2.0,>=1.3; extra == 'joblib'
+Provides-Extra: numpy
+Requires-Dist: numpy<3.0,>=1.24; extra == 'numpy'
+Provides-Extra: pyyaml
+Requires-Dist: pyyaml<7.0,>=6.0; extra == 'pyyaml'
+Provides-Extra: safetensors
+Requires-Dist: safetensors<1.0,>=0.6; extra == 'safetensors'
+Provides-Extra: torch
+Requires-Dist: torch<2.3,>=2.0; (sys_platform == 'darwin' and platform_machine != 'arm64' and python_version < '3.13') and extra == 'torch'
+Requires-Dist: torch<3.0,>=2.0; (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')) and extra == 'torch'
 Description-Content-Type: text/markdown
 
 # iden
 
 <p align="center">
-    <a href="https://github.com/durandtibo/iden/actions">
-        <img alt="CI" src="https://github.com/durandtibo/iden/workflows/CI/badge.svg">
+    <a href="https://github.com/durandtibo/iden/actions/workflows/ci.yaml">
+        <img alt="CI" src="https://github.com/durandtibo/iden/actions/workflows/ci.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/iden/actions">
-        <img alt="Nightly Tests" src="https://github.com/durandtibo/iden/workflows/Nightly%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/iden/actions/workflows/nightly-tests.yaml">
+        <img alt="Nightly Tests" src="https://github.com/durandtibo/iden/actions/workflows/nightly-tests.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/iden/actions">
-        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/iden/workflows/Nightly%20Package%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/iden/actions/workflows/nightly-package.yaml">
+        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/iden/actions/workflows/nightly-package.yaml/badge.svg">
     </a>
-    <br/>
-    <a href="https://durandtibo.github.io/iden/">
-        <img alt="Documentation" src="https://github.com/durandtibo/iden/workflows/Documentation%20(stable)/badge.svg">
-    </a>
-    <a href="https://durandtibo.github.io/iden/">
-        <img alt="Documentation" src="https://github.com/durandtibo/iden/workflows/Documentation%20(unstable)/badge.svg">
-    </a>
-    <br/>
     <a href="https://codecov.io/gh/durandtibo/iden">
         <img alt="Codecov" src="https://codecov.io/gh/durandtibo/iden/branch/main/graph/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/iden/maintainability">
-        <img src="https://api.codeclimate.com/v1/badges/e1d6a491463b53dde654/maintainability" />
+    <br/>
+    <a href="https://durandtibo.github.io/iden/">
+        <img alt="Documentation" src="https://github.com/durandtibo/iden/actions/workflows/docs.yaml/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/iden/test_coverage">
-        <img src="https://api.codeclimate.com/v1/badges/e1d6a491463b53dde654/test_coverage" />
+    <a href="https://durandtibo.github.io/iden/dev/">
+        <img alt="Documentation" src="https://github.com/durandtibo/iden/actions/workflows/docs-dev.yaml/badge.svg">
     </a>
     <br/>
     <a href="https://github.com/psf/black">
@@ -104,7 +112,62 @@ Description-Content-Type: text/markdown
 model.
 `iden` uses a lazy loading approach to load the shard's data, so it is easy to manage shards without
 loading their data.
-`iden` supports different format to store shards on disk.
+`iden` supports different formats to store shards on disk.
+
+### Key Features
+
+- **Lazy Loading**: Shards are loaded only when needed, enabling efficient memory management
+- **Multiple Formats**: Support for JSON, YAML, Pickle, PyTorch, safetensors, and more
+- **Flexible Dataset Management**: Organize data into splits (train/val/test) with associated assets
+- **URI-based Identification**: Each shard has a unique URI for easy persistence and loading
+- **Caching Support**: Optional in-memory caching for frequently accessed shards
+- **Extensible**: Easy to add custom shard types and loaders
+
+### Quick Example
+
+```python
+import tempfile
+from pathlib import Path
+from iden.dataset import create_vanilla_dataset
+from iden.shard import create_json_shard, create_shard_dict, create_shard_tuple
+
+# Create a simple dataset
+with tempfile.TemporaryDirectory() as tmpdir:
+    # Create shards
+    train_tuple = create_shard_tuple(
+        [
+            create_json_shard(
+                [1, 2, 3], uri=Path(tmpdir).joinpath("train1.json").as_uri()
+            ),
+            create_json_shard(
+                [4, 5, 6], uri=Path(tmpdir).joinpath("train2.json").as_uri()
+            ),
+        ],
+        uri=Path(tmpdir).joinpath("train_tuple").as_uri(),
+    )
+    val_tuple = create_shard_tuple(
+        [create_json_shard([7, 8, 9], uri=Path(tmpdir).joinpath("val1.json").as_uri())],
+        uri=Path(tmpdir).joinpath("val_tuple").as_uri(),
+    )
+
+    # Organize shards into splits
+    shards = create_shard_dict(
+        shards={"train": train_tuple, "val": val_tuple},
+        uri=Path(tmpdir).joinpath("shards").as_uri(),
+    )
+    assets = create_shard_dict(shards={}, uri=Path(tmpdir).joinpath("assets").as_uri())
+
+    # Create dataset
+    dataset = create_vanilla_dataset(
+        shards=shards,
+        assets=assets,
+        uri=Path(tmpdir).joinpath("my_dataset").as_uri(),
+    )
+
+    # Access data
+    train_shards = dataset.get_shards("train")
+    print(train_shards[0].get_data())  # Output: [1, 2, 3]
+```
 
 ## Installation
 
@@ -113,47 +176,111 @@ a [virtual environment](https://packaging.python.org/guides/installing-using-pip
 `iden` can be installed from pip using the following command:
 
 ```shell
-pip install iden
+uv pip install iden
 ```
 
 To make the package as slim as possible, only the minimal packages required to use `iden` are
 installed.
-To include all the dependencies, you can use the following command:
+To include all the dependencies, the following command can be used:
 
 ```shell
-pip install iden[all]
+uv pip install iden[all]
 ```
 
 Please check the [get started page](https://durandtibo.github.io/iden/get_started) to see how to
 install only some specific dependencies or other alternatives to install the library.
+
+## Documentation
+
+- **[Get Started](https://durandtibo.github.io/iden/get_started)**: Installation instructions
+- **[User Guide](https://durandtibo.github.io/iden/guide/shard)**: Learn about shards and datasets
+- **[How-to Guides](https://durandtibo.github.io/iden/howto/shard)**: Step-by-step guides for common
+  tasks
+- **[API Reference](https://durandtibo.github.io/iden/refs/shard)**: Complete API documentation
+- **[Examples](examples/)**: Practical code examples
+
+## Basic Usage
+
+### Working with Shards
+
+```python
+from iden.shard import create_json_shard
+
+# Create a shard
+shard = create_json_shard(data={"key": "value"}, uri="file:///path/to/data.json")
+
+# Get data from shard
+data = shard.get_data()
+
+# Cache data for faster access
+data = shard.get_data(cache=True)
+```
+
+### Managing Datasets
+
+```python
+from iden.dataset import create_vanilla_dataset
+from iden.shard import create_json_shard, create_shard_dict, create_shard_tuple
+
+# Create a dataset with train/val splits
+train_tuple = create_shard_tuple([shard1, shard2, shard3], uri="file:///train_tuple")
+val_tuple = create_shard_tuple([shard4, shard5], uri="file:///val_tuple")
+
+shards = create_shard_dict(
+    shards={"train": train_tuple, "val": val_tuple},
+    uri="file:///shards",
+)
+assets = create_shard_dict(shards={}, uri="file:///assets")
+
+dataset = create_vanilla_dataset(
+    shards=shards,
+    assets=assets,
+    uri="file:///path/to/dataset",
+)
+
+# Access shards
+train_shards = dataset.get_shards("train")
+first_shard_data = train_shards[0].get_data()
+```
+
 The following is the corresponding `iden` versions and tested dependencies.
 
-| `iden`  | `coola`        | `objectory`  | `numpy`<sup>*</sup> | `pyyaml`<sup>*</sup> | `safetensors`<sup>*</sup> | `torch`<sup>*</sup> | `python`      |
-|---------|----------------|--------------|---------------------|----------------------|---------------------------|---------------------|---------------|
-| `main`  | `>=0.8.4,<1.0` | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
-| `0.2.0` | `>=0.8.4,<1.0` | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
-| `0.1.0` | `>=0.8.4,<1.0` | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
-| `0.0.4` | `>=0.3,<1.0`   | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.13` |
-| `0.0.3` | `>=0.3,<1.0`   | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.12` |
-| `0.0.2` | `>=0.4,<1.0`   | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<2.1`        | `>=3.9,<3.12` |
-| `0.0.1` | `>=0.4,<1.0`   | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<2.1`        | `>=3.9,<3.12` |
+| `iden`  | `coola`         | `objectory`  | `numpy`<sup>*</sup> | `pyyaml`<sup>*</sup> | `safetensors`<sup>*</sup> | `torch`<sup>*</sup> | `python`      |
+|---------|-----------------|--------------|---------------------|----------------------|---------------------------|---------------------|---------------|
+| `main`  | `>=0.11.0,<1.0` | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
+| `0.3.0` | `>=0.11.0,<1.0` | `>=0.3,<1.0` | `>=1.24,<2.0`       | `>=6.0,<7.0`         | `>=0.6,<1.0`              | `>=2.0,<3.0`        | `>=3.10`      |
+| `0.2.0` | `>=0.8.4,<1.0`  | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
+| `0.1.0` | `>=0.8.4,<1.0`  | `>=0.2,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.14` |
 
-| `iden` | `cloudpickle`<sup>*</sup> | `joblib`<sup>*</sup> |
-|--------|---------------------------|----------------------|
-| `main` | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
+| `iden`  | `cloudpickle`<sup>*</sup> | `joblib`<sup>*</sup> |
+|---------|---------------------------|----------------------|
+| `main`  | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
+| `0.3.0` | `>=3.0,<4.0`              | `>=1.3,<2.0`         |
 
 <sup>*</sup> indicates an optional dependency
 
+<details>
+    <summary>older versions</summary>
+
+| `iden`  | `coola`      | `objectory`  | `numpy`<sup>*</sup> | `pyyaml`<sup>*</sup> | `safetensors`<sup>*</sup> | `torch`<sup>*</sup> | `python`      |
+|---------|--------------|--------------|---------------------|----------------------|---------------------------|---------------------|---------------|
+| `0.0.4` | `>=0.3,<1.0` | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.13` |
+| `0.0.3` | `>=0.3,<1.0` | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<3.0`        | `>=3.9,<3.12` |
+| `0.0.2` | `>=0.4,<1.0` | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<2.1`        | `>=3.9,<3.12` |
+| `0.0.1` | `>=0.4,<1.0` | `>=0.1,<1.0` | `>=1.22,<2.0`       | `>=6.0,<7.0`         | `>=0.4,<1.0`              | `>=2.0,<2.1`        | `>=3.9,<3.12` |
+
+</details>
+
 ## Contributing
 
-Please check the instructions in [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+Please check the instructions in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Suggestions and Communication
 
 Everyone is welcome to contribute to the community.
-If you have any questions or suggestions, you can
-submit [Github Issues](https://github.com/durandtibo/iden/issues).
-We will reply to you as soon as possible. Thank you very much.
+For any questions or suggestions,
+[Github Issues](https://github.com/durandtibo/iden/issues) can be submitted.
+All issues will be addressed as soon as possible.
 
 ## API stability
 
@@ -167,4 +294,3 @@ was using the old version of `iden`.
 
 `iden` is licensed under BSD 3-Clause "New" or "Revised" license available in [LICENSE](LICENSE)
 file.
-

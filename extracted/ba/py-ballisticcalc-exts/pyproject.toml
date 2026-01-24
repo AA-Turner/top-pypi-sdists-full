@@ -1,0 +1,87 @@
+# Copyright 2023 Dmytro Yaroshenko (https://github.com/o-murphy)
+# Copyright 2024 David Bookstaber (https://github.com/dbookstaber)
+
+[build-system]
+requires = [
+    "setuptools",
+    "setuptools-scm[toml]>=9.2",
+    "cython>=3.1.4"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "py_ballisticcalc.exts"
+authors = [
+    { name="o-murphy", email="thehelixpg@gmail.com" },
+    { name="dbookstaber", email="bookstaber@gmail.com"}
+]
+description = "LGPL library for small arms ballistic calculations (Python 3)"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["py_ballisticcalc", "ballistics", "Cython", "ballistic calculator", "python", "python3"]
+#license = {file = "LICENSE"}
+classifiers = [
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = []
+
+# NOTE:
+#   version: will be calculated with setuptools-scm
+dynamic = ["version"]
+
+[project.entry-points.py_ballisticcalc]
+cythonized_euler_engine = "py_ballisticcalc_exts:CythonizedEulerIntegrationEngine"
+cythonized_rk4_engine = "py_ballisticcalc_exts:CythonizedRK4IntegrationEngine"
+
+[project.urls]
+"Homepage" = "https://github.com/o-murphy/py-ballisticcalc"
+"Bug Reports" = "https://github.com/o-murphy/py-ballisticcalc/issues"
+"Source" = "https://github.com/o-murphy/py-ballisticcalc"
+
+
+[tool.setuptools]
+py-modules = ["py_ballisticcalc_exts"]
+
+[tool.setuptools.package-data]
+py_ballisticcalc_exts = ["py.typed"]
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["py_ballisticcalc_exts*"]
+exclude = ["py_ballisticcalc_exts.include*"]
+
+[project.optional-dependencies]
+dev = ["cython>=3.1.4", "cibuildwheel", "setuptools"]
+
+[tool.cibuildwheel]
+# Use uv and build
+build-frontend = "build[uv]"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-m 'not stress'"
+markers = ["stress: long-running or resource-intensive tests, opt-in only"]
+
+[tool.setuptools_scm]
+root = ".."  # required for valid .git repo root detect for subpackage in monorepo
+fallback_version = "0.0.0.dev0"
+
+[dependency-groups]
+dev = [
+    "cibuildwheel>=2.23.2",
+    "cython>=3.1.4",
+    "setuptools>=80.9.0",
+]

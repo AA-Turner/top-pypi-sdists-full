@@ -3,7 +3,7 @@ Type annotations for ce service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -34,6 +35,14 @@ from .paginator import (
     GetAnomalySubscriptionsPaginator,
     GetCostAndUsageComparisonsPaginator,
     GetCostComparisonDriversPaginator,
+    GetReservationPurchaseRecommendationPaginator,
+    GetRightsizingRecommendationPaginator,
+    ListCommitmentPurchaseAnalysesPaginator,
+    ListCostAllocationTagBackfillHistoryPaginator,
+    ListCostAllocationTagsPaginator,
+    ListCostCategoryDefinitionsPaginator,
+    ListCostCategoryResourceAssociationsPaginator,
+    ListSavingsPlansPurchaseRecommendationGenerationPaginator,
 )
 from .type_defs import (
     CreateAnomalyMonitorRequestTypeDef,
@@ -102,6 +111,8 @@ from .type_defs import (
     ListCostAllocationTagsResponseTypeDef,
     ListCostCategoryDefinitionsRequestTypeDef,
     ListCostCategoryDefinitionsResponseTypeDef,
+    ListCostCategoryResourceAssociationsRequestTypeDef,
+    ListCostCategoryResourceAssociationsResponseTypeDef,
     ListSavingsPlansPurchaseRecommendationGenerationRequestTypeDef,
     ListSavingsPlansPurchaseRecommendationGenerationResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -125,12 +136,6 @@ from .type_defs import (
     UpdateCostCategoryDefinitionResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -141,21 +146,22 @@ __all__ = ("CostExplorerClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AnalysisNotFoundException: Type[BotocoreClientError]
-    BackfillLimitExceededException: Type[BotocoreClientError]
-    BillExpirationException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DataUnavailableException: Type[BotocoreClientError]
-    GenerationExistsException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    RequestChangedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnknownMonitorException: Type[BotocoreClientError]
-    UnknownSubscriptionException: Type[BotocoreClientError]
-    UnresolvableUsageUnitException: Type[BotocoreClientError]
+    AnalysisNotFoundException: type[BotocoreClientError]
+    BackfillLimitExceededException: type[BotocoreClientError]
+    BillExpirationException: type[BotocoreClientError]
+    BillingViewHealthStatusException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DataUnavailableException: type[BotocoreClientError]
+    GenerationExistsException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    RequestChangedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnknownMonitorException: type[BotocoreClientError]
+    UnknownSubscriptionException: type[BotocoreClientError]
+    UnresolvableUsageUnitException: type[BotocoreClientError]
 
 
 class CostExplorerClient(AioBaseClient):
@@ -218,7 +224,7 @@ class CostExplorerClient(AioBaseClient):
         self, **kwargs: Unpack[CreateCostCategoryDefinitionRequestTypeDef]
     ) -> CreateCostCategoryDefinitionResponseTypeDef:
         """
-        Creates a new Cost Category with the requested name and rules.
+        Creates a new cost category with the requested name and rules.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/create_cost_category_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#create_cost_category_definition)
@@ -226,7 +232,7 @@ class CostExplorerClient(AioBaseClient):
 
     async def delete_anomaly_monitor(
         self, **kwargs: Unpack[DeleteAnomalyMonitorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a cost anomaly monitor.
 
@@ -236,7 +242,7 @@ class CostExplorerClient(AioBaseClient):
 
     async def delete_anomaly_subscription(
         self, **kwargs: Unpack[DeleteAnomalySubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a cost anomaly subscription.
 
@@ -248,7 +254,7 @@ class CostExplorerClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteCostCategoryDefinitionRequestTypeDef]
     ) -> DeleteCostCategoryDefinitionResponseTypeDef:
         """
-        Deletes a Cost Category.
+        Deletes a cost category.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/delete_cost_category_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#delete_cost_category_definition)
@@ -259,7 +265,7 @@ class CostExplorerClient(AioBaseClient):
     ) -> DescribeCostCategoryDefinitionResponseTypeDef:
         """
         Returns the name, Amazon Resource Name (ARN), rules, definition, and effective
-        dates of a Cost Category that's defined in the account.
+        dates of a cost category that's defined in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/describe_cost_category_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#describe_cost_category_definition)
@@ -353,7 +359,7 @@ class CostExplorerClient(AioBaseClient):
         self, **kwargs: Unpack[GetCostCategoriesRequestTypeDef]
     ) -> GetCostCategoriesResponseTypeDef:
         """
-        Retrieves an array of Cost Category names and values incurred cost.
+        Retrieves an array of cost category names and values incurred cost.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_cost_categories.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_cost_categories)
@@ -543,10 +549,20 @@ class CostExplorerClient(AioBaseClient):
     ) -> ListCostCategoryDefinitionsResponseTypeDef:
         """
         Returns the name, Amazon Resource Name (ARN), <code>NumberOfRules</code> and
-        effective dates of all Cost Categories defined in the account.
+        effective dates of all cost categories defined in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/list_cost_category_definitions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#list_cost_category_definitions)
+        """
+
+    async def list_cost_category_resource_associations(
+        self, **kwargs: Unpack[ListCostCategoryResourceAssociationsRequestTypeDef]
+    ) -> ListCostCategoryResourceAssociationsResponseTypeDef:
+        """
+        Returns resource associations of all cost categories defined in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/list_cost_category_resource_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#list_cost_category_resource_associations)
         """
 
     async def list_savings_plans_purchase_recommendation_generation(
@@ -612,7 +628,7 @@ class CostExplorerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#start_savings_plans_purchase_recommendation_generation)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for adding one or more tags (key-value pairs) to a resource.
 
@@ -620,7 +636,7 @@ class CostExplorerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a resource.
 
@@ -662,7 +678,7 @@ class CostExplorerClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateCostCategoryDefinitionRequestTypeDef]
     ) -> UpdateCostCategoryDefinitionResponseTypeDef:
         """
-        Updates an existing Cost Category.
+        Updates an existing cost category.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/update_cost_category_definition.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#update_cost_category_definition)
@@ -723,6 +739,94 @@ class CostExplorerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_reservation_purchase_recommendation"]
+    ) -> GetReservationPurchaseRecommendationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_rightsizing_recommendation"]
+    ) -> GetRightsizingRecommendationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_commitment_purchase_analyses"]
+    ) -> ListCommitmentPurchaseAnalysesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cost_allocation_tag_backfill_history"]
+    ) -> ListCostAllocationTagBackfillHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cost_allocation_tags"]
+    ) -> ListCostAllocationTagsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cost_category_definitions"]
+    ) -> ListCostCategoryDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cost_category_resource_associations"]
+    ) -> ListCostCategoryResourceAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_savings_plans_purchase_recommendation_generation"]
+    ) -> ListSavingsPlansPurchaseRecommendationGenerationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ce/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce.html#CostExplorer.Client)
@@ -731,7 +835,7 @@ class CostExplorerClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

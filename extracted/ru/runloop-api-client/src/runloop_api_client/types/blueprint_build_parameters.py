@@ -1,15 +1,27 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Dict, List, Optional
+from typing_extensions import Literal
 
 from .._models import BaseModel
 from .shared.launch_parameters import LaunchParameters
 from .shared.code_mount_parameters import CodeMountParameters
 
-__all__ = ["BlueprintBuildParameters", "Service", "ServiceCredentials"]
+__all__ = ["BlueprintBuildParameters", "BuildContext", "Service", "ServiceCredentials"]
+
+
+class BuildContext(BaseModel):
+    """A build context backed by an Object."""
+
+    object_id: str
+    """The ID of an object, whose contents are to be used as a build context."""
+
+    type: Literal["object"]
 
 
 class ServiceCredentials(BaseModel):
+    """The credentials of the container service."""
+
     password: str
     """The password of the container service."""
 
@@ -58,6 +70,12 @@ class BlueprintBuildParameters(BaseModel):
     be specified.
     """
 
+    build_args: Optional[Dict[str, str]] = None
+    """(Optional) Arbitrary Docker build args to pass during build."""
+
+    build_context: Optional[BuildContext] = None
+    """A build context backed by an Object."""
+
     code_mounts: Optional[List[CodeMountParameters]] = None
     """A list of code mounts to be included in the Blueprint."""
 
@@ -72,6 +90,23 @@ class BlueprintBuildParameters(BaseModel):
 
     metadata: Optional[Dict[str, str]] = None
     """(Optional) User defined metadata for the Blueprint."""
+
+    network_policy_id: Optional[str] = None
+    """(Optional) ID of the network policy to apply during blueprint build.
+
+    This restricts network access during the build process. This does not affect
+    devboxes created from this blueprint; if you want devboxes created from this
+    blueprint to inherit the network policy, set the network_policy_id on the
+    blueprint launch parameters.
+    """
+
+    secrets: Optional[Dict[str, str]] = None
+    """(Optional) Map of mount IDs/environment variable names to secret names.
+
+    Secrets will be available to commands during the build. Secrets are NOT stored
+    in the blueprint image. Example: {"DB_PASS": "DATABASE_PASSWORD"} makes the
+    secret 'DATABASE_PASSWORD' available as environment variable 'DB_PASS'.
+    """
 
     services: Optional[List[Service]] = None
     """(Optional) List of containerized services to include in the Blueprint.

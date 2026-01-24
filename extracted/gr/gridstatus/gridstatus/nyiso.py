@@ -1,4 +1,5 @@
 import urllib.error
+from enum import StrEnum
 from typing import BinaryIO, Dict, Literal, NamedTuple
 
 import pandas as pd
@@ -16,16 +17,22 @@ from gridstatus.decorators import support_date_range
 from gridstatus.gs_logging import logger
 from gridstatus.lmp_config import lmp_config
 
+
 # NYISO offers LMP data at two locational granularities
 # load zone and point of generator interconnection
-ZONE = "zone"
-GENERATOR = "generator"
+class NYISOLocationType(StrEnum):
+    ZONE = "zone"
+    GENERATOR = "generator"
+
+
+REFERENCE_BUS_LOCATION = "NYISO_LBMP_REFERENCE"
 
 LOAD_DATASET = "pal"
 FUEL_MIX_DATASET = "rtfuelmix"
 LOAD_FORECAST_DATASET = "isolf"
 DAM_LMP_DATASET = "damlbmp"
 REAL_TIME_LMP_DATASET = "realtime"
+REAL_TIME_HOURLY_LMP_DATASET = "rtlbmp"
 REAL_TIME_EVENTS_DATASET = "RealTimeEvents"
 BTM_SOLAR_ACTUAL_DATASET = "btmactualforecast"
 BTM_SOLAR_FORECAST_DATASET = "btmdaforecast"
@@ -34,6 +41,8 @@ LAKE_ERIE_CIRCULATION_REAL_TIME_DATASET = "eriecirculationrt"
 LAKE_ERIE_CIRCULATION_DAY_AHEAD_DATASET = "eriecirculationda"
 AS_PRICES_DAY_AHEAD_HOURLY_DATASET = "damasp"
 AS_PRICES_REAL_TIME_5_MIN_DATASET = "rtasp"
+LIMITING_CONSTRAINTS_REAL_TIME_DATASET = "LimitingConstraints"
+LIMITING_CONSTRAINTS_DAY_AHEAD_DATASET = "DAMLimitingConstraints"
 
 """
 Pricing data:
@@ -52,6 +61,7 @@ DATASET_INTERVAL_MAP: Dict[str, DatasetInterval] = {
     LOAD_FORECAST_DATASET: DatasetInterval("start", 60),
     DAM_LMP_DATASET: DatasetInterval("start", 60),
     REAL_TIME_LMP_DATASET: DatasetInterval("end", 5),
+    REAL_TIME_HOURLY_LMP_DATASET: DatasetInterval("start", 60),
     REAL_TIME_EVENTS_DATASET: DatasetInterval("instantaneous", None),
     BTM_SOLAR_ACTUAL_DATASET: DatasetInterval("start", 60),
     BTM_SOLAR_FORECAST_DATASET: DatasetInterval("start", 60),
@@ -60,6 +70,8 @@ DATASET_INTERVAL_MAP: Dict[str, DatasetInterval] = {
     LAKE_ERIE_CIRCULATION_DAY_AHEAD_DATASET: DatasetInterval("instantaneous", None),
     AS_PRICES_DAY_AHEAD_HOURLY_DATASET: DatasetInterval("start", 60),
     AS_PRICES_REAL_TIME_5_MIN_DATASET: DatasetInterval("start", 5),
+    LIMITING_CONSTRAINTS_REAL_TIME_DATASET: DatasetInterval("start", 5),
+    LIMITING_CONSTRAINTS_DAY_AHEAD_DATASET: DatasetInterval("start", 60),
 }
 
 
@@ -69,7 +81,11 @@ class NYISO(ISOBase):
     name = "New York ISO"
     iso_id = "nyiso"
     default_timezone = "US/Eastern"
-    markets = [Markets.REAL_TIME_5_MIN, Markets.DAY_AHEAD_HOURLY]
+    markets = [
+        Markets.REAL_TIME_5_MIN,
+        Markets.REAL_TIME_HOURLY,
+        Markets.DAY_AHEAD_HOURLY,
+    ]
     status_homepage = "https://www.nyiso.com/system-conditions"
     interconnection_homepage = "https://www.nyiso.com/interconnections"
 
@@ -535,6 +551,7 @@ class NYISO(ISOBase):
             # TODO: add historical RTC data.
             # https://www.nyiso.com/custom-reports?report=ham_lbmp_gen
             Markets.REAL_TIME_15_MIN: ["latest", "today"],
+            Markets.REAL_TIME_HOURLY: ["latest", "today", "historical"],
             Markets.DAY_AHEAD_HOURLY: ["latest", "today", "historical"],
         },
     )
@@ -543,57 +560,80 @@ class NYISO(ISOBase):
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
-        market: str | None = None,
+        market: Markets | None = None,
         locations: list | None = None,
-        location_type: str | None = None,
+        location_type: NYISOLocationType | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
         Supported Markets:
             - ``REAL_TIME_5_MIN`` (RTC)
             - ``REAL_TIME_15_MIN`` (RTD)
+            - ``REAL_TIME_HOURLY`` (Real-time hourly LMP)
             - ``DAY_AHEAD_HOURLY``
 
         Supported Location Types:
             - ``zone``
             - ``generator``
 
+        NOTE: the generator data contains the single Reference Bus location type.
+
         REAL_TIME_5_MIN is the Real Time Dispatch (RTD) market.
         REAL_TIME_15_MIN is the Real Time Commitment (RTC) market.
+        REAL_TIME_HOURLY is the real-time hourly LMP market.
         For documentation on real time dispatch and real time commitment, see:
         https://www.nyiso.com/documents/20142/1404816/RTC-RTD%20Convergence%20Study.pdf/f3843982-dd30-4c66-6c21-e101c3cb85af
         """
-        if date == "latest":
-            return self._latest_lmp_from_today(
-                market=market,
-                locations=locations,
-                location_type=location_type,
-                verbose=verbose,
-            )
+        if location_type is None:
+            location_type = NYISOLocationType.ZONE
+
+        marketname = self._set_marketname(market)
+        file_location_type = self._set_location_type_for_filename(location_type)
 
         if locations is None:
             locations = "ALL"
 
-        if location_type is None:
-            location_type = ZONE
+        if date == "latest":
+            # The 5 minute data has a dedicated latest interval file
+            if market != Markets.REAL_TIME_5_MIN:
+                return self._latest_lmp_from_today(
+                    market=market,
+                    locations=locations,
+                    location_type=location_type,
+                    verbose=verbose,
+                )
+            else:
+                url = f"https://mis.nyiso.com/public/realtime/realtime_{file_location_type}_lbmp.csv"
+                df = pd.read_csv(url)
+                df = self._handle_time(df, dataset_name=marketname)
+                df["Market"] = market.value
+        else:
+            filename = marketname + f"_{file_location_type}"
 
-        marketname = self._set_marketname(market)
-        location_type = self._set_location_type(location_type)
-        filename = marketname + f"_{location_type}"
+            df = self._download_nyiso_archive(
+                date=date,
+                end=end,
+                dataset_name=marketname,
+                filename=filename,
+                verbose=verbose,
+            )
 
-        df = self._download_nyiso_archive(
-            date=date,
-            end=end,
-            dataset_name=marketname,
-            filename=filename,
-            verbose=verbose,
-        )
+        return self._process_lmp_data(df, date, market, location_type, locations)
 
+    def _process_lmp_data(
+        self,
+        df: pd.DataFrame,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None,
+        market: Markets,
+        location_type: NYISOLocationType,
+        locations: list | str,
+    ) -> pd.DataFrame:
         columns = {
             "Name": "Location",
             "LBMP ($/MWHr)": "LMP",
             "Marginal Cost Losses ($/MWHr)": "Loss",
             "Marginal Cost Congestion ($/MWHr)": "Congestion",
+            "Marginal Cost Congestion ($/MWH": "Congestion",  # Deal with older data
         }
 
         df = df.rename(columns=columns)
@@ -603,29 +643,66 @@ class NYISO(ISOBase):
         # congestion number means a lower LMP. Thus, LMP = Energy + Loss + Congestion
         # for NYISO, as in other ISOs.
         df["Congestion"] *= -1
-        df["Energy"] = df["LMP"] - df["Loss"] - df["Congestion"]
+        df["Energy"] = (df["LMP"] - df["Loss"] - df["Congestion"]).round(2)
         df["Market"] = market.value
-        df["Location Type"] = "Zone" if location_type == ZONE else "Generator"
+        df["Location Type"] = NYISOLocationType(location_type).value.capitalize()
 
-        # NYISO includes both RTD and RTC in the same file, so we need to differentiate
-        # between them by looking up the most recent real time dispatch interval
-        # and labeling intervals after that time as RTC intervals.
-        if market in [Markets.REAL_TIME_5_MIN, Markets.REAL_TIME_15_MIN]:
-            # If there are RTC intervals, we need to differentiate between the markets
-            # for downstream processing. Assume all intervals after the first RTC
-            # interval are RTC intervals.
+        # We manually update the location type for the reference bus location because
+        # it's included in the generator data.
+        if REFERENCE_BUS_LOCATION in df["Location"].unique():
+            df.loc[
+                df["Location"] == REFERENCE_BUS_LOCATION,
+                "Location Type",
+            ] = "Reference Bus"
 
-            first_rtc_timestamp = self._get_most_recent_real_time_dispatch_interval()
+        # NYISO includes both 5 min (RTD - Real Time Dispatch) and
+        # 15 min (RTC - Real Time Commitment) data in the daily file
+        if market == Markets.REAL_TIME_15_MIN or (
+            # In this case, we've only used the latest 5 minute interval file so we
+            # know the data is all REAL_TIME_5_MIN
+            market == Markets.REAL_TIME_5_MIN and date != "latest"
+        ):
+            # The most recent 5 min file is sometimes published before the updated
+            # daily file, so to label the 5 and 15 min daily data, we need to get
+            # the most recent 5 min data and compare it to the data at the same
+            # timestamp in the daily dataframe. If the data matches, then we know all
+            # daily data after that timestamp is 15 minute. If the data doesn't match,
+            # we assume all daily data on or after that timestamp is 15 min data.
+            most_recent_5_min_data = self.get_lmp(
+                date="latest",
+                market=Markets.REAL_TIME_5_MIN,
+                location_type=location_type,
+            )
 
-            rtc_mask = df["Interval Start"] >= first_rtc_timestamp
+            most_recent_5_min_timestamp = most_recent_5_min_data["Interval Start"].max()
 
-            df.loc[~rtc_mask, "Market"] = Markets.REAL_TIME_5_MIN.value
-            df.loc[rtc_mask, "Market"] = Markets.REAL_TIME_15_MIN.value
+            daily_subset = (
+                df[df["Interval Start"] == most_recent_5_min_timestamp]
+                .sort_values(["Interval Start", "Location"])
+                .reset_index(drop=True)
+            )
 
-            df.loc[rtc_mask, "Interval End"] = df.loc[
-                rtc_mask,
-                "Interval Start",
-            ] + pd.Timedelta(
+            if daily_subset[["LMP", "Loss", "Congestion"]].equals(
+                most_recent_5_min_data[["LMP", "Loss", "Congestion"]],
+            ):
+                # When equal, the daily data has the most recent 5 min data
+                mask_15_min = df["Interval Start"] > most_recent_5_min_timestamp
+            else:
+                # When not equal, the data at this timestamp is 15 min data
+                mask_15_min = df["Interval Start"] >= most_recent_5_min_timestamp
+
+            df.loc[~mask_15_min, "Market"] = Markets.REAL_TIME_5_MIN.value
+            df.loc[mask_15_min, "Market"] = Markets.REAL_TIME_15_MIN.value
+
+            # For 15-min data, the original "Interval End" column contains the correct
+            # end time (since the raw data has timestamps as interval END). However,
+            # "Interval Start" was calculated assuming a 5-minute interval, so we need
+            # to recalculate it for 15-minute intervals.
+            # Interval Start = Interval End - 15 minutes
+            df.loc[mask_15_min, "Interval Start"] = df.loc[
+                mask_15_min,
+                "Interval End",
+            ] - pd.Timedelta(
                 minutes=15,
             )
 
@@ -646,16 +723,10 @@ class NYISO(ISOBase):
 
         df = utils.filter_lmp_locations(df, locations)
 
-        return df[df["Market"] == market.value].reset_index(drop=True)
-
-    def _get_most_recent_real_time_dispatch_interval(self) -> pd.Timestamp:
-        # Finds the most recent real time dispatch interval
-        return pd.Timestamp(
-            pd.read_csv(
-                "http://mis.nyiso.com/public/realtime/realtime_zone_lbmp.csv",
-                nrows=1,
-            ).iloc[0]["Time Stamp"],
-            tz=self.default_timezone,
+        return (
+            df[df["Market"] == market.value]
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
         )
 
     def get_raw_interconnection_queue(self) -> BinaryIO:
@@ -1056,17 +1127,19 @@ class NYISO(ISOBase):
     def _set_marketname(self, market: Markets) -> str:
         if market in [Markets.REAL_TIME_5_MIN, Markets.REAL_TIME_15_MIN]:
             marketname = REAL_TIME_LMP_DATASET
+        elif market == Markets.REAL_TIME_HOURLY:
+            marketname = REAL_TIME_HOURLY_LMP_DATASET
         elif market == Markets.DAY_AHEAD_HOURLY:
             marketname = DAM_LMP_DATASET
         else:
             raise RuntimeError(f"LMP Market {market} is not supported")
         return marketname
 
-    def _set_location_type(self, location_type: str) -> str:
-        location_types = [ZONE, GENERATOR]
-        if location_type == ZONE:
-            return ZONE
-        elif location_type == GENERATOR:
+    def _set_location_type_for_filename(self, location_type: NYISOLocationType) -> str:
+        location_types = [NYISOLocationType.ZONE, NYISOLocationType.GENERATOR]
+        if location_type == NYISOLocationType.ZONE:
+            return NYISOLocationType.ZONE
+        elif location_type == NYISOLocationType.GENERATOR:
             return "gen"
         else:
             raise ValueError(
@@ -1352,3 +1425,100 @@ class NYISO(ISOBase):
                 "Regulation Capacity",
             ]
         ]
+
+    @support_date_range(frequency="DAY_START")
+    def get_limiting_constraints_real_time(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest":
+            data = pd.read_csv(
+                "https://mis.nyiso.com/public/csv/LimitingConstraints/currentLimitingConstraints.csv",
+            )
+            data = self._handle_time(
+                data,
+                LIMITING_CONSTRAINTS_REAL_TIME_DATASET,
+                groupby="Limiting Facility",
+            )
+        else:
+            data = self._download_nyiso_archive(
+                date,
+                end=end,
+                dataset_name=LIMITING_CONSTRAINTS_REAL_TIME_DATASET,
+                groupby="Limiting Facility",
+                verbose=verbose,
+            )
+
+        data = data.rename(columns={"Constraint Cost($)": "Constraint Cost"})
+
+        data = (
+            data[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Limiting Facility",
+                    "Facility PTID",
+                    "Contingency",
+                    "Constraint Cost",
+                ]
+            ]
+            .sort_values(["Interval Start", "Limiting Facility", "Contingency"])
+            .reset_index(
+                drop=True,
+            )
+        )
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
+    def get_limiting_constraints_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest":
+            try:
+                tomorrow = pd.Timestamp.now(
+                    tz=self.default_timezone,
+                ).normalize() + pd.DateOffset(days=1)
+                return self.get_limiting_constraints_day_ahead(
+                    date=tomorrow.strftime("%Y-%m-%d"),
+                    verbose=verbose,
+                )
+            except urllib.error.HTTPError:
+                return self.get_limiting_constraints_day_ahead(
+                    date="today",
+                    verbose=verbose,
+                )
+
+        df = self._download_nyiso_archive(
+            date,
+            end=end,
+            dataset_name=LIMITING_CONSTRAINTS_DAY_AHEAD_DATASET,
+            groupby="Limiting Facility",
+            verbose=verbose,
+        )
+
+        df = df.rename(columns={"Constraint Cost($)": "Constraint Cost"})
+
+        df = (
+            df[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Limiting Facility",
+                    "Facility PTID",
+                    "Contingency",
+                    "Constraint Cost",
+                ]
+            ]
+            .sort_values(["Interval Start", "Limiting Facility", "Contingency"])
+            .reset_index(
+                drop=True,
+            )
+        )
+
+        return df

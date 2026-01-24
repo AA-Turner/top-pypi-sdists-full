@@ -8,10 +8,26 @@
 #ifndef AtlasInstancedHelper_DEFINED
 #define AtlasInstancedHelper_DEFINED
 
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkMacros.h"
+#include "include/private/base/SkTArray.h"
 #include "src/core/SkIPoint16.h"
+#include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrGeometryProcessor.h"
+#include "src/gpu/ganesh/GrSurfaceProxy.h"
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"
 #include "src/gpu/ganesh/glsl/GrGLSLUniformHandler.h"
+
+class GrGLSLProgramDataManager;
+class GrShaderVar;
+
+namespace skgpu {
+class KeyBuilder;
+struct VertexWriter;
+}  // namespace skgpu
 
 namespace skgpu::ganesh {
 
@@ -25,7 +41,7 @@ public:
         kCheckBounds = 1 << 1
     };
 
-    GR_DECL_BITFIELD_CLASS_OPS_FRIENDS(ShaderFlags);
+    SK_DECL_BITFIELD_CLASS_OPS_FRIENDS(ShaderFlags);
 
     constexpr static int kNumShaderFlags = 2;
 
@@ -53,7 +69,8 @@ public:
 
     // Appends the instanced input attribs to the back of the array that we will need in order to
     // locate our path in the atlas.
-    void appendInstanceAttribs(SkTArray<GrGeometryProcessor::Attribute>* instanceAttribs) const;
+    void appendInstanceAttribs(
+            skia_private::TArray<GrGeometryProcessor::Attribute>* instanceAttribs) const;
 
     struct Instance {
         Instance(SkIPoint16 locationInAtlas, const SkIRect& pathDevIBounds, bool transposedInAtlas)
@@ -93,7 +110,7 @@ private:
     const ShaderFlags fShaderFlags;
 };
 
-GR_MAKE_BITFIELD_CLASS_OPS(AtlasInstancedHelper::ShaderFlags)
+SK_MAKE_BITFIELD_CLASS_OPS(AtlasInstancedHelper::ShaderFlags)
 
 }  // namespace skgpu::ganesh
 

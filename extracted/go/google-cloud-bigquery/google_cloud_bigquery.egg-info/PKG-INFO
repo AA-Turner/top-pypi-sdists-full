@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery
-Version: 3.38.0
+Version: 3.40.0
 Summary: Google BigQuery API client library
 Author-email: Google LLC <googleapis-packages@google.com>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/googleapis/python-bigquery
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -15,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.9
@@ -31,12 +31,14 @@ Provides-Extra: bqstorage
 Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.18.0; extra == "bqstorage"
 Requires-Dist: grpcio<2.0.0,>=1.47.0; extra == "bqstorage"
 Requires-Dist: grpcio<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "bqstorage"
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "bqstorage"
 Requires-Dist: pyarrow>=4.0.0; extra == "bqstorage"
 Provides-Extra: pandas
 Requires-Dist: pandas>=1.3.0; extra == "pandas"
 Requires-Dist: pandas-gbq>=0.26.1; extra == "pandas"
 Requires-Dist: grpcio<2.0.0,>=1.47.0; extra == "pandas"
 Requires-Dist: grpcio<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "pandas"
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "pandas"
 Requires-Dist: pyarrow>=3.0.0; extra == "pandas"
 Requires-Dist: db-dtypes<2.0.0,>=1.0.4; extra == "pandas"
 Provides-Extra: ipywidgets

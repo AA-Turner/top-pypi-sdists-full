@@ -11,18 +11,28 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0078 import TeamType
 
+class ShortBlobType(TypedDict):
+    """Short Blob
 
-class PullRequestReviewRequestType(TypedDict):
-    """Pull Request Review Request
-
-    Pull Request Review Request
+    Short Blob
     """
 
-    users: list[SimpleUserType]
-    teams: list[TeamType]
+    url: str
+    sha: str
 
 
-__all__ = ("PullRequestReviewRequestType",)
+class ShortBlobTypeForResponse(TypedDict):
+    """Short Blob
+
+    Short Blob
+    """
+
+    url: str
+    sha: str
+
+
+__all__ = (
+    "ShortBlobType",
+    "ShortBlobTypeForResponse",
+)

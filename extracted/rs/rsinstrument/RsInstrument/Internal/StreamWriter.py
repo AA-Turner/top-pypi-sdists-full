@@ -37,7 +37,7 @@ class StreamWriter:
 			assert meta_data is None, f'You can not define input meta_data for a Variable StreamWriter.'
 			self._data = BytesIO() if binary else StringIO()
 		elif Type.Forget in self._target:
-			self._data: str or bytes = ''
+			self._data: str | bytes = ''
 		elif Type.File in self._target:
 			assert isinstance(meta_data, str), f'Additional data must be of string type (file path). Actual type: {type(meta_data)}'
 			self._file_path = meta_data
@@ -128,7 +128,7 @@ class StreamWriter:
 		"""Switches from binary to string data.
 		For variables, the current content is converted to string using the provided encoding.
 		For files, they are closed and reopened as for appended text writing."""
-		if self._binary is False:
+		if not self._binary:
 			return
 		self._binary = False
 		if Type.Variable in self._target:
@@ -137,15 +137,13 @@ class StreamWriter:
 			self._data.close()
 			self._data = open(self._file_path, 'a')
 
-	# noinspection PyTypeChecker
 	@property
-	def content(self) -> AnyStr:
+	def content(self) -> str | bytes | None:
 		"""Returns content of the writer. Only works with variable types."""
 		if self._target == Type.Forget:
 			return ''
 		if self._target != Type.Variable:
 			raise RsInstrException(f'Can not return content for the current {self}')
-		# noinspection PyTypeChecker
 		if not self._data:
 			return None
 		self._data.seek(0)

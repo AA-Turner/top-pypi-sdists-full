@@ -1,22 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: astrapy
-Version: 2.0.1
-Summary: AstraPy is a Pythonic SDK for DataStax Astra and its Data API
-Author: Stefano Lottini
-Author-email: stefano.lottini@datastax.com
-Requires-Python: >=3.8.0,<4.0.0
-Classifier: Programming Language :: Python :: 3
+Version: 2.1.0
+Summary: A Python client for the Data API on DataStax Astra DB
+Project-URL: Homepage, https://github.com/datastax/astrapy
+Project-URL: Documentation, https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html
+Project-URL: Repository, https://github.com/datastax/astrapy
+Project-URL: Issues, https://github.com/datastax/astrapy/issues
+Project-URL: Changelog, https://github.com/datastax/astrapy/blob/main/CHANGES
+Author-email: Stefano Lottini <stefano.lottini@datastax.com>, Eric Hare <eric.hare@datastax.com>
+License-File: LICENSE.md
+Keywords: Astra,Astra DB,DataStax
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: deprecation (>=2.1.0,<2.2.0)
-Requires-Dist: httpx[http2] (>=0.25.2,<1)
-Requires-Dist: pymongo (>=3)
-Requires-Dist: toml (>=0.10.2,<0.11.0)
-Requires-Dist: typing-extensions (>=4.0)
-Requires-Dist: uuid6 (>=2024.1.12)
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: <4.0,>=3.8
+Requires-Dist: deprecation~=2.1.0
+Requires-Dist: h11>=0.16.0
+Requires-Dist: httpx[http2]<1,>=0.25.2
+Requires-Dist: pymongo>=3
+Requires-Dist: toml<1.0.0,>=0.10.2
+Requires-Dist: typing-extensions>=4.0
+Requires-Dist: uuid6>=2024.1.12
 Description-Content-Type: text/markdown
 
 # AstraPy
@@ -143,7 +153,7 @@ for more on this topic.
 
 ### Hybrid search
 
-AstraPy supports the supports the "find and rerank" Data API command,
+AstraPy supports the "findAndRerank" Data API command,
 which performs a hybrid search by combining results from a lexical search
 and a vector-based search in a single operation.
 
@@ -158,8 +168,8 @@ for r_result in r_results:
     print(r_result.document, r_results.scores)
 ```
 
-The Data API must support the primitive (and one must not have
-disabled the feature at collection-creation time).
+This command will execute if the collection was created with the required settings
+(they are enabled by default).
 
 See the Data API reference, and the docstring for the `find_and_rerank` method,
 for more on this topic.
@@ -259,13 +269,228 @@ For more on Tables, consult the [Data API documentation about Tables](https://do
 
 #### Maps as association lists
 
-In the Data API, table `map` columns with key of a type other than text
-have to be expressed as association lists,
-i.e. nested lists of lists: `[[key1, value1], [key2, value2], ...]`.
+When working with Tables, `map` columns with key of a type other than text
+must be expressed as association lists,
+i.e. nested lists of lists: `[[key1, value1], [key2, value2], ...]`, in payloads.
 
-AstraPy objects can be configured to always do so automatically, for a seamless
-experience.
-See the API Option `serdes_options.encode_maps_as_lists_in_tables` for details.
+By default, `Table` objects in AstraPy will use the association-list representation
+only for maps wrapped by a `DataAPIMap`, and leave regular Python `dict` objects
+unchanged in payloads: in practice the following row would be sent to the API as shown:
+
+```python
+from astrapy.data_types import DataAPIMap
+
+row_to_insert = {
+    "map_1": {"k": "v"},
+    "map_2": DataAPIMap({"k1": "v1", "k2": "v2"}),
+}
+
+# Will be serialized as JSON like this:
+#    {
+#        "map_1": {"k": "v"},
+#        "map_2": [["k1", "v1"], ["k2", "v2"]]
+#    }
+```
+
+This behaviour is controlled by the API Option `serdes_options.encode_maps_as_lists_in_tables`,
+which defaults to `MapEncodingMode.DATAAPIMAPS`. Other options are:
+
+- `MapEncodingMode.ALWAYS` to convert also regular Python `dict` values into lists of pairs;
+- `MapEncodingMode.NEVER` to never apply such conversion.
+
+The following code demonstrates getting a `Table` object with the desired setting:
+
+```python
+from astrapy.api_options import APIOptions, SerdesOptions
+from astrapy.constants import MapEncodingMode
+
+my_options = APIOptions(serdes_options=SerdesOptions(
+    encode_maps_as_lists_in_tables=MapEncodingMode.ALWAYS  # or even just "ALWAYS"
+))
+
+my_table = my_database.get_table("my_table", spawn_api_options=my_options)
+```
+
+See the section about API Options, and the docstring, for more details.
+
+_Caution: if one plans to use regular Python `dict` objects to express user-defined types (UDTs),_
+_setting this option to ALWAYS would interfere with the format expected by the API for UDTs._
+_See the section on UDTs for more details._
+
+#### User-defined types (UDTs)
+
+The Data API allows creation of "user-defined types" (UDTs), composite data types
+that can be subsequently used as table column types.
+
+```python
+from astrapy.info import (
+    ColumnType,
+    CreateTableDefinition,
+    CreateTypeDefinition,
+    TableScalarColumnTypeDescriptor,
+)
+
+player_udt_def = CreateTypeDefinition(
+    fields={
+        "name": TableScalarColumnTypeDescriptor(ColumnType.TEXT),
+        "age": TableScalarColumnTypeDescriptor(ColumnType.INT),
+    },
+)
+my_database.create_type("player_udt", definition=player_udt_def)
+
+table_definition = (
+    CreateTableDefinition.builder()
+    .add_column("match_id", ColumnType.TEXT)
+    .add_userdefinedtype_column("player1", "player_udt")
+    .add_userdefinedtype_column("player2", "player_udt")
+    .add_partition_by(["match_id"])
+    .build()
+)
+udt_table = my_database.create_table("matches", definition=table_definition)
+```
+
+To write data to UDT columns, the default settings (in part. the `SerdesOptions` settings)
+admit using plain Python dictionaries. When reading from a `Table`, by default the
+UDT will be returned in the form of an `astrapy.data_types.DataAPIDictUDT`, a subclass
+of `dict`.
+
+The default write behaviour can be changed through the
+`serdes_options.encode_maps_as_lists_in_tables` API Option,
+described in the "Maps as association lists" section.
+
+The default read behaviour can be changed by setting `serdes_options.custom_datatypes_in_reading`
+to False, in which case UDT data will be returned as a regular `dict`.
+
+The following code demonstrates the default read and write behaviour, using the `udt_table` just created:
+
+```python
+from astrapy.data_types import DataAPIDictUDT
+
+# both are valid ways to express a 'player_udt':
+udt_table.insert_one({
+    "match_id": "x001",
+    "player1": {"name": "Anita", "age": 49},
+    "player2": DataAPIDictUDT({"name": "Pedro", "age": 50}),
+})
+# Conversely, use of DataAPIMap for UDTs is an error under the default serdes settings.
+```
+
+_Note that if the map list-encoding is set to "ALWAYS", the above insertion
+will fail because of `"player1"`: usage of `DataAPIDictUDT` is guaranteed to work
+in all circumstances instead._
+
+##### Using models for UDTs
+
+In many cases, one wants to 'bind' a certain UDT to a model class. AstraPy provides
+a way to "register" model classes both for the write and read paths, through the following
+serdes API Options:
+
+- `serdes_options.serializer_by_class`: a map from _classes_ (not class names; not class instances) to serializer functions. A serializer function accepts an instance of the model class and returns a corresponding `dict` representation;
+- `serdes_options.deserializer_by_udt`: a map from _UDT names_ to deserializer functions. A deserializer function accepts a dict representation, along with the UDT definition, and returns an instance of the model class.
+
+The following example demonstrates this procedure, including ser/deserializers.
+Suppose you have a `dataclass` corresponding to `player_udt`:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Player:
+    name: str
+    age: int
+```
+
+The two required ser/des functions can be defined and configured for the API options in order to spawn a `Table` object able to use `Player`:
+
+```python
+from typing import Any
+
+from astrapy.api_options import APIOptions, SerdesOptions
+from astrapy.info import CreateTypeDefinition
+
+def player_serializer(pl: Player) -> dict[str, Any]:
+    # the logic in this function will depend on the model class being used:
+    return pl.__dict__
+
+def player_deserializer(
+    pl_dict: dict[str, Any],
+    udt_def: CreateTypeDefinition | None,
+) -> Player:
+    # the logic in this function will depend on the model class being used:
+    return Player(**pl_dict)
+
+my_options = APIOptions(serdes_options=SerdesOptions(
+    serializer_by_class={Player: player_serializer},
+    deserializer_by_udt={"player_udt": player_deserializer},
+))
+
+# This statement does not create the table on DB, that is assumed to exist already:
+my_model_capable_table = database.get_table("matches", spawn_api_options=my_options)
+```
+
+At this point, writes and reads can seamlessly use the `Player` class:
+
+```python
+my_model_capable_table.insert_one({
+    "match_id": "x001",
+    "player1": Player(name="Anita", age=49),
+    "player2": Player(name="Pedro", age=50),
+})
+
+the_match = my_model_capable_table.find_one({"match_id": "x001"})
+# the_match["player1"] and the_match["player2"] are Player objects:
+
+print(the_match["player1"])
+# prints: Player(name='Anita', age=49)
+print(the_match["player2"])
+# prints: Player(name='Pedro', age=50)
+```
+##### Summary for UDT usage and maps in Tables
+
+Under the default serdes settings, the following rules apply and constitute the suggested approach:
+
+- use DataAPIMap to write map columns;
+- use DataAPIDictUDTs, or plain `dict`, to write UDTs;
+- expect DataAPIMap when reading map columns;
+- expect DataAPIDictUDTs when reading UDTs;
+- to use model classes, associate them for reads and writes correspondingly.
+
+The following tables summarize the interplay between `dict`, `DataAPIMap`, `DataAPIDictUDT` and the
+serdes options for writes and reads in Tables:
+
+_Items in insertions vs. `serdes_options.encode_maps_as_lists_in_tables`._
+("D" = `dict` in payload, "L" = list of pairs in payload.)
+
+| Item being written | NEVER | **DATAAPIMAPS** (default) | ALWAYS |
+| --- | --- | --- | --- |
+| DataAPIDictUDT                      | ok, D | ok, D | ok, D |
+| dict (for UDT)                      | ok, D | ok, D | NO (L: rejected) |
+| dict (for map, string keys)         | ok, D | ok, D | ok, L |
+| dict (for map, nonstring keys)      | NO [1] | NO [1] | ok, L |
+| `MyClass`, in `serializer_by_class` | ok, D [2] | ok, D [2] | ok, D [2] |
+| `MyClass`, no registered serializer | NO [3] | NO [3] | NO [3] |
+
+Notes:
+
+1. The JSON serialization would silently convert the keys to string, leading to a type-mismatch API error upon insertion.
+2. In this case the `dict` is the result of the serializer function, of course.
+3. An error _"Object of type `<classname>` is not JSON serializable"_ is raised.
+
+_Items in reads vs. `serdes_options.custom_datatypes_in_reading`._
+("M" = `DataAPIMap` found in row, "U" = `DataAPIDictUDT` found in row, "D" = `dict` found in row.)
+
+| Item being read | **True** (default) | False |
+| --- | --- | --- |
+| map (as object, string keys)              | ok, M | ok, D |
+| map (as list, string keys)                | ok, M | ok, D |
+| map (as list, nonstring keys)             | ok, M | ok, D [4] |
+| UDT, with entry in `deserializer_by_udt`  | ok [5] | ok [5] |
+| UDT, no registered deserializer           | ok, U | ok, D |
+
+Notes:
+
+4. Caution: the returned regular Python `dict` will have nonstring keys.
+5. The class of the result is whatever the deserializer returns.
 
 ### Usage with HCD and other non-Astra installations
 
@@ -495,7 +720,12 @@ print(unescape_field_path("a&&&.b.c.d.12"))
 
 ## For contributors
 
-First install poetry with `pip install poetry` and then the project dependencies with `poetry install --with dev`.
+First install `uv` (e.g. `pipx install uv`), then set up a dev environment with `make venv`, or equivalently:
+
+```
+uv venv
+uv sync --dev
+```
 
 Linter, style and typecheck should all pass for a PR:
 
@@ -519,7 +749,7 @@ Astrapy's CI only runs "base". The others are to be checked manually when it's n
 
 Tests can be run on three types of Data API _targets_ (with slight differences in what is applicable):
 
-- **DockerCompose**: DSE+Data API, started by the test initialization with `docker-compose`. _Note that in this case you will have to manually destroy the created containers._
+- **DockerCompose**: HCD+Data API, started by the test initialization with `docker-compose`. _Note that in this case you will have to manually destroy the created containers._
 - **nonAstra**: a ready-to-use (user-supplied) local Data API (e.g. using `tests/dse_compose`)
 - **Astra**: an Astra DB target account (or two, as some tests are specific to dev environment)
 
@@ -527,63 +757,92 @@ Depending on the test, different environment variables are needed: refer to
 the templates in `tests/env_templates`. The "basic" credentials (one of the three options)
 are always required, _even for unit testing_.
 
+#### Docker vs. Podman
+
+In case you use a different Docker-compatible container runtime, viz. `podman`, make sure to export
+the environment variable `DOCKER_COMMAND_NAME="podman"` to have the **DockerCompose** tests use it properly.
+
+#### Multiple Python versions
+
+If may be useful to run e.g. unit tests with multiple Python versions. You can have `uv`
+create more than one venv and specify the version, e.g. for each one:
+
+```
+uv venv --python 3.8 .venv-3.8
+. .venv-3.8/bin/activate
+uv sync --dev --active
+```
+
+Then, with the desired virtual env active, you will run e.g. `uv run --active pytest [...]`.
+
+Most make targets will also support running in the named virtual env:
+assuming you activated a certain virtual env, you can run e.g.: `make format VENV=true`.
+
+#### Adding/changing dependencies
+
+After editing the `pyproject.toml`, make sure you run
+
+```
+uv lock
+uv sync --dev
+```
+
+and then commit the new `uv.lock` to the repo as well.
+
 #### Sample testing commands
 
 Base:
 
 ```
 # choose one:
-poetry run pytest tests/base
-poetry run pytest tests/base/unit
-poetry run pytest tests/base/integration
+uv run pytest tests/base
+uv run pytest tests/base/unit
+uv run pytest tests/base/integration
 ```
+
+_Note: when running locally, the reranking-related tests require `ASTRAPY_FINDANDRERANK_USE_RERANKER_HEADER=y` and
+HEADER_RERANKING_API_KEY_NVIDIA="AstraCS:<dev token...>`._
 
 Admin:
 
 ```
 # depending on the environment, different 'admin tests' will run:
-poetry run pytest tests/admin
+uv run pytest tests/admin
 ```
 
 Extended vectorize:
 
 ```
 # very many env. variables required for this one:
-poetry run pytest tests/vectorize
+uv run pytest tests/vectorize
 
 # restrict to some combination(s) with e.g.:
 EMBEDDING_MODEL_TAGS="openai/text-embedding-3-large/HEADER/0,voyageAI/voyage-finance-2/SHARED_SECRET/f" \
-    poetry run pytest tests/vectorize/integration/test_vectorize_providers.py \
+    uv run pytest tests/vectorize/integration/test_vectorize_providers.py \
     -k test_vectorize_usage_auth_type_header_sync
 ```
 
 All the usual `pytest` ways of restricting the test selection hold
-(e.g. `poetry run pytest tests/idiomatic/unit` or `[...] -k <test_name_selector>`). Also e.g.:
+(e.g. `uv run pytest tests/idiomatic/unit` or `[...] -k <test_name_selector>`). Also e.g.:
 
 ```
 # suppress log noise
-poetry run pytest [...] -o log_cli=0
+uv run pytest [...] -o log_cli=0
 
 # increase log level
-poetry run pytest [...] -o log_cli=1 --log-cli-level=10
+uv run pytest [...] -o log_cli=1 --log-cli-level=10
 ```
 
-### Special tests (2025-03-25, Temporary provisions)
+### Special tests
 
-Running special tests taking `find_and_rerank` into account, until dev/prod/local discrepancies resolved.
+The following are special provision to manage features under evolution or not
+entirely deployed to all environments. Typically they require manually passing
+certain environment variables, otherwise the associated tests are excluded from CI.
 
-**Prod** (usual CI) just runs as is and skips f.a.r.r.
+#### Cutting-edge features on `main`
 
-**Dev** (manual CI on a hybrid-capable cloud Data API). One must:
-
-1. launch integration tests with `ASTRAPY_TEST_FINDANDRERANK=y`
-2. ... but also setting "ASTRAPY_TEST_FINDANDRERANK_SUPPRESS_LEXICAL=y" to suppress actual non-null `"$lexical"` sorts, if not rolled out yet.
-  
-**Local** (manual CI on a hybrid-capable locally-running Data API). One must:
-
-1. launch integration tests with `ASTRAPY_TEST_FINDANDRERANK=y`
-2. ... but also with `ASTRAPY_FINDANDRERANK_USE_RERANKER_HEADER=y` to pass a reranker API key where needed
-3. ... which requires an environment variable `HEADER_RERANKING_API_KEY_NVIDIA` to be set with the `AstraCS:...` dev token.
+Prepend tests with a `ASTRAPY_TEST_LATEST_MAIN=y` for features found on `main` that are not released anywhere.
+_(Tip: run a code search first to see what is currently marked as such. Chances are nothing is.)_
 
 ## Appendices
 
@@ -669,13 +928,14 @@ Data types:
 
 ```python
 from astrapy.data_types import (
-    DataAPITimestamp,
-    DataAPIVector,
     DataAPIDate,
     DataAPIDuration,
     DataAPIMap,
     DataAPISet,
     DataAPITime,
+    DataAPITimestamp,
+    DataAPIDictUDT,
+    DataAPIVector,
 )
 ```
 
@@ -687,6 +947,9 @@ from astrapy.info import (
     AlterTableAddVectorize,
     AlterTableDropColumns,
     AlterTableDropVectorize,
+    AlterTypeAddFields,
+    AlterTypeOperation,
+    AlterTypeRenameFields,
     AstraDBAdminDatabaseInfo,
     AstraDBDatabaseInfo,
     CollectionDefaultIDOptions,
@@ -698,6 +961,7 @@ from astrapy.info import (
     CollectionVectorOptions,
     ColumnType,
     CreateTableDefinition,
+    CreateTypeDefinition,
     EmbeddingProvider,
     EmbeddingProviderAuthentication,
     EmbeddingProviderModel,
@@ -707,6 +971,7 @@ from astrapy.info import (
     FindRerankingProvidersResult,
     ListTableDefinition,
     ListTableDescriptor,
+    ListTypeDescriptor,
     RerankingProvider,
     RerankingProviderAuthentication,
     RerankingProviderModel,
@@ -724,8 +989,11 @@ from astrapy.info import (
     TableKeyValuedColumnTypeDescriptor,
     TablePrimaryKeyDescriptor,
     TableScalarColumnTypeDescriptor,
+    TableTextIndexDefinition,
+    TableTextIndexOptions,
     TableUnsupportedColumnTypeDescriptor,
     TableUnsupportedIndexDefinition,
+    TableUDTColumnDescriptor,
     TableValuedColumnType,
     TableValuedColumnTypeDescriptor,
     TableVectorColumnTypeDescriptor,
@@ -746,6 +1014,25 @@ from astrapy.authentication import (
 )
 ```
 
+Miscellaneous utilities:
+
+```python
+# Parsing API Endpoints for Astra DB:
+from astrapy.admin import (
+    ParsedAPIEndpoint,
+    parse_api_endpoint,
+)
+
+# Escaping/unescaping document paths:
+from astrapy.utils.document_paths import (
+    escape_field_names,
+    unescape_field_path,
+)
+
+# API Options defaults:
+from astrapy.utils.api_options import defaultAPIOptions
+```
+
 ### Appendix B: compatibility with pre-1.0.0 library
 
 If your code still uses the pre-1.0.0 astrapy (i.e. `from astrapy.db import AstraDB, AstraDBCollection` and so on)
@@ -756,4 +1043,3 @@ Version 2 drops "core" support entirely. In order to use astrapy version 2.0+, y
 Check the links at the beginning of this README for the updated documentation and API reference.
 
 Check out previous versions of this README for more on "core": [1.5.2](https://github.com/datastax/astrapy/blob/4601c5fa749925d961de1f114ca27690d1a71b13/README.md) and [pre-1.0](https://github.com/datastax/astrapy/blob/cd3f5ce8146093e10a095709c0f5c3f8e3f2c7da/README.md).
-

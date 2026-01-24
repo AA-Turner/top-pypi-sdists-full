@@ -3,7 +3,7 @@ Type annotations for mediapackage-vod service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediapackage_vod/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -63,12 +64,6 @@ from .type_defs import (
     UpdatePackagingGroupResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -79,13 +74,13 @@ __all__ = ("MediaPackageVodClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
 
 
 class MediaPackageVodClient(BaseClient):
@@ -163,7 +158,7 @@ class MediaPackageVodClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediapackage_vod/client/#create_packaging_group)
         """
 
-    def delete_asset(self, **kwargs: Unpack[DeleteAssetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_asset(self, **kwargs: Unpack[DeleteAssetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an existing MediaPackage VOD Asset resource.
 
@@ -173,7 +168,7 @@ class MediaPackageVodClient(BaseClient):
 
     def delete_packaging_configuration(
         self, **kwargs: Unpack[DeletePackagingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a MediaPackage VOD PackagingConfiguration resource.
 
@@ -183,7 +178,7 @@ class MediaPackageVodClient(BaseClient):
 
     def delete_packaging_group(
         self, **kwargs: Unpack[DeletePackagingGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a MediaPackage VOD PackagingGroup resource.
 

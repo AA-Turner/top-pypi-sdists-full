@@ -46,6 +46,7 @@
 #
 from email.utils import formataddr
 from json import dumps
+import logging
 
 import requests
 
@@ -53,6 +54,7 @@ from .. import exception
 from ..common import NotifyFormat, NotifyType
 from ..locale import gettext_lazy as _
 from ..utils.parse import is_email, parse_bool, parse_emails, validate_regex
+from ..utils.sanitize import sanitize_payload
 from .base import NotifyBase
 
 SMTP2GO_HTTP_ERROR_MAP = {
@@ -77,7 +79,7 @@ class NotifySMTP2Go(NotifyBase):
     request_rate_per_sec = 0.20
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_smtp2go"
+    setup_url = "https://appriseit.com/services/smtp2go/"
 
     # Notify URL
     notify_url = "https://api.smtp2go.com/v3/email/send"
@@ -415,11 +417,18 @@ class NotifySMTP2Go(NotifyBase):
                 ]
 
             # Some Debug Logging
-            self.logger.debug(
-                "SMTP2Go POST URL:"
-                f" {self.notify_url} (cert_verify={self.verify_certificate})"
-            )
-            self.logger.debug(f"SMTP2Go Payload: {payload}")
+            if self.logger.isEnabledFor(logging.DEBUG):
+                # Due to attachments; output can be quite heavy and io
+                # intensive.
+                # To accommodate this, we only show our debug payload
+                # information if required.
+                self.logger.debug(
+                    "SMTP2Go POST URL:"
+                    f" {self.notify_url} "
+                    f"(cert_verify={self.verify_certificate})"
+                )
+                self.logger.debug(
+                    "SMTP2Go Payload: %s", sanitize_payload(payload))
 
             # For logging output of success and errors; we get a head count
             # of our outbound details:
@@ -460,7 +469,8 @@ class NotifySMTP2Go(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

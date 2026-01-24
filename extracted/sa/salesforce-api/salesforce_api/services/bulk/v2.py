@@ -1,5 +1,4 @@
 import csv
-import io
 import json
 import time
 from enum import Enum
@@ -61,7 +60,7 @@ class Client(bulk_base.Client, base.RestService):
 
 class Job(base.RestService):
     def __init__(self, connection, job_id):
-        super().__init__(connection, 'jobs/ingest/' + job_id)
+        super().__init__(connection, f'jobs/ingest/{job_id}')
         self.job_id = job_id
 
     def _set_state(self, new_state: JOB_STATE):
@@ -98,9 +97,9 @@ class Job(base.RestService):
     def is_done(self) -> bool:
         return self.get_state() in JOB_STATES_DONE
 
-    def _get_results(self, uri, callback):
-        result = self.connection.request(VERB.GET, url=self._format_url(uri)).text
-        reader = csv.DictReader(io.StringIO(result))
+    def _get_results(self, uri: str, callback):
+        response = self.request(VERB.GET, uri)
+        reader = csv.DictReader(response.iter_lines(decode_unicode=True))
         return [callback(x) for x in reader]
 
     def get_successful_results(self) -> List[models.ResultRecord]:

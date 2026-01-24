@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-post_office
-Version: 3.10.1
+Version: 3.11.0
 Summary: A Django app to monitor and send mail asynchronously, complete with template support.
 Author-email: Selwin Ong <selwin.ong@gmail.com>
 License-Expression: MIT
@@ -12,6 +12,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -22,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -29,12 +31,12 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
-Requires-Dist: bleach[css]
+Requires-Dist: nh3
 Requires-Dist: django>=4.2
 Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-django; extra == "test"
 Requires-Dist: tox>=2.3; extra == "test"
-Provides-Extra: prevent-xss
-Requires-Dist: bleach; extra == "prevent-xss"
 Dynamic: license-file
 
 # Django Post Office
@@ -57,12 +59,7 @@ Django. Some awesome features are:
 ## Dependencies
 
 -   [django \>= 4.2](https://djangoproject.com/)
--   [jsonfield](https://github.com/rpkilby/jsonfield)
--   [bleach](https://bleach.readthedocs.io/)
-
-With this optional dependency, HTML emails are nicely rendered
-inside the Django admin backend. Without this library, all HTML tags
-will otherwise be stripped for security reasons.
+-   [nh3](https://nh3.readthedocs.io/) - HTML sanitization library for rendering HTML emails safely in Django admin
 
 ## Installation
 
@@ -452,6 +449,127 @@ You may want to set these up via cron to run regularly:
 This section outlines all the settings and configurations that you can
 put in Django's `settings.py` to fine tune `post-office`'s behavior.
 
+### Webhook Handlers (Not Yet Released)
+
+__Webhook Handlers are still in beta, use at your own risk.__
+
+`post_office` ships with webhook handlers for AWS SES and SparkPost. These handlers
+parse ESP (Email Service Provider) webhook payloads into normalized `ESPEvent` objects
+and call `handle_events()` so you can implement your own persistence logic.
+
+```python
+from post_office.webhooks import SESWebhookHandler, SparkPostWebhookHandler, ESPEvent
+```
+
+#### ESPEvent
+
+Each webhook event is normalized into an `ESPEvent` object:
+
+```python
+ESPEvent(
+    raw_event='delivered',                 # raw ESP event name
+    delivery_status=RecipientDeliveryStatus.DELIVERED,
+    recipient='user@example.com',          # recipient email
+    message_id='<abc123@example.com>',     # message-id header or provider id
+    timestamp=timezone.now(),              # datetime if available
+    subject='Hello',                       # subject if provided
+    to_addresses=['a@example.com'],        # all recipients if provided
+)
+```
+
+The `delivery_status` field uses `RecipientDeliveryStatus` with the following values:
+
+- `ACCEPTED`
+- `DELIVERED`
+- `OPENED`
+- `CLICKED`
+- `DEFERRED`
+- `SOFT_BOUNCED`
+- `UNDETERMINED_BOUNCED`
+- `HARD_BOUNCED`
+- `SPAM_COMPLAINT`
+- `UNSUBSCRIBED`
+
+#### SESWebhookHandler
+
+Handles AWS SES notifications via SNS. Supports delivery, bounce (soft/hard/undetermined),
+and complaint events.
+
+```python
+from django.urls import path
+from post_office.webhooks import SESWebhookHandler, ESPEvent
+
+
+class MySESWebhookHandler(SESWebhookHandler):
+    def handle_events(self, events: list[ESPEvent], payload):
+        for event in events:
+            # Add your own persistence logic here.
+            # Example: update Email by message_id or subject.
+            pass
+
+
+urlpatterns = [
+    path('webhooks/ses/', MySESWebhookHandler.as_view(), name='ses-webhook'),
+]
+```
+
+Configure in `POST_OFFICE`:
+
+```python
+POST_OFFICE = {
+    'WEBHOOKS': {
+        'SES': {
+            'VERIFY_SIGNATURE': True,  # default, requires cryptography package
+        },
+    },
+}
+```
+
+Signature verification uses the SNS `SigningCertURL` and requires the `cryptography`
+package. Set `VERIFY_SIGNATURE` to `False` for local development only.
+
+The handler also recognizes SNS subscription confirmations; visit the `SubscribeURL`
+from AWS to complete the subscription.
+
+#### SparkPostWebhookHandler
+
+Handles SparkPost webhook events including delivery, bounce, open, click, spam complaint,
+and unsubscribe events.
+
+```python
+from django.urls import path
+from post_office.webhooks import SparkPostWebhookHandler, ESPEvent
+
+
+class MySparkPostWebhookHandler(SparkPostWebhookHandler):
+    def handle_events(self, events: list[ESPEvent], payload):
+        for event in events:
+            # Add your own persistence logic here.
+            pass
+
+
+urlpatterns = [
+    path('webhooks/sparkpost/', MySparkPostWebhookHandler.as_view(), name='sparkpost-webhook'),
+]
+```
+
+Configure in `POST_OFFICE`:
+
+```python
+POST_OFFICE = {
+    'WEBHOOKS': {
+        'SPARKPOST': {
+            'USERNAME': 'your-webhook-username',
+            'PASSWORD': 'your-webhook-password',
+            'VERIFY_SIGNATURE': True,  # default
+        },
+    },
+}
+```
+
+SparkPost uses HTTP Basic Authentication. Configure `USERNAME` and `PASSWORD` to match
+your SparkPost webhook settings.
+
 
 ### File Storage
 
@@ -762,7 +880,8 @@ Attachments are not supported with `mail.send_many()`.
 To run the test suite:
 
 ```sh
-`which django-admin` test post_office --settings=post_office.test_settings --pythonpath=.
+pip install -e ".[test]"
+pytest
 ```
 
 You can run the full test suite for all supported versions of Django and Python with:
@@ -774,7 +893,7 @@ tox
 or:
 
 ```sh
-python setup.py test
+pytest
 ```
 
 

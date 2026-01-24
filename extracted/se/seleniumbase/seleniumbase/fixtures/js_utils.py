@@ -29,7 +29,9 @@ def wait_for_ready_state_complete(driver, timeout=settings.LARGE_TIMEOUT):
     If the timeout is exceeded, the test will still continue
       because readyState == "interactive" may be good enough.
     (Previously, tests would fail immediately if exceeding the timeout.)"""
-    if hasattr(settings, "SKIP_JS_WAITS") and settings.SKIP_JS_WAITS:
+    if hasattr(driver, "_swap_driver"):
+        return
+    if getattr(settings, "SKIP_JS_WAITS", None):
         return
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
@@ -54,18 +56,22 @@ def wait_for_ready_state_complete(driver, timeout=settings.LARGE_TIMEOUT):
 
 
 def execute_async_script(driver, script, timeout=settings.LARGE_TIMEOUT):
-    driver.set_script_timeout(timeout)
-    return driver.execute_async_script(script)
+    if hasattr(driver, "set_script_timeout"):
+        driver.set_script_timeout(timeout)
+    if hasattr(driver, "execute_async_script"):
+        return driver.execute_async_script(script)
+    else:
+        return None
 
 
 def wait_for_angularjs(driver, timeout=settings.LARGE_TIMEOUT, **kwargs):
-    if hasattr(settings, "SKIP_JS_WAITS") and settings.SKIP_JS_WAITS:
+    if getattr(settings, "SKIP_JS_WAITS", None):
         return
     with suppress(Exception):
         # This closes pop-up alerts
         execute_script(driver, "")
     if (
-        (hasattr(driver, "_is_using_uc") and driver._is_using_uc)
+        getattr(driver, "_is_using_uc", None)
         or not settings.WAIT_FOR_ANGULARJS
     ):
         wait_for_ready_state_complete(driver)
@@ -205,6 +211,19 @@ def activate_jquery(driver):
         try:
             execute_script(driver, "jQuery('html');")
             return
+        except TypeError as e:
+            if (
+                (
+                    shared_utils.is_cdp_swap_needed(driver)
+                    or hasattr(driver, "_swap_driver")
+                )
+                and "cannot unpack non-iterable" in str(e)
+            ):
+                pass
+            else:
+                if x == 18:
+                    add_js_link(driver, jquery_js)
+                time.sleep(0.1)
         except Exception:
             if x == 18:
                 add_js_link(driver, jquery_js)
@@ -276,6 +295,18 @@ def safe_execute_script(driver, script):
     This method will load jQuery if it wasn't already loaded."""
     try:
         execute_script(driver, script)
+    except TypeError as e:
+        if (
+            (
+                shared_utils.is_cdp_swap_needed(driver)
+                or hasattr(driver, "_swap_driver")
+            )
+            and "cannot unpack non-iterable" in str(e)
+        ):
+            pass
+        else:
+            activate_jquery(driver)  # It's a good thing we can define it here
+            execute_script(driver, script)
     except Exception:
         # The likely reason this fails is because: "jQuery is not defined"
         activate_jquery(driver)  # It's a good thing we can define it here
@@ -868,7 +899,7 @@ def set_messenger_theme(
         theme = "future"
     if location == "default":
         location = "bottom_right"
-        if hasattr(sb_config, "mobile_emulator") and sb_config.mobile_emulator:
+        if getattr(sb_config, "mobile_emulator", None):
             location = "top_center"
     if max_messages == "default":
         max_messages = "8"
@@ -908,15 +939,16 @@ def set_messenger_theme(
         % (max_messages, messenger_location, theme)
     )
     try:
+        time.sleep(0.015)
         execute_script(driver, msg_style)
     except Exception:
-        time.sleep(0.03)
+        time.sleep(0.035)
         activate_messenger(driver)
-        time.sleep(0.15)
+        time.sleep(0.175)
         with suppress(Exception):
             execute_script(driver, msg_style)
-            time.sleep(0.02)
-    time.sleep(0.05)
+            time.sleep(0.035)
+    time.sleep(0.055)
 
 
 def post_message(driver, message, msg_dur=None, style="info"):
@@ -937,7 +969,10 @@ def post_message(driver, message, msg_dur=None, style="info"):
         execute_script(driver, messenger_script)
     except TypeError as e:
         if (
-            shared_utils.is_cdp_swap_needed(driver)
+            (
+                shared_utils.is_cdp_swap_needed(driver)
+                or hasattr(driver, "_swap_driver")
+            )
             and "cannot unpack non-iterable" in str(e)
         ):
             pass
@@ -968,7 +1003,7 @@ def post_messenger_success_message(driver, message, msg_dur=None):
     with suppress(Exception):
         theme = "future"
         location = "bottom_right"
-        if hasattr(sb_config, "mobile_emulator") and sb_config.mobile_emulator:
+        if getattr(sb_config, "mobile_emulator", None):
             location = "top_right"
         set_messenger_theme(driver, theme=theme, location=location)
         post_message(driver, message, msg_dur, style="success")
@@ -1260,10 +1295,16 @@ def scroll_to_element(driver, element):
         return False
     try:
         element_location_x = element.location["x"]
-        element_width = element.size["width"]
-        screen_width = driver.get_window_size()["width"]
     except Exception:
         element_location_x = 0
+    try:
+        element_width = element.size["width"]
+    except Exception:
+        element_width = 0
+    try:
+        screen_width = driver.get_window_size()["width"]
+    except Exception:
+        screen_width = execute_script(driver, "return window.innerWidth;")
     element_location_y = element_location_y - constants.Scroll.Y_OFFSET
     if element_location_y < 0:
         element_location_y = 0
@@ -1295,18 +1336,36 @@ def slow_scroll_to_element(driver, element, *args, **kwargs):
     element_location_y = None
     try:
         if shared_utils.is_cdp_swap_needed(driver):
-            element.get_position().y
+            element_location_y = element.get_position().y
         else:
             element_location_y = element.location["y"]
     except Exception:
-        element.location_once_scrolled_into_view
+        if shared_utils.is_cdp_swap_needed(driver):
+            element.scroll_into_view()
+        else:
+            element.location_once_scrolled_into_view
         return
     try:
-        element_location_x = element.location["x"]
-        element_width = element.size["width"]
-        screen_width = driver.get_window_size()["width"]
+        if shared_utils.is_cdp_swap_needed(driver):
+            element_location_x = element.get_position().x
+        else:
+            element_location_x = element.location["x"]
     except Exception:
         element_location_x = 0
+    try:
+        if shared_utils.is_cdp_swap_needed(driver):
+            element_width = element.get_position().width
+        else:
+            element_width = element.size["width"]
+    except Exception:
+        element_width = 0
+    try:
+        if shared_utils.is_cdp_swap_needed(driver):
+            screen_width = driver.cdp.get_window_size()["width"]
+        else:
+            screen_width = driver.get_window_size()["width"]
+    except Exception:
+        screen_width = execute_script(driver, "return window.innerWidth;")
     element_location_y = element_location_y - constants.Scroll.Y_OFFSET
     if element_location_y < 0:
         element_location_y = 0
@@ -1315,7 +1374,10 @@ def slow_scroll_to_element(driver, element, *args, **kwargs):
         element_location_x_fix = 0
     if element_location_x + element_width <= screen_width:
         element_location_x_fix = 0
-    distance = element_location_y - scroll_position
+    if shared_utils.is_cdp_swap_needed(driver):
+        distance = element_location_y
+    else:
+        distance = element_location_y - scroll_position
     if distance != 0:
         total_steps = int(abs(distance) / 50.0) + 2.0
         step_value = float(distance) / total_steps
@@ -1329,7 +1391,8 @@ def slow_scroll_to_element(driver, element, *args, **kwargs):
     scroll_script = "window.scrollTo(%s, %s);" % (
         element_location_x_fix, element_location_y
     )
-    execute_script(driver, scroll_script)
+    if not shared_utils.is_cdp_swap_needed(driver):
+        execute_script(driver, scroll_script)
     time.sleep(0.01)
     if distance > 430 or distance < -300:
         # Add small recovery time for long-distance slow-scrolling

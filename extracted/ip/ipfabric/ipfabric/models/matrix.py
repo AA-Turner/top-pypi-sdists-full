@@ -62,14 +62,14 @@ class Entry(BaseModel):
 
     @model_serializer
     def _dump(self):
-        return dict(
-            category=self.category.name,
-            taskName=self.task.name,
-            taskDescription=self.task.description,
-            vendor=self.vendor.name,
-            family=self.family.name,
-            status=self.status.state,
-        )
+        return {
+            "category": self.category.name,
+            "taskName": self.task.name,
+            "taskDescription": self.task.description,
+            "vendor": self.vendor.name,
+            "family": self.family.name,
+            "status": self.status.state,
+        }
 
 
 class SupportMatrix(BaseModel):

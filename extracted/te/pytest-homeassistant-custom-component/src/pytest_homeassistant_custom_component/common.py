@@ -1,5 +1,5 @@
 """
-Test the helper method for writing .
+Test the helper method for writing tests.
 
 This file is originally from homeassistant/core and modified by pytest-homeassistant-custom-component.
 """
@@ -204,14 +204,14 @@ class StoreWithoutWriteLoad[_T: (Mapping[str, Any] | Sequence[Any])](storage.Sto
     async def async_save(self, *args: Any, **kwargs: Any) -> None:
         """Save the data.
 
-        This function is mocked out in .
+        This function is mocked out in tests.
         """
 
     @callback
     def async_save_delay(self, *args: Any, **kwargs: Any) -> None:
         """Save data with an optional delay.
 
-        This function is mocked out in .
+        This function is mocked out in tests.
         """
 
 
@@ -942,6 +942,7 @@ class MockModule:
     def mock_manifest(self):
         """Generate a mock manifest to represent this module."""
         return {
+            "integration_type": "hub",
             **loader.manifest_from_legacy_module(self.DOMAIN, self),
             **(self._partial_manifest or {}),
         }
@@ -1147,7 +1148,7 @@ class MockConfigEntry(config_entries.ConfigEntry):
         state: config_entries.ConfigEntryState,
         reason: str | None = None,
     ) -> None:
-        """Mock the state of a config entry to be used in .
+        """Mock the state of a config entry to be used in tests.
 
         Currently this is a wrapper around _async_set_state, but it may
         change in the future.
@@ -1158,7 +1159,7 @@ class MockConfigEntry(config_entries.ConfigEntry):
 
         When in doubt, this helper should not be used in new code
         and is only intended for backwards compatibility with existing
-        .
+        tests.
         """
         self._async_set_state(hass, state, reason)
 
@@ -1538,7 +1539,7 @@ def mock_storage(data: dict[str, Any] | None = None) -> Generator[dict[str, Any]
         return loaded
 
     async def mock_write_data(
-        store: storage.Store, path: str, data_to_write: dict[str, Any]
+        store: storage.Store, data_to_write: dict[str, Any]
     ) -> None:
         """Mock version of write data."""
         # To ensure that the data can be serialized
@@ -1615,12 +1616,16 @@ def mock_integration(
     top_level_files: set[str] | None = None,
 ) -> loader.Integration:
     """Mock an integration."""
-    integration = loader.Integration(
-        hass,
+    path = (
         f"{loader.PACKAGE_BUILTIN}.{module.DOMAIN}"
         if built_in
-        else f"{loader.PACKAGE_CUSTOM_COMPONENTS}.{module.DOMAIN}",
-        pathlib.Path(""),
+        else f"{loader.PACKAGE_CUSTOM_COMPONENTS}.{module.DOMAIN}"
+    )
+
+    integration = loader.Integration(
+        hass,
+        path,
+        pathlib.Path(path.replace(".", "/")),
         module.mock_manifest(),
         top_level_files,
     )
@@ -1913,7 +1918,7 @@ def setup_test_component_platform(
     from_config_entry: bool = False,
     built_in: bool = True,
 ) -> MockPlatform:
-    """Mock a test component platform for ."""
+    """Mock a test component platform for tests."""
 
     async def _async_setup_platform(
         hass: HomeAssistant,

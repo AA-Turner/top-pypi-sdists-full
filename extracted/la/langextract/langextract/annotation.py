@@ -23,9 +23,12 @@ Usage example:
     annotated_documents = annotator.annotate_documents(documents, resolver)
 """
 
+from __future__ import annotations
+
+import collections
 from collections.abc import Iterable, Iterator
-import itertools
 import time
+from typing import DefaultDict
 
 from absl import logging
 
@@ -36,12 +39,8 @@ from langextract import resolver as resolver_lib
 from langextract.core import base_model
 from langextract.core import data
 from langextract.core import exceptions
-
-ATTRIBUTE_SUFFIX = "_attributes"
-
-
-class DocumentRepeatError(exceptions.LangExtractError):
-  """Exception raised when identical document ids are present."""
+from langextract.core import format_handler as fh
+from langextract.core import tokenizer as tokenizer_lib
 
 
 def _merge_non_overlapping_extractions(
@@ -120,6 +119,7 @@ def _document_chunk_iterator(
     documents: Iterable[data.Document],
     max_char_buffer: int,
     restrict_repeats: bool = True,
+    tokenizer: tokenizer_lib.Tokenizer | None = None,
 ) -> Iterator[chunking.TextChunk]:
   """Iterates over documents to yield text chunks along with the document ID.
 
@@ -128,27 +128,32 @@ def _document_chunk_iterator(
     max_char_buffer: The maximum character buffer size for the ChunkIterator.
     restrict_repeats: Whether to restrict the same document id from being
       visited more than once.
+    tokenizer: Optional tokenizer instance.
 
   Yields:
     TextChunk containing document ID for a corresponding document.
 
   Raises:
-    DocumentRepeatError: If restrict_repeats is True and the same document ID
+    InvalidDocumentError: If restrict_repeats is True and the same document ID
       is visited more than once. Valid documents prior to the error will be
       returned.
   """
   visited_ids = set()
   for document in documents:
-    tokenized_text = document.tokenized_text
+    if tokenizer:
+      tokenized_text = tokenizer.tokenize(document.text or "")
+    else:
+      tokenized_text = document.tokenized_text
     document_id = document.document_id
     if restrict_repeats and document_id in visited_ids:
-      raise DocumentRepeatError(
+      raise exceptions.InvalidDocumentError(
           f"Document id {document_id} is already visited."
       )
     chunk_iter = chunking.ChunkIterator(
         text=tokenized_text,
         max_char_buffer=max_char_buffer,
         document=document,
+        tokenizer_impl=tokenizer or tokenizer_lib.RegexTokenizer(),
     )
     visited_ids.add(document_id)
 
@@ -163,8 +168,9 @@ class Annotator:
       language_model: base_model.BaseLanguageModel,
       prompt_template: prompting.PromptTemplateStructured,
       format_type: data.FormatType = data.FormatType.YAML,
-      attribute_suffix: str = ATTRIBUTE_SUFFIX,
+      attribute_suffix: str = data.ATTRIBUTE_SUFFIX,
       fence_output: bool = False,
+      format_handler: fh.FormatHandler | None = None,
   ):
     """Initializes Annotator.
 
@@ -176,31 +182,40 @@ class Annotator:
       attribute_suffix: Suffix to append to attribute keys in the output.
       fence_output: Whether to expect/generate fenced output (```json or
         ```yaml). When True, the model is prompted to generate fenced output and
-        the resolver expects it. When False, raw JSON/YAML is expected. Defaults
-        to True.
+        the resolver expects it. When False, raw JSON/YAML is expected.
+        Defaults to False. If format_handler is provided, it takes precedence.
+      format_handler: Optional FormatHandler for managing format-specific logic.
     """
     self._language_model = language_model
+
+    if format_handler is None:
+      format_handler = fh.FormatHandler(
+          format_type=format_type,
+          use_wrapper=True,
+          wrapper_key=data.EXTRACTIONS_KEY,
+          use_fences=fence_output,
+          attribute_suffix=attribute_suffix,
+      )
+
     self._prompt_generator = prompting.QAPromptGenerator(
-        prompt_template,
-        format_type=format_type,
-        attribute_suffix=attribute_suffix,
-        fence_output=fence_output,
+        template=prompt_template,
+        format_handler=format_handler,
     )
 
     logging.debug(
-        "Initialized Annotator with prompt:\n%s", self._prompt_generator
+        "Annotator initialized with format_handler: %s", format_handler
     )
 
   def annotate_documents(
       self,
       documents: Iterable[data.Document],
-      resolver: resolver_lib.AbstractResolver = resolver_lib.Resolver(
-          format_type=data.FormatType.YAML,
-      ),
+      resolver: resolver_lib.AbstractResolver | None = None,
       max_char_buffer: int = 200,
       batch_length: int = 1,
       debug: bool = True,
       extraction_passes: int = 1,
+      show_progress: bool = True,
+      tokenizer: tokenizer_lib.Tokenizer | None = None,
       **kwargs,
   ) -> Iterator[data.AnnotatedDocument]:
     """Annotates a sequence of documents with NLP extractions.
@@ -223,6 +238,8 @@ class Annotator:
         standard single extraction.
         Values > 1 reprocess tokens multiple times, potentially increasing
         costs with the potential for a more thorough extraction.
+      show_progress: Whether to show progress bar. Defaults to True.
+      tokenizer: Optional tokenizer to use. If None, uses default tokenizer.
       **kwargs: Additional arguments passed to LanguageModel.infer and Resolver.
 
     Yields:
@@ -231,10 +248,19 @@ class Annotator:
     Raises:
       ValueError: If there are no scored outputs during inference.
     """
+    if resolver is None:
+      resolver = resolver_lib.Resolver(format_type=data.FormatType.YAML)
 
     if extraction_passes == 1:
       yield from self._annotate_documents_single_pass(
-          documents, resolver, max_char_buffer, batch_length, debug, **kwargs
+          documents,
+          resolver,
+          max_char_buffer,
+          batch_length,
+          debug,
+          show_progress,
+          tokenizer=tokenizer,
+          **kwargs,
       )
     else:
       yield from self._annotate_documents_sequential_passes(
@@ -244,6 +270,8 @@ class Annotator:
           batch_length,
           debug,
           extraction_passes,
+          show_progress,
+          tokenizer=tokenizer,
           **kwargs,
       )
 
@@ -254,140 +282,148 @@ class Annotator:
       max_char_buffer: int,
       batch_length: int,
       debug: bool,
+      show_progress: bool = True,
+      tokenizer: tokenizer_lib.Tokenizer | None = None,
       **kwargs,
   ) -> Iterator[data.AnnotatedDocument]:
-    """Single-pass annotation logic (original implementation)."""
+    """Single-pass annotation with stable ordering and streaming emission.
 
-    logging.info("Starting document annotation.")
-    doc_iter, doc_iter_for_chunks = itertools.tee(documents, 2)
-    curr_document = next(doc_iter, None)
-    if curr_document is None:
-      logging.warning("No documents to process.")
-      return
+    Streams input without full materialization, maintains correct attribution
+    across batches, and emits completed documents immediately to minimize
+    peak memory usage. Handles generators from both infer() and align().
+    """
+    doc_order: list[str] = []
+    doc_text_by_id: dict[str, str] = {}
+    per_doc: DefaultDict[str, list[data.Extraction]] = collections.defaultdict(
+        list
+    )
+    next_emit_idx = 0
 
-    annotated_extractions: list[data.Extraction] = []
-    chunk_iter = _document_chunk_iterator(doc_iter_for_chunks, max_char_buffer)
+    def _capture_docs(src: Iterable[data.Document]) -> Iterator[data.Document]:
+      """Captures document order and text lazily as chunks are produced."""
+      for document in src:
+        document_id = document.document_id
+        if document_id in doc_text_by_id:
+          raise exceptions.InvalidDocumentError(
+              f"Duplicate document_id: {document_id}"
+          )
+        doc_order.append(document_id)
+        doc_text_by_id[document_id] = document.text or ""
+        yield document
 
+    def _emit_docs_iter(
+        keep_last_doc: bool,
+    ) -> Iterator[data.AnnotatedDocument]:
+      """Yields documents that are guaranteed complete.
+
+      Args:
+        keep_last_doc: If True, retains the most recently started document
+          for additional extractions. If False, emits all remaining documents.
+      """
+      nonlocal next_emit_idx
+      limit = max(0, len(doc_order) - 1) if keep_last_doc else len(doc_order)
+      while next_emit_idx < limit:
+        document_id = doc_order[next_emit_idx]
+        yield data.AnnotatedDocument(
+            document_id=document_id,
+            extractions=per_doc.get(document_id, []),
+            text=doc_text_by_id.get(document_id, ""),
+        )
+        per_doc.pop(document_id, None)
+        doc_text_by_id.pop(document_id, None)
+        next_emit_idx += 1
+
+    chunk_iter = _document_chunk_iterator(
+        _capture_docs(documents), max_char_buffer, tokenizer=tokenizer
+    )
     batches = chunking.make_batches_of_textchunk(chunk_iter, batch_length)
 
     model_info = progress.get_model_info(self._language_model)
-
-    progress_bar = progress.create_extraction_progress_bar(
-        batches, model_info=model_info, disable=not debug
+    batch_iter = progress.create_extraction_progress_bar(
+        batches, model_info=model_info, disable=not show_progress
     )
 
     chars_processed = 0
 
-    for index, batch in enumerate(progress_bar):
-      logging.info("Processing batch %d with length %d", index, len(batch))
+    try:
+      for batch in batch_iter:
+        if not batch:
+          continue
 
-      batch_prompts: list[str] = []
-      for text_chunk in batch:
-        batch_prompts.append(
+        prompts = [
             self._prompt_generator.render(
                 question=text_chunk.chunk_text,
                 additional_context=text_chunk.additional_context,
             )
-        )
+            for text_chunk in batch
+        ]
 
-      # Show what we're currently processing
-      if debug and progress_bar:
-        batch_size = sum(len(chunk.chunk_text) for chunk in batch)
-        desc = progress.format_extraction_progress(
-            model_info,
-            current_chars=batch_size,
-            processed_chars=chars_processed,
-        )
-        progress_bar.set_description(desc)
-
-      batch_scored_outputs = self._language_model.infer(
-          batch_prompts=batch_prompts,
-          **kwargs,
-      )
-
-      # Update total processed
-      if debug:
-        for chunk in batch:
-          if chunk.document_text:
-            char_interval = chunk.char_interval
-            chars_processed += char_interval.end_pos - char_interval.start_pos
-
-        # Update progress bar with final processed count
-        if progress_bar:
-          batch_size = sum(len(chunk.chunk_text) for chunk in batch)
-          desc = progress.format_extraction_progress(
-              model_info,
-              current_chars=batch_size,
-              processed_chars=chars_processed,
+        if show_progress:
+          current_chars = sum(
+              len(text_chunk.chunk_text) for text_chunk in batch
           )
-          progress_bar.set_description(desc)
+          try:
+            batch_iter.set_description(
+                progress.format_extraction_progress(
+                    model_info,
+                    current_chars=current_chars,
+                    processed_chars=chars_processed,
+                )
+            )
+          except AttributeError:
+            pass
 
-      for text_chunk, scored_outputs in zip(batch, batch_scored_outputs):
-        logging.debug("Processing chunk: %s", text_chunk)
-        if not scored_outputs:
-          logging.error(
-              "No scored outputs for chunk with ID %s.", text_chunk.document_id
-          )
-          raise exceptions.InferenceOutputError(
-              "No scored outputs from language model."
-          )
-        while curr_document.document_id != text_chunk.document_id:
-          logging.info(
-              "Completing annotation for document ID %s.",
-              curr_document.document_id,
-          )
-          annotated_doc = data.AnnotatedDocument(
-              document_id=curr_document.document_id,
-              extractions=annotated_extractions,
-              text=curr_document.text,
-          )
-          yield annotated_doc
-          annotated_extractions.clear()
+        outputs = self._language_model.infer(batch_prompts=prompts, **kwargs)
+        if not isinstance(outputs, list):
+          outputs = list(outputs)
 
-          curr_document = next(doc_iter, None)
-          assert curr_document is not None, (
-              f"Document should be defined for {text_chunk} per"
-              " _document_chunk_iterator(...) specifications."
+        for text_chunk, scored_outputs in zip(batch, outputs):
+          if not isinstance(scored_outputs, list):
+            scored_outputs = list(scored_outputs)
+          if not scored_outputs:
+            raise exceptions.InferenceOutputError(
+                "No scored outputs from language model."
+            )
+
+          resolved_extractions = resolver.resolve(
+              scored_outputs[0].output, debug=debug, **kwargs
           )
 
-        top_inference_result = scored_outputs[0].output
-        logging.debug("Top inference result: %s", top_inference_result)
+          token_offset = (
+              text_chunk.token_interval.start_index
+              if text_chunk.token_interval
+              else 0
+          )
+          char_offset = (
+              text_chunk.char_interval.start_pos
+              if text_chunk.char_interval
+              else 0
+          )
 
-        annotated_chunk_extractions = resolver.resolve(
-            top_inference_result, debug=debug, **kwargs
-        )
-        chunk_text = text_chunk.chunk_text
-        token_offset = text_chunk.token_interval.start_index
-        char_offset = text_chunk.char_interval.start_pos
+          aligned_extractions = resolver.align(
+              resolved_extractions,
+              text_chunk.chunk_text,
+              token_offset,
+              char_offset,
+              tokenizer_inst=tokenizer,
+              **kwargs,
+          )
 
-        aligned_extractions = resolver.align(
-            annotated_chunk_extractions,
-            chunk_text,
-            token_offset,
-            char_offset,
-            **kwargs,
-        )
+          for extraction in aligned_extractions:
+            per_doc[text_chunk.document_id].append(extraction)
 
-        annotated_extractions.extend(aligned_extractions)
+          if show_progress and text_chunk.char_interval is not None:
+            chars_processed += (
+                text_chunk.char_interval.end_pos
+                - text_chunk.char_interval.start_pos
+            )
 
-    progress_bar.close()
+        yield from _emit_docs_iter(keep_last_doc=True)
 
-    if debug:
-      progress.print_extraction_complete()
+    finally:
+      batch_iter.close()
 
-    if curr_document is not None:
-      logging.info(
-          "Finalizing annotation for document ID %s.", curr_document.document_id
-      )
-      annotated_doc = data.AnnotatedDocument(
-          document_id=curr_document.document_id,
-          extractions=annotated_extractions,
-          text=curr_document.text,
-      )
-
-      yield annotated_doc
-
-    logging.info("Document annotation completed.")
+    yield from _emit_docs_iter(keep_last_doc=False)
 
   def _annotate_documents_sequential_passes(
       self,
@@ -397,6 +433,8 @@ class Annotator:
       batch_length: int,
       debug: bool,
       extraction_passes: int,
+      show_progress: bool = True,
+      tokenizer: tokenizer_lib.Tokenizer | None = None,
       **kwargs,
   ) -> Iterator[data.AnnotatedDocument]:
     """Sequential extraction passes logic for improved recall."""
@@ -411,6 +449,10 @@ class Annotator:
 
     document_extractions_by_pass: dict[str, list[list[data.Extraction]]] = {}
     document_texts: dict[str, str] = {}
+    # Preserve text up-front so we can emit documents even if later passes
+    # produce no extractions.
+    for _doc in document_list:
+      document_texts[_doc.document_id] = _doc.text or ""
 
     for pass_num in range(extraction_passes):
       logging.info(
@@ -423,19 +465,24 @@ class Annotator:
           max_char_buffer,
           batch_length,
           debug=(debug and pass_num == 0),
-          **kwargs,  # Only show progress on first pass
+          show_progress=show_progress if pass_num == 0 else False,
+          tokenizer=tokenizer,
+          **kwargs,
       ):
         doc_id = annotated_doc.document_id
 
         if doc_id not in document_extractions_by_pass:
           document_extractions_by_pass[doc_id] = []
-          document_texts[doc_id] = annotated_doc.text or ""
+          # Keep first-seen text (already pre-filled above).
 
         document_extractions_by_pass[doc_id].append(
             annotated_doc.extractions or []
         )
 
-    for doc_id, all_pass_extractions in document_extractions_by_pass.items():
+    # Emit results strictly in original input order.
+    for doc in document_list:
+      doc_id = doc.document_id
+      all_pass_extractions = document_extractions_by_pass.get(doc_id, [])
       merged_extractions = _merge_non_overlapping_extractions(
           all_pass_extractions
       )
@@ -456,7 +503,7 @@ class Annotator:
       yield data.AnnotatedDocument(
           document_id=doc_id,
           extractions=merged_extractions,
-          text=document_texts[doc_id],
+          text=document_texts.get(doc_id, doc.text or ""),
       )
 
     logging.info("Sequential extraction passes completed.")
@@ -464,14 +511,14 @@ class Annotator:
   def annotate_text(
       self,
       text: str,
-      resolver: resolver_lib.AbstractResolver = resolver_lib.Resolver(
-          format_type=data.FormatType.YAML,
-      ),
+      resolver: resolver_lib.AbstractResolver | None = None,
       max_char_buffer: int = 200,
       batch_length: int = 1,
       additional_context: str | None = None,
       debug: bool = True,
       extraction_passes: int = 1,
+      show_progress: bool = True,
+      tokenizer: tokenizer_lib.Tokenizer | None = None,
       **kwargs,
   ) -> data.AnnotatedDocument:
     """Annotates text with NLP extractions for text input.
@@ -488,11 +535,18 @@ class Annotator:
         recall by finding additional entities. Defaults to 1, which performs
         standard single extraction. Values > 1 reprocess tokens multiple times,
         potentially increasing costs.
+      show_progress: Whether to show progress bar. Defaults to True.
+      tokenizer: Optional tokenizer instance.
       **kwargs: Additional arguments for inference and resolver_lib.
 
     Returns:
       Resolved annotations from text for document.
     """
+    if resolver is None:
+      resolver = resolver_lib.Resolver(
+          format_type=data.FormatType.YAML,
+      )
+
     start_time = time.time() if debug else None
 
     documents = [
@@ -511,6 +565,8 @@ class Annotator:
             batch_length,
             debug,
             extraction_passes,
+            show_progress,
+            tokenizer=tokenizer,
             **kwargs,
         )
     )

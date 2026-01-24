@@ -14,6 +14,16 @@ from .jumprelu_sae import (
     JumpReLUTrainingSAE,
     JumpReLUTrainingSAEConfig,
 )
+from .matching_pursuit_sae import (
+    MatchingPursuitSAE,
+    MatchingPursuitSAEConfig,
+    MatchingPursuitTrainingSAE,
+    MatchingPursuitTrainingSAEConfig,
+)
+from .matryoshka_batchtopk_sae import (
+    MatryoshkaBatchTopKTrainingSAE,
+    MatryoshkaBatchTopKTrainingSAEConfig,
+)
 from .sae import SAE, SAEConfig, TrainingSAE, TrainingSAEConfig
 from .standard_sae import (
     StandardSAE,
@@ -21,6 +31,7 @@ from .standard_sae import (
     StandardTrainingSAE,
     StandardTrainingSAEConfig,
 )
+from .temporal_sae import TemporalSAE, TemporalSAEConfig
 from .topk_sae import (
     TopKSAE,
     TopKSAEConfig,
@@ -28,6 +39,8 @@ from .topk_sae import (
     TopKTrainingSAEConfig,
 )
 from .transcoder import (
+    JumpReLUSkipTranscoder,
+    JumpReLUSkipTranscoderConfig,
     JumpReLUTranscoder,
     JumpReLUTranscoderConfig,
     SkipTranscoder,
@@ -65,4 +78,14 @@ __all__ = [
     "SkipTranscoderConfig",
     "JumpReLUTranscoder",
     "JumpReLUTranscoderConfig",
+    "JumpReLUSkipTranscoder",
+    "JumpReLUSkipTranscoderConfig",
+    "MatryoshkaBatchTopKTrainingSAE",
+    "MatryoshkaBatchTopKTrainingSAEConfig",
+    "TemporalSAE",
+    "TemporalSAEConfig",
+    "MatchingPursuitSAE",
+    "MatchingPursuitTrainingSAE",
+    "MatchingPursuitSAEConfig",
+    "MatchingPursuitTrainingSAEConfig",
 ]

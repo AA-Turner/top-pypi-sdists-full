@@ -1,7 +1,7 @@
 r'''
 # `github_repository`
 
-Refer to the Terraform Registry for docs: [`github_repository`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository).
+Refer to the Terraform Registry for docs: [`github_repository`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Repository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repository.Repository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository github_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository github_repository}.'''
 
     def __init__(
         self,
@@ -63,6 +63,8 @@ class Repository(
         default_branch: typing.Optional[builtins.str] = None,
         delete_branch_on_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         description: typing.Optional[builtins.str] = None,
+        etag: typing.Optional[builtins.str] = None,
+        fork: typing.Optional[builtins.str] = None,
         gitignore_template: typing.Optional[builtins.str] = None,
         has_discussions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         has_downloads: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -79,6 +81,8 @@ class Repository(
         pages: typing.Optional[typing.Union["RepositoryPages", typing.Dict[builtins.str, typing.Any]]] = None,
         private: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         security_and_analysis: typing.Optional[typing.Union["RepositorySecurityAndAnalysis", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_owner: typing.Optional[builtins.str] = None,
+        source_repo: typing.Optional[builtins.str] = None,
         squash_merge_commit_message: typing.Optional[builtins.str] = None,
         squash_merge_commit_title: typing.Optional[builtins.str] = None,
         template: typing.Optional[typing.Union["RepositoryTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -94,45 +98,49 @@ class Repository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository github_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository github_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#name Repository#name}
-        :param allow_auto_merge: Set to 'true' to allow auto-merging pull requests on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
-        :param allow_merge_commit: Set to 'false' to disable merge commits on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
-        :param allow_rebase_merge: Set to 'false' to disable rebase merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
-        :param allow_squash_merge: Set to 'false' to disable squash merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
-        :param allow_update_branch: Set to 'true' to always suggest updating pull request branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
-        :param archived: Specifies if the repository should be archived. Defaults to 'false'. NOTE Currently, the API does not support unarchiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archived Repository#archived}
-        :param archive_on_destroy: Set to 'true' to archive the repository instead of deleting on destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
-        :param auto_init: Set to 'true' to produce an initial commit in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#auto_init Repository#auto_init}
-        :param default_branch: Can only be set after initial repository creation, and only if the target branch exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#default_branch Repository#default_branch}
-        :param delete_branch_on_merge: Automatically delete head branch after a pull request is merged. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
-        :param description: A description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#description Repository#description}
-        :param gitignore_template: Use the name of the template without the extension. For example, 'Haskell'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
-        :param has_discussions: Set to 'true' to enable GitHub Discussions on the repository. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_discussions Repository#has_discussions}
-        :param has_downloads: Set to 'true' to enable the (deprecated) downloads features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_downloads Repository#has_downloads}
-        :param has_issues: Set to 'true' to enable the GitHub Issues features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_issues Repository#has_issues}
-        :param has_projects: Set to 'true' to enable the GitHub Projects features on the repository. Per the GitHub documentation when in an organization that has disabled repository projects it will default to 'false' and will otherwise default to 'true'. If you specify 'true' when it has been disabled it will return an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_projects Repository#has_projects}
-        :param has_wiki: Set to 'true' to enable the GitHub Wiki features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_wiki Repository#has_wiki}
-        :param homepage_url: URL of a page describing the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#homepage_url Repository#homepage_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#id Repository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_vulnerability_alerts_during_read: Set to true to not call the vulnerability alerts endpoint so the resource can also be used without admin permissions during read. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
-        :param is_template: Set to 'true' to tell GitHub that this is a template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#is_template Repository#is_template}
-        :param license_template: Use the name of the template without the extension. For example, 'mit' or 'mpl-2.0'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#license_template Repository#license_template}
-        :param merge_commit_message: Can be 'PR_BODY', 'PR_TITLE', or 'BLANK' for a default merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
-        :param merge_commit_title: Can be 'PR_TITLE' or 'MERGE_MESSAGE' for a default merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
-        :param pages: pages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#pages Repository#pages}
-        :param private: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#private Repository#private}.
-        :param security_and_analysis: security_and_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
-        :param squash_merge_commit_message: Can be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK' for a default squash merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
-        :param squash_merge_commit_title: Can be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE' for a default squash merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#template Repository#template}
-        :param topics: The list of topics of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#topics Repository#topics}
-        :param visibility: Can be 'public' or 'private'. If your organization is associated with an enterprise account using GitHub Enterprise Cloud or GitHub Enterprise Server 2.20+, visibility can also be 'internal'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#visibility Repository#visibility}
-        :param vulnerability_alerts: Set to 'true' to enable security alerts for vulnerable dependencies. Enabling requires alerts to be enabled on the owner level. (Note for importing: GitHub enables the alerts on public repos but disables them on private repos by default). Note that vulnerability alerts have not been successfully tested on any GitHub Enterprise instance and may be unavailable in those settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
-        :param web_commit_signoff_required: Require contributors to sign off on web-based commits. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#name Repository#name}
+        :param allow_auto_merge: Set to 'true' to allow auto-merging pull requests on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
+        :param allow_merge_commit: Set to 'false' to disable merge commits on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
+        :param allow_rebase_merge: Set to 'false' to disable rebase merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
+        :param allow_squash_merge: Set to 'false' to disable squash merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
+        :param allow_update_branch: Set to 'true' to always suggest updating pull request branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
+        :param archived: Specifies if the repository should be archived. Defaults to 'false'. NOTE Currently, the API does not support unarchiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archived Repository#archived}
+        :param archive_on_destroy: Set to 'true' to archive the repository instead of deleting on destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
+        :param auto_init: Set to 'true' to produce an initial commit in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#auto_init Repository#auto_init}
+        :param default_branch: Can only be set after initial repository creation, and only if the target branch exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#default_branch Repository#default_branch}
+        :param delete_branch_on_merge: Automatically delete head branch after a pull request is merged. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
+        :param description: A description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#description Repository#description}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#etag Repository#etag}.
+        :param fork: Set to 'true' to fork an existing repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#fork Repository#fork}
+        :param gitignore_template: Use the name of the template without the extension. For example, 'Haskell'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
+        :param has_discussions: Set to 'true' to enable GitHub Discussions on the repository. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_discussions Repository#has_discussions}
+        :param has_downloads: Set to 'true' to enable the (deprecated) downloads features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_downloads Repository#has_downloads}
+        :param has_issues: Set to 'true' to enable the GitHub Issues features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_issues Repository#has_issues}
+        :param has_projects: Set to 'true' to enable the GitHub Projects features on the repository. Per the GitHub documentation when in an organization that has disabled repository projects it will default to 'false' and will otherwise default to 'true'. If you specify 'true' when it has been disabled it will return an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_projects Repository#has_projects}
+        :param has_wiki: Set to 'true' to enable the GitHub Wiki features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_wiki Repository#has_wiki}
+        :param homepage_url: URL of a page describing the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#homepage_url Repository#homepage_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#id Repository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_vulnerability_alerts_during_read: Set to true to not call the vulnerability alerts endpoint so the resource can also be used without admin permissions during read. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
+        :param is_template: Set to 'true' to tell GitHub that this is a template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#is_template Repository#is_template}
+        :param license_template: Use the name of the template without the extension. For example, 'mit' or 'mpl-2.0'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#license_template Repository#license_template}
+        :param merge_commit_message: Can be 'PR_BODY', 'PR_TITLE', or 'BLANK' for a default merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
+        :param merge_commit_title: Can be 'PR_TITLE' or 'MERGE_MESSAGE' for a default merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
+        :param pages: pages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#pages Repository#pages}
+        :param private: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#private Repository#private}.
+        :param security_and_analysis: security_and_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
+        :param source_owner: The owner of the source repository to fork from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_owner Repository#source_owner}
+        :param source_repo: The name of the source repository to fork from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_repo Repository#source_repo}
+        :param squash_merge_commit_message: Can be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK' for a default squash merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
+        :param squash_merge_commit_title: Can be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE' for a default squash merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#template Repository#template}
+        :param topics: The list of topics of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#topics Repository#topics}
+        :param visibility: Can be 'public' or 'private'. If your organization is associated with an enterprise account using GitHub Enterprise Cloud or GitHub Enterprise Server 2.20+, visibility can also be 'internal'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#visibility Repository#visibility}
+        :param vulnerability_alerts: Set to 'true' to enable security alerts for vulnerable dependencies. Enabling requires alerts to be enabled on the owner level. (Note for importing: GitHub enables the alerts on public repos but disables them on private repos by default). Note that vulnerability alerts have not been successfully tested on any GitHub Enterprise instance and may be unavailable in those settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
+        :param web_commit_signoff_required: Require contributors to sign off on web-based commits. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -158,6 +166,8 @@ class Repository(
             default_branch=default_branch,
             delete_branch_on_merge=delete_branch_on_merge,
             description=description,
+            etag=etag,
+            fork=fork,
             gitignore_template=gitignore_template,
             has_discussions=has_discussions,
             has_downloads=has_downloads,
@@ -174,6 +184,8 @@ class Repository(
             pages=pages,
             private=private,
             security_and_analysis=security_and_analysis,
+            source_owner=source_owner,
+            source_repo=source_repo,
             squash_merge_commit_message=squash_merge_commit_message,
             squash_merge_commit_title=squash_merge_commit_title,
             template=template,
@@ -205,7 +217,7 @@ class Repository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Repository to import.
-        :param import_from_id: The id of the existing Repository that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Repository that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Repository to import is found.
         '''
         if __debug__:
@@ -225,9 +237,9 @@ class Repository(
         source: typing.Optional[typing.Union["RepositoryPagesSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param build_type: The type the page should be sourced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#build_type Repository#build_type}
-        :param cname: The custom domain for the repository. This can only be set after the repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#cname Repository#cname}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#source Repository#source}
+        :param build_type: The type the page should be sourced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#build_type Repository#build_type}
+        :param cname: The custom domain for the repository. This can only be set after the repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#cname Repository#cname}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source Repository#source}
         '''
         value = RepositoryPages(build_type=build_type, cname=cname, source=source)
 
@@ -238,17 +250,26 @@ class Repository(
         self,
         *,
         advanced_security: typing.Optional[typing.Union["RepositorySecurityAndAnalysisAdvancedSecurity", typing.Dict[builtins.str, typing.Any]]] = None,
+        code_security: typing.Optional[typing.Union["RepositorySecurityAndAnalysisCodeSecurity", typing.Dict[builtins.str, typing.Any]]] = None,
         secret_scanning: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanning", typing.Dict[builtins.str, typing.Any]]] = None,
+        secret_scanning_ai_detection: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningAiDetection", typing.Dict[builtins.str, typing.Any]]] = None,
+        secret_scanning_non_provider_patterns: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns", typing.Dict[builtins.str, typing.Any]]] = None,
         secret_scanning_push_protection: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningPushProtection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_security: advanced_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#advanced_security Repository#advanced_security}
-        :param secret_scanning: secret_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
-        :param secret_scanning_push_protection: secret_scanning_push_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
+        :param advanced_security: advanced_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#advanced_security Repository#advanced_security}
+        :param code_security: code_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#code_security Repository#code_security}
+        :param secret_scanning: secret_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
+        :param secret_scanning_ai_detection: secret_scanning_ai_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_ai_detection Repository#secret_scanning_ai_detection}
+        :param secret_scanning_non_provider_patterns: secret_scanning_non_provider_patterns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_non_provider_patterns Repository#secret_scanning_non_provider_patterns}
+        :param secret_scanning_push_protection: secret_scanning_push_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
         '''
         value = RepositorySecurityAndAnalysis(
             advanced_security=advanced_security,
+            code_security=code_security,
             secret_scanning=secret_scanning,
+            secret_scanning_ai_detection=secret_scanning_ai_detection,
+            secret_scanning_non_provider_patterns=secret_scanning_non_provider_patterns,
             secret_scanning_push_protection=secret_scanning_push_protection,
         )
 
@@ -263,9 +284,9 @@ class Repository(
         include_all_branches: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param owner: The GitHub organization or user the template repository is owned by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#owner Repository#owner}
-        :param repository: The name of the template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#repository Repository#repository}
-        :param include_all_branches: Whether the new repository should include all the branches from the template repository (defaults to 'false', which includes only the default branch from the template). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
+        :param owner: The GitHub organization or user the template repository is owned by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#owner Repository#owner}
+        :param repository: The name of the template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#repository Repository#repository}
+        :param include_all_branches: Whether the new repository should include all the branches from the template repository (defaults to 'false', which includes only the default branch from the template). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
         '''
         value = RepositoryTemplate(
             owner=owner,
@@ -318,6 +339,14 @@ class Repository(
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDescription", []))
+
+    @jsii.member(jsii_name="resetEtag")
+    def reset_etag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEtag", []))
+
+    @jsii.member(jsii_name="resetFork")
+    def reset_fork(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFork", []))
 
     @jsii.member(jsii_name="resetGitignoreTemplate")
     def reset_gitignore_template(self) -> None:
@@ -383,6 +412,14 @@ class Repository(
     def reset_security_and_analysis(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSecurityAndAnalysis", []))
 
+    @jsii.member(jsii_name="resetSourceOwner")
+    def reset_source_owner(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSourceOwner", []))
+
+    @jsii.member(jsii_name="resetSourceRepo")
+    def reset_source_repo(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSourceRepo", []))
+
     @jsii.member(jsii_name="resetSquashMergeCommitMessage")
     def reset_squash_merge_commit_message(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSquashMergeCommitMessage", []))
@@ -423,11 +460,6 @@ class Repository(
     @jsii.member(jsii_name="tfResourceType")
     def TF_RESOURCE_TYPE(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="etag")
-    def etag(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "etag"))
 
     @builtins.property
     @jsii.member(jsii_name="fullName")
@@ -563,6 +595,16 @@ class Repository(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="etagInput")
+    def etag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "etagInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="forkInput")
+    def fork_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "forkInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="gitignoreTemplateInput")
     def gitignore_template_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "gitignoreTemplateInput"))
@@ -664,6 +706,16 @@ class Repository(
         self,
     ) -> typing.Optional["RepositorySecurityAndAnalysis"]:
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysis"], jsii.get(self, "securityAndAnalysisInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceOwnerInput")
+    def source_owner_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceOwnerInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceRepoInput")
+    def source_repo_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceRepoInput"))
 
     @builtins.property
     @jsii.member(jsii_name="squashMergeCommitMessageInput")
@@ -878,6 +930,30 @@ class Repository(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="etag")
+    def etag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "etag"))
+
+    @etag.setter
+    def etag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__464058898f76880f6b5d8775b8599a88214208f39d34447426836173e1bd4f7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "etag", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fork")
+    def fork(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "fork"))
+
+    @fork.setter
+    def fork(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c36ecc6f8aa9283602784543d32ea224a440f6f913544d55a68a4096488d904)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fork", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="gitignoreTemplate")
     def gitignore_template(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "gitignoreTemplate"))
@@ -1086,6 +1162,30 @@ class Repository(
         jsii.set(self, "private", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sourceOwner")
+    def source_owner(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sourceOwner"))
+
+    @source_owner.setter
+    def source_owner(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df9623e114ca37ca869549fc08d859be5a84a7ef6f67f7fd5b42332b4d7f1705)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceOwner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceRepo")
+    def source_repo(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sourceRepo"))
+
+    @source_repo.setter
+    def source_repo(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__771d936609caa95b94d8b744bd3aca1b69dd2ff856bbb808fff957f6243f4e2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceRepo", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="squashMergeCommitMessage")
     def squash_merge_commit_message(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "squashMergeCommitMessage"))
@@ -1191,6 +1291,8 @@ class Repository(
         "default_branch": "defaultBranch",
         "delete_branch_on_merge": "deleteBranchOnMerge",
         "description": "description",
+        "etag": "etag",
+        "fork": "fork",
         "gitignore_template": "gitignoreTemplate",
         "has_discussions": "hasDiscussions",
         "has_downloads": "hasDownloads",
@@ -1207,6 +1309,8 @@ class Repository(
         "pages": "pages",
         "private": "private",
         "security_and_analysis": "securityAndAnalysis",
+        "source_owner": "sourceOwner",
+        "source_repo": "sourceRepo",
         "squash_merge_commit_message": "squashMergeCommitMessage",
         "squash_merge_commit_title": "squashMergeCommitTitle",
         "template": "template",
@@ -1239,6 +1343,8 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         default_branch: typing.Optional[builtins.str] = None,
         delete_branch_on_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         description: typing.Optional[builtins.str] = None,
+        etag: typing.Optional[builtins.str] = None,
+        fork: typing.Optional[builtins.str] = None,
         gitignore_template: typing.Optional[builtins.str] = None,
         has_discussions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         has_downloads: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -1255,6 +1361,8 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         pages: typing.Optional[typing.Union["RepositoryPages", typing.Dict[builtins.str, typing.Any]]] = None,
         private: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         security_and_analysis: typing.Optional[typing.Union["RepositorySecurityAndAnalysis", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_owner: typing.Optional[builtins.str] = None,
+        source_repo: typing.Optional[builtins.str] = None,
         squash_merge_commit_message: typing.Optional[builtins.str] = None,
         squash_merge_commit_title: typing.Optional[builtins.str] = None,
         template: typing.Optional[typing.Union["RepositoryTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1271,41 +1379,45 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#name Repository#name}
-        :param allow_auto_merge: Set to 'true' to allow auto-merging pull requests on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
-        :param allow_merge_commit: Set to 'false' to disable merge commits on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
-        :param allow_rebase_merge: Set to 'false' to disable rebase merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
-        :param allow_squash_merge: Set to 'false' to disable squash merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
-        :param allow_update_branch: Set to 'true' to always suggest updating pull request branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
-        :param archived: Specifies if the repository should be archived. Defaults to 'false'. NOTE Currently, the API does not support unarchiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archived Repository#archived}
-        :param archive_on_destroy: Set to 'true' to archive the repository instead of deleting on destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
-        :param auto_init: Set to 'true' to produce an initial commit in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#auto_init Repository#auto_init}
-        :param default_branch: Can only be set after initial repository creation, and only if the target branch exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#default_branch Repository#default_branch}
-        :param delete_branch_on_merge: Automatically delete head branch after a pull request is merged. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
-        :param description: A description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#description Repository#description}
-        :param gitignore_template: Use the name of the template without the extension. For example, 'Haskell'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
-        :param has_discussions: Set to 'true' to enable GitHub Discussions on the repository. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_discussions Repository#has_discussions}
-        :param has_downloads: Set to 'true' to enable the (deprecated) downloads features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_downloads Repository#has_downloads}
-        :param has_issues: Set to 'true' to enable the GitHub Issues features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_issues Repository#has_issues}
-        :param has_projects: Set to 'true' to enable the GitHub Projects features on the repository. Per the GitHub documentation when in an organization that has disabled repository projects it will default to 'false' and will otherwise default to 'true'. If you specify 'true' when it has been disabled it will return an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_projects Repository#has_projects}
-        :param has_wiki: Set to 'true' to enable the GitHub Wiki features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_wiki Repository#has_wiki}
-        :param homepage_url: URL of a page describing the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#homepage_url Repository#homepage_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#id Repository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_vulnerability_alerts_during_read: Set to true to not call the vulnerability alerts endpoint so the resource can also be used without admin permissions during read. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
-        :param is_template: Set to 'true' to tell GitHub that this is a template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#is_template Repository#is_template}
-        :param license_template: Use the name of the template without the extension. For example, 'mit' or 'mpl-2.0'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#license_template Repository#license_template}
-        :param merge_commit_message: Can be 'PR_BODY', 'PR_TITLE', or 'BLANK' for a default merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
-        :param merge_commit_title: Can be 'PR_TITLE' or 'MERGE_MESSAGE' for a default merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
-        :param pages: pages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#pages Repository#pages}
-        :param private: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#private Repository#private}.
-        :param security_and_analysis: security_and_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
-        :param squash_merge_commit_message: Can be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK' for a default squash merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
-        :param squash_merge_commit_title: Can be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE' for a default squash merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
-        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#template Repository#template}
-        :param topics: The list of topics of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#topics Repository#topics}
-        :param visibility: Can be 'public' or 'private'. If your organization is associated with an enterprise account using GitHub Enterprise Cloud or GitHub Enterprise Server 2.20+, visibility can also be 'internal'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#visibility Repository#visibility}
-        :param vulnerability_alerts: Set to 'true' to enable security alerts for vulnerable dependencies. Enabling requires alerts to be enabled on the owner level. (Note for importing: GitHub enables the alerts on public repos but disables them on private repos by default). Note that vulnerability alerts have not been successfully tested on any GitHub Enterprise instance and may be unavailable in those settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
-        :param web_commit_signoff_required: Require contributors to sign off on web-based commits. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
+        :param name: The name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#name Repository#name}
+        :param allow_auto_merge: Set to 'true' to allow auto-merging pull requests on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
+        :param allow_merge_commit: Set to 'false' to disable merge commits on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
+        :param allow_rebase_merge: Set to 'false' to disable rebase merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
+        :param allow_squash_merge: Set to 'false' to disable squash merges on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
+        :param allow_update_branch: Set to 'true' to always suggest updating pull request branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
+        :param archived: Specifies if the repository should be archived. Defaults to 'false'. NOTE Currently, the API does not support unarchiving. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archived Repository#archived}
+        :param archive_on_destroy: Set to 'true' to archive the repository instead of deleting on destroy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
+        :param auto_init: Set to 'true' to produce an initial commit in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#auto_init Repository#auto_init}
+        :param default_branch: Can only be set after initial repository creation, and only if the target branch exists. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#default_branch Repository#default_branch}
+        :param delete_branch_on_merge: Automatically delete head branch after a pull request is merged. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
+        :param description: A description of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#description Repository#description}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#etag Repository#etag}.
+        :param fork: Set to 'true' to fork an existing repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#fork Repository#fork}
+        :param gitignore_template: Use the name of the template without the extension. For example, 'Haskell'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
+        :param has_discussions: Set to 'true' to enable GitHub Discussions on the repository. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_discussions Repository#has_discussions}
+        :param has_downloads: Set to 'true' to enable the (deprecated) downloads features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_downloads Repository#has_downloads}
+        :param has_issues: Set to 'true' to enable the GitHub Issues features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_issues Repository#has_issues}
+        :param has_projects: Set to 'true' to enable the GitHub Projects features on the repository. Per the GitHub documentation when in an organization that has disabled repository projects it will default to 'false' and will otherwise default to 'true'. If you specify 'true' when it has been disabled it will return an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_projects Repository#has_projects}
+        :param has_wiki: Set to 'true' to enable the GitHub Wiki features on the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_wiki Repository#has_wiki}
+        :param homepage_url: URL of a page describing the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#homepage_url Repository#homepage_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#id Repository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_vulnerability_alerts_during_read: Set to true to not call the vulnerability alerts endpoint so the resource can also be used without admin permissions during read. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
+        :param is_template: Set to 'true' to tell GitHub that this is a template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#is_template Repository#is_template}
+        :param license_template: Use the name of the template without the extension. For example, 'mit' or 'mpl-2.0'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#license_template Repository#license_template}
+        :param merge_commit_message: Can be 'PR_BODY', 'PR_TITLE', or 'BLANK' for a default merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
+        :param merge_commit_title: Can be 'PR_TITLE' or 'MERGE_MESSAGE' for a default merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
+        :param pages: pages block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#pages Repository#pages}
+        :param private: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#private Repository#private}.
+        :param security_and_analysis: security_and_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
+        :param source_owner: The owner of the source repository to fork from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_owner Repository#source_owner}
+        :param source_repo: The name of the source repository to fork from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_repo Repository#source_repo}
+        :param squash_merge_commit_message: Can be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK' for a default squash merge commit message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
+        :param squash_merge_commit_title: Can be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE' for a default squash merge commit title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
+        :param template: template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#template Repository#template}
+        :param topics: The list of topics of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#topics Repository#topics}
+        :param visibility: Can be 'public' or 'private'. If your organization is associated with an enterprise account using GitHub Enterprise Cloud or GitHub Enterprise Server 2.20+, visibility can also be 'internal'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#visibility Repository#visibility}
+        :param vulnerability_alerts: Set to 'true' to enable security alerts for vulnerable dependencies. Enabling requires alerts to be enabled on the owner level. (Note for importing: GitHub enables the alerts on public repos but disables them on private repos by default). Note that vulnerability alerts have not been successfully tested on any GitHub Enterprise instance and may be unavailable in those settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
+        :param web_commit_signoff_required: Require contributors to sign off on web-based commits. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1336,6 +1448,8 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument default_branch", value=default_branch, expected_type=type_hints["default_branch"])
             check_type(argname="argument delete_branch_on_merge", value=delete_branch_on_merge, expected_type=type_hints["delete_branch_on_merge"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument etag", value=etag, expected_type=type_hints["etag"])
+            check_type(argname="argument fork", value=fork, expected_type=type_hints["fork"])
             check_type(argname="argument gitignore_template", value=gitignore_template, expected_type=type_hints["gitignore_template"])
             check_type(argname="argument has_discussions", value=has_discussions, expected_type=type_hints["has_discussions"])
             check_type(argname="argument has_downloads", value=has_downloads, expected_type=type_hints["has_downloads"])
@@ -1352,6 +1466,8 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument pages", value=pages, expected_type=type_hints["pages"])
             check_type(argname="argument private", value=private, expected_type=type_hints["private"])
             check_type(argname="argument security_and_analysis", value=security_and_analysis, expected_type=type_hints["security_and_analysis"])
+            check_type(argname="argument source_owner", value=source_owner, expected_type=type_hints["source_owner"])
+            check_type(argname="argument source_repo", value=source_repo, expected_type=type_hints["source_repo"])
             check_type(argname="argument squash_merge_commit_message", value=squash_merge_commit_message, expected_type=type_hints["squash_merge_commit_message"])
             check_type(argname="argument squash_merge_commit_title", value=squash_merge_commit_title, expected_type=type_hints["squash_merge_commit_title"])
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
@@ -1398,6 +1514,10 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["delete_branch_on_merge"] = delete_branch_on_merge
         if description is not None:
             self._values["description"] = description
+        if etag is not None:
+            self._values["etag"] = etag
+        if fork is not None:
+            self._values["fork"] = fork
         if gitignore_template is not None:
             self._values["gitignore_template"] = gitignore_template
         if has_discussions is not None:
@@ -1430,6 +1550,10 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["private"] = private
         if security_and_analysis is not None:
             self._values["security_and_analysis"] = security_and_analysis
+        if source_owner is not None:
+            self._values["source_owner"] = source_owner
+        if source_repo is not None:
+            self._values["source_repo"] = source_repo
         if squash_merge_commit_message is not None:
             self._values["squash_merge_commit_message"] = squash_merge_commit_message
         if squash_merge_commit_title is not None:
@@ -1513,7 +1637,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#name Repository#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#name Repository#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1525,7 +1649,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to allow auto-merging pull requests on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_auto_merge Repository#allow_auto_merge}
         '''
         result = self._values.get("allow_auto_merge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1536,7 +1660,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'false' to disable merge commits on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_merge_commit Repository#allow_merge_commit}
         '''
         result = self._values.get("allow_merge_commit")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1547,7 +1671,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'false' to disable rebase merges on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_rebase_merge Repository#allow_rebase_merge}
         '''
         result = self._values.get("allow_rebase_merge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1558,7 +1682,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'false' to disable squash merges on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_squash_merge Repository#allow_squash_merge}
         '''
         result = self._values.get("allow_squash_merge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1569,7 +1693,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to always suggest updating pull request branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#allow_update_branch Repository#allow_update_branch}
         '''
         result = self._values.get("allow_update_branch")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1580,7 +1704,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if the repository should be archived. Defaults to 'false'. NOTE Currently, the API does not support unarchiving.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archived Repository#archived}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archived Repository#archived}
         '''
         result = self._values.get("archived")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1591,7 +1715,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to archive the repository instead of deleting on destroy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#archive_on_destroy Repository#archive_on_destroy}
         '''
         result = self._values.get("archive_on_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1602,7 +1726,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to produce an initial commit in the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#auto_init Repository#auto_init}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#auto_init Repository#auto_init}
         '''
         result = self._values.get("auto_init")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1611,7 +1735,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_branch(self) -> typing.Optional[builtins.str]:
         '''Can only be set after initial repository creation, and only if the target branch exists.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#default_branch Repository#default_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#default_branch Repository#default_branch}
         '''
         result = self._values.get("default_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1622,7 +1746,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically delete head branch after a pull request is merged. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#delete_branch_on_merge Repository#delete_branch_on_merge}
         '''
         result = self._values.get("delete_branch_on_merge")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1631,16 +1755,31 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#description Repository#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#description Repository#description}
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def etag(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#etag Repository#etag}.'''
+        result = self._values.get("etag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fork(self) -> typing.Optional[builtins.str]:
+        '''Set to 'true' to fork an existing repository.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#fork Repository#fork}
+        '''
+        result = self._values.get("fork")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gitignore_template(self) -> typing.Optional[builtins.str]:
         '''Use the name of the template without the extension. For example, 'Haskell'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#gitignore_template Repository#gitignore_template}
         '''
         result = self._values.get("gitignore_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1651,7 +1790,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to enable GitHub Discussions on the repository. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_discussions Repository#has_discussions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_discussions Repository#has_discussions}
         '''
         result = self._values.get("has_discussions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1662,7 +1801,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to enable the (deprecated) downloads features on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_downloads Repository#has_downloads}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_downloads Repository#has_downloads}
         '''
         result = self._values.get("has_downloads")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1673,7 +1812,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to enable the GitHub Issues features on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_issues Repository#has_issues}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_issues Repository#has_issues}
         '''
         result = self._values.get("has_issues")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1686,7 +1825,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Per the GitHub documentation when in an organization that has disabled repository projects it will default to 'false' and will otherwise default to 'true'. If you specify 'true' when it has been disabled it will return an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_projects Repository#has_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_projects Repository#has_projects}
         '''
         result = self._values.get("has_projects")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1697,7 +1836,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to enable the GitHub Wiki features on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#has_wiki Repository#has_wiki}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#has_wiki Repository#has_wiki}
         '''
         result = self._values.get("has_wiki")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1706,14 +1845,14 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def homepage_url(self) -> typing.Optional[builtins.str]:
         '''URL of a page describing the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#homepage_url Repository#homepage_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#homepage_url Repository#homepage_url}
         '''
         result = self._values.get("homepage_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#id Repository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#id Repository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1727,7 +1866,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to true to not call the vulnerability alerts endpoint so the resource can also be used without admin permissions during read.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#ignore_vulnerability_alerts_during_read Repository#ignore_vulnerability_alerts_during_read}
         '''
         result = self._values.get("ignore_vulnerability_alerts_during_read")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1738,7 +1877,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to 'true' to tell GitHub that this is a template repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#is_template Repository#is_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#is_template Repository#is_template}
         '''
         result = self._values.get("is_template")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1747,7 +1886,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def license_template(self) -> typing.Optional[builtins.str]:
         '''Use the name of the template without the extension. For example, 'mit' or 'mpl-2.0'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#license_template Repository#license_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#license_template Repository#license_template}
         '''
         result = self._values.get("license_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1756,7 +1895,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def merge_commit_message(self) -> typing.Optional[builtins.str]:
         '''Can be 'PR_BODY', 'PR_TITLE', or 'BLANK' for a default merge commit message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_message Repository#merge_commit_message}
         '''
         result = self._values.get("merge_commit_message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1765,7 +1904,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def merge_commit_title(self) -> typing.Optional[builtins.str]:
         '''Can be 'PR_TITLE' or 'MERGE_MESSAGE' for a default merge commit title.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#merge_commit_title Repository#merge_commit_title}
         '''
         result = self._values.get("merge_commit_title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1774,7 +1913,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pages(self) -> typing.Optional["RepositoryPages"]:
         '''pages block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#pages Repository#pages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#pages Repository#pages}
         '''
         result = self._values.get("pages")
         return typing.cast(typing.Optional["RepositoryPages"], result)
@@ -1783,7 +1922,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#private Repository#private}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#private Repository#private}.'''
         result = self._values.get("private")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1791,16 +1930,34 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_and_analysis(self) -> typing.Optional["RepositorySecurityAndAnalysis"]:
         '''security_and_analysis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#security_and_analysis Repository#security_and_analysis}
         '''
         result = self._values.get("security_and_analysis")
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysis"], result)
 
     @builtins.property
+    def source_owner(self) -> typing.Optional[builtins.str]:
+        '''The owner of the source repository to fork from.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_owner Repository#source_owner}
+        '''
+        result = self._values.get("source_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_repo(self) -> typing.Optional[builtins.str]:
+        '''The name of the source repository to fork from.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source_repo Repository#source_repo}
+        '''
+        result = self._values.get("source_repo")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def squash_merge_commit_message(self) -> typing.Optional[builtins.str]:
         '''Can be 'PR_BODY', 'COMMIT_MESSAGES', or 'BLANK' for a default squash merge commit message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_message Repository#squash_merge_commit_message}
         '''
         result = self._values.get("squash_merge_commit_message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1809,7 +1966,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def squash_merge_commit_title(self) -> typing.Optional[builtins.str]:
         '''Can be 'PR_TITLE' or 'COMMIT_OR_PR_TITLE' for a default squash merge commit title.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#squash_merge_commit_title Repository#squash_merge_commit_title}
         '''
         result = self._values.get("squash_merge_commit_title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1818,7 +1975,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template(self) -> typing.Optional["RepositoryTemplate"]:
         '''template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#template Repository#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#template Repository#template}
         '''
         result = self._values.get("template")
         return typing.cast(typing.Optional["RepositoryTemplate"], result)
@@ -1827,7 +1984,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def topics(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of topics of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#topics Repository#topics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#topics Repository#topics}
         '''
         result = self._values.get("topics")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1838,7 +1995,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If your organization is associated with an enterprise account using GitHub Enterprise Cloud or GitHub Enterprise Server 2.20+, visibility can also be 'internal'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#visibility Repository#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#visibility Repository#visibility}
         '''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1851,7 +2008,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Enabling requires alerts to be enabled on the owner level. (Note for importing: GitHub enables the alerts on public repos but disables them on private repos by default). Note that vulnerability alerts have not been successfully tested on any GitHub Enterprise instance and may be unavailable in those settings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#vulnerability_alerts Repository#vulnerability_alerts}
         '''
         result = self._values.get("vulnerability_alerts")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1862,7 +2019,7 @@ class RepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require contributors to sign off on web-based commits. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#web_commit_signoff_required Repository#web_commit_signoff_required}
         '''
         result = self._values.get("web_commit_signoff_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1893,9 +2050,9 @@ class RepositoryPages:
         source: typing.Optional[typing.Union["RepositoryPagesSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param build_type: The type the page should be sourced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#build_type Repository#build_type}
-        :param cname: The custom domain for the repository. This can only be set after the repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#cname Repository#cname}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#source Repository#source}
+        :param build_type: The type the page should be sourced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#build_type Repository#build_type}
+        :param cname: The custom domain for the repository. This can only be set after the repository has been created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#cname Repository#cname}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source Repository#source}
         '''
         if isinstance(source, dict):
             source = RepositoryPagesSource(**source)
@@ -1916,7 +2073,7 @@ class RepositoryPages:
     def build_type(self) -> typing.Optional[builtins.str]:
         '''The type the page should be sourced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#build_type Repository#build_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#build_type Repository#build_type}
         '''
         result = self._values.get("build_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1925,7 +2082,7 @@ class RepositoryPages:
     def cname(self) -> typing.Optional[builtins.str]:
         '''The custom domain for the repository. This can only be set after the repository has been created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#cname Repository#cname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#cname Repository#cname}
         '''
         result = self._values.get("cname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1934,7 +2091,7 @@ class RepositoryPages:
     def source(self) -> typing.Optional["RepositoryPagesSource"]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#source Repository#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#source Repository#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional["RepositoryPagesSource"], result)
@@ -1979,8 +2136,8 @@ class RepositoryPagesOutputReference(
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: The repository branch used to publish the site's source files. (i.e. 'main' or 'gh-pages'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#branch Repository#branch}
-        :param path: The repository directory from which the site publishes (Default: '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#path Repository#path}
+        :param branch: The repository branch used to publish the site's source files. (i.e. 'main' or 'gh-pages'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#branch Repository#branch}
+        :param path: The repository directory from which the site publishes (Default: '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#path Repository#path}
         '''
         value = RepositoryPagesSource(branch=branch, path=path)
 
@@ -2088,8 +2245,8 @@ class RepositoryPagesSource:
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param branch: The repository branch used to publish the site's source files. (i.e. 'main' or 'gh-pages'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#branch Repository#branch}
-        :param path: The repository directory from which the site publishes (Default: '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#path Repository#path}
+        :param branch: The repository branch used to publish the site's source files. (i.e. 'main' or 'gh-pages'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#branch Repository#branch}
+        :param path: The repository directory from which the site publishes (Default: '/'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#path Repository#path}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5beded292f823133ae8a0115dd9507c0fe069fdbf4fc228ed92e47333d2faf8d)
@@ -2105,7 +2262,7 @@ class RepositoryPagesSource:
     def branch(self) -> builtins.str:
         '''The repository branch used to publish the site's source files. (i.e. 'main' or 'gh-pages').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#branch Repository#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#branch Repository#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -2115,7 +2272,7 @@ class RepositoryPagesSource:
     def path(self) -> typing.Optional[builtins.str]:
         '''The repository directory from which the site publishes (Default: '/').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#path Repository#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#path Repository#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2208,7 +2365,10 @@ class RepositoryPagesSourceOutputReference(
     jsii_struct_bases=[],
     name_mapping={
         "advanced_security": "advancedSecurity",
+        "code_security": "codeSecurity",
         "secret_scanning": "secretScanning",
+        "secret_scanning_ai_detection": "secretScanningAiDetection",
+        "secret_scanning_non_provider_patterns": "secretScanningNonProviderPatterns",
         "secret_scanning_push_protection": "secretScanningPushProtection",
     },
 )
@@ -2217,30 +2377,51 @@ class RepositorySecurityAndAnalysis:
         self,
         *,
         advanced_security: typing.Optional[typing.Union["RepositorySecurityAndAnalysisAdvancedSecurity", typing.Dict[builtins.str, typing.Any]]] = None,
+        code_security: typing.Optional[typing.Union["RepositorySecurityAndAnalysisCodeSecurity", typing.Dict[builtins.str, typing.Any]]] = None,
         secret_scanning: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanning", typing.Dict[builtins.str, typing.Any]]] = None,
+        secret_scanning_ai_detection: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningAiDetection", typing.Dict[builtins.str, typing.Any]]] = None,
+        secret_scanning_non_provider_patterns: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns", typing.Dict[builtins.str, typing.Any]]] = None,
         secret_scanning_push_protection: typing.Optional[typing.Union["RepositorySecurityAndAnalysisSecretScanningPushProtection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_security: advanced_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#advanced_security Repository#advanced_security}
-        :param secret_scanning: secret_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
-        :param secret_scanning_push_protection: secret_scanning_push_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
+        :param advanced_security: advanced_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#advanced_security Repository#advanced_security}
+        :param code_security: code_security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#code_security Repository#code_security}
+        :param secret_scanning: secret_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
+        :param secret_scanning_ai_detection: secret_scanning_ai_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_ai_detection Repository#secret_scanning_ai_detection}
+        :param secret_scanning_non_provider_patterns: secret_scanning_non_provider_patterns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_non_provider_patterns Repository#secret_scanning_non_provider_patterns}
+        :param secret_scanning_push_protection: secret_scanning_push_protection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
         '''
         if isinstance(advanced_security, dict):
             advanced_security = RepositorySecurityAndAnalysisAdvancedSecurity(**advanced_security)
+        if isinstance(code_security, dict):
+            code_security = RepositorySecurityAndAnalysisCodeSecurity(**code_security)
         if isinstance(secret_scanning, dict):
             secret_scanning = RepositorySecurityAndAnalysisSecretScanning(**secret_scanning)
+        if isinstance(secret_scanning_ai_detection, dict):
+            secret_scanning_ai_detection = RepositorySecurityAndAnalysisSecretScanningAiDetection(**secret_scanning_ai_detection)
+        if isinstance(secret_scanning_non_provider_patterns, dict):
+            secret_scanning_non_provider_patterns = RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns(**secret_scanning_non_provider_patterns)
         if isinstance(secret_scanning_push_protection, dict):
             secret_scanning_push_protection = RepositorySecurityAndAnalysisSecretScanningPushProtection(**secret_scanning_push_protection)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d2271226c425db0d89da181b9aab44265a6313794e3fd0e05246d55d1d919ac)
             check_type(argname="argument advanced_security", value=advanced_security, expected_type=type_hints["advanced_security"])
+            check_type(argname="argument code_security", value=code_security, expected_type=type_hints["code_security"])
             check_type(argname="argument secret_scanning", value=secret_scanning, expected_type=type_hints["secret_scanning"])
+            check_type(argname="argument secret_scanning_ai_detection", value=secret_scanning_ai_detection, expected_type=type_hints["secret_scanning_ai_detection"])
+            check_type(argname="argument secret_scanning_non_provider_patterns", value=secret_scanning_non_provider_patterns, expected_type=type_hints["secret_scanning_non_provider_patterns"])
             check_type(argname="argument secret_scanning_push_protection", value=secret_scanning_push_protection, expected_type=type_hints["secret_scanning_push_protection"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if advanced_security is not None:
             self._values["advanced_security"] = advanced_security
+        if code_security is not None:
+            self._values["code_security"] = code_security
         if secret_scanning is not None:
             self._values["secret_scanning"] = secret_scanning
+        if secret_scanning_ai_detection is not None:
+            self._values["secret_scanning_ai_detection"] = secret_scanning_ai_detection
+        if secret_scanning_non_provider_patterns is not None:
+            self._values["secret_scanning_non_provider_patterns"] = secret_scanning_non_provider_patterns
         if secret_scanning_push_protection is not None:
             self._values["secret_scanning_push_protection"] = secret_scanning_push_protection
 
@@ -2250,10 +2431,21 @@ class RepositorySecurityAndAnalysis:
     ) -> typing.Optional["RepositorySecurityAndAnalysisAdvancedSecurity"]:
         '''advanced_security block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#advanced_security Repository#advanced_security}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#advanced_security Repository#advanced_security}
         '''
         result = self._values.get("advanced_security")
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysisAdvancedSecurity"], result)
+
+    @builtins.property
+    def code_security(
+        self,
+    ) -> typing.Optional["RepositorySecurityAndAnalysisCodeSecurity"]:
+        '''code_security block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#code_security Repository#code_security}
+        '''
+        result = self._values.get("code_security")
+        return typing.cast(typing.Optional["RepositorySecurityAndAnalysisCodeSecurity"], result)
 
     @builtins.property
     def secret_scanning(
@@ -2261,10 +2453,32 @@ class RepositorySecurityAndAnalysis:
     ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanning"]:
         '''secret_scanning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning Repository#secret_scanning}
         '''
         result = self._values.get("secret_scanning")
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanning"], result)
+
+    @builtins.property
+    def secret_scanning_ai_detection(
+        self,
+    ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanningAiDetection"]:
+        '''secret_scanning_ai_detection block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_ai_detection Repository#secret_scanning_ai_detection}
+        '''
+        result = self._values.get("secret_scanning_ai_detection")
+        return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanningAiDetection"], result)
+
+    @builtins.property
+    def secret_scanning_non_provider_patterns(
+        self,
+    ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns"]:
+        '''secret_scanning_non_provider_patterns block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_non_provider_patterns Repository#secret_scanning_non_provider_patterns}
+        '''
+        result = self._values.get("secret_scanning_non_provider_patterns")
+        return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns"], result)
 
     @builtins.property
     def secret_scanning_push_protection(
@@ -2272,7 +2486,7 @@ class RepositorySecurityAndAnalysis:
     ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanningPushProtection"]:
         '''secret_scanning_push_protection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#secret_scanning_push_protection Repository#secret_scanning_push_protection}
         '''
         result = self._values.get("secret_scanning_push_protection")
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanningPushProtection"], result)
@@ -2297,7 +2511,7 @@ class RepositorySecurityAndAnalysis:
 class RepositorySecurityAndAnalysisAdvancedSecurity:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable advanced security features on the repository. Can be 'enabled' or 'disabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable advanced security features on the repository. Can be 'enabled' or 'disabled', This value being present when split licensing is enabled will error out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c060f5659b2b3b99f5dde43e74e6375fb9f6421b37afa59e72e3c81e5837e652)
@@ -2308,9 +2522,11 @@ class RepositorySecurityAndAnalysisAdvancedSecurity:
 
     @builtins.property
     def status(self) -> builtins.str:
-        '''Set to 'enabled' to enable advanced security features on the repository. Can be 'enabled' or 'disabled'.
+        '''Set to 'enabled' to enable advanced security features on the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        Can be 'enabled' or 'disabled', This value being present when split licensing is enabled will error out.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -2383,6 +2599,102 @@ class RepositorySecurityAndAnalysisAdvancedSecurityOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisCodeSecurity",
+    jsii_struct_bases=[],
+    name_mapping={"status": "status"},
+)
+class RepositorySecurityAndAnalysisCodeSecurity:
+    def __init__(self, *, status: builtins.str) -> None:
+        '''
+        :param status: Set to 'enabled' to enable code security on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ebbd7fae0d096dbe9e3ddf2eda4690cd80cec9bc0d226c29ebbbdaaaa78bee8)
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "status": status,
+        }
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''Set to 'enabled' to enable code security on the repository.
+
+        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositorySecurityAndAnalysisCodeSecurity(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositorySecurityAndAnalysisCodeSecurityOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisCodeSecurityOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f7ae535e86e691f2e50fd41f27ece0df6c37e030df7efeb208f342012a7ecf4d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="statusInput")
+    def status_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statusInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e1ba18f2ce74783a4e8c1484345fcfa820031d4c28e727fdeb9b3fdaff2b3a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositorySecurityAndAnalysisCodeSecurity]:
+        return typing.cast(typing.Optional[RepositorySecurityAndAnalysisCodeSecurity], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositorySecurityAndAnalysisCodeSecurity],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__740282ebb3768f06dab0a6832e7ef4fbba8716558c4f1422cc2f172a7bf7b317)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class RepositorySecurityAndAnalysisOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -2406,25 +2718,58 @@ class RepositorySecurityAndAnalysisOutputReference(
     @jsii.member(jsii_name="putAdvancedSecurity")
     def put_advanced_security(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable advanced security features on the repository. Can be 'enabled' or 'disabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable advanced security features on the repository. Can be 'enabled' or 'disabled', This value being present when split licensing is enabled will error out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         value = RepositorySecurityAndAnalysisAdvancedSecurity(status=status)
 
         return typing.cast(None, jsii.invoke(self, "putAdvancedSecurity", [value]))
 
+    @jsii.member(jsii_name="putCodeSecurity")
+    def put_code_security(self, *, status: builtins.str) -> None:
+        '''
+        :param status: Set to 'enabled' to enable code security on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        value = RepositorySecurityAndAnalysisCodeSecurity(status=status)
+
+        return typing.cast(None, jsii.invoke(self, "putCodeSecurity", [value]))
+
     @jsii.member(jsii_name="putSecretScanning")
     def put_secret_scanning(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable secret scanning on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable secret scanning on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         value = RepositorySecurityAndAnalysisSecretScanning(status=status)
 
         return typing.cast(None, jsii.invoke(self, "putSecretScanning", [value]))
 
+    @jsii.member(jsii_name="putSecretScanningAiDetection")
+    def put_secret_scanning_ai_detection(self, *, status: builtins.str) -> None:
+        '''
+        :param status: Set to 'enabled' to enable secret scanning AI detection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        value = RepositorySecurityAndAnalysisSecretScanningAiDetection(status=status)
+
+        return typing.cast(None, jsii.invoke(self, "putSecretScanningAiDetection", [value]))
+
+    @jsii.member(jsii_name="putSecretScanningNonProviderPatterns")
+    def put_secret_scanning_non_provider_patterns(
+        self,
+        *,
+        status: builtins.str,
+    ) -> None:
+        '''
+        :param status: Set to 'enabled' to enable secret scanning non-provider patterns on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        value = RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns(
+            status=status
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putSecretScanningNonProviderPatterns", [value]))
+
     @jsii.member(jsii_name="putSecretScanningPushProtection")
     def put_secret_scanning_push_protection(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable secret scanning push protection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable secret scanning push protection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         value = RepositorySecurityAndAnalysisSecretScanningPushProtection(
             status=status
@@ -2436,9 +2781,21 @@ class RepositorySecurityAndAnalysisOutputReference(
     def reset_advanced_security(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAdvancedSecurity", []))
 
+    @jsii.member(jsii_name="resetCodeSecurity")
+    def reset_code_security(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCodeSecurity", []))
+
     @jsii.member(jsii_name="resetSecretScanning")
     def reset_secret_scanning(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSecretScanning", []))
+
+    @jsii.member(jsii_name="resetSecretScanningAiDetection")
+    def reset_secret_scanning_ai_detection(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSecretScanningAiDetection", []))
+
+    @jsii.member(jsii_name="resetSecretScanningNonProviderPatterns")
+    def reset_secret_scanning_non_provider_patterns(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSecretScanningNonProviderPatterns", []))
 
     @jsii.member(jsii_name="resetSecretScanningPushProtection")
     def reset_secret_scanning_push_protection(self) -> None:
@@ -2452,11 +2809,30 @@ class RepositorySecurityAndAnalysisOutputReference(
         return typing.cast(RepositorySecurityAndAnalysisAdvancedSecurityOutputReference, jsii.get(self, "advancedSecurity"))
 
     @builtins.property
+    @jsii.member(jsii_name="codeSecurity")
+    def code_security(self) -> RepositorySecurityAndAnalysisCodeSecurityOutputReference:
+        return typing.cast(RepositorySecurityAndAnalysisCodeSecurityOutputReference, jsii.get(self, "codeSecurity"))
+
+    @builtins.property
     @jsii.member(jsii_name="secretScanning")
     def secret_scanning(
         self,
     ) -> "RepositorySecurityAndAnalysisSecretScanningOutputReference":
         return typing.cast("RepositorySecurityAndAnalysisSecretScanningOutputReference", jsii.get(self, "secretScanning"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretScanningAiDetection")
+    def secret_scanning_ai_detection(
+        self,
+    ) -> "RepositorySecurityAndAnalysisSecretScanningAiDetectionOutputReference":
+        return typing.cast("RepositorySecurityAndAnalysisSecretScanningAiDetectionOutputReference", jsii.get(self, "secretScanningAiDetection"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretScanningNonProviderPatterns")
+    def secret_scanning_non_provider_patterns(
+        self,
+    ) -> "RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsOutputReference":
+        return typing.cast("RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsOutputReference", jsii.get(self, "secretScanningNonProviderPatterns"))
 
     @builtins.property
     @jsii.member(jsii_name="secretScanningPushProtection")
@@ -2473,11 +2849,32 @@ class RepositorySecurityAndAnalysisOutputReference(
         return typing.cast(typing.Optional[RepositorySecurityAndAnalysisAdvancedSecurity], jsii.get(self, "advancedSecurityInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="codeSecurityInput")
+    def code_security_input(
+        self,
+    ) -> typing.Optional[RepositorySecurityAndAnalysisCodeSecurity]:
+        return typing.cast(typing.Optional[RepositorySecurityAndAnalysisCodeSecurity], jsii.get(self, "codeSecurityInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretScanningAiDetectionInput")
+    def secret_scanning_ai_detection_input(
+        self,
+    ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanningAiDetection"]:
+        return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanningAiDetection"], jsii.get(self, "secretScanningAiDetectionInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="secretScanningInput")
     def secret_scanning_input(
         self,
     ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanning"]:
         return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanning"], jsii.get(self, "secretScanningInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretScanningNonProviderPatternsInput")
+    def secret_scanning_non_provider_patterns_input(
+        self,
+    ) -> typing.Optional["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns"]:
+        return typing.cast(typing.Optional["RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns"], jsii.get(self, "secretScanningNonProviderPatternsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="secretScanningPushProtectionInput")
@@ -2510,7 +2907,7 @@ class RepositorySecurityAndAnalysisOutputReference(
 class RepositorySecurityAndAnalysisSecretScanning:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable secret scanning on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable secret scanning on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6164211dbb6fd704aed460be387f07b5a588b13bb5802360f1cb4702b588c090)
@@ -2523,9 +2920,9 @@ class RepositorySecurityAndAnalysisSecretScanning:
     def status(self) -> builtins.str:
         '''Set to 'enabled' to enable secret scanning on the repository.
 
-        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'.
+        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -2541,6 +2938,198 @@ class RepositorySecurityAndAnalysisSecretScanning:
         return "RepositorySecurityAndAnalysisSecretScanning(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisSecretScanningAiDetection",
+    jsii_struct_bases=[],
+    name_mapping={"status": "status"},
+)
+class RepositorySecurityAndAnalysisSecretScanningAiDetection:
+    def __init__(self, *, status: builtins.str) -> None:
+        '''
+        :param status: Set to 'enabled' to enable secret scanning AI detection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c50786aa201e75df64ddc54e386dc0ae449662a94ddb8c70d21dbe4876a359a4)
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "status": status,
+        }
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''Set to 'enabled' to enable secret scanning AI detection on the repository.
+
+        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositorySecurityAndAnalysisSecretScanningAiDetection(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositorySecurityAndAnalysisSecretScanningAiDetectionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisSecretScanningAiDetectionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__484749af6225a73beb1e52b3051e1ab40bcd8b211bd31f836c21cce132163eb5)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="statusInput")
+    def status_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statusInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b635886ef4ec497f8ed5e157f44947587b71f70e47ad291dc4644769f8f6bddb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositorySecurityAndAnalysisSecretScanningAiDetection]:
+        return typing.cast(typing.Optional[RepositorySecurityAndAnalysisSecretScanningAiDetection], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositorySecurityAndAnalysisSecretScanningAiDetection],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a86b60ec1e3daaae8da173551b4e73c37c66f55ea5c0493e34374665c5caba10)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns",
+    jsii_struct_bases=[],
+    name_mapping={"status": "status"},
+)
+class RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns:
+    def __init__(self, *, status: builtins.str) -> None:
+        '''
+        :param status: Set to 'enabled' to enable secret scanning non-provider patterns on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__105051994d8ca390c2034e1278283ceecba857183bdb0e8ac99c90a0cc4e2659)
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "status": status,
+        }
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''Set to 'enabled' to enable secret scanning non-provider patterns on the repository.
+
+        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.repository.RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dde6b1d40886872e3692cfaa257e6114fd9bf863ff99ccd5169fcaa1c15db951)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="statusInput")
+    def status_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "statusInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00def7e6c751b2b195c708cdad07ef76403dbcdd19d328614086aa7152820ac4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns]:
+        return typing.cast(typing.Optional[RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5309aa1b9128809073d1e58a77f5bd3122c15374a4cdd2f3303ec841fece9f3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class RepositorySecurityAndAnalysisSecretScanningOutputReference(
@@ -2606,7 +3195,7 @@ class RepositorySecurityAndAnalysisSecretScanningOutputReference(
 class RepositorySecurityAndAnalysisSecretScanningPushProtection:
     def __init__(self, *, status: builtins.str) -> None:
         '''
-        :param status: Set to 'enabled' to enable secret scanning push protection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        :param status: Set to 'enabled' to enable secret scanning push protection on the repository. Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2083f15b0562ff12040b1799f97bbd932e55702e421029024331fc7942af64dd)
@@ -2619,9 +3208,9 @@ class RepositorySecurityAndAnalysisSecretScanningPushProtection:
     def status(self) -> builtins.str:
         '''Set to 'enabled' to enable secret scanning push protection on the repository.
 
-        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public' or 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled'.
+        Can be 'enabled' or 'disabled'. If set to 'enabled', the repository's visibility must be 'public', 'security_and_analysis[0].advanced_security[0].status' must also be set to 'enabled', or your Organization must have split licensing for Advanced security.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#status Repository#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#status Repository#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -2712,9 +3301,9 @@ class RepositoryTemplate:
         include_all_branches: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param owner: The GitHub organization or user the template repository is owned by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#owner Repository#owner}
-        :param repository: The name of the template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#repository Repository#repository}
-        :param include_all_branches: Whether the new repository should include all the branches from the template repository (defaults to 'false', which includes only the default branch from the template). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
+        :param owner: The GitHub organization or user the template repository is owned by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#owner Repository#owner}
+        :param repository: The name of the template repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#repository Repository#repository}
+        :param include_all_branches: Whether the new repository should include all the branches from the template repository (defaults to 'false', which includes only the default branch from the template). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cc62e7345a0e9e923f09ce69faaa43213f8a732c86f9d3dbd62c00a22c04ee1)
@@ -2732,7 +3321,7 @@ class RepositoryTemplate:
     def owner(self) -> builtins.str:
         '''The GitHub organization or user the template repository is owned by.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#owner Repository#owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#owner Repository#owner}
         '''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
@@ -2742,7 +3331,7 @@ class RepositoryTemplate:
     def repository(self) -> builtins.str:
         '''The name of the template repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#repository Repository#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#repository Repository#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -2754,7 +3343,7 @@ class RepositoryTemplate:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the new repository should include all the branches from the template repository (defaults to 'false', which includes only the default branch from the template).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository#include_all_branches Repository#include_all_branches}
         '''
         result = self._values.get("include_all_branches")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2876,8 +3465,14 @@ __all__ = [
     "RepositorySecurityAndAnalysis",
     "RepositorySecurityAndAnalysisAdvancedSecurity",
     "RepositorySecurityAndAnalysisAdvancedSecurityOutputReference",
+    "RepositorySecurityAndAnalysisCodeSecurity",
+    "RepositorySecurityAndAnalysisCodeSecurityOutputReference",
     "RepositorySecurityAndAnalysisOutputReference",
     "RepositorySecurityAndAnalysisSecretScanning",
+    "RepositorySecurityAndAnalysisSecretScanningAiDetection",
+    "RepositorySecurityAndAnalysisSecretScanningAiDetectionOutputReference",
+    "RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns",
+    "RepositorySecurityAndAnalysisSecretScanningNonProviderPatternsOutputReference",
     "RepositorySecurityAndAnalysisSecretScanningOutputReference",
     "RepositorySecurityAndAnalysisSecretScanningPushProtection",
     "RepositorySecurityAndAnalysisSecretScanningPushProtectionOutputReference",
@@ -2903,6 +3498,8 @@ def _typecheckingstub__fb2ad3de9416f1cba9636a8de2ff57cade0941e6e3933abbb2c231a3d
     default_branch: typing.Optional[builtins.str] = None,
     delete_branch_on_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
+    etag: typing.Optional[builtins.str] = None,
+    fork: typing.Optional[builtins.str] = None,
     gitignore_template: typing.Optional[builtins.str] = None,
     has_discussions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     has_downloads: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -2919,6 +3516,8 @@ def _typecheckingstub__fb2ad3de9416f1cba9636a8de2ff57cade0941e6e3933abbb2c231a3d
     pages: typing.Optional[typing.Union[RepositoryPages, typing.Dict[builtins.str, typing.Any]]] = None,
     private: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     security_and_analysis: typing.Optional[typing.Union[RepositorySecurityAndAnalysis, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_owner: typing.Optional[builtins.str] = None,
+    source_repo: typing.Optional[builtins.str] = None,
     squash_merge_commit_message: typing.Optional[builtins.str] = None,
     squash_merge_commit_title: typing.Optional[builtins.str] = None,
     template: typing.Optional[typing.Union[RepositoryTemplate, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3007,6 +3606,18 @@ def _typecheckingstub__beec610fe68b3f8eb741bce1746af85c989da7ecf15d46eb475d1a7c1
     pass
 
 def _typecheckingstub__153c99bce172791cc817c27471ae8a94be9803c752803e8b701a74253ac2c6be(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__464058898f76880f6b5d8775b8599a88214208f39d34447426836173e1bd4f7a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c36ecc6f8aa9283602784543d32ea224a440f6f913544d55a68a4096488d904(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -3102,6 +3713,18 @@ def _typecheckingstub__4b533af431d6317a8df4c0177ada9db710591ab677933cac0fc04be74
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__df9623e114ca37ca869549fc08d859be5a84a7ef6f67f7fd5b42332b4d7f1705(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__771d936609caa95b94d8b744bd3aca1b69dd2ff856bbb808fff957f6243f4e2b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c58a7dbdfb62ba97aa9aea378f59daafc9605a99740b5c98e2b7a4d353e9a2a8(
     value: builtins.str,
 ) -> None:
@@ -3159,6 +3782,8 @@ def _typecheckingstub__cf45aa2a2862bb1ed66a9c1c6d0507f4baf01ba5d9eadf92e68c7a449
     default_branch: typing.Optional[builtins.str] = None,
     delete_branch_on_merge: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
+    etag: typing.Optional[builtins.str] = None,
+    fork: typing.Optional[builtins.str] = None,
     gitignore_template: typing.Optional[builtins.str] = None,
     has_discussions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     has_downloads: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -3175,6 +3800,8 @@ def _typecheckingstub__cf45aa2a2862bb1ed66a9c1c6d0507f4baf01ba5d9eadf92e68c7a449
     pages: typing.Optional[typing.Union[RepositoryPages, typing.Dict[builtins.str, typing.Any]]] = None,
     private: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     security_and_analysis: typing.Optional[typing.Union[RepositorySecurityAndAnalysis, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_owner: typing.Optional[builtins.str] = None,
+    source_repo: typing.Optional[builtins.str] = None,
     squash_merge_commit_message: typing.Optional[builtins.str] = None,
     squash_merge_commit_title: typing.Optional[builtins.str] = None,
     template: typing.Optional[typing.Union[RepositoryTemplate, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3256,7 +3883,10 @@ def _typecheckingstub__4345e041b3479f94cdf30bae9c5fb963ca71af30ed7f6197301b7a61b
 def _typecheckingstub__9d2271226c425db0d89da181b9aab44265a6313794e3fd0e05246d55d1d919ac(
     *,
     advanced_security: typing.Optional[typing.Union[RepositorySecurityAndAnalysisAdvancedSecurity, typing.Dict[builtins.str, typing.Any]]] = None,
+    code_security: typing.Optional[typing.Union[RepositorySecurityAndAnalysisCodeSecurity, typing.Dict[builtins.str, typing.Any]]] = None,
     secret_scanning: typing.Optional[typing.Union[RepositorySecurityAndAnalysisSecretScanning, typing.Dict[builtins.str, typing.Any]]] = None,
+    secret_scanning_ai_detection: typing.Optional[typing.Union[RepositorySecurityAndAnalysisSecretScanningAiDetection, typing.Dict[builtins.str, typing.Any]]] = None,
+    secret_scanning_non_provider_patterns: typing.Optional[typing.Union[RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns, typing.Dict[builtins.str, typing.Any]]] = None,
     secret_scanning_push_protection: typing.Optional[typing.Union[RepositorySecurityAndAnalysisSecretScanningPushProtection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3288,6 +3918,32 @@ def _typecheckingstub__fb1c288f893e52bfca20137ec08671dbc0ddd877d3d3586b059abf74c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ebbd7fae0d096dbe9e3ddf2eda4690cd80cec9bc0d226c29ebbbdaaaa78bee8(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7ae535e86e691f2e50fd41f27ece0df6c37e030df7efeb208f342012a7ecf4d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e1ba18f2ce74783a4e8c1484345fcfa820031d4c28e727fdeb9b3fdaff2b3a2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__740282ebb3768f06dab0a6832e7ef4fbba8716558c4f1422cc2f172a7bf7b317(
+    value: typing.Optional[RepositorySecurityAndAnalysisCodeSecurity],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f3aaef169e08107d2826b4b45aacfc39c649f876a4ff97927c8f02ff45bedd36(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -3304,6 +3960,58 @@ def _typecheckingstub__df31ab65b7009a6b82cad2ea5e9794c0effc97ab93deca14f917f7c25
 def _typecheckingstub__6164211dbb6fd704aed460be387f07b5a588b13bb5802360f1cb4702b588c090(
     *,
     status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c50786aa201e75df64ddc54e386dc0ae449662a94ddb8c70d21dbe4876a359a4(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__484749af6225a73beb1e52b3051e1ab40bcd8b211bd31f836c21cce132163eb5(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b635886ef4ec497f8ed5e157f44947587b71f70e47ad291dc4644769f8f6bddb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a86b60ec1e3daaae8da173551b4e73c37c66f55ea5c0493e34374665c5caba10(
+    value: typing.Optional[RepositorySecurityAndAnalysisSecretScanningAiDetection],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__105051994d8ca390c2034e1278283ceecba857183bdb0e8ac99c90a0cc4e2659(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dde6b1d40886872e3692cfaa257e6114fd9bf863ff99ccd5169fcaa1c15db951(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00def7e6c751b2b195c708cdad07ef76403dbcdd19d328614086aa7152820ac4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5309aa1b9128809073d1e58a77f5bd3122c15374a4cdd2f3303ec841fece9f3d(
+    value: typing.Optional[RepositorySecurityAndAnalysisSecretScanningNonProviderPatterns],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,0 +1,904 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Unit test for ydiff"""
+
+from unittest import mock
+import io
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '')
+import ydiff  # nopep8
+
+
+class SplitToWordsTest(unittest.TestCase):
+
+    def test_ok(self):
+        tests = [
+            # (input, want)
+            ('HELLO_WORLD = 0', ['HELLO', '_', 'WORLD', ' ', '=', ' ', '0']),
+            ('class HelloWorld\n', ['class', ' ', 'Hello', 'World', '\n']),
+            ('int foo3\n', ['int', ' ', 'foo', '3', '\n']),
+            ('int f3\n', ['int', ' ', 'f3', '\n']),
+            ('a.addOption', ['a', '.', 'add', 'Option']),
+            ('a.AddOption', ['a', '.', 'Add', 'Option']),
+            ('class HelloW0rld\n', ['class', ' ', 'Hello', 'W0rld', '\n']),
+            ('hello_w0rld++\n', ['hello', '_', 'w0rld', '+', '+', '\n']),
+            ('var foo []string', ['var', ' ', 'foo', ' ', '[', ']', 'string']),
+            ('i -= 1\n', ['i', ' ', '-', '=', ' ', '1', '\n']),
+        ]
+        for s, want in tests:
+            got = ydiff._split_to_words(s)
+            self.assertEqual(want, got)
+
+
+class StrSplitTest(unittest.TestCase):
+
+    def test_not_colorized(self):
+        text = 'Hi, 你好\n'
+        tests = [
+            # (width, want)
+            (4, ('Hi, ', '你好\n', 4)),
+            (5, ('Hi, 你', '好\n', 6)),
+            (8, ('Hi, 你好', '\n', 8)),
+            (9, ('Hi, 你好\n', '', 9)),
+            (10, ('Hi, 你好\n', '', 9)),
+        ]
+        for width, want in tests:
+            got = ydiff._strsplit(text, width, {})
+            self.assertEqual(want, got)
+
+    def test_colorized(self):
+        g = '\x1b[32m'  # green
+        b = '\x1b[34m'  # blue
+        r = '\x1b[0m'   # reset
+        # Width:     1----2----------3-----[4]5--[6]7
+        parts = [g, 'H', 'i', r, b, '!', r, '你', '好']
+        codes = {g, b, r}
+        tests = [
+            # (width, want_left, want_right, want_width)
+            (1, (g, 'H', r), (g, 'i', r, b, '!', r, '你好'), 1),
+            (2, (g, 'Hi', r, b, r), (b, '!', r, '你好'), 2),
+            (3, (g, 'Hi', r, b, '!', r), ('你好'), 3),
+            (4, (g, 'Hi', r, b, '!', r, '你'), ('好',), 5),
+            (5, (g, 'Hi', r, b, '!', r, '你'), ('好',), 5),
+            (6, (g, 'Hi', r, b, '!', r, '你好'), (), 7),
+            (7, (g, 'Hi', r, b, '!', r, '你好'), (), 7),
+            (8, (g, 'Hi', r, b, '!', r, '你好'), (), 7),
+        ]
+        for width, want_left, want_right, want_width in tests:
+            got = ydiff._strsplit(''.join(parts), width, codes)
+            self.assertEqual(''.join(want_left), got[0])
+            self.assertEqual(''.join(want_right), got[1])
+            self.assertEqual(want_width, got[2])
+
+
+class StrTrimTest(unittest.TestCase):
+
+    def test_not_colorized(self):
+        text = 'Hi, 你好\n'
+        tests = [
+            # (width, want)
+            (4, ('Hi, ', '你好\n', 4)),
+            (5, ('Hi, 你', '好\n', 6)),
+            (8, ('Hi, 你好', '\n', 8)),
+            (9, ('Hi, 你好\n', '', 9)),
+            (10, ('Hi, 你好\n', '', 9)),
+        ]
+        for width, want in tests:
+            got = ydiff._strsplit(text, width, {})
+            self.assertEqual(want, got)
+
+    def test_colorized(self):
+        g = '\x1b[32m'  # green
+        b = '\x1b[34m'  # blue
+        r = '\x1b[0m'   # reset
+        # Width:     1----2----------3-----[4]5--[6]7
+        parts = [g, 'H', 'i', r, b, '!', r, '你', '好']
+        codes = {g, b, r}
+        tests = [
+            # (width, pad, want)
+            (1, False, (g, r, '>')),
+            (2, False, (g, 'H', r, '>')),
+            (3, False, (g, 'Hi', r, b, r, '>')),
+            (4, False, (g, 'Hi', r, b, '!', r, '>')),
+            (5, False, (g, 'Hi', r, b, '!', r, '你>')),
+            (6, False, (g, 'Hi', r, b, '!', r, '你>')),
+            (7, False, (g, 'Hi', r, b, '!', r, '你好')),
+            (8, False, (g, 'Hi', r, b, '!', r, '你好')),
+            (8, True, (g, 'Hi', r, b, '!', r, '你好 ')),
+        ]
+        for width, pad, want in tests:
+            got = ydiff._strtrim(''.join(parts), width, '>', pad, codes)
+            self.assertEqual(''.join(want), got, 'width %d failed' % width)
+
+
+class DecodeTest(unittest.TestCase):
+
+    def test_normal(self):
+        octets = b'\xe4\xbd\xa0\xe5\xa5\xbd'
+        want = '你好'
+        self.assertEqual(ydiff._decode(octets), want)
+
+    def test_latin_1(self):
+        octets = b'\x80\x02q\x01(U'
+        want = '\x80\x02q\x01(U'
+        self.assertEqual(ydiff._decode(octets), want)
+
+
+class HunkTest(unittest.TestCase):
+
+    def test_get_old(self):
+        hunk = ydiff.Hunk([], '@@ -1,2 +1,2 @@', (1, 2), (1, 2))
+        hunk.append(('-', 'foo\n'))
+        hunk.append(('+', 'bar\n'))
+        hunk.append((' ', 'common\n'))
+        self.assertEqual(hunk._get_old(), ['foo\n', 'common\n'])
+
+    def test_get_new(self):
+        hunk = ydiff.Hunk([], '@@ -1,2 +1,2 @@', (1, 2), (1, 2))
+        hunk.append(('-', 'foo\n'))
+        hunk.append(('+', 'bar\n'))
+        hunk.append((' ', 'common\n'))
+        self.assertEqual(hunk._get_new(), ['bar\n', 'common\n'])
+
+
+class DiffMarkupTest(unittest.TestCase):
+
+    def _init_diff(self):
+        """Return a minimal diff contains all required samples
+            header
+            --- old
+            +++ new
+            hunk header
+            @@ -1,5 +1,5 @@
+            -_hello
+            +hello+
+            +spammm
+             world
+            -garb
+            -Again
+            -	tabbed
+            +again
+            + spaced
+        """
+
+        hunk = ydiff.Hunk(['hunk header\n'], '@@ -1,5 +1,5 @@\n',
+                          (1, 5), (1, 5))
+        hunk.append(('-', '_hello\n'))
+        hunk.append(('+', 'hello+\n'))
+        hunk.append(('+', 'spammm\n'))
+        hunk.append((' ', 'world\n'))
+        hunk.append(('-', 'garb\n'))
+        hunk.append(('-', 'Again\n'))
+        hunk.append(('-', '\ttabbed\n'))
+        hunk.append(('+', 'again\n'))
+        hunk.append(('+', ' spaced\n'))
+        diff = ydiff.UnifiedDiff(
+            ['header\n'], '--- old\n', '+++ new\n', [hunk])
+        return diff
+
+    def test_markup_traditional_hunk_header(self):
+        hunk = ydiff.Hunk(['hunk header\n'], '@@ -0 +0 @@\n', (0, 0), (0, 0))
+        diff = ydiff.UnifiedDiff([], '--- old\n', '+++ new\n', [hunk])
+        marker = ydiff.DiffMarker()
+
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 4)
+
+        self.assertEqual(out[0], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[36mhunk header\n\x1b[0m')
+        self.assertEqual(out[3], '\x1b[34m@@ -0 +0 @@\n\x1b[0m')
+
+    def test_markup_traditional_old_changed(self):
+        hunk = ydiff.Hunk([], '@@ -1 +0,0 @@\n', (1, 0), (0, 0))
+        hunk.append(('-', 'spam\n'))
+        diff = ydiff.UnifiedDiff([], '--- old\n', '+++ new\n', [hunk])
+        marker = ydiff.DiffMarker()
+
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 4)
+
+        self.assertEqual(out[0], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[34m@@ -1 +0,0 @@\n\x1b[0m')
+        self.assertEqual(out[3], '\x1b[31m-spam\n\x1b[0m')
+
+    def test_markup_traditional_new_changed(self):
+        hunk = ydiff.Hunk([], '@@ -0,0 +1 @@\n', (0, 0), (1, 0))
+        hunk.append(('+', 'spam\n'))
+        diff = ydiff.UnifiedDiff([], '--- old\n', '+++ new\n', [hunk])
+        marker = ydiff.DiffMarker()
+
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 4)
+
+        self.assertEqual(out[0], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[34m@@ -0,0 +1 @@\n\x1b[0m')
+        self.assertEqual(out[3], '\x1b[32m+spam\n\x1b[0m')
+
+    def test_markup_traditional_both_changed(self):
+        hunk = ydiff.Hunk([], '@@ -1,2 +1,2 @@\n', (1, 2), (1, 2))
+        hunk.append(('-', 'hell-\n'))
+        hunk.append(('+', 'hell+\n'))
+        hunk.append((' ', 'common\n'))
+        diff = ydiff.UnifiedDiff([], '--- old\n', '+++ new\n', [hunk])
+        marker = ydiff.DiffMarker()
+
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 6)
+
+        self.assertEqual(out[0], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[34m@@ -1,2 +1,2 @@\n\x1b[0m')
+        self.assertEqual(
+            out[3],
+            '\x1b[31m-\x1b[0m\x1b[31mhell'
+            '\x1b[7m\x1b[31m-\x1b[0m\x1b[31m\n\x1b[0m')
+        self.assertEqual(
+            out[4],
+            '\x1b[32m+\x1b[0m\x1b[32mhell'
+            '\x1b[7m\x1b[32m+\x1b[0m\x1b[32m\n\x1b[0m')
+        self.assertEqual(out[5], '\x1b[0m common\n\x1b[0m')
+
+    def test_markup_side_by_side_padded(self):
+        diff = self._init_diff()
+        marker = ydiff.DiffMarker(side_by_side=True, width=7)
+
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 11)
+
+        sys.stdout.write('\n')
+        for markup in out:
+            sys.stdout.write(markup)
+
+        self.assertEqual(out[0], '\x1b[36mheader\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[3], '\x1b[36mhunk header\n\x1b[0m')
+        self.assertEqual(out[4], '\x1b[34m@@ -1,5 +1,5 @@\n\x1b[0m')
+        self.assertEqual(
+            out[5],
+            '\x1b[33m1\x1b[0m '
+            '\x1b[31m\x1b[7m\x1b[31m_\x1b[0m\x1b[31mhello\x1b[0m  '
+            '\x1b[0m\x1b[33m1\x1b[0m '
+            '\x1b[32mhello\x1b[7m\x1b[32m+\x1b[0m\x1b[32m\x1b[0m\n')
+        self.assertEqual(
+            out[6],
+            '\x1b[33m '
+            '\x1b[0m         '
+            '\x1b[0m\x1b[33m2\x1b[0m '
+            '\x1b[32mspammm\x1b[0m\n')
+        self.assertEqual(
+            out[7],
+            '\x1b[33m2\x1b[0m '
+            '\x1b[0mworld\x1b[0m   '
+            '\x1b[0m\x1b[33m3\x1b[0m '
+            '\x1b[0mworld\x1b[0m\n')
+        self.assertEqual(
+            out[8],
+            '\x1b[33m3\x1b[0m '
+            '\x1b[31mgarb\x1b[0m '
+            '\x1b[0m\x1b[33m '
+            '\x1b[0m \n')
+        self.assertEqual(
+            out[9],
+            '\x1b[33m4\x1b[0m '
+            '\x1b[31m\x1b[7m\x1b[31mAgain\x1b[0m\x1b[31m\x1b[0m   '
+            '\x1b[0m\x1b[33m4\x1b[0m '
+            '\x1b[32m\x1b[7m\x1b[32magain\x1b[0m\x1b[32m\x1b[0m\n')
+        self.assertEqual(
+            out[10],
+            '\x1b[33m5\x1b[0m '
+            '\x1b[31m \x1b[7m\x1b[31m     \x1b[0m\x1b[95m>\x1b[0m '
+            '\x1b[0m\x1b[33m5\x1b[0m '
+            '\x1b[32m \x1b[7m\x1b[32mspaced\x1b[0m\x1b[32m\x1b[0m\n')
+
+    def test_markup_side_by_side_tabbed(self):
+        diff = self._init_diff()
+        marker = ydiff.DiffMarker(side_by_side=True, width=8, tab_width=2)
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 11)
+
+        sys.stdout.write('\n')
+        for markup in out:
+            sys.stdout.write(markup)
+
+        self.assertEqual(out[0], '\x1b[36mheader\n\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m--- old\n\x1b[0m')
+        self.assertEqual(out[2], '\x1b[33m+++ new\n\x1b[0m')
+        self.assertEqual(out[3], '\x1b[36mhunk header\n\x1b[0m')
+        self.assertEqual(out[4], '\x1b[34m@@ -1,5 +1,5 @@\n\x1b[0m')
+        self.assertEqual(
+            out[5],
+            '\x1b[33m1\x1b[0m '
+            '\x1b[31m\x1b[7m\x1b[31m_\x1b[0m\x1b[31mhello\x1b[0m   '
+            '\x1b[0m\x1b[33m1\x1b[0m '
+            '\x1b[32mhello\x1b[7m\x1b[32m+\x1b[0m\x1b[32m\x1b[0m\n')
+        self.assertEqual(
+            out[6],
+            '\x1b[33m '
+            '\x1b[0m          '
+            '\x1b[0m\x1b[33m2\x1b[0m '
+            '\x1b[32mspammm\x1b[0m\n')
+        self.assertEqual(
+            out[7],
+            '\x1b[33m2\x1b[0m '
+            '\x1b[0mworld\x1b[0m    '
+            '\x1b[0m\x1b[33m3\x1b[0m '
+            '\x1b[0mworld\x1b[0m\n')
+        self.assertEqual(
+            out[8],
+            '\x1b[33m3\x1b[0m '
+            '\x1b[31mgarb\x1b[0m '
+            '\x1b[0m\x1b[33m '
+            '\x1b[0m \n')
+        self.assertEqual(
+            out[9],
+            '\x1b[33m4\x1b[0m '
+            '\x1b[31m\x1b[7m\x1b[31mAgain\x1b[0m\x1b[31m\x1b[0m    '
+            '\x1b[0m\x1b[33m4\x1b[0m '
+            '\x1b[32m\x1b[7m\x1b[32magain\x1b[0m\x1b[32m\x1b[0m\n')
+        self.assertEqual(
+            out[10],
+            '\x1b[33m5\x1b[0m '
+            '\x1b[31m \x1b[7m\x1b[31m tabbed\x1b[0m\x1b[31m\x1b[0m '
+            '\x1b[0m\x1b[33m5\x1b[0m '
+            '\x1b[32m \x1b[7m\x1b[32mspaced\x1b[0m\x1b[32m\x1b[0m\n')
+
+    def test_markup_side_by_side_wrap_true(self):
+        hunk = ydiff.Hunk([], '@@ -1 +1 @@\n', (1, 1), (1, 1))
+        # Create lines longer than width (width=5)
+        hunk.append(('-', '1234567890\n'))
+        hunk.append(('+', 'abcdefghij\n'))
+        diff = ydiff.UnifiedDiff([], '--- a', '+++ b', [hunk])
+        marker = ydiff.DiffMarker(side_by_side=True, width=5, wrap=True)
+
+        out = list(marker.markup(diff))
+
+        self.assertEqual(len(out), 5)
+        self.assertEqual(out[0], '\x1b[33m--- a\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ b\x1b[0m')
+        self.assertEqual(out[2], '\x1b[34m@@ -1 +1 @@\n\x1b[0m')
+
+        self.assertIn('12345', out[3])
+        self.assertIn('abcde', out[3])
+        self.assertIn('67890', out[4])
+        self.assertIn('fghij', out[4])
+
+    def test_markup_side_by_side_empty_hunks(self):
+        # Diff with no hunks
+        diff = ydiff.UnifiedDiff([], '--- a', '+++ b', [])
+        marker = ydiff.DiffMarker(side_by_side=True)
+        out = list(marker.markup(diff))
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0], '\x1b[33m--- a\x1b[0m')
+        self.assertEqual(out[1], '\x1b[33m+++ b\x1b[0m')
+
+    def test_markup_side_by_side_pad(self):
+        hunk = ydiff.Hunk([], '@@ -1 +1 @@\n', (1, 1), (1, 1))
+        hunk.append(('-', '123456\n'))
+        hunk.append(('+', 'abcdef\n'))
+        diff = ydiff.UnifiedDiff([], '--- a', '+++ b', [hunk])
+        marker = ydiff.DiffMarker(side_by_side=True, width=5, wrap=True)
+        out = list(marker.markup(diff))
+
+        # Line 1: "1 12345 1 abcde"
+        # Line 2: "  6       f" (left padded, right not padded)
+        # "6" is len 1. width 5. pad 4 spaces. "6    "
+
+        # Strip ANSI codes for easier verification
+        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        line2 = ansi_escape.sub('', out[4])
+
+        # Note: num_width is 1.
+        self.assertIn('6    ', line2)
+        # Right side is not padded
+        self.assertIn(' f', line2)
+        self.assertNotIn('f    ', line2)
+
+
+class UnifiedDiffTest(unittest.TestCase):
+
+    diff = ydiff.UnifiedDiff(None, None, None, None)
+
+    def test_is_hunk_meta_normal(self):
+        self.assertTrue(self.diff.is_hunk_meta('@@ -1 +1 @@'))
+        self.assertTrue(self.diff.is_hunk_meta('@@ -3,7 +3,6 @@'))
+        self.assertTrue(self.diff.is_hunk_meta('@@ -3,7 +3,6 @@ class Foo'))
+        self.assertTrue(self.diff.is_hunk_meta('@@ -3,7 +3,6 @@ class Foo\n'))
+        self.assertTrue(
+            self.diff.is_hunk_meta('@@ -3,7 +3,6 @@ class Foo\r\n'))
+
+    def test_is_hunk_meta_svn_prop(self):
+        self.assertTrue(self.diff.is_hunk_meta('## -0,0 +1 ##'))
+        self.assertTrue(self.diff.is_hunk_meta('## -0,0 +1 ##\n'))
+        self.assertTrue(self.diff.is_hunk_meta('## -0,0 +1 ##\r\n'))
+
+    def test_is_hunk_meta_neg(self):
+        self.assertFalse(self.diff.is_hunk_meta('@@ -1 + @@'))
+        self.assertFalse(self.diff.is_hunk_meta('@@ -this is not a hunk meta'))
+        self.assertFalse(self.diff.is_hunk_meta('## -this is not either'))
+
+    def test_parse_hunk_meta_normal(self):
+        self.assertEqual(self.diff.parse_hunk_meta('@@ -3,7 +3,6 @@'),
+                         ((3, 7), (3, 6)))
+
+    def test_parse_hunk_meta_missing(self):
+        self.assertEqual(self.diff.parse_hunk_meta('@@ -3 +3,6 @@'),
+                         ((3, 1), (3, 6)))
+        self.assertEqual(self.diff.parse_hunk_meta('@@ -3,7 +3 @@'),
+                         ((3, 7), (3, 1)))
+        self.assertEqual(self.diff.parse_hunk_meta('@@ -3 +3 @@'),
+                         ((3, 1), (3, 1)))
+
+    def test_parse_hunk_meta_svn_prop(self):
+        self.assertEqual(self.diff.parse_hunk_meta('## -0,0 +1 ##'),
+                         ((0, 0), (1, 1)))
+
+    def test_is_old(self):
+        self.assertTrue(self.diff.is_old('-hello world'))
+        self.assertTrue(self.diff.is_old('----'))            # yaml
+
+    def test_is_old_neg(self):
+        self.assertFalse(self.diff.is_old('--- considered as old path'))
+        self.assertFalse(self.diff.is_old('-' * 72))         # svn log --diff
+
+    def test_is_new(self):
+        self.assertTrue(self.diff.is_new('+hello world'))
+        self.assertTrue(self.diff.is_new('++++hello world'))
+
+    def test_is_new_neg(self):
+        self.assertFalse(self.diff.is_new('+++ considered as new path'))
+
+
+class DiffParserTest(unittest.TestCase):
+
+    def test_parse_invalid_hunk_meta(self):
+        patch = b"""\
+spam
+--- a
++++ b
+spam
+@@ -a,a +0 @@
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+        self.assertRaises(RuntimeError, list, parser.parse())
+
+    def test_parse_dangling_header(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+spam
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 2)
+        self.assertEqual(len(out[1]._headers), 1)
+        self.assertEqual(out[1]._headers[0], 'spam\n')
+        self.assertEqual(out[1]._old_path, '')
+        self.assertEqual(out[1]._new_path, '')
+        self.assertEqual(len(out[1]._hunks), 0)
+
+    def test_parse_missing_new_path(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+--- c
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+        self.assertRaises(AssertionError, list, parser.parse())
+
+    def test_parse_missing_hunk_meta(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+--- c
++++ d
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 2)
+        self.assertEqual(len(out[1]._headers), 0)
+        self.assertEqual(out[1]._old_path, '--- c\n')
+        self.assertEqual(out[1]._new_path, '+++ d\n')
+        self.assertEqual(len(out[1]._hunks), 0)
+
+    def test_parse_missing_hunk_list(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+--- c
++++ d
+@@ -1,2 +1,2 @@
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+        self.assertRaises(AssertionError, list, parser.parse())
+
+    def test_parse_only_in_dir(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+Only in foo: foo
+--- c
++++ d
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 3)
+        self.assertEqual(len(out[1]._hunks), 0)
+        self.assertEqual(out[1]._headers, ['Only in foo: foo\n'])
+        self.assertEqual(len(out[2]._hunks), 1)
+        self.assertEqual(len(out[2]._hunks[0]._hunk_list), 3)
+
+    def test_parse_only_in_dir_at_last(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+Only in foo: foo
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 2)
+        self.assertEqual(len(out[1]._hunks), 0)
+        self.assertEqual(out[1]._headers, ['Only in foo: foo\n'])
+
+    def test_parse_binary_differ_diff_ru(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+Binary files a/1.pdf and b/1.pdf differ
+--- c
++++ d
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 3)
+        self.assertEqual(len(out[1]._hunks), 0)
+        self.assertEqual(out[1]._old_path, '')
+        self.assertEqual(out[1]._new_path, '')
+        self.assertEqual(len(out[1]._headers), 1)
+        self.assertTrue(out[1]._headers[0].startswith('Binary files'))
+        self.assertEqual(len(out[2]._hunks), 1)
+        self.assertEqual(len(out[2]._hunks[0]._hunk_list), 3)
+
+    def test_parse_binary_differ_git(self):
+        patch = b"""\
+diff --git a/foo b/foo
+index 529d8a3..ad71911 100755
+--- a/foo
++++ b/foo
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+diff --git a/example.pdf b/example.pdf
+index 1eacfd8..3696851 100644
+Binary files a/example.pdf and b/example.pdf differ
+diff --git a/bar b/bar
+index 529e8a3..ad71921 100755
+--- a/bar
++++ b/bar
+@@ -1,2 +1,2 @@
+-foo
++bar
+ common
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 3)
+        self.assertEqual(len(out[1]._hunks), 0)
+        self.assertEqual(out[1]._old_path, '')
+        self.assertEqual(out[1]._new_path, '')
+        self.assertEqual(len(out[1]._headers), 3)
+        self.assertTrue(out[1]._headers[2].startswith('Binary files'))
+        self.assertEqual(len(out[2]._hunks), 1)
+        self.assertEqual(len(out[2]._hunks[0]._hunk_list), 3)
+
+    def test_parse_svn_prop(self):
+        patch = b"""\
+--- a
++++ b
+Added: svn:executable
+## -0,0 +1 ##
++*
+\\ No newline at end of property
+Added: svn:keywords
+## -0,0 +1 ##
++Id
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+        out = list(parser.parse())
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len(out[0]._hunks), 2)
+
+        hunk = out[0]._hunks[1]
+        self.assertEqual(hunk._hunk_headers, ['Added: svn:keywords\n'])
+        self.assertEqual(hunk._hunk_list, [('+', 'Id\n')])
+
+    def test_parse_hunk_with_path_like_lines(self):
+        patch = b"""\
+--- a
++++ b
+@@ -1,4 +1,4 @@
+-foo
++bar
+--- a
++++ b
+"""
+        items = patch.splitlines(True)
+        stream = iter(items)
+        parser = ydiff.DiffParser(stream)
+
+        out = list(parser.parse())
+        self.assertEqual(len(out), 1)
+        self.assertEqual(len(out[0]._hunks), 1)
+        self.assertEqual(len(out[0]._hunks[0]._hunk_list), 4)
+        self.assertEqual(out[0]._hunks[0]._hunk_list[2], ('-', '-- a\n'))
+        self.assertEqual(out[0]._hunks[0]._hunk_list[3], ('+', '++ b\n'))
+
+
+class UtilsTest(unittest.TestCase):
+
+    def test_decode_error(self):
+        m = mock.Mock()
+        m.decode.side_effect = UnicodeDecodeError('', b'', 0, 1, '')
+        self.assertIn('undecodable bytes', ydiff._decode(m))
+
+    def test_terminal_width_error(self):
+        with mock.patch('shutil.get_terminal_size', side_effect=Exception):
+            self.assertEqual(ydiff._terminal_width(), 80)
+
+    def test_trap_interrupts_broken_pipe(self):
+        @ydiff._trap_interrupts
+        def func():
+            raise BrokenPipeError
+        self.assertEqual(func(), 0)
+
+
+class AllThemesTest(unittest.TestCase):
+
+    def setUp(self):
+        self._orig_cache = ydiff._THEMES_CACHE
+        ydiff._THEMES_CACHE = None
+
+    def tearDown(self):
+        ydiff._THEMES_CACHE = self._orig_cache
+
+    @mock.patch('os.path.exists', return_value=False)
+    def test_no_config(self, m_exists):
+        themes = ydiff._all_themes()
+        self.assertEqual(len(themes), 3)
+
+    @mock.patch('configparser.ConfigParser')
+    @mock.patch('os.path.exists', return_value=True)
+    def test_config_override(self, m_exists, m_parser):
+        # Mock for builtin parser
+        builtin_mock = mock.Mock()
+        builtin_mock.sections.return_value = ['default']
+        builtin_mock.items.return_value = [('header', '36')]
+
+        # Mock for user parser
+        user_mock = mock.Mock()
+        user_mock.sections.return_value = ['default']
+        user_mock.items.return_value = [('header', '31')]
+
+        m_parser.side_effect = [builtin_mock, user_mock]
+
+        themes = ydiff._all_themes()
+        self.assertEqual(themes['default']['header'], ['31'])
+
+    @mock.patch('configparser.ConfigParser')
+    @mock.patch('os.path.exists', return_value=True)
+    def test_invalid_key(self, m_exists, m_parser):
+        builtin_mock = mock.Mock()
+        builtin_mock.sections.return_value = ['default']
+        builtin_mock.items.return_value = [('header', '36')]
+
+        user_mock = mock.Mock()
+        user_mock.sections.return_value = ['default']
+        user_mock.items.return_value = [('bad_key', '31')]
+
+        m_parser.side_effect = [builtin_mock, user_mock]
+
+        self.assertRaises(KeyError, ydiff._all_themes)
+
+
+class MainUnitTests(unittest.TestCase):
+
+    @mock.patch('ydiff.DiffMarker.markup',
+                side_effect=lambda _: iter(['line']))
+    @mock.patch('subprocess.Popen')
+    @mock.patch('sys.stdout.isatty', return_value=True)
+    def test_markup_to_pager_multiple_diffs(self, m_isatty, m_popen, m_markup):
+        diff1 = mock.Mock()
+        diff2 = mock.Mock()
+        with mock.patch('ydiff.DiffParser.parse',
+                        return_value=iter([diff1, diff2])):
+            opts = mock.Mock()
+            opts.pager = 'less'
+            opts.pager_options = None
+            opts.side_by_side = True
+            opts.width = 80
+            opts.tab_width = 8
+            opts.wrap = False
+            opts.theme = 'default'
+
+            ydiff.markup_to_pager(b'', opts)
+            self.assertTrue(m_popen.called)
+            # 2 diffs -> 1 separator + 2 * lines
+            # markup called twice
+            self.assertEqual(ydiff.DiffMarker.markup.call_count, 2)
+
+    def test_get_patch_stream_stdin_file(self):
+        with mock.patch('os.fstat') as m_fstat:
+            m_fstat.return_value.st_mode = 33188  # S_IFREG
+            self.assertEqual(ydiff._get_patch_stream(
+                [], False), sys.stdin.buffer)
+
+    @mock.patch('sys.stderr', new_callable=io.StringIO)
+    def test_get_patch_stream_no_log_support(self, m_stderr):
+        with mock.patch('ydiff._revision_control_probe',
+                        return_value='Perforce'):
+            self.assertIsNone(ydiff._get_patch_stream([], True))
+            self.assertIn('no log support', m_stderr.getvalue())
+
+    @mock.patch('sys.stdout', new_callable=mock.Mock)
+    @mock.patch('ydiff._parse_args',
+                return_value=(mock.Mock(
+                    theme='default', color='auto', log=False), []))
+    @mock.patch('ydiff._get_patch_stream', return_value=io.BytesIO(b'foo'))
+    def test_main_pipe_output(self, m_stream, m_args, m_stdout):
+        # mock buffer for python 3
+        m_stdout.buffer = mock.Mock()
+        m_stdout.isatty.return_value = False
+
+        ydiff._main()
+        m_stdout.buffer.write.assert_called_with(b'foo')
+
+    def test_main_unknown_theme(self):
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as m_stderr:
+            with mock.patch('ydiff._parse_args',
+                            return_value=(mock.Mock(theme='foo'), [])):
+                self.assertEqual(ydiff._main(), 1)
+                self.assertIn('Unknown theme', m_stderr.getvalue())
+
+
+class MainTest(unittest.TestCase):
+
+    def setUp(self):
+        self._cwd = os.getcwd()
+        self._ws = tempfile.mkdtemp(prefix='test_ydiff')
+        self._non_ws = tempfile.mkdtemp(prefix='test_ydiff')
+        cmd = ('set -o errexit; cd %s; git init; git config user.name me; '
+               'git config user.email me@example.org') % self._ws
+        subprocess.call(cmd, shell=True, stdout=subprocess.PIPE)
+        self._change_file('init')
+
+    def tearDown(self):
+        os.chdir(self._cwd)
+        cmd = ['/bin/rm', '-rf', self._ws, self._non_ws]
+        subprocess.call(cmd)
+
+    def _change_file(self, text):
+        cmd = ['/bin/sh', '-ec',
+               'cd %s; echo "%s" > foo' % (self._ws, text)]
+        subprocess.call(cmd)
+
+    def _commit_file(self):
+        cmd = ['/bin/sh', '-ec',
+               'cd %s; git add foo; git commit foo -m update' % self._ws]
+        subprocess.call(cmd, stdout=subprocess.PIPE)
+
+    def test_preset_options(self):
+        os.environ['YDIFF_OPTIONS'] = '--help'
+        self.assertRaises(SystemExit, ydiff._main)
+        os.environ.pop('YDIFF_OPTIONS', None)
+
+    def test_read_diff(self):
+        sys.argv = sys.argv[:1]
+        self._change_file('read_diff')
+
+        os.chdir(self._ws)
+        ret = ydiff._main()
+        os.chdir(self._cwd)
+        self.assertEqual(ret, 0)
+
+    def test_read_log(self):
+        sys.argv = [sys.argv[0], '--log', '--pager=cat']
+        self._change_file('read_log')
+        self._commit_file()
+
+        os.chdir(self._ws)
+        ret = ydiff._main()
+        os.chdir(self._cwd)
+        self.assertEqual(ret, 0)
+
+    def test_read_diff_neg(self):
+        sys.argv = sys.argv[:1] + ['--pager=cat']
+        os.chdir(self._non_ws)
+        ret = ydiff._main()
+        os.chdir(self._cwd)
+        self.assertNotEqual(ret, 0)
+
+    def test_read_log_neg(self):
+        sys.argv = [sys.argv[0], '--log', '--pager=cat']
+        os.chdir(self._non_ws)
+        ret = ydiff._main()
+        os.chdir(self._cwd)
+        self.assertNotEqual(ret, 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
+
+# vim:set et sts=4 sw=4 tw=80:

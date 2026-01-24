@@ -560,7 +560,7 @@ def quantized_embedding_4bit(context, node):
     context.add(gather)
 
 
-@register_torch_op
+@register_torch_op(torch_alias=["_convert_weight_to_int4pack_for_cpu"])
 def _convert_weight_to_int4pack(context, node):
     """Pack weight to int4pack format which will be fed into `_weight_int4pack_mm` op."""
     inputs = _get_inputs(context, node, expected=2)
@@ -574,20 +574,32 @@ def _convert_weight_to_int4pack(context, node):
         )
 
     with _torch.no_grad():
-        x_int4packed = _torch._convert_weight_to_int4pack(
-            _torch.from_numpy(x), inner_k_tiles
-        ).numpy()
+        if node.kind == "_convert_weight_to_int4pack":
+            x_int4packed = _torch._convert_weight_to_int4pack(
+                _torch.from_numpy(x), inner_k_tiles
+            ).numpy()
+        else:
+            assert node.kind == "_convert_weight_to_int4pack_for_cpu"
+            x_int4packed = _torch._convert_weight_to_int4pack_for_cpu(
+                _torch.from_numpy(x), inner_k_tiles
+            ).numpy()
 
     res = mb.const(val=x_int4packed, name=node.name)
     context.add(res)
 
 
-@register_torch_op
+@register_torch_op(torch_alias=["_weight_int4pack_mm_for_cpu"])
 def _weight_int4pack_mm(context, node):
     """
     The first argument is the same as torch.mm, but the second argument (weight) is packed.
-    The packed weight has rank=4, because the meta registration in dynamo requires operator has the same output shape
-    for each device. So it creates a fake shape {N / 8, K / (16 * innerKTiles), 32, innerKTiles / 2} for CPU.
+    * GPU prefers shape to be {N / 8, K / (16 * innerKTiles), 32, innerKTiles / 2}
+      Since the meta registration in dynamo requires operator to have the same output shape
+      for each device, the CPU kernel of `_torch._weight_int4pack_mm` also have to
+      use this complicated and confusing shape
+    * So, as the fix to https://github.com/pytorch/ao/issues/1117#issuecomment-2451252756
+      A dedicated CPU op `_torch._weight_int4pack_mm_for_cpu` is introduced in some version
+      after torchao 0.4.0, so the packed weight now have more straightforward shape (N, K / 2)
+      with dtype uint8, where the 2 comes from packing 2 int4 numbers into 1 uint8 number
 
     More specifically:
 
@@ -643,26 +655,42 @@ def _weight_int4pack_mm(context, node):
     # Unpack the result of `torch._convert_weight_to_int4pack` back to plain layout.
     # TODO: Use `torchao.ops.unpack_tensor_core_tiled_layout` to unpack after it has CPU implementation.
     # The current way to unpack by using _weight_int4pack_mm with eye matrix is a workaround on CPU.
-    if len(y_int4pack.shape) != 4:
-        raise ValueError(
-            f"The packed y from torch should have 4 dims, but got {len(y_int4pack.shape)}."
-        )
-    inner_k_tiles = y_int4pack.shape[-1] * 2
-    y_unpacked_shape = (y_int4pack.shape[0] * 8, y_int4pack.shape[1] * (inner_k_tiles * 16))
-    eye_shape = y_unpacked_shape[1]
     quant_min = 0
     quant_max = 2**4 - 1
-    with _torch.no_grad():
-        y_dequantized = (
-            _torch._weight_int4pack_mm(
-                _torch.eye(eye_shape, device=_torch.device("cpu"), dtype=_torch.float32),
-                _torch.from_numpy(y_int4pack),
-                group_size,
-                _torch.from_numpy(y_scales_and_zeros).float(),
+    if node.kind == "_weight_int4pack_mm":
+        if len(y_int4pack.shape) != 4:
+            raise ValueError(
+                f"The packed y from torch should have 4 dims, but got {len(y_int4pack.shape)}."
             )
-            .t()
-            .contiguous()
-        )
+        inner_k_tiles = y_int4pack.shape[-1] * 2
+        y_unpacked_shape = (y_int4pack.shape[0] * 8, y_int4pack.shape[1] * (inner_k_tiles * 16))
+        eye_shape = y_unpacked_shape[1]
+        with _torch.no_grad():
+            y_dequantized = (
+                _torch._weight_int4pack_mm(
+                    _torch.eye(eye_shape, device=_torch.device("cpu"), dtype=_torch.float32),
+                    _torch.from_numpy(y_int4pack),
+                    group_size,
+                    _torch.from_numpy(y_scales_and_zeros).float(),
+                )
+                .t()
+                .contiguous()
+            )
+    else:
+        assert node.kind == "_weight_int4pack_mm_for_cpu"
+        eye_shape = x.shape[1]
+        with _torch.no_grad():
+            y_dequantized = (
+                _torch._weight_int4pack_mm_for_cpu(
+                    _torch.eye(eye_shape, device=_torch.device("cpu"), dtype=_torch.float32),
+                    _torch.from_numpy(y_int4pack).to(_torch.uint8),
+                    group_size,
+                    _torch.from_numpy(y_scales_and_zeros).float(),
+                )
+                .t()
+                .contiguous()
+            )
+    with _torch.no_grad():
         zero_point_domain = (
             torchao_quant.ZeroPointDomain.INT
             if _np.issubdtype(zero_points.dtype, _np.integer)
@@ -709,3 +737,73 @@ def _weight_int4pack_mm(context, node):
 
     res = mb.linear(x=x, weight=dequant_weights, name=node.name)
     context.add(res)
+
+
+@register_torch_op(
+    torch_alias=["torchao::dequantize_affine", "torchao.dequantize_affine", "quant::dequantize_affine"],
+)
+def dequantize_affine(context, node):
+    if not _HAS_TORCHAO:
+        raise AssertionError(
+            f"{MSG_TORCHAO_NOT_FOUND}\n torchao is needed to convert torchao.dequantize_affine"
+        )
+
+    inputs = _get_inputs(context, node, expected=[7, 8])
+    int_data = inputs[0].val
+    block_size = inputs[1].val
+    scale = inputs[2].val
+    zero_point = (
+        inputs[3].val if inputs[3] is not None and inputs[3].val is not None else None
+    )
+    # I do not think we need to worry about input_dtype b/c it gets cast to int4/int8
+    # For now, we just check that it is int8 or int32
+    input_dtype = inputs[4].val  # noqa: F841
+    assert NUM_TO_TORCH_DTYPE[input_dtype] in [
+        _torch.int8,
+        _torch.int32,
+    ], "input_dtype should be int8 or int32"
+
+    quant_min = inputs[5].val
+    quant_max = inputs[6].val
+
+    assert len(int_data.shape) == 2, "dequantize_affine only supports rank 2 inputs"
+
+    assert len(int_data.shape) == len(
+        block_size
+    ), "block_size must have the same length as int_data.shape"
+    assert block_size[0] == 1, "block_size[0] must be 1"
+    group_size = block_size[1]
+    k = int_data.shape[1]
+    assert k % group_size == 0, "k must be divisible by group_size"
+    scales_per_row = k // group_size
+    scale = scale.reshape(-1, scales_per_row)
+    if zero_point is not None:
+        zero_point = zero_point.reshape(-1, scales_per_row)
+
+    # TODO: I don't know if CoreML can make use of this
+    # We could add a cast op to the output, but I'm pretty CoreML will remove this during a later pass
+    # For now, we just log a warning
+    out_np_dtype = None
+    if len(inputs) > 7:
+        out_np_dtype = NUM_TO_NUMPY_DTYPE[inputs[7].val]
+        logger.warning(
+            f"Core ML ignores output_dtype {out_np_dtype} on torchao.dequantize_affine and instead uses the native precision."
+        )
+
+    if quant_min == -8 and quant_max == 7:
+        quantized_np_dtype = types.nptype_from_builtin(types.string_to_builtin("int4"))
+    elif quant_min == -128 and quant_max == 127:
+        quantized_np_dtype = types.nptype_from_builtin(types.string_to_builtin("int8"))
+    else:
+        raise ValueError(
+            f"Unsupported quantization range: {quant_min} to {quant_max}.  CoreML only supports 4-bit and 8-bit quantization."
+        )
+
+    output = _utils._construct_constexpr_dequant_op(
+        int_data.astype(quantized_np_dtype),
+        zero_point,
+        scale,
+        axis=-1,
+        name=node.name,
+    )
+    context.add(output, node.name)

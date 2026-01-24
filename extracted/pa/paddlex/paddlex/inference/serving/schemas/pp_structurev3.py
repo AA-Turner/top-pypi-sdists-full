@@ -39,6 +39,7 @@ class InferRequest(ocr.BaseInferRequest):
     useFormulaRecognition: Optional[bool] = None
     useChartRecognition: Optional[bool] = None
     useRegionDetection: Optional[bool] = None
+    formatBlockContent: Optional[bool] = None
     layoutThreshold: Optional[Union[float, dict]] = None
     layoutNms: Optional[bool] = None
     layoutUnclipRatio: Optional[Union[float, Tuple[float, float], dict]] = None
@@ -61,6 +62,7 @@ class InferRequest(ocr.BaseInferRequest):
     useOcrResultsWithTableCells: bool = True
     useE2eWiredTableRecModel: bool = False
     useE2eWirelessTableRecModel: bool = True
+    markdownIgnoreLabels: Optional[List[str]] = None
     visualize: Optional[bool] = None
 
 

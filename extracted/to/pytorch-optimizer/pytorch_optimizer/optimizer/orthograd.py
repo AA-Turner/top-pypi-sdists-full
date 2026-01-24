@@ -4,15 +4,16 @@ import torch
 from torch.optim import Optimizer
 
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, OPTIMIZER_INSTANCE_OR_CLASS, STATE
+from pytorch_optimizer.base.type import OPTIMIZER_INSTANCE_OR_CLASS, Closure, Defaults, Loss, ParamGroup, State
 
 
 class OrthoGrad(BaseOptimizer):
-    r"""Grokking at the Edge of Numerical Stability.
+    """Grokking at the Edge of Numerical Stability.
 
     A wrapper optimizer that projects gradients to be orthogonal to the current parameters before performing an update.
 
-    :param optimizer: OPTIMIZER_INSTANCE_OR_CLASS. base optimizer.
+    Args:
+        optimizer (OPTIMIZER_INSTANCE_OR_CLASS): Base optimizer.
     """
 
     def __init__(self, optimizer: OPTIMIZER_INSTANCE_OR_CLASS, **kwargs) -> None:
@@ -22,7 +23,7 @@ class OrthoGrad(BaseOptimizer):
 
         self.optimizer: Optimizer = self.load_optimizer(optimizer, **kwargs)
 
-        self.defaults: DEFAULTS = self.optimizer.defaults
+        self.defaults: Defaults = self.optimizer.defaults
 
     def __str__(self) -> str:
         return 'OrthoGrad'
@@ -32,21 +33,22 @@ class OrthoGrad(BaseOptimizer):
         return self.optimizer.param_groups
 
     @property
-    def state(self) -> STATE:
+    def state(self) -> State:
         return self.optimizer.state
 
-    def state_dict(self) -> STATE:
+    def state_dict(self) -> State:
         return self.optimizer.state_dict()
 
-    def load_state_dict(self, state_dict: STATE) -> None:
+    def load_state_dict(self, state_dict: State) -> None:
         self.optimizer.load_state_dict(state_dict)
 
     @torch.no_grad()
     def zero_grad(self, set_to_none: bool = True) -> None:
         self.optimizer.zero_grad(set_to_none=set_to_none)
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        pass
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
 
     @torch.no_grad()
     def apply_orthogonal_gradients(self, params) -> None:
@@ -64,7 +66,7 @@ class OrthoGrad(BaseOptimizer):
             p.grad.copy_(g_ortho_scaled.view_as(p.grad))
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
+    def step(self, closure: Closure = None) -> Loss:
         for group in self.param_groups:
             self.apply_orthogonal_gradients(group['params'])
         return self.optimizer.step(closure)

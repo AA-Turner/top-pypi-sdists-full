@@ -22,17 +22,20 @@ T = TypeVar("T", bound="GetJobResponse200Type0RawFlowFailureModuleSuspend")
 
 @_attrs_define
 class GetJobResponse200Type0RawFlowFailureModuleSuspend:
-    """
+    """Configuration for approval/resume steps that wait for user input
+
     Attributes:
-        required_events (Union[Unset, int]):
-        timeout (Union[Unset, int]):
-        resume_form (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleSuspendResumeForm]):
-        user_auth_required (Union[Unset, bool]):
+        required_events (Union[Unset, int]): Number of approvals required before continuing
+        timeout (Union[Unset, int]): Timeout in seconds before auto-continuing or canceling
+        resume_form (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleSuspendResumeForm]): Form schema for
+            collecting input when resuming
+        user_auth_required (Union[Unset, bool]): If true, only authenticated users can approve
         user_groups_required (Union['GetJobResponse200Type0RawFlowFailureModuleSuspendUserGroupsRequiredType0',
-            'GetJobResponse200Type0RawFlowFailureModuleSuspendUserGroupsRequiredType1', Unset]):
-        self_approval_disabled (Union[Unset, bool]):
-        hide_cancel (Union[Unset, bool]):
-        continue_on_disapprove_timeout (Union[Unset, bool]):
+            'GetJobResponse200Type0RawFlowFailureModuleSuspendUserGroupsRequiredType1', Unset]): Maps input parameters for a
+            step. Can be a static value or a JavaScript expression that references previous results or flow inputs
+        self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
+        hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
+        continue_on_disapprove_timeout (Union[Unset, bool]): If true, continue flow on timeout instead of canceling
     """
 
     required_events: Union[Unset, int] = UNSET

@@ -1,7 +1,6 @@
 // Copyright 2019 Google LLC.
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 #include "tools/fiddle/examples.h"
-// HASH=ba19b36df8cd78586f3dff54e2d4c093
 REG_FIDDLE(Matrix_TypeMask, 256, 256, true, 0) {
 void draw(SkCanvas* canvas) {
     auto debugster = [](const char* prefix, const SkMatrix& matrix) -> void {
@@ -23,7 +22,7 @@ debugster("postScale", matrix);
 matrix.postRotate(45);
 debugster("postScale", matrix);
 SkPoint polys[][4] = {{{0, 0}, {0, 1}, {1, 1}, {1, 0}}, {{0, 0}, {0, 1}, {2, 1}, {1, 0}}};
-matrix.setPolyToPoly(polys[0], polys[1], 4);
+matrix.setPolyToPoly(polys[0], polys[1]);
 debugster("setPolyToPoly", matrix);
 }
 }  // END FIDDLE

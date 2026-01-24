@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+__all__ = ["snspd"]
+
 import numpy as np
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.superconductors.optimal_hairpin import optimal_hairpin
 from gdsfactory.typings import LayerSpec, Port, Size
+
+from ..superconductors.optimal_hairpin import optimal_hairpin
 
 
 @gf.cell_with_module_name
@@ -62,9 +65,9 @@ def snspd(
         layer=layer,
     )
 
-    if not terminals_same_side and (num_meanders % 2) == 0:
-        num_meanders += 1
-    elif terminals_same_side and (num_meanders % 2) == 1:
+    if (not terminals_same_side and (num_meanders % 2) == 0) or (
+        terminals_same_side and (num_meanders % 2) == 1
+    ):
         num_meanders += 1
 
     port_type = "electrical"

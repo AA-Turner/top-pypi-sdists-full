@@ -1,27 +1,28 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: connexion
-Version: 3.2.0
+Version: 3.3.0
 Summary: Connexion - API first applications with OpenAPI/Swagger
-Home-page: https://github.com/spec-first/connexion
 License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Keywords: api,swagger,openapi
 Author: Robbe Sneyders
 Author-email: robbe.sneyders@gmail.com
 Maintainer: Robbe Sneyders
 Maintainer-email: robbe.sneyders@gmail.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -109,7 +110,6 @@ Connexion also **helps you write your OpenAPI specification** and develop agains
 ## 🫶 Sponsors
 
 <a href="https://www.ml6.eu"><img src="https://raw.githubusercontent.com/spec-first/connexion/main/docs/images/sponsors/ML6.png" title=ML6 height="100"></a>
-<a href="https://www.devmark.ai/fern/?utm_source=connexion&utm_loc=readme&utm_type=logo"><img src="https://raw.githubusercontent.com/spec-first/connexion/main/docs/images/sponsors/Fern.png" title=Fern height="100"></a>
 
 Sponsors help us dedicate time to maintain Connexion. Want to help?
 

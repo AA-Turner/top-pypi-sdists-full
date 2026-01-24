@@ -9,27 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0513 import TrafficType, TrafficTypeForResponse
 
 
-class WebhooksDeployKeyType(TypedDict):
-    """WebhooksDeployKey
+class CloneTrafficType(TypedDict):
+    """Clone Traffic
 
-    The [`deploy key`](https://docs.github.com/enterprise-cloud@latest//rest/deploy-
-    keys/deploy-keys#get-a-deploy-key) resource.
+    Clone Traffic
     """
 
-    added_by: NotRequired[Union[str, None]]
-    created_at: str
-    id: int
-    key: str
-    last_used: NotRequired[Union[str, None]]
-    read_only: bool
-    title: str
-    url: str
-    verified: bool
-    enabled: NotRequired[bool]
+    count: int
+    uniques: int
+    clones: list[TrafficType]
 
 
-__all__ = ("WebhooksDeployKeyType",)
+class CloneTrafficTypeForResponse(TypedDict):
+    """Clone Traffic
+
+    Clone Traffic
+    """
+
+    count: int
+    uniques: int
+    clones: list[TrafficTypeForResponse]
+
+
+__all__ = (
+    "CloneTrafficType",
+    "CloneTrafficTypeForResponse",
+)

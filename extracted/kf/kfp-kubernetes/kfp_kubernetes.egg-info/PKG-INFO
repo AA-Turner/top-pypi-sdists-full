@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-kubernetes
-Version: 2.14.3
+Version: 2.15.2
 Summary: Kubernetes platform configuration library and generated protos.
 Home-page: https://github.com/kubeflow/pipelines
 Author: google
@@ -11,8 +11,8 @@ Project-URL: Bug Tracker, https://github.com/kubeflow/pipelines/issues
 Project-URL: Source, https://github.com/kubeflow/pipelines/tree/master/kubernetes_platform/python
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
-Requires-Dist: protobuf<7.0,==6.31.1
-Requires-Dist: kfp<3,>=2.14.0
+Requires-Dist: protobuf<7.0,>=6.31.1
+Requires-Dist: kfp<3,>=2.14.5
 Provides-Extra: dev
 Requires-Dist: docformatter==1.4; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"

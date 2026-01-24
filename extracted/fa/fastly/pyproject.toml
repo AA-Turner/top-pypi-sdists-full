@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastly"
-version = "11.0.0"
+version = "12.1.0"
 authors = [{ name = "Fastly", email = "oss@fastly.com" }]
 description = "A Python Fastly API client library"
 readme = "README.md"

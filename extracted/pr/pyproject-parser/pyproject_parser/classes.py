@@ -37,7 +37,7 @@ Classes to represent readme and license files.
 # stdlib
 import pathlib
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Type, TypeVar, Union
 
 # 3rd party
 import attr
@@ -242,6 +242,8 @@ class License:
 	.. latex:vspace:: 20px
 
 	.. autosummary-widths:: 6/16
+
+	.. versionchanged:: 0.14.0  Add ``expression`` option.
 	"""
 
 	#: The path to the license file.
@@ -250,10 +252,19 @@ class License:
 	#: The content of the license.
 	text: Optional[str] = attr.ib(default=None)
 
+	#: An SPDX License Expression (for :pep:`639`).
+	expression: Optional[str] = attr.ib(default=None)
+
 	def __attrs_post_init__(self) -> None:
 		# Sanity checks the supplied arguments
-		if self.text is None and self.file is None:
-			raise TypeError(f"At least one of 'text' and 'file' must be supplied to {self.__class__!r}")
+		if self.expression:
+			if self.text is not None or self.file is not None:
+				raise TypeError(
+						f"Cannot supply a licence expression alongside 'text' and/or 'file' to {self.__class__!r}"
+						)
+		else:
+			if self.text is None and self.file is None:
+				raise TypeError(f"At least one of 'text' and 'file' must be supplied to {self.__class__!r}")
 
 		# if self.text is not None and self.file is not None:
 		# 	raise TypeError("'text' and 'filename' are mutually exclusive.")
@@ -285,7 +296,10 @@ class License:
 		"""
 		Construct a dictionary containing the keys of the :class:`~.License` object.
 
+		:rtype:
+
 		.. seealso:: :meth:`~.License.to_pep621_dict` and :meth:`~.License.from_dict`
+		.. latex:clearpage::
 		"""
 
 		as_dict = {}
@@ -294,6 +308,8 @@ class License:
 			as_dict["file"] = self.file.as_posix()
 		if self.text is not None:
 			as_dict["text"] = self.text
+		if self.expression is not None:
+			as_dict["expression"] = self.expression
 
 		return as_dict
 
@@ -324,7 +340,6 @@ class License:
 		:rtype:
 
 		.. seealso:: :meth:`~.Readme.from_dict`
-		.. latex:clearpage::
 		"""  # noqa: D400
 
 		as_dict = self.to_dict()
@@ -332,6 +347,23 @@ class License:
 			as_dict.pop("text")
 
 		return as_dict
+
+	def to_pep639(self) -> Union[Dict[str, str], str]:
+		"""
+		Construct a dictionary or string representing the :class:`~.License` object,
+		suitable for use in :pep:`639`-compatible ``pyproject.toml`` configuration.
+
+		:rtype:
+
+		.. versionadded:: 0.14.0
+		.. seealso:: :meth:`~.Readme.from_dict`, :meth:`~.License.to_pep621_dict`
+		.. latex:clearpage::
+		"""  # noqa: D400
+
+		if self.expression is not None:
+			return self.expression
+
+		return self.to_pep621_dict()
 
 
 class _NormalisedName(str):

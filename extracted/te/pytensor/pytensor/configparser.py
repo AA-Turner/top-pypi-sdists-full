@@ -71,7 +71,6 @@ class PyTensorConfigParser:
     pickle_test_value: bool
     cast_policy: str
     device: str
-    conv__assert_shape: bool
     print_global_stats: bool
     unpickle_function: bool
     # add_compile_configvars
@@ -82,6 +81,7 @@ class PyTensorConfigParser:
     optimizer: str
     optimizer_verbose: bool
     optimizer_verbose_ignore: str
+    compiler_verbose: bool
     on_opt_error: str
     nocleanup: bool
     on_unused_input: str
@@ -156,7 +156,6 @@ class PyTensorConfigParser:
     scan__allow_gc: bool
     scan__allow_output_prealloc: bool
     # add_numba_configvars
-    numba__vectorize_target: str
     numba__fastmath: bool
     numba__cache: bool
     # add_caching_dir_configvars
@@ -410,7 +409,9 @@ class ConfigParam:
                 f"The config parameter '{self.name}' was registered on a different instance of the PyTensorConfigParser."
                 f" It is not accessible through the instance with id '{id(cls)}' because of safeguarding."
             )
-        if not hasattr(self, "val"):
+        try:
+            return self.val
+        except AttributeError:
             try:
                 val_str = cls.fetch_val_for_key(self.name, delete_key=delete_key)
                 self.is_default = False

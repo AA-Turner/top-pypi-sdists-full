@@ -1,0 +1,69 @@
+Metadata-Version: 2.2
+Name: signalwire
+Version: 2.1.1
+Summary: Client library for connecting to SignalWire.
+Home-page: https://github.com/signalwire/signalwire-python
+Author: SignalWire Team
+Author-email: open.source@signalwire.com
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Topic :: Communications
+Classifier: Topic :: Software Development
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+License-File: AUTHORS.md
+Requires-Dist: twilio==6.54.0
+Requires-Dist: aiohttp==3.9.5
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# SignalWire Python
+
+
+![PyPI Version](https://img.shields.io/pypi/v/signalwire.svg?color=brightgreen)
+![Drone CI](https://ci.signalwire.com/api/badges/signalwire/signalwire-python/status.svg)
+
+The Relay SDK for Python enables developers to connect and use SignalWire's Relay APIs within their own Python code. Our Relay SDK allows developers to build or add robust and innovative communication services to their applications.
+
+## Getting Started
+
+Read the implementation documentation, guides and API Reference at the official [Relay SDK for Python Documentation](https://docs.signalwire.com/topics/relay-sdk-python) site.
+
+---
+
+## Contributing
+
+Relay SDK for Python is open source and maintained by the SignalWire team, but we are very grateful for [everyone](https://github.com/signalwire/signalwire-python/contributors) who has contributed and assisted so far.
+
+If you'd like to contribute, feel free to visit our [Slack channel](https://signalwire.community/) and read our developer section to get the code running in your local environment.
+
+## Developers
+
+To setup the dev environment follow these steps:
+
+1. Fork this repository and clone it.
+2. Create a new branch from `master` for your change.
+3. Make changes!
+
+## Versioning
+
+Relay SDK for Python follows Semantic Versioning 2.0 as defined at <http://semver.org>.
+
+## License
+
+Relay SDK for Python is copyright © 2018-2019
+[SignalWire](http://signalwire.com). It is free software, and may be redistributed under the terms specified in the [MIT-LICENSE](https://github.com/signalwire/signalwire-python/blob/master/LICENSE) file.

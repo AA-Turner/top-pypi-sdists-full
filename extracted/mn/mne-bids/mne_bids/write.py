@@ -8,10 +8,11 @@ import os
 import os.path as op
 import re
 import shutil
+import subprocess
 import sys
 import warnings
 from collections import OrderedDict, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import mne
@@ -42,6 +43,7 @@ from mne_bids import (
     get_bids_path_from_fname,
     read_raw_bids,
 )
+from mne_bids._fileio import _open_lock
 from mne_bids.config import (
     ALLOWED_DATATYPE_EXTENSIONS,
     ALLOWED_INPUT_EXTENSIONS,
@@ -67,7 +69,11 @@ from mne_bids.copyfiles import (
     copyfile_eeglab,
     copyfile_kit,
 )
-from mne_bids.dig import _write_coordsystem_json, _write_dig_bids
+from mne_bids.dig import (
+    _write_coordsystem_json,
+    _write_dig_bids,
+    _write_empty_ieeg_positions,
+)
 from mne_bids.path import _mkdir_p, _parse_ext, _path_to_str
 from mne_bids.pick import coil_type
 from mne_bids.read import _find_matching_sidecar, _read_events
@@ -88,13 +94,49 @@ from mne_bids.utils import (
 )
 
 _FIFF_SPLIT_SIZE = "2GB"  # MNE-Python default; can be altered during debugging
+_BTI_SUFFIX_CACHE: dict[str | None, bool] = {}
 
 
 def _is_numeric(n):
     return isinstance(n, np.integer | np.floating | int | float)
 
 
-def _channels_tsv(raw, fname, overwrite=False):
+def _should_use_bti_pdf_suffix() -> bool:
+    """Return ``True`` if BTi runs should retain the ``.pdf`` suffix."""
+    override = os.getenv("MNE_BIDS_BTI_PDF_SUFFIX")
+    if override is not None:
+        return override.lower() not in {"0", "false", "no", "legacy", "old"}
+
+    validator_path = shutil.which("bids-validator")
+    cache_key = validator_path
+    if cache_key in _BTI_SUFFIX_CACHE:
+        return _BTI_SUFFIX_CACHE[cache_key]
+
+    use_pdf_suffix = True
+
+    if validator_path is not None:
+        try:
+            res = subprocess.run(
+                [validator_path, "--version"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+            logger.warning(f"Failed to run bids-validator to check version: {e}")
+        else:
+            version_output = res.stdout.strip() or res.stderr.strip()
+            match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_output)
+            if match:
+                major = int(match.group(1))
+                if major < 2:
+                    use_pdf_suffix = False
+
+    _BTI_SUFFIX_CACHE[cache_key] = use_pdf_suffix
+    return use_pdf_suffix
+
+
+def _channels_tsv(raw, fname, *, convert_fmt, overwrite=False):
     """Create a channels.tsv file and save it.
 
     Parameters
@@ -103,6 +145,10 @@ def _channels_tsv(raw, fname, overwrite=False):
         The data as MNE-Python Raw object.
     fname : str | mne_bids.BIDSPath
         Filename to save the channels.tsv to.
+    convert_fmt : str | None
+        Which format the data are being converted to (determines what gets written in
+        the "unit" column). If ``None`` then we assume no conversion is happening (the
+        raw data files are being copied from the source tree into the BIDS folder tree).
     overwrite : bool
         Whether to overwrite the existing file.
         Defaults to False.
@@ -151,11 +197,32 @@ def _channels_tsv(raw, fname, overwrite=False):
         ch_type.append(map_chs[_channel_type])
         description.append(map_desc[_channel_type])
     low_cutoff, high_cutoff = (raw.info["highpass"], raw.info["lowpass"])
-    if raw._orig_units:
+    # If data are being *converted*, unit is determined by destination format:
+    #   - `eeglabio.raw.export_set` always converts V to µV, cf:
+    # https://github.com/jackz314/eeglabio/blob/3961bb29daf082767ea44e7c7d9da2df10971c37/eeglabio/raw.py#L57
+    #
+    #   - `mne.export._edf_bdf._export_raw_edf_bdf` always converts V to µV, cf:
+    # https://github.com/mne-tools/mne-python/blob/1b921f4af5154bad40202d87428a2583ef896a00/mne/export/_edf_bdf.py#L61-L63
+    #
+    #   - `pybv.write_brainvision` converts V to µV by default (and we don't alter that)
+    # https://github.com/bids-standard/pybv/blob/2832c80ee00d12990a8c79f12c843c0d4ddc825b/pybv/io.py#L40
+    # https://github.com/mne-tools/mne-bids/blob/1e0a96e132fc904ba856d42beaa9ddddb985f1ed/mne_bids/write.py#L1279-L1280
+    if convert_fmt:
+        volt_like = "µV" if convert_fmt in ("BrainVision", "EDF", "EEGLAB") else "V"
+        units = [
+            volt_like
+            if ch_i["unit"] == FIFF.FIFF_UNIT_V
+            else _unit2human.get(ch_i["unit"], "n/a")
+            for ch_i in raw.info["chs"]
+        ]
+    # if raw data is merely copied, check `raw._orig_units`
+    elif raw._orig_units:
         units = [raw._orig_units.get(ch, "n/a") for ch in raw.ch_names]
+    # If `raw._orig_units` is missing, assume SI units
     else:
         units = [_unit2human.get(ch_i["unit"], "n/a") for ch_i in raw.info["chs"]]
-        units = [u if u not in ["NA"] else "n/a" for u in units]
+    # fixup "NA" (from `_unit2human`) → "n/a"
+    units = [u if u not in ["NA"] else "n/a" for u in units]
 
     # Translate from MNE to BIDS unit naming
     for idx, mne_unit in enumerate(units):
@@ -419,7 +486,7 @@ def _readme(datatype, fname, overwrite=False):
         already contains that citation.
     """
     if fname.is_file() and not overwrite:
-        with open(fname, encoding="utf-8-sig") as fid:
+        with _open_lock(fname, encoding="utf-8-sig") as fid:
             orig_data = fid.read()
         mne_bids_ref = REFERENCES["mne-bids"] in orig_data
         datatype_ref = REFERENCES[datatype] in orig_data
@@ -484,11 +551,11 @@ def _participants_tsv(raw, subject_id, fname, overwrite=False):
             meas_date = meas_date[0]
 
         if meas_date is not None and age is not None:
-            bday = datetime(age.year, age.month, age.day, tzinfo=timezone.utc)
+            bday = datetime(age.year, age.month, age.day, tzinfo=UTC)
             if isinstance(meas_date, datetime):
                 meas_datetime = meas_date
             else:
-                meas_datetime = datetime.fromtimestamp(meas_date, tz=timezone.utc)
+                meas_datetime = datetime.fromtimestamp(meas_date, tz=UTC)
             subject_age = _age_on_date(bday, meas_datetime)
         else:
             subject_age = "n/a"
@@ -532,59 +599,70 @@ def _participants_tsv(raw, subject_id, fname, overwrite=False):
 
         data[key] = new_value
 
-    if os.path.exists(fname):
-        orig_data = _from_tsv(fname)
-        # whether the new data exists identically in the previous data
-        exact_included = _contains_row(
-            data=orig_data,
-            row_data={
-                "participant_id": subject_id,
-                "age": subject_age,
-                "sex": sex,
-                "hand": hand,
-                "weight": weight,
-                "height": height,
-            },
-        )
-        # whether the subject id is in the previous data
-        sid_included = subject_id in orig_data["participant_id"]
-        # if the subject data provided is different to the currently existing
-        # data and overwrite is not True raise an error
-        if (sid_included and not exact_included) and not overwrite:
-            raise FileExistsError(
-                f'"{subject_id}" already exists in '
-                f"the participant list. Please set "
-                f"overwrite to True."
+    fpath = Path(fname)
+    with _open_lock(fpath):
+        if fpath.exists():
+            orig_data = _from_tsv(fname)
+            # If we read an empty OrderedDict, it means
+            # the file exists but is empty/just has headers
+            # We should still treat this as having the file structure,
+            # just no rows
+        else:
+            orig_data = None
+
+        if orig_data is not None:
+            # whether the new data exists identically in the previous data
+            # Use .get() with empty list default in case participant_id column is empty
+            existing_participants = orig_data.get("participant_id", [])
+            exact_included = _contains_row(
+                data=orig_data,
+                row_data={
+                    "participant_id": subject_id,
+                    "age": subject_age,
+                    "sex": sex,
+                    "hand": hand,
+                    "weight": weight,
+                    "height": height,
+                },
             )
+            # whether the subject id is in the previous data
+            sid_included = subject_id in existing_participants
+            # if the subject data provided is different to the currently
+            # existing data and overwrite is not True raise an error
+            if (sid_included and not exact_included) and not overwrite:
+                raise FileExistsError(
+                    f'"{subject_id}" already exists in '
+                    f"the participant list. Please set "
+                    f"overwrite to True."
+                )
 
-        # Append any columns the original data did not have, and fill them with
-        # n/a's.
-        for key in data.keys():
-            if key in orig_data:
-                continue
+            # Append any columns the original data did not have, and fill them
+            # with n/a's.
+            for key in data.keys():
+                if key in orig_data:
+                    continue
 
-            orig_data[key] = ["n/a"] * len(orig_data["participant_id"])
+                orig_data[key] = ["n/a"] * len(existing_participants)
 
-        # Append any additional columns that original data had.
-        # Keep the original order of the data by looping over
-        # the original OrderedDict keys
-        for key in orig_data.keys():
-            if key in data:
-                continue
+            # Append any additional columns that original data had.
+            # Keep the original order of the data by looping over
+            # the original OrderedDict keys
+            for key in orig_data.keys():
+                if key in data:
+                    continue
 
-            # add original value for any user-appended columns
-            # that were not handled by mne-bids
-            p_id = data["participant_id"][0]
-            if p_id in orig_data["participant_id"]:
-                row_idx = orig_data["participant_id"].index(p_id)
-                data[key] = [orig_data[key][row_idx]]
+                # add original value for any user-appended columns
+                # that were not handled by mne-bids
+                p_id = data["participant_id"][0]
+                if p_id in existing_participants:
+                    row_idx = existing_participants.index(p_id)
+                    data[key] = [orig_data[key][row_idx]]
 
-        # otherwise add the new data as new row
-        data = _combine_rows(orig_data, data, "participant_id")
+            # otherwise add the new data as new row if there's existing data
+            if existing_participants:
+                data = _combine_rows(orig_data, data, "participant_id")
 
-    # overwrite is forced to True as all issues with overwrite == False have
-    # been handled by this point
-    _write_tsv(fname, data, True)
+        _write_tsv(fname, data, overwrite=True)
 
 
 def _participants_json(fname, overwrite=False):
@@ -622,14 +700,57 @@ def _participants_json(fname, overwrite=False):
     # make sure to append any JSON fields added by the user
     # Note: mne-bids will overwrite age, sex and hand fields
     # if `overwrite` is True
-    fname = Path(fname)
-    if fname.exists():
-        orig_data = json.loads(
-            fname.read_text(encoding="utf-8"), object_pairs_hook=OrderedDict
-        )
-        new_data = {**orig_data, **new_data}
+    fpath = Path(fname)
+    fpath.parent.mkdir(parents=True, exist_ok=True)
 
-    _write_json(fname, new_data, overwrite)
+    # Use _open_lock for atomic read-modify-write operation
+    with _open_lock(fpath, "a+", encoding="utf-8") as fid:
+        # Move to beginning of file for reading
+        fid.seek(0)
+        file_content = fid.read().strip()
+
+        # Try to parse existing content
+        orig_data = {}
+        if not file_content:
+            # File exists but is empty or contains only whitespace
+            # Treat as no original data; proceed to write new schema
+            pass
+        else:
+            try:
+                orig_data = json.loads(file_content, object_pairs_hook=OrderedDict)
+            except json.JSONDecodeError as e:
+                # File is corrupted/incomplete - this can happen in a race condition
+                # when one process truncates while another reads
+                logger.warning(
+                    f"Could not parse JSON in '{fname}': {e}. "
+                    "This may occur when reading during concurrent writes. "
+                    "Treating as empty."
+                )
+                # Treat as empty file and just write the schema
+            else:
+                # File exists with valid JSON content
+                if not overwrite:
+                    raise FileExistsError(
+                        f'"{fname}" already exists. Please set overwrite to True.'
+                    )
+
+        # Merge new schema with any existing user-added fields
+        # The new_data schema will overwrite age, sex, hand as intended
+        if orig_data:
+            # Keep any user-added fields not in new_data
+            for key in orig_data.keys():
+                if key not in new_data:
+                    new_data[key] = orig_data[key]
+
+        # Write JSON data atomically within the lock context
+        # I could not use the _write_json helper here because it also
+        # handles file locking and I need to manage that manually
+        json_output = json.dumps(new_data, indent=4, ensure_ascii=False)
+        fid.seek(0)
+        fid.truncate()
+        fid.write(json_output)
+        fid.write("\n")
+        logger.info(f"Writing '{fname}'...")
 
 
 def _scans_tsv(raw, raw_fname, fname, keep_source, overwrite=False):
@@ -701,29 +822,29 @@ def _scans_tsv(raw, raw_fname, fname, keep_source, overwrite=False):
         else:
             _write_json(sidecar_json_path, sidecar_json)
 
-    if os.path.exists(fname):
-        orig_data = _from_tsv(fname)
-        # if the file name is already in the file raise an error
-        if raw_fname in orig_data["filename"] and not overwrite:
-            raise FileExistsError(
-                f'"{raw_fname}" already exists in '
-                f"the scans list. Please set "
-                f"overwrite to True."
-            )
+    fpath = Path(fname)
+    with _open_lock(fpath):
+        if fpath.exists():
+            orig_data = _from_tsv(fname)
+            # if the file name is already in the file raise an error
+            if raw_fname in orig_data["filename"] and not overwrite:
+                raise FileExistsError(
+                    f'"{raw_fname}" already exists in '
+                    f"the scans list. Please set "
+                    f"overwrite to True."
+                )
 
-        for key in data.keys():
-            if key in orig_data:
-                continue
+            for key in data.keys():
+                if key in orig_data:
+                    continue
 
-            # add 'n/a' if any missing columns
-            orig_data[key] = ["n/a"] * len(next(iter(data.values())))
+                # add 'n/a' if any missing columns
+                orig_data[key] = ["n/a"] * len(next(iter(data.values())))
 
-        # otherwise add the new data
-        data = _combine_rows(orig_data, data, "filename")
+            # otherwise add the new data
+            data = _combine_rows(orig_data, data, "filename")
 
-    # overwrite is forced to True as all issues with overwrite == False have
-    # been handled by this point
-    _write_tsv(fname, data, True)
+        _write_tsv(fpath, data, overwrite=True)
 
 
 def _load_image(image, name="image"):
@@ -838,7 +959,15 @@ def _mri_scanner_ras_to_mri_voxels(ras_landmarks, img_mgh):
 
 
 def _sidecar_json(
-    raw, task, manufacturer, fname, datatype, emptyroom_fname=None, overwrite=False
+    raw,
+    task,
+    manufacturer,
+    fname,
+    datatype,
+    *,
+    emg_placement=None,
+    emptyroom_fname=None,
+    overwrite=False,
 ):
     """Create a sidecar json file depending on the suffix and save it.
 
@@ -858,6 +987,9 @@ def _sidecar_json(
         Filename to save the sidecar json to.
     datatype : str
         Type of the data as in ALLOWED_ELECTROPHYSIO_DATATYPE.
+    emg_placement : "Measured" | "ChannelSpecific" | "Other" | None
+        How the EMG sensor locations were determined. Must be one of the literal strings
+        if ``datatype="emg"`` and should be ``None`` for all other datatypes.
     emptyroom_fname : str | mne_bids.BIDSPath
         For MEG recordings, the path to an empty-room data file to be
         associated with ``raw``. Only supported for MEG.
@@ -1006,6 +1138,19 @@ def _sidecar_json(
         ("Manufacturer", manufacturer),
     ]
 
+    ch_info_json_emg = [
+        ("EMGReference", "n/a"),
+        ("EMGGround", "n/a"),
+        # n/a will fail to validate, but if emg_placement is None that's our bug:
+        # the user-called function write_raw_bids should guarantee a valid string here
+        ("EMGPlacementScheme", emg_placement or "n/a"),
+        ("Manufacturer", manufacturer),
+    ]
+    if emg_placement == "Other":
+        ch_info_json_emg.append(
+            ("EMGPlacementSchemeDescription", "TODO FIXME please complete this field")
+        )
+
     ch_info_json_ieeg = [
         ("iEEGReference", "n/a"),
         ("ECOGChannelCount", n_ecogchan),
@@ -1035,6 +1180,8 @@ def _sidecar_json(
         append_datatype_json = ch_info_json_meg
     elif datatype == "eeg":
         append_datatype_json = ch_info_json_eeg
+    elif datatype == "emg":
+        append_datatype_json = ch_info_json_emg
     elif datatype == "ieeg":
         append_datatype_json = ch_info_json_ieeg
     elif datatype == "nirs":
@@ -1127,6 +1274,24 @@ def _write_raw_fif(raw, bids_fname):
     )
 
 
+def _ensure_bti_bidsignore(bids_root):
+    """Ensure vendor-specific BTi files are ignored by the validator."""
+    if bids_root is None:
+        return
+
+    bidsignore_path = Path(bids_root) / ".bidsignore"
+    pattern = "**/*_meg.pdf/*"
+
+    if bidsignore_path.exists():
+        lines = bidsignore_path.read_text(encoding="utf-8").splitlines()
+    else:
+        lines = []
+
+    if pattern not in lines:
+        lines.append(pattern)
+        bidsignore_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _write_raw_brainvision(raw, bids_fname, events, overwrite):
     """Save out the raw file in BrainVision format.
 
@@ -1199,7 +1364,7 @@ def _write_raw_brainvision(raw, bids_fname, events, overwrite):
     )
 
 
-def _write_raw_edf(raw, bids_fname, overwrite):
+def _write_raw_edf_bdf(raw, bids_fname, overwrite):
     """Store data as EDF.
 
     Parameters
@@ -1211,7 +1376,23 @@ def _write_raw_edf(raw, bids_fname, overwrite):
     overwrite : bool
         Whether to overwrite an existing file or not.
     """
-    assert str(bids_fname).endswith(".edf")
+    ext = bids_fname.suffix[1:].upper()
+    assert ext in ("EDF", "BDF")
+    if raw.info["meas_date"] is not None and raw.info["meas_date"].year < 1985:
+        warn(
+            f"Attempting to write a {ext} file with a meas_date of "
+            f"{raw.info['meas_date']}. This is not supported; {ext} limits `startdate` "
+            "to dates after 1985-01-01. Setting `startdate` to 1985-01-01 00:00:00 in "
+            f"the {ext} file; the original anonymized date will be written to scans.tsv"
+        )
+        # make a copy, so that anonymized meas_date is unchanged in orig raw,
+        # and thus scans.tsv ends up with the properly anonymized meas_date
+        raw = raw.copy()
+        raw.set_meas_date(
+            raw.info["meas_date"].replace(
+                year=1985, month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+        )
     raw.export(bids_fname, overwrite=overwrite)
 
 
@@ -1396,32 +1577,37 @@ def make_dataset_description(
     )
 
     # Handle potentially existing file contents
-    if op.isfile(fname):
-        with open(fname, encoding="utf-8-sig") as fin:
-            orig_cols = json.load(fin)
-        if "BIDSVersion" in orig_cols and orig_cols["BIDSVersion"] != BIDS_VERSION:
-            warnings.warn(
-                "Conflicting BIDSVersion found in dataset_description.json! "
-                "Consider setting BIDS root to a new directory and redo "
-                "conversion after ensuring all software has been updated. "
-                "Original dataset description will not be overwritten."
-            )
-            overwrite = False
-        for key in description:
-            if description[key] is None or not overwrite:
-                description[key] = orig_cols.get(key, None)
+    with _open_lock(fname):
+        if op.isfile(fname):
+            try:
+                with open(fname, encoding="utf-8-sig") as fin:
+                    orig_cols = json.load(fin)
+            except (json.JSONDecodeError, OSError):
+                # File is empty, corrupted, or being written to by another process
+                orig_cols = {}
+            if "BIDSVersion" in orig_cols and orig_cols["BIDSVersion"] != BIDS_VERSION:
+                warnings.warn(
+                    "Conflicting BIDSVersion found in dataset_description.json! "
+                    "Consider setting BIDS root to a new directory and redo "
+                    "conversion after ensuring all software has been updated. "
+                    "Original dataset description will not be overwritten."
+                )
+                overwrite = False
+            for key in description:
+                if description[key] is None or not overwrite:
+                    description[key] = orig_cols.get(key, None)
 
-    # default author to make dataset description BIDS compliant
-    # if the user passed an author don't overwrite,
-    # if there was an author there, only overwrite if `overwrite=True`
-    if authors is None and (description["Authors"] is None or overwrite):
-        description["Authors"] = ["[Unspecified1]", "[Unspecified2]"]
+        # default author to make dataset description BIDS compliant
+        # if the user passed an author don't overwrite,
+        # if there was an author there, only overwrite if `overwrite=True`
+        if authors is None and (description["Authors"] is None or overwrite):
+            description["Authors"] = ["[Unspecified1]", "[Unspecified2]"]
 
-    # Only write data that is not None
-    pop_keys = [key for key, val in description.items() if val is None]
-    for key in pop_keys:
-        description.pop(key)
-    _write_json(fname, description, overwrite=True)
+        # Only write data that is not None
+        pop_keys = [key for key, val in description.items() if val is None]
+        for key in pop_keys:
+            description.pop(key)
+        _write_json(fname, description, overwrite=True)
 
 
 @verbose
@@ -1440,6 +1626,8 @@ def write_raw_bids(
     allow_preload=False,
     montage=None,
     acpc_aligned=False,
+    electrodes_tsv_task=False,
+    emg_placement=None,
     overwrite=False,
     verbose=None,
 ):
@@ -1558,14 +1746,14 @@ def write_raw_bids(
             ``source`` column of ``scans.tsv``. By default, this information
             is not stored.
 
-    format : 'auto' | 'BrainVision' | 'EDF' | 'FIF' | 'EEGLAB'
+    format : 'auto' | 'BrainVision' | 'BDF' | 'EDF' | 'FIF' | 'EEGLAB'
         Controls the file format of the data after BIDS conversion. If
         ``'auto'``, MNE-BIDS will attempt to convert the input data to BIDS
         without a change of the original file format. A conversion to a
         different file format will then only take place if the original file
         format lacks some necessary features.
         Conversion may be forced to BrainVision, EDF, or EEGLAB for (i)EEG,
-        and to FIF for MEG data.
+        to BDF or EDF for EMG, and to FIF for MEG data.
     symlink : bool
         Instead of copying the source files, only create symbolic links to
         preserve storage space. This is only allowed when not anonymizing the
@@ -1616,6 +1804,12 @@ def write_raw_bids(
         So, this flag is required to be True when the digitization data
         is in "mri" for intracranial data to confirm that the T1 is
         ACPC-aligned.
+    electrodes_tsv_task : bool
+        Add the ``task-`` entity to the ``electrodes.tsv`` filename.
+        Defaults to ``False``.
+    emg_placement : "Measured" | "ChannelSpecific" | "Other" | None
+        How the EMG sensor locations were determined. Must be one of the literal strings
+        if datatype is "emg" and should be ``None`` for all other datatypes.
     overwrite : bool
         Whether to overwrite existing files or data in files.
         Defaults to ``False``.
@@ -1800,6 +1994,8 @@ def write_raw_bids(
     else:
         if format == "BrainVision":
             ext = ".vhdr"
+        elif format == "BDF":
+            ext = ".bdf"
         elif format == "EDF":
             ext = ".edf"
         elif format == "EEGLAB":
@@ -1809,7 +2005,7 @@ def write_raw_bids(
         else:
             msg = (
                 'For preloaded data, you must set the "format" parameter '
-                "to one of: BrainVision, EDF, EEGLAB, or FIF"
+                "to one of: BrainVision, BDF, EDF, EEGLAB, or FIF"
             )
             if format != "auto":  # the default was changed
                 msg += f', but got: "{format}"'
@@ -1817,6 +2013,10 @@ def write_raw_bids(
             raise ValueError(msg)
 
         raw_orig = raw
+
+    use_bti_pdf_suffix = True
+    if ext == ".pdf":
+        use_bti_pdf_suffix = _should_use_bti_pdf_suffix()
 
     # Check times
     if not np.array_equal(raw.times, raw_orig.times):
@@ -1849,6 +2049,16 @@ def write_raw_bids(
         datatype=datatype, suffix=datatype, extension=ext
     )
 
+    if datatype == "emg" and emg_placement not in (
+        "Measured",
+        "ChannelSpecific",
+        "Other",
+    ):
+        raise ValueError(
+            '`emg_placement` must be one of "Measured", "ChannelSpecific", or "Other" '
+            f"(got {emg_placement})"
+        )
+
     # Check whether provided info and raw indicates valid MEG emptyroom data
     data_is_emptyroom = False
     if (
@@ -1861,7 +2071,7 @@ def write_raw_bids(
         meas_date = raw.info.get("meas_date", None)
         if meas_date is not None:
             if not isinstance(meas_date, datetime):
-                meas_date = datetime.fromtimestamp(meas_date[0], tz=timezone.utc)
+                meas_date = datetime.fromtimestamp(meas_date[0], tz=UTC)
 
             if anonymize is not None and "daysback" in anonymize:
                 meas_date = meas_date - timedelta(anonymize["daysback"])
@@ -1929,9 +2139,7 @@ def write_raw_bids(
             )
 
         # Turn it into a path relative to the BIDS root
-        associated_er_path = Path(
-            str(associated_er_path).replace(str(bids_path.root), "")
-        )
+        associated_er_path = associated_er_path.relative_to(bids_path.root)
         # Ensure it works on Windows too
         associated_er_path = associated_er_path.as_posix()
 
@@ -1995,6 +2203,12 @@ def write_raw_bids(
                 warn("Converting data files to BrainVision format for anonymization")
                 convert = True
                 bids_path.update(extension=".vhdr")
+        elif bids_path.datatype == "emg":
+            if ext not in [".edf", ".bdf", ".EDF", ".BDF"]:
+                warn("Converting data files to BDF format for anonymization")
+                convert = True
+                bids_path.update(extension=".bdf")
+
     # Read in Raw object and extract metadata from Raw object if needed
     orient = ORIENTATION.get(ext, "n/a")
     unit = EXT_TO_UNIT_MAP.get(ext, "n/a")
@@ -2037,20 +2251,29 @@ def write_raw_bids(
             datatype=bids_path.datatype,
             overwrite=overwrite,
         )
-        _write_coordsystem_json(
-            raw=raw,
-            unit=unit,
-            hpi_coord_system=orient,
-            sensor_coord_system=sensor_coord_system,
-            fname=coordsystem_path.fpath,
-            datatype=bids_path.datatype,
-            overwrite=overwrite,
-        )
-    elif bids_path.datatype in ["eeg", "ieeg", "nirs"]:
-        # We only write electrodes.tsv and accompanying coordsystem.json
-        # if we have an available DigMontage
-        if montage is not None or (raw.info["dig"] is not None and raw.info["dig"]):
-            _write_dig_bids(bids_path, raw, montage, acpc_aligned, overwrite)
+    elif bids_path.datatype in ["eeg", "emg", "ieeg", "nirs"]:
+        have_dig = raw.info["dig"] is not None and bool(raw.info["dig"])
+        if montage is not None or have_dig:
+            _write_dig_bids(
+                bids_path, raw, montage, acpc_aligned, electrodes_tsv_task, overwrite
+            )
+        elif bids_path.datatype == "emg":
+            # TODO EMG: Handle EMG coordsystem if it's not in `raw.info["dig"]`.
+            # In theory we could make a helper func for creating a `DigMontage` from
+            # EMG electrode location info, and users could pass that into
+            # `write_raw_bids`...
+            warn(
+                "No electrode location info found in raw file, so not writing "
+                "coordinate system info for EMG data. Please add `coordsystem.json` "
+                "file manually."
+            )
+        elif bids_path.datatype == "ieeg":
+            _write_empty_ieeg_positions(
+                bids_path=bids_path,
+                raw=raw,
+                electrodes_tsv_task=electrodes_tsv_task,
+                overwrite=overwrite,
+            )
     else:
         logger.info(
             f"Writing of electrodes.tsv is not supported "
@@ -2103,9 +2326,9 @@ def write_raw_bids(
         fname=sidecar_path.fpath,
         datatype=bids_path.datatype,
         emptyroom_fname=associated_er_path,
+        emg_placement=emg_placement,
         overwrite=overwrite,
     )
-    _channels_tsv(raw, channels_path.fpath, overwrite)
 
     # create parent directories if needed
     _mkdir_p(os.path.dirname(data_path))
@@ -2140,9 +2363,12 @@ def write_raw_bids(
         if format == "BrainVision" and bids_path.datatype in ["ieeg", "eeg"]:
             convert = True
             bids_path.update(extension=".vhdr")
-        elif format == "EDF" and bids_path.datatype in ["ieeg", "eeg"]:
+        elif format == "EDF" and bids_path.datatype in ["ieeg", "eeg", "emg"]:
             convert = True
             bids_path.update(extension=".edf")
+        elif format == "BDF" and bids_path.datatype in ["emg"]:
+            convert = True
+            bids_path.update(extension=".bdf")
         elif format == "EEGLAB" and bids_path.datatype in ["ieeg", "eeg"]:
             convert = True
             bids_path.update(extension=".set")
@@ -2163,6 +2389,14 @@ def write_raw_bids(
                 f"Please use one of {CONVERT_FORMATS[datatype]} "
                 f"for {datatype} datatype."
             )
+
+    # this can't happen until after value of `convert` has been determined
+    _channels_tsv(
+        raw,
+        channels_path.fpath,
+        convert_fmt=format if convert else None,
+        overwrite=overwrite,
+    )
 
     # raise error when trying to copy files (copyfile_*) into same location
     # (src == dest, see https://github.com/mne-tools/mne-bids/issues/867)
@@ -2203,12 +2437,20 @@ def write_raw_bids(
                     else bids_path.fpath
                 ),
             )
-        elif bids_path.datatype in ["eeg", "ieeg"] and format == "EDF":
+        elif bids_path.datatype in ["emg"] and format == "BDF":
+            bids_path.update(extension=".bdf")
+            _write_raw_edf_bdf(raw, bids_path.fpath, overwrite=overwrite)
+        elif bids_path.datatype in ["eeg", "emg", "ieeg"] and format == "EDF":
             warn("Converting data files to EDF format")
-            _write_raw_edf(raw, bids_path.fpath, overwrite=overwrite)
+            bids_path.update(extension=".edf")
+            _write_raw_edf_bdf(raw, bids_path.fpath, overwrite=overwrite)
         elif bids_path.datatype in ["eeg", "ieeg"] and format == "EEGLAB":
             warn("Converting data files to EEGLAB format")
             _write_raw_eeglab(raw, bids_path.fpath, overwrite=overwrite)
+        elif bids_path.datatype in ["emg"]:
+            bids_path.update(extension=".bdf")
+            warn("Converting data files to BDF format")
+            _write_raw_edf_bdf(raw, bids_path.fpath, overwrite=overwrite)
         else:
             warn("Converting data files to BrainVision format")
             bids_path.update(suffix=bids_path.datatype, extension=".vhdr")
@@ -2243,9 +2485,14 @@ def write_raw_bids(
     elif ext == ".set":
         copyfile_eeglab(raw_fname, bids_path)
     elif ext == ".pdf":
-        raw_dir = op.join(data_path, op.splitext(bids_path.basename)[0])
+        if use_bti_pdf_suffix:
+            raw_dir = bids_path.fpath
+        else:
+            raw_dir = op.join(data_path, op.splitext(bids_path.basename)[0])
         _mkdir_p(raw_dir)
         copyfile_bti(raw_orig, raw_dir)
+        if use_bti_pdf_suffix:
+            _ensure_bti_bidsignore(bids_path.root)
     elif ext in [".con", ".sqd"]:
         copyfile_kit(
             raw_fname,
@@ -2261,7 +2508,10 @@ def write_raw_bids(
         shutil.copyfile(raw_fname, bids_path)
 
     # write to the scans.tsv file the output file written
-    scan_relative_fpath = op.join(bids_path.datatype, bids_path.fpath.name)
+    scan_fname = bids_path.fpath.name
+    if bids_path.extension == ".pdf" and not use_bti_pdf_suffix:
+        scan_fname = op.splitext(scan_fname)[0]
+    scan_relative_fpath = op.join(bids_path.datatype, scan_fname)
     _scans_tsv(
         raw,
         raw_fname=scan_relative_fpath,
@@ -3269,8 +3519,20 @@ def anonymize_dataset(
         "CHANGES",
         "dataset_description.json",
         "participants.json",
+        "participants.tsv",
     )
     for fname in additional_files:
         in_path = bids_root_in / fname
         if in_path.exists():
             shutil.copy(src=in_path, dst=bids_root_out)
+
+    participants_out_path = bids_root_out / "participants.tsv"
+    if participants_out_path.exists():
+        participants_tsv = _from_tsv(participants_out_path)
+        updated_ids = []
+        for participant_id in participants_tsv["participant_id"]:
+            participant = participant_id.replace("sub-", "")
+            new_id = subject_mapping.get(participant, participant)
+            updated_ids.append(f"sub-{new_id}")
+        participants_tsv["participant_id"] = updated_ids
+        _write_tsv(participants_out_path, participants_tsv, overwrite=True)

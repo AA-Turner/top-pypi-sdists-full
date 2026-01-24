@@ -3,7 +3,7 @@ Type annotations for bedrock-agentcore-control service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,63 +17,106 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AgentManagedRuntimeTypeType,
     AgentRuntimeEndpointStatusType,
     AgentRuntimeStatusType,
     ApiKeyCredentialLocationType,
+    AuthorizerTypeType,
     BrowserNetworkModeType,
     BrowserStatusType,
+    ClaimMatchOperatorTypeType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
+    EvaluatorLevelType,
+    EvaluatorStatusType,
+    EvaluatorTypeType,
+    FilterOperatorType,
+    FindingTypeType,
+    GatewayInterceptionPointType,
+    GatewayPolicyEngineModeType,
     GatewayStatusType,
+    InboundTokenClaimValueTypeType,
     KeyTypeType,
     MemoryStatusType,
     MemoryStrategyStatusType,
     MemoryStrategyTypeType,
+    MemoryViewType,
     NetworkModeType,
+    OAuthGrantTypeType,
+    OnlineEvaluationConfigStatusType,
+    OnlineEvaluationExecutionStatusType,
     OverrideTypeType,
+    PolicyEngineStatusType,
+    PolicyGenerationStatusType,
+    PolicyStatusType,
+    PolicyValidationModeType,
     ResourceTypeType,
+    RestApiMethodType,
     SchemaTypeType,
     ServerProtocolType,
     TargetStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AgentRuntimeArtifactOutputTypeDef",
     "AgentRuntimeArtifactTypeDef",
+    "AgentRuntimeArtifactUnionTypeDef",
     "AgentRuntimeEndpointTypeDef",
     "AgentRuntimeTypeDef",
+    "ApiGatewayTargetConfigurationOutputTypeDef",
+    "ApiGatewayTargetConfigurationTypeDef",
+    "ApiGatewayToolConfigurationOutputTypeDef",
+    "ApiGatewayToolConfigurationTypeDef",
+    "ApiGatewayToolFilterOutputTypeDef",
+    "ApiGatewayToolFilterTypeDef",
+    "ApiGatewayToolOverrideTypeDef",
     "ApiKeyCredentialProviderItemTypeDef",
     "ApiKeyCredentialProviderTypeDef",
     "ApiSchemaConfigurationTypeDef",
+    "AtlassianOauth2ProviderConfigInputTypeDef",
+    "AtlassianOauth2ProviderConfigOutputTypeDef",
     "AuthorizerConfigurationOutputTypeDef",
     "AuthorizerConfigurationTypeDef",
     "AuthorizerConfigurationUnionTypeDef",
+    "AuthorizingClaimMatchValueTypeOutputTypeDef",
+    "AuthorizingClaimMatchValueTypeTypeDef",
+    "BedrockEvaluatorModelConfigOutputTypeDef",
+    "BedrockEvaluatorModelConfigTypeDef",
     "BrowserNetworkConfigurationOutputTypeDef",
     "BrowserNetworkConfigurationTypeDef",
     "BrowserNetworkConfigurationUnionTypeDef",
+    "BrowserSigningConfigInputTypeDef",
+    "BrowserSigningConfigOutputTypeDef",
     "BrowserSummaryTypeDef",
+    "CategoricalScaleDefinitionTypeDef",
+    "CedarPolicyTypeDef",
+    "ClaimMatchValueTypeOutputTypeDef",
+    "ClaimMatchValueTypeTypeDef",
+    "CloudWatchLogsInputConfigOutputTypeDef",
+    "CloudWatchLogsInputConfigTypeDef",
+    "CloudWatchOutputConfigTypeDef",
+    "CodeConfigurationOutputTypeDef",
+    "CodeConfigurationTypeDef",
     "CodeInterpreterNetworkConfigurationOutputTypeDef",
     "CodeInterpreterNetworkConfigurationTypeDef",
     "CodeInterpreterNetworkConfigurationUnionTypeDef",
     "CodeInterpreterSummaryTypeDef",
+    "CodeTypeDef",
     "ConsolidationConfigurationTypeDef",
     "ContainerConfigurationTypeDef",
+    "ContentTypeDef",
     "CreateAgentRuntimeEndpointRequestTypeDef",
     "CreateAgentRuntimeEndpointResponseTypeDef",
     "CreateAgentRuntimeRequestTypeDef",
@@ -84,6 +127,8 @@ __all__ = (
     "CreateBrowserResponseTypeDef",
     "CreateCodeInterpreterRequestTypeDef",
     "CreateCodeInterpreterResponseTypeDef",
+    "CreateEvaluatorRequestTypeDef",
+    "CreateEvaluatorResponseTypeDef",
     "CreateGatewayRequestTypeDef",
     "CreateGatewayResponseTypeDef",
     "CreateGatewayTargetRequestTypeDef",
@@ -92,6 +137,12 @@ __all__ = (
     "CreateMemoryOutputTypeDef",
     "CreateOauth2CredentialProviderRequestTypeDef",
     "CreateOauth2CredentialProviderResponseTypeDef",
+    "CreateOnlineEvaluationConfigRequestTypeDef",
+    "CreateOnlineEvaluationConfigResponseTypeDef",
+    "CreatePolicyEngineRequestTypeDef",
+    "CreatePolicyEngineResponseTypeDef",
+    "CreatePolicyRequestTypeDef",
+    "CreatePolicyResponseTypeDef",
     "CreateWorkloadIdentityRequestTypeDef",
     "CreateWorkloadIdentityResponseTypeDef",
     "CredentialProviderConfigurationOutputTypeDef",
@@ -100,6 +151,8 @@ __all__ = (
     "CredentialProviderOutputTypeDef",
     "CredentialProviderTypeDef",
     "CredentialProviderUnionTypeDef",
+    "CustomClaimValidationTypeOutputTypeDef",
+    "CustomClaimValidationTypeTypeDef",
     "CustomConfigurationInputTypeDef",
     "CustomConsolidationConfigurationInputTypeDef",
     "CustomConsolidationConfigurationTypeDef",
@@ -110,6 +163,11 @@ __all__ = (
     "CustomMemoryStrategyInputTypeDef",
     "CustomOauth2ProviderConfigInputTypeDef",
     "CustomOauth2ProviderConfigOutputTypeDef",
+    "CustomReflectionConfigurationInputTypeDef",
+    "CustomReflectionConfigurationTypeDef",
+    "DataSourceConfigOutputTypeDef",
+    "DataSourceConfigTypeDef",
+    "DataSourceConfigUnionTypeDef",
     "DeleteAgentRuntimeEndpointRequestTypeDef",
     "DeleteAgentRuntimeEndpointResponseTypeDef",
     "DeleteAgentRuntimeRequestTypeDef",
@@ -119,6 +177,8 @@ __all__ = (
     "DeleteBrowserResponseTypeDef",
     "DeleteCodeInterpreterRequestTypeDef",
     "DeleteCodeInterpreterResponseTypeDef",
+    "DeleteEvaluatorRequestTypeDef",
+    "DeleteEvaluatorResponseTypeDef",
     "DeleteGatewayRequestTypeDef",
     "DeleteGatewayResponseTypeDef",
     "DeleteGatewayTargetRequestTypeDef",
@@ -127,12 +187,44 @@ __all__ = (
     "DeleteMemoryOutputTypeDef",
     "DeleteMemoryStrategyInputTypeDef",
     "DeleteOauth2CredentialProviderRequestTypeDef",
+    "DeleteOnlineEvaluationConfigRequestTypeDef",
+    "DeleteOnlineEvaluationConfigResponseTypeDef",
+    "DeletePolicyEngineRequestTypeDef",
+    "DeletePolicyEngineResponseTypeDef",
+    "DeletePolicyRequestTypeDef",
+    "DeletePolicyResponseTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DeleteWorkloadIdentityRequestTypeDef",
+    "EpisodicConsolidationOverrideTypeDef",
+    "EpisodicExtractionOverrideTypeDef",
+    "EpisodicMemoryStrategyInputTypeDef",
+    "EpisodicOverrideConfigurationInputTypeDef",
+    "EpisodicOverrideConsolidationConfigurationInputTypeDef",
+    "EpisodicOverrideExtractionConfigurationInputTypeDef",
+    "EpisodicOverrideReflectionConfigurationInputTypeDef",
+    "EpisodicReflectionConfigurationInputTypeDef",
+    "EpisodicReflectionConfigurationTypeDef",
+    "EpisodicReflectionOverrideTypeDef",
+    "EvaluatorConfigOutputTypeDef",
+    "EvaluatorConfigTypeDef",
+    "EvaluatorConfigUnionTypeDef",
+    "EvaluatorModelConfigOutputTypeDef",
+    "EvaluatorModelConfigTypeDef",
+    "EvaluatorReferenceTypeDef",
+    "EvaluatorSummaryTypeDef",
     "ExtractionConfigurationTypeDef",
+    "FilterTypeDef",
+    "FilterValueTypeDef",
+    "FindingTypeDef",
+    "GatewayInterceptorConfigurationOutputTypeDef",
+    "GatewayInterceptorConfigurationTypeDef",
+    "GatewayInterceptorConfigurationUnionTypeDef",
+    "GatewayPolicyEngineConfigurationTypeDef",
     "GatewayProtocolConfigurationOutputTypeDef",
     "GatewayProtocolConfigurationTypeDef",
     "GatewayProtocolConfigurationUnionTypeDef",
     "GatewaySummaryTypeDef",
+    "GatewayTargetTypeDef",
     "GetAgentRuntimeEndpointRequestTypeDef",
     "GetAgentRuntimeEndpointResponseTypeDef",
     "GetAgentRuntimeRequestTypeDef",
@@ -143,6 +235,8 @@ __all__ = (
     "GetBrowserResponseTypeDef",
     "GetCodeInterpreterRequestTypeDef",
     "GetCodeInterpreterResponseTypeDef",
+    "GetEvaluatorRequestTypeDef",
+    "GetEvaluatorResponseTypeDef",
     "GetGatewayRequestTypeDef",
     "GetGatewayResponseTypeDef",
     "GetGatewayTargetRequestTypeDef",
@@ -152,6 +246,21 @@ __all__ = (
     "GetMemoryOutputTypeDef",
     "GetOauth2CredentialProviderRequestTypeDef",
     "GetOauth2CredentialProviderResponseTypeDef",
+    "GetOnlineEvaluationConfigRequestTypeDef",
+    "GetOnlineEvaluationConfigResponseTypeDef",
+    "GetPolicyEngineRequestTypeDef",
+    "GetPolicyEngineRequestWaitExtraTypeDef",
+    "GetPolicyEngineRequestWaitTypeDef",
+    "GetPolicyEngineResponseTypeDef",
+    "GetPolicyGenerationRequestTypeDef",
+    "GetPolicyGenerationRequestWaitTypeDef",
+    "GetPolicyGenerationResponseTypeDef",
+    "GetPolicyRequestTypeDef",
+    "GetPolicyRequestWaitExtraTypeDef",
+    "GetPolicyRequestWaitTypeDef",
+    "GetPolicyResponseTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResponseTypeDef",
     "GetTokenVaultRequestTypeDef",
     "GetTokenVaultResponseTypeDef",
     "GetWorkloadIdentityRequestTypeDef",
@@ -160,7 +269,19 @@ __all__ = (
     "GithubOauth2ProviderConfigOutputTypeDef",
     "GoogleOauth2ProviderConfigInputTypeDef",
     "GoogleOauth2ProviderConfigOutputTypeDef",
+    "IncludedOauth2ProviderConfigInputTypeDef",
+    "IncludedOauth2ProviderConfigOutputTypeDef",
+    "InferenceConfigurationOutputTypeDef",
+    "InferenceConfigurationTypeDef",
+    "InterceptorConfigurationTypeDef",
+    "InterceptorInputConfigurationTypeDef",
+    "InvocationConfigurationInputTypeDef",
+    "InvocationConfigurationTypeDef",
     "KmsConfigurationTypeDef",
+    "LambdaInterceptorConfigurationTypeDef",
+    "LifecycleConfigurationTypeDef",
+    "LinkedinOauth2ProviderConfigInputTypeDef",
+    "LinkedinOauth2ProviderConfigOutputTypeDef",
     "ListAgentRuntimeEndpointsRequestPaginateTypeDef",
     "ListAgentRuntimeEndpointsRequestTypeDef",
     "ListAgentRuntimeEndpointsResponseTypeDef",
@@ -179,6 +300,9 @@ __all__ = (
     "ListCodeInterpretersRequestPaginateTypeDef",
     "ListCodeInterpretersRequestTypeDef",
     "ListCodeInterpretersResponseTypeDef",
+    "ListEvaluatorsRequestPaginateTypeDef",
+    "ListEvaluatorsRequestTypeDef",
+    "ListEvaluatorsResponseTypeDef",
     "ListGatewayTargetsRequestPaginateTypeDef",
     "ListGatewayTargetsRequestTypeDef",
     "ListGatewayTargetsResponseTypeDef",
@@ -191,31 +315,58 @@ __all__ = (
     "ListOauth2CredentialProvidersRequestPaginateTypeDef",
     "ListOauth2CredentialProvidersRequestTypeDef",
     "ListOauth2CredentialProvidersResponseTypeDef",
+    "ListOnlineEvaluationConfigsRequestPaginateTypeDef",
+    "ListOnlineEvaluationConfigsRequestTypeDef",
+    "ListOnlineEvaluationConfigsResponseTypeDef",
+    "ListPoliciesRequestPaginateTypeDef",
+    "ListPoliciesRequestTypeDef",
+    "ListPoliciesResponseTypeDef",
+    "ListPolicyEnginesRequestPaginateTypeDef",
+    "ListPolicyEnginesRequestTypeDef",
+    "ListPolicyEnginesResponseTypeDef",
+    "ListPolicyGenerationAssetsRequestPaginateTypeDef",
+    "ListPolicyGenerationAssetsRequestTypeDef",
+    "ListPolicyGenerationAssetsResponseTypeDef",
+    "ListPolicyGenerationsRequestPaginateTypeDef",
+    "ListPolicyGenerationsRequestTypeDef",
+    "ListPolicyGenerationsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListWorkloadIdentitiesRequestPaginateTypeDef",
     "ListWorkloadIdentitiesRequestTypeDef",
     "ListWorkloadIdentitiesResponseTypeDef",
+    "LlmAsAJudgeEvaluatorConfigOutputTypeDef",
+    "LlmAsAJudgeEvaluatorConfigTypeDef",
     "MCPGatewayConfigurationOutputTypeDef",
     "MCPGatewayConfigurationTypeDef",
     "McpLambdaTargetConfigurationOutputTypeDef",
     "McpLambdaTargetConfigurationTypeDef",
+    "McpServerTargetConfigurationTypeDef",
     "McpTargetConfigurationOutputTypeDef",
     "McpTargetConfigurationTypeDef",
     "MemoryStrategyInputTypeDef",
     "MemoryStrategyTypeDef",
     "MemorySummaryTypeDef",
     "MemoryTypeDef",
+    "MessageBasedTriggerInputTypeDef",
+    "MessageBasedTriggerTypeDef",
+    "MetadataConfigurationOutputTypeDef",
+    "MetadataConfigurationTypeDef",
+    "MetadataConfigurationUnionTypeDef",
     "MicrosoftOauth2ProviderConfigInputTypeDef",
     "MicrosoftOauth2ProviderConfigOutputTypeDef",
     "ModifyConsolidationConfigurationTypeDef",
     "ModifyExtractionConfigurationTypeDef",
+    "ModifyInvocationConfigurationInputTypeDef",
     "ModifyMemoryStrategiesTypeDef",
     "ModifyMemoryStrategyInputTypeDef",
+    "ModifyReflectionConfigurationTypeDef",
+    "ModifySelfManagedConfigurationTypeDef",
     "ModifyStrategyConfigurationTypeDef",
     "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
+    "NumericalScaleDefinitionTypeDef",
     "OAuthCredentialProviderOutputTypeDef",
     "OAuthCredentialProviderTypeDef",
     "OAuthCredentialProviderUnionTypeDef",
@@ -228,44 +379,74 @@ __all__ = (
     "Oauth2DiscoveryUnionTypeDef",
     "Oauth2ProviderConfigInputTypeDef",
     "Oauth2ProviderConfigOutputTypeDef",
+    "OnlineEvaluationConfigSummaryTypeDef",
+    "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "PolicyDefinitionTypeDef",
+    "PolicyEngineTypeDef",
+    "PolicyGenerationAssetTypeDef",
+    "PolicyGenerationTypeDef",
+    "PolicyTypeDef",
     "ProtocolConfigurationTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
+    "RatingScaleOutputTypeDef",
+    "RatingScaleTypeDef",
     "RecordingConfigTypeDef",
+    "ReflectionConfigurationTypeDef",
     "RequestHeaderConfigurationOutputTypeDef",
     "RequestHeaderConfigurationTypeDef",
     "RequestHeaderConfigurationUnionTypeDef",
+    "ResourceTypeDef",
     "ResponseMetadataTypeDef",
+    "RuleOutputTypeDef",
+    "RuleTypeDef",
+    "RuleUnionTypeDef",
     "S3ConfigurationTypeDef",
     "S3LocationTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
     "SalesforceOauth2ProviderConfigOutputTypeDef",
+    "SamplingConfigTypeDef",
     "SchemaDefinitionOutputTypeDef",
     "SchemaDefinitionTypeDef",
     "SecretTypeDef",
+    "SelfManagedConfigurationInputTypeDef",
+    "SelfManagedConfigurationTypeDef",
     "SemanticConsolidationOverrideTypeDef",
     "SemanticExtractionOverrideTypeDef",
     "SemanticMemoryStrategyInputTypeDef",
     "SemanticOverrideConfigurationInputTypeDef",
     "SemanticOverrideConsolidationConfigurationInputTypeDef",
     "SemanticOverrideExtractionConfigurationInputTypeDef",
+    "SessionConfigTypeDef",
     "SetTokenVaultCMKRequestTypeDef",
     "SetTokenVaultCMKResponseTypeDef",
     "SlackOauth2ProviderConfigInputTypeDef",
     "SlackOauth2ProviderConfigOutputTypeDef",
+    "StartPolicyGenerationRequestTypeDef",
+    "StartPolicyGenerationResponseTypeDef",
     "StrategyConfigurationTypeDef",
     "SummaryConsolidationOverrideTypeDef",
     "SummaryMemoryStrategyInputTypeDef",
     "SummaryOverrideConfigurationInputTypeDef",
     "SummaryOverrideConsolidationConfigurationInputTypeDef",
+    "SynchronizeGatewayTargetsRequestTypeDef",
+    "SynchronizeGatewayTargetsResponseTypeDef",
     "TagResourceRequestTypeDef",
     "TargetConfigurationOutputTypeDef",
     "TargetConfigurationTypeDef",
     "TargetConfigurationUnionTypeDef",
     "TargetSummaryTypeDef",
+    "TimeBasedTriggerInputTypeDef",
+    "TimeBasedTriggerTypeDef",
+    "TokenBasedTriggerInputTypeDef",
+    "TokenBasedTriggerTypeDef",
     "ToolDefinitionOutputTypeDef",
     "ToolDefinitionTypeDef",
     "ToolSchemaOutputTypeDef",
     "ToolSchemaTypeDef",
+    "TriggerConditionInputTypeDef",
+    "TriggerConditionTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentRuntimeEndpointRequestTypeDef",
     "UpdateAgentRuntimeEndpointResponseTypeDef",
@@ -273,6 +454,8 @@ __all__ = (
     "UpdateAgentRuntimeResponseTypeDef",
     "UpdateApiKeyCredentialProviderRequestTypeDef",
     "UpdateApiKeyCredentialProviderResponseTypeDef",
+    "UpdateEvaluatorRequestTypeDef",
+    "UpdateEvaluatorResponseTypeDef",
     "UpdateGatewayRequestTypeDef",
     "UpdateGatewayResponseTypeDef",
     "UpdateGatewayTargetRequestTypeDef",
@@ -281,6 +464,12 @@ __all__ = (
     "UpdateMemoryOutputTypeDef",
     "UpdateOauth2CredentialProviderRequestTypeDef",
     "UpdateOauth2CredentialProviderResponseTypeDef",
+    "UpdateOnlineEvaluationConfigRequestTypeDef",
+    "UpdateOnlineEvaluationConfigResponseTypeDef",
+    "UpdatePolicyEngineRequestTypeDef",
+    "UpdatePolicyEngineResponseTypeDef",
+    "UpdatePolicyRequestTypeDef",
+    "UpdatePolicyResponseTypeDef",
     "UpdateWorkloadIdentityRequestTypeDef",
     "UpdateWorkloadIdentityResponseTypeDef",
     "UserPreferenceConsolidationOverrideTypeDef",
@@ -324,6 +513,20 @@ class AgentRuntimeTypeDef(TypedDict):
     lastUpdatedAt: datetime
     status: AgentRuntimeStatusType
 
+class ApiGatewayToolFilterOutputTypeDef(TypedDict):
+    filterPath: str
+    methods: list[RestApiMethodType]
+
+class ApiGatewayToolOverrideTypeDef(TypedDict):
+    name: str
+    path: str
+    method: RestApiMethodType
+    description: NotRequired[str]
+
+class ApiGatewayToolFilterTypeDef(TypedDict):
+    filterPath: str
+    methods: Sequence[RestApiMethodType]
+
 class ApiKeyCredentialProviderItemTypeDef(TypedDict):
     name: str
     credentialProviderArn: str
@@ -340,23 +543,43 @@ class S3ConfigurationTypeDef(TypedDict):
     uri: NotRequired[str]
     bucketOwnerAccountId: NotRequired[str]
 
-class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
-    discoveryUrl: str
-    allowedAudience: NotRequired[List[str]]
-    allowedClients: NotRequired[List[str]]
+class AtlassianOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: str
 
-class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
-    discoveryUrl: str
-    allowedAudience: NotRequired[Sequence[str]]
-    allowedClients: NotRequired[Sequence[str]]
+class ClaimMatchValueTypeOutputTypeDef(TypedDict):
+    matchValueString: NotRequired[str]
+    matchValueStringList: NotRequired[list[str]]
+
+class ClaimMatchValueTypeTypeDef(TypedDict):
+    matchValueString: NotRequired[str]
+    matchValueStringList: NotRequired[Sequence[str]]
+
+class InferenceConfigurationOutputTypeDef(TypedDict):
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    stopSequences: NotRequired[list[str]]
+
+class InferenceConfigurationTypeDef(TypedDict):
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    stopSequences: NotRequired[Sequence[str]]
 
 class VpcConfigOutputTypeDef(TypedDict):
-    securityGroups: List[str]
-    subnets: List[str]
+    securityGroups: list[str]
+    subnets: list[str]
 
 class VpcConfigTypeDef(TypedDict):
     securityGroups: Sequence[str]
     subnets: Sequence[str]
+
+class BrowserSigningConfigInputTypeDef(TypedDict):
+    enabled: bool
+
+class BrowserSigningConfigOutputTypeDef(TypedDict):
+    enabled: bool
 
 class BrowserSummaryTypeDef(TypedDict):
     browserId: str
@@ -367,6 +590,24 @@ class BrowserSummaryTypeDef(TypedDict):
     description: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
 
+class CategoricalScaleDefinitionTypeDef(TypedDict):
+    definition: str
+    label: str
+
+class CedarPolicyTypeDef(TypedDict):
+    statement: str
+
+class CloudWatchLogsInputConfigOutputTypeDef(TypedDict):
+    logGroupNames: list[str]
+    serviceNames: list[str]
+
+class CloudWatchLogsInputConfigTypeDef(TypedDict):
+    logGroupNames: Sequence[str]
+    serviceNames: Sequence[str]
+
+class CloudWatchOutputConfigTypeDef(TypedDict):
+    logGroupName: str
+
 class CodeInterpreterSummaryTypeDef(TypedDict):
     codeInterpreterId: str
     codeInterpreterArn: str
@@ -375,6 +616,14 @@ class CodeInterpreterSummaryTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
+
+class S3LocationTypeDef(TypedDict):
+    bucket: str
+    prefix: str
+    versionId: NotRequired[str]
+
+class ContentTypeDef(TypedDict):
+    rawText: NotRequired[str]
 
 class CreateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
@@ -387,9 +636,13 @@ class CreateAgentRuntimeEndpointRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class LifecycleConfigurationTypeDef(TypedDict):
+    idleRuntimeSessionTimeout: NotRequired[int]
+    maxLifetime: NotRequired[int]
 
 class ProtocolConfigurationTypeDef(TypedDict):
     serverProtocol: ServerProtocolType
@@ -400,18 +653,43 @@ class WorkloadIdentityDetailsTypeDef(TypedDict):
 class CreateApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
     apiKey: str
+    tags: NotRequired[Mapping[str, str]]
 
 class SecretTypeDef(TypedDict):
     secretArn: str
 
+class GatewayPolicyEngineConfigurationTypeDef(TypedDict):
+    arn: str
+    mode: GatewayPolicyEngineModeType
+
+class MetadataConfigurationOutputTypeDef(TypedDict):
+    allowedRequestHeaders: NotRequired[list[str]]
+    allowedQueryParameters: NotRequired[list[str]]
+    allowedResponseHeaders: NotRequired[list[str]]
+
+class EvaluatorReferenceTypeDef(TypedDict):
+    evaluatorId: NotRequired[str]
+
+class CreatePolicyEngineRequestTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class CreateWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
     allowedResourceOauth2ReturnUrls: NotRequired[Sequence[str]]
+    tags: NotRequired[Mapping[str, str]]
 
 class OAuthCredentialProviderOutputTypeDef(TypedDict):
     providerArn: str
-    scopes: List[str]
-    customParameters: NotRequired[Dict[str, str]]
+    scopes: list[str]
+    customParameters: NotRequired[dict[str, str]]
+    grantType: NotRequired[OAuthGrantTypeType]
+    defaultReturnUrl: NotRequired[str]
+
+class EpisodicOverrideConsolidationConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
 
 class SemanticOverrideConsolidationConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
@@ -422,6 +700,10 @@ class SummaryOverrideConsolidationConfigurationInputTypeDef(TypedDict):
     modelId: str
 
 class UserPreferenceOverrideConsolidationConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+
+class EpisodicConsolidationOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
@@ -437,11 +719,19 @@ class UserPreferenceConsolidationOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
+class EpisodicOverrideExtractionConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+
 class SemanticOverrideExtractionConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
 class UserPreferenceOverrideExtractionConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+
+class EpisodicExtractionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
@@ -453,6 +743,16 @@ class UserPreferenceExtractionOverrideTypeDef(TypedDict):
     appendToPrompt: str
     modelId: str
 
+class EpisodicOverrideReflectionConfigurationInputTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+    namespaces: NotRequired[Sequence[str]]
+
+class EpisodicReflectionOverrideTypeDef(TypedDict):
+    appendToPrompt: str
+    modelId: str
+    namespaces: NotRequired[list[str]]
+
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
     endpointName: str
@@ -460,6 +760,7 @@ class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
 
 class DeleteAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeId: str
+    clientToken: NotRequired[str]
 
 class DeleteApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
@@ -471,6 +772,9 @@ class DeleteBrowserRequestTypeDef(TypedDict):
 class DeleteCodeInterpreterRequestTypeDef(TypedDict):
     codeInterpreterId: str
     clientToken: NotRequired[str]
+
+class DeleteEvaluatorRequestTypeDef(TypedDict):
+    evaluatorId: str
 
 class DeleteGatewayRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -489,11 +793,58 @@ class DeleteMemoryStrategyInputTypeDef(TypedDict):
 class DeleteOauth2CredentialProviderRequestTypeDef(TypedDict):
     name: str
 
+class DeleteOnlineEvaluationConfigRequestTypeDef(TypedDict):
+    onlineEvaluationConfigId: str
+
+class DeletePolicyEngineRequestTypeDef(TypedDict):
+    policyEngineId: str
+
+class DeletePolicyRequestTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+
 class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
+class EpisodicReflectionConfigurationInputTypeDef(TypedDict):
+    namespaces: Sequence[str]
+
+class EpisodicReflectionConfigurationTypeDef(TypedDict):
+    namespaces: list[str]
+
+class EvaluatorSummaryTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    evaluatorType: EvaluatorTypeType
+    status: EvaluatorStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    level: NotRequired[EvaluatorLevelType]
+    lockedForModification: NotRequired[bool]
+
+class FilterValueTypeDef(TypedDict):
+    stringValue: NotRequired[str]
+    doubleValue: NotRequired[float]
+    booleanValue: NotRequired[bool]
+
+FindingTypeDef = TypedDict(
+    "FindingTypeDef",
+    {
+        "type": NotRequired[FindingTypeType],
+        "description": NotRequired[str],
+    },
+)
+
+class InterceptorInputConfigurationTypeDef(TypedDict):
+    passRequestHeaders: bool
+
 class MCPGatewayConfigurationOutputTypeDef(TypedDict):
-    supportedVersions: NotRequired[List[str]]
+    supportedVersions: NotRequired[list[str]]
     instructions: NotRequired[str]
     searchType: NotRequired[Literal["SEMANTIC"]]
 
@@ -508,7 +859,7 @@ class GatewaySummaryTypeDef(TypedDict):
     status: GatewayStatusType
     createdAt: datetime
     updatedAt: datetime
-    authorizerType: Literal["CUSTOM_JWT"]
+    authorizerType: AuthorizerTypeType
     protocolType: Literal["MCP"]
     description: NotRequired[str]
 
@@ -521,7 +872,7 @@ class GetAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeVersion: NotRequired[str]
 
 class RequestHeaderConfigurationOutputTypeDef(TypedDict):
-    requestHeaderAllowlist: NotRequired[List[str]]
+    requestHeaderAllowlist: NotRequired[list[str]]
 
 class GetApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
@@ -532,6 +883,9 @@ class GetBrowserRequestTypeDef(TypedDict):
 class GetCodeInterpreterRequestTypeDef(TypedDict):
     codeInterpreterId: str
 
+class GetEvaluatorRequestTypeDef(TypedDict):
+    evaluatorId: str
+
 class GetGatewayRequestTypeDef(TypedDict):
     gatewayIdentifier: str
 
@@ -541,6 +895,7 @@ class GetGatewayTargetRequestTypeDef(TypedDict):
 
 class GetMemoryInputTypeDef(TypedDict):
     memoryId: str
+    view: NotRequired[MemoryViewType]
 
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
@@ -548,6 +903,26 @@ class WaiterConfigTypeDef(TypedDict):
 
 class GetOauth2CredentialProviderRequestTypeDef(TypedDict):
     name: str
+
+class GetOnlineEvaluationConfigRequestTypeDef(TypedDict):
+    onlineEvaluationConfigId: str
+
+class GetPolicyEngineRequestTypeDef(TypedDict):
+    policyEngineId: str
+
+class GetPolicyGenerationRequestTypeDef(TypedDict):
+    policyGenerationId: str
+    policyEngineId: str
+
+class ResourceTypeDef(TypedDict):
+    arn: NotRequired[str]
+
+class GetPolicyRequestTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
 
 class GetTokenVaultRequestTypeDef(TypedDict):
     tokenVaultId: NotRequired[str]
@@ -564,6 +939,28 @@ class GithubOauth2ProviderConfigInputTypeDef(TypedDict):
     clientSecret: str
 
 class GoogleOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: str
+
+class IncludedOauth2ProviderConfigInputTypeDef(TypedDict):
+    clientId: str
+    clientSecret: str
+    issuer: NotRequired[str]
+    authorizationEndpoint: NotRequired[str]
+    tokenEndpoint: NotRequired[str]
+
+class LambdaInterceptorConfigurationTypeDef(TypedDict):
+    arn: str
+
+class InvocationConfigurationInputTypeDef(TypedDict):
+    topicArn: str
+    payloadDeliveryBucketName: str
+
+class InvocationConfigurationTypeDef(TypedDict):
+    topicArn: str
+    payloadDeliveryBucketName: str
+
+class LinkedinOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
 
@@ -606,6 +1003,10 @@ ListCodeInterpretersRequestTypeDef = TypedDict(
         "type": NotRequired[ResourceTypeType],
     },
 )
+
+class ListEvaluatorsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListGatewayTargetsRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -650,6 +1051,52 @@ class Oauth2CredentialProviderItemTypeDef(TypedDict):
     createdTime: datetime
     lastUpdatedTime: datetime
 
+class ListOnlineEvaluationConfigsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class OnlineEvaluationConfigSummaryTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    onlineEvaluationConfigName: str
+    status: OnlineEvaluationConfigStatusType
+    executionStatus: OnlineEvaluationExecutionStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    failureReason: NotRequired[str]
+
+class ListPoliciesRequestTypeDef(TypedDict):
+    policyEngineId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    targetResourceScope: NotRequired[str]
+
+class ListPolicyEnginesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class PolicyEngineTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    statusReasons: list[str]
+    description: NotRequired[str]
+
+class ListPolicyGenerationAssetsRequestTypeDef(TypedDict):
+    policyGenerationId: str
+    policyEngineId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListPolicyGenerationsRequestTypeDef(TypedDict):
+    policyEngineId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -660,6 +1107,9 @@ class ListWorkloadIdentitiesRequestTypeDef(TypedDict):
 class WorkloadIdentityTypeTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
+
+class McpServerTargetConfigurationTypeDef(TypedDict):
+    endpoint: str
 
 class SemanticMemoryStrategyInputTypeDef(TypedDict):
     name: str
@@ -676,26 +1126,51 @@ class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
     description: NotRequired[str]
     namespaces: NotRequired[Sequence[str]]
 
+class MessageBasedTriggerInputTypeDef(TypedDict):
+    messageCount: NotRequired[int]
+
+class MessageBasedTriggerTypeDef(TypedDict):
+    messageCount: NotRequired[int]
+
+class MetadataConfigurationTypeDef(TypedDict):
+    allowedRequestHeaders: NotRequired[Sequence[str]]
+    allowedQueryParameters: NotRequired[Sequence[str]]
+    allowedResponseHeaders: NotRequired[Sequence[str]]
+
 class MicrosoftOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
+    tenantId: NotRequired[str]
+
+class ModifyInvocationConfigurationInputTypeDef(TypedDict):
+    topicArn: NotRequired[str]
+    payloadDeliveryBucketName: NotRequired[str]
+
+class NumericalScaleDefinitionTypeDef(TypedDict):
+    definition: str
+    value: float
+    label: str
 
 class OAuthCredentialProviderTypeDef(TypedDict):
     providerArn: str
     scopes: Sequence[str]
     customParameters: NotRequired[Mapping[str, str]]
+    grantType: NotRequired[OAuthGrantTypeType]
+    defaultReturnUrl: NotRequired[str]
 
 class Oauth2AuthorizationServerMetadataOutputTypeDef(TypedDict):
     issuer: str
     authorizationEndpoint: str
     tokenEndpoint: str
-    responseTypes: NotRequired[List[str]]
+    responseTypes: NotRequired[list[str]]
+    tokenEndpointAuthMethods: NotRequired[list[str]]
 
 class Oauth2AuthorizationServerMetadataTypeDef(TypedDict):
     issuer: str
     authorizationEndpoint: str
     tokenEndpoint: str
     responseTypes: NotRequired[Sequence[str]]
+    tokenEndpointAuthMethods: NotRequired[Sequence[str]]
 
 class SalesforceOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
@@ -705,20 +1180,26 @@ class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
 
-class S3LocationTypeDef(TypedDict):
-    bucket: str
-    prefix: str
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+    policy: str
 
 class RequestHeaderConfigurationTypeDef(TypedDict):
     requestHeaderAllowlist: NotRequired[Sequence[str]]
+
+class SamplingConfigTypeDef(TypedDict):
+    samplingPercentage: float
+
+class SessionConfigTypeDef(TypedDict):
+    sessionTimeoutMinutes: int
 
 SchemaDefinitionOutputTypeDef = TypedDict(
     "SchemaDefinitionOutputTypeDef",
     {
         "type": SchemaTypeType,
-        "properties": NotRequired[Dict[str, Dict[str, Any]]],
-        "required": NotRequired[List[str]],
-        "items": NotRequired[Dict[str, Any]],
+        "properties": NotRequired[dict[str, dict[str, Any]]],
+        "required": NotRequired[list[str]],
+        "items": NotRequired[dict[str, Any]],
         "description": NotRequired[str],
     },
 )
@@ -733,9 +1214,25 @@ SchemaDefinitionTypeDef = TypedDict(
     },
 )
 
+class SynchronizeGatewayTargetsRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    targetIdList: Sequence[str]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+class TimeBasedTriggerInputTypeDef(TypedDict):
+    idleSessionTimeout: NotRequired[int]
+
+class TimeBasedTriggerTypeDef(TypedDict):
+    idleSessionTimeout: NotRequired[int]
+
+class TokenBasedTriggerInputTypeDef(TypedDict):
+    tokenCount: NotRequired[int]
+
+class TokenBasedTriggerTypeDef(TypedDict):
+    tokenCount: NotRequired[int]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -752,22 +1249,43 @@ class UpdateApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
     apiKey: str
 
+class UpdatePolicyEngineRequestTypeDef(TypedDict):
+    policyEngineId: str
+    description: NotRequired[str]
+
 class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
     allowedResourceOauth2ReturnUrls: NotRequired[Sequence[str]]
 
-class AgentRuntimeArtifactTypeDef(TypedDict):
-    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
+class ApiGatewayToolConfigurationOutputTypeDef(TypedDict):
+    toolFilters: list[ApiGatewayToolFilterOutputTypeDef]
+    toolOverrides: NotRequired[list[ApiGatewayToolOverrideTypeDef]]
+
+class ApiGatewayToolConfigurationTypeDef(TypedDict):
+    toolFilters: Sequence[ApiGatewayToolFilterTypeDef]
+    toolOverrides: NotRequired[Sequence[ApiGatewayToolOverrideTypeDef]]
 
 class ApiSchemaConfigurationTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
     inlinePayload: NotRequired[str]
 
-class AuthorizerConfigurationOutputTypeDef(TypedDict):
-    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
+class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
+    claimMatchValue: ClaimMatchValueTypeOutputTypeDef
+    claimMatchOperator: ClaimMatchOperatorTypeType
 
-class AuthorizerConfigurationTypeDef(TypedDict):
-    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationTypeDef]
+class AuthorizingClaimMatchValueTypeTypeDef(TypedDict):
+    claimMatchValue: ClaimMatchValueTypeTypeDef
+    claimMatchOperator: ClaimMatchOperatorTypeType
+
+class BedrockEvaluatorModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationOutputTypeDef]
+    additionalModelRequestFields: NotRequired[dict[str, Any]]
+
+class BedrockEvaluatorModelConfigTypeDef(TypedDict):
+    modelId: str
+    inferenceConfig: NotRequired[InferenceConfigurationTypeDef]
+    additionalModelRequestFields: NotRequired[Mapping[str, Any]]
 
 class BrowserNetworkConfigurationOutputTypeDef(TypedDict):
     networkMode: BrowserNetworkModeType
@@ -793,10 +1311,31 @@ class NetworkConfigurationTypeDef(TypedDict):
     networkMode: NetworkModeType
     networkModeConfig: NotRequired[VpcConfigTypeDef]
 
+class PolicyDefinitionTypeDef(TypedDict):
+    cedar: NotRequired[CedarPolicyTypeDef]
+
+class DataSourceConfigOutputTypeDef(TypedDict):
+    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigOutputTypeDef]
+
+class DataSourceConfigTypeDef(TypedDict):
+    cloudWatchLogs: NotRequired[CloudWatchLogsInputConfigTypeDef]
+
+class OutputConfigTypeDef(TypedDict):
+    cloudWatchConfig: CloudWatchOutputConfigTypeDef
+
+class CodeTypeDef(TypedDict):
+    s3: NotRequired[S3LocationTypeDef]
+
+class RecordingConfigTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    s3Location: NotRequired[S3LocationTypeDef]
+
 class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     targetVersion: str
     agentRuntimeEndpointArn: str
     agentRuntimeArn: str
+    agentRuntimeId: str
+    endpointName: str
     status: AgentRuntimeEndpointStatusType
     createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -815,18 +1354,39 @@ class CreateCodeInterpreterResponseTypeDef(TypedDict):
     status: CodeInterpreterStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    createdAt: datetime
+    status: EvaluatorStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreatePolicyEngineResponseTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateWorkloadIdentityResponseTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
-    allowedResourceOauth2ReturnUrls: List[str]
+    allowedResourceOauth2ReturnUrls: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAgentRuntimeEndpointResponseTypeDef(TypedDict):
     status: AgentRuntimeEndpointStatusType
+    agentRuntimeId: str
+    endpointName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAgentRuntimeResponseTypeDef(TypedDict):
     status: AgentRuntimeStatusType
+    agentRuntimeId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteBrowserResponseTypeDef(TypedDict):
@@ -841,22 +1401,45 @@ class DeleteCodeInterpreterResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    status: EvaluatorStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: GatewayStatusType
-    statusReasons: List[str]
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteGatewayTargetResponseTypeDef(TypedDict):
     gatewayArn: str
     targetId: str
     status: TargetStatusType
-    statusReasons: List[str]
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteMemoryOutputTypeDef(TypedDict):
     memoryId: str
     status: MemoryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteOnlineEvaluationConfigResponseTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    status: OnlineEvaluationConfigStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeletePolicyEngineResponseTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
@@ -877,46 +1460,65 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
     },
 )
 
+class GetPolicyEngineResponseTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetWorkloadIdentityResponseTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
-    allowedResourceOauth2ReturnUrls: List[str]
+    allowedResourceOauth2ReturnUrls: list[str]
     createdTime: datetime
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAgentRuntimeEndpointsResponseTypeDef(TypedDict):
-    runtimeEndpoints: List[AgentRuntimeEndpointTypeDef]
+    runtimeEndpoints: list[AgentRuntimeEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAgentRuntimeVersionsResponseTypeDef(TypedDict):
-    agentRuntimes: List[AgentRuntimeTypeDef]
+    agentRuntimes: list[AgentRuntimeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAgentRuntimesResponseTypeDef(TypedDict):
-    agentRuntimes: List[AgentRuntimeTypeDef]
+    agentRuntimes: list[AgentRuntimeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListApiKeyCredentialProvidersResponseTypeDef(TypedDict):
-    credentialProviders: List[ApiKeyCredentialProviderItemTypeDef]
+    credentialProviders: list[ApiKeyCredentialProviderItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListBrowsersResponseTypeDef(TypedDict):
-    browserSummaries: List[BrowserSummaryTypeDef]
+    browserSummaries: list[BrowserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListCodeInterpretersResponseTypeDef(TypedDict):
-    codeInterpreterSummaries: List[CodeInterpreterSummaryTypeDef]
+    codeInterpreterSummaries: list[CodeInterpreterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    policy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
@@ -929,10 +1531,37 @@ class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    updatedAt: datetime
+    status: EvaluatorStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateOnlineEvaluationConfigResponseTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    updatedAt: datetime
+    status: OnlineEvaluationConfigStatusType
+    executionStatus: OnlineEvaluationExecutionStatusType
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdatePolicyEngineResponseTypeDef(TypedDict):
+    policyEngineId: str
+    name: str
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyEngineArn: str
+    status: PolicyEngineStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateWorkloadIdentityResponseTypeDef(TypedDict):
     name: str
     workloadIdentityArn: str
-    allowedResourceOauth2ReturnUrls: List[str]
+    allowedResourceOauth2ReturnUrls: list[str]
     createdTime: datetime
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -958,12 +1587,6 @@ class UpdateAgentRuntimeResponseTypeDef(TypedDict):
 
 class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
     apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
-    clientSecretArn: SecretTypeDef
     name: str
     credentialProviderArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -999,11 +1622,15 @@ class CustomConsolidationConfigurationInputTypeDef(TypedDict):
     userPreferenceConsolidationOverride: NotRequired[
         UserPreferenceOverrideConsolidationConfigurationInputTypeDef
     ]
+    episodicConsolidationOverride: NotRequired[
+        EpisodicOverrideConsolidationConfigurationInputTypeDef
+    ]
 
 class CustomConsolidationConfigurationTypeDef(TypedDict):
     semanticConsolidationOverride: NotRequired[SemanticConsolidationOverrideTypeDef]
     summaryConsolidationOverride: NotRequired[SummaryConsolidationOverrideTypeDef]
     userPreferenceConsolidationOverride: NotRequired[UserPreferenceConsolidationOverrideTypeDef]
+    episodicConsolidationOverride: NotRequired[EpisodicConsolidationOverrideTypeDef]
 
 class SemanticOverrideConfigurationInputTypeDef(TypedDict):
     extraction: NotRequired[SemanticOverrideExtractionConfigurationInputTypeDef]
@@ -1014,6 +1641,7 @@ class CustomExtractionConfigurationInputTypeDef(TypedDict):
     userPreferenceExtractionOverride: NotRequired[
         UserPreferenceOverrideExtractionConfigurationInputTypeDef
     ]
+    episodicExtractionOverride: NotRequired[EpisodicOverrideExtractionConfigurationInputTypeDef]
 
 class UserPreferenceOverrideConfigurationInputTypeDef(TypedDict):
     extraction: NotRequired[UserPreferenceOverrideExtractionConfigurationInputTypeDef]
@@ -1022,6 +1650,38 @@ class UserPreferenceOverrideConfigurationInputTypeDef(TypedDict):
 class CustomExtractionConfigurationTypeDef(TypedDict):
     semanticExtractionOverride: NotRequired[SemanticExtractionOverrideTypeDef]
     userPreferenceExtractionOverride: NotRequired[UserPreferenceExtractionOverrideTypeDef]
+    episodicExtractionOverride: NotRequired[EpisodicExtractionOverrideTypeDef]
+
+class CustomReflectionConfigurationInputTypeDef(TypedDict):
+    episodicReflectionOverride: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
+
+class EpisodicOverrideConfigurationInputTypeDef(TypedDict):
+    extraction: NotRequired[EpisodicOverrideExtractionConfigurationInputTypeDef]
+    consolidation: NotRequired[EpisodicOverrideConsolidationConfigurationInputTypeDef]
+    reflection: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
+
+class CustomReflectionConfigurationTypeDef(TypedDict):
+    episodicReflectionOverride: NotRequired[EpisodicReflectionOverrideTypeDef]
+
+class EpisodicMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
+
+class ListEvaluatorsResponseTypeDef(TypedDict):
+    evaluators: list[EvaluatorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+FilterTypeDef = TypedDict(
+    "FilterTypeDef",
+    {
+        "key": str,
+        "operator": FilterOperatorType,
+        "value": FilterValueTypeDef,
+    },
+)
 
 class GatewayProtocolConfigurationOutputTypeDef(TypedDict):
     mcp: NotRequired[MCPGatewayConfigurationOutputTypeDef]
@@ -1030,13 +1690,82 @@ class GatewayProtocolConfigurationTypeDef(TypedDict):
     mcp: NotRequired[MCPGatewayConfigurationTypeDef]
 
 class ListGatewaysResponseTypeDef(TypedDict):
-    items: List[GatewaySummaryTypeDef]
+    items: list[GatewaySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetMemoryInputWaitTypeDef(TypedDict):
     memoryId: str
+    view: NotRequired[MemoryViewType]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyEngineRequestWaitExtraTypeDef(TypedDict):
+    policyEngineId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyEngineRequestWaitTypeDef(TypedDict):
+    policyEngineId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyGenerationRequestWaitTypeDef(TypedDict):
+    policyGenerationId: str
+    policyEngineId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyRequestWaitExtraTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyRequestWaitTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetPolicyGenerationResponseTypeDef(TypedDict):
+    policyEngineId: str
+    policyGenerationId: str
+    name: str
+    policyGenerationArn: str
+    resource: ResourceTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    status: PolicyGenerationStatusType
+    statusReasons: list[str]
+    findings: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PolicyGenerationTypeDef(TypedDict):
+    policyEngineId: str
+    policyGenerationId: str
+    name: str
+    policyGenerationArn: str
+    resource: ResourceTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    status: PolicyGenerationStatusType
+    statusReasons: list[str]
+    findings: NotRequired[str]
+
+class StartPolicyGenerationRequestTypeDef(TypedDict):
+    policyEngineId: str
+    resource: ResourceTypeDef
+    content: ContentTypeDef
+    name: str
+    clientToken: NotRequired[str]
+
+class StartPolicyGenerationResponseTypeDef(TypedDict):
+    policyEngineId: str
+    policyGenerationId: str
+    name: str
+    policyGenerationArn: str
+    resource: ResourceTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    status: PolicyGenerationStatusType
+    statusReasons: list[str]
+    findings: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTokenVaultResponseTypeDef(TypedDict):
     tokenVaultId: str
@@ -1053,6 +1782,13 @@ class SetTokenVaultCMKResponseTypeDef(TypedDict):
     kmsConfiguration: KmsConfigurationTypeDef
     lastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+InterceptorConfigurationTypeDef = TypedDict(
+    "InterceptorConfigurationTypeDef",
+    {
+        "lambda": NotRequired[LambdaInterceptorConfigurationTypeDef],
+    },
+)
 
 class ListAgentRuntimeEndpointsRequestPaginateTypeDef(TypedDict):
     agentRuntimeId: str
@@ -1083,6 +1819,9 @@ ListCodeInterpretersRequestPaginateTypeDef = TypedDict(
     },
 )
 
+class ListEvaluatorsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListGatewayTargetsRequestPaginateTypeDef(TypedDict):
     gatewayIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1096,28 +1835,70 @@ class ListMemoriesInputPaginateTypeDef(TypedDict):
 class ListOauth2CredentialProvidersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListOnlineEvaluationConfigsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPoliciesRequestPaginateTypeDef(TypedDict):
+    policyEngineId: str
+    targetResourceScope: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPolicyEnginesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPolicyGenerationAssetsRequestPaginateTypeDef(TypedDict):
+    policyGenerationId: str
+    policyEngineId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPolicyGenerationsRequestPaginateTypeDef(TypedDict):
+    policyEngineId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListWorkloadIdentitiesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGatewayTargetsResponseTypeDef(TypedDict):
-    items: List[TargetSummaryTypeDef]
+    items: list[TargetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListMemoriesOutputTypeDef(TypedDict):
-    memories: List[MemorySummaryTypeDef]
+    memories: list[MemorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOauth2CredentialProvidersResponseTypeDef(TypedDict):
-    credentialProviders: List[Oauth2CredentialProviderItemTypeDef]
+    credentialProviders: list[Oauth2CredentialProviderItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListOnlineEvaluationConfigsResponseTypeDef(TypedDict):
+    onlineEvaluationConfigs: list[OnlineEvaluationConfigSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPolicyEnginesResponseTypeDef(TypedDict):
+    policyEngines: list[PolicyEngineTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListWorkloadIdentitiesResponseTypeDef(TypedDict):
-    workloadIdentities: List[WorkloadIdentityTypeTypeDef]
+    workloadIdentities: list[WorkloadIdentityTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+MetadataConfigurationUnionTypeDef = Union[
+    MetadataConfigurationTypeDef, MetadataConfigurationOutputTypeDef
+]
+
+class RatingScaleOutputTypeDef(TypedDict):
+    numerical: NotRequired[list[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[list[CategoricalScaleDefinitionTypeDef]]
+
+class RatingScaleTypeDef(TypedDict):
+    numerical: NotRequired[Sequence[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[Sequence[CategoricalScaleDefinitionTypeDef]]
 
 OAuthCredentialProviderUnionTypeDef = Union[
     OAuthCredentialProviderTypeDef, OAuthCredentialProviderOutputTypeDef
@@ -1130,11 +1911,6 @@ class Oauth2DiscoveryOutputTypeDef(TypedDict):
 Oauth2AuthorizationServerMetadataUnionTypeDef = Union[
     Oauth2AuthorizationServerMetadataTypeDef, Oauth2AuthorizationServerMetadataOutputTypeDef
 ]
-
-class RecordingConfigTypeDef(TypedDict):
-    enabled: NotRequired[bool]
-    s3Location: NotRequired[S3LocationTypeDef]
-
 RequestHeaderConfigurationUnionTypeDef = Union[
     RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
 ]
@@ -1151,9 +1927,41 @@ class ToolDefinitionTypeDef(TypedDict):
     inputSchema: SchemaDefinitionTypeDef
     outputSchema: NotRequired[SchemaDefinitionTypeDef]
 
-AuthorizerConfigurationUnionTypeDef = Union[
-    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
-]
+class TriggerConditionInputTypeDef(TypedDict):
+    messageBasedTrigger: NotRequired[MessageBasedTriggerInputTypeDef]
+    tokenBasedTrigger: NotRequired[TokenBasedTriggerInputTypeDef]
+    timeBasedTrigger: NotRequired[TimeBasedTriggerInputTypeDef]
+
+class TriggerConditionTypeDef(TypedDict):
+    messageBasedTrigger: NotRequired[MessageBasedTriggerTypeDef]
+    tokenBasedTrigger: NotRequired[TokenBasedTriggerTypeDef]
+    timeBasedTrigger: NotRequired[TimeBasedTriggerTypeDef]
+
+class ApiGatewayTargetConfigurationOutputTypeDef(TypedDict):
+    restApiId: str
+    stage: str
+    apiGatewayToolConfiguration: ApiGatewayToolConfigurationOutputTypeDef
+
+class ApiGatewayTargetConfigurationTypeDef(TypedDict):
+    restApiId: str
+    stage: str
+    apiGatewayToolConfiguration: ApiGatewayToolConfigurationTypeDef
+
+class CustomClaimValidationTypeOutputTypeDef(TypedDict):
+    inboundTokenClaimName: str
+    inboundTokenClaimValueType: InboundTokenClaimValueTypeType
+    authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeOutputTypeDef
+
+class CustomClaimValidationTypeTypeDef(TypedDict):
+    inboundTokenClaimName: str
+    inboundTokenClaimValueType: InboundTokenClaimValueTypeType
+    authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeTypeDef
+
+class EvaluatorModelConfigOutputTypeDef(TypedDict):
+    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigOutputTypeDef]
+
+class EvaluatorModelConfigTypeDef(TypedDict):
+    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigTypeDef]
 
 class GetCodeInterpreterResponseTypeDef(TypedDict):
     codeInterpreterId: str
@@ -1168,25 +1976,6 @@ class GetCodeInterpreterResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetAgentRuntimeResponseTypeDef(TypedDict):
-    agentRuntimeArn: str
-    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
-    agentRuntimeName: str
-    description: str
-    agentRuntimeId: str
-    agentRuntimeVersion: str
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    roleArn: str
-    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
-    networkConfiguration: NetworkConfigurationOutputTypeDef
-    protocolConfiguration: ProtocolConfigurationTypeDef
-    environmentVariables: Dict[str, str]
-    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
-    requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
-    status: AgentRuntimeStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
-
 BrowserNetworkConfigurationUnionTypeDef = Union[
     BrowserNetworkConfigurationTypeDef, BrowserNetworkConfigurationOutputTypeDef
 ]
@@ -1196,6 +1985,128 @@ CodeInterpreterNetworkConfigurationUnionTypeDef = Union[
 NetworkConfigurationUnionTypeDef = Union[
     NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
 ]
+
+class CreatePolicyRequestTypeDef(TypedDict):
+    name: str
+    definition: PolicyDefinitionTypeDef
+    policyEngineId: str
+    description: NotRequired[str]
+    validationMode: NotRequired[PolicyValidationModeType]
+    clientToken: NotRequired[str]
+
+class CreatePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeletePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PolicyGenerationAssetTypeDef(TypedDict):
+    policyGenerationAssetId: str
+    rawTextFragment: str
+    findings: list[FindingTypeDef]
+    definition: NotRequired[PolicyDefinitionTypeDef]
+
+class PolicyTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    description: NotRequired[str]
+
+class UpdatePolicyRequestTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+    definition: PolicyDefinitionTypeDef
+    description: NotRequired[str]
+    validationMode: NotRequired[PolicyValidationModeType]
+
+class UpdatePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
+
+class CreateOnlineEvaluationConfigResponseTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    createdAt: datetime
+    outputConfig: OutputConfigTypeDef
+    status: OnlineEvaluationConfigStatusType
+    executionStatus: OnlineEvaluationExecutionStatusType
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CodeConfigurationOutputTypeDef(TypedDict):
+    code: CodeTypeDef
+    runtime: AgentManagedRuntimeTypeType
+    entryPoint: list[str]
+
+class CodeConfigurationTypeDef(TypedDict):
+    code: CodeTypeDef
+    runtime: AgentManagedRuntimeTypeType
+    entryPoint: Sequence[str]
+
+class GetBrowserResponseTypeDef(TypedDict):
+    browserId: str
+    browserArn: str
+    name: str
+    description: str
+    executionRoleArn: str
+    networkConfiguration: BrowserNetworkConfigurationOutputTypeDef
+    recording: RecordingConfigTypeDef
+    browserSigning: BrowserSigningConfigOutputTypeDef
+    status: BrowserStatusType
+    failureReason: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CredentialProviderConfigurationOutputTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
@@ -1210,125 +2121,136 @@ class ConsolidationConfigurationTypeDef(TypedDict):
 class ModifyExtractionConfigurationTypeDef(TypedDict):
     customExtractionConfiguration: NotRequired[CustomExtractionConfigurationInputTypeDef]
 
-class CustomConfigurationInputTypeDef(TypedDict):
-    semanticOverride: NotRequired[SemanticOverrideConfigurationInputTypeDef]
-    summaryOverride: NotRequired[SummaryOverrideConfigurationInputTypeDef]
-    userPreferenceOverride: NotRequired[UserPreferenceOverrideConfigurationInputTypeDef]
-
 class ExtractionConfigurationTypeDef(TypedDict):
     customExtractionConfiguration: NotRequired[CustomExtractionConfigurationTypeDef]
 
-class CreateGatewayResponseTypeDef(TypedDict):
-    gatewayArn: str
-    gatewayId: str
-    gatewayUrl: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: GatewayStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
-    authorizerType: Literal["CUSTOM_JWT"]
-    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
-    kmsKeyArn: str
-    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
-    exceptionLevel: Literal["DEBUG"]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ModifyReflectionConfigurationTypeDef(TypedDict):
+    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
+    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationInputTypeDef]
 
-class GetGatewayResponseTypeDef(TypedDict):
-    gatewayArn: str
-    gatewayId: str
-    gatewayUrl: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: GatewayStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
-    authorizerType: Literal["CUSTOM_JWT"]
-    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
-    kmsKeyArn: str
-    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
-    exceptionLevel: Literal["DEBUG"]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ReflectionConfigurationTypeDef(TypedDict):
+    customReflectionConfiguration: NotRequired[CustomReflectionConfigurationTypeDef]
+    episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationTypeDef]
 
-class UpdateGatewayResponseTypeDef(TypedDict):
-    gatewayArn: str
-    gatewayId: str
-    gatewayUrl: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: GatewayStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
-    authorizerType: Literal["CUSTOM_JWT"]
-    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
-    kmsKeyArn: str
-    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
-    exceptionLevel: Literal["DEBUG"]
-    ResponseMetadata: ResponseMetadataTypeDef
+class RuleOutputTypeDef(TypedDict):
+    samplingConfig: SamplingConfigTypeDef
+    filters: NotRequired[list[FilterTypeDef]]
+    sessionConfig: NotRequired[SessionConfigTypeDef]
+
+class RuleTypeDef(TypedDict):
+    samplingConfig: SamplingConfigTypeDef
+    filters: NotRequired[Sequence[FilterTypeDef]]
+    sessionConfig: NotRequired[SessionConfigTypeDef]
 
 GatewayProtocolConfigurationUnionTypeDef = Union[
     GatewayProtocolConfigurationTypeDef, GatewayProtocolConfigurationOutputTypeDef
 ]
 
+class ListPolicyGenerationsResponseTypeDef(TypedDict):
+    policyGenerations: list[PolicyGenerationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GatewayInterceptorConfigurationOutputTypeDef(TypedDict):
+    interceptor: InterceptorConfigurationTypeDef
+    interceptionPoints: list[GatewayInterceptionPointType]
+    inputConfiguration: NotRequired[InterceptorInputConfigurationTypeDef]
+
+class GatewayInterceptorConfigurationTypeDef(TypedDict):
+    interceptor: InterceptorConfigurationTypeDef
+    interceptionPoints: Sequence[GatewayInterceptionPointType]
+    inputConfiguration: NotRequired[InterceptorInputConfigurationTypeDef]
+
 class CredentialProviderTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderUnionTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
 
+class AtlassianOauth2ProviderConfigOutputTypeDef(TypedDict):
+    oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
+
 class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class GithubOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class GoogleOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
+
+class IncludedOauth2ProviderConfigOutputTypeDef(TypedDict):
+    oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
+
+class LinkedinOauth2ProviderConfigOutputTypeDef(TypedDict):
+    oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class MicrosoftOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class SalesforceOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class SlackOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
+    clientId: NotRequired[str]
 
 class Oauth2DiscoveryTypeDef(TypedDict):
     discoveryUrl: NotRequired[str]
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
 
-class GetBrowserResponseTypeDef(TypedDict):
-    browserId: str
-    browserArn: str
-    name: str
-    description: str
-    executionRoleArn: str
-    networkConfiguration: BrowserNetworkConfigurationOutputTypeDef
-    recording: RecordingConfigTypeDef
-    status: BrowserStatusType
-    failureReason: str
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ToolSchemaOutputTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
-    inlinePayload: NotRequired[List[ToolDefinitionOutputTypeDef]]
+    inlinePayload: NotRequired[list[ToolDefinitionOutputTypeDef]]
 
 class ToolSchemaTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
     inlinePayload: NotRequired[Sequence[ToolDefinitionTypeDef]]
+
+class ModifySelfManagedConfigurationTypeDef(TypedDict):
+    triggerConditions: NotRequired[Sequence[TriggerConditionInputTypeDef]]
+    invocationConfiguration: NotRequired[ModifyInvocationConfigurationInputTypeDef]
+    historicalContextWindowSize: NotRequired[int]
+
+class SelfManagedConfigurationInputTypeDef(TypedDict):
+    invocationConfiguration: InvocationConfigurationInputTypeDef
+    triggerConditions: NotRequired[Sequence[TriggerConditionInputTypeDef]]
+    historicalContextWindowSize: NotRequired[int]
+
+class SelfManagedConfigurationTypeDef(TypedDict):
+    triggerConditions: list[TriggerConditionTypeDef]
+    invocationConfiguration: InvocationConfigurationTypeDef
+    historicalContextWindowSize: int
+
+class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
+    discoveryUrl: str
+    allowedAudience: NotRequired[list[str]]
+    allowedClients: NotRequired[list[str]]
+    allowedScopes: NotRequired[list[str]]
+    customClaims: NotRequired[list[CustomClaimValidationTypeOutputTypeDef]]
+
+class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
+    discoveryUrl: str
+    allowedAudience: NotRequired[Sequence[str]]
+    allowedClients: NotRequired[Sequence[str]]
+    allowedScopes: NotRequired[Sequence[str]]
+    customClaims: NotRequired[Sequence[CustomClaimValidationTypeTypeDef]]
+
+class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleOutputTypeDef
+    modelConfig: EvaluatorModelConfigOutputTypeDef
+
+class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleTypeDef
+    modelConfig: EvaluatorModelConfigTypeDef
 
 class CreateBrowserRequestTypeDef(TypedDict):
     name: str
@@ -1336,6 +2258,7 @@ class CreateBrowserRequestTypeDef(TypedDict):
     description: NotRequired[str]
     executionRoleArn: NotRequired[str]
     recording: NotRequired[RecordingConfigTypeDef]
+    browserSigning: NotRequired[BrowserSigningConfigInputTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -1347,74 +2270,45 @@ class CreateCodeInterpreterRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
-class CreateAgentRuntimeRequestTypeDef(TypedDict):
-    agentRuntimeName: str
-    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
-    roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
-    description: NotRequired[str]
-    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
-    clientToken: NotRequired[str]
-    environmentVariables: NotRequired[Mapping[str, str]]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
-    tags: NotRequired[Mapping[str, str]]
+class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
+    policyGenerationAssets: list[PolicyGenerationAssetTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
-class UpdateAgentRuntimeRequestTypeDef(TypedDict):
-    agentRuntimeId: str
-    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
-    roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
-    description: NotRequired[str]
-    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
-    clientToken: NotRequired[str]
-    environmentVariables: NotRequired[Mapping[str, str]]
-    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
-    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+class ListPoliciesResponseTypeDef(TypedDict):
+    policies: list[PolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
-class ModifyStrategyConfigurationTypeDef(TypedDict):
-    extraction: NotRequired[ModifyExtractionConfigurationTypeDef]
-    consolidation: NotRequired[ModifyConsolidationConfigurationTypeDef]
+class AgentRuntimeArtifactOutputTypeDef(TypedDict):
+    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
+    codeConfiguration: NotRequired[CodeConfigurationOutputTypeDef]
 
-class CustomMemoryStrategyInputTypeDef(TypedDict):
-    name: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    configuration: NotRequired[CustomConfigurationInputTypeDef]
+class AgentRuntimeArtifactTypeDef(TypedDict):
+    containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
+    codeConfiguration: NotRequired[CodeConfigurationTypeDef]
 
-StrategyConfigurationTypeDef = TypedDict(
-    "StrategyConfigurationTypeDef",
-    {
-        "type": NotRequired[OverrideTypeType],
-        "extraction": NotRequired[ExtractionConfigurationTypeDef],
-        "consolidation": NotRequired[ConsolidationConfigurationTypeDef],
-    },
-)
+class GetOnlineEvaluationConfigResponseTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    onlineEvaluationConfigName: str
+    description: str
+    rule: RuleOutputTypeDef
+    dataSourceConfig: DataSourceConfigOutputTypeDef
+    evaluators: list[EvaluatorReferenceTypeDef]
+    outputConfig: OutputConfigTypeDef
+    evaluationExecutionRoleArn: str
+    status: OnlineEvaluationConfigStatusType
+    executionStatus: OnlineEvaluationExecutionStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateGatewayRequestTypeDef(TypedDict):
-    name: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    authorizerType: Literal["CUSTOM_JWT"]
-    authorizerConfiguration: AuthorizerConfigurationUnionTypeDef
-    description: NotRequired[str]
-    clientToken: NotRequired[str]
-    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
-    kmsKeyArn: NotRequired[str]
-    exceptionLevel: NotRequired[Literal["DEBUG"]]
-
-class UpdateGatewayRequestTypeDef(TypedDict):
-    gatewayIdentifier: str
-    name: str
-    roleArn: str
-    protocolType: Literal["MCP"]
-    authorizerType: Literal["CUSTOM_JWT"]
-    authorizerConfiguration: AuthorizerConfigurationUnionTypeDef
-    description: NotRequired[str]
-    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
-    kmsKeyArn: NotRequired[str]
-    exceptionLevel: NotRequired[Literal["DEBUG"]]
-
+RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
+GatewayInterceptorConfigurationUnionTypeDef = Union[
+    GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
+]
 CredentialProviderUnionTypeDef = Union[CredentialProviderTypeDef, CredentialProviderOutputTypeDef]
 
 class Oauth2ProviderConfigOutputTypeDef(TypedDict):
@@ -1424,6 +2318,9 @@ class Oauth2ProviderConfigOutputTypeDef(TypedDict):
     slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigOutputTypeDef]
     salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigOutputTypeDef]
     microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigOutputTypeDef]
+    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigOutputTypeDef]
+    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigOutputTypeDef]
+    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigOutputTypeDef]
 
 Oauth2DiscoveryUnionTypeDef = Union[Oauth2DiscoveryTypeDef, Oauth2DiscoveryOutputTypeDef]
 
@@ -1435,42 +2332,84 @@ class McpLambdaTargetConfigurationTypeDef(TypedDict):
     lambdaArn: str
     toolSchema: ToolSchemaTypeDef
 
-class ModifyMemoryStrategyInputTypeDef(TypedDict):
-    memoryStrategyId: str
-    description: NotRequired[str]
-    namespaces: NotRequired[Sequence[str]]
-    configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
+class ModifyStrategyConfigurationTypeDef(TypedDict):
+    extraction: NotRequired[ModifyExtractionConfigurationTypeDef]
+    consolidation: NotRequired[ModifyConsolidationConfigurationTypeDef]
+    reflection: NotRequired[ModifyReflectionConfigurationTypeDef]
+    selfManagedConfiguration: NotRequired[ModifySelfManagedConfigurationTypeDef]
 
-class MemoryStrategyInputTypeDef(TypedDict):
-    semanticMemoryStrategy: NotRequired[SemanticMemoryStrategyInputTypeDef]
-    summaryMemoryStrategy: NotRequired[SummaryMemoryStrategyInputTypeDef]
-    userPreferenceMemoryStrategy: NotRequired[UserPreferenceMemoryStrategyInputTypeDef]
-    customMemoryStrategy: NotRequired[CustomMemoryStrategyInputTypeDef]
+class CustomConfigurationInputTypeDef(TypedDict):
+    semanticOverride: NotRequired[SemanticOverrideConfigurationInputTypeDef]
+    summaryOverride: NotRequired[SummaryOverrideConfigurationInputTypeDef]
+    userPreferenceOverride: NotRequired[UserPreferenceOverrideConfigurationInputTypeDef]
+    episodicOverride: NotRequired[EpisodicOverrideConfigurationInputTypeDef]
+    selfManagedConfiguration: NotRequired[SelfManagedConfigurationInputTypeDef]
 
-MemoryStrategyTypeDef = TypedDict(
-    "MemoryStrategyTypeDef",
+StrategyConfigurationTypeDef = TypedDict(
+    "StrategyConfigurationTypeDef",
     {
-        "strategyId": str,
-        "name": str,
-        "type": MemoryStrategyTypeType,
-        "namespaces": List[str],
-        "description": NotRequired[str],
-        "configuration": NotRequired[StrategyConfigurationTypeDef],
-        "createdAt": NotRequired[datetime],
-        "updatedAt": NotRequired[datetime],
-        "status": NotRequired[MemoryStrategyStatusType],
+        "type": NotRequired[OverrideTypeType],
+        "extraction": NotRequired[ExtractionConfigurationTypeDef],
+        "consolidation": NotRequired[ConsolidationConfigurationTypeDef],
+        "reflection": NotRequired[ReflectionConfigurationTypeDef],
+        "selfManagedConfiguration": NotRequired[SelfManagedConfigurationTypeDef],
     },
 )
+
+class AuthorizerConfigurationOutputTypeDef(TypedDict):
+    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
+
+class AuthorizerConfigurationTypeDef(TypedDict):
+    customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationTypeDef]
+
+class EvaluatorConfigOutputTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
+
+class EvaluatorConfigTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
+
+AgentRuntimeArtifactUnionTypeDef = Union[
+    AgentRuntimeArtifactTypeDef, AgentRuntimeArtifactOutputTypeDef
+]
+
+class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
+    onlineEvaluationConfigName: str
+    rule: RuleUnionTypeDef
+    dataSourceConfig: DataSourceConfigUnionTypeDef
+    evaluators: Sequence[EvaluatorReferenceTypeDef]
+    evaluationExecutionRoleArn: str
+    enableOnCreate: bool
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
+class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
+    onlineEvaluationConfigId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    rule: NotRequired[RuleUnionTypeDef]
+    dataSourceConfig: NotRequired[DataSourceConfigUnionTypeDef]
+    evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
+    evaluationExecutionRoleArn: NotRequired[str]
+    executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
 
 class CredentialProviderConfigurationTypeDef(TypedDict):
     credentialProviderType: CredentialProviderTypeType
     credentialProvider: NotRequired[CredentialProviderUnionTypeDef]
+
+class CreateOauth2CredentialProviderResponseTypeDef(TypedDict):
+    clientSecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    callbackUrl: str
+    oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOauth2CredentialProviderResponseTypeDef(TypedDict):
     clientSecretArn: SecretTypeDef
     name: str
     credentialProviderArn: str
     credentialProviderVendor: CredentialProviderVendorTypeType
+    callbackUrl: str
     oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
     createdTime: datetime
     lastUpdatedTime: datetime
@@ -1481,6 +2420,7 @@ class UpdateOauth2CredentialProviderResponseTypeDef(TypedDict):
     name: str
     credentialProviderVendor: CredentialProviderVendorTypeType
     credentialProviderArn: str
+    callbackUrl: str
     oauth2ProviderConfigOutput: Oauth2ProviderConfigOutputTypeDef
     createdTime: datetime
     lastUpdatedTime: datetime
@@ -1497,6 +2437,8 @@ McpTargetConfigurationOutputTypeDef = TypedDict(
         "openApiSchema": NotRequired[ApiSchemaConfigurationTypeDef],
         "smithyModel": NotRequired[ApiSchemaConfigurationTypeDef],
         "lambda": NotRequired[McpLambdaTargetConfigurationOutputTypeDef],
+        "mcpServer": NotRequired[McpServerTargetConfigurationTypeDef],
+        "apiGateway": NotRequired[ApiGatewayTargetConfigurationOutputTypeDef],
     },
 )
 McpTargetConfigurationTypeDef = TypedDict(
@@ -1505,22 +2447,170 @@ McpTargetConfigurationTypeDef = TypedDict(
         "openApiSchema": NotRequired[ApiSchemaConfigurationTypeDef],
         "smithyModel": NotRequired[ApiSchemaConfigurationTypeDef],
         "lambda": NotRequired[McpLambdaTargetConfigurationTypeDef],
+        "mcpServer": NotRequired[McpServerTargetConfigurationTypeDef],
+        "apiGateway": NotRequired[ApiGatewayTargetConfigurationTypeDef],
     },
 )
 
-class CreateMemoryInputTypeDef(TypedDict):
-    name: str
-    eventExpiryDuration: int
-    clientToken: NotRequired[str]
+class ModifyMemoryStrategyInputTypeDef(TypedDict):
+    memoryStrategyId: str
     description: NotRequired[str]
-    encryptionKeyArn: NotRequired[str]
-    memoryExecutionRoleArn: NotRequired[str]
-    memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    namespaces: NotRequired[Sequence[str]]
+    configuration: NotRequired[ModifyStrategyConfigurationTypeDef]
 
-class ModifyMemoryStrategiesTypeDef(TypedDict):
-    addMemoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
-    modifyMemoryStrategies: NotRequired[Sequence[ModifyMemoryStrategyInputTypeDef]]
-    deleteMemoryStrategies: NotRequired[Sequence[DeleteMemoryStrategyInputTypeDef]]
+class CustomMemoryStrategyInputTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    namespaces: NotRequired[Sequence[str]]
+    configuration: NotRequired[CustomConfigurationInputTypeDef]
+
+MemoryStrategyTypeDef = TypedDict(
+    "MemoryStrategyTypeDef",
+    {
+        "strategyId": str,
+        "name": str,
+        "type": MemoryStrategyTypeType,
+        "namespaces": list[str],
+        "description": NotRequired[str],
+        "configuration": NotRequired[StrategyConfigurationTypeDef],
+        "createdAt": NotRequired[datetime],
+        "updatedAt": NotRequired[datetime],
+        "status": NotRequired[MemoryStrategyStatusType],
+    },
+)
+
+class CreateGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    gatewayId: str
+    gatewayUrl: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: GatewayStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
+    authorizerType: AuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    kmsKeyArn: str
+    interceptorConfigurations: list[GatewayInterceptorConfigurationOutputTypeDef]
+    policyEngineConfiguration: GatewayPolicyEngineConfigurationTypeDef
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    exceptionLevel: Literal["DEBUG"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentRuntimeResponseTypeDef(TypedDict):
+    agentRuntimeArn: str
+    agentRuntimeName: str
+    agentRuntimeId: str
+    agentRuntimeVersion: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    roleArn: str
+    networkConfiguration: NetworkConfigurationOutputTypeDef
+    status: AgentRuntimeStatusType
+    lifecycleConfiguration: LifecycleConfigurationTypeDef
+    failureReason: str
+    description: str
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    agentRuntimeArtifact: AgentRuntimeArtifactOutputTypeDef
+    protocolConfiguration: ProtocolConfigurationTypeDef
+    environmentVariables: dict[str, str]
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    gatewayId: str
+    gatewayUrl: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: GatewayStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
+    authorizerType: AuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    kmsKeyArn: str
+    interceptorConfigurations: list[GatewayInterceptorConfigurationOutputTypeDef]
+    policyEngineConfiguration: GatewayPolicyEngineConfigurationTypeDef
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    exceptionLevel: Literal["DEBUG"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGatewayResponseTypeDef(TypedDict):
+    gatewayArn: str
+    gatewayId: str
+    gatewayUrl: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: GatewayStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    protocolConfiguration: GatewayProtocolConfigurationOutputTypeDef
+    authorizerType: AuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    kmsKeyArn: str
+    interceptorConfigurations: list[GatewayInterceptorConfigurationOutputTypeDef]
+    policyEngineConfiguration: GatewayPolicyEngineConfigurationTypeDef
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    exceptionLevel: Literal["DEBUG"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+AuthorizerConfigurationUnionTypeDef = Union[
+    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
+]
+
+class GetEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    description: str
+    evaluatorConfig: EvaluatorConfigOutputTypeDef
+    level: EvaluatorLevelType
+    status: EvaluatorStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    lockedForModification: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
+CredentialProviderConfigurationUnionTypeDef = Union[
+    CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
+]
+
+class Oauth2ProviderConfigInputTypeDef(TypedDict):
+    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigInputTypeDef]
+    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigInputTypeDef]
+    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigInputTypeDef]
+    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigInputTypeDef]
+    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigInputTypeDef]
+    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigInputTypeDef]
+    atlassianOauth2ProviderConfig: NotRequired[AtlassianOauth2ProviderConfigInputTypeDef]
+    linkedinOauth2ProviderConfig: NotRequired[LinkedinOauth2ProviderConfigInputTypeDef]
+    includedOauth2ProviderConfig: NotRequired[IncludedOauth2ProviderConfigInputTypeDef]
+
+class TargetConfigurationOutputTypeDef(TypedDict):
+    mcp: NotRequired[McpTargetConfigurationOutputTypeDef]
+
+class TargetConfigurationTypeDef(TypedDict):
+    mcp: NotRequired[McpTargetConfigurationTypeDef]
+
+class MemoryStrategyInputTypeDef(TypedDict):
+    semanticMemoryStrategy: NotRequired[SemanticMemoryStrategyInputTypeDef]
+    summaryMemoryStrategy: NotRequired[SummaryMemoryStrategyInputTypeDef]
+    userPreferenceMemoryStrategy: NotRequired[UserPreferenceMemoryStrategyInputTypeDef]
+    customMemoryStrategy: NotRequired[CustomMemoryStrategyInputTypeDef]
+    episodicMemoryStrategy: NotRequired[EpisodicMemoryStrategyInputTypeDef]
 
 MemoryTypeDef = TypedDict(
     "MemoryTypeDef",
@@ -1536,34 +2626,168 @@ MemoryTypeDef = TypedDict(
         "encryptionKeyArn": NotRequired[str],
         "memoryExecutionRoleArn": NotRequired[str],
         "failureReason": NotRequired[str],
-        "strategies": NotRequired[List[MemoryStrategyTypeDef]],
+        "strategies": NotRequired[list[MemoryStrategyTypeDef]],
     },
 )
-CredentialProviderConfigurationUnionTypeDef = Union[
-    CredentialProviderConfigurationTypeDef, CredentialProviderConfigurationOutputTypeDef
-]
 
-class Oauth2ProviderConfigInputTypeDef(TypedDict):
-    customOauth2ProviderConfig: NotRequired[CustomOauth2ProviderConfigInputTypeDef]
-    googleOauth2ProviderConfig: NotRequired[GoogleOauth2ProviderConfigInputTypeDef]
-    githubOauth2ProviderConfig: NotRequired[GithubOauth2ProviderConfigInputTypeDef]
-    slackOauth2ProviderConfig: NotRequired[SlackOauth2ProviderConfigInputTypeDef]
-    salesforceOauth2ProviderConfig: NotRequired[SalesforceOauth2ProviderConfigInputTypeDef]
-    microsoftOauth2ProviderConfig: NotRequired[MicrosoftOauth2ProviderConfigInputTypeDef]
-
-class TargetConfigurationOutputTypeDef(TypedDict):
-    mcp: NotRequired[McpTargetConfigurationOutputTypeDef]
-
-class TargetConfigurationTypeDef(TypedDict):
-    mcp: NotRequired[McpTargetConfigurationTypeDef]
-
-class UpdateMemoryInputTypeDef(TypedDict):
-    memoryId: str
+class CreateAgentRuntimeRequestTypeDef(TypedDict):
+    agentRuntimeName: str
+    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
+    roleArn: str
+    networkConfiguration: NetworkConfigurationUnionTypeDef
     clientToken: NotRequired[str]
     description: NotRequired[str]
-    eventExpiryDuration: NotRequired[int]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
+    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    tags: NotRequired[Mapping[str, str]]
+
+class CreateGatewayRequestTypeDef(TypedDict):
+    name: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    authorizerType: AuthorizerTypeType
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    kmsKeyArn: NotRequired[str]
+    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
+    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
+    exceptionLevel: NotRequired[Literal["DEBUG"]]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateAgentRuntimeRequestTypeDef(TypedDict):
+    agentRuntimeId: str
+    agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
+    roleArn: str
+    networkConfiguration: NetworkConfigurationUnionTypeDef
+    description: NotRequired[str]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+    protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
+    lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+class UpdateGatewayRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    name: str
+    roleArn: str
+    protocolType: Literal["MCP"]
+    authorizerType: AuthorizerTypeType
+    description: NotRequired[str]
+    protocolConfiguration: NotRequired[GatewayProtocolConfigurationUnionTypeDef]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    kmsKeyArn: NotRequired[str]
+    interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
+    policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
+    exceptionLevel: NotRequired[Literal["DEBUG"]]
+
+class CreateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorName: str
+    evaluatorConfig: EvaluatorConfigUnionTypeDef
+    level: EvaluatorLevelType
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
+class UpdateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    evaluatorConfig: NotRequired[EvaluatorConfigUnionTypeDef]
+    level: NotRequired[EvaluatorLevelType]
+
+class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateOauth2CredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: CredentialProviderVendorTypeType
+    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
+
+class CreateGatewayTargetResponseTypeDef(TypedDict):
+    gatewayArn: str
+    targetId: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: TargetStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    targetConfiguration: TargetConfigurationOutputTypeDef
+    credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
+    lastSynchronizedAt: datetime
+    metadataConfiguration: MetadataConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GatewayTargetTypeDef(TypedDict):
+    gatewayArn: str
+    targetId: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: TargetStatusType
+    name: str
+    targetConfiguration: TargetConfigurationOutputTypeDef
+    credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
+    statusReasons: NotRequired[list[str]]
+    description: NotRequired[str]
+    lastSynchronizedAt: NotRequired[datetime]
+    metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
+
+class GetGatewayTargetResponseTypeDef(TypedDict):
+    gatewayArn: str
+    targetId: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: TargetStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    targetConfiguration: TargetConfigurationOutputTypeDef
+    credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
+    lastSynchronizedAt: datetime
+    metadataConfiguration: MetadataConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGatewayTargetResponseTypeDef(TypedDict):
+    gatewayArn: str
+    targetId: str
+    createdAt: datetime
+    updatedAt: datetime
+    status: TargetStatusType
+    statusReasons: list[str]
+    name: str
+    description: str
+    targetConfiguration: TargetConfigurationOutputTypeDef
+    credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
+    lastSynchronizedAt: datetime
+    metadataConfiguration: MetadataConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+TargetConfigurationUnionTypeDef = Union[
+    TargetConfigurationTypeDef, TargetConfigurationOutputTypeDef
+]
+
+class CreateMemoryInputTypeDef(TypedDict):
+    name: str
+    eventExpiryDuration: int
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    encryptionKeyArn: NotRequired[str]
     memoryExecutionRoleArn: NotRequired[str]
-    memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
+    memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    tags: NotRequired[Mapping[str, str]]
+
+class ModifyMemoryStrategiesTypeDef(TypedDict):
+    addMemoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
+    modifyMemoryStrategies: NotRequired[Sequence[ModifyMemoryStrategyInputTypeDef]]
+    deleteMemoryStrategies: NotRequired[Sequence[DeleteMemoryStrategyInputTypeDef]]
 
 class CreateMemoryOutputTypeDef(TypedDict):
     memory: MemoryTypeDef
@@ -1577,71 +2801,36 @@ class UpdateMemoryOutputTypeDef(TypedDict):
     memory: MemoryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateOauth2CredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
-
-class UpdateOauth2CredentialProviderRequestTypeDef(TypedDict):
-    name: str
-    credentialProviderVendor: CredentialProviderVendorTypeType
-    oauth2ProviderConfigInput: Oauth2ProviderConfigInputTypeDef
-
-class CreateGatewayTargetResponseTypeDef(TypedDict):
-    gatewayArn: str
-    targetId: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: TargetStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    targetConfiguration: TargetConfigurationOutputTypeDef
-    credentialProviderConfigurations: List[CredentialProviderConfigurationOutputTypeDef]
+class SynchronizeGatewayTargetsResponseTypeDef(TypedDict):
+    targets: list[GatewayTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class GetGatewayTargetResponseTypeDef(TypedDict):
-    gatewayArn: str
-    targetId: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: TargetStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    targetConfiguration: TargetConfigurationOutputTypeDef
-    credentialProviderConfigurations: List[CredentialProviderConfigurationOutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateGatewayTargetResponseTypeDef(TypedDict):
-    gatewayArn: str
-    targetId: str
-    createdAt: datetime
-    updatedAt: datetime
-    status: TargetStatusType
-    statusReasons: List[str]
-    name: str
-    description: str
-    targetConfiguration: TargetConfigurationOutputTypeDef
-    credentialProviderConfigurations: List[CredentialProviderConfigurationOutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-TargetConfigurationUnionTypeDef = Union[
-    TargetConfigurationTypeDef, TargetConfigurationOutputTypeDef
-]
 
 class CreateGatewayTargetRequestTypeDef(TypedDict):
     gatewayIdentifier: str
     name: str
     targetConfiguration: TargetConfigurationUnionTypeDef
-    credentialProviderConfigurations: Sequence[CredentialProviderConfigurationUnionTypeDef]
     description: NotRequired[str]
     clientToken: NotRequired[str]
+    credentialProviderConfigurations: NotRequired[
+        Sequence[CredentialProviderConfigurationUnionTypeDef]
+    ]
+    metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
 
 class UpdateGatewayTargetRequestTypeDef(TypedDict):
     gatewayIdentifier: str
     targetId: str
     name: str
     targetConfiguration: TargetConfigurationUnionTypeDef
-    credentialProviderConfigurations: Sequence[CredentialProviderConfigurationUnionTypeDef]
     description: NotRequired[str]
+    credentialProviderConfigurations: NotRequired[
+        Sequence[CredentialProviderConfigurationUnionTypeDef]
+    ]
+    metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
+
+class UpdateMemoryInputTypeDef(TypedDict):
+    memoryId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    eventExpiryDuration: NotRequired[int]
+    memoryExecutionRoleArn: NotRequired[str]
+    memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]

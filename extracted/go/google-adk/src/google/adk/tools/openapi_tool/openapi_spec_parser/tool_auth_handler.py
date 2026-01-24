@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -268,9 +268,9 @@ class ToolAuthHandler:
         )
 
     # here exchangers are doing two different thing:
-    # for service account the exchanger is doing actualy token exchange
-    # while for oauth2 it's actually doing the credentail conversion
-    # from OAuth2 credential to HTTP credentails for setting credential in
+    # for service account the exchanger is doing actual token exchange
+    # while for oauth2 it's actually doing the credential conversion
+    # from OAuth2 credential to HTTP credentials for setting credential in
     # http header
     # TODO cleanup the logic:
     # 1. service account token exchanger should happen before we store them in

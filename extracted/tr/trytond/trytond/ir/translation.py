@@ -15,8 +15,8 @@ from sql.aggregate import Max
 from sql.conditionals import Case
 from sql.functions import Position, Substring
 
+import trytond.config as config
 from trytond.cache import Cache
-from trytond.config import config
 from trytond.exceptions import UserError
 from trytond.i18n import gettext
 from trytond.model import Index, ModelSQL, ModelView, fields
@@ -46,6 +46,10 @@ ACTION_MODELS = {'ir.action'} | dict(ACTION_SELECTION).keys()
 
 
 class OverriddenError(UserError):
+    pass
+
+
+class DefaultLanguageError(UserError):
     pass
 
 
@@ -1255,7 +1259,7 @@ class TranslationSet(Wizard):
                         [
                             [view.model, INTERNAL_LANG,
                                 'view', string,
-                                '', '',
+                                None, '',
                                 '', '',
                                 '', view.module,
                                 False, -1]]))
@@ -1267,6 +1271,12 @@ class TranslationSet(Wizard):
                         & ~translation.src.in_(strings)))
 
     def transition_set_(self):
+        pool = Pool()
+        Config = pool.get('ir.configuration')
+        default_lang = Config.get_language()
+        if default_lang != INTERNAL_LANG:
+            raise DefaultLanguageError(gettext(
+                    'ir.msg_translation_set_default_lang'))
         self.set_report()
         self.set_view()
         return 'succeed'
@@ -1733,6 +1743,11 @@ class TranslationExport(Wizard):
     def transition_export(self):
         pool = Pool()
         Translation = pool.get('ir.translation')
+        Config = pool.get('ir.configuration')
+        default_lang = Config.get_language()
+        if default_lang != INTERNAL_LANG:
+            raise DefaultLanguageError(gettext(
+                    'ir.msg_translation_export_default_lang'))
         self.result.file = Translation.translation_export(
             self.start.language.code, self.start.module.name)
         return 'result'

@@ -8,7 +8,7 @@ import aiohttp
 LOGGER = logging.getLogger(__name__)
 
 CONFIG_DELAY: int = 5  # For WARP to apply network configurations, in seconds
-DOMAIN_TO_TEST_DNS: str = "notify.bugsnag.com"  # Using a domain that used to fail
+DOMAIN_TO_TEST_DNS: str = "api.ipify.org"  # Using a domain that used to fail
 
 
 class WarpError(Exception):
@@ -18,7 +18,7 @@ class WarpError(Exception):
 async def test_public_ip(expected_ip: str) -> bool:
     ip_service_url = "https://api.ipify.org?format=text"
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:  # noqa: SIM117
             async with session.get(ip_service_url) as response:
                 if response.status == 200:
                     public_ip = await response.text()
@@ -28,8 +28,8 @@ async def test_public_ip(expected_ip: str) -> bool:
                 LOGGER.error("Failed to fetch public IP. Status code: %s", response.status)
                 return False
 
-    except aiohttp.ClientError as ex:
-        LOGGER.exception(ex)
+    except aiohttp.ClientError:
+        LOGGER.exception("Error fetching public IP")
         return False
 
 
@@ -86,10 +86,12 @@ async def warp_cli(*args: str) -> str:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), 30)
     except (asyncio.exceptions.TimeoutError, OSError) as ex:
-        raise WarpError("Failed to run command") from ex
+        msg = "Failed to run command"
+        raise WarpError(msg) from ex
 
     if proc.returncode != 0:
-        raise WarpError(stderr.decode().strip())
+        msg = stderr.decode().strip()
+        raise WarpError(msg)
 
     return stdout.decode().strip()
 
@@ -103,7 +105,8 @@ async def warp_cli_connect() -> None:
     LOGGER.info("Connect: %s", response)
     await asyncio.sleep(CONFIG_DELAY)
     if not await is_dns_ready(host_to_test_dns=DOMAIN_TO_TEST_DNS):
-        raise WarpError("Failed to resolve DNS")
+        msg = "Failed to resolve DNS"
+        raise WarpError(msg)
 
     LOGGER.info("Connected. Status: %s", await warp_cli_status())
 
@@ -121,7 +124,8 @@ async def warp_cli_get_virtual_network_id(vnet_name: str) -> str:
         await warp_cli("vnet"),
     )
     if not vnet_id_match:
-        raise WarpError(f"Failed to find virtual network {vnet_name}")
+        msg = f"Failed to find virtual network {vnet_name}"
+        raise WarpError(msg)
 
     return vnet_id_match.groups()[0]
 
@@ -159,10 +163,12 @@ async def _ip_route_get(host: str) -> tuple[bytes, bytes]:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), 5)
     except asyncio.exceptions.TimeoutError as ex:
-        raise WarpError("Timeout - Failed to retrieve route") from ex
+        msg = "Timeout - Failed to retrieve route"
+        raise WarpError(msg) from ex
 
     if proc.returncode != 0:
-        raise WarpError(stderr.decode())
+        msg = stderr.decode()
+        raise WarpError(msg)
 
     return stdout, stderr
 
@@ -171,8 +177,8 @@ async def is_using_split_tunnel(host: str) -> bool:
     try:
         stdout, _ = await _ip_route_get(host)
         LOGGER.info("Route command for '%s': %s", host, stdout.decode().replace("\n", " "))
-    except WarpError as ex:
-        LOGGER.exception(ex)
+    except WarpError:
+        LOGGER.exception("Error getting IP route in split tunnel")
         return False
     else:
         return b"CloudflareWARP" in stdout

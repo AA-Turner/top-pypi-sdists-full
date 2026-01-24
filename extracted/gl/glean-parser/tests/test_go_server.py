@@ -42,7 +42,6 @@ def test_parser_go_server_metrics_unsupported_type(tmp_path, capsys):
         "boolean",
         "labeled_boolean",
         "labeled_string",
-        "string_list",
         "timespan",
         "uuid",
         "url",
@@ -80,7 +79,7 @@ def test_parser_go_server_events_and_custom_ping(tmp_path):
     translate.translate(
         [
             ROOT / "data" / "go_server_events_and_custom_ping_metrics.yaml",
-            ROOT / "data" / "go_server_events_and_custom_ping_pings.yaml"
+            ROOT / "data" / "go_server_events_and_custom_ping_pings.yaml",
         ],
         "go_server",
         tmp_path,
@@ -102,12 +101,12 @@ def test_parser_go_server_events_and_custom_ping(tmp_path):
     assert content == compare
 
 
-def test_parser_go_server_custon_ping_only(tmp_path):
+def test_parser_go_server_custom_ping_only(tmp_path):
     """Test that parser works for definitions that only use custom pings"""
     translate.translate(
         [
             ROOT / "data" / "go_server_custom_ping_only_metrics.yaml",
-            ROOT / "data" / "go_server_custom_ping_only_pings.yaml"
+            ROOT / "data" / "go_server_custom_ping_only_pings.yaml",
         ],
         "go_server",
         tmp_path,
@@ -170,10 +169,11 @@ def test_run_logging_events_ping(tmp_path):
             IpAddress: "127.0.0.1",
         },
         glean.EventsPing{
-            MetricName:            "string value",
-            MetricRequestBool:     true,
-            MetricRequestCount:    10,
-            MetricRequestDatetime: time.Now(),
+            MetricName:              "string value",
+            MetricRequestBool:       true,
+            MetricRequestCount:      10,
+            MetricRequestDatetime:   time.Now(),
+            MetricRequestStringList: []string{"list", "of", "strings"},
             Event: glean.BackendTestEventEvent{
                 EventFieldString:      "event extra string value",
                 EventFieldQuantity:    100,
@@ -202,9 +202,9 @@ def test_run_logging_events_ping(tmp_path):
 
     input = io.StringIO(payload)
     output = io.StringIO()
-    assert (
-        validate_ping.validate_ping(input, output, schema_url=schema_url) == 0
-    ), output.getvalue()
+    assert validate_ping.validate_ping(input, output, schema_url=schema_url) == 0, (
+        output.getvalue()
+    )
 
 
 @pytest.mark.go_dependency
@@ -214,7 +214,7 @@ def test_run_logging_custom_ping_without_event(tmp_path):
     translate.translate(
         [
             ROOT / "data" / "go_server_custom_ping_only_metrics.yaml",
-            ROOT / "data" / "go_server_custom_ping_only_pings.yaml"
+            ROOT / "data" / "go_server_custom_ping_only_pings.yaml",
         ],
         "go_server",
         glean_module_path,
@@ -227,10 +227,11 @@ def test_run_logging_custom_ping_without_event(tmp_path):
             IpAddress: "127.0.0.1",
         },
         glean.ServerTelemetryScenarioOnePing{
-            MetricName:            "string value",
-            MetricRequestBool:     true,
-            MetricRequestCount:    20,
-            MetricRequestDatetime: time.Now(),
+            MetricName:             "string value",
+            MetricRequestBool:       true,
+            MetricRequestCount:      20,
+            MetricRequestDatetime:   time.Now(),
+            MetricRequestStringList: []string{"list", "of", "strings"},
         },
     )
     """
@@ -254,9 +255,9 @@ def test_run_logging_custom_ping_without_event(tmp_path):
 
     input = io.StringIO(payload)
     output = io.StringIO()
-    assert (
-        validate_ping.validate_ping(input, output, schema_url=schema_url) == 0
-    ), output.getvalue()
+    assert validate_ping.validate_ping(input, output, schema_url=schema_url) == 0, (
+        output.getvalue()
+    )
 
 
 @pytest.mark.go_dependency
@@ -266,7 +267,7 @@ def test_run_logging_discard_writer(tmp_path):
     translate.translate(
         [
             ROOT / "data" / "go_server_custom_ping_only_metrics.yaml",
-            ROOT / "data" / "go_server_custom_ping_only_pings.yaml"
+            ROOT / "data" / "go_server_custom_ping_only_pings.yaml",
         ],
         "go_server",
         glean_module_path,
@@ -285,10 +286,11 @@ def test_run_logging_discard_writer(tmp_path):
             IpAddress: "127.0.0.1",
         },
         glean.ServerTelemetryScenarioOnePing{
-            MetricName:            "string value",
-            MetricRequestBool:     true,
-            MetricRequestCount:    20,
-            MetricRequestDatetime: time.Now(),
+            MetricName:             "string value",
+            MetricRequestBool:       true,
+            MetricRequestCount:      20,
+            MetricRequestDatetime:   time.Now(),
+            MetricRequestStringList: []string{"list", "of", "strings"},
         },
     )
     if err != nil {
@@ -308,7 +310,7 @@ def test_run_logging_nil_writer(tmp_path):
     translate.translate(
         [
             ROOT / "data" / "go_server_custom_ping_only_metrics.yaml",
-            ROOT / "data" / "go_server_custom_ping_only_pings.yaml"
+            ROOT / "data" / "go_server_custom_ping_only_pings.yaml",
         ],
         "go_server",
         glean_module_path,
@@ -349,7 +351,7 @@ def test_run_logging_custom_ping_with_event(tmp_path):
     translate.translate(
         [
             ROOT / "data" / "go_server_custom_ping_only_metrics.yaml",
-            ROOT / "data" / "go_server_custom_ping_only_pings.yaml"
+            ROOT / "data" / "go_server_custom_ping_only_pings.yaml",
         ],
         "go_server",
         glean_module_path,
@@ -362,10 +364,11 @@ def test_run_logging_custom_ping_with_event(tmp_path):
             IpAddress: "127.0.0.1",
         },
         glean.ServerTelemetryScenarioOnePing{
-            MetricName:            "string value",
-            MetricRequestBool:     true,
-            MetricRequestCount:    20,
-            MetricRequestDatetime: time.Now(),
+            MetricName:              "string value",
+            MetricRequestBool:       true,
+            MetricRequestCount:      20,
+            MetricRequestDatetime:   time.Now(),
+            MetricRequestStringList: []string{"list", "of", "strings"},
             Event: glean.BackendSpecialEventEvent{
                 EventFieldString: "exta value string",
                 EventFieldQuantity: 30,
@@ -394,6 +397,6 @@ def test_run_logging_custom_ping_with_event(tmp_path):
 
     input = io.StringIO(payload)
     output = io.StringIO()
-    assert (
-        validate_ping.validate_ping(input, output, schema_url=schema_url) == 0
-    ), output.getvalue()
+    assert validate_ping.validate_ping(input, output, schema_url=schema_url) == 0, (
+        output.getvalue()
+    )

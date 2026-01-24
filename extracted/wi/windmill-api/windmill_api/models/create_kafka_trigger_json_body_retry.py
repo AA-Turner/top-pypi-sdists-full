@@ -16,11 +16,13 @@ T = TypeVar("T", bound="CreateKafkaTriggerJsonBodyRetry")
 
 @_attrs_define
 class CreateKafkaTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreateKafkaTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, CreateKafkaTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, CreateKafkaTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, CreateKafkaTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreateKafkaTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, CreateKafkaTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreateKafkaTriggerJsonBodyRetryConstant"] = UNSET

@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build>=0.8.3,<0.9.0"]
+requires = ["uv_build>=0.9.6,<0.10.0"]
 
 [project]
 authors = [
@@ -11,16 +11,16 @@ classifiers = [
   "Environment :: Web Environment",
   "Framework :: Django",
   "Framework :: Django :: 4.2",
-  "Framework :: Django :: 5.1",
   "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries",
   "Topic :: Utilities",
 ]
@@ -31,8 +31,8 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE", "AUTHORS"]
 name = "django-bootstrap3"
 readme = "README.md"
-requires-python = ">=3.9"
-version = "25.2"
+requires-python = ">=3.10"
+version = "26.1"
 
 [project.urls]
 Changelog = "https://github.com/zostera/django-bootstrap3/blob/main/CHANGELOG.md"
@@ -45,7 +45,6 @@ Source = "https://github.com/zostera/django-bootstrap3"
 fix = false
 line-length = 120
 src = ["src"]
-target-version = "py39"
 
 [tool.ruff.lint]
 fixable = [
@@ -77,7 +76,7 @@ known-third-party = ["django"]
 
 [tool.coverage.run]
 branch = true
-source = ["src", "tests"]
+source = ["src"]
 
 [tool.coverage.paths]
 package = ["src/bootstrap3", "*/django_bootstrap3/src/bootstrap3"]
@@ -88,18 +87,16 @@ skip_covered = true
 
 [dependency-groups]
 dev = [
-  "check-manifest>=0.50",
-  "check-wheel-contents>=0.6.0",
-  "coverage[toml]>=7.6.1",
-  "pyroma>=4.2",
-  "ruff>=0.7.1",
-  "tox-uv>=1.13.1",
-  "twine>=5.1.1",
+  {include-group = "test"},
+  {include-group = "docs"},
 ]
 docs = [
   "furo>=2024.8.6",
   "myst-parser>=3.0.1",
   "sphinx>=7.1.2",
+]
+test = [
+  "coverage[toml]>=7.6.1",
 ]
 
 [tool.uv.build-backend]
@@ -108,6 +105,7 @@ source-exclude = [
   "**/.DS_Store",
   "docs/_build",
   "example/db.sqlite3",
+  "uv.lock",
 ]
 source-include = [
   ".editorconfig",
@@ -120,5 +118,7 @@ source-include = [
   "tests/**",
   "tox.ini",
   "docs/**",
-  "uv.lock",
 ]
+
+[tool.check-manifest]
+ignore = ["uv.lock"]

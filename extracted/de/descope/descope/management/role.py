@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
-from descope._auth_base import AuthBase
+from descope._http_base import HTTPBase
 from descope.management.common import MgmtV1
 
 
-class Role(AuthBase):
+class Role(HTTPBase):
     def create(
         self,
         name: str,
@@ -12,6 +14,7 @@ class Role(AuthBase):
         permission_names: Optional[List[str]] = None,
         tenant_id: Optional[str] = None,
         default: Optional[bool] = None,
+        private: Optional[bool] = None,
     ):
         """
         Create a new role.
@@ -22,22 +25,23 @@ class Role(AuthBase):
         permission_names (List[str]): Optional list of names of permissions this role grants.
         tenant_id (str): Optional tenant ID to create the role in.
         default (bool): Optional marks this role as default role.
+        private (bool): Optional marks this role as private role.
 
         Raise:
         AuthException: raised if creation operation fails
         """
         permission_names = [] if permission_names is None else permission_names
 
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.role_create_path,
-            {
+            body={
                 "name": name,
                 "description": description,
                 "permissionNames": permission_names,
                 "tenantId": tenant_id,
                 "default": default,
+                "private": private,
             },
-            pswd=self._auth.management_key,
         )
 
     def update(
@@ -48,6 +52,7 @@ class Role(AuthBase):
         permission_names: Optional[List[str]] = None,
         tenant_id: Optional[str] = None,
         default: Optional[bool] = None,
+        private: Optional[bool] = None,
     ):
         """
         Update an existing role with the given various fields. IMPORTANT: All parameters are used as overrides
@@ -60,22 +65,23 @@ class Role(AuthBase):
         permission_names (List[str]): Optional list of names of permissions this role grants.
         tenant_id (str): Optional tenant ID to update the role in.
         default (bool): Optional marks this role as default role.
+        private (bool): Optional marks this role as private role.
 
         Raise:
         AuthException: raised if update operation fails
         """
         permission_names = [] if permission_names is None else permission_names
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.role_update_path,
-            {
+            body={
                 "name": name,
                 "newName": new_name,
                 "description": description,
                 "permissionNames": permission_names,
                 "tenantId": tenant_id,
                 "default": default,
+                "private": private,
             },
-            pswd=self._auth.management_key,
         )
 
     def delete(
@@ -92,10 +98,9 @@ class Role(AuthBase):
         Raise:
         AuthException: raised if creation operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.role_delete_path,
-            {"name": name, "tenantId": tenant_id},
-            pswd=self._auth.management_key,
+            body={"name": name, "tenantId": tenant_id},
         )
 
     def load_all(
@@ -112,9 +117,8 @@ class Role(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
-            uri=MgmtV1.role_load_all_path,
-            pswd=self._auth.management_key,
+        response = self._http.get(
+            MgmtV1.role_load_all_path,
         )
         return response.json()
 
@@ -155,9 +159,8 @@ class Role(AuthBase):
         if include_project_roles is not None:
             body["includeProjectRoles"] = include_project_roles
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.role_search_path,
-            body,
-            pswd=self._auth.management_key,
+            body=body,
         )
         return response.json()

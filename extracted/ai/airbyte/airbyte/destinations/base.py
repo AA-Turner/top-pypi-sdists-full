@@ -167,6 +167,7 @@ class Destination(ConnectorBase, AirbyteWriterInterface):
             catalog_provider = CatalogProvider(
                 configured_catalog=source.get_configured_catalog(
                     streams=streams,
+                    force_full_refresh=force_full_refresh,
                 )
             )
         elif read_result:
@@ -265,7 +266,7 @@ class Destination(ConnectorBase, AirbyteWriterInterface):
         with as_temp_files(
             files_contents=[
                 self._hydrated_config,
-                catalog_provider.configured_catalog.model_dump_json(),
+                catalog_provider.configured_catalog.model_dump_json(exclude_none=True),
             ]
         ) as [
             config_file,

@@ -11,7 +11,7 @@ class MjWrapper(MjSection):
 
     def renderWrappedChildren(self):
         children = self.props['children']
-        containerWidth = self.context['containerWidth']
+        containerWidth = self.context.get('containerWidth')
 
         def render_child(component):
             if component.isRawElement():

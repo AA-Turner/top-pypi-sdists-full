@@ -57,8 +57,7 @@ static const char *RcsId = "$Id:  $";
 //  iocmd         |  iocmd
 //================================================================
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 //=============================================================
 //	Add/Remove dynamic attribute methods
 //=============================================================
@@ -70,8 +69,7 @@ namespace IfchangeServer_ns
  *  parameter attname: attribute name to be cretated and added.
  */
 //--------------------------------------------------------
-void IfchangeServer::add_ioattr_dynamic_attribute(string attname)
-{
+void IfchangeServer::add_ioattr_dynamic_attribute(string attname) {
     //	Attribute : ioattr
     ioattrAttrib *ioattr = new ioattrAttrib(attname);
     Tango::UserDefaultAttrProp ioattr_prop;
@@ -108,12 +106,10 @@ void IfchangeServer::add_ioattr_dynamic_attribute(string attname)
  *  parameter attname: attribute name to be removed.
  */
 //--------------------------------------------------------
-void IfchangeServer::remove_ioattr_dynamic_attribute(string attname)
-{
+void IfchangeServer::remove_ioattr_dynamic_attribute(string attname) {
     remove_attribute(attname, true, Tango::Util::instance()->_UseDb);
     map<string, Tango::DevDouble>::iterator ite;
-    if((ite = ioattr_data.find(attname)) != ioattr_data.end())
-    {
+    if((ite = ioattr_data.find(attname)) != ioattr_data.end()) {
         /*----- PROTECTED REGION ID(IfchangeServer::remove_ioattr_dynamic_attribute) ENABLED START -----*/
 
         /*----- PROTECTED REGION END -----*/ //	IfchangeServer::remove_ioattr_dynamic_attribute
@@ -131,11 +127,9 @@ void IfchangeServer::remove_ioattr_dynamic_attribute(string attname)
  *  parameter attname: the specified attribute name.
  */
 //--------------------------------------------------------
-Tango::DevDouble *IfchangeServer::get_ioattr_data_ptr(string &name)
-{
+Tango::DevDouble *IfchangeServer::get_ioattr_data_ptr(string &name) {
     map<string, Tango::DevDouble>::iterator ite;
-    if((ite = ioattr_data.find(name)) == ioattr_data.end())
-    {
+    if((ite = ioattr_data.find(name)) == ioattr_data.end()) {
         TangoSys_OMemStream tms;
         tms << "Dynamic attribute " << name << " has not been created";
         Tango::Except::throw_exception((const char *) "ATTRIBUTE_NOT_FOUND",
@@ -157,8 +151,7 @@ Tango::DevDouble *IfchangeServer::get_ioattr_data_ptr(string &name)
  *  parameter device:  Set this flag to true if the command must be added for only this device.
  */
 //--------------------------------------------------------
-void IfchangeServer::add_iocmd_dynamic_command(string cmdname, bool device)
-{
+void IfchangeServer::add_iocmd_dynamic_command(string cmdname, bool device) {
     iocmdClass *piocmdCmd = new iocmdClass(cmdname.c_str(), Tango::DEV_VOID, Tango::DEV_VOID, "", "", Tango::OPERATOR);
     add_command(piocmdCmd, device);
 }
@@ -170,8 +163,7 @@ void IfchangeServer::add_iocmd_dynamic_command(string cmdname, bool device)
  *  parameter cmdname: command name to be removed.
  */
 //--------------------------------------------------------
-void IfchangeServer::remove_iocmd_dynamic_command(string cmdname)
-{
+void IfchangeServer::remove_iocmd_dynamic_command(string cmdname) {
     remove_command(cmdname, true);
 }
 

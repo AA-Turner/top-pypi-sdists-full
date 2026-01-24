@@ -778,7 +778,7 @@ def _retrieve_class_or_fn(
         # module name might not match the package structure
         # (e.g. experimental symbols).
         if module == "keras" or module.startswith("keras."):
-            api_name = module + "." + name
+            api_name = f"{module}.{name}"
 
             if api_name in LOADING_APIS:
                 raise ValueError(
@@ -796,9 +796,7 @@ def _retrieve_class_or_fn(
         # the corresponding function from the identifying string.
         if obj_type == "function" and module == "builtins":
             for mod in BUILTIN_MODULES:
-                obj = api_export.get_symbol_from_name(
-                    "keras." + mod + "." + name
-                )
+                obj = api_export.get_symbol_from_name(f"keras.{mod}.{name}")
                 if obj is not None:
                     return obj
 
@@ -807,7 +805,7 @@ def _retrieve_class_or_fn(
             # i.e. "name" instead of "package>name". This allows recent versions
             # of Keras to reload models saved with 3.6 and lower.
             if ">" not in name:
-                separated_name = ">" + name
+                separated_name = f">{name}"
                 for custom_name, custom_object in custom_objects.items():
                     if custom_name.endswith(separated_name):
                         return custom_object
@@ -834,8 +832,9 @@ def _retrieve_class_or_fn(
                 )
 
     raise TypeError(
-        f"Could not locate {obj_type} '{name}'. "
-        "Make sure custom classes are decorated with "
-        "`@keras.saving.register_keras_serializable()`. "
-        f"Full object config: {full_config}"
+        f"Could not locate {obj_type} '{name}'. Make sure custom classes and "
+        "functions are decorated with "
+        "`@keras.saving.register_keras_serializable()`. If they are already "
+        "decorated, make sure they are all imported so that the decorator is "
+        f"run before trying to load them. Full object config: {full_config}"
     )

@@ -4,6 +4,7 @@ from angr.analyses.decompiler.optimization_passes import (
     RegisterSaveAreaSimplifier,
     StackCanarySimplifier,
     WinStackCanarySimplifier,
+    RegisterSaveAreaSimplifierAdvanced,
     BasePointerSaveSimplifier,
     DivSimplifier,
     ModSimplifier,
@@ -24,13 +25,14 @@ from angr.analyses.decompiler.optimization_passes import (
     CrossJumpReverter,
     FlipBooleanCmp,
     InlinedStringTransformationSimplifier,
+    InlinedStrlenSimplifier,
     CallStatementRewriter,
     SwitchReusedEntryRewriter,
     ConditionConstantPropagation,
     DetermineLoadSizes,
     PostStructuringPeepholeOptimizationPass,
+    EagerStdStringConcatenationPass,
 )
-
 
 preset_full = DecompilationPreset(
     "full",
@@ -38,6 +40,7 @@ preset_full = DecompilationPreset(
         RegisterSaveAreaSimplifier,
         StackCanarySimplifier,
         WinStackCanarySimplifier,
+        RegisterSaveAreaSimplifierAdvanced,
         BasePointerSaveSimplifier,
         DivSimplifier,
         ModSimplifier,
@@ -58,11 +61,13 @@ preset_full = DecompilationPreset(
         CrossJumpReverter,
         FlipBooleanCmp,
         InlinedStringTransformationSimplifier,
+        InlinedStrlenSimplifier,
         CallStatementRewriter,
         SwitchReusedEntryRewriter,
         ConditionConstantPropagation,
         DetermineLoadSizes,
         PostStructuringPeepholeOptimizationPass,
+        EagerStdStringConcatenationPass,
     ],
 )
 

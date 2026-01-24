@@ -5,6 +5,7 @@ from ddtrace.appsec._trace_utils import block_request_if_user_blocked
 from ddtrace.contrib.internal.sqlite3.patch import patch
 from ddtrace.ext import http
 from ddtrace.internal import constants
+from ddtrace.internal.utils.http import _format_template
 from tests.appsec.appsec_utils import flask_server
 from tests.appsec.integrations.flask_tests.utils import _PORT
 import tests.appsec.rules as rules
@@ -49,7 +50,7 @@ class FlaskAppSecTestCase(BaseFlaskTestCase):
             resp = self.client.get("/block", headers={"X-REAL-IP": rules._IP.DEFAULT})
             # Should not block by IP but since the route is calling block_request it will be blocked
             assert resp.status_code == 403
-            assert get_response_body(resp) == constants.BLOCKED_RESPONSE_JSON
+            assert get_response_body(resp) == _format_template(constants.BLOCKED_RESPONSE_JSON, "default")
             root_span = self.pop_spans()[0]
             assert root_span.get_tag(http.STATUS_CODE) == "403"
             assert root_span.get_tag(http.URL) == "http://localhost/block"
@@ -71,7 +72,7 @@ class FlaskAppSecTestCase(BaseFlaskTestCase):
             self._aux_appsec_prepare_tracer()
             resp = self.client.get("/checkuser/%s" % _BLOCKED_USER)
             assert resp.status_code == 403
-            assert get_response_body(resp) == constants.BLOCKED_RESPONSE_JSON
+            assert get_response_body(resp) == _format_template(constants.BLOCKED_RESPONSE_JSON, "default")
             root_span = self.pop_spans()[0]
             assert root_span.get_tag(http.STATUS_CODE) == "403"
             assert root_span.get_tag(http.URL) == "http://localhost/checkuser/%s" % _BLOCKED_USER
@@ -83,27 +84,31 @@ class FlaskAppSecTestCase(BaseFlaskTestCase):
 
             resp = self.client.get("/checkuser/%s" % _BLOCKED_USER, headers={"Accept": "text/html"})
             assert resp.status_code == 403
-            assert get_response_body(resp) == constants.BLOCKED_RESPONSE_HTML
+            assert get_response_body(resp) == _format_template(constants.BLOCKED_RESPONSE_HTML, "default")
 
             resp = self.client.get("/checkuser/%s" % _ALLOWED_USER, headers={"Accept": "text/html"})
             assert resp.status_code == 200
 
 
 @pytest.mark.parametrize(
+    "function",
+    ["open", "os_system"],
+)
+@pytest.mark.parametrize(
     "iast_enabled",
     ["true", "false"],
 )
 @pytest.mark.parametrize("appsec_enabled", ["true", "false"])
-def test_flask_common_modules_patch_read(iast_enabled, appsec_enabled):
+def test_flask_common_modules_patch(function, iast_enabled, appsec_enabled):
     with flask_server(
-        appsec_enabled=iast_enabled, iast_enabled=appsec_enabled, token=None, port=_PORT, assert_debug=False
+        appsec_enabled=appsec_enabled, iast_enabled=iast_enabled, token=None, port=_PORT, assert_debug=False
     ) as context:
         _, flask_client, pid = context
 
-        response = flask_client.get("/common-modules-patch-read")
+        response = flask_client.get(f"/common-modules-patch?function={function}")
 
         assert response.status_code == 200
-        if iast_enabled == appsec_enabled == "false":
+        if appsec_enabled == "false":
             assert response.content == b"OK: False"
         else:
             assert response.content == b"OK: True"

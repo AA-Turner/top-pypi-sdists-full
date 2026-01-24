@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect
@@ -13,6 +13,41 @@ import QuantConnect.Securities
 import System.Collections.Generic
 
 
+class BacktestingBrokerageFactory(QuantConnect.Brokerages.BrokerageFactory):
+    """Factory type for the BacktestingBrokerage"""
+
+    @property
+    def brokerage_data(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """Gets the brokerage data required to run the IB brokerage from configuration"""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the BacktestingBrokerageFactory class"""
+        ...
+
+    def create_brokerage(self, job: QuantConnect.Packets.LiveNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Interfaces.IBrokerage:
+        """
+        Creates a new IBrokerage instance
+        
+        :param job: The job packet to create the brokerage for
+        :param algorithm: The algorithm instance
+        :returns: A new brokerage instance.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def get_brokerage_model(self, order_provider: QuantConnect.Securities.IOrderProvider) -> QuantConnect.Brokerages.IBrokerageModel:
+        """
+        Gets a new instance of the InteractiveBrokersBrokerageModel
+        
+        :param order_provider: The order provider
+        """
+        ...
+
+
 class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
     """Represents a brokerage to be used during backtesting. This is intended to be only be used with the BacktestingTransactionHandler"""
 
@@ -21,7 +56,8 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         """
         This is the algorithm under test
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44,7 +80,8 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         """
         Creates a new BacktestingBrokerage for the specified algorithm
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param algorithm: The algorithm instance
         :param name: The name of the brokerage
@@ -96,7 +133,8 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         """
         Event invocator for the OrderFilled event
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param order_events: The list of order events
         """
@@ -129,41 +167,6 @@ class BacktestingBrokerage(QuantConnect.Brokerages.Brokerage):
         
         :param order: The new order information
         :returns: True if the request was made for the order to be updated, false otherwise.
-        """
-        ...
-
-
-class BacktestingBrokerageFactory(QuantConnect.Brokerages.BrokerageFactory):
-    """Factory type for the BacktestingBrokerage"""
-
-    @property
-    def brokerage_data(self) -> System.Collections.Generic.Dictionary[str, str]:
-        """Gets the brokerage data required to run the IB brokerage from configuration"""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the BacktestingBrokerageFactory class"""
-        ...
-
-    def create_brokerage(self, job: QuantConnect.Packets.LiveNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Interfaces.IBrokerage:
-        """
-        Creates a new IBrokerage instance
-        
-        :param job: The job packet to create the brokerage for
-        :param algorithm: The algorithm instance
-        :returns: A new brokerage instance.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def get_brokerage_model(self, order_provider: QuantConnect.Securities.IOrderProvider) -> QuantConnect.Brokerages.IBrokerageModel:
-        """
-        Gets a new instance of the InteractiveBrokersBrokerageModel
-        
-        :param order_provider: The order provider
         """
         ...
 

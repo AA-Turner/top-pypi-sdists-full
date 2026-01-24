@@ -12,10 +12,10 @@ extensions = [
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'pytest-benchmark'
-year = '2014-2023'
+year = '2014-2025'
 author = 'Ionel Cristian Mărieș'
 copyright = f'{year}, {author}'
-version = release = '5.1.0'
+version = release = '5.2.3'
 
 pygments_style = 'trac'
 templates_path = ['.']
@@ -26,7 +26,15 @@ extlinks = {
 
 html_theme = 'furo'
 html_theme_options = {
-    'githuburl': 'https://github.com/ionelmc/pytest-benchmark/',
+    'source_repository': 'https://github.com/ionelmc/pytest-benchmark/',
+    'source_branch': 'main',
+    'source_directory': 'docs/',
+    'footer_icons': [
+        {
+            'url': 'https://github.com/ionelmc/pytest-benchmark/',
+            'html': 'github.com/ionelmc/pytest-benchmark',
+        },
+    ],
 }
 
 html_use_smartypants = True

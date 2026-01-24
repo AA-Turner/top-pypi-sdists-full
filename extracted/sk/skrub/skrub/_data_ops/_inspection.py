@@ -4,6 +4,7 @@ import io
 import numbers
 import re
 import shutil
+import sys
 import webbrowser
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from .. import datasets
 from .._config import get_config
 from .._reporting import TableReport
 from .._reporting._serve import open_in_browser
-from .._utils import Repr, random_string, short_repr
+from .._utils import Repr, format_duration, random_string, short_repr
 from . import _utils
 from ._choosing import BaseNumericChoice, Choice
 from ._data_ops import Apply, Value, Var
@@ -36,6 +37,7 @@ def _get_jinja_env():
         ),
         autoescape=True,
     )
+    env.filters["format_duration"] = format_duration
     return env
 
 
@@ -78,11 +80,9 @@ def node_report(data_op, mode="preview", environment=None, **report_kwargs):
 def _get_output_dir(output_dir, overwrite):
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H%M%S")
     if output_dir is None:
-        output_dir = (
-            datasets.get_data_dir()
-            / "execution_reports"
-            / f"full_data_op_report_{now}_{random_string()}"
-        )
+        output_base_dir = datasets.get_data_dir() / "execution_reports"
+        output_dir = output_base_dir / f"full_data_op_report_{now}_{random_string()}"
+        _utils.prune_directory(output_base_dir)
     else:
         output_dir = Path(output_dir).expanduser().resolve()
         if output_dir.exists():
@@ -117,6 +117,7 @@ def full_report(
     open=True,
     output_dir=None,
     overwrite=False,
+    title=None,
 ):
     if clear:
         clear_results(data_op, mode)
@@ -128,6 +129,7 @@ def full_report(
             open=open,
             output_dir=output_dir,
             overwrite=overwrite,
+            title=title,
         )
     finally:
         if clear:
@@ -141,6 +143,7 @@ def _make_full_report(
     open=True,
     output_dir=None,
     overwrite=False,
+    title=None,
 ):
     _check_graphviz()
     output_dir = _get_output_dir(output_dir, overwrite)
@@ -166,7 +169,7 @@ def _make_full_report(
     svg = draw_data_op_graph(data_op, url=make_url).svg.decode("utf-8")
     jinja_env = _get_jinja_env()
     index = jinja_env.get_template("index.html").render(
-        {"svg": svg, "node_status": node_status}
+        {"svg": svg, "node_status": node_status, "title": title}
     )
     index_file = output_dir / "index.html"
     index_file.write_text(index, "utf-8")
@@ -181,6 +184,11 @@ def _make_full_report(
             error_msg = "".join(_utils.format_exception_only(e))
             if hasattr(e, "__notes__"):
                 error_msg = error_msg.removesuffix("\n".join(e.__notes__) + "\n")
+        try:
+            eval_duration = node._skrub_impl.metadata[mode]["eval_duration"]
+        except KeyError:
+            # the node was not evaluated
+            eval_duration = None
         if isinstance(report, TableReport):
             print(f"Generating report for node {i}")
             report = report.html_snippet()
@@ -220,6 +228,7 @@ def _make_full_report(
                 report=report,
                 error=error,
                 error_msg=error_msg,
+                eval_duration=eval_duration,
                 node_creation_stack_description=node._skrub_impl.creation_stack_description(),
                 node_description=node._skrub_impl.description,
                 node_name=node._skrub_impl.name,
@@ -247,7 +256,12 @@ class GraphDrawing:
     @property
     def svg(self):
         svg = self.graph.create_svg(encoding="utf-8")
-        return re.sub(b"<title>.*?</title>", b"", svg)
+        svg = re.sub(b"<title>.*?</title>", b"", svg)
+        if "google.colab" in sys.modules:
+            # Fix for #1589
+            # google colab does not accept <a> without target in svg
+            svg = svg.replace(b"<a xlink:title", b'<a target="_blank" xlink:title')
+        return svg
 
     @property
     def png(self):
@@ -295,6 +309,9 @@ def _node_kwargs(data_op, url=None):
     tooltip = html.escape(data_op._skrub_impl.creation_stack_last_line())
     if description := data_op._skrub_impl.description:
         tooltip = f"{tooltip}\n\n{html.escape(description)}"
+    # Also escape backslahses inserted in the .dot file
+    # otherwise they are interpreted as escape sequences by graphviz
+    tooltip = tooltip.replace("\\", "\\\\")
     kwargs["tooltip"] = tooltip
     if isinstance(data_op._skrub_impl, (Var, Value)):
         kwargs["peripheries"] = 2

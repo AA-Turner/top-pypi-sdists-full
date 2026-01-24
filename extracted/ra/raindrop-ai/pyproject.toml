@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "raindrop-ai"
+version = "0.0.36"
+description = "Raindrop AI (Python SDK)"
+authors = ["Raindrop AI <sdk@raindrop.ai>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "raindrop"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12.1 || >3.12.1,<4.0"
+pydantic = ">=2.09,<3"
+requests = "^2.32.3"
+traceloop-sdk = ">=0.46.0"
+opentelemetry-sdk = ">=1.39.0"
+urllib3 = ">=2.6.0"
+
+
+[tool.poetry.group.dev.dependencies]
+green = "^4.0.2"
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
+openai = "^1.100.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

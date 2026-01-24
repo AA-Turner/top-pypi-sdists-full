@@ -1,54 +1,65 @@
-import typing  # NOQA
+from __future__ import annotations
 
-import matplotlib
+from collections.abc import Callable
+
+import cmap
 import numpy as np
+from numpy.typing import DTypeLike
+from numpy.typing import NDArray
 
 from .normalize import normalize
 
 
-class Depth2RGB(object):
+class Depth2RGB:
     """Convert depth array to rgb.
 
     Parameters
     ----------
-    min_value: float, optional
+    min_value
         Minimum value for colorizing.
-    max_value: float, optional
+    max_value
         Maximum value for colorizing.
-    colormap: str, optional
-        Colormap, default: 'jet'.
+    colormap
+        Colormap name or callable.
 
     """
 
-    def __init__(self, min_value=None, max_value=None, colormap="jet"):
+    def __init__(
+        self,
+        min_value: float | NDArray | None = None,
+        max_value: float | NDArray | None = None,
+        colormap: str | Callable[[NDArray], NDArray] = "jet",
+    ) -> None:
         self._min_value = min_value
         self._max_value = max_value
         self._colormap = colormap
 
     @property
-    def min_value(self):
+    def min_value(self) -> float | NDArray | None:
         """Minimum value of depth."""
         return self._min_value
 
     @property
-    def max_value(self):
+    def max_value(self) -> float | NDArray | None:
         """Maximum value of depth."""
         return self._max_value
 
-    def __call__(self, depth, dtype=np.uint8):
+    def __call__(
+        self, depth: NDArray, dtype: DTypeLike = np.uint8
+    ) -> NDArray[np.uint8] | NDArray[np.floating]:
         """Convert depth array to rgb.
 
         Parameters
         ----------
-        depth: numpy.ndarray, (H, W), float
-            Depth image.
-        dtype: numpy.dtype
-            Dtype of output image. default: np.uint8
+        depth
+            Depth image with shape (H, W).
+        dtype
+            Output dtype.
 
         Returns
         -------
-        rgb: numpy.ndarray, (H, W, 3), np.uint8
-            Output colorized image.
+        rgb
+            Colorized image with shape (H, W, 3).
 
         """
         assert depth.ndim == 2, "depth image must be 2 dimensional"
@@ -65,10 +76,7 @@ class Depth2RGB(object):
         normalized[isnan] = 0
 
         if isinstance(self._colormap, str):
-            if hasattr(matplotlib, "colormaps"):
-                colormap_func = matplotlib.colormaps[self._colormap]
-            else:
-                colormap_func = matplotlib.cm.get_cmap(self._colormap)
+            colormap_func = cmap.Colormap(self._colormap)
         else:
             colormap_func = self._colormap
         rgb = colormap_func(normalized)[:, :, :3]
@@ -84,32 +92,31 @@ class Depth2RGB(object):
 
 
 def depth2rgb(
-    depth,
-    min_value=None,
-    max_value=None,
-    colormap="jet",
-    dtype=np.uint8,
-):
-    # type: (np.ndarray, typing.Optional[float], typing.Optional[float], str, typing.Type) -> np.ndarray  # NOQA
+    depth: NDArray,
+    min_value: float | NDArray | None = None,
+    max_value: float | NDArray | None = None,
+    colormap: str | Callable[[NDArray], NDArray] = "jet",
+    dtype: DTypeLike = np.uint8,
+) -> NDArray[np.uint8] | NDArray[np.floating]:
     """Convert depth to rgb.
 
     Parameters
     ----------
-    depth: numpy.ndarray, (H, W), float
-        Depth image.
-    dtype: numpy.dtype
-        Dtype of output image. default: np.uint8
-    min_value: float, optional
+    depth
+        Depth image with shape (H, W).
+    min_value
         Minimum value for colorizing.
-    max_value: float, optional
+    max_value
         Maximum value for colorizing.
-    colormap: str, optional
-        Colormap, default: 'jet'.
+    colormap
+        Colormap name or callable.
+    dtype
+        Output dtype.
 
     Returns
     -------
-    rgb: numpy.ndarray, (H, W, 3), np.uint8
-        Output colorized image.
+    rgb
+        Colorized image with shape (H, W, 3).
 
     """
     return Depth2RGB(min_value, max_value, colormap)(depth, dtype)

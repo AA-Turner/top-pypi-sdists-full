@@ -1,20 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: arcgis2geojson
-Version: 3.0.3
+Version: 3.1.1
 Summary: A Python library for converting ArcGIS JSON to GeoJSON
-Home-page: https://github.com/chris48s/arcgis2geojson
-License: MIT
+License-Expression: MIT
+License-File: LICENCE
 Author: chris48s
-Requires-Python: >=3.7
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Project-URL: Repository, https://github.com/chris48s/arcgis2geojson
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: Home, https://github.com/chris48s/arcgis2geojson
+Project-URL: Source, https://github.com/chris48s/arcgis2geojson
 Description-Content-Type: text/markdown
 
 [![Run tests](https://github.com/chris48s/arcgis2geojson/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/chris48s/arcgis2geojson/actions/workflows/test.yml)
@@ -87,6 +86,16 @@ $ arcgis2geojson arcgis.json > geo.json
 # fetch ArcGIS json from the web and convert to GeoJSON
 $ curl "https://myserver.com/arcgis.json" | arcgis2geojson
 ```
+
+
+## Versioning
+
+arcgis2geojson follows [semantic versioning](https://semver.org/). For this project, the "API" also includes:
+
+- CLI flags and options
+- CLI exit codes
+
+From version 3 onwards, arcgis2geojson will drop compatibility with unsupported python versions without incrementing the major version. This is in line with common practice in the python community.
 
 
 ## Licensing

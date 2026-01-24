@@ -14,9 +14,7 @@ But these internal changes are filtered out from the cause detection
 and therefore do not trigger the user-defined handlers.
 """
 import asyncio
-import time
 from collections.abc import Collection
-from typing import Optional
 
 from kopf._cogs.aiokits import aiotoggles
 from kopf._cogs.configs import configuration
@@ -37,9 +35,9 @@ async def process_resource_event(
         resource: references.Resource,
         raw_event: bodies.RawEvent,
         event_queue: posting.K8sEventQueue,
-        stream_pressure: Optional[asyncio.Event] = None,  # None for tests
-        resource_indexed: Optional[aiotoggles.Toggle] = None,  # None for tests & observation
-        operator_indexed: Optional[aiotoggles.ToggleSet] = None,  # None for tests & observation
+        stream_pressure: asyncio.Event | None = None,  # None for tests
+        resource_indexed: aiotoggles.Toggle | None = None,  # None for tests & observation
+        operator_indexed: aiotoggles.ToggleSet | None = None,  # None for tests & observation
 ) -> None:
     """
     Handle a single custom object low-level watch-event.
@@ -330,7 +328,7 @@ async def process_spawning_cause(
     if memory.daemons_memory.live_fresh_body is None:
         memory.daemons_memory.live_fresh_body = cause.body
     if cause.reset:
-        memory.daemons_memory.idle_reset_time = time.monotonic()
+        memory.daemons_memory.idle_reset_time = asyncio.get_running_loop().time()
 
     if finalizers.is_deletion_ongoing(cause.body):
         stopping_delays = await daemons.stop_daemons(
@@ -373,8 +371,8 @@ async def process_changing_cause(
     patch = cause.patch  # TODO get rid of this alias
     body = cause.body  # TODO get rid of this alias
     delays: Collection[float] = []
-    done: Optional[bool] = None
-    skip: Optional[bool] = None
+    done: bool | None = None
+    skip: bool | None = None
 
     # Regular causes invoke the handlers.
     if cause.reason in causes.HANDLER_REASONS:

@@ -13,7 +13,11 @@ from pydantic import (
     create_model,
 )
 
-from ..core.exceptions import IncompleteOutputException
+from ..core.exceptions import (
+    IncompleteOutputException,
+    ResponseParsingError,
+    ConfigurationError,
+)
 from ..mode import Mode
 from ..utils import (
     classproperty,
@@ -75,32 +79,35 @@ def _extract_text_content(completion: Any) -> str:
 
 
 def _validate_model_from_json(
-    cls: type[Model],
+    cls: type[Any],
     json_str: str,
     validation_context: Optional[dict[str, Any]] = None,
     strict: Optional[bool] = None,
-) -> Model:
+) -> Any:
     """Validate model from JSON string with appropriate error handling."""
     try:
-        if strict:
-            return cls.model_validate_json(
-                json_str, context=validation_context, strict=True
-            )
-        else:
+        if hasattr(cls, "model_validate_json"):
+            if strict:
+                return cls.model_validate_json(
+                    json_str, context=validation_context, strict=True
+                )
             # Allow control characters
             parsed = json.loads(json_str, strict=False)
             return cls.model_validate(parsed, context=validation_context, strict=False)
+
+        adapter = TypeAdapter(cls)
+        if strict:
+            return adapter.validate_json(
+                json_str, context=validation_context, strict=True
+            )
+        parsed = json.loads(json_str, strict=False)
+        return adapter.validate_python(parsed, context=validation_context, strict=False)
     except json.JSONDecodeError as e:
         logger.debug(f"JSON decode error: {e}")
-        raise ValueError(f"Failed to parse JSON: {e}") from e
+        raise
     except Exception as e:
         logger.debug(f"Model validation error: {e}")
-        # Re-raise with more context
-        from ..core.exceptions import ValidationError as InstructorValidationError
-
-        raise InstructorValidationError(
-            f"Failed to validate model {cls.__name__}: {str(e)}"
-        ) from e
+        raise
 
 
 class OpenAISchema(BaseModel):
@@ -201,15 +208,22 @@ class OpenAISchema(BaseModel):
                 completion,
                 validation_context,
                 strict,
-                using_inbuilt_tools=mode == Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
             )
 
         if not completion.choices:
             # This helps catch errors from OpenRouter
             if hasattr(completion, "error"):
-                raise ValueError(completion.error)
+                raise ResponseParsingError(
+                    f"LLM provider returned error: {completion.error}",
+                    mode=str(mode),
+                    raw_response=completion,
+                )
 
-            raise ValueError("No completion choices found")
+            raise ResponseParsingError(
+                "No completion choices found in LLM response",
+                mode=str(mode),
+                raw_response=completion,
+            )
 
         if completion.choices[0].finish_reason == "length":
             raise IncompleteOutputException(last_completion=completion)
@@ -244,7 +258,9 @@ class OpenAISchema(BaseModel):
         }:
             return cls.parse_json(completion, validation_context, strict)
 
-        raise ValueError(f"Invalid patch mode: {mode}")
+        raise ConfigurationError(
+            f"Invalid or unsupported mode: {mode}. This mode may not be implemented for response parsing."
+        )
 
     @classmethod
     def parse_genai_structured_outputs(
@@ -295,12 +311,48 @@ class OpenAISchema(BaseModel):
         validation_context: Optional[dict[str, Any]] = None,
         strict: Optional[bool] = None,
     ):
-        assert hasattr(completion, "text"), (
-            "Completion is not of type NonStreamedChatResponse"
-        )
-        return cls.model_validate_json(
-            completion.text, context=validation_context, strict=strict
-        )
+        # Handle both V1 and V2 response structures
+        if hasattr(completion, "text"):
+            # V1 format: direct text access
+            text = completion.text
+        elif hasattr(completion, "message") and hasattr(completion.message, "content"):
+            # V2 format: nested structure (message.content[].text)
+            # V2 responses may have multiple content items (thinking, text, etc.)
+            content_items = completion.message.content
+            if content_items and len(content_items) > 0:
+                # Find the text content item (skip thinking/other types)
+                # TODO handle these other content types
+                text = None
+                for item in content_items:
+                    if (
+                        hasattr(item, "type")
+                        and item.type == "text"
+                        and hasattr(item, "text")
+                    ):
+                        text = item.text
+                        break
+
+                if text is None:
+                    raise ResponseParsingError(
+                        "Cohere V2 response has no text content item",
+                        mode="COHERE_JSON_SCHEMA",
+                        raw_response=completion,
+                    )
+            else:
+                raise ResponseParsingError(
+                    "Cohere V2 response has no content",
+                    mode="COHERE_JSON_SCHEMA",
+                    raw_response=completion,
+                )
+        else:
+            raise ResponseParsingError(
+                f"Unsupported Cohere response format. Expected 'text' (V1) or "
+                f"'message.content[].text' (V2), got: {type(completion)}",
+                mode="COHERE_JSON_SCHEMA",
+                raw_response=completion,
+            )
+
+        return cls.model_validate_json(text, context=validation_context, strict=strict)
 
     @classmethod
     def parse_anthropic_tools(
@@ -355,10 +407,7 @@ class OpenAISchema(BaseModel):
             # read: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/web-search-tool#response
             text_blocks = [c for c in completion.content if c.type == "text"]
             last_block = text_blocks[-1]
-            # Strip raw control characters (0x00-0x1F) that would cause json.loads to fail
-            # Note: This preserves escaped sequences like \n in JSON strings, which are handled
-            # correctly by the JSON parser. Only raw, unescaped control bytes are removed.
-            text = re.sub(r"[\u0000-\u001F]", "", last_block.text)
+            text = last_block.text
 
         extra_text = extract_json_from_codeblock(text)
 
@@ -367,7 +416,7 @@ class OpenAISchema(BaseModel):
                 extra_text, context=validation_context, strict=True
             )
         else:
-            # Allow control characters.
+            # Allow control characters to pass through by using the non-strict JSON parser.
             parsed = json.loads(extra_text, strict=False)
             # Pydantic non-strict: https://docs.pydantic.dev/latest/concepts/strict_mode/
             model = cls.model_validate(parsed, context=validation_context, strict=False)
@@ -382,8 +431,16 @@ class OpenAISchema(BaseModel):
         strict: Optional[bool] = None,
     ) -> BaseModel:
         if isinstance(completion, dict):
-            text = completion.get("output").get("message").get("content")[0].get("text")
-
+            # OpenAI will send the first content to be 'reasoningText', and then 'text'
+            content = completion["output"]["message"]["content"]
+            text_content = next((c for c in content if "text" in c), None)
+            if not text_content:
+                raise ResponseParsingError(
+                    "Unexpected format. No text content found in Bedrock response.",
+                    mode="BEDROCK_JSON",
+                    raw_response=completion,
+                )
+            text = text_content["text"]
             match = re.search(r"```?json(.*?)```?", text, re.DOTALL)
             if match:
                 text = match.group(1).strip()
@@ -418,7 +475,11 @@ class OpenAISchema(BaseModel):
                         strict=strict,
                     )
 
-            raise ValueError("No tool use found in Bedrock response")
+            raise ResponseParsingError(
+                "No tool use found in Bedrock response",
+                mode="BEDROCK_TOOLS",
+                raw_response=completion,
+            )
         else:
             # Fallback for other response formats
             return cls.model_validate_json(
@@ -442,7 +503,11 @@ class OpenAISchema(BaseModel):
         try:
             extra_text = extract_json_from_codeblock(text)  # type: ignore
         except UnboundLocalError:
-            raise ValueError("Unable to extract JSON from completion text") from None
+            raise ResponseParsingError(
+                "Unable to extract JSON from completion text. The response may have been blocked or empty.",
+                mode="GEMINI_JSON",
+                raw_response=completion,
+            ) from None
 
         if strict:
             return cls.model_validate_json(
@@ -485,7 +550,83 @@ class OpenAISchema(BaseModel):
         validation_context: Optional[dict[str, Any]] = None,
         strict: Optional[bool] = None,
     ) -> BaseModel:
-        text = cast(str, completion.text)  # type: ignore - TODO update with cohere specific types
+        """
+        Parse Cohere tools response.
+
+        Supports:
+        - V1 native tool calls: completion.tool_calls[0].parameters
+        - V2 native tool calls: completion.message.tool_calls[0].function.arguments (JSON string)
+        - V1 text-based: completion.text (prompt-based approach)
+        - V2 text-based: completion.message.content[].text (prompt-based approach)
+        """
+        # First, check for native Cohere tool calls (V1 and V2)
+        # V1: completion.tool_calls with tc.parameters (dict)
+        if hasattr(completion, "tool_calls") and completion.tool_calls:
+            # V1 tool call format
+            tool_call = completion.tool_calls[0]
+            # Parameters in V1 are already a dict
+            return cls.model_validate(
+                tool_call.parameters, context=validation_context, strict=strict
+            )
+
+        # V2: completion.message.tool_calls with tc.function.arguments (JSON string)
+        if (
+            hasattr(completion, "message")
+            and hasattr(completion.message, "tool_calls")
+            and completion.message.tool_calls
+        ):
+            # V2 tool call format
+            tool_call = completion.message.tool_calls[0]
+            # Arguments in V2 are a JSON string
+            import json
+
+            arguments = json.loads(tool_call.function.arguments)
+            return cls.model_validate(
+                arguments, context=validation_context, strict=strict
+            )
+
+        # Fallback to text-based extraction (current prompt-based approach)
+        # Handle both V1 and V2 text response structures
+        if hasattr(completion, "text"):
+            # V1 format: direct text access
+            text = completion.text
+        elif hasattr(completion, "message") and hasattr(completion.message, "content"):
+            # V2 format: nested structure (message.content[].text)
+            # V2 responses may have multiple content items (thinking, text, etc.)
+            content_items = completion.message.content
+            if content_items and len(content_items) > 0:
+                # Find the text content item (skip thinking/other types)
+                text = None
+                for item in content_items:
+                    if (
+                        hasattr(item, "type")
+                        and item.type == "text"
+                        and hasattr(item, "text")
+                    ):
+                        text = item.text
+                        break
+
+                if text is None:
+                    raise ResponseParsingError(
+                        "Cohere V2 response has no text content item",
+                        mode="COHERE_TOOLS",
+                        raw_response=completion,
+                    )
+            else:
+                raise ResponseParsingError(
+                    "Cohere V2 response has no content",
+                    mode="COHERE_TOOLS",
+                    raw_response=completion,
+                )
+        else:
+            raise ResponseParsingError(
+                f"Unsupported Cohere response format. Expected tool_calls or text content. "
+                f"Got: {type(completion)}",
+                mode="COHERE_TOOLS",
+                raw_response=completion,
+            )
+
+        # Extract JSON from text (for prompt-based approach)
         extra_text = extract_json_from_codeblock(text)
         return cls.model_validate_json(
             extra_text, context=validation_context, strict=strict
@@ -556,29 +697,24 @@ class OpenAISchema(BaseModel):
         completion: Any,
         validation_context: Optional[dict[str, Any]] = None,
         strict: Optional[bool] = None,
-        using_inbuilt_tools: bool = False,
     ) -> BaseModel:
         from openai.types.responses import ResponseFunctionToolCall
 
-        if using_inbuilt_tools:
-            for message in completion.output:
-                if isinstance(message, ResponseFunctionToolCall):
-                    if message.name == cls.openai_schema["name"]:
-                        message = message
-                        break
-            else:
-                raise ValueError(
-                    f"You must call {cls.openai_schema['name']} in your response"
-                )
-
-        else:
-            message = completion.output[0]
-            assert (
-                message.name == cls.openai_schema["name"]  # type: ignore[index]
-            ), "Function name does not match"
+        tool_call_message = None
+        for message in completion.output:
+            if isinstance(message, ResponseFunctionToolCall):
+                if message.name == cls.openai_schema["name"]:
+                    tool_call_message = message
+                    break
+        if not tool_call_message:
+            raise ResponseParsingError(
+                f"Required tool call '{cls.openai_schema['name']}' not found in response",
+                mode="RESPONSES_TOOLS",
+                raw_response=completion,
+            )
 
         return cls.model_validate_json(
-            message.arguments,  # type: ignore[attr-defined]
+            tool_call_message.arguments,  # type: ignore[attr-defined]
             context=validation_context,
             strict=strict,
         )
@@ -619,8 +755,9 @@ class OpenAISchema(BaseModel):
         strict: Optional[bool] = None,
     ) -> BaseModel:
         if not completion.choices or len(completion.choices) > 1:
-            raise ValueError(
-                "Instructor does not support multiple tool calls, use list[Model] instead"
+            raise ConfigurationError(
+                "Instructor does not support multiple tool calls in MISTRAL_STRUCTURED_OUTPUTS mode. "
+                "Use list[Model] instead to handle multiple items."
             )
 
         message = completion.choices[0].message
@@ -658,7 +795,9 @@ def openai_schema(cls: type[BaseModel]) -> OpenAISchema:
     Wrap a Pydantic model class to add OpenAISchema functionality.
     """
     if not issubclass(cls, BaseModel):
-        raise TypeError("Class must be a subclass of pydantic.BaseModel")
+        raise ConfigurationError(
+            f"response_model must be a Pydantic BaseModel subclass, got {type(cls).__name__}"
+        )
 
     # Create the wrapped model
     schema = wraps(cls, updated=())(

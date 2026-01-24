@@ -1,6 +1,10 @@
 #include <cmath>
 #include <memory>
 #include <fstream>
+#include <sstream>
+#include <iostream>
+#include <streambuf>
+#include <vector>
 #include <kiwi/Kiwi.h>
 #include <kiwi/SwTokenizer.h>
 #include <kiwi/capi.h>
@@ -30,7 +34,7 @@ struct kiwi_ws : public pair<vector<WordInfo>, ResultBuffer>
 
 struct kiwi_ss : public vector<pair<size_t, size_t>>
 {
-	kiwi_ss(vector<pair<size_t, size_t>>&& o) : vector{ move(o) }
+	kiwi_ss(vector<pair<size_t, size_t>>&& o) : vector{ std::move(o) }
 	{
 	}
 };
@@ -69,7 +73,7 @@ struct kiwi_swtokenizer
 	string cachedText;
 
 	kiwi_swtokenizer(SwTokenizer&& _tokenizer)
-		: tokenizer{move(_tokenizer)}
+		: tokenizer{ std::move(_tokenizer) }
 	{}
 };
 
@@ -105,7 +109,7 @@ void kiwi_clear_error()
 	currentError = {};
 }
 
-kiwi_builder_h kiwi_builder_init(const char* model_path, int num_threads, int options)
+kiwi_builder_h kiwi_builder_init(const char* model_path, int num_threads, int options, int enabled_dialects)
 {
 	try
 	{
@@ -117,7 +121,113 @@ kiwi_builder_h kiwi_builder_init(const char* model_path, int num_threads, int op
 			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG) ? ModelType::cong
 			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG_GLOBAL) ? ModelType::congGlobal
 			: ModelType::none;
-		return (kiwi_builder_h)new KiwiBuilder{ model_path, (size_t)num_threads, buildOption, modelType };
+		return (kiwi_builder_h)new KiwiBuilder{ model_path, (size_t)num_threads, buildOption, modelType, (Dialect)enabled_dialects };
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return nullptr;
+	}
+}
+
+// Custom istream implementation that uses the kiwi_stream_object_t
+class CStreamAdapter : public std::istream {
+private:
+    class CStreamBuf : public std::streambuf {
+    private:
+        kiwi_stream_object_t stream_obj;
+        std::vector<char> buffer;
+        static constexpr const size_t buffer_size = 8192;
+        
+    public:
+        CStreamBuf(const kiwi_stream_object_t& obj) : stream_obj(obj), buffer(buffer_size) {
+            setg(buffer.data(), buffer.data(), buffer.data());
+        }
+        
+        ~CStreamBuf() {
+            if (stream_obj.close) {
+                stream_obj.close(stream_obj.user_data);
+            }
+        }
+        
+    protected:
+        int underflow() override {
+            if (gptr() < egptr()) {
+                return traits_type::to_int_type(*gptr());
+            }
+            
+            if (!stream_obj.read) {
+                return traits_type::eof();
+            }
+            
+            size_t bytes_read = stream_obj.read(stream_obj.user_data, buffer.data(), buffer_size);
+            if (bytes_read == 0) {
+                return traits_type::eof();
+            }
+            
+            setg(buffer.data(), buffer.data(), buffer.data() + bytes_read);
+            return traits_type::to_int_type(*gptr());
+        }
+        
+        pos_type seekoff(off_type off, std::ios_base::seekdir way, std::ios_base::openmode) override {
+            if (!stream_obj.seek) {
+                return pos_type(-1);
+            }
+            
+            int whence;
+            switch (way) {
+                case std::ios_base::beg: whence = 0; break; // SEEK_SET
+                case std::ios_base::cur: whence = 1; break; // SEEK_CUR
+                case std::ios_base::end: whence = 2; break; // SEEK_END
+                default: return pos_type(-1);
+            }
+            
+            long long new_pos = stream_obj.seek(stream_obj.user_data, off, whence);
+            if (new_pos == -1) {
+                return pos_type(-1);
+            }
+            
+            // Reset buffer after seek
+            setg(buffer.data(), buffer.data(), buffer.data());
+            return pos_type(new_pos);
+        }
+        
+        pos_type seekpos(pos_type sp, std::ios_base::openmode which) override {
+            return seekoff(sp, std::ios_base::beg, which);
+        }
+    };
+    
+    CStreamBuf buf;
+    
+public:
+    CStreamAdapter(const kiwi_stream_object_t& obj) : std::istream(&buf), buf(obj) {}
+};
+
+kiwi_builder_h kiwi_builder_init_stream(kiwi_stream_object_t (*stream_object_factory)(const char* filename), int num_threads, int options, int enabled_dialects)
+{
+	try
+	{
+		BuildOption buildOption = (BuildOption)(options & 0xFF);
+		const auto mtMask = options & (KIWI_BUILD_MODEL_TYPE_LARGEST | KIWI_BUILD_MODEL_TYPE_KNLM | KIWI_BUILD_MODEL_TYPE_SBG | KIWI_BUILD_MODEL_TYPE_CONG | KIWI_BUILD_MODEL_TYPE_CONG_GLOBAL);
+		const ModelType modelType = (mtMask == KIWI_BUILD_MODEL_TYPE_LARGEST) ? ModelType::largest
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_KNLM) ? ModelType::knlm
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_SBG) ? ModelType::sbg
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG) ? ModelType::cong
+			: (mtMask == KIWI_BUILD_MODEL_TYPE_CONG_GLOBAL) ? ModelType::congGlobal
+			: ModelType::none;
+		
+		// Create C++ StreamProvider that uses the stream object factory
+		KiwiBuilder::StreamProvider cppStreamProvider = [stream_object_factory](const std::string& filename) -> std::unique_ptr<std::istream>
+		{
+			kiwi_stream_object_t stream_obj = stream_object_factory(filename.c_str());
+			if (!stream_obj.read) {
+				return nullptr; // Invalid stream object (missing required read function)
+			}
+			
+			return std::make_unique<CStreamAdapter>(stream_obj);
+		};
+		
+		return (kiwi_builder_h)new KiwiBuilder{ cppStreamProvider, (size_t)num_threads, buildOption, modelType, (Dialect)enabled_dialects};
 	}
 	catch (...)
 	{
@@ -184,13 +294,12 @@ int kiwi_builder_add_pre_analyzed_word(kiwi_builder_h handle, const char* form, 
 		{
 			throw invalid_argument{ "`size` must be positive integer." };
 		}
-		vector<pair<u16string, POSTag>> analyzed(size);
+		vector<tuple<u16string, POSTag, uint8_t>> analyzed(size);
 		vector<pair<size_t, size_t>> p_positions;
 
 		for (int i = 0; i < size; ++i)
 		{
-			analyzed[i].first = utf8To16(analyzed_morphs[i]);
-			analyzed[i].second = parse_tag(analyzed_pos[i]);
+			analyzed[i] = make_tuple(utf8To16(analyzed_morphs[i]), parse_tag(analyzed_pos[i]), undefSenseId);
 		}
 
 		if (positions)
@@ -271,7 +380,7 @@ kiwi_ws_h kiwi_builder_extract_words(kiwi_builder_h handle, kiwi_reader_t reader
 			};
 		}, minCnt, maxWordLen, minScore, posThreshold);
 
-		return new kiwi_ws{ move(res), {} };
+		return new kiwi_ws{ std::move(res), {} };
 	}
 	catch (...)
 	{
@@ -300,7 +409,7 @@ kiwi_ws_h kiwi_builder_extract_add_words(kiwi_builder_h handle, kiwi_reader_t re
 				return utf8To16(buf);
 			};
 		}, minCnt, maxWordLen, minScore, posThreshold);
-		return new kiwi_ws{ move(res), {} };
+		return new kiwi_ws{ std::move(res), {} };
 	}
 	catch (...)
 	{
@@ -330,7 +439,7 @@ kiwi_ws_h kiwi_builder_extract_words_w(kiwi_builder_h handle, kiwi_reader_w_t re
 			};
 		}, minCnt, maxWordLen, minScore, posThreshold);
 
-		return new kiwi_ws{ move(res), {} };
+		return new kiwi_ws{ std::move(res), {} };
 	}
 	catch (...)
 	{
@@ -359,7 +468,7 @@ kiwi_ws_h kiwi_builder_extract_add_words_w(kiwi_builder_h handle, kiwi_reader_w_
 				return buf;
 			};
 		}, minCnt, maxWordLen, minScore, posThreshold);
-		return new kiwi_ws{ move(res), {} };
+		return new kiwi_ws{ std::move(res), {} };
 	}
 	catch (...)
 	{
@@ -551,23 +660,62 @@ kiwi_h kiwi_init(const char * modelPath, int num_threads, int options)
 	}
 }
 
+void kiwi_set_global_config(kiwi_h handle, kiwi_config_t config)
+{
+	if (!handle) return;
+	Kiwi* kiwi = (Kiwi*)handle;
+	try
+	{
+		KiwiConfig kconfig{
+			!!config.integrate_allomorph,
+			config.cut_off_threshold,
+			config.unk_form_score_scale,
+			config.unk_form_score_bias,
+			config.space_penalty,
+			config.typo_cost_weight,
+			config.max_unk_form_size,
+			config.space_tolerance,
+		};
+		kiwi->setGlobalConfig(kconfig);
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+	}
+}
+
+kiwi_config_t kiwi_get_global_config(kiwi_h handle)
+{
+	kiwi_config_t config{};
+	if (!handle) return config;
+	Kiwi* kiwi = (Kiwi*)handle;
+	try
+	{
+		KiwiConfig kconfig = kiwi->getGlobalConfig();
+		config.integrate_allomorph = kconfig.integrateAllomorph;
+		config.cut_off_threshold = kconfig.cutOffThreshold;
+		config.unk_form_score_scale = kconfig.unkFormScoreScale;
+		config.unk_form_score_bias = kconfig.unkFormScoreBias;
+		config.space_penalty = kconfig.spacePenalty;
+		config.typo_cost_weight = kconfig.typoCostWeight;
+		config.max_unk_form_size = kconfig.maxUnkFormSize;
+		config.space_tolerance = kconfig.spaceTolerance;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+	}
+	return config;
+}
+
 void kiwi_set_option(kiwi_h handle, int option, int value)
 {
 	if (!handle) return;
 	Kiwi* kiwi = (Kiwi*)handle;
 	switch (option)
 	{
-	case KIWI_BUILD_INTEGRATE_ALLOMORPH:
-		kiwi->setIntegrateAllomorph(!!value);
-		break;
 	case KIWI_NUM_THREADS:
 		currentError = make_exception_ptr(runtime_error{ "Cannot modify the number of threads." });
-		break;
-	case KIWI_MAX_UNK_FORM_SIZE:
-		kiwi->setMaxUnkFormSize(value);
-		break;
-	case KIWI_SPACE_TOLERANCE:
-		kiwi->setSpaceTolerance(value);
 		break;
 	default:
 		currentError = make_exception_ptr(invalid_argument{ "Invalid option value: " + to_string(option)});
@@ -581,14 +729,8 @@ int kiwi_get_option(kiwi_h handle, int option)
 	Kiwi* kiwi = (Kiwi*)handle;
 	switch (option)
 	{
-	case KIWI_BUILD_INTEGRATE_ALLOMORPH:
-		return kiwi->getIntegrateAllomorph() ? 1 : 0;
 	case KIWI_NUM_THREADS:
 		return kiwi->getNumThreads();
-	case KIWI_MAX_UNK_FORM_SIZE:
-		return kiwi->getMaxUnkFormSize();
-	case KIWI_SPACE_TOLERANCE:
-		return kiwi->getSpaceTolerance();
 	default:
 		currentError = make_exception_ptr(invalid_argument{ "Invalid option value: " + to_string(option) });
 		break;
@@ -602,21 +744,6 @@ void kiwi_set_option_f(kiwi_h handle, int option, float value)
 	Kiwi* kiwi = (Kiwi*)handle;
 	switch (option)
 	{
-	case KIWI_CUT_OFF_THRESHOLD:
-		kiwi->setCutOffThreshold(value);
-		break;
-	case KIWI_UNK_FORM_SCORE_SCALE:
-		kiwi->setUnkScoreScale(value);
-		break;
-	case KIWI_UNK_FORM_SCORE_BIAS:
-		kiwi->setUnkScoreBias(value);
-		break;
-	case KIWI_SPACE_PENALTY:
-		kiwi->setSpacePenalty(value);
-		break;
-	case KIWI_TYPO_COST_WEIGHT:
-		kiwi->setTypoCostWeight(value);
-		break;
 	default:
 		currentError = make_exception_ptr(invalid_argument{ "Invalid option value: " + to_string(option) });
 		break;
@@ -629,16 +756,6 @@ float kiwi_get_option_f(kiwi_h handle, int option)
 	Kiwi* kiwi = (Kiwi*)handle;
 	switch (option)
 	{
-	case KIWI_CUT_OFF_THRESHOLD:
-		return kiwi->getCutOffThreshold();
-	case KIWI_UNK_FORM_SCORE_SCALE:
-		return kiwi->getUnkScoreScale();
-	case KIWI_UNK_FORM_SCORE_BIAS:
-		return kiwi->getUnkScoreBias();
-	case KIWI_SPACE_PENALTY:
-		return kiwi->getSpacePenalty();
-	case KIWI_TYPO_COST_WEIGHT:
-		return kiwi->getTypoCostWeight();
 	default:
 		currentError = make_exception_ptr(invalid_argument{ "Invalid option value: " + to_string(option) });
 		break;
@@ -661,15 +778,26 @@ kiwi_morphset_h kiwi_new_morphset(kiwi_h handle)
 	}
 }
 
-kiwi_res_h kiwi_analyze_w(kiwi_h handle, const kchar16_t * text, int topN, int matchOptions, kiwi_morphset_h blocklilst, kiwi_pretokenized_h pretokenized)
+inline AnalyzeOption toAnalyzeOption(kiwi_analyze_option_t option)
+{
+	return AnalyzeOption{
+		(Match)option.match_options,
+		option.blocklist ? &option.blocklist->morphemes : nullptr,
+		!!option.open_ending,
+		(Dialect)option.allowed_dialects,
+		option.dialect_cost
+	};
+}
+
+kiwi_res_h kiwi_analyze_w(kiwi_h handle, const kchar16_t * text, int top_n, kiwi_analyze_option_t option, kiwi_pretokenized_h pretokenized)
 {
 	if (!handle) return nullptr;
 	Kiwi* kiwi = (Kiwi*)handle;
 	try
 	{
 		return new kiwi_res{ kiwi->analyze(
-			(const char16_t*)text, topN, 
-			AnalyzeOption{ (Match)matchOptions, blocklilst ? &blocklilst->morphemes : nullptr},
+			(const char16_t*)text, top_n, 
+			toAnalyzeOption(option),
 			pretokenized ? *pretokenized : std::vector<PretokenizedSpan>{}
 		), {} };
 	}
@@ -680,15 +808,15 @@ kiwi_res_h kiwi_analyze_w(kiwi_h handle, const kchar16_t * text, int topN, int m
 	}
 }
 
-kiwi_res_h kiwi_analyze(kiwi_h handle, const char * text, int topN, int matchOptions, kiwi_morphset_h blocklilst, kiwi_pretokenized_h pretokenized)
+kiwi_res_h kiwi_analyze(kiwi_h handle, const char* text, int top_n, kiwi_analyze_option_t option, kiwi_pretokenized_h pretokenized)
 {
 	if (!handle) return nullptr;
 	Kiwi* kiwi = (Kiwi*)handle;
 	try
 	{
 		return new kiwi_res{ kiwi->analyze(
-			text, topN, 
-			AnalyzeOption{ (Match)matchOptions, blocklilst ? &blocklilst->morphemes : nullptr },
+			text, top_n, 
+			toAnalyzeOption(option),
 			pretokenized ? *pretokenized : std::vector<PretokenizedSpan>{}
 		),{} };
 	}
@@ -699,14 +827,14 @@ kiwi_res_h kiwi_analyze(kiwi_h handle, const char * text, int topN, int matchOpt
 	}
 }
 
-int kiwi_analyze_mw(kiwi_h handle, kiwi_reader_w_t reader, kiwi_receiver_t receiver, void * userData, int topN, int matchOptions, kiwi_morphset_h blocklilst)
+int kiwi_analyze_mw(kiwi_h handle, kiwi_reader_w_t reader, kiwi_receiver_t receiver, void * userData, int top_n, kiwi_analyze_option_t option)
 {
 	if (!handle) return KIWIERR_INVALID_HANDLE;
 	Kiwi* kiwi = (Kiwi*)handle;
 	try
 	{
 		int reader_idx = 0, receiver_idx = 0;
-		kiwi->analyze(topN, [&]() -> u16string
+		kiwi->analyze(top_n, [&]() -> u16string
 		{
 			u16string buf;
 			buf.resize((*reader)(reader_idx, nullptr, userData));
@@ -715,9 +843,9 @@ int kiwi_analyze_mw(kiwi_h handle, kiwi_reader_w_t reader, kiwi_receiver_t recei
 			return buf;
 		}, [&](vector<TokenResult>&& res)
 		{
-			auto result = new kiwi_res{ move(res), {} };
+			auto result = new kiwi_res{ std::move(res), {} };
 			(*receiver)(receiver_idx++, result, userData);
-		}, AnalyzeOption{ (Match)matchOptions, blocklilst ? &blocklilst->morphemes : nullptr });
+		}, toAnalyzeOption(option));
 		return reader_idx;
 	}
 	catch (...)
@@ -727,14 +855,14 @@ int kiwi_analyze_mw(kiwi_h handle, kiwi_reader_w_t reader, kiwi_receiver_t recei
 	}
 }
 
-int kiwi_analyze_m(kiwi_h handle, kiwi_reader_t reader, kiwi_receiver_t receiver, void * userData, int topN, int matchOptions, kiwi_morphset_h blocklilst)
+int kiwi_analyze_m(kiwi_h handle, kiwi_reader_t reader, kiwi_receiver_t receiver, void * userData, int top_n, kiwi_analyze_option_t option)
 {
 	if (!handle) return KIWIERR_INVALID_HANDLE;
 	Kiwi* kiwi = (Kiwi*)handle;
 	try
 	{
 		int reader_idx = 0, receiver_idx = 0;
-		kiwi->analyze(topN, [&]() -> u16string
+		kiwi->analyze(top_n, [&]() -> u16string
 		{
 			string buf;
 			buf.resize((*reader)(reader_idx, nullptr, userData));
@@ -743,9 +871,9 @@ int kiwi_analyze_m(kiwi_h handle, kiwi_reader_t reader, kiwi_receiver_t receiver
 			return utf8To16(buf);
 		}, [&](vector<TokenResult>&& res)
 		{
-			auto result = new kiwi_res{ move(res),{} };
+			auto result = new kiwi_res{ std::move(res),{} };
 			(*receiver)(receiver_idx++, result, userData);
-		}, AnalyzeOption{ (Match)matchOptions, blocklilst ? &blocklilst->morphemes : nullptr });
+		}, toAnalyzeOption(option));
 		return reader_idx;
 	}
 	catch (...)
@@ -764,8 +892,8 @@ kiwi_ss_h kiwi_split_into_sents_w(kiwi_h handle, const kchar16_t* text, int matc
 		vector<TokenResult> tokenized;
 		if (tokenized_res) tokenized.resize(1);
 		auto sent_ranges = kiwi->splitIntoSents((const char16_t*)text, (Match)matchOptions, tokenized_res ? tokenized.data() : nullptr);
-		if (tokenized_res) *tokenized_res = new kiwi_res{ move(tokenized), {} };
-		return new kiwi_ss{ move(sent_ranges) };
+		if (tokenized_res) *tokenized_res = new kiwi_res{ std::move(tokenized), {} };
+		return new kiwi_ss{ std::move(sent_ranges) };
 	}
 	catch (...)
 	{
@@ -783,8 +911,8 @@ kiwi_ss_h kiwi_split_into_sents(kiwi_h handle, const char* text, int matchOption
 		vector<TokenResult> tokenized;
 		if (tokenized_res) tokenized.resize(1);
 		auto sent_ranges = kiwi->splitIntoSents(text, (Match)matchOptions, tokenized_res ? tokenized.data() : nullptr);
-		if (tokenized_res) *tokenized_res = new kiwi_res{ move(tokenized), {} };
-		return new kiwi_ss{ move(sent_ranges) };
+		if (tokenized_res) *tokenized_res = new kiwi_res{ std::move(tokenized), {} };
+		return new kiwi_ss{ std::move(sent_ranges) };
 	}
 	catch (...)
 	{
@@ -822,6 +950,11 @@ int kiwi_close(kiwi_h handle)
 		currentError = current_exception();
 		return KIWIERR_FAIL;
 	}
+}
+
+const char* kiwi_tag_to_string(kiwi_h handle, uint8_t pos_tag)
+{
+	return tagToString((POSTag)pos_tag);
 }
 
 int kiwi_res_size(kiwi_res_h result)
@@ -880,6 +1013,21 @@ const kiwi_token_info_t* kiwi_res_token_info(kiwi_res_h result, int index, int n
 	{
 		currentError = current_exception();
 		return nullptr;
+	}
+}
+
+int kiwi_res_morpheme_id(kiwi_res_h result, int index, int num, kiwi_h kiwi_handle)
+{
+	try
+	{
+		if (!result || !kiwi_handle) return KIWIERR_INVALID_HANDLE;
+		if (index < 0 || index >= result->first.size() || num < 0 || num >= result->first[index].first.size()) return KIWIERR_INVALID_INDEX;
+		return ((Kiwi*)kiwi_handle)->morphToId(result->first[index].first[num].morph);
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
 	}
 }
 
@@ -1041,6 +1189,274 @@ int kiwi_res_close(kiwi_res_h result)
 	{
 		delete result;
 		return 0;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_find_morphemes(kiwi_h handle, const char* form, const char* tag, int sense_id, unsigned int* morph_ids, int max_count)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto ret = kiwi->findMorphemes(utf8To16(form), tag ? parse_tag(tag) : POSTag::unknown, (uint8_t)sense_id);
+		max_count = min((int)ret.size(), max_count);
+		for (int i = 0; i < max_count; ++i)
+		{
+			morph_ids[i] = kiwi->morphToId(ret[i]);
+		}
+		return max_count;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_find_morphemes_with_prefix(kiwi_h handle, const char* form_prefix, const char* tag, int sense_id, unsigned int* morph_ids, int max_count)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto ret = kiwi->findMorphemesWithPrefix(max_count, utf8To16(form_prefix), tag ? parse_tag(tag) : POSTag::unknown, (uint8_t)sense_id);
+		max_count = min((int)ret.size(), max_count);
+		for (int i = 0; i < max_count; ++i)
+		{
+			morph_ids[i] = kiwi->morphToId(ret[i]);
+		}
+		return max_count;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+kiwi_morpheme_t kiwi_get_morpheme_info(kiwi_h handle, unsigned int morph_id)
+{
+	kiwi_morpheme_t info{ 0, };
+	if (!handle) return info;
+	try
+	{
+		auto* morpheme = ((Kiwi*)handle)->idToMorph(morph_id);
+		if (!morpheme) return info;
+		info.tag = (uint8_t)morpheme->tag;
+		info.sense_id = morpheme->senseId;
+		info.user_score = morpheme->userScore;
+		info.lm_morpheme_id = morpheme->lmMorphemeId;
+		info.orig_morpheme_id = morpheme->origMorphemeId;
+		info.dialect = (uint16_t)morpheme->dialect;
+		return info;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return info;
+	}
+}
+
+const kchar16_t* kiwi_get_morpheme_form_w(kiwi_h handle, unsigned int morph_id)
+{
+	if (!handle) return nullptr;
+	try
+	{
+		auto* morpheme = ((Kiwi*)handle)->idToMorph(morph_id);
+		if (!morpheme) return nullptr;
+		auto form = joinHangul(morpheme->getForm());
+		auto* buf = new kchar16_t[form.size() + 1];
+		wcsncpy((wchar_t*)buf, (const wchar_t*)form.c_str(), form.size() + 1);
+		return buf;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return nullptr;
+	}
+}
+
+const char* kiwi_get_morpheme_form(kiwi_h handle, unsigned int morph_id)
+{
+	if (!handle) return nullptr;
+	try
+	{
+		auto* morpheme = ((Kiwi*)handle)->idToMorph(morph_id);
+		if (!morpheme) return nullptr;
+		auto form = utf16To8(joinHangul(morpheme->getForm()));
+		auto* buf = new char[form.size() + 1];
+		strncpy(buf, form.c_str(), form.size() + 1);
+		return buf;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return nullptr;
+	}
+}
+
+int kiwi_free_morpheme_form(const char* form)
+{
+	try
+	{
+		delete[] form;
+		return 0;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_cong_most_similar_words(kiwi_h handle, unsigned int morph_id, kiwi_similarity_pair_t* output, int top_n)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		size_t cnt = cong->mostSimilarWords(morph_id, top_n, (pair<uint32_t, float>*)output);
+		return (int)cnt;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+float kiwi_cong_similarity(kiwi_h handle, unsigned int morph_id1, unsigned int morph_id2)
+{
+	if (!handle) return NAN;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		return cong->wordSimilarity(morph_id1, morph_id2);
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return NAN;
+	}
+}
+
+int kiwi_cong_most_similar_contexts(kiwi_h handle, unsigned int context_id, kiwi_similarity_pair_t* output, int top_n)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		size_t cnt = cong->mostSimilarContexts(context_id, top_n, (pair<uint32_t, float>*)output);
+		return (int)cnt;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+float kiwi_cong_context_similarity(kiwi_h handle, unsigned int context_id1, unsigned int context_id2)
+{
+	if (!handle) return NAN;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		return cong->contextSimilarity(context_id1, context_id2);
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return NAN;
+	}
+}
+
+int kiwi_cong_predict_words_from_context(kiwi_h handle, unsigned int context_id, kiwi_similarity_pair_t* output, int top_n)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		size_t cnt = cong->predictWordsFromContext(context_id, top_n, (pair<uint32_t, float>*)output);
+		return (int)cnt;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+int kiwi_cong_predict_words_from_context_diff(kiwi_h handle, unsigned int context_id, unsigned int bg_context_id, float weight, kiwi_similarity_pair_t* output, int top_n)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		size_t cnt = cong->predictWordsFromContextDiff(context_id, bg_context_id, weight, top_n, (pair<uint32_t, float>*)output);
+		return (int)cnt;
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return KIWIERR_FAIL;
+	}
+}
+
+unsigned int kiwi_cong_to_context_id(kiwi_h handle, const unsigned int* morph_ids, int size)
+{
+	if (!handle) return 0;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		return cong->toContextId(morph_ids, size);
+	}
+	catch (...)
+	{
+		currentError = current_exception();
+		return 0;
+	}
+}
+
+int kiwi_cong_from_context_id(kiwi_h handle, unsigned int context_id, unsigned int* morph_ids, int max_size)
+{
+	if (!handle) return KIWIERR_INVALID_HANDLE;
+	try
+	{
+		Kiwi* kiwi = (Kiwi*)handle;
+		auto cong = dynamic_cast<const lm::CoNgramModelBase*>(kiwi->getLangModel());
+		if (!cong) throw invalid_argument{ "The given kiwi object does not have CoNgram language model." };
+		auto& vec = cong->getContextWordMapCached();
+		if ((size_t)context_id >= vec.size())
+		{
+			throw out_of_range{ "Invalid context ID." };
+		}
+
+		max_size = min((int)vec[context_id].size(), max_size);
+		for (int i = 0; i < max_size; ++i)
+		{
+			morph_ids[i] = vec[context_id][i];
+		}
+		return max_size;
 	}
 	catch (...)
 	{
@@ -1351,15 +1767,15 @@ int kiwi_swt_encode(kiwi_swtokenizer_h handle, const char* text, int text_size, 
 		{
 			tokenIds = handle->tokenizer.encode(str, &offset);
 			handle->encodeLastText = strHash;
-			handle->cachedTokenIds = move(tokenIds);
-			handle->cachedOffset = move(offset);
+			handle->cachedTokenIds = std::move(tokenIds);
+			handle->cachedOffset = std::move(offset);
 			return handle->cachedTokenIds.size();
 		}
 
 		if (handle->encodeLastText == strHash)
 		{
-			tokenIds = move(handle->cachedTokenIds);
-			offset = move(handle->cachedOffset);
+			tokenIds = std::move(handle->cachedTokenIds);
+			offset = std::move(handle->cachedOffset);
 			handle->encodeLastText = 0;
 		}
 		else
@@ -1399,13 +1815,13 @@ int kiwi_swt_decode(kiwi_swtokenizer_h handle, const int* token_ids, int token_s
 		{
 			decoded = handle->tokenizer.decode((const uint32_t*)token_ids, token_size);
 			handle->decodeLastTokenIds = hash;
-			handle->cachedText = move(decoded);
+			handle->cachedText = std::move(decoded);
 			return handle->cachedText.size();
 		}
 
 		if (handle->decodeLastTokenIds == hash)
 		{
-			decoded = move(handle->cachedText);
+			decoded = std::move(handle->cachedText);
 			handle->decodeLastTokenIds = 0;
 		}
 		else

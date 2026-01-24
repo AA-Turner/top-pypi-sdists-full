@@ -3,7 +3,7 @@ Type annotations for cloudfront service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,10 +13,13 @@ Usage::
     from types_aiobotocore_cloudfront.client import CloudFrontClient
     from types_aiobotocore_cloudfront.paginator import (
         ListCloudFrontOriginAccessIdentitiesPaginator,
+        ListConnectionFunctionsPaginator,
         ListConnectionGroupsPaginator,
         ListDistributionTenantsByCustomizationPaginator,
         ListDistributionTenantsPaginator,
+        ListDistributionsByConnectionFunctionPaginator,
         ListDistributionsByConnectionModePaginator,
+        ListDistributionsByTrustStorePaginator,
         ListDistributionsPaginator,
         ListDomainConflictsPaginator,
         ListInvalidationsForDistributionTenantPaginator,
@@ -25,6 +28,7 @@ Usage::
         ListOriginAccessControlsPaginator,
         ListPublicKeysPaginator,
         ListStreamingDistributionsPaginator,
+        ListTrustStoresPaginator,
     )
 
     session = get_session()
@@ -32,10 +36,13 @@ Usage::
         client: CloudFrontClient
 
         list_cloud_front_origin_access_identities_paginator: ListCloudFrontOriginAccessIdentitiesPaginator = client.get_paginator("list_cloud_front_origin_access_identities")
+        list_connection_functions_paginator: ListConnectionFunctionsPaginator = client.get_paginator("list_connection_functions")
         list_connection_groups_paginator: ListConnectionGroupsPaginator = client.get_paginator("list_connection_groups")
         list_distribution_tenants_by_customization_paginator: ListDistributionTenantsByCustomizationPaginator = client.get_paginator("list_distribution_tenants_by_customization")
         list_distribution_tenants_paginator: ListDistributionTenantsPaginator = client.get_paginator("list_distribution_tenants")
+        list_distributions_by_connection_function_paginator: ListDistributionsByConnectionFunctionPaginator = client.get_paginator("list_distributions_by_connection_function")
         list_distributions_by_connection_mode_paginator: ListDistributionsByConnectionModePaginator = client.get_paginator("list_distributions_by_connection_mode")
+        list_distributions_by_trust_store_paginator: ListDistributionsByTrustStorePaginator = client.get_paginator("list_distributions_by_trust_store")
         list_distributions_paginator: ListDistributionsPaginator = client.get_paginator("list_distributions")
         list_domain_conflicts_paginator: ListDomainConflictsPaginator = client.get_paginator("list_domain_conflicts")
         list_invalidations_for_distribution_tenant_paginator: ListInvalidationsForDistributionTenantPaginator = client.get_paginator("list_invalidations_for_distribution_tenant")
@@ -44,6 +51,7 @@ Usage::
         list_origin_access_controls_paginator: ListOriginAccessControlsPaginator = client.get_paginator("list_origin_access_controls")
         list_public_keys_paginator: ListPublicKeysPaginator = client.get_paginator("list_public_keys")
         list_streaming_distributions_paginator: ListStreamingDistributionsPaginator = client.get_paginator("list_streaming_distributions")
+        list_trust_stores_paginator: ListTrustStoresPaginator = client.get_paginator("list_trust_stores")
     ```
 """
 
@@ -57,10 +65,16 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     ListCloudFrontOriginAccessIdentitiesRequestPaginateTypeDef,
     ListCloudFrontOriginAccessIdentitiesResultTypeDef,
+    ListConnectionFunctionsRequestPaginateTypeDef,
+    ListConnectionFunctionsResultTypeDef,
     ListConnectionGroupsRequestPaginateTypeDef,
     ListConnectionGroupsResultTypeDef,
+    ListDistributionsByConnectionFunctionRequestPaginateTypeDef,
+    ListDistributionsByConnectionFunctionResultTypeDef,
     ListDistributionsByConnectionModeRequestPaginateTypeDef,
     ListDistributionsByConnectionModeResultTypeDef,
+    ListDistributionsByTrustStoreRequestPaginateTypeDef,
+    ListDistributionsByTrustStoreResultTypeDef,
     ListDistributionsRequestPaginateTypeDef,
     ListDistributionsResultTypeDef,
     ListDistributionTenantsByCustomizationRequestPaginateTypeDef,
@@ -81,6 +95,8 @@ from .type_defs import (
     ListPublicKeysResultTypeDef,
     ListStreamingDistributionsRequestPaginateTypeDef,
     ListStreamingDistributionsResultTypeDef,
+    ListTrustStoresRequestPaginateTypeDef,
+    ListTrustStoresResultTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -90,10 +106,13 @@ else:
 
 __all__ = (
     "ListCloudFrontOriginAccessIdentitiesPaginator",
+    "ListConnectionFunctionsPaginator",
     "ListConnectionGroupsPaginator",
     "ListDistributionTenantsByCustomizationPaginator",
     "ListDistributionTenantsPaginator",
+    "ListDistributionsByConnectionFunctionPaginator",
     "ListDistributionsByConnectionModePaginator",
+    "ListDistributionsByTrustStorePaginator",
     "ListDistributionsPaginator",
     "ListDomainConflictsPaginator",
     "ListInvalidationsForDistributionTenantPaginator",
@@ -102,6 +121,7 @@ __all__ = (
     "ListOriginAccessControlsPaginator",
     "ListPublicKeysPaginator",
     "ListStreamingDistributionsPaginator",
+    "ListTrustStoresPaginator",
 )
 
 if TYPE_CHECKING:
@@ -124,6 +144,24 @@ class ListCloudFrontOriginAccessIdentitiesPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListCloudFrontOriginAccessIdentities.html#CloudFront.Paginator.ListCloudFrontOriginAccessIdentities.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listcloudfrontoriginaccessidentitiespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListConnectionFunctionsPaginatorBase = AioPaginator[ListConnectionFunctionsResultTypeDef]
+else:
+    _ListConnectionFunctionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListConnectionFunctionsPaginator(_ListConnectionFunctionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListConnectionFunctions.html#CloudFront.Paginator.ListConnectionFunctions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listconnectionfunctionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConnectionFunctionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListConnectionFunctionsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListConnectionFunctions.html#CloudFront.Paginator.ListConnectionFunctions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listconnectionfunctionspaginator)
         """
 
 if TYPE_CHECKING:
@@ -185,6 +223,28 @@ class ListDistributionTenantsPaginator(_ListDistributionTenantsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListDistributionsByConnectionFunctionPaginatorBase = AioPaginator[
+        ListDistributionsByConnectionFunctionResultTypeDef
+    ]
+else:
+    _ListDistributionsByConnectionFunctionPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListDistributionsByConnectionFunctionPaginator(
+    _ListDistributionsByConnectionFunctionPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListDistributionsByConnectionFunction.html#CloudFront.Paginator.ListDistributionsByConnectionFunction)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listdistributionsbyconnectionfunctionpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDistributionsByConnectionFunctionRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListDistributionsByConnectionFunctionResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListDistributionsByConnectionFunction.html#CloudFront.Paginator.ListDistributionsByConnectionFunction.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listdistributionsbyconnectionfunctionpaginator)
+        """
+
+if TYPE_CHECKING:
     _ListDistributionsByConnectionModePaginatorBase = AioPaginator[
         ListDistributionsByConnectionModeResultTypeDef
     ]
@@ -202,6 +262,26 @@ class ListDistributionsByConnectionModePaginator(_ListDistributionsByConnectionM
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListDistributionsByConnectionMode.html#CloudFront.Paginator.ListDistributionsByConnectionMode.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listdistributionsbyconnectionmodepaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDistributionsByTrustStorePaginatorBase = AioPaginator[
+        ListDistributionsByTrustStoreResultTypeDef
+    ]
+else:
+    _ListDistributionsByTrustStorePaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListDistributionsByTrustStorePaginator(_ListDistributionsByTrustStorePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListDistributionsByTrustStore.html#CloudFront.Paginator.ListDistributionsByTrustStore)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listdistributionsbytruststorepaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDistributionsByTrustStoreRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListDistributionsByTrustStoreResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListDistributionsByTrustStore.html#CloudFront.Paginator.ListDistributionsByTrustStore.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listdistributionsbytruststorepaginator)
         """
 
 if TYPE_CHECKING:
@@ -350,4 +430,22 @@ class ListStreamingDistributionsPaginator(_ListStreamingDistributionsPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListStreamingDistributions.html#CloudFront.Paginator.ListStreamingDistributions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#liststreamingdistributionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTrustStoresPaginatorBase = AioPaginator[ListTrustStoresResultTypeDef]
+else:
+    _ListTrustStoresPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListTrustStoresPaginator(_ListTrustStoresPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListTrustStores.html#CloudFront.Paginator.ListTrustStores)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listtruststorespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTrustStoresRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListTrustStoresResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListTrustStores.html#CloudFront.Paginator.ListTrustStores.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/paginators/#listtruststorespaginator)
         """

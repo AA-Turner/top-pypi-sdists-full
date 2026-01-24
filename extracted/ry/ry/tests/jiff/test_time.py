@@ -13,7 +13,6 @@ def test_strptime() -> None:
     assert_eq!(time.to_string(), "16:30:00");
     ```
     """
-
     t = ry.Time.strptime(
         "4:30pm",
         "%I:%M%P",
@@ -36,7 +35,7 @@ def test_time_until() -> None:
     t1 = ry.time(3, 24, 30, 3500)
     t2 = ry.time(15, 30, 0, 0)
     span = t1.until(t2)
-    assert span.string() == "PT12H5M29.9999965S"
+    assert span.to_string() == "PT12H5M29.9999965S"
 
 
 class TestTimeSeries:

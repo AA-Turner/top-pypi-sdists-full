@@ -40,6 +40,10 @@ pub struct AdditionalMetrics {
     /// An experimentation identifier derived and provided by the application
     /// for the purpose of experimentation enrollment.
     pub experimentation_id: StringMetric,
+
+    /// The number of times we had to clamp an event timestamp
+    /// for exceeding the range of a signed 64-bit integer (9223372036854775807).
+    pub event_timestamp_clamped: CounterMetric,
 }
 
 impl CoreMetrics {
@@ -198,6 +202,15 @@ impl AdditionalMetrics {
                 disabled: false,
                 dynamic_label: None,
             }),
+
+            event_timestamp_clamped: CounterMetric::new(CommonMetricData {
+                name: "event_timestamp_clamped".into(),
+                category: "glean.error".into(),
+                send_in_pings: vec!["health".into()],
+                lifetime: Lifetime::Ping,
+                disabled: false,
+                dynamic_label: None,
+            }),
         }
     }
 }
@@ -241,7 +254,7 @@ impl UploadMetrics {
 
             discarded_exceeding_pings_size: MemoryDistributionMetric::new(
                 CommonMetricData {
-                    name: "discarded_exceeding_ping_size".into(),
+                    name: "discarded_exceeding_pings_size".into(),
                     category: "glean.upload".into(),
                     send_in_pings: vec!["metrics".into(), "health".into()],
                     lifetime: Lifetime::Ping,
@@ -354,7 +367,7 @@ impl DatabaseMetrics {
 
             rkv_load_error: StringMetric::new(CommonMetricData {
                 name: "rkv_load_error".into(),
-                category: "glean.error".into(),
+                category: "glean.database".into(),
                 send_in_pings: vec!["metrics".into(), "health".into()],
                 lifetime: Lifetime::Ping,
                 disabled: false,
@@ -376,10 +389,44 @@ impl DatabaseMetrics {
     }
 }
 
+/// Possible values for the `glean.health.exception_state` health metric.
+pub enum ExceptionState {
+    /// No database on disk, but the plaintext file contained a valid client ID.
+    EmptyDb,
+    /// Existing database, but no client ID, however a client ID in the plaintext file.
+    RegenDb,
+    /// The database contained a c0ffee client ID.
+    C0ffeeInDb,
+    /// The client IDs in the database and the plaintext file differ.
+    ClientIdMismatch,
+}
+
+impl From<ExceptionState> for String {
+    fn from(value: ExceptionState) -> Self {
+        use ExceptionState::*;
+        String::from(match value {
+            EmptyDb => "empty-db",
+            RegenDb => "regen-db",
+            C0ffeeInDb => "c0ffee-in-db",
+            ClientIdMismatch => "client-id-mismatch",
+        })
+    }
+}
+
 #[derive(Debug, MallocSizeOf)]
 pub struct HealthMetrics {
     // Information about the data directory prior to Glean initialization.
     pub data_directory_info: ObjectMetric,
+    // A running count of the number of initializations.
+    pub init_count: CounterMetric,
+
+    // An exceptional state was detected upon trying to laod the database.
+    pub exception_state: StringMetric,
+    // A client_id recovered from a `client_id.txt` file on disk.
+    pub recovered_client_id: UuidMetric,
+
+    pub file_read_error: LabeledCounter,
+    pub file_write_error: LabeledCounter,
 }
 
 impl HealthMetrics {
@@ -393,6 +440,66 @@ impl HealthMetrics {
                 disabled: false,
                 dynamic_label: None,
             }),
+            init_count: CounterMetric::new(CommonMetricData {
+                name: "init_count".into(),
+                category: "glean.health".into(),
+                send_in_pings: vec!["health".into()],
+                lifetime: Lifetime::User,
+                disabled: false,
+                dynamic_label: None,
+            }),
+            exception_state: StringMetric::new(CommonMetricData {
+                name: "exception_state".into(),
+                category: "glean.health".into(),
+                send_in_pings: vec!["health".into()],
+                lifetime: Lifetime::Ping,
+                disabled: false,
+                dynamic_label: None,
+            }),
+            recovered_client_id: UuidMetric::new(CommonMetricData {
+                name: "recovered_client_id".into(),
+                category: "glean.health".into(),
+                send_in_pings: vec!["health".into()],
+                lifetime: Lifetime::Ping,
+                disabled: false,
+                dynamic_label: None,
+            }),
+            file_read_error: LabeledMetric::<CounterMetric>::new(
+                LabeledMetricData::Common {
+                    cmd: CommonMetricData {
+                        category: "glean.health".into(),
+                        name: "file_read_error".into(),
+                        send_in_pings: vec!["health".into()],
+                        lifetime: Lifetime::Ping,
+                        disabled: false,
+                        dynamic_label: None,
+                    },
+                },
+                Some(vec![
+                    Cow::from("parse"),
+                    Cow::from("permission-denied"),
+                    Cow::from("io"),
+                    Cow::from("c0ffee-in-file"),
+                    Cow::from("file-not-found"),
+                ]),
+            ),
+            file_write_error: LabeledMetric::<CounterMetric>::new(
+                LabeledMetricData::Common {
+                    cmd: CommonMetricData {
+                        category: "glean.health".into(),
+                        name: "file_write_error".into(),
+                        send_in_pings: vec!["health".into()],
+                        lifetime: Lifetime::Ping,
+                        disabled: false,
+                        dynamic_label: None,
+                    },
+                },
+                Some(vec![
+                    Cow::from("not-found"),
+                    Cow::from("permission-denied"),
+                    Cow::from("io"),
+                ]),
+            ),
         }
     }
 }

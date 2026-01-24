@@ -8,7 +8,7 @@ from PyQt5 import QtWidgets
 
 class ScrollAreaPreview(QtWidgets.QScrollArea):
     def __init__(self, *args, **kwargs):
-        super(ScrollAreaPreview, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setWidgetResizable(True)
 
@@ -34,7 +34,7 @@ class ScrollAreaPreview(QtWidgets.QScrollArea):
 
 class FileDialogPreview(QtWidgets.QFileDialog):
     def __init__(self, *args, **kwargs):
-        super(FileDialogPreview, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.setOption(self.DontUseNativeDialog, True)
 
         self.labelPreview = ScrollAreaPreview(self)
@@ -48,16 +48,16 @@ class FileDialogPreview(QtWidgets.QFileDialog):
         self.setFixedSize(self.width() + 300, self.height())
         layout = self.layout()
         layout = cast(QtWidgets.QGridLayout, layout)
-        layout.addLayout(box, 1, 3, 1, 1)  # type: ignore[union-attr]
+        layout.addLayout(box, 1, 3, 1, 1)
         self.currentChanged.connect(self.onChange)
 
     def onChange(self, path):
         if path.lower().endswith(".json"):
-            with open(path, "r") as f:
+            with open(path) as f:
                 data = json.load(f)
                 self.labelPreview.setText(json.dumps(data, indent=4, sort_keys=False))
             self.labelPreview.label.setAlignment(
-                QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop  # type: ignore[attr-defined]
+                QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop
             )
             self.labelPreview.setHidden(False)
         else:
@@ -70,9 +70,9 @@ class FileDialogPreview(QtWidgets.QFileDialog):
                     pixmap.scaled(
                         self.labelPreview.width() - 30,
                         self.labelPreview.height() - 30,
-                        QtCore.Qt.KeepAspectRatio,  # type: ignore[attr-defined]
-                        QtCore.Qt.SmoothTransformation,  # type: ignore[attr-defined]
+                        QtCore.Qt.KeepAspectRatio,
+                        QtCore.Qt.SmoothTransformation,
                     )
                 )
-                self.labelPreview.label.setAlignment(QtCore.Qt.AlignCenter)  # type: ignore[attr-defined]
+                self.labelPreview.label.setAlignment(QtCore.Qt.AlignCenter)
                 self.labelPreview.setHidden(False)

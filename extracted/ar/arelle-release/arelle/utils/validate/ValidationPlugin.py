@@ -12,6 +12,7 @@ from arelle.Cntlr import Cntlr
 from arelle.DisclosureSystem import DisclosureSystem
 from arelle.FileSource import FileSource
 from arelle.ModelDocument import LoadingException, ModelDocument
+from arelle.ModelManager import ModelManager
 from arelle.ModelXbrl import ModelXbrl
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.utils.PluginData import PluginData
@@ -125,7 +126,6 @@ class ValidationPlugin:
         self,
         cntlr: Cntlr,
         fileSource: FileSource,
-        entrypoints: list[dict[str, Any]] | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -135,13 +135,12 @@ class ValidationPlugin:
         1. the decorator was used with the FileSource validation hook: `@validation(hook=ValidationHook.FILESOURCE)`
 
         :param cntlr: The [Cntlr](#arelle.Cntlr.Cntlr) instance.
-        :param fileSource: The [FileSource](#arelle.FileSource.FileSource) involved in loading the entrypoint files.
-        :param entrypoints: A list of entrypoint configurations.
+        :param fileSource: The [FileSource](#arelle.FileSource.FileSource) to validate.
         :param args: Argument capture to ensure new parameters don't break plugin hook.
         :param kwargs: Argument capture to ensure new named parameters don't break plugin hook.
         :return: None
         """
-        self._executeCntlrValidations(ValidationHook.FILESOURCE, cntlr, fileSource, entrypoints, *args, **kwargs)
+        self._executeCntlrValidations(ValidationHook.FILESOURCE, cntlr, fileSource, *args, **kwargs)
 
     def validateXbrlStart(
         self,
@@ -228,19 +227,19 @@ class ValidationPlugin:
             pluginHook: ValidationHook,
             cntlr: Cntlr,
             fileSource: FileSource | None = None,
-            entrypoints: list[dict[str, Any]] | None = None,
             *args: Any,
             **kwargs: Any,
     ) -> None:
-        pluginData = self.newPluginData(
-            cntlr=cntlr,
-            validateXbrl=None
-        )
-        for rule in self._getValidations(cntlr.modelManager.disclosureSystem, pluginHook):
-            validations = rule(pluginData, cntlr, fileSource, entrypoints, *args, **kwargs)
-            if validations is not None:
-                for val in validations:
-                    cntlr.error(level=val.level.name, codes=val.codes, msg=val.msg, **val.args)
+        if self.disclosureSystemFromPluginSelected(cntlr.modelManager):
+            pluginData = self.newPluginData(
+                cntlr=cntlr,
+                validateXbrl=None
+            )
+            for rule in self._getValidations(cntlr.modelManager.disclosureSystem, pluginHook):
+                validations = rule(pluginData, cntlr, fileSource, *args, **kwargs)
+                if validations is not None:
+                    for val in validations:
+                        cntlr.validation(val, fileSource=fileSource)
 
     def _executeModelValidations(
         self,
@@ -262,13 +261,13 @@ class ValidationPlugin:
                 if validations is not None:
                     modelXbrl = validateXbrl.modelXbrl
                     for val in validations:
-                        modelXbrl.log(level=val.level.name, codes=val.codes, msg=val.msg, **val.args)
+                        modelXbrl.validation(val)
 
     def disclosureSystemFromPluginSelected(
         self,
-        model: ValidateXbrl | ModelXbrl,
+        model: ValidateXbrl | ModelManager | ModelXbrl,
     ) -> bool:
-        if isinstance(model, ValidateXbrl):
+        if isinstance(model, (ModelManager, ValidateXbrl)):
             disclosureSystem = model.disclosureSystem
         elif isinstance(model, ModelXbrl):
             disclosureSystem = model.modelManager.disclosureSystem

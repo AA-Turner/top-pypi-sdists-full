@@ -9,971 +9,992 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing import Any, Literal, Union
+from typing_extensions import NotRequired, TypeAlias, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0505 import EnterpriseWebhooksType
-from .group_0506 import SimpleInstallationType
-from .group_0507 import OrganizationSimpleWebhooksType
-from .group_0508 import RepositoryWebhooksType
-from .group_0546 import WebhooksReviewCommentType
+from .group_0807 import (
+    WebhookRubygemsMetadataType,
+    WebhookRubygemsMetadataTypeForResponse,
+)
 
 
-class WebhookPullRequestReviewCommentDeletedType(TypedDict):
-    """pull_request_review_comment deleted event"""
+class WebhookPackagePublishedPropPackagePropPackageVersionType(TypedDict):
+    """WebhookPackagePublishedPropPackagePropPackageVersion"""
 
-    action: Literal["deleted"]
-    comment: WebhooksReviewCommentType
-    enterprise: NotRequired[EnterpriseWebhooksType]
-    installation: NotRequired[SimpleInstallationType]
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    pull_request: WebhookPullRequestReviewCommentDeletedPropPullRequestType
-    repository: RepositoryWebhooksType
-    sender: SimpleUserType
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestType(TypedDict):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequest"""
-
-    links: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksType
-    active_lock_reason: Union[
-        None, Literal["resolved", "off-topic", "too heated", "spam"]
+    author: NotRequired[
+        Union[WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorType, None]
     ]
-    assignee: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneeType, None
-    ]
-    assignees: list[
+    body: NotRequired[
         Union[
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneesItemsType,
+            str, WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1Type
+        ]
+    ]
+    body_html: NotRequired[str]
+    container_metadata: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataType,
             None,
         ]
     ]
-    author_association: Literal[
-        "COLLABORATOR",
-        "CONTRIBUTOR",
-        "FIRST_TIMER",
-        "FIRST_TIME_CONTRIBUTOR",
-        "MANNEQUIN",
-        "MEMBER",
-        "NONE",
-        "OWNER",
-    ]
-    auto_merge: NotRequired[
-        Union[
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergeType, None
+    created_at: NotRequired[str]
+    description: str
+    docker_metadata: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsType
         ]
     ]
-    base: WebhookPullRequestReviewCommentDeletedPropPullRequestPropBaseType
-    body: Union[str, None]
-    closed_at: Union[str, None]
-    comments_url: str
-    commits_url: str
-    created_at: str
-    diff_url: str
     draft: NotRequired[bool]
-    head: WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadType
     html_url: str
     id: int
-    issue_url: str
-    labels: list[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropLabelsItemsType
+    installation_command: str
+    manifest: NotRequired[str]
+    metadata: list[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsType
     ]
-    locked: bool
-    merge_commit_sha: Union[str, None]
-    merged_at: Union[str, None]
-    milestone: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestoneType, None
-    ]
-    node_id: str
-    number: int
-    patch_url: str
-    requested_reviewers: list[
+    name: str
+    npm_metadata: NotRequired[
         Union[
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof0Type,
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataType,
             None,
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1Type,
         ]
     ]
-    requested_teams: list[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsType
+    nuget_metadata: NotRequired[
+        Union[
+            list[
+                WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsType
+            ],
+            None,
+        ]
     ]
-    review_comment_url: str
-    review_comments_url: str
-    state: Literal["open", "closed"]
-    statuses_url: str
-    title: str
+    package_files: list[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsType
+    ]
+    package_url: NotRequired[str]
+    prerelease: NotRequired[bool]
+    release: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseType
+    ]
+    rubygems_metadata: NotRequired[list[WebhookRubygemsMetadataType]]
+    source_url: NotRequired[str]
+    summary: str
+    tag_name: NotRequired[str]
+    target_commitish: NotRequired[str]
+    target_oid: NotRequired[str]
+    updated_at: NotRequired[str]
+    version: str
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionTypeForResponse(TypedDict):
+    """WebhookPackagePublishedPropPackagePropPackageVersion"""
+
+    author: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorTypeForResponse,
+            None,
+        ]
+    ]
+    body: NotRequired[
+        Union[
+            str,
+            WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1TypeForResponse,
+        ]
+    ]
+    body_html: NotRequired[str]
+    container_metadata: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataTypeForResponse,
+            None,
+        ]
+    ]
+    created_at: NotRequired[str]
+    description: str
+    docker_metadata: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsTypeForResponse
+        ]
+    ]
+    draft: NotRequired[bool]
+    html_url: str
+    id: int
+    installation_command: str
+    manifest: NotRequired[str]
+    metadata: list[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsTypeForResponse
+    ]
+    name: str
+    npm_metadata: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataTypeForResponse,
+            None,
+        ]
+    ]
+    nuget_metadata: NotRequired[
+        Union[
+            list[
+                WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsTypeForResponse
+            ],
+            None,
+        ]
+    ]
+    package_files: list[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsTypeForResponse
+    ]
+    package_url: NotRequired[str]
+    prerelease: NotRequired[bool]
+    release: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseTypeForResponse
+    ]
+    rubygems_metadata: NotRequired[list[WebhookRubygemsMetadataTypeForResponse]]
+    source_url: NotRequired[str]
+    summary: str
+    tag_name: NotRequired[str]
+    target_commitish: NotRequired[str]
+    target_oid: NotRequired[str]
+    updated_at: NotRequired[str]
+    version: str
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorType(TypedDict):
+    """User"""
+
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: int
+    login: str
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorTypeForResponse(
+    TypedDict
+):
+    """User"""
+
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: int
+    login: str
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1Type(TypedDict):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1TypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadata"""
+
+    labels: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsType,
+            None,
+        ]
+    ]
+    manifest: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestType,
+            None,
+        ]
+    ]
+    tag: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagType
+    ]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadata"""
+
+    labels: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsTypeForResponse,
+            None,
+        ]
+    ]
+    manifest: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestTypeForResponse,
+            None,
+        ]
+    ]
+    tag: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagTypeForResponse
+    ]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLab
+    els
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLab
+    els
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropMan
+    ifest
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropMan
+    ifest
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTag"""
+
+    digest: NotRequired[str]
+    name: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTag"""
+
+    digest: NotRequired[str]
+    name: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItems"""
+
+    tags: NotRequired[list[str]]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItems"""
+
+    tags: NotRequired[list[str]]
+
+
+WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsType: TypeAlias = (
+    dict[str, Any]
+)
+"""WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItems
+"""
+
+
+WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsTypeForResponse: TypeAlias = dict[
+    str, Any
+]
+"""WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItems
+"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadata"""
+
+    name: NotRequired[str]
+    version: NotRequired[str]
+    npm_user: NotRequired[str]
+    author: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorType,
+            None,
+        ]
+    ]
+    bugs: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsType,
+            None,
+        ]
+    ]
+    dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesType
+    ]
+    dev_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesType
+    ]
+    peer_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesType
+    ]
+    optional_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesType
+    ]
+    description: NotRequired[str]
+    dist: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistType,
+            None,
+        ]
+    ]
+    git_head: NotRequired[str]
+    homepage: NotRequired[str]
+    license_: NotRequired[str]
+    main: NotRequired[str]
+    repository: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryType,
+            None,
+        ]
+    ]
+    scripts: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsType
+    ]
+    id: NotRequired[str]
+    node_version: NotRequired[str]
+    npm_version: NotRequired[str]
+    has_shrinkwrap: NotRequired[bool]
+    maintainers: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsType
+        ]
+    ]
+    contributors: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsType
+        ]
+    ]
+    engines: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesType
+    ]
+    keywords: NotRequired[list[str]]
+    files: NotRequired[list[str]]
+    bin_: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinType
+    ]
+    man: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManType
+    ]
+    directories: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesType,
+            None,
+        ]
+    ]
+    os: NotRequired[list[str]]
+    cpu: NotRequired[list[str]]
+    readme: NotRequired[str]
+    installation_command: NotRequired[str]
+    release_id: NotRequired[int]
+    commit_oid: NotRequired[str]
+    published_via_actions: NotRequired[bool]
+    deleted_by_id: NotRequired[int]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadata"""
+
+    name: NotRequired[str]
+    version: NotRequired[str]
+    npm_user: NotRequired[str]
+    author: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorTypeForResponse,
+            None,
+        ]
+    ]
+    bugs: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsTypeForResponse,
+            None,
+        ]
+    ]
+    dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesTypeForResponse
+    ]
+    dev_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesTypeForResponse
+    ]
+    peer_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesTypeForResponse
+    ]
+    optional_dependencies: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesTypeForResponse
+    ]
+    description: NotRequired[str]
+    dist: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistTypeForResponse,
+            None,
+        ]
+    ]
+    git_head: NotRequired[str]
+    homepage: NotRequired[str]
+    license_: NotRequired[str]
+    main: NotRequired[str]
+    repository: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryTypeForResponse,
+            None,
+        ]
+    ]
+    scripts: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsTypeForResponse
+    ]
+    id: NotRequired[str]
+    node_version: NotRequired[str]
+    npm_version: NotRequired[str]
+    has_shrinkwrap: NotRequired[bool]
+    maintainers: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsTypeForResponse
+        ]
+    ]
+    contributors: NotRequired[
+        list[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsTypeForResponse
+        ]
+    ]
+    engines: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesTypeForResponse
+    ]
+    keywords: NotRequired[list[str]]
+    files: NotRequired[list[str]]
+    bin_: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinTypeForResponse
+    ]
+    man: NotRequired[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManTypeForResponse
+    ]
+    directories: NotRequired[
+        Union[
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesTypeForResponse,
+            None,
+        ]
+    ]
+    os: NotRequired[list[str]]
+    cpu: NotRequired[list[str]]
+    readme: NotRequired[str]
+    installation_command: NotRequired[str]
+    release_id: NotRequired[int]
+    commit_oid: NotRequired[str]
+    published_via_actions: NotRequired[bool]
+    deleted_by_id: NotRequired[int]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthor"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthor"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugs"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugs"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenc
+    ies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenc
+    ies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDepend
+    encies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDepend
+    encies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDepen
+    dencies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDepen
+    dencies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalD
+    ependencies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalD
+    ependencies
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDist"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDist"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositor
+    y
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositor
+    y
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScripts"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScripts"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintaine
+    rsItems
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintaine
+    rsItems
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContribut
+    orsItems
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContribut
+    orsItems
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEngines"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEngines"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBin"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBin"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMan"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMan"""
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectori
+    es
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectori
+    es
+    """
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsType(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItems"""
+
+    content_type: str
+    created_at: str
+    download_url: str
+    id: int
+    md5: Union[str, None]
+    name: str
+    sha1: Union[str, None]
+    sha256: Union[str, None]
+    size: int
+    state: Union[str, None]
     updated_at: str
-    url: str
-    user: Union[WebhookPullRequestReviewCommentDeletedPropPullRequestPropUserType, None]
 
 
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneeType(TypedDict):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneesItemsType(
+class WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsTypeForResponse(
     TypedDict
 ):
-    """User"""
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItems"""
 
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
+    content_type: str
+    created_at: str
+    download_url: str
     id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergeType(TypedDict):
-    """PullRequestAutoMerge
-
-    The status of auto merging a pull request.
-    """
-
-    commit_message: Union[str, None]
-    commit_title: Union[str, None]
-    enabled_by: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergePropEnabledByType,
-        None,
-    ]
-    merge_method: Literal["merge", "squash", "rebase"]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergePropEnabledByType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLabelsItemsType(
-    TypedDict
-):
-    """Label"""
-
-    color: str
-    default: bool
-    description: Union[str, None]
-    id: int
+    md5: Union[str, None]
     name: str
-    node_id: str
-    url: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestoneType(TypedDict):
-    """Milestone
-
-    A collection of related issues and pull requests.
-    """
-
-    closed_at: Union[datetime, None]
-    closed_issues: int
-    created_at: datetime
-    creator: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestonePropCreatorType,
-        None,
-    ]
-    description: Union[str, None]
-    due_on: Union[datetime, None]
-    html_url: str
-    id: int
-    labels_url: str
-    node_id: str
-    number: int
-    open_issues: int
-    state: Literal["open", "closed"]
-    title: str
-    updated_at: datetime
-    url: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestonePropCreatorType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof0Type(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropUserType(TypedDict):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization", "Mannequin"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksType(TypedDict):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinks"""
-
-    comments: (
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommentsType
-    )
-    commits: (
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommitsType
-    )
-    html: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropHtmlType
-    issue: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropIssueType
-    review_comment: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentType
-    review_comments: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentsType
-    self_: WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropSelfType
-    statuses: (
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropStatusesType
-    )
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommentsType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommitsType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropHtmlType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropIssueType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentsType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropSelfType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropStatusesType(
-    TypedDict
-):
-    """Link"""
-
-    href: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBaseType(TypedDict):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropBase"""
-
-    label: str
-    ref: str
-    repo: WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoType
-    sha: str
-    user: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropUserType, None
-    ]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropUserType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoType(
-    TypedDict
-):
-    """Repository
-
-    A git repository
-    """
-
-    allow_auto_merge: NotRequired[bool]
-    allow_forking: NotRequired[bool]
-    allow_merge_commit: NotRequired[bool]
-    allow_rebase_merge: NotRequired[bool]
-    allow_squash_merge: NotRequired[bool]
-    allow_update_branch: NotRequired[bool]
-    archive_url: str
-    archived: bool
-    assignees_url: str
-    blobs_url: str
-    branches_url: str
-    clone_url: str
-    collaborators_url: str
-    comments_url: str
-    commits_url: str
-    compare_url: str
-    contents_url: str
-    contributors_url: str
-    created_at: Union[int, datetime]
-    default_branch: str
-    delete_branch_on_merge: NotRequired[bool]
-    deployments_url: str
-    description: Union[str, None]
-    disabled: NotRequired[bool]
-    downloads_url: str
-    events_url: str
-    fork: bool
-    forks: int
-    forks_count: int
-    forks_url: str
-    full_name: str
-    git_commits_url: str
-    git_refs_url: str
-    git_tags_url: str
-    git_url: str
-    has_downloads: bool
-    has_issues: bool
-    has_pages: bool
-    has_projects: bool
-    has_wiki: bool
-    has_discussions: bool
-    homepage: Union[str, None]
-    hooks_url: str
-    html_url: str
-    id: int
-    is_template: NotRequired[bool]
-    issue_comment_url: str
-    issue_events_url: str
-    issues_url: str
-    keys_url: str
-    labels_url: str
-    language: Union[str, None]
-    languages_url: str
-    license_: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropLicenseType,
-        None,
-    ]
-    master_branch: NotRequired[str]
-    merge_commit_message: NotRequired[Literal["PR_BODY", "PR_TITLE", "BLANK"]]
-    merge_commit_title: NotRequired[Literal["PR_TITLE", "MERGE_MESSAGE"]]
-    merges_url: str
-    milestones_url: str
-    mirror_url: Union[str, None]
-    name: str
-    node_id: str
-    notifications_url: str
-    open_issues: int
-    open_issues_count: int
-    organization: NotRequired[str]
-    owner: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropOwnerType,
-        None,
-    ]
-    permissions: NotRequired[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropPermissionsType
-    ]
-    private: bool
-    public: NotRequired[bool]
-    pulls_url: str
-    pushed_at: Union[int, datetime, None]
-    releases_url: str
-    role_name: NotRequired[Union[str, None]]
+    sha1: Union[str, None]
+    sha256: Union[str, None]
     size: int
-    squash_merge_commit_message: NotRequired[
-        Literal["PR_BODY", "COMMIT_MESSAGES", "BLANK"]
-    ]
-    squash_merge_commit_title: NotRequired[Literal["PR_TITLE", "COMMIT_OR_PR_TITLE"]]
-    ssh_url: str
-    stargazers: NotRequired[int]
-    stargazers_count: int
-    stargazers_url: str
-    statuses_url: str
-    subscribers_url: str
-    subscription_url: str
-    svn_url: str
-    tags_url: str
-    teams_url: str
-    topics: list[str]
-    trees_url: str
-    updated_at: datetime
-    url: str
-    use_squash_pr_title_as_default: NotRequired[bool]
-    visibility: Literal["public", "private", "internal"]
-    watchers: int
-    watchers_count: int
-    web_commit_signoff_required: NotRequired[bool]
+    state: Union[str, None]
+    updated_at: str
 
 
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropLicenseType(
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsType(
     TypedDict
 ):
-    """License"""
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItems"""
 
-    key: str
-    name: str
-    node_id: str
-    spdx_id: str
-    url: Union[str, None]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropOwnerType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
+    id: NotRequired[Union[int, str]]
     name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropPermissionsType(
-    TypedDict
-):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropPermiss
-    ions
-    """
-
-    admin: bool
-    maintain: NotRequired[bool]
-    pull: bool
-    push: bool
-    triage: NotRequired[bool]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadType(TypedDict):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropHead"""
-
-    label: str
-    ref: str
-    repo: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoType, None
-    ]
-    sha: str
-    user: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropUserType, None
-    ]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoType(
-    TypedDict
-):
-    """Repository
-
-    A git repository
-    """
-
-    allow_auto_merge: NotRequired[bool]
-    allow_forking: NotRequired[bool]
-    allow_merge_commit: NotRequired[bool]
-    allow_rebase_merge: NotRequired[bool]
-    allow_squash_merge: NotRequired[bool]
-    allow_update_branch: NotRequired[bool]
-    archive_url: str
-    archived: bool
-    assignees_url: str
-    blobs_url: str
-    branches_url: str
-    clone_url: str
-    collaborators_url: str
-    comments_url: str
-    commits_url: str
-    compare_url: str
-    contents_url: str
-    contributors_url: str
-    created_at: Union[int, datetime]
-    default_branch: str
-    delete_branch_on_merge: NotRequired[bool]
-    deployments_url: str
-    description: Union[str, None]
-    disabled: NotRequired[bool]
-    downloads_url: str
-    events_url: str
-    fork: bool
-    forks: int
-    forks_count: int
-    forks_url: str
-    full_name: str
-    git_commits_url: str
-    git_refs_url: str
-    git_tags_url: str
-    git_url: str
-    has_downloads: bool
-    has_issues: bool
-    has_pages: bool
-    has_projects: bool
-    has_wiki: bool
-    has_discussions: bool
-    homepage: Union[str, None]
-    hooks_url: str
-    html_url: str
-    id: int
-    is_template: NotRequired[bool]
-    issue_comment_url: str
-    issue_events_url: str
-    issues_url: str
-    keys_url: str
-    labels_url: str
-    language: Union[str, None]
-    languages_url: str
-    license_: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropLicenseType,
-        None,
-    ]
-    master_branch: NotRequired[str]
-    merge_commit_message: NotRequired[Literal["PR_BODY", "PR_TITLE", "BLANK"]]
-    merge_commit_title: NotRequired[Literal["PR_TITLE", "MERGE_MESSAGE"]]
-    merges_url: str
-    milestones_url: str
-    mirror_url: Union[str, None]
-    name: str
-    node_id: str
-    notifications_url: str
-    open_issues: int
-    open_issues_count: int
-    organization: NotRequired[str]
-    owner: Union[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropOwnerType,
-        None,
-    ]
-    permissions: NotRequired[
-        WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropPermissionsType
-    ]
-    private: bool
-    public: NotRequired[bool]
-    pulls_url: str
-    pushed_at: Union[int, datetime, None]
-    releases_url: str
-    role_name: NotRequired[Union[str, None]]
-    size: int
-    squash_merge_commit_message: NotRequired[
-        Literal["PR_BODY", "COMMIT_MESSAGES", "BLANK"]
-    ]
-    squash_merge_commit_title: NotRequired[Literal["PR_TITLE", "COMMIT_OR_PR_TITLE"]]
-    ssh_url: str
-    stargazers: NotRequired[int]
-    stargazers_count: int
-    stargazers_url: str
-    statuses_url: str
-    subscribers_url: str
-    subscription_url: str
-    svn_url: str
-    tags_url: str
-    teams_url: str
-    topics: list[str]
-    trees_url: str
-    updated_at: datetime
-    url: str
-    use_squash_pr_title_as_default: NotRequired[bool]
-    visibility: Literal["public", "private", "internal"]
-    watchers: int
-    watchers_count: int
-    web_commit_signoff_required: NotRequired[bool]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropLicenseType(
-    TypedDict
-):
-    """License"""
-
-    key: str
-    name: str
-    node_id: str
-    spdx_id: str
-    url: Union[str, None]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropOwnerType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropPermissionsType(
-    TypedDict
-):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropPermiss
-    ions
-    """
-
-    admin: bool
-    maintain: NotRequired[bool]
-    pull: bool
-    push: bool
-    triage: NotRequired[bool]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropUserType(
-    TypedDict
-):
-    """User"""
-
-    avatar_url: NotRequired[str]
-    deleted: NotRequired[bool]
-    email: NotRequired[Union[str, None]]
-    events_url: NotRequired[str]
-    followers_url: NotRequired[str]
-    following_url: NotRequired[str]
-    gists_url: NotRequired[str]
-    gravatar_id: NotRequired[str]
-    html_url: NotRequired[str]
-    id: int
-    login: str
-    name: NotRequired[str]
-    node_id: NotRequired[str]
-    organizations_url: NotRequired[str]
-    received_events_url: NotRequired[str]
-    repos_url: NotRequired[str]
-    site_admin: NotRequired[bool]
-    starred_url: NotRequired[str]
-    subscriptions_url: NotRequired[str]
-    type: NotRequired[Literal["Bot", "User", "Organization"]]
-    url: NotRequired[str]
-    user_view_type: NotRequired[str]
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1Type(
-    TypedDict
-):
-    """Team
-
-    Groups of organization members that gives permissions on specified repositories.
-    """
-
-    deleted: NotRequired[bool]
-    description: NotRequired[Union[str, None]]
-    html_url: NotRequired[str]
-    id: int
-    members_url: NotRequired[str]
-    name: str
-    node_id: NotRequired[str]
-    parent: NotRequired[
+    value: NotRequired[
         Union[
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1PropParentType,
-            None,
+            bool,
+            str,
+            int,
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3Type,
         ]
     ]
-    permission: NotRequired[str]
-    privacy: NotRequired[Literal["open", "closed", "secret"]]
-    repositories_url: NotRequired[str]
-    slug: NotRequired[str]
-    url: NotRequired[str]
 
 
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1PropParentType(
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsTypeForResponse(
     TypedDict
 ):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItems
-    Oneof1PropParent
-    """
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItems"""
 
-    description: Union[str, None]
-    html_url: str
-    id: int
-    members_url: str
-    name: str
-    node_id: str
-    permission: str
-    privacy: Literal["open", "closed", "secret"]
-    repositories_url: str
-    slug: str
-    url: str
-
-
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsType(
-    TypedDict
-):
-    """Team
-
-    Groups of organization members that gives permissions on specified repositories.
-    """
-
-    deleted: NotRequired[bool]
-    description: NotRequired[Union[str, None]]
-    html_url: NotRequired[str]
-    id: int
-    members_url: NotRequired[str]
-    name: str
-    node_id: NotRequired[str]
-    parent: NotRequired[
+    id: NotRequired[Union[int, str]]
+    name: NotRequired[str]
+    value: NotRequired[
         Union[
-            WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsPropParentType,
-            None,
+            bool,
+            str,
+            int,
+            WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3TypeForResponse,
         ]
     ]
-    permission: NotRequired[str]
-    privacy: NotRequired[Literal["open", "closed", "secret"]]
-    repositories_url: NotRequired[str]
-    slug: NotRequired[str]
-    url: NotRequired[str]
 
 
-class WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsPropParentType(
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3Type(
     TypedDict
 ):
-    """WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsProp
-    Parent
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropVa
+    lueOneof3
     """
 
-    description: Union[str, None]
+    url: NotRequired[str]
+    branch: NotRequired[str]
+    commit: NotRequired[str]
+    type: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3TypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropVa
+    lueOneof3
+    """
+
+    url: NotRequired[str]
+    branch: NotRequired[str]
+    commit: NotRequired[str]
+    type: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseType(TypedDict):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropRelease"""
+
+    author: Union[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorType,
+        None,
+    ]
+    created_at: str
+    draft: bool
     html_url: str
     id: int
-    members_url: str
-    name: str
-    node_id: str
-    permission: str
-    privacy: Literal["open", "closed", "secret"]
-    repositories_url: str
-    slug: str
+    name: Union[str, None]
+    prerelease: bool
+    published_at: str
+    tag_name: str
+    target_commitish: str
     url: str
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseTypeForResponse(
+    TypedDict
+):
+    """WebhookPackagePublishedPropPackagePropPackageVersionPropRelease"""
+
+    author: Union[
+        WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorTypeForResponse,
+        None,
+    ]
+    created_at: str
+    draft: bool
+    html_url: str
+    id: int
+    name: Union[str, None]
+    prerelease: bool
+    published_at: str
+    tag_name: str
+    target_commitish: str
+    url: str
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorType(
+    TypedDict
+):
+    """User"""
+
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: int
+    login: str
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
+
+
+class WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorTypeForResponse(
+    TypedDict
+):
+    """User"""
+
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: int
+    login: str
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
 
 
 __all__ = (
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneeType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropAssigneesItemsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergePropEnabledByType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropAutoMergeType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropLicenseType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropOwnerType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoPropPermissionsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropRepoType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBasePropUserType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropBaseType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropLicenseType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropOwnerType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoPropPermissionsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropRepoType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadPropUserType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropHeadType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLabelsItemsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommentsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropCommitsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropHtmlType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropIssueType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropReviewCommentsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropSelfType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksPropStatusesType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropLinksType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestonePropCreatorType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropMilestoneType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof0Type",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1PropParentType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedReviewersItemsOneof1Type",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsPropParentType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropRequestedTeamsItemsType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestPropUserType",
-    "WebhookPullRequestReviewCommentDeletedPropPullRequestType",
-    "WebhookPullRequestReviewCommentDeletedType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropAuthorTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1Type",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropBodyOneof1TypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropLabelsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropManifestTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataPropTagTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropContainerMetadataTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropDockerMetadataItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropMetadataItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropAuthorTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBinTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropBugsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropContributorsItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDependenciesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDevDependenciesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDirectoriesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropDistTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropEnginesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropMaintainersItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropManTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropOptionalDependenciesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropPeerDependenciesTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropRepositoryTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataPropScriptsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNpmMetadataTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3Type",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsPropValueOneof3TypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropNugetMetadataItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropPackageFilesItemsTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropReleasePropAuthorTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionPropReleaseTypeForResponse",
+    "WebhookPackagePublishedPropPackagePropPackageVersionType",
+    "WebhookPackagePublishedPropPackagePropPackageVersionTypeForResponse",
 )

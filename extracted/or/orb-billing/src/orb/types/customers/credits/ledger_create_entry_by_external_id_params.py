@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Iterable, Optional
 from datetime import date, datetime
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from ...._types import SequenceNotStr
 from ...._utils import PropertyInfo
 
 __all__ = [
     "LedgerCreateEntryByExternalIDParams",
     "AddIncrementCreditLedgerEntryRequestParams",
+    "AddIncrementCreditLedgerEntryRequestParamsFilter",
     "AddIncrementCreditLedgerEntryRequestParamsInvoiceSettings",
     "AddDecrementCreditLedgerEntryRequestParams",
     "AddExpirationChangeCreditLedgerEntryRequestParams",
@@ -51,6 +53,12 @@ class AddIncrementCreditLedgerEntryRequestParams(TypedDict, total=False):
     expiry_date: Annotated[Union[str, datetime, None], PropertyInfo(format="iso8601")]
     """An ISO 8601 format date that denotes when this credit balance should expire."""
 
+    filters: Optional[Iterable[AddIncrementCreditLedgerEntryRequestParamsFilter]]
+    """Optional filter to specify which items this credit block applies to.
+
+    If not specified, the block will apply to all items for the pricing unit.
+    """
+
     invoice_settings: Optional[AddIncrementCreditLedgerEntryRequestParamsInvoiceSettings]
     """
     Passing `invoice_settings` automatically generates an invoice for the newly
@@ -74,21 +82,28 @@ class AddIncrementCreditLedgerEntryRequestParams(TypedDict, total=False):
     """
 
 
+class AddIncrementCreditLedgerEntryRequestParamsFilter(TypedDict, total=False):
+    """A PriceFilter that only allows item_id field for block filters."""
+
+    field: Required[Literal["item_id"]]
+    """The property of the price the block applies to. Only item_id is supported."""
+
+    operator: Required[Literal["includes", "excludes"]]
+    """Should prices that match the filter be included or excluded."""
+
+    values: Required[SequenceNotStr[str]]
+    """The IDs or values that match this filter."""
+
+
 class AddIncrementCreditLedgerEntryRequestParamsInvoiceSettings(TypedDict, total=False):
+    """
+    Passing `invoice_settings` automatically generates an invoice for the newly added credits. If `invoice_settings` is passed, you must specify per_unit_cost_basis, as the calculation of the invoice total is done on that basis.
+    """
+
     auto_collection: Required[bool]
     """
     Whether the credits purchase invoice should auto collect with the customer's
     saved payment method.
-    """
-
-    net_terms: Required[Optional[int]]
-    """The net terms determines the due date of the invoice.
-
-    Due date is calculated based on the invoice or issuance date, depending on the
-    account's configured due date calculation method. A value of '0' here represents
-    that the invoice is due on issue, whereas a value of '30' represents that the
-    customer has 30 days to pay the invoice. Do not set this field if you want to
-    set a custom due date.
     """
 
     custom_due_date: Annotated[Union[Union[str, date], Union[str, datetime], None], PropertyInfo(format="iso8601")]
@@ -104,8 +119,24 @@ class AddIncrementCreditLedgerEntryRequestParamsInvoiceSettings(TypedDict, total
     credit block's effective date.
     """
 
+    item_id: Optional[str]
+    """The ID of the Item to be used for the invoice line item.
+
+    If not provided, a default 'Credits' item will be used.
+    """
+
     memo: Optional[str]
     """An optional memo to display on the invoice."""
+
+    net_terms: Optional[int]
+    """The net terms determines the due date of the invoice.
+
+    Due date is calculated based on the invoice or issuance date, depending on the
+    account's configured due date calculation method. A value of '0' here represents
+    that the invoice is due on issue, whereas a value of '30' represents that the
+    customer has 30 days to pay the invoice. Do not set this field if you want to
+    set a custom due date.
+    """
 
     require_successful_payment: bool
     """

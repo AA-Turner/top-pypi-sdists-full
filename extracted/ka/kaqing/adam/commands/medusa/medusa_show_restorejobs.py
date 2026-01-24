@@ -1,8 +1,8 @@
 from adam.commands.command import Command
-from adam.k8s_utils.statefulsets import StatefulSets
+from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.k8s_utils.custom_resources import CustomResources
-from adam.utils import lines_to_tabular, log2
+from adam.utils_k8s.custom_resources import CustomResources
+from adam.utils import tabulize, log_exc
 
 class MedusaShowRestoreJobs(Command):
     COMMAND = 'show restores'
@@ -25,28 +25,23 @@ class MedusaShowRestoreJobs(Command):
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+
+        with self.validate(args, state) as (args, state):
+            ns = state.namespace
+            dc = StatefulSets.get_datacenter(state.sts, ns)
+            if not dc:
+                return state
+
+            with log_exc(lambda e: "Exception: MedusaShowRestoreJobs failed: %s\n" % e):
+                tabulize(CustomResources.medusa_show_restorejobs(dc, ns),
+                         header='NAME\tCREATED\tFINISHED',
+                         separator='\t',
+                         to=2)
+
             return state
-
-        ns = state.namespace
-        dc = StatefulSets.get_datacenter(state.sts, ns)
-        if not dc:
-            return state
-
-        try:
-            rtlist = CustomResources.medusa_show_restorejobs(dc, ns)
-            log2(lines_to_tabular(rtlist, 'NAME\tCREATED\tFINISHED', separator='\t'))
-        except Exception as e:
-            log2("Exception: MedusaShowRestoreJobs failed: %s\n" % e)
-
-        return state
 
     def completion(self, state: ReplState):
-        if state.sts:
-            return super().completion(state)
+        return super().completion(state)
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{MedusaShowRestoreJobs.COMMAND}\t show restores'
+    def help(self, state: ReplState):
+        return super().help(state, 'show Medusa restores')

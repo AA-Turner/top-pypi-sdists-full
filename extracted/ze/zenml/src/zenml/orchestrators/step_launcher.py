@@ -16,26 +16,22 @@
 import signal
 import time
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from zenml.client import Client
 from zenml.config.step_configurations import Step
 from zenml.config.step_run_info import StepRunInfo
 from zenml.constants import (
-    ENV_ZENML_DISABLE_STEP_LOGS_STORAGE,
     ENV_ZENML_STEP_OPERATOR,
-    handle_bool_env_var,
 )
-from zenml.enums import ExecutionMode, ExecutionStatus
+from zenml.enums import ExecutionMode, ExecutionStatus, StepRuntime
 from zenml.environment import get_run_environment_dict
 from zenml.exceptions import RunInterruptedException, RunStoppedException
 from zenml.logger import get_logger
-from zenml.logging import step_logging
 from zenml.models import (
-    LogsRequest,
-    PipelineDeploymentResponse,
     PipelineRunRequest,
     PipelineRunResponse,
+    PipelineSnapshotResponse,
     StepRunResponse,
 )
 from zenml.models.v2.core.step_run import StepRunInputResponse
@@ -43,7 +39,12 @@ from zenml.orchestrators import output_utils, publish_utils, step_run_utils
 from zenml.orchestrators import utils as orchestrator_utils
 from zenml.orchestrators.step_runner import StepRunner
 from zenml.stack import Stack
-from zenml.utils import exception_utils, string_utils
+from zenml.steps import StepHeartBeatTerminationException
+from zenml.utils import env_utils, exception_utils, string_utils
+from zenml.utils.logging_utils import (
+    is_step_logging_enabled,
+    setup_step_logging,
+)
 from zenml.utils.time_utils import utc_now
 
 if TYPE_CHECKING:
@@ -104,32 +105,32 @@ class StepLauncher:
 
     def __init__(
         self,
-        deployment: PipelineDeploymentResponse,
+        snapshot: PipelineSnapshotResponse,
         step: Step,
         orchestrator_run_id: str,
     ):
         """Initializes the launcher.
 
         Args:
-            deployment: The pipeline deployment.
+            snapshot: The pipeline snapshot.
             step: The step to launch.
             orchestrator_run_id: The orchestrator pipeline run id.
 
         Raises:
-            RuntimeError: If the deployment has no associated stack.
+            RuntimeError: If the snapshot has no associated stack.
         """
-        self._deployment = deployment
+        self._snapshot = snapshot
         self._step = step
         self._orchestrator_run_id = orchestrator_run_id
 
-        if not deployment.stack:
+        if not snapshot.stack:
             raise RuntimeError(
-                f"Missing stack for deployment {deployment.id}. This is "
+                f"Missing stack for snapshot {snapshot.id}. This is "
                 "probably because the stack was manually deleted."
             )
 
-        self._stack = Stack.from_model(deployment.stack)
-        self._step_name = step.spec.pipeline_parameter_name
+        self._stack = Stack.from_model(snapshot.stack)
+        self._invocation_id = step.spec.invocation_id
 
         # Internal properties and methods
         self._step_run: Optional[StepRunResponse] = None
@@ -137,9 +138,16 @@ class StepLauncher:
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown, chaining previous handlers."""
-        # Save previous handlers
-        self._prev_sigterm_handler = signal.getsignal(signal.SIGTERM)
-        self._prev_sigint_handler = signal.getsignal(signal.SIGINT)
+        try:
+            # Save previous handlers
+            self._prev_sigterm_handler = signal.getsignal(signal.SIGTERM)
+            self._prev_sigint_handler = signal.getsignal(signal.SIGINT)
+        except ValueError as e:
+            # This happens when not in the main thread
+            logger.debug(f"Cannot set up signal handlers: {e}")
+            self._prev_sigterm_handler = None
+            self._prev_sigint_handler = None
+            return
 
         def signal_handler(signum: int, frame: Any) -> None:
             """Handle shutdown signals gracefully.
@@ -155,12 +163,11 @@ class StepLauncher:
             """
             logger.info(
                 f"Received signal shutdown {signum}. Requesting shutdown "
-                f"for step '{self._step_name}'..."
+                f"for step '{self._invocation_id}'..."
             )
 
             try:
                 client = Client()
-                pipeline_run = None
 
                 if self._step_run:
                     pipeline_run = client.get_pipeline_run(
@@ -191,7 +198,7 @@ class StepLauncher:
                 if (
                     pipeline_run.status == ExecutionStatus.FAILED
                     and step_run.status == ExecutionStatus.RUNNING
-                    and self._deployment.pipeline_configuration.execution_mode
+                    and self._snapshot.pipeline_configuration.execution_mode
                     == ExecutionMode.FAIL_FAST
                 ):
                     publish_utils.publish_step_run_status_update(
@@ -231,128 +238,126 @@ class StepLauncher:
                     self._prev_sigint_handler(signum, frame)
 
         # Register handlers for common termination signals
-        signal.signal(signal.SIGTERM, signal_handler)
-        signal.signal(signal.SIGINT, signal_handler)
+        try:
+            signal.signal(signal.SIGTERM, signal_handler)
+            signal.signal(signal.SIGINT, signal_handler)
+        except ValueError as e:
+            # This happens when not in the main thread
+            logger.debug(f"Cannot register signal handlers: {e}")
+            # Continue without signal handling - the step will still run
 
-    def launch(self) -> None:
+    def launch(self) -> StepRunResponse:
         """Launches the step.
 
         Raises:
             RunStoppedException: If the pipeline run is stopped by the user.
             BaseException: If the step preparation or execution fails.
+
+        Returns:
+            The step run response.
         """
         publish_utils.step_exception_info.set(None)
         pipeline_run, run_was_created = self._create_or_reuse_run()
 
-        # Enable or disable step logs storage
-        if handle_bool_env_var(ENV_ZENML_DISABLE_STEP_LOGS_STORAGE, False):
-            step_logging_enabled = False
-        else:
-            step_logging_enabled = orchestrator_utils.is_setting_enabled(
-                is_enabled_on_step=self._step.config.enable_step_logs,
-                is_enabled_on_pipeline=self._deployment.pipeline_configuration.enable_step_logs,
+        if run_was_created:
+            pipeline_run_metadata = self._stack.get_pipeline_run_metadata(
+                run_id=pipeline_run.id
             )
-
-        logs_context = nullcontext()
-        logs_model = None
-
-        if step_logging_enabled:
-            # Configure the logs
-            logs_uri = step_logging.prepare_logs_uri(
-                artifact_store=self._stack.artifact_store,
-                step_name=self._step_name,
+            publish_utils.publish_pipeline_run_metadata(
+                pipeline_run_id=pipeline_run.id,
+                pipeline_run_metadata=pipeline_run_metadata,
             )
-
-            logs_context = step_logging.PipelineLogsStorageContext(
-                logs_uri=logs_uri, artifact_store=self._stack.artifact_store
-            )  # type: ignore[assignment]
-
-            logs_model = LogsRequest(
-                uri=logs_uri,
-                source="execution",
-                artifact_store_id=self._stack.artifact_store.id,
-            )
-
-        with logs_context:
-            if run_was_created:
-                pipeline_run_metadata = self._stack.get_pipeline_run_metadata(
-                    run_id=pipeline_run.id
+            if model_version := pipeline_run.model_version:
+                step_run_utils.log_model_version_dashboard_url(
+                    model_version=model_version
                 )
-                publish_utils.publish_pipeline_run_metadata(
-                    pipeline_run_id=pipeline_run.id,
-                    pipeline_run_metadata=pipeline_run_metadata,
-                )
-                if model_version := pipeline_run.model_version:
-                    step_run_utils.log_model_version_dashboard_url(
-                        model_version=model_version
-                    )
 
-            request_factory = step_run_utils.StepRunRequestFactory(
-                deployment=self._deployment,
-                pipeline_run=pipeline_run,
-                stack=self._stack,
-            )
-            step_run_request = request_factory.create_request(
-                invocation_id=self._step_name
-            )
-            step_run_request.logs = logs_model
+        request_factory = step_run_utils.StepRunRequestFactory(
+            snapshot=self._snapshot,
+            pipeline_run=pipeline_run,
+            stack=self._stack,
+        )
+        dynamic_config = self._step if self._snapshot.is_dynamic else None
+        step_run_request = request_factory.create_request(
+            invocation_id=self._invocation_id,
+            dynamic_config=dynamic_config,
+        )
 
-            try:
-                request_factory.populate_request(request=step_run_request)
-            except BaseException as e:
-                logger.exception(f"Failed preparing step `{self._step_name}`.")
-                step_run_request.status = ExecutionStatus.FAILED
-                step_run_request.end_time = utc_now()
-                step_run_request.exception_info = (
-                    exception_utils.collect_exception_information(e)
+        try:
+            request_factory.populate_request(request=step_run_request)
+        except BaseException as e:
+            logger.exception(f"Failed preparing step `{self._invocation_id}`.")
+            step_run_request.status = ExecutionStatus.FAILED
+            step_run_request.end_time = utc_now()
+            step_run_request.exception_info = (
+                exception_utils.collect_exception_information(e)
+            )
+            raise
+        finally:
+            step_run = Client().zen_store.create_run_step(step_run_request)
+            self._step_run = step_run
+            if model_version := step_run.model_version:
+                step_run_utils.log_model_version_dashboard_url(
+                    model_version=model_version
                 )
-                raise
-            finally:
-                step_run = Client().zen_store.create_run_step(step_run_request)
-                self._step_run = step_run
-                if model_version := step_run.model_version:
-                    step_run_utils.log_model_version_dashboard_url(
-                        model_version=model_version
-                    )
 
             if not step_run.status.is_finished:
-                logger.info(f"Step `{self._step_name}` has started.")
+                logger.info(f"Step `{self._invocation_id}` has started.")
 
-                try:
-                    # here pass a forced save_to_file callable to be
-                    # used as a dump function to use before starting
-                    # the external jobs in step operators
-                    if isinstance(
-                        logs_context,
-                        step_logging.PipelineLogsStorageContext,
-                    ):
-                        force_write_logs = (
-                            logs_context.storage.send_merge_event
-                        )
-                    else:
-
-                        def _bypass() -> None:
-                            return None
-
-                        force_write_logs = _bypass
-                    self._run_step(
-                        pipeline_run=pipeline_run,
+                logs_context = nullcontext()
+                if is_step_logging_enabled(
+                    step_configuration=step_run.config,
+                    pipeline_configuration=pipeline_run.config,
+                ):
+                    logs_context = setup_step_logging(
                         step_run=step_run,
-                        force_write_logs=force_write_logs,
+                        pipeline_run=pipeline_run,
+                        source="prepare_step",
                     )
-                except RunStoppedException as e:
-                    raise e
-                except BaseException as e:  # noqa: E722
-                    logger.error(
-                        "Failed to run step `%s`: %s",
-                        self._step_name,
-                        e,
+
+                start_time = time.time()
+                with logs_context:
+                    logger.info(
+                        "Preparing to run step `%s`.", self._invocation_id
                     )
-                    publish_utils.publish_failed_step_run(step_run.id)
-                    raise
+                    try:
+                        self._run_step(
+                            pipeline_run=pipeline_run,
+                            step_run=step_run,
+                            force_write_logs=lambda: None,
+                        )
+                    except RunStoppedException as e:
+                        raise e
+                    except BaseException as e:  # noqa: E722
+                        step_run = Client().get_run_step(
+                            step_run_id=step_run.id
+                        )
+
+                        if (
+                            isinstance(e, StepHeartBeatTerminationException)
+                            or step_run.status == ExecutionStatus.STOPPING
+                        ):
+                            # Handle as a non-failure as exception is a propagation of graceful termination.
+                            publish_utils.publish_stopped_step_run(step_run.id)
+
+                        else:
+                            logger.error(
+                                "Failed to run step `%s`: %s",
+                                self._invocation_id,
+                                e,
+                            )
+                            publish_utils.publish_failed_step_run(step_run.id)
+                        raise
+
+                duration = time.time() - start_time
+                logger.info(
+                    f"Step `{self._invocation_id}` has finished in "
+                    f"`{string_utils.get_human_readable_time(duration)}`."
+                )
+
             else:
                 logger.info(
-                    f"Using cached version of step `{self._step_name}`."
+                    f"Using cached version of step `{self._invocation_id}`."
                 )
                 if (
                     model_version := step_run.model_version
@@ -363,6 +368,8 @@ class StepLauncher:
                         model_version=model_version,
                     )
 
+        return step_run
+
     def _create_or_reuse_run(self) -> Tuple[PipelineRunResponse, bool]:
         """Creates a pipeline run or reuses an existing one.
 
@@ -372,8 +379,8 @@ class StepLauncher:
         """
         start_time = utc_now()
         run_name = string_utils.format_name_template(
-            name_template=self._deployment.run_name_template,
-            substitutions=self._deployment.pipeline_configuration.finalize_substitutions(
+            name_template=self._snapshot.run_name_template,
+            substitutions=self._snapshot.pipeline_configuration.finalize_substitutions(
                 start_time=start_time,
             ),
         )
@@ -385,16 +392,11 @@ class StepLauncher:
             name=run_name,
             orchestrator_run_id=self._orchestrator_run_id,
             project=client.active_project.id,
-            deployment=self._deployment.id,
-            pipeline=(
-                self._deployment.pipeline.id
-                if self._deployment.pipeline
-                else None
-            ),
+            snapshot=self._snapshot.id,
             status=ExecutionStatus.RUNNING,
             orchestrator_environment=get_run_environment_dict(),
             start_time=start_time,
-            tags=self._deployment.pipeline_configuration.tags,
+            tags=self._snapshot.pipeline_configuration.tags,
         )
         return client.zen_store.get_or_create_run(pipeline_run)
 
@@ -410,24 +412,29 @@ class StepLauncher:
             pipeline_run: The model of the current pipeline run.
             step_run: The model of the current step run.
             force_write_logs: The context for the step logs.
+
         """
-        # Prepare step run information.
+        from zenml.deployers.server import runtime
+
         step_run_info = StepRunInfo(
             config=self._step.config,
-            pipeline=self._deployment.pipeline_configuration,
+            spec=self._step.spec,
+            pipeline=self._snapshot.pipeline_configuration,
             run_name=pipeline_run.name,
-            pipeline_step_name=self._step_name,
+            pipeline_step_name=self._invocation_id,
             run_id=pipeline_run.id,
             step_run_id=step_run.id,
             force_write_logs=force_write_logs,
+            snapshot=self._snapshot,
         )
 
         output_artifact_uris = output_utils.prepare_output_artifact_uris(
-            step_run=step_run, stack=self._stack, step=self._step
+            step_run=step_run,
+            stack=self._stack,
+            step=self._step,
+            skip_artifact_materialization=runtime.should_skip_artifact_materialization(),
         )
 
-        # Run the step.
-        start_time = time.time()
         try:
             if self._step.config.step_operator:
                 step_operator_name = None
@@ -438,25 +445,53 @@ class StepLauncher:
                     step_operator_name=step_operator_name,
                     step_run_info=step_run_info,
                 )
-            else:
-                self._run_step_without_step_operator(
+            elif not self._snapshot.is_dynamic:
+                self._run_step_in_current_thread(
                     pipeline_run=pipeline_run,
                     step_run=step_run,
                     step_run_info=step_run_info,
                     input_artifacts=step_run.regular_inputs,
                     output_artifact_uris=output_artifact_uris,
                 )
+            else:
+                from zenml.execution.pipeline.dynamic.runner import (
+                    get_step_runtime,
+                )
+
+                step_runtime = get_step_runtime(
+                    step_config=self._step.config,
+                    pipeline_docker_settings=self._snapshot.pipeline_configuration.docker_settings,
+                    orchestrator=self._stack.orchestrator,
+                )
+
+                if step_runtime == StepRuntime.INLINE:
+                    if self._step.config.runtime == StepRuntime.ISOLATED:
+                        # The step was configured to run in an isolated runtime,
+                        # but the orchestrator doesn't support it.
+                        logger.warning(
+                            "The %s does not support running steps "
+                            "in isolated runtimes. Running step `%s` in inline "
+                            "runtime instead.",
+                            self._stack.orchestrator.__class__.__name__,
+                            self._invocation_id,
+                        )
+
+                    self._run_step_in_current_thread(
+                        pipeline_run=pipeline_run,
+                        step_run=step_run,
+                        step_run_info=step_run_info,
+                        input_artifacts=step_run.regular_inputs,
+                        output_artifact_uris=output_artifact_uris,
+                    )
+                else:
+                    self._run_step_with_dynamic_orchestrator(
+                        step_run_info=step_run_info
+                    )
         except:  # noqa: E722
             output_utils.remove_artifact_dirs(
                 artifact_uris=list(output_artifact_uris.values())
             )
             raise
-
-        duration = time.time() - start_time
-        logger.info(
-            f"Step `{self._step_name}` has finished in "
-            f"`{string_utils.get_human_readable_time(duration)}`."
-        )
 
     def _run_step_with_step_operator(
         self,
@@ -477,19 +512,29 @@ class StepLauncher:
         entrypoint_command = (
             entrypoint_cfg_class.get_entrypoint_command()
             + entrypoint_cfg_class.get_entrypoint_arguments(
-                step_name=self._step_name,
-                deployment_id=self._deployment.id,
+                step_name=self._invocation_id,
+                snapshot_id=self._snapshot.id,
                 step_run_id=str(step_run_info.step_run_id),
             )
         )
-        environment = orchestrator_utils.get_config_environment_vars(
+        environment, secrets = orchestrator_utils.get_config_environment_vars(
             pipeline_run_id=step_run_info.run_id,
+        )
+        # TODO: for now, we don't support separate secrets from environment
+        # in the step operator environment
+        environment.update(secrets)
+
+        environment.update(
+            env_utils.get_step_environment(
+                step_config=step_run_info.config,
+                stack=self._stack,
+            )
         )
         environment[ENV_ZENML_STEP_OPERATOR] = "True"
         logger.info(
             "Using step operator `%s` to run step `%s`.",
             step_operator.name,
-            self._step_name,
+            self._invocation_id,
         )
         step_operator.launch(
             info=step_run_info,
@@ -497,12 +542,38 @@ class StepLauncher:
             environment=environment,
         )
 
-    def _run_step_without_step_operator(
+    def _run_step_with_dynamic_orchestrator(
+        self,
+        step_run_info: StepRunInfo,
+    ) -> None:
+        """Runs the current step with a dynamic orchestrator.
+
+        Args:
+            step_run_info: Additional information needed to run the step.
+        """
+        # If we don't pass the run ID here, does it reuse the existing token?
+        environment, secrets = orchestrator_utils.get_config_environment_vars(
+            pipeline_run_id=step_run_info.run_id,
+        )
+        environment.update(secrets)
+
+        environment.update(
+            env_utils.get_step_environment(
+                step_config=step_run_info.config,
+                stack=self._stack,
+            )
+        )
+        self._stack.orchestrator.run_isolated_step(
+            step_run_info=step_run_info,
+            environment=environment,
+        )
+
+    def _run_step_in_current_thread(
         self,
         pipeline_run: PipelineRunResponse,
         step_run: StepRunResponse,
         step_run_info: StepRunInfo,
-        input_artifacts: Dict[str, StepRunInputResponse],
+        input_artifacts: Dict[str, List["StepRunInputResponse"]],
         output_artifact_uris: Dict[str, str],
     ) -> None:
         """Runs the current step without a step operator.
@@ -514,7 +585,9 @@ class StepLauncher:
             input_artifacts: The input artifact versions of the current step.
             output_artifact_uris: The output artifact URIs of the current step.
         """
-        runner = StepRunner(step=self._step, stack=self._stack)
+        runner = StepRunner(
+            step=self._step, stack=self._stack, publish_exception_info=False
+        )
         runner.run(
             pipeline_run=pipeline_run,
             step_run=step_run,

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
 build-verbosity = 1
-enable = ["cpython-experimental-riscv64", "cpython-freethreading", "graalpy", "pypy", "pypy-eol"]
-test-skip = ["gp311_242-win_amd64"]  # https://github.com/oracle/graalpython/issues/490
+enable = ["cpython-freethreading", "graalpy", "pypy", "pypy-eol"]
+test-skip = ["gp3*-win_amd64", "*-android*"]  # https://github.com/oracle/graalpython/issues/490
 test-requires = "-r requirements-test.txt"
 test-sources = ["conftest.py", "pyproject.toml", "tests"]
 test-command = "python -m pytest"
@@ -21,6 +21,7 @@ environment = { AUDITWHEEL_PLAT="manylinux_2_31_${AUDITWHEEL_ARCH}" }
 
 [tool.coverage.run]
 branch = true
+patch = ["subprocess"]
 omit = [
   "tests/conftest.py",
   "tests/test_benchmark.py",

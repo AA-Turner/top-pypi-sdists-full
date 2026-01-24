@@ -6,15 +6,18 @@ def get_logger(logger_name: str) -> logging.Logger:
     log = logging.getLogger(logger_name)
     log.setLevel(logging.DEBUG)
 
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    # Only add handler if the logger doesn't already have one
+    # This prevents duplicate log messages when get_logger is called multiple times
+    if not log.handlers:
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
 
-    # add formatter to ch
-    ch.setFormatter(CustomFormatter())
+        # add formatter to ch
+        ch.setFormatter(CustomFormatter())
 
-    # add ch to logger
-    log.addHandler(ch)
+        # add ch to logger
+        log.addHandler(ch)
 
     return log
 

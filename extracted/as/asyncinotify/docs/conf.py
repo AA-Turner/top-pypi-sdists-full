@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+# This code is Copyright 2019 - 2023 Absolute Performance, Inc, and 2024 - 2025
+# ProCern Technology Solutions.
+# It is written and maintained by Taylor C. Richberger <taylor.richberger@procern.com>
+# 
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -12,6 +21,7 @@
 #
 import sys
 from pathlib import Path
+import os
 
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root / 'src'))
@@ -28,11 +38,12 @@ with (root / 'pyproject.toml').open('rb') as file:
 
 project = pyproject['project']['name']
 author = pyproject['project']['authors'][0]['name']
-copyright = '2019-2024 ProCern'
+copyright = '2019-2025 ProCern'
 
-# The full version, including alpha/beta/rc tags
-release = pyproject['project']['version']
-
+os.environ['READTHEDOCS'] = 'True'
+import asyncinotify
+version = asyncinotify.__version__
+release = asyncinotify.__version__
 
 # -- General configuration ---------------------------------------------------
 
@@ -42,8 +53,6 @@ release = pyproject['project']['version']
 extensions = [
     'sphinx.ext.autodoc',
 ]
-
-autodoc_mock_imports = ['asyncinotify._ffi']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -121,7 +121,7 @@ def main() -> int:
             sketch_list: list[Path] = find_sketch_directories()
             if sketch_list:
                 maybe_dir: str | None = select_sketch_directory(
-                    sketch_list, cwd_looks_like_fastled_repo
+                    sketch_list, cwd_looks_like_fastled_repo, is_followup=True
                 )
                 if maybe_dir is not None:
                     directory = Path(maybe_dir)
@@ -190,6 +190,7 @@ def main() -> int:
                 host=server,
                 auto_start=True,
                 keep_running=not just_compile,
+                enable_https=args.enable_https,
             ) as _:
                 while True:
                     time.sleep(0.2)  # wait for user to exit
@@ -197,6 +198,27 @@ def main() -> int:
             print("\nExiting from client...")
             server.stop()
             return 1
+
+    # Handle native compilation mode
+    if args.native:
+        from fastled.compile_native import run_native_compile
+        from fastled.types import BuildMode
+
+        if directory is None:
+            print("Error: No sketch directory specified for native compilation.")
+            return 1
+
+        print("Running in native EMSDK compilation mode (no Docker required).")
+        build_mode = BuildMode.from_args(args)
+        return run_native_compile(
+            directory=directory,
+            build_mode=build_mode,
+            profile=args.profile,
+            open_browser=not just_compile,
+            keep_running=not just_compile,
+            enable_https=args.enable_https,
+            fastled_path=args.fastled_path,
+        )
 
     if has_server:
         print("Running in server only mode.")

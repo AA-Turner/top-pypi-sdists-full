@@ -3,7 +3,7 @@ Type annotations for forecast service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_forecast/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -39,12 +40,6 @@ from .literals import (
     TimeSeriesGranularityType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -273,7 +268,7 @@ class ActionTypeDef(TypedDict):
 
 class AdditionalDatasetOutputTypeDef(TypedDict):
     Name: str
-    Configuration: NotRequired[Dict[str, List[str]]]
+    Configuration: NotRequired[dict[str, list[str]]]
 
 
 class AdditionalDatasetTypeDef(TypedDict):
@@ -283,7 +278,7 @@ class AdditionalDatasetTypeDef(TypedDict):
 
 class AttributeConfigOutputTypeDef(TypedDict):
     AttributeName: str
-    Transformations: Dict[str, str]
+    Transformations: dict[str, str]
 
 
 class AttributeConfigTypeDef(TypedDict):
@@ -298,7 +293,7 @@ class BaselineMetricTypeDef(TypedDict):
 
 class CategoricalParameterRangeOutputTypeDef(TypedDict):
     Name: str
-    Values: List[str]
+    Values: list[str]
 
 
 class CategoricalParameterRangeTypeDef(TypedDict):
@@ -337,7 +332,7 @@ class TimeAlignmentBoundaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -526,7 +521,7 @@ class ErrorMetricTypeDef(TypedDict):
 
 class FeaturizationMethodOutputTypeDef(TypedDict):
     FeaturizationMethodName: Literal["filling"]
-    FeaturizationMethodParameters: NotRequired[Dict[str, str]]
+    FeaturizationMethodParameters: NotRequired[dict[str, str]]
 
 
 class FeaturizationMethodTypeDef(TypedDict):
@@ -676,8 +671,8 @@ class UpdateDatasetGroupRequestTypeDef(TypedDict):
 
 class DataConfigOutputTypeDef(TypedDict):
     DatasetGroupArn: str
-    AttributeConfigs: NotRequired[List[AttributeConfigOutputTypeDef]]
-    AdditionalDatasets: NotRequired[List[AdditionalDatasetOutputTypeDef]]
+    AttributeConfigs: NotRequired[list[AttributeConfigOutputTypeDef]]
+    AdditionalDatasets: NotRequired[list[AdditionalDatasetOutputTypeDef]]
 
 
 class DataConfigTypeDef(TypedDict):
@@ -687,7 +682,7 @@ class DataConfigTypeDef(TypedDict):
 
 
 class PredictorBaselineTypeDef(TypedDict):
-    BaselineMetrics: NotRequired[List[BaselineMetricTypeDef]]
+    BaselineMetrics: NotRequired[list[BaselineMetricTypeDef]]
 
 
 class CreateDatasetGroupRequestTypeDef(TypedDict):
@@ -781,7 +776,7 @@ class CreateWhatIfForecastResponseTypeDef(TypedDict):
 class DescribeDatasetGroupResponseTypeDef(TypedDict):
     DatasetGroupName: str
     DatasetGroupArn: str
-    DatasetArns: List[str]
+    DatasetArns: list[str]
     Domain: DomainType
     Status: str
     CreationTime: datetime
@@ -794,7 +789,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -818,13 +813,13 @@ class DataSourceTypeDef(TypedDict):
 
 
 class ListDatasetGroupsResponseTypeDef(TypedDict):
-    DatasetGroups: List[DatasetGroupSummaryTypeDef]
+    DatasetGroups: list[DatasetGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    Datasets: List[DatasetSummaryTypeDef]
+    Datasets: list[DatasetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -843,7 +838,7 @@ class PredictorSummaryTypeDef(TypedDict):
 
 class FeaturizationOutputTypeDef(TypedDict):
     AttributeName: str
-    FeaturizationPipeline: NotRequired[List[FeaturizationMethodOutputTypeDef]]
+    FeaturizationPipeline: NotRequired[list[FeaturizationMethodOutputTypeDef]]
 
 
 class FeaturizationTypeDef(TypedDict):
@@ -925,14 +920,14 @@ class ListWhatIfForecastsRequestTypeDef(TypedDict):
 
 
 class ListForecastsResponseTypeDef(TypedDict):
-    Forecasts: List[ForecastSummaryTypeDef]
+    Forecasts: list[ForecastSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class InputDataConfigOutputTypeDef(TypedDict):
     DatasetGroupArn: str
-    SupplementaryFeatures: NotRequired[List[SupplementaryFeatureTypeDef]]
+    SupplementaryFeatures: NotRequired[list[SupplementaryFeatureTypeDef]]
 
 
 class InputDataConfigTypeDef(TypedDict):
@@ -941,9 +936,9 @@ class InputDataConfigTypeDef(TypedDict):
 
 
 class ParameterRangesOutputTypeDef(TypedDict):
-    CategoricalParameterRanges: NotRequired[List[CategoricalParameterRangeOutputTypeDef]]
-    ContinuousParameterRanges: NotRequired[List[ContinuousParameterRangeTypeDef]]
-    IntegerParameterRanges: NotRequired[List[IntegerParameterRangeTypeDef]]
+    CategoricalParameterRanges: NotRequired[list[CategoricalParameterRangeOutputTypeDef]]
+    ContinuousParameterRanges: NotRequired[list[ContinuousParameterRangeTypeDef]]
+    IntegerParameterRanges: NotRequired[list[IntegerParameterRangeTypeDef]]
 
 
 class ParameterRangesTypeDef(TypedDict):
@@ -1022,27 +1017,27 @@ class ListWhatIfForecastsRequestPaginateTypeDef(TypedDict):
 
 
 class ListMonitorsResponseTypeDef(TypedDict):
-    Monitors: List[MonitorSummaryTypeDef]
+    Monitors: list[MonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWhatIfAnalysesResponseTypeDef(TypedDict):
-    WhatIfAnalyses: List[WhatIfAnalysisSummaryTypeDef]
+    WhatIfAnalyses: list[WhatIfAnalysisSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWhatIfForecastsResponseTypeDef(TypedDict):
-    WhatIfForecasts: List[WhatIfForecastSummaryTypeDef]
+    WhatIfForecasts: list[WhatIfForecastSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class MetricsTypeDef(TypedDict):
     RMSE: NotRequired[float]
-    WeightedQuantileLosses: NotRequired[List[WeightedQuantileLossTypeDef]]
-    ErrorMetrics: NotRequired[List[ErrorMetricTypeDef]]
+    WeightedQuantileLosses: NotRequired[list[WeightedQuantileLossTypeDef]]
+    ErrorMetrics: NotRequired[list[ErrorMetricTypeDef]]
     AverageWeightedQuantileLoss: NotRequired[float]
 
 
@@ -1055,18 +1050,18 @@ class PredictorMonitorEvaluationTypeDef(TypedDict):
     WindowEndDatetime: NotRequired[datetime]
     PredictorEvent: NotRequired[PredictorEventTypeDef]
     MonitorDataSource: NotRequired[MonitorDataSourceTypeDef]
-    MetricResults: NotRequired[List[MetricResultTypeDef]]
+    MetricResults: NotRequired[list[MetricResultTypeDef]]
     NumItemsEvaluated: NotRequired[int]
     Message: NotRequired[str]
 
 
 class PredictorExecutionTypeDef(TypedDict):
     AlgorithmArn: NotRequired[str]
-    TestWindows: NotRequired[List[TestWindowSummaryTypeDef]]
+    TestWindows: NotRequired[list[TestWindowSummaryTypeDef]]
 
 
 class SchemaOutputTypeDef(TypedDict):
-    Attributes: NotRequired[List[SchemaAttributeTypeDef]]
+    Attributes: NotRequired[list[SchemaAttributeTypeDef]]
 
 
 class SchemaTypeDef(TypedDict):
@@ -1075,7 +1070,7 @@ class SchemaTypeDef(TypedDict):
 
 class TimeSeriesTransformationOutputTypeDef(TypedDict):
     Action: NotRequired[ActionTypeDef]
-    TimeSeriesConditions: NotRequired[List[TimeSeriesConditionTypeDef]]
+    TimeSeriesConditions: NotRequired[list[TimeSeriesConditionTypeDef]]
 
 
 class TimeSeriesTransformationTypeDef(TypedDict):
@@ -1087,10 +1082,10 @@ class DescribeAutoPredictorResponseTypeDef(TypedDict):
     PredictorArn: str
     PredictorName: str
     ForecastHorizon: int
-    ForecastTypes: List[str]
+    ForecastTypes: list[str]
     ForecastFrequency: str
-    ForecastDimensions: List[str]
-    DatasetImportJobArns: List[str]
+    ForecastDimensions: list[str]
+    DatasetImportJobArns: list[str]
     DataConfig: DataConfigOutputTypeDef
     EncryptionConfig: EncryptionConfigTypeDef
     ReferencePredictorSummary: ReferencePredictorSummaryTypeDef
@@ -1114,7 +1109,7 @@ class BaselineTypeDef(TypedDict):
 
 
 class ListExplainabilitiesResponseTypeDef(TypedDict):
-    Explainabilities: List[ExplainabilitySummaryTypeDef]
+    Explainabilities: list[ExplainabilitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1193,7 +1188,7 @@ class DescribePredictorBacktestExportJobResponseTypeDef(TypedDict):
 class DescribeWhatIfForecastExportResponseTypeDef(TypedDict):
     WhatIfForecastExportArn: str
     WhatIfForecastExportName: str
-    WhatIfForecastArns: List[str]
+    WhatIfForecastArns: list[str]
     Destination: DataDestinationTypeDef
     Message: str
     Status: str
@@ -1236,7 +1231,7 @@ class PredictorBacktestExportJobSummaryTypeDef(TypedDict):
 
 class WhatIfForecastExportSummaryTypeDef(TypedDict):
     WhatIfForecastExportArn: NotRequired[str]
-    WhatIfForecastArns: NotRequired[List[str]]
+    WhatIfForecastArns: NotRequired[list[str]]
     WhatIfForecastExportName: NotRequired[str]
     Destination: NotRequired[DataDestinationTypeDef]
     Status: NotRequired[str]
@@ -1279,7 +1274,7 @@ class DescribeDatasetImportJobResponseTypeDef(TypedDict):
     GeolocationFormat: str
     DataSource: DataSourceTypeDef
     EstimatedTimeRemainingInMinutes: int
-    FieldStatistics: Dict[str, StatisticsTypeDef]
+    FieldStatistics: dict[str, StatisticsTypeDef]
     DataSize: float
     Status: str
     Message: str
@@ -1291,15 +1286,15 @@ class DescribeDatasetImportJobResponseTypeDef(TypedDict):
 
 
 class ListPredictorsResponseTypeDef(TypedDict):
-    Predictors: List[PredictorSummaryTypeDef]
+    Predictors: list[PredictorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class FeaturizationConfigOutputTypeDef(TypedDict):
     ForecastFrequency: str
-    ForecastDimensions: NotRequired[List[str]]
-    Featurizations: NotRequired[List[FeaturizationOutputTypeDef]]
+    ForecastDimensions: NotRequired[list[str]]
+    Featurizations: NotRequired[list[FeaturizationOutputTypeDef]]
 
 
 class FeaturizationConfigTypeDef(TypedDict):
@@ -1328,13 +1323,13 @@ class WindowSummaryTypeDef(TypedDict):
 
 
 class ListMonitorEvaluationsResponseTypeDef(TypedDict):
-    PredictorMonitorEvaluations: List[PredictorMonitorEvaluationTypeDef]
+    PredictorMonitorEvaluations: list[PredictorMonitorEvaluationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class PredictorExecutionDetailsTypeDef(TypedDict):
-    PredictorExecutions: NotRequired[List[PredictorExecutionTypeDef]]
+    PredictorExecutions: NotRequired[list[PredictorExecutionTypeDef]]
 
 
 class DescribeDatasetResponseTypeDef(TypedDict):
@@ -1435,31 +1430,31 @@ class DescribeMonitorResponseTypeDef(TypedDict):
 
 
 class ListExplainabilityExportsResponseTypeDef(TypedDict):
-    ExplainabilityExports: List[ExplainabilityExportSummaryTypeDef]
+    ExplainabilityExports: list[ExplainabilityExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListForecastExportJobsResponseTypeDef(TypedDict):
-    ForecastExportJobs: List[ForecastExportJobSummaryTypeDef]
+    ForecastExportJobs: list[ForecastExportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPredictorBacktestExportJobsResponseTypeDef(TypedDict):
-    PredictorBacktestExportJobs: List[PredictorBacktestExportJobSummaryTypeDef]
+    PredictorBacktestExportJobs: list[PredictorBacktestExportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWhatIfForecastExportsResponseTypeDef(TypedDict):
-    WhatIfForecastExports: List[WhatIfForecastExportSummaryTypeDef]
+    WhatIfForecastExports: list[WhatIfForecastExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDatasetImportJobsResponseTypeDef(TypedDict):
-    DatasetImportJobs: List[DatasetImportJobSummaryTypeDef]
+    DatasetImportJobs: list[DatasetImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1474,20 +1469,20 @@ HyperParameterTuningJobConfigUnionTypeDef = Union[
 
 class EvaluationResultTypeDef(TypedDict):
     AlgorithmArn: NotRequired[str]
-    TestWindows: NotRequired[List[WindowSummaryTypeDef]]
+    TestWindows: NotRequired[list[WindowSummaryTypeDef]]
 
 
 class DescribePredictorResponseTypeDef(TypedDict):
     PredictorArn: str
     PredictorName: str
     AlgorithmArn: str
-    AutoMLAlgorithmArns: List[str]
+    AutoMLAlgorithmArns: list[str]
     ForecastHorizon: int
-    ForecastTypes: List[str]
+    ForecastTypes: list[str]
     PerformAutoML: bool
     AutoMLOverrideStrategy: AutoMLOverrideStrategyType
     PerformHPO: bool
-    TrainingParameters: Dict[str, str]
+    TrainingParameters: dict[str, str]
     EvaluationParameters: EvaluationParametersTypeDef
     HPOConfig: HyperParameterTuningJobConfigOutputTypeDef
     InputDataConfig: InputDataConfigOutputTypeDef
@@ -1496,7 +1491,7 @@ class DescribePredictorResponseTypeDef(TypedDict):
     PredictorExecutionDetails: PredictorExecutionDetailsTypeDef
     EstimatedTimeRemainingInMinutes: int
     IsAutoPredictor: bool
-    DatasetImportJobArns: List[str]
+    DatasetImportJobArns: list[str]
     Status: str
     Message: str
     CreationTime: datetime
@@ -1518,9 +1513,9 @@ class DescribeWhatIfForecastResponseTypeDef(TypedDict):
     Message: str
     CreationTime: datetime
     LastModificationTime: datetime
-    TimeSeriesTransformations: List[TimeSeriesTransformationOutputTypeDef]
+    TimeSeriesTransformations: list[TimeSeriesTransformationOutputTypeDef]
     TimeSeriesReplacementsDataSource: TimeSeriesReplacementsDataSourceOutputTypeDef
-    ForecastTypes: List[str]
+    ForecastTypes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1574,7 +1569,7 @@ class CreatePredictorRequestTypeDef(TypedDict):
 
 
 class GetAccuracyMetricsResponseTypeDef(TypedDict):
-    PredictorEvaluationResults: List[EvaluationResultTypeDef]
+    PredictorEvaluationResults: list[EvaluationResultTypeDef]
     IsAutoPredictor: bool
     AutoMLOverrideStrategy: AutoMLOverrideStrategyType
     OptimizationMetric: OptimizationMetricType
@@ -1584,7 +1579,7 @@ class GetAccuracyMetricsResponseTypeDef(TypedDict):
 class DescribeForecastResponseTypeDef(TypedDict):
     ForecastArn: str
     ForecastName: str
-    ForecastTypes: List[str]
+    ForecastTypes: list[str]
     PredictorArn: str
     DatasetGroupArn: str
     EstimatedTimeRemainingInMinutes: int

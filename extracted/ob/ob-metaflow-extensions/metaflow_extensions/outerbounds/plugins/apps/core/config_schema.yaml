@@ -103,34 +103,34 @@ properties:
     required: []
     properties:
       cpu:
-        description: CPU resource request and limit. (validation applied)
+        description: CPU requests (validation applied)
         type: string
         default: '1'
         example: 500m
         mutation_behavior: union
         cli_option: --cpu
       memory:
-        description: Memory resource request and limit. (validation applied)
+        description: Memory requests (validation applied)
         type: string
         default: 4Gi
         example: 512Mi
         mutation_behavior: union
         cli_option: --memory
       gpu:
-        description: GPU resource request and limit. (validation applied)
+        description: GPU requests (validation applied)
         type: string
         example: '1'
         mutation_behavior: union
         cli_option: --gpu
       disk:
-        description: Storage resource request and limit. (validation applied)
+        description: Storage disk size. (validation applied)
         type: string
         default: 20Gi
         example: 1Gi
         mutation_behavior: union
         cli_option: --disk
       shared_memory:
-        description: Shared memory resource request and limit. (validation applied)
+        description: Shared memory (validation applied)
         type: string
         example: 1Gi
         mutation_behavior: union
@@ -149,6 +149,7 @@ properties:
         enum:
         - Browser
         - API
+        - BrowserAndApi
         example: Browser
         mutation_behavior: union
         cli_option: --auth-type
@@ -195,7 +196,7 @@ properties:
         properties:
           rpm:
             description: |-
-              Scale up replicas when the requests per minute crosses this threshold. If nothing is provided and the replicas.max and replicas.min is set then  the default rpm would be 60.
+              Scale up replicas when the requests per minute crosses this threshold. If nothing is provided and the replicas.max and replicas.min is set then the default rpm would be 60.
             type: integer
             default: 60
             mutation_behavior: union
@@ -328,3 +329,9 @@ properties:
       asset_instance_id: instance-101
     experimental: true
     mutation_behavior: union
+  generate_static_url:
+    description: Generate a static URL for the app based on its name.
+    type: boolean
+    default: false
+    mutation_behavior: union
+    cli_option: --generate-static-url

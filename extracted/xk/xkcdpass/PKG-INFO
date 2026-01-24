@@ -1,26 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xkcdpass
-Version: 1.20.0
+Version: 1.30.0
 Summary: Generate secure multiword passwords/passphrases, inspired by XKCD
-Home-page: https://github.com/redacted/XKCD-password-generator
-Author: Steven Tobin
-Author-email: steventtobin@gmail.com
-License: BSD
+Author-email: Steven Tobin <steventtobin@gmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/redacted/XKCD-password-generator
+Project-URL: Repository, https://github.com/redacted/XKCD-password-generator.git
+Project-URL: Issues, https://github.com/redacted/XKCD-password-generator/issues
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Environment :: Console
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Environment :: Console
-Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: BSD License
-License-File: LICENSE-umich-spanishwords-00readme.txt
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
 License-File: LICENSE.BSD
+Dynamic: license-file
 
 xkcdpass
 ========
@@ -47,7 +48,7 @@ Install
 
 or manually::
 
-    python setup.py install
+    pip install .
 
 
 
@@ -62,7 +63,7 @@ Contributions welcome and gratefully appreciated!
 Requirements
 ============
 
-Python 2 (version 2.7 or later), or Python 3 (version 3.4 or later). Running module unit tests on Python 2 requires ``mock`` to be installed.
+Python 3 (version 3.4 or later).
 
 
 
@@ -109,11 +110,11 @@ A concise overview of the available ``xkcdpass`` options can be accessed via::
                                     eff-special, legacy, spa-mich (Spanish), fin-kotus (Finnish)
                                     ita-wiki (Italian), ger-anlx, ger-long, ger-short (German), nor-nb (Norwegian),
                                     fr-freelang (French), pt-ipublicis / pt-l33t-ipublicis (Portuguese)
-                                    swe-short (Swedish)
+                                    ptbr-aosp-10k (Portuguese (Brazil)), swe-short (Swedish)
         --min=MIN_LENGTH
-                                    Minimum length of words to make password
+                                    Minimum number of letters required in words used to make password
         --max=MAX_LENGTH
-                                    Maximum length of words to make password
+                                    Maximum number of letters allowed in words used to make password
         -n NUMWORDS, --numwords=NUMWORDS
                                     Number of words to make password
         -i, --interactive
@@ -170,6 +171,7 @@ Additional languages
 - Norwegian: a modified version of `Norsk Ordbank in Norwegian Bokmål 2005 <https://www.nb.no/sprakbanken/show?serial=oai%3Anb.no%3Asbr-5&lang=en>`_, 2018-06-28 update, which is released under the `CC-BY 4.0 license <https://creativecommons.org/licenses/by/4.0/>`_. Regex has been used to alter the list for cleanup and removal of words with impractical characters. The resulting list contains ~137k words.
 - French: One cleaned version of `this list <https://packetstormsecurity.com/files/download/32007/french.gz>`_ (public domain), and one filtered to remove potentially offensive words.
 - Portuguese: Converted variant of the LibreOffice / Firefox Portuguese dictionary (from `this link <https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(European).dic>`_. GPL and BSD licenced.
+- Portuguese Brazil (ptbr-aosp-10k) 10k words filtered from the LatinIME(AOSP) pt-br dictionary `<https://android.googlesource.com/platform/packages/inputmethods/LatinIME/>` (Apache License, more details in the file `LICENSE-ptbr-aosp-10k.md`) using `Fabricio C Zuardi's ptbr-wordlist <https://github.com/fczuardi/ptbr-wordlist> (MIT License)`.
 - Swedish: a modified version of `Martin Lindhe's Swedish word list <https://github.com/martinlindhe/wordlist_swedish>`_ (MIT license). Modifications also released under MIT license.
 
 Additional language word lists are always welcome!
@@ -220,6 +222,8 @@ or setting the appropriate environment variable::
 
 Changelog
 =========
+- **1.30.0** Migrate to pyproject.toml. python2 deprecated
+- **1.21.0** Improved README, added PT-BR wordlist
 - **1.20.0** Improved German wordlists, addressed bugs in delimeter and word length checks
 - **1.19.9** Remove usage of deprecated `assertEquals` in tests
 - **1.19.8** Enables `python -m xkcdpass` usage

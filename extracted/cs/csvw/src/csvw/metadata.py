@@ -54,6 +54,44 @@ NAMESPACES = {
     'dcat': 'http://www.w3.org/ns/dcat#',
     'prov': 'http://www.w3.org/ns/prov#',
     'schema': 'http://schema.org/',
+    "as": "https://www.w3.org/ns/activitystreams#",
+    "cc": "http://creativecommons.org/ns#",
+    "ctag": "http://commontag.org/ns#",
+    "dc11": "http://purl.org/dc/elements/1.1/",
+    "dctypes": "http://purl.org/dc/dcmitype/",
+    "dqv": "http://www.w3.org/ns/dqv#",
+    "duv": "https://www.w3.org/ns/duv#",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "gr": "http://purl.org/goodrelations/v1#",
+    "grddl": "http://www.w3.org/2003/g/data-view#",
+    "ical": "http://www.w3.org/2002/12/cal/icaltzd#",
+    "jsonld": "http://www.w3.org/ns/json-ld#",
+    "ldp": "http://www.w3.org/ns/ldp#",
+    "ma": "http://www.w3.org/ns/ma-ont#",
+    "oa": "http://www.w3.org/ns/oa#",
+    "odrl": "http://www.w3.org/ns/odrl/2/",
+    "og": "http://ogp.me/ns#",
+    "org": "http://www.w3.org/ns/org#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "qb": "http://purl.org/linked-data/cube#",
+    "rdfa": "http://www.w3.org/ns/rdfa#",
+    "rev": "http://purl.org/stuff/rev#",
+    "rif": "http://www.w3.org/2007/rif#",
+    "rr": "http://www.w3.org/ns/r2rml#",
+    "sd": "http://www.w3.org/ns/sparql-service-description#",
+    "sioc": "http://rdfs.org/sioc/ns#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "skosxl": "http://www.w3.org/2008/05/skos-xl#",
+    "sosa": "http://www.w3.org/ns/sosa/",
+    "ssn": "http://www.w3.org/ns/ssn/",
+    "time": "http://www.w3.org/2006/time#",
+    "v": "http://rdf.data-vocabulary.org/#",
+    "vcard": "http://www.w3.org/2006/vcard/ns#",
+    "void": "http://rdfs.org/ns/void#",
+    "wdr": "http://www.w3.org/2007/05/powder#",
+    "wrds": "http://www.w3.org/2007/05/powder-s#",
+    "xhv": "http://www.w3.org/1999/xhtml/vocab#",
+    "xml": "http://www.w3.org/XML/1998/namespace",
 }
 CSVW_TERMS = """Cell
 Column
@@ -1098,7 +1136,7 @@ class TableLike(Description):
         return self._parent._fname.parent if (self._parent and self._parent._fname) else \
             (self._fname.parent if self._fname else None)
 
-    def expand(self, tmpl: URITemplate, row: dict, _row, _name=None, qname=False, uri=False) -> str:
+    def expand(self, tmpl: URITemplate, row: dict, _row, _name=None, qname=False) -> str:
         """
         Expand a `URITemplate` using `row`, `_row` and `_name` as context and resolving the result
         against `TableLike.url`.
@@ -1113,25 +1151,28 @@ class TableLike(Description):
             'https://raw.githubusercontent.com/path?1#2'
 
         """
-        assert not (qname and uri)
         if tmpl is INVALID:
             return self.url.resolve(self.base)
-        res = Link(
-            tmpl.expand(
-                _row=_row, _name=_name, **{_k: _v for _k, _v in row.items() if isinstance(_k, str)}
-            )).resolve(self.url.resolve(self.base) if self.url else self.base)
+
+        for prefix, url in NAMESPACES.items():
+            if tmpl.uri.startswith(prefix + ':'):
+                # If the URI Template is a QName, we expand it to a URL to prevent `Link.resolve`
+                # from turning it into a local path.
+                res = '{}{}'.format(url, tmpl.uri.split(':')[1])
+                break
+        else:
+            res = Link(
+                tmpl.expand(
+                    _row=_row,
+                    _name=_name,
+                    **{_k: _v for _k, _v in row.items() if isinstance(_k, str)}
+                )).resolve(self.url.resolve(self.base) if self.url else self.base)
         if not isinstance(res, pathlib.Path):
             if qname:
                 for prefix, url in NAMESPACES.items():
                     if res.startswith(url):
                         res = res.replace(url, prefix + ':')
                         break
-            if uri:
-                if res != 'rdf:type':
-                    for prefix, url in NAMESPACES.items():
-                        if res.startswith(prefix + ':'):
-                            res = res.replace(prefix + ':', url)
-                            break
         return res
 
 

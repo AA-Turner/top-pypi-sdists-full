@@ -108,8 +108,8 @@ class TeamModelSerializer(serializers.ModelSerializer):
         if email:
             try:
                 validate_email(email)
-            except ValidationError:
-                raise ValidationError({"email": _("Invalid e-mail address")})
+            except ValidationError as e:
+                raise ValidationError({"email": _("Invalid e-mail address")}) from e
         if phone_number:
             try:
                 if phone_number.startswith("00"):
@@ -120,8 +120,8 @@ class TeamModelSerializer(serializers.ModelSerializer):
                 if parser_number:
                     formatted_number = phonenumbers.format_number(parser_number, phonenumbers.PhoneNumberFormat.E164)
                     data["phone_number"] = formatted_number
-            except Exception:
-                raise ValidationError({"phone_number": _("Invalid phone number format")})
+            except Exception as e:
+                raise ValidationError({"phone_number": _("Invalid phone number format")}) from e
 
         return super().validate(data)
 

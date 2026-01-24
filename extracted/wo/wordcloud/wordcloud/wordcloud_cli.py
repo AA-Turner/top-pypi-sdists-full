@@ -3,6 +3,7 @@
 """
 from __future__ import absolute_import
 
+import pathlib
 import sys
 import textwrap
 
@@ -116,10 +117,10 @@ def make_parser():
         '--fontfile', metavar='path', dest='font_path',
         help='path to font file you wish to use (default: DroidSansMono)')
     parser.add_argument(
-        '--mask', metavar='file', type=argparse.FileType('rb'),
+        '--mask', metavar='file', type=pathlib.Path,
         help='mask to use for the image form')
     parser.add_argument(
-        '--colormask', metavar='file', type=argparse.FileType('rb'),
+        '--colormask', metavar='file', type=pathlib.Path,
         help='color mask to use for image coloring')
     parser.add_argument(
         '--contour_width', metavar='width', default=0, type=float,

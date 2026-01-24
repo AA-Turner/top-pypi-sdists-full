@@ -1,29 +1,22 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.73.1
+Version: 1.8.1
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
-Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
+Project-URL: Repository, https://github.com/crewAIInc/crewAI
 Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
-License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: beautifulsoup4>=4.13.4
-Requires-Dist: chromadb==0.5.23
-Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.193.2
-Requires-Dist: docker>=7.1.0
-Requires-Dist: lancedb>=0.5.4
-Requires-Dist: openai>=1.12.0
-Requires-Dist: portalocker==2.7.0
-Requires-Dist: pydantic>=2.6.1
-Requires-Dist: pypdf>=5.9.0
-Requires-Dist: python-docx>=1.2.0
-Requires-Dist: pytube>=15.0.0
-Requires-Dist: requests>=2.31.0
-Requires-Dist: stagehand>=0.4.1
-Requires-Dist: tiktoken>=0.8.0
-Requires-Dist: youtube-transcript-api>=1.2.2
+Requires-Dist: beautifulsoup4~=4.13.4
+Requires-Dist: crewai==1.8.1
+Requires-Dist: docker~=7.1.0
+Requires-Dist: lancedb~=0.5.4
+Requires-Dist: pymupdf~=1.26.6
+Requires-Dist: python-docx~=1.2.0
+Requires-Dist: pytube~=15.0.0
+Requires-Dist: requests~=2.32.5
+Requires-Dist: tiktoken~=0.8.0
+Requires-Dist: youtube-transcript-api~=1.2.2
 Provides-Extra: apify
 Requires-Dist: langchain-apify<1.0.0,>=0.1.2; extra == 'apify'
 Provides-Extra: beautifulsoup4
@@ -130,7 +123,7 @@ CrewAI provides an extensive collection of powerful tools ready to enhance your 
 
 - **File Management**: `FileReadTool`, `FileWriteTool`
 - **Web Scraping**: `ScrapeWebsiteTool`, `SeleniumScrapingTool`
-- **Database Integrations**: `PGSearchTool`, `MySQLSearchTool`
+- **Database Integrations**: `MySQLSearchTool`
 - **Vector Database Integrations**: `MongoDBVectorSearchTool`, `QdrantVectorSearchTool`, `WeaviateVectorSearchTool`
 - **API Integrations**: `SerperApiTool`, `EXASearchTool`
 - **AI-powered Tools**: `DallETool`, `VisionTool`, `StagehandTool`

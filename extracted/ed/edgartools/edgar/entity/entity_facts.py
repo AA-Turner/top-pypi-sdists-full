@@ -8,10 +8,12 @@ analytics and AI-ready interfaces.
 from collections import defaultdict
 from datetime import date
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union as TypingUnion
 
 if TYPE_CHECKING:
     from edgar.entity.query import FactQuery
+    from edgar.entity.unit_handling import UnitResult
+    from edgar.enums import PeriodType
 
 from typing import Union
 
@@ -46,7 +48,8 @@ def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
     """
     Download company facts from the SEC
     """
-    company_facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010}.json"
+    from edgar.urls import build_company_facts_url
+    company_facts_url = build_company_facts_url(cik)
     try:
         return download_json(company_facts_url)
     except httpx.HTTPStatusError as err:
@@ -102,7 +105,8 @@ class EntityFacts:
     consumption patterns.
     """
 
-    def __init__(self, cik: int, name: str, facts: List[FinancialFact]):
+    def __init__(self, cik: int, name: str, facts: List[FinancialFact],
+                 sic_code: Optional[str] = None, ticker: Optional[str] = None):
         """
         Initialize EntityFacts with company information and facts.
 
@@ -110,10 +114,15 @@ class EntityFacts:
             cik: Company CIK number
             name: Company name
             facts: List of FinancialFact objects
+            sic_code: Optional SIC code for industry-specific statement enhancements
+            ticker: Optional ticker symbol for industry lookup (for curated industries
+                   like payment_networks where SIC codes don't map cleanly)
         """
         self.cik = cik
         self.name = name
         self._facts = facts
+        self._sic_code = sic_code
+        self._ticker = ticker
         self._fact_index = self._build_indices()
         self._cache = {}
 
@@ -167,6 +176,117 @@ class EntityFacts:
             List of all FinancialFact objects
         """
         return self._facts
+
+    def to_dataframe(self,
+                     include_metadata: bool = False,
+                     columns: Optional[List[str]] = None) -> pd.DataFrame:
+        """
+        Export all facts to a pandas DataFrame for analysis.
+
+        This method provides direct access to all financial facts in a tabular format,
+        enabling custom analysis, filtering, and integration with data science workflows.
+
+        Args:
+            include_metadata: Include filing references and data quality metadata (default: False)
+            columns: Specific columns to include. If None, includes standard columns.
+
+        Returns:
+            DataFrame with one row per fact, sorted by concept and period_end
+
+        Example:
+            Basic export for exploration:
+            >>> facts = company.get_facts()
+            >>> df = facts.to_dataframe()
+            >>> print(df.head())
+
+            Export with metadata for audit trail:
+            >>> df_full = facts.to_dataframe(include_metadata=True)
+
+            Custom columns for specific analysis:
+            >>> df_slim = facts.to_dataframe(columns=['concept', 'fiscal_year', 'numeric_value'])
+
+            Filter and analyze:
+            >>> df = annual_facts.to_dataframe()
+            >>> revenue = df[df['concept'].str.contains('Revenue')]
+            >>> print(revenue[['fiscal_year', 'numeric_value']])
+        """
+        # Build records from facts
+        records = []
+        for fact in self._facts:
+            record = {
+                'concept': fact.concept,
+                'label': fact.label,
+                'value': fact.value,
+                'numeric_value': fact.numeric_value,
+                'unit': fact.unit,
+                'period_type': fact.period_type,
+                'period_start': fact.period_start,
+                'period_end': fact.period_end,
+                'fiscal_year': fact.fiscal_year,
+                'fiscal_period': fact.fiscal_period
+            }
+
+            # Add metadata if requested
+            if include_metadata:
+                record.update({
+                    'accession': fact.accession,
+                    'filing_date': fact.filing_date,
+                    'form_type': fact.form_type,
+                    'statement_type': fact.statement_type,
+                    'taxonomy': fact.taxonomy,
+                    'scale': fact.scale,
+                    'data_quality': fact.data_quality.value if fact.data_quality else None,
+                    'is_audited': fact.is_audited,
+                    'confidence_score': fact.confidence_score
+                })
+
+            records.append(record)
+
+        # Create DataFrame
+        df = pd.DataFrame(records)
+
+        # Filter to specific columns if requested
+        if columns is not None:
+            df = df[columns]
+
+        # Sort for consistency
+        if not df.empty:
+            sort_cols = []
+            if 'concept' in df.columns:
+                sort_cols.append('concept')
+            if 'period_end' in df.columns:
+                sort_cols.append('period_end')
+            if sort_cols:
+                df = df.sort_values(sort_cols).reset_index(drop=True)
+
+        return df
+
+    def filter_by_period_type(self, period_type: Union[str, 'PeriodType']) -> 'EntityFacts':
+        """
+        Filter facts by period type and return a new EntityFacts instance.
+
+        Args:
+            period_type: Period type to filter by - either PeriodType enum or string
+                        ('annual', 'quarterly', 'monthly')
+
+        Returns:
+            New EntityFacts instance with filtered facts
+
+        Example:
+            >>> annual_facts = facts.filter_by_period_type('annual')
+            >>> quarterly_facts = facts.filter_by_period_type(PeriodType.QUARTERLY)
+        """
+        # Use the query interface to filter facts
+        filtered_facts = self.query().by_period_type(period_type).execute()
+
+        # Create a new EntityFacts instance with the filtered facts
+        return EntityFacts(
+            cik=self.cik,
+            name=self.name,
+            facts=filtered_facts,
+            sic_code=self._sic_code,
+            ticker=self._ticker
+        )
 
     def __rich__(self):
         """Creates a rich representation providing an at-a-glance view of company facts."""
@@ -421,6 +541,46 @@ class EntityFacts:
 
         return None
 
+    def get_annual_fact(self, concept: str, fiscal_year: Optional[int] = None) -> Optional[FinancialFact]:
+        """
+        Get an annual (FY) fact by concept and optional fiscal year.
+
+        This method filters for fiscal_period == 'FY' to return annual values,
+        which is more intuitive for financial metrics like revenue and net income.
+
+        Args:
+            concept: Concept name or label
+            fiscal_year: Optional fiscal year (defaults to most recent FY if not specified)
+
+        Returns:
+            The matching annual fact, or None if not found
+        """
+        # Try exact concept match first
+        facts = self._fact_index['by_concept'].get(concept, [])
+
+        # Try case-insensitive label match
+        if not facts:
+            facts = self._fact_index['by_concept'].get(concept.lower(), [])
+
+        if not facts:
+            return None
+
+        # Filter for annual periods (FY)
+        annual_facts = [f for f in facts if f.fiscal_period == 'FY']
+
+        if not annual_facts:
+            return None
+
+        # Filter by fiscal year if specified
+        if fiscal_year:
+            annual_facts = [f for f in annual_facts if f.fiscal_year == fiscal_year]
+
+        # Return most recent annual fact
+        if annual_facts:
+            return max(annual_facts, key=lambda f: (f.filing_date, f.period_end))
+
+        return None
+
     def time_series(self, concept: str, periods: int = 20) -> pd.DataFrame:
         """
         Get time series data for a concept.
@@ -549,7 +709,7 @@ class EntityFacts:
         return info
 
     # Standardized financial concept access methods (FEAT-411)
-    def get_revenue(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_revenue(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized revenue value across all companies.
 
@@ -559,12 +719,15 @@ class EntityFacts:
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Revenue value as float, or None if not found
 
         Example:
-            >>> revenue = facts.get_revenue()
+            >>> revenue = facts.get_revenue()  # Returns annual revenue (default)
+            >>> revenue = facts.get_revenue(annual=False)  # Returns most recent
             >>> quarterly_revenue = facts.get_revenue(period="2024-Q1")
         """
         return self._get_standardized_concept_value(
@@ -579,10 +742,11 @@ class EntityFacts:
             period=period,
             unit=unit,
             fallback_calculation=self._calculate_revenue_from_components,
-            strict_unit_match=True
+            strict_unit_match=True,
+            annual=annual
         )
 
-    def get_net_income(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_net_income(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized net income value across all companies.
 
@@ -591,12 +755,15 @@ class EntityFacts:
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Net income value as float, or None if not found
 
         Example:
-            >>> net_income = facts.get_net_income()
+            >>> net_income = facts.get_net_income()  # Returns annual net income (default)
+            >>> net_income = facts.get_net_income(annual=False)  # Returns most recent
             >>> annual_income = facts.get_net_income(period="2024-FY")
         """
         return self._get_standardized_concept_value(
@@ -608,22 +775,26 @@ class EntityFacts:
                 'NetIncomeLossAttributableToParent'
             ],
             period=period,
-            unit=unit
+            unit=unit,
+            annual=annual
         )
 
-    def get_total_assets(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_total_assets(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized total assets value across all companies.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Total assets value as float, or None if not found
 
         Example:
-            >>> assets = facts.get_total_assets()
+            >>> assets = facts.get_total_assets()  # Returns annual assets (default)
+            >>> assets = facts.get_total_assets(annual=False)  # Returns most recent
             >>> q4_assets = facts.get_total_assets(period="2024-Q4")
         """
         return self._get_standardized_concept_value(
@@ -633,22 +804,26 @@ class EntityFacts:
                 'AssetsCurrent'  # Fallback for some filings
             ],
             period=period,
-            unit=unit
+            unit=unit,
+            annual=annual
         )
 
-    def get_total_liabilities(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_total_liabilities(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized total liabilities value across all companies.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Total liabilities value as float, or None if not found
 
         Example:
-            >>> liabilities = facts.get_total_liabilities()
+            >>> liabilities = facts.get_total_liabilities()  # Returns annual (default)
+            >>> liabilities = facts.get_total_liabilities(annual=False)  # Returns most recent
         """
         return self._get_standardized_concept_value(
             concept_variants=[
@@ -657,22 +832,26 @@ class EntityFacts:
                 'LiabilitiesAndStockholdersEquity'  # Some companies structure it this way
             ],
             period=period,
-            unit=unit
+            unit=unit,
+            annual=annual
         )
 
-    def get_shareholders_equity(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_shareholders_equity(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized shareholders equity value across all companies.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Shareholders equity value as float, or None if not found
 
         Example:
-            >>> equity = facts.get_shareholders_equity()
+            >>> equity = facts.get_shareholders_equity()  # Returns annual (default)
+            >>> equity = facts.get_shareholders_equity(annual=False)  # Returns most recent
         """
         return self._get_standardized_concept_value(
             concept_variants=[
@@ -683,22 +862,26 @@ class EntityFacts:
                 'MembersEquity'     # For LLCs
             ],
             period=period,
-            unit=unit
+            unit=unit,
+            annual=annual
         )
 
-    def get_operating_income(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_operating_income(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized operating income value across all companies.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Operating income value as float, or None if not found
 
         Example:
-            >>> op_income = facts.get_operating_income()
+            >>> op_income = facts.get_operating_income()  # Returns annual (default)
+            >>> op_income = facts.get_operating_income(annual=False)  # Returns most recent
         """
         return self._get_standardized_concept_value(
             concept_variants=[
@@ -708,22 +891,26 @@ class EntityFacts:
                 'OperatingProfit'
             ],
             period=period,
-            unit=unit
+            unit=unit,
+            annual=annual
         )
 
-    def get_gross_profit(self, period: Optional[str] = None, unit: Optional[str] = None) -> Optional[float]:
+    def get_gross_profit(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True) -> Optional[float]:
         """
         Get standardized gross profit value across all companies.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD if not specified)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             Gross profit value as float, or None if not found
 
         Example:
-            >>> gross_profit = facts.get_gross_profit()
+            >>> gross_profit = facts.get_gross_profit()  # Returns annual (default)
+            >>> gross_profit = facts.get_gross_profit(annual=False)  # Returns most recent
         """
         return self._get_standardized_concept_value(
             concept_variants=[
@@ -732,8 +919,172 @@ class EntityFacts:
             ],
             period=period,
             unit=unit,
-            fallback_calculation=self._calculate_gross_profit_from_components
+            fallback_calculation=self._calculate_gross_profit_from_components,
+            annual=annual
         )
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Unified Synonym-Based Access (uses shared edgar.standardization infrastructure)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def get_concept(
+        self,
+        concept_name: str,
+        period: Optional[str] = None,
+        unit: Optional[str] = None,
+        return_metadata: bool = False
+    ) -> Union[Optional[float], Dict[str, Any]]:
+        """
+        Get a financial concept value using the unified synonym management system.
+
+        This method provides a simpler interface than the specific methods
+        (get_revenue, get_net_income, etc.) by looking up concept synonyms
+        automatically from the shared SynonymGroups infrastructure.
+
+        Supports 40+ pre-built concepts including:
+        - Income statement: 'revenue', 'net_income', 'operating_income', 'gross_profit', 'ebitda'
+        - Balance sheet: 'total_assets', 'total_liabilities', 'stockholders_equity', 'cash_and_equivalents'
+        - Cash flow: 'operating_cash_flow', 'capex', 'free_cash_flow', 'dividends_paid'
+        - Leases: 'operating_lease_payments', 'operating_lease_liability' (Phil Oakley framework)
+
+        Args:
+            concept_name: The canonical concept name (e.g., 'revenue', 'capex', 'operating_lease_payments')
+            period: Optional period in format "YYYY-QN" or "YYYY-FY"
+            unit: Optional unit filter (defaults to USD if not specified)
+            return_metadata: If True, return dict with value and metadata (tag used, etc.)
+
+        Returns:
+            Concept value as float, or None if not found.
+            If return_metadata=True, returns dict with 'value', 'tag_used', 'period'.
+
+        Example:
+            >>> facts = company.get_facts()
+            >>> # Simple usage
+            >>> revenue = facts.get_concept('revenue')
+            >>> capex = facts.get_concept('capex')
+            >>> lease_payments = facts.get_concept('operating_lease_payments')
+            >>>
+            >>> # With period
+            >>> q1_revenue = facts.get_concept('revenue', period='2024-Q1')
+            >>>
+            >>> # With metadata
+            >>> result = facts.get_concept('revenue', return_metadata=True)
+            >>> print(f"Value: {result['value']}, Tag: {result['tag_used']}")
+
+        See Also:
+            - edgar.standardization.SynonymGroups for available concepts
+            - get_revenue(), get_net_income() for specific methods (backwards compatible)
+        """
+        from edgar.entity.unit_handling import UnitNormalizer
+        from edgar.standardization import get_synonym_groups
+
+        synonyms = get_synonym_groups()
+        group = synonyms.get_group(concept_name)
+
+        if group is None:
+            log.warning(
+                f"Unknown concept '{concept_name}'. "
+                f"Use SynonymGroups.list_groups() to see available concepts."
+            )
+            return None
+
+        # Use the existing _get_standardized_concept_value infrastructure
+        # Try each synonym in priority order
+        target_unit = unit or 'USD'
+        synonyms_tried = []
+
+        for concept in group.synonyms:
+            synonyms_tried.append(concept)
+            # Try both with and without namespace prefix
+            for concept_variant in [concept, f'us-gaap:{concept}']:
+                fact = self.get_fact(concept_variant, period)
+                if fact and fact.numeric_value is not None:
+                    unit_result = UnitNormalizer.get_normalized_value(
+                        fact=fact,
+                        target_unit=target_unit,
+                        apply_scale=True,
+                        strict_unit_match=False
+                    )
+
+                    if unit_result.success:
+                        if return_metadata:
+                            return {
+                                'value': unit_result.value,
+                                'tag_used': concept_variant,
+                                'period': period,
+                                'unit': unit_result.normalized_unit,
+                                'concept_name': concept_name,
+                                'synonyms_tried': synonyms_tried.copy()
+                            }
+                        return unit_result.value
+
+        return None
+
+    def discover_concept_tags(self, concept_name: str) -> List[str]:
+        """
+        Discover which tags from a concept's synonym group exist in this company's facts.
+
+        This is useful for understanding which XBRL tags a specific company uses
+        for a given financial concept.
+
+        Args:
+            concept_name: The canonical concept name (e.g., 'revenue', 'capex')
+
+        Returns:
+            List of tags that exist in this company's facts
+
+        Example:
+            >>> facts = company.get_facts()
+            >>> available = facts.discover_concept_tags('revenue')
+            >>> print(available)
+            ['RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues']
+        """
+        from edgar.standardization import get_synonym_groups
+
+        synonyms = get_synonym_groups()
+        group = synonyms.get_group(concept_name)
+
+        if group is None:
+            return []
+
+        found_tags = []
+        for tag in group.synonyms:
+            # Check if tag exists in facts
+            for variant in [tag, f'us-gaap:{tag}']:
+                fact = self.get_fact(variant)
+                if fact is not None:
+                    found_tags.append(tag)
+                    break
+
+        return found_tags
+
+    def list_supported_concepts(self, category: Optional[str] = None) -> List[str]:
+        """
+        List concept names supported by get_concept().
+
+        Returns all concepts from the SynonymGroups registry, not just those
+        present in this company's facts. Use discover_concept_tags() to find
+        which tags actually exist for a specific company.
+
+        Args:
+            category: Optional filter by category ('income_statement', 'balance_sheet', 'cash_flow')
+
+        Returns:
+            List of concept names sorted alphabetically
+
+        Example:
+            >>> facts = company.get_facts()
+            >>> # All supported concepts
+            >>> all_concepts = facts.list_supported_concepts()
+            >>> # Just cash flow concepts
+            >>> cf_concepts = facts.list_supported_concepts(category='cash_flow')
+            >>> print(cf_concepts)
+            ['capex', 'dividends_paid', 'financing_cash_flow', 'operating_cash_flow', ...]
+        """
+        from edgar.standardization import get_synonym_groups
+
+        synonyms = get_synonym_groups()
+        return synonyms.list_groups(category=category)
 
     # Convenient properties for common DEI facts
     @property
@@ -831,7 +1182,7 @@ class EntityFacts:
         """
         # Always build the enhanced multi-period statement
         from edgar.entity.enhanced_statement import EnhancedStatementBuilder
-        builder = EnhancedStatementBuilder()
+        builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
         enhanced_stmt = builder.build_multi_period_statement(
             facts=self._facts,
             statement_type='IncomeStatement',
@@ -839,6 +1190,7 @@ class EntityFacts:
             annual=annual
         )
         enhanced_stmt.company_name = self.name
+        enhanced_stmt.ticker = self._ticker
         enhanced_stmt.cik = str(self.cik)
         enhanced_stmt.concise_format = concise_format
 
@@ -878,7 +1230,7 @@ class EntityFacts:
         if not as_of:
             # Always build the enhanced multi-period statement for regular periods
             from edgar.entity.enhanced_statement import EnhancedStatementBuilder
-            builder = EnhancedStatementBuilder()
+            builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
             enhanced_stmt = builder.build_multi_period_statement(
                 facts=self._facts,
                 statement_type='BalanceSheet',
@@ -886,6 +1238,7 @@ class EntityFacts:
                 annual=annual
             )
             enhanced_stmt.company_name = self.name
+            enhanced_stmt.ticker = self._ticker
             enhanced_stmt.cik = str(self.cik)
             enhanced_stmt.concise_format = concise_format
 
@@ -994,7 +1347,7 @@ class EntityFacts:
         """
         # Always build the enhanced multi-period statement
         from edgar.entity.enhanced_statement import EnhancedStatementBuilder
-        builder = EnhancedStatementBuilder()
+        builder = EnhancedStatementBuilder(sic_code=self._sic_code, ticker=self._ticker)
         enhanced_stmt = builder.build_multi_period_statement(
             facts=self._facts,
             statement_type='CashFlow',
@@ -1002,6 +1355,7 @@ class EntityFacts:
             annual=annual
         )
         enhanced_stmt.company_name = self.name
+        enhanced_stmt.ticker = self._ticker
         enhanced_stmt.cik = str(self.cik)
         enhanced_stmt.concise_format = concise_format
 
@@ -1012,7 +1366,7 @@ class EntityFacts:
         return enhanced_stmt
 
     # Investment analytics
-    def calculate_ratios(self) -> Dict[str, float]:
+    def calculate_ratios(self) -> Dict[str, Any]:
         """
         Calculate common financial ratios.
 
@@ -1293,19 +1647,22 @@ class EntityFacts:
                                       concept_variants: List[str],
                                       period: Optional[str] = None,
                                       unit: Optional[str] = None,
-                                      fallback_calculation: Optional[callable] = None,
+                                      fallback_calculation: Optional[Callable] = None,
                                       return_detailed: bool = False,
-                                      strict_unit_match: bool = False) -> Optional[float]:
+                                      strict_unit_match: bool = False,
+                                      annual: bool = True) -> Optional[float]:
         """
         Core method for retrieving standardized concept values with enhanced unit handling.
 
         Args:
             concept_variants: List of concept names to try in priority order
-            period: Optional period filter
+            period: Optional period filter (e.g., "2024-FY", "2024-Q3")
             unit: Optional unit filter (defaults to USD)
             fallback_calculation: Optional function to calculate value from components
             return_detailed: If True, return UnitResult instead of just value
             strict_unit_match: If True, require exact unit match. If False, allow compatible units.
+            annual: If True and period is None, prefer annual (FY) facts. Falls back to most
+                   recent if no annual facts available. Default: True
 
         Returns:
             Numeric value or None if not found (or UnitResult if return_detailed=True)
@@ -1319,7 +1676,14 @@ class EntityFacts:
         for concept in concept_variants:
             # Try both with and without namespace prefix
             for concept_variant in [concept, f'us-gaap:{concept}']:
-                fact = self.get_fact(concept_variant, period)
+                # Use annual fact if requested and no specific period provided
+                if annual and period is None:
+                    fact = self.get_annual_fact(concept_variant)
+                    # Fallback to most recent if no annual fact available
+                    if fact is None:
+                        fact = self.get_fact(concept_variant, period)
+                else:
+                    fact = self.get_fact(concept_variant, period)
                 if fact and fact.numeric_value is not None:
                     # Use enhanced unit handling
                     unit_result = UnitNormalizer.get_normalized_value(
@@ -1331,7 +1695,7 @@ class EntityFacts:
 
                     if unit_result.success:
                         if return_detailed:
-                            return unit_result
+                            return unit_result  # type: ignore[return-value]
                         return unit_result.value
 
         # Try fallback calculation if provided
@@ -1340,7 +1704,7 @@ class EntityFacts:
                 fallback_value = fallback_calculation(period, target_unit)
                 if fallback_value is not None:
                     if return_detailed:
-                        return UnitResult(
+                        return UnitResult(  # type: ignore[return-value]
                             value=fallback_value,
                             normalized_unit=UnitNormalizer.normalize_unit(target_unit),
                             original_unit=target_unit,
@@ -1351,7 +1715,7 @@ class EntityFacts:
             except Exception as e:
                 # Fallback calculation failed, continue
                 if return_detailed:
-                    return UnitResult(
+                    return UnitResult(  # type: ignore[return-value]
                         value=None,
                         normalized_unit=None,
                         original_unit=target_unit or "",
@@ -1361,7 +1725,7 @@ class EntityFacts:
 
         # No value found
         if return_detailed:
-            return UnitResult(
+            return UnitResult(  # type: ignore[return-value]
                 value=None,
                 normalized_unit=None,
                 original_unit=target_unit or "",
@@ -1496,19 +1860,21 @@ class EntityFacts:
         return info
 
     # Enhanced methods with detailed unit information (FEAT-411 Unit Handling)
-    def get_revenue_detailed(self, period: Optional[str] = None, unit: Optional[str] = None):
+    def get_revenue_detailed(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True):
         """
         Get revenue with detailed unit information and error reporting.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             UnitResult with value, unit info, and error details
 
         Example:
-            >>> result = facts.get_revenue_detailed()
+            >>> result = facts.get_revenue_detailed()  # Returns annual revenue details (default)
             >>> if result.success:
             ...     print(f"Revenue: ${result.value/1e9:.1f}B (unit: {result.normalized_unit})")
             ... else:
@@ -1528,16 +1894,19 @@ class EntityFacts:
             period=period,
             unit=unit,
             fallback_calculation=self._calculate_revenue_from_components,
-            return_detailed=True
+            return_detailed=True,
+            annual=annual
         )
 
-    def get_net_income_detailed(self, period: Optional[str] = None, unit: Optional[str] = None):
+    def get_net_income_detailed(self, period: Optional[str] = None, unit: Optional[str] = None, annual: bool = True):
         """
         Get net income with detailed unit information and error reporting.
 
         Args:
             period: Optional period in format "YYYY-QN" or "YYYY-FY"
             unit: Optional unit filter (defaults to USD)
+            annual: If True (default), prefer annual FY facts when period is not specified.
+                   Falls back to most recent if no annual facts available.
 
         Returns:
             UnitResult with value, unit info, and error details
@@ -1552,7 +1921,8 @@ class EntityFacts:
             ],
             period=period,
             unit=unit,
-            return_detailed=True
+            return_detailed=True,
+            annual=annual
         )
 
     def check_unit_compatibility(self, concept1: str, concept2: str, period: Optional[str] = None) -> Dict[str, Any]:

@@ -18,11 +18,10 @@ class MailChimpOAuth2Adapter(OAuth2Adapter):
 
     def complete_login(self, request, app, token, **kwargs):
         """Complete login, ensuring correct OAuth header."""
-        headers = {"Authorization": "OAuth {0}".format(token.token)}
-        metadata = (
-            get_adapter().get_requests_session().get(self.profile_url, headers=headers)
-        )
-        extra_data = metadata.json()
+        headers = {"Authorization": f"OAuth {token.token}"}
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.get(self.profile_url, headers=headers)
+            extra_data = resp.json()
         return self.get_provider().sociallogin_from_response(request, extra_data)
 
 

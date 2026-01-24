@@ -16,11 +16,13 @@ T = TypeVar("T", bound="OpenFlowValueModulesItemRetry")
 
 @_attrs_define
 class OpenFlowValueModulesItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, OpenFlowValueModulesItemRetryConstant]):
-        exponential (Union[Unset, OpenFlowValueModulesItemRetryExponential]):
-        retry_if (Union[Unset, OpenFlowValueModulesItemRetryRetryIf]):
+        constant (Union[Unset, OpenFlowValueModulesItemRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, OpenFlowValueModulesItemRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, OpenFlowValueModulesItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "OpenFlowValueModulesItemRetryConstant"] = UNSET

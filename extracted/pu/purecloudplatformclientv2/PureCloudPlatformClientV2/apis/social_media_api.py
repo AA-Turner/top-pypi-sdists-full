@@ -68,7 +68,8 @@ from ..models import SocialMediaAsyncDetailQueryResponse
 from ..models import SocialTopicPatchRequest
 from ..models import SocialTopicRequest
 from ..models import SocialTopicResponse
-from ..models import SocialTopicResponseEntityListing
+from ..models import SocialTopicWithDataIngestionRuleMetadataResponse
+from ..models import SocialTopicWithDataIngestionRuleMetadataResponseEntityListing
 from ..models import TwitterDataHistoricalTweetRequest
 from ..models import TwitterDataHistoricalTweetResponse
 from ..models import TwitterDataIngestionRuleRequest
@@ -1012,12 +1013,13 @@ class SocialMediaApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str escalation_rule_id: escalationRuleId (required)
+        :param str expand: which fields, if any, to expand
         :return: EscalationRuleResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['escalation_rule_id']
+        all_params = ['escalation_rule_id', 'expand']
         all_params.append('callback')
 
         params = locals()
@@ -1041,6 +1043,8 @@ class SocialMediaApi(object):
             path_params['escalationRuleId'] = params['escalation_rule_id']
 
         query_params = {}
+        if 'expand' in params:
+            query_params['expand'] = params['expand']
 
         header_params = {}
 
@@ -1158,7 +1162,7 @@ class SocialMediaApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_socialmedia_topic(self, topic_id: str, **kwargs) -> 'SocialTopicResponse':
+    def get_socialmedia_topic(self, topic_id: str, **kwargs) -> 'SocialTopicWithDataIngestionRuleMetadataResponse':
         """
         Get a single social topic.
         
@@ -1175,7 +1179,7 @@ class SocialMediaApi(object):
             for asynchronous request. (optional)
         :param str topic_id: topicId (required)
         :param bool include_deleted: Determines whether to include soft-deleted items in the result.
-        :return: SocialTopicResponse
+        :return: SocialTopicWithDataIngestionRuleMetadataResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1234,7 +1238,7 @@ class SocialMediaApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='SocialTopicResponse',
+                                            response_type='SocialTopicWithDataIngestionRuleMetadataResponse',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -2418,7 +2422,7 @@ class SocialMediaApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_socialmedia_topics(self, **kwargs) -> 'SocialTopicResponseEntityListing':
+    def get_socialmedia_topics(self, **kwargs) -> 'SocialTopicWithDataIngestionRuleMetadataResponseEntityListing':
         """
         Retrieve all social topics.
         
@@ -2437,12 +2441,14 @@ class SocialMediaApi(object):
         :param int page_size: Page size
         :param list[str] division_ids: One or more division IDs. If nothing is provided, the social topics associated withthe list of divisions that the user has access to will be returned.
         :param bool include_deleted: Determines whether to include soft-deleted items in the result.
-        :return: SocialTopicResponseEntityListing
+        :param str name: Search for topic by name that contains the given search string, search is case insensitive
+        :param list[str] ids: One or more topic IDs to search through the topics.
+        :return: SocialTopicWithDataIngestionRuleMetadataResponseEntityListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['page_number', 'page_size', 'division_ids', 'include_deleted']
+        all_params = ['page_number', 'page_size', 'division_ids', 'include_deleted', 'name', 'ids']
         all_params.append('callback')
 
         params = locals()
@@ -2469,6 +2475,10 @@ class SocialMediaApi(object):
             query_params['divisionIds'] = params['division_ids']
         if 'include_deleted' in params:
             query_params['includeDeleted'] = params['include_deleted']
+        if 'name' in params:
+            query_params['name'] = params['name']
+        if 'ids' in params:
+            query_params['ids'] = params['ids']
 
         header_params = {}
 
@@ -2497,7 +2507,7 @@ class SocialMediaApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='SocialTopicResponseEntityListing',
+                                            response_type='SocialTopicWithDataIngestionRuleMetadataResponseEntityListing',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response

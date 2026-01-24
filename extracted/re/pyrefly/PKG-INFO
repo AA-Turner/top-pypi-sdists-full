@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pyrefly
-Version: 0.34.0
-Classifier: Development Status :: 3 - Alpha
+Version: 0.49.0
+Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -14,8 +14,8 @@ Summary: A fast type checker and language server for Python with powerful IDE fe
 Keywords: typechecker,typechecking
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: homepage, https://pyrefly.org
 Project-URL: documentation, https://pyrefly.org/en/docs/
+Project-URL: homepage, https://pyrefly.org
 
 # Pyrefly
 

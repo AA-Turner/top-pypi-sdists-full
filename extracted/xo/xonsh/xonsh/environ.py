@@ -42,6 +42,8 @@ from xonsh.platform import (
 from xonsh.tools import (
     DefaultNotGiven,
     DefaultNotGivenType,
+    EnvPath,
+    abs_path_to_str,
     adjust_shlvl,
     always_false,
     always_true,
@@ -85,6 +87,7 @@ from xonsh.tools import (
     ptk2_color_depth_setter,
     seq_to_upper_pathsep,
     set_to_csv,
+    str_to_abs_path,
     str_to_env_path,
     str_to_path,
     swap_values,
@@ -544,6 +547,7 @@ ENSURERS = {
     "str": (is_string, ensure_string, ensure_string),
     "path": (is_path, str_to_path, path_to_str),
     "env_path": (is_env_path, str_to_env_path, env_path_to_str),
+    "abs_path": (is_path, str_to_abs_path, abs_path_to_str),
     "float": (is_float, float, str),
     "int": (is_int, int, str),
 }
@@ -721,7 +725,7 @@ def default_prompt_fields(env):
     return prompt.PromptFields(XSH)
 
 
-VarKeyType = tp.Union[str, tp.Pattern]
+VarKeyType = tp.Union[str, tp.Pattern]  # noqa: UP007
 
 
 class Var(tp.NamedTuple):
@@ -754,24 +758,30 @@ class Var(tp.NamedTuple):
         potentially other non-trivial data types. default, False.
     pattern
         a regex pattern to match for the given variable
+    sync : str, optional
+        The name of env variable for mirroring the setting.
+    deprecated : bool, optional
+        Show warning about deprecated variable in case of setting.
     """
 
-    validate: tp.Optional[tp.Callable] = always_true
-    convert: tp.Optional[tp.Callable] = None
-    detype: tp.Optional[tp.Callable] = ensure_string
+    validate: tp.Callable | None = always_true
+    convert: tp.Callable | None = None
+    detype: tp.Callable | None = ensure_string
     default: tp.Any = DefaultNotGiven
     doc: str = ""
-    is_configurable: tp.Union[bool, LazyBool] = True
-    doc_default: tp.Union[str, DefaultNotGivenType] = DefaultNotGiven
+    is_configurable: bool | LazyBool = True
+    doc_default: str | DefaultNotGivenType = DefaultNotGiven
     can_store_as_str: bool = False
-    pattern: tp.Optional[VarKeyType] = None
+    pattern: VarKeyType | None = None
+    sync: str = ""
+    deprecated: bool = False
 
     @classmethod
     def with_default(
         cls,
         default: object,
         doc: str = "",
-        doc_default: tp.Union[str, DefaultNotGivenType] = DefaultNotGiven,
+        doc_default: str | DefaultNotGivenType = DefaultNotGiven,
         type_str: str = "",
         **kwargs,
     ):
@@ -808,6 +818,9 @@ class Var(tp.NamedTuple):
     def get_key(self, var_name: str) -> VarKeyType:
         return self.pattern or var_name
 
+    def set_attrs(self, attrs: dict):
+        return self._replace(**attrs)
+
 
 class Xettings:
     """Parent class - All setting classes will be inheriting from this.
@@ -822,9 +835,7 @@ class Xettings:
                 yield var.get_key(var_name), var
 
     @staticmethod
-    def _get_groups(
-        cls, _seen: tp.Optional[set["Xettings"]] = None, *bases: "Xettings"
-    ):
+    def _get_groups(cls, _seen: set["Xettings"] | None = None, *bases: "Xettings"):
         if _seen is None:
             _seen = set()
         subs = cls.__subclasses__()
@@ -1653,7 +1664,7 @@ class PromptHistorySetting(Xettings):
         "Location of history file set by history backend (default) or set by the user.",
         is_configurable=False,
         doc_default="None",
-        type_str="path",
+        type_str="abs_path",
     )
     HISTCONTROL = Var(
         is_string_set,
@@ -1717,12 +1728,19 @@ class PTKSetting(PromptSetting):  # sub-classing -> sub-group
     Only usable with ``$SHELL_TYPE=prompt_toolkit.``
     """
 
-    AUTO_SUGGEST = Var.with_default(
+    XONSH_PROMPT_AUTO_SUGGEST = Var.with_default(
         True,
         "Enable automatic command suggestions based on history."
         "\n\nPressing the right arrow key inserts the currently "
-        "displayed suggestion. ",
+        "displayed suggestion. Set before starting the prompt e.g. in ``.xonshrc`` file.",
+        sync="AUTO_SUGGEST",
     )
+
+    XONSH_PROMPT_NEXT_CMD = Var.with_default(
+        "",
+        "The text of the next command that will be inserted in the next prompt.",
+    )
+
     AUTO_SUGGEST_IN_COMPLETIONS = Var.with_default(
         False,
         "Places the auto-suggest result as the first option in the completions. "
@@ -2015,6 +2033,14 @@ class WindowsSetting(GeneralSetting):
     )
 
 
+class DeprecatedSetting(PromptSetting):  # sub-classing -> sub-group
+    """Deprecated settings."""
+
+    AUTO_SUGGEST = PTKSetting.XONSH_PROMPT_AUTO_SUGGEST.set_attrs(
+        {"sync": "XONSH_PROMPT_AUTO_SUGGEST", "deprecated": True}
+    )
+
+
 # Please keep the following in alphabetic order - scopatz
 @lazyobject
 def DEFAULT_VARS():
@@ -2063,7 +2089,7 @@ class Env(cabc.MutableMapping):
         if "PATH" not in self._d:
             # this is here so the PATH is accessible to subprocs and so that
             # it can be modified in-place in the xonshrc file
-            self._d["PATH"] = list(PATH_DEFAULT)
+            self._d["PATH"] = EnvPath(PATH_DEFAULT)
         self._detyped = None
 
     def get_detyped(self, key: str):
@@ -2303,7 +2329,7 @@ class Env(cabc.MutableMapping):
             e = "Unknown environment variable: ${}"
             raise KeyError(e.format(key))
         if isinstance(
-            val, (cabc.MutableSet, cabc.MutableSequence, cabc.MutableMapping)
+            val, cabc.MutableSet | cabc.MutableSequence | cabc.MutableMapping
         ):
             self._detyped = None
         return val
@@ -2311,7 +2337,27 @@ class Env(cabc.MutableMapping):
     def __setitem__(self, key, val):
         self._set_item(key, val)
 
-    def _set_item(self, key, val, thread_local=False):
+    def _set_item(self, key, val, thread_local=False, check_sync=True):
+        if check_sync and key in self._vars:
+            if self._vars[key].deprecated:
+                sync_txt = (
+                    f" Replace it to {self._vars[key].sync!r}."
+                    if self._vars[key].sync
+                    else ""
+                )
+                warnings.warn(
+                    f"env: Setting deprecated env variable {key!r}.{sync_txt}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            if self._vars[key].sync:
+                self._set_item(
+                    self._vars[key].sync,
+                    val,
+                    thread_local=thread_local,
+                    check_sync=False,
+                )
+
         validator = self.get_validator(key)
         converter = self.get_converter(key)
         detyper = self.get_detyper(key)
@@ -2441,7 +2487,8 @@ class Env(cabc.MutableMapping):
             Default value for variable. ``ValueError`` raised if type does not match
             that specified by `type` (or `validate`).
         doc : str, optional
-            Docstring for variable.
+            Docstring for variable. This description will be shown in the
+            autocomplete menu (tab-completion).
         validate : func, optional
             Function to validate type.
         convert : func, optional

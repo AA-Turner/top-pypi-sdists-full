@@ -13,7 +13,7 @@ class LocalStaticfiles(Staticfiles):
     }
 
     @property
-    def STATIC_ROOT(self):
+    def STATIC_ROOT(self):  # noqa
         return self.BASE_DIR.joinpath("staticfiles")
 
 

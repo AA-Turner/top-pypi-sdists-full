@@ -1,15 +1,15 @@
 # pylint: disable=too-many-lines
-from contextlib import contextmanager, ExitStack
+import codecs
+from contextlib import ExitStack, contextmanager
 import filecmp
 from functools import partial
-import os
 from pathlib import Path
 import sqlite3
 from stat import S_IREAD, S_IRGRP, S_IROTH
-import yaml
 import pytest
+import yaml
 from gersemi.return_codes import FAIL, SUCCESS
-from tests.fixtures.app import ExpectedOutcome, fail, match_not, success
+from tests.fixtures.app import ExpectedOutcome, fail, match_not, reformatted, success
 
 
 def compare_directories(left, right):
@@ -24,24 +24,24 @@ def compare_directories(left, right):
 
 @contextmanager
 def create_dot_gersemirc(where, **kwargs):
-    p = os.path.join(where, ".gersemirc")
+    p = Path(where / ".gersemirc")
     try:
         with open(p, "w", encoding="utf-8") as f:
             f.write(yaml.dump(kwargs))
         yield
     finally:
-        os.remove(p)
+        p.unlink()
 
 
 @contextmanager
 def create_fake_definitions(where, name):
-    p = os.path.join(where, name)
+    p = Path(where) / name
     try:
-        with open(os.path.join(where, name), "w", encoding="utf-8") as f:
+        with open(p, "w", encoding="utf-8") as f:
             f.write("\n")
         yield p
     finally:
-        os.remove(p)
+        p.unlink()
 
 
 @contextmanager
@@ -84,8 +84,7 @@ def test_check_on_not_formatted_file_should_return_one(app, testfiles):
     target = (testfiles / "not_formatted_file.cmake").resolve()
     assert app("--check", target) == fail(
         stdout="",
-        stderr=f"""{target} would be reformatted
-""",
+        stderr=reformatted(target),
     )
 
 
@@ -96,16 +95,14 @@ def test_diff_on_not_formatted_files_should_return_zero(app, testfiles):
 
 def test_check_with_diff_on_not_formatted_files_should_return_one(app, testfiles):
     target = testfiles / "directory_with_not_formatted_files"
-    file1 = (target / "file1.cmake").resolve()
-    file2 = (target / "file2.cmake").resolve()
-    file3 = (target / "file3.cmake").resolve()
 
     assert app("--check", "--diff", target) == fail(
         stdout=match_not(""),
-        stderr=f"""{file1} would be reformatted
-{file2} would be reformatted
-{file3} would be reformatted
-""",
+        stderr=reformatted(
+            target / "file1.cmake",
+            target / "file2.cmake",
+            target / "file3.cmake",
+        ),
     )
 
 
@@ -448,37 +445,38 @@ def test_best_definitions_in_configuration_file_but_overridden_by_command_line(
     def creator(dirname):
         return {"definitions": [str(dirname)]}
 
-    with create_configuration_files([not_formatted, formatted], creator):
-        with ExitStack() as fake_definitions:
-            definitions_in_not_formatted, definitions_in_formatted = [
-                fake_definitions.enter_context(
-                    create_fake_definitions(where=dirname, name="definitions.cmake")
-                )
-                for dirname in map(str, [not_formatted, formatted])
-            ]
+    with create_configuration_files(
+        [not_formatted, formatted], creator
+    ), ExitStack() as fake_definitions:
+        definitions_in_not_formatted, definitions_in_formatted = [
+            fake_definitions.enter_context(
+                create_fake_definitions(where=dirname, name="definitions.cmake")
+            )
+            for dirname in map(str, [not_formatted, formatted])
+        ]
 
-            assert (
-                app("--check", formatted, "--definitions", definitions_in_formatted)
-                == success()
+        assert (
+            app("--check", formatted, "--definitions", definitions_in_formatted)
+            == success()
+        )
+        assert (
+            app(
+                "--check",
+                not_formatted,
+                "--definitions",
+                definitions_in_not_formatted,
             )
-            assert (
-                app(
-                    "--check",
-                    not_formatted,
-                    "--definitions",
-                    definitions_in_not_formatted,
-                )
-                == fail()
+            == fail()
+        )
+        assert (
+            app(
+                "--in-place",
+                not_formatted,
+                "--definitions",
+                definitions_in_not_formatted,
             )
-            assert (
-                app(
-                    "--in-place",
-                    not_formatted,
-                    "--definitions",
-                    definitions_in_not_formatted,
-                )
-                == success()
-            )
+            == success()
+        )
 
     assert_that_directories_differ(not_formatted, formatted)
 
@@ -518,8 +516,8 @@ def test_use_absolute_paths_as_definitions_in_configuration_file(app, testfiles)
         return {
             "line_length": 100,
             "definitions": [
-                os.path.join(dirname, "back_to_the_future.cmake"),
-                os.path.join(dirname, "back_to_the_future_sequels.cmake"),
+                str(dirname / "back_to_the_future.cmake"),
+                str(dirname / "back_to_the_future_sequels.cmake"),
             ],
         }
 
@@ -662,7 +660,7 @@ def test_no_files_are_stored_in_cache_on_diff(app, cache, testfiles):
 
 def test_when_cache_cant_be_modified_it_is_ignored(app, cache, testfiles):
     d = testfiles / "custom_project" / "formatted"
-    os.chmod(cache.path, S_IREAD | S_IRGRP | S_IROTH)
+    cache.path.chmod(S_IREAD | S_IRGRP | S_IROTH)
 
     cache.assert_that_has_no_tables()
     assert app("--check", d, "--definitions", d) == success(stdout="", stderr="")
@@ -708,7 +706,7 @@ warning_params = [
 
 
 @pytest.mark.parametrize(
-    ["warning_args", "returncode"],
+    ("warning_args", "returncode"),
     [rest for __, *rest in warning_params],
     ids=[name for name, *__ in warning_params],
 )
@@ -756,7 +754,7 @@ def test_check_project_with_conflicting_command_definitions_dont_warn_when_quiet
 
 
 @pytest.mark.parametrize(
-    ["warning_args", "returncode"],
+    ("warning_args", "returncode"),
     [rest for __, *rest in warning_params],
     ids=[name for name, *__ in warning_params],
 )
@@ -801,12 +799,12 @@ def test_cached_result_doesnt_inhibit_printing_in_stdout_mode(app, testfiles):
 
 
 @pytest.mark.parametrize(
-    ["warning_args", "returncode"],
+    ("warning_args", "returncode"),
     [rest for __, *rest in warning_params],
     ids=[name for name, *__ in warning_params],
 )
 @pytest.mark.parametrize(
-    ["args", "check_cache"],
+    ("args", "check_cache"),
     [
         ((), False),
         (("--check",), True),
@@ -860,16 +858,16 @@ Warning: unknown command 'watch_tarantino_movies' used at:
 
 
 @pytest.mark.parametrize(
-    ["warning_args", "returncode"],
+    ("warning_args", "returncode"),
     [rest for __, *rest in warning_params],
     ids=[name for name, *__ in warning_params],
 )
 @pytest.mark.parametrize(
-    ["args"],
+    "args",
     [
-        ((),),
-        (("--check",),),
-        (("--diff",),),
+        (),
+        ("--check",),
+        ("--diff",),
     ],
 )
 def test_warn_about_unknown_commands_with_stdin(
@@ -899,7 +897,7 @@ Warning: unknown command 'watch_tarantino_movies' used at:
 
 
 @pytest.mark.parametrize(
-    ["args", "check_cache"],
+    ("args", "check_cache"),
     [
         ((), False),
         (("--check",), True),
@@ -1245,3 +1243,28 @@ def test_config_parameter(app, testfiles):
 {configuration_file}: these options are not supported: kambei
 """
         )
+
+
+def test_utf_8_bom_file_is_properly_handled(app, testfiles):
+    given = (testfiles / "utf-8-bom" / "given.cmake").resolve()
+    expected = (testfiles / "utf-8-bom" / "expected.cmake").resolve()
+    assert app("--check", given) == fail(stdout="", stderr=reformatted(given))
+    assert app("--in-place", given) == success(stderr="")
+    assert app("--check", given) == success(stderr="")
+
+    with open(given, "rb") as g, open(expected, "rb") as e:
+        assert g.read() == e.read()
+
+
+def test_utf_8_bom_stdin_is_properly_handled(app):
+    BOM = codecs.BOM_UTF8.decode()
+    given = f"""{BOM}project( "demo-project" )"""
+    expected = f"""{BOM}project("demo-project")
+"""
+
+    assert app("--check", "-", input=given) == fail(
+        stdout="",
+        stderr=reformatted("<stdin>"),
+    )
+
+    assert app("-", input=given) == success(stdout=expected, stderr="")

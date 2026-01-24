@@ -20,6 +20,7 @@ from ..types.get_voices_v_2_response import GetVoicesV2Response
 from ..types.http_validation_error import HttpValidationError
 from ..types.voice import Voice
 from .types.voices_get_shared_request_category import VoicesGetSharedRequestCategory
+from .types.voices_update_request_labels import VoicesUpdateRequestLabels
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -104,7 +105,7 @@ class RawVoicesClient:
         Parameters
         ----------
         next_page_token : typing.Optional[str]
-            The next page token to use for pagination. Returned from the previous request.
+            The next page token to use for pagination. Returned from the previous request. Use this in combination with the has_more flag for reliable pagination.
 
         page_size : typing.Optional[int]
             How many voices to return at maximum. Can not exceed 100, defaults to 10. Page 0 may include more voices due to default voices being included.
@@ -119,7 +120,7 @@ class RawVoicesClient:
             Which direction to sort the voices in. 'asc' or 'desc'.
 
         voice_type : typing.Optional[str]
-            Type of the voice to filter by. One of 'personal', 'community', 'default', 'workspace', 'non-default'. 'non-default' is equal to all but 'default'.
+            Type of the voice to filter by. One of 'personal', 'community', 'default', 'workspace', 'non-default', 'saved'. 'non-default' is equal to all but 'default'. 'saved' is equal to non-default, but includes default voices if they have been added to a collection.
 
         category : typing.Optional[str]
             Category of the voice to filter by. One of 'premade', 'cloned', 'generated', 'professional'
@@ -131,7 +132,7 @@ class RawVoicesClient:
             Collection ID to filter voices by.
 
         include_total_count : typing.Optional[bool]
-            Whether to include the total count of voices found in the response. Incurs a performance cost.
+            Whether to include the total count of voices found in the response. NOTE: The total_count value is a live snapshot and may change between requests as users create, modify, or delete voices. For pagination, rely on the has_more flag instead. Only enable this when you actually need the total count (e.g., for display purposes), as it incurs a performance cost.
 
         voice_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Voice IDs to lookup by. Maximum 100 voice IDs.
@@ -306,7 +307,7 @@ class RawVoicesClient:
         files: typing.Optional[typing.List[core.File]] = OMIT,
         remove_background_noise: typing.Optional[bool] = OMIT,
         description: typing.Optional[str] = OMIT,
-        labels: typing.Optional[str] = OMIT,
+        labels: typing.Optional[VoicesUpdateRequestLabels] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[EditVoiceResponseModel]:
         """
@@ -329,8 +330,8 @@ class RawVoicesClient:
         description : typing.Optional[str]
             A description of the voice.
 
-        labels : typing.Optional[str]
-            Serialized labels dictionary for the voice.
+        labels : typing.Optional[VoicesUpdateRequestLabels]
+            Labels for the voice. Keys can be language, accent, gender, or age.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -740,7 +741,7 @@ class AsyncRawVoicesClient:
         Parameters
         ----------
         next_page_token : typing.Optional[str]
-            The next page token to use for pagination. Returned from the previous request.
+            The next page token to use for pagination. Returned from the previous request. Use this in combination with the has_more flag for reliable pagination.
 
         page_size : typing.Optional[int]
             How many voices to return at maximum. Can not exceed 100, defaults to 10. Page 0 may include more voices due to default voices being included.
@@ -755,7 +756,7 @@ class AsyncRawVoicesClient:
             Which direction to sort the voices in. 'asc' or 'desc'.
 
         voice_type : typing.Optional[str]
-            Type of the voice to filter by. One of 'personal', 'community', 'default', 'workspace', 'non-default'. 'non-default' is equal to all but 'default'.
+            Type of the voice to filter by. One of 'personal', 'community', 'default', 'workspace', 'non-default', 'saved'. 'non-default' is equal to all but 'default'. 'saved' is equal to non-default, but includes default voices if they have been added to a collection.
 
         category : typing.Optional[str]
             Category of the voice to filter by. One of 'premade', 'cloned', 'generated', 'professional'
@@ -767,7 +768,7 @@ class AsyncRawVoicesClient:
             Collection ID to filter voices by.
 
         include_total_count : typing.Optional[bool]
-            Whether to include the total count of voices found in the response. Incurs a performance cost.
+            Whether to include the total count of voices found in the response. NOTE: The total_count value is a live snapshot and may change between requests as users create, modify, or delete voices. For pagination, rely on the has_more flag instead. Only enable this when you actually need the total count (e.g., for display purposes), as it incurs a performance cost.
 
         voice_ids : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Voice IDs to lookup by. Maximum 100 voice IDs.
@@ -942,7 +943,7 @@ class AsyncRawVoicesClient:
         files: typing.Optional[typing.List[core.File]] = OMIT,
         remove_background_noise: typing.Optional[bool] = OMIT,
         description: typing.Optional[str] = OMIT,
-        labels: typing.Optional[str] = OMIT,
+        labels: typing.Optional[VoicesUpdateRequestLabels] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[EditVoiceResponseModel]:
         """
@@ -965,8 +966,8 @@ class AsyncRawVoicesClient:
         description : typing.Optional[str]
             A description of the voice.
 
-        labels : typing.Optional[str]
-            Serialized labels dictionary for the voice.
+        labels : typing.Optional[VoicesUpdateRequestLabels]
+            Labels for the voice. Keys can be language, accent, gender, or age.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

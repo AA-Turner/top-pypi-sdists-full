@@ -8,7 +8,6 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 import ry
-from tests.strategies import MAX_I8, MAX_I16, MIN_I8, MIN_I16
 
 from .strategies import (
     date_tuple_strategy,
@@ -39,7 +38,7 @@ def test_date_fields(date_tuple: tuple[int, int, int]) -> None:
 
         assert date.to_pydate() == pydate
     except ValueError:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=" is not in the required range of "):
             ry.date(date_tuple[0], date_tuple[1], date_tuple[2])
 
 
@@ -64,9 +63,7 @@ def test_datetime_add_subtract_signed_duration(
         assert dt == dt_minus
     except OverflowError as _oe:
         with pytest.raises(OverflowError):
-            dt_plus = dt + duration
-            dt_minus = dt_plus - duration
-            assert dt == dt_minus
+            _ = dt + duration
 
 
 @given(datetime_strategy, datetime_strategy)
@@ -99,21 +96,21 @@ def test_datetime_rounding(
 ) -> None:
     """Test that rounding a datetime with various options works correctly"""
     if unit in ("year", "month", "week"):
-        with pytest.raises(ValueError):
-            options = ry.DateTimeRound(smallest=unit, mode=mode, increment=increment)  # type: ignore[arg-type]
+        options = ry.DateTimeRound(smallest=unit, mode=mode, increment=increment)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="failed rounding datetime:"):
             rounded_dt = dt._round(options)
     else:
         try:
             options = ry.DateTimeRound(smallest=unit, mode=mode, increment=increment)  # type: ignore[arg-type]
             rounded_dt = dt._round(options)
             assert isinstance(rounded_dt, ry.DateTime)
-        except ValueError:  # todo: fix this
-            with pytest.raises(ValueError):
-                options = ry.DateTimeRound(
-                    smallest=unit,  # type: ignore[arg-type]
-                    mode=mode,
-                    increment=increment,
-                )
+        except ValueError:  # TODO: fix this
+            options = ry.DateTimeRound(
+                smallest=unit,  # type: ignore[arg-type]
+                mode=mode,
+                increment=increment,
+            )
+            with pytest.raises(ValueError, match="failed rounding datetime:"):
                 _rounded_dt = dt._round(options)
 
 
@@ -123,7 +120,7 @@ def test_zoned_datetime_creation(dt: ry.DateTime, tz: str) -> None:
     try:
         zdt = dt.in_tz(tz)
 
-        assert zdt.timezone == tz
+        assert zdt.timezone.iana_name() == tz
         assert isinstance(zdt, ry.ZonedDateTime)
     except ValueError:
         assume(False)
@@ -132,7 +129,7 @@ def test_zoned_datetime_creation(dt: ry.DateTime, tz: str) -> None:
 @given(datetime_strategy)
 def test_datetime_serialization(dt: ry.DateTime) -> None:
     """Test serialization and deserialization"""
-    dt_string = dt.string()
+    dt_string = dt.to_string()
     dt_parsed = ry.DateTime.parse(dt_string)
     assert dt == dt_parsed
 
@@ -173,31 +170,32 @@ def test_duration_addition_cancellation(duration: ry.SignedDuration) -> None:
     """Test that adding a duration and its negation results in zero"""
     neg_duration = -duration
     zero_duration = duration + neg_duration
-    assert zero_duration.secs == 0 and zero_duration.nanos == 0
+    assert zero_duration.secs == 0
+    assert zero_duration.nanos == 0
 
 
 @given(st.integers(), st.integers(), st.integers())
 def test_invalid_date_creation(year: int, month: int, day: int) -> None:
     assume(not (-9999 <= year <= 9999 and 1 <= month <= 12 and 1 <= day <= 31))
     if (
-        day > MAX_I8
-        or day < MIN_I8
-        or month > MAX_I8
-        or month < MIN_I8
-        or year > MAX_I16
-        or year < MIN_I16
+        day > ry.I8_MAX
+        or day < ry.I8_MIN
+        or month > ry.I8_MAX
+        or month < ry.I8_MIN
+        or year > ry.I16_MAX
+        or year < ry.I16_MIN
     ):
         with pytest.raises(OverflowError):
             _d = ry.date(year, month, day)
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=" is not in the required range of "):
             _d = ry.date(year, month, day)
 
 
 @given(datetime_strategy)
 def test_datetime_string_format(dt: ry.DateTime) -> None:
     """Test that the string representation matches expected format"""
-    dt_string = dt.string()
+    dt_string = dt.to_string()
     assert isinstance(dt_string, str)
     assert "T" in dt_string
 
@@ -223,7 +221,7 @@ def test_zoned_datetime_add_duration(
         zdt = dt.in_tz(tz)
         new_zdt = zdt + duration
         assert isinstance(new_zdt, ry.ZonedDateTime)
-    except Exception:
+    except OverflowError:
         # Handle invalid combinations
         assume(False)
 
@@ -239,7 +237,7 @@ def test_time_difference(t1: ry.Time, t2: ry.Time) -> None:
 @given(duration_strategy)
 def test_duration_string(duration: ry.SignedDuration) -> None:
     """Test that the string representation of a duration is valid"""
-    duration_string = duration.string()
+    duration_string = duration.to_string()
     assert isinstance(duration_string, str)
 
 
@@ -254,7 +252,7 @@ def test_datetime_round_increment(dt: ry.DateTime, increment: int) -> None:
         )
         assert rounded_dt == rounded_via_kwargs
     except ValueError as _ve:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="failed rounding datetime:"):
             dt._round(options)
 
 
@@ -331,5 +329,5 @@ class TestTimeSpanConversion:
     def test_span_from_timedelta_to_many_days(self, tdelta: pydt.timedelta) -> None:
         # to span
         assume(-7304484 > tdelta.days or tdelta.days > 7304484)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=" is not in the required range of "):
             ry.TimeSpan.from_pytimedelta(tdelta)

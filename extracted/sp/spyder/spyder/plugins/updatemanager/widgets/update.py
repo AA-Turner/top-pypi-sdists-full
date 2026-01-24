@@ -7,31 +7,48 @@
 """Update Manager widgets."""
 
 # Standard library imports
+import json
 import logging
 import os
 import os.path as osp
-import shutil
 import subprocess
 import sys
 from sysconfig import get_path
 
 # Third-party imports
 from qtpy.QtCore import Qt, QThread, QTimer, Signal
-from qtpy.QtWidgets import QMessageBox, QWidget, QProgressBar, QPushButton
+from qtpy.QtWidgets import (
+    QGridLayout,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QTextEdit,
+    QWidget,
+)
+from spyder_kernels.utils.pythonenv import is_conda_env
 
 # Local imports
 from spyder import __version__
 from spyder.api.config.mixins import SpyderConfigurationAccessor
+from spyder.api.fonts import SpyderFontsMixin, SpyderFontType
 from spyder.api.translations import _
-from spyder.config.base import is_conda_based_app
-from spyder.config.utils import is_anaconda
+from spyder.config.base import is_conda_based_app, is_installed_all_users
+from spyder.config.gui import is_dark_interface
 from spyder.plugins.updatemanager.workers import (
-    get_asset_info,
+    UpdateType,
+    validate_download,
     WorkerUpdate,
+    WorkerUpdateUpdater,
     WorkerDownloadInstaller
 )
+from spyder.plugins.updatemanager.utils import get_updater_info
 from spyder.utils.conda import find_conda, is_anaconda_pkg
-from spyder.utils.programs import get_temp_dir, is_program_installed
+from spyder.utils.palette import SpyderPalette
+from spyder.utils.programs import (
+    get_temp_dir,
+    is_program_installed,
+    find_program
+)
 from spyder.widgets.helperwidgets import MessageCheckBox
 
 # Logger setup
@@ -39,6 +56,7 @@ logger = logging.getLogger(__name__)
 
 # Update manager process statuses
 NO_STATUS = __version__
+UPDATING_UPDATER = _("Updating Spyder-updater")
 DOWNLOADING_INSTALLER = _("Downloading update")
 DOWNLOAD_FINISHED = _("Download finished")
 PENDING = _("Update available")
@@ -51,7 +69,7 @@ URL_I = 'https://docs.spyder-ide.org/current/installation.html'
 SKIP_CHECK_UPDATE = (
     sys.executable.startswith(('/usr/bin/', '/usr/local/bin/'))
     or (
-        not is_anaconda()
+        not is_conda_env(sys.prefix)
         and osp.exists(osp.join(get_path('stdlib'), 'EXTERNALLY-MANAGED'))
     )
     or sys.platform not in ('linux', 'darwin', 'win32')  # Supported platforms
@@ -133,23 +151,27 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         self.update_thread = None
         self.update_worker = None
         self.update_timer = None
-        self.latest_release = None
+        self.asset_info = None
+
+        self.update_updater_thread = None
+        self.update_updater_worker = None
 
         self.cancelled = False
         self.download_thread = None
         self.download_worker = None
         self.progress_dialog = None
         self.installer_path = None
-        self.installer_size_path = None
 
-        # Type of Spyder update. It can be "major", "minor" or "micro"
-        self.update_type = None
+        self.restart_spyder = True
 
     # ---- General
 
     def set_status(self, status=NO_STATUS):
         """Set the update manager status."""
-        self.sig_set_status.emit(status, str(self.latest_release))
+        version = None
+        if self.asset_info is not None:
+            version = self.asset_info["version"]
+        self.sig_set_status.emit(status, str(version))
 
     def cleanup_threads(self):
         """Clean up QThreads"""
@@ -162,6 +184,18 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
             self.download_worker.cancelled = True
             self.download_thread.quit()
             self.download_thread.wait()
+
+    def handle_exception(self, exc):
+        """Cleanup if exception occurs"""
+        if self.progress_dialog is not None:
+            self.progress_dialog.accept()
+            self.progress_dialog = None
+
+        self.cleanup_threads()
+
+        self.set_status(NO_STATUS)
+
+        self.sig_exception_occurred.emit(exc)
 
     # ---- Check Update
 
@@ -195,7 +229,7 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         self.update_thread = QThread(None)
         self.update_worker = WorkerUpdate(self.get_conf('check_stable_only'))
         self.update_worker.sig_exception_occurred.connect(
-            self.sig_exception_occurred
+            self.handle_exception
         )
         self.update_worker.sig_ready.connect(self._process_check_update)
         self.update_worker.sig_ready.connect(self.update_thread.quit)
@@ -226,7 +260,7 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
     def _process_check_update(self):
         """Process the results of check update."""
         # Get results from worker
-        update_available = self.update_worker.update_available
+        update_available = self.update_worker.asset_info is not None
         error_msg = self.update_worker.error
         checkbox = self.update_worker.checkbox
 
@@ -250,30 +284,22 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         else:
             info_messagebox(self, _("Spyder is up to date."), checkbox=True)
 
-    def _set_installer_path(self):
-        """Set the temp file path for the downloaded installer."""
-        asset_info = get_asset_info(self.latest_release)
-        self.update_type = asset_info['update_type']
-
-        dirname = osp.join(get_temp_dir(), 'updates', str(self.latest_release))
-        self.installer_path = osp.join(dirname, asset_info['filename'])
-        self.installer_size_path = osp.join(dirname, "size")
-
-        logger.info(f"Update type: {self.update_type}")
-
     # ---- Download Update
 
-    def _verify_installer_path(self):
-        if (
-            osp.exists(self.installer_path)
-            and osp.exists(self.installer_size_path)
-        ):
-            with open(self.installer_size_path, "r") as f:
-                size = int(f.read().strip())
+    def _set_installer_path(self):
+        dirname = osp.join(
+            get_temp_dir(), 'updates', str(self.asset_info["version"])
+        )
+        self.installer_path = osp.join(dirname, self.asset_info['filename'])
 
-            update_downloaded = size == osp.getsize(self.installer_path)
-        else:
-            update_downloaded = False
+        logger.info(f"Update type: {self.asset_info['update_type']}")
+
+    def _validate_download(self):
+        update_downloaded = False
+        if osp.exists(self.installer_path):
+            update_downloaded = validate_download(
+                self.installer_path, self.asset_info["checksum"]
+            )
 
         logger.debug(f"Update already downloaded: {update_downloaded}")
 
@@ -288,17 +314,22 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
 
         If the installer is already downloaded, proceed to confirm install.
         """
-        self.latest_release = self.update_worker.latest_release
+        self.asset_info = self.update_worker.asset_info
         self._set_installer_path()
+        version = self.asset_info["version"]
 
-        if self._verify_installer_path():
-            self.set_status(DOWNLOAD_FINISHED)
-            self._confirm_install()
+        if self._validate_download():
+            if self.asset_info["update_type"] == UpdateType.Major:
+                # Major updates don't need Updater, start install
+                self.set_status(DOWNLOAD_FINISHED)
+                self._confirm_install()
+            else:
+                # Minor/micro updates need the Updater
+                self._start_update_updater()
         elif not is_conda_based_app():
             msg = _(
-                "Would you like to automatically download and "
-                "install it using Spyder's installer?"
-                "<br><br>"
+                "Would you like to download and install the update "
+                "using Spyder's installer?<br><br>"
                 "We <a href='{}'>recommend our own installer</a> "
                 "because it's more stable and makes updating easy. "
                 "This will leave your existing Spyder installation "
@@ -306,35 +337,103 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
             ).format(URL_I + "#standalone-installers")
 
             box = confirm_messagebox(
-                self, msg, _('Spyder update'),
-                version=self.latest_release, checkbox=True
+                self, msg, _('Spyder update'), version=version, checkbox=True
             )
             if box.result() == QMessageBox.Yes:
                 self._start_download()
             else:
                 manual_update_messagebox(
-                    self, self.latest_release, self.update_worker.channel
+                    self, version, self.update_worker.channel
                 )
         else:
-            msg = _("Would you like to automatically download "
-                    "and install it?")
+            msg = _("Would you like to download the update?")
             box = confirm_messagebox(
-                self, msg, _('Spyder update'),
-                version=self.latest_release, checkbox=True
+                self, msg, _('Spyder update'), version=version, checkbox=True
             )
             if box.result() == QMessageBox.Yes:
-                self._start_download()
+                if self.asset_info["update_type"] == UpdateType.Major:
+                    self._start_download()
+                else:
+                    self._start_update_updater()
+
+    def _start_update_updater(self):
+        """Check for and install updates for Spyder-updater."""
+        self.sig_disable_actions.emit(True)
+        self.set_status(UPDATING_UPDATER)
+
+        self.progress_dialog = ProgressDialog(
+            self, _("Updating Spyder's updater..."),
+            cancel_btn=False
+        )
+        # Show progress bar as busy
+        self.progress_dialog.update_progress(0, 0)
+
+        self.update_updater_thread = QThread(None)
+        self.update_updater_worker = WorkerUpdateUpdater(
+            self.get_conf('check_stable_only')
+        )
+        self.update_updater_worker.sig_exception_occurred.connect(
+            self.handle_exception
+        )
+
+        self.update_updater_worker.sig_ready.connect(
+            self._process_update_updater
+        )
+        self.update_updater_worker.sig_ready.connect(
+            self.update_updater_thread.quit
+        )
+        self.update_updater_worker.sig_ready.connect(
+            lambda: self.sig_disable_actions.emit(False)
+        )
+        self.update_updater_worker.moveToThread(self.update_updater_thread)
+        self.update_updater_thread.started.connect(
+            self.update_updater_worker.start
+        )
+        self.update_updater_thread.start()
+
+    def _process_update_updater(self):
+        """Process possible errors when updating the updater"""
+        error = self.update_updater_worker.error
+        if error is None:
+            self._start_download()
+            return
+
+        self.set_status(PENDING)
+        if self.progress_dialog is not None:
+            self.progress_dialog.accept()
+            self.progress_dialog = None
+
+        if isinstance(error, subprocess.CalledProcessError):
+            error_msg = _("Error updating Spyder-updater.")
+            details = [
+                "*** COMMAND ***",
+                error.cmd.strip(),
+                "\n*** STDOUT ***",
+                error.output.strip(),
+                "\n*** STDERR ***",
+                error.stderr.strip(),
+            ]
+            detailed_error_messagebox(
+                self, error_msg, details="\n".join(details)
+            )
 
     def _start_download(self):
         """
         Start downloading the installer in a QThread
         and set downloading status.
         """
+        if self._validate_download():
+            # Update already downloaded, start install
+            self._confirm_install()
+            return
+
         self.cancelled = False
-        self.progress_dialog = None
+        if self.progress_dialog is not None:
+            self.progress_dialog.accept()
+            self.progress_dialog = None
 
         self.download_worker = WorkerDownloadInstaller(
-            self.latest_release, self.installer_path, self.installer_size_path
+            self.asset_info, self.installer_path
         )
 
         self.sig_disable_actions.emit(True)
@@ -343,13 +442,16 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         # Only show progress bar for installers
         if not self.installer_path.endswith('zip'):
             self.progress_dialog = ProgressDialog(
-                self, _("Downloading Spyder {} ...").format(self.latest_release)
+                self,
+                _("Downloading Spyder {} ...").format(
+                    self.asset_info["version"]
+                )
             )
             self.progress_dialog.cancel.clicked.connect(self._cancel_download)
 
         self.download_thread = QThread(None)
         self.download_worker.sig_exception_occurred.connect(
-            self.sig_exception_occurred
+            self.handle_exception
         )
         self.download_worker.sig_ready.connect(self._confirm_install)
         self.download_worker.sig_ready.connect(self.download_thread.quit)
@@ -363,10 +465,10 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         self.download_thread.started.connect(self.download_worker.start)
         self.download_thread.start()
 
-    def show_progress_dialog(self, show=True):
+    def show_progress_dialog(self):
         """Show download progress if previously hidden"""
         if self.progress_dialog is not None:
-            if show:
+            if not self.progress_dialog.isVisible():
                 self.progress_dialog.show()
             else:
                 self.progress_dialog.hide()
@@ -375,8 +477,6 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         """Update download progress in dialog and status bar"""
         if self.progress_dialog is not None:
             self.progress_dialog.update_progress(progress, total)
-            if progress == total:
-                self.progress_dialog.accept()
 
         percent_progress = 0
         if total > 0:
@@ -403,6 +503,9 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
         Ask users if they want to proceed with the install immediately
         or on close.
         """
+        if self.progress_dialog is not None:
+            self.progress_dialog.accept()
+
         if self.cancelled:
             return
 
@@ -422,49 +525,37 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
             self,
             msg,
             _('Spyder install'),
-            version=self.latest_release,
+            version=self.asset_info["version"],
             on_close=True
         )
         if box.result() == QMessageBox.Yes:
+            self.restart_spyder = True
             self.sig_install_on_close.emit(True)
             self.sig_quit_requested.emit()
         elif box.result() == 0:  # 0 is result of 3rd push-button
+            self.restart_spyder = False
             self.sig_install_on_close.emit(True)
             self.set_status(INSTALL_ON_CLOSE)
 
     def start_install(self):
         """Install from downloaded installer or update through conda."""
+        if self.asset_info["update_type"] == UpdateType.Major:
+            self._start_major_install()
+        else:
+            self._start_updater()
 
-        # Install script
-        # Copy to temp location to be safe
-        script_name = 'install.' + ('bat' if os.name == 'nt' else 'sh')
-        script_path = osp.abspath(__file__ + '/../../scripts/' + script_name)
-        tmpscript_path = osp.join(get_temp_dir(), script_name)
-        shutil.copy2(script_path, tmpscript_path)
+    def _start_major_install(self):
+        """
+        Install major update from downloaded installer.
 
-        # Sub command
-        sub_cmd = [tmpscript_path, '-i', self.installer_path]
-        if self.update_type != 'major':
-            # Update with conda
-            sub_cmd.extend(['-c', find_conda(), '-p', sys.prefix])
-
-        if self.update_type == 'minor':
-            # Rebuild runtime environment
-            sub_cmd.append('-r')
-
-        # Final command assembly
+        Major updates are performed using the installers directly.
+        macOS and Windows installers have GUI interfaces; Linux requires
+        a terminal for the GUI.
+        """
         if os.name == 'nt':
-            cmd = ['start', '"Update Spyder"'] + sub_cmd
+            cmd = ['start', '"Update Spyder"']
         elif sys.platform == 'darwin':
-            # Terminal cannot accept a command with arguments. Creating a
-            # wrapper script pollutes the shell history. Best option is to
-            # use osascript
-            sub_cmd_str = ' '.join(sub_cmd)
-            cmd = [
-                "osascript", "-e",
-                ("""'tell application "Terminal" to do script"""
-                 f""" "unset HISTFILE; {sub_cmd_str}; exit;"'"""),
-            ]
+            cmd = ["open"]
         else:
             programs = [
                 {'cmd': 'gnome-terminal', 'exe-opt': '--window --'},
@@ -474,12 +565,109 @@ class UpdateManagerWidget(QWidget, SpyderConfigurationAccessor):
             ]
             for program in programs:
                 if is_program_installed(program['cmd']):
-                    cmd = [program['cmd'], program['exe-opt']] + sub_cmd
+                    cmd = [program['cmd'], program['exe-opt']]
                     break
+
+        cmd.append(self.installer_path)
+
+        env = os.environ.copy()
+        if sys.platform == "darwin":
+            # PKG installers will not pass environment variables in the GUI.
+            # To communicate whether to start Spyder, create dummy file.
+            no_start_file = osp.join(
+                osp.dirname(self.installer_path), "no-start-spyder"
+            )
+            if self.restart_spyder and osp.exists(no_start_file):
+                os.remove(no_start_file)
+            if not self.restart_spyder:
+                open(no_start_file, 'w').close()
+        else:
+            # EXE and SH installers will pass environment variables
+            env.update({"START_SPYDER": str(self.restart_spyder)})
+
+        logger.debug(f"Restart Spyder after install: {self.restart_spyder}")
 
         logger.debug(f"""Update command: "{' '.join(cmd)}" """)
 
-        subprocess.Popen(' '.join(cmd), shell=True)
+        subprocess.Popen(' '.join(cmd), shell=True, env=env)
+
+    def _start_updater(self):
+        """
+        Start updater application.
+
+        For minor/micro updates, Spyder Updater provides the GUI showing
+        progress for updating the runtime environment.
+        """
+        if self.get_conf('high_dpi_custom_scale_factor', section='main'):
+            scale_factors = self.get_conf(
+                'high_dpi_custom_scale_factors',
+                section='main'
+            )
+            scale_factor = float(scale_factors.split(";")[0])
+        else:
+            scale_factor = 1
+
+        info = {
+            "install_file": self.installer_path,
+            "conda_exec": find_conda(),
+            "env_path": sys.prefix,
+            "update_type": self.asset_info["update_type"],
+            "window_title": _("Spyder update"),
+            "scale_factor": scale_factor,
+            "initial_message": _(
+                "Updating Spyder, this will take a few minutes ..."
+            ),
+            "success_message": _(
+                "The update was succesful! Spyder will be launched shortly"
+            ),
+            "failure_message": _("Unfortunately the update failed"),
+            "error_message": _("There was an error in the update process"),
+            "details_title": _("Show details"),
+            "font_family": self.get_conf(
+                "app_font/family", section="appearance"
+            ),
+            "font_size": int(
+                self.get_conf("app_font/size", section="appearance")
+            ),
+            "monospace_font_family": self.get_conf(
+                "monospace_app_font/family", section="appearance"
+            ),
+            "monospace_font_size": int(
+                self.get_conf("monospace_app_font/size", section="appearance")
+            ),
+            "interface_theme": "dark" if is_dark_interface() else "light",
+            "icon_color": SpyderPalette.ICON_1,
+        }
+
+        info_file = osp.join(
+            osp.dirname(self.installer_path), "update-info.json"
+        )
+        with open(info_file, "w") as f:
+            json.dump(info, f, indent=4)
+
+        # Launch updater
+        updater_path, __ = get_updater_info()
+        cmd = [updater_path, "--update-info-file", info_file]
+        if self.restart_spyder:
+            cmd.append("--start-spyder")
+
+        kwargs = dict(shell=True)
+        if os.name == "nt" and is_installed_all_users():
+            # Elevate UAC
+            kwargs.update(executable=find_program("powershell"))
+            cmd = [
+                "start",
+                "-FilePath",
+                f'"{updater_path}"',
+                "-ArgumentList",
+                ",".join([f"'{a}'" for a in cmd[1:]]),
+                "-WindowStyle",
+                "Hidden",
+                "-Verb",
+                "RunAs",
+            ]
+
+        subprocess.Popen(" ".join(cmd), **kwargs)
 
 
 class UpdateMessageBox(QMessageBox):
@@ -487,6 +675,54 @@ class UpdateMessageBox(QMessageBox):
         super().__init__(icon=icon, text=text, parent=parent)
         self.setWindowModality(Qt.NonModal)
         self.setTextFormat(Qt.RichText)
+
+
+class DetailedUpdateMessageBox(UpdateMessageBox, SpyderFontsMixin):
+    def __init__(self, icon=None, text=None, parent=None, details=None):
+        super().__init__(icon=icon, text=text, parent=parent)
+        self.setSizeGripEnabled(True)
+        self.details = None
+        self.setDetailedText(details)
+
+    def setDetailedText(self, details=None):
+        """
+        Override setDetailedText.
+
+        Note: It is critical that QGridLayout.setRowStretch is called after
+        QMessageBox.setDetailedText in order for the stretch behavior to work
+        properly. That is the primary reason for overriding setDetailedText.
+        """
+        if self.details is not None:
+            self.details.setText(details)
+            return
+
+        super().setDetailedText(details)
+        self.details = self.findChild(QTextEdit)
+
+        self.details.setFont(self.get_font(SpyderFontType.Monospace))
+        self.details.setLineWrapMode(self.details.NoWrap)
+        self.details.setMinimumSize(400, 110)
+        self.details.setLineWrapMode(0)
+
+        qgl = self.findChild(QGridLayout)
+        qgl.setRowStretch(1, 0)
+        qgl.setRowStretch(3, 100)  # QTextEdit should take all the stretch
+
+    def event(self, event):
+        """Override to allow resizing the dialog when details are visible."""
+        if event.type() in (event.LayoutRequest, event.Resize):
+            if event.type() == event.Resize:
+                result = super().event(event)
+            else:
+                result = False
+            
+            # Allow resize only if details is available and visible.
+            if self.details and self.details.isVisible():
+                self.details.setMaximumSize(10000, 10000)
+                self.setMaximumSize(10000, 10000)
+
+            return result
+        return super().event(event)
 
 
 class UpdateMessageCheckBox(MessageCheckBox):
@@ -509,7 +745,7 @@ class UpdateMessageCheckBox(MessageCheckBox):
 class ProgressDialog(UpdateMessageBox):
     """Update progress installation dialog."""
 
-    def __init__(self, parent, text):
+    def __init__(self, parent, text, cancel_btn=True):
         super().__init__(icon=QMessageBox.NoIcon, text=text, parent=parent)
         self.setWindowTitle(_("Spyder update"))
 
@@ -520,10 +756,11 @@ class ProgressDialog(UpdateMessageBox):
         layout = self.layout()
         layout.addWidget(self._progress_bar, 1, 1)
 
-        self.cancel = QPushButton(_("Cancel"))
         self.okay = QPushButton(_("OK"))
         self.addButton(self.okay, QMessageBox.YesRole)
-        self.addButton(self.cancel, QMessageBox.NoRole)
+        if cancel_btn:
+            self.cancel = QPushButton(_("Cancel"))
+            self.addButton(self.cancel, QMessageBox.NoRole)
         self.setDefaultButton(self.okay)
 
         self.show()
@@ -540,8 +777,14 @@ def error_messagebox(parent, error_msg, checkbox=False):
     box_class = UpdateMessageCheckBox if checkbox else UpdateMessageBox
     box = box_class(icon=QMessageBox.Warning, text=error_msg, parent=parent)
     box.setWindowTitle(_("Spyder update error"))
-    box.setStandardButtons(QMessageBox.Ok)
-    box.setDefaultButton(QMessageBox.Ok)
+    box.show()
+    return box
+
+
+def detailed_error_messagebox(parent, msg, details):
+    box = DetailedUpdateMessageBox(
+        icon=QMessageBox.Warning, text=msg, parent=parent, details=details
+    )
     box.show()
     return box
 
@@ -551,8 +794,6 @@ def info_messagebox(parent, message, version=None, checkbox=False):
     message = HEADER.format(version) + message if version else message
     box = box_class(icon=QMessageBox.Information, text=message, parent=parent)
     box.setWindowTitle(_("New Spyder version"))
-    box.setStandardButtons(QMessageBox.Ok)
-    box.setDefaultButton(QMessageBox.Ok)
     box.show()
     return box
 
@@ -577,7 +818,7 @@ def confirm_messagebox(parent, message, title, version=None, critical=False,
 def manual_update_messagebox(parent, latest_release, channel):
     msg = ""
     if os.name == "nt":
-        if is_anaconda():
+        if is_conda_env(sys.prefix):
             msg += _("Run the following command or commands in "
                      "the Anaconda prompt to update manually:"
                      "<br><br>")
@@ -585,14 +826,14 @@ def manual_update_messagebox(parent, latest_release, channel):
             msg += _("Run the following command in a cmd prompt "
                      "to update manually:<br><br>")
     else:
-        if is_anaconda():
+        if is_conda_env(sys.prefix):
             msg += _("Run the following command or commands in a "
                      "terminal to update manually:<br><br>")
         else:
             msg += _("Run the following command in a terminal to "
                      "update manually:<br><br>")
 
-    if is_anaconda():
+    if is_conda_env(sys.prefix):
         is_pypi = channel == 'pypi'
 
         if is_anaconda_pkg() and not is_pypi:
@@ -639,5 +880,4 @@ def manual_update_messagebox(parent, latest_release, channel):
         "<br><br>For more information, visit our "
         "<a href=\"{}\">installation guide</a>."
     ).format(URL_I)
-
-    info_messagebox(parent, msg)
+    return info_messagebox(parent, msg)

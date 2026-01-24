@@ -29,14 +29,18 @@ def suggest(
     past_trials: list[optuna.trial.FrozenTrial],
 ) -> float:
     attrs = MockSystemAttr()
-    with patch.object(study._storage, "get_all_trials", return_value=past_trials), patch.object(
-        study._storage, "set_trial_system_attr", side_effect=attrs.set_trial_system_attr
-    ), patch.object(study._storage, "get_trial", return_value=trial), patch(
-        "optuna.trial.Trial.system_attrs", new_callable=PropertyMock
-    ) as mock1, patch(
-        "optuna.trial.FrozenTrial.system_attrs",
-        new_callable=PropertyMock,
-    ) as mock2:
+    with (
+        patch.object(study._storage, "get_all_trials", return_value=past_trials),
+        patch.object(
+            study._storage, "set_trial_system_attr", side_effect=attrs.set_trial_system_attr
+        ),
+        patch.object(study._storage, "get_trial", return_value=trial),
+        patch("optuna.trial.Trial.system_attrs", new_callable=PropertyMock) as mock1,
+        patch(
+            "optuna.trial.FrozenTrial.system_attrs",
+            new_callable=PropertyMock,
+        ) as mock2,
+    ):
         mock1.return_value = attrs.value
         mock2.return_value = attrs.value
         suggestion = sampler.sample_independent(study, trial, "param-a", distribution)
@@ -89,22 +93,23 @@ def test_multi_objective_sample_independent_n_startup_trial() -> None:
         past_trials: list[optuna.trial.FrozenTrial],
     ) -> int:
         attrs = MockSystemAttr()
-        with patch.object(
-            study._storage, "get_all_trials", return_value=past_trials
-        ), patch.object(
-            study._storage, "set_trial_system_attr", side_effect=attrs.set_trial_system_attr
-        ), patch.object(
-            study._storage, "get_trial", return_value=trial
-        ), patch(
-            "optuna.trial.Trial.system_attrs", new_callable=PropertyMock
-        ) as mock1, patch(
-            "optuna.trial.FrozenTrial.system_attrs",
-            new_callable=PropertyMock,
-        ) as mock2, patch.object(
-            optuna.samplers.RandomSampler,
-            "sample_independent",
-            return_value=1.0,
-        ) as sample_method:
+        with (
+            patch.object(study._storage, "get_all_trials", return_value=past_trials),
+            patch.object(
+                study._storage, "set_trial_system_attr", side_effect=attrs.set_trial_system_attr
+            ),
+            patch.object(study._storage, "get_trial", return_value=trial),
+            patch("optuna.trial.Trial.system_attrs", new_callable=PropertyMock) as mock1,
+            patch(
+                "optuna.trial.FrozenTrial.system_attrs",
+                new_callable=PropertyMock,
+            ) as mock2,
+            patch.object(
+                optuna.samplers.RandomSampler,
+                "sample_independent",
+                return_value=1.0,
+            ) as sample_method,
+        ):
             mock1.return_value = attrs.value
             mock2.return_value = attrs.value
             sampler.sample_independent(study, trial, "param-a", dist)
@@ -146,10 +151,12 @@ def test_multi_objective_sample_independent_float_distributions(
     random.seed(128)
     float_dist = optuna.distributions.FloatDistribution(1.0, 100.0, log=log, step=step)
 
+    value_fn: Callable[[int], float] | None = None
+
     if float_dist.step:
-        value_fn: Callable[[int], float] | None = lambda number: int(random.random() * 1000) * 0.1
-    else:
-        value_fn = None
+
+        def value_fn(number: int) -> float:
+            return int(random.random() * 1000) * 0.1
 
     past_trials = [
         frozen_trial_factory(

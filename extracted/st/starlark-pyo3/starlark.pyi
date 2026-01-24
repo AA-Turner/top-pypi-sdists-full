@@ -41,6 +41,7 @@ __all__: Sequence[str] = [
     "LibraryExtension",
     "Lint",
     "Module",
+    "OpaquePythonObject",
     "ResolvedFileSpan",
     "ResolvedPos",
     "ResolvedSpan",
@@ -75,6 +76,11 @@ class EvalSeverity:
     Warning: EvalSeverity
     Advice: EvalSeverity
     Disabled: EvalSeverity
+
+    @override
+    def __str__(self) -> str: ...
+    @override
+    def __eq__(self, other: object) -> bool: ...
 
 @final
 class Lint:
@@ -129,7 +135,7 @@ class AstModule:
     def typecheck(self,
                 globals: Globals,
                 loads: dict[str, Interface],
-            ) -> tuple[list[Error], None, None]:
+            ) -> tuple[list[Error], Interface, None]:
         ...
 
 @final
@@ -148,6 +154,11 @@ class LibraryExtension:
     Typing: LibraryExtension
     Internal: LibraryExtension
     CallStack: LibraryExtension
+    RustDecimal: LibraryExtension
+
+@final
+class OpaquePythonObject:
+    def __new__(cls, obj: object) -> OpaquePythonObject: ...
 
 @final
 class Globals:
@@ -157,7 +168,8 @@ class Globals:
     def extended_by(extensions: list[LibraryExtension]) -> Globals: ...
 
 @final
-class FrozenModule: ...
+class FrozenModule:
+    def call(self, name: str, *args: object, **kwargs: object) -> object: ...
 
 @final
 class Module:
@@ -168,7 +180,7 @@ class Module:
 
 @final
 class FileLoader:
-    def __init__(self, load_func: Callable[[str], FrozenModule]) -> None: ...
+    def __new__(cls, load_func: Callable[[str], FrozenModule]) -> FileLoader: ...
 
 def parse(filename: str, content: str, dialect: Dialect | None = None) -> AstModule: ...
 def eval(

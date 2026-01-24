@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai
-Version: 2.31.6
+Version: 2.31.7
 Dynamic: Keywords
 Summary: A generative AI extension for JupyterLab
 Project-URL: Homepage, https://github.com/jupyterlab/jupyter-ai
@@ -54,7 +54,7 @@ Requires-Dist: dask[distributed]
 Requires-Dist: deepmerge<3,>=2.0
 Requires-Dist: faiss-cpu!=1.8.0.post0,<2.0.0,>=1.8.0
 Requires-Dist: importlib-metadata>=5.2.0
-Requires-Dist: jupyter-ai-magics<3.0.0,>=2.31.6
+Requires-Dist: jupyter-ai-magics<3.0.0,>=2.31.7
 Requires-Dist: jupyter-server<3,>=2.4.0
 Requires-Dist: pydantic<3,>=2.10.0
 Requires-Dist: traitlets>=5.6

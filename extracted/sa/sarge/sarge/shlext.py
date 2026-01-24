@@ -5,7 +5,6 @@
 # Enhancements in shlex to tokenize closer to the way real shells do
 #
 from collections import deque
-from io import StringIO
 import shlex
 import sys
 
@@ -21,6 +20,7 @@ else:
 
 
 class shell_shlex(shlex.shlex):
+
     def __init__(self, instream=None, **kwargs):
         if 'control' not in kwargs:
             control = ''
@@ -62,9 +62,9 @@ class shell_shlex(shlex.shlex):
                     self.preceding = nextchar
                     if self.debug >= 2:  # pragma: no cover
                         print("shlex: whitespace in whitespace state")
-                    if self.token or (self.posix and quoted):
+                    if self.token or (self.posix and quoted):  # pragma: no cover
                         break  # emit current token
-                    else:
+                    else:  # pragma: no cover
                         continue
                 elif nextchar in self.commenters:
                     self.instream.readline()
@@ -87,7 +87,7 @@ class shell_shlex(shlex.shlex):
                         self.token = nextchar
                     self.token_type = self.state
                     self.state = nextchar
-                elif self.whitespace_split:
+                elif self.whitespace_split:  # pragma: no cover
                     self.token = nextchar
                     self.token_type = self.state
                     self.state = 'a'
@@ -95,7 +95,7 @@ class shell_shlex(shlex.shlex):
                     self.token = nextchar
                     if self.token or (self.posix and quoted):
                         break  # emit current token
-                    else:
+                    else:  # pragma: no cover
                         continue
             elif self.state in self.quotes:
                 quoted = True
@@ -112,23 +112,23 @@ class shell_shlex(shlex.shlex):
                         break
                     else:
                         self.state = 'a'
-                elif (self.posix and nextchar in self.escape and self.state
-                in self.escapedquotes):
+                elif (self.posix and nextchar in self.escape
+                      and self.state in self.escapedquotes):  # pragma: no cover
                     escapedstate = self.state
                     self.token_type = self.state
                     self.state = nextchar
                 else:
                     self.token += nextchar
             elif self.state in self.escape:
-                if not nextchar:  # end of file
-                    if self.debug >= 2:  # pragma: no cover
+                if not nextchar:  # pragma: no cover
+                    if self.debug >= 2:
                         print("shlex: I see EOF in escape state")
                     # XXX what error should be raised here?
                     raise ValueError("No escaped character")
                 # In posix shells, only the quote itself or the escape
                 # character may be escaped within quotes.
                 if (escapedstate in self.quotes and nextchar != self.state
-                    and nextchar != escapedstate):
+                        and nextchar != escapedstate):  # pragma: no cover
                     self.token += self.state
                 self.token += nextchar
                 self.token_type = self.state
@@ -149,7 +149,7 @@ class shell_shlex(shlex.shlex):
                         if self.control:
                             self.pbchars.append(nextchar)
                         break  # emit current token
-                    else:
+                    else:  # pragma: no cover
                         continue
                 elif nextchar in self.commenters:
                     self.instream.readline()
@@ -159,12 +159,12 @@ class shell_shlex(shlex.shlex):
                         self.state = ' '
                         if self.token or (self.posix and quoted):
                             break  # emit current token
-                        else:
+                        else:  # pragma: no cover
                             continue
                 elif self.posix and nextchar in self.quotes:
                     self.token_type = self.state
                     self.state = nextchar
-                elif self.posix and nextchar in self.escape:
+                elif self.posix and nextchar in self.escape:  # pragma: no cover
                     escapedstate = 'a'
                     self.token_type = self.state
                     self.state = nextchar
@@ -193,7 +193,7 @@ class shell_shlex(shlex.shlex):
                     self.state = ' '
                     if self.token:
                         break  # emit current token
-                    else:
+                    else:  # pragma: no cover
                         continue
         result = self.token
         self.token = ''

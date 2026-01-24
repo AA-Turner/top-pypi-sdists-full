@@ -29,4 +29,10 @@ class ManagedTransforms(object):
     BIGQUERY_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:bigquery_storage_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     BIGQUERY_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:bigquery_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     ICEBERG_CDC_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:iceberg_cdc_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    POSTGRES_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:postgres_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    POSTGRES_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:postgres_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    MYSQL_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:mysql_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    MYSQL_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:mysql_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    SQL_SERVER_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:sql_server_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    SQL_SERVER_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:sql_server_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 

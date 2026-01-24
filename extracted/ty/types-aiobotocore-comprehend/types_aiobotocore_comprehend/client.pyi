@@ -3,7 +3,7 @@ Type annotations for comprehend service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_comprehend/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -204,12 +205,6 @@ from .type_defs import (
     UpdateFlywheelResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -218,23 +213,23 @@ else:
 __all__ = ("ComprehendClient",)
 
 class Exceptions(BaseClientExceptions):
-    BatchSizeLimitExceededException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidFilterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    JobNotFoundException: Type[BotocoreClientError]
-    KmsKeyValidationException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    TextSizeLimitExceededException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    TooManyTagKeysException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnsupportedLanguageException: Type[BotocoreClientError]
+    BatchSizeLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidFilterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    JobNotFoundException: type[BotocoreClientError]
+    KmsKeyValidationException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    TextSizeLimitExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    TooManyTagKeysException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnsupportedLanguageException: type[BotocoreClientError]
 
 class ComprehendClient(AioBaseClient):
     """
@@ -415,7 +410,7 @@ class ComprehendClient(AioBaseClient):
 
     async def delete_document_classifier(
         self, **kwargs: Unpack[DeleteDocumentClassifierRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a previously created document classifier.
 
@@ -425,7 +420,7 @@ class ComprehendClient(AioBaseClient):
 
     async def delete_endpoint(
         self, **kwargs: Unpack[DeleteEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a model-specific endpoint for a previously-trained custom model.
 
@@ -435,7 +430,7 @@ class ComprehendClient(AioBaseClient):
 
     async def delete_entity_recognizer(
         self, **kwargs: Unpack[DeleteEntityRecognizerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an entity recognizer.
 
@@ -445,7 +440,7 @@ class ComprehendClient(AioBaseClient):
 
     async def delete_flywheel(
         self, **kwargs: Unpack[DeleteFlywheelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a flywheel.
 
@@ -455,7 +450,7 @@ class ComprehendClient(AioBaseClient):
 
     async def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource-based policy that is attached to a custom model.
 
@@ -1088,7 +1083,7 @@ class ComprehendClient(AioBaseClient):
 
     async def stop_training_document_classifier(
         self, **kwargs: Unpack[StopTrainingDocumentClassifierRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a document classifier training job while in progress.
 
@@ -1098,7 +1093,7 @@ class ComprehendClient(AioBaseClient):
 
     async def stop_training_entity_recognizer(
         self, **kwargs: Unpack[StopTrainingEntityRecognizerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an entity recognizer training job while in progress.
 
@@ -1106,7 +1101,7 @@ class ComprehendClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_comprehend/client/#stop_training_entity_recognizer)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a specific tag with an Amazon Comprehend resource.
 
@@ -1114,7 +1109,7 @@ class ComprehendClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_comprehend/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a specific tag associated with an Amazon Comprehend resource.
 
@@ -1260,7 +1255,7 @@ class ComprehendClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-spanner
-Version: 3.58.0
+Version: 3.62.0
 Summary: Google Cloud Spanner API client library
 Home-page: https://github.com/googleapis/python-spanner
 Author: Google LLC
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.9
@@ -28,13 +29,12 @@ Requires-Dist: sqlparse>=0.4.4
 Requires-Dist: proto-plus<2.0.0,>=1.22.2; python_version >= "3.11"
 Requires-Dist: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
 Requires-Dist: grpc-interceptor>=0.15.4
-Provides-Extra: tracing
-Requires-Dist: opentelemetry-api>=1.22.0; extra == "tracing"
-Requires-Dist: opentelemetry-sdk>=1.22.0; extra == "tracing"
-Requires-Dist: opentelemetry-semantic-conventions>=0.43b0; extra == "tracing"
-Requires-Dist: opentelemetry-resourcedetector-gcp>=1.8.0a0; extra == "tracing"
-Requires-Dist: google-cloud-monitoring>=2.16.0; extra == "tracing"
-Requires-Dist: mmh3>=4.1.0; extra == "tracing"
+Requires-Dist: opentelemetry-api>=1.22.0
+Requires-Dist: opentelemetry-sdk>=1.22.0
+Requires-Dist: opentelemetry-semantic-conventions>=0.43b0
+Requires-Dist: opentelemetry-resourcedetector-gcp>=1.8.0a0
+Requires-Dist: google-cloud-monitoring>=2.16.0
+Requires-Dist: mmh3>=4.1.0
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.2.5; extra == "libcst"
 Dynamic: author

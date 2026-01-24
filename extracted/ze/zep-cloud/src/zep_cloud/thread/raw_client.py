@@ -264,6 +264,7 @@ class RawThreadClient:
         thread_id: str,
         *,
         min_rating: typing.Optional[float] = None,
+        template_id: typing.Optional[str] = None,
         mode: typing.Optional[ThreadGetUserContextRequestMode] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ThreadContextResponse]:
@@ -276,10 +277,13 @@ class RawThreadClient:
             The ID of the current thread (for which context is being retrieved).
 
         min_rating : typing.Optional[float]
-            The minimum rating by which to filter relevant facts.
+            Deprecated, this field will be removed in a future release. The minimum rating by which to filter relevant facts.
+
+        template_id : typing.Optional[str]
+            Optional template ID to use for custom context rendering.
 
         mode : typing.Optional[ThreadGetUserContextRequestMode]
-            Defaults to summary mode. Use basic for lower latency
+            Deprecated, this field will be removed in a future release. Defaults to summary mode. Use basic for lower latency
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -294,6 +298,7 @@ class RawThreadClient:
             method="GET",
             params={
                 "minRating": min_rating,
+                "template_id": template_id,
                 "mode": mode,
             },
             request_options=request_options,
@@ -825,6 +830,7 @@ class AsyncRawThreadClient:
         thread_id: str,
         *,
         min_rating: typing.Optional[float] = None,
+        template_id: typing.Optional[str] = None,
         mode: typing.Optional[ThreadGetUserContextRequestMode] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ThreadContextResponse]:
@@ -837,10 +843,13 @@ class AsyncRawThreadClient:
             The ID of the current thread (for which context is being retrieved).
 
         min_rating : typing.Optional[float]
-            The minimum rating by which to filter relevant facts.
+            Deprecated, this field will be removed in a future release. The minimum rating by which to filter relevant facts.
+
+        template_id : typing.Optional[str]
+            Optional template ID to use for custom context rendering.
 
         mode : typing.Optional[ThreadGetUserContextRequestMode]
-            Defaults to summary mode. Use basic for lower latency
+            Deprecated, this field will be removed in a future release. Defaults to summary mode. Use basic for lower latency
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -855,6 +864,7 @@ class AsyncRawThreadClient:
             method="GET",
             params={
                 "minRating": min_rating,
+                "template_id": template_id,
                 "mode": mode,
             },
             request_options=request_options,

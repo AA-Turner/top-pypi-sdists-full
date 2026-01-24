@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, ClassVar, Dict, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import snowflake.core.cortex.search_service._generated.models
 
@@ -36,9 +36,10 @@ class TargetLag(BaseModel):
 
     __properties = ["type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     # JSON field name that stores the object type
     __discriminator_property_name: ClassVar[str] = "type"
@@ -90,7 +91,7 @@ class TargetLag(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 

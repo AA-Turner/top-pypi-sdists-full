@@ -285,6 +285,10 @@ pub fn serialize<
         tensors,
     ) = prepare(data, data_info)?;
 
+    if n > MAX_HEADER_SIZE as u64 {
+        return Err(SafeTensorError::HeaderTooLarge);
+    }
+
     let expected_size = N_LEN + header_bytes.len() + offset;
     let mut buffer: Vec<u8> = Vec::with_capacity(expected_size);
     buffer.extend(n.to_le_bytes());
@@ -317,6 +321,10 @@ where
         },
         tensors,
     ) = prepare(data, data_info)?;
+
+    if n > MAX_HEADER_SIZE as u64 {
+        return Err(SafeTensorError::HeaderTooLarge);
+    }
 
     let mut f = std::io::BufWriter::new(std::fs::File::create(filename)?);
     f.write_all(n.to_le_bytes().as_ref())?;
@@ -806,6 +814,8 @@ pub enum Dtype {
     U32,
     /// Floating point (32-bit)
     F32,
+    /// Complex (32-bit parts)
+    C64,
     /// Floating point (64-bit)
     F64,
     /// Signed integer (64-bit)
@@ -837,6 +847,7 @@ impl Dtype {
             Dtype::BF16 => 16,
             Dtype::F32 => 32,
             Dtype::F64 => 64,
+            Dtype::C64 => 64,
         }
     }
     /// Gives out the size (in bytes) of 1 element of this dtype.
@@ -871,6 +882,7 @@ impl Display for Dtype {
             Dtype::BF16 => "BF16",
             Dtype::F32 => "F32",
             Dtype::F64 => "F64",
+            Dtype::C64 => "C64",
         })
     }
 }
@@ -908,6 +920,7 @@ mod tests {
             Just(Dtype::BF16),
             Just(Dtype::F32),
             Just(Dtype::F64),
+            Just(Dtype::C64),
         ]
     }
 
@@ -1487,6 +1500,22 @@ mod tests {
                 // Yes we have the correct error
             }
             _ => panic!("This should not be able to be deserialized"),
+        }
+    }
+
+    #[test]
+    fn test_invalid_header_size_serialization() {
+        let mut data_info = HashMap::<String, String>::new();
+        let tensors: HashMap<String, TensorView> = HashMap::new();
+
+        // a char is 1 byte in utf-8, so we can just repeat 'a' to get large metadata
+        let very_large_metadata = "a".repeat(MAX_HEADER_SIZE);
+        data_info.insert("very_large_metadata".to_string(), very_large_metadata);
+        match serialize(&tensors, Some(data_info)) {
+            Err(SafeTensorError::HeaderTooLarge) => {
+                // Yes we have the correct error
+            }
+            _ => panic!("This should not be able to be serialized"),
         }
     }
 }

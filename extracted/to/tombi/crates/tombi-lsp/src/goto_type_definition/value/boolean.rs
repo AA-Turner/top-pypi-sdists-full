@@ -7,9 +7,10 @@ use tombi_schema_store::ValueSchema;
 use crate::{
     comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
     goto_type_definition::{
-        all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
+        GetTypeDefinition, TypeDefinition, all_of::get_all_of_type_definition,
+        any_of::get_any_of_type_definition,
         comment::get_tombi_value_comment_directive_type_definition,
-        one_of::get_one_of_type_definition, GetTypeDefinition, TypeDefinition,
+        one_of::get_one_of_type_definition,
     },
 };
 
@@ -33,15 +34,13 @@ impl GetTypeDefinition for tombi_document_tree::Boolean {
                     BooleanCommonFormatRules,
                     BooleanCommonLintRules,
                 >(self.comment_directives(), position, accessors)
-            {
-                if let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
+                && let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
-                {
-                    return Some(hover_content);
-                }
+            {
+                return Some(hover_content);
             }
 
             if let Some(current_schema) = current_schema {

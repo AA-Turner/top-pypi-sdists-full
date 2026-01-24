@@ -58,8 +58,23 @@ class IOContext:
     def set_cancel_callback(self, cb: collections.abc.Callable[[], None]): ...
     def cancel(self): ...
     def _args_and_kwargs(self) -> tuple[tuple[typing.Any, ...], dict[str, list[typing.Any]]]: ...
-    def call_finalized_function(self) -> typing.Any: ...
-    def validate_output_data(self, data: typing.Any) -> list[typing.Any]: ...
+    def _generator_output_format(self) -> int: ...
+    def _prepare_batch_output(self, data: typing.Any) -> list[typing.Any]: ...
+    def call_function_sync(self) -> list[typing.Any]: ...
+    async def call_function_async(self) -> list[typing.Any]: ...
+    def call_generator_sync(self) -> typing.Generator[typing.Any, None, None]: ...
+    def call_generator_async(self) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
+    async def output_items_cancellation(self, started_at: float): ...
+    def _determine_output_format(self, input_format: int) -> int: ...
+    async def output_items_exception(
+        self, started_at: float, task_id: str, exc: BaseException
+    ) -> list[modal_proto.api_pb2.FunctionPutOutputsItem]: ...
+    def output_items_generator_done(
+        self, started_at: float, items_total: int
+    ) -> list[modal_proto.api_pb2.FunctionPutOutputsItem]: ...
+    async def output_items(
+        self, started_at: float, data: list[typing.Any]
+    ) -> list[modal_proto.api_pb2.FunctionPutOutputsItem]: ...
 
 class InputSlots:
     """A semaphore that allows dynamically adjusting the concurrency."""
@@ -133,8 +148,6 @@ class _ContainerIOManager:
     def stop_heartbeat(self): ...
     def dynamic_concurrency_manager(self) -> typing.AsyncContextManager[None]: ...
     async def _dynamic_concurrency_loop(self): ...
-    def serialize_data_format(self, obj: typing.Any, data_format: int) -> bytes: ...
-    async def format_blob_data(self, data: bytes) -> dict[str, typing.Any]: ...
     def get_data_in(
         self, function_call_id: str, attempt_token: typing.Optional[str]
     ) -> collections.abc.AsyncIterator[typing.Any]:
@@ -182,15 +195,10 @@ class _ContainerIOManager:
         batch_max_size: int = 0,
         batch_wait_ms: int = 0,
     ) -> collections.abc.AsyncIterator[IOContext]: ...
-    async def _push_outputs(
-        self,
-        io_context: IOContext,
-        started_at: float,
-        data_format: int,
-        results: list[modal_proto.api_pb2.GenericResult],
-    ) -> None: ...
-    def serialize_exception(self, exc: BaseException) -> bytes: ...
-    def serialize_traceback(self, exc: BaseException) -> tuple[typing.Optional[bytes], typing.Optional[bytes]]: ...
+    async def _send_outputs(self, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+        """Send pre-built output items with retry and chunking."""
+        ...
+
     def handle_user_exception(self) -> typing.AsyncContextManager[None]:
         """Sets the task as failed in a way where it's not retried.
 
@@ -204,9 +212,7 @@ class _ContainerIOManager:
         ...
 
     def exit_context(self, started_at, input_ids: list[str]): ...
-    async def push_outputs(
-        self, io_context: IOContext, started_at: float, data: typing.Any, data_format: int
-    ) -> None: ...
+    async def push_outputs(self, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
     async def memory_restore(self) -> None: ...
     async def memory_snapshot(self) -> None:
         """Message server indicating that function is ready to be checkpointed."""
@@ -245,8 +251,6 @@ class _ContainerIOManager:
 
     @classmethod
     def stop_fetching_inputs(cls): ...
-
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class ContainerIOManager:
     """Synchronizes all RPC calls and network operations for a running container.
@@ -292,55 +296,47 @@ class ContainerIOManager:
         """Only used for tests."""
         ...
 
-    class __hello_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __hello_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    hello: __hello_spec[typing_extensions.Self]
+    hello: __hello_spec
 
-    class ___run_heartbeat_loop_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___run_heartbeat_loop_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    _run_heartbeat_loop: ___run_heartbeat_loop_spec[typing_extensions.Self]
+    _run_heartbeat_loop: ___run_heartbeat_loop_spec
 
-    class ___heartbeat_handle_cancellations_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___heartbeat_handle_cancellations_spec(typing_extensions.Protocol):
         def __call__(self, /) -> bool: ...
         async def aio(self, /) -> bool: ...
 
-    _heartbeat_handle_cancellations: ___heartbeat_handle_cancellations_spec[typing_extensions.Self]
+    _heartbeat_handle_cancellations: ___heartbeat_handle_cancellations_spec
 
-    class __heartbeats_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __heartbeats_spec(typing_extensions.Protocol):
         def __call__(
             self, /, wait_for_mem_snap: bool
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
         def aio(self, /, wait_for_mem_snap: bool) -> typing.AsyncContextManager[None]: ...
 
-    heartbeats: __heartbeats_spec[typing_extensions.Self]
+    heartbeats: __heartbeats_spec
 
     def stop_heartbeat(self): ...
 
-    class __dynamic_concurrency_manager_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __dynamic_concurrency_manager_spec(typing_extensions.Protocol):
         def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
         def aio(self, /) -> typing.AsyncContextManager[None]: ...
 
-    dynamic_concurrency_manager: __dynamic_concurrency_manager_spec[typing_extensions.Self]
+    dynamic_concurrency_manager: __dynamic_concurrency_manager_spec
 
-    class ___dynamic_concurrency_loop_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___dynamic_concurrency_loop_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    _dynamic_concurrency_loop: ___dynamic_concurrency_loop_spec[typing_extensions.Self]
+    _dynamic_concurrency_loop: ___dynamic_concurrency_loop_spec
 
-    def serialize_data_format(self, obj: typing.Any, data_format: int) -> bytes: ...
-
-    class __format_blob_data_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, data: bytes) -> dict[str, typing.Any]: ...
-        async def aio(self, /, data: bytes) -> dict[str, typing.Any]: ...
-
-    format_blob_data: __format_blob_data_spec[typing_extensions.Self]
-
-    class __get_data_in_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_data_in_spec(typing_extensions.Protocol):
         def __call__(
             self, /, function_call_id: str, attempt_token: typing.Optional[str]
         ) -> typing.Iterator[typing.Any]:
@@ -353,9 +349,9 @@ class ContainerIOManager:
             """Read from the `data_in` stream of a function call."""
             ...
 
-    get_data_in: __get_data_in_spec[typing_extensions.Self]
+    get_data_in: __get_data_in_spec
 
-    class __put_data_out_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __put_data_out_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -390,9 +386,9 @@ class ContainerIOManager:
             """
             ...
 
-    put_data_out: __put_data_out_spec[typing_extensions.Self]
+    put_data_out: __put_data_out_spec
 
-    class __generator_output_sender_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __generator_output_sender_spec(typing_extensions.Protocol):
         def __call__(
             self, /, function_call_id: str, attempt_token: str, data_format: int, message_rx: asyncio.queues.Queue
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
@@ -405,9 +401,9 @@ class ContainerIOManager:
             """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
             ...
 
-    generator_output_sender: __generator_output_sender_spec[typing_extensions.Self]
+    generator_output_sender: __generator_output_sender_spec
 
-    class ___queue_create_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___queue_create_spec(typing_extensions.Protocol):
         def __call__(self, /, size: int) -> asyncio.queues.Queue:
             """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""
             ...
@@ -416,9 +412,9 @@ class ContainerIOManager:
             """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""
             ...
 
-    _queue_create: ___queue_create_spec[typing_extensions.Self]
+    _queue_create: ___queue_create_spec
 
-    class ___queue_put_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___queue_put_spec(typing_extensions.Protocol):
         def __call__(self, /, queue: asyncio.queues.Queue, value: typing.Any) -> None:
             """Put a value onto a queue, using the synchronicity event loop."""
             ...
@@ -427,12 +423,12 @@ class ContainerIOManager:
             """Put a value onto a queue, using the synchronicity event loop."""
             ...
 
-    _queue_put: ___queue_put_spec[typing_extensions.Self]
+    _queue_put: ___queue_put_spec
 
     def get_average_call_time(self) -> float: ...
     def get_max_inputs_to_fetch(self): ...
 
-    class ___generate_inputs_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___generate_inputs_spec(typing_extensions.Protocol):
         def __call__(
             self, /, batch_max_size: int, batch_wait_ms: int
         ) -> typing.Iterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
@@ -440,9 +436,9 @@ class ContainerIOManager:
             self, /, batch_max_size: int, batch_wait_ms: int
         ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
 
-    _generate_inputs: ___generate_inputs_spec[typing_extensions.Self]
+    _generate_inputs: ___generate_inputs_spec
 
-    class __run_inputs_outputs_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __run_inputs_outputs_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -458,32 +454,20 @@ class ContainerIOManager:
             batch_wait_ms: int = 0,
         ) -> collections.abc.AsyncIterator[IOContext]: ...
 
-    run_inputs_outputs: __run_inputs_outputs_spec[typing_extensions.Self]
+    run_inputs_outputs: __run_inputs_outputs_spec
 
-    class ___push_outputs_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(
-            self,
-            /,
-            io_context: IOContext,
-            started_at: float,
-            data_format: int,
-            results: list[modal_proto.api_pb2.GenericResult],
-        ) -> None: ...
-        async def aio(
-            self,
-            /,
-            io_context: IOContext,
-            started_at: float,
-            data_format: int,
-            results: list[modal_proto.api_pb2.GenericResult],
-        ) -> None: ...
+    class ___send_outputs_spec(typing_extensions.Protocol):
+        def __call__(self, /, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+            """Send pre-built output items with retry and chunking."""
+            ...
 
-    _push_outputs: ___push_outputs_spec[typing_extensions.Self]
+        async def aio(self, /, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+            """Send pre-built output items with retry and chunking."""
+            ...
 
-    def serialize_exception(self, exc: BaseException) -> bytes: ...
-    def serialize_traceback(self, exc: BaseException) -> tuple[typing.Optional[bytes], typing.Optional[bytes]]: ...
+    _send_outputs: ___send_outputs_spec
 
-    class __handle_user_exception_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __handle_user_exception_spec(typing_extensions.Protocol):
         def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
             """Sets the task as failed in a way where it's not retried.
 
@@ -500,9 +484,9 @@ class ContainerIOManager:
             """
             ...
 
-    handle_user_exception: __handle_user_exception_spec[typing_extensions.Self]
+    handle_user_exception: __handle_user_exception_spec
 
-    class __handle_input_exception_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __handle_input_exception_spec(typing_extensions.Protocol):
         def __call__(
             self, /, io_context: IOContext, started_at: float
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
@@ -513,25 +497,23 @@ class ContainerIOManager:
             """Handle an exception while processing a function input."""
             ...
 
-    handle_input_exception: __handle_input_exception_spec[typing_extensions.Self]
+    handle_input_exception: __handle_input_exception_spec
 
     def exit_context(self, started_at, input_ids: list[str]): ...
 
-    class __push_outputs_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, io_context: IOContext, started_at: float, data: typing.Any, data_format: int) -> None: ...
-        async def aio(
-            self, /, io_context: IOContext, started_at: float, data: typing.Any, data_format: int
-        ) -> None: ...
+    class __push_outputs_spec(typing_extensions.Protocol):
+        def __call__(self, /, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
+        async def aio(self, /, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
 
-    push_outputs: __push_outputs_spec[typing_extensions.Self]
+    push_outputs: __push_outputs_spec
 
-    class __memory_restore_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __memory_restore_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None: ...
         async def aio(self, /) -> None: ...
 
-    memory_restore: __memory_restore_spec[typing_extensions.Self]
+    memory_restore: __memory_restore_spec
 
-    class __memory_snapshot_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __memory_snapshot_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None:
             """Message server indicating that function is ready to be checkpointed."""
             ...
@@ -540,9 +522,9 @@ class ContainerIOManager:
             """Message server indicating that function is ready to be checkpointed."""
             ...
 
-    memory_snapshot: __memory_snapshot_spec[typing_extensions.Self]
+    memory_snapshot: __memory_snapshot_spec
 
-    class __volume_commit_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __volume_commit_spec(typing_extensions.Protocol):
         def __call__(self, /, volume_ids: list[str]) -> None:
             """Perform volume commit for given `volume_ids`.
             Only used on container exit to persist uncommitted changes on behalf of user.
@@ -555,13 +537,13 @@ class ContainerIOManager:
             """
             ...
 
-    volume_commit: __volume_commit_spec[typing_extensions.Self]
+    volume_commit: __volume_commit_spec
 
-    class __interact_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __interact_spec(typing_extensions.Protocol):
         def __call__(self, /, from_breakpoint: bool = False): ...
         async def aio(self, /, from_breakpoint: bool = False): ...
 
-    interact: __interact_spec[typing_extensions.Self]
+    interact: __interact_spec
 
     @property
     def target_concurrency(self) -> int: ...

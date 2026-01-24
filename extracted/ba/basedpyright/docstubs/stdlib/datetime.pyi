@@ -2,7 +2,7 @@ import sys
 from abc import abstractmethod
 from time import struct_time
 from typing import ClassVar, Final, NoReturn, SupportsIndex, final, overload, type_check_only
-from typing_extensions import CapsuleType, Self, TypeAlias, deprecated
+from typing_extensions import CapsuleType, Self, TypeAlias, deprecated, disjoint_base
 
 if sys.version_info >= (3, 11):
     __all__ = ("date", "datetime", "time", "timedelta", "timezone", "tzinfo", "MINYEAR", "MAXYEAR", "UTC")
@@ -69,6 +69,7 @@ class _IsoCalendarDate(tuple[int, int, int]):
     @property
     def weekday(self) -> int: ...
 
+@disjoint_base
 class date:
     min: ClassVar[date]
     max: ClassVar[date]
@@ -115,7 +116,9 @@ class date:
 
     if sys.version_info >= (3, 14):
         @classmethod
-        def strptime(cls, date_string: str, format: str, /) -> Self: ...
+        def strptime(cls, date_string: str, format: str, /) -> Self:
+            """string, format -> new date parsed from a string (like time.strptime())."""
+            ...
 
     # On <3.12, the name of the parameter in the pure-Python implementation
     # didn't match the name in the C implementation,
@@ -199,6 +202,7 @@ class date:
         """Return a named tuple containing ISO year, week number, and weekday."""
         ...
 
+@disjoint_base
 class time:
     min: ClassVar[time]
     max: ClassVar[time]
@@ -259,7 +263,9 @@ class time:
 
     if sys.version_info >= (3, 14):
         @classmethod
-        def strptime(cls, date_string: str, format: str, /) -> Self: ...
+        def strptime(cls, date_string: str, format: str, /) -> Self:
+            """string, format -> new time parsed from a string (like time.strptime())."""
+            ...
 
     # On <3.12, the name of the parameter in the pure-Python implementation
     # didn't match the name in the C implementation,
@@ -314,6 +320,7 @@ class time:
 _Date: TypeAlias = date
 _Time: TypeAlias = time
 
+@disjoint_base
 class timedelta:
     min: ClassVar[timedelta]
     max: ClassVar[timedelta]
@@ -414,6 +421,7 @@ class timedelta:
         """Return hash(self)."""
         ...
 
+@disjoint_base
 class datetime(date):
     min: ClassVar[datetime]
     max: ClassVar[datetime]

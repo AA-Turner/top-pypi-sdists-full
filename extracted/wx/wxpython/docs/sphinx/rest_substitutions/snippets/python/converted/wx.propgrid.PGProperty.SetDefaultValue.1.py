@@ -1,2 +1,0 @@
-
-    theProperty.SetAttribute("DefaultValue", value)

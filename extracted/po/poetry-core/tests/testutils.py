@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import zipfile
@@ -48,7 +47,9 @@ def temporary_project_directory(
     """
     assert (path / "pyproject.toml").exists()
 
-    with tempfile.TemporaryDirectory(prefix="poetry-core-pep517") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="poetry-core-pep517", ignore_cleanup_errors=True
+    ) as tmp:
         dst = Path(tmp) / path.name
         shutil.copytree(str(path), dst)
         toml = dst / "pyproject.toml"
@@ -64,9 +65,8 @@ def subprocess_run(*args: str, **kwargs: Any) -> subprocess.CompletedProcess[str
     """
     Helper method to run a subprocess. Asserts for success.
     """
-    encoding = "locale" if sys.version_info >= (3, 10) else None
     result = subprocess.run(
-        args, text=True, encoding=encoding, capture_output=True, **kwargs
+        args, text=True, encoding="locale", capture_output=True, **kwargs
     )
     assert result.returncode == 0
     return result

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-core
-Version: 2.48.2
+Version: 2.60.2
 Summary: A python library to define and validate data types in Docling.
 Author-email: Cesar Berrospi Ramis <ceb@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 Maintainer-email: Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>, Cesar Berrospi Ramis <ceb@zurich.ibm.com>
@@ -15,13 +15,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <4.0,>=3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: jsonschema<5.0.0,>=4.16.0
@@ -29,23 +33,38 @@ Requires-Dist: pydantic!=2.10.0,!=2.10.1,!=2.10.2,<3.0.0,>=2.6.0
 Requires-Dist: jsonref<2.0.0,>=1.1.0
 Requires-Dist: tabulate<0.10.0,>=0.9.0
 Requires-Dist: pandas<3.0.0,>=2.1.4
-Requires-Dist: pillow<12.0.0,>=10.0.0
+Requires-Dist: pillow<13.0.0,>=10.0.0
 Requires-Dist: pyyaml<7.0.0,>=5.1
 Requires-Dist: typing-extensions<5.0.0,>=4.12.2
-Requires-Dist: typer<0.17.0,>=0.12.5
+Requires-Dist: typer<0.22.0,>=0.12.5
 Requires-Dist: latex2mathml<4.0.0,>=3.77.0
 Provides-Extra: chunking
 Requires-Dist: semchunk<3.0.0,>=2.2.0; extra == "chunking"
+Requires-Dist: tree-sitter<0.27.0,>=0.25.0; extra == "chunking"
+Requires-Dist: tree-sitter-python>=0.23.6; extra == "chunking"
+Requires-Dist: tree-sitter-c>=0.23.4; extra == "chunking"
+Requires-Dist: tree-sitter-javascript>=0.23.1; extra == "chunking"
+Requires-Dist: tree-sitter-typescript>=0.23.2; extra == "chunking"
 Requires-Dist: transformers<5.0.0,>=4.34.0; extra == "chunking"
 Provides-Extra: chunking-openai
-Requires-Dist: semchunk; extra == "chunking-openai"
-Requires-Dist: tiktoken<0.10.0,>=0.9.0; extra == "chunking-openai"
+Requires-Dist: semchunk<3.0.0,>=2.2.0; extra == "chunking-openai"
+Requires-Dist: tree-sitter<0.27.0,>=0.25.0; extra == "chunking-openai"
+Requires-Dist: tree-sitter-python>=0.23.6; extra == "chunking-openai"
+Requires-Dist: tree-sitter-c>=0.23.4; extra == "chunking-openai"
+Requires-Dist: tree-sitter-javascript>=0.23.1; extra == "chunking-openai"
+Requires-Dist: tree-sitter-typescript>=0.23.2; extra == "chunking-openai"
+Requires-Dist: tiktoken<0.13.0,>=0.9.0; extra == "chunking-openai"
+Provides-Extra: examples
+Requires-Dist: datasets>=4.0.0; extra == "examples"
+Requires-Dist: matplotlib>=3.7.0; extra == "examples"
+Requires-Dist: openpyxl>=3.1.5; extra == "examples"
+Requires-Dist: pandas>=2.3.3; extra == "examples"
 Dynamic: license-file
 
 # Docling Core
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-core)](https://pypi.org/project/docling-core/)
-![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%20%203.11%20%7C%203.12%20%7C%203.13-blue)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%20%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
@@ -65,7 +84,7 @@ pip install docling-core
 
 ### Development setup
 
-To develop for Docling Core, you need Python 3.9 / 3.10 / 3.11 / 3.12 / 3.13 and uv. You can then install from your local clone's root dir:
+To develop for Docling Core, you need Python 3.10 through 3.14 and the `uv` package. You can then install it from your local clone's root directory:
 ```bash
 uv sync --all-extras
 ```

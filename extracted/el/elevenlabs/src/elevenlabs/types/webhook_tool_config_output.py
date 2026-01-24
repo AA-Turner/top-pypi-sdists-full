@@ -9,6 +9,9 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .dynamic_variable_assignment import DynamicVariableAssignment
 from .dynamic_variables_config import DynamicVariablesConfig
+from .tool_call_sound_behavior import ToolCallSoundBehavior
+from .tool_call_sound_type import ToolCallSoundType
+from .tool_execution_mode import ToolExecutionMode
 from .webhook_tool_api_schema_config_output import WebhookToolApiSchemaConfigOutput
 
 
@@ -43,14 +46,29 @@ class WebhookToolConfigOutput(UncheckedBaseModel):
     Configuration for extracting values from tool responses and assigning them to dynamic variables
     """
 
-    api_schema: WebhookToolApiSchemaConfigOutput = pydantic.Field()
+    tool_call_sound: typing.Optional[ToolCallSoundType] = pydantic.Field(default=None)
     """
-    The schema for the outgoing webhoook, including parameters and URL specification
+    Predefined tool call sound type to play during tool execution. If not specified, no tool call sound will be played.
+    """
+
+    tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = pydantic.Field(default=None)
+    """
+    Determines when the tool call sound should play. 'auto' only plays when there's pre-tool speech, 'always' plays for every tool call.
     """
 
     dynamic_variables: typing.Optional[DynamicVariablesConfig] = pydantic.Field(default=None)
     """
     Configuration for dynamic variables
+    """
+
+    execution_mode: typing.Optional[ToolExecutionMode] = pydantic.Field(default=None)
+    """
+    Determines when and how the tool executes: 'immediate' executes the tool right away when requested by the LLM, 'post_tool_speech' waits for the agent to finish speaking before executing, 'async' runs the tool in the background without blocking - best for long-running operations.
+    """
+
+    api_schema: WebhookToolApiSchemaConfigOutput = pydantic.Field()
+    """
+    The schema for the outgoing webhoook, including parameters and URL specification
     """
 
     if IS_PYDANTIC_V2:
@@ -62,8 +80,5 @@ class WebhookToolConfigOutput(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput  # noqa: E402, F401, I001
-from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, F401, I001
 
 update_forward_refs(WebhookToolConfigOutput)

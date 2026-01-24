@@ -1,22 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: waiter
-Version: 1.5
+Version: 1.5.1
 Summary: Delayed iteration for polling and retries.
 Author-email: Aric Coady <aric.coady@gmail.com>
-License: Copyright 2022 Aric Coady
-        
-           Licensed under the Apache License, Version 2.0 (the "License");
-           you may not use this file except in compliance with the License.
-           You may obtain a copy of the License at
-        
-             http://www.apache.org/licenses/LICENSE-2.0
-        
-           Unless required by applicable law or agreed to in writing, software
-           distributed under the License is distributed on an "AS IS" BASIS,
-           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-           See the License for the specific language governing permissions and
-           limitations under the License.
-        
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/coady/waiter
 Project-URL: Documentation, https://coady.github.io/waiter
 Project-URL: Changelog, https://github.com/coady/waiter/blob/main/CHANGELOG.md
@@ -24,19 +11,19 @@ Project-URL: Issues, https://github.com/coady/waiter/issues
 Keywords: wait,retry,poll,delay,sleep,timeout,incremental,exponential,backoff,async
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
 [![image](https://img.shields.io/pypi/v/waiter.svg)](https://pypi.org/project/waiter/)
 ![image](https://img.shields.io/pypi/pyversions/waiter.svg)
@@ -135,12 +122,12 @@ Waiter objects have a `stats` attribute for aggregating statistics about the cal
 
 ## Installation
 ```console
-% pip install waiter
+pip install waiter
 ```
 
 ## Tests
 100% branch coverage.
 
 ```console
-% pytest [--cov]
+pytest [--cov]
 ```

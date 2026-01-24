@@ -92,6 +92,21 @@ def test_passing_repository_and_sections(tmp_path: Path, args: tuple[str]) -> No
     assert parsed_settings["convention"] == "angular"
 
 
+def test_sections_all_parameter(tmp_path: Path) -> None:
+    """Test that :all: is passed through correctly from CLI.
+
+    Parameters:
+        tmp_path: A temporary path to write the changelog into.
+    """
+    ch = tmp_path.joinpath("ch.md")
+    parsed_settings = parse_settings([".", "-s", ":all:", "-o", ch.as_posix(), "-c", "angular"])
+
+    assert parsed_settings["output"] == str(ch.as_posix())
+    assert parsed_settings["sections"] == [":all:"]
+    assert parsed_settings["repository"] == "."
+    assert parsed_settings["convention"] == "angular"
+
+
 @pytest.mark.parametrize("is_pyproject", [True, False, None])
 @pytest.mark.parametrize(
     ("sections", "sections_value"),
@@ -142,6 +157,7 @@ def test_config_reading(
             tomli_w.dumps(
                 config_content if not is_pyproject else {"tool": {"git-changelog": config_content}},
             ),
+            encoding="utf8",
         )
 
         settings = read_config(tmp_path / config_fname) if config_fname == "custom-file.toml" else read_config()
@@ -169,6 +185,7 @@ def test_settings_warning(
         if value is not None:
             (tmp_path / ".git-changelog.toml").write_text(
                 tomli_w.dumps({"bump_latest": value}),
+                encoding="utf8",
             )
         else:
             args = ["--bump-latest"]
@@ -236,10 +253,14 @@ def test_jinja_context(repo: GitRepo) -> None:
             k3 = "v3"
             """,
         ),
+        encoding="utf8",
     )
 
     template = repo.path.joinpath(".custom_template.md.jinja")
-    template.write_text("{% for key, val in jinja_context.items() %}{{ key }} = {{ val }}\n{% endfor %}")
+    template.write_text(
+        "{% for key, val in jinja_context.items() %}{{ key }} = {{ val }}\n{% endfor %}",
+        encoding="utf8",
+    )
 
     exit_code = main(
         [
@@ -297,3 +318,46 @@ def test_bumped_version_option(repo: GitRepo, capsys: pytest.CaptureFixture) -> 
     )
     captured = capsys.readouterr()
     assert captured.out.strip() == "1.2.3"
+
+
+def test_include_all_cli_option(tmp_path: Path) -> None:
+    """Test that --include-all CLI option is parsed correctly.
+
+    Parameters:
+        tmp_path: A temporary path to write an empty config to.
+    """
+    # Test default (False).
+    settings = parse_settings(["--config-file", str(tmp_path / "conf.toml")])
+    assert settings["include_all"] is False
+
+    # Test explicit --include-all flag.
+    settings = parse_settings(["--config-file", str(tmp_path / "conf.toml"), "--include-all"])
+    assert settings["include_all"] is True
+
+    # Test short flag -a.
+    settings = parse_settings(["--config-file", str(tmp_path / "conf.toml"), "-a"])
+    assert settings["include_all"] is True
+
+
+def test_include_all_config_option(tmp_path: Path) -> None:
+    """Test that include-all config option is read correctly.
+
+    Parameters:
+        tmp_path: A temporary path to write config file to.
+    """
+    with chdir(str(tmp_path)):
+        # Test include-all = true in config file.
+        (tmp_path / ".git-changelog.toml").write_text(
+            tomli_w.dumps({"include-all": True}),
+            encoding="utf8",
+        )
+        settings = read_config()
+        assert settings["include_all"] is True
+
+        # Test include-all = false in config file.
+        (tmp_path / ".git-changelog.toml").write_text(
+            tomli_w.dumps({"include-all": False}),
+            encoding="utf8",
+        )
+        settings = read_config()
+        assert settings["include_all"] is False

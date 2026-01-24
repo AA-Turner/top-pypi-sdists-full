@@ -4,7 +4,7 @@ from __future__ import annotations
 
 __all__ = ["YamlShardGenerator"]
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from iden.shard import YamlShard, create_yaml_shard
 from iden.shard.generator.file import BaseFileShardGenerator
@@ -26,35 +26,35 @@ class YamlShardGenerator(BaseFileShardGenerator[T]):
         path_uri: The path where to save the URI file.
         path_shard: The path where to save the shard data.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.data.generator import DataGenerator
+        >>> from iden.shard.generator import YamlShardGenerator
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     generator = YamlShardGenerator(
+        ...         data=DataGenerator([1, 2, 3]),
+        ...         path_uri=Path(tmpdir).joinpath("uri"),
+        ...         path_shard=Path(tmpdir).joinpath("data"),
+        ...     )
+        ...     generator
+        ...     shard = generator.generate("shard1")
+        ...     shard
+        ...
+        YamlShardGenerator(
+          (path_uri): PosixPath('/.../uri')
+          (path_shard): PosixPath('/.../data')
+          (data): DataGenerator(copy=False)
+        )
+        YamlShard(uri=file:///.../uri/shard1)
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.data.generator import DataGenerator
-    >>> from iden.shard.generator import YamlShardGenerator
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     generator = YamlShardGenerator(
-    ...         data=DataGenerator([1, 2, 3]),
-    ...         path_uri=Path(tmpdir).joinpath("uri"),
-    ...         path_shard=Path(tmpdir).joinpath("data"),
-    ...     )
-    ...     generator
-    ...     shard = generator.generate("shard1")
-    ...     shard
-    ...
-    YamlShardGenerator(
-      (path_uri): PosixPath('/.../uri')
-      (path_shard): PosixPath('/.../data')
-      (data): DataGenerator(copy=False)
-    )
-    YamlShard(uri=file:///.../uri/shard1)
-
-    ```
+        ```
     """
 
-    def __init__(self, data: BaseDataGenerator[T] | dict, path_uri: Path, path_shard: Path) -> None:
+    def __init__(
+        self, data: BaseDataGenerator[T] | dict[Any, Any], path_uri: Path, path_shard: Path
+    ) -> None:
         check_yaml()
         super().__init__(data=data, path_uri=path_uri, path_shard=path_shard)
 

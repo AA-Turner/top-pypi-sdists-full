@@ -1,2 +1,0 @@
-FILE_HASH = '94572d1e'
-DEV = False

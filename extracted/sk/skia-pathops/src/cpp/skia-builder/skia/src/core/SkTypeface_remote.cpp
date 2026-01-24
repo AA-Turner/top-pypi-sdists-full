@@ -5,42 +5,46 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkPaint.h"
-#include "include/private/chromium/SkChromeRemoteGlyphCache.h"
-#include "src/core/SkReadBuffer.h"
-#include "src/core/SkStrike.h"
-#include "src/core/SkStrikeCache.h"
-#include "src/core/SkTraceEvent.h"
 #include "src/core/SkTypeface_remote.h"
+
+#include "include/core/SkDrawable.h"
+#include "include/core/SkFontMetrics.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkMalloc.h"
+#include "include/private/chromium/SkChromeRemoteGlyphCache.h"
+#include "src/core/SkGlyph.h"
+#include "src/core/SkReadBuffer.h"
+#include "src/core/SkTraceEvent.h"
 #include "src/core/SkWriteBuffer.h"
 
 #include <optional>
+#include <utility>
 
-SkScalerContextProxy::SkScalerContextProxy(sk_sp<SkTypeface> tf,
+class SkArenaAlloc;
+class SkDescriptor;
+
+SkScalerContextProxy::SkScalerContextProxy(SkTypeface& tf,
                                            const SkScalerContextEffects& effects,
                                            const SkDescriptor* desc,
                                            sk_sp<SkStrikeClient::DiscardableHandleManager> manager)
-        : SkScalerContext{std::move(tf), effects, desc}
+        : SkScalerContext{tf, effects, desc}
         , fDiscardableManager{std::move(manager)} {}
 
-bool SkScalerContextProxy::generateAdvance(SkGlyph* glyph) {
-    return false;
-}
-
-void SkScalerContextProxy::generateMetrics(SkGlyph* glyph, SkArenaAlloc*) {
+SkScalerContext::GlyphMetrics SkScalerContextProxy::generateMetrics(const SkGlyph& glyph,
+                                                                    SkArenaAlloc*) {
     TRACE_EVENT1("skia", "generateMetrics", "rec", TRACE_STR_COPY(this->getRec().dump().c_str()));
     if (this->getProxyTypeface()->isLogging()) {
         SkDebugf("GlyphCacheMiss generateMetrics looking for glyph: %x\n  generateMetrics: %s\n",
-                 glyph->getPackedID().value(), this->getRec().dump().c_str());
+                 glyph.getPackedID().value(), this->getRec().dump().c_str());
     }
 
-    glyph->fMaskFormat = fRec.fMaskFormat;
-    glyph->zeroMetrics();
     fDiscardableManager->notifyCacheMiss(
-            SkStrikeClient::CacheMissType::kGlyphMetrics, fRec.fTextSize);
+                                         SkStrikeClient::CacheMissType::kGlyphMetrics, fRec.fTextSize);
+
+    return {glyph.maskFormat()};
 }
 
-void SkScalerContextProxy::generateImage(const SkGlyph& glyph) {
+void SkScalerContextProxy::generateImage(const SkGlyph& glyph, void*) {
     TRACE_EVENT1("skia", "generateImage", "rec", TRACE_STR_COPY(this->getRec().dump().c_str()));
     if (this->getProxyTypeface()->isLogging()) {
         SkDebugf("GlyphCacheMiss generateImage: %s\n", this->getRec().dump().c_str());
@@ -52,7 +56,7 @@ void SkScalerContextProxy::generateImage(const SkGlyph& glyph) {
             SkStrikeClient::CacheMissType::kGlyphImage, fRec.fTextSize);
 }
 
-bool SkScalerContextProxy::generatePath(const SkGlyph& glyph, SkPath* path) {
+std::optional<SkScalerContext::GeneratedPath> SkScalerContextProxy::generatePath(const SkGlyph&) {
     TRACE_EVENT1("skia", "generatePath", "rec", TRACE_STR_COPY(this->getRec().dump().c_str()));
     if (this->getProxyTypeface()->isLogging()) {
         SkDebugf("GlyphCacheMiss generatePath: %s\n", this->getRec().dump().c_str());
@@ -60,7 +64,7 @@ bool SkScalerContextProxy::generatePath(const SkGlyph& glyph, SkPath* path) {
 
     fDiscardableManager->notifyCacheMiss(
             SkStrikeClient::CacheMissType::kGlyphPath, fRec.fTextSize);
-    return false;
+    return {};
 }
 
 sk_sp<SkDrawable> SkScalerContextProxy::generateDrawable(const SkGlyph&) {

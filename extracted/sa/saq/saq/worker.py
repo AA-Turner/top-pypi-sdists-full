@@ -13,6 +13,7 @@ import sys
 import traceback
 import threading
 import typing as t
+import typing_extensions as te
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, tzinfo
 
@@ -20,6 +21,13 @@ from croniter import croniter
 
 from saq.job import Status
 from saq.queue import Queue
+from saq.types import (
+    CtxType,
+    FunctionsType,
+    JobTaskContext,
+    LifecycleFunctionsType,
+    SettingsDict,
+)
 from saq.utils import cancel_tasks, millis, now, uuid1
 
 if t.TYPE_CHECKING:
@@ -30,12 +38,8 @@ if t.TYPE_CHECKING:
 
     from saq.job import CronJob, Job
     from saq.types import (
-        Context,
         Function,
-        JobTaskContext,
         PartialTimersDict,
-        ReceivesContext,
-        SettingsDict,
         TimersDict,
         WorkerInfo,
     )
@@ -47,7 +51,7 @@ logger = logging.getLogger("saq")
 JsonDict = t.Dict[str, t.Any]
 
 
-class Worker:
+class Worker(t.Generic[CtxType]):
     """
     Worker is used to process and monitor jobs.
 
@@ -70,30 +74,34 @@ class Worker:
         dequeue_timeout: how long it will wait to dequeue
         burst: whether to stop the worker once all jobs have been processed
         max_burst_jobs: the maximum number of jobs to process in burst mode
+        shutdown_grace_period_s: how long to wait for jobs to finish before sending cancellation signals.
+        cancellation_hard_deadline_s: how long to wait for a job to finish after sending a cancellation signal.
         metadata: arbitrary data to pass to the worker which it will register with saq
         poll_interval: If > 0.0, dequeue will use polling instead of listen/notify
             to trigger dequeues. This only affects Postgres. (default 0.0)
     """
 
-    SIGNALS = [signal.SIGINT, signal.SIGTERM] if os.name != "nt" else [signal.SIGTERM]
+    SIGNALS = [signal.SIGINT, signal.SIGTERM] if os.name != "nt" else []
 
     def __init__(
         self,
         queue: Queue,
-        functions: Collection[Function | tuple[str, Function]],
+        functions: FunctionsType[CtxType],
         *,
         id: t.Optional[str] = None,
         concurrency: int = 10,
-        cron_jobs: Collection[CronJob] | None = None,
+        cron_jobs: Collection[CronJob[CtxType]] | None = None,
         cron_tz: tzinfo = timezone.utc,
-        startup: ReceivesContext | Collection[ReceivesContext] | None = None,
-        shutdown: ReceivesContext | Collection[ReceivesContext] | None = None,
-        before_process: ReceivesContext | Collection[ReceivesContext] | None = None,
-        after_process: ReceivesContext | Collection[ReceivesContext] | None = None,
+        startup: LifecycleFunctionsType[CtxType] | None = None,
+        shutdown: LifecycleFunctionsType[CtxType] | None = None,
+        before_process: LifecycleFunctionsType[CtxType] | None = None,
+        after_process: LifecycleFunctionsType[CtxType] | None = None,
         timers: PartialTimersDict | None = None,
         dequeue_timeout: float = 0.0,
         burst: bool = False,
         max_burst_jobs: int | None = None,
+        shutdown_grace_period_s: int | None = None,
+        cancellation_hard_deadline_s: float = 1.0,
         metadata: t.Optional[JsonDict] = None,
         poll_interval: float = 0.0,
     ) -> None:
@@ -101,7 +109,7 @@ class Worker:
         self.concurrency = concurrency
         self.pool = ThreadPoolExecutor()
         self.startup = ensure_coroutine_function_many(startup, self.pool) if startup else None
-        self.shutdown = ensure_coroutine_function_many(shutdown, self.pool) if shutdown else None
+        self.shutdown = shutdown
         self.before_process = (
             ensure_coroutine_function_many(before_process, self.pool) if before_process else None
         )
@@ -118,10 +126,10 @@ class Worker:
             self.timers.update(timers)
         self.event = asyncio.Event()
         functions = set(functions)
-        self.functions: dict[str, Function] = {}
+        self.functions: dict[str, Function[CtxType]] = {}
         self.cron_jobs: Collection[CronJob] = cron_jobs or []
         self.cron_tz: tzinfo = cron_tz
-        self.context: Context = {"worker": self}
+        self.context: CtxType = t.cast(CtxType, {"worker": self})
         self.tasks: set[Task[t.Any]] = set()
         self.job_task_contexts: dict[Job, JobTaskContext] = {}
         self.dequeue_timeout = dequeue_timeout
@@ -132,6 +140,10 @@ class Worker:
         self.burst_condition_met = False
         self._metadata = metadata
         self._poll_interval = poll_interval
+        self._stop_lock = asyncio.Lock()
+        self._stopped = False
+        self._shutdown_grace_period_s = shutdown_grace_period_s
+        self._cancellation_hard_deadline_s = cancellation_hard_deadline_s
         self.id = uuid1() if id is None else id
 
         if self.burst:
@@ -155,12 +167,12 @@ class Worker:
 
             self.functions[name] = function
 
-    async def _before_process(self, ctx: Context) -> None:
+    async def _before_process(self, ctx: CtxType) -> None:
         if self.before_process:
             for bp in self.before_process:
                 await bp(ctx)
 
-    async def _after_process(self, ctx: Context) -> None:
+    async def _after_process(self, ctx: CtxType) -> None:
         if self.after_process:
             for ap in self.after_process:
                 await ap(ctx)
@@ -172,6 +184,8 @@ class Worker:
 
         try:
             self.event = asyncio.Event()
+            async with self._stop_lock:
+                self._stopped = False
             loop = asyncio.get_running_loop()
 
             for signum in self.SIGNALS:
@@ -188,30 +202,58 @@ class Worker:
 
             await self.event.wait()
 
-            for signum in self.SIGNALS:
-                loop.remove_signal_handler(signum)
         except asyncio.CancelledError:
             pass
         finally:
-            logger.info("Worker shutting down")
-
-            if self.shutdown:
-                for s in self.shutdown:
-                    await s(self.context)
-
+            logger.info("Working shutting down")
             await self.stop()
+            for signum in self.SIGNALS:
+                loop.remove_signal_handler(signum)
 
     async def stop(self) -> None:
         """Stop the worker and cleanup."""
         self.event.set()
-        all_tasks = list(self.tasks)
-        self.tasks.clear()
-        await cancel_tasks(all_tasks)
+        async with self._stop_lock:
+            if self._stopped:
+                return
 
-        if sys.version_info[0:2] < (3, 9):
-            self.pool.shutdown()
-        else:
-            self.pool.shutdown(cancel_futures=True)
+            try:
+                all_tasks = list(self.tasks)
+                self.tasks.clear()
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*all_tasks, return_exceptions=True),
+                        timeout=self._shutdown_grace_period_s or 0,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "Some tasks did not finish within the shutdown grace period, requesting cancellation"
+                    )
+                    cancelled = await cancel_tasks(
+                        all_tasks, timeout=self._cancellation_hard_deadline_s
+                    )
+                    if not cancelled:
+                        logger.warning(
+                            "Some tasks did not finish cancellation in time, they may be stuck or blocked"
+                        )
+
+                if sys.version_info[0:2] < (3, 9):
+                    self.pool.shutdown(True)
+                else:
+                    self.pool.shutdown(True, cancel_futures=True)
+
+                if not self.shutdown:
+                    return
+
+                # We can't reuse our task pool here, because we shut it to close tasks
+                with ThreadPoolExecutor() as shutdown_pool:
+                    shutdown_callbacks = ensure_coroutine_function_many(
+                        self.shutdown, shutdown_pool
+                    )
+                    for s in shutdown_callbacks:
+                        await s(self.context)
+            finally:
+                self._stopped = True
 
     async def schedule(self, lock: int = 1) -> None:
         for cron_job in self.cron_jobs:
@@ -281,19 +323,23 @@ class Worker:
             if not job or job.status not in (Status.ABORTING, Status.ABORTED):
                 continue
 
-            task_data: JobTaskContext = self.job_task_contexts.get(job, {})
-            task = task_data.get("task")
+            task_data = self.job_task_contexts.get(job, None)
+            if not task_data:
+                logger.warning("No task data found for job %s", job.id)
+                continue
+
+            task = task_data["task"]
             logger.info("Aborting %s", job.id)
 
-            if task and not task.done():
+            if not task.done():
                 task_data["aborted"] = "abort" if job.error is None else job.error
                 # abort should be a blocking operation
-                await cancel_tasks([task], 0)
+                _ = await cancel_tasks([task], None)
 
             await self.queue.finish_abort(job)
 
     async def process(self) -> bool:
-        context: Context | None = None
+        context: CtxType | None = None
         job: Job | None = None
 
         try:
@@ -307,29 +353,65 @@ class Worker:
 
             job.started = now()
             job.attempts += 1
+            job.worker_id = self.id
             await job.update(status=Status.ACTIVE)
-            context = {**self.context, "job": job}
+            context = t.cast(CtxType, {**self.context, "job": job})
             await self._before_process(context)
             logger.info("Processing %s", job.info(logger.isEnabledFor(logging.DEBUG)))
 
             function = ensure_coroutine_function(self.functions[job.function], self.pool)
             task = asyncio.create_task(function(context, **(job.kwargs or {})))
-            self.job_task_contexts[job] = {"task": task, "aborted": None}
-            result = await asyncio.wait_for(task, job.timeout if job.timeout else None)
-            await job.finish(Status.COMPLETE, result=result)
+            self.job_task_contexts[job] = JobTaskContext(task=task, aborted=None)
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.shield(task), job.timeout if job.timeout else None
+                )
+            except asyncio.TimeoutError:
+                # Since we have a shield around the task passed to wait_for,
+                # we need to explicitly cancel it on timeout.
+                task.cancel()
+                raise
+            if self.job_task_contexts[job]["aborted"] is None:
+                await job.finish(Status.COMPLETE, result=result)
         except asyncio.CancelledError:
-            if job:
-                aborted = self.job_task_contexts.get(job, {}).get("aborted")
-                if aborted is not None:
-                    await job.finish(Status.ABORTED, error=aborted)
-                else:
-                    await job.retry("cancelled")
+            if not job:
+                return False
+            task_ctx = self.job_task_contexts.get(job)
+            assert task_ctx is not None
+
+            task = task_ctx["task"]
+            aborted = task_ctx["aborted"]
+            if aborted is not None:
+                await job.finish(Status.ABORTED, error=aborted)
+                return False
+
+            if not task.done():
+                cancelled = await cancel_tasks([task], self._cancellation_hard_deadline_s)
+                if not cancelled:
+                    logger.warning(
+                        "Function: %s did not finish cancellation in time, it may be stuck or blocked",
+                        job.function,
+                        extra={"job_id": job.id},
+                    )
+                await job.retry("cancelled")
         except Exception as ex:
             if context is not None:
                 context["exception"] = ex
 
             if job:
                 logger.exception("Error processing job %s", job)
+
+                # Ensure that the task is done or cancelled
+                if task_context := self.job_task_contexts.get(job, None):
+                    task = task_context["task"]
+                    if not task.done():
+                        cancelled = await cancel_tasks([task], self._cancellation_hard_deadline_s)
+                        if not cancelled:
+                            logger.warning(
+                                "Function '%s' did not finish cancellation in time, it may be stuck or blocked",
+                                job.function,
+                                extra={"job_id": job.id},
+                            )
 
                 error = traceback.format_exc()
 
@@ -378,19 +460,30 @@ class Worker:
         return self.burst_condition_met
 
 
+P = te.ParamSpec("P")
+R = te.TypeVar("R")
+
+OneOrManyCallable = t.Union[t.Callable[P, R], t.Collection[t.Callable[P, R]]]
+
+
 def ensure_coroutine_function_many(
-    func: Callable | Collection[Callable], pool: ThreadPoolExecutor
-) -> t.List[Callable[..., Coroutine]]:
+    func: OneOrManyCallable[P, R] | OneOrManyCallable[P, Coroutine[t.Any, t.Any, R]],
+    pool: ThreadPoolExecutor,
+) -> t.List[Callable[P, Coroutine[t.Any, t.Any, R]]]:
     if callable(func):
         return [ensure_coroutine_function(func, pool)]
     return [ensure_coroutine_function(f, pool) for f in func]
 
 
-def ensure_coroutine_function(func: Callable, pool: ThreadPoolExecutor) -> Callable[..., Coroutine]:
+def ensure_coroutine_function(
+    func: Callable[P, R] | Callable[P, Coroutine[t.Any, t.Any, R]],
+    pool: ThreadPoolExecutor,
+) -> Callable[P, Coroutine[t.Any, t.Any, R]]:
     if asyncio.iscoroutinefunction(func):
         return func
 
     async def wrapped(*args: t.Any, **kwargs: t.Any) -> t.Any:
+        future = None
         try:
             ctx = contextvars.copy_context()
             future = pool.submit(lambda: ctx.run(func, *args, **kwargs))
@@ -398,7 +491,8 @@ def ensure_coroutine_function(func: Callable, pool: ThreadPoolExecutor) -> Calla
         except asyncio.CancelledError:
             try:
                 # job has already been cancelled, swallow all errors
-                await asyncio.wrap_future(future)
+                if future is not None:
+                    await asyncio.wrap_future(future)
             except Exception:
                 pass
             raise
@@ -417,7 +511,12 @@ def import_settings(settings: str) -> SettingsDict:
     if callable(settings_obj):
         settings_obj = settings_obj()
 
-    return settings_obj
+    if not isinstance(settings_obj, dict):
+        raise TypeError(
+            f"Settings {settings} must be a dictionary or a callable that returns a dictionary, got final type '{type(settings_obj)}'"
+        )
+
+    return t.cast(SettingsDict, settings_obj)
 
 
 def start(

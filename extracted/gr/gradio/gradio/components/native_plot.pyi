@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import warnings
 from collections.abc import Callable, Sequence, Set
 from typing import (
     TYPE_CHECKING,
@@ -12,9 +11,11 @@ from typing import (
 from gradio_client.documentation import document
 
 from gradio.components.base import Component
+from gradio.components.button import Button
 from gradio.data_classes import GradioModel
 from gradio.events import Events
 from gradio.i18n import I18nData
+from gradio.utils import set_default_buttons
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -54,10 +55,13 @@ class NativePlot(Component):
         y_aggregate: Literal["sum", "mean", "median", "min", "max", "count"]
         | None = None,
         color_map: dict[str, str] | None = None,
-        x_lim: list[float] | None = None,
+        colors_in_legend: list[str] | None = None,
+        x_lim: list[float | None] | None = None,
         y_lim: list[float | None] = None,
         x_label_angle: float = 0,
         y_label_angle: float = 0,
+        x_axis_format: str | None = None,
+        y_axis_format: str | None = None,
         x_axis_labels_visible: bool | Literal["hidden"] = True,
         caption: str | I18nData | None = None,
         sort: Literal["x", "y", "-x", "-y"] | list[str] | None = None,
@@ -74,10 +78,9 @@ class NativePlot(Component):
         elem_id: str | None = None,
         elem_classes: list[str] | str | None = None,
         render: bool = True,
-        show_fullscreen_button: bool = False,
+        buttons: list[Literal["fullscreen", "export"] | Button] | None = None,
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
-        **kwargs,
     ):
         """
         Parameters:
@@ -92,11 +95,14 @@ class NativePlot(Component):
             x_bin: Grouping used to cluster x values. If x column is numeric, should be number to bin the x values. If x column is datetime, should be string such as "1h", "15m", "10s", using "s", "m", "h", "d" suffixes.
             y_aggregate: Aggregation function used to aggregate y values, used if x_bin is provided or x is a string/category. Must be one of "sum", "mean", "median", "min", "max".
             color_map: Mapping of series to color names or codes. For example, {"success": "green", "fail": "#FF8888"}.
+            colors_in_legend: List containing column names of the series to show in the legend. By default, all series are shown.
             height: The height of the plot in pixels.
-            x_lim: A tuple or list containing the limits for the x-axis, specified as [x_min, x_max]. If x column is datetime type, x_lim should be timestamps.
+            x_lim: A tuple or list containing the limits for the x-axis, specified as [x_min, x_max]. To fix only one of these values, set the other to None, e.g. [0, None] to scale from 0 to the maximum value. If x column is datetime type, x_lim should be timestamps.
             y_lim: A tuple of list containing the limits for the y-axis, specified as [y_min, y_max]. To fix only one of these values, set the other to None, e.g. [0, None] to scale from 0 to the maximum to value.
             x_label_angle: The angle of the x-axis labels in degrees offset clockwise.
             y_label_angle: The angle of the y-axis labels in degrees offset clockwise.
+            x_axis_format: A d3 format string for the x-axis labels (e.g., ".2e" for scientific notation, "~g" for general format). If None, uses Vega-Lite's default formatting.
+            y_axis_format: A d3 format string for the y-axis labels (e.g., ".2e" for scientific notation, "~g" for general format). If None, uses Vega-Lite's default formatting.
             x_axis_labels_visible: Whether the x-axis labels should be visible. Can be hidden when many x-axis labels are present.
             caption: The (optional) caption to display below the plot.
             sort: The sorting order of the x values, if x column is type string/category. Can be "x", "y", "-x", "-y", or list of strings that represent the order of the categories.
@@ -113,7 +119,7 @@ class NativePlot(Component):
             elem_id: An optional string that is assigned as the id of this component in the HTML DOM. Can be used for targeting CSS styles.
             elem_classes: An optional list of strings that are assigned as the classes of this component in the HTML DOM. Can be used for targeting CSS styles.
             render: If False, component will not render be rendered in the Blocks context. Should be used if the intention is to assign event listeners now but render the component later.
-            show_fullscreen_button: If True, will show a button to make plot visible in fullscreen mode.
+            buttons: A list of buttons to show for the component. Valid options are "fullscreen", "export", or a gr.Button() instance. The "fullscreen" button allows the user to view the plot in fullscreen mode. The "export" button allows the user to export and download the current view of the plot as a PNG image. Custom gr.Button() instances will appear in the toolbar with their configured icon and/or label, and clicking them will trigger any .click() events registered on the button. By default, no buttons are shown.
             key: in a gr.render, Components with the same key across re-renders are treated as the same component, not a new component. Properties set in 'preserved_by_key' are not reset across a re-render.
             preserved_by_key: A list of parameters from this component's constructor. Inside a gr.render() function, if a component is re-rendered with the same key, these (and only these) parameters will be preserved in the UI (if they have been changed by the user or an event listener) instead of re-rendered based on the values provided during constructor.
         """
@@ -131,12 +137,15 @@ class NativePlot(Component):
         self.y_lim = y_lim
         self.x_label_angle = x_label_angle
         self.y_label_angle = y_label_angle
+        self.x_axis_format = x_axis_format
+        self.y_axis_format = y_axis_format
         self.x_axis_labels_visible = x_axis_labels_visible
         self.caption = caption
         self.sort = sort
         self.tooltip = tooltip
         self.height = height
-        self.show_fullscreen_button = show_fullscreen_button
+        self.buttons = set_default_buttons(buttons, None)
+        self.colors_in_legend = colors_in_legend
 
         if label is None and show_label is None:
             show_label = False
@@ -156,22 +165,6 @@ class NativePlot(Component):
             every=every,
             inputs=inputs,
         )
-        for key_, val in kwargs.items():
-            if key_ == "color_legend_title":
-                self.color_title = val
-            if key_ in [
-                "stroke_dash",
-                "overlay_point",
-                "x_label_angle",
-                "y_label_angle",
-                "interactive",
-                "show_actions_button",
-                "color_legend_title",
-                "width",
-            ]:
-                warnings.warn(
-                    f"Argument '{key_}' has been deprecated.", DeprecationWarning
-                )
 
     def get_block_name(self) -> str:
         return "nativeplot"
@@ -245,7 +238,7 @@ class NativePlot(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -260,7 +253,7 @@ class NativePlot(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -271,7 +264,7 @@ class NativePlot(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -286,7 +279,7 @@ class NativePlot(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -298,7 +291,7 @@ class NativePlot(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -313,7 +306,7 @@ class NativePlot(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -324,7 +317,7 @@ class NativePlot(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -339,7 +332,7 @@ class NativePlot(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -354,6 +347,7 @@ class BarPlot(NativePlot):
     Creates a bar plot component to display data from a pandas DataFrame.
 
     Demos: bar_plot_demo
+    Guides: creating-plots, time-plots
     """
 
     def get_block_name(self) -> str:
@@ -374,6 +368,7 @@ class LinePlot(NativePlot):
     Creates a line plot component to display data from a pandas DataFrame.
 
     Demos: line_plot_demo
+    Guides: creating-plots, connecting-to-a-database
     """
 
     def get_block_name(self) -> str:
@@ -394,6 +389,7 @@ class ScatterPlot(NativePlot):
     Creates a scatter plot component to display data from a pandas DataFrame.
 
     Demos: scatter_plot_demo
+    Guides: creating-plots
     """
 
     def get_block_name(self) -> str:

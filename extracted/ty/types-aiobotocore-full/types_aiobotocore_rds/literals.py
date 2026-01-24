@@ -3,7 +3,7 @@ Type annotations for rds service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rds/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -46,6 +46,7 @@ __all__ = (
     "DBSnapshotCompletedWaiterName",
     "DBSnapshotDeletedWaiterName",
     "DatabaseInsightsModeType",
+    "DefaultAuthSchemeType",
     "DescribeBlueGreenDeploymentsPaginatorName",
     "DescribeCertificatesPaginatorName",
     "DescribeDBClusterAutomatedBackupsPaginatorName",
@@ -87,6 +88,7 @@ __all__ = (
     "DescribeSourceRegionsPaginatorName",
     "DescribeTenantDatabasesPaginatorName",
     "DownloadDBLogFilePortionPaginatorName",
+    "EndpointNetworkTypeType",
     "EngineFamilyType",
     "ExportSourceTypeType",
     "FailoverStatusType",
@@ -96,6 +98,7 @@ __all__ = (
     "LifecycleSupportNameType",
     "LimitlessDatabaseStatusType",
     "LocalWriteForwardingStatusType",
+    "MasterUserAuthenticationTypeType",
     "PaginatorName",
     "RDSServiceName",
     "RegionName",
@@ -103,12 +106,14 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SourceTypeType",
+    "TargetConnectionNetworkTypeType",
     "TargetHealthReasonType",
     "TargetRoleType",
     "TargetStateType",
     "TargetTypeType",
     "TenantDatabaseAvailableWaiterName",
     "TenantDatabaseDeletedWaiterName",
+    "UpgradeRolloutOrderType",
     "WaiterName",
     "WriteForwardingStatusType",
 )
@@ -160,6 +165,7 @@ DBSnapshotAvailableWaiterName = Literal["db_snapshot_available"]
 DBSnapshotCompletedWaiterName = Literal["db_snapshot_completed"]
 DBSnapshotDeletedWaiterName = Literal["db_snapshot_deleted"]
 DatabaseInsightsModeType = Literal["advanced", "standard"]
+DefaultAuthSchemeType = Literal["IAM_AUTH", "NONE"]
 DescribeBlueGreenDeploymentsPaginatorName = Literal["describe_blue_green_deployments"]
 DescribeCertificatesPaginatorName = Literal["describe_certificates"]
 DescribeDBClusterAutomatedBackupsPaginatorName = Literal["describe_db_cluster_automated_backups"]
@@ -205,6 +211,7 @@ DescribeReservedDBInstancesPaginatorName = Literal["describe_reserved_db_instanc
 DescribeSourceRegionsPaginatorName = Literal["describe_source_regions"]
 DescribeTenantDatabasesPaginatorName = Literal["describe_tenant_databases"]
 DownloadDBLogFilePortionPaginatorName = Literal["download_db_log_file_portion"]
+EndpointNetworkTypeType = Literal["DUAL", "IPV4", "IPV6"]
 EngineFamilyType = Literal["MYSQL", "POSTGRESQL", "SQLSERVER"]
 ExportSourceTypeType = Literal["CLUSTER", "SNAPSHOT"]
 FailoverStatusType = Literal["cancelling", "failing-over", "pending"]
@@ -229,6 +236,7 @@ LimitlessDatabaseStatusType = Literal[
 LocalWriteForwardingStatusType = Literal[
     "disabled", "disabling", "enabled", "enabling", "requested"
 ]
+MasterUserAuthenticationTypeType = Literal["iam-db-auth", "password"]
 ReplicaModeType = Literal["mounted", "open-read-only"]
 SourceTypeType = Literal[
     "blue-green-deployment",
@@ -239,20 +247,25 @@ SourceTypeType = Literal[
     "db-parameter-group",
     "db-proxy",
     "db-security-group",
+    "db-shard-group",
     "db-snapshot",
+    "zero-etl",
 ]
+TargetConnectionNetworkTypeType = Literal["IPV4", "IPV6"]
 TargetHealthReasonType = Literal[
     "AUTH_FAILURE",
     "CONNECTION_FAILED",
     "INVALID_REPLICATION_STATE",
     "PENDING_PROXY_CAPACITY",
+    "PROMOTED",
     "UNREACHABLE",
 ]
 TargetRoleType = Literal["READ_ONLY", "READ_WRITE", "UNKNOWN"]
-TargetStateType = Literal["AVAILABLE", "REGISTERING", "UNAVAILABLE"]
+TargetStateType = Literal["AVAILABLE", "REGISTERING", "UNAVAILABLE", "UNUSED"]
 TargetTypeType = Literal["RDS_INSTANCE", "RDS_SERVERLESS_ENDPOINT", "TRACKED_CLUSTER"]
 TenantDatabaseAvailableWaiterName = Literal["tenant_database_available"]
 TenantDatabaseDeletedWaiterName = Literal["tenant_database_deleted"]
+UpgradeRolloutOrderType = Literal["first", "last", "second"]
 WriteForwardingStatusType = Literal["disabled", "disabling", "enabled", "enabling", "unknown"]
 RDSServiceName = Literal["rds"]
 ServiceName = Literal[
@@ -281,7 +294,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -351,6 +363,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -396,7 +409,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -449,7 +461,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -488,8 +499,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -524,6 +533,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -533,18 +543,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -566,8 +578,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -582,15 +592,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -621,8 +632,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -662,6 +673,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -673,16 +685,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_blue_green_deployments",
@@ -754,6 +757,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

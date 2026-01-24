@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -17,8 +17,11 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ...pagination import SyncDiskSnapshotsCursorIDPage, AsyncDiskSnapshotsCursorIDPage
+from ..._exceptions import RunloopError
+from ...lib.polling import PollingConfig, poll_until
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.devboxes import disk_snapshot_list_params, disk_snapshot_update_params
+from ...lib.polling_async import async_poll_until
 from ...types.devbox_snapshot_view import DevboxSnapshotView
 from ...types.devboxes.devbox_snapshot_async_status_view import DevboxSnapshotAsyncStatusView
 
@@ -49,14 +52,15 @@ class DiskSnapshotsResource(SyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """Updates disk snapshot metadata via update vs patch.
@@ -65,6 +69,8 @@ class DiskSnapshotsResource(SyncAPIResource):
         replaced.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -85,6 +91,7 @@ class DiskSnapshotsResource(SyncAPIResource):
             f"/v1/devboxes/disk_snapshots/{id}",
             body=maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -103,31 +110,34 @@ class DiskSnapshotsResource(SyncAPIResource):
     def list(
         self,
         *,
-        devbox_id: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metadata_key: str | NotGiven = NOT_GIVEN,
-        metadata_key_in: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        devbox_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
+        source_blueprint_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncDiskSnapshotsCursorIDPage[DevboxSnapshotView]:
         """
-        List all snapshots of a Devbox while optionally filtering by Devbox ID and
-        metadata.
+        List all snapshots of a Devbox while optionally filtering by Devbox ID, source
+        Blueprint ID, and metadata.
 
         Args:
           devbox_id: Devbox ID to filter by.
 
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           metadata_key: Filter snapshots by metadata key-value pair. Can be used multiple times for
               different keys.
 
           metadata_key_in: Filter snapshots by metadata key with multiple possible values (OR condition).
+
+          source_blueprint_id: Source Blueprint ID to filter snapshots by.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -153,6 +163,7 @@ class DiskSnapshotsResource(SyncAPIResource):
                         "limit": limit,
                         "metadata_key": metadata_key,
                         "metadata_key_in": metadata_key_in,
+                        "source_blueprint_id": source_blueprint_id,
                         "starting_after": starting_after,
                     },
                     disk_snapshot_list_params.DiskSnapshotListParams,
@@ -170,7 +181,7 @@ class DiskSnapshotsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -210,7 +221,7 @@ class DiskSnapshotsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxSnapshotAsyncStatusView:
         """
         Get the current status of an asynchronous disk snapshot operation, including
@@ -234,6 +245,38 @@ class DiskSnapshotsResource(SyncAPIResource):
             ),
             cast_to=DevboxSnapshotAsyncStatusView,
         )
+
+    def await_completed(
+        self,
+        id: str,
+        *,
+        polling_config: PollingConfig | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DevboxSnapshotAsyncStatusView:
+        """Wait for a disk snapshot operation to complete."""
+
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+
+        def is_terminal(result: DevboxSnapshotAsyncStatusView) -> bool:
+            return result.status in {"complete", "error"}
+
+        status = poll_until(
+            lambda: self.query_status(
+                id, extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            is_terminal,
+            polling_config,
+        )
+
+        if status.status == "error":
+            message = status.error_message or "Unknown error"
+            raise RunloopError(f"Snapshot {id} failed: {message}")
+
+        return status
 
 
 class AsyncDiskSnapshotsResource(AsyncAPIResource):
@@ -260,14 +303,15 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """Updates disk snapshot metadata via update vs patch.
@@ -276,6 +320,8 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
         replaced.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -296,6 +342,7 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
             f"/v1/devboxes/disk_snapshots/{id}",
             body=await async_maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -314,31 +361,34 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
     def list(
         self,
         *,
-        devbox_id: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metadata_key: str | NotGiven = NOT_GIVEN,
-        metadata_key_in: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        devbox_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
+        source_blueprint_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DevboxSnapshotView, AsyncDiskSnapshotsCursorIDPage[DevboxSnapshotView]]:
         """
-        List all snapshots of a Devbox while optionally filtering by Devbox ID and
-        metadata.
+        List all snapshots of a Devbox while optionally filtering by Devbox ID, source
+        Blueprint ID, and metadata.
 
         Args:
           devbox_id: Devbox ID to filter by.
 
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           metadata_key: Filter snapshots by metadata key-value pair. Can be used multiple times for
               different keys.
 
           metadata_key_in: Filter snapshots by metadata key with multiple possible values (OR condition).
+
+          source_blueprint_id: Source Blueprint ID to filter snapshots by.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -364,6 +414,7 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
                         "limit": limit,
                         "metadata_key": metadata_key,
                         "metadata_key_in": metadata_key_in,
+                        "source_blueprint_id": source_blueprint_id,
                         "starting_after": starting_after,
                     },
                     disk_snapshot_list_params.DiskSnapshotListParams,
@@ -381,7 +432,7 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -421,7 +472,7 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxSnapshotAsyncStatusView:
         """
         Get the current status of an asynchronous disk snapshot operation, including
@@ -445,6 +496,38 @@ class AsyncDiskSnapshotsResource(AsyncAPIResource):
             ),
             cast_to=DevboxSnapshotAsyncStatusView,
         )
+
+    async def await_completed(
+        self,
+        id: str,
+        *,
+        polling_config: PollingConfig | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> DevboxSnapshotAsyncStatusView:
+        """Wait asynchronously for a disk snapshot operation to complete."""
+
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+
+        def is_terminal(result: DevboxSnapshotAsyncStatusView) -> bool:
+            return result.status in {"complete", "error"}
+
+        status = await async_poll_until(
+            lambda: self.query_status(
+                id, extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            is_terminal,
+            polling_config,
+        )
+
+        if status.status == "error":
+            message = status.error_message or "Unknown error"
+            raise RunloopError(f"Snapshot {id} failed: {message}")
+
+        return status
 
 
 class DiskSnapshotsResourceWithRawResponse:

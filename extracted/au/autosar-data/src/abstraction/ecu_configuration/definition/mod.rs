@@ -37,6 +37,15 @@ impl EcucDefinitionCollection {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -96,6 +105,15 @@ impl EcucModuleDef {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -140,7 +158,7 @@ impl EcucModuleDef {
         EcucContainerDefIterator::new(
             self.0
                 .containers()
-                .filter_map(|container| ecuc_container_def_to_pyobject(container).ok()),
+                .filter_map(|container| ecuc_container_def_to_pyany(container).ok()),
         )
     }
 
@@ -474,6 +492,15 @@ impl EcucDestinationUriDefSet {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -598,7 +625,7 @@ impl EcucDestinationUriDef {
         EcucContainerDefIterator::new(
             self.0
                 .containers()
-                .filter_map(|container| ecuc_container_def_to_pyobject(container).ok()),
+                .filter_map(|container| ecuc_container_def_to_pyany(container).ok()),
         )
     }
 }

@@ -16,11 +16,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
-import os
-
-from setuptools.command import easy_install
-
-import pbr._compat.commands
+import pbr._compat.versions
 from pbr.hooks import base
 from pbr import options
 
@@ -44,13 +40,11 @@ class CommandsConfig(base.BaseConfig):
         self.add_command('pbr._compat.commands.LocalEggInfo')
         self.add_command('pbr._compat.commands.LocalSDist')
         self.add_command('pbr._compat.commands.LocalInstallScripts')
-        self.add_command('pbr._compat.commands.LocalDevelop')
         self.add_command('pbr._compat.commands.LocalRPMVersion')
         self.add_command('pbr._compat.commands.LocalDebVersion')
-        if os.name != 'nt':
-            easy_install.get_script_args = (
-                pbr._compat.commands.override_get_script_args
-            )
+
+        if pbr._compat.versions.setuptools_has_develop_command:
+            self.add_command('pbr._compat.commands.LocalDevelop')
 
         use_egg = options.get_boolean_option(
             self.pbr_config, 'use-egg', 'PBR_USE_EGG'

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: codemod
+Version: 1.0.0
+Summary: Codemod is a tool/library to assist you with large-scale codebase refactors that can be partially automated but still require human oversight and occasional intervention. Codemod was developed at Facebook and released as open source.
+Home-page: http://github.com/facebook/codemod
+Author: Facebook
+Author-email: facebook@facebook.com
+License: Apache License 2.0
+Description: Codemod is a tool/library to assist you with large-scale codebase refactors that can be partially automated but still require human oversight and occasional intervention. Codemod was developed at Facebook and released as open source.
+Platform: any

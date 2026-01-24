@@ -26,6 +26,7 @@ from typing import (
 )
 
 import numpy
+import shapely
 from affine import Affine
 from pyproj.aoi import AreaOfInterest
 from shapely import geometry, ops
@@ -49,7 +50,7 @@ class BoundingBox(Sequence[float]):
 
     def __init__(
         self, left: float, bottom: float, right: float, top: float, crs: MaybeCRS = None
-    ):
+    ) -> None:
         self._box = (left, bottom, right, top)
         self._crs = norm_crs(crs)
 
@@ -77,7 +78,7 @@ class BoundingBox(Sequence[float]):
     def bbox(self) -> Tuple[float, float, float, float]:
         return self._box
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return self._box.__iter__()
 
     def __eq__(self, other: Any) -> bool:
@@ -287,9 +288,11 @@ class BoundingBox(Sequence[float]):
         :param transform: Affine mapping from pixel to world
         :param crs: CRS
         """
-        p1 = transform * (0, 0)
-        p2 = transform * shape_(shape).xy
-        return BoundingBox.from_points(p1, p2, crs=crs)
+        nx, ny = shape_(shape).xy
+        pts = [(0, 0), (nx, 0), (nx, ny), (0, ny)]
+        transform.itransform(pts)
+        xx, yy = list(zip(*pts))
+        return BoundingBox.from_xy((min(xx), max(xx)), (min(yy), max(yy)), crs)
 
     @property
     def aoi(self) -> AreaOfInterest:
@@ -496,7 +499,7 @@ class Geometry(SupportsCoords[float]):
         self,
         geom: Union[base.BaseGeometry, Dict[str, Any], "Geometry"],
         crs: MaybeCRS = None,
-    ):
+    ) -> None:
         if isinstance(geom, Geometry):
             assert crs is None
             self.crs: Optional[CRS] = geom.crs
@@ -780,7 +783,7 @@ class Geometry(SupportsCoords[float]):
     def geojson(
         self,
         properties: Optional[Dict[str, Any]] = None,
-        simplify: float = 0.05,
+        simplify: float | Literal["auto"] = "auto",
         resolution: Optional[float] = None,
         wrapdateline: bool = False,
         **props,
@@ -788,22 +791,27 @@ class Geometry(SupportsCoords[float]):
         """
         Render geometry to GeoJSON.
 
-        Convert geometry to ``ESPG:4326`` and wrap it in GeoJSON Feature with supplied properties.
+        Convert geometry to ``ESPG:4326`` and wrap it in GeoJSON Feature with
+        supplied properties.
 
         :param properties:
             Properties to include in the GeoJSON output.
 
         :param simplify:
-            Tolerance in degrees for simplifying geometry after changing to lon/lat. Larger number
-            will result in a smaller (fewer points) and hence faster to display, but less precise
-            geometry. Default is ``0.05`` of a degree. To disable set to ``0``.
+            Tolerance in degrees for simplifying geometry after changing to
+            lon/lat. Larger number will result in a smaller (fewer points) and
+            hence faster to display, but less precise geometry. Default is
+            ``"auto"``, meaning no simplification for geometries with only few
+            points and ``0.05`` of a degree for geometries with many. To disable
+            set to ``0``.
 
         :param resolution:
-           When supplied, extra points will be added to the original geometry such that no segment
-           is longer than ``resolution`` units. Passed on to
-           :py:meth:`~odc.geo.geom.Geometry.to_crs`.
+           When supplied, extra points will be added to the original geometry
+           such that no segment is longer than ``resolution`` units. Passed on
+           to :py:meth:`~odc.geo.geom.Geometry.to_crs`.
 
-        :param wrapdateline: Passed on to :py:meth:`~odc.geo.geom.Geometry.to_crs`
+        :param wrapdateline: Passed on to
+            :py:meth:`~odc.geo.geom.Geometry.to_crs`
 
         :return: GeoJSON Feature dictionary
         """
@@ -829,7 +837,15 @@ class Geometry(SupportsCoords[float]):
         else:
             gg = self
 
-        if simplify > 0:
+        if simplify == "auto":
+            if count_coordinates(gg) < 100:
+                simplify = 0.0
+            else:
+                bbox = gg.boundingbox
+                simplify = min(0.05, max(bbox.span_x, bbox.span_y) / 100)
+
+        assert isinstance(simplify, (float, int))
+        if simplify > 0.0:
             gg = gg.simplify(simplify)
         if properties is None:
             properties = {**props}
@@ -867,9 +883,13 @@ class Geometry(SupportsCoords[float]):
         :param map_kwds:
             Additional keyword arguments to pass to :py:class:`folium.Map`.
         :param kwargs:
-            Additional keyword arguments to pass to :py:class:`folium.GeoJson`.
+            Additional keyword arguments to pass to :py:meth:`odc.geo.geom.Geometry.geojson`
+            and :py:class:`folium.GeoJson`.
 
         :return: A :py:mod:`folium` map containing the plotted Geometry.
+
+        :seealso: :py:meth:`odc.geo.geom.Geometry.geojson` for more details on
+            the parameters.
         """
         # pylint: disable=import-outside-toplevel, redefined-builtin
         have.check_or_error("folium")
@@ -882,9 +902,15 @@ class Geometry(SupportsCoords[float]):
 
         # Convert to GeoJSON with resolution based on approx 100
         # points per side for proper plotting/reprojection
-        bbox = self.boundingbox
-        res = max(bbox.span_x, bbox.span_y) / 100
-        geojson = self.geojson(resolution=res)
+        gj_args = {}
+        for k in ("simplify", "wrapdateline", "resolution"):
+            if k in kwargs:
+                gj_args[k] = kwargs.pop(k)
+
+        if "resolution" not in gj_args:
+            bbox = self.boundingbox
+            gj_args["resolution"] = max(bbox.span_x, bbox.span_y) / 100
+        geojson = self.geojson(**gj_args)
 
         # Create layer and add to map
         layer = GeoJson(data=geojson, **kwargs)
@@ -922,10 +948,10 @@ class Geometry(SupportsCoords[float]):
             and self.geom == other.geom
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Geometry({self.__geo_interface__}, {self.crs!r})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Geometry({self.geom}, {self.crs})"
 
     # Implement pickle/unpickle
@@ -934,8 +960,8 @@ class Geometry(SupportsCoords[float]):
     def __getstate__(self):
         return {"geom": self.json, "crs": self.crs}
 
-    def __setstate__(self, state):
-        self.__init__(**state)
+    def __setstate__(self, state) -> None:
+        self.__init__(**state)  # type: ignore[misc]
 
     @property
     def is_multi(self) -> bool:
@@ -1092,7 +1118,7 @@ def projected_lon(
     return line(pts, crs)
 
 
-def clip_lon180(geom: Geometry, tol=1e-6) -> Geometry:
+def clip_lon180(geom: Geometry, tol: float = 1e-6) -> Geometry:
     """
     Tweak Geometry in the vicinity of longitude discontinuity.
 
@@ -1199,7 +1225,7 @@ def multiline(coords: List[CoordList], crs: MaybeCRS) -> Geometry:
     return Geometry({"type": "MultiLineString", "coordinates": coords}, crs=crs)
 
 
-def polygon(outer, crs: MaybeCRS, *inners) -> Geometry:
+def polygon(outer: CoordList, crs: MaybeCRS, *inners) -> Geometry:
     """
     Create a 2D Polygon.
 
@@ -1255,7 +1281,7 @@ def polygon_from_transform(
     :param crs: CRS
     """
     x1, y1 = shape_(shape).xy
-    points = [(0, 0), (0, y1), (x1, y1), (x1, 0), (0, 0)]
+    points = [(0.0, 0.0), (0.0, y1), (x1, y1), (x1, 0.0), (0.0, 0.0)]
     transform.itransform(points)
     return polygon(points, crs=crs)
 
@@ -1468,6 +1494,36 @@ def mid_longitude(geom: Geometry) -> float:
     """
     ((lon,), _) = geom.centroid.to_crs("epsg:4326").xy
     return lon
+
+
+def count_coordinates(g: Geometry | Iterable[Geometry] | BoundingBox) -> int:
+    """
+    Count the number of coordinates in a geometry.
+
+    :param g:
+       Geometry, iterable of geometries, or bounding box to count coordinates for
+    :return:
+       Number of coordinates in the input geometry(ies)
+
+    Examples:
+        >>> point = geom.point(10, 20, crs="EPSG:4326")
+        >>> count_coordinates(point)
+        1
+        >>> line = geom.line([(0, 0), (1, 1), (2, 2)], crs="EPSG:4326")
+        >>> count_coordinates(line)
+        3
+        >>> bbox = geom.BoundingBox(0, 0, 10, 10, crs="EPSG:4326")
+        >>> count_coordinates(bbox)
+        4
+        >>> geometries = [point, line]
+        >>> count_coordinates(geometries)
+        4
+    """
+    if isinstance(g, Geometry):
+        return shapely.count_coordinates(g.geom)
+    if isinstance(g, BoundingBox):
+        return 4
+    return shapely.count_coordinates([_g.geom for _g in g])
 
 
 def _auto_resolution(g: Geometry) -> float:

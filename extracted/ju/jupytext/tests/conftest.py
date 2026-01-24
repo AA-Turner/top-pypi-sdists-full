@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 from jupyter_client.kernelspec import find_kernel_specs, get_kernel_spec
+import nbformat
+from nbformat import reads as nb_reads, validate
 from nbformat.v4 import nbbase
 from nbformat.v4.nbbase import (
     new_code_cell,
@@ -23,6 +25,7 @@ from jupytext.formats import formats_with_support_for_cell_metadata
 from jupytext.myst import is_myst_available
 from jupytext.pandoc import is_pandoc_available
 from jupytext.quarto import is_quarto_available
+from jupytext.marimo import is_marimo_available
 
 # Pytest's tmpdir is in /tmp (at least for me), so this helps to avoid interferences between
 # global configuration on HOME and the test collection
@@ -30,6 +33,19 @@ jupytext.config.JUPYTEXT_CEILING_DIRECTORIES = ["/tmp/"]
 
 SAMPLE_NOTEBOOK_PATH = Path(__file__).parent / "data" / "notebooks" / "inputs"
 ROOT_PATH = Path(__file__).parent.parent
+
+
+def nbformat_reads(s, as_version, capture_validation_error=None, **kwargs):
+    """Wrapper around nbformat.reads that forces validation"""
+    nb = nb_reads(s, as_version, capture_validation_error=capture_validation_error, **kwargs)
+    validate(nb)
+    return nb
+
+
+@pytest.fixture(autouse=True)
+def force_validate_nbformat(monkeypatch):
+    """Force validation of nbformat in all tests"""
+    monkeypatch.setattr(nbformat, "reads", nbformat_reads)
 
 
 @pytest.fixture(params=["sync", "async"])
@@ -148,17 +164,11 @@ def list_notebooks(path="ipynb", skip=""):
 
     if path == "ipynb_all":
         return itertools.chain(
-            *(
-                list_notebooks(folder.name, skip=skip)
-                for folder in nb_path.iterdir()
-                if folder.name.startswith("ipynb_")
-            )
+            *(list_notebooks(folder.name, skip=skip) for folder in nb_path.iterdir() if folder.name.startswith("ipynb_"))
         )
 
     if path == "all":
-        return itertools.chain(
-            *(list_notebooks(folder.name, skip=skip) for folder in nb_path.iterdir())
-        )
+        return itertools.chain(*(list_notebooks(folder.name, skip=skip) for folder in nb_path.iterdir()))
 
     if path.startswith("."):
         nb_path = Path(__file__).parent / ".." / path
@@ -167,11 +177,7 @@ def list_notebooks(path="ipynb", skip=""):
 
     if skip:
         skip_re = re.compile(".*" + skip + ".*")
-        return [
-            str(nb_file)
-            for nb_file in nb_path.iterdir()
-            if nb_file.is_file() and not skip_re.match(nb_file.name)
-        ]
+        return [str(nb_file) for nb_file in nb_path.iterdir() if nb_file.is_file() and not skip_re.match(nb_file.name)]
 
     return [str(nb_file) for nb_file in nb_path.iterdir() if nb_file.is_file()]
 
@@ -212,16 +218,12 @@ def ipynb_py_R_jl_ext(ipynb_py_R_jl_file):
     raise RuntimeError(f"language not found for {ipynb_py_R_jl_file}")
 
 
-@pytest.fixture(
-    params=list_notebooks("ipynb") + list_notebooks("Rmd"), ids=notebook_id_func
-)
+@pytest.fixture(params=list_notebooks("ipynb") + list_notebooks("Rmd"), ids=notebook_id_func)
 def ipynb_or_rmd_file(request):
     return request.param
 
 
-@pytest.fixture(
-    params=list_notebooks("ipynb_py") + list_notebooks("ipynb_R"), ids=notebook_id_func
-)
+@pytest.fixture(params=list_notebooks("ipynb_py") + list_notebooks("ipynb_R"), ids=notebook_id_func)
 def ipynb_py_R_file(request):
     return request.param
 
@@ -233,6 +235,30 @@ def ipynb_py_files():
 
 @pytest.fixture(params=list_notebooks("ipynb_py"), ids=notebook_id_func)
 def ipynb_py_file(request):
+    return request.param
+
+
+@pytest.fixture(params=list_notebooks("ipynb_py", skip="(raw_cell|R_magic|metadata and long cells)"), ids=notebook_id_func)
+def marimo_compatible_ipynb(request):
+    nb = jupytext.read(SAMPLE_NOTEBOOK_PATH / request.param)
+    marimo_text = jupytext.writes(nb, "auto:marimo")
+    for line in marimo_text.splitlines():
+        if "not supported in marimo" in line:
+            pytest.skip(f"{request.param} contains features not supported in marimo: {line}")
+
+    # We'd need to get this one fixed in Marimo
+    if "flavors of raw cells" in request.param:
+        pytest.skip(f"{request.param} contains $ signs in a raw cells, not supported in marimo")
+
+    if "jupyter_again" in request.param:
+        pytest.skip(f"{request.param} contains '?help', not supported in marimo")
+
+    if "nteract_with_parameter" in request.param:
+        pytest.skip(f"{request.param} contains both tags and metadata - only tags are supported")
+
+    if "jupyterlab-slideshow_1441" in request.param:
+        pytest.skip(f"{request.param} contains a line ending with spaces, which is trimmed by marimo")
+
     return request.param
 
 
@@ -256,9 +282,7 @@ def ipynb_cpp_file(request):
     return request.param
 
 
-@pytest.fixture(
-    params=list_notebooks("ipynb_all", skip="many hash"), ids=notebook_id_func
-)
+@pytest.fixture(params=list_notebooks("ipynb_all", skip="many hash"), ids=notebook_id_func)
 def ipynb_to_light(request):
     return request.param
 
@@ -270,9 +294,7 @@ def ipynb_to_myst(request):
 
 @pytest.fixture(
     params=[
-        py_file
-        for py_file in list_notebooks("./src/jupytext")
-        if py_file.endswith(".py") and "folding_markers" not in py_file
+        py_file for py_file in list_notebooks("./src/jupytext") if py_file.endswith(".py") and "folding_markers" not in py_file
     ],
     ids=notebook_id_func,
 )
@@ -281,10 +303,7 @@ def py_file(request):
 
 
 @pytest.fixture(
-    params=list_notebooks("julia")
-    + list_notebooks("python")
-    + list_notebooks("R")
-    + list_notebooks("ps1"),
+    params=list_notebooks("julia") + list_notebooks("python") + list_notebooks("R") + list_notebooks("ps1"),
     ids=notebook_id_func,
 )
 def script_to_ipynb(request):
@@ -316,6 +335,11 @@ def r_spin_file(request):
     return request.param
 
 
+@pytest.fixture(params=list_notebooks("marimo"), ids=notebook_id_func)
+def marimo_file(request):
+    return request.param
+
+
 @pytest.fixture(params=list_notebooks("md"), ids=notebook_id_func)
 def md_file(request):
     return request.param
@@ -327,9 +351,7 @@ def myst_file(request):
 
 
 @pytest.fixture(
-    params=list_notebooks(
-        "ipynb", skip="(functional|Notebook with|flavors|invalid|305)"
-    ),
+    params=list_notebooks("ipynb", skip="(functional|Notebook with|flavors|invalid|305|jupyterlab-slideshow)"),
     ids=notebook_id_func,
 )
 def ipynb_to_pandoc(request):
@@ -392,19 +414,18 @@ def pytest_runtest_setup(item):
         if mark.name == "requires_quarto":
             if not is_quarto_available(min_version="0.2.0"):
                 pytest.skip("quarto>=0.2 is not available")
+        if mark.name == "requires_marimo":
+            if not is_marimo_available():
+                pytest.skip("marimo is not available")
         if mark.name == "requires_no_pandoc":
             if is_pandoc_available():
                 pytest.skip("Pandoc is installed")
         if mark.name == "requires_ir_kernel":
-            if not any(
-                get_kernel_spec(name).language == "R" for name in find_kernel_specs()
-            ):
+            if not any(get_kernel_spec(name).language == "R" for name in find_kernel_specs()):
                 pytest.skip("irkernel is not installed")
         if mark.name == "requires_user_kernel_python3":
             if "python_kernel" not in find_kernel_specs():
-                pytest.skip(
-                    "Please run 'python -m ipykernel install --name python_kernel --user'"
-                )
+                pytest.skip("Please run 'python -m ipykernel install --name python_kernel --user'")
         if mark.name == "requires_myst":
             if not is_myst_available():
                 pytest.skip("myst_parser not found")
@@ -416,9 +437,7 @@ def pytest_runtest_setup(item):
                 pytest.skip("Issue 489")
         if mark.name == "pre_commit":
             if sys.platform.startswith("win"):
-                pytest.skip(
-                    "OSError: [WinError 193] %1 is not a valid Win32 application"
-                )
+                pytest.skip("OSError: [WinError 193] %1 is not a valid Win32 application")
             if not (Path(__file__).parent.parent / ".git").is_dir():
                 pytest.skip("Jupytext folder is not a git repository #814")
 

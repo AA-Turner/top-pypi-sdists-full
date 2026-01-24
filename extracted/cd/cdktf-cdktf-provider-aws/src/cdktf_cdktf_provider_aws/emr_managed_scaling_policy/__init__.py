@@ -1,7 +1,7 @@
 r'''
 # `aws_emr_managed_scaling_policy`
 
-Refer to the Terraform Registry for docs: [`aws_emr_managed_scaling_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy).
+Refer to the Terraform Registry for docs: [`aws_emr_managed_scaling_policy`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EmrManagedScalingPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.emrManagedScalingPolicy.EmrManagedScalingPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy aws_emr_managed_scaling_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy aws_emr_managed_scaling_policy}.'''
 
     def __init__(
         self,
@@ -55,6 +55,8 @@ class EmrManagedScalingPolicy(
         compute_limits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EmrManagedScalingPolicyComputeLimits", typing.Dict[builtins.str, typing.Any]]]],
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        scaling_strategy: typing.Optional[builtins.str] = None,
+        utilization_performance_index: typing.Optional[jsii.Number] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +65,16 @@ class EmrManagedScalingPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy aws_emr_managed_scaling_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy aws_emr_managed_scaling_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.
-        :param compute_limits: compute_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.
+        :param compute_limits: compute_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
+        :param scaling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#scaling_strategy EmrManagedScalingPolicy#scaling_strategy}.
+        :param utilization_performance_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#utilization_performance_index EmrManagedScalingPolicy#utilization_performance_index}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,6 +92,8 @@ class EmrManagedScalingPolicy(
             compute_limits=compute_limits,
             id=id,
             region=region,
+            scaling_strategy=scaling_strategy,
+            utilization_performance_index=utilization_performance_index,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +118,7 @@ class EmrManagedScalingPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EmrManagedScalingPolicy to import.
-        :param import_from_id: The id of the existing EmrManagedScalingPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EmrManagedScalingPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EmrManagedScalingPolicy to import is found.
         '''
         if __debug__:
@@ -143,6 +149,14 @@ class EmrManagedScalingPolicy(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetScalingStrategy")
+    def reset_scaling_strategy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetScalingStrategy", []))
+
+    @jsii.member(jsii_name="resetUtilizationPerformanceIndex")
+    def reset_utilization_performance_index(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUtilizationPerformanceIndex", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -185,6 +199,16 @@ class EmrManagedScalingPolicy(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="scalingStrategyInput")
+    def scaling_strategy_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scalingStrategyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="utilizationPerformanceIndexInput")
+    def utilization_performance_index_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "utilizationPerformanceIndexInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="clusterId")
     def cluster_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "clusterId"))
@@ -220,6 +244,30 @@ class EmrManagedScalingPolicy(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="scalingStrategy")
+    def scaling_strategy(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "scalingStrategy"))
+
+    @scaling_strategy.setter
+    def scaling_strategy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__381dcc69d6bf7c5473cec8b5898fea2de580d961155589aab5eddf89006b79be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scalingStrategy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="utilizationPerformanceIndex")
+    def utilization_performance_index(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "utilizationPerformanceIndex"))
+
+    @utilization_performance_index.setter
+    def utilization_performance_index(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1b47d112bc2e96b49c94134fc356244acb0916b6ab4e00b1d0b1416e666d1dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "utilizationPerformanceIndex", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.emrManagedScalingPolicy.EmrManagedScalingPolicyComputeLimits",
@@ -243,11 +291,11 @@ class EmrManagedScalingPolicyComputeLimits:
         maximum_ondemand_capacity_units: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_capacity_units EmrManagedScalingPolicy#maximum_capacity_units}.
-        :param minimum_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#minimum_capacity_units EmrManagedScalingPolicy#minimum_capacity_units}.
-        :param unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#unit_type EmrManagedScalingPolicy#unit_type}.
-        :param maximum_core_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_core_capacity_units EmrManagedScalingPolicy#maximum_core_capacity_units}.
-        :param maximum_ondemand_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_ondemand_capacity_units EmrManagedScalingPolicy#maximum_ondemand_capacity_units}.
+        :param maximum_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_capacity_units EmrManagedScalingPolicy#maximum_capacity_units}.
+        :param minimum_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#minimum_capacity_units EmrManagedScalingPolicy#minimum_capacity_units}.
+        :param unit_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#unit_type EmrManagedScalingPolicy#unit_type}.
+        :param maximum_core_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_core_capacity_units EmrManagedScalingPolicy#maximum_core_capacity_units}.
+        :param maximum_ondemand_capacity_units: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_ondemand_capacity_units EmrManagedScalingPolicy#maximum_ondemand_capacity_units}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1030b6d8887faf3c0eb8e00e8b532b6dc99a71b5824b6e3939fa23ec5b08e6be)
@@ -268,34 +316,34 @@ class EmrManagedScalingPolicyComputeLimits:
 
     @builtins.property
     def maximum_capacity_units(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_capacity_units EmrManagedScalingPolicy#maximum_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_capacity_units EmrManagedScalingPolicy#maximum_capacity_units}.'''
         result = self._values.get("maximum_capacity_units")
         assert result is not None, "Required property 'maximum_capacity_units' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minimum_capacity_units(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#minimum_capacity_units EmrManagedScalingPolicy#minimum_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#minimum_capacity_units EmrManagedScalingPolicy#minimum_capacity_units}.'''
         result = self._values.get("minimum_capacity_units")
         assert result is not None, "Required property 'minimum_capacity_units' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def unit_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#unit_type EmrManagedScalingPolicy#unit_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#unit_type EmrManagedScalingPolicy#unit_type}.'''
         result = self._values.get("unit_type")
         assert result is not None, "Required property 'unit_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def maximum_core_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_core_capacity_units EmrManagedScalingPolicy#maximum_core_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_core_capacity_units EmrManagedScalingPolicy#maximum_core_capacity_units}.'''
         result = self._values.get("maximum_core_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_ondemand_capacity_units(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#maximum_ondemand_capacity_units EmrManagedScalingPolicy#maximum_ondemand_capacity_units}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#maximum_ondemand_capacity_units EmrManagedScalingPolicy#maximum_ondemand_capacity_units}.'''
         result = self._values.get("maximum_ondemand_capacity_units")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -556,6 +604,8 @@ class EmrManagedScalingPolicyComputeLimitsOutputReference(
         "compute_limits": "computeLimits",
         "id": "id",
         "region": "region",
+        "scaling_strategy": "scalingStrategy",
+        "utilization_performance_index": "utilizationPerformanceIndex",
     },
 )
 class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -573,6 +623,8 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         compute_limits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EmrManagedScalingPolicyComputeLimits, typing.Dict[builtins.str, typing.Any]]]],
         id: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        scaling_strategy: typing.Optional[builtins.str] = None,
+        utilization_performance_index: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
         :param connection: 
@@ -582,10 +634,12 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.
-        :param compute_limits: compute_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.
+        :param compute_limits: compute_limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
+        :param scaling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#scaling_strategy EmrManagedScalingPolicy#scaling_strategy}.
+        :param utilization_performance_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#utilization_performance_index EmrManagedScalingPolicy#utilization_performance_index}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -602,6 +656,8 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument compute_limits", value=compute_limits, expected_type=type_hints["compute_limits"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument scaling_strategy", value=scaling_strategy, expected_type=type_hints["scaling_strategy"])
+            check_type(argname="argument utilization_performance_index", value=utilization_performance_index, expected_type=type_hints["utilization_performance_index"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_id": cluster_id,
             "compute_limits": compute_limits,
@@ -624,6 +680,10 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["id"] = id
         if region is not None:
             self._values["region"] = region
+        if scaling_strategy is not None:
+            self._values["scaling_strategy"] = scaling_strategy
+        if utilization_performance_index is not None:
+            self._values["utilization_performance_index"] = utilization_performance_index
 
     @builtins.property
     def connection(
@@ -691,7 +751,7 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#cluster_id EmrManagedScalingPolicy#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
@@ -702,7 +762,7 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EmrManagedScalingPolicyComputeLimits]]:
         '''compute_limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#compute_limits EmrManagedScalingPolicy#compute_limits}
         '''
         result = self._values.get("compute_limits")
         assert result is not None, "Required property 'compute_limits' is missing"
@@ -710,7 +770,7 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#id EmrManagedScalingPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -722,10 +782,22 @@ class EmrManagedScalingPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#region EmrManagedScalingPolicy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scaling_strategy(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#scaling_strategy EmrManagedScalingPolicy#scaling_strategy}.'''
+        result = self._values.get("scaling_strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def utilization_performance_index(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/emr_managed_scaling_policy#utilization_performance_index EmrManagedScalingPolicy#utilization_performance_index}.'''
+        result = self._values.get("utilization_performance_index")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -757,6 +829,8 @@ def _typecheckingstub__573e69cef69539d685f51c6f340d6f3de4f2e780fca5b6db9e81135e6
     compute_limits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EmrManagedScalingPolicyComputeLimits, typing.Dict[builtins.str, typing.Any]]]],
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    scaling_strategy: typing.Optional[builtins.str] = None,
+    utilization_performance_index: typing.Optional[jsii.Number] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -797,6 +871,18 @@ def _typecheckingstub__99e56011084c4452a5e78fecc9da74e2ac50d72df89d63ae002d20bcb
 
 def _typecheckingstub__2769debea3ea8da9d25cde75365cd7577389cb70f896e02a512051b657c3db88(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__381dcc69d6bf7c5473cec8b5898fea2de580d961155589aab5eddf89006b79be(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1b47d112bc2e96b49c94134fc356244acb0916b6ab4e00b1d0b1416e666d1dc(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -908,6 +994,8 @@ def _typecheckingstub__bbf98fe5e6526f86b6f2d4f03c4391951155007d01b816fbc80921a34
     compute_limits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EmrManagedScalingPolicyComputeLimits, typing.Dict[builtins.str, typing.Any]]]],
     id: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    scaling_strategy: typing.Optional[builtins.str] = None,
+    utilization_performance_index: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

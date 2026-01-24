@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: adbc-driver-postgresql
-Version: 1.8.0
+Version: 1.10.0
 Summary: A libpq-based ADBC driver for working with PostgreSQL.
 Author-email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0
 Project-URL: homepage, https://arrow.apache.org/adbc/
 Project-URL: repository, https://github.com/apache/arrow-adbc
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE.txt

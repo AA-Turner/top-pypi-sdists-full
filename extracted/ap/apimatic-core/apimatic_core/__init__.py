@@ -12,5 +12,6 @@ __all__ = [
     'logger',
     'exceptions',
     'constants',
-    'pagination'
+    'pagination',
+    'security'
 ]

@@ -1,0 +1,11 @@
+enabled-ignores = [
+    "pyrefly",
+]
+search-path = [
+    ".",
+    "../../src",
+]
+python-version = "3.10"
+
+[errors]
+deprecated = false

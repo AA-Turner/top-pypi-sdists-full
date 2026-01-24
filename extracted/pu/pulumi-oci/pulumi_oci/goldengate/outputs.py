@@ -32,6 +32,7 @@ __all__ = [
     'DeploymentOggData',
     'DeploymentOggDataGroupToRolesMapping',
     'DeploymentPlacement',
+    'PipelineIngressIp',
     'PipelineLock',
     'PipelineMappingRule',
     'PipelinePipelineDiagnosticData',
@@ -110,6 +111,7 @@ __all__ = [
     'GetMessagesDeploymentMessagesCollectionResult',
     'GetMessagesDeploymentMessagesCollectionItemResult',
     'GetMessagesFilterResult',
+    'GetPipelineIngressIpResult',
     'GetPipelineLockResult',
     'GetPipelineMappingRuleResult',
     'GetPipelinePipelineDiagnosticDataResult',
@@ -130,6 +132,7 @@ __all__ = [
     'GetPipelinesFilterResult',
     'GetPipelinesPipelineCollectionResult',
     'GetPipelinesPipelineCollectionItemResult',
+    'GetPipelinesPipelineCollectionItemIngressIpResult',
     'GetPipelinesPipelineCollectionItemLockResult',
     'GetPipelinesPipelineCollectionItemMappingRuleResult',
     'GetPipelinesPipelineCollectionItemPipelineDiagnosticDataResult',
@@ -1239,7 +1242,7 @@ class DeploymentOggData(dict):
                  password_secret_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str deployment_name: The name given to the GoldenGate service deployment. The name must be 1 to 32 characters long, must contain only alphanumeric characters and must start with a letter.
-        :param _builtins.str admin_password: (Updatable) The password associated with the GoldenGate deployment console username. The password must be 8 to 30 characters long and must contain at least 1 uppercase, 1 lowercase, 1 numeric, and 1 special character. Special characters such as ‘$’, ‘^’, or ‘?’ are not allowed. This field will be deprecated and replaced by "passwordSecretId".
+        :param _builtins.str admin_password: (Updatable) The password associated with the GoldenGate deployment console username. The password must be 8 to 30 characters long and must contain at least 1 uppercase, 1 lowercase, 1 numeric, and 1 special character. Special characters such as '$', '^', or '?' are not allowed. This field will be deprecated and replaced by "passwordSecretId".
         :param _builtins.str admin_username: (Updatable) The GoldenGate deployment console username.
         :param _builtins.str certificate: (Updatable) The base64 encoded content of the PEM file containing the SSL certificate.
         :param _builtins.str credential_store: (Updatable) The type of credential store for OGG.
@@ -1281,7 +1284,7 @@ class DeploymentOggData(dict):
     @pulumi.getter(name="adminPassword")
     def admin_password(self) -> Optional[_builtins.str]:
         """
-        (Updatable) The password associated with the GoldenGate deployment console username. The password must be 8 to 30 characters long and must contain at least 1 uppercase, 1 lowercase, 1 numeric, and 1 special character. Special characters such as ‘$’, ‘^’, or ‘?’ are not allowed. This field will be deprecated and replaced by "passwordSecretId".
+        (Updatable) The password associated with the GoldenGate deployment console username. The password must be 8 to 30 characters long and must contain at least 1 uppercase, 1 lowercase, 1 numeric, and 1 special character. Special characters such as '$', '^', or '?' are not allowed. This field will be deprecated and replaced by "passwordSecretId".
         """
         return pulumi.get(self, "admin_password")
 
@@ -1478,17 +1481,80 @@ class DeploymentPlacement(dict):
 
 
 @pulumi.output_type
+class PipelineIngressIp(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "ingressIp":
+            suggest = "ingress_ip"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngressIp. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngressIp.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngressIp.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ingress_ip: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ingress_ip: A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        if ingress_ip is not None:
+            pulumi.set(__self__, "ingress_ip", ingress_ip)
+
+    @_builtins.property
+    @pulumi.getter(name="ingressIp")
+    def ingress_ip(self) -> Optional[_builtins.str]:
+        """
+        A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        return pulumi.get(self, "ingress_ip")
+
+
+@pulumi.output_type
 class PipelineLock(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "relatedResourceId":
+            suggest = "related_resource_id"
+        elif key == "timeCreated":
+            suggest = "time_created"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineLock. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineLock.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineLock.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  type: _builtins.str,
-                 message: Optional[_builtins.str] = None):
+                 message: Optional[_builtins.str] = None,
+                 related_resource_id: Optional[_builtins.str] = None,
+                 time_created: Optional[_builtins.str] = None):
         """
         :param _builtins.str type: Type of the lock.
         :param _builtins.str message: A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
+        :param _builtins.str related_resource_id: The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        :param _builtins.str time_created: When the lock was created.
         """
         pulumi.set(__self__, "type", type)
         if message is not None:
             pulumi.set(__self__, "message", message)
+        if related_resource_id is not None:
+            pulumi.set(__self__, "related_resource_id", related_resource_id)
+        if time_created is not None:
+            pulumi.set(__self__, "time_created", time_created)
 
     @_builtins.property
     @pulumi.getter
@@ -1505,6 +1571,22 @@ class PipelineLock(dict):
         A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
         """
         return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="relatedResourceId")
+    def related_resource_id(self) -> Optional[_builtins.str]:
+        """
+        The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        """
+        return pulumi.get(self, "related_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> Optional[_builtins.str]:
+        """
+        When the lock was created.
+        """
+        return pulumi.get(self, "time_created")
 
 
 @pulumi.output_type
@@ -2156,7 +2238,7 @@ class GetConnectionCatalogResult(dict):
         :param _builtins.str branch: The active branch of the Nessie catalog from which Iceberg reads and writes table metadata.
         :param _builtins.str catalog_type: The catalog type.
         :param _builtins.str client_id: Azure client ID of the application. This property is required when 'authenticationType' is set to 'AZURE_ACTIVE_DIRECTORY'. e.g.: 06ecaabf-8b80-4ec8-a0ec-20cbf463703d
-        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
         :param _builtins.str glue_id: The AWS Glue Catalog ID where Iceberg tables are registered.
         :param _builtins.str name: The catalog name within Polaris where Iceberg tables are registered.
         :param _builtins.str principal_role: The Snowflake role used to access Polaris.
@@ -2201,7 +2283,7 @@ class GetConnectionCatalogResult(dict):
     @pulumi.getter(name="clientSecretSecretId")
     def client_secret_secret_id(self) -> _builtins.str:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
         """
         return pulumi.get(self, "client_secret_secret_id")
 
@@ -2483,6 +2565,8 @@ class GetConnectionsConnectionCollectionItemResult(dict):
                  client_id: _builtins.str,
                  client_secret: _builtins.str,
                  client_secret_secret_id: _builtins.str,
+                 cluster_id: _builtins.str,
+                 cluster_placement_group_id: _builtins.str,
                  compartment_id: _builtins.str,
                  connection_factory: _builtins.str,
                  connection_string: _builtins.str,
@@ -2536,6 +2620,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
                  sas_token_secret_id: _builtins.str,
                  secret_access_key: _builtins.str,
                  secret_access_key_secret_id: _builtins.str,
+                 security_attributes: Mapping[str, _builtins.str],
                  security_protocol: _builtins.str,
                  servers: _builtins.str,
                  service_account_key_file: _builtins.str,
@@ -2562,6 +2647,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
                  storages: Sequence['outputs.GetConnectionsConnectionCollectionItemStorageResult'],
                  stream_pool_id: _builtins.str,
                  subnet_id: _builtins.str,
+                 subscription_id: _builtins.str,
                  system_tags: Mapping[str, _builtins.str],
                  technology_type: _builtins.str,
                  tenancy_id: _builtins.str,
@@ -2603,7 +2689,9 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         :param Sequence['GetConnectionsConnectionCollectionItemBootstrapServerArgs'] bootstrap_servers: Kafka bootstrap. Equivalent of bootstrap.servers configuration property in Kafka: list of KafkaBootstrapServer objects specified by host/port. Used for establishing the initial connection to the Kafka cluster. Example: `"server1.example.com:9092,server2.example.com:9092"`
         :param Sequence['GetConnectionsConnectionCollectionItemCatalogArgs'] catalogs: Represents the catalog of given type used in an Iceberg connection.
         :param _builtins.str client_id: Azure client ID of the application. This property is required when 'authenticationType' is set to 'AZURE_ACTIVE_DIRECTORY'. e.g.: 06ecaabf-8b80-4ec8-a0ec-20cbf463703d
-        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
+        :param _builtins.str cluster_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Kafka cluster being referenced from Oracle Cloud Infrastructure Streaming with Apache Kafka.
+        :param _builtins.str cluster_placement_group_id: The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud  must not be provided.
         :param _builtins.str compartment_id: The OCID of the compartment that contains the work request. Work requests should be scoped  to the same compartment as the resource the work request affects. If the work request concerns  multiple resources, and those resources are not in the same compartment, it is up to the service team  to pick the primary resource whose compartment should be used.
         :param _builtins.str connection_factory: The of Java class implementing javax.jms.ConnectionFactory interface supplied by the Java Message Service provider. e.g.: 'com.stc.jmsjca.core.JConnectionFactoryXA'
         :param _builtins.str connection_string: * ORACLE: Connect descriptor or Easy Connect Naming method used to connect to a database.
@@ -2656,6 +2744,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         :param _builtins.str routing_method: Controls the network traffic direction to the target: SHARED_SERVICE_ENDPOINT: Traffic flows through the Goldengate Service's network to public hosts. Cannot be used for private targets.  SHARED_DEPLOYMENT_ENDPOINT: Network traffic flows from the assigned deployment's private endpoint through the deployment's subnet. DEDICATED_ENDPOINT: A dedicated private endpoint is created in the target VCN subnet for the connection. The subnetId is required when DEDICATED_ENDPOINT networking is selected.
         :param _builtins.str sas_token_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the sas token is stored. Note: When provided, 'sasToken' field must not be provided.
         :param _builtins.str secret_access_key_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the Secret Access Key is stored.
+        :param Mapping[str, _builtins.str] security_attributes: Security attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "enforce"}}}`
         :param _builtins.str security_protocol: Security Protocol to be provided for the following connection types:
                * ELASTICSEARCH, KAFKA, MICROSOFT_SQLSERVER, MYSQL, POSTGRESQL, REDIS
                * JAVA_MESSAGE_SERVICE - If not provided, default is NONE. Optional until 2024-06-27, in the release after it will be made required.
@@ -2664,7 +2753,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         :param _builtins.str service_account_key_file_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the content of the service account key file is stored, which contains the credentials required to use Google Cloud Storage.
         :param _builtins.str session_mode: The mode of the database connection session to be established by the data client. 'REDIRECT' - for a RAC database, 'DIRECT' - for a non-RAC database. Connection to a RAC database involves a redirection received from the SCAN listeners to the database node to connect to. By default the mode would be DIRECT.
         :param _builtins.bool should_use_jndi: If set to true, Java Naming and Directory Interface (JNDI) properties should be provided.
-        :param _builtins.bool should_use_resource_principal: Specifies that the user intends to authenticate to the instance using a resource principal. Default: false
+        :param _builtins.bool should_use_resource_principal: Specifies that the user intends to authenticate to the instance using a resource principal. Applicable only for Oracle Cloud Infrastructure Streaming connections. Only available from 23.9.0.0.0 GoldenGate versions. Note: When specified, 'username'/'password'/'passwordSecretId' fields must not be provided. Default: false
         :param _builtins.bool should_validate_server_certificate: If set to true, the driver validates the certificate that is sent by the database server.
         :param _builtins.str ssl_ca: Database Certificate - The base64 encoded content of a .pem or .crt file. containing the server public key (for 1-way SSL). The supported file formats are .pem and .crt. In case of MYSQL and POSTGRESQL connections it is not included in GET responses if the `view=COMPACT` query parameter is specified.
         :param _builtins.str ssl_cert: Client Certificate - The base64 encoded content of a .pem or .crt file containing the client public key (for 2-way SSL). It is not included in GET responses if the `view=COMPACT` query parameter is specified.
@@ -2681,6 +2770,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         :param Sequence['GetConnectionsConnectionCollectionItemStorageArgs'] storages: Represents the storage of given type used in an Iceberg connection.
         :param _builtins.str stream_pool_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the stream pool being referenced.
         :param _builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the target subnet of the dedicated connection.
+        :param _builtins.str subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
         :param Mapping[str, _builtins.str] system_tags: The system tags associated with this resource, if any. The system tags are set by Oracle Cloud Infrastructure services. Each key is predefined and scoped to namespaces.  For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{orcl-cloud: {free-tier-retain: true}}`
         :param _builtins.str technology_type: The array of technology types.
         :param _builtins.str tenancy_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the related Oracle Cloud Infrastructure tenancy.
@@ -2713,6 +2803,8 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         pulumi.set(__self__, "client_id", client_id)
         pulumi.set(__self__, "client_secret", client_secret)
         pulumi.set(__self__, "client_secret_secret_id", client_secret_secret_id)
+        pulumi.set(__self__, "cluster_id", cluster_id)
+        pulumi.set(__self__, "cluster_placement_group_id", cluster_placement_group_id)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "connection_factory", connection_factory)
         pulumi.set(__self__, "connection_string", connection_string)
@@ -2766,6 +2858,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         pulumi.set(__self__, "sas_token_secret_id", sas_token_secret_id)
         pulumi.set(__self__, "secret_access_key", secret_access_key)
         pulumi.set(__self__, "secret_access_key_secret_id", secret_access_key_secret_id)
+        pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "security_protocol", security_protocol)
         pulumi.set(__self__, "servers", servers)
         pulumi.set(__self__, "service_account_key_file", service_account_key_file)
@@ -2792,6 +2885,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         pulumi.set(__self__, "storages", storages)
         pulumi.set(__self__, "stream_pool_id", stream_pool_id)
         pulumi.set(__self__, "subnet_id", subnet_id)
+        pulumi.set(__self__, "subscription_id", subscription_id)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "technology_type", technology_type)
         pulumi.set(__self__, "tenancy_id", tenancy_id)
@@ -2924,9 +3018,25 @@ class GetConnectionsConnectionCollectionItemResult(dict):
     @pulumi.getter(name="clientSecretSecretId")
     def client_secret_secret_id(self) -> _builtins.str:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
         """
         return pulumi.get(self, "client_secret_secret_id")
+
+    @_builtins.property
+    @pulumi.getter(name="clusterId")
+    def cluster_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Kafka cluster being referenced from Oracle Cloud Infrastructure Streaming with Apache Kafka.
+        """
+        return pulumi.get(self, "cluster_id")
+
+    @_builtins.property
+    @pulumi.getter(name="clusterPlacementGroupId")
+    def cluster_placement_group_id(self) -> _builtins.str:
+        """
+        The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud  must not be provided.
+        """
+        return pulumi.get(self, "cluster_placement_group_id")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -3334,6 +3444,14 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         return pulumi.get(self, "secret_access_key_secret_id")
 
     @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Mapping[str, _builtins.str]:
+        """
+        Security attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "enforce"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @_builtins.property
     @pulumi.getter(name="securityProtocol")
     def security_protocol(self) -> _builtins.str:
         """
@@ -3385,7 +3503,7 @@ class GetConnectionsConnectionCollectionItemResult(dict):
     @pulumi.getter(name="shouldUseResourcePrincipal")
     def should_use_resource_principal(self) -> _builtins.bool:
         """
-        Specifies that the user intends to authenticate to the instance using a resource principal. Default: false
+        Specifies that the user intends to authenticate to the instance using a resource principal. Applicable only for Oracle Cloud Infrastructure Streaming connections. Only available from 23.9.0.0.0 GoldenGate versions. Note: When specified, 'username'/'password'/'passwordSecretId' fields must not be provided. Default: false
         """
         return pulumi.get(self, "should_use_resource_principal")
 
@@ -3529,6 +3647,14 @@ class GetConnectionsConnectionCollectionItemResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the target subnet of the dedicated connection.
         """
         return pulumi.get(self, "subnet_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
+        """
+        return pulumi.get(self, "subscription_id")
 
     @_builtins.property
     @pulumi.getter(name="systemTags")
@@ -3781,7 +3907,7 @@ class GetConnectionsConnectionCollectionItemCatalogResult(dict):
         :param _builtins.str branch: The active branch of the Nessie catalog from which Iceberg reads and writes table metadata.
         :param _builtins.str catalog_type: The catalog type.
         :param _builtins.str client_id: Azure client ID of the application. This property is required when 'authenticationType' is set to 'AZURE_ACTIVE_DIRECTORY'. e.g.: 06ecaabf-8b80-4ec8-a0ec-20cbf463703d
-        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        :param _builtins.str client_secret_secret_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
         :param _builtins.str glue_id: The AWS Glue Catalog ID where Iceberg tables are registered.
         :param _builtins.str name: The catalog name within Polaris where Iceberg tables are registered.
         :param _builtins.str principal_role: The Snowflake role used to access Polaris.
@@ -3826,7 +3952,7 @@ class GetConnectionsConnectionCollectionItemCatalogResult(dict):
     @pulumi.getter(name="clientSecretSecretId")
     def client_secret_secret_id(self) -> _builtins.str:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Note: When provided, 'clientSecret' field must not be provided.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Secret where the client secret is stored. Only applicable for authenticationType == OAUTH_M2M. Note: When provided, 'clientSecret' field must not be provided.
         """
         return pulumi.get(self, "client_secret_secret_id")
 
@@ -5778,6 +5904,7 @@ class GetDeploymentPeersDeploymentPeerCollectionResult(dict):
 class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
     def __init__(__self__, *,
                  availability_domain: _builtins.str,
+                 cluster_placement_group_id: _builtins.str,
                  deployment_id: _builtins.str,
                  display_name: _builtins.str,
                  fault_domain: _builtins.str,
@@ -5785,12 +5912,14 @@ class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
                  peer_type: _builtins.str,
                  region: _builtins.str,
                  state: _builtins.str,
+                 subscription_id: _builtins.str,
                  time_created: _builtins.str,
                  time_last_synced: _builtins.str,
                  time_role_changed: _builtins.str,
                  time_updated: _builtins.str):
         """
         :param _builtins.str availability_domain: The availability domain of a placement.
+        :param _builtins.str cluster_placement_group_id: The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud subscriptions. The cluster placement group id must be provided when a multicloud subscription id is provided. Otherwise the cluster placement group must not be provided.
         :param _builtins.str deployment_id: A unique Deployment identifier.
         :param _builtins.str display_name: A filter to return only the resources that match the entire 'displayName' given.
         :param _builtins.str fault_domain: The fault domain of a placement.
@@ -5798,12 +5927,14 @@ class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
         :param _builtins.str peer_type: The type of the deployment peer.
         :param _builtins.str region: The name of the region. e.g.: us-ashburn-1 If the region is not provided, backend will default to the default region.
         :param _builtins.str state: A filter to return only the resources that match the 'lifecycleState' given.
+        :param _builtins.str subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
         :param _builtins.str time_created: The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str time_last_synced: The time of the last data synchronization from the primary to the standby peer. [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str time_role_changed: The time of the last role change. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str time_updated: The time the resource was last updated. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         """
         pulumi.set(__self__, "availability_domain", availability_domain)
+        pulumi.set(__self__, "cluster_placement_group_id", cluster_placement_group_id)
         pulumi.set(__self__, "deployment_id", deployment_id)
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "fault_domain", fault_domain)
@@ -5811,6 +5942,7 @@ class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
         pulumi.set(__self__, "peer_type", peer_type)
         pulumi.set(__self__, "region", region)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "subscription_id", subscription_id)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_last_synced", time_last_synced)
         pulumi.set(__self__, "time_role_changed", time_role_changed)
@@ -5823,6 +5955,14 @@ class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
         The availability domain of a placement.
         """
         return pulumi.get(self, "availability_domain")
+
+    @_builtins.property
+    @pulumi.getter(name="clusterPlacementGroupId")
+    def cluster_placement_group_id(self) -> _builtins.str:
+        """
+        The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud subscriptions. The cluster placement group id must be provided when a multicloud subscription id is provided. Otherwise the cluster placement group must not be provided.
+        """
+        return pulumi.get(self, "cluster_placement_group_id")
 
     @_builtins.property
     @pulumi.getter(name="deploymentId")
@@ -5879,6 +6019,14 @@ class GetDeploymentPeersDeploymentPeerCollectionItemResult(dict):
         A filter to return only the resources that match the 'lifecycleState' given.
         """
         return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
+        """
+        return pulumi.get(self, "subscription_id")
 
     @_builtins.property
     @pulumi.getter(name="timeCreated")
@@ -6710,6 +6858,7 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
                  backup_schedules: Sequence['outputs.GetDeploymentsDeploymentCollectionItemBackupScheduleResult'],
                  byol_cpu_core_count_limit: _builtins.int,
                  category: _builtins.str,
+                 cluster_placement_group_id: _builtins.str,
                  compartment_id: _builtins.str,
                  cpu_core_count: _builtins.int,
                  defined_tags: Mapping[str, _builtins.str],
@@ -6748,10 +6897,12 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
                  placements: Sequence['outputs.GetDeploymentsDeploymentCollectionItemPlacementResult'],
                  private_ip_address: _builtins.str,
                  public_ip_address: _builtins.str,
+                 security_attributes: Mapping[str, _builtins.str],
                  source_deployment_id: _builtins.str,
                  state: _builtins.str,
                  storage_utilization_in_bytes: _builtins.str,
                  subnet_id: _builtins.str,
+                 subscription_id: _builtins.str,
                  system_tags: Mapping[str, _builtins.str],
                  time_created: _builtins.str,
                  time_last_backup_scheduled: _builtins.str,
@@ -6766,6 +6917,7 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         :param Sequence['GetDeploymentsDeploymentCollectionItemBackupScheduleArgs'] backup_schedules: Defines the schedule of the deployment backup.
         :param _builtins.int byol_cpu_core_count_limit: The maximum number of CPUs allowed with a 'Bring Your Own License' (BYOL) license type. Any CPU usage above this limit is considered as License Included and billed.
         :param _builtins.str category: The deployment category defines the broad separation of the deployment type into three categories. Currently the separation is 'DATA_REPLICATION', 'STREAM_ANALYTICS' and 'DATA_TRANSFORMS'.
+        :param _builtins.str cluster_placement_group_id: The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud subscriptions. The cluster placement group id must be provided when a multicloud subscription id is provided. Otherwise the cluster placement group must not be provided.
         :param _builtins.str compartment_id: The OCID of the compartment that contains the work request. Work requests should be scoped  to the same compartment as the resource the work request affects. If the work request concerns  multiple resources, and those resources are not in the same compartment, it is up to the service team  to pick the primary resource whose compartment should be used.
         :param _builtins.int cpu_core_count: The Minimum number of OCPUs to be made available for this Deployment.
         :param Mapping[str, _builtins.str] defined_tags: Tags defined for this resource. Each key is predefined and scoped to a namespace.  Example: `{"foo-namespace.bar-key": "value"}`
@@ -6803,10 +6955,12 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         :param Sequence['GetDeploymentsDeploymentCollectionItemPlacementArgs'] placements: An array of local peers of deployment
         :param _builtins.str private_ip_address: The private IP address in the customer's VCN representing the access point for the associated endpoint service in the GoldenGate service VCN.
         :param _builtins.str public_ip_address: The public IP address representing the access point for the Deployment.
+        :param Mapping[str, _builtins.str] security_attributes: Security attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "enforce"}}}`
         :param _builtins.str source_deployment_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the deployment being referenced.
         :param _builtins.str state: A filter to return only the resources that match the 'lifecycleState' given.
         :param _builtins.str storage_utilization_in_bytes: The amount of storage being utilized (in bytes)
         :param _builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet of the deployment's private endpoint. The subnet must be a private subnet. For backward compatibility, public subnets are allowed until May 31 2025, after which the private subnet will be enforced.
+        :param _builtins.str subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
         :param Mapping[str, _builtins.str] system_tags: The system tags associated with this resource, if any. The system tags are set by Oracle Cloud Infrastructure services. Each key is predefined and scoped to namespaces.  For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{orcl-cloud: {free-tier-retain: true}}`
         :param _builtins.str time_created: The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str time_last_backup_scheduled: The timestamp of last deployment backup scheduled. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2024-10-25T18:19:29.600Z`.
@@ -6821,6 +6975,7 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         pulumi.set(__self__, "backup_schedules", backup_schedules)
         pulumi.set(__self__, "byol_cpu_core_count_limit", byol_cpu_core_count_limit)
         pulumi.set(__self__, "category", category)
+        pulumi.set(__self__, "cluster_placement_group_id", cluster_placement_group_id)
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "cpu_core_count", cpu_core_count)
         pulumi.set(__self__, "defined_tags", defined_tags)
@@ -6859,10 +7014,12 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         pulumi.set(__self__, "placements", placements)
         pulumi.set(__self__, "private_ip_address", private_ip_address)
         pulumi.set(__self__, "public_ip_address", public_ip_address)
+        pulumi.set(__self__, "security_attributes", security_attributes)
         pulumi.set(__self__, "source_deployment_id", source_deployment_id)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "storage_utilization_in_bytes", storage_utilization_in_bytes)
         pulumi.set(__self__, "subnet_id", subnet_id)
+        pulumi.set(__self__, "subscription_id", subscription_id)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "time_last_backup_scheduled", time_last_backup_scheduled)
@@ -6904,6 +7061,14 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         The deployment category defines the broad separation of the deployment type into three categories. Currently the separation is 'DATA_REPLICATION', 'STREAM_ANALYTICS' and 'DATA_TRANSFORMS'.
         """
         return pulumi.get(self, "category")
+
+    @_builtins.property
+    @pulumi.getter(name="clusterPlacementGroupId")
+    def cluster_placement_group_id(self) -> _builtins.str:
+        """
+        The OCID(https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group for the resource. Only applicable for multicloud subscriptions. The cluster placement group id must be provided when a multicloud subscription id is provided. Otherwise the cluster placement group must not be provided.
+        """
+        return pulumi.get(self, "cluster_placement_group_id")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
@@ -7207,6 +7372,14 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         return pulumi.get(self, "public_ip_address")
 
     @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Mapping[str, _builtins.str]:
+        """
+        Security attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "enforce"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @_builtins.property
     @pulumi.getter(name="sourceDeploymentId")
     def source_deployment_id(self) -> _builtins.str:
         """
@@ -7237,6 +7410,14 @@ class GetDeploymentsDeploymentCollectionItemResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet of the deployment's private endpoint. The subnet must be a private subnet. For backward compatibility, public subnets are allowed until May 31 2025, after which the private subnet will be enforced.
         """
         return pulumi.get(self, "subnet_id")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
+        """
+        return pulumi.get(self, "subscription_id")
 
     @_builtins.property
     @pulumi.getter(name="systemTags")
@@ -7959,15 +8140,39 @@ class GetMessagesFilterResult(dict):
 
 
 @pulumi.output_type
+class GetPipelineIngressIpResult(dict):
+    def __init__(__self__, *,
+                 ingress_ip: _builtins.str):
+        """
+        :param _builtins.str ingress_ip: A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        pulumi.set(__self__, "ingress_ip", ingress_ip)
+
+    @_builtins.property
+    @pulumi.getter(name="ingressIp")
+    def ingress_ip(self) -> _builtins.str:
+        """
+        A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        return pulumi.get(self, "ingress_ip")
+
+
+@pulumi.output_type
 class GetPipelineLockResult(dict):
     def __init__(__self__, *,
                  message: _builtins.str,
+                 related_resource_id: _builtins.str,
+                 time_created: _builtins.str,
                  type: _builtins.str):
         """
         :param _builtins.str message: A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
+        :param _builtins.str related_resource_id: The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        :param _builtins.str time_created: The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str type: Type of the lock.
         """
         pulumi.set(__self__, "message", message)
+        pulumi.set(__self__, "related_resource_id", related_resource_id)
+        pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "type", type)
 
     @_builtins.property
@@ -7977,6 +8182,22 @@ class GetPipelineLockResult(dict):
         A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
         """
         return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="relatedResourceId")
+    def related_resource_id(self) -> _builtins.str:
+        """
+        The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        """
+        return pulumi.get(self, "related_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> _builtins.str:
+        """
+        The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
+        """
+        return pulumi.get(self, "time_created")
 
     @_builtins.property
     @pulumi.getter
@@ -8577,6 +8798,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
                  display_name: _builtins.str,
                  freeform_tags: Mapping[str, _builtins.str],
                  id: _builtins.str,
+                 ingress_ips: Sequence['outputs.GetPipelinesPipelineCollectionItemIngressIpResult'],
                  is_auto_scaling_enabled: _builtins.bool,
                  license_model: _builtins.str,
                  lifecycle_details: _builtins.str,
@@ -8588,6 +8810,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
                  recipe_type: _builtins.str,
                  source_connection_details: Sequence['outputs.GetPipelinesPipelineCollectionItemSourceConnectionDetailResult'],
                  state: _builtins.str,
+                 subnet_id: _builtins.str,
                  system_tags: Mapping[str, _builtins.str],
                  target_connection_details: Sequence['outputs.GetPipelinesPipelineCollectionItemTargetConnectionDetailResult'],
                  time_created: _builtins.str,
@@ -8601,6 +8824,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         :param _builtins.str display_name: A filter to return only the resources that match the entire 'displayName' given.
         :param Mapping[str, _builtins.str] freeform_tags: A simple key-value pair that is applied without any predefined name, type, or scope. Exists for cross-compatibility only.  Example: `{"bar-key": "value"}`
         :param _builtins.str id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the pipeline. This option applies when retrieving a pipeline.
+        :param Sequence['GetPipelinesPipelineCollectionItemIngressIpArgs'] ingress_ips: List of ingress IP addresses from where the GoldenGate deployment connects to this connection's privateIp.  Customers may optionally set up ingress security rules to restrict traffic from these IP addresses.
         :param _builtins.bool is_auto_scaling_enabled: Indicates if auto scaling is enabled for the Deployment's CPU core count.
         :param _builtins.str license_model: The Oracle license model that applies to a Deployment.
         :param _builtins.str lifecycle_details: Describes the object's current state in detail. For example, it can be used to provide actionable information for a resource in a Failed state.
@@ -8612,6 +8836,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         :param _builtins.str recipe_type: The type of the recipe
         :param Sequence['GetPipelinesPipelineCollectionItemSourceConnectionDetailArgs'] source_connection_details: The source connection details for creating a pipeline.
         :param _builtins.str state: A filtered list of pipelines to return for a given lifecycleState.
+        :param _builtins.str subnet_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet of the pipeline's private endpoint. The subnet must be a private subnet.
         :param Mapping[str, _builtins.str] system_tags: The system tags associated with this resource, if any. The system tags are set by Oracle Cloud Infrastructure services. Each key is predefined and scoped to namespaces.  For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{orcl-cloud: {free-tier-retain: true}}`
         :param Sequence['GetPipelinesPipelineCollectionItemTargetConnectionDetailArgs'] target_connection_details: The target connection details for creating a pipeline.
         :param _builtins.str time_created: The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
@@ -8625,6 +8850,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         pulumi.set(__self__, "display_name", display_name)
         pulumi.set(__self__, "freeform_tags", freeform_tags)
         pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "ingress_ips", ingress_ips)
         pulumi.set(__self__, "is_auto_scaling_enabled", is_auto_scaling_enabled)
         pulumi.set(__self__, "license_model", license_model)
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
@@ -8636,6 +8862,7 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         pulumi.set(__self__, "recipe_type", recipe_type)
         pulumi.set(__self__, "source_connection_details", source_connection_details)
         pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "subnet_id", subnet_id)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "target_connection_details", target_connection_details)
         pulumi.set(__self__, "time_created", time_created)
@@ -8697,6 +8924,14 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the pipeline. This option applies when retrieving a pipeline.
         """
         return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="ingressIps")
+    def ingress_ips(self) -> Sequence['outputs.GetPipelinesPipelineCollectionItemIngressIpResult']:
+        """
+        List of ingress IP addresses from where the GoldenGate deployment connects to this connection's privateIp.  Customers may optionally set up ingress security rules to restrict traffic from these IP addresses.
+        """
+        return pulumi.get(self, "ingress_ips")
 
     @_builtins.property
     @pulumi.getter(name="isAutoScalingEnabled")
@@ -8787,6 +9022,14 @@ class GetPipelinesPipelineCollectionItemResult(dict):
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> _builtins.str:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet of the pipeline's private endpoint. The subnet must be a private subnet.
+        """
+        return pulumi.get(self, "subnet_id")
+
+    @_builtins.property
     @pulumi.getter(name="systemTags")
     def system_tags(self) -> Mapping[str, _builtins.str]:
         """
@@ -8828,15 +9071,39 @@ class GetPipelinesPipelineCollectionItemResult(dict):
 
 
 @pulumi.output_type
+class GetPipelinesPipelineCollectionItemIngressIpResult(dict):
+    def __init__(__self__, *,
+                 ingress_ip: _builtins.str):
+        """
+        :param _builtins.str ingress_ip: A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        pulumi.set(__self__, "ingress_ip", ingress_ip)
+
+    @_builtins.property
+    @pulumi.getter(name="ingressIp")
+    def ingress_ip(self) -> _builtins.str:
+        """
+        A Private Endpoint IPv4 or IPv6 Address created in the customer's subnet.
+        """
+        return pulumi.get(self, "ingress_ip")
+
+
+@pulumi.output_type
 class GetPipelinesPipelineCollectionItemLockResult(dict):
     def __init__(__self__, *,
                  message: _builtins.str,
+                 related_resource_id: _builtins.str,
+                 time_created: _builtins.str,
                  type: _builtins.str):
         """
         :param _builtins.str message: A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
+        :param _builtins.str related_resource_id: The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        :param _builtins.str time_created: The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
         :param _builtins.str type: Type of the lock.
         """
         pulumi.set(__self__, "message", message)
+        pulumi.set(__self__, "related_resource_id", related_resource_id)
+        pulumi.set(__self__, "time_created", time_created)
         pulumi.set(__self__, "type", type)
 
     @_builtins.property
@@ -8846,6 +9113,22 @@ class GetPipelinesPipelineCollectionItemLockResult(dict):
         A message added by the creator of the lock. This is typically used to give an indication of why the resource is locked.
         """
         return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="relatedResourceId")
+    def related_resource_id(self) -> _builtins.str:
+        """
+        The id of the resource that is locking this resource. Indicates that deleting this resource will remove the lock.
+        """
+        return pulumi.get(self, "related_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> _builtins.str:
+        """
+        The time the resource was created. The format is defined by [RFC3339](https://tools.ietf.org/html/rfc3339), such as `2016-08-25T21:10:29.600Z`.
+        """
+        return pulumi.get(self, "time_created")
 
     @_builtins.property
     @pulumi.getter

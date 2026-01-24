@@ -15,8 +15,12 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
+    from datadog_api_client.v2.model.monitor_notification_rule_conditional_recipients import (
+        MonitorNotificationRuleConditionalRecipients,
+    )
     from datadog_api_client.v2.model.monitor_notification_rule_filter import MonitorNotificationRuleFilter
     from datadog_api_client.v2.model.monitor_notification_rule_filter_tags import MonitorNotificationRuleFilterTags
+    from datadog_api_client.v2.model.monitor_notification_rule_filter_scope import MonitorNotificationRuleFilterScope
 
 
 class MonitorNotificationRuleResponseAttributes(ModelNormal):
@@ -33,9 +37,13 @@ class MonitorNotificationRuleResponseAttributes(ModelNormal):
 
     @cached_property
     def openapi_types(_):
+        from datadog_api_client.v2.model.monitor_notification_rule_conditional_recipients import (
+            MonitorNotificationRuleConditionalRecipients,
+        )
         from datadog_api_client.v2.model.monitor_notification_rule_filter import MonitorNotificationRuleFilter
 
         return {
+            "conditional_recipients": (MonitorNotificationRuleConditionalRecipients,),
             "created": (datetime,),
             "filter": (MonitorNotificationRuleFilter,),
             "modified": (datetime,),
@@ -44,6 +52,7 @@ class MonitorNotificationRuleResponseAttributes(ModelNormal):
         }
 
     attribute_map = {
+        "conditional_recipients": "conditional_recipients",
         "created": "created",
         "filter": "filter",
         "modified": "modified",
@@ -53,8 +62,14 @@ class MonitorNotificationRuleResponseAttributes(ModelNormal):
 
     def __init__(
         self_,
+        conditional_recipients: Union[MonitorNotificationRuleConditionalRecipients, UnsetType] = unset,
         created: Union[datetime, UnsetType] = unset,
-        filter: Union[MonitorNotificationRuleFilter, MonitorNotificationRuleFilterTags, UnsetType] = unset,
+        filter: Union[
+            MonitorNotificationRuleFilter,
+            MonitorNotificationRuleFilterTags,
+            MonitorNotificationRuleFilterScope,
+            UnsetType,
+        ] = unset,
         modified: Union[datetime, UnsetType] = unset,
         name: Union[str, UnsetType] = unset,
         recipients: Union[List[str], UnsetType] = unset,
@@ -62,6 +77,9 @@ class MonitorNotificationRuleResponseAttributes(ModelNormal):
     ):
         """
         Attributes of the monitor notification rule.
+
+        :param conditional_recipients: Use conditional recipients to define different recipients for different situations. Cannot be used with ``recipients``.
+        :type conditional_recipients: MonitorNotificationRuleConditionalRecipients, optional
 
         :param created: Creation time of the monitor notification rule.
         :type created: datetime, optional
@@ -75,9 +93,11 @@ class MonitorNotificationRuleResponseAttributes(ModelNormal):
         :param name: The name of the monitor notification rule.
         :type name: str, optional
 
-        :param recipients: A list of recipients to notify. Uses the same format as the monitor ``message`` field. Must not start with an '@'.
+        :param recipients: A list of recipients to notify. Uses the same format as the monitor ``message`` field. Must not start with an '@'. Cannot be used with ``conditional_recipients``.
         :type recipients: [str], optional
         """
+        if conditional_recipients is not unset:
+            kwargs["conditional_recipients"] = conditional_recipients
         if created is not unset:
             kwargs["created"] = created
         if filter is not unset:

@@ -16,10 +16,14 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
+
 import tink
+from tink import _keyset_handle
+from tink import _monitoring
 from tink import core
 from tink import hybrid
 from tink import secret_key_access
+from tink.testing import fake_key_usage_monitor
 from tink.testing import keyset_builder
 
 
@@ -106,8 +110,7 @@ class HybridWrapperTest(parameterized.TestCase):
     hybrid_enc = public_handle.primitive(hybrid.HybridEncrypt)
     ciphertext = hybrid_enc.encrypt(b'plaintext', b'context')
     hybrid_dec = private_handle.primitive(hybrid.HybridDecrypt)
-    self.assertEqual(hybrid_dec.decrypt(ciphertext, b'context'),
-                     b'plaintext')
+    self.assertEqual(hybrid_dec.decrypt(ciphertext, b'context'), b'plaintext')
 
   @parameterized.parameters([TEMPLATE, RAW_TEMPLATE])
   def test_decrypt_unknown_ciphertext_fails(self, template):
@@ -132,10 +135,12 @@ class HybridWrapperTest(parameterized.TestCase):
     with self.assertRaises(core.TinkError):
       hybrid_dec.decrypt(ciphertext, b'wrong_context')
 
-  @parameterized.parameters([(TEMPLATE, TEMPLATE),
-                             (RAW_TEMPLATE, TEMPLATE),
-                             (TEMPLATE, RAW_TEMPLATE),
-                             (RAW_TEMPLATE, RAW_TEMPLATE)])
+  @parameterized.parameters([
+      (TEMPLATE, TEMPLATE),
+      (RAW_TEMPLATE, TEMPLATE),
+      (TEMPLATE, RAW_TEMPLATE),
+      (RAW_TEMPLATE, RAW_TEMPLATE),
+  ])
   def test_encrypt_decrypt_with_key_rotation(self, old_template, new_template):
     builder = keyset_builder.new_keyset_builder()
     older_key_id = builder.add_new_key(old_template)
@@ -143,25 +148,29 @@ class HybridWrapperTest(parameterized.TestCase):
     private_handle1 = builder.keyset_handle()
     dec1 = private_handle1.primitive(hybrid.HybridDecrypt)
     enc1 = private_handle1.public_keyset_handle().primitive(
-        hybrid.HybridEncrypt)
+        hybrid.HybridEncrypt
+    )
 
     newer_key_id = builder.add_new_key(new_template)
     private_handle2 = builder.keyset_handle()
     dec2 = private_handle2.primitive(hybrid.HybridDecrypt)
     enc2 = private_handle2.public_keyset_handle().primitive(
-        hybrid.HybridEncrypt)
+        hybrid.HybridEncrypt
+    )
 
     builder.set_primary_key(newer_key_id)
     private_handle3 = builder.keyset_handle()
     dec3 = private_handle3.primitive(hybrid.HybridDecrypt)
     enc3 = private_handle3.public_keyset_handle().primitive(
-        hybrid.HybridEncrypt)
+        hybrid.HybridEncrypt
+    )
 
     builder.disable_key(older_key_id)
     private_handle4 = builder.keyset_handle()
     dec4 = private_handle4.primitive(hybrid.HybridDecrypt)
     enc4 = private_handle4.public_keyset_handle().primitive(
-        hybrid.HybridEncrypt)
+        hybrid.HybridEncrypt
+    )
     self.assertNotEqual(older_key_id, newer_key_id)
 
     # p1 encrypts with the older key. So p1, p2 and p3 can decrypt it,
@@ -227,9 +236,65 @@ class HybridWrapperTest(parameterized.TestCase):
         )
     )
     enc_without_primary = public_handle_without_primary.primitive(
-        hybrid.HybridEncrypt)
+        hybrid.HybridEncrypt
+    )
     with self.assertRaises(tink.TinkError):
       enc_without_primary.encrypt(b'plaintext', b'context')
+
+
+class KeyUsageMonitorTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.encrypt_key_usage_monitor = (
+        fake_key_usage_monitor.FakeKeyUsageMonitor()
+    )
+    self.decrypt_key_usage_monitor = (
+        fake_key_usage_monitor.FakeKeyUsageMonitor()
+    )
+    _monitoring.register_key_usage_monitor_factory(
+        lambda context: (
+            self.encrypt_key_usage_monitor
+            if context.get_api_function() == 'encrypt'
+            else self.decrypt_key_usage_monitor
+        )
+    )
+
+  def test_key_usage_monitor_log(self):
+    private_handle = _keyset_handle._new_keyset_handle_with_annotations(
+        TEMPLATE, {'test': 'test'}
+    )
+    public_handle = private_handle.public_keyset_handle()
+    hybrid_enc = public_handle.primitive(hybrid.HybridEncrypt)
+
+    ciphertext = hybrid_enc.encrypt(b'plaintext', b'context')
+    hybrid_dec = private_handle.primitive(hybrid.HybridDecrypt)
+    hybrid_dec.decrypt(ciphertext, b'context')
+
+    self.assertSequenceEqual(
+        self.encrypt_key_usage_monitor.log_calls,
+        [(private_handle.keyset_info().key_info[0].key_id, len(b'plaintext'))],
+    )
+    self.assertSequenceEqual(
+        self.decrypt_key_usage_monitor.log_calls,
+        [(
+            public_handle.keyset_info().key_info[0].key_id,
+            len(ciphertext) - core.crypto_format.NON_RAW_PREFIX_SIZE,
+        )],
+    )
+
+  def test_key_usage_monitor_log_failure(self):
+    private_handle = _keyset_handle._new_keyset_handle_with_annotations(
+        TEMPLATE, {'test': 'test'}
+    )
+    hybrid_dec = private_handle.primitive(hybrid.HybridDecrypt)
+
+    try:
+      hybrid_dec.decrypt(b'x', b'context')
+    except core.TinkError:
+      pass
+
+    self.assertEqual(self.decrypt_key_usage_monitor.log_failure_calls_count, 1)
 
 
 if __name__ == '__main__':

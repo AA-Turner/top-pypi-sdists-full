@@ -50,7 +50,6 @@ def __dir__() -> tuple[str, ...]:
 ###
 
 _T = TypeVar("_T")
-_IntT = TypeVar("_IntT", bound=int, default=int)
 _ValueT = TypeVar("_ValueT", default=object)
 
 
@@ -62,7 +61,8 @@ _ValueT = TypeVar("_ValueT", default=object)
     "and will be removed in optype 0.10.0",
 )
 class Just(  # type: ignore[misc]
-    _just.Just[_T],  # pyright: ignore[reportGeneralTypeIssues]
+    # pyrefly: ignore[invalid-inheritance]
+    _just.Just[_T],  # pyright: ignore[reportGeneralTypeIssues]  # ty:ignore[subclass-of-final-class]
     Protocol[_T],
 ): ...
 
@@ -91,16 +91,16 @@ class JustFloat(_just.JustFloat, Protocol, just=float): ...  # type: ignore[misc
 class JustComplex(_just.JustComplex, Protocol, just=complex): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
 
 
-Just.__doc__ = _just.Just.__doc__  # pyright: ignore[reportDeprecated]
-JustInt.__doc__ = _just.JustInt.__doc__  # pyright: ignore[reportDeprecated]
-JustFloat.__doc__ = _just.JustFloat.__doc__  # pyright: ignore[reportDeprecated]
-JustComplex.__doc__ = _just.JustComplex.__doc__  # pyright: ignore[reportDeprecated]
+Just.__doc__ = _just.Just.__doc__  # pyright: ignore[reportDeprecated]  # ty:ignore[deprecated]
+JustInt.__doc__ = _just.JustInt.__doc__  # pyright: ignore[reportDeprecated]  # ty:ignore[deprecated]
+JustFloat.__doc__ = _just.JustFloat.__doc__  # pyright: ignore[reportDeprecated]  # ty:ignore[deprecated]
+JustComplex.__doc__ = _just.JustComplex.__doc__  # pyright: ignore[reportDeprecated]  # ty:ignore[deprecated]
 
 ###
 
 
 # Anything that can *always* be converted to an `int` / `float` / `complex`
-AnyInt: TypeAlias = _IntT | _c.CanInt[_IntT] | _c.CanIndex[_IntT]
+AnyInt: TypeAlias = int | _c.CanInt | _c.CanIndex
 
 AnyFloat: TypeAlias = _c.CanFloat | _c.CanIndex
 AnyComplex: TypeAlias = _c.CanComplex | _c.CanFloat | _c.CanIndex

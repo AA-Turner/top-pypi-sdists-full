@@ -19,7 +19,7 @@ def sample_arrow_table():
             pa.field("ascii", pa.large_string()),
             pa.field("bytes", pa.large_binary()),
             pa.field("float32", pa.float32()),
-        ]
+        ],
     )
 
     df = pd.DataFrame(
@@ -33,7 +33,7 @@ def sample_arrow_table():
             "ascii": ["aa", "bbb", "cccccc"],
             "bytes": [b"aa", b"bbb", b"ccc"],
             "float32": np.array([0.0, 1.0, 2.0], np.float32),
-        }
+        },
     )
 
     return pa.Table.from_pandas(df, schema)
@@ -68,9 +68,7 @@ def test_dataframe_unicode_value_filter(sample_dataframe_path):
 
     # filter on ascii
     with soma.DataFrame.open(sample_dataframe_path) as sdf:
-        assert sdf.read(
-            value_filter="ascii in ['aa', 'cccccc']"
-        ).concat().to_pydict() == {
+        assert sdf.read(value_filter="ascii in ['aa', 'cccccc']").concat().to_pydict() == {
             "soma_joinid": [0, 2],
             "unicode": [
                 "\N{LATIN CAPITAL LETTER E}\N{COMBINING CIRCUMFLEX ACCENT}",
@@ -83,7 +81,7 @@ def test_dataframe_unicode_value_filter(sample_dataframe_path):
 
         # filter on unicode, equality
         assert sdf.read(
-            value_filter="unicode == '\N{LATIN CAPITAL LETTER E}\N{COMBINING CIRCUMFLEX ACCENT}'"
+            value_filter="unicode == '\N{LATIN CAPITAL LETTER E}\N{COMBINING CIRCUMFLEX ACCENT}'",
         ).concat().to_pydict() == {
             "soma_joinid": [0],
             "unicode": [
@@ -114,9 +112,7 @@ def test_dataframe_unicode_value_filter(sample_dataframe_path):
 def test_dataframe_unicode_index(tmp_path, sample_arrow_table):
     """Verify round-trip of unicode in DataFrame index columns"""
     with soma.DataFrame.create(
-        tmp_path.as_posix(),
-        schema=sample_arrow_table.schema,
-        index_column_names=["unicode"],
+        tmp_path.as_posix(), schema=sample_arrow_table.schema, index_column_names=["unicode"], domain=(None,)
     ) as sdf:
         sdf.write(sample_arrow_table)
     with soma.DataFrame.open(tmp_path.as_posix()) as sdf:

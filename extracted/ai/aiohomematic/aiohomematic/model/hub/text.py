@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Module for hub data points implemented using the text category."""
 
 from __future__ import annotations
@@ -25,6 +25,6 @@ class SysvarDpText(GenericSysvarDataPoint):
         """Get the value of the data_point."""
         return cast(str | None, check_length_and_log(name=self._legacy_name, value=self._value))
 
-    async def send_variable(self, value: str | None) -> None:
+    async def send_variable(self, *, value: str | None) -> None:
         """Set the value of the data_point."""
-        await super().send_variable(value)
+        await super().send_variable(value=value)

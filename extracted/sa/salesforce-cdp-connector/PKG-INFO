@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: salesforce-cdp-connector
-Version: 1.0.16
+Version: 1.0.18
 Summary: Salesforce Data Cloud Python Connector
 Project-URL: homepage, https://github.com/forcedotcom/salesforce-cdp-connector
 Project-URL: source, https://github.com/forcedotcom/salesforce-cdp-connector
@@ -74,6 +74,21 @@ conn = SalesforceCDPConnection(login_url,
    )
 ```
 
+**Using Client Credentials**
+
+The Client Credentials flow is ideal for server-to-server integrations where no user context is required. This flow uses only the connected app's client ID and client secret to authenticate.
+
+```python
+from salesforcecdpconnector.connection import SalesforceCDPConnection
+conn = SalesforceCDPConnection(
+       login_url='<login_url>',
+       client_id='<client_id>', 
+       client_secret='<client_secret>'
+   )
+```
+
+> **Note**: To use Client Credentials flow, your connected app must be configured to allow it. See the official Salesforce documentation: [Configure Client Credentials Flow for External Client Apps](https://help.salesforce.com/s/articleView?id=xcloud.configure_client_credentials_flow_for_external_client_apps.htm&type=5)
+
 Once the connection object is created the queries can be executed using cursor as follows
 
 ```
@@ -86,6 +101,26 @@ The query results can also be directly extracted as a pandas dataframe
 
 ```
 dataframe = conn.get_pandas_dataframe('<query>')
+```
+
+**Using a non-default dataspace**
+```python
+conn = SalesforceCDPConnection(
+        'login_url', 
+        'user_name', 
+        'password', 
+        'client_id', 
+        'client_secret',
+        dataspace="my-dataspace",
+    )
+```
+
+Once the connection object is created the queries can be executed using cursor as follows, all queries will be to this specific dataspace `my-dataspace`
+
+```
+cur = conn.cursor()
+cur.execute('<query>')
+results = cur.fetchall()
 ```
 
 ### Creating a connected App

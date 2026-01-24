@@ -43,8 +43,8 @@ class ExternalVolumeCollection(ExternalVolumeCollectionBase):
 class ExternalVolumeResource(ExternalVolumeResourceBase):
     """Represents a reference to a Snowflake external volume.
 
-    With this external volume reference, you can fetch information about external volumes, as well
-    as perform certain actions on them.
+    With this external volume reference, you can fetch information about an external volume, as well
+    as perform certain actions on it.
     """
 
     _plural_name = "external_volumes"

@@ -38,7 +38,14 @@ class TestBasicIssue(unittest.TestCase):
                 issue_type = 'Misconfiguration',
                 severity = 'Low',
                 id = '',
-                score = 1.337
+                score = 1.337,
+                status = 'Open',
+                detected_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                last_closed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                closing_reason = 'Unknown',
+                origin_type = 'Collaborator',
+                origin_id = '',
+                policy_name = ''
             )
         else:
             return BasicIssue(

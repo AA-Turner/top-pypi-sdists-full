@@ -9,7 +9,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-TIMEOUT = 10
+TIMEOUT = 15
 
 SOURCE = """\
 sample0.py
@@ -86,7 +86,7 @@ EXPECTED_OUTPUT = [
 
 
 def _parameters_data() -> Iterator:
-    import multiprocessing as mp
+    import multiprocessing as mp  # noqa: PLC0415
 
     methods = mp.get_all_start_methods()
     for method in methods:

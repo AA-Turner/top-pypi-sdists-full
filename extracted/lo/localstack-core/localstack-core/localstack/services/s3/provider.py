@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import copy
 import datetime
 import json
@@ -8,6 +9,7 @@ from collections import defaultdict
 from inspect import signature
 from io import BytesIO
 from operator import itemgetter
+from threading import RLock
 from typing import IO
 from urllib import parse as urlparse
 from zoneinfo import ZoneInfo
@@ -23,6 +25,7 @@ from localstack.aws.api.s3 import (
     AccountId,
     AnalyticsConfiguration,
     AnalyticsId,
+    AuthorizationHeaderMalformed,
     BadDigest,
     Body,
     Bucket,
@@ -30,6 +33,7 @@ from localstack.aws.api.s3 import (
     BucketAlreadyOwnedByYou,
     BucketCannedACL,
     BucketLifecycleConfiguration,
+    BucketLocationConstraint,
     BucketLoggingStatus,
     BucketName,
     BucketNotEmpty,
@@ -114,7 +118,6 @@ from localstack.aws.api.s3 import (
     InvalidArgument,
     InvalidBucketName,
     InvalidDigest,
-    InvalidLocationConstraint,
     InvalidObjectState,
     InvalidPartNumber,
     InvalidPartOrder,
@@ -226,7 +229,7 @@ from localstack.aws.handlers import (
     preprocess_request,
     serve_custom_service_request_handlers,
 )
-from localstack.constants import AWS_REGION_US_EAST_1
+from localstack.constants import AWS_REGION_EU_WEST_1, AWS_REGION_US_EAST_1
 from localstack.services.edge import ROUTER
 from localstack.services.plugins import ServiceLifecycleHook
 from localstack.services.s3.codec import AwsChunkedDecoder
@@ -235,6 +238,7 @@ from localstack.services.s3.constants import (
     ARCHIVES_STORAGE_CLASSES,
     CHECKSUM_ALGORITHMS,
     DEFAULT_BUCKET_ENCRYPTION,
+    S3_HOST_ID,
 )
 from localstack.services.s3.cors import S3CorsHandler, s3_cors_request_handler
 from localstack.services.s3.exceptions import (
@@ -274,6 +278,7 @@ from localstack.services.s3.utils import (
     etag_to_base_64_content_md5,
     extract_bucket_key_version_id_from_copy_source,
     generate_safe_version_id,
+    get_bucket_location_xml,
     get_canned_acl,
     get_class_attrs_from_spec_class,
     get_failed_precondition_copy_source,
@@ -300,6 +305,7 @@ from localstack.services.s3.utils import (
     validate_dict_fields,
     validate_failed_precondition,
     validate_kms_key_id,
+    validate_location_constraint,
     validate_tag_set,
 )
 from localstack.services.s3.validation import (
@@ -319,6 +325,7 @@ from localstack.services.s3.validation import (
 from localstack.services.s3.website_hosting import register_website_hosting_routes
 from localstack.state import AssetDirectory, StateVisitor
 from localstack.utils.aws.arns import s3_bucket_name
+from localstack.utils.aws.aws_stack import get_valid_regions_for_service
 from localstack.utils.collections import select_from_typed_dict
 from localstack.utils.strings import short_uid, to_bytes, to_str
 
@@ -338,6 +345,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         self._storage_backend = storage_backend or EphemeralS3ObjectStore(DEFAULT_S3_TMP_DIR)
         self._notification_dispatcher = NotificationDispatcher()
         self._cors_handler = S3CorsHandler(BucketCorsIndex())
+        # TODO: add lock for keys for PutObject, only way to support precondition writes for versioned buckets
+        self._preconditions_locks = defaultdict(lambda: defaultdict(RLock))
 
         # runtime cache of Lifecycle Expiration headers, as they need to be calculated everytime we fetch an object
         # in case the rules have changed
@@ -382,7 +391,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         """
         if s3_bucket.notification_configuration:
             if not s3_notif_ctx:
-                s3_notif_ctx = S3EventNotificationContext.from_request_context_native(
+                s3_notif_ctx = S3EventNotificationContext.from_request_context(
                     context,
                     s3_bucket=s3_bucket,
                     s3_object=s3_object,
@@ -470,39 +479,35 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         context: RequestContext,
         request: CreateBucketRequest,
     ) -> CreateBucketOutput:
+        if context.region == "aws-global":
+            # TODO: extend this logic to probably all the provider, and maybe all services. S3 is the most impacted
+            #  right now so this will help users to properly set a region in their config
+            # See the `TestS3.test_create_bucket_aws_global` test
+            raise AuthorizationHeaderMalformed(
+                f"The authorization header is malformed; the region 'aws-global' is wrong; expecting '{AWS_REGION_US_EAST_1}'",
+                HostId=S3_HOST_ID,
+                Region=AWS_REGION_US_EAST_1,
+            )
+
         bucket_name = request["Bucket"]
 
         if not is_bucket_name_valid(bucket_name):
             raise InvalidBucketName("The specified bucket is not valid.", BucketName=bucket_name)
 
-        # the XML parser returns an empty dict if the body contains the following:
-        # <CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/" />
-        # but it also returns an empty dict if the body is fully empty. We need to differentiate the 2 cases by checking
-        # if the body is empty or not
-        if context.request.data and (
-            (create_bucket_configuration := request.get("CreateBucketConfiguration")) is not None
-        ):
-            if not (bucket_region := create_bucket_configuration.get("LocationConstraint")):
-                raise MalformedXML()
+        create_bucket_configuration = request.get("CreateBucketConfiguration") or {}
 
-            if context.region == AWS_REGION_US_EAST_1:
-                if bucket_region == "us-east-1":
-                    raise InvalidLocationConstraint(
-                        "The specified location-constraint is not valid",
-                        LocationConstraint=bucket_region,
-                    )
-            elif context.region != bucket_region:
-                raise CommonServiceException(
-                    code="IllegalLocationConstraintException",
-                    message=f"The {bucket_region} location constraint is incompatible for the region specific endpoint this request was sent to.",
-                )
-        else:
+        bucket_tags = create_bucket_configuration.get("Tags")
+        if bucket_tags:
+            validate_tag_set(bucket_tags, type_set="create-bucket")
+
+        location_constraint = create_bucket_configuration.get("LocationConstraint", "")
+        validate_location_constraint(context.region, location_constraint)
+
+        bucket_region = location_constraint
+        if not location_constraint:
             bucket_region = AWS_REGION_US_EAST_1
-            if context.region != bucket_region:
-                raise CommonServiceException(
-                    code="IllegalLocationConstraintException",
-                    message="The unspecified location constraint is incompatible for the region specific endpoint this request was sent to.",
-                )
+        if location_constraint == BucketLocationConstraint.EU:
+            bucket_region = AWS_REGION_EU_WEST_1
 
         store = self.get_store(context.account_id, bucket_region)
 
@@ -511,8 +516,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             if existing_bucket_owner != context.account_id:
                 raise BucketAlreadyExists()
 
-            # if the existing bucket has the same owner, the behaviour will depend on the region
-            if bucket_region != "us-east-1":
+            # if the existing bucket has the same owner, the behaviour will depend on the region and if the request has
+            # tags
+            if bucket_region != AWS_REGION_US_EAST_1 or bucket_tags:
                 raise BucketAlreadyOwnedByYou(
                     "Your previous request to create the named bucket succeeded and you already own it.",
                     BucketName=bucket_name,
@@ -531,6 +537,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         # see https://docs.aws.amazon.com/AmazonS3/latest/API/API_Owner.html
         owner = get_owner_for_account_id(context.account_id)
         acl = get_access_control_policy_for_new_resource_request(request, owner=owner)
+
         s3_bucket = S3Bucket(
             name=bucket_name,
             account_id=context.account_id,
@@ -539,10 +546,16 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             acl=acl,
             object_ownership=request.get("ObjectOwnership"),
             object_lock_enabled_for_bucket=request.get("ObjectLockEnabledForBucket"),
+            location_constraint=location_constraint,
         )
 
         store.buckets[bucket_name] = s3_bucket
         store.global_bucket_map[bucket_name] = s3_bucket.bucket_account_id
+        if bucket_tags:
+            store.TAGS.tag_resource(
+                arn=s3_bucket.bucket_arn,
+                tags=bucket_tags,
+            )
         self._cors_handler.invalidate_cache()
         self._storage_backend.create_bucket(bucket_name)
 
@@ -578,6 +591,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         store.global_bucket_map.pop(bucket)
         self._cors_handler.invalidate_cache()
         self._expiration_cache.pop(bucket, None)
+        self._preconditions_locks.pop(bucket, None)
         # clean up the storage backend
         self._storage_backend.delete_bucket(bucket)
 
@@ -590,6 +604,13 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         bucket_region: BucketRegion = None,
         **kwargs,
     ) -> ListBucketsOutput:
+        if bucket_region and not config.ALLOW_NONSTANDARD_REGIONS:
+            if bucket_region not in get_valid_regions_for_service(self.service):
+                raise InvalidArgument(
+                    f"Argument value {bucket_region} is not a valid AWS Region",
+                    ArgumentName="bucket-region",
+                )
+
         owner = get_owner_for_account_id(context.account_id)
         store = self.get_store(context.account_id, context.region)
 
@@ -637,6 +658,16 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         expected_bucket_owner: AccountId = None,
         **kwargs,
     ) -> HeadBucketOutput:
+        if context.region == "aws-global":
+            # TODO: extend this logic to probably all the provider, and maybe all services. S3 is the most impacted
+            #  right now so this will help users to properly set a region in their config
+            # See the `TestS3.test_create_bucket_aws_global` test
+            raise AuthorizationHeaderMalformed(
+                f"The authorization header is malformed; the region 'aws-global' is wrong; expecting '{AWS_REGION_US_EAST_1}'",
+                HostId=S3_HOST_ID,
+                Region=AWS_REGION_US_EAST_1,
+            )
+
         store = self.get_store(context.account_id, context.region)
         if not (s3_bucket := store.buckets.get(bucket)):
             if not (account_id := store.global_bucket_map.get(bucket)):
@@ -671,16 +702,18 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         """
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
 
-        location_constraint = (
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">{{location}}</LocationConstraint>'
+        # TODO: Remove usage of getattr once persistence mechanism is updated.
+        # If the stored constraint is None the bucket was made before the storage of location_constraint.
+        # The EU location constraint wasn't supported before this point so we can safely default to the region.
+        location_constraint = getattr(s3_bucket, "location_constraint", None)
+        if location_constraint is None:
+            location_constraint = (
+                s3_bucket.bucket_region if s3_bucket.bucket_region != "us-east-1" else ""
+            )
+
+        return GetBucketLocationOutput(
+            LocationConstraint=get_bucket_location_xml(location_constraint)
         )
-
-        location = s3_bucket.bucket_region if s3_bucket.bucket_region != "us-east-1" else ""
-        location_constraint = location_constraint.replace("{{location}}", location)
-
-        response = GetBucketLocationOutput(LocationConstraint=location_constraint)
-        return response
 
     @handler("PutObject", expand=False)
     def put_object(
@@ -728,6 +761,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             system_metadata["ContentType"] = "binary/octet-stream"
 
         version_id = generate_version_id(s3_bucket.versioning_status)
+        if version_id != "null":
+            # if we are in a versioned bucket, we need to lock around the full key (all the versions)
+            # because object versions have locks per version
+            precondition_lock = self._preconditions_locks[bucket_name][key]
+        else:
+            precondition_lock = contextlib.nullcontext()
 
         etag_content_md5 = ""
         if content_md5 := request.get("ContentMD5"):
@@ -810,7 +849,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 if encodings:
                     s3_object.system_metadata["ContentEncoding"] = ",".join(encodings)
 
-        with self._storage_backend.open(bucket_name, s3_object, mode="w") as s3_stored_object:
+        with (
+            precondition_lock,
+            self._storage_backend.open(bucket_name, s3_object, mode="w") as s3_stored_object,
+        ):
             # as we are inside the lock here, if multiple concurrent requests happen for the same object, it's the first
             # one to finish to succeed, and subsequent will raise exceptions. Once the first write finishes, we're
             # opening the lock and other requests can check this condition
@@ -1153,12 +1195,14 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["ChecksumType"] = checksum_type
 
         add_encryption_to_response(response, s3_object=s3_object)
+        object_tags = store.TAGS.tags.get(
+            get_unique_key_id(bucket_name, object_key, s3_object.version_id)
+        )
+        if object_tags:
+            response["TagCount"] = len(object_tags)
 
         # if you specify the VersionId, AWS won't return the Expiration header, even if that's the current version
         if not version_id and s3_bucket.lifecycle_rules:
-            object_tags = store.TAGS.tags.get(
-                get_unique_key_id(bucket_name, object_key, s3_object.version_id)
-            )
             if expiration_header := self._get_expiration_header(
                 s3_bucket.lifecycle_rules,
                 bucket_name,
@@ -1249,7 +1293,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             delete_marker_id = generate_version_id(s3_bucket.versioning_status)
             delete_marker = S3DeleteMarker(key=key, version_id=delete_marker_id)
             s3_bucket.objects.set(key, delete_marker)
-            s3_notif_ctx = S3EventNotificationContext.from_request_context_native(
+            s3_notif_ctx = S3EventNotificationContext.from_request_context(
                 context,
                 s3_bucket=s3_bucket,
                 s3_object=delete_marker,
@@ -1281,6 +1325,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             self._storage_backend.remove(bucket, s3_object)
             store.TAGS.tags.pop(get_unique_key_id(bucket, key, version_id), None)
         self._notify(context, s3_bucket=s3_bucket, s3_object=s3_object)
+
+        if key not in s3_bucket.objects:
+            # we clean up keys that do not have any object versions in them anymore
+            self._preconditions_locks[bucket].pop(key, None)
 
         return response
 
@@ -1315,6 +1363,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         errors = []
 
         to_remove = []
+        versioned_keys = set()
         for to_delete_object in objects:
             object_key = to_delete_object.get("Key")
             version_id = to_delete_object.get("VersionId")
@@ -1352,7 +1401,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 delete_marker_id = generate_version_id(s3_bucket.versioning_status)
                 delete_marker = S3DeleteMarker(key=object_key, version_id=delete_marker_id)
                 s3_bucket.objects.set(object_key, delete_marker)
-                s3_notif_ctx = S3EventNotificationContext.from_request_context_native(
+                s3_notif_ctx = S3EventNotificationContext.from_request_context(
                     context,
                     s3_bucket=s3_bucket,
                     s3_object=delete_marker,
@@ -1395,6 +1444,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 continue
 
             s3_bucket.objects.pop(object_key=object_key, version_id=version_id)
+            versioned_keys.add(object_key)
+
             if not quiet:
                 deleted_object = DeletedObject(
                     Key=object_key,
@@ -1411,6 +1462,11 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
             self._notify(context, s3_bucket=s3_bucket, s3_object=found_object)
             store.TAGS.tags.pop(get_unique_key_id(bucket, object_key, version_id), None)
+
+        for versioned_key in versioned_keys:
+            # we clean up keys that do not have any object versions in them anymore
+            if versioned_key not in s3_bucket.objects:
+                self._preconditions_locks[bucket].pop(versioned_key, None)
 
         # TODO: request charged
         self._storage_backend.remove(bucket, to_remove)
@@ -2180,7 +2236,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         # TODO: add a way to transition from ongoing-request=true to false? for now it is instant
         s3_object.restore = f'ongoing-request="false", expiry-date="{restore_expiration_date}"'
 
-        s3_notif_ctx_initiated = S3EventNotificationContext.from_request_context_native(
+        s3_notif_ctx_initiated = S3EventNotificationContext.from_request_context(
             context,
             s3_bucket=s3_bucket,
             s3_object=s3_object,
@@ -2627,6 +2683,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             )
 
         elif if_none_match:
+            # TODO: improve concurrency mechanism for `if_none_match` and `if_match`
             if if_none_match != "*":
                 raise NotImplementedException(
                     "A header you provided implies functionality that is not implemented",
@@ -3298,7 +3355,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         s3_object = s3_bucket.get_object(key=key, version_id=version_id, http_method="DELETE")
 
-        store.TAGS.tags.pop(get_unique_key_id(bucket, key, version_id), None)
+        store.TAGS.tags.pop(get_unique_key_id(bucket, key, s3_object.version_id), None)
         response = DeleteObjectTaggingOutput()
         if s3_object.version_id:
             response["VersionId"] = s3_object.version_id
@@ -3859,7 +3916,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if retention and retention["RetainUntilDate"] < datetime.datetime.now(datetime.UTC):
             # weirdly, this date is format as following: Tue Dec 31 16:00:00 PST 2019
             # it contains the timezone as PST, even if you target a bucket in Europe or Asia
-            pst_datetime = retention["RetainUntilDate"].astimezone(tz=ZoneInfo("US/Pacific"))
+            pst_datetime = retention["RetainUntilDate"].astimezone(
+                tz=ZoneInfo("America/Los_Angeles")
+            )
             raise InvalidArgument(
                 "The retain until date must be in the future!",
                 ArgumentName="RetainUntilDate",

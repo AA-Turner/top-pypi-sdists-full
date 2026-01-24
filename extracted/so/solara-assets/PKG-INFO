@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara-assets
-Version: 1.51.1
+Version: 1.57.1
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Author-email: "Maarten A. Breddels" <maartenbreddels@gmail.com>
@@ -26,5 +26,5 @@ License: The MIT License (MIT)
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Requires-Dist: solara

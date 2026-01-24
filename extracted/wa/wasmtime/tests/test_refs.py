@@ -1,5 +1,6 @@
 import unittest
 from typing import cast
+import gc
 
 from wasmtime import *
 
@@ -121,6 +122,8 @@ class TestExternRef(unittest.TestCase):
         g = Global(store, ty, Val.externref(SetHitOnDrop(obj)))
         assert(not obj['hit'])
         g.set_value(store, None)
+        store.gc()
+        gc.collect()
         assert(obj['hit'])
 
     def test_dtor_func(self):
@@ -136,6 +139,7 @@ class TestExternRef(unittest.TestCase):
         obj = {}  # type: ignore
         f(store, SetHitOnDrop(obj))
         store.gc()
+        gc.collect()
         assert(obj['hit'])
 
 

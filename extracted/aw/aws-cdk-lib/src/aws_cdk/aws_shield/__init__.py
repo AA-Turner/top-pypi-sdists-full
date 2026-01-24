@@ -77,6 +77,169 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_shield import (
+    DRTAccessReference as _DRTAccessReference_932569dc,
+    IDRTAccessRef as _IDRTAccessRef_a098411d,
+    IProactiveEngagementRef as _IProactiveEngagementRef_5ec76b88,
+    IProtectionGroupRef as _IProtectionGroupRef_d3e72ac4,
+    IProtectionRef as _IProtectionRef_fb08d716,
+    ProactiveEngagementReference as _ProactiveEngagementReference_9b0d28cb,
+    ProtectionGroupReference as _ProtectionGroupReference_079db2ad,
+    ProtectionReference as _ProtectionReference_329b467b,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _IDRTAccessRef_a098411d)
+class CfnDRTAccess(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_shield.CfnDRTAccess",
+):
+    '''Provides permissions for the AWS Shield Advanced Shield response team (SRT) to access your account and your resource protections, to help you mitigate potential distributed denial of service (DDoS) attacks.
+
+    *Configure ``AWS::Shield::DRTAccess`` for one account*
+
+    To configure this resource through CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
+
+    See example templates for Shield Advanced in CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
+
+    *Configure Shield Advanced using AWS CloudFormation and AWS Firewall Manager*
+
+    You might be able to use Firewall Manager with AWS CloudFormation to configure Shield Advanced across multiple accounts and protected resources. To do this, your accounts must be part of an organization in AWS Organizations . You can use Firewall Manager to configure Shield Advanced protections for any resource types except for Amazon Route 53 or AWS Global Accelerator .
+
+    For an example of this, see the one-click configuration guidance published by the AWS technical community at `One-click deployment of Shield Advanced <https://docs.aws.amazon.com/https://youtu.be/LCA3FwMk_QE>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-drtaccess.html
+    :cloudformationResource: AWS::Shield::DRTAccess
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_shield as shield
+        
+        cfn_dRTAccess = shield.CfnDRTAccess(self, "MyCfnDRTAccess",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            log_bucket_list=["logBucketList"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        role_arn: builtins.str,
+        log_bucket_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Shield::DRTAccess``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param role_arn: Authorizes the Shield Response Team (SRT) using the specified role, to access your AWS account to assist with DDoS attack mitigation during potential attacks. This enables the SRT to inspect your AWS WAF configuration and logs and to create or update AWS WAF rules and web ACLs. You can associate only one ``RoleArn`` with your subscription. If you submit this update for an account that already has an associated role, the new ``RoleArn`` will replace the existing ``RoleArn`` . This change requires the following: - You must be subscribed to the `Business Support plan <https://docs.aws.amazon.com/premiumsupport/business-support/>`_ or the `Enterprise Support plan <https://docs.aws.amazon.com/premiumsupport/enterprise-support/>`_ . - The ``AWSShieldDRTAccessPolicy`` managed policy must be attached to the role that you specify in the request. You can access this policy in the IAM console at `AWSShieldDRTAccessPolicy <https://docs.aws.amazon.com/iam/home?#/policies/arn:aws:iam::aws:policy/service-role/AWSShieldDRTAccessPolicy>`_ . For information, see `Adding and removing IAM identity permissions <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage-attach-detach.html>`_ . - The role must trust the service principal ``drt.shield.amazonaws.com`` . For information, see `IAM JSON policy elements: Principal <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html>`_ . The SRT will have access only to your AWS WAF and Shield resources. By submitting this request, you provide permissions to the SRT to inspect your AWS WAF and Shield configuration and logs, and to create and update AWS WAF rules and web ACLs on your behalf. The SRT takes these actions only if explicitly authorized by you.
+        :param log_bucket_list: Authorizes the Shield Response Team (SRT) to access the specified Amazon S3 bucket containing log data such as Application Load Balancer access logs, CloudFront logs, or logs from third party sources. You can associate up to 10 Amazon S3 buckets with your subscription. Use this to share information with the SRT that's not available in AWS WAF logs. To use the services of the SRT, you must be subscribed to the `Business Support plan <https://docs.aws.amazon.com/premiumsupport/business-support/>`_ or the `Enterprise Support plan <https://docs.aws.amazon.com/premiumsupport/enterprise-support/>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea8549c95)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDRTAccessProps(role_arn=role_arn, log_bucket_list=log_bucket_list)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnDRTAccess")
+    @builtins.classmethod
+    def is_cfn_drt_access(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDRTAccess.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__742ae11bcc805fa7331a2c317a19f796960eebe60ab95388ef2ea50f53545124)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDRTAccess", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1852e8b6dd2c25fa06e5e566839fd5a1f6a276b8b39e838b2b89482ea513bd65)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8571297b6d69a16de38bab6d3f1dc92d7c9246c66b35f80febffdfb1f3b2e7c8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''The ID of the account that submitted the template.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="drtAccessRef")
+    def drt_access_ref(self) -> "_DRTAccessReference_932569dc":
+        '''A reference to a DRTAccess resource.'''
+        return typing.cast("_DRTAccessReference_932569dc", jsii.get(self, "drtAccessRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''Authorizes the Shield Response Team (SRT) using the specified role, to access your AWS account to assist with DDoS attack mitigation during potential attacks.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da38bba1d6994ae07694944aa4916a03f58a2c9485676c9085e1c314c3f2aa57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logBucketList")
+    def log_bucket_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Authorizes the Shield Response Team (SRT) to access the specified Amazon S3 bucket containing log data such as Application Load Balancer access logs, CloudFront logs, or logs from third party sources.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "logBucketList"))
+
+    @log_bucket_list.setter
+    def log_bucket_list(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c94abc39b038180b7b7b34ef27ad16e99c54c8cd1ff7e04fd4e4882047910e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logBucketList", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -171,917 +334,7 @@ class CfnDRTAccessProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.CfnProactiveEngagementProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "emergency_contact_list": "emergencyContactList",
-        "proactive_engagement_status": "proactiveEngagementStatus",
-    },
-)
-class CfnProactiveEngagementProps:
-    def __init__(
-        self,
-        *,
-        emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        proactive_engagement_status: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnProactiveEngagement``.
-
-        :param emergency_contact_list: The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes. To enable proactive engagement, the contact list must include at least one phone number. If you provide more than one contact, in the notes, indicate the circumstances under which each contact should be used. Include primary and secondary contact designations, and provide the hours of availability and time zones for each contact. Example contact notes: - This is a hotline that's staffed 24x7x365. Please work with the responding analyst and they will get the appropriate person on the call. - Please contact the secondary phone number if the hotline doesn't respond within 5 minutes.
-        :param proactive_engagement_status: Specifies whether proactive engagement is enabled or disabled. Valid values: ``ENABLED`` - The Shield Response Team (SRT) will use email and phone to notify contacts about escalations to the SRT and to initiate proactive customer support. ``DISABLED`` - The SRT will not proactively notify contacts about escalations or to initiate proactive customer support.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            cfn_proactive_engagement_props = shield.CfnProactiveEngagementProps(
-                emergency_contact_list=[shield.CfnProactiveEngagement.EmergencyContactProperty(
-                    email_address="emailAddress",
-            
-                    # the properties below are optional
-                    contact_notes="contactNotes",
-                    phone_number="phoneNumber"
-                )],
-                proactive_engagement_status="proactiveEngagementStatus"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684)
-            check_type(argname="argument emergency_contact_list", value=emergency_contact_list, expected_type=type_hints["emergency_contact_list"])
-            check_type(argname="argument proactive_engagement_status", value=proactive_engagement_status, expected_type=type_hints["proactive_engagement_status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "emergency_contact_list": emergency_contact_list,
-            "proactive_engagement_status": proactive_engagement_status,
-        }
-
-    @builtins.property
-    def emergency_contact_list(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProactiveEngagement.EmergencyContactProperty"]]]:
-        '''The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes.
-
-        To enable proactive engagement, the contact list must include at least one phone number.
-
-        If you provide more than one contact, in the notes, indicate the circumstances under which each contact should be used. Include primary and secondary contact designations, and provide the hours of availability and time zones for each contact.
-
-        Example contact notes:
-
-        - This is a hotline that's staffed 24x7x365. Please work with the responding analyst and they will get the appropriate person on the call.
-        - Please contact the secondary phone number if the hotline doesn't respond within 5 minutes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html#cfn-shield-proactiveengagement-emergencycontactlist
-        '''
-        result = self._values.get("emergency_contact_list")
-        assert result is not None, "Required property 'emergency_contact_list' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProactiveEngagement.EmergencyContactProperty"]]], result)
-
-    @builtins.property
-    def proactive_engagement_status(self) -> builtins.str:
-        '''Specifies whether proactive engagement is enabled or disabled.
-
-        Valid values:
-
-        ``ENABLED`` - The Shield Response Team (SRT) will use email and phone to notify contacts about escalations to the SRT and to initiate proactive customer support.
-
-        ``DISABLED`` - The SRT will not proactively notify contacts about escalations or to initiate proactive customer support.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html#cfn-shield-proactiveengagement-proactiveengagementstatus
-        '''
-        result = self._values.get("proactive_engagement_status")
-        assert result is not None, "Required property 'proactive_engagement_status' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProactiveEngagementProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.CfnProtectionGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "aggregation": "aggregation",
-        "pattern": "pattern",
-        "protection_group_id": "protectionGroupId",
-        "members": "members",
-        "resource_type": "resourceType",
-        "tags": "tags",
-    },
-)
-class CfnProtectionGroupProps:
-    def __init__(
-        self,
-        *,
-        aggregation: builtins.str,
-        pattern: builtins.str,
-        protection_group_id: builtins.str,
-        members: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resource_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProtectionGroup``.
-
-        :param aggregation: Defines how AWS Shield combines resource data for the group in order to detect, mitigate, and report events. - ``Sum`` - Use the total traffic across the group. This is a good choice for most cases. Examples include Elastic IP addresses for EC2 instances that scale manually or automatically. - ``Mean`` - Use the average of the traffic across the group. This is a good choice for resources that share traffic uniformly. Examples include accelerators and load balancers. - ``Max`` - Use the highest traffic from each resource. This is useful for resources that don't share traffic and for resources that share that traffic in a non-uniform way. Examples include Amazon CloudFront distributions and origin resources for CloudFront distributions.
-        :param pattern: The criteria to use to choose the protected resources for inclusion in the group. You can include all resources that have protections, provide a list of resource ARNs (Amazon Resource Names), or include all resources of a specified resource type.
-        :param protection_group_id: The name of the protection group. You use this to identify the protection group in lists and to manage the protection group, for example to update, delete, or describe it.
-        :param members: The ARNs (Amazon Resource Names) of the resources to include in the protection group. You must set this when you set ``Pattern`` to ``ARBITRARY`` and you must not set it for any other ``Pattern`` setting.
-        :param resource_type: The resource type to include in the protection group. All protected resources of this type are included in the protection group. You must set this when you set ``Pattern`` to ``BY_RESOURCE_TYPE`` and you must not set it for any other ``Pattern`` setting.
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            cfn_protection_group_props = shield.CfnProtectionGroupProps(
-                aggregation="aggregation",
-                pattern="pattern",
-                protection_group_id="protectionGroupId",
-            
-                # the properties below are optional
-                members=["members"],
-                resource_type="resourceType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d)
-            check_type(argname="argument aggregation", value=aggregation, expected_type=type_hints["aggregation"])
-            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
-            check_type(argname="argument protection_group_id", value=protection_group_id, expected_type=type_hints["protection_group_id"])
-            check_type(argname="argument members", value=members, expected_type=type_hints["members"])
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "aggregation": aggregation,
-            "pattern": pattern,
-            "protection_group_id": protection_group_id,
-        }
-        if members is not None:
-            self._values["members"] = members
-        if resource_type is not None:
-            self._values["resource_type"] = resource_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def aggregation(self) -> builtins.str:
-        '''Defines how AWS Shield combines resource data for the group in order to detect, mitigate, and report events.
-
-        - ``Sum`` - Use the total traffic across the group. This is a good choice for most cases. Examples include Elastic IP addresses for EC2 instances that scale manually or automatically.
-        - ``Mean`` - Use the average of the traffic across the group. This is a good choice for resources that share traffic uniformly. Examples include accelerators and load balancers.
-        - ``Max`` - Use the highest traffic from each resource. This is useful for resources that don't share traffic and for resources that share that traffic in a non-uniform way. Examples include Amazon CloudFront distributions and origin resources for CloudFront distributions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-aggregation
-        '''
-        result = self._values.get("aggregation")
-        assert result is not None, "Required property 'aggregation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def pattern(self) -> builtins.str:
-        '''The criteria to use to choose the protected resources for inclusion in the group.
-
-        You can include all resources that have protections, provide a list of resource ARNs (Amazon Resource Names), or include all resources of a specified resource type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-pattern
-        '''
-        result = self._values.get("pattern")
-        assert result is not None, "Required property 'pattern' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protection_group_id(self) -> builtins.str:
-        '''The name of the protection group.
-
-        You use this to identify the protection group in lists and to manage the protection group, for example to update, delete, or describe it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-protectiongroupid
-        '''
-        result = self._values.get("protection_group_id")
-        assert result is not None, "Required property 'protection_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def members(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs (Amazon Resource Names) of the resources to include in the protection group.
-
-        You must set this when you set ``Pattern`` to ``ARBITRARY`` and you must not set it for any other ``Pattern`` setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-members
-        '''
-        result = self._values.get("members")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resource_type(self) -> typing.Optional[builtins.str]:
-        '''The resource type to include in the protection group.
-
-        All protected resources of this type are included in the protection group. You must set this when you set ``Pattern`` to ``BY_RESOURCE_TYPE`` and you must not set it for any other ``Pattern`` setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-resourcetype
-        '''
-        result = self._values.get("resource_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.
-
-        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProtectionGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.CfnProtectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "resource_arn": "resourceArn",
-        "application_layer_automatic_response_configuration": "applicationLayerAutomaticResponseConfiguration",
-        "health_check_arns": "healthCheckArns",
-        "tags": "tags",
-    },
-)
-class CfnProtectionProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        resource_arn: builtins.str,
-        application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProtection``.
-
-        :param name: The name of the protection. For example, ``My CloudFront distributions`` . .. epigraph:: If you change the name of an existing protection, Shield Advanced deletes the protection and replaces it with a new one. While this is happening, the protection isn't available on the AWS resource.
-        :param resource_arn: The ARN (Amazon Resource Name) of the AWS resource that is protected.
-        :param application_layer_automatic_response_configuration: The automatic application layer DDoS mitigation settings for the protection. This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks. If you use AWS CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
-        :param health_check_arns: The ARN (Amazon Resource Name) of the health check to associate with the protection. Health-based detection provides improved responsiveness and accuracy in attack detection and mitigation. You can use this option with any resource type except for Route 53 hosted zones. For more information, see `Configuring health-based detection using health checks <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-health-checks.html>`_ in the *AWS Shield Advanced Developer Guide* .
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            # block: Any
-            # count: Any
-            
-            cfn_protection_props = shield.CfnProtectionProps(
-                name="name",
-                resource_arn="resourceArn",
-            
-                # the properties below are optional
-                application_layer_automatic_response_configuration=shield.CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty(
-                    action=shield.CfnProtection.ActionProperty(
-                        block=block,
-                        count=count
-                    ),
-                    status="status"
-                ),
-                health_check_arns=["healthCheckArns"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument application_layer_automatic_response_configuration", value=application_layer_automatic_response_configuration, expected_type=type_hints["application_layer_automatic_response_configuration"])
-            check_type(argname="argument health_check_arns", value=health_check_arns, expected_type=type_hints["health_check_arns"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "resource_arn": resource_arn,
-        }
-        if application_layer_automatic_response_configuration is not None:
-            self._values["application_layer_automatic_response_configuration"] = application_layer_automatic_response_configuration
-        if health_check_arns is not None:
-            self._values["health_check_arns"] = health_check_arns
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the protection. For example, ``My CloudFront distributions`` .
-
-        .. epigraph::
-
-           If you change the name of an existing protection, Shield Advanced deletes the protection and replaces it with a new one. While this is happening, the protection isn't available on the AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The ARN (Amazon Resource Name) of the AWS resource that is protected.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_layer_automatic_response_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
-        '''The automatic application layer DDoS mitigation settings for the protection.
-
-        This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks.
-
-        If you use AWS CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-applicationlayerautomaticresponseconfiguration
-        '''
-        result = self._values.get("application_layer_automatic_response_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], result)
-
-    @builtins.property
-    def health_check_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARN (Amazon Resource Name) of the health check to associate with the protection.
-
-        Health-based detection provides improved responsiveness and accuracy in attack detection and mitigation.
-
-        You can use this option with any resource type except for Route 53 hosted zones.
-
-        For more information, see `Configuring health-based detection using health checks <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-health-checks.html>`_ in the *AWS Shield Advanced Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-healthcheckarns
-        '''
-        result = self._values.get("health_check_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.
-
-        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProtectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.DRTAccessReference",
-    jsii_struct_bases=[],
-    name_mapping={"account_id": "accountId"},
-)
-class DRTAccessReference:
-    def __init__(self, *, account_id: builtins.str) -> None:
-        '''A reference to a DRTAccess resource.
-
-        :param account_id: The AccountId of the DRTAccess resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            d_rTAccess_reference = shield.DRTAccessReference(
-                account_id="accountId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dcbb6d3576d3768e917a2bc72b89e7eae7b5d5027bf8a89d2c5557705de7411)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-        }
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The AccountId of the DRTAccess resource.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DRTAccessReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_shield.IDRTAccessRef")
-class IDRTAccessRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DRTAccess.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="drtAccessRef")
-    def drt_access_ref(self) -> DRTAccessReference:
-        '''(experimental) A reference to a DRTAccess resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDRTAccessRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DRTAccess.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_shield.IDRTAccessRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="drtAccessRef")
-    def drt_access_ref(self) -> DRTAccessReference:
-        '''(experimental) A reference to a DRTAccess resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DRTAccessReference, jsii.get(self, "drtAccessRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDRTAccessRef).__jsii_proxy_class__ = lambda : _IDRTAccessRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_shield.IProactiveEngagementRef")
-class IProactiveEngagementRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ProactiveEngagement.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="proactiveEngagementRef")
-    def proactive_engagement_ref(self) -> "ProactiveEngagementReference":
-        '''(experimental) A reference to a ProactiveEngagement resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IProactiveEngagementRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ProactiveEngagement.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_shield.IProactiveEngagementRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="proactiveEngagementRef")
-    def proactive_engagement_ref(self) -> "ProactiveEngagementReference":
-        '''(experimental) A reference to a ProactiveEngagement resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ProactiveEngagementReference", jsii.get(self, "proactiveEngagementRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IProactiveEngagementRef).__jsii_proxy_class__ = lambda : _IProactiveEngagementRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_shield.IProtectionGroupRef")
-class IProtectionGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ProtectionGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="protectionGroupRef")
-    def protection_group_ref(self) -> "ProtectionGroupReference":
-        '''(experimental) A reference to a ProtectionGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IProtectionGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ProtectionGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_shield.IProtectionGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="protectionGroupRef")
-    def protection_group_ref(self) -> "ProtectionGroupReference":
-        '''(experimental) A reference to a ProtectionGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ProtectionGroupReference", jsii.get(self, "protectionGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IProtectionGroupRef).__jsii_proxy_class__ = lambda : _IProtectionGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_shield.IProtectionRef")
-class IProtectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Protection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="protectionRef")
-    def protection_ref(self) -> "ProtectionReference":
-        '''(experimental) A reference to a Protection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IProtectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Protection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_shield.IProtectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="protectionRef")
-    def protection_ref(self) -> "ProtectionReference":
-        '''(experimental) A reference to a Protection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ProtectionReference", jsii.get(self, "protectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IProtectionRef).__jsii_proxy_class__ = lambda : _IProtectionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.ProactiveEngagementReference",
-    jsii_struct_bases=[],
-    name_mapping={"account_id": "accountId"},
-)
-class ProactiveEngagementReference:
-    def __init__(self, *, account_id: builtins.str) -> None:
-        '''A reference to a ProactiveEngagement resource.
-
-        :param account_id: The AccountId of the ProactiveEngagement resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            proactive_engagement_reference = shield.ProactiveEngagementReference(
-                account_id="accountId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05fab06724d1174dd9143710d2121e8b4ab29537e75a20f7588b81ef49c35a7c)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-        }
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The AccountId of the ProactiveEngagement resource.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ProactiveEngagementReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.ProtectionGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"protection_group_arn": "protectionGroupArn"},
-)
-class ProtectionGroupReference:
-    def __init__(self, *, protection_group_arn: builtins.str) -> None:
-        '''A reference to a ProtectionGroup resource.
-
-        :param protection_group_arn: The ProtectionGroupArn of the ProtectionGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            protection_group_reference = shield.ProtectionGroupReference(
-                protection_group_arn="protectionGroupArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01d5445c22e9e3b537be7cc4d79f1f6c7518aa6454c40f19c42474334c43ede7)
-            check_type(argname="argument protection_group_arn", value=protection_group_arn, expected_type=type_hints["protection_group_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "protection_group_arn": protection_group_arn,
-        }
-
-    @builtins.property
-    def protection_group_arn(self) -> builtins.str:
-        '''The ProtectionGroupArn of the ProtectionGroup resource.'''
-        result = self._values.get("protection_group_arn")
-        assert result is not None, "Required property 'protection_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ProtectionGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_shield.ProtectionReference",
-    jsii_struct_bases=[],
-    name_mapping={"protection_arn": "protectionArn"},
-)
-class ProtectionReference:
-    def __init__(self, *, protection_arn: builtins.str) -> None:
-        '''A reference to a Protection resource.
-
-        :param protection_arn: The ProtectionArn of the Protection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_shield as shield
-            
-            protection_reference = shield.ProtectionReference(
-                protection_arn="protectionArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84e453e7e8899ec16fe2bb4ce0e5cdd61efbe984dae4ab5ec0541f4341bfe3b7)
-            check_type(argname="argument protection_arn", value=protection_arn, expected_type=type_hints["protection_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "protection_arn": protection_arn,
-        }
-
-    @builtins.property
-    def protection_arn(self) -> builtins.str:
-        '''The ProtectionArn of the Protection resource.'''
-        result = self._values.get("protection_arn")
-        assert result is not None, "Required property 'protection_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ProtectionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IDRTAccessRef)
-class CfnDRTAccess(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_shield.CfnDRTAccess",
-):
-    '''Provides permissions for the AWS Shield Advanced Shield response team (SRT) to access your account and your resource protections, to help you mitigate potential distributed denial of service (DDoS) attacks.
-
-    *Configure ``AWS::Shield::DRTAccess`` for one account*
-
-    To configure this resource through AWS CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
-
-    See example templates for Shield Advanced in AWS CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
-
-    *Configure Shield Advanced using AWS CloudFormation and AWS Firewall Manager*
-
-    You might be able to use Firewall Manager with AWS CloudFormation to configure Shield Advanced across multiple accounts and protected resources. To do this, your accounts must be part of an organization in AWS Organizations . You can use Firewall Manager to configure Shield Advanced protections for any resource types except for Amazon Route 53 or AWS Global Accelerator .
-
-    For an example of this, see the one-click configuration guidance published by the AWS technical community at `One-click deployment of Shield Advanced <https://docs.aws.amazon.com/https://youtu.be/LCA3FwMk_QE>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-drtaccess.html
-    :cloudformationResource: AWS::Shield::DRTAccess
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_shield as shield
-        
-        cfn_dRTAccess = shield.CfnDRTAccess(self, "MyCfnDRTAccess",
-            role_arn="roleArn",
-        
-            # the properties below are optional
-            log_bucket_list=["logBucketList"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        role_arn: builtins.str,
-        log_bucket_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param role_arn: Authorizes the Shield Response Team (SRT) using the specified role, to access your AWS account to assist with DDoS attack mitigation during potential attacks. This enables the SRT to inspect your AWS WAF configuration and logs and to create or update AWS WAF rules and web ACLs. You can associate only one ``RoleArn`` with your subscription. If you submit this update for an account that already has an associated role, the new ``RoleArn`` will replace the existing ``RoleArn`` . This change requires the following: - You must be subscribed to the `Business Support plan <https://docs.aws.amazon.com/premiumsupport/business-support/>`_ or the `Enterprise Support plan <https://docs.aws.amazon.com/premiumsupport/enterprise-support/>`_ . - The ``AWSShieldDRTAccessPolicy`` managed policy must be attached to the role that you specify in the request. You can access this policy in the IAM console at `AWSShieldDRTAccessPolicy <https://docs.aws.amazon.com/iam/home?#/policies/arn:aws:iam::aws:policy/service-role/AWSShieldDRTAccessPolicy>`_ . For information, see `Adding and removing IAM identity permissions <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage-attach-detach.html>`_ . - The role must trust the service principal ``drt.shield.amazonaws.com`` . For information, see `IAM JSON policy elements: Principal <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html>`_ . The SRT will have access only to your AWS WAF and Shield resources. By submitting this request, you provide permissions to the SRT to inspect your AWS WAF and Shield configuration and logs, and to create and update AWS WAF rules and web ACLs on your behalf. The SRT takes these actions only if explicitly authorized by you.
-        :param log_bucket_list: Authorizes the Shield Response Team (SRT) to access the specified Amazon S3 bucket containing log data such as Application Load Balancer access logs, CloudFront logs, or logs from third party sources. You can associate up to 10 Amazon S3 buckets with your subscription. Use this to share information with the SRT that's not available in AWS WAF logs. To use the services of the SRT, you must be subscribed to the `Business Support plan <https://docs.aws.amazon.com/premiumsupport/business-support/>`_ or the `Enterprise Support plan <https://docs.aws.amazon.com/premiumsupport/enterprise-support/>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea8549c95)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDRTAccessProps(role_arn=role_arn, log_bucket_list=log_bucket_list)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1852e8b6dd2c25fa06e5e566839fd5a1f6a276b8b39e838b2b89482ea513bd65)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8571297b6d69a16de38bab6d3f1dc92d7c9246c66b35f80febffdfb1f3b2e7c8)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAccountId")
-    def attr_account_id(self) -> builtins.str:
-        '''The ID of the account that submitted the template.
-
-        :cloudformationAttribute: AccountId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="drtAccessRef")
-    def drt_access_ref(self) -> DRTAccessReference:
-        '''A reference to a DRTAccess resource.'''
-        return typing.cast(DRTAccessReference, jsii.get(self, "drtAccessRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''Authorizes the Shield Response Team (SRT) using the specified role, to access your AWS account to assist with DDoS attack mitigation during potential attacks.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da38bba1d6994ae07694944aa4916a03f58a2c9485676c9085e1c314c3f2aa57)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="logBucketList")
-    def log_bucket_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Authorizes the Shield Response Team (SRT) to access the specified Amazon S3 bucket containing log data such as Application Load Balancer access logs, CloudFront logs, or logs from third party sources.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "logBucketList"))
-
-    @log_bucket_list.setter
-    def log_bucket_list(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c94abc39b038180b7b7b34ef27ad16e99c54c8cd1ff7e04fd4e4882047910e1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logBucketList", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IProactiveEngagementRef)
+@jsii.implements(_IInspectable_c2943556, _IProactiveEngagementRef_5ec76b88)
 class CfnProactiveEngagement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1093,9 +346,9 @@ class CfnProactiveEngagement(
 
     *Configure ``AWS::Shield::ProactiveEngagement`` for one account*
 
-    To configure this resource through AWS CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
+    To configure this resource through CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
 
-    See example templates for Shield Advanced in AWS CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
+    See example templates for Shield Advanced in CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
 
     *Configure Shield Advanced using AWS CloudFormation and AWS Firewall Manager*
 
@@ -1127,13 +380,14 @@ class CfnProactiveEngagement(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        emergency_contact_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
         proactive_engagement_status: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Shield::ProactiveEngagement``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param emergency_contact_list: The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes. To enable proactive engagement, the contact list must include at least one phone number. If you provide more than one contact, in the notes, indicate the circumstances under which each contact should be used. Include primary and secondary contact designations, and provide the hours of availability and time zones for each contact. Example contact notes: - This is a hotline that's staffed 24x7x365. Please work with the responding analyst and they will get the appropriate person on the call. - Please contact the secondary phone number if the hotline doesn't respond within 5 minutes.
@@ -1150,8 +404,20 @@ class CfnProactiveEngagement(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnProactiveEngagement")
+    @builtins.classmethod
+    def is_cfn_proactive_engagement(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProactiveEngagement.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54c9b5695a230a67efbfc6dd5e271a2105eb50c95d2990f40fdf6ef7a2563ebd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProactiveEngagement", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1196,22 +462,22 @@ class CfnProactiveEngagement(
 
     @builtins.property
     @jsii.member(jsii_name="proactiveEngagementRef")
-    def proactive_engagement_ref(self) -> ProactiveEngagementReference:
+    def proactive_engagement_ref(self) -> "_ProactiveEngagementReference_9b0d28cb":
         '''A reference to a ProactiveEngagement resource.'''
-        return typing.cast(ProactiveEngagementReference, jsii.get(self, "proactiveEngagementRef"))
+        return typing.cast("_ProactiveEngagementReference_9b0d28cb", jsii.get(self, "proactiveEngagementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emergencyContactList")
     def emergency_contact_list(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProactiveEngagement.EmergencyContactProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
         '''The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProactiveEngagement.EmergencyContactProperty"]]], jsii.get(self, "emergencyContactList"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]], jsii.get(self, "emergencyContactList"))
 
     @emergency_contact_list.setter
     def emergency_contact_list(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProactiveEngagement.EmergencyContactProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__124fcf35e2a271c8af4d75b0cf5014b8ad1239720905927de40e52915ba3e15c)
@@ -1324,7 +590,105 @@ class CfnProactiveEngagement(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IProtectionRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_shield.CfnProactiveEngagementProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "emergency_contact_list": "emergencyContactList",
+        "proactive_engagement_status": "proactiveEngagementStatus",
+    },
+)
+class CfnProactiveEngagementProps:
+    def __init__(
+        self,
+        *,
+        emergency_contact_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProactiveEngagement.EmergencyContactProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        proactive_engagement_status: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnProactiveEngagement``.
+
+        :param emergency_contact_list: The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes. To enable proactive engagement, the contact list must include at least one phone number. If you provide more than one contact, in the notes, indicate the circumstances under which each contact should be used. Include primary and secondary contact designations, and provide the hours of availability and time zones for each contact. Example contact notes: - This is a hotline that's staffed 24x7x365. Please work with the responding analyst and they will get the appropriate person on the call. - Please contact the secondary phone number if the hotline doesn't respond within 5 minutes.
+        :param proactive_engagement_status: Specifies whether proactive engagement is enabled or disabled. Valid values: ``ENABLED`` - The Shield Response Team (SRT) will use email and phone to notify contacts about escalations to the SRT and to initiate proactive customer support. ``DISABLED`` - The SRT will not proactively notify contacts about escalations or to initiate proactive customer support.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_shield as shield
+            
+            cfn_proactive_engagement_props = shield.CfnProactiveEngagementProps(
+                emergency_contact_list=[shield.CfnProactiveEngagement.EmergencyContactProperty(
+                    email_address="emailAddress",
+            
+                    # the properties below are optional
+                    contact_notes="contactNotes",
+                    phone_number="phoneNumber"
+                )],
+                proactive_engagement_status="proactiveEngagementStatus"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684)
+            check_type(argname="argument emergency_contact_list", value=emergency_contact_list, expected_type=type_hints["emergency_contact_list"])
+            check_type(argname="argument proactive_engagement_status", value=proactive_engagement_status, expected_type=type_hints["proactive_engagement_status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "emergency_contact_list": emergency_contact_list,
+            "proactive_engagement_status": proactive_engagement_status,
+        }
+
+    @builtins.property
+    def emergency_contact_list(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]]:
+        '''The list of email addresses and phone numbers that the Shield Response Team (SRT) can use to contact you for escalations to the SRT and to initiate proactive customer support, plus any relevant notes.
+
+        To enable proactive engagement, the contact list must include at least one phone number.
+
+        If you provide more than one contact, in the notes, indicate the circumstances under which each contact should be used. Include primary and secondary contact designations, and provide the hours of availability and time zones for each contact.
+
+        Example contact notes:
+
+        - This is a hotline that's staffed 24x7x365. Please work with the responding analyst and they will get the appropriate person on the call.
+        - Please contact the secondary phone number if the hotline doesn't respond within 5 minutes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html#cfn-shield-proactiveengagement-emergencycontactlist
+        '''
+        result = self._values.get("emergency_contact_list")
+        assert result is not None, "Required property 'emergency_contact_list' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProactiveEngagement.EmergencyContactProperty"]]], result)
+
+    @builtins.property
+    def proactive_engagement_status(self) -> builtins.str:
+        '''Specifies whether proactive engagement is enabled or disabled.
+
+        Valid values:
+
+        ``ENABLED`` - The Shield Response Team (SRT) will use email and phone to notify contacts about escalations to the SRT and to initiate proactive customer support.
+
+        ``DISABLED`` - The SRT will not proactively notify contacts about escalations or to initiate proactive customer support.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-proactiveengagement.html#cfn-shield-proactiveengagement-proactiveengagementstatus
+        '''
+        result = self._values.get("proactive_engagement_status")
+        assert result is not None, "Required property 'proactive_engagement_status' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProactiveEngagementProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IProtectionRef_fb08d716, _ITaggableV2_4e6798f8)
 class CfnProtection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1338,9 +702,9 @@ class CfnProtection(
 
     Use this protection to protect a single resource at a time.
 
-    To configure this Shield Advanced protection through AWS CloudFormation , you must be subscribed to Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
+    To configure this Shield Advanced protection through CloudFormation , you must be subscribed to Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
 
-    See example templates for Shield Advanced in AWS CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
+    See example templates for Shield Advanced in CloudFormation at `aws-samples/aws-shield-advanced-examples <https://docs.aws.amazon.com/https://github.com/aws-samples/aws-shield-advanced-examples>`_ .
 
     *Configure Shield Advanced using AWS CloudFormation and AWS Firewall Manager*
 
@@ -1358,6 +722,7 @@ class CfnProtection(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_shield as shield
@@ -1387,21 +752,22 @@ class CfnProtection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         resource_arn: builtins.str,
-        application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Shield::Protection``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the protection. For example, ``My CloudFront distributions`` . .. epigraph:: If you change the name of an existing protection, Shield Advanced deletes the protection and replaces it with a new one. While this is happening, the protection isn't available on the AWS resource.
         :param resource_arn: The ARN (Amazon Resource Name) of the AWS resource that is protected.
-        :param application_layer_automatic_response_configuration: The automatic application layer DDoS mitigation settings for the protection. This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks. If you use AWS CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
+        :param application_layer_automatic_response_configuration: The automatic application layer DDoS mitigation settings for the protection. This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks. If you use CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
         :param health_check_arns: The ARN (Amazon Resource Name) of the health check to associate with the protection. Health-based detection provides improved responsiveness and accuracy in attack detection and mitigation. You can use this option with any resource type except for Route 53 hosted zones. For more information, see `Configuring health-based detection using health checks <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-health-checks.html>`_ in the *AWS Shield Advanced Developer Guide* .
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
         '''
@@ -1419,8 +785,31 @@ class CfnProtection(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForProtection")
+    @builtins.classmethod
+    def arn_for_protection(cls, resource: "_IProtectionRef_fb08d716") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c18d1079cd866e8ae4d83cd9f97b9ea534cb1156d4553e06c07a3c60a6468da8)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProtection", [resource]))
+
+    @jsii.member(jsii_name="isCfnProtection")
+    @builtins.classmethod
+    def is_cfn_protection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProtection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d77af6853c5414617d593712b27b09f1323f8f362c74a791ddebdfc664020c4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProtection", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1469,9 +858,9 @@ class CfnProtection(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1480,9 +869,9 @@ class CfnProtection(
 
     @builtins.property
     @jsii.member(jsii_name="protectionRef")
-    def protection_ref(self) -> ProtectionReference:
+    def protection_ref(self) -> "_ProtectionReference_329b467b":
         '''A reference to a Protection resource.'''
-        return typing.cast(ProtectionReference, jsii.get(self, "protectionRef"))
+        return typing.cast("_ProtectionReference_329b467b", jsii.get(self, "protectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1517,14 +906,14 @@ class CfnProtection(
     @jsii.member(jsii_name="applicationLayerAutomaticResponseConfiguration")
     def application_layer_automatic_response_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
         '''The automatic application layer DDoS mitigation settings for the protection.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], jsii.get(self, "applicationLayerAutomaticResponseConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], jsii.get(self, "applicationLayerAutomaticResponseConfiguration"))
 
     @application_layer_automatic_response_configuration.setter
     def application_layer_automatic_response_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__145ac68c42ad419925aa32644eea217eb08e6ce73993b51c7af4167aab4e13de)
@@ -1549,12 +938,12 @@ class CfnProtection(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cd697bbebfdef8296c6fa9e920e70bb9a5ed569b251c351c36b4e3edbdd61e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1656,14 +1045,14 @@ class CfnProtection(
         def __init__(
             self,
             *,
-            action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnProtection.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ActionProperty", typing.Dict[builtins.str, typing.Any]]],
             status: builtins.str,
         ) -> None:
             '''The automatic application layer DDoS mitigation settings for a ``Protection`` .
 
             This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks.
 
-            If you use AWS CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the guidance for the ``AWS::WAFv2::WebACL`` resource.
+            If you use CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the guidance for the ``AWS::WAFv2::WebACL`` resource.
 
             :param action: Specifies the action setting that Shield Advanced should use in the AWS WAF rules that it creates on behalf of the protected resource in response to DDoS attacks. You specify this as part of the configuration for the automatic application layer DDoS mitigation feature, when you enable or update automatic mitigation. Shield Advanced creates the AWS WAF rules in a Shield Advanced-managed rule group, inside the web ACL that you have associated with the resource.
             :param status: Indicates whether automatic application layer DDoS mitigation is enabled for the protection.
@@ -1700,7 +1089,7 @@ class CfnProtection(
         @builtins.property
         def action(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnProtection.ActionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnProtection.ActionProperty"]:
             '''Specifies the action setting that Shield Advanced should use in the AWS WAF rules that it creates on behalf of the protected resource in response to DDoS attacks.
 
             You specify this as part of the configuration for the automatic application layer DDoS mitigation feature, when you enable or update automatic mitigation. Shield Advanced creates the AWS WAF rules in a Shield Advanced-managed rule group, inside the web ACL that you have associated with the resource.
@@ -1709,7 +1098,7 @@ class CfnProtection(
             '''
             result = self._values.get("action")
             assert result is not None, "Required property 'action' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnProtection.ActionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnProtection.ActionProperty"], result)
 
         @builtins.property
         def status(self) -> builtins.str:
@@ -1733,7 +1122,7 @@ class CfnProtection(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IProtectionGroupRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IProtectionGroupRef_d3e72ac4, _ITaggableV2_4e6798f8)
 class CfnProtectionGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1743,7 +1132,7 @@ class CfnProtectionGroup(
 
     This resource grouping improves the accuracy of detection and reduces false positives.
 
-    To configure this resource through AWS CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
+    To configure this resource through CloudFormation , you must be subscribed to AWS Shield Advanced . You can subscribe through the `Shield Advanced console <https://docs.aws.amazon.com/wafv2/shieldv2#/>`_ and through the APIs. For more information, see `Subscribe to AWS Shield Advanced <https://docs.aws.amazon.com/waf/latest/developerguide/enable-ddos-prem.html>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html
     :cloudformationResource: AWS::Shield::ProtectionGroup
@@ -1751,6 +1140,7 @@ class CfnProtectionGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_shield as shield
@@ -1772,7 +1162,7 @@ class CfnProtectionGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         aggregation: builtins.str,
@@ -1780,9 +1170,10 @@ class CfnProtectionGroup(
         protection_group_id: builtins.str,
         members: typing.Optional[typing.Sequence[builtins.str]] = None,
         resource_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Shield::ProtectionGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param aggregation: Defines how AWS Shield combines resource data for the group in order to detect, mitigate, and report events. - ``Sum`` - Use the total traffic across the group. This is a good choice for most cases. Examples include Elastic IP addresses for EC2 instances that scale manually or automatically. - ``Mean`` - Use the average of the traffic across the group. This is a good choice for resources that share traffic uniformly. Examples include accelerators and load balancers. - ``Max`` - Use the highest traffic from each resource. This is useful for resources that don't share traffic and for resources that share that traffic in a non-uniform way. Examples include Amazon CloudFront distributions and origin resources for CloudFront distributions.
@@ -1807,8 +1198,34 @@ class CfnProtectionGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForProtectionGroup")
+    @builtins.classmethod
+    def arn_for_protection_group(
+        cls,
+        resource: "_IProtectionGroupRef_d3e72ac4",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f86a71b6262ee46be314c5662c49a8230a705df05db747e5feea3463ad51112)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProtectionGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnProtectionGroup")
+    @builtins.classmethod
+    def is_cfn_protection_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProtectionGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__159ea1dc7d0cd46fa6d9205db1072a404701a67fb319e6210be694331e4ad7e0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProtectionGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1848,9 +1265,9 @@ class CfnProtectionGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1859,9 +1276,9 @@ class CfnProtectionGroup(
 
     @builtins.property
     @jsii.member(jsii_name="protectionGroupRef")
-    def protection_group_ref(self) -> ProtectionGroupReference:
+    def protection_group_ref(self) -> "_ProtectionGroupReference_079db2ad":
         '''A reference to a ProtectionGroup resource.'''
-        return typing.cast(ProtectionGroupReference, jsii.get(self, "protectionGroupRef"))
+        return typing.cast("_ProtectionGroupReference_079db2ad", jsii.get(self, "protectionGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="aggregation")
@@ -1930,16 +1347,331 @@ class CfnProtectionGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70ea7c7493bdebcbd30035fe4d1550d14d6af25225d32845d78baca96ef59493)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_shield.CfnProtectionGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aggregation": "aggregation",
+        "pattern": "pattern",
+        "protection_group_id": "protectionGroupId",
+        "members": "members",
+        "resource_type": "resourceType",
+        "tags": "tags",
+    },
+)
+class CfnProtectionGroupProps:
+    def __init__(
+        self,
+        *,
+        aggregation: builtins.str,
+        pattern: builtins.str,
+        protection_group_id: builtins.str,
+        members: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resource_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProtectionGroup``.
+
+        :param aggregation: Defines how AWS Shield combines resource data for the group in order to detect, mitigate, and report events. - ``Sum`` - Use the total traffic across the group. This is a good choice for most cases. Examples include Elastic IP addresses for EC2 instances that scale manually or automatically. - ``Mean`` - Use the average of the traffic across the group. This is a good choice for resources that share traffic uniformly. Examples include accelerators and load balancers. - ``Max`` - Use the highest traffic from each resource. This is useful for resources that don't share traffic and for resources that share that traffic in a non-uniform way. Examples include Amazon CloudFront distributions and origin resources for CloudFront distributions.
+        :param pattern: The criteria to use to choose the protected resources for inclusion in the group. You can include all resources that have protections, provide a list of resource ARNs (Amazon Resource Names), or include all resources of a specified resource type.
+        :param protection_group_id: The name of the protection group. You use this to identify the protection group in lists and to manage the protection group, for example to update, delete, or describe it.
+        :param members: The ARNs (Amazon Resource Names) of the resources to include in the protection group. You must set this when you set ``Pattern`` to ``ARBITRARY`` and you must not set it for any other ``Pattern`` setting.
+        :param resource_type: The resource type to include in the protection group. All protected resources of this type are included in the protection group. You must set this when you set ``Pattern`` to ``BY_RESOURCE_TYPE`` and you must not set it for any other ``Pattern`` setting.
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_shield as shield
+            
+            cfn_protection_group_props = shield.CfnProtectionGroupProps(
+                aggregation="aggregation",
+                pattern="pattern",
+                protection_group_id="protectionGroupId",
+            
+                # the properties below are optional
+                members=["members"],
+                resource_type="resourceType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d)
+            check_type(argname="argument aggregation", value=aggregation, expected_type=type_hints["aggregation"])
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+            check_type(argname="argument protection_group_id", value=protection_group_id, expected_type=type_hints["protection_group_id"])
+            check_type(argname="argument members", value=members, expected_type=type_hints["members"])
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aggregation": aggregation,
+            "pattern": pattern,
+            "protection_group_id": protection_group_id,
+        }
+        if members is not None:
+            self._values["members"] = members
+        if resource_type is not None:
+            self._values["resource_type"] = resource_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def aggregation(self) -> builtins.str:
+        '''Defines how AWS Shield combines resource data for the group in order to detect, mitigate, and report events.
+
+        - ``Sum`` - Use the total traffic across the group. This is a good choice for most cases. Examples include Elastic IP addresses for EC2 instances that scale manually or automatically.
+        - ``Mean`` - Use the average of the traffic across the group. This is a good choice for resources that share traffic uniformly. Examples include accelerators and load balancers.
+        - ``Max`` - Use the highest traffic from each resource. This is useful for resources that don't share traffic and for resources that share that traffic in a non-uniform way. Examples include Amazon CloudFront distributions and origin resources for CloudFront distributions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-aggregation
+        '''
+        result = self._values.get("aggregation")
+        assert result is not None, "Required property 'aggregation' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def pattern(self) -> builtins.str:
+        '''The criteria to use to choose the protected resources for inclusion in the group.
+
+        You can include all resources that have protections, provide a list of resource ARNs (Amazon Resource Names), or include all resources of a specified resource type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-pattern
+        '''
+        result = self._values.get("pattern")
+        assert result is not None, "Required property 'pattern' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protection_group_id(self) -> builtins.str:
+        '''The name of the protection group.
+
+        You use this to identify the protection group in lists and to manage the protection group, for example to update, delete, or describe it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-protectiongroupid
+        '''
+        result = self._values.get("protection_group_id")
+        assert result is not None, "Required property 'protection_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def members(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs (Amazon Resource Names) of the resources to include in the protection group.
+
+        You must set this when you set ``Pattern`` to ``ARBITRARY`` and you must not set it for any other ``Pattern`` setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-members
+        '''
+        result = self._values.get("members")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resource_type(self) -> typing.Optional[builtins.str]:
+        '''The resource type to include in the protection group.
+
+        All protected resources of this type are included in the protection group. You must set this when you set ``Pattern`` to ``BY_RESOURCE_TYPE`` and you must not set it for any other ``Pattern`` setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-resourcetype
+        '''
+        result = self._values.get("resource_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.
+
+        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protectiongroup.html#cfn-shield-protectiongroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProtectionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_shield.CfnProtectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "resource_arn": "resourceArn",
+        "application_layer_automatic_response_configuration": "applicationLayerAutomaticResponseConfiguration",
+        "health_check_arns": "healthCheckArns",
+        "tags": "tags",
+    },
+)
+class CfnProtectionProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        resource_arn: builtins.str,
+        application_layer_automatic_response_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProtection``.
+
+        :param name: The name of the protection. For example, ``My CloudFront distributions`` . .. epigraph:: If you change the name of an existing protection, Shield Advanced deletes the protection and replaces it with a new one. While this is happening, the protection isn't available on the AWS resource.
+        :param resource_arn: The ARN (Amazon Resource Name) of the AWS resource that is protected.
+        :param application_layer_automatic_response_configuration: The automatic application layer DDoS mitigation settings for the protection. This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks. If you use CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
+        :param health_check_arns: The ARN (Amazon Resource Name) of the health check to associate with the protection. Health-based detection provides improved responsiveness and accuracy in attack detection and mitigation. You can use this option with any resource type except for Route 53 hosted zones. For more information, see `Configuring health-based detection using health checks <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-health-checks.html>`_ in the *AWS Shield Advanced Developer Guide* .
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_shield as shield
+            
+            # block: Any
+            # count: Any
+            
+            cfn_protection_props = shield.CfnProtectionProps(
+                name="name",
+                resource_arn="resourceArn",
+            
+                # the properties below are optional
+                application_layer_automatic_response_configuration=shield.CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty(
+                    action=shield.CfnProtection.ActionProperty(
+                        block=block,
+                        count=count
+                    ),
+                    status="status"
+                ),
+                health_check_arns=["healthCheckArns"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument application_layer_automatic_response_configuration", value=application_layer_automatic_response_configuration, expected_type=type_hints["application_layer_automatic_response_configuration"])
+            check_type(argname="argument health_check_arns", value=health_check_arns, expected_type=type_hints["health_check_arns"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "resource_arn": resource_arn,
+        }
+        if application_layer_automatic_response_configuration is not None:
+            self._values["application_layer_automatic_response_configuration"] = application_layer_automatic_response_configuration
+        if health_check_arns is not None:
+            self._values["health_check_arns"] = health_check_arns
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the protection. For example, ``My CloudFront distributions`` .
+
+        .. epigraph::
+
+           If you change the name of an existing protection, Shield Advanced deletes the protection and replaces it with a new one. While this is happening, the protection isn't available on the AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ARN (Amazon Resource Name) of the AWS resource that is protected.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_layer_automatic_response_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]]:
+        '''The automatic application layer DDoS mitigation settings for the protection.
+
+        This configuration determines whether Shield Advanced automatically manages rules in the web ACL in order to respond to application layer events that Shield Advanced determines to be DDoS attacks.
+
+        If you use CloudFormation to manage the web ACLs that you use with Shield Advanced automatic mitigation, see the additional guidance about web ACL management in the ``AWS::WAFv2::WebACL`` resource description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-applicationlayerautomaticresponseconfiguration
+        '''
+        result = self._values.get("application_layer_automatic_response_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty"]], result)
+
+    @builtins.property
+    def health_check_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARN (Amazon Resource Name) of the health check to associate with the protection.
+
+        Health-based detection provides improved responsiveness and accuracy in attack detection and mitigation.
+
+        You can use this option with any resource type except for Route 53 hosted zones.
+
+        For more information, see `Configuring health-based detection using health checks <https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-health-checks.html>`_ in the *AWS Shield Advanced Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-healthcheckarns
+        '''
+        result = self._values.get("health_check_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.
+
+        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-shield-protection.html#cfn-shield-protection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProtectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 __all__ = [
@@ -1951,84 +1683,9 @@ __all__ = [
     "CfnProtectionGroup",
     "CfnProtectionGroupProps",
     "CfnProtectionProps",
-    "DRTAccessReference",
-    "IDRTAccessRef",
-    "IProactiveEngagementRef",
-    "IProtectionGroupRef",
-    "IProtectionRef",
-    "ProactiveEngagementReference",
-    "ProtectionGroupReference",
-    "ProtectionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__7eb7d0e0a686aa5ce41af2859848528d577aa001b693b180bf8c8c1cbe226c62(
-    *,
-    role_arn: builtins.str,
-    log_bucket_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684(
-    *,
-    emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    proactive_engagement_status: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d(
-    *,
-    aggregation: builtins.str,
-    pattern: builtins.str,
-    protection_group_id: builtins.str,
-    members: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resource_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42(
-    *,
-    name: builtins.str,
-    resource_arn: builtins.str,
-    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7dcbb6d3576d3768e917a2bc72b89e7eae7b5d5027bf8a89d2c5557705de7411(
-    *,
-    account_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__05fab06724d1174dd9143710d2121e8b4ab29537e75a20f7588b81ef49c35a7c(
-    *,
-    account_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__01d5445c22e9e3b537be7cc4d79f1f6c7518aa6454c40f19c42474334c43ede7(
-    *,
-    protection_group_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84e453e7e8899ec16fe2bb4ce0e5cdd61efbe984dae4ab5ec0541f4341bfe3b7(
-    *,
-    protection_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea8549c95(
     scope: _constructs_77d1e7e8.Construct,
@@ -2036,6 +1693,12 @@ def _typecheckingstub__4a15a18e843fffdbb42d47fd2ac911234ec7893d81473ee5d084ecfea
     *,
     role_arn: builtins.str,
     log_bucket_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__742ae11bcc805fa7331a2c317a19f796960eebe60ab95388ef2ea50f53545124(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2064,12 +1727,26 @@ def _typecheckingstub__4c94abc39b038180b7b7b34ef27ad16e99c54c8cd1ff7e04fd4e48820
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7eb7d0e0a686aa5ce41af2859848528d577aa001b693b180bf8c8c1cbe226c62(
+    *,
+    role_arn: builtins.str,
+    log_bucket_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__75179b0b2a7390cfe8ff254cdce98b24f9e580040dddc66ad43b122c2b5e0c6d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
     proactive_engagement_status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54c9b5695a230a67efbfc6dd5e271a2105eb50c95d2990f40fdf6ef7a2563ebd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2107,6 +1784,14 @@ def _typecheckingstub__943f9798df53d53e30978210d183db122bb3f1df5ce07ae3b7aaa70f1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a87e22725ebed99038c7fbf64e1b444b667784de63c1c0f1d6dd1233d0655684(
+    *,
+    emergency_contact_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProactiveEngagement.EmergencyContactProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    proactive_engagement_status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c25ea3f87ade4afdbc73b2ca70b15ee669920a1fb5f0ed5803cfd112c3b70c11(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2116,6 +1801,18 @@ def _typecheckingstub__c25ea3f87ade4afdbc73b2ca70b15ee669920a1fb5f0ed5803cfd112c
     application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c18d1079cd866e8ae4d83cd9f97b9ea534cb1156d4553e06c07a3c60a6468da8(
+    resource: _IProtectionRef_fb08d716,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d77af6853c5414617d593712b27b09f1323f8f362c74a791ddebdfc664020c4(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2192,6 +1889,18 @@ def _typecheckingstub__81da6ee581209a252a2406d5601c15a1be321e07fcf0aa646c27538a6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5f86a71b6262ee46be314c5662c49a8230a705df05db747e5feea3463ad51112(
+    resource: _IProtectionGroupRef_d3e72ac4,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__159ea1dc7d0cd46fa6d9205db1072a404701a67fb319e6210be694331e4ad7e0(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__76b88e310cde3207aac88376ade59343d5e539487019cd87c212616c6a70148e(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -2236,6 +1945,29 @@ def _typecheckingstub__6e3d5c3c763d27892562b1771a153762a3d34df5cb316c0538590da13
 
 def _typecheckingstub__70ea7c7493bdebcbd30035fe4d1550d14d6af25225d32845d78baca96ef59493(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3b2bbe1939f69f05c219f7f0fc8de5928677d1b98bdaefde53c2a2deaad182d(
+    *,
+    aggregation: builtins.str,
+    pattern: builtins.str,
+    protection_group_id: builtins.str,
+    members: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resource_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__611ea0b9dff6681de6e3f0cdb3f7a0ae092f6774ebe50cf733630b5b887c0d42(
+    *,
+    name: builtins.str,
+    resource_arn: builtins.str,
+    application_layer_automatic_response_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProtection.ApplicationLayerAutomaticResponseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

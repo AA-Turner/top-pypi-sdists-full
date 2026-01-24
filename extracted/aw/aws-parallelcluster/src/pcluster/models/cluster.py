@@ -20,9 +20,9 @@ import time
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
+from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from typing import List, Optional, Set, Tuple
 
-import pkg_resources
 from marshmallow import ValidationError
 
 from pcluster.aws.aws_api import AWSApi
@@ -61,6 +61,7 @@ from pcluster.models.compute_fleet_status_manager import ComputeFleetStatus, Com
 from pcluster.models.login_nodes_status import LoginNodesStatus
 from pcluster.models.s3_bucket import S3Bucket, S3BucketFactory, S3FileFormat, create_s3_presigned_url
 from pcluster.schemas.cluster_schema import ClusterSchema
+from pcluster.schemas.common_schema import validate_json_format
 from pcluster.templates.cdk_builder import CDKTemplateBuilder
 from pcluster.templates.import_cdk import start as start_cdk_import
 from pcluster.utils import (
@@ -506,11 +507,11 @@ class Cluster:
 
     @staticmethod
     def _load_additional_instance_type_data(cluster_config_dict):
-        if "DevSettings" in cluster_config_dict:
-            instance_types_data = cluster_config_dict["DevSettings"].get("InstanceTypesData")
-            if instance_types_data:
-                # Set additional instance types data in AWSApi. Schema load will use the information.
-                AWSApi.instance().ec2.additional_instance_types_data = json.loads(instance_types_data)
+        instance_types_data = (cluster_config_dict.get("DevSettings") or {}).get("InstanceTypesData")
+        if instance_types_data:
+            if not validate_json_format(instance_types_data):
+                raise ValidationError(message="DevSettings/InstanceTypesData is not a valid JSON.")
+            AWSApi.instance().ec2.additional_instance_types_data = json.loads(instance_types_data)
 
     def _upload_config(self):
         """Upload source config and save config version."""
@@ -586,7 +587,7 @@ class Cluster:
         LOGGER.info("Uploading cluster artifacts to S3...")
         self._check_bucket_existence()
         try:
-            resources = pkg_resources.resource_filename(__name__, "../resources/custom_resources")
+            resources = str(files(__package__).parent / "resources" / "custom_resources")
             self.bucket.upload_resources(
                 resource_dir=resources, custom_artifacts_name=PCLUSTER_S3_ARTIFACTS_DICT.get("custom_artifacts_name")
             )

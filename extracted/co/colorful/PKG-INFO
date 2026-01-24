@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colorful
-Version: 0.5.7
+Version: 0.5.8
 Summary: Terminal string styling done right, in Python.
 Home-page: http://github.com/timofurrer/colorful
 Author: Timo Furrer
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

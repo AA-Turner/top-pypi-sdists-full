@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dm-haiku
-Version: 0.0.15
+Version: 0.0.16
 Summary: Haiku is a library for building neural networks in JAX.
 Home-page: https://github.com/deepmind/dm-haiku
 Author: DeepMind
@@ -25,8 +25,8 @@ Requires-Dist: jmp>=0.0.2
 Requires-Dist: numpy>=1.18.0
 Requires-Dist: tabulate>=0.8.9
 Provides-Extra: jax
-Requires-Dist: jax>=0.7.2; extra == "jax"
-Requires-Dist: jaxlib>=0.7.2; extra == "jax"
+Requires-Dist: jax>=0.8.1; extra == "jax"
+Requires-Dist: jaxlib>=0.8.1; extra == "jax"
 Provides-Extra: flax
 Requires-Dist: flax>=0.7.1; extra == "flax"
 Dynamic: author
@@ -497,7 +497,7 @@ To cite this repository:
   author = {Tom Hennigan and Trevor Cai and Tamara Norman and Lena Martens and Igor Babuschkin},
   title = {{H}aiku: {S}onnet for {JAX}},
   url = {http://github.com/deepmind/dm-haiku},
-  version = {0.0.15},
+  version = {0.0.16},
   year = {2020},
 }
 ```

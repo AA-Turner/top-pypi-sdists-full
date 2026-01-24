@@ -3,7 +3,7 @@ Type annotations for neptunedata service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptunedata/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -112,11 +113,6 @@ from .type_defs import (
     StartMLModelTransformJobOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -125,41 +121,41 @@ else:
 __all__ = ("NeptuneDataClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    BulkLoadIdNotFoundException: Type[BotocoreClientError]
-    CancelledByUserException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientTimeoutException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConstraintViolationException: Type[BotocoreClientError]
-    ExpiredStreamException: Type[BotocoreClientError]
-    FailureByQueryException: Type[BotocoreClientError]
-    IllegalArgumentException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidNumericDataException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    LoadUrlAccessDeniedException: Type[BotocoreClientError]
-    MLResourceNotFoundException: Type[BotocoreClientError]
-    MalformedQueryException: Type[BotocoreClientError]
-    MemoryLimitExceededException: Type[BotocoreClientError]
-    MethodNotAllowedException: Type[BotocoreClientError]
-    MissingParameterException: Type[BotocoreClientError]
-    ParsingException: Type[BotocoreClientError]
-    PreconditionsFailedException: Type[BotocoreClientError]
-    QueryLimitExceededException: Type[BotocoreClientError]
-    QueryLimitException: Type[BotocoreClientError]
-    QueryTooLargeException: Type[BotocoreClientError]
-    ReadOnlyViolationException: Type[BotocoreClientError]
-    S3Exception: Type[BotocoreClientError]
-    ServerShutdownException: Type[BotocoreClientError]
-    StatisticsNotAvailableException: Type[BotocoreClientError]
-    StreamRecordsNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TimeLimitExceededException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    BulkLoadIdNotFoundException: type[BotocoreClientError]
+    CancelledByUserException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientTimeoutException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConstraintViolationException: type[BotocoreClientError]
+    ExpiredStreamException: type[BotocoreClientError]
+    FailureByQueryException: type[BotocoreClientError]
+    IllegalArgumentException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidNumericDataException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    LoadUrlAccessDeniedException: type[BotocoreClientError]
+    MLResourceNotFoundException: type[BotocoreClientError]
+    MalformedQueryException: type[BotocoreClientError]
+    MemoryLimitExceededException: type[BotocoreClientError]
+    MethodNotAllowedException: type[BotocoreClientError]
+    MissingParameterException: type[BotocoreClientError]
+    ParsingException: type[BotocoreClientError]
+    PreconditionsFailedException: type[BotocoreClientError]
+    QueryLimitExceededException: type[BotocoreClientError]
+    QueryLimitException: type[BotocoreClientError]
+    QueryTooLargeException: type[BotocoreClientError]
+    ReadOnlyViolationException: type[BotocoreClientError]
+    S3Exception: type[BotocoreClientError]
+    ServerShutdownException: type[BotocoreClientError]
+    StatisticsNotAvailableException: type[BotocoreClientError]
+    StreamRecordsNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TimeLimitExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 class NeptuneDataClient(AioBaseClient):
     """
@@ -629,7 +625,7 @@ class NeptuneDataClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

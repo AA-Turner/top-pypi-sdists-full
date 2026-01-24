@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -57,7 +57,8 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
         """
         Live result object
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -66,7 +67,8 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
         """
         Backtest result object
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -102,6 +104,25 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
         ...
 
 
+class EstimatedCapacityReportElement(QuantConnect.Report.ReportElements.ReportElement):
+    """Capacity Estimation Report Element"""
+
+    def __init__(self, name: str, key: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult) -> None:
+        """
+        Create a new capacity estimate
+        
+        :param name: Name of the widget
+        :param key: Location of injection
+        :param backtest: Backtest result object
+        :param live: Live result object
+        """
+        ...
+
+    def render(self) -> str:
+        """Render element"""
+        ...
+
+
 class ParametersReportElement(QuantConnect.Report.ReportElements.ReportElement):
     """Class for creating a two column table for the Algorithm's Parameters in a report"""
 
@@ -123,25 +144,6 @@ class ParametersReportElement(QuantConnect.Report.ReportElements.ReportElement):
         
         :returns: Returns a string representing a HTML two column table.
         """
-        ...
-
-
-class EstimatedCapacityReportElement(QuantConnect.Report.ReportElements.ReportElement):
-    """Capacity Estimation Report Element"""
-
-    def __init__(self, name: str, key: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult) -> None:
-        """
-        Create a new capacity estimate
-        
-        :param name: Name of the widget
-        :param key: Location of injection
-        :param backtest: Backtest result object
-        :param live: Live result object
-        """
-        ...
-
-    def render(self) -> str:
-        """Render element"""
         ...
 
 

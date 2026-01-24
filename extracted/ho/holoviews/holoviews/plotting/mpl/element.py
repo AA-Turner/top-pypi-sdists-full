@@ -21,6 +21,7 @@ from ...core import (
 )
 from ...core.dimension import Dimension
 from ...core.options import Keywords, abbreviated_exception
+from ...core.util import dtype_kind
 from ...element import Graph, Path
 from ...streams import Stream
 from ...util.transform import dim
@@ -171,8 +172,8 @@ class ElementPlot(GenericElementPlot, MPLPlot):
                     if legend:
                         legend.set_visible(self.show_legend)
                         self.handles["bbox_extra_artists"] += [legend]
-                    axis.xaxis.grid(self.show_grid)
-                    axis.yaxis.grid(self.show_grid)
+                    # Apply grid settings
+                    self._update_grid(axis)
 
                 # Apply log axes
                 if self.logx:
@@ -290,6 +291,60 @@ class ElementPlot(GenericElementPlot, MPLPlot):
                     f"valid method on the specified model. Similar options include {matches!r}"
                 )
 
+    def _update_grid(self, axis):
+        """Updates grid settings on the matplotlib axis based on gridstyle options.
+
+        """
+        if self.show_grid is False:
+            axis.grid(False)
+            return
+
+        style_items = self.gridstyle.items()
+        # Options that apply to both x and y grids, x, and then y
+        both = {
+            k.removeprefix('grid_'): v
+            for k, v in style_items
+            if not k.startswith(('x', 'y'))
+        }
+
+        # Merge options - both options first, then axis-specific
+        xopts = {
+            **both,
+            **{k.removeprefix('xgrid_').removeprefix("x_"): v for k, v in style_items if k.startswith('x')}
+        }
+
+        yopts = {
+            **both,
+            **{k.removeprefix('ygrid_').removeprefix("y_"): v for k, v in style_items if k.startswith('y')}
+        }
+
+        # Apply grid visibility first
+        axis.grid(True)
+
+        # Apply x-axis grid styling
+        if xopts:
+            xgridlines = axis.get_xgridlines()
+            for line in xgridlines:
+                for prop, val in xopts.items():
+                    if fn := getattr(line, f'set_{prop}', None):
+                        fn(val)
+                    else:
+                        self.param.warning(
+                            f"Grid line has no property 'set_{prop}' to set grid style."
+                        )
+
+        # Apply y-axis grid styling
+        if yopts:
+            ygridlines = axis.get_ygridlines()
+            for line in ygridlines:
+                for prop, val in yopts.items():
+                    if fn := getattr(line, f'set_{prop}', None):
+                        fn(val)
+                    else:
+                        self.param.warning(
+                            f"Grid line has no property 'set_{prop}' to set grid style."
+                        )
+
     def _finalize_artist(self, element):
         """Allows extending the _finalize_axis method with Element
         specific options.
@@ -337,6 +392,17 @@ class ElementPlot(GenericElementPlot, MPLPlot):
         elif self.aspect == 'square':
             return 1
         elif self.aspect == 'equal':
+            if (
+                isinstance(xspan, util.datetime_types) ^ isinstance(yspan, util.datetime_types)
+                or isinstance(xspan, util.timedelta_types) ^ isinstance(yspan, util.timedelta_types)
+            ):
+                msg = (
+                    "The aspect is set to 'equal', but the axes does not have the same type: "
+                    f"x-axis {type(xspan).__name__} and y-axis {type(yspan).__name__}. "
+                    "Either have the axes be the same type or or set '.opts(aspect=)' "
+                    "to either a number or 'square'."
+                )
+                raise TypeError(msg)
             return xspan/yspan
         return 1
 
@@ -594,7 +660,7 @@ class ElementPlot(GenericElementPlot, MPLPlot):
         if 'norm' in plot_kwargs: # vmin/vmax should now be exclusively in norm
             plot_kwargs.pop('vmin', None)
             plot_kwargs.pop('vmax', None)
-        with warnings.catch_warnings():
+        with (warnings.catch_warnings(), np.errstate(invalid="ignore")):
             # scatter have a default cmap and with an empty array will emit this warning
             warnings.filterwarnings('ignore', "No data for colormapping provided via 'c'")
             artist = plot_fn(*plot_args, **plot_kwargs)
@@ -641,12 +707,16 @@ class ElementPlot(GenericElementPlot, MPLPlot):
             elif type(element) is Path:
                 val = np.concatenate([v.apply(el, ranges=ranges, flat=True)
                                       for el in element.split()])
+            elif 'node' in k:
+                val = v.apply(element.nodes, ranges=ranges)
             else:
                 val = v.apply(element, ranges)
 
             if (not np.isscalar(val) and len(util.unique_array(val)) == 1 and
                 ("color" not in k or validate('color', val))):
                 val = val[0]
+            if isinstance(val, util.arraylike_types):
+                val = np.asarray(val)
 
             if not np.isscalar(val) and k in self._nonvectorized_styles:
                 element = type(element).__name__
@@ -665,7 +735,7 @@ class ElementPlot(GenericElementPlot, MPLPlot):
                 and not validate('color', val)):
                 new_style.pop(k)
                 self._norm_kwargs(element, ranges, new_style, v, val, prefix)
-                if val.dtype.kind in 'OSUM':
+                if dtype_kind(val) in 'OSUM':
                     range_key = dim_range_key(v)
                     if range_key in ranges and 'factors' in ranges[range_key]:
                         factors = ranges[range_key]['factors']
@@ -935,14 +1005,14 @@ class ColorbarPlot(ElementPlot):
             if not len(values):
                 clim = (0, 0)
                 categorical = False
-            elif values.dtype.kind in 'uif':
+            elif dtype_kind(values) in 'uif':
                 if dim_name in ranges:
                     if self.clim_percentile and 'robust' in ranges[dim_name]:
                         clim = ranges[dim_name]['robust']
                     else:
                         clim = ranges[dim_name]['combined']
                 elif isinstance(vdim, dim):
-                    if values.dtype.kind == 'M':
+                    if dtype_kind(values) == 'M':
                         clim = values.min(), values.max()
                     elif len(values) == 0:
                         clim = np.nan, np.nan
@@ -973,7 +1043,7 @@ class ColorbarPlot(ElementPlot):
                 clim = (0, len(factors)-1)
                 categorical = True
         else:
-            categorical = values.dtype.kind not in 'uif'
+            categorical = dtype_kind(values) not in 'uif'
 
         if self.cnorm == 'eq_hist':
             opts[prefix+'norm'] = EqHistNormalize(
@@ -991,7 +1061,7 @@ class ColorbarPlot(ElementPlot):
         opts[prefix+'vmax'] = clim[1]
 
         cmap = opts.get(prefix+'cmap', opts.get('cmap', 'viridis'))
-        if values.dtype.kind not in 'OSUM':
+        if dtype_kind(values) not in 'OSUM':
             ncolors = None
             if isinstance(self.color_levels, int):
                 ncolors = self.color_levels
@@ -1119,7 +1189,7 @@ class OverlayPlot(LegendPlot, GenericOverlayPlot):
     _passed_handles = ['fig', 'axis']
 
     _propagate_options = ['aspect', 'fig_size', 'xaxis', 'yaxis', 'zaxis',
-                          'labelled', 'bgcolor', 'fontsize', 'invert_axes',
+                          'labelled', 'bgcolor', 'fontsize', 'gridstyle', 'invert_axes',
                           'show_frame', 'show_grid', 'logx', 'logy', 'logz',
                           'xticks', 'yticks', 'zticks', 'xrotation', 'yrotation',
                           'zrotation', 'invert_xaxis', 'invert_yaxis',

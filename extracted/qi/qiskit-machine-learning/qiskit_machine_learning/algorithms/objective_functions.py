@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,7 +13,6 @@
 for classifiers/regressors."""
 
 from abc import abstractmethod
-from typing import Optional, Union
 
 import numpy as np
 
@@ -46,7 +45,7 @@ class ObjectiveFunction:
         Args:
             X: The input data.
             y: The target values.
-            neural_network: An instance of an quantum neural network to be used by this
+            neural_network: An instance of a quantum neural network to be used by this
                 objective function.
             loss: A target loss function to be used in training.
         """
@@ -56,8 +55,8 @@ class ObjectiveFunction:
         self._y = y
         self._neural_network = neural_network
         self._loss = loss
-        self._last_forward_weights: Optional[np.ndarray] = None
-        self._last_forward: Optional[Union[np.ndarray, SparseArray]] = None
+        self._last_forward_weights: np.ndarray | None = None
+        self._last_forward: np.ndarray | SparseArray | None = None
 
     @abstractmethod
     def objective(self, weights: np.ndarray) -> float:
@@ -83,7 +82,7 @@ class ObjectiveFunction:
         """
         raise NotImplementedError
 
-    def _neural_network_forward(self, weights: np.ndarray) -> Union[np.ndarray, SparseArray]:
+    def _neural_network_forward(self, weights: np.ndarray) -> np.ndarray | SparseArray:
         """
         Computes and caches the results of the forward pass. Cached values may be re-used in
         gradient computation.

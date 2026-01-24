@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import IO, TYPE_CHECKING, Any, Callable, Iterable, Mapping, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping
+from typing import IO, TYPE_CHECKING, Any, Callable
 from urllib.parse import quote as urlencode
 from urllib.parse import urljoin
 
@@ -201,7 +202,7 @@ class ApiClient:
         method: str,
         path: None | str | bytes | Iterable[str | bytes | int] = None,
         *,
-        params: None | bytes | MutableMapping[str, str] = None,
+        params: None | bytes | MutableMapping[str, Any] = None,
         data: (
             Iterable[bytes]
             | str
@@ -391,6 +392,7 @@ class ApiClient:
     def get(
         self,
         path: None | str | bytes | Iterable[str | bytes | int] = None,
+        *,
         raise_for_status: bool | None = None,
         **kwargs: Any,
     ) -> requests.Response:
@@ -416,6 +418,7 @@ class ApiClient:
     def post(
         self,
         path: str | bytes | Iterable[str | bytes] | None = None,
+        *,
         raise_for_status: bool | None = None,
         **kwargs: Any,
     ) -> requests.Response:
@@ -441,6 +444,7 @@ class ApiClient:
     def patch(
         self,
         path: str | bytes | Iterable[str | bytes] | None = None,
+        *,
         raise_for_status: bool | None = None,
         **kwargs: Any,
     ) -> requests.Response:
@@ -466,6 +470,7 @@ class ApiClient:
     def put(
         self,
         path: str | bytes | Iterable[str | bytes] | None = None,
+        *,
         raise_for_status: bool | None = None,
         **kwargs: Any,
     ) -> requests.Response:
@@ -491,6 +496,7 @@ class ApiClient:
     def delete(
         self,
         path: str | bytes | Iterable[str | bytes] | None = None,
+        *,
         raise_for_status: bool | None = None,
         **kwargs: Any,
     ) -> requests.Response:

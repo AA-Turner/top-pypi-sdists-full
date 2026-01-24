@@ -33,7 +33,6 @@
 #include "indexing.h"
 #include "memory.h"
 #include "pyhelpers.h"
-#include "utils.h"
 #include "vertexseqobject.h"
 #include <float.h>
 
@@ -197,7 +196,7 @@ int igraphmodule_Graph_init(igraphmodule_GraphObject * self,
   void* ptr = 0;
   Py_ssize_t n = 0;
   igraph_vector_int_t edges_vector;
-  igraph_integer_t vcount;
+  igraph_int_t vcount;
   igraph_bool_t edges_vector_owned = false;
   int retval = 0;
 
@@ -534,7 +533,7 @@ PyObject *igraphmodule_Graph_is_maximal_matching(igraphmodule_GraphObject* self,
 PyObject *igraphmodule_Graph_is_simple(igraphmodule_GraphObject* self, PyObject* Py_UNUSED(_null)) {
   igraph_bool_t res;
 
-  if (igraph_is_simple(&self->g, &res)) {
+  if (igraph_is_simple(&self->g, &res, IGRAPH_DIRECTED)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
@@ -877,7 +876,7 @@ PyObject *igraphmodule_Graph_diversity(igraphmodule_GraphObject * self,
   igraph_vector_t res, *weights = 0;
   igraph_vs_t vs;
   igraph_bool_t return_single = false;
-  igraph_integer_t no_of_nodes;
+  igraph_int_t no_of_nodes;
 
   static char *kwlist[] = { "vertices", "weights", NULL };
 
@@ -1015,16 +1014,28 @@ PyObject *igraphmodule_Graph_strength(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_density(igraphmodule_GraphObject * self,
                                      PyObject * args, PyObject * kwds)
 {
-  char *kwlist[] = { "loops", NULL };
+  char *kwlist[] = { "loops", "weights", NULL };
   igraph_real_t res;
-  PyObject *loops = Py_False;
+  PyObject *loops = Py_False, *weights_o = Py_None;
+  igraph_vector_t *weights = 0;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &loops))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &loops, &weights_o))
     return NULL;
 
-  if (igraph_density(&self->g, &res, PyObject_IsTrue(loops))) {
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    return NULL;
+  }
+
+  if (igraph_density(&self->g, weights, &res, PyObject_IsTrue(loops))) {
     igraphmodule_handle_igraph_error();
+    if (weights) {
+      igraph_vector_destroy(weights); free(weights);
+    }
     return NULL;
+  }
+
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
   }
 
   return igraphmodule_real_t_to_PyObject(res, IGRAPHMODULE_TYPE_FLOAT);
@@ -1065,7 +1076,7 @@ PyObject *igraphmodule_Graph_maxdegree(igraphmodule_GraphObject * self,
   igraph_neimode_t dmode = IGRAPH_ALL;
   PyObject *dmode_o = Py_None;
   PyObject *loops = Py_False;
-  igraph_integer_t res;
+  igraph_int_t res;
   igraph_vs_t vs;
   igraph_bool_t return_single = false;
 
@@ -1317,19 +1328,27 @@ PyObject *igraphmodule_Graph_count_multiple(igraphmodule_GraphObject *self,
 PyObject *igraphmodule_Graph_neighbors(igraphmodule_GraphObject * self,
                                        PyObject * args, PyObject * kwds)
 {
-  PyObject *list, *dmode_o = Py_None, *index_o;
+  PyObject *list, *dmode_o = Py_None, *index_o, *loops_o = Py_True, *multiple_o = Py_True;
   igraph_neimode_t dmode = IGRAPH_ALL;
-  igraph_integer_t idx;
+  igraph_loops_t loops = IGRAPH_LOOPS;
+  igraph_bool_t multiple = 1;
+  igraph_int_t idx;
   igraph_vector_int_t res;
 
-  static char *kwlist[] = { "vertex", "mode", NULL };
+  static char *kwlist[] = { "vertex", "mode", "loops", "multiple", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &index_o, &dmode_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOO", kwlist, &index_o, &dmode_o, &loops_o, &multiple_o))
     return NULL;
 
   if (igraphmodule_PyObject_to_neimode_t(dmode_o, &dmode)) {
     return NULL;
   }
+
+  if (igraphmodule_PyObject_to_loops_t(loops_o, &loops)) {
+    return NULL;
+  }
+
+  multiple = PyObject_IsTrue(multiple_o);
 
   if (igraphmodule_PyObject_to_vid(index_o, &idx, &self->g)) {
     return NULL;
@@ -1340,7 +1359,7 @@ PyObject *igraphmodule_Graph_neighbors(igraphmodule_GraphObject * self,
     return NULL;
   }
 
-  if (igraph_neighbors(&self->g, &res, idx, dmode)) {
+  if (igraph_neighbors(&self->g, &res, idx, dmode, loops, multiple)) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&res);
     return NULL;
@@ -1366,17 +1385,22 @@ PyObject *igraphmodule_Graph_neighbors(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_incident(igraphmodule_GraphObject * self,
                                        PyObject * args, PyObject * kwds)
 {
-  PyObject *list, *dmode_o = Py_None, *index_o;
+  PyObject *list, *dmode_o = Py_None, *index_o, *loops_o = Py_True;
   igraph_neimode_t dmode = IGRAPH_OUT;
-  igraph_integer_t idx;
+  igraph_loops_t loops = IGRAPH_LOOPS;
+  igraph_int_t idx;
   igraph_vector_int_t res;
 
-  static char *kwlist[] = { "vertex", "mode", NULL };
+  static char *kwlist[] = { "vertex", "mode", "loops", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &index_o, &dmode_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OO", kwlist, &index_o, &dmode_o, &loops_o))
     return NULL;
 
   if (igraphmodule_PyObject_to_neimode_t(dmode_o, &dmode)) {
+    return NULL;
+  }
+
+  if (igraphmodule_PyObject_to_loops_t(loops_o, &loops)) {
     return NULL;
   }
 
@@ -1389,7 +1413,7 @@ PyObject *igraphmodule_Graph_incident(igraphmodule_GraphObject * self,
     return NULL;
   }
 
-  if (igraph_incident(&self->g, &res, idx, dmode)) {
+  if (igraph_incident(&self->g, &res, idx, dmode, loops)) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&res);
     return NULL;
@@ -1426,80 +1450,6 @@ PyObject *igraphmodule_Graph_reciprocity(igraphmodule_GraphObject * self,
   }
 
   return igraphmodule_real_t_to_PyObject(res, IGRAPHMODULE_TYPE_FLOAT);
-}
-
-/** \ingroup python_interface_graph
- * \brief The successors of a given vertex in an \c igraph.Graph
- * This method accepts a single vertex ID as a parameter, and returns the
- * successors of the given vertex in the form of an integer list. It
- * is equivalent to calling \c igraph.Graph.neighbors with \c type=OUT
- *
- * \return the successor list as a Python list object
- * \sa igraph_neighbors
- */
-PyObject *igraphmodule_Graph_successors(igraphmodule_GraphObject * self,
-                                        PyObject * args, PyObject * kwds)
-{
-  PyObject *list, *index_o;
-  igraph_integer_t idx;
-  igraph_vector_int_t res;
-
-  static char *kwlist[] = { "vertex", NULL };
-
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &index_o))
-    return NULL;
-
-  if (igraphmodule_PyObject_to_vid(index_o, &idx, &self->g))
-    return NULL;
-
-  igraph_vector_int_init(&res, 0);
-  if (igraph_neighbors(&self->g, &res, idx, IGRAPH_OUT)) {
-    igraphmodule_handle_igraph_error();
-    igraph_vector_int_destroy(&res);
-    return NULL;
-  }
-
-  list = igraphmodule_vector_int_t_to_PyList(&res);
-  igraph_vector_int_destroy(&res);
-
-  return list;
-}
-
-/** \ingroup python_interface_graph
- * \brief The predecessors of a given vertex in an \c igraph.Graph
- * This method accepts a single vertex ID as a parameter, and returns the
- * predecessors of the given vertex in the form of an integer list. It
- * is equivalent to calling \c igraph.Graph.neighbors with \c type=IN
- *
- * \return the predecessor list as a Python list object
- * \sa igraph_neighbors
- */
-PyObject *igraphmodule_Graph_predecessors(igraphmodule_GraphObject * self,
-                                          PyObject * args, PyObject * kwds)
-{
-  PyObject *list, *index_o;
-  igraph_integer_t idx;
-  igraph_vector_int_t res;
-
-  static char *kwlist[] = { "vertex", NULL };
-
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &index_o))
-    return NULL;
-
-  if (igraphmodule_PyObject_to_vid(index_o, &idx, &self->g))
-    return NULL;
-
-  igraph_vector_int_init(&res, 1);
-  if (igraph_neighbors(&self->g, &res, idx, IGRAPH_IN)) {
-    igraphmodule_handle_igraph_error();
-    igraph_vector_int_destroy(&res);
-    return NULL;
-  }
-
-  list = igraphmodule_vector_int_t_to_PyList(&res);
-  igraph_vector_int_destroy(&res);
-
-  return list;
 }
 
 /** \ingroup python_interface_graph
@@ -1562,7 +1512,7 @@ PyObject *igraphmodule_Graph_are_adjacent(igraphmodule_GraphObject * self,
 {
   static char *kwlist[] = { "v1", "v2", NULL };
   PyObject *v1, *v2;
-  igraph_integer_t idx1, idx2;
+  igraph_int_t idx1, idx2;
   igraph_bool_t res;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist, &v1, &v2))
@@ -1593,8 +1543,8 @@ PyObject *igraphmodule_Graph_get_eid(igraphmodule_GraphObject * self,
   PyObject *v1, *v2;
   PyObject *directed = Py_True;
   PyObject *error = Py_True;
-  igraph_integer_t idx1, idx2;
-  igraph_integer_t res;
+  igraph_int_t idx1, idx2;
+  igraph_int_t res;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|OO", kwlist, &v1, &v2,
                                    &directed, &error))
@@ -1689,30 +1639,24 @@ PyObject *igraphmodule_Graph_diameter(igraphmodule_GraphObject * self,
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
       ATTRIBUTE_TYPE_EDGE)) return NULL;
 
-  if (weights) {
-    if (igraph_diameter_dijkstra(&self->g, weights, &diameter,
-          /* from, to, vertex_path, edge_path */
-          0, 0, 0, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
+  if (
+    igraph_diameter(&self->g, weights, &diameter,
+      /* from, to, vertex_path, edge_path */
+      0, 0, 0, 0,
+      PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))
+  ) {
+    igraphmodule_handle_igraph_error();
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
-      return NULL;
     }
-    igraph_vector_destroy(weights); free(weights);
-    return igraphmodule_real_t_to_PyObject(diameter, IGRAPHMODULE_TYPE_FLOAT);
-  } else {
-    if (igraph_diameter(&self->g, &diameter,
-          /* from, to, vertex_path, edge_path */
-          0, 0, 0, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
-      return NULL;
-    }
-
-    /* The diameter is integer in this case, except if igraph_diameter()
-     * returned NaN or infinity for some reason */
-    return igraphmodule_real_t_to_PyObject(diameter, IGRAPHMODULE_TYPE_FLOAT_IF_FRACTIONAL_ELSE_INT);
+    return NULL;
   }
+
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
+  }
+
+  return igraphmodule_real_t_to_PyObject(diameter, IGRAPHMODULE_TYPE_FLOAT_IF_FRACTIONAL_ELSE_INT);
 }
 
 /** \ingroup python_interface_graph
@@ -1737,30 +1681,33 @@ PyObject *igraphmodule_Graph_get_diameter(igraphmodule_GraphObject * self,
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
       ATTRIBUTE_TYPE_EDGE)) return NULL;
 
-  igraph_vector_int_init(&res, 0);
-  if (weights) {
-    if (igraph_diameter_dijkstra(&self->g, weights, 0,
-          /* from, to, vertex_path, edge_path */
-          0, 0, &res, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
+  if (igraph_vector_int_init(&res, 0)) {
+    igraphmodule_handle_igraph_error();
+    return NULL;
+  }
+
+  if (
+    igraph_diameter(&self->g, weights, 0,
+      /* from, to, vertex_path, edge_path */
+      0, 0, &res, 0,
+      PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected)
+    )
+  ) {
+    igraphmodule_handle_igraph_error();
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
-      igraph_vector_int_destroy(&res);
-      return NULL;
     }
+    igraph_vector_int_destroy(&res);
+    return NULL;
+  }
+
+  if (weights) {
     igraph_vector_destroy(weights); free(weights);
-  } else {
-    if (igraph_diameter(&self->g, 0,
-          /* from, to, vertex_path, edge_path */
-          0, 0, &res, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
-      return NULL;
-    }
   }
 
   result_o = igraphmodule_vector_int_t_to_PyList(&res);
   igraph_vector_int_destroy(&res);
+
   return result_o;
 }
 
@@ -1774,7 +1721,7 @@ PyObject *igraphmodule_Graph_farthest_points(igraphmodule_GraphObject * self,
   PyObject *dir = Py_True, *vcount_if_unconnected = Py_True;
   PyObject *weights_o = Py_None;
   igraph_vector_t *weights = 0;
-  igraph_integer_t from, to;
+  igraph_int_t from, to;
   igraph_real_t len;
 
   static char *kwlist[] = { "directed", "unconn", "weights", NULL };
@@ -1787,46 +1734,29 @@ PyObject *igraphmodule_Graph_farthest_points(igraphmodule_GraphObject * self,
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
       ATTRIBUTE_TYPE_EDGE)) return NULL;
 
-  if (weights) {
-    if (igraph_diameter_dijkstra(&self->g, weights, &len,
-          /* from, to, vertex_path, edge_path */
-          &from, &to, 0, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
+  if (
+    igraph_diameter(
+      &self->g, weights, &len,
+      /* from, to, vertex_path, edge_path */
+      &from, &to, 0, 0,
+      PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected)
+    )
+  ) {
+    igraphmodule_handle_igraph_error();
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
-      return NULL;
     }
-    igraph_vector_destroy(weights); free(weights);
-    if (from >= 0) {
-      return Py_BuildValue("nnd", (Py_ssize_t)from, (Py_ssize_t)to, (double)len);
-    } else {
-      return Py_BuildValue("OOd", Py_None, Py_None, (double)len);
-    }
-  } else {
-    if (igraph_diameter(&self->g, &len,
-          /* from, to, vertex_path, edge_path */
-          &from, &to, 0, 0,
-          PyObject_IsTrue(dir), PyObject_IsTrue(vcount_if_unconnected))) {
-      igraphmodule_handle_igraph_error();
-      return NULL;
-    }
+    return NULL;
+  }
 
-    /* if len is finite and integer (which it typically is, unless it's
-     * infinite), then return a Python int as the third value; otherwise
-     * return a float */
-    if (ceil(len) == len && isfinite(len)) {
-      if (from >= 0) {
-        return Py_BuildValue("nnn", (Py_ssize_t)from, (Py_ssize_t)to, (Py_ssize_t)len);
-      } else {
-        return Py_BuildValue("OOn", Py_None, Py_None, (Py_ssize_t)len);
-      }
-    } else {
-      if (from >= 0) {
-        return Py_BuildValue("nnd", (Py_ssize_t)from, (Py_ssize_t)to, (double)len);
-      } else {
-        return Py_BuildValue("OOd", Py_None, Py_None, (double)len);
-      }
-    }
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
+  }
+
+  if (from >= 0) {
+    return Py_BuildValue("nnd", (Py_ssize_t)from, (Py_ssize_t)to, (double)len);
+  } else {
+    return Py_BuildValue("OOd", Py_None, Py_None, (double)len);
   }
 }
 
@@ -2019,7 +1949,7 @@ PyObject *igraphmodule_Graph_radius(igraphmodule_GraphObject * self,
     return NULL;
   }
 
-  if (igraph_radius_dijkstra(&self->g, weights, &radius, mode)) {
+  if (igraph_radius(&self->g, weights, &radius, mode)) {
     if (weights) {
       igraph_vector_destroy(weights); free(weights);
     }
@@ -2149,8 +2079,9 @@ PyObject *igraphmodule_Graph_Barabasi(PyTypeObject * type,
   igraph_t g;
   Py_ssize_t n;
   float power = 1.0f, zero_appeal = 1.0f;
-  igraph_integer_t m = 1;
+  igraph_int_t m = 1;
   igraph_vector_int_t outseq;
+  igraph_bool_t has_outseq = false;
   igraph_t *start_from = 0;
   igraph_barabasi_algorithm_t algo = IGRAPH_BARABASI_PSUMTREE;
   PyObject *m_obj = 0, *outpref = Py_False, *directed = Py_False;
@@ -2176,36 +2107,36 @@ PyObject *igraphmodule_Graph_Barabasi(PyTypeObject * type,
   CHECK_SSIZE_T_RANGE(n, "vertex count");
 
   if (m_obj == 0) {
-    igraph_vector_int_init(&outseq, 0);
     m = 1;
-  } else if (m_obj != 0) {
-    /* let's check whether we have a constant out-degree or a list */
-    if (PyLong_Check(m_obj)) {
-      if (igraphmodule_PyObject_to_integer_t(m_obj, &m)) {
-        return NULL;
-      }
-      igraph_vector_int_init(&outseq, 0);
-    } else if (PyList_Check(m_obj)) {
-      if (igraphmodule_PyObject_to_vector_int_t(m_obj, &outseq)) {
-        return NULL;
-      }
-    } else {
-      PyErr_SetString(PyExc_TypeError, "m must be an integer or a list of integers");
+  } else if (PyLong_Check(m_obj)) {
+    if (igraphmodule_PyObject_to_integer_t(m_obj, &m)) {
       return NULL;
     }
+  } else if (PySequence_Check(m_obj)) {
+    if (igraphmodule_PyObject_to_vector_int_t(m_obj, &outseq)) {
+      return NULL;
+    }
+    has_outseq = true;
+  } else {
+    PyErr_SetString(PyExc_TypeError, "m must be an integer or a sequence of integers");
+    return NULL;
   }
 
   if (igraph_barabasi_game(&g, n, power, m,
-                           &outseq, PyObject_IsTrue(outpref),
+                           has_outseq ? &outseq : NULL, PyObject_IsTrue(outpref),
                            zero_appeal,
                            PyObject_IsTrue(directed), algo,
                            start_from)) {
     igraphmodule_handle_igraph_error();
-    igraph_vector_int_destroy(&outseq);
+    if (has_outseq) {
+      igraph_vector_int_destroy(&outseq);
+    }
     return NULL;
   }
 
-  igraph_vector_int_destroy(&outseq);
+  if (has_outseq) {
+    igraph_vector_int_destroy(&outseq);
+  }
 
   CREATE_GRAPH_FROM_TYPE(self, g, type);
 
@@ -2402,15 +2333,16 @@ PyObject *igraphmodule_Graph_Erdos_Renyi(PyTypeObject * type,
   igraph_t g;
   Py_ssize_t n, m = -1;
   double p = -1.0;
-  PyObject *loops = Py_False, *directed = Py_False;
+  PyObject *loops = Py_False, *directed = Py_False, *edge_labeled = Py_False;
   int retval;
 
-  static char *kwlist[] = { "n", "p", "m", "directed", "loops", NULL };
+  static char *kwlist[] = { "n", "p", "m", "directed", "loops", "edge_labeled", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|dnOO", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|dnOOO", kwlist,
                                    &n, &p, &m,
                                    &directed,
-                                   &loops))
+                                   &loops,
+                                   &edge_labeled))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(n, "vertex count");
@@ -2429,10 +2361,18 @@ PyObject *igraphmodule_Graph_Erdos_Renyi(PyTypeObject * type,
 
   if (m == -1) {
     /* GNP model */
-    retval = igraph_erdos_renyi_game_gnp(&g, n, p, PyObject_IsTrue(directed), PyObject_IsTrue(loops));
+    retval = igraph_erdos_renyi_game_gnp(
+      &g, n, p, PyObject_IsTrue(directed),
+      PyObject_IsTrue(loops) ? IGRAPH_LOOPS_SW : IGRAPH_SIMPLE_SW,
+      PyObject_IsTrue(edge_labeled)
+    );
   } else {
     /* GNM model */
-    retval = igraph_erdos_renyi_game_gnm(&g, n, m, PyObject_IsTrue(directed), PyObject_IsTrue(loops));
+    retval = igraph_erdos_renyi_game_gnm(
+      &g, n, m, PyObject_IsTrue(directed),
+      PyObject_IsTrue(loops) ? IGRAPH_LOOPS_SW : IGRAPH_SIMPLE_SW,
+      PyObject_IsTrue(edge_labeled)
+    );
   }
 
   if (retval) {
@@ -3094,7 +3034,7 @@ PyObject *igraphmodule_Graph_LCF(PyTypeObject *type,
   if (igraphmodule_PyObject_to_vector_int_t(shifts_o, &shifts))
     return NULL;
 
-  if (igraph_lcf_vector(&g, n, &shifts, repeats)) {
+  if (igraph_lcf(&g, n, &shifts, repeats)) {
     igraph_vector_int_destroy(&shifts);
     igraphmodule_handle_igraph_error();
     return NULL;
@@ -3477,15 +3417,20 @@ PyObject *igraphmodule_Graph_Random_Bipartite(PyTypeObject * type,
   Py_ssize_t n1, n2, m = -1;
   double p = -1.0;
   igraph_neimode_t neimode = IGRAPH_ALL;
-  PyObject *directed_o = Py_False, *neimode_o = NULL;
+  PyObject *directed_o = Py_False, *neimode_o = NULL, *edge_labeled_o = Py_False;
+  PyObject *edge_types_o = Py_None;
   igraph_vector_bool_t vertex_types;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
   PyObject *vertex_types_o;
   igraph_error_t retval;
 
-  static char *kwlist[] = { "n1", "n2", "p", "m", "directed", "neimode", NULL };
+  static char *kwlist[] = {
+    "n1", "n2", "p", "m", "directed", "neimode", "allowed_edge_types", "edge_labeled", NULL
+  };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn|dnOO", kwlist,
-                                   &n1, &n2, &p, &m, &directed_o, &neimode_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn|dnOOOO", kwlist,
+                                   &n1, &n2, &p, &m, &directed_o, &neimode_o,
+                                   &edge_types_o, &edge_labeled_o))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(n1, "number of vertices in first partition");
@@ -3505,6 +3450,9 @@ PyObject *igraphmodule_Graph_Random_Bipartite(PyTypeObject * type,
   if (igraphmodule_PyObject_to_neimode_t(neimode_o, &neimode))
     return NULL;
 
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types))
+    return NULL;
+
   if (igraph_vector_bool_init(&vertex_types, n1+n2)) {
     igraphmodule_handle_igraph_error();
     return NULL;
@@ -3513,12 +3461,14 @@ PyObject *igraphmodule_Graph_Random_Bipartite(PyTypeObject * type,
   if (m == -1) {
     /* GNP model */
     retval = igraph_bipartite_game_gnp(
-      &g, &vertex_types, n1, n2, p, PyObject_IsTrue(directed_o), neimode
+      &g, &vertex_types, n1, n2, p, PyObject_IsTrue(directed_o), neimode,
+      allowed_edge_types, PyObject_IsTrue(edge_labeled_o)
     );
   } else {
     /* GNM model */
     retval = igraph_bipartite_game_gnm(
-      &g, &vertex_types, n1, n2, m, PyObject_IsTrue(directed_o), neimode
+      &g, &vertex_types, n1, n2, m, PyObject_IsTrue(directed_o), neimode,
+      allowed_edge_types, PyObject_IsTrue(edge_labeled_o)
     );
   }
 
@@ -3552,8 +3502,9 @@ PyObject *igraphmodule_Graph_Recent_Degree(PyTypeObject * type,
   igraph_t g;
   Py_ssize_t n, window = 0;
   float power = 0.0f, zero_appeal = 0.0f;
-  igraph_integer_t m = 0;
+  igraph_int_t m = 0;
   igraph_vector_int_t outseq;
+  igraph_bool_t has_outseq = false;
   PyObject *m_obj, *outpref = Py_False, *directed = Py_False;
 
   char *kwlist[] =
@@ -3573,24 +3524,28 @@ NULL };
     if (igraphmodule_PyObject_to_integer_t(m_obj, &m)) {
       return NULL;
     }
-    igraph_vector_int_init(&outseq, 0);
   } else if (PyList_Check(m_obj)) {
     if (igraphmodule_PyObject_to_vector_int_t(m_obj, &outseq)) {
       // something bad happened during conversion
       return NULL;
     }
+    has_outseq = true;
   }
 
-  if (igraph_recent_degree_game(&g, n, power, window, m, &outseq,
+  if (igraph_recent_degree_game(&g, n, power, window, m, has_outseq ? &outseq : NULL,
                                 PyObject_IsTrue(outpref),
                                 zero_appeal,
                                 PyObject_IsTrue(directed))) {
     igraphmodule_handle_igraph_error();
-    igraph_vector_int_destroy(&outseq);
+    if (has_outseq) {
+      igraph_vector_int_destroy(&outseq);
+    }
     return NULL;
   }
 
-  igraph_vector_int_destroy(&outseq);
+  if (has_outseq) {
+    igraph_vector_int_destroy(&outseq);
+  }
 
   CREATE_GRAPH_FROM_TYPE(self, g, type);
 
@@ -3638,23 +3593,22 @@ PyObject *igraphmodule_Graph_SBM(PyTypeObject * type,
 {
   igraphmodule_GraphObject *self;
   igraph_t g;
-  Py_ssize_t n;
-  PyObject *block_sizes_o, *pref_matrix_o;
+  PyObject *block_sizes_o, *pref_matrix_o, *edge_types_o = Py_None;
   PyObject *directed_o = Py_False;
-  PyObject *loops_o = Py_False;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
   igraph_matrix_t pref_matrix;
   igraph_vector_int_t block_sizes;
 
-  static char *kwlist[] = { "n", "pref_matrix", "block_sizes", "directed",
-    "loops", NULL };
+  static char *kwlist[] = { "pref_matrix", "block_sizes", "directed", "allowed_edge_types", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nOO|OO", kwlist,
-                                   &n, &pref_matrix_o,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|OO", kwlist,
+                                   &pref_matrix_o,
                                    &block_sizes_o,
-                                   &directed_o, &loops_o))
+                                   &directed_o, &edge_types_o))
     return NULL;
 
-  CHECK_SSIZE_T_RANGE(n, "vertex count");
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types))
+    return NULL;
 
   if (igraphmodule_PyObject_to_matrix_t(pref_matrix_o, &pref_matrix, "pref_matrix")) {
     return NULL;
@@ -3665,7 +3619,7 @@ PyObject *igraphmodule_Graph_SBM(PyTypeObject * type,
     return NULL;
   }
 
-  if (igraph_sbm_game(&g, n, &pref_matrix, &block_sizes, PyObject_IsTrue(directed_o), PyObject_IsTrue(loops_o))) {
+  if (igraph_sbm_game(&g, &pref_matrix, &block_sizes, PyObject_IsTrue(directed_o), allowed_edge_types)) {
     igraphmodule_handle_igraph_error();
     igraph_matrix_destroy(&pref_matrix);
     igraph_vector_int_destroy(&block_sizes);
@@ -3734,15 +3688,16 @@ PyObject *igraphmodule_Graph_Static_Fitness(PyTypeObject *type,
   Py_ssize_t m;
   PyObject *fitness_out_o = Py_None, *fitness_in_o = Py_None;
   PyObject *fitness_o = Py_None;
-  PyObject *multiple = Py_False, *loops = Py_False;
+  PyObject *edge_types_o = Py_None;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
   igraph_vector_t fitness_out, fitness_in;
 
   static char *kwlist[] = { "m", "fitness_out", "fitness_in",
-    "loops", "multiple", "fitness", NULL };
+    "allowed_edge_types", "fitness", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|OOOOO", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|OOOO", kwlist,
                                    &m, &fitness_out_o, &fitness_in_o,
-                                   &loops, &multiple, &fitness_o))
+                                   &edge_types_o, &fitness_o))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(m, "edge count");
@@ -3758,6 +3713,9 @@ PyObject *igraphmodule_Graph_Static_Fitness(PyTypeObject *type,
     return NULL;
   }
 
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types))
+    return NULL;
+
   if (igraphmodule_PyObject_float_to_vector_t(fitness_out_o, &fitness_out))
     return NULL;
 
@@ -3770,7 +3728,7 @@ PyObject *igraphmodule_Graph_Static_Fitness(PyTypeObject *type,
 
   if (igraph_static_fitness_game(&g, m, &fitness_out,
         fitness_in_o == Py_None ? 0 : &fitness_in,
-        PyObject_IsTrue(loops), PyObject_IsTrue(multiple))) {
+        allowed_edge_types)) {
     igraph_vector_destroy(&fitness_out);
     if (fitness_in_o != Py_None)
       igraph_vector_destroy(&fitness_in);
@@ -3799,20 +3757,24 @@ PyObject *igraphmodule_Graph_Static_Power_Law(PyTypeObject *type,
   igraph_t g;
   Py_ssize_t n, m;
   float exponent_out = -1.0f, exponent_in = -1.0f, exponent = -1.0f;
-  PyObject *multiple = Py_False, *loops = Py_False;
+  PyObject *edge_types_o = Py_None;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
   PyObject *finite_size_correction = Py_True;
 
   static char *kwlist[] = { "n", "m", "exponent_out", "exponent_in",
-    "loops", "multiple", "finite_size_correction", "exponent", NULL };
+    "allowed_edge_types", "finite_size_correction", "exponent", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn|ffOOOf", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn|ffOOf", kwlist,
                                    &n, &m, &exponent_out, &exponent_in,
-                                   &loops, &multiple, &finite_size_correction,
+                                   &edge_types_o, &finite_size_correction,
                                    &exponent))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(n, "vertex count");
   CHECK_SSIZE_T_RANGE(m, "edge count");
+
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types))
+    return NULL;
 
   /* This trickery allows us to use "exponent" or "exponent_out" as
    * keyword argument, with "exponent_out" taking precedence over
@@ -3826,7 +3788,7 @@ PyObject *igraphmodule_Graph_Static_Power_Law(PyTypeObject *type,
   }
 
   if (igraph_static_power_law_game(&g, n, m, exponent_out, exponent_in,
-        PyObject_IsTrue(loops), PyObject_IsTrue(multiple),
+        allowed_edge_types,
         PyObject_IsTrue(finite_size_correction))) {
     igraphmodule_handle_igraph_error();
     return NULL;
@@ -3976,22 +3938,25 @@ PyObject *igraphmodule_Graph_Watts_Strogatz(PyTypeObject * type,
 {
   Py_ssize_t dim, size, nei;
   double p;
-  PyObject* loops = Py_False;
-  PyObject* multiple = Py_False;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
+  PyObject* edge_types_o = Py_None;
   igraphmodule_GraphObject *self;
   igraph_t g;
 
-  static char *kwlist[] = { "dim", "size", "nei", "p", "loops", "multiple", NULL };
+  static char *kwlist[] = { "dim", "size", "nei", "p", "allowed_edge_types", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nnnd|OO", kwlist,
-                                   &dim, &size, &nei, &p, &loops, &multiple))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nnnd|O", kwlist,
+                                   &dim, &size, &nei, &p, &edge_types_o))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(dim, "dimensionality");
   CHECK_SSIZE_T_RANGE(size, "size");
   CHECK_SSIZE_T_RANGE(nei, "number of neighbors");
 
-  if (igraph_watts_strogatz_game(&g, dim, size, nei, p, PyObject_IsTrue(loops), PyObject_IsTrue(multiple))) {
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types))
+    return NULL;
+
+  if (igraph_watts_strogatz_game(&g, dim, size, nei, p, allowed_edge_types)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
@@ -4104,23 +4069,33 @@ PyObject *igraphmodule_Graph_articulation_points(igraphmodule_GraphObject* self,
  */
 PyObject *igraphmodule_Graph_assortativity_nominal(igraphmodule_GraphObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = { "types", "directed", "normalized", NULL };
-  PyObject *types_o = Py_None, *directed = Py_True, *normalized = Py_True;
+  static char *kwlist[] = { "types", "directed", "normalized", "weights", NULL };
+  PyObject *types_o = Py_None, *weights_o = Py_None, *directed = Py_True, *normalized = Py_True;
   igraph_real_t res;
   igraph_error_t ret;
   igraph_vector_int_t *types = 0;
+  igraph_vector_t *weights = 0;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OO", kwlist, &types_o, &directed, &normalized))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OO", kwlist, &types_o, &directed, &normalized, &weights_o))
     return NULL;
 
   if (igraphmodule_attrib_to_vector_int_t(types_o, self, &types, ATTRIBUTE_TYPE_VERTEX))
     return NULL;
 
-  ret = igraph_assortativity_nominal(&self->g, types, &res, PyObject_IsTrue(directed),
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    if (types) { igraph_vector_int_destroy(types); free(types); }
+    return NULL;
+  }
+
+  ret = igraph_assortativity_nominal(&self->g, weights, types, &res, PyObject_IsTrue(directed),
       PyObject_IsTrue(normalized));
 
   if (types) {
     igraph_vector_int_destroy(types); free(types);
+  }
+
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
   }
 
   if (ret) {
@@ -4137,26 +4112,36 @@ PyObject *igraphmodule_Graph_assortativity_nominal(igraphmodule_GraphObject *sel
  */
 PyObject *igraphmodule_Graph_assortativity(igraphmodule_GraphObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = { "types1", "types2", "directed", "normalized", NULL };
+  static char *kwlist[] = { "types1", "types2", "directed", "normalized", "weights", NULL };
   PyObject *types1_o = Py_None, *types2_o = Py_None, *directed = Py_True, *normalized = Py_True;
+  PyObject *weights_o = Py_None;
   igraph_real_t res;
   igraph_error_t ret;
-  igraph_vector_t *types1 = 0, *types2 = 0;
+  igraph_vector_t *types1 = 0, *types2 = 0, *weights = 0;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOO", kwlist, &types1_o, &types2_o, &directed, &normalized))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOO", kwlist, &types1_o, &types2_o, &directed, &normalized, &weights_o))
     return NULL;
 
-  if (igraphmodule_attrib_to_vector_t(types1_o, self, &types1, ATTRIBUTE_TYPE_VERTEX))
+  if (igraphmodule_attrib_to_vector_t(types1_o, self, &types1, ATTRIBUTE_TYPE_VERTEX)) {
     return NULL;
+  }
+
   if (igraphmodule_attrib_to_vector_t(types2_o, self, &types2, ATTRIBUTE_TYPE_VERTEX)) {
     if (types1) { igraph_vector_destroy(types1); free(types1); }
     return NULL;
   }
 
-  ret = igraph_assortativity(&self->g, types1, types2, &res, PyObject_IsTrue(directed), PyObject_IsTrue(normalized));
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    if (types1) { igraph_vector_destroy(types1); free(types1); }
+    if (types2) { igraph_vector_destroy(types2); free(types2); }
+    return NULL;
+  }
+
+  ret = igraph_assortativity(&self->g, weights, types1, types2, &res, PyObject_IsTrue(directed), PyObject_IsTrue(normalized));
 
   if (types1) { igraph_vector_destroy(types1); free(types1); }
   if (types2) { igraph_vector_destroy(types2); free(types2); }
+  if (weights) { igraph_vector_destroy(weights); free(weights); }
 
   if (ret) {
     igraphmodule_handle_igraph_error();
@@ -4203,6 +4188,8 @@ PyObject *igraphmodule_Graph_authority_score(
   igraph_real_t value;
   igraph_vector_t res, *weights = 0;
 
+  /* scale is deprecated but kept for backward compatibility reasons */
+
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO!O", kwlist, &weights_o,
                                    &scale_o, igraphmodule_ARPACKOptionsType,
                                    &arpack_options_o, &return_eigenvalue))
@@ -4214,7 +4201,7 @@ PyObject *igraphmodule_Graph_authority_score(
       ATTRIBUTE_TYPE_EDGE)) return NULL;
 
   arpack_options = (igraphmodule_ARPACKOptionsObject*)arpack_options_o;
-  if (igraph_hub_and_authority_scores(&self->g, NULL, &res, &value, PyObject_IsTrue(scale_o),
+  if (igraph_hub_and_authority_scores(&self->g, NULL, &res, &value,
       weights, igraphmodule_ARPACKOptions_get(arpack_options))) {
     igraphmodule_handle_igraph_error();
     if (weights) { igraph_vector_destroy(weights); free(weights); }
@@ -4262,19 +4249,16 @@ PyObject *igraphmodule_Graph_average_path_length(igraphmodule_GraphObject *
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
       ATTRIBUTE_TYPE_EDGE)) return NULL;
 
-  if (weights) {
-    if (igraph_average_path_length_dijkstra(&self->g, &res, 0, weights, PyObject_IsTrue(directed), PyObject_IsTrue(unconn))) {
+  if (igraph_average_path_length(&self->g, weights, &res, 0, PyObject_IsTrue(directed), PyObject_IsTrue(unconn))) {
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
-      igraphmodule_handle_igraph_error();
-      return NULL;
     }
+    igraphmodule_handle_igraph_error();
+    return NULL;
+  }
 
+  if (weights) {
     igraph_vector_destroy(weights); free(weights);
-  } else {
-    if (igraph_average_path_length(&self->g, &res, 0, PyObject_IsTrue(directed), PyObject_IsTrue(unconn))) {
-      igraphmodule_handle_igraph_error();
-      return NULL;
-    }
   }
 
   return PyFloat_FromDouble(res);
@@ -4289,8 +4273,9 @@ PyObject *igraphmodule_Graph_betweenness(igraphmodule_GraphObject * self,
                                          PyObject * args, PyObject * kwds)
 {
   static char *kwlist[] = { "vertices", "directed", "cutoff", "weights",
-    "sources", "targets", NULL };
+    "sources", "targets", "normalized", NULL };
   PyObject *directed = Py_True;
+  PyObject *normalized = Py_False;
   PyObject *vobj = Py_None, *list;
   PyObject *cutoff = Py_None;
   PyObject *weights_o = Py_None;
@@ -4302,9 +4287,9 @@ PyObject *igraphmodule_Graph_betweenness(igraphmodule_GraphObject * self,
   igraph_vs_t vs, sources, targets;
   igraph_error_t retval;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOOO", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOOOO", kwlist,
                                    &vobj, &directed, &cutoff, &weights_o,
-                                   &sources_o, &targets_o)) {
+                                   &sources_o, &targets_o, &normalized)) {
     return NULL;
   }
 
@@ -4345,10 +4330,10 @@ PyObject *igraphmodule_Graph_betweenness(igraphmodule_GraphObject * self,
   if (cutoff == Py_None) {
     if (is_subsetted) {
       retval = igraph_betweenness_subset(
-        &self->g, &res, vs, PyObject_IsTrue(directed), sources, targets, weights
+        &self->g, weights, &res, sources, targets, vs, PyObject_IsTrue(directed), PyObject_IsTrue(normalized)
       );
     } else {
-      retval = igraph_betweenness(&self->g, &res, vs, PyObject_IsTrue(directed), weights);
+      retval = igraph_betweenness(&self->g, weights, &res, vs, PyObject_IsTrue(directed), PyObject_IsTrue(normalized));
     }
 
     if (retval) {
@@ -4382,8 +4367,8 @@ PyObject *igraphmodule_Graph_betweenness(igraphmodule_GraphObject * self,
       return NULL;
     }
 
-    if (igraph_betweenness_cutoff(&self->g, &res, vs, PyObject_IsTrue(directed),
-        weights, PyFloat_AsDouble(cutoff_num))) {
+    if (igraph_betweenness_cutoff(&self->g, weights, &res, vs, PyObject_IsTrue(directed),
+        PyObject_IsTrue(normalized), PyFloat_AsDouble(cutoff_num))) {
       igraph_vs_destroy(&vs);
       igraph_vs_destroy(&targets);
       igraph_vs_destroy(&sources);
@@ -4471,7 +4456,7 @@ PyObject *igraphmodule_Graph_biconnected_components(igraphmodule_GraphObject *se
   igraph_vector_int_list_t components;
   igraph_vector_int_t points;
   igraph_bool_t return_articulation_points;
-  igraph_integer_t no;
+  igraph_int_t no;
   PyObject *result_o, *aps=Py_False;
 
   static char* kwlist[] = {"return_articulation_points", NULL};
@@ -4650,7 +4635,7 @@ PyObject *igraphmodule_Graph_bipartite_projection_size(igraphmodule_GraphObject 
         PyObject* args, PyObject* kwds) {
   PyObject *types_o = Py_None;
   igraph_vector_bool_t* types = 0;
-  igraph_integer_t vcount1, vcount2, ecount1, ecount2;
+  igraph_int_t vcount1, vcount2, ecount1, ecount2;
 
   static char* kwlist[] = {"types", NULL};
 
@@ -4947,7 +4932,7 @@ PyObject *igraphmodule_Graph_connected_components(
   static char *kwlist[] = { "mode", NULL };
   igraph_connectedness_t mode = IGRAPH_STRONG;
   igraph_vector_int_t res1, res2;
-  igraph_integer_t no;
+  igraph_int_t no;
   PyObject *list, *mode_o = Py_None;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &mode_o))
@@ -5217,7 +5202,7 @@ PyObject *igraphmodule_Graph_eccentricity(igraphmodule_GraphObject* self,
     return NULL;
   }
 
-  if (igraph_eccentricity_dijkstra(&self->g, weights, &res, vs, mode)) {
+  if (igraph_eccentricity(&self->g, weights, &res, vs, mode)) {
     if (weights) {
       igraph_vector_destroy(weights); free(weights);
     }
@@ -5306,9 +5291,9 @@ PyObject *igraphmodule_Graph_edge_betweenness(igraphmodule_GraphObject * self,
                                               PyObject * args,
                                               PyObject * kwds)
 {
-  static char *kwlist[] = { "directed", "cutoff", "weights", "sources", "targets", NULL };
+  static char *kwlist[] = { "directed", "cutoff", "weights", "sources", "targets", "normalized", NULL };
   igraph_vector_t res, *weights = 0;
-  PyObject *list, *directed = Py_True, *cutoff = Py_None;
+  PyObject *list, *directed = Py_True, *cutoff = Py_None, *normalized = Py_False;
   PyObject *weights_o = Py_None;
   PyObject *sources_o = Py_None;
   PyObject *targets_o = Py_None;
@@ -5317,8 +5302,8 @@ PyObject *igraphmodule_Graph_edge_betweenness(igraphmodule_GraphObject * self,
   igraph_error_t retval;
   igraph_bool_t is_subsetted = false;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOO", kwlist,
-                                   &directed, &cutoff, &weights_o, &sources_o, &targets_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOOOO", kwlist,
+                                   &directed, &cutoff, &weights_o, &sources_o, &targets_o, &normalized))
     return NULL;
 
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
@@ -5349,12 +5334,14 @@ PyObject *igraphmodule_Graph_edge_betweenness(igraphmodule_GraphObject * self,
   if (cutoff == Py_None) {
     if (is_subsetted) {
       retval = igraph_edge_betweenness_subset(
-        &self->g, &res, igraph_ess_all(IGRAPH_EDGEORDER_ID),
-        PyObject_IsTrue(directed), sources, targets, weights
+        &self->g, weights, &res,
+        sources, targets, igraph_ess_all(IGRAPH_EDGEORDER_ID),
+        PyObject_IsTrue(directed), PyObject_IsTrue(normalized)
       );
     } else {
       retval = igraph_edge_betweenness(
-        &self->g, &res, PyObject_IsTrue(directed), weights
+        &self->g, weights, &res, igraph_ess_all(IGRAPH_EDGEORDER_ID),
+        PyObject_IsTrue(directed), PyObject_IsTrue(normalized)
       );
     }
     if (retval) {
@@ -5384,8 +5371,10 @@ PyObject *igraphmodule_Graph_edge_betweenness(igraphmodule_GraphObject * self,
       return NULL;
     }
 
-    if (igraph_edge_betweenness_cutoff(&self->g, &res, PyObject_IsTrue(directed),
-        weights, PyFloat_AsDouble(cutoff_num))) {
+    if (igraph_edge_betweenness_cutoff(
+        &self->g, weights, &res, igraph_ess_all(IGRAPH_EDGEORDER_ID),
+        PyObject_IsTrue(directed), PyObject_IsTrue(normalized), PyFloat_AsDouble(cutoff_num)
+    )) {
       igraph_vector_destroy(&res);
       igraph_vs_destroy(&targets);
       igraph_vs_destroy(&sources);
@@ -5420,8 +5409,8 @@ PyObject *igraphmodule_Graph_edge_connectivity(igraphmodule_GraphObject *self,
         PyObject *args, PyObject *kwds) {
   static char *kwlist[] = { "source", "target", "checks", NULL };
   PyObject *checks = Py_True, *source_o = Py_None, *target_o = Py_None;
-  igraph_integer_t source = -1, target = -1;
-  igraph_integer_t res;
+  igraph_int_t source = -1, target = -1;
+  igraph_int_t res;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist, &source_o, &target_o, &checks))
     return NULL;
@@ -5471,6 +5460,8 @@ PyObject *igraphmodule_Graph_eigenvector_centrality(
   igraph_real_t value;
   igraph_vector_t *weights=0, res;
 
+  /* scale is deprecated but kept for backward compatibility reasons */
+
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO!O", kwlist,
                                    &directed_o, &scale_o, &weights_o,
                                    igraphmodule_ARPACKOptionsType,
@@ -5487,7 +5478,7 @@ PyObject *igraphmodule_Graph_eigenvector_centrality(
 
   arpack_options = (igraphmodule_ARPACKOptionsObject*)arpack_options_o;
   if (igraph_eigenvector_centrality(&self->g, &res, &value,
-      PyObject_IsTrue(directed_o), PyObject_IsTrue(scale_o),
+      PyObject_IsTrue(directed_o),
       weights, igraphmodule_ARPACKOptions_get(arpack_options))) {
     igraphmodule_handle_igraph_error();
     if (weights) { igraph_vector_destroy(weights); free(weights); }
@@ -5608,7 +5599,7 @@ PyObject *igraphmodule_Graph_get_shortest_path(
   static char *kwlist[] = { "v", "to", "weights", "mode", "output", "algorithm", NULL };
   igraph_vector_t *weights=0;
   igraph_neimode_t mode = IGRAPH_OUT;
-  igraph_integer_t from, to;
+  igraph_int_t from, to;
   PyObject *list, *mode_o=Py_None, *weights_o=Py_None,
            *output_o=Py_None, *from_o = Py_None, *to_o=Py_None,
            *algorithm_o=Py_None;
@@ -5644,14 +5635,14 @@ PyObject *igraphmodule_Graph_get_shortest_path(
     return NULL;
   }
 
-  if (algorithm == IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO) {
-    algorithm = igraphmodule_select_shortest_path_algorithm(
-      &self->g, weights, NULL, mode, /* allow_johnson = */ false
-    );
-  }
-
   /* Call the C function */
   switch (algorithm) {
+    case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO:
+      retval = igraph_get_shortest_path(
+        &self->g, weights, use_edges ? NULL : &vec, use_edges ? &vec : NULL, from, to, mode
+      );
+      break;
+
     case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_DIJKSTRA:
       retval = igraph_get_shortest_path_dijkstra(
         &self->g, use_edges ? NULL : &vec, use_edges ? &vec : NULL, from, to, weights, mode
@@ -5692,7 +5683,7 @@ typedef struct {
 } igraphmodule_i_Graph_get_shortest_path_astar_callback_data_t;
 
 igraph_error_t igraphmodule_i_Graph_get_shortest_path_astar_callback(
-  igraph_real_t *result, igraph_integer_t from, igraph_integer_t to,
+  igraph_real_t *result, igraph_int_t from, igraph_int_t to,
   void *extra
 ) {
   igraphmodule_i_Graph_get_shortest_path_astar_callback_data_t* data =
@@ -5744,7 +5735,7 @@ PyObject *igraphmodule_Graph_get_shortest_path_astar(
   static char *kwlist[] = { "v", "to", "heuristics", "weights", "mode", "output", NULL };
   igraph_vector_t *weights=0;
   igraph_neimode_t mode = IGRAPH_OUT;
-  igraph_integer_t from, to;
+  igraph_int_t from, to;
   PyObject *list, *mode_o=Py_None, *weights_o=Py_None,
            *output_o=Py_None, *from_o = Py_None, *to_o=Py_None,
            *heuristics_o;
@@ -5815,7 +5806,7 @@ PyObject *igraphmodule_Graph_get_shortest_paths(igraphmodule_GraphObject *
   igraph_vector_t *weights = NULL;
   igraph_neimode_t mode = IGRAPH_OUT;
   igraphmodule_shortest_path_algorithm_t algorithm = IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO;
-  igraph_integer_t from, no_of_target_nodes;
+  igraph_int_t from, no_of_target_nodes;
   igraph_vs_t to;
   PyObject *list, *mode_o=Py_None, *weights_o=Py_None,
            *output_o=Py_None, *from_o = Py_None, *to_o=Py_None,
@@ -5866,14 +5857,15 @@ PyObject *igraphmodule_Graph_get_shortest_paths(igraphmodule_GraphObject *
     return NULL;
   }
 
-  if (algorithm == IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO) {
-    algorithm = igraphmodule_select_shortest_path_algorithm(
-      &self->g, weights, NULL, mode, /* allow_johnson = */ false
-    );
-  }
-
   /* Call the C function */
   switch (algorithm) {
+    case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO:
+      retval = igraph_get_shortest_paths(
+        &self->g, weights, use_edges ? NULL : &veclist, use_edges ? &veclist : NULL,
+        from, to, mode, NULL, NULL
+      );
+      break;
+
     case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_DIJKSTRA:
       retval = igraph_get_shortest_paths_dijkstra(
         &self->g, use_edges ? NULL : &veclist, use_edges ? &veclist : NULL,
@@ -5924,7 +5916,7 @@ PyObject *igraphmodule_Graph_get_all_shortest_paths(igraphmodule_GraphObject *
   igraph_vector_int_list_t res;
   igraph_vector_t *weights = 0;
   igraph_neimode_t mode = IGRAPH_OUT;
-  igraph_integer_t from;
+  igraph_int_t from;
   igraph_vs_t to;
   PyObject *list, *from_o, *mode_o=Py_None, *to_o=Py_None, *weights_o=Py_None;
 
@@ -5984,9 +5976,9 @@ PyObject *igraphmodule_Graph_get_k_shortest_paths(
   igraph_vector_int_list_t res;
   igraph_vector_t *weights = 0;
   igraph_neimode_t mode = IGRAPH_OUT;
-  igraph_integer_t from;
-  igraph_integer_t to;
-  igraph_integer_t k = 1;
+  igraph_int_t from;
+  igraph_int_t to;
+  igraph_int_t k = 1;
   PyObject *list, *from_o, *to_o;
   PyObject *output_o = Py_None, *mode_o = Py_None, *weights_o = Py_None, *k_o = NULL;
   igraph_bool_t use_edges = false;
@@ -6052,22 +6044,26 @@ PyObject *igraphmodule_Graph_get_all_simple_paths(igraphmodule_GraphObject *
                                                     self, PyObject * args,
                                                     PyObject * kwds)
 {
-  static char *kwlist[] = { "v", "to", "cutoff", "mode", NULL };
-  igraph_vector_int_t res;
+  static char *kwlist[] = { "v", "to", "minlen", "maxlen", "mode", "max_results", NULL };
+  igraph_vector_int_list_t res;
   igraph_neimode_t mode = IGRAPH_OUT;
-  igraph_integer_t from;
+  igraph_int_t from;
   igraph_vs_t to;
-  igraph_integer_t cutoff;
-  PyObject *list, *from_o, *mode_o=Py_None, *to_o=Py_None, *cutoff_o=Py_None;
+  igraph_int_t minlen, maxlen, max_results = IGRAPH_UNLIMITED;
+  PyObject *list, *from_o, *mode_o = Py_None, *to_o = Py_None, *max_results_o = Py_None;
+  PyObject *minlen_o = Py_None, *maxlen_o = Py_None;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOO", kwlist, &from_o,
-        &to_o, &cutoff_o, &mode_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOOO", kwlist, &from_o,
+        &to_o, &minlen_o, &maxlen_o, &mode_o, &max_results_o))
     return NULL;
 
   if (igraphmodule_PyObject_to_neimode_t(mode_o, &mode))
     return NULL;
 
-  if (igraphmodule_PyObject_to_integer_t(cutoff_o, &cutoff))
+  if (igraphmodule_PyObject_to_integer_t(minlen_o, &minlen))
+    return NULL;
+
+  if (igraphmodule_PyObject_to_integer_t(maxlen_o, &maxlen))
     return NULL;
 
   if (igraphmodule_PyObject_to_vid(from_o, &from, &self->g))
@@ -6076,24 +6072,27 @@ PyObject *igraphmodule_Graph_get_all_simple_paths(igraphmodule_GraphObject *
   if (igraphmodule_PyObject_to_vs_t(to_o, &to, &self->g, 0, 0))
     return NULL;
 
-  if (igraph_vector_int_init(&res, 0)) {
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results))
+    return NULL;
+
+  if (igraph_vector_int_list_init(&res, 0)) {
     igraphmodule_handle_igraph_error();
     igraph_vs_destroy(&to);
     return NULL;
   }
 
-  if (igraph_get_all_simple_paths(&self->g, &res, from, to, cutoff, mode)) {
+  if (igraph_get_all_simple_paths(&self->g, &res, from, to, mode, minlen, maxlen, max_results)) {
     igraphmodule_handle_igraph_error();
-    igraph_vector_int_destroy(&res);
+    igraph_vector_int_list_destroy(&res);
     igraph_vs_destroy(&to);
     return NULL;
   }
 
   igraph_vs_destroy(&to);
 
-  list = igraphmodule_vector_int_t_to_PyList(&res);
+  list = igraphmodule_vector_int_list_t_to_PyList(&res);
 
-  igraph_vector_int_destroy(&res);
+  igraph_vector_int_list_destroy(&res);
 
   return list;
 }
@@ -6114,6 +6113,8 @@ PyObject *igraphmodule_Graph_hub_score(
   igraph_real_t value;
   igraph_vector_t res, *weights = 0;
 
+  /* scale is deprecated but kept for backward compatibility reasons */
+
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO!O", kwlist, &weights_o,
                                    &scale_o, igraphmodule_ARPACKOptionsType,
                                    &arpack_options, &return_eigenvalue))
@@ -6125,7 +6126,7 @@ PyObject *igraphmodule_Graph_hub_score(
     ATTRIBUTE_TYPE_EDGE)) return NULL;
 
   arpack_options = (igraphmodule_ARPACKOptionsObject*)arpack_options_o;
-  if (igraph_hub_and_authority_scores(&self->g, &res, NULL, &value, PyObject_IsTrue(scale_o),
+  if (igraph_hub_and_authority_scores(&self->g, &res, NULL, &value,
       weights, igraphmodule_ARPACKOptions_get(arpack_options))) {
     igraphmodule_handle_igraph_error();
     if (weights) { igraph_vector_destroy(weights); free(weights); }
@@ -6482,11 +6483,11 @@ PyObject *igraphmodule_Graph_personalized_pagerank(igraphmodule_GraphObject *sel
   }
 
   if (rvsobj != Py_None)
-    retval = igraph_personalized_pagerank_vs(&self->g, algo, &res, 0, vs,
-         PyObject_IsTrue(directed), damping, reset_vs, &weights, opts);
+    retval = igraph_personalized_pagerank_vs(&self->g, &weights, &res, 0, reset_vs,
+         damping, PyObject_IsTrue(directed), vs, algo, opts);
   else
-    retval = igraph_personalized_pagerank(&self->g, algo, &res, 0, vs,
-         PyObject_IsTrue(directed), damping, reset, &weights, opts);
+    retval = igraph_personalized_pagerank(&self->g, &weights, &res, 0, reset,
+         damping, PyObject_IsTrue(directed), vs, algo, opts);
 
   if (retval) {
     igraphmodule_handle_igraph_error();
@@ -6579,12 +6580,12 @@ PyObject *igraphmodule_Graph_permute_vertices(igraphmodule_GraphObject *self,
 PyObject *igraphmodule_Graph_rewire(igraphmodule_GraphObject * self,
                                     PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "n", "mode", NULL };
-  PyObject *n_o = Py_None, *mode_o = Py_None;
-  igraph_integer_t n = 10 * igraph_ecount(&self->g); /* TODO overflow check */
-  igraph_rewiring_t mode = IGRAPH_REWIRING_SIMPLE;
+  static char *kwlist[] = { "n", "allowed_edge_types", NULL };
+  PyObject *n_o = Py_None, *allowed_edge_types_o = Py_None;
+  igraph_int_t n = 10 * igraph_ecount(&self->g); /* TODO overflow check */
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &n_o, &mode_o)) {
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &n_o, &allowed_edge_types_o)) {
     return NULL;
   }
 
@@ -6594,11 +6595,11 @@ PyObject *igraphmodule_Graph_rewire(igraphmodule_GraphObject * self,
     }
   }
 
-  if (igraphmodule_PyObject_to_rewiring_t(mode_o, &mode)) {
+  if (igraphmodule_PyObject_to_edge_type_sw_t(allowed_edge_types_o, &allowed_edge_types)) {
     return NULL;
   }
 
-  if (igraph_rewire(&self->g, n, mode)) {
+  if (igraph_rewire(&self->g, n, allowed_edge_types, /* rewiring_stats = */ NULL)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
@@ -6614,16 +6615,20 @@ PyObject *igraphmodule_Graph_rewire(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_rewire_edges(igraphmodule_GraphObject * self,
                                           PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "prob", "loops", "multiple", NULL };
+  static char *kwlist[] = { "prob", "allowed_edge_types", NULL };
   double prob;
-  PyObject *loops_o = Py_False, *multiple_o = Py_False;
+  PyObject *edge_types_o = Py_None;
+  igraph_edge_type_sw_t allowed_edge_types = IGRAPH_SIMPLE_SW;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "d|OO", kwlist,
-        &prob, &loops_o, &multiple_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "d|O", kwlist,
+        &prob, &edge_types_o))
     return NULL;
 
-  if (igraph_rewire_edges(&self->g, prob, PyObject_IsTrue(loops_o),
-        PyObject_IsTrue(multiple_o))) {
+  if (igraphmodule_PyObject_to_edge_type_sw_t(edge_types_o, &allowed_edge_types)) {
+    return NULL;
+  }
+
+  if (igraph_rewire_edges(&self->g, prob, allowed_edge_types)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
@@ -6686,19 +6691,12 @@ PyObject *igraphmodule_Graph_distances(
     return igraphmodule_handle_igraph_error();
   }
 
-  if (algorithm == IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO) {
-    algorithm = igraphmodule_select_shortest_path_algorithm(
-      &self->g, weights, &from_vs, mode, /* allow_johnson = */ true
-    );
-  }
-
-  if (algorithm == IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_JOHNSON && mode != IGRAPH_OUT) {
-    PyErr_SetString(PyExc_ValueError, "Johnson's algorithm is supported for mode=\"out\" only");
-    goto cleanup;
-  }
-
   /* Call the C function */
   switch (algorithm) {
+    case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_AUTO:
+      retval = igraph_distances(&self->g, weights, &res, from_vs, to_vs, mode);
+      break;
+
     case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_DIJKSTRA:
       retval = igraph_distances_dijkstra(&self->g, &res, from_vs, to_vs, weights, mode);
       break;
@@ -6708,7 +6706,7 @@ PyObject *igraphmodule_Graph_distances(
       break;
 
     case IGRAPHMODULE_SHORTEST_PATH_ALGORITHM_JOHNSON:
-      retval = igraph_distances_johnson(&self->g, &res, from_vs, to_vs, weights);
+      retval = igraph_distances_johnson(&self->g, &res, from_vs, to_vs, weights, mode);
       break;
 
     default:
@@ -6765,25 +6763,35 @@ PyObject *igraphmodule_Graph_similarity_jaccard(igraphmodule_GraphObject * self,
   if (pairs_o == Py_None) {
     /* Case #1: vertices, returning matrix */
     igraph_matrix_t res;
-    igraph_vs_t vs;
+    igraph_vs_t vs_from;
+    igraph_vs_t vs_to;
     igraph_bool_t return_single = false;
 
-    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs, &self->g, &return_single, 0))
+    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs_from, &self->g, &return_single, 0))
       return NULL;
 
+    /* TODO(ntamas): support separate vs_from and vs_to arguments */
+    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs_to, &self->g, &return_single, 0)) {
+      igraph_vs_destroy(&vs_from);
+      return NULL;
+    }
+
     if (igraph_matrix_init(&res, 0, 0)) {
-      igraph_vs_destroy(&vs);
+      igraph_vs_destroy(&vs_from);
+      igraph_vs_destroy(&vs_to);
       return igraphmodule_handle_igraph_error();
     }
 
-    if (igraph_similarity_jaccard(&self->g, &res, vs, mode, PyObject_IsTrue(loops))) {
+    if (igraph_similarity_jaccard(&self->g, &res, vs_from, vs_to, mode, PyObject_IsTrue(loops))) {
       igraph_matrix_destroy(&res);
-      igraph_vs_destroy(&vs);
+      igraph_vs_destroy(&vs_from);
+      igraph_vs_destroy(&vs_to);
       igraphmodule_handle_igraph_error();
       return NULL;
     }
 
-    igraph_vs_destroy(&vs);
+    igraph_vs_destroy(&vs_from);
+    igraph_vs_destroy(&vs_to);
 
     list = igraphmodule_matrix_t_to_PyList(&res, IGRAPHMODULE_TYPE_FLOAT);
     igraph_matrix_destroy(&res);
@@ -6851,25 +6859,35 @@ PyObject *igraphmodule_Graph_similarity_dice(igraphmodule_GraphObject * self,
   if (pairs_o == Py_None) {
     /* Case #1: vertices, returning matrix */
     igraph_matrix_t res;
-    igraph_vs_t vs;
+    igraph_vs_t vs_from;
+    igraph_vs_t vs_to;
     igraph_bool_t return_single = false;
 
-    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs, &self->g, &return_single, 0))
+    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs_from, &self->g, &return_single, 0))
       return NULL;
 
+    /* TODO(ntamas): support separate vs_from and vs_to arguments */
+    if (igraphmodule_PyObject_to_vs_t(vertices_o, &vs_to, &self->g, &return_single, 0)) {
+      igraph_vs_destroy(&vs_from);
+      return NULL;
+    }
+
     if (igraph_matrix_init(&res, 0, 0)) {
-      igraph_vs_destroy(&vs);
+      igraph_vs_destroy(&vs_from);
+      igraph_vs_destroy(&vs_to);
       return igraphmodule_handle_igraph_error();
     }
 
-    if (igraph_similarity_dice(&self->g, &res, vs, mode, PyObject_IsTrue(loops))) {
+    if (igraph_similarity_dice(&self->g, &res, vs_from, vs_to, mode, PyObject_IsTrue(loops))) {
       igraph_matrix_destroy(&res);
-      igraph_vs_destroy(&vs);
+      igraph_vs_destroy(&vs_from);
+      igraph_vs_destroy(&vs_to);
       igraphmodule_handle_igraph_error();
       return NULL;
     }
 
-    igraph_vs_destroy(&vs);
+    igraph_vs_destroy(&vs_from);
+    igraph_vs_destroy(&vs_to);
 
     list = igraphmodule_matrix_t_to_PyList(&res, IGRAPHMODULE_TYPE_FLOAT);
     igraph_matrix_destroy(&res);
@@ -6962,12 +6980,16 @@ PyObject *igraphmodule_Graph_similarity_inverse_log_weighted(
 PyObject *igraphmodule_Graph_spanning_tree(igraphmodule_GraphObject * self,
                                            PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "weights", NULL };
+  static char *kwlist[] = { "weights", "method", NULL };
   igraph_vector_t* ws = 0;
   igraph_vector_int_t res;
-  PyObject *weights_o = Py_None, *result_o = NULL;
+  igraph_mst_algorithm_t method = IGRAPH_MST_AUTOMATIC;
+  PyObject *weights_o = Py_None, *result_o = NULL, *method_o = NULL;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &weights_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &weights_o, &method_o))
+    return NULL;
+
+  if (igraphmodule_PyObject_to_mst_algorithm_t(method_o, &method))
     return NULL;
 
   if (igraph_vector_int_init(&res, 0)) {
@@ -6980,14 +7002,19 @@ PyObject *igraphmodule_Graph_spanning_tree(igraphmodule_GraphObject * self,
     return NULL;
   }
 
-  if (igraph_minimum_spanning_tree(&self->g, &res, ws)) {
-  if (ws != 0) { igraph_vector_destroy(ws); free(ws); }
+  if (igraph_minimum_spanning_tree(&self->g, &res, ws, method)) {
+    if (ws != 0) {
+      igraph_vector_destroy(ws); free(ws);
+    }
     igraph_vector_int_destroy(&res);
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
-  if (ws != 0) { igraph_vector_destroy(ws); free(ws); }
+  if (ws != 0) {
+    igraph_vector_destroy(ws); free(ws);
+  }
+
   result_o = igraphmodule_vector_int_t_to_PyList(&res);
   igraph_vector_int_destroy(&res);
   return result_o;
@@ -7036,7 +7063,7 @@ PyObject *igraphmodule_Graph_subcomponent(igraphmodule_GraphObject * self,
   static char *kwlist[] = { "v", "mode", NULL };
   igraph_vector_int_t res;
   igraph_neimode_t mode = IGRAPH_ALL;
-  igraph_integer_t from;
+  igraph_int_t from;
   PyObject *list = NULL, *mode_o = Py_None, *from_o = Py_None;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &from_o, &mode_o))
@@ -7314,7 +7341,7 @@ PyObject *igraphmodule_Graph_vertex_connectivity(igraphmodule_GraphObject *self,
         PyObject *args, PyObject *kwds) {
   static char *kwlist[] = { "source", "target", "checks", "neighbors", NULL };
   PyObject *checks = Py_True, *neis = Py_None, *source_o = Py_None, *target_o = Py_None;
-  igraph_integer_t source = -1, target = -1, res;
+  igraph_int_t source = -1, target = -1, res;
   igraph_vconn_nei_t neighbors = IGRAPH_VCONN_NEI_ERROR;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist,
@@ -7478,7 +7505,7 @@ typedef struct {
 } igraphmodule_i_Graph_motifs_randesu_callback_data_t;
 
 igraph_error_t igraphmodule_i_Graph_motifs_randesu_callback(const igraph_t *graph,
-    igraph_vector_int_t *vids, igraph_integer_t isoclass, void* extra) {
+    const igraph_vector_int_t *vids, igraph_int_t isoclass, void* extra) {
   igraphmodule_i_Graph_motifs_randesu_callback_data_t* data =
     (igraphmodule_i_Graph_motifs_randesu_callback_data_t*)extra;
   PyObject* vector;
@@ -7581,7 +7608,7 @@ PyObject *igraphmodule_Graph_motifs_randesu(igraphmodule_GraphObject *self,
 PyObject *igraphmodule_Graph_motifs_randesu_no(igraphmodule_GraphObject *self,
   PyObject *args, PyObject *kwds) {
   igraph_vector_t cut_prob;
-  igraph_integer_t res;
+  igraph_real_t res;
   Py_ssize_t size = 3;
   PyObject* cut_prob_list=Py_None;
   static char* kwlist[] = {"size", "cut_prob", NULL};
@@ -7608,7 +7635,7 @@ PyObject *igraphmodule_Graph_motifs_randesu_no(igraphmodule_GraphObject *self,
   }
   igraph_vector_destroy(&cut_prob);
 
-  return igraphmodule_integer_t_to_PyObject(res);
+  return igraphmodule_real_t_to_PyObject(res, IGRAPHMODULE_TYPE_FLOAT_IF_FRACTIONAL_ELSE_INT);
 }
 
 /** \ingroup python_interface_graph
@@ -7619,7 +7646,7 @@ PyObject *igraphmodule_Graph_motifs_randesu_no(igraphmodule_GraphObject *self,
 PyObject *igraphmodule_Graph_motifs_randesu_estimate(igraphmodule_GraphObject *self,
   PyObject *args, PyObject *kwds) {
   igraph_vector_t cut_prob;
-  igraph_integer_t res;
+  igraph_real_t res;
   Py_ssize_t size = 3;
   PyObject* cut_prob_list=Py_None;
   PyObject *sample=Py_None;
@@ -7649,7 +7676,7 @@ PyObject *igraphmodule_Graph_motifs_randesu_estimate(igraphmodule_GraphObject *s
 
   if (PyLong_Check(sample)) {
     /* samples chosen randomly */
-    igraph_integer_t ns;
+    igraph_int_t ns;
     if (igraphmodule_PyObject_to_integer_t(sample, &ns)) {
       igraph_vector_destroy(&cut_prob);
       return NULL;
@@ -7677,7 +7704,7 @@ PyObject *igraphmodule_Graph_motifs_randesu_estimate(igraphmodule_GraphObject *s
   }
   igraph_vector_destroy(&cut_prob);
 
-  return igraphmodule_integer_t_to_PyObject(res);
+  return igraphmodule_real_t_to_PyObject(res, IGRAPHMODULE_TYPE_FLOAT_IF_FRACTIONAL_ELSE_INT);
 }
 
 /** \ingroup python_interface_graph
@@ -7743,13 +7770,15 @@ PyObject *igraphmodule_Graph_fundamental_cycles(
 ) {
   PyObject *cutoff_o = Py_None;
   PyObject *start_vid_o = Py_None;
+  PyObject *weights_o = Py_None;
   PyObject *result_o;
-  igraph_integer_t cutoff = -1, start_vid = -1;
+  igraph_int_t cutoff = -1, start_vid = -1;
   igraph_vector_int_list_t result;
+  igraph_vector_t *weights = 0;
 
-  static char *kwlist[] = { "start_vid", "cutoff", NULL };
+  static char *kwlist[] = { "start_vid", "cutoff", "weights", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &start_vid_o, &cutoff_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist, &start_vid_o, &cutoff_o, &weights_o))
     return NULL;
 
   if (igraphmodule_PyObject_to_optional_vid(start_vid_o, &start_vid, &self->g))
@@ -7758,15 +7787,29 @@ PyObject *igraphmodule_Graph_fundamental_cycles(
   if (cutoff_o != Py_None && igraphmodule_PyObject_to_integer_t(cutoff_o, &cutoff))
     return NULL;
 
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    return NULL;
+  }
+
   if (igraph_vector_int_list_init(&result, 0)) {
+    if (weights) {
+      igraph_vector_destroy(weights); free(weights);
+    }
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
-  if (igraph_fundamental_cycles(&self->g, &result, start_vid, cutoff, /* weights = */ NULL)) {
+  if (igraph_fundamental_cycles(&self->g, weights, &result, start_vid, cutoff)) {
     igraph_vector_int_list_destroy(&result);
+    if (weights) {
+      igraph_vector_destroy(weights); free(weights);
+    }
     igraphmodule_handle_igraph_error();
     return NULL;
+  }
+
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
   }
 
   result_o = igraphmodule_vector_int_list_t_to_PyList_of_tuples(&result);
@@ -7781,30 +7824,46 @@ PyObject *igraphmodule_Graph_minimum_cycle_basis(
   PyObject *cutoff_o = Py_None;
   PyObject *complete_o = Py_True;
   PyObject *use_cycle_order_o = Py_True;
+  PyObject *weights_o = Py_None;
   PyObject *result_o;
-  igraph_integer_t cutoff = -1;
+  igraph_int_t cutoff = -1;
   igraph_vector_int_list_t result;
+  igraph_vector_t *weights;
 
-  static char *kwlist[] = { "cutoff", "complete", "use_cycle_order", NULL };
+  static char *kwlist[] = { "cutoff", "complete", "use_cycle_order", "weights", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist, &cutoff_o, &complete_o, &use_cycle_order_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist, &cutoff_o, &complete_o, &use_cycle_order_o, &weights_o))
     return NULL;
 
   if (cutoff_o != Py_None && igraphmodule_PyObject_to_integer_t(cutoff_o, &cutoff))
     return NULL;
 
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    return NULL;
+  }
+
   if (igraph_vector_int_list_init(&result, 0)) {
+    if (weights) {
+      igraph_vector_destroy(weights); free(weights);
+    }
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
   if (igraph_minimum_cycle_basis(
-    &self->g, &result, cutoff, PyObject_IsTrue(complete_o),
-    PyObject_IsTrue(use_cycle_order_o), /* weights = */ NULL
+    &self->g, weights, &result, cutoff, PyObject_IsTrue(complete_o),
+    PyObject_IsTrue(use_cycle_order_o)
   )) {
     igraph_vector_int_list_destroy(&result);
+    if (weights) {
+      igraph_vector_destroy(weights); free(weights);
+    }
     igraphmodule_handle_igraph_error();
     return NULL;
+  }
+
+  if (weights) {
+    igraph_vector_destroy(weights); free(weights);
   }
 
   result_o = igraphmodule_vector_int_list_t_to_PyList_of_tuples(&result);
@@ -7821,16 +7880,23 @@ PyObject *igraphmodule_Graph_simple_cycles(
   PyObject *output_o = Py_None;
   PyObject *min_cycle_length_o = Py_None;
   PyObject *max_cycle_length_o = Py_None;
+  PyObject *max_results_o = Py_None;
 
   // argument defaults: no cycle limits
-  igraph_integer_t mode = IGRAPH_OUT;
-  igraph_integer_t min_cycle_length = -1;
-  igraph_integer_t max_cycle_length = -1;
+  igraph_int_t mode = IGRAPH_OUT;
+  igraph_int_t min_cycle_length = -1;
+  igraph_int_t max_cycle_length = -1;
+  igraph_int_t max_results = IGRAPH_UNLIMITED;
   igraph_bool_t use_edges = false;
 
-  static char *kwlist[] = { "mode", "min", "max", "output", NULL };
+  static char *kwlist[] = { "mode", "min", "max", "output", "max_results", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist, &mode_o, &min_cycle_length_o, &max_cycle_length_o, &output_o))
+  if (
+    !PyArg_ParseTupleAndKeywords(
+      args, kwds, "|OOOOO", kwlist,
+      &mode_o, &min_cycle_length_o, &max_cycle_length_o, &output_o, &max_results_o
+    )
+  )
     return NULL;
 
   if (mode_o != Py_None && igraphmodule_PyObject_to_integer_t(mode_o, &mode))
@@ -7840,6 +7906,9 @@ PyObject *igraphmodule_Graph_simple_cycles(
     return NULL;
 
   if (max_cycle_length_o != Py_None && igraphmodule_PyObject_to_integer_t(max_cycle_length_o, &max_cycle_length))
+    return NULL;
+
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results))
     return NULL;
 
   if (igraphmodule_PyObject_to_vpath_or_epath(output_o, &use_edges))
@@ -7858,7 +7927,11 @@ PyObject *igraphmodule_Graph_simple_cycles(
   }
 
   if (igraph_simple_cycles(
-    &self->g, use_edges ? NULL :  &vertices, use_edges ? &edges : NULL, mode, min_cycle_length, max_cycle_length
+    &self->g,
+    use_edges ? NULL :  &vertices,
+    use_edges ? &edges : NULL,
+    mode, min_cycle_length, max_cycle_length,
+    max_results
   )) {
     igraph_vector_int_list_destroy(&vertices);
     igraph_vector_int_list_destroy(&edges);
@@ -8055,7 +8128,7 @@ PyObject *igraphmodule_Graph_layout_star(igraphmodule_GraphObject* self,
 
   igraph_matrix_t m;
   PyObject *result_o, *order_o = Py_None, *center_o = Py_None;
-  igraph_integer_t center = 0;
+  igraph_int_t center = 0;
   igraph_vector_int_t* order = 0;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist,
@@ -8115,7 +8188,7 @@ PyObject *igraphmodule_Graph_layout_kamada_kawai(igraphmodule_GraphObject *
   igraph_matrix_t m;
   igraph_bool_t use_seed = false;
   igraph_error_t ret;
-  igraph_integer_t maxiter;
+  igraph_int_t maxiter;
   Py_ssize_t dim = 2;
   igraph_real_t kkconst;
   double epsilon = 0.0;
@@ -8231,14 +8304,15 @@ PyObject *igraphmodule_Graph_layout_kamada_kawai(igraphmodule_GraphObject *
     return NULL;
   }
 
-  if (dim == 2)
+  if (dim == 2) {
     ret = igraph_layout_kamada_kawai
       (&self->g, &m, use_seed, maxiter, epsilon, kkconst,
        weights, /*bounds*/ minx, maxx, miny, maxy);
-  else
+    } else {
     ret = igraph_layout_kamada_kawai_3d
       (&self->g, &m, use_seed, maxiter, epsilon, kkconst,
        weights, /*bounds*/ minx, maxx, miny, maxy, minz, maxz);
+  }
 
   DESTROY_VECTORS;
 
@@ -8248,6 +8322,19 @@ PyObject *igraphmodule_Graph_layout_kamada_kawai(igraphmodule_GraphObject *
     igraph_matrix_destroy(&m);
     igraphmodule_handle_igraph_error();
     return NULL;
+  }
+
+  /* Align layout, but only if no bounding box was specified. */
+  if (minx == NULL && maxx == NULL &&
+      miny == NULL && maxy == NULL &&
+      minz == NULL && maxz == NULL &&
+      igraph_vcount(&self->g) <= 1000) {
+    ret = igraph_layout_align(&self->g, &m);
+    if (ret) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
   }
 
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
@@ -8297,7 +8384,7 @@ PyObject* igraphmodule_Graph_layout_davidson_harel(igraphmodule_GraphObject *sel
   }
   if (weight_edge_lengths < 0 || weight_edge_crossings < 0 ||
       weight_node_edge_dist < 0) {
-    if (igraph_density(&self->g, &density, 0)) {
+    if (igraph_density(&self->g, 0, &density, 0)) {
       igraphmodule_handle_igraph_error();
       return NULL;
     }
@@ -8339,6 +8426,16 @@ PyObject* igraphmodule_Graph_layout_davidson_harel(igraphmodule_GraphObject *sel
     igraph_matrix_destroy(&m);
     igraphmodule_handle_igraph_error();
     return NULL;
+  }
+
+  /* Align layout */
+  if (igraph_vcount(&self->g)) {
+    retval = igraph_layout_align(&self->g, &m);
+    if (retval) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
   }
 
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
@@ -8563,6 +8660,19 @@ PyObject
     return NULL;
   }
 
+  /* Align layout, but only if no bounding box was specified. */
+  if (minx == NULL && maxx == NULL &&
+      miny == NULL && maxy == NULL &&
+      minz == NULL && maxz == NULL &&
+      igraph_vcount(&self->g) <= 1000) {
+    ret = igraph_layout_align(&self->g, &m);
+    if (ret) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
+  }
+
 #undef DESTROY_VECTORS
 
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
@@ -8617,6 +8727,15 @@ PyObject *igraphmodule_Graph_layout_graphopt(igraphmodule_GraphObject *self,
     return NULL;
   }
 
+  /* Align layout */
+  if (igraph_vcount(&self->g) <= 1000) {
+    if (igraph_layout_align(&self->g, &m)) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
+  }
+
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
   igraph_matrix_destroy(&m);
   return (PyObject *) result_o;
@@ -8636,7 +8755,7 @@ PyObject *igraphmodule_Graph_layout_lgl(igraphmodule_GraphObject * self,
   igraph_matrix_t m;
   PyObject *result_o, *root_o = Py_None;
   Py_ssize_t maxiter = 150;
-  igraph_integer_t proot = -1;
+  igraph_int_t proot = -1;
   double maxdelta, area, coolexp, repulserad, cellsize;
 
   maxdelta = igraph_vcount(&self->g);
@@ -8673,6 +8792,15 @@ PyObject *igraphmodule_Graph_layout_lgl(igraphmodule_GraphObject * self,
     igraph_matrix_destroy(&m);
     igraphmodule_handle_igraph_error();
     return NULL;
+  }
+
+  /* Align layout */
+  if (igraph_vcount(&self->g) <= 1000) {
+    if (igraph_layout_align(&self->g, &m)) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
   }
 
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
@@ -8738,6 +8866,15 @@ PyObject *igraphmodule_Graph_layout_mds(igraphmodule_GraphObject * self,
 
   if (dist) {
     igraph_matrix_destroy(dist); free(dist);
+  }
+
+  /* Align layout */
+  if (igraph_vcount(&self->g) <= 1000) {
+    if (igraph_layout_align(&self->g, &m)) {
+      igraph_matrix_destroy(&m);
+      igraphmodule_handle_igraph_error();
+      return NULL;
+    }
   }
 
   result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
@@ -8873,40 +9010,36 @@ PyObject *igraphmodule_Graph_layout_reingold_tilford_circular(
 PyObject *igraphmodule_Graph_layout_sugiyama(
   igraphmodule_GraphObject * self, PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "layers", "weights", "hgap", "vgap", "maxiter",
-    "return_extended_graph", NULL };
+  static char *kwlist[] = { "layers", "weights", "hgap", "vgap", "maxiter", NULL };
   igraph_matrix_t m;
-  igraph_t extd_graph;
-  igraph_vector_int_t extd_to_orig_eids;
   igraph_vector_t *weights = 0;
   igraph_vector_int_t *layers = 0;
   double hgap = 1, vgap = 1;
   Py_ssize_t maxiter = 100;
-  PyObject *layers_o = Py_None, *weights_o = Py_None, *extd_to_orig_eids_o = Py_None;
-  PyObject *return_extended_graph = Py_False;
-  PyObject *result_o;
-  igraphmodule_GraphObject *graph_o;
+  PyObject *layers_o = Py_None, *weights_o = Py_None;
+  PyObject *layout_o, *routing_o;
+  igraph_matrix_list_t routing;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOddnO", kwlist,
-    &layers_o, &weights_o, &hgap, &vgap, &maxiter, &return_extended_graph))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOddn", kwlist,
+    &layers_o, &weights_o, &hgap, &vgap, &maxiter))
     return NULL;
 
   CHECK_SSIZE_T_RANGE_POSITIVE(maxiter, "maximum number of iterations");
 
-  if (igraph_vector_int_init(&extd_to_orig_eids, 0)) {
+  if (igraph_matrix_list_init(&routing, 0)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
   if (igraph_matrix_init(&m, 1, 1)) {
-    igraph_vector_int_destroy(&extd_to_orig_eids);
+    igraph_matrix_list_destroy(&routing);
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
   if (igraphmodule_attrib_to_vector_int_t(layers_o, self, &layers,
       ATTRIBUTE_TYPE_VERTEX)) {
-    igraph_vector_int_destroy(&extd_to_orig_eids);
+    igraph_matrix_list_destroy(&routing);
     igraph_matrix_destroy(&m);
     return NULL;
   }
@@ -8914,46 +9047,39 @@ PyObject *igraphmodule_Graph_layout_sugiyama(
   if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
       ATTRIBUTE_TYPE_EDGE)) {
     if (layers != 0) { igraph_vector_int_destroy(layers); free(layers); }
-    igraph_vector_int_destroy(&extd_to_orig_eids);
+    igraph_matrix_list_destroy(&routing);
     igraph_matrix_destroy(&m);
     return NULL;
   }
 
-  if (igraph_layout_sugiyama(&self->g, &m,
-        (PyObject_IsTrue(return_extended_graph) ? &extd_graph : 0),
-        (PyObject_IsTrue(return_extended_graph) ? &extd_to_orig_eids : 0),
+  if (igraph_layout_sugiyama(&self->g, &m, &routing,
         layers, hgap, vgap, maxiter, weights)) {
     if (layers != 0) { igraph_vector_int_destroy(layers); free(layers); }
     if (weights != 0) { igraph_vector_destroy(weights); free(weights); }
-    igraph_vector_int_destroy(&extd_to_orig_eids);
+    igraph_matrix_list_destroy(&routing);
     igraph_matrix_destroy(&m);
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
-  if (layers != 0) { igraph_vector_int_destroy(layers); free(layers); }
-  if (weights != 0) { igraph_vector_destroy(weights); free(weights); }
-
-  result_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
-  if (result_o == NULL) {
-    igraph_vector_int_destroy(&extd_to_orig_eids);
+  layout_o = igraphmodule_matrix_t_to_PyList(&m, IGRAPHMODULE_TYPE_FLOAT);
+  if (layout_o == NULL) {
+    igraph_matrix_list_destroy(&routing);
     igraph_matrix_destroy(&m);
     return NULL;
   }
 
   igraph_matrix_destroy(&m);
 
-  if (PyObject_IsTrue(return_extended_graph)) {
-    CREATE_GRAPH(graph_o, extd_graph);
-    if (graph_o == NULL) {
-      Py_DECREF(result_o);
-    }
-    extd_to_orig_eids_o = igraphmodule_vector_int_t_to_PyList(&extd_to_orig_eids);
-    result_o = Py_BuildValue("NNN", result_o, graph_o, extd_to_orig_eids_o);
+  routing_o = igraphmodule_matrix_list_t_to_PyList(&routing);
+  if (routing_o == NULL) {
+    igraph_matrix_list_destroy(&routing);
+    return NULL;
   }
 
-  igraph_vector_int_destroy(&extd_to_orig_eids);
-  return (PyObject *) result_o;
+  igraph_matrix_list_destroy(&routing);
+
+  return Py_BuildValue("NN", layout_o, routing_o);
 }
 
 /** \ingroup python_interface_graph
@@ -9043,7 +9169,7 @@ PyObject *igraphmodule_Graph_layout_umap(
           use_seed,
           dist,
           (igraph_real_t)min_dist,
-          (igraph_integer_t)epochs,
+          (igraph_int_t)epochs,
           distances_are_weights)) {
       if (dist) {
         igraph_vector_destroy(dist); free(dist);
@@ -9057,7 +9183,7 @@ PyObject *igraphmodule_Graph_layout_umap(
           use_seed,
           dist,
           (igraph_real_t)min_dist,
-          (igraph_integer_t)epochs,
+          (igraph_int_t)epochs,
           distances_are_weights)) {
       if (dist) {
         igraph_vector_destroy(dist); free(dist);
@@ -9184,13 +9310,14 @@ PyObject *igraphmodule_Graph_get_adjacency(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_get_biadjacency(igraphmodule_GraphObject * self,
                                              PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "types", NULL };
+  static char *kwlist[] = { "types", "weights", NULL };
   igraph_matrix_t matrix;
   igraph_vector_int_t row_ids, col_ids;
   igraph_vector_bool_t *types;
-  PyObject *matrix_o, *row_ids_o, *col_ids_o, *types_o;
+  igraph_vector_t *weights = 0;
+  PyObject *matrix_o, *row_ids_o, *col_ids_o, *types_o, *weights_o = Py_None;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &types_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|O", kwlist, &types_o))
     return NULL;
 
   if (igraph_vector_int_init(&row_ids, 0))
@@ -9207,24 +9334,34 @@ PyObject *igraphmodule_Graph_get_biadjacency(igraphmodule_GraphObject * self,
     return NULL;
   }
 
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    igraph_vector_int_destroy(&row_ids);
+    igraph_vector_int_destroy(&col_ids);
+    if (types) { igraph_vector_bool_destroy(types); free(types); }
+    return NULL;
+  }
+
   if (igraph_matrix_init(&matrix, 1, 1)) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&row_ids);
     igraph_vector_int_destroy(&col_ids);
     if (types) { igraph_vector_bool_destroy(types); free(types); }
+    if (weights) { igraph_vector_destroy(weights); free(weights); }
     return NULL;
   }
 
-  if (igraph_get_biadjacency(&self->g, types, &matrix, &row_ids, &col_ids)) {
+  if (igraph_get_biadjacency(&self->g, types, weights, &matrix, &row_ids, &col_ids)) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&row_ids);
     igraph_vector_int_destroy(&col_ids);
     if (types) { igraph_vector_bool_destroy(types); free(types); }
+    if (weights) { igraph_vector_destroy(weights); free(weights); }
     igraph_matrix_destroy(&matrix);
     return NULL;
   }
 
   if (types) { igraph_vector_bool_destroy(types); free(types); }
+  if (weights) { igraph_vector_destroy(weights); free(weights); }
 
   matrix_o = igraphmodule_matrix_t_to_PyList(&matrix, IGRAPHMODULE_TYPE_INT);
   igraph_matrix_destroy(&matrix);
@@ -9407,7 +9544,7 @@ PyObject *igraphmodule_Graph_Read_DIMACS(PyTypeObject * type,
 {
   igraphmodule_GraphObject *self;
   igraphmodule_filehandle_t fobj;
-  igraph_integer_t source = 0, target = 0;
+  igraph_int_t source = 0, target = 0;
   igraph_vector_t capacity;
   igraph_t g;
   PyObject *fname = NULL, *directed = Py_False, *capacity_obj;
@@ -9758,7 +9895,7 @@ PyObject *igraphmodule_Graph_write_dimacs(igraphmodule_GraphObject * self,
                                           PyObject * args, PyObject * kwds)
 {
   PyObject *capacity_obj = Py_None, *fname = NULL, *source_o, *target_o;
-  igraph_integer_t source, target;
+  igraph_int_t source, target;
   igraphmodule_filehandle_t fobj;
   igraph_vector_t* capacity = 0;
 
@@ -10130,7 +10267,7 @@ PyObject *igraphmodule_Graph_automorphism_group(
   if (igraphmodule_attrib_to_vector_int_t(color_o, self, &color,
       ATTRIBUTE_TYPE_VERTEX)) return NULL;
 
-  retval = igraph_automorphism_group(&self->g, color, &generators, sh, 0);
+  retval = igraph_automorphism_group_bliss(&self->g, color, &generators, sh, 0);
 
   if (color) { igraph_vector_int_destroy(color); free(color); }
 
@@ -10176,7 +10313,7 @@ PyObject *igraphmodule_Graph_canonical_permutation(
   if (igraphmodule_attrib_to_vector_int_t(color_o, self, &color,
       ATTRIBUTE_TYPE_VERTEX)) return NULL;
 
-  retval = igraph_canonical_permutation(&self->g, color, &labeling, sh, 0);
+  retval = igraph_canonical_permutation(&self->g, color, &labeling);
 
   if (color) { igraph_vector_int_destroy(color); free(color); }
 
@@ -10218,7 +10355,7 @@ PyObject *igraphmodule_Graph_count_automorphisms(
   if (igraphmodule_attrib_to_vector_int_t(color_o, self, &color,
       ATTRIBUTE_TYPE_VERTEX)) return NULL;
 
-  retval = igraph_count_automorphisms(&self->g, color, sh, &info);
+  retval = igraph_count_automorphisms_bliss(&self->g, color, sh, &info);
 
   if (color) { igraph_vector_int_destroy(color); free(color); }
 
@@ -10244,7 +10381,7 @@ PyObject *igraphmodule_Graph_count_automorphisms(
 PyObject *igraphmodule_Graph_isoclass(igraphmodule_GraphObject * self,
                                       PyObject * args, PyObject * kwds)
 {
-  igraph_integer_t isoclass = 0;
+  igraph_int_t isoclass = 0;
   PyObject *vids = 0;
   char *kwlist[] = { "vertices", NULL };
 
@@ -10253,16 +10390,16 @@ PyObject *igraphmodule_Graph_isoclass(igraphmodule_GraphObject * self,
     return NULL;
 
   if (vids) {
-    igraph_vector_int_t vidsvec;
-    if (igraphmodule_PyObject_to_vid_list(vids, &vidsvec, &self->g)) {
+    igraph_vs_t vs;
+    if (igraphmodule_PyObject_to_vs_t(vids, &vs, &self->g, NULL, NULL)) {
       return NULL;
     }
-    if (igraph_isoclass_subgraph(&self->g, &vidsvec, &isoclass)) {
-      igraph_vector_int_destroy(&vidsvec);
+    if (igraph_isoclass_subgraph(&self->g, vs, &isoclass)) {
+      igraph_vs_destroy(&vs);
       igraphmodule_handle_igraph_error();
       return NULL;
     }
-    igraph_vector_int_destroy(&vidsvec);
+    igraph_vs_destroy(&vs);
   } else {
     if (igraph_isoclass(&self->g, &isoclass)) {
       igraphmodule_handle_igraph_error();
@@ -10445,7 +10582,7 @@ igraph_error_t igraphmodule_i_Graph_isomorphic_vf2_callback_fn(
 
 igraph_bool_t igraphmodule_i_Graph_isomorphic_vf2_node_compat_fn(
     const igraph_t *graph1, const igraph_t *graph2,
-    const igraph_integer_t cand1, const igraph_integer_t cand2,
+    const igraph_int_t cand1, const igraph_int_t cand2,
     void* extra) {
   igraphmodule_i_Graph_isomorphic_vf2_callback_data_t* data =
     (igraphmodule_i_Graph_isomorphic_vf2_callback_data_t*)extra;
@@ -10469,7 +10606,7 @@ igraph_bool_t igraphmodule_i_Graph_isomorphic_vf2_node_compat_fn(
 
 igraph_bool_t igraphmodule_i_Graph_isomorphic_vf2_edge_compat_fn(
     const igraph_t *graph1, const igraph_t *graph2,
-    const igraph_integer_t cand1, const igraph_integer_t cand2,
+    const igraph_int_t cand1, const igraph_int_t cand2,
     void* extra) {
   igraphmodule_i_Graph_isomorphic_vf2_callback_data_t* data =
     (igraphmodule_i_Graph_isomorphic_vf2_callback_data_t*)extra;
@@ -10644,7 +10781,7 @@ PyObject *igraphmodule_Graph_isomorphic_vf2(igraphmodule_GraphObject * self,
  */
 PyObject *igraphmodule_Graph_count_isomorphisms_vf2(igraphmodule_GraphObject *self,
   PyObject *args, PyObject *kwds) {
-  igraph_integer_t res = 0;
+  igraph_int_t res = 0;
   PyObject *o = Py_None;
   PyObject *color1_o=Py_None, *color2_o=Py_None;
   PyObject *edge_color1_o=Py_None, *edge_color2_o=Py_None;
@@ -10982,7 +11119,7 @@ PyObject *igraphmodule_Graph_subisomorphic_vf2(igraphmodule_GraphObject * self,
  */
 PyObject *igraphmodule_Graph_count_subisomorphisms_vf2(igraphmodule_GraphObject *self,
   PyObject *args, PyObject *kwds) {
-  igraph_integer_t res = 0;
+  igraph_int_t res = 0;
   PyObject *o = Py_None;
   PyObject *color1_o = Py_None, *color2_o = Py_None;
   PyObject *edge_color1_o=Py_None, *edge_color2_o=Py_None;
@@ -11170,18 +11307,18 @@ PyObject *igraphmodule_Graph_subisomorphic_lad(igraphmodule_GraphObject * self,
 {
   igraph_bool_t res = false;
   PyObject *o, *return_mapping=Py_False, *domains_o=Py_None, *induced=Py_False;
-  float time_limit = 0;
   igraphmodule_GraphObject *other;
   igraph_vector_int_list_t domains;
   igraph_vector_int_list_t* p_domains = 0;
   igraph_vector_int_t mapping, *map=0;
 
-  static char *kwlist[] = { "pattern", "domains", "induced", "time_limit",
-      "return_mapping", NULL };
+  static char *kwlist[] = {
+    "pattern", "domains", "induced", "return_mapping", NULL
+  };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|OOfO", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|OOO", kwlist,
         igraphmodule_GraphType, &o, &domains_o, &induced,
-        &time_limit, &return_mapping))
+        &return_mapping))
     return NULL;
 
   other=(igraphmodule_GraphObject*)o;
@@ -11195,8 +11332,9 @@ PyObject *igraphmodule_Graph_subisomorphic_lad(igraphmodule_GraphObject * self,
 
   if (PyObject_IsTrue(return_mapping)) {
     if (igraph_vector_int_init(&mapping, 0)) {
-      if (p_domains)
+      if (p_domains) {
         igraph_vector_int_list_destroy(p_domains);
+      }
       igraphmodule_handle_igraph_error();
       return NULL;
     }
@@ -11204,9 +11342,10 @@ PyObject *igraphmodule_Graph_subisomorphic_lad(igraphmodule_GraphObject * self,
   }
 
   if (igraph_subisomorphic_lad(&other->g, &self->g, p_domains, &res,
-        map, 0, PyObject_IsTrue(induced), (igraph_integer_t) time_limit)) {
-    if (p_domains)
+        map, 0, PyObject_IsTrue(induced))) {
+    if (p_domains) {
       igraph_vector_int_list_destroy(p_domains);
+    }
     igraphmodule_handle_igraph_error();
     return NULL;
   }
@@ -11237,16 +11376,15 @@ PyObject *igraphmodule_Graph_get_subisomorphisms_lad(
     igraphmodule_GraphObject * self, PyObject * args, PyObject * kwds)
 {
   PyObject *o, *domains_o=Py_None, *induced=Py_False, *result_o;
-  float time_limit = 0;
   igraphmodule_GraphObject *other;
   igraph_vector_int_list_t domains;
   igraph_vector_int_list_t* p_domains = 0;
   igraph_vector_int_list_t mappings;
 
-  static char *kwlist[] = { "pattern", "domains", "induced", "time_limit", NULL };
+  static char *kwlist[] = { "pattern", "domains", "induced", NULL };
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|OOf", kwlist,
-        igraphmodule_GraphType, &o, &domains_o, &induced, &time_limit))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|OO", kwlist,
+        igraphmodule_GraphType, &o, &domains_o, &induced))
     return NULL;
 
   other=(igraphmodule_GraphObject*)o;
@@ -11265,8 +11403,9 @@ PyObject *igraphmodule_Graph_get_subisomorphisms_lad(
     return NULL;
   }
 
-  if (igraph_subisomorphic_lad(&other->g, &self->g, p_domains, 0, 0, &mappings,
-        PyObject_IsTrue(induced), (igraph_integer_t) time_limit)) {
+  if (igraph_subisomorphic_lad(
+    &other->g, &self->g, p_domains, 0, 0, &mappings, PyObject_IsTrue(induced)
+  )) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_list_destroy(&mappings);
     if (p_domains)
@@ -11582,7 +11721,7 @@ PyObject *igraphmodule_Graph_bfs(igraphmodule_GraphObject * self,
 {
   static char *kwlist[] = { "vid", "mode", NULL };
   PyObject *l1, *l2, *l3, *result_o, *mode_o = Py_None, *vid_o;
-  igraph_integer_t vid;
+  igraph_int_t vid;
   igraph_neimode_t mode = IGRAPH_OUT;
   igraph_vector_int_t vids;
   igraph_vector_int_t layers;
@@ -11748,7 +11887,7 @@ PyObject *igraphmodule_Graph_dominator(igraphmodule_GraphObject * self,
 {
   static char *kwlist[] = { "vid", "mode", NULL };
   PyObject *list = Py_None, *mode_o = Py_None, *root_o;
-  igraph_integer_t root;
+  igraph_int_t root;
   igraph_vector_int_t dom;
   igraph_neimode_t mode = IGRAPH_OUT;
   igraph_error_t res;
@@ -11802,7 +11941,7 @@ PyObject *igraphmodule_Graph_maxflow_value(igraphmodule_GraphObject * self,
   PyObject *capacity_object = Py_None, *v1_o, *v2_o;
   igraph_vector_t capacity_vector;
   igraph_real_t res;
-  igraph_integer_t v1, v2;
+  igraph_int_t v1, v2;
   igraph_maxflow_stats_t stats;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO|O", kwlist,
@@ -11841,7 +11980,7 @@ PyObject *igraphmodule_Graph_maxflow(igraphmodule_GraphObject * self,
   PyObject *capacity_object = Py_None, *flow_o, *cut_o, *partition_o, *v1_o, *v2_o;
   igraph_vector_t capacity_vector;
   igraph_real_t res;
-  igraph_integer_t v1, v2;
+  igraph_int_t v1, v2;
   igraph_vector_t flow;
   igraph_vector_int_t cut, partition;
   igraph_maxflow_stats_t stats;
@@ -11927,7 +12066,7 @@ PyObject *igraphmodule_Graph_all_st_cuts(igraphmodule_GraphObject * self,
                                          PyObject * args, PyObject * kwds)
 {
   static char *kwlist[] = { "source", "target", NULL };
-  igraph_integer_t source, target;
+  igraph_int_t source, target;
   igraph_vector_int_list_t cuts, partition1s;
   PyObject *source_o, *target_o;
   PyObject *cuts_o, *partition1s_o;
@@ -11978,7 +12117,7 @@ PyObject *igraphmodule_Graph_all_st_mincuts(igraphmodule_GraphObject * self,
                                          PyObject * args, PyObject * kwds)
 {
   static char *kwlist[] = { "source", "target", "capacity", NULL };
-  igraph_integer_t source, target;
+  igraph_int_t source, target;
   igraph_real_t value;
   igraph_vector_int_list_t cuts, partition1s;
   igraph_vector_t capacity_vector;
@@ -12045,7 +12184,7 @@ PyObject *igraphmodule_Graph_mincut_value(igraphmodule_GraphObject * self,
   PyObject *capacity_object = Py_None, *v1_o = Py_None, *v2_o = Py_None;
   igraph_vector_t capacity_vector;
   igraph_real_t res, mincut;
-  igraph_integer_t n, v1 = -1, v2 = -1;
+  igraph_int_t n, v1 = -1, v2 = -1;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist,
                                    &v1_o, &v2_o, &capacity_object))
@@ -12126,7 +12265,7 @@ PyObject *igraphmodule_Graph_mincut(igraphmodule_GraphObject * self,
   igraph_vector_t capacity_vector;
   igraph_real_t value;
   igraph_vector_int_t partition, partition2, cut;
-  igraph_integer_t source = -1, target = -1;
+  igraph_int_t source = -1, target = -1;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist,
                                    &source_o, &target_o, &capacity_object))
@@ -12267,7 +12406,7 @@ PyObject *igraphmodule_Graph_st_mincut(igraphmodule_GraphObject * self,
                                        PyObject * args, PyObject * kwds)
 {
   static char *kwlist[] = { "source", "target", "capacity", NULL };
-  igraph_integer_t source, target;
+  igraph_int_t source, target;
   PyObject *cut_o, *part_o, *part2_o, *result_o;
   PyObject *source_o, *target_o, *capacity_o = Py_None;
   igraph_vector_t capacity_vector;
@@ -12583,13 +12722,15 @@ PyObject *igraphmodule_Graph_vertex_coloring_greedy(
 PyObject *igraphmodule_Graph_cliques(igraphmodule_GraphObject * self,
                                      PyObject * args, PyObject * kwds)
 {
-  static char *kwlist[] = { "min", "max", NULL };
+  static char *kwlist[] = { "min", "max", "max_results", NULL };
   PyObject *list;
+  PyObject *max_results_o = Py_None;
   Py_ssize_t min_size = 0, max_size = 0;
   igraph_vector_int_list_t res;
+  igraph_int_t max_results;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nn", kwlist,
-                                   &min_size, &max_size))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nnO", kwlist,
+                                   &min_size, &max_size, &max_results_o))
     return NULL;
 
   if (min_size >= 0) {
@@ -12604,12 +12745,16 @@ PyObject *igraphmodule_Graph_cliques(igraphmodule_GraphObject * self,
     max_size = -1;
   }
 
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results)) {
+    return NULL;
+  }
+
   if (igraph_vector_int_list_init(&res, 0)) {
     igraphmodule_handle_igraph_error();
     return NULL;
   }
 
-  if (igraph_cliques(&self->g, &res, min_size, max_size)) {
+  if (igraph_cliques(&self->g, &res, min_size, max_size, max_results)) {
     igraph_vector_int_list_destroy(&res);
     return igraphmodule_handle_igraph_error();
   }
@@ -12699,17 +12844,22 @@ PyObject *igraphmodule_Graph_maximum_bipartite_matching(igraphmodule_GraphObject
  */
 PyObject *igraphmodule_Graph_maximal_cliques(igraphmodule_GraphObject * self,
     PyObject* args, PyObject* kwds) {
-  static char* kwlist[] = { "min", "max", "file", NULL };
-  PyObject *list, *file = Py_None;
+  static char* kwlist[] = { "min", "max", "file", "max_results", NULL };
+  PyObject *list, *file = Py_None, *max_results_o = Py_None;
   Py_ssize_t min = 0, max = 0;
   igraph_vector_int_list_t res;
   igraphmodule_filehandle_t filehandle;
+  igraph_int_t max_results = IGRAPH_UNLIMITED;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nnO", kwlist, &min, &max, &file))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nnOO", kwlist, &min, &max, &file, &max_results_o))
     return NULL;
 
   CHECK_SSIZE_T_RANGE(min, "minimum size");
   CHECK_SSIZE_T_RANGE(max, "maximum size");
+
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results)) {
+    return NULL;
+  }
 
   if (file == Py_None) {
     if (igraph_vector_int_list_init(&res, 0)) {
@@ -12717,7 +12867,7 @@ PyObject *igraphmodule_Graph_maximal_cliques(igraphmodule_GraphObject * self,
       return NULL;
     }
 
-    if (igraph_maximal_cliques(&self->g, &res, min, max)) {
+    if (igraph_maximal_cliques(&self->g, &res, min, max, max_results)) {
       igraph_vector_int_list_destroy(&res);
       return igraphmodule_handle_igraph_error();
     }
@@ -12731,7 +12881,7 @@ PyObject *igraphmodule_Graph_maximal_cliques(igraphmodule_GraphObject * self,
       return igraphmodule_handle_igraph_error();
     }
     if (igraph_maximal_cliques_file(&self->g,
-          igraphmodule_filehandle_get(&filehandle), min, max)) {
+          igraphmodule_filehandle_get(&filehandle), min, max, max_results)) {
       igraphmodule_filehandle_destroy(&filehandle);
       return igraphmodule_handle_igraph_error();
     }
@@ -12745,7 +12895,7 @@ PyObject *igraphmodule_Graph_maximal_cliques(igraphmodule_GraphObject * self,
  */
 PyObject *igraphmodule_Graph_clique_number(igraphmodule_GraphObject *self, PyObject* Py_UNUSED(_null))
 {
-  igraph_integer_t i;
+  igraph_int_t i;
 
   if (igraph_clique_number(&self->g, &i)) {
     return igraphmodule_handle_igraph_error();
@@ -12761,13 +12911,14 @@ PyObject *igraphmodule_Graph_independent_vertex_sets(igraphmodule_GraphObject
                                                      * self, PyObject * args,
                                                      PyObject * kwds)
 {
-  static char *kwlist[] = { "min", "max", NULL };
-  PyObject *list;
+  static char *kwlist[] = { "min", "max", "max_results", NULL };
+  PyObject *list, *max_results_o = Py_None;
   Py_ssize_t min_size = 0, max_size = 0;
   igraph_vector_int_list_t res;
+  igraph_int_t max_results = IGRAPH_UNLIMITED;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nn", kwlist,
-                                   &min_size, &max_size))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nnO", kwlist,
+                                   &min_size, &max_size, &max_results_o))
     return NULL;
 
   if (min_size >= 0) {
@@ -12782,12 +12933,16 @@ PyObject *igraphmodule_Graph_independent_vertex_sets(igraphmodule_GraphObject
     max_size = -1;
   }
 
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results)) {
+    return NULL;
+  }
+
   if (igraph_vector_int_list_init(&res, 0)) {
     PyErr_SetString(PyExc_MemoryError, "");
     return NULL;
   }
 
-  if (igraph_independent_vertex_sets(&self->g, &res, min_size, max_size)) {
+  if (igraph_independent_vertex_sets(&self->g, &res, min_size, max_size, max_results)) {
     igraph_vector_int_list_destroy(&res);
     return igraphmodule_handle_igraph_error();
   }
@@ -12825,17 +12980,39 @@ PyObject *igraphmodule_Graph_largest_independent_vertex_sets(
  * \brief Find all maximal independent vertex sets in a graph
  */
 PyObject *igraphmodule_Graph_maximal_independent_vertex_sets(
-  igraphmodule_GraphObject *self, PyObject* Py_UNUSED(_null)
+  igraphmodule_GraphObject *self, PyObject* args, PyObject *kwds
 ) {
-  PyObject *list;
+  static char *kwlist[] = { "min", "max", "max_results", NULL };
+  PyObject *list, *max_results_o = Py_None;
+  Py_ssize_t min_size = 0, max_size = 0;
   igraph_vector_int_list_t res;
+  igraph_int_t max_results = IGRAPH_UNLIMITED;
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nnO", kwlist, &min_size, &max_size, &max_results_o))
+    return NULL;
+
+  if (min_size >= 0) {
+    CHECK_SSIZE_T_RANGE(min_size, "minimum size");
+  } else {
+    min_size = -1;
+  }
+
+  if (max_size >= 0) {
+    CHECK_SSIZE_T_RANGE(max_size, "maximum size");
+  } else {
+    max_size = -1;
+  }
+
+  if (igraphmodule_PyObject_to_max_results_t(max_results_o, &max_results)) {
+    return NULL;
+  }
 
   if (igraph_vector_int_list_init(&res, 0)) {
     PyErr_SetString(PyExc_MemoryError, "");
     return NULL;
   }
 
-  if (igraph_maximal_independent_vertex_sets(&self->g, &res)) {
+  if (igraph_maximal_independent_vertex_sets(&self->g, &res, min_size, max_size, max_results)) {
     igraph_vector_int_list_destroy(&res);
     return igraphmodule_handle_igraph_error();
   }
@@ -12851,7 +13028,7 @@ PyObject *igraphmodule_Graph_maximal_independent_vertex_sets(
 PyObject *igraphmodule_Graph_independence_number(
   igraphmodule_GraphObject *self, PyObject* Py_UNUSED(_null)
 ) {
-  igraph_integer_t i;
+  igraph_int_t i;
 
   if (igraph_independence_number(&self->g, &i)) {
     return igraphmodule_handle_igraph_error();
@@ -12994,16 +13171,18 @@ PyObject *igraphmodule_Graph_community_edge_betweenness(igraphmodule_GraphObject
   PyObject *res, *qs, *ms;
   igraph_matrix_int_t merges;
   igraph_vector_t q;
-  igraph_vector_t *weights = 0;
+  igraph_vector_t *weights = NULL;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &directed, &weights_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OO", kwlist, &directed, &weights_o)) {
     return NULL;
+  }
 
-  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights,
-      ATTRIBUTE_TYPE_EDGE)) return NULL;
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights, ATTRIBUTE_TYPE_EDGE)) {
+    return NULL;
+  }
 
   if (igraph_matrix_int_init(&merges, 0, 0)) {
-    if (weights != 0) {
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
     }
     return igraphmodule_handle_igraph_error();
@@ -13011,50 +13190,44 @@ PyObject *igraphmodule_Graph_community_edge_betweenness(igraphmodule_GraphObject
 
   if (igraph_vector_init(&q, 0)) {
     igraph_matrix_int_destroy(&merges);
-    if (weights != 0) {
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
     }
     return igraphmodule_handle_igraph_error();
   }
 
   if (igraph_community_edge_betweenness(&self->g,
-        /* removed_edges = */ 0,
-        /* edge_betweenness = */ 0,
+        /* removed_edges = */ NULL,
+        /* edge_betweenness = */ NULL,
         /* merges = */ &merges,
-        /* bridges = */ 0,
-        /* modularity = */ weights ? 0 : &q,
-        /* membership = */ 0,
+        /* bridges = */ NULL,
+        /* modularity = */ &q,
+        /* membership = */ NULL,
         PyObject_IsTrue(directed),
-        weights)) {
-    igraphmodule_handle_igraph_error();
-    if (weights != 0) {
+        weights,
+        /* lengths = */ NULL)) {
+
+    igraph_vector_destroy(&q);
+    igraph_matrix_int_destroy(&merges);
+    if (weights) {
       igraph_vector_destroy(weights); free(weights);
     }
-    igraph_matrix_int_destroy(&merges);
-    igraph_vector_destroy(&q);
-    return NULL;
+    
+    return igraphmodule_handle_igraph_error();;
   }
 
-  if (weights != 0) {
+  if (weights) {
     igraph_vector_destroy(weights); free(weights);
   }
 
-  if (weights == 0) {
-    /* Calculate modularity vector only in the unweighted case as we don't
-     * calculate modularities for the weighted case */
-    qs=igraphmodule_vector_t_to_PyList(&q, IGRAPHMODULE_TYPE_FLOAT);
-    igraph_vector_destroy(&q);
-    if (!qs) {
-      igraph_matrix_int_destroy(&merges);
-      return NULL;
-    }
-  } else {
-    qs = Py_None;
-    Py_INCREF(qs);
-    igraph_vector_destroy(&q);
+  qs = igraphmodule_vector_t_to_PyList(&q, IGRAPHMODULE_TYPE_FLOAT);
+  igraph_vector_destroy(&q);
+  if (!qs) {
+    igraph_matrix_int_destroy(&merges);
+    return NULL;
   }
 
-  ms=igraphmodule_matrix_int_t_to_PyList(&merges);
+  ms = igraphmodule_matrix_int_t_to_PyList(&merges);
   igraph_matrix_int_destroy(&merges);
 
   if (ms == NULL) {
@@ -13235,10 +13408,12 @@ PyObject *igraphmodule_Graph_community_infomap(igraphmodule_GraphObject * self,
     return NULL;
   }
 
-  if (igraph_community_infomap(/*in */ &self->g,
-                                    /*e_weight=*/ e_ws, /*v_weight=*/ v_ws,
-                                    /*nb_trials=*/nb_trials,
-                              /*out*/ &membership, &codelength)) {
+  if (igraph_community_infomap(
+    /*in */ &self->g, /*e_weight=*/ e_ws, /*v_weight=*/ v_ws,
+    /*nb_trials=*/nb_trials, /*is_regularized=*/0,
+    /*regularization_strength=*/ 0,
+    /*out*/ &membership, &codelength)
+  ) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&membership);
     if (e_ws) {
@@ -13278,17 +13453,23 @@ PyObject *igraphmodule_Graph_community_infomap(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_community_label_propagation(
     igraphmodule_GraphObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = { "weights", "initial", "fixed", NULL };
+  static char *kwlist[] = { "weights", "initial", "fixed", "variant", NULL };
   PyObject *weights_o = Py_None, *initial_o = Py_None, *fixed_o = Py_None;
+  PyObject *variant_o = NULL;
   PyObject *result_o;
   igraph_vector_int_t membership, *initial = 0;
   igraph_vector_t *ws = 0;
   igraph_vector_bool_t fixed;
+  igraph_lpa_variant_t variant = IGRAPH_LPA_DOMINANCE;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOO", kwlist, &weights_o, &initial_o, &fixed_o)) {
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist, &weights_o, &initial_o, &fixed_o, &variant_o)) {
     return NULL;
   }
 
+  if (igraphmodule_PyObject_to_lpa_variant_t(variant_o, &variant)) {
+    return NULL;
+  }
+ 
   if (fixed_o != Py_None) {
     if (igraphmodule_PyObject_to_vector_bool_t(fixed_o, &fixed))
       return NULL;
@@ -13307,7 +13488,7 @@ PyObject *igraphmodule_Graph_community_label_propagation(
 
   igraph_vector_int_init(&membership, igraph_vcount(&self->g));
   if (igraph_community_label_propagation(&self->g, &membership,
-        IGRAPH_OUT, ws, initial, (fixed_o != Py_None ? &fixed : 0))) {
+        IGRAPH_OUT, ws, initial, (fixed_o != Py_None ? &fixed : 0), variant)) {
     if (fixed_o != Py_None) igraph_vector_bool_destroy(&fixed);
     if (ws) { igraph_vector_destroy(ws); free(ws); }
     if (initial) { igraph_vector_int_destroy(initial); free(initial); }
@@ -13392,15 +13573,16 @@ PyObject *igraphmodule_Graph_community_multilevel(igraphmodule_GraphObject *self
  */
 PyObject *igraphmodule_Graph_community_optimal_modularity(
     igraphmodule_GraphObject *self, PyObject *args, PyObject *kwds) {
-  static char *kwlist[] = {"weights", NULL};
+  static char *kwlist[] = {"weights", "resolution", NULL};
   PyObject *weights_o = Py_None;
   igraph_real_t modularity;
   igraph_vector_int_t membership;
   igraph_vector_t* weights = 0;
+  double resolution = 1;
   PyObject *res;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist,
-        &weights_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Od", kwlist,
+        &weights_o, &resolution))
     return NULL;
 
   if (igraph_vector_int_init(&membership, igraph_vcount(&self->g))) {
@@ -13414,8 +13596,8 @@ PyObject *igraphmodule_Graph_community_optimal_modularity(
     return NULL;
   }
 
-  if (igraph_community_optimal_modularity(&self->g, &modularity,
-        &membership, weights)) {
+  if (igraph_community_optimal_modularity(&self->g, weights, resolution, &modularity,
+        &membership)) {
     igraphmodule_handle_igraph_error();
     igraph_vector_int_destroy(&membership);
     if (weights != 0) {
@@ -13574,11 +13756,12 @@ PyObject *igraphmodule_Graph_community_walktrap(igraphmodule_GraphObject * self,
 PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
         PyObject *args, PyObject *kwds) {
 
-  static char *kwlist[] = {"edge_weights", "node_weights", "resolution",
+  static char *kwlist[] = {"edge_weights", "node_weights", "node_in_weights", "resolution",
                            "normalize_resolution", "beta", "initial_membership", "n_iterations", NULL};
 
   PyObject *edge_weights_o = Py_None;
   PyObject *node_weights_o = Py_None;
+  PyObject *node_in_weights_o = Py_None;
   PyObject *initial_membership_o = Py_None;
   PyObject *normalize_resolution = Py_False;
   PyObject *res = Py_None;
@@ -13587,14 +13770,14 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
   Py_ssize_t n_iterations = 2;
   double resolution = 1.0;
   double beta = 0.01;
-  igraph_vector_t *edge_weights = NULL, *node_weights = NULL;
+  igraph_vector_t *edge_weights = NULL, *node_weights = NULL, *node_in_weights = NULL;
   igraph_vector_int_t *membership = NULL;
   igraph_bool_t start = true;
-  igraph_integer_t nb_clusters = 0;
+  igraph_int_t nb_clusters = 0;
   igraph_real_t quality = 0.0;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOdOdOn", kwlist,
-        &edge_weights_o, &node_weights_o, &resolution, &normalize_resolution, &beta, &initial_membership_o, &n_iterations))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOdOdOn", kwlist,
+        &edge_weights_o, &node_weights_o, &node_in_weights_o, &resolution, &normalize_resolution, &beta, &initial_membership_o, &n_iterations))
     return NULL;
 
   if (n_iterations >= 0) {
@@ -13617,6 +13800,13 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
     error = -1;
   }
 
+  /* Get node in-weights (directed case) */
+  if (!error && igraphmodule_attrib_to_vector_t(node_in_weights_o, self, &node_in_weights,
+    ATTRIBUTE_TYPE_VERTEX)) {
+    igraphmodule_handle_igraph_error();
+    error = -1;
+  }
+
   /* Get initial membership */
   if (!error && igraphmodule_attrib_to_vector_int_t(initial_membership_o, self, &membership,
     ATTRIBUTE_TYPE_VERTEX)) {
@@ -13627,30 +13817,35 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
   if (!error && membership == 0) {
     start = 0;
     membership = (igraph_vector_int_t*)calloc(1, sizeof(igraph_vector_int_t));
-    if (membership==0) {
+    if (membership == 0) {
       PyErr_NoMemory();
       error = -1;
-    } else {
-      igraph_vector_int_init(membership, 0);
+    } else if (igraph_vector_int_init(membership, 0)) {
+      igraphmodule_handle_igraph_error();
+      error = -1;
     }
   }
 
-  if (PyObject_IsTrue(normalize_resolution))
+  if (!error && PyObject_IsTrue(normalize_resolution))
   {
     /* If we need to normalize the resolution parameter,
      * we will need to have node weights. */
     if (node_weights == 0)
     {
       node_weights = (igraph_vector_t*)calloc(1, sizeof(igraph_vector_t));
-      if (node_weights==0) {
+      if (node_weights == 0) {
         PyErr_NoMemory();
         error = -1;
-      } else {
-        igraph_vector_init(node_weights, 0);
-        if (igraph_strength(&self->g, node_weights, igraph_vss_all(), IGRAPH_ALL, 0, edge_weights)) {
-          igraphmodule_handle_igraph_error();
-          error = -1;
-        }
+      } else if (igraph_vector_init(node_weights, 0)) {
+        igraphmodule_handle_igraph_error();
+        error = -1;
+      } else if (igraph_strength(
+        &self->g, node_weights, igraph_vss_all(),
+        igraph_is_directed(&self->g) ? IGRAPH_OUT : IGRAPH_ALL,
+        IGRAPH_NO_LOOPS, edge_weights
+      )) {
+        igraphmodule_handle_igraph_error();
+        error = -1;
       }
     }
     resolution /= igraph_vector_sum(node_weights);
@@ -13659,7 +13854,7 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
   /* Run actual Leiden algorithm for several iterations. */
   if (!error) {
     error = igraph_community_leiden(&self->g,
-                                    edge_weights, node_weights,
+                                    edge_weights, node_weights, node_in_weights,
                                     resolution, beta,
                                     start, n_iterations, membership,
                                     &nb_clusters, &quality);
@@ -13672,6 +13867,10 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
   if (node_weights != 0) {
     igraph_vector_destroy(node_weights);
     free(node_weights);
+  }
+  if (node_in_weights != 0) {
+    igraph_vector_destroy(node_in_weights);
+    free(node_in_weights);
   }
 
   if (!error && membership != 0) {
@@ -13686,6 +13885,157 @@ PyObject *igraphmodule_Graph_community_leiden(igraphmodule_GraphObject *self,
   return error ? NULL : Py_BuildValue("Nd", res, (double) quality);
 }
 
+ /**
+ * Fluid communities
+ */
+PyObject *igraphmodule_Graph_community_fluid_communities(igraphmodule_GraphObject *self,
+                                                        PyObject *args, PyObject *kwds) {
+    static char *kwlist[] = {"no_of_communities", NULL};
+    Py_ssize_t no_of_communities;
+    igraph_vector_int_t membership;
+    PyObject *result;
+
+    // Parse the Python integer argument
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "n", kwlist, &no_of_communities)) {
+        return NULL;
+    }
+
+    if (igraph_vector_int_init(&membership, 0)) {
+        igraphmodule_handle_igraph_error();
+        return NULL;
+    }
+
+    if (igraph_community_fluid_communities(&self->g, no_of_communities, &membership)) {
+        igraphmodule_handle_igraph_error();
+        igraph_vector_int_destroy(&membership);
+        return NULL;
+    }
+
+    result = igraphmodule_vector_int_t_to_PyList(&membership);
+    igraph_vector_int_destroy(&membership);
+
+    return result;
+}
+
+/**
+ * Voronoi clustering
+ */
+PyObject *igraphmodule_Graph_community_voronoi(igraphmodule_GraphObject *self,
+                                               PyObject *args, PyObject *kwds) {
+  static char *kwlist[] = {"lengths", "weights", "mode", "radius", NULL};
+  PyObject *lengths_o = Py_None, *weights_o = Py_None;
+  PyObject *mode_o = Py_None;
+  PyObject *radius_o = Py_None;
+  igraph_vector_t *lengths_v = NULL;
+  igraph_vector_t *weights_v = NULL;
+  igraph_vector_int_t membership_v, generators_v;
+  igraph_neimode_t mode = IGRAPH_OUT;
+  igraph_real_t radius = -1.0;  /* negative means auto-optimize */
+  igraph_real_t modularity = IGRAPH_NAN;
+  PyObject *membership_o, *generators_o, *result_o;
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|OOOO", kwlist,
+                                   &lengths_o, &weights_o, &mode_o, &radius_o)) {
+    return NULL;
+  }
+
+  /* Handle mode parameter */
+  if (igraphmodule_PyObject_to_neimode_t(mode_o, &mode)) {
+    return NULL;
+  }
+
+  /* Handle radius parameter */
+  if (radius_o != Py_None) {
+    if (igraphmodule_PyObject_to_real_t(radius_o, &radius)) {
+      return NULL;
+    }
+  }
+
+  /* Handle lengths parameter */
+  if (igraphmodule_attrib_to_vector_t(lengths_o, self, &lengths_v, ATTRIBUTE_TYPE_EDGE)) {
+    return NULL;
+  }
+
+  /* Handle weights parameter */
+  if (igraphmodule_attrib_to_vector_t(weights_o, self, &weights_v, ATTRIBUTE_TYPE_EDGE)) {
+    if (lengths_v != NULL) {
+      igraph_vector_destroy(lengths_v); free(lengths_v);
+    }
+    return NULL;
+  }
+
+  /* Initialize result vectors */
+  if (igraph_vector_int_init(&membership_v, 0)) {
+    if (lengths_v != NULL) {
+      igraph_vector_destroy(lengths_v); free(lengths_v);
+    }
+    if (weights_v != NULL) {
+      igraph_vector_destroy(weights_v); free(weights_v);
+    }
+    igraphmodule_handle_igraph_error();
+    return NULL;
+  }
+
+  if (igraph_vector_int_init(&generators_v, 0)) {
+    if (lengths_v != NULL) {
+      igraph_vector_destroy(lengths_v); free(lengths_v);
+    }
+    if (weights_v != NULL) {
+      igraph_vector_destroy(weights_v); free(weights_v);
+    }
+    igraph_vector_int_destroy(&membership_v);
+    igraphmodule_handle_igraph_error();
+    return NULL;
+  }
+
+  /* Call the C function - pass NULL for None parameters */
+  if (igraph_community_voronoi(&self->g, &membership_v, &generators_v,
+                               &modularity,
+                               lengths_v,
+                               weights_v,
+                               mode, radius)) {
+      
+    if (lengths_v != NULL) {
+      igraph_vector_destroy(lengths_v); free(lengths_v);
+    }
+    if (weights_v != NULL) {
+      igraph_vector_destroy(weights_v); free(weights_v);
+    }
+    igraph_vector_int_destroy(&membership_v);
+    igraph_vector_int_destroy(&generators_v);
+    igraphmodule_handle_igraph_error();
+    return NULL;
+  }
+
+  /* Clean up input vectors */
+  if (lengths_v != NULL) {
+    igraph_vector_destroy(lengths_v); free(lengths_v);
+  }
+  if (weights_v != NULL) {
+    igraph_vector_destroy(weights_v); free(weights_v);
+  }
+
+  /* Convert results to Python objects */
+  membership_o = igraphmodule_vector_int_t_to_PyList(&membership_v);
+  igraph_vector_int_destroy(&membership_v);
+  if (!membership_o) {
+    igraph_vector_int_destroy(&generators_v);
+    return NULL;
+  }
+
+  generators_o = igraphmodule_vector_int_t_to_PyList(&generators_v);
+  igraph_vector_int_destroy(&generators_v);
+  if (!generators_o) {
+    Py_DECREF(membership_o);
+    return NULL;
+  }
+
+  /* Return tuple with membership, generators, and modularity */
+  result_o = Py_BuildValue("(NNd)", membership_o, generators_o, modularity);
+
+  return result_o;
+}
+
 /**********************************************************************
  * Random walks                                                       *
  **********************************************************************/
@@ -13698,7 +14048,7 @@ PyObject *igraphmodule_Graph_random_walk(igraphmodule_GraphObject * self,
 
   static char *kwlist[] = { "start", "steps", "mode", "stuck", "weights", "return_type", NULL };
   PyObject *start_o, *mode_o = Py_None, *stuck_o = Py_None, *weights_o = Py_None, *return_type_o = Py_None;
-  igraph_integer_t start;
+  igraph_int_t start;
   Py_ssize_t steps = 10;
   igraph_neimode_t mode = IGRAPH_OUT;
   igraph_random_walk_stuck_t stuck = IGRAPH_RANDOM_WALK_STUCK_RETURN;
@@ -13831,6 +14181,46 @@ PyObject *igraphmodule_Graph_random_walk(igraphmodule_GraphObject * self,
           "vertices", resv,
           "edges", rese); /* steals references */
   }
+}
+
+/**********************************************************************
+ * Spatial graphs                                                     *
+ **********************************************************************/
+
+PyObject *igraphmodule_Graph_Nearest_Neighbor_Graph(PyTypeObject *type,
+                                                    PyObject *args, PyObject *kwds) {
+  static char *kwlist[] = {"points", "k", "r", "metric", "directed", NULL};
+  PyObject *points_o = Py_None, *metric_o = Py_None, *directed_o = Py_False;
+  double r = -1;
+  Py_ssize_t k = 1;
+  igraph_matrix_t points;
+  igraphmodule_GraphObject *self;
+  igraph_t graph;
+  igraph_metric_t metric = IGRAPH_METRIC_EUCLIDEAN;
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|ndOO", kwlist,
+                                   &points_o, &k, &r, &metric_o, &directed_o)) {
+    return NULL;
+  }
+
+  if (igraphmodule_PyObject_to_metric_t(metric_o, &metric)) {
+    return NULL;
+  }
+
+  if (igraphmodule_PyObject_to_matrix_t(points_o, &points, "points")) {
+    return NULL;
+  }
+
+  if (igraph_nearest_neighbor_graph(&graph, &points, metric, k, r, PyObject_IsTrue(directed_o))) {
+    igraph_matrix_destroy(&points);
+    return igraphmodule_handle_igraph_error(); 
+  }
+
+  igraph_matrix_destroy(&points);
+
+  CREATE_GRAPH_FROM_TYPE(self, graph, type);
+
+  return (PyObject *) self;
 }
 
 /**********************************************************************
@@ -14117,24 +14507,21 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_neighbors */
   {"neighbors", (PyCFunction) igraphmodule_Graph_neighbors,
    METH_VARARGS | METH_KEYWORDS,
-   "neighbors(vertex, mode=\"all\")\n--\n\n"
+   "neighbors(vertex, mode=\"all\", loops=\"twice\", multiple=True)\n--\n\n"
    "Returns adjacent vertices to a given vertex.\n\n"
    "@param vertex: a vertex ID\n"
    "@param mode: whether to return only successors (C{\"out\"}),\n"
    "  predecessors (C{\"in\"}) or both (C{\"all\"}). Ignored for undirected\n"
-   "  graphs."},
-
-  {"successors", (PyCFunction) igraphmodule_Graph_successors,
-   METH_VARARGS | METH_KEYWORDS,
-   "successors(vertex)\n--\n\n"
-   "Returns the successors of a given vertex.\n\n"
-   "Equivalent to calling the L{neighbors()} method with type=C{\"out\"}."},
-
-  {"predecessors", (PyCFunction) igraphmodule_Graph_predecessors,
-   METH_VARARGS | METH_KEYWORDS,
-   "predecessors(vertex)\n--\n\n"
-   "Returns the predecessors of a given vertex.\n\n"
-   "Equivalent to calling the L{neighbors()} method with type=C{\"in\"}."},
+   "  graphs."
+   "@param loops: whether to return loops in I{undirected} graphs once\n"
+   "  (C{\"once\"}), twice (C{\"twice\"}) or not at all (C{\"ignore\"}). C{False}\n"
+   "  is accepted as an alias to C{\"ignore\"} and C{True} is accepted as an\n"
+   "  alias to C{\"twice\"}. For directed graphs, C{\"twice\"} is equivalent\n"
+   "  to C{\"once\"} (except when C{mode} is C{\"all\"} because the graph is\n"
+   "  then treated as undirected).\n"
+   "@param multiple: whether to return endpoints of multiple edges as many\n"
+   "  times as their multiplicities."
+  },
 
   /* interface to igraph_get_eid */
   {"get_eid", (PyCFunction) igraphmodule_Graph_get_eid,
@@ -14178,7 +14565,14 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param vertex: a vertex ID\n"
    "@param mode: whether to return only successors (C{\"out\"}),\n"
    "  predecessors (C{\"in\"}) or both (C{\"all\"}). Ignored for undirected\n"
-   "  graphs."},
+   "  graphs."
+   "@param loops: whether to return loops in I{undirected} graphs once\n"
+   "  (C{\"once\"}), twice (C{\"twice\"}) or not at all (C{\"ignore\"}). C{False}\n"
+   "  is accepted as an alias to C{\"ignore\"} and C{True} is accepted as an\n"
+   "  alias to C{\"twice\"}. For directed graphs, C{\"twice\"} is equivalent\n"
+   "  to C{\"once\"} (except when C{mode} is C{\"all\"} because the graph is\n"
+   "  then treated as undirected).\n"
+  },
 
   //////////////////////
   // GRAPH GENERATORS //
@@ -14339,13 +14733,17 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   // interface to igraph_erdos_renyi_game
   {"Erdos_Renyi", (PyCFunction) igraphmodule_Graph_Erdos_Renyi,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "Erdos_Renyi(n, p, m, directed=False, loops=False)\n--\n\n"
+   "Erdos_Renyi(n, p, m, directed=False, loops=False, edge_labeled=False)\n--\n\n"
    "Generates a graph based on the Erdős-Rényi model.\n\n"
    "@param n: the number of vertices.\n"
    "@param p: the probability of edges. If given, C{m} must be missing.\n"
    "@param m: the number of edges. If given, C{p} must be missing.\n"
    "@param directed: whether to generate a directed graph.\n"
-   "@param loops: whether self-loops are allowed.\n"},
+   "@param loops: whether self-loops are allowed.\n"
+   "@param edge_labeled: whether to sample uniformly from the set of\n"
+   "  I{ordered} edge lists. Use C{False} to recover the classic\n"
+   "  Erdős-Rényi model.\n"
+  },
 
   /* interface to igraph_famous */
     {"Famous", (PyCFunction) igraphmodule_Graph_Famous,
@@ -14517,7 +14915,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_bipartite_game */
   {"_Random_Bipartite", (PyCFunction) igraphmodule_Graph_Random_Bipartite,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "_Random_Bipartite(n1, n2, p=None, m=None, directed=False, neimode=\"all\")\n--\n\n"
+   "_Random_Bipartite(n1, n2, p=None, m=None, directed=False, neimode=\"all\", allowed_edge_types=\"simple\", edge_labeled=False)\n--\n\n"
    "Internal function, undocumented.\n\n"
    "@see: Graph.Random_Bipartite()\n\n"},
 
@@ -14545,21 +14943,29 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_sbm_game */
   {"SBM", (PyCFunction) igraphmodule_Graph_SBM,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "SBM(n, pref_matrix, block_sizes, directed=False, loops=False)\n--\n\n"
+   "SBM(pref_matrix, block_sizes, directed=False, allowed_edge_types=\"simple\")\n--\n\n"
    "Generates a graph based on a stochastic block model.\n\n"
-   "A given number of vertices are generated. Every vertex is assigned to a\n"
-   "vertex type according to the given block sizes. Vertices of the same\n"
+   "Every vertex is assigned to a vertex type according to the given block\n"
+   "sizes, which also determine the total vertex count. Vertices of the same\n"
    "type will be assigned consecutive vertex IDs. Finally, every\n"
    "vertex pair is evaluated and an edge is created between them with a\n"
    "probability depending on the types of the vertices involved. The\n"
    "probabilities are taken from the preference matrix.\n\n"
-   "@param n: the number of vertices in the graph\n"
-   "@param pref_matrix: matrix giving the connection probabilities for\n"
-   "  different vertex types.\n"
+   "@param pref_matrix: matrix giving the connection probabilities (or expected\n"
+   "  edge multiplicities for multigraphs) between different vertex types.\n"
    "@param block_sizes: list giving the number of vertices in each block; must\n"
    "  sum up to I{n}.\n"
    "@param directed: whether to generate a directed graph.\n"
-   "@param loops: whether loop edges are allowed.\n"},
+   "@param allowed_edge_types: controls whether loops or multi-edges are allowed\n"
+   "  during the generation process. Note that not all combinations are supported\n"
+   "  for all types of graphs; an exception will be raised for unsupported\n"
+   "  combinations. Possible values are:\n"
+   "\n"
+   "    - C{\"simple\"}: simple graphs (no self-loops, no multi-edges)\n"
+   "    - C{\"loops\"}: single self-loops allowed, but not multi-edges\n"
+   "    - C{\"multi\"}: multi-edges allowed, but not self-loops\n"
+   "    - C{\"all\"}: multi-edges and self-loops allowed\n"
+   "\n"},
 
   // interface to igraph_star
   {"Star", (PyCFunction) igraphmodule_Graph_Star,
@@ -14697,7 +15103,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_static_fitness_game */
   {"Static_Fitness", (PyCFunction) igraphmodule_Graph_Static_Fitness,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "Static_Fitness(m, fitness_out, fitness_in=None, loops=False, multiple=False)\n--\n\n"
+   "Static_Fitness(m, fitness_out, fitness_in=None, allowed_edge_types=\"simple\")\n--\n\n"
    "Generates a non-growing graph with edge probabilities proportional to node\n"
    "fitnesses.\n\n"
    "The algorithm randomly selects vertex pairs and connects them until the given\n"
@@ -14712,8 +15118,16 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param fitness_in: a numeric vector with non-negative entries, one for each\n"
    "  vertex. These values represent the in-fitness scores for directed graphs.\n"
    "  For undirected graphs, this argument must be C{None}.\n"
-   "@param loops: whether loop edges are allowed.\n"
-   "@param multiple: whether multiple edges are allowed.\n"
+   "@param allowed_edge_types: controls whether loops or multi-edges are allowed\n"
+   "  during the generation process. Note that not all combinations are supported\n"
+   "  for all types of graphs; an exception will be raised for unsupported\n"
+   "  combinations. Possible values are:\n"
+   "\n"
+   "    - C{\"simple\"}: simple graphs (no self-loops, no multi-edges)\n"
+   "    - C{\"loops\"}: single self-loops allowed, but not multi-edges\n"
+   "    - C{\"multi\"}: multi-edges allowed, but not self-loops\n"
+   "    - C{\"all\"}: multi-edges and self-loops allowed\n"
+   "\n"
    "@return: a directed or undirected graph with the prescribed power-law\n"
    "  degree distributions.\n"
   },
@@ -14721,8 +15135,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_static_power_law_game */
   {"Static_Power_Law", (PyCFunction) igraphmodule_Graph_Static_Power_Law,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "Static_Power_Law(n, m, exponent_out, exponent_in=-1, loops=False, "
-   "multiple=False, finite_size_correction=True)\n--\n\n"
+   "Static_Power_Law(n, m, exponent_out, exponent_in=-1, allowed_edge_types=\"simple\", "
+   "finite_size_correction=True)\n--\n\n"
    "Generates a non-growing graph with prescribed power-law degree distributions.\n\n"
    "B{References}\n\n"
    "  - Goh K-I, Kahng B, Kim D: Universal behaviour of load distribution\n"
@@ -14740,8 +15154,16 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param exponent_in: the exponent of the in-degree distribution, which\n"
    "  must be between 2 and infinity (inclusive) It can also be negative, in\n"
    "  which case an undirected graph will be generated.\n"
-   "@param loops: whether loop edges are allowed.\n"
-   "@param multiple: whether multiple edges are allowed.\n"
+   "@param allowed_edge_types: controls whether loops or multi-edges are allowed\n"
+   "  during the generation process. Note that not all combinations are supported\n"
+   "  for all types of graphs; an exception will be raised for unsupported\n"
+   "  combinations. Possible values are:\n"
+   "\n"
+   "    - C{\"simple\"}: simple graphs (no self-loops, no multi-edges)\n"
+   "    - C{\"loops\"}: single self-loops allowed, but not multi-edges\n"
+   "    - C{\"multi\"}: multi-edges allowed, but not self-loops\n"
+   "    - C{\"all\"}: multi-edges and self-loops allowed\n"
+   "\n"
    "@param finite_size_correction: whether to apply a finite-size correction\n"
    "  to the generated fitness values for exponents less than 3. See the\n"
    "  paper of Cho et al for more details.\n"
@@ -14927,7 +15349,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_watts_strogatz_game */
   {"Watts_Strogatz", (PyCFunction) igraphmodule_Graph_Watts_Strogatz,
    METH_VARARGS | METH_CLASS | METH_KEYWORDS,
-   "Watts_Strogatz(dim, size, nei, p, loops=False, multiple=False)\n--\n\n"
+   "Watts_Strogatz(dim, size, nei, p, allowed_edge_types=\"simple\")\n--\n\n"
    "This function generates networks with the small-world property based on a\n"
    "variant of the Watts-Strogatz model. The network is obtained by first creating\n"
    "a periodic undirected lattice, then rewiring both endpoints of each edge with\n"
@@ -14947,8 +15369,16 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param nei: value giving the distance (number of steps) within which\n"
    "   two vertices will be connected.\n"
    "@param p: rewiring probability\n\n"
-   "@param loops: specifies whether loop edges are allowed\n"
-   "@param multiple: specifies whether multiple edges are allowed\n"
+   "@param allowed_edge_types: controls whether loops or multi-edges are allowed\n"
+   "  during the generation process. Note that not all combinations are supported\n"
+   "  for all types of graphs; an exception will be raised for unsupported\n"
+   "  combinations. Possible values are:\n"
+   "\n"
+   "    - C{\"simple\"}: simple graphs (no self-loops, no multi-edges)\n"
+   "    - C{\"loops\"}: single self-loops allowed, but not multi-edges\n"
+   "    - C{\"multi\"}: multi-edges allowed, but not self-loops\n"
+   "    - C{\"all\"}: multi-edges and self-loops allowed\n"
+   "\n"
    "@see: L{Lattice()}, L{rewire()}, L{rewire_edges()} if more flexibility is\n"
    "  needed\n"
   },
@@ -15006,7 +15436,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_assortativity */
   {"assortativity", (PyCFunction)igraphmodule_Graph_assortativity,
    METH_VARARGS | METH_KEYWORDS,
-   "assortativity(types1, types2=None, directed=True, normalized=True)\n--\n\n"
+   "assortativity(types1, types2=None, directed=True, normalized=True, weights=None)\n--\n\n"
    "Returns the assortativity of the graph based on numeric properties\n"
    "of the vertices.\n\n"
    "This coefficient is basically the correlation between the actual\n"
@@ -15031,6 +15461,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param normalized: whether to compute the normalized covariance, i.e.\n"
    "  Pearson correlation. Supply True here to compute the standard\n"
    "  assortativity.\n"
+   "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
+   "  even an edge attribute name.\n"
    "@return: the assortativity coefficient\n\n"
    "@see: L{assortativity_degree()} when the types are the vertex degrees\n"
   },
@@ -15051,7 +15483,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_assortativity_nominal */
   {"assortativity_nominal", (PyCFunction)igraphmodule_Graph_assortativity_nominal,
    METH_VARARGS | METH_KEYWORDS,
-   "assortativity_nominal(types, directed=True, normalized=True)\n--\n\n"
+   "assortativity_nominal(types, directed=True, normalized=True, weights=None)\n--\n\n"
    "Returns the assortativity of the graph based on vertex categories.\n\n"
    "Assuming that the vertices belong to different categories, this\n"
    "function calculates the assortativity coefficient, which specifies\n"
@@ -15070,6 +15502,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param normalized: whether to compute the (usual) normalized assortativity.\n"
    "  The unnormalized version is identical to modularity. Supply True here to\n"
    "  compute the standard assortativity.\n"
+   "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
+   "  even an edge attribute name.\n"
    "@return: the assortativity coefficient\n\n"
   },
 
@@ -15096,8 +15530,6 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "Calculates Kleinberg's authority score for the vertices of the graph\n\n"
    "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
    "  even an edge attribute name.\n"
-   "@param scale: whether to normalize the scores so that the largest one\n"
-   "  is 1.\n"
    "@param arpack_options: an L{ARPACKOptions} object used to fine-tune\n"
    "  the ARPACK eigenvector calculation. If omitted, the module-level\n"
    "  variable called C{arpack_options} is used.\n"
@@ -15337,13 +15769,15 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_density */
   {"density", (PyCFunction) igraphmodule_Graph_density,
    METH_VARARGS | METH_KEYWORDS,
-   "density(loops=False)\n--\n\n"
+   "density(loops=False, weights=None)\n--\n\n"
    "Calculates the density of the graph.\n\n"
    "@param loops: whether to take loops into consideration. If C{True},\n"
    "  the algorithm assumes that there might be some loops in the graph\n"
    "  and calculates the density accordingly. If C{False}, the algorithm\n"
    "  assumes that there can't be any loops.\n"
-   "@return: the density of the graph."},
+   "@param weights: weights associated to the edges. Can be an attribute name\n"
+   "  as well. If C{None}, every edge will have the same weight.\n"
+   "@return: the (weighted or unweighted) density of the graph."},
 
   /* interface to igraph_mean_degree */
   {"mean_degree", (PyCFunction) igraphmodule_Graph_mean_degree,
@@ -15515,8 +15949,6 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "components, and the eigenvector centrality calculated for each separately.\n\n"
    "@param directed: whether to consider edge directions in a directed\n"
    "  graph. Ignored for undirected graphs.\n"
-   "@param scale: whether to normalize the centralities so the largest\n"
-   "  one will always be 1.\n"
    "@param weights: edge weights given as a list or an edge attribute. If\n"
    "  C{None}, all edges have equal weight.\n"
    "@param return_eigenvalue: whether to return the actual largest\n"
@@ -15709,7 +16141,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   {"_get_all_simple_paths",
    (PyCFunction) igraphmodule_Graph_get_all_simple_paths,
    METH_VARARGS | METH_KEYWORDS,
-   "_get_all_simple_paths(v, to=None, cutoff=-1, mode=\"out\")\n--\n\n"
+   "_get_all_simple_paths(v, to=None, minlen=0, maxlen=-1, mode=\"out\", max_results=None)\n--\n\n"
    "Internal function, undocumented.\n\n"
    "@see: Graph.get_all_simple_paths()\n\n"
   },
@@ -15747,8 +16179,6 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "Calculates Kleinberg's hub score for the vertices of the graph\n\n"
    "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
    "  even an edge attribute name.\n"
-   "@param scale: whether to normalize the scores so that the largest one\n"
-   "  is 1.\n"
    "@param arpack_options: an L{ARPACKOptions} object used to fine-tune\n"
    "  the ARPACK eigenvector calculation. If omitted, the module-level\n"
    "  variable called C{arpack_options} is used.\n"
@@ -16028,8 +16458,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "permute_vertices(permutation)\n--\n\n"
    "Permutes the vertices of the graph according to the given permutation\n"
    "and returns the new graph.\n\n"
-   "Vertex M{k} of the original graph will become vertex M{permutation[k]}\n"
-   "in the new graph. No validity checks are performed on the permutation\n"
+   "Vertex M{k} of the new graph will belong to vertex M{permutation[k]}\n"
+   "in the original graph. No validity checks are performed on the permutation\n"
    "vector.\n\n"
    "@return: the new graph\n"
   },
@@ -16078,33 +16508,33 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   },
 
   /* interface to igraph_rewire */
-  {"rewire", (PyCFunction) igraphmodule_Graph_rewire,
+  {"_rewire", (PyCFunction) igraphmodule_Graph_rewire,
    METH_VARARGS | METH_KEYWORDS,
-   "rewire(n=None, mode=\"simple\")\n--\n\n"
-   "Randomly rewires the graph while preserving the degree distribution.\n\n"
-   "The rewiring is done \"in-place\", so the original graph will be modified.\n"
-   "If you want to preserve the original graph, use the L{copy} method before\n"
-   "rewiring.\n\n"
-   "@param n: the number of rewiring trials. The default is 10 times the number\n"
-   "  of edges.\n"
-   "@param mode: the rewiring algorithm to use. It can either be C{\"simple\"} or\n"
-   "  C{\"loops\"}; the former does not create or destroy loop edges while the\n"
-   "  latter does.\n"},
+   "_rewire(n=None, allowed_edge_types=\"simple\")\n--\n\n"
+   "Internal function, undocumented.\n\n"
+   "@see: Graph.rewire()\n\n"},
 
   /* interface to igraph_rewire_edges */
   {"rewire_edges", (PyCFunction) igraphmodule_Graph_rewire_edges,
    METH_VARARGS | METH_KEYWORDS,
-   "rewire_edges(prob, loops=False, multiple=False)\n--\n\n"
+   "rewire_edges(prob, allowed_edge_types=\"simple\")\n--\n\n"
    "Rewires the edges of a graph with constant probability.\n\n"
    "Each endpoint of each edge of the graph will be rewired with a constant\n"
    "probability, given in the first argument.\n\n"
    "Please note that the rewiring is done \"in-place\", so the original\n"
    "graph will be modified. If you want to preserve the original graph,\n"
-   "use the L{copy} method before.\n\n"
+   "use the L{cop y} method before.\n\n"
    "@param prob: rewiring probability\n"
-   "@param loops: whether the algorithm is allowed to create loop edges\n"
-   "@param multiple: whether the algorithm is allowed to create multiple\n"
-   "  edges.\n"},
+   "@param allowed_edge_types: controls whether loops or multi-edges are allowed\n"
+   "  during the rewiring process. Note that not all combinations are supported\n"
+   "  for all types of graphs; an exception will be raised for unsupported\n"
+   "  combinations. Possible values are:\n"
+   "\n"
+   "    - C{\"simple\"}: simple graphs (no self-loops, no multi-edges)\n"
+   "    - C{\"loops\"}: single self-loops allowed, but not multi-edges\n"
+   "    - C{\"multi\"}: multi-edges allowed, but not self-loops\n"
+   "    - C{\"all\"}: multi-edges and self-loops allowed\n"
+   "\n"},
 
   /* interface to igraph_distances */
   {"distances", (PyCFunction) igraphmodule_Graph_distances,
@@ -16189,7 +16619,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /* interface to igraph_minimum_spanning_tree */
   {"_spanning_tree", (PyCFunction) igraphmodule_Graph_spanning_tree,
    METH_VARARGS | METH_KEYWORDS,
-   "_spanning_tree(weights=None)\n--\n\n"
+   "_spanning_tree(weights=None, method=\"auto\")\n--\n\n"
    "Internal function, undocumented.\n\n"
    "@see: Graph.spanning_tree()"},
 
@@ -16600,7 +17030,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
 
   {"fundamental_cycles", (PyCFunction) igraphmodule_Graph_fundamental_cycles,
    METH_VARARGS | METH_KEYWORDS,
-   "fundamental_cycles(start_vid=None, cutoff=None)\n--\n\n"
+   "fundamental_cycles(start_vid=None, cutoff=None, weights=None)\n--\n\n"
    "Finds a single fundamental cycle basis of the graph\n\n"
    "@param start_vid: when C{None} or negative, a complete fundamental cycle basis is\n"
    "  returned. When it is a vertex or a vertex ID, the fundamental cycles\n"
@@ -16609,11 +17039,13 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param cutoff: when C{None} or negative, a complete cycle basis is returned. Otherwise\n"
    "  the BFS is stopped after this many steps, so the result will effectively\n"
    "  include cycles of length M{2 * cutoff + 1} or shorter only.\n"
+   "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
+   "  even an edge attribute name.\n"
    "@return: the cycle basis as a list of tuples containing edge IDs"
   },
   {"minimum_cycle_basis", (PyCFunction) igraphmodule_Graph_minimum_cycle_basis,
    METH_VARARGS | METH_KEYWORDS,
-   "minimum_cycle_basis(cutoff=None, complete=True, use_cycle_order=True)\n--\n\n"
+   "minimum_cycle_basis(cutoff=None, complete=True, use_cycle_order=True, weights=None)\n--\n\n"
    "Computes a minimum cycle basis of the graph\n\n"
    "@param cutoff: when C{None} or negative, a complete minimum cycle basis is returned.\n"
    "  Otherwise only those cycles in the result will be part of some minimum\n"
@@ -16629,11 +17061,13 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param use_cycle_order: if C{True}, every cycle is returned in natural\n"
    "  order: the edge IDs will appear ordered along the cycle. If C{False},\n"
    "  no guarantees are given about the ordering of edge IDs within cycles.\n"
+   "@param weights: edge weights to be used. Can be a sequence or iterable or\n"
+   "  even an edge attribute name.\n"
    "@return: the cycle basis as a list of tuples containing edge IDs"
   },
   {"simple_cycles", (PyCFunction) igraphmodule_Graph_simple_cycles,
    METH_VARARGS | METH_KEYWORDS,
-   "simple_cycles(mode=None, min=-1, max=-1, output=\"epath\")\n--\n\n"
+   "simple_cycles(mode=None, min=-1, max=-1, output=\"vpath\")\n--\n\n"
    "Finds simple cycles in a graph\n\n"
    "@param mode: for directed graphs, specifies how the edge directions\n"
    "  should be taken into account. C{\"all\"} means that the edge directions\n"
@@ -18161,14 +18595,17 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   /********************************/
   {"cliques", (PyCFunction) igraphmodule_Graph_cliques,
    METH_VARARGS | METH_KEYWORDS,
-   "cliques(min=0, max=0)\n--\n\n"
+   "cliques(min=0, max=0, max_results=None)\n--\n\n"
    "Returns some or all cliques of the graph as a list of tuples.\n\n"
    "A clique is a complete subgraph -- a set of vertices where an edge\n"
    "is present between any two of them (excluding loops)\n\n"
    "@param min: the minimum size of cliques to be returned. If zero or\n"
    "  negative, no lower bound will be used.\n"
    "@param max: the maximum size of cliques to be returned. If zero or\n"
-   "  negative, no upper bound will be used."},
+   "  negative, no upper bound will be used.\n"
+   "@param max_results: the maximum number of results to return. C{None}\n"
+   "  means no limit on the number of results.\n"
+  },
   {"largest_cliques", (PyCFunction) igraphmodule_Graph_largest_cliques,
    METH_NOARGS,
    "largest_cliques()\n--\n\n"
@@ -18180,7 +18617,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "  L{maximal_cliques()} for the maximal cliques"},
   {"maximal_cliques", (PyCFunction) igraphmodule_Graph_maximal_cliques,
    METH_VARARGS | METH_KEYWORDS,
-   "maximal_cliques(min=0, max=0, file=None)\n--\n\n"
+   "maximal_cliques(min=0, max=0, file=None, max_results=None)\n--\n\n"
    "Returns the maximal cliques of the graph as a list of tuples.\n\n"
    "A maximal clique is a clique which can't be extended by adding any other\n"
    "vertex to it. A maximal clique is not necessarily one of the largest\n"
@@ -18194,6 +18631,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "@param file: a file object or the name of the file to write the results\n"
    "  to. When this argument is C{None}, the maximal cliques will be returned\n"
    "  as a list of lists.\n"
+   "@param max_results: the maximum number of results to return. C{None}\n"
+   "  means no limit on the number of results.\n"
    "@return: the maximal cliques of the graph as a list of lists, or C{None}\n"
    "  if the C{file} argument was given."
    "@see: L{largest_cliques()} for the largest cliques."},
@@ -18206,14 +18645,17 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   {"independent_vertex_sets",
    (PyCFunction) igraphmodule_Graph_independent_vertex_sets,
    METH_VARARGS | METH_KEYWORDS,
-   "independent_vertex_sets(min=0, max=0)\n--\n\n"
+   "independent_vertex_sets(min=0, max=0, max_results=None)\n--\n\n"
    "Returns some or all independent vertex sets of the graph as a list of tuples.\n\n"
    "Two vertices are independent if there is no edge between them. Members\n"
    "of an independent vertex set are mutually independent.\n\n"
    "@param min: the minimum size of sets to be returned. If zero or\n"
    "  negative, no lower bound will be used.\n"
    "@param max: the maximum size of sets to be returned. If zero or\n"
-   "  negative, no upper bound will be used."},
+   "  negative, no upper bound will be used.\n"
+   "@param max_results: the maximum number of results to return. C{None}\n"
+   "  means no limit on the number of results.\n"
+  },
   {"largest_independent_vertex_sets",
    (PyCFunction) igraphmodule_Graph_largest_independent_vertex_sets,
    METH_NOARGS,
@@ -18228,8 +18670,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "  (nonextendable) independent vertex sets"},
   {"maximal_independent_vertex_sets",
    (PyCFunction) igraphmodule_Graph_maximal_independent_vertex_sets,
-   METH_NOARGS,
-   "maximal_independent_vertex_sets()\n--\n\n"
+   METH_VARARGS | METH_KEYWORDS,
+   "maximal_independent_vertex_sets(min=0, max=0, max_results=None)\n--\n\n"
    "Returns the maximal independent vertex sets of the graph as a list of tuples.\n\n"
    "A maximal independent vertex set is an independent vertex set\n"
    "which can't be extended by adding any other vertex to it. A maximal\n"
@@ -18238,6 +18680,12 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "B{Reference}: S. Tsukiyama, M. Ide, H. Ariyoshi and I. Shirawaka: A new\n"
    "algorithm for generating all the maximal independent sets.\n"
    "I{SIAM J Computing}, 6:505-517, 1977.\n\n"
+   "@param min: the minimum size of sets to be returned. If zero or\n"
+   "  negative, no lower bound will be used.\n"
+   "@param max: the maximum size of sets to be returned. If zero or\n"
+   "  negative, no upper bound will be used.\n"
+   "@param max_results: the maximum number of results to return. C{None}\n"
+   "  means no limit on the number of results.\n\n"
    "@see: L{largest_independent_vertex_sets()} for the largest independent\n"
    "  vertex sets\n"
   },
@@ -18343,6 +18791,28 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "\n"
    "@see: modularity()\n"
   },
+  {"community_fluid_communities",
+  (PyCFunction) igraphmodule_Graph_community_fluid_communities,
+  METH_VARARGS | METH_KEYWORDS,
+   "community_fluid_communities(no_of_communities)\n--\n\n"
+   "Community detection based on fluids interacting on the graph.\n\n"
+   "The algorithm is based on the simple idea of several fluids interacting\n"
+   "in a non-homogeneous environment (the graph topology), expanding and\n"
+   "contracting based on their interaction and density. Weighted graphs are\n"
+   "not supported.\n\n"
+   "B{Reference}\n\n"
+   "  - Parés F, Gasulla DG, et. al. (2018) Fluid Communities: A Competitive,\n"
+   "    Scalable and Diverse Community Detection Algorithm. In: Complex Networks\n"
+   "    & Their Applications VI: Proceedings of Complex Networks 2017 (The Sixth\n"
+   "    International Conference on Complex Networks and Their Applications),\n"
+   "    Springer, vol 689, p 229. https://doi.org/10.1007/978-3-319-72150-7_19\n\n"
+   "@param no_of_communities: The number of communities to be found. Must be\n"
+   " greater than 0 and fewer than number of vertices in the graph.\n"
+   "@return: a list with the community membership of each vertex.\n"
+   "@note: The graph must be simple and connected. Edge directions will be\n"
+   " ignored if the graph is directed.\n"
+   "@note: Time complexity: O(|E|)\n",
+  },
   {"community_infomap",
    (PyCFunction) igraphmodule_Graph_community_infomap,
    METH_VARARGS | METH_KEYWORDS,
@@ -18350,8 +18820,8 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "Finds the community structure of the network according to the Infomap\n"
    "method of Martin Rosvall and Carl T. Bergstrom.\n\n"
    "See U{https://www.mapequation.org} for a visualization of the algorithm\n"
-   "or one of the references provided below.\n"
-   "B{References}\n"
+   "or one of the references provided below.\n\n"
+   "B{References}\n\n"
    "  - M. Rosvall and C. T. Bergstrom: I{Maps of information flow reveal\n"
    "    community structure in complex networks}. PNAS 105, 1118 (2008).\n"
    "    U{https://arxiv.org/abs/0707.0609}\n"
@@ -18370,7 +18840,7 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   {"community_label_propagation",
    (PyCFunction) igraphmodule_Graph_community_label_propagation,
    METH_VARARGS | METH_KEYWORDS,
-   "community_label_propagation(weights=None, initial=None, fixed=None)\n--\n\n"
+   "community_label_propagation(weights=None, initial=None, fixed=None, variant=\"dominance\")\n--\n\n"
    "Finds the community structure of the graph according to the label\n"
    "propagation method of Raghavan et al.\n\n"
    "Initially, each vertex is assigned a different label. After that,\n"
@@ -18400,6 +18870,9 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "  It only makes sense if initial labels are also given. Unlabeled\n"
    "  vertices cannot be fixed. Note that vertex attribute names are not\n"
    "  accepted here.\n"
+   "@param variant: the variant of the algorithm to use: C{\"dominance\"}, \n"
+   "  C{\"retention\"} or C{\"fast\"}. See the documentation of the C core\n"
+   "  of igraph for details.\n"
    "@return: the resulting membership vector\n"
   },
   {"community_leading_eigenvector", (PyCFunction) igraphmodule_Graph_community_leading_eigenvector,
@@ -18472,12 +18945,18 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
   "is typically high. So we gradually remove the edge with the highest\n"
   "betweenness from the network and recalculate edge betweenness after every\n"
   "removal, as long as all edges are removed.\n\n"
+  "When edge weights are given, the ratio of betweenness and weight values\n"
+  "is used to choose which edges to remove first, as described in\n"
+  "M. E. J. Newman: Analysis of Weighted Networks (2004), Section C.\n"
+  "Thus, edges with large weights are treated as strong connections,\n"
+  "and will be removed later than weak connections having similar betweenness.\n"
+  "Weights are also used for calculating modularity.\n\n"
   "Attention: this function is wrapped in a more convenient syntax in the\n"
   "derived class L{Graph}. It is advised to use that instead of this version.\n\n"
   "@param directed: whether to take into account the directedness of the edges\n"
   "  when we calculate the betweenness values.\n"
   "@param weights: name of an edge attribute or a list containing\n"
-  "  edge weights.\n\n"
+  "  edge weights. Higher weights indicate stronger connections.\n\n"
   "@return: a tuple with the merge matrix that describes the dendrogram\n"
   "  and the modularity scores before each merge. The modularity scores\n"
   "  use the weights if the original graph was weighted.\n"
@@ -18538,6 +19017,42 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "  the number of spins as colors. This argument is ignored if the\n"
    "  original implementation is used.\n"
    "@return: the community membership vector.\n"
+  },
+  {"community_voronoi", 
+    (PyCFunction) igraphmodule_Graph_community_voronoi, 
+    METH_VARARGS | METH_KEYWORDS,
+   "community_voronoi(lengths=None, weights=None, mode=\"out\", radius=None)\n--\n\n"
+   "Finds communities using Voronoi partitioning.\n\n"
+   "This function finds communities using a Voronoi partitioning of vertices based\n"
+   "on the given edge lengths divided by the edge clustering coefficient.\n"
+   "The generator vertices are chosen to be those with the largest local relative\n"
+   "density within a radius, with the local relative density of a vertex defined as\n"
+   "C{s * m / (m + k)}, where s is the strength of the vertex, m is the number of\n"
+   "edges within the vertex's first order neighborhood, while k is the number of\n"
+   "edges with only one endpoint within this neighborhood.\n\n"
+   "B{References}\n\n"
+   "  - Deritei et al., Community detection by graph Voronoi diagrams,\n"
+   "    New Journal of Physics 16, 063007 (2014)\n"
+   "    U{https://doi.org/10.1088/1367-2630/16/6/063007}\n"
+   "  - Molnár et al., Community Detection in Directed Weighted Networks\n"
+   "    using Voronoi Partitioning, Scientific Reports 14, 8124 (2024)\n"
+   "    U{https://doi.org/10.1038/s41598-024-58624-4}\n\n"
+   "@param lengths: edge lengths, or C{None} to consider all edges as having\n"
+   "  unit length. Voronoi partitioning will use edge lengths equal to\n"
+   "  lengths / ECC where ECC is the edge clustering coefficient.\n"
+   "@param weights: edge weights, or C{None} to consider all edges as having\n"
+   "  unit weight. Weights are used when selecting generator points, as well\n"
+   "  as for computing modularity.\n"
+   "@param mode: if C{\"out\"} (the default), distances from generator points to all other\n"
+   "  nodes are considered. If C{\"in\"}, the reverse distances are used.\n"
+   "  If C{\"all\"}, edge directions are ignored. This parameter is ignored\n"
+   "  for undirected graphs.\n"
+   "@param radius: the radius/resolution to use when selecting generator points.\n"
+   "  The larger this value, the fewer partitions there will be. Pass C{None}\n"
+   "  to automatically select the radius that maximizes modularity.\n"
+   "@return: a tuple containing the membership vector, generator vertices, and\n"
+   "  modularity score: (membership, generators, modularity).\n"
+   "@rtype: tuple\n"
   },
   {"community_leiden",
    (PyCFunction) igraphmodule_Graph_community_leiden,
@@ -18633,6 +19148,22 @@ struct PyMethodDef igraphmodule_Graph_methods[] = {
    "  C{\"edges\"}.\n"
    "@return: a random walk that starts from the given vertex and has at most\n"
    "  the given length (shorter if the random walk got stuck).\n"
+  },
+
+  /**********************/
+  /* SPATIAL GRAPHS     */
+  /**********************/
+  {"Nearest_Neighbor_Graph", (PyCFunction)igraphmodule_Graph_Nearest_Neighbor_Graph,
+   METH_VARARGS | METH_CLASS | METH_KEYWORDS,
+   "Nearest_Neighbor_Graph(points, k=1, r=-1, metric=\"euclidean\", directed=False)\n--\n\n"
+   "Constructs a k nearest neighbor graph of a give point set. Each point is\n"
+   "connected to at most k spatial neighbors within a radius of 1.\n\n"
+   "@param points: coordinates of the points to use, in an arbitrary number of dimensions\n"
+   "@param k: at most how many neighbors to connect to. Pass a negative value to ignore\n"
+   "@param r: only neighbors within this radius are considered. Pass a negative value to ignore\n"
+   "@param metric: the metric to use. C{\"euclidean\"} and C{\"manhattan\"} are supported.\n"
+   "@param directed: whethe to create directed edges.\n"
+   "@return: the nearest neighbor graph.\n"
   },
 
   /**********************/

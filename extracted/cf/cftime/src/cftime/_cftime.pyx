@@ -40,8 +40,6 @@ cdef int[12] _dayspermonth_leap = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 3
 cdef int[13] _cumdayspermonth = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
 cdef int[13] _cumdayspermonth_leap = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
 
-__version__ = '1.6.4.post1'
-
 # Adapted from http://delete.me.uk/2005/03/iso8601.html
 # Note: This regex ensures that all ISO8601 timezone formats are accepted - but, due to legacy support for other timestrings, not all incorrect formats can be rejected.
 #       For example, the TZ spec "+01:0" will still work even though the minutes value is only one character long.
@@ -261,7 +259,7 @@ def date2num(dates, units, calendar=None, has_year_zero=None, longdouble=False):
     if unit in ["months", "month"] and calendar != "360_day":
         raise ValueError("Units of months only valid for 360_day calendar.")
     unit_timedelta = timedelta(microseconds=UNIT_CONVERSION_FACTORS[unit])
-    can_use_python_basedatetime = _can_use_python_datetime(basedate,calendar)
+    can_use_python_basedatetime = calendar=='proleptic_gregorian' and _can_use_python_datetime(basedate,calendar)
 
     if can_use_python_basedatetime and all_python_datetimes:
         use_python_datetime = True
@@ -1062,6 +1060,11 @@ Gregorian calendar.
 
 Supports timedelta operations by overloading +/-, and
 comparisons with other instances (even if they use different calendars).
+When comparing instances with different calendars, the second instance in the comparison (RHS) is
+converted to the calendar of the LHS instance.  When comparing a list or array of instances (all using
+the same calendar) to a single scalar instance,
+it is much faster to convert the single instance to the calendar of the array before doing
+the comparison.
 
 Comparison with native python datetime instances is possible
 for cftime.datetime instances using
@@ -1410,7 +1413,7 @@ The default format of the string produced by strftime is controlled by self.form
             return hash(self.timetuple())
         return hash(d)
 
-    cdef to_tuple(self):
+    def to_tuple(self):
         return (self.year, self.month, self.day, self.hour, self.minute,
                 self.second, self.microsecond)
 
@@ -1423,19 +1426,12 @@ The default format of the string produced by strftime is controlled by self.form
             if dt.calendar == dt_other.calendar and dt.has_year_zero == dt_other.has_year_zero:
                 return PyObject_RichCompare(dt.to_tuple(), dt_other.to_tuple(), op)
             else:
-                # convert both to common calendar (ISO 8601), then compare
-                try:
-                    if self.calendar == 'proleptic_gregorian' and self.has_year_zero:
-                        d1 = self
-                    else:
-                        d1 = self.change_calendar('proleptic_gregorian',has_year_zero=True)
-                    if other.calendar == 'proleptic_gregorian' and other.has_year_zero:
-                        d2 = other
-                    else:
-                        d2 = other.change_calendar('proleptic_gregorian',has_year_zero=True)
-                except ValueError: # change_calendar won't work for idealized calendars (ValueError)
-                    raise TypeError("cannot compare {0!r} and {1!r}".format(dt, dt_other))
-                return PyObject_RichCompare(d1.to_tuple(), d2.to_tuple(), op)
+                # raise an error if either is an idealized calendar (comparison not valid)
+                if dt.calendar in _idealized_calendars or other.calendar in _idealized_calendars:
+                    raise TypeError("cannot compare {0!r} and {1!r}".format(dt, other))
+                # convert one to match calendar of the other.
+                other2 = other.change_calendar(dt.calendar,has_year_zero=dt.has_year_zero)
+                return PyObject_RichCompare(dt.to_tuple(), other2.to_tuple(), op)
         elif isinstance(other, datetime_python):
             # comparing datetime and real_datetime
             if not dt.datetime_compatible:
@@ -1471,8 +1467,8 @@ The default format of the string produced by strftime is controlled by self.form
     def fromordinal(jday,calendar='standard',has_year_zero=None):
         """Create a datetime instance from a julian day ordinal, calendar
         and (optionally) year zero convention (inverse of toordinal). The
-        Julian day number is the number of days since noon UTC January 1, 4713
-        in the proleptic julian calendar with no year zero  (November 24, 4713 
+        Julian day number is the number of days since noon UTC January 1, -4713
+        in the proleptic julian calendar with no year zero  (November 24, -4713 
         in the proleptic gregorian calendar that includes the year zero). For
         idealized calendars, the origin is noon UTC of the year zero."""
         calendar = calendar.lower()
@@ -1696,10 +1692,17 @@ cdef _strftime(datetime dt, fmt):
     year = year + ((2000 - year) // 28) * 28
     timetuple = dt.timetuple()
     s1 = time.strftime(fmt1, (year,) + timetuple[1:])
-    sites1 = _findall(s1, str(year))
+    twodigityear = 'y' in fmt1
+    if twodigityear:
+        sites1 = _findall(s1, str(year)[-2:])
+    else:
+        sites1 = _findall(s1, str(year))
 
     s2 = time.strftime(fmt1, (year + 28,) + timetuple[1:])
-    sites2 = _findall(s2, str(year + 28))
+    if twodigityear:
+       sites2 = _findall(s2, str(year + 28)[-2:])
+    else:
+       sites2 = _findall(s2, str(year + 28))
 
     sites = []
     for site in sites1:
@@ -1711,8 +1714,14 @@ cdef _strftime(datetime dt, fmt):
         syear = "%05d" % (dt.year,)
     else:
         syear = "%04d" % (dt.year,)
+    n=4
+    if twodigityear:
+        syear = syear[-2:]
+        if dt.year < 0:
+            syear = '-'+syear
+        n=2
     for site in sites:
-        s = s[:site] + syear + s[site + 4:]
+        s = s[:site] + syear + s[site + n:]
     if ihavems:
         s = s + '.{:06d}'.format(dt.microsecond)
     return s

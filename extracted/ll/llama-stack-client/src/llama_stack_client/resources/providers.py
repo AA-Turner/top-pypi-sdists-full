@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -6,7 +12,7 @@ from typing import Type, cast
 
 import httpx
 
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Query, Headers, NotGiven, not_given
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -17,7 +23,7 @@ from .._response import (
 )
 from .._wrappers import DataWrapper
 from .._base_client import make_request_options
-from ..types.provider_info import ProviderInfo
+from ..types.shared.provider_info import ProviderInfo
 from ..types.provider_list_response import ProviderListResponse
 
 __all__ = ["ProvidersResource", "AsyncProvidersResource"]
@@ -52,12 +58,14 @@ class ProvidersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ProviderInfo:
         """
         Get detailed information about a specific provider.
 
         Args:
+          provider_id: The ID of the provider to inspect.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -84,7 +92,7 @@ class ProvidersResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ProviderListResponse:
         """List all available providers."""
         return self._get(
@@ -129,12 +137,14 @@ class AsyncProvidersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ProviderInfo:
         """
         Get detailed information about a specific provider.
 
         Args:
+          provider_id: The ID of the provider to inspect.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -161,7 +171,7 @@ class AsyncProvidersResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ProviderListResponse:
         """List all available providers."""
         return await self._get(

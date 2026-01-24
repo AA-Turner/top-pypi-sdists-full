@@ -93,9 +93,7 @@ def parse_dataframe_getitem():
     )
     assert isinstance(func_node, ast.Subscript)
     slc = func_node.slice
-    if isinstance(slc, ast.Index):
-        slc = slc.value  # type: ignore
-        assert isinstance(slc, ast.expr)
+    assert isinstance(slc, ast.expr)
     converted_slice = convert_slice(slc)
     return eval_converted_expr(converted_slice, glbs=func_frame.f_globals, lcls=func_frame.f_locals)
 
@@ -227,13 +225,7 @@ def _convert_maybe_tuple(slc: ast.expr):
         return _convert_ops(slc)
 
 
-def convert_slice(slc: Union[ast.expr, ast.Index]):
-    if isinstance(slc, ast.Index):
-        # Index is deprecated in Python 3.9+
-        slc = slc.value  # type: ignore
-        assert isinstance(slc, ast.expr)
-        slc = _convert_maybe_tuple(slc)
-        return ast.Index(value=slc)  # pyright: ignore[reportCallIssue]
+def convert_slice(slc: ast.expr):
     return _convert_maybe_tuple(slc)
 
 

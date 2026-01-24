@@ -42,13 +42,19 @@ class V1UpdateUserRequest(object):
     """
     swagger_types = {
         'agree_to_terms_and_conditions': 'bool',
+        'allow_credits_auto_replenish': 'bool',
+        'auto_replenish_amount': 'float',
+        'auto_replenish_threshold': 'float',
         'complete_sign_up': 'bool',
         'completed_project_onboarding': 'bool',
         'country': 'str',
+        'disable_shell_persistence': 'bool',
         'email': 'str',
+        'experimentation_id': 'str',
         'first_name': 'str',
         'general_audience_mode': 'bool',
         'last_name': 'str',
+        'linux_username': 'str',
         'non_developer_mode': 'bool',
         'opted_in_marketing_emails': 'bool',
         'organization': 'str',
@@ -67,13 +73,19 @@ class V1UpdateUserRequest(object):
 
     attribute_map = {
         'agree_to_terms_and_conditions': 'agreeToTermsAndConditions',
+        'allow_credits_auto_replenish': 'allowCreditsAutoReplenish',
+        'auto_replenish_amount': 'autoReplenishAmount',
+        'auto_replenish_threshold': 'autoReplenishThreshold',
         'complete_sign_up': 'completeSignUp',
         'completed_project_onboarding': 'completedProjectOnboarding',
         'country': 'country',
+        'disable_shell_persistence': 'disableShellPersistence',
         'email': 'email',
+        'experimentation_id': 'experimentationId',
         'first_name': 'firstName',
         'general_audience_mode': 'generalAudienceMode',
         'last_name': 'lastName',
+        'linux_username': 'linuxUsername',
         'non_developer_mode': 'nonDeveloperMode',
         'opted_in_marketing_emails': 'optedInMarketingEmails',
         'organization': 'organization',
@@ -90,16 +102,22 @@ class V1UpdateUserRequest(object):
         'website': 'website'
     }
 
-    def __init__(self, agree_to_terms_and_conditions: 'bool' =None, complete_sign_up: 'bool' =None, completed_project_onboarding: 'bool' =None, country: 'str' =None, email: 'str' =None, first_name: 'str' =None, general_audience_mode: 'bool' =None, last_name: 'str' =None, non_developer_mode: 'bool' =None, opted_in_marketing_emails: 'bool' =None, organization: 'str' =None, preferred_color_scheme: 'str' =None, preferred_ide: 'str' =None, preferred_shell: 'str' =None, preferred_vscode_marketplace: 'str' =None, role: 'str' =None, saw_create_first_project_dialog: 'bool' =None, saw_forums_login_merge_dialog: 'bool' =None, saw_free_credits_notification: 'bool' =None, user_metadata: 'str' =None, username: 'str' =None, website: 'str' =None):  # noqa: E501
+    def __init__(self, agree_to_terms_and_conditions: 'bool' =None, allow_credits_auto_replenish: 'bool' =None, auto_replenish_amount: 'float' =None, auto_replenish_threshold: 'float' =None, complete_sign_up: 'bool' =None, completed_project_onboarding: 'bool' =None, country: 'str' =None, disable_shell_persistence: 'bool' =None, email: 'str' =None, experimentation_id: 'str' =None, first_name: 'str' =None, general_audience_mode: 'bool' =None, last_name: 'str' =None, linux_username: 'str' =None, non_developer_mode: 'bool' =None, opted_in_marketing_emails: 'bool' =None, organization: 'str' =None, preferred_color_scheme: 'str' =None, preferred_ide: 'str' =None, preferred_shell: 'str' =None, preferred_vscode_marketplace: 'str' =None, role: 'str' =None, saw_create_first_project_dialog: 'bool' =None, saw_forums_login_merge_dialog: 'bool' =None, saw_free_credits_notification: 'bool' =None, user_metadata: 'str' =None, username: 'str' =None, website: 'str' =None):  # noqa: E501
         """V1UpdateUserRequest - a model defined in Swagger"""  # noqa: E501
         self._agree_to_terms_and_conditions = None
+        self._allow_credits_auto_replenish = None
+        self._auto_replenish_amount = None
+        self._auto_replenish_threshold = None
         self._complete_sign_up = None
         self._completed_project_onboarding = None
         self._country = None
+        self._disable_shell_persistence = None
         self._email = None
+        self._experimentation_id = None
         self._first_name = None
         self._general_audience_mode = None
         self._last_name = None
+        self._linux_username = None
         self._non_developer_mode = None
         self._opted_in_marketing_emails = None
         self._organization = None
@@ -117,20 +135,32 @@ class V1UpdateUserRequest(object):
         self.discriminator = None
         if agree_to_terms_and_conditions is not None:
             self.agree_to_terms_and_conditions = agree_to_terms_and_conditions
+        if allow_credits_auto_replenish is not None:
+            self.allow_credits_auto_replenish = allow_credits_auto_replenish
+        if auto_replenish_amount is not None:
+            self.auto_replenish_amount = auto_replenish_amount
+        if auto_replenish_threshold is not None:
+            self.auto_replenish_threshold = auto_replenish_threshold
         if complete_sign_up is not None:
             self.complete_sign_up = complete_sign_up
         if completed_project_onboarding is not None:
             self.completed_project_onboarding = completed_project_onboarding
         if country is not None:
             self.country = country
+        if disable_shell_persistence is not None:
+            self.disable_shell_persistence = disable_shell_persistence
         if email is not None:
             self.email = email
+        if experimentation_id is not None:
+            self.experimentation_id = experimentation_id
         if first_name is not None:
             self.first_name = first_name
         if general_audience_mode is not None:
             self.general_audience_mode = general_audience_mode
         if last_name is not None:
             self.last_name = last_name
+        if linux_username is not None:
+            self.linux_username = linux_username
         if non_developer_mode is not None:
             self.non_developer_mode = non_developer_mode
         if opted_in_marketing_emails is not None:
@@ -180,6 +210,71 @@ class V1UpdateUserRequest(object):
         """
 
         self._agree_to_terms_and_conditions = agree_to_terms_and_conditions
+
+    @property
+    def allow_credits_auto_replenish(self) -> 'bool':
+        """Gets the allow_credits_auto_replenish of this V1UpdateUserRequest.  # noqa: E501
+
+        If true, credits will be auto-replenished from the credit card on file.  # noqa: E501
+
+        :return: The allow_credits_auto_replenish of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: bool
+        """
+        return self._allow_credits_auto_replenish
+
+    @allow_credits_auto_replenish.setter
+    def allow_credits_auto_replenish(self, allow_credits_auto_replenish: 'bool'):
+        """Sets the allow_credits_auto_replenish of this V1UpdateUserRequest.
+
+        If true, credits will be auto-replenished from the credit card on file.  # noqa: E501
+
+        :param allow_credits_auto_replenish: The allow_credits_auto_replenish of this V1UpdateUserRequest.  # noqa: E501
+        :type: bool
+        """
+
+        self._allow_credits_auto_replenish = allow_credits_auto_replenish
+
+    @property
+    def auto_replenish_amount(self) -> 'float':
+        """Gets the auto_replenish_amount of this V1UpdateUserRequest.  # noqa: E501
+
+
+        :return: The auto_replenish_amount of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: float
+        """
+        return self._auto_replenish_amount
+
+    @auto_replenish_amount.setter
+    def auto_replenish_amount(self, auto_replenish_amount: 'float'):
+        """Sets the auto_replenish_amount of this V1UpdateUserRequest.
+
+
+        :param auto_replenish_amount: The auto_replenish_amount of this V1UpdateUserRequest.  # noqa: E501
+        :type: float
+        """
+
+        self._auto_replenish_amount = auto_replenish_amount
+
+    @property
+    def auto_replenish_threshold(self) -> 'float':
+        """Gets the auto_replenish_threshold of this V1UpdateUserRequest.  # noqa: E501
+
+
+        :return: The auto_replenish_threshold of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: float
+        """
+        return self._auto_replenish_threshold
+
+    @auto_replenish_threshold.setter
+    def auto_replenish_threshold(self, auto_replenish_threshold: 'float'):
+        """Sets the auto_replenish_threshold of this V1UpdateUserRequest.
+
+
+        :param auto_replenish_threshold: The auto_replenish_threshold of this V1UpdateUserRequest.  # noqa: E501
+        :type: float
+        """
+
+        self._auto_replenish_threshold = auto_replenish_threshold
 
     @property
     def complete_sign_up(self) -> 'bool':
@@ -245,6 +340,27 @@ class V1UpdateUserRequest(object):
         self._country = country
 
     @property
+    def disable_shell_persistence(self) -> 'bool':
+        """Gets the disable_shell_persistence of this V1UpdateUserRequest.  # noqa: E501
+
+
+        :return: The disable_shell_persistence of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_shell_persistence
+
+    @disable_shell_persistence.setter
+    def disable_shell_persistence(self, disable_shell_persistence: 'bool'):
+        """Sets the disable_shell_persistence of this V1UpdateUserRequest.
+
+
+        :param disable_shell_persistence: The disable_shell_persistence of this V1UpdateUserRequest.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_shell_persistence = disable_shell_persistence
+
+    @property
     def email(self) -> 'str':
         """Gets the email of this V1UpdateUserRequest.  # noqa: E501
 
@@ -264,6 +380,27 @@ class V1UpdateUserRequest(object):
         """
 
         self._email = email
+
+    @property
+    def experimentation_id(self) -> 'str':
+        """Gets the experimentation_id of this V1UpdateUserRequest.  # noqa: E501
+
+
+        :return: The experimentation_id of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._experimentation_id
+
+    @experimentation_id.setter
+    def experimentation_id(self, experimentation_id: 'str'):
+        """Sets the experimentation_id of this V1UpdateUserRequest.
+
+
+        :param experimentation_id: The experimentation_id of this V1UpdateUserRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._experimentation_id = experimentation_id
 
     @property
     def first_name(self) -> 'str':
@@ -327,6 +464,27 @@ class V1UpdateUserRequest(object):
         """
 
         self._last_name = last_name
+
+    @property
+    def linux_username(self) -> 'str':
+        """Gets the linux_username of this V1UpdateUserRequest.  # noqa: E501
+
+
+        :return: The linux_username of this V1UpdateUserRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._linux_username
+
+    @linux_username.setter
+    def linux_username(self, linux_username: 'str'):
+        """Sets the linux_username of this V1UpdateUserRequest.
+
+
+        :param linux_username: The linux_username of this V1UpdateUserRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._linux_username = linux_username
 
     @property
     def non_developer_mode(self) -> 'bool':

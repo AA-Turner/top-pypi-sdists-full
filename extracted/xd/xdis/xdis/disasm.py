@@ -29,6 +29,7 @@ import re
 import sys
 import types
 from collections import deque
+from typing import Tuple
 
 import xdis
 from xdis.bytecode import Bytecode
@@ -71,7 +72,7 @@ def show_module_header(
     header=True,
     show_filename=True,
     is_graal=False,
-):
+) -> None:
     bytecode_version = ".".join((str(i) for i in version_tuple))
     real_out = out or sys.stdout
     if is_pypy:
@@ -127,15 +128,16 @@ def disco(
     co,
     timestamp,
     out=sys.stdout,
-    is_pypy=False,
+    is_pypy: bool=False,
     magic_int=None,
     source_size=None,
     sip_hash=None,
-    asm_format="classic",
+    asm_format: str="classic",
     alternate_opmap=None,
-    show_source=False,
-    is_graal=False,
-):
+    show_source: bool=False,
+    is_graal: bool=False,
+    methods=tuple(),
+) -> None:
     """
     disassembles and deparses a given code block 'co'
     """
@@ -160,7 +162,8 @@ def disco(
     real_out = out or sys.stdout
 
     if co.co_filename and asm_format != "xasm":
-        real_out.write(format_code_info(co, version_tuple, is_graal=is_graal) + "\n")
+        if not_filtered(co, methods):
+            real_out.write(format_code_info(co, version_tuple, is_graal=is_graal) + "\n")
         pass
 
     opc = get_opcode(version_tuple, is_pypy, alternate_opmap)
@@ -180,6 +183,7 @@ def disco(
             asm_format=asm_format,
             dup_lines=True,
             show_source=show_source,
+            methods=methods,
         )
 
 
@@ -191,7 +195,8 @@ def disco_loop(
     dup_lines=False,
     asm_format="classic",
     show_source=False,
-):
+    methods=tuple(),
+) -> None:
     """Disassembles a queue of code objects. If we discover
     another code object which will be found in co_consts, we add
     the new code to the list. Note that the order of code discovery
@@ -204,25 +209,26 @@ def disco_loop(
 
     while len(queue) > 0:
         co = queue.popleft()
-        if co.co_name not in ("<module>", "?"):
-            real_out.write("\n" + format_code_info(co, version_tuple) + "\n")
+        if not_filtered(co, methods):
+            if co.co_name not in ("<module>", "?"):
+                real_out.write("\n" + format_code_info(co, version_tuple) + "\n")
 
-        if asm_format == "dis":
-            assert version_tuple[:2] == PYTHON_VERSION_TRIPLE[:2], (
-                "dis requires disassembly from the same Python version: "
-                f"Bytecode is for {version_tuple[:2]}; Running:{PYTHON_VERSION_TRIPLE[:2]}"
-            )
-            dis.disassemble(co, lasti=-1, file=real_out)
-        else:
-            bytecode = Bytecode(co, opc, dup_lines=dup_lines)
-            real_out.write(
-                bytecode.dis(asm_format=asm_format, show_source=show_source) + "\n"
-            )
+            if asm_format == "dis":
+                assert version_tuple[:2] == PYTHON_VERSION_TRIPLE[:2], (
+                    "dis requires disassembly from the same Python version: "
+                    f"Bytecode is for {version_tuple[:2]}; Running:{PYTHON_VERSION_TRIPLE[:2]}"
+                )
+                dis.disassemble(co, lasti=-1, file=real_out)
+            else:
+                bytecode = Bytecode(co, opc, dup_lines=dup_lines)
+                real_out.write(
+                    bytecode.dis(asm_format=asm_format, show_source=show_source) + "\n"
+                )
 
-            if version_tuple >= (3, 11):
-                if bytecode.exception_entries not in (None, []):
-                    exception_table = format_exception_table(bytecode, version_tuple)
-                    real_out.write(exception_table + "\n")
+                if version_tuple >= (3, 11):
+                    if bytecode.exception_entries not in (None, []):
+                        exception_table = format_exception_table(bytecode, version_tuple)
+                        real_out.write(exception_table + "\n")
 
         for c in co.co_consts:
             if iscode(c):
@@ -231,12 +237,12 @@ def disco_loop(
         pass
 
 
-def code_uniquify(basename, co_code):
+def code_uniquify(basename, co_code) -> str:
     # FIXME: better would be a hash of the co_code
     return "%s_0x%x" % (basename, id(co_code))
 
 
-def disco_loop_asm_format(opc, version_tuple, co, real_out, fn_name_map, all_fns):
+def disco_loop_asm_format(opc, version_tuple, co, real_out, fn_name_map, all_fns) -> None:
     """Produces disassembly in a format more conducive to
     automatic assembly by producing inner modules before they are
     used by outer ones. Since this is recursive, we'll
@@ -312,6 +318,7 @@ def disassemble_file(
     asm_format="classic",
     alternate_opmap=None,
     show_source=False,
+    methods: Tuple[str] = tuple()
 ):
     """
     Disassemble Python byte-code file (.pyc).
@@ -334,7 +341,7 @@ def disassemble_file(
             source_size,
             sip_hash,
         ) = load_module(pyc_filename)
-    except (ImportError, NotImplementedError):
+    except (ImportError, NotImplementedError, ValueError):
         raise
     except Exception:
         # Hack alert: we're using pyc_filename set as a proxy for whether the filename exists.
@@ -383,6 +390,7 @@ def disassemble_file(
             alternate_opmap=alternate_opmap,
             show_source=show_source,
             is_graal=is_graal,
+            methods=methods,
         )
     # print co.co_filename
     return (
@@ -396,13 +404,16 @@ def disassemble_file(
         sip_hash,
     )
 
+def not_filtered(co: types.CodeType, methods: tuple) -> bool:
+    return len(methods) == 0 or co.co_name in methods
 
-def _test():
+def _test() -> None:
     """Simple test program to disassemble a file."""
     argc = len(sys.argv)
     if argc == 1:
         if xdis.PYTHON3:
             disassemble_file(__file__)
+            disassemble_file(__file__, methods=("code_uniquify",))
         else:
             sys.stderr.write(f"usage: {__file__} [-|CPython compiled file [format]]\n")
             sys.exit(2)

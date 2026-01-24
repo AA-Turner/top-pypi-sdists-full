@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections import namedtuple
 import io
 from io import BytesIO, IOBase, StringIO
+import itertools
 import os
 import tempfile
 from typing import (
@@ -80,26 +81,22 @@ class MaterializationDestination(TypedDict):
 TDataset = TypeVar("TDataset", bound="Dataset")
 TDatasetDetails = TypeVar("TDatasetDetails", bound="DatasetDetails")
 
-_base_dataset_schema = t.Dict(
-    {
-        t.Key("dataset_id"): String,
-        t.Key("version_id"): String,
-        t.Key("name"): String,
-        t.Key("categories"): t.List(String),
-        t.Key("creation_date") >> "created_at": t.Call(dateutil.parser.parse),
-        t.Key("created_by", optional=True): t.Or(String, t.Null),
-        t.Key("data_persisted", optional=True): t.Bool,
-        t.Key("is_data_engine_eligible"): t.Bool,
-        t.Key("is_latest_version"): t.Bool,
-        t.Key("is_snapshot"): t.Bool,
-        t.Key("dataset_size", optional=True) >> "size": Int,
-        t.Key("row_count", optional=True): Int,
-        t.Key("sample_size", optional=True): t.Or(
-            t.Dict({t.Key("type"): String, t.Key("value"): Int}), t.Null
-        ),
-        t.Key("processing_state"): String,
-    }
-)
+_base_dataset_schema = t.Dict({
+    t.Key("dataset_id"): String,
+    t.Key("version_id"): String,
+    t.Key("name"): String,
+    t.Key("categories"): t.List(String),
+    t.Key("creation_date") >> "created_at": t.Call(dateutil.parser.parse),
+    t.Key("created_by", optional=True): t.Or(String, t.Null),
+    t.Key("data_persisted", optional=True): t.Bool,
+    t.Key("is_data_engine_eligible"): t.Bool,
+    t.Key("is_latest_version"): t.Bool,
+    t.Key("is_snapshot"): t.Bool,
+    t.Key("dataset_size", optional=True) >> "size": Int,
+    t.Key("row_count", optional=True): Int,
+    t.Key("sample_size", optional=True): t.Or(t.Dict({t.Key("type"): String, t.Key("value"): Int}), t.Null),
+    t.Key("processing_state"): String,
+})
 
 
 class Dataset(APIObject, BrowserMixin):
@@ -312,9 +309,7 @@ class Dataset(APIObject, BrowserMixin):
                 method="post",
             )
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         dataset = cls.from_location(new_dataset_location)
         if categories:
             dataset.modify(categories=categories)
@@ -329,9 +324,7 @@ class Dataset(APIObject, BrowserMixin):
         categories: Optional[List[str]] = None,
         read_timeout: int = DEFAULT_TIMEOUT.UPLOAD,
         max_wait: int = DEFAULT_MAX_WAIT,
-        fname: Optional[
-            str
-        ] = None,  # This line provided under MIT license copyright (c) 2021 AGEAS SA/NV
+        fname: Optional[str] = None,  # This line provided under MIT license copyright (c) 2021 AGEAS SA/NV
     ) -> TDataset:
         """
         A blocking call that creates a new Dataset from in-memory data. Returns when the dataset has
@@ -447,9 +440,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}fromURL/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -487,9 +478,7 @@ class Dataset(APIObject, BrowserMixin):
         url = f"{cls._path}fromProject/"
         response = cls._client.post(url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -527,9 +516,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}fromStage/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -625,9 +612,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}fromDataSource/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -679,9 +664,7 @@ class Dataset(APIObject, BrowserMixin):
 
         url = f"{cls._path}fromDataEngineWorkspaceState/"
         response = cls._client.post(url, data={"workspace_state_id": workspace_id})
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -728,9 +711,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}fromRecipe/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -1024,9 +1005,7 @@ class Dataset(APIObject, BrowserMixin):
             "applyGrantToLinkedObjects": apply_grant_to_linked_objects,
             "data": [access.collect_payload() for access in access_list],
         }
-        self._client.patch(
-            f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"}
-        )
+        self._client.patch(f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"})
 
     def get_details(self) -> DatasetDetails:
         """
@@ -1220,6 +1199,39 @@ class Dataset(APIObject, BrowserMixin):
         url = f"{self._path}{self.id}/projects/"
         return [ProjectLocation(**kwargs) for kwargs in unpaginate(url, None, self._client)]
 
+    def get_raw_sample_data(self) -> pd.DataFrame:
+        """
+        Retrieves the raw sample data for the dataset as a pandas DataFrame.
+        The raw sample dataset is a subset of the full dataset.
+
+        .. versionadded:: v3.10
+
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame with the dataset's raw sample data.
+        """
+        url = f"{self._path}{self.id}/versions/{self.version_id}/rawSampleData/"
+
+        # Make initial call to get columns
+        MAX_LIMIT = 1000
+        first_resp = self._client.get(
+            url,
+            params={
+                'limit': MAX_LIMIT,
+                'offset': 0,
+            },
+        ).json()
+        columns = first_resp['columns']
+        first_page_data = first_resp['data']
+
+        next_page_url = first_resp["next"]
+        if next_page_url is None:
+            return pd.DataFrame(data=first_page_data, columns=columns)
+
+        remaining_data = unpaginate(next_page_url, None, self._client)
+        return pd.DataFrame(data=itertools.chain(first_page_data, remaining_data), columns=columns)
+
     @add_to_use_case(allow_multiple=True)
     def create_project(
         self,
@@ -1337,9 +1349,7 @@ class Dataset(APIObject, BrowserMixin):
                 method="post",
             )
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         dataset = cls.from_location(new_dataset_location)
         if categories:
             dataset.modify(categories=categories)
@@ -1444,9 +1454,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}{dataset_id}/versions/fromURL/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -1486,9 +1494,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}{dataset_id}/versions/fromStage/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -1562,9 +1568,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}{dataset_id}/versions/fromDataSource/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
     @classmethod
@@ -1621,9 +1625,7 @@ class Dataset(APIObject, BrowserMixin):
         upload_url = f"{cls._path}{dataset_id}/versions/fromRecipe/"
         response = cls._client.post(upload_url, data=data)
 
-        new_dataset_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        new_dataset_location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.from_location(new_dataset_location)
 
 
@@ -1634,9 +1636,7 @@ def _remove_empty_params(  # pylint: disable=missing-function-docstring
     non_empty_params = {key: value for key, value in params_dict.items() if value is not None}
     if required_params and not required_params.issubset(set(non_empty_params.keys())):
         required_but_none = sorted(required_params.difference(set(non_empty_params.keys())))
-        raise InvalidUsageError(
-            f"Missing required parameters ({', '.join(required_but_none)}) must be set."
-        )
+        raise InvalidUsageError(f"Missing required parameters ({', '.join(required_but_none)}) must be set.")
     return non_empty_params
 
 
@@ -1738,27 +1738,23 @@ class DatasetDetails(APIObject):
         Currently only 'rows' type is supported.
     """
 
-    _extra_fields = t.Dict(
-        {
-            t.Key("data_engine_query_id", optional=True): String,
-            t.Key("data_source_id", optional=True): String,
-            t.Key("data_source_type"): String(allow_blank=True),
-            t.Key("description", optional=True): String(allow_blank=True),
-            t.Key("eda1_modification_date", optional=True): t.Call(dateutil.parser.parse),
-            t.Key("eda1_modifier_full_name", optional=True): String,
-            t.Key("error"): String(allow_blank=True),
-            t.Key("feature_count", optional=True): Int,
-            t.Key("feature_count_by_type", optional=True): t.List(
-                t.Call(lambda d: FeatureTypeCount(**d))
-            ),
-            t.Key("last_modification_date"): t.Call(dateutil.parser.parse),
-            t.Key("last_modifier_full_name"): String,
-            t.Key("tags", optional=True): t.List(String),
-            t.Key("uri"): String,
-            t.Key("recipe_id", optional=True): String,
-            t.Key("is_wrangling_eligible", optional=True): bool,
-        }
-    )
+    _extra_fields = t.Dict({
+        t.Key("data_engine_query_id", optional=True): String,
+        t.Key("data_source_id", optional=True): String,
+        t.Key("data_source_type"): String(allow_blank=True),
+        t.Key("description", optional=True): String(allow_blank=True),
+        t.Key("eda1_modification_date", optional=True): t.Call(dateutil.parser.parse),
+        t.Key("eda1_modifier_full_name", optional=True): String,
+        t.Key("error"): String(allow_blank=True),
+        t.Key("feature_count", optional=True): Int,
+        t.Key("feature_count_by_type", optional=True): t.List(t.Call(lambda d: FeatureTypeCount(**d))),
+        t.Key("last_modification_date"): t.Call(dateutil.parser.parse),
+        t.Key("last_modifier_full_name"): String,
+        t.Key("tags", optional=True): t.List(String),
+        t.Key("uri"): String,
+        t.Key("recipe_id", optional=True): String,
+        t.Key("is_wrangling_eligible", optional=True): bool,
+    })
 
     _converter = _safe_merge(_extra_fields, _base_dataset_schema).allow_extra("*")
 
@@ -1879,11 +1875,9 @@ class DataStage(APIObject):
         The ID of this dataset
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+    }).allow_extra("*")
 
     url = "dataStages/"
 
@@ -1951,9 +1945,7 @@ class DataStage(APIObject):
         elif source_type == LocalSourceType.DATA_FRAME:
             new_datastage.upload_from_dataframe(source=source, max_chunk_size=max_chunk_size)
         elif source_type == LocalSourceType.FILELIKE:
-            new_datastage._upload_contents_as_parts(
-                contents=cast(IOBase, source), max_chunk_size=max_chunk_size
-            )
+            new_datastage._upload_contents_as_parts(contents=cast(IOBase, source), max_chunk_size=max_chunk_size)
 
         new_datastage.finalize()
 
@@ -1981,9 +1973,7 @@ class DataStage(APIObject):
         response: Dataset
             The Dataset created from the uploaded data
         """
-        return Dataset.create_from_datastage(
-            datastage_id=self.id, categories=categories, max_wait=max_wait
-        )
+        return Dataset.create_from_datastage(datastage_id=self.id, categories=categories, max_wait=max_wait)
 
     def create_dataset_version_from_datastage(
         self,
@@ -2048,9 +2038,7 @@ class DataStage(APIObject):
             assert response.status_code == 200
             part_number += 1
 
-    def upload_from_dataframe(
-        self, source: pd.DataFrame, max_chunk_size: Optional[int] = 100 * MEGABYTE
-    ) -> None:
+    def upload_from_dataframe(self, source: pd.DataFrame, max_chunk_size: Optional[int] = 100 * MEGABYTE) -> None:
         """
         Upload all parts of a dataframe to a datastage. Parts will be automatically defined.
 
@@ -2065,9 +2053,7 @@ class DataStage(APIObject):
         """
         source_type = parse_source_type(source)
         if source_type != LocalSourceType.DATA_FRAME:
-            raise InvalidUsageError(
-                "This upload function supports dataframes. See create_datastage_from_source."
-            )
+            raise InvalidUsageError("This upload function supports dataframes. See create_datastage_from_source.")
 
         contents = io.BytesIO()
         source.to_csv(contents)
@@ -2093,9 +2079,7 @@ class DataStage(APIObject):
         """
         source_type = parse_source_type(source)
         if source_type != FileLocationType.PATH:
-            raise InvalidUsageError(
-                "This upload function supports file paths. See create_datastage_from_source."
-            )
+            raise InvalidUsageError("This upload function supports file paths. See create_datastage_from_source.")
 
         with open(source, "rb") as contents:
             self._upload_contents_as_parts(contents, max_chunk_size=max_chunk_size)
@@ -2128,9 +2112,7 @@ class DataStage(APIObject):
         """
         source_type = parse_source_type(source)
         if source_type != FileLocationType.URL:
-            raise InvalidUsageError(
-                "This upload function supports urls. See create_datastage_from_source."
-            )
+            raise InvalidUsageError("This upload function supports urls. See create_datastage_from_source.")
 
         if not stream_only:
             with tempfile.NamedTemporaryFile() as temporary_file:
@@ -2140,14 +2122,10 @@ class DataStage(APIObject):
                         temporary_file.write(chunk)
                 temporary_file.flush()
                 temporary_file.seek(0)
-                self._upload_contents_as_parts(
-                    cast(IOBase, temporary_file), max_chunk_size=max_chunk_size
-                )
+                self._upload_contents_as_parts(cast(IOBase, temporary_file), max_chunk_size=max_chunk_size)
         else:
             downloaded_file = requests.get(source, timeout=max_wait)
-            self._upload_contents_as_parts(
-                BytesIO(downloaded_file.content), max_chunk_size=max_chunk_size
-            )
+            self._upload_contents_as_parts(BytesIO(downloaded_file.content), max_chunk_size=max_chunk_size)
 
     def finalize(self) -> Dict[str, List[Dict[str, str]]]:
         """

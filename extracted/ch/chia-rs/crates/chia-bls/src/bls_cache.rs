@@ -1,12 +1,11 @@
 use std::borrow::Borrow;
 use std::num::NonZeroUsize;
 
+use crate::{GTElement, PublicKey, Signature};
+use crate::{aggregate_verify_gt, hash_to_g2};
 use chia_sha2::Sha256;
 use linked_hash_map::LinkedHashMap;
 use std::sync::Mutex;
-
-use crate::{aggregate_verify_gt, hash_to_g2};
-use crate::{GTElement, PublicKey, Signature};
 
 /// This is a cache of pairings of public keys and their corresponding message.
 /// It accelerates aggregate verification when some public keys have already
@@ -130,19 +129,19 @@ impl BlsCache {
 
 #[cfg(feature = "py-bindings")]
 use pyo3::{
+    Bound, Py, PyResult,
     exceptions::PyValueError,
     pybacked::PyBackedBytes,
     types::{PyAnyMethods, PyList, PySequence},
-    Bound, PyObject, PyResult,
 };
 
 #[cfg(feature = "py-bindings")]
 #[pyo3::pymethods]
 impl BlsCache {
     #[new]
-    #[pyo3(signature = (size=None))]
-    pub fn init(size: Option<u32>) -> PyResult<Self> {
-        let Some(size) = size else {
+    #[pyo3(signature = (cache_size=None))]
+    pub fn init(cache_size: Option<u32>) -> PyResult<Self> {
+        let Some(size) = cache_size else {
             return Ok(Self::default());
         };
 
@@ -164,12 +163,12 @@ impl BlsCache {
     ) -> PyResult<bool> {
         let pks = pks
             .try_iter()?
-            .map(|item| item?.extract())
+            .map(|item| Ok(item?.extract()?))
             .collect::<PyResult<Vec<PublicKey>>>()?;
 
         let msgs = msgs
             .try_iter()?
-            .map(|item| item?.extract())
+            .map(|item| Ok(item?.extract()?))
             .collect::<PyResult<Vec<PyBackedBytes>>>()?;
 
         Ok(self.aggregate_verify(pks.into_iter().zip(msgs), sig))
@@ -181,7 +180,7 @@ impl BlsCache {
     }
 
     #[pyo3(name = "items")]
-    pub fn py_items(&self, py: pyo3::Python<'_>) -> PyResult<PyObject> {
+    pub fn py_items(&self, py: pyo3::Python<'_>) -> PyResult<Py<pyo3::PyAny>> {
         use pyo3::prelude::*;
         use pyo3::types::PyBytes;
         let ret = PyList::empty(py);
@@ -192,7 +191,7 @@ impl BlsCache {
                 value.clone().into_pyobject(py)?.into_any(),
             ))?;
         }
-        Ok(ret.into())
+        Ok(ret.into_any().unbind())
     }
 
     #[pyo3(name = "update")]
@@ -213,11 +212,11 @@ impl BlsCache {
     pub fn py_evict(&self, pks: &Bound<'_, PyList>, msgs: &Bound<'_, PyList>) -> PyResult<()> {
         let pks = pks
             .try_iter()?
-            .map(|item| item?.extract())
+            .map(|item| Ok(item?.extract()?))
             .collect::<PyResult<Vec<PublicKey>>>()?;
         let msgs = msgs
             .try_iter()?
-            .map(|item| item?.extract())
+            .map(|item| Ok(item?.extract()?))
             .collect::<PyResult<Vec<PyBackedBytes>>>()?;
         self.evict(pks.into_iter().zip(msgs));
         Ok(())
@@ -228,8 +227,8 @@ impl BlsCache {
 pub mod tests {
     use super::*;
 
-    use crate::sign;
     use crate::SecretKey;
+    use crate::sign;
 
     #[test]
     fn test_aggregate_verify() {
@@ -327,12 +326,14 @@ pub mod tests {
             let mut hasher = Sha256::new();
             hasher.update(aug_msg);
             let hash: [u8; 32] = hasher.finalize();
-            assert!(!bls_cache
-                .cache
-                .lock()
-                .expect("cache")
-                .items
-                .contains_key(&hash));
+            assert!(
+                !bls_cache
+                    .cache
+                    .lock()
+                    .expect("cache")
+                    .items
+                    .contains_key(&hash)
+            );
         }
     }
 
@@ -370,12 +371,14 @@ pub mod tests {
             let mut hasher = Sha256::new();
             hasher.update(aug_msg);
             let hash: [u8; 32] = hasher.finalize();
-            assert!(!bls_cache
-                .cache
-                .lock()
-                .expect("cache")
-                .items
-                .contains_key(&hash));
+            assert!(
+                !bls_cache
+                    .cache
+                    .lock()
+                    .expect("cache")
+                    .items
+                    .contains_key(&hash)
+            );
         }
         // Check that the remaining entries are still in the cache.
         for (pk, msg) in &[pks_msgs[1], pks_msgs[3], pks_msgs[4]] {
@@ -383,12 +386,14 @@ pub mod tests {
             let mut hasher = Sha256::new();
             hasher.update(aug_msg);
             let hash: [u8; 32] = hasher.finalize();
-            assert!(bls_cache
-                .cache
-                .lock()
-                .expect("cache")
-                .items
-                .contains_key(&hash));
+            assert!(
+                bls_cache
+                    .cache
+                    .lock()
+                    .expect("cache")
+                    .items
+                    .contains_key(&hash)
+            );
         }
     }
 }

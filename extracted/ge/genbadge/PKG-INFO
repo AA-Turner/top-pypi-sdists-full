@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: genbadge
-Version: 1.1.2
+Version: 1.1.3
 Summary: Generate badges for tools that do not provide one.
 Home-page: https://github.com/smarie/python-genbadge
-Download-URL: https://github.com/smarie/python-genbadge/tarball/1.1.2
+Download-URL: https://github.com/smarie/python-genbadge/tarball/1.1.3
 Author: Sylvain MARIE <sylvain.marie@se.com>
 Maintainer: Sylvain MARIE <sylvain.marie@se.com>
 License: BSD 3-Clause
@@ -26,7 +26,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Framework :: Pytest
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: setuptools
@@ -34,6 +35,7 @@ Requires-Dist: click>7.0
 Requires-Dist: pillow
 Requires-Dist: requests
 Requires-Dist: pathlib2; python_version < "3.2"
+Requires-Dist: importlib_resources; python_version < "3.9"
 Provides-Extra: tests
 Requires-Dist: defusedxml; extra == "tests"
 Provides-Extra: coverage
@@ -44,6 +46,7 @@ Provides-Extra: all
 Requires-Dist: defusedxml; extra == "all"
 Requires-Dist: flake8-html; extra == "all"
 Dynamic: download-url
+Dynamic: license-file
 
 # python-genbadge
 

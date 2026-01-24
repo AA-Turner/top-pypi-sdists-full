@@ -3,7 +3,7 @@ Type annotations for meteringmarketplace service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_meteringmarketplace/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import UsageRecordResultStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -59,7 +54,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -102,7 +97,7 @@ class ResolveCustomerResultTypeDef(TypedDict):
 
 class UsageAllocationOutputTypeDef(TypedDict):
     AllocatedUsageQuantity: int
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class UsageAllocationTypeDef(TypedDict):
@@ -115,7 +110,7 @@ class UsageRecordOutputTypeDef(TypedDict):
     Dimension: str
     CustomerIdentifier: NotRequired[str]
     Quantity: NotRequired[int]
-    UsageAllocations: NotRequired[List[UsageAllocationOutputTypeDef]]
+    UsageAllocations: NotRequired[list[UsageAllocationOutputTypeDef]]
     CustomerAWSAccountId: NotRequired[str]
 
 
@@ -135,6 +130,7 @@ class MeterUsageRequestTypeDef(TypedDict):
     UsageQuantity: NotRequired[int]
     DryRun: NotRequired[bool]
     UsageAllocations: NotRequired[Sequence[UsageAllocationUnionTypeDef]]
+    ClientToken: NotRequired[str]
 
 
 class UsageRecordTypeDef(TypedDict):
@@ -147,8 +143,8 @@ class UsageRecordTypeDef(TypedDict):
 
 
 class BatchMeterUsageResultTypeDef(TypedDict):
-    Results: List[UsageRecordResultTypeDef]
-    UnprocessedRecords: List[UsageRecordOutputTypeDef]
+    Results: list[UsageRecordResultTypeDef]
+    UnprocessedRecords: list[UsageRecordOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

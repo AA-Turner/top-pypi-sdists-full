@@ -3,7 +3,7 @@ Type annotations for connect service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,12 +17,20 @@ Usage::
         ListApprovedOriginsPaginator,
         ListAuthenticationProfilesPaginator,
         ListBotsPaginator,
+        ListChildHoursOfOperationsPaginator,
         ListContactEvaluationsPaginator,
+        ListContactFlowModuleAliasesPaginator,
+        ListContactFlowModuleVersionsPaginator,
         ListContactFlowModulesPaginator,
         ListContactFlowVersionsPaginator,
         ListContactFlowsPaginator,
         ListContactReferencesPaginator,
+        ListDataTableAttributesPaginator,
+        ListDataTablePrimaryValuesPaginator,
+        ListDataTableValuesPaginator,
+        ListDataTablesPaginator,
         ListDefaultVocabulariesPaginator,
+        ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
         ListFlowAssociationsPaginator,
@@ -41,14 +49,17 @@ Usage::
         ListQueueQuickConnectsPaginator,
         ListQueuesPaginator,
         ListQuickConnectsPaginator,
+        ListRoutingProfileManualAssignmentQueuesPaginator,
         ListRoutingProfileQueuesPaginator,
         ListRoutingProfilesPaginator,
         ListRulesPaginator,
         ListSecurityKeysPaginator,
         ListSecurityProfileApplicationsPaginator,
+        ListSecurityProfileFlowModulesPaginator,
         ListSecurityProfilePermissionsPaginator,
         ListSecurityProfilesPaginator,
         ListTaskTemplatesPaginator,
+        ListTestCasesPaginator,
         ListTrafficDistributionGroupUsersPaginator,
         ListTrafficDistributionGroupsPaginator,
         ListUseCasesPaginator,
@@ -57,11 +68,14 @@ Usage::
         ListUsersPaginator,
         ListViewVersionsPaginator,
         ListViewsPaginator,
+        ListWorkspacePagesPaginator,
+        ListWorkspacesPaginator,
         SearchAgentStatusesPaginator,
         SearchAvailablePhoneNumbersPaginator,
         SearchContactFlowModulesPaginator,
         SearchContactFlowsPaginator,
         SearchContactsPaginator,
+        SearchDataTablesPaginator,
         SearchHoursOfOperationOverridesPaginator,
         SearchHoursOfOperationsPaginator,
         SearchPredefinedAttributesPaginator,
@@ -71,9 +85,13 @@ Usage::
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
         SearchSecurityProfilesPaginator,
+        SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
         SearchUsersPaginator,
+        SearchViewsPaginator,
         SearchVocabulariesPaginator,
+        SearchWorkspaceAssociationsPaginator,
+        SearchWorkspacesPaginator,
     )
 
     session = Session()
@@ -84,12 +102,20 @@ Usage::
     list_approved_origins_paginator: ListApprovedOriginsPaginator = client.get_paginator("list_approved_origins")
     list_authentication_profiles_paginator: ListAuthenticationProfilesPaginator = client.get_paginator("list_authentication_profiles")
     list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
+    list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
     list_contact_evaluations_paginator: ListContactEvaluationsPaginator = client.get_paginator("list_contact_evaluations")
+    list_contact_flow_module_aliases_paginator: ListContactFlowModuleAliasesPaginator = client.get_paginator("list_contact_flow_module_aliases")
+    list_contact_flow_module_versions_paginator: ListContactFlowModuleVersionsPaginator = client.get_paginator("list_contact_flow_module_versions")
     list_contact_flow_modules_paginator: ListContactFlowModulesPaginator = client.get_paginator("list_contact_flow_modules")
     list_contact_flow_versions_paginator: ListContactFlowVersionsPaginator = client.get_paginator("list_contact_flow_versions")
     list_contact_flows_paginator: ListContactFlowsPaginator = client.get_paginator("list_contact_flows")
     list_contact_references_paginator: ListContactReferencesPaginator = client.get_paginator("list_contact_references")
+    list_data_table_attributes_paginator: ListDataTableAttributesPaginator = client.get_paginator("list_data_table_attributes")
+    list_data_table_primary_values_paginator: ListDataTablePrimaryValuesPaginator = client.get_paginator("list_data_table_primary_values")
+    list_data_table_values_paginator: ListDataTableValuesPaginator = client.get_paginator("list_data_table_values")
+    list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
     list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator("list_default_vocabularies")
+    list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
     list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
@@ -108,14 +134,17 @@ Usage::
     list_queue_quick_connects_paginator: ListQueueQuickConnectsPaginator = client.get_paginator("list_queue_quick_connects")
     list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_quick_connects_paginator: ListQuickConnectsPaginator = client.get_paginator("list_quick_connects")
+    list_routing_profile_manual_assignment_queues_paginator: ListRoutingProfileManualAssignmentQueuesPaginator = client.get_paginator("list_routing_profile_manual_assignment_queues")
     list_routing_profile_queues_paginator: ListRoutingProfileQueuesPaginator = client.get_paginator("list_routing_profile_queues")
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
     list_rules_paginator: ListRulesPaginator = client.get_paginator("list_rules")
     list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("list_security_keys")
     list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = client.get_paginator("list_security_profile_applications")
+    list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = client.get_paginator("list_security_profile_flow_modules")
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
     list_security_profiles_paginator: ListSecurityProfilesPaginator = client.get_paginator("list_security_profiles")
     list_task_templates_paginator: ListTaskTemplatesPaginator = client.get_paginator("list_task_templates")
+    list_test_cases_paginator: ListTestCasesPaginator = client.get_paginator("list_test_cases")
     list_traffic_distribution_group_users_paginator: ListTrafficDistributionGroupUsersPaginator = client.get_paginator("list_traffic_distribution_group_users")
     list_traffic_distribution_groups_paginator: ListTrafficDistributionGroupsPaginator = client.get_paginator("list_traffic_distribution_groups")
     list_use_cases_paginator: ListUseCasesPaginator = client.get_paginator("list_use_cases")
@@ -124,11 +153,14 @@ Usage::
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     list_view_versions_paginator: ListViewVersionsPaginator = client.get_paginator("list_view_versions")
     list_views_paginator: ListViewsPaginator = client.get_paginator("list_views")
+    list_workspace_pages_paginator: ListWorkspacePagesPaginator = client.get_paginator("list_workspace_pages")
+    list_workspaces_paginator: ListWorkspacesPaginator = client.get_paginator("list_workspaces")
     search_agent_statuses_paginator: SearchAgentStatusesPaginator = client.get_paginator("search_agent_statuses")
     search_available_phone_numbers_paginator: SearchAvailablePhoneNumbersPaginator = client.get_paginator("search_available_phone_numbers")
     search_contact_flow_modules_paginator: SearchContactFlowModulesPaginator = client.get_paginator("search_contact_flow_modules")
     search_contact_flows_paginator: SearchContactFlowsPaginator = client.get_paginator("search_contact_flows")
     search_contacts_paginator: SearchContactsPaginator = client.get_paginator("search_contacts")
+    search_data_tables_paginator: SearchDataTablesPaginator = client.get_paginator("search_data_tables")
     search_hours_of_operation_overrides_paginator: SearchHoursOfOperationOverridesPaginator = client.get_paginator("search_hours_of_operation_overrides")
     search_hours_of_operations_paginator: SearchHoursOfOperationsPaginator = client.get_paginator("search_hours_of_operations")
     search_predefined_attributes_paginator: SearchPredefinedAttributesPaginator = client.get_paginator("search_predefined_attributes")
@@ -138,9 +170,13 @@ Usage::
     search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
     search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
     search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
+    search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
     search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
     search_users_paginator: SearchUsersPaginator = client.get_paginator("search_users")
+    search_views_paginator: SearchViewsPaginator = client.get_paginator("search_views")
     search_vocabularies_paginator: SearchVocabulariesPaginator = client.get_paginator("search_vocabularies")
+    search_workspace_associations_paginator: SearchWorkspaceAssociationsPaginator = client.get_paginator("search_workspace_associations")
+    search_workspaces_paginator: SearchWorkspacesPaginator = client.get_paginator("search_workspaces")
     ```
 """
 
@@ -162,18 +198,34 @@ from .type_defs import (
     ListAuthenticationProfilesResponseTypeDef,
     ListBotsRequestPaginateTypeDef,
     ListBotsResponseTypeDef,
+    ListChildHoursOfOperationsRequestPaginateTypeDef,
+    ListChildHoursOfOperationsResponseTypeDef,
     ListContactEvaluationsRequestPaginateTypeDef,
     ListContactEvaluationsResponseTypeDef,
+    ListContactFlowModuleAliasesRequestPaginateTypeDef,
+    ListContactFlowModuleAliasesResponseTypeDef,
     ListContactFlowModulesRequestPaginateTypeDef,
     ListContactFlowModulesResponseTypeDef,
+    ListContactFlowModuleVersionsRequestPaginateTypeDef,
+    ListContactFlowModuleVersionsResponseTypeDef,
     ListContactFlowsRequestPaginateTypeDef,
     ListContactFlowsResponseTypeDef,
     ListContactFlowVersionsRequestPaginateTypeDef,
     ListContactFlowVersionsResponseTypeDef,
     ListContactReferencesRequestPaginateTypeDef,
     ListContactReferencesResponseTypeDef,
+    ListDataTableAttributesRequestPaginateTypeDef,
+    ListDataTableAttributesResponseTypeDef,
+    ListDataTablePrimaryValuesRequestPaginateTypeDef,
+    ListDataTablePrimaryValuesResponseTypeDef,
+    ListDataTablesRequestPaginateTypeDef,
+    ListDataTablesResponseTypeDef,
+    ListDataTableValuesRequestPaginateTypeDef,
+    ListDataTableValuesResponseTypeDef,
     ListDefaultVocabulariesRequestPaginateTypeDef,
     ListDefaultVocabulariesResponseTypeDef,
+    ListEntitySecurityProfilesRequestPaginateTypeDef,
+    ListEntitySecurityProfilesResponseTypeDef,
     ListEvaluationFormsRequestPaginateTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestPaginateTypeDef,
@@ -210,6 +262,8 @@ from .type_defs import (
     ListQueuesResponseTypeDef,
     ListQuickConnectsRequestPaginateTypeDef,
     ListQuickConnectsResponseTypeDef,
+    ListRoutingProfileManualAssignmentQueuesRequestPaginateTypeDef,
+    ListRoutingProfileManualAssignmentQueuesResponseTypeDef,
     ListRoutingProfileQueuesRequestPaginateTypeDef,
     ListRoutingProfileQueuesResponseTypeDef,
     ListRoutingProfilesRequestPaginateTypeDef,
@@ -220,12 +274,16 @@ from .type_defs import (
     ListSecurityKeysResponseTypeDef,
     ListSecurityProfileApplicationsRequestPaginateTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
+    ListSecurityProfileFlowModulesRequestPaginateTypeDef,
+    ListSecurityProfileFlowModulesResponseTypeDef,
     ListSecurityProfilePermissionsRequestPaginateTypeDef,
     ListSecurityProfilePermissionsResponseTypeDef,
     ListSecurityProfilesRequestPaginateTypeDef,
     ListSecurityProfilesResponseTypeDef,
     ListTaskTemplatesRequestPaginateTypeDef,
     ListTaskTemplatesResponseTypeDef,
+    ListTestCasesRequestPaginateTypeDef,
+    ListTestCasesResponseTypeDef,
     ListTrafficDistributionGroupsRequestPaginateTypeDef,
     ListTrafficDistributionGroupsResponseTypeDef,
     ListTrafficDistributionGroupUsersRequestPaginateTypeDef,
@@ -242,6 +300,10 @@ from .type_defs import (
     ListViewsResponseTypeDef,
     ListViewVersionsRequestPaginateTypeDef,
     ListViewVersionsResponseTypeDef,
+    ListWorkspacePagesRequestPaginateTypeDef,
+    ListWorkspacePagesResponseTypeDef,
+    ListWorkspacesRequestPaginateTypeDef,
+    ListWorkspacesResponseTypeDef,
     SearchAgentStatusesRequestPaginateTypeDef,
     SearchAgentStatusesResponseTypeDef,
     SearchAvailablePhoneNumbersRequestPaginateTypeDef,
@@ -251,7 +313,9 @@ from .type_defs import (
     SearchContactFlowsRequestPaginateTypeDef,
     SearchContactFlowsResponseTypeDef,
     SearchContactsRequestPaginateTypeDef,
-    SearchContactsResponseTypeDef,
+    SearchContactsResponsePaginatorTypeDef,
+    SearchDataTablesRequestPaginateTypeDef,
+    SearchDataTablesResponseTypeDef,
     SearchHoursOfOperationOverridesRequestPaginateTypeDef,
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestPaginateTypeDef,
@@ -270,12 +334,20 @@ from .type_defs import (
     SearchRoutingProfilesResponseTypeDef,
     SearchSecurityProfilesRequestPaginateTypeDef,
     SearchSecurityProfilesResponseTypeDef,
+    SearchTestCasesRequestPaginateTypeDef,
+    SearchTestCasesResponseTypeDef,
     SearchUserHierarchyGroupsRequestPaginateTypeDef,
     SearchUserHierarchyGroupsResponseTypeDef,
     SearchUsersRequestPaginateTypeDef,
     SearchUsersResponseTypeDef,
+    SearchViewsRequestPaginateTypeDef,
+    SearchViewsResponseTypeDef,
     SearchVocabulariesRequestPaginateTypeDef,
     SearchVocabulariesResponseTypeDef,
+    SearchWorkspaceAssociationsRequestPaginateTypeDef,
+    SearchWorkspaceAssociationsResponseTypeDef,
+    SearchWorkspacesRequestPaginateTypeDef,
+    SearchWorkspacesResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -289,12 +361,20 @@ __all__ = (
     "ListApprovedOriginsPaginator",
     "ListAuthenticationProfilesPaginator",
     "ListBotsPaginator",
+    "ListChildHoursOfOperationsPaginator",
     "ListContactEvaluationsPaginator",
+    "ListContactFlowModuleAliasesPaginator",
+    "ListContactFlowModuleVersionsPaginator",
     "ListContactFlowModulesPaginator",
     "ListContactFlowVersionsPaginator",
     "ListContactFlowsPaginator",
     "ListContactReferencesPaginator",
+    "ListDataTableAttributesPaginator",
+    "ListDataTablePrimaryValuesPaginator",
+    "ListDataTableValuesPaginator",
+    "ListDataTablesPaginator",
     "ListDefaultVocabulariesPaginator",
+    "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
     "ListFlowAssociationsPaginator",
@@ -313,14 +393,17 @@ __all__ = (
     "ListQueueQuickConnectsPaginator",
     "ListQueuesPaginator",
     "ListQuickConnectsPaginator",
+    "ListRoutingProfileManualAssignmentQueuesPaginator",
     "ListRoutingProfileQueuesPaginator",
     "ListRoutingProfilesPaginator",
     "ListRulesPaginator",
     "ListSecurityKeysPaginator",
     "ListSecurityProfileApplicationsPaginator",
+    "ListSecurityProfileFlowModulesPaginator",
     "ListSecurityProfilePermissionsPaginator",
     "ListSecurityProfilesPaginator",
     "ListTaskTemplatesPaginator",
+    "ListTestCasesPaginator",
     "ListTrafficDistributionGroupUsersPaginator",
     "ListTrafficDistributionGroupsPaginator",
     "ListUseCasesPaginator",
@@ -329,11 +412,14 @@ __all__ = (
     "ListUsersPaginator",
     "ListViewVersionsPaginator",
     "ListViewsPaginator",
+    "ListWorkspacePagesPaginator",
+    "ListWorkspacesPaginator",
     "SearchAgentStatusesPaginator",
     "SearchAvailablePhoneNumbersPaginator",
     "SearchContactFlowModulesPaginator",
     "SearchContactFlowsPaginator",
     "SearchContactsPaginator",
+    "SearchDataTablesPaginator",
     "SearchHoursOfOperationOverridesPaginator",
     "SearchHoursOfOperationsPaginator",
     "SearchPredefinedAttributesPaginator",
@@ -343,9 +429,13 @@ __all__ = (
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
     "SearchSecurityProfilesPaginator",
+    "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",
     "SearchUsersPaginator",
+    "SearchViewsPaginator",
     "SearchVocabulariesPaginator",
+    "SearchWorkspaceAssociationsPaginator",
+    "SearchWorkspacesPaginator",
 )
 
 if TYPE_CHECKING:
@@ -439,6 +529,24 @@ class ListBotsPaginator(_ListBotsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListChildHoursOfOperationsPaginatorBase = Paginator[ListChildHoursOfOperationsResponseTypeDef]
+else:
+    _ListChildHoursOfOperationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListChildHoursOfOperationsPaginator(_ListChildHoursOfOperationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListChildHoursOfOperations.html#Connect.Paginator.ListChildHoursOfOperations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listchildhoursofoperationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListChildHoursOfOperationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListChildHoursOfOperationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListChildHoursOfOperations.html#Connect.Paginator.ListChildHoursOfOperations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listchildhoursofoperationspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListContactEvaluationsPaginatorBase = Paginator[ListContactEvaluationsResponseTypeDef]
 else:
     _ListContactEvaluationsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -454,6 +562,46 @@ class ListContactEvaluationsPaginator(_ListContactEvaluationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactEvaluations.html#Connect.Paginator.ListContactEvaluations.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactevaluationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContactFlowModuleAliasesPaginatorBase = Paginator[
+        ListContactFlowModuleAliasesResponseTypeDef
+    ]
+else:
+    _ListContactFlowModuleAliasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContactFlowModuleAliasesPaginator(_ListContactFlowModuleAliasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowModuleAliases.html#Connect.Paginator.ListContactFlowModuleAliases)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowmodulealiasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContactFlowModuleAliasesRequestPaginateTypeDef]
+    ) -> PageIterator[ListContactFlowModuleAliasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowModuleAliases.html#Connect.Paginator.ListContactFlowModuleAliases.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowmodulealiasespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContactFlowModuleVersionsPaginatorBase = Paginator[
+        ListContactFlowModuleVersionsResponseTypeDef
+    ]
+else:
+    _ListContactFlowModuleVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContactFlowModuleVersionsPaginator(_ListContactFlowModuleVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowModuleVersions.html#Connect.Paginator.ListContactFlowModuleVersions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowmoduleversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContactFlowModuleVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContactFlowModuleVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowModuleVersions.html#Connect.Paginator.ListContactFlowModuleVersions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowmoduleversionspaginator)
         """
 
 if TYPE_CHECKING:
@@ -529,6 +677,78 @@ class ListContactReferencesPaginator(_ListContactReferencesPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListDataTableAttributesPaginatorBase = Paginator[ListDataTableAttributesResponseTypeDef]
+else:
+    _ListDataTableAttributesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDataTableAttributesPaginator(_ListDataTableAttributesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTableAttributes.html#Connect.Paginator.ListDataTableAttributes)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatableattributespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDataTableAttributesRequestPaginateTypeDef]
+    ) -> PageIterator[ListDataTableAttributesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTableAttributes.html#Connect.Paginator.ListDataTableAttributes.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatableattributespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDataTablePrimaryValuesPaginatorBase = Paginator[ListDataTablePrimaryValuesResponseTypeDef]
+else:
+    _ListDataTablePrimaryValuesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDataTablePrimaryValuesPaginator(_ListDataTablePrimaryValuesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTablePrimaryValues.html#Connect.Paginator.ListDataTablePrimaryValues)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatableprimaryvaluespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDataTablePrimaryValuesRequestPaginateTypeDef]
+    ) -> PageIterator[ListDataTablePrimaryValuesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTablePrimaryValues.html#Connect.Paginator.ListDataTablePrimaryValues.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatableprimaryvaluespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDataTableValuesPaginatorBase = Paginator[ListDataTableValuesResponseTypeDef]
+else:
+    _ListDataTableValuesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDataTableValuesPaginator(_ListDataTableValuesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTableValues.html#Connect.Paginator.ListDataTableValues)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatablevaluespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDataTableValuesRequestPaginateTypeDef]
+    ) -> PageIterator[ListDataTableValuesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTableValues.html#Connect.Paginator.ListDataTableValues.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatablevaluespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDataTablesPaginatorBase = Paginator[ListDataTablesResponseTypeDef]
+else:
+    _ListDataTablesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDataTablesPaginator(_ListDataTablesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTables.html#Connect.Paginator.ListDataTables)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatablespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDataTablesRequestPaginateTypeDef]
+    ) -> PageIterator[ListDataTablesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDataTables.html#Connect.Paginator.ListDataTables.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdatatablespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListDefaultVocabulariesPaginatorBase = Paginator[ListDefaultVocabulariesResponseTypeDef]
 else:
     _ListDefaultVocabulariesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -544,6 +764,24 @@ class ListDefaultVocabulariesPaginator(_ListDefaultVocabulariesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListDefaultVocabularies.html#Connect.Paginator.ListDefaultVocabularies.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listdefaultvocabulariespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListEntitySecurityProfilesPaginatorBase = Paginator[ListEntitySecurityProfilesResponseTypeDef]
+else:
+    _ListEntitySecurityProfilesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListEntitySecurityProfilesPaginator(_ListEntitySecurityProfilesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEntitySecurityProfiles.html#Connect.Paginator.ListEntitySecurityProfiles)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listentitysecurityprofilespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEntitySecurityProfilesRequestPaginateTypeDef]
+    ) -> PageIterator[ListEntitySecurityProfilesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEntitySecurityProfiles.html#Connect.Paginator.ListEntitySecurityProfiles.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listentitysecurityprofilespaginator)
         """
 
 if TYPE_CHECKING:
@@ -875,6 +1113,28 @@ class ListQuickConnectsPaginator(_ListQuickConnectsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListRoutingProfileManualAssignmentQueuesPaginatorBase = Paginator[
+        ListRoutingProfileManualAssignmentQueuesResponseTypeDef
+    ]
+else:
+    _ListRoutingProfileManualAssignmentQueuesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRoutingProfileManualAssignmentQueuesPaginator(
+    _ListRoutingProfileManualAssignmentQueuesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListRoutingProfileManualAssignmentQueues.html#Connect.Paginator.ListRoutingProfileManualAssignmentQueues)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listroutingprofilemanualassignmentqueuespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRoutingProfileManualAssignmentQueuesRequestPaginateTypeDef]
+    ) -> PageIterator[ListRoutingProfileManualAssignmentQueuesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListRoutingProfileManualAssignmentQueues.html#Connect.Paginator.ListRoutingProfileManualAssignmentQueues.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listroutingprofilemanualassignmentqueuespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListRoutingProfileQueuesPaginatorBase = Paginator[ListRoutingProfileQueuesResponseTypeDef]
 else:
     _ListRoutingProfileQueuesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -967,6 +1227,26 @@ class ListSecurityProfileApplicationsPaginator(_ListSecurityProfileApplicationsP
         """
 
 if TYPE_CHECKING:
+    _ListSecurityProfileFlowModulesPaginatorBase = Paginator[
+        ListSecurityProfileFlowModulesResponseTypeDef
+    ]
+else:
+    _ListSecurityProfileFlowModulesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListSecurityProfileFlowModulesPaginator(_ListSecurityProfileFlowModulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListSecurityProfileFlowModules.html#Connect.Paginator.ListSecurityProfileFlowModules)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listsecurityprofileflowmodulespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSecurityProfileFlowModulesRequestPaginateTypeDef]
+    ) -> PageIterator[ListSecurityProfileFlowModulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListSecurityProfileFlowModules.html#Connect.Paginator.ListSecurityProfileFlowModules.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listsecurityprofileflowmodulespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListSecurityProfilePermissionsPaginatorBase = Paginator[
         ListSecurityProfilePermissionsResponseTypeDef
     ]
@@ -1020,6 +1300,24 @@ class ListTaskTemplatesPaginator(_ListTaskTemplatesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListTaskTemplates.html#Connect.Paginator.ListTaskTemplates.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listtasktemplatespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTestCasesPaginatorBase = Paginator[ListTestCasesResponseTypeDef]
+else:
+    _ListTestCasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTestCasesPaginator(_ListTestCasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListTestCases.html#Connect.Paginator.ListTestCases)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listtestcasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTestCasesRequestPaginateTypeDef]
+    ) -> PageIterator[ListTestCasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListTestCases.html#Connect.Paginator.ListTestCases.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listtestcasespaginator)
         """
 
 if TYPE_CHECKING:
@@ -1171,6 +1469,42 @@ class ListViewsPaginator(_ListViewsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListWorkspacePagesPaginatorBase = Paginator[ListWorkspacePagesResponseTypeDef]
+else:
+    _ListWorkspacePagesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListWorkspacePagesPaginator(_ListWorkspacePagesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListWorkspacePages.html#Connect.Paginator.ListWorkspacePages)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listworkspacepagespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListWorkspacePagesRequestPaginateTypeDef]
+    ) -> PageIterator[ListWorkspacePagesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListWorkspacePages.html#Connect.Paginator.ListWorkspacePages.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listworkspacepagespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListWorkspacesPaginatorBase = Paginator[ListWorkspacesResponseTypeDef]
+else:
+    _ListWorkspacesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListWorkspacesPaginator(_ListWorkspacesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListWorkspaces.html#Connect.Paginator.ListWorkspaces)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listworkspacespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListWorkspacesRequestPaginateTypeDef]
+    ) -> PageIterator[ListWorkspacesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListWorkspaces.html#Connect.Paginator.ListWorkspaces.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listworkspacespaginator)
+        """
+
+if TYPE_CHECKING:
     _SearchAgentStatusesPaginatorBase = Paginator[SearchAgentStatusesResponseTypeDef]
 else:
     _SearchAgentStatusesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1245,7 +1579,7 @@ class SearchContactFlowsPaginator(_SearchContactFlowsPaginatorBase):
         """
 
 if TYPE_CHECKING:
-    _SearchContactsPaginatorBase = Paginator[SearchContactsResponseTypeDef]
+    _SearchContactsPaginatorBase = Paginator[SearchContactsResponsePaginatorTypeDef]
 else:
     _SearchContactsPaginatorBase = Paginator  # type: ignore[assignment]
 
@@ -1256,10 +1590,28 @@ class SearchContactsPaginator(_SearchContactsPaginatorBase):
     """
     def paginate(  # type: ignore[override]
         self, **kwargs: Unpack[SearchContactsRequestPaginateTypeDef]
-    ) -> PageIterator[SearchContactsResponseTypeDef]:
+    ) -> PageIterator[SearchContactsResponsePaginatorTypeDef]:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchContacts.html#Connect.Paginator.SearchContacts.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchcontactspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchDataTablesPaginatorBase = Paginator[SearchDataTablesResponseTypeDef]
+else:
+    _SearchDataTablesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchDataTablesPaginator(_SearchDataTablesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchDataTables.html#Connect.Paginator.SearchDataTables)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchdatatablespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchDataTablesRequestPaginateTypeDef]
+    ) -> PageIterator[SearchDataTablesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchDataTables.html#Connect.Paginator.SearchDataTables.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchdatatablespaginator)
         """
 
 if TYPE_CHECKING:
@@ -1427,6 +1779,24 @@ class SearchSecurityProfilesPaginator(_SearchSecurityProfilesPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _SearchTestCasesPaginatorBase = Paginator[SearchTestCasesResponseTypeDef]
+else:
+    _SearchTestCasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchTestCasesPaginator(_SearchTestCasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchTestCases.html#Connect.Paginator.SearchTestCases)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchtestcasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchTestCasesRequestPaginateTypeDef]
+    ) -> PageIterator[SearchTestCasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchTestCases.html#Connect.Paginator.SearchTestCases.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchtestcasespaginator)
+        """
+
+if TYPE_CHECKING:
     _SearchUserHierarchyGroupsPaginatorBase = Paginator[SearchUserHierarchyGroupsResponseTypeDef]
 else:
     _SearchUserHierarchyGroupsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1463,6 +1833,24 @@ class SearchUsersPaginator(_SearchUsersPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _SearchViewsPaginatorBase = Paginator[SearchViewsResponseTypeDef]
+else:
+    _SearchViewsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchViewsPaginator(_SearchViewsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchViews.html#Connect.Paginator.SearchViews)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchviewspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchViewsRequestPaginateTypeDef]
+    ) -> PageIterator[SearchViewsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchViews.html#Connect.Paginator.SearchViews.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchviewspaginator)
+        """
+
+if TYPE_CHECKING:
     _SearchVocabulariesPaginatorBase = Paginator[SearchVocabulariesResponseTypeDef]
 else:
     _SearchVocabulariesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1478,4 +1866,42 @@ class SearchVocabulariesPaginator(_SearchVocabulariesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchVocabularies.html#Connect.Paginator.SearchVocabularies.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchvocabulariespaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchWorkspaceAssociationsPaginatorBase = Paginator[
+        SearchWorkspaceAssociationsResponseTypeDef
+    ]
+else:
+    _SearchWorkspaceAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchWorkspaceAssociationsPaginator(_SearchWorkspaceAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchWorkspaceAssociations.html#Connect.Paginator.SearchWorkspaceAssociations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchworkspaceassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchWorkspaceAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[SearchWorkspaceAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchWorkspaceAssociations.html#Connect.Paginator.SearchWorkspaceAssociations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchworkspaceassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchWorkspacesPaginatorBase = Paginator[SearchWorkspacesResponseTypeDef]
+else:
+    _SearchWorkspacesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchWorkspacesPaginator(_SearchWorkspacesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchWorkspaces.html#Connect.Paginator.SearchWorkspaces)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchworkspacespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchWorkspacesRequestPaginateTypeDef]
+    ) -> PageIterator[SearchWorkspacesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchWorkspaces.html#Connect.Paginator.SearchWorkspaces.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#searchworkspacespaginator)
         """

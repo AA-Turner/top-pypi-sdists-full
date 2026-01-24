@@ -8,8 +8,7 @@ import configparser
 from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
-from ..constants import GRAPH_FIELD_SEP
-from ..kg.shared_storage import get_data_init_lock, get_graph_db_lock
+from ..kg.shared_storage import get_data_init_lock
 import pipmaster as pm
 
 if not pm.is_installed("neo4j"):
@@ -37,6 +36,7 @@ class MemgraphStorage(BaseGraphStorage):
     def __init__(self, namespace, global_config, embedding_func, workspace=None):
         # Priority: 1) MEMGRAPH_WORKSPACE env 2) user arg 3) default 'base'
         memgraph_workspace = os.environ.get("MEMGRAPH_WORKSPACE")
+        original_workspace = workspace  # Save original value for logging
         if memgraph_workspace and memgraph_workspace.strip():
             workspace = memgraph_workspace
 
@@ -49,6 +49,13 @@ class MemgraphStorage(BaseGraphStorage):
             global_config=global_config,
             embedding_func=embedding_func,
         )
+
+        # Log after super().__init__() to ensure self.workspace is initialized
+        if memgraph_workspace and memgraph_workspace.strip():
+            logger.info(
+                f"Using MEMGRAPH_WORKSPACE environment variable: '{memgraph_workspace}' (overriding '{original_workspace}/{namespace}')"
+            )
+
         self._driver = None
 
     def _get_workspace_label(self) -> str:
@@ -102,10 +109,9 @@ class MemgraphStorage(BaseGraphStorage):
                 raise
 
     async def finalize(self):
-        async with get_graph_db_lock():
-            if self._driver is not None:
-                await self._driver.close()
-                self._driver = None
+        if self._driver is not None:
+            await self._driver.close()
+            self._driver = None
 
     async def __aexit__(self, exc_type, exc, tb):
         await self.finalize()
@@ -134,6 +140,7 @@ class MemgraphStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 workspace_label = self._get_workspace_label()
                 query = f"MATCH (n:`{workspace_label}` {{entity_id: $entity_id}}) RETURN count(n) > 0 AS node_exists"
@@ -147,7 +154,10 @@ class MemgraphStorage(BaseGraphStorage):
                 logger.error(
                     f"[{self.workspace}] Error checking node existence for {node_id}: {str(e)}"
                 )
-                await result.consume()  # Ensure the result is consumed even on error
+                if result is not None:
+                    await (
+                        result.consume()
+                    )  # Ensure the result is consumed even on error
                 raise
 
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
@@ -171,6 +181,7 @@ class MemgraphStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 workspace_label = self._get_workspace_label()
                 query = (
@@ -191,7 +202,10 @@ class MemgraphStorage(BaseGraphStorage):
                 logger.error(
                     f"[{self.workspace}] Error checking edge existence between {source_node_id} and {target_node_id}: {str(e)}"
                 )
-                await result.consume()  # Ensure the result is consumed even on error
+                if result is not None:
+                    await (
+                        result.consume()
+                    )  # Ensure the result is consumed even on error
                 raise
 
     async def get_node(self, node_id: str) -> dict[str, str] | None:
@@ -313,6 +327,7 @@ class MemgraphStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 workspace_label = self._get_workspace_label()
                 query = f"""
@@ -329,7 +344,10 @@ class MemgraphStorage(BaseGraphStorage):
                 return labels
             except Exception as e:
                 logger.error(f"[{self.workspace}] Error getting all labels: {str(e)}")
-                await result.consume()  # Ensure the result is consumed even on error
+                if result is not None:
+                    await (
+                        result.consume()
+                    )  # Ensure the result is consumed even on error
                 raise
 
     async def get_node_edges(self, source_node_id: str) -> list[tuple[str, str]] | None:
@@ -353,6 +371,7 @@ class MemgraphStorage(BaseGraphStorage):
             async with self._driver.session(
                 database=self._DATABASE, default_access_mode="READ"
             ) as session:
+                results = None
                 try:
                     workspace_label = self._get_workspace_label()
                     query = f"""MATCH (n:`{workspace_label}` {{entity_id: $entity_id}})
@@ -390,7 +409,10 @@ class MemgraphStorage(BaseGraphStorage):
                     logger.error(
                         f"[{self.workspace}] Error getting edges for node {source_node_id}: {str(e)}"
                     )
-                    await results.consume()  # Ensure results are consumed even on error
+                    if results is not None:
+                        await (
+                            results.consume()
+                        )  # Ensure results are consumed even on error
                     raise
         except Exception as e:
             logger.error(
@@ -420,6 +442,7 @@ class MemgraphStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 workspace_label = self._get_workspace_label()
                 query = f"""
@@ -452,7 +475,10 @@ class MemgraphStorage(BaseGraphStorage):
                 logger.error(
                     f"[{self.workspace}] Error getting edge between {source_node_id} and {target_node_id}: {str(e)}"
                 )
-                await result.consume()  # Ensure the result is consumed even on error
+                if result is not None:
+                    await (
+                        result.consume()
+                    )  # Ensure the result is consumed even on error
                 raise
 
     async def upsert_node(self, node_id: str, node_data: dict[str, str]) -> None:
@@ -743,22 +769,21 @@ class MemgraphStorage(BaseGraphStorage):
             raise RuntimeError(
                 "Memgraph driver is not initialized. Call 'await initialize()' first."
             )
-        async with get_graph_db_lock():
-            try:
-                async with self._driver.session(database=self._DATABASE) as session:
-                    workspace_label = self._get_workspace_label()
-                    query = f"MATCH (n:`{workspace_label}`) DETACH DELETE n"
-                    result = await session.run(query)
-                    await result.consume()
-                    logger.info(
-                        f"[{self.workspace}] Dropped workspace {workspace_label} from Memgraph database {self._DATABASE}"
-                    )
-                    return {"status": "success", "message": "workspace data dropped"}
-            except Exception as e:
-                logger.error(
-                    f"[{self.workspace}] Error dropping workspace {workspace_label} from Memgraph database {self._DATABASE}: {e}"
+        try:
+            async with self._driver.session(database=self._DATABASE) as session:
+                workspace_label = self._get_workspace_label()
+                query = f"MATCH (n:`{workspace_label}`) DETACH DELETE n"
+                result = await session.run(query)
+                await result.consume()
+                logger.info(
+                    f"[{self.workspace}] Dropped workspace {workspace_label} from Memgraph database {self._DATABASE}"
                 )
-                return {"status": "error", "message": str(e)}
+                return {"status": "success", "message": "workspace data dropped"}
+        except Exception as e:
+            logger.error(
+                f"[{self.workspace}] Error dropping workspace {workspace_label} from Memgraph database {self._DATABASE}: {e}"
+            )
+            return {"status": "error", "message": str(e)}
 
     async def edge_degree(self, src_id: str, tgt_id: str) -> int:
         """Get the total degree (sum of relationships) of two nodes.
@@ -783,79 +808,6 @@ class MemgraphStorage(BaseGraphStorage):
 
         degrees = int(src_degree) + int(trg_degree)
         return degrees
-
-    async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """Get all nodes that are associated with the given chunk_ids.
-
-        Args:
-            chunk_ids: List of chunk IDs to find associated nodes for
-
-        Returns:
-            list[dict]: A list of nodes, where each node is a dictionary of its properties.
-                        An empty list if no matching nodes are found.
-        """
-        if self._driver is None:
-            raise RuntimeError(
-                "Memgraph driver is not initialized. Call 'await initialize()' first."
-            )
-        workspace_label = self._get_workspace_label()
-        async with self._driver.session(
-            database=self._DATABASE, default_access_mode="READ"
-        ) as session:
-            query = f"""
-            UNWIND $chunk_ids AS chunk_id
-            MATCH (n:`{workspace_label}`)
-            WHERE n.source_id IS NOT NULL AND chunk_id IN split(n.source_id, $sep)
-            RETURN DISTINCT n
-            """
-            result = await session.run(query, chunk_ids=chunk_ids, sep=GRAPH_FIELD_SEP)
-            nodes = []
-            async for record in result:
-                node = record["n"]
-                node_dict = dict(node)
-                node_dict["id"] = node_dict.get("entity_id")
-                nodes.append(node_dict)
-            await result.consume()
-            return nodes
-
-    async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """Get all edges that are associated with the given chunk_ids.
-
-        Args:
-            chunk_ids: List of chunk IDs to find associated edges for
-
-        Returns:
-            list[dict]: A list of edges, where each edge is a dictionary of its properties.
-                        An empty list if no matching edges are found.
-        """
-        if self._driver is None:
-            raise RuntimeError(
-                "Memgraph driver is not initialized. Call 'await initialize()' first."
-            )
-        workspace_label = self._get_workspace_label()
-        async with self._driver.session(
-            database=self._DATABASE, default_access_mode="READ"
-        ) as session:
-            query = f"""
-            UNWIND $chunk_ids AS chunk_id
-            MATCH (a:`{workspace_label}`)-[r]-(b:`{workspace_label}`)
-            WHERE r.source_id IS NOT NULL AND chunk_id IN split(r.source_id, $sep)
-            WITH a, b, r, a.entity_id AS source_id, b.entity_id AS target_id
-            // Ensure we only return each unique edge once by ordering the source and target
-            WITH a, b, r,
-                 CASE WHEN source_id <= target_id THEN source_id ELSE target_id END AS ordered_source,
-                 CASE WHEN source_id <= target_id THEN target_id ELSE source_id END AS ordered_target
-            RETURN DISTINCT ordered_source AS source, ordered_target AS target, properties(r) AS properties
-            """
-            result = await session.run(query, chunk_ids=chunk_ids, sep=GRAPH_FIELD_SEP)
-            edges = []
-            async for record in result:
-                edge_properties = record["properties"]
-                edge_properties["source"] = record["source"]
-                edge_properties["target"] = record["target"]
-                edges.append(edge_properties)
-            await result.consume()
-            return edges
 
     async def get_knowledge_graph(
         self,
@@ -1089,3 +1041,106 @@ class MemgraphStorage(BaseGraphStorage):
                 edges.append(edge_properties)
             await result.consume()
             return edges
+
+    async def get_popular_labels(self, limit: int = 300) -> list[str]:
+        """Get popular labels by node degree (most connected entities)
+
+        Args:
+            limit: Maximum number of labels to return
+
+        Returns:
+            List of labels sorted by degree (highest first)
+        """
+        if self._driver is None:
+            raise RuntimeError(
+                "Memgraph driver is not initialized. Call 'await initialize()' first."
+            )
+
+        result = None
+        try:
+            workspace_label = self._get_workspace_label()
+            async with self._driver.session(
+                database=self._DATABASE, default_access_mode="READ"
+            ) as session:
+                query = f"""
+                MATCH (n:`{workspace_label}`)
+                WHERE n.entity_id IS NOT NULL
+                OPTIONAL MATCH (n)-[r]-()
+                WITH n.entity_id AS label, count(r) AS degree
+                ORDER BY degree DESC, label ASC
+                LIMIT {limit}
+                RETURN label
+                """
+                result = await session.run(query)
+                labels = []
+                async for record in result:
+                    labels.append(record["label"])
+                await result.consume()
+
+                logger.debug(
+                    f"[{self.workspace}] Retrieved {len(labels)} popular labels (limit: {limit})"
+                )
+                return labels
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error getting popular labels: {str(e)}")
+            if result is not None:
+                await result.consume()
+            return []
+
+    async def search_labels(self, query: str, limit: int = 50) -> list[str]:
+        """Search labels with fuzzy matching
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results to return
+
+        Returns:
+            List of matching labels sorted by relevance
+        """
+        if self._driver is None:
+            raise RuntimeError(
+                "Memgraph driver is not initialized. Call 'await initialize()' first."
+            )
+
+        query_lower = query.lower().strip()
+
+        if not query_lower:
+            return []
+
+        result = None
+        try:
+            workspace_label = self._get_workspace_label()
+            async with self._driver.session(
+                database=self._DATABASE, default_access_mode="READ"
+            ) as session:
+                cypher_query = f"""
+                MATCH (n:`{workspace_label}`)
+                WHERE n.entity_id IS NOT NULL
+                WITH n.entity_id AS label, toLower(n.entity_id) AS label_lower
+                WHERE label_lower CONTAINS $query_lower
+                WITH label, label_lower,
+                     CASE
+                         WHEN label_lower = $query_lower THEN 1000
+                         WHEN label_lower STARTS WITH $query_lower THEN 500
+                         ELSE 100 - size(label)
+                     END AS score
+                ORDER BY score DESC, label ASC
+                LIMIT {limit}
+                RETURN label
+                """
+
+                result = await session.run(cypher_query, query_lower=query_lower)
+                labels = []
+                async for record in result:
+                    labels.append(record["label"])
+                await result.consume()
+
+                logger.debug(
+                    f"[{self.workspace}] Search query '{query}' returned {len(labels)} results (limit: {limit})"
+                )
+                return labels
+        except Exception as e:
+            logger.error(f"[{self.workspace}] Error searching labels: {str(e)}")
+            if result is not None:
+                await result.consume()
+            return []

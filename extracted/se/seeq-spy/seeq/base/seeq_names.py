@@ -6,15 +6,25 @@
 # =====================================================================================================================
 
 class SeeqNames:
+    class SystemFolderIdentifiers:
+        corporate = '__Corporate__'
+        users = '__Users__'
+        mine = '__Mine__'
+    
+    class AnalysisViewType:
+        trend = 'trend'
+        statistics_summary = 'statisticsSummary'
+    
     class FormulaType:
+        capsule = 'Capsule'
+        condition = 'Condition'
+        formula_item = 'FormulaItem'
+        onnx_anomaly_model = 'OnnxAnomalyModel'
+        onnx_prediction_model = 'OnnxPredictionModel'
+        sample = 'Sample'
         scalar = 'Scalar'
         signal = 'Signal'
-        sample = 'Sample'
-        condition = 'Condition'
-        capsule = 'Capsule'
-        formula_item = 'FormulaItem'
-        onnx_prediction_model = 'OnnxPredictionModel'
-        onnx_anomaly_model = 'OnnxAnomalyModel'
+        stats_summary = 'StatsSummary'
     
     class AuditTrail:
         configuration_option = 'ConfigurationOption'
@@ -45,6 +55,12 @@ class SeeqNames:
         impact_based_on = 'Based on'
         location = 'Location'
     
+    class CustomAggregators:
+        condition_label_context_lookup = 'ConditionLabelContextLookup'
+        condition_flag_context_lookup = 'ConditionFlagContextLookup'
+        condition_suppression_context_lookup = 'ConditionSuppressionContextLookup'
+        all_true = 'AllTrue'
+    
     class VantageColumns:
         start = 'Start'
         end = 'End'
@@ -61,6 +77,9 @@ class SeeqNames:
         properties = 'Properties'
         suppressed = 'Suppressed'
         formula = 'Formula'
+        reviewed = 'Reviewed'
+        flagged = 'Flagged'
+        labels = 'Labels'
     
     class GraphQL:
         class DataLoaderRegistry:
@@ -72,7 +91,9 @@ class SeeqNames:
         seeq_label_namespace = '__'
         usage_restricted_label_namespace = '__Seeq.'
         vantage_label_category_namespace = '__Vantage'
-        user_defined_context_label_category_namespace = 'UserDefinedContext'
+        user_defined_context_namespace = 'UserDefinedContext'
+        flagged_context_label_name = 'flag'
+        ongoing_suppression_context_label_name = 'ongoing'
     
     class MlService:
         class PrincipalComponentAnalysis:
@@ -117,6 +138,7 @@ class SeeqNames:
         
     
     class Origins:
+        action_board = 'action_board'
         add_on = 'Add-on'
         administration = 'Administration'
         analysis = 'Analysis'
@@ -136,6 +158,7 @@ class SeeqNames:
         plugin = 'plugin'
         renderer = 'Renderer'
         screenshot = 'Screenshot'
+        screenshot_powerpoint = 'Screenshot (PowerPoint Export)'
         spy_standalone = 'SPy (Standalone)'
         thumbnail = 'Thumbnail'
         topic = 'Topic'
@@ -143,12 +166,14 @@ class SeeqNames:
         workbench = 'Workbench'
     
     class Consumption:
+        administration = 'Administration'
         a_i_assistant_prefix = 'AI Assistant'
         condition_monitors = 'ConditionMonitors'
         connections = 'Connections'
         data_lab_resources_prefix = 'Data Lab Resources'
         o_data = 'OData'
         screenshot = 'Screenshot'
+        signal_monitors = 'SignalMonitors'
         topic = 'Topic'
         vantage = 'Vantage'
     
@@ -160,6 +185,10 @@ class SeeqNames:
         class LogViewer:
             data_id = 'LogViewerCapability'
             collective_name = 'log viewers'
+        
+        class EarlyAccess:
+            data_id = 'EarlyAccessCapability'
+            collective_name = 'early feature access users'
         
         class DatasourceAdministration:
             data_id = 'DatasourceAdministrationCapability'
@@ -220,6 +249,9 @@ class SeeqNames:
             materialized_tables = 'materialized_tables'
         
     
+    class Models:
+        instance_name_input_feature_name = 'SEEQ_MODEL_INSTANCE_NAME'
+    
     class MaterializedTables:
         datum_id_column = 'datum id'
         item_id_column = 'item id'
@@ -229,12 +261,15 @@ class SeeqNames:
         context_updater_id_column = 'updater_id'
         context_archiver_column = 'archiver_id'
         created_at_column = 'created at'
+        updated_at_column = 'table updated at'
         unique_row_id = 'Existing Row Identifier'
         csv_item_id_column = 'csv item id'
         last_capsule_state_column = 'Last Capsule State'
         hierarchy_node_id_column = 'node_id'
         hierarchy_node_column_column = 'node_column'
         hierarchy_node_text_column = 'node_text_column'
+        items_table_join_suffix = '_join'
+        materialized_table_join_suffix = '_mt_join'
         class Parameters:
             property_name = 'propertyName'
             property_names = 'propertyNames'
@@ -273,6 +308,8 @@ class SeeqNames:
             prefix = 'prefix'
             suffix = 'suffix'
             property_values = 'propertyValues'
+            property_value_types = 'propertyValueTypes'
+            property_value_uoms = 'propertyValueUoms'
             ancestor_property = 'ancestorProperty'
             column_id = 'columnId'
             boolean_value = 'booleanValue'
@@ -282,7 +319,6 @@ class SeeqNames:
             u_u_i_d_value = 'uuidValue'
             timestamp_value = 'timestampValue'
             datasource_id = 'datasourceId'
-            column_definition_id = 'columnDefinitionId'
             params = 'parameters'
         
         class Rules:
@@ -348,6 +384,10 @@ class SeeqNames:
             path_column = 'Path'
             datasource_column = 'Datasource'
             value_uom_column = 'Value UOM'
+            source_column_id_column = 'Source Column ID'
+        
+        class Vantage:
+            extinct_column = 'Extinct'
         
     
     class Injection:
@@ -375,6 +415,7 @@ class SeeqNames:
             max_concurrent_requests_json_key = 'MaxConcurrentRequests'
             max_results_per_request_json_key = 'MaxResultsPerRequest'
             field_configurations_json_key = 'FieldConfigurations'
+            secret_field_placeholder_value = '<placeholder>'
             class SyncStatus:
                 unknown = 'SYNC_UNKNOWN'
                 initializing = 'SYNC_INITIALIZING'
@@ -409,6 +450,7 @@ class SeeqNames:
     
     class Agents:
         agent_keys_folder_name = 'agent-keys'
+        agent_temp_folder_name = 'agent-temp'
         connectors_json_key = 'Connectors'
         class WebSockets:
             ping_prefix = 'SEEQ-WS-PING-MSG-'
@@ -445,6 +487,8 @@ class SeeqNames:
         condition_monitor = 'ConditionMonitorNotifications'
         worksheet_thumbnail = 'WorksheetThumbnail'
         item_finder = 'ItemFinder'
+        signal_monitor = 'SignalMonitor'
+        mention_email_notification = 'MentionEmailNotification'
     
     class Logging:
         migrations_complete_file = 'migrations_complete_'
@@ -479,6 +523,7 @@ class SeeqNames:
         cognite = 'Cognite'
         c_o_n_n_e_c_t_data_services = 'CONNECT Data Services'
         cyg_net = 'CygNet'
+        data_p_a_r_c = 'dataPARC'
         example_data = 'Time Series CSV Files'
         add_on_calc_python = 'Add-on Calculation Python'
         add_on_calc_webhook = 'Add-on Calculation Webhook'
@@ -569,11 +614,13 @@ class SeeqNames:
         
     
     class SwaggerApiNames:
-        agents = 'Agents'
         add_ons = 'AddOns'
+        agents = 'Agents'
+        applications = 'Applications'
         audit = 'Audit'
         auth = 'Auth'
         assets = 'Assets'
+        boards = 'Boards'
         folders = 'Folders'
         networks = 'Networks'
         items = 'Items'
@@ -608,6 +655,7 @@ class SeeqNames:
         content = 'Content'
         report_templates = 'ReportTemplates'
         condition_monitors = 'ConditionMonitors'
+        signal_monitors = 'SignalMonitors'
         plugins = 'Plugins'
         displays = 'Displays'
         display_templates = 'DisplayTemplates'
@@ -615,12 +663,24 @@ class SeeqNames:
         label = 'Label'
         context = 'Context'
         table_definitions = 'TableDefinitions'
+        materialized_tables = 'MaterializedTables'
         hierarchies = 'Hierarchies'
         models = 'Models'
         graph_q_l = 'GraphQL'
-        unstable = 'Unstable'
+        cache = 'Cache'
         scim = 'SCIM'
         markdown_items = 'MarkdownItems'
+        calculated_tables = 'CalculatedTables'
+        markdown_links = 'MarkdownLinks'
+        sharing = 'Sharing'
+        stored_tables = 'StoredTables'
+        class Extensions:
+            experimental = 'x-experimental'
+            deprecated_reason = 'x-deprecated-reason'
+            class DeprecatedReasonProperties:
+                reason = 'reason'
+            
+        
     
     class Channels:
         agents_status = 'agents-status'
@@ -633,7 +693,7 @@ class SeeqNames:
         thumbnail_channel = 'workbook-thumbnail'
         workstep_channel = 'workstep'
         report_update_channel = 'report-update'
-        subscription_channel = 'subscription'
+        signal_monitor = 'signal-monitor'
         table_materializer_channel = 'table-materializer'
         context = 'context'
     
@@ -642,6 +702,7 @@ class SeeqNames:
         add_ons = '/add-ons'
         add_on_tools = '/addOnTools'
         agents = '/agents'
+        applications = '/applications'
         audit = '/audit'
         auth = '/auth'
         assets = '/assets'
@@ -661,6 +722,7 @@ class SeeqNames:
         capsules = '/capsules'
         conditions = '/conditions'
         condition_monitors = '/condition-monitors'
+        signal_monitors = '/signal-monitors'
         metrics = '/metrics'
         thresholds = '/thresholds'
         formulas = '/formulas'
@@ -709,11 +771,16 @@ class SeeqNames:
         context_opaque = '/opaque'
         context_numeric = '/numeric'
         table_definitions = '/table-definitions'
+        materialized_tables = '/materialized-tables'
         hierarchies = '/hierarchies'
         models = '/models'
         graph_q_l = '/graphql'
         cache = '/cache'
         markdown_items = '/markdown-items'
+        markdown_links = '/markdown/links'
+        stored_tables = '/stored-tables'
+        calculated_tables = '/calculated-tables'
+        sharing = '/sharing'
         scim_users = 'Users'
         scim_groups = 'Groups'
         scim_token = 'token'
@@ -740,6 +807,7 @@ class SeeqNames:
         class QueryParams:
             admin = 'admin'
             client_interactive_session_id = 'interactiveId'
+            skip_auto_subscribe = 'skipAutoSubscribe'
             creator = 'creator'
             name = 'name'
             request_id = 'requestId'
@@ -747,6 +815,7 @@ class SeeqNames:
         
         class Headers:
             accept_ranges = 'Accept-Ranges'
+            action = 'x-sq-action'
             async_ = 'x-sq-async'
             async_job = 'x-sq-async-job'
             auth = 'x-sq-auth'
@@ -775,7 +844,6 @@ class SeeqNames:
             height = 'x-sq-height'
             width = 'x-sq-width'
             warning_message = 'x-sq-warning-message'
-            subscription_id = 'x-sq-subscription-id'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'
@@ -862,16 +930,20 @@ class SeeqNames:
         has_date_range = 'has date range'
         has_date_ranges = 'has date ranges'
         has_designated_scim_user = 'has designated scim user'
+        has_service_principal = 'has service principal'
         has_scheduled_notebook = 'has scheduled notebook'
         has_template = 'has template'
         subscribed_to = 'subscribed to'
         contains_context_for = 'contains context for'
         hierarchy_of = 'Hierarchy Of'
+        has_user_group = 'has usergroup'
+        has_folder = 'has folder'
     
     class Types:
         asset = 'Asset'
         asset_selection = 'AssetSelection'
         access_control_entry = 'AccessControlEntry'
+        application = 'Application'
         stored_signal = 'StoredSignal'
         datasource = 'Datasource'
         datafile = 'Datafile'
@@ -927,16 +999,25 @@ class SeeqNames:
         analysis = 'Analysis'
         topic = 'Topic'
         vantage = 'Vantage'
+        action_board = 'ActionBoard'
         worksheet = 'Worksheet'
         workstep = 'Workstep'
+        context_comment = 'ContextComment'
+        context_numeric = 'ContextNumeric'
+        context_label = 'ContextLabel'
         item = 'Item'
         item_with_owner = 'ItemWithOwner'
         type_definition = 'TypeDefinition'
         table_definition = 'TableDefinition'
+        stored_table = 'StoredTable'
         version_history = 'VersionHistory'
         model = 'Model'
         hierarchy = 'Hierarchy'
         markdown_item = 'MarkdownItem'
+        calculated_table = 'CalculatedTable'
+        board = 'Board'
+        tile = 'Tile'
+        organization = 'Organization'
     
     class TopicDocumentAttributes:
         data_seeq_content = 'data-seeq-content'
@@ -1086,6 +1167,7 @@ class SeeqNames:
         user_group_progress = 'UserGroup Progress'
         user_group_count = 'UserGroups Count'
         previous_user_group_count = 'Previous UserGroups Count'
+        agent_up_to_date = 'Up to date.'
         stale_metadata = 'Stale Metadata'
         interpolation_method = 'Interpolation Method'
         source_maximum_interpolation = 'Source Maximum Interpolation'
@@ -1116,7 +1198,6 @@ class SeeqNames:
         swap_source_id = 'Swap Source ID'
         swap_source_uom = 'Source Value Unit Of Measure'
         swap_key = 'Swap Key'
-        cache_value = 'CacheValue'
         value = 'Value'
         formula_parameters = 'FormulaParameters'
         is_modified_outside_table = 'Is Modified Outside Table'
@@ -1162,8 +1243,10 @@ class SeeqNames:
         password_hash_method = 'Password Hash Method'
         password_set_date = 'Password Set Date'
         last_login_at = 'Last Login At'
+        last_used = 'Last Used'
         failed_login_attempt_count = 'Failed Login Attempt Count'
         session_duration = 'Session Duration'
+        access_key_expiry = 'Access Key Expiry'
         access_key_validity_duration = 'Access Key Validity Duration'
         enabled = 'Enabled'
         workbench = 'Workbench'
@@ -1177,6 +1260,7 @@ class SeeqNames:
         password_reset_token_hash = 'Password Reset Token Hash'
         password_reset_token_expiration_at = 'Password Reset Token Expiration At'
         last_password_reset_request_at = 'Last Password Reset Request At'
+        trusted = 'Trusted'
         remote_group_editable = 'Remote Group Editable'
         remove_permissions = 'Remove Permissions'
         data = 'Data'
@@ -1209,6 +1293,7 @@ class SeeqNames:
         summary_value = 'Summary Value'
         fill_to_fit = 'Fill to Fit'
         hide_uncertainty = 'Hide Uncertainty'
+        analysis_view_type = 'Analysis View Type'
         current_filename = 'Current Filename'
         last_result_hash = 'Last Result Hash'
         cache_id = 'Cache ID'
@@ -1219,6 +1304,8 @@ class SeeqNames:
         first_run_look_back = 'First Run Look Back'
         capsule_event_types = 'Capsule Event Types'
         sample_event_types = 'Sample Event Types'
+        removed_monitored_series = 'Removed Monitored Series'
+        added_monitored_series = 'Added Monitored Series'
         finder_configurations = 'Finder Configurations'
         include_hierarchy = 'Include Hierarchy'
         hierarchy_searches = 'Hierarchy Searches'
@@ -1291,6 +1378,7 @@ class SeeqNames:
         column_definitions = 'Column Definitions'
         batch_action = 'Batch Action'
         table_type = 'Table Type'
+        navigation_column_id = 'Navigation Column Id'
         is_context_condition = 'Is Context Condition'
         versioned_item_type = 'Versioned Item Type'
         versions = 'Versions'
@@ -1303,9 +1391,30 @@ class SeeqNames:
         constructed_data_id = 'Constructed Data Id'
         item_table_id = 'Item Table Id'
         alias = 'Alias'
+        source_column_id = 'Source Column Id'
         features = 'Features'
+        created_by_model_instance = 'Created By Model Instance'
+        instance_retired = 'Instance Retired'
         markdown = 'Markdown'
         purpose = 'Purpose'
+        query = 'Query'
+        calculated_table_column_metadata = 'Calculated Table Column Metadata'
+        calculated_table_column_dependency = 'Calculated Table Column Dependency'
+        columns = 'Columns'
+        row_height = 'Row Height'
+        background_color = 'Background Color'
+        applied_filter = 'Applied Filter'
+        users_shared = 'Users Shared'
+        topics_shared = 'Topics Shared'
+        workbooks_shared = 'Workbooks Shared'
+        users_accessed_last_week = 'Users Accessed Last Week'
+        topics_accessed_last_week = 'Topics Accessed Last Week'
+        workbooks_accessed_last_week = 'Workbooks Accessed Last Week'
+        total_items_shared = 'Total Items Shared'
+        organization_folder_id = 'Folder ID'
+        organization_user_group_id = 'User Group ID'
+        source = 'Source'
+        application_id = 'Application ID'
     
 
 

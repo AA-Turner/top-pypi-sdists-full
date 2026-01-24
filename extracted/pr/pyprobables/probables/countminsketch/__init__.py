@@ -1,4 +1,4 @@
-""" Count-Min Sketchs """
+"""Count-Min Sketchs"""
 
 from probables.countminsketch.countminsketch import (
     CountMeanMinSketch,
@@ -8,10 +8,4 @@ from probables.countminsketch.countminsketch import (
     StreamThreshold,
 )
 
-__all__ = [
-    "CountMinSketch",
-    "HeavyHitters",
-    "StreamThreshold",
-    "CountMeanSketch",
-    "CountMeanMinSketch",
-]
+__all__ = ["CountMinSketch", "HeavyHitters", "StreamThreshold", "CountMeanSketch", "CountMeanMinSketch"]

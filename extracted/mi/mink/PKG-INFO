@@ -1,49 +1,32 @@
 Metadata-Version: 2.4
 Name: mink
-Version: 0.0.13
-Summary: mink: MuJoCo inverse kinematics.
+Version: 1.0.0
+Summary: Python inverse kinematics based on MuJoCo
 Keywords: inverse,kinematics,mujoco
+Author: Kevin Zakka
 Author-email: Kevin Zakka <zakka@berkeley.edu>
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Robot Framework :: Library
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-License-File: LICENSE
-Requires-Dist: mujoco >= 3.1.6
-Requires-Dist: qpsolvers[daqp] >= 4.3.1
-Requires-Dist: typing_extensions
-Requires-Dist: numpy
-Requires-Dist: mink[examples, dev] ; extra == "all"
-Requires-Dist: black ; extra == "dev"
-Requires-Dist: mink[test] ; extra == "dev"
-Requires-Dist: mypy ; extra == "dev"
-Requires-Dist: ruff ; extra == "dev"
-Requires-Dist: loop-rate-limiters >= 0.1.0 ; extra == "examples"
-Requires-Dist: qpsolvers[daqp] >= 4.3.1 ; extra == "examples"
-Requires-Dist: osqp >=0.6.2,<1 ; extra == "examples"
-Requires-Dist: absl-py ; extra == "test"
-Requires-Dist: coveralls ; extra == "test"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: robot_descriptions >= 1.9.0 ; extra == "test"
+Requires-Dist: mujoco>=3.3.6
+Requires-Dist: qpsolvers[daqp]>=4.3.1
+Requires-Dist: typing-extensions
+Requires-Python: >=3.10, <3.14
 Project-URL: Changelog, https://github.com/kevinzakka/mink/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://kevinzakka.github.io/mink/
 Project-URL: Homepage, https://kevinzakka.github.io/mink/
 Project-URL: Source, https://github.com/kevinzakka/mink
 Project-URL: Tracker, https://github.com/kevinzakka/mink/issues
-Provides-Extra: all
-Provides-Extra: dev
-Provides-Extra: examples
-Provides-Extra: test
+Description-Content-Type: text/markdown
 
 # mink
 
@@ -71,8 +54,8 @@ If you use mink in your research, please cite it as follows:
   author = {Zakka, Kevin},
   title = {{Mink: Python inverse kinematics based on MuJoCo}},
   year = {2025},
-  month = may,
-  version = {0.0.11},
+  month = dec,
+  version = {1.0.0},
   url = {https://github.com/kevinzakka/mink},
   license = {Apache-2.0}
 }
@@ -80,29 +63,43 @@ If you use mink in your research, please cite it as follows:
 
 ## Installation
 
-You can install `mink` using `pip`:
+Install from PyPI:
 
 ```bash
-pip install mink
+uv add mink
 ```
 
-To include the example dependencies:
+Or clone and run locally:
 
 ```bash
-pip install "mink[examples]"
+git clone https://github.com/kevinzakka/mink.git && cd mink
+uv sync
 ```
 
 ## Examples
 
+To run an example:
+
+```bash
+# Linux
+uv run examples/arm_ur5e.py
+
+# macOS
+./fix_mjpython_macos.sh  # So that mjpython works with uv.
+uv run mjpython examples/arm_ur5e.py
+```
+
 mink works with a variety of robots, including:
 
-* Arms: [UR5e](https://github.com/kevinzakka/mink/blob/main/examples/arm_ur5e_actuators.py), [iiwa14](https://github.com/kevinzakka/mink/blob/main/examples/arm_iiwa.py), [bimanual iiwa14](https://github.com/kevinzakka/mink/blob/main/examples/dual_iiwa.py)
-* Humanoids: [Unitree G1](https://github.com/kevinzakka/mink/blob/main/examples/humanoid_g1.py), [Unitree H1](https://github.com/kevinzakka/mink/blob/main/examples/humanoid_h1.py)
-* Quadrupeds: [Unitree Go1](https://github.com/kevinzakka/mink/blob/main/examples/quadruped_go1.py), [Boston Dynamics Spot](https://github.com/kevinzakka/mink/blob/main/examples/quadruped_spot.py)
-* Hands: [Shadow Hand](https://github.com/kevinzakka/mink/blob/main/examples/hand_shadow.py), [Allegro Hand](https://github.com/kevinzakka/mink/blob/main/examples/arm_hand_iiwa_allegro.py)
-* Mobile manipulators: [Stanford TidyBot](https://github.com/kevinzakka/mink/blob/main/examples/mobile_tidybot.py), [Hello Robot Stretch](https://github.com/kevinzakka/mink/blob/main/examples/mobile_stretch.py)
+* **Single arms**: [Franka Panda](https://github.com/kevinzakka/mink/blob/main/examples/arm_panda.py), [UR5e](https://github.com/kevinzakka/mink/blob/main/examples/arm_ur5e.py), [KUKA iiwa14](https://github.com/kevinzakka/mink/blob/main/examples/arm_iiwa.py), [ALOHA 2](https://github.com/kevinzakka/mink/blob/main/examples/arm_aloha.py)
+* **Dual arms**: [Dual Panda](https://github.com/kevinzakka/mink/blob/main/examples/dual_panda.py), [Dual iiwa14](https://github.com/kevinzakka/mink/blob/main/examples/dual_iiwa.py), [Flying Dual UR5e](https://github.com/kevinzakka/mink/blob/main/examples/flying_dual_arm_ur5e.py)
+* **Arm + hand**: [iiwa14 + Allegro](https://github.com/kevinzakka/mink/blob/main/examples/arm_hand_iiwa_allegro.py), [xArm + LEAP](https://github.com/kevinzakka/mink/blob/main/examples/arm_hand_xarm_leap.py)
+* **Dexterous hands**: [Shadow Hand](https://github.com/kevinzakka/mink/blob/main/examples/hand_shadow.py)
+* **Humanoids**: [Unitree G1](https://github.com/kevinzakka/mink/blob/main/examples/humanoid_g1.py), [Unitree H1](https://github.com/kevinzakka/mink/blob/main/examples/humanoid_h1.py), [Apptronik Apollo](https://github.com/kevinzakka/mink/blob/main/examples/humanoid_apollo.py)
+* **Legged robots**: [Unitree Go1](https://github.com/kevinzakka/mink/blob/main/examples/quadruped_go1.py), [Boston Dynamics Spot](https://github.com/kevinzakka/mink/blob/main/examples/quadruped_spot.py), [Agility Cassie](https://github.com/kevinzakka/mink/blob/main/examples/biped_cassie.py)
+* **Mobile manipulators**: [TidyBot](https://github.com/kevinzakka/mink/blob/main/examples/mobile_tidybot.py), [Hello Robot Stretch](https://github.com/kevinzakka/mink/blob/main/examples/mobile_stretch.py), [Kinova Gen3 + LEAP](https://github.com/kevinzakka/mink/blob/main/examples/mobile_kinova_leap.py)
 
-Check out the [examples](https://github.com/kevinzakka/mink/blob/main/examples/) directory for more code.
+Check out the [examples](https://github.com/kevinzakka/mink/blob/main/examples/) directory for more.
 
 ## How can I help?
 
@@ -117,3 +114,6 @@ mink also heavily adapts code from the following libraries:
 * The lie algebra library that powers the transforms in mink is adapted from [jaxlie](https://github.com/brentyi/jaxlie).
 * The collision avoidance constraint is adapted from [dm_robotics](https://github.com/google-deepmind/dm_robotics/tree/main/cpp/controllers)'s LSQP controller.
 
+## References
+
+- The code implementing operations on matrix Lie groups contains references to numbered equations from the following paper: _[A micro lie theory for state estimation in robotics](https://arxiv.org/pdf/1812.01537), Joan Solà, Jeremie Deray, and Dinesh Atchuthan, arXiv preprint arXiv:1812.01537 (2018)_.

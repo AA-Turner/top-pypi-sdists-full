@@ -1,6 +1,6 @@
 """Module to handle applications."""
 
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 
 
 class Application:

@@ -2,8 +2,10 @@ import logging
 import os
 import re
 from collections import ChainMap
+from collections.abc import Generator, Iterator
+from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -24,6 +26,7 @@ from . import data
 
 if TYPE_CHECKING:
     import pytest
+    from requests import PreparedRequest
 
 log = logging.getLogger(__name__)
 
@@ -212,10 +215,36 @@ def generate_endpoint_tests(metafunc):  # noqa: C901  TODO reduce complexity 11 
     #     pytest.skip("No endpoints to be tested")
 
 
+class CompareTests:
+    """Base class for testing of :meth:`.Comparable.compare` in subclasses.
+
+    For usage, see :class:`.test_common.TestIdentifiableArtefact`.
+    """
+
+    def test_compare(self, left, callback) -> None:
+        """Test comparison of `left` to a copy modified using `callback`."""
+        # Make a copy
+        right = deepcopy(left)
+
+        if callback is None:
+            expected = True  # No callback → should compare equal
+        else:
+            callback(right)  # Apply some modification to the copy
+            expected = False  # Should compare different
+
+        try:
+            assert expected is left.compare(right)
+        except Exception:  # pragma: no cover
+            # Show information about the objects
+            log.error(f"{left.__dict__ = !r}")
+            log.error(f"{right.__dict__ = !r}")
+            raise
+
+
 class MessageTest:
     """Base class for tests of specific specimen files."""
 
-    directory: Union[str, Path] = Path(".")
+    directory: str | Path = Path(".")
     filename: str
 
     @pytest.fixture(scope="class")
@@ -262,6 +291,7 @@ def mock_gh_api():
     mock = responses.RequestsMock(assert_all_requests_are_fired=False)
     mock.add_passthru(re.compile(rf"{base}/zipball/\w+"))
     mock.add_passthru(re.compile(r"https://codeload.github.com/\w+"))
+    mock.add_passthru(re.compile(r"http://www.w3.org/\w+"))
 
     for v in "2.1", "3.0", "3.0.0":
         mock.get(
@@ -294,7 +324,25 @@ def session_with_stored_responses(pytestconfig):
     3. is treated with :func:`.offline`, so that *only* stored responses can be
        returned.
     """
-    session = Session(backend="memory")
+    from requests_cache import create_key
+
+    def _key_fn(request: "PreparedRequest", **kwargs) -> str:
+        """Match existing stored responses with different `Accept-Encoding` headers.
+
+        Stored responses in sdmx-test-data have "Accept-Encoding: gzip, deflate"; with
+        Python 3.14, the prepared request has "gzip, deflate, zstd`. Simplify so the
+        existing keys match.
+        """
+        exp = "gzip, deflate"
+        if exp in request.headers.get("Accept-Encoding", ""):
+            # Don't modify the original request that's about to be sent
+            request = request.copy()
+            request.headers["Accept-Encoding"] = exp
+
+        # Use the default key function to do the rest of the work
+        return create_key(request, **kwargs)
+
+    session = Session(backend="memory", key_fn=_key_fn)
 
     data.add_responses(
         session,
@@ -309,7 +357,7 @@ def session_with_stored_responses(pytestconfig):
 
 
 @pytest.fixture(scope="session")
-def specimen(pytestconfig):
+def specimen(pytestconfig) -> Iterator["data.SpecimenCollection"]:
     """Fixture: the :class:`SpecimenCollection`."""
     yield pytestconfig.stash[KEY_SPECIMENS]
 
@@ -321,7 +369,7 @@ def test_data_path(pytestconfig):
 
 
 @pytest.fixture(scope="class")
-def testsource(pytestconfig):
+def testsource(pytestconfig) -> Generator[str, None, None]:
     """Fixture: the :attr:`.Source.id` of a temporary data source."""
     from sdmx.source import sources
 

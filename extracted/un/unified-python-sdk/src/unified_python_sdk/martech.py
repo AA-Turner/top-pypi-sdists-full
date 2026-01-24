@@ -60,6 +60,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -424,6 +428,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -440,7 +445,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -512,6 +517,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -528,7 +534,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -601,6 +607,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -617,7 +624,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -690,6 +697,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -706,7 +714,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -779,6 +787,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -795,7 +804,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listMartechLists",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -868,6 +877,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -884,7 +894,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listMartechLists",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -957,6 +967,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -973,7 +984,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listMartechMembers",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1046,6 +1057,7 @@ class Martech(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1062,7 +1074,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listMartechMembers",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1138,6 +1150,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1154,7 +1167,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1230,6 +1243,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1246,7 +1260,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1322,6 +1336,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1338,7 +1353,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1414,6 +1429,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1430,7 +1446,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1503,6 +1519,7 @@ class Martech(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1519,7 +1536,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1597,6 +1614,7 @@ class Martech(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1613,7 +1631,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1691,6 +1709,7 @@ class Martech(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1707,7 +1726,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1785,6 +1804,7 @@ class Martech(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1801,7 +1821,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1882,6 +1902,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1898,7 +1919,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1974,6 +1995,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_list, False, False, "json", shared.MarketingList
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1990,7 +2012,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateMartechList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2066,6 +2088,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2082,7 +2105,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2158,6 +2181,7 @@ class Martech(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.marketing_member, False, False, "json", shared.MarketingMember
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2174,7 +2198,7 @@ class Martech(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateMartechMember",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

@@ -3,7 +3,7 @@ Type annotations for oam service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -55,12 +56,6 @@ from .type_defs import (
     UpdateLinkOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -69,15 +64,15 @@ else:
 __all__ = ("CloudWatchObservabilityAccessManagerClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServiceFault: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    MissingRequiredParameterException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServiceFault: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    MissingRequiredParameterException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class CloudWatchObservabilityAccessManagerClient(BaseClient):
     """
@@ -132,7 +127,7 @@ class CloudWatchObservabilityAccessManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/client/#create_sink)
         """
 
-    def delete_link(self, **kwargs: Unpack[DeleteLinkInputTypeDef]) -> Dict[str, Any]:
+    def delete_link(self, **kwargs: Unpack[DeleteLinkInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a link between a monitoring account sink and a source account.
 
@@ -140,7 +135,7 @@ class CloudWatchObservabilityAccessManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/client/#delete_link)
         """
 
-    def delete_sink(self, **kwargs: Unpack[DeleteSinkInputTypeDef]) -> Dict[str, Any]:
+    def delete_sink(self, **kwargs: Unpack[DeleteSinkInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a sink.
 
@@ -224,7 +219,7 @@ class CloudWatchObservabilityAccessManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/client/#put_sink_policy)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified resource.
 
@@ -232,7 +227,7 @@ class CloudWatchObservabilityAccessManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 

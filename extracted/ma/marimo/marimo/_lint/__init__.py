@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -7,7 +7,7 @@ from marimo._lint.diagnostic import Diagnostic, Severity
 from marimo._lint.linter import FileStatus, Linter
 from marimo._lint.rule_engine import EarlyStoppingConfig, RuleEngine
 from marimo._lint.rules.base import LintRule
-from marimo._utils.files import expand_file_patterns
+from marimo._utils.files import async_expand_file_patterns
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -27,6 +27,7 @@ def run_check(
     fix: bool = False,
     unsafe_fixes: bool = False,
     ignore_scripts: bool = False,
+    formatter: str = "full",
 ) -> Linter:
     """Run linting checks on files matching patterns (CLI entry point).
 
@@ -39,18 +40,20 @@ def run_check(
         fix: Whether to fix files automatically
         unsafe_fixes: Whether to enable unsafe fixes that may change behavior
         ignore_scripts: Whether to ignore files not recognizable as marimo notebooks
+        formatter: Output format for diagnostics ("full" or "json")
 
     Returns:
         Linter with per-file status and diagnostics
     """
-    # Expand patterns to actual files
-    files_to_check = expand_file_patterns(file_patterns)
+    # Get async generator for files
+    files_to_check = async_expand_file_patterns(file_patterns)
 
     linter = Linter(
         pipe=pipe,
         fix_files=fix,
         unsafe_fixes=unsafe_fixes,
         ignore_scripts=ignore_scripts,
+        formatter=formatter,
     )
     linter.run_streaming(files_to_check)
     return linter
@@ -100,7 +103,7 @@ def collect_messages(
         rules=filtered_rules,
     )
 
-    files_to_check = expand_file_patterns(file_patterns)
+    files_to_check = async_expand_file_patterns(file_patterns)
     linter.run_streaming(files_to_check)
 
     return linter, "\n".join(messages)

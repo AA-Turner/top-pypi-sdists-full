@@ -1,29 +1,33 @@
 """Subprocess implementation of the ``SphinxClient`` protocol."""
+
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
+import pathlib
 import sys
 import typing
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
+from uuid import uuid4
 
-from pygls import IS_WIN
+import platformdirs
 from pygls.client import JsonRPCClient
 from pygls.protocol import JsonRPCProtocol
 
-import esbonio.sphinx_agent.types as types
+from esbonio.server import EventSource
 from esbonio.server import Uri
+from esbonio.sphinx_agent import types
 
+from .client import ClientState
 from .config import SphinxConfig
 
 if typing.TYPE_CHECKING:
+    from typing import Any
+
     from .client import SphinxClient
     from .manager import SphinxManager
+
+
+sphinx_logger = logging.getLogger("sphinx")
 
 
 class SphinxAgentProtocol(JsonRPCProtocol):
@@ -45,75 +49,105 @@ class SubprocessSphinxClient(JsonRPCClient):
 
     def __init__(
         self,
-        logger: Optional[logging.Logger] = None,
+        config: SphinxConfig,
+        logger: logging.Logger | None = None,
         protocol_cls=SphinxAgentProtocol,
         *args,
         **kwargs,
     ):
-        super().__init__(protocol_cls=protocol_cls, *args, **kwargs)  # type: ignore[misc]
+        super().__init__(*args, protocol_cls=protocol_cls, **kwargs)  # type: ignore[misc]
+
+        self.id = str(uuid4())
+        """The client's id."""
+
+        self.config = config
+        """Configuration values."""
+
         self.logger = logger or logging.getLogger(__name__)
+        """The logger instance to use."""
 
-        self.sphinx_info: Optional[types.SphinxInfo] = None
-        self._building = False
-        self._build_file_map: Dict[Uri, str] = {}
-        self._diagnostics: Dict[Uri, List[types.Diagnostic]] = {}
+        self.sphinx_info: types.SphinxInfo | None = None
+        """Information about the Sphinx application the client is connected to."""
+
+        self.state: ClientState | None = None
+        """The current state of the client."""
+
+        self.exception: Exception | None = None
+        """The most recently encountered exception (if any)"""
+
+        self._events = EventSource(self.logger)
+        """The sphinx client can emit events."""
+
+        self._startup_task: asyncio.Task[Any] | None = None
+        """The startup task."""
+
+        self._stderr_forwarder: asyncio.Task[Any] | None = None
+        """A task that forwards the server's stderr to the test process."""
+
+    def __repr__(self):
+        if self.state is None:
+            return "SphinxClient<None>"
+
+        if self.state == ClientState.Errored:
+            return f"SphinxClient<{self.state.name}: {self.exception}>"
+
+        state = self.state.name
+        command = " ".join(self.config.build_command)
+        return f"SphinxClient<{state}: {command}>"
+
+    def __await__(self):
+        """Makes the client await-able"""
+        if self._startup_task is None:
+            self._startup_task = asyncio.create_task(self.start())
+
+        return self._startup_task.__await__()
 
     @property
-    def id(self) -> Optional[str]:
-        """The id of the Sphinx instance."""
-        if self.sphinx_info is None:
-            return None
-
-        return self.sphinx_info.id
+    def converter(self):
+        return self.protocol._converter
 
     @property
-    def building(self) -> bool:
-        return self._building
-
-    @property
-    def builder(self) -> Optional[str]:
+    def builder(self) -> str:
         """The sphinx application's builder name"""
         if self.sphinx_info is None:
-            return None
+            raise RuntimeError("sphinx_info is None, has the client been started?")
 
         return self.sphinx_info.builder_name
 
     @property
-    def src_uri(self) -> Optional[Uri]:
+    def src_uri(self) -> Uri:
         """The src uri of the Sphinx application."""
         if self.sphinx_info is None:
-            return None
+            raise RuntimeError("sphinx_info is None, has the client been started?")
 
         return Uri.for_file(self.sphinx_info.src_dir)
 
     @property
-    def conf_uri(self) -> Optional[Uri]:
+    def conf_uri(self) -> Uri:
         """The conf uri of the Sphinx application."""
         if self.sphinx_info is None:
-            return None
+            raise RuntimeError("sphinx_info is None, has the client been started?")
 
         return Uri.for_file(self.sphinx_info.conf_dir)
 
     @property
-    def diagnostics(self) -> Dict[Uri, List[types.Diagnostic]]:
-        """Any diagnostics associated with the project.
+    def db(self) -> pathlib.Path:
+        """Connection to the associated database."""
+        if self.sphinx_info is None:
+            raise RuntimeError("sphinx_info is None, has the client been started?")
 
-        These are automatically updated with each build.
-        """
-        return self._diagnostics
-
-    @property
-    def build_file_map(self) -> Dict[Uri, str]:
-        """Mapping of source files to their corresponing output path."""
-        return self._build_file_map
+        return pathlib.Path(self.sphinx_info.dbpath)
 
     @property
-    def build_uri(self) -> Optional[Uri]:
+    def build_uri(self) -> Uri:
         """The build uri of the Sphinx application."""
         if self.sphinx_info is None:
-            return None
+            raise RuntimeError("sphinx_info is None, has the client been started?")
 
         return Uri.for_file(self.sphinx_info.build_dir)
+
+    def add_listener(self, event: str, handler):
+        self._events.add_listener(event, handler)
 
     async def server_exit(self, server: asyncio.subprocess.Process):
         """Called when the sphinx agent process exits."""
@@ -121,6 +155,8 @@ class SubprocessSphinxClient(JsonRPCClient):
         #   0: all good
         # -15: terminated
         if server.returncode not in {0, -15}:
+            self.exception = RuntimeError(server.returncode)
+            self._set_state(ClientState.Errored)
             self.logger.error(
                 f"sphinx-agent process exited with code: {server.returncode}"
             )
@@ -137,46 +173,88 @@ class SubprocessSphinxClient(JsonRPCClient):
                 "%s future '%s' for pending request '%s'", message, fut, id_
             )
 
-    async def start(self, config: SphinxConfig):
+        if self.state != ClientState.Errored:
+            self._set_state(ClientState.Exited)
+
+    async def start_io(self, cmd: str, *args, **kwargs):
+        await super().start_io(cmd, *args, **kwargs)
+
+        # Forward the server's stderr to this process' stderr
+        if self._server and self._server.stderr:
+            self._stderr_forwarder = asyncio.create_task(forward_stderr(self._server))
+
+    async def restart(self) -> SphinxClient:
+        """Restart the client."""
+        await self.stop()
+
+        # We need to reset the client's stop event.
+        self._stop_event.clear()
+
+        self._set_state(ClientState.Restarting)
+        return await self.start()
+
+    async def start(self) -> SphinxClient:
         """Start the client."""
-        command = []
-        if config.enable_dev_tools:
-            command.extend([sys.executable, "-m", "lsp_devtools", "agent", "--"])
 
-        command.extend([*config.python_command, "-m", "sphinx_agent"])
-        env = get_sphinx_env(config)
+        # Only try starting once.
+        if self.state not in {None, ClientState.Restarting}:
+            return self
 
-        self.logger.debug("Sphinx agent env: %s", json.dumps(env, indent=2))
-        self.logger.debug("Starting sphinx agent: %s", " ".join(command))
+        try:
+            self._set_state(ClientState.Starting)
+            sphinx = self.config.sphinx_command
 
-        await self.start_io(*command, env=env, cwd=config.cwd)
+            self.logger.debug("Python command: %r", sphinx.command)
+            await self.start_io(*sphinx.command, env=sphinx.env, cwd=sphinx.cwd)
+
+            params = types.CreateApplicationParams(
+                command=self.config.build_command,
+                config_overrides=self.config.config_overrides,
+                context={
+                    "cacheDir": platformdirs.user_cache_dir("esbonio", "swyddfa"),
+                },
+            )
+            self.sphinx_info = await self.protocol.send_request_async(
+                "sphinx/createApp", params
+            )
+
+            self._set_state(ClientState.Running)
+            return self
+        except Exception as exc:
+            self.logger.debug("Unable to start SphinxClient: %s", exc, exc_info=True)
+
+            self.exception = exc
+            self._set_state(ClientState.Errored)
+
+            return self
+
+    def _set_state(self, new_state: ClientState):
+        """Change the state of the client."""
+        old_state, self.state = self.state, new_state
+
+        self.logger.debug("SphinxClient[%s]: %s -> %s", self.id, old_state, new_state)
+        self._events.trigger("state-change", self, old_state, new_state)
 
     async def stop(self):
         """Stop the client."""
+
         self.protocol.notify("exit", None)
 
         # Give the agent a little time to close.
         await asyncio.sleep(0.5)
+
+        if self._stderr_forwarder:
+            self._stderr_forwarder.cancel()
+
+        self.logger.debug(self._async_tasks)
         await super().stop()
-
-    async def create_application(self, config: SphinxConfig) -> types.SphinxInfo:
-        """Create a sphinx application object."""
-
-        params = types.CreateApplicationParams(
-            command=config.build_command,
-            enable_sync_scrolling=config.enable_sync_scrolling,
-        )
-
-        sphinx_info = await self.protocol.send_request_async("sphinx/createApp", params)
-        self.sphinx_info = sphinx_info
-        return sphinx_info
 
     async def build(
         self,
         *,
-        filenames: Optional[List[str]] = None,
+        filenames: list[str] | None = None,
         force_all: bool = False,
-        content_overrides: Optional[Dict[str, str]] = None,
+        content_overrides: dict[str, str] | None = None,
     ) -> types.BuildResult:
         """Trigger a Sphinx build."""
 
@@ -186,23 +264,31 @@ class SubprocessSphinxClient(JsonRPCClient):
             content_overrides=content_overrides or {},
         )
 
-        self._building = True
+        self._set_state(ClientState.Building)
+        try:
+            result = await self.protocol.send_request_async("sphinx/build", params)
+            self._set_state(ClientState.Running)
 
-        result = await self.protocol.send_request_async("sphinx/build", params)
-        self._building = False
+            return result
+        except Exception as exc:
+            self.exception = exc
+            self._set_state(ClientState.Errored)
 
-        self._diagnostics = {
-            Uri.for_file(fpath): items for fpath, items in result.diagnostics.items()
-        }
-
-        self._build_file_map = {
-            Uri.for_file(src): out for src, out in result.build_file_map.items()
-        }
-
-        return result
+            raise
 
 
-def make_subprocess_sphinx_client(manager: SphinxManager) -> SphinxClient:
+async def forward_stderr(server: asyncio.subprocess.Process):
+    if server.stderr is None:
+        return
+
+    # EOF is signalled with an empty bytestring
+    while (line := await server.stderr.readline()) != b"":
+        sphinx_logger.info(line.decode().rstrip())
+
+
+def make_subprocess_sphinx_client(
+    manager: SphinxManager, config: SphinxConfig
+) -> SphinxClient:
     """Factory function for creating a ``SubprocessSphinxClient`` instance.
 
     Parameters
@@ -210,49 +296,41 @@ def make_subprocess_sphinx_client(manager: SphinxManager) -> SphinxClient:
     manager
        The manager instance creating the client
 
+    config
+       The Sphinx configuration
+
     Returns
     -------
     SphinxClient
        The configured client
     """
-    client = SubprocessSphinxClient(logger=manager.logger)
+    client = SubprocessSphinxClient(config, logger=manager.logger)
 
     @client.feature("window/logMessage")
     def _on_msg(ls: SubprocessSphinxClient, params):
-        manager.server.show_message_log(params.message)
+        sphinx_logger.info(params.message)
+
+    @client.feature("$/progress")
+    def _on_progress(ls: SubprocessSphinxClient, params):
+        manager.report_progress(ls, params)
 
     return client
 
 
-def make_test_sphinx_client() -> SubprocessSphinxClient:
+def make_test_sphinx_client(config: SphinxConfig) -> SubprocessSphinxClient:
     """Factory function for creating a ``SubprocessSphinxClient`` instance
     to use for testing."""
     logger = logging.getLogger("sphinx_client")
     logger.setLevel(logging.INFO)
 
-    client = SubprocessSphinxClient()
+    client = SubprocessSphinxClient(config)
 
     @client.feature("window/logMessage")
     def _(params):
-        logger.info("%s", params.message)
+        print(params.message, file=sys.stderr)  # noqa: T201
+
+    @client.feature("$/progress")
+    def _on_progress(params):
+        logger.info("%s", params)
 
     return client
-
-
-def get_sphinx_env(config: SphinxConfig) -> Dict[str, str]:
-    """Return the set of environment variables to use with the Sphinx process."""
-    env = {"PYTHONPATH": ":".join([str(p) for p in config.python_path])}
-
-    passthrough = set(config.env_passthrough)
-    if IS_WIN and "SYSTEMROOT" not in passthrough:
-        passthrough.add("SYSTEMROOT")
-
-    for envname in passthrough:
-        value = os.environ.get(envname, None)
-        if value is not None:
-            if envname == "PYTHONPATH":
-                env["PYTHONPATH"] = f"{env['PYTHONPATH']}:{value}"
-            else:
-                env[envname] = value
-
-    return env

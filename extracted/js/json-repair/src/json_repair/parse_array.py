@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from .constants import STRING_DELIMITERS, JSONReturnType
-from .json_context import ContextValues
-from .object_comparer import ObjectComparer
+from .utils.constants import STRING_DELIMITERS, JSONReturnType
+from .utils.json_context import ContextValues
+from .utils.object_comparer import ObjectComparer
 
 if TYPE_CHECKING:
     from .json_parser import JSONParser
@@ -15,7 +15,7 @@ def parse_array(self: "JSONParser") -> list[JSONReturnType]:
     # Stop when you either find the closing parentheses or you have iterated over the entire string
     char = self.get_char_at()
     while char and char not in ["]", "}"]:
-        self.skip_whitespaces_at()
+        self.skip_whitespaces()
         value: JSONReturnType = ""
         if char in STRING_DELIMITERS:
             # Sometimes it can happen that LLMs forget to start an object and then you think it's a string in an array
@@ -23,13 +23,13 @@ def parse_array(self: "JSONParser") -> list[JSONReturnType]:
             # And either parse the string or parse the object
             i = 1
             i = self.skip_to_character(char, i)
-            i = self.skip_whitespaces_at(idx=i + 1, move_main_index=False)
+            i = self.scroll_whitespaces(idx=i + 1)
             value = self.parse_object() if self.get_char_at(i) == ":" else self.parse_string()
         else:
             value = self.parse_json()
 
-        # It is possible that parse_json() returns nothing valid, so we increase by 1
-        if ObjectComparer.is_strictly_empty(value):
+        # It is possible that parse_json() returns nothing valid, so we increase by 1, unless we find an array separator
+        if ObjectComparer.is_strictly_empty(value) and self.get_char_at() not in ["]", ","]:
             self.index += 1
         elif value == "..." and self.get_char_at(-1) == ".":
             self.log(
@@ -45,7 +45,7 @@ def parse_array(self: "JSONParser") -> list[JSONReturnType]:
             char = self.get_char_at()
 
     # Especially at the end of an LLM generated json you might miss the last "]"
-    if char and char != "]":
+    if char != "]":
         self.log(
             "While parsing an array we missed the closing ], ignoring it",
         )

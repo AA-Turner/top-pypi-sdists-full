@@ -5,8 +5,6 @@ import random
 import re
 from pathlib import Path
 
-import click
-
 from reflex import constants
 from reflex.compiler import templates
 from reflex.config import Config, get_config
@@ -54,7 +52,7 @@ def initialize_requirements_txt() -> bool:
         True if the user has to update the requirements.txt file.
 
     Raises:
-        Exit: If the requirements.txt file cannot be read or written to.
+        SystemExit: If the requirements.txt file cannot be read or written to.
     """
     requirements_file_path = Path(constants.RequirementsTxt.FILE)
     if (
@@ -72,8 +70,8 @@ def initialize_requirements_txt() -> bool:
         except UnicodeDecodeError:
             continue
         except Exception as e:
-            console.error(f"Failed to read {requirements_file_path}.")
-            raise click.exceptions.Exit(1) from e
+            console.error(f"Failed to read {requirements_file_path} due to {e}.")
+            raise SystemExit(1) from None
     else:
         return True
 
@@ -197,6 +195,8 @@ def _compile_vite_config(config: Config):
         base=base,
         hmr=environment.VITE_HMR.get(),
         force_full_reload=environment.VITE_FORCE_FULL_RELOAD.get(),
+        experimental_hmr=environment.VITE_EXPERIMENTAL_HMR.get(),
+        sourcemap=environment.VITE_SOURCEMAP.get(),
     )
 
 

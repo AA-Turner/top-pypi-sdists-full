@@ -2,10 +2,14 @@
 # File generated from our OpenAPI spec
 from stripe._list_object import ListObject
 from stripe._listable_api_resource import ListableAPIResource
-from stripe._request_options import RequestOptions
 from stripe._stripe_object import StripeObject
-from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Literal, NotRequired, TypedDict, Unpack
+from typing import ClassVar, Dict, Optional
+from typing_extensions import Literal, Unpack, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from stripe.params._event_list_params import EventListParams
+    from stripe.params._event_retrieve_params import EventRetrieveParams
+    from typing import Any
 
 
 class Event(ListableAPIResource["Event"]):
@@ -33,11 +37,11 @@ class Event(ListableAPIResource["Event"]):
     OBJECT_NAME: ClassVar[Literal["event"]] = "event"
 
     class Data(StripeObject):
-        object: Dict[str, Any]
+        object: Dict[str, "Any"]
         """
-        Object containing the API resource relevant to the event. For example, an `invoice.created` event will have a full [invoice object](https://stripe.com/docs/api#invoice_object) as the value of the object key.
+        Object containing the API resource relevant to the event. For example, an `invoice.created` event will have a full [invoice object](https://api.stripe.com#invoice_object) as the value of the object key.
         """
-        previous_attributes: Optional[Dict[str, Any]]
+        previous_attributes: Optional[Dict[str, "Any"]]
         """
         Object containing the names of the updated attributes and their values prior to the event (only included in events of type `*.updated`). If an array attribute has any updated elements, this object contains the entire array. In Stripe API versions 2017-04-06 or earlier, an updated array attribute in this object includes only the updated array elements.
         """
@@ -50,64 +54,6 @@ class Event(ListableAPIResource["Event"]):
         idempotency_key: Optional[str]
         """
         The idempotency key transmitted during the request, if any. *Note: This property is populated only for events on or after May 23, 2017*.
-        """
-
-    class ListParams(RequestOptions):
-        created: NotRequired["Event.ListParamsCreated|int"]
-        """
-        Only return events that were created during the given date interval.
-        """
-        delivery_success: NotRequired[bool]
-        """
-        Filter events by whether all webhooks were successfully delivered. If false, events which are still pending or have failed all delivery attempts to a webhook endpoint will be returned.
-        """
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-        type: NotRequired[str]
-        """
-        A string containing a specific event name, or group of events using * as a wildcard. The list will be filtered to include only events with a matching event property.
-        """
-        types: NotRequired[List[str]]
-        """
-        An array of up to 20 strings containing specific event names. The list will be filtered to include only events with a matching event property. You may pass either `type` or `types`, but not both.
-        """
-
-    class ListParamsCreated(TypedDict):
-        gt: NotRequired[int]
-        """
-        Minimum value to filter by (exclusive)
-        """
-        gte: NotRequired[int]
-        """
-        Minimum value to filter by (inclusive)
-        """
-        lt: NotRequired[int]
-        """
-        Maximum value to filter by (exclusive)
-        """
-        lte: NotRequired[int]
-        """
-        Maximum value to filter by (inclusive)
-        """
-
-    class RetrieveParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
         """
 
     account: Optional[str]
@@ -158,6 +104,7 @@ class Event(ListableAPIResource["Event"]):
         "application_fee.refund.updated",
         "application_fee.refunded",
         "balance.available",
+        "balance_settings.updated",
         "billing.alert.triggered",
         "billing_portal.configuration.created",
         "billing_portal.configuration.updated",
@@ -218,6 +165,7 @@ class Event(ListableAPIResource["Event"]):
         "customer_cash_balance_transaction.created",
         "entitlements.active_entitlement_summary.updated",
         "file.created",
+        "financial_connections.account.account_numbers_updated",
         "financial_connections.account.created",
         "financial_connections.account.deactivated",
         "financial_connections.account.disconnected",
@@ -225,6 +173,7 @@ class Event(ListableAPIResource["Event"]):
         "financial_connections.account.refreshed_balance",
         "financial_connections.account.refreshed_ownership",
         "financial_connections.account.refreshed_transactions",
+        "financial_connections.account.upcoming_account_number_expiry",
         "identity.verification_session.canceled",
         "identity.verification_session.created",
         "identity.verification_session.processing",
@@ -240,6 +189,7 @@ class Event(ListableAPIResource["Event"]):
         "invoice.overpaid",
         "invoice.paid",
         "invoice.payment_action_required",
+        "invoice.payment_attempt_required",
         "invoice.payment_failed",
         "invoice.payment_succeeded",
         "invoice.sent",
@@ -403,7 +353,7 @@ class Event(ListableAPIResource["Event"]):
     """
 
     @classmethod
-    def list(cls, **params: Unpack["Event.ListParams"]) -> ListObject["Event"]:
+    def list(cls, **params: Unpack["EventListParams"]) -> ListObject["Event"]:
         """
         List events, going back up to 30 days. Each event data is rendered according to Stripe API version at its creation time, specified in [event object](https://docs.stripe.com/api/events/object) api_version attribute (not according to your current Stripe API version or Stripe-Version header).
         """
@@ -422,7 +372,7 @@ class Event(ListableAPIResource["Event"]):
 
     @classmethod
     async def list_async(
-        cls, **params: Unpack["Event.ListParams"]
+        cls, **params: Unpack["EventListParams"]
     ) -> ListObject["Event"]:
         """
         List events, going back up to 30 days. Each event data is rendered according to Stripe API version at its creation time, specified in [event object](https://docs.stripe.com/api/events/object) api_version attribute (not according to your current Stripe API version or Stripe-Version header).
@@ -442,7 +392,7 @@ class Event(ListableAPIResource["Event"]):
 
     @classmethod
     def retrieve(
-        cls, id: str, **params: Unpack["Event.RetrieveParams"]
+        cls, id: str, **params: Unpack["EventRetrieveParams"]
     ) -> "Event":
         """
         Retrieves the details of an event if it was created in the last 30 days. Supply the unique identifier of the event, which you might have received in a webhook.
@@ -453,7 +403,7 @@ class Event(ListableAPIResource["Event"]):
 
     @classmethod
     async def retrieve_async(
-        cls, id: str, **params: Unpack["Event.RetrieveParams"]
+        cls, id: str, **params: Unpack["EventRetrieveParams"]
     ) -> "Event":
         """
         Retrieves the details of an event if it was created in the last 30 days. Supply the unique identifier of the event, which you might have received in a webhook.

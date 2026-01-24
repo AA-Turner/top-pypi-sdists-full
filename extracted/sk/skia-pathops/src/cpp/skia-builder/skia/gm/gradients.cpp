@@ -25,7 +25,12 @@
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkGradientShader.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkFloatingPoint.h"
+#include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
+#include <initializer_list>
 #include <math.h>
 
 namespace {
@@ -88,8 +93,8 @@ static sk_sp<SkShader> MakeLinear4f(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> MakeRadial(const SkPoint pts[2], const GradData& data,
                                   SkTileMode tm, const SkMatrix& localMatrix) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     return SkGradientShader::MakeRadial(center, center.fX, data.fColors, data.fPos, data.fCount,
                                         tm, 0, &localMatrix);
 }
@@ -97,8 +102,8 @@ static sk_sp<SkShader> MakeRadial(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> MakeRadial4f(const SkPoint pts[2], const GradData& data,
                                     SkTileMode tm, const SkMatrix& localMatrix) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     auto srgb = SkColorSpace::MakeSRGB();
     return SkGradientShader::MakeRadial(center, center.fX, data.fColors4f, srgb, data.fPos,
                                         data.fCount, tm, 0, &localMatrix);
@@ -107,8 +112,8 @@ static sk_sp<SkShader> MakeRadial4f(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> MakeSweep(const SkPoint pts[2], const GradData& data,
                                  SkTileMode, const SkMatrix& localMatrix) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     return SkGradientShader::MakeSweep(center.fX, center.fY, data.fColors, data.fPos, data.fCount,
                                        0, &localMatrix);
 }
@@ -116,8 +121,8 @@ static sk_sp<SkShader> MakeSweep(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> MakeSweep4f(const SkPoint pts[2], const GradData& data,
                                    SkTileMode, const SkMatrix& localMatrix) {
     SkPoint center;
-    center.set(SkScalarAve(pts[0].fX, pts[1].fX),
-               SkScalarAve(pts[0].fY, pts[1].fY));
+    center.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+               sk_float_midpoint(pts[0].fY, pts[1].fY));
     auto srgb = SkColorSpace::MakeSRGB();
     return SkGradientShader::MakeSweep(center.fX, center.fY, data.fColors4f, srgb, data.fPos,
                                        data.fCount, 0, &localMatrix);
@@ -126,8 +131,8 @@ static sk_sp<SkShader> MakeSweep4f(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> Make2Radial(const SkPoint pts[2], const GradData& data,
                                    SkTileMode tm, const SkMatrix& localMatrix) {
     SkPoint center0, center1;
-    center0.set(SkScalarAve(pts[0].fX, pts[1].fX),
-                SkScalarAve(pts[0].fY, pts[1].fY));
+    center0.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+                sk_float_midpoint(pts[0].fY, pts[1].fY));
     center1.set(SkScalarInterp(pts[0].fX, pts[1].fX, SkIntToScalar(3)/5),
                 SkScalarInterp(pts[0].fY, pts[1].fY, SkIntToScalar(1)/4));
     return SkGradientShader::MakeTwoPointConical(center1, (pts[1].fX - pts[0].fX) / 7,
@@ -139,8 +144,8 @@ static sk_sp<SkShader> Make2Radial(const SkPoint pts[2], const GradData& data,
 static sk_sp<SkShader> Make2Radial4f(const SkPoint pts[2], const GradData& data,
                                      SkTileMode tm, const SkMatrix& localMatrix) {
     SkPoint center0, center1;
-    center0.set(SkScalarAve(pts[0].fX, pts[1].fX),
-                SkScalarAve(pts[0].fY, pts[1].fY));
+    center0.set(sk_float_midpoint(pts[0].fX, pts[1].fX),
+                sk_float_midpoint(pts[0].fY, pts[1].fY));
     center1.set(SkScalarInterp(pts[0].fX, pts[1].fX, SkIntToScalar(3) / 5),
                 SkScalarInterp(pts[0].fY, pts[1].fY, SkIntToScalar(1) / 4));
     auto srgb = SkColorSpace::MakeSRGB();
@@ -227,11 +232,11 @@ protected:
 private:
     void onOnceBeforeDraw() override { this->setBGColor(0xFFDDDDDD); }
 
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients" : "gradients_nodither");
     }
 
-    SkISize onISize() override { return {840, 815}; }
+    SkISize getISize() override { return {840, 815}; }
 };
 DEF_GM( return new GradientsGM(true); )
 DEF_GM( return new GradientsGM(false); )
@@ -244,11 +249,11 @@ public:
 private:
     void onOnceBeforeDraw() override { this->setBGColor(0xFFDDDDDD); }
 
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients4f" : "gradients4f_nodither");
     }
 
-    SkISize onISize() override { return {840, 815}; }
+    SkISize getISize() override { return {840, 815}; }
 
     void onDraw(SkCanvas* canvas) override {
         SkPoint pts[2] ={
@@ -295,12 +300,12 @@ public:
     }
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients_local_perspective" :
                                   "gradients_local_perspective_nodither");
     }
 
-    SkISize onISize() override { return {840, 815}; }
+    SkISize getISize() override { return {840, 815}; }
 
     void onDraw(SkCanvas* canvas) override {
         SkPoint pts[2] = {
@@ -344,12 +349,12 @@ public:
     GradientsViewPerspectiveGM(bool dither) : INHERITED(dither) { }
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients_view_perspective" :
                                   "gradients_view_perspective_nodither");
     }
 
-    SkISize onISize() override { return {840, 500}; }
+    SkISize getISize() override { return {840, 500}; }
 
     void onDraw(SkCanvas* canvas) override {
         SkMatrix perspective;
@@ -387,11 +392,11 @@ public:
     GradientsDegenrate2PointGM(bool dither) : fDither(dither) {}
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "gradients_degenerate_2pt" : "gradients_degenerate_2pt_nodither");
     }
 
-    SkISize onISize() override { return {320, 320}; }
+    SkISize getISize() override { return {320, 320}; }
 
     void onDraw(SkCanvas* canvas) override {
         canvas->drawColor(SK_ColorBLUE);
@@ -417,7 +422,7 @@ private:
 DEF_GM( return new GradientsDegenrate2PointGM(true); )
 DEF_GM( return new GradientsDegenrate2PointGM(false); )
 
-/* bug.skia.org/517
+/* skbug.com/40031542
 <canvas id="canvas"></canvas>
 <script>
 var c = document.getElementById("canvas");
@@ -460,11 +465,11 @@ public:
     ClampedGradientsGM(bool dither) : fDither(dither) {}
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "clamped_gradients" : "clamped_gradients_nodither");
     }
 
-    SkISize onISize() override { return {640, 510}; }
+    SkISize getISize() override { return {640, 510}; }
 
     void onDraw(SkCanvas* canvas) override {
         canvas->drawColor(0xFFDDDDDD);
@@ -493,9 +498,9 @@ DEF_GM( return new ClampedGradientsGM(false); )
 /// some banding.
 
 class RadialGradientGM : public skiagm::GM {
-    SkString onShortName() override { return SkString("radial_gradient"); }
+    SkString getName() const override { return SkString("radial_gradient"); }
 
-    SkISize onISize() override { return {1280, 1280}; }
+    SkISize getISize() override { return {1280, 1280}; }
 
     void onDraw(SkCanvas* canvas) override {
         const SkISize dim = this->getISize();
@@ -527,13 +532,13 @@ public:
     RadialGradient2GM(bool dither) : fDither(dither) {}
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "radial_gradient2" : "radial_gradient2_nodither");
     }
 
-    SkISize onISize() override { return {800, 400}; }
+    SkISize getISize() override { return {800, 400}; }
 
-    // Reproduces the example given in bug 7671058.
+    // Reproduces the example given in b/7671058.
     void onDraw(SkCanvas* canvas) override {
         SkPaint paint1, paint2, paint3;
         paint1.setStyle(SkPaint::kFill_Style);
@@ -591,11 +596,11 @@ public:
     RadialGradient3GM(bool dither) : fDither(dither) { }
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "radial_gradient3" : "radial_gradient3_nodither");
     }
 
-    SkISize onISize() override { return {500, 500}; }
+    SkISize getISize() override { return {500, 500}; }
 
     bool runAsBench() const override { return true; }
 
@@ -628,11 +633,11 @@ public:
     RadialGradient4GM(bool dither) : fDither(dither) { }
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "radial_gradient4" : "radial_gradient4_nodither");
     }
 
-    SkISize onISize() override { return {500, 500}; }
+    SkISize getISize() override { return {500, 500}; }
 
     void onOnceBeforeDraw() override {
         const SkPoint center = { 250, 250 };
@@ -666,7 +671,7 @@ public:
     LinearGradientGM(bool dither) : fDither(dither) { }
 
 private:
-    SkString onShortName() override {
+    SkString getName() const override {
         return SkString(fDither ? "linear_gradient" : "linear_gradient_nodither");
     }
 
@@ -674,7 +679,7 @@ private:
     const SkScalar kHeight = 5.f;
     const SkScalar kMinWidth = 540.f;
 
-    SkISize onISize() override { return {500, 500}; }
+    SkISize getISize() override { return {500, 500}; }
 
     void onOnceBeforeDraw() override {
         SkPoint pts[2] = { {0, 0}, {0, 0} };
@@ -716,9 +721,9 @@ DEF_GM( return new LinearGradientGM(false); )
 class LinearGradientTinyGM : public skiagm::GM {
     inline static constexpr uint32_t kFlags = 0;
 
-    SkString onShortName() override { return SkString("linear_gradient_tiny"); }
+    SkString getName() const override { return SkString("linear_gradient_tiny"); }
 
-    SkISize onISize() override { return {600, 500}; }
+    SkISize getISize() override { return {600, 500}; }
 
     void onDraw(SkCanvas* canvas) override {
         const SkScalar kRectSize = 100;
@@ -1110,8 +1115,8 @@ DEF_SIMPLE_GM(gradients_interesting, canvas, 640, 1300) {
     }
 }
 
-// TODO(skia:13774): Still need to test degenerate gradients in strange color spaces
-DEF_SIMPLE_GM_BG(gradients_color_space, canvas, 265, 205, SK_ColorGRAY) {
+// TODO(skbug.com/40044214): Still need to test degenerate gradients in strange color spaces
+DEF_SIMPLE_GM_BG(gradients_color_space, canvas, 265, 355, SK_ColorGRAY) {
     using CS = SkGradientShader::Interpolation::ColorSpace;
 
     struct Config {
@@ -1119,14 +1124,20 @@ DEF_SIMPLE_GM_BG(gradients_color_space, canvas, 265, 205, SK_ColorGRAY) {
         const char* fLabel;
     };
     static const Config kConfigs[] = {
-        { CS::kSRGB,       "sRGB" },
-        { CS::kSRGBLinear, "Linear" },
-        { CS::kLab,        "Lab" },
-        { CS::kOKLab,      "OKLab" },
-        { CS::kLCH,        "LCH" },
-        { CS::kOKLCH,      "OKLCH" },
-        { CS::kHSL,        "HSL" },
-        { CS::kHWB,        "HWB" },
+            {CS::kSRGB, "sRGB"},
+            {CS::kSRGBLinear, "Linear"},
+            {CS::kLab, "Lab"},
+            {CS::kOKLab, "OKLab"},
+            {CS::kOKLabGamutMap, "OKLabGamutMap"},
+            {CS::kLCH, "LCH"},
+            {CS::kOKLCH, "OKLCH"},
+            {CS::kOKLCHGamutMap, "OKLCHGamutMap"},
+            {CS::kHSL, "HSL"},
+            {CS::kHWB, "HWB"},
+            {CS::kA98RGB, "a98RGB"},
+            {CS::kProphotoRGB, "ProPhotoRGB"},
+            {CS::kDisplayP3, "DisplayP3"},
+            {CS::kRec2020, "Rec2020"},
     };
 
     SkPoint pts[] = {{0, 0}, {200, 0}};
@@ -1136,6 +1147,7 @@ DEF_SIMPLE_GM_BG(gradients_color_space, canvas, 265, 205, SK_ColorGRAY) {
     SkPaint p;
     SkGradientShader::Interpolation interpolation;
     canvas->translate(5, 5);
+    SkFont font = ToolUtils::DefaultPortableFont();
 
     for (const Config& config : kConfigs) {
         interpolation.fColorSpace = config.fColorSpace;
@@ -1143,7 +1155,7 @@ DEF_SIMPLE_GM_BG(gradients_color_space, canvas, 265, 205, SK_ColorGRAY) {
                                                  SkTileMode::kClamp, interpolation, nullptr));
         canvas->drawRect({0, 0, 200, 20}, p);
         canvas->drawSimpleText(config.fLabel, strlen(config.fLabel), SkTextEncoding::kUTF8, 210, 15,
-                               SkFont{}, labelPaint);
+                               font, labelPaint);
         canvas->translate(0, 25);
     }
 }
@@ -1170,6 +1182,7 @@ DEF_SIMPLE_GM_BG(gradients_hue_method, canvas, 285, 155, SK_ColorGRAY) {
     SkGradientShader::Interpolation interpolation;
     interpolation.fColorSpace = SkGradientShader::Interpolation::ColorSpace::kHSL;
     canvas->translate(5, 5);
+    SkFont font = ToolUtils::DefaultPortableFont();
 
     for (const Config& config : kConfigs) {
         interpolation.fHueMethod = config.fHueMethod;
@@ -1177,11 +1190,11 @@ DEF_SIMPLE_GM_BG(gradients_hue_method, canvas, 285, 155, SK_ColorGRAY) {
                                                  SkTileMode::kClamp, interpolation, nullptr));
         canvas->drawRect({0, 0, 200, 20}, p);
         canvas->drawSimpleText(config.fLabel, strlen(config.fLabel), SkTextEncoding::kUTF8, 210, 15,
-                               SkFont{}, labelPaint);
+                               font, labelPaint);
         canvas->translate(0, 25);
     }
 
-    // Test a bug (skia:13941) with how gradient shaders handle explicit positions.
+    // Test a bug (skbug.com/40044215) with how gradient shaders handle explicit positions.
     // If there are no explicit positions at 0 or 1, those are automatically added, with copies of
     // the first/last color. When using kLonger, this can produce extra gradient that should
     // actually be solid. This gradient *should* be:
@@ -1258,3 +1271,170 @@ DEF_SIMPLE_GM_BG(gradients_color_space_many_stops, canvas, 500, 500, SK_ColorGRA
 
     canvas->drawRect(SkRect::MakeXYWH(0, 0, 500, 500), p);
 }
+
+DEF_SIMPLE_GM(gradients_alpha_many_stops, canvas, 100, 100) {
+    static const SkPoint kPts[] = {{0.f, 0.f}, {0.f, 100.f}};
+
+    // From https://issues.chromium.org/issues/401546700, this encounters Graphite's
+    // storage buffer option for storing gradient buffers AND uses colors that emphasize
+    // premul vs. unpremul handling of the color data.
+    static const float kPos[] = {0.f, 0.19f, 0.34f, 0.47f, 0.565f, 0.65f,
+                                 0.73f, 0.802f, 0.861f, 0.91f, 0.952f, 0.982f, 1.f};
+
+    static constexpr float kG = 34 / 255.f;
+    static const SkColor4f kColors[] = {{kG, kG, kG, 1.f},
+                                        {kG, kG, kG, 0.738f},
+                                        {kG, kG, kG, 0.541f},
+                                        {kG, kG, kG, 0.382f},
+                                        {kG, kG, kG, 0.278f},
+                                        {kG, kG, kG, 0.194f},
+                                        {kG, kG, kG, 0.126f},
+                                        {kG, kG, kG, 0.075f},
+                                        {kG, kG, kG, 0.042f},
+                                        {kG, kG, kG, 0.021f},
+                                        {kG, kG, kG, 0.008f},
+                                        {kG, kG, kG, 0.002f},
+                                        {kG, kG, kG, 0.f}};
+
+    canvas->clear(SkColor4f{0.5f, 0.5f, 0.5f, 1.f});
+
+    SkPaint paint;
+    paint.setShader(SkGradientShader::MakeLinear(
+            kPts, kColors, /*colorSpace=*/nullptr, kPos, std::size(kPos), SkTileMode::kClamp));
+    canvas->drawPaint(paint);
+}
+
+static void draw_powerless_hue_gradients(SkCanvas* canvas,
+                                         SkGradientShader::Interpolation::ColorSpace colorSpace) {
+    ToolUtils::draw_checkerboard(canvas);
+
+    auto nextRow = [=]() {
+        canvas->restore();
+        canvas->translate(0, 25);
+        canvas->save();
+    };
+
+    auto gradient = [&](std::initializer_list<SkColor4f> colors,
+                        std::initializer_list<float> pos,
+                        bool inPremul = false) {
+        using Interpolation = SkGradientShader::Interpolation;
+        SkASSERT(pos.size() == 0 || pos.size() == colors.size());
+        SkPaint paint;
+        SkPoint pts[] = {{0, 0}, {200, 0}};
+        Interpolation interpolation;
+        interpolation.fColorSpace = colorSpace;
+        interpolation.fInPremul = static_cast<Interpolation::InPremul>(inPremul);
+        paint.setShader(SkGradientShader::MakeLinear(pts,
+                                                     colors.begin(),
+                                                     SkColorSpace::MakeSRGB(),
+                                                     pos.size() == 0 ? nullptr : pos.begin(),
+                                                     colors.size(),
+                                                     SkTileMode::kClamp,
+                                                     interpolation,
+                                                     nullptr));
+        canvas->drawRect({0, 0, 200, 20}, paint);
+        canvas->translate(205, 0); // next column
+    };
+
+    canvas->translate(5, 5);
+    canvas->save();
+
+    // For each test case, the first gradient (first column) has an under-specified result due to a
+    // powerless component after conversion to LCH. The second gradient (second column) "hints" the
+    // correct result, by slightly tinting the otherwise powerless color.
+
+    gradient({SkColors::kWhite,            SkColors::kBlue}, {});
+    gradient({{0.99f, 0.99f, 1.00f, 1.0f}, SkColors::kBlue}, {}); // white, with blue hue
+    nextRow();
+
+    gradient({SkColors::kBlack,            SkColors::kBlue}, {});
+    gradient({{0.00f, 0.00f, 0.01f, 1.0f}, SkColors::kBlue}, {}); // black, with blue hue
+    nextRow();
+
+    // Transparent cases are done in both premul and unpremul interpolation:
+
+    gradient({SkColors::kTransparent,      SkColors::kBlue}, {}, /*inPremul=*/false);
+    gradient({{0.00f, 0.00f, 0.01f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/false);
+    nextRow();
+
+    gradient({SkColors::kTransparent,      SkColors::kBlue}, {}, /*inPremul=*/true);
+    gradient({{0.00f, 0.00f, 0.01f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/true);
+    nextRow();
+
+    gradient({{1.00f, 1.00f, 1.00f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/false);
+    gradient({{0.99f, 0.99f, 1.00f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/false);
+    nextRow();
+
+    gradient({{1.00f, 1.00f, 1.00f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/true);
+    gradient({{0.99f, 0.99f, 1.00f, 0.0f}, SkColors::kBlue}, {}, /*inPremul=*/true);
+    nextRow();
+
+    // Now we test three-stop gradients, where the middle stop needs to be "split" to handle the
+    // different hues on either side. Again, the second column explicitly injects those to produce
+    // a reference result. See: https://github.com/w3c/csswg-drafts/issues/9295
+
+    gradient({SkColors::kRed, SkColors::kWhite, SkColors::kBlue}, {});
+    gradient({SkColors::kRed,
+              {1.00f, 0.99f, 0.99f, 1.0f},
+              {0.99f, 0.99f, 1.00f, 1.0f},
+              SkColors::kBlue},
+             {0.0f, 0.5f, 0.5f, 1.0f});
+    nextRow();
+
+    gradient({SkColors::kRed, SkColors::kBlack, SkColors::kBlue}, {});
+    gradient({SkColors::kRed,
+              {0.01f, 0.00f, 0.00f, 1.0f},
+              {0.00f, 0.00f, 0.01f, 1.0f},
+              SkColors::kBlue},
+             {0.0f, 0.5f, 0.5f, 1.0f});
+    nextRow();
+
+    gradient({SkColors::kRed, SkColors::kTransparent, SkColors::kBlue}, {});
+    gradient({SkColors::kRed,
+              {0.01f, 0.00f, 0.00f, 0.0f},
+              {0.00f, 0.00f, 0.01f, 0.0f},
+              SkColors::kBlue},
+             {0.0f, 0.5f, 0.5f, 1.0f});
+    nextRow();
+
+    // Now do a few black-white tests, to ensure that the hue propagation works correctly, even
+    // when there isn't any hue in the adjacent stops.
+    using HueMethod = SkGradientShader::Interpolation::HueMethod;
+    auto blackWhiteGradient = [&](HueMethod hm) {
+        using Interpolation = SkGradientShader::Interpolation;
+        SkPaint paint;
+        SkPoint pts[] = {{0, 0}, {405, 0}};
+        Interpolation interpolation;
+        interpolation.fColorSpace = colorSpace;
+        interpolation.fHueMethod = hm;
+        const SkColor4f colors[] = {SkColors::kWhite, SkColors::kGray,
+                                    SkColors::kWhite, SkColors::kDkGray,
+                                    SkColors::kWhite, SkColors::kBlack};
+        paint.setShader(SkGradientShader::MakeLinear(pts,
+                                                     colors,
+                                                     SkColorSpace::MakeSRGB(),
+                                                     nullptr,
+                                                     std::size(colors),
+                                                     SkTileMode::kClamp,
+                                                     interpolation,
+                                                     nullptr));
+        canvas->drawRect({0, 0, 405, 20}, paint);
+        nextRow();
+    };
+
+    blackWhiteGradient(HueMethod::kShorter);
+    blackWhiteGradient(HueMethod::kIncreasing);
+    blackWhiteGradient(HueMethod::kDecreasing);
+    blackWhiteGradient(HueMethod::kLonger);
+}
+
+#define DEF_POWERLESS_HUE_GM(colorSpace)                                                          \
+    DEF_SIMPLE_GM(gradients_powerless_hue_##colorSpace, canvas, 415, 330) {                       \
+        draw_powerless_hue_gradients(canvas,                                                      \
+                                     SkGradientShader::Interpolation::ColorSpace::k##colorSpace); \
+    }
+
+DEF_POWERLESS_HUE_GM(LCH)
+DEF_POWERLESS_HUE_GM(OKLCH)
+DEF_POWERLESS_HUE_GM(HSL)
+DEF_POWERLESS_HUE_GM(HWB)

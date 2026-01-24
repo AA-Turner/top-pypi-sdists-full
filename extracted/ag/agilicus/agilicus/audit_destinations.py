@@ -21,7 +21,7 @@ from .output.table import (
     subtable,
 )
 
-DESTINATION_TYPES = ["file", "webhook", "graylog", "connector"]
+DESTINATION_TYPES = ["file", "webhook", "graylog", "connector", "syslog"]
 FILTER_TYPES = ["subsystem", "audit_agent_type", "audit_agent_id", "hostname"]
 AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer"]
 

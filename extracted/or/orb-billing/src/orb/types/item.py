@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -10,19 +10,37 @@ __all__ = ["Item", "ExternalConnection"]
 
 
 class ExternalConnection(BaseModel):
+    """
+    Represents a connection between an Item and an external system for invoicing or tax calculation purposes.
+    """
+
     external_connection_name: Literal[
         "stripe", "quickbooks", "bill.com", "netsuite", "taxjar", "avalara", "anrok", "numeral"
     ]
+    """The name of the external system this item is connected to."""
 
     external_entity_id: str
+    """The identifier of this item in the external system."""
 
 
 class Item(BaseModel):
+    """The Item resource represents a sellable product or good.
+
+    Items are associated with all line items, billable metrics,
+    and prices and are used for defining external sync behavior for invoices and tax calculation purposes.
+    """
+
     id: str
+    """The Orb-assigned unique identifier for the item."""
 
     created_at: datetime
+    """The time at which the item was created."""
 
     external_connections: List[ExternalConnection]
+    """
+    A list of external connections for this item, used to sync with external
+    invoicing and tax systems.
+    """
 
     metadata: Dict[str, str]
     """User specified key-value pairs for the resource.
@@ -33,3 +51,7 @@ class Item(BaseModel):
     """
 
     name: str
+    """The name of the item."""
+
+    archived_at: Optional[datetime] = None
+    """The time at which the item was archived. If null, the item is not archived."""

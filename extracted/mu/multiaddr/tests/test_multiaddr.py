@@ -10,6 +10,7 @@ from multiaddr.exceptions import (
 from multiaddr.multiaddr import Multiaddr
 from multiaddr.protocols import (
     P_DNS,
+    P_HTTP_PATH,
     P_IP4,
     P_IP6,
     P_P2P,
@@ -27,6 +28,8 @@ from multiaddr.protocols import (
         "/ip4",
         "/ip4/::1",
         "/ip4/fdpsofodsajfdoisa",
+        "/ip4/::/ipcidr/256",
+        "/ip6/::/ipcidr/1026",
         "/ip6",
         "/ip6zone",
         "/ip6zone/",
@@ -49,6 +52,23 @@ from multiaddr.protocols import (
         "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:-1",
         "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd",
         "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyy@:666",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA7:80",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:0",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:0",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:-1",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA@:666",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA7:80",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:0",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:0",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA:-1",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA@:666",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzu",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzu77",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzu:80",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuq:-1",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzu@",
+        "/ip4/127.0.0.1/udp/1234/quic-v1/webtransport/certhash/b2uaraocy6yrdblb4sfptaddgimjmmpy",
+        "/ip4/127.0.0.1/udp/1234/quic-v1/webtransport/certhash/b2uaraocy6yrdblb4sfptaddgimjmmpy/certhash/zQmbWTwYGcmdyK9CYfNBcfs9nhZs17a6FQ4Y8oea278xx41",
         "/udp/1234/sctp",
         "/udp/1234/udt/1234",
         "/udp/1234/utp/1234",
@@ -76,11 +96,22 @@ def test_invalid(addr_str):
     [
         "/ip4/1.2.3.4",
         "/ip4/0.0.0.0",
+        "/ip4/192.0.2.0/ipcidr/24",
         "/ip6/::1",
         "/ip6/2601:9:4f81:9700:803e:ca65:66e8:c21",
+        "/ip6/2001:db8::/ipcidr/32",
         "/ip6zone/x/ip6/fe80::1",
         "/ip6zone/x%y/ip6/fe80::1",
         "/ip6zone/x%y/ip6/::",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA/http",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA/udp/8080",
+        "/garlic64/jT~IyXaoauTni6N4517EG8mrFUKpy0IlgZh-EY9csMAk82Odatmzr~YTZy8Hv7u~wvkg75EFNOyqb~nAPg-khyp2TS~ObUz8WlqYAM2VlEzJ7wJB91P-cUlKF18zSzVoJFmsrcQHZCirSbWoOknS6iNmsGRh5KVZsBEfp1Dg3gwTipTRIx7Vl5Vy~1OSKQVjYiGZS9q8RL0MF~7xFiKxZDLbPxk0AK9TzGGqm~wMTI2HS0Gm4Ycy8LYPVmLvGonIBYndg2bJC7WLuF6tVjVquiokSVDKFwq70BCUU5AU-EvdOD5KEOAM7mPfw-gJUG4tm1TtvcobrObqoRnmhXPTBTN5H7qDD12AvlwFGnfAlBXjuP4xOUAISL5SRLiulrsMSiT4GcugSI80mF6sdB0zWRgL1yyvoVWeTBn1TqjO27alr95DGTluuSqrNAxgpQzCKEWAyzrQkBfo2avGAmmz2NaHaAvYbOg0QSJz1PLjv2jdPW~ofiQmrGWM1cd~1cCqAAAA/tcp/8080",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuq",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuqzwas",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuq/http",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuq/tcp/8080",
+        "/garlic32/566niximlxdzpanmn4qouucvua3k7neniwss47li5r6ugoertzuq/udp/8080",
         "/udp/0",
         "/tcp/0",
         "/sctp/0",
@@ -96,10 +127,21 @@ def test_invalid(addr_str):
         "/ip4/127.0.0.1/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC/tcp/1234",
         "/unix/a/b/c/d/e",
         "/unix/stdio",
+        "/ip4/127.0.0.1/tcp/127/noise",
         "/ip4/1.2.3.4/tcp/80/unix/a/b/c/d/e/f",
         "/ip4/127.0.0.1/p2p/QmcgpsyWgH8Y8ajJz1Cu72KnS5uo2Aa2LpzU7kinSupNKC/tcp/1234/unix/stdio",
         "/dns/example.com",
         "/dns4/موقع.وزارة-الاتصالات.مصر",
+        "/ip4/127.0.0.1/tcp/443/tls/sni/example.com/http/http-path/foo",
+        "/memory/4",
+        "/http-path/tmp%2Fbar",
+        "/http-path/tmp%2Fbar%2Fbaz",
+        "/http-path/foo",
+        "/ip4/127.0.0.1/tcp/9090/http/p2p-webrtc-direct",
+        "/ip4/127.0.0.1/tcp/127/webrtc-direct",
+        "/ip4/127.0.0.1/tcp/127/webrtc",
+        "/certhash/uEiDDq4_xNyDorZBH3TlGazyJdOWSwvo4PUo5YHFMrvDE8g"
+        "/ip4/127.0.0.1/udp/9090/webrtc-direct/certhash/uEiDDq4_xNyDorZBH3TlGazyJdOWSwvo4PUo5YHFMrvDE8g",
     ],
 )  # nopep8
 def test_valid(addr_str):
@@ -825,3 +867,238 @@ def test_memory_protocol_properties():
     assert proto.code == 777
     assert proto.name == "memory"
     assert proto.codec == "memory"
+
+
+def test_http_path_multiaddr_roundtrip():
+    """Test basic http-path in multiaddr string roundtrip"""
+    test_cases = [
+        "/http-path/foo",
+        "/http-path/foo%2Fbar",  # URL-encoded forward slashes
+        "/http-path/api%2Fv1%2Fusers",  # URL-encoded forward slashes
+    ]
+
+    for addr_str in test_cases:
+        m = Multiaddr(addr_str)
+        assert str(m) == addr_str
+        # Verify protocol value extraction
+        path_value = m.value_for_protocol(P_HTTP_PATH)
+        expected_path = addr_str.replace("/http-path/", "")
+        assert path_value == expected_path
+
+
+def test_http_path_url_encoding():
+    """Test special characters and URL encoding behavior"""
+    test_cases = [
+        ("/foo%20bar", "/foo%20bar"),  # Already URL-encoded input
+        (
+            "/path%2Fwith%2Fspecial%21%40%23",
+            "/path%2Fwith%2Fspecial%21%40%23",
+        ),  # Already URL-encoded input
+        (
+            "/%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF",
+            "/%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF",
+        ),  # Already URL-encoded input
+        ("/tmp%2Fbar", "/tmp%2Fbar"),  # Already URL-encoded input
+    ]
+
+    for input_path, expected_encoded in test_cases:
+        addr_str = f"/http-path{input_path}"
+        m = Multiaddr(addr_str)
+        # The string representation should show URL-encoded path
+        assert str(m) == f"/http-path{expected_encoded}"
+
+
+def test_http_path_in_complex_multiaddr():
+    """Test http-path as part of larger multiaddr chains"""
+    test_cases = [
+        ("/ip4/127.0.0.1/tcp/443/tls/http/http-path/api%2Fv1", "api%2Fv1"),
+        ("/ip4/127.0.0.1/tcp/80/http/http-path/static%2Fcss", "static%2Fcss"),
+        ("/dns/example.com/tcp/443/tls/http/http-path/docs", "docs"),
+    ]
+
+    for addr_str, expected_path in test_cases:
+        m = Multiaddr(addr_str)
+        assert str(m) == addr_str
+
+        # Extract the http-path value
+        path_value = m.value_for_protocol(P_HTTP_PATH)
+        assert path_value == expected_path
+
+
+def test_http_path_error_cases():
+    """Test error handling for invalid http-path values"""
+
+    # Empty path should raise error
+    with pytest.raises(StringParseError):
+        Multiaddr("/http-path/")
+
+    # Missing path value should raise error
+    with pytest.raises(StringParseError):
+        Multiaddr("/http-path")
+
+    # Invalid URL encoding should raise error
+    with pytest.raises(StringParseError):
+        Multiaddr("/http-path/invalid%zz")
+
+
+def test_http_path_value_extraction():
+    """Test extracting http-path values from multiaddr"""
+    test_cases = [
+        ("/http-path/foo", "foo"),
+        ("/http-path/foo%2Fbar", "foo%2Fbar"),
+        ("/http-path/api%2Fv1%2Fusers", "api%2Fv1%2Fusers"),
+        ("/ip4/127.0.0.1/tcp/80/http/http-path/docs", "docs"),
+    ]
+
+    for addr_str, expected_path in test_cases:
+        m = Multiaddr(addr_str)
+        path_value = m.value_for_protocol(P_HTTP_PATH)
+        assert path_value == expected_path
+
+
+def test_http_path_edge_cases():
+    """Test edge cases and special character handling"""
+
+    # Test with various special characters (URL-encoded input)
+    special_paths = [
+        "path%20with%20spaces",
+        "path%2Fwith%2Fmultiple%2Fslashes",
+        "path%2Fwith%2Funicode%2F%E6%B5%8B%E8%AF%95",
+        "path%2Fwith%2Fsymbols%21%40%23%24%25%5E%26%2A%28%29",
+    ]
+
+    for path in special_paths:
+        addr_str = f"/http-path/{path}"
+        m = Multiaddr(addr_str)
+        # Should handle encoding properly
+        assert m.value_for_protocol(P_HTTP_PATH) == path
+
+
+def test_http_path_only_reads_http_path_part():
+    """Test that http-path only reads its own part, not subsequent protocols"""
+    # This test verifies that when we have /http-path/tmp%2Fbar/p2p-circuit,
+    # the ValueForProtocol only returns the http-path part (tmp%2Fbar)
+    # and doesn't include the /p2p-circuit part
+    addr_str = "/http-path/tmp%2Fbar/p2p-circuit"
+    m = Multiaddr(addr_str)
+
+    # Should only return the http-path part, not the p2p-circuit part
+    http_path_value = m.value_for_protocol(P_HTTP_PATH)
+    assert http_path_value == "tmp%2Fbar"
+
+    # The full string should still include both parts
+    assert str(m) == addr_str
+
+
+def test_http_path_malformed_percent_escape():
+    """Test that malformed percent-escapes are properly rejected"""
+    # This tests the specific case from Go: /http-path/thisIsMissingAfullByte%f
+    # The %f is an incomplete percent-escape and should be rejected
+    bad_addr = "/http-path/thisIsMissingAfullByte%f"
+
+    with pytest.raises(StringParseError, match="Invalid percent-escape"):
+        Multiaddr(bad_addr)
+
+
+def test_http_path_raw_value_access():
+    """Test accessing raw unescaped values from http-path components"""
+    # This test demonstrates how to get the raw unescaped value
+    # similar to Go's SplitLast and RawValue functionality
+    addr_str = "/http-path/tmp%2Fbar"
+    m = Multiaddr(addr_str)
+
+    # Get the URL-encoded value (what ValueForProtocol returns)
+    encoded_value = m.value_for_protocol(P_HTTP_PATH)
+    assert encoded_value == "tmp%2Fbar"
+
+    # Get the raw unescaped value by accessing the component directly
+    # This is similar to Go's component.RawValue()
+    from urllib.parse import unquote
+
+    raw_value = unquote(encoded_value)
+    assert raw_value == "tmp/bar"
+
+    # Verify the roundtrip
+    from urllib.parse import quote
+
+    assert quote(raw_value, safe="") == encoded_value
+
+
+def test_tag_only_protocol_rejects_value_slash_syntax():
+    """Test that tag-only protocols reject values using /tag/value syntax"""
+    tag_only_protocols = [
+        "webrtc",
+        "webrtc-direct",
+        "noise",
+        "quic",
+        "quic-v1",
+        "tls",
+        "http",
+        "https",
+        "ws",
+        "wss",
+        "p2p-circuit",
+        "webtransport",
+    ]
+
+    for proto_name in tag_only_protocols:
+        # Should fail with clear error message
+        with pytest.raises(StringParseError) as exc_info:
+            Multiaddr(f"/{proto_name}/value")
+        assert "does not take an argument" in str(exc_info.value)
+        assert proto_name in str(exc_info.value)
+
+
+def test_tag_only_protocol_rejects_value_equals_syntax():
+    """Test that tag-only protocols reject values using /tag=value syntax"""
+    tag_only_protocols = [
+        "webrtc",
+        "webrtc-direct",
+        "noise",
+        "quic",
+        "tls",
+        "http",
+    ]
+
+    for proto_name in tag_only_protocols:
+        # Should fail with clear error message
+        with pytest.raises(StringParseError) as exc_info:
+            Multiaddr(f"/{proto_name}=value")
+        assert "does not take an argument" in str(exc_info.value)
+        assert proto_name in str(exc_info.value)
+
+
+def test_tag_only_protocol_allows_valid_combinations():
+    """Test that tag-only protocols work correctly in valid combinations"""
+    # Single tag protocol
+    assert str(Multiaddr("/webrtc")) == "/webrtc"
+    assert str(Multiaddr("/webrtc-direct")) == "/webrtc-direct"
+
+    # Multiple tag protocols chained
+    assert str(Multiaddr("/webrtc/noise")) == "/webrtc/noise"
+    assert str(Multiaddr("/webrtc-direct/webrtc")) == "/webrtc-direct/webrtc"
+
+    # Tag protocol followed by value protocol
+    assert str(Multiaddr("/webrtc-direct/ip4/127.0.0.1")) == "/webrtc-direct/ip4/127.0.0.1"
+
+    # Complex valid address
+    addr = "/ip4/127.0.0.1/udp/9090/webrtc-direct/certhash/uEiDDq4_xNyDorZBH3TlGazyJdOWSwvo4PUo5YHFMrvDE8g"
+    assert str(Multiaddr(addr)) == addr
+
+
+def test_tag_only_protocol_error_message_format():
+    """Test that error messages for tag-only protocols are clear and helpful"""
+    # Test /tag/value syntax
+    with pytest.raises(StringParseError) as exc_info:
+        Multiaddr("/webrtc-direct/invalidvalue")
+    error_msg = str(exc_info.value)
+    assert "does not take an argument" in error_msg
+    assert "webrtc-direct" in error_msg
+    assert "invalidvalue" not in error_msg  # Should not mention the invalid value
+
+    # Test /tag=value syntax
+    with pytest.raises(StringParseError) as exc_info:
+        Multiaddr("/webrtc=somevalue")
+    error_msg = str(exc_info.value)
+    assert "does not take an argument" in error_msg
+    assert "webrtc" in error_msg

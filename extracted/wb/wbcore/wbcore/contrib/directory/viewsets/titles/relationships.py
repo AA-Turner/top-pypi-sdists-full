@@ -1,7 +1,6 @@
 from django.utils.translation import gettext as _
 
-from wbcore.contrib.directory.models import ClientManagerRelationship as CMR
-from wbcore.contrib.directory.models import Company, Entry, Person
+from wbcore.contrib.directory.models import ClientManagerRelationship, Company, Entry, Person
 from wbcore.metadata.configs.titles import TitleViewConfig
 
 
@@ -29,7 +28,7 @@ class RelationshipTypeModelTitleConfig(TitleViewConfig):
 class ClientManagerTitleConfig(TitleViewConfig):
     def get_instance_title(self):
         if pk := self.view.kwargs.get("pk"):
-            cmr_request = CMR.objects.get(id=pk)
+            cmr_request = ClientManagerRelationship.objects.get(id=pk)
             return _("Client Manager Relationship Between {client} & {person}").format(
                 client=str(cmr_request.client), person=str(cmr_request.relationship_manager)
             )

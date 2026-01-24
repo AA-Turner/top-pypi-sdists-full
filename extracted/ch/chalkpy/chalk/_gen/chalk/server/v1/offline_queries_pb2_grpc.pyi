@@ -14,8 +14,12 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     CreateOfflineQueryJobResponse,
     GetOfflineQueryRequest,
     GetOfflineQueryResponse,
+    IngestDatasetRequest,
+    IngestDatasetResponse,
     ListOfflineQueriesRequest,
     ListOfflineQueriesResponse,
+    RetryOfflineQueryShardRequest,
+    RetryOfflineQueryShardResponse,
 )
 from chalk._gen.chalk.server.v1.performance_summary_pb2 import (
     ListOfflineQueryShardPerformanceSummariesRequest,
@@ -55,6 +59,14 @@ class OfflineQueryMetadataServiceStub:
         CreateModelTrainingJobRequest,
         CreateModelTrainingJobResponse,
     ]
+    IngestDataset: UnaryUnaryMultiCallable[
+        IngestDatasetRequest,
+        IngestDatasetResponse,
+    ]
+    RetryOfflineQueryShard: UnaryUnaryMultiCallable[
+        RetryOfflineQueryShardRequest,
+        RetryOfflineQueryShardResponse,
+    ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -92,6 +104,18 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: CreateModelTrainingJobRequest,
         context: ServicerContext,
     ) -> CreateModelTrainingJobResponse: ...
+    @abstractmethod
+    def IngestDataset(
+        self,
+        request: IngestDatasetRequest,
+        context: ServicerContext,
+    ) -> IngestDatasetResponse: ...
+    @abstractmethod
+    def RetryOfflineQueryShard(
+        self,
+        request: RetryOfflineQueryShardRequest,
+        context: ServicerContext,
+    ) -> RetryOfflineQueryShardResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

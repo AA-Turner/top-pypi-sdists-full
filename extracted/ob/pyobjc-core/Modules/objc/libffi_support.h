@@ -17,13 +17,7 @@ struct byref_attr {
     Py_buffer view;
 };
 
-#define BYREF_ATTR_INT                                                                   \
-    {                                                                                    \
-        0, 0,                                                                            \
-        {                                                                                \
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                                              \
-        }                                                                                \
-    }
+#define BYREF_ATTR_INT {0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 
 extern int PyObjCFFI_Setup(PyObject* m);
 
@@ -62,9 +56,9 @@ extern PyObject* _Nullable PyObjCFFI_BuildResult(PyObjCMethodSignature*,
                                                  Py_ssize_t argOffset, void* pRetval,
                                                  void* _Nullable* _Nonnull,
                                                  struct byref_attr* byref_attr,
-                                                 Py_ssize_t,
-                                                 void* _Nullable* _Nonnull);
-extern void PyObjCFFI_FreeByRef(Py_ssize_t, void* _Nullable* _Nonnull, struct byref_attr*);
+                                                 Py_ssize_t, void* _Nullable* _Nonnull);
+extern void PyObjCFFI_FreeByRef(Py_ssize_t, void* _Nullable* _Nonnull,
+                                struct byref_attr*);
 extern ffi_type* _Nullable PyObjCFFI_Typestr2FFI(const char*);
 extern PyObjC_callback_function _Nullable PyObjCFFI_MakeFunctionClosure(
     PyObjCMethodSignature*, PyObject*);
@@ -73,7 +67,6 @@ extern Py_ssize_t validate_callable_signature(PyObject* callable, SEL sel,
 
 extern int PyObjCFFI_CallUsingInvocation(IMP method, NSInvocation* invocation);
 
-#if PY_VERSION_HEX >= 0x03090000
 /*
  * "Simple" variants that reduce calling overhead for a large subset
  * of APIs.
@@ -91,7 +84,8 @@ extern Py_ssize_t PyObjCFFI_ParseArguments_Simple(PyObjCMethodSignature*, Py_ssi
                                                   size_t, Py_ssize_t, unsigned char*,
                                                   Py_ssize_t, void* _Nullable* _Nonnull);
 extern PyObject* _Nullable PyObjCFFI_BuildResult_Simple(PyObjCMethodSignature*, void*);
-#endif
+
+extern const char* PyObjC_ffi_status_str(ffi_status rv);
 
 NS_ASSUME_NONNULL_END
 

@@ -5,6 +5,7 @@ Build script for the shared library providing the C ABI bridge to LLVM.
 
 from __future__ import print_function
 
+import functools
 import os
 import subprocess
 import shutil
@@ -36,7 +37,7 @@ def env_var_options_to_cmake_options():
                 "LLVMLITE_USE_RTTI": ("ON", "OFF", ""),
                 "LLVMLITE_CXX_STATIC_LINK": bool,
                 "LLVMLITE_SHARED": bool,
-                "LLVMLITE_FLTO": bool,
+                "LLVMLITE_LTO": bool,
                 "LLVMLITE_SKIP_LLVM_VERSION_CHECK": bool,}
 
     for env_var in env_vars.keys():
@@ -79,7 +80,31 @@ def env_var_options_to_cmake_options():
     return cmake_options
 
 
+@functools.cache
+def check_cmake():
+    try:
+        subprocess.run(("cmake", ), check=True, stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, timeout=60)
+    except subprocess.CalledProcessError as e:
+        msg = ("llvmlite needs working CMake tools to build. There was an "
+               "issue when performing a test run of the 'cmake' binary.\n"
+               f"STDOUT: {e.stdout.decode('UTF-8')}\n"
+               f"STDERR: {e.stderr.decode('UTF-8')}\n"
+               "See the traceback for details.")
+        raise RuntimeError(msg) from e
+    except FileNotFoundError as e:
+        msg = ("llvmlite needs CMake tools to build. It appears that the "
+               "'cmake' tool is either not installed or not found on the path. "
+               "Please add CMake tools to the build environment and path, they "
+               "are available from many package managers.")
+        raise FileNotFoundError(msg) from e
+    # Timeout etc not handled, there's little advice that can be given and the
+    # traceback is self explanatory.
+
+
 def try_cmake(cmake_dir, build_dir, generator, arch=None, toolkit=None):
+    # first check that CMake tools are present and run ok.
+    check_cmake()
     old_dir = os.getcwd()
     args = ['cmake', '-G', generator]
     if arch is not None:
@@ -89,6 +114,13 @@ def try_cmake(cmake_dir, build_dir, generator, arch=None, toolkit=None):
     args.append(cmake_dir)
     cmake_options = env_var_options_to_cmake_options()
     args += cmake_options
+    # Handle conda build/conda-style toolchain. These toolchains ship an `ar`
+    # and a `ranlib` under a different name, and then export these as cmake
+    # compatible `-D` defines in the `CMAKE_ARGS` env var. OSX and Linux both
+    # have this, the following fetches this variable from the environment and
+    # wires it through to cmake.
+    CMAKE_ARGS = [x for x in os.environ.get("CMAKE_ARGS", "").split(' ') if x]
+    args += CMAKE_ARGS
     try:
         os.chdir(build_dir)
         print('Running:', ' '.join(args))
@@ -138,28 +170,7 @@ def find_windows_generator():
     raise RuntimeError("No compatible CMake generator could be found.")
 
 
-def remove_msvc_whole_program_optimization():
-    """Remove MSVC whole-program optimization flags.
-    This workaround a segfault issue on windows.
-    Note: conda-build is known to enable the `-GL` flag.
-    """
-    def drop_gl(flags):
-        try:
-            flags.remove('-GL')
-        except ValueError:
-            pass
-        else:
-            print(f"removed '-GL' flag in {flags}")
-    cflags = os.environ.get('CFLAGS', '').split(' ')
-    cxxflags = os.environ.get('CXXFLAGS', '').split(' ')
-    drop_gl(cflags)
-    drop_gl(cxxflags)
-    os.environ['CFLAGS'] = ' '.join(cflags)
-    os.environ['CXXFLAGS'] = ' '.join(cxxflags)
-
-
 def main_windows():
-    remove_msvc_whole_program_optimization()
     generator = find_windows_generator()
     config = 'Release'
     if not os.path.exists(build_dir):

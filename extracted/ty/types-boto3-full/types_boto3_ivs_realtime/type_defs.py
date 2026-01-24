@@ -3,7 +3,7 @@ Type annotations for ivs-realtime service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs_realtime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -43,12 +44,6 @@ from .literals import (
     VideoFillModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -91,6 +86,7 @@ __all__ = (
     "EncoderConfigurationSummaryTypeDef",
     "EncoderConfigurationTypeDef",
     "EventTypeDef",
+    "ExchangedParticipantTokenTypeDef",
     "GetCompositionRequestTypeDef",
     "GetCompositionResponseTypeDef",
     "GetEncoderConfigurationRequestTypeDef",
@@ -187,7 +183,7 @@ class ParticipantRecordingHlsConfigurationTypeDef(TypedDict):
 
 class ParticipantThumbnailConfigurationOutputTypeDef(TypedDict):
     targetIntervalSeconds: NotRequired[int]
-    storage: NotRequired[List[ThumbnailStorageTypeType]]
+    storage: NotRequired[list[ThumbnailStorageTypeType]]
     recordingMode: NotRequired[ThumbnailRecordingModeType]
 
 
@@ -219,7 +215,7 @@ DestinationSummaryTypeDef = TypedDict(
 
 class CompositionThumbnailConfigurationOutputTypeDef(TypedDict):
     targetIntervalSeconds: NotRequired[int]
-    storage: NotRequired[List[ThumbnailStorageTypeType]]
+    storage: NotRequired[list[ThumbnailStorageTypeType]]
 
 
 class CompositionThumbnailConfigurationTypeDef(TypedDict):
@@ -237,7 +233,7 @@ class VideoTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -261,8 +257,8 @@ class IngestConfigurationTypeDef(TypedDict):
     state: IngestConfigurationStateType
     name: NotRequired[str]
     userId: NotRequired[str]
-    attributes: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class CreateParticipantTokenRequestTypeDef(TypedDict):
@@ -277,9 +273,9 @@ class ParticipantTokenTypeDef(TypedDict):
     participantId: NotRequired[str]
     token: NotRequired[str]
     userId: NotRequired[str]
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
     duration: NotRequired[int]
-    capabilities: NotRequired[List[ParticipantTokenCapabilityType]]
+    capabilities: NotRequired[list[ParticipantTokenCapabilityType]]
     expirationTime: NotRequired[datetime]
 
 
@@ -328,18 +324,14 @@ class DisconnectParticipantRequestTypeDef(TypedDict):
 class EncoderConfigurationSummaryTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
-class EventTypeDef(TypedDict):
-    name: NotRequired[EventNameType]
-    participantId: NotRequired[str]
-    eventTime: NotRequired[datetime]
-    remoteParticipantId: NotRequired[str]
-    errorCode: NotRequired[EventErrorCodeType]
-    destinationStageArn: NotRequired[str]
-    destinationSessionId: NotRequired[str]
-    replica: NotRequired[bool]
+class ExchangedParticipantTokenTypeDef(TypedDict):
+    capabilities: NotRequired[list[ParticipantTokenCapabilityType]]
+    attributes: NotRequired[dict[str, str]]
+    userId: NotRequired[str]
+    expirationTime: NotRequired[datetime]
 
 
 class GetCompositionRequestTypeDef(TypedDict):
@@ -365,7 +357,7 @@ class ParticipantTypeDef(TypedDict):
     userId: NotRequired[str]
     state: NotRequired[ParticipantStateType]
     firstJoinTime: NotRequired[datetime]
-    attributes: NotRequired[Dict[str, str]]
+    attributes: NotRequired[dict[str, str]]
     published: NotRequired[bool]
     ispName: NotRequired[str]
     osName: NotRequired[str]
@@ -392,7 +384,7 @@ class PublicKeyTypeDef(TypedDict):
     name: NotRequired[str]
     publicKeyMaterial: NotRequired[str]
     fingerprint: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class GetStageRequestTypeDef(TypedDict):
@@ -534,7 +526,7 @@ class ListPublicKeysRequestTypeDef(TypedDict):
 class PublicKeySummaryTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListStageSessionsRequestTypeDef(TypedDict):
@@ -558,7 +550,7 @@ class StageSummaryTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     activeSessionId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListStorageConfigurationsRequestTypeDef(TypedDict):
@@ -612,7 +604,7 @@ class UpdateIngestConfigurationRequestTypeDef(TypedDict):
 
 class AutoParticipantRecordingConfigurationOutputTypeDef(TypedDict):
     storageConfigurationArn: str
-    mediaTypes: NotRequired[List[ParticipantRecordingMediaTypeType]]
+    mediaTypes: NotRequired[list[ParticipantRecordingMediaTypeType]]
     thumbnailConfiguration: NotRequired[ParticipantThumbnailConfigurationOutputTypeDef]
     recordingReconnectWindowSeconds: NotRequired[int]
     hlsConfiguration: NotRequired[ParticipantRecordingHlsConfigurationTypeDef]
@@ -640,9 +632,9 @@ RecordingConfigurationTypeDef = TypedDict(
 class CompositionSummaryTypeDef(TypedDict):
     arn: str
     stageArn: str
-    destinations: List[DestinationSummaryTypeDef]
+    destinations: list[DestinationSummaryTypeDef]
     state: CompositionStateType
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
 
@@ -662,11 +654,11 @@ class EncoderConfigurationTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     video: NotRequired[VideoTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -722,14 +714,14 @@ class StorageConfigurationSummaryTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     s3: NotRequired[S3StorageConfigurationTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class StorageConfigurationTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     s3: NotRequired[S3StorageConfigurationTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class DestinationDetailTypeDef(TypedDict):
@@ -737,15 +729,22 @@ class DestinationDetailTypeDef(TypedDict):
 
 
 class ListEncoderConfigurationsResponseTypeDef(TypedDict):
-    encoderConfigurations: List[EncoderConfigurationSummaryTypeDef]
+    encoderConfigurations: list[EncoderConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
-class ListParticipantEventsResponseTypeDef(TypedDict):
-    events: List[EventTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class EventTypeDef(TypedDict):
+    name: NotRequired[EventNameType]
+    participantId: NotRequired[str]
+    eventTime: NotRequired[datetime]
+    remoteParticipantId: NotRequired[str]
+    errorCode: NotRequired[EventErrorCodeType]
+    destinationStageArn: NotRequired[str]
+    destinationSessionId: NotRequired[str]
+    replica: NotRequired[bool]
+    previousToken: NotRequired[ExchangedParticipantTokenTypeDef]
+    newToken: NotRequired[ExchangedParticipantTokenTypeDef]
 
 
 class GetParticipantResponseTypeDef(TypedDict):
@@ -769,7 +768,7 @@ class GetStageSessionResponseTypeDef(TypedDict):
 
 
 class ListIngestConfigurationsResponseTypeDef(TypedDict):
-    ingestConfigurations: List[IngestConfigurationSummaryTypeDef]
+    ingestConfigurations: list[IngestConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -796,31 +795,31 @@ class ListPublicKeysRequestPaginateTypeDef(TypedDict):
 
 
 class ListParticipantReplicasResponseTypeDef(TypedDict):
-    replicas: List[ParticipantReplicaTypeDef]
+    replicas: list[ParticipantReplicaTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListParticipantsResponseTypeDef(TypedDict):
-    participants: List[ParticipantSummaryTypeDef]
+    participants: list[ParticipantSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPublicKeysResponseTypeDef(TypedDict):
-    publicKeys: List[PublicKeySummaryTypeDef]
+    publicKeys: list[PublicKeySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStageSessionsResponseTypeDef(TypedDict):
-    stageSessions: List[StageSessionSummaryTypeDef]
+    stageSessions: list[StageSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStagesResponseTypeDef(TypedDict):
-    stages: List[StageSummaryTypeDef]
+    stages: list[StageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -829,7 +828,7 @@ class StageTypeDef(TypedDict):
     arn: str
     name: NotRequired[str]
     activeSessionId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     autoParticipantRecordingConfiguration: NotRequired[
         AutoParticipantRecordingConfigurationOutputTypeDef
     ]
@@ -843,13 +842,13 @@ AutoParticipantRecordingConfigurationUnionTypeDef = Union[
 
 class S3DestinationConfigurationOutputTypeDef(TypedDict):
     storageConfigurationArn: str
-    encoderConfigurationArns: List[str]
+    encoderConfigurationArns: list[str]
     recordingConfiguration: NotRequired[RecordingConfigurationTypeDef]
-    thumbnailConfigurations: NotRequired[List[CompositionThumbnailConfigurationOutputTypeDef]]
+    thumbnailConfigurations: NotRequired[list[CompositionThumbnailConfigurationOutputTypeDef]]
 
 
 class ListCompositionsResponseTypeDef(TypedDict):
-    compositions: List[CompositionSummaryTypeDef]
+    compositions: list[CompositionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -872,7 +871,7 @@ class GetEncoderConfigurationResponseTypeDef(TypedDict):
 
 
 class ListStorageConfigurationsResponseTypeDef(TypedDict):
-    storageConfigurations: List[StorageConfigurationSummaryTypeDef]
+    storageConfigurations: list[StorageConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -887,9 +886,15 @@ class GetStorageConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListParticipantEventsResponseTypeDef(TypedDict):
+    events: list[EventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class CreateStageResponseTypeDef(TypedDict):
     stage: StageTypeDef
-    participantTokens: List[ParticipantTokenTypeDef]
+    participantTokens: list[ParticipantTokenTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -953,8 +958,8 @@ class CompositionTypeDef(TypedDict):
     stageArn: str
     state: CompositionStateType
     layout: LayoutConfigurationTypeDef
-    destinations: List[DestinationTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    destinations: list[DestinationTypeDef]
+    tags: NotRequired[dict[str, str]]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
 

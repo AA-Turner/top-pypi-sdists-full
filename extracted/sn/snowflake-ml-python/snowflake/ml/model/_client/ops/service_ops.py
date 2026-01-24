@@ -1,21 +1,27 @@
+import base64
 import dataclasses
-import enum
-import hashlib
+import json
 import logging
 import pathlib
 import re
 import tempfile
 import threading
 import time
-from typing import Any, Optional, Union, cast
+import warnings
+from typing import Any, Optional, Sequence, Union, cast
+
+from pydantic import TypeAdapter
 
 from snowflake import snowpark
-from snowflake.ml import jobs
 from snowflake.ml._internal import file_utils, platform_capabilities as pc
 from snowflake.ml._internal.utils import identifier, service_logger, sql_identifier
+from snowflake.ml.jobs import job
 from snowflake.ml.model import inference_engine as inference_engine_module, type_hints
+from snowflake.ml.model._client.model import batch_inference_specs
+from snowflake.ml.model._client.ops import deployment_step, param_utils
 from snowflake.ml.model._client.service import model_deployment_spec
 from snowflake.ml.model._client.sql import service as service_sql, stage as stage_sql
+from snowflake.ml.model._signatures import core
 from snowflake.snowpark import async_job, exceptions, row, session
 from snowflake.snowpark._internal import utils as snowpark_utils
 
@@ -23,32 +29,12 @@ module_logger = service_logger.get_logger(__name__, service_logger.LogColor.GREY
 module_logger.propagate = False
 
 
-class DeploymentStep(enum.Enum):
-    MODEL_BUILD = ("model-build", "model_build_")
-    MODEL_INFERENCE = ("model-inference", None)
-    MODEL_LOGGING = ("model-logging", "model_logging_")
-
-    def __init__(self, container_name: str, service_name_prefix: Optional[str]) -> None:
-        self._container_name = container_name
-        self._service_name_prefix = service_name_prefix
-
-    @property
-    def container_name(self) -> str:
-        """Get the container name for the deployment step."""
-        return self._container_name
-
-    @property
-    def service_name_prefix(self) -> Optional[str]:
-        """Get the service name prefix for the deployment step."""
-        return self._service_name_prefix
-
-
 @dataclasses.dataclass
 class ServiceLogInfo:
     database_name: Optional[sql_identifier.SqlIdentifier]
     schema_name: Optional[sql_identifier.SqlIdentifier]
     service_name: sql_identifier.SqlIdentifier
-    deployment_step: DeploymentStep
+    deployment_step: deployment_step.DeploymentStep
     instance_id: str = "0"
     log_color: service_logger.LogColor = service_logger.LogColor.GREY
 
@@ -155,16 +141,17 @@ class ServiceOperator:
             database_name=database_name,
             schema_name=schema_name,
         )
-        if pc.PlatformCapabilities.get_instance().is_inlined_deployment_spec_enabled():
+        self._stage_client = stage_sql.StageSQLClient(
+            session,
+            database_name=database_name,
+            schema_name=schema_name,
+        )
+        self._use_inlined_deployment_spec = pc.PlatformCapabilities.get_instance().is_inlined_deployment_spec_enabled()
+        if self._use_inlined_deployment_spec:
             self._workspace = None
             self._model_deployment_spec = model_deployment_spec.ModelDeploymentSpec()
         else:
             self._workspace = tempfile.TemporaryDirectory()
-            self._stage_client = stage_sql.StageSQLClient(
-                session,
-                database_name=database_name,
-                schema_name=schema_name,
-            )
             self._model_deployment_spec = model_deployment_spec.ModelDeploymentSpec(
                 workspace_path=pathlib.Path(self._workspace.name)
             )
@@ -203,6 +190,8 @@ class ServiceOperator:
         hf_model_args: Optional[HFModelArgs] = None,
         # inference engine model
         inference_engine_args: Optional[InferenceEngineArgs] = None,
+        # inference table
+        autocapture: bool = False,
     ) -> Union[str, async_job.AsyncJob]:
 
         # Generate operation ID for this deployment
@@ -258,13 +247,21 @@ class ServiceOperator:
             gpu=gpu_requests,
             num_workers=num_workers,
             max_batch_rows=max_batch_rows,
+            autocapture=autocapture,
         )
         if hf_model_args:
             # hf model
             self._model_deployment_spec.add_hf_logger_spec(
                 hf_model_name=hf_model_args.hf_model_name,
                 hf_task=hf_model_args.hf_task,
-                hf_token=hf_model_args.hf_token,
+                hf_token=(
+                    # when using inlined deployment spec, we need to use QMARK_RESERVED_TOKEN
+                    # to avoid revealing the token while calling the SYSTEM$DEPLOY_MODEL function
+                    # noop if using file-based deployment spec or token is not provided
+                    service_sql.QMARK_RESERVED_TOKEN
+                    if hf_model_args.hf_token and self._use_inlined_deployment_spec
+                    else hf_model_args.hf_token
+                ),
                 hf_tokenizer=hf_model_args.hf_tokenizer,
                 hf_revision=hf_model_args.hf_revision,
                 hf_trust_remote_code=hf_model_args.hf_trust_remote_code,
@@ -320,6 +317,14 @@ class ServiceOperator:
                 model_deployment_spec.ModelDeploymentSpec.DEPLOY_SPEC_FILE_REL_PATH if self._workspace else None
             ),
             model_deployment_spec_yaml_str=None if self._workspace else spec_yaml_str_or_path,
+            query_params=(
+                # when using inlined deployment spec, we need to add the token to the query params
+                # to avoid revealing the token while calling the SYSTEM$DEPLOY_MODEL function
+                # noop if using file-based deployment spec or token is not provided
+                [hf_model_args.hf_token]
+                if (self._use_inlined_deployment_spec and hf_model_args and hf_model_args.hf_token)
+                else []
+            ),
             statement_params=statement_params,
         )
 
@@ -327,13 +332,16 @@ class ServiceOperator:
         if is_enable_image_build:
             # stream service logs in a thread
             model_build_service_name = sql_identifier.SqlIdentifier(
-                self._get_service_id_from_deployment_step(query_id, DeploymentStep.MODEL_BUILD)
+                deployment_step.get_service_id_from_deployment_step(
+                    query_id,
+                    deployment_step.DeploymentStep.MODEL_BUILD,
+                )
             )
             model_build_service = ServiceLogInfo(
                 database_name=service_database_name,
                 schema_name=service_schema_name,
                 service_name=model_build_service_name,
-                deployment_step=DeploymentStep.MODEL_BUILD,
+                deployment_step=deployment_step.DeploymentStep.MODEL_BUILD,
                 log_color=service_logger.LogColor.GREEN,
             )
 
@@ -341,21 +349,23 @@ class ServiceOperator:
             database_name=service_database_name,
             schema_name=service_schema_name,
             service_name=service_name,
-            deployment_step=DeploymentStep.MODEL_INFERENCE,
+            deployment_step=deployment_step.DeploymentStep.MODEL_INFERENCE,
             log_color=service_logger.LogColor.BLUE,
         )
 
         model_logger_service: Optional[ServiceLogInfo] = None
         if hf_model_args:
             model_logger_service_name = sql_identifier.SqlIdentifier(
-                self._get_service_id_from_deployment_step(query_id, DeploymentStep.MODEL_LOGGING)
+                deployment_step.get_service_id_from_deployment_step(
+                    query_id, deployment_step.DeploymentStep.MODEL_LOGGING
+                )
             )
 
             model_logger_service = ServiceLogInfo(
                 database_name=service_database_name,
                 schema_name=service_schema_name,
                 service_name=model_logger_service_name,
-                deployment_step=DeploymentStep.MODEL_LOGGING,
+                deployment_step=deployment_step.DeploymentStep.MODEL_LOGGING,
                 log_color=service_logger.LogColor.ORANGE,
             )
 
@@ -510,7 +520,7 @@ class ServiceOperator:
         service = service_log_meta.service
         # check if using an existing model build image
         if (
-            service.deployment_step == DeploymentStep.MODEL_BUILD
+            service.deployment_step == deployment_step.DeploymentStep.MODEL_BUILD
             and not force_rebuild
             and service_log_meta.is_model_logger_service_done
             and not service_log_meta.is_model_build_service_done
@@ -556,31 +566,26 @@ class ServiceOperator:
         if (service_status != service_sql.ServiceStatus.RUNNING) or (service_status != service_log_meta.service_status):
             service_log_meta.service_status = service_status
 
-            if service.deployment_step == DeploymentStep.MODEL_BUILD:
+            if service.deployment_step == deployment_step.DeploymentStep.MODEL_BUILD:
                 module_logger.info(
                     f"Image build service {service.display_service_name} is "
                     f"{service_log_meta.service_status.value}."
                 )
-            elif service.deployment_step == DeploymentStep.MODEL_INFERENCE:
+            elif service.deployment_step == deployment_step.DeploymentStep.MODEL_INFERENCE:
                 module_logger.info(
                     f"Inference service {service.display_service_name} is {service_log_meta.service_status.value}."
                 )
-            elif service.deployment_step == DeploymentStep.MODEL_LOGGING:
+            elif service.deployment_step == deployment_step.DeploymentStep.MODEL_LOGGING:
                 module_logger.info(
                     f"Model logger service {service.display_service_name} is "
                     f"{service_log_meta.service_status.value}."
                 )
             for status in statuses:
                 if status.instance_id is not None:
-                    instance_status, container_status = None, None
-                    if status.instance_status is not None:
-                        instance_status = status.instance_status.value
-                    if status.container_status is not None:
-                        container_status = status.container_status.value
                     module_logger.info(
                         f"Instance[{status.instance_id}]: "
-                        f"instance status: {instance_status}, "
-                        f"container status: {container_status}, "
+                        f"instance status: {status.instance_status}, "
+                        f"container status: {status.container_status}, "
                         f"message: {status.message}"
                     )
             time.sleep(5)
@@ -601,7 +606,7 @@ class ServiceOperator:
         if service_status == service_sql.ServiceStatus.DONE:
             # check if model logger service is done
             # and transition the service log metadata to the model image build service
-            if service.deployment_step == DeploymentStep.MODEL_LOGGING:
+            if service.deployment_step == deployment_step.DeploymentStep.MODEL_LOGGING:
                 if model_build_service:
                     # building the inference image, transition to the model build service
                     service_log_meta.transition_service_log_metadata(
@@ -622,7 +627,7 @@ class ServiceOperator:
                     )
             # check if model build service is done
             # and transition the service log metadata to the model inference service
-            elif service.deployment_step == DeploymentStep.MODEL_BUILD:
+            elif service.deployment_step == deployment_step.DeploymentStep.MODEL_BUILD:
                 service_log_meta.transition_service_log_metadata(
                     model_inference_service,
                     f"Image build service {service.display_service_name} complete.",
@@ -630,10 +635,51 @@ class ServiceOperator:
                     is_model_logger_service_done=service_log_meta.is_model_logger_service_done,
                     operation_id=operation_id,
                 )
-            elif service.deployment_step == DeploymentStep.MODEL_INFERENCE:
+            elif service.deployment_step == deployment_step.DeploymentStep.MODEL_INFERENCE:
                 module_logger.info(f"Inference service {service.display_service_name} is deployed.")
             else:
                 module_logger.warning(f"Service {service.display_service_name} is done, but not transitioning.")
+
+    def _enforce_save_mode(self, output_mode: batch_inference_specs.SaveMode, output_stage_location: str) -> None:
+        """Enforce the save mode for the output stage location.
+
+        Args:
+            output_mode: The output mode
+            output_stage_location: The output stage location to check/clean.
+
+        Raises:
+            FileExistsError: When ERROR mode is specified and files exist in the output location.
+            RuntimeError: When operations fail (checking files or removing files).
+            ValueError: When an invalid SaveMode is specified.
+        """
+        list_results = self._stage_client.list_stage(output_stage_location)
+
+        if output_mode == batch_inference_specs.SaveMode.ERROR:
+            if len(list_results) > 0:
+                raise FileExistsError(
+                    f"Output stage location '{output_stage_location}' is not empty. "
+                    f"Found {len(list_results)} existing files. When using ERROR mode, the output location "
+                    f"must be empty. Please clear the existing files or use OVERWRITE mode."
+                )
+        elif output_mode == batch_inference_specs.SaveMode.OVERWRITE:
+            if len(list_results) > 0:
+                warnings.warn(
+                    f"Output stage location '{output_stage_location}' is not empty. "
+                    f"Found {len(list_results)} existing files. OVERWRITE mode will remove all existing files "
+                    f"in the output location before running the batch inference job.",
+                    stacklevel=2,
+                )
+                try:
+                    self._session.sql(f"REMOVE {output_stage_location}").collect()
+                except Exception as e:
+                    raise RuntimeError(
+                        f"OVERWRITE was specified. However, failed to remove existing files in output stage "
+                        f"{output_stage_location}: {e}. Please clear up the existing files manually and retry "
+                        f"the operation."
+                    )
+        else:
+            valid_modes = list(batch_inference_specs.SaveMode)
+            raise ValueError(f"Invalid SaveMode: {output_mode}. Must be one of {valid_modes}")
 
     def _stream_service_logs(
         self,
@@ -849,19 +895,6 @@ class ServiceOperator:
 
             time.sleep(2)  # Poll every 2 seconds
 
-    @staticmethod
-    def _get_service_id_from_deployment_step(query_id: str, deployment_step: DeploymentStep) -> str:
-        """Get the service ID through the server-side logic."""
-        uuid = query_id.replace("-", "")
-        big_int = int(uuid, 16)
-        md5_hash = hashlib.md5(str(big_int).encode()).hexdigest()
-        identifier = md5_hash[:8]
-        service_name_prefix = deployment_step.service_name_prefix
-        if service_name_prefix is None:
-            # raise an exception if the service name prefix is None
-            raise ValueError(f"Service name prefix is {service_name_prefix} for deployment step {deployment_step}.")
-        return (service_name_prefix + identifier).upper()
-
     def _check_if_service_exists(
         self,
         database_name: Optional[sql_identifier.SqlIdentifier],
@@ -892,6 +925,38 @@ class ServiceOperator:
         except exceptions.SnowparkSQLException:
             return False
 
+    @staticmethod
+    def _encode_params(params: Optional[dict[str, Any]]) -> Optional[str]:
+        """Encode params dictionary to a base64 string.
+
+        Args:
+            params: Optional dictionary of model inference parameters.
+
+        Returns:
+            Base64 encoded JSON string of the params, or None if input is None.
+        """
+        if params is None:
+            return None
+        return base64.b64encode(json.dumps(params).encode("utf-8")).decode("utf-8")
+
+    @staticmethod
+    def _encode_column_handling(
+        column_handling: Optional[dict[str, batch_inference_specs.ColumnHandlingOptions]],
+    ) -> Optional[str]:
+        """Validate and encode column_handling to a base64 string.
+
+        Args:
+            column_handling: Optional dictionary mapping column names to file encoding options.
+
+        Returns:
+            Base64 encoded JSON string of the column handling options, or None if input is None.
+        """
+        if column_handling is None:
+            return None
+        adapter = TypeAdapter(dict[str, batch_inference_specs.ColumnHandlingOptions])
+        validated_input = adapter.validate_python(column_handling)
+        return base64.b64encode(adapter.dump_json(validated_input)).decode("utf-8")
+
     def invoke_batch_job_method(
         self,
         *,
@@ -904,6 +969,9 @@ class ServiceOperator:
         image_repo_name: Optional[str],
         input_stage_location: str,
         input_file_pattern: str,
+        column_handling: Optional[dict[str, batch_inference_specs.ColumnHandlingOptions]],
+        params: Optional[dict[str, Any]],
+        signature_params: Optional[Sequence[core.BaseParamSpec]],
         output_stage_location: str,
         completion_filename: str,
         force_rebuild: bool,
@@ -911,9 +979,16 @@ class ServiceOperator:
         max_batch_rows: Optional[int],
         cpu_requests: Optional[str],
         memory_requests: Optional[str],
+        gpu_requests: Optional[str],
         replicas: Optional[int],
         statement_params: Optional[dict[str, Any]] = None,
-    ) -> jobs.MLJob[Any]:
+        inference_engine_args: Optional[InferenceEngineArgs] = None,
+    ) -> job.MLJob[Any]:
+        # Validate and encode params
+        param_utils.validate_params(params, signature_params)
+        params_encoded = self._encode_params(params)
+        column_handling_encoded = self._encode_column_handling(column_handling)
+
         database_name = self._database_name
         schema_name = self._schema_name
 
@@ -939,20 +1014,29 @@ class ServiceOperator:
             max_batch_rows=max_batch_rows,
             input_stage_location=input_stage_location,
             input_file_pattern=input_file_pattern,
+            column_handling=column_handling_encoded,
+            params=params_encoded,
             output_stage_location=output_stage_location,
             completion_filename=completion_filename,
             function_name=function_name,
             warehouse=warehouse,
             cpu=cpu_requests,
             memory=memory_requests,
+            gpu=gpu_requests,
             replicas=replicas,
         )
 
-        self._model_deployment_spec.add_image_build_spec(
-            image_build_compute_pool_name=compute_pool_name,
-            fully_qualified_image_repo_name=self._get_image_repo_fqn(image_repo_name, database_name, schema_name),
-            force_rebuild=force_rebuild,
-        )
+        if inference_engine_args:
+            self._model_deployment_spec.add_inference_engine_spec(
+                inference_engine=inference_engine_args.inference_engine,
+                inference_engine_args=inference_engine_args.inference_engine_args_override,
+            )
+        else:
+            self._model_deployment_spec.add_image_build_spec(
+                image_build_compute_pool_name=compute_pool_name,
+                fully_qualified_image_repo_name=self._get_image_repo_fqn(image_repo_name, database_name, schema_name),
+                force_rebuild=force_rebuild,
+            )
 
         spec_yaml_str_or_path = self._model_deployment_spec.save()
 
@@ -981,7 +1065,7 @@ class ServiceOperator:
         # Block until the async job is done
         async_job.result()
 
-        return jobs.MLJob(
+        return job.MLJob(
             id=sql_identifier.get_fully_qualified_name(job_database_name, job_schema_name, job_name),
             session=self._session,
         )

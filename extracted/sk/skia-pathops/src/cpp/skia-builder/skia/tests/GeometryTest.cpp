@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <limits>
 #include <string>
+#include <vector>
 
 static bool nearly_equal(const SkPoint& a, const SkPoint& b) {
     return SkScalarNearlyEqual(a.fX, b.fX) && SkScalarNearlyEqual(a.fY, b.fY);
@@ -267,7 +268,7 @@ static void test_conic_to_quads(skiatest::Reporter* reporter) {
         do {
             w *= 2;
             test_this_conic_to_quad(reporter, pts, w);
-        } while (SkScalarIsFinite(w));
+        } while (SkIsFinite(w));
         test_this_conic_to_quad(reporter, pts, SK_ScalarNaN);
     }
 }
@@ -299,13 +300,15 @@ static void check_cubic_type(skiatest::Reporter* reporter,
     // Classify the cubic even if the results will be undefined: check for crashes and asserts.
     SkCubicType actualType = SkClassifyCubic(bezierPoints.data());
     if (!undefined) {
-        REPORTER_ASSERT(reporter, actualType == expectedType);
+        REPORTER_ASSERT(reporter, actualType == expectedType,
+                        "%d != %d", (int)actualType, (int)expectedType);
     }
 }
 
-static void check_cubic_around_rect(skiatest::Reporter* reporter,
+static void check_cubic_around_rect(std::string name, skiatest::Reporter* reporter,
                                     float x1, float y1, float x2, float y2,
                                     bool undefined = false) {
+    skiatest::ReporterContext subtest(reporter, name);
     static constexpr SkCubicType expectations[24] = {
         SkCubicType::kLoop,
         SkCubicType::kCuspAtInfinity,
@@ -404,35 +407,38 @@ static void test_classify_cubic(skiatest::Reporter* reporter) {
     for (const auto& loop : kLinearCubics) {
         check_cubic_type(reporter, loop, SkCubicType::kLineOrPoint);
     }
-    check_cubic_around_rect(reporter, 0, 0, 1, 1);
-    check_cubic_around_rect(reporter,
+    check_cubic_around_rect("small box", reporter, 0, 0, 1, 1);
+    check_cubic_around_rect("biggest box", reporter,
                             -std::numeric_limits<float>::max(),
                             -std::numeric_limits<float>::max(),
                             +std::numeric_limits<float>::max(),
                             +std::numeric_limits<float>::max());
-    check_cubic_around_rect(reporter, 1, 1,
+    check_cubic_around_rect("large quadrant", reporter, 1, 1,
                             +std::numeric_limits<float>::min(),
                             +std::numeric_limits<float>::max());
-    check_cubic_around_rect(reporter,
+    check_cubic_around_rect("smallest box", reporter,
                             -std::numeric_limits<float>::min(),
                             -std::numeric_limits<float>::min(),
                             +std::numeric_limits<float>::min(),
                             +std::numeric_limits<float>::min());
-    check_cubic_around_rect(reporter, +1, -std::numeric_limits<float>::min(), -1, -1);
-    check_cubic_around_rect(reporter,
+    check_cubic_around_rect("slightly negative box",reporter,
+                            +1, -std::numeric_limits<float>::min(), -1, -1);
+    check_cubic_around_rect("infinite box", reporter,
                             -std::numeric_limits<float>::infinity(),
                             -std::numeric_limits<float>::infinity(),
                             +std::numeric_limits<float>::infinity(),
                             +std::numeric_limits<float>::infinity(),
                             true);
-    check_cubic_around_rect(reporter, 0, 0, 1, +std::numeric_limits<float>::infinity(), true);
-    check_cubic_around_rect(reporter,
+    check_cubic_around_rect("one sided infinite box", reporter,
+                            0, 0, 1, +std::numeric_limits<float>::infinity(), true);
+    check_cubic_around_rect("nan box", reporter,
                             -std::numeric_limits<float>::quiet_NaN(),
                             -std::numeric_limits<float>::quiet_NaN(),
                             +std::numeric_limits<float>::quiet_NaN(),
                             +std::numeric_limits<float>::quiet_NaN(),
                             true);
-    check_cubic_around_rect(reporter, 0, 0, 1, +std::numeric_limits<float>::quiet_NaN(), true);
+    check_cubic_around_rect("partial nan box", reporter,
+                            0, 0, 1, +std::numeric_limits<float>::quiet_NaN(), true);
 }
 
 static std::array<SkPoint, 4> kCusps[] = {
@@ -467,7 +473,7 @@ static void test_chop_quad_at_midtangent(skiatest::Reporter* reporter, const SkP
     constexpr float kTolerance = 1e-3f;
     for (const SkMatrix& m : kSkewMatrices) {
         SkPoint mapped[3];
-        m.mapPoints(mapped, pts, 3);
+        m.mapPoints({mapped, 3}, {pts, 3});
         float fullRotation = SkMeasureQuadRotation(pts);
         SkPoint chopped[5];
         SkChopQuadAtMidTangent(pts, chopped);
@@ -489,7 +495,7 @@ static void test_chop_cubic_at_midtangent(skiatest::Reporter* reporter, const Sk
     }
     for (int i = 0; i < n; ++i) {
         SkPoint mapped[4];
-        kSkewMatrices[i].mapPoints(mapped, pts, 4);
+        kSkewMatrices[i].mapPoints({mapped, 4}, {pts, 4});
         float fullRotation = SkMeasureNonInflectCubicRotation(mapped);
         SkPoint chopped[7];
         SkChopCubicAtMidTangent(mapped, chopped);
@@ -966,4 +972,54 @@ DEF_TEST(GeometryChopMonoCubicAtX_OutOfRangeReturnFalse, reporter) {
     REPORTER_ASSERT(reporter, !SkChopMonoCubicAtX(inputs, -10, outputs));
     // Too high
     REPORTER_ASSERT(reporter, !SkChopMonoCubicAtX(inputs, 20, outputs));
+}
+
+DEF_TEST(ConicsWithCrazyW, reporter) {
+    constexpr float max = std::numeric_limits<float>::max();
+    constexpr float inf = std::numeric_limits<float>::infinity();
+    constexpr float nanq = std::numeric_limits<float>::quiet_NaN();
+    constexpr float nans = std::numeric_limits<float>::signaling_NaN();
+
+    constexpr float weights[] = {
+        0, 1.0f/65535, 1, 65535, max/4, max/2, max, inf, nanq, nans,
+    };
+
+    constexpr float length = 100;
+    SkConic conic = {{0, length}, {0, 0}, {length, 0}, 1};
+
+    // any points on the conic must lie within the convex-hull of the conic's control-points
+    auto is_in_convex_hull = [](SkPoint p) {
+        const float sum = p.fX + p.fY;
+        const float tinySlop = 1.0f/32768;
+        return p.fX >= 0 && p.fY >= 0 && (sum <= length + tinySlop);
+    };
+
+    constexpr float tol = 0;
+    for (float sign : {+1, -1}) {
+        for (auto w : weights) {
+            conic.fW = w * sign;
+
+            constexpr int kExtremePOW2 = 30;    // any larger, and 1 << that would overflow
+            const int pow2 = conic.computeQuadPOW2(tol);
+
+            REPORTER_ASSERT(reporter, pow2 >= 0 && pow2 <= kExtremePOW2);
+            const int numQuads = 1 << pow2;
+            REPORTER_ASSERT(reporter, numQuads > 0);
+            const int numPoints = numQuads * 2 + 1;
+            REPORTER_ASSERT(reporter, numPoints >= 3);
+
+            std::vector<SkPoint> pts(numPoints);
+            const int numQuads2 = conic.chopIntoQuadsPOW2(pts.data(), pow2);
+
+            REPORTER_ASSERT(reporter, numQuads2 <= numQuads);
+            const int numPoints2 = numQuads2 * 2 + 1;
+            REPORTER_ASSERT(reporter, numPoints2 <= numPoints);
+
+            for (int i = 0; i < numPoints2; ++i) {
+                SkPoint p = pts[i];
+                REPORTER_ASSERT(reporter, SkIsFinite(p.fX, p.fY));
+                REPORTER_ASSERT(reporter, is_in_convex_hull(p));
+            }
+        }
+    }
 }

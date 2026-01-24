@@ -709,3 +709,6 @@ def _typecheckingstub__8928970163b927f4599b947dc4936f00af446c321bb87dbfc44b30fd6
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAwsManagedMicrosoftAdParameters, IAwsManagedMicrosoftAdProps]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

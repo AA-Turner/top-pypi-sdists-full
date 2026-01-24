@@ -1,23 +1,153 @@
-# Copyright 2024 IBM Inc. All rights reserved
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-import warnings
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, Union
 
 from . import cpp as fstcpp
-from .common import SafeTensorsMetadata, TensorFrame, get_device_numa_node
+from .common import (
+    SafeTensorsMetadata,
+    TensorFrame,
+    get_device_numa_node,
+    init_logger,
+    set_debug,
+)
+from .copier.gds import new_gds_file_copier
 from .file_buffer import FilesBufferOnDevice
 from .frameworks import TensorBase, get_framework_op
-from .st_types import DeviceType, DType
+from .st_types import Device, DType
 from .tensor_factory import LazyTensorFactory
 
 gl_set_numa = False
 
-loaded_nvidia = False
+loaded_library = False
+
+logger = init_logger(__name__)
 
 
-class SafeTensorsFileLoader:
+class BaseSafeTensorsFileLoader:
+    r"""Base class for loading .safetensors files lazily.
+
+    Args:
+        pg (Optional[Any]): Process group-like objects for distributed loading.
+                           Use None for single device use-cases.
+        device (Device): Target device where tensors will be loaded (CPU, CUDA, etc.).
+        copier_constructor: Constructor function for creating file copier objects.
+        set_numa (bool): Whether to set NUMA node affinity for optimized memory access.
+        disable_cache (bool): Whether to disable caching of loaded tensors.
+        debug_log (bool): Enable detailed debug logging.
+        framework (str): Deep learning framework to use ("pytorch" or "paddle").
+    """
+
+    def __init__(
+        self,
+        pg: Optional[Any],
+        device: Device,
+        copier_constructor,
+        set_numa: bool = True,
+        disable_cache: bool = True,
+        framework="pytorch",
+        **kwargs,
+    ):
+        self.framework = get_framework_op(framework)
+        self.pg = self.framework.get_process_group(pg)
+        self.device = device
+        self.meta: Dict[str, Tuple[SafeTensorsMetadata, int]] = {}
+        self.frames = OrderedDict[str, TensorFrame]()
+        self.disable_cache = disable_cache
+        self.init_numa(set_numa)
+        self.copier_constructor = copier_constructor
+
+    def init_numa(self, set_numa: bool = True):
+        global gl_set_numa
+        if not gl_set_numa and set_numa:
+            node = get_device_numa_node(self.device.index)
+            if node is not None:
+                fstcpp.set_numa_node(node)
+            gl_set_numa = True
+
+    def reset(self):
+        self.frames = {}
+        self.meta = {}
+
+    def close(self):
+        self.reset()
+        del self.copier_constructor
+
+    def get_keys(self) -> List[str]:
+        return list(self.frames.keys())
+
+    def get_shape(self, tensor_name: str) -> List[int]:
+        return self.frames[tensor_name].shape
+
+    def add_filenames(self, filenames: Dict[int, List[str]]):
+        """
+        Register files to ranks to be copied at copy_file_to_device().
+        """
+        # shuffle files in a round-robin fashion to avoid OoM
+        rank_next_idx = {rank: 0 for rank in filenames.keys()}
+        completed = 0
+        while completed < len(filenames.keys()):
+            completed = 0
+            for rank in filenames.keys():
+                next_idx = rank_next_idx[rank]
+                if next_idx < len(filenames[rank]):
+                    realpath = filenames[rank][next_idx]  # os.path.realpath(filename)
+                    metadata = SafeTensorsMetadata.from_file(realpath, self.framework)
+                    self.meta[realpath] = (metadata, rank)
+                    self.frames.update(metadata.tensors)
+                    if rank == self.pg.rank():
+                        logger.debug(
+                            "add_filenames %d: path=%s", len(self.meta), realpath
+                        )
+                    rank_next_idx[rank] = next_idx + 1
+                else:
+                    completed += 1
+
+    def copy_files_to_device(
+        self,
+        dtype: DType = DType.AUTO,
+        use_buf_register: bool = True,
+        max_copy_block_size: int = 16 * 1024 * 1024 * 1024,
+    ) -> FilesBufferOnDevice:
+        """
+        trigger copying all the files to device buffers.
+        At this moment, we do not instantiate tensors but just creating copies at device buffers with or without GDS.
+        Users can instantiate and/or partition tensors with FilesBufferOnDevice returned by this function.
+        """
+        self.framework.set_device(self.device)
+
+        need_wait: List[LazyTensorFactory] = []
+        factories: Dict[int, List[LazyTensorFactory]] = {}
+        for i in range(0, self.pg.size()):
+            factories[i] = []
+
+        factory_idx_bits = math.ceil(math.log2(len(self.meta) + 1))
+        lidx = 1
+        for _, (meta, rank) in sorted(self.meta.items(), key=lambda x: x[0]):
+            copier = self.copier_constructor(meta, self.device, self.framework)
+            self_rank = self.pg.rank() == rank
+            factory = LazyTensorFactory(
+                meta,
+                self.device,
+                rank,
+                self_rank,
+                factory_idx_bits,
+                lidx,
+                copier,
+                self.framework,
+                disable_cache=self.disable_cache,
+            )
+            factory.submit_io(use_buf_register, max_copy_block_size)
+            factories[rank].append(factory)
+            if self_rank:
+                need_wait.append(factory)
+            lidx += 1
+        for factory in need_wait:
+            factory.wait_io(dtype=dtype, noalign=False)
+        return FilesBufferOnDevice(factories, pg=self.pg, framework=self.framework)
+
+
+class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
     r"""Load .safetensors files lazily.
 
     Args:
@@ -46,125 +176,37 @@ class SafeTensorsFileLoader:
         max_threads: int = 16,
         nogds: bool = False,
         set_numa: bool = True,
+        disable_cache: bool = True,
         debug_log: bool = False,
         framework="pytorch",
+        **kwargs,
     ):
         self.framework = get_framework_op(framework)
         self.pg = self.framework.get_process_group(pg)
         self.device = self.framework.get_device(device, self.pg)
-        self.debug_log = debug_log
-        self.meta: Dict[str, Tuple[SafeTensorsMetadata, int]] = {}
-        self.frames = OrderedDict[str, TensorFrame]()
-        global loaded_nvidia
-        if not loaded_nvidia:
-            fstcpp.load_nvidia_functions()
-            if fstcpp.init_gds() != 0:
-                raise Exception(f"[FAIL] init_gds()")
-            loaded_nvidia = True
-        global gl_set_numa
-        if not gl_set_numa and set_numa:
-            node = get_device_numa_node(self.device.index)
-            if node is not None:
-                fstcpp.set_numa_node(node)
-            gl_set_numa = True
+
         fstcpp.set_debug_log(debug_log)
-        device_is_not_cpu = self.device.type != DeviceType.CPU
-        if device_is_not_cpu and not fstcpp.is_cuda_found():
-            raise Exception("[FAIL] libcudart.so does not exist")
-        if not fstcpp.is_cufile_found() and not nogds:
-            warnings.warn(
-                "libcufile.so does not exist but nogds is False. use nogds=True",
-                UserWarning,
-            )
-            nogds = True
-        self.reader: Union[fstcpp.nogds_file_reader, fstcpp.gds_file_reader]
-        if nogds:
-            self.reader = fstcpp.nogds_file_reader(
-                False, bbuf_size_kb, max_threads, device_is_not_cpu
-            )
-        else:
-            self.reader = fstcpp.gds_file_reader(max_threads, device_is_not_cpu)
+        if debug_log:
+            set_debug()
+        global loaded_library
+        if not loaded_library:
+            fstcpp.load_library_functions()
+            if not nogds:
+                # no need to init gds and consume 10s+ in none-gds case
+                if fstcpp.init_gds() != 0:
+                    raise Exception(f"[FAIL] init_gds()")
+            loaded_library = True
 
-    def reset(self):
-        self.frames = {}
-        self.meta = {}
-
-    def close(self):
-        self.reset()
-        del self.reader
-
-    def get_keys(self) -> List[str]:
-        return list(self.frames.keys())
-
-    def get_shape(self, tensor_name: str) -> List[int]:
-        return self.frames[tensor_name].shape
-
-    def add_filenames(self, filenames: Dict[int, List[str]]):
-        """
-        Register files to ranks to be copied at copy_file_to_device().
-        """
-        # shuffle files in a round-robin fashion to avoid OoM
-        rank_next_idx = {rank: 0 for rank in filenames.keys()}
-        completed = 0
-        while completed < len(filenames.keys()):
-            completed = 0
-            for rank in filenames.keys():
-                next_idx = rank_next_idx[rank]
-                if next_idx < len(filenames[rank]):
-                    realpath = filenames[rank][next_idx]  # os.path.realpath(filename)
-                    metadata = SafeTensorsMetadata.from_file(realpath, self.framework)
-                    self.meta[realpath] = (metadata, rank)
-                    self.frames.update(metadata.tensors)
-                    if self.debug_log and rank == self.pg.rank():
-                        print(f"add_filenames {len(self.meta)}: path={realpath}")
-                    rank_next_idx[rank] = next_idx + 1
-                else:
-                    completed += 1
-
-    def copy_files_to_device(
-        self,
-        dtype: DType = DType.AUTO,
-        use_buf_register: bool = True,
-        max_copy_block_size: int = 16 * 1024 * 1024 * 1024,
-    ) -> FilesBufferOnDevice:
-        """
-        trigger copying all the files to device buffers.
-        At this moment, we do not instantiate tensors but just creating copies at device buffers with or without GDS.
-        Users can instantiate and/or partition tensors with FilesBufferOnDevice returned by this function.
-        """
-        self.framework.set_device(self.device)
-
-        need_wait: List[LazyTensorFactory] = []
-        factories: Dict[int, List[LazyTensorFactory]] = {}
-        for i in range(0, self.pg.size()):
-            factories[i] = []
-
-        factory_idx_bits = math.ceil(math.log2(len(self.meta) + 1))
-        lidx = 1
-
-        for _, (meta, rank) in sorted(self.meta.items(), key=lambda x: x[0]):
-            self_rank = self.pg.rank() == rank
-            factory = LazyTensorFactory(
-                meta,
-                self.device,
-                rank,
-                self_rank,
-                factory_idx_bits,
-                lidx,
-                self.reader,
-                self.framework,
-                self.debug_log,
-            )
-            factory.submit_io(use_buf_register, max_copy_block_size)
-            factories[rank].append(factory)
-            if self_rank:
-                need_wait.append(factory)
-            lidx += 1
-        for factory in need_wait:
-            factory.wait_io(
-                dtype=dtype, noalign=isinstance(self.reader, fstcpp.nogds_file_reader)
-            )
-        return FilesBufferOnDevice(factories, pg=self.pg, framework=self.framework)
+        copier = new_gds_file_copier(self.device, bbuf_size_kb, max_threads, nogds)
+        super().__init__(
+            pg,
+            self.device,
+            copier,
+            set_numa,
+            disable_cache,
+            framework,
+            **kwargs,
+        )
 
 
 class fastsafe_open:

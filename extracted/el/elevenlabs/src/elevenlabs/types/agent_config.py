@@ -22,6 +22,11 @@ class AgentConfig(UncheckedBaseModel):
     Language of the agent - used for ASR and TTS
     """
 
+    hinglish_mode: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    When enabled and language is Hindi, the agent will respond in Hinglish
+    """
+
     dynamic_variables: typing.Optional[DynamicVariablesConfig] = pydantic.Field(default=None)
     """
     Configuration for dynamic variables
@@ -46,8 +51,5 @@ class AgentConfig(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput  # noqa: E402, F401, I001
-from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, F401, I001
 
 update_forward_refs(AgentConfig)

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling>=1.27.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -8,18 +8,37 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "caldav/_version.py"
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".#*",      # Emacs lock files
+  "#*#",      # Emacs auto-save files
+  "*~",       # Backup files
+  "*.swp",    # Vim swap files
+  "*.pyc",    # Python bytecode
+  "__pycache__",
+]
+
+[tool.hatch.build.targets.wheel]
+exclude = [
+  ".#*",
+  "#*#",
+  "*~",
+  "*.swp",
+  "*.pyc",
+  "__pycache__",
+]
+
 [project]
 name = "caldav"
 authors = [{ name = "Cyril Robert", email = "cyril@hippie.io" }, { name = "Tobias Brox", email = "caldav@plann.no" }]
-license = { text = "GPL" }
+license = "GPL-3.0-or-later OR Apache-2.0"
+license-files = ["COPYING.*"]
 description = "CalDAV (RFC4791) client library"
 keywords = []
 readme = "README.md"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU General Public License (GPL)",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.9",
@@ -27,16 +46,19 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Office/Business :: Scheduling",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 dependencies = [
   "lxml",
-  "requests",
+  "niquests",
   "recurring-ical-events>=2.0.0",
   "typing_extensions;python_version<'3.11'",
-  "icalendar>6.0.0"
+  "icalendar>6.0.0",
+  "icalendar-searcher>=1.0.0,<2",
+  "dnspython",
 ]
 dynamic = ["version"]
 
@@ -54,9 +76,10 @@ test = [
   "manuel",
   "proxy.py",
   "tzlocal",
-  "xandikos",
+  "xandikos>=0.2.12",
   "radicale",
-  "pyfakefs"
+  "pyfakefs",
+  #"caldav_server_tester"
 ]
 [tool.setuptools_scm]
 write_to = "caldav/_version.py"

@@ -78,11 +78,11 @@ from ._base import (
 )
 from ._fit import Fit
 from ._image_inline import (
-    extract_inline_A85,
-    extract_inline_AHx,
-    extract_inline_DCT,
+    extract_inline__ascii85_decode,
+    extract_inline__ascii_hex_decode,
+    extract_inline__dct_decode,
+    extract_inline__run_length_decode,
     extract_inline_default,
-    extract_inline_RL,
 )
 from ._utils import read_hex_string_from_stream, read_string_from_stream
 
@@ -634,7 +634,7 @@ class DictionaryObject(dict[Any, Any], PdfObject):
             if length is None:  # if the PDF is damaged
                 length = -1
             pstart = stream.tell()
-            if length > 0:
+            if length >= 0:
                 data["__streamdata__"] = stream.read(length)
             else:
                 data["__streamdata__"] = read_until_regex(
@@ -1046,9 +1046,13 @@ class StreamObject(DictionaryObject):
         retval._data = FlateDecode.encode(self._data, level)
         return retval
 
-    def decode_as_image(self) -> Any:
+    def decode_as_image(self, pillow_parameters: Union[dict[str, Any], None] = None) -> Any:
         """
         Try to decode the stream object as an image
+
+        Args:
+            pillow_parameters: parameters provided to Pillow Image.save() method,
+                cf. <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>
 
         Returns:
             a PIL image if proper decoding has been found
@@ -1058,7 +1062,7 @@ class StreamObject(DictionaryObject):
                 stops in your program.
 
         """
-        from ..filters import _xobj_to_image  # noqa: PLC0415
+        from .._xobj_image_helpers import _xobj_to_image  # noqa: PLC0415
 
         if self.get("/Subtype", "") != "/Image":
             try:
@@ -1066,7 +1070,7 @@ class StreamObject(DictionaryObject):
             except AttributeError:
                 msg = f"{self.__repr__()} object does not seem to be an Image"  # pragma: no cover
             logger_warning(msg, __name__)
-        extension, _, img = _xobj_to_image(self)
+        extension, _, img = _xobj_to_image(self, pillow_parameters)
         if extension is None:
             return None  # pragma: no cover
         return img
@@ -1321,13 +1325,13 @@ class ContentStream(DecodedStreamObject):
         if isinstance(filtr, list):
             filtr = filtr[0]  # used forencoding
         if "AHx" in filtr or "ASCIIHexDecode" in filtr:
-            data = extract_inline_AHx(stream)
+            data = extract_inline__ascii_hex_decode(stream)
         elif "A85" in filtr or "ASCII85Decode" in filtr:
-            data = extract_inline_A85(stream)
+            data = extract_inline__ascii85_decode(stream)
         elif "RL" in filtr or "RunLengthDecode" in filtr:
-            data = extract_inline_RL(stream)
+            data = extract_inline__run_length_decode(stream)
         elif "DCT" in filtr or "DCTDecode" in filtr:
-            data = extract_inline_DCT(stream)
+            data = extract_inline__dct_decode(stream)
         elif filtr == "not set":
             cs = settings.get("/CS", "")
             if isinstance(cs, list):

@@ -309,7 +309,7 @@ apprise_url_tests = (
         "tgram://123456789:abcdefg_hijklmnop/lead2gold/",
         {
             "instance": NotifyTelegram,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -318,7 +318,7 @@ apprise_url_tests = (
         "tgram://123456789:abcdefg_hijklmnop/lead2gold/",
         {
             "instance": NotifyTelegram,
-            # throw a bizzare code forcing us to fail to look it up without
+            # throw a bizarre code forcing us to fail to look it up without
             # having an image included
             "include_image": False,
             "response": False,
@@ -330,7 +330,7 @@ apprise_url_tests = (
         "tgram://123456789:abcdefg_hijklmnop/lead2gold/?image=Yes",
         {
             "instance": NotifyTelegram,
-            # throw a bizzare code forcing us to fail to look it up without
+            # throw a bizarre code forcing us to fail to look it up without
             # having an image included
             "include_image": True,
             "response": False,
@@ -342,7 +342,7 @@ apprise_url_tests = (
         {
             "instance": NotifyTelegram,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -350,8 +350,8 @@ apprise_url_tests = (
         "tgram://123456789:abcdefg_hijklmnop/lead2gold/?image=Yes",
         {
             "instance": NotifyTelegram,
-            # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them without images set
+            # Throws a series of i/o exceptions with this flag is set and
+            # tests that we gracefully handle them without images set
             "include_image": True,
             "test_requests_exceptions": True,
         },
@@ -1404,7 +1404,8 @@ def test_plugin_telegram_html_formatting(mock_post):
         == "\r\n<b>Bootstrap 101 Template</b>\r\n<b>My Title</b>\r\n"
         "<b>Heading 1</b>\r\n-Bullet 1\r\n-Bullet 2\r\n-Bullet 3\r\n"
         "-Bullet 1\r\n-Bullet 2\r\n-Bullet 3\r\n<b>Heading 2</b>\r\n"
-        "A div entry\r\nA div entry\r\n<code>A pre entry</code>\r\n"
+        "A div entry\r\nA div entry\r\n"
+        "<pre><code class=\"language-python\">print('hello')</code></pre>\r\n"
         "<b>Heading 3</b>\r\n<b>Heading 4</b>\r\n<b>Heading 5</b>\r\n"
         "<b>Heading 6</b>\r\nA set of text\r\n"
         "Another line after the set of text\r\nMore text\r\nlabel"

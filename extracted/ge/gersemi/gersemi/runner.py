@@ -1,54 +1,53 @@
 import argparse
-from collections import defaultdict, ChainMap
+from collections import ChainMap, defaultdict
 import collections.abc
 from functools import partial
 from hashlib import sha1
-from itertools import chain
-import multiprocessing as mp
-import multiprocessing.dummy as mp_dummy
 from pathlib import Path
 import sys
-from typing import Callable, Dict, List, Iterable, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from ignore import WalkBuilder  # pylint: disable=no-name-in-module
 from gersemi.cache import create_cache
 from gersemi.configuration import (
     Configuration,
     ControlConfiguration,
-    find_closest_dot_gersemirc,
-    make_control_configuration,
-    make_outcome_configuration,
+    LineRanges,
     MaxWorkers,
-    max_number_of_workers,
     NotSupportedKeys,
     OutcomeConfiguration,
     Workers,
+    find_closest_dot_gersemirc,
+    make_control_configuration,
+    make_outcome_configuration,
+    max_number_of_workers,
 )
 from gersemi.configuration_reports import minimal_report, verbose_report
 from gersemi.custom_command_definition_finder import (
     find_custom_command_definitions,
     get_just_definitions,
 )
-from gersemi.formatted_file import FormattedFile
-from gersemi.formatter import create_formatter, NullFormatter, Formatter
-from gersemi.mode import get_mode, Mode
-from gersemi.parser import PARSER as parser
 from gersemi.extensions import load_definitions_from_extensions
+from gersemi.formatted_file import FormattedFile
+from gersemi.formatter import Formatter, NullFormatter, create_formatter
+from gersemi.keywords import Keywords
+from gersemi.mode import Mode, get_mode
+from gersemi.parser import BARE_PARSER as parser
 from gersemi.print_config_kind import PrintConfigKind
-from gersemi.result import Result, Error, apply, get_error_message
+from gersemi.result import Error, Result, apply, get_error_message
 from gersemi.return_codes import FAIL, INTERNAL_ERROR, SUCCESS
 from gersemi.task_result import TaskResult
-from gersemi.tasks.check_formatting import check_formatting
 from gersemi.tasks.check_and_show_diff import check_and_show_diff
+from gersemi.tasks.check_formatting import check_formatting
 from gersemi.tasks.do_nothing import do_nothing
-from gersemi.tasks.forward_to_stdout import forward_to_stdout
 from gersemi.tasks.format_file import format_file
+from gersemi.tasks.forward_to_stdout import forward_to_stdout
 from gersemi.tasks.rewrite_in_place import rewrite_in_place
 from gersemi.tasks.show_diff import show_diff
 from gersemi.utils import fromfile, smart_open
-from gersemi.keywords import Keywords
 from gersemi.warnings import UnknownCommandWarning
 
-
 CHUNKSIZE = 16
+FILE_PATTERNS = ("CMakeLists.txt", "CMakeLists.txt.in", "*.cmake", "*.cmake.in")
 
 
 print_to_stdout = partial(print, file=sys.stdout, end="")
@@ -89,18 +88,36 @@ class StatusCode:
         raise RuntimeError(f"Invalid type: {type(other)}")
 
 
-def get_files(paths: Iterable[Path]) -> Iterable[Path]:
-    def get_files_from_single_path(path):
-        if path.is_dir():
-            return chain(path.rglob("CMakeLists.txt"), path.rglob("*.cmake"))
-        return [path]
+def get_files_from_directory(path: Path, respect_ignore_files: bool) -> Iterable[Path]:
+    if not respect_ignore_files:
+        for pattern in FILE_PATTERNS:
+            yield from path.rglob(pattern)
 
+        return
+
+    for entry in WalkBuilder(path).require_git(False).build():
+        path = entry.path().resolve(True)
+        if any(path.match(pattern) for pattern in FILE_PATTERNS):
+            yield path
+
+
+def get_files_from_single_path(
+    path: Path, respect_ignore_files: bool
+) -> Iterable[Path]:
+    if path.is_dir():
+        yield from get_files_from_directory(path, respect_ignore_files)
+        return
+
+    yield path
+
+
+def get_files(paths: Iterable[Path], respect_ignore_files: bool) -> List[Path]:
     return sorted(
-        set(
+        {
             item.resolve(True) if item != Path("-") else item
             for path in paths
-            for item in get_files_from_single_path(path)
-        )
+            for item in get_files_from_single_path(path, respect_ignore_files)
+        }
     )
 
 
@@ -138,19 +155,25 @@ def check_conflicting_definitions(definitions, warning_sink: WarningSink):
 
 
 def find_all_custom_command_definitions(
-    paths: Iterable[Path], pool, warning_sink: WarningSink
+    paths: Iterable[Path],
+    pool,
+    warning_sink: WarningSink,
+    respect_ignore_files: bool,
 ) -> Dict[str, Keywords]:
     result: Dict = {}
 
     try:
-        files = get_files(paths)
+        files = get_files(
+            paths,
+            respect_ignore_files=respect_ignore_files,
+        )
     except FileNotFoundError as e:
         # pylint: disable=broad-exception-raised
         raise Exception(f"Definition path doesn't exist: {e.filename}") from e
 
     find = find_custom_command_definitions_in_file
 
-    for defs in pool.imap_unordered(find, files, chunksize=CHUNKSIZE):
+    for defs in pool.imap_unordered(find, files):
         if isinstance(defs, Error):
             warning_sink(get_error_message(defs))
             continue
@@ -216,19 +239,24 @@ def consume_task_result(
     return task_result.path, task_result.return_code, (len(warnings) > 0)
 
 
-def create_pool(is_stdin_in_sources, workers: Workers):
-    if is_stdin_in_sources:
-        return mp_dummy.Pool
+class AdaptivePool:
+    def __init__(self, workers: Workers):
+        self.workers = (
+            max_number_of_workers()
+            if isinstance(workers, MaxWorkers)
+            else max(1, workers)
+        )
 
-    if isinstance(workers, MaxWorkers):
-        value = max_number_of_workers()
-    else:
-        if workers <= 1:
-            return mp_dummy.Pool
+    def imap_unordered(self, func, iterable):
+        processes = min(self.workers, (len(iterable) + CHUNKSIZE - 1) // CHUNKSIZE)
+        if processes <= 1:
+            yield from map(func, iterable)
+            return
 
-        value = workers
+        import multiprocessing
 
-    return partial(mp.Pool, processes=value)
+        with multiprocessing.Pool(processes=processes) as pool:
+            yield from pool.imap_unordered(func, iterable, CHUNKSIZE)
 
 
 def summarize_configuration(configuration, extension_definitions):
@@ -301,9 +329,13 @@ def handle_files_to_format(  # pylint: disable=too-many-arguments,too-many-posit
     pool,
     warning_sink: WarningSink,
     files_to_format: Iterable[Path],
+    lines_to_format: LineRanges,
 ) -> Iterable[int]:
     custom_command_definitions = find_all_custom_command_definitions(
-        set(configuration.outcome.definitions), pool, warning_sink
+        set(configuration.outcome.definitions),
+        pool,
+        warning_sink,
+        configuration.control.respect_ignore_files,
     )
     extension_definitions = load_definitions_from_extensions(
         configuration.outcome.extensions
@@ -312,13 +344,14 @@ def handle_files_to_format(  # pylint: disable=too-many-arguments,too-many-posit
     formatter = create_formatter(
         configuration.outcome,
         ChainMap(custom_command_definitions, extension_definitions),
+        lines_to_format,
     )
     task = select_task(mode, configuration)
     execute = partial(run_task, formatter=formatter, task=task)
 
     results = [
         consume_task_result(result, configuration, warning_sink)
-        for result in pool.imap_unordered(execute, files_to_format, chunksize=CHUNKSIZE)
+        for result in pool.imap_unordered(execute, files_to_format)
     ]
     store_files_in_cache(
         mode,
@@ -410,19 +443,24 @@ def print_configuration_report(
 
 # pylint: disable=too-many-locals
 def run(args: argparse.Namespace):
+    control = make_control_configuration(args)
+
     try:
-        requested_files = get_files(args.sources)
+        requested_files = get_files(
+            args.sources,
+            respect_ignore_files=control.respect_ignore_files,
+        )
     except FileNotFoundError as e:
         # pylint: disable=broad-exception-raised
         raise Exception(f"Source path doesn't exist: {e.filename}") from e
 
+    if args.line_ranges and len(requested_files) > 1:
+        # pylint: disable=broad-exception-raised
+        raise Exception("Line range formatting available only with one source file")
+
     mode = get_mode(args)
-    control = make_control_configuration(args)
     warning_sink = WarningSink(control.quiet)
-    pool_cm = create_pool(
-        is_stdin_in_sources=(Path("-") in requested_files),
-        workers=control.workers,
-    )
+    pool = AdaptivePool(workers=control.workers)
 
     buckets = split_files_by_configuration_file(requested_files, control)
     get_configuration = GetConfiguration(args, control, warning_sink)
@@ -430,7 +468,8 @@ def run(args: argparse.Namespace):
         print_configuration_report(args.print_config, buckets, get_configuration)
         return SUCCESS
 
-    with create_cache(control.cache) as cache, pool_cm() as pool:
+    enable_cache = control.cache and (not control.line_ranges)
+    with create_cache(enable_cache, control.cache_dir) as cache:
         status_code = StatusCode()
         for config_file, files in buckets.items():
             config = get_configuration(config_file)
@@ -445,7 +484,13 @@ def run(args: argparse.Namespace):
                 mode, config, warning_sink, already_formatted_files
             )
             status_code += handle_files_to_format(
-                mode, config, cache, pool, warning_sink, files_to_format
+                mode,
+                config,
+                cache,
+                pool,
+                warning_sink,
+                files_to_format,
+                control.line_ranges,
             )
 
         status_code += (

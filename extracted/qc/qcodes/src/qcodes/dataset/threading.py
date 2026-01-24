@@ -4,7 +4,6 @@ from __future__ import annotations
 # we want to happen simultaneously within one process (namely getting
 # several parameters in parallel), we can parallelize them with threads.
 # That way the things we call need not be rewritten explicitly async.
-import concurrent
 import concurrent.futures
 import itertools
 import logging
@@ -48,7 +47,7 @@ class _ParamCaller:
 def _instrument_to_param(
     params: Sequence[ParamMeasT],
 ) -> dict[str | None, tuple[ParameterBase, ...]]:
-    from qcodes.parameters import ParameterBase
+    from qcodes.parameters import ParameterBase  # noqa: PLC0415
 
     real_parameters = [param for param in params if isinstance(param, ParameterBase)]
 
@@ -93,7 +92,7 @@ def call_params_threaded(param_meas: Sequence[ParamMeasT]) -> OutType:
 
 
 def _call_params(param_meas: Sequence[ParamMeasT]) -> OutType:
-    from qcodes.parameters import ParameterBase
+    from qcodes.parameters import ParameterBase  # noqa: PLC0415
 
     output: OutType = []
 
@@ -109,7 +108,7 @@ def _call_params(param_meas: Sequence[ParamMeasT]) -> OutType:
 def process_params_meas(
     param_meas: Sequence[ParamMeasT], use_threads: bool | None = None
 ) -> OutType:
-    from qcodes import config
+    from qcodes import config  # noqa: PLC0415
 
     if use_threads is None:
         use_threads = config.dataset.use_threads

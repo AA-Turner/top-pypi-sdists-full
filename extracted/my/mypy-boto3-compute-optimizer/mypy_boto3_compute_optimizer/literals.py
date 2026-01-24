@@ -276,6 +276,7 @@ ExportableIdleFieldType = Literal[
     "SavingsOpportunity",
     "SavingsOpportunityAfterDiscount",
     "Tags",
+    "UtilizationMetricsActiveConnectionCountMaximum",
     "UtilizationMetricsCpuMaximum",
     "UtilizationMetricsDatabaseConnectionsMaximum",
     "UtilizationMetricsEBSVolumeReadIOPSMaximum",
@@ -283,6 +284,8 @@ ExportableIdleFieldType = Literal[
     "UtilizationMetricsMemoryMaximum",
     "UtilizationMetricsNetworkInBytesPerSecondMaximum",
     "UtilizationMetricsNetworkOutBytesPerSecondMaximum",
+    "UtilizationMetricsPacketsInFromDestinationMaximum",
+    "UtilizationMetricsPacketsInFromSourceMaximum",
     "UtilizationMetricsVolumeReadOpsPerSecondMaximum",
     "UtilizationMetricsVolumeWriteOpsPerSecondMaximum",
 ]
@@ -561,8 +564,9 @@ GetEnrollmentStatusesForOrganizationPaginatorName = Literal[
 GetLambdaFunctionRecommendationsPaginatorName = Literal["get_lambda_function_recommendations"]
 GetRecommendationPreferencesPaginatorName = Literal["get_recommendation_preferences"]
 GetRecommendationSummariesPaginatorName = Literal["get_recommendation_summaries"]
-IdleFindingType = Literal["Idle", "Unattached"]
+IdleFindingType = Literal["Idle", "Unattached", "Unused"]
 IdleMetricNameType = Literal[
+    "ActiveConnectionCount",
     "CPU",
     "DatabaseConnections",
     "EBSVolumeReadIOPS",
@@ -570,12 +574,14 @@ IdleMetricNameType = Literal[
     "Memory",
     "NetworkInBytesPerSecond",
     "NetworkOutBytesPerSecond",
+    "PacketsInFromDestination",
+    "PacketsInFromSource",
     "VolumeReadOpsPerSecond",
     "VolumeWriteOpsPerSecond",
 ]
 IdleRecommendationFilterNameType = Literal["Finding", "ResourceType"]
 IdleRecommendationResourceTypeType = Literal[
-    "AutoScalingGroup", "EBSVolume", "EC2Instance", "ECSService", "RDSDBInstance"
+    "AutoScalingGroup", "EBSVolume", "EC2Instance", "ECSService", "NatGateway", "RDSDBInstance"
 ]
 IdleType = Literal["False", "True"]
 InferredWorkloadTypeType = Literal[
@@ -755,6 +761,7 @@ RecommendationSourceTypeType = Literal[
     "EcsService",
     "LambdaFunction",
     "License",
+    "NatGateway",
     "RdsDBInstance",
     "RdsDBInstanceStorage",
 ]
@@ -800,7 +807,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -812,8 +819,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -867,6 +876,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -965,7 +975,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1004,8 +1013,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -1040,6 +1047,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -1049,18 +1057,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1082,8 +1092,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -1098,15 +1106,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -1137,8 +1146,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1189,16 +1198,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_recommendation_export_jobs",

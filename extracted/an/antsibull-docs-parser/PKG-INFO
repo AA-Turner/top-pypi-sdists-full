@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antsibull-docs-parser
-Version: 1.2.1
+Version: 1.2.2
 Summary: Python library for processing Ansible documentation markup
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs-parser/
 Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html

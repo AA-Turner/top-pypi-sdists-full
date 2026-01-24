@@ -214,7 +214,7 @@ class DictStore:
         """Access the underlying EmbedStore."""
         return self._estore
 
-    def __setitem__(self, key: str, value: np.ndarray | blosc2.NDArray | SChunk | C2Array) -> None:
+    def __setitem__(self, key: str, value: blosc2.Array | SChunk) -> None:
         """Add a node to the DictStore."""
         if isinstance(value, np.ndarray):
             value = blosc2.asarray(value, cparams=self.cparams, dparams=self.dparams)
@@ -392,7 +392,7 @@ class DictStore:
                     filepaths.append(filepath)
 
         # Sort filepaths by file size from largest to smallest
-        filepaths.sort(key=lambda f: os.path.getsize(f), reverse=True)
+        filepaths.sort(key=os.path.getsize, reverse=True)
 
         with zipfile.ZipFile(self.b2z_path, "w", zipfile.ZIP_STORED) as zf:
             # Write all files (except estore_path) first (sorted by size)

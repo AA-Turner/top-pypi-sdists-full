@@ -7,8 +7,6 @@
 #  _crs <-- _geom <-- _geobox <- other
 # isort: skip_file
 
-from ._version import __version__
-
 from .types import (
     AnchorEnum,
     XY,
@@ -44,8 +42,10 @@ from .geom import (
     Geometry,
 )
 
+from .geobox import GeoBox, GeoboxTiles
+from .gcp import GCPGeoBox, GCPMapping
+
 __all__ = [
-    "__version__",
     "AnchorEnum",
     "XY",
     "Index2d",
@@ -62,6 +62,10 @@ __all__ = [
     "Geometry",
     "MaybeCRS",
     "SomeCRS",
+    "GeoBox",
+    "GeoboxTiles",
+    "GCPGeoBox",
+    "GCPMapping",
     "Unset",
     "xy_",
     "yx_",
@@ -73,3 +77,11 @@ __all__ = [
     "wh_",
     "shape_",
 ]
+
+
+def __getattr__(name: str) -> str:
+    from importlib.metadata import version  # pylint: disable=import-outside-toplevel
+
+    if name == "__version__":
+        return version("odc_geo")
+    raise AttributeError(f"module {__name__} has no attribute {name}")

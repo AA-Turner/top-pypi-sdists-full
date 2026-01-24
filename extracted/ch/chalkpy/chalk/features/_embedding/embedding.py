@@ -25,6 +25,7 @@ from chalk.utils.collections import ensure_tuple
 SUPPORTED_LOCAL_MODELS = {
     "all-MiniLM-L6-v2",  # https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
     "sample-bert",  # For internal Chalk use
+    "sample-linear-nn",  # For internal Chalk use
 }
 
 # This will eventually be included in SUPPORTED_LOCAL_MODELS

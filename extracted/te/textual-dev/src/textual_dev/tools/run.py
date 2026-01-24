@@ -105,7 +105,7 @@ def exec_python(args: Sequence[str], environment: dict[str, str]) -> None:
     if WINDOWS:
         subprocess.call([sys.executable, *args], env=environment)
     else:
-        os.execvpe(sys.executable, ["python", *args], environment)
+        os.execve(sys.executable, ["python", *args], environment)
 
 
 def exec_command(

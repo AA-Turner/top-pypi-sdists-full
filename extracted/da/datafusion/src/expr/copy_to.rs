@@ -15,20 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::sync::Arc;
 
-use datafusion::{common::file_options::file_type::FileType, logical_expr::dml::CopyTo};
-use pyo3::{prelude::*, IntoPyObjectExt};
-
-use crate::sql::logical::PyLogicalPlan;
+use datafusion::common::file_options::file_type::FileType;
+use datafusion::logical_expr::dml::CopyTo;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
 use super::logical_node::LogicalNode;
+use crate::sql::logical::PyLogicalPlan;
 
-#[pyclass(name = "CopyTo", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "CopyTo", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyCopyTo {
     copy: CopyTo,
@@ -114,7 +113,7 @@ impl PyCopyTo {
     }
 }
 
-#[pyclass(name = "FileType", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "FileType", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyFileType {
     file_type: Arc<dyn FileType>,

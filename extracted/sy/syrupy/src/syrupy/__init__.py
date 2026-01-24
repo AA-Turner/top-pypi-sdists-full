@@ -1,17 +1,17 @@
 import argparse
 import contextlib
 import sys
+from collections.abc import Iterator
 from functools import lru_cache
 from gettext import gettext
 from typing import (
     Any,
-    ContextManager,
-    Iterator,
-    List,
     Optional,
 )
 
 import pytest
+
+from syrupy.extensions.base import SnapshotCollectionStorage
 
 from .assertion import DiffMode, SnapshotAssertion
 from .constants import DISABLE_COLOR_ENV_VAR
@@ -28,6 +28,7 @@ from .terminal import (
 from .utils import (
     env_context,
     import_module_member,
+    is_xdist_worker,
 )
 
 # Global to have access to the session in `pytest_runtest_logfinish` hook
@@ -35,7 +36,7 @@ _syrupy: Optional["SnapshotSession"] = None
 
 
 @lru_cache(maxsize=1)
-def __import_extension(value: Optional[str]) -> Any:
+def __import_extension(value: str | None) -> Any:
     if not value:
         return DEFAULT_EXTENSION
     try:
@@ -109,9 +110,17 @@ def pytest_addoption(parser: "pytest.Parser") -> None:
         help="Comma separated list of file extensions to ignore when discovering snapshots",
         type=lambda v: v.split(","),
     )
+    group.addoption(
+        "--snapshot-dirname",
+        dest="snapshot_dirname",
+        default="__snapshots__",
+        help="Directory name to use to store snapshots",
+    )
 
 
-def __terminal_color(config: "pytest.Config") -> "ContextManager[None]":
+def __terminal_color(
+    config: "pytest.Config",
+) -> "contextlib.AbstractContextManager[None]":
     if config.option.no_colors:
         env = {
             DISABLE_COLOR_ENV_VAR: "true",
@@ -122,12 +131,13 @@ def __terminal_color(config: "pytest.Config") -> "ContextManager[None]":
         return contextlib.nullcontext()
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_assertrepr_compare(
     config: "pytest.Config", op: str, left: Any, right: Any
-) -> Optional[List[str]]:
+) -> list[str] | None:
     """
     Return explanation for comparisons in failing assert expressions.
-    https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_assertrepr_compare
+    https://docs.pytest.org/en/latest/reference.html#pytest.hookspec.pytest_assertrepr_compare
     """
     if not isinstance(left, SnapshotAssertion) and not isinstance(
         right, SnapshotAssertion
@@ -159,6 +169,10 @@ def pytest_sessionstart(session: Any) -> None:
     Initialize snapshot session before tests are collected and ran.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_sessionstart
     """
+
+    # Override the snapshot dirname in the base SnapshotCollectionStorage class with the pytest config.
+    SnapshotCollectionStorage.snapshot_dirname = session.config.option.snapshot_dirname
+
     session.config._syrupy = SnapshotSession(
         pytest_session=session,
         ignore_file_extensions=session.config.option.ignore_file_extensions,
@@ -169,7 +183,7 @@ def pytest_sessionstart(session: Any) -> None:
 
 
 def pytest_collection_modifyitems(
-    session: Any, config: Any, items: List["pytest.Item"]
+    session: Any, config: Any, items: list["pytest.Item"]
 ) -> None:
     """
     After tests are collected and before any modification is performed.
@@ -213,6 +227,12 @@ def pytest_terminal_summary(
     Add syrupy report to pytest.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_terminal_summary
     """
+    if is_xdist_worker():
+        # There is no need for pytest-xdist worker processes to generate a
+        # summary and doing so has been seen to cause CPU spin and delays to
+        # test run shutdown.
+        return
+
     with __terminal_color(config):
         is_printing_report = False
         for line in terminalreporter.config._syrupy.report.lines:

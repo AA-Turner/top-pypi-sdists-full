@@ -1,19 +1,11 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Optimizer
 import QuantConnect.Optimizer.Launcher
 import QuantConnect.Optimizer.Parameters
 import System
-
-
-class Program(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def main(args: typing.List[str]) -> None:
-        ...
 
 
 class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
@@ -31,7 +23,8 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         """
         Stops lean process
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param backtest_id: Specified backtest id
         """
@@ -41,7 +34,8 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         """
         Handles starting Lean for a given parameter set
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param parameter_set: The parameter set for the backtest to run
         :param backtest_name: The backtest name to use
@@ -53,8 +47,17 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         """
         Sends an update of the current optimization status to the user
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
+        ...
+
+
+class Program(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def main(args: typing.List[str]) -> None:
         ...
 
 

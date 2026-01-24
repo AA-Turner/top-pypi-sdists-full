@@ -3,10 +3,9 @@ from __future__ import annotations
 import itertools
 import json
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from typing import Callable
-from typing import Union
 
 
 try:
@@ -15,8 +14,8 @@ except ImportError:
     from importlib_resources import files  # type: ignore
 
 
-Key = Union[str, tuple]
-Value = Union[dict[Key, Any], list[dict[Key, Any]]]
+Key = str | tuple
+Value = dict[Key, Any] | list[dict[Key, Any]]
 
 _registry: dict[Key, Value] = {}
 
@@ -44,7 +43,7 @@ def get(name: Key) -> Value:
     if has(name):
         return _registry[name]
 
-    data = None
+    data: Value | None = None
     directory = files(__package__) / f"{name}_registry"
     assert isinstance(directory, Path)
     for entry in sorted(directory.glob("*.json")):

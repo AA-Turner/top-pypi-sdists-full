@@ -171,6 +171,8 @@ if typing.TYPE_CHECKING:
     managedapplication = __managedapplication
     import pulumi_azure.managedlustre as __managedlustre
     managedlustre = __managedlustre
+    import pulumi_azure.managedredis as __managedredis
+    managedredis = __managedredis
     import pulumi_azure.management as __management
     management = __management
     import pulumi_azure.managementgroups as __managementgroups
@@ -181,10 +183,8 @@ if typing.TYPE_CHECKING:
     maps = __maps
     import pulumi_azure.marketplace as __marketplace
     marketplace = __marketplace
-    import pulumi_azure.mixedreality as __mixedreality
-    mixedreality = __mixedreality
-    import pulumi_azure.mobile as __mobile
-    mobile = __mobile
+    import pulumi_azure.mongocluster as __mongocluster
+    mongocluster = __mongocluster
     import pulumi_azure.monitoring as __monitoring
     monitoring = __monitoring
     import pulumi_azure.msi as __msi
@@ -362,13 +362,13 @@ else:
     maintenance = _utilities.lazy_import('pulumi_azure.maintenance')
     managedapplication = _utilities.lazy_import('pulumi_azure.managedapplication')
     managedlustre = _utilities.lazy_import('pulumi_azure.managedlustre')
+    managedredis = _utilities.lazy_import('pulumi_azure.managedredis')
     management = _utilities.lazy_import('pulumi_azure.management')
     managementgroups = _utilities.lazy_import('pulumi_azure.managementgroups')
     managementresource = _utilities.lazy_import('pulumi_azure.managementresource')
     maps = _utilities.lazy_import('pulumi_azure.maps')
     marketplace = _utilities.lazy_import('pulumi_azure.marketplace')
-    mixedreality = _utilities.lazy_import('pulumi_azure.mixedreality')
-    mobile = _utilities.lazy_import('pulumi_azure.mobile')
+    mongocluster = _utilities.lazy_import('pulumi_azure.mongocluster')
     monitoring = _utilities.lazy_import('pulumi_azure.monitoring')
     msi = _utilities.lazy_import('pulumi_azure.msi')
     mssql = _utilities.lazy_import('pulumi_azure.mssql')
@@ -851,6 +851,38 @@ _utilities.register(
   "fqn": "pulumi_azure.apimanagement",
   "classes": {
    "azure:apimanagement/workspace:Workspace": "Workspace"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "apimanagement/workspaceApiVersionSet",
+  "fqn": "pulumi_azure.apimanagement",
+  "classes": {
+   "azure:apimanagement/workspaceApiVersionSet:WorkspaceApiVersionSet": "WorkspaceApiVersionSet"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "apimanagement/workspaceCertificate",
+  "fqn": "pulumi_azure.apimanagement",
+  "classes": {
+   "azure:apimanagement/workspaceCertificate:WorkspaceCertificate": "WorkspaceCertificate"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "apimanagement/workspacePolicy",
+  "fqn": "pulumi_azure.apimanagement",
+  "classes": {
+   "azure:apimanagement/workspacePolicy:WorkspacePolicy": "WorkspacePolicy"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "apimanagement/workspacePolicyFragment",
+  "fqn": "pulumi_azure.apimanagement",
+  "classes": {
+   "azure:apimanagement/workspacePolicyFragment:WorkspacePolicyFragment": "WorkspacePolicyFragment"
   }
  },
  {
@@ -1839,6 +1871,14 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "automation/runtimeEnvironment",
+  "fqn": "pulumi_azure.automation",
+  "classes": {
+   "azure:automation/runtimeEnvironment:RuntimeEnvironment": "RuntimeEnvironment"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "automation/schedule",
   "fqn": "pulumi_azure.automation",
   "classes": {
@@ -2315,6 +2355,14 @@ _utilities.register(
   "fqn": "pulumi_azure.cognitive",
   "classes": {
    "azure:cognitive/accountCustomerManagedKey:AccountCustomerManagedKey": "AccountCustomerManagedKey"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "cognitive/accountProject",
+  "fqn": "pulumi_azure.cognitive",
+  "classes": {
+   "azure:cognitive/accountProject:AccountProject": "AccountProject"
   }
  },
  {
@@ -3499,6 +3547,14 @@ _utilities.register(
   "fqn": "pulumi_azure.datafactory",
   "classes": {
    "azure:datafactory/customDataset:CustomDataset": "CustomDataset"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "datafactory/customerManagedKey",
+  "fqn": "pulumi_azure.datafactory",
+  "classes": {
+   "azure:datafactory/customerManagedKey:CustomerManagedKey": "CustomerManagedKey"
   }
  },
  {
@@ -5463,6 +5519,14 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "loganalytics/workspaceTableCustomLog",
+  "fqn": "pulumi_azure.loganalytics",
+  "classes": {
+   "azure:loganalytics/workspaceTableCustomLog:WorkspaceTableCustomLog": "WorkspaceTableCustomLog"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "logicapps/actionCustom",
   "fqn": "pulumi_azure.logicapps",
   "classes": {
@@ -5743,6 +5807,22 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "managedredis/geoReplication",
+  "fqn": "pulumi_azure.managedredis",
+  "classes": {
+   "azure:managedredis/geoReplication:GeoReplication": "GeoReplication"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "managedredis/managedRedis",
+  "fqn": "pulumi_azure.managedredis",
+  "classes": {
+   "azure:managedredis/managedRedis:ManagedRedis": "ManagedRedis"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "management/group",
   "fqn": "pulumi_azure.management",
   "classes": {
@@ -5871,98 +5951,26 @@ _utilities.register(
  },
  {
   "pkg": "azure",
-  "mod": "mixedreality/spatialAnchorsAccount",
-  "fqn": "pulumi_azure.mixedreality",
+  "mod": "mongocluster/firewallRule",
+  "fqn": "pulumi_azure.mongocluster",
   "classes": {
-   "azure:mixedreality/spatialAnchorsAccount:SpatialAnchorsAccount": "SpatialAnchorsAccount"
+   "azure:mongocluster/firewallRule:FirewallRule": "FirewallRule"
   }
  },
  {
   "pkg": "azure",
-  "mod": "mobile/network",
-  "fqn": "pulumi_azure.mobile",
+  "mod": "mongocluster/mongoCluster",
+  "fqn": "pulumi_azure.mongocluster",
   "classes": {
-   "azure:mobile/network:Network": "Network"
+   "azure:mongocluster/mongoCluster:MongoCluster": "MongoCluster"
   }
  },
  {
   "pkg": "azure",
-  "mod": "mobile/networkAttachedDataNetwork",
-  "fqn": "pulumi_azure.mobile",
+  "mod": "mongocluster/user",
+  "fqn": "pulumi_azure.mongocluster",
   "classes": {
-   "azure:mobile/networkAttachedDataNetwork:NetworkAttachedDataNetwork": "NetworkAttachedDataNetwork"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkDataNetwork",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkDataNetwork:NetworkDataNetwork": "NetworkDataNetwork"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkPacketCoreControlPlane",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkPacketCoreControlPlane:NetworkPacketCoreControlPlane": "NetworkPacketCoreControlPlane"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkPacketCoreDataPlane",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkPacketCoreDataPlane:NetworkPacketCoreDataPlane": "NetworkPacketCoreDataPlane"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkService",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkService:NetworkService": "NetworkService"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkSim",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkSim:NetworkSim": "NetworkSim"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkSimGroup",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkSimGroup:NetworkSimGroup": "NetworkSimGroup"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkSimPolicy",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkSimPolicy:NetworkSimPolicy": "NetworkSimPolicy"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkSite",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkSite:NetworkSite": "NetworkSite"
-  }
- },
- {
-  "pkg": "azure",
-  "mod": "mobile/networkSlice",
-  "fqn": "pulumi_azure.mobile",
-  "classes": {
-   "azure:mobile/networkSlice:NetworkSlice": "NetworkSlice"
+   "azure:mongocluster/user:User": "User"
   }
  },
  {
@@ -6807,6 +6815,14 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "network/networkManagerIpamPoolStaticCidr",
+  "fqn": "pulumi_azure.network",
+  "classes": {
+   "azure:network/networkManagerIpamPoolStaticCidr:NetworkManagerIpamPoolStaticCidr": "NetworkManagerIpamPoolStaticCidr"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "network/networkManagerManagementGroupConnection",
   "fqn": "pulumi_azure.network",
   "classes": {
@@ -6827,6 +6843,22 @@ _utilities.register(
   "fqn": "pulumi_azure.network",
   "classes": {
    "azure:network/networkManagerRoutingConfiguration:NetworkManagerRoutingConfiguration": "NetworkManagerRoutingConfiguration"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "network/networkManagerRoutingRule",
+  "fqn": "pulumi_azure.network",
+  "classes": {
+   "azure:network/networkManagerRoutingRule:NetworkManagerRoutingRule": "NetworkManagerRoutingRule"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "network/networkManagerRoutingRuleCollection",
+  "fqn": "pulumi_azure.network",
+  "classes": {
+   "azure:network/networkManagerRoutingRuleCollection:NetworkManagerRoutingRuleCollection": "NetworkManagerRoutingRuleCollection"
   }
  },
  {
@@ -7343,6 +7375,30 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "oracle/autonomousDatabaseBackup",
+  "fqn": "pulumi_azure.oracle",
+  "classes": {
+   "azure:oracle/autonomousDatabaseBackup:AutonomousDatabaseBackup": "AutonomousDatabaseBackup"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "oracle/autonomousDatabaseCloneFromBackup",
+  "fqn": "pulumi_azure.oracle",
+  "classes": {
+   "azure:oracle/autonomousDatabaseCloneFromBackup:AutonomousDatabaseCloneFromBackup": "AutonomousDatabaseCloneFromBackup"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "oracle/autonomousDatabaseCloneFromDatabase",
+  "fqn": "pulumi_azure.oracle",
+  "classes": {
+   "azure:oracle/autonomousDatabaseCloneFromDatabase:AutonomousDatabaseCloneFromDatabase": "AutonomousDatabaseCloneFromDatabase"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "oracle/cloudVmCluster",
   "fqn": "pulumi_azure.oracle",
   "classes": {
@@ -7355,6 +7411,22 @@ _utilities.register(
   "fqn": "pulumi_azure.oracle",
   "classes": {
    "azure:oracle/exadataInfrastructure:ExadataInfrastructure": "ExadataInfrastructure"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "oracle/exascaleDatabaseStorageVault",
+  "fqn": "pulumi_azure.oracle",
+  "classes": {
+   "azure:oracle/exascaleDatabaseStorageVault:ExascaleDatabaseStorageVault": "ExascaleDatabaseStorageVault"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "oracle/resourceAnchor",
+  "fqn": "pulumi_azure.oracle",
+  "classes": {
+   "azure:oracle/resourceAnchor:ResourceAnchor": "ResourceAnchor"
   }
  },
  {
@@ -7455,6 +7527,14 @@ _utilities.register(
  },
  {
   "pkg": "azure",
+  "mod": "paloalto/nextGenerationFirewallVirtualHubStrataCloudManager",
+  "fqn": "pulumi_azure.paloalto",
+  "classes": {
+   "azure:paloalto/nextGenerationFirewallVirtualHubStrataCloudManager:NextGenerationFirewallVirtualHubStrataCloudManager": "NextGenerationFirewallVirtualHubStrataCloudManager"
+  }
+ },
+ {
+  "pkg": "azure",
   "mod": "paloalto/nextGenerationFirewallVirtualNetworkLocalRulestack",
   "fqn": "pulumi_azure.paloalto",
   "classes": {
@@ -7467,6 +7547,14 @@ _utilities.register(
   "fqn": "pulumi_azure.paloalto",
   "classes": {
    "azure:paloalto/nextGenerationFirewallVirtualNetworkPanorama:NextGenerationFirewallVirtualNetworkPanorama": "NextGenerationFirewallVirtualNetworkPanorama"
+  }
+ },
+ {
+  "pkg": "azure",
+  "mod": "paloalto/nextGenerationFirewallVirtualNetworkStrataCloudManager",
+  "fqn": "pulumi_azure.paloalto",
+  "classes": {
+   "azure:paloalto/nextGenerationFirewallVirtualNetworkStrataCloudManager:NextGenerationFirewallVirtualNetworkStrataCloudManager": "NextGenerationFirewallVirtualNetworkStrataCloudManager"
   }
  },
  {

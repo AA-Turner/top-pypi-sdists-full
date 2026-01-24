@@ -9,16 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
-
-from .group_0319 import CodeScanningVariantAnalysisRepositoryType
+from typing_extensions import NotRequired, TypedDict
 
 
-class CodeScanningVariantAnalysisSkippedRepoGroupType(TypedDict):
-    """CodeScanningVariantAnalysisSkippedRepoGroup"""
+class ActionsCacheStorageLimitForRepositoryType(TypedDict):
+    """Actions cache storage limit for a repository
 
-    repository_count: int
-    repositories: list[CodeScanningVariantAnalysisRepositoryType]
+    GitHub Actions cache storage policy for a repository.
+    """
+
+    max_cache_size_gb: NotRequired[int]
 
 
-__all__ = ("CodeScanningVariantAnalysisSkippedRepoGroupType",)
+class ActionsCacheStorageLimitForRepositoryTypeForResponse(TypedDict):
+    """Actions cache storage limit for a repository
+
+    GitHub Actions cache storage policy for a repository.
+    """
+
+    max_cache_size_gb: NotRequired[int]
+
+
+__all__ = (
+    "ActionsCacheStorageLimitForRepositoryType",
+    "ActionsCacheStorageLimitForRepositoryTypeForResponse",
+)

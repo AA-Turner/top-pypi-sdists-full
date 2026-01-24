@@ -24,7 +24,7 @@ class SPyDependencyNotFound(Exception):
     @staticmethod
     def generate_error_string(dependency_exceptions: Dict[object, SPyDependencyNotFound]):
         noise_reduction_count = 0
-        error_messages = list()
+        error_messages = ['Dependency errors:']
         for item_id, dependency_exception in dependency_exceptions.items():
             if dependency_exception.dependency_identifier in dependency_exceptions:
                 # Reduce the noise during troubleshooting. If a dependency of a dependency is missing, it's not
@@ -88,6 +88,23 @@ class SchedulePostingError(SPyRuntimeError):
     Raised by the spy.jobs module when a scheduling a notebook fails
     """
     pass
+
+
+class _Colors:
+    # Define TermColors equivalents for deprecated InteractiveTB.Colors with a backup default ANSI code if TermColors
+    # does not have the attribute (old IPython version) or it can't be imported (IPython not installed).
+    try:
+        from IPython.utils import coloransi
+        _terminal_colors = coloransi.TermColors()
+    except ImportError:
+        _terminal_colors = None
+
+    excName = getattr(_terminal_colors, 'Red', '\x1b[31m') + getattr(_terminal_colors, 'Bold', '\x1b[1m')
+    filenameEm = getattr(_terminal_colors, 'Green', '\x1b[32m')
+    em = getattr(_terminal_colors, 'Cyan', '\x1b[36m')
+    valEm = getattr(_terminal_colors, 'Yellow', '\x1b[33m')
+    name = getattr(_terminal_colors, 'Blue', '\x1b[34m')
+    Normal = getattr(_terminal_colors, 'Normal', '\x1b[0m')
 
 
 def get_ipython_cell_no(frame):
@@ -171,18 +188,18 @@ def show_stacktrace_button(self, exc_tuple):
     except ImportError:
         raise SPyDependencyNotFound(f'`ipywidgets` is required to display stack trace buttons in Jupyter. Please '
                                     f'use `pip install seeq-spy[widgets]` to use this feature.')
-    layout_kwargs = dict()
-    layout_kwargs['width'] = 'auto'
-    layout_kwargs['height'] = 'auto'
+    layout_kwargs = {
+        'width': 'auto',
+        'height': 'auto',
+    }
     if not _datalab.is_datalab():
         # Data Lab has nice widget layouts preconfigured. If not in Data Lab, just adding border can help prettify
         layout_kwargs['border'] = 'solid 1px black'
     button = widgets.Button(description='Click to show stack trace',
                             layout=widgets.Layout(**layout_kwargs))
 
-    colors = self.InteractiveTB.Colors
-    exc_options_msg = '(To show stack trace by default, set %sspy.options.friendly_exceptions%s to %sFalse%s)' % (
-        colors.valEm, colors.Normal, colors.name, colors.Normal
+    exc_options_msg = '(To show stack trace by default, set %sspy.options.friendly_exceptions = False%s)' % (
+        _Colors.valEm, _Colors.Normal
     )
 
     def click_func(b):
@@ -255,7 +272,7 @@ def spy_exception_handler(self, etype, value, tb, tb_offset=None):
             spy_call_cell_no = get_ipython_cell_no(spy_call_head.tb_frame)
             spy_call_lineno = spy_call_head.tb_lineno
             spy_call_filename = spy_call_head.tb_frame.f_code.co_filename
-            header = format_tb_header(self.InteractiveTB.Colors, value, spy_call_lineno, spy_call_cell_no,
+            header = format_tb_header(_Colors, value, spy_call_lineno, spy_call_cell_no,
                                       spy_call_filename, warning)
 
         else:
@@ -276,7 +293,7 @@ def spy_exception_handler(self, etype, value, tb, tb_offset=None):
             cell_no = get_ipython_cell_no(last_cell.tb_frame)
             line_no = last_cell.tb_lineno
             filename = last_cell.tb_frame.f_code.co_filename
-            header = format_tb_header(self.InteractiveTB.Colors, value, line_no, cell_no, filename, pretty_name=False)
+            header = format_tb_header(_Colors, value, line_no, cell_no, filename, pretty_name=False)
             button = True
 
         print(header)

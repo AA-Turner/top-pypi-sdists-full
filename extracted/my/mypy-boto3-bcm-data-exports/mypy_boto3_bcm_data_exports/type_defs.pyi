@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -29,12 +30,6 @@ from .literals import (
     OverwriteOptionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -103,13 +98,13 @@ class ResourceTagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class DataQueryOutputTypeDef(TypedDict):
     QueryStatement: str
-    TableConfigurations: NotRequired[Dict[str, Dict[str, str]]]
+    TableConfigurations: NotRequired[dict[str, dict[str, str]]]
 
 class DataQueryTypeDef(TypedDict):
     QueryStatement: str
@@ -179,7 +174,7 @@ class TablePropertyDescriptionTypeDef(TypedDict):
     DefaultValue: NotRequired[str]
     Description: NotRequired[str]
     Name: NotRequired[str]
-    ValidValues: NotRequired[List[str]]
+    ValidValues: NotRequired[list[str]]
 
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -199,13 +194,13 @@ class DeleteExportResponseTypeDef(TypedDict):
 
 class GetTableResponseTypeDef(TypedDict):
     Description: str
-    Schema: List[ColumnTypeDef]
+    Schema: list[ColumnTypeDef]
     TableName: str
-    TableProperties: Dict[str, str]
+    TableProperties: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -241,15 +236,15 @@ class S3DestinationTypeDef(TypedDict):
 class TableTypeDef(TypedDict):
     Description: NotRequired[str]
     TableName: NotRequired[str]
-    TableProperties: NotRequired[List[TablePropertyDescriptionTypeDef]]
+    TableProperties: NotRequired[list[TablePropertyDescriptionTypeDef]]
 
 class ListExecutionsResponseTypeDef(TypedDict):
-    Executions: List[ExecutionReferenceTypeDef]
+    Executions: list[ExecutionReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListExportsResponseTypeDef(TypedDict):
-    Exports: List[ExportReferenceTypeDef]
+    Exports: list[ExportReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -257,7 +252,7 @@ class DestinationConfigurationsTypeDef(TypedDict):
     S3Destination: S3DestinationTypeDef
 
 class ListTablesResponseTypeDef(TypedDict):
-    Tables: List[TableTypeDef]
+    Tables: list[TableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

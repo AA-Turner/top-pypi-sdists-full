@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-migration-linter"
-version = "5.2.0"
+version = "6.0.0"
 description = "Detect backward incompatible migrations for your django project"
 authors = [
   { name="3YOURMIND GmbH", email="fb@3yourmind.com" },
@@ -29,6 +29,8 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -36,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords = [
     "django",
@@ -47,18 +50,19 @@ keywords = [
     "compatibility",
 ]
 
-
 [project.urls]
 Changelog = "https://github.com/3YOURMIND/django-migration-linter/blob/main/CHANGELOG.md"
 Repository = "https://github.com/3YOURMIND/django-migration-linter"
 
+[tool.setuptools.package-data]
+django_migration_linter = ['py.typed']
+
 [project.optional-dependencies]
 test = [
-    "tox>=4.6.3",
+    "tox>=4.30.3",
     "mysqlclient>=2.1.1",
     "psycopg2>=2.9.6",
     "django_add_default_value>=0.4.0",
-    "coverage>=7.2.7",
 ]
 
 [tool.isort]

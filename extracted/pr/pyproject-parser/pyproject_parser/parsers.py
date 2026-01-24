@@ -36,6 +36,7 @@ from abc import ABCMeta
 from typing import Any, Callable, ClassVar, Dict, Iterable, List, Mapping, Set, Union, cast
 
 # 3rd party
+import license_expression  # type: ignore[import-untyped]
 from apeye_core import URL
 from apeye_core.email_validator import EmailSyntaxError, validate_email
 from dom_toml.parser import TOML_TYPES, AbstractConfigParser, BadConfigError, construct_path
@@ -50,7 +51,12 @@ from shippinglabel.requirements import ComparableRequirement, combine_requiremen
 # this package
 from pyproject_parser.classes import License, Readme, _NormalisedName
 from pyproject_parser.type_hints import Author, BuildSystemDict, DependencyGroupsDict, ProjectDict
-from pyproject_parser.utils import PyProjectDeprecationWarning, content_type_from_filename, render_readme
+from pyproject_parser.utils import (
+		PyProjectDeprecationWarning,
+		content_type_from_filename,
+		indent_join,
+		render_readme
+		)
 
 __all__ = [
 		"RequiredKeysConfigParser",
@@ -328,6 +334,7 @@ class PEP621Parser(RequiredKeysConfigParser):
 			"readme",
 			"requires-python",
 			"license",
+			"license-files",
 			"authors",
 			"maintainers",
 			"keywords",
@@ -599,13 +606,15 @@ class PEP621Parser(RequiredKeysConfigParser):
 			raise
 
 	@staticmethod
-	@_documentation_url("https://whey.readthedocs.io/en/latest/configuration.html#tconf-project.license")
+	@_documentation_url("https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license")
 	def parse_license(config: Dict[str, TOML_TYPES]) -> License:
 		"""
 		Parse the :pep621:`license` key.
 
-		* **Format**: :toml:`Table`
-		* **Core Metadata**: :core-meta:`License`
+		* **Format**: :toml:`Table` or :toml:`String`
+		* **Core Metadata**: :core-meta:`License` or :core-meta:`License-Expression`
+
+		.. versionchanged:: 0.14.0  Added support for :pep:`639` license expressions.
 
 		The table may have one of two keys:
 
@@ -614,6 +623,9 @@ class PEP621Parser(RequiredKeysConfigParser):
 		* ``text`` -- string value which is the license of the project.
 
 		These keys are mutually exclusive,  so a tool MUST raise an error if the metadata specifies both keys.
+
+		Alternatively, for :pep:`639` support, the value may be a string giving an
+		`SPDX License Expression <https://packaging.python.org/en/latest/glossary/#term-License-Expression>`_.
 
 		:bold-title:`Example:`
 
@@ -631,11 +643,31 @@ class PEP621Parser(RequiredKeysConfigParser):
 			and then the user promises not to redistribute it.
 			\"\"\"
 
+			[project]
+			license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"
+
 		:param config: The unparsed TOML config for the :pep621:`project table <table-name>`.
 		"""  # noqa: D300,D301
 
 		project_license = config["license"]
 
+		if isinstance(project_license, str):
+			# PEP 639
+			if project_license.startswith("LicenseRef-"):
+				return License(expression=project_license)
+			else:
+				licensing = license_expression.get_spdx_licensing()
+				validated_spdx = licensing.validate(project_license)
+				if validated_spdx.errors:
+					# validated_spdx.errors.append("Another Error")
+					warning_msg = "'project.license-key' is not a valid SPDX Expression: "
+					warning_msg += indent_join(validated_spdx.errors)
+					raise BadConfigError(warning_msg)
+				else:
+					# TODO: normalise, maybe from validated_spdx object
+					return License(expression=project_license)
+
+		# Traditional PEP 621
 		if "text" in project_license and "file" in project_license:
 			raise BadConfigError(
 					"The 'project.license.file' and 'project.license.text' keys "
@@ -648,6 +680,51 @@ class PEP621Parser(RequiredKeysConfigParser):
 			return License(project_license["file"])
 		else:
 			raise BadConfigError("The 'project.license' table should contain one of 'text' or 'file'.")
+
+	# TODO: equivalent of PEP 621 direcrive for 639
+	@_documentation_url("https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license-files")
+	def parse_license_files(self, config: Dict[str, TOML_TYPES]) -> List[str]:
+		"""
+		Parse the ``license-files`` key, giving paths to the licence(s) for the project.
+
+		* **Format**: :toml:`Array` of :toml:`strings <string>`
+		* **Core Metadata**: :core-meta:`License-Files`
+
+		.. versionadded:: 0.14.0
+
+		.. latex:vspace:: -5px
+
+		:bold-title:`Example:`
+
+		.. code-block:: TOML
+
+			[project]
+			license-files = ["LICEN[CS]E*", "vendored/licenses/*.txt", "AUTHORS.md"]
+
+		.. latex:vspace:: -5px
+
+		:param config: The unparsed TOML config for the :pep621:`project table <table-name>`.
+		"""
+
+		parsed_paths = set()
+		key_path = [self.table_name, "license-files"]
+
+		license_files: List[str] = config["license-files"]
+		self.assert_sequence_not_str(license_files, key_path)
+
+		for idx, pattern in enumerate(license_files):
+			name = construct_path(key_path) + f"[{idx}]"
+			self.assert_indexed_type(pattern, str, key_path, idx=idx)
+			if pattern.startswith('/'):
+				raise BadConfigError(f"{name!r}: pattern cannot start with '/'")
+			if '\\' in pattern:
+				raise BadConfigError(f"{name!r}: pattern cannot contain '\\'")
+			if ".." in pattern:
+				raise BadConfigError(f"{name!r}: pattern cannot contain '..'")
+
+			parsed_paths.add(pattern)
+
+		return natsorted(parsed_paths, alg=ns.GROUPLETTERS)
 
 	@staticmethod
 	def _parse_authors(config: Dict[str, TOML_TYPES], key_name: str = "authors") -> List[Author]:
@@ -737,6 +814,8 @@ class PEP621Parser(RequiredKeysConfigParser):
 
 		Both keys are optional.
 
+		.. latex:clearpage::
+
 		1. If only ``name`` is provided, the value goes in :core-meta:`Maintainer`.
 		2. If only ``email`` is provided, the value goes in :core-meta:`Maintainer-email`.
 		3. If both ``email`` and ``name`` are provided, the value goes in :core-meta:`Maintainer-email`,
@@ -803,6 +882,10 @@ class PEP621Parser(RequiredKeysConfigParser):
 			]
 
 		:param config: The unparsed TOML config for the :pep621:`project table <table-name>`.
+
+		:rtype:
+
+		.. latex:clearpage::
 		"""
 
 		parsed_classifiers = set()
@@ -1173,6 +1256,6 @@ class PEP621Parser(RequiredKeysConfigParser):
 		super_parsed_config = super().parse(config, set_defaults=set_defaults)
 
 		return {
-				**super_parsed_config,  # type: ignore[misc]
+				**super_parsed_config,  # type: ignore[typeddict-item]
 				"dynamic": dynamic_fields,
 				}

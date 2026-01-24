@@ -1,5 +1,6 @@
 %YAML 1.2
 ---
+urn: extension:io.substrait:functions_comparison
 scalar_functions:
   -
     name: "not_equal"
@@ -251,7 +252,8 @@ scalar_functions:
             name: x
           - value: any1
             name: y
-        return: any1
+        return: any1?
+        nullability: DECLARED_OUTPUT
   -
     name: "coalesce"
     description: >-

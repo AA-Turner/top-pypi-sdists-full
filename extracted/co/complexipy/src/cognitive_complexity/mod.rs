@@ -18,11 +18,9 @@ mod python_deps {
     pub use indicatif::ProgressStyle;
     pub use pyo3::exceptions::PyValueError;
     pub use pyo3::prelude::*;
-    pub use rayon::prelude::*;
     pub use regex::Regex;
     pub use ruff_python_parser::parse_module;
     pub use std::env;
-    pub use std::fs::metadata;
     pub use std::path;
     pub use std::process;
     pub use std::sync::{Arc, Mutex};
@@ -43,39 +41,31 @@ pub fn main(
     exclude: Vec<&str>,
 ) -> PyResult<ComplexitiesAndFailedPaths> {
     let re = Regex::new(r"^(https:\/\/|http:\/\/|www\.|git@)(github|gitlab)\.com(\/[\w.-]+){2,}$")
-        .unwrap();
-
-    let all_files_paths: Vec<(&str, bool, bool, bool, Vec<&str>)> = paths
-        .iter()
-        .map(|&path| {
-            let is_url = re.is_match(path);
-
-            if is_url {
-                (path, false, true, quiet, exclude.clone())
-            } else if metadata(path).unwrap().is_dir() {
-                (path, true, false, quiet, exclude.clone())
-            } else {
-                (path, false, false, quiet, exclude.clone())
-            }
-        })
-        .collect();
-
-    let all_files_processed: Vec<Result<ComplexitiesAndFailedPaths, PyErr>> = all_files_paths
-        .iter()
-        .map(|(path, is_dir, is_url, quiet, exclude)| {
-            process_path(path, *is_dir, *is_url, *quiet, exclude.clone())
-        })
-        .collect();
+        .map_err(|e| PyValueError::new_err(format!("Invalid repository pattern: {}", e)))?;
 
     let mut successful = Vec::new();
     let mut failed_paths = Vec::new();
 
-    for result in all_files_processed {
-        if result.is_ok() {
-            let (mut complexities, mut f_paths) = result.unwrap();
+    for path in paths {
+        let is_url = re.is_match(path);
+        let path_obj = path::Path::new(path);
+        let exists = path_obj.exists();
+        let is_dir = path_obj.is_dir();
 
-            successful.append(&mut complexities);
-            failed_paths.append(&mut f_paths);
+        // Treat missing local paths as a user error without panicking.
+        if !exists && !is_url {
+            failed_paths.push(path.to_string());
+            continue;
+        }
+
+        match process_path(path, is_dir, is_url, quiet, exclude.clone()) {
+            Ok((mut complexities, mut f_paths)) => {
+                successful.append(&mut complexities);
+                failed_paths.append(&mut f_paths);
+            }
+            Err(_) => {
+                failed_paths.push(path.to_string());
+            }
         }
     }
 
@@ -96,7 +86,7 @@ pub fn process_path(
 
     if is_url {
         let dir = tempdir()?;
-        let repo_name = get_repo_name(path);
+        let repo_name = get_repo_name(path)?;
 
         env::set_current_dir(&dir)?;
 
@@ -105,29 +95,47 @@ pub fn process_path(
         let path_clone = path.to_owned();
 
         thread::spawn(move || {
-            let _output = process::Command::new("git")
+            let _ = process::Command::new("git")
                 .args(["clone", &path_clone])
-                .output()
-                .expect("failed to execute process");
+                .output();
 
-            let mut done = cloning_done_clone.lock().unwrap();
-            *done = true;
+            if let Ok(mut done) = cloning_done_clone.lock() {
+                *done = true;
+            }
         });
 
-        if !quiet {
+        let mut progress_bar = if quiet {
+            None
+        } else {
             let pb = ProgressBar::new_spinner();
             pb.set_style(ProgressStyle::default_spinner());
             pb.set_message("Cloning repository...");
+            Some(pb)
+        };
 
-            while !*cloning_done.lock().unwrap() {
-                pb.tick();
-                thread::sleep(std::time::Duration::from_millis(100));
+        loop {
+            match cloning_done.lock() {
+                Ok(done) if *done => break,
+                Ok(_) => {
+                    if let Some(pb) = progress_bar.as_ref() {
+                        pb.tick();
+                    }
+                    thread::sleep(std::time::Duration::from_millis(100));
+                }
+                Err(_) => {
+                    if let Some(pb) = progress_bar.take() {
+                        pb.finish_and_clear();
+                    }
+                    return Err(PyValueError::new_err("Failed to track cloning progress"));
+                }
             }
+        }
 
+        if let Some(pb) = progress_bar {
             pb.finish_and_clear();
         }
 
-        let repo_path = dir.path().join(&repo_name).to_str().unwrap().to_string();
+        let repo_path = dir.path().join(&repo_name).to_string_lossy().to_string();
         let (complexities, f_paths) = evaluate_dir(&repo_path, quiet, exclude.clone());
         dir.close()?;
 
@@ -138,7 +146,10 @@ pub fn process_path(
         file_complexities = complexities;
         failed_paths = f_paths;
     } else {
-        let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
+        let parent_dir = path::Path::new(path)
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
         if let Ok(complexity) = file_complexity(path, parent_dir) {
             file_complexities.push(complexity);
         } else {
@@ -159,7 +170,10 @@ pub fn process_path(
 fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndFailedPaths {
     let mut files_paths: Vec<String> = Vec::new();
 
-    let parent_dir = path::Path::new(path).parent().unwrap().to_str().unwrap();
+    let parent_dir = path::Path::new(path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or(".");
 
     // Build path-aware exclude specs, relative to the provided root `path`.
     // Only exclude if the exclude entry resolves to an existing directory (prefix match)
@@ -178,13 +192,12 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 
     let mut exclude_specs: Vec<ExcludeSpec> = Vec::new();
     for raw in exclude.iter() {
-        let mut candidate: path::PathBuf;
         let p = path::Path::new(raw);
-        if p.is_absolute() {
-            candidate = p.to_path_buf();
+        let candidate = if p.is_absolute() {
+            p.to_path_buf()
         } else {
-            candidate = root_canon.join(p);
-        }
+            root_canon.join(p)
+        };
 
         // Resolve to canonical if possible
         let (exists, is_dir, is_file, abs_str) = match candidate.canonicalize() {
@@ -197,17 +210,22 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             Err(_) => (false, false, false, String::new()),
         };
 
-        if exists {
-            if is_dir || is_file {
-                exclude_specs.push(ExcludeSpec { abs: abs_str, is_dir });
-            }
+        if exists && (is_dir || is_file) {
+            exclude_specs.push(ExcludeSpec {
+                abs: abs_str,
+                is_dir,
+            });
         }
+
         // If it doesn't exist under the root, ignore the exclude entry
     }
 
     // Get all the python files in the directory
     for entry in Walk::new(path) {
-        let entry = entry.unwrap();
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
         let entry_path = entry.path();
 
         if entry_path.extension().and_then(|s| s.to_str()) != Some("py") {
@@ -231,10 +249,8 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
             }
         });
 
-        if !is_excluded {
-            if let Some(file_path_str) = entry_path.to_str() {
-                files_paths.push(file_path_str.to_string());
-            }
+        if !is_excluded && let Some(file_path_str) = entry_path.to_str() {
+            files_paths.push(file_path_str.to_string());
         }
     }
 
@@ -262,14 +278,11 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
     }
 
     let pb = ProgressBar::new(files_paths.len() as u64);
-    pb.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template(
-                "{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-            )
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    let bar_style = indicatif::ProgressStyle::default_bar()
+        .template("{spiner:.green} [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
+        .progress_chars("##-");
+    pb.set_style(bar_style);
 
     let results: Vec<_> = files_paths
         .iter()
@@ -303,8 +316,15 @@ fn evaluate_dir(path: &str, quiet: bool, exclude: Vec<&str>) -> ComplexitiesAndF
 #[pyfunction]
 pub fn file_complexity(file_path: &str, base_path: &str) -> PyResult<FileComplexity> {
     let path = path::Path::new(file_path);
-    let file_name = path.file_name().unwrap().to_str().unwrap();
-    let relative_path = path.strip_prefix(base_path).unwrap().to_str().unwrap();
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| PyValueError::new_err(format!("Invalid file name: {}", file_path)))?;
+    let relative_path = path
+        .strip_prefix(base_path)
+        .ok()
+        .and_then(|p| p.to_str())
+        .unwrap_or(file_path);
 
     let code = std::fs::read_to_string(file_path)?;
 
@@ -422,10 +442,10 @@ fn statement_cognitive_complexity_shared(
     let mut complexity: u64 = 0;
     let mut line_complexities: Vec<LineComplexity> = Vec::new();
 
-    if is_decorator(statement.clone()) {
-        if let Stmt::FunctionDef(f) = statement {
-            return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
-        }
+    if is_decorator(statement.clone())
+        && let Stmt::FunctionDef(f) = statement
+    {
+        return statement_cognitive_complexity_shared(&f.body[0], nesting_level, code);
     }
 
     match statement {
@@ -545,15 +565,19 @@ fn statement_cognitive_complexity_shared(
                 line_complexities.extend(stmt_line_complexities);
             }
             for clause in i.elif_else_clauses.clone() {
+                let mut clause_complexity = 1;
                 if let Some(test) = clause.test.clone() {
-                    let clause_complexity = count_bool_ops(test, nesting_level);
-                    complexity += clause_complexity;
-                    let line = get_line_number(usize::from(clause.range.start()), code);
-                    line_complexities.push(LineComplexity {
-                        line,
-                        complexity: clause_complexity,
-                    });
+                    clause_complexity += count_bool_ops(test, nesting_level);
                 }
+
+                complexity += clause_complexity;
+
+                let line = get_line_number(usize::from(clause.range.start()), code);
+                line_complexities.push(LineComplexity {
+                    line,
+                    complexity: clause_complexity,
+                });
+
                 for node in clause.body.iter() {
                     let (stmt_complexity, stmt_line_complexities) =
                         statement_cognitive_complexity_shared(node, nesting_level + 1, code);

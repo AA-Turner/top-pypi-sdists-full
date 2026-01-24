@@ -31,7 +31,7 @@ public:
     void initialize(double t0=0.0) override;
 
     void eval(double t, double* LHS, double* RHS) override;
-
+    vector<size_t> steadyConstraints() const override;
     void updateState(double* y) override;
 
     //! Return the index in the solution vector for this reactor of the
@@ -40,10 +40,10 @@ public:
     //! name of a surface species.
     size_t componentIndex(const string& nm) const override;
     string componentName(size_t k) override;
+    double upperBound(size_t k) const override;
+    double lowerBound(size_t k) const override;
 
 protected:
-    void setThermo(ThermoPhase& thermo) override;
-
     vector<double> m_uk; //!< Species molar internal energies
 };
 

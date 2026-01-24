@@ -1,37 +1,45 @@
 Metadata-Version: 2.4
 Name: okta
-Version: 2.9.13
+Version: 3.0.0
 Summary: Python SDK for the Okta Management API
 Home-page: https://github.com/okta/okta-sdk-python
 Author: Okta, Inc.
-Author-email: devex@okta.com
-License: Apache License 2.0
+Author-email: developer-community-products@okta.com
+License: Apache-2.0
+Keywords: OpenAPI,OpenAPI-Generator,Okta Admin Management
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: aiohttp
-Requires-Dist: flatdict
-Requires-Dist: pyyaml
-Requires-Dist: xmltodict
-Requires-Dist: yarl
-Requires-Dist: pycryptodomex
-Requires-Dist: jwcrypto
-Requires-Dist: pyjwt
-Requires-Dist: aenum
-Requires-Dist: pydash
+Requires-Dist: aenum>=3.1.11
+Requires-Dist: aiohttp>=3.12.14
+Requires-Dist: blinker>=1.9.0
+Requires-Dist: flatdict>=4.0.1
+Requires-Dist: jwcrypto>=1.5.6
+Requires-Dist: pycryptodomex>=3.23.0
+Requires-Dist: pydantic>=2.11.3
+Requires-Dist: pydash>=8.0.5
+Requires-Dist: PyJWT>=2.10.1
+Requires-Dist: python-dateutil>=2.9.0.post0
+Requires-Dist: PyYAML>=6.0.2
+Requires-Dist: requests>=2.32.3
+Requires-Dist: xmltodict>=0.14.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist

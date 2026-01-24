@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -24,17 +25,12 @@ from .literals import (
     ChangeTypeType,
     ClusterEndpointEncryptionTypeType,
     IsModifiableType,
+    NetworkTypeType,
     ParameterTypeType,
     SourceTypeType,
     SSEStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -127,7 +123,7 @@ class NotificationConfigurationTypeDef(TypedDict):
 class ParameterGroupStatusTypeDef(TypedDict):
     ParameterGroupName: NotRequired[str]
     ParameterApplyStatus: NotRequired[str]
-    NodeIdsToReboot: NotRequired[List[str]]
+    NodeIdsToReboot: NotRequired[list[str]]
 
 
 class SSEDescriptionTypeDef(TypedDict):
@@ -151,7 +147,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -266,6 +262,7 @@ class RebootNodeRequestTypeDef(TypedDict):
 class SubnetTypeDef(TypedDict):
     SubnetIdentifier: NotRequired[str]
     SubnetAvailabilityZone: NotRequired[str]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -313,6 +310,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     SSESpecification: NotRequired[SSESpecificationTypeDef]
     ClusterEndpointEncryptionType: NotRequired[ClusterEndpointEncryptionTypeType]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -331,18 +329,18 @@ class DeleteSubnetGroupResponseTypeDef(TypedDict):
 
 
 class ListTagsResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class TagResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UntagResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -352,7 +350,7 @@ class CreateParameterGroupResponseTypeDef(TypedDict):
 
 
 class DescribeParameterGroupsResponseTypeDef(TypedDict):
-    ParameterGroups: List[ParameterGroupTypeDef]
+    ParameterGroups: list[ParameterGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -412,7 +410,7 @@ class DescribeEventsRequestTypeDef(TypedDict):
 
 
 class DescribeEventsResponseTypeDef(TypedDict):
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -421,7 +419,7 @@ class ParameterTypeDef(TypedDict):
     ParameterName: NotRequired[str]
     ParameterType: NotRequired[ParameterTypeType]
     ParameterValue: NotRequired[str]
-    NodeTypeSpecificValues: NotRequired[List[NodeTypeSpecificValueTypeDef]]
+    NodeTypeSpecificValues: NotRequired[list[NodeTypeSpecificValueTypeDef]]
     Description: NotRequired[str]
     Source: NotRequired[str]
     DataType: NotRequired[str]
@@ -439,7 +437,8 @@ class SubnetGroupTypeDef(TypedDict):
     SubnetGroupName: NotRequired[str]
     Description: NotRequired[str]
     VpcId: NotRequired[str]
-    Subnets: NotRequired[List[SubnetTypeDef]]
+    Subnets: NotRequired[list[SubnetTypeDef]]
+    SupportedNetworkTypes: NotRequired[list[NetworkTypeType]]
 
 
 class ClusterTypeDef(TypedDict):
@@ -451,26 +450,27 @@ class ClusterTypeDef(TypedDict):
     NodeType: NotRequired[str]
     Status: NotRequired[str]
     ClusterDiscoveryEndpoint: NotRequired[EndpointTypeDef]
-    NodeIdsToRemove: NotRequired[List[str]]
-    Nodes: NotRequired[List[NodeTypeDef]]
+    NodeIdsToRemove: NotRequired[list[str]]
+    Nodes: NotRequired[list[NodeTypeDef]]
     PreferredMaintenanceWindow: NotRequired[str]
     NotificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
     SubnetGroup: NotRequired[str]
-    SecurityGroups: NotRequired[List[SecurityGroupMembershipTypeDef]]
+    SecurityGroups: NotRequired[list[SecurityGroupMembershipTypeDef]]
     IamRoleArn: NotRequired[str]
     ParameterGroup: NotRequired[ParameterGroupStatusTypeDef]
     SSEDescription: NotRequired[SSEDescriptionTypeDef]
     ClusterEndpointEncryptionType: NotRequired[ClusterEndpointEncryptionTypeType]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class DescribeDefaultParametersResponseTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeParametersResponseTypeDef(TypedDict):
-    Parameters: List[ParameterTypeDef]
+    Parameters: list[ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -481,7 +481,7 @@ class CreateSubnetGroupResponseTypeDef(TypedDict):
 
 
 class DescribeSubnetGroupsResponseTypeDef(TypedDict):
-    SubnetGroups: List[SubnetGroupTypeDef]
+    SubnetGroups: list[SubnetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -507,7 +507,7 @@ class DeleteClusterResponseTypeDef(TypedDict):
 
 
 class DescribeClustersResponseTypeDef(TypedDict):
-    Clusters: List[ClusterTypeDef]
+    Clusters: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

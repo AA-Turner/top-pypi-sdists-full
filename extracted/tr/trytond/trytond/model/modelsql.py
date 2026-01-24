@@ -13,9 +13,8 @@ from sql.conditionals import Coalesce
 from sql.functions import CurrentTimestamp, Extract, RowNumber, Substring
 from sql.operators import And, Concat, Equal, Exists, Operator, Or
 
-from trytond import backend
+from trytond import backend, config
 from trytond.cache import freeze
-from trytond.config import config
 from trytond.exceptions import ConcurrencyException
 from trytond.i18n import gettext
 from trytond.pool import Pool
@@ -33,8 +32,6 @@ from .modelstorage import (
     AccessError, ModelStorage, RequiredValidationError, SizeValidationError,
     ValidationError, is_leaf)
 from .modelview import ModelView
-
-_request_records_limit = config.getint('request', 'records_limit')
 
 
 class ForeignKeyError(ValidationError):
@@ -151,7 +148,7 @@ class Exclude(Constraint):
             for column, operator in self.excludes)
         where = ''
         if self.where:
-            where = ' WHERE ' + str(self.where)
+            where = ' WHERE (' + str(self.where) + ')'
         if using:
             using = 'USING ' + using
         return 'EXCLUDE %s (%s)' % (using, exclude) + where
@@ -272,7 +269,7 @@ class Index:
 def no_table_query(func):
     @wraps(func)
     def wrapper(cls, *args, **kwargs):
-        if callable(cls.table_query):
+        if cls._is_table_query():
             raise NotImplementedError("On table_query")
         return func(cls, *args, **kwargs)
     return wrapper
@@ -305,6 +302,7 @@ def apply_sorting(keywords):
     return lambda col: NullOrdering(Order(col))
 
 
+_TABLES_CREATED = set()
 _TABLE_QUERY_COLUMNS = {
     'create_uid': Literal(0),
     'create_date': CurrentTimestamp(),
@@ -338,11 +336,13 @@ class ModelSQL(ModelStorage):
         cls._sql_constraints = []
         cls._sql_indexes = set()
         cls._history_sql_indexes = set()
-        if not callable(cls.table_query):
+        if (not cls._is_table_query()
+                or cls._table_query_materialized()):
             table = cls.__table__()
-            cls._sql_constraints.append(
-                ('id_positive', Check(table, table.id >= 0),
-                    'ir.msg_id_positive'))
+            if not cls._is_table_query():
+                cls._sql_constraints.append(
+                    ('id_positive', Check(table, table.id >= 0),
+                        'ir.msg_id_positive'))
             rec_name_field = getattr(cls, cls._rec_name, None)
             if (isinstance(rec_name_field, fields.Field)
                     and not hasattr(rec_name_field, 'set')):
@@ -356,7 +356,7 @@ class ModelSQL(ModelStorage):
             cls.__rpc__.update({
                     'history_revisions': RPC(
                         size_limits={
-                            0: _request_records_limit,
+                            0: config.getint('request', 'records_limit'),
                             }),
                     })
         if cls._history:
@@ -431,7 +431,7 @@ class ModelSQL(ModelStorage):
 
     @classmethod
     def __table__(cls):
-        if callable(cls.table_query):
+        if cls._is_table_query() and not cls._table_query_materialized():
             return cls.table_query()
         else:
             return Table(cls._table)
@@ -448,10 +448,22 @@ class ModelSQL(ModelStorage):
 
     @classmethod
     def __register__(cls, module_name):
-        cursor = Transaction().connection.cursor()
+        transaction = Transaction()
+        database = transaction.database
+        connection = transaction.connection
+        cursor = connection.cursor()
         super().__register__(module_name)
 
-        if callable(cls.table_query):
+        if cls._is_table_query():
+            if transaction.database.has_materialized_views():
+                if backend.TableHandler.view_exist(cls._table):
+                    transaction.database.drop_materialized_view(
+                        transaction.connection, cls._table)
+                if cls._table_query_materialized():
+                    query = cls.table_query()
+                    query.columns += (CurrentTimestamp().as_('_refreshed'),)
+                    transaction.database.create_materialized_view(
+                        transaction.connection, cls._table, query)
             return
 
         pool = Pool()
@@ -461,8 +473,20 @@ class ModelSQL(ModelStorage):
 
         # create/update table in the database
         table = cls.__table_handler__(module_name)
+        if Pool.test and cls._table not in _TABLES_CREATED:
+            database.setnextid(
+                transaction.connection, cls._table,
+                len(_TABLES_CREATED) * 500 + 1)
+        _TABLES_CREATED.add(cls._table)
+
         if cls._history:
             history_table = cls.__table_handler__(module_name, history=True)
+            table_history = f'{cls._table}__history'
+            if Pool.test and table_history not in _TABLES_CREATED:
+                database.setnextid(
+                    transaction.connection, table_history,
+                    len(_TABLES_CREATED) * 500 + 1)
+            _TABLES_CREATED.add(table_history)
 
         for field_name, field in cls._fields.items():
             if field_name == 'id':
@@ -570,7 +594,8 @@ class ModelSQL(ModelStorage):
                 if j != index and index < j:
                     return False
             return True
-        if not callable(cls.table_query):
+        if (not cls._is_table_query()
+                or cls._table_query_materialized()):
             table_h = cls.__table_handler__()
             indexes = filter(no_subset, cls._sql_indexes)
             table_h.set_indexes(indexes, concurrently=concurrently)
@@ -587,6 +612,36 @@ class ModelSQL(ModelStorage):
                 if not field.sql_type():
                     continue
                 history_table.add_column(field_name, field._sql_type)
+
+    @classmethod
+    def _is_table_query(cls):
+        return callable(cls.table_query)
+
+    @classmethod
+    def _table_query_materialized(cls):
+        if cls._is_table_query():
+            return config.getint(
+                'table_query_materialized', cls.__name__, default=0)
+
+    @classmethod
+    def _table_query_refresh(cls, concurrently=True, force=False):
+        table = cls.__table__()
+        transaction = Transaction()
+        if not transaction.database.has_materialized_views():
+            return
+        cursor = transaction.connection.cursor()
+        if not (interval := cls._table_query_materialized()):
+            return
+        if not force:
+            cursor.execute(*table.select(
+                    CurrentTimestamp() - table._refreshed, limit=1))
+            if row := cursor.fetchone():
+                delta, = row
+                interval = datetime.timedelta(seconds=interval)
+                if delta < interval:
+                    return
+        transaction.database.refresh_materialized_view(
+            transaction.connection, cls._table, concurrently=concurrently)
 
     @classmethod
     @without_check_access
@@ -769,16 +824,24 @@ class ModelSQL(ModelStorage):
                 for id_ in ids:
                     cache_cls.pop(id_, None)
 
+        history_select = With()
+        history_values = history_select.select(
+            where=Column(history_select, '__h_rank') == 1,
+            with_=[history_select])
+
         columns = []
         hcolumns = []
+        history_columns = []
         fnames = sorted(n for n, f in cls._fields.items()
             if f.sql_type())
+        id_idx = fnames.index('id')
         for fname in fnames:
             columns.append(Column(table, fname))
+            history_columns.append(Column(history_values, fname))
             if fname == 'write_uid':
-                hcolumns.append(Literal(transaction.user))
+                hcolumns.append(Literal(transaction.user).as_('write_uid'))
             elif fname == 'write_date':
-                hcolumns.append(CurrentTimestamp())
+                hcolumns.append(CurrentTimestamp().as_('write_date'))
             else:
                 hcolumns.append(Column(history, fname))
 
@@ -786,41 +849,73 @@ class ModelSQL(ModelStorage):
             return all(not v for n, v in zip(fnames, values)
                 if n not in ['id', 'write_uid', 'write_date'])
 
-        to_delete = []
-        to_update = []
-        for id_ in ids:
-            column_datetime = Coalesce(history.write_date, history.create_date)
+        to_delete = set()
+        to_update = set()
+
+        column_datetime = Coalesce(history.write_date, history.create_date)
+        h_order = (column_datetime.desc, Column(history, '__id').desc)
+        history_select.query = history.select(
+            *hcolumns,
+            RowNumber(
+                window=Window([history.id], order_by=h_order)
+                ).as_('__h_rank'))
+
+        for sub_ids in grouped_slice(ids):
+            sub_ids = list(sub_ids)
             if not _before:
                 hwhere = (column_datetime <= datetime)
             else:
                 hwhere = (column_datetime < datetime)
-            hwhere &= (history.id == id_)
-            horder = (column_datetime.desc, Column(history, '__id').desc)
-            cursor.execute(*history.select(*hcolumns,
-                    where=hwhere, order_by=horder, limit=1))
-            values = cursor.fetchone()
-            if not values or is_deleted(values):
-                to_delete.append(id_)
+
+            hwhere &= reduce_ids(history.id, sub_ids)
+            history_select.query.where = hwhere
+
+            cursor.execute(*history_values)
+            for values in cursor.fetchall():
+                if is_deleted(values):
+                    to_delete.add(values[id_idx])
+                else:
+                    to_update.add(values[id_idx])
+            to_delete |= (deleted_sub_ids := set(sub_ids) - to_update)
+
+            # we need to skip the deleted IDs that are all None history records
+            # because they could fail the UPDATE
+            if to_delete:
+                history_select.query.where &= ~history.id.in_(
+                    list(deleted_sub_ids))
+
+            # Some of the sub_ids are not updated because they are not in the
+            # table anymore, they should be undeleted from the value in the
+            # history table
+            to_undelete = set()
+            update_query = table.update(
+                columns, history_columns,
+                from_=[history_values],
+                where=history_values.id == table.id)
+            if transaction.database.has_returning():
+                update_query.returning = [table.id]
+                cursor.execute(*update_query)
+                to_undelete.update(to_update - set(r[0] for r in cursor))
             else:
-                to_update.append(id_)
-                values = list(values)
-                cursor.execute(*table.update(columns, values,
-                        where=table.id == id_))
-                rowcount = cursor.rowcount
-                if rowcount == -1 or rowcount is None:
-                    cursor.execute(*table.select(table.id,
-                            where=table.id == id_))
-                    rowcount = len(cursor.fetchall())
-                if rowcount < 1:
-                    cursor.execute(*table.insert(columns, [values]))
+                cursor.execute(*table
+                    .right_join(history_values, history_values.id == table.id)
+                    .select(history_values.id, where=table.id == Null))
+                to_undelete.update(r[0] for r in cursor)
+                cursor.execute(*update_query)
+            if to_undelete:
+                history_select.query.where = (hwhere
+                    & history.id.in_(list(to_undelete)))
+                cursor.execute(*table.insert(
+                        columns,
+                        history_values.select(*history_columns)))
 
         if to_delete:
             for sub_ids in grouped_slice(to_delete):
                 where = reduce_ids(table.id, sub_ids)
                 cursor.execute(*table.delete(where=where))
-            cls._insert_history(to_delete, True)
+            cls._insert_history(list(to_delete), True)
         if to_update:
-            cls._insert_history(to_update)
+            cls._insert_history(list(to_update))
 
     @classmethod
     def restore_history(cls, ids, datetime):
@@ -1089,7 +1184,7 @@ class ModelSQL(ModelStorage):
         history_limit = None
         if (cls._history
                 and transaction.context.get('_datetime')
-                and not callable(cls.table_query)):
+                and not cls._is_table_query()):
             in_max = 1
             table = cls.__table_history__()
             column = Coalesce(table.write_date, table.create_date)
@@ -1101,7 +1196,7 @@ class ModelSQL(ModelStorage):
         for f in all_fields:
             field = cls._fields.get(f)
             if field and field.sql_type():
-                if f in _TABLE_QUERY_COLUMNS and callable(cls.table_query):
+                if f in _TABLE_QUERY_COLUMNS and cls._is_table_query():
                     column = _TABLE_QUERY_COLUMNS[f]
                 else:
                     column = field.sql_column(table)
@@ -1109,7 +1204,7 @@ class ModelSQL(ModelStorage):
                 if backend.name == 'sqlite':
                     columns[f].output_name += ' [%s]' % field.sql_type().base
             elif f in {'_write', '_delete'}:
-                if not callable(cls.table_query):
+                if not cls._is_table_query():
                     rule_domain = Rule.domain_get(
                         cls.__name__, mode=f.lstrip('_'))
                     # No need to compute rule domain if it is the same as the
@@ -1131,7 +1226,7 @@ class ModelSQL(ModelStorage):
                         columns[f] = rule_expression.as_(f)
                     else:
                         columns[f] = Literal(True).as_(f)
-            elif f == '_timestamp' and not callable(cls.table_query):
+            elif f == '_timestamp' and not cls._is_table_query():
                 sql_type = fields.Char('timestamp').sql_type().base
                 columns[f] = Extract(
                     'EPOCH', Coalesce(table.write_date, table.create_date)
@@ -1280,6 +1375,8 @@ class ModelSQL(ModelStorage):
                 if value is not None:
                     add(value)
             related_read_limit = transaction.context.get('related_read_limit')
+            # use dict keys to make target ids unique but preserving the order
+            target_ids = list(dict.fromkeys(target_ids).keys())
             rows = Target.read(target_ids[:related_read_limit], fields)
             if related_read_limit is not None:
                 rows += [{'id': i} for i in target_ids[related_read_limit:]]
@@ -1602,7 +1699,7 @@ class ModelSQL(ModelStorage):
         if (mode == 'read'
                 and cls._history
                 and transaction.context.get('_datetime')
-                and not callable(cls.table_query)):
+                and not cls._is_table_query()):
             in_max = 1
             table = cls.__table_history__()
             column = Coalesce(table.write_date, table.create_date)
@@ -1785,7 +1882,7 @@ class ModelSQL(ModelStorage):
             columns.append(Column(table, '__id').as_('__id'))
 
         if eager:
-            table_query = callable(cls.table_query)
+            table_query = cls._is_table_query()
             columns += [f.sql_column(table).as_(n)
                 for n, f in sorted(cls._fields.items())
                 if not hasattr(f, 'get')
@@ -1941,56 +2038,30 @@ class ModelSQL(ModelStorage):
             expression = convert(domain)
 
         if cls._history and transaction.context.get('_datetime'):
-            database = Transaction().database
-            if database.has_window_functions():
-                table, _ = tables[None]
-                history = cls.__table_history__()
-                last_change = Coalesce(history.write_date, history.create_date)
-                # prefilter the history records for a bit of a speedup
-                selected_h_ids = convert_from(None, tables).select(
-                    table.id, where=expression)
-                most_recent = history.select(
-                    history.create_date, Column(history, '__id'),
-                    RowNumber(
-                        window=Window([history.id],
-                            order_by=[
-                                last_change.desc,
-                                Column(history, '__id').desc])).as_('rank'),
-                    where=((last_change <= transaction.context['_datetime'])
-                        & history.id.in_(selected_h_ids)))
-                # Filter again as the latest records from most_recent might not
-                # match the expression
-                expression &= Exists(most_recent.select(
-                        Literal(1),
-                        where=(
-                            (Column(table, '__id')
-                                == Column(most_recent, '__id'))
-                            & (most_recent.create_date != Null)
-                            & (most_recent.rank == 1))))
-            else:
-                table, _ = tables[None]
-                history_1 = cls.__table_history__()
-                history_2 = cls.__table_history__()
-                last_change = Coalesce(
-                    history_1.write_date, history_1.create_date)
-                latest_change = history_1.select(
-                    history_1.id, Max(last_change).as_('date'),
-                    where=(last_change <= transaction.context['_datetime']),
-                    group_by=[history_1.id])
-                most_recent = history_2.join(
-                    latest_change,
-                    condition=(
-                        (history_2.id == latest_change.id)
-                        & (Coalesce(
-                                history_2.write_date, history_2.create_date)
-                            == latest_change.date))
-                    ).select(
-                        Max(Column(history_2, '__id')).as_('h_id'),
-                        where=(history_2.create_date != Null),
-                        group_by=[history_2.id])
-                expression &= Exists(most_recent.select(
-                        Literal(1),
-                        where=(Column(table, '__id') == most_recent.h_id)))
+            table, _ = tables[None]
+            history = cls.__table_history__()
+            last_change = Coalesce(history.write_date, history.create_date)
+            # prefilter the history records for a bit of a speedup
+            selected_h_ids = convert_from(None, tables).select(
+                table.id, where=expression)
+            most_recent = history.select(
+                history.create_date, Column(history, '__id'),
+                RowNumber(
+                    window=Window([history.id],
+                        order_by=[
+                            last_change.desc,
+                            Column(history, '__id').desc])).as_('rank'),
+                where=((last_change <= transaction.context['_datetime'])
+                    & history.id.in_(selected_h_ids)))
+            # Filter again as the latest records from most_recent might not
+            # match the expression
+            expression &= Exists(most_recent.select(
+                    Literal(1),
+                    where=(
+                        (Column(table, '__id')
+                            == Column(most_recent, '__id'))
+                        & (most_recent.create_date != Null)
+                        & (most_recent.rank == 1))))
         return tables, expression
 
     @classmethod
@@ -2256,7 +2327,7 @@ class ModelSQL(ModelStorage):
     def lock(cls, records=None):
         transaction = Transaction()
         if records is not None:
-            new_ids = transaction.create_records[cls.__name__]
+            new_ids = set(transaction.create_records[cls.__name__])
             ids = [id_ for id_ in map(int, records) if id_ not in new_ids]
             transaction.lock_records(cls._table, ids)
         else:

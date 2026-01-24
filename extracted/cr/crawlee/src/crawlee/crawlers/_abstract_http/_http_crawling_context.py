@@ -14,7 +14,7 @@ TSelectResult = TypeVar('TSelectResult')
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class HttpCrawlingContext(BasicCrawlingContext, HttpCrawlingResult):
     """The crawling context used by the `AbstractHttpCrawler`."""
 
@@ -26,12 +26,12 @@ class HttpCrawlingContext(BasicCrawlingContext, HttpCrawlingResult):
 
     async def get_snapshot(self) -> PageSnapshot:
         """Get snapshot of crawled page."""
-        return PageSnapshot(html=self.http_response.read().decode('utf-8'))
+        return PageSnapshot(html=(await self.http_response.read()).decode('utf-8'))
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
-class ParsedHttpCrawlingContext(Generic[TParseResult], HttpCrawlingContext):
+@docs_group('Crawling contexts')
+class ParsedHttpCrawlingContext(HttpCrawlingContext, Generic[TParseResult]):
     """The crawling context used by `AbstractHttpCrawler`.
 
     It provides access to key objects as well as utility functions for handling crawling tasks.

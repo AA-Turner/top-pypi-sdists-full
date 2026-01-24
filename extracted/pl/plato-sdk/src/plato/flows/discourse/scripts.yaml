@@ -1,0 +1,130 @@
+flows:
+- name: login
+  description: Complete login flow for Discourse with verification
+  steps:
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for login button to appear
+    selector: .login-button, a[href='/login'], button[data-testid="login-button"],
+      .header-buttons .login-button
+    timeout: 15000
+    type: wait_for_selector
+  - description: Click login button to open form
+    selector: .login-button, a[href='/login'], button[data-testid="login-button"],
+      .header-buttons .login-button
+    timeout: 5000
+    type: click
+  - description: Wait for login form to appear
+    duration: 2000
+    type: wait
+  - description: Wait for username/email field to be ready
+    selector: 'input[name="login"], input[name="username"], input[name="email"], #login-account-name,
+      input[type="text"]:first-of-type'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill username/email field
+    selector: 'input[name="login"], input[name="username"], input[name="email"], #login-account-name,
+      input[type="text"]:first-of-type'
+    timeout: 5000
+    type: fill
+    value: admin@plato.so
+  - description: Wait for password field to be ready
+    selector: 'input[name="password"], input[type="password"], #login-account-password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #login-account-password'
+    timeout: 5000
+    type: fill
+    value: plato_admin_password
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Wait for login submit button to be ready
+    selector: '.d-modal-body .btn-primary, .modal-body .btn-primary, .login-form .btn-primary,
+      button[type="submit"], .btn-primary, #login-button'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Click login submit button in modal body
+    selector: '.d-modal-body .btn-primary, .modal-body .btn-primary, .login-form .btn-primary,
+      button[type="submit"], .btn-primary, #login-button'
+    timeout: 5000
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .alert-error
+    - .flash-error
+    - .error
+    - .alert-danger
+    - .login-error
+    - .invalid-feedback
+    - .form-error
+    - '#flash-messages .alert-error'
+    type: verify_no_errors
+  - description: Verify user is logged in by checking for user menu or profile indicator
+    selector: .current-user, .header-dropdown-toggle, .user-menu, [data-testid="current-user"],
+      .d-header .current-user
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Click login button to open form
+    selector: .login-button, a[href="/login"], button[data-testid="login-button"],
+      .header-buttons .login-button
+    type: click
+  - description: Wait for login form to appear
+    duration: 2000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="login"], input[name="username"], input[name="email"], #login-account-name,
+      input[type="text"]:first-of-type'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="login"], input[name="username"], input[name="email"], #login-account-name,
+      input[type="text"]:first-of-type'
+    type: fill
+    value: admin@plato.so
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #login-account-password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #login-account-password'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: '.d-modal-body .btn-primary, .modal-body .btn-primary, .login-form .btn-primary,
+      button[type="submit"], .btn-primary, #login-button'
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Verify error message is displayed
+    selector: .alert-danger, .alert-error, .error-message, .text-danger, .invalid-feedback,
+      .login-error, .auth-error, .error, .alert, .form-error, .o_error_detail
+    type: verify
+    verify_type: element_exists

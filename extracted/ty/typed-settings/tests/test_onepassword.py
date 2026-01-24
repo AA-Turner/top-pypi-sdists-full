@@ -5,7 +5,7 @@ Tests for "typed_settings.onepasword".
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from packaging.version import Version
@@ -76,7 +76,7 @@ def test_op_error() -> None:
 
 
 @pytest.mark.parametrize("vault", ["Test", None])
-def test_get_item(vault: Optional[str]) -> None:
+def test_get_item(vault: str | None) -> None:
     """
     An item can be retrieved from 1Password.  Item labels are converted to
     dict keys.

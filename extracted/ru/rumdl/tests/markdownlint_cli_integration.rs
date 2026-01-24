@@ -117,12 +117,12 @@ fn test_config_command_prints_source_markdownlint_json() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}\n{stderr}");
     assert!(
-        combined.contains("from markdownlint"),
-        "Expected output to mention 'from markdownlint', got: {combined}"
+        combined.contains("from project config"),
+        "Expected output to mention 'from project config', got: {combined}"
     );
 
     // In the expected output, update the provenance for global config values to [from default]
-    // Only rule-specific values set by markdownlint config should show [from markdownlint]
+    // Only rule-specific values set by markdownlint config should show [from project config]
 }
 
 #[test]
@@ -161,8 +161,9 @@ fn test_invalid_markdownlint_json_prints_helpful_error() {
         stderr.contains("Failed to parse JSON"),
         "Expected helpful parse error message, got: {stderr}"
     );
+    // Check for the filename (not full path, since #291 changed to relative paths)
     assert!(
-        stderr.contains(config_path.to_str().unwrap()),
+        stderr.contains(".markdownlint.json"),
         "Error message should include the config filename, got: {stderr}"
     );
 }

@@ -9,22 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+import datetime as _dt
+from typing import Union
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0231 import SimpleCommitType
 
+class KeySimpleType(TypedDict):
+    """Key Simple
 
-class MergeGroupType(TypedDict):
-    """Merge Group
-
-    A group of pull requests that the merge queue has grouped together to be merged.
+    Key Simple
     """
 
-    head_sha: str
-    head_ref: str
-    base_sha: str
-    base_ref: str
-    head_commit: SimpleCommitType
+    id: int
+    key: str
+    created_at: NotRequired[_dt.datetime]
+    last_used: NotRequired[Union[_dt.datetime, None]]
 
 
-__all__ = ("MergeGroupType",)
+class KeySimpleTypeForResponse(TypedDict):
+    """Key Simple
+
+    Key Simple
+    """
+
+    id: int
+    key: str
+    created_at: NotRequired[str]
+    last_used: NotRequired[Union[str, None]]
+
+
+__all__ = (
+    "KeySimpleType",
+    "KeySimpleTypeForResponse",
+)

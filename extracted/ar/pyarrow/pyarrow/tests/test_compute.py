@@ -40,7 +40,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.lib import ArrowNotImplementedError, ArrowIndexError
 
 try:
     import pyarrow.substrait as pas
@@ -883,6 +883,38 @@ def test_generated_docstrings():
             Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
+        >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+        >>> pc.min_max(arr1)
+        <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+
+        Using ``skip_nulls`` to handle null values.
+
+        >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+        >>> pc.min_max(arr2)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr2, skip_nulls=False)
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+        >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+        >>> pc.min_max(arr3)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        This function also works with string values.
+
+        >>> arr4 = pa.array(["z", None, "y", "x"])
+        >>> pc.min_max(arr4)
+        <pyarrow.StructScalar: [('min', 'x'), ('max', 'z')]>
         """)
     # Without options
     assert pc.add.__doc__ == textwrap.dedent("""\
@@ -1590,6 +1622,38 @@ def test_filter_null_type():
     assert len(table.filter(mask).column(0)) == 5
 
 
+def test_inverse_permutation():
+    arr0 = pa.array([], type=pa.int32())
+    arr = pa.chunked_array([
+        arr0, [9, 7, 5, 3, 1], [0], [2, 4, 6], [8], arr0,
+    ])
+    expected = pa.chunked_array([[5, 4, 6, 3, 7, 2, 8, 1, 9, 0]], type=pa.int32())
+    assert pc.inverse_permutation(arr).equals(expected)
+
+    options = pc.InversePermutationOptions(max_index=9, output_type=pa.int32())
+    assert pc.inverse_permutation(arr, options=options).equals(expected)
+    assert pc.inverse_permutation(arr, max_index=-1).equals(expected)
+
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
+        pc.inverse_permutation(arr, max_index=4)
+
+
+def test_scatter():
+    values = pa.array([True, False, True, True, False, False, True, True, True, False])
+    indices = pa.array([9, 8, 7, 6, 5, 4, 3, 2, 1, 0])
+    expected = pa.array([False, True, True, True, False,
+                        False, True, True, False, True])
+    result = pc.scatter(values, indices)
+    assert result.equals(expected)
+
+    options = pc.ScatterOptions(max_index=-1)
+    assert pc.scatter(values, indices, options=options).equals(expected)
+    assert pc.scatter(values, indices, max_index=9).equals(expected)
+
+    with pytest.raises(ArrowIndexError, match="Index out of bounds: 9"):
+        pc.scatter(values, indices, max_index=4)
+
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_array(typ):
     if typ == "array":
@@ -1950,6 +2014,28 @@ def test_fill_null_chunked_array(arrow_type):
 
     result = arr.fill_null(pa.scalar(5, type='int8'))
     assert result.equals(expected)
+
+
+def test_fill_null_windows_regression():
+    # Regression test for GH-47234, which was failing due to a MSVC compiler bug
+    # (possibly https://developercommunity.visualstudio.com/t/10912292
+    # or https://developercommunity.visualstudio.com/t/10945478)
+    arr = pa.array([True, False, False, False, False, None])
+    s = pa.scalar(True, type=pa.bool_())
+
+    result = pa.compute.call_function("coalesce", [arr, s])
+    result.validate(full=True)
+    expected = pa.array([True, False, False, False, False, True])
+    assert result.equals(expected)
+
+    for ty in [pa.int8(), pa.int16(), pa.int32(), pa.int64()]:
+        arr = pa.array([1, 2, 3, 4, 5, None], type=ty)
+        s = pa.scalar(42, type=ty)
+
+        result = pa.compute.call_function("coalesce", [arr, s])
+        result.validate(full=True)
+        expected = pa.array([1, 2, 3, 4, 5, 42], type=ty)
+        assert result.equals(expected)
 
 
 def test_logical():
@@ -2465,6 +2551,13 @@ def test_extract_datetime_components(request):
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
+
+
+def test_offset_timezone():
+    arr = pc.strptime(["2012-12-12T12:12:12"], format="%Y-%m-%dT%H:%M:%S", unit="s")
+    zoned_arr = arr.cast(pa.timestamp("s", tz="+05:30"))
+    assert pc.hour(zoned_arr)[0].as_py() == 17
+    assert pc.minute(zoned_arr)[0].as_py() == 42
 
 
 @pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
@@ -3390,8 +3483,8 @@ def test_struct_fields_options():
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
         pc.struct_field(arr, '.a.foo')
 
-    # TODO: https://issues.apache.org/jira/browse/ARROW-14853
-    # assert pc.struct_field(arr) == arr
+    with pytest.raises(pa.ArrowInvalid, match="cannot be called without options"):
+        pc.struct_field(arr)
 
 
 def test_case_when():

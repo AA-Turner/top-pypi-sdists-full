@@ -146,9 +146,7 @@ class TrainingDataAssignmentError(Exception):
     Raised when the training data assignment for a custom model version fails
     """
 
-    def __init__(
-        self, custom_model_id: str, custom_model_version_id: str, error_message: str
-    ) -> None:
+    def __init__(self, custom_model_id: str, custom_model_version_id: str, error_message: str) -> None:
         self.custom_model_id = custom_model_id
         self.custom_model_version_id = custom_model_version_id
         self.error_message = error_message

@@ -25,7 +25,9 @@ class OAuthClientCredential(BaseModel):
     OAuth Client Credentials
     """
 
-    access_token: StrictStr = HiddenField(description="The OAuth access token.")
+    access_token: StrictStr = AnnotatedField(
+        description="The OAuth access token.", hidden=True, secret=True
+    )
     client_id: StrictStr = Field(description="The OAuth client id.")
     client_secret: StrictStr = AnnotatedField(description="The OAuth client secret.", secret=True)
     scopes: List[StrictStr] = Field(description="The OAuth scopes list.")

@@ -9,11 +9,14 @@ import pytest
 
 from orb import Orb, AsyncOrb
 from orb.types import (
+    SubscriptionChangeListResponse,
     SubscriptionChangeApplyResponse,
     SubscriptionChangeCancelResponse,
     SubscriptionChangeRetrieveResponse,
 )
+from orb._utils import parse_date
 from tests.utils import assert_matches_type
+from orb.pagination import SyncPage, AsyncPage
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -62,6 +65,42 @@ class TestSubscriptionChanges:
             )
 
     @parametrize
+    def test_method_list(self, client: Orb) -> None:
+        subscription_change = client.subscription_changes.list()
+        assert_matches_type(SyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Orb) -> None:
+        subscription_change = client.subscription_changes.list(
+            cursor="cursor",
+            customer_id="customer_id",
+            external_customer_id="external_customer_id",
+            limit=1,
+            status="pending",
+        )
+        assert_matches_type(SyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    def test_raw_response_list(self, client: Orb) -> None:
+        response = client.subscription_changes.with_raw_response.list()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription_change = response.parse()
+        assert_matches_type(SyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    def test_streaming_response_list(self, client: Orb) -> None:
+        with client.subscription_changes.with_streaming_response.list() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription_change = response.parse()
+            assert_matches_type(SyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
     def test_method_apply(self, client: Orb) -> None:
         subscription_change = client.subscription_changes.apply(
             subscription_change_id="subscription_change_id",
@@ -73,6 +112,10 @@ class TestSubscriptionChanges:
         subscription_change = client.subscription_changes.apply(
             subscription_change_id="subscription_change_id",
             description="description",
+            mark_as_paid=True,
+            payment_external_id="payment_external_id",
+            payment_notes="payment_notes",
+            payment_received_date=parse_date("2019-12-27"),
             previously_collected_amount="previously_collected_amount",
         )
         assert_matches_type(SubscriptionChangeApplyResponse, subscription_change, path=["response"])
@@ -197,6 +240,42 @@ class TestAsyncSubscriptionChanges:
             )
 
     @parametrize
+    async def test_method_list(self, async_client: AsyncOrb) -> None:
+        subscription_change = await async_client.subscription_changes.list()
+        assert_matches_type(AsyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncOrb) -> None:
+        subscription_change = await async_client.subscription_changes.list(
+            cursor="cursor",
+            customer_id="customer_id",
+            external_customer_id="external_customer_id",
+            limit=1,
+            status="pending",
+        )
+        assert_matches_type(AsyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    async def test_raw_response_list(self, async_client: AsyncOrb) -> None:
+        response = await async_client.subscription_changes.with_raw_response.list()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription_change = response.parse()
+        assert_matches_type(AsyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_list(self, async_client: AsyncOrb) -> None:
+        async with async_client.subscription_changes.with_streaming_response.list() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription_change = await response.parse()
+            assert_matches_type(AsyncPage[SubscriptionChangeListResponse], subscription_change, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
     async def test_method_apply(self, async_client: AsyncOrb) -> None:
         subscription_change = await async_client.subscription_changes.apply(
             subscription_change_id="subscription_change_id",
@@ -208,6 +287,10 @@ class TestAsyncSubscriptionChanges:
         subscription_change = await async_client.subscription_changes.apply(
             subscription_change_id="subscription_change_id",
             description="description",
+            mark_as_paid=True,
+            payment_external_id="payment_external_id",
+            payment_notes="payment_notes",
+            payment_received_date=parse_date("2019-12-27"),
             previously_collected_amount="previously_collected_amount",
         )
         assert_matches_type(SubscriptionChangeApplyResponse, subscription_change, path=["response"])

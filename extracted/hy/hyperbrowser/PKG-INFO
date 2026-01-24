@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyperbrowser
-Version: 0.57.0
+Version: 0.82.2
 Summary: Python SDK for hyperbrowser
 License: MIT
 License-File: LICENSE
@@ -25,7 +25,7 @@ Description-Content-Type: text/markdown
 
 # Hyperbrowser Python SDK
 
-Checkout the full documentation [here](https://docs.hyperbrowser.ai/)
+Checkout the full documentation [here](https://hyperbrowser.ai/docs)
 
 ## Installation
 

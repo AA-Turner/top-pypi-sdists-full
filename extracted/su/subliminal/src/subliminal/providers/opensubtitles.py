@@ -171,8 +171,9 @@ class OpenSubtitlesSubtitle(Subtitle):
 class OpenSubtitlesProvider(Provider):
     """OpenSubtitles Provider.
 
-    :param str username: username.
-    :param str password: password.
+    :param str username: username
+    :param str password: password
+    :param int timeout: timeout in seconds. Default to 10.
 
     """
 
@@ -195,6 +196,7 @@ class OpenSubtitlesProvider(Provider):
         username: str | None = None,
         password: str | None = None,
         *,
+        max_result_pages: int = 0,
         timeout: int = 10,
     ) -> None:
         transport = TimeoutSafeTransport(timeout=timeout, user_agent='VLSub')
@@ -279,7 +281,7 @@ class OpenSubtitlesProvider(Provider):
             language = Language.fromopensubtitles(subtitle_item['SubLanguageID'])
             hearing_impaired = bool(int(subtitle_item['SubHearingImpaired']))
             page_link = subtitle_item['SubtitlesLink']
-            subtitle_id = int(subtitle_item['IDSubtitleFile'])
+            subtitle_id = str(int(subtitle_item['IDSubtitleFile']))
             matched_by = subtitle_item['MatchedBy']
             movie_kind = subtitle_item['MovieKind']
             moviehash = subtitle_item['MovieHash']

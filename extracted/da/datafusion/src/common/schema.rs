@@ -15,35 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
+use std::borrow::Cow;
 use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
-use std::{any::Any, borrow::Cow};
 
 use arrow::datatypes::Schema;
 use arrow::pyarrow::PyArrowType;
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::common::Constraints;
 use datafusion::datasource::TableType;
+use datafusion::logical_expr::utils::split_conjunction;
 use datafusion::logical_expr::{Expr, TableProviderFilterPushDown, TableSource};
+use parking_lot::RwLock;
 use pyo3::prelude::*;
 
-use datafusion::logical_expr::utils::split_conjunction;
-
+use super::data_type::DataTypeMap;
+use super::function::SqlFunction;
 use crate::sql::logical::PyLogicalPlan;
 
-use super::{data_type::DataTypeMap, function::SqlFunction};
-
-#[pyclass(name = "SqlSchema", module = "datafusion.common", subclass)]
+#[pyclass(name = "SqlSchema", module = "datafusion.common", subclass, frozen)]
 #[derive(Debug, Clone)]
 pub struct SqlSchema {
-    #[pyo3(get, set)]
-    pub name: String,
-    #[pyo3(get, set)]
-    pub tables: Vec<SqlTable>,
-    #[pyo3(get, set)]
-    pub views: Vec<SqlView>,
-    #[pyo3(get, set)]
-    pub functions: Vec<SqlFunction>,
+    name: Arc<RwLock<String>>,
+    tables: Arc<RwLock<Vec<SqlTable>>>,
+    views: Arc<RwLock<Vec<SqlView>>>,
+    functions: Arc<RwLock<Vec<SqlFunction>>>,
 }
 
 #[pyclass(name = "SqlTable", module = "datafusion.common", subclass)]
@@ -104,28 +101,70 @@ impl SqlSchema {
     #[new]
     pub fn new(schema_name: &str) -> Self {
         Self {
-            name: schema_name.to_owned(),
-            tables: Vec::new(),
-            views: Vec::new(),
-            functions: Vec::new(),
+            name: Arc::new(RwLock::new(schema_name.to_owned())),
+            tables: Arc::new(RwLock::new(Vec::new())),
+            views: Arc::new(RwLock::new(Vec::new())),
+            functions: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+
+    #[getter]
+    fn name(&self) -> PyResult<String> {
+        Ok(self.name.read().clone())
+    }
+
+    #[setter]
+    fn set_name(&self, value: String) -> PyResult<()> {
+        *self.name.write() = value;
+        Ok(())
+    }
+
+    #[getter]
+    fn tables(&self) -> PyResult<Vec<SqlTable>> {
+        Ok(self.tables.read().clone())
+    }
+
+    #[setter]
+    fn set_tables(&self, tables: Vec<SqlTable>) -> PyResult<()> {
+        *self.tables.write() = tables;
+        Ok(())
+    }
+
+    #[getter]
+    fn views(&self) -> PyResult<Vec<SqlView>> {
+        Ok(self.views.read().clone())
+    }
+
+    #[setter]
+    fn set_views(&self, views: Vec<SqlView>) -> PyResult<()> {
+        *self.views.write() = views;
+        Ok(())
+    }
+
+    #[getter]
+    fn functions(&self) -> PyResult<Vec<SqlFunction>> {
+        Ok(self.functions.read().clone())
+    }
+
+    #[setter]
+    fn set_functions(&self, functions: Vec<SqlFunction>) -> PyResult<()> {
+        *self.functions.write() = functions;
+        Ok(())
     }
 
     pub fn table_by_name(&self, table_name: &str) -> Option<SqlTable> {
-        for tbl in &self.tables {
-            if tbl.name.eq(table_name) {
-                return Some(tbl.clone());
-            }
-        }
-        None
+        let tables = self.tables.read();
+        tables.iter().find(|tbl| tbl.name.eq(table_name)).cloned()
     }
 
-    pub fn add_table(&mut self, table: SqlTable) {
-        self.tables.push(table);
+    pub fn add_table(&self, table: SqlTable) {
+        let mut tables = self.tables.write();
+        tables.push(table);
     }
 
-    pub fn drop_table(&mut self, table_name: String) {
-        self.tables.retain(|x| !x.name.eq(&table_name));
+    pub fn drop_table(&self, table_name: String) {
+        let mut tables = self.tables.write();
+        tables.retain(|x| !x.name.eq(&table_name));
     }
 }
 
@@ -208,7 +247,7 @@ fn is_supported_push_down_expr(_expr: &Expr) -> bool {
     true
 }
 
-#[pyclass(name = "SqlStatistics", module = "datafusion.common", subclass)]
+#[pyclass(frozen, name = "SqlStatistics", module = "datafusion.common", subclass)]
 #[derive(Debug, Clone)]
 pub struct SqlStatistics {
     row_count: f64,
@@ -227,7 +266,7 @@ impl SqlStatistics {
     }
 }
 
-#[pyclass(name = "Constraints", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Constraints", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyConstraints {
     pub constraints: Constraints,
@@ -252,7 +291,7 @@ impl Display for PyConstraints {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[pyclass(eq, eq_int, name = "TableType", module = "datafusion.common")]
+#[pyclass(frozen, eq, eq_int, name = "TableType", module = "datafusion.common")]
 pub enum PyTableType {
     Base,
     View,
@@ -279,7 +318,7 @@ impl From<TableType> for PyTableType {
     }
 }
 
-#[pyclass(name = "TableSource", module = "datafusion.common", subclass)]
+#[pyclass(frozen, name = "TableSource", module = "datafusion.common", subclass)]
 #[derive(Clone)]
 pub struct PyTableSource {
     pub table_source: Arc<dyn TableSource>,

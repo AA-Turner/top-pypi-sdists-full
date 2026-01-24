@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: svix
-Version: 1.76.1
+Version: 1.84.1
 Summary: Svix webhooks API client and webhook verification library
 Home-page: https://www.svix.com
 Author: Svix
@@ -27,6 +27,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: pydantic>=2.10
 Requires-Dist: httpx>=0.23.0
 Requires-Dist: attrs>=21.3.0
+Requires-Dist: standardwebhooks
 Requires-Dist: python-dateutil
 Requires-Dist: Deprecated
 Requires-Dist: types-python-dateutil

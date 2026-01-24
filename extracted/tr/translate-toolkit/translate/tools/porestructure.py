@@ -42,19 +42,14 @@ class SplitOptionParser(optrecurse.RecursiveOptionParser):
             self.error("Output file is required")
         return (options, args)
 
-    def set_usage(self, usage=None):
+    def set_usage(self, usage=None) -> None:
         """Sets the usage string - if usage not given, uses getusagestring for each option."""
         if usage is None:
-            self.usage = (
-                "%prog "
-                + " ".join(self.getusagestring(option) for option in self.option_list)
-                + "\n  "
-                + "input directory is searched for PO files with (poconflicts) comments, all entries are written to files in a directory structure for pomerge"
-            )
+            self.usage = f"%prog {' '.join(self.getusagestring(option) for option in self.option_list)}\n  input directory is searched for PO files with (poconflicts) comments, all entries are written to files in a directory structure for pomerge"
         else:
             super().set_usage(usage)
 
-    def recursiveprocess(self, options):
+    def recursiveprocess(self, options) -> None:
         """Recurse through directories and process files."""
         if not self.isrecursive(options.output, "output"):
             self.warning("Output directory does not exist. Attempting to create")
@@ -66,7 +61,7 @@ class SplitOptionParser(optrecurse.RecursiveOptionParser):
                 self.error(
                     optrecurse.optparse.OptionValueError(
                         "Output directory does not exist, attempt to create failed"
-                    )
+                    )  # ty:ignore[invalid-argument-type]
                 )
         if self.isrecursive(options.input, "input") and getattr(
             options, "allowrecursiveinput", True
@@ -95,34 +90,37 @@ class SplitOptionParser(optrecurse.RecursiveOptionParser):
                 success = False
             progress_bar.report_progress(inputpath, success)
 
-    def processfile(self, options, fullinputpath):
+    def processfile(self, options, fullinputpath) -> bool:  # ty:ignore[invalid-method-override]
         """Process an individual file."""
         inputfile = self.openinputfile(options, fullinputpath)
         inputpofile = po.pofile(inputfile)
         for pounit in inputpofile.units:
-            if not (pounit.isheader() or pounit.hasplural()):  # XXX
-                if pounit.hasmarkedcomment("poconflicts"):
-                    for comment in pounit.othercomments:
-                        if comment.find("# (poconflicts)") == 0:
-                            pounit.othercomments.remove(comment)
-                            break
-                    # TODO: refactor writing out
-                    outputpath = comment[comment.find(")") + 2 :].strip()
-                    self.checkoutputsubdir(options, os.path.dirname(outputpath))
-                    fulloutputpath = os.path.join(options.output, outputpath)
-                    if os.path.isfile(fulloutputpath):
-                        outputfile = open(fulloutputpath, "rb")
-                        outputpofile = po.pofile(outputfile)
-                    else:
-                        outputpofile = po.pofile()
-                    outputpofile.units.append(
-                        pounit
-                    )  # TODO:perhaps check to see if it's already there...
-                    with open(fulloutputpath, "wb") as fh:
-                        outputpofile.serialize(fh)
+            if not (
+                pounit.isheader() or pounit.hasplural()
+            ) and pounit.hasmarkedcomment("poconflicts"):
+                for comment in pounit.othercomments:
+                    if comment.find("# (poconflicts)") == 0:
+                        pounit.othercomments.remove(comment)
+                        break
+                # TODO: refactor writing out
+                # pylint: disable-next=undefined-loop-variable
+                outputpath = comment[comment.find(")") + 2 :].strip()
+                self.checkoutputsubdir(options, os.path.dirname(outputpath))
+                fulloutputpath = os.path.join(options.output, outputpath)
+                if os.path.isfile(fulloutputpath):
+                    outputfile = open(fulloutputpath, "rb")
+                    outputpofile = po.pofile(outputfile)
+                else:
+                    outputpofile = po.pofile()
+                outputpofile.units.append(
+                    pounit
+                )  # TODO:perhaps check to see if it's already there...
+                with open(fulloutputpath, "wb") as fh:
+                    outputpofile.serialize(fh)
+        return True
 
 
-def main():
+def main() -> None:
     # outputfile extensions will actually be determined by the comments in the
     # po files
     pooutput = ("po", None)

@@ -162,7 +162,6 @@ class SQLToJSONSchema:
 
         Args:
             config: The configuration dictionary.
-            use_singer_decimal: Whether to represent numbers as `string` with
                 the `x-singer.decimal` format instead of as `number`.
 
         Returns:
@@ -605,6 +604,7 @@ class SQLConnector:  # noqa: PLR0904
         """
         self._config: dict[str, t.Any] = config or {}
         self._sqlalchemy_url: str | None = sqlalchemy_url or None
+        self._tables_prepared: dict[str, bool] = {}
 
     @property
     def config(self) -> dict:
@@ -716,7 +716,7 @@ class SQLConnector:  # noqa: PLR0904
             SingerSDKDeprecationWarning,
             stacklevel=2,
         )
-        return self.create_sqlalchemy_connection()
+        return self.create_sqlalchemy_connection()  # ty: ignore[deprecated]
 
     @property
     def sqlalchemy_url(self) -> str:
@@ -792,7 +792,7 @@ class SQLConnector:  # noqa: PLR0904
                 SingerSDKDeprecationWarning,
                 stacklevel=2,
             )
-            return th.to_jsonschema_type(sql_type)
+            return th.to_jsonschema_type(sql_type)  # ty: ignore[deprecated]
 
         if isinstance(sql_type, type):  # pragma: no cover
             warnings.warn(
@@ -802,7 +802,7 @@ class SQLConnector:  # noqa: PLR0904
                 stacklevel=2,
             )
             if issubclass(sql_type, sqlalchemy.types.TypeEngine):
-                return th.to_jsonschema_type(sql_type)
+                return th.to_jsonschema_type(sql_type)  # ty: ignore[deprecated]
 
             msg = f"Unexpected type received: '{sql_type.__name__}'"
             raise ValueError(msg)
@@ -1011,7 +1011,6 @@ class SQLConnector:  # noqa: PLR0904
             schema_name: Schema name to inspect
             table_name: Name of the table or a view
             is_view: Flag whether this object is a view, returned by `get_object_names`
-            reflect_indices: Whether to reflect indices
             reflected_columns: List of reflected columns
             reflected_pk: Reflected primary key
             reflected_indices: List of reflected indices
@@ -1396,7 +1395,24 @@ class SQLConnector:  # noqa: PLR0904
             partition_keys: list of partition keys.
             as_temp_table: True to create a temp table.
         """
-        if not self.table_exists(full_table_name=full_table_name):
+        table_key = str(full_table_name)
+        table_already_prepared = self._tables_prepared.get(table_key, False)
+
+        # Only drop/recreate on OVERWRITE if this is the first time preparing the table
+        # in this target run. Subsequent schema changes should add columns
+        # incrementally.
+        if (
+            (
+                self.config["load_method"] == TargetLoadMethods.OVERWRITE
+                and not table_already_prepared
+            )
+            or not self.table_exists(full_table_name=full_table_name)  # First-time sync
+        ):
+            _, schema_name, table_name = self.parse_full_table_name(full_table_name)
+            meta = sa.MetaData()
+            table = sa.Table(table_name, meta, schema=schema_name)
+            table.drop(self._engine, checkfirst=True)
+            self.logger.info("Creating empty table %s", full_table_name)
             self.create_empty_table(
                 full_table_name=full_table_name,
                 schema=schema,
@@ -1404,18 +1420,11 @@ class SQLConnector:  # noqa: PLR0904
                 partition_keys=partition_keys,
                 as_temp_table=as_temp_table,
             )
-            return
-        if self.config["load_method"] == TargetLoadMethods.OVERWRITE:
-            self.get_table(full_table_name=full_table_name).drop(self._engine)
-            self.create_empty_table(
-                full_table_name=full_table_name,
-                schema=schema,
-                primary_keys=primary_keys,
-                partition_keys=partition_keys,
-                as_temp_table=as_temp_table,
-            )
+            self._tables_prepared[table_key] = True
             return
 
+        # For non-OVERWRITE modes or subsequent schema changes, add columns
+        # incrementally
         for property_name, property_def in schema["properties"].items():
             self.prepare_column(
                 full_table_name,
@@ -1427,6 +1436,8 @@ class SQLConnector:  # noqa: PLR0904
             full_table_name=full_table_name,
             primary_keys=primary_keys,
         )
+
+        self._tables_prepared[table_key] = True
 
     def prepare_primary_key(
         self,
@@ -1727,8 +1738,8 @@ class SQLConnector:  # noqa: PLR0904
              The removed collation as a string.
         """
         if hasattr(column_type, "collation") and column_type.collation:
-            column_type_collation: str = column_type.collation
-            column_type.collation = None
+            column_type_collation: str = column_type.collation  # ty: ignore[invalid-assignment]
+            column_type.collation = None  # ty: ignore[invalid-assignment]
             return column_type_collation
         return None
 
@@ -1744,7 +1755,7 @@ class SQLConnector:  # noqa: PLR0904
             collation: The colation
         """
         if hasattr(column_type, "collation") and collation:
-            column_type.collation = collation
+            column_type.collation = collation  # ty: ignore[invalid-assignment]
 
     def _adapt_column_type(
         self,

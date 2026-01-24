@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import annotations
+
 from base64 import urlsafe_b64decode
 from functools import lru_cache
 from pathlib import Path
@@ -112,14 +116,14 @@ class GmailConnection(MailboxConnection):
         else:
             return [id for id in self._fetch_all_message_ids(reports_label_id)]
 
-    def fetch_message(self, message_id):
+    def fetch_message(self, message_id) -> str:
         msg = (
             self.service.users()
             .messages()
             .get(userId="me", id=message_id, format="raw")
             .execute()
         )
-        return urlsafe_b64decode(msg["raw"])
+        return urlsafe_b64decode(msg["raw"]).decode(errors="replace")
 
     def delete_message(self, message_id: str):
         self.service.users().messages().delete(userId="me", id=message_id)
@@ -152,3 +156,4 @@ class GmailConnection(MailboxConnection):
         for label in labels:
             if label_name == label["id"] or label_name == label["name"]:
                 return label["id"]
+        return ""

@@ -1,0 +1,35 @@
+# Include this in a trace type object to have access to basic real field
+# type aliases.
+
+$field-type-aliases:
+  # IEEE 754-2008 binary32 (single-precision)
+  float:
+    class: real
+    size: 32
+    alignment: 32
+
+  # IEEE 754-2008 binary64 (double-precision)
+  double:
+    class: real
+    size: 64
+    alignment: 64
+
+  # byte-packed IEEE 754-2008 binary32 (single-precision)
+  byte-packed-float:
+    $inherit: float
+    alignment: 8
+
+  # byte-packed IEEE 754-2008 binary64 (double-precision)
+  byte-packed-double:
+    $inherit: double
+    alignment: 8
+
+  # bit-packed IEEE 754-2008 binary32 (single-precision)
+  bit-packed-float:
+    $inherit: float
+    alignment: 1
+
+  # bit-packed IEEE 754-2008 binary64 (double-precision)
+  bit-packed-double:
+    $inherit: double
+    alignment: 1

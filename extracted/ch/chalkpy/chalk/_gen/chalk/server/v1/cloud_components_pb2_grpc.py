@@ -25,6 +25,11 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcResponse.FromString,
         )
+        self.ListCloudComponentVpc = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentVpc",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcResponse.FromString,
+        )
         self.DeleteCloudComponentVpc = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentVpc",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentVpcRequest.SerializeToString,
@@ -45,10 +50,20 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentClusterRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentClusterResponse.FromString,
         )
+        self.ListCloudComponentCluster = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentCluster",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.FromString,
+        )
         self.DeleteCloudComponentCluster = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentCluster",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterResponse.FromString,
+        )
+        self.TestClusterConnection = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/TestClusterConnection",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionResponse.FromString,
         )
         self.CreateCloudComponentStorage = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/CreateCloudComponentStorage",
@@ -59,6 +74,11 @@ class CloudComponentsServiceStub(object):
             "/chalk.server.v1.CloudComponentsService/GetCloudComponentStorage",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageResponse.FromString,
+        )
+        self.ListCloudComponentStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.FromString,
         )
         self.DeleteCloudComponentStorage = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentStorage",
@@ -127,6 +147,12 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListCloudComponentVpc(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteCloudComponentVpc(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -151,7 +177,19 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListCloudComponentCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteCloudComponentCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def TestClusterConnection(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -164,6 +202,12 @@ class CloudComponentsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetCloudComponentStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListCloudComponentStorage(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -242,6 +286,11 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcResponse.SerializeToString,
         ),
+        "ListCloudComponentVpc": grpc.unary_unary_rpc_method_handler(
+            servicer.ListCloudComponentVpc,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcResponse.SerializeToString,
+        ),
         "DeleteCloudComponentVpc": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudComponentVpc,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentVpcRequest.FromString,
@@ -262,10 +311,20 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentClusterRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentClusterResponse.SerializeToString,
         ),
+        "ListCloudComponentCluster": grpc.unary_unary_rpc_method_handler(
+            servicer.ListCloudComponentCluster,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.SerializeToString,
+        ),
         "DeleteCloudComponentCluster": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudComponentCluster,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterResponse.SerializeToString,
+        ),
+        "TestClusterConnection": grpc.unary_unary_rpc_method_handler(
+            servicer.TestClusterConnection,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionResponse.SerializeToString,
         ),
         "CreateCloudComponentStorage": grpc.unary_unary_rpc_method_handler(
             servicer.CreateCloudComponentStorage,
@@ -276,6 +335,11 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.GetCloudComponentStorage,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageResponse.SerializeToString,
+        ),
+        "ListCloudComponentStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.ListCloudComponentStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.SerializeToString,
         ),
         "DeleteCloudComponentStorage": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudComponentStorage,
@@ -386,6 +450,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/GetCloudComponentVpc",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListCloudComponentVpc(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentVpc",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentVpcResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -513,6 +606,35 @@ class CloudComponentsService(object):
         )
 
     @staticmethod
+    def ListCloudComponentCluster(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentCluster",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def DeleteCloudComponentCluster(
         request,
         target,
@@ -531,6 +653,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentCluster",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TestClusterConnection(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/TestClusterConnection",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.TestClusterConnectionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -589,6 +740,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/GetCloudComponentStorage",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListCloudComponentStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListCloudComponentStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -104,12 +105,6 @@ from .type_defs import (
     UpdateRotationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -120,15 +115,15 @@ __all__ = ("SSMContactsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DataEncryptionException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DataEncryptionException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SSMContactsClient(BaseClient):
@@ -166,7 +161,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#generate_presigned_url)
         """
 
-    def accept_page(self, **kwargs: Unpack[AcceptPageRequestTypeDef]) -> Dict[str, Any]:
+    def accept_page(self, **kwargs: Unpack[AcceptPageRequestTypeDef]) -> dict[str, Any]:
         """
         Used to acknowledge an engagement to a contact channel during an incident.
 
@@ -176,7 +171,7 @@ class SSMContactsClient(BaseClient):
 
     def activate_contact_channel(
         self, **kwargs: Unpack[ActivateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Activates a contact's contact channel.
 
@@ -229,7 +224,7 @@ class SSMContactsClient(BaseClient):
 
     def deactivate_contact_channel(
         self, **kwargs: Unpack[DeactivateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         To no longer receive Incident Manager engagements to a contact channel, you can
         deactivate the channel.
@@ -238,7 +233,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#deactivate_contact_channel)
         """
 
-    def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> Dict[str, Any]:
+    def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> dict[str, Any]:
         """
         To remove a contact from Incident Manager, you can delete the contact.
 
@@ -248,7 +243,7 @@ class SSMContactsClient(BaseClient):
 
     def delete_contact_channel(
         self, **kwargs: Unpack[DeleteContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         To stop receiving engagements on a contact channel, you can delete the channel
         from a contact.
@@ -257,7 +252,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#delete_contact_channel)
         """
 
-    def delete_rotation(self, **kwargs: Unpack[DeleteRotationRequestTypeDef]) -> Dict[str, Any]:
+    def delete_rotation(self, **kwargs: Unpack[DeleteRotationRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a rotation from the system.
 
@@ -267,7 +262,7 @@ class SSMContactsClient(BaseClient):
 
     def delete_rotation_override(
         self, **kwargs: Unpack[DeleteRotationOverrideRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing override for an on-call rotation.
 
@@ -465,7 +460,7 @@ class SSMContactsClient(BaseClient):
 
     def put_contact_policy(
         self, **kwargs: Unpack[PutContactPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a resource policy to the specified contact or escalation plan.
 
@@ -475,7 +470,7 @@ class SSMContactsClient(BaseClient):
 
     def send_activation_code(
         self, **kwargs: Unpack[SendActivationCodeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sends an activation code to a contact channel.
 
@@ -493,7 +488,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#start_engagement)
         """
 
-    def stop_engagement(self, **kwargs: Unpack[StopEngagementRequestTypeDef]) -> Dict[str, Any]:
+    def stop_engagement(self, **kwargs: Unpack[StopEngagementRequestTypeDef]) -> dict[str, Any]:
         """
         Stops an engagement before it finishes the final stage of the escalation plan
         or engagement plan.
@@ -502,7 +497,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#stop_engagement)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a contact or escalation plan.
 
@@ -510,7 +505,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified resource.
 
@@ -518,7 +513,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#untag_resource)
         """
 
-    def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> Dict[str, Any]:
+    def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the contact or escalation plan specified.
 
@@ -528,7 +523,7 @@ class SSMContactsClient(BaseClient):
 
     def update_contact_channel(
         self, **kwargs: Unpack[UpdateContactChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a contact's contact channel.
 
@@ -536,7 +531,7 @@ class SSMContactsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/client/#update_contact_channel)
         """
 
-    def update_rotation(self, **kwargs: Unpack[UpdateRotationRequestTypeDef]) -> Dict[str, Any]:
+    def update_rotation(self, **kwargs: Unpack[UpdateRotationRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the information specified for an on-call rotation.
 

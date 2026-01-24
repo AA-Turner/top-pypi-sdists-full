@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from dbt_semantic_interfaces.naming.keywords import METRIC_TIME_ELEMENT_NAME
 from dbt_semantic_interfaces.references import DimensionReference, EntityReference, TimeDimensionReference
@@ -12,7 +12,6 @@ from typing_extensions import override
 from metricflow_semantics.aggregation_properties import AggregationState
 from metricflow_semantics.assert_one_arg import assert_exactly_one_arg_set
 from metricflow_semantics.collection_helpers.lru_cache import typed_lru_cache
-from metricflow_semantics.model.semantics.linkable_element import ElementPathKey, LinkableElementType
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.instance_spec import InstanceSpecVisitor
@@ -149,24 +148,13 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
         return DimensionReference(element_name=self.element_name)
 
     @property
-    def qualified_name(self) -> str:  # noqa: D102
+    def dunder_name(self) -> str:  # noqa: D102
         return StructuredLinkableSpecName(
             entity_link_names=tuple(x.element_name for x in self.entity_links),
             element_name=self.element_name,
             time_granularity_name=self.time_granularity_name,
             date_part=self.date_part,
-        ).qualified_name
-
-    @property
-    @override
-    def element_path_key(self) -> ElementPathKey:
-        return ElementPathKey(
-            element_name=self.element_name,
-            element_type=LinkableElementType.TIME_DIMENSION,
-            entity_links=self.entity_links,
-            time_granularity=self.time_granularity,
-            date_part=self.date_part,
-        )
+        ).dunder_name
 
     def accept(self, visitor: InstanceSpecVisitor[VisitorOutputT]) -> VisitorOutputT:  # noqa: D102
         return visitor.visit_time_dimension_spec(self)
@@ -271,7 +259,7 @@ class TimeDimensionSpec(DimensionSpec):  # noqa: D101
         )
 
     @staticmethod
-    def with_base_grains(time_dimension_specs: Sequence[TimeDimensionSpec]) -> Tuple[TimeDimensionSpec, ...]:
+    def with_base_grains(time_dimension_specs: Iterable[TimeDimensionSpec]) -> Tuple[TimeDimensionSpec, ...]:
         """Return the list of time dimension specs, replacing any custom grains with base grains.
 
         Dedupes new specs, but preserves the initial order.

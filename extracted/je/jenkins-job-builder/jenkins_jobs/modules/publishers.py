@@ -7820,6 +7820,7 @@ def phabricator(registry, xml_parent, data):
 def jms_messaging(registry, xml_parent, data):
     """yaml: jms-messaging
     The JMS Messaging Plugin provides the following functionality:
+
      - A build trigger to submit jenkins jobs upon receipt
        of a matching message.
      - A builder that may be used to submit a message to the topic

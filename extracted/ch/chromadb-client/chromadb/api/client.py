@@ -24,9 +24,11 @@ from chromadb.api.types import (
     Loadable,
     Metadatas,
     QueryResult,
+    Schema,
     URIs,
     IncludeMetadataDocuments,
     IncludeMetadataDocumentsDistances,
+    DefaultEmbeddingFunction,
 )
 from chromadb.auth import UserIdentity
 from chromadb.auth.utils import maybe_set_tenant_and_database
@@ -35,7 +37,6 @@ from chromadb.config import DEFAULT_TENANT, DEFAULT_DATABASE
 from chromadb.api.models.Collection import Collection
 from chromadb.errors import ChromaAuthError, ChromaError
 from chromadb.types import Database, Tenant, Where, WhereDocument
-import chromadb.utils.embedding_functions as ef
 
 
 class Client(SharedSystemClient, ClientAPI):
@@ -79,13 +80,17 @@ class Client(SharedSystemClient, ClientAPI):
             user_provided_tenant=tenant,
             user_provided_database=database,
         )
-        
+
         # this should not happen unless types are invalidated
         if maybe_tenant is None and tenant is None:
-            raise ChromaAuthError("Could not determine a tenant from the current authentication method. Please provide a tenant.")
+            raise ChromaAuthError(
+                "Could not determine a tenant from the current authentication method. Please provide a tenant."
+            )
         if maybe_database is None and database is None:
-            raise ChromaAuthError("Could not determine a database name from the current authentication method. Please provide a database name.")
-        
+            raise ChromaAuthError(
+                "Could not determine a database name from the current authentication method. Please provide a database name."
+            )
+
         if maybe_tenant:
             self.tenant = maybe_tenant
         if maybe_database:
@@ -152,11 +157,12 @@ class Client(SharedSystemClient, ClientAPI):
     def create_collection(
         self,
         name: str,
+        schema: Optional[Schema] = None,
         configuration: Optional[CreateCollectionConfiguration] = None,
         metadata: Optional[CollectionMetadata] = None,
         embedding_function: Optional[
             EmbeddingFunction[Embeddable]
-        ] = ef.DefaultEmbeddingFunction(),  # type: ignore
+        ] = DefaultEmbeddingFunction(),  # type: ignore
         data_loader: Optional[DataLoader[Loadable]] = None,
         get_or_create: bool = False,
     ) -> Collection:
@@ -176,6 +182,7 @@ class Client(SharedSystemClient, ClientAPI):
 
         model = self._server.create_collection(
             name=name,
+            schema=schema,
             metadata=metadata,
             tenant=self.tenant,
             database=self.database,
@@ -195,7 +202,7 @@ class Client(SharedSystemClient, ClientAPI):
         name: str,
         embedding_function: Optional[
             EmbeddingFunction[Embeddable]
-        ] = ef.DefaultEmbeddingFunction(),  # type: ignore
+        ] = DefaultEmbeddingFunction(),  # type: ignore
         data_loader: Optional[DataLoader[Loadable]] = None,
     ) -> Collection:
         model = self._server.get_collection(
@@ -220,11 +227,12 @@ class Client(SharedSystemClient, ClientAPI):
     def get_or_create_collection(
         self,
         name: str,
+        schema: Optional[Schema] = None,
         configuration: Optional[CreateCollectionConfiguration] = None,
         metadata: Optional[CollectionMetadata] = None,
         embedding_function: Optional[
             EmbeddingFunction[Embeddable]
-        ] = ef.DefaultEmbeddingFunction(),  # type: ignore
+        ] = DefaultEmbeddingFunction(),  # type: ignore
         data_loader: Optional[DataLoader[Loadable]] = None,
     ) -> Collection:
         if configuration is None:
@@ -240,6 +248,7 @@ class Client(SharedSystemClient, ClientAPI):
             configuration["embedding_function"] = embedding_function
         model = self._server.get_or_create_collection(
             name=name,
+            schema=schema,
             metadata=metadata,
             tenant=self.tenant,
             database=self.database,
@@ -464,9 +473,7 @@ class Client(SharedSystemClient, ClientAPI):
         self._validate_tenant_database(tenant=self.tenant, database=database)
         self.database = database
 
-    def _validate_tenant_database(
-        self, tenant: str, database: str
-    ) -> None:
+    def _validate_tenant_database(self, tenant: str, database: str) -> None:
         try:
             self._admin_client.get_tenant(name=tenant)
         except httpx.ConnectError:

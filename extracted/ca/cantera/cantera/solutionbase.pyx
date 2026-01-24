@@ -3,8 +3,8 @@
 
 cimport numpy as np
 import numpy as np
-from pathlib import PurePath
-from os import get_terminal_size
+from pathlib import PurePath as _PurePath
+from os import get_terminal_size as _get_terminal_size
 import warnings
 
 from .thermo cimport *
@@ -29,6 +29,10 @@ cdef class _SolutionBase:
     def __cinit__(self, infile='', name='', adjacent=(), *, origin=None,
                   yaml=None, thermo=None, species=(),
                   kinetics=None, reactions=(), init=True, **kwargs):
+        if not isinstance(infile, (str, _PurePath)):
+            raise TypeError("Invalid object type: expected a 'str' or path object for "
+                            "parameter 'infile', but received "
+                            f"{type(infile).__name__!r}.")
 
         self._references = None
         # run instantiation only if valid sources are specified
@@ -58,13 +62,13 @@ cdef class _SolutionBase:
         cdef _SolutionBase other
         if origin is not None:
             other = <_SolutionBase?>origin
-            _assign_Solution(self, other._base, False)
+            _assign_Solution(self, other._base, False, weak=False, hold=False)
             self.thermo_basis = other.thermo_basis
             self._selected_species = other._selected_species.copy()
             self._adjacent = other._adjacent
             return
 
-        if isinstance(infile, PurePath):
+        if isinstance(infile, _PurePath):
             infile = str(infile)
 
         # Transport model: "" is a sentinel value to use the default model
@@ -413,7 +417,7 @@ cdef class _SolutionBase:
 # These cdef functions are declared as free functions to avoid creating layout
 # conflicts with types derived from _SolutionBase
 cdef _assign_Solution(_SolutionBase soln, shared_ptr[CxxSolution] cxx_soln,
-                      pybool reset_adjacent, pybool weak=False):
+                      pybool reset_adjacent, pybool weak=False, pybool hold=True):
     if not weak:
         # _SolutionBase owns the C++ Solution object by holding the shared_ptr instance
         if soln._base.get() != NULL:
@@ -449,7 +453,9 @@ cdef _assign_Solution(_SolutionBase soln, shared_ptr[CxxSolution] cxx_soln,
 
     cdef shared_ptr[CxxExternalHandle] handle
     handle.reset(new CxxPythonHandle(<PyObject*>soln, not weak))
-    soln.base.holdExternalHandle(stringify("python"), handle)
+    if hold:
+        # Sliced Solution objects should not replace the existing handle
+        soln.base.holdExternalHandle(stringify("python"), handle)
 
 
 cdef object _wrap_Solution(shared_ptr[CxxSolution] cxx_soln):
@@ -457,6 +463,12 @@ cdef object _wrap_Solution(shared_ptr[CxxSolution] cxx_soln):
     Wrap an existing Solution object with a Python object of the correct
     derived type.
     """
+    # If the Solution already has a Python wrapper, extract that from the stored handle
+    cdef CxxPythonHandle* handle = dynamic_pointer_cast[CxxPythonHandle, CxxExternalHandle](
+        cxx_soln.get().getExternalHandle(stringify("python"))).get()
+    if handle != NULL and handle.get() != NULL:
+        return <_SolutionBase>(<PyObject*>handle.get())
+
     # Need to explicitly import these classes from the non-compiled Python module to
     # make them available inside Cython
     from cantera import Solution, Interface
@@ -496,6 +508,10 @@ cdef class SolutionArrayBase:
 
     def __cinit__(self, _SolutionBase phase, shape=(0,),
                   states=None, extra=None, meta=None, init=True):
+        if not isinstance(phase, _SolutionBase):
+            raise TypeError("Invalid object type: expected a '_SolutionBase' object, "
+                            f"but received {type(phase).__name__!r}.")
+
         size = np.prod(shape)
         cdef CxxAnyMap cxx_meta
         if meta is not None:
@@ -513,7 +529,7 @@ cdef class SolutionArrayBase:
         return dest
 
     def __repr__(self):
-        return self.info()
+        return self.info(display=False)
 
     @property
     def size(self):
@@ -532,14 +548,19 @@ cdef class SolutionArrayBase:
             cxx_shape.push_back(dim)
         self.base.setApiShape(cxx_shape)
 
-    def info(self, keys=None, rows=10, width=None):
+    def info(self, keys=None, rows=10, width=None, display=True):
         """
-        Print a concise summary of a `SolutionArray`.
+        Display or return a concise summary of a `SolutionArray`.
 
         :param keys: List of components to be displayed; if `None`, all components are
             considered.
         :param rows: Maximum number of rendered rows.
         :param width: Maximum width of rendered output.
+        :param display: If `True`, display result (default), otherwise, return a string.
+
+        .. versionchanged:: 3.2
+
+            Added ``display`` parameter.
         """
         cdef vector[string] cxx_keys
         if keys is not None:
@@ -556,11 +577,14 @@ cdef class SolutionArrayBase:
                     cxx_keys.push_back(stringify(key))
         if width is None:
             try:
-                width = get_terminal_size().columns
-            except:
+                width = _get_terminal_size().columns
+            except OSError:
                 width = 100
 
-        return pystr(self.base.info(cxx_keys, rows, width))
+        ret = pystr(self.base.info(cxx_keys, rows, width))
+        if not display:
+            return ret
+        print(ret)
 
     @property
     def meta(self):

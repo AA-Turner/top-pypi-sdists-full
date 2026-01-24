@@ -4,19 +4,20 @@
 * Confirm proper release of file handles via Document.close()
 * Confirm properly raising exceptions in document creation
 """
-import io
-import os
-
 import fnmatch
+import io
 import json
-import pymupdf
+import os
 import pathlib
 import pickle
 import platform
+import pymupdf
 import re
+import shlex
 import shutil
 import subprocess
 import sys
+import sysconfig
 import textwrap
 import time
 import util
@@ -25,6 +26,15 @@ import gentle_compare
 
 scriptdir = os.path.abspath(os.path.dirname(__file__))
 filename = os.path.join(scriptdir, "resources", "001003ED.pdf")
+
+Py_GIL_DISABLED = sysconfig.get_config_var('Py_GIL_DISABLED')
+try:
+    gil_enabled = sys._is_gil_enabled()
+except AttributeError:
+    gil_enabled = True
+regex_gil_stderr = None
+if Py_GIL_DISABLED and gil_enabled:
+    regex_gil_stderr = '.*The global interpreter lock.*'
 
 
 def test_haslinks():
@@ -62,11 +72,8 @@ def test_iswrapped():
     doc = pymupdf.open(filename)
     page = doc[0]
     assert page.is_wrapped
-    wt = pymupdf.TOOLS.mupdf_warnings()
-    if pymupdf.mupdf_version_tuple >= (1, 26, 0):
-        assert wt == 'bogus font ascent/descent values (0 / 0)'
-    else:
-        assert not wt
+    if (1, 26, 0) <= pymupdf.mupdf_version_tuple < (1, 27):
+        assert pymupdf.TOOLS.mupdf_warnings() == 'bogus font ascent/descent values (0 / 0)'
 
 
 def test_wrapcontents():
@@ -82,7 +89,7 @@ def test_wrapcontents():
     rebased = hasattr(pymupdf, 'mupdf')
     if rebased:
         wt = pymupdf.TOOLS.mupdf_warnings()
-        if pymupdf.mupdf_version_tuple >= (1, 26, 0):
+        if (1, 26, 0) <= pymupdf.mupdf_version_tuple < (1, 27):
             assert wt == 'bogus font ascent/descent values (0 / 0)\nPDF stream Length incorrect'
         else:
             assert wt == 'PDF stream Length incorrect'
@@ -246,11 +253,8 @@ def test_get_text_dict():
     blocks=page.get_text("dict")["blocks"]
     # Check no opaque types in `blocks`.
     json.dumps( blocks, indent=4)
-    wt = pymupdf.TOOLS.mupdf_warnings()
-    if pymupdf.mupdf_version_tuple >= (1, 26, 0):
-        assert wt == 'bogus font ascent/descent values (0 / 0)'
-    else:
-        assert not wt
+    if (1, 26, 0) <= pymupdf.mupdf_version_tuple < (1, 27):
+        assert pymupdf.TOOLS.mupdf_warnings() == 'bogus font ascent/descent values (0 / 0)'
 
 def test_font():
     font = pymupdf.Font()
@@ -785,6 +789,9 @@ def test_2736():
 
 
 def test_subset_fonts():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_subset_fonts(): not running on Pyodide - ValueError: No font code \'ubuntu\' found in pymupdf-fonts.')
+        return
     """Confirm subset_fonts is working."""
     if not hasattr(pymupdf, "mupdf"):
         print("Not testing 'test_subset_fonts' in classic.")
@@ -1026,6 +1033,10 @@ def test_3140():
     os.remove(oldfile)
 
 def test_cli():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_cli(): not running on Pyodide - cannot run child processes.')
+        return
+        
     if not hasattr(pymupdf, 'mupdf'):
         print('test_cli(): Not running on classic because of fitz_old.')
         return
@@ -1037,10 +1048,10 @@ def check_lines(expected_regexes, actual):
     '''
     Checks lines in <actual> match regexes in <expected_regexes>.
     '''
-    print(f'check_lines():', flush=1)
-    print(f'{expected_regexes=}', flush=1)
-    print(f'{actual=}', flush=1)
+    print(f'### check_lines():', flush=1)
     def str_to_list(s):
+        if s is None:
+            return list()
         if isinstance(s, str):
             return s.split('\n') if s else list()
         return s
@@ -1050,11 +1061,35 @@ def check_lines(expected_regexes, actual):
         expected_regexes.append('') # Always expect a trailing empty line.
     # Remove `None` regexes and make all regexes match entire lines.
     expected_regexes = [f'^{i}$' for i in expected_regexes if i is not None]
-    print(f'{expected_regexes=}', flush=1)
-    for expected_regex_line, actual_line in zip(expected_regexes, actual):
-        print(f'    {expected_regex_line=}', flush=1)
-        print(f'            {actual_line=}', flush=1)
-        assert re.match(expected_regex_line, actual_line)
+    
+    print(f'expected_regexes ({len(expected_regexes)}):')
+    for i in expected_regexes:
+        print(f'    {i!r}')
+    
+    print(f'actual ({len(actual)}):')
+    for i in actual:
+        print(f'    {i!r}')
+    
+    i_expected = 0
+    i_actual = 0
+    while 1:
+        if i_expected == len(expected_regexes) and i_actual == len(actual):
+            break
+        print(f'expected {i_expected+1}/{len(expected_regexes)}')
+        print(f'actual {i_actual+1}/{len(actual)}')
+        assert i_expected < len(expected_regexes) and i_actual < len(actual)
+        expected_regex_line = expected_regexes[i_expected]
+        actual_line = actual[i_actual]
+        if expected_regex_line is None:
+            i_expected += 1
+            continue
+        print(f'    expected_regex: {expected_regex_line!r}', flush=1)
+        print(f'    actual:         {actual!r}', flush=1)
+        match = re.match(expected_regex_line, actual_line)
+        print(f'    {match=}')
+        assert match
+        i_expected += 1
+        i_actual += 1
     assert len(expected_regexes) == len(actual), \
             f'expected/actual lines mismatch: {len(expected_regexes)=} {len(actual)=}.'
 
@@ -1063,6 +1098,10 @@ def test_cli_out():
     Check redirection of messages and log diagnostics with environment
     variables PYMUPDF_LOG and PYMUPDF_MESSAGE.
     '''
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_cli_out(): not running on Pyodide - cannot run child processes.')
+        return
+        
     if not hasattr(pymupdf, 'mupdf'):
         print('test_cli(): Not running on classic because of fitz_old.')
         return
@@ -1073,12 +1112,17 @@ def test_cli_out():
     if os.environ.get('PYMUPDF_USE_EXTRA') == '0':
         log_prefix = f'.+Using non-default setting from PYMUPDF_USE_EXTRA: \'0\''
     
+    sys.path.append(os.path.normpath(f'{__file__}/../..'))
+    try:
+        import pipcl
+    finally:
+        del sys.path[0]
+    pipcl.show_system()
     def check(
             expect_out,
             expect_err,
             message=None,
             log=None,
-            verbose=0,
             ):
         '''
         Sets PYMUPDF_MESSAGE to `message` and PYMUPDF_LOG to `log`, runs
@@ -1090,39 +1134,44 @@ def test_cli_out():
             env['PYMUPDF_LOG'] = log
         if message:
             env['PYMUPDF_MESSAGE'] = message
+        command = 'pymupdf internal'
+        print(f'Running: {command}', flush=1)
+        if env:
+            print(f'with:')
+            for key in sorted(env.keys()):
+                print(f'    {key}={shlex.quote(env[key])}')
         env = os.environ | env
-        print(f'Running with {env=}: pymupdf internal', flush=1)
-        cp = subprocess.run(f'pymupdf internal', shell=1, check=1, capture_output=1, env=env, text=True)
+        cp = subprocess.run(command, shell=1, check=1, capture_output=1, env=env, text=True)
         
-        if verbose:
-            #print(f'{cp.stdout=}.', flush=1)
-            #print(f'{cp.stderr=}.', flush=1)
-            sys.stdout.write(f'stdout:\n{textwrap.indent(cp.stdout, "    ")}')
-            sys.stdout.write(f'stderr:\n{textwrap.indent(cp.stderr, "    ")}')
         check_lines(expect_out, cp.stdout)
         check_lines(expect_err, cp.stderr)
     
-    #
+    print(f'test_cli_out(): {Py_GIL_DISABLED=}')
+    print(f'test_cli_out(): {gil_enabled=}')
+    
     print(f'Checking default, all output to stdout.')
+    regex_gil_stderr = None
+    if Py_GIL_DISABLED and gil_enabled:
+        regex_gil_stderr = '.*The global interpreter lock.*'
     check(
             [
                 log_prefix,
                 'This is from PyMuPDF message[(][)][.]',
                 '.+This is from PyMuPDF log[(][)].',
             ],
-            '',
+            regex_gil_stderr,
             )
     
     #
     if platform.system() != 'Windows':
         print(f'Checking redirection of everything to /dev/null.')
-        check('', '', 'path:/dev/null', 'path:/dev/null')
+        check('', regex_gil_stderr, 'path:/dev/null', 'path:/dev/null')
     
     #
     print(f'Checking redirection to files.')
     path_out = os.path.abspath(f'{__file__}/../../tests/test_cli_out.out')
     path_err = os.path.abspath(f'{__file__}/../../tests/test_cli_out.err')
-    check('', '', f'path:{path_out}', f'path:{path_err}')
+    check('', regex_gil_stderr, f'path:{path_out}', f'path:{path_err}')
     def read(path):
         with open(path) as f:
             return f.read()
@@ -1138,6 +1187,7 @@ def test_cli_out():
                 'This is from PyMuPDF message[(][)][.]',
             ],
             [
+                regex_gil_stderr,
                 log_prefix,
                 '.+This is from PyMuPDF log[(][)].',
             ],
@@ -1150,6 +1200,10 @@ def test_use_python_logging():
     '''
     Checks pymupdf.use_python_logging().
     '''
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_cli(): not running on Pyodide - cannot run child processes.')
+        return
+        
     log_prefix = None
     if os.environ.get('PYMUPDF_USE_EXTRA') == '0':
         log_prefix = f'.+Using non-default setting from PYMUPDF_USE_EXTRA: \'0\''
@@ -1202,6 +1256,7 @@ def test_use_python_logging():
                 '.+this is pymupdf.log[(][)]',
             ],
             [
+                regex_gil_stderr,
                 'this is pymupdf.message[(][)] 2',
                 '.+this is pymupdf.log[(][)] 2',
             ],
@@ -1224,6 +1279,7 @@ def test_use_python_logging():
                 log_prefix,
             ],
             [
+                regex_gil_stderr,
                 'WARNING:pymupdf:this is pymupdf.message[(][)]',
                 'WARNING:pymupdf:.+this is pymupdf.log[(][)]',
             ],
@@ -1238,6 +1294,7 @@ def test_use_python_logging():
             ''',
             '',
             [
+                regex_gil_stderr,
                 log_prefix,
                 'this is pymupdf.message[(][)]',
                 '.+this is pymupdf.log[(][)]',
@@ -1267,6 +1324,8 @@ def test_use_python_logging():
                 log_prefix,
             ],
             [
+                regex_gil_stderr,
+                log_prefix,
                 'WARNING:foo:this is pymupdf.message[(][)]',
                 'ERROR:foo:.+this is pymupdf.log[(][)]',
             ],
@@ -1291,6 +1350,8 @@ def test_use_python_logging():
                 log_prefix,
             ],
             [
+                regex_gil_stderr,
+                log_prefix,
                 'CRITICAL:pymupdf:this is pymupdf.message[(][)]',
                 'INFO:pymupdf:.+this is pymupdf.log[(][)]',
             ],
@@ -1307,7 +1368,9 @@ def test_use_python_logging():
             pymupdf.log('this is pymupdf.log()')
             ''',
             [],
-            [],
+            [
+                regex_gil_stderr,
+            ],
             )
     
 
@@ -1433,6 +1496,10 @@ def test_open2():
     Checks behaviour of fz_open_document() and fz_open_document_with_stream()
     with different filenames/magic values.
     '''
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_open2(): not running on Pyodide - cannot run child processes.')
+        return
+        
     if platform.system() == 'Windows':
         print(f'test_open2(): not running on Windows because `git ls-files` known fail on Github Windows runners.')
         return
@@ -1789,6 +1856,10 @@ def test_4309():
     document.delete_page()
 
 def test_4263():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_4263(): not running on Pyodide - cannot run child processes.')
+        return
+        
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_4263.pdf')
     path_out = f'{path}.linerarized.pdf'
     command = f'pymupdf clean -linear {path} {path_out}'
@@ -1915,6 +1986,10 @@ def test_4479():
         
 
 def test_4533():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_4533(): not running on Pyodide - cannot run child processes.')
+        return
+        
     print()
     path = util.download(
             'https://github.com/user-attachments/files/20497146/NineData_user_manual_V3.0.5.pdf',
@@ -1962,10 +2037,16 @@ def test_gitinfo():
     print(f'{pymupdf.pymupdf_git_branch=}')
     print(f'{pymupdf.pymupdf_git_sha=}')
     print(f'{pymupdf.pymupdf_version=}')
-    print(f'pymupdf.pymupdf_git_diff:\n{textwrap.indent(pymupdf.pymupdf_git_diff, "    ")}')
+    print(f'{pymupdf.pymupdf_git_diff=}')
+    if pymupdf.pymupdf_git_diff:
+        print(f'pymupdf.pymupdf_git_diff:\n{textwrap.indent(pymupdf.pymupdf_git_diff, "    ")}')
     
 
 def test_4392():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_4392(): not running on Pyodide - cannot run child processes.')
+        return
+        
     print()
     path = os.path.normpath(f'{__file__}/../../tests/test_4392.py')
     with open(path, 'w') as f:
@@ -1999,10 +2080,15 @@ def test_4392():
         # We get SEGV's etc with older swig.
         if platform.system() == 'Windows':
             assert (e2, e3) == (0xc0000005, 0xc0000005)
-        else:
+        elif platform.system() == 'Linux':
             # On plain linux we get (139, 139). On manylinux we get (-11,
             # -11). On MacOS we get (-11, -11).
             assert (e2, e3) == (139, 139) or (e2, e3) == (-11, -11)
+        elif platform.system() == 'Darwin':
+            # python3.14t gives (4, -11)?
+            assert (e2, e3) == (-11, -11) or (e2, e3) == (4, -11)
+        else:
+            assert e2 and e3
 
 
 def test_4639():
@@ -2051,3 +2137,104 @@ def test_4590():
     # Check pymupdf.Document.scrub() works.
     with pymupdf.open(path) as document:
         document.scrub()
+
+
+def test_4702():
+    if os.environ.get('PYODIDE_ROOT'):
+        # util.download() uses subprocess.
+        print('test_4702(): not running on Pyodide - cannot run child processes.')
+        return
+
+    path = util.download(
+            'https://github.com/user-attachments/files/22403483/01995b6ca7837b52abaa24e38e8c076d.pdf',
+            'test_4702.pdf',
+            )
+    with pymupdf.open(path) as document:
+        for xref in range(1, document.xref_length()):
+            print(f'{xref=}')
+            try:
+                _ = document.xref_object(xref)
+            except Exception as e1:
+                print(f'{e1=}')
+                try:
+                    document.update_object(xref, "<<>>")
+                except Exception as e2:
+                    print(f'{e2=}')
+                    raise
+    wt = pymupdf.TOOLS.mupdf_warnings()
+    assert wt == 'repairing PDF document'
+    
+    with pymupdf.open(path) as document:
+        for xref in range(1, document.xref_length()):
+            print(f'{xref=}')
+            _ = document.xref_object(xref)
+    wt = pymupdf.TOOLS.mupdf_warnings()
+    assert wt == 'repairing PDF document'
+
+
+def test_4712():
+    '''
+    Crash with "corrupted double-linked list
+    '''
+    if pymupdf.mupdf_version_tuple < (1, 26, 11):
+        print(f'test_4712m(): Not running because known to fail on mupdf < 1.26.11: {pymupdf.mupdf_version=}.')
+        return
+    path_a = os.path.normpath(f'{__file__}/../../tests/resources/test_4712_a.pdf')
+    path_b = os.path.normpath(f'{__file__}/../../tests/resources/test_4712_b.pdf')
+    doc1 = pymupdf.open(path_a)
+    for i in range(6):
+        doc1.load_page(i).get_pixmap()
+    doc2 = pymupdf.open(path_b)
+    for i in range(6):
+        doc2.load_page(i).get_pixmap()
+
+
+def test_4712m():
+    if pymupdf.mupdf_version_tuple < (1, 26, 11):
+        print(f'test_4712m(): Not running because known to fail on mupdf < 1.26.11: {pymupdf.mupdf_version=}.')
+        return
+    
+    path_a = os.path.normpath(f'{__file__}/../../tests/resources/test_4712_a.pdf')
+    path_b = os.path.normpath(f'{__file__}/../../tests/resources/test_4712_b.pdf')
+    
+    mupdf = pymupdf.mupdf
+    def get_pixmap(page):
+        displaylist = mupdf.fz_new_display_list_from_page(page)
+        rect = mupdf.fz_bound_display_list(displaylist)
+        irect = mupdf.fz_round_rect(rect)
+        pixmap = mupdf.fz_new_pixmap_with_bbox(
+                mupdf.FzColorspace(mupdf.FzColorspace.Fixed_RGB),
+                irect,
+                mupdf.FzSeparations(),
+                0,  # alpha
+                )
+        mupdf.fz_clear_pixmap_with_value(pixmap, 0xFF)
+        matrix = mupdf.FzMatrix()
+        device = mupdf.fz_new_draw_device(matrix, pixmap)
+        mupdf.fz_run_display_list(
+                displaylist,
+                device,
+                mupdf.FzMatrix(),
+                mupdf.FzRect(mupdf.FzRect.Fixed_INFINITE),
+                mupdf.FzCookie(),
+                )
+        mupdf.fz_close_device(device)
+    
+    def process_document(document):
+        for i in range(6):
+            print(f'    {i=}', flush=1)
+            page = mupdf.fz_load_page(document, i)
+            get_pixmap(page)
+
+    print(f'Processing {path_a=}', flush=1)
+    document_a = mupdf.fz_open_document(path_a)
+    process_document(document_a)
+
+    print(f'Processing {path_b=}', flush=1)
+    document_b = mupdf.fz_open_document(path_b)
+    process_document(document_b)
+
+
+def test_4746():
+    archive = pymupdf.Archive('.')
+    archive.add(__file__, 'foo')

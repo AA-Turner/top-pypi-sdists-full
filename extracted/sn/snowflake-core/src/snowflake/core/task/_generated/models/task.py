@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.task._generated.models.minutes_schedule import MinutesSchedule, MinutesScheduleModel
@@ -54,7 +54,7 @@ class Task(BaseModel):
     predecessors : list[str], optional
         Specifies one or more predecessor tasks for the current task
     task_relations : str, optional
-        Displays the relationship between the root task and its corresponding finalizer tasks.
+        Displays the relationship between the root task and its corresponding finalizer tasks — **Read-only:** *any user-provided value will be ignored.*
     user_task_managed_initial_warehouse_size : str, optional
         Specifies the size of the compute resources to provision for the first run of the task. This parameter only applies to serverless tasks.
     target_completion_interval : MinutesSchedule, optional
@@ -74,23 +74,23 @@ class Task(BaseModel):
     error_integration : str, optional
         Specifies the name of the notification integration used to communicate with Amazon SNS, MS Azure Event Grid, or Google Pub/Sub.
     created_on : datetime, optional
-        The time the task was created on.
+        The time the task was created on — **Read-only:** *any user-provided value will be ignored.*
     id : str, optional
-        An ID for the current task.
+        An ID for the current task — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        The role that owns the task.
+        The role that owns the task — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The role type of the task owner.
+        The role type of the task owner — **Read-only:** *any user-provided value will be ignored.*
     state : str, optional
-        The state of the task. Must be one of started or suspended.
+        The state of the task. Must be one of started or suspended — **Read-only:** *any user-provided value will be ignored.*
     last_committed_on : datetime, optional
-        The time the task was last committed on.
+        The time the task was last committed on — **Read-only:** *any user-provided value will be ignored.*
     last_suspended_on : datetime, optional
-        The time the task was last suspended on.
+        The time the task was last suspended on — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        The name of the parent database for the task.
+        The name of the parent database for the task — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        The name of the parent schema for the task.
+        The name of the parent schema for the task — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -205,9 +205,10 @@ class Task(BaseModel):
             raise ValueError("must validate the enum values ('started','suspended')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -245,7 +246,7 @@ class Task(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of schedule
         if self.schedule:
@@ -268,9 +269,9 @@ class Task(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Task.parse_obj(obj)
+            return Task.model_validate(obj)
 
-        _obj = Task.parse_obj(
+        _obj = Task.model_validate(
             {
                 "name": obj.get("name"),
                 "warehouse": obj.get("warehouse"),

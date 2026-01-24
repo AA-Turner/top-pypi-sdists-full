@@ -4,7 +4,6 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Optional
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -168,7 +167,7 @@ class DataclassGenerator(AbstractGenerator):
     def render_classes(
         self,
         classes: list[Class],
-        module_namespace: Optional[str],
+        module_namespace: str | None,
     ) -> str:
         """Render the classes source code in a module.
 
@@ -238,26 +237,27 @@ class DataclassGenerator(AbstractGenerator):
         Args:
             file_paths: A list of files/directories to format and check
         """
+        ruff_config = Path(__file__).parent.joinpath("ruff.toml")
         commands = [
-            [
-                "ruff",
-                "format",
-                "--config",
-                f"line-length={self.config.output.max_line_length}",
-                *file_paths,
-            ],
             [
                 "ruff",
                 "check",
                 "--config",
+                str(ruff_config),
+                "--config",
                 f"line-length={self.config.output.max_line_length}",
-                "--config",
-                "lint.select = ['I']",
-                "--config",
-                "fixable = ['ALL']",
                 "--fix",
                 "--unsafe-fixes",
                 "--exit-zero",
+                *file_paths,
+            ],
+            [
+                "ruff",
+                "format",
+                "--config",
+                str(ruff_config),
+                "--config",
+                f"line-length={self.config.output.max_line_length}",
                 *file_paths,
             ],
         ]

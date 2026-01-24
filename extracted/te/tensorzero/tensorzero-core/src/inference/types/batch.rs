@@ -1,23 +1,25 @@
-use crate::serde_util::{deserialize_json_string, deserialize_optional_json_string};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use uuid::Uuid;
+
+use super::{
+    ContentBlockOutput, FinishReason, ModelInferenceRequest, RequestMessage, StoredInput, Usage,
+    chat_completion_inference_params::ServiceTier,
+};
+
+use crate::inference::types::StoredRequestMessage;
+use crate::serde_util::deserialize_json_string;
 use crate::{
     endpoints::{
         batch_inference::{BatchEpisodeIdInput, BatchOutputSchemas},
         inference::{ChatCompletionInferenceParams, InferenceParams},
     },
     error::{Error, ErrorDetails},
-    jsonschema_util::DynamicJSONSchema,
-    tool::{ToolCallConfig, ToolCallConfigDatabaseInsert},
-    uuid_util::validate_tensorzero_uuid,
+    jsonschema_util::JSONSchema,
+    tool::{ToolCallConfig, ToolCallConfigDatabaseInsert, deserialize_optional_tool_info},
+    utils::uuid::validate_tensorzero_uuid,
 };
-
-use super::{
-    ContentBlockOutput, FinishReason, ModelInferenceRequest, RequestMessage, StoredInput, Usage,
-};
-use crate::inference::types::StoredRequestMessage;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
-use uuid::Uuid;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -204,8 +206,7 @@ pub struct BatchModelInferenceRow<'a> {
     #[serde(deserialize_with = "deserialize_json_string")]
     pub input_messages: Vec<StoredRequestMessage>,
     pub system: Option<Cow<'a, str>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "deserialize_optional_json_string")]
+    #[serde(flatten, deserialize_with = "deserialize_optional_tool_info")]
     pub tool_params: Option<ToolCallConfigDatabaseInsert>,
     #[serde(deserialize_with = "deserialize_json_string")]
     pub inference_params: Cow<'a, InferenceParams>,
@@ -329,6 +330,14 @@ pub struct BatchChatCompletionInferenceParams {
     pub frequency_penalty: Option<Vec<Option<f32>>>,
     #[serde(default)]
     pub stop_sequences: Option<Vec<Vec<String>>>,
+    #[serde(default)]
+    pub reasoning_effort: Option<Vec<Option<String>>>,
+    #[serde(default)]
+    pub service_tier: Option<Vec<Option<ServiceTier>>>,
+    #[serde(default)]
+    pub thinking_budget_tokens: Option<Vec<Option<i32>>>,
+    #[serde(default)]
+    pub verbosity: Option<Vec<Option<String>>>,
 }
 
 pub struct BatchInferenceParamsWithSize(pub BatchInferenceParams, pub usize);
@@ -365,84 +374,132 @@ impl TryFrom<BatchChatCompletionParamsWithSize> for Vec<ChatCompletionInferenceP
             presence_penalty,
             frequency_penalty,
             stop_sequences,
+            reasoning_effort,
+            service_tier,
+            thinking_budget_tokens,
+            verbosity,
         } = params;
+
+        // Warn if service_tier is set (batch inference does not support it)
+        if service_tier.is_some() {
+            tracing::warn!("service_tier is not supported for batch inference and will be ignored");
+        }
         // Verify all provided Vecs have the same length
-        if let Some(temperature) = &temperature {
-            if temperature.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
-                    message: format!(
-                        "temperature vector length ({}) does not match number of inferences ({})",
-                        temperature.len(),
-                        num_inferences
-                    ),
-                }
-                .into());
+        if let Some(temperature) = &temperature
+            && temperature.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "temperature vector length ({}) does not match number of inferences ({})",
+                    temperature.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
-        if let Some(max_tokens) = &max_tokens {
-            if max_tokens.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
-                    message: format!(
-                        "max_tokens vector length ({}) does not match number of inferences ({})",
-                        max_tokens.len(),
-                        num_inferences
-                    ),
-                }
-                .into());
+        if let Some(max_tokens) = &max_tokens
+            && max_tokens.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "max_tokens vector length ({}) does not match number of inferences ({})",
+                    max_tokens.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
-        if let Some(seed) = &seed {
-            if seed.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
-                    message: format!(
-                        "seed vector length ({}) does not match number of inferences ({})",
-                        seed.len(),
-                        num_inferences
-                    ),
-                }
-                .into());
+        if let Some(seed) = &seed
+            && seed.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "seed vector length ({}) does not match number of inferences ({})",
+                    seed.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
-        if let Some(top_p) = &top_p {
-            if top_p.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
-                    message: format!(
-                        "top_p vector length ({}) does not match number of inferences ({})",
-                        top_p.len(),
-                        num_inferences
-                    ),
-                }
-                .into());
+        if let Some(top_p) = &top_p
+            && top_p.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "top_p vector length ({}) does not match number of inferences ({})",
+                    top_p.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
-        if let Some(presence_penalty) = &presence_penalty {
-            if presence_penalty.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
-                    message: format!(
-                        "presence_penalty vector length ({}) does not match number of inferences ({})",
-                        presence_penalty.len(),
-                        num_inferences
-                    ),
-                }
-                .into());
+        if let Some(presence_penalty) = &presence_penalty
+            && presence_penalty.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "presence_penalty vector length ({}) does not match number of inferences ({})",
+                    presence_penalty.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
-        if let Some(frequency_penalty) = &frequency_penalty {
-            if frequency_penalty.len() != num_inferences {
-                return Err(ErrorDetails::InvalidRequest {
+        if let Some(frequency_penalty) = &frequency_penalty
+            && frequency_penalty.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "frequency_penalty vector length ({}) does not match number of inferences ({})",
+                    frequency_penalty.len(),
+                    num_inferences
+                ),
+            }
+            .into());
+        }
+
+        if let Some(reasoning_effort) = &reasoning_effort
+            && reasoning_effort.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "reasoning_effort vector length ({}) does not match number of inferences ({})",
+                    reasoning_effort.len(),
+                    num_inferences
+                ),
+            }
+            .into());
+        }
+
+        if let Some(thinking_budget_tokens) = &thinking_budget_tokens
+            && thinking_budget_tokens.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
                     message: format!(
-                        "frequency_penalty vector length ({}) does not match number of inferences ({})",
-                        frequency_penalty.len(),
+                        "thinking_budget_tokens vector length ({}) does not match number of inferences ({})",
+                        thinking_budget_tokens.len(),
                         num_inferences
                     ),
                 }
                 .into());
+        }
+
+        if let Some(verbosity) = &verbosity
+            && verbosity.len() != num_inferences
+        {
+            return Err(ErrorDetails::InvalidRequest {
+                message: format!(
+                    "verbosity vector length ({}) does not match number of inferences ({})",
+                    verbosity.len(),
+                    num_inferences
+                ),
             }
+            .into());
         }
 
         // Convert Option<Vec<Option<T>>> into Vec<Option<T>> by unwrapping or creating empty vec
@@ -453,6 +510,9 @@ impl TryFrom<BatchChatCompletionParamsWithSize> for Vec<ChatCompletionInferenceP
         let presence_penalty = presence_penalty.unwrap_or_default();
         let frequency_penalty = frequency_penalty.unwrap_or_default();
         let stop_sequences = stop_sequences.unwrap_or_default();
+        let reasoning_effort = reasoning_effort.unwrap_or_default();
+        let thinking_budget_tokens = thinking_budget_tokens.unwrap_or_default();
+        let verbosity = verbosity.unwrap_or_default();
 
         // Create iterators that take ownership
         let mut temperature_iter = temperature.into_iter();
@@ -462,6 +522,9 @@ impl TryFrom<BatchChatCompletionParamsWithSize> for Vec<ChatCompletionInferenceP
         let mut presence_penalty_iter = presence_penalty.into_iter();
         let mut frequency_penalty_iter = frequency_penalty.into_iter();
         let mut stop_sequences_iter = stop_sequences.into_iter();
+        let mut reasoning_effort_iter = reasoning_effort.into_iter();
+        let mut thinking_budget_tokens_iter = thinking_budget_tokens.into_iter();
+        let mut verbosity_iter = verbosity.into_iter();
 
         // Build params using the iterators
         let mut all_inference_params = Vec::with_capacity(num_inferences);
@@ -475,6 +538,10 @@ impl TryFrom<BatchChatCompletionParamsWithSize> for Vec<ChatCompletionInferenceP
                 frequency_penalty: frequency_penalty_iter.next().unwrap_or(None),
                 stop_sequences: stop_sequences_iter.next(),
                 json_mode: None,
+                reasoning_effort: reasoning_effort_iter.next().unwrap_or(None),
+                service_tier: None, // Not supported for batch inference
+                thinking_budget_tokens: thinking_budget_tokens_iter.next().unwrap_or(None),
+                verbosity: verbosity_iter.next().unwrap_or(None),
             });
         }
         Ok(all_inference_params)
@@ -483,7 +550,7 @@ impl TryFrom<BatchChatCompletionParamsWithSize> for Vec<ChatCompletionInferenceP
 
 pub struct BatchOutputSchemasWithSize(pub Option<BatchOutputSchemas>, pub usize);
 
-impl TryFrom<BatchOutputSchemasWithSize> for Vec<Option<DynamicJSONSchema>> {
+impl TryFrom<BatchOutputSchemasWithSize> for Vec<Option<JSONSchema>> {
     type Error = Error;
 
     fn try_from(
@@ -493,7 +560,7 @@ impl TryFrom<BatchOutputSchemasWithSize> for Vec<Option<DynamicJSONSchema>> {
             if schemas.len() == num_inferences {
                 Ok(schemas
                     .into_iter()
-                    .map(|schema| schema.map(DynamicJSONSchema::new))
+                    .map(|schema| schema.map(JSONSchema::compile_background))
                     .collect())
             } else {
                 Err(ErrorDetails::InvalidRequest {
@@ -604,6 +671,10 @@ mod tests {
                     presence_penalty: Some(vec![Some(0.5), Some(0.6), Some(0.7)]),
                     frequency_penalty: Some(vec![Some(0.5), Some(0.6), Some(0.7)]),
                     stop_sequences: None,
+                    reasoning_effort: None,
+                    service_tier: None,
+                    thinking_budget_tokens: None,
+                    verbosity: None,
                 },
             },
             3,
@@ -671,6 +742,10 @@ mod tests {
                     presence_penalty: Some(vec![Some(0.5)]), // Too short
                     frequency_penalty: Some(vec![Some(0.5), Some(0.6), Some(0.7), Some(0.8)]), // Too long
                     stop_sequences: None,
+                    reasoning_effort: None,
+                    service_tier: None,
+                    thinking_budget_tokens: None,
+                    verbosity: None,
                 },
             },
             3,
@@ -696,6 +771,10 @@ mod tests {
                     presence_penalty: Some(vec![Some(0.5), Some(0.6), Some(0.7)]),
                     frequency_penalty: Some(vec![Some(0.5), Some(0.6), Some(0.7)]),
                     stop_sequences: None,
+                    reasoning_effort: None,
+                    service_tier: None,
+                    thinking_budget_tokens: None,
+                    verbosity: None,
                 },
             },
             4, // Wrong size - arrays are length 3 but size is 4
@@ -715,13 +794,13 @@ mod tests {
     fn test_batch_output_schemas_with_size() {
         let batch_output_schemas_with_size = BatchOutputSchemasWithSize(None, 3);
         let batch_output_schemas =
-            Vec::<Option<DynamicJSONSchema>>::try_from(batch_output_schemas_with_size).unwrap();
+            Vec::<Option<JSONSchema>>::try_from(batch_output_schemas_with_size).unwrap();
         assert_eq!(batch_output_schemas.len(), 3);
 
         let batch_output_schemas_with_size =
             BatchOutputSchemasWithSize(Some(vec![None, None, None]), 3);
         let batch_output_schemas =
-            Vec::<Option<DynamicJSONSchema>>::try_from(batch_output_schemas_with_size).unwrap();
+            Vec::<Option<JSONSchema>>::try_from(batch_output_schemas_with_size).unwrap();
         assert_eq!(batch_output_schemas.len(), 3);
     }
 }

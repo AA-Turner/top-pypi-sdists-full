@@ -1,9 +1,8 @@
-use crate::errors::GrimpResult;
-use crate::filesystem::{FileSystem, PyFakeBasicFileSystem, PyRealBasicFileSystem};
-use crate::import_parsing;
+use crate::errors::{GrimpError, GrimpResult};
+use crate::filesystem::{FileSystem, get_file_system_boxed};
 use crate::module_finding::{FoundPackage, Module};
+use crate::{import_parsing, module_finding};
 use itertools::Itertools;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PySet};
 /// Statically analyses some Python modules for import statements within their shared package.
@@ -13,13 +12,29 @@ use std::io::{self, ErrorKind};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct DirectImport {
-    importer: String,
-    imported: String,
-    line_number: usize,
-    line_contents: String,
+    pub importer: String,
+    pub imported: String,
+    pub line_number: usize,
+    pub line_contents: String,
 }
 
-pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
+impl<'py> FromPyObject<'py> for DirectImport {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let importer: String = ob.getattr("importer")?.getattr("name")?.extract()?;
+        let imported: String = ob.getattr("imported")?.getattr("name")?.extract()?;
+        let line_number: usize = ob.getattr("line_number")?.extract()?;
+        let line_contents: String = ob.getattr("line_contents")?.extract()?;
+
+        Ok(DirectImport {
+            importer,
+            imported,
+            line_number,
+            line_contents,
+        })
+    }
+}
+
+fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSet<FoundPackage> {
     let py_set = py_found_packages
         .downcast::<PySet>()
         .expect("Expected py_found_packages to be a Python set.");
@@ -37,11 +52,14 @@ pub fn py_found_packages_to_rust(py_found_packages: &Bound<'_, PyAny>) -> HashSe
     rust_found_packages
 }
 
-pub fn get_modules_from_found_packages(found_packages: &HashSet<FoundPackage>) -> HashSet<Module> {
+fn get_modules_from_found_packages(found_packages: &HashSet<FoundPackage>) -> HashSet<Module> {
     let mut modules = HashSet::new();
     for package in found_packages {
         for module_file in &package.module_files {
             modules.insert(module_file.module.clone());
+        }
+        for namespace_module in &package.namespace_packages {
+            modules.insert(namespace_module.clone());
         }
     }
     modules
@@ -55,28 +73,10 @@ fn module_is_descendant(module_name: &str, potential_ancestor: &str) -> bool {
     module_name.starts_with(&format!("{potential_ancestor}."))
 }
 
-#[allow(clippy::borrowed_box)]
-pub fn get_file_system_boxed<'py>(
-    file_system: &Bound<'py, PyAny>,
-) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
-    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
-
-    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_real.inner.clone());
-    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
-        file_system_boxed = Box::new(py_fake.inner.clone());
-    } else {
-        return Err(PyTypeError::new_err(
-            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
-        ));
-    }
-    Ok(file_system_boxed)
-}
-
 /// Statically analyses the given module and returns a set of Modules that
 /// it imports.
 #[allow(clippy::borrowed_box)]
-pub fn scan_for_imports_no_py(
+fn scan_for_imports_no_py(
     file_system: &Box<dyn FileSystem + Send + Sync>,
     found_packages: &HashSet<FoundPackage>,
     include_external_packages: bool,
@@ -172,7 +172,7 @@ fn scan_for_imports_no_py_single_module(
     Ok(imports)
 }
 
-pub fn to_py_direct_imports<'a>(
+fn to_py_direct_imports<'a>(
     py: Python<'a>,
     rust_imports: &HashSet<DirectImport>,
 ) -> Bound<'a, PySet> {
@@ -349,4 +349,96 @@ fn _distill_external_module(
     } else {
         Some(module_name.split('.').next().unwrap().to_string())
     }
+}
+
+/// Convert the rust data structure into a Python dict[Module, set[DirectImport]].
+pub fn imports_by_module_to_py(
+    py: Python,
+    imports_by_module: HashMap<module_finding::Module, HashSet<DirectImport>>,
+) -> Bound<PyDict> {
+    let valueobjects_pymodule = PyModule::import(py, "grimp.domain.valueobjects").unwrap();
+    let py_module_class = valueobjects_pymodule.getattr("Module").unwrap();
+
+    let imports_by_module_py = PyDict::new(py);
+    for (module, imports) in imports_by_module.iter() {
+        let py_module_instance = py_module_class.call1((module.name.clone(),)).unwrap();
+        let py_imports = to_py_direct_imports(py, imports);
+        imports_by_module_py
+            .set_item(py_module_instance, py_imports)
+            .unwrap();
+    }
+    imports_by_module_py
+}
+
+/// Statically analyses the given module and returns a set of Modules that
+/// it imports.
+/// Python args:
+///
+/// - module_files                   The modules to scan.
+/// - found_packages:                Set of FoundPackages containing all the modules
+///                                  for analysis.
+/// - include_external_packages:     Whether to include imports of external modules (i.e.
+///                                  modules not contained in modules_by_package_directory)
+///                                  in the results.
+/// - exclude_type_checking_imports: If True, don't include imports behind TYPE_CHECKING guards.
+/// - file_system:                   The file system interface to use. (A BasicFileSystem.)
+///
+/// Returns dict[Module, set[DirectImport]].
+#[pyfunction]
+pub fn scan_for_imports<'py>(
+    py: Python<'py>,
+    module_files: Vec<Bound<'py, PyAny>>,
+    found_packages: Bound<'py, PyAny>,
+    include_external_packages: bool,
+    exclude_type_checking_imports: bool,
+    file_system: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let file_system_boxed = get_file_system_boxed(&file_system)?;
+    let found_packages_rust = py_found_packages_to_rust(&found_packages);
+    let modules_rust: HashSet<module_finding::Module> = module_files
+        .iter()
+        .map(|module_file| {
+            module_file
+                .getattr("module")
+                .unwrap()
+                .extract::<module_finding::Module>()
+                .unwrap()
+        })
+        .collect();
+
+    let imports_by_module_result = py.detach(|| {
+        scan_for_imports_no_py(
+            &file_system_boxed,
+            &found_packages_rust,
+            include_external_packages,
+            &modules_rust,
+            exclude_type_checking_imports,
+        )
+    });
+
+    match imports_by_module_result {
+        Err(GrimpError::ParseError {
+            module_filename,
+            line_number,
+            text,
+            ..
+        }) => {
+            // TODO: define SourceSyntaxError using pyo3.
+            let exceptions_pymodule = PyModule::import(py, "grimp.exceptions").unwrap();
+            let py_exception_class = exceptions_pymodule.getattr("SourceSyntaxError").unwrap();
+            let exception = py_exception_class
+                .call1((module_filename, line_number, text))
+                .unwrap();
+            return Err(PyErr::from_value(exception));
+        }
+        Err(e) => {
+            return Err(e.into());
+        }
+        _ => (),
+    }
+    let imports_by_module = imports_by_module_result.unwrap();
+
+    let imports_by_module_py = imports_by_module_to_py(py, imports_by_module);
+
+    Ok(imports_by_module_py)
 }

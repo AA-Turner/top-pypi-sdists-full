@@ -36,6 +36,7 @@ from kfp.dsl import placeholders
 from kfp.dsl import structures
 from kfp.dsl import tasks_group
 from kfp.dsl import utils
+from kfp.dsl.component_task_config import TaskConfigField
 from kfp.dsl.types import type_utils
 from kfp.pipeline_spec import pipeline_spec_pb2
 import yaml
@@ -71,8 +72,9 @@ def to_protobuf_value(value: type_utils.PARAMETER_TYPES) -> struct_pb2.Value:
         return struct_pb2.Value(number_value=value)
     elif isinstance(value, dict):
         return struct_pb2.Value(
-            struct_value=struct_pb2.Struct(
-                fields={k: to_protobuf_value(v) for k, v in value.items()}))
+            struct_value=struct_pb2.Struct(fields={
+                k: to_protobuf_value(v) for k, v in value.items()
+            }))
     elif isinstance(value, list):
         return struct_pb2.Value(
             list_value=struct_pb2.ListValue(
@@ -390,6 +392,16 @@ def _build_component_spec_from_component_spec_structure(
                 component_spec.input_definitions.parameters[
                     input_name].description = input_spec.description
 
+        # Special handling for TaskConfig second.
+        elif type_utils.is_task_config_type(input_spec.type):
+            component_spec.input_definitions.parameters[
+                input_name].parameter_type = pipeline_spec_pb2.ParameterType.TASK_CONFIG
+            component_spec.input_definitions.parameters[
+                input_name].is_optional = True
+            if input_spec.description:
+                component_spec.input_definitions.parameters[
+                    input_name].description = input_spec.description
+
         elif type_utils.is_parameter_type(input_spec.type):
             component_spec.input_definitions.parameters[
                 input_name].parameter_type = type_utils.get_parameter_type(
@@ -439,6 +451,11 @@ def _build_component_spec_from_component_spec_structure(
             if output_spec.description:
                 component_spec.output_definitions.artifacts[
                     output_name].description = output_spec.description
+
+    # Attach TaskConfig passthroughs if present on the structure
+    if getattr(component_spec_struct, 'task_config_passthroughs', None):
+        for p in component_spec_struct.task_config_passthroughs or []:
+            component_spec.task_config_passthroughs.append(p.to_proto())
 
     return component_spec
 
@@ -597,6 +614,10 @@ def build_importer_spec_for_task(
         metadata_protobuf_struct.update(task.importer_spec.metadata)
         importer_spec.metadata.CopyFrom(metadata_protobuf_struct)
 
+    # Emit download_to_workspace if set on the task
+    if getattr(task.importer_spec, 'download_to_workspace', False):
+        importer_spec.download_to_workspace = task.importer_spec.download_to_workspace
+
     if isinstance(task.importer_spec.artifact_uri,
                   pipeline_channel.PipelineChannel):
         importer_spec.artifact_uri.runtime_parameter = 'uri'
@@ -617,6 +638,91 @@ def build_container_spec_for_task(
     Returns:
         A PipelineContainerSpec object for the task.
     """
+
+    def _raise_passthrough_error(task: pipeline_task.PipelineTask,
+                                 resource_type: str) -> None:
+        raise ValueError(
+            f"Task '{task.name}' cannot handle resource type '{resource_type}' based on the values in task_config_passthroughs"
+        )
+
+    def _validate_task_config_passthroughs_for_container_settings(
+        task: pipeline_task.PipelineTask,) -> None:
+        """Validates that when a component declares TaskConfig passthroughs,
+        the task does not set container-level resources/env that are not
+        listed.
+
+        This prevents silent no-ops at runtime when a component expects
+        to handle certain TaskConfig fields externally.
+        """
+        passthroughs = getattr(task.component_spec, 'task_config_passthroughs',
+                               None)
+        if not passthroughs:
+            return
+
+        allowed_fields = {pt.field for pt in passthroughs}
+
+        if task.container_spec and task.container_spec.resources:
+            res = task.container_spec.resources
+            if any([
+                    res.cpu_request,
+                    res.cpu_limit,
+                    res.memory_request,
+                    res.memory_limit,
+                    res.accelerator_type,
+                    res.accelerator_count,
+            ]):
+                if TaskConfigField.RESOURCES not in allowed_fields:
+                    _raise_passthrough_error(task,
+                                             TaskConfigField.RESOURCES.name)
+
+        if task.container_spec and task.container_spec.env:
+            if TaskConfigField.ENV not in allowed_fields:
+                _raise_passthrough_error(task, TaskConfigField.ENV.name)
+
+    _validate_task_config_passthroughs_for_container_settings(task)
+
+    def _validate_task_config_passthroughs_for_kubernetes_settings(
+        task: pipeline_task.PipelineTask,) -> None:
+        """Validates that when a component declares TaskConfig passthroughs,
+        the task does not set Kubernetes platform options that are not
+        listed."""
+        passthroughs = getattr(task.component_spec, 'task_config_passthroughs',
+                               None)
+        if not passthroughs:
+            return
+
+        allowed_fields = {pt.field for pt in passthroughs}
+        k8s_cfg = (task.platform_config or {}).get('kubernetes', {}) or {}
+
+        def _has_any(cfg: dict, keys: list[str]) -> bool:
+            return any(cfg.get(k) for k in keys)
+
+        if _has_any(k8s_cfg, ['tolerations']):
+            if TaskConfigField.KUBERNETES_TOLERATIONS not in allowed_fields:
+                _raise_passthrough_error(
+                    task, TaskConfigField.KUBERNETES_TOLERATIONS.name)
+
+        if _has_any(k8s_cfg, ['nodeSelector']):
+            if TaskConfigField.KUBERNETES_NODE_SELECTOR not in allowed_fields:
+                _raise_passthrough_error(
+                    task, TaskConfigField.KUBERNETES_NODE_SELECTOR.name)
+
+        if _has_any(k8s_cfg, ['nodeAffinity', 'podAffinity']):
+            if TaskConfigField.KUBERNETES_AFFINITY not in allowed_fields:
+                _raise_passthrough_error(
+                    task, TaskConfigField.KUBERNETES_AFFINITY.name)
+
+        volume_like_keys = [
+            'pvcMount',
+            'secretAsVolume',
+            'configMapAsVolume',
+        ]
+        if _has_any(k8s_cfg, volume_like_keys):
+            if TaskConfigField.KUBERNETES_VOLUMES not in allowed_fields:
+                _raise_passthrough_error(
+                    task, TaskConfigField.KUBERNETES_VOLUMES.name)
+
+    _validate_task_config_passthroughs_for_kubernetes_settings(task)
 
     def convert_to_placeholder(input_value: str) -> str:
         """Checks if input is a pipeline channel and if so, converts to
@@ -1170,6 +1276,7 @@ def modify_pipeline_spec_with_override(
     pipeline_spec: pipeline_spec_pb2.PipelineSpec,
     pipeline_name: Optional[str],
     pipeline_parameters: Optional[Mapping[str, Any]],
+    pipeline_display_name: Optional[str] = None,
 ) -> pipeline_spec_pb2.PipelineSpec:
     """Modifies the PipelineSpec using arguments passed to the Compiler.compile
     method.
@@ -1178,6 +1285,7 @@ def modify_pipeline_spec_with_override(
         pipeline_spec (pipeline_spec_pb2.PipelineSpec): PipelineSpec to modify.
         pipeline_name (Optional[str]): Name of the pipeline. Overrides component name.
         pipeline_parameters (Optional[Mapping[str, Any]]): Pipeline parameters. Overrides component input default values.
+        pipeline_display_name (Optional[str]): Display Name of the pipeline. Overrides default which is pipeline name
 
     Returns:
         The modified PipelineSpec copy.
@@ -1190,6 +1298,8 @@ def modify_pipeline_spec_with_override(
 
     if pipeline_name is not None:
         pipeline_spec.pipeline_info.name = pipeline_name
+    if pipeline_display_name is not None:
+        pipeline_spec.pipeline_info.display_name = pipeline_display_name
 
     # Verify that pipeline_parameters contains only input names
     # that match the pipeline inputs definition.
@@ -2027,6 +2137,59 @@ def write_pipeline_spec_to_file(
         kubernetes_manifest_options: KubernetesManifestOptions object with manifest options.
         kubernetes_manifest_format: Output the compiled pipeline as a Kubernetes manifest.
     """
+
+    # Validate workspace requirement when download_to_workspace is used
+    def _uses_workspace_download(ps: pipeline_spec_pb2.PipelineSpec) -> bool:
+        ds = ps.deployment_spec
+        if ds is None:
+            return False
+        executors = getattr(ds, 'executors', None)
+        if executors:
+            for _, exec_spec in executors.items():
+                if exec_spec.WhichOneof('spec') == 'importer':
+                    if getattr(exec_spec.importer, 'download_to_workspace',
+                               False):
+                        return True
+            return False
+        ds_dict = json_format.MessageToDict(ds)
+        if not ds_dict:
+            return False
+        execs_dict = ds_dict.get('executors', {})
+        if not isinstance(execs_dict, dict):
+            return False
+        for _, exec_spec in execs_dict.items():
+            if isinstance(exec_spec, dict) and 'importer' in exec_spec:
+                importer = exec_spec['importer']
+                if isinstance(importer, dict) and importer.get(
+                        'downloadToWorkspace', False):
+                    return True
+        return False
+
+    def _has_workspace_config(ps: pipeline_spec_pb2.PlatformSpec) -> bool:
+        if ps is None:
+            return False
+        plat = json_format.MessageToDict(ps)
+        platforms = plat.get('platforms', {})
+        if not isinstance(platforms, dict):
+            return False
+        # Check if a platform has a workspace config
+        for platform_name, platform_config in platforms.items():
+            if isinstance(platform_config, dict):
+                pc = platform_config.get('pipelineConfig')
+                if isinstance(
+                        pc, dict
+                ) and 'workspace' in pc and pc['workspace'] is not None:
+                    return True
+        return False
+
+    if _uses_workspace_download(
+            pipeline_spec) and not _has_workspace_config(platform_spec):
+        raise ValueError(
+            'dsl.importer(download_to_workspace=True) requires PipelineConfig(workspace=...) on the pipeline. '
+            'Add workspace configuration to your @dsl.pipeline decorator: '
+            'pipeline_config=dsl.PipelineConfig(workspace=dsl.WorkspaceConfig(size=\\\'1Gi\\\'))'
+        )
+
     if kubernetes_manifest_format:
         opts = kubernetes_manifest_options or KubernetesManifestOptions()
         opts.set_pipeline_spec(pipeline_spec)
@@ -2141,14 +2304,15 @@ def _write_kubernetes_manifest_to_file(
 
 def _merge_pipeline_config(pipelineConfig: pipeline_config.PipelineConfig,
                            platformSpec: pipeline_spec_pb2.PlatformSpec):
-    workspace = pipelineConfig.workspace
-    if workspace is None:
-        return platformSpec
+    config_dict = {}
 
-    json_format.ParseDict(
-        {'pipelineConfig': {
-            'workspace': workspace.get_workspace(),
-        }}, platformSpec.platforms['kubernetes'])
+    workspace = pipelineConfig.workspace
+    if workspace is not None:
+        config_dict['workspace'] = workspace.get_workspace()
+
+    if config_dict:
+        json_format.ParseDict({'pipelineConfig': config_dict},
+                              platformSpec.platforms['kubernetes'])
 
     return platformSpec
 

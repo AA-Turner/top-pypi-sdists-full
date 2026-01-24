@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict
+from databricks.sdk.service._internal import _enum, _from_dict, _repeated_dict
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -100,9 +100,17 @@ class CreateCredentialsResponse:
     git_provider: str
     """The Git provider associated with the credential."""
 
+    git_email: Optional[str] = None
+    """The authenticating email associated with your Git provider user account. Used for authentication
+    with the remote repository and also sets the author & committer identity for commits. Required
+    for most Git providers except AWS CodeCommit. Learn more at
+    https://docs.databricks.com/aws/en/repos/get-access-tokens-from-git-provider"""
+
     git_username: Optional[str] = None
-    """The username or email provided with your Git provider account and associated with the
-    credential."""
+    """The username provided with your Git provider account and associated with the credential. For
+    most Git providers it is only used to set the Git committer & author names for commits, however
+    it may be required for authentication depending on your Git provider / token requirements.
+    Required for AWS CodeCommit."""
 
     is_default_for_provider: Optional[bool] = None
     """if the credential is the default for the given provider"""
@@ -115,6 +123,8 @@ class CreateCredentialsResponse:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -130,6 +140,8 @@ class CreateCredentialsResponse:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -145,6 +157,7 @@ class CreateCredentialsResponse:
         """Deserializes the CreateCredentialsResponse from a dictionary."""
         return cls(
             credential_id=d.get("credential_id", None),
+            git_email=d.get("git_email", None),
             git_provider=d.get("git_provider", None),
             git_username=d.get("git_username", None),
             is_default_for_provider=d.get("is_default_for_provider", None),
@@ -228,34 +241,24 @@ class CreateRepoResponse:
 
 
 @dataclass
-class CreateScopeResponse:
-    def as_dict(self) -> dict:
-        """Serializes the CreateScopeResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the CreateScopeResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> CreateScopeResponse:
-        """Deserializes the CreateScopeResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
 class CredentialInfo:
     credential_id: int
     """ID of the credential object in the workspace."""
+
+    git_email: Optional[str] = None
+    """The authenticating email associated with your Git provider user account. Used for authentication
+    with the remote repository and also sets the author & committer identity for commits. Required
+    for most Git providers except AWS CodeCommit. Learn more at
+    https://docs.databricks.com/aws/en/repos/get-access-tokens-from-git-provider"""
 
     git_provider: Optional[str] = None
     """The Git provider associated with the credential."""
 
     git_username: Optional[str] = None
-    """The username or email provided with your Git provider account and associated with the
-    credential."""
+    """The username provided with your Git provider account and associated with the credential. For
+    most Git providers it is only used to set the Git committer & author names for commits, however
+    it may be required for authentication depending on your Git provider / token requirements.
+    Required for AWS CodeCommit."""
 
     is_default_for_provider: Optional[bool] = None
     """if the credential is the default for the given provider"""
@@ -268,6 +271,8 @@ class CredentialInfo:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -283,6 +288,8 @@ class CredentialInfo:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -298,29 +305,12 @@ class CredentialInfo:
         """Deserializes the CredentialInfo from a dictionary."""
         return cls(
             credential_id=d.get("credential_id", None),
+            git_email=d.get("git_email", None),
             git_provider=d.get("git_provider", None),
             git_username=d.get("git_username", None),
             is_default_for_provider=d.get("is_default_for_provider", None),
             name=d.get("name", None),
         )
-
-
-@dataclass
-class DeleteAclResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteAclResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteAclResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteAclResponse:
-        """Deserializes the DeleteAclResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -374,24 +364,6 @@ class DeleteResponse:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
         """Deserializes the DeleteResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
-class DeleteScopeResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteScopeResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteScopeResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteScopeResponse:
-        """Deserializes the DeleteScopeResponse from a dictionary."""
         return cls()
 
 
@@ -466,12 +438,20 @@ class GetCredentialsResponse:
     credential_id: int
     """ID of the credential object in the workspace."""
 
+    git_email: Optional[str] = None
+    """The authenticating email associated with your Git provider user account. Used for authentication
+    with the remote repository and also sets the author & committer identity for commits. Required
+    for most Git providers except AWS CodeCommit. Learn more at
+    https://docs.databricks.com/aws/en/repos/get-access-tokens-from-git-provider"""
+
     git_provider: Optional[str] = None
     """The Git provider associated with the credential."""
 
     git_username: Optional[str] = None
-    """The username or email provided with your Git provider account and associated with the
-    credential."""
+    """The username provided with your Git provider account and associated with the credential. For
+    most Git providers it is only used to set the Git committer & author names for commits, however
+    it may be required for authentication depending on your Git provider / token requirements.
+    Required for AWS CodeCommit."""
 
     is_default_for_provider: Optional[bool] = None
     """if the credential is the default for the given provider"""
@@ -484,6 +464,8 @@ class GetCredentialsResponse:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -499,6 +481,8 @@ class GetCredentialsResponse:
         body = {}
         if self.credential_id is not None:
             body["credential_id"] = self.credential_id
+        if self.git_email is not None:
+            body["git_email"] = self.git_email
         if self.git_provider is not None:
             body["git_provider"] = self.git_provider
         if self.git_username is not None:
@@ -514,6 +498,7 @@ class GetCredentialsResponse:
         """Deserializes the GetCredentialsResponse from a dictionary."""
         return cls(
             credential_id=d.get("credential_id", None),
+            git_email=d.get("git_email", None),
             git_provider=d.get("git_provider", None),
             git_username=d.get("git_username", None),
             is_default_for_provider=d.get("is_default_for_provider", None),
@@ -991,42 +976,6 @@ class ObjectType(Enum):
     LIBRARY = "LIBRARY"
     NOTEBOOK = "NOTEBOOK"
     REPO = "REPO"
-
-
-@dataclass
-class PutAclResponse:
-    def as_dict(self) -> dict:
-        """Serializes the PutAclResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the PutAclResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> PutAclResponse:
-        """Deserializes the PutAclResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
-class PutSecretResponse:
-    def as_dict(self) -> dict:
-        """Serializes the PutSecretResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the PutSecretResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> PutSecretResponse:
-        """Deserializes the PutSecretResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -1765,10 +1714,12 @@ class GitCredentialsAPI:
         self,
         git_provider: str,
         *,
+        git_email: Optional[str] = None,
         git_username: Optional[str] = None,
         is_default_for_provider: Optional[bool] = None,
         name: Optional[str] = None,
         personal_access_token: Optional[str] = None,
+        principal_id: Optional[int] = None,
     ) -> CreateCredentialsResponse:
         """Creates a Git credential entry for the user. Only one Git credential per user is supported, so any
         attempts to create credentials if an entry already exists will fail. Use the PATCH endpoint to update
@@ -1778,12 +1729,16 @@ class GitCredentialsAPI:
           Git provider. This field is case-insensitive. The available Git providers are `gitHub`,
           `bitbucketCloud`, `gitLab`, `azureDevOpsServices`, `gitHubEnterprise`, `bitbucketServer`,
           `gitLabEnterpriseEdition` and `awsCodeCommit`.
+        :param git_email: str (optional)
+          The authenticating email associated with your Git provider user account. Used for authentication
+          with the remote repository and also sets the author & committer identity for commits. Required for
+          most Git providers except AWS CodeCommit. Learn more at
+          https://docs.databricks.com/aws/en/repos/get-access-tokens-from-git-provider
         :param git_username: str (optional)
-          The username or email provided with your Git provider account, depending on which provider you are
-          using. For GitHub, GitHub Enterprise Server, or Azure DevOps Services, either email or username may
-          be used. For GitLab, GitLab Enterprise Edition, email must be used. For AWS CodeCommit, BitBucket or
-          BitBucket Server, username must be used. For all other providers please see your provider's Personal
-          Access Token authentication documentation to see what is supported.
+          The username provided with your Git provider account and associated with the credential. For most
+          Git providers it is only used to set the Git committer & author names for commits, however it may be
+          required for authentication depending on your Git provider / token requirements. Required for AWS
+          CodeCommit.
         :param is_default_for_provider: bool (optional)
           if the credential is the default for the given provider
         :param name: str (optional)
@@ -1793,10 +1748,16 @@ class GitCredentialsAPI:
           providers, support may exist for other types of scoped access tokens. [Learn more].
 
           [Learn more]: https://docs.databricks.com/repos/get-access-tokens-from-git-provider.html
+        :param principal_id: int (optional)
+          The ID of the service principal whose credentials will be modified. Only service principal managers
+          can perform this action.
 
         :returns: :class:`CreateCredentialsResponse`
         """
+
         body = {}
+        if git_email is not None:
+            body["git_email"] = git_email
         if git_provider is not None:
             body["git_provider"] = git_provider
         if git_username is not None:
@@ -1807,6 +1768,8 @@ class GitCredentialsAPI:
             body["name"] = name
         if personal_access_token is not None:
             body["personal_access_token"] = personal_access_token
+        if principal_id is not None:
+            body["principal_id"] = principal_id
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -1815,49 +1778,67 @@ class GitCredentialsAPI:
         res = self._api.do("POST", "/api/2.0/git-credentials", body=body, headers=headers)
         return CreateCredentialsResponse.from_dict(res)
 
-    def delete(self, credential_id: int):
+    def delete(self, credential_id: int, *, principal_id: Optional[int] = None):
         """Deletes the specified Git credential.
 
         :param credential_id: int
           The ID for the corresponding credential to access.
+        :param principal_id: int (optional)
+          The ID of the service principal whose credentials will be modified. Only service principal managers
+          can perform this action.
 
 
         """
 
+        query = {}
+        if principal_id is not None:
+            query["principal_id"] = principal_id
         headers = {
             "Accept": "application/json",
         }
 
-        self._api.do("DELETE", f"/api/2.0/git-credentials/{credential_id}", headers=headers)
+        self._api.do("DELETE", f"/api/2.0/git-credentials/{credential_id}", query=query, headers=headers)
 
-    def get(self, credential_id: int) -> GetCredentialsResponse:
+    def get(self, credential_id: int, *, principal_id: Optional[int] = None) -> GetCredentialsResponse:
         """Gets the Git credential with the specified credential ID.
 
         :param credential_id: int
           The ID for the corresponding credential to access.
+        :param principal_id: int (optional)
+          The ID of the service principal whose credentials will be modified. Only service principal managers
+          can perform this action.
 
         :returns: :class:`GetCredentialsResponse`
         """
 
+        query = {}
+        if principal_id is not None:
+            query["principal_id"] = principal_id
         headers = {
             "Accept": "application/json",
         }
 
-        res = self._api.do("GET", f"/api/2.0/git-credentials/{credential_id}", headers=headers)
+        res = self._api.do("GET", f"/api/2.0/git-credentials/{credential_id}", query=query, headers=headers)
         return GetCredentialsResponse.from_dict(res)
 
-    def list(self) -> Iterator[CredentialInfo]:
-        """Lists the calling user's Git credentials. One credential per user is supported.
+    def list(self, *, principal_id: Optional[int] = None) -> Iterator[CredentialInfo]:
+        """Lists the calling user's Git credentials.
 
+        :param principal_id: int (optional)
+          The ID of the service principal whose credentials will be modified. Only service principal managers
+          can perform this action.
 
         :returns: Iterator over :class:`CredentialInfo`
         """
 
+        query = {}
+        if principal_id is not None:
+            query["principal_id"] = principal_id
         headers = {
             "Accept": "application/json",
         }
 
-        json = self._api.do("GET", "/api/2.0/git-credentials", headers=headers)
+        json = self._api.do("GET", "/api/2.0/git-credentials", query=query, headers=headers)
         parsed = ListCredentialsResponse.from_dict(json).credentials
         return parsed if parsed is not None else []
 
@@ -1866,10 +1847,12 @@ class GitCredentialsAPI:
         credential_id: int,
         git_provider: str,
         *,
+        git_email: Optional[str] = None,
         git_username: Optional[str] = None,
         is_default_for_provider: Optional[bool] = None,
         name: Optional[str] = None,
         personal_access_token: Optional[str] = None,
+        principal_id: Optional[int] = None,
     ):
         """Updates the specified Git credential.
 
@@ -1879,12 +1862,16 @@ class GitCredentialsAPI:
           Git provider. This field is case-insensitive. The available Git providers are `gitHub`,
           `bitbucketCloud`, `gitLab`, `azureDevOpsServices`, `gitHubEnterprise`, `bitbucketServer`,
           `gitLabEnterpriseEdition` and `awsCodeCommit`.
+        :param git_email: str (optional)
+          The authenticating email associated with your Git provider user account. Used for authentication
+          with the remote repository and also sets the author & committer identity for commits. Required for
+          most Git providers except AWS CodeCommit. Learn more at
+          https://docs.databricks.com/aws/en/repos/get-access-tokens-from-git-provider
         :param git_username: str (optional)
-          The username or email provided with your Git provider account, depending on which provider you are
-          using. For GitHub, GitHub Enterprise Server, or Azure DevOps Services, either email or username may
-          be used. For GitLab, GitLab Enterprise Edition, email must be used. For AWS CodeCommit, BitBucket or
-          BitBucket Server, username must be used. For all other providers please see your provider's Personal
-          Access Token authentication documentation to see what is supported.
+          The username provided with your Git provider account and associated with the credential. For most
+          Git providers it is only used to set the Git committer & author names for commits, however it may be
+          required for authentication depending on your Git provider / token requirements. Required for AWS
+          CodeCommit.
         :param is_default_for_provider: bool (optional)
           if the credential is the default for the given provider
         :param name: str (optional)
@@ -1894,10 +1881,16 @@ class GitCredentialsAPI:
           providers, support may exist for other types of scoped access tokens. [Learn more].
 
           [Learn more]: https://docs.databricks.com/repos/get-access-tokens-from-git-provider.html
+        :param principal_id: int (optional)
+          The ID of the service principal whose credentials will be modified. Only service principal managers
+          can perform this action.
 
 
         """
+
         body = {}
+        if git_email is not None:
+            body["git_email"] = git_email
         if git_provider is not None:
             body["git_provider"] = git_provider
         if git_username is not None:
@@ -1908,6 +1901,8 @@ class GitCredentialsAPI:
             body["name"] = name
         if personal_access_token is not None:
             body["personal_access_token"] = personal_access_token
+        if principal_id is not None:
+            body["principal_id"] = principal_id
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -1951,6 +1946,7 @@ class ReposAPI:
 
         :returns: :class:`CreateRepoResponse`
         """
+
         body = {}
         if path is not None:
             body["path"] = path
@@ -2076,6 +2072,7 @@ class ReposAPI:
 
         :returns: :class:`RepoPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -2112,6 +2109,7 @@ class ReposAPI:
 
 
         """
+
         body = {}
         if branch is not None:
             body["branch"] = branch
@@ -2137,6 +2135,7 @@ class ReposAPI:
 
         :returns: :class:`RepoPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -2215,6 +2214,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if backend_azure_keyvault is not None:
             body["backend_azure_keyvault"] = backend_azure_keyvault.as_dict()
@@ -2252,6 +2252,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if principal is not None:
             body["principal"] = principal
@@ -2281,6 +2282,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if scope is not None:
             body["scope"] = scope
@@ -2312,6 +2314,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if key is not None:
             body["key"] = key
@@ -2533,6 +2536,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if permission is not None:
             body["permission"] = permission.value
@@ -2584,6 +2588,7 @@ class SecretsAPI:
 
 
         """
+
         body = {}
         if bytes_value is not None:
             body["bytes_value"] = bytes_value
@@ -2626,6 +2631,7 @@ class WorkspaceAPI:
 
 
         """
+
         body = {}
         if path is not None:
             body["path"] = path
@@ -2682,7 +2688,9 @@ class WorkspaceAPI:
         """Gets the permission levels that a user can have on an object.
 
         :param workspace_object_type: str
-          The workspace object type for which to get or manage permissions.
+          The workspace object type for which to get or manage permissions. Could be one of the following:
+          alerts, alertsv2, dashboards, dbsql-dashboards, directories, experiments, files, genie, notebooks,
+          queries
         :param workspace_object_id: str
           The workspace object for which to get or manage permissions.
 
@@ -2705,7 +2713,9 @@ class WorkspaceAPI:
         parent objects or root object.
 
         :param workspace_object_type: str
-          The workspace object type for which to get or manage permissions.
+          The workspace object type for which to get or manage permissions. Could be one of the following:
+          alerts, alertsv2, dashboards, dbsql-dashboards, directories, experiments, files, genie, notebooks,
+          queries
         :param workspace_object_id: str
           The workspace object for which to get or manage permissions.
 
@@ -2754,7 +2764,7 @@ class WorkspaceAPI:
         If `path` already exists and `overwrite` is set to `false`, this call returns an error
         `RESOURCE_ALREADY_EXISTS`. To import a directory, you can use either the `DBC` format or the `SOURCE`
         format with the `language` field unset. To import a single file as `SOURCE`, you must set the
-        `language` field.
+        `language` field. Zip files within directories are not supported.
 
         :param path: str
           The absolute path of the object or directory. Importing a directory is only supported for the `DBC`
@@ -2783,6 +2793,7 @@ class WorkspaceAPI:
 
 
         """
+
         body = {}
         if content is not None:
             body["content"] = content
@@ -2840,6 +2851,7 @@ class WorkspaceAPI:
 
 
         """
+
         body = {}
         if path is not None:
             body["path"] = path
@@ -2862,13 +2874,16 @@ class WorkspaceAPI:
         object.
 
         :param workspace_object_type: str
-          The workspace object type for which to get or manage permissions.
+          The workspace object type for which to get or manage permissions. Could be one of the following:
+          alerts, alertsv2, dashboards, dbsql-dashboards, directories, experiments, files, genie, notebooks,
+          queries
         :param workspace_object_id: str
           The workspace object for which to get or manage permissions.
         :param access_control_list: List[:class:`WorkspaceObjectAccessControlRequest`] (optional)
 
         :returns: :class:`WorkspaceObjectPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -2893,13 +2908,16 @@ class WorkspaceAPI:
         parent objects or root object.
 
         :param workspace_object_type: str
-          The workspace object type for which to get or manage permissions.
+          The workspace object type for which to get or manage permissions. Could be one of the following:
+          alerts, alertsv2, dashboards, dbsql-dashboards, directories, experiments, files, genie, notebooks,
+          queries
         :param workspace_object_id: str
           The workspace object for which to get or manage permissions.
         :param access_control_list: List[:class:`WorkspaceObjectAccessControlRequest`] (optional)
 
         :returns: :class:`WorkspaceObjectPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]

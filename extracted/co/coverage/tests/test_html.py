@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests that HTML generation is awesome."""
 
@@ -21,10 +21,10 @@ from unittest import mock
 import pytest
 
 import coverage
+import coverage.html
 from coverage import env, Coverage
 from coverage.exceptions import NoDataError, NotPython, NoSource
 from coverage.files import abs_file, flat_rootname
-import coverage.html
 from coverage.report_core import get_analysis_to_report
 from coverage.types import TLineNo, TMorf
 
@@ -519,7 +519,7 @@ class HtmlWithUnparsableFilesTest(HtmlTestHelpers, CoverageTest):
         self.assert_exists("htmlcov/index.html")
 
     def test_decode_error(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/351
+        # https://github.com/coveragepy/coveragepy/issues/351
         # imp.load_module won't load a file with an undecodable character
         # in a comment, though Python will run them.  So we'll change the
         # file after running.
@@ -551,7 +551,7 @@ class HtmlWithUnparsableFilesTest(HtmlTestHelpers, CoverageTest):
         assert expected in html_report
 
     def test_formfeeds(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/360
+        # https://github.com/coveragepy/coveragepy/issues/360
         self.make_file("formfeed.py", "line_one = 1\n\f\nline_two = 2\n")
         cov = coverage.Coverage()
         self.start_import_stop(cov, "formfeed")
@@ -561,7 +561,7 @@ class HtmlWithUnparsableFilesTest(HtmlTestHelpers, CoverageTest):
         assert "line_two" in formfeed_html
 
     def test_splitlines_special_chars(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1512
+        # https://github.com/coveragepy/coveragepy/issues/1512
         # See https://docs.python.org/3/library/stdtypes.html#str.splitlines for
         # the characters splitlines treats specially that readlines does not.
 
@@ -600,7 +600,7 @@ class HtmlTest(HtmlTestHelpers, CoverageTest):
     """Moar HTML tests."""
 
     def test_missing_source_file_incorrect_message(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/60
+        # https://github.com/coveragepy/coveragepy/issues/60
         self.make_file("thefile.py", "import sub.another\n")
         self.make_file("sub/__init__.py", "")
         self.make_file("sub/another.py", "print('another')\n")
@@ -617,7 +617,7 @@ class HtmlTest(HtmlTestHelpers, CoverageTest):
     def test_extensionless_file_collides_with_extension(self) -> None:
         # It used to be that "program" and "program.py" would both be reported
         # to "program.html".  Now they are not.
-        # https://github.com/nedbat/coveragepy/issues/69
+        # https://github.com/coveragepy/coveragepy/issues/69
         self.make_file("program", "import program\n")
         self.make_file("program.py", "a = 1\n")
         self.make_data_file(
@@ -644,7 +644,7 @@ class HtmlTest(HtmlTestHelpers, CoverageTest):
 
     def test_reporting_on_unmeasured_file(self) -> None:
         # It should be ok to ask for an HTML report on a file that wasn't even
-        # measured at all.  https://github.com/nedbat/coveragepy/issues/403
+        # measured at all.  https://github.com/coveragepy/coveragepy/issues/403
         self.create_initial_files()
         self.make_file("other.py", "a = 1\n")
         self.run_coverage(htmlargs=dict(morfs=["other.py"]))
@@ -787,6 +787,8 @@ def compare_html(
         (r"created at \d\d\d\d-\d\d-\d\d \d\d:\d\d", "created at DATE"),
         # Static files have cache busting.
         (r"_cb_\w{8}\.", "_CB."),
+        # Un-prettify file paths.
+        (r"&#8201;[/\\]&#8201;", "/"),
         # Occasionally an absolute path is in the HTML report.
         (filepath_to_regex(TESTS_DIR), "TESTS_DIR"),
         (filepath_to_regex(flat_rootname(str(TESTS_DIR))), "_TESTS_DIR"),
@@ -853,7 +855,7 @@ class HtmlGoldTest(HtmlTestHelpers, CoverageTest):
             "out/a/index.html",
             '<a href="a_py.html">a.py</a>',
             '<span class="pc_cov">67%</span>',
-            '<td class="right" data-ratio="2 3">67%</td>',
+            '<td data-ratio="2 3">67%</td>',
         )
 
     def test_b_branch(self) -> None:
@@ -925,7 +927,7 @@ class HtmlGoldTest(HtmlTestHelpers, CoverageTest):
             "out/b_branch/index.html",
             '<a href="b_py.html">b.py</a>',
             '<span class="pc_cov">70%</span>',
-            '<td class="right" data-ratio="16 23">70%</td>',
+            '<td data-ratio="16 23">70%</td>',
         )
 
     def test_bom(self) -> None:
@@ -1162,40 +1164,22 @@ assert len(math) == 18
         cov = coverage.Coverage(config_file="partial.ini")
         partial = self.start_import_stop(cov, "partial")
 
-        if env.PYBEHAVIOR.pep626:
-            cov.html_report(partial, directory="out/partial_626")
-            compare_html(gold_path("html/partial_626"), "out/partial_626")
-            contains_rx(
-                "out/partial_626/partial_py.html",
-                r'<p class="par run show_par">.* id="t4"',
-                r'<p class="run">.* id="t7"',
-                # The "if 0" and "if 1" statements are marked as run.
-                r'<p class="run">.* id="t10"',
-                # The "raise ZeroDivisionError" is excluded by regex in the .ini.
-                r'<p class="exc show_exc">.* id="t17"',
-            )
-            contains(
-                "out/partial_626/index.html",
-                '<a href="partial_py.html">partial.py</a>',
-                '<span class="pc_cov">92%</span>',
-            )
-        else:
-            cov.html_report(partial, directory="out/partial")
-            compare_html(gold_path("html/partial"), "out/partial")
-            contains_rx(
-                "out/partial/partial_py.html",
-                r'<p class="par run show_par">.* id="t4"',
-                r'<p class="run">.* id="t7"',
-                # The "if 0" and "if 1" statements are optimized away.
-                r'<p class="pln">.* id="t10"',
-                # The "raise ZeroDivisionError" is excluded by regex in the .ini.
-                r'<p class="exc show_exc">.* id="t17"',
-            )
-            contains(
-                "out/partial/index.html",
-                '<a href="partial_py.html">partial.py</a>',
-                '<span class="pc_cov">91%</span>',
-            )
+        cov.html_report(partial, directory="out/partial")
+        compare_html(gold_path("html/partial"), "out/partial")
+        contains_rx(
+            "out/partial/partial_py.html",
+            r'<p class="par run show_par">.* id="t4"',
+            r'<p class="run">.* id="t7"',
+            # The "if 0" and "if 1" statements are marked as run.
+            r'<p class="run">.* id="t10"',
+            # The "raise ZeroDivisionError" is excluded by regex in the .ini.
+            r'<p class="exc show_exc">.* id="t17"',
+        )
+        contains(
+            "out/partial/index.html",
+            '<a href="partial_py.html">partial.py</a>',
+            '<span class="pc_cov">92%</span>',
+        )
 
     def test_styled(self) -> None:
         self.make_file(
@@ -1310,7 +1294,7 @@ assert len(math) == 18
         doesnt_contain("out/tabbed_py.html", "\t")
 
     def test_bug_1828(self) -> None:
-        # https://github.com/nedbat/coveragepy/pull/1828
+        # https://github.com/coveragepy/coveragepy/pull/1828
         self.make_file(
             "backslashes.py",
             """\
@@ -1346,7 +1330,7 @@ assert len(math) == 18
         ids=["string", "f-string", "raw_string", "f-raw_string", "raw_f-string"],
     )
     def test_bug_1836(self, leader: str) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1836
+        # https://github.com/coveragepy/coveragepy/issues/1836
         self.make_file(
             "py312_fstrings.py",
             f"""\
@@ -1446,7 +1430,9 @@ assert len(math) == 18
         self.assert_exists("htmlcov/z_5786906b6f0ffeb4_accented_py.html")
         with open("htmlcov/index.html", encoding="utf-8") as indexf:
             index = indexf.read()
-        expected = '<a href="z_5786906b6f0ffeb4_accented_py.html">&#226;%saccented.py</a>'
+        expected = (
+            '<a href="z_5786906b6f0ffeb4_accented_py.html">&#226;&#8201;%s&#8201;accented.py</a>'
+        )
         assert expected % os.sep in index
 
 
@@ -1460,7 +1446,7 @@ class HtmlWithContextsTest(HtmlTestHelpers, CoverageTest):
         """Get HTML report data from a `Coverage` object for a morf."""
         with self.assert_warnings(cov, []):
             datagen = coverage.html.HtmlDataGeneration(cov)
-            fr, analysis = next(get_analysis_to_report(cov, [morf]))
+            fr, analysis = next(iter(get_analysis_to_report(cov, morf)))
             file_data = datagen.data_for_file(fr, analysis)
             return file_data
 

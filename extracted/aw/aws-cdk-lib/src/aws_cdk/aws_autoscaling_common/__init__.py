@@ -434,3 +434,6 @@ def _typecheckingstub__d1471419b50dcbf2a2d82cb0eaa8b1a900d152953019294ad8b7a326f
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IRandomGenerator]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

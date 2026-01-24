@@ -1,17 +1,21 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import logging
-from typing import Any, List, Mapping, Optional
+from typing import Any, List, Mapping, Optional, cast
 
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
-try:
-    from langchain.llms.base import LLM
-    from langchain.llms.utils import enforce_stop_tokens
-except ImportError:
-    raise MissingExtension("langchain")
+if not is_lib_installed(ext := "langchain-core"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_core.language_models.llms import LLM
+
+if not is_lib_installed(ext := "langchain-community"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_community.llms.utils import enforce_stop_tokens
+
 from ibm_watsonx_ai.foundation_models import Model, ModelInference
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _raise_watsonxllm_deprecation_warning,
@@ -41,20 +45,20 @@ class WatsonxLLM(LLM):
 
         from ibm_watsonx_ai.foundation_models import Model
         from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
-        from ibm_watsonx_ai.foundation_models.extensions.langchain import WatsonxLLM
+        from ibm_watsonx_ai.foundation_models.extensions.langchain import (
+            WatsonxLLM,
+        )
 
-        generate_params = {
-            GenParams.MAX_NEW_TOKENS: 25
-        }
+        generate_params = {GenParams.MAX_NEW_TOKENS: 25}
 
         model = Model(
             model_id="google/flan-ul2",
             credentials={
                 "apikey": IAM_API_KEY,
-                "url": "https://us-south.ml.cloud.ibm.com"
+                "url": "https://us-south.ml.cloud.ibm.com",
             },
             params=generate_params,
-            project_id="*****"
+            project_id="*****",
         )
 
         custom_llm = WatsonxLLM(model=model)
@@ -93,14 +97,14 @@ class WatsonxLLM(LLM):
                     model_id="google/flan-ul2",
                     credentials={
                         "apikey": IAM_API_KEY,
-                        "url": "https://us-south.ml.cloud.ibm.com"
-                        },
-                    project_id="*****"
-                    )
+                        "url": "https://us-south.ml.cloud.ibm.com",
+                    },
+                    project_id="*****",
+                )
                 llm = WatsonxLLM(model=model)
                 response = llm("What is a molecule")
         """
-        text = self.model.generate_text(prompt=prompt)  # type: ignore[union-attr]
+        text = cast(str, self.model.generate_text(prompt=prompt))  # type: ignore[union-attr]
         logger.info("Output of watsonx.ai call: {}".format(text))
         if stop is not None:
             text = enforce_stop_tokens(text, stop)

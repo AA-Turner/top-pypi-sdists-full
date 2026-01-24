@@ -3,7 +3,7 @@ Type annotations for devops-guru service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_guru/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

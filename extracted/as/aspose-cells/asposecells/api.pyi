@@ -54,8 +54,12 @@ class AboveAverage:
 class AbstractCalculationEngine:
     '''Represents user's custom calculation engine to extend the default calculation engine of Aspose.Cells.'''
 
+    def skipCalculation(self) -> None:
+        '''Skips the calculation for the entire formula that references the function currently under evaluation.'''
+        raise NotImplementedError()
+
     def forceRecalculate(self, functionName : str) -> bool:
-        '''Whether force given function to be recalculated always when calculating shared formulas.
+        '''Whether to force the given function to be recalculated always when calculating shared formulas.
         :param functionName: name of the function. Generally it is custom function's name.
         :returns: true if the specified function needs to be recalculated always.'''
         raise NotImplementedError()
@@ -74,7 +78,8 @@ class AbstractCalculationEngine:
         raise NotImplementedError()
 
     def isParamLiteralRequired(self) -> bool:
-        '''Indicates whether this engine needs the literal text of parameter while doing calculation. Default value is false.'''
+        '''Indicates whether this engine needs the literal text of the parameter while doing a calculation.
+        Default value is false.'''
         raise NotImplementedError()
 
     def getProcessBuiltInFunctions(self) -> bool:
@@ -85,7 +90,7 @@ class AbstractCalculationEngine:
 
 
 class AbstractCalculationMonitor:
-    '''Monitor for user to track the progress of formula calculation.'''
+    '''Monitor for the user to track the progress of the formula calculation.'''
 
     def afterCalculate(self, sheetIndex : int, rowIndex : int, colIndex : int) -> None:
         '''Implement this method to do business after one cell has been calculated.
@@ -94,7 +99,7 @@ class AbstractCalculationMonitor:
         :param colIndex: Column index of the cell'''
         raise NotImplementedError()
 
-    def getCalculatedValue(self) -> Object:
+    def getCalculatedValue(self) -> Any:
         '''Gets the newly calculated value of the cell.
         Should be used only in :meth:`AbstractCalculationMonitor.afterCalculate(int,int,int)`.'''
         raise NotImplementedError()
@@ -104,7 +109,7 @@ class AbstractCalculationMonitor:
         Should be used only in :meth:`AbstractCalculationMonitor.afterCalculate(int,int,int)`.'''
         raise NotImplementedError()
 
-    def getOriginalValue(self) -> Object:
+    def getOriginalValue(self) -> Any:
         '''Gets the old value of the calculated cell.
         Should be used only in :meth:`AbstractCalculationMonitor.beforeCalculate(int,int,int)` and :meth:`AbstractCalculationMonitor.afterCalculate(int,int,int)`.'''
         raise NotImplementedError()
@@ -124,7 +129,7 @@ class AbstractCalculationMonitor:
 
 
 class AbstractFormulaChangeMonitor:
-    '''Monitor for user to track the change of formulas during certain operations.'''
+    '''Monitor for the user to track the change of formulas during certain operations.'''
 
     def onFormatConditionFormulaChanged(self, fc : FormatCondition) -> None:
         '''The event that will be triggered when the formula of FormatCondition is changed.
@@ -251,6 +256,7 @@ class AbstractTextLoadOptions:
 
     def setConvertNumericData(self, value : bool) -> None:
         '''Sets a value that indicates whether the string in text file is converted to numeric data.
+        Default value is true.
         :param value: '''
         raise NotImplementedError()
 
@@ -265,11 +271,13 @@ class AbstractTextLoadOptions:
         raise NotImplementedError()
 
     def getConvertNumericData(self) -> bool:
-        '''Gets a value that indicates whether the string in text file is converted to numeric data.'''
+        '''Gets a value that indicates whether the string in text file is converted to numeric data.
+        Default value is true.'''
         raise NotImplementedError()
 
     def setConvertDateTimeData(self, value : bool) -> None:
         '''Sets a value that indicates whether the string in text file is converted to date data.
+        Default value is true.
         :param value: '''
         raise NotImplementedError()
 
@@ -278,7 +286,8 @@ class AbstractTextLoadOptions:
         raise NotImplementedError()
 
     def getConvertDateTimeData(self) -> bool:
-        '''Gets a value that indicates whether the string in text file is converted to date data.'''
+        '''Gets a value that indicates whether the string in text file is converted to date data.
+        Default value is true.'''
         raise NotImplementedError()
 
     def getEncoding(self) -> Encoding:
@@ -313,7 +322,7 @@ class AccentEquationNode:
         See :class:`EquationCombiningCharacterType`'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -326,7 +335,7 @@ class AccentEquationNode:
 
 
 class AccessCacheOptions:
-    '''Cache options for data access. Can be combined with | operator for multiple options together.'''
+    '''Caching options for data access. Multiple options can be combined using the "|" operator.'''
 
     NONE : AccessCacheOptions
     '''No cache for any data access.'''
@@ -460,12 +469,12 @@ class ActiveXControlBase:
         :param value: '''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         '''Sets the width of the control in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the width of the control in unit of points.'''
         raise NotImplementedError()
 
@@ -473,7 +482,7 @@ class ActiveXControlBase:
         '''Indicates whether to show a shadow.'''
         raise NotImplementedError()
 
-    def setHeight(self, value : int) -> None:
+    def setHeight(self, value : float) -> None:
         '''Sets the height of the control in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -499,7 +508,7 @@ class ActiveXControlBase:
         '''Gets the binary data of the control.'''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         '''Gets the height of the control in unit of points.'''
         raise NotImplementedError()
 
@@ -583,7 +592,7 @@ class AdjustFontSizeForRowType:
 
 
 class AdvancedFilter:
-    '''Represents the settings of advanced filter.'''
+    '''Represents the settings of the advanced filter.'''
 
     def getCriteriaRange(self) -> str:
         '''Gets the criteria range of this advanced filter.'''
@@ -654,7 +663,7 @@ class ArcShape:
 class Area:
     '''Encapsulates the object that represents an area format.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -684,7 +693,7 @@ class Area:
         :param value: '''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -711,7 +720,7 @@ class Area:
 class ArrayEquationNode:
     '''Specifies the Equation-Array function, an object consisting of one or more equations.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -727,28 +736,28 @@ class AutoFillType:
     '''Automatically fills the target area with the value and format.'''
 
     FORMATS : AutoFillType
-    '''Copies only the format of the source area to the target area,'''
+    '''Copies only the format of the source area to the target area.'''
 
     SERIES : AutoFillType
-    '''Extend the value in the source area to the target area in the form of a series and copy format to the target area.'''
+    '''Extend the value in the source area to the target area in the form of a series and copy the format to the target area.'''
 
     VALUES : AutoFillType
-    '''Copies only the value of the source area to the target area,'''
+    '''Copies only the value of the source area to the target area.'''
 
 
 class AutoFilter:
     '''Represents autofiltering for the specified worksheet.'''
 
     @overload
-    def custom(self, fieldIndex : int, operatorType1 : int, criteria1 : Object) -> None:
-        '''Filters a list with a custom criteria.
+    def custom(self, fieldIndex : int, operatorType1 : int, criteria1 : Any) -> None:
+        '''Filters a list with a custom criterion.
         :param fieldIndex: The integer offset of the field on which you want to base the filter
         :param operatorType1: :class:`FilterOperatorType`. The filter operator type
         :param criteria1: The custom criteria'''
         raise NotImplementedError()
 
     @overload
-    def custom(self, fieldIndex : int, operatorType1 : int, criteria1 : Object, isAnd : bool, operatorType2 : int, criteria2 : Object) -> None:
+    def custom(self, fieldIndex : int, operatorType1 : int, criteria1 : Any, isAnd : bool, operatorType2 : int, criteria2 : Any) -> None:
         '''Filters a list with custom criteria.
         :param fieldIndex: The integer offset of the field on which you want to base the filter
         :param operatorType1: :class:`FilterOperatorType`. The filter operator type
@@ -775,7 +784,7 @@ class AutoFilter:
         raise NotImplementedError()
 
     def matchNonBlanks(self, fieldIndex : int) -> None:
-        '''Match all not blank cell in the list.
+        '''Match all not-blank cells in the list.
         :param fieldIndex: The integer offset of the field on which you want to base the filter'''
         raise NotImplementedError()
 
@@ -836,7 +845,7 @@ class AutoFilter:
 
     @overload
     def getCellArea(self, refreshAppliedRange : bool) -> CellArea:
-        '''Gets the :class:`CellArea` where the specified AutoFilter applies to.
+        '''Gets the :class:`CellArea` where the specified AutoFilter applies.
         :param refreshAppliedRange: Whether refresh the applied range.
         :returns: the area this filter applies to'''
         raise NotImplementedError()
@@ -853,7 +862,7 @@ class AutoFilter:
         raise NotImplementedError()
 
     def matchBlanks(self, fieldIndex : int) -> None:
-        '''Match all blank cell in the list.
+        '''Match all blank cells in the list.
         :param fieldIndex: The integer offset of the field on which you want to base the filter'''
         raise NotImplementedError()
 
@@ -890,7 +899,7 @@ class AutoFilter:
         raise NotImplementedError()
 
     def filterTop10(self, fieldIndex : int, isTop : bool, isPercent : bool, itemCount : int) -> None:
-        '''Filter the top 10 item in the list
+        '''Filter the top 10 items in the list
         :param fieldIndex: The integer offset of the field on which you want to base the filter
         :param isTop: Indicates whether filter from top or bottom
         :param isPercent: Indicates whether the items is percent or count
@@ -965,7 +974,7 @@ class AutoFitterOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setMaxRowHeight(self, value : int) -> None:
+    def setMaxRowHeight(self, value : float) -> None:
         '''Sets the max row height(in unit of Point) when autofitting rows.
         :param value: '''
         raise NotImplementedError()
@@ -974,7 +983,7 @@ class AutoFitterOptions:
         ''':deprecated: Use AutoFitterOptions.AutoFitMergedCellsType property, instead.'''
         raise NotImplementedError()
 
-    def getMaxRowHeight(self) -> int:
+    def getMaxRowHeight(self) -> float:
         '''Gets the max row height(in unit of Point) when autofitting rows.'''
         raise NotImplementedError()
 
@@ -1191,40 +1200,40 @@ class AutoShapeType:
     ''''''
 
     LINE_CALLOUT_NO_BORDER_2 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 2(No Border)" type of the Ms Excel 97-2003 version or the "Callout: Line with No Border" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_NO_BORDER_3 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 3(No Border)" type of the Ms Excel 97-2003 version or the "Callout: Bent Line with No Border" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_NO_BORDER_4 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 4(No Border)" type of the Ms Excel 97-2003 version or the "Callout: Double Bent Line with No Border" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_ACCENT_BAR_2 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 2(Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Line with Accent Bar" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_ACCENT_BAR_3 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 3(Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Bent Line with Accent Bar" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_ACCENT_BAR_4 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 4(Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Double Bent Line with Accent Bar" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_2 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 2" type of the Ms Excel 97-2003 version or the "Callout: Line" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_3 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 3" type of the Ms Excel 97-2003 version or the "Callout: Bent Line" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_4 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 4" type of the Ms Excel 97-2003 version or the "Callout: Double Bent Line" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_AND_ACCENT_BAR_2 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 2(Border and Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Line with Border and Accent Bar" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_AND_ACCENT_BAR_3 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 3(Border and Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Bent Line with Border and Accent Bar" type of the Ms Excel 2007 version.'''
 
     LINE_CALLOUT_WITH_BORDER_AND_ACCENT_BAR_4 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 4(Border and Accent Bar)" type of the Ms Excel 97-2003 version or the "Callout: Double Bent Line with Border and Accent Bar" type of the Ms Excel 2007 version.'''
 
     DOWN_RIBBON : AutoShapeType
     ''''''
@@ -1602,16 +1611,16 @@ class AutoShapeType:
     ''''''
 
     LINE_CALLOUT_NO_BORDER_1 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 1(No Border)" type of the Ms Excel 97-2003 version.'''
 
     LINE_CALLOUT_WITH_ACCENT_BAR_1 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 1(Accent Bar)" type of the Ms Excel 97-2003 version.'''
 
     LINE_CALLOUT_WITH_BORDER_1 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 1" type of the Ms Excel 97-2003 version.'''
 
     LINE_CALLOUT_WITH_BORDER_AND_ACCENT_BAR_1 : AutoShapeType
-    ''''''
+    '''Specifies the "Line Callout 1(Border and Accent Bar)" type of the Ms Excel 97-2003 version.'''
 
     LEFT_RIGHT_UP_ARROW : AutoShapeType
     ''''''
@@ -1852,7 +1861,7 @@ class Axis:
         '''Indicates whether the major unit of the axis is automatically assigned.'''
         raise NotImplementedError()
 
-    def setMajorUnit(self, value : int) -> None:
+    def setMajorUnit(self, value : float) -> None:
         '''Represents the major units for the axis.
         :param value: '''
         raise NotImplementedError()
@@ -1870,7 +1879,7 @@ class Axis:
         :param value: '''
         raise NotImplementedError()
 
-    def setMinorUnit(self, value : int) -> None:
+    def setMinorUnit(self, value : float) -> None:
         '''Represents the minor units for the axis.
         :param value: '''
         raise NotImplementedError()
@@ -1880,8 +1889,8 @@ class Axis:
         See :class:`TickMarkType`'''
         raise NotImplementedError()
 
-    def setLogBase(self, value : int) -> None:
-        '''Represents the logarithmic base. Default value is 10.Only applies for Excel2007.
+    def setLogBase(self, value : float) -> None:
+        '''Represents the logarithmic base. Default value is 10.
         :param value: '''
         raise NotImplementedError()
 
@@ -1896,7 +1905,7 @@ class Axis:
         :param value: '''
         raise NotImplementedError()
 
-    def getCrossAt(self) -> int:
+    def getCrossAt(self) -> float:
         '''Represents the point on the value axis where the category axis crosses it.'''
         raise NotImplementedError()
 
@@ -1908,7 +1917,7 @@ class Axis:
         '''Gets the labels of the axis after call Chart.Calculate() method.'''
         raise NotImplementedError()
 
-    def getMaxValue(self) -> Object:
+    def getMaxValue(self) -> Any:
         '''Represents the maximum value on the value axis.'''
         raise NotImplementedError()
 
@@ -1920,7 +1929,7 @@ class Axis:
         '''Represents if the display unit label is shown on the specified axis.'''
         raise NotImplementedError()
 
-    def getMinValue(self) -> Object:
+    def getMinValue(self) -> Any:
         '''Represents the minimum value on the value axis.'''
         raise NotImplementedError()
 
@@ -1933,7 +1942,7 @@ class Axis:
         '''Indicates whether the spacing of tick label is automatic'''
         raise NotImplementedError()
 
-    def getMajorUnit(self) -> int:
+    def getMajorUnit(self) -> float:
         '''Represents the major units for the axis.'''
         raise NotImplementedError()
 
@@ -1946,7 +1955,7 @@ class Axis:
         :param value: '''
         raise NotImplementedError()
 
-    def getMinorUnit(self) -> int:
+    def getMinorUnit(self) -> float:
         '''Represents the minor units for the axis.'''
         raise NotImplementedError()
 
@@ -1979,7 +1988,7 @@ class Axis:
         raise NotImplementedError()
 
     def getTitle(self) -> Title:
-        '''Gets the axis' title.'''
+        '''Gets the title of this axis in the chart.'''
         raise NotImplementedError()
 
     def getAxisLine(self) -> Line:
@@ -2001,12 +2010,12 @@ class Axis:
         :param value: '''
         raise NotImplementedError()
 
-    def setCrossAt(self, value : int) -> None:
+    def setCrossAt(self, value : float) -> None:
         '''Represents the point on the value axis where the category axis crosses it.
         :param value: '''
         raise NotImplementedError()
 
-    def setCustomDisplayUnit(self, value : int) -> None:
+    def setCustomDisplayUnit(self, value : float) -> None:
         '''Specifies a custom value for the display unit.
         :param value: '''
         raise NotImplementedError()
@@ -2019,7 +2028,7 @@ class Axis:
         '''Represents bins on a chart(Histogram/Pareto) axis'''
         raise NotImplementedError()
 
-    def getAxisLabels(self) -> list[list[Any]]:
+    def getAxisLabels(self) -> list[Any]:
         ''':deprecated: Use Axis.GetAxisTexts method, instead.'''
         raise NotImplementedError()
 
@@ -2076,7 +2085,7 @@ class Axis:
         ''':deprecated: Use Axis.CustomDisplayUnit property, instead.'''
         raise NotImplementedError()
 
-    def getCustomDisplayUnit(self) -> int:
+    def getCustomDisplayUnit(self) -> float:
         '''Specifies a custom value for the display unit.'''
         raise NotImplementedError()
 
@@ -2086,7 +2095,7 @@ class Axis:
         raise NotImplementedError()
 
     def getCategoryType(self) -> int:
-        '''Represents the category axis type.
+        '''Represents the type of the category axis.
         See :class:`CategoryType`'''
         raise NotImplementedError()
 
@@ -2100,7 +2109,7 @@ class Axis:
         raise NotImplementedError()
 
     def setCategoryType(self, value : int) -> None:
-        '''Represents the category axis type.
+        '''Represents the type of the category axis.
         See :class:`CategoryType`
         :param value: '''
         raise NotImplementedError()
@@ -2121,8 +2130,8 @@ class Axis:
         '''Gets the :class:`Area`.'''
         raise NotImplementedError()
 
-    def getLogBase(self) -> int:
-        '''Represents the logarithmic base. Default value is 10.Only applies for Excel2007.'''
+    def getLogBase(self) -> float:
+        '''Represents the logarithmic base. Default value is 10.'''
         raise NotImplementedError()
 
     def getDisplayUnitLabel(self) -> DisplayUnitLabel:
@@ -2139,7 +2148,7 @@ class Axis:
         '''Returns or sets the number of categories or series between tick marks. Applies only to category and series axes.'''
         raise NotImplementedError()
 
-    def setMaxValue(self, value : Object) -> None:
+    def setMaxValue(self, value : Any) -> None:
         '''Represents the maximum value on the value axis.
         :param value: '''
         raise NotImplementedError()
@@ -2168,7 +2177,7 @@ class Axis:
         :param value: '''
         raise NotImplementedError()
 
-    def setMinValue(self, value : Object) -> None:
+    def setMinValue(self, value : Any) -> None:
         '''Represents the minimum value on the value axis.
         :param value: '''
         raise NotImplementedError()
@@ -2212,7 +2221,7 @@ class AxisBins:
         ''':deprecated: This is an internal method.'''
         raise NotImplementedError()
 
-    def setUnderflow(self, value : int) -> None:
+    def setUnderflow(self, value : float) -> None:
         '''Sets the underflow of axis bins
         :param value: '''
         raise NotImplementedError()
@@ -2221,17 +2230,17 @@ class AxisBins:
         '''Indicates whether the axis bins are automatic.'''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         '''Sets the width of axis bin
         :param value: '''
         raise NotImplementedError()
 
-    def setOverflow(self, value : int) -> None:
+    def setOverflow(self, value : float) -> None:
         '''Sets the overflow of axis bins
         :param value: '''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the width of axis bin'''
         raise NotImplementedError()
 
@@ -2240,11 +2249,11 @@ class AxisBins:
         :param value: '''
         raise NotImplementedError()
 
-    def getOverflow(self) -> int:
+    def getOverflow(self) -> float:
         '''Gets the overflow of axis bins'''
         raise NotImplementedError()
 
-    def getUnderflow(self) -> int:
+    def getUnderflow(self) -> float:
         '''Gets the underflow of axis bins'''
         raise NotImplementedError()
 
@@ -2372,7 +2381,7 @@ class BarEquationNode:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -2385,18 +2394,18 @@ class BaseShapeGuide:
 class Bevel:
     '''Represents a bevel of a shape'''
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the width of the bevel, or how far into the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
 
-    def setHeight(self, value : int) -> None:
+    def setHeight(self, value : float) -> None:
         '''Sets the height of the bevel, or how far above the shape it is applied.
         In unit of Points.
         :param value: '''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         '''Sets the width of the bevel, or how far into the shape it is applied.
         In unit of Points.
         :param value: '''
@@ -2407,7 +2416,7 @@ class Bevel:
         See :class:`BevelPresetType`'''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         '''Gets the height of the bevel, or how far above the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
@@ -2550,7 +2559,7 @@ class Border:
 class BorderBoxEquationNode:
     '''This class specifies the Border Box function, consisting of a border drawn around an equation.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -2641,7 +2650,7 @@ class BorderType:
 class BoxEquationNode:
     '''This class specifies the box function, which is used to group components of an equation.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -2847,7 +2856,7 @@ class BuiltInDocumentPropertyCollection:
         :param value: '''
         raise NotImplementedError()
 
-    def setTotalEditingTime(self, value : int) -> None:
+    def setTotalEditingTime(self, value : float) -> None:
         '''Sets the total editing time in minutes.
         :param value: '''
         raise NotImplementedError()
@@ -2874,7 +2883,7 @@ class BuiltInDocumentPropertyCollection:
         :param value: '''
         raise NotImplementedError()
 
-    def getTotalEditingTime(self) -> int:
+    def getTotalEditingTime(self) -> float:
         '''Gets the total editing time in minutes.'''
         raise NotImplementedError()
 
@@ -3201,7 +3210,7 @@ class CalculationCell:
         '''Gets the column index of the cell.'''
         raise NotImplementedError()
 
-    def setCalculatedValue(self, v : Object) -> None:
+    def setCalculatedValue(self, v : Any) -> None:
         '''Sets the calculated value for the cell.
         :param v: '''
         raise NotImplementedError()
@@ -3227,26 +3236,25 @@ class CalculationData:
     '''Represents the required data when calculating one function, such as function name, parameters, ...etc.'''
 
     def getWorkbook(self) -> Workbook:
-        '''Gets the Workbook object where the function is in.'''
+        '''Gets the Workbook object where the function is.'''
         raise NotImplementedError()
 
     def getFunctionName(self) -> str:
         '''Gets the function name to be calculated.'''
         raise NotImplementedError()
 
-    def setCalculatedValue(self, value : Object) -> None:
+    def setCalculatedValue(self, value : Any) -> None:
         '''Sets the calculated value for this function.
         :param value: '''
         raise NotImplementedError()
 
     def getWorksheet(self) -> Worksheet:
-        '''Gets the Worksheet object where the function is in.'''
+        '''Gets the Worksheet object where the function is.'''
         raise NotImplementedError()
 
-    def getParamValueInArrayMode(self, index : int, maxRowCount : int, maxColumnCount : int) -> list[list[Object]]:
-        '''Gets the value(s) of the parameter at given index.
-        If the parameter is some kind of expression that needs to be calculated,
-        then it will be calculated in array mode.
+    def getParamValueInArrayMode(self, index : int, maxRowCount : int, maxColumnCount : int) -> list[list[Any]]:
+        '''Gets the value(s) of the parameter at a given index.
+        If the parameter is some kind of expression that needs to be calculated, then it will be calculated in array mode.
         :param index: The index of the parameter(0 based)
         :param maxRowCount: The row count limit for the returned array.
         :param maxColumnCount: The column count limit for the returned array.
@@ -3257,44 +3265,100 @@ class CalculationData:
         '''Gets the count of parameters'''
         raise NotImplementedError()
 
-    def getCalculatedValue(self) -> Object:
+    def getCalculatedValue(self) -> Any:
         '''Gets the calculated value for this function.'''
         raise NotImplementedError()
 
     def getCellColumn(self) -> int:
-        '''Gets the column index of the cell where the function is in.'''
+        '''Gets the column index of the cell where the function is.'''
         raise NotImplementedError()
 
-    def getParamValue(self, index : int) -> Object:
-        '''Gets the represented value object of the parameter at given index.
+    def getParamValue(self, index : int) -> Any:
+        '''Gets the represented value object of the parameter at a given index.
         :param index: The index of the parameter(0 based)
         :returns: The calculated value of the parameter.'''
         raise NotImplementedError()
 
     def getParamText(self, index : int) -> str:
-        '''Gets the literal text of the parameter at given index.
+        '''Gets the literal text of the parameter at the given index.
         :param index: index of the parameter(0 based)
         :returns: literal text of the parameter'''
         raise NotImplementedError()
 
     def getCell(self) -> Cell:
-        '''Gets the Cell object where the function is in.'''
+        '''Gets the Cell object where the function is.'''
         raise NotImplementedError()
 
     def getCellRow(self) -> int:
-        '''Gets the row index of the cell where the function is in.'''
+        '''Gets the row index of the cell where the function is.'''
         raise NotImplementedError()
 
 
 class CalculationOptions:
     '''Represents options for calculation.'''
 
-    def getCustomEngine(self) -> AbstractCalculationEngine:
-        '''The custom formula calculation engine to extend the default calculation engine of Aspose.Cells.'''
+    def getCalculationMonitor(self) -> AbstractCalculationMonitor:
+        '''The monitor for user to track the progress of formula calculation.'''
+        raise NotImplementedError()
+
+    def getRecursive(self) -> bool:
+        '''Indicates whether calculate the dependent cells recursively when calculating one cell and it depends on other cells.
+        The default value is true.'''
+        raise NotImplementedError()
+
+    def getUserSpecifiedRefreshDynamicArrayFormula(self) -> bool:
+        '''Indicates whether user has explicitly specified the behavior of
+        refreshing dynamic array formulas before calculating specified formulas.'''
+        raise NotImplementedError()
+
+    def setCustomEngine(self, value : AbstractCalculationEngine) -> None:
+        '''The custom formula calculation engine to extend the default calculation engine of Aspose.Cells.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getRefreshDynamicArrayFormula(self) -> bool:
+        '''Indicates whether dynamic array formulas should be refreshed
+        before calculating formulas.'''
         raise NotImplementedError()
 
     def setCalculationMonitor(self, value : AbstractCalculationMonitor) -> None:
         '''The monitor for user to track the progress of formula calculation.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getIgnoreError(self) -> bool:
+        '''Indicates whether errors encountered while calculating formulas should be ignored.
+        The error may be unsupported function, external links, etc.
+        The default value is true.'''
+        raise NotImplementedError()
+
+    def setLinkedDataSources(self, value : list[Workbook]) -> None:
+        '''Specifies the data sources for external links used in formulas.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCalcStackSize(self) -> int:
+        '''The stack size for calculating cells recursively. Default value is 200.'''
+        raise NotImplementedError()
+
+    def getPrecisionStrategy(self) -> int:
+        '''Specifies the strategy for processing precision of calculation.
+        See :class:`CalculationPrecisionStrategy`'''
+        raise NotImplementedError()
+
+    def getLinkedDataSources(self) -> list[Workbook]:
+        '''Specifies the data sources for external links used in formulas.'''
+        raise NotImplementedError()
+
+    def setRefreshDynamicArrayFormula(self, value : bool) -> None:
+        '''Indicates whether dynamic array formulas should be refreshed
+        before calculating formulas.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setRecursive(self, value : bool) -> None:
+        '''Indicates whether calculate the dependent cells recursively when calculating one cell and it depends on other cells.
+        The default value is true.
         :param value: '''
         raise NotImplementedError()
 
@@ -3304,6 +3368,11 @@ class CalculationOptions:
         With this property user can specify the proper encoding used for those function to get the expected result.'''
         raise NotImplementedError()
 
+    def setCalcStackSize(self, value : int) -> None:
+        '''The stack size for calculating cells recursively. Default value is 200.
+        :param value: '''
+        raise NotImplementedError()
+
     def setIgnoreError(self, value : bool) -> None:
         '''Indicates whether errors encountered while calculating formulas should be ignored.
         The error may be unsupported function, external links, etc.
@@ -3311,19 +3380,9 @@ class CalculationOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getPrecisionStrategy(self) -> int:
+    def setPrecisionStrategy(self, value : int) -> None:
         '''Specifies the strategy for processing precision of calculation.
-        See :class:`CalculationPrecisionStrategy`'''
-        raise NotImplementedError()
-
-    def setRecursive(self, value : bool) -> None:
-        '''Indicates whether calculate the dependent cells recursively when calculating one cell and it depends on other cells.
-        The default value is true.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setCustomEngine(self, value : AbstractCalculationEngine) -> None:
-        '''The custom formula calculation engine to extend the default calculation engine of Aspose.Cells.
+        See :class:`CalculationPrecisionStrategy`
         :param value: '''
         raise NotImplementedError()
 
@@ -3334,43 +3393,8 @@ class CalculationOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setPrecisionStrategy(self, value : int) -> None:
-        '''Specifies the strategy for processing precision of calculation.
-        See :class:`CalculationPrecisionStrategy`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getCalculationMonitor(self) -> AbstractCalculationMonitor:
-        '''The monitor for user to track the progress of formula calculation.'''
-        raise NotImplementedError()
-
-    def setCalcStackSize(self, value : int) -> None:
-        '''The stack size for calculating cells recursively. Default value is 200.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setLinkedDataSources(self, value : list[Workbook]) -> None:
-        '''Specifies the data sources for external links used in formulas.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getRecursive(self) -> bool:
-        '''Indicates whether calculate the dependent cells recursively when calculating one cell and it depends on other cells.
-        The default value is true.'''
-        raise NotImplementedError()
-
-    def getIgnoreError(self) -> bool:
-        '''Indicates whether errors encountered while calculating formulas should be ignored.
-        The error may be unsupported function, external links, etc.
-        The default value is true.'''
-        raise NotImplementedError()
-
-    def getCalcStackSize(self) -> int:
-        '''The stack size for calculating cells recursively. Default value is 200.'''
-        raise NotImplementedError()
-
-    def getLinkedDataSources(self) -> list[Workbook]:
-        '''Specifies the data sources for external links used in formulas.'''
+    def getCustomEngine(self) -> AbstractCalculationEngine:
+        '''The custom formula calculation engine to extend the default calculation engine of Aspose.Cells.'''
         raise NotImplementedError()
 
 
@@ -3459,7 +3483,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setArrayFormula(self, arrayFormula : str, rowNumber : int, columnNumber : int, options : FormulaParseOptions, values : list[list[Object]]) -> None:
+    def setArrayFormula(self, arrayFormula : str, rowNumber : int, columnNumber : int, options : FormulaParseOptions, values : list[list[Any]]) -> None:
         '''Sets an array formula to a range of cells.
         :param arrayFormula: Array formula.
         :param rowNumber: Number of rows to populate result of the array formula.
@@ -3519,7 +3543,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setSharedFormula(self, sharedFormula : str, rowNumber : int, columnNumber : int, options : FormulaParseOptions, values : list[list[Object]]) -> None:
+    def setSharedFormula(self, sharedFormula : str, rowNumber : int, columnNumber : int, options : FormulaParseOptions, values : list[list[Any]]) -> None:
         '''Sets shared formulas to a range of cells.
         :param sharedFormula: Shared formula.
         :param rowNumber: Number of rows to populate the formula.
@@ -3533,7 +3557,7 @@ class Cell:
         :param value: '''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the value contained in this cell.
         :param value: '''
         raise NotImplementedError()
@@ -3606,7 +3630,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setTableFormula(self, rowNumber : int, columnNumber : int, rowInputCell : str, columnInputCell : str, values : list[list[Object]]) -> None:
+    def setTableFormula(self, rowNumber : int, columnNumber : int, rowInputCell : str, columnInputCell : str, values : list[list[Any]]) -> None:
         '''Create two-variable data table for given range starting from this cell.
         :param rowNumber: Number of rows to populate the formula.
         :param columnNumber: Number of columns to populate the formula.
@@ -3616,7 +3640,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setTableFormula(self, rowNumber : int, columnNumber : int, inputCell : str, isRowInput : bool, values : list[list[Object]]) -> None:
+    def setTableFormula(self, rowNumber : int, columnNumber : int, inputCell : str, isRowInput : bool, values : list[list[Any]]) -> None:
         '''Create one-variable data table for given range starting from this cell.
         :param rowNumber: Number of rows to populate the formula.
         :param columnNumber: Number of columns to populate the formula.
@@ -3626,7 +3650,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setTableFormula(self, rowNumber : int, columnNumber : int, rowIndexOfRowInputCell : int, columnIndexOfRowInputCell : int, rowIndexOfColumnInputCell : int, columnIndexOfColumnInputCell : int, values : list[list[Object]]) -> None:
+    def setTableFormula(self, rowNumber : int, columnNumber : int, rowIndexOfRowInputCell : int, columnIndexOfRowInputCell : int, rowIndexOfColumnInputCell : int, columnIndexOfColumnInputCell : int, values : list[list[Any]]) -> None:
         '''Create two-variable data table for given range starting from this cell.
         :param rowNumber: Number of rows to populate the formula.
         :param columnNumber: Number of columns to populate the formula.
@@ -3638,7 +3662,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setTableFormula(self, rowNumber : int, columnNumber : int, rowIndexOfInputCell : int, columnIndexOfInputCell : int, isRowInput : bool, values : list[list[Object]]) -> None:
+    def setTableFormula(self, rowNumber : int, columnNumber : int, rowIndexOfInputCell : int, columnIndexOfInputCell : int, isRowInput : bool, values : list[list[Any]]) -> None:
         '''Create one-variable data table for given range starting from this cell.
         :param rowNumber: Number of rows to populate the formula.
         :param columnNumber: Number of columns to populate the formula.
@@ -3697,7 +3721,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Checks whether this object refers to the same cell with another.
         :param obj: another object
         :returns: true if two objects refers to the same cell.'''
@@ -3726,7 +3750,7 @@ class Cell:
         '''Checks whether there is custom function(unsupported function) in this cell's formula.'''
         raise NotImplementedError()
 
-    def getDoubleValue(self) -> int:
+    def getDoubleValue(self) -> float:
         '''Gets the double value contained in the cell.'''
         raise NotImplementedError()
 
@@ -3816,7 +3840,7 @@ class Cell:
         ''':deprecated: Use IsTableFormula instead.'''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the value contained in this cell.'''
         raise NotImplementedError()
 
@@ -3862,7 +3886,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setFormula(self, formula : str, value : Object) -> None:
+    def setFormula(self, formula : str, value : Any) -> None:
         '''Set the formula and the value(calculated result) of the formula.
         :param formula: The formula.
         :param value: The value(calculated result) of the formula.'''
@@ -3876,12 +3900,12 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setFormula(self, formula : str, isR1C1 : bool, isLocal : bool, value : Object) -> None:
+    def setFormula(self, formula : str, isR1C1 : bool, isLocal : bool, value : Any) -> None:
         ''':deprecated: Use FormulaParseOptions for more options instead.'''
         raise NotImplementedError()
 
     @overload
-    def setFormula(self, formula : str, options : FormulaParseOptions, value : Object) -> None:
+    def setFormula(self, formula : str, options : FormulaParseOptions, value : Any) -> None:
         '''Set the formula and the value(calculated result) of the formula.
         :param formula: The formula.
         :param options: Options for parsing the formula.
@@ -3916,7 +3940,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setDynamicArrayFormula(self, arrayFormula : str, options : FormulaParseOptions, values : list[list[Object]], calculateRange : bool, calculateValue : bool) -> CellArea:
+    def setDynamicArrayFormula(self, arrayFormula : str, options : FormulaParseOptions, values : list[list[Any]], calculateRange : bool, calculateValue : bool) -> CellArea:
         '''Sets dynamic array formula and make the formula spill into neighboring cells if possible.
         :param arrayFormula: the formula expression
         :param options: options to parse formula.
@@ -3927,7 +3951,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def setDynamicArrayFormula(self, arrayFormula : str, options : FormulaParseOptions, values : list[list[Object]], calculateRange : bool, calculateValue : bool, copts : CalculationOptions) -> CellArea:
+    def setDynamicArrayFormula(self, arrayFormula : str, options : FormulaParseOptions, values : list[list[Any]], calculateRange : bool, calculateValue : bool, copts : CalculationOptions) -> CellArea:
         '''Sets dynamic array formula and make the formula spill into neighboring cells if possible.
         :param arrayFormula: the formula expression
         :param options: options to parse formula.
@@ -4012,7 +4036,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def putValue(self, doubleValue : int) -> None:
+    def putValue(self, doubleValue : float) -> None:
         '''Puts a double value into the cell.
         :param doubleValue: Input value'''
         raise NotImplementedError()
@@ -4045,7 +4069,7 @@ class Cell:
         raise NotImplementedError()
 
     @overload
-    def putValue(self, objectValue : Object) -> None:
+    def putValue(self, objectValue : Any) -> None:
         '''Puts an object value into the cell.
         :param objectValue: input value'''
         raise NotImplementedError()
@@ -4084,7 +4108,7 @@ class CellArea:
         :returns: Return a :class:`CellArea`.'''
         raise NotImplementedError()
 
-    def compareTo(self, obj : Object) -> int:
+    def compareTo(self, obj : Any) -> int:
         '''Compare two CellArea objects according to their top-left corner.
         :param obj: 
         :returns: If two corners are in different rows, then compare their row index. Otherwise compare their column index. If two corners are same, then 0 will be returned.'''
@@ -4142,7 +4166,7 @@ class CellBorderType:
 
 
 class CellRichValue:
-    '''Represents rich value of the cell.'''
+    '''Represents the rich value of the cell.'''
 
     def setAltText(self, value : str) -> None:
         '''Gets the alt text associated with the image.
@@ -4193,7 +4217,7 @@ class Cells:
         :returns: the column width in unit of pixels'''
         raise NotImplementedError()
 
-    def unhideRows(self, row : int, totalRows : int, height : int) -> None:
+    def unhideRows(self, row : int, totalRows : int, height : float) -> None:
         '''Unhides the hidden rows.
         :param row: The row index.
         :param totalRows: The row number.
@@ -4208,13 +4232,13 @@ class Cells:
         '''Gets the total count of instantiated Cell objects.'''
         raise NotImplementedError()
 
-    def unhideColumn(self, column : int, width : int) -> None:
+    def unhideColumn(self, column : int, width : float) -> None:
         '''Unhides a column
         :param column: Column index.
         :param width: Column width.'''
         raise NotImplementedError()
 
-    def setRowHeight(self, row : int, height : int) -> None:
+    def setRowHeight(self, row : int, height : float) -> None:
         '''Sets the height of the specified row.
         :param row: Row index.
         :param height: Height of row.In unit of point It should be between 0 and 409.5.'''
@@ -4286,7 +4310,7 @@ class Cells:
         :param firstColumn: The column number of the first cell to import in.'''
         raise NotImplementedError()
 
-    def exportArray(self, firstRow : int, firstColumn : int, totalRows : int, totalColumns : int) -> list[list[Object]]:
+    def exportArray(self, firstRow : int, firstColumn : int, totalRows : int, totalColumns : int) -> list[list[Any]]:
         '''Exports data in the :class:`Cells` collection to a two-dimension array object.
         :param firstRow: The row number of the first cell to export out.
         :param firstColumn: The column number of the first cell to export out.
@@ -4295,7 +4319,7 @@ class Cells:
         :returns: Exported cell value array object.'''
         raise NotImplementedError()
 
-    def getStandardHeightInch(self) -> int:
+    def getStandardHeightInch(self) -> float:
         '''Gets the default row height in this worksheet, in unit of inches.'''
         raise NotImplementedError()
 
@@ -4325,7 +4349,7 @@ class Cells:
         :param column: Column index.'''
         raise NotImplementedError()
 
-    def getRowHeightInch(self, row : int) -> int:
+    def getRowHeightInch(self, row : int) -> float:
         '''Gets the height of a specified row in unit of inches.
         :param row: Row index
         :returns: Height of row'''
@@ -4335,7 +4359,7 @@ class Cells:
         '''Gets the list of fields of ods.'''
         raise NotImplementedError()
 
-    def getColumnWidthInch(self, column : int) -> int:
+    def getColumnWidthInch(self, column : int) -> float:
         ''':deprecated: Use Cells.GetColumnWidth(int ,bool , CellsUnitType ) method, instead.'''
         raise NotImplementedError()
 
@@ -4384,7 +4408,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def getColumnWidth(self, column : int, isOriginal : bool, unitType : int) -> int:
+    def getColumnWidth(self, column : int, isOriginal : bool, unitType : int) -> float:
         '''Gets the column width.
         :param column: The column index.
         :param isOriginal: Indicates whether getting original width.
@@ -4392,7 +4416,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def getColumnWidth(self, column : int) -> int:
+    def getColumnWidth(self, column : int) -> float:
         '''Gets the width(in unit of characters) of the specified column in normal view
         :param column: Column index
         :returns: Width of column. For spreadsheet, column width is measured as the number of characters of the maximum digit width of the numbers 0~9 as rendered in the normal style's font.'''
@@ -4417,7 +4441,7 @@ class Cells:
         '''Gets the default row height in this worksheet, in unit of pixels.'''
         raise NotImplementedError()
 
-    def getStandardWidthInch(self) -> int:
+    def getStandardWidthInch(self) -> float:
         '''Gets the default column width in the worksheet, in unit of inches.'''
         raise NotImplementedError()
 
@@ -4436,7 +4460,7 @@ class Cells:
         :param lastIndex: The last row index to be grouped.'''
         raise NotImplementedError()
 
-    def getViewRowHeightInch(self, row : int) -> int:
+    def getViewRowHeightInch(self, row : int) -> float:
         '''Gets the height of a specified row in unit of inches.
         :param row: Row index
         :returns: Height of row'''
@@ -4459,7 +4483,7 @@ class Cells:
         :returns: Cell object.'''
         raise NotImplementedError()
 
-    def setRowHeightInch(self, row : int, inches : int) -> None:
+    def setRowHeightInch(self, row : int, inches : float) -> None:
         '''Sets row height in unit of inches.
         :param row: Row index.
         :param inches: Number of inches. It should be between 0 and 409.5/72.'''
@@ -4471,7 +4495,7 @@ class Cells:
         :returns: true if the row is hidden'''
         raise NotImplementedError()
 
-    def setStandardHeightInch(self, value : int) -> None:
+    def setStandardHeightInch(self, value : float) -> None:
         '''Sets the default row height in this worksheet, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -4485,7 +4509,7 @@ class Cells:
         :returns: Total column count of the split values.'''
         raise NotImplementedError()
 
-    def getStandardWidth(self) -> int:
+    def getStandardWidth(self) -> float:
         '''Gets the default column width in the worksheet, in unit of characters.'''
         raise NotImplementedError()
 
@@ -4614,7 +4638,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def getRowHeight(self, row : int, isOriginal : bool, unitType : int) -> int:
+    def getRowHeight(self, row : int, isOriginal : bool, unitType : int) -> float:
         '''Gets row's height.
         :param row: The row index.
         :param isOriginal: Whether returns the original row height or 0 for hidden row.
@@ -4623,7 +4647,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def getRowHeight(self, row : int) -> int:
+    def getRowHeight(self, row : int) -> float:
         '''Gets the height of a specified row, in unit of points.
         :param row: Row index
         :returns: Height of row'''
@@ -4675,7 +4699,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importArray(self, doubleArray : list[list[int]], firstRow : int, firstColumn : int) -> None:
+    def importArray(self, doubleArray : list[list[float]], firstRow : int, firstColumn : int) -> None:
         '''Imports a two-dimension array of double into a worksheet.
         :param doubleArray: Two-dimension double array.
         :param firstRow: The row number of the first cell to import in.
@@ -4683,7 +4707,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importArray(self, doubleArray : list[int], firstRow : int, firstColumn : int, isVertical : bool) -> None:
+    def importArray(self, doubleArray : list[float], firstRow : int, firstColumn : int, isVertical : bool) -> None:
         '''Imports an array of double into a worksheet.
         :param doubleArray: Double array.
         :param firstRow: The row number of the first cell to import in.
@@ -4774,7 +4798,7 @@ class Cells:
         '''Gets the collection of :class:`Column` objects that represents the individual columns in this worksheet.'''
         raise NotImplementedError()
 
-    def setColumnWidth(self, column : int, width : int) -> None:
+    def setColumnWidth(self, column : int, width : float) -> None:
         '''Sets the width of the specified column in normal view.
         :param column: Column index.
         :param width: Width of column in unit of characters.Column width must be between 0 and 255.'''
@@ -4784,7 +4808,7 @@ class Cells:
         '''Gets the collection of :class:`Row` objects that represents the individual rows in this worksheet.'''
         raise NotImplementedError()
 
-    def getRowOriginalHeightPoint(self, row : int) -> int:
+    def getRowOriginalHeightPoint(self, row : int) -> float:
         ''':deprecated: Use Cells.GetRowHeight(int,bool,CellsUnitType) method, instead.'''
         raise NotImplementedError()
 
@@ -4850,7 +4874,7 @@ class Cells:
         :returns: Height of row'''
         raise NotImplementedError()
 
-    def setStandardWidth(self, value : int) -> None:
+    def setStandardWidth(self, value : float) -> None:
         '''Sets the default column width in the worksheet, in unit of characters.
         :param value: '''
         raise NotImplementedError()
@@ -4880,7 +4904,7 @@ class Cells:
         :param columnIndex: Index of the column to be deleted.'''
         raise NotImplementedError()
 
-    def getStandardHeight(self) -> int:
+    def getStandardHeight(self) -> float:
         '''Gets the default row height in this worksheet, in unit of points.'''
         raise NotImplementedError()
 
@@ -4888,7 +4912,7 @@ class Cells:
         '''Indicates that row height and default font height matches'''
         raise NotImplementedError()
 
-    def setColumnWidthInch(self, column : int, inches : int) -> None:
+    def setColumnWidthInch(self, column : int, inches : float) -> None:
         '''Sets column width in unit of inches  in normal view.
         :param column: Column index.
         :param inches: Number of inches.'''
@@ -4909,7 +4933,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def find(self, what : Object, previousCell : Cell) -> Cell:
+    def find(self, what : Any, previousCell : Cell) -> Cell:
         '''Finds the cell containing with the input object.
         :param what: The object to search for.
         :param previousCell: Previous cell with the same object.
@@ -4917,7 +4941,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def find(self, what : Object, previousCell : Cell, findOptions : FindOptions) -> Cell:
+    def find(self, what : Any, previousCell : Cell, findOptions : FindOptions) -> Cell:
         '''Finds the cell containing with the input object.
         :param what: The object to search for.
         :param previousCell: Previous cell with the same object.
@@ -4925,7 +4949,7 @@ class Cells:
         :returns: Cell object.'''
         raise NotImplementedError()
 
-    def getViewRowHeight(self, row : int) -> int:
+    def getViewRowHeight(self, row : int) -> float:
         '''Gets the height of a specified row.
         :param row: Row index.
         :returns: Height of row.'''
@@ -5024,13 +5048,13 @@ class Cells:
         :param options: The import options'''
         raise NotImplementedError()
 
-    def unhideRow(self, row : int, height : int) -> None:
+    def unhideRow(self, row : int, height : float) -> None:
         '''Unhides a row.
         :param row: Row index.
         :param height: Row height. The row's height will be changed only when the row is hidden and given height value is positive.'''
         raise NotImplementedError()
 
-    def setStandardHeight(self, value : int) -> None:
+    def setStandardHeight(self, value : float) -> None:
         '''Sets the default row height in this worksheet, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -5083,13 +5107,13 @@ class Cells:
         :param destColumn: The dest column.'''
         raise NotImplementedError()
 
-    def setStandardWidthInch(self, value : int) -> None:
+    def setStandardWidthInch(self, value : float) -> None:
         '''Sets the default column width in the worksheet, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
     @overload
-    def importTwoDimensionArray(self, objArray : list[list[Object]], firstRow : int, firstColumn : int) -> None:
+    def importTwoDimensionArray(self, objArray : list[list[Any]], firstRow : int, firstColumn : int) -> None:
         '''Imports a two-dimension array of data into a worksheet.
         :param objArray: Two-dimension data array.
         :param firstRow: The row number of the first cell to import in.
@@ -5097,7 +5121,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importTwoDimensionArray(self, objArray : list[list[Object]], firstRow : int, firstColumn : int, convertStringToNumber : bool) -> None:
+    def importTwoDimensionArray(self, objArray : list[list[Any]], firstRow : int, firstColumn : int, convertStringToNumber : bool) -> None:
         '''Imports a two-dimension array of data into a worksheet.
         :param objArray: Two-dimension data array.
         :param firstRow: The row number of the first cell to import in.
@@ -5106,7 +5130,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importTwoDimensionArray(self, objArray : list[list[Object]], styles : list[list[Object]], firstRow : int, firstColumn : int, convertStringToNumber : bool) -> None:
+    def importTwoDimensionArray(self, objArray : list[list[Any]], styles : list[list[Any]], firstRow : int, firstColumn : int, convertStringToNumber : bool) -> None:
         '''Imports a two-dimension array of data into a worksheet.
         :param objArray: Two-dimension data array.
         :param styles: Two-dimension data style.
@@ -5116,7 +5140,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importTwoDimensionArray(self, objArray : list[list[Object]], styles : list[list[Object]], firstRow : int, firstColumn : int, opts : TxtLoadOptions) -> None:
+    def importTwoDimensionArray(self, objArray : list[list[Any]], styles : list[list[Any]], firstRow : int, firstColumn : int, opts : TxtLoadOptions) -> None:
         '''Imports a two-dimension array of data into a worksheet.
         :param objArray: Two-dimension data array.
         :param styles: Two-dimension data style.
@@ -5141,7 +5165,7 @@ class Cells:
         :param cutRange: The cut range.
         :param row: The row.
         :param column: The column.
-        :param shiftType: :class:`ShiftType`. The shift type .'''
+        :param shiftType: :class:`ShiftType`. Indicates how to shift other objects of the target range when inserting cut range.'''
         raise NotImplementedError()
 
     def ungroupColumns(self, firstIndex : int, lastIndex : int) -> None:
@@ -5187,7 +5211,7 @@ class Cells:
         :param flag: Flags which indicates applied formatting properties.'''
         raise NotImplementedError()
 
-    def getMergedCells(self) -> list[list[Any]]:
+    def getMergedCells(self) -> list[Any]:
         ''':deprecated: Use Cells.GetMergedAreas() instead.'''
         raise NotImplementedError()
 
@@ -5335,7 +5359,7 @@ class Cells:
         :param isHidden: Specifies if the grouped columns are hidden.'''
         raise NotImplementedError()
 
-    def getColumnOriginalWidthPoint(self, column : int) -> int:
+    def getColumnOriginalWidthPoint(self, column : int) -> float:
         ''':deprecated: Use Cells.GetColumnWidth(int ,bool , CellsUnitType ) method, instead.'''
         raise NotImplementedError()
 
@@ -5363,7 +5387,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importObjectArray(self, objArray : list[Object], firstRow : int, firstColumn : int, isVertical : bool) -> None:
+    def importObjectArray(self, objArray : list[Any], firstRow : int, firstColumn : int, isVertical : bool) -> None:
         '''Imports an array of data into a worksheet.
         :param objArray: Data array.
         :param firstRow: The row number of the first cell to import in.
@@ -5372,7 +5396,7 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def importObjectArray(self, objArray : list[Object], firstRow : int, firstColumn : int, isVertical : bool, skip : int) -> None:
+    def importObjectArray(self, objArray : list[Any], firstRow : int, firstColumn : int, isVertical : bool, skip : int) -> None:
         '''Imports an array of data into a worksheet.
         :param objArray: Data array.
         :param firstRow: The row number of the first cell to import in.
@@ -5490,7 +5514,7 @@ class Cells:
         :param columnIndex: Column index.'''
         raise NotImplementedError()
 
-    def importArrayList(self, arrayList : list[list[Any]], firstRow : int, firstColumn : int, isVertical : bool) -> None:
+    def importArrayList(self, arrayList : list[Any], firstRow : int, firstColumn : int, isVertical : bool) -> None:
         '''Imports an arraylist of data into a worksheet.
         :param arrayList: Data arraylist.
         :param firstRow: The row number of the first cell to import in.
@@ -5554,7 +5578,7 @@ class Cells:
         :returns: The Column object.'''
         raise NotImplementedError()
 
-    def unhideColumns(self, column : int, totalColumns : int, width : int) -> None:
+    def unhideColumns(self, column : int, totalColumns : int, width : float) -> None:
         '''Unhide multiple columns.
         :param column: Column index.
         :param totalColumns: Column number
@@ -5605,7 +5629,7 @@ class Cells:
 class CellsColor:
     '''Represents all types of color.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Sets transparency as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -5626,7 +5650,7 @@ class CellsColor:
         '''Gets the color which should apply to cell or shape.'''
         raise NotImplementedError()
 
-    def setTintOfShapeColor(self, tint : int) -> None:
+    def setTintOfShapeColor(self, tint : float) -> None:
         '''Set the tint of the shape color
         :param tint: '''
         raise NotImplementedError()
@@ -5646,7 +5670,7 @@ class CellsColor:
         :param value: '''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Gets transparency as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -5675,7 +5699,7 @@ class CellsDataTableFactory:
 
     @overload
     def getInstance(self, vals : list[int], columnNames : list[str]) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given sequence of int values.
+        '''Creates ICellsDataTable from given sequence of integer values.
         :param vals: int values to build table
         :param columnNames: Column names of the table.
         :returns: Instance of ICellsDataTable'''
@@ -5683,14 +5707,14 @@ class CellsDataTableFactory:
 
     @overload
     def getInstance(self, vals : list[int], vertial : bool) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given sequence of int values.
+        '''Creates ICellsDataTable from given sequence of integer values.
         :param vals: int values to build table
         :param vertial: whether build table by the int values vertiacally(true) or horizontally(false)
         :returns: Instance of ICellsDataTable'''
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[int], columnNames : list[str]) -> ICellsDataTable:
+    def getInstance(self, vals : list[float], columnNames : list[str]) -> ICellsDataTable:
         '''Creates ICellsDataTable from given sequence of double values.
         :param vals: double values to build table
         :param columnNames: Column names of the table.
@@ -5698,7 +5722,7 @@ class CellsDataTableFactory:
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[int], vertial : bool) -> ICellsDataTable:
+    def getInstance(self, vals : list[float], vertial : bool) -> ICellsDataTable:
         '''Creates ICellsDataTable from given sequence of double values.
         :param vals: double values to build table
         :param vertial: whether build table by the double values vertiacally(true) or horizontally(false)
@@ -5706,7 +5730,7 @@ class CellsDataTableFactory:
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[Object], columnNames : list[str]) -> ICellsDataTable:
+    def getInstance(self, vals : list[Any], columnNames : list[str]) -> ICellsDataTable:
         '''Creates ICellsDataTable from given sequence of objects.
         :param vals: objects to build table
         :param columnNames: Column names of the table.
@@ -5714,8 +5738,8 @@ class CellsDataTableFactory:
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[list[Object]], hasHeader : bool, columnNames : list[str]) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given sequence of objects.
+    def getInstance(self, vals : list[list[Any]], hasHeader : bool, columnNames : list[str]) -> ICellsDataTable:
+        '''Creates an ICellsDataTable from a given sequence of objects.
         :param vals: objects to build table
         :param hasHeader: Indicates whether the first row is header row.
         :param columnNames: Column names of the table.
@@ -5723,7 +5747,7 @@ class CellsDataTableFactory:
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[Object], vertial : bool) -> ICellsDataTable:
+    def getInstance(self, vals : list[Any], vertial : bool) -> ICellsDataTable:
         '''Creates ICellsDataTable from given sequence of objects.
         :param vals: objects to build table
         :param vertial: whether build table by the objects vertiacally(true) or horizontally(false)
@@ -5732,21 +5756,21 @@ class CellsDataTableFactory:
 
     @overload
     def getInstance(self, vals : list[list[int]]) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given 2D array.
+        '''Creates ICellsDataTable from a given 2D array.
         :param vals: int values to build table
         :returns: Instance of ICellsDataTable'''
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[list[int]]) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given 2D array.
+    def getInstance(self, vals : list[list[float]]) -> ICellsDataTable:
+        '''Creates ICellsDataTable from a given 2D array.
         :param vals: double values to build table
         :returns: Instance of ICellsDataTable'''
         raise NotImplementedError()
 
     @overload
-    def getInstance(self, vals : list[list[Object]]) -> ICellsDataTable:
-        '''Creates ICellsDataTable from given 2D array.
+    def getInstance(self, vals : list[list[Any]]) -> ICellsDataTable:
+        '''Creates ICellsDataTable from a given 2D array.
         :param vals: objects to build table
         :returns: Instance of ICellsDataTable'''
         raise NotImplementedError()
@@ -5781,7 +5805,7 @@ class CellsException:
 
 
 class CellsFactory:
-    '''Utility for instantiating classes of Cells model.'''
+    '''Utility for instantiating classes of the Cells model.'''
 
     def createStyle(self) -> Style:
         '''Creates a new style.'''
@@ -5791,7 +5815,7 @@ class CellsFactory:
 class CellsHelper:
     '''Provides helper functions.'''
 
-    def setDPI(self, value : int) -> None:
+    def setDPI(self, value : float) -> None:
         '''Gets the DPI of the machine.
         :param value: '''
         raise NotImplementedError()
@@ -5804,6 +5828,12 @@ class CellsHelper:
         '''Gets the startup path, which is referred to by some external formula references.'''
         raise NotImplementedError()
 
+    def getSignificantDigitsType(self) -> int:
+        '''Gets the default type of significant digits for outputing numeric values.
+        Default value is :attr:`SignificantDigitsType.G_17`.
+        See :meth:`WorkbookSettings.getSignificantDigitsType()`'''
+        raise NotImplementedError()
+
     def setAltStartPath(self, value : str) -> None:
         '''Sets the alternate startup path, which is referred to by some external formula references.
         :param value: '''
@@ -5814,8 +5844,13 @@ class CellsHelper:
         raise NotImplementedError()
 
     def setSignificantDigits(self, value : int) -> None:
-        '''Sets the number of significant digits.
-        The default value is 17.
+        ''':deprecated: Use SignificantDigitsType property instead.'''
+        raise NotImplementedError()
+
+    def setSignificantDigitsType(self, value : int) -> None:
+        '''Sets the default type of significant digits for outputing numeric values.
+        Default value is :attr:`SignificantDigitsType.G_17`.
+        See :meth:`WorkbookSettings.getSignificantDigitsType()`
         :param value: '''
         raise NotImplementedError()
 
@@ -5876,7 +5911,7 @@ class CellsHelper:
         :returns: Row index.'''
         raise NotImplementedError()
 
-    def getTextWidth(self, text : str, font : Font, scaling : int) -> int:
+    def getTextWidth(self, text : str, font : Font, scaling : float) -> float:
         '''Get width of text in unit of points.
         :param text: The text.
         :param font: The font of the text.
@@ -5891,17 +5926,17 @@ class CellsHelper:
         '''Please set this property True when running on a cloud platform, such as: Azure, AWSLambda, etc,'''
         raise NotImplementedError()
 
-    def getDPI(self) -> int:
-        '''Gets the DPI of the machine.'''
-        raise NotImplementedError()
-
-    def getDoubleFromDateTime(self, dateTime : DateTime, date1904 : bool) -> int:
+    def getDoubleFromDateTime(self, dateTime : DateTime, date1904 : bool) -> float:
         '''Convert the date time to double value.
         :param dateTime: The date time.
         :param date1904: Date 1904 system.'''
         raise NotImplementedError()
 
-    def getDateTimeFromDouble(self, doubleValue : int, date1904 : bool) -> DateTime:
+    def getDPI(self) -> float:
+        '''Gets the DPI of the machine.'''
+        raise NotImplementedError()
+
+    def getDateTimeFromDouble(self, doubleValue : float, date1904 : bool) -> DateTime:
         '''Convert the double value to the date time value.
         :param doubleValue: The double value.
         :param date1904: Date 1904 system.'''
@@ -5956,8 +5991,7 @@ class CellsHelper:
         raise NotImplementedError()
 
     def getSignificantDigits(self) -> int:
-        '''Gets the number of significant digits.
-        The default value is 17.'''
+        ''':deprecated: Use SignificantDigitsType property instead.'''
         raise NotImplementedError()
 
     def needQuoteInFormula(self, sheetName : str) -> bool:
@@ -5997,11 +6031,11 @@ class CellsUnitType:
 class CellValue:
     '''Represents the cell value and corresponding type.'''
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the cell value.'''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the cell value.
         :param value: '''
         raise NotImplementedError()
@@ -6110,7 +6144,7 @@ class CellWatchCollection:
 
     @overload
     def add(self, row : int, column : int) -> int:
-        '''Adds :class:`CellWatch` with row and column.
+        '''Adds :class:`CellWatch` with a row and a column.
         :param row: The row index.
         :param column: The column index.
         :returns: Returns the position of this item in the collection.'''
@@ -6118,7 +6152,7 @@ class CellWatchCollection:
 
     @overload
     def add(self, cellName : str) -> int:
-        '''Adds :class:`CellWatch` with the name the of cell.
+        '''Adds :class:`CellWatch` with the name of the cell.
         :param cellName: The name of the cell.'''
         raise NotImplementedError()
 
@@ -6498,12 +6532,12 @@ class Chart:
         '''Gets the chart's Y axis.'''
         raise NotImplementedError()
 
-    def move(self, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int) -> None:
+    def move(self, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int) -> None:
         '''Moves the chart to a specified location.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index'''
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index'''
         raise NotImplementedError()
 
     def getPivotSource(self) -> str:
@@ -6652,12 +6686,12 @@ class Chart:
 class ChartArea:
     '''Encapsulates the object that represents the chart area in the worksheet.'''
 
-    def setWidthRatioToChart(self, value : int) -> None:
+    def setWidthRatioToChart(self, value : float) -> None:
         '''Sets the horizontal offset from its lower right corner column, in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
-    def getHeightRatioToChart(self) -> int:
+    def getHeightRatioToChart(self) -> float:
         '''Gets the vertical offset from its lower right corner row, in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -6665,11 +6699,11 @@ class ChartArea:
         '''Gets a :meth:`ChartArea.getFont()` object of the specified chartarea object.'''
         raise NotImplementedError()
 
-    def getXRatioToChart(self) -> int:
+    def getXRatioToChart(self) -> float:
         '''Gets or gets the horizontal offset from its upper left corner column, in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def setYRatioToChart(self, value : int) -> None:
+    def setYRatioToChart(self, value : float) -> None:
         '''Gets or gets the vertical offset from its upper left corner row, in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -6682,7 +6716,7 @@ class ChartArea:
         ''':deprecated: Use ChartArea.WidthRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def getYRatioToChart(self) -> int:
+    def getYRatioToChart(self) -> float:
         '''Gets or gets the vertical offset from its upper left corner row, in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -6702,7 +6736,7 @@ class ChartArea:
         ''':deprecated: Use ChartArea.XRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def setHeightRatioToChart(self, value : int) -> None:
+    def setHeightRatioToChart(self, value : float) -> None:
         '''Sets the vertical offset from its lower right corner row, in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -6715,11 +6749,11 @@ class ChartArea:
         ''':deprecated: Use ChartArea.XRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def getWidthRatioToChart(self) -> int:
+    def getWidthRatioToChart(self) -> float:
         '''Gets the horizontal offset from its lower right corner column, in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def setXRatioToChart(self, value : int) -> None:
+    def setXRatioToChart(self, value : float) -> None:
         '''Gets or gets the horizontal offset from its upper left corner column, in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -6784,13 +6818,13 @@ class ChartCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, type : int, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int) -> int:
+    def add(self, type : int, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int) -> int:
         '''Adds a chart to the collection.
         :param type: :class:`ChartType`. Chart type
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index
         :returns: :class:`Chart` object index.'''
         raise NotImplementedError()
 
@@ -6963,18 +6997,47 @@ class ChartDataTable:
         raise NotImplementedError()
 
 
+class ChartDataValue:
+    '''Encapsulates chart data value'''
+
+    def getStringValue(self) -> str:
+        '''Gets the string value of the chart data.'''
+        raise NotImplementedError()
+
+    def getDateTimeValue(self) -> DateTime:
+        '''Gets the DateTime value of the chart data.'''
+        raise NotImplementedError()
+
+    def getIntValue(self) -> int:
+        '''Gets the Int value of the chart data.'''
+        raise NotImplementedError()
+
+    def getValueType(self) -> int:
+        '''Gets the value type of the chart data.
+        See :class:`CellValueType`'''
+        raise NotImplementedError()
+
+    def getBoolValue(self) -> bool:
+        '''Gets the boolean value of the chart data.'''
+        raise NotImplementedError()
+
+    def getDoubleValue(self) -> float:
+        '''Gets the double value of the chart data.'''
+        raise NotImplementedError()
+
+
 class ChartFrame:
     '''Encapsulates the object that represents the frame object in a chart.'''
 
-    def getYRatioToChart(self) -> int:
+    def getYRatioToChart(self) -> float:
         '''Gets the y coordinate of the upper left corner in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def getWidthRatioToChart(self) -> int:
+    def getWidthRatioToChart(self) -> float:
         '''Gets the width of frame in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def getDefaultWidthRatioToChart(self) -> int:
+    def getDefaultWidthRatioToChart(self) -> float:
         '''Represents width of default position in units of Fraction of the chart area.'''
         raise NotImplementedError()
 
@@ -6982,7 +7045,7 @@ class ChartFrame:
         '''Gets the width of frame in units of Pixel.'''
         raise NotImplementedError()
 
-    def getDefaultXRatioToChart(self) -> int:
+    def getDefaultXRatioToChart(self) -> float:
         '''Represents x of default position in units of Fraction of the chart area.'''
         raise NotImplementedError()
 
@@ -7022,7 +7085,7 @@ class ChartFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def getDefaultHeightRatioToChart(self) -> int:
+    def getDefaultHeightRatioToChart(self) -> float:
         '''Represents height of default position in units of Fraction of the chart area.'''
         raise NotImplementedError()
 
@@ -7030,7 +7093,7 @@ class ChartFrame:
         ''':deprecated: Use ChartFrame.DefaultWidthRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def getXRatioToChart(self) -> int:
+    def getXRatioToChart(self) -> float:
         '''Gets the x coordinate of the upper left corner in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -7057,7 +7120,7 @@ class ChartFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def setHeightRatioToChart(self, value : int) -> None:
+    def setHeightRatioToChart(self, value : float) -> None:
         '''Sets the height of frame in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -7067,7 +7130,7 @@ class ChartFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def setYRatioToChart(self, value : int) -> None:
+    def setYRatioToChart(self, value : float) -> None:
         '''Sets the y coordinate of the upper left corner in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -7089,7 +7152,7 @@ class ChartFrame:
         '''Gets the options of the text.'''
         raise NotImplementedError()
 
-    def setWidthRatioToChart(self, value : int) -> None:
+    def setWidthRatioToChart(self, value : float) -> None:
         '''Sets the width of frame in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -7128,7 +7191,7 @@ class ChartFrame:
         ''':deprecated: Use ChartFrame.BackgroundMode property instead.'''
         raise NotImplementedError()
 
-    def getDefaultYRatioToChart(self) -> int:
+    def getDefaultYRatioToChart(self) -> float:
         '''Represents y of default position in units of Fraction of the chart area.'''
         raise NotImplementedError()
 
@@ -7158,7 +7221,7 @@ class ChartFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def setXRatioToChart(self, value : int) -> None:
+    def setXRatioToChart(self, value : float) -> None:
         '''Sets the x coordinate of the upper left corner in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -7171,7 +7234,7 @@ class ChartFrame:
         '''Indicates whether the chart frame is automatic sized.'''
         raise NotImplementedError()
 
-    def getHeightRatioToChart(self) -> int:
+    def getHeightRatioToChart(self) -> float:
         '''Gets the height of frame in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -7296,7 +7359,7 @@ class ChartPoint:
         '''Gets the height in units of pixels after calls Chart.Calculate() method.'''
         raise NotImplementedError()
 
-    def getXValue(self) -> Object:
+    def getXValue(self) -> Any:
         '''Gets the X value of the chart point.'''
         raise NotImplementedError()
 
@@ -7322,7 +7385,7 @@ class ChartPoint:
         '''Gets the height in units of 1/4000 of chart's height after calls Chart.Calculate() method.'''
         raise NotImplementedError()
 
-    def setXValue(self, value : Object) -> None:
+    def setXValue(self, value : Any) -> None:
         '''Sets the X value of the chart point.
         :param value: '''
         raise NotImplementedError()
@@ -7411,7 +7474,7 @@ class ChartPoint:
         '''Gets the :meth:`Series.getMarker()`.'''
         raise NotImplementedError()
 
-    def getYValue(self) -> Object:
+    def getYValue(self) -> Any:
         '''Gets the Y value of the chart point.'''
         raise NotImplementedError()
 
@@ -7443,7 +7506,7 @@ class ChartPoint:
         See :class:`CellValueType`'''
         raise NotImplementedError()
 
-    def setYValue(self, value : Object) -> None:
+    def setYValue(self, value : Any) -> None:
         '''Sets the Y value of the chart point.
         :param value: '''
         raise NotImplementedError()
@@ -7977,9 +8040,6 @@ class ChartType:
     MAP : ChartType
     '''The series is laid out as a region map.'''
 
-    RADIAL_HISTOGRAM : ChartType
-    '''The series is laid out as a radial historgram. It is used only for rendering'''
-
 
 class CheckBox:
     '''Represents a check box object in a worksheet.'''
@@ -8138,10 +8198,10 @@ class CheckBoxCollection:
         :returns: The element at the specified index.'''
         raise NotImplementedError()
 
-    def add(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int) -> int:
+    def add(self, topRow : int, leftColumn : int, height : int, width : int) -> int:
         '''Adds a checkBox to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: Height of checkBox, in unit of pixel.
         :param width: Width of checkBox, in unit of pixel.
         :returns: :class:`CheckBox` object index.'''
@@ -8177,19 +8237,19 @@ class CollectionBase:
         '''Gets the number of elements contained in the CollectionBase instance.'''
         raise NotImplementedError()
 
-    def get(self, index : int) -> Object:
+    def get(self, index : int) -> Any:
         '''Get an item at specified position.
         :param index: Specified position index.
         :returns: The item at specified position.'''
         raise NotImplementedError()
 
-    def contains(self, o : Object) -> bool:
+    def contains(self, o : Any) -> bool:
         '''Return whether instance contains this object
         :param o: test object
         :returns: Whether instance contains this object'''
         raise NotImplementedError()
 
-    def indexOf(self, o : Object) -> int:
+    def indexOf(self, o : Any) -> int:
         '''Determines the index of a specific item in the CollectionBase instance.
         :param o: Determines the index of a specific item in the CollectionBase instance.
         :returns: The index of value if found in the list; otherwise, -1.'''
@@ -8199,7 +8259,7 @@ class CollectionBase:
         '''Returns an enumerator that iterates through the CollectionBase instance.'''
         raise NotImplementedError()
 
-    def add(self, o : Object) -> int:
+    def add(self, o : Any) -> int:
         '''Adds an item to the CollectionBase instance.
         :param o: The Object to add to the CollectionBase instance.
         :returns: The position into which the new element was inserted.'''
@@ -8273,7 +8333,7 @@ class Color:
         '''Get a system-defined color.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Tests whether the specified object is a Color object and is equivalent to this object.
         :param obj: The object to test.
         :returns: true if obj is a Color object and equivalent to this Color object; otherwise, false.'''
@@ -8865,7 +8925,7 @@ class ColorDepth:
 
 
 class ColorFilter:
-    '''Represents filtering the range by color.'''
+    '''Represents setting for filtering the range by color.'''
 
     def getFilterByFillColor(self) -> bool:
         '''Whether filter by the cell's fill color.'''
@@ -9004,7 +9064,7 @@ class Column:
         :param style: the style to be used as the default style for cells in this column.'''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         '''Sets the column width in unit of characters.
         :param value: '''
         raise NotImplementedError()
@@ -9018,7 +9078,7 @@ class Column:
         '''Gets the style of this column.'''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the column width in unit of characters.'''
         raise NotImplementedError()
 
@@ -9158,7 +9218,7 @@ class ComboBoxActiveXControl:
         :param value: '''
         raise NotImplementedError()
 
-    def getListWidth(self) -> int:
+    def getListWidth(self) -> float:
         '''Gets the width in unit of points.'''
         raise NotImplementedError()
 
@@ -9171,7 +9231,7 @@ class ComboBoxActiveXControl:
         when the MultiSelect properties value (fmMultiSelectSingle).'''
         raise NotImplementedError()
 
-    def getColumnWidths(self) -> int:
+    def getColumnWidths(self) -> float:
         '''Gets the width of the column.'''
         raise NotImplementedError()
 
@@ -9248,7 +9308,7 @@ class ComboBoxActiveXControl:
         :param value: '''
         raise NotImplementedError()
 
-    def setColumnWidths(self, value : int) -> None:
+    def setColumnWidths(self, value : float) -> None:
         '''Sets the width of the column.
         :param value: '''
         raise NotImplementedError()
@@ -9275,7 +9335,7 @@ class ComboBoxActiveXControl:
         '''Represents the column in a ComboBox or ListBox to display to the user.'''
         raise NotImplementedError()
 
-    def setListWidth(self, value : int) -> None:
+    def setListWidth(self, value : float) -> None:
         '''Sets the width in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -9399,7 +9459,7 @@ class CommandButtonActiveXControl:
 class Comment:
     '''Encapsulates the object that represents a cell comment.'''
 
-    def setHeightCM(self, value : int) -> None:
+    def setHeightCM(self, value : float) -> None:
         '''Represents the height of the comment, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -9462,11 +9522,11 @@ class Comment:
         :param value: '''
         raise NotImplementedError()
 
-    def getWidthInch(self) -> int:
+    def getWidthInch(self) -> float:
         '''Represents the width of the comment, in unit of inches.'''
         raise NotImplementedError()
 
-    def getWidthCM(self) -> int:
+    def getWidthCM(self) -> float:
         '''Represents the width of the comment, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -9475,7 +9535,7 @@ class Comment:
         See :class:`TextOrientationType`'''
         raise NotImplementedError()
 
-    def getHeightInch(self) -> int:
+    def getHeightInch(self) -> float:
         '''Represents the height of the comment, in unit of inches.'''
         raise NotImplementedError()
 
@@ -9516,11 +9576,11 @@ class Comment:
         '''Get a Shape object that represents the shape attached to the specified comment.'''
         raise NotImplementedError()
 
-    def getHeightCM(self) -> int:
+    def getHeightCM(self) -> float:
         '''Represents the height of the comment, in unit of centimeters.'''
         raise NotImplementedError()
 
-    def getCharacters(self) -> list[list[Any]]:
+    def getCharacters(self) -> list[Any]:
         ''':deprecated: Use Comment.GetRichFormattings() instead.'''
         raise NotImplementedError()
 
@@ -9528,7 +9588,7 @@ class Comment:
         '''Represents the content of comment.'''
         raise NotImplementedError()
 
-    def setHeightInch(self, value : int) -> None:
+    def setHeightInch(self, value : float) -> None:
         '''Represents the height of the comment, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -9548,7 +9608,7 @@ class Comment:
         :param value: '''
         raise NotImplementedError()
 
-    def setWidthInch(self, value : int) -> None:
+    def setWidthInch(self, value : float) -> None:
         '''Represents the width of the comment, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -9563,7 +9623,7 @@ class Comment:
         '''Represents the width of the comment, in unit of pixels.'''
         raise NotImplementedError()
 
-    def setWidthCM(self, value : int) -> None:
+    def setWidthCM(self, value : float) -> None:
         '''Represents the width of the comment, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -9783,8 +9843,7 @@ class ConditionalFormattingIconCollection:
 
     @overload
     def add(self, cficon : ConditionalFormattingIcon) -> int:
-        '''Adds :class:`ConditionalFormattingIcon` object.
-        :param cficon: Returns the index of new object in the list.'''
+        ''':deprecated: Use ConditionalFormattingIconCollection.Add(IconSetType, int) method instead.'''
         raise NotImplementedError()
 
 
@@ -9823,7 +9882,7 @@ class ConditionalFormattingValue:
         Default value is true.'''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the value of this conditional formatting value object.
         It should be used in conjunction with Type.'''
         raise NotImplementedError()
@@ -9844,7 +9903,7 @@ class ConditionalFormattingValue:
         See :class:`FormatConditionValueType`'''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the value of this conditional formatting value object.
         It should be used in conjunction with Type.
         :param value: '''
@@ -9945,13 +10004,13 @@ class ConnectionParameter:
         :param value: '''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Non-integer numeric value,Integer value,String value or Boolean value
         to use as the query parameter. Used only when parameterType is value.
         :param value: '''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Non-integer numeric value,Integer value,String value or Boolean value
         to use as the query parameter. Used only when parameterType is value.'''
         raise NotImplementedError()
@@ -10452,7 +10511,7 @@ class ConversionUtility:
 
 
 class CopyFormatType:
-    '''Represents type of copying format when inserting rows.'''
+    '''Represents the type of copying format when inserting rows.'''
 
     SAME_AS_ABOVE : CopyFormatType
     '''Formats same as above row.'''
@@ -10733,11 +10792,13 @@ class CustomDocumentPropertyCollection:
     '''A collection of custom document properties.'''
 
     def updateLinkedPropertyValue(self) -> None:
-        '''Update custom document property value which links to content.'''
+        '''Updates values of all custom properties that are linked to content(use
+        cell value of linked range to update value of custom property).'''
         raise NotImplementedError()
 
     def updateLinkedRange(self) -> None:
-        '''Update custom document property value to linked range.'''
+        '''Updates all ranges that are linked to custom properties(use the value of
+        custom document property to update cell value of linked range).'''
         raise NotImplementedError()
 
     def addLinkToContent(self, name : str, source : str) -> DocumentProperty:
@@ -10780,7 +10841,7 @@ class CustomDocumentPropertyCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, name : str, value : int) -> DocumentProperty:
+    def add(self, name : str, value : float) -> DocumentProperty:
         '''Creates a new custom document property of the <b>PropertyType.Float</b> data type.
         :param name: The name of the property.
         :param value: The value of the property.
@@ -10792,13 +10853,13 @@ class CustomFilter:
     '''Represents the custom filter.'''
 
     @overload
-    def setCriteria(self, value : Object) -> None:
+    def setCriteria(self, value : Any) -> None:
         '''Sets the criteria.
         :param value: '''
         raise NotImplementedError()
 
     @overload
-    def setCriteria(self, filterOperator : int, criteria : Object) -> None:
+    def setCriteria(self, filterOperator : int, criteria : Any) -> None:
         '''Sets the filter criteria.
         :param filterOperator: :class:`FilterOperatorType`. filter operator type
         :param criteria: filter criteria value'''
@@ -10810,7 +10871,7 @@ class CustomFilter:
         :param value: '''
         raise NotImplementedError()
 
-    def getCriteria(self) -> Object:
+    def getCriteria(self) -> Any:
         '''Gets the criteria.'''
         raise NotImplementedError()
 
@@ -10857,7 +10918,7 @@ class CustomGeometry:
 
 
 class CustomImplementationFactory:
-    '''Factory to create some instances which may be re-implemented by user for special purpose.'''
+    '''Factory to create some instances which may be re-implemented by the user for a special purpose.'''
 
     def createRandomInstance(self) -> Random:
         '''Create one instance of random number generator.'''
@@ -10869,7 +10930,11 @@ class CustomPiovtFieldGroupItem:
 
 
 class CustomProperty:
-    '''Represents identifier information.'''
+    '''Represents a custom property which store name and value pairs of arbitrary user-defined data for worksheet.'''
+
+    def getBinaryValue(self) -> list[int]:
+        '''Gets the binary value of the custom property.'''
+        raise NotImplementedError()
 
     def getStringValue(self) -> str:
         ''':deprecated: Use CustomProperty.Value property instead.'''
@@ -10877,6 +10942,11 @@ class CustomProperty:
 
     def getValue(self) -> str:
         '''Returns or sets the value of the custom property.'''
+        raise NotImplementedError()
+
+    def setBinaryValue(self, value : list[int]) -> None:
+        '''Sets the binary value of the custom property.
+        :param value: '''
         raise NotImplementedError()
 
     def setStringValue(self, value : str) -> None:
@@ -11168,6 +11238,16 @@ class DataBarNegativeColorType:
 
     SAME_AS_POSITIVE : DataBarNegativeColorType
     '''Use the same color as positive data bars.'''
+
+
+class DataBarRenderMode:
+    '''Represents the DataBar render mode.'''
+
+    BACKGROUND_COLOR : DataBarRenderMode
+    '''Renders the DataBar using background color.'''
+
+    IMAGE : DataBarRenderMode
+    '''Renders the DataBar as image.'''
 
 
 class DataLabels:
@@ -11716,7 +11796,7 @@ class DataSorter:
         raise NotImplementedError()
 
     @overload
-    def addKey(self, key : int, type : int, order : int, customList : Object) -> None:
+    def addKey(self, key : int, type : int, order : int, customList : Any) -> None:
         '''Adds sorted column index and sort order with custom sort list.
         :param key: The sorted column index(absolute position, column A is 0, B is 1, ...)
         :param type: :class:`SortOnType`. The sorted value type.
@@ -11812,7 +11892,7 @@ class DateTime:
         '''Gets the milliseconds component of the date represented by this instance.'''
         raise NotImplementedError()
 
-    def addDays(self, value : int) -> DateTime:
+    def addDays(self, value : float) -> DateTime:
         '''Adds the specified number of days to the value of this instance.
         :param value: A number of whole and fractional days. The value parameter can be negative or positive.
         :returns: A DateTime object whose value is the sum of the date and time represented by this instance and the number of days represented by value.'''
@@ -11826,7 +11906,7 @@ class DateTime:
         '''Gets the month component of the date represented by this instance.'''
         raise NotImplementedError()
 
-    def equals(self, value : Object) -> bool:
+    def equals(self, value : Any) -> bool:
         '''Returns a value indicating whether this instance is equal to a specified object.
         :param value: An object to compare to this instance.
         :returns: true if value is an instance of DateTime and equals the value of this instance; otherwise, false.'''
@@ -11840,7 +11920,7 @@ class DateTime:
         '''Gets a DateTime object that is set to the current date and time on this computer, expressed as the local time.'''
         raise NotImplementedError()
 
-    def addMilliseconds(self, value : int) -> DateTime:
+    def addMilliseconds(self, value : float) -> DateTime:
         '''Adds the specified number of milliseconds to the value of this instance.
         :param value: A number of whole and fractional milliseconds. The value parameter can be negative or positive. Note that this value is rounded to the nearest integer.
         :returns: A DateTime object whose value is the sum of the date and time represented by this instance and the number of milliseconds represented by value.'''
@@ -11857,7 +11937,7 @@ class DateTime:
         raise NotImplementedError()
 
     @overload
-    def compareTo(self, value : Object) -> int:
+    def compareTo(self, value : Any) -> int:
         '''Compares the value of this instance to a specified object that contains a
         specified DateTime value, and returns an integer that indicates whether
         this instance is earlier than, the same as, or later than the specified DateTime value.
@@ -11886,13 +11966,13 @@ class DateTime:
         '''Returns the hash code for this instance.'''
         raise NotImplementedError()
 
-    def addHours(self, value : int) -> DateTime:
+    def addHours(self, value : float) -> DateTime:
         '''Adds the specified number of hours to the value of this instance.
         :param value: A number of whole and fractional hours. The value parameter can be negative or positive.
         :returns: A DateTime object whose value is the sum of the date and time represented by this instance and the number of hours represented by value.'''
         raise NotImplementedError()
 
-    def addSeconds(self, value : int) -> DateTime:
+    def addSeconds(self, value : float) -> DateTime:
         '''Adds the specified number of seconds to the value of this instance.
         :param value: A number of whole and fractional seconds. The value parameter can be negative or positive.
         :returns: A DateTime object whose value is the sum of the date and time represented by this instance and the number of seconds represented by value.'''
@@ -11928,7 +12008,7 @@ class DateTime:
         '''Converts the value of the current DateTime object to Coordinated Universal Time(UTC).'''
         raise NotImplementedError()
 
-    def addMinutes(self, value : int) -> DateTime:
+    def addMinutes(self, value : float) -> DateTime:
         '''Adds the specified number of minutes to the value of this instance.
         :param value: A number of whole and fractional minutes. The value parameter can be negative or positive.
         :returns: A DateTime object whose value is the sum of the date and time represented by this instance and the number of minutes represented by value.'''
@@ -12144,7 +12224,7 @@ class DefaultEditLanguage:
     '''Represents English language.'''
 
     CJK : DefaultEditLanguage
-    '''Represents Chinese, Japanese, Korean language.'''
+    '''Represents Chinese, Japanese, and Korean languages.'''
 
 
 class DefaultStyleSettings:
@@ -12172,7 +12252,7 @@ class DefaultStyleSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setFontSize(self, value : int) -> None:
+    def setFontSize(self, value : float) -> None:
         '''Sets the default standard font size for the workbook.
         :param value: '''
         raise NotImplementedError()
@@ -12182,7 +12262,7 @@ class DefaultStyleSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getFontSize(self) -> int:
+    def getFontSize(self) -> float:
         '''Gets the default standard font size for the workbook.'''
         raise NotImplementedError()
 
@@ -12217,38 +12297,38 @@ class DeleteBlankOptions:
         raise NotImplementedError()
 
     def getEmptyStringAsBlank(self) -> bool:
-        '''Whether one cell will be taken as blank when its value is empty string.
+        '''Indicates whether one cell will be taken as blank when its value is an empty string.
         Default value is true.'''
         raise NotImplementedError()
 
     def setEmptyFormulaValueAsBlank(self, value : bool) -> None:
-        '''Whether one cell will be taken as blank when it is formula and the calculated result is null or empty string.
+        '''Whether one cell will be taken as blank when it is a formula and the calculated result is null or empty string.
         Default value is false.
         :param value: '''
         raise NotImplementedError()
 
     def getStartIndex(self) -> int:
-        '''Specifies the start row/column index of the range to check and delete blank rows/columns.'''
+        '''Specifies the start row/column index of the range to check and delete blank row/column.'''
         raise NotImplementedError()
 
     def setDrawingsAsBlank(self, value : bool) -> None:
-        '''Whether drawing related objects such as picture, shape, chart... will be taken as blank.
+        '''Indicates whether drawing related objects such as picture, shape, chart... will be taken as blank.
         Default value is true.
         :param value: '''
         raise NotImplementedError()
 
     def getDrawingsAsBlank(self) -> bool:
-        '''Whether drawing related objects such as picture, shape, chart... will be taken as blank.
+        '''Indicates whether drawing related objects such as picture, shape, chart... will be taken as blank.
         Default value is true.'''
         raise NotImplementedError()
 
     def setStartIndex(self, value : int) -> None:
-        '''Specifies the start row/column index of the range to check and delete blank rows/columns.
+        '''Specifies the start row/column index of the range to check and delete blank row/column.
         :param value: '''
         raise NotImplementedError()
 
     def getEmptyFormulaValueAsBlank(self) -> bool:
-        '''Whether one cell will be taken as blank when it is formula and the calculated result is null or empty string.
+        '''Whether one cell will be taken as blank when it is a formula and the calculated result is null or empty string.
         Default value is false.'''
         raise NotImplementedError()
 
@@ -12259,7 +12339,7 @@ class DeleteBlankOptions:
         raise NotImplementedError()
 
     def setEmptyStringAsBlank(self, value : bool) -> None:
-        '''Whether one cell will be taken as blank when its value is empty string.
+        '''Indicates whether one cell will be taken as blank when its value is an empty string.
         Default value is true.
         :param value: '''
         raise NotImplementedError()
@@ -12301,17 +12381,17 @@ class DelimiterEquationNode:
         raise NotImplementedError()
 
     def setNaryGrow(self, value : bool) -> None:
-        '''
+        '''Specifies whether the delimiter should automatically expand and contract with the height of the formula.
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
 
     def getNaryGrow(self) -> bool:
-        ''''''
+        '''Specifies whether the delimiter should automatically expand and contract with the height of the formula.'''
         raise NotImplementedError()
 
     def getDelimiterShape(self) -> int:
@@ -12583,16 +12663,16 @@ class DocumentProperty:
         '''Returns the property value as a string.'''
         raise NotImplementedError()
 
-    def toDouble(self) -> int:
+    def toDouble(self) -> float:
         '''Returns the property value as double.'''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the value of the property.
         :param value: '''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the value of the property.'''
         raise NotImplementedError()
 
@@ -12824,31 +12904,31 @@ class DxfCollection:
 class DynamicFilter:
     '''Represents the dynamic filter.'''
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the dynamic filter value.'''
         raise NotImplementedError()
 
-    def getMaxValue(self) -> Object:
+    def getMaxValue(self) -> Any:
         '''Gets the dynamic filter max value.'''
         raise NotImplementedError()
 
     def getDynamicFilterType(self) -> int:
-        '''Gets the dynamic filter type.
+        '''Gets the type of this dynamic filter.
         See :class:`DynamicFilterType`'''
         raise NotImplementedError()
 
     def setDynamicFilterType(self, value : int) -> None:
-        '''Sets the dynamic filter type.
+        '''Sets the type of this dynamic filter.
         See :class:`DynamicFilterType`
         :param value: '''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the dynamic filter value.
         :param value: '''
         raise NotImplementedError()
 
-    def setMaxValue(self, value : Object) -> None:
+    def setMaxValue(self, value : Any) -> None:
         '''Sets the dynamic filter max value.
         :param value: '''
         raise NotImplementedError()
@@ -12989,7 +13069,7 @@ class Encoding:
         raise NotImplementedError()
 
     @overload
-    def equals(self, o : Object) -> bool:
+    def equals(self, o : Any) -> bool:
         '''Determines whether the specified Object is equal to the current instance.
         :param o: The Object to compare with the current instance.
         :returns: true if value is an instance of Encoding and is equal to the current instance; otherwise, false.'''
@@ -13185,7 +13265,7 @@ class EquationComponentNode:
     For example, a fraction consists of two parts, a numerator component and a denominator component.
     For more component types, please refer to 'EquationNodeType'.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -13363,7 +13443,7 @@ class EquationNode:
         See :class:`EquationNodeType`'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -13471,7 +13551,7 @@ class EquationNodeParagraph:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -13646,7 +13726,7 @@ class ErrorBar:
         '''Represents positive error amount when error bar type is Custom.'''
         raise NotImplementedError()
 
-    def getAmount(self) -> int:
+    def getAmount(self) -> float:
         '''Represents amount of error bar.'''
         raise NotImplementedError()
 
@@ -13666,7 +13746,7 @@ class ErrorBar:
         '''Represents negative error amount when error bar type is Custom.'''
         raise NotImplementedError()
 
-    def setAmount(self, value : int) -> None:
+    def setAmount(self, value : float) -> None:
         '''Represents amount of error bar.
         :param value: '''
         raise NotImplementedError()
@@ -13963,7 +14043,7 @@ class ExceptionType:
 class ExportObjectEvent:
     '''The event triggered when exporting an object, such as Picture.'''
 
-    def getSource(self) -> Object:
+    def getSource(self) -> Any:
         '''Gets the object to be exported.'''
         raise NotImplementedError()
 
@@ -14980,7 +15060,7 @@ class Fill:
         '''Gets the hash code.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''/
         :param obj: '''
         raise NotImplementedError()
@@ -15007,7 +15087,7 @@ class FillFormat:
         ''':deprecated: Use FillFormat.FillType instead.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -15035,12 +15115,12 @@ class FillFormat:
         '''Gets :meth:`FillFormat.getGradientFill()` object.'''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
 
-    def setOneColorGradient(self, color : Color, degree : int, style : int, variant : int) -> None:
+    def setOneColorGradient(self, color : Color, degree : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a one-color gradient.
         Only applies for Excel 2007.
         :param color: One gradient color.
@@ -15049,12 +15129,12 @@ class FillFormat:
         :param variant: The gradient variant. Can be a value from 1 through 4, corresponding to one of the four variants on the Gradient tab in the Fill Effects dialog box. If style is GradientStyle.FromCenter, the Variant argument can only be 1 or 2.'''
         raise NotImplementedError()
 
-    def setScale(self, value : int) -> None:
+    def setScale(self, value : float) -> None:
         '''Sets the picture format scale.
         :param value: '''
         raise NotImplementedError()
 
-    def getScale(self) -> int:
+    def getScale(self) -> float:
         '''Gets the picture format scale.'''
         raise NotImplementedError()
 
@@ -15074,7 +15154,7 @@ class FillFormat:
         raise NotImplementedError()
 
     @overload
-    def setTwoColorGradient(self, color1 : Color, transparency1 : int, color2 : Color, transparency2 : int, style : int, variant : int) -> None:
+    def setTwoColorGradient(self, color1 : Color, transparency1 : float, color2 : Color, transparency2 : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a two-color gradient.
         Only applies for Excel 2007.
         :param color1: One gradient color.
@@ -15089,7 +15169,7 @@ class FillFormat:
         ''':deprecated: Use FillFormat.FillType  instead.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''
         :param obj: '''
         raise NotImplementedError()
@@ -15116,7 +15196,7 @@ class FillFormat:
         '''Gets :meth:`FillFormat.getTextureFill()` object.'''
         raise NotImplementedError()
 
-    def getGradientDegree(self) -> int:
+    def getGradientDegree(self) -> float:
         '''Returns the gradient degree for the specified fill.
         Only applies for Excel 2007.'''
         raise NotImplementedError()
@@ -15389,36 +15469,14 @@ class FilterCategory:
 
 
 class FilterColumn:
-    '''Represents a filter for a single column. The Filter object is a member of the Filters collection'''
+    '''Represents a filter for a single column.'''
 
-    def setFieldIndex(self, value : int) -> None:
-        '''Sets the column offset in the range.
-        :param value: '''
+    def getTop10Filter(self) -> Top10Filter:
+        '''Gets :class:`Top10Filter` for filtering data by rank of data.'''
         raise NotImplementedError()
 
-    def getFilterType(self) -> int:
-        '''Gets the type fo filtering data.
-        See :class:`FilterType`'''
-        raise NotImplementedError()
-
-    def getFilter(self) -> Object:
-        '''Gets the condition of filtering data.'''
-        raise NotImplementedError()
-
-    def setDropdownVisible(self, value : bool) -> None:
-        '''Indicates whether the AutoFilter button for this column is visible.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setFilterType(self, value : int) -> None:
-        '''Sets the type fo filtering data.
-        See :class:`FilterType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setFilter(self, value : Object) -> None:
-        '''Sets the condition of filtering data.
-        :param value: '''
+    def getDynamicFilter(self) -> DynamicFilter:
+        '''Gets :class:`DynamicFilter` for filtering with dynamic criteria.'''
         raise NotImplementedError()
 
     def isDropdownVisible(self) -> bool:
@@ -15427,6 +15485,61 @@ class FilterColumn:
 
     def getFieldIndex(self) -> int:
         '''Gets the column offset in the range.'''
+        raise NotImplementedError()
+
+    def getIconFilter(self) -> IconFilter:
+        '''Gets :class:`IconFilter` for filtering data by icon.'''
+        raise NotImplementedError()
+
+    def setMultipleFilters(self, value : MultipleFilterCollection) -> None:
+        '''Gets :class:`MultipleFilterCollection` for filtering data by labels or date time.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getColorFilter(self) -> ColorFilter:
+        '''Gets :class:`ColorFilter` for filtering data by color.'''
+        raise NotImplementedError()
+
+    def getFilterType(self) -> int:
+        '''Gets the type fo filtering data.
+        See :class:`FilterType`'''
+        raise NotImplementedError()
+
+    def setFieldIndex(self, value : int) -> None:
+        '''Sets the column offset in the range.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCustomFilters(self, value : CustomFilterCollection) -> None:
+        '''Gets :class:`CustomFilterCollection` for filtering data by custom criteria.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getMultipleFilters(self) -> MultipleFilterCollection:
+        '''Gets :class:`MultipleFilterCollection` for filtering data by labels or date time.'''
+        raise NotImplementedError()
+
+    def getFilter(self) -> Any:
+        ''':deprecated: Use FilterColumn.MultipleFilters,CustomFilters and so on... property, instead.'''
+        raise NotImplementedError()
+
+    def setFilterType(self, value : int) -> None:
+        '''Sets the type fo filtering data.
+        See :class:`FilterType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCustomFilters(self) -> CustomFilterCollection:
+        '''Gets :class:`CustomFilterCollection` for filtering data by custom criteria.'''
+        raise NotImplementedError()
+
+    def setFilter(self, value : Any) -> None:
+        ''':deprecated: Use FilterColumn.MultipleFilters,CustomFilters and so on... property, instead.'''
+        raise NotImplementedError()
+
+    def setDropdownVisible(self, value : bool) -> None:
+        '''Indicates whether the AutoFilter button for this column is visible.
+        :param value: '''
         raise NotImplementedError()
 
 
@@ -15680,8 +15793,7 @@ class Font:
         raise NotImplementedError()
 
     def getCapsType(self) -> int:
-        '''Gets the text caps type.
-        See :class:`TextCapsType`'''
+        ''':deprecated: Use TextOptions.CapsType property instead.'''
         raise NotImplementedError()
 
     def setThemeColor(self, value : ThemeColor) -> None:
@@ -15706,19 +15818,16 @@ class Font:
         :param value: '''
         raise NotImplementedError()
 
-    def getDoubleSize(self) -> int:
+    def getDoubleSize(self) -> float:
         '''Gets the double size of the font.'''
         raise NotImplementedError()
 
     def setCapsType(self, value : int) -> None:
-        '''Sets the text caps type.
-        See :class:`TextCapsType`
-        :param value: '''
+        ''':deprecated: Use TextOptions.CapsType property instead.'''
         raise NotImplementedError()
 
     def setNormalizeHeights(self, value : bool) -> None:
-        '''Indicates whether the normalization of height that is to be applied to the text run.
-        :param value: '''
+        ''':deprecated: Use TextOptions.IsNormalizeHeights property instead.'''
         raise NotImplementedError()
 
     def setUnderline(self, value : int) -> None:
@@ -15774,7 +15883,7 @@ class Font:
         :param value: '''
         raise NotImplementedError()
 
-    def getScriptOffset(self) -> int:
+    def getScriptOffset(self) -> float:
         '''Gets the script offset,in unit of percentage'''
         raise NotImplementedError()
 
@@ -15782,7 +15891,7 @@ class Font:
         '''Gets a value indicating whether the font is subscript.'''
         raise NotImplementedError()
 
-    def setDoubleSize(self, value : int) -> None:
+    def setDoubleSize(self, value : float) -> None:
         '''Sets the double size of the font.
         :param value: '''
         raise NotImplementedError()
@@ -15813,13 +15922,21 @@ class Font:
         '''Gets the name of the :meth:`ChartArea.getFont()`.'''
         raise NotImplementedError()
 
+    @overload
     def setName(self, value : str) -> None:
         '''Sets the name of the :meth:`ChartArea.getFont()`.
         :param value: '''
         raise NotImplementedError()
 
+    @overload
+    def setName(self, name : str, type : int) -> None:
+        '''Sets name and scheme of the font.
+        :param name: 
+        :param type: :class:`FontSchemeType`.'''
+        raise NotImplementedError()
+
     def isNormalizeHeights(self) -> bool:
-        '''Indicates whether the normalization of height that is to be applied to the text run.'''
+        ''':deprecated: Use TextOptions.IsNormalizeHeights property instead.'''
         raise NotImplementedError()
 
     def getUnderline(self) -> int:
@@ -15832,7 +15949,7 @@ class Font:
         :param value: '''
         raise NotImplementedError()
 
-    def setScriptOffset(self, value : int) -> None:
+    def setScriptOffset(self, value : float) -> None:
         '''Sets the script offset,in unit of percentage
         :param value: '''
         raise NotImplementedError()
@@ -15870,7 +15987,7 @@ class FontConfigs:
         raise NotImplementedError()
 
     def getFontFileDataInfo(self, fontName : str, isBold : bool, isItalic : bool, isExactStyle : bool) -> FontFileDataInfo:
-        '''Get data infomation of font file data.
+        '''Get data information of font file data.
         :param fontName: font name
         :param isBold: the font style is bold or not
         :param isItalic: the font style is italic or not
@@ -15883,7 +16000,7 @@ class FontConfigs:
         raise NotImplementedError()
 
     def setFontFolders(self, fontFolders : list[str], recursive : bool) -> None:
-        '''Sets the fonts folders
+        '''Sets the fonts folder
         :param fontFolders: The folders that contains TrueType fonts.
         :param recursive: Determines whether or not to scan subfolders.'''
         raise NotImplementedError()
@@ -15895,7 +16012,7 @@ class FontConfigs:
         raise NotImplementedError()
 
     def getFontSubstitutes(self, originalFontName : str) -> list[str]:
-        '''Returns array containing font substitute names to be used if original font is not presented.
+        '''Returns an array containing font substitute names to be used if original font is not present.
         :param originalFontName: originalFontName
         :returns: An array containing font substitute names to be used if original font is not presented.'''
         raise NotImplementedError()
@@ -15906,7 +16023,7 @@ class FontConfigs:
         raise NotImplementedError()
 
     def setFontSources(self, sources : list[FontSourceBase]) -> None:
-        '''Sets the fonts sources.
+        '''Sets the font sources.
         :param sources: An array of sources that contain TrueType fonts.'''
         raise NotImplementedError()
 
@@ -15922,7 +16039,7 @@ class FontConfigs:
 
 
 class FontFileDataInfo:
-    '''Represents data infomation of font file data.'''
+    '''Represents data information of font file data.'''
 
     def getData(self) -> list[int]:
         '''Gets binary data of font file.'''
@@ -16002,7 +16119,7 @@ class FontSettingCollection:
         :param text: The text.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''
         :param obj: '''
         raise NotImplementedError()
@@ -16103,13 +16220,13 @@ class FontSourceType:
     '''Specifies the type of a font source.'''
 
     FONT_FILE : FontSourceType
-    '''represents single font file.'''
+    '''represents a single font file.'''
 
     FONTS_FOLDER : FontSourceType
-    '''represents folder with font files.'''
+    '''Represents a folder with font files.'''
 
     MEMORY_FONT : FontSourceType
-    '''represents single font in memory.'''
+    '''Represents a single font in memory.'''
 
 
 class FontUnderlineType:
@@ -16173,7 +16290,7 @@ class FontUnderlineType:
     '''Represents Heavy Wave Underline'''
 
     WORDS : FontUnderlineType
-    '''Represents Underline Non-Space Characters Only'''
+    '''Represents Underline Non-Space Characters.'''
 
 
 class Format3D:
@@ -16195,7 +16312,7 @@ class Format3D:
         '''Gets the :class:`Bevel` object that holds the properties associated with defining a bevel on the top or front face of a shape.'''
         raise NotImplementedError()
 
-    def getLightingAngle(self) -> int:
+    def getLightingAngle(self) -> float:
         '''Gets the lighting angle. Range from 0 to 359.9 degrees.'''
         raise NotImplementedError()
 
@@ -16217,7 +16334,7 @@ class Format3D:
         '''Indicates if the shape has top bevel data.'''
         raise NotImplementedError()
 
-    def setLightingAngle(self, value : int) -> None:
+    def setLightingAngle(self, value : float) -> None:
         '''Sets the lighting angle. Range from 0 to 359.9 degrees.
         :param value: '''
         raise NotImplementedError()
@@ -16746,26 +16863,25 @@ class FormulaSettings:
     '''Settings of formulas and calculation.'''
 
     def setPreservePaddingSpaces(self, value : bool) -> None:
-        '''Indicates whether preserve those spaces and line breaks that are padded between formula tokens
-        while getting and setting formulas.
+        '''Indicates whether to preserve those spaces and line breaks that are padded between formula tokens while getting and setting formulas.
         Default value is false.
         :param value: '''
         raise NotImplementedError()
 
     def setCalculateOnSave(self, value : bool) -> None:
-        '''Indicates whether recalculate the workbook before saving the document, when in manual calculation mode.
+        '''Indicates whether to recalculate the workbook before saving the document, when in manual calculation mode.
         :param value: '''
         raise NotImplementedError()
 
     def getEnableIterativeCalculation(self) -> bool:
-        '''Indicates whether enable iterative calculation to resolve circular references.'''
+        '''Indicates whether to enable iterative calculation to resolve circular references.'''
         raise NotImplementedError()
 
     def getCalculateOnSave(self) -> bool:
-        '''Indicates whether recalculate the workbook before saving the document, when in manual calculation mode.'''
+        '''Indicates whether to recalculate the workbook before saving the document, when in manual calculation mode.'''
         raise NotImplementedError()
 
-    def setMaxChange(self, value : int) -> None:
+    def setMaxChange(self, value : float) -> None:
         '''The maximum change to resolve a circular reference.
         :param value: '''
         raise NotImplementedError()
@@ -16776,11 +16892,11 @@ class FormulaSettings:
         raise NotImplementedError()
 
     def getPrecisionAsDisplayed(self) -> bool:
-        '''Whether the precision of calculated result be set as they are displayed while calculating formulas'''
+        '''Indicates whether the precision of calculated result be set as they are displayed while calculating formulas.'''
         raise NotImplementedError()
 
     def setEnableIterativeCalculation(self, value : bool) -> None:
-        '''Indicates whether enable iterative calculation to resolve circular references.
+        '''Indicates whether to enable iterative calculation to resolve circular references.
         :param value: '''
         raise NotImplementedError()
 
@@ -16789,12 +16905,12 @@ class FormulaSettings:
         raise NotImplementedError()
 
     def setPrecisionAsDisplayed(self, value : bool) -> None:
-        '''Whether the precision of calculated result be set as they are displayed while calculating formulas
+        '''Indicates whether the precision of calculated result be set as they are displayed while calculating formulas.
         :param value: '''
         raise NotImplementedError()
 
     def setCalculationMode(self, value : int) -> None:
-        '''Sets the mode for workbook calculation in ms excel.
+        '''Sets the mode for workbook calculation in MS Excel.
         See :class:`CalcModeType`
         :param value: '''
         raise NotImplementedError()
@@ -16804,12 +16920,13 @@ class FormulaSettings:
         raise NotImplementedError()
 
     def getCalculationMode(self) -> int:
-        '''Gets the mode for workbook calculation in ms excel.
+        '''Gets the mode for workbook calculation in MS Excel.
         See :class:`CalcModeType`'''
         raise NotImplementedError()
 
     def getEnableCalculationChain(self) -> bool:
-        '''Whether enable calculation chain for formulas. Default is false.'''
+        '''Indicates whether to enable calculation chain for formulas.
+        Default is false.'''
         raise NotImplementedError()
 
     def setCalculationId(self, value : str) -> None:
@@ -16822,12 +16939,12 @@ class FormulaSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getMaxChange(self) -> int:
+    def getMaxChange(self) -> float:
         '''The maximum change to resolve a circular reference.'''
         raise NotImplementedError()
 
     def getForceFullCalculation(self) -> bool:
-        '''Indicates whether calculates all formulas every time when a calculation is triggered.'''
+        '''Indicates whether it calculates all formulas every time when a calculation is triggered.'''
         raise NotImplementedError()
 
     def getCalculateOnOpen(self) -> bool:
@@ -16835,18 +16952,18 @@ class FormulaSettings:
         raise NotImplementedError()
 
     def getPreservePaddingSpaces(self) -> bool:
-        '''Indicates whether preserve those spaces and line breaks that are padded between formula tokens
-        while getting and setting formulas.
+        '''Indicates whether to preserve those spaces and line breaks that are padded between formula tokens while getting and setting formulas.
         Default value is false.'''
         raise NotImplementedError()
 
     def setForceFullCalculation(self, value : bool) -> None:
-        '''Indicates whether calculates all formulas every time when a calculation is triggered.
+        '''Indicates whether it calculates all formulas every time when a calculation is triggered.
         :param value: '''
         raise NotImplementedError()
 
     def setEnableCalculationChain(self, value : bool) -> None:
-        '''Whether enable calculation chain for formulas. Default is false.
+        '''Indicates whether to enable calculation chain for formulas.
+        Default is false.
         :param value: '''
         raise NotImplementedError()
 
@@ -16865,7 +16982,7 @@ class FractionEquationNode:
         See :class:`EquationFractionType`'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -16875,7 +16992,7 @@ class FunctionEquationNode:
     '''This class specifies the Function-Apply equation, which consists of a function name and an argument acted upon.
     The types of the name and argument components are 'EquationNodeType.FunctionName' and 'EquationNodeType.Base' respectively.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -16926,7 +17043,7 @@ class GlobalizationSettings:
         raise NotImplementedError()
 
     def setPivotSettings(self, value : PivotGlobalizationSettings) -> None:
-        '''Sets the globalization settings for pivot table.
+        '''Sets the globalization settings for the pivot table.
         :param value: '''
         raise NotImplementedError()
 
@@ -17063,7 +17180,7 @@ class GlobalizationSettings:
         raise NotImplementedError()
 
     def getPivotSettings(self) -> PivotGlobalizationSettings:
-        '''Gets the globalization settings for pivot table.'''
+        '''Gets the globalization settings for the pivot table.'''
         raise NotImplementedError()
 
 
@@ -17071,12 +17188,12 @@ class GlowEffect:
     '''This class specifies a glow effect, in which a color blurred outline
     is added outside the edges of the object.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Sets the degree of transparency of the glow effect. Range from 0.0 (opaque) to 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
 
-    def setRadius(self, value : int) -> None:
+    def setRadius(self, value : float) -> None:
         ''':deprecated: Use GlowEffect.Size property instead.'''
         raise NotImplementedError()
 
@@ -17085,7 +17202,7 @@ class GlowEffect:
         :param value: '''
         raise NotImplementedError()
 
-    def getSize(self) -> int:
+    def getSize(self) -> float:
         '''Gets the radius of the glow, in unit of points.'''
         raise NotImplementedError()
 
@@ -17093,16 +17210,16 @@ class GlowEffect:
         '''Gets the color of the glow effect.'''
         raise NotImplementedError()
 
-    def setSize(self, value : int) -> None:
+    def setSize(self, value : float) -> None:
         '''Sets the radius of the glow, in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def getRadius(self) -> int:
+    def getRadius(self) -> float:
         ''':deprecated: Use GlowEffect.Size property instead.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Gets the degree of transparency of the glow effect. Range from 0.0 (opaque) to 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -17175,7 +17292,7 @@ class GradientFill:
         '''The angle of linear fill.'''
         raise NotImplementedError()
 
-    def setOneColorGradient(self, color : Color, degree : int, style : int, variant : int) -> None:
+    def setOneColorGradient(self, color : Color, degree : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a one-color gradient.
         Only applies for Excel 2007.
         :param color: One gradient color.
@@ -17206,7 +17323,7 @@ class GradientFill:
         raise NotImplementedError()
 
     @overload
-    def setTwoColorGradient(self, color1 : Color, transparency1 : int, color2 : Color, transparency2 : int, style : int, variant : int) -> None:
+    def setTwoColorGradient(self, color1 : Color, transparency1 : float, color2 : Color, transparency2 : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a two-color gradient.
         Only applies for Excel 2007.
         :param color1: One gradient color.
@@ -17236,11 +17353,11 @@ class GradientFill:
         '''Gets variant. Applies to Excel97-2003'''
         raise NotImplementedError()
 
-    def getGradientDegree(self) -> int:
+    def getGradientDegree(self) -> float:
         '''Gets gradient degree. Applies to Excel97-2003'''
         raise NotImplementedError()
 
-    def setGradient(self, type : int, angle : int, direction : int) -> None:
+    def setGradient(self, type : int, angle : float, direction : int) -> None:
         '''Set the gradient fill type and direction.
         :param type: :class:`GradientFillType`. Gradient fill type.
         :param angle: The angle. Only applies for GradientFillType.Linear.
@@ -17360,7 +17477,7 @@ class GradientPresetType:
 class GradientStop:
     '''Represents the gradient stop.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -17369,16 +17486,16 @@ class GradientStop:
         '''Gets the color of this gradient stop.'''
         raise NotImplementedError()
 
-    def setPosition(self, value : int) -> None:
+    def setPosition(self, value : float) -> None:
         '''The position of the stop.
         :param value: '''
         raise NotImplementedError()
 
-    def getPosition(self) -> int:
+    def getPosition(self) -> float:
         '''The position of the stop.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -17393,7 +17510,7 @@ class GradientStopCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, position : int, color : CellsColor, alpha : int) -> None:
+    def add(self, position : float, color : CellsColor, alpha : int) -> None:
         '''Add a gradient stop.
         :param position: The position of the stop,in unit of percentage.
         :param color: The color of the stop.
@@ -17401,7 +17518,7 @@ class GradientStopCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, position : int, color : Color, alpha : int) -> None:
+    def add(self, position : float, color : Color, alpha : int) -> None:
         '''Add a gradient stop.
         :param position: The position of the stop,in unit of percentage.
         :param color: The color of the stop.
@@ -17461,7 +17578,7 @@ class GroupBox:
 class GroupCharacterEquationNode:
     '''This class specifies the Group-Character function, consisting of a character drawn above or below text, often with the purpose of visually grouping items.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -17748,6 +17865,16 @@ class HtmlHiddenRowDisplayType:
     '''Remove the hidden rows in html page.'''
 
 
+class HtmlLayoutMode:
+    '''Represents the layout mode for HTML rendering.'''
+
+    NORMAL : HtmlLayoutMode
+    '''Renders content like MS Excel.'''
+
+    PRINT : HtmlLayoutMode
+    '''Renders content in print layout mode.'''
+
+
 class HtmlLinkTargetType:
     '''Represents the type of target attribute in HTML <a/> tag.'''
 
@@ -17765,7 +17892,7 @@ class HtmlLinkTargetType:
 
 
 class HtmlLoadOptions:
-    '''Represents options when importing a html file.'''
+    '''Represents options when importing an HTML file.'''
 
     def setLoadFormulas(self, value : bool) -> None:
         '''Indicates whether importing formulas if the original html file contains formulas
@@ -17794,6 +17921,12 @@ class HtmlLoadOptions:
         ''':deprecated: Use HtmlLoadOptions.StreamProvider property instead.'''
         raise NotImplementedError()
 
+    def setDetectLaTeX(self, value : bool) -> None:
+        '''Indicates whether to detect LaTeX formula in the HTML file.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
     def getProgId(self) -> str:
         '''Gets the program id of creating the file.
         Only for MHT files.'''
@@ -17817,6 +17950,11 @@ class HtmlLoadOptions:
     def setHasFormula(self, value : bool) -> None:
         '''Indicates whether the text is formula if it starts with "=".
         :param value: '''
+        raise NotImplementedError()
+
+    def getDetectLaTeX(self) -> bool:
+        '''Indicates whether to detect LaTeX formula in the HTML file.
+        The default value is false.'''
         raise NotImplementedError()
 
     def setAutoFitColsAndRows(self, value : bool) -> None:
@@ -17852,7 +17990,7 @@ class HtmlLoadOptions:
 
 
 class HtmlOfficeMathOutputType:
-    '''Represents how export OfficeMath to HTML.'''
+    '''Represents how to export OfficeMath to HTML.'''
 
     IMAGE : HtmlOfficeMathOutputType
     '''Converts OfficeMath to HTML as image specified by &lt;img&gt; tag.'''
@@ -17864,88 +18002,133 @@ class HtmlOfficeMathOutputType:
 class HtmlSaveOptions:
     '''Represents the options for saving html file.'''
 
-    def getTableCssId(self) -> str:
-        '''Gets the prefix of the type css name such as tr,col,td and so on, they are contained in the table element
-        which has the specific TableCssId attribute. The default value is "".'''
-        raise NotImplementedError()
-
-    def setHtmlCrossStringType(self, value : int) -> None:
-        '''Indicates if a cross-cell string will be displayed in the same way as MS Excel when saving an Excel file in html format.
-        By default the value is Default, so, for cross-cell strings, there is little difference between the html files created by Aspose.Cells and MS Excel.
-        But the performance for creating large html files,setting the value to Cross would be several times faster than setting it to Default or Fit2Cell.
-        See :class:`HtmlCrossType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setTableCssId(self, value : str) -> None:
-        '''Sets the prefix of the type css name such as tr,col,td and so on, they are contained in the table element
-        which has the specific TableCssId attribute. The default value is "".
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportActiveWorksheetOnly(self) -> bool:
-        '''Indicates if only exporting the active worksheet to html file.
-        If true then only the active worksheet will be exported to html file;
-        If false then the whole workbook will be exported to html file.
-        The default value is false.'''
-        raise NotImplementedError()
-
-    def setPageTitle(self, value : str) -> None:
-        '''The title of the html page.
-        Only for saving to html stream.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExpImageToTempDir(self, value : bool) -> None:
-        '''Indicates whether exporting image files to temp directory.
-        Only for saving to html stream.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExportCommentsType(self, value : int) -> None:
-        '''Represents type of exporting comments to html files.
-        See :class:`PrintCommentsType`
-        :param value: '''
-        raise NotImplementedError()
-
     def getExportWorksheetCSSSeparately(self) -> bool:
         '''Indicating whether export the worksheet css separately.The default value is false.'''
         raise NotImplementedError()
 
-    def setExportGridLines(self, value : bool) -> None:
-        '''Indicating whether exporting the gridlines.The default value is false.
+    def getAddGenericFont(self) -> bool:
+        '''Indicates whether to add a generic font to CSS font-family.
+        The default value is true'''
+        raise NotImplementedError()
+
+    def setExportDocumentProperties(self, value : bool) -> None:
+        '''Indicating whether exporting document properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.
         :param value: '''
         raise NotImplementedError()
 
-    def getExportRowColumnHeadings(self) -> bool:
-        '''Indicates whether exports sheet's row and column headings when saving to HTML files.'''
+    def setExportBogusRowData(self, value : bool) -> None:
+        '''Indicating whether exporting bogus bottom row data. The default value is true.If you want to import the html or mht file
+        to excel, please keep the default value.
+        :param value: '''
         raise NotImplementedError()
 
-    def getAttachedFilesDirectory(self) -> str:
-        '''The directory that the attached files will be saved to.
+    def setShowAllSheets(self, value : bool) -> None:
+        '''Indicates whether showing all sheets when saving  as a single html file.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getAddTooltipText(self) -> bool:
+        '''Indicates whether adding tooltip text when the data can't be fully displayed.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setSaveAsSingleFile(self, value : bool) -> None:
+        '''Indicates whether save the html as single file.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCellCssPrefix(self, value : str) -> None:
+        '''Sets the prefix of the css name,the default value is "".
+        :param value: '''
+        raise NotImplementedError()
+
+    def getHtmlCrossStringType(self) -> int:
+        '''Indicates if a cross-cell string will be displayed in the same way as MS Excel when saving an Excel file in html format.
+        By default the value is Default, so, for cross-cell strings, there is little difference between the html files created by Aspose.Cells and MS Excel.
+        But the performance for creating large html files,setting the value to Cross would be several times faster than setting it to Default or Fit2Cell.
+        See :class:`HtmlCrossType`'''
+        raise NotImplementedError()
+
+    def setExportWorksheetCSSSeparately(self, value : bool) -> None:
+        '''Indicating whether export the worksheet css separately.The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportSimilarBorderStyle(self) -> bool:
+        '''Indicating whether exporting the similar border style when the border style is not supported by browsers.
+        If you want to import the html or mht file to excel, please keep the default value.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setAddGenericFont(self, value : bool) -> None:
+        '''Indicates whether to add a generic font to CSS font-family.
+        The default value is true
+        :param value: '''
+        raise NotImplementedError()
+
+    def setAddTooltipText(self, value : bool) -> None:
+        '''Indicates whether adding tooltip text when the data can't be fully displayed.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def isExportComments(self) -> bool:
+        '''Indicates if exporting comments when saving file to html, the default value is false.'''
+        raise NotImplementedError()
+
+    def getAttachedFilesUrlPrefix(self) -> str:
+        '''Specify the Url prefix of attached files such as image in the html file.
         Only for saving to html stream.'''
         raise NotImplementedError()
 
-    def setMergeEmptyTdForcely(self, value : bool) -> None:
-        ''':deprecated: Use HtmlSaveOptions.MergeEmptyTdType instead.'''
+    def getPageTitle(self) -> str:
+        '''The title of the html page.
+        Only for saving to html stream.'''
         raise NotImplementedError()
 
-    def getExportExtraHeadings(self) -> bool:
-        '''Indicates whether exporting extra headings when the length of text is longer than max display column.
-        The default value is false. If you want to import the html file to excel, please keep the default value.'''
-        raise NotImplementedError()
-
-    def setWorksheetScalable(self, value : bool) -> None:
-        '''Indicates if zooming in or out the html via worksheet zoom level when saving file to html, the default value is false.
+    def setParseHtmlTagInCell(self, value : bool) -> None:
+        '''Indicates whether html tag(such as <code>&lt;div&gt;&lt;/div&gt;</code>) in cell should be parsed as cell value or preserved as it is.
+        The default value is true.
         :param value: '''
         raise NotImplementedError()
 
-    def setCssStyles(self, value : str) -> None:
-        '''Sets the additional css styles for the formatter.
-        Only works when :meth:`HtmlSaveOptions.getSaveAsSingleFile()` is True.
-        <example>
-        CssStyles="body { padding: 5px }";
-        </example>
+    def getExportNamedRangeAnchors(self) -> bool:
+        '''Indicates whether to export anchor elements for named ranges when saving as HTML.
+        Default value is true.'''
+        raise NotImplementedError()
+
+    def isFullPathLink(self) -> bool:
+        '''Indicating whether using full path link in sheet00x.htm,filelist.xml and tabstrip.htm.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def getPresentationPreference(self) -> bool:
+        '''Indicating if html or mht file is presentation preference.
+        The default value is false.
+        if you want to get more beautiful presentation,please set the value to true.'''
+        raise NotImplementedError()
+
+    def getExcludeUnusedStyles(self) -> bool:
+        '''Indicating whether excludes unused styles.
+        For the generated html files, excluding unused styles can make the file size smaller
+        without affecting the visual effects. So the default value of this property is true.
+        If user needs to keep all styles in the workbook for the generated html(such as the scenario that user
+        needs to restore the workbook from the generated html later), please set this property as false.'''
+        raise NotImplementedError()
+
+    def getIgnoreInvisibleShapes(self) -> bool:
+        '''Indicate whether exporting those not visible shapes'''
+        raise NotImplementedError()
+
+    def setExportObjectListener(self, value : IExportObjectListener) -> None:
+        ''':deprecated: Use HtmlSaveOptions.IStreamProvider property instead.'''
+        raise NotImplementedError()
+
+    def setExportNamedRangeAnchors(self, value : bool) -> None:
+        '''Indicates whether to export anchor elements for named ranges when saving as HTML.
+        Default value is true.
         :param value: '''
         raise NotImplementedError()
 
@@ -17959,23 +18142,97 @@ class HtmlSaveOptions:
         See :class:`HtmlLinkTargetType`'''
         raise NotImplementedError()
 
-    def getDisableDownlevelRevealedComments(self) -> bool:
-        '''Indicates if disable Downlevel-revealed conditional comments when exporting file to html, the default value is false.'''
-        raise NotImplementedError()
-
-    def setExportObjectListener(self, value : IExportObjectListener) -> None:
-        ''':deprecated: Use HtmlSaveOptions.IStreamProvider property instead.'''
-        raise NotImplementedError()
-
-    def setExportBogusRowData(self, value : bool) -> None:
-        '''Indicating whether exporting bogus bottom row data. The default value is true.If you want to import the html or mht file
-        to excel, please keep the default value.
+    def setExportWorkbookProperties(self, value : bool) -> None:
+        '''Indicating whether exporting workbook properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.
         :param value: '''
         raise NotImplementedError()
 
-    def setExportFormula(self, value : bool) -> None:
-        '''Indicates whether exporting formula when saving file to html. The default value is true.
-        If you want to import the output html to excel, please keep the default value.
+    def setCssStyles(self, value : str) -> None:
+        '''Sets the additional css styles for the formatter.
+        Only works when :meth:`HtmlSaveOptions.getSaveAsSingleFile()` is True.
+        <example>
+        CssStyles="body { padding: 5px }";
+        </example>
+        :param value: '''
+        raise NotImplementedError()
+
+    def setAttachedFilesUrlPrefix(self, value : str) -> None:
+        '''Specify the Url prefix of attached files such as image in the html file.
+        Only for saving to html stream.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportDocumentProperties(self) -> bool:
+        '''Indicating whether exporting document properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def getEncodeEntityAsCode(self) -> bool:
+        '''Indicates whether the html character entities are replaced with decimal code.
+        (e.g. "&amp;nbsp;" is replaced with "&amp;#160;").
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setEncoding(self, value : Encoding) -> None:
+        '''If not set,use Encoding.UTF8 as default enconding type.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportPrintAreaOnly(self) -> bool:
+        '''Indicates if only exporting the print area to html file. The default value is false.'''
+        raise NotImplementedError()
+
+    def setFormatDataIgnoreColumnWidth(self, value : bool) -> None:
+        '''Indicating whether show the whole formatted data of cell when overflowing the column.
+        If true then ignore the column width and the whole data of cell will be exported.
+        If false then the data will be exported same as Excel.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCellNameAttribute(self, value : str) -> None:
+        '''Specifies the attribute that indicates the CellName to be written.
+        (e.g. If the value is "id", then for cell "A1", the output will be:&lt;td id='A1'&gt;).
+        The default value is null.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportDataOptions(self) -> int:
+        '''Indicating the rule of exporting html file data.The default value is All.
+        See :class:`HtmlExportDataOptions`'''
+        raise NotImplementedError()
+
+    def getMergeEmptyTdType(self) -> int:
+        '''The option to merge contiguous empty cells(empty td elements)
+        The default value is MergeEmptyTdType.Default.
+        See :class:`MergeEmptyTdType`'''
+        raise NotImplementedError()
+
+    def setPresentationPreference(self, value : bool) -> None:
+        '''Indicating if html or mht file is presentation preference.
+        The default value is false.
+        if you want to get more beautiful presentation,please set the value to true.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setSheetSet(self, value : SheetSet) -> None:
+        '''Sets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getVisible()`.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportSingleTab(self, value : bool) -> None:
+        '''Indicates whether exporting the single tab when the file only has one worksheet.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setMergeEmptyTdForcely(self, value : bool) -> None:
+        ''':deprecated: Use HtmlSaveOptions.MergeEmptyTdType instead.'''
+        raise NotImplementedError()
+
+    def setExportImagesAsBase64(self, value : bool) -> None:
+        '''Specifies whether images are saved in Base64 format to HTML, MHTML or EPUB.
         :param value: '''
         raise NotImplementedError()
 
@@ -17984,68 +18241,63 @@ class HtmlSaveOptions:
         The default value is false'''
         raise NotImplementedError()
 
-    def setExportPageFooters(self, value : bool) -> None:
-        '''Indicates whether exporting page headers.
+    def setLayoutMode(self, value : int) -> None:
+        '''Sets the layout mode when saving to HTML.
+        The default value is :attr:`HtmlLayoutMode.NORMAL`
+        See :class:`HtmlLayoutMode`
         :param value: '''
         raise NotImplementedError()
 
-    def getExportGridLines(self) -> bool:
-        '''Indicating whether exporting the gridlines.The default value is false.'''
-        raise NotImplementedError()
-
-    def getPageTitle(self) -> str:
-        '''The title of the html page.
-        Only for saving to html stream.'''
-        raise NotImplementedError()
-
-    def getExportFrameScriptsAndProperties(self) -> bool:
-        '''Indicating whether exporting frame scripts and document properties. The default value is true.If you want to import the html or mht file
-        to excel, please keep the default value.'''
-        raise NotImplementedError()
-
-    def setExportWorksheetCSSSeparately(self, value : bool) -> None:
-        '''Indicating whether export the worksheet css separately.The default value is false.
+    def setMergeEmptyTdType(self, value : int) -> None:
+        '''The option to merge contiguous empty cells(empty td elements)
+        The default value is MergeEmptyTdType.Default.
+        See :class:`MergeEmptyTdType`
         :param value: '''
         raise NotImplementedError()
 
-    def setDisableDownlevelRevealedComments(self, value : bool) -> None:
-        '''Indicates if disable Downlevel-revealed conditional comments when exporting file to html, the default value is false.
+    def getHtmlVersion(self) -> int:
+        '''Specifies version of HTML standard that should be used when saving the HTML format.
+        Default value is HtmlVersion.Default.
+        See :class:`HtmlVersion`'''
+        raise NotImplementedError()
+
+    def getEncoding(self) -> Encoding:
+        '''If not set,use Encoding.UTF8 as default enconding type.'''
+        raise NotImplementedError()
+
+    def setHiddenRowDisplayType(self, value : int) -> None:
+        '''Hidden row(the height of this row is 0) in excel,before save this into html format,
+        if HtmlHiddenRowDisplayType is "Remove",the hidden row would not been output,
+        if the value is "Hidden", the row would been output,but was hidden,the default value is "Hidden"
+        See :class:`HtmlHiddenRowDisplayType`
         :param value: '''
         raise NotImplementedError()
 
-    def getImageOptions(self) -> ImageOrPrintOptions:
-        '''Get the ImageOrPrintOptions object before exporting'''
-        raise NotImplementedError()
-
-    def setExportSimilarBorderStyle(self, value : bool) -> None:
-        '''Indicating whether exporting the similar border style when the border style is not supported by browsers.
-        If you want to import the html or mht file to excel, please keep the default value.
-        The default value is false.
+    def setHideOverflowWrappedText(self, value : bool) -> None:
+        '''Indicates whether to hide overflow text when the cell format is set to wrap text.
+        The default value is false
         :param value: '''
         raise NotImplementedError()
 
-    def setEncoding(self, value : Encoding) -> None:
-        '''If not set,use Encoding.UTF8 as default enconding type.
+    def setTableCssId(self, value : str) -> None:
+        '''Sets the prefix of the type css name such as tr,col,td and so on, they are contained in the table element
+        which has the specific TableCssId attribute. The default value is "".
         :param value: '''
         raise NotImplementedError()
 
-    def getExportObjectListener(self) -> IExportObjectListener:
-        ''':deprecated: Use HtmlSaveOptions.IStreamProvider property instead.'''
+    def getSheetSet(self) -> SheetSet:
+        '''Gets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getVisible()`.'''
         raise NotImplementedError()
 
-    def setExportHiddenWorksheet(self, value : bool) -> None:
-        '''Indicating if exporting the hidden worksheet content.The default value is true.
+    def getExportWorkbookProperties(self) -> bool:
+        '''Indicating whether exporting workbook properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def setExportFormula(self, value : bool) -> None:
+        '''Indicates whether exporting formula when saving file to html. The default value is true.
+        If you want to import the output html to excel, please keep the default value.
         :param value: '''
-        raise NotImplementedError()
-
-    def setIgnoreInvisibleShapes(self, value : bool) -> None:
-        '''Indicate whether exporting those not visible shapes
-        :param value: '''
-        raise NotImplementedError()
-
-    def getDisableCss(self) -> bool:
-        '''Indicates whether only inline styles are applied, without relying on CSS.
-        The default value is false.'''
         raise NotImplementedError()
 
     def setDisableCss(self, value : bool) -> None:
@@ -18054,80 +18306,8 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getExportSimilarBorderStyle(self) -> bool:
-        '''Indicating whether exporting the similar border style when the border style is not supported by browsers.
-        If you want to import the html or mht file to excel, please keep the default value.
-        The default value is false.'''
-        raise NotImplementedError()
-
-    def setFullPathLink(self, value : bool) -> None:
-        '''Indicating whether using full path link in sheet00x.htm,filelist.xml and tabstrip.htm.
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getWorksheetScalable(self) -> bool:
-        '''Indicates if zooming in or out the html via worksheet zoom level when saving file to html, the default value is false.'''
-        raise NotImplementedError()
-
-    def getCssStyles(self) -> str:
-        '''Gets the additional css styles for the formatter.
-        Only works when :meth:`HtmlSaveOptions.getSaveAsSingleFile()` is True.
-        <example>
-        CssStyles="body { padding: 5px }";
-        </example>'''
-        raise NotImplementedError()
-
-    def setExportCellCoordinate(self, value : bool) -> None:
-        '''Indicates whether exporting excel coordinate of nonblank cells when saving file to html. The default value is false.
-        If you want to import the output html to excel, please keep the default value.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setDefaultFontName(self, value : str) -> None:
-        '''Specify the default font name for exporting html, the default font will be used  when the font of style is not existing,
-        If this property is null, Aspose.Cells will use universal font which have the same family with the original font,
-        the default value is null.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setLinkTargetType(self, value : int) -> None:
-        '''Indicating the type of target attribute in <code>&lt;a&gt;</code> link. The default value is HtmlLinkTargetType.Parent.
-        See :class:`HtmlLinkTargetType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportPageFooters(self) -> bool:
-        '''Indicates whether exporting page headers.'''
-        raise NotImplementedError()
-
-    def setEnableCssCustomProperties(self, value : bool) -> None:
-        '''Optimize the output of html by using CSS custom properties. For example, for the scenario that there are multiple occurences for one base64 image, with custom property the image data only needs to be saved once so the performance of the resultant html can be improved.
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setParseHtmlTagInCell(self, value : bool) -> None:
-        '''Indicates whether html tag(such as <code>&lt;div&gt;&lt;/div&gt;</code>) in cell should be parsed as cell value or preserved as it is.
-        The default value is true.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExportPrintAreaOnly(self, value : bool) -> None:
-        '''Indicates if only exporting the print area to html file. The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setAttachedFilesDirectory(self, value : str) -> None:
-        '''The directory that the attached files will be saved to.
-        Only for saving to html stream.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExportDataOptions(self, value : int) -> None:
-        '''Indicating the rule of exporting html file data.The default value is All.
-        See :class:`HtmlExportDataOptions`
-        :param value: '''
+    def getDisableDownlevelRevealedComments(self) -> bool:
+        '''Indicates if disable Downlevel-revealed conditional comments when exporting file to html, the default value is false.'''
         raise NotImplementedError()
 
     def setExportActiveWorksheetOnly(self, value : bool) -> None:
@@ -18138,9 +18318,36 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getExportCellCoordinate(self) -> bool:
-        '''Indicates whether exporting excel coordinate of nonblank cells when saving file to html. The default value is false.
-        If you want to import the output html to excel, please keep the default value.'''
+    def setExportFrameScriptsAndProperties(self, value : bool) -> None:
+        '''Indicating whether exporting frame scripts and document properties. The default value is true.If you want to import the html or mht file
+        to excel, please keep the default value.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportGridLines(self) -> bool:
+        '''Indicating whether exporting the gridlines.The default value is false.'''
+        raise NotImplementedError()
+
+    def setFullPathLink(self, value : bool) -> None:
+        '''Indicating whether using full path link in sheet00x.htm,filelist.xml and tabstrip.htm.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportCommentsType(self) -> int:
+        '''Represents type of exporting comments to html files.
+        See :class:`PrintCommentsType`'''
+        raise NotImplementedError()
+
+    def getAttachedFilesDirectory(self) -> str:
+        '''The directory that the attached files will be saved to.
+        Only for saving to html stream.'''
+        raise NotImplementedError()
+
+    def setLinkTargetType(self, value : int) -> None:
+        '''Indicating the type of target attribute in <code>&lt;a&gt;</code> link. The default value is HtmlLinkTargetType.Parent.
+        See :class:`HtmlLinkTargetType`
+        :param value: '''
         raise NotImplementedError()
 
     def setHtmlVersion(self, value : int) -> None:
@@ -18150,32 +18357,191 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getExportDataOptions(self) -> int:
-        '''Indicating the rule of exporting html file data.The default value is All.
-        See :class:`HtmlExportDataOptions`'''
+    def setAttachedFilesDirectory(self, value : str) -> None:
+        '''The directory that the attached files will be saved to.
+        Only for saving to html stream.
+        :param value: '''
         raise NotImplementedError()
 
-    def setExportSingleTab(self, value : bool) -> None:
-        '''Indicates whether exporting the single tab when the file only has one worksheet.
+    def setExportArea(self, value : CellArea) -> None:
+        '''Sets the exporting CellArea of current active Worksheet.
+        If you set this attribute, the print area of current active Worksheet will be omitted.
+        Only the specified area will be exported when saving the file to html.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setEncodeEntityAsCode(self, value : bool) -> None:
+        '''Indicates whether the html character entities are replaced with decimal code.
+        (e.g. "&amp;nbsp;" is replaced with "&amp;#160;").
         The default value is false.
         :param value: '''
         raise NotImplementedError()
 
-    def isFullPathLink(self) -> bool:
-        '''Indicating whether using full path link in sheet00x.htm,filelist.xml and tabstrip.htm.
-        The default value is false.'''
+    def getWorksheetScalable(self) -> bool:
+        '''Indicates if zooming in or out the html via worksheet zoom level when saving file to html, the default value is false.'''
         raise NotImplementedError()
 
-    def getExportWorksheetProperties(self) -> bool:
-        '''Indicating whether exporting worksheet properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.'''
+    def setExportExtraHeadings(self, value : bool) -> None:
+        '''Indicates whether exporting extra headings when the length of text is longer than max display column.
+        The default value is false. If you want to import the html file to excel, please keep the default value.
+        :param value: '''
         raise NotImplementedError()
 
-    def getHtmlCrossStringType(self) -> int:
+    def getImageScalable(self) -> bool:
+        '''Indicates whether using scalable unit to describe the image width
+        when using scalable unit to describe the column width.
+        The default value is true.'''
+        raise NotImplementedError()
+
+    def getDataBarRenderMode(self) -> int:
+        '''Represents the mode of how to render DataBar when converting Excel files to html files.
+        Default value is :attr:`DataBarRenderMode.BACKGROUND_COLOR`.
+        See :class:`DataBarRenderMode`'''
+        raise NotImplementedError()
+
+    def getDefaultFontName(self) -> str:
+        '''Specify the default font name for exporting html, the default font will be used  when the font of style is not existing,
+        If this property is null, Aspose.Cells will use universal font which have the same family with the original font,
+        the default value is null.'''
+        raise NotImplementedError()
+
+    def setIgnoreInvisibleShapes(self, value : bool) -> None:
+        '''Indicate whether exporting those not visible shapes
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCssStyles(self) -> str:
+        '''Gets the additional css styles for the formatter.
+        Only works when :meth:`HtmlSaveOptions.getSaveAsSingleFile()` is True.
+        <example>
+        CssStyles="body { padding: 5px }";
+        </example>'''
+        raise NotImplementedError()
+
+    def setOfficeMathOutputMode(self, value : int) -> None:
+        '''Indicates how OfficeMath objects are exported to HTML, Default value is Image.
+        See :class:`HtmlOfficeMathOutputType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportCellCoordinate(self, value : bool) -> None:
+        '''Indicates whether exporting excel coordinate of nonblank cells when saving file to html. The default value is false.
+        If you want to import the output html to excel, please keep the default value.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setHiddenColDisplayType(self, value : int) -> None:
+        '''Hidden column(the width of this column is 0) in excel,before save this into html format,
+        if HtmlHiddenColDisplayType is "Remove",the hidden column would not been output,
+        if the value is "Hidden", the column would been output,but was hidden,the default value is "Hidden"
+        See :class:`HtmlHiddenColDisplayType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportCommentsType(self, value : int) -> None:
+        '''Represents type of exporting comments to html files.
+        See :class:`PrintCommentsType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportFrameScriptsAndProperties(self) -> bool:
+        '''Indicating whether exporting frame scripts and document properties. The default value is true.If you want to import the html or mht file
+        to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def getExportObjectListener(self) -> IExportObjectListener:
+        ''':deprecated: Use HtmlSaveOptions.IStreamProvider property instead.'''
+        raise NotImplementedError()
+
+    def isExpImageToTempDir(self) -> bool:
+        '''Indicates whether exporting image files to temp directory.
+        Only for saving to html stream.'''
+        raise NotImplementedError()
+
+    def getStreamProvider(self) -> IStreamProvider:
+        '''Gets the IStreamProvider for exporting objects.'''
+        raise NotImplementedError()
+
+    def setHtmlCrossStringType(self, value : int) -> None:
         '''Indicates if a cross-cell string will be displayed in the same way as MS Excel when saving an Excel file in html format.
         By default the value is Default, so, for cross-cell strings, there is little difference between the html files created by Aspose.Cells and MS Excel.
         But the performance for creating large html files,setting the value to Cross would be several times faster than setting it to Default or Fit2Cell.
-        See :class:`HtmlCrossType`'''
+        See :class:`HtmlCrossType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportPageHeaders(self) -> bool:
+        '''Indicates whether exporting page headers.'''
+        raise NotImplementedError()
+
+    def getFormatDataIgnoreColumnWidth(self) -> bool:
+        '''Indicating whether show the whole formatted data of cell when overflowing the column.
+        If true then ignore the column width and the whole data of cell will be exported.
+        If false then the data will be exported same as Excel.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def getWidthScalable(self) -> bool:
+        '''Indicates whether exporting column width in unit of scale to html.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setImageScalable(self, value : bool) -> None:
+        '''Indicates whether using scalable unit to describe the image width
+        when using scalable unit to describe the column width.
+        The default value is true.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportImagesAsBase64(self) -> bool:
+        '''Specifies whether images are saved in Base64 format to HTML, MHTML or EPUB.'''
+        raise NotImplementedError()
+
+    def getExportActiveWorksheetOnly(self) -> bool:
+        '''Indicates if only exporting the active worksheet to html file.
+        If true then only the active worksheet will be exported to html file;
+        If false then the whole workbook will be exported to html file.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setEnableCssCustomProperties(self, value : bool) -> None:
+        '''Optimize the output of html by using CSS custom properties. For example, for the scenario that there are multiple occurences for one base64 image, with custom property the image data only needs to be saved once so the performance of the resultant html can be improved.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportDataOptions(self, value : int) -> None:
+        '''Indicating the rule of exporting html file data.The default value is All.
+        See :class:`HtmlExportDataOptions`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getLayoutMode(self) -> int:
+        '''Gets the layout mode when saving to HTML.
+        The default value is :attr:`HtmlLayoutMode.NORMAL`
+        See :class:`HtmlLayoutMode`'''
+        raise NotImplementedError()
+
+    def getFilePathProvider(self) -> IFilePathProvider:
+        '''Gets the IFilePathProvider for exporting Worksheet to html separately.'''
+        raise NotImplementedError()
+
+    def setExportWorksheetProperties(self, value : bool) -> None:
+        '''Indicating whether exporting worksheet properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.
+        :param value: '''
+        raise NotImplementedError()
+
+    def isBorderCollapsed(self) -> bool:
+        '''Indicates whether the table borders are collapsed.
+        The default value is true.'''
+        raise NotImplementedError()
+
+    def getHiddenRowDisplayType(self) -> int:
+        '''Hidden row(the height of this row is 0) in excel,before save this into html format,
+        if HtmlHiddenRowDisplayType is "Remove",the hidden row would not been output,
+        if the value is "Hidden", the row would been output,but was hidden,the default value is "Hidden"
+        See :class:`HtmlHiddenRowDisplayType`'''
         raise NotImplementedError()
 
     def setExcludeUnusedStyles(self, value : bool) -> None:
@@ -18187,152 +18553,42 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setFilePathProvider(self, value : IFilePathProvider) -> None:
-        '''Sets the IFilePathProvider for exporting Worksheet to html separately.
-        :param value: '''
+    def getTableCssId(self) -> str:
+        '''Gets the prefix of the type css name such as tr,col,td and so on, they are contained in the table element
+        which has the specific TableCssId attribute. The default value is "".'''
         raise NotImplementedError()
 
-    def getEncodeEntityAsCode(self) -> bool:
-        '''Indicates whether the html character entities are replaced with decimal code.
-        (e.g. "&amp;nbsp;" is replaced with "&amp;#160;").
+    def getDisableCss(self) -> bool:
+        '''Indicates whether only inline styles are applied, without relying on CSS.
         The default value is false.'''
         raise NotImplementedError()
 
-    def getEncoding(self) -> Encoding:
-        '''If not set,use Encoding.UTF8 as default enconding type.'''
+    def getExportHiddenWorksheet(self) -> bool:
+        '''Indicating if exporting the hidden worksheet content.The default value is true.'''
         raise NotImplementedError()
 
-    def getAttachedFilesUrlPrefix(self) -> str:
-        '''Specify the Url prefix of attached files such as image in the html file.
-        Only for saving to html stream.'''
+    def isIECompatible(self) -> bool:
+        '''Indicating whether the output HTML is compatible with IE browser.
+        The defalut value is false'''
         raise NotImplementedError()
 
-    def setExportDocumentProperties(self, value : bool) -> None:
-        '''Indicating whether exporting document properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setMobileCompatible(self, value : bool) -> None:
-        '''Indicates whether the output HTML is compatible with mobile devices.
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setSheetSet(self, value : SheetSet) -> None:
-        '''Sets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getVisible()`.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getPresentationPreference(self) -> bool:
-        '''Indicating if html or mht file is presentation preference.
-        The default value is false.
-        if you want to get more beautiful presentation,please set the value to true.'''
-        raise NotImplementedError()
-
-    def getAddGenericFont(self) -> bool:
-        '''Indicates whether to add a generic font to CSS font-family.
-        The default value is true'''
-        raise NotImplementedError()
-
-    def getExportDocumentProperties(self) -> bool:
-        '''Indicating whether exporting document properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.'''
-        raise NotImplementedError()
-
-    def getMergeEmptyTdForcely(self) -> bool:
-        ''':deprecated: Use HtmlSaveOptions.MergeEmptyTdType instead.'''
-        raise NotImplementedError()
-
-    def getExportWorkbookProperties(self) -> bool:
-        '''Indicating whether exporting workbook properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.'''
-        raise NotImplementedError()
-
-    def getFilePathProvider(self) -> IFilePathProvider:
-        '''Gets the IFilePathProvider for exporting Worksheet to html separately.'''
-        raise NotImplementedError()
-
-    def setSaveAsSingleFile(self, value : bool) -> None:
-        '''Indicates whether save the html as single file.
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getDefaultFontName(self) -> str:
-        '''Specify the default font name for exporting html, the default font will be used  when the font of style is not existing,
-        If this property is null, Aspose.Cells will use universal font which have the same family with the original font,
-        the default value is null.'''
-        raise NotImplementedError()
-
-    def getImageScalable(self) -> bool:
-        '''Indicates whether using scalable unit to describe the image width
-        when using scalable unit to describe the column width.
+    def isJsBrowserCompatible(self) -> bool:
+        '''Indicates whether JavaScript is compatible with browsers that do not support JavaScript.
         The default value is true.'''
         raise NotImplementedError()
 
-    def setExportRowColumnHeadings(self, value : bool) -> None:
-        '''Indicates whether exports sheet's row and column headings when saving to HTML files.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportSingleTab(self) -> bool:
-        '''Indicates whether exporting the single tab when the file only has one worksheet.
-        The default value is false.'''
-        raise NotImplementedError()
-
-    def setExportPageHeaders(self, value : bool) -> None:
-        '''Indicates whether exporting page headers.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setImageScalable(self, value : bool) -> None:
-        '''Indicates whether using scalable unit to describe the image width
-        when using scalable unit to describe the column width.
-        The default value is true.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setJsBrowserCompatible(self, value : bool) -> None:
-        '''Indicates whether JavaScript is compatible with browsers that do not support JavaScript.
-        The default value is true.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setAddGenericFont(self, value : bool) -> None:
-        '''Indicates whether to add a generic font to CSS font-family.
-        The default value is true
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportPageHeaders(self) -> bool:
+    def getExportPageFooters(self) -> bool:
         '''Indicates whether exporting page headers.'''
         raise NotImplementedError()
 
-    def getSaveAsSingleFile(self) -> bool:
-        '''Indicates whether save the html as single file.
-        The default value is false.'''
-        raise NotImplementedError()
-
-    def isBorderCollapsed(self) -> bool:
-        '''Indicates whether the table borders are collapsed.
-        The default value is true.'''
-        raise NotImplementedError()
-
-    def setExportWorkbookProperties(self, value : bool) -> None:
-        '''Indicating whether exporting workbook properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.
+    def setStreamProvider(self, value : IStreamProvider) -> None:
+        '''Sets the IStreamProvider for exporting objects.
         :param value: '''
         raise NotImplementedError()
 
-    def getHtmlVersion(self) -> int:
-        '''Specifies version of HTML standard that should be used when saving the HTML format.
-        Default value is HtmlVersion.Default.
-        See :class:`HtmlVersion`'''
-        raise NotImplementedError()
-
-    def isExportComments(self) -> bool:
-        '''Indicates if exporting comments when saving file to html, the default value is false.'''
+    def setWorksheetScalable(self, value : bool) -> None:
+        '''Indicates if zooming in or out the html via worksheet zoom level when saving file to html, the default value is false.
+        :param value: '''
         raise NotImplementedError()
 
     def setBorderCollapsed(self, value : bool) -> None:
@@ -18341,158 +18597,18 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setHiddenRowDisplayType(self, value : int) -> None:
-        '''Hidden row(the height of this row is 0) in excel,before save this into html format,
-        if HtmlHiddenRowDisplayType is "Remove",the hidden row would not been output,
-        if the value is "Hidden", the row would been output,but was hidden,the default value is "Hidden"
-        See :class:`HtmlHiddenRowDisplayType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportBogusRowData(self) -> bool:
-        '''Indicating whether exporting bogus bottom row data. The default value is true.If you want to import the html or mht file
-        to excel, please keep the default value.'''
-        raise NotImplementedError()
-
-    def setHiddenColDisplayType(self, value : int) -> None:
-        '''Hidden column(the width of this column is 0) in excel,before save this into html format,
-        if HtmlHiddenColDisplayType is "Remove",the hidden column would not been output,
-        if the value is "Hidden", the column would been output,but was hidden,the default value is "Hidden"
-        See :class:`HtmlHiddenColDisplayType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setOfficeMathOutputMode(self, value : int) -> None:
-        '''Indicates how export OfficeMath objects to HTML, Default value is Image.
-        See :class:`HtmlOfficeMathOutputType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportCommentsType(self) -> int:
-        '''Represents type of exporting comments to html files.
-        See :class:`PrintCommentsType`'''
-        raise NotImplementedError()
-
-    def setCellNameAttribute(self, value : str) -> None:
-        '''Specifies the attribute that indicates the CellName to be written.
-        (e.g. If the value is "id", then for cell "A1", the output will be:&lt;td id='A1'&gt;).
-        The default value is null.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getCellNameAttribute(self) -> str:
-        '''Specifies the attribute that indicates the CellName to be written.
-        (e.g. If the value is "id", then for cell "A1", the output will be:&lt;td id='A1'&gt;).
-        The default value is null.'''
-        raise NotImplementedError()
-
-    def setEmbeddedFontType(self, value : int) -> None:
-        '''Sets the type of font that embedded in html.
-        Default value is :attr:`HtmlEmbeddedFontType.NONE` which indicates that it will not embed font in html.
-        See :class:`HtmlEmbeddedFontType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setIECompatible(self, value : bool) -> None:
-        '''Indicating whether the output HTML is compatible with IE browser.
-        The defalut value is false
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExportImagesAsBase64(self, value : bool) -> None:
-        '''Specifies whether images are saved in Base64 format to HTML, MHTML or EPUB.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getHiddenRowDisplayType(self) -> int:
-        '''Hidden row(the height of this row is 0) in excel,before save this into html format,
-        if HtmlHiddenRowDisplayType is "Remove",the hidden row would not been output,
-        if the value is "Hidden", the row would been output,but was hidden,the default value is "Hidden"
-        See :class:`HtmlHiddenRowDisplayType`'''
-        raise NotImplementedError()
-
-    def setCalculateFormula(self, value : bool) -> None:
-        '''Indicates whether to calculate formulas before saving html file.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getHiddenColDisplayType(self) -> int:
-        '''Hidden column(the width of this column is 0) in excel,before save this into html format,
-        if HtmlHiddenColDisplayType is "Remove",the hidden column would not been output,
-        if the value is "Hidden", the column would been output,but was hidden,the default value is "Hidden"
-        See :class:`HtmlHiddenColDisplayType`'''
-        raise NotImplementedError()
-
-    def getOfficeMathOutputMode(self) -> int:
-        '''Indicates how export OfficeMath objects to HTML, Default value is Image.
-        See :class:`HtmlOfficeMathOutputType`'''
-        raise NotImplementedError()
-
-    def setHideOverflowWrappedText(self, value : bool) -> None:
-        '''Indicates whether to hide overflow text when the cell format is set to wrap text.
-        The default value is false
-        :param value: '''
-        raise NotImplementedError()
-
-    def setMergeEmptyTdType(self, value : int) -> None:
-        '''The option to merge contiguous empty cells(empty td elements)
-        The default value is MergeEmptyTdType.Default.
-        See :class:`MergeEmptyTdType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getEmbeddedFontType(self) -> int:
-        '''Gets the type of font that embedded in html.
-        Default value is :attr:`HtmlEmbeddedFontType.NONE` which indicates that it will not embed font in html.
-        See :class:`HtmlEmbeddedFontType`'''
-        raise NotImplementedError()
-
-    def getSheetSet(self) -> SheetSet:
-        '''Gets the sheets to render. Default is all visible sheets in the workbook: :meth:`com.aspose.cells.SheetSet.getVisible()`.'''
-        raise NotImplementedError()
-
-    def setExportExtraHeadings(self, value : bool) -> None:
-        '''Indicates whether exporting extra headings when the length of text is longer than max display column.
-        The default value is false. If you want to import the html file to excel, please keep the default value.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getStreamProvider(self) -> IStreamProvider:
-        '''Gets the IStreamProvider for exporting objects.'''
-        raise NotImplementedError()
-
-    def getExportPrintAreaOnly(self) -> bool:
-        '''Indicates if only exporting the print area to html file. The default value is false.'''
-        raise NotImplementedError()
-
-    def getWidthScalable(self) -> bool:
-        '''Indicates whether exporting column width in unit of scale to html.
-        The default value is false.'''
-        raise NotImplementedError()
-
     def getCalculateFormula(self) -> bool:
         '''Indicates whether to calculate formulas before saving html file.'''
         raise NotImplementedError()
 
-    def getExportImagesAsBase64(self) -> bool:
-        '''Specifies whether images are saved in Base64 format to HTML, MHTML or EPUB.'''
-        raise NotImplementedError()
-
-    def setShowAllSheets(self, value : bool) -> None:
-        '''Indicates whether showing all sheets when saving  as a single html file.
+    def setMobileCompatible(self, value : bool) -> None:
+        '''Indicates whether the output HTML is compatible with mobile devices.
+        The default value is false.
         :param value: '''
         raise NotImplementedError()
 
-    def setExportArea(self, value : CellArea) -> None:
-        '''Sets the exporting CellArea of current active Worksheet.
-        If you set this attribute, the print area of current active Worksheet will be omitted.
-        Only the specified area will be exported when saving the file to html.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setExportFrameScriptsAndProperties(self, value : bool) -> None:
-        '''Indicating whether exporting frame scripts and document properties. The default value is true.If you want to import the html or mht file
-        to excel, please keep the default value.
+    def setExportPrintAreaOnly(self, value : bool) -> None:
+        '''Indicates if only exporting the print area to html file. The default value is false.
         :param value: '''
         raise NotImplementedError()
 
@@ -18502,30 +18618,24 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def isJsBrowserCompatible(self) -> bool:
-        '''Indicates whether JavaScript is compatible with browsers that do not support JavaScript.
-        The default value is true.'''
-        raise NotImplementedError()
-
-    def setExportWorksheetProperties(self, value : bool) -> None:
-        '''Indicating whether exporting worksheet properties.The default value is true.If you want to import
-        the html or mht file to excel, please keep the default value.
+    def setExportGridLines(self, value : bool) -> None:
+        '''Indicating whether exporting the gridlines.The default value is false.
         :param value: '''
         raise NotImplementedError()
 
-    def getCellCssPrefix(self) -> str:
-        '''Gets the prefix of the css name,the default value is "".'''
+    def getImageOptions(self) -> ImageOrPrintOptions:
+        '''Get the ImageOrPrintOptions object before exporting'''
         raise NotImplementedError()
 
-    def getFormatDataIgnoreColumnWidth(self) -> bool:
-        '''Indicating whether show the whole formatted data of cell when overflowing the column.
-        If true then ignore the column width and the whole data of cell will be exported.
-        If false then the data will be exported same as Excel.
-        The default value is false.'''
+    def setFilePathProvider(self, value : IFilePathProvider) -> None:
+        '''Sets the IFilePathProvider for exporting Worksheet to html separately.
+        :param value: '''
         raise NotImplementedError()
 
-    def setExportComments(self, value : bool) -> None:
-        '''Indicates if exporting comments when saving file to html, the default value is false.
+    def setDefaultFontName(self, value : str) -> None:
+        '''Specify the default font name for exporting html, the default font will be used  when the font of style is not existing,
+        If this property is null, Aspose.Cells will use universal font which have the same family with the original font,
+        the default value is null.
         :param value: '''
         raise NotImplementedError()
 
@@ -18534,59 +18644,43 @@ class HtmlSaveOptions:
         The default value is false.'''
         raise NotImplementedError()
 
-    def setCellCssPrefix(self, value : str) -> None:
-        '''Sets the prefix of the css name,the default value is "".
+    def setJsBrowserCompatible(self, value : bool) -> None:
+        '''Indicates whether JavaScript is compatible with browsers that do not support JavaScript.
+        The default value is true.
         :param value: '''
         raise NotImplementedError()
 
-    def getParseHtmlTagInCell(self) -> bool:
-        '''Indicates whether html tag(such as <code>&lt;div&gt;&lt;/div&gt;</code>) in cell should be parsed as cell value or preserved as it is.
-        The default value is true.'''
+    def getOfficeMathOutputMode(self) -> int:
+        '''Indicates how OfficeMath objects are exported to HTML, Default value is Image.
+        See :class:`HtmlOfficeMathOutputType`'''
         raise NotImplementedError()
 
-    def getExportHiddenWorksheet(self) -> bool:
-        '''Indicating if exporting the hidden worksheet content.The default value is true.'''
+    def getMergeEmptyTdForcely(self) -> bool:
+        ''':deprecated: Use HtmlSaveOptions.MergeEmptyTdType instead.'''
         raise NotImplementedError()
 
-    def getIgnoreInvisibleShapes(self) -> bool:
-        '''Indicate whether exporting those not visible shapes'''
+    def getExportCellCoordinate(self) -> bool:
+        '''Indicates whether exporting excel coordinate of nonblank cells when saving file to html. The default value is false.
+        If you want to import the output html to excel, please keep the default value.'''
         raise NotImplementedError()
 
-    def getExcludeUnusedStyles(self) -> bool:
-        '''Indicating whether excludes unused styles.
-        For the generated html files, excluding unused styles can make the file size smaller
-        without affecting the visual effects. So the default value of this property is true.
-        If user needs to keep all styles in the workbook for the generated html(such as the scenario that user
-        needs to restore the workbook from the generated html later), please set this property as false.'''
+    def getHiddenColDisplayType(self) -> int:
+        '''Hidden column(the width of this column is 0) in excel,before save this into html format,
+        if HtmlHiddenColDisplayType is "Remove",the hidden column would not been output,
+        if the value is "Hidden", the column would been output,but was hidden,the default value is "Hidden"
+        See :class:`HtmlHiddenColDisplayType`'''
         raise NotImplementedError()
 
-    def setAttachedFilesUrlPrefix(self, value : str) -> None:
-        '''Specify the Url prefix of attached files such as image in the html file.
-        Only for saving to html stream.
+    def setExportRowColumnHeadings(self, value : bool) -> None:
+        '''Indicates whether exports sheet's row and column headings when saving to HTML files.
         :param value: '''
         raise NotImplementedError()
 
-    def getAddTooltipText(self) -> bool:
-        '''Indicates whether adding tooltip text when the data can't be fully displayed.
-        The default value is false.'''
-        raise NotImplementedError()
-
-    def getExportHeadings(self) -> bool:
-        ''':deprecated: Use HtmlSaveOptions.ExportRowColumnHeadings instead.'''
-        raise NotImplementedError()
-
-    def getShowAllSheets(self) -> bool:
-        '''Indicates whether showing all sheets when saving  as a single html file.'''
-        raise NotImplementedError()
-
-    def isIECompatible(self) -> bool:
-        '''Indicating whether the output HTML is compatible with IE browser.
-        The defalut value is false'''
-        raise NotImplementedError()
-
-    def isExpImageToTempDir(self) -> bool:
-        '''Indicates whether exporting image files to temp directory.
-        Only for saving to html stream.'''
+    def setDataBarRenderMode(self, value : int) -> None:
+        '''Represents the mode of how to render DataBar when converting Excel files to html files.
+        Default value is :attr:`DataBarRenderMode.BACKGROUND_COLOR`.
+        See :class:`DataBarRenderMode`
+        :param value: '''
         raise NotImplementedError()
 
     def getExportArea(self) -> CellArea:
@@ -18595,47 +18689,91 @@ class HtmlSaveOptions:
         Only the specified area will be exported when saving the file to html.'''
         raise NotImplementedError()
 
-    def setPresentationPreference(self, value : bool) -> None:
-        '''Indicating if html or mht file is presentation preference.
-        The default value is false.
-        if you want to get more beautiful presentation,please set the value to true.
+    def getExportBogusRowData(self) -> bool:
+        '''Indicating whether exporting bogus bottom row data. The default value is true.If you want to import the html or mht file
+        to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def getExportHeadings(self) -> bool:
+        ''':deprecated: Use HtmlSaveOptions.ExportRowColumnHeadings instead.'''
+        raise NotImplementedError()
+
+    def setDisableDownlevelRevealedComments(self, value : bool) -> None:
+        '''Indicates if disable Downlevel-revealed conditional comments when exporting file to html, the default value is false.
         :param value: '''
         raise NotImplementedError()
 
-    def isMobileCompatible(self) -> bool:
-        '''Indicates whether the output HTML is compatible with mobile devices.
+    def getEmbeddedFontType(self) -> int:
+        '''Gets the type of embedding font file into html file.
+        Default value is :attr:`HtmlEmbeddedFontType.NONE` which indicates that no font will be embedded in html.
+        See :class:`HtmlEmbeddedFontType`'''
+        raise NotImplementedError()
+
+    def setCalculateFormula(self, value : bool) -> None:
+        '''Indicates whether to calculate formulas before saving html file.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportComments(self, value : bool) -> None:
+        '''Indicates if exporting comments when saving file to html, the default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportRowColumnHeadings(self) -> bool:
+        '''Indicates whether exports sheet's row and column headings when saving to HTML files.'''
+        raise NotImplementedError()
+
+    def setExportSimilarBorderStyle(self, value : bool) -> None:
+        '''Indicating whether exporting the similar border style when the border style is not supported by browsers.
+        If you want to import the html or mht file to excel, please keep the default value.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setPageTitle(self, value : str) -> None:
+        '''The title of the html page.
+        Only for saving to html stream.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getExportWorksheetProperties(self) -> bool:
+        '''Indicating whether exporting worksheet properties.The default value is true.If you want to import
+        the html or mht file to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def getExportExtraHeadings(self) -> bool:
+        '''Indicates whether exporting extra headings when the length of text is longer than max display column.
+        The default value is false. If you want to import the html file to excel, please keep the default value.'''
+        raise NotImplementedError()
+
+    def setExportPageHeaders(self, value : bool) -> None:
+        '''Indicates whether exporting page headers.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCellNameAttribute(self) -> str:
+        '''Specifies the attribute that indicates the CellName to be written.
+        (e.g. If the value is "id", then for cell "A1", the output will be:&lt;td id='A1'&gt;).
+        The default value is null.'''
+        raise NotImplementedError()
+
+    def getCellCssPrefix(self) -> str:
+        '''Gets the prefix of the css name,the default value is "".'''
+        raise NotImplementedError()
+
+    def getSaveAsSingleFile(self) -> bool:
+        '''Indicates whether save the html as single file.
         The default value is false.'''
         raise NotImplementedError()
 
-    def getMergeEmptyTdType(self) -> int:
-        '''The option to merge contiguous empty cells(empty td elements)
-        The default value is MergeEmptyTdType.Default.
-        See :class:`MergeEmptyTdType`'''
+    def getExportSingleTab(self) -> bool:
+        '''Indicates whether exporting the single tab when the file only has one worksheet.
+        The default value is false.'''
         raise NotImplementedError()
 
-    def setEncodeEntityAsCode(self, value : bool) -> None:
-        '''Indicates whether the html character entities are replaced with decimal code.
-        (e.g. "&amp;nbsp;" is replaced with "&amp;#160;").
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setFormatDataIgnoreColumnWidth(self, value : bool) -> None:
-        '''Indicating whether show the whole formatted data of cell when overflowing the column.
-        If true then ignore the column width and the whole data of cell will be exported.
-        If false then the data will be exported same as Excel.
-        The default value is false.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setStreamProvider(self, value : IStreamProvider) -> None:
-        '''Sets the IStreamProvider for exporting objects.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setAddTooltipText(self, value : bool) -> None:
-        '''Indicates whether adding tooltip text when the data can't be fully displayed.
-        The default value is false.
+    def setIECompatible(self, value : bool) -> None:
+        '''Indicating whether the output HTML is compatible with IE browser.
+        The defalut value is false
         :param value: '''
         raise NotImplementedError()
 
@@ -18643,9 +18781,46 @@ class HtmlSaveOptions:
         ''':deprecated: Use HtmlSaveOptions.ExportRowColumnHeadings instead.'''
         raise NotImplementedError()
 
+    def isMobileCompatible(self) -> bool:
+        '''Indicates whether the output HTML is compatible with mobile devices.
+        The default value is false.'''
+        raise NotImplementedError()
+
+    def setExpImageToTempDir(self, value : bool) -> None:
+        '''Indicates whether exporting image files to temp directory.
+        Only for saving to html stream.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getParseHtmlTagInCell(self) -> bool:
+        '''Indicates whether html tag(such as <code>&lt;div&gt;&lt;/div&gt;</code>) in cell should be parsed as cell value or preserved as it is.
+        The default value is true.'''
+        raise NotImplementedError()
+
+    def getShowAllSheets(self) -> bool:
+        '''Indicates whether showing all sheets when saving  as a single html file.'''
+        raise NotImplementedError()
+
+    def setExportPageFooters(self, value : bool) -> None:
+        '''Indicates whether exporting page headers.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setEmbeddedFontType(self, value : int) -> None:
+        '''Sets the type of embedding font file into html file.
+        Default value is :attr:`HtmlEmbeddedFontType.NONE` which indicates that no font will be embedded in html.
+        See :class:`HtmlEmbeddedFontType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportHiddenWorksheet(self, value : bool) -> None:
+        '''Indicating if exporting the hidden worksheet content.The default value is true.
+        :param value: '''
+        raise NotImplementedError()
+
 
 class HtmlTableLoadOption:
-    '''Represents the option when import table from html.'''
+    '''Represents the option when importing a table from HTML.'''
 
     def getName(self) -> str:
         ''':deprecated: Please use HtmlTableLoadOption.Id instead'''
@@ -18704,7 +18879,7 @@ class HtmlTableLoadOption:
 
 
 class HtmlTableLoadOptionCollection:
-    '''Represents the table options when importing html.'''
+    '''Represents the table options when importing HTML.'''
 
     def getTableToListObject(self) -> bool:
         '''Indicates whether generate list objects from imported tables.
@@ -18725,9 +18900,7 @@ class HtmlTableLoadOptionCollection:
 
     @overload
     def add(self, item : HtmlTableLoadOption) -> int:
-        '''Adds one HtmlTableLoadOption into this collection.
-        :param item: one HtmlTableLoadOption
-        :returns: the index of the added item'''
+        ''':deprecated: Use HtmlTableLoadOptionCollection.AddTableLoadOption(HtmlTableLoadOption) method instead.'''
         raise NotImplementedError()
 
     @overload
@@ -18770,6 +18943,12 @@ class HtmlTableLoadOptionCollection:
         :param tableId: Table ID
         :param targetSheetIndex: The target index of worksheet in Excel
         :param originalSheetIndex: The original index of worksheet in the html'''
+        raise NotImplementedError()
+
+    def addTableLoadOption(self, item : HtmlTableLoadOption) -> int:
+        '''Adds one HtmlTableLoadOption into this collection.
+        :param item: one HtmlTableLoadOption
+        :returns: the index of the added item'''
         raise NotImplementedError()
 
 
@@ -18898,13 +19077,13 @@ class ICellsDataTable:
         raise NotImplementedError()
 
     @overload
-    def get(self, columnIndex : int) -> Object:
+    def get(self, columnIndex : int) -> Any:
         '''Gets the data stored in the column specified by index.
         :param columnIndex: The zero-based index of the column.'''
         raise NotImplementedError()
 
     @overload
-    def get(self, columnName : str) -> Object:
+    def get(self, columnName : str) -> Any:
         '''Gets the data stored in the column specified by column name.
         :param columnName: The column name.'''
         raise NotImplementedError()
@@ -18946,7 +19125,7 @@ class IconFilter:
         raise NotImplementedError()
 
     def getIconSetType(self) -> int:
-        '''Gets which icon set is used in the filter criteria.
+        '''Gets which icon set is used for this filter criteria.
         See :class:`IconSetType`'''
         raise NotImplementedError()
 
@@ -18956,7 +19135,7 @@ class IconFilter:
         raise NotImplementedError()
 
     def setIconSetType(self, value : int) -> None:
-        '''Sets which icon set is used in the filter criteria.
+        '''Sets which icon set is used for this filter criteria.
         See :class:`IconSetType`
         :param value: '''
         raise NotImplementedError()
@@ -19105,7 +19284,7 @@ class IconSetType:
 class ICustomParser:
     '''Allows users to add their custom value parser for parsing string values to other proper cell value object.'''
 
-    def parseObject(self, value : str) -> Object:
+    def parseObject(self, value : str) -> Any:
         '''Parses given string to proper value object.
         :param value: The string value to be parsed
         :returns: Parsed value object from given string. If given string cannot be parsed to proper value object, returns null.'''
@@ -19121,7 +19300,7 @@ class IExportObjectListener:
     '''Allows users to manipulate objects while exporting.
     The following example creates a Workbook, opens a file named designer.xls in it and makes the horizontal and vertical scroll bars invisible for the Workbook. It then replaces two string values with an Integer value and string value respectively within the spreadsheet and finally sends the updated file to the client browser.'''
 
-    def exportObject(self, e : ExportObjectEvent) -> Object:
+    def exportObject(self, e : ExportObjectEvent) -> Any:
         '''Export one object.
         :param e: The event triggered when one object needs to be exported.
         :returns: The information about the result of exporting object. <ul> <li>For exporting objects when export workbook to HTML format, the result is URL string to access the saved Image from the html file which contains this exported object. </li> </ul>'''
@@ -19132,7 +19311,7 @@ class IFilePathProvider:
     '''Represents the exported file path provider.'''
 
     def getFullName(self, sheetName : str) -> str:
-        '''Gets the full path of the file by Worksheet name when exporting Worksheet to html separately.
+        '''Gets the full path of the file by Worksheet name when exporting Worksheet to HTML separately.
         So the references among the Worksheets can be exported correctly.
         :param sheetName: Worksheet name
         :returns: the full path of the file'''
@@ -19310,7 +19489,7 @@ class ImageFormat:
         '''Gets the bitmap (BMP) image format.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Returns a value that indicates whether the specified object is an ImageFormat
         object that is equivalent to this ImageFormat object.
         :param obj: The object to test.
@@ -19700,7 +19879,7 @@ class ImageOrPrintOptions:
         '''Gets the 0-based index of the first page to save.'''
         raise NotImplementedError()
 
-    def setRenderingHint(self, key : Key, value : Object) -> None:
+    def setRenderingHint(self, key : Key, value : Any) -> None:
         '''Sets the value of a single preference for the rendering algorithms. Hint categories include controls for rendering quality and overall time/quality trade-off in the rendering process. Refer to the RenderingHints class for definitions of some common keys and values.
         :param key: the key of the hint to be set.
         :param value: the value indicating preferences for the specified hint category.'''
@@ -19807,6 +19986,11 @@ class ImportTableOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def setStyles(self, value : list[Style]) -> None:
+        '''Sets the styles for each column of the table.
+        :param value: '''
+        raise NotImplementedError()
+
     def setDateFormat(self, value : str) -> None:
         '''Sets date format string for cells with imported datetime values.
         :param value: '''
@@ -19822,7 +20006,7 @@ class ImportTableOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getDefaultValues(self) -> list[Object]:
+    def getDefaultValues(self) -> list[Any]:
         '''Default value for the value in the table is null.'''
         raise NotImplementedError()
 
@@ -19833,6 +20017,10 @@ class ImportTableOptions:
     def setExportCaptionAsFieldName(self, value : bool) -> None:
         '''Indicates whether exporting caption as field name
         :param value: '''
+        raise NotImplementedError()
+
+    def getStyles(self) -> list[Style]:
+        '''Gets the styles for each column of the table.'''
         raise NotImplementedError()
 
     def getConvertNumericData(self) -> bool:
@@ -19911,7 +20099,7 @@ class ImportTableOptions:
         '''Gets total column count to import from data source. -1 means all rows of given data source.'''
         raise NotImplementedError()
 
-    def setDefaultValues(self, value : list[Object]) -> None:
+    def setDefaultValues(self, value : list[Any]) -> None:
         '''Default value for the value in the table is null.
         :param value: '''
         raise NotImplementedError()
@@ -19938,7 +20126,7 @@ class IndividualFontConfigs:
     '''Font configs for each :class:`Workbook` object.'''
 
     def setFontFolders(self, fontFolders : list[str], recursive : bool) -> None:
-        '''Sets the fonts folders
+        '''Sets the font folders
         :param fontFolders: The folders that contains TrueType fonts.
         :param recursive: Determines whether or not to scan subfolders.'''
         raise NotImplementedError()
@@ -19953,12 +20141,12 @@ class IndividualFontConfigs:
         raise NotImplementedError()
 
     def setFontSources(self, sources : list[FontSourceBase]) -> None:
-        '''Sets the fonts sources.
+        '''Sets the font sources.
         :param sources: An array of sources that contain TrueType fonts.'''
         raise NotImplementedError()
 
     def getFontSubstitutes(self, originalFontName : str) -> list[str]:
-        '''Returns array containing font substitute names to be used if original font is not presented.
+        '''Returns an array containing font substitute names to be used if original font is not presented.
         :param originalFontName: originalFontName
         :returns: An array containing font substitute names to be used if original font is not presented.'''
         raise NotImplementedError()
@@ -19970,7 +20158,7 @@ class IndividualFontConfigs:
         raise NotImplementedError()
 
     def setFontSubstitutes(self, originalFontName : str, substituteFontNames : list[str]) -> None:
-        '''Font substitute names for given original font name.
+        '''Sets font substitute names for a given original font name.
         :param originalFontName: Original font name.
         :param substituteFontNames: List of font substitute names to be used if original font is not presented.'''
         raise NotImplementedError()
@@ -20129,6 +20317,19 @@ class IStreamProvider:
 
 
 
+class ItemsWithNoDataShowMode:
+    '''Represent the type how to show items with no data for slicer.'''
+
+    NONE : ItemsWithNoDataShowMode
+    '''Hide items with no data.'''
+
+    LAST : ItemsWithNoDataShowMode
+    '''Show items with no data last.'''
+
+    NATURAL : ItemsWithNoDataShowMode
+    '''Show items with no data with natural order.'''
+
+
 
 
 class IWarningCallback:
@@ -20161,7 +20362,7 @@ class JsonConverter:
 
 
 class JsonExportHyperlinkType:
-    '''Represents type of exporting hyperlinks to json.'''
+    '''Represents type how to export hyperlinks to json.'''
 
     DISPLAY_STRING : JsonExportHyperlinkType
     '''Export display string'''
@@ -20266,7 +20467,7 @@ class JsonLayoutOptions:
 
 
 class JsonLoadOptions:
-    '''Represents the options of loading json files'''
+    '''Represents the options of loading JSON files'''
 
     def setLayoutOptions(self, value : JsonLayoutOptions) -> None:
         '''The options of import json.
@@ -20306,7 +20507,7 @@ class JsonLoadOptions:
 
 
 class JsonSaveOptions:
-    '''Represents the options of saving the workbook as a json file.'''
+    '''Represents the options of saving the workbook as a JSON file.'''
 
     def setSheetIndexes(self, value : list[int]) -> None:
         '''Represents the indexes of exported sheets.
@@ -20592,7 +20793,7 @@ class Legend:
         '''Gets whether showing the legend without overlapping the chart.'''
         raise NotImplementedError()
 
-    def getLegendEntriesLabels(self) -> list[list[Any]]:
+    def getLegendEntriesLabels(self) -> list[Any]:
         ''':deprecated: Use Legend.GetLegendLabels method, instead.'''
         raise NotImplementedError()
 
@@ -20911,7 +21112,7 @@ class LightRigType:
 class LimLowUppEquationNode:
     '''This class specifies the limit function.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -20939,7 +21140,7 @@ class Line:
         See :class:`MsoLineStyle`'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the line as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -20947,7 +21148,7 @@ class Line:
         '''Indicates whether the color of line is automatic assigned.'''
         raise NotImplementedError()
 
-    def getWeightPx(self) -> int:
+    def getWeightPx(self) -> float:
         '''Gets the weight of the line in unit of pixels.'''
         raise NotImplementedError()
 
@@ -20961,7 +21162,7 @@ class Line:
         :param value: '''
         raise NotImplementedError()
 
-    def getWeightPt(self) -> int:
+    def getWeightPt(self) -> float:
         '''Gets the weight of the line in unit of points.'''
         raise NotImplementedError()
 
@@ -21029,12 +21230,12 @@ class Line:
         See :class:`MsoArrowheadWidth`'''
         raise NotImplementedError()
 
-    def setWeightPx(self, value : int) -> None:
+    def setWeightPx(self, value : float) -> None:
         '''Sets the weight of the line in unit of pixels.
         :param value: '''
         raise NotImplementedError()
 
-    def setWeightPt(self, value : int) -> None:
+    def setWeightPt(self, value : float) -> None:
         '''Sets the weight of the line in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -21055,7 +21256,7 @@ class Line:
         :param value: '''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the line as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -21178,7 +21379,7 @@ class LineFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def setWeight(self, value : int) -> None:
+    def setWeight(self, value : float) -> None:
         '''Sets the weight of the line in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -21193,7 +21394,7 @@ class LineFormat:
         See :class:`MsoArrowheadLength`'''
         raise NotImplementedError()
 
-    def getWeight(self) -> int:
+    def getWeight(self) -> float:
         '''Gets the weight of the line in unit of points.'''
         raise NotImplementedError()
 
@@ -21203,7 +21404,7 @@ class LineFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determines whether this instance has the same value as another specified :class:`LineFormat` object.
         :param obj: The :class:`LineFormat` object to compare with this instance.
         :returns: true if the value of the obj parameter is the same as the value of this instance; otherwise, false. If obj is null, this method returns false.'''
@@ -21513,12 +21714,12 @@ class ListBoxActiveXControl:
         when the MultiSelect properties value (fmMultiSelectSingle).'''
         raise NotImplementedError()
 
-    def setListWidth(self, value : int) -> None:
+    def setListWidth(self, value : float) -> None:
         '''Sets the width in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def getColumnWidths(self) -> int:
+    def getColumnWidths(self) -> float:
         '''Gets the width of the column.'''
         raise NotImplementedError()
 
@@ -21553,7 +21754,7 @@ class ListBoxActiveXControl:
         '''Indicates whether the control will only show complete lines of text without showing any partial lines.'''
         raise NotImplementedError()
 
-    def setColumnWidths(self, value : int) -> None:
+    def setColumnWidths(self, value : float) -> None:
         '''Sets the width of the column.
         :param value: '''
         raise NotImplementedError()
@@ -21584,7 +21785,7 @@ class ListBoxActiveXControl:
         '''Represents the column in a ComboBox or ListBox to display to the user.'''
         raise NotImplementedError()
 
-    def getListWidth(self) -> int:
+    def getListWidth(self) -> float:
         '''Gets the width in unit of points.'''
         raise NotImplementedError()
 
@@ -21703,7 +21904,7 @@ class ListColumn:
 
 
 class ListColumnCollection:
-    '''Represents A collection of all the :class:`ListColumn` objects in the specified ListObject object.'''
+    '''Represents a list of all the :class:`ListColumn` objects in the table.'''
 
     @overload
     def get(self, index : int) -> ListColumn:
@@ -21721,16 +21922,14 @@ class ListColumnCollection:
 
 
 class ListObject:
-    '''Represents a list object on a worksheet.
-    The ListObject object is a member of the ListObjects collection.
-    The ListObjects collection contains all the list objects on a worksheet.'''
+    '''Represents a table in a worksheet.'''
 
     def getAlternativeDescription(self) -> str:
         '''Gets the alternative description.'''
         raise NotImplementedError()
 
     def getShowTableStyleColumnStripes(self) -> bool:
-        '''Indicates whether column stripe formatting is applied.'''
+        '''Indicates whether column stripe formatting is applied to.'''
         raise NotImplementedError()
 
     def getComment(self) -> str:
@@ -21738,16 +21937,16 @@ class ListObject:
         raise NotImplementedError()
 
     def setShowTableStyleRowStripes(self, value : bool) -> None:
-        '''Indicates whether row stripe formatting is applied.
+        '''Indicates whether row stripe formatting is applied to.
         :param value: '''
         raise NotImplementedError()
 
     def getDisplayName(self) -> str:
-        '''Gets the display name.'''
+        '''Gets the display name of the table.'''
         raise NotImplementedError()
 
     def setShowTableStyleFirstColumn(self, value : bool) -> None:
-        '''Indicates whether the first column in the table should have the style applied.
+        '''Indicates whether the first column in the table is the style applied to.
         :param value: '''
         raise NotImplementedError()
 
@@ -21778,12 +21977,20 @@ class ListObject:
         raise NotImplementedError()
 
     def getAutoFilter(self) -> AutoFilter:
-        '''Gets auto filter.'''
+        '''Gets auto filter of this table.'''
         raise NotImplementedError()
 
     def setShowTotals(self, value : bool) -> None:
-        '''Sets whether this ListObject show total row.
+        '''Sets whether this TAble shows total row.
         :param value: '''
+        raise NotImplementedError()
+
+    def removeAutoFilter(self) -> None:
+        '''Removes auto filter which is applied to this table.'''
+        raise NotImplementedError()
+
+    def hasAutoFilter(self) -> bool:
+        '''Indicates whether auto filter is applied to this table.'''
         raise NotImplementedError()
 
     def getEndColumn(self) -> int:
@@ -21791,7 +21998,7 @@ class ListObject:
         raise NotImplementedError()
 
     def setShowTableStyleLastColumn(self, value : bool) -> None:
-        '''Indicates whether the last column in the table should have the style applied.
+        '''Indicates whether the last column in the table is the style applied to.
         :param value: '''
         raise NotImplementedError()
 
@@ -21800,7 +22007,7 @@ class ListObject:
         raise NotImplementedError()
 
     def getShowTableStyleFirstColumn(self) -> bool:
-        '''Indicates whether the first column in the table should have the style applied.'''
+        '''Indicates whether the first column in the table is the style applied to.'''
         raise NotImplementedError()
 
     def resize(self, startRow : int, startColumn : int, endRow : int, endColumn : int, hasHeaders : bool) -> None:
@@ -21813,7 +22020,7 @@ class ListObject:
         raise NotImplementedError()
 
     def getShowHeaderRow(self) -> bool:
-        '''Gets whether this ListObject show header row.'''
+        '''Gets whether this Table shows header row.'''
         raise NotImplementedError()
 
     def getTableStyleName(self) -> str:
@@ -21825,7 +22032,7 @@ class ListObject:
         raise NotImplementedError()
 
     @overload
-    def putCellValue(self, rowOffset : int, columnOffset : int, value : Object) -> None:
+    def putCellValue(self, rowOffset : int, columnOffset : int, value : Any) -> None:
         '''Put the value to the cell.
         :param rowOffset: The row offset in the table.
         :param columnOffset: The column offset in the table.
@@ -21833,7 +22040,7 @@ class ListObject:
         raise NotImplementedError()
 
     @overload
-    def putCellValue(self, rowOffset : int, columnOffset : int, value : Object, isTotalsRowLabel : bool) -> None:
+    def putCellValue(self, rowOffset : int, columnOffset : int, value : Any, isTotalsRowLabel : bool) -> None:
         '''Put the value to the cell.
         :param rowOffset: The row offset in the table.
         :param columnOffset: The column offset in the table.
@@ -21842,7 +22049,7 @@ class ListObject:
         raise NotImplementedError()
 
     def setShowTableStyleColumnStripes(self, value : bool) -> None:
-        '''Indicates whether column stripe formatting is applied.
+        '''Indicates whether column stripe formatting is applied to.
         :param value: '''
         raise NotImplementedError()
 
@@ -21862,19 +22069,24 @@ class ListObject:
         raise NotImplementedError()
 
     def getDataRange(self) -> Range:
-        '''Gets the data range of the ListObject.'''
+        '''Gets the data range of the Table.'''
         raise NotImplementedError()
 
     def getShowTableStyleRowStripes(self) -> bool:
-        '''Indicates whether row stripe formatting is applied.'''
+        '''Indicates whether row stripe formatting is applied to.'''
         raise NotImplementedError()
 
     def filter(self) -> AutoFilter:
-        '''Filter the table.'''
+        ''':deprecated: Use set ListObject.HasAutoFilter property'''
         raise NotImplementedError()
 
     def getStartRow(self) -> int:
         '''Gets the start row of the range.'''
+        raise NotImplementedError()
+
+    def setHasAutoFilter(self, value : bool) -> None:
+        '''Indicates whether auto filter is applied to this table.
+        :param value: '''
         raise NotImplementedError()
 
     def getEndRow(self) -> int:
@@ -21887,7 +22099,7 @@ class ListObject:
         raise NotImplementedError()
 
     def getListColumns(self) -> ListColumnCollection:
-        '''Gets ListColumns of the ListObject.'''
+        '''Gets the :class:`ListColumn` list of this table.'''
         raise NotImplementedError()
 
     def setAlternativeDescription(self, value : str) -> None:
@@ -21896,11 +22108,11 @@ class ListObject:
         raise NotImplementedError()
 
     def getShowTotals(self) -> bool:
-        '''Gets whether this ListObject show total row.'''
+        '''Gets whether this TAble shows total row.'''
         raise NotImplementedError()
 
     def updateColumnName(self) -> None:
-        '''Updates all list columns' name from the worksheet.'''
+        '''Updates all list columns' name to cells in the table.'''
         raise NotImplementedError()
 
     def getQueryTable(self) -> QueryTable:
@@ -21908,11 +22120,11 @@ class ListObject:
         raise NotImplementedError()
 
     def getShowTableStyleLastColumn(self) -> bool:
-        '''Indicates whether the last column in the table should have the style applied.'''
+        '''Indicates whether the last column in the table is the style applied to.'''
         raise NotImplementedError()
 
     def setDisplayName(self, value : str) -> None:
-        '''Sets the display name.
+        '''Sets the display name of the table.
         :param value: '''
         raise NotImplementedError()
 
@@ -21933,7 +22145,7 @@ class ListObject:
         raise NotImplementedError()
 
     def setShowHeaderRow(self, value : bool) -> None:
-        '''Sets whether this ListObject show header row.
+        '''Sets whether this Table shows header row.
         :param value: '''
         raise NotImplementedError()
 
@@ -22422,7 +22634,7 @@ class LoadOptions:
         '''Gets the interrupt monitor.'''
         raise NotImplementedError()
 
-    def setStandardFontSize(self, value : int) -> None:
+    def setStandardFontSize(self, value : float) -> None:
         ''':deprecated: Use DefaultStyleSettings.FontSize property instead.'''
         raise NotImplementedError()
 
@@ -22436,7 +22648,7 @@ class LoadOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getStandardFontSize(self) -> int:
+    def getStandardFontSize(self) -> float:
         ''':deprecated: Use DefaultStyleSettings.FontSize property instead.'''
         raise NotImplementedError()
 
@@ -23016,8 +23228,13 @@ class MarkdownSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def getOfficeMathOutputType(self) -> int:
+        '''Indicates how OfficeMath objects are exported to Markdown, Default value is Image.
+        See :class:`HtmlOfficeMathOutputType`'''
+        raise NotImplementedError()
+
     def getExportHyperlinkAsReference(self) -> bool:
-        '''Exports hyperlink using reference definitions instead of inline format.
+        '''Indicates whether to export hyperlink using reference definitions instead of inline format.
         The default value is false.'''
         raise NotImplementedError()
 
@@ -23028,13 +23245,30 @@ class MarkdownSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def getSplitTablesByBlankRow(self) -> bool:
+        '''Indicates whether blank rows in the worksheet should be treated as table separators when exporting to Markdown.
+        The default value is false.'''
+        raise NotImplementedError()
+
     def setLineSeparator(self, value : str) -> None:
         '''Sets the line separator.
         :param value: '''
         raise NotImplementedError()
 
+    def setOfficeMathOutputType(self, value : int) -> None:
+        '''Indicates how OfficeMath objects are exported to Markdown, Default value is Image.
+        See :class:`HtmlOfficeMathOutputType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setSplitTablesByBlankRow(self, value : bool) -> None:
+        '''Indicates whether blank rows in the worksheet should be treated as table separators when exporting to Markdown.
+        The default value is false.
+        :param value: '''
+        raise NotImplementedError()
+
     def setExportHyperlinkAsReference(self, value : bool) -> None:
-        '''Exports hyperlink using reference definitions instead of inline format.
+        '''Indicates whether to export hyperlink using reference definitions instead of inline format.
         The default value is false.
         :param value: '''
         raise NotImplementedError()
@@ -23181,7 +23415,7 @@ class Marker:
 class MathematicalEquationNode:
     '''This class specifies an equation or mathematical expression. All mathematical text of equations or mathematical expressions are contained by this class.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -23199,7 +23433,7 @@ class MatrixEquationNode:
         See :class:`EquationVerticalJustificationType`'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -23244,7 +23478,7 @@ class MemorySetting:
 
 
 class MergedCellsShrinkType:
-    '''Represents the strategy to shrink merged cells for operations such as deleting blank rows/column.'''
+    '''Represents the strategy to shrink merged cells for operations such as deleting blank rows/columns.'''
 
     NONE : MergedCellsShrinkType
     '''Leaves the merged cells as it is without any modification.'''
@@ -23258,7 +23492,7 @@ class MergedCellsShrinkType:
 
 
 class MergeEmptyTdType:
-    '''Represents the merge type for empty TD element when exporting file to html.'''
+    '''Represents the merge type for an empty TD element when exporting a file to HTML.'''
 
     DEFAULT : MergeEmptyTdType
     '''Display like MS Excel.'''
@@ -23317,7 +23551,7 @@ class MetadataType:
 class Metered:
     '''Provides methods to set metered key.'''
 
-    def getConsumptionQuantity(self) -> int:
+    def getConsumptionQuantity(self) -> float:
         '''Gets consumption file size'''
         raise NotImplementedError()
 
@@ -23330,7 +23564,7 @@ class Metered:
         :param privateKey: private key'''
         raise NotImplementedError()
 
-    def getConsumptionCredit(self) -> int:
+    def getConsumptionCredit(self) -> float:
         '''Gets consumption credit'''
         raise NotImplementedError()
 
@@ -23501,7 +23735,7 @@ class MsoDrawingType:
 class MsoFillFormat:
     '''Represents fill formatting for a shape.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -23510,7 +23744,7 @@ class MsoFillFormat:
         '''Gets the file back color.'''
         raise NotImplementedError()
 
-    def setOneColorGradient(self, color : Color, degree : int, style : int, variant : int) -> None:
+    def setOneColorGradient(self, color : Color, degree : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a one-color gradient.
         :param color: One gradient color.
         :param degree: The gradient degree. Can be a value from 0.0 (dark) through 1.0 (light).
@@ -23541,7 +23775,7 @@ class MsoFillFormat:
         '''Gets the Texture and Picture fill data.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -23567,7 +23801,7 @@ class MsoFillFormatHelper:
         '''Gets the file back color.'''
         raise NotImplementedError()
 
-    def setOneColorGradient(self, color : Color, degree : int, style : int, variant : int) -> None:
+    def setOneColorGradient(self, color : Color, degree : float, style : int, variant : int) -> None:
         '''Sets the specified fill to a one-color gradient.
         :param color: One gradient color.
         :param degree: The gradient degree. Can be a value from 0.0 (dark) through 1.0 (light).
@@ -23585,7 +23819,7 @@ class MsoFillFormatHelper:
         See :class:`TextureType`'''
         raise NotImplementedError()
 
-    def getForeColorTransparency(self) -> int:
+    def getForeColorTransparency(self) -> float:
         '''Returns or sets the degree of fore color of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -23594,7 +23828,7 @@ class MsoFillFormatHelper:
         :param value: '''
         raise NotImplementedError()
 
-    def setForeColorTransparency(self, value : int) -> None:
+    def setForeColorTransparency(self, value : float) -> None:
         '''Returns or sets the degree of fore color of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -23625,11 +23859,11 @@ class MsoFillFormatHelper:
 class MsoFormatPicture:
     '''Represents the picture format.'''
 
-    def getLeftCropInch(self) -> int:
+    def getLeftCropInch(self) -> float:
         '''Represents the location of the left of the crop rectangle expressed, in unit of inches.'''
         raise NotImplementedError()
 
-    def getRightCrop(self) -> int:
+    def getRightCrop(self) -> float:
         '''Represents the location of the right of the crop rectangle expressed, expressed as a ratio of the image's width.'''
         raise NotImplementedError()
 
@@ -23638,81 +23872,81 @@ class MsoFormatPicture:
         :param value: '''
         raise NotImplementedError()
 
-    def getContrast(self) -> int:
+    def getContrast(self) -> float:
         '''Represents the contrast modification for the picture.in unit of percentage.'''
         raise NotImplementedError()
 
-    def setBottomCrop(self, value : int) -> None:
+    def setBottomCrop(self, value : float) -> None:
         '''Represents the location of the bottom of the crop rectangle expressed, expressed as a ratio of the image's height.
         :param value: '''
         raise NotImplementedError()
 
-    def setRightCrop(self, value : int) -> None:
+    def setRightCrop(self, value : float) -> None:
         '''Represents the location of the right of the crop rectangle expressed, expressed as a ratio of the image's width.
         :param value: '''
         raise NotImplementedError()
 
-    def getTopCropInch(self) -> int:
+    def getTopCropInch(self) -> float:
         '''Represents the location of the top of the crop rectangle expressed, in unit of inches.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
-    def setLeftCropInch(self, value : int) -> None:
+    def setLeftCropInch(self, value : float) -> None:
         '''Represents the location of the left of the crop rectangle expressed, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
-    def getBrightness(self) -> int:
+    def getBrightness(self) -> float:
         '''Represents the brightness modification for the picture in unit of percentage.'''
         raise NotImplementedError()
 
-    def setContrast(self, value : int) -> None:
+    def setContrast(self, value : float) -> None:
         '''Represents the contrast modification for the picture.in unit of percentage.
         :param value: '''
         raise NotImplementedError()
 
-    def setTopCrop(self, value : int) -> None:
+    def setTopCrop(self, value : float) -> None:
         '''Represents the location of the top of the crop rectangle expressed, expressed as a ratio of the image's height.
         :param value: '''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
 
-    def setBrightness(self, value : int) -> None:
+    def setBrightness(self, value : float) -> None:
         '''Represents the brightness modification for the picture in unit of percentage.
         :param value: '''
         raise NotImplementedError()
 
-    def getLeftCrop(self) -> int:
+    def getLeftCrop(self) -> float:
         '''Represents the location of the left of the crop rectangle expressed, expressed as a ratio of the image's width.'''
         raise NotImplementedError()
 
-    def getBottomCropInch(self) -> int:
+    def getBottomCropInch(self) -> float:
         '''Represents the location of the bottom of the crop rectangle expressed, in unit of inches.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''
         :param obj: '''
         raise NotImplementedError()
 
-    def setLeftCrop(self, value : int) -> None:
+    def setLeftCrop(self, value : float) -> None:
         '''Represents the location of the left of the crop rectangle expressed, expressed as a ratio of the image's width.
         :param value: '''
         raise NotImplementedError()
 
-    def setRightCropInch(self, value : int) -> None:
+    def setRightCropInch(self, value : float) -> None:
         '''Represents the location of the right of the crop rectangle expressed, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
-    def setTopCropInch(self, value : int) -> None:
+    def setTopCropInch(self, value : float) -> None:
         '''Represents the location of the top of the crop rectangle expressed, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -23725,12 +23959,12 @@ class MsoFormatPicture:
         '''Gets the hash code.'''
         raise NotImplementedError()
 
-    def setGamma(self, value : int) -> None:
+    def setGamma(self, value : float) -> None:
         '''Represents gamma of the picture.
         :param value: '''
         raise NotImplementedError()
 
-    def getGamma(self) -> int:
+    def getGamma(self) -> float:
         '''Represents gamma of the picture.'''
         raise NotImplementedError()
 
@@ -23747,16 +23981,16 @@ class MsoFormatPicture:
         '''Indicates whether this picture should display in grayscale.'''
         raise NotImplementedError()
 
-    def setBottomCropInch(self, value : int) -> None:
+    def setBottomCropInch(self, value : float) -> None:
         '''Represents the location of the bottom of the crop rectangle expressed, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
-    def getRightCropInch(self) -> int:
+    def getRightCropInch(self) -> float:
         '''Represents the location of the right of the crop rectangle expressed, in unit of inches.'''
         raise NotImplementedError()
 
-    def getTopCrop(self) -> int:
+    def getTopCrop(self) -> float:
         '''Represents the location of the top of the crop rectangle expressed, expressed as a ratio of the image's height.'''
         raise NotImplementedError()
 
@@ -23765,7 +23999,7 @@ class MsoFormatPicture:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomCrop(self) -> int:
+    def getBottomCrop(self) -> float:
         '''Represents the location of the bottom of the crop rectangle expressed, expressed as a ratio of the image's height.'''
         raise NotImplementedError()
 
@@ -23804,11 +24038,11 @@ class MsoLineDashStyle:
 class MsoLineFormat:
     '''Represents line and arrowhead formatting.'''
 
-    def getWeight(self) -> int:
+    def getWeight(self) -> float:
         '''Returns or sets the weight of the line ,in units of pt.'''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -23817,7 +24051,7 @@ class MsoLineFormat:
         '''Gets the border line back color.'''
         raise NotImplementedError()
 
-    def setWeight(self, value : int) -> None:
+    def setWeight(self, value : float) -> None:
         '''Returns or sets the weight of the line ,in units of pt.
         :param value: '''
         raise NotImplementedError()
@@ -23848,7 +24082,7 @@ class MsoLineFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -23875,11 +24109,11 @@ class MsoLineFormat:
 class MsoLineFormatHelper:
     '''Represents line and arrowhead formatting.'''
 
-    def getWeight(self) -> int:
+    def getWeight(self) -> float:
         '''Returns or sets the weight of the line ,in units of pt.'''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -23888,7 +24122,7 @@ class MsoLineFormatHelper:
         '''Gets the border line back color.'''
         raise NotImplementedError()
 
-    def setWeight(self, value : int) -> None:
+    def setWeight(self, value : float) -> None:
         '''Returns or sets the weight of the line ,in units of pt.
         :param value: '''
         raise NotImplementedError()
@@ -23919,7 +24153,7 @@ class MsoLineFormatHelper:
         :param value: '''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the specified fill as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -24191,25 +24425,25 @@ class MsoTextFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def getTopMarginPt(self) -> int:
+    def getTopMarginPt(self) -> float:
         '''Returns the top margin in unit of Points'''
         raise NotImplementedError()
 
-    def getLeftMarginPt(self) -> int:
+    def getLeftMarginPt(self) -> float:
         '''Returns the left margin in unit of Points'''
         raise NotImplementedError()
 
-    def setRightMarginPt(self, value : int) -> None:
+    def setRightMarginPt(self, value : float) -> None:
         '''Returns the right margin in unit of Points
         :param value: '''
         raise NotImplementedError()
 
-    def setBottomMarginPt(self, value : int) -> None:
+    def setBottomMarginPt(self, value : float) -> None:
         '''Returns the bottom margin in unit of Points
         :param value: '''
         raise NotImplementedError()
 
-    def getRightMarginPt(self) -> int:
+    def getRightMarginPt(self) -> float:
         '''Returns the right margin in unit of Points'''
         raise NotImplementedError()
 
@@ -24218,7 +24452,7 @@ class MsoTextFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def setLeftMarginPt(self, value : int) -> None:
+    def setLeftMarginPt(self, value : float) -> None:
         '''Returns the left margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -24231,7 +24465,7 @@ class MsoTextFrame:
         '''Indicates if size of shape is adjusted automatically according to its content.'''
         raise NotImplementedError()
 
-    def setTopMarginPt(self, value : int) -> None:
+    def setTopMarginPt(self, value : float) -> None:
         '''Returns the top margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -24241,7 +24475,7 @@ class MsoTextFrame:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomMarginPt(self) -> int:
+    def getBottomMarginPt(self) -> float:
         '''Returns the bottom margin in unit of Points'''
         raise NotImplementedError()
 
@@ -24257,8 +24491,8 @@ class MultipleFilterCollection:
         '''Indicates whether to filter by blank.'''
         raise NotImplementedError()
 
-    def get(self, index : int) -> Object:
-        '''DateTimeGroupItem or a simple object.
+    def get(self, index : int) -> Any:
+        '''Gets :class:`DateTimeGroupItem` or a string value.
         :param index: '''
         raise NotImplementedError()
 
@@ -24267,9 +24501,31 @@ class MultipleFilterCollection:
         :param value: '''
         raise NotImplementedError()
 
+    @overload
     def add(self, filter : str) -> None:
-        '''Adds string filter.
+        '''Adds a label filter criteria.
         :param filter: The filter data.'''
+        raise NotImplementedError()
+
+    @overload
+    def add(self, type : int, year : int, month : int, day : int) -> None:
+        '''Adds a date filter criteria value.
+        :param type: :class:`DateTimeGroupingType`. The type of date filter.
+        :param year: The year.
+        :param month: The month.
+        :param day: The day.'''
+        raise NotImplementedError()
+
+    @overload
+    def add(self, type : int, year : int, month : int, day : int, hour : int, minute : int, second : int) -> None:
+        '''Adds a date time filter criteria value.
+        :param type: :class:`DateTimeGroupingType`. The type of date filter.
+        :param year: The year.
+        :param month: The month.
+        :param day: The day.
+        :param hour: The hour.
+        :param minute: The minute.
+        :param second: The second.'''
         raise NotImplementedError()
 
 
@@ -24494,7 +24750,7 @@ class NaryEquationNode:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -25165,10 +25421,10 @@ class OleObjectCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int, imageData : list[int]) -> int:
+    def add(self, topRow : int, leftColumn : int, height : int, width : int, imageData : list[int]) -> int:
         '''Adds an OleObject to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: Height of oleObject, in unit of pixel.
         :param width: Width of oleObject, in unit of pixel.
         :param imageData: Image of ole object as byte array.
@@ -25176,10 +25432,10 @@ class OleObjectCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int, imageData : list[int], linkedFile : str) -> int:
+    def add(self, topRow : int, leftColumn : int, height : int, width : int, imageData : list[int], linkedFile : str) -> int:
         '''Adds a linked OleObject to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: Height of oleObject, in unit of pixel.
         :param width: Width of oleObject, in unit of pixel.
         :param imageData: Image of ole object as byte array.
@@ -25258,8 +25514,7 @@ class OoxmlSaveOptions:
         raise NotImplementedError()
 
     def setWpsCompatibility(self, value : bool) -> None:
-        '''Indicates whether to make the xls more compatible with WPS.
-        :param value: '''
+        ''':deprecated: Use WorkbookSetting.WpsCompatibility property instead.'''
         raise NotImplementedError()
 
     def getAsFlatOpc(self) -> bool:
@@ -25272,7 +25527,7 @@ class OoxmlSaveOptions:
         raise NotImplementedError()
 
     def getWpsCompatibility(self) -> bool:
-        '''Indicates whether to make the xls more compatible with WPS.'''
+        ''':deprecated: Use WorkbookSetting.WpsCompatibility property instead.'''
         raise NotImplementedError()
 
     def getUpdateZoom(self) -> bool:
@@ -25463,7 +25718,7 @@ class PageSetup:
         :returns: Returns :class:`Picture` object.'''
         raise NotImplementedError()
 
-    def setRightMargin(self, value : int) -> None:
+    def setRightMargin(self, value : float) -> None:
         '''Represents the size of the right margin, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -25494,7 +25749,7 @@ class PageSetup:
         '''If this property is False, the FitToPagesWide and FitToPagesTall properties control how the worksheet is scaled.'''
         raise NotImplementedError()
 
-    def setHeaderMarginInch(self, value : int) -> None:
+    def setHeaderMarginInch(self, value : float) -> None:
         '''Represents the distance from the top of the page to the header, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -25504,15 +25759,15 @@ class PageSetup:
         See :class:`PrintOrderType`'''
         raise NotImplementedError()
 
-    def getPaperWidth(self) -> int:
+    def getPaperWidth(self) -> float:
         '''Gets the width of the paper in unit of inches, considered page orientation.'''
         raise NotImplementedError()
 
-    def getRightMargin(self) -> int:
+    def getRightMargin(self) -> float:
         '''Represents the size of the right margin, in unit of centimeters.'''
         raise NotImplementedError()
 
-    def getHeaderMarginInch(self) -> int:
+    def getHeaderMarginInch(self) -> float:
         '''Represents the distance from the top of the page to the header, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25529,12 +25784,12 @@ class PageSetup:
         '''Gets number of copies to print.'''
         raise NotImplementedError()
 
-    def setFooterMargin(self, value : int) -> None:
+    def setFooterMargin(self, value : float) -> None:
         '''Represents the distance from the bottom of the page to the footer, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
 
-    def customPaperSize(self, width : int, height : int) -> None:
+    def customPaperSize(self, width : float, height : float) -> None:
         '''Sets the custom paper size, in unit of inches.
         :param width: The width of the paper.
         :param height: The height of the paper.'''
@@ -25561,7 +25816,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomMargin(self) -> int:
+    def getBottomMargin(self) -> float:
         '''Represents the size of the bottom margin, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -25587,7 +25842,7 @@ class PageSetup:
         :returns: Returns :class:`Picture` object.'''
         raise NotImplementedError()
 
-    def setBottomMargin(self, value : int) -> None:
+    def setBottomMargin(self, value : float) -> None:
         '''Represents the size of the bottom margin, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -25600,7 +25855,7 @@ class PageSetup:
         '''True means that the header/footer of the odd pages is different with odd pages.'''
         raise NotImplementedError()
 
-    def getLeftMarginInch(self) -> int:
+    def getLeftMarginInch(self) -> float:
         '''Represents the size of the left margin, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25636,7 +25891,7 @@ class PageSetup:
         '''Clears header and footer setting.'''
         raise NotImplementedError()
 
-    def setLeftMarginInch(self, value : int) -> None:
+    def setLeftMarginInch(self, value : float) -> None:
         '''Represents the size of the left margin, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -25684,7 +25939,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def setRightMarginInch(self, value : int) -> None:
+    def setRightMarginInch(self, value : float) -> None:
         '''Represents the size of the right margin, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -25722,7 +25977,7 @@ class PageSetup:
         :returns: Returns all commands of header or footer.'''
         raise NotImplementedError()
 
-    def getHeaderMargin(self) -> int:
+    def getHeaderMargin(self) -> float:
         '''Represents the distance from the top of the page to the header, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -25756,12 +26011,12 @@ class PageSetup:
         See :class:`PrintErrorsType`'''
         raise NotImplementedError()
 
-    def setFooterMarginInch(self, value : int) -> None:
+    def setFooterMarginInch(self, value : float) -> None:
         '''Represents the distance from the bottom of the page to the footer, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
-    def getRightMarginInch(self) -> int:
+    def getRightMarginInch(self) -> float:
         '''Represents the size of the right margin, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25806,7 +26061,7 @@ class PageSetup:
         This option is enabled by default.'''
         raise NotImplementedError()
 
-    def setHeaderMargin(self, value : int) -> None:
+    def setHeaderMargin(self, value : float) -> None:
         '''Represents the distance from the top of the page to the header, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -25817,11 +26072,11 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def getPaperHeight(self) -> int:
+    def getPaperHeight(self) -> float:
         '''Gets the height of the paper in unit of inches , considered page orientation.'''
         raise NotImplementedError()
 
-    def getFooterMarginInch(self) -> int:
+    def getFooterMarginInch(self) -> float:
         '''Represents the distance from the bottom of the page to the footer, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25849,12 +26104,12 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def setLeftMargin(self, value : int) -> None:
+    def setLeftMargin(self, value : float) -> None:
         '''Represents the size of the left margin, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
 
-    def setTopMargin(self, value : int) -> None:
+    def setTopMargin(self, value : float) -> None:
         '''Represents the size of the top margin, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -25871,7 +26126,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def setBottomMarginInch(self, value : int) -> None:
+    def setBottomMarginInch(self, value : float) -> None:
         '''Represents the size of the bottom margin, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -25898,7 +26153,7 @@ class PageSetup:
         '''Indicates whether the first the page number is automatically assigned.'''
         raise NotImplementedError()
 
-    def getBottomMarginInch(self) -> int:
+    def getBottomMarginInch(self) -> float:
         '''Represents the size of the bottom margin, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25907,7 +26162,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def getLeftMargin(self) -> int:
+    def getLeftMargin(self) -> float:
         '''Represents the size of the left margin, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -25922,7 +26177,7 @@ class PageSetup:
         See :class:`PrintCommentsType`'''
         raise NotImplementedError()
 
-    def getTopMarginInch(self) -> int:
+    def getTopMarginInch(self) -> float:
         '''Represents the size of the top margin, in unit of inches.'''
         raise NotImplementedError()
 
@@ -25932,7 +26187,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def setTopMarginInch(self, value : int) -> None:
+    def setTopMarginInch(self, value : float) -> None:
         '''Represents the size of the top margin, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -25954,7 +26209,7 @@ class PageSetup:
         :returns: Returns :class:`Picture` object.'''
         raise NotImplementedError()
 
-    def getTopMargin(self) -> int:
+    def getTopMargin(self) -> float:
         '''Represents the size of the top margin, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -25973,7 +26228,7 @@ class PageSetup:
         :param value: '''
         raise NotImplementedError()
 
-    def getFooterMargin(self) -> int:
+    def getFooterMargin(self) -> float:
         '''Represents the distance from the bottom of the page to the footer, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -26635,7 +26890,7 @@ class ParameterType:
 
 
 class PasteOperationType:
-    '''Represents operation type when pasting range.'''
+    '''Represents the operation type when pasting a range.'''
 
     NONE : PasteOperationType
     '''No operation.'''
@@ -26685,6 +26940,11 @@ class PasteOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def setShiftFormulasOfShapes(self, value : bool) -> None:
+        '''Indicates whether to shift formulas of the shapes when copying ranges.
+        :param value: '''
+        raise NotImplementedError()
+
     def setKeepOldTables(self, value : bool) -> None:
         '''Keeps the tables in the destination range.
         :param value: '''
@@ -26708,6 +26968,10 @@ class PasteOptions:
     def setIgnoreLinksToOriginalFile(self, value : bool) -> None:
         '''Ingore links to the original file.
         :param value: '''
+        raise NotImplementedError()
+
+    def getShiftFormulasOfShapes(self) -> bool:
+        '''Indicates whether to shift formulas of the shapes when copying ranges.'''
         raise NotImplementedError()
 
     def getIgnoreLinksToOriginalFile(self) -> bool:
@@ -26773,7 +27037,7 @@ class PasteType:
 class PatternFill:
     '''Encapsulates the object that represents pattern fill format'''
 
-    def getBackTransparency(self) -> int:
+    def getBackTransparency(self) -> float:
         '''Gets the transparency of background color.'''
         raise NotImplementedError()
 
@@ -26787,7 +27051,7 @@ class PatternFill:
         :param value: '''
         raise NotImplementedError()
 
-    def setBackTransparency(self, value : int) -> None:
+    def setBackTransparency(self, value : float) -> None:
         '''Sets the transparency of background color.
         :param value: '''
         raise NotImplementedError()
@@ -26796,7 +27060,7 @@ class PatternFill:
         '''Gets the foreground :class:`CellsColor` object.'''
         raise NotImplementedError()
 
-    def getForeTransparency(self) -> int:
+    def getForeTransparency(self) -> float:
         '''Gets the transparency of foreground color.'''
         raise NotImplementedError()
 
@@ -26833,14 +27097,14 @@ class PatternFill:
         '''Gets the foreground :class:`CellsColor` object.'''
         raise NotImplementedError()
 
-    def setForeTransparency(self, value : int) -> None:
+    def setForeTransparency(self, value : float) -> None:
         '''Sets the transparency of foreground color.
         :param value: '''
         raise NotImplementedError()
 
 
 class PclSaveOptions:
-    '''Represents the options for saving Pcl file.'''
+    '''Represents the options for saving a Pcl file.'''
 
     def getEmbedFont(self) -> bool:
         '''Indicates whether to embed font into the output Pcl file.'''
@@ -26895,12 +27159,12 @@ class PdfBookmarkEntry:
         :param value: '''
         raise NotImplementedError()
 
-    def setSubEntry(self, value : list[list[Any]]) -> None:
+    def setSubEntry(self, value : list[Any]) -> None:
         '''SubEntry of a bookmark.
         :param value: '''
         raise NotImplementedError()
 
-    def getSubEntry(self) -> list[list[Any]]:
+    def getSubEntry(self) -> list[Any]:
         '''SubEntry of a bookmark.'''
         raise NotImplementedError()
 
@@ -27324,24 +27588,24 @@ class PicFormatOption:
         :param value: '''
         raise NotImplementedError()
 
-    def getLeft(self) -> int:
+    def getLeft(self) -> float:
         '''Gets the left offset for stretching picture.'''
         raise NotImplementedError()
 
-    def setRight(self, value : int) -> None:
+    def setRight(self, value : float) -> None:
         '''Sets the right offset for stretching picture.
         :param value: '''
         raise NotImplementedError()
 
-    def getTop(self) -> int:
+    def getTop(self) -> float:
         '''Gets the top offset for stretching picture.'''
         raise NotImplementedError()
 
-    def getRight(self) -> int:
+    def getRight(self) -> float:
         '''Gets the right offset for stretching picture.'''
         raise NotImplementedError()
 
-    def getBottom(self) -> int:
+    def getBottom(self) -> float:
         '''Gets the bottom offset for stretching picture.'''
         raise NotImplementedError()
 
@@ -27350,26 +27614,26 @@ class PicFormatOption:
         See :class:`FillPictureType`'''
         raise NotImplementedError()
 
-    def setLeft(self, value : int) -> None:
+    def setLeft(self, value : float) -> None:
         '''Sets the left offset for stretching picture.
         :param value: '''
         raise NotImplementedError()
 
-    def setScale(self, value : int) -> None:
+    def setScale(self, value : float) -> None:
         '''Sets how many the picture stack and scale with.
         :param value: '''
         raise NotImplementedError()
 
-    def setBottom(self, value : int) -> None:
+    def setBottom(self, value : float) -> None:
         '''Sets the bottom offset for stretching picture.
         :param value: '''
         raise NotImplementedError()
 
-    def getScale(self) -> int:
+    def getScale(self) -> float:
         '''Gets how many the picture stack and scale with.'''
         raise NotImplementedError()
 
-    def setTop(self, value : int) -> None:
+    def setTop(self, value : float) -> None:
         '''Sets the top offset for stretching picture.
         :param value: '''
         raise NotImplementedError()
@@ -27378,12 +27642,12 @@ class PicFormatOption:
 class Picture:
     '''Encapsulates the object that represents a single picture in a spreadsheet.'''
 
-    def setBorderWeight(self, value : int) -> None:
+    def setBorderWeight(self, value : float) -> None:
         '''Sets the weight of the border line of a picture in units of pt.
         :param value: '''
         raise NotImplementedError()
 
-    def getOriginalHeightCM(self) -> int:
+    def getOriginalHeightCM(self) -> float:
         '''Gets the original height of picture, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -27429,7 +27693,7 @@ class Picture:
         See :class:`ImageType`'''
         raise NotImplementedError()
 
-    def getBorderWeight(self) -> int:
+    def getBorderWeight(self) -> float:
         '''Gets the weight of the border line of a picture in units of pt.'''
         raise NotImplementedError()
 
@@ -27464,11 +27728,11 @@ class Picture:
         :param value: '''
         raise NotImplementedError()
 
-    def getOriginalHeightInch(self) -> int:
+    def getOriginalHeightInch(self) -> float:
         '''Gets the original height of picture, in unit of inches.'''
         raise NotImplementedError()
 
-    def getOriginalWidthCM(self) -> int:
+    def getOriginalWidthCM(self) -> float:
         '''Gets the original width of picture, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -27483,13 +27747,13 @@ class Picture:
         :param value: '''
         raise NotImplementedError()
 
-    def move(self, upperLeftRow : int, upperLeftColumn : int) -> None:
+    def move(self, topRow : int, leftColumn : int) -> None:
         '''Moves the picture to a specified location.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.'''
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.'''
         raise NotImplementedError()
 
-    def getOriginalWidthInch(self) -> int:
+    def getOriginalWidthInch(self) -> float:
         '''Gets the original width of picture, in unit of inches.'''
         raise NotImplementedError()
 
@@ -27499,7 +27763,7 @@ class Picture:
         :param options: The copy options.'''
         raise NotImplementedError()
 
-    def isSameSetting(self, obj : Object) -> bool:
+    def isSameSetting(self, obj : Any) -> bool:
         '''Returns whether the shape is same.
         :param obj: '''
         raise NotImplementedError()
@@ -27567,50 +27831,50 @@ class PictureCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int, stream : InputStream) -> int:
+    def add(self, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int, stream : InputStream) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index
         :param stream: Stream object which contains the image data.
         :returns: :class:`Picture` object index.'''
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int, fileName : str) -> int:
+    def add(self, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int, fileName : str) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index
         :param fileName: Image filename.
         :returns: :class:`Picture` object index.'''
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, stream : InputStream) -> int:
+    def add(self, topRow : int, leftColumn : int, stream : InputStream) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param stream: Stream object which contains the image data.
         :returns: :class:`Picture` object index.'''
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, fileName : str) -> int:
+    def add(self, topRow : int, leftColumn : int, fileName : str) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param fileName: Image filename.
         :returns: :class:`Picture` object index.'''
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, stream : InputStream, widthScale : int, heightScale : int) -> int:
+    def add(self, topRow : int, leftColumn : int, stream : InputStream, widthScale : int, heightScale : int) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param stream: Stream object which contains the image data.
         :param widthScale: Scale of image width, a percentage.
         :param heightScale: Scale of image height, a percentage.
@@ -27618,10 +27882,10 @@ class PictureCollection:
         raise NotImplementedError()
 
     @overload
-    def add(self, upperLeftRow : int, upperLeftColumn : int, fileName : str, widthScale : int, heightScale : int) -> int:
+    def add(self, topRow : int, leftColumn : int, fileName : str, widthScale : int, heightScale : int) -> int:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param fileName: Image filename.
         :param widthScale: Scale of image width, a percentage.
         :param heightScale: Scale of image height, a percentage.
@@ -27744,10 +28008,15 @@ class PivotAreaCollection:
         :param index: '''
         raise NotImplementedError()
 
+    def addPivotArea(self, pivotArea : PivotArea) -> int:
+        '''Adds pivot area into this collection.
+        :param pivotArea: 
+        :returns: index of the added pivot area in this collection'''
+        raise NotImplementedError()
+
     @overload
     def add(self, pivotArea : PivotArea) -> int:
-        '''Adds pivot area.
-        :param pivotArea: The pivot area.'''
+        ''':deprecated: Use PivotAreaCollection.AddPivotArea(PivotArea) method instead.'''
         raise NotImplementedError()
 
     @overload
@@ -27947,7 +28216,7 @@ class PivotDateTimeRangeGroupSettings:
         '''Gets the start date time of the group.'''
         raise NotImplementedError()
 
-    def getInterval(self) -> int:
+    def getInterval(self) -> float:
         '''Gets the internal of the group.'''
         raise NotImplementedError()
 
@@ -28001,7 +28270,7 @@ class PivotField:
         raise NotImplementedError()
 
     def setRepeatItemLabels(self, value : bool) -> None:
-        '''Indicates whether repeating labels of the field in the region.
+        '''Indicates whether to repeat labels of the field in the region.
         The default value is false.
         :param value: '''
         raise NotImplementedError()
@@ -28013,14 +28282,14 @@ class PivotField:
         raise NotImplementedError()
 
     def filterByDate(self, type : int, dateTime1 : DateTime, dateTime2 : DateTime) -> PivotFilter:
-        '''Filters by date setting of row or column pivot field.
+        '''Filters by date values of row or column pivot field.
         :param type: :class:`PivotFilterType`. The type of filtering data.
         :param dateTime1: The date label of filter condition
         :param dateTime2: The upper-bound date label of between filter condition'''
         raise NotImplementedError()
 
     def setAutoShow(self, value : bool) -> None:
-        '''Indicates whether the specified PivotTable field is automatically shown,only valid for excel 2003.
+        '''Indicates whether the specified PivotTable field is automatically shown.
         :param value: '''
         raise NotImplementedError()
 
@@ -28045,8 +28314,12 @@ class PivotField:
         raise NotImplementedError()
 
     def setBaseIndex(self, value : int) -> None:
-        '''Represents the PivotField index in the base PivotFields.
+        '''Represents the index in the source pivot fields.
         :param value: '''
+        raise NotImplementedError()
+
+    def getMaxValue(self) -> CellValue:
+        '''Gets the max value of this field.'''
         raise NotImplementedError()
 
     def getCalculatedFieldFormula(self) -> str:
@@ -28054,7 +28327,7 @@ class PivotField:
         raise NotImplementedError()
 
     def getFilters(self) -> list[PivotFilter]:
-        '''Gets all pivot filters of this pivot field.'''
+        '''Gets all pivot filters applied for this pivot field.'''
         raise NotImplementedError()
 
     def setName(self, value : str) -> None:
@@ -28062,7 +28335,11 @@ class PivotField:
         :param value: '''
         raise NotImplementedError()
 
-    def getPivotFilters(self) -> list[list[Any]]:
+    def getMinValue(self) -> CellValue:
+        '''Gets the max value of this field.'''
+        raise NotImplementedError()
+
+    def getPivotFilters(self) -> list[Any]:
         ''':deprecated: Use PivotField.GetFilters() instead.'''
         raise NotImplementedError()
 
@@ -28072,11 +28349,12 @@ class PivotField:
         raise NotImplementedError()
 
     def getBaseIndex(self) -> int:
-        '''Represents the PivotField index in the base PivotFields.'''
+        '''Represents the index in the source pivot fields.'''
         raise NotImplementedError()
 
     def setCurrentPageItem(self, value : int) -> None:
-        '''Represents the current page item showing for the page field (valid only for page fields).
+        '''Represents the current selected page item of the page field to filter data.
+        Only valid for page fields.
         :param value: '''
         raise NotImplementedError()
 
@@ -28102,11 +28380,11 @@ class PivotField:
         raise NotImplementedError()
 
     def isAutoShow(self) -> bool:
-        '''Indicates whether the specified PivotTable field is automatically shown,only valid for excel 2003.'''
+        '''Indicates whether the specified PivotTable field is automatically shown.'''
         raise NotImplementedError()
 
     def setIncludeNewItemsInFilter(self, value : bool) -> None:
-        '''Indicates whether including new items to the field in manual filter.
+        '''Indicates whether to include new items to the field in manual filter.
         The default value is false.
         :param value: '''
         raise NotImplementedError()
@@ -28121,13 +28399,13 @@ class PivotField:
         raise NotImplementedError()
 
     def isMultipleItemSelectionAllowed(self) -> bool:
-        '''indicates whether the field can have multiple items
-        selected in the page field
+        '''Indicates whether multiple items could be selected in the page field.
         The default value is false.'''
         raise NotImplementedError()
 
     def getCurrentPageItem(self) -> int:
-        '''Represents the current page item showing for the page field (valid only for page fields).'''
+        '''Represents the current selected page item of the page field to filter data.
+        Only valid for page fields.'''
         raise NotImplementedError()
 
     def getName(self) -> str:
@@ -28138,7 +28416,7 @@ class PivotField:
         ''':deprecated: Use PivotField.ShowValuesSetting.CalculationType property instead.'''
         raise NotImplementedError()
 
-    def filterByValue(self, valueFieldIndex : int, type : int, value1 : int, value2 : int) -> PivotFilter:
+    def filterByValue(self, valueFieldIndex : int, type : int, value1 : float, value2 : float) -> PivotFilter:
         '''Filters by values of data pivot field.
         :param valueFieldIndex: The index of value field in the value region.
         :param type: :class:`PivotFilterType`. The type of filtering data.
@@ -28151,21 +28429,22 @@ class PivotField:
         raise NotImplementedError()
 
     def getFormula(self) -> str:
-        '''Gets formula of the calculated field .'''
+        '''Gets the formula of the calculated field .
+        Only works for calculated field.'''
         raise NotImplementedError()
 
     def getDragToData(self) -> bool:
-        '''Indicates whether the specified field can be dragged to the data position.
+        '''Indicates whether the specified field can be dragged to the values region.
         The default value is true.'''
         raise NotImplementedError()
 
     def setAutoSort(self, value : bool) -> None:
-        '''Indicates whether the specified PivotTable field is automatically sorted.
+        '''Indicates whether the items of this PivotTable field are automatically sorted.
         :param value: '''
         raise NotImplementedError()
 
     def setDragToData(self, value : bool) -> None:
-        '''Indicates whether the specified field can be dragged to the data position.
+        '''Indicates whether the specified field can be dragged to the values region.
         The default value is true.
         :param value: '''
         raise NotImplementedError()
@@ -28182,7 +28461,7 @@ class PivotField:
         raise NotImplementedError()
 
     def setDragToRow(self, value : bool) -> None:
-        '''Indicates whether the specified field can be dragged to the row position.
+        '''Indicates whether the specified field can be dragged to the row region.
         The default value is true.
         :param value: '''
         raise NotImplementedError()
@@ -28198,12 +28477,12 @@ class PivotField:
         raise NotImplementedError()
 
     def isRepeatItemLabels(self) -> bool:
-        '''Indicates whether repeating labels of the field in the region.
+        '''Indicates whether to repeat labels of the field in the region.
         The default value is false.'''
         raise NotImplementedError()
 
     def setShowSubtotalAtTop(self, value : bool) -> None:
-        '''when ShowInOutlineForm is true, then display subtotals at the top of the list of items instead of at the bottom
+        '''Indicates whether to display subtotals at the top or bottom of items when ShowInOutlineForm is true, then
         :param value: '''
         raise NotImplementedError()
 
@@ -28212,12 +28491,12 @@ class PivotField:
         raise NotImplementedError()
 
     def isInsertPageBreaksBetweenItems(self) -> bool:
-        '''Indicates whether inserting page breaks after each item.
+        '''Indicates whether to insert page breaks after each item.
         The default value is false.'''
         raise NotImplementedError()
 
     def setShowCompact(self, value : bool) -> None:
-        '''Indicates whether display labels from the next field in the same column on the Pivot Table view
+        '''Indicates whether to display labels of the next field in the same column on the Pivot Table view
         :param value: '''
         raise NotImplementedError()
 
@@ -28227,7 +28506,7 @@ class PivotField:
         raise NotImplementedError()
 
     def getInsertBlankRow(self) -> bool:
-        '''Indicates whether inserting blank line after each item.'''
+        '''Indicates whether to insert a blank line after each item.'''
         raise NotImplementedError()
 
     def setBaseItemIndex(self, value : int) -> None:
@@ -28235,7 +28514,7 @@ class PivotField:
         raise NotImplementedError()
 
     def setDisplayName(self, value : str) -> None:
-        '''Represents the PivotField display name.
+        '''Represents the display name of pivot field in the pivot table view.
         :param value: '''
         raise NotImplementedError()
 
@@ -28244,19 +28523,10 @@ class PivotField:
         that are automatically shown in the specified PivotTable field.'''
         raise NotImplementedError()
 
-    def getRange(self) -> SxRng:
-        ''':deprecated: Use PivotField.GroupSettings property instead.'''
-        raise NotImplementedError()
-
     def setAutoShowCount(self, value : int) -> None:
         '''Represent the number of top or bottom items
         that are automatically shown in the specified PivotTable field.
         :param value: '''
-        raise NotImplementedError()
-
-    def getDragToRow(self) -> bool:
-        '''Indicates whether the specified field can be dragged to the row position.
-        The default value is true.'''
         raise NotImplementedError()
 
     def showValuesAs(self, displayFormat : int, baseField : int, baseItemPositionType : int, baseItem : int) -> None:
@@ -28267,21 +28537,30 @@ class PivotField:
         :param baseItem: The index to the base item which ShowDataAs calculation bases on.'''
         raise NotImplementedError()
 
-    def isAscendShow(self) -> bool:
-        '''Indicates whether the specified PivotTable field is autoshown ascending.'''
+    def getDragToRow(self) -> bool:
+        '''Indicates whether the specified field can be dragged to the row region.
+        The default value is true.'''
         raise NotImplementedError()
 
-    def setInsertBlankRow(self, value : bool) -> None:
-        '''Indicates whether inserting blank line after each item.
-        :param value: '''
+    def isAscendShow(self) -> bool:
+        '''Indicates whether the specified PivotTable field is autoshown ascending.'''
         raise NotImplementedError()
 
     def getNumber(self) -> int:
         '''Represents the built-in display format of numbers and dates.'''
         raise NotImplementedError()
 
+    def setInsertBlankRow(self, value : bool) -> None:
+        '''Indicates whether to insert a blank line after each item.
+        :param value: '''
+        raise NotImplementedError()
+
+    def isValuesField(self) -> bool:
+        '''Indicates whether this field represents values field.'''
+        raise NotImplementedError()
+
     def isAutoSort(self) -> bool:
-        '''Indicates whether the specified PivotTable field is automatically sorted.'''
+        '''Indicates whether the items of this PivotTable field are automatically sorted.'''
         raise NotImplementedError()
 
     def getGroupSettings(self) -> PivotFieldGroupSettings:
@@ -28289,15 +28568,15 @@ class PivotField:
         raise NotImplementedError()
 
     def getShowCompact(self) -> bool:
-        '''Indicates whether display labels from the next field in the same column on the Pivot Table view'''
+        '''Indicates whether to display labels of the next field in the same column on the Pivot Table view'''
         raise NotImplementedError()
 
     def isCalculatedField(self) -> bool:
-        '''Indicates whether the specified PivotTable field is calculated field.'''
+        '''Indicates whether the this pivot field is calculated field.'''
         raise NotImplementedError()
 
     def setFunction(self, value : int) -> None:
-        '''Represents the function used to summarize the PivotTable data field.
+        '''Represents the function used to summarize this PivotTable data field.
         See :class:`ConsolidationFunction`
         :param value: '''
         raise NotImplementedError()
@@ -28312,23 +28591,31 @@ class PivotField:
     @overload
     def hideItem(self, itemValue : str, isHidden : bool) -> None:
         '''Sets whether the specific PivotItem in a data field is hidden.
-        :param itemValue: the value of the pivotItem in the pivotField.
-        :param isHidden: whether the specific PivotItem is hidden'''
+        :param itemValue: The name of the pivotItem in the pivotField.
+        :param isHidden: Whether the specific PivotItem is hidden'''
         raise NotImplementedError()
 
     def getShowSubtotalAtTop(self) -> bool:
-        '''when ShowInOutlineForm is true, then display subtotals at the top of the list of items instead of at the bottom'''
+        '''Indicates whether to display subtotals at the top or bottom of items when ShowInOutlineForm is true, then'''
         raise NotImplementedError()
 
     @overload
-    def groupBy(self, interval : int, newField : bool) -> None:
+    def groupBy(self, interval : float, newField : bool) -> None:
         '''Automatically group the field with internal
         :param interval: The internal of group.
         :param newField: Indicates whether adding a new field to the pivottable.'''
         raise NotImplementedError()
 
     @overload
-    def groupBy(self, start : DateTime, end : DateTime, groups : list[int], interval : int, firstAsNewField : bool) -> bool:
+    def groupBy(self, groups : list[int], interval : float, newField : bool) -> None:
+        '''Automatically group the field with internal
+        :param groups: :class:`PivotGroupByType`. Group types
+        :param interval: The internal of group.
+        :param newField: Indicates whether adding a new field to the pivottable.'''
+        raise NotImplementedError()
+
+    @overload
+    def groupBy(self, start : DateTime, end : DateTime, groups : list[int], interval : float, firstAsNewField : bool) -> bool:
         '''Group the file by the date group types.
         :param start: The start datetime
         :param end: The end of datetime
@@ -28339,9 +28626,34 @@ class PivotField:
         raise NotImplementedError()
 
     @overload
-    def groupBy(self, start : int, end : int, interval : int, newField : bool) -> bool:
+    def groupBy(self, isAutoStart : bool, start : DateTime, isAutoEnd : bool, end : DateTime, groups : list[int], interval : float, firstAsNewField : bool) -> bool:
+        '''Group the file by the date group types.
+        :param isAutoStart: Indicates whether to auto detect the start date time value.
+        :param start: The start datetime
+        :param isAutoEnd: Indicates whether to auto detect the end date time value.
+        :param end: The end of datetime
+        :param groups: :class:`PivotGroupByType`. Group types
+        :param interval: The interval
+        :param firstAsNewField: Indicates whether adding a new field to the pivottable.
+        :returns: False means this field could not be grouped by date time.'''
+        raise NotImplementedError()
+
+    @overload
+    def groupBy(self, start : float, end : float, interval : float, newField : bool) -> bool:
         '''Group the file by number.
         :param start: The start value
+        :param end: The end of value
+        :param interval: The interval
+        :param newField: Indicates whether adding a new field to the pivottable
+        :returns: False means this field could not be grouped by date time.'''
+        raise NotImplementedError()
+
+    @overload
+    def groupBy(self, isAutoStart : bool, start : float, isAutoEnd : bool, end : float, interval : float, newField : bool) -> bool:
+        '''Group the file by number.
+        :param isAutoStart: Indicates whether to auto detect the start value.
+        :param start: The start value
+        :param isAutoEnd: Indicates whether to auto detect the end value.
         :param end: The end of value
         :param interval: The interval
         :param newField: Indicates whether adding a new field to the pivottable
@@ -28357,14 +28669,13 @@ class PivotField:
         raise NotImplementedError()
 
     def isHiddenItemDetail(self, index : int) -> bool:
-        '''Gets whether hidding the detail of  the specific PivotItem..
+        '''Gets whether to hide the detail of the specific PivotItem..
         :param index: The index of the pivotItem in the pivotField.
         :returns: whether the specific PivotItem is hidden detail'''
         raise NotImplementedError()
 
     def setMultipleItemSelectionAllowed(self, value : bool) -> None:
-        '''indicates whether the field can have multiple items
-        selected in the page field
+        '''Indicates whether multiple items could be selected in the page field.
         The default value is false.
         :param value: '''
         raise NotImplementedError()
@@ -28375,7 +28686,7 @@ class PivotField:
         raise NotImplementedError()
 
     def getDisplayName(self) -> str:
-        '''Represents the PivotField display name.'''
+        '''Represents the display name of pivot field in the pivot table view.'''
         raise NotImplementedError()
 
     def getOriginalItems(self) -> list[str]:
@@ -28428,14 +28739,13 @@ class PivotField:
         raise NotImplementedError()
 
     def getShowAllItems(self) -> bool:
-        '''Indicates whether all items displays in the PivotTable report,
+        '''Indicates whether to display all items in the PivotTable view,
         even if they don't contain summary data.
-        show items with no data
         The default value is false.'''
         raise NotImplementedError()
 
     def isIncludeNewItemsInFilter(self) -> bool:
-        '''Indicates whether including new items to the field in manual filter.
+        '''Indicates whether to include new items to the field in manual filter.
         The default value is false.'''
         raise NotImplementedError()
 
@@ -28451,18 +28761,18 @@ class PivotField:
         raise NotImplementedError()
 
     def setAscendSort(self, value : bool) -> None:
-        '''Indicates whether the specified PivotTable field is autosorted ascending.
+        '''Indicates whether the items of this pivot field is autosorted ascending.
         :param value: '''
         raise NotImplementedError()
 
     def setInsertPageBreaksBetweenItems(self, value : bool) -> None:
-        '''Indicates whether inserting page breaks after each item.
+        '''Indicates whether to insert page breaks after each item.
         The default value is false.
         :param value: '''
         raise NotImplementedError()
 
     def getDragToHide(self) -> bool:
-        '''Indicates whether the specified field can be dragged to the hide position.
+        '''Indicates whether the specified field can be dragged to the hide region.
         The default value is true.'''
         raise NotImplementedError()
 
@@ -28471,35 +28781,36 @@ class PivotField:
         raise NotImplementedError()
 
     def setSubtotals(self, subtotalType : int, shown : bool) -> None:
-        '''Sets whether the specified field shows that subtotals.
-        :param subtotalType: :class:`PivotFieldSubtotalType`. subtotals type.
-        :param shown: whether the specified field shows that subtotals.'''
+        '''Sets how to subtotal the specified field.
+        :param subtotalType: :class:`PivotFieldSubtotalType`. :class:`PivotFieldSubtotalType`
+        :param shown: Whether the specified field shows that subtotals.'''
         raise NotImplementedError()
 
     def setDragToHide(self, value : bool) -> None:
-        '''Indicates whether the specified field can be dragged to the hide position.
+        '''Indicates whether the specified field can be dragged to the hide region.
         The default value is true.
         :param value: '''
         raise NotImplementedError()
 
     def getSubtotals(self, subtotalType : int) -> bool:
-        '''Indicates whether showing specified subtotal.
-        :param subtotalType: :class:`PivotFieldSubtotalType`. subtotal type.
+        '''Indicates whether to show specified subtotal for this pivot field.
+        :param subtotalType: :class:`PivotFieldSubtotalType`. Subtotal type.
         :returns: Returns whether showing specified subtotal.'''
         raise NotImplementedError()
 
     def hideDetail(self, isHiddenDetail : bool) -> None:
-        '''Sets whether the PivotItems in a pivot field is hidden detail.That is collapse/expand this field.
+        '''Sets whether the detail of all PivotItems in a pivot field are hidden.
+        That is collapse/expand this field.
         :param isHiddenDetail: Whether hide the detail of the pivot field.'''
         raise NotImplementedError()
 
     def getFunction(self) -> int:
-        '''Represents the function used to summarize the PivotTable data field.
+        '''Represents the function used to summarize this PivotTable data field.
         See :class:`ConsolidationFunction`'''
         raise NotImplementedError()
 
     def isAscendSort(self) -> bool:
-        '''Indicates whether the specified PivotTable field is autosorted ascending.'''
+        '''Indicates whether the items of this pivot field is autosorted ascending.'''
         raise NotImplementedError()
 
     def getRegionType(self) -> int:
@@ -28508,24 +28819,23 @@ class PivotField:
         raise NotImplementedError()
 
     def setShowInOutlineForm(self, value : bool) -> None:
-        '''Indicates whether layout this field in outline form on the Pivot Table view
+        '''Indicates whether to layout this field in outline form on the Pivot Table view.
         :param value: '''
         raise NotImplementedError()
 
     def isValueFields(self) -> bool:
-        '''Indicates whether this field represents values fields.'''
+        ''':deprecated: Use PivotField.IsValuesField property instead.'''
         raise NotImplementedError()
 
     def setShowAllItems(self, value : bool) -> None:
-        '''Indicates whether all items displays in the PivotTable report,
+        '''Indicates whether to display all items in the PivotTable view,
         even if they don't contain summary data.
-        show items with no data
         The default value is false.
         :param value: '''
         raise NotImplementedError()
 
     def getShowInOutlineForm(self) -> bool:
-        '''Indicates whether layout this field in outline form on the Pivot Table view'''
+        '''Indicates whether to layout this field in outline form on the Pivot Table view.'''
         raise NotImplementedError()
 
     def setBaseFieldIndex(self, value : int) -> None:
@@ -28664,7 +28974,7 @@ class PivotFieldGroupType:
 
 
 class PivotFieldSortSetting:
-    '''Represents the setting of sorting pivot fields.'''
+    '''Represents the setting for sorting pivot fields.'''
 
     def getCell(self) -> str:
         '''Sorts by the values in which row or column.'''
@@ -28675,7 +28985,7 @@ class PivotFieldSortSetting:
         raise NotImplementedError()
 
     def isSortByLabels(self) -> bool:
-        '''Indicates whether sorting the field by itself or data field.'''
+        '''Indicates whether to sort the field by itself or data field.'''
         raise NotImplementedError()
 
     def getSortType(self) -> int:
@@ -28725,16 +29035,16 @@ class PivotFieldSubtotalType:
     '''Represents Count Nums subtotal type.'''
 
     STDEV : PivotFieldSubtotalType
-    '''Represents Stdev subtotal type.'''
+    '''Represents Standard Deviation subtotal type.'''
 
     STDEVP : PivotFieldSubtotalType
-    '''Represents Stdevp subtotal type.'''
+    '''Represents Standard Deviation of a Population subtotal type.'''
 
     VAR : PivotFieldSubtotalType
-    '''Represents Var subtotal type.'''
+    '''Represents Variance subtotal type.'''
 
     VARP : PivotFieldSubtotalType
-    '''Represents Varp subtotal type.'''
+    '''Represents Variance of a Population subtotal type.'''
 
 
 class PivotFieldType:
@@ -28764,7 +29074,7 @@ class PivotFilter:
         See :class:`FilterCategory`'''
         raise NotImplementedError()
 
-    def getNumberValues(self) -> list[int]:
+    def getNumberValues(self) -> list[float]:
         '''Gets values of the number filter.'''
         raise NotImplementedError()
 
@@ -28801,7 +29111,7 @@ class PivotFilter:
         raise NotImplementedError()
 
     def setUseWholeDay(self, value : bool) -> None:
-        '''Indicates whether uses whole days in its filtering criteria.
+        '''Indicates whether to use whole days in its date filtering criteria.
         :param value: '''
         raise NotImplementedError()
 
@@ -28822,7 +29132,7 @@ class PivotFilter:
         raise NotImplementedError()
 
     def getFilterType(self) -> int:
-        '''Gets the autofilter type of the pivot filter.
+        '''Gets the filter type of the pivot filter.
         See :class:`PivotFilterType`'''
         raise NotImplementedError()
 
@@ -28835,7 +29145,7 @@ class PivotFilter:
         raise NotImplementedError()
 
     def getUseWholeDay(self) -> bool:
-        '''Indicates whether uses whole days in its filtering criteria.'''
+        '''Indicates whether to use whole days in its date filtering criteria.'''
         raise NotImplementedError()
 
     def getMeasureFldIndex(self) -> int:
@@ -28871,7 +29181,7 @@ class PivotFilter:
 
 
 class PivotFilterCollection:
-    '''Represents a collection of all the PivotFilter objects'''
+    '''Represents a collection of all the PivotFilters.'''
 
     def clearFilter(self, fieldIndex : int) -> None:
         '''Clear PivotFilter from the specific PivotField
@@ -28895,7 +29205,7 @@ class PivotFilterCollection:
         :param label2: The upper-bound label of between filter condition'''
         raise NotImplementedError()
 
-    def addValueFilter(self, baseFieldIndex : int, valueFieldIndex : int, type : int, value1 : int, value2 : int) -> PivotFilter:
+    def addValueFilter(self, baseFieldIndex : int, valueFieldIndex : int, type : int, value1 : float, value2 : float) -> PivotFilter:
         '''Filters by values of data pivot field.
         :param baseFieldIndex: The index of field in the source.
         :param valueFieldIndex: The index of value field in the value region.
@@ -28923,7 +29233,7 @@ class PivotFilterCollection:
 
 
 class PivotFilterType:
-    '''Represents PivotTable Filter type.'''
+    '''Represents the filter type of the pivot table.'''
 
     CAPTION_BEGINS_WITH : PivotFilterType
     '''Indicates the "begins with" filter for field captions.'''
@@ -29292,6 +29602,13 @@ class PivotGlobalizationSettings:
         '''Gets the local text of "Years".'''
         raise NotImplementedError()
 
+    def getNameOfDataField(self, function : int, name : str) -> str:
+        '''Gets the display name of data pivot field.
+        The default format is "Sum Of Field".
+        :param function: :class:`ConsolidationFunction`. The function is used to summarize values of pivot field.
+        :param name: The original name of the pivot field.'''
+        raise NotImplementedError()
+
     def getTextOfEmptyData(self) -> str:
         '''Gets the text of "(blank)" label in the PivotTable.'''
         raise NotImplementedError()
@@ -29419,7 +29736,7 @@ class PivotItem:
         :param value: '''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the value of the pivot item'''
         raise NotImplementedError()
 
@@ -29449,7 +29766,7 @@ class PivotItem:
         ''':deprecated: Use PivotItem.IsDetailHidden property instead.'''
         raise NotImplementedError()
 
-    def getDoubleValue(self) -> int:
+    def getDoubleValue(self) -> float:
         '''Gets the double value of the pivot item
         If the value is null or not number ,it will return 0'''
         raise NotImplementedError()
@@ -29615,15 +29932,15 @@ class PivotMissingItemLimitType:
 class PivotNumbericRangeGroupSettings:
     '''Represents the numberic range group of the pivot field.'''
 
-    def getEnd(self) -> int:
+    def getEnd(self) -> float:
         '''Gets the end number of the group.'''
         raise NotImplementedError()
 
-    def getStart(self) -> int:
+    def getStart(self) -> float:
         '''Gets the start number of the group.'''
         raise NotImplementedError()
 
-    def getInterval(self) -> int:
+    def getInterval(self) -> float:
         '''Gets the interval of the group.'''
         raise NotImplementedError()
 
@@ -29691,9 +30008,9 @@ class PivotOptions:
 
 
 class PivotPageFields:
-    '''Represents the pivot page field items
+    '''Represents the pivot page items
     if the pivot table data source is consolidation ranges.
-    It only can contain up to 4 fields.'''
+    It only can contain up to 4 items.'''
 
     def addIdentify(self, rangeIndex : int, pageItemIndex : list[int]) -> None:
         '''Sets which item label in each page field to use to identify the data range.
@@ -29816,11 +30133,11 @@ class PivotTable:
         raise NotImplementedError()
 
     def clearData(self) -> None:
-        '''Clear PivotTable's data and formatting'''
+        '''Clear data and formatting of PivotTable view.'''
         raise NotImplementedError()
 
     def setRowHeaderCaption(self, value : str) -> None:
-        '''Gets the Row Header Caption of the PivotTable.
+        '''Sets custom caption of the Row Header in this PivotTable.
         :param value: '''
         raise NotImplementedError()
 
@@ -29851,7 +30168,7 @@ class PivotTable:
 
     @overload
     def format(self, row : int, column : int, style : Style) -> None:
-        '''Format the cell in the pivottable area
+        '''Formats the cell in the pivottable area
         :param row: Row Index of the cell
         :param column: Column index of the cell
         :param style: Style which is to format the cell'''
@@ -29927,7 +30244,7 @@ class PivotTable:
 
     def setPrintDrill(self, value : bool) -> None:
         '''Specifies a boolean value that indicates whether drill indicators should be printed.
-        print expand/collapse buttons when displayed on pivottable.
+        Print expand/collapse buttons when displayed on pivottable.
         :param value: '''
         raise NotImplementedError()
 
@@ -29944,7 +30261,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def showInCompactForm(self) -> None:
-        '''Layouts the PivotTable in compact form.'''
+        '''Layouts the PivotTable view in compact form.'''
         raise NotImplementedError()
 
     def getManualUpdate(self) -> bool:
@@ -29982,7 +30299,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def fields(self, fieldType : int) -> PivotFieldCollection:
-        ''':deprecated: Use PivotField.GetFields() method instead.'''
+        ''':deprecated: Use PivotField.GetFields(PivotFieldType) method instead.'''
         raise NotImplementedError()
 
     def setPageFieldWrapCount(self, value : int) -> None:
@@ -30000,22 +30317,22 @@ class PivotTable:
         raise NotImplementedError()
 
     @overload
-    def setManualGroupField(self, baseFieldIndex : int, startVal : int, endVal : int, groupByList : list[list[Any]], intervalNum : int) -> None:
+    def setManualGroupField(self, baseFieldIndex : int, startVal : float, endVal : float, groupByList : list[Any], intervalNum : float) -> None:
         ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
     @overload
-    def setManualGroupField(self, pivotField : PivotField, startVal : int, endVal : int, groupByList : list[list[Any]], intervalNum : int) -> None:
+    def setManualGroupField(self, pivotField : PivotField, startVal : float, endVal : float, groupByList : list[Any], intervalNum : float) -> None:
         ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
     @overload
-    def setManualGroupField(self, baseFieldIndex : int, startVal : DateTime, endVal : DateTime, groupByList : list[list[Any]], intervalNum : int) -> None:
+    def setManualGroupField(self, baseFieldIndex : int, startVal : DateTime, endVal : DateTime, groupByList : list[Any], intervalNum : int) -> None:
         ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
     @overload
-    def setManualGroupField(self, pivotField : PivotField, startVal : DateTime, endVal : DateTime, groupByList : list[list[Any]], intervalNum : int) -> None:
+    def setManualGroupField(self, pivotField : PivotField, startVal : DateTime, endVal : DateTime, groupByList : list[Any], intervalNum : int) -> None:
         ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
@@ -30119,7 +30436,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getTag(self) -> str:
-        '''Gets a string saved with the PivotTable report.'''
+        '''Gets a user-defined string that is associated with this PivotTable view.'''
         raise NotImplementedError()
 
     def getShowColumnGrandTotals(self) -> bool:
@@ -30134,7 +30451,7 @@ class PivotTable:
         '''Indicates whether autofitting column width on update'''
         raise NotImplementedError()
 
-    def getHorizontalBreaks(self) -> list[list[Any]]:
+    def getHorizontalBreaks(self) -> list[Any]:
         ''':deprecated: Use ivotTable.GetHorizontalPageBreaks() method instead.'''
         raise NotImplementedError()
 
@@ -30157,13 +30474,13 @@ class PivotTable:
 
     @overload
     def calculateData(self) -> None:
-        '''Calculates pivottable's data to cells.'''
+        '''Calculates data of pivottable to cells.'''
         raise NotImplementedError()
 
     @overload
     def calculateData(self, option : PivotTableCalculateOption) -> None:
-        '''Calculating pivot tables with options
-        :param option: '''
+        '''Calculates pivot table with options.
+        :param option: The options for calculating the pivot table'''
         raise NotImplementedError()
 
     def isAutoFormat(self) -> bool:
@@ -30209,11 +30526,11 @@ class PivotTable:
         raise NotImplementedError()
 
     def getPivotFormats(self) -> PivotTableFormatCollection:
-        '''Gets the collection of formats applied to PivotTable.'''
+        '''Gets all formats applied to PivotTable.'''
         raise NotImplementedError()
 
     def setTag(self, value : str) -> None:
-        '''Gets a string saved with the PivotTable report.
+        '''Sets a user-defined string that is associated with this PivotTable view.
         :param value: '''
         raise NotImplementedError()
 
@@ -30257,23 +30574,23 @@ class PivotTable:
         raise NotImplementedError()
 
     def changeDataSource(self, source : list[str]) -> None:
-        '''Set pivottable's source data.
+        '''Change data source of the pivottable.
         :param source: '''
         raise NotImplementedError()
 
     @overload
     def getSource(self) -> list[str]:
-        '''Get pivottable's source data.'''
+        '''Get the data source of this pivottable.'''
         raise NotImplementedError()
 
     @overload
     def getSource(self, isOriginal : bool) -> list[str]:
-        '''Get pivottable's source data.
-        :param isOriginal: Indicates whether to return original or display data source'''
+        '''Get the data source of this pivottable.
+        :param isOriginal: Indicates whether to return original or display data source.'''
         raise NotImplementedError()
 
     def getColumnHeaderCaption(self) -> str:
-        '''Gets the Column Header Caption of the PivotTable.'''
+        '''Gets the custom Caption of the Column Header of the PivotTable.'''
         raise NotImplementedError()
 
     def setEnableWizard(self, value : bool) -> None:
@@ -30326,15 +30643,12 @@ class PivotTable:
         raise NotImplementedError()
 
     def getDataField(self) -> PivotField:
-        '''Gets a :class:`PivotField` object that represents all the data fields in a PivotTable.
-        Read-only.
-        It would only be created when there are two or more data fields in the Data region.
-        Defaultly it is in row region. You can drag it to the row/column region with PivotTable.AddFieldToArea() method .'''
+        ''':deprecated: Use PivotTable.ValuesField property instead.'''
         raise NotImplementedError()
 
     def getPrintDrill(self) -> bool:
         '''Specifies a boolean value that indicates whether drill indicators should be printed.
-        print expand/collapse buttons when displayed on pivottable.'''
+        Print expand/collapse buttons when displayed on pivottable.'''
         raise NotImplementedError()
 
     def getRowFields(self) -> PivotFieldCollection:
@@ -30371,7 +30685,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getRepeatItemsOnEachPrintedPage(self) -> bool:
-        '''Indicates whether pivot item captions on the row area are repeated on each printed page for pivot fields in tabular form.'''
+        '''Indicates whether captions of pivot item  on the row area are repeated on each printed page for pivot fields in tabular form.'''
         raise NotImplementedError()
 
     def showInOutlineForm(self) -> None:
@@ -30418,6 +30732,13 @@ class PivotTable:
         See :class:`PrintOrderType`'''
         raise NotImplementedError()
 
+    def getValuesField(self) -> PivotField:
+        '''Gets a :class:`PivotField` object that represents all the data fields in a PivotTable.
+        Read-only.
+        It would only be created when there are two or more data fields in the Data region.
+        Defaultly it is in row region. You can drag it to the row/column region with PivotTable.AddFieldToArea() method .'''
+        raise NotImplementedError()
+
     def setNullString(self, value : str) -> None:
         '''Gets the string displayed in cells that contain null values
         when the DisplayNullString property is true.The default value is an empty string.
@@ -30430,7 +30751,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setRepeatItemsOnEachPrintedPage(self, value : bool) -> None:
-        '''Indicates whether pivot item captions on the row area are repeated on each printed page for pivot fields in tabular form.
+        '''Indicates whether captions of pivot item  on the row area are repeated on each printed page for pivot fields in tabular form.
         :param value: '''
         raise NotImplementedError()
 
@@ -30664,11 +30985,11 @@ class PivotTable:
         raise NotImplementedError()
 
     def getRowHeaderCaption(self) -> str:
-        '''Gets the Row Header Caption of the PivotTable.'''
+        '''Gets custom caption of the Row Header in this PivotTable.'''
         raise NotImplementedError()
 
     def getNamesOfSourceDataConnections(self) -> list[str]:
-        '''Gets the name of external source data connections.'''
+        '''Gets the names of external source data connections.'''
         raise NotImplementedError()
 
     def getMissingItemsLimit(self) -> int:
@@ -30702,7 +31023,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def setColumnHeaderCaption(self, value : str) -> None:
-        '''Gets the Column Header Caption of the PivotTable.
+        '''Sets the custom Caption of the Column Header of the PivotTable.
         :param value: '''
         raise NotImplementedError()
 
@@ -30829,7 +31150,7 @@ class PivotTableAutoFormatType:
 
 
 class PivotTableCalculateOption:
-    '''Rerepsents the options of calcuating the pivot table.'''
+    '''Rerepsents the options of calculating data of the pivot table.'''
 
     def setRefreshData(self, value : bool) -> None:
         '''Indicates whether refreshing data source of the pivottable.
@@ -30878,7 +31199,7 @@ class PivotTableCollection:
         raise NotImplementedError()
 
     def clear(self) -> None:
-        '''Clear all pivot tables.'''
+        '''Clears all pivot tables.'''
         raise NotImplementedError()
 
     @overload
@@ -31067,6 +31388,15 @@ class PivotTableFormatCollection:
 
 class PivotTableRefreshOption:
     '''Represents the options of refreshing data source of the pivot table.'''
+
+    def isKeepOriginalOrder(self) -> bool:
+        '''Indicates whether to keep pivot items' original order as old data source.'''
+        raise NotImplementedError()
+
+    def setKeepOriginalOrder(self, value : bool) -> None:
+        '''Indicates whether to keep pivot items' original order as old data source.
+        :param value: '''
+        raise NotImplementedError()
 
     def getReserveMissingPivotItemType(self) -> int:
         '''Represents how to reserve missing pivot items.
@@ -31391,11 +31721,11 @@ class PlacementType:
 class PlotArea:
     '''Encapsulates the object that represents the plot area in a chart.'''
 
-    def getXRatioToChart(self) -> int:
+    def getXRatioToChart(self) -> float:
         '''Gets or gets the x coordinate of the upper left corner of plot-area bounding box in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def getWidthRatioToChart(self) -> int:
+    def getWidthRatioToChart(self) -> float:
         '''Gets the width of plot-area bounding box in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -31416,7 +31746,7 @@ class PlotArea:
         :param value: '''
         raise NotImplementedError()
 
-    def setInnerYRatioToChart(self, value : int) -> None:
+    def setInnerYRatioToChart(self, value : float) -> None:
         '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -31425,15 +31755,15 @@ class PlotArea:
         '''Indicates whether the plot area is automatic sized.'''
         raise NotImplementedError()
 
-    def getYRatioToChart(self) -> int:
+    def getYRatioToChart(self) -> float:
         '''Gets or gets the y coordinate of the upper top corner  of plot-area bounding box in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def getHeightRatioToChart(self) -> int:
+    def getHeightRatioToChart(self) -> float:
         '''Gets the height of plot-area bounding box in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def setXRatioToChart(self, value : int) -> None:
+    def setXRatioToChart(self, value : float) -> None:
         '''Gets or gets the x coordinate of the upper left corner of plot-area bounding box in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -31442,7 +31772,7 @@ class PlotArea:
         ''':deprecated: Use PlotArea.HeightRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def setWidthRatioToChart(self, value : int) -> None:
+    def setWidthRatioToChart(self, value : float) -> None:
         '''Sets the width of plot-area bounding box in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -31451,21 +31781,21 @@ class PlotArea:
         ''':deprecated: Use PlotArea.InnerHeightRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def getInnerHeightRatioToChart(self) -> int:
+    def getInnerHeightRatioToChart(self) -> float:
         '''Gets the height of plot area in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def setYRatioToChart(self, value : int) -> None:
+    def setYRatioToChart(self, value : float) -> None:
         '''Gets or gets the y coordinate of the upper top corner  of plot-area bounding box in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
-    def setHeightRatioToChart(self, value : int) -> None:
+    def setHeightRatioToChart(self, value : float) -> None:
         '''Sets the height of plot-area bounding box in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
-    def getInnerWidthRatioToChart(self) -> int:
+    def getInnerWidthRatioToChart(self) -> float:
         '''Gets the width  of plot area in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -31489,17 +31819,17 @@ class PlotArea:
         ''':deprecated: Use PlotArea.XRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def setInnerHeightRatioToChart(self, value : int) -> None:
+    def setInnerHeightRatioToChart(self, value : float) -> None:
         '''Sets the height of plot area in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
-    def setInnerWidthRatioToChart(self, value : int) -> None:
+    def setInnerWidthRatioToChart(self, value : float) -> None:
         '''Sets the width  of plot area in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
-    def getInnerXRatioToChart(self) -> int:
+    def getInnerXRatioToChart(self) -> float:
         '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.'''
         raise NotImplementedError()
 
@@ -31531,11 +31861,11 @@ class PlotArea:
         ''':deprecated: Use PlotArea.InnerWidthRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def getInnerYRatioToChart(self) -> int:
+    def getInnerYRatioToChart(self) -> float:
         '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.'''
         raise NotImplementedError()
 
-    def setInnerXRatioToChart(self, value : int) -> None:
+    def setInnerXRatioToChart(self, value : float) -> None:
         '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
@@ -32626,7 +32956,7 @@ class RadicalEquationNode:
         '''Whether to hide the degree of radicals.'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -32707,7 +33037,7 @@ class Range:
         '''Clears the comments of this range.'''
         raise NotImplementedError()
 
-    def getTop(self) -> int:
+    def getTop(self) -> float:
         '''Gets the distance, in points, from the top edge of row 1 to the top edge of the range.'''
         raise NotImplementedError()
 
@@ -32741,7 +33071,7 @@ class Range:
         '''Gets the index of the first row of the range.'''
         raise NotImplementedError()
 
-    def getRowHeight(self) -> int:
+    def getRowHeight(self) -> float:
         '''Sets or gets the height of rows in this range'''
         raise NotImplementedError()
 
@@ -32827,7 +33157,7 @@ class Range:
         '''Gets a Range object that represents the entire row (or rows) that contains the specified range.'''
         raise NotImplementedError()
 
-    def setColumnWidth(self, value : int) -> None:
+    def setColumnWidth(self, value : float) -> None:
         '''Sets or gets the column width of this range
         :param value: '''
         raise NotImplementedError()
@@ -32870,7 +33200,7 @@ class Range:
         '''Unmerges merged cells of this range.'''
         raise NotImplementedError()
 
-    def union(self, range : Range) -> list[list[Any]]:
+    def union(self, range : Range) -> list[Any]:
         ''':deprecated: Use Range.UnionRanges() instead.'''
         raise NotImplementedError()
 
@@ -32885,12 +33215,12 @@ class Range:
         :returns: :class:`Cell` object.'''
         raise NotImplementedError()
 
-    def setRowHeight(self, value : int) -> None:
+    def setRowHeight(self, value : float) -> None:
         '''Sets or gets the height of rows in this range
         :param value: '''
         raise NotImplementedError()
 
-    def getLeft(self) -> int:
+    def getLeft(self) -> float:
         '''Gets the distance, in points, from the left edge of column A to the left edge of the range.'''
         raise NotImplementedError()
 
@@ -32898,7 +33228,7 @@ class Range:
         '''Indicates whether the range contains values.'''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         '''Gets the width of a range in points.'''
         raise NotImplementedError()
 
@@ -32908,7 +33238,7 @@ class Range:
         :returns: Whether the range is intersect.'''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the value of the range.
         :param value: '''
         raise NotImplementedError()
@@ -32930,11 +33260,11 @@ class Range:
         :param style: The Style object.'''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the value of the range.'''
         raise NotImplementedError()
 
-    def getColumnWidth(self) -> int:
+    def getColumnWidth(self) -> float:
         '''Sets or gets the column width of this range'''
         raise NotImplementedError()
 
@@ -33004,7 +33334,7 @@ class Range:
         '''Gets the index of the first column of the range.'''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the width of a range in points.'''
         raise NotImplementedError()
 
@@ -33035,6 +33365,12 @@ class Range:
 class RangeCollection:
     '''Encapsulates a collection of :class:`Range` objects.'''
 
+    def addRange(self, range : Range) -> int:
+        '''Adds a :class:`Range` item to the collection.
+        :param range: the range to be added
+        :returns: index of the added range in this collection'''
+        raise NotImplementedError()
+
     def get(self, index : int) -> Range:
         '''Gets the :class:`Range` element at the specified index.
         :param index: The zero based index of the element.
@@ -33042,8 +33378,7 @@ class RangeCollection:
         raise NotImplementedError()
 
     def add(self, range : Range) -> int:
-        '''Adds a :class:`Range` item to the collection.
-        :param range: Range object'''
+        ''':deprecated: Use RangeCollection.AddRange(Range) method instead.'''
         raise NotImplementedError()
 
 
@@ -33124,7 +33459,7 @@ class ReferredArea:
         raise NotImplementedError()
 
     @overload
-    def getValue(self, rowOffset : int, colOffset : int) -> Object:
+    def getValue(self, rowOffset : int, colOffset : int) -> Any:
         '''Gets cell value with given offset from the top-left of this area.
         :param rowOffset: row offset from the start row of this area
         :param colOffset: column offset from the start row of this area
@@ -33132,7 +33467,7 @@ class ReferredArea:
         raise NotImplementedError()
 
     @overload
-    def getValue(self, rowOffset : int, colOffset : int, calculateFormulas : bool) -> Object:
+    def getValue(self, rowOffset : int, colOffset : int, calculateFormulas : bool) -> Any:
         '''Gets cell value with given offset from the top-left of this area.
         :param rowOffset: row offset from the start row of this area
         :param colOffset: column offset from the start row of this area
@@ -33141,12 +33476,12 @@ class ReferredArea:
         raise NotImplementedError()
 
     @overload
-    def getValues(self) -> Object:
+    def getValues(self) -> Any:
         '''Gets cell values in this area.'''
         raise NotImplementedError()
 
     @overload
-    def getValues(self, calculateFormulas : bool) -> Object:
+    def getValues(self, calculateFormulas : bool) -> Any:
         '''Gets cell values in this area.
         :param calculateFormulas: In this range, if there are some formulas that have not been calculated,
         :returns: If this area is invalid, "#REF!" will be returned; If this area is one single cell, then return the cell value object; Otherwise return one 2D array for all values in this area.'''
@@ -33193,12 +33528,12 @@ class ReferredAreaCollection:
 class ReflectionEffect:
     '''This class specifies a reflection effect.'''
 
-    def setDirection(self, value : int) -> None:
+    def setDirection(self, value : float) -> None:
         '''Sets the direction of the alpha gradient ramp relative to the shape itself.
         :param value: '''
         raise NotImplementedError()
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Sets the degree of the starting reflection transparency as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -33213,7 +33548,7 @@ class ReflectionEffect:
         :param value: '''
         raise NotImplementedError()
 
-    def getBlur(self) -> int:
+    def getBlur(self) -> float:
         '''Gets the blur radius,in unit of points.'''
         raise NotImplementedError()
 
@@ -33222,25 +33557,25 @@ class ReflectionEffect:
         :param value: '''
         raise NotImplementedError()
 
-    def getDirection(self) -> int:
+    def getDirection(self) -> float:
         '''Gets the direction of the alpha gradient ramp relative to the shape itself.'''
         raise NotImplementedError()
 
-    def setDistance(self, value : int) -> None:
+    def setDistance(self, value : float) -> None:
         '''Sets how far to distance the shadow,in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def setSize(self, value : int) -> None:
+    def setSize(self, value : float) -> None:
         '''Sets the end position (along the alpha gradient ramp) of the end alpha value,in unit of percentage
         :param value: '''
         raise NotImplementedError()
 
-    def getDistance(self) -> int:
+    def getDistance(self) -> float:
         '''Gets how far to distance the shadow,in unit of points.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Gets the degree of the starting reflection transparency as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -33249,21 +33584,21 @@ class ReflectionEffect:
         See :class:`ReflectionEffectType`'''
         raise NotImplementedError()
 
-    def getFadeDirection(self) -> int:
+    def getFadeDirection(self) -> float:
         '''Gets the direction to offset the reflection.'''
         raise NotImplementedError()
 
-    def setBlur(self, value : int) -> None:
+    def setBlur(self, value : float) -> None:
         '''Sets the blur radius,in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def setFadeDirection(self, value : int) -> None:
+    def setFadeDirection(self, value : float) -> None:
         '''Sets the direction to offset the reflection.
         :param value: '''
         raise NotImplementedError()
 
-    def getSize(self) -> int:
+    def getSize(self) -> float:
         '''Gets the end position (along the alpha gradient ramp) of the end alpha value,in unit of percentage'''
         raise NotImplementedError()
 
@@ -33502,7 +33837,7 @@ class ReserveMissingPivotItemType:
     '''Represents how to keep the missing pivot items.'''
 
     DEFAULT : ReserveMissingPivotItemType
-    '''Removes old missint pivot items and reserves visible items which the current data source does not contain as missing items.'''
+    '''Removes old missing pivot items and reserves deleted items of new data source as missing items.'''
 
     ALL : ReserveMissingPivotItemType
     '''Reserves all missing items.'''
@@ -33591,11 +33926,11 @@ class RevisionCellChange:
         '''Gets the old formula.'''
         raise NotImplementedError()
 
-    def getOldValue(self) -> Object:
+    def getOldValue(self) -> Any:
         '''Gets old value of the cell.'''
         raise NotImplementedError()
 
-    def getNewValue(self) -> Object:
+    def getNewValue(self) -> Any:
         '''Gets new value of the cell.'''
         raise NotImplementedError()
 
@@ -34000,7 +34335,7 @@ class Row:
         :param value: '''
         raise NotImplementedError()
 
-    def setHeight(self, value : int) -> None:
+    def setHeight(self, value : float) -> None:
         '''Sets the row height in unit of Points.
         :param value: '''
         raise NotImplementedError()
@@ -34024,7 +34359,7 @@ class Row:
         raise NotImplementedError()
 
     @overload
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Checks whether this object refers to the same row with another.
         :param obj: another object
         :returns: true if two objects refers to the same row.'''
@@ -34043,7 +34378,7 @@ class Row:
         :returns: Returns the cell object if the cell exists. Or returns null if the cell object does not exist.'''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         '''Gets the row height in unit of Points.'''
         raise NotImplementedError()
 
@@ -34746,7 +35081,7 @@ class Series:
         ''':deprecated: Use Aspose.Cells.Charts.Series.SizeRepresents property instead.'''
         raise NotImplementedError()
 
-    def setSplitValue(self, value : int) -> None:
+    def setSplitValue(self, value : float) -> None:
         '''Returns or sets a value that shall be used to determine which data points are in the second pie or bar on
         a pie of pie or bar of pie chart.
         :param value: '''
@@ -34805,6 +35140,10 @@ class Series:
         '''Gets the collection of points in a series in a chart.'''
         raise NotImplementedError()
 
+    def getCachedCategoryValues(self) -> list[Any]:
+        ''':deprecated: internal use only'''
+        raise NotImplementedError()
+
     def getLegendEntry(self) -> LegendEntry:
         '''Gets the legend entry according to this series.'''
         raise NotImplementedError()
@@ -34816,7 +35155,7 @@ class Series:
         :param value: '''
         raise NotImplementedError()
 
-    def getSplitValue(self) -> int:
+    def getSplitValue(self) -> float:
         '''Returns or sets a value that shall be used to determine which data points are in the second pie or bar on
         a pie of pie or bar of pie chart.'''
         raise NotImplementedError()
@@ -34977,7 +35316,7 @@ class Series:
         raise NotImplementedError()
 
     def getXValues(self) -> str:
-        '''Represents the x values of the chart series.'''
+        '''Represents the X values of this chart series.'''
         raise NotImplementedError()
 
     def getOverlap(self) -> int:
@@ -35040,6 +35379,11 @@ class Series:
         '''Represents the DataLabels object for the specified ASeries.'''
         raise NotImplementedError()
 
+    def getCategoryValues(self) -> list[list[ChartDataValue]]:
+        '''Gets the actual category values that are used to plot every point
+        of this series in the chart.'''
+        raise NotImplementedError()
+
     def getDisplayName(self) -> str:
         '''Gets the series's name that displays on the chart graph.'''
         raise NotImplementedError()
@@ -35065,10 +35409,19 @@ class Series:
         :param count: The number of moving up or down.'''
         raise NotImplementedError()
 
+    def getCachedValues(self) -> list[Any]:
+        ''':deprecated: internal use only'''
+        raise NotImplementedError()
+
     def setSizeRepresents(self, value : int) -> None:
         '''Sets what the bubble size represents on a bubble chart.
         See :class:`BubbleSizeRepresents`
         :param value: '''
+        raise NotImplementedError()
+
+    def getPointValues(self) -> list[ChartDataValue]:
+        '''Gets the actual values that are used to plot every point
+        of this series in the chart.'''
         raise NotImplementedError()
 
     def setSmooth(self, value : bool) -> None:
@@ -35119,7 +35472,7 @@ class Series:
         raise NotImplementedError()
 
     def setXValues(self, value : str) -> None:
-        '''Represents the x values of the chart series.
+        '''Represents the X values of this chart series.
         :param value: '''
         raise NotImplementedError()
 
@@ -35772,7 +36125,7 @@ class SettablePivotGlobalizationSettings:
 class ShadowEffect:
     '''This class specifies the shadow effect of the chart element or shape.'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Sets the degree of transparency of the shadow. Range from 0.0 (opaque) to 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -35783,35 +36136,35 @@ class ShadowEffect:
         :param value: '''
         raise NotImplementedError()
 
-    def getBlur(self) -> int:
+    def getBlur(self) -> float:
         '''Gets the blur of the shadow. Range from 0 to 100 points.'''
         raise NotImplementedError()
 
-    def setDistance(self, value : int) -> None:
+    def setDistance(self, value : float) -> None:
         '''Sets the distance of the shadow. Range from 0 to 200 points.
         :param value: '''
         raise NotImplementedError()
 
-    def setSize(self, value : int) -> None:
+    def setSize(self, value : float) -> None:
         '''Sets the size of the shadow. Range from 0 to 2.0.
         Meaningless in inner shadow.
         :param value: '''
         raise NotImplementedError()
 
-    def getDistance(self) -> int:
+    def getDistance(self) -> float:
         '''Gets the distance of the shadow. Range from 0 to 200 points.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Gets the degree of transparency of the shadow. Range from 0.0 (opaque) to 1.0 (clear).'''
         raise NotImplementedError()
 
-    def setAngle(self, value : int) -> None:
+    def setAngle(self, value : float) -> None:
         '''Sets the lighting angle. Range from 0 to 359.9 degrees.
         :param value: '''
         raise NotImplementedError()
 
-    def setBlur(self, value : int) -> None:
+    def setBlur(self, value : float) -> None:
         '''Sets the blur of the shadow. Range from 0 to 100 points.
         :param value: '''
         raise NotImplementedError()
@@ -35821,7 +36174,7 @@ class ShadowEffect:
         :param value: '''
         raise NotImplementedError()
 
-    def getAngle(self) -> int:
+    def getAngle(self) -> float:
         '''Gets the lighting angle. Range from 0 to 359.9 degrees.'''
         raise NotImplementedError()
 
@@ -35829,7 +36182,7 @@ class ShadowEffect:
         '''Gets the color of the shadow.'''
         raise NotImplementedError()
 
-    def getSize(self) -> int:
+    def getSize(self) -> float:
         '''Gets the size of the shadow. Range from 0 to 2.0.
         Meaningless in inner shadow.'''
         raise NotImplementedError()
@@ -35862,12 +36215,12 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def setHeightInch(self, value : int) -> None:
+    def setHeightInch(self, value : float) -> None:
         '''Represents the height of the shape, in unit of inches.
         :param value: '''
         raise NotImplementedError()
 
-    def getWidthInch(self) -> int:
+    def getWidthInch(self) -> float:
         '''Represents the width of the shape, in unit of inch.'''
         raise NotImplementedError()
 
@@ -35919,7 +36272,7 @@ class Shape:
         See :class:`TextDirectionType`'''
         raise NotImplementedError()
 
-    def getHeightCM(self) -> int:
+    def getHeightCM(self) -> float:
         '''Represents the height of the shape, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -36137,12 +36490,12 @@ class Shape:
         '''Gets the horizonal offset of shape from worksheet left border.'''
         raise NotImplementedError()
 
-    def moveToRange(self, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int) -> None:
+    def moveToRange(self, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int) -> None:
         '''Moves the shape to a specified range.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index'''
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index'''
         raise NotImplementedError()
 
     def getY(self) -> int:
@@ -36162,7 +36515,7 @@ class Shape:
         If False, this shape will not be printed when printing.'''
         raise NotImplementedError()
 
-    def getWidthPt(self) -> int:
+    def getWidthPt(self) -> float:
         '''Represents the width of the shape, in unit of point.'''
         raise NotImplementedError()
 
@@ -36176,7 +36529,7 @@ class Shape:
         See :class:`AutoShapeType`'''
         raise NotImplementedError()
 
-    def setSoftEdges(self, value : int) -> None:
+    def setSoftEdges(self, value : float) -> None:
         '''Sets the radius of blur to apply to the edges, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -36195,7 +36548,7 @@ class Shape:
         '''Gets the data of control.'''
         raise NotImplementedError()
 
-    def getHeightInch(self) -> int:
+    def getHeightInch(self) -> float:
         '''Represents the height of the shape, in unit of inches.'''
         raise NotImplementedError()
 
@@ -36213,7 +36566,7 @@ class Shape:
         '''Indicates whether this shape is a word art.'''
         raise NotImplementedError()
 
-    def getTopCM(self) -> int:
+    def getTopCM(self) -> float:
         '''Represents the vertical offset of shape from its top row, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -36298,7 +36651,7 @@ class Shape:
         '''Represents upper left corner column index.'''
         raise NotImplementedError()
 
-    def setLeftInch(self, value : int) -> None:
+    def setLeftInch(self, value : float) -> None:
         '''Represents the horizontal offset of shape from its left column, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -36307,12 +36660,12 @@ class Shape:
         '''Indicates whether the fill format is visible.'''
         raise NotImplementedError()
 
-    def isSameSetting(self, obj : Object) -> bool:
+    def isSameSetting(self, obj : Any) -> bool:
         '''Returns whether the shape is same.
         :param obj: '''
         raise NotImplementedError()
 
-    def getWidthCM(self) -> int:
+    def getWidthCM(self) -> float:
         '''Represents the width of the shape, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -36330,7 +36683,7 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def setWidthPt(self, value : int) -> None:
+    def setWidthPt(self, value : float) -> None:
         '''Represents the width of the shape, in unit of point.
         :param value: '''
         raise NotImplementedError()
@@ -36339,7 +36692,7 @@ class Shape:
         '''Represents the font of shape.'''
         raise NotImplementedError()
 
-    def getSoftEdges(self) -> int:
+    def getSoftEdges(self) -> float:
         '''Gets the radius of blur to apply to the edges, in unit of points.'''
         raise NotImplementedError()
 
@@ -36349,7 +36702,7 @@ class Shape:
         :returns: Returns the value of locked property.'''
         raise NotImplementedError()
 
-    def getLeftInch(self) -> int:
+    def getLeftInch(self) -> float:
         '''Represents the horizontal offset of shape from its left column, in unit of inches.'''
         raise NotImplementedError()
 
@@ -36470,7 +36823,7 @@ class Shape:
         '''Gets 3d format of the shape.'''
         raise NotImplementedError()
 
-    def setWidthCM(self, value : int) -> None:
+    def setWidthCM(self, value : float) -> None:
         '''Represents the width of the shape, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -36545,7 +36898,7 @@ class Shape:
         '''Represents the top row index.'''
         raise NotImplementedError()
 
-    def getTopInch(self) -> int:
+    def getTopInch(self) -> float:
         '''Represents the vertical offset of shape from its top row, in unit of inches.'''
         raise NotImplementedError()
 
@@ -36571,7 +36924,7 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def setLeftCM(self, value : int) -> None:
+    def setLeftCM(self, value : float) -> None:
         '''Represents the horizontal offset of shape from its left column, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -36590,7 +36943,7 @@ class Shape:
         '''Indicates whether the shape is a smart art.'''
         raise NotImplementedError()
 
-    def setWidthInch(self, value : int) -> None:
+    def setWidthInch(self, value : float) -> None:
         '''Represents the width of the shape, in unit of inch.
         :param value: '''
         raise NotImplementedError()
@@ -36608,7 +36961,7 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def getCharacters(self) -> list[list[Any]]:
+    def getCharacters(self) -> list[Any]:
         ''':deprecated: Use Shape.GetRichFormattings() instead.'''
         raise NotImplementedError()
 
@@ -36616,7 +36969,7 @@ class Shape:
         '''Gets the text of this shape.'''
         raise NotImplementedError()
 
-    def setHeightPt(self, value : int) -> None:
+    def setHeightPt(self, value : float) -> None:
         '''Represents the height of the shape, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -36644,7 +36997,7 @@ class Shape:
         '''Represents the width of the shape's vertical offset from its lower bottom corner row, in unit of pixels.'''
         raise NotImplementedError()
 
-    def getRotationAngle(self) -> int:
+    def getRotationAngle(self) -> float:
         '''Gets the rotation of the shape.'''
         raise NotImplementedError()
 
@@ -36656,7 +37009,7 @@ class Shape:
         '''Gets the shape's horizontal  offset from its lower right corner column.'''
         raise NotImplementedError()
 
-    def getLeftCM(self) -> int:
+    def getLeftCM(self) -> float:
         '''Represents the horizontal offset of shape from its left column, in unit of centimeters.'''
         raise NotImplementedError()
 
@@ -36703,7 +37056,7 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def getHeightPt(self) -> int:
+    def getHeightPt(self) -> float:
         '''Represents the height of the shape, in unit of points.'''
         raise NotImplementedError()
 
@@ -36721,7 +37074,7 @@ class Shape:
         See :class:`AutoShapeType`'''
         raise NotImplementedError()
 
-    def setTopInch(self, value : int) -> None:
+    def setTopInch(self, value : float) -> None:
         '''Represents the vertical offset of shape from its top row, in unit of inches.
         :param value: '''
         raise NotImplementedError()
@@ -36741,7 +37094,7 @@ class Shape:
         :param value: '''
         raise NotImplementedError()
 
-    def setTopCM(self, value : int) -> None:
+    def setTopCM(self, value : float) -> None:
         '''Represents the vertical offset of shape from its top row, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -36750,7 +37103,7 @@ class Shape:
         '''Gets whether shape is horizontally flipped .'''
         raise NotImplementedError()
 
-    def setHeightCM(self, value : int) -> None:
+    def setHeightCM(self, value : float) -> None:
         '''Represents the height of the shape, in unit of centimeters.
         :param value: '''
         raise NotImplementedError()
@@ -36769,7 +37122,7 @@ class Shape:
         '''Represents the height of shape, in unit of pixel.'''
         raise NotImplementedError()
 
-    def setRotationAngle(self, value : int) -> None:
+    def setRotationAngle(self, value : float) -> None:
         '''Sets the rotation of the shape.
         :param value: '''
         raise NotImplementedError()
@@ -36802,29 +37155,29 @@ class ShapeAnchorType:
 class ShapeCollection:
     '''Represents all the shape in a worksheet/chart.'''
 
-    def addRectangle(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> RectangleShape:
+    def addRectangle(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> RectangleShape:
         '''Adds a RectangleShape to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of RectangleShape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of RectangleShape from its left column, in unit of pixel.
         :param height: Represents the height of RectangleShape, in unit of pixel.
         :param width: Represents the width of RectangleShape, in unit of pixel.
         :returns: A RectangleShape object.'''
         raise NotImplementedError()
 
-    def addLabel(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Label:
+    def addLabel(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Label:
         '''Adds a Label to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Label from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Label from its left column, in unit of pixel.
         :param height: Represents the height of Label, in unit of pixel.
         :param width: Represents the width of Label, in unit of pixel.
         :returns: A Label object.'''
         raise NotImplementedError()
 
-    def addTextEffect(self, effect : int, text : str, fontName : str, size : int, fontBold : bool, fontItalic : bool, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Shape:
+    def addTextEffect(self, effect : int, text : str, fontName : str, size : int, fontBold : bool, fontItalic : bool, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Shape:
         '''Inserts a WordArt object.
         :param effect: :class:`MsoPresetTextEffect`. The mso preset text effect type.
         :param text: The WordArt text.
@@ -36832,31 +37185,31 @@ class ShapeCollection:
         :param size: The font size
         :param fontBold: Indicates whether font is bold.
         :param fontItalic: Indicates whether font is italic.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of shape from its left column, in unit of pixel.
         :param height: Represents the height of shape, in unit of pixel.
         :param width: Represents the width of shape, in unit of pixel.
         :returns: Returns a Shape object that represents the new WordArt object.'''
         raise NotImplementedError()
 
-    def addCheckBox(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> CheckBox:
+    def addCheckBox(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> CheckBox:
         '''Adds a checkbox to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of checkbox from its top row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of textbox from its left column, in unit of pixel.
         :param height: Height of textbox, in unit of pixel.
         :param width: Width of textbox, in unit of pixel.
         :returns: The new CheckBox object index.'''
         raise NotImplementedError()
 
-    def addSpinner(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Spinner:
+    def addSpinner(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Spinner:
         '''Adds a Spinner to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Spinner from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Spinner from its left column, in unit of pixel.
         :param height: Represents the height of Spinner, in unit of pixel.
         :param width: Represents the width of Spinner, in unit of pixel.
@@ -36887,22 +37240,22 @@ class ShapeCollection:
         :returns: A TextBox object.'''
         raise NotImplementedError()
 
-    def addComboBox(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> ComboBox:
+    def addComboBox(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> ComboBox:
         '''Adds a ComboBox to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of ComboBox from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of ComboBox from its left column, in unit of pixel.
         :param height: Represents the height of ComboBox, in unit of pixel.
         :param width: Represents the width of ComboBox, in unit of pixel.
         :returns: A ComboBox object.'''
         raise NotImplementedError()
 
-    def addIcons(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int, imageByteData : list[int], compatibleImageData : list[int]) -> Picture:
+    def addIcons(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int, imageByteData : list[int], compatibleImageData : list[int]) -> Picture:
         '''Adds svg image.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: The horizontal offset of shape from its left column, in unit of pixel.
         :param height: The height of shape, in unit of pixel.
         :param width: The width of shape, in unit of pixel.
@@ -36920,7 +37273,7 @@ class ShapeCollection:
         raise NotImplementedError()
 
     @overload
-    def addShapeInChartByScale(self, type : int, placement : int, left : int, top : int, right : int, bottom : int) -> Shape:
+    def addShapeInChartByScale(self, type : int, placement : int, left : float, top : float, right : float, bottom : float) -> Shape:
         '''Add a shape to chart. All unit is percent scale of chart area.
         :param type: :class:`MsoDrawingType`. The drawing type.
         :param placement: :class:`PlacementType`. the placement type.
@@ -36931,7 +37284,7 @@ class ShapeCollection:
         raise NotImplementedError()
 
     @overload
-    def addShapeInChartByScale(self, type : int, placement : int, left : int, top : int, right : int, bottom : int, imageData : list[int]) -> Shape:
+    def addShapeInChartByScale(self, type : int, placement : int, left : float, top : float, right : float, bottom : float, imageData : list[int]) -> Shape:
         '''Add a shape to chart .All unit is 1/4000 of chart area.
         :param type: :class:`MsoDrawingType`. The drawing type.
         :param placement: :class:`PlacementType`. the placement type.
@@ -36942,34 +37295,34 @@ class ShapeCollection:
         :param imageData: If the shape is not a picture or ole object,imageData should be null.'''
         raise NotImplementedError()
 
-    def addButton(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Button:
+    def addButton(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Button:
         '''Adds a Button to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Button from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Button from its left column, in unit of pixel.
         :param height: Represents the height of Button, in unit of pixel.
         :param width: Represents the width of Button, in unit of pixel.
         :returns: A Button object.'''
         raise NotImplementedError()
 
-    def addAutoShape(self, type : int, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Shape:
+    def addAutoShape(self, type : int, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Shape:
         '''Adds a AutoShape to the worksheet.
         :param type: :class:`AutoShapeType`. Auto shape type.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Shape from its left column, in unit of pixel.
         :param height: Represents the height of Shape, in unit of pixel.
         :param width: Represents the width of Shape, in unit of pixel.
         :returns: A Shape object.'''
         raise NotImplementedError()
 
-    def addOleObject(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int, imageData : list[int]) -> OleObject:
+    def addOleObject(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int, imageData : list[int]) -> OleObject:
         '''Adds an OleObject.
-        :param upperLeftRow: 
+        :param topRow: 
         :param top: 
-        :param upperLeftColumn: 
+        :param leftColumn: 
         :param left: 
         :param height: 
         :param width: 
@@ -36987,7 +37340,7 @@ class ShapeCollection:
         raise NotImplementedError()
 
     def addEquation(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> TextBox:
-        '''Add an equation object to the worksheet.
+        '''Adds an equation object to the worksheet.
         :param topRow: The top row index.
         :param top: The vertical offset its top row, in unit of pixel.
         :param leftColumn: The left column index.
@@ -37001,10 +37354,10 @@ class ShapeCollection:
         :param index: The index of the shape.'''
         raise NotImplementedError()
 
-    def addLinkedPicture(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int, sourceFullName : str) -> Picture:
+    def addLinkedPicture(self, topRow : int, leftColumn : int, height : int, width : int, sourceFullName : str) -> Picture:
         '''Add a linked picture.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: The height of the shape. In unit of pixels
         :param width: The width of the shape. In unit of pixels
         :param sourceFullName: 
@@ -37031,11 +37384,11 @@ class ShapeCollection:
         :param group: The group shape.'''
         raise NotImplementedError()
 
-    def addOval(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Oval:
+    def addOval(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Oval:
         '''Adds a Oval to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Oval from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Oval from its left column, in unit of pixel.
         :param height: Represents the height of Oval, in unit of pixel.
         :param width: Represents the width of Oval, in unit of pixel.
@@ -37047,11 +37400,11 @@ class ShapeCollection:
         :param shape: '''
         raise NotImplementedError()
 
-    def addSvg(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int, svgData : list[int], compatibleImageData : list[int]) -> Picture:
+    def addSvg(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int, svgData : list[int], compatibleImageData : list[int]) -> Picture:
         '''Adds svg image.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: The horizontal offset of shape from its left column, in unit of pixel.
         :param height: The height of shape, in unit of pixel.
         :param width: The width of shape, in unit of pixel.
@@ -37059,34 +37412,45 @@ class ShapeCollection:
         :param compatibleImageData: Converted image data from svg in order to be compatible with Excel 2016 or lower versions.'''
         raise NotImplementedError()
 
-    def addLine(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> LineShape:
+    def addLine(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> LineShape:
         '''Adds a LineShape to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of LineShape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of LineShape from its left column, in unit of pixel.
         :param height: Represents the height of LineShape, in unit of pixel.
         :param width: Represents the width of LineShape, in unit of pixel.
         :returns: A LineShape object.'''
         raise NotImplementedError()
 
-    def addTextBox(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> TextBox:
+    def addTextBox(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> TextBox:
         '''Adds a text box to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of textbox from its top row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of textbox from its left column, in unit of pixel.
         :param height: Represents the height of textbox, in unit of pixel.
         :param width: Represents the width of textbox, in unit of pixel.
         :returns: A :class:`TextBox` object.'''
         raise NotImplementedError()
 
-    def addShape(self, type : int, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Shape:
+    def addLaTeXEquation(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int, latex : str) -> TextBox:
+        '''Adds an equation object to the worksheet using LaTeX format strings.
+        :param topRow: The top row index.
+        :param top: The vertical offset its top row, in unit of pixel.
+        :param leftColumn: The left column index.
+        :param left: The horizontal offset from its left column, in unit of pixel.
+        :param height: The height of equation, in unit of pixel.
+        :param width: The width of equation, in unit of pixel.
+        :param latex: LaTeX format string'''
+        raise NotImplementedError()
+
+    def addShape(self, type : int, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Shape:
         '''Adds a Shape to the worksheet.
         :param type: :class:`MsoDrawingType`. Mso drawing type.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of Shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of Shape from its left column, in unit of pixel.
         :param height: Represents the height of Shape, in unit of pixel.
         :param width: Represents the width of Shape, in unit of pixel.
@@ -37097,11 +37461,11 @@ class ShapeCollection:
         '''Update the selected value by the value of the linked cell or range of the shape.'''
         raise NotImplementedError()
 
-    def addRadioButton(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> RadioButton:
+    def addRadioButton(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> RadioButton:
         '''Adds a RadioButton to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of RadioButton from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of RadioButton from its left column, in unit of pixel.
         :param height: Represents the height of RadioButton, in unit of pixel.
         :param width: Represents the width of RadioButton, in unit of pixel.
@@ -37118,11 +37482,11 @@ class ShapeCollection:
         :returns: Returns a shape object.'''
         raise NotImplementedError()
 
-    def addFreeform(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int, paths : list[ShapePath]) -> Shape:
+    def addFreeform(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int, paths : list[ShapePath]) -> Shape:
         '''Adds a freeform shape to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of freeform shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of freeform shape from its left column, in unit of pixel.
         :param height: Represents the height of freeform shape, in unit of pixel.
         :param width: Represents the width of freeform shape, in unit of pixel.
@@ -37139,43 +37503,43 @@ class ShapeCollection:
         raise NotImplementedError()
 
     @overload
-    def addPicture(self, upperLeftRow : int, upperLeftColumn : int, lowerRightRow : int, lowerRightColumn : int, stream : InputStream) -> Picture:
+    def addPicture(self, topRow : int, leftColumn : int, bottomRow : int, rightColumn : int, stream : InputStream) -> Picture:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
-        :param lowerRightRow: Lower right row index
-        :param lowerRightColumn: Lower right column index
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
+        :param bottomRow: Lower right row index
+        :param rightColumn: Lower right column index
         :param stream: Stream object which contains the image data.
         :returns: :class:`Picture` Picture object.'''
         raise NotImplementedError()
 
     @overload
-    def addPicture(self, upperLeftRow : int, upperLeftColumn : int, stream : InputStream, widthScale : int, heightScale : int) -> Picture:
+    def addPicture(self, topRow : int, leftColumn : int, stream : InputStream, widthScale : int, heightScale : int) -> Picture:
         '''Adds a picture to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param stream: Stream object which contains the image data.
         :param widthScale: Scale of image width, a percentage.
         :param heightScale: Scale of image height, a percentage.
         :returns: :class:`Picture` Picture object.'''
         raise NotImplementedError()
 
-    def addScrollBar(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> ScrollBar:
+    def addScrollBar(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> ScrollBar:
         '''Adds a ScrollBar to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of ScrollBar from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of ScrollBar from its left column, in unit of pixel.
         :param height: Represents the height of ScrollBar, in unit of pixel.
         :param width: Represents the width of ScrollBar, in unit of pixel.
         :returns: A ScrollBar object.'''
         raise NotImplementedError()
 
-    def addGroupBox(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> GroupBox:
+    def addGroupBox(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> GroupBox:
         '''Adds a GroupBox to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of GroupBox from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of GroupBox from its left column, in unit of pixel.
         :param height: Represents the height of GroupBox, in unit of pixel.
         :param width: Represents the width of GroupBox, in unit of pixel.
@@ -37212,17 +37576,17 @@ class ShapeCollection:
         :returns: Returns a Shape object that represents the new WordArt object.'''
         raise NotImplementedError()
 
-    def addSignatureLine(self, upperLeftRow : int, upperLeftColumn : int, signatureLine : SignatureLine) -> Picture:
+    def addSignatureLine(self, topRow : int, leftColumn : int, signatureLine : SignatureLine) -> Picture:
         '''Adds a Signature Line to the worksheet.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param signatureLine: Represents a signature line object.'''
         raise NotImplementedError()
 
-    def addOleObjectWithLinkedImage(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int, sourceFullName : str) -> OleObject:
+    def addOleObjectWithLinkedImage(self, topRow : int, leftColumn : int, height : int, width : int, sourceFullName : str) -> OleObject:
         '''Add a linked picture.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: The height of the shape. In unit of pixels
         :param width: The width of the shape. In unit of pixels
         :param sourceFullName: 
@@ -37280,34 +37644,34 @@ class ShapeCollection:
         :param isOriginalSize: Whether the shape use original size if the shape is image.'''
         raise NotImplementedError()
 
-    def addListBox(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> ListBox:
+    def addListBox(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> ListBox:
         '''Adds a ListBox to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of ListBox from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of ListBox from its left column, in unit of pixel.
         :param height: Represents the height of ListBox, in unit of pixel.
         :param width: Represents the width of ListBox, in unit of pixel.
         :returns: A ListBox object.'''
         raise NotImplementedError()
 
-    def addWordArt(self, style : int, text : str, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> Shape:
+    def addWordArt(self, style : int, text : str, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> Shape:
         '''Adds preset WordArt since Excel 2007.s
         :param style: :class:`PresetWordArtStyle`. The preset WordArt Style.
         :param text: The text.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of shape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of shape from its left column, in unit of pixel.
         :param height: Represents the height of shape, in unit of pixel.
         :param width: Represents the width of shape, in unit of pixel.'''
         raise NotImplementedError()
 
-    def addArc(self, upperLeftRow : int, top : int, upperLeftColumn : int, left : int, height : int, width : int) -> ArcShape:
+    def addArc(self, topRow : int, top : int, leftColumn : int, left : int, height : int, width : int) -> ArcShape:
         '''Adds a ArcShape to the worksheet.
-        :param upperLeftRow: Upper left row index.
+        :param topRow: Upper left row index.
         :param top: Represents the vertical offset of ArcShape from its left row, in unit of pixel.
-        :param upperLeftColumn: Upper left column index.
+        :param leftColumn: Upper left column index.
         :param left: Represents the horizontal offset of ArcShape from its left column, in unit of pixel.
         :param height: Represents the height of ArcShape, in unit of pixel.
         :param width: Represents the width of ArcShape, in unit of pixel.
@@ -37320,11 +37684,11 @@ class ShapeGuide:
     '''Encapsulates a shape guide specifies the presence of a shape guide that will be used to
     govern the geometry of the specified shape'''
 
-    def getValue(self) -> int:
+    def getValue(self) -> float:
         '''Gets value of this guide'''
         raise NotImplementedError()
 
-    def setValue(self, value : int) -> None:
+    def setValue(self, value : float) -> None:
         '''Sets value of this guide
         :param value: '''
         raise NotImplementedError()
@@ -37338,7 +37702,7 @@ class ShapeGuideCollection:
         :param index: '''
         raise NotImplementedError()
 
-    def add(self, name : str, val : int) -> int:
+    def add(self, name : str, val : float) -> int:
         '''Adds a shape guide.(Important: This feature is currently only available for Excel07 and above)
         :param name: the name of adjust. It's as "adj(Used when there is only one adjustment value)", "adj1", "adj2", "adj3" and so on.
         :param val: the value of adjust'''
@@ -37600,7 +37964,7 @@ class ShapePropertyCollection:
         '''Represents a :meth:`ShapePropertyCollection.getGlowEffect()` object that specifies glow effect for the chart element or shape.'''
         raise NotImplementedError()
 
-    def getSoftEdgeRadius(self) -> int:
+    def getSoftEdgeRadius(self) -> float:
         '''Gets the radius of blur to apply to the edges, in unit of points.'''
         raise NotImplementedError()
 
@@ -37620,7 +37984,7 @@ class ShapePropertyCollection:
         '''Indicates if the shape has 3d format data.'''
         raise NotImplementedError()
 
-    def setSoftEdgeRadius(self, value : int) -> None:
+    def setSoftEdgeRadius(self, value : float) -> None:
         '''Sets the radius of blur to apply to the edges, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -37666,7 +38030,7 @@ class ShapeSegmentPathCollection:
 class ShapeTextAlignment:
     '''Represents the setting of shape's text alignment;'''
 
-    def setRightMarginPt(self, value : int) -> None:
+    def setRightMarginPt(self, value : float) -> None:
         '''Returns the right margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -37682,7 +38046,7 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def setTopMarginPt(self, value : int) -> None:
+    def setTopMarginPt(self, value : float) -> None:
         '''Returns the top margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -37695,7 +38059,7 @@ class ShapeTextAlignment:
         '''Gets the text wrapped type of the shape which contains text.'''
         raise NotImplementedError()
 
-    def setBottomMarginPt(self, value : int) -> None:
+    def setBottomMarginPt(self, value : float) -> None:
         '''Returns the bottom margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -37713,13 +38077,13 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determines whether this instance has the same value as another specified :class:`ShapeTextAlignment` object.
         :param obj: The :class:`ShapeTextAlignment` object to compare with this instance.
         :returns: true if the value of the obj parameter is the same as the value of this instance; otherwise, false. If obj is null, this method returns false.'''
         raise NotImplementedError()
 
-    def getLeftMarginPt(self) -> int:
+    def getLeftMarginPt(self) -> float:
         '''Returns the left margin in unit of Points'''
         raise NotImplementedError()
 
@@ -37728,7 +38092,7 @@ class ShapeTextAlignment:
         See :class:`TextVerticalType`'''
         raise NotImplementedError()
 
-    def getTopMarginPt(self) -> int:
+    def getTopMarginPt(self) -> float:
         '''Returns the top margin in unit of Points'''
         raise NotImplementedError()
 
@@ -37747,7 +38111,7 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def setLeftMarginPt(self, value : int) -> None:
+    def setLeftMarginPt(self, value : float) -> None:
         '''Returns the left margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -37767,7 +38131,7 @@ class ShapeTextAlignment:
         ''''''
         raise NotImplementedError()
 
-    def getRotationAngle(self) -> int:
+    def getRotationAngle(self) -> float:
         '''Gets the rotation of the shape.'''
         raise NotImplementedError()
 
@@ -37776,7 +38140,7 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def getRightMarginPt(self) -> int:
+    def getRightMarginPt(self) -> float:
         '''Returns the right margin in unit of Points'''
         raise NotImplementedError()
 
@@ -37785,7 +38149,7 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomMarginPt(self) -> int:
+    def getBottomMarginPt(self) -> float:
         '''Returns the bottom margin in unit of Points'''
         raise NotImplementedError()
 
@@ -37814,7 +38178,7 @@ class ShapeTextAlignment:
         :param value: '''
         raise NotImplementedError()
 
-    def setRotationAngle(self, value : int) -> None:
+    def setRotationAngle(self, value : float) -> None:
         '''Sets the rotation of the shape.
         :param value: '''
         raise NotImplementedError()
@@ -37904,7 +38268,7 @@ class SheetRender:
         :param stream: the stream of the output image'''
         raise NotImplementedError()
 
-    def getPageScale(self) -> int:
+    def getPageScale(self) -> float:
         '''Gets calculated page scale of the sheet.
         Returns the set scale if :meth:`PageSetup.getZoom()` is set. Otherwise, returns the calculated scale according to :meth:`PageSetup.getFitToPagesWide()` and :meth:`PageSetup.getFitToPagesTall()`.'''
         raise NotImplementedError()
@@ -38126,19 +38490,43 @@ class SignatureType:
     '''The corresponding ProviderId value usually needs to be set by the user. it should be obtained from the documentation shipped with the provider.'''
 
 
+class SignificantDigitsType:
+    '''Represents the type of significant digits for outputting numeric values.'''
+
+    DIGITS_15 : SignificantDigitsType
+    '''15-digits'''
+
+    G_17 : SignificantDigitsType
+    '''17-digits by formatting the value with "G17".'''
+
+    ROUNDING_17 : SignificantDigitsType
+    '''17-digits by rounding the value.'''
+
+
 class Slicer:
     '''summary description of Slicer View'''
 
     def getNumberOfColumns(self) -> int:
-        '''Returns or sets the number of columns in the specified slicer.'''
+        '''Returns or sets the number of columns in the specified slicer.
+        The default value is 1.'''
         raise NotImplementedError()
 
     def getWidthPixel(self) -> int:
         ''':deprecated: Use Shape.Width property instead.'''
         raise NotImplementedError()
 
-    def getRowHeight(self) -> int:
-        '''Returns or sets the height, in points, of each row in the specified slicer.'''
+    def setFirstItemIndex(self, value : int) -> None:
+        '''Specifies the zero-based index of the first slicer item.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getShowAllItems(self) -> bool:
+        '''Indicates whether to show all items even if there are no data or they are deleted.
+        Default value is true;'''
+        raise NotImplementedError()
+
+    def getRowHeight(self) -> float:
+        '''Returns or sets the height of each row in the specified slicer in unit of points.'''
         raise NotImplementedError()
 
     def getCaption(self) -> str:
@@ -38146,26 +38534,34 @@ class Slicer:
         raise NotImplementedError()
 
     def getCaptionVisible(self) -> bool:
-        '''Returns or sets whether the header that displays the slicer Caption is visible
-        the default value is true'''
+        ''':deprecated: Use Slicer.ShowCaption property instead.'''
         raise NotImplementedError()
 
     def isPrintable(self) -> bool:
-        '''Indicates whether the slicer object is printable.'''
+        ''':deprecated: Use Shape.IsPrintable property instead.'''
         raise NotImplementedError()
 
     def getTopPixel(self) -> int:
         ''':deprecated: Use Shape.Top property instead.'''
         raise NotImplementedError()
 
-    def setLocked(self, value : bool) -> None:
-        '''Indicates whether the slicer shape is locked.
+    def setShowCaption(self, value : bool) -> None:
+        '''Indicates whether the header of the slicer is visible.
+        The default value is true
         :param value: '''
+        raise NotImplementedError()
+
+    def setLocked(self, value : bool) -> None:
+        ''':deprecated: Use Shape.IsLocked property instead.'''
         raise NotImplementedError()
 
     def addPivotConnection(self, pivot : PivotTable) -> None:
         '''Adds PivotTable connection.
         :param pivot: The PivotTable object'''
+        raise NotImplementedError()
+
+    def getWorksheet(self) -> Worksheet:
+        '''Returns the :meth:`Range.getWorksheet()` object which contains this slicer. Read-only.'''
         raise NotImplementedError()
 
     def getLeftPixel(self) -> int:
@@ -38181,74 +38577,101 @@ class Slicer:
         raise NotImplementedError()
 
     def setPlacement(self, value : int) -> None:
-        '''Represents the way the drawing object is attached to the cells below it.
-        The property controls the placement of an object on a worksheet.
-        See :class:`PlacementType`
-        :param value: '''
+        ''':deprecated: Use Shape.Placement property instead.'''
         raise NotImplementedError()
 
     def setNumberOfColumns(self, value : int) -> None:
         '''Returns or sets the number of columns in the specified slicer.
+        The default value is 1.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setShowTypeOfItemsWithNoData(self, value : int) -> None:
+        '''Indicates whether to show items deteleted from the data source.
+        See :class:`ItemsWithNoDataShowMode`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setSortOrderType(self, value : int) -> None:
+        '''Indicates the type of sorting items.
+        See :class:`SortOrder`
         :param value: '''
         raise NotImplementedError()
 
     def getStyleType(self) -> int:
-        '''Specify the type of Built-in slicer style
-        the default type is SlicerStyleLight1
+        '''Specify the type of Built-in slicer style.
+        The default type is SlicerStyleLight1.
         See :class:`SlicerStyleType`'''
         raise NotImplementedError()
 
     def getAlternativeText(self) -> str:
-        '''Returns or sets the descriptive (alternative) text string of the Slicer object.'''
+        ''':deprecated: Use Shape.AlternativeText property instead.'''
         raise NotImplementedError()
 
-    def setColumnWidth(self, value : int) -> None:
-        '''Returns or sets the width, in points, of each column in the slicer.
+    def setColumnWidth(self, value : float) -> None:
+        '''Returns or sets the width of each column in the slicer in unit of points.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setShowAllItems(self, value : bool) -> None:
+        '''Indicates whether to show all items even if there are no data or they are deleted.
+        Default value is true;
         :param value: '''
         raise NotImplementedError()
 
     def getRowHeightPixel(self) -> int:
-        '''Returns or sets the height, in pixels, of each row in the specified slicer.'''
+        '''Returns or sets the height of each row in the specified slicer, in unit of pixels.'''
         raise NotImplementedError()
 
     def setWidthPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Width property instead.'''
         raise NotImplementedError()
 
-    def setTitle(self, value : str) -> None:
-        '''Specifies the title of the current Slicer object.
-        :param value: '''
-        raise NotImplementedError()
-
     def setTopPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Top property instead.'''
         raise NotImplementedError()
 
+    def setTitle(self, value : str) -> None:
+        ''':deprecated: Use Shape.Title property instead.'''
+        raise NotImplementedError()
+
+    def getShowCaption(self) -> bool:
+        '''Indicates whether the header of the slicer is visible.
+        The default value is true'''
+        raise NotImplementedError()
+
     def getTitle(self) -> str:
-        '''Specifies the title of the current Slicer object.'''
+        ''':deprecated: Use Shape.Title property instead.'''
         raise NotImplementedError()
 
     def isLocked(self) -> bool:
-        '''Indicates whether the slicer shape is locked.'''
+        ''':deprecated: Use Shape.IsLocked property instead.'''
         raise NotImplementedError()
 
-    def setPrintable(self, value : bool) -> None:
-        '''Indicates whether the slicer object is printable.
-        :param value: '''
+    def getShowTypeOfItemsWithNoData(self) -> int:
+        '''Indicates whether to show items deteleted from the data source.
+        See :class:`ItemsWithNoDataShowMode`'''
         raise NotImplementedError()
 
     def setCaptionVisible(self, value : bool) -> None:
-        '''Returns or sets whether the header that displays the slicer Caption is visible
-        the default value is true
+        ''':deprecated: Use Slicer.ShowCaption property instead.'''
+        raise NotImplementedError()
+
+    def setPrintable(self, value : bool) -> None:
+        ''':deprecated: Use Shape.IsPrintable property instead.'''
+        raise NotImplementedError()
+
+    def setShowMissing(self, value : bool) -> None:
+        '''Indicates whether to show items deteleted from the data source.
         :param value: '''
         raise NotImplementedError()
 
-    def setRowHeight(self, value : int) -> None:
-        '''Returns or sets the height, in points, of each row in the specified slicer.
+    def setRowHeight(self, value : float) -> None:
+        '''Returns or sets the height of each row in the specified slicer in unit of points.
         :param value: '''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         ''':deprecated: Use Shape.HeightPt property instead.'''
         raise NotImplementedError()
 
@@ -38258,8 +38681,11 @@ class Slicer:
         raise NotImplementedError()
 
     def setLockedAspectRatio(self, value : bool) -> None:
-        '''Indicates whether locking aspect ratio.
-        :param value: '''
+        ''':deprecated: Use Shape.GetLockedProperty() method instead.'''
+        raise NotImplementedError()
+
+    def getFirstItemIndex(self) -> int:
+        '''Specifies the zero-based index of the first slicer item.'''
         raise NotImplementedError()
 
     def getSlicerCache(self) -> SlicerCache:
@@ -38272,12 +38698,11 @@ class Slicer:
         raise NotImplementedError()
 
     def setAlternativeText(self, value : str) -> None:
-        '''Returns or sets the descriptive (alternative) text string of the Slicer object.
-        :param value: '''
+        ''':deprecated: Use Shape.AlternativeText property instead.'''
         raise NotImplementedError()
 
-    def getColumnWidth(self) -> int:
-        '''Returns or sets the width, in points, of each column in the slicer.'''
+    def getColumnWidth(self) -> float:
+        '''Returns or sets the width of each column in the slicer in unit of points.'''
         raise NotImplementedError()
 
     def getColumnWidthPixel(self) -> int:
@@ -38288,16 +38713,16 @@ class Slicer:
         ''':deprecated: Use Shape.Height property instead.'''
         raise NotImplementedError()
 
-    def setHeight(self, value : int) -> None:
+    def setHeight(self, value : float) -> None:
         ''':deprecated: Use Shape.HeightPt property instead.'''
-        raise NotImplementedError()
-
-    def getName(self) -> str:
-        '''Returns or sets the name of the specified slicer'''
         raise NotImplementedError()
 
     def setLeftPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Left property instead.'''
+        raise NotImplementedError()
+
+    def getName(self) -> str:
+        '''Returns or sets the name of the specified slicer'''
         raise NotImplementedError()
 
     def setLockedPosition(self, value : bool) -> None:
@@ -38306,7 +38731,7 @@ class Slicer:
         raise NotImplementedError()
 
     def getParent(self) -> Worksheet:
-        '''Returns the :meth:`Range.getWorksheet()` object which contains this slicer. Read-only.'''
+        ''':deprecated: Use Slicer.Worksheet property instead.'''
         raise NotImplementedError()
 
     def setName(self, value : str) -> None:
@@ -38315,33 +38740,41 @@ class Slicer:
         raise NotImplementedError()
 
     def getPlacement(self) -> int:
-        '''Represents the way the drawing object is attached to the cells below it.
-        The property controls the placement of an object on a worksheet.
-        See :class:`PlacementType`'''
+        ''':deprecated: Use Shape.Placement property instead.'''
+        raise NotImplementedError()
+
+    def getSortOrderType(self) -> int:
+        '''Indicates the type of sorting items.
+        See :class:`SortOrder`'''
+        raise NotImplementedError()
+
+    def getShowMissing(self) -> bool:
+        '''Indicates whether to show items deteleted from the data source.'''
         raise NotImplementedError()
 
     def setStyleType(self, value : int) -> None:
-        '''Specify the type of Built-in slicer style
-        the default type is SlicerStyleLight1
+        '''Specify the type of Built-in slicer style.
+        The default type is SlicerStyleLight1.
         See :class:`SlicerStyleType`
         :param value: '''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         ''':deprecated: Use Shape.WidthPt property instead.'''
         raise NotImplementedError()
 
     def setRowHeightPixel(self, value : int) -> None:
-        '''Returns or sets the height, in pixels, of each row in the specified slicer.
+        '''Returns or sets the height of each row in the specified slicer, in unit of pixels.
         :param value: '''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         ''':deprecated: Use Shape.WidthPt property instead.'''
         raise NotImplementedError()
 
     def refresh(self) -> None:
-        '''Refreshing the slicer.Meanwhile, Refreshing and Calculating  relative PivotTables.'''
+        '''Refreshing the slicer.
+        Meanwhile, Refreshing and Calculating PivotTables which this slicer based on.'''
         raise NotImplementedError()
 
     def getHeightPixel(self) -> int:
@@ -38354,7 +38787,7 @@ class Slicer:
         raise NotImplementedError()
 
     def getLockedAspectRatio(self) -> bool:
-        '''Indicates whether locking aspect ratio.'''
+        ''':deprecated: Use Shape.GetLockedProperty() method instead.'''
         raise NotImplementedError()
 
 
@@ -38362,7 +38795,7 @@ class SlicerCache:
     '''Represent summary description of slicer cache'''
 
     def getList(self) -> bool:
-        '''Returns whether the slicer associated with the specified slicer cache is based on an Non-OLAP data source. Read-only'''
+        '''Indicates whether the slicer associated with the specified slicer cache is based on an Non-OLAP data source.'''
         raise NotImplementedError()
 
     def getSlicerCacheItems(self) -> SlicerCacheItemCollection:
@@ -38374,9 +38807,7 @@ class SlicerCache:
         raise NotImplementedError()
 
     def getCrossFilterType(self) -> int:
-        '''Returns or sets whether a slicer is participating in cross filtering with other slicers
-        that share the same slicer cache, and how cross filtering is displayed. Read/write
-        See :class:`SlicerCacheCrossFilterType`'''
+        ''':deprecated: Use Slicer.ShowTypeOfItemsWithNoData property instead.'''
         raise NotImplementedError()
 
     def getSourceName(self) -> str:
@@ -38384,30 +38815,21 @@ class SlicerCache:
         raise NotImplementedError()
 
     def setCrossFilterType(self, value : int) -> None:
-        '''Returns or sets whether a slicer is participating in cross filtering with other slicers
-        that share the same slicer cache, and how cross filtering is displayed. Read/write
-        See :class:`SlicerCacheCrossFilterType`
-        :param value: '''
+        ''':deprecated: Use Slicer.ShowTypeOfItemsWithNoData property instead.'''
         raise NotImplementedError()
 
 
 class SlicerCacheCrossFilterType:
-    '''Represent the type of SlicerCacheCrossFilterType'''
+    '''Represent the type how to show items with no data for slicer.'''
 
     NONE : SlicerCacheCrossFilterType
-    '''The table style element of the slicer style for slicer items
-    with no data is not applied to slicer items with no data, and slicer items
-    with no data are not sorted separately in the list of slicer items in the slicer view'''
+    '''Hide items with no data.'''
 
     SHOW_ITEMS_WITH_DATA_AT_TOP : SlicerCacheCrossFilterType
-    '''The table style element of the slicer style for slicer items with
-    no data is applied to slicer items with no data, and slicer items
-    with no data are sorted at the bottom in the list of slicer items in the slicer view'''
+    '''Show items with data at top.'''
 
     SHOW_ITEMS_WITH_NO_DATA : SlicerCacheCrossFilterType
-    '''The table style element of the slicer style for slicer items with no data
-    is applied to slicer items with no data, and slicer items with no data
-    are not sorted separately in the list of slicer items in the slicer view.'''
+    '''Show items with no data with natural order.'''
 
 
 class SlicerCacheItem:
@@ -38418,7 +38840,7 @@ class SlicerCacheItem:
         raise NotImplementedError()
 
     def getValue(self) -> str:
-        '''Returns the label text for the slicer item. Read-only.'''
+        '''Returns the label text for the slicer item.'''
         raise NotImplementedError()
 
     def setSelected(self, value : bool) -> None:
@@ -38438,19 +38860,6 @@ class SlicerCacheItemCollection:
         '''Gets the SlicerCacheItem object by index.
         :param index: '''
         raise NotImplementedError()
-
-
-class SlicerCacheItemSortType:
-    '''Specify the sort type of SlicerCacheItem'''
-
-    NATURAL : SlicerCacheItemSortType
-    '''Original data order.'''
-
-    ASCENDING : SlicerCacheItemSortType
-    '''Ascending sort type'''
-
-    DESCENDING : SlicerCacheItemSortType
-    '''Descending sort type'''
 
 
 class SlicerCollection:
@@ -38826,7 +39235,7 @@ class SmartTagShowType:
 class SolidFill:
     '''Encapsulates the object that represents solid fill format'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -38844,7 +39253,7 @@ class SolidFill:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''
         :param obj: '''
         raise NotImplementedError()
@@ -38858,7 +39267,7 @@ class SolidFill:
         '''Gets the :class:`Color`.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -38943,9 +39352,13 @@ class SparklineAxisMinMaxType:
 class SparklineCollection:
     '''Encapsulates a collection of :class:`Sparkline` objects.'''
 
-    def remove(self, o : Object) -> None:
+    def removeSparkline(self, o : Sparkline) -> None:
         '''Removes the sparkline
         :param o: '''
+        raise NotImplementedError()
+
+    def remove(self, o : Any) -> None:
+        ''':deprecated: Use SparklineCollection.RemoveSparkline(Sparkline) method instead.'''
         raise NotImplementedError()
 
     def get(self, index : int) -> Sparkline:
@@ -38976,7 +39389,7 @@ class SparklineGroup:
         :param value: '''
         raise NotImplementedError()
 
-    def setVerticalAxisMinValue(self, value : int) -> None:
+    def setVerticalAxisMinValue(self, value : float) -> None:
         '''Sets the custom minimum value for the vertical axis.
         :param value: '''
         raise NotImplementedError()
@@ -38995,7 +39408,7 @@ class SparklineGroup:
         The horizontal axis appears if the sparkline has data that crosses the zero axis.'''
         raise NotImplementedError()
 
-    def getVerticalAxisMaxValue(self) -> int:
+    def getVerticalAxisMaxValue(self) -> float:
         '''Gets the custom maximum value for the vertical axis.'''
         raise NotImplementedError()
 
@@ -39012,7 +39425,7 @@ class SparklineGroup:
         '''Indicates whether to highlight the negative values on the sparkline group with a different color or marker.'''
         raise NotImplementedError()
 
-    def setVerticalAxisMaxValue(self, value : int) -> None:
+    def setVerticalAxisMaxValue(self, value : float) -> None:
         '''Sets the custom maximum value for the vertical axis.
         :param value: '''
         raise NotImplementedError()
@@ -39054,7 +39467,7 @@ class SparklineGroup:
         '''Gets the color of the sparklines in the sparkline group.'''
         raise NotImplementedError()
 
-    def setLineWeight(self, value : int) -> None:
+    def setLineWeight(self, value : float) -> None:
         '''Sets the line weight in each line sparkline in the sparkline group, in the unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -39189,7 +39602,7 @@ class SparklineGroup:
         '''Indicates whether to highlight the lowest points of data in the sparkline group.'''
         raise NotImplementedError()
 
-    def getLineWeight(self) -> int:
+    def getLineWeight(self) -> float:
         '''Gets the line weight in each line sparkline in the sparkline group, in the unit of points.'''
         raise NotImplementedError()
 
@@ -39224,7 +39637,7 @@ class SparklineGroup:
         :param value: '''
         raise NotImplementedError()
 
-    def getVerticalAxisMinValue(self) -> int:
+    def getVerticalAxisMinValue(self) -> float:
         '''Gets the custom minimum value for the vertical axis.'''
         raise NotImplementedError()
 
@@ -40006,7 +40419,7 @@ class Style:
         :param value: '''
         raise NotImplementedError()
 
-    def getTwoColorGradient(self) -> list[Object]:
+    def getTwoColorGradient(self) -> list[Any]:
         ''':deprecated: Use Style.GetTwoColorGradientSetting() method instead.'''
         raise NotImplementedError()
 
@@ -40089,7 +40502,7 @@ class Style:
         See :class:`TextAlignmentType`'''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determines whether two Style instances are equal.
         :param obj: The Style object to compare with the current Style object.
         :returns: true if the specified Object is equal to the current Object; otherwise, false.'''
@@ -40824,7 +41237,7 @@ class SubSupEquationNode:
     '''This class specifies an equation that can optionally be superscript or subscript.
     There are four main forms of this equation, superscript锛宻ubscript锛宻uperscript and subscript placed to the left of the base, superscript and subscript placed to the right of the base.'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -40923,7 +41336,7 @@ class SvgSaveOptions:
 class SxRng:
     '''Represents Group Range in a PivotField.'''
 
-    def getEnd(self) -> Object:
+    def getEnd(self) -> Any:
         '''Represents the end object for the group range.'''
         raise NotImplementedError()
 
@@ -40932,19 +41345,19 @@ class SxRng:
         rangeofvalue Seconds Minutes Hours Days Months Quarters Years'''
         raise NotImplementedError()
 
-    def getBy(self) -> Object:
+    def getBy(self) -> Any:
         '''Represents the interval object for the group range.'''
         raise NotImplementedError()
 
-    def getStart(self) -> Object:
+    def getStart(self) -> Any:
         '''Represents the start object for the group range.'''
         raise NotImplementedError()
 
-    def isAutoEnd(self) -> Object:
+    def isAutoEnd(self) -> Any:
         '''Specifies a boolean value that indicates whether the application will use the source data to set the end range value.'''
         raise NotImplementedError()
 
-    def isAutoStart(self) -> Object:
+    def isAutoStart(self) -> Any:
         '''Specifies a boolean value that indicates whether the application will use the source data to set the beginning range value.'''
         raise NotImplementedError()
 
@@ -40985,7 +41398,7 @@ class TableDataSourceType:
 
 
 class TableStyle:
-    '''Represents the table style.'''
+    '''Represents the style of the table.'''
 
     def getName(self) -> str:
         '''Gets the name of table style.'''
@@ -41206,10 +41619,10 @@ class TableStyleType:
     '''Represents the built-in table style type.'''
 
     NONE : TableStyleType
-    ''''''
+    '''No style.'''
 
     TABLE_STYLE_LIGHT_1 : TableStyleType
-    ''''''
+    '''Table Style Light 1'''
 
     TABLE_STYLE_LIGHT_2 : TableStyleType
     ''''''
@@ -41846,10 +42259,10 @@ class TextBoxCollection:
         :param name: The name of the text box.'''
         raise NotImplementedError()
 
-    def add(self, upperLeftRow : int, upperLeftColumn : int, height : int, width : int) -> int:
+    def add(self, topRow : int, leftColumn : int, height : int, width : int) -> int:
         '''Adds a textbox to the collection.
-        :param upperLeftRow: Upper left row index.
-        :param upperLeftColumn: Upper left column index.
+        :param topRow: Upper left row index.
+        :param leftColumn: Upper left column index.
         :param height: Height of textbox, in unit of pixel.
         :param width: Width of textbox, in unit of pixel.
         :returns: :class:`TextBox` object index.'''
@@ -41859,7 +42272,7 @@ class TextBoxCollection:
 class TextBoxOptions:
     '''Represents the text options of the shape'''
 
-    def setRightMarginPt(self, value : int) -> None:
+    def setRightMarginPt(self, value : float) -> None:
         '''Sets the right margin in unit of Points.
         :param value: '''
         raise NotImplementedError()
@@ -41871,7 +42284,7 @@ class TextBoxOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setTopMarginPt(self, value : int) -> None:
+    def setTopMarginPt(self, value : float) -> None:
         '''Sets the top margin in unit of Points.
         :param value: '''
         raise NotImplementedError()
@@ -41892,7 +42305,7 @@ class TextBoxOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setBottomMarginPt(self, value : int) -> None:
+    def setBottomMarginPt(self, value : float) -> None:
         '''Returns the bottom margin in unit of Points
         :param value: '''
         raise NotImplementedError()
@@ -41903,7 +42316,7 @@ class TextBoxOptions:
         True - Wrapping will occur on text body.'''
         raise NotImplementedError()
 
-    def getLeftMarginPt(self) -> int:
+    def getLeftMarginPt(self) -> float:
         '''Gets the left margin in unit of Points.'''
         raise NotImplementedError()
 
@@ -41913,11 +42326,11 @@ class TextBoxOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getTopMarginPt(self) -> int:
+    def getTopMarginPt(self) -> float:
         '''Gets the top margin in unit of Points.'''
         raise NotImplementedError()
 
-    def setLeftMarginPt(self, value : int) -> None:
+    def setLeftMarginPt(self, value : float) -> None:
         '''Sets the left margin in unit of Points.
         :param value: '''
         raise NotImplementedError()
@@ -41932,7 +42345,7 @@ class TextBoxOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getRightMarginPt(self) -> int:
+    def getRightMarginPt(self) -> float:
         '''Gets the right margin in unit of Points.'''
         raise NotImplementedError()
 
@@ -41940,7 +42353,7 @@ class TextBoxOptions:
         '''Whether allow text to overflow shape.'''
         raise NotImplementedError()
 
-    def getBottomMarginPt(self) -> int:
+    def getBottomMarginPt(self) -> float:
         '''Returns the bottom margin in unit of Points'''
         raise NotImplementedError()
 
@@ -42121,8 +42534,30 @@ class TextNodeType:
 class TextOptions:
     '''Represents the text options.'''
 
-    def getName(self) -> str:
-        '''Gets the name of the shape.'''
+    def getKerning(self) -> float:
+        '''Specifies the minimum font size at which character kerning will occur for this text run.'''
+        raise NotImplementedError()
+
+    def getUnderlineColor(self) -> CellsColor:
+        '''Gets the color of underline.'''
+        raise NotImplementedError()
+
+    def getShadow(self) -> ShadowEffect:
+        '''Represents a :class:`ShadowEffect` object that specifies shadow effect for the chart element or shape.'''
+        raise NotImplementedError()
+
+    def setName(self, value : str) -> None:
+        '''Sets the name of the shape.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getFill(self) -> FillFormat:
+        '''Represents the fill format of the text.'''
+        raise NotImplementedError()
+
+    def setNormalizeHeights(self, value : bool) -> None:
+        '''Indicates whether the normalization of height that is to be applied to the text run.
+        :param value: '''
         raise NotImplementedError()
 
     def setFarEastName(self, value : str) -> None:
@@ -42130,20 +42565,27 @@ class TextOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setSpacing(self, value : int) -> None:
-        '''Specifies the spacing between characters within a text run.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getUnderlineColor(self) -> CellsColor:
-        '''Gets the color of underline.'''
-        raise NotImplementedError()
-
-    def getSpacing(self) -> int:
+    def getSpacing(self) -> float:
         '''Specifies the spacing between characters within a text run.'''
         raise NotImplementedError()
 
-    def setKerning(self, value : int) -> None:
+    def isNormalizeHeights(self) -> bool:
+        '''Indicates whether the normalization of height that is to be applied to the text run.'''
+        raise NotImplementedError()
+
+    def getOutline(self) -> LineFormat:
+        '''Represents the outline format of the text.'''
+        raise NotImplementedError()
+
+    def getName(self) -> str:
+        '''Gets the name of the shape.'''
+        raise NotImplementedError()
+
+    def getLatinName(self) -> str:
+        '''Gets the latin name.'''
+        raise NotImplementedError()
+
+    def setKerning(self, value : float) -> None:
         '''Specifies the minimum font size at which character kerning will occur for this text run.
         :param value: '''
         raise NotImplementedError()
@@ -42153,30 +42595,19 @@ class TextOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def getKerning(self) -> int:
-        '''Specifies the minimum font size at which character kerning will occur for this text run.'''
-        raise NotImplementedError()
-
-    def getShadow(self) -> ShadowEffect:
-        '''Represents a :class:`ShadowEffect` object that specifies shadow effect for the chart element or shape.'''
-        raise NotImplementedError()
-
     def getLanguageCode(self) -> int:
         '''Gets the user interface language.
         See :class:`CountryCode`'''
         raise NotImplementedError()
 
-    def getFarEastName(self) -> str:
-        '''Gets the FarEast name.'''
-        raise NotImplementedError()
-
-    def setName(self, value : str) -> None:
-        '''Sets the name of the shape.
+    def setUnderlineColor(self, value : CellsColor) -> None:
+        '''Sets the color of underline.
         :param value: '''
         raise NotImplementedError()
 
-    def getOutline(self) -> LineFormat:
-        '''Represents the outline format of the text.'''
+    def getCapsType(self) -> int:
+        '''Gets the text caps type.
+        See :class:`TextCapsType`'''
         raise NotImplementedError()
 
     def setLanguageCode(self, value : int) -> None:
@@ -42185,17 +42616,19 @@ class TextOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setUnderlineColor(self, value : CellsColor) -> None:
-        '''Sets the color of underline.
+    def setSpacing(self, value : float) -> None:
+        '''Specifies the spacing between characters within a text run.
         :param value: '''
         raise NotImplementedError()
 
-    def getFill(self) -> FillFormat:
-        '''Represents the fill format of the text.'''
+    def getFarEastName(self) -> str:
+        '''Gets the FarEast name.'''
         raise NotImplementedError()
 
-    def getLatinName(self) -> str:
-        '''Gets the latin name.'''
+    def setCapsType(self, value : int) -> None:
+        '''Sets the text caps type.
+        See :class:`TextCapsType`
+        :param value: '''
         raise NotImplementedError()
 
 
@@ -42234,11 +42667,11 @@ class TextOverflowType:
 class TextParagraph:
     '''Represents the text paragraph setting.'''
 
-    def getSpaceBefore(self) -> int:
+    def getSpaceBefore(self) -> float:
         '''Gets the amount of vertical white space that will be present before a paragraph.'''
         raise NotImplementedError()
 
-    def setSpaceAfter(self, value : int) -> None:
+    def setSpaceAfter(self, value : float) -> None:
         '''Sets the amount of vertical white space that will be present after a paragraph.
         :param value: '''
         raise NotImplementedError()
@@ -42283,7 +42716,7 @@ class TextParagraph:
         '''Specifies whether punctuation is to be forcefully laid out on a line of text or put on a different line of text.'''
         raise NotImplementedError()
 
-    def getLineSpace(self) -> int:
+    def getLineSpace(self) -> float:
         '''Gets the amount of vertical white space that will be used within a paragraph.'''
         raise NotImplementedError()
 
@@ -42293,12 +42726,12 @@ class TextParagraph:
         :param value: '''
         raise NotImplementedError()
 
-    def setRightMargin(self, value : int) -> None:
+    def setRightMargin(self, value : float) -> None:
         '''Specifies the right margin of the paragraph.
         :param value: '''
         raise NotImplementedError()
 
-    def setLineSpace(self, value : int) -> None:
+    def setLineSpace(self, value : float) -> None:
         '''Sets the amount of vertical white space that will be used within a paragraph.
         :param value: '''
         raise NotImplementedError()
@@ -42324,16 +42757,16 @@ class TextParagraph:
         See :class:`LineSpaceSizeType`'''
         raise NotImplementedError()
 
-    def setSpaceBefore(self, value : int) -> None:
+    def setSpaceBefore(self, value : float) -> None:
         '''Sets the amount of vertical white space that will be present before a paragraph.
         :param value: '''
         raise NotImplementedError()
 
-    def getFirstLineIndent(self) -> int:
+    def getFirstLineIndent(self) -> float:
         '''Specifies the indent size that will be applied to the first line of text in the paragraph.'''
         raise NotImplementedError()
 
-    def setLeftMargin(self, value : int) -> None:
+    def setLeftMargin(self, value : float) -> None:
         '''Specifies the left margin of the paragraph.
         :param value: '''
         raise NotImplementedError()
@@ -42367,11 +42800,11 @@ class TextParagraph:
         :param value: '''
         raise NotImplementedError()
 
-    def getDefaultTabSize(self) -> int:
+    def getDefaultTabSize(self) -> float:
         '''Gets the default size for a tab character within this paragraph.'''
         raise NotImplementedError()
 
-    def setDefaultTabSize(self, value : int) -> None:
+    def setDefaultTabSize(self, value : float) -> None:
         '''Sets the default size for a tab character within this paragraph.
         :param value: '''
         raise NotImplementedError()
@@ -42382,20 +42815,20 @@ class TextParagraph:
         See :class:`TextFontAlignType`'''
         raise NotImplementedError()
 
-    def getRightMargin(self) -> int:
+    def getRightMargin(self) -> float:
         '''Specifies the right margin of the paragraph.'''
         raise NotImplementedError()
 
-    def setFirstLineIndent(self, value : int) -> None:
+    def setFirstLineIndent(self, value : float) -> None:
         '''Specifies the indent size that will be applied to the first line of text in the paragraph.
         :param value: '''
         raise NotImplementedError()
 
-    def getSpaceAfter(self) -> int:
+    def getSpaceAfter(self) -> float:
         '''Gets the amount of vertical white space that will be present after a paragraph.'''
         raise NotImplementedError()
 
-    def getLeftMargin(self) -> int:
+    def getLeftMargin(self) -> float:
         '''Specifies the left margin of the paragraph.'''
         raise NotImplementedError()
 
@@ -42430,7 +42863,7 @@ class TextRunEquationNode:
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -42480,11 +42913,11 @@ class TextTabStop:
         See :class:`TextTabAlignmentType`'''
         raise NotImplementedError()
 
-    def getTabPosition(self) -> int:
+    def getTabPosition(self) -> float:
         '''Specifies the position of the tab stop relative to the left margin.'''
         raise NotImplementedError()
 
-    def setTabPosition(self, value : int) -> None:
+    def setTabPosition(self, value : float) -> None:
         '''Specifies the position of the tab stop relative to the left margin.
         :param value: '''
         raise NotImplementedError()
@@ -42498,7 +42931,7 @@ class TextTabStopCollection:
         :param index: The index.'''
         raise NotImplementedError()
 
-    def add(self, tabAlignment : int, tabPosition : int) -> int:
+    def add(self, tabAlignment : int, tabPosition : float) -> int:
         '''Adds a tab stop.
         :param tabAlignment: :class:`TextTabAlignmentType`.
         :param tabPosition: '''
@@ -42508,7 +42941,7 @@ class TextTabStopCollection:
 class TextureFill:
     '''Encapsulates the object that represents texture fill format'''
 
-    def setTransparency(self, value : int) -> None:
+    def setTransparency(self, value : float) -> None:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).
         :param value: '''
         raise NotImplementedError()
@@ -42556,7 +42989,7 @@ class TextureFill:
         '''Gets the image data of the fill.'''
         raise NotImplementedError()
 
-    def getTransparency(self) -> int:
+    def getTransparency(self) -> float:
         '''Returns or sets the degree of transparency of the area as a value from 0.0 (opaque) through 1.0 (clear).'''
         raise NotImplementedError()
 
@@ -42571,12 +43004,12 @@ class TextureFill:
         :param value: '''
         raise NotImplementedError()
 
-    def setScale(self, value : int) -> None:
+    def setScale(self, value : float) -> None:
         '''Sets the picture format scale.
         :param value: '''
         raise NotImplementedError()
 
-    def getScale(self) -> int:
+    def getScale(self) -> float:
         '''Gets the picture format scale.'''
         raise NotImplementedError()
 
@@ -42692,7 +43125,7 @@ class TextVerticalType:
 class ThemeColor:
     '''Represents a theme color.'''
 
-    def setTint(self, value : int) -> None:
+    def setTint(self, value : float) -> None:
         '''Sets the tint value.
         :param value: '''
         raise NotImplementedError()
@@ -42703,7 +43136,7 @@ class ThemeColor:
         :param value: '''
         raise NotImplementedError()
 
-    def getTint(self) -> int:
+    def getTint(self) -> float:
         '''Gets the tint value.'''
         raise NotImplementedError()
 
@@ -42797,7 +43230,7 @@ class ThreadedComment:
 
 
 class ThreadedCommentAuthor:
-    '''Represents the person who creates the threaded comments;'''
+    '''Represents the person who creates the threaded comments.'''
 
     def getUserId(self) -> str:
         '''Gets the id of the user.'''
@@ -42828,7 +43261,7 @@ class ThreadedCommentAuthor:
 
 
 class ThreadedCommentAuthorCollection:
-    '''Represents all persons who .'''
+    '''Represents all persons.'''
 
     def setCurrentPerson(self, value : ThreadedCommentAuthor) -> None:
         '''Sets the current user.
@@ -42874,7 +43307,7 @@ class ThreadedCommentCollection:
         raise NotImplementedError()
 
     def add(self, text : str, author : ThreadedCommentAuthor) -> int:
-        '''Adds a threaded comment;
+        '''Adds a threaded comment.
         :param text: The text of the threaded comment.
         :param author: The author of the threaded comment'''
         raise NotImplementedError()
@@ -42919,15 +43352,15 @@ class ThreeDFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def getPerspective(self) -> int:
+    def getPerspective(self) -> float:
         '''Gets the angle at which a ThreeDFormat object can be viewed.'''
         raise NotImplementedError()
 
-    def getLightAngle(self) -> int:
+    def getLightAngle(self) -> float:
         '''Gets the angle of the extrusion lights.'''
         raise NotImplementedError()
 
-    def setExtrusionHeight(self, value : int) -> None:
+    def setExtrusionHeight(self, value : float) -> None:
         '''Sets the extrusion height of the applied to the shape, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -42938,7 +43371,7 @@ class ThreeDFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomBevelHeight(self) -> int:
+    def getBottomBevelHeight(self) -> float:
         '''Gets the height of the bottom bevel, or how far into the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
@@ -42954,7 +43387,7 @@ class ThreeDFormat:
         See :class:`LightRigDirectionType`'''
         raise NotImplementedError()
 
-    def setTopBevelWidth(self, value : int) -> None:
+    def setTopBevelWidth(self, value : float) -> None:
         '''Sets the width of the top bevel, or how far into the shape it is applied.
         In unit of Points.
         :param value: '''
@@ -42979,28 +43412,28 @@ class ThreeDFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def getRotationZ(self) -> int:
+    def getRotationZ(self) -> float:
         '''Gets the rotation of the extruded shape around the z-axis in degrees.'''
         raise NotImplementedError()
 
-    def getRotationY(self) -> int:
+    def getRotationY(self) -> float:
         '''Gets the rotation of the extruded shape around the y-axis in degrees.'''
         raise NotImplementedError()
 
-    def getRotationX(self) -> int:
+    def getRotationX(self) -> float:
         '''Gets the rotation of the extruded shape around the x-axis in degrees.'''
         raise NotImplementedError()
 
-    def getTopBevelHeight(self) -> int:
+    def getTopBevelHeight(self) -> float:
         '''Gets the height of the top bevel, or how far into the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
 
-    def getContourWidth(self) -> int:
+    def getContourWidth(self) -> float:
         '''Gets the contour width on the shape, in unit of points.'''
         raise NotImplementedError()
 
-    def setBottomBevelWidth(self, value : int) -> None:
+    def setBottomBevelWidth(self, value : float) -> None:
         '''Sets the width of the bottom bevel, or how far into the shape it is applied.
         In unit of Points.
         :param value: '''
@@ -43013,27 +43446,27 @@ class ThreeDFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def getBottomBevelWidth(self) -> int:
+    def getBottomBevelWidth(self) -> float:
         '''Gets the width of the bottom bevel, or how far into the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
 
-    def setLightAngle(self, value : int) -> None:
+    def setLightAngle(self, value : float) -> None:
         '''Sets the angle of the extrusion lights.
         :param value: '''
         raise NotImplementedError()
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''
         :param obj: '''
         raise NotImplementedError()
 
-    def getTopBevelWidth(self) -> int:
+    def getTopBevelWidth(self) -> float:
         '''Gets the width of the top bevel, or how far into the shape it is applied.
         In unit of Points.'''
         raise NotImplementedError()
 
-    def setZ(self, value : int) -> None:
+    def setZ(self, value : float) -> None:
         '''Defines the distance from ground for the 3D shape.
         :param value: '''
         raise NotImplementedError()
@@ -43050,7 +43483,7 @@ class ThreeDFormat:
         See :class:`PresetMaterialType`'''
         raise NotImplementedError()
 
-    def setContourWidth(self, value : int) -> None:
+    def setContourWidth(self, value : float) -> None:
         '''Sets the contour width on the shape, in unit of points.
         :param value: '''
         raise NotImplementedError()
@@ -43060,7 +43493,7 @@ class ThreeDFormat:
         See :class:`LightRigType`'''
         raise NotImplementedError()
 
-    def getZ(self) -> int:
+    def getZ(self) -> float:
         '''Defines the distance from ground for the 3D shape.'''
         raise NotImplementedError()
 
@@ -43068,22 +43501,22 @@ class ThreeDFormat:
         '''Gets the extrusion color on a shape.'''
         raise NotImplementedError()
 
-    def setRotationZ(self, value : int) -> None:
+    def setRotationZ(self, value : float) -> None:
         '''Sets the rotation of the extruded shape around the z-axis in degrees.
         :param value: '''
         raise NotImplementedError()
 
-    def setRotationY(self, value : int) -> None:
+    def setRotationY(self, value : float) -> None:
         '''Sets the rotation of the extruded shape around the y-axis in degrees.
         :param value: '''
         raise NotImplementedError()
 
-    def setRotationX(self, value : int) -> None:
+    def setRotationX(self, value : float) -> None:
         '''Sets the rotation of the extruded shape around the x-axis in degrees.
         :param value: '''
         raise NotImplementedError()
 
-    def setPerspective(self, value : int) -> None:
+    def setPerspective(self, value : float) -> None:
         '''Sets the angle at which a ThreeDFormat object can be viewed.
         :param value: '''
         raise NotImplementedError()
@@ -43094,19 +43527,19 @@ class ThreeDFormat:
         :param value: '''
         raise NotImplementedError()
 
-    def setTopBevelHeight(self, value : int) -> None:
+    def setTopBevelHeight(self, value : float) -> None:
         '''Sets the height of the top bevel, or how far into the shape it is applied.
         In unit of Points.
         :param value: '''
         raise NotImplementedError()
 
-    def setBottomBevelHeight(self, value : int) -> None:
+    def setBottomBevelHeight(self, value : float) -> None:
         '''Sets the height of the bottom bevel, or how far into the shape it is applied.
         In unit of Points.
         :param value: '''
         raise NotImplementedError()
 
-    def getExtrusionHeight(self) -> int:
+    def getExtrusionHeight(self) -> float:
         '''Gets the extrusion height of the applied to the shape, in unit of points.'''
         raise NotImplementedError()
 
@@ -43138,19 +43571,19 @@ class TickLabelAlignmentType:
 class TickLabelItem:
     '''Represents a tick label in the chart.'''
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Width of Ticklabel item in ratio of chart width.'''
         raise NotImplementedError()
 
-    def getY(self) -> int:
+    def getY(self) -> float:
         '''Y coordinates of Ticklabel item in ratio of chart height.'''
         raise NotImplementedError()
 
-    def getX(self) -> int:
+    def getX(self) -> float:
         '''X coordinates of Ticklabel item in ratio of chart width.'''
         raise NotImplementedError()
 
-    def getHeight(self) -> int:
+    def getHeight(self) -> float:
         '''Height of Ticklabel item in ratio of chart height.'''
         raise NotImplementedError()
 
@@ -43344,21 +43777,21 @@ class TiffCompression:
 class TilePicOption:
     '''Represents tile picture as texture.'''
 
-    def setOffsetY(self, value : int) -> None:
+    def setOffsetY(self, value : float) -> None:
         '''Sets the Y offset for tiling picture.
         :param value: '''
         raise NotImplementedError()
 
-    def setOffsetX(self, value : int) -> None:
+    def setOffsetX(self, value : float) -> None:
         '''Sets the X offset for tiling picture.
         :param value: '''
         raise NotImplementedError()
 
-    def getOffsetY(self) -> int:
+    def getOffsetY(self) -> float:
         '''Gets the Y offset for tiling picture.'''
         raise NotImplementedError()
 
-    def getOffsetX(self) -> int:
+    def getOffsetX(self) -> float:
         '''Gets the X offset for tiling picture.'''
         raise NotImplementedError()
 
@@ -43373,11 +43806,11 @@ class TilePicOption:
         :param value: '''
         raise NotImplementedError()
 
-    def getScaleY(self) -> int:
+    def getScaleY(self) -> float:
         '''Gets the Y scale for tiling picture.'''
         raise NotImplementedError()
 
-    def getScaleX(self) -> int:
+    def getScaleX(self) -> float:
         '''Gets the X scale for tiling picture.'''
         raise NotImplementedError()
 
@@ -43386,12 +43819,12 @@ class TilePicOption:
         See :class:`RectangleAlignmentType`'''
         raise NotImplementedError()
 
-    def setScaleY(self, value : int) -> None:
+    def setScaleY(self, value : float) -> None:
         '''Sets the Y scale for tiling picture.
         :param value: '''
         raise NotImplementedError()
 
-    def setScaleX(self, value : int) -> None:
+    def setScaleX(self, value : float) -> None:
         '''Sets the X scale for tiling picture.
         :param value: '''
         raise NotImplementedError()
@@ -43407,20 +43840,34 @@ class Timeline:
     '''Summary description of Timeline View
     Due to MS Excel, Excel 2003 does not support Timeline'''
 
-    def getName(self) -> str:
-        '''Returns or sets the name of the specified Timeline'''
+    def getShowHorizontalScrollbar(self) -> bool:
+        '''Indicates whether to display the horizontal ccroll bar.'''
         raise NotImplementedError()
 
-    def getTopPixel(self) -> int:
+    def setSelectionLevel(self, value : int) -> None:
+        '''Sets the time level at which the current selection was made for the Timeline.
+        See :class:`TimelineLevelType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCaption(self) -> str:
+        '''Gets the caption of this Timeline.'''
+        raise NotImplementedError()
+
+    def getShowSelectionLabel(self) -> bool:
+        '''Indicates whether to display the selction label.'''
+        raise NotImplementedError()
+
+    def getShowTimeLevel(self) -> bool:
+        '''Indicates whether to display the time level.'''
+        raise NotImplementedError()
+
+    def setTopPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Top property instead.'''
         raise NotImplementedError()
 
-    def getShape(self) -> TimelineShape:
-        '''Returns the :class:`TimelineShape` object associated with this Timeline. Read-only.'''
-        raise NotImplementedError()
-
-    def getHeightPixel(self) -> int:
-        ''':deprecated: Use Shape.Height property instead.'''
+    def setLeftPixel(self, value : int) -> None:
+        ''':deprecated: Use Shape.Left property instead.'''
         raise NotImplementedError()
 
     def setName(self, value : str) -> None:
@@ -43428,36 +43875,89 @@ class Timeline:
         :param value: '''
         raise NotImplementedError()
 
-    def setLeftPixel(self, value : int) -> None:
-        ''':deprecated: Use Shape.Left property instead.'''
-        raise NotImplementedError()
-
-    def setCaption(self, value : str) -> None:
-        '''Returns or sets the caption of the specified Timeline.
+    def setShowHorizontalScrollbar(self, value : bool) -> None:
+        '''Indicates whether to display the horizontal ccroll bar.
         :param value: '''
         raise NotImplementedError()
 
-    def getCaption(self) -> str:
-        '''Returns or sets the caption of the specified Timeline.'''
+    def setShowTimeLevel(self, value : bool) -> None:
+        '''Indicates whether to display the time level.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getStartDate(self) -> DateTime:
+        '''Gets the start date of the timespan scrolling position of this :class:`Timeline`.'''
+        raise NotImplementedError()
+
+    def getHeightPixel(self) -> int:
+        ''':deprecated: Use Shape.Height property instead.'''
+        raise NotImplementedError()
+
+    def setStartDate(self, value : DateTime) -> None:
+        '''Sets the start date of the timespan scrolling position of this :class:`Timeline`.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCurrentLevel(self, value : int) -> None:
+        '''The current time level of the Timeline.
+        See :class:`TimelineLevelType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCaption(self, value : str) -> None:
+        '''Sets the caption of this Timeline.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getName(self) -> str:
+        '''Returns or sets the name of the specified Timeline'''
+        raise NotImplementedError()
+
+    def getShape(self) -> TimelineShape:
+        '''Returns the :class:`TimelineShape` object associated with this Timeline.'''
         raise NotImplementedError()
 
     def getWidthPixel(self) -> int:
         ''':deprecated: Use Shape.Width property instead.'''
         raise NotImplementedError()
 
-    def setHeightPixel(self, value : int) -> None:
-        ''':deprecated: Use Shape.Height property instead.'''
+    def getSelectionLevel(self) -> int:
+        '''Gets the time level at which the current selection was made for the Timeline.
+        See :class:`TimelineLevelType`'''
         raise NotImplementedError()
 
     def setWidthPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Width property instead.'''
         raise NotImplementedError()
 
+    def getCurrentLevel(self) -> int:
+        '''The current time level of the Timeline.
+        See :class:`TimelineLevelType`'''
+        raise NotImplementedError()
+
+    def setShowSelectionLabel(self, value : bool) -> None:
+        '''Indicates whether to display the selction label.
+        :param value: '''
+        raise NotImplementedError()
+
     def getLeftPixel(self) -> int:
         ''':deprecated: Use Shape.Left property instead.'''
         raise NotImplementedError()
 
-    def setTopPixel(self, value : int) -> None:
+    def getShowHeader(self) -> bool:
+        '''Indicates whether to display the header.'''
+        raise NotImplementedError()
+
+    def setShowHeader(self, value : bool) -> None:
+        '''Indicates whether to display the header.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setHeightPixel(self, value : int) -> None:
+        ''':deprecated: Use Shape.Height property instead.'''
+        raise NotImplementedError()
+
+    def getTopPixel(self) -> int:
         ''':deprecated: Use Shape.Top property instead.'''
         raise NotImplementedError()
 
@@ -43534,6 +44034,22 @@ class TimelineCollection:
         :param baseField: The PivotField in PivotTable.BaseFields
         :returns: The new add Timeline index'''
         raise NotImplementedError()
+
+
+class TimelineLevelType:
+    '''Represents the level type of :class:`Timeline`'''
+
+    YEAR : TimelineLevelType
+    '''Year'''
+
+    QUARTER : TimelineLevelType
+    '''Quarter'''
+
+    MONTH : TimelineLevelType
+    '''Month'''
+
+    DAY : TimelineLevelType
+    '''Day'''
 
 
 class TimelineShape:
@@ -43613,7 +44129,7 @@ class Title:
         '''Represents overlay centered title on chart without resizing chart.'''
         raise NotImplementedError()
 
-    def getXRatioToChart(self) -> int:
+    def getXRatioToChart(self) -> float:
         '''Gets the x coordinate of the upper left corner in units of Fraction of the chart area.
         X In Pixels = XRatioToChart * Chart.ChartObject.Width;'''
         raise NotImplementedError()
@@ -43627,7 +44143,7 @@ class Title:
         :param value: '''
         raise NotImplementedError()
 
-    def setYRatioToChart(self, value : int) -> None:
+    def setYRatioToChart(self, value : float) -> None:
         '''Sets the y coordinate of the upper left corner in units of Fraction of the chart area.
         Y In Pixels = YRatioToChart * Chart.ChartObject.Width;
         :param value: '''
@@ -43637,7 +44153,7 @@ class Title:
         '''Represents whether the title is visible.'''
         raise NotImplementedError()
 
-    def getYRatioToChart(self) -> int:
+    def getYRatioToChart(self) -> float:
         '''Gets the y coordinate of the upper left corner in units of Fraction of the chart area.
         Y In Pixels = YRatioToChart * Chart.ChartObject.Width;'''
         raise NotImplementedError()
@@ -43671,7 +44187,7 @@ class Title:
         ''':deprecated: Use Title.XRatioToChart property, instead.'''
         raise NotImplementedError()
 
-    def setXRatioToChart(self, value : int) -> None:
+    def setXRatioToChart(self, value : float) -> None:
         '''Sets the x coordinate of the upper left corner in units of Fraction of the chart area.
         X In Pixels = XRatioToChart * Chart.ChartObject.Width;
         :param value: '''
@@ -43800,42 +44316,41 @@ class Top10:
 
 
 class Top10Filter:
-    '''Represents the top 10 filter.'''
+    '''Represents the top N (percent or number of items) to filter by.'''
 
-    def setCriteria(self, value : Object) -> None:
-        '''
-        :param value: '''
+    def setCriteria(self, value : Any) -> None:
+        ''':deprecated: Ignore this property.'''
         raise NotImplementedError()
 
     def isTop(self) -> bool:
-        '''Indicates whether it's top filter.'''
+        '''Indicates whether or not to filter by top order'''
         raise NotImplementedError()
 
     def setItems(self, value : int) -> None:
-        '''Sets the items of the filter.
+        '''Sets top or bottom value to use as the filter criteria.
         :param value: '''
         raise NotImplementedError()
 
-    def getCriteria(self) -> Object:
-        ''''''
+    def getCriteria(self) -> Any:
+        ''':deprecated: Ignore this property.'''
         raise NotImplementedError()
 
     def setTop(self, value : bool) -> None:
-        '''Indicates whether it's top filter.
+        '''Indicates whether or not to filter by top order
         :param value: '''
         raise NotImplementedError()
 
     def getItems(self) -> int:
-        '''Gets the items of the filter.'''
+        '''Gets top or bottom value to use as the filter criteria.'''
         raise NotImplementedError()
 
     def setPercent(self, value : bool) -> None:
-        '''Indicates whether the items is percent.
+        '''Indicates whether or not to filter by percent value of the column
         :param value: '''
         raise NotImplementedError()
 
     def isPercent(self) -> bool:
-        '''Indicates whether the items is percent.'''
+        '''Indicates whether or not to filter by percent value of the column'''
         raise NotImplementedError()
 
 
@@ -43876,11 +44391,11 @@ class TotalsCalculation:
 class Trendline:
     '''Represents a trendline in a chart.'''
 
-    def getIntercept(self) -> int:
+    def getIntercept(self) -> float:
         '''Returns or sets the point where the trendline crosses the value axis.'''
         raise NotImplementedError()
 
-    def getForward(self) -> int:
+    def getForward(self) -> float:
         '''Returns or sets the number of periods (or units on a scatter chart) that the trendline extends forward.
         The number of periods must be greater than or equal to zero.'''
         raise NotImplementedError()
@@ -43889,7 +44404,7 @@ class Trendline:
         '''Gets the legend entry according to this trendline'''
         raise NotImplementedError()
 
-    def setIntercept(self, value : int) -> None:
+    def setIntercept(self, value : float) -> None:
         '''Returns or sets the point where the trendline crosses the value axis.
         :param value: '''
         raise NotImplementedError()
@@ -43918,7 +44433,7 @@ class Trendline:
         '''Represents the DataLabels object for the specified series.'''
         raise NotImplementedError()
 
-    def getBackward(self) -> int:
+    def getBackward(self) -> float:
         '''Returns or sets the number of periods (or units on a scatter chart) that the trendline extends backward.
         The number of periods must be greater than or equal to zero.
         If the chart type is column ,the number of periods must be between 0 and 0.5'''
@@ -43929,13 +44444,13 @@ class Trendline:
         :param value: '''
         raise NotImplementedError()
 
-    def setForward(self, value : int) -> None:
+    def setForward(self, value : float) -> None:
         '''Returns or sets the number of periods (or units on a scatter chart) that the trendline extends forward.
         The number of periods must be greater than or equal to zero.
         :param value: '''
         raise NotImplementedError()
 
-    def setBackward(self, value : int) -> None:
+    def setBackward(self, value : float) -> None:
         '''Returns or sets the number of periods (or units on a scatter chart) that the trendline extends backward.
         The number of periods must be greater than or equal to zero.
         If the chart type is column ,the number of periods must be between 0 and 0.5
@@ -44418,12 +44933,12 @@ class UnionRange:
         :param ranges: The ranges.'''
         raise NotImplementedError()
 
-    def setValue(self, value : Object) -> None:
+    def setValue(self, value : Any) -> None:
         '''Sets the values of the range.
         :param value: '''
         raise NotImplementedError()
 
-    def getValue(self) -> Object:
+    def getValue(self) -> Any:
         '''Gets the values of the range.'''
         raise NotImplementedError()
 
@@ -44525,7 +45040,7 @@ class UnionRange:
 class UnknowEquationNode:
     '''Equation node class of unknown type'''
 
-    def equals(self, obj : Object) -> bool:
+    def equals(self, obj : Any) -> bool:
         '''Determine whether the current equation node is equal to the specified node
         :param obj: The specified node'''
         raise NotImplementedError()
@@ -44580,11 +45095,11 @@ class Validation:
         '''Indicates whether the data validation error message will be displayed whenever the user enters invalid data.'''
         raise NotImplementedError()
 
-    def getValue2(self) -> Object:
+    def getValue2(self) -> Any:
         '''Represents the second value associated with the data validation.'''
         raise NotImplementedError()
 
-    def getValue1(self) -> Object:
+    def getValue1(self) -> Any:
         '''Represents the first value associated with the data validation.'''
         raise NotImplementedError()
 
@@ -44598,12 +45113,12 @@ class Validation:
         :param value: '''
         raise NotImplementedError()
 
-    def setValue2(self, value : Object) -> None:
+    def setValue2(self, value : Any) -> None:
         '''Represents the second value associated with the data validation.
         :param value: '''
         raise NotImplementedError()
 
-    def setValue1(self, value : Object) -> None:
+    def setValue1(self, value : Any) -> None:
         '''Represents the first value associated with the data validation.
         :param value: '''
         raise NotImplementedError()
@@ -44708,7 +45223,7 @@ class Validation:
         '''Indicates whether the data validation input message will be displayed whenever the user selects a cell in the data validation range.'''
         raise NotImplementedError()
 
-    def getValue(self, row : int, column : int, isValue1 : bool) -> Object:
+    def getValue(self, row : int, column : int, isValue1 : bool) -> Any:
         '''Get the value of validation on the specific cell.
         :param row: The row index.
         :param column: The column index.
@@ -44784,7 +45299,7 @@ class Validation:
         :param value: '''
         raise NotImplementedError()
 
-    def getListValue(self, row : int, column : int) -> Object:
+    def getListValue(self, row : int, column : int) -> Any:
         '''Get the value for list of the validation for the specified cell.
         :param row: The row index.
         :param column: The column index.
@@ -45361,11 +45876,11 @@ class WarningInfo:
         ''':deprecated: Use WarningInfo.Type property, instead.'''
         raise NotImplementedError()
 
-    def getCorrectedObject(self) -> Object:
+    def getCorrectedObject(self) -> Any:
         '''Gets the corrected object.'''
         raise NotImplementedError()
 
-    def setCorrectedObject(self, value : Object) -> None:
+    def setCorrectedObject(self, value : Any) -> None:
         '''Sets the corrected object.
         :param value: '''
         raise NotImplementedError()
@@ -45374,7 +45889,7 @@ class WarningInfo:
         '''Get description of warning info.'''
         raise NotImplementedError()
 
-    def getErrorObject(self) -> Object:
+    def getErrorObject(self) -> Any:
         '''The error object.'''
         raise NotImplementedError()
 
@@ -45719,12 +46234,12 @@ class WebExtensionTaskPane:
         '''Gets the index, enumerating from the outside to the inside, of this taskpane among other persisted taskpanes docked in the same default location.'''
         raise NotImplementedError()
 
-    def setWidth(self, value : int) -> None:
+    def setWidth(self, value : float) -> None:
         '''Sets the default width value for this taskpane instance.
         :param value: '''
         raise NotImplementedError()
 
-    def getWidth(self) -> int:
+    def getWidth(self) -> float:
         '''Gets the default width value for this taskpane instance.'''
         raise NotImplementedError()
 
@@ -46200,7 +46715,7 @@ class Workbook:
         raise NotImplementedError()
 
     @overload
-    def replace(self, placeHolder : str, newValue : int) -> int:
+    def replace(self, placeHolder : str, newValue : float) -> int:
         '''Replaces a cell's value with a new double.
         :param placeHolder: Cell placeholder
         :param newValue: Double value to replace'''
@@ -46223,7 +46738,7 @@ class Workbook:
         raise NotImplementedError()
 
     @overload
-    def replace(self, placeHolder : str, newValues : list[int], isVertical : bool) -> int:
+    def replace(self, placeHolder : str, newValues : list[float], isVertical : bool) -> int:
         '''Replaces cells' values with a double array.
         :param placeHolder: Cell placeholder
         :param newValues: Double array to replace
@@ -46231,14 +46746,14 @@ class Workbook:
         raise NotImplementedError()
 
     @overload
-    def replace(self, boolValue : bool, newValue : Object) -> int:
+    def replace(self, boolValue : bool, newValue : Any) -> int:
         '''Replaces cells' values with new data.
         :param boolValue: The boolean value to be replaced.
         :param newValue: New value. Can be string, integer, double or DateTime value.'''
         raise NotImplementedError()
 
     @overload
-    def replace(self, intValue : int, newValue : Object) -> int:
+    def replace(self, intValue : int, newValue : Any) -> int:
         '''Replaces cells' values with new data.
         :param intValue: The integer value to be replaced.
         :param newValue: New value. Can be string, integer, double or DateTime value.'''
@@ -46491,7 +47006,7 @@ class WorkbookDesigner:
         raise NotImplementedError()
 
     @overload
-    def setDataSource(self, variable : str, data : Object) -> None:
+    def setDataSource(self, variable : str, data : Any) -> None:
         '''Sets data binding to a variable.
         :param variable: Variable name created using smart marker.
         :param data: Source data.'''
@@ -46721,7 +47236,7 @@ class WorkbookSettings:
         '''Indicates whether datapoint properties and datalabels in all charts in this workbook follow their reference.'''
         raise NotImplementedError()
 
-    def getWindowHeightCM(self) -> int:
+    def getWindowHeightCM(self) -> float:
         '''The height of the window, in unit of centimeter.'''
         raise NotImplementedError()
 
@@ -46735,7 +47250,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowLeftInch(self) -> int:
+    def getWindowLeftInch(self) -> float:
         '''The distance from the left edge of the client area to the left edge of the window.
         In unit of inch.'''
         raise NotImplementedError()
@@ -46749,12 +47264,16 @@ class WorkbookSettings:
         '''Specifies a boolean value that indicates the application automatically compressed pictures in the workbook.'''
         raise NotImplementedError()
 
+    def getWpsCompatibility(self) -> bool:
+        '''Indicates whether to be compatible with WPS.'''
+        raise NotImplementedError()
+
     def setPassword(self, value : str) -> None:
         '''Represents Workbook file encryption password.
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowHeightCM(self, value : int) -> None:
+    def setWindowHeightCM(self, value : float) -> None:
         '''The height of the window, in unit of centimeter.
         :param value: '''
         raise NotImplementedError()
@@ -46767,7 +47286,7 @@ class WorkbookSettings:
         '''Gets a value that indicates whether the Workbook is shared.'''
         raise NotImplementedError()
 
-    def setWindowLeftInch(self, value : int) -> None:
+    def setWindowLeftInch(self, value : float) -> None:
         '''The distance from the left edge of the client area to the left edge of the window.
         In unit of inch.
         :param value: '''
@@ -46786,7 +47305,7 @@ class WorkbookSettings:
         See :class:`ProtectionType`'''
         raise NotImplementedError()
 
-    def getWindowLeftCM(self) -> int:
+    def getWindowLeftCM(self) -> float:
         '''The distance from the left edge of the client area to the left edge of the window.
         In unit of centimeter.'''
         raise NotImplementedError()
@@ -46810,6 +47329,11 @@ class WorkbookSettings:
 
     def getShowTabs(self) -> bool:
         '''Gets a value whether the Workbook tabs are displayed.'''
+        raise NotImplementedError()
+
+    def setMaxUniqueItemsPerField(self, value : int) -> None:
+        '''Sets the limitation of unique items per field
+        :param value: '''
         raise NotImplementedError()
 
     def getSheetTabBarWidth(self) -> int:
@@ -46857,7 +47381,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowLeftCM(self, value : int) -> None:
+    def setWindowLeftCM(self, value : float) -> None:
         '''The distance from the left edge of the client area to the left edge of the window.
         In unit of centimeter.
         :param value: '''
@@ -46868,7 +47392,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowTopCM(self, value : int) -> None:
+    def setWindowTopCM(self, value : float) -> None:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of centimeter.
         :param value: '''
         raise NotImplementedError()
@@ -46888,7 +47412,7 @@ class WorkbookSettings:
         '''Gets default resolution of image.'''
         raise NotImplementedError()
 
-    def setWindowWidthCM(self, value : int) -> None:
+    def setWindowWidthCM(self, value : float) -> None:
         '''The width of the window, in unit of centimeter.
         :param value: '''
         raise NotImplementedError()
@@ -46907,7 +47431,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowHeightInch(self, value : int) -> None:
+    def setWindowHeightInch(self, value : float) -> None:
         '''The height of the window, in unit of inch.
         :param value: '''
         raise NotImplementedError()
@@ -46918,6 +47442,12 @@ class WorkbookSettings:
 
     def getDate1904(self) -> bool:
         '''Gets a value which represents if the workbook uses the 1904 date system.'''
+        raise NotImplementedError()
+
+    def getSignificantDigitsType(self) -> int:
+        '''Gets the type of significant digits for outputing numeric
+        values in this workbook. Default value is :meth:`CellsHelper.getSignificantDigitsType()`.
+        See :meth:`WorkbookSettings.getSignificantDigitsType()`'''
         raise NotImplementedError()
 
     def setDisplayDrawingObjects(self, value : int) -> None:
@@ -46941,7 +47471,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowTopCM(self) -> int:
+    def getWindowTopCM(self) -> float:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of centimeter.'''
         raise NotImplementedError()
 
@@ -46953,7 +47483,7 @@ class WorkbookSettings:
         '''Gets the settings for default values of style-related properties for this workbook.'''
         raise NotImplementedError()
 
-    def getWindowWidthCM(self) -> int:
+    def getWindowWidthCM(self) -> float:
         '''The width of the window, in unit of centimeter.'''
         raise NotImplementedError()
 
@@ -46967,7 +47497,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowTop(self, value : int) -> None:
+    def setWindowTop(self, value : float) -> None:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of point.
         :param value: '''
         raise NotImplementedError()
@@ -47039,7 +47569,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowHeightInch(self) -> int:
+    def getWindowHeightInch(self) -> float:
         '''The height of the window, in unit of inch.'''
         raise NotImplementedError()
 
@@ -47068,7 +47598,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowTop(self) -> int:
+    def getWindowTop(self) -> float:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of point.'''
         raise NotImplementedError()
 
@@ -47138,7 +47668,7 @@ class WorkbookSettings:
         '''Indicates whether discarding editting image data.'''
         raise NotImplementedError()
 
-    def setWindowLeft(self, value : int) -> None:
+    def setWindowLeft(self, value : float) -> None:
         '''The distance from the left edge of the client area to the left edge of the window, in unit of point.
         :param value: '''
         raise NotImplementedError()
@@ -47157,12 +47687,19 @@ class WorkbookSettings:
         '''Gets the character that separates groups of digits to the left of the decimal in numeric values. Default is the group separator of current Region.'''
         raise NotImplementedError()
 
-    def setWindowWidthInch(self, value : int) -> None:
+    def setWindowWidthInch(self, value : float) -> None:
         '''The width of the window, in unit of inch.
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowHeight(self) -> int:
+    def setSignificantDigitsType(self, value : int) -> None:
+        '''Sets the type of significant digits for outputing numeric
+        values in this workbook. Default value is :meth:`CellsHelper.getSignificantDigitsType()`.
+        See :meth:`WorkbookSettings.getSignificantDigitsType()`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getWindowHeight(self) -> float:
         '''The height of the window, in unit of point.'''
         raise NotImplementedError()
 
@@ -47171,14 +47708,16 @@ class WorkbookSettings:
         :param pageOrientationType: :class:`PageOrientationType`. The page orientation type'''
         raise NotImplementedError()
 
+    def getMaxUniqueItemsPerField(self) -> int:
+        '''Gets the limitation of unique items per field'''
+        raise NotImplementedError()
+
     def isDefaultEncrypted(self) -> bool:
         '''Indicates whether encrypting the workbook with default password if Structure and Windows of the workbook are locked.'''
         raise NotImplementedError()
 
     def setSignificantDigits(self, value : int) -> None:
-        '''Sets the number of significant digits.
-        The default value is :meth:`CellsHelper.getSignificantDigits()`.
-        :param value: '''
+        ''':deprecated: Use SignificantDigitsType property instead.'''
         raise NotImplementedError()
 
     def getCheckCustomNumberFormat(self) -> bool:
@@ -47199,7 +47738,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowLeft(self) -> int:
+    def getWindowLeft(self) -> float:
         '''The distance from the left edge of the client area to the left edge of the window, in unit of point.'''
         raise NotImplementedError()
 
@@ -47217,7 +47756,7 @@ class WorkbookSettings:
         '''Gets the globalization settings.'''
         raise NotImplementedError()
 
-    def setWindowWidth(self, value : int) -> None:
+    def setWindowWidth(self, value : float) -> None:
         '''The width of the window, in unit of point.
         :param value: '''
         raise NotImplementedError()
@@ -47225,6 +47764,11 @@ class WorkbookSettings:
     def setRegion(self, value : int) -> None:
         '''Sets the regional settings for workbook.
         See :class:`CountryCode`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setWpsCompatibility(self, value : bool) -> None:
+        '''Indicates whether to be compatible with WPS.
         :param value: '''
         raise NotImplementedError()
 
@@ -47242,14 +47786,13 @@ class WorkbookSettings:
         '''Gets the author of the file.'''
         raise NotImplementedError()
 
-    def setWindowHeight(self, value : int) -> None:
+    def setWindowHeight(self, value : float) -> None:
         '''The height of the window, in unit of point.
         :param value: '''
         raise NotImplementedError()
 
     def getSignificantDigits(self) -> int:
-        '''Gets the number of significant digits.
-        The default value is :meth:`CellsHelper.getSignificantDigits()`.'''
+        ''':deprecated: Use SignificantDigitsType property instead.'''
         raise NotImplementedError()
 
     def getMemorySetting(self) -> int:
@@ -47270,7 +47813,7 @@ class WorkbookSettings:
         '''indicates whether the application last saved the workbook file after a crash.'''
         raise NotImplementedError()
 
-    def getWindowTopInch(self) -> int:
+    def getWindowTopInch(self) -> float:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of inch.'''
         raise NotImplementedError()
 
@@ -47280,7 +47823,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowWidthInch(self) -> int:
+    def getWindowWidthInch(self) -> float:
         '''The width of the window, in unit of inch.'''
         raise NotImplementedError()
 
@@ -47294,7 +47837,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def getWindowWidth(self) -> int:
+    def getWindowWidth(self) -> float:
         '''The width of the window, in unit of point.'''
         raise NotImplementedError()
 
@@ -47303,7 +47846,7 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def setWindowTopInch(self, value : int) -> None:
+    def setWindowTopInch(self, value : float) -> None:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of inch.
         :param value: '''
         raise NotImplementedError()
@@ -47348,14 +47891,14 @@ class Worksheet:
         raise NotImplementedError()
 
     @overload
-    def calculateArrayFormula(self, formula : str, opts : CalculationOptions) -> list[list[Object]]:
+    def calculateArrayFormula(self, formula : str, opts : CalculationOptions) -> list[list[Any]]:
         '''Calculates a formula as array formula.
         :param formula: Formula to be calculated.
         :param opts: Options for calculating formula'''
         raise NotImplementedError()
 
     @overload
-    def calculateArrayFormula(self, formula : str, opts : CalculationOptions, maxRowCount : int, maxColumnCount : int) -> list[list[Object]]:
+    def calculateArrayFormula(self, formula : str, opts : CalculationOptions, maxRowCount : int, maxColumnCount : int) -> list[list[Any]]:
         '''Calculates a formula as array formula.
         :param formula: Formula to be calculated.
         :param opts: Options for calculating formula
@@ -47365,7 +47908,7 @@ class Worksheet:
         raise NotImplementedError()
 
     @overload
-    def calculateArrayFormula(self, formula : str, pOpts : FormulaParseOptions, cOpts : CalculationOptions, baseCellRow : int, baseCellColumn : int, maxRowCount : int, maxColumnCount : int, calculationData : CalculationData) -> list[list[Object]]:
+    def calculateArrayFormula(self, formula : str, pOpts : FormulaParseOptions, cOpts : CalculationOptions, baseCellRow : int, baseCellColumn : int, maxRowCount : int, maxColumnCount : int, calculationData : CalculationData) -> list[list[Any]]:
         '''Calculates a formula as array formula.
         :param formula: Formula to be calculated.
         :param pOpts: Options for parsing formula
@@ -47607,7 +48150,7 @@ class Worksheet:
         See :class:`SheetType`'''
         raise NotImplementedError()
 
-    def xmlMapQuery(self, path : str, xmlMap : XmlMap) -> list[list[Any]]:
+    def xmlMapQuery(self, path : str, xmlMap : XmlMap) -> list[Any]:
         '''Query cell areas that mapped/linked to the specific path of xml map.
         :param path: xml element path
         :param xmlMap: Specify an xml map if you want to query for the specific path within a specific map
@@ -47657,6 +48200,11 @@ class Worksheet:
         '''Represents first visible row index.'''
         raise NotImplementedError()
 
+    def filter(self, ca : CellArea) -> None:
+        '''Filters the range.
+        :param ca: The range'''
+        raise NotImplementedError()
+
     def getSmartTagSetting(self) -> SmartTagSetting:
         '''Gets all :class:`SmartTagCollection` objects of the worksheet.'''
         raise NotImplementedError()
@@ -47676,7 +48224,7 @@ class Worksheet:
         :param removeOthers: True means removing other selected range and only select this range.'''
         raise NotImplementedError()
 
-    def getSelectedRanges(self) -> list[list[Any]]:
+    def getSelectedRanges(self) -> list[Any]:
         ''':deprecated: Use Worksheet.GetSelectedAreas() method instead.'''
         raise NotImplementedError()
 
@@ -47933,14 +48481,14 @@ class Worksheet:
         raise NotImplementedError()
 
     @overload
-    def calculateFormula(self, formula : str) -> Object:
+    def calculateFormula(self, formula : str) -> Any:
         '''Calculates a formula.
         :param formula: Formula to be calculated.
         :returns: Calculated formula result.'''
         raise NotImplementedError()
 
     @overload
-    def calculateFormula(self, formula : str, opts : CalculationOptions) -> Object:
+    def calculateFormula(self, formula : str, opts : CalculationOptions) -> Any:
         '''Calculates a formula expression directly.
         :param formula: Formula to be calculated.
         :param opts: Options for calculating formula
@@ -47948,7 +48496,7 @@ class Worksheet:
         raise NotImplementedError()
 
     @overload
-    def calculateFormula(self, formula : str, pOpts : FormulaParseOptions, cOpts : CalculationOptions, baseCellRow : int, baseCellColumn : int, calculationData : CalculationData) -> Object:
+    def calculateFormula(self, formula : str, pOpts : FormulaParseOptions, cOpts : CalculationOptions, baseCellRow : int, baseCellColumn : int, calculationData : CalculationData) -> Any:
         '''Calculates a formula expression directly.
         :param formula: Formula to be calculated.
         :param pOpts: Options for parsing formula.
@@ -48155,7 +48703,7 @@ class WorksheetCollection:
         raise NotImplementedError()
 
     @overload
-    def setOleSize(self, value : Object) -> None:
+    def setOleSize(self, value : Any) -> None:
         '''Sets displayed size when Workbook file is used as an Ole object.
         :param value: '''
         raise NotImplementedError()
@@ -48291,7 +48839,7 @@ class WorksheetCollection:
         '''Gets the list of task panes.'''
         raise NotImplementedError()
 
-    def getOleSize(self) -> Object:
+    def getOleSize(self) -> Any:
         '''Gets displayed size when Workbook file is used as an Ole object.'''
         raise NotImplementedError()
 
@@ -48452,8 +49000,7 @@ class XlsSaveOptions:
         raise NotImplementedError()
 
     def setWpsCompatibility(self, value : bool) -> None:
-        '''Indicates whether to make the xls more compatible with WPS.
-        :param value: '''
+        ''':deprecated: Use WorkbookSetting.WpsCompatibility property instead.'''
         raise NotImplementedError()
 
     def isTemplate(self) -> bool:
@@ -48473,7 +49020,7 @@ class XlsSaveOptions:
         raise NotImplementedError()
 
     def getWpsCompatibility(self) -> bool:
-        '''Indicates whether to make the xls more compatible with WPS.'''
+        ''':deprecated: Use WorkbookSetting.WpsCompatibility property instead.'''
         raise NotImplementedError()
 
     def setMatchColor(self, value : bool) -> None:

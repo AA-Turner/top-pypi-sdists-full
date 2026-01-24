@@ -6,35 +6,36 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DATA_FORMAT, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import DATA_FORMAT, Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.shampoo_utils import merge_small_dims
 
 
 class SOAP(BaseOptimizer):
-    r"""Improving and Stabilizing Shampoo using Adam.
+    """Improving and Stabilizing Shampoo using Adam.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace
-    :param shampoo_beta: Optional[float]. if not None, use this beta for the pre-conditioner (L and R in paper,
-        state['GG'] below) moving average instead of betas[1].
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param precondition_frequency: int. how often to update the pre-conditioner.
-    :param max_precondition_dim: int. maximum dimension of the pre-conditioner. Set to 10000, so that we exclude most
-        common vocab sizes while including layers.
-    :param merge_dims: bool. whether to merge dimensions of the pre-conditioner
-    :param precondition_1d: bool. whether to precondition 1D gradients.
-    :param correct_bias: bool. whether to correct bias in Adam.
-    :param normalize_gradient: bool. whether to normalize the gradients.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        shampoo_beta (Optional[float]): If not None, use this beta for the pre-conditioner
+            (L and R in paper, state['GG'] below) moving average instead of betas.
+        weight_decay (float): Weight decay (L2 penalty).
+        precondition_frequency (int): How often to update the pre-conditioner.
+        max_precondition_dim (int): Maximum dimension of the pre-conditioner. Set to 10000, so that we exclude most
+            common vocab sizes while including layers.
+        merge_dims (bool): Whether to merge dimensions of the pre-conditioner.
+        precondition_1d (bool): Whether to precondition 1D gradients.
+        correct_bias (bool): Whether to correct bias in Adam.
+        normalize_gradient (bool): Whether to normalize the gradients.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 3e-3,
-        betas: BETAS = (0.95, 0.95),
+        betas: Betas = (0.95, 0.95),
         shampoo_beta: Optional[float] = None,
         weight_decay: float = 1e-2,
         precondition_frequency: int = 10,
@@ -59,7 +60,7 @@ class SOAP(BaseOptimizer):
         self.data_format = data_format
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'shampoo_beta': shampoo_beta,
@@ -78,7 +79,10 @@ class SOAP(BaseOptimizer):
     def __str__(self) -> str:
         return 'SOAP'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         _, beta2 = group['betas']
 
         for p in group['params']:
@@ -126,9 +130,12 @@ class SOAP(BaseOptimizer):
         project_type: str = 'forward',
     ) -> torch.Tensor:
         original_shape = grad.shape
+        permuted_shape = original_shape
+
+        do_permute: bool = self.data_format == 'channels_last' and len(original_shape) == 4
 
         if merge_dims:
-            if self.data_format == 'channels_last' and grad.dim() == 4:
+            if do_permute:
                 permuted_shape = grad.permute(0, 3, 1, 2).shape
 
             grad = grad.reshape(merge_small_dims(grad.size(), max_precondition_dim))
@@ -140,10 +147,7 @@ class SOAP(BaseOptimizer):
                 grad = grad.permute([*list(range(1, len(grad.shape))), 0])
 
         if merge_dims:
-            if self.data_format == 'channels_last' and len(original_shape) == 4:
-                grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1)
-            else:
-                grad = grad.reshape(original_shape)
+            grad = grad.reshape(permuted_shape).permute(0, 2, 3, 1) if do_permute else grad.reshape(original_shape)
 
         return grad
 
@@ -170,9 +174,10 @@ class SOAP(BaseOptimizer):
         return matrices
 
     def get_orthogonal_matrix_qr(self, state, max_precondition_dim: int = 10000, merge_dims: bool = False):
-        r"""Compute the eigen-bases of the pre-conditioner using one round of power iteration."""
-        orig_shape = state['exp_avg_sq'].shape
-        if self.data_format == 'channels_last' and len(orig_shape) == 4:
+        """Compute the eigen-bases of the pre-conditioner using one round of power iteration."""
+        original_shape = state['exp_avg_sq'].shape
+        permuted_shape = original_shape
+        if self.data_format == 'channels_last' and len(original_shape) == 4:
             permuted_shape = state['exp_avg_sq'].permute(0, 3, 1, 2).shape
 
         exp_avg_sq = state['exp_avg_sq']
@@ -202,10 +207,10 @@ class SOAP(BaseOptimizer):
             matrices.append(q)
 
         if merge_dims:
-            if self.data_format == 'channels_last' and len(orig_shape) == 4:
+            if self.data_format == 'channels_last' and len(original_shape) == 4:
                 exp_avg_sq = exp_avg_sq.reshape(permuted_shape).permute(0, 2, 3, 1)
             else:
-                exp_avg_sq = exp_avg_sq.reshape(orig_shape)
+                exp_avg_sq = exp_avg_sq.reshape(original_shape)
 
         state['exp_avg_sq'] = exp_avg_sq
 
@@ -279,19 +284,18 @@ class SOAP(BaseOptimizer):
             state['Q'] = self.get_orthogonal_matrix_qr(state, max_precondition_dim, merge_dims)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                group['step'] = 1
-                self.init_group(group)
-                continue
-
+            self.init_group(group)
             group['step'] += 1
+
+            if group['step'] == 1:
+                continue
 
             beta1, beta2 = group['betas']
 

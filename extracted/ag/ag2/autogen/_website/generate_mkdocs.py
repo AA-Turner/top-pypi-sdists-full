@@ -106,7 +106,7 @@ def transform_tab_component(content: str) -> str:
 
             # Find minimum common indentation for non-empty lines
             non_empty_lines = [line for line in lines if line.strip()]
-            min_indent = min([len(line) - len(line.lstrip()) for line in non_empty_lines]) if non_empty_lines else 0
+            min_indent = min(len(line) - len(line.lstrip()) for line in non_empty_lines) if non_empty_lines else 0
 
             # Remove common indentation and add 4-space indent
             processed_lines = []
@@ -187,7 +187,7 @@ def fix_internal_references(abs_file_url: str, mkdocs_docs_dir: Path = mkdocs_do
         return abs_file_url
 
     # Find the first .md file in the directory
-    md_files = sorted(list(full_path.glob("*.md")))
+    md_files = sorted(full_path.glob("*.md"))
     return f"{abs_file_url}/{md_files[0].stem}"
 
 
@@ -305,7 +305,7 @@ def transform_content_for_mkdocs(content: str, rel_file_path: str) -> str:
             lines = inner_content.split("\n")
 
             non_empty_lines = [line for line in lines if line.strip()]
-            min_indent = min([len(line) - len(line.lstrip()) for line in non_empty_lines]) if non_empty_lines else 0
+            min_indent = min(len(line) - len(line.lstrip()) for line in non_empty_lines) if non_empty_lines else 0
 
             # Process each line
             processed_lines = []
@@ -877,6 +877,51 @@ def remove_mdx_code_blocks(content: str) -> str:
     return result
 
 
+def remove_quarto_raw_html_wrappers(content: str) -> str:
+    """Remove Quarto JavaScript wrappers around raw HTML content.
+
+    Quarto wraps raw HTML in JavaScript like:
+        export const quartoRawHtml = [`<table>...</table>`];
+    And then references it with:
+        <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[0] }} />
+
+    This function extracts the raw HTML and removes the JavaScript wrapper.
+
+    Args:
+        content: String containing Quarto raw HTML wrappers
+
+    Returns:
+        String with raw HTML extracted and JavaScript wrappers removed
+    """
+    # Pattern to match the quartoRawHtml declaration and extract the HTML content
+    # Matches: export const quartoRawHtml\s*=\s*\[\s*`(.*?)`\s*\];
+    declaration_pattern = re.compile(r"export\s+const\s+quartoRawHtml\s*=\s*\[\s*`(.*?)`\s*\];", re.DOTALL)
+
+    # Find all quartoRawHtml declarations and store the HTML content
+    html_blocks = []
+    for match in declaration_pattern.finditer(content):
+        html_blocks.append(match.group(1))
+
+    # Remove the declarations
+    content = declaration_pattern.sub("", content)
+
+    # Pattern to match the dangerouslySetInnerHTML usage
+    # Matches: <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[0] }} />
+    # Or: <div dangerouslySetInnerHTML={{ __html: quartoRawHtml[N] }} />
+    usage_pattern = re.compile(r"<div\s+dangerouslySetInnerHTML=\{\{\s*__html:\s*quartoRawHtml\[(\d+)\]\s*\}\}\s*/>")
+
+    # Replace usage with the actual HTML content
+    def replace_usage(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if index < len(html_blocks):
+            return html_blocks[index]
+        return match.group(0)  # Return original if index out of bounds
+
+    content = usage_pattern.sub(replace_usage, content)
+
+    return content
+
+
 @require_optional_import("yaml", "docs")
 def post_process_func(
     rendered_mdx: Path,
@@ -946,6 +991,9 @@ def post_process_func(
 
     # Remove mdx-code-block markers
     content = remove_mdx_code_blocks(content)
+
+    # Remove Quarto raw HTML JavaScript wrappers
+    content = remove_quarto_raw_html_wrappers(content)
 
     # Generate the page title
     page_header = front_matter.get("title")

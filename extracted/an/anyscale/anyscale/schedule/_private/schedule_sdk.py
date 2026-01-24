@@ -1,10 +1,14 @@
 from typing import Optional
 
 from anyscale._private.anyscale_client.common import AnyscaleClientInterface
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk.base_sdk import BaseSDK, Timer
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_schedule import DecoratedSchedule
+from anyscale.client.openapi_client.models.list_response_metadata import (
+    ListResponseMetadata,
+)
 from anyscale.client.openapi_client.models.production_job_config import (
     ProductionJobConfig,
 )
@@ -17,6 +21,8 @@ from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStat
 
 
 logger = BlockLogger()
+
+MAX_PAGE_SIZE = 50
 
 
 class PrivateScheduleSDK(BaseSDK):
@@ -117,6 +123,8 @@ class PrivateScheduleSDK(BaseSDK):
         return schedule_model.id
 
     def _schedule_model_to_status(self, model: DecoratedSchedule) -> ScheduleStatus:
+        # TODO: Consider batching get_project calls once the backend API supports
+        # fetching multiple projects in a single request.
         project_model = self.client.get_project(model.project_id)
         project = (
             project_model.name
@@ -170,3 +178,69 @@ class PrivateScheduleSDK(BaseSDK):
         self.client.trigger_schedule(id=schedule_model.id)
         self.logger.info(f"Triggered job for schedule '{schedule_model.name}'.")
         return schedule_model.id
+
+    def list(
+        self,
+        *,
+        name: Optional[str] = None,
+        schedule_id: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        page_size: Optional[int] = None,
+        max_items: Optional[int] = None,
+    ) -> ResultIterator[ScheduleStatus]:
+        """List schedules with filtering and pagination.
+
+        Returns a ResultIterator that lazily fetches pages of schedules.
+        """
+        # Validate page_size
+        if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
+            raise ValueError(f"page_size must be between 1 and {MAX_PAGE_SIZE}.")
+
+        # If schedule_id provided, fetch single schedule
+        if schedule_id is not None:
+            schedule_model = self._resolve_to_schedule_model(id=schedule_id)
+            status = self._schedule_model_to_status(model=schedule_model)
+
+            def _fetch_single_page(token: Optional[str]):
+                class SingleItemResponse:
+                    results = [status] if token is None else []
+                    metadata = ListResponseMetadata(total=1, next_paging_token=None)
+
+                return SingleItemResponse()
+
+            return ResultIterator(
+                page_token=None,
+                max_items=1,
+                fetch_page=_fetch_single_page,
+                parse_fn=lambda x: x,
+            )
+
+        # Resolve cloud and project IDs
+        cloud_id = self.client.get_cloud_id(cloud_name=cloud) if cloud else None
+        project_id = None
+        if project:
+            project_id = self.client.get_project_id(
+                parent_cloud_id=cloud_id, name=project
+            )
+
+        def _fetch_page(token: Optional[str]):
+            return self.client.list_schedules(
+                name=name,
+                project_id=project_id,
+                cloud_id=cloud_id,
+                creator_id=creator_id,
+                count=page_size,
+                paging_token=token,
+            )
+
+        def _parse_schedule(decorated_schedule: DecoratedSchedule) -> ScheduleStatus:
+            return self._schedule_model_to_status(model=decorated_schedule)
+
+        return ResultIterator(
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch_page,
+            parse_fn=_parse_schedule,
+        )

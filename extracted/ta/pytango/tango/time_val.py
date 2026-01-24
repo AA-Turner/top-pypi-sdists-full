@@ -12,7 +12,7 @@ __docformat__ = "restructuredtext"
 import time
 import datetime
 
-from tango._tango import TimeVal
+from tango import TimeVal
 import numbers
 
 
@@ -25,7 +25,7 @@ def __TimeVal__init(self, a=None, b=None, c=None):
         assert b is None and c is None
         a = time.mktime(a.timetuple()) + a.microsecond * 1e-6
 
-    elif isinstance(a, numbers.Number):
+    if isinstance(a, numbers.Number):
         if b is None:
             self.tv_sec = int(a)
             usec = (a - self.tv_sec) * 1e6
@@ -170,7 +170,7 @@ def __TimeVal__str__(self):
     return str(self.todatetime())
 
 
-def __init_TimeVal():
+def time_val_init():
     TimeVal.__init_original = TimeVal.__init__
     TimeVal.__init__ = __TimeVal__init
     TimeVal.totime = __TimeVal__totime
@@ -181,7 +181,3 @@ def __init_TimeVal():
     TimeVal.strftime = __TimeVal__strftime
     TimeVal.isoformat = __TimeVal__isoformat
     TimeVal.__str__ = __TimeVal__str__
-
-
-def time_val_init(doc=True):
-    __init_TimeVal()

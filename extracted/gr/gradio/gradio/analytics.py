@@ -34,7 +34,7 @@ PKG_VERSION_URL = "https://api.gradio.app/pkg-version"
 
 def get_block_name(class_name) -> str:
     """
-    This will return "matrix" for Matrix template, and ensures that any component name that is sent from the gradio app is part of the the core components list (no false positives for custom components).
+    This will return "matrix" for Matrix template, and ensures that any component name that is sent from the gradio app is part of the core components list (no false positives for custom components).
     """
     return class_name.__name__.lower()
 
@@ -145,12 +145,12 @@ def launched_analytics(blocks: gradio.Blocks, data: dict[str, Any]) -> None:
             y[1] for y in x.targets if y[0] in blocks.blocks
         ]
         inputs_telemetry = inputs_telemetry + [
-            blocks.blocks[int(y)].get_block_name()
+            blocks.blocks[int(y)].get_block_name()  # type: ignore
             for y in x.inputs
             if y in blocks.blocks
         ]
         outputs_telemetry = outputs_telemetry + [
-            blocks.blocks[int(y)].get_block_name()
+            blocks.blocks[int(y)].get_block_name()  # type: ignore
             for y in x.outputs
             if y in blocks.blocks
         ]
@@ -222,19 +222,6 @@ def custom_component_analytics(
 
     _do_analytics_request(
         topic="gradio/custom-components",
-        data=data,
-    )
-
-
-def sketch_analytics() -> None:
-    data = {
-        "command": "sketch",
-    }
-    if not analytics_enabled():
-        return
-
-    _do_analytics_request(
-        topic="gradio/sketch",
         data=data,
     )
 

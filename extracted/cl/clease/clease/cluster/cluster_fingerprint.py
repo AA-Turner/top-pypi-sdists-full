@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from functools import total_ordering
-from typing import Any, Iterable
+from typing import Any
 
 import attr
 import numpy as np

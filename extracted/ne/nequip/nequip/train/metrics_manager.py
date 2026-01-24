@@ -6,6 +6,7 @@ from .metrics import (
     MeanSquaredError,
     MeanAbsoluteError,
     RootMeanSquaredError,
+    MaximumAbsoluteError,
 )
 
 from typing import List, Dict, Union, Callable, Final, Optional
@@ -457,11 +458,15 @@ _EF_METRICS_COEFFS_KEYS: Final[List[str]] = [
     "total_energy_mae",
     "per_atom_energy_mae",
     "forces_mae",
+    "total_energy_maxabserr",
+    "per_atom_energy_maxabserr",
+    "forces_maxabserr",
 ]
 
 _EFS_METRICS_COEFFS_KEYS: Final[List[str]] = _EF_METRICS_COEFFS_KEYS + [
     "stress_rmse",
     "stress_mae",
+    "stress_maxabserr",
 ]
 
 
@@ -473,10 +478,13 @@ def EnergyForceMetrics(
         "total_energy_mae": None,
         "per_atom_energy_mae": None,
         "forces_mae": None,
+        "total_energy_maxabserr": None,
+        "per_atom_energy_maxabserr": None,
+        "forces_maxabserr": None,
     },
     type_names=None,
 ):
-    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing energy and force mean absolute errors (MAEs) and root mean squared errors (RMSEs).
+    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing energy and force mean absolute errors (MAEs), root mean squared errors (RMSEs), and maximum absolute errors (MaxAbsErrs).
 
     Example usage in config:
 
@@ -494,9 +502,12 @@ def EnergyForceMetrics(
               total_energy_mae: null
               per_atom_energy_mae: null
               forces_mae: null
+              total_energy_maxabserr: null
+              per_atom_energy_maxabserr: null
+              forces_maxabserr: null
 
     Args:
-        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy and forces metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'forces_rmse': 1.0, 'total_energy_mae': None, 'per_atom_energy_mae': None, 'forces_mae': None}``)
+        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy and forces metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'forces_rmse': 1.0, 'total_energy_mae': None, 'per_atom_energy_mae': None, 'forces_mae': None, 'total_energy_maxabserr': None, 'per_atom_energy_maxabserr': None, 'forces_maxabserr': None}``)
     """
     assert all([k in _EF_METRICS_COEFFS_KEYS for k in coeffs.keys()]), (
         f"Unrecognized key found in `coeffs`, only the following are recognized: {_EF_METRICS_COEFFS_KEYS}"
@@ -538,6 +549,24 @@ def EnergyForceMetrics(
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("forces_mae", None),
         },
+        {
+            "name": "total_energy_maxabserr",
+            "field": AtomicDataDict.TOTAL_ENERGY_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("total_energy_maxabserr", None),
+        },
+        {
+            "name": "per_atom_energy_maxabserr",
+            "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("per_atom_energy_maxabserr", None),
+        },
+        {
+            "name": "forces_maxabserr",
+            "field": AtomicDataDict.FORCE_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("forces_maxabserr", None),
+        },
     ]
     return MetricsManager(metrics, type_names=type_names)
 
@@ -550,6 +579,7 @@ def EnergyForceStressLoss(
     },
     per_atom_energy: bool = True,
     type_names=None,
+    ignore_nan: Dict[str, bool] = {},
 ):
     """Simplified :class:`MetricsManager` wrapper for a **loss** term containing energy, forces and stress mean squared errors (MSEs).
 
@@ -569,10 +599,14 @@ def EnergyForceStressLoss(
               total_energy: 1.0
               forces: 1.0
               stress: 1.0
+            # if not all frames have stresses, one can populate the stress labels with NaN and set ignore_nan here:
+            # ignore_nan:
+            #   stress: true
 
     Args:
         coeffs (Dict[str, float]): ``dict`` that stores the relative weight of energy and forces to the overall loss (default ``{'total_energy': 1.0, 'forces': 1.0, 'stress': 1.0}``)
         per_atom_energy (bool, optional): whether to normalize the total energy by the number of atoms (default ``True``)
+        ignore_nan (Dict[str, bool], optional): ``dict`` that specifies whether to ignore NaN values for each field (default: all ``False``)
     """
 
     metrics = [
@@ -585,18 +619,21 @@ def EnergyForceStressLoss(
             ),
             "coeff": coeffs[AtomicDataDict.TOTAL_ENERGY_KEY],
             "metric": MeanSquaredError(),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
         },
         {
             "name": "forces_mse",
             "field": AtomicDataDict.FORCE_KEY,
             "coeff": coeffs[AtomicDataDict.FORCE_KEY],
             "metric": MeanSquaredError(),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.FORCE_KEY, False),
         },
         {
             "name": "stress_mse",
             "field": AtomicDataDict.STRESS_KEY,
             "coeff": coeffs[AtomicDataDict.STRESS_KEY],
             "metric": MeanSquaredError(),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.STRESS_KEY, False),
         },
     ]
     return MetricsManager(metrics, type_names=type_names)
@@ -612,10 +649,15 @@ def EnergyForceStressMetrics(
         "per_atom_energy_mae": None,
         "forces_mae": None,
         "stress_mae": None,
+        "total_energy_maxabserr": None,
+        "per_atom_energy_maxabserr": None,
+        "forces_maxabserr": None,
+        "stress_maxabserr": None,
     },
     type_names=None,
+    ignore_nan: Dict[str, bool] = {},
 ):
-    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing energy, force and stress mean absolute errors (MAEs) and root mean squared errors (RMSEs).
+    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing energy, force and stress mean absolute errors (MAEs), root mean squared errors (RMSEs), and maximum absolute errors (MaxAbsErrs).
 
     Example usage in config:
 
@@ -635,9 +677,17 @@ def EnergyForceStressMetrics(
               per_atom_energy_mae: null
               forces_mae: null
               stress_mae: null
+              total_energy_maxabserr: null
+              per_atom_energy_maxabserr: null
+              forces_maxabserr: null
+              stress_maxabserr: null
+            # if not all frames have stresses, one can populate the stress labels with NaN and set ignore_nan here:
+            # ignore_nan:
+            #   stress: true
 
     Args:
-        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy and forces metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'forces_rmse': 1.0, 'stress_rmse': 1.0, 'total_energy_mae': None, 'per_atom_energy_mae': None, 'forces_mae': None, 'stress_mae': None}``)
+        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy and forces metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'forces_rmse': 1.0, 'stress_rmse': 1.0, 'total_energy_mae': None, 'per_atom_energy_mae': None, 'forces_mae': None, 'stress_mae': None, 'total_energy_maxabserr': None, 'per_atom_energy_maxabserr': None, 'forces_maxabserr': None, 'stress_maxabserr': None}``)
+        ignore_nan (Dict[str, bool], optional): ``dict`` that specifies whether to ignore NaN values for each field (default: all ``False``)
     """
     assert all([k in _EFS_METRICS_COEFFS_KEYS for k in coeffs.keys()]), (
         f"Unrecognized key found in `coeffs`, only the following are recognized: {_EFS_METRICS_COEFFS_KEYS}"
@@ -648,48 +698,84 @@ def EnergyForceStressMetrics(
             "field": AtomicDataDict.TOTAL_ENERGY_KEY,
             "metric": RootMeanSquaredError(),
             "coeff": coeffs.get("total_energy_rmse", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
         },
         {
             "name": "total_energy_mae",
             "field": AtomicDataDict.TOTAL_ENERGY_KEY,
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("total_energy_mae", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
         },
         {
             "name": "per_atom_energy_rmse",
             "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
             "metric": RootMeanSquaredError(),
             "coeff": coeffs.get("per_atom_energy_rmse", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
         },
         {
             "name": "per_atom_energy_mae",
             "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("per_atom_energy_mae", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
         },
         {
             "name": "forces_rmse",
             "field": AtomicDataDict.FORCE_KEY,
             "metric": RootMeanSquaredError(),
             "coeff": coeffs.get("forces_rmse", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.FORCE_KEY, False),
         },
         {
             "name": "forces_mae",
             "field": AtomicDataDict.FORCE_KEY,
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("forces_mae", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.FORCE_KEY, False),
         },
         {
             "name": "stress_rmse",
             "field": AtomicDataDict.STRESS_KEY,
             "metric": RootMeanSquaredError(),
             "coeff": coeffs.get("stress_rmse", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.STRESS_KEY, False),
         },
         {
             "name": "stress_mae",
             "field": AtomicDataDict.STRESS_KEY,
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("stress_mae", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.STRESS_KEY, False),
+        },
+        {
+            "name": "total_energy_maxabserr",
+            "field": AtomicDataDict.TOTAL_ENERGY_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("total_energy_maxabserr", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
+        },
+        {
+            "name": "per_atom_energy_maxabserr",
+            "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("per_atom_energy_maxabserr", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.TOTAL_ENERGY_KEY, False),
+        },
+        {
+            "name": "forces_maxabserr",
+            "field": AtomicDataDict.FORCE_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("forces_maxabserr", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.FORCE_KEY, False),
+        },
+        {
+            "name": "stress_maxabserr",
+            "field": AtomicDataDict.STRESS_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("stress_maxabserr", None),
+            "ignore_nan": ignore_nan.get(AtomicDataDict.STRESS_KEY, False),
         },
     ]
     return MetricsManager(metrics, type_names=type_names)
@@ -738,6 +824,8 @@ _ENERGY_ONLY_METRICS_COEFFS_KEYS: Final[List[str]] = [
     "per_atom_energy_rmse",
     "total_energy_mae",
     "per_atom_energy_mae",
+    "total_energy_maxabserr",
+    "per_atom_energy_maxabserr",
 ]
 
 
@@ -747,10 +835,12 @@ def EnergyOnlyMetrics(
         "per_atom_energy_rmse": None,
         "total_energy_mae": None,
         "per_atom_energy_mae": None,
+        "total_energy_maxabserr": None,
+        "per_atom_energy_maxabserr": None,
     },
     type_names=None,
 ):
-    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing only energy mean absolute errors (MAEs) and root mean squared errors (RMSEs).
+    """Simplified :class:`MetricsManager` wrapper for a **metric** term containing only energy mean absolute errors (MAEs), root mean squared errors (RMSEs), and maximum absolute errors (MaxAbsErrs).
 
     Example usage in config:
 
@@ -766,9 +856,11 @@ def EnergyOnlyMetrics(
               per_atom_energy_rmse: null
               total_energy_mae: null
               per_atom_energy_mae: null
+              total_energy_maxabserr: null
+              per_atom_energy_maxabserr: null
 
     Args:
-        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'total_energy_mae': None, 'per_atom_energy_mae': None}``)
+        coeffs (Dict[str, float]): ``dict`` that stores the relative contribution of the different energy metrics to the ``weighted_sum`` version of the metric as in ``nequip.train.MetricsManager`` (default ``{'total_energy_rmse': 1.0, 'per_atom_energy_rmse': None, 'total_energy_mae': None, 'per_atom_energy_mae': None, 'total_energy_maxabserr': None, 'per_atom_energy_maxabserr': None}``)
     """
     assert all([k in _ENERGY_ONLY_METRICS_COEFFS_KEYS for k in coeffs.keys()]), (
         f"Unrecognized key found in `coeffs`, only the following are recognized: {_ENERGY_ONLY_METRICS_COEFFS_KEYS}"
@@ -797,6 +889,18 @@ def EnergyOnlyMetrics(
             "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
             "metric": MeanAbsoluteError(),
             "coeff": coeffs.get("per_atom_energy_mae", None),
+        },
+        {
+            "name": "total_energy_maxabserr",
+            "field": AtomicDataDict.TOTAL_ENERGY_KEY,
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("total_energy_maxabserr", None),
+        },
+        {
+            "name": "per_atom_energy_maxabserr",
+            "field": PerAtomModifier(AtomicDataDict.TOTAL_ENERGY_KEY),
+            "metric": MaximumAbsoluteError(),
+            "coeff": coeffs.get("per_atom_energy_maxabserr", None),
         },
     ]
     return MetricsManager(metrics, type_names=type_names)

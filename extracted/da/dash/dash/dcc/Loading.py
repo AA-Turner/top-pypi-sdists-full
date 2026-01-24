@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal  # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -88,7 +85,7 @@ class Loading(Component):
         Property that determines which built-in spinner to show one of
         'graph', 'cube', 'circle', 'dot', or 'default'."""
 
-    _children_props = ["custom_spinner"]
+    _children_props: typing.List[str] = ["custom_spinner"]
     _base_nodes = ["custom_spinner", "children"]
     _namespace = "dash_core_components"
     _type = "Loading"

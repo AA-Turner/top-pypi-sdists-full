@@ -1,21 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlmodel
-Version: 0.0.25
+Version: 0.0.31
 Summary: SQLModel, SQL databases in Python, designed for simplicity, compatibility, and robustness.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Internet
@@ -27,9 +28,9 @@ Project-URL: Documentation, https://sqlmodel.tiangolo.com
 Project-URL: Repository, https://github.com/fastapi/sqlmodel
 Project-URL: Issues, https://github.com/fastapi/sqlmodel/issues
 Project-URL: Changelog, https://sqlmodel.tiangolo.com/release-notes/
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: SQLAlchemy<2.1.0,>=2.0.14
-Requires-Dist: pydantic<3.0.0,>=1.10.13
+Requires-Dist: pydantic>=2.7.0
 Description-Content-Type: text/markdown
 
 <p align="center">

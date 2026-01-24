@@ -1,4 +1,4 @@
-use kornia_image::{Image, ImageError};
+use kornia_image::{allocator::ImageAllocator, Image, ImageError};
 use rayon::prelude::*;
 
 /// Fast feature detector
@@ -12,8 +12,8 @@ use rayon::prelude::*;
 /// # Returns
 ///
 /// A vector containing the coordinates of the detected keypoints.
-pub fn fast_feature_detector(
-    src: &Image<u8, 1>,
+pub fn fast_feature_detector<A: ImageAllocator>(
+    src: &Image<u8, 1, A>,
     threshold: u8,
     arc_length: u8,
 ) -> Result<Vec<[i32; 2]>, ImageError> {
@@ -21,22 +21,22 @@ pub fn fast_feature_detector(
 
     // Precompute the offsets for the Bresenham circle
     let offsets = [
-        -3 * cols,     // 1
-        -3 * cols + 1, // 2
-        -2 * cols + 2, // 3
-        -cols + 3,     // 4
-        cols + 3,      // 5
-        cols + 3,      // 6
-        2 * cols + 2,  // 7
-        3 * cols + 1,  // 8
-        3 * cols,      // 9
-        3 * cols - 1,  // 10
-        2 * cols - 2,  // 11
-        cols - 3,      // 12
-        -cols - 3,     // 13
-        -2 * cols - 2, // 14
-        -3 * cols - 1, // 15
-        -3 * cols,     // 16
+        -3 * cols,     // 1: (0, -3)
+        -3 * cols + 1, // 2: (1, -3)
+        -2 * cols + 2, // 3: (2, -2)
+        -cols + 3,     // 4: (3, -1)
+        3,             // 5: (3, 0)
+        cols + 3,      // 6: (3, 1)
+        2 * cols + 2,  // 7: (2, 2)
+        3 * cols + 1,  // 8: (1, 3)
+        3 * cols,      // 9: (0, 3)
+        3 * cols - 1,  // 10: (-1, 3)
+        2 * cols - 2,  // 11: (-2, 2)
+        cols - 3,      // 12: (-3, 1)
+        -3,            // 13: (-3, 0)
+        -cols - 3,     // 14: (-3, -1)
+        -2 * cols - 2, // 15: (-2, -2)
+        -3 * cols - 1, // 16: (-1, -3)
     ];
 
     // Process rows in parallel
@@ -137,6 +137,7 @@ fn is_fast_corner(
 mod tests {
     use super::*;
     use kornia_image::Image;
+    use kornia_tensor::CpuAllocator;
 
     #[test]
     fn test_fast_feature_detector() -> Result<(), ImageError> {
@@ -152,6 +153,7 @@ mod tests {
                 50,  50,  50,  50,  50,  50,  50,
                 50,  50,  50,  50,  50,  50,  50,
             ],
+            CpuAllocator
         )?;
         let expected_keypoints = vec![[3, 3]];
         let keypoints = fast_feature_detector(&img, 100, 9)?;

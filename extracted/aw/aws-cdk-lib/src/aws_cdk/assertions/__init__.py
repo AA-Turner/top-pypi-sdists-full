@@ -725,7 +725,7 @@ class Annotations(
 
     @jsii.member(jsii_name="fromStack")
     @builtins.classmethod
-    def from_stack(cls, stack: _Stack_2866e57f) -> "Annotations":
+    def from_stack(cls, stack: "_Stack_2866e57f") -> "Annotations":
         '''Base your assertions on the messages returned by a synthesized CDK ``Stack``.
 
         :param stack: the CDK Stack to run assertions on.
@@ -740,7 +740,7 @@ class Annotations(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List[_SynthesisMessage_b3ae3c62]:
+    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
         '''Get the set of matching errors of a given construct path and message.
 
         :param construct_path: the construct path to the error, provide ``'*'`` to match all errors in the template.
@@ -750,14 +750,14 @@ class Annotations(
             type_hints = typing.get_type_hints(_typecheckingstub__7f6064e884b81060ed5691b5c77d99fe9171969d33e0f5c39db63629f9b14233)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List[_SynthesisMessage_b3ae3c62], jsii.invoke(self, "findError", [construct_path, message]))
+        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findError", [construct_path, message]))
 
     @jsii.member(jsii_name="findInfo")
     def find_info(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List[_SynthesisMessage_b3ae3c62]:
+    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
         '''Get the set of matching infos of a given construct path and message.
 
         :param construct_path: the construct path to the info, provide ``'*'`` to match all infos in the template.
@@ -767,14 +767,14 @@ class Annotations(
             type_hints = typing.get_type_hints(_typecheckingstub__8194b87ea6257ea629eb3ca14994457d25764fa7dc4dc21a1ecebfb7392cf893)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List[_SynthesisMessage_b3ae3c62], jsii.invoke(self, "findInfo", [construct_path, message]))
+        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findInfo", [construct_path, message]))
 
     @jsii.member(jsii_name="findWarning")
     def find_warning(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List[_SynthesisMessage_b3ae3c62]:
+    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
         '''Get the set of matching warning of a given construct path and message.
 
         :param construct_path: the construct path to the warning, provide ``'*'`` to match all warnings in the template.
@@ -784,7 +784,7 @@ class Annotations(
             type_hints = typing.get_type_hints(_typecheckingstub__b2b9ed07482937b302b271f5ecd83ad83b12af81c8b5912069077f5465abc36a)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List[_SynthesisMessage_b3ae3c62], jsii.invoke(self, "findWarning", [construct_path, message]))
+        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findWarning", [construct_path, message]))
 
     @jsii.member(jsii_name="hasError")
     def has_error(self, construct_path: builtins.str, message: typing.Any) -> None:
@@ -1378,7 +1378,7 @@ class Matcher(
 
     @jsii.member(jsii_name="test")
     @abc.abstractmethod
-    def test(self, actual: typing.Any) -> MatchResult:
+    def test(self, actual: typing.Any) -> "MatchResult":
         '''Test whether a target matches the provided pattern.
 
         Every Matcher must implement this method.
@@ -1403,7 +1403,7 @@ class Matcher(
 
 class _MatcherProxy(Matcher):
     @jsii.member(jsii_name="test")
-    def test(self, actual: typing.Any) -> MatchResult:
+    def test(self, actual: typing.Any) -> "MatchResult":
         '''Test whether a target matches the provided pattern.
 
         Every Matcher must implement this method.
@@ -1416,7 +1416,7 @@ class _MatcherProxy(Matcher):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a8e18e5d3147fdd105018b28e92d58ac6230fc3d6ea5c23d1d4328a3b0511c9)
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
-        return typing.cast(MatchResult, jsii.invoke(self, "test", [actual]))
+        return typing.cast("MatchResult", jsii.invoke(self, "test", [actual]))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1461,7 +1461,7 @@ class Tags(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Tags"):
 
     @jsii.member(jsii_name="fromStack")
     @builtins.classmethod
-    def from_stack(cls, stack: _Stack_2866e57f) -> "Tags":
+    def from_stack(cls, stack: "_Stack_2866e57f") -> "Tags":
         '''Find tags associated with a synthesized CDK ``Stack``.
 
         :param stack: the CDK Stack to find tags on.
@@ -1549,7 +1549,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
     @builtins.classmethod
     def from_stack(
         cls,
-        stack: _Stack_2866e57f,
+        stack: "_Stack_2866e57f",
         *,
         skip_cyclical_dependencies_check: typing.Optional[builtins.bool] = None,
     ) -> "Template":
@@ -2035,7 +2035,7 @@ class Capture(
         return typing.cast(builtins.bool, jsii.invoke(self, "next", []))
 
     @jsii.member(jsii_name="test")
-    def test(self, actual: typing.Any) -> MatchResult:
+    def test(self, actual: typing.Any) -> "MatchResult":
         '''Test whether a target matches the provided pattern.
 
         Every Matcher must implement this method.
@@ -2046,7 +2046,7 @@ class Capture(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d43e7554eaf5c3b4fbf1ccc90f5143c9879eed7bb7aea11e1251059a18833c67)
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
-        return typing.cast(MatchResult, jsii.invoke(self, "test", [actual]))
+        return typing.cast("MatchResult", jsii.invoke(self, "test", [actual]))
 
     @builtins.property
     @jsii.member(jsii_name="name")

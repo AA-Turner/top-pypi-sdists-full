@@ -35,6 +35,7 @@ from bench.utils import (
 	log,
 	run_frappe_cmd,
 	get_file_md5,
+	use_uv,
 )
 from bench.utils.bench import build_assets, install_python_dev_dependencies
 from bench.utils.render import step
@@ -47,21 +48,21 @@ logger = logging.getLogger(bench.PROJECT_NAME)
 
 
 class AppMeta:
-	def __init__(self, name: str, branch: str = None, to_clone: bool = True):
+	def __init__(self, name: str, branch: str | None = None, to_clone: bool = True):
 		"""
 		name (str): This could look something like
-		        1. https://github.com/frappe/healthcare.git
-		        2. git@github.com:frappe/healthcare.git
-		        3. frappe/healthcare@develop
-		        4. healthcare
-		        5. healthcare@develop, healthcare@v13.12.1
+				1. https://github.com/frappe/healthcare.git
+				2. git@github.com:frappe/healthcare.git
+				3. frappe/healthcare@develop
+				4. healthcare
+				5. healthcare@develop, healthcare@v13.12.1
 
 		References for Version Identifiers:
 		 * https://www.python.org/dev/peps/pep-0440/#version-specifiers
 		 * https://docs.npmjs.com/about-semantic-versioning
 
 		class Healthcare(AppConfig):
-		        dependencies = [{"frappe/erpnext": "~13.17.0"}]
+				dependencies = [{"frappe/erpnext": "~13.17.0"}]
 		"""
 		self.name = name.rstrip("/")
 		self.remote_server = "github.com"
@@ -168,8 +169,8 @@ class App(AppMeta):
 	def __init__(
 		self,
 		name: str,
-		branch: str = None,
-		bench: "Bench" = None,
+		branch: str | None = None,
+		bench: "Bench | None" = None,
 		soft_link: bool = False,
 		cache_key=None,
 		*args,
@@ -268,7 +269,7 @@ class App(AppMeta):
 
 	@step(title="Uninstalling App {repo}", success="App {repo} Uninstalled")
 	def uninstall(self):
-		if os.environ.get("BENCH_USE_UV"):
+		if use_uv():
 			self.bench.run(f"uv pip uninstall {self.name} --python {self.bench.python}")
 		else:
 			self.bench.run(f"{self.bench.python} -m pip uninstall -y {self.name}")
@@ -680,13 +681,18 @@ def get_app(
 	from bench.bench import Bench
 	from bench.utils.app import check_existing_dir
 
-	if urlparse(git_url).scheme == "file" and cache_key:
-		git_url = coerce_url_to_name_if_possible(git_url, cache_key)
+	use_cached_app = False
 
 	bench = Bench(bench_path)
 	app = App(
 		git_url, branch=branch, bench=bench, soft_link=soft_link, cache_key=cache_key
 	)
+
+	if urlparse(git_url).scheme == "file" and cache_key:
+		if use_cached_app := app.get_cached():
+			git_url = coerce_url_to_name_if_possible(git_url, cache_key)
+			app = App(git_url, branch=branch, bench=bench, soft_link=soft_link, cache_key=cache_key)
+
 	git_url = app.url
 	repo_name = app.repo
 	branch = app.tag
@@ -746,7 +752,7 @@ def get_app(
 		)
 		return
 
-	if app.get_cached():
+	if use_cached_app:
 		app.install(
 			verbose=verbose,
 			skip_assets=skip_assets,
@@ -896,6 +902,7 @@ def install_app(
 	import bench.cli as bench_cli
 	from bench.bench import Bench
 	from bench.utils.system import get_mariadb_pkgconfig_path, check_pkg_config
+
 	install_text = f"Installing {app}"
 	click.secho(install_text, fg="yellow")
 	logger.log(install_text)
@@ -916,6 +923,7 @@ def install_app(
 
 	# macOS needs a custom PKG_CONFIG_DIR for frappe v16+
 	from bench.utils.app import get_current_frappe_version
+
 	if app == "frappe" and get_current_frappe_version(bench_path) >= 16:
 		check_pkg_config()
 
@@ -924,17 +932,29 @@ def install_app(
 				"PKG_CONFIG_PATH": get_mariadb_pkgconfig_path(),
 			}
 
-	if os.environ.get("BENCH_USE_UV"):
-		bench.run(
-			f"uv pip install {quiet_flag} --upgrade -e {app_path} {cache_flag} --python {bench.python}", env=env
-		)
+	if use_uv():
+		try:
+			bench.run(
+				f"uv pip install {quiet_flag} --upgrade -e {app_path} {cache_flag} --python {bench.python}",
+				env=env,
+			)
+		except Exception as e:
+			print(f"Error occured during app install: {e}", file=sys.stderr)
+			sys.exit(167)
 	else:
-		bench.run(
-			f"{bench.python} -m pip install {quiet_flag} --upgrade -e {app_path} {cache_flag}", env=env
-		)
+		try:
+			bench.run(
+				f"{bench.python} -m pip install {quiet_flag} --upgrade -e {app_path} {cache_flag}",
+				env=env,
+			)
+		except Exception as e:
+			print(f"Error occured during app install: {e}", file=sys.stderr)
+			sys.exit(167)
 
 	if conf.get("developer_mode"):
-		install_python_dev_dependencies(apps=app, bench_path=bench_path, verbose=verbose)
+		install_python_dev_dependencies(
+			apps=app, bench_path=bench_path, verbose=verbose
+		)
 
 	if not using_cached and os.path.exists(os.path.join(app_path, "package.json")):
 		yarn_install = "yarn install --check-files"

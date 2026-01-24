@@ -2,10 +2,10 @@ import time
 
 import mock
 
-from ddtrace.internal.ci_visibility.constants import EVP_PROXY_AGENT_BASE_PATH
+from ddtrace.internal.evp_proxy.constants import EVP_PROXY_AGENT_BASE_PATH
+from ddtrace.internal.settings._agent import config as agent_config
 from ddtrace.llmobs._constants import SPAN_ENDPOINT
 from ddtrace.llmobs._writer import LLMObsSpanWriter
-from ddtrace.settings._agent import config as agent_config
 from tests.llmobs._utils import _chat_completion_event
 from tests.llmobs._utils import _completion_event
 from tests.llmobs._utils import _large_event
@@ -68,9 +68,9 @@ def test_truncating_oversized_events(mock_send_payload, mock_writer_logs):
     llmobs_span_writer.enqueue(_oversized_workflow_event())
     mock_writer_logs.warning.assert_has_calls(
         [
-            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200724),
-            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200464),
-            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200445),
+            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200729),
+            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200469),
+            mock.call("dropping event input/output because its size (%d) exceeds the event size limit (5MB)", 5200450),
         ]
     )
 

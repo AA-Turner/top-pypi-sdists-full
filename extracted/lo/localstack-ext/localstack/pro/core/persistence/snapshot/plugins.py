@@ -45,7 +45,7 @@ def register_state_save_strategy():
 		case _:LOG.warning('Unknown save strategy %s',E)
 class SnapshotPlugin(ProPlatformPlugin):
 	name='snapshot'
-	def should_load(A):return config.PERSISTENCE and super().should_load()
+	def should_load(A)->bool:return config.PERSISTENCE and super().should_load()
 	def on_platform_start(A):register_state_load_strategy();register_state_save_strategy()
 	def on_platform_ready(A):do_run_state_load_all()
-	def update_localstack_routes(B,router):from localstack.pro.core.persistence.snapshot.endpoints import StateResource as A;router.add(A(get_service_state_manager()))
+	def update_localstack_routes(B,router:Router[RouteHandler]):from localstack.pro.core.persistence.snapshot.endpoints import StateResource as A;router.add(A(get_service_state_manager()))

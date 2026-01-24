@@ -4,14 +4,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 from pymatgen.core.structure import Molecule
 
-from emmet.core.material import PropertyOrigin
+from emmet.core.molecules import MolPropertyOrigin
 from emmet.core.mpid import MPculeID
 from emmet.core.qchem.calc_types import LevelOfTheory
 from emmet.core.structure import MoleculeMetadata
@@ -73,13 +72,11 @@ class PropertyDoc(MoleculeMetadata):
         default_factory=utcnow,
     )
 
-    origins: Sequence[PropertyOrigin] = Field(
+    origins: list[MolPropertyOrigin] = Field(
         [], description="Dictionary for tracking the provenance of properties"
     )
 
-    warnings: Sequence[str] = Field(
-        [], description="Any warnings related to this property"
-    )
+    warnings: list[str] = Field([], description="Any warnings related to this property")
 
     @classmethod
     def from_molecule(  # type: ignore[override]

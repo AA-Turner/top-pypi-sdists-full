@@ -26,13 +26,12 @@ pub const BASE64_ENGINE: base64::engine::GeneralPurpose = base64::engine::Genera
 );
 
 #[pyo3::pyfunction]
-#[pyo3(signature = (rounds=None, prefix=None))]
+#[pyo3(signature = (rounds=12, prefix=None), text_signature = "(rounds=12, prefix=b'2b')")]
 fn gensalt<'p>(
     py: pyo3::Python<'p>,
-    rounds: Option<u16>,
+    rounds: u16,
     prefix: Option<&[u8]>,
 ) -> pyo3::PyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
-    let rounds = rounds.unwrap_or(12);
     let prefix = prefix.unwrap_or(b"2b");
 
     if prefix != b"2a" && prefix != b"2b" {
@@ -78,7 +77,16 @@ fn hashpw<'p>(
     // bytes on the updated prefix $2b$, but leaving $2a$ unchanged for
     // compatibility. However, pyca/bcrypt 2.0.0 *did* correctly truncate inputs
     // on $2a$, so we do it here to preserve compatibility with 2.0.0
-    let password = &password[..password.len().min(72)];
+    // Silent truncation is _probably_ not the best idea, even if the "original"
+    // OpenBSD implementation did/does this.
+    // We prefer to raise a ValueError in this case - if the user _wants_ to truncate,
+    // they can always do so manually by passing s[:72] instead of s into hashpw().
+
+    if password.len() > 72 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",
+        ));
+    }
 
     // salt here is not just the salt bytes, but rather an encoded value
     // containing a version number, number of rounds, and the salt.
@@ -118,7 +126,7 @@ fn hashpw<'p>(
         .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid salt"))?;
 
     let hashed = py
-        .allow_threads(|| bcrypt::hash_with_salt(password, cost, raw_salt))
+        .detach(|| bcrypt::hash_with_salt(password, cost, raw_salt))
         .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid salt"))?;
     Ok(pyo3::types::PyBytes::new(
         py,
@@ -175,7 +183,7 @@ fn kdf<'p>(
     }
 
     pyo3::types::PyBytes::new_with(py, desired_key_bytes, |output| {
-        py.allow_threads(|| {
+        py.detach(|| {
             bcrypt_pbkdf::bcrypt_pbkdf(password, salt, rounds, output).unwrap();
         });
         Ok(())
@@ -202,7 +210,7 @@ mod _bcrypt {
         // When updating this, also update pyproject.toml
         // This isn't named __version__ because passlib treats the existence of
         // that attribute as proof that we're a different module
-        m.add("__version_ex__", "4.3.0")?;
+        m.add("__version_ex__", "5.0.0")?;
 
         let author = "The Python Cryptographic Authority developers";
         m.add("__author__", author)?;

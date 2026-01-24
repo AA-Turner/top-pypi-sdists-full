@@ -1,7 +1,7 @@
 [tool.poetry]
 
 name = "datafiles"
-version = "2.3.4"
+version = "2.4"
 description = "File-based ORM for dataclasses."
 
 license = "MIT"
@@ -43,26 +43,26 @@ classifiers = [
 
 [tool.poetry.dependencies]
 
-python = "^3.9"
+python = "^3.10"
 
 # Formats
 json-five =  "^1.1.2"
-"ruamel.yaml" = "^0.18.10"
-tomlkit = "^0.10.1"
+"ruamel.yaml" = ">=0.18.10,<0.20.0"
+tomlkit = ">=0.10.1,<0.15.0"
 
 # ORM
 parse = "^1.12"
 
 # Utilities
-cached_property = "^1.5"
+cached_property = ">=1.5,<3.0"
 classproperties = "^0.2"
 minilog = "^2.3"
 
 [tool.poetry.group.dev.dependencies]
 
 # Formatters
-black = "^24.3"
-isort = "^5.10"
+black = ">=24.3,<26.0"
+isort = ">=5.10,<7.0"
 
 # Linters
 mypy = "^1.18.1"
@@ -70,14 +70,14 @@ pylint = "~3.3.8"
 pydocstyle = "*"
 
 # Testing
-pytest = "^6.2.5"
-pytest-describe = "^2.0"
+pytest = ">=6.2.5,<9.0.0"
+pytest-describe = ">=2,<4"
 pytest-expecter = "^3.0"
 pytest-mock = "*"
 pytest-random = "*"
 pytest-repeat = "*"
 pytest-watch = "*"
-pytest-cov = "^2.8.1"
+pytest-cov = ">=2.8.1,<8.0.0"
 pytest-profiling = "*"
 
 # Coverage
@@ -90,8 +90,9 @@ pygments = "^2.15"
 # Notebooks
 ipython = "^8.14.0"
 notebook = { version = "^7.1.1", markers = "os.name != 'nt'" }
-nbstripout = "~0.7.1"
+nbstripout = ">=0.7.1,<0.9.0"
 papermill = { version = "^2.6", markers = "os.name != 'nt'" }
+six = "*" # missing papermill dependency
 
 [tool.poetry.requires-plugins]
 

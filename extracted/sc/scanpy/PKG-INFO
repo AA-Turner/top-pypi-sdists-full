@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scanpy
-Version: 1.11.4
+Version: 1.12
 Summary: Single-Cell Analysis in Python.
 Project-URL: Documentation, https://scanpy.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/scanpy
@@ -8,9 +8,8 @@ Project-URL: Homepage, https://scanpy.org
 Project-URL: Discourse, https://discourse.scverse.org/c/help/scanpy/37
 Project-URL: Bluesky, https://bsky.app/profile/scverse.bsky.social
 Project-URL: Twitter, https://x.com/scverse_team
-Author: Alex Wolf, Philipp Angerer, Fidel Ramirez, Isaac Virshup, Sergei Rybakov, Gokcen Eraslan, Tom White, Malte Luecken, Davide Cittaro, Tobias Callies, Marius Lange, Andrés R. Muñoz-Rojas
-Maintainer: Severin Dicks
-Maintainer-email: Philipp Angerer <phil.angerer@gmail.com>, Ilan Gold <ilan.gold@helmholtz-munich.de>
+Author: Alex Wolf, Philipp Angerer, Fidel Ramirez, Isaac Virshup, Sergei Rybakov, Gokcen Eraslan, Ilan Gold, Tom White, Malte Luecken, Davide Cittaro, Tobias Callies, Marius Lange, Andrés R. Muñoz-Rojas, Giovanni Palla, Adam Gayoso, Lukas Heumos
+Maintainer-email: Philipp Angerer <phil.angerer@helmholtz-munich.de>, Ilan Gold <ilan.gold@helmholtz-munich.de>, Severin Dicks <severin.dicks@scverse.org>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
@@ -24,79 +23,58 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.10
-Requires-Dist: anndata>=0.8
-Requires-Dist: h5py>=3.7.0
+Requires-Python: >=3.12
+Requires-Dist: anndata>=0.10.8
+Requires-Dist: fast-array-utils[accel,sparse]>=1.2.1
+Requires-Dist: h5py>=3.11
 Requires-Dist: joblib
-Requires-Dist: legacy-api-wrap>=1.4.1
-Requires-Dist: matplotlib>=3.7.5
+Requires-Dist: legacy-api-wrap>=1.5
+Requires-Dist: matplotlib>=3.9
 Requires-Dist: natsort
-Requires-Dist: networkx>=2.7.1
-Requires-Dist: numba>=0.57.1
-Requires-Dist: numpy>=1.24.1
-Requires-Dist: packaging>=21.3
-Requires-Dist: pandas>=1.5.3
-Requires-Dist: patsy!=1.0.0
+Requires-Dist: networkx>=2.8.8
+Requires-Dist: numba>=0.60
+Requires-Dist: numpy>=2
+Requires-Dist: packaging>=25
+Requires-Dist: pandas>=2.2.2
+Requires-Dist: patsy
 Requires-Dist: pynndescent>=0.5.13
-Requires-Dist: scikit-learn>=1.1.3
-Requires-Dist: scipy>=1.8.1
+Requires-Dist: scikit-learn>=1.4.2
+Requires-Dist: scipy>=1.13
 Requires-Dist: seaborn>=0.13.2
 Requires-Dist: session-info2
 Requires-Dist: statsmodels>=0.14.5
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions; python_version < '3.13'
-Requires-Dist: umap-learn>=0.5.6
+Requires-Dist: umap-learn>=0.5.7
 Provides-Extra: bbknn
 Requires-Dist: bbknn; extra == 'bbknn'
 Provides-Extra: dask
 Requires-Dist: anndata[dask]; extra == 'dask'
-Requires-Dist: dask[array]>=2022.09.2; extra == 'dask'
+Requires-Dist: dask[array]>=2024.5.1; extra == 'dask'
 Provides-Extra: dask-ml
 Requires-Dist: anndata[dask]; extra == 'dask-ml'
 Requires-Dist: dask-ml; extra == 'dask-ml'
-Requires-Dist: dask[array]>=2022.09.2; extra == 'dask-ml'
-Provides-Extra: dev
-Requires-Dist: hatch-vcs; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: towncrier; extra == 'dev'
-Provides-Extra: doc
-Requires-Dist: anndata[dask]; extra == 'doc'
-Requires-Dist: dask-ml; extra == 'doc'
-Requires-Dist: dask[array]>=2022.09.2; extra == 'doc'
-Requires-Dist: igraph; extra == 'doc'
-Requires-Dist: ipython>=7.20; extra == 'doc'
-Requires-Dist: matplotlib!=3.6.1; extra == 'doc'
-Requires-Dist: myst-nb>=1; extra == 'doc'
-Requires-Dist: myst-parser>=2; extra == 'doc'
-Requires-Dist: nbsphinx>=0.9; extra == 'doc'
-Requires-Dist: sam-algorithm; extra == 'doc'
-Requires-Dist: scanpydoc>=0.15.3; extra == 'doc'
-Requires-Dist: sphinx-autodoc-typehints>=1.25.2; extra == 'doc'
-Requires-Dist: sphinx-book-theme>=1.1.0; extra == 'doc'
-Requires-Dist: sphinx-copybutton; extra == 'doc'
-Requires-Dist: sphinx-design; extra == 'doc'
-Requires-Dist: sphinx-issues>=5.0.1; extra == 'doc'
-Requires-Dist: sphinx-tabs; extra == 'doc'
-Requires-Dist: sphinx>=8.2.3; extra == 'doc'
-Requires-Dist: sphinxcontrib-bibtex; extra == 'doc'
-Requires-Dist: sphinxext-opengraph; extra == 'doc'
+Requires-Dist: dask[array]>=2024.5.1; extra == 'dask-ml'
 Provides-Extra: harmony
 Requires-Dist: harmonypy; extra == 'harmony'
 Provides-Extra: leiden
 Requires-Dist: igraph>=0.10.8; extra == 'leiden'
-Requires-Dist: leidenalg>=0.9.0; extra == 'leiden'
+Requires-Dist: leidenalg>=0.10.1; extra == 'leiden'
 Provides-Extra: louvain
 Requires-Dist: igraph; extra == 'louvain'
 Requires-Dist: louvain>=0.8.2; extra == 'louvain'
+Requires-Dist: setuptools; extra == 'louvain'
 Provides-Extra: magic
 Requires-Dist: magic-impute>=2.0.4; extra == 'magic'
 Provides-Extra: paga
 Requires-Dist: igraph; extra == 'paga'
+Provides-Extra: plotting
+Requires-Dist: colour-science; extra == 'plotting'
 Provides-Extra: rapids
 Requires-Dist: cudf>=0.9; extra == 'rapids'
 Requires-Dist: cugraph>=0.9; extra == 'rapids'
@@ -104,35 +82,9 @@ Requires-Dist: cuml>=0.9; extra == 'rapids'
 Provides-Extra: scanorama
 Requires-Dist: scanorama; extra == 'scanorama'
 Provides-Extra: scrublet
-Requires-Dist: scikit-image; extra == 'scrublet'
+Requires-Dist: scikit-image>=0.23.1; extra == 'scrublet'
 Provides-Extra: skmisc
-Requires-Dist: scikit-misc>=0.1.4; extra == 'skmisc'
-Provides-Extra: test
-Requires-Dist: anndata[dask]; extra == 'test'
-Requires-Dist: dask-ml; extra == 'test'
-Requires-Dist: dask[array]>=2022.09.2; extra == 'test'
-Requires-Dist: igraph; extra == 'test'
-Requires-Dist: igraph>=0.10.8; extra == 'test'
-Requires-Dist: leidenalg>=0.9.0; extra == 'test'
-Requires-Dist: louvain>=0.8.2; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-mock; extra == 'test'
-Requires-Dist: pytest-randomly; extra == 'test'
-Requires-Dist: pytest-rerunfailures; extra == 'test'
-Requires-Dist: pytest-xdist[psutil]; extra == 'test'
-Requires-Dist: pytest>=8.2.2; extra == 'test'
-Requires-Dist: scikit-image; extra == 'test'
-Requires-Dist: scikit-misc>=0.1.4; extra == 'test'
-Requires-Dist: tuna; extra == 'test'
-Requires-Dist: zarr<3; extra == 'test'
-Provides-Extra: test-min
-Requires-Dist: pytest-cov; extra == 'test-min'
-Requires-Dist: pytest-mock; extra == 'test-min'
-Requires-Dist: pytest-randomly; extra == 'test-min'
-Requires-Dist: pytest-rerunfailures; extra == 'test-min'
-Requires-Dist: pytest-xdist[psutil]; extra == 'test-min'
-Requires-Dist: pytest>=8.2.2; extra == 'test-min'
-Requires-Dist: tuna; extra == 'test-min'
+Requires-Dist: scikit-misc>=0.5.1; extra == 'skmisc'
 Description-Content-Type: text/markdown
 
 [![Stars](https://img.shields.io/github/stars/scverse/scanpy?style=flat&logo=GitHub&color=yellow)](https://github.com/scverse/scanpy/stargazers)
@@ -148,23 +100,24 @@ Description-Content-Type: text/markdown
 
 # Scanpy – Single-Cell Analysis in Python
 
-Scanpy is a scalable toolkit for analyzing single-cell gene expression data
-built jointly with [anndata][].  It includes
-preprocessing, visualization, clustering, trajectory inference and differential
-expression testing.  The Python-based implementation efficiently deals with
-datasets of more than one million cells.
+Scanpy is a scalable toolkit for analyzing single-cell gene expression data built jointly with [anndata][].
+It includes preprocessing, visualization, clustering, trajectory inference and differential expression testing.
+The Python-based implementation efficiently deals with datasets of more than one million cells.
+For datasets too large to fit into memory, [many scanpy functions][] are now compatible with [dask][] (**warning: experimental**).
 
 Discuss usage on the scverse [Discourse][]. Read the [documentation][].
 If you'd like to contribute by opening an issue or creating a pull request, please take a look at our [contribution guide][].
 
 [anndata]: https://anndata.readthedocs.io
+[dask]: https://docs.dask.org/en/stable/
 [discourse]: https://discourse.scverse.org/
 [documentation]: https://scanpy.readthedocs.io
+[many scanpy functions]: https://github.com/scverse/scanpy/issues/2578
 
 [//]: # (numfocus-fiscal-sponsor-attribution)
 
-scanpy is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
-If you like scverse and want to support our mission, please consider making a [donation](https://numfocus.org/donate-to-scverse) to support our efforts.
+scanpy is part of the scverse® project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+If you like scverse® and want to support our mission, please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
 
 <div align="center">
 <a href="https://numfocus.org/project/scverse">
@@ -174,6 +127,19 @@ If you like scverse and want to support our mission, please consider making a [d
   >
 </a>
 </div>
+
+## Public API
+
+Our public API is documented in the [API section][] of these docs.
+We cannot guarantee the stability of our internal APIs, whether it's the location of a function, its arguments, or something else.
+In other words, we do not officially support (or encourage users to do) something like `from scanpy.logging import debug` as `logging` is not documented, even though it does not contain a [leading underscore][].
+However, we are aware that many users do use these internal APIs and thus encourage them to [open an issue][] or migrate to the public API.
+That is, if something is missing from our public API as documented, for example a feature you wish to be exported publicly, please open an issue.
+
+[api section]: https://scanpy.readthedocs.io/en/stable/api.html
+[leading underscore]: https://peps.python.org/pep-0008/#public-and-internal-interfaces
+[open an issue]: https://github.com/scverse/scanpy/issues/new/choose
+
 
 
 ## Citation

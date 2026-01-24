@@ -1,4 +1,4 @@
-from sqlparse.sql import Function, Identifier, IdentifierList, Token
+from sqlparse.sql import Function, Identifier, IdentifierList, Parenthesis, Token
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.parser.sqlparse.handlers.base import NextTokenBaseHandler
@@ -30,4 +30,9 @@ class CTEHandler(NextTokenBaseHandler):
             sublist = list(token.get_sublists())
             if sublist:
                 # CTE: tbl AS (SELECT 1), tbl is alias and (SELECT 1) is subquery Parenthesis
-                holder.add_cte(SqlParseSubQuery.of(sublist[0], token.get_real_name()))
+                # When CTE used without AS (SparkSQL), token is Function with sublists [Identifier, Parenthesis]
+                # We need the Parenthesis (the actual query), not the Identifier (the CTE name)
+                query_token = next(
+                    (s for s in sublist if isinstance(s, Parenthesis)), sublist[0]
+                )
+                holder.add_cte(SqlParseSubQuery.of(query_token, token.get_real_name()))

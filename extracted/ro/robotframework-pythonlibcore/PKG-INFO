@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: robotframework-pythonlibcore
-Version: 4.4.1
+Version: 4.5.0
 Summary: Tools to ease creating larger test libraries for Robot Framework using Python.
 Home-page: https://github.com/robotframework/PythonLibCore
 Author: Tatu Aalto
@@ -24,6 +24,18 @@ Classifier: Framework :: Robot Framework
 Requires-Python: >=3.8, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 # Python Library Core
 
@@ -77,6 +89,13 @@ public API.
 
 The example in below demonstrates how the PythonLibCore can be used with
 a library.
+
+## Installation
+To install this library, run the following command in your terminal:
+``` bash
+pip install robotframework-pythonlibcore
+```
+This command installs the latest version of `robotframework-pythonlibcore`, ensuring you have all the current features and updates.
 
 # Example
 

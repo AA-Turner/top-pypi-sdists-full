@@ -1,12 +1,14 @@
+from typing import Any, Optional
 
 from mjml.core import Component, initComponent
 
 
 __all__ = ['HeadComponent']
 
+
 class HeadComponent(Component):
-    def handlerChildren(self):
-        def handle_children(children):
+    def handlerChildren(self) -> tuple:
+        def handle_children(children: dict[str, Any]) -> Optional[str]:
             tagName = children['tagName']
             component = initComponent(
                 name = tagName,
@@ -25,5 +27,5 @@ class HeadComponent(Component):
                 return component.render()
             return None
 
-        childrens = self.props.children
+        childrens = self.props.get("children")
         return tuple(map(handle_children, childrens))

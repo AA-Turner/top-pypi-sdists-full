@@ -3,7 +3,7 @@ Type annotations for sagemaker service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -52,6 +52,7 @@ Usage::
         ListLabelingJobsForWorkteamPaginator,
         ListLabelingJobsPaginator,
         ListLineageGroupsPaginator,
+        ListMlflowAppsPaginator,
         ListMlflowTrackingServersPaginator,
         ListModelBiasJobDefinitionsPaginator,
         ListModelCardExportJobsPaginator,
@@ -140,6 +141,7 @@ Usage::
         list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
         list_labeling_jobs_paginator: ListLabelingJobsPaginator = client.get_paginator("list_labeling_jobs")
         list_lineage_groups_paginator: ListLineageGroupsPaginator = client.get_paginator("list_lineage_groups")
+        list_mlflow_apps_paginator: ListMlflowAppsPaginator = client.get_paginator("list_mlflow_apps")
         list_mlflow_tracking_servers_paginator: ListMlflowTrackingServersPaginator = client.get_paginator("list_mlflow_tracking_servers")
         list_model_bias_job_definitions_paginator: ListModelBiasJobDefinitionsPaginator = client.get_paginator("list_model_bias_job_definitions")
         list_model_card_export_jobs_paginator: ListModelCardExportJobsPaginator = client.get_paginator("list_model_card_export_jobs")
@@ -273,6 +275,8 @@ from .type_defs import (
     ListLabelingJobsResponseTypeDef,
     ListLineageGroupsRequestPaginateTypeDef,
     ListLineageGroupsResponseTypeDef,
+    ListMlflowAppsRequestPaginateTypeDef,
+    ListMlflowAppsResponseTypeDef,
     ListMlflowTrackingServersRequestPaginateTypeDef,
     ListMlflowTrackingServersResponseTypeDef,
     ListModelBiasJobDefinitionsRequestPaginateTypeDef,
@@ -406,6 +410,7 @@ __all__ = (
     "ListLabelingJobsForWorkteamPaginator",
     "ListLabelingJobsPaginator",
     "ListLineageGroupsPaginator",
+    "ListMlflowAppsPaginator",
     "ListMlflowTrackingServersPaginator",
     "ListModelBiasJobDefinitionsPaginator",
     "ListModelCardExportJobsPaginator",
@@ -1306,6 +1311,27 @@ class ListLineageGroupsPaginator(_ListLineageGroupsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListLineageGroups.html#SageMaker.Paginator.ListLineageGroups.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listlineagegroupspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListMlflowAppsPaginatorBase = AioPaginator[ListMlflowAppsResponseTypeDef]
+else:
+    _ListMlflowAppsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListMlflowAppsPaginator(_ListMlflowAppsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListMlflowApps.html#SageMaker.Paginator.ListMlflowApps)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listmlflowappspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMlflowAppsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListMlflowAppsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListMlflowApps.html#SageMaker.Paginator.ListMlflowApps.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listmlflowappspaginator)
         """
 
 

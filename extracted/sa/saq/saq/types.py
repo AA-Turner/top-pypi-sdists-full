@@ -5,8 +5,9 @@ Types
 from __future__ import annotations
 
 import typing as t
+import typing_extensions as te
 from collections.abc import Collection
-from typing_extensions import Required, TypedDict
+from typing_extensions import Required, TypedDict, Generic
 
 if t.TYPE_CHECKING:
     from asyncio import Task
@@ -33,7 +34,7 @@ class Context(TypedDict, total=False):
     "Exception raised by the task if any"
 
 
-class JobTaskContext(TypedDict, total=False):
+class JobTaskContext(TypedDict, total=True):
     """
     Jobs Task Context
     """
@@ -110,29 +111,36 @@ class PartialTimersDict(TimersDict, total=False):
     """
 
 
-class SettingsDict(TypedDict, total=False):
+CtxType = t.TypeVar("CtxType", bound=Context)
+
+
+class SettingsDict(TypedDict, Generic[CtxType], total=False):
     """
     Settings
     """
 
     queue: Queue
-    functions: Required[Collection[Function | tuple[str, Function]]]
+    functions: Required[FunctionsType[CtxType]]
     concurrency: int
     cron_jobs: Collection[CronJob]
-    startup: ReceivesContext
-    shutdown: ReceivesContext
-    before_process: ReceivesContext
-    after_process: ReceivesContext
+    startup: ReceivesContext[CtxType]
+    shutdown: ReceivesContext[CtxType]
+    before_process: ReceivesContext[CtxType]
+    after_process: ReceivesContext[CtxType]
     timers: PartialTimersDict
     dequeue_timeout: float
 
+
+P = te.ParamSpec("P")
 
 BeforeEnqueueType = t.Callable[["Job"], t.Awaitable[t.Any]]
 CountKind = t.Literal["queued", "active", "incomplete"]
 DumpType = t.Callable[[t.Mapping[t.Any, t.Any]], t.Union[bytes, str]]
 DurationKind = t.Literal["process", "start", "total", "running"]
-Function = t.Callable[..., t.Any]
+Function = t.Callable[te.Concatenate[CtxType, ...], t.Any]
+FunctionsType: te.TypeAlias = Collection[t.Union[Function[CtxType], tuple[str, Function[CtxType]]]]
+ReceivesContext = t.Callable[[CtxType], t.Any]
+LifecycleFunctionsType = t.Union[ReceivesContext[CtxType], Collection[ReceivesContext[CtxType]]]
 ListenCallback = t.Callable[[str, "Status"], t.Any]
 LoadType = t.Callable[[t.Union[bytes, str]], t.Any]
-ReceivesContext = t.Callable[[Context], t.Any]
 VersionTuple = t.Tuple[int, ...]

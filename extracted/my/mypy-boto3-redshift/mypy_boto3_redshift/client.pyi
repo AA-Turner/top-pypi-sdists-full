@@ -3,7 +3,7 @@ Type annotations for redshift service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -218,6 +219,8 @@ from .type_defs import (
     FailoverPrimaryComputeResultTypeDef,
     GetClusterCredentialsMessageTypeDef,
     GetClusterCredentialsWithIAMMessageTypeDef,
+    GetIdentityCenterAuthTokenRequestTypeDef,
+    GetIdentityCenterAuthTokenResponseTypeDef,
     GetReservedNodeExchangeConfigurationOptionsInputMessageTypeDef,
     GetReservedNodeExchangeConfigurationOptionsOutputMessageTypeDef,
     GetReservedNodeExchangeOfferingsInputMessageTypeDef,
@@ -229,6 +232,7 @@ from .type_defs import (
     InboundIntegrationsMessageTypeDef,
     IntegrationResponseTypeDef,
     IntegrationsMessageTypeDef,
+    LakehouseConfigurationTypeDef,
     ListRecommendationsMessageTypeDef,
     ListRecommendationsResultTypeDef,
     LoggingStatusTypeDef,
@@ -256,6 +260,7 @@ from .type_defs import (
     ModifyEventSubscriptionMessageTypeDef,
     ModifyEventSubscriptionResultTypeDef,
     ModifyIntegrationMessageTypeDef,
+    ModifyLakehouseConfigurationMessageTypeDef,
     ModifyRedshiftIdcApplicationMessageTypeDef,
     ModifyRedshiftIdcApplicationResultTypeDef,
     ModifyScheduledActionMessageTypeDef,
@@ -317,11 +322,6 @@ from .waiter import (
     SnapshotAvailableWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -330,149 +330,150 @@ else:
 __all__ = ("RedshiftClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessToClusterDeniedFault: Type[BotocoreClientError]
-    AccessToSnapshotDeniedFault: Type[BotocoreClientError]
-    AuthenticationProfileAlreadyExistsFault: Type[BotocoreClientError]
-    AuthenticationProfileNotFoundFault: Type[BotocoreClientError]
-    AuthenticationProfileQuotaExceededFault: Type[BotocoreClientError]
-    AuthorizationAlreadyExistsFault: Type[BotocoreClientError]
-    AuthorizationNotFoundFault: Type[BotocoreClientError]
-    AuthorizationQuotaExceededFault: Type[BotocoreClientError]
-    BatchDeleteRequestSizeExceededFault: Type[BotocoreClientError]
-    BatchModifyClusterSnapshotsLimitExceededFault: Type[BotocoreClientError]
-    BucketNotFoundFault: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClusterAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterNotFoundFault: Type[BotocoreClientError]
-    ClusterOnLatestRevisionFault: Type[BotocoreClientError]
-    ClusterParameterGroupAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterParameterGroupNotFoundFault: Type[BotocoreClientError]
-    ClusterParameterGroupQuotaExceededFault: Type[BotocoreClientError]
-    ClusterQuotaExceededFault: Type[BotocoreClientError]
-    ClusterSecurityGroupAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterSecurityGroupNotFoundFault: Type[BotocoreClientError]
-    ClusterSecurityGroupQuotaExceededFault: Type[BotocoreClientError]
-    ClusterSnapshotAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterSnapshotNotFoundFault: Type[BotocoreClientError]
-    ClusterSnapshotQuotaExceededFault: Type[BotocoreClientError]
-    ClusterSubnetGroupAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterSubnetGroupNotFoundFault: Type[BotocoreClientError]
-    ClusterSubnetGroupQuotaExceededFault: Type[BotocoreClientError]
-    ClusterSubnetQuotaExceededFault: Type[BotocoreClientError]
-    ConflictPolicyUpdateFault: Type[BotocoreClientError]
-    CopyToRegionDisabledFault: Type[BotocoreClientError]
-    CustomCnameAssociationFault: Type[BotocoreClientError]
-    CustomDomainAssociationNotFoundFault: Type[BotocoreClientError]
-    DependentServiceAccessDeniedFault: Type[BotocoreClientError]
-    DependentServiceRequestThrottlingFault: Type[BotocoreClientError]
-    DependentServiceUnavailableFault: Type[BotocoreClientError]
-    EndpointAlreadyExistsFault: Type[BotocoreClientError]
-    EndpointAuthorizationAlreadyExistsFault: Type[BotocoreClientError]
-    EndpointAuthorizationNotFoundFault: Type[BotocoreClientError]
-    EndpointAuthorizationsPerClusterLimitExceededFault: Type[BotocoreClientError]
-    EndpointNotFoundFault: Type[BotocoreClientError]
-    EndpointsPerAuthorizationLimitExceededFault: Type[BotocoreClientError]
-    EndpointsPerClusterLimitExceededFault: Type[BotocoreClientError]
-    EventSubscriptionQuotaExceededFault: Type[BotocoreClientError]
-    HsmClientCertificateAlreadyExistsFault: Type[BotocoreClientError]
-    HsmClientCertificateNotFoundFault: Type[BotocoreClientError]
-    HsmClientCertificateQuotaExceededFault: Type[BotocoreClientError]
-    HsmConfigurationAlreadyExistsFault: Type[BotocoreClientError]
-    HsmConfigurationNotFoundFault: Type[BotocoreClientError]
-    HsmConfigurationQuotaExceededFault: Type[BotocoreClientError]
-    InProgressTableRestoreQuotaExceededFault: Type[BotocoreClientError]
-    IncompatibleOrderableOptions: Type[BotocoreClientError]
-    InsufficientClusterCapacityFault: Type[BotocoreClientError]
-    InsufficientS3BucketPolicyFault: Type[BotocoreClientError]
-    IntegrationAlreadyExistsFault: Type[BotocoreClientError]
-    IntegrationConflictOperationFault: Type[BotocoreClientError]
-    IntegrationConflictStateFault: Type[BotocoreClientError]
-    IntegrationNotFoundFault: Type[BotocoreClientError]
-    IntegrationQuotaExceededFault: Type[BotocoreClientError]
-    IntegrationSourceNotFoundFault: Type[BotocoreClientError]
-    IntegrationTargetNotFoundFault: Type[BotocoreClientError]
-    InvalidAuthenticationProfileRequestFault: Type[BotocoreClientError]
-    InvalidAuthorizationStateFault: Type[BotocoreClientError]
-    InvalidClusterParameterGroupStateFault: Type[BotocoreClientError]
-    InvalidClusterSecurityGroupStateFault: Type[BotocoreClientError]
-    InvalidClusterSnapshotScheduleStateFault: Type[BotocoreClientError]
-    InvalidClusterSnapshotStateFault: Type[BotocoreClientError]
-    InvalidClusterStateFault: Type[BotocoreClientError]
-    InvalidClusterSubnetGroupStateFault: Type[BotocoreClientError]
-    InvalidClusterSubnetStateFault: Type[BotocoreClientError]
-    InvalidClusterTrackFault: Type[BotocoreClientError]
-    InvalidDataShareFault: Type[BotocoreClientError]
-    InvalidElasticIpFault: Type[BotocoreClientError]
-    InvalidEndpointStateFault: Type[BotocoreClientError]
-    InvalidHsmClientCertificateStateFault: Type[BotocoreClientError]
-    InvalidHsmConfigurationStateFault: Type[BotocoreClientError]
-    InvalidNamespaceFault: Type[BotocoreClientError]
-    InvalidPolicyFault: Type[BotocoreClientError]
-    InvalidReservedNodeStateFault: Type[BotocoreClientError]
-    InvalidRestoreFault: Type[BotocoreClientError]
-    InvalidRetentionPeriodFault: Type[BotocoreClientError]
-    InvalidS3BucketNameFault: Type[BotocoreClientError]
-    InvalidS3KeyPrefixFault: Type[BotocoreClientError]
-    InvalidScheduleFault: Type[BotocoreClientError]
-    InvalidScheduledActionFault: Type[BotocoreClientError]
-    InvalidSnapshotCopyGrantStateFault: Type[BotocoreClientError]
-    InvalidSubnet: Type[BotocoreClientError]
-    InvalidSubscriptionStateFault: Type[BotocoreClientError]
-    InvalidTableRestoreArgumentFault: Type[BotocoreClientError]
-    InvalidTagFault: Type[BotocoreClientError]
-    InvalidUsageLimitFault: Type[BotocoreClientError]
-    InvalidVPCNetworkStateFault: Type[BotocoreClientError]
-    Ipv6CidrBlockNotFoundFault: Type[BotocoreClientError]
-    LimitExceededFault: Type[BotocoreClientError]
-    NumberOfNodesPerClusterLimitExceededFault: Type[BotocoreClientError]
-    NumberOfNodesQuotaExceededFault: Type[BotocoreClientError]
-    PartnerNotFoundFault: Type[BotocoreClientError]
-    RedshiftIdcApplicationAlreadyExistsFault: Type[BotocoreClientError]
-    RedshiftIdcApplicationNotExistsFault: Type[BotocoreClientError]
-    RedshiftIdcApplicationQuotaExceededFault: Type[BotocoreClientError]
-    ReservedNodeAlreadyExistsFault: Type[BotocoreClientError]
-    ReservedNodeAlreadyMigratedFault: Type[BotocoreClientError]
-    ReservedNodeExchangeNotFoundFault: Type[BotocoreClientError]
-    ReservedNodeNotFoundFault: Type[BotocoreClientError]
-    ReservedNodeOfferingNotFoundFault: Type[BotocoreClientError]
-    ReservedNodeQuotaExceededFault: Type[BotocoreClientError]
-    ResizeNotFoundFault: Type[BotocoreClientError]
-    ResourceNotFoundFault: Type[BotocoreClientError]
-    SNSInvalidTopicFault: Type[BotocoreClientError]
-    SNSNoAuthorizationFault: Type[BotocoreClientError]
-    SNSTopicArnNotFoundFault: Type[BotocoreClientError]
-    ScheduleDefinitionTypeUnsupportedFault: Type[BotocoreClientError]
-    ScheduledActionAlreadyExistsFault: Type[BotocoreClientError]
-    ScheduledActionNotFoundFault: Type[BotocoreClientError]
-    ScheduledActionQuotaExceededFault: Type[BotocoreClientError]
-    ScheduledActionTypeUnsupportedFault: Type[BotocoreClientError]
-    SnapshotCopyAlreadyDisabledFault: Type[BotocoreClientError]
-    SnapshotCopyAlreadyEnabledFault: Type[BotocoreClientError]
-    SnapshotCopyDisabledFault: Type[BotocoreClientError]
-    SnapshotCopyGrantAlreadyExistsFault: Type[BotocoreClientError]
-    SnapshotCopyGrantNotFoundFault: Type[BotocoreClientError]
-    SnapshotCopyGrantQuotaExceededFault: Type[BotocoreClientError]
-    SnapshotScheduleAlreadyExistsFault: Type[BotocoreClientError]
-    SnapshotScheduleNotFoundFault: Type[BotocoreClientError]
-    SnapshotScheduleQuotaExceededFault: Type[BotocoreClientError]
-    SnapshotScheduleUpdateInProgressFault: Type[BotocoreClientError]
-    SourceNotFoundFault: Type[BotocoreClientError]
-    SubnetAlreadyInUse: Type[BotocoreClientError]
-    SubscriptionAlreadyExistFault: Type[BotocoreClientError]
-    SubscriptionCategoryNotFoundFault: Type[BotocoreClientError]
-    SubscriptionEventIdNotFoundFault: Type[BotocoreClientError]
-    SubscriptionNotFoundFault: Type[BotocoreClientError]
-    SubscriptionSeverityNotFoundFault: Type[BotocoreClientError]
-    TableLimitExceededFault: Type[BotocoreClientError]
-    TableRestoreNotFoundFault: Type[BotocoreClientError]
-    TagLimitExceededFault: Type[BotocoreClientError]
-    UnauthorizedOperation: Type[BotocoreClientError]
-    UnauthorizedPartnerIntegrationFault: Type[BotocoreClientError]
-    UnknownSnapshotCopyRegionFault: Type[BotocoreClientError]
-    UnsupportedOperationFault: Type[BotocoreClientError]
-    UnsupportedOptionFault: Type[BotocoreClientError]
-    UsageLimitAlreadyExistsFault: Type[BotocoreClientError]
-    UsageLimitNotFoundFault: Type[BotocoreClientError]
+    AccessToClusterDeniedFault: type[BotocoreClientError]
+    AccessToSnapshotDeniedFault: type[BotocoreClientError]
+    AuthenticationProfileAlreadyExistsFault: type[BotocoreClientError]
+    AuthenticationProfileNotFoundFault: type[BotocoreClientError]
+    AuthenticationProfileQuotaExceededFault: type[BotocoreClientError]
+    AuthorizationAlreadyExistsFault: type[BotocoreClientError]
+    AuthorizationNotFoundFault: type[BotocoreClientError]
+    AuthorizationQuotaExceededFault: type[BotocoreClientError]
+    BatchDeleteRequestSizeExceededFault: type[BotocoreClientError]
+    BatchModifyClusterSnapshotsLimitExceededFault: type[BotocoreClientError]
+    BucketNotFoundFault: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClusterAlreadyExistsFault: type[BotocoreClientError]
+    ClusterNotFoundFault: type[BotocoreClientError]
+    ClusterOnLatestRevisionFault: type[BotocoreClientError]
+    ClusterParameterGroupAlreadyExistsFault: type[BotocoreClientError]
+    ClusterParameterGroupNotFoundFault: type[BotocoreClientError]
+    ClusterParameterGroupQuotaExceededFault: type[BotocoreClientError]
+    ClusterQuotaExceededFault: type[BotocoreClientError]
+    ClusterSecurityGroupAlreadyExistsFault: type[BotocoreClientError]
+    ClusterSecurityGroupNotFoundFault: type[BotocoreClientError]
+    ClusterSecurityGroupQuotaExceededFault: type[BotocoreClientError]
+    ClusterSnapshotAlreadyExistsFault: type[BotocoreClientError]
+    ClusterSnapshotNotFoundFault: type[BotocoreClientError]
+    ClusterSnapshotQuotaExceededFault: type[BotocoreClientError]
+    ClusterSubnetGroupAlreadyExistsFault: type[BotocoreClientError]
+    ClusterSubnetGroupNotFoundFault: type[BotocoreClientError]
+    ClusterSubnetGroupQuotaExceededFault: type[BotocoreClientError]
+    ClusterSubnetQuotaExceededFault: type[BotocoreClientError]
+    ConflictPolicyUpdateFault: type[BotocoreClientError]
+    CopyToRegionDisabledFault: type[BotocoreClientError]
+    CustomCnameAssociationFault: type[BotocoreClientError]
+    CustomDomainAssociationNotFoundFault: type[BotocoreClientError]
+    DependentServiceAccessDeniedFault: type[BotocoreClientError]
+    DependentServiceRequestThrottlingFault: type[BotocoreClientError]
+    DependentServiceUnavailableFault: type[BotocoreClientError]
+    EndpointAlreadyExistsFault: type[BotocoreClientError]
+    EndpointAuthorizationAlreadyExistsFault: type[BotocoreClientError]
+    EndpointAuthorizationNotFoundFault: type[BotocoreClientError]
+    EndpointAuthorizationsPerClusterLimitExceededFault: type[BotocoreClientError]
+    EndpointNotFoundFault: type[BotocoreClientError]
+    EndpointsPerAuthorizationLimitExceededFault: type[BotocoreClientError]
+    EndpointsPerClusterLimitExceededFault: type[BotocoreClientError]
+    EventSubscriptionQuotaExceededFault: type[BotocoreClientError]
+    HsmClientCertificateAlreadyExistsFault: type[BotocoreClientError]
+    HsmClientCertificateNotFoundFault: type[BotocoreClientError]
+    HsmClientCertificateQuotaExceededFault: type[BotocoreClientError]
+    HsmConfigurationAlreadyExistsFault: type[BotocoreClientError]
+    HsmConfigurationNotFoundFault: type[BotocoreClientError]
+    HsmConfigurationQuotaExceededFault: type[BotocoreClientError]
+    InProgressTableRestoreQuotaExceededFault: type[BotocoreClientError]
+    IncompatibleOrderableOptions: type[BotocoreClientError]
+    InsufficientClusterCapacityFault: type[BotocoreClientError]
+    InsufficientS3BucketPolicyFault: type[BotocoreClientError]
+    IntegrationAlreadyExistsFault: type[BotocoreClientError]
+    IntegrationConflictOperationFault: type[BotocoreClientError]
+    IntegrationConflictStateFault: type[BotocoreClientError]
+    IntegrationNotFoundFault: type[BotocoreClientError]
+    IntegrationQuotaExceededFault: type[BotocoreClientError]
+    IntegrationSourceNotFoundFault: type[BotocoreClientError]
+    IntegrationTargetNotFoundFault: type[BotocoreClientError]
+    InvalidAuthenticationProfileRequestFault: type[BotocoreClientError]
+    InvalidAuthorizationStateFault: type[BotocoreClientError]
+    InvalidClusterParameterGroupStateFault: type[BotocoreClientError]
+    InvalidClusterSecurityGroupStateFault: type[BotocoreClientError]
+    InvalidClusterSnapshotScheduleStateFault: type[BotocoreClientError]
+    InvalidClusterSnapshotStateFault: type[BotocoreClientError]
+    InvalidClusterStateFault: type[BotocoreClientError]
+    InvalidClusterSubnetGroupStateFault: type[BotocoreClientError]
+    InvalidClusterSubnetStateFault: type[BotocoreClientError]
+    InvalidClusterTrackFault: type[BotocoreClientError]
+    InvalidDataShareFault: type[BotocoreClientError]
+    InvalidElasticIpFault: type[BotocoreClientError]
+    InvalidEndpointStateFault: type[BotocoreClientError]
+    InvalidHsmClientCertificateStateFault: type[BotocoreClientError]
+    InvalidHsmConfigurationStateFault: type[BotocoreClientError]
+    InvalidNamespaceFault: type[BotocoreClientError]
+    InvalidPolicyFault: type[BotocoreClientError]
+    InvalidReservedNodeStateFault: type[BotocoreClientError]
+    InvalidRestoreFault: type[BotocoreClientError]
+    InvalidRetentionPeriodFault: type[BotocoreClientError]
+    InvalidS3BucketNameFault: type[BotocoreClientError]
+    InvalidS3KeyPrefixFault: type[BotocoreClientError]
+    InvalidScheduleFault: type[BotocoreClientError]
+    InvalidScheduledActionFault: type[BotocoreClientError]
+    InvalidSnapshotCopyGrantStateFault: type[BotocoreClientError]
+    InvalidSubnet: type[BotocoreClientError]
+    InvalidSubscriptionStateFault: type[BotocoreClientError]
+    InvalidTableRestoreArgumentFault: type[BotocoreClientError]
+    InvalidTagFault: type[BotocoreClientError]
+    InvalidUsageLimitFault: type[BotocoreClientError]
+    InvalidVPCNetworkStateFault: type[BotocoreClientError]
+    Ipv6CidrBlockNotFoundFault: type[BotocoreClientError]
+    LimitExceededFault: type[BotocoreClientError]
+    NumberOfNodesPerClusterLimitExceededFault: type[BotocoreClientError]
+    NumberOfNodesQuotaExceededFault: type[BotocoreClientError]
+    PartnerNotFoundFault: type[BotocoreClientError]
+    RedshiftIdcApplicationAlreadyExistsFault: type[BotocoreClientError]
+    RedshiftIdcApplicationNotExistsFault: type[BotocoreClientError]
+    RedshiftIdcApplicationQuotaExceededFault: type[BotocoreClientError]
+    RedshiftInvalidParameterFault: type[BotocoreClientError]
+    ReservedNodeAlreadyExistsFault: type[BotocoreClientError]
+    ReservedNodeAlreadyMigratedFault: type[BotocoreClientError]
+    ReservedNodeExchangeNotFoundFault: type[BotocoreClientError]
+    ReservedNodeNotFoundFault: type[BotocoreClientError]
+    ReservedNodeOfferingNotFoundFault: type[BotocoreClientError]
+    ReservedNodeQuotaExceededFault: type[BotocoreClientError]
+    ResizeNotFoundFault: type[BotocoreClientError]
+    ResourceNotFoundFault: type[BotocoreClientError]
+    SNSInvalidTopicFault: type[BotocoreClientError]
+    SNSNoAuthorizationFault: type[BotocoreClientError]
+    SNSTopicArnNotFoundFault: type[BotocoreClientError]
+    ScheduleDefinitionTypeUnsupportedFault: type[BotocoreClientError]
+    ScheduledActionAlreadyExistsFault: type[BotocoreClientError]
+    ScheduledActionNotFoundFault: type[BotocoreClientError]
+    ScheduledActionQuotaExceededFault: type[BotocoreClientError]
+    ScheduledActionTypeUnsupportedFault: type[BotocoreClientError]
+    SnapshotCopyAlreadyDisabledFault: type[BotocoreClientError]
+    SnapshotCopyAlreadyEnabledFault: type[BotocoreClientError]
+    SnapshotCopyDisabledFault: type[BotocoreClientError]
+    SnapshotCopyGrantAlreadyExistsFault: type[BotocoreClientError]
+    SnapshotCopyGrantNotFoundFault: type[BotocoreClientError]
+    SnapshotCopyGrantQuotaExceededFault: type[BotocoreClientError]
+    SnapshotScheduleAlreadyExistsFault: type[BotocoreClientError]
+    SnapshotScheduleNotFoundFault: type[BotocoreClientError]
+    SnapshotScheduleQuotaExceededFault: type[BotocoreClientError]
+    SnapshotScheduleUpdateInProgressFault: type[BotocoreClientError]
+    SourceNotFoundFault: type[BotocoreClientError]
+    SubnetAlreadyInUse: type[BotocoreClientError]
+    SubscriptionAlreadyExistFault: type[BotocoreClientError]
+    SubscriptionCategoryNotFoundFault: type[BotocoreClientError]
+    SubscriptionEventIdNotFoundFault: type[BotocoreClientError]
+    SubscriptionNotFoundFault: type[BotocoreClientError]
+    SubscriptionSeverityNotFoundFault: type[BotocoreClientError]
+    TableLimitExceededFault: type[BotocoreClientError]
+    TableRestoreNotFoundFault: type[BotocoreClientError]
+    TagLimitExceededFault: type[BotocoreClientError]
+    UnauthorizedOperation: type[BotocoreClientError]
+    UnauthorizedPartnerIntegrationFault: type[BotocoreClientError]
+    UnknownSnapshotCopyRegionFault: type[BotocoreClientError]
+    UnsupportedOperationFault: type[BotocoreClientError]
+    UnsupportedOptionFault: type[BotocoreClientError]
+    UsageLimitAlreadyExistsFault: type[BotocoreClientError]
+    UsageLimitNotFoundFault: type[BotocoreClientError]
 
 class RedshiftClient(BaseClient):
     """
@@ -1547,6 +1548,17 @@ class RedshiftClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/client/#get_cluster_credentials_with_iam)
         """
 
+    def get_identity_center_auth_token(
+        self, **kwargs: Unpack[GetIdentityCenterAuthTokenRequestTypeDef]
+    ) -> GetIdentityCenterAuthTokenResponseTypeDef:
+        """
+        Generates an encrypted authentication token that propagates the caller's Amazon
+        Web Services IAM Identity Center identity to Amazon Redshift clusters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/get_identity_center_auth_token.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/client/#get_identity_center_auth_token)
+        """
+
     def get_reserved_node_exchange_configuration_options(
         self, **kwargs: Unpack[GetReservedNodeExchangeConfigurationOptionsInputMessageTypeDef]
     ) -> GetReservedNodeExchangeConfigurationOptionsOutputMessageTypeDef:
@@ -1728,6 +1740,16 @@ class RedshiftClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/modify_integration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/client/#modify_integration)
+        """
+
+    def modify_lakehouse_configuration(
+        self, **kwargs: Unpack[ModifyLakehouseConfigurationMessageTypeDef]
+    ) -> LakehouseConfigurationTypeDef:
+        """
+        Modifies the lakehouse configuration for a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/modify_lakehouse_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/client/#modify_lakehouse_configuration)
         """
 
     def modify_redshift_idc_application(

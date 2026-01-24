@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msticpy
-Version: 2.16.2
+Version: 2.18.0
 Summary: MSTIC Security Tools
 Home-page: https://github.com/microsoft/msticpy
 Author: Ian Hellen
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
@@ -146,17 +147,16 @@ Requires-Dist: scikit-learn>=1.0.0; extra == "ml"
 Requires-Dist: scipy>=1.1.0; extra == "ml"
 Requires-Dist: statsmodels>=0.11.1; extra == "ml"
 Requires-Dist: matplotlib>=3.0.0; extra == "ml"
+Requires-Dist: rrcf==0.4.4; extra == "ml"
+Requires-Dist: joblib>=1.3.0; extra == "ml"
 Provides-Extra: sql2kql
-Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "sql2kql"
+Requires-Dist: mo-sql-parsing<12.0.0,>=11; extra == "sql2kql"
 Provides-Extra: riskiq
 Requires-Dist: passivetotal>=2.5.3; extra == "riskiq"
 Requires-Dist: requests>=2.31.0; extra == "riskiq"
 Provides-Extra: panel
-Provides-Extra: aiagents
-Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "aiagents"
 Provides-Extra: all
 Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "all"
-Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "all"
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "all"
 Requires-Dist: azure-mgmt-core>=1.2.1; extra == "all"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "all"
@@ -164,11 +164,13 @@ Requires-Dist: azure-mgmt-network>=2.7.0; extra == "all"
 Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "all"
 Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "all"
 Requires-Dist: azure-storage-blob>=12.5.0; extra == "all"
+Requires-Dist: joblib>=1.3.0; extra == "all"
 Requires-Dist: matplotlib>=3.0.0; extra == "all"
-Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "all"
+Requires-Dist: mo-sql-parsing<12.0.0,>=11; extra == "all"
 Requires-Dist: openpyxl>=3.0; extra == "all"
 Requires-Dist: passivetotal>=2.5.3; extra == "all"
 Requires-Dist: requests>=2.31.0; extra == "all"
+Requires-Dist: rrcf==0.4.4; extra == "all"
 Requires-Dist: scikit-learn>=1.0.0; extra == "all"
 Requires-Dist: scipy>=1.1.0; extra == "all"
 Requires-Dist: splunk-sdk!=2.0.0,>=1.6.0; extra == "all"
@@ -180,7 +182,6 @@ Provides-Extra: test
 Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "test"
 Requires-Dist: aiohttp>=3.7.4; extra == "test"
 Requires-Dist: async-cache>=1.1.1; extra == "test"
-Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "test"
 Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "test"
 Requires-Dist: azure-mgmt-core>=1.2.1; extra == "test"
 Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "test"
@@ -197,11 +198,12 @@ Requires-Dist: filelock>=3.0.0; extra == "test"
 Requires-Dist: flake8>=3.8.4; extra == "test"
 Requires-Dist: httpx<0.28.0,>=0.23.0; extra == "test"
 Requires-Dist: isort>=5.10.1; extra == "test"
+Requires-Dist: joblib>=1.3.0; extra == "test"
 Requires-Dist: jsonschema>=4.17.3; extra == "test"
 Requires-Dist: markdown>=3.3.4; extra == "test"
 Requires-Dist: matplotlib>=3.0.0; extra == "test"
 Requires-Dist: mccabe>=0.6.1; extra == "test"
-Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "test"
+Requires-Dist: mo-sql-parsing<12.0.0,>=11; extra == "test"
 Requires-Dist: mypy>=0.812; extra == "test"
 Requires-Dist: nbconvert>=6.1.0; extra == "test"
 Requires-Dist: nbdime>=2.1.0; extra == "test"
@@ -227,6 +229,7 @@ Requires-Dist: readthedocs-sphinx-ext==2.2.5; extra == "test"
 Requires-Dist: requests>=2.31.0; extra == "test"
 Requires-Dist: responses>=0.13.2; extra == "test"
 Requires-Dist: respx>=0.20.1; extra == "test"
+Requires-Dist: rrcf==0.4.4; extra == "test"
 Requires-Dist: ruff>=0.6.6; extra == "test"
 Requires-Dist: scikit-learn>=1.0.0; extra == "test"
 Requires-Dist: scipy>=1.1.0; extra == "test"
@@ -269,7 +272,7 @@ Dynamic: requires-dist
 
 # MSTIC Jupyter and Python Security Tools
 
-![GitHub Actions build](https://github.com/microsoft/msticpy/actions/workflows/python-package.yml/badge.svg)
+![GitHub Actions build](https://github.com/microsoft/msticpy/actions/workflows/python-package.yml/badge.svg?branch=main)
 [![Azure Pipelines build](https://dev.azure.com/mstic-detections/mstic-jupyter/_apis/build/status/microsoft.msticpy?branchName=main)](https://dev.azure.com/mstic-detections/mstic-jupyter/_build/latest?definitionId=14&branchName=main)
 [![Downloads](https://pepy.tech/badge/msticpy)](https://pepy.tech/project/msticpy)
 [![BlackHat Arsenal 2020](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2020.svg)](https://www.blackhat.com/us-20/arsenal/schedule/#msticpy-the-security-analysis-swiss-army-knife-19872)

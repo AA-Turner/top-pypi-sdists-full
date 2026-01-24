@@ -1,18 +1,16 @@
+from collections.abc import Iterator
 from dataclasses import (
     dataclass,
     field,
 )
 from typing import (
     TYPE_CHECKING,
-    Dict,
-    Iterator,
-    List,
     Optional,
 )
 
 from .constants import (
-    SNAPSHOT_EMPTY_FOSSIL_KEY,
-    SNAPSHOT_UNKNOWN_FOSSIL_KEY,
+    SNAPSHOT_EMPTY_COLLECTION_KEY,
+    SNAPSHOT_UNKNOWN_COLLECTION_KEY,
 )
 
 if TYPE_CHECKING:
@@ -24,17 +22,17 @@ class Snapshot:
     name: str
     data: Optional["SerializedData"] = None
     # A tainted snapshot needs to be regenerated
-    tainted: Optional[bool] = field(default=None)
+    tainted: bool | None = field(default=None)
 
 
 @dataclass(frozen=True)
 class SnapshotEmpty(Snapshot):
-    name: str = SNAPSHOT_EMPTY_FOSSIL_KEY
+    name: str = SNAPSHOT_EMPTY_COLLECTION_KEY
 
 
 @dataclass(frozen=True)
 class SnapshotUnknown(Snapshot):
-    name: str = SNAPSHOT_UNKNOWN_FOSSIL_KEY
+    name: str = SNAPSHOT_UNKNOWN_COLLECTION_KEY
 
 
 @dataclass
@@ -42,10 +40,10 @@ class SnapshotCollection:
     """A collection of snapshots at a save location"""
 
     location: str
-    _snapshots: Dict[str, "Snapshot"] = field(default_factory=dict)
+    _snapshots: dict[str, "Snapshot"] = field(default_factory=dict)
 
     # A tainted collection needs to be regenerated
-    tainted: Optional[bool] = field(default=None)
+    tainted: bool | None = field(default=None)
 
     @property
     def has_snapshots(self) -> bool:
@@ -56,8 +54,8 @@ class SnapshotCollection:
 
     def add(self, snapshot: "Snapshot") -> None:
         self._snapshots[snapshot.name] = snapshot
-        if snapshot.name != SNAPSHOT_EMPTY_FOSSIL_KEY:
-            self.remove(SNAPSHOT_EMPTY_FOSSIL_KEY)
+        if snapshot.name != SNAPSHOT_EMPTY_COLLECTION_KEY:
+            self.remove(SNAPSHOT_EMPTY_COLLECTION_KEY)
 
     def merge(self, snapshot_collection: "SnapshotCollection") -> None:
         for snapshot in snapshot_collection:
@@ -77,7 +75,7 @@ class SnapshotCollection:
 class SnapshotEmptyCollection(SnapshotCollection):
     """This is a saved collection that is known to be empty and thus can be removed"""
 
-    _snapshots: Dict[str, "Snapshot"] = field(
+    _snapshots: dict[str, "Snapshot"] = field(
         default_factory=lambda: {SnapshotEmpty().name: SnapshotEmpty()}
     )
 
@@ -90,14 +88,14 @@ class SnapshotEmptyCollection(SnapshotCollection):
 class SnapshotUnknownCollection(SnapshotCollection):
     """This is a saved collection that is unclaimed by any extension currently in use"""
 
-    _snapshots: Dict[str, "Snapshot"] = field(
+    _snapshots: dict[str, "Snapshot"] = field(
         default_factory=lambda: {SnapshotUnknown().name: SnapshotUnknown()}
     )
 
 
 @dataclass
 class SnapshotCollections:
-    _snapshot_collections: Dict[str, "SnapshotCollection"] = field(default_factory=dict)
+    _snapshot_collections: dict[str, "SnapshotCollection"] = field(default_factory=dict)
 
     def get(self, location: str) -> Optional["SnapshotCollection"]:
         return self._snapshot_collections.get(location)
@@ -127,9 +125,9 @@ class SnapshotCollections:
 
 @dataclass
 class DiffedLine:
-    a: Optional[str] = None
-    b: Optional[str] = None
-    c: List[str] = field(default_factory=list)
+    a: str | None = None
+    b: str | None = None
+    c: list[str] = field(default_factory=list)
     diff_a: str = ""
     diff_b: str = ""
 

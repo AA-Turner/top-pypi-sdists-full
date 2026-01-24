@@ -62,10 +62,11 @@ options:
         type: int
   capacity_limit:
     description:
-    - The maximum number of bytes available for this buckets's objects.
+    - The maximum number of GB available for this buckets's objects.
     - Represents a logical amount (object size), not a physical amount (size on disk).
     - Requires storageGRID 11.9 or later.
-    type: int
+    type: float
+    version_added: '21.16.0'
   s3_object_lock_enabled:
     description:
     - Enable S3 Object Lock on the bucket.
@@ -120,7 +121,7 @@ EXAMPLES = """
     validate_certs: false
     state: present
     name: ansiblebucket1
-    capacity_limit: 10000
+    capacity_limit: 1.5
 """
 
 RETURN = """
@@ -175,7 +176,7 @@ class SgOrgBucket(object):
                         retention_period_minutes=dict(required=False, type="int"),
                     ),
                 ),
-                capacity_limit=dict(required=False, type="int"),
+                capacity_limit=dict(required=False, type="float"),
                 s3_object_lock_enabled=dict(required=False, type="bool"),
                 bucket_versioning_enabled=dict(required=False, type="bool"),
             )
@@ -199,6 +200,7 @@ class SgOrgBucket(object):
         self.rest_api = SGRestAPI(self.module)
         # Get API version
         self.rest_api.get_sg_product_version(api_root="org")
+        self.api_version = self.rest_api.get_api_version()
 
         # Checking for the parameters passed and create new parameters list
 
@@ -227,14 +229,14 @@ class SgOrgBucket(object):
 
         if self.parameters.get("capacity_limit"):
             self.rest_api.fail_if_not_sg_minimum_version("Bucket capacity limit", 11, 9)
-            self.quota_object_bytes["quotaObjectBytes"] = self.parameters["capacity_limit"]
+            self.quota_object_bytes["quotaObjectBytes"] = int(self.parameters["capacity_limit"] * 1024 ** 3)
 
     def get_org_container(self):
         ''' Get org container details '''
         params = {"include": "compliance,region"}
         if self.rest_api.meets_sg_minimum_version(11, 9):
             params["include"] += ",quotaObjectBytes"
-        response, error = self.rest_api.get("api/v3/org/containers", params=params)
+        response, error = self.rest_api.get("api/%s/org/containers" % self.api_version, params=params)
 
         if error:
             self.module.fail_json(msg=error)
@@ -247,7 +249,7 @@ class SgOrgBucket(object):
 
     def create_org_container(self):
         ''' Create org container '''
-        api = "api/v3/org/containers"
+        api = "api/%s/org/containers" % self.api_version
 
         response, error = self.rest_api.post(api, self.data)
 
@@ -258,7 +260,7 @@ class SgOrgBucket(object):
 
     def get_org_container_versioning(self):
         ''' Get org container versioning details '''
-        api = "api/v3/org/containers/%s/versioning" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/versioning" % (self.api_version, self.parameters["name"])
         response, error = self.rest_api.get(api)
 
         if error:
@@ -268,7 +270,7 @@ class SgOrgBucket(object):
 
     def update_org_container_versioning(self):
         ''' Update org container versioning '''
-        api = "api/v3/org/containers/%s/versioning" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/versioning" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.data_versioning)
         if error:
@@ -278,7 +280,7 @@ class SgOrgBucket(object):
 
     def fail_if_global_object_lock_disabled(self):
         ''' Fail if global object lock is disabled '''
-        api = "api/v3/org/compliance-global"
+        api = "api/%s/org/compliance-global" % self.api_version
 
         response, error = self.rest_api.get(api)
         if error:
@@ -289,7 +291,7 @@ class SgOrgBucket(object):
 
     def update_org_container_compliance(self):
         ''' Update org container compliance '''
-        api = "api/v3/org/containers/%s/compliance" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/compliance" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.data["compliance"])
         if error:
@@ -299,7 +301,7 @@ class SgOrgBucket(object):
 
     def update_org_container_quota_object_bytes(self):
         ''' Update org container quota object bytes '''
-        api = "api/v3/org/containers/%s/quota-object-bytes" % self.parameters["name"]
+        api = "api/%s/org/containers/%s/quota-object-bytes" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.put(api, self.quota_object_bytes)
         if error:
@@ -309,11 +311,11 @@ class SgOrgBucket(object):
 
     def delete_org_container(self):
         ''' Delete org container '''
-        api = "api/v3/org/containers/%s" % self.parameters["name"]
+        api = "api/%s/org/containers/%s" % (self.api_version, self.parameters["name"])
 
         response, error = self.rest_api.delete(api, None)
         if error:
-            self.module.fail_json(msg=error["text"])
+            self.module.fail_json(msg=error)
 
     def apply(self):
         """

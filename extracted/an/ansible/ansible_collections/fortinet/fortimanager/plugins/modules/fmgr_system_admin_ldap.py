@@ -16,7 +16,6 @@ short_description: LDAP server entry configuration.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -221,7 +220,7 @@ EXAMPLES = '''
         state: present
         system_admin_ldap:
           adom:
-            - adom-name: ansible
+            - adom_name: ansible
           name: ansible-test-ldap
           password: Fortinet
           port: 390
@@ -307,7 +306,7 @@ def main():
                 'attributes': {'type': 'str'},
                 'ca-cert': {'type': 'str'},
                 'cnid': {'type': 'str'},
-                'connect-timeout': {'v_range': [['6.0.0', '7.4.2']], 'type': 'int'},
+                'connect-timeout': {'v_range': [['6.0.0', '7.2.9'], ['7.4.0', '7.4.2']], 'type': 'int'},
                 'dn': {'type': 'str'},
                 'filter': {'type': 'str'},
                 'group': {'type': 'str'},
@@ -324,7 +323,7 @@ def main():
                 'username': {'type': 'str'},
                 'adom-access': {'v_range': [['7.0.3', '']], 'choices': ['all', 'specify'], 'type': 'str'},
                 'ssl-protocol': {
-                    'v_range': [['7.4.4', '7.4.7'], ['7.6.2', '']],
+                    'v_range': [['7.4.4', '7.4.8'], ['7.6.2', '']],
                     'choices': ['follow-global-ssl-protocol', 'sslv3', 'tlsv1.0', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3'],
                     'type': 'str'
                 }

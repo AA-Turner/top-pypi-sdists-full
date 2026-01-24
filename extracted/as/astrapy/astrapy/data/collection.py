@@ -152,7 +152,7 @@ class Collection(Generic[DOC]):
         ...     "https://01234567-....apps.astra.datastax.com",
         ...     token="AstraCS:..."
         ... )
-
+        >>>
         >>> # Create a collection using the fluent syntax for its definition
         >>> from astrapy.constants import VectorMetric
         >>> from astrapy.info import CollectionDefinition
@@ -168,7 +168,7 @@ class Collection(Generic[DOC]):
         ...     "my_events",
         ...     definition=collection_definition,
         ... )
-
+        >>>
         >>>
         >>> # Create a collection with the definition as object
         >>> from astrapy.info import CollectionVectorOptions
@@ -185,7 +185,7 @@ class Collection(Generic[DOC]):
         ...     definition=collection_definition_1,
         ... )
         >>>
-
+        >>>
         >>> # Create a collection with the definition as plain dictionary
         >>> collection_definition_2 = {
         ...     "indexing": {"deny": ["annotations", "logs"]},
@@ -198,12 +198,50 @@ class Collection(Generic[DOC]):
         ...     "my_events",
         ...     definition=collection_definition_2,
         ... )
-
+        >>>
         >>> # Get a reference to an existing collection
         >>> # (no checks are performed on DB)
         >>> my_collection_3a = database.get_collection("my_events")
         >>> my_collection_3b = database.my_events
         >>> my_collection_3c = database["my_events"]
+        >>>
+        >>> # Examples with an embedding service ('vectorize'):
+        >>>
+        >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
+        >>> collection_definition_vz1 = (
+        ...     CollectionDefinition.builder()
+        ...     .set_vector_service(
+        ...         "openai",
+        ...         "text-embedding-3-small",
+        ...     )
+        ...     .build()
+        ... )
+        >>> my_collection_vz1 = database.create_collection(
+        ...     "my_entries",
+        ...     definition=collection_definition_vz1,
+        ...     embedding_api_key="sk-...",
+        ... )
+        >>>
+        >>>
+        >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+        >>> collection_definition_vz2 = (
+        ...     CollectionDefinition.builder()
+        ...     .set_vector_service(
+        ...         "openai",
+        ...         "text-embedding-3-small",
+        ...         authentication={
+        ...             "providerKey": "EMB_AUTH_KEY",
+        ...         },
+        ...     )
+        ...     .build()
+        ... )
+        >>> my_collection_vz2 = database.create_collection(
+        ...     "my_kms_entries",
+        ...     definition=collection_definition_vz2,
+        ... )
+        >>>
+        >>> # Get a reference to an existing collection and set its 'vectorize' authentication:
+        >>> my_collection_vz1a = database.get_collection("my_entries", embedding_api_key="sk-...")
 
     Note:
         creating an instance of Collection does not trigger actual creation
@@ -707,8 +745,8 @@ class Collection(Generic[DOC]):
         ordered: bool = False,
         chunk_size: int | None = None,
         concurrency: int | None = None,
-        request_timeout_ms: int | None = None,
         general_method_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
         timeout_ms: int | None = None,
     ) -> CollectionInsertManyResult:
         """
@@ -979,6 +1017,7 @@ class Collection(Generic[DOC]):
         document_type: None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -995,6 +1034,7 @@ class Collection(Generic[DOC]):
         document_type: type[DOC2],
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -1010,6 +1050,7 @@ class Collection(Generic[DOC]):
         document_type: type[DOC2] | None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -1063,9 +1104,20 @@ class Collection(Generic[DOC]):
                 This parameter can be used only in conjunction with an explicit
                 `sort` criterion of the ascending/descending type (i.e. it cannot
                 be used when not sorting, nor with vector-based ANN search).
+                Please note that for applications that need to retrieve entries on
+                a page-by-page basis, the suggested approach is to consume a find cursor
+                through their pagination API (see the cursors' `fetch_next_page` method
+                and examples reported there).
             limit: this (integer) parameter sets a limit over how many documents
                 are returned. Once `limit` is reached (or the cursor is exhausted
                 for lack of matching documents), nothing more is returned.
+            initial_page_state: if a value is provided, it must be the `next_page_state`
+                from the response of `fetch_next_page()` called on a previous cursor.
+                This value is used as the first page state when the first request
+                to consume the cursor is issued.
+                This pattern is what enables the caller to control consuming the
+                results page by page in a caller-driven fashion. See Examples for more.
+                If supplied, this parameter must be string: passing None is forbidden.
             include_similarity: a boolean to request the numeric value of the
                 similarity to be returned as an added "$similarity" key in each
                 returned document. It can be used meaningfully only in a vector
@@ -1198,6 +1250,7 @@ class Collection(Generic[DOC]):
             .skip(skip)
             .limit(limit)
             .sort(sort)
+            .initial_page_state(initial_page_state)
             .include_similarity(include_similarity)
             .include_sort_vector(include_sort_vector)
         )
@@ -1452,6 +1505,7 @@ class Collection(Generic[DOC]):
         document_type: None = None,
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -1470,6 +1524,7 @@ class Collection(Generic[DOC]):
         document_type: type[DOC2],
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -1488,6 +1543,7 @@ class Collection(Generic[DOC]):
         document_type: type[DOC2] | None = None,
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -1539,10 +1595,10 @@ class Collection(Generic[DOC]):
                 See the Data API documentation for more on projections.
             document_type: this parameter acts a formal specifier for the type checker.
                 If omitted, the resulting cursor is implicitly a
-                `CollectionFindAndRerankCursor[DOC, DOC]`, i.e. maintains the same type
-                for the items it returns as that for the documents in the collection.
-                Strictly typed code may want to specify this parameter especially when
-                a projection is given.
+                `CollectionFindAndRerankCursor[DOC, RerankedResult[DOC]]`, i.e.
+                maintains the same type for the items it returns as that for the
+                documents in the collection. Strictly typed code may want to specify
+                this parameter especially when a projection is given.
             limit: maximum number of documents to return as the result of the final
                 rerank step.
             hybrid_limits: this controls the amount of documents that are fetched by
@@ -1551,6 +1607,10 @@ class Collection(Generic[DOC]):
                 numbers, the latter case expressing different counts for the different
                 retrievals. For example: `hybrid_limits=50`,
                 `hybrid_limits={"$vector": 20, "$lexical": 10}`.
+            initial_page_state: this parameter allows to start consuming the cursor
+                with a non-empty page state already (see the equivalent `find` parameter
+                for more details). As long as the findAndRerank Data API command does
+                not paginate its results, this parameter should never be used.
             include_scores: a boolean to request the scores to be returned along with
                 the resulting documents. If this is set, the scores can be read in the
                 the map `scores` attribute of each RerankedResult (the map is
@@ -1786,6 +1846,7 @@ class Collection(Generic[DOC]):
             .limit(limit)
             .sort(sort)
             .hybrid_limits(hybrid_limits)
+            .initial_page_state(initial_page_state)
             .rerank_on(rerank_on)
             .rerank_query(rerank_query)
             .include_scores(include_scores)
@@ -3043,7 +3104,7 @@ class AsyncCollection(Generic[DOC]):
         ...     "https://01234567-....apps.astra.datastax.com",
         ...     token="AstraCS:..."
         ... )
-
+        >>>
         >>> # Create a collection using the fluent syntax for its definition
         >>> from astrapy.constants import VectorMetric
         >>> from astrapy.info import CollectionDefinition
@@ -3059,7 +3120,7 @@ class AsyncCollection(Generic[DOC]):
         ...     "my_events",
         ...     definition=collection_definition,
         ... )
-
+        >>>
         >>>
         >>> # Create a collection with the definition as object
         >>> from astrapy.info import CollectionVectorOptions
@@ -3076,7 +3137,7 @@ class AsyncCollection(Generic[DOC]):
         ...     definition=collection_definition_1,
         ... )
         >>>
-
+        >>>
         >>> # Create a collection with the definition as plain dictionary
         >>> collection_definition_2 = {
         ...     "indexing": {"deny": ["annotations", "logs"]},
@@ -3089,12 +3150,50 @@ class AsyncCollection(Generic[DOC]):
         ...     "my_events",
         ...     definition=collection_definition_2,
         ... )
-
+        >>>
         >>> # Get a reference to an existing collection
         >>> # (no checks are performed on DB)
         >>> my_collection_3a = async_database.get_collection("my_events")
         >>> my_collection_3b = async_database.my_events
         >>> my_collection_3c = async_database["my_events"]
+        >>>
+        >>> # Examples with an embedding service ('vectorize'):
+        >>>
+        >>> # Create a collection with 'vectorize' and on-the-fly authentication (by headers)
+        >>> collection_definition_vz1 = (
+        ...     CollectionDefinition.builder()
+        ...     .set_vector_service(
+        ...         "openai",
+        ...         "text-embedding-3-small",
+        ...     )
+        ...     .build()
+        ... )
+        >>> my_collection_vz1 = await async_database.create_collection(
+        ...     "my_entries",
+        ...     definition=collection_definition_vz1,
+        ...     embedding_api_key="sk-...",
+        ... )
+        >>>
+        >>>
+        >>> # Create a 'vectorize' collection, its secret pre-stored on DB as 'EMB_AUTH_KEY'
+        >>> collection_definition_vz2 = (
+        ...     CollectionDefinition.builder()
+        ...     .set_vector_service(
+        ...         "openai",
+        ...         "text-embedding-3-small",
+        ...         authentication={
+        ...             "providerKey": "EMB_AUTH_KEY",
+        ...         },
+        ...     )
+        ...     .build()
+        ... )
+        >>> my_collection_vz2 = await async_database.create_collection(
+        ...     "my_kms_entries",
+        ...     definition=collection_definition_vz2,
+        ... )
+        >>>
+        >>> # Get a reference to an existing collection and set its 'vectorize' authentication:
+        >>> my_collection_vz1a = async_database.get_collection("my_entries", embedding_api_key="sk-...")
 
     Note:
         creating an instance of AsyncCollection does not trigger actual creation
@@ -3626,8 +3725,8 @@ class AsyncCollection(Generic[DOC]):
         ordered: bool = False,
         chunk_size: int | None = None,
         concurrency: int | None = None,
-        request_timeout_ms: int | None = None,
         general_method_timeout_ms: int | None = None,
+        request_timeout_ms: int | None = None,
         timeout_ms: int | None = None,
     ) -> CollectionInsertManyResult:
         """
@@ -3897,6 +3996,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -3913,6 +4013,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: type[DOC2],
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -3928,6 +4029,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: type[DOC2] | None = None,
         skip: int | None = None,
         limit: int | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_similarity: bool | None = None,
         include_sort_vector: bool | None = None,
         sort: SortType | None = None,
@@ -3981,9 +4083,20 @@ class AsyncCollection(Generic[DOC]):
                 This parameter can be used only in conjunction with an explicit
                 `sort` criterion of the ascending/descending type (i.e. it cannot
                 be used when not sorting, nor with vector-based ANN search).
+                Please note that for applications that need to retrieve entries on
+                a page-by-page basis, the suggested approach is to consume a find cursor
+                through their pagination API (see the cursors' `fetch_next_page` method
+                and examples reported there).
             limit: this (integer) parameter sets a limit over how many documents
                 are returned. Once `limit` is reached (or the cursor is exhausted
                 for lack of matching documents), nothing more is returned.
+            initial_page_state: if a value is provided, it must be the `next_page_state`
+                from the response of `fetch_next_page()` called on a previous cursor.
+                This value is used as the first page state when the first request
+                to consume the cursor is issued.
+                This pattern is what enables the caller to control consuming the
+                results page by page in a caller-driven fashion. See Examples for more.
+                If supplied, this parameter must be string: passing None is forbidden.
             include_similarity: a boolean to request the numeric value of the
                 similarity to be returned as an added "$similarity" key in each
                 returned document. It can be used meaningfully only in a vector
@@ -4126,6 +4239,7 @@ class AsyncCollection(Generic[DOC]):
             .skip(skip)
             .limit(limit)
             .sort(sort)
+            .initial_page_state(initial_page_state)
             .include_similarity(include_similarity)
             .include_sort_vector(include_sort_vector)
         )
@@ -4408,6 +4522,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: None = None,
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -4426,6 +4541,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: type[DOC2],
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -4444,6 +4560,7 @@ class AsyncCollection(Generic[DOC]):
         document_type: type[DOC2] | None = None,
         limit: int | None = None,
         hybrid_limits: int | dict[str, int] | None = None,
+        initial_page_state: str | UnsetType = _UNSET,
         include_scores: bool | None = None,
         include_sort_vector: bool | None = None,
         rerank_on: str | None = None,
@@ -4495,10 +4612,10 @@ class AsyncCollection(Generic[DOC]):
                 See the Data API documentation for more on projections.
             document_type: this parameter acts a formal specifier for the type checker.
                 If omitted, the resulting cursor is implicitly a
-                `AsyncCollectionFindAndRerankCursor[DOC, DOC]`, i.e. maintains the same
-                type for the items it returns as that for the documents in the
-                collection. Strictly typed code may want to specify this parameter
-                especially when a projection is given.
+                `AsyncCollectionFindAndRerankCursor[DOC, RerankedResult[DOC]]`, i.e.
+                maintains the same type for the items it returns as that for the
+                documents in the collection. Strictly typed code may want to specify
+                this parameter especially when a projection is given.
             limit: maximum number of documents to return as the result of the final
                 rerank step.
             hybrid_limits: this controls the amount of documents that are fetched by
@@ -4507,6 +4624,10 @@ class AsyncCollection(Generic[DOC]):
                 numbers, the latter case expressing different counts for the different
                 retrievals. For example: `hybrid_limits=50`,
                 `hybrid_limits={"$vector": 20, "$lexical": 10}`.
+            initial_page_state: this parameter allows to start consuming the cursor
+                with a non-empty page state already (see the equivalent `find` parameter
+                for more details). As long as the findAndRerank Data API command does
+                not paginate its results, this parameter should never be used.
             include_scores: a boolean to request the scores to be returned along with
                 the resulting documents. If this is set, the scores can be read in the
                 the map `scores` attribute of each RerankedResult (the map is
@@ -4577,6 +4698,7 @@ class AsyncCollection(Generic[DOC]):
             .limit(limit)
             .sort(sort)
             .hybrid_limits(hybrid_limits)
+            .initial_page_state(initial_page_state)
             .rerank_on(rerank_on)
             .rerank_query(rerank_query)
             .include_scores(include_scores)

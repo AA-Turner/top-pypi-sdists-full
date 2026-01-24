@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """HTML reporting for coverage.py."""
 
@@ -34,7 +34,7 @@ from coverage.misc import (
 from coverage.report_core import get_analysis_to_report
 from coverage.results import Analysis, AnalysisNarrower, Numbers
 from coverage.templite import Templite
-from coverage.types import TLineNo, TMorf
+from coverage.types import TLineNo, TMorfs
 from coverage.version import __url__
 
 if TYPE_CHECKING:
@@ -313,7 +313,7 @@ class HtmlReporter:
             # Functions available in the templates.
             "escape": escape,
             "pair": pair,
-            "len": len,
+            "pretty_file": pretty_file,
             # Constants for this report.
             "__url__": __url__,
             "__version__": coverage.__version__,
@@ -321,7 +321,6 @@ class HtmlReporter:
             "time_stamp": format_local_datetime(datetime.datetime.now()),
             "extra_css": self.extra_css,
             "has_arcs": self.has_arcs,
-            "show_contexts": self.config.show_contexts,
             "statics": {},
             # Constants for all reports.
             # These css classes determine which lines are highlighted by default.
@@ -352,7 +351,7 @@ class HtmlReporter:
             skipped_empty_count=0,
         )
 
-    def report(self, morfs: Iterable[TMorf] | None) -> float:
+    def report(self, morfs: TMorfs) -> float:
         """Generate an HTML report for `morfs`.
 
         `morfs` is a list of modules or file names.
@@ -796,10 +795,10 @@ class IncrementalChecker:
         clear the data so that all files are regenerated.
 
         """
-        m = Hasher()
+        h = Hasher()
         for d in data:
-            m.update(d)
-        these_globals = m.hexdigest()
+            h.update(d)
+        these_globals = h.hexdigest()
         if self.globals != these_globals:
             self._reset()
             self.globals = these_globals
@@ -814,10 +813,10 @@ class IncrementalChecker:
         the HTML page.
 
         """
-        m = Hasher()
-        m.update(fr.source().encode("utf-8"))
-        add_data_to_hash(data, fr.filename, m)
-        this_hash = m.hexdigest()
+        h = Hasher()
+        h.update(fr.source().encode("utf-8"))
+        add_data_to_hash(data, fr.filename, h)
+        this_hash = h.hexdigest()
 
         file_info = self.files.setdefault(rootname, FileInfo())
 
@@ -854,3 +853,8 @@ def escape(t: str) -> str:
 def pair(ratio: tuple[int, int]) -> str:
     """Format a pair of numbers so JavaScript can read them in an attribute."""
     return "{} {}".format(*ratio)
+
+
+def pretty_file(filename: str) -> str:
+    """Return a prettier version of `filename` for display."""
+    return re.sub(r"[/\\]", "\N{THIN SPACE}\\g<0>\N{THIN SPACE}", filename)

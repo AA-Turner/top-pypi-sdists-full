@@ -27,7 +27,7 @@ from ...params import KeeperParams
 
 VALID_CERT_EXTENSIONS = {".pem", ".crt", ".cer", ".key"}
 class ServiceConfig:
-    def __init__(self, title: str = 'Commander Service Mode'):
+    def __init__(self, title: str = 'Commander Service Mode Config'):
         self.title = title
         
         self.config = ConfigParser()
@@ -89,6 +89,10 @@ class ServiceConfig:
             ngrok_auth_token="",
             ngrok_custom_domain="",
             ngrok_public_url="",
+            cloudflare="n",
+            cloudflare_tunnel_token="",
+            cloudflare_custom_domain="",
+            cloudflare_public_url="",
             tls_certificate="n",
             certfile="",
             certpassword="",
@@ -154,29 +158,20 @@ class ServiceConfig:
 
         except Exception as e:
             logging.info(f"Error updating service configuration: {e}")
-
-    # decrypt the ecnrypted config file , and update configuration and encrypt agin
-    def read_decrypted_config_file(self, config_path: str, file_format: str, updates: Dict[str, str]):
-         """ decrypt the ecnrypted config file , and update configuration and encrypt agin """
-         config_dir = utils.get_default_path()
-         decrypted_content = ConfigFormatHandler.decrypt_config_file(config_path.read_bytes(), config_dir)
-         config_data = json.loads(decrypted_content) if file_format == "json" else yaml.safe_load(decrypted_content) or {}
-         config_data.update(updates)
-         encrypted_content = ConfigFormatHandler.encrypted_content(config_data, config_path, config_dir)
-         with open(config_path, "wb") as f:
-               f.write(encrypted_content)
     
     # Read plain text config file and update configuration
     def read_plain_text_config_file(self, config_path: str, file_format: str, updates: Dict[str, str]) -> None:
         """ Read plain text config file and update configuration """
         with open(config_path, "r") as f:
                      config_data = json.load(f) if file_format == "json" else yaml.safe_load(f) or {}
+        config_data.update(updates)
         # Save updated configuration
         with open(config_path, "w") as f:
             if file_format == "json":
                     json.dump(config_data, f, indent=4)
             else:
                 yaml.safe_dump(config_data, f, default_flow_style=False)
+        utils.set_file_permissions(config_path)
  
         logging.info(f"Updated keys in {config_path.name}: {', '.join(updates.keys())}")
 
@@ -198,6 +193,7 @@ class ServiceConfig:
                 dest_path = keeper_dir / src_path.name
                 if src_path.exists():
                     shutil.copy(src_path, dest_path)
+                    utils.set_file_permissions(str(dest_path))
                     saved_files.append(dest_path)
                     updated_names[key] = src_path.name  # Store only the filename, not the full path
                 else:
@@ -221,6 +217,23 @@ class ServiceConfig:
         if 'queue_enabled' not in config:
             config['queue_enabled'] = 'y'  # Default to enabled for existing configs
             logger.debug("Added default queue_enabled=y for backwards compatibility")
+
+        # Add backwards compatibility for missing Cloudflare fields
+        if 'cloudflare' not in config:
+            config['cloudflare'] = 'n'  # Default to disabled for existing configs
+            logger.debug("Added default cloudflare=n for backwards compatibility")
+        
+        if 'cloudflare_tunnel_token' not in config:
+            config['cloudflare_tunnel_token'] = ''
+            logger.debug("Added default cloudflare_tunnel_token for backwards compatibility")
+        
+        if 'cloudflare_custom_domain' not in config:
+            config['cloudflare_custom_domain'] = ''
+            logger.debug("Added default cloudflare_custom_domain for backwards compatibility")
+        
+        if 'cloudflare_public_url' not in config:
+            config['cloudflare_public_url'] = ''
+            logger.debug("Added default cloudflare_public_url for backwards compatibility")
         
         self._validate_config_structure(config)
         return config
@@ -236,6 +249,14 @@ class ServiceConfig:
         if config_data.ngrok == 'y':
             logger.debug("Validating ngrok configuration")
             self.validator.validate_ngrok_token(config_data.ngrok_auth_token)
+
+            if config_data.ngrok_custom_domain:
+                self.validator.validate_domain(config_data.ngrok_custom_domain, require_tld=False)
+
+        if config_data.cloudflare == 'y':
+            logger.debug("Validating cloudflare configuration")
+            self.validator.validate_cloudflare_token(config_data.cloudflare_tunnel_token)
+            self.validator.validate_domain(config_data.cloudflare_custom_domain)
 
         if config_data.is_advanced_security_enabled == 'y':
             logger.debug("Validating advanced security settings")
@@ -279,10 +300,10 @@ class ServiceConfig:
                 print(f"\nError: {str(e)}")
                 print("\nPlease try again with valid commands.")
 
-    def create_record(self, is_advanced_security_enabled: str, params: KeeperParams, commands: Optional[str] = None) -> Dict[str, Any]:
+    def create_record(self, is_advanced_security_enabled: str, params: KeeperParams, commands: Optional[str] = None, token_expiration: str = None, record_uid: Optional[str] = None) -> Dict[str, Any]:
         """Create a new configuration record."""
         commands = self.validate_command_list(commands, params) if commands else self._get_validated_commands(params)
-        return self.record_handler.create_record(is_advanced_security_enabled, commands)
+        return self.record_handler.create_record(is_advanced_security_enabled, commands, token_expiration, record_uid)
 
     def update_or_add_record(self, params: KeeperParams) -> None:
         """Update existing record or add new one."""

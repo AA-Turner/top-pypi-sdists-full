@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
 
 class TokenInfo(BaseModel):
@@ -39,9 +39,10 @@ class TokenInfo(BaseModel):
 
     __properties = ["token", "expiration_seconds"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -66,7 +67,7 @@ class TokenInfo(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -81,9 +82,9 @@ class TokenInfo(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return TokenInfo.parse_obj(obj)
+            return TokenInfo.model_validate(obj)
 
-        _obj = TokenInfo.parse_obj(
+        _obj = TokenInfo.model_validate(
             {
                 "token": obj.get("token"),
                 "expiration_seconds": obj.get("expiration_seconds"),

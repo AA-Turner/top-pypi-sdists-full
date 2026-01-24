@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import sys
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -13,6 +13,7 @@ import sentry_sdk
 from pydantic.json import pydantic_encoder
 
 from codeflash.cli_cmds.console import console, logger
+from codeflash.code_utils.code_utils import exit_with_message
 from codeflash.code_utils.env_utils import ensure_codeflash_api_key, get_codeflash_api_key, get_pr_number
 from codeflash.code_utils.git_utils import get_current_branch, get_repo_owner_and_name
 from codeflash.github.PrComment import FileDiffContent, PrComment
@@ -26,12 +27,24 @@ if TYPE_CHECKING:
 
 from packaging import version
 
-if os.environ.get("CODEFLASH_CFAPI_SERVER", default="prod").lower() == "local":
-    CFAPI_BASE_URL = "http://localhost:3001"
-    logger.info(f"Using local CF API at {CFAPI_BASE_URL}.")
-    console.rule()
-else:
-    CFAPI_BASE_URL = "https://app.codeflash.ai"
+
+@dataclass
+class BaseUrls:
+    cfapi_base_url: Optional[str] = None
+    cfwebapp_base_url: Optional[str] = None
+
+
+@lru_cache(maxsize=1)
+def get_cfapi_base_urls() -> BaseUrls:
+    if os.environ.get("CODEFLASH_CFAPI_SERVER", "prod").lower() == "local":
+        cfapi_base_url = "http://localhost:3001"
+        cfwebapp_base_url = "http://localhost:3000"
+        logger.info(f"Using local CF API at {cfapi_base_url}.")
+        console.rule()
+    else:
+        cfapi_base_url = "https://app.codeflash.ai"
+        cfwebapp_base_url = "https://app.codeflash.ai"
+    return BaseUrls(cfapi_base_url=cfapi_base_url, cfwebapp_base_url=cfwebapp_base_url)
 
 
 def make_cfapi_request(
@@ -42,17 +55,22 @@ def make_cfapi_request(
     *,
     api_key: str | None = None,
     suppress_errors: bool = False,
+    params: dict[str, Any] | None = None,
 ) -> Response:
     """Make an HTTP request using the specified method, URL, headers, and JSON payload.
 
     :param endpoint: The endpoint URL to send the request to.
     :param method: The HTTP method to use ('GET', 'POST', etc.).
     :param payload: Optional JSON payload to include in the POST request body.
+    :param extra_headers: Optional extra headers to include in the request.
+    :param api_key: Optional API key to use for authentication.
     :param suppress_errors: If True, suppress error logging for HTTP errors.
+    :param params: Optional query parameters for GET requests.
     :return: The response object from the API.
     """
-    url = f"{CFAPI_BASE_URL}/cfapi{endpoint}"
-    cfapi_headers = {"Authorization": f"Bearer {api_key or get_codeflash_api_key()}"}
+    url = f"{get_cfapi_base_urls().cfapi_base_url}/cfapi{endpoint}"
+    final_api_key = api_key or get_codeflash_api_key()
+    cfapi_headers = {"Authorization": f"Bearer {final_api_key}"}
     if extra_headers:
         cfapi_headers.update(extra_headers)
     try:
@@ -61,7 +79,7 @@ def make_cfapi_request(
             cfapi_headers["Content-Type"] = "application/json"
             response = requests.post(url, data=json_payload, headers=cfapi_headers, timeout=60)
         else:
-            response = requests.get(url, headers=cfapi_headers, timeout=60)
+            response = requests.get(url, headers=cfapi_headers, params=params, timeout=60)
         response.raise_for_status()
         return response  # noqa: TRY300
     except requests.exceptions.HTTPError:
@@ -84,16 +102,22 @@ def make_cfapi_request(
 
 
 @lru_cache(maxsize=1)
-def get_user_id(api_key: Optional[str] = None) -> Optional[str]:
+def get_user_id(api_key: Optional[str] = None) -> Optional[str]:  # noqa: PLR0911
     """Retrieve the user's userid by making a request to the /cfapi/cli-get-user endpoint.
 
+    :param api_key: The API key to use. If None, uses get_codeflash_api_key().
     :return: The userid or None if the request fails.
     """
-    if not ensure_codeflash_api_key():
+    lsp_enabled = is_LSP_enabled()
+    if not api_key and not ensure_codeflash_api_key():
         return None
 
     response = make_cfapi_request(
-        endpoint="/cli-get-user", method="GET", extra_headers={"cli_version": __version__}, api_key=api_key
+        endpoint="/cli-get-user",
+        method="GET",
+        extra_headers={"cli_version": __version__},
+        api_key=api_key,
+        suppress_errors=True,
     )
     if response.status_code == 200:
         if "min_version" not in response.text:
@@ -105,15 +129,31 @@ def get_user_id(api_key: Optional[str] = None) -> Optional[str]:
             if min_version and version.parse(min_version) > version.parse(__version__):
                 msg = "Your Codeflash CLI version is outdated. Please update to the latest version using `pip install --upgrade codeflash`."
                 console.print(f"[bold red]{msg}[/bold red]")
-                if is_LSP_enabled():
+                if lsp_enabled:
                     logger.debug(msg)
                     return f"Error: {msg}"
-                sys.exit(1)
+                exit_with_message(msg, error_on_exit=True)
             return userid
 
         logger.error("Failed to retrieve userid from the response.")
         return None
 
+    if response.status_code == 403:
+        error_title = "Invalid Codeflash API key. The API key you provided is not valid."
+        if lsp_enabled:
+            return f"Error: {error_title}"
+        msg = (
+            f"{error_title}\n"
+            "Please generate a new one at https://app.codeflash.ai/app/apikeys ,\n"
+            "then set it as a CODEFLASH_API_KEY environment variable.\n"
+            "For more information, refer to the documentation at \n"
+            "https://docs.codeflash.ai/optimizing-with-codeflash/codeflash-github-actions#manual-setup\n"
+            "or\n"
+            "https://docs.codeflash.ai/optimizing-with-codeflash/codeflash-github-actions#automated-setup-recommended"
+        )
+        exit_with_message(msg, error_on_exit=True)
+
+    # For other errors, log and return None (backward compatibility)
     logger.error(f"Failed to look up your userid; is your CF API key valid? ({response.reason})")
     return None
 
@@ -130,6 +170,7 @@ def suggest_changes(
     coverage_message: str,
     replay_tests: str = "",
     concolic_tests: str = "",
+    optimization_review: str = "",
 ) -> Response:
     """Suggest changes to a pull request.
 
@@ -155,6 +196,7 @@ def suggest_changes(
         "coverage_message": coverage_message,
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
+        "optimizationReview": optimization_review,  # impact keyword left for legacy reasons, touches js/ts code
     }
     return make_cfapi_request(endpoint="/suggest-pr-changes", method="POST", payload=payload)
 
@@ -171,6 +213,7 @@ def create_pr(
     coverage_message: str,
     replay_tests: str = "",
     concolic_tests: str = "",
+    optimization_review: str = "",
 ) -> Response:
     """Create a pull request, targeting the specified branch. (usually 'main').
 
@@ -195,8 +238,23 @@ def create_pr(
         "coverage_message": coverage_message,
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
+        "optimizationReview": optimization_review,  # Impact keyword left for legacy reasons, it touches js/ts codebase
     }
     return make_cfapi_request(endpoint="/create-pr", method="POST", payload=payload)
+
+
+def setup_github_actions(owner: str, repo: str, base_branch: str, workflow_content: str) -> Response:
+    """Set up GitHub Actions workflow by creating a PR with the workflow file.
+
+    :param owner: Repository owner (username or organization)
+    :param repo: Repository name
+    :param base_branch: Base branch to create PR against (e.g., "main", "master")
+    :param workflow_content: Content of the GitHub Actions workflow file (YAML)
+    :return: Response object with pr_url and pr_number on success
+    """
+    payload = {"owner": owner, "repo": repo, "baseBranch": base_branch, "workflowContent": workflow_content}
+
+    return make_cfapi_request(endpoint="/setup-github-actions", method="POST", payload=payload)
 
 
 def create_staging(
@@ -210,6 +268,7 @@ def create_staging(
     replay_tests: str,
     concolic_tests: str,
     root_dir: Path,
+    optimization_review: str = "",
 ) -> Response:
     """Create a staging pull request, targeting the specified branch. (usually 'staging').
 
@@ -250,6 +309,7 @@ def create_staging(
         "coverage_message": coverage_message,
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
+        "optimizationReview": optimization_review,  # Impact keyword left for legacy reasons, it touches js/ts codebase
     }
 
     return make_cfapi_request(endpoint="/create-staging", method="POST", payload=payload)

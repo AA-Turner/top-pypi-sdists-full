@@ -13,7 +13,7 @@ const serverErrors = new Counter('server_errors');
 const otherErrors = new Counter('other_errors');
 const burstSuccessRate = new Rate('burst_success_rate');
 
-// URL of your LangGraph server
+// URL of your Agent Server
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:9123';
 // LangSmith API key only needed with a custom server endpoint
 const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;

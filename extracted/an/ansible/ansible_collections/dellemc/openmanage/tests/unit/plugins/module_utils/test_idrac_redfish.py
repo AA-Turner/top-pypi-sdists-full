@@ -2,7 +2,7 @@
 
 #
 # Dell OpenManage Ansible Modules
-# Version 9.12.3
+# Version 10.0.1
 # Copyright (C) 2023-2025 Dell Inc.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -17,7 +17,8 @@ __metaclass__ = type
 import pytest
 from ansible.module_utils.urls import ConnectionError, SSLValidationError
 from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
-from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI, OpenURLResponse
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI, OpenURLResponse, \
+    _get_scp_import_uri, _get_scp_import_preview_uri, _get_scp_export_uri, process_scp_target
 from unittest.mock import MagicMock
 import json
 import os
@@ -50,6 +51,23 @@ SESSION_10 = "/redfish/v1/SessionService/Sessions"
 
 
 class TestIdracRedfishRest(object):
+    @pytest.mark.parametrize("target", [
+        ["tg1", ["tg1"]],
+        ["tg1,tg2", ["tg1", "tg2"]],
+        [["tg1", "tg2"], ["tg1", "tg2"]],
+        [None, None]])
+    def test_process_scp_target(self, target):
+        out = process_scp_target(target[0])
+        assert out == target[1]
+
+    @pytest.mark.parametrize("generation", [[16, "EID"], [17, "OemManager"]])
+    def test_get_scp_uris(self, generation):
+        import_uri = _get_scp_import_uri(generation[0])
+        assert generation[1] in import_uri
+        export_uri = _get_scp_export_uri(generation[0])
+        assert generation[1] in export_uri
+        import_preview_uri = _get_scp_import_preview_uri(generation[0])
+        assert generation[1] in import_preview_uri
 
     @pytest.fixture
     def mock_response(self):
@@ -337,6 +355,7 @@ class TestIdracRedfishRest(object):
 
     @pytest.mark.parametrize("status_code", [202, 200])
     def test_import_scp(self, mocker, mock_response, status_code, idrac_redfish_object):
+        iDRACRedfishAPI.get_server_generation = (17, '1.20.30', 'iDRAC 10')
         mock_response.json_data = {"Status": "Completed"}
         mock_response.status_code = status_code
         mock_response.headers = {"Location": "/tasks/1"}

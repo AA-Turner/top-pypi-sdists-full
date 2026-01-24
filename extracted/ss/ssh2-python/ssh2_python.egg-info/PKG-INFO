@@ -1,14 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ssh2-python
-Version: 1.1.2.post1
+Version: 1.2.0.post1
 Summary: Bindings for libssh2 C library
 Home-page: https://github.com/ParallelSSH/ssh2-python
 Author: Panos Kittenis
-Author-email: 22e889d8@opayq.com
-License: LGPLv2
+Author-email: danst@tutanota.com
+License: LGPL-2.1-only
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
@@ -19,6 +18,10 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: System :: Networking
 Classifier: Topic :: Software Development :: Libraries
@@ -36,6 +39,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: summary
 
@@ -82,6 +86,26 @@ ___________________
 Most developers will want to use the `high level clients <https://parallel-ssh.readthedocs.io/en/latest/quickstart.html#single-host-client>`_
 in `parallel-ssh <https://github.com/ParallelSSH/parallel-ssh>`_
 based on this library.
+
+
+.. code-block:: shell
+
+   pip install parallel-ssh
+
+
+.. code-block:: python
+
+   from pssh.clients import SSHClient
+
+   host = 'localhost'
+   cmd = 'uname'
+   client = SSHClient(host)
+
+   host_out = client.run_command(cmd)
+   for line in host_out.stdout:
+       print(line)
+   exit_code = host_out.exit_code
+
 
 This library provides bindings to the low-level libssh2 C-API. It is *not* high level, nor easy to use. A *lot* of code
 would need to be written to use this library that is already provided by `parallel-ssh`.

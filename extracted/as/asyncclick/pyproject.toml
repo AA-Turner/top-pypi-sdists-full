@@ -1,6 +1,5 @@
 [project]
 name = "asyncclick"
-version = "8.2.2.2"
 description = "Composable command line interface toolkit, async fork"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -17,12 +16,15 @@ requires-python = ">=3.11"
 dependencies = [
     "colorama; platform_system == 'Windows'",
 ]
+version = "8.3.0.7"
 
 [project.urls]
 Source = "https://github.com/python-trio/asyncclick/"
 
 [dependency-groups]
 dev = [
+    "anyio",
+    "trio",
     "ruff",
     "tox",
     "tox-uv",
@@ -33,12 +35,6 @@ docs = [
     "sphinx",
     "sphinx-tabs",
     "sphinxcontrib-log-cabinet",
-]
-anyio = [
-    "anyio",
-]
-trio = [
-    "trio",
 ]
 docs-auto = [
     "sphinx-autobuild",
@@ -52,11 +48,20 @@ pre-commit = [
 ]
 tests = [
     "pytest",
+    "anyio",
+    "trio",
 ]
 typing = [
+    "anyio",
     "mypy",
     "pyright",
     "pytest",
+]
+anyio = [
+    "anyio ~= 4.0",
+]
+trio = [
+    "trio ~= 0.22",
 ]
 
 [build-system]
@@ -101,7 +106,7 @@ exclude_also = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 files = ["src", "tests/typing"]
 show_error_codes = true
 pretty = true
@@ -114,7 +119,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 include = ["src", "tests/typing"]
 typeCheckingMode = "basic"
 
@@ -144,7 +149,7 @@ order-by-type = false
 
 [tool.tox]
 env_list = [
-    "py3.13", "py3.12", "py3.11", "py3.10",
+    "py3.13", "py3.12", "py3.11",
     "pypy3.11",
     "style",
     "typing",

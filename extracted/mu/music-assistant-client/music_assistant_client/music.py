@@ -48,8 +48,17 @@ class Music:
         limit: int | None = None,
         offset: int | None = None,
         order_by: str | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Track]:
-        """Get Track listing from the server."""
+        """Get Track listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Track.from_dict(obj)
             for obj in await self.client.send_command(
@@ -59,6 +68,7 @@ class Music:
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
+                provider=provider,
             )
         ]
 
@@ -71,7 +81,7 @@ class Music:
         """Get single Track from the server."""
         return Track.from_dict(
             await self.client.send_command(
-                "music/tracks/get_track",
+                "music/tracks/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
                 album_uri=album_uri,
@@ -130,8 +140,18 @@ class Music:
         offset: int | None = None,
         order_by: str | None = None,
         album_types: list[AlbumType] | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Album]:
-        """Get Albums listing from the server."""
+        """Get Albums listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param album_types: Filter by album types.
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Album.from_dict(obj)
             for obj in await self.client.send_command(
@@ -142,6 +162,7 @@ class Music:
                 offset=offset,
                 order_by=order_by,
                 album_types=album_types,
+                provider=provider,
             )
         ]
 
@@ -153,7 +174,7 @@ class Music:
         """Get single Album from the server."""
         return Album.from_dict(
             await self.client.send_command(
-                "music/albums/get_album",
+                "music/albums/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -201,8 +222,18 @@ class Music:
         offset: int | None = None,
         order_by: str | None = None,
         album_artists_only: bool = False,
+        provider: str | list[str] | None = None,
     ) -> list[Artist]:
-        """Get Artists listing from the server."""
+        """Get Artists listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param album_artists_only: Only return artists that have albums.
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Artist.from_dict(obj)
             for obj in await self.client.send_command(
@@ -213,6 +244,7 @@ class Music:
                 offset=offset,
                 order_by=order_by,
                 album_artists_only=album_artists_only,
+                provider=provider,
             )
         ]
 
@@ -224,7 +256,7 @@ class Music:
         """Get single Artist from the server."""
         return Artist.from_dict(
             await self.client.send_command(
-                "music/artists/get_artist",
+                "music/artists/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -273,8 +305,17 @@ class Music:
         limit: int | None = None,
         offset: int | None = None,
         order_by: str | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Playlist]:
-        """Get Playlists listing from the server."""
+        """Get Playlists listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Playlist.from_dict(obj)
             for obj in await self.client.send_command(
@@ -284,6 +325,7 @@ class Music:
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
+                provider=provider,
             )
         ]
 
@@ -295,7 +337,7 @@ class Music:
         """Get single Playlist from the server."""
         return Playlist.from_dict(
             await self.client.send_command(
-                "music/playlists/get_playlist",
+                "music/playlists/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -357,8 +399,17 @@ class Music:
         limit: int | None = None,
         offset: int | None = None,
         order_by: str | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Audiobook]:
-        """Get Audiobooks listing from the server."""
+        """Get Audiobooks listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Audiobook.from_dict(obj)
             for obj in await self.client.send_command(
@@ -368,6 +419,7 @@ class Music:
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
+                provider=provider,
             )
         ]
 
@@ -379,7 +431,7 @@ class Music:
         """Get single Audiobook from the server."""
         return Audiobook.from_dict(
             await self.client.send_command(
-                "music/audiobooks/get_audiobook",
+                "music/audiobooks/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -394,8 +446,17 @@ class Music:
         limit: int | None = None,
         offset: int | None = None,
         order_by: str | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Podcast]:
-        """Get Podcasts listing from the server."""
+        """Get Podcasts listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Podcast.from_dict(obj)
             for obj in await self.client.send_command(
@@ -405,6 +466,7 @@ class Music:
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
+                provider=provider,
             )
         ]
 
@@ -416,7 +478,7 @@ class Music:
         """Get single Podcast from the server."""
         return Podcast.from_dict(
             await self.client.send_command(
-                "music/podcasts/get_podcast",
+                "music/podcasts/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -446,8 +508,17 @@ class Music:
         limit: int | None = None,
         offset: int | None = None,
         order_by: str | None = None,
+        provider: str | list[str] | None = None,
     ) -> list[Radio]:
-        """Get Radio listing from the server."""
+        """Get Radio listing from the server.
+
+        :param favorite: Filter by favorite status.
+        :param search: Filter by search query.
+        :param limit: Maximum number of items to return.
+        :param offset: Number of items to skip.
+        :param order_by: Order by field (e.g. 'sort_name', 'timestamp_added').
+        :param provider: Filter by provider instance ID or domain (single string or list).
+        """
         return [
             Radio.from_dict(obj)
             for obj in await self.client.send_command(
@@ -457,6 +528,7 @@ class Music:
                 limit=limit,
                 offset=offset,
                 order_by=order_by,
+                provider=provider,
             )
         ]
 
@@ -468,7 +540,7 @@ class Music:
         """Get single Radio from the server."""
         return Radio.from_dict(
             await self.client.send_command(
-                "music/radios/get_radio",
+                "music/radios/get",
                 item_id=item_id,
                 provider_instance_id_or_domain=provider_instance_id_or_domain,
             ),
@@ -879,3 +951,326 @@ class Music:
                 # simply return the first item because search is already sorted by best match
                 return _item
         return None
+
+    async def album_count(
+        self,
+        favorite_only: bool | None = None,
+        album_types: list[AlbumType] | None = None,
+    ) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/albums/count",
+                favorite_only=favorite_only,
+                album_types=album_types,
+            ),
+        )
+
+    async def remove_album(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete item from the library(database)."""
+        await self.client.send_command(
+            "music/albums/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_album(
+        self,
+        item_id: str | int,
+        update: Album,
+        overwrite: bool | None = None,
+    ) -> Album:
+        """Update existing library record in the library database."""
+        return Album.from_dict(
+            await self.client.send_command(
+                "music/albums/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def artist_count(
+        self,
+        favorite_only: bool | None = None,
+        album_artists_only: bool | None = None,
+    ) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/artists/count",
+                favorite_only=favorite_only,
+                album_artists_only=album_artists_only,
+            ),
+        )
+
+    async def remove_artist(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete record from the database."""
+        await self.client.send_command(
+            "music/artists/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_artist(
+        self,
+        item_id: str | int,
+        update: Artist,
+        overwrite: bool | None = None,
+    ) -> Artist:
+        """Update existing library record in the library database."""
+        return Artist.from_dict(
+            await self.client.send_command(
+                "music/artists/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def audiobook_versions(
+        self,
+        item_id: str,
+        provider_instance_id_or_domain: str,
+    ) -> list[Audiobook]:
+        """Return all versions of an audiobook we can find on all providers."""
+        return [
+            Audiobook.from_dict(obj)
+            for obj in await self.client.send_command(
+                "music/audiobooks/audiobook_versions",
+                item_id=item_id,
+                provider_instance_id_or_domain=provider_instance_id_or_domain,
+            )
+        ]
+
+    async def audiobook_count(self, favorite_only: bool | None = None) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/audiobooks/count",
+                favorite_only=favorite_only,
+            ),
+        )
+
+    async def remove_audiobook(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete library record from the database."""
+        await self.client.send_command(
+            "music/audiobooks/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_audiobook(
+        self,
+        item_id: str | int,
+        update: Audiobook,
+        overwrite: bool | None = None,
+    ) -> Audiobook:
+        """Update existing library record in the library database."""
+        return Audiobook.from_dict(
+            await self.client.send_command(
+                "music/audiobooks/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def playlist_count(self, favorite_only: bool | None = None) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/playlists/count",
+                favorite_only=favorite_only,
+            ),
+        )
+
+    async def remove_playlist(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete library record from the database."""
+        await self.client.send_command(
+            "music/playlists/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_playlist(
+        self,
+        item_id: str | int,
+        update: Playlist,
+        overwrite: bool | None = None,
+    ) -> Playlist:
+        """Update existing library record in the library database."""
+        return Playlist.from_dict(
+            await self.client.send_command(
+                "music/playlists/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def podcast_count(self, favorite_only: bool | None = None) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/podcasts/count",
+                favorite_only=favorite_only,
+            ),
+        )
+
+    async def podcast_episode(
+        self,
+        item_id: str,
+        provider_instance_id_or_domain: str,
+    ) -> list[PodcastEpisode]:
+        """Return single podcast episode by the given provider podcast id."""
+        return [
+            PodcastEpisode.from_dict(obj)
+            for obj in await self.client.send_command(
+                "music/podcasts/podcast_episode",
+                item_id=item_id,
+                provider_instance_id_or_domain=provider_instance_id_or_domain,
+            )
+        ]
+
+    async def podcast_versions(
+        self,
+        item_id: str,
+        provider_instance_id_or_domain: str,
+    ) -> list[Podcast]:
+        """Return all versions of an podcast we can find on all providers."""
+        return [
+            Podcast.from_dict(obj)
+            for obj in await self.client.send_command(
+                "music/podcasts/podcast_versions",
+                item_id=item_id,
+                provider_instance_id_or_domain=provider_instance_id_or_domain,
+            )
+        ]
+
+    async def remove_podcast(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete library record from the database."""
+        await self.client.send_command(
+            "music/podcasts/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_podcast(
+        self,
+        item_id: str | int,
+        update: Podcast,
+        overwrite: bool | None = None,
+    ) -> Podcast:
+        """Update existing library record in the library database."""
+        return Podcast.from_dict(
+            await self.client.send_command(
+                "music/podcasts/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def radio_count(self, favorite_only: bool | None = None) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/radios/count",
+                favorite_only=favorite_only,
+            ),
+        )
+
+    async def remove_radio(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete library record from the database."""
+        await self.client.send_command(
+            "music/radios/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def update_radio(
+        self,
+        item_id: str | int,
+        update: Radio,
+        overwrite: bool | None = None,
+    ) -> Radio:
+        """Update existing library record in the library database."""
+        return Radio.from_dict(
+            await self.client.send_command(
+                "music/radios/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )
+
+    async def track_count(self, favorite_only: bool | None = None) -> int:
+        """Return the total number of items in the library."""
+        return cast(
+            "int",
+            await self.client.send_command(
+                "music/tracks/count",
+                favorite_only=favorite_only,
+            ),
+        )
+
+    async def track_preview(self, provider_instance_id_or_domain: str, item_id: str) -> str:
+        """Return url to short preview sample."""
+        return cast(
+            "str",
+            await self.client.send_command(
+                "music/tracks/preview",
+                provider_instance_id_or_domain=provider_instance_id_or_domain,
+                item_id=item_id,
+            ),
+        )
+
+    async def remove_track(self, item_id: str | int, recursive: bool | None = None) -> None:
+        """Delete record from the database."""
+        await self.client.send_command(
+            "music/tracks/remove",
+            item_id=item_id,
+            recursive=recursive,
+        )
+
+    async def similar_tracks(
+        self,
+        item_id: str,
+        provider_instance_id_or_domain: str,
+        limit: int | None = None,
+        allow_lookup: bool | None = None,
+    ) -> list[Track]:
+        """Get a list of similar tracks for the given track."""
+        return [
+            Track.from_dict(obj)
+            for obj in await self.client.send_command(
+                "music/tracks/similar_tracks",
+                item_id=item_id,
+                provider_instance_id_or_domain=provider_instance_id_or_domain,
+                limit=limit,
+                allow_lookup=allow_lookup,
+            )
+        ]
+
+    async def update_track(
+        self,
+        item_id: str | int,
+        update: Track,
+        overwrite: bool | None = None,
+    ) -> Track:
+        """Update existing library record in the library database."""
+        return Track.from_dict(
+            await self.client.send_command(
+                "music/tracks/update",
+                item_id=item_id,
+                update=update,
+                overwrite=overwrite,
+            )
+        )

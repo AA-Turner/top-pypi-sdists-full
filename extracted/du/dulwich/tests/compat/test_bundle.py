@@ -62,6 +62,7 @@ class CompatBundleTestCase(CompatTestCase):
 
         # Use create_bundle_from_repo helper
         bundle = create_bundle_from_repo(self.repo)
+        self.addCleanup(bundle.close)
 
         with open(bundle_path, "wb") as f:
             write_bundle(f, bundle)
@@ -94,6 +95,7 @@ class CompatBundleTestCase(CompatTestCase):
         # Read bundle using dulwich
         with open(bundle_path, "rb") as f:
             bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
 
         # Verify bundle contents
         self.assertEqual(2, bundle.version)
@@ -138,6 +140,7 @@ class CompatBundleTestCase(CompatTestCase):
         # Read bundle using dulwich
         with open(bundle_path, "rb") as f:
             bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
 
         # Verify bundle contains all refs
         self.assertIn(b"refs/heads/master", bundle.references)
@@ -185,6 +188,7 @@ class CompatBundleTestCase(CompatTestCase):
         # Read bundle using dulwich
         with open(bundle_path, "rb") as f:
             bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
 
         # Verify bundle has prerequisites
         self.assertGreater(len(bundle.prerequisites), 0)
@@ -234,6 +238,7 @@ class CompatBundleTestCase(CompatTestCase):
         # Read bundle using dulwich
         with open(bundle_path, "rb") as f:
             bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
 
         # Verify bundle contents
         self.assertEqual(2, bundle.version)
@@ -266,6 +271,7 @@ class CompatBundleTestCase(CompatTestCase):
         # Read bundle using dulwich
         with open(bundle_path, "rb") as f:
             bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
 
         # Verify bundle was read correctly
         self.assertEqual(2, bundle.version)
@@ -283,3 +289,51 @@ class CompatBundleTestCase(CompatTestCase):
         # Verify the cloned repository exists and has content
         self.assertTrue(os.path.exists(clone_path))
         self.assertTrue(os.path.exists(os.path.join(clone_path, "test.txt")))
+
+    def test_unbundle_git_bundle(self) -> None:
+        """Test unbundling a bundle created by git using dulwich CLI."""
+        # Create a repository with commits using git
+        run_git_or_fail(["config", "user.name", "Test User"], cwd=self.repo_path)
+        run_git_or_fail(
+            ["config", "user.email", "test@example.com"], cwd=self.repo_path
+        )
+
+        # Create commits
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("content 1\n")
+        run_git_or_fail(["add", "test.txt"], cwd=self.repo_path)
+        run_git_or_fail(["commit", "-m", "Commit 1"], cwd=self.repo_path)
+
+        with open(test_file, "a") as f:
+            f.write("content 2\n")
+        run_git_or_fail(["add", "test.txt"], cwd=self.repo_path)
+        run_git_or_fail(["commit", "-m", "Commit 2"], cwd=self.repo_path)
+
+        # Get commit SHA for verification
+        head_sha = run_git_or_fail(["rev-parse", "HEAD"], cwd=self.repo_path).strip()
+
+        # Create bundle using git
+        bundle_path = os.path.join(self.test_dir, "unbundle_test.bundle")
+        run_git_or_fail(["bundle", "create", bundle_path, "master"], cwd=self.repo_path)
+
+        # Create a new empty repository to unbundle into
+        unbundle_repo_path = os.path.join(self.test_dir, "unbundle_repo")
+        unbundle_repo = Repo.init(unbundle_repo_path, mkdir=True)
+        self.addCleanup(unbundle_repo.close)
+
+        # Read the bundle and store objects using dulwich
+        with open(bundle_path, "rb") as f:
+            bundle = read_bundle(f)
+        self.addCleanup(bundle.close)
+
+        # Use the bundle's store_objects method to unbundle
+        bundle.store_objects(unbundle_repo.object_store)
+
+        # Verify objects are now in the repository
+        # Check that the HEAD commit exists
+        self.assertIn(head_sha, unbundle_repo.object_store)
+
+        # Verify we can retrieve the commit
+        commit = unbundle_repo.object_store[head_sha]
+        self.assertEqual(b"Commit 2\n", commit.message)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Container
+from collections.abc import Iterable
 from collections.abc import Sequence
 import copy
 import datetime
@@ -336,9 +337,9 @@ class JournalStorage(BaseStorage):
                 # positives, we verify whether another process is already evaluating the trial with
                 # trial_id. If True, it means this query does not update the trial state.
                 existing_trial = self._replay_result._trials.get(trial_id)
-                assert (
-                    existing_trial is not None
-                ), "Please report your bug on GitHub if this line fails your script."
+                assert existing_trial is not None, (
+                    "Please report your bug on GitHub if this line fails your script."
+                )
                 if existing_trial.state.is_finished():
                     raise UpdateFinishedTrialError(
                         UNUPDATABLE_MSG.format(trial_number=existing_trial.number)
@@ -414,7 +415,7 @@ class JournalStorageReplayResult:
         self._next_study_id: int = 0
         self._worker_id_to_owned_trial_id: dict[str, int] = {}
 
-    def apply_logs(self, logs: list[dict[str, Any]]) -> None:
+    def apply_logs(self, logs: Iterable[dict[str, Any]]) -> None:
         for log in logs:
             self.log_number_read += 1
             op = log["op_code"]

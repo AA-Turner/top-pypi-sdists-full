@@ -1,5 +1,5 @@
 use crate::abstraction::{
-    datatype::{autosar_data_type_to_pyobject, pyobject_to_autosar_data_type},
+    datatype::{autosar_data_type_to_pyany, pyany_to_autosar_data_type},
     software_component::*,
 };
 use autosar_data_abstraction::{
@@ -32,6 +32,15 @@ impl ClientServerInterface {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -123,6 +132,15 @@ impl ApplicationError {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -186,6 +204,15 @@ impl ClientServerOperation {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -216,7 +243,7 @@ impl ClientServerOperation {
         data_type: &Bound<'_, PyAny>,
         direction: ArgumentDirection,
     ) -> PyResult<ArgumentDataPrototype> {
-        let data_type = pyobject_to_autosar_data_type(data_type)?;
+        let data_type = pyany_to_autosar_data_type(data_type)?;
         match self.0.create_argument(name, &data_type, direction.into()) {
             Ok(value) => Ok(ArgumentDataPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -315,6 +342,15 @@ impl ArgumentDataPrototype {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -337,7 +373,7 @@ impl ArgumentDataPrototype {
     /// Set the data type of the argument
     #[setter]
     fn set_data_type(&self, data_type: &Bound<'_, PyAny>) -> PyResult<()> {
-        let data_type = pyobject_to_autosar_data_type(data_type)?;
+        let data_type = pyany_to_autosar_data_type(data_type)?;
         self.0
             .set_data_type(&data_type)
             .map_err(abstraction_err_to_pyerr)
@@ -345,10 +381,10 @@ impl ArgumentDataPrototype {
 
     /// Get the data type of the argument
     #[getter]
-    fn data_type(&self) -> Option<PyObject> {
+    fn data_type(&self) -> Option<Py<PyAny>> {
         self.0
             .data_type()
-            .and_then(|data_type| autosar_data_type_to_pyobject(data_type).ok())
+            .and_then(|data_type| autosar_data_type_to_pyany(data_type).ok())
     }
 
     /// Set the direction of the argument

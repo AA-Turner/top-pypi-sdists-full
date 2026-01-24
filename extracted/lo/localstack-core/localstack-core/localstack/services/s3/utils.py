@@ -7,6 +7,7 @@ import logging
 import re
 import time
 import zlib
+from collections.abc import Mapping
 from enum import StrEnum
 from secrets import token_bytes
 from typing import Any, Literal, NamedTuple, Protocol
@@ -33,6 +34,7 @@ from localstack.aws.api.s3 import (
     Grantee,
     HeadObjectRequest,
     InvalidArgument,
+    InvalidLocationConstraint,
     InvalidRange,
     InvalidTag,
     LifecycleExpiration,
@@ -56,19 +58,25 @@ from localstack.aws.api.s3 import (
 from localstack.aws.api.s3 import Type as GranteeType
 from localstack.aws.chain import HandlerChain
 from localstack.aws.connect import connect_to
+from localstack.constants import AWS_REGION_EU_WEST_1, AWS_REGION_US_EAST_1
 from localstack.http import Response
 from localstack.services.s3 import checksums
 from localstack.services.s3.constants import (
     ALL_USERS_ACL_GRANTEE,
     AUTHENTICATED_USERS_ACL_GRANTEE,
+    BUCKET_LOCATION_CONSTRAINTS,
     CHECKSUM_ALGORITHMS,
+    EU_WEST_1_LOCATION_CONSTRAINTS,
     LOG_DELIVERY_ACL_GRANTEE,
-    S3_VIRTUAL_HOST_FORWARDED_HEADER,
     SIGNATURE_V2_PARAMS,
     SIGNATURE_V4_PARAMS,
     SYSTEM_METADATA_SETTABLE_HEADERS,
 )
-from localstack.services.s3.exceptions import InvalidRequest, MalformedXML
+from localstack.services.s3.exceptions import (
+    IllegalLocationConstraintException,
+    InvalidRequest,
+    MalformedXML,
+)
 from localstack.utils.aws import arns
 from localstack.utils.aws.arns import parse_arn
 from localstack.utils.objects import singleton_factory
@@ -421,6 +429,7 @@ def get_failed_upload_part_copy_source_preconditions(
     if_none_match = request.get("CopySourceIfNoneMatch")
     if_unmodified_since = request.get("CopySourceIfUnmodifiedSince")
     if_modified_since = request.get("CopySourceIfModifiedSince")
+    last_modified = second_resolution_datetime(last_modified)
 
     if if_match:
         if if_match.strip('"') != etag.strip('"'):
@@ -431,15 +440,15 @@ def get_failed_upload_part_copy_source_preconditions(
         if if_unmodified_since:
             return None
 
-    if if_unmodified_since and if_unmodified_since < last_modified:
+    if if_unmodified_since and second_resolution_datetime(if_unmodified_since) < last_modified:
         return "x-amz-copy-source-If-Unmodified-Since"
 
     if if_none_match and if_none_match.strip('"') == etag.strip('"'):
         return "x-amz-copy-source-If-None-Match"
 
-    if if_modified_since and last_modified < if_modified_since < datetime.datetime.now(
-        tz=_gmt_zone_info
-    ):
+    if if_modified_since and last_modified <= second_resolution_datetime(
+        if_modified_since
+    ) < datetime.datetime.now(tz=_gmt_zone_info):
         return "x-amz-copy-source-If-Modified-Since"
 
 
@@ -522,7 +531,7 @@ def is_valid_canonical_id(canonical_id: str) -> bool:
         return False
 
 
-def uses_host_addressing(headers: dict[str, str]) -> str | None:
+def uses_host_addressing(headers: Mapping[str, str]) -> str | None:
     """
     Determines if the request is targeting S3 with virtual host addressing
     :param headers: the request headers
@@ -549,15 +558,6 @@ def get_system_metadata_from_request(request: dict) -> Metadata:
             metadata[system_metadata_field] = field_value
 
     return metadata
-
-
-def forwarded_from_virtual_host_addressed_request(headers: dict[str, str]) -> bool:
-    """
-    Determines if the request was forwarded from a v-host addressing style into a path one
-    """
-    # we can assume that the host header we are receiving here is actually the header we originally received
-    # from the client (because the edge service is forwarding the request in memory)
-    return S3_VIRTUAL_HOST_FORWARDED_HEADER in headers
 
 
 def extract_bucket_name_and_key_from_headers_and_path(
@@ -710,6 +710,10 @@ def str_to_rfc_1123_datetime(value: str) -> datetime.datetime:
     return datetime.datetime.strptime(value, RFC1123).replace(tzinfo=_gmt_zone_info)
 
 
+def second_resolution_datetime(src: datetime.datetime) -> datetime.datetime:
+    return src.replace(microsecond=0)
+
+
 def add_expiration_days_to_datetime(user_datatime: datetime.datetime, exp_days: int) -> str:
     """
     This adds expiration days to a datetime, rounding to the next day at midnight UTC.
@@ -845,13 +849,20 @@ def parse_tagging_header(tagging_header: TaggingHeader) -> dict:
         )
 
 
-def validate_tag_set(tag_set: TagSet, type_set: Literal["bucket", "object"] = "bucket"):
+def validate_tag_set(
+    tag_set: TagSet, type_set: Literal["bucket", "object", "create-bucket"] = "bucket"
+):
     keys = set()
     for tag in tag_set:
         if set(tag) != {"Key", "Value"}:
             raise MalformedXML()
 
         key = tag["Key"]
+        value = tag["Value"]
+
+        if key is None or value is None:
+            raise MalformedXML()
+
         if key in keys:
             raise InvalidTag(
                 "Cannot provide multiple Tags with the same key",
@@ -861,11 +872,15 @@ def validate_tag_set(tag_set: TagSet, type_set: Literal["bucket", "object"] = "b
         if key.startswith("aws:"):
             if type_set == "bucket":
                 message = "System tags cannot be added/updated by requester"
-            else:
+            elif type_set == "object":
                 message = "Your TagKey cannot be prefixed with aws:"
+            else:
+                message = 'User-defined tag keys can\'t start with "aws:". This prefix is reserved for system tags. Remove "aws:" from your tag keys and try again.'
             raise InvalidTag(
                 message,
-                TagKey=key,
+                # weirdly, AWS does not return the `TagKey` field here, but it does if the TagKey does not match the
+                # regex in the next step
+                TagKey=key if type_set != "create-bucket" else None,
             )
 
         if not TAG_REGEX.match(key):
@@ -873,12 +888,33 @@ def validate_tag_set(tag_set: TagSet, type_set: Literal["bucket", "object"] = "b
                 "The TagKey you have provided is invalid",
                 TagKey=key,
             )
-        elif not TAG_REGEX.match(tag["Value"]):
+        elif not TAG_REGEX.match(value):
             raise InvalidTag(
-                "The TagValue you have provided is invalid", TagKey=key, TagValue=tag["Value"]
+                "The TagValue you have provided is invalid", TagKey=key, TagValue=value
             )
 
         keys.add(key)
+
+
+def validate_location_constraint(context_region: str, location_constraint: str) -> None:
+    if location_constraint:
+        if context_region == AWS_REGION_US_EAST_1:
+            if (
+                not config.ALLOW_NONSTANDARD_REGIONS
+                and location_constraint not in BUCKET_LOCATION_CONSTRAINTS
+            ):
+                raise InvalidLocationConstraint(
+                    "The specified location-constraint is not valid",
+                    LocationConstraint=location_constraint,
+                )
+        elif context_region == AWS_REGION_EU_WEST_1:
+            if location_constraint not in EU_WEST_1_LOCATION_CONSTRAINTS:
+                raise IllegalLocationConstraintException(location_constraint)
+        elif context_region != location_constraint:
+            raise IllegalLocationConstraintException(location_constraint)
+    else:
+        if context_region != AWS_REGION_US_EAST_1:
+            raise IllegalLocationConstraintException("unspecified")
 
 
 def get_unique_key_id(
@@ -917,6 +953,7 @@ def get_failed_precondition_copy_source(
     :param etag: source object ETag
     :return str: the failed precondition to raise
     """
+    last_modified = second_resolution_datetime(last_modified)
     if (cs_if_match := request.get("CopySourceIfMatch")) and etag.strip('"') != cs_if_match.strip(
         '"'
     ):
@@ -924,7 +961,7 @@ def get_failed_precondition_copy_source(
 
     elif (
         cs_if_unmodified_since := request.get("CopySourceIfUnmodifiedSince")
-    ) and last_modified > cs_if_unmodified_since:
+    ) and last_modified > second_resolution_datetime(cs_if_unmodified_since):
         return "x-amz-copy-source-If-Unmodified-Since"
 
     elif (cs_if_none_match := request.get("CopySourceIfNoneMatch")) and etag.strip(
@@ -934,7 +971,9 @@ def get_failed_precondition_copy_source(
 
     elif (
         cs_if_modified_since := request.get("CopySourceIfModifiedSince")
-    ) and last_modified < cs_if_modified_since < datetime.datetime.now(tz=_gmt_zone_info):
+    ) and last_modified <= second_resolution_datetime(cs_if_modified_since) < datetime.datetime.now(
+        tz=_gmt_zone_info
+    ):
         return "x-amz-copy-source-If-Modified-Since"
 
 
@@ -952,13 +991,13 @@ def validate_failed_precondition(
     """
     precondition_failed = None
     # last_modified needs to be rounded to a second so that strict equality can be enforced from a RFC1123 header
-    last_modified = last_modified.replace(microsecond=0)
+    last_modified = second_resolution_datetime(last_modified)
     if (if_match := request.get("IfMatch")) and etag != if_match.strip('"'):
         precondition_failed = "If-Match"
 
     elif (
         if_unmodified_since := request.get("IfUnmodifiedSince")
-    ) and last_modified > if_unmodified_since:
+    ) and last_modified > second_resolution_datetime(if_unmodified_since):
         precondition_failed = "If-Unmodified-Since"
 
     if precondition_failed:
@@ -969,7 +1008,9 @@ def validate_failed_precondition(
 
     if ((if_none_match := request.get("IfNoneMatch")) and etag == if_none_match.strip('"')) or (
         (if_modified_since := request.get("IfModifiedSince"))
-        and last_modified <= if_modified_since < datetime.datetime.now(tz=_gmt_zone_info)
+        and last_modified
+        <= second_resolution_datetime(if_modified_since)
+        < datetime.datetime.now(tz=_gmt_zone_info)
     ):
         raise CommonServiceException(
             message="Not Modified",
@@ -1093,3 +1134,19 @@ def is_version_older_than_other(version_id: str, other: str):
     See `generate_safe_version_id`
     """
     return base64.b64decode(version_id, altchars=b"._") < base64.b64decode(other, altchars=b"._")
+
+
+def get_bucket_location_xml(location_constraint: str) -> str:
+    """
+    Returns the formatted XML for the GetBucketLocation operation.
+
+    :param location_constraint: The location constraint to return in the XML. It can be an empty string when
+    it's not specified in the bucket configuration.
+    :return: The XML response.
+    """
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"'
+        + ("/>" if not location_constraint else f">{location_constraint}</LocationConstraint>")
+    )

@@ -7,7 +7,6 @@ import typing_extensions
 
 from inngest._internal import errors, server_lib, transforms, types
 from inngest._internal.client_lib import models as client_models
-from inngest.experimental import ai
 
 from . import base
 
@@ -19,6 +18,7 @@ if typing.TYPE_CHECKING:
         function,
         middleware_lib,
     )
+    from inngest.experimental import ai
 
 
 class StepSync(base.StepBase):
@@ -28,7 +28,7 @@ class StepSync(base.StepBase):
         exe: execution_lib.BaseExecutionSync,
         middleware: middleware_lib.MiddlewareManager,
         step_id_counter: base.StepIDCounter,
-        target_hashed_id: typing.Optional[str],
+        target_hashed_id: str | None,
     ) -> None:
         super().__init__(
             client,
@@ -45,9 +45,9 @@ class StepSync(base.StepBase):
         step_id: str,
         *,
         function: function.Function[types.T],
-        data: typing.Optional[typing.Mapping[str, object]] = None,
-        timeout: typing.Union[int, datetime.timedelta, None] = None,
-        v: typing.Optional[str] = None,
+        data: typing.Mapping[str, object] | None = None,
+        timeout: int | datetime.timedelta | None = None,
+        v: str | None = None,
     ) -> types.T:
         """
         Invoke an Inngest function with data. Returns the result of the returned
@@ -83,11 +83,11 @@ class StepSync(base.StepBase):
         self,
         step_id: str,
         *,
-        app_id: typing.Optional[str] = None,
+        app_id: str | None = None,
         function_id: str,
-        data: typing.Optional[typing.Mapping[str, object]] = None,
-        timeout: typing.Union[int, datetime.timedelta, None] = None,
-        v: typing.Optional[str] = None,
+        data: typing.Mapping[str, object] | None = None,
+        timeout: int | datetime.timedelta | None = None,
+        v: str | None = None,
     ) -> object:
         """
         Invoke an Inngest function with data. Returns the result of the returned
@@ -136,6 +136,7 @@ class StepSync(base.StepBase):
             name=parsed_step_id.user_facing,
             op=server_lib.Opcode.INVOKE,
             opts=opts,
+            userland=parsed_step_id.userland_info(),
         )
 
         with self._execution.report_step(step_info) as step:
@@ -176,6 +177,7 @@ class StepSync(base.StepBase):
             id=parsed_step_id.hashed,
             name=parsed_step_id.user_facing,
             op=server_lib.Opcode.STEP_RUN,
+            userland=parsed_step_id.userland_info(),
         )
 
         with self._execution.report_step(step_info) as step:
@@ -202,7 +204,14 @@ class StepSync(base.StepBase):
             except Exception as err:
                 transforms.remove_first_traceback_frame(err)
 
-                step_info.op = server_lib.Opcode.STEP_ERROR
+                max_attempts = self._execution._request.ctx.max_attempts
+                if (
+                    max_attempts is not None
+                    and self._execution._request.ctx.attempt + 1 >= max_attempts
+                ):
+                    step_info.op = server_lib.Opcode.STEP_FAILED
+                else:
+                    step_info.op = server_lib.Opcode.STEP_ERROR
 
                 raise base.ResponseInterrupt(
                     base.StepResponse(
@@ -226,7 +235,7 @@ class StepSync(base.StepBase):
     def send_event(
         self,
         step_id: str,
-        events: typing.Union[server_lib.Event, list[server_lib.Event]],
+        events: server_lib.Event | list[server_lib.Event],
     ) -> list[str]:
         """
         Send an event or list of events.
@@ -248,7 +257,7 @@ class StepSync(base.StepBase):
                 raise middleware_err
 
             # Need to initialize `result` because of the `finally` block.
-            result: typing.Optional[client_models.SendEventsResult] = None
+            result: client_models.SendEventsResult | None = None
 
             try:
                 result = client_models.SendEventsResult(
@@ -289,7 +298,7 @@ class StepSync(base.StepBase):
     def sleep(
         self,
         step_id: str,
-        duration: typing.Union[int, datetime.timedelta],
+        duration: int | datetime.timedelta,
     ) -> None:
         """
         Sleep for a duration.
@@ -329,6 +338,7 @@ class StepSync(base.StepBase):
             id=parsed_step_id.hashed,
             name=transforms.to_iso_utc(until),
             op=server_lib.Opcode.SLEEP,
+            userland=parsed_step_id.userland_info(),
         )
 
         with self._execution.report_step(step_info) as step:
@@ -346,9 +356,9 @@ class StepSync(base.StepBase):
         step_id: str,
         *,
         event: str,
-        if_exp: typing.Optional[str] = None,
-        timeout: typing.Union[int, datetime.timedelta],
-    ) -> typing.Optional[server_lib.Event]:
+        if_exp: str | None = None,
+        timeout: int | datetime.timedelta,
+    ) -> server_lib.Event | None:
         """
         Wait for an event to be sent.
 
@@ -379,6 +389,7 @@ class StepSync(base.StepBase):
             name=event,
             op=server_lib.Opcode.WAIT_FOR_EVENT,
             opts=opts,
+            userland=parsed_step_id.userland_info(),
         )
 
         with self._execution.report_step(step_info) as step:
@@ -441,6 +452,7 @@ class AI:
             name=parsed_step_id.user_facing,
             op=server_lib.Opcode.AI_GATEWAY,
             opts=opts,
+            userland=parsed_step_id.userland_info(),
         )
 
         with self._step._execution.report_step(step_info) as step:

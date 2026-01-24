@@ -61,7 +61,8 @@ def tag(name, *args, **kwargs):
     head = "<" + name
     for k in sorted(kwargs):
         v = kwargs[k]
-        head += f' {k}="{v}"'
+        if v is not None:
+            head += f' {k}="{v}"'
     head += ">"
     tail = "</%s>" % name
     if len(args) == 0:
@@ -175,16 +176,48 @@ def params(mps):
             v, e = pdg_format(mp.value, mp.error)
             mem = ""
             mep = ""
+
+        name_style = None
+        limit_lower_style = None
+        limit_upper_style = None
+
+        # Check Hesse error against limits
+        if mp.error is not None:
+            if mp.lower_limit is not None and (mp.value - mp.error) < mp.lower_limit:
+                name_style = warn_style
+                limit_lower_style = warn_style
+            if mp.upper_limit is not None and (mp.value + mp.error) > mp.upper_limit:
+                name_style = warn_style
+                limit_upper_style = warn_style
+
+        if me:  # me is a tuple
+            me_lower, me_upper = me
+            # Check if Minos lower error goes below the parameter's lower limit
+            if mp.lower_limit is not None and (mp.value + me_lower) < mp.lower_limit:
+                name_style = warn_style
+                limit_lower_style = warn_style
+
+            # Check if Minos upper error goes above the parameter's upper limit
+            if mp.upper_limit is not None and (mp.value + me_upper) > mp.upper_limit:
+                name_style = warn_style
+                limit_upper_style = warn_style
+
         rows.append(
             tr(
                 th(str(i)),
-                td(_parse_latex(mp.name)),
+                td(_parse_latex(mp.name), style=name_style),
                 td(v),
-                td(e),
-                td(mem),
-                td(mep),
-                td("%.3G" % mp.lower_limit if mp.lower_limit is not None else ""),
-                td("%.3G" % mp.upper_limit if mp.upper_limit is not None else ""),
+                td(e),  # Hesse error - no style from limits
+                td(mem),  # Minos Error- - no style from limits
+                td(mep),  # Minos Error+ - no style from limits
+                td(
+                    "%.3G" % mp.lower_limit if mp.lower_limit is not None else "",
+                    style=limit_lower_style,
+                ),
+                td(
+                    "%.3G" % mp.upper_limit if mp.upper_limit is not None else "",
+                    style=limit_upper_style,
+                ),
                 td("yes" if mp.is_fixed else ("CONST" if mp.is_const else "")),
             )
         )

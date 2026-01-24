@@ -25,6 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import tzinfo
 from inspect import cleandoc
 
 # Disable logging for a cleaner testing output
@@ -1684,7 +1685,6 @@ def test_is_call_sign_no():
     assert utils.parse.is_call_sign(42) is False
 
     # To short or 2 long
-    assert utils.parse.is_call_sign("DF1AB") is False
     assert utils.parse.is_call_sign("DF1ABCX") is False
     assert utils.parse.is_call_sign("DF1ABCEFG") is False
     assert utils.parse.is_call_sign("1ABCX") is False
@@ -1692,6 +1692,36 @@ def test_is_call_sign_no():
     assert utils.parse.is_call_sign("XXXXXX") is False
 
     # Some valid checks
+    # 1x2
+    result = utils.parse.is_call_sign("A0AF")
+    assert isinstance(result, dict)
+    assert result["callsign"] == "A0AF"
+    assert result["ssid"] == ""
+
+    # 2x1
+    result = utils.parse.is_call_sign("AA0A")
+    assert isinstance(result, dict)
+    assert result["callsign"] == "AA0A"
+    assert result["ssid"] == ""
+
+    # 2x2
+    result = utils.parse.is_call_sign("AA0AF")
+    assert isinstance(result, dict)
+    assert result["callsign"] == "AA0AF"
+    assert result["ssid"] == ""
+
+    result = utils.parse.is_call_sign("AA0AF-23")
+    assert isinstance(result, dict)
+    assert result["callsign"] == "AA0AF"
+    assert result["ssid"] == "23"
+
+    # 1x3
+    result = utils.parse.is_call_sign("K0ACL")
+    assert isinstance(result, dict)
+    assert result["callsign"] == "K0ACL"
+    assert result["ssid"] == ""
+
+    # 2x3
     result = utils.parse.is_call_sign("DF1ABC")
     assert isinstance(result, dict)
     assert result["callsign"] == "DF1ABC"
@@ -1700,7 +1730,7 @@ def test_is_call_sign_no():
     # Get our SSID
     result = utils.parse.is_call_sign("DF1ABC-14")
     assert result["callsign"] == "DF1ABC"
-    assert result["ssid"] == "-14"
+    assert result["ssid"] == "14"
 
 
 def test_is_phone_no():
@@ -1856,6 +1886,12 @@ def test_parse_call_sign():
     assert len(results) == 2
     assert "0A1DEF" in results
     assert "DF1ABC" in results
+
+    results = utils.parse.parse_call_sign("AA0A, A0AF-12, GARBAGE")
+    assert isinstance(results, list)
+    assert len(results) == 2
+    assert "AA0A" in results
+    assert "A0AF-12" in results
 
 
 def test_parse_phone_no():
@@ -3233,3 +3269,46 @@ def test_bytes_to_str():
     # Support strings too
     assert utils.disk.bytes_to_str("0") == "0.00B"
     assert utils.disk.bytes_to_str("1024") == "1.00KB"
+
+
+def test_time_zoneinfo():
+    """utils: zoneinfo() testing"""
+
+    # Some valid strings
+    assert isinstance(utils.time.zoneinfo("UTC"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("z"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("gmt"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("utc"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("Toronto"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("America/Toronto"), tzinfo)
+    assert isinstance(utils.time.zoneinfo("america/toronto"), tzinfo)
+
+    # Edge Case with time also supported:
+    tz = utils.time.zoneinfo("America/Argentina/Cordoba")
+    isinstance(tz, tzinfo)
+    assert isinstance(utils.time.zoneinfo("Argentina/Cordoba"), tzinfo)
+    assert utils.time.zoneinfo("Argentina/Cordoba").key == tz.key
+    # "America/Cordoba" has been obsoleted by IANA in facor of
+    #  "America/Argentina/Cordoba", however the IANA database
+    #  instance used is system-dependent, so these tests have
+    #  different results depending on the system running them
+    if utils.time.zoneinfo("Cordoba") is not None:
+        # the system has the obsolete "America/Cordoba" entry
+        assert isinstance(utils.time.zoneinfo("Cordoba"), tzinfo)
+        assert utils.time.zoneinfo("Cordoba").key == "America/Cordoba"
+    else:
+        assert utils.time.zoneinfo("Cordoba") is None
+        # the utils helper should still resolve this abbreviated (and
+        #  lowercase) form
+        assert utils.time.zoneinfo("argentina/cordoba").key == \
+            "America/Argentina/Cordoba"
+
+    # Too ambiguous
+    assert utils.time.zoneinfo("Argentina") is None
+
+    # bad data
+    assert utils.time.zoneinfo(object) is None
+    assert utils.time.zoneinfo(None) is None
+    assert utils.time.zoneinfo(1) is None
+    assert utils.time.zoneinfo("") is None
+    assert utils.time.zoneinfo("invalid") is None

@@ -1,0 +1,24 @@
+dist: xenial
+sudo: false
+branches:
+  only:
+    - master
+language: python
+python:
+  - 2.7
+  - 3.4
+  - 3.5
+  - 3.6
+  - 3.7
+install: travis_retry pip install tox-travis
+script: tox
+notifications:
+  email: false
+  irc:
+    channels:
+      - "chat.freenode.net#aspen"
+    on_success: change
+    on_failure: always
+    template:
+      - "%{repository} (%{branch}:%{commit} by %{author}): %{message} (%{build_url})"
+    skip_join: true

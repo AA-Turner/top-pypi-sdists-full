@@ -10,9 +10,9 @@ import contextlib
 import json
 import threading
 import time
+import typing as t
 from asyncio import sleep as aiosleep
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Iterator
-from typing import Any, TypeAlias
 
 import pytest
 from uvicorn import _types as uvt
@@ -21,13 +21,13 @@ from uvicorn.server import Server
 
 import ry
 
-Receive: TypeAlias = Callable[[], Awaitable[dict[str, Any]]]
-Send: TypeAlias = Callable[[uvt.ASGISendEvent], Coroutine[None, None, None]]
-Scope: TypeAlias = dict[str, Any]
+Receive: t.TypeAlias = t.Callable[[], Awaitable[dict[str, t.Any]]]
+Send: t.TypeAlias = t.Callable[[uvt.ASGISendEvent], Coroutine[None, None, None]]
+Scope: t.TypeAlias = dict[str, t.Any]
 
 
 async def echo(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     body = b""
     more_body = True
@@ -35,30 +35,33 @@ async def echo(
         message = await receive()
         body += message.get("body", b"")
         more_body = message.get("more_body", False)
-
-    yield uvt.HTTPResponseStartEvent(
-        type="http.response.start",
-        status=200,
-        headers=[(b"content-type", b"application/json")],
-    )
     data_body_dict = {
         "method": scope["method"],
         "path": scope["path"],
         "query_string": scope["query_string"].decode(),
-        "headers": {
-            name.decode(): value.decode() for name, value in scope.get("headers", [])
-        },
+        "headers": {k.decode(): v.decode() for k, v in scope["headers"]},
         "body": body.decode(),
     }
+    body = json.dumps(data_body_dict).encode()
+
+    yield uvt.HTTPResponseStartEvent(
+        type="http.response.start",
+        status=200,
+        headers=[
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body)).encode()),
+            (b"x-request-method", scope["method"].encode()),
+        ],
+    )
     yield uvt.HTTPResponseBodyEvent(
         type="http.response.body",
-        body=json.dumps(data_body_dict).encode(),
+        body=body,
         more_body=False,
     )
 
 
 async def cookie_monster(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     """Route for testing cookies
 
@@ -88,7 +91,7 @@ async def cookie_monster(
 
 
 async def four_oh_four(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     yield uvt.HTTPResponseStartEvent(
         type="http.response.start",
@@ -103,7 +106,7 @@ async def four_oh_four(
 
 
 async def five_hundred(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     yield uvt.HTTPResponseStartEvent(
         type="http.response.start",
@@ -118,21 +121,28 @@ async def five_hundred(
 
 
 async def howdy(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
+    body = b'{"howdy": "partner"}'
     yield uvt.HTTPResponseStartEvent(
         type="http.response.start",
         status=200,
-        headers=[(b"content-type", b"application/json")],
+        headers=[
+            (
+                b"content-type",
+                b"application/json",
+            ),
+            (b"content-length", str(len(body)).encode()),
+        ],
     )
     yield uvt.HTTPResponseBodyEvent(
         type="http.response.body",
-        body=b'{"howdy": "partner"}',
+        body=body,
     )
 
 
 async def slow_response(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     yield uvt.HTTPResponseStartEvent(
         type="http.response.start",
@@ -156,7 +166,7 @@ async def slow_response(
 
 
 async def loooooooong_response(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     yield uvt.HTTPResponseStartEvent(
         type="http.response.start",
@@ -178,7 +188,7 @@ async def loooooooong_response(
 
 
 async def upload_file(
-    scope: Scope, receive: Receive, send: Send
+    scope: uvt.HTTPScope, receive: Receive, send: Send
 ) -> AsyncGenerator[uvt.ASGISendEvent]:
     assert scope["method"] == "POST"
     headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
@@ -219,28 +229,45 @@ async def upload_file(
     )
 
 
+async def broken_json(
+    scope: uvt.HTTPScope, receive: Receive, send: Send
+) -> AsyncGenerator[uvt.ASGISendEvent]:
+    yield uvt.HTTPResponseStartEvent(
+        type="http.response.start",
+        status=200,
+        headers=[(b"content-type", b"application/json")],
+    )
+    broken_json = b'{"dog":"dingo","is-dingo":true,"bluey-fam-size":4,"fraction-red-heelers":0.5,"activities":["screwing up the garden","barking at strangers for existing","'
+    yield uvt.HTTPResponseBodyEvent(
+        type="http.response.body",
+        body=broken_json,
+        more_body=False,
+    )
+
+
 def router(
-    scope: Scope, receive: Receive, send: Send
-) -> Callable[[Scope, Receive, Send], AsyncGenerator[uvt.ASGISendEvent]]:
+    scope: uvt.HTTPScope, receive: Receive, send: Send
+) -> Callable[[uvt.HTTPScope, Receive, Send], AsyncGenerator[uvt.ASGISendEvent]]:
     if scope["path"].startswith("/echo"):
         return echo
-    elif scope["path"].startswith("/howdy"):
+    if scope["path"].startswith("/howdy"):
         return howdy
-    elif scope["path"].startswith("/500") or scope["path"].startswith("/five-hundred"):
+    if scope["path"].startswith("/500") or scope["path"].startswith("/five-hundred"):
         return five_hundred
-    elif scope["path"].startswith("/long"):
+    if scope["path"].startswith("/long"):
         return loooooooong_response
-    elif scope["path"].startswith("/slow"):
+    if scope["path"].startswith("/slow"):
         return slow_response
-    elif scope["path"].startswith("/upload"):
+    if scope["path"].startswith("/upload"):
         return upload_file
-    elif scope["path"].startswith("/cookie"):
+    if scope["path"].startswith("/cookie"):
         return cookie_monster
-    else:
-        return four_oh_four
+    if scope["path"].startswith("/broken-json"):
+        return broken_json
+    return four_oh_four
 
 
-async def reqtest_server(scope: Scope, receive: Receive, send: Send) -> None:
+async def reqtest_server(scope: uvt.HTTPScope, receive: Receive, send: Send) -> None:
     assert scope["type"] == "http"
     handler = router(scope, receive, send)
     async for message in handler(scope, receive, send):
@@ -258,7 +285,7 @@ class ReqtestServer(Server):
         # because it can only be done in the main thread.
         ...  # pragma: nocover
 
-    async def serve(self, sockets: Any = None) -> None:
+    async def serve(self, sockets: t.Any = None) -> None:
         self.restart_requested = asyncio.Event()
 
         loop = asyncio.get_event_loop()
@@ -269,14 +296,16 @@ class ReqtestServer(Server):
         await asyncio.wait(tasks)
 
     async def restart(self) -> None:  # pragma: no cover
+        # I am not sure where I found this fix, but I believe it was the httpx repo?
+        # ------
         # This coroutine may be called from a different thread than the one the
         # server is running on, and from an async environment that's not asyncio.
-        # For this reason, we use an event to coordinate with the server
-        # instead of calling shutdown()/startup() directly, and should not make
+        # For this reason, an event is used to coordinate with the server
+        # instead of calling shutdown()/startup(), and should not make
         # any asyncio-specific operations.
         self.started = False
         self.restart_requested.set()
-        while not self.started:
+        while not self.started:  # noqa: ASYNC110
             await aiosleep(0.2)
 
     async def watch_restarts(self) -> None:  # pragma: no cover
@@ -312,7 +341,7 @@ def server() -> Iterator[ReqtestServer]:
     cfg = Config(
         app=reqtest_server,
         host="127.0.0.1",
-        port=0,  # ← ask OS for a free port
+        port=0,
         lifespan="off",
         loop="asyncio",
     )
@@ -321,3 +350,29 @@ def server() -> Iterator[ReqtestServer]:
         bound_port = running.servers[0].sockets[0].getsockname()[1]
         running.config.port = bound_port  # make .url work
         yield running
+
+
+@pytest.fixture(params=[ry.HttpClient, ry.Client, ry.BlockingClient])
+def client_cls(
+    request: pytest.FixtureRequest,
+) -> type[ry.HttpClient | ry.Client | ry.BlockingClient]:
+    return t.cast("type[ry.HttpClient | ry.Client | ry.BlockingClient]", request.param)
+
+
+def _main() -> None:
+    import sys
+
+    cfg = Config(
+        app=reqtest_server,
+        host="127.0.0.1",
+        port=8000,
+        lifespan="off",
+        loop="asyncio",
+    )
+    srv = ReqtestServer(config=cfg)
+    sys.stdout.write(f"Server running at {srv.url}")
+    srv.run()
+
+
+if __name__ == "__main__":
+    _main()

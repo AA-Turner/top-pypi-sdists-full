@@ -196,8 +196,8 @@ class InvertibleModule(torch.nn.Module):
 class GroupAddRev(InvertibleModule):
     r"""The Grouped Reversible GNN module from the `"Graph Neural Networks with
     1000 Layers" <https://arxiv.org/abs/2106.07476>`_ paper.
-    This module enables training of arbitary deep GNNs with a memory complexity
-    independent of the number of layers.
+    This module enables training of arbitrary deep GNNs with a memory
+    complexity independent of the number of layers.
 
     It does so by partitioning input node features :math:`\mathbf{X}` into
     :math:`C` groups across the feature dimension. Then, a grouped reversible
@@ -249,7 +249,7 @@ class GroupAddRev(InvertibleModule):
         else:
             assert num_groups is not None, "Please specific 'num_groups'"
             self.convs = torch.nn.ModuleList([conv])
-            for i in range(num_groups - 1):
+            for _ in range(num_groups - 1):
                 conv = copy.deepcopy(self.convs[0])
                 if hasattr(conv, 'reset_parameters'):
                     conv.reset_parameters()

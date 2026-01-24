@@ -1,4 +1,4 @@
-# Copyright 2018-2025 Michael Samoglyadov
+# Copyright 2018-2026 Michael Samoglyadov
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import nested_diff.handlers
 
 __all__ = ['Differ', 'Iterator', 'Patcher', 'diff', 'patch']
 
-__version__ = '1.8.0'
+__version__ = '1.10.0'
 __author__ = 'Michael Samoglyadov'
 __license__ = 'Apache License, Version 2.0'
 __website__ = 'https://github.com/mr-mixas/Nested-Diff.py'
@@ -100,6 +100,7 @@ class Differ:
 
     def __init__(  # noqa: PLR0913
         self,
+        *,
         A=True,  # noqa: N803
         N=True,  # noqa: N803
         O=True,  # noqa: E741 N803
@@ -253,7 +254,7 @@ class Iterator:
 
     default_iterator = DEFAULT_HANDLER.iterate_diff
 
-    def __init__(self, handlers=None, sort_keys=False):
+    def __init__(self, *, handlers=None, sort_keys=False):
         """Initialize iterator.
 
         Args:

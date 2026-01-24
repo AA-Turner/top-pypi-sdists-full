@@ -1,19 +1,17 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import json
-import os
-from typing import TYPE_CHECKING, Generator
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, cast
 
-from requests import Response
-
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.metanames import PkgExtnMetaNames
 from ibm_watsonx_ai.utils import PKG_EXTN_DETAILS_TYPE, content_type_for
+from ibm_watsonx_ai.utils.utils import AsyncFileReader
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     ResourceIdByNameNotFound,
@@ -36,6 +34,40 @@ class PkgExtn(WMLResource):
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
 
+    def _get_required_element_from_response(self, response_data: dict) -> dict:
+        WMLResource._validate_type(response_data, "pkg_extn_response", dict)
+
+        if self._client.default_space_id is not None:
+            new_el = {
+                "metadata": {
+                    "space_id": response_data["metadata"]["space_id"],
+                    "name": response_data["metadata"]["name"],
+                    "asset_id": response_data["metadata"]["asset_id"],
+                    "asset_type": response_data["metadata"]["asset_type"],
+                    "created_at": response_data["metadata"]["created_at"],
+                },
+                "entity": response_data["entity"],
+            }
+        elif self._client.default_project_id is not None:
+            new_el = {
+                "metadata": {
+                    "project_id": response_data["metadata"]["project_id"],
+                    "name": response_data["metadata"]["name"],
+                    "asset_id": response_data["metadata"]["asset_id"],
+                    "asset_type": response_data["metadata"]["asset_type"],
+                    "created_at": response_data["metadata"]["created_at"],
+                },
+                "entity": response_data["entity"],
+            }
+        else:
+            raise ValueError("WML client should have set default project or space id.")
+
+        if "href" in response_data["metadata"]:
+            href_without_host = response_data["metadata"]["href"].split(".com")[-1]
+            new_el["metadata"].update({"href": href_without_host})
+
+        return new_el
+
     def get_details(self, pkg_extn_id: str) -> dict:
         """Get package extensions details.
 
@@ -54,20 +86,147 @@ class PkgExtn(WMLResource):
         """
         PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
 
-        response = requests.get(
-            self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
+        response_data = self._handle_response(
+            200, "get package extension details", response
+        )
         if response.status_code == 200:
-            return self._get_required_element_from_response(
-                self._handle_response(200, "get hw spec details", response)
-            )
+            return self._get_required_element_from_response(response_data)
         else:
-            return self._handle_response(200, "get hw spec details", response)
+            return response_data
 
-    def store(self, meta_props: dict, file_path: str) -> dict:
+    async def aget_details(self, pkg_extn_id: str) -> dict:
+        """Get package extensions details asynchronously.
+
+        :param pkg_extn_id: unique ID of the package extension
+        :type pkg_extn_id: str
+
+        :return: details of the package extension
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            pkg_extn_details = await client.pkg_extn.aget_details(pkg_extn_id)
+
+        """
+        PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+
+        response = await self._client.async_httpx_client.get(
+            url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
+            params=self._client._params(),
+            headers=await self._client._aget_headers(),
+        )
+
+        response_data = self._handle_response(
+            200, "get package extension details", response
+        )
+        if response.status_code == 200:
+            return self._get_required_element_from_response(response_data)
+        else:
+            return response_data
+
+    def _create_pkg_extn_asset(self, pkg_extn_metadata: dict) -> dict:
+        print("Creating package extension")
+
+        pkg_extn_meta_json = json.dumps(pkg_extn_metadata)
+
+        response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_pkg_extns_href(),
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+            content=pkg_extn_meta_json,
+        )
+        if response.status_code != 201:
+            raise WMLClientError(
+                "Failed while creating package extension", response.text
+            )
+
+        pkg_extn_details = self._handle_response(
+            201, "creating new package extension", response
+        )
+
+        return pkg_extn_details
+
+    def _upload_pkg_extn_file(self, file_path: Path, pkg_extn_details: dict) -> None:
+        pkg_extn_asset_id = self.get_id(pkg_extn_details)
+        pkg_extn_presigned_url = self.get_href(pkg_extn_details)
+
+        if self._client.ICP_PLATFORM_SPACES:
+            pkg_extn_presigned_url = (
+                self._client.credentials.url + pkg_extn_presigned_url  # type: ignore
+            )
+
+        try:
+            if file_path.stat().st_size == 0:
+                raise WMLClientError("Package extension file cannot be empty")
+
+            with file_path.open("rb") as file_object:
+                if self._client.CLOUD_PLATFORM_SPACES:
+                    content_type = content_type_for(filepath=file_path)
+                    response = self._client.httpx_client.put(
+                        url=pkg_extn_presigned_url,
+                        content=file_object,
+                        headers={"Content-Type": content_type},
+                    )
+                else:
+                    response = self._client.httpx_client.put(
+                        url=pkg_extn_presigned_url,
+                        files={
+                            "file": (
+                                str(file_path),
+                                file_object,
+                                "application/octet-stream",
+                            )
+                        },
+                    )
+        except Exception as e:
+            deletion_response = self._client.httpx_client.delete(
+                url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_asset_id),
+                params=self._client._params(),
+                headers=self._client._get_headers(),
+            )
+            print(deletion_response.status_code)
+            raise WMLClientError("Failed while reading a file.", str(e))
+
+        if response.status_code in (200, 201):
+            return
+
+        try:
+            self.delete(pkg_extn_asset_id)
+        except Exception:
+            pass
+
+        raise WMLClientError("Failed while creating package extension", response.text)
+
+    def _mark_upload_as_complete(self, pkg_extn_details: dict) -> dict:
+        pkg_extn_asset_id = pkg_extn_details["metadata"]["asset_id"]
+
+        response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_pkg_extn_upload_complete_href(
+                pkg_extn_asset_id
+            ),
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+        )
+        if response.status_code == 204:
+            print("SUCCESS")
+            return self._get_required_element_from_response(pkg_extn_details)
+
+        try:
+            self.delete(pkg_extn_asset_id)
+        except Exception:
+            pass
+
+        raise WMLClientError("Failed while creating package extension", response.text)
+
+    def store(self, meta_props: dict, file_path: str | Path) -> dict:
         """Create a package extension.
 
         :param meta_props: metadata of the package extension. To see available meta names, use:
@@ -91,163 +250,176 @@ class PkgExtn(WMLResource):
             meta_props = {
                 client.package_extensions.ConfigurationMetaNames.NAME: "skl_pipeline_heart_problem_prediction",
                 client.package_extensions.ConfigurationMetaNames.DESCRIPTION: "description scikit-learn_0.20",
-                client.package_extensions.ConfigurationMetaNames.TYPE: "conda_yml"
+                client.package_extensions.ConfigurationMetaNames.TYPE: "conda_yml",
             }
 
-            pkg_extn_details = client.package_extensions.store(meta_props=meta_props, file_path="/path/to/file")
+            pkg_extn_details = client.package_extensions.store(
+                meta_props=meta_props, file_path="/path/to/file"
+            )
 
         """
         # quick support for COS credentials instead of local path
         # TODO add error handling and cleaning (remove the file)
         PkgExtn._validate_type(meta_props, "meta_props", dict, True)
+        PkgExtn._validate_type(file_path, "file_path", [str, Path], True, True)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         pkg_extn_meta = self.ConfigurationMetaNames._generate_resource_metadata(
             meta_props, with_validation=True, client=self._client
         )
 
-        pkg_extn_meta_json = json.dumps(pkg_extn_meta)
+        pkg_extn_details = self._create_pkg_extn_asset(pkg_extn_meta)
 
-        PkgExtn._validate_type(file_path, "file_path", str, True)
-        # Step1  : Create an asset
-        print("Creating package extensions")
-        href = self._client._href_definitions.get_pkg_extns_href()
+        self._upload_pkg_extn_file(file_path, pkg_extn_details)
 
-        creation_response = requests.post(
-            href,
+        return self._mark_upload_as_complete(pkg_extn_details)
+
+    async def _acreate_pkg_extn_asset(self, pkg_extn_metadata: dict) -> dict:
+        print("Creating package extension")
+
+        pkg_extn_meta_json = json.dumps(pkg_extn_metadata)
+
+        response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_pkg_extns_href(),
             params=self._client._params(),
-            headers=self._client._get_headers(),
-            data=pkg_extn_meta_json,
+            headers=await self._client._aget_headers(),
+            content=pkg_extn_meta_json,
         )
+
+        if response.status_code != 201:
+            raise WMLClientError(
+                "Failed while creating package extension", response.text
+            )
 
         pkg_extn_details = self._handle_response(
-            201, "creating new package_extensions", creation_response
+            201, "creating new package extension", response
         )
 
-        # Step2: upload pkg extension file to presigned url
-        if creation_response.status_code == 201:
-            pkg_extn_asset_id = pkg_extn_details["metadata"]["asset_id"]
-            pkg_extn_presigned_url = pkg_extn_details["entity"]["package_extension"][
-                "href"
-            ]
+        return pkg_extn_details
 
-            FILE_SIZE_LIMIT = int(0.3 * 1073741824)
+    async def _aupload_pkg_extn_file(
+        self, file_path: Path, pkg_extn_details: dict
+    ) -> None:
+        pkg_extn_asset_id = self.get_id(pkg_extn_details)
+        pkg_extn_presigned_url = self.get_href(pkg_extn_details)
 
-            def read_in_chunks(
-                chunk_size: int | None = FILE_SIZE_LIMIT,
-            ) -> Generator[bytes, None, None]:
-                with open(file_path, "rb") as file_object:
-                    while True:
-                        data = file_object.read(chunk_size)
-                        if not data:
-                            break
-                        yield data
-
-            def send_multipart_request(file: str, url: str) -> Response:
-                content_path = os.path.abspath(file)
-                content_size = os.stat(content_path).st_size
-
-                index = 0
-                headers = {}
-
-                try:
-                    for chunk in read_in_chunks(FILE_SIZE_LIMIT):
-                        offset = index + len(chunk)
-                        headers["Content-Range"] = "bytes %s-%s/%s" % (
-                            index,
-                            offset - 1,
-                            content_size,
-                        )
-                        index = offset
-
-                        response = requests.put(
-                            url,
-                            files={"file": (file, chunk, "application/octet-stream")},
-                        )
-                except Exception as e:
-                    deletion_response = requests.delete(
-                        self._client._href_definitions.get_pkg_extn_href(
-                            pkg_extn_asset_id
-                        ),
-                        params=self._client._params(),
-                        headers=self._client._get_headers(),
-                    )
-                    print(deletion_response.status_code)
-                    raise WMLClientError("Failed while reading a file.", e)
-
-                return response
-
-            # chunking, when finally it will work on service side. to confirm it's working, the downloaded file needs to be the same as 400MB+ upladed file
-            #
-            # put_response = send_multipart_request(file_path,
-            #   (self._client.service_instance._wml_credentials.url if self._client.ICP_PLATFORM_SPACES else "") + pkg_extn_presigned_url)
-
-            href = (
-                self._client.credentials.url if self._client.ICP_PLATFORM_SPACES else ""
-            ) + pkg_extn_presigned_url
-
-            try:
-                if os.stat(file_path).st_size == 0:
-                    raise WMLClientError("Package extension file cannot be empty")
-
-                with open(file_path, "rb") as file_object:
-                    if not self._client.ICP_PLATFORM_SPACES:
-                        content_type = content_type_for(filepath=file_path)
-                        put_response = requests.put(
-                            href,
-                            data=file_object.read(),
-                            headers={"Content-Type": content_type},
-                        )
-                    else:
-                        put_response = requests.put(
-                            href,
-                            files={
-                                "file": (
-                                    file_path,
-                                    file_object.read(),
-                                    "application/octet-stream",
-                                )
-                            },
-                        )
-            except Exception as e:
-                deletion_response = requests.delete(
-                    self._client._href_definitions.get_pkg_extn_href(pkg_extn_asset_id),
-                    params=self._client._params(),
-                    headers=self._client._get_headers(),
-                )
-                print(deletion_response.status_code)
-                raise WMLClientError("Failed while reading a file.", e)
-
-            if put_response.status_code == 201 or put_response.status_code == 200:
-                # Step3: Mark the upload complete
-                complete_response = requests.post(
-                    self._client._href_definitions.get_pkg_extn_href(pkg_extn_asset_id)
-                    + "/upload_complete",
-                    headers=self._client._get_headers(),
-                    params=self._client._params(),
-                )
-                if complete_response.status_code == 204:
-                    print("SUCCESS")
-                    return self._get_required_element_from_response(pkg_extn_details)
-                else:
-                    try:
-                        self.delete(pkg_extn_asset_id)
-                    except Exception:
-                        pass
-                    raise WMLClientError(
-                        "Failed while creating a package extensions "
-                        + complete_response.text
-                    )
-            else:
-                try:
-                    self.delete(pkg_extn_asset_id)
-                except Exception:
-                    pass
-                raise WMLClientError(
-                    "Failed while creating a package extensions " + put_response.text
-                )
-        else:
-            raise WMLClientError(
-                "Failed while creating a package extensions " + creation_response.text
+        if self._client.ICP_PLATFORM_SPACES:
+            pkg_extn_presigned_url = (
+                self._client.credentials.url + pkg_extn_presigned_url  # type: ignore
             )
+
+        try:
+            if file_path.stat().st_size == 0:
+                raise WMLClientError("Package extension file cannot be empty")
+
+            if self._client.CLOUD_PLATFORM_SPACES:
+                content_type = content_type_for(filepath=file_path)
+                response = await self._client.async_httpx_client.put(
+                    url=pkg_extn_presigned_url,
+                    content=AsyncFileReader(file_path),
+                    headers={"Content-Type": content_type},
+                )
+            else:
+                with file_path.open("rb") as file_object:
+                    response = await self._client.async_httpx_client.put(
+                        url=pkg_extn_presigned_url,
+                        files={
+                            "file": (
+                                str(file_path),
+                                file_object,
+                                "application/octet-stream",
+                            )
+                        },
+                    )
+        except Exception as e:
+            deletion_response = await self._client.async_httpx_client.delete(
+                url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_asset_id),
+                params=self._client._params(),
+                headers=await self._client._aget_headers(),
+            )
+            print(deletion_response.status_code)
+            raise WMLClientError("Failed while reading a file.", str(e))
+
+        if response.status_code in (200, 201):
+            return
+
+        try:
+            await self.adelete(pkg_extn_asset_id)
+        except Exception:
+            pass
+
+        raise WMLClientError("Failed while creating package extension", response.text)
+
+    async def _amark_upload_as_complete(self, pkg_extn_details: dict) -> dict:
+        pkg_extn_asset_id = self.get_id(pkg_extn_details)
+
+        response = await self._client.async_httpx_client.post(
+            url=self._client._href_definitions.get_pkg_extn_upload_complete_href(
+                pkg_extn_asset_id
+            ),
+            params=self._client._params(),
+            headers=await self._client._aget_headers(),
+        )
+        if response.status_code == 204:
+            print("SUCCESS")
+            return self._get_required_element_from_response(pkg_extn_details)
+
+        try:
+            await self.adelete(pkg_extn_asset_id)
+        except Exception:
+            pass
+
+        raise WMLClientError("Failed while creating package extension", response.text)
+
+    async def astore(self, meta_props: dict, file_path: str | Path) -> dict:
+        """Create a package extension asynchronously.
+
+        :param meta_props: metadata of the package extension. To see available meta names, use:
+
+            .. code-block:: python
+
+                client.package_extensions.ConfigurationMetaNames.get()
+
+        :type meta_props: dict
+
+        :param file_path: path to the file to be uploaded as a package extension
+        :type file_path: str | Path
+
+        :return: metadata of the package extension
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            meta_props = {
+                client.package_extensions.ConfigurationMetaNames.NAME: "skl_pipeline_heart_problem_prediction",
+                client.package_extensions.ConfigurationMetaNames.DESCRIPTION: "description scikit-learn_0.20",
+                client.package_extensions.ConfigurationMetaNames.TYPE: "conda_yml",
+            }
+
+            pkg_extn_details = await client.package_extensions.astore(
+                meta_props=meta_props, file_path="/path/to/file"
+            )
+
+        """
+        # quick support for COS credentials instead of local path
+        # TODO add error handling and cleaning (remove the file)
+        PkgExtn._validate_type(meta_props, "meta_props", dict, True)
+        PkgExtn._validate_type(file_path, "file_path", [str, Path], True, True)
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
+        pkg_extn_meta = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props, with_validation=True, client=self._client
+        )
+
+        pkg_extn_details = await self._acreate_pkg_extn_asset(pkg_extn_meta)
+
+        await self._aupload_pkg_extn_file(file_path, pkg_extn_details)
+
+        return await self._amark_upload_as_complete(pkg_extn_details)
 
     def list(self) -> DataFrame:
         """List the package extensions in a table format.
@@ -261,10 +433,10 @@ class PkgExtn(WMLResource):
 
         """
 
-        href = self._client._href_definitions.get_pkg_extns_href()
-
-        response = requests.get(
-            href, params=self._client._params(), headers=self._client._get_headers()
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_pkg_extns_href(),
+            params=self._client._params(),
+            headers=self._client._get_headers(),
         )
 
         self._handle_response(200, "list pkg_extn", response)
@@ -307,7 +479,7 @@ class PkgExtn(WMLResource):
         PkgExtn._validate_type_of_details(pkg_extn_details, PKG_EXTN_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            pkg_extn_details, "pkg_extn_details", ["metadata", "asset_id"]
+            pkg_extn_details, "pkg_extn_details", ["metadata", "asset_id"], str
         )
 
     def get_id_by_name(self, pkg_extn_name: str) -> str:
@@ -331,8 +503,8 @@ class PkgExtn(WMLResource):
         parameters = self._client._params()
         parameters.update(name=pkg_extn_name)
 
-        response = requests.get(
-            self._client._href_definitions.get_pkg_extns_href(),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_pkg_extns_href(),
             params=parameters,
             headers=self._client._get_headers(),
         )
@@ -347,6 +519,41 @@ class PkgExtn(WMLResource):
             return pkg_extn_details[0]["metadata"]["asset_id"]
         else:
             raise ResourceIdByNameNotFound(pkg_extn_name, "package extension")
+
+    async def aget_id_by_name(self, pkg_extn_name: str) -> str:
+        """Get the ID of a package extension asynchronously.
+
+        :param pkg_extn_name: name of the package extension
+        :type pkg_extn_name: str
+
+        :return: unique ID of the package extension
+        :rtype: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            asset_id = await client.package_extensions.aget_id_by_name(
+                pkg_extn_name
+            )
+
+        """
+        PkgExtn._validate_type(pkg_extn_name, "pkg_extn_name", str, True)
+
+        parameters = self._client._params()
+        parameters["name"] = pkg_extn_name
+
+        response = await self._client.async_httpx_client.get(
+            url=self._client._href_definitions.get_pkg_extns_href(),
+            params=parameters,
+            headers=await self._client._aget_headers(),
+        )
+
+        response_details = self._handle_response(200, "get pkg extn", response)
+        if not response_details["total_results"]:
+            raise ResourceIdByNameNotFound(pkg_extn_name, "package extension")
+
+        return response_details["resources"][0]["metadata"]["asset_id"]
 
     @staticmethod
     def get_href(pkg_extn_details: dict) -> str:
@@ -373,16 +580,19 @@ class PkgExtn(WMLResource):
             pkg_extn_details,
             "pkg_extn_details",
             ["entity", "package_extension", "href"],
+            str,
         )
 
-    def delete(self, pkg_extn_id: str) -> dict | str:
+    def delete(self, pkg_extn_id: str) -> Literal["SUCCESS"]:
         """Delete a package extension.
 
         :param pkg_extn_id: unique ID of the package extension
         :type pkg_extn_id: str
 
-        :return: status ("SUCCESS" or "FAILED") if deleted synchronously or dictionary with response
-        :rtype: str or dict
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -393,58 +603,56 @@ class PkgExtn(WMLResource):
         """
         PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
 
-        response = requests.delete(
-            self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
-        if response.status_code == 200:
-            return self._get_required_element_from_response(response.json())
-        else:
-            return self._handle_response(204, "delete pkg extn specification", response)
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(204, "delete pkg extn specification", response),
+        )
 
-    def _get_required_element_from_response(self, response_data: dict) -> dict:
-        WMLResource._validate_type(response_data, "pkg_extn_response", dict)
+    async def adelete(self, pkg_extn_id: str) -> Literal["SUCCESS"]:
+        """Delete a package extension asynchronously.
 
-        if self._client.default_space_id is not None:
-            new_el = {
-                "metadata": {
-                    "space_id": response_data["metadata"]["space_id"],
-                    "name": response_data["metadata"]["name"],
-                    "asset_id": response_data["metadata"]["asset_id"],
-                    "asset_type": response_data["metadata"]["asset_type"],
-                    "created_at": response_data["metadata"]["created_at"],
-                    #'updated_at': response_data['metadata']['updated_at']
-                },
-                "entity": response_data["entity"],
-            }
-        elif self._client.default_project_id is not None:
-            new_el = {
-                "metadata": {
-                    "project_id": response_data["metadata"]["project_id"],
-                    "name": response_data["metadata"]["name"],
-                    "asset_id": response_data["metadata"]["asset_id"],
-                    "asset_type": response_data["metadata"]["asset_type"],
-                    "created_at": response_data["metadata"]["created_at"],
-                },
-                "entity": response_data["entity"],
-            }
+        :param pkg_extn_id: unique ID of the package extension
+        :type pkg_extn_id: str
 
-        if "href" in response_data["metadata"]:
-            href_without_host = response_data["metadata"]["href"].split(".com")[-1]
-            new_el["metadata"].update({"href": href_without_host})
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
 
-        return new_el
+        :raises WMLClientError: if deletion failed
 
-    def download(self, pkg_extn_id: str, filename: str) -> str:
+        **Example:**
+
+        .. code-block:: python
+
+            await client.package_extensions.adelete(pkg_extn_id)
+
+        """
+        PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+
+        response = await self._client.async_httpx_client.delete(
+            url=self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
+            params=self._client._params(),
+            headers=await self._client._aget_headers(),
+        )
+
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(204, "delete pkg extn specification", response),
+        )
+
+    def download(self, pkg_extn_id: str, filename: str | Path) -> str:
         """Download a package extension.
 
         :param pkg_extn_id: unique ID of the package extension to be downloaded
         :type pkg_extn_id: str
 
         :param filename: filename to be used for the downloaded file
-        :type filename: str
+        :type filename: str | Path
 
         :return: path to the downloaded package extension content
         :rtype: str
@@ -453,52 +661,89 @@ class PkgExtn(WMLResource):
 
         .. code-block:: python
 
-            client.package_extensions.download(pkg_extn_id,"sample_conda.yml/custom_library.zip")
+            client.package_extensions.download(
+                pkg_extn_id, "sample_conda.yml/custom_library.zip"
+            )
 
         """
 
+        if isinstance(filename, str):
+            filename = Path(filename)
+
         PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
 
-        pkg_extn_response = requests.get(
-            self._client._href_definitions.get_pkg_extn_href(pkg_extn_id),
-            params=self._client._params(),
-            headers=self._client._get_headers(),
-        )
+        pkg_extn_details = self.get_details(pkg_extn_id)
 
-        pkg_extn_details = self._handle_response(200, "get assets", pkg_extn_response)
+        artifact_content_url = self.get_href(pkg_extn_details)
+        if self._client.ICP_PLATFORM_SPACES:
+            artifact_content_url = self._credentials.url + artifact_content_url  # type: ignore
 
-        artifact_content_url = pkg_extn_details["entity"]["package_extension"]["href"]
-
-        if pkg_extn_response.status_code == 200:
-            if self._client.CLOUD_PLATFORM_SPACES:
-                att_response = requests.get(artifact_content_url)
-            else:
-                att_response = requests.get(
-                    self._credentials.url + artifact_content_url
-                )
-
-            if att_response.status_code != 200:
-                raise ApiRequestFailure(
-                    "Failure during {}.".format("downloading package extension"),
-                    att_response,
-                )
-
-            downloaded_asset = att_response.content
-            try:
-                with open(filename, "wb") as f:
-                    f.write(downloaded_asset)
-                print(
-                    "Successfully saved package extension content to file: '{}'".format(
-                        filename
-                    )
-                )
-                return os.getcwd() + "/" + filename
-            except IOError as e:
-                raise WMLClientError(
-                    "Saving asset with artifact_url: '{}' failed.".format(filename),
-                    e,
-                )
-        else:
-            raise WMLClientError(
-                "Failed while downloading the package extension " + pkg_extn_id
+        response = self._client.httpx_client.get(url=artifact_content_url)
+        if response.status_code != 200:
+            raise ApiRequestFailure(
+                "Failure during downloading package extension.",
+                response,
             )
+
+        downloaded_asset = response.content
+        try:
+            filename.write_bytes(downloaded_asset)
+        except IOError as e:
+            raise WMLClientError(
+                f"Saving asset with artifact_url: '{filename}' failed.",
+                str(e),
+            )
+
+        print(f"Successfully saved package extension content to file: '{filename}'")
+        return str(filename.resolve())
+
+    async def adownload(self, pkg_extn_id: str, filename: str | Path) -> str:
+        """Download a package extension asynchronously.
+
+        :param pkg_extn_id: unique ID of the package extension to be downloaded
+        :type pkg_extn_id: str
+
+        :param filename: filename to be used for the downloaded file
+        :type filename: str | Path
+
+        :return: path to the downloaded package extension content
+        :rtype: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            file_path = await client.package_extensions.adownload(
+                pkg_extn_id, "sample_conda.yml/custom_library.zip"
+            )
+
+        """
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        PkgExtn._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+
+        pkg_extn_details = await self.aget_details(pkg_extn_id)
+
+        artifact_content_url = self.get_href(pkg_extn_details)
+        if self._client.ICP_PLATFORM_SPACES:
+            artifact_content_url = self._credentials.url + artifact_content_url  # type: ignore
+
+        response = await self._client.async_httpx_client.get(url=artifact_content_url)
+        if response.status_code != 200:
+            raise ApiRequestFailure(
+                "Failure during {}.".format("downloading package extension"),
+                response,
+            )
+
+        downloaded_asset = response.content
+        try:
+            filename.write_bytes(downloaded_asset)
+        except IOError as e:
+            raise WMLClientError(
+                f"Saving asset with artifact_url: '{artifact_content_url}' failed.",
+                str(e),
+            )
+
+        print(f"Successfully saved package extension content to file: '{filename}'")
+        return str(filename.resolve())

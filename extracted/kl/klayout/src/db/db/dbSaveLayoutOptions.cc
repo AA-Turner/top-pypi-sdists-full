@@ -61,6 +61,7 @@ SaveLayoutOptions::operator= (const SaveLayoutOptions &d)
     m_all_cells = d.m_all_cells;
     m_dbu = d.m_dbu;
     m_scale_factor = d.m_scale_factor;
+    m_libname = d.m_libname;
     m_keep_instances = d.m_keep_instances;
     m_write_context_info = d.m_write_context_info;
     m_dont_write_empty_cells = d.m_dont_write_empty_cells;
@@ -220,7 +221,13 @@ SaveLayoutOptions::set_dbu (double dbu)
   m_dbu = dbu;
 }
 
-void 
+void
+SaveLayoutOptions::set_libname (const std::string &libname)
+{
+  m_libname = libname;
+}
+
+void
 SaveLayoutOptions::set_scale_factor (double f)
 {
   m_scale_factor = f;
@@ -268,9 +275,15 @@ SaveLayoutOptions::get_valid_layers (const db::Layout &layout, std::vector <std:
 
   }
 
-  if (lm == LP_OnlyNumbered) {
+  if (lm == LP_AsIs) {
 
-    for (std::vector<std::pair <unsigned int, db::LayerProperties> >::const_iterator l = all_layers.begin (); l != all_layers.end (); ++l) {
+    for (auto l = all_layers.begin (); l != all_layers.end (); ++l) {
+      layers.push_back (*l);
+    }
+
+  } else if (lm == LP_OnlyNumbered) {
+
+    for (auto l = all_layers.begin (); l != all_layers.end (); ++l) {
       if (l->second.layer >= 0 && l->second.datatype >= 0) {
         layers.push_back (*l);
       }
@@ -278,7 +291,7 @@ SaveLayoutOptions::get_valid_layers (const db::Layout &layout, std::vector <std:
 
   } else if (lm == LP_OnlyNamed) {
 
-    for (std::vector<std::pair <unsigned int, db::LayerProperties> >::const_iterator l = all_layers.begin (); l != all_layers.end (); ++l) {
+    for (auto l = all_layers.begin (); l != all_layers.end (); ++l) {
       if (! l->second.name.empty ()) {
         layers.push_back (*l);
       }
@@ -286,7 +299,7 @@ SaveLayoutOptions::get_valid_layers (const db::Layout &layout, std::vector <std:
 
   } else if (lm == LP_AssignName) {
 
-    for (std::vector<std::pair <unsigned int, db::LayerProperties> >::const_iterator l = all_layers.begin (); l != all_layers.end (); ++l) {
+    for (auto l = all_layers.begin (); l != all_layers.end (); ++l) {
       layers.push_back (*l);
       if (l->second.name.empty ()) {
         layers.back ().second = tl::sprintf ("L%dD%d", l->second.layer, l->second.datatype);
@@ -297,7 +310,7 @@ SaveLayoutOptions::get_valid_layers (const db::Layout &layout, std::vector <std:
 
   } else if (lm == LP_AssignNameWithPriority) {
 
-    for (std::vector<std::pair <unsigned int, db::LayerProperties> >::const_iterator l = all_layers.begin (); l != all_layers.end (); ++l) {
+    for (auto l = all_layers.begin (); l != all_layers.end (); ++l) {
       layers.push_back (*l);
       if (l->second.name.empty ()) {
         layers.back ().second = tl::sprintf ("L%dD%d", l->second.layer, l->second.datatype);

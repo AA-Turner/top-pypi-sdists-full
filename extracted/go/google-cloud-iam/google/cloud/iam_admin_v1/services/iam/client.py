@@ -113,21 +113,21 @@ class IAMClient(metaclass=IAMClientMeta):
     You can use this service to work with all of the following
     resources:
 
-    -  **Service accounts**, which identify an application or a virtual
-       machine (VM) instance rather than a person
-    -  **Service account keys**, which service accounts use to
-       authenticate with Google APIs
-    -  **IAM policies for service accounts**, which specify the roles
-       that a principal has for the service account
-    -  **IAM custom roles**, which help you limit the number of
-       permissions that you grant to principals
+    - **Service accounts**, which identify an application or a virtual
+      machine (VM) instance rather than a person
+    - **Service account keys**, which service accounts use to
+      authenticate with Google APIs
+    - **IAM policies for service accounts**, which specify the roles
+      that a principal has for the service account
+    - **IAM custom roles**, which help you limit the number of
+      permissions that you grant to principals
 
     In addition, you can use this service to complete the following
     tasks, among others:
 
-    -  Test whether a service account can use specific permissions
-    -  Check which roles you can grant for a specific resource
-    -  Lint, or validate, condition expressions in an IAM policy
+    - Test whether a service account can use specific permissions
+    - Check which roles you can grant for a specific resource
+    - Lint, or validate, condition expressions in an IAM policy
 
     When you read data from the IAM API, each read is eventually
     consistent. In other words, if you write data with the IAM API, then
@@ -178,6 +178,34 @@ class IAMClient(metaclass=IAMClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "iam.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -386,12 +414,8 @@ class IAMClient(metaclass=IAMClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = IAMClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -399,7 +423,7 @@ class IAMClient(metaclass=IAMClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -431,20 +455,14 @@ class IAMClient(metaclass=IAMClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = IAMClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -947,7 +965,7 @@ class IAMClient(metaclass=IAMClientMeta):
                    a virtual machine (VM) instance, not a person. You
                    can use a service account to call Google APIs. To
                    learn more, read the [overview of service
-                   accounts](\ https://cloud.google.com/iam/help/service-accounts/overview).
+                   accounts](https://cloud.google.com/iam/help/service-accounts/overview).
 
                    When you create a service account, you specify the
                    project ID that owns the service account, as well as
@@ -1088,7 +1106,7 @@ class IAMClient(metaclass=IAMClientMeta):
                    a virtual machine (VM) instance, not a person. You
                    can use a service account to call Google APIs. To
                    learn more, read the [overview of service
-                   accounts](\ https://cloud.google.com/iam/help/service-accounts/overview).
+                   accounts](https://cloud.google.com/iam/help/service-accounts/overview).
 
                    When you create a service account, you specify the
                    project ID that owns the service account, as well as
@@ -1219,7 +1237,7 @@ class IAMClient(metaclass=IAMClientMeta):
                    a virtual machine (VM) instance, not a person. You
                    can use a service account to call Google APIs. To
                    learn more, read the [overview of service
-                   accounts](\ https://cloud.google.com/iam/help/service-accounts/overview).
+                   accounts](https://cloud.google.com/iam/help/service-accounts/overview).
 
                    When you create a service account, you specify the
                    project ID that owns the service account, as well as
@@ -1321,7 +1339,7 @@ class IAMClient(metaclass=IAMClientMeta):
                    a virtual machine (VM) instance, not a person. You
                    can use a service account to call Google APIs. To
                    learn more, read the [overview of service
-                   accounts](\ https://cloud.google.com/iam/help/service-accounts/overview).
+                   accounts](https://cloud.google.com/iam/help/service-accounts/overview).
 
                    When you create a service account, you specify the
                    project ID that owns the service account, as well as
@@ -2735,7 +2753,7 @@ class IAMClient(metaclass=IAMClientMeta):
         Returns:
             google.cloud.iam_admin_v1.types.SignBlobResponse:
                 Deprecated. [Migrate to Service Account Credentials
-                   API](\ https://cloud.google.com/iam/help/credentials/migrate-api).
+                   API](https://cloud.google.com/iam/help/credentials/migrate-api).
 
                    The service account sign blob response.
 
@@ -2890,7 +2908,7 @@ class IAMClient(metaclass=IAMClientMeta):
         Returns:
             google.cloud.iam_admin_v1.types.SignJwtResponse:
                 Deprecated. [Migrate to Service Account Credentials
-                   API](\ https://cloud.google.com/iam/help/credentials/migrate-api).
+                   API](https://cloud.google.com/iam/help/credentials/migrate-api).
 
                    The service account sign JWT response.
 
@@ -3033,19 +3051,19 @@ class IAMClient(metaclass=IAMClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -3194,19 +3212,19 @@ class IAMClient(metaclass=IAMClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -3857,21 +3875,21 @@ class IAMClient(metaclass=IAMClientMeta):
         When you delete a custom role, the following changes occur
         immediately:
 
-        -  You cannot bind a principal to the custom role in an IAM
-           [Policy][google.iam.v1.Policy].
-        -  Existing bindings to the custom role are not changed, but
-           they have no effect.
-        -  By default, the response from
-           [ListRoles][google.iam.admin.v1.IAM.ListRoles] does not
-           include the custom role.
+        - You cannot bind a principal to the custom role in an IAM
+          [Policy][google.iam.v1.Policy].
+        - Existing bindings to the custom role are not changed, but they
+          have no effect.
+        - By default, the response from
+          [ListRoles][google.iam.admin.v1.IAM.ListRoles] does not
+          include the custom role.
 
         You have 7 days to undelete the custom role. After 7 days, the
         following changes occur:
 
-        -  The custom role is permanently deleted and cannot be
-           recovered.
-        -  If an IAM policy contains a binding to the custom role, the
-           binding is permanently removed.
+        - The custom role is permanently deleted and cannot be
+          recovered.
+        - If an IAM policy contains a binding to the custom role, the
+          binding is permanently removed.
 
         .. code-block:: python
 

@@ -7,8 +7,8 @@ import os
 import logging
 from pytest import FixtureRequest
 
-
 from sqlmesh import Config, EngineAdapter
+from sqlmesh.core.constants import SQLMESH_PATH
 from sqlmesh.core.config.connection import (
     ConnectionConfig,
     AthenaConnectionConfig,
@@ -34,7 +34,7 @@ def config(tmp_path: pathlib.Path) -> Config:
         project_paths=[
             pathlib.Path(os.path.join(os.path.dirname(__file__), "config.yaml")),
         ],
-        personal_paths=[pathlib.Path("~/.sqlmesh/config.yaml").expanduser()],
+        personal_paths=[(SQLMESH_PATH / "config.yaml").expanduser()],
         variables={"tmp_path": str(tmp_path)},
     )
 

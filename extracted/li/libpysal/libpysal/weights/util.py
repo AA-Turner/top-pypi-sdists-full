@@ -1,3 +1,5 @@
+# ruff: noqa: N802, N803
+
 import copy
 import numbers
 import os
@@ -6,13 +8,11 @@ from itertools import tee
 from warnings import warn
 
 import numpy as np
-
-# ruff: noqa: N802, N803
 import scipy
 import scipy.spatial
-from packaging.version import Version
 from scipy import sparse
 from scipy.spatial import KDTree
+from shapely.geometry.base import BaseGeometry
 
 from ..common import requires
 from ..io.fileio import FileIO
@@ -20,18 +20,11 @@ from .set_operations import w_subset
 from .weights import WSP, W
 
 try:
-    import geopandas as gpd
+    import geopandas  # noqa: F401 -- needed to determine availability
 
-    GPD_013 = Version(gpd.__version__) >= Version("0.13.0")
 except ImportError:
     warn("geopandas not available. Some functionality will be disabled.", stacklevel=2)
 
-try:
-    from shapely.geometry.base import BaseGeometry
-
-    HAS_SHAPELY = True
-except ImportError:
-    HAS_SHAPELY = False
 
 __all__ = [
     "lat2W",
@@ -511,7 +504,7 @@ def higher_order_sp(
             w = w.sparse
         else:
             raise ValueError("Weights are not binary (0,1)")
-    elif scipy.sparse.isspmatrix_csr(w):
+    elif scipy.sparse.issparse(w) and w.format == "csr":
         if not np.unique(w.data) == np.array([1.0]):
             raise ValueError(
                 "Sparse weights matrix is not binary (0,1) weights matrix."
@@ -523,17 +516,17 @@ def higher_order_sp(
         )
 
     if lower_order:
-        wk = sum(w**x for x in range(1, k + 1))
         shortest_path = False
+        wk = sum(sparse.linalg.matrix_power(w, k) for k in range(1, k + 1))
     else:
-        wk = w**k
+        wk = sparse.linalg.matrix_power(w, k)
 
     rk, ck = wk.nonzero()
     sk = set(zip(rk, ck, strict=True))
 
     if shortest_path:
         for j in range(1, k):
-            wj = w**j
+            wj = sparse.linalg.matrix_power(w, j)
             rj, cj = wj.nonzero()
             sj = set(zip(rj, cj, strict=True))
             sk.difference_update(sj)
@@ -1047,17 +1040,14 @@ def get_points_array(iterable):
     """
     first_choice, backup = tee(iterable)
     try:
-        if HAS_SHAPELY:
-            data = np.vstack(
-                [
-                    np.array(shape.centroid.coords)[0]
-                    if isinstance(shape, BaseGeometry)
-                    else np.array(shape.centroid)
-                    for shape in first_choice
-                ]
-            )
-        else:
-            data = np.vstack([np.array(shape.centroid) for shape in first_choice])
+        data = np.vstack(
+            [
+                np.array(shape.centroid.coords)[0]
+                if isinstance(shape, BaseGeometry)
+                else np.array(shape.centroid)
+                for shape in first_choice
+            ]
+        )
     except AttributeError:
         data = np.vstack(list(backup))
     return data
@@ -1225,7 +1215,7 @@ def lat2SW(nrows=3, ncols=5, criterion="rook", row_st=False):
     m = sparse.dia_matrix((data, offsets), shape=(n, n), dtype=np.int8)
     m = m + m.T
     if row_st:
-        m = sparse.spdiags(1.0 / m.sum(1).T, 0, *m.shape) * m
+        m = sparse.dia_matrix(((1.0 / m.sum(1).T), [0]), shape=m.shape) @ m
     m = m.tocsc()
     m.eliminate_zeros()
     return m
@@ -1234,11 +1224,11 @@ def lat2SW(nrows=3, ncols=5, criterion="rook", row_st=False):
 def write_gal(file, k=10):
     with open(file, "w") as f:
         n = k * k
-        f.write("0 %d" % n)
+        f.write(f"0 {n}")
         for i in range(n):
             neighs = [i - i, i + 1, i - k, i + k]
             neighs = [j for j in neighs if j >= 0 and j < n]
-            f.write("\n%d %d\n" % (i, len(neighs)))
+            f.write(f"\n{i} {len(neighs)}\n")
             f.write(" ".join(map(str, neighs)))
         f.close()
 
@@ -1595,11 +1585,8 @@ def fuzzy_contiguity(
         gdf.set_geometry("_buffer", inplace=True)
 
     neighbors = {}
-    if GPD_013:
-        # query tree based on set predicate
-        inp, res = gdf.sindex.query(gdf.geometry, predicate=predicate)
-    else:
-        inp, res = gdf.sindex.query_bulk(gdf.geometry, predicate=predicate)
+    inp, res = gdf.sindex.query(gdf.geometry, predicate=predicate)
+
     # remove self hits
     itself = inp == res
     inp = inp[~itself]

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import dataclasses
 import datetime
 import functools
 import inspect
 import json
-from typing import Any, Callable
+from typing import Any
 import urllib
 import warnings
 
@@ -36,7 +37,7 @@ def Deprecated(message: str):
     @functools.wraps(func)
     def Wrapper(*args, **kwargs):
       warnings.warn_explicit(
-          '{}() is deprecated: {}'.format(func.__name__, message),
+          f'{func.__name__}() is deprecated: {message}',
           category=DeprecationWarning,
           filename=func.__code__.co_filename,
           lineno=func.__code__.co_firstlineno + 1,
@@ -204,6 +205,11 @@ def _IssueAssetDeprecationWarning(asset: DeprecatedAsset) -> None:
       formatted_date = removal_date.strftime('%B %d, %Y').replace(' 0', ' ')
       warning += f' by {formatted_date}'
   warning += '.'
+  if asset.replacement_id:
+    warning = (
+        warning
+        + f'\nThis dataset has been superseded by {asset.replacement_id}\n'
+    )
   if asset.learn_more_url:
     warning = warning + f'\nLearn more: {asset.learn_more_url}\n'
   warnings.warn(warning, category=DeprecationWarning)

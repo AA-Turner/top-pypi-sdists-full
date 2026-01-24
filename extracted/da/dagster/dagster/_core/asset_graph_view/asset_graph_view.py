@@ -18,6 +18,7 @@ from dagster._core.asset_graph_view.serializable_entity_subset import Serializab
 from dagster._core.definitions.asset_key import AssetCheckKey, AssetKey, EntityKey, T_EntityKey
 from dagster._core.definitions.assets.graph.asset_graph_subset import AssetGraphSubset
 from dagster._core.definitions.events import AssetKeyPartitionKey
+from dagster._core.definitions.freshness import FreshnessState
 from dagster._core.definitions.partitions.context import (
     PartitionLoadingContext,
     use_partition_loading_context,
@@ -237,9 +238,12 @@ class AssetGraphView(LoadingContext):
             self.asset_graph.has(key), f"Asset graph does not contain {key.to_user_string()}"
         )
 
-        serializable_subset = self._with_current_partitions_def(
-            asset_graph_subset.get_asset_subset(key, self.asset_graph)
-        )
+        serializable_subset = asset_graph_subset.get_asset_subset(key)
+
+        if not serializable_subset:
+            return self.get_empty_subset(key=key)
+
+        serializable_subset = self._with_current_partitions_def(serializable_subset)
 
         return EntitySubset(
             self, key=key, value=_ValidatedEntitySubsetValue(serializable_subset.value)
@@ -561,6 +565,26 @@ class AssetGraphView(LoadingContext):
         else:
             return self.get_empty_subset(key=key)
 
+    async def compute_subset_with_freshness_state(
+        self, key: AssetKey, state: FreshnessState
+    ) -> EntitySubset[AssetKey]:
+        from dagster._core.definitions.asset_health.asset_freshness_health import (
+            AssetFreshnessHealthState,
+        )
+
+        if not self.asset_graph.has(key) or self.asset_graph.get(key).freshness_policy is None:
+            if state == FreshnessState.NOT_APPLICABLE:
+                return self.get_full_subset(key=key)
+            else:
+                return self.get_empty_subset(key=key)
+
+        asset_freshness_health_state = await AssetFreshnessHealthState.compute_for_asset(key, self)
+
+        if asset_freshness_health_state.freshness_state == state:
+            return self.get_full_subset(key=key)
+        else:
+            return self.get_empty_subset(key=key)
+
     async def _compute_run_in_progress_check_subset(
         self, key: AssetCheckKey
     ) -> EntitySubset[AssetCheckKey]:
@@ -605,12 +629,56 @@ class AssetGraphView(LoadingContext):
     async def _compute_backfill_in_progress_asset_subset(
         self, key: AssetKey
     ) -> EntitySubset[AssetKey]:
-        value = (
-            self._queryer.get_active_backfill_in_progress_asset_graph_subset()
-            .get_asset_subset(asset_key=key, asset_graph=self.asset_graph)
-            .value
+        asset_graph_subset = self._queryer.get_active_backfill_in_progress_asset_graph_subset()
+        return self.get_entity_subset_from_asset_graph_subset(asset_graph_subset, key)
+
+    async def _compute_execution_failed_unpartitioned(self, key: AssetKey) -> bool:
+        from dagster._core.event_api import AssetRecordsFilter
+        from dagster._core.storage.dagster_run import DagsterRunStatus, RunRecord
+        from dagster._core.storage.event_log.base import AssetRecord
+        from dagster._utils.storage import get_materialization_chunk_size
+
+        planned_materialization_info = (
+            self.instance.event_log_storage.get_latest_planned_materialization_info(key)
         )
-        return EntitySubset(self, key=key, value=_ValidatedEntitySubsetValue(value))
+        if not planned_materialization_info:
+            # has never been planned
+            return False
+
+        planned_storage_id = planned_materialization_info.storage_id
+        planned_run_id = planned_materialization_info.run_id
+        run = await RunRecord.gen(self, planned_run_id)
+
+        # note that if the run did fail, it's still possible that the materialization was successful,
+        # hence the extra code below this conditional
+        if not run or run.dagster_run.status != DagsterRunStatus.FAILURE:
+            # latest run did not fail
+            return False
+
+        # performance optimization: we will generally have this record cached, and in most cases
+        # the most recent materialization will map to the most recent planned run
+        asset_record = await AssetRecord.gen(self, key)
+        asset_entry = asset_record.asset_entry if asset_record else None
+        latest_materialization = asset_entry.last_materialization_record if asset_entry else None
+        if latest_materialization and latest_materialization.run_id == planned_run_id:
+            return False
+
+        # look for any materializations for the latest planned run for cases where
+        # the run failed but the materialization was successful
+        has_more = True
+        cursor = None
+        while has_more:
+            result = self.instance.fetch_materializations(
+                AssetRecordsFilter(asset_key=key, after_storage_id=planned_storage_id),
+                limit=get_materialization_chunk_size(),
+                cursor=cursor,
+            )
+            has_more, cursor = result.has_more, result.cursor
+            if any(record.run_id == planned_run_id for record in result.records):
+                return False
+
+        # could not find any materializations for the latest planned run
+        return True
 
     async def _compute_execution_failed_asset_subset(self, key: AssetKey) -> EntitySubset[AssetKey]:
         from dagster._core.storage.partition_status_cache import AssetStatusCacheValue
@@ -623,8 +691,9 @@ class AssetGraphView(LoadingContext):
                 if cache_value
                 else self.get_empty_subset(key=key)
             )
-        value = self._queryer.get_failed_asset_subset(asset_key=key).value
-        return EntitySubset(self, key=key, value=_ValidatedEntitySubsetValue(value))
+        else:
+            value = await self._compute_execution_failed_unpartitioned(key)
+            return EntitySubset(self, key=key, value=_ValidatedEntitySubsetValue(value))
 
     async def _compute_missing_asset_subset(
         self, key: AssetKey, from_subset: EntitySubset

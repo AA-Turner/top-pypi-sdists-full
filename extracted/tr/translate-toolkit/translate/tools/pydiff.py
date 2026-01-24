@@ -31,7 +31,7 @@ from argparse import ArgumentParser
 lineterm = "\n"
 
 
-def main():
+def main() -> None:
     """Main program for pydiff."""
     parser = ArgumentParser()
     # GNU diff like options
@@ -149,7 +149,7 @@ def main():
 class DirDiffer:
     """generates diffs between directories."""
 
-    def __init__(self, fromdir, todir, options):
+    def __init__(self, fromdir, todir, options) -> None:
         """
         Constructs a comparison between the two dirs using the
         given options.
@@ -165,12 +165,12 @@ class DirDiffer:
             for exclude_pat in self.options.exclude
         )
 
-    def writediff(self, outfile):
+    def writediff(self, outfile) -> None:
         """Writes the actual diff to the given file."""
         fromfiles = os.listdir(self.fromdir)
         tofiles = os.listdir(self.todir)
         difffiles = dict.fromkeys(fromfiles + tofiles).keys()
-        difffiles.sort()
+        difffiles.sort()  # ty:ignore[unresolved-attribute]
         for difffile in difffiles:
             if self.isexcluded(difffile):
                 continue
@@ -212,7 +212,7 @@ class DirDiffer:
 class FileDiffer:
     """generates diffs between files."""
 
-    def __init__(self, fromfile, tofile, options):
+    def __init__(self, fromfile, tofile, options) -> None:
         """
         Constructs a comparison between the two files using the given
         options.
@@ -221,7 +221,7 @@ class FileDiffer:
         self.tofile = tofile
         self.options = options
 
-    def writediff(self, outfile):
+    def writediff(self, outfile) -> None:
         """Writes the actual diff to the given file."""
         validfiles = True
         if os.path.exists(self.fromfile):
@@ -315,14 +315,14 @@ class FileDiffer:
     def get_from_lines(self, group):
         """Returns the lines referred to by group, from the fromfile."""
         from_lines = []
-        for tag, i1, i2, j1, j2 in group:
+        for _tag, i1, i2, _j1, _j2 in group:
             from_lines.extend(self.from_lines[i1:i2])
         return from_lines
 
     def get_to_lines(self, group):
         """Returns the lines referred to by group, from the tofile."""
         to_lines = []
-        for tag, i1, i2, j1, j2 in group:
+        for _tag, _i1, _i2, j1, j2 in group:
             to_lines.extend(self.to_lines[j1:j2])
         return to_lines
 
@@ -332,18 +332,18 @@ class FileDiffer:
         by line.
         """
         i1, i2, j1, j2 = group[0][1], group[-1][2], group[0][3], group[-1][4]
-        yield "@@ -%d,%d +%d,%d @@%s" % (i1 + 1, i2 - i1, j1 + 1, j2 - j1, lineterm)
+        yield f"@@ -{i1 + 1},{i2 - i1} +{j1 + 1},{j2 - j1} @@{lineterm}"
         for tag, i1, i2, j1, j2 in group:
             if tag == "equal":
                 for line in self.from_lines[i1:i2]:
-                    yield " " + line
+                    yield f" {line}"
                 continue
             if tag in {"replace", "delete"}:
                 for line in self.from_lines[i1:i2]:
-                    yield "-" + line
+                    yield f"-{line}"
             if tag in {"replace", "insert"}:
                 for line in self.to_lines[j1:j2]:
-                    yield "+" + line
+                    yield f"+{line}"
 
 
 if __name__ == "__main__":

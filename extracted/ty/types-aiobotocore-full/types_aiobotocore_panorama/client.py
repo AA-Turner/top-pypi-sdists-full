@@ -3,7 +3,7 @@ Type annotations for panorama service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_panorama/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -93,12 +94,6 @@ from .type_defs import (
     UpdateDeviceMetadataResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -109,13 +104,13 @@ __all__ = ("PanoramaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PanoramaClient(AioBaseClient):
@@ -213,7 +208,7 @@ class PanoramaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_panorama/client/#delete_device)
         """
 
-    async def delete_package(self, **kwargs: Unpack[DeletePackageRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_package(self, **kwargs: Unpack[DeletePackageRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a package.
 
@@ -223,7 +218,7 @@ class PanoramaClient(AioBaseClient):
 
     async def deregister_package_version(
         self, **kwargs: Unpack[DeregisterPackageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters a package version.
 
@@ -433,7 +428,7 @@ class PanoramaClient(AioBaseClient):
 
     async def register_package_version(
         self, **kwargs: Unpack[RegisterPackageVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers a package version.
 
@@ -443,7 +438,7 @@ class PanoramaClient(AioBaseClient):
 
     async def remove_application_instance(
         self, **kwargs: Unpack[RemoveApplicationInstanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an application instance.
 
@@ -461,7 +456,7 @@ class PanoramaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_panorama/client/#signal_application_instance_node_instances)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
 
@@ -469,7 +464,7 @@ class PanoramaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_panorama/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -495,7 +490,7 @@ class PanoramaClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -13,14 +13,16 @@
 # under the License.
 
 """dogpile.cache backend that uses etcd 3.x for storage"""
+
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
+
 from dogpile.cache import api
 
 from oslo_cache import core
 from oslo_serialization import jsonutils
 
-__all__ = [
-    'Etcd3gwCacheBackend'
-]
+__all__ = ['Etcd3gwCacheBackend']
 
 _NO_VALUE = core.NO_VALUE
 
@@ -35,40 +37,45 @@ class Etcd3gwCacheBackend(api.CacheBackend):
     #: Default port used if none provided (4001 or 2379 are the common ones).
     DEFAULT_PORT = 2379
 
-    def __init__(self, arguments):
+    def __init__(self, arguments: dict[str, Any]) -> None:
         self.host = arguments.get('host', self.DEFAULT_HOST)
         self.port = arguments.get('port', self.DEFAULT_PORT)
         self.timeout = int(arguments.get('timeout', self.DEFAULT_TIMEOUT))
         # module etcd3gw is only required when etcd3gw backend is used
         import etcd3gw
-        self._client = etcd3gw.client(host=self.host,
-                                      port=self.port,
-                                      timeout=self.timeout)
 
-    def get(self, key):
+        self._client = etcd3gw.client(
+            host=self.host, port=self.port, timeout=self.timeout
+        )
+
+    def get(self, key: api.KeyType) -> api.BackendFormatted:
         values = self._client.get(key, False)
         if not values:
             return core.NO_VALUE
         value, metadata = jsonutils.loads(values[0])
         return api.CachedValue(value, metadata)
 
-    def get_multi(self, keys):
+    def get_multi(
+        self, keys: Iterable[api.KeyType]
+    ) -> Sequence[api.BackendFormatted]:
         """Retrieves the value for a list of keys."""
         return [self.get(key) for key in keys]
 
-    def set(self, key, value):
+    def set(self, key: api.KeyType, value: api.BackendSetType) -> None:
         self.set_multi({key: value})
 
-    def set_multi(self, mapping):
+    def set_multi(
+        self, mapping: Mapping[api.KeyType, api.BackendSetType]
+    ) -> None:
         lease = None
         if self.timeout:
             lease = self._client.lease(ttl=self.timeout)
         for key, value in mapping.items():
             self._client.put(key, jsonutils.dumps(value), lease)
 
-    def delete(self, key):
+    def delete(self, key: api.KeyType) -> None:
         self._client.delete(key)
 
-    def delete_multi(self, keys):
+    def delete_multi(self, keys: Iterable[api.KeyType]) -> None:
         for key in keys:
             self._client.delete(key)

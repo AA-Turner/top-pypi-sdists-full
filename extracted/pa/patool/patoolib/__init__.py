@@ -17,8 +17,8 @@
 import sys
 
 # check for compatible Python version before importing other packages
-if not hasattr(sys, "version_info") or sys.version_info < (3, 10, 0, "final", 0):
-    raise SystemExit("This program requires Python 3.10 or later.")
+if not hasattr(sys, "version_info") or sys.version_info < (3, 11, 0, "final", 0):
+    raise SystemExit("This program requires Python 3.11 or later.")
 import functools
 import inspect
 import os
@@ -33,16 +33,16 @@ from . import fileutil, log, util
 
 # export API functions
 __all__ = [
-    'list_formats',
-    'supported_formats',
-    'list_archive',
-    'extract_archive',
-    'test_archive',
     'create_archive',
     'diff_archives',
-    'search_archive',
-    'repack_archive',
+    'extract_archive',
     'is_archive',
+    'list_archive',
+    'list_formats',
+    'repack_archive',
+    'search_archive',
+    'supported_formats',
+    'test_archive',
 ]
 
 
@@ -68,6 +68,7 @@ ArchiveFormats: tuple[str, ...] = (
     'deb',
     'dms',
     'flac',
+    'freearc',
     'gzip',
     'iso',
     'lrzip',
@@ -126,6 +127,7 @@ ArchiveMimetypes: dict[str, str] = {
     'application/x-cpio': 'cpio',
     'application/x-debian-package': 'deb',
     'application/x-dms': 'dms',
+    'application/x-freearc': 'freearc',
     'application/x-iso9660-image': 'iso',
     'application/x-lz4': 'lz4',
     'application/x-lzop': 'lzop',
@@ -156,6 +158,7 @@ ArchiveMimetypes: dict[str, str] = {
 # List of programs supporting the given archive format and command.
 # If command is None, the program supports all commands (list, extract, ...)
 # Programs starting with "py_" are Python modules.
+# {<format>: {<command>: (<program>,...)}
 ArchivePrograms: dict[str, dict[str | None, tuple[str, ...]]] = {
     '7z': {
         None: ('7z', '7za', '7zr', '7zz', '7zzs'),
@@ -185,11 +188,18 @@ ArchivePrograms: dict[str, dict[str | None, tuple[str, ...]]] = {
     'ar': {
         None: ('ar',),
     },
+    # Note:
+    # ".arc" files can be in ARC or FREEARC format
+    # https://en.wikipedia.org/wiki/ARC_(file_format)
+    # https://en.wikipedia.org/wiki/FreeArc
     'arc': {
         None: ('arc',),
         'extract': ('nomarch',),
         'test': ('nomarch',),
         'list': ('nomarch',),
+    },
+    'freearc': {
+        None: ('arc',),
     },
     'arj': {
         None: ('arj',),
@@ -380,6 +390,8 @@ ArchivePrograms: dict[str, dict[str | None, tuple[str, ...]]] = {
     },
     "zstd": {
         None: ("zstd",),
+        "create": ("py_zstd",),
+        "extract": ("py_zstd",),
     },
 }
 
@@ -546,7 +558,7 @@ def is_archive(filename: str) -> bool:
     :return: True if given filename is an archive file.
     :rtype: bool
     """
-    mime, compression = guess_mime(filename)
+    mime, _compression = guess_mime(filename)
     return mime in ArchiveMimetypes
 
 
@@ -606,14 +618,24 @@ def find_archive_program(
     # return the first existing program
     for program in programs:
         if program.startswith('py_'):
-            # it's a Python module and therefore always supported
-            return program
+            # it's a Python module, check if it is supported
+            try:
+                get_patool_program_module(program)
+                return program
+            except ImportError:
+                pass
+            continue
         exe = util.find_program(program)
         if exe:
             if program in ('7z', '7zz', '7zzs', '7za'):
                 if format == 'rar' and not util.p7zip_supports_rar(program):
                     continue
                 if format == 'compress' and not util.p7zip_supports_compress(program):
+                    continue
+            elif program == 'arc':
+                # arc program supports either ARC or FREEARC formats
+                # find out if it's the one we need
+                if util.get_arc_format(exe) != format:
                     continue
             if not check_program_compression(
                 command, program, exe, compression, verbosity=verbosity
@@ -729,7 +751,7 @@ def list_formats() -> None:
                 # display information what programs can handle this archive format
                 handlers = programs.get(None, programs.get(command))
                 print(
-                    f"   {command:>8}: - (no program found; install {util.strlist_with_or(handlers)})"
+                    f"   {command:>8}: - (no program found; install {util.strlist_with_or(handlers)})"  # ty: ignore[invalid-argument-type]
                 )
 
 
@@ -772,7 +794,11 @@ def move_outdir_orphan(outdir: str) -> tuple[bool, str]:
     return (False, "multiple files in root")
 
 
-def run_archive_cmdlist(archive_cmdlist: Sequence[str], verbosity: int = 0) -> int:
+def run_archive_cmdlist(
+    archive_cmdlist: Sequence[str] | tuple[Sequence[str], dict],
+    verbosity: int = 0,
+    interactive: bool = True,
+) -> int:
     """Run archive command.
 
     @return: exit code
@@ -782,7 +808,12 @@ def run_archive_cmdlist(archive_cmdlist: Sequence[str], verbosity: int = 0) -> i
         cmdlist, runkwargs = archive_cmdlist
     else:
         cmdlist, runkwargs = archive_cmdlist, {}
-    return util.run_checked(cmdlist, verbosity=verbosity, **runkwargs)
+    return util.run_checked(
+        cmdlist,
+        verbosity=verbosity,
+        interactive=interactive,
+        **runkwargs,  # ty: ignore[invalid-argument-type]
+    )
 
 
 def cleanup_outdir(outdir: str, archive: str) -> tuple[str, str]:
@@ -856,7 +887,7 @@ def _extract_archive(
             # an empty command list means the get_archive_cmdlist() function
             # already handled the command (e.g. when it's a builtin Python
             # function)
-            run_archive_cmdlist(cmdlist, verbosity=verbosity)
+            run_archive_cmdlist(cmdlist, verbosity=verbosity, interactive=interactive)
         if do_cleanup_outdir:
             target, msg = cleanup_outdir(outdir, archive)
         else:
@@ -914,7 +945,7 @@ def _create_archive(
         # an empty command list means the get_archive_cmdlist() function
         # already handled the command (e.g. when it's a builtin Python
         # function)
-        run_archive_cmdlist(cmdlist, verbosity=verbosity)
+        run_archive_cmdlist(cmdlist, verbosity=verbosity, interactive=interactive)
 
 
 def _handle_archive(
@@ -950,19 +981,25 @@ def _handle_archive(
         # an empty command list means the get_archive_cmdlist() function
         # already handled the command (e.g. when it's a builtin Python
         # function)
-        run_archive_cmdlist(cmdlist, verbosity=verbosity)
+        run_archive_cmdlist(cmdlist, verbosity=verbosity, interactive=interactive)
+
+
+def get_patool_program_module(program):
+    """Get the patool module for given program."""
+    key = fileutil.stripext(os.path.basename(program).lower())
+    # modules are stored in "programs" submodule
+    modulename = ".programs." + ProgramModules.get(key, key)
+    # import the module
+    return importlib.import_module(modulename, __name__)
 
 
 def get_archive_cmdlist_func(program: str, command: str, format: str) -> Callable:
     """Get the Python function that executes the given program."""
     # get python module for given archive program
-    key = fileutil.stripext(os.path.basename(program).lower())
-    modulename = ".programs." + ProgramModules.get(key, key)
-    # import the module
     try:
-        module = importlib.import_module(modulename, __name__)
+        module = get_patool_program_module(program)
     except ImportError as err:
-        msg = f"cannot import module {modulename} in {__name__}"
+        msg = f"cannot import program module {program} in {__name__}"
         raise util.PatoolError(msg) from err
     # get archive handler function (e.g. patoolib.programs.star.extract_tar)
     try:
@@ -980,11 +1017,10 @@ def get_archive_cmdlist_func(program: str, command: str, format: str) -> Callabl
             kwargs.pop('password')
         if 'password' not in kwargs:
             return archive_cmdlist_func(*args, **kwargs)
-        else:
-            if 'password' in inspect.signature(archive_cmdlist_func).parameters:
-                return archive_cmdlist_func(*args, **kwargs)
-            msg = f'There is no support for password in {program}'
-            raise util.PatoolError(msg)
+        if 'password' in inspect.signature(archive_cmdlist_func).parameters:
+            return archive_cmdlist_func(*args, **kwargs)
+        msg = f'There is no support for password in {program}'
+        raise util.PatoolError(msg)
 
     return check_for_password_before_cmdlist_func_call
 
@@ -1068,24 +1104,37 @@ def _repack_archive(
         return
     tmpdir = fileutil.tmpdir()
     try:
-        kwargs = dict(verbosity=verbosity, outdir=tmpdir, password=password)
         same_format = format1 == format2 and compression1 and compression2
         if same_format:
             # only decompress since the format is the same
-            kwargs['format'] = compression1
-        path = _extract_archive(archive1, **kwargs)
+            format = compression1
+        else:
+            format = None
+        path = _extract_archive(
+            archive1,
+            verbosity=verbosity,
+            outdir=tmpdir,
+            password=password,
+            format=format,
+        )
         archive = os.path.abspath(archive2)
         files = tuple(os.listdir(path))
         olddir = os.getcwd()
         os.chdir(path)
         try:
-            kwargs = dict(
-                verbosity=verbosity, interactive=interactive, password=password
-            )
             if same_format:
                 # only compress since the format is the same
-                kwargs['format'] = compression2
-            _create_archive(archive, files, **kwargs)
+                format = compression2
+            else:
+                format = None
+            _create_archive(
+                archive,
+                files,
+                verbosity=verbosity,
+                interactive=interactive,
+                password=password,
+                format=format,
+            )
         finally:
             os.chdir(olddir)
     finally:

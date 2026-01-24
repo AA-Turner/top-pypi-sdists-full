@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydynamodb
-Version: 0.7.3
+Version: 0.8.1
 Summary: Python DB API 2.0 (PEP 249) client for Amazon DynamoDB
 Home-page: https://github.com/passren/PyDynamoDB
 Author: Peng Ren
@@ -10,22 +10,43 @@ Project-URL: Documentation, https://github.com/passren/PyDynamoDB/wiki
 Project-URL: Source, https://github.com/passren/PyDynamoDB
 Project-URL: Tracker, https://github.com/passren/PyDynamoDB/issues
 Keywords: DB-API Amazon AWS DynamoDB
-Platform: UNKNOWN
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-Provides-Extra: sqlalchemy
 License-File: LICENSE
+Requires-Dist: boto3>=1.21.0
+Requires-Dist: botocore>=1.24.7
+Requires-Dist: tenacity>=4.1.0
+Requires-Dist: pyparsing>=3.0.0
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy>=1.0.0; extra == "sqlalchemy"
+Provides-Extra: sqlean
+Requires-Dist: sqlean.py>=3.45.0; extra == "sqlean"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. |badge package| image:: https://badge.fury.io/py/pydynamodb.svg
     :target: https://badge.fury.io/py/pydynamodb
@@ -91,6 +112,7 @@ Features
 * MySQL-Like statements for Utility operations (LIST/SHOW TABLES, DESC TABLE)
 * Auto data type conversion for parameters and result set (Including date and datetime)
 * Transaction and Batch operations
+* Dict Resultset provided to support json conversion
 * SQLAlchemy dialect provided
 * Compatible for Superset SQL Lab and graphing
 
@@ -99,7 +121,7 @@ Requirements
 --------------
 * Python
 
-  - CPython 3.8 3.9 3.10 3.11 3.12
+  - CPython 3.9 3.10 3.11 3.12 3.13 3.14
 
 Dependencies
 --------------
@@ -200,5 +222,3 @@ License
 
 PyDynamoDB is distributed under the `MIT license
 <https://opensource.org/licenses/MIT>`_.
-
-

@@ -18,7 +18,7 @@ import re
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -36,25 +36,25 @@ class ServiceContainer(BaseModel):
     service_name : str, optional
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     service_status : str, optional
-        The current status of the service.
+        The current status of the service — **Read-only:** *any user-provided value will be ignored.*
     instance_id : str, optional
-        ID of the service instance (this is the index of the service instance starting from 0).
+        ID of the service instance (this is the index of the service instance starting from 0) — **Read-only:** *any user-provided value will be ignored.*
     instance_status : str, optional
-        The current status of the service instance.
+        The current status of the service instance — **Read-only:** *any user-provided value will be ignored.*
     container_name : str, optional
-        Name of the container.
+        Name of the container — **Read-only:** *any user-provided value will be ignored.*
     status : str, optional
-        Service container status.
+        Service container status — **Read-only:** *any user-provided value will be ignored.*
     message : str, optional
-        Additional clarification about status.
+        Additional clarification about status — **Read-only:** *any user-provided value will be ignored.*
     image_name : str, optional
-        Image name used to create the service container.
+        Image name used to create the service container — **Read-only:** *any user-provided value will be ignored.*
     image_digest : str, optional
-        The unique and immutable identifier representing the image content.
+        The unique and immutable identifier representing the image content — **Read-only:** *any user-provided value will be ignored.*
     restart_count : int, optional
-        Number of times Snowflake restarted the service.
+        Number of times Snowflake restarted the service — **Read-only:** *any user-provided value will be ignored.*
     start_time : str, optional
-        Date and time when the container started.
+        Date and time when the container started — **Read-only:** *any user-provided value will be ignored.*
     """
 
     database_name: Optional[Annotated[str, Field(strict=True)]] = None
@@ -123,9 +123,10 @@ class ServiceContainer(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -163,7 +164,7 @@ class ServiceContainer(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -178,9 +179,9 @@ class ServiceContainer(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ServiceContainer.parse_obj(obj)
+            return ServiceContainer.model_validate(obj)
 
-        _obj = ServiceContainer.parse_obj(
+        _obj = ServiceContainer.model_validate(
             {
                 "database_name": obj.get("database_name"),
                 "schema_name": obj.get("schema_name"),

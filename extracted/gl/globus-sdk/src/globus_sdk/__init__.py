@@ -1,12 +1,14 @@
+import importlib.metadata
 import logging
 import sys
 
-from ._lazy_import import (
+from ._internal.lazy_import import (
     default_dir_implementation,
     default_getattr_implementation,
     load_all_tuple,
 )
-from .version import __version__  # noqa: F401
+
+__version__ = importlib.metadata.distribution("globus_sdk").version
 
 
 def _force_eager_imports() -> None:

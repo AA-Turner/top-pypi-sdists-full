@@ -3,7 +3,7 @@ Type annotations for panorama service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_panorama/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -47,12 +48,6 @@ from .literals import (
     UpdateProgressType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -192,7 +187,7 @@ class ManifestPayloadTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -260,7 +255,7 @@ class DescribeNodeFromTemplateJobRequestTypeDef(TypedDict):
 
 class JobResourceTagsOutputTypeDef(TypedDict):
     ResourceType: Literal["PACKAGE"]
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
 
 
 class DescribeNodeRequestTypeDef(TypedDict):
@@ -298,7 +293,7 @@ class DeviceJobTypeDef(TypedDict):
 
 class StaticIpConnectionInfoOutputTypeDef(TypedDict):
     DefaultGateway: str
-    Dns: List[str]
+    Dns: list[str]
     IpAddress: str
     Mask: str
 
@@ -433,7 +428,7 @@ class PackageListItemTypeDef(TypedDict):
     CreatedTime: NotRequired[datetime]
     PackageId: NotRequired[str]
     PackageName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -441,7 +436,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class NtpPayloadOutputTypeDef(TypedDict):
-    NtpServers: List[str]
+    NtpServers: list[str]
 
 
 class NtpPayloadTypeDef(TypedDict):
@@ -532,10 +527,10 @@ class ApplicationInstanceTypeDef(TypedDict):
     Description: NotRequired[str]
     HealthStatus: NotRequired[ApplicationInstanceHealthStatusType]
     Name: NotRequired[str]
-    RuntimeContextStates: NotRequired[List[ReportedRuntimeContextStateTypeDef]]
+    RuntimeContextStates: NotRequired[list[ReportedRuntimeContextStateTypeDef]]
     Status: NotRequired[ApplicationInstanceStatusType]
     StatusDescription: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class CreateApplicationInstanceRequestTypeDef(TypedDict):
@@ -592,11 +587,11 @@ class DescribeApplicationInstanceResponseTypeDef(TypedDict):
     HealthStatus: ApplicationInstanceHealthStatusType
     LastUpdatedTime: datetime
     Name: str
-    RuntimeContextStates: List[ReportedRuntimeContextStateTypeDef]
+    RuntimeContextStates: list[ReportedRuntimeContextStateTypeDef]
     RuntimeRoleArn: str
     Status: ApplicationInstanceStatusType
     StatusDescription: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -628,7 +623,7 @@ class DescribePackageVersionResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -652,7 +647,7 @@ class UpdateDeviceMetadataResponseTypeDef(TypedDict):
 
 
 class CreateJobForDevicesResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -668,10 +663,10 @@ class DescribePackageResponseTypeDef(TypedDict):
     CreatedTime: datetime
     PackageId: str
     PackageName: str
-    ReadAccessPrincipalArns: List[str]
+    ReadAccessPrincipalArns: list[str]
     StorageLocation: StorageLocationTypeDef
-    Tags: Dict[str, str]
-    WriteAccessPrincipalArns: List[str]
+    Tags: dict[str, str]
+    WriteAccessPrincipalArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -689,7 +684,7 @@ DeviceTypeDef = TypedDict(
         "LeaseExpirationTime": NotRequired[datetime],
         "Name": NotRequired[str],
         "ProvisioningStatus": NotRequired[DeviceStatusType],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "Type": NotRequired[DeviceTypeType],
     },
 )
@@ -698,7 +693,7 @@ DeviceTypeDef = TypedDict(
 class DescribeNodeFromTemplateJobResponseTypeDef(TypedDict):
     CreatedTime: datetime
     JobId: str
-    JobTags: List[JobResourceTagsOutputTypeDef]
+    JobTags: list[JobResourceTagsOutputTypeDef]
     LastUpdatedTime: datetime
     NodeDescription: str
     NodeName: str
@@ -706,7 +701,7 @@ class DescribeNodeFromTemplateJobResponseTypeDef(TypedDict):
     OutputPackageVersion: str
     Status: NodeFromTemplateJobStatusType
     StatusMessage: str
-    TemplateParameters: Dict[str, str]
+    TemplateParameters: dict[str, str]
     TemplateType: Literal["RTSP_CAMERA_STREAM"]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -716,7 +711,7 @@ class DeviceJobConfigTypeDef(TypedDict):
 
 
 class ListDevicesJobsResponseTypeDef(TypedDict):
-    DeviceJobs: List[DeviceJobTypeDef]
+    DeviceJobs: list[DeviceJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -735,37 +730,37 @@ JobResourceTagsUnionTypeDef = Union[JobResourceTagsTypeDef, JobResourceTagsOutpu
 
 
 class ListApplicationInstanceDependenciesResponseTypeDef(TypedDict):
-    PackageObjects: List[PackageObjectTypeDef]
+    PackageObjects: list[PackageObjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationInstanceNodeInstancesResponseTypeDef(TypedDict):
-    NodeInstances: List[NodeInstanceTypeDef]
+    NodeInstances: list[NodeInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNodeFromTemplateJobsResponseTypeDef(TypedDict):
-    NodeFromTemplateJobs: List[NodeFromTemplateJobTypeDef]
+    NodeFromTemplateJobs: list[NodeFromTemplateJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNodesResponseTypeDef(TypedDict):
-    Nodes: List[NodeTypeDef]
+    Nodes: list[NodeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPackageImportJobsResponseTypeDef(TypedDict):
-    PackageImportJobs: List[PackageImportJobTypeDef]
+    PackageImportJobs: list[PackageImportJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPackagesResponseTypeDef(TypedDict):
-    Packages: List[PackageListItemTypeDef]
+    Packages: list[PackageListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -778,8 +773,8 @@ class NetworkStatusTypeDef(TypedDict):
 
 
 class NodeInterfaceTypeDef(TypedDict):
-    Inputs: List[NodeInputPortTypeDef]
-    Outputs: List[NodeOutputPortTypeDef]
+    Inputs: list[NodeInputPortTypeDef]
+    Outputs: list[NodeOutputPortTypeDef]
 
 
 class SignalApplicationInstanceNodeInstancesRequestTypeDef(TypedDict):
@@ -803,13 +798,13 @@ class PackageVersionInputConfigTypeDef(TypedDict):
 
 
 class ListApplicationInstancesResponseTypeDef(TypedDict):
-    ApplicationInstances: List[ApplicationInstanceTypeDef]
+    ApplicationInstances: list[ApplicationInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDevicesResponseTypeDef(TypedDict):
-    Devices: List[DeviceTypeDef]
+    Devices: list[DeviceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -867,7 +862,7 @@ class PackageImportJobInputConfigTypeDef(TypedDict):
 DescribeDeviceResponseTypeDef = TypedDict(
     "DescribeDeviceResponseTypeDef",
     {
-        "AlternateSoftwares": List[AlternateSoftwareMetadataTypeDef],
+        "AlternateSoftwares": list[AlternateSoftwareMetadataTypeDef],
         "Arn": str,
         "Brand": DeviceBrandType,
         "CreatedTime": datetime,
@@ -885,7 +880,7 @@ DescribeDeviceResponseTypeDef = TypedDict(
         "NetworkingConfiguration": NetworkPayloadOutputTypeDef,
         "ProvisioningStatus": DeviceStatusType,
         "SerialNumber": str,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": DeviceTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -906,7 +901,7 @@ class DescribePackageImportJobResponseTypeDef(TypedDict):
     CreatedTime: datetime
     InputConfig: PackageImportJobInputConfigTypeDef
     JobId: str
-    JobTags: List[JobResourceTagsOutputTypeDef]
+    JobTags: list[JobResourceTagsOutputTypeDef]
     JobType: PackageImportJobTypeType
     LastUpdatedTime: datetime
     Output: PackageImportJobOutputTypeDef

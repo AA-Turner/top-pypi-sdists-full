@@ -17,7 +17,6 @@ import tempfile
 import warnings
 
 from b2._internal._cli.autocomplete_cache import AUTOCOMPLETE  # noqa
-from b2._internal._utils.python_compat import removeprefix
 
 AUTOCOMPLETE.autocomplete_from_cache()
 
@@ -49,7 +48,7 @@ from abc import ABCMeta, abstractmethod
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from contextlib import suppress
 from enum import Enum
-from typing import Any, BinaryIO, List
+from typing import Any, BinaryIO
 
 import b2sdk
 import requests
@@ -782,7 +781,7 @@ class B2URIBucketNFolderNameArgMixin:
         super()._setup_parser(parser)
 
     def get_b2_uri_from_arg(self, args: argparse.Namespace) -> B2URI:
-        return B2URI(removeprefix(args.bucketName or '', 'b2://'), args.folderName or '')
+        return B2URI((args.bucketName or '').removeprefix('b2://'), args.folderName or '')
 
 
 class B2IDOrB2URIMixin:
@@ -884,7 +883,7 @@ class LifecycleRulesMixin(Described):
         add_normalized_argument(
             lifecycle_group,
             '--lifecycle-rules',
-            type=functools.partial(validated_loads, expected_type=List[LifecycleRule]),
+            type=functools.partial(validated_loads, expected_type=list[LifecycleRule]),
             help='(deprecated; use --lifecycle-rule instead) List of lifecycle rules in JSON format.',
         )
 
@@ -924,8 +923,24 @@ class _TqdmCloser:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if sys.platform != 'darwin' or os.environ.get('B2_TEST_DISABLE_TQDM_CLOSER'):
+        if (
+            sys.platform != 'darwin'
+            or sys.version_info < (3, 11)
+            or os.environ.get('B2_TEST_DISABLE_TQDM_CLOSER')
+        ):
             return
+
+        # Tqdm sempaphore leaks do not seem to happen in MacOS 15.7.2,
+        # so we can skip the workaround starting from this version
+        try:
+            macos_version = platform.mac_ver()[0]
+            version_tuple = tuple(int(v) for v in macos_version.split('.'))
+        except (KeyError, ValueError):
+            pass
+        else:
+            if version_tuple and version_tuple >= (15, 7, 2):
+                return
+
         try:
             from multiprocessing.synchronize import SemLock
 

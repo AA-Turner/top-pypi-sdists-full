@@ -27,54 +27,79 @@ This module provides a few things:
 .. versionadded:: 1.3
 '''
 
-
+from collections.abc import Iterator
 import datetime
 import functools
 import itertools
+from typing import Any, Protocol, TypeVar, TYPE_CHECKING
 import uuid
 from xmlrpc import client as xmlrpclib
 import zoneinfo
 
-import msgpack
+import msgpack  # type: ignore
 
-from oslo_utils import importutils
+from oslo_serialization._types import ReadableStream, SupportsWrite
 
-netaddr = importutils.try_import("netaddr")
+try:
+    import netaddr
+except ImportError:
+    netaddr = None  # type: ignore
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+    # this is not subscriptable until Python 3.11
+    ItertoolsCountT = itertools.count[Any]
+else:
+    ItertoolsCountT = itertools.count
 
 
 class Interval:
-    """Small and/or simple immutable integer/float interval class.
+    """Small and/or simple immutable interval class.
 
     Interval checking is **inclusive** of the min/max boundaries.
     """
 
-    def __init__(self, min_value, max_value):
+    def __init__(self, min_value: int, max_value: int) -> None:
         if min_value > max_value:
-            raise ValueError("Minimum value %s must be less than"
-                             " or equal to maximum value %s" % (min_value,
-                                                                max_value))
+            raise ValueError(
+                f"Minimum value {min_value} must be less than"
+                f" or equal to maximum value {max_value}"
+            )
         self._min_value = min_value
         self._max_value = max_value
 
     @property
-    def min_value(self):
+    def min_value(self) -> int:
         return self._min_value
 
     @property
-    def max_value(self):
+    def max_value(self) -> int:
         return self._max_value
 
-    def __contains__(self, value):
+    def __contains__(self, value: int) -> bool:
         return value >= self.min_value and value <= self.max_value
 
-    def __repr__(self):
-        return 'Interval({}, {})'.format(self._min_value, self._max_value)
+    def __repr__(self) -> str:
+        return f'Interval({self._min_value}, {self._max_value})'
 
 
 # Expose these so that users don't have to import msgpack to gain these.
 
 PackException = msgpack.PackException
 UnpackException = msgpack.UnpackException
+
+
+_T = TypeVar('_T')
+
+
+class HandlerProtocol(Protocol[_T]):
+    identity: int
+    handles: tuple[type[_T]]
+
+    def serialize(self, obj: _T) -> bytes: ...
+
+    def deserialize(self, data: bytes) -> _T: ...
 
 
 class HandlerRegistry:
@@ -119,33 +144,44 @@ class HandlerRegistry:
     library and what is not.
     """
 
-    def __init__(self):
-        self._handlers = {}
+    def __init__(self) -> None:
+        self._handlers: dict[int, list[HandlerProtocol[Any]]] = {}
         self._num_handlers = 0
         self.frozen = False
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         """Iterates over **all** registered handlers."""
         for handlers in self._handlers.values():
             yield from handlers
 
-    def register(self, handler, reserved=False, override=False):
+    def register(
+        self,
+        handler: HandlerProtocol[Any],
+        reserved: bool = False,
+        override: bool = False,
+    ) -> None:
         """Register a extension handler to handle its associated type."""
         if self.frozen:
             raise ValueError("Frozen handler registry can't be modified")
+
         if reserved:
             ok_interval = self.reserved_extension_range
         else:
             ok_interval = self.non_reserved_extension_range
+
         ident = handler.identity
         if ident < ok_interval.min_value:
-            raise ValueError("Handler '%s' identity must be greater"
-                             " or equal to %s" % (handler,
-                                                  ok_interval.min_value))
+            raise ValueError(
+                f"Handler '{handler}' identity must be greater"
+                f" or equal to {ok_interval.min_value}"
+            )
+
         if ident > ok_interval.max_value:
-            raise ValueError("Handler '%s' identity must be less than"
-                             " or equal to %s" % (handler,
-                                                  ok_interval.max_value))
+            raise ValueError(
+                f"Handler '{handler}' identity must be less than"
+                f" or equal to {ok_interval.max_value}"
+            )
+
         if ident in self._handlers and override:
             existing_handlers = self._handlers[ident]
             # Insert at the front so that overrides get selected before
@@ -153,22 +189,23 @@ class HandlerRegistry:
             existing_handlers.insert(0, handler)
             self._num_handlers += 1
         elif ident in self._handlers and not override:
-            raise ValueError("Already registered handler(s) with"
-                             " identity %s: %s" % (ident,
-                                                   self._handlers[ident]))
+            raise ValueError(
+                "Already registered handler(s) with"
+                f" identity {ident}: {self._handlers[ident]}"
+            )
         else:
             self._handlers[ident] = [handler]
             self._num_handlers += 1
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return how many extension handlers are registered."""
         return self._num_handlers
 
-    def __contains__(self, identity):
+    def __contains__(self, identity: int) -> bool:
         """Return if any handler exists for the given identity (number)."""
         return identity in self._handlers
 
-    def copy(self, unfreeze=False):
+    def copy(self, unfreeze: bool = False) -> 'Self':
         """Deep copy the given registry (and its handlers)."""
         c = type(self)()
         for ident, handlers in self._handlers.items():
@@ -183,7 +220,7 @@ class HandlerRegistry:
             c.frozen = True
         return c
 
-    def get(self, identity):
+    def get(self, identity: int) -> HandlerProtocol[Any] | None:
         """Get the handler for the given numeric identity (or none)."""
         maybe_handlers = self._handlers.get(identity)
         if maybe_handlers:
@@ -193,7 +230,7 @@ class HandlerRegistry:
         else:
             return None
 
-    def match(self, obj):
+    def match(self, obj: Any) -> HandlerProtocol[Any] | None:
         """Match the registries handlers to the given object (or none)."""
         for possible_handlers in self._handlers.values():
             for h in possible_handlers:
@@ -202,31 +239,29 @@ class HandlerRegistry:
         return None
 
 
-class UUIDHandler:
+class UUIDHandler(HandlerProtocol[uuid.UUID]):
     identity = 0
     handles = (uuid.UUID,)
 
-    @staticmethod
-    def serialize(obj):
+    def serialize(self, obj: uuid.UUID) -> bytes:
         return str(obj.hex).encode('ascii')
 
-    @staticmethod
-    def deserialize(data):
+    def deserialize(self, data: bytes) -> uuid.UUID:
         return uuid.UUID(hex=str(data, encoding='ascii'))
 
 
-class DateTimeHandler:
+class DateTimeHandler(HandlerProtocol[datetime.datetime]):
     identity = 1
     handles = (datetime.datetime,)
 
-    def __init__(self, registry):
+    def __init__(self, registry: HandlerRegistry):
         self._registry = registry
 
-    def copy(self, registry):
+    def copy(self, registry: HandlerRegistry) -> 'Self':
         return type(self)(registry)
 
-    def serialize(self, dt):
-        dct = {
+    def serialize(self, dt: datetime.datetime) -> bytes:
+        dct: dict[str, Any] = {
             'day': dt.day,
             'month': dt.month,
             'year': dt.year,
@@ -239,10 +274,10 @@ class DateTimeHandler:
             dct['tz'] = str(dt.tzinfo)
         return dumps(dct, registry=self._registry)
 
-    def deserialize(self, blob):
+    def deserialize(self, blob: bytes) -> datetime.datetime:
         dct = loads(blob, registry=self._registry)
 
-        if b"day" in dct:
+        if b'day' in dct:
             # NOTE(sileht): oslo.serialization <= 2.4.1 was
             # storing thing as unicode for py3 while is was
             # bytes for py2
@@ -255,140 +290,153 @@ class DateTimeHandler:
             if 'tz' in dct:
                 dct['tz'] = dct['tz'].decode("ascii")
 
-        dt = datetime.datetime(day=dct['day'],
-                               month=dct['month'],
-                               year=dct['year'],
-                               hour=dct['hour'],
-                               minute=dct['minute'],
-                               second=dct['second'],
-                               microsecond=dct['microsecond'])
+        dt = datetime.datetime(
+            day=dct['day'],
+            month=dct['month'],
+            year=dct['year'],
+            hour=dct['hour'],
+            minute=dct['minute'],
+            second=dct['second'],
+            microsecond=dct['microsecond'],
+        )
         if 'tz' in dct and dct['tz']:
             dt = dt.replace(tzinfo=zoneinfo.ZoneInfo(dct['tz']))
         return dt
 
 
-class CountHandler:
+class CountHandler(HandlerProtocol[ItertoolsCountT]):
     identity = 2
     handles = (itertools.count,)
 
-    @staticmethod
-    def serialize(obj):
+    def serialize(self, obj: ItertoolsCountT) -> bytes:
         # FIXME(harlowja): figure out a better way to avoid hacking into
         # the string representation of count to get at the right numbers...
-        obj = str(obj)
-        start = obj.find("(") + 1
-        end = obj.rfind(")")
-        pieces = obj[start:end].split(",")
+        data = str(obj)
+        start = data.find("(") + 1
+        end = data.rfind(")")
+        pieces = data[start:end].split(",")
         if len(pieces) == 1:
             start = int(pieces[0])
             step = 1
         else:
             start = int(pieces[0])
             step = int(pieces[1])
-        return msgpack.packb([start, step])
+        return msgpack.packb([start, step])  # type: ignore
 
-    @staticmethod
-    def deserialize(data):
+    def deserialize(self, data: bytes) -> ItertoolsCountT:
         value = msgpack.unpackb(data)
         start, step = value
         return itertools.count(start, step)
 
 
 if netaddr is not None:
-    class NetAddrIPHandler:
+
+    class NetAddrIPHandler(HandlerProtocol[netaddr.IPAddress]):
         identity = 3
         handles = (netaddr.IPAddress,)
 
-        @staticmethod
-        def serialize(obj):
-            return msgpack.packb(obj.value)
+        def serialize(self, obj: netaddr.IPAddress) -> bytes:
+            return msgpack.packb(obj.value)  # type: ignore
 
-        @staticmethod
-        def deserialize(data):
+        def deserialize(self, data: bytes) -> netaddr.IPAddress:
             return netaddr.IPAddress(msgpack.unpackb(data))
 else:
-    NetAddrIPHandler = None
+    NetAddrIPHandler = None  # type: ignore
 
 
-class SetHandler:
+class SetHandler(HandlerProtocol[set[Any]]):
     identity = 4
     handles = (set,)
 
-    def __init__(self, registry):
+    def __init__(self, registry: HandlerRegistry) -> None:
         self._registry = registry
 
-    def copy(self, registry):
+    def copy(self, registry: HandlerRegistry) -> 'Self':
         return type(self)(registry)
 
-    def serialize(self, obj):
+    def serialize(self, obj: set[Any]) -> bytes:
         return dumps(list(obj), registry=self._registry)
 
-    def deserialize(self, data):
+    def deserialize(self, data: bytes) -> set[Any]:
         return self.handles[0](loads(data, registry=self._registry))
 
 
-class FrozenSetHandler(SetHandler):
+class FrozenSetHandler(HandlerProtocol[frozenset[Any]]):
     identity = 5
     handles = (frozenset,)
 
+    def __init__(self, registry: HandlerRegistry) -> None:
+        self._registry = registry
 
-class XMLRPCDateTimeHandler:
+    def copy(self, registry: HandlerRegistry) -> 'Self':
+        return type(self)(registry)
+
+    def serialize(self, obj: frozenset[Any]) -> bytes:
+        return dumps(list(obj), registry=self._registry)
+
+    def deserialize(self, data: bytes) -> frozenset[Any]:
+        return frozenset(loads(data, registry=self._registry))
+
+
+class XMLRPCDateTimeHandler(HandlerProtocol[xmlrpclib.DateTime]):
     handles = (xmlrpclib.DateTime,)
     identity = 6
 
-    def __init__(self, registry):
+    def __init__(self, registry: HandlerRegistry) -> None:
         self._handler = DateTimeHandler(registry)
 
-    def copy(self, registry):
+    def copy(self, registry: HandlerRegistry) -> 'Self':
         return type(self)(registry)
 
-    def serialize(self, obj):
-        dt = datetime.datetime(*tuple(obj.timetuple())[:6])
+    def serialize(self, obj: xmlrpclib.DateTime) -> bytes:
+        dt = datetime.datetime(*tuple(obj.timetuple())[:6])  # type: ignore
         return self._handler.serialize(dt)
 
-    def deserialize(self, blob):
-        dt = self._handler.deserialize(blob)
+    def deserialize(self, data: bytes) -> xmlrpclib.DateTime:
+        dt = self._handler.deserialize(data)
         return xmlrpclib.DateTime(dt.timetuple())
 
 
-class DateHandler:
+class DateHandler(HandlerProtocol[datetime.date]):
     identity = 7
     handles = (datetime.date,)
 
-    def __init__(self, registry):
+    def __init__(self, registry: HandlerRegistry) -> None:
         self._registry = registry
 
-    def copy(self, registry):
+    def copy(self, registry: HandlerRegistry) -> 'Self':
         return type(self)(registry)
 
-    def serialize(self, d):
+    def serialize(self, obj: datetime.date) -> bytes:
         dct = {
-            'year': d.year,
-            'month': d.month,
-            'day': d.day,
+            'year': obj.year,
+            'month': obj.month,
+            'day': obj.day,
         }
         return dumps(dct, registry=self._registry)
 
-    def deserialize(self, blob):
+    def deserialize(self, blob: bytes) -> datetime.date:
         dct = loads(blob, registry=self._registry)
-        if b"day" in dct:
+        if b'day' in dct:
             # NOTE(sileht): see DateTimeHandler.deserialize()
             dct = {k.decode("ascii"): v for k, v in dct.items()}
 
-        return datetime.date(year=dct['year'],
-                             month=dct['month'],
-                             day=dct['day'])
+        return datetime.date(
+            year=dct['year'], month=dct['month'], day=dct['day']
+        )
 
 
-def _serializer(registry, obj):
+def _serializer(registry: HandlerRegistry, obj: Any) -> bytes:
     handler = registry.match(obj)
     if handler is None:
-        raise ValueError("No serialization handler registered"
-                         " for type '%s'" % (type(obj).__name__))
-    return msgpack.ExtType(handler.identity, handler.serialize(obj))
+        raise ValueError(
+            "No serialization handler registered"
+            f" for type '{type(obj).__name__}'"
+        )
+    return msgpack.ExtType(handler.identity, handler.serialize(obj))  # type: ignore
 
 
-def _unserializer(registry, code, data):
+def _unserializer(registry: HandlerRegistry, code: int, data: bytes) -> Any:
     handler = registry.get(code)
     if not handler:
         return msgpack.ExtType(code, data)
@@ -396,7 +444,7 @@ def _unserializer(registry, code, data):
         return handler.deserialize(data)
 
 
-def _create_default_registry():
+def _create_default_registry() -> HandlerRegistry:
     registry = HandlerRegistry()
     registry.register(DateTimeHandler(registry), reserved=True)
     registry.register(DateHandler(registry), reserved=True)
@@ -429,7 +477,7 @@ This registry has msgpack extensions for the following:
 """
 
 
-def load(fp, registry=None):
+def load(fp: ReadableStream, registry: HandlerRegistry | None = None) -> Any:
     """Deserialize ``fp`` into a Python object.
 
     .. versionchanged:: 1.5
@@ -444,7 +492,9 @@ def load(fp, registry=None):
     return msgpack.Unpacker(fp, ext_hook=ext_hook, raw=False).unpack()
 
 
-def dump(obj, fp, registry=None):
+def dump(
+    obj: Any, fp: SupportsWrite, registry: HandlerRegistry | None = None
+) -> None:
     """Serialize ``obj`` as a messagepack formatted stream to ``fp``.
 
     .. versionchanged:: 1.5
@@ -452,12 +502,15 @@ def dump(obj, fp, registry=None):
     """
     if registry is None:
         registry = default_registry
-    return msgpack.pack(obj, fp,
-                        default=functools.partial(_serializer, registry),
-                        use_bin_type=True)
+    return msgpack.pack(  # type: ignore
+        obj,
+        fp,
+        default=functools.partial(_serializer, registry),
+        use_bin_type=True,
+    )
 
 
-def dumps(obj, registry=None):
+def dumps(obj: Any, registry: HandlerRegistry | None = None) -> bytes:
     """Serialize ``obj`` to a messagepack formatted ``str``.
 
     .. versionchanged:: 1.5
@@ -465,12 +518,14 @@ def dumps(obj, registry=None):
     """
     if registry is None:
         registry = default_registry
-    return msgpack.packb(obj,
-                         default=functools.partial(_serializer, registry),
-                         use_bin_type=True)
+    return msgpack.packb(  # type: ignore
+        obj,
+        default=functools.partial(_serializer, registry),
+        use_bin_type=True,
+    )
 
 
-def loads(s, registry=None):
+def loads(s: bytes, registry: HandlerRegistry | None = None) -> Any:
     """Deserialize ``s`` messagepack ``str`` into a Python object.
 
     .. versionchanged:: 1.5

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from eventkit import Event, Op
 
@@ -10,6 +10,7 @@ from ib_async.contract import Contract
 from ib_async.objects import (
     Dividends,
     DOMLevel,
+    EfpData,
     FundamentalRatios,
     IBDefaults,
     MktDepthData,
@@ -90,7 +91,7 @@ class Ticker:
     rtHistVolatility: float = nan
     rtVolume: float = nan
     rtTradeVolume: float = nan
-    rtTime: Optional[datetime] = None
+    rtTime: datetime | None = None
     avVolume: float = nan
     tradeCount: float = nan
     tradeRate: float = nan
@@ -109,21 +110,51 @@ class Ticker:
     avOptionVolume: float = nan
     histVolatility: float = nan
     impliedVolatility: float = nan
-    dividends: Optional[Dividends] = None
-    fundamentalRatios: Optional[FundamentalRatios] = None
+    openInterest: float = nan
+    lastRthTrade: float = nan
+    lastRegTime: str = ""
+    optionBidExch: str = ""
+    optionAskExch: str = ""
+    bondFactorMultiplier: float = nan
+    creditmanMarkPrice: float = nan
+    creditmanSlowMarkPrice: float = nan
+    delayedLastTimestamp: datetime | None = None
+    delayedHalted: float = nan
+    reutersMutualFunds: str = ""
+    etfNavClose: float = nan
+    etfNavPriorClose: float = nan
+    etfNavBid: float = nan
+    etfNavAsk: float = nan
+    etfNavLast: float = nan
+    etfFrozenNavLast: float = nan
+    etfNavHigh: float = nan
+    etfNavLow: float = nan
+    socialMarketAnalytics: str = ""
+    estimatedIpoMidpoint: float = nan
+    finalIpoLast: float = nan
+    dividends: Dividends | None = None
+    fundamentalRatios: FundamentalRatios | None = None
     ticks: list[TickData] = field(default_factory=list)
-    tickByTicks: list[
-        Union[TickByTickAllLast, TickByTickBidAsk, TickByTickMidPoint]
-    ] = field(default_factory=list)
+    tickByTicks: list[TickByTickAllLast | TickByTickBidAsk | TickByTickMidPoint] = (
+        field(default_factory=list)
+    )
     domBids: list[DOMLevel] = field(default_factory=list)
     domBidsDict: dict[int, DOMLevel] = field(default_factory=dict)
     domAsks: list[DOMLevel] = field(default_factory=list)
     domAsksDict: dict[int, DOMLevel] = field(default_factory=dict)
     domTicks: list[MktDepthData] = field(default_factory=list)
-    bidGreeks: Optional[OptionComputation] = None
-    askGreeks: Optional[OptionComputation] = None
-    lastGreeks: Optional[OptionComputation] = None
-    modelGreeks: Optional[OptionComputation] = None
+    bidGreeks: OptionComputation | None = None
+    askGreeks: OptionComputation | None = None
+    lastGreeks: OptionComputation | None = None
+    modelGreeks: OptionComputation | None = None
+    custGreeks: OptionComputation | None = None
+    bidEfp: EfpData | None = None
+    askEfp: EfpData | None = None
+    lastEfp: EfpData | None = None
+    openEfp: EfpData | None = None
+    highEfp: EfpData | None = None
+    lowEfp: EfpData | None = None
+    closeEfp: EfpData | None = None
     auctionVolume: float = nan
     auctionPrice: float = nan
     auctionImbalance: float = nan
@@ -195,6 +226,22 @@ class Ticker:
             self.auctionPrice = self.defaults.unset
             self.auctionImbalance = self.defaults.unset
             self.regulatoryImbalance = self.defaults.unset
+            self.openInterest = self.defaults.unset
+            self.lastRthTrade = self.defaults.unset
+            self.bondFactorMultiplier = self.defaults.unset
+            self.creditmanMarkPrice = self.defaults.unset
+            self.creditmanSlowMarkPrice = self.defaults.unset
+            self.delayedHalted = self.defaults.unset
+            self.etfNavClose = self.defaults.unset
+            self.etfNavPriorClose = self.defaults.unset
+            self.etfNavBid = self.defaults.unset
+            self.etfNavAsk = self.defaults.unset
+            self.etfNavLast = self.defaults.unset
+            self.etfFrozenNavLast = self.defaults.unset
+            self.etfNavHigh = self.defaults.unset
+            self.etfNavLow = self.defaults.unset
+            self.estimatedIpoMidpoint = self.defaults.unset
+            self.finalIpoLast = self.defaults.unset
 
             self.created = True
 
@@ -338,7 +385,7 @@ class Midpoints(Tickfilter):
 
 @dataclass
 class Bar:
-    time: Optional[datetime]
+    time: datetime | None
     open: float = nan
     high: float = nan
     low: float = nan
@@ -389,7 +436,7 @@ class TimeBars(Op):
     def _on_timer(self, time):
         if self.bars:
             bar = self.bars[-1]
-            if self.isUnset(bar.close) and len(self.bars) > 1:
+            if isNan(bar.close) and len(self.bars) > 1:
                 bar.open = bar.high = bar.low = bar.close = self.bars[-2].close
 
             self.bars.updateEvent.emit(self.bars, True)

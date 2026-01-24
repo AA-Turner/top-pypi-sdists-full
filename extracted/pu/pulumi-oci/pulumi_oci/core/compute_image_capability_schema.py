@@ -299,9 +299,7 @@ class ComputeImageCapabilitySchema(pulumi.CustomResource):
                  schema_data: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        This resource provides the Compute Image Capability Schema resource in Oracle Cloud Infrastructure Core service.
-
-        Creates compute image capability schema.
+        ## Example Usage
 
         ## Import
 
@@ -328,9 +326,7 @@ class ComputeImageCapabilitySchema(pulumi.CustomResource):
                  args: ComputeImageCapabilitySchemaArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Compute Image Capability Schema resource in Oracle Cloud Infrastructure Core service.
-
-        Creates compute image capability schema.
+        ## Example Usage
 
         ## Import
 

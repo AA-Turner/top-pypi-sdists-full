@@ -69,12 +69,20 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'ERROR',
         },
+        'faker': {
+            'level': 'WARNING',
+            'propagate': False,
+        },
     },
 }
 
 # for printing messages before main logging config applied
 if not logging.getLogger().hasHandlers():
     logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+
+# Suppress verbose Faker locale messages early, before Faker is imported
+logging.getLogger('faker').setLevel(logging.WARNING)
+logging.getLogger('faker.providers').setLevel(logging.WARNING)
 
 from label_studio.core.utils.io import get_data_dir
 from label_studio.core.utils.params import get_bool_env, get_env
@@ -141,6 +149,10 @@ logger.info('=> Database and media directory: %s', BASE_DATA_DIR)
 # This indicates whether the code is running in a Continuous Integration environment.
 CI = get_bool_env('CI', False)
 
+# Control whether async SQL migrations can be scheduled (SCHEDULED status) instead of running immediately.
+# If False, migrations that would normally be scheduled will be executed immediately.
+ALLOW_SCHEDULED_MIGRATIONS = get_bool_env('ALLOW_SCHEDULED_MIGRATIONS', False)
+
 # Databases
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 DJANGO_DB_MYSQL = 'mysql'
@@ -205,7 +217,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'drf_yasg',
+    'drf_spectacular',
     'corsheaders',
     'django_extensions',
     'django_rq',
@@ -216,6 +228,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_simplejwt.token_blacklist',
     'drf_generators',
+    'fsm',  # MUST be before apps that register FSM transitions (projects, tasks)
     'core',
     'users',
     'organizations',
@@ -265,9 +278,8 @@ REST_FRAMEWORK = {
     ],
     'EXCEPTION_HANDLER': 'core.utils.common.custom_exception_handler',
     'DEFAULT_RENDERER_CLASSES': ('rest_framework.renderers.JSONRenderer',),
-    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'PAGE_SIZE': 100,
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination'
 }
 SILENCED_SYSTEM_CHECKS += ['rest_framework.W001']
 
@@ -305,13 +317,21 @@ USE_USERNAME_FOR_LOGIN = False
 
 DISABLE_SIGNUP_WITHOUT_LINK = get_bool_env('DISABLE_SIGNUP_WITHOUT_LINK', False)
 
+# Password validation settings
+AUTH_PASSWORD_MIN_LENGTH = 8
+AUTH_PASSWORD_MAX_LENGTH = 128
+
 # Password validation:
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {
+        'NAME': 'users.validators.PasswordLengthValidator',
+        'OPTIONS': {
+            'min_length': AUTH_PASSWORD_MIN_LENGTH,
+            'max_length': AUTH_PASSWORD_MAX_LENGTH,
+        },
+    },
 ]
 
 # Django templates
@@ -333,6 +353,9 @@ TEMPLATES = [
         },
     }
 ]
+
+# OSS version does not support Redis
+REDIS_ENABLED = False
 
 # RQ
 RQ_QUEUES = {
@@ -362,32 +385,35 @@ RQ_QUEUES = {
     },
 }
 
-# specify the list of the extensions that are allowed to be presented in auto generated OpenAPI schema
-# for example, by specifying in swagger_auto_schema(..., x_fern_sdk_group_name='projects') we can group endpoints
-# /api/projects/:
-#   get:
-#     x-fern-sdk-group-name: projects
-X_VENDOR_OPENAPI_EXTENSIONS = ['x-fern']
+# How long to keep failed RQ jobs (in seconds); default is 30 days
+RQ_FAILED_JOB_TTL = int(get_env('RQ_FAILED_JOB_TTL', 30 * 24 * 60 * 60))
 
-# Swagger: automatic API documentation
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Token': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'The token (or API key) must be passed as a request header. '
-            'You can find your user token on the User Account page in Label Studio. Example: '
-            '<br><pre><code class="language-bash">'
-            'curl https://label-studio-host/api/projects -H "Authorization: Token [your-token]"'
-            '</code></pre>',
-        }
+# drf-spectacular settings for OpenAPI 3.0 schema generation
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Label Studio API',
+    'DESCRIPTION': 'Label Studio API for data annotation and labeling',
+    'VERSION': '',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': None,
+    'SCHEMA_PATH_PREFIX_TRIM': False,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
     },
-    'APIS_SORTER': 'alpha',
-    'SUPPORTED_SUBMIT_METHODS': ['get', 'post', 'put', 'delete', 'patch'],
-    'OPERATIONS_SORTER': 'alpha',
-    'DEFAULT_AUTO_SCHEMA_CLASS': 'core.utils.openapi_extensions.XVendorExtensionsAutoSchema',
-    'DEFAULT_INFO': 'core.urls.open_api_info',
+    'AUTHENTICATION_WHITELIST': [
+        'jwt_auth.auth.TokenAuthenticationPhaseout',
+    ],
+    'SERVERS': [
+        {
+            'url': HOSTNAME,
+            'description': 'Label Studio',
+        },
+    ],
+    'CONTACT': {'url': 'https://labelstud.io'},
+    'X_LOGO': {'url': '../../static/icons/logo-black.svg'},
+    'ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE': False,
 }
 
 SENTRY_DSN = get_env('SENTRY_DSN', None)
@@ -550,22 +576,51 @@ REACT_APP_ROOT = os.path.join(BASE_DIR, '../../web/dist/apps/labelstudio')
 
 # per project settings
 BATCH_SIZE = 1000
+# Maximum number of tasks to process in a single batch during export operations
+MAX_TASK_BATCH_SIZE = int(get_env('MAX_TASK_BATCH_SIZE', 1000))
+# Total size of task data (in bytes) to process per batch - used to calculate dynamic batch sizes
+# For example: if task data is 10MB, batch will be ~5 tasks to stay under 50MB limit
+TASK_DATA_PER_BATCH = int(get_env('TASK_DATA_PER_BATCH', 50 * 1024 * 1024))  # 50 MB in bytes
+# Batch size for streaming reimport operations to reduce memory usage
+REIMPORT_BATCH_SIZE = int(get_env('REIMPORT_BATCH_SIZE', 1000))
+# Batch size for streaming import operations to reduce memory usage
+IMPORT_BATCH_SIZE = int(get_env('IMPORT_BATCH_SIZE', 500))
+# Batch size for processing prediction imports to avoid memory issues with large datasets
+PREDICTION_IMPORT_BATCH_SIZE = int(get_env('PREDICTION_IMPORT_BATCH_SIZE', 500))
 PROJECT_TITLE_MIN_LEN = 3
 PROJECT_TITLE_MAX_LEN = 50
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/user/login/'
+
 MIN_GROUND_TRUTH = 10
 DATA_UNDEFINED_NAME = '$undefined$'
 LICENSE = {}
 VERSIONS = {}
 VERSION_EDITION = 'Community'
-LATEST_VERSION_CHECK = True
+LATEST_VERSION_CHECK = get_bool_env('LATEST_VERSION_CHECK', True)
 VERSIONS_CHECK_TIME = 0
 ALLOW_ORGANIZATION_WEBHOOKS = get_bool_env('ALLOW_ORGANIZATION_WEBHOOKS', False)
 CONVERTER_DOWNLOAD_RESOURCES = get_bool_env('CONVERTER_DOWNLOAD_RESOURCES', True)
+SHOW_TRACEBACK_FOR_EXPORT_CONVERTER = get_bool_env('SHOW_TRACEBACK_FOR_EXPORT_CONVERTER', True)
 EXPERIMENTAL_FEATURES = get_bool_env('EXPERIMENTAL_FEATURES', False)
 USE_ENFORCE_CSRF_CHECKS = get_bool_env('USE_ENFORCE_CSRF_CHECKS', True)  # False is for tests
 CLOUD_FILE_STORAGE_ENABLED = False
+
+if (
+    VERSION_EDITION == 'Community'
+    and 'LOCAL_FILES_DOCUMENT_ROOT' not in os.environ
+    and 'LOCAL_FILES_SERVING_ENABLED' not in os.environ
+):
+    from label_studio.io_storages.localfiles.functions import autodetect_local_files_root
+
+    _autodetected_root = autodetect_local_files_root()
+    if _autodetected_root:
+        LOCAL_FILES_DOCUMENT_ROOT = _autodetected_root
+        LOCAL_FILES_SERVING_ENABLED = True
+        logger.info(
+            'LOCAL_FILES_DOCUMENT_ROOT auto-configured to %s and LOCAL_FILES_SERVING_ENABLED set to true.',
+            LOCAL_FILES_DOCUMENT_ROOT,
+        )
 
 IO_STORAGES_IMPORT_LINK_NAMES = [
     'io_storages_s3importstoragelink',
@@ -579,6 +634,7 @@ CREATE_ORGANIZATION = 'organizations.functions.create_organization'
 SAVE_USER = 'users.functions.save_user'
 POST_PROCESS_REIMPORT = 'core.utils.common.empty'
 USER_SERIALIZER = 'users.serializers.BaseUserSerializer'
+WHOAMI_USER_SERIALIZER = 'users.serializers.BaseWhoAmIUserSerializer'
 USER_SERIALIZER_UPDATE = 'users.serializers.BaseUserSerializerUpdate'
 TASK_SERIALIZER = 'tasks.serializers.BaseTaskSerializer'
 EXPORT_DATA_SERIALIZER = 'data_export.serializers.BaseExportDataSerializer'
@@ -587,11 +643,14 @@ DATA_MANAGER_ANNOTATIONS_MAP = {}
 DATA_MANAGER_ACTIONS = {}
 DATA_MANAGER_CUSTOM_FILTER_EXPRESSIONS = 'data_manager.functions.custom_filter_expressions'
 DATA_MANAGER_PREPROCESS_FILTER = 'data_manager.functions.preprocess_filter'
+DATA_MANAGER_CHECK_ACTION_PERMISSION = 'data_manager.actions.check_action_permission'
+BULK_UPDATE_IS_LABELED = 'tasks.functions.bulk_update_is_labeled_by_overlap'
 USER_LOGIN_FORM = 'users.forms.LoginForm'
 PROJECT_MIXIN = 'projects.mixins.ProjectMixin'
 TASK_MIXIN = 'tasks.mixins.TaskMixin'
 LSE_PROJECT = None
 GET_TASKS_AGREEMENT_QUERYSET = None
+SHOULD_ATTEMPT_GROUND_TRUTH_FIRST = None
 ANNOTATION_MIXIN = 'tasks.mixins.AnnotationMixin'
 ORGANIZATION_MIXIN = 'organizations.mixins.OrganizationMixin'
 USER_MIXIN = 'users.mixins.UserMixin'
@@ -604,10 +663,11 @@ STORAGE_ANNOTATION_SERIALIZER = 'io_storages.serializers.StorageAnnotationSerial
 TASK_SERIALIZER_BULK = 'tasks.serializers.BaseTaskSerializerBulk'
 PREPROCESS_FIELD_NAME = 'data_manager.functions.preprocess_field_name'
 INTERACTIVE_DATA_SERIALIZER = 'data_export.serializers.BaseExportDataSerializerForInteractive'
-STORAGE_PERMISSION = 'io_storages.permissions.StoragePermission'
 PROJECT_IMPORT_PERMISSION = 'projects.permissions.ProjectImportPermission'
 DELETE_TASKS_ANNOTATIONS_POSTPROCESS = None
+PROJECT_SAVE_DIMENSIONS_POSTPROCESS = None
 FEATURE_FLAGS_GET_USER_REPR = 'core.feature_flags.utils.get_user_repr'
+FEATURE_FLAGS_GET_USER_REPR_FROM_ORGANIZATION = 'core.feature_flags.utils.get_user_repr_from_organization'
 
 # Test factories
 ORGANIZATION_FACTORY = 'organizations.tests.factories.OrganizationFactory'
@@ -632,7 +692,7 @@ USER_AUTH = user_auth
 COLLECT_VERSIONS = collect_versions_dummy
 
 WEBHOOK_TIMEOUT = float(get_env('WEBHOOK_TIMEOUT', 1.0))
-WEBHOOK_BATCH_SIZE = int(get_env('WEBHOOK_BATCH_SIZE', 100))
+WEBHOOK_BATCH_SIZE = int(get_env('WEBHOOK_BATCH_SIZE', 5000))
 WEBHOOK_SERIALIZERS = {
     'project': 'webhooks.serializers_for_hooks.ProjectWebhookSerializer',
     'task': 'webhooks.serializers_for_hooks.TaskWebhookSerializer',
@@ -683,6 +743,8 @@ FUTURE_SAVE_TASK_TO_STORAGE = get_bool_env('FUTURE_SAVE_TASK_TO_STORAGE', defaul
 FUTURE_SAVE_TASK_TO_STORAGE_JSON_EXT = get_bool_env('FUTURE_SAVE_TASK_TO_STORAGE_JSON_EXT', default=True)
 STORAGE_IN_PROGRESS_TIMER = float(get_env('STORAGE_IN_PROGRESS_TIMER', 5.0))
 STORAGE_EXPORT_CHUNK_SIZE = int(get_env('STORAGE_EXPORT_CHUNK_SIZE', 100))
+DEFAULT_STORAGE_LIST_LIMIT = int(get_env('DEFAULT_STORAGE_LIST_LIMIT', 100))
+STORAGE_EXISTED_COUNT_BATCH_SIZE = int(get_env('STORAGE_EXISTED_COUNT_BATCH_SIZE', 1000))
 
 USE_NGINX_FOR_EXPORT_DOWNLOADS = get_bool_env('USE_NGINX_FOR_EXPORT_DOWNLOADS', False)
 USE_NGINX_FOR_UPLOADS = get_bool_env('USE_NGINX_FOR_UPLOADS', True)
@@ -767,7 +829,10 @@ PUBLIC_API_DOCS = get_bool_env('PUBLIC_API_DOCS', False)
 # By default, we disallow filters with foreign keys in data manager for security reasons.
 # Add to this list (either here in code, or via the env) to allow specific filters that rely on foreign keys.
 DATA_MANAGER_FILTER_ALLOWLIST = list(
-    set(get_env_list('DATA_MANAGER_FILTER_ALLOWLIST') + ['updated_by__active_organization'])
+    set(
+        get_env_list('DATA_MANAGER_FILTER_ALLOWLIST')
+        + ['updated_by__active_organization', 'annotations__completed_by']
+    )
 )
 
 if ENABLE_CSP := get_bool_env('ENABLE_CSP', True):
@@ -780,7 +845,6 @@ if ENABLE_CSP := get_bool_env('ENABLE_CSP', True):
         "'self'",
         "'report-sample'",
         "'unsafe-inline'",
-        "'unsafe-eval'",
         'blob:',
         'browser.sentry-cdn.com',
         'https://*.googletagmanager.com',
@@ -853,3 +917,23 @@ RESOLVER_PROXY_CACHE_TIMEOUT = int(get_env('RESOLVER_PROXY_CACHE_TIMEOUT', 3600)
 
 # Advanced validator for ImportStorageSerializer in enterprise
 IMPORT_STORAGE_SERIALIZER_VALIDATE = None
+
+# User activity Redis caching settings
+USER_ACTIVITY_REDIS_KEY_PREFIX = get_env('USER_ACTIVITY_REDIS_KEY_PREFIX', 'user_activity')
+USER_ACTIVITY_BATCH_SIZE = int(get_env('USER_ACTIVITY_BATCH_SIZE', '100'))
+USER_ACTIVITY_SYNC_THRESHOLD = int(get_env('USER_ACTIVITY_SYNC_THRESHOLD', '500'))
+USER_ACTIVITY_REDIS_TTL = int(get_env('USER_ACTIVITY_REDIS_TTL', '86400'))  # 24 hours
+
+# QuerySet iterator settings
+QS_ITERATOR_DEFAULT_CHUNK_SIZE = int(get_env('QS_ITERATOR_DEFAULT_CHUNK_SIZE', 1000))
+
+# Data Manager
+# Max number of users to display in the Data Manager in Annotators/Reviewers/Comment Authors, etc
+DM_MAX_USERS_TO_DISPLAY = int(get_env('DM_MAX_USERS_TO_DISPLAY', 10))
+
+# Base FSM (Finite State Machine) Configuration for Label Studio
+FSM_CACHE_TTL = 300  # Cache TTL in seconds (5 minutes)
+
+# Used for async migrations. In LSE this is set to a real queue name, including here so we
+# can use settings.SERVICE_QUEUE_NAME in async migrations in LSO
+SERVICE_QUEUE_NAME = get_env('SERVICE_QUEUE_NAME', 'default')

@@ -176,6 +176,115 @@ class ActivateDeviceCertificateResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class AddClientSubscriptionRequest(AbstractModel):
+    r"""AddClientSubscription请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _ClientId: 客户端id
+        :type ClientId: str
+        :param _TopicFilter: 订阅
+        :type TopicFilter: str
+        :param _Qos: 服务质量:0,1,2
+        :type Qos: str
+        """
+        self._InstanceId = None
+        self._ClientId = None
+        self._TopicFilter = None
+        self._Qos = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ClientId(self):
+        r"""客户端id
+        :rtype: str
+        """
+        return self._ClientId
+
+    @ClientId.setter
+    def ClientId(self, ClientId):
+        self._ClientId = ClientId
+
+    @property
+    def TopicFilter(self):
+        r"""订阅
+        :rtype: str
+        """
+        return self._TopicFilter
+
+    @TopicFilter.setter
+    def TopicFilter(self, TopicFilter):
+        self._TopicFilter = TopicFilter
+
+    @property
+    def Qos(self):
+        r"""服务质量:0,1,2
+        :rtype: str
+        """
+        return self._Qos
+
+    @Qos.setter
+    def Qos(self, Qos):
+        self._Qos = Qos
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ClientId = params.get("ClientId")
+        self._TopicFilter = params.get("TopicFilter")
+        self._Qos = params.get("Qos")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AddClientSubscriptionResponse(AbstractModel):
+    r"""AddClientSubscription返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ApplyRegistrationCodeRequest(AbstractModel):
     r"""ApplyRegistrationCode请求参数结构体
 
@@ -2224,6 +2333,206 @@ class CreateJWTAuthenticatorResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateMessageEnrichmentRuleRequest(AbstractModel):
+    r"""CreateMessageEnrichmentRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :type InstanceId: str
+        :param _RuleName: 规则名称
+        :type RuleName: str
+        :param _Condition: 规则匹配条件，JSON格式，需要Base64编码
+样例
+{"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后
+eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :type Condition: str
+        :param _Actions: 规则执行的动作，JSON格式，需要Base64编码
+样例
+{"messageExpiryInterval":360,"responseTopic":"replies/devices/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"}]}
+BASE64后
+eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2VUb3BpYyI6InJlcGxpZXMvZGV2aWNlcy8ke2NsaWVudGlkfSIsImNvcnJlbGF0aW9uRGF0YSI6IiR7dHJhY2VpZH0iLCJ1c2VyUHJvcGVydHkiOlt7ImtleSI6InRyYWNlLWlkIiwidmFsdWUiOiIke3RyYWNlaWR9In1dfQ==
+        :type Actions: str
+        :param _Priority: 规则优先级，数字越小，优先级越高，高优先级覆盖低低优先级。UserPropertiy字段会合并
+        :type Priority: int
+        :param _Status: 策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :type Status: int
+        :param _Remark: 备注，长度不超过128个字符。
+        :type Remark: str
+        """
+        self._InstanceId = None
+        self._RuleName = None
+        self._Condition = None
+        self._Actions = None
+        self._Priority = None
+        self._Status = None
+        self._Remark = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def RuleName(self):
+        r"""规则名称
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def Condition(self):
+        r"""规则匹配条件，JSON格式，需要Base64编码
+样例
+{"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后
+eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :rtype: str
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+    @property
+    def Actions(self):
+        r"""规则执行的动作，JSON格式，需要Base64编码
+样例
+{"messageExpiryInterval":360,"responseTopic":"replies/devices/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"}]}
+BASE64后
+eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2VUb3BpYyI6InJlcGxpZXMvZGV2aWNlcy8ke2NsaWVudGlkfSIsImNvcnJlbGF0aW9uRGF0YSI6IiR7dHJhY2VpZH0iLCJ1c2VyUHJvcGVydHkiOlt7ImtleSI6InRyYWNlLWlkIiwidmFsdWUiOiIke3RyYWNlaWR9In1dfQ==
+        :rtype: str
+        """
+        return self._Actions
+
+    @Actions.setter
+    def Actions(self, Actions):
+        self._Actions = Actions
+
+    @property
+    def Priority(self):
+        r"""规则优先级，数字越小，优先级越高，高优先级覆盖低低优先级。UserPropertiy字段会合并
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Status(self):
+        r"""策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Remark(self):
+        r"""备注，长度不超过128个字符。
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._RuleName = params.get("RuleName")
+        self._Condition = params.get("Condition")
+        self._Actions = params.get("Actions")
+        self._Priority = params.get("Priority")
+        self._Status = params.get("Status")
+        self._Remark = params.get("Remark")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateMessageEnrichmentRuleResponse(AbstractModel):
+    r"""CreateMessageEnrichmentRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群id
+        :type InstanceId: str
+        :param _Id: 规则id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._InstanceId = None
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def InstanceId(self):
+        r"""集群id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Id(self):
+        r"""规则id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateTopicRequest(AbstractModel):
     r"""CreateTopic请求参数结构体
 
@@ -2858,6 +3167,100 @@ class DeleteCaCertificateResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteClientSubscriptionRequest(AbstractModel):
+    r"""DeleteClientSubscription请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _ClientId: 客户端id
+        :type ClientId: str
+        :param _TopicFilter: 订阅
+        :type TopicFilter: str
+        """
+        self._InstanceId = None
+        self._ClientId = None
+        self._TopicFilter = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ClientId(self):
+        r"""客户端id
+        :rtype: str
+        """
+        return self._ClientId
+
+    @ClientId.setter
+    def ClientId(self, ClientId):
+        self._ClientId = ClientId
+
+    @property
+    def TopicFilter(self):
+        r"""订阅
+        :rtype: str
+        """
+        return self._TopicFilter
+
+    @TopicFilter.setter
+    def TopicFilter(self, TopicFilter):
+        self._TopicFilter = TopicFilter
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ClientId = params.get("ClientId")
+        self._TopicFilter = params.get("TopicFilter")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteClientSubscriptionResponse(AbstractModel):
+    r"""DeleteClientSubscription返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DeleteDeviceCertificateRequest(AbstractModel):
     r"""DeleteDeviceCertificate请求参数结构体
 
@@ -3118,6 +3521,85 @@ class DeleteInstanceRequest(AbstractModel):
 
 class DeleteInstanceResponse(AbstractModel):
     r"""DeleteInstance返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteMessageEnrichmentRuleRequest(AbstractModel):
+    r"""DeleteMessageEnrichmentRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :type InstanceId: str
+        :param _Id: 消息属性增强规则id
+        :type Id: int
+        """
+        self._InstanceId = None
+        self._Id = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Id(self):
+        r"""消息属性增强规则id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Id = params.get("Id")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteMessageEnrichmentRuleResponse(AbstractModel):
+    r"""DeleteMessageEnrichmentRule返回参数结构体
 
     """
 
@@ -5284,6 +5766,10 @@ API：通过API手动注册
         :type TopicPrefixSlashLimit: int
         :param _MessageRate: 单客户端发送消息限速，单位 条/秒
         :type MessageRate: int
+        :param _TransportLayerSecurity: 服务端tls支持的协议，使用“,”分割。例如：TLSv1.3,TLSv1.2,TLSv1.1,TLSv1
+        :type TransportLayerSecurity: str
+        :param _MessageEnrichmentRuleLimit: 消息属性增强规则配额
+        :type MessageEnrichmentRuleLimit: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -5320,6 +5806,8 @@ API：通过API手动注册
         self._ServerCertLimit = None
         self._TopicPrefixSlashLimit = None
         self._MessageRate = None
+        self._TransportLayerSecurity = None
+        self._MessageEnrichmentRuleLimit = None
         self._RequestId = None
 
     @property
@@ -5691,6 +6179,28 @@ API：通过API手动注册
         self._MessageRate = MessageRate
 
     @property
+    def TransportLayerSecurity(self):
+        r"""服务端tls支持的协议，使用“,”分割。例如：TLSv1.3,TLSv1.2,TLSv1.1,TLSv1
+        :rtype: str
+        """
+        return self._TransportLayerSecurity
+
+    @TransportLayerSecurity.setter
+    def TransportLayerSecurity(self, TransportLayerSecurity):
+        self._TransportLayerSecurity = TransportLayerSecurity
+
+    @property
+    def MessageEnrichmentRuleLimit(self):
+        r"""消息属性增强规则配额
+        :rtype: int
+        """
+        return self._MessageEnrichmentRuleLimit
+
+    @MessageEnrichmentRuleLimit.setter
+    def MessageEnrichmentRuleLimit(self, MessageEnrichmentRuleLimit):
+        self._MessageEnrichmentRuleLimit = MessageEnrichmentRuleLimit
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -5736,6 +6246,8 @@ API：通过API手动注册
         self._ServerCertLimit = params.get("ServerCertLimit")
         self._TopicPrefixSlashLimit = params.get("TopicPrefixSlashLimit")
         self._MessageRate = params.get("MessageRate")
+        self._TransportLayerSecurity = params.get("TransportLayerSecurity")
+        self._MessageEnrichmentRuleLimit = params.get("MessageEnrichmentRuleLimit")
         self._RequestId = params.get("RequestId")
 
 
@@ -6209,6 +6721,90 @@ application/octet-stream：表示载荷是二进制数据。
         self._ResponseTopic = params.get("ResponseTopic")
         self._CorrelationData = params.get("CorrelationData")
         self._SubscriptionIdentifier = params.get("SubscriptionIdentifier")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeMessageEnrichmentRulesRequest(AbstractModel):
+    r"""DescribeMessageEnrichmentRules请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云MQTT实例ID，从 DescribeInstanceList接口或控制台获得。
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云MQTT实例ID，从 DescribeInstanceList接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeMessageEnrichmentRulesResponse(AbstractModel):
+    r"""DescribeMessageEnrichmentRules返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Data: 消息增强策略
+        :type Data: list of MessageEnrichmentRuleItem
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def Data(self):
+        r"""消息增强策略
+        :rtype: list of MessageEnrichmentRuleItem
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Data") is not None:
+            self._Data = []
+            for item in params.get("Data"):
+                obj = MessageEnrichmentRuleItem()
+                obj._deserialize(item)
+                self._Data.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -7575,6 +8171,85 @@ class IpRule(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class KickOutClientRequest(AbstractModel):
+    r"""KickOutClient请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群id
+        :type InstanceId: str
+        :param _ClientId: 客户端id
+        :type ClientId: str
+        """
+        self._InstanceId = None
+        self._ClientId = None
+
+    @property
+    def InstanceId(self):
+        r"""集群id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ClientId(self):
+        r"""客户端id
+        :rtype: str
+        """
+        return self._ClientId
+
+    @ClientId.setter
+    def ClientId(self, ClientId):
+        self._ClientId = ClientId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ClientId = params.get("ClientId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class KickOutClientResponse(AbstractModel):
+    r"""KickOutClient返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class MQTTAuthenticatorItem(AbstractModel):
@@ -8972,6 +9647,238 @@ class MQTTUserItem(AbstractModel):
         self._Remark = params.get("Remark")
         self._CreatedTime = params.get("CreatedTime")
         self._ModifiedTime = params.get("ModifiedTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MessageEnrichmentRuleItem(AbstractModel):
+    r"""MessageEnrichmentRuleItem
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 策略规则ID
+        :type Id: int
+        :param _InstanceId: MQTT集群ID
+        :type InstanceId: str
+        :param _RuleName: 策略规则名
+        :type RuleName: str
+        :param _Condition: 规则匹配条件，JSON格式，需要Base64编码 
+样例 {"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后 eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :type Condition: str
+        :param _Actions: 规则执行的动作，JSON格式，需要Base64编码
+ 样例
+{"messageExpiryInterval":360,"response Topic":"replies/devices/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"},{"key":"data-source","value":"rule-engine"}]}
+BASE64后 eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2UgVG9waWMiOiJyZXBsaWVzL2RldmljZXMvJHtjbGllbnRpZH0iLCJjb3JyZWxhdGlvbkRhdGEiOiIke3RyYWNlaWR9IiwidXNlclByb3BlcnR5IjpbeyJrZXkiOiJ0cmFjZS1pZCIsInZhbHVlIjoiJHt0cmFjZWlkfSJ9LHsia2V5IjoiZGF0YS1zb3VyY2UiLCJ2YWx1ZSI6InJ1bGUtZW5naW5lIn1dfQ==
+        :type Actions: str
+        :param _Priority: 规则优先级，数字越小，优先级越高，高优先级覆盖低优先级。UserProperty字段会合并
+        :type Priority: int
+        :param _Status: 策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :type Status: int
+        :param _Remark: 备注
+        :type Remark: str
+        :param _CreatedTime: 创建时间。毫秒级时间戳 。
+        :type CreatedTime: int
+        :param _UpdateTime: 更新时间。毫秒级时间戳 。
+        :type UpdateTime: int
+        """
+        self._Id = None
+        self._InstanceId = None
+        self._RuleName = None
+        self._Condition = None
+        self._Actions = None
+        self._Priority = None
+        self._Status = None
+        self._Remark = None
+        self._CreatedTime = None
+        self._UpdateTime = None
+
+    @property
+    def Id(self):
+        r"""策略规则ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def InstanceId(self):
+        r"""MQTT集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def RuleName(self):
+        r"""策略规则名
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def Condition(self):
+        r"""规则匹配条件，JSON格式，需要Base64编码 
+样例 {"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后 eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :rtype: str
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+    @property
+    def Actions(self):
+        r"""规则执行的动作，JSON格式，需要Base64编码
+ 样例
+{"messageExpiryInterval":360,"response Topic":"replies/devices/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"},{"key":"data-source","value":"rule-engine"}]}
+BASE64后 eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2UgVG9waWMiOiJyZXBsaWVzL2RldmljZXMvJHtjbGllbnRpZH0iLCJjb3JyZWxhdGlvbkRhdGEiOiIke3RyYWNlaWR9IiwidXNlclByb3BlcnR5IjpbeyJrZXkiOiJ0cmFjZS1pZCIsInZhbHVlIjoiJHt0cmFjZWlkfSJ9LHsia2V5IjoiZGF0YS1zb3VyY2UiLCJ2YWx1ZSI6InJ1bGUtZW5naW5lIn1dfQ==
+        :rtype: str
+        """
+        return self._Actions
+
+    @Actions.setter
+    def Actions(self, Actions):
+        self._Actions = Actions
+
+    @property
+    def Priority(self):
+        r"""规则优先级，数字越小，优先级越高，高优先级覆盖低优先级。UserProperty字段会合并
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Status(self):
+        r"""策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Remark(self):
+        r"""备注
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
+
+    @property
+    def CreatedTime(self):
+        r"""创建时间。毫秒级时间戳 。
+        :rtype: int
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def UpdateTime(self):
+        r"""更新时间。毫秒级时间戳 。
+        :rtype: int
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._InstanceId = params.get("InstanceId")
+        self._RuleName = params.get("RuleName")
+        self._Condition = params.get("Condition")
+        self._Actions = params.get("Actions")
+        self._Priority = params.get("Priority")
+        self._Status = params.get("Status")
+        self._Remark = params.get("Remark")
+        self._CreatedTime = params.get("CreatedTime")
+        self._UpdateTime = params.get("UpdateTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MessageEnrichmentRulePriority(AbstractModel):
+    r"""消息属性增强规则优先级
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 消息属性增强规则id
+        :type Id: int
+        :param _Priority: 优先级
+        :type Priority: int
+        """
+        self._Id = None
+        self._Priority = None
+
+    @property
+    def Id(self):
+        r"""消息属性增强规则id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Priority(self):
+        r"""优先级
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Priority = params.get("Priority")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10424,6 +11331,191 @@ class ModifyJWTAuthenticatorResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyMessageEnrichmentRuleRequest(AbstractModel):
+    r"""ModifyMessageEnrichmentRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 消息属性增强规则ID
+        :type Id: int
+        :param _InstanceId: 腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+
+        :type InstanceId: str
+        :param _RuleName: 策略名称，不能为空，3-64个字符，支持中文、字母、数字、“-”及“_”。
+        :type RuleName: str
+        :param _Condition: 规则匹配条件，JSON格式，需要Base64编码
+样例
+{"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后
+eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :type Condition: str
+        :param _Actions: 规则执行的动作，JSON格式，需要Base64编码 
+样例
+{"messageExpiryInterval":360,"responseTopic":"replies/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"}]}
+ BASE64后 eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2VUb3BpYyI6InJlcGxpZXMvJHtjbGllbnRpZH0iLCJjb3JyZWxhdGlvbkRhdGEiOiIke3RyYWNlaWR9IiwidXNlclByb3BlcnR5IjpbeyJrZXkiOiJ0cmFjZS1pZCIsInZhbHVlIjoiJHt0cmFjZWlkfSJ9XX0=
+        :type Actions: str
+        :param _Priority: 规则优先级，数字越小，优先级越高，高优先级覆盖低优先级。UserProperty字段会合并
+        :type Priority: int
+        :param _Status: 策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :type Status: int
+        :param _Remark: 备注信息，最长 128 字符
+        :type Remark: str
+        """
+        self._Id = None
+        self._InstanceId = None
+        self._RuleName = None
+        self._Condition = None
+        self._Actions = None
+        self._Priority = None
+        self._Status = None
+        self._Remark = None
+
+    @property
+    def Id(self):
+        r"""消息属性增强规则ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def RuleName(self):
+        r"""策略名称，不能为空，3-64个字符，支持中文、字母、数字、“-”及“_”。
+        :rtype: str
+        """
+        return self._RuleName
+
+    @RuleName.setter
+    def RuleName(self, RuleName):
+        self._RuleName = RuleName
+
+    @property
+    def Condition(self):
+        r"""规则匹配条件，JSON格式，需要Base64编码
+样例
+{"clientId":"client-1","username":"client-1","topic":"home/room1"}
+Base64后
+eyJjbGllbnRJZCI6ImNsaWVudC0xIiwidXNlcm5hbWUiOiJjbGllbnQtMSIsInRvcGljIjoiaG9tZS9yb29tMSJ9
+        :rtype: str
+        """
+        return self._Condition
+
+    @Condition.setter
+    def Condition(self, Condition):
+        self._Condition = Condition
+
+    @property
+    def Actions(self):
+        r"""规则执行的动作，JSON格式，需要Base64编码 
+样例
+{"messageExpiryInterval":360,"responseTopic":"replies/${clientid}","correlationData":"${traceid}","userProperty":[{"key":"trace-id","value":"${traceid}"}]}
+ BASE64后 eyJtZXNzYWdlRXhwaXJ5SW50ZXJ2YWwiOjM2MCwicmVzcG9uc2VUb3BpYyI6InJlcGxpZXMvJHtjbGllbnRpZH0iLCJjb3JyZWxhdGlvbkRhdGEiOiIke3RyYWNlaWR9IiwidXNlclByb3BlcnR5IjpbeyJrZXkiOiJ0cmFjZS1pZCIsInZhbHVlIjoiJHt0cmFjZWlkfSJ9XX0=
+        :rtype: str
+        """
+        return self._Actions
+
+    @Actions.setter
+    def Actions(self, Actions):
+        self._Actions = Actions
+
+    @property
+    def Priority(self):
+        r"""规则优先级，数字越小，优先级越高，高优先级覆盖低优先级。UserProperty字段会合并
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Status(self):
+        r"""策略状态。 0:未定义；1:激活；2:不激活；默认不激活
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Remark(self):
+        r"""备注信息，最长 128 字符
+        :rtype: str
+        """
+        return self._Remark
+
+    @Remark.setter
+    def Remark(self, Remark):
+        self._Remark = Remark
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._InstanceId = params.get("InstanceId")
+        self._RuleName = params.get("RuleName")
+        self._Condition = params.get("Condition")
+        self._Actions = params.get("Actions")
+        self._Priority = params.get("Priority")
+        self._Status = params.get("Status")
+        self._Remark = params.get("Remark")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyMessageEnrichmentRuleResponse(AbstractModel):
+    r"""ModifyMessageEnrichmentRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyTopicRequest(AbstractModel):
     r"""ModifyTopic请求参数结构体
 
@@ -11779,6 +12871,90 @@ class UpdateAuthorizationPolicyPriorityRequest(AbstractModel):
 
 class UpdateAuthorizationPolicyPriorityResponse(AbstractModel):
     r"""UpdateAuthorizationPolicyPriority返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class UpdateMessageEnrichmentRulePriorityRequest(AbstractModel):
+    r"""UpdateMessageEnrichmentRulePriority请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :type InstanceId: str
+        :param _Priorities: 策略ID和优先级
+        :type Priorities: list of MessageEnrichmentRulePriority
+        """
+        self._InstanceId = None
+        self._Priorities = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云MQTT实例ID，从 [DescribeInstanceList](https://cloud.tencent.com/document/api/1778/111029)接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Priorities(self):
+        r"""策略ID和优先级
+        :rtype: list of MessageEnrichmentRulePriority
+        """
+        return self._Priorities
+
+    @Priorities.setter
+    def Priorities(self, Priorities):
+        self._Priorities = Priorities
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        if params.get("Priorities") is not None:
+            self._Priorities = []
+            for item in params.get("Priorities"):
+                obj = MessageEnrichmentRulePriority()
+                obj._deserialize(item)
+                self._Priorities.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateMessageEnrichmentRulePriorityResponse(AbstractModel):
+    r"""UpdateMessageEnrichmentRulePriority返回参数结构体
 
     """
 

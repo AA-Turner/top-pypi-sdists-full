@@ -1,29 +1,31 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: qdrant-client
-Version: 1.15.1
+Version: 1.16.2
 Summary: Client library for the Qdrant vector search engine
 License: Apache-2.0
+License-File: LICENSE
 Keywords: vector,search,neural,matching,client
 Author: Andrey Vasnetsov
 Author-email: andrey@qdrant.tech
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: fastembed
 Provides-Extra: fastembed-gpu
 Requires-Dist: fastembed (>=0.7,<0.8) ; extra == "fastembed"
 Requires-Dist: fastembed-gpu (>=0.7,<0.8) ; extra == "fastembed-gpu"
 Requires-Dist: grpcio (>=1.41.0)
 Requires-Dist: httpx[http2] (>=0.20.0)
-Requires-Dist: numpy (>=1.21) ; python_version >= "3.10" and python_version < "3.12"
-Requires-Dist: numpy (>=1.21,<2.1.0) ; python_version < "3.10"
+Requires-Dist: numpy (>=1.21) ; python_version == "3.11"
+Requires-Dist: numpy (>=1.21,<2.3.0) ; python_version == "3.10"
 Requires-Dist: numpy (>=1.26) ; python_version == "3.12"
-Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
+Requires-Dist: numpy (>=2.1.0) ; python_version == "3.13"
+Requires-Dist: numpy (>=2.3.0) ; python_version >= "3.14"
 Requires-Dist: portalocker (>=2.7.0,<4.0)
 Requires-Dist: protobuf (>=3.20.0)
 Requires-Dist: pydantic (>=1.10.8,!=2.0.*,!=2.1.*,!=2.2.0)

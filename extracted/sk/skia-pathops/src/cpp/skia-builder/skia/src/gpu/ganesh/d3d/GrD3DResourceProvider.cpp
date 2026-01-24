@@ -7,9 +7,8 @@
 
 #include "src/gpu/ganesh/d3d/GrD3DResourceProvider.h"
 
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/private/SkOpts_spi.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 #include "src/gpu/ganesh/d3d/GrD3DBuffer.h"
 #include "src/gpu/ganesh/d3d/GrD3DCommandList.h"
@@ -170,8 +169,8 @@ D3D12_CPU_DESCRIPTOR_HANDLE GrD3DResourceProvider::findOrCreateCompatibleSampler
 
     D3D12_FILTER filter = d3d_filter(params);
     // We disable MIP filtering using maxLOD. Otherwise, we want the max LOD to be unbounded.
-    float maxLOD = params.mipmapped() == GrMipmapped::kYes ? std::numeric_limits<float>::max()
-                                                           : 0.f;
+    float maxLOD =
+            params.mipmapped() == skgpu::Mipmapped::kYes ? std::numeric_limits<float>::max() : 0.f;
     D3D12_TEXTURE_ADDRESS_MODE addressModeU = wrap_mode_to_d3d_address_mode(params.wrapModeX());
     D3D12_TEXTURE_ADDRESS_MODE addressModeV = wrap_mode_to_d3d_address_mode(params.wrapModeY());
     unsigned int maxAnisotropy = params.maxAniso();
@@ -270,7 +269,7 @@ sk_sp<GrD3DPipeline> GrD3DResourceProvider::findOrCreateMipmapPipeline() {
 
 D3D12_GPU_VIRTUAL_ADDRESS GrD3DResourceProvider::uploadConstantData(void* data, size_t size) {
     // constant size has to be aligned to 256
-    constexpr int kConstantAlignment = 256;
+    constexpr size_t kConstantAlignment = 256;
 
     // upload the data
     size_t paddedSize = SkAlignTo(size, kConstantAlignment);

@@ -225,9 +225,9 @@ class PartitionRecords:
                 self._consume_aborted_up_to(next_batch.base_offset)
 
                 if (
-                    next_batch.is_control_batch  # fmt: skip
+                    next_batch.is_control_batch
                     and self._contains_abort_marker(next_batch)
-                ):
+                ):  # fmt: skip
                     # Using `discard` instead of `remove`, because Kafka
                     # may return an abort marker for an otherwise empty
                     # topic-partition.
@@ -426,16 +426,6 @@ class Fetcher:
         # SubscriptionState will pass Coordination critical errors to those
         # waiters directly
         self._subscriptions.register_fetch_waiters(self._fetch_waiters)
-
-        if client.api_version >= (0, 11):
-            req_version = 4
-        elif client.api_version >= (0, 10, 1):
-            req_version = 3
-        elif client.api_version >= (0, 10):
-            req_version = 2
-        else:
-            req_version = 1
-        self._fetch_request_class = FetchRequest[req_version]
 
         self._fetch_task = create_task(self._fetch_requests_routine())
 
@@ -644,31 +634,13 @@ class Fetcher:
                 by_topics[tp.topic].append(
                     (tp.partition, position, self._max_partition_fetch_bytes)
                 )
-            klass = self._fetch_request_class
-            if klass.API_VERSION > 3:
-                req = klass(
-                    -1,  # replica_id
-                    self._fetch_max_wait_ms,
-                    self._fetch_min_bytes,
-                    self._fetch_max_bytes,
-                    self._isolation_level,
-                    list(by_topics.items()),
-                )
-            elif klass.API_VERSION == 3:
-                req = klass(
-                    -1,  # replica_id
-                    self._fetch_max_wait_ms,
-                    self._fetch_min_bytes,
-                    self._fetch_max_bytes,
-                    list(by_topics.items()),
-                )
-            else:
-                req = klass(
-                    -1,  # replica_id
-                    self._fetch_max_wait_ms,
-                    self._fetch_min_bytes,
-                    list(by_topics.items()),
-                )
+            req = FetchRequest(
+                self._fetch_max_wait_ms,
+                self._fetch_min_bytes,
+                self._fetch_max_bytes,
+                self._isolation_level,
+                list(by_topics.items()),
+            )
             fetch_requests.append((node_id, req))
 
         if backoff_by_nodes:
@@ -727,7 +699,7 @@ class Fetcher:
                     continue
 
                 if error_type is Errors.NoError:
-                    if request.API_VERSION >= 4:
+                    if response.API_VERSION >= 4:
                         aborted_transactions = part_data[-2]
                         lso = part_data[-3]
                     else:
@@ -993,14 +965,7 @@ class Fetcher:
         return offsets
 
     async def _proc_offset_request(self, node_id, topic_data):
-        if self._client.api_version < (0, 10, 1):
-            version = 0
-            # Version 0 had another field `max_offsets`, set it to `1`
-            for topic, part_data in topic_data.items():
-                topic_data[topic] = [(part, ts, 1) for part, ts in part_data]
-        else:
-            version = 1
-        request = OffsetRequest[version](-1, list(topic_data.items()))
+        request = OffsetRequest(-1, self._isolation_level, list(topic_data.items()))
 
         response = await self._client.send(node_id, request)
 
@@ -1012,9 +977,9 @@ class Fetcher:
                 if error_type is Errors.NoError:
                     if response.API_VERSION == 0:
                         offsets = partition_info[0]
-                        assert (
-                            len(offsets) <= 1
-                        ), "Expected OffsetResponse with one offset"
+                        assert len(offsets) <= 1, (
+                            "Expected OffsetResponse with one offset"
+                        )
                         if offsets:
                             offset = offsets[0]
                             log.debug(
@@ -1064,8 +1029,7 @@ class Fetcher:
                     raise error_type(partition)
                 else:
                     log.warning(
-                        "Attempt to fetch offsets for partition %s failed due "
-                        "to: %s",
+                        "Attempt to fetch offsets for partition %s failed due to: %s",
                         partition,
                         error_type,
                     )
@@ -1191,12 +1155,12 @@ class Fetcher:
         return offsets
 
     async def beginning_offsets(self, partitions, timeout_ms):
-        timestamps = {tp: OffsetResetStrategy.EARLIEST for tp in partitions}
+        timestamps = dict.fromkeys(partitions, OffsetResetStrategy.EARLIEST)
         offsets = await self._retrieve_offsets(timestamps, timeout_ms)
         return {tp: offset for (tp, (offset, ts)) in offsets.items()}
 
     async def end_offsets(self, partitions, timeout_ms):
-        timestamps = {tp: OffsetResetStrategy.LATEST for tp in partitions}
+        timestamps = dict.fromkeys(partitions, OffsetResetStrategy.LATEST)
         offsets = await self._retrieve_offsets(timestamps, timeout_ms)
         return {tp: offset for (tp, (offset, ts)) in offsets.items()}
 

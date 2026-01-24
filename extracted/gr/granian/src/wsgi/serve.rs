@@ -37,6 +37,7 @@ impl WSGIWorker {
             ssl_cert=None,
             ssl_key=None,
             ssl_key_password=None,
+            ssl_protocol_min="1.3",
             ssl_ca=None,
             ssl_crl=vec![],
             ssl_client_verify=false,
@@ -52,13 +53,14 @@ impl WSGIWorker {
         py_threads_idle_timeout: u64,
         backpressure: usize,
         http_mode: &str,
-        http1_opts: Option<PyObject>,
-        http2_opts: Option<PyObject>,
+        http1_opts: Option<Py<PyAny>>,
+        http2_opts: Option<Py<PyAny>>,
         static_files: Option<(String, String, Option<String>)>,
         ssl_enabled: bool,
         ssl_cert: Option<String>,
         ssl_key: Option<String>,
         ssl_key_password: Option<String>,
+        ssl_protocol_min: &str,
         ssl_ca: Option<String>,
         ssl_crl: Vec<String>,
         ssl_client_verify: bool,
@@ -81,6 +83,7 @@ impl WSGIWorker {
                 ssl_cert,
                 ssl_key,
                 ssl_key_password,
+                ssl_protocol_min,
                 ssl_ca,
                 ssl_crl,
                 ssl_client_verify,
@@ -209,7 +212,7 @@ macro_rules! serve_fn {
             let backpressure = cfg.backpressure;
 
             let rtpyloop = Arc::new(event_loop.clone().unbind());
-            let rt = py.allow_threads(|| {
+            let rt = py.detach(|| {
                 crate::runtime::init_runtime_mt(
                     cfg.threads,
                     cfg.blocking_threads,
@@ -231,7 +234,7 @@ macro_rules! serve_fn {
                 wrk.tasks.close();
                 wrk.tasks.wait().await;
 
-                Python::with_gil(|_| drop(wrk));
+                Python::attach(|_| drop(wrk));
                 Ok(())
             });
 
@@ -245,7 +248,7 @@ macro_rules! serve_fn {
                     std::thread::sleep(std::time::Duration::from_millis(1));
                 }
 
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     _ = pysig.get().release(py);
                     drop(pysig);
                 });
@@ -322,10 +325,10 @@ macro_rules! serve_fn {
                         wrk.tasks.close();
                         wrk.tasks.wait().await;
 
-                        Python::with_gil(|_| drop(wrk));
+                        Python::attach(|_| drop(wrk));
                     });
 
-                    Python::with_gil(|_| drop(rt));
+                    Python::attach(|_| drop(rt));
                 }));
             }
 
@@ -339,7 +342,7 @@ macro_rules! serve_fn {
                     worker.join().unwrap();
                 }
 
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     _ = pysig.get().release(py);
                     drop(pysig);
                 });

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from typing import TYPE_CHECKING
 from unittest.mock import NonCallableMagicMock
 
 import pytest
@@ -12,6 +13,9 @@ from tach.errors import TachCircularDependencyError, TachVisibilityError
 from tach.extension import Diagnostic
 from tach.icons import FAIL, SUCCESS, WARNING
 from tach.parsing.config import parse_project_config
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_valid_example_dir(example_dir, capfd):
@@ -649,3 +653,50 @@ globbed/**/*.py
 
     _check_expected_messages_unordered(general_section, expected_general)
     _check_expected_messages_unordered(external_section, expected_external)
+
+
+def test_layers_explicit_depends_on(
+    example_dir: Path, capfd: pytest.CaptureFixture[str]
+):
+    """Test the layers_explicit_depends_on flag requires explicit depends_on declarations."""
+    project_root = example_dir / "layers_explicit_depends_on"
+    project_config = parse_project_config(root=project_root)
+    assert project_config is not None
+    assert project_config.layers_explicit_depends_on is True
+
+    with pytest.raises(SystemExit) as exc_info:
+        tach_check(
+            project_root=project_root,
+            project_config=project_config,
+        )
+
+    # Should exit with error code due to undeclared dependency
+    assert exc_info.value.code == 1
+
+    captured = capfd.readouterr()
+    # Should report undeclared dependency from api to service
+    assert "api/handler.py" in captured.err
+    assert "service" in captured.err
+    # Should NOT report utils (utility modules are exempt)
+    assert "utils" not in captured.err or "api/helper.py" not in captured.err
+
+
+def test_layers_explicit_depends_on_disabled(
+    example_dir: Path, capfd: pytest.CaptureFixture[str]
+):
+    """Test that layers_explicit_depends_on defaults to false and allows implicit dependencies."""
+    project_root = example_dir / "layers_explicit_depends_on_disabled"
+    project_config = parse_project_config(root=project_root)
+    assert project_config is not None
+    assert project_config.layers_explicit_depends_on is False
+
+    with pytest.raises(SystemExit) as exc_info:
+        tach_check(
+            project_root=project_root,
+            project_config=project_config,
+        )
+
+    # Should exit successfully (implicit layer dependencies allowed)
+    assert exc_info.value.code == 0
+    captured = capfd.readouterr()
+    assert SUCCESS in captured.err

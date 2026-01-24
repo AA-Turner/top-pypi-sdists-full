@@ -4,19 +4,36 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/gpu/ganesh/ops/AtlasRenderTask.h"
 
-#include "src/core/SkBlendModePriv.h"
+#include "include/core/SkBlendMode.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkScalar.h"
+#include "include/core/SkSize.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkIPoint16.h"
 #include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/GrNativeRect.h"
 #include "src/gpu/ganesh/GrOpFlushState.h"
-#include "src/gpu/ganesh/GrOpsTypes.h"
+#include "src/gpu/ganesh/GrPaint.h"
+#include "src/gpu/ganesh/GrRecordingContextPriv.h"
+#include "src/gpu/ganesh/GrRenderTargetProxy.h"
+#include "src/gpu/ganesh/GrRenderTask.h"
+#include "src/gpu/ganesh/GrSurfaceProxy.h"
 #include "src/gpu/ganesh/GrSurfaceProxyPriv.h"
+#include "src/gpu/ganesh/GrUserStencilSettings.h"
+#include "src/gpu/ganesh/GrXferProcessor.h"
 #include "src/gpu/ganesh/geometry/GrQuad.h"
+#include "src/gpu/ganesh/ops/FillPathFlags.h"
 #include "src/gpu/ganesh/ops/FillRectOp.h"
+#include "src/gpu/ganesh/ops/GrDrawOp.h"
 #include "src/gpu/ganesh/ops/PathStencilCoverOp.h"
+
+#include <initializer_list>
 
 namespace skgpu::ganesh {
 
@@ -154,7 +171,7 @@ void AtlasRenderTask::stencilAtlasRect(GrRecordingContext* rContext, const SkRec
                                        const GrUserStencilSettings* stencil) {
     GrPaint paint;
     paint.setColor4f(color);
-    paint.setXPFactory(SkBlendMode_AsXPFactory(SkBlendMode::kSrc));
+    paint.setXPFactory(GrXPFactory::FromBlendMode(SkBlendMode::kSrc));
     GrQuad quad(rect);
     DrawQuad drawQuad{quad, quad, GrQuadAAFlags::kAll};
     auto op = FillRectOp::Make(rContext, std::move(paint), GrAAType::kMSAA, &drawQuad, stencil);

@@ -1,8 +1,8 @@
 /*
  * GAMS - General Algebraic Modeling System Python API
  *
- * Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
- * Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+ * Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+ * Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -64,7 +64,7 @@
    char errorMsg[GMS_SSSIZE+11]; \
    char msg[GMS_SSSIZE]; \
    gdxErrorStr(gdx, gdxGetLastError(gdx), msg); \
-   sprintf(errorMsg, "GDX error: %s", msg); \
+   sprintf(errorMsg, msg); \
    ERROR_GDX(errorMsg, gdx); \
 }
 
@@ -73,7 +73,7 @@
    char errorMsg[GMS_SSSIZE+11]; \
    char msg[GMS_SSSIZE]; \
    gmdGetLastError(gmd, msg); \
-   sprintf(errorMsg, "GMD ERROR: %s", msg); \
+   sprintf(errorMsg, msg); \
    ERROR(errorMsg); \
 }
 
@@ -366,9 +366,14 @@
          if( rc == 0 ) \
          { \
             FREE_UEL_MAP(uelMap, dim); \
-            char errorMsg[GMS_SSSIZE]; \
-            sprintf(errorMsg, "Found unregistered UEL but all used UELs have to be registered first: %s", label); \
-            ERROR(errorMsg); \
+            if( gmd != NULL ) \
+            { \
+               LAST_ERROR_GMD(gmd); \
+            } \
+            else if ( gdx != NULL ) \
+            { \
+               LAST_ERROR_GDX(gdx); \
+            } \
          } \
          uelMap[col][i] = uel; \
       } \

@@ -10,9 +10,10 @@ from crawlee._utils.docs import docs_group
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from typing import TypeGuard
 
 
-@docs_group('Data structures')
+@docs_group('Session management')
 class CookieParam(TypedDict, total=False):
     """Dictionary representation of cookies for `SessionCookies.set` method."""
 
@@ -55,7 +56,7 @@ class PlaywrightCookieParam(TypedDict, total=False):
     partitionKey: NotRequired[str | None]
 
 
-@docs_group('Data structures')
+@docs_group('Session management')
 class SessionCookies:
     """Storage cookies for session with browser-compatible serialization and deserialization."""
 
@@ -66,17 +67,18 @@ class SessionCookies:
 
         self._jar = CookieJar()
 
-        if isinstance(cookies, dict):
-            for key, value in cookies.items():
-                self.set(key, value)
-
-        elif isinstance(cookies, list):
+        if isinstance(cookies, list):
             for item in cookies:
                 self.set(**item)
 
         elif isinstance(cookies, SessionCookies):
             for cookie in cookies.jar:
-                self.jar.set_cookie(cookie)
+                self._jar.set_cookie(cookie)
+
+        elif isinstance(cookies, dict):
+            cookies_dict: dict[str, str] = cookies
+            for key, value in cookies_dict.items():
+                self.set(key, value)
 
     @property
     def jar(self) -> CookieJar:
@@ -151,8 +153,8 @@ class SessionCookies:
         if cookie.expires:
             cookie_dict['expires'] = cookie.expires
 
-        if (same_site := cookie.get_nonstandard_attr('SameSite')) and same_site in {'Lax', 'None', 'Strict'}:
-            cookie_dict['same_site'] = same_site  # type: ignore[typeddict-item]
+        if (same_site := cookie.get_nonstandard_attr('SameSite')) and self._is_valid_same_site(same_site):
+            cookie_dict['same_site'] = same_site
 
         return cookie_dict
 
@@ -268,3 +270,11 @@ class SessionCookies:
         other_keys = {(cookie.name, cookie.value, cookie.domain, cookie.path) for cookie in other.jar}
 
         return self_keys == other_keys
+
+    def __hash__(self) -> int:
+        """Return hash based on the cookies key attributes."""
+        cookie_tuples = frozenset((cookie.name, cookie.value, cookie.domain, cookie.path) for cookie in self._jar)
+        return hash(cookie_tuples)
+
+    def _is_valid_same_site(self, value: str | None) -> TypeGuard[Literal['Lax', 'None', 'Strict']]:
+        return value in {'Lax', 'None', 'Strict'}

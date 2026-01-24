@@ -33,8 +33,9 @@ public:
      * @param nv      Number of variables at each grid point.
      * @param points  Number of grid points.
      * @param time    (unused)
+     * @deprecated After %Cantera 3.2, this constructor will become protected
      */
-    Domain1D(size_t nv=1, size_t points=1, double time=0.0);
+    explicit Domain1D(size_t nv=1, size_t points=1, double time=0.0);
 
     virtual ~Domain1D();
     Domain1D(const Domain1D&) = delete;
@@ -61,20 +62,52 @@ public:
 
     //! Set the solution manager.
     //! @since New in %Cantera 3.0.
+    //! @deprecated To be removed after %Cantera 3.2. Solution objects must be
+    //!     provided to constructors instead.
     void setSolution(shared_ptr<Solution> sol);
 
     //! Set the kinetics manager.
     //! @since New in %Cantera 3.0.
+    //! @deprecated To be removed after %Cantera 3.2. A change of domain contents after
+    //!     instantiation will be disabled.
     virtual void setKinetics(shared_ptr<Kinetics> kin) {
+        warn_deprecated("Domain1D::setKinetics",
+            "After Cantera 3.2, a change of domain contents after instantiation "
+            "will be disabled.");
         throw NotImplementedError("Domain1D::setKinetics");
     }
 
     //! Set transport model to existing instance
     //! @since New in %Cantera 3.0.
+    //! @todo Convert warning message to new exception and remove virtual.
     virtual void setTransport(shared_ptr<Transport> trans) {
+        warn_deprecated("Domain1D::setTransport",
+            "After Cantera 3.2, a change of domain contents after instantiation "
+            "will be disabled.");
         throw NotImplementedError("Domain1D::setTransport");
     }
 
+    //! Set transport model by name.
+    //! @param model  String specifying model name.
+    //! @since New in %Cantera 3.2.
+    virtual void setTransportModel(const string& model) {
+        throw NotImplementedError("Domain1D::setTransportModel");
+    }
+
+protected:
+    //! Update transport model to existing instance
+    //! @since New in %Cantera 3.2.
+    virtual void _setKinetics(shared_ptr<Kinetics> kin) {
+        throw NotImplementedError("Domain1D::_setKinetics");
+    }
+
+    //! Update transport model to existing instance
+    //! @since New in %Cantera 3.2.
+    virtual void _setTransport(shared_ptr<Transport> trans) {
+        throw NotImplementedError("Domain1D::_setTransport");
+    }
+
+public:
     //! The container holding this domain.
     const OneDim& container() const {
         return *m_container;
@@ -118,16 +151,6 @@ public:
      */
     virtual void init() {  }
 
-    //! @deprecated Unused. To be removed after Cantera 3.1.
-    virtual void setInitialState(double* xlocal = 0) {
-        warn_deprecated("Domain1D::setInitialState", "To be removed after Cantera 3.1.");
-    }
-
-    //! @deprecated Unused. To be removed after Cantera 3.1.
-    virtual void setState(size_t point, const double* state, double* x) {
-        warn_deprecated("Domain1D::setState", "To be removed after Cantera 3.1.");
-    }
-
     /**
      * When called, this function should reset "bad" values in the state vector
      * such as negative species concentrations. This function may be called
@@ -154,16 +177,22 @@ public:
 
     //! Check that the specified component index is in range.
     //! Throws an exception if n is greater than nComponents()-1
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkComponentIndex(size_t n) const {
+        warn_deprecated("Domain1D::checkComponentIndex",
+            "To be removed after Cantera 3.2. Only used by legacy CLib.");
         if (n >= m_nv) {
-            throw IndexError("Domain1D::checkComponentIndex", "points", n, m_nv-1);
+            throw IndexError("Domain1D::checkComponentIndex", "points", n, m_nv);
         }
     }
 
     //! Check that an array size is at least nComponents().
     //! Throws an exception if nn is less than nComponents(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Unused.
     void checkComponentArraySize(size_t nn) const {
+        warn_deprecated("Domain1D::checkComponentArraySize",
+            "To be removed after Cantera 3.2. Unused.");
         if (m_nv > nn) {
             throw ArraySizeError("Domain1D::checkComponentArraySize", nn, m_nv);
         }
@@ -176,16 +205,22 @@ public:
 
     //! Check that the specified point index is in range.
     //! Throws an exception if n is greater than nPoints()-1
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkPointIndex(size_t n) const {
+        warn_deprecated("Domain1D::checkPointIndex",
+            "To be removed after Cantera 3.2. Only used by legacy CLib.");
         if (n >= m_points) {
-            throw IndexError("Domain1D::checkPointIndex", "points", n, m_points-1);
+            throw IndexError("Domain1D::checkPointIndex", "points", n, m_points);
         }
     }
 
     //! Check that an array size is at least nPoints().
     //! Throws an exception if nn is less than nPoints(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Unused.
     void checkPointArraySize(size_t nn) const {
+        warn_deprecated("Domain1D::checkPointArraySize",
+            "To be removed after Cantera 3.2. Unused.");
         if (m_points > nn) {
             throw ArraySizeError("Domain1D::checkPointArraySize", nn, m_points);
         }
@@ -199,8 +234,29 @@ public:
         m_name[n] = name;
     }
 
-    //! index of component with name `name`.
-    virtual size_t componentIndex(const string& name) const;
+    /**
+     * Index of component with name `name`.
+     * @param name  name of component
+     * @param checkAlias  if `true` (default), check alias mapping
+     */
+    virtual size_t componentIndex(const string& name, bool checkAlias=true) const;
+
+    /**
+     * Check whether the Domain contains a component.
+     * @param name  name of component
+     * @param checkAlias  if `true` (default), check alias mapping
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual bool hasComponent(const string& name, bool checkAlias=true) const;
+
+    /**
+     * Update state at given location to state of associated Solution object.
+     */
+    virtual void updateState(size_t loc) {
+        throw NotImplementedError("Domain1D::updateState",
+            "Not implemented for domain type '{}'.", domainType());
+    }
 
     /**
      * Set the upper and lower bounds for a solution component, n.
@@ -275,6 +331,20 @@ public:
     }
 
     /**
+     * Set grid refinement criteria. @see Refiner::setCriteria.
+     * @since New in %Cantera 3.2
+     */
+    void setRefineCriteria(double ratio = 10.0,
+                           double slope = 0.8, double curve = 0.8,
+                           double prune = -0.1);
+
+    /**
+     * Get the grid refinement criteria. @see Refiner::getCriteria
+     * @since New in %Cantera 3.2
+     */
+    vector<double> getRefineCriteria();
+
+    /**
      * Performs the setup required before starting a time-stepping solution.
      * Stores the solution provided in `x0` to the internal storage, and sets
      * the reciprocal of the time step to `1/dt`.
@@ -346,14 +416,137 @@ public:
      * @param x  solution vector
      * @param n  component index
      * @param j  grid point index
+     *
+     * @deprecated To be removed after %Cantera 3.2. Replaceable with version accessing
+     *      component by name.
      */
     double value(const double* x, size_t n, size_t j) const {
-        return x[index(n,j)];
+        warn_deprecated("Domain1D::value",
+            "Replaceable with version accessing component by name");
+        return x[index(n,j)];  // caution: this assumes m_iloc = 0
     }
 
-    //! @deprecated To be removed after Cantera 3.1.
-    virtual void setJac(MultiJac* jac) {
-        warn_deprecated("Domain1D::setJac", "To be removed after Cantera 3.1.");
+    /**
+     * Set a single component value at a boundary.
+     * @param component  Name of the component.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual double value(const string& component) const {
+        throw NotImplementedError("Domain1D::value",
+            "Not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Set a single component value in a flow domain or at a boundary.
+     * @param component  Name of the component.
+     * @param value  Value of the component.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void setValue(const string& component, double value) {
+        throw NotImplementedError("Domain1D::setValue",
+            "Not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Retrieve component values.
+     * @param component  Name of the component.
+     * @returns  Vector of length nPoints() containing values at grid points.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    vector<double> values(const string& component) const {
+        vector<double> data(nPoints());
+        getValues(component, data);
+        return data;
+    }
+
+    /**
+     * Retrieve component values.
+     * @param component  Name of the component.
+     * @param[out] values  Vector of length nPoints() containing values at grid points.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void getValues(const string& component, vector<double>& values) const {
+        throw NotImplementedError("Domain1D::getValues",
+            "Not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Specify component values.
+     * @param component  Name of the component.
+     * @param[in] values  Vector of length nPoints() containing values at grid points.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void setValues(const string& component, const vector<double>& values) {
+        throw NotImplementedError("Domain1D::setValues",
+            "Not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Retrieve internal work array values for a component.
+     * After calling Sim1D::eval(), this array contains the values of the residual
+     * function.
+     * @param component  Name of the component.
+     * @returns  Vector of length nPoints() containing residuals at grid  points.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    vector<double> residuals(const string& component) const {
+        vector<double> data(nPoints());
+        getResiduals(component, data);
+        return data;
+    }
+
+    /**
+     * Retrieve internal work array values for a component.
+     * After calling Sim1D::eval(), this array contains the values of the residual
+     * function.
+     * @param component  Name of the component.
+     * @param[out] values  Vector of length nPoints() containing residuals at grid
+     *      points.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void getResiduals(const string& component, vector<double>& values) const {
+        throw NotImplementedError("Domain1D::getResiduals",
+            "Not applicable or not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Specify a profile for a component.
+     * @param component  Name of the component.
+     * @param[in] pos  A vector of relative positions, beginning with 0.0 at the
+     *     left of the domain, and ending with 1.0 at the right of the domain.
+     * @param[in] values  A vector of values corresponding to the relative position
+     *     locations.
+     *
+     * Note that the vector pos and values can have lengths different than the
+     * number of grid points, but their lengths must be equal. The values at
+     * the grid points will be linearly interpolated based on the (pos,
+     * values) specification.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void setProfile(const string& component,
+                            const vector<double>& pos, const vector<double>& values) {
+        throw NotImplementedError("Domain1D::setProfile",
+            "Not implemented for domain type '{}'.", domainType());
+    }
+
+    /**
+     * Specify a flat profile for a component.
+     * @param component  Name of the component.
+     * @param value  Constant value.
+     *
+     * @since New in %Cantera 3.2.
+     */
+    virtual void setFlatProfile(const string& component, double value) {
+        throw NotImplementedError("Domain1D::setFlatProfile",
+            "Not implemented for domain type '{}'.", domainType());
     }
 
     //! Save the state of this domain as a SolutionArray.
@@ -363,9 +556,12 @@ public:
      *      directly in future revisions, where a non-const version will be implemented.
      *
      * @since New in %Cantera 3.0.
+     * @deprecated To be removed after %Cantera 3.2. Replaceable by toArray().
      */
-    virtual shared_ptr<SolutionArray> asArray(const double* soln) const {
-        throw NotImplementedError("Domain1D::asArray", "Needs to be overloaded.");
+    shared_ptr<SolutionArray> asArray(const double* soln) {
+        warn_deprecated("Domain1D::asArray",
+            "To be removed after Cantera 3.2. Replaceable by 'toArray'.");
+        return toArray();
     }
 
     //! Save the state of this domain to a SolutionArray.
@@ -376,7 +572,9 @@ public:
      *
      * @since New in %Cantera 3.0.
      */
-    shared_ptr<SolutionArray> toArray(bool normalize=false) const;
+    virtual shared_ptr<SolutionArray> toArray(bool normalize=false) {
+        throw NotImplementedError("Domain1D::toArray", "Needs to be overloaded.");
+    }
 
     //! Restore the solution for this domain from a SolutionArray
     /*!
@@ -384,9 +582,16 @@ public:
      * @param[out] soln  Value of the solution vector, local to this domain
      *
      * @since New in %Cantera 3.0.
+     * @deprecated To be removed after %Cantera 3.2.
+     *      Replaceable by version that does not require solution vector.
      */
-    virtual void fromArray(SolutionArray& arr, double* soln) {
-        throw NotImplementedError("Domain1D::fromArray", "Needs to be overloaded.");
+    void fromArray(SolutionArray& arr, double* soln) {
+        warn_deprecated("Domain1D::fromArray",
+            "To be removed after Cantera 3.2. Replaceable by version that does not "
+            "require solution vector.");
+        // create a shared_ptr that skips deletion of the held pointer
+        shared_ptr<SolutionArray> arr_ptr(&arr, [](SolutionArray*){});
+        fromArray(arr_ptr);
     }
 
     //! Restore the solution for this domain from a SolutionArray.
@@ -395,11 +600,45 @@ public:
      * @param arr  SolutionArray defining the state of this domain
      * @since New in %Cantera 3.0.
      */
-    void fromArray(const shared_ptr<SolutionArray>& arr);
+    virtual void fromArray(const shared_ptr<SolutionArray>& arr) {
+        throw NotImplementedError("Domain1D::fromArray", "Needs to be overloaded.");
+    }
+
+    /**
+     * Return a concise summary of a Domain.
+     * @see SolutionArray.info()
+     * @param keys  List of components to be displayed; if empty, all components are
+     *      considered.
+     * @param rows  Maximum number of rendered rows.
+     * @param width  Maximum width of rendered output.
+     * @since New in %Cantera 3.2
+     */
+    string info(const vector<string>& keys, int rows=10, int width=80);
+
+    /**
+     * Return a concise summary of a Domain.
+     * Skips keys input while `vector<string>` is not implemented in sourcegen.
+     * @see SolutionArray.info()
+     * @param rows  Maximum number of rendered rows.
+     * @param width  Maximum width of rendered output.
+     * @since New in %Cantera 3.2
+     */
+    string _info(int rows=10, int width=80) {
+        return info({}, rows, width);
+    }
 
     //! Return thermo/kinetics/transport manager used in the domain
     //! @since New in %Cantera 3.0.
+    //! @deprecated To be removed after %Cantera 3.2. Renamed to phase().
     shared_ptr<Solution> solution() const {
+        warn_deprecated("Domain1D::solution",
+            "To be removed after Cantera 3.2. Renamed to phase().");
+        return m_solution;
+    }
+
+    //! Return thermo/kinetics/transport manager used in the domain
+    //! @since New in %Cantera 3.2.
+    shared_ptr<Solution> phase() const {
         return m_solution;
     }
 
@@ -435,8 +674,8 @@ public:
      */
     void linkLeft(Domain1D* left) {
         m_left = left;
-        if (!m_solution && left && left->solution()) {
-            setSolution(left->solution());
+        if (!m_solution && left && left->phase()) {
+            setSolution(left->phase());
         }
         locate();
     }
@@ -444,8 +683,8 @@ public:
     //! Set the right neighbor to domain 'right.'
     void linkRight(Domain1D* right) {
         m_right = right;
-        if (!m_solution && right && right->solution()) {
-            setSolution(right->solution());
+        if (!m_solution && right && right->phase()) {
+            setSolution(right->phase());
         }
     }
 
@@ -485,13 +724,6 @@ public:
     }
 
     //! Print the solution.
-    //! @deprecated Not implemented. To be removed after Cantera 3.1.
-    virtual void show(std::ostream& s, const double* x) {
-        warn_deprecated("Domain1D::show(std::ostream, double*)",
-                        "Not implemented. To be removed after Cantera 3.1.");
-    }
-
-    //! Print the solution.
     //! @param x  Pointer to the local portion of the system state vector
     virtual void show(const double* x);
 
@@ -514,6 +746,8 @@ public:
     //! @param name  Name of the component
     //! @param values  Array of length nPoints() containing the initial values
     //! @param soln  Pointer to the local portion of the system state vector
+    //! @deprecated To be removed after %Cantera 3.2.
+    //!     Replaceable by version using vectors arguments.
     void setProfile(const string& name, double* values, double* soln);
 
     //! Access the array of grid coordinates [m]
@@ -526,15 +760,19 @@ public:
         return m_z;
     }
 
-    //! @deprecated To be removed after Cantera 3.1. Use z() instead.
-    double grid(size_t point) const {
-        warn_deprecated("Domain1D::grid",
-            "To be removed after Cantera 3.1. Use z() instead.");
-        return m_z[point];
-    }
+    //! Set up initial grid.
+    //! @since New in %Cantera 3.2.
+    void setupGrid(const vector<double>& grid);
 
     //! called to set up initial grid, and after grid refinement
     virtual void setupGrid(size_t n, const double* z);
+
+    //! Set up uniform grid.
+    //! @param points  Number of grid points
+    //! @param length  Length of domain
+    //! @param start  Start position of domain (default=0.)
+    //! @since New in %Cantera 3.2.
+    void setupUniformGrid(size_t points, double length, double start=0.);
 
     /**
      * Writes some or all initial solution values into the global solution
@@ -579,6 +817,8 @@ protected:
 
     //! Retrieve meta data
     virtual void setMeta(const AnyMap& meta);
+
+    double m_press = -1.0; //!< pressure [Pa]
 
     shared_ptr<vector<double>> m_state; //!< data pointer shared from OneDim
 

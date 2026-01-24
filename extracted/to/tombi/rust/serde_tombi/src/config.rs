@@ -1,7 +1,7 @@
 use tombi_ast::AstNode;
 use tombi_config::{
-    Config, ConfigLevel, TomlVersion, CONFIG_TOML_FILENAME, PYPROJECT_TOML_FILENAME,
-    TOMBI_CONFIG_TOML_VERSION, TOMBI_TOML_FILENAME,
+    CONFIG_TOML_FILENAME, Config, ConfigLevel, PYPROJECT_TOML_FILENAME, TOMBI_CONFIG_TOML_VERSION,
+    TOMBI_TOML_FILENAME, TomlVersion,
 };
 
 /// Parse the TOML text into a `Config` struct.
@@ -107,22 +107,6 @@ pub fn try_from_path<P: AsRef<std::path::Path>>(
     }
 }
 
-pub fn try_from_uri(config_uri: &tombi_uri::Uri) -> Result<Option<Config>, tombi_config::Error> {
-    match config_uri.scheme() {
-        "file" => {
-            let config_path = tombi_uri::Uri::to_file_path(config_uri).map_err(|_| {
-                tombi_config::Error::ConfigUriParseFailed {
-                    config_uri: config_uri.clone(),
-                }
-            })?;
-            try_from_path(config_path)
-        }
-        _ => Err(tombi_config::Error::ConfigUriUnsupported {
-            config_uri: config_uri.clone(),
-        }),
-    }
-}
-
 pub fn load_with_path_and_level(
     search_dir: Option<std::path::PathBuf>,
 ) -> Result<(Config, Option<std::path::PathBuf>, ConfigLevel), tombi_config::Error> {
@@ -151,7 +135,7 @@ pub fn load_with_path_and_level(
 
                 match try_from_path(&pyproject_toml_path)? {
                     Some(config) => {
-                        return Ok((config, Some(pyproject_toml_path), ConfigLevel::Project))
+                        return Ok((config, Some(pyproject_toml_path), ConfigLevel::Project));
                     }
                     None => {
                         tracing::debug!("No [tool.tombi] found in {:?}", &pyproject_toml_path);

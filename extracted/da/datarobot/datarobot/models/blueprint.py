@@ -61,30 +61,22 @@ class BlueprintTaskDocument(APIObject):
         References used in document. When no link available url equals None.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("title"): String,
-            t.Key("task"): String(allow_blank=True),
-            t.Key("description"): String(allow_blank=True),
-            t.Key("parameters"): t.List(
-                t.Dict(
-                    {t.Key("name"): String, t.Key("type"): String, t.Key("description"): String}
-                ).ignore_extra("*")
-            ),
-            t.Key("links"): t.List(
-                t.Dict({t.Key("name"): String, t.Key("url"): String}).ignore_extra("*")
-            ),
-            t.Key("references"): t.List(
-                t.Dict(
-                    {
-                        t.Key("name"): String,
-                        # from_api method drops None, so we need this when there is no url
-                        t.Key("url", optional=True, default=None): t.Or(String, t.Null),
-                    }
-                ).ignore_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("title"): String,
+        t.Key("task"): String(allow_blank=True),
+        t.Key("description"): String(allow_blank=True),
+        t.Key("parameters"): t.List(
+            t.Dict({t.Key("name"): String, t.Key("type"): String, t.Key("description"): String}).ignore_extra("*")
+        ),
+        t.Key("links"): t.List(t.Dict({t.Key("name"): String, t.Key("url"): String}).ignore_extra("*")),
+        t.Key("references"): t.List(
+            t.Dict({
+                t.Key("name"): String,
+                # from_api method drops None, so we need this when there is no url
+                t.Key("url", optional=True, default=None): t.Or(String, t.Null),
+            }).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -117,14 +109,10 @@ class BlueprintChart(APIObject):
         Directions of data flow between blueprint chart nodes.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("nodes", optional=True): t.List(
-                t.Dict({t.Key("id"): String, t.Key("label"): String})
-            ),
-            t.Key("edges", optional=True): t.List(t.Tuple(String, String)),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("nodes", optional=True): t.List(t.Dict({t.Key("id"): String, t.Key("label"): String})),
+        t.Key("edges", optional=True): t.List(t.Tuple(String, String)),
+    })
 
     def __init__(self, nodes: List[Dict[str, str]], edges: List[Tuple[str, str]]) -> None:
         self.nodes = nodes
@@ -235,21 +223,19 @@ class Blueprint(APIObject):
         whether this blueprint supports incremental learning.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True): String(),
-            t.Key("processes", optional=True): t.List(String()),
-            t.Key("model_type", optional=True): String(),
-            t.Key("project_id", optional=True): String(),
-            t.Key("blueprint_category", optional=True): String(),
-            t.Key("monotonic_increasing_featurelist_id", optional=True): String(),
-            t.Key("monotonic_decreasing_featurelist_id", optional=True): String(),
-            t.Key("supports_monotonic_constraints", optional=True): t.Bool(),
-            t.Key("recommended_featurelist_id", optional=True): String(),
-            t.Key("supports_composable_ml", optional=True): t.Bool(),
-            t.Key("supports_incremental_learning", optional=True): t.Bool(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True): String(),
+        t.Key("processes", optional=True): t.List(String()),
+        t.Key("model_type", optional=True): String(),
+        t.Key("project_id", optional=True): String(),
+        t.Key("blueprint_category", optional=True): String(),
+        t.Key("monotonic_increasing_featurelist_id", optional=True): String(),
+        t.Key("monotonic_decreasing_featurelist_id", optional=True): String(),
+        t.Key("supports_monotonic_constraints", optional=True): t.Bool(),
+        t.Key("recommended_featurelist_id", optional=True): String(),
+        t.Key("supports_composable_ml", optional=True): t.Bool(),
+        t.Key("supports_incremental_learning", optional=True): t.Bool(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -336,6 +322,5 @@ class Blueprint(APIObject):
         """
         url = f"projects/{self.project_id}/blueprints/{self.id}/blueprintDocs/"
         return [
-            BlueprintTaskDocument.from_server_data(cast("ServerDataDictType", data))
-            for data in self._server_data(url)
+            BlueprintTaskDocument.from_server_data(cast("ServerDataDictType", data)) for data in self._server_data(url)
         ]

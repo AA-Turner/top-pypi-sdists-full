@@ -19,7 +19,7 @@ import click
 
 from zenml.cli import utils as cli_utils
 from zenml.cli.cli import TagGroup, cli
-from zenml.cli.utils import list_options
+from zenml.cli.utils import OutputFormat, list_options
 from zenml.client import Client
 from zenml.console import console
 from zenml.enums import CliCategories, StoreType
@@ -58,7 +58,7 @@ def _create_api_key(
                 description=description or "",
             )
         except (KeyError, EntityExistsError) as e:
-            cli_utils.error(str(e))
+            cli_utils.exception(e)
 
         cli_utils.declare(f"Successfully created API key `{name}`.")
 
@@ -150,7 +150,7 @@ def create_service_account(
 
         cli_utils.declare(f"Created service account '{service_account.name}'.")
     except EntityExistsError as err:
-        cli_utils.error(str(err))
+        cli_utils.exception(err)
 
     if create_api_key:
         _create_api_key(
@@ -176,7 +176,7 @@ def describe_service_account(service_account_name_or_id: str) -> None:
             service_account_name_or_id
         )
     except KeyError as err:
-        cli_utils.error(str(err))
+        cli_utils.exception(err)
     else:
         cli_utils.print_pydantic_model(
             title=f"Service account '{service_account.name}'",
@@ -185,31 +185,33 @@ def describe_service_account(service_account_name_or_id: str) -> None:
 
 
 @service_account.command("list")
-@list_options(ServiceAccountFilter)
+@list_options(ServiceAccountFilter, default_columns=["id", "name"])
 @click.pass_context
-def list_service_accounts(ctx: click.Context, /, **kwargs: Any) -> None:
+def list_service_accounts(
+    ctx: click.Context,
+    /,
+    columns: str,
+    output_format: OutputFormat,
+    **kwargs: Any,
+) -> None:
     """List all users.
 
     Args:
         ctx: The click context object
+        columns: Columns to display in output.
+        output_format: Format for output (table/json/yaml/csv/tsv).
         kwargs: Keyword arguments to filter the list of users.
     """
     client = Client()
     with console.status("Listing service accounts...\n"):
         service_accounts = client.list_service_accounts(**kwargs)
-        if not service_accounts:
-            cli_utils.declare(
-                "No service accounts found for the given filters."
-            )
-            return
 
-        cli_utils.print_pydantic_models(
-            service_accounts,
-            exclude_columns=[
-                "created",
-                "updated",
-            ],
-        )
+    cli_utils.print_page(
+        service_accounts,
+        columns,
+        output_format,
+        empty_message="No service accounts found for the given filters.",
+    )
 
 
 @service_account.command(
@@ -261,7 +263,7 @@ def update_service_account(
             active=active,
         )
     except (KeyError, EntityExistsError) as err:
-        cli_utils.error(str(err))
+        cli_utils.exception(err)
 
 
 @service_account.command("delete")
@@ -276,7 +278,7 @@ def delete_service_account(service_account_name_or_id: str) -> None:
     try:
         client.delete_service_account(service_account_name_or_id)
     except (KeyError, IllegalOperationError) as err:
-        cli_utils.error(str(err))
+        cli_utils.exception(err)
 
     cli_utils.declare(
         f"Deleted service account '{service_account_name_or_id}'."
@@ -370,7 +372,7 @@ def describe_api_key(service_account_name_or_id: str, name_or_id: str) -> None:
                 name_id_or_prefix=name_or_id,
             )
         except KeyError as e:
-            cli_utils.error(str(e))
+            cli_utils.exception(e)
 
         cli_utils.print_pydantic_model(
             title=f"API key '{api_key.name}'",
@@ -382,14 +384,22 @@ def describe_api_key(service_account_name_or_id: str, name_or_id: str) -> None:
 
 
 @api_key.command("list", help="List all API keys.")
-@list_options(APIKeyFilter)
+@list_options(APIKeyFilter, default_columns=["id", "name"])
 @click.pass_obj
-def list_api_keys(service_account_name_or_id: str, /, **kwargs: Any) -> None:
+def list_api_keys(
+    service_account_name_or_id: str,
+    /,
+    columns: str,
+    output_format: OutputFormat,
+    **kwargs: Any,
+) -> None:
     """List all API keys.
 
     Args:
         service_account_name_or_id: The name or ID of the service account for
             which to list the API keys.
+        columns: Columns to display in output.
+        output_format: Format for output (table/json/yaml/csv/tsv).
         **kwargs: Keyword arguments to filter API keys.
     """
     with console.status("Listing API keys...\n"):
@@ -399,21 +409,15 @@ def list_api_keys(service_account_name_or_id: str, /, **kwargs: Any) -> None:
                 **kwargs,
             )
         except KeyError as e:
-            cli_utils.error(str(e))
-
-        if not api_keys.items:
-            cli_utils.declare("No API keys found for this filter.")
+            cli_utils.exception(e)
             return
 
-        cli_utils.print_pydantic_models(
-            api_keys,
-            exclude_columns=[
-                "created",
-                "updated",
-                "key",
-                "retain_period_minutes",
-            ],
-        )
+    cli_utils.print_page(
+        api_keys,
+        columns,
+        output_format,
+        empty_message="No API keys found for this filter.",
+    )
 
 
 @api_key.command("update", help="Update an API key.")
@@ -455,7 +459,7 @@ def update_api_key(
             active=active,
         )
     except (KeyError, EntityExistsError) as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
 
     cli_utils.declare(f"Successfully updated API key `{name_or_id}`.")
 
@@ -510,7 +514,7 @@ def rotate_api_key(
             retain_period_minutes=retain,
         )
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
 
     cli_utils.declare(f"Successfully rotated API key `{name_or_id}`.")
     if retain:
@@ -581,6 +585,6 @@ def delete_api_key(
             name_id_or_prefix=name_or_id,
         )
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
     else:
         cli_utils.declare(f"Deleted API key `{name_or_id}`.")

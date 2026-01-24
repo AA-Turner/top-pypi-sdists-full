@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab_widgets
-Version: 3.0.15
+Version: 3.0.16
 Summary: Jupyter interactive widgets for JupyterLab
 Project-URL: Homepage, https://github.com/jupyter-widgets/ipywidgets
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
@@ -301,6 +301,7 @@ Keywords: Interactive,Interpreter,Jupyter,JupyterLab,JupyterLab3,Shell,Web,noteb
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
 Classifier: Framework :: Jupyter :: JupyterLab :: 3
+Classifier: Framework :: Jupyter :: JupyterLab :: 4
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Classifier: Intended Audience :: Developers
@@ -320,11 +321,11 @@ Description-Content-Type: text/markdown
 
 # Jupyter Widgets JupyterLab Extension
 
-A JupyterLab 3.0 extension for Jupyter/IPython widgets.
+A JupyterLab extension for Jupyter/IPython widgets.
 
 ## Installation
 
-To enable ipywidgets support in JupyterLab 3.x:
+To enable ipywidgets support in JupyterLab 3.x or 4.x:
 
 ```bash
 pip install jupyterlab_widgets

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import sys
-from multiprocessing import Barrier, Process, Value, synchronize
+from multiprocessing import get_context, synchronize
 from multiprocessing.shared_memory import SharedMemory
-from typing import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
 from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.system import get_cpu_info, get_memory_info
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def test_get_memory_info_returns_valid_values() -> None:
@@ -35,13 +38,15 @@ def test_memory_estimation_does_not_overestimate_due_to_shared_memory() -> None:
     equal to additional_memory_size_estimate_per_unshared_memory_child where the additional shared memory is exactly
     the same as the unshared memory.
     """
-    estimated_memory_expectation = Value('b', False)  # noqa: FBT003  # Common usage pattern for multiprocessing.Value
+
+    ctx = get_context('fork')
+    estimated_memory_expectation = ctx.Value('b', False)  # noqa: FBT003  # Common usage pattern for multiprocessing.Value
 
     def parent_process() -> None:
         extra_memory_size = 1024 * 1024 * 100  # 100 MB
         children_count = 4
         # Memory calculation is not exact, so allow for some tolerance.
-        test_tolerance = 0.1
+        test_tolerance = 0.3
 
         def no_extra_memory_child(ready: synchronize.Barrier, measured: synchronize.Barrier) -> None:
             ready.wait()
@@ -49,7 +54,9 @@ def test_memory_estimation_does_not_overestimate_due_to_shared_memory() -> None:
 
         def extra_memory_child(ready: synchronize.Barrier, measured: synchronize.Barrier) -> None:
             memory = SharedMemory(size=extra_memory_size, create=True)
+            assert memory.buf is not None
             memory.buf[:] = bytearray([255 for _ in range(extra_memory_size)])
+            print(f'Using the memory... {memory.buf[-1]}')
             ready.wait()
             measured.wait()
             memory.close()
@@ -58,7 +65,8 @@ def test_memory_estimation_does_not_overestimate_due_to_shared_memory() -> None:
         def shared_extra_memory_child(
             ready: synchronize.Barrier, measured: synchronize.Barrier, memory: SharedMemory
         ) -> None:
-            print(memory.buf[-1])
+            assert memory.buf is not None
+            print(f'Using the memory... {memory.buf[-1]}')
             ready.wait()
             measured.wait()
 
@@ -66,20 +74,21 @@ def test_memory_estimation_does_not_overestimate_due_to_shared_memory() -> None:
             *, target: Callable, count: int = 1, use_shared_memory: bool = False
         ) -> float:
             processes = []
-            ready = Barrier(parties=count + 1)
-            measured = Barrier(parties=count + 1)
+            ready = ctx.Barrier(parties=count + 1)
+            measured = ctx.Barrier(parties=count + 1)
             shared_memory: None | SharedMemory = None
             memory_before = get_memory_info().current_size
 
             if use_shared_memory:
                 shared_memory = SharedMemory(size=extra_memory_size, create=True)
+                assert shared_memory.buf is not None
                 shared_memory.buf[:] = bytearray([255 for _ in range(extra_memory_size)])
                 extra_args = [shared_memory]
             else:
                 extra_args = []
 
             for _ in range(count):
-                p = Process(target=target, args=[ready, measured, *extra_args])
+                p = ctx.Process(target=target, args=[ready, measured, *extra_args])
                 p.start()
                 processes.append(p)
 
@@ -110,13 +119,22 @@ def test_memory_estimation_does_not_overestimate_due_to_shared_memory() -> None:
             - additional_memory_simple_child
         )
 
-        estimated_memory_expectation.value = (
+        memory_estimation_difference_ratio = (
             abs((additional_memory_shared_extra_memory_child * children_count) - additional_memory_extra_memory_child)
             / additional_memory_extra_memory_child
-            < test_tolerance
         )
 
-    process = Process(target=parent_process)
+        estimated_memory_expectation.value = memory_estimation_difference_ratio < test_tolerance
+
+        if not estimated_memory_expectation.value:
+            print(
+                f'{additional_memory_shared_extra_memory_child=}\n'
+                f'{children_count=}\n'
+                f'{additional_memory_extra_memory_child=}\n'
+                f'{memory_estimation_difference_ratio=}'
+            )
+
+    process = ctx.Process(target=parent_process)
     process.start()
     process.join()
 

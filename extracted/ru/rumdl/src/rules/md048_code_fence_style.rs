@@ -1,6 +1,7 @@
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
 use crate::rules::code_fence_utils::CodeFenceStyle;
-use crate::utils::range_utils::{LineIndex, calculate_match_range};
+use crate::utils::LineIndex;
+use crate::utils::range_utils::calculate_match_range;
 use toml;
 
 mod md048_config;
@@ -25,8 +26,70 @@ impl MD048CodeFenceStyle {
         Self { config }
     }
 
+    /// Check a fence and generate warning if it doesn't match the target style
+    fn check_fence(
+        &self,
+        line: &str,
+        line_num: usize,
+        target_style: CodeFenceStyle,
+        _line_index: &LineIndex,
+    ) -> Option<LintWarning> {
+        let trimmed = line.trim_start();
+
+        if trimmed.starts_with("```") && target_style == CodeFenceStyle::Tilde {
+            // Find the position and length of the backtick fence
+            let fence_start = line.len() - trimmed.len();
+            let fence_end = fence_start + trimmed.find(|c: char| c != '`').unwrap_or(trimmed.len());
+
+            // Calculate precise character range for the entire fence
+            let (start_line, start_col, end_line, end_col) =
+                calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
+
+            return Some(LintWarning {
+                rule_name: Some(self.name().to_string()),
+                message: "Code fence style: use ~~~ instead of ```".to_string(),
+                line: start_line,
+                column: start_col,
+                end_line,
+                end_column: end_col,
+                severity: Severity::Warning,
+                fix: Some(Fix {
+                    range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
+                    replacement: line.replace("```", "~~~"),
+                }),
+            });
+        } else if trimmed.starts_with("~~~") && target_style == CodeFenceStyle::Backtick {
+            // Find the position and length of the tilde fence
+            let fence_start = line.len() - trimmed.len();
+            let fence_end = fence_start + trimmed.find(|c: char| c != '~').unwrap_or(trimmed.len());
+
+            // Calculate precise character range for the entire fence
+            let (start_line, start_col, end_line, end_col) =
+                calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
+
+            return Some(LintWarning {
+                rule_name: Some(self.name().to_string()),
+                message: "Code fence style: use ``` instead of ~~~".to_string(),
+                line: start_line,
+                column: start_col,
+                end_line,
+                end_column: end_col,
+                severity: Severity::Warning,
+                fix: Some(Fix {
+                    range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
+                    replacement: line.replace("~~~", "```"),
+                }),
+            });
+        }
+
+        None
+    }
+
     fn detect_style(&self, ctx: &crate::lint_context::LintContext) -> Option<CodeFenceStyle> {
-        // Find the first code fence by looking for opening fences
+        // Count occurrences of each fence style (prevalence-based approach)
+        let mut backtick_count = 0;
+        let mut tilde_count = 0;
+        let mut in_code_block = false;
 
         for line in ctx.content.lines() {
             let trimmed = line.trim_start();
@@ -35,15 +98,30 @@ impl MD048CodeFenceStyle {
             if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
                 let fence_char = if trimmed.starts_with("```") { '`' } else { '~' };
 
-                // This is an opening fence - return its style immediately
-                if fence_char == '`' {
-                    return Some(CodeFenceStyle::Backtick);
+                if !in_code_block {
+                    // Opening fence - count it
+                    if fence_char == '`' {
+                        backtick_count += 1;
+                    } else {
+                        tilde_count += 1;
+                    }
+                    in_code_block = true;
                 } else {
-                    return Some(CodeFenceStyle::Tilde);
+                    // Potential closing fence - exit code block
+                    in_code_block = false;
                 }
             }
         }
-        None
+
+        // Use the most prevalent style
+        // In case of a tie, prefer backticks (more common, widely supported)
+        if backtick_count >= tilde_count && backtick_count > 0 {
+            Some(CodeFenceStyle::Backtick)
+        } else if tilde_count > 0 {
+            Some(CodeFenceStyle::Tilde)
+        } else {
+            None
+        }
     }
 }
 
@@ -58,7 +136,7 @@ impl Rule for MD048CodeFenceStyle {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
+        let _line_index = &ctx.line_index;
 
         let mut warnings = Vec::new();
 
@@ -86,98 +164,14 @@ impl Rule for MD048CodeFenceStyle {
                     code_block_fence = current_fence.clone();
 
                     // Check this opening fence
-                    if trimmed.starts_with("```") && target_style == CodeFenceStyle::Tilde {
-                        // Find the position and length of the backtick fence
-                        let fence_start = line.len() - trimmed.len();
-                        let fence_end = fence_start + trimmed.find(|c: char| c != '`').unwrap_or(trimmed.len());
-
-                        // Calculate precise character range for the entire fence
-                        let (start_line, start_col, end_line, end_col) =
-                            calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
-
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            message: "Code fence style: use ~~~ instead of ```".to_string(),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
-                                replacement: line.replace("```", "~~~"),
-                            }),
-                        });
-                    } else if trimmed.starts_with("~~~") && target_style == CodeFenceStyle::Backtick {
-                        // Find the position and length of the tilde fence
-                        let fence_start = line.len() - trimmed.len();
-                        let fence_end = fence_start + trimmed.find(|c: char| c != '~').unwrap_or(trimmed.len());
-
-                        // Calculate precise character range for the entire fence
-                        let (start_line, start_col, end_line, end_col) =
-                            calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
-
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            message: "Code fence style: use ``` instead of ~~~".to_string(),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
-                                replacement: line.replace("~~~", "```"),
-                            }),
-                        });
+                    if let Some(warning) = self.check_fence(line, line_num, target_style, _line_index) {
+                        warnings.push(warning);
                     }
                 } else if trimmed.starts_with(&code_block_fence) && trimmed[code_block_fence.len()..].trim().is_empty()
                 {
                     // Exiting the code block - check this closing fence too
-                    if trimmed.starts_with("```") && target_style == CodeFenceStyle::Tilde {
-                        // Find the position and length of the backtick fence
-                        let fence_start = line.len() - trimmed.len();
-                        let fence_end = fence_start + trimmed.find(|c: char| c != '`').unwrap_or(trimmed.len());
-
-                        // Calculate precise character range for the entire fence
-                        let (start_line, start_col, end_line, end_col) =
-                            calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
-
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            message: "Code fence style: use ~~~ instead of ```".to_string(),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
-                                replacement: line.replace("```", "~~~"),
-                            }),
-                        });
-                    } else if trimmed.starts_with("~~~") && target_style == CodeFenceStyle::Backtick {
-                        // Find the position and length of the tilde fence
-                        let fence_start = line.len() - trimmed.len();
-                        let fence_end = fence_start + trimmed.find(|c: char| c != '~').unwrap_or(trimmed.len());
-
-                        // Calculate precise character range for the entire fence
-                        let (start_line, start_col, end_line, end_col) =
-                            calculate_match_range(line_num + 1, line, fence_start, fence_end - fence_start);
-
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            message: "Code fence style: use ``` instead of ~~~".to_string(),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: _line_index.line_col_to_byte_range_with_length(line_num + 1, 1, line.len()),
-                                replacement: line.replace("~~~", "```"),
-                            }),
-                        });
+                    if let Some(warning) = self.check_fence(line, line_num, target_style, _line_index) {
+                        warnings.push(warning);
                     }
 
                     in_code_block = false;
@@ -193,7 +187,7 @@ impl Rule for MD048CodeFenceStyle {
     /// Check if this rule should be skipped for performance
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
         // Skip if content is empty or has no code fence markers
-        ctx.content.is_empty() || (!ctx.content.contains("```") && !ctx.content.contains("~~~"))
+        ctx.content.is_empty() || (!ctx.likely_has_code() && !ctx.has_char('~'))
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
@@ -313,7 +307,7 @@ mod tests {
     fn test_backtick_style_with_backticks() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "```\ncode\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -323,7 +317,7 @@ mod tests {
     fn test_backtick_style_with_tildes() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~\ncode\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2); // Opening and closing fence
@@ -336,7 +330,7 @@ mod tests {
     fn test_tilde_style_with_tildes() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "~~~\ncode\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -346,7 +340,7 @@ mod tests {
     fn test_tilde_style_with_backticks() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "```\ncode\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2); // Opening and closing fence
@@ -354,26 +348,28 @@ mod tests {
     }
 
     #[test]
-    fn test_consistent_style_first_backtick() {
+    fn test_consistent_style_tie_prefers_backtick() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
+        // One backtick fence and one tilde fence - tie should prefer backticks
         let content = "```\ncode\n```\n\n~~~\nmore code\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // First fence is backtick, so tildes should be flagged
+        // Backticks win due to tie-breaker, so tildes should be flagged
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 5);
         assert_eq!(result[1].line, 7);
     }
 
     #[test]
-    fn test_consistent_style_first_tilde() {
+    fn test_consistent_style_tilde_most_prevalent() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
-        let content = "~~~\ncode\n~~~\n\n```\nmore code\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        // Two tilde fences and one backtick fence - tildes are most prevalent
+        let content = "~~~\ncode\n~~~\n\n```\nmore code\n```\n\n~~~\neven more\n~~~";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // First fence is tilde, so backticks should be flagged
+        // Tildes are most prevalent, so backticks should be flagged
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 5);
         assert_eq!(result[1].line, 7);
@@ -382,7 +378,7 @@ mod tests {
     #[test]
     fn test_detect_style_backtick() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
-        let ctx = LintContext::new("```\ncode\n```", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new("```\ncode\n```", crate::config::MarkdownFlavor::Standard, None);
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, Some(CodeFenceStyle::Backtick));
@@ -391,7 +387,7 @@ mod tests {
     #[test]
     fn test_detect_style_tilde() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
-        let ctx = LintContext::new("~~~\ncode\n~~~", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new("~~~\ncode\n~~~", crate::config::MarkdownFlavor::Standard, None);
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, Some(CodeFenceStyle::Tilde));
@@ -400,7 +396,7 @@ mod tests {
     #[test]
     fn test_detect_style_none() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Consistent);
-        let ctx = LintContext::new("No code fences here", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new("No code fences here", crate::config::MarkdownFlavor::Standard, None);
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, None);
@@ -410,7 +406,7 @@ mod tests {
     fn test_fix_backticks_to_tildes() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "```\ncode\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "~~~\ncode\n~~~");
@@ -420,7 +416,7 @@ mod tests {
     fn test_fix_tildes_to_backticks() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~\ncode\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "```\ncode\n```");
@@ -430,7 +426,7 @@ mod tests {
     fn test_fix_preserves_fence_length() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "````\ncode with backtick\n```\ncode\n````";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "~~~~\ncode with backtick\n```\ncode\n~~~~");
@@ -440,7 +436,7 @@ mod tests {
     fn test_fix_preserves_language_info() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~rust\nfn main() {}\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "```rust\nfn main() {}\n```");
@@ -450,7 +446,7 @@ mod tests {
     fn test_indented_code_fences() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "  ```\n  code\n  ```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -460,7 +456,7 @@ mod tests {
     fn test_fix_indented_fences() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "  ```\n  code\n  ```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "  ~~~\n  code\n  ~~~");
@@ -470,7 +466,7 @@ mod tests {
     fn test_nested_fences_not_changed() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Tilde);
         let content = "```\ncode with ``` inside\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "~~~\ncode with ``` inside\n~~~");
@@ -480,7 +476,7 @@ mod tests {
     fn test_multiple_code_blocks() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~\ncode1\n~~~\n\nText\n\n~~~python\ncode2\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 4); // 2 opening + 2 closing fences
@@ -490,7 +486,7 @@ mod tests {
     fn test_empty_content() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -500,7 +496,7 @@ mod tests {
     fn test_preserve_trailing_newline() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~\ncode\n~~~\n";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "```\ncode\n```\n");
@@ -510,7 +506,7 @@ mod tests {
     fn test_no_trailing_newline() {
         let rule = MD048CodeFenceStyle::new(CodeFenceStyle::Backtick);
         let content = "~~~\ncode\n~~~";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "```\ncode\n```");

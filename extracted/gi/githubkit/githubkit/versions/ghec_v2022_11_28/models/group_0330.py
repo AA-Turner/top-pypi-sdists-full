@@ -9,6 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal
 
 from pydantic import Field
@@ -17,35 +18,49 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0070 import CodeSecurityConfiguration
+from .group_0003 import SimpleUser
 
 
-class CodeSecurityConfigurationForRepository(GitHubModel):
-    """CodeSecurityConfigurationForRepository
+class EnvironmentApprovals(GitHubModel):
+    """Environment Approval
 
-    Code security configuration associated with a repository and attachment status
+    An entry in the reviews log for environment deployments
     """
 
-    status: Missing[
-        Literal[
-            "attached",
-            "attaching",
-            "detached",
-            "removed",
-            "enforced",
-            "failed",
-            "updating",
-            "removed_by_enterprise",
-        ]
-    ] = Field(
+    environments: list[EnvironmentApprovalsPropEnvironmentsItems] = Field(
+        description="The list of environments that were approved or rejected"
+    )
+    state: Literal["approved", "rejected", "pending"] = Field(
+        description="Whether deployment to the environment(s) was approved or rejected or pending (with comments)"
+    )
+    user: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    comment: str = Field(description="The comment submitted with the deployment review")
+
+
+class EnvironmentApprovalsPropEnvironmentsItems(GitHubModel):
+    """EnvironmentApprovalsPropEnvironmentsItems"""
+
+    id: Missing[int] = Field(default=UNSET, description="The id of the environment.")
+    node_id: Missing[str] = Field(default=UNSET)
+    name: Missing[str] = Field(
+        default=UNSET, description="The name of the environment."
+    )
+    url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    created_at: Missing[_dt.datetime] = Field(
         default=UNSET,
-        description="The attachment status of the code security configuration on the repository.",
+        description="The time that the environment was created, in ISO 8601 format.",
     )
-    configuration: Missing[CodeSecurityConfiguration] = Field(
-        default=UNSET, description="A code security configuration"
+    updated_at: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="The time that the environment was last updated, in ISO 8601 format.",
     )
 
 
-model_rebuild(CodeSecurityConfigurationForRepository)
+model_rebuild(EnvironmentApprovals)
+model_rebuild(EnvironmentApprovalsPropEnvironmentsItems)
 
-__all__ = ("CodeSecurityConfigurationForRepository",)
+__all__ = (
+    "EnvironmentApprovals",
+    "EnvironmentApprovalsPropEnvironmentsItems",
+)

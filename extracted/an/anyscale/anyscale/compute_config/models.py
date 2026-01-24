@@ -1,12 +1,295 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, DefaultDict, Dict, List, Optional, Union
+from typing import Any, ClassVar, DefaultDict, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
 
 
 ResourceDict = Dict[str, float]
+LabelDict = Dict[str, str]
 AdvancedInstanceConfigDict = Dict[str, Any]
+
+# TPU configuration constants
+# See: https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus
+TPU_DOCS_URL = "https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus"
+REQUIRED_TPU_NODE_SELECTORS = [
+    "cloud.google.com/gke-tpu-topology",
+    "cloud.google.com/gke-tpu-accelerator",
+]
+# Ray labels that can be used to derive TPU node selectors (alternative to explicit node selectors)
+RAY_TPU_ACCELERATOR_LABEL = "ray.io/accelerator-type"
+RAY_TPU_TOPOLOGY_LABEL = "ray.io/tpu-topology"
+
+
+def _extract_accelerator_from_labels(
+    labels: Optional[LabelDict], required_labels: Optional[LabelDict]
+) -> Optional[str]:
+    """Extract accelerator type from labels or required_labels.
+
+    Checks for the ray.io/accelerator-type label in required_labels first,
+    then falls back to labels. This allows users to specify GPU/TPU type
+    via labels as an alternative to the accelerator field in required_resources.
+
+    Args:
+        labels: Optional labels dictionary
+        required_labels: Optional required_labels dictionary
+
+    Returns:
+        The accelerator type string if found, None otherwise.
+    """
+    # Check required_labels first (takes precedence)
+    if required_labels and RAY_TPU_ACCELERATOR_LABEL in required_labels:
+        accel = required_labels[RAY_TPU_ACCELERATOR_LABEL]
+        if accel:
+            return accel
+
+    # Fall back to labels
+    if labels and RAY_TPU_ACCELERATOR_LABEL in labels:
+        accel = labels[RAY_TPU_ACCELERATOR_LABEL]
+        if accel:
+            return accel
+
+    return None
+
+
+def _generate_free_pod_shape_name(
+    cpu: Optional[int],
+    memory: Optional[Union[str, int]],
+    gpu: Optional[int],
+    accelerator: Optional[str],
+    tpu: Optional[int],
+    tpu_hosts: Optional[int],
+) -> str:
+    """Generate a unique name for a free pod shape based on physical resources.
+
+    Follows the backend naming convention:
+    - "FP-{CPU}CPU-{MEM}GB" for CPU/memory only
+    - "FP-{CPU}CPU-{MEM}GB-{GPU}GPU" for GPU without accelerator type
+    - "FP-{CPU}CPU-{MEM}GB-{GPU}GPU-{ACCEL}" for GPU with accelerator type
+    - "FP-{CPU}CPU-{MEM}GB-{TPU}TPU-{TPUHOST}TPUHost-{ACCEL}" for TPU
+
+    Args:
+        cpu: Number of CPUs
+        memory: Memory in bytes or Kubernetes format string (e.g., '4Gi')
+        gpu: Number of GPUs
+        accelerator: Accelerator type (e.g., 'T4', 'A100', 'TPU-V6E')
+        tpu: Number of TPUs
+        tpu_hosts: Number of TPU hosts
+
+    Returns:
+        Generated free pod shape name.
+    """
+    # Parse memory to bytes if string, then convert to GB
+    memory_bytes = _parse_memory_string(memory) if memory else 0
+    memory_gb = memory_bytes // (1024 * 1024 * 1024)  # Convert to GB
+
+    parts = [f"FP-{cpu or 0}CPU-{memory_gb}GB"]
+
+    if tpu and tpu > 0:
+        parts.append(f"{tpu}TPU")
+        if tpu_hosts and tpu_hosts > 0:
+            parts.append(f"{tpu_hosts}TPUHost")
+        if accelerator:
+            parts.append(accelerator)
+    elif gpu and gpu > 0:
+        parts.append(f"{gpu}GPU")
+        if accelerator:
+            parts.append(accelerator)
+
+    return "-".join(parts)
+
+
+def _parse_memory_string(memory_str: Union[str, int]) -> int:
+    """Parse memory string (e.g., '4Gi', '1024Mi', '1G') to bytes.
+
+    Uses Kubernetes quantity parsing to handle all standard K8s resource formats.
+
+    Args:
+        memory_str: Memory value as string (e.g., '4Gi') or int (bytes).
+
+    Returns:
+        Memory in bytes as int.
+    """
+    if isinstance(memory_str, int):
+        return memory_str
+
+    if not isinstance(memory_str, str):
+        raise TypeError(f"Memory must be a string or int, got: {type(memory_str)}")
+
+    try:
+        from kubernetes.utils.quantity import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Kubernetes dependency for quantity parsing")
+            parse_quantity,
+        )
+
+        # parse_quantity returns a Decimal in the canonical unit (bytes for memory)
+        return int(parse_quantity(memory_str))
+    except (ValueError, ImportError, AttributeError) as e:
+        raise ValueError(f"Invalid memory format: {memory_str}. Error: {e}") from e
+
+
+@dataclass(frozen=True)
+class PhysicalResources(ModelBase):
+    """Physical resources specification for compute nodes.
+
+    Used for custom instance types (free pod shapes) to explicitly define
+    CPU, memory, and GPU resources instead of deriving from instance type.
+    """
+
+    __doc_py_example__ = """
+from anyscale.compute_config.models import PhysicalResources
+
+required_resources = PhysicalResources(
+    CPU=4,
+    memory="8Gi",
+    GPU=1,
+    accelerator="T4",
+)
+"""
+
+    __doc_yaml_example__ = """
+required_resources:
+  CPU: 4
+  memory: 8Gi
+  GPU: 1
+  accelerator: T4
+"""
+
+    CPU: Optional[int] = field(
+        default=None, metadata={"docstring": "Number of CPUs to allocate."},
+    )
+
+    def _validate_CPU(self, CPU: Optional[int]):
+        if CPU is not None:
+            if not isinstance(CPU, int):
+                raise TypeError("'CPU' must be an int.")
+            if CPU < 0:
+                raise ValueError("'CPU' must be >= 0.")
+
+    memory: Optional[Union[str, int]] = field(
+        default=None,
+        metadata={
+            "docstring": "Amount of memory to allocate. Can be specified as bytes (int) or as a string with units (e.g., '4Gi', '1024Mi')."
+        },
+    )
+
+    def _validate_memory(self, memory: Optional[Union[str, int]]):
+        if memory is not None:
+            try:
+                parsed = _parse_memory_string(memory)
+                if parsed < 0:
+                    raise ValueError("'memory' must be >= 0.")
+            except TypeError:
+                # Re-raise TypeError as-is for better error messages
+                raise
+            except ValueError as e:
+                raise ValueError(f"Invalid memory value: {e}")
+
+    GPU: Optional[int] = field(
+        default=None, metadata={"docstring": "Number of GPUs to allocate."},
+    )
+
+    def _validate_GPU(self, GPU: Optional[int]):
+        if GPU is not None:
+            if not isinstance(GPU, int):
+                raise TypeError("'GPU' must be an int.")
+            if GPU < 0:
+                raise ValueError("'GPU' must be >= 0.")
+
+    accelerator: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Type of accelerator (e.g., 'T4', 'L4', 'A100', 'H100', 'TPUv4'). "
+            "Use abbreviated names for readability in generated instance type names."
+        },
+    )
+
+    def _validate_accelerator(self, accelerator: Optional[str]):
+        if accelerator is not None and not isinstance(accelerator, str):
+            raise TypeError("'accelerator' must be a string.")
+
+    TPU: Optional[int] = field(
+        default=None, metadata={"docstring": "Number of TPUs to allocate."},
+    )
+
+    def _validate_TPU(self, TPU: Optional[int]):
+        if TPU is not None:
+            if not isinstance(TPU, int):
+                raise TypeError("'TPU' must be an int.")
+            if TPU < 0:
+                raise ValueError("'TPU' must be >= 0.")
+
+    tpu_hosts: Optional[int] = field(
+        default=None,
+        metadata={
+            "docstring": "Number of TPU hosts (for anyscale/tpu_hosts custom resource).",
+            "alias": "anyscale/tpu_hosts",
+        },
+    )
+
+    def _validate_tpu_hosts(self, tpu_hosts: Optional[int]):
+        if tpu_hosts is not None:
+            if not isinstance(tpu_hosts, int):
+                raise TypeError("'tpu_hosts' must be an int.")
+            if tpu_hosts < 0:
+                raise ValueError("'tpu_hosts' must be >= 0.")
+
+    cpu_architecture: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "CPU architecture type. Valid values: 'x86_64' (default), 'arm64'.",
+        },
+    )
+
+    def _validate_cpu_architecture(self, cpu_architecture: Optional[str]):
+        if cpu_architecture is not None:
+            if not isinstance(cpu_architecture, str):
+                raise TypeError("'cpu_architecture' must be a string.")
+            valid_values = ["x86_64", "arm64"]
+            if cpu_architecture not in valid_values:
+                raise ValueError(
+                    f"'cpu_architecture' must be one of {valid_values}, got '{cpu_architecture}'."
+                )
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "PhysicalResources":
+        """Create PhysicalResources from dict, handling case variations."""
+        # Normalize keys: accept both 'Memory' and 'memory'
+        normalized = {}
+        for k, v in d.items():
+            if k == "Memory":
+                normalized["memory"] = v
+            else:
+                normalized[k] = v
+        return cls(**normalized)
+
+    def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
+        """Convert to dictionary with memory as bytes."""
+        result: Dict[str, Any] = {}
+
+        if self.CPU is not None or not exclude_none:
+            result["cpu"] = self.CPU
+
+        if self.memory is not None:
+            result["memory"] = _parse_memory_string(self.memory)
+        elif not exclude_none:
+            result["memory"] = None
+
+        if self.GPU is not None or not exclude_none:
+            result["gpu"] = self.GPU
+
+        if self.accelerator is not None or not exclude_none:
+            result["accelerator"] = self.accelerator
+
+        if self.TPU is not None or not exclude_none:
+            result["tpu"] = self.TPU
+
+        if self.tpu_hosts is not None or not exclude_none:
+            result["tpu_hosts"] = self.tpu_hosts
+
+        if self.cpu_architecture is not None or not exclude_none:
+            result["cpu_architecture"] = self.cpu_architecture
+
+        return result
 
 
 def _validate_resource_dict(r: Optional[ResourceDict], *, field_name: str):
@@ -28,6 +311,18 @@ def _validate_resource_dict(r: Optional[ResourceDict], *, field_name: str):
             raise TypeError(
                 f"'{field_name}' values must be floats, but got: '{k}: {v}'"
             )
+
+
+def _validate_label_dict(labels: Optional[LabelDict]):
+    if labels is None:
+        return
+
+    # Convert any non-string keys/values to strings to ensure compatibility
+    for k, v in labels.items():
+        if not isinstance(k, str):
+            raise TypeError(f"'labels' keys must be strings, but got: {k}")
+        if not isinstance(v, str):
+            raise TypeError(f"'labels' values must be strings, but got: {v}")
 
 
 def _validate_advanced_instance_config_dict(c: Optional[AdvancedInstanceConfigDict]):
@@ -98,15 +393,41 @@ cloud_deployment:
 
 @dataclass(frozen=True)
 class _NodeConfig(ModelBase):
-    instance_type: str = field(
+    instance_type: Optional[str] = field(
+        default=None,
         metadata={
-            "docstring": "Cloud provider instance type, e.g., `m5.2xlarge` on AWS or `n2-standard-8` on GCP."
-        }
+            "docstring": "Cloud provider instance type, e.g., `m5.2xlarge` on AWS or `n2-standard-8` on GCP. "
+            "Defaults to 'custom' when required_resources is provided."
+        },
     )
 
-    def _validate_instance_type(self, instance_type: str):
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "_NodeConfig":
+        """Create node config from dict, checking for deprecated physical_resources field."""
+        # Check for deprecated physical_resources field
+        if "physical_resources" in d and d["physical_resources"] is not None:
+            raise ValueError(
+                "'physical_resources' has been renamed to 'required_resources'. "
+                "Please update your configuration to use 'required_resources' instead."
+            )
+        # Remove physical_resources if it's None to avoid passing unknown field
+        if "physical_resources" in d:
+            d = d.copy()
+            del d["physical_resources"]
+        return cls(**d)
+
+    def _validate_instance_type(self, instance_type: Optional[str]) -> str:
+        # Default to "custom" when required_resources is provided
+        if instance_type is None:
+            if self.required_resources is not None:
+                instance_type = "custom"
+            else:
+                raise ValueError(
+                    "'instance_type' is required when 'required_resources' is not provided."
+                )
         if not isinstance(instance_type, str):
             raise TypeError("'instance_type' must be a string.")
+        return instance_type
 
     resources: Optional[ResourceDict] = field(
         default=None,
@@ -118,6 +439,50 @@ class _NodeConfig(ModelBase):
 
     def _validate_resources(self, resources: Optional[ResourceDict]):
         _validate_resource_dict(resources, field_name="resources")
+
+    required_resources: Optional[PhysicalResources] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Physical resources for custom instance types (free pod shapes). Explicitly defines CPU, memory, and GPU resources."
+        },
+    )
+
+    def _validate_required_resources(
+        self, required_resources: Optional[PhysicalResources]
+    ) -> Optional[PhysicalResources]:
+        if required_resources is None:
+            return None
+        if isinstance(required_resources, dict):
+            # Convert dict to PhysicalResources object
+            return PhysicalResources.from_dict(required_resources)
+        if isinstance(required_resources, PhysicalResources):
+            return required_resources
+        raise TypeError(
+            "'required_resources' must be a PhysicalResources object or dict."
+        )
+
+    labels: Optional[LabelDict] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Labels to associate the node with for scheduling purposes. Defaults to the list of Ray & Anyscale default labels."
+        },
+    )
+
+    def _validate_labels(self, labels: Optional[LabelDict]):
+        _validate_label_dict(labels)
+
+    required_labels: Optional[LabelDict] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Required labels that must be present on the node for scheduling purposes."
+        },
+    )
+
+    def _validate_required_labels(self, required_labels: Optional[LabelDict]):
+        _validate_label_dict(required_labels)
 
     advanced_instance_config: Optional[AdvancedInstanceConfigDict] = field(
         default=None,
@@ -132,6 +497,127 @@ class _NodeConfig(ModelBase):
         self, advanced_instance_config: Optional[AdvancedInstanceConfigDict]
     ):
         _validate_advanced_instance_config_dict(advanced_instance_config)
+        # Validate TPU-specific node selectors if TPU is configured
+        self._validate_tpu_node_selectors(advanced_instance_config)
+
+    def _validate_tpu_node_selectors(
+        self, advanced_instance_config: Optional[AdvancedInstanceConfigDict]
+    ):
+        """Validate that required GKE TPU configuration is present when TPU is specified.
+
+        When using TPUs on GKE, the following are required:
+        - tpu_hosts: Specifies single-host (1) or multi-host (>1) TPU configuration
+        - Either explicit node selectors OR labels/required_labels that can be used to derive them:
+          Option 1 (explicit node selectors):
+            - cloud.google.com/gke-tpu-topology: Specifies the TPU topology (e.g., '2x2', '4x4')
+            - cloud.google.com/gke-tpu-accelerator: Specifies the TPU type (e.g., 'tpu-v5-lite-podslice')
+          Option 2 (labels or required_labels - node selectors will be derived):
+            - ray.io/accelerator-type: TPU accelerator type (e.g., 'TPU-V6E')
+            - ray.io/tpu-topology: TPU topology (e.g., '2x2')
+
+        Note: TPU labels must not be specified in both labels and required_labels.
+
+        See: https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus
+        """
+        # Check if TPU is configured in required_resources
+        if self.required_resources is None:
+            return
+
+        pr = self.required_resources
+        if isinstance(pr, dict):
+            tpu_count = pr.get("TPU") or pr.get("tpu") or 0
+            tpu_hosts = pr.get("tpu_hosts") or 0
+        else:
+            tpu_count = pr.TPU or 0
+            tpu_hosts = pr.tpu_hosts or 0
+
+        if not tpu_count or tpu_count <= 0:
+            return
+
+        # TPU is configured, validate tpu_hosts is specified
+        if not tpu_hosts or tpu_hosts <= 0:
+            raise ValueError(
+                f"TPU configuration requires 'tpu_hosts' in 'required_resources' to specify "
+                f"single-host (tpu_hosts: 1) or multi-host (tpu_hosts: >1) TPU configuration. "
+                f"Example:\n"
+                f"  required_resources:\n"
+                f"    CPU: 7\n"
+                f"    memory: 12Gi\n"
+                f"    TPU: 4\n"
+                f"    accelerator: TPU-V5E\n"
+                f"    tpu_hosts: 4  # Required for TPU\n"
+                f"For more information on TPU configuration, see: {TPU_DOCS_URL}"
+            )
+
+        # Extract node selectors from advanced_instance_config
+        node_selectors = {}
+        if advanced_instance_config:
+            spec = advanced_instance_config.get("spec", {})
+            if isinstance(spec, dict):
+                node_selectors = spec.get("nodeSelector", {})
+
+        # Check if labels can be used to derive the node selectors
+        labels = self.labels or {}
+        required_labels = self.required_labels or {}
+
+        # Helper to check for TPU labels in a label dict
+        def has_tpu_labels(label_dict: Dict[str, str]) -> tuple:
+            has_accel = RAY_TPU_ACCELERATOR_LABEL in label_dict and label_dict[
+                RAY_TPU_ACCELERATOR_LABEL
+            ].upper().startswith("TPU")
+            has_topo = RAY_TPU_TOPOLOGY_LABEL in label_dict
+            return has_accel, has_topo
+
+        labels_accel, labels_topo = has_tpu_labels(labels)
+        req_labels_accel, req_labels_topo = has_tpu_labels(required_labels)
+
+        # Check for conflicts: TPU labels should not be in both labels and required_labels
+        conflicting_labels = []
+        if labels_accel and req_labels_accel:
+            conflicting_labels.append(RAY_TPU_ACCELERATOR_LABEL)
+        if labels_topo and req_labels_topo:
+            conflicting_labels.append(RAY_TPU_TOPOLOGY_LABEL)
+
+        if conflicting_labels:
+            conflict_str = ", ".join(f"'{label}'" for label in conflicting_labels)
+            raise ValueError(
+                f"TPU configuration labels {conflict_str} cannot be specified in both "
+                f"'labels' and 'required_labels'. Please specify them in only one place."
+            )
+
+        # If both TPU labels are present (in either labels or required_labels),
+        # node selectors will be derived by the backend
+        has_tpu_accelerator_label = labels_accel or req_labels_accel
+        has_tpu_topology_label = labels_topo or req_labels_topo
+
+        if has_tpu_accelerator_label and has_tpu_topology_label:
+            return
+
+        # Check for missing node selectors (only if labels are not provided)
+        missing_selectors = [
+            selector
+            for selector in REQUIRED_TPU_NODE_SELECTORS
+            if selector not in node_selectors
+        ]
+
+        if missing_selectors:
+            missing_str = ", ".join(f"'{s}'" for s in missing_selectors)
+            raise ValueError(
+                f"TPU configuration requires either:\n"
+                f"1. Node selectors in 'advanced_instance_config.spec.nodeSelector': {missing_str}\n"
+                f"   Example:\n"
+                f"     advanced_instance_config:\n"
+                f"       spec:\n"
+                f"         nodeSelector:\n"
+                f"           cloud.google.com/gke-tpu-topology: '4x4'\n"
+                f"           cloud.google.com/gke-tpu-accelerator: 'tpu-v5-lite-podslice'\n"
+                f"2. OR labels/required_labels that will be used to derive node selectors:\n"
+                f"   Example:\n"
+                f"     labels:\n"
+                f"       ray.io/accelerator-type: TPU-V6E\n"
+                f"       ray.io/tpu-topology: 2x2\n"
+                f"For more information on TPU configuration, see: {TPU_DOCS_URL}"
+            )
 
     flags: Optional[Dict[str, Any]] = field(
         default=None,
@@ -199,7 +685,7 @@ class MarketType(ModelEnum):
     SPOT = "SPOT"
     PREFER_SPOT = "PREFER_SPOT"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ON_DEMAND: "Use on-demand instances only.",
         SPOT: "Use spot instances only.",
         PREFER_SPOT: (
@@ -258,7 +744,27 @@ worker_nodes:
     def _validate_name(self, name: Optional[str]) -> str:
         # Default name to the instance type if not specified.
         if name is None:
-            name = self.instance_type
+            # For free pod shapes (custom instance types), generate a unique name
+            # from required resources to allow multiple custom worker groups
+            if self.instance_type == "custom" and self.required_resources is not None:
+                pr = self.required_resources
+                # Get accelerator from required_resources, or fall back to
+                # required_labels/labels if not specified (ray.io/accelerator-type)
+                accelerator = pr.accelerator
+                if not accelerator:
+                    accelerator = _extract_accelerator_from_labels(
+                        self.labels, self.required_labels
+                    )
+                name = _generate_free_pod_shape_name(
+                    cpu=pr.CPU,
+                    memory=pr.memory,
+                    gpu=pr.GPU,
+                    accelerator=accelerator,
+                    tpu=pr.TPU,
+                    tpu_hosts=pr.tpu_hosts,
+                )
+            else:
+                name = self.instance_type
 
         if not isinstance(name, str):
             raise TypeError("'name' must be a string")
@@ -478,12 +984,14 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         name_counts: DefaultDict[str, int] = defaultdict(int)
         worker_node_models: List[WorkerNodeGroupConfig] = []
         for node in worker_nodes:
-            if isinstance(node, dict):
-                node = WorkerNodeGroupConfig.from_dict(node)
-
-            assert isinstance(node, WorkerNodeGroupConfig)
-            worker_node_models.append(node)
-            name = node.name
+            parsed_node = (
+                WorkerNodeGroupConfig.from_dict(node)
+                if isinstance(node, dict)
+                else node
+            )
+            assert isinstance(parsed_node, WorkerNodeGroupConfig)
+            worker_node_models.append(parsed_node)
+            name = parsed_node.name
             assert name is not None
             name_counts[name] += 1
             if name_counts[name] > 1:
@@ -692,16 +1200,16 @@ configs:
         unique_clouds = set()
         unique_resources = set()
         for config in configs:
-            if isinstance(config, dict):
-                config = ComputeConfig.from_dict(config)
+            parsed_config = (
+                ComputeConfig.from_dict(config) if isinstance(config, dict) else config
+            )
+            assert isinstance(parsed_config, ComputeConfig)
+            config_models.append(parsed_config)
 
-            assert isinstance(config, ComputeConfig)
-            config_models.append(config)
+            if parsed_config.cloud:
+                unique_clouds.add(parsed_config.cloud)
 
-            if config.cloud:
-                unique_clouds.add(config.cloud)
-
-            unique_resources.add(config.cloud_resource)
+            unique_resources.add(parsed_config.cloud_resource)
 
         if len(unique_clouds) > 1:
             raise ValueError("'cloud' must be the same for all configs.")
@@ -717,6 +1225,21 @@ configs:
             )
 
         return config_models
+
+    flags: Optional[Dict[str, Any]] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Flags specifying advanced or experimental options that should be applied to all cloud resources. Flags specified in the individual compute configurations will override these flags.",
+        },
+    )
+
+    def _validate_flags(self, flags: Optional[Dict[str, Any]]):
+        if flags is None:
+            return
+
+        if not isinstance(flags, dict):
+            raise TypeError("'flags' must be a dict")
 
 
 ComputeConfigType = Union[ComputeConfig, MultiResourceComputeConfig]
@@ -824,3 +1347,71 @@ config:
             raise TypeError(
                 "'config' must be a ComputeConfig or MultiResourceComputeConfig"
             )
+
+
+@dataclass(frozen=True)
+class ComputeConfigListResult(ModelBase):
+    """Result object returned by anyscale.compute_config.list().
+
+    Contains a list of compute configs matching the query, along with pagination metadata.
+    """
+
+    __doc_py_example__ = """
+import anyscale
+from anyscale.compute_config.models import ComputeConfigListResult
+
+# List compute configs with pagination
+result: ComputeConfigListResult = anyscale.compute_config.list(
+    cloud_name="aws-prod",
+    sort_by="created_at",
+    max_items=10
+)
+
+# Access results
+print(f"Found {result.count} compute configs")
+for config in result.results:
+    print(f"  - {config.name}:{config.version}")
+
+# Handle pagination
+if result.next_token:
+    next_page = anyscale.compute_config.list(
+        cloud_name="aws-prod",
+        max_items=10,
+        next_token=result.next_token
+    )
+"""
+
+    results: List[Any] = field(
+        default_factory=list,
+        metadata={
+            "docstring": "List of compute config objects matching the query. Each item is a ClusterCompute object with details about the compute configuration."
+        },
+    )
+
+    def _validate_results(self, results: List[Any]):
+        if not isinstance(results, list):
+            raise TypeError("'results' must be a list.")
+
+    next_token: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Pagination token for fetching the next page of results. If None, there are no more results available."
+        },
+    )
+
+    def _validate_next_token(self, next_token: Optional[str]):
+        if next_token is not None and not isinstance(next_token, str):
+            raise TypeError("'next_token' must be a string or None.")
+
+    count: int = field(
+        default=0,
+        metadata={
+            "docstring": "Number of results returned in this response. Useful for checking if there are results without iterating through the list."
+        },
+    )
+
+    def _validate_count(self, count: int):
+        if not isinstance(count, int):
+            raise TypeError("'count' must be an integer.")
+        if count < 0:
+            raise ValueError("'count' must be non-negative.")

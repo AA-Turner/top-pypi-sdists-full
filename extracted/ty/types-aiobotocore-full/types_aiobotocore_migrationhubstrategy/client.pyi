@@ -3,7 +3,7 @@ Type annotations for migrationhubstrategy service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_migrationhubstrategy/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -76,12 +77,6 @@ from .type_defs import (
     UpdateServerConfigRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -90,16 +85,16 @@ else:
 __all__ = ("MigrationHubStrategyRecommendationsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DependencyException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceLinkedRoleLockClientException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceLinkedRoleLockClientException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class MigrationHubStrategyRecommendationsClient(AioBaseClient):
     """
@@ -285,7 +280,7 @@ class MigrationHubStrategyRecommendationsClient(AioBaseClient):
 
     async def put_portfolio_preferences(
         self, **kwargs: Unpack[PutPortfolioPreferencesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Saves the specified migration and modernization preferences.
 
@@ -325,7 +320,7 @@ class MigrationHubStrategyRecommendationsClient(AioBaseClient):
 
     async def stop_assessment(
         self, **kwargs: Unpack[StopAssessmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the assessment of an on-premises environment.
 
@@ -335,7 +330,7 @@ class MigrationHubStrategyRecommendationsClient(AioBaseClient):
 
     async def update_application_component_config(
         self, **kwargs: Unpack[UpdateApplicationComponentConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of an application component.
 
@@ -345,7 +340,7 @@ class MigrationHubStrategyRecommendationsClient(AioBaseClient):
 
     async def update_server_config(
         self, **kwargs: Unpack[UpdateServerConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of the specified server.
 
@@ -427,7 +422,7 @@ class MigrationHubStrategyRecommendationsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

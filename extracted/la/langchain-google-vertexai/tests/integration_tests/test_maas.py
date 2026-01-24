@@ -1,5 +1,4 @@
 import json
-from typing import List
 
 import pytest
 from langchain_core.messages import (
@@ -40,7 +39,6 @@ def test_generate(model_name: str) -> None:
     )
     output = llm.invoke("What is the meaning of life?")
     assert isinstance(output, AIMessage)
-    print(output)
 
 
 @pytest.mark.extended
@@ -51,7 +49,6 @@ async def test_agenerate(model_name: str) -> None:
     )
     output = await llm.ainvoke("What is the meaning of life?")
     assert isinstance(output, AIMessage)
-    print(output)
 
 
 @pytest.mark.extended
@@ -90,8 +87,7 @@ async def test_tools(model_name: str) -> None:
     def search(
         question: str,
     ) -> str:
-        """
-        Useful for when you need to answer questions or visit websites.
+        """Useful for when you need to answer questions or visit websites.
         You should ask targeted questions.
         """
         return "brown"
@@ -119,7 +115,7 @@ async def test_tools(model_name: str) -> None:
     assert len(tool_calls) > 0
 
     tool_response = search.invoke("sparrow")
-    tool_messages: List[BaseMessage] = []
+    tool_messages: list[BaseMessage] = []
 
     for tool_call in tool_calls:
         assert tool_call["name"] == "search"
@@ -130,7 +126,7 @@ async def test_tools(model_name: str) -> None:
         )
         tool_messages.append(tool_message)
 
-    result = llm_with_search.invoke([request, response] + tool_messages)
+    result = llm_with_search.invoke([request, response, *tool_messages])
 
     assert isinstance(result, AIMessage)
     if model_name in _MISTRAL_MODELS:

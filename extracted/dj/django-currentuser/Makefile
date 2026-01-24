@@ -61,7 +61,7 @@ coverage:
 
 docs: outfile=/tmp/readme-errors
 docs:
-	rst2html.py README.rst > /dev/null 2> ${outfile}
+	rst2html README.rst > /dev/null 2> ${outfile}
 	cat ${outfile}
 	test 0 -eq `cat ${outfile} | wc -l`
 
@@ -82,11 +82,11 @@ build-deps: ${RELEASE_VENV}
 	source ${RELEASE_PYTHON_ACTIVATE} && python -m pip install --upgrade twine
 
 
-${PACKAGE_FILE_TGZ}: django_currentuser/ pyproject.toml Makefile setup.py setup.cfg
-${PACKAGE_FILE_WHL}: django_currentuser/ pyproject.toml Makefile setup.py setup.cfg
+${PACKAGE_FILE_TGZ}: django_currentuser/ pyproject.toml Makefile setup.py
+${PACKAGE_FILE_WHL}: django_currentuser/ pyproject.toml Makefile setup.py
 	source ${RELEASE_PYTHON_ACTIVATE} && python -m build
 
-package: build-deps clean-build clean-python ${PACKAGE_FILE} ${PACKAGE_FILE_WHL}
+package: build-deps clean-build clean-python ${PACKAGE_FILE_TGZ} ${PACKAGE_FILE_WHL}
 
 
 release:  package

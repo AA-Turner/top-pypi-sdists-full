@@ -31,7 +31,7 @@ export interface GlbMessage {
   name: string;
   props: {
     glb_data: Uint8Array<ArrayBuffer>;
-    scale: number;
+    scale: number | [number, number, number];
     cast_shadow: boolean;
     receive_shadow: boolean | number;
   };
@@ -100,7 +100,23 @@ export interface GridMessage {
 export interface LabelMessage {
   type: "LabelMessage";
   name: string;
-  props: { text: string };
+  props: {
+    text: string;
+    font_size_mode: "screen" | "scene";
+    font_screen_scale: number;
+    font_scene_height: number;
+    depth_test: boolean;
+    anchor:
+      | "top-left"
+      | "top-center"
+      | "top-right"
+      | "center-left"
+      | "center-center"
+      | "center-right"
+      | "bottom-left"
+      | "bottom-center"
+      | "bottom-right";
+  };
 }
 /** Add a 3D gui element to the scene.
  *
@@ -230,6 +246,7 @@ export interface MeshMessage {
     flat_shading: boolean;
     side: "front" | "back" | "double";
     material: "standard" | "toon3" | "toon5";
+    scale: number | [number, number, number];
     cast_shadow: boolean;
     receive_shadow: boolean | number;
   };
@@ -273,6 +290,27 @@ export interface IcosphereMessage {
     receive_shadow: boolean | number;
   };
 }
+/** Cylinder message.
+ *
+ * (automatically generated)
+ */
+export interface CylinderMessage {
+  type: "CylinderMessage";
+  name: string;
+  props: {
+    radius: number;
+    height: number;
+    color: [number, number, number];
+    radial_segments: number;
+    wireframe: boolean;
+    opacity: number | null;
+    flat_shading: boolean;
+    side: "front" | "back" | "double";
+    material: "standard" | "toon3" | "toon5";
+    cast_shadow: boolean;
+    receive_shadow: boolean | number;
+  };
+}
 /** Skinned mesh message.
  *
  * (automatically generated)
@@ -289,6 +327,7 @@ export interface SkinnedMeshMessage {
     flat_shading: boolean;
     side: "front" | "back" | "double";
     material: "standard" | "toon3" | "toon5";
+    scale: number | [number, number, number];
     cast_shadow: boolean;
     receive_shadow: boolean | number;
     bone_wxyzs: Uint8Array<ArrayBuffer>;
@@ -319,6 +358,7 @@ export interface BatchedMeshesMessage {
     material: "standard" | "toon3" | "toon5";
     cast_shadow: boolean;
     receive_shadow: boolean;
+    batched_opacities: Uint8Array<ArrayBuffer> | null;
   };
 }
 /** Message from server->client carrying batched GLB information.
@@ -776,6 +816,7 @@ export interface GuiButtonMessage {
       | [number, number, number]
       | null;
     _icon_html: string | null;
+    _hold_callback_freqs: number[];
   };
 }
 /** GuiUploadButtonMessage(uuid: 'str', container_uuid: 'str', props: 'GuiUploadButtonProps')
@@ -1192,6 +1233,7 @@ export interface SetBonePositionMessage {
 export interface SetCameraPositionMessage {
   type: "SetCameraPositionMessage";
   position: [number, number, number];
+  initial: boolean;
 }
 /** Server -> client message to set the camera's up direction.
  *
@@ -1200,6 +1242,7 @@ export interface SetCameraPositionMessage {
 export interface SetCameraUpDirectionMessage {
   type: "SetCameraUpDirectionMessage";
   position: [number, number, number];
+  initial: boolean;
 }
 /** Server -> client message to set the camera's look-at point.
  *
@@ -1208,6 +1251,7 @@ export interface SetCameraUpDirectionMessage {
 export interface SetCameraLookAtMessage {
   type: "SetCameraLookAtMessage";
   look_at: [number, number, number];
+  initial: boolean;
 }
 /** Server -> client message to set the camera's near clipping plane.
  *
@@ -1216,6 +1260,7 @@ export interface SetCameraLookAtMessage {
 export interface SetCameraNearMessage {
   type: "SetCameraNearMessage";
   near: number;
+  initial: boolean;
 }
 /** Server -> client message to set the camera's far clipping plane.
  *
@@ -1224,6 +1269,7 @@ export interface SetCameraNearMessage {
 export interface SetCameraFarMessage {
   type: "SetCameraFarMessage";
   far: number;
+  initial: boolean;
 }
 /** Server -> client message to set the camera's field of view.
  *
@@ -1232,6 +1278,7 @@ export interface SetCameraFarMessage {
 export interface SetCameraFovMessage {
   type: "SetCameraFovMessage";
   fov: number;
+  initial: boolean;
 }
 /** Server -> client message to set a scene node's orientation.
  *
@@ -1347,6 +1394,17 @@ export interface GuiModalMessage {
 export interface GuiCloseModalMessage {
   type: "GuiCloseModalMessage";
   uuid: string;
+}
+/** Message sent from client->server when a button is being held.
+ *
+ * Sent periodically at the specified frequency while the button is pressed.
+ *
+ * (automatically generated)
+ */
+export interface GuiButtonHoldMessage {
+  type: "GuiButtonHoldMessage";
+  uuid: string;
+  frequency: number;
 }
 /** Sent client<->server when any property of a GUI component is changed.
  *
@@ -1533,6 +1591,7 @@ export type Message =
   | MeshMessage
   | BoxMessage
   | IcosphereMessage
+  | CylinderMessage
   | SkinnedMeshMessage
   | BatchedMeshesMessage
   | BatchedGlbMessage
@@ -1593,6 +1652,7 @@ export type Message =
   | ResetGuiMessage
   | GuiModalMessage
   | GuiCloseModalMessage
+  | GuiButtonHoldMessage
   | GuiUpdateMessage
   | SceneNodeUpdateMessage
   | ThemeConfigurationMessage
@@ -1624,6 +1684,7 @@ export type SceneNodeMessage =
   | MeshMessage
   | BoxMessage
   | IcosphereMessage
+  | CylinderMessage
   | SkinnedMeshMessage
   | BatchedMeshesMessage
   | BatchedGlbMessage
@@ -1673,6 +1734,7 @@ const typeSetSceneNodeMessage = new Set([
   "MeshMessage",
   "BoxMessage",
   "IcosphereMessage",
+  "CylinderMessage",
   "SkinnedMeshMessage",
   "BatchedMeshesMessage",
   "BatchedGlbMessage",

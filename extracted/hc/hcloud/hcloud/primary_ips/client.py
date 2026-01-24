@@ -1,30 +1,96 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from ..actions import BoundAction, ResourceActionsClient
+from ..actions import (
+    ActionSort,
+    ActionsPageResult,
+    ActionStatus,
+    BoundAction,
+    ResourceActionsClient,
+)
+from ..actions.client import ResourceClientBaseActionsMixin
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import CreatePrimaryIPResponse, PrimaryIP
 
 if TYPE_CHECKING:
     from .._client import Client
     from ..datacenters import BoundDatacenter, Datacenter
+    from ..locations import BoundLocation, Location
 
 
-class BoundPrimaryIP(BoundModelBase, PrimaryIP):
+__all__ = [
+    "BoundPrimaryIP",
+    "PrimaryIPsPageResult",
+    "PrimaryIPsClient",
+]
+
+
+class BoundPrimaryIP(BoundModelBase[PrimaryIP], PrimaryIP):
     _client: PrimaryIPsClient
 
     model = PrimaryIP
 
-    def __init__(self, client: PrimaryIPsClient, data: dict, complete: bool = True):
+    def __init__(
+        self,
+        client: PrimaryIPsClient,
+        data: dict[str, Any],
+        complete: bool = True,
+    ):
         # pylint: disable=import-outside-toplevel
         from ..datacenters import BoundDatacenter
+        from ..locations import BoundLocation
 
-        datacenter = data.get("datacenter", {})
-        if datacenter:
-            data["datacenter"] = BoundDatacenter(client._parent.datacenters, datacenter)
+        raw = data.get("datacenter", {})
+        if raw:
+            data["datacenter"] = BoundDatacenter(client._parent.datacenters, raw)
+
+        raw = data.get("location", {})
+        if raw:
+            data["location"] = BoundLocation(client._parent.locations, raw)
 
         super().__init__(client, data, complete)
+
+    def get_actions_list(
+        self,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> ActionsPageResult:
+        """
+        Returns a paginated list of Actions for a Primary IP.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._client.get_actions_list(
+            self,
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
+        )
+
+    def get_actions(
+        self,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
+    ) -> list[BoundAction]:
+        """
+        Returns all Actions for a Primary IP.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        """
+        return self._client.get_actions(
+            self,
+            status=status,
+            sort=sort,
+        )
 
     def update(
         self,
@@ -43,7 +109,10 @@ class BoundPrimaryIP(BoundModelBase, PrimaryIP):
         :return: :class:`BoundPrimaryIP <hcloud.primary_ips.client.BoundPrimaryIP>`
         """
         return self._client.update(
-            self, auto_delete=auto_delete, labels=labels, name=name
+            self,
+            auto_delete=auto_delete,
+            labels=labels,
+            name=name,
         )
 
     def delete(self) -> bool:
@@ -60,7 +129,7 @@ class BoundPrimaryIP(BoundModelBase, PrimaryIP):
                If true, prevents the Primary IP from being deleted
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_protection(self, delete)
+        return self._client.change_protection(self, delete=delete)
 
     def assign(self, assignee_id: int, assignee_type: str) -> BoundAction:
         """Assigns a Primary IP to a assignee.
@@ -71,7 +140,9 @@ class BoundPrimaryIP(BoundModelBase, PrimaryIP):
                Assignee type (e.g server) the Primary IP shall be assigned to
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.assign(self, assignee_id, assignee_type)
+        return self._client.assign(
+            self, assignee_id=assignee_id, assignee_type=assignee_type
+        )
 
     def unassign(self) -> BoundAction:
         """Unassigns a Primary IP, resulting in it being unreachable. You may assign it to a server again at a later time.
@@ -89,7 +160,7 @@ class BoundPrimaryIP(BoundModelBase, PrimaryIP):
                Hostname to set as a reverse DNS PTR entry, will reset to original default value if `None`
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_dns_ptr(self, ip, dns_ptr)
+        return self._client.change_dns_ptr(self, ip=ip, dns_ptr=dns_ptr)
 
 
 class PrimaryIPsPageResult(NamedTuple):
@@ -97,7 +168,10 @@ class PrimaryIPsPageResult(NamedTuple):
     meta: Meta
 
 
-class PrimaryIPsClient(ResourceClientBase):
+class PrimaryIPsClient(
+    ResourceClientBaseActionsMixin,
+    ResourceClientBase,
+):
     _base_url = "/primary_ips"
 
     actions: ResourceActionsClient
@@ -109,6 +183,51 @@ class PrimaryIPsClient(ResourceClientBase):
     def __init__(self, client: Client):
         super().__init__(client)
         self.actions = ResourceActionsClient(client, self._base_url)
+
+    def get_actions_list(
+        self,
+        primary_ip: PrimaryIP | BoundPrimaryIP,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> ActionsPageResult:
+        """
+        Returns a paginated list of Actions for a Primary IP.
+
+        :param primary_ip: Primary IP to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._get_actions_list(
+            f"{self._base_url}/{primary_ip.id}",
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
+        )
+
+    def get_actions(
+        self,
+        primary_ip: PrimaryIP | BoundPrimaryIP,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
+    ) -> list[BoundAction]:
+        """
+        Returns all Actions for a Primary IP.
+
+        :param primary_ip: Primary IP to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        """
+        return self._iter_pages(
+            self.get_actions_list,
+            primary_ip,
+            status=status,
+            sort=sort,
+        )
 
     def get_by_id(self, id: int) -> BoundPrimaryIP:
         """Returns a specific Primary IP object.
@@ -184,23 +303,25 @@ class PrimaryIPsClient(ResourceClientBase):
                Used to get Primary IP by name.
         :return: :class:`BoundPrimaryIP <hcloud.primary_ips.client.BoundPrimaryIP>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)
 
     def create(
         self,
         type: str,
         name: str,
         datacenter: Datacenter | BoundDatacenter | None = None,
+        location: Location | BoundLocation | None = None,
         assignee_type: str | None = "server",
         assignee_id: int | None = None,
         auto_delete: bool | None = False,
-        labels: dict | None = None,
+        labels: dict[str, str] | None = None,
     ) -> CreatePrimaryIPResponse:
         """Creates a new Primary IP assigned to a server.
 
         :param type: str Primary IP type Choices: ipv4, ipv6
         :param name: str
         :param datacenter: Datacenter (optional)
+        :param location: Location (optional)
         :param assignee_type: str (optional)
         :param assignee_id: int (optional)
         :param auto_delete: bool (optional)
@@ -215,7 +336,16 @@ class PrimaryIPsClient(ResourceClientBase):
             "auto_delete": auto_delete,
         }
         if datacenter is not None:
+            warnings.warn(
+                "The 'datacenter' argument is deprecated and will be removed after 1 July 2026. "
+                "Please use the 'location' argument instead. "
+                "See https://docs.hetzner.cloud/changelog#2025-12-16-phasing-out-datacenters",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             data["datacenter"] = datacenter.id_or_name
+        if location is not None:
+            data["location"] = location.id_or_name
         if assignee_id is not None:
             data["assignee_id"] = assignee_id
         if labels is not None:

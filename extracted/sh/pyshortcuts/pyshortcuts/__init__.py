@@ -8,12 +8,14 @@ from pathlib import Path
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from .version import version as __version__
-from .utils import (fix_filename, new_filename, fix_varname, isotime,
-                    get_pyexe, bytes2str, str2bytes, get_homedir, get_cwd,
-                    uname, scut_ext, ico_ext)
+from .utils import (fix_filename, new_filename, fix_varname,
+                    isotime, bytes2str, str2bytes, strict_ascii,
+                    pathname, read_textfile,
+                    get_homedir, get_cwd, mkdir,
+                    uname, scut_ext, ico_ext, get_pyexe)
 
-from .gformat import gformat
-from .debugtimer import debugtimer
+from .gformat import gformat, fcompact
+from .debugtimer import debugtimer, sleep
 
 make_shortcut =  get_folders = None
 if uname.startswith('lin'):
@@ -36,8 +38,9 @@ except ImportError:
 
 
 def get_desktop():
-    "for back compatibility"
+    "get desktop folder, for back compatibility"
     return get_folders().desktop
+
 
 def shortcut_cli():
     '''
@@ -104,7 +107,7 @@ def shortcut_cli():
         fpath = Path(__file__)
         icon = Path(fpath.parent, 'icons', f'ladder.{ico_ext[0]}'
                         ).resolve().as_posix()
-        script = Path(sys.prefix, bindir, 'pyshortcut').resolve().as_posix()
+        script = Path(sys.prefix, bindir, 'pyshortcut').as_posix()
         make_shortcut(f"{script} --wxgui", name='PyShortcut',
                       terminal=False, icon=icon)
 
@@ -120,16 +123,18 @@ def shortcut_cli():
         if args.scriptname is None:
             print("pyshortcut: must provide one script.  try 'pyshortcut -h'")
         else:
-            p_icon = Path(args.icon).resolve()
-            if p_icon.exists():
-                icon = p_icon.resolve().as_posix()
-            else:
-                parent = p_icon.parent
-                stem  = p_icon.stem
-                for ext in ico_ext:
-                    x = Path(parent, f"{stem}.{ext}").absolute()
-                    if x.exists():
-                        icon = x.resolve().as_posix()
+            icon = None
+            if args.icon is not None:
+                p_icon = Path(args.icon).resolve()
+                if p_icon.exists():
+                    icon = p_icon.resolve().as_posix()
+                else:
+                    parent = p_icon.parent
+                    stem  = p_icon.stem
+                    for ext in ico_ext:
+                        x = Path(parent, f"{stem}.{ext}").absolute()
+                        if x.exists():
+                            icon = x.resolve().as_posix()
             make_shortcut(args.scriptname, name=args.name,
                           terminal=args.terminal, folder=args.folder,
                           icon=icon, desktop=args.desktop,

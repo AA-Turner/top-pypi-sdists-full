@@ -11,9 +11,9 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/RefCntedCallback.h"
 #include "src/gpu/SkBackingFit.h"
@@ -162,7 +162,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DefferredProxyConversionTest,
                                                                  kDims,
                                                                  GrRenderable::kYes,
                                                                  1,
-                                                                 GrMipmapped::kNo,
+                                                                 skgpu::Mipmapped::kNo,
                                                                  SkBackingFit::kApprox,
                                                                  skgpu::Budgeted::kYes,
                                                                  GrProtected::kNo,
@@ -182,7 +182,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DefferredProxyConversionTest,
                                                                  kDims,
                                                                  GrRenderable::kYes,
                                                                  1,
-                                                                 GrMipmapped::kNo,
+                                                                 skgpu::Mipmapped::kNo,
                                                                  SkBackingFit::kApprox,
                                                                  skgpu::Budgeted::kYes,
                                                                  GrProtected::kNo,
@@ -202,7 +202,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(DefferredProxyConversionTest,
                                                                  kDims,
                                                                  GrRenderable::kNo,
                                                                  1,
-                                                                 GrMipmapped::kNo,
+                                                                 skgpu::Mipmapped::kNo,
                                                                  SkBackingFit::kApprox,
                                                                  skgpu::Budgeted::kYes,
                                                                  GrProtected::kNo,

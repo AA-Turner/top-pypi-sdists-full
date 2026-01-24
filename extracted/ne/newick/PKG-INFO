@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: newick
-Version: 1.10.0
+Version: 1.11.0
 Summary: A python module to read and write the Newick format
 Home-page: https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick
 Author: Robert Forkel
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: Apache Software License
@@ -36,10 +37,12 @@ Requires-Dist: pytest>=3.6; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage>=4.2; extra == "test"
+Dynamic: license-file
 
 # python-newick
 
 [![Build Status](https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick/badges/master/pipeline.svg)](https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick/-/pipelines/)
+[![coverage](https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick/badges/master/coverage.svg)](https://gitlab.mpcdf.mpg.de/dlce-eva/python-newick/-/jobs?kind=BUILD)
 [![PyPI](https://badge.fury.io/py/newick.svg)](https://pypi.org/project/newick)
 
 python package to read and write the 

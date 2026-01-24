@@ -20,6 +20,7 @@ class NucleotideTemplateAlignmentCreate:
     _template_sequence_id: str
     _algorithm: NucleotideAlignmentBaseAlgorithm
     _files: List[Union[NucleotideAlignmentBaseFilesItem, NucleotideAlignmentFile, UnknownType]]
+    _should_disable_circular_sequence_rotation: Union[Unset, bool] = False
     _clustalo_options: Union[Unset, NucleotideAlignmentBaseClustaloOptions] = UNSET
     _mafft_options: Union[Unset, NucleotideAlignmentBaseMafftOptions] = UNSET
     _name: Union[Unset, str] = UNSET
@@ -29,6 +30,11 @@ class NucleotideTemplateAlignmentCreate:
         fields.append("template_sequence_id={}".format(repr(self._template_sequence_id)))
         fields.append("algorithm={}".format(repr(self._algorithm)))
         fields.append("files={}".format(repr(self._files)))
+        fields.append(
+            "should_disable_circular_sequence_rotation={}".format(
+                repr(self._should_disable_circular_sequence_rotation)
+            )
+        )
         fields.append("clustalo_options={}".format(repr(self._clustalo_options)))
         fields.append("mafft_options={}".format(repr(self._mafft_options)))
         fields.append("name={}".format(repr(self._name)))
@@ -50,6 +56,7 @@ class NucleotideTemplateAlignmentCreate:
 
             files.append(files_item)
 
+        should_disable_circular_sequence_rotation = self._should_disable_circular_sequence_rotation
         clustalo_options: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._clustalo_options, Unset):
             clustalo_options = self._clustalo_options.to_dict()
@@ -68,6 +75,8 @@ class NucleotideTemplateAlignmentCreate:
             field_dict["algorithm"] = algorithm
         if files is not UNSET:
             field_dict["files"] = files
+        if should_disable_circular_sequence_rotation is not UNSET:
+            field_dict["shouldDisableCircularSequenceRotation"] = should_disable_circular_sequence_rotation
         if clustalo_options is not UNSET:
             field_dict["clustaloOptions"] = clustalo_options
         if mafft_options is not UNSET:
@@ -152,6 +161,17 @@ class NucleotideTemplateAlignmentCreate:
                 List[Union[NucleotideAlignmentBaseFilesItem, NucleotideAlignmentFile, UnknownType]], UNSET
             )
 
+        def get_should_disable_circular_sequence_rotation() -> Union[Unset, bool]:
+            should_disable_circular_sequence_rotation = d.pop("shouldDisableCircularSequenceRotation")
+            return should_disable_circular_sequence_rotation
+
+        try:
+            should_disable_circular_sequence_rotation = get_should_disable_circular_sequence_rotation()
+        except KeyError:
+            if strict:
+                raise
+            should_disable_circular_sequence_rotation = cast(Union[Unset, bool], UNSET)
+
         def get_clustalo_options() -> Union[Unset, NucleotideAlignmentBaseClustaloOptions]:
             clustalo_options: Union[Unset, Union[Unset, NucleotideAlignmentBaseClustaloOptions]] = UNSET
             _clustalo_options = d.pop("clustaloOptions")
@@ -199,6 +219,7 @@ class NucleotideTemplateAlignmentCreate:
             template_sequence_id=template_sequence_id,
             algorithm=algorithm,
             files=files,
+            should_disable_circular_sequence_rotation=should_disable_circular_sequence_rotation,
             clustalo_options=clustalo_options,
             mafft_options=mafft_options,
             name=name,
@@ -237,6 +258,21 @@ class NucleotideTemplateAlignmentCreate:
         self, value: List[Union[NucleotideAlignmentBaseFilesItem, NucleotideAlignmentFile, UnknownType]]
     ) -> None:
         self._files = value
+
+    @property
+    def should_disable_circular_sequence_rotation(self) -> bool:
+        """ Whether to disable circular sequence rotation. """
+        if isinstance(self._should_disable_circular_sequence_rotation, Unset):
+            raise NotPresentError(self, "should_disable_circular_sequence_rotation")
+        return self._should_disable_circular_sequence_rotation
+
+    @should_disable_circular_sequence_rotation.setter
+    def should_disable_circular_sequence_rotation(self, value: bool) -> None:
+        self._should_disable_circular_sequence_rotation = value
+
+    @should_disable_circular_sequence_rotation.deleter
+    def should_disable_circular_sequence_rotation(self) -> None:
+        self._should_disable_circular_sequence_rotation = UNSET
 
     @property
     def clustalo_options(self) -> NucleotideAlignmentBaseClustaloOptions:

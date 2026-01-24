@@ -1,6 +1,0 @@
----
-fixes:
-  - |
-    All current volumes statuses are now supported, including
-    previously missing such as `Error Backing Up`, `Downloading`,
-    `Uploading` and `Retyping`.

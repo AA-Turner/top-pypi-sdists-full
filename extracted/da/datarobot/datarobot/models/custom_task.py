@@ -68,21 +68,18 @@ class CustomTask(APIObject):
     """
 
     _path = "customTasks/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("target_type"): String(),
-            t.Key("latest_version", optional=True, default=None): CustomTaskVersion.schema
-            | t.Null(),
-            t.Key("created") >> "created_at": String(),
-            t.Key("updated") >> "updated_at": String(),
-            t.Key("name"): String(),
-            t.Key("description"): String(allow_blank=True),
-            t.Key("language"): String(allow_blank=True),
-            t.Key("created_by"): String(),
-            t.Key("calibrate_predictions", optional=True): t.Bool(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("target_type"): String(),
+        t.Key("latest_version", optional=True, default=None): CustomTaskVersion.schema | t.Null(),
+        t.Key("created") >> "created_at": String(),
+        t.Key("updated") >> "updated_at": String(),
+        t.Key("name"): String(),
+        t.Key("description"): String(allow_blank=True),
+        t.Key("language"): String(allow_blank=True),
+        t.Key("created_by"): String(),
+        t.Key("calibrate_predictions", optional=True): t.Bool(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -123,9 +120,7 @@ class CustomTask(APIObject):
             setattr(self, attr, new_value)
 
     @classmethod
-    def from_server_data(
-        cls, data: ServerDataType, keep_attrs: Optional[Iterable[str]] = None
-    ) -> CustomTask:
+    def from_server_data(cls, data: ServerDataType, keep_attrs: Optional[Iterable[str]] = None) -> CustomTask:
         raw_task: CustomTask = super().from_server_data(data, keep_attrs)
         # from_server_data will make the keys in requiredMetadata lowercase,
         # which is not OK. we need to preserve case
@@ -137,9 +132,7 @@ class CustomTask(APIObject):
         return raw_task
 
     @classmethod
-    def list(
-        cls, order_by: Optional[str] = None, search_for: Optional[str] = None
-    ) -> List[CustomTask]:
+    def list(cls, order_by: Optional[str] = None, search_for: Optional[str] = None) -> List[CustomTask]:
         """List custom tasks available to the user.
 
         .. versionadded:: v2.26
@@ -399,9 +392,7 @@ class CustomTask(APIObject):
         list of :class:`SharingAccess <datarobot.SharingAccess>`
         """
         url = f"{self._path}{self.id}/accessControl/"
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)]
 
     def share(self, access_list: List[SharingAccess]) -> None:
         """Update the access control settings of this custom task.

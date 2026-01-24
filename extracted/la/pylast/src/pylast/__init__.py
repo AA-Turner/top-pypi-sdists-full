@@ -20,7 +20,6 @@
 # https://github.com/pylast/pylast
 from __future__ import annotations
 
-import collections
 import hashlib
 import html.entities
 import logging
@@ -30,7 +29,7 @@ import shelve
 import ssl
 import tempfile
 import time
-import xml.dom
+import typing
 import xml.parsers
 from urllib.parse import quote_plus
 from xml.dom import Node, minidom
@@ -110,17 +109,6 @@ IMAGES_ORDER_POPULARITY = "popularity"
 IMAGES_ORDER_DATE = "dateadded"
 
 
-SCROBBLE_SOURCE_USER = "P"
-SCROBBLE_SOURCE_NON_PERSONALIZED_BROADCAST = "R"
-SCROBBLE_SOURCE_PERSONALIZED_BROADCAST = "E"
-SCROBBLE_SOURCE_LASTFM = "L"
-SCROBBLE_SOURCE_UNKNOWN = "U"
-
-SCROBBLE_MODE_PLAYED = ""
-SCROBBLE_MODE_LOVED = "L"
-SCROBBLE_MODE_BANNED = "B"
-SCROBBLE_MODE_SKIPPED = "S"
-
 # Delay time in seconds from section 4.4 of https://www.last.fm/api/tos
 DELAY_TIME = 0.2
 
@@ -156,6 +144,7 @@ class _Network:
         domain_names,
         urls,
         token=None,
+        proxy=None,
     ) -> None:
         """
         name: the name of the network
@@ -171,6 +160,8 @@ class _Network:
             name
         urls: a dict mapping types to URLs
         token: an authentication token to retrieve a session
+        proxy: A string or dictionary specifying the proxy server(s) to handle
+            network requests.
 
         if username and password_hash were provided and not session_key,
         session_key will be generated automatically when needed.
@@ -193,11 +184,22 @@ class _Network:
         self.password_hash = password_hash
         self.domain_names = domain_names
         self.urls = urls
-
+        self.proxy = None
         self.cache_backend: _ShelfCacheBackend | None = None
-        self.proxy: str | dict | None = None
         self.last_call_time: float = 0.0
         self.limit_rate = False
+
+        if isinstance(proxy, str):
+            self.proxy = {"https://": httpx.HTTPTransport(proxy=proxy)}
+        elif isinstance(proxy, dict):
+            self.proxy = {
+                scheme: (
+                    httpx.HTTPTransport(proxy=proxy)
+                    if isinstance(proxy, str)
+                    else proxy
+                )
+                for scheme, proxy in proxy.items()
+            }
 
         # Load session_key and username from authentication token if provided
         if token and not self.session_key:
@@ -409,9 +411,10 @@ class _Network:
 
     def enable_proxy(self, proxy: str | dict) -> None:
         """Enable default web proxy.
-        Multiple proxies can be passed as a `dict`, see
-        https://www.python-httpx.org/advanced/#http-proxying
+        https://www.python-httpx.org/advanced/proxies
         """
+        if isinstance(proxy, str):
+            proxy = {"https://": proxy}
         self.proxy = proxy
 
     def disable_proxy(self) -> None:
@@ -558,6 +561,8 @@ class _Network:
         stream_id: str | None = None,
         context: str | None = None,
         mbid: str | None = None,
+        *,
+        chosen_by_user: bool | None = None,
     ):
         """Used to add a track-play to a user's profile.
 
@@ -570,14 +575,18 @@ class _Network:
             album (Optional) : The album name.
             album_artist (Optional) : The album artist - if this differs from
                 the track artist.
-            context (Optional) : Sub-client version (not public, only enabled
-                for certain API keys)
-            stream_id (Optional) : The stream id for this track received from
-                the radio.getPlaylist service.
             track_number (Optional) : The track number of the track on the
                 album.
-            mbid (Optional) : The MusicBrainz Track ID.
             duration (Optional) : The length of the track in seconds.
+            stream_id (Optional) : The stream id for this track received from
+                the radio.getPlaylist service.
+            context (Optional) : Sub-client version (not public, only enabled
+                for certain API keys)
+            mbid (Optional) : The MusicBrainz Track ID.
+            chosen_by_user (Optional) : Set to True if the user chose this song,
+                or False if it was chosen by someone else (such as a radio
+                station or recommendation service). Assumes True if not
+                specified.
         """
 
         return self.scrobble_many(
@@ -593,6 +602,7 @@ class _Network:
                     "stream_id": stream_id,
                     "context": context,
                     "mbid": mbid,
+                    "chosen_by_user": chosen_by_user,
                 },
             )
         )
@@ -623,16 +633,21 @@ class _Network:
                 "stream_id",
                 "track_number",
                 "mbid",
+                "chosen_by_user",
                 "duration",
             )
             args_map_to = {  # so friggin lazy
                 "album_artist": "albumArtist",
                 "track_number": "trackNumber",
                 "stream_id": "streamID",
+                "chosen_by_user": "chosenByUser",
             }
 
             for arg in additional_args:
-                if arg in tracks_to_scrobble[i] and tracks_to_scrobble[i][arg]:
+                if (
+                    arg in tracks_to_scrobble[i]
+                    and tracks_to_scrobble[i][arg] is not None
+                ):
                     if arg in args_map_to:
                         maps_to = args_map_to[arg]
                     else:
@@ -655,6 +670,8 @@ class LastFMNetwork(_Network):
     username: a username of a valid user
     password_hash: the output of pylast.md5(password) where password is the
         user's password
+    proxy: A string or dictionary specifying the proxy server(s) to handle
+        network requests.
 
     if username and password_hash were provided and not session_key,
     session_key will be generated automatically when needed.
@@ -675,6 +692,7 @@ class LastFMNetwork(_Network):
         username: str = "",
         password_hash: str = "",
         token: str = "",
+        proxy: str | dict | None = None,
     ) -> None:
         super().__init__(
             name="Last.fm",
@@ -686,6 +704,7 @@ class LastFMNetwork(_Network):
             username=username,
             password_hash=password_hash,
             token=token,
+            proxy=proxy,
             domain_names={
                 DOMAIN_ENGLISH: "www.last.fm",
                 DOMAIN_GERMAN: "www.last.fm/de",
@@ -732,6 +751,8 @@ class LibreFMNetwork(_Network):
     username: a username of a valid user
     password_hash: the output of pylast.md5(password) where password is the
         user's password
+    proxy: A string or dictionary specifying the proxy server(s) to handle
+        network requests.
 
     if username and password_hash were provided and not session_key,
     session_key will be generated automatically when needed.
@@ -744,6 +765,7 @@ class LibreFMNetwork(_Network):
         session_key: str = "",
         username: str = "",
         password_hash: str = "",
+        proxy: str | dict | None = None,
     ) -> None:
         super().__init__(
             name="Libre.fm",
@@ -754,6 +776,7 @@ class LibreFMNetwork(_Network):
             session_key=session_key,
             username=username,
             password_hash=password_hash,
+            proxy=proxy,
             domain_names={
                 DOMAIN_ENGLISH: "libre.fm",
                 DOMAIN_GERMAN: "libre.fm",
@@ -832,8 +855,8 @@ class _Request:
         self.network = network
         self.params = {}
 
-        for key in params:
-            self.params[key] = _unicode(params[key])
+        for key, value in params.items():
+            self.params[key] = self._convert_param(value)
 
         (self.api_key, self.api_secret, self.session_key) = network._get_ws_auth()
 
@@ -852,6 +875,19 @@ class _Request:
 
         if "api_sig" not in self.params.keys():
             self.params["api_sig"] = self._get_signature()
+
+    @staticmethod
+    def _convert_param(value: str | int | bool) -> str:
+        """
+        Convert a Python type to a string for use as an API parameter value.
+        """
+        return str(
+            # Convert boolean params to 1 or 0.
+            int(value)
+            if isinstance(value, bool)
+            # Everything else is just natively converted to a string.
+            else value
+        )
 
     def _get_signature(self) -> str:
         """
@@ -912,42 +948,31 @@ class _Request:
         (host_name, host_subdir) = self.network.ws_server
         timeout = httpx.Timeout(5, read=20)
 
-        if self.network.is_proxy_enabled():
-            client = httpx.Client(
-                verify=SSL_CONTEXT,
-                base_url=f"https://{host_name}",
-                headers=HEADERS,
-                proxies=self.network.proxy,
-                timeout=timeout,
-            )
-        else:
-            client = httpx.Client(
-                verify=SSL_CONTEXT,
-                base_url=f"https://{host_name}",
-                headers=HEADERS,
-                timeout=timeout,
-            )
+        with httpx.Client(
+            verify=SSL_CONTEXT,
+            base_url=f"https://{host_name}",
+            headers=HEADERS,
+            mounts=self.network.proxy,
+            timeout=timeout,
+        ) as client:
+            try:
+                response = client.post(f"{host_subdir}{username}", data=self.params)
+            except Exception as e:
+                raise NetworkError(self.network, e) from e
 
-        try:
-            response = client.post(f"{host_subdir}{username}", data=self.params)
-        except Exception as e:
-            raise NetworkError(self.network, e) from e
+            if response.status_code in (500, 502, 503, 504):
+                raise WSError(
+                    self.network,
+                    response.status_code,
+                    "Connection to the API failed with "
+                    f"HTTP code {response.status_code}",
+                )
+            response_text = str(response.read(), "utf-8")
 
-        if response.status_code in (500, 502, 503, 504):
-            raise WSError(
-                self.network,
-                response.status_code,
-                f"Connection to the API failed with HTTP code {response.status_code}",
-            )
-        response_text = _unicode(response.read())
-
-        try:
             self._check_response_for_errors(response_text)
-        finally:
-            client.close()
-        return response_text
+            return response_text
 
-    def execute(self, cacheable: bool = False) -> xml.dom.minidom.Document:
+    def execute(self, cacheable: bool = False) -> minidom.Document:
         """Returns the XML DOM response of the POST Request from the server"""
 
         if self.network.is_caching_enabled() and cacheable:
@@ -1090,19 +1115,33 @@ class SessionKeyGenerator:
         return _extract(doc, "key")
 
 
-TopItem = collections.namedtuple("TopItem", ["item", "weight"])
-SimilarItem = collections.namedtuple("SimilarItem", ["item", "match"])
-LibraryItem = collections.namedtuple("LibraryItem", ["item", "playcount", "tagcount"])
-PlayedTrack = collections.namedtuple(
-    "PlayedTrack", ["track", "album", "playback_date", "timestamp"]
-)
-LovedTrack = collections.namedtuple("LovedTrack", ["track", "date", "timestamp"])
-ImageSizes = collections.namedtuple(
-    "ImageSizes", ["original", "large", "largesquare", "medium", "small", "extralarge"]
-)
-Image = collections.namedtuple(
-    "Image", ["title", "url", "dateadded", "format", "owner", "sizes", "votes"]
-)
+class TopItem(typing.NamedTuple):
+    item: Artist | Album | Track | Tag
+    weight: float
+
+
+class SimilarItem(typing.NamedTuple):
+    item: Artist | Track
+    match: float
+
+
+class LibraryItem(typing.NamedTuple):
+    item: Artist
+    playcount: float
+    tagcount: float
+
+
+class PlayedTrack(typing.NamedTuple):
+    track: Track
+    album: str | None
+    playback_date: str | None
+    timestamp: str | None
+
+
+class LovedTrack(typing.NamedTuple):
+    track: Track
+    date: str | None
+    timestamp: str
 
 
 def _string_output(func):
@@ -1519,9 +1558,7 @@ class _Opus(_Taggable):
             self.artist = Artist(artist, self.network)
 
         self.title = title
-        self.username = (
-            username if username else network.username
-        )  # Default to current user
+        self.username = username or network.username  # Default to current user
         self.info = info
 
     def __repr__(self) -> str:
@@ -1710,7 +1747,7 @@ class Artist(_Taggable):
         super().__init__(network=network, ws_prefix="artist")
 
         self.name = name
-        self.username = username
+        self.username = username or network.username  # Default to current user
         self.info = info
 
     def __repr__(self) -> str:
@@ -1922,7 +1959,7 @@ class Country(_BaseObject):
 
         doc = self._request("geo.getTopArtists", cacheable, params)
 
-        return _extract_top_artists(doc, self)
+        return _extract_top_artists(doc, self.network)
 
     def get_top_tracks(self, limit=None, cacheable: bool = True, stream: bool = False):
         """Returns a sequence of the most played tracks"""
@@ -1986,7 +2023,7 @@ class Library(_BaseObject):
         return self.user
 
     def get_artists(
-        self, limit: int = 50, cacheable: bool = True, stream: bool = False
+        self, limit: int | None = 50, cacheable: bool = True, stream: bool = False
     ):
         """
         Returns a sequence of Album objects
@@ -2236,12 +2273,16 @@ class User(_Chartable):
     def _get_params(self):
         return {self.ws_prefix: self.get_name()}
 
-    def _extract_played_track(self, track_node):
+    def _extract_played_track(self, track_node: minidom.Element) -> PlayedTrack:
         title = _extract(track_node, "name")
         track_artist = _extract(track_node, "artist")
         date = _extract(track_node, "date")
         album = _extract(track_node, "album")
-        timestamp = track_node.getElementsByTagName("date")[0].getAttribute("uts")
+        timestamp = (
+            None
+            if track_node.hasAttribute("nowplaying")
+            else track_node.getElementsByTagName("date")[0].getAttribute("uts")
+        )
         return PlayedTrack(
             Track(track_artist, title, self.network), album, date, timestamp
         )
@@ -2270,7 +2311,7 @@ class User(_Chartable):
         return _get_friends() if stream else list(_get_friends())
 
     def get_loved_tracks(
-        self, limit: int = 50, cacheable: bool = True, stream: bool = False
+        self, limit: int | None = 50, cacheable: bool = True, stream: bool = False
     ):
         """
         Returns this user's loved track as a sequence of LovedTrack objects in
@@ -2661,7 +2702,7 @@ class _Search(_BaseObject):
 
         return _extract(doc, "totalResults")
 
-    def _retrieve_page(self, page_index: int) -> xml.dom.minidom.Element:
+    def _retrieve_page(self, page_index: int) -> minidom.Element:
         """Returns the node of matches to be processed"""
 
         params = self._get_params()
@@ -2670,7 +2711,7 @@ class _Search(_BaseObject):
 
         return doc.getElementsByTagName(self._ws_prefix + "matches")[0]
 
-    def _retrieve_next_page(self) -> xml.dom.minidom.Element:
+    def _retrieve_next_page(self) -> minidom.Element:
         self._last_page_index += 1
         return self._retrieve_page(self._last_page_index)
 
@@ -2762,18 +2803,10 @@ class TrackSearch(_Search):
 
 def md5(text: str) -> str:
     """Returns the md5 hash of a string."""
-
     h = hashlib.md5()
-    h.update(_unicode(text).encode("utf-8"))
+    h.update(text.encode("utf-8"))
 
     return h.hexdigest()
-
-
-def _unicode(text: bytes | str) -> str:
-    if isinstance(text, bytes):
-        return str(text, "utf-8")
-    else:
-        return str(text)
 
 
 def cleanup_nodes(doc):
@@ -2831,7 +2864,7 @@ def _collect_nodes(
                 raise PyLastError(msg)
 
             for node in main.childNodes:
-                if not node.nodeType == xml.dom.Node.TEXT_NODE and (
+                if not node.nodeType == Node.TEXT_NODE and (
                     not limit or (node_count < limit)
                 ):
                     node_count += 1
@@ -2870,7 +2903,7 @@ def _extract_all(node, name, limit_count=None):
     return seq
 
 
-def _extract_top_artists(doc: xml.dom.minidom.Document, network) -> list[TopItem]:
+def _extract_top_artists(doc: minidom.Document, network) -> list[TopItem]:
     # TODO Maybe include the _request here too?
     seq = []
     for node in doc.getElementsByTagName("artist"):
@@ -2882,7 +2915,7 @@ def _extract_top_artists(doc: xml.dom.minidom.Document, network) -> list[TopItem
     return seq
 
 
-def _extract_top_albums(doc: xml.dom.minidom.Document, network) -> list[TopItem]:
+def _extract_top_albums(doc: minidom.Document, network) -> list[TopItem]:
     # TODO Maybe include the _request here too?
     seq = []
     for node in doc.getElementsByTagName("album"):
@@ -2896,14 +2929,14 @@ def _extract_top_albums(doc: xml.dom.minidom.Document, network) -> list[TopItem]
     return seq
 
 
-def _extract_artists(doc: xml.dom.minidom.Document, network) -> list[Artist]:
+def _extract_artists(doc: minidom.Document, network) -> list[Artist]:
     seq = []
     for node in doc.getElementsByTagName("artist"):
         seq.append(Artist(_extract(node, "name"), network))
     return seq
 
 
-def _extract_albums(doc: xml.dom.minidom.Document, network) -> list[Album]:
+def _extract_albums(doc: minidom.Document, network) -> list[Album]:
     seq = []
     for node in doc.getElementsByTagName("album"):
         name = _extract(node, "name")
@@ -2912,7 +2945,7 @@ def _extract_albums(doc: xml.dom.minidom.Document, network) -> list[Album]:
     return seq
 
 
-def _extract_tracks(doc: xml.dom.minidom.Document, network) -> list[Track]:
+def _extract_tracks(doc: minidom.Document, network) -> list[Track]:
     seq = []
     for node in doc.getElementsByTagName("track"):
         name = _extract(node, "name")
@@ -2950,7 +2983,7 @@ def _unescape_htmlentity(string: str) -> str:
     return string
 
 
-def _parse_response(response: str) -> xml.dom.minidom.Document:
+def _parse_response(response: str) -> minidom.Document:
     response = str(response).replace("opensearch:", "")
     try:
         doc = minidom.parseString(response)

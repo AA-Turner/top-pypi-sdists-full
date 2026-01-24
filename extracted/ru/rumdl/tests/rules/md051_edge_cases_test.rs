@@ -28,7 +28,7 @@ mod tests {
     fn assert_fragment_generation(style: &AnchorStyle, heading: &str, expected: &str, test_name: &str) {
         let rule = create_rule(style);
         let content = format!("# {heading}\n\n[Link](#{expected})");
-        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Debug output to see what's happening
@@ -52,7 +52,7 @@ mod tests {
     fn assert_safe_and_fast(style: &AnchorStyle, heading: &str, max_duration: Duration, test_name: &str) {
         let rule = create_rule(style);
         let content = format!("# {heading}\n\n[Link](#test)");
-        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
         let start = Instant::now();
         let result = rule.check(&ctx);
@@ -449,20 +449,17 @@ Edge cases:
 [No extension](somefile#section)
 "#;
 
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // Should only flag the invalid internal link and ambiguous "somefile#section"
-        assert_eq!(result.len(), 2, "Should flag invalid internal + ambiguous path");
+        // Should only flag the invalid internal link
+        // Note: "somefile#section" is treated as a cross-file link (GitHub-style extension-less)
+        assert_eq!(result.len(), 1, "Should flag only invalid internal link");
 
         let messages: Vec<&str> = result.iter().map(|w| w.message.as_str()).collect();
         assert!(
             messages.iter().any(|m| m.contains("missing-section")),
             "Should warn about missing-section"
-        );
-        assert!(
-            messages.iter().any(|m| m.contains("section")),
-            "Should warn about ambiguous section"
         );
     }
 
@@ -483,7 +480,7 @@ Edge cases:
             for size in sizes.iter() {
                 let heading = "word ".repeat(*size);
                 let content = format!("# {heading}\n\n[Link](#test)");
-                let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+                let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
                 let rule = create_rule(style);
 
                 let start = Instant::now();
@@ -718,8 +715,8 @@ Edge cases:
                     let content1 = format!("# {heading}\n\n[Link](#{expected})");
                     let content2 = format!("# {heading}\n\n[Link](#section)");
 
-                    let ctx1 = LintContext::new(&content1, rumdl_lib::config::MarkdownFlavor::Standard);
-                    let ctx2 = LintContext::new(&content2, rumdl_lib::config::MarkdownFlavor::Standard);
+                    let ctx1 = LintContext::new(&content1, rumdl_lib::config::MarkdownFlavor::Standard, None);
+                    let ctx2 = LintContext::new(&content2, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
                     let result1 = rule.check(&ctx1).unwrap();
                     let result2 = rule.check(&ctx2).unwrap();
@@ -840,7 +837,7 @@ Edge cases:
                 [
                     (AnchorStyle::GitHub, "café-menu"),
                     (AnchorStyle::KramdownGfm, "café-menu"),
-                    (AnchorStyle::Kramdown, "caf-menu"), // Kramdown removes accents
+                    (AnchorStyle::Kramdown, "caf-menu"), // Kramdown removes accented chars entirely
                 ],
             ),
             // Complex punctuation: different arrow handling
@@ -951,7 +948,7 @@ Edge cases:
             for heading in &common_headings {
                 let rule = create_rule(style);
                 let content = format!("# {heading}\n\n");
-                let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+                let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
                 // Just verify no panic and reasonable performance
                 let start = Instant::now();
@@ -1047,7 +1044,7 @@ Edge cases:
 
         for style in &styles {
             let rule = create_rule(style);
-            let ctx = LintContext::new(&complex_content, rumdl_lib::config::MarkdownFlavor::Standard);
+            let ctx = LintContext::new(&complex_content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
             let start = Instant::now();
             let result = rule.check(&ctx);
@@ -1128,5 +1125,47 @@ Edge cases:
         }
 
         println!("✓ All styles passed comprehensive stress testing");
+    }
+
+    /// Test headings with backticks containing special characters like <FILE>
+    /// Regression test for bug where `import <FILE> [OPTIONS]` was incorrectly
+    /// treating <FILE> as an HTML tag and stripping it before anchor generation
+    #[test]
+    fn test_backtick_headings_with_angle_brackets() {
+        let styles = [AnchorStyle::GitHub, AnchorStyle::KramdownGfm, AnchorStyle::Kramdown];
+
+        for style in &styles {
+            // Test case from README.md that was failing
+            assert_fragment_generation(
+                style,
+                "`import <FILE> [OPTIONS]`",
+                "import-file-options",
+                "Backtick heading with angle brackets and square brackets",
+            );
+
+            assert_fragment_generation(
+                style,
+                "`rule [<rule>]`",
+                "rule-rule",
+                "Backtick heading with nested angle brackets",
+            );
+
+            // Additional edge cases with backticks
+            assert_fragment_generation(
+                style,
+                "`code <Type>`",
+                "code-type",
+                "Backtick heading with single angle bracket",
+            );
+
+            assert_fragment_generation(
+                style,
+                "`config [options]`",
+                "config-options",
+                "Backtick heading with square brackets",
+            );
+        }
+
+        println!("✓ All styles correctly handle backtick headings with special characters");
     }
 }

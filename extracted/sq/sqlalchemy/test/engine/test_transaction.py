@@ -27,7 +27,7 @@ from sqlalchemy.testing.schema import Table
 
 
 class TransactionTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -565,8 +565,9 @@ class TransactionTest(fixtures.TablesTest):
         # a connection with an XID present
         @event.listens_for(eng, "invalidate")
         def conn_invalidated(dbapi_con, con_record, exception):
-            dbapi_con.close()
-            raise exception
+            if exception is not None:
+                dbapi_con.close()
+                raise exception
 
         with eng.connect() as conn:
             rec = conn.connection._connection_record
@@ -1105,7 +1106,7 @@ class TransactionTest(fixtures.TablesTest):
 
 
 class AutoRollbackTest(fixtures.TestBase):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def setup_test_class(cls):
@@ -1145,13 +1146,16 @@ class AutoRollbackTest(fixtures.TestBase):
 
 
 class IsolationLevelTest(fixtures.TestBase):
-    """see also sqlalchemy/testing/suite/test_dialect.py::IsolationLevelTest"""
+    """see also sqlalchemy/testing/suite/test_dialect.py::IsolationLevelTest
 
-    __requires__ = (
-        "isolation_level",
-        "ad_hoc_engines",
-    )
-    __backend__ = True
+    this suite has sparse_backend so won't take place
+    for every dbdriver under a nox run.   the suite test should cover
+    that end of it
+
+    """
+
+    __requires__ = ("isolation_level",)
+    __sparse_driver_backend__ = True
 
     def _default_isolation_level(self):
         return testing.requires.get_isolation_levels(testing.config)["default"]
@@ -1664,7 +1668,7 @@ class ResetAgentTest(ResetFixture, fixtures.TestBase):
     # the state is cleared.    options to optimize this with clear
     # docs etc. should be added.
 
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     def test_begin_close(self, reset_agent):
         with reset_agent.engine.connect() as connection:

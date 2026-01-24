@@ -29,7 +29,7 @@ def dead_node_elimination(graph, is_subgraph=False):
                     node.erase()
                     logger.debug(f"removing {node.op} op: {node.name}")
         elif node.op == "Cast":
-            inp_dtype = [dtype_to_onnx(input.dtype) for input in node.inputs][0]
+            inp_dtype = next(dtype_to_onnx(input.dtype) for input in node.inputs)
             if inp_dtype == node.attrs["to"]:
                 node.erase()
                 logger.debug(f"removing {node.op} op: {node.name}")
@@ -53,6 +53,10 @@ def dead_node_elimination(graph, is_subgraph=False):
                     node.inputs.pop(1)
                     node.inputs.insert(1, reshape_const)
                     logger.debug(f"replacing {node.op} op: {node.name}")
+        # elif node.op == "Slice":
+        #     if node.inputs[0].shape and node.outputs[0].shape and node.inputs[0].shape == node.outputs[0].shape and all(isinstance(item, int) for item in node.inputs[0].shape):
+        #         node.erase()
+        #         logger.debug(f"removing {node.op} op: {node.name}")
         elif node.op == "Mul":
             if (isinstance(node.inputs[1], Constant) and isinstance(node.inputs[0], Variable)) or (
                 isinstance(node.inputs[0], Constant) and isinstance(node.inputs[1], Variable)

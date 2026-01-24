@@ -36,8 +36,10 @@ from slackblocks.elements import (
 )
 from slackblocks.errors import InvalidUsageError
 from slackblocks.objects import (
+    ColumnSettings,
     CompositionObject,
     CompositionObjectType,
+    RawText,
     Text,
     TextLike,
     TextType,
@@ -74,6 +76,15 @@ ALLOWED_INPUT_ELEMENTS = (
 )
 
 
+ALLOWED_TABLE_CELL_ELEMENTS = (
+    RawText,
+    RichTextList,
+    RichTextCodeBlock,
+    RichTextQuote,
+    RichTextSection,
+)
+
+
 class BlockType(Enum):
     """
     Convenience class for identifying the different types of blocks available
@@ -89,6 +100,7 @@ class BlockType(Enum):
     INPUT = "input"
     RICH_TEXT = "rich_text"
     SECTION = "section"
+    TABLE = "table"
 
 
 class Block(ABC):
@@ -474,3 +486,90 @@ class SectionBlock(Block):
         if self.accessory:
             section["accessory"] = self.accessory._resolve()
         return section
+
+
+class TableBlock(Block):
+    """
+    A `TableBlock` displays data in a table format.
+
+    Args:
+        rows: a list of lists of `RawText` or `RichTextObject` objects.
+        column_settings: a list of `ColumnSettings` objects.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: when items in `rows` are not `RawText` or `RichTextObject` objects.
+        InvalidUsageError: when the number of column_settings does not match the number of 
+            columns in each row.
+        InvalidUsageError: when the number of rows is greater than 100.
+        InvalidUsageError: when the number of columns in a row is greater than 20.
+        InvalidUsageError: when the number of column_settings is greater than 20.
+    """
+
+    def __init__(
+        self,
+        rows: List[List[Union[RawText, RichTextObject]]],
+        column_settings: Optional[List[ColumnSettings]] = None,
+        block_id: Optional[str] = None,
+    ) -> None:
+        super().__init__(type_=BlockType.TABLE, block_id=block_id)
+        # Validate that there is at least one row
+        if len(rows) < 1:
+            raise InvalidUsageError("`rows` must have at least one row.")
+        # If column_settings are provided, make sure each row has the same number of elements
+        num_columns = len(rows[0])
+        for row in rows:
+            if len(row) != num_columns:
+                raise InvalidUsageError(
+                    "All rows must have the same number of columns."
+                )
+        if column_settings is not None:
+            if num_columns != len(column_settings):
+                raise InvalidUsageError(
+                    f"Number of column_settings ({len(column_settings)}) must"
+                    f"match number of columns in each row ({num_columns})."
+                )
+        if len(rows) > 100:
+            raise InvalidUsageError("`rows` can have a maximum of 100 items.")
+        for row in rows:
+            if len(row) > 20:
+                raise InvalidUsageError("Each row can have a maximum of 20 cells.")
+        # Validate each cell is an allowed type
+        self.rows = []
+        for row in rows:
+            validated_row = []
+            for cell in row:
+                # Validate cell type
+                if not isinstance(cell, ALLOWED_TABLE_CELL_ELEMENTS):
+                    raise InvalidUsageError(
+                        f"Table cells must be one of {ALLOWED_TABLE_CELL_ELEMENTS}"
+                    )
+                validated_row.append(cell)
+            self.rows.append(validated_row)
+        if column_settings and len(column_settings) > 20:
+            raise InvalidUsageError("`column_settings` can have a maximum of 20 items.")
+        self.column_settings = column_settings
+
+    def _resolve(self) -> Dict[str, Any]:
+        table = self._attributes()
+        table["rows"] = [
+            [self._resolve_cell(cell) for cell in row] for row in self.rows
+        ]
+        if self.column_settings:
+            table["column_settings"] = [
+                setting._resolve() for setting in self.column_settings
+            ]
+        return table
+
+    def _resolve_cell(self, cell: Union[RawText, RichTextObject]) -> Dict[str, Any]:
+        """
+        Resolve a table cell to its JSON representation.
+
+        RawText cells are resolved directly.
+        RichTextObject cells are wrapped in a rich_text structure.
+        """
+        if isinstance(cell, RawText):
+            return cell._resolve()
+        else:
+            # Wrap RichTextObject in rich_text structure
+            return {"type": "rich_text", "elements": [cell._resolve()]}

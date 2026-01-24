@@ -9,7 +9,7 @@
 # has been mounted at /OUT
 
 # For example:
-# docker run -v $SKIA_ROOT:/SRC -v /tmp/cmake_out:/OUT gcr.io/skia-public/cmake-release:3.13.1_v1 /SRC/infra/cmake/build_skia.sh
+# docker run --volume $SKIA_ROOT:/SRC --volume /tmp/cmake_out:/OUT gcr.io/skia-public/cmake-release:latest /SRC/infra/cmake/build_skia.sh
 
 
 set -xe
@@ -22,7 +22,8 @@ OUT="$(mktemp -d)/CMAKE"
 
 cd ${SKIA_DIR}
 ./bin/fetch-gn
-gn gen ${OUT} --args='is_debug=false' --ide=json --json-ide-script=$SKIA_DIR/gn/gn_to_cmake.py
+./bin/fetch-ninja
+./bin/gn gen ${OUT} --args='is_debug=false' --ide=json --json-ide-script=$SKIA_DIR/gn/gn_to_cmake.py --json-ide-script-args="--ninja-executable=$SKIA_DIR/third_party/ninja/ninja"
 
 cd ${OUT}
 export CC=/usr/local/bin/clang

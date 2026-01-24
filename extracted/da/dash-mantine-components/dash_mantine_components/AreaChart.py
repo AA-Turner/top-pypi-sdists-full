@@ -295,6 +295,8 @@ Keyword arguments:
 
     - color (required)
 
+    - curveType (a value equal to: 'bump', 'linear', 'natural', 'monotone', 'step', 'stepBefore', 'stepAfter'; optional)
+
     - name (string; required)
 
     - label (string; optional)
@@ -412,7 +414,7 @@ Keyword arguments:
 
 - yAxisProps (dict; optional):
     Props passed down to the `YAxis` recharts component."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'AreaChart'
@@ -428,6 +430,7 @@ Keyword arguments:
             {
             "strokeDasharray": NotRequired[typing.Union[str, NumberType]],
             "color": typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]],
+            "curveType": NotRequired[Literal["bump", "linear", "natural", "monotone", "step", "stepBefore", "stepAfter"]],
             "name": str,
             "label": NotRequired[str],
             "yAxisId": NotRequired[str]

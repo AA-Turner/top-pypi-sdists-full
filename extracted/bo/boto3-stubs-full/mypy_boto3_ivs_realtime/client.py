@@ -3,7 +3,7 @@ Type annotations for ivs-realtime service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -102,12 +103,6 @@ from .type_defs import (
     UpdateStageResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -118,14 +113,14 @@ __all__ = ("IvsrealtimeClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    PendingVerification: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    PendingVerification: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class IvsrealtimeClient(BaseClient):
@@ -216,7 +211,7 @@ class IvsrealtimeClient(BaseClient):
 
     def delete_encoder_configuration(
         self, **kwargs: Unpack[DeleteEncoderConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an EncoderConfiguration resource.
 
@@ -226,7 +221,7 @@ class IvsrealtimeClient(BaseClient):
 
     def delete_ingest_configuration(
         self, **kwargs: Unpack[DeleteIngestConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified IngestConfiguration, so it can no longer be used to
         broadcast.
@@ -235,7 +230,7 @@ class IvsrealtimeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/#delete_ingest_configuration)
         """
 
-    def delete_public_key(self, **kwargs: Unpack[DeletePublicKeyRequestTypeDef]) -> Dict[str, Any]:
+    def delete_public_key(self, **kwargs: Unpack[DeletePublicKeyRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified public key used to sign stage participant tokens.
 
@@ -243,7 +238,7 @@ class IvsrealtimeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/#delete_public_key)
         """
 
-    def delete_stage(self, **kwargs: Unpack[DeleteStageRequestTypeDef]) -> Dict[str, Any]:
+    def delete_stage(self, **kwargs: Unpack[DeleteStageRequestTypeDef]) -> dict[str, Any]:
         """
         Shuts down and deletes the specified stage (disconnecting all participants).
 
@@ -253,7 +248,7 @@ class IvsrealtimeClient(BaseClient):
 
     def delete_storage_configuration(
         self, **kwargs: Unpack[DeleteStorageConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the storage configuration for the specified ARN.
 
@@ -263,7 +258,7 @@ class IvsrealtimeClient(BaseClient):
 
     def disconnect_participant(
         self, **kwargs: Unpack[DisconnectParticipantRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disconnects a specified participant from a specified stage.
 
@@ -496,7 +491,7 @@ class IvsrealtimeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/#start_participant_replication)
         """
 
-    def stop_composition(self, **kwargs: Unpack[StopCompositionRequestTypeDef]) -> Dict[str, Any]:
+    def stop_composition(self, **kwargs: Unpack[StopCompositionRequestTypeDef]) -> dict[str, Any]:
         """
         Stops and deletes a Composition resource.
 
@@ -514,7 +509,7 @@ class IvsrealtimeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/#stop_participant_replication)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates tags for the AWS resource with the specified ARN.
 
@@ -522,7 +517,7 @@ class IvsrealtimeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs_realtime/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the resource with the specified ARN.
 

@@ -14,12 +14,10 @@ pub fn default_pyright_config() -> PyrightConfig {
         project_includes: None,
         project_excludes: None,
         search_path: None,
+        stub_path: None,
         python_platform: None,
         python_version: None,
-        errors: RuleOverrides {
-            report_missing_imports: None,
-            report_missing_module_source: None,
-        },
+        errors: RuleOverrides::default(),
         execution_environments: vec![],
     }
 }

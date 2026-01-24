@@ -62,14 +62,12 @@ else:
         del i, mpf
 
 
+import _codecs
 import binascii
 import collections
-import encodings.latin_1
-import encodings.utf_8
 import errno
 import fcntl
 import itertools
-import linecache
 import logging
 import os
 import pickle as py_pickle
@@ -87,7 +85,12 @@ import warnings
 import weakref
 import zlib
 
-if sys.version_info > (3,5):
+if sys.version_info >= (3, 6):
+    ModuleNotFoundError = ModuleNotFoundError
+else:
+    ModuleNotFoundError = ImportError
+
+if sys.version_info >= (3, 5):
     from os import get_blocking, set_blocking
 else:
     def get_blocking(fd):
@@ -98,13 +101,70 @@ else:
         if blocking:    fcntl.fcntl(fd, fcntl.F_SETFL, fl & ~os.O_NONBLOCK)
         else:           fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-try:
-    # Python >= 3.4, PEP 451 ModuleSpec API
+if sys.version_info >= (3, 4):
     import importlib.machinery
     import importlib.util
-except ImportError:
-    # Python < 3.4, PEP 302 Import Hooks
+else:
     import imp
+
+if sys.version_info >= (3, 3):
+    now = time.monotonic
+else:
+    now = time.time
+
+if sys.version_info >= (3, 0):
+    str_partition, str_rpartition = str.partition, str.rpartition
+    bytes_partition = bytes.partition
+elif sys.version_info >= (2, 5):
+    str_partition, str_rpartition = unicode.partition, unicode.rpartition
+    bytes_partition = str.partition
+else:
+    def _part(s, sep, find):
+        "(str|unicode).(partition|rpartition) polyfill for Python 2.4"
+        idx = find(sep)
+        if idx != -1:
+            left = s[0:idx]
+            return left, sep, s[len(left)+len(sep):]
+    def str_partition(s, sep): return _part(s, sep, s.find) or (s, u'', u'')
+    def str_rpartition(s, sep): return _part(s, sep, s.rfind) or (u'', u'', s)
+    def bytes_partition(s, sep): return _part(s, sep, s.find) or (s, '', '')
+
+if sys.version_info >= (2, 6):
+    next = next
+    threading__current_thread = threading.current_thread
+    def threading__thread_name(thread): return thread.name
+else:
+    threading__current_thread = threading.currentThread
+    def next(it): return it.next()
+    def threading__thread_name(thread): return thread.getName()
+
+if sys.version_info >= (2, 5):
+    all, any = all, any
+    BaseException = BaseException
+    def _update_linecache(path, data): pass
+else:
+    import linecache
+    BaseException = Exception
+    def _update_linecache(path, data):
+        """
+        Directly populate the linecache cache for modules loaded by Mitogen.
+        In Python 2.4 the linecache module, does not support PEP-302.
+        """
+        if 'mitogen' not in path:
+            return
+        linecache.cache[path] = (len(data), 0.0, data.splitlines(True), path)
+
+    def all(it):
+        for elem in it:
+            if not elem:
+                return False
+        return True
+
+    def any(it):
+        for elem in it:
+            if elem:
+                return True
+        return False
 
 # Absolute imports for <2.5.
 select = __import__('select')
@@ -114,16 +174,6 @@ try:
 except ImportError:
     cProfile = None
 
-try:
-    BaseException
-except NameError:
-    BaseException = Exception
-
-try:
-    ModuleNotFoundError
-except NameError:
-    ModuleNotFoundError = ImportError
-
 # TODO: usage of 'import' after setting __name__, but before fixing up
 # sys.modules generates a warning. This happens when profiling = True.
 warnings.filterwarnings('ignore',
@@ -132,10 +182,6 @@ warnings.filterwarnings('ignore',
 LOG = logging.getLogger('mitogen')
 IOLOG = logging.getLogger('mitogen.io')
 IOLOG.setLevel(logging.INFO)
-
-# str.encode() may take import lock. Deadlock possible if broker calls
-# .encode() on behalf of thread currently waiting for module.
-LATIN1_CODEC = encodings.latin_1.Codec()
 
 _v = False
 _vv = False
@@ -152,6 +198,8 @@ FORWARD_MODULE = 108
 DETACHING = 109
 CALL_SERVICE = 110
 STUB_CALL_SERVICE = 111
+GET_RESOURCE = 112
+LOAD_RESOURCE = 113
 
 #: Special value used to signal disconnection or the inability to route a
 #: message, when it appears in the `reply_to` field. Usually causes
@@ -168,7 +216,7 @@ IS_DEAD = 999
 
 PY24 = sys.version_info < (2, 5)
 PY3 = sys.version_info > (3,)
-if PY3:
+if sys.version_info >= (3, 0):
     import pickle
     import _thread as thread
     from io import BytesIO
@@ -179,6 +227,7 @@ if PY3:
     BufferType = lambda buf, start: memoryview(buf)[start:]
     integer_types = (int,)
     iteritems, iterkeys, itervalues = dict.items, dict.keys, dict.values
+    range = range
 else:
     import cPickle as pickle
     import thread
@@ -190,13 +239,9 @@ else:
     UnicodeType = unicode
     integer_types = (int, long)
     iteritems, iterkeys, itervalues = dict.iteritems, dict.iterkeys, dict.itervalues
+    range = xrange
 
 AnyTextType = (BytesType, UnicodeType)
-
-try:
-    next = next
-except NameError:
-    next = lambda it: it.next()
 
 # #550: prehistoric WSL did not advertise itself in uname output.
 try:
@@ -293,7 +338,7 @@ class Secret(UnicodeType):
     def __repr__(self):
         return '[secret]'
 
-    if not PY3:
+    if sys.version_info < (3, 0):
         # TODO: what is this needed for in 2.x?
         def __str__(self):
             return UnicodeType(self)
@@ -312,7 +357,7 @@ class Kwargs(dict):
     whereas Python 3 produces keyword argument dicts whose keys are Unicode,
     requiring a helper for Python 2.4/2.5, where bytes are required.
     """
-    if PY3:
+    if sys.version_info >= (3, 0):
         def __init__(self, dct):
             for k, v in dct.items():
                 if type(k) is bytes:
@@ -323,7 +368,7 @@ class Kwargs(dict):
         def __init__(self, dct):
             for k, v in dct.iteritems():
                 if type(k) is unicode:
-                    k, _ = encodings.utf_8.encode(k)
+                    k, _ = _codecs.utf_8_encode(k)
                 self[k] = v
 
     def __repr__(self):
@@ -393,64 +438,6 @@ def to_text(o):
     if isinstance(o, BytesType):
         return o.decode('utf-8')
     return UnicodeType(o)
-
-
-# Documented in api.rst to work around Sphinx limitation.
-now = getattr(time, 'monotonic', time.time)
-
-
-# Python 2.4
-try:
-    all, any = all, any
-except NameError:
-    def all(it):
-        for elem in it:
-            if not elem:
-                return False
-        return True
-
-    def any(it):
-        for elem in it:
-            if elem:
-                return True
-        return False
-
-
-def _partition(s, sep, find):
-    """
-    (str|unicode).(partition|rpartition) for Python 2.4/2.5.
-    """
-    idx = find(sep)
-    if idx != -1:
-        left = s[0:idx]
-        return left, sep, s[len(left)+len(sep):]
-
-
-def threading__current_thread():
-    try:
-        return threading.current_thread()  # Added in Python 2.6+
-    except AttributeError:
-        return threading.currentThread()  # Deprecated in Python 3.10+
-
-
-def threading__thread_name(thread):
-    try:
-        return thread.name  # Added in Python 2.6+
-    except AttributeError:
-        return thread.getName()  # Deprecated in Python 3.10+
-
-
-if hasattr(UnicodeType, 'rpartition'):
-    str_partition = UnicodeType.partition
-    str_rpartition = UnicodeType.rpartition
-    bytes_partition = BytesType.partition
-else:
-    def str_partition(s, sep):
-        return _partition(s, sep, s.find) or (s, u'', u'')
-    def str_rpartition(s, sep):
-        return _partition(s, sep, s.rfind) or (u'', u'', s)
-    def bytes_partition(s, sep):
-        return _partition(s, sep, s.find) or (s, '', '')
 
 
 def _has_parent_authority(context_id):
@@ -541,6 +528,7 @@ def is_blacklisted_import(importer, fullname):
     any packages have been whitelisted and `fullname` is not part of one.
 
     NB:
+      - The default whitelist is `['']` which matches any module name.
       - If a package is on both lists, then it is treated as blacklisted.
       - If any package is whitelisted, then all non-whitelisted packages are
         treated as blacklisted.
@@ -783,19 +771,19 @@ class Py24Pickler(py_pickle.Pickler):
         else:
             py_pickle.Pickler.save_inst(self, obj)
 
-    if PY24:
+    if sys.version_info < (2, 5):
         dispatch = py_pickle.Pickler.dispatch.copy()
         dispatch[py_pickle.InstanceType] = save_exc_inst
 
 
-if PY3:
+if sys.version_info >= (3, 0):
     # In 3.x Unpickler is a class exposing find_class as an overridable, but it
     # cannot be overridden without subclassing.
     class _Unpickler(pickle.Unpickler):
         def find_class(self, module, func):
             return self.find_global(module, func)
     pickle__dumps = pickle.dumps
-elif PY24:
+elif sys.version_info < (2, 5):
     # On Python 2.4, we must use a pure-Python pickler.
     pickle__dumps = Py24Pickler.dumps
     _Unpickler = pickle.Unpickler
@@ -878,7 +866,7 @@ class Message(object):
         return _unpickle_sender(self.router, context_id, dst_handle)
 
     def _unpickle_bytes(self, s, encoding):
-        s, n = LATIN1_CODEC.encode(s)
+        s, n = _codecs.latin_1_encode(s)
         return s
 
     def _find_global(self, module, func):
@@ -920,7 +908,7 @@ class Message(object):
         """
         Syntax helper to construct a dead message.
         """
-        kwargs['data'], _ = encodings.utf_8.encode(reason or u'')
+        kwargs['data'], _ = _codecs.utf_8_encode(reason or u'')
         return cls(reply_to=IS_DEAD, **kwargs)
 
     @classmethod
@@ -943,7 +931,7 @@ class Message(object):
     def reply(self, msg, router=None, **kwargs):
         """
         Compose a reply to this message and send it using :attr:`router`, or
-        `router` is :attr:`router` is :data:`None`.
+        `router` if :attr:`router` is :data:`None`.
 
         :param obj:
             Either a :class:`Message`, or an object to be serialized in order
@@ -964,7 +952,7 @@ class Message(object):
             LOG.debug('dropping reply to message with no return address: %r',
                       msg)
 
-    if PY3:
+    if sys.version_info >= (3, 0):
         UNPICKLER_KWARGS = {'encoding': 'bytes'}
     else:
         UNPICKLER_KWARGS = {}
@@ -1018,9 +1006,14 @@ class Message(object):
         return obj
 
     def __repr__(self):
-        return 'Message(%r, %r, %r, %r, %r, %r..%d)' % (
-            self.dst_id, self.src_id, self.auth_id, self.handle,
-            self.reply_to, (self.data or '')[:50], len(self.data)
+        if len(self.data) > 60:
+            head, tail, size = self.data[:25], self.data[-25:], len(self.data)
+            data_summary = b('%s .. %s %d bytes') % (head, tail, size)
+        else:
+            data_summary = self.data
+        return 'Message(src=%r:%r dst=%r:%r auth_id=%r %r)' % (
+            self.src_id, self.reply_to, self.dst_id, self.handle, self.auth_id,
+            data_summary,
         )
 
 
@@ -1338,7 +1331,7 @@ class Importer(object):
         'org',
     ]
 
-    if PY3:
+    if sys.version_info >= (3, 0):
         ALWAYS_BLACKLIST += ['cStringIO']
 
     def __init__(self, router, context, core_src, whitelist=(), blacklist=()):
@@ -1358,7 +1351,7 @@ class Importer(object):
         self._callbacks = {}
         self._cache = {}
         if core_src:
-            self._update_linecache('x/mitogen/core.py', core_src)
+            _update_linecache('x/mitogen/core.py', core_src)
             self._cache['mitogen.core'] = (
                 'mitogen.core',
                 None,
@@ -1367,21 +1360,6 @@ class Importer(object):
                 [],
             )
         self._install_handler(router)
-
-    def _update_linecache(self, path, data):
-        """
-        The Python 2.4 linecache module, used to fetch source code for
-        tracebacks and :func:`inspect.getsource`, does not support PEP-302,
-        meaning it needs extra help to for Mitogen-loaded modules. Directly
-        populate its cache if a loaded module belongs to the Mitogen package.
-        """
-        if PY24 and 'mitogen' in path:
-            linecache.cache[path] = (
-                len(data),
-                0.0,
-                [line+'\n' for line in data.splitlines()],
-                path,
-            )
 
     def _install_handler(self, router):
         router.add_handler(
@@ -1536,9 +1514,8 @@ class Importer(object):
         return importlib.machinery.ModuleSpec(fullname, loader=self)
 
     blacklisted_msg = (
-        '%r is present in the Mitogen importer blacklist, therefore this '
-        'context will not attempt to request it from the master, as the '
-        'request will always be refused.'
+        'A %r request would be refused by the Mitogen master. The module is '
+        'on the deny list (blacklist) or not on the allow list (whitelist).'
     )
     pkg_resources_msg = (
         'pkg_resources is prohibited from importing __main__, as it causes '
@@ -1586,8 +1563,8 @@ class Importer(object):
         self._lock.acquire()
         try:
             self._cache[fullname] = tup
-            if tup[2] is not None and PY24:
-                self._update_linecache(
+            if sys.version_info < (2, 5) and tup[2] is not None:
+                _update_linecache(
                     path='master:' + tup[2],
                     data=zlib.decompress(tup[3])
                 )
@@ -1709,9 +1686,9 @@ class Importer(object):
         else:
             mod.__package__ = str_rpartition(fullname, '.')[0] or None
 
-        if mod.__package__ and not PY3:
+        if sys.version_info < (3, 0) and mod.__package__:
             # 2.x requires __package__ to be exactly a string.
-            mod.__package__, _ = encodings.utf_8.encode(mod.__package__)
+            mod.__package__, _ = _codecs.utf_8_encode(mod.__package__)
 
         source = self.get_source(fullname)
         try:
@@ -1720,7 +1697,7 @@ class Importer(object):
             LOG.exception('while importing %r', fullname)
             raise
 
-        if PY3:
+        if sys.version_info >= (3, 0):
             exec(code, vars(mod))
         else:
             exec('exec code in vars(mod)')
@@ -1747,9 +1724,103 @@ class Importer(object):
                 raise ModuleNotFoundError(self.absent_msg % (fullname,))
 
             source = zlib.decompress(self._cache[fullname][3])
-            if PY3:
+            if sys.version_info >= (3, 0):
                 return to_text(source)
             return source
+
+    def get_resource_reader(self, fullname):
+        """
+        Optional :class:`importlib.abc.Loader` method to provide data (files)
+        bundled with a package.
+
+        Introduced in Python 3.7.
+        """
+        return ResourceReader(self._resource_requester, fullname)
+
+
+class ResourceRequester(object):
+    """
+    Requests Python package resources from upstreams & caches responses.
+    """
+    def __init__(self, router, context):
+        self._context = context
+        self._lock = threading.Lock()
+        self._callbacks = {}
+        self._cache = {}
+        router.add_handler(
+            fn=self._on_load_resource,
+            handle=LOAD_RESOURCE,
+            policy=has_parent_authority,
+        )
+
+    def _get_resource(self, fullname, resource):
+        event = threading.Event()
+        self._request_resource(fullname, resource, event.set)
+        event.wait()
+        content = self._cache[(fullname, resource)]
+        return content
+
+    def _request_resource(self, fullname, resource, callback):
+        self._lock.acquire()
+        try:
+            present = (fullname, resource) in self._cache
+            if not present:
+                callbacks = self._callbacks.get((fullname, resource))
+                if callbacks is not None:
+                    callbacks.append(callback)
+                else:
+                    self._callbacks[(fullname, resource)] = [callback]
+                    msg = Message.pickled(
+                        (b(fullname), b(resource)),
+                        handle=GET_RESOURCE,
+                    )
+                    self._context.send(msg)
+        finally:
+            self._lock.release()
+
+        if present:
+            callback()
+
+    def _on_load_resource(self, msg):
+        if msg.is_dead:
+            return
+        tup = msg.unpickle()
+        fullname, resource, content = tup
+
+        self._lock.acquire()
+        try:
+            self._cache[(fullname, resource)] = content
+            callbacks = self._callbacks.pop((fullname, resource), [])
+        finally:
+            self._lock.release()
+
+        for callback in callbacks:
+            callback()
+
+
+class ResourceReader(object):
+    """
+    Implements :class:`importlib.resource.abc.ResourceReader` (Python >= 3.7).
+    """
+    def __init__(self, requester, fullname):
+        self._requester = requester
+        self._fullname = fullname
+
+    def open_resource(self, resource):
+        content = self._requester._get_resource(self._fullname, resource)
+        if content is None:
+            raise FileNotFoundError
+        return BytesIO(content)
+
+    def resource_path(self, resource):
+        raise FileNotFoundError
+
+    def is_resource(self, name):
+        content = self._requester._get_resource(self._fullname, name)
+        return bool(content is not None)
+
+    def contents(self):
+        raise NotImplementedError
 
 
 class LogHandler(logging.Handler):
@@ -4090,6 +4161,10 @@ class ExternalContext(object):
         self.router.importer = importer
         sys.meta_path.insert(0, self.importer)
 
+    def _setup_resource_requester(self):
+        resource_getter = ResourceRequester(self.router, self.parent)
+        self.importer._resource_requester = resource_getter
+
     def _setup_package(self):
         global mitogen
         mitogen = types.ModuleType('mitogen')
@@ -4179,6 +4254,7 @@ class ExternalContext(object):
             try:
                 self._setup_logging()
                 self._setup_importer()
+                self._setup_resource_requester()
                 self._reap_first_stage()
                 if self.config.get('setup_package', True):
                     self._setup_package()

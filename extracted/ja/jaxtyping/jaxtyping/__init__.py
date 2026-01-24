@@ -19,8 +19,8 @@
 
 import functools as ft
 import importlib.metadata
+import importlib.util
 import typing
-import warnings
 from typing import TypeAlias, Union
 
 from ._array_types import (
@@ -164,7 +164,8 @@ else:
         PRNGKeyArray.__module__ = "builtins"
         PRNGKeyArray.__qualname__ = "PRNGKeyArray"
 
-        from ._pytree_type import PyTree as PyTree
+        if importlib.util.find_spec("jax") is not None:
+            from ._pytree_type import PyTree as PyTree
 
         class PyTreeDef:
             """Alias for `jax.tree_util.PyTreeDef`, which is the type of the
@@ -186,7 +187,11 @@ else:
         elif item == "ArrayLike":
             import jax.typing
 
-            return jax.typing.ArrayLike
+            if jax.__version__ == "0.7.2":
+                # Fix for https://github.com/jax-ml/jax/issues/31989
+                return jax.typing.ArrayLike | jax._src.literals.LiteralArray
+            else:
+                return jax.typing.ArrayLike
         elif item == "PRNGKeyArray":
             # New-style `jax.random.key` have scalar shape and dtype `key<foo>`.
             # Old-style `jax.random.PRNGKey` have shape `(2,)` and dtype
@@ -218,20 +223,50 @@ else:
             raise AttributeError(f"module jaxtyping has no attribute {item!r}")
 
 
-check_equinox_version = True  # easy-to-replace line with copybara
-if check_equinox_version:
-    try:
-        eqx_version = importlib.metadata.version("equinox")
-    except importlib.metadata.PackageNotFoundError:
-        pass
-    else:
-        major, minor, patch = eqx_version.split(".")
-        equinox_version = (int(major), int(minor), int(patch))
-        if equinox_version < (0, 11, 0):
-            warnings.warn(
-                "jaxtyping version >=0.2.23 should be used with Equinox version "
-                ">=0.11.1"
-            )
+# Monkey-patch typeguard==2.13.3 to fix
+# https://github.com/patrick-kidger/jaxtyping/issues/349
+if importlib.util.find_spec("typeguard") is not None:
+    if importlib.metadata.version("typeguard") == "2.13.3":
+        import inspect
+        import types
+
+        import typeguard
+
+        check_type_orig = typeguard.check_type
+        check_union_orig = typeguard.check_union
+        check_type_sig = inspect.signature(check_type_orig)
+        assert list(check_type_sig.parameters.keys()) == [
+            "argname",
+            "value",
+            "expected_type",
+            "memo",
+            "globals",
+            "locals",
+        ]
+        check_union_sig = inspect.signature(check_union_orig)
+        assert list(check_union_sig.parameters.keys()) == [
+            "argname",
+            "value",
+            "expected_type",
+            "memo",
+        ]
+
+        @ft.wraps(typeguard.check_type)
+        def check_type(*args, **kwargs):
+            bound = check_type_sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            arguments = bound.arguments
+            if type(arguments["expected_type"]) is types.UnionType:
+                check_union_orig(
+                    arguments["argname"],
+                    arguments["value"],
+                    arguments["expected_type"],
+                    arguments["memo"],
+                )
+            else:
+                check_type_orig(*args, **kwargs)
+
+        typeguard.check_type = check_type
 
 
 __version__ = importlib.metadata.version("jaxtyping")

@@ -9,25 +9,42 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0442 import EnterpriseWebhooksType
-from .group_0443 import SimpleInstallationType
-from .group_0444 import OrganizationSimpleWebhooksType
-from .group_0445 import RepositoryWebhooksType
+
+class WebhooksChangesType(TypedDict):
+    """WebhooksChanges
+
+    The changes to the comment.
+    """
+
+    body: NotRequired[WebhooksChangesPropBodyType]
 
 
-class WebhookBranchProtectionConfigurationDisabledType(TypedDict):
-    """branch protection configuration disabled event"""
+class WebhooksChangesTypeForResponse(TypedDict):
+    """WebhooksChanges
 
-    action: Literal["disabled"]
-    enterprise: NotRequired[EnterpriseWebhooksType]
-    installation: NotRequired[SimpleInstallationType]
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    repository: RepositoryWebhooksType
-    sender: SimpleUserType
+    The changes to the comment.
+    """
+
+    body: NotRequired[WebhooksChangesPropBodyTypeForResponse]
 
 
-__all__ = ("WebhookBranchProtectionConfigurationDisabledType",)
+class WebhooksChangesPropBodyType(TypedDict):
+    """WebhooksChangesPropBody"""
+
+    from_: str
+
+
+class WebhooksChangesPropBodyTypeForResponse(TypedDict):
+    """WebhooksChangesPropBody"""
+
+    from_: str
+
+
+__all__ = (
+    "WebhooksChangesPropBodyType",
+    "WebhooksChangesPropBodyTypeForResponse",
+    "WebhooksChangesType",
+    "WebhooksChangesTypeForResponse",
+)

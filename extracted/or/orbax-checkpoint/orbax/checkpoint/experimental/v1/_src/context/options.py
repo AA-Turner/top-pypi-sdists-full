@@ -20,13 +20,16 @@ import dataclasses
 import enum
 from typing import Any, Callable, Protocol, Type
 
+from etils import epath
 import numpy as np
 from orbax.checkpoint import options as v0_options_lib
 from orbax.checkpoint._src.metadata import array_metadata_store as array_metadata_store_lib
 from orbax.checkpoint._src.metadata import tree as tree_metadata
 from orbax.checkpoint._src.path import atomicity_types
+from orbax.checkpoint._src.serialization import pathways_types
 from orbax.checkpoint.experimental.v1._src.handlers import registration
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
+from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.serialization import types as serialization_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
@@ -41,7 +44,7 @@ class AsyncOptions:
   post_finalization_callback:
     A function that is called after the async save operation is complete.
   create_directories_asynchronously:
-    If true, create directories asynchronously in the background.
+    If True, creates directories asynchronously in the background.
   """
 
   timeout_secs: int = 600  # 10 minutes.
@@ -65,15 +68,16 @@ class MultiprocessingOptions:
     all hosts will be considered as primary.  It's useful in the case that all
     hosts are only working with local storage.
   active_processes:
-    A set of process indices (corresponding to `multihost.process_index()`) over
-    which `CheckpointManager` is expected to be called. This makes it possible
-    to have a `CheckpointManager` instance that runs over a subset of processes,
-    rather than all processes as it is normally expected to do. If specified,
-    `primary_host` must belong to `active_processes`.
+    A set of process indices (corresponding to :py:func:`.process_index`) over
+    which :py:class:`~.v1.training.Checkpointer` is expected to be called.
+    This makes it possible to have a :py:class:`~.v1.training.Checkpointer`
+    instance that runs over a subset of processes, rather than all processes as
+    it is normally expected to do. If specified, `primary_host` must belong to
+    `active_processes`.
   barrier_sync_key_prefix:
     A string to be prepended to the barrier sync key used to synchronize
     processes. This is useful to avoid collisions with other barrier syncs if
-    another CheckpointManager is being used concurrently.
+    another :py:class:`~.v1.training.Checkpointer` is being used concurrently.
   """
 
   primary_host: int | None = 0
@@ -100,15 +104,20 @@ class FileOptions:
       https://github.com/google/etils/blob/main/etils/epath/backend.py if your
       path is supported. default=None.
     temporary_path_class:
-      A class that is used to create and finallize temporary paths, and to
-      ensure atomicity.
+      A class that is used to create and finalize temporary paths, and to ensure
+      atomicity.
+    path_class:
+      The implementation of :py:class:`~.v1.path.Path` to use.  Defaults to 
+      `etils.epath.Path`, but may be overridden to some other subclass of 
+      :py:class:`~.v1.path.Path`.
   """
 
   path_permission_mode: int | None = None
-  temporary_path_class: atomicity_types.TemporaryPath | None = None
+  temporary_path_class: type[atomicity_types.TemporaryPath] | None = None
+  path_class: type[path_types.Path] = epath.Path
 
   def v0(self) -> v0_options_lib.FileOptions:
-    """Converts this FileOptions to a v0 FileOptions."""
+    """Converts this :py:class:`~.v1.options.FileOptions` to a v0 :py:class:`~orbax.checkpoint.options.FileOptions`."""
     return v0_options_lib.FileOptions(
         path_permission_mode=self.path_permission_mode,
     )
@@ -134,13 +143,13 @@ class PyTreeOptions:
 
     create_array_storage_options_fn:
       A function that is called in order to create
-      `ArrayOptions.Saving.StorageOptions` for each leaf in a PyTree, when it is
+      :py:class:`.ArrayOptions.Saving.StorageOptions` for each leaf in a PyTree,
+      when it is
       being saved. It is called similar to:
       `jax.tree.map_with_path(create_array_storage_options_fn, pytree_to_save)`.
       If provided, it overrides any default settings in
-      `ArrayOptions.Saving.StorageOptions`.
+      :py:class:`.ArrayOptions.Saving.StorageOptions`.
     pytree_metadata_options: Options for managing PyTree metadata.
-    partial_update: NOT IMPLEMENTED.
     """
 
     class CreateArrayStorageOptionsFn(Protocol):
@@ -154,7 +163,6 @@ class PyTreeOptions:
     pytree_metadata_options: tree_metadata.PyTreeMetadataOptions = (
         dataclasses.field(default_factory=tree_metadata.PyTreeMetadataOptions)
     )
-    partial_update: bool = False
 
   @dataclasses.dataclass(frozen=True, kw_only=True)
   class Loading:
@@ -192,6 +200,7 @@ class ArrayOptions:
         individual leaves. See below.
       use_ocdbt: Enables OCDBT format.
       use_zarr3: If True, use Zarr3 format.
+      use_compression: If True, use ZSTD compression.
       ocdbt_target_data_file_size: Specifies the target size (in bytes) of each
         OCDBT data file. It only applies when OCDBT is enabled and Zarr3 must be
         turned on. If left unspecified, default size is 2GB.  A value of 0
@@ -205,6 +214,13 @@ class ArrayOptions:
       enable_post_merge_validation: If True, enables validation of the
         parameters after the finalize step.
       use_replica_parallel: Whether to parallelize saving across replicas.
+      min_slice_bytes_for_replica_parallel: Minimum number of bytes per replica
+        slice. Only uses replica-parallel when the amount of data written per
+        replica is greater than or equal to this number.
+      max_replicas_for_replica_parallel: Maximum number of replicas over which
+        saving will be parallelized if use_replica_parallel is True.
+      enable_replica_parallel_separate_folder: Whether to save replica data in
+        separate folders.
       enable_write_sharding_file: whether to write sharding file, defaults to
         True.
       array_metadata_store: Store to manage per host ArrayMetadata. To disable
@@ -217,19 +233,19 @@ class ArrayOptions:
 
       dtype:
         If provided, casts the parameter to the given dtype before saving.
-        Note that the parameter must be compatible with the given type (e.g.
-        jnp.bfloat16 is not compatible with np.ndarray).
+        Note that the parameter must be compatible with the given type (e.g.,
+        `jnp.bfloat16` is not compatible with `np.ndarray`).
       chunk_byte_size:
         This is an experimental feature that automatically chooses the largest
-        chunk shape possible, while keeping the chunk byte size less than or
-        equal to the specified chunk_byte_size. Both the write_chunk_shape and
-        read_chunk_shape are automatically set to the chosen shape. This uses a
-        greedy algorithm that prioritizes splitting the largest dimensions
+        possible chunk shape while keeping the chunk byte size less than or
+        equal to the specified `chunk_byte_size`. Both `write_chunk_shape` and
+        `read_chunk_shape` are automatically set to the chosen shape. This uses
+        a greedy algorithm that prioritizes splitting the largest dimensions
         first.
       shard_axes:
-        An optional list of axes that should be prioritized when sharding array
-        for storage. If empty, storage sharding implementation will prioritize
-        axes which are already sharded.
+        An optional list of axes that should be prioritized when sharding an
+        array for storage. If empty, the storage sharding implementation will
+        prioritize axes which are already sharded.
       """
 
       dtype: np.typing.DTypeLike | None = None
@@ -242,10 +258,14 @@ class ArrayOptions:
     )
     use_ocdbt: bool = True
     use_zarr3: bool = True
+    use_compression: bool = True
     ocdbt_target_data_file_size: int | None = None
     enable_pinned_host_transfer: bool | None = None
     enable_post_merge_validation: bool = True
     use_replica_parallel: bool = True
+    min_slice_bytes_for_replica_parallel: int | None = None
+    max_replicas_for_replica_parallel: int | None = None
+    enable_replica_parallel_separate_folder: bool = False
     enable_write_sharding_file: bool = True
     array_metadata_store: array_metadata_store_lib.Store | None = (
         array_metadata_store_lib.Store()
@@ -305,9 +325,9 @@ class CheckpointablesOptions:
   first because it is registered first.
 
   Attributes:
-    registry: A `CheckpointableHandlerRegistry` that is used to resolve
-      `CheckpointableHandler` classes for each provided `checkpointable` during
-      saving and loading.
+    registry: A :py:class:`.CheckpointableHandlerRegistry` that is used to
+      resolve :py:class:`.CheckpointableHandler` classes for each provided
+      `checkpointable` during saving and loading.
   """
 
   registry: registration.CheckpointableHandlerRegistry = dataclasses.field(
@@ -328,6 +348,17 @@ class CheckpointablesOptions:
     for name, handler in named_handlers.items():
       registry.add(handler, name)
     return cls(registry=registry)
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class PathwaysOptions:
+  """Options used to configure Pathways saving and loading.
+
+  Attributes:
+    checkpointing_impl: The implementation to use for Pathways checkpointing.
+  """
+
+  checkpointing_impl: pathways_types.CheckpointingImpl | None = None
 
 
 class CheckpointLayout(enum.Enum):

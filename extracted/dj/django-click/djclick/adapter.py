@@ -8,7 +8,7 @@ from django import get_version
 from django.core.management import CommandError
 
 
-class ArgumentParserDefaults(object):
+class ArgumentParserDefaults:
     def __init__(self, args):
         self._args = args
 
@@ -18,7 +18,7 @@ class ArgumentParserDefaults(object):
         }
 
 
-class ArgumentParserAdapter(object):
+class ArgumentParserAdapter:
     def __init__(self):
         self._actions = []
         self._mutually_exclusive_groups = []
@@ -27,7 +27,7 @@ class ArgumentParserAdapter(object):
         return ArgumentParserDefaults(args)
 
 
-class DjangoCommandMixin(object):
+class DjangoCommandMixin:
     use_argparse = False
     option_list = []
     base_stealth_options = []
@@ -40,13 +40,13 @@ class DjangoCommandMixin(object):
 
     def invoke(self, ctx):
         try:
-            return super(DjangoCommandMixin, self).invoke(ctx)
+            return super().invoke(ctx)
         except CommandError as e:
             # Honor the --traceback flag
             if ctx.traceback:  # NOCOV
                 raise
             styled_message = click.style(
-                "{}: {}".format(e.__class__.__name__, e), fg="red", bold=True
+                f"{e.__class__.__name__}: {e}", fg="red", bold=True
             )
             click.echo(styled_message, err=True)
             ctx.exit(1)
@@ -55,7 +55,7 @@ class DjangoCommandMixin(object):
         """
         Called when run from the command line.
         """
-        prog_name = "{} {}".format(os.path.basename(argv[0]), argv[1])
+        prog_name = f"{os.path.basename(argv[0])} {argv[1]}"
         try:
             # We won't get an exception here in standalone_mode=False
             exit_code = self.main(
@@ -76,7 +76,7 @@ class DjangoCommandMixin(object):
         return ArgumentParserAdapter()
 
     def print_help(self, prog_name, subcommand):
-        prog_name = "{} {}".format(prog_name, subcommand)
+        prog_name = f"{prog_name} {subcommand}"
         self.main(["--help"], prog_name=prog_name, standalone_mode=False)
 
     def map_names(self):
@@ -140,7 +140,7 @@ def suppress_colors(ctx, param, value):
     return value
 
 
-class BaseRegistrator(object):
+class BaseRegistrator:
     common_options = [
         click.option(
             "-v",

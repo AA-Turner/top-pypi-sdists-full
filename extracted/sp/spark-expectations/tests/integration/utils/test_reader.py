@@ -108,6 +108,9 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             None,
         ),
@@ -175,6 +178,9 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             None,
         ),
@@ -192,6 +198,9 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             None,
         ),
@@ -214,6 +223,9 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             None,
         ),
@@ -230,6 +242,9 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             SparkExpectationsMiscException,
         ),
@@ -250,9 +265,28 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.slack.webhook.url": "",
                 "spark.expectations.notifications.teams.enabled": False,
                 "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": True,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
             },
             SparkExpectationsMiscException,
         ),
+        (
+            {
+                "spark.expectations.notifications.pagerduty.enabled": True,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
+            },
+            SparkExpectationsMiscException,
+        ),
+        (
+            {
+                "spark.expectations.notifications.pagerduty.enabled": True,
+                "spark.expectations.notifications.pagerduty.integration.key": "123",
+                "spark.expectations.notifications.pagerduty.webhook.url": "https://test.url/",
+            },
+            None,
+        )
     ],
 )
 def test_set_notification_param(notification, expected_result):
@@ -337,6 +371,16 @@ def test_set_notification_param(notification, expected_result):
             )
             mock_context.set_teams_webhook_url.assert_called_once_with(
                 notification.get("spark.expectations.notifications.teams.webhook.url")
+            )
+        if notification.get("spark.expectations.notifications.pagerduty.enabled"):
+            mock_context.set_enable_pagerduty.assert_called_once_with(
+                notification.get("spark.expectations.notifications.pagerduty.enabled")
+            )
+            mock_context.set_pagerduty_integration_key.assert_called_once_with(
+                notification.get("spark.expectations.notifications.pagerduty.integration.key")
+            )
+            mock_context.set_pagerduty_webhook_url.assert_called_once_with(
+                notification.get("spark.expectations.notifications.pagerduty.webhook.url")
             )
     else:
         with pytest.raises(
@@ -632,3 +676,162 @@ def test_get_rules_from_table_exception(_fixture_reader):
             "mock_rules_table_1",
             "table1",
         )
+
+
+def test_set_notification_param_missing_dq_obs_alert_flag():
+    """Test set_notification_param when se_dq_obs_alert_flag is False - covers lines 82-83 in reader.py"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Test notification configuration that triggers the else branch (lines 82-83)
+    notification_missing_alert_flag = {
+        user_config.se_enable_obs_dq_report_result: True,
+        user_config.se_dq_obs_alert_flag: False,  # This will trigger the else branch
+    }
+    
+    # This should raise SparkExpectationsMiscException and hit lines 82-83
+    with pytest.raises(SparkExpectationsMiscException, 
+                      match="All params/variables required for email notification is not configured or supplied"):
+        reader.set_notification_param(notification_missing_alert_flag)
+    
+    # Verify that set_se_dq_obs_alert_flag(False) was called (line 82)
+    mock_context.set_se_dq_obs_alert_flag.assert_called_with(False)
+
+
+def test_set_notification_param_zoom_missing_webhook():
+    """Test set_notification_param when zoom is enabled but webhook URL is missing - covers line 179 in reader.py"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Test zoom notification with missing webhook URL - need teams enabled first since zoom is nested
+    notification_zoom_no_webhook = {
+        user_config.se_notifications_enable_teams: True,
+        user_config.se_notifications_teams_webhook_url: "https://teams.webhook.url",
+        user_config.se_notifications_enable_zoom: True,
+        # Missing se_notifications_zoom_webhook_url - this will trigger the else branch (line 179)
+    }
+    
+    # This should raise SparkExpectationsMiscException at line 179
+    with pytest.raises(SparkExpectationsMiscException, 
+                      match="All params/variables required for zoom notification is not configured or supplied"):
+        reader.set_notification_param(notification_zoom_no_webhook)
+
+
+def test_set_notification_param_smtp_auth_no_password():
+    """Test set_notification_param SMTP auth without password - covers lines 140 in reader.py"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Test SMTP auth without password or creds dict - should hit line 140
+    notification_smtp_auth_no_creds = {
+        user_config.se_notifications_enable_email: True,
+        user_config.se_notifications_email_smtp_host: "smtp.example.com",
+        user_config.se_notifications_email_from: "test@example.com", 
+        user_config.se_notifications_email_to_other_mail_id: "recipient@example.com",
+        user_config.se_notifications_email_subject: "Test",
+        user_config.se_notifications_enable_smtp_server_auth: True,
+        # Missing both se_notifications_smtp_password and se_notifications_smtp_creds_dict
+    }
+    
+    # This should raise SparkExpectationsMiscException due to KeyError
+    with pytest.raises(SparkExpectationsMiscException, 
+                      match="error occurred while reading notification configurations"):
+        reader.set_notification_param(notification_smtp_auth_no_creds)
+
+
+def test_process_rules_df_custom_output_enabled():
+    """Test _process_rules_df method to cover lines 237, 273 in reader.py"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Test process_rules_df with custom output enabled
+    _dq_queries_dict = {}
+    column_map = {
+        "product_id": "test_product",
+        "table_name": "test_table", 
+        "rule": "test_rule",
+        "expectation": "SELECT COUNT(*) FROM {table} WHERE {condition}"
+    }
+    
+    # Row with custom delimiter and enable_querydq_custom_output = True
+    _row = {
+        "query_dq_delimiter": "|",
+        "enable_querydq_custom_output": True,
+        "expectation": "SELECT COUNT(*)@table:source_table@condition:col1 > 0"
+    }
+    
+    params = {"table": "source_table", "condition": "col1 > 0"}
+    
+    # This should cover lines related to custom query processing
+    result_dict, result_map = reader._process_rules_df(_dq_queries_dict, column_map, _row, params)
+    
+    # Verify the custom output flag is set
+    assert result_map["enable_querydq_custom_output"] is True
+
+
+def test_set_notification_param_obs_dq_report_positive():
+    """Test set_notification_param with complete obs DQ report configuration - covers lines 63-78"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Complete obs DQ report notification configuration  
+    notification_obs_dq_complete = {
+        user_config.se_enable_obs_dq_report_result: True,
+        user_config.se_dq_obs_alert_flag: True,
+        user_config.se_notifications_email_smtp_port: "587",
+        user_config.se_notifications_email_subject: "DQ Report",
+        user_config.se_notifications_smtp_password: "password123",
+        user_config.se_notifications_email_from: "dq@example.com",
+        user_config.se_notifications_email_to_other_mail_id: "recipient@example.com",
+        user_config.se_notifications_email_smtp_host: "smtp.example.com",
+        user_config.se_dq_obs_default_email_template: "default_template"
+    }
+    
+    # This should cover lines 63-78 (complete configuration path)
+    reader.set_notification_param(notification_obs_dq_complete)
+    
+    # Verify the obs DQ report configuration was set
+    mock_context.set_enable_obs_dq_report_result.assert_called_with(True)
+    mock_context.set_se_dq_obs_alert_flag.assert_called_with(True)
+    mock_context.set_mail_smtp_port.assert_called_with(587)
+
+
+def test_set_notification_param_zoom_complete():
+    """Test set_notification_param with complete zoom configuration - covers lines 173-177"""
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    mock_context = Mock(spec=SparkExpectationsContext)
+    mock_context.spark = spark
+    reader = SparkExpectationsReader(mock_context)
+    
+    # Complete zoom notification configuration (needs teams first since it's nested)
+    notification_zoom_complete = {
+        user_config.se_notifications_enable_teams: True,
+        user_config.se_notifications_teams_webhook_url: "https://teams.webhook.url",
+        user_config.se_notifications_enable_zoom: True,
+        user_config.se_notifications_zoom_webhook_url: "https://zoom.webhook.url",
+        user_config.se_notifications_zoom_token: "zoom_token_123"
+    }
+    
+    # This should cover lines 173-177 (complete zoom configuration path)
+    reader.set_notification_param(notification_zoom_complete)
+    
+    # Verify zoom configuration was set
+    mock_context.set_enable_zoom.assert_called_with(True)
+    mock_context.set_zoom_webhook_url.assert_called_with("https://zoom.webhook.url")
+    mock_context.set_zoom_token.assert_called_with("zoom_token_123")

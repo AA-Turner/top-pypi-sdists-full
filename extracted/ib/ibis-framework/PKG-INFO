@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibis-framework
-Version: 10.8.0
+Version: 11.0.0
 Summary: The portable Python dataframe library
 Project-URL: Homepage, https://ibis-project.org
 Project-URL: Chat, https://ibis-project.zulipchat.com
@@ -37,7 +37,6 @@ Requires-Dist: tzdata>=2022.7
 Provides-Extra: athena
 Requires-Dist: fsspec[s3]; extra == 'athena'
 Requires-Dist: numpy<3,>=1.23.2; extra == 'athena'
-Requires-Dist: packaging>=21.3; extra == 'athena'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'athena'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'athena'
 Requires-Dist: pyarrow>=10.0.1; extra == 'athena'
@@ -71,6 +70,7 @@ Requires-Dist: rich>=12.4.4; extra == 'databricks'
 Provides-Extra: datafusion
 Requires-Dist: datafusion>=0.6; extra == 'datafusion'
 Requires-Dist: numpy<3,>=1.23.2; extra == 'datafusion'
+Requires-Dist: packaging>=21.3; extra == 'datafusion'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'datafusion'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'datafusion'
 Requires-Dist: pyarrow>=10.0.1; extra == 'datafusion'
@@ -138,14 +138,12 @@ Requires-Dist: rich>=12.4.4; extra == 'mysql'
 Provides-Extra: oracle
 Requires-Dist: numpy<3,>=1.23.2; extra == 'oracle'
 Requires-Dist: oracledb>=1.3.1; extra == 'oracle'
-Requires-Dist: packaging>=21.3; extra == 'oracle'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'oracle'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'oracle'
 Requires-Dist: pyarrow>=10.0.1; extra == 'oracle'
 Requires-Dist: rich>=12.4.4; extra == 'oracle'
 Provides-Extra: polars
 Requires-Dist: numpy<3,>=1.23.2; extra == 'polars'
-Requires-Dist: packaging>=21.3; extra == 'polars'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'polars'
 Requires-Dist: polars>=1; extra == 'polars'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'polars'
@@ -182,6 +180,7 @@ Requires-Dist: rich>=12.4.4; extra == 'snowflake'
 Requires-Dist: snowflake-connector-python!=3.3.0b1,>=3.0.2; extra == 'snowflake'
 Provides-Extra: sqlite
 Requires-Dist: numpy<3,>=1.23.2; extra == 'sqlite'
+Requires-Dist: packaging>=21.3; extra == 'sqlite'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'sqlite'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'sqlite'
 Requires-Dist: pyarrow>=10.0.1; extra == 'sqlite'

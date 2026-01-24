@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 use crate::ffi::*;
+use crate::io::WriteSlices;
 use pyo3::ffi::*;
 use std::ptr::NonNull;
 
@@ -9,7 +10,7 @@ const BUFFER_LENGTH: usize = 1024;
 pub struct BytesWriter {
     cap: usize,
     len: usize,
-    bytes: *mut PyBytesObject,
+    bytes: *mut PyObject,
 }
 
 impl BytesWriter {
@@ -19,7 +20,6 @@ impl BytesWriter {
             len: 0,
             bytes: unsafe {
                 PyBytes_FromStringAndSize(std::ptr::null_mut(), BUFFER_LENGTH as isize)
-                    as *mut PyBytesObject
             },
         }
     }
@@ -28,22 +28,19 @@ impl BytesWriter {
         unsafe {
             std::ptr::write(self.buffer_ptr(), 0);
             self.resize(self.len);
-            NonNull::new_unchecked(self.bytes as *mut PyObject)
+            NonNull::new_unchecked(self.bytes)
         }
     }
 
     fn buffer_ptr(&self) -> *mut u8 {
-        unsafe { pybytes_as_mut_u8(self.bytes as *mut PyObject).add(self.len) }
+        unsafe { pybytes_as_mut_u8(self.bytes).add(self.len) }
     }
 
     #[inline]
     pub fn resize(&mut self, len: usize) {
         self.cap = len;
         unsafe {
-            _PyBytes_Resize(
-                std::ptr::addr_of_mut!(self.bytes) as *mut *mut PyObject,
-                len as isize,
-            );
+            _PyBytes_Resize(&raw mut self.bytes, len as isize);
         }
     }
 
@@ -60,28 +57,43 @@ impl BytesWriter {
         }
         self.resize(cap);
     }
+
+    fn insert_slices<const N: usize>(&mut self, bufs: [&[u8]; N]) {
+        let len: usize = bufs.iter().map(|b| b.len()).sum();
+        let new_len = self.len + len;
+        if new_len > self.cap {
+            self.grow(new_len);
+        }
+        let mut ptr = self.buffer_ptr();
+        for buf in bufs {
+            unsafe {
+                std::ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
+                ptr = ptr.add(buf.len());
+            };
+        }
+        self.len = new_len;
+    }
 }
 
 impl std::io::Write for BytesWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
-        let _ = self.write_all(buf);
+        self.insert_slices([buf]);
         Ok(buf.len())
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), std::io::Error> {
-        let to_write = buf.len();
-        let end_length = self.len + to_write;
-        if unlikely!(end_length > self.cap) {
-            self.grow(end_length);
-        }
-        unsafe {
-            std::ptr::copy_nonoverlapping(buf.as_ptr(), self.buffer_ptr(), to_write);
-        };
-        self.len = end_length;
+        self.insert_slices([buf]);
         Ok(())
     }
 
     fn flush(&mut self) -> Result<(), std::io::Error> {
+        Ok(())
+    }
+}
+
+impl WriteSlices for BytesWriter {
+    fn write_slices<const N: usize>(&mut self, bufs: [&[u8]; N]) -> Result<(), std::io::Error> {
+        self.insert_slices(bufs);
         Ok(())
     }
 }

@@ -7,10 +7,11 @@ Class L{Intersector} is a pure Python version of I{Karney}'s C++ class U{Interse
 <https://GeographicLib.SourceForge.io/C++/doc/classGeographicLib_1_1Intersect.html>}.
 
 Class L{Intersectool} is a wrapper to invoke I{Karney}'s U{IntersectTool
-<https://GeographicLib.SourceForge.io/C++/doc/IntersectTool.1.html>} utility, but intended I{for testing purposes only}.
+<https://GeographicLib.SourceForge.io/C++/doc/IntersectTool.1.html>} utility, mainly intended I{for testing purposes}.
 
-Set env variable C{PYGEODESY_INTERSECTTOOL} to the (fully qualified) path of the C{IntersectTool} executable.  For usage
-and some examples run C{"env PYGEODESY_INTERSECTTOOL=<IntersectTool-path> python3 -m pygeodesy.geodesici --help"}.
+Set env variable C{PYGEODESY_INTERSECTTOOL} to the (fully qualified) path of the C{IntersectTool} executable or use
+property L{Intersectool.IntersectTool}.  For usage and some examples run C{"env PYGEODESY_INTERSECTTOOL=<IntersectTool-path>
+python3 -m pygeodesy.geodesici --help"}.
 
 Both L{Intersectool} and L{Intersector} provide methods C{All}, C{Closest}, C{Next} and C{Segment} and produce
 L{XDict} instances with 4 or more items.  Adjacent methods C{All5}, C{Closest5}, C{Next5} and C{Segment} return
@@ -57,7 +58,7 @@ from pygeodesy.utily import atan2, sincos2,  fabs, radians
 # from math import ceil as _ceil, fabs, radians  # .fsums, .utily
 
 __all__ = _ALL_LAZY.geodesici
-__version__ = '25.06.02'
+__version__ = '25.12.31'
 
 _0t     =  0,  # int
 _1_1t   = -1, +1
@@ -487,7 +488,7 @@ class Intersectool(_IntersectBase, _SolveCapsBase):
            @raise GeodesicError: The eccentricity of the B{C{geodesic}}'s ellipsoid is too
                                  large or no initial convergence.
 
-           @see: The B{Note} at I{Karney}'s C++ U{Intersect<https://GeographicLib.sourceforge.io/
+           @see: The B{Note} at I{Karney}'s C++ U{Intersect<https://GeographicLib.SourceForge.io/
                  C++/doc/classGeographicLib_1_1Intersect.html#ae41f54c9a44836f6c8f140f6994930cf>}.
         '''
         g = self._GeodesicExact() if a_geodesic is None else (a_geodesic if f is None else
@@ -777,7 +778,7 @@ class Intersector(_IntersectBase):
        wrapped L{GeodesicLine<pygeodesy.geodesicw.GeodesicLine>} or
        L{GeodesicLineSolve<pygeodesy.geodsolve.GeodesicLineSolve>}.
 
-       @see: I{Karney}'s C++ class U{Intersect<https://GeographicLib.sourceforge.io/
+       @see: I{Karney}'s C++ class U{Intersect<https://GeographicLib.SourceForge.io/
              C++/doc/classGeographicLib_1_1Intersect.html#details>} for more details.
     '''
 
@@ -792,7 +793,7 @@ class Intersector(_IntersectBase):
            @raise GeodesicError: The eccentricity of the B{C{geodesic}}'s ellipsoid is too
                                  large or no initial convergence.
 
-           @see: The B{Note} at I{Karney}'s C++ U{Intersect<https://GeographicLib.sourceforge.io/
+           @see: The B{Note} at I{Karney}'s C++ U{Intersect<https://GeographicLib.SourceForge.io/
                  C++/doc/classGeographicLib_1_1Intersect.html#ae41f54c9a44836f6c8f140f6994930cf>}.
         '''
         _IntersectBase.__init__(self, geodesic, **name)
@@ -1775,7 +1776,7 @@ if __name__ == _DMAIN_:  # MCCABE 14
 
 # **) MIT License
 #
-# Copyright (C) 2024-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2024-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

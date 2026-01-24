@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
+import json
 import logging
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
+    Callable,
     Dict,
     Generic,
     Iterable,
@@ -39,6 +41,8 @@ from redis.exceptions import ResponseError
 from redisvl.index import SearchIndex
 from redisvl.query.filter import Tag, Text
 from redisvl.utils.token_escaper import TokenEscaper
+
+from langgraph.checkpoint.redis.jsonplus_redis import JsonPlusRedisSerializer
 
 from .token_unescaper import TokenUnescaper
 from .types import IndexType, RedisClientType
@@ -124,6 +128,9 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
     supports_ttl: bool = True
     ttl_config: Optional[TTLConfig] = None
 
+    # Serializer for handling complex objects like LangChain messages
+    _serde: JsonPlusRedisSerializer
+
     def _apply_ttl_to_keys(
         self,
         main_key: str,
@@ -205,13 +212,30 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
         index: Optional[IndexConfig] = None,
         ttl: Optional[TTLConfig] = None,  # Corrected type hint for ttl
         cluster_mode: Optional[bool] = None,
+        store_prefix: str = STORE_PREFIX,
+        vector_prefix: str = STORE_VECTOR_PREFIX,
     ) -> None:
-        """Initialize store with Redis connection and optional index config."""
+        """Initialize store with Redis connection and optional index config.
+
+        Args:
+            conn: Redis client connection
+            index: Optional index configuration for vector search
+            ttl: Optional TTL configuration
+            cluster_mode: Optional cluster mode setting (None = auto-detect)
+            store_prefix: Prefix for store keys (default: "store")
+            vector_prefix: Prefix for vector keys (default: "store_vectors")
+        """
         self.index_config = index
         self.ttl_config = ttl
         self._redis = conn
         # Store cluster_mode; None means auto-detect in RedisStore or AsyncRedisStore
         self.cluster_mode = cluster_mode
+        # Initialize the serializer for handling complex objects like LangChain messages
+        self._serde = JsonPlusRedisSerializer()
+
+        # Store custom prefixes
+        self.store_prefix = store_prefix
+        self.vector_prefix = vector_prefix
 
         if self.index_config:
             self.index_config = self.index_config.copy()
@@ -225,10 +249,25 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
                 (p, tokenize_path(p)) if p != "$" else (p, p) for p in fields
             ]
 
+        # Create custom schemas with instance prefixes
+        store_schema = {
+            "index": {
+                "name": self.store_prefix,
+                "prefix": self.store_prefix + REDIS_KEY_SEPARATOR,
+                "storage_type": "json",
+            },
+            "fields": [
+                {"name": "prefix", "type": "text"},
+                {"name": "key", "type": "tag"},
+                {"name": "created_at", "type": "numeric"},
+                {"name": "updated_at", "type": "numeric"},
+                {"name": "ttl_minutes", "type": "numeric"},
+                {"name": "expires_at", "type": "numeric"},
+            ],
+        }
+
         # Initialize search indices
-        self.store_index = SearchIndex.from_dict(
-            self.SCHEMAS[0], redis_client=self._redis
-        )
+        self.store_index = SearchIndex.from_dict(store_schema, redis_client=self._redis)
 
         # Configure vector index if needed
         if self.index_config:
@@ -237,9 +276,24 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
             index_dict = dict(self.index_config)
             vector_storage_type = index_dict.get("vector_storage_type", "json")
 
-            vector_schema: Dict[str, Any] = copy.deepcopy(self.SCHEMAS[1])
-            # Update storage type in schema
-            vector_schema["index"]["storage_type"] = vector_storage_type
+            # Create custom vector schema with instance prefix
+            vector_schema: Dict[str, Any] = {
+                "index": {
+                    "name": self.vector_prefix,
+                    "prefix": self.vector_prefix + REDIS_KEY_SEPARATOR,
+                    "storage_type": vector_storage_type,
+                },
+                "fields": [
+                    {"name": "prefix", "type": "text"},
+                    {"name": "key", "type": "tag"},
+                    {"name": "field_name", "type": "tag"},
+                    {"name": "embedding", "type": "vector"},
+                    {"name": "created_at", "type": "numeric"},
+                    {"name": "updated_at", "type": "numeric"},
+                    {"name": "ttl_minutes", "type": "numeric"},
+                    {"name": "expires_at", "type": "numeric"},
+                ],
+            }
 
             vector_fields = vector_schema.get("fields", [])
             vector_field = None
@@ -274,24 +328,21 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
                 vector_schema, redis_client=self._redis
             )
 
-        # Set client information in Redis
-        self.set_client_info()
+        # Note: set_client_info() should be called by concrete implementations
+        # after initialization to avoid async/sync conflicts
 
     def set_client_info(self) -> None:
         """Set client info for Redis monitoring."""
 
-        from langgraph.checkpoint.redis.version import __redisvl_version__
-
-        # Create the client info string with only the redisvl version
-        client_info = f"redis-py(redisvl_v{__redisvl_version__})"
+        from langgraph.checkpoint.redis.version import __full_lib_name__
 
         try:
             # Try to use client_setinfo command if available
-            self._redis.client_setinfo("LIB-NAME", client_info)
+            self._redis.client_setinfo("LIB-NAME", __full_lib_name__)
         except (ResponseError, AttributeError):
             # Fall back to a simple echo if client_setinfo is not available
             try:
-                self._redis.echo(client_info)
+                self._redis.echo(__full_lib_name__)
             except Exception:
                 # Silently fail if even echo doesn't work
                 pass
@@ -299,24 +350,124 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
     async def aset_client_info(self) -> None:
         """Set client info for Redis monitoring asynchronously."""
 
-        from langgraph.checkpoint.redis.version import __redisvl_version__
-
-        # Create the client info string with only the redisvl version
-        client_info = f"redis-py(redisvl_v{__redisvl_version__})"
+        from langgraph.checkpoint.redis.version import __full_lib_name__
 
         try:
             # Try to use client_setinfo command if available
-            await self._redis.client_setinfo("LIB-NAME", client_info)
+            await self._redis.client_setinfo("LIB-NAME", __full_lib_name__)
         except (ResponseError, AttributeError):
             # Fall back to a simple echo if client_setinfo is not available
             try:
                 # Call with await to ensure it's an async call
-                echo_result = self._redis.echo(client_info)
+                echo_result = self._redis.echo(__full_lib_name__)
                 if hasattr(echo_result, "__await__"):
                     await echo_result
             except Exception:
                 # Silently fail if even echo doesn't work
                 pass
+
+    def _serialize_value(self, value: Any) -> Any:
+        """Serialize a value for storage in Redis.
+
+        This method handles complex objects like LangChain messages by
+        serializing them to a JSON-compatible format.
+
+        The method is smart about serialization:
+        - If the value is a simple JSON-serializable dict/list, it's stored as-is
+        - If the value contains complex objects (HumanMessage, etc.), it uses
+          the serde wrapper format with __serde_type__ and __serde_data__ keys
+
+        Note: Values containing LangChain messages will be wrapped in a serde format,
+        which means filters on nested fields won't work for such values.
+
+        Args:
+            value: The value to serialize (can contain HumanMessage, AIMessage, etc.)
+
+        Returns:
+            A JSON-serializable representation of the value
+        """
+        if value is None:
+            return None
+
+        # First, try standard JSON serialization to check if it's needed
+        try:
+            json.dumps(value)
+            # Value is already JSON-serializable, return as-is for backward
+            # compatibility and to preserve filter functionality
+            return value
+        except TypeError:
+            # Value contains non-JSON-serializable objects, use serde wrapper
+            pass
+
+        # Use the serializer to handle complex objects
+        type_str, data_bytes = self._serde.dumps_typed(value)
+        # Store the serialized data with type info for proper deserialization
+        # Handle different type formats explicitly for clarity
+        if type_str == "json":
+            data_encoded = data_bytes.decode("utf-8")
+        else:
+            # bytes, bytearray, msgpack, and other types are hex-encoded
+            data_encoded = data_bytes.hex()
+
+        return {
+            "__serde_type__": type_str,
+            "__serde_data__": data_encoded,
+        }
+
+    def _deserialize_value(self, value: Any) -> Any:
+        """Deserialize a value from Redis storage.
+
+        This method handles both new serialized format and legacy plain values
+        for backward compatibility.
+
+        Args:
+            value: The value from Redis (may be serialized or plain)
+
+        Returns:
+            The deserialized value with proper Python objects (HumanMessage, etc.)
+        """
+        if value is None:
+            return None
+
+        # Check if this is a serialized value (new format)
+        # Use exact key check to prevent collisions with user data
+        if isinstance(value, dict) and set(value.keys()) == {
+            "__serde_type__",
+            "__serde_data__",
+        }:
+            type_str = value["__serde_type__"]
+            data_str = value["__serde_data__"]
+
+            try:
+                # Convert back to bytes based on type
+                if type_str == "json":
+                    data_bytes = data_str.encode("utf-8")
+                else:
+                    # bytes, bytearray, msgpack types are hex-encoded
+                    data_bytes = bytes.fromhex(data_str)
+
+                return self._serde.loads_typed((type_str, data_bytes))
+            except (ValueError, TypeError) as e:
+                # Handle hex decoding errors or deserialization failures
+                logger.error(
+                    "Failed to deserialize value from Redis: type=%r, error=%s",
+                    type_str,
+                    e,
+                )
+                # Return None to indicate deserialization failure
+                return None
+            except Exception as e:
+                # Handle any other unexpected errors during deserialization
+                logger.error(
+                    "Unexpected error deserializing value from Redis: type=%r, error=%s",
+                    type_str,
+                    e,
+                )
+                return None
+
+        # Legacy format: value is stored as-is (plain JSON-serializable data)
+        # Return as-is for backward compatibility
+        return value
 
     def _get_batch_GET_ops_queries(
         self,
@@ -394,7 +545,7 @@ class BaseRedisStore(Generic[RedisClientType, IndexType]):
                 doc = RedisDocument(
                     prefix=_namespace_to_text(op.namespace),
                     key=op.key,
-                    value=op.value,
+                    value=self._serialize_value(op.value),
                     created_at=now,
                     updated_at=now,
                     ttl_minutes=ttl_minutes,
@@ -529,10 +680,27 @@ def _decode_ns(ns: str) -> tuple[str, ...]:
     return tuple(_token_unescaper.unescape(ns).split("."))
 
 
-def _row_to_item(namespace: tuple[str, ...], row: dict[str, Any]) -> Item:
-    """Convert a row from Redis to an Item."""
+def _row_to_item(
+    namespace: tuple[str, ...],
+    row: dict[str, Any],
+    deserialize_fn: Optional[Callable[[Any], Any]] = None,
+) -> Item:
+    """Convert a row from Redis to an Item.
+
+    Args:
+        namespace: The namespace tuple for this item
+        row: The raw row data from Redis
+        deserialize_fn: Optional function to deserialize the value (handles
+            LangChain messages, etc.)
+
+    Returns:
+        An Item with properly deserialized value
+    """
+    value = row["value"]
+    if deserialize_fn is not None:
+        value = deserialize_fn(value)
     return Item(
-        value=row["value"],
+        value=value,
         key=row["key"],
         namespace=namespace,
         created_at=datetime.fromtimestamp(row["created_at"] / 1_000_000, timezone.utc),
@@ -544,10 +712,25 @@ def _row_to_search_item(
     namespace: tuple[str, ...],
     row: dict[str, Any],
     score: Optional[float] = None,
+    deserialize_fn: Optional[Callable[[Any], Any]] = None,
 ) -> SearchItem:
-    """Convert a row from Redis to a SearchItem."""
+    """Convert a row from Redis to a SearchItem.
+
+    Args:
+        namespace: The namespace tuple for this item
+        row: The raw row data from Redis
+        score: Optional similarity score from vector search
+        deserialize_fn: Optional function to deserialize the value (handles
+            LangChain messages, etc.)
+
+    Returns:
+        A SearchItem with properly deserialized value
+    """
+    value = row["value"]
+    if deserialize_fn is not None:
+        value = deserialize_fn(value)
     return SearchItem(
-        value=row["value"],
+        value=value,
         key=row["key"],
         namespace=namespace,
         created_at=datetime.fromtimestamp(row["created_at"] / 1_000_000, timezone.utc),

@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/// @file fov_types.h
+/// Field-of-view types.
 #pragma once
 #ifndef TCOD_FOV_TYPES_H_
 #define TCOD_FOV_TYPES_H_
 #include "portability.h"
+/// @addtogroup FOV
+/// @{
 /**
  *  Private map cell struct.
  */
@@ -53,7 +57,7 @@ typedef struct TCOD_Map {
 typedef TCOD_Map* TCOD_map_t;
 /**
     \rst
-    Field-of-view options for :any:`TCOD_map_compute_fov`.
+    Field-of-view options for TCOD_map_compute_fov.
     \endrst
  */
 typedef enum {
@@ -107,4 +111,5 @@ typedef enum {
   NB_FOV_ALGORITHMS
 } TCOD_fov_algorithm_t;
 #define FOV_PERMISSIVE(x) ((TCOD_fov_algorithm_t)(FOV_PERMISSIVE_0 + (x)))
+/// @}
 #endif /* TCOD_FOV_TYPES_H_ */

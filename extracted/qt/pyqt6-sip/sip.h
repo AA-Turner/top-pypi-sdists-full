@@ -14,9 +14,12 @@
 #include <Python.h>
 
 /* Sanity check on the Python version. */
-#if PY_VERSION_HEX < 0x03090000
-#error "This version of PyQt6.sip requires Python v3.9 or later"
+#if PY_VERSION_HEX < 0x030a0000
+#error "This version of PyQt6.sip requires Python v3.10 or later"
 #endif
+
+
+#include <stdbool.h>
 
 
 #ifdef __cplusplus
@@ -35,12 +38,16 @@ extern "C" {
 
 /* The version of the ABI. */
 #define SIP_ABI_MAJOR_VERSION       13
-#define SIP_ABI_MINOR_VERSION       10
-#define SIP_MODULE_PATCH_VERSION    2
+#define SIP_ABI_MINOR_VERSION       11
+#define SIP_MODULE_PATCH_VERSION    0
 
 
 /*
  * The change history of the ABI.
+ *
+ * v13.11
+ *  - Added support for Python v3.14.
+ *  - Python v3.10 or later is required.
  *
  * v13.10
  *  - Added SIP_ABI_VERSION as a module attribute.
@@ -85,8 +92,8 @@ extern "C" {
 
 
 /* The version of the code generator. */
-#define SIP_VERSION                 0x60b01
-#define SIP_VERSION_STR             "6.11.1"
+#define SIP_VERSION                 0x60f01
+#define SIP_VERSION_STR             "6.15.1"
 
 /* These are all dependent on the user-specified name of the sip module. */
 #define _SIP_MODULE_FQ_NAME         "PyQt6.sip"
@@ -151,21 +158,11 @@ typedef unsigned int uint;
 #define SIP_TRACE_METHODS   0x0020
 
 
-/*
- * Hide some thread dependent stuff.  This can be removed when support for
- * Python v3.6 is removed.
- */
-#ifdef WITH_THREAD
+/* Hide some thread related stuff. */
 typedef PyGILState_STATE sip_gilstate_t;
 #define SIP_RELEASE_GIL(gs) PyGILState_Release(gs);
 #define SIP_BLOCK_THREADS   {PyGILState_STATE sipGIL = PyGILState_Ensure();
 #define SIP_UNBLOCK_THREADS PyGILState_Release(sipGIL);}
-#else
-typedef int sip_gilstate_t;
-#define SIP_RELEASE_GIL(gs)
-#define SIP_BLOCK_THREADS
-#define SIP_UNBLOCK_THREADS
-#endif
 
 
 /*

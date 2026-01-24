@@ -4,6 +4,7 @@ from __future__ import annotations
 import abc
 import typing
 import warnings
+from typing import Any
 
 import autograd.numpy as anp
 import numpy as np
@@ -71,13 +72,13 @@ class DesignRegion(InvdesBaseModel, abc.ABC):
         discriminator=TYPE_TAG_STR,
     )
 
-    def _post_init_validators(self):
+    def _post_init_validators(self) -> None:
         """Automatically call any `_validate_XXX` method."""
         for attr_name in dir(self):
             if attr_name.startswith("_validate") and callable(getattr(self, attr_name)):
                 getattr(self, attr_name)()
 
-    def _validate_eps_bounds(self):
+    def _validate_eps_bounds(self) -> None:
         if self.eps_bounds[1] < self.eps_bounds[0]:
             raise ValidationError(
                 f"Maximum relative permittivity ({self.eps_bounds[1]}) must be "
@@ -118,7 +119,7 @@ class DesignRegion(InvdesBaseModel, abc.ABC):
         """How this design region evaluates a penalty given some passed information."""
 
     @abc.abstractmethod
-    def to_structure(self, *args, **kwargs) -> td.Structure:
+    def to_structure(self, *args: Any, **kwargs: Any) -> td.Structure:
         """Convert this ``DesignRegion`` into a ``Structure`` with tracers. Implement in subs."""
 
     @property
@@ -178,7 +179,17 @@ class TopologyDesignRegion(DesignRegion):
         "Supplying ``False`` will completely leave out the override structure.",
     )
 
-    def _validate_eps_values(self):
+    priority: int = pd.Field(
+        None,
+        title="Priority",
+        description="Priority of the structure applied in structure overlapping region. "
+        "The material property in the overlapping region is dictated by the structure "
+        "of higher priority. For structures of equal priority, "
+        "the structure added later to the structure list takes precedence. When `priority` is None, "
+        "the value is automatically assigned based on `structure_priority_mode` in the `Simulation`.",
+    )
+
+    def _validate_eps_values(self) -> None:
         """Validate the epsilon values by evaluating the transformations."""
         try:
             x = self.initial_parameters
@@ -186,7 +197,7 @@ class TopologyDesignRegion(DesignRegion):
         except Exception as e:
             raise ValidationError(f"Could not evaluate transformations: {e!s}") from e
 
-    def _validate_penalty_value(self):
+    def _validate_penalty_value(self) -> None:
         """Validate the penalty values by evaluating the penalties."""
         try:
             x = self.initial_parameters
@@ -194,7 +205,7 @@ class TopologyDesignRegion(DesignRegion):
         except Exception as e:
             raise ValidationError(f"Could not evaluate penalties: {e!s}") from e
 
-    def _validate_gradients(self):
+    def _validate_gradients(self) -> None:
         """Validate the gradients of the penalties and transformations."""
         x = self.initial_parameters
 
@@ -234,7 +245,7 @@ class TopologyDesignRegion(DesignRegion):
             )
 
     @staticmethod
-    def _check_params(params: anp.ndarray = None):
+    def _check_params(params: anp.ndarray = None) -> None:
         """Ensure ``params`` are between 0 and 1."""
         if params is None:
             return
@@ -253,7 +264,7 @@ class TopologyDesignRegion(DesignRegion):
         num_pixels[np.logical_or(np.isinf(num_pixels), self.uniform)] = 1
         return tuple(int(n) for n in num_pixels)
 
-    def _warn_deprecate_params(self):
+    def _warn_deprecate_params(self) -> None:
         td.log.warning(
             "Parameter initialization via design region methods is deprecated and will be "
             "removed in the future. Please specify this through the design region's "
@@ -328,7 +339,7 @@ class TopologyDesignRegion(DesignRegion):
         eps_values = self.eps_values(params)
         eps_data_array = td.SpatialDataArray(eps_values, coords=coords)
         medium = td.CustomMedium(permittivity=eps_data_array)
-        return td.Structure(geometry=self.geometry, medium=medium)
+        return td.Structure(geometry=self.geometry, medium=medium, priority=self.priority)
 
     @property
     def _override_structure_dl(self) -> float:

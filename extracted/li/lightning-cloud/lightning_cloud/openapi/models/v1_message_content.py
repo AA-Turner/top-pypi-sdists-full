@@ -41,7 +41,7 @@ class V1MessageContent(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'content_type': 'str',
+        'content_type': 'V1MessageContentType',
         'parts': 'list[str]'
     }
 
@@ -50,7 +50,7 @@ class V1MessageContent(object):
         'parts': 'parts'
     }
 
-    def __init__(self, content_type: 'str' =None, parts: 'list[str]' =None):  # noqa: E501
+    def __init__(self, content_type: 'V1MessageContentType' =None, parts: 'list[str]' =None):  # noqa: E501
         """V1MessageContent - a model defined in Swagger"""  # noqa: E501
         self._content_type = None
         self._parts = None
@@ -61,22 +61,22 @@ class V1MessageContent(object):
             self.parts = parts
 
     @property
-    def content_type(self) -> 'str':
+    def content_type(self) -> 'V1MessageContentType':
         """Gets the content_type of this V1MessageContent.  # noqa: E501
 
 
         :return: The content_type of this V1MessageContent.  # noqa: E501
-        :rtype: str
+        :rtype: V1MessageContentType
         """
         return self._content_type
 
     @content_type.setter
-    def content_type(self, content_type: 'str'):
+    def content_type(self, content_type: 'V1MessageContentType'):
         """Sets the content_type of this V1MessageContent.
 
 
         :param content_type: The content_type of this V1MessageContent.  # noqa: E501
-        :type: str
+        :type: V1MessageContentType
         """
 
         self._content_type = content_type

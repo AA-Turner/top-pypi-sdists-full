@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+mod critical_section;
 #[cfg_attr(any(PyPy, GraalPy), path = "base/mod.rs")]
 #[cfg_attr(not(any(PyPy, GraalPy)), path = "cpython/mod.rs")]
 mod impl_;
 mod int;
 mod unicode;
 
+pub use critical_section::*;
 pub use impl_::*;
 pub use int::*;
 pub use unicode::*;
@@ -16,14 +18,14 @@ use std::ptr::NonNull;
 
 #[inline(always)]
 pub unsafe fn pybytes_as_bytes(op: *mut PyObject) -> &'static [u8] {
-    let buffer = pybytes_as_mut_u8(op) as *const u8;
+    let buffer = pybytes_as_mut_u8(op);
     let length = Py_SIZE(op) as usize;
     std::slice::from_raw_parts(buffer, length)
 }
 
 #[inline(always)]
 pub unsafe fn pybytearray_as_bytes(op: *mut PyObject) -> &'static [u8] {
-    let buffer = PyByteArray_AsString(op) as *const u8;
+    let buffer = PyByteArray_AsString(op).cast::<u8>();
     let length = PyByteArray_Size(op) as usize;
     std::slice::from_raw_parts(buffer, length)
 }
@@ -63,7 +65,7 @@ pub unsafe fn pymemoryview_as_bytes(op: *mut PyObject) -> Option<&'static [u8]> 
     if PyBuffer_IsContiguous(view, b'C' as c_char) == 0 {
         None
     } else {
-        let buffer = view.buf as *const u8;
+        let buffer = view.buf.cast::<u8>();
         let length = view.len as usize;
         Some(std::slice::from_raw_parts(buffer, length))
     }
@@ -88,10 +90,12 @@ impl Iterator for PyDictIter {
     fn next(&mut self) -> Option<Self::Item> {
         let mut key: *mut PyObject = std::ptr::null_mut();
         let mut value: *mut PyObject = std::ptr::null_mut();
-        if unsafe { PyDict_Next(self.op, &mut self.pos, &mut key, &mut value) } == 1 {
-            Some((nonnull!(key), nonnull!(value)))
-        } else {
-            None
+        unsafe {
+            if PyDict_Next(self.op, &mut self.pos, &mut key, &mut value) == 1 {
+                Some((NonNull::new_unchecked(key), NonNull::new_unchecked(value)))
+            } else {
+                None
+            }
         }
     }
 

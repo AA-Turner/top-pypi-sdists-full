@@ -1,5 +1,4 @@
 import contextlib
-import datetime
 import json
 import pathlib
 
@@ -14,22 +13,16 @@ from . import NDARRAY_ARROW_TYPES_NOT_SUPPORTED, NDARRAY_ARROW_TYPES_SUPPORTED
 from ._util import raises_no_typeguard
 
 
-@pytest.mark.parametrize(
-    "shape", [(10,), (1, 100), (10, 1, 100), (2, 4, 6, 8), [1], (1, 2, 3, 4, 5)]
-)
+@pytest.mark.parametrize("shape", [(10,), (1, 100), (10, 1, 100), (2, 4, 6, 8), [1], (1, 2, 3, 4, 5)])
 @pytest.mark.parametrize("element_type", NDARRAY_ARROW_TYPES_SUPPORTED)
-def test_dense_nd_array_create_ok(
-    tmp_path, shape: tuple[int, ...], element_type: pa.DataType
-):
+def test_dense_nd_array_create_ok(tmp_path, shape: tuple[int, ...], element_type: pa.DataType):
     """
     Test all cases we expect "create" to succeed.
     """
     assert pa.types.is_primitive(element_type)  # sanity check incoming params
 
     with raises_no_typeguard(TypeError):
-        soma.DenseNDArray.create(
-            tmp_path.as_posix(), type=element_type.to_pandas_dtype(), shape=shape
-        )
+        soma.DenseNDArray.create(tmp_path.as_posix(), type=element_type.to_pandas_dtype(), shape=shape)
     a = soma.DenseNDArray.create(tmp_path.as_posix(), type=element_type, shape=shape)
     assert soma.DenseNDArray.exists(tmp_path.as_posix())
     assert not soma.SparseNDArray.exists(tmp_path.as_posix())
@@ -46,15 +39,16 @@ def test_dense_nd_array_create_ok(
     for d in range(len(shape)):
         assert a.schema.field(f"soma_dim_{d}").type == pa.int64()
     assert a.schema.field("soma_data").type == element_type
+    assert a.type == element_type
     assert not a.schema.field("soma_data").nullable
 
     # Ensure read mode uses clib object
     with soma.DenseNDArray.open(tmp_path.as_posix(), "r") as A:
-        assert isinstance(A._handle._handle, soma.pytiledbsoma.SOMADenseNDArray)
+        assert isinstance(A._handle, soma.pytiledbsoma.SOMADenseNDArray)
 
     # Ensure write mode uses clib object
     with soma.DenseNDArray.open(tmp_path.as_posix(), "w") as A:
-        assert isinstance(A._handle._handle, soma.pytiledbsoma.SOMADenseNDArray)
+        assert isinstance(A._handle, soma.pytiledbsoma.SOMADenseNDArray)
 
     # Ensure it cannot be opened by another type
     with pytest.raises(soma.SOMAError):
@@ -82,58 +76,9 @@ def test_dense_nd_array_create_ok(
         soma.MultiscaleImage.open(tmp_path.as_posix())
 
 
-def test_dense_nd_array_reopen(tmp_path):
-    soma.DenseNDArray.create(
-        tmp_path.as_posix(), type=pa.float64(), shape=(1,), tiledb_timestamp=1
-    )
-
-    # Ensure that reopen uses the correct mode
-    with soma.DenseNDArray.open(tmp_path.as_posix(), "r", tiledb_timestamp=1) as A1:
-        with raises_no_typeguard(ValueError):
-            A1.reopen("invalid")
-
-        with A1.reopen("w", tiledb_timestamp=2) as A2:
-            with A2.reopen("r", tiledb_timestamp=3) as A3:
-                assert A1.mode == "r"
-                assert A2.mode == "w"
-                assert A3.mode == "r"
-                assert A1.tiledb_timestamp_ms == 1
-                assert A2.tiledb_timestamp_ms == 2
-                assert A3.tiledb_timestamp_ms == 3
-
-    ts1 = datetime.datetime(2023, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    ts2 = datetime.datetime(2024, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    with soma.DenseNDArray.open(tmp_path.as_posix(), "r", tiledb_timestamp=ts1) as A1:
-        with A1.reopen("r", tiledb_timestamp=ts2) as A2:
-            assert A1.mode == "r"
-            assert A2.mode == "r"
-            assert A1.tiledb_timestamp == ts1
-            assert A2.tiledb_timestamp == ts2
-
-    with soma.DenseNDArray.open(tmp_path.as_posix(), "w", tiledb_timestamp=1) as A1:
-        with A1.reopen("w", tiledb_timestamp=2) as A2:
-            assert A1.mode == "w"
-            assert A2.mode == "w"
-            assert A1.tiledb_timestamp.timestamp() == 0.001
-            assert A2.tiledb_timestamp.timestamp() == 0.002
-
-    with soma.DenseNDArray.open(tmp_path.as_posix(), "w") as A1:
-        with A1.reopen("w", tiledb_timestamp=None) as A2:
-            with A2.reopen("w") as A3:
-                assert A1.mode == "w"
-                assert A2.mode == "w"
-                assert A3.mode == "w"
-                now = datetime.datetime.now(datetime.timezone.utc)
-                assert A1.tiledb_timestamp <= now
-                assert A2.tiledb_timestamp <= now
-                assert A3.tiledb_timestamp <= now
-
-
 @pytest.mark.parametrize("shape", [(10,)])
 @pytest.mark.parametrize("element_type", NDARRAY_ARROW_TYPES_NOT_SUPPORTED)
-def test_dense_nd_array_create_fail(
-    tmp_path, shape: tuple[int, ...], element_type: pa.DataType
-):
+def test_dense_nd_array_create_fail(tmp_path, shape: tuple[int, ...], element_type: pa.DataType):
     with pytest.raises(TypeError):
         soma.DenseNDArray.create(tmp_path.as_posix(), type=element_type, shape=shape)
 
@@ -154,9 +99,8 @@ def test_dense_nd_array_read_write_tensor(tmp_path, shape: tuple[int, ...]):
     a.close()
 
     # Array write should fail if array opened in read mode
-    with soma.DenseNDArray.open(uri) as a:
-        with pytest.raises(soma.SOMAError):
-            a.write(coords, pa.Tensor.from_numpy(data))
+    with soma.DenseNDArray.open(uri) as a, pytest.raises(soma.SOMAError):
+        a.write(coords, pa.Tensor.from_numpy(data))
 
     del a
 
@@ -172,9 +116,9 @@ def test_dense_nd_array_read_write_tensor(tmp_path, shape: tuple[int, ...]):
     with contextlib.closing(
         soma.pytiledbsoma.SOMADenseNDArray.open(
             uri,
-            soma.pytiledbsoma.OpenMode.read,
+            soma.pytiledbsoma.OpenMode.soma_read,
             soma.pytiledbsoma.SOMAContext(),
-        )
+        ),
     ) as a:
         mq = soma.pytiledbsoma.ManagedQuery(a, a.context())
         table = mq.next()["soma_data"]
@@ -274,22 +218,20 @@ def test_dense_nd_array_ned_write(tmp_path):
                     [100, 101, 102, 103, 104, 105],
                     [200, 201, 202, 203, 204, 205],
                     [300, 301, 302, 303, 304, 305],
-                ]
+                ],
             ),
         },
         {
             "name": "([:], [:]) multiple reads",
             "coords": (slice(None), slice(None)),
-            "cfg": {
-                "soma.init_buffer_bytes": 100
-            },  # Known small enough to force multiple reads
+            "cfg": {"soma.init_buffer_bytes": 100},  # Known small enough to force multiple reads
             "output": np.array(
                 [
                     [0, 1, 2, 3, 4, 5],
                     [100, 101, 102, 103, 104, 105],
                     [200, 201, 202, 203, 204, 205],
                     [300, 301, 302, 303, 304, 305],
-                ]
+                ],
             ),
         },
     ],
@@ -310,9 +252,7 @@ def test_dense_nd_array_slicing(tmp_path, io):
     nr = 4
     nc = 6
 
-    with soma.DenseNDArray.create(
-        tmp_path.as_posix(), type=pa.int64(), shape=(nr, nc), context=context
-    ) as a:
+    with soma.DenseNDArray.create(tmp_path.as_posix(), type=pa.int64(), shape=(nr, nc), context=context) as a:
         npa = np.zeros((nr, nc))
         for i in range(nr):
             for j in range(nc):
@@ -409,17 +349,14 @@ def test_dense_nd_array_indexing_errors(tmp_path, io):
     shape = io["shape"]
     read_coords = io["coords"]
 
-    with soma.DenseNDArray.create(
-        tmp_path.as_posix(), type=pa.int64(), shape=shape
-    ) as a:
+    with soma.DenseNDArray.create(tmp_path.as_posix(), type=pa.int64(), shape=shape) as a:
         npa = np.random.default_rng().standard_normal(np.prod(shape)).reshape(shape)
 
         write_coords = tuple(slice(0, dim_len) for dim_len in shape)
         a.write(coords=write_coords, values=pa.Tensor.from_numpy(npa))
 
-    with soma.DenseNDArray.open(tmp_path.as_posix()) as a:
-        with raises_no_typeguard(io["throws"]):
-            a.read(coords=read_coords).to_numpy()
+    with soma.DenseNDArray.open(tmp_path.as_posix()) as a, raises_no_typeguard(io["throws"]):
+        a.read(coords=read_coords).to_numpy()
 
 
 def test_tile_extents(tmp_path):
@@ -433,9 +370,9 @@ def test_tile_extents(tmp_path):
                     "dims": {
                         "soma_dim_0": {"tile": 512},
                         "soma_dim_1": {"tile": 512},
-                    }
-                }
-            }
+                    },
+                },
+            },
         },
     ).close()
 
@@ -462,18 +399,14 @@ def test_timestamped_ops(tmp_path):
         )
 
     # write 1 into top-left entry @ t=10
-    with soma.DenseNDArray.open(
-        tmp_path.as_posix(), mode="w", context=SOMATileDBContext(timestamp=10)
-    ) as a:
+    with soma.DenseNDArray.open(tmp_path.as_posix(), mode="w", context=SOMATileDBContext(timestamp=10)) as a:
         a.write(
             (0, 0),
             pa.Tensor.from_numpy(np.ones((1, 1), dtype=np.uint8)),
         )
 
     # write 1 into bottom-right entry @ t=20
-    with soma.DenseNDArray.open(
-        uri=tmp_path.as_posix(), mode="w", context=SOMATileDBContext(timestamp=20)
-    ) as a:
+    with soma.DenseNDArray.open(uri=tmp_path.as_posix(), mode="w", context=SOMATileDBContext(timestamp=20)) as a:
         a.write(
             (1, 1),
             pa.Tensor.from_numpy(np.ones((1, 1), dtype=np.uint8)),
@@ -487,9 +420,7 @@ def test_timestamped_ops(tmp_path):
         ]
 
     # read @ t=15 & see only the writes up til then
-    with soma.DenseNDArray.open(
-        tmp_path.as_posix(), context=SOMATileDBContext(timestamp=15)
-    ) as a:
+    with soma.DenseNDArray.open(tmp_path.as_posix(), context=SOMATileDBContext(timestamp=15)) as a:
         assert a.read((slice(0, 1), slice(0, 1))).to_numpy().tolist() == [
             [1, 0],
             [0, 0],
@@ -511,9 +442,7 @@ def test_fixed_timestamp(tmp_path: pathlib.Path):
         assert ndarr_read.tiledb_timestamp_ms == 999
         assert ndarr_read.metadata["metadata"] == "created"
 
-    with soma.open(
-        tmp_path.as_posix(), context=fixed_time, tiledb_timestamp=1000
-    ) as read_1000:
+    with soma.open(tmp_path.as_posix(), context=fixed_time, tiledb_timestamp=1000) as read_1000:
         assert read_1000.tiledb_timestamp_ms == 1000
         assert read_1000.metadata["metadata"] == "created"
 
@@ -549,11 +478,8 @@ def test_pass_configs(tmp_path):
     with soma.DenseNDArray.open(
         uri,
         "r",
-        context=soma.SOMATileDBContext(
-            {"sm.mem.total_budget": "0", "sm.io_concurrency_level": "0"}
-        ),
+        context=soma.SOMATileDBContext({"sm.mem.total_budget": "0", "sm.io_concurrency_level": "0"}),
     ) as sdf:
-
         # This errors out as 0 is not a valid value to set the total memory
         # budget or number of threads
         with pytest.raises(soma.SOMAError):
@@ -569,7 +495,7 @@ def test_pass_configs(tmp_path):
             platform_config={
                 "sm.mem.total_budget": "300000",
                 "sm.io_concurrency_level": "1",
-            }
+            },
         )
 
 
@@ -584,9 +510,7 @@ def test_read_result_order(tmp_path):
         assert np.array_equal(A.read(), data)
         assert np.array_equal(A.read(result_order="row-major"), data)
         assert np.array_equal(A.read(result_order="column-major"), data.T)
-        with pytest.warns(
-            DeprecationWarning, match="The use of 'result_order=\"auto\"' is deprecated"
-        ):
+        with pytest.raises(ValueError):
             assert np.array_equal(A.read(result_order="auto"), data)
 
 
@@ -681,9 +605,7 @@ def test_subarray_at_coords(tmp_path, shape, coords, subarray):
 
     with soma.DenseNDArray.open(uri) as dnda:
         expected = np.full(shape, -2147483648)
-        inclusive_coords = tuple(
-            slice(s.start, s.stop + 1) if isinstance(s, slice) else s for s in coords
-        )
+        inclusive_coords = tuple(slice(s.start, s.stop + 1) if isinstance(s, slice) else s for s in coords)
         expected[inclusive_coords] = subarray
         assert np.array_equal(dnda.read(), expected)
 
@@ -691,9 +613,7 @@ def test_subarray_at_coords(tmp_path, shape, coords, subarray):
 def test_use_same_slicing_semantics_61815(tmp_path):
     uri = tmp_path.as_posix()
     coords = (0, slice(0, 4))
-    subarray = pa.Tensor.from_numpy(
-        np.array([[100, 101, 102, 103, 104]], dtype=np.int8)
-    )
+    subarray = pa.Tensor.from_numpy(np.array([[100, 101, 102, 103, 104]], dtype=np.int8))
 
     soma.DenseNDArray.create(uri, type=pa.int8(), shape=(10, 5))
 
@@ -702,3 +622,13 @@ def test_use_same_slicing_semantics_61815(tmp_path):
 
     with soma.open(uri, mode="r") as A:
         assert np.array_equal(A.read(coords), subarray)
+
+
+def test_delete_cells_exception(tmp_path):
+    with soma.DenseNDArray.create(str(tmp_path), type=pa.float64(), shape=(100, 100)) as array:
+        array.close()
+
+    with soma.DenseNDArray.open(str(tmp_path), mode="d") as array:
+        assert array.mode == "d"
+        with pytest.raises(NotImplementedError):
+            array.delete_cells((slice(0, 10),))

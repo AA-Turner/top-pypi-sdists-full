@@ -14,6 +14,7 @@
 
 from collections import defaultdict
 from collections import namedtuple
+from unittest import mock
 
 import netaddr
 from neutron_lib.api.definitions import dns as dns_apidef
@@ -24,8 +25,10 @@ from neutron_lib.api.definitions import port_security as ps
 from neutron_lib import constants
 from neutron_lib import context
 from neutron_lib.db import api as db_api
+from neutron_lib.services.logapi import constants as log_const
 from neutron_lib.services.qos import constants as qos_const
 from oslo_config import cfg
+from oslo_utils import strutils
 from oslo_utils import uuidutils
 from ovsdbapp.backend.ovs_idl import idlutils
 from ovsdbapp import constants as ovsdbapp_const
@@ -37,7 +40,9 @@ from neutron.common.ovn import utils
 from neutron.conf.plugins.ml2.drivers.ovn import ovn_conf as ovn_config
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb.extensions \
     import qos as qos_extension
+from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import maintenance
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovn_db_sync
+from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovsdb_monitor
 from neutron.services.portforwarding.drivers.ovn.driver import \
     OVNPortForwarding as ovn_pf
 from neutron.services.revisions import revision_plugin
@@ -55,6 +60,13 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
     _extension_drivers = ['port_security', 'dns', 'qos', 'revision_plugin']
 
     def setUp(self, *args):
+        self._mock_has_lock = mock.patch.object(
+            maintenance.DBInconsistenciesPeriodics, 'has_lock',
+            mock.PropertyMock(return_value=True))
+        self.mock_has_lock = self._mock_has_lock.start()
+        self._mock_set_lock =mock.patch.object(
+            ovsdb_monitor.BaseOvnIdl, 'set_lock')
+        self.mock_set_lock = self._mock_set_lock.start()
         super().setUp(maintenance_worker=True)
         self.assertEqual(mysql_dialect.name, self.db.engine.dialect.name)
         ovn_config.cfg.CONF.set_override('dns_domain', 'ovn.test')
@@ -107,7 +119,7 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
             nb_idl=self.nb_api)
 
     def get_additional_service_plugins(self):
-        return {'qos': 'qos', 'segments': 'segments'}
+        return {'qos': 'qos', 'segments': 'segments', 'log': 'log'}
 
     def _api_for_resource(self, resource):
         if resource in ['security-groups']:
@@ -1080,7 +1092,7 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
 
     @staticmethod
     def _build_acl_for_pgs(priority, direction, log, name, action,
-                           severity, match, port_group, **kwargs):
+                           severity, match, meter, port_group, **kwargs):
         return {
             'priority': priority,
             'direction': direction,
@@ -1089,6 +1101,7 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
             'action': action,
             'severity': severity,
             'match': match,
+            'meter': meter,
             'external_ids': kwargs}
 
     def _validate_dhcp_opts(self, should_match=True):
@@ -1161,6 +1174,9 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
                 ovn_const.OVN_DROP_PORT_GROUP_NAME):
             db_acls.append(TestOvnNbSync._build_acl_for_pgs(**acl))
 
+        self.ovn_log_driver.add_logging_options_to_acls(db_acls,
+                                                        self.ctx)
+
         # Get the list of ACLs stored in the OVN plugin IDL.
         plugin_acls = []
         for row in _plugin_nb_ovn._tables['Logical_Switch'].rows.values():
@@ -1181,7 +1197,24 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
             for acl in getattr(row, 'acls', []):
                 monitor_acls.append(self._build_acl_to_compare(acl))
 
+        self.ovn_log_driver.add_logging_options_to_acls(monitor_acls,
+                                                        self.ctx)
+        self.ovn_log_driver.add_logging_options_to_acls(plugin_acls,
+                                                        self.ctx)
+
+        # Values taken out from list for comparison, since ACLs from OVN DB
+        # have certain values on a list of just one object
         if should_match:
+            for acl in plugin_acls:
+                if isinstance(acl['severity'], list) and acl['severity']:
+                    acl['severity'] = acl['severity'][0]
+                    acl['name'] = acl['name'][0]
+                    acl['meter'] = acl['meter'][0]
+            for acl in monitor_acls:
+                if isinstance(acl['severity'], list) and acl['severity']:
+                    acl['severity'] = acl['severity'][0]
+                    acl['name'] = acl['name'][0]
+                    acl['meter'] = acl['meter'][0]
             self.assertCountEqual(db_acls, plugin_acls)
             self.assertCountEqual(db_acls, monitor_acls)
         else:
@@ -1676,16 +1709,20 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
         # Manually sync port QoS registers.
         nb_synchronizer = ovn_db_sync.OvnNbSynchronizer(
             self.plugin, self.mech_driver.nb_ovn, self.mech_driver.sb_ovn,
-            ovn_const.OVN_DB_SYNC_MODE_LOG, self.mech_driver)
+            ovn_const.OVN_DB_SYNC_MODE_LOG, self.mech_driver,
+            is_maintenance=True)
         ctx = context.get_admin_context()
         nb_synchronizer.sync_port_qos_policies(ctx)
         self._validate_qos_records()
 
-    def _create_floatingip(self, fip_network_id, port_id, qos_policy_id):
+    def _create_floatingip(self, fip_network_id, port_id, qos_policy_id=None):
         body = {'tenant_id': self._tenant_id,
                 'floating_network_id': fip_network_id,
                 'port_id': port_id,
-                'qos_policy_id': qos_policy_id}
+                }
+        if qos_policy_id:
+            body['qos_policy_id'] = qos_policy_id
+
         return self.l3_plugin.create_floatingip(self.context,
                                                 {'floatingip': body})
 
@@ -1759,7 +1796,8 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
         # Manually sync port QoS registers.
         nb_synchronizer = ovn_db_sync.OvnNbSynchronizer(
             self.plugin, self.mech_driver.nb_ovn, self.mech_driver.sb_ovn,
-            ovn_const.OVN_DB_SYNC_MODE_LOG, self.mech_driver)
+            ovn_const.OVN_DB_SYNC_MODE_LOG, self.mech_driver,
+            is_maintenance=True)
         ctx = context.get_admin_context()
         nb_synchronizer.sync_fip_qos_policies(ctx)
         self._validate_qos_records()
@@ -1777,13 +1815,25 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
         self.assertIn('security_group_rule', sgr)
         return sgr['security_group_rule']['id']
 
-    def test_sync_acls(self):
+    def _test_sync_acls_helper(self, test_log=False,
+                               log_event=log_const.ALL_EVENT):
         data = {'security_group': {'name': 'sg1'}}
         sg_req = self.new_create_request('security-groups', data)
         res = sg_req.get_response(self.api)
         sg = self.deserialize(self.fmt, res)['security_group']
 
         sgr_ids = []
+
+        # If we are going to test ACLs with log enabled, set up a log object
+        if test_log:
+            log_data = {'log': {'project_id': self.ctx.project_id,
+            'resource_type': 'security_group',
+            'description': 'test net log',
+            'name': 'logme',
+            'enabled': True,
+            'event': log_event}}
+            log_obj = self.log_plugin.create_log(self.ctx, log_data)
+
         for tcp_port in range(8050, 8055):
             sgr_ids.append(self._create_security_group_rule(
                 sg['id'], 'ingress', tcp_port))
@@ -1813,6 +1863,66 @@ class TestOvnNbSync(testlib_api.MySQLTestCaseMixin,
         self._validate_acls(should_match=False)
         nb_synchronizer.sync_acls(ctx)
         self._validate_acls()
+
+        # Remove log object to avoid overlapping
+        if test_log:
+            log_obj = self.log_plugin.delete_log(self.ctx, log_obj['id'])
+
+    def test_sync_acls(self):
+        self._test_sync_acls_helper()
+
+    def test_sync_acls_with_logging(self):
+        self._test_sync_acls_helper(test_log=True,
+                                    log_event=log_const.ACCEPT_EVENT)
+        self._test_sync_acls_helper(test_log=True,
+                                    log_event=log_const.ALL_EVENT)
+        self._test_sync_acls_helper(test_log=True,
+                                    log_event=log_const.DROP_EVENT)
+
+    def test_sync_fip_dnat_rules(self):
+        res = self._create_network(self.fmt, 'n1_ext', True, as_admin=True,
+                                   arg_list=('router:external',),
+                                   **{'router:external': True})
+        net_ext = self.deserialize(self.fmt, res)['network']
+        res = self._create_subnet(self.fmt, net_ext['id'], '10.0.0.0/24')
+        subnet_ext = self.deserialize(self.fmt, res)['subnet']
+        res = self._create_network(self.fmt, 'n1_int', True)
+        net_int = self.deserialize(self.fmt, res)['network']
+        self._create_subnet(self.fmt, net_int['id'], '10.10.0.0/24')
+
+        # Create a router with net_ext as GW network and net_int as internal
+        # one, and a floating IP on the external network.
+        data = {'name': 'r1', 'admin_state_up': True,
+                'tenant_id': self._tenant_id,
+                'external_gateway_info': {
+                    'enable_snat': True,
+                    'network_id': net_ext['id'],
+                    'external_fixed_ips': [{'ip_address': '10.0.0.5',
+                                            'subnet_id': subnet_ext['id']}]}
+                }
+        router = self.l3_plugin.create_router(self.context, {'router': data})
+        net_int_prtr = self._make_port(self.fmt, net_int['id'],
+                                       name='n1_int-p-rtr')['port']
+        self.l3_plugin.add_router_interface(
+            self.context, router['id'], {'port_id': net_int_prtr['id']})
+
+        ovn_config.cfg.CONF.set_override('stateless_nat_enabled', True,
+                                         group='ovn')
+        fip = self._create_floatingip(net_ext['id'], net_int_prtr['id'])
+        nat = self.nb_api.get_floatingip(fip['id'])
+        stateless = strutils.bool_from_string(nat['options']['stateless'])
+        self.assertTrue(stateless)
+
+        for value in (False, True):
+            ovn_config.cfg.CONF.set_override('stateless_nat_enabled', value,
+                                             group='ovn')
+            nb_synchronizer = ovn_db_sync.OvnNbSynchronizer(
+                self.plugin, self.mech_driver.nb_ovn, self.mech_driver.sb_ovn,
+                ovn_const.OVN_DB_SYNC_MODE_REPAIR, self.mech_driver)
+            nb_synchronizer.sync_fip_dnat_rules()
+            nat = self.nb_api.get_floatingip(fip['id'])
+            stateless = strutils.bool_from_string(nat['options']['stateless'])
+            self.assertEqual(value, stateless)
 
 
 class TestOvnSbSync(base.TestOVNFunctionalBase):

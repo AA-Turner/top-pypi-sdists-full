@@ -155,7 +155,7 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-api_repsonse:
+api_response:
   description: The API response output returned by the specified resource.
   returned: always
   type: dict
@@ -224,11 +224,7 @@ def main():
     }
 
     if intersight.module.params['state'] == 'present':
-        if intersight.module.params['description']:
-            intersight.api_body['Description'] = intersight.module.params['description']
-
-        if intersight.module.params['tags']:
-            intersight.api_body['Tags'] = intersight.module.params['tags']
+        intersight.set_tags_and_description()
 
         # Add fields for static DNS servers if not using DHCP
         if not intersight.module.params['enable_ipv4_dns_from_dhcp']:
@@ -248,9 +244,6 @@ def main():
         if intersight.module.params['enable_dynamic_dns'] and intersight.module.params['dynamic_dns_domain']:
             intersight.api_body['DynamicDnsDomain'] = intersight.module.params['dynamic_dns_domain']
 
-    #
-    # Code below should be common across all policy modules
-    #
     intersight.configure_policy_or_profile(resource_path=resource_path)
 
     module.exit_json(**intersight.result)

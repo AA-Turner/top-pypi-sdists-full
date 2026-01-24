@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Module for AioHomematicExceptions.
 
@@ -21,7 +21,7 @@ class BaseHomematicException(Exception):
     """aiohomematic base exception."""
 
     def __init__(self, name: str, *args: Any) -> None:
-        """Init the AioHomematicException."""
+        """Initialize the AioHomematicException."""
         if args and isinstance(args[0], BaseException):
             self.name = args[0].__class__.__name__
             args = _reduce_args(args=args[0].args)
@@ -34,7 +34,7 @@ class ClientException(BaseHomematicException):
     """aiohomematic Client exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the ClientException."""
+        """Initialize the ClientException."""
         super().__init__("ClientException", *args)
 
 
@@ -42,7 +42,7 @@ class UnsupportedException(BaseHomematicException):
     """aiohomematic unsupported exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the UnsupportedException."""
+        """Initialize the UnsupportedException."""
         super().__init__("UnsupportedException", *args)
 
 
@@ -50,7 +50,7 @@ class ValidationException(BaseHomematicException):
     """aiohomematic validation exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the ValidationException."""
+        """Initialize the ValidationException."""
         super().__init__("ValidationException", *args)
 
 
@@ -58,15 +58,29 @@ class NoConnectionException(BaseHomematicException):
     """aiohomematic NoConnectionException exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the NoConnection."""
+        """Initialize the NoConnection."""
         super().__init__("NoConnectionException", *args)
+
+
+class CircuitBreakerOpenException(BaseHomematicException):
+    """
+    Exception raised when the circuit breaker is open.
+
+    This exception is NOT retryable because the circuit breaker has its own
+    recovery mechanism (transitions to HALF_OPEN after recovery_timeout).
+    Retrying immediately would just waste resources.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        """Initialize the CircuitBreakerOpenException."""
+        super().__init__("CircuitBreakerOpenException", *args)
 
 
 class NoClientsException(BaseHomematicException):
     """aiohomematic NoClientsException exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the NoClientsException."""
+        """Initialize the NoClientsException."""
         super().__init__("NoClientsException", *args)
 
 
@@ -74,7 +88,7 @@ class AuthFailure(BaseHomematicException):
     """aiohomematic AuthFailure exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the AuthFailure."""
+        """Initialize the AuthFailure."""
         super().__init__("AuthFailure", *args)
 
 
@@ -82,7 +96,7 @@ class AioHomematicException(BaseHomematicException):
     """aiohomematic AioHomematicException exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the AioHomematicException."""
+        """Initialize the AioHomematicException."""
         super().__init__("AioHomematicException", *args)
 
 
@@ -90,7 +104,7 @@ class AioHomematicConfigException(BaseHomematicException):
     """aiohomematic AioHomematicConfigException exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the AioHomematicConfigException."""
+        """Initialize the AioHomematicConfigException."""
         super().__init__("AioHomematicConfigException", *args)
 
 
@@ -98,30 +112,38 @@ class InternalBackendException(BaseHomematicException):
     """aiohomematic InternalBackendException exception."""
 
     def __init__(self, *args: Any) -> None:
-        """Init the InternalBackendException."""
+        """Initialize the InternalBackendException."""
         super().__init__("InternalBackendException", *args)
 
 
-def _reduce_args(args: tuple[Any, ...]) -> tuple[Any, ...] | Any:
+class DescriptionNotFoundException(BaseHomematicException):
+    """Exception raised when a device/channel description is not found in the cache."""
+
+    def __init__(self, *args: Any) -> None:
+        """Initialize the DescriptionNotFoundException."""
+        super().__init__("DescriptionNotFoundException", *args)
+
+
+def _reduce_args(*, args: tuple[Any, ...]) -> tuple[Any, ...] | Any:
     """Return the first arg, if there is only one arg."""
     return args[0] if len(args) == 1 else args
 
 
 def log_exception[**P, R](
+    *,
     exc_type: type[BaseException],
     logger: logging.Logger = _LOGGER,
     level: int = logging.ERROR,
     extra_msg: str = "",
     re_raise: bool = False,
     exc_return: Any = None,
-) -> Callable:
+) -> Callable[[Callable[P, R | Awaitable[R]]], Callable[P, R | Awaitable[R]]]:
     """Decorate methods for exception logging."""
 
     def decorator_log_exception(
         func: Callable[P, R | Awaitable[R]],
     ) -> Callable[P, R | Awaitable[R]]:
         """Decorate log exception method."""
-
         function_name = func.__name__
 
         @wraps(func)

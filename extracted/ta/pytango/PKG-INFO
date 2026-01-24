@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytango
-Version: 10.0.3
+Version: 10.1.2
 Summary: Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit
 Author: Coutinho
 Maintainer: Anton Joubert, Yury Matveyev
@@ -16,22 +16,23 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Project-URL: homepage, https://www.tango-controls.org/
 Project-URL: documentation, https://pytango.readthedocs.io
 Project-URL: repository, https://gitlab.com/tango-controls/pytango.git
 Project-URL: changelog, https://gitlab.com/tango-controls/pytango/-/releases
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: numpy<3,>=1.19.3
 Requires-Dist: packaging
 Requires-Dist: psutil>=5.3.0
 Requires-Dist: typing_extensions>=4.5.0; python_version < "3.13"
+Requires-Dist: docstring_parser
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == "telemetry"
 Requires-Dist: opentelemetry-sdk; extra == "telemetry"
@@ -41,12 +42,13 @@ Provides-Extra: tests
 Requires-Dist: gevent>=20.0; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-asyncio>=0.24; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-cov>=7.0.0; extra == "tests"
+Requires-Dist: pytest-env; extra == "tests"
 Requires-Dist: pytest-forked; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
 Description-Content-Type: text/x-rst
 
-.. image:: https://gitlab.com/tango-controls/pytango/-/raw/899d21fe85b352288d4095244f3776c7006638af/doc/_static/logo.png
+.. image:: https://gitlab.com/tango-controls/pytango/-/raw/9a45580eaaf453cd6dc12185ad951bbd214d6807/doc/_static/logo.png
    :alt: PyTango logo
    :align: center
    :width: 70%
@@ -81,12 +83,11 @@ It also adds a bit of abstraction by taking advantage of the Python capabilities
 Requirements
 ------------
 
-PyTango_ is compatible with python 3.9+.
+PyTango_ is compatible with python 3.10+.
 
 General dependencies:
 
--  cppTango_ >= 10.0.0, and its dependencies: omniORB4 and libzmq
--  `Boost.Python`_ >= 1.71
+-  cppTango_ >= 10.1.1, and its dependencies: omniORB4 and libzmq
 
 Python dependencies:
 
@@ -94,11 +95,13 @@ Python dependencies:
 -  psutil_
 -  packaging_
 -  typing-extensions_
+-  docstring_parser_
 
 Build dependencies:
 
 - pypa-build_
 - scikit-build-core_
+- pybind11_ >= 3.0.0
 - pybind11-stubgen_
 
 Optional dependencies (telemetry):
@@ -145,21 +148,19 @@ Usage
 To test the installation, import ``tango`` and check ``tango.utils.info()``::
 
     >>> import tango
-    >>> print(tango.utils.info())
-    PyTango 10.0.0.dev0 (10, 0, 0, 'dev', 0)
-    PyTango compiled with:
-        Python : 3.12.0
-        Numpy  : 1.26.2
-        Tango  : 10.0.0
-        Boost  : 1.83.0
-
-    PyTango runtime is:
-        Python : 3.12.0
-        Numpy  : 1.26.2
-        Tango  : 10.0.0
-
-    PyTango running on:
-    uname_result(system='Darwin', node='osloxf01', release='22.6.0', version='Darwin Kernel Version 22.6.0: Wed Jul  5 22:22:05 PDT 2023; root:xnu-8796.141.3~6/RELEASE_ARM64_T6000', machine='arm64')
+    >>> import tango; print(tango.utils.info())
+        PyTango 10.1.1 (10, 1, 1)
+        PyTango compiled with:
+            Python   : 3.14.0
+            Numpy    : 2.3.4
+            Tango    : 10.1.1
+            pybind11 : 3.0.1
+        PyTango runtime is:
+            Python   : 3.14.0
+            Numpy    : 2.3.4
+            Tango    : 10.1.1
+        PyTango running on:
+        uname_result(system='Linux', node='debian', release='5.10.0-35-amd64', version='#1 SMP Debian 5.10.237-1 (2025-05-19)', machine='x86_64')
 
 For an interactive use, consider using ITango_, a tango IPython_ profile.
 
@@ -213,7 +214,7 @@ All contributions,  `MR and bug reports`_ are welcome, please see: `How to Contr
 .. _pypa-build: https://github.com/pypa/build
 
 .. _cppTango: https://gitlab.com/tango-controls/cppTango
-.. _Boost.Python: https://www.boost.org/doc/libs/release/libs/python/doc/html/index.html
+.. _pybind11: https://github.com/pybind/pybind11
 .. _numpy: https://pypi.org/project/numpy
 .. _packaging: https://pypi.org/project/packaging
 .. _psutil: https://pypi.org/project/psutil
@@ -227,6 +228,7 @@ All contributions,  `MR and bug reports`_ are welcome, please see: `How to Contr
 .. _pytest-forked: https://github.com/pytest-dev/pytest-forked
 .. _pytest-cov: https://github.com/pytest-dev/pytest-cov
 .. _pytest-asyncio: https://github.com/pytest-dev/pytest-asyncio
+.. _docstring_parser: https://github.com/rr-/docstring_parser
 
 .. _ITango: https://pypi.org/project/itango/
 .. _IPython: https://ipython.org

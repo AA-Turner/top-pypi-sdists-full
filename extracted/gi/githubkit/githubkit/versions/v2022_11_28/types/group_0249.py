@@ -9,18 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class VerificationType(TypedDict):
-    """Verification"""
+class ActionsCacheRetentionLimitForRepositoryType(TypedDict):
+    """Actions cache retention limit for a repository
 
-    verified: bool
-    reason: str
-    payload: Union[str, None]
-    signature: Union[str, None]
-    verified_at: NotRequired[Union[str, None]]
+    GitHub Actions cache retention policy for a repository.
+    """
+
+    max_cache_retention_days: NotRequired[int]
 
 
-__all__ = ("VerificationType",)
+class ActionsCacheRetentionLimitForRepositoryTypeForResponse(TypedDict):
+    """Actions cache retention limit for a repository
+
+    GitHub Actions cache retention policy for a repository.
+    """
+
+    max_cache_retention_days: NotRequired[int]
+
+
+__all__ = (
+    "ActionsCacheRetentionLimitForRepositoryType",
+    "ActionsCacheRetentionLimitForRepositoryTypeForResponse",
+)

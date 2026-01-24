@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: coredis
-Version: 5.1.0
+Version: 5.6.0
 Summary: Python async client for Redis key-value store
-Home-page: https://github.com/alisaifee/coredis
-Author: Ali-Akber Saifee
-Author-email: ali@indydevs.org
-Maintainer: Ali-Akber Saifee
-Maintainer-email: ali@indydevs.org
-License: MIT
+Project-URL: Homepage, https://github.com/alisaifee/coredis
 Project-URL: Source, https://github.com/alisaifee/coredis
-Project-URL: Changes, https://github.com/alisaifee/coredis/releases
+Project-URL: Changelog, https://github.com/alisaifee/coredis/releases
 Project-URL: Documentation, https://coredis.readthedocs.org
-Keywords: Redis,key-value store,asyncio
+Author-email: Ali-Akber Saifee <ali@indydevs.org>
+Maintainer-email: Ali-Akber Saifee <ali@indydevs.org>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: Redis,asyncio,key-value store
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -20,35 +19,19 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: async_timeout<6,>4
+Requires-Dist: async-timeout<6,>4
 Requires-Dist: beartype>=0.20
 Requires-Dist: deprecated>=1.2
-Requires-Dist: typing_extensions>=4.13
 Requires-Dist: packaging<26,>=21
 Requires-Dist: pympler<2,>1
+Requires-Dist: typing-extensions>=4.13
 Provides-Extra: recipes
-Requires-Dist: aiobotocore>=2.15.2; extra == "recipes"
-Requires-Dist: asyncache>=0.3.1; extra == "recipes"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: aiobotocore>=2.15.2; extra == 'recipes'
+Requires-Dist: asyncache>=0.3.1; extra == 'recipes'
+Description-Content-Type: text/markdown
 
 # coredis
 
@@ -133,7 +116,6 @@ $ pip install coredis
 
 - [RedisJSON](https://coredis.readthedocs.org/en/latest/handbook/modules.html#redisjson)
 - [RediSearch](https://coredis.readthedocs.org/en/latest/handbook/modules.html#redisearch)
-- [RedisGraph](https://coredis.readthedocs.org/en/latest/handbook/modules.html#redisgraph)
 - [RedisBloom](https://coredis.readthedocs.org/en/latest/handbook/modules.html#redisbloom)
 - [RedisTimeSeries](https://coredis.readthedocs.org/en/latest/handbook/modules.html#redistimeseries)
 

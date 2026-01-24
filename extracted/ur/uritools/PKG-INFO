@@ -1,25 +1,24 @@
 Metadata-Version: 2.4
 Name: uritools
-Version: 5.0.0
+Version: 6.0.1
 Summary: URI parsing, classification and composition
-Home-page: https://github.com/tkem/uritools/
-Author: Thomas Kemmer
-Author-email: tkemmer@computer.org
-License: MIT
+Author-email: Thomas Kemmer <tkemmer@computer.org>
+Maintainer-email: Thomas Kemmer <tkemmer@computer.org>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/tkem/uritools/
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: license-file
 
@@ -85,7 +84,7 @@ the Python Standard Library's ``urllib.parse`` module.
 For various reasons, ``urllib.parse`` and its Python 2 predecessor
 ``urlparse`` are not compliant with current Internet standards.  As
 stated in `Lib/urllib/parse.py
-<https://github.com/python/cpython/blob/3.8/Lib/urllib/parse.py>`_:
+<https://github.com/python/cpython/blob/main/Lib/urllib/parse.py#L22>`_:
 
     RFC 3986 is considered the current standard and any future changes
     to urlparse module should conform with it.  The urlparse module is

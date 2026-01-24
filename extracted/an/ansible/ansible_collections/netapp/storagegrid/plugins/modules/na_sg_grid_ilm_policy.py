@@ -145,7 +145,8 @@ class ILM_policy(object):
         # Calling generic SG rest_api class
         self.rest_api = SGRestAPI(self.module)
         # Get API version
-        self.rest_api.get_sg_product_version(api_root="grid")
+        self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
 
         # Create body for creation request (POST with state present)
         self.data = {}
@@ -171,7 +172,7 @@ class ILM_policy(object):
     def get_ilm_policy(self):
         # Check if policy exists
         # Return info if found, or None
-        api = "api/v4/grid/ilm-policies"
+        api = "api/%s/grid/ilm-policies" % self.api_version
         response, error = self.rest_api.get(api)
 
         if error:
@@ -187,30 +188,29 @@ class ILM_policy(object):
 
     def create_ilm_policy(self):
         __LOGGING__.append("creating ILM policy with payload: %s" % (self.data))
-        api = "api/v4/grid/ilm-policies"
+        api = "api/%s/grid/ilm-policies" % self.api_version
         response, error = self.rest_api.post(api, self.data)
-        __LOGGING__.append("error: %s" % error)
 
         if error:
-            self.module.fail_json(msg=error["text"], log=__LOGGING__)
+            self.module.fail_json(msg=error, log=__LOGGING__)
 
         return response["data"]
 
     def delete_ilm_policy(self):
         __LOGGING__.append("deleting ILM policy")
-        api = "api/v4/grid/ilm-policies/%s" % self.id
+        api = "api/%s/grid/ilm-policies/%s" % (self.api_version, self.id)
 
         response, error = self.rest_api.delete(api, None)
         if error:
-            self.module.fail_json(msg=error["text"], log=__LOGGING__)
+            self.module.fail_json(msg=error, log=__LOGGING__)
 
     def update_ilm_policy(self):
         __LOGGING__.append("updating ILM policy with payload: %s" % self.data)
-        api = "api/v4/grid/ilm-policies/%s" % self.id
+        api = "api/%s/grid/ilm-policies/%s" % (self.api_version, self.id)
         response, error = self.rest_api.put(api, self.data)
 
         if error:
-            self.module.fail_json(msg=error["text"], log=__LOGGING__)
+            self.module.fail_json(msg=error, log=__LOGGING__)
 
         return response["data"]
 

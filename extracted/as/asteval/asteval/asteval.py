@@ -44,27 +44,30 @@ import inspect
 import time
 from sys import exc_info, stderr, stdout
 
-from .astutils import (HAS_NUMPY,
-                       ExceptionHolder, ReturnedNone, Empty, make_symbol_table,
-                       numpy, op2func, safe_getattr, safe_format, valid_symbol_name, Procedure)
+from .astutils import (HAS_NUMPY, ExceptionHolder, ReturnedNone,
+                       Empty, make_symbol_table, op2func,
+                       safe_getattr, safe_format, valid_symbol_name,
+                       Procedure)
 
-ALL_NODES = ['arg', 'assert', 'assign', 'attribute', 'augassign', 'binop',
-             'boolop', 'break', 'bytes', 'call', 'compare', 'constant',
-             'continue', 'delete', 'dict', 'dictcomp', 'ellipsis',
-             'excepthandler', 'expr', 'extslice', 'for', 'functiondef', 'if',
-             'ifexp', 'import', 'importfrom', 'index', 'interrupt', 'list',
-             'listcomp', 'module', 'name', 'nameconstant', 'num', 'pass',
-             'raise', 'repr', 'return', 'set', 'setcomp', 'slice', 'str',
-             'subscript', 'try', 'tuple', 'unaryop', 'while', 'with',
-             'formattedvalue', 'joinedstr']
+ALL_NODES = ['arg', 'assert', 'assign', 'attribute', 'augassign',
+             'binop', 'boolop', 'break', 'call', 'compare',
+             'constant', 'continue', 'delete', 'dict', 'dictcomp',
+             'excepthandler', 'expr', 'extslice', 'for',
+             'functiondef', 'if', 'ifexp', 'import', 'importfrom',
+             'index', 'interrupt', 'lambda', 'list', 'listcomp',
+             'module', 'name', 'pass', 'raise', 'repr', 'return',
+             'set', 'setcomp', 'slice', 'subscript', 'try', 'tuple',
+             'unaryop', 'while', 'with', 'formattedvalue',
+             'joinedstr']
 
 
 MINIMAL_CONFIG = {'import': False, 'importfrom': False}
 DEFAULT_CONFIG = {'import': False, 'importfrom': False}
 
 for _tnode in ('assert', 'augassign', 'delete', 'if', 'ifexp', 'for',
-             'formattedvalue', 'functiondef', 'print', 'raise', 'listcomp',
-             'dictcomp', 'setcomp', 'try', 'while', 'with'):
+             'formattedvalue', 'functiondef', 'print', 'raise',
+             'lambda', 'listcomp', 'dictcomp', 'setcomp', 'try',
+             'while', 'with'):
     MINIMAL_CONFIG[_tnode] = False
     DEFAULT_CONFIG[_tnode] = True
 
@@ -95,13 +98,13 @@ class Interpreter:
     minimal : bool
         create a minimal interpreter: disable many nodes (see Note 1).
     config : dict
-        dictionay listing which nodes to support (see note 2))
+        dictionary listing which nodes to support (see note 2))
 
     Notes
     -----
     1. setting `minimal=True` is equivalent to setting a config with the following
        nodes disabled: ('import', 'importfrom', 'if', 'for', 'while', 'try', 'with',
-       'functiondef', 'ifexp', 'listcomp', 'dictcomp', 'setcomp', 'augassign',
+       'functiondef', 'ifexp', 'lambda', 'listcomp', 'dictcomp', 'setcomp', 'augassign',
        'assert', 'delete', 'raise', 'print')
     2. by default 'import' and 'importfrom' are disabled, though they can be enabled.
     """
@@ -152,13 +155,14 @@ class Interpreter:
         self.lineno = 0
         self.code_text = []
         self.start_time = time.time()
-
         self.node_handlers = {}
         for node in ALL_NODES:
             handler = self.unimplemented
             if self.config.get(node, True):
                 handler = getattr(self, f"on_{node}", self.unimplemented)
             self.node_handlers[node] = handler
+
+        self.allow_unsafe_modules = self.config.get('import', False)
 
         # to rationalize try/except try/finally
         if 'try' in self.node_handlers:
@@ -186,6 +190,8 @@ class Interpreter:
         out = None
         if node in self.node_handlers:
             out = self.node_handlers.pop(node)
+        if node == 'import':
+            self.allow_unsafe_modules = False
         return out
 
     def set_nodehandler(self, node, handler=None):
@@ -193,6 +199,8 @@ class Interpreter:
         if handler is None:
             handler = getattr(self, f"on_{node}", self.unimplemented)
         self.node_handlers[node] = handler
+        if node == 'import':
+            self.allow_unsafe_modules = True
         return handler
 
     def user_defined_symbols(self):
@@ -269,7 +277,7 @@ class Interpreter:
             out = ast.parse(text)
         except SyntaxError:
             self.raise_exception(None, exc=SyntaxError, expr=text)
-        except:
+        except Exception:
             self.raise_exception(None, exc=RuntimeError, expr=text)
         out = ast.fix_missing_locations(out)
         return out
@@ -311,7 +319,7 @@ class Interpreter:
             if isinstance(ret, enumerate):
                 ret = list(ret)
             return ret
-        except:
+        except Exception:
             if with_raise and self.expr is not None:
                 self.raise_exception(node, expr=self.expr)
 
@@ -413,7 +421,7 @@ class Interpreter:
             try:
                 __import__(name)
                 thismod = sys.modules[name]
-            except:
+            except Exception:
                 self.raise_exception(None, exc=ImportError, msg='Import Error')
 
         if fromlist is None:
@@ -446,6 +454,7 @@ class Interpreter:
         self.retval = self.run(node.value)
         if self.retval is None:
             self.retval = ReturnedNone
+        self._interrupt = node
 
     def on_repr(self, node):
         """Repr."""
@@ -582,8 +591,8 @@ class Interpreter:
         sym = self.run(node.value)
         if ctx == ast.Del:
             return delattr(sym, node.attr)
-
-        return safe_getattr(sym, node.attr, self.raise_exception, node)
+        return safe_getattr(sym, node.attr, self.raise_exception, node,
+                            allow_unsafe_modules=self.allow_unsafe_modules)
 
 
     def on_assign(self, node):    # ('targets', 'value')
@@ -594,10 +603,18 @@ class Interpreter:
 
     def on_augassign(self, node):    # ('target', 'op', 'value')
         """Augmented assign."""
+        line_info = {
+            'lineno': node.lineno,
+            'col_offset': node.col_offset,
+            'end_lineno': node.end_lineno,
+            'end_col_offset': node.end_col_offset
+        }
         return self.on_assign(ast.Assign(targets=[node.target],
                                          value=ast.BinOp(left=node.target,
                                                          op=node.op,
-                                                         right=node.value)))
+                                                         right=node.value,
+                                                         **line_info),
+                                                         **line_info))
 
     def on_slice(self, node):    # ():('lower', 'upper', 'step')
         """Simple slice."""
@@ -635,8 +652,8 @@ class Interpreter:
                 while tnode.__class__ == ast.Attribute:
                     children.append(tnode.attr)
                     tnode = tnode.value
-                if (tnode.__class__ == ast.Name and not
-                    tnode.id in self.readonly_symbols):
+                if (tnode.__class__ == ast.Name and
+                    tnode.id not in self.readonly_symbols):
                     children.append(tnode.id)
                     children.reverse()
                     sname = '.'.join(children)
@@ -721,7 +738,7 @@ class Interpreter:
                 self.run(tnode)
                 if self._interrupt is not None:
                     break
-            if isinstance(self._interrupt, ast.Break):
+            if isinstance(self._interrupt, (ast.Break, ast.Return)):
                 break
         else:
             for tnode in node.orelse:
@@ -737,7 +754,7 @@ class Interpreter:
                 self.run(tnode)
                 if self._interrupt is not None:
                     break
-            if isinstance(self._interrupt, ast.Break):
+            if isinstance(self._interrupt, (ast.Break, ast.Return)):
                 break
         else:
             for tnode in node.orelse:
@@ -761,10 +778,10 @@ class Interpreter:
             self.run(bnode)
             if self._interrupt is not None:
                 break
-
         for ctx in contexts:
             if hasattr(ctx, '__exit__'):
                 ctx.__exit__()
+
 
     def _comp_save_syms(self, node):
         """find and save symbols that will be used in a comprehension"""
@@ -935,18 +952,24 @@ class Interpreter:
         """Arg for function definitions."""
         return node.arg
 
-    def on_functiondef(self, node):
+    def on_functiondef(self, node, is_lambda=False):
         """Define procedures."""
         # ('name', 'args', 'body', 'decorator_list')
-        if node.decorator_list:
-            raise Warning("decorated procedures not supported!")
+        if is_lambda:
+            name = 'lambda'
+            body = [node.body]
+        else:
+            name = node.name
+            body = node.body
+
+            if node.decorator_list:
+                raise Warning("decorated procedures not supported!")
+            if (not valid_symbol_name(name) or
+                    name in self.readonly_symbols):
+                errmsg = f"invalid function name (reserved word?) {name}"
+                self.raise_exception(node, exc=NameError, msg=errmsg)
+
         kwargs = []
-
-        if (not valid_symbol_name(node.name) or
-                node.name in self.readonly_symbols):
-            errmsg = f"invalid function name (reserved word?) {node.name}"
-            self.raise_exception(node, exc=NameError, msg=errmsg)
-
         offset = len(node.args.args) - len(node.args.defaults)
         for idef, defnode in enumerate(node.args.defaults):
             defval = self.run(defnode)
@@ -955,7 +978,7 @@ class Interpreter:
 
         args = [tnode.arg for tnode in node.args.args[:offset]]
         doc = None
-        nb0 = node.body[0]
+        nb0 = body[0]
         if isinstance(nb0, ast.Expr) and isinstance(nb0.value, ast.Constant):
             doc = nb0.value
         varkws = node.args.kwarg
@@ -964,11 +987,19 @@ class Interpreter:
             vararg = vararg.arg
         if isinstance(varkws, ast.arg):
             varkws = varkws.arg
-        self.symtable[node.name] = Procedure(node.name, self, doc=doc,
-                                             lineno=self.lineno,
-                                             body=node.body,
-                                             text=ast.unparse(node),
-                                             args=args, kwargs=kwargs,
-                                             vararg=vararg, varkws=varkws)
-        if node.name in self.no_deepcopy:
-            self.no_deepcopy.remove(node.name)
+
+        proc = Procedure(name, self, doc=doc, lineno=self.lineno,
+                         body=body, text=ast.unparse(node),
+                         args=args, kwargs=kwargs, vararg=vararg,
+                         varkws=varkws, is_lambda=is_lambda)
+
+        if is_lambda:
+            return proc
+        else:
+            self.symtable[name] = proc
+            if name in self.no_deepcopy:
+                self.no_deepcopy.remove(name)
+
+    def on_lambda(self, node):
+        """Lambda."""
+        return self.on_functiondef(node, is_lambda=True)

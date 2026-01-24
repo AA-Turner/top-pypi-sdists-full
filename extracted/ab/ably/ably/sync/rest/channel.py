@@ -1,29 +1,39 @@
 import base64
-from collections import OrderedDict
-import logging
 import json
+import logging
 import os
-from typing import Iterator
+from collections import OrderedDict
+from typing import Iterator, Optional
 from urllib import parse
 
-from methoddispatch import SingleDispatch, singledispatch
 import msgpack
 
 from ably.sync.http.paginatedresult import PaginatedResultSync, format_params
 from ably.sync.types.channeldetails import ChannelDetails
-from ably.sync.types.message import Message, make_message_response_handler
+from ably.sync.types.message import (
+    Message,
+    MessageAction,
+    MessageVersion,
+    make_message_response_handler,
+    make_single_message_response_handler,
+)
+from ably.sync.types.operations import MessageOperation, PublishResult, UpdateDeleteResult
 from ably.sync.types.presence import Presence
 from ably.sync.util.crypto import get_cipher
-from ably.sync.util.exceptions import catch_all, IncompatibleClientIdException
+from ably.sync.util.exceptions import (
+    AblyException,
+    IncompatibleClientIdException,
+    catch_all,
+)
 
 log = logging.getLogger(__name__)
 
 
-class ChannelSync(SingleDispatch):
+class ChannelSync:
     def __init__(self, ably, name, options):
         self.__ably = ably
         self.__name = name
-        self.__base_path = '/channels/%s/' % parse.quote_plus(name, safe=':')
+        self.__base_path = '/channels/{}/'.format(parse.quote_plus(name, safe=':'))
         self.__cipher = None
         self.options = options
         self.__presence = Presence(self)
@@ -48,7 +58,7 @@ class ChannelSync(SingleDispatch):
             if all(message.id is None for message in messages):
                 base_id = base64.b64encode(os.urandom(12)).decode()
                 for serial, message in enumerate(messages):
-                    message.id = '{}:{}'.format(base_id, serial)
+                    message.id = f'{base_id}:{serial}'
 
         request_body_list = []
         for m in messages:
@@ -58,8 +68,8 @@ class ChannelSync(SingleDispatch):
                     400, 40012)
             elif m.client_id is not None and not self.ably.auth.can_assume_client_id(m.client_id):
                 raise IncompatibleClientIdException(
-                    'Cannot publish with client_id \'{}\' as it is incompatible with the '
-                    'current configured client_id \'{}\''.format(m.client_id, self.ably.auth.client_id),
+                    f'Cannot publish with client_id \'{m.client_id}\' as it is incompatible with the '
+                    f'current configured client_id \'{self.ably.auth.client_id}\'',
                     400, 40012)
 
             if self.cipher:
@@ -76,15 +86,19 @@ class ChannelSync(SingleDispatch):
 
         return request_body
 
-    @singledispatch
     def _publish(self, arg, *args, **kwargs):
-        raise TypeError('Unexpected type %s' % type(arg))
+        if isinstance(arg, Message):
+            return self.publish_message(arg, *args, **kwargs)
+        elif isinstance(arg, list):
+            return self.publish_messages(arg, *args, **kwargs)
+        elif isinstance(arg, str):
+            return self.publish_name_data(arg, *args, **kwargs)
+        else:
+            raise TypeError(f'Unexpected type {type(arg)}')
 
-    @_publish.register(Message)
     def publish_message(self, message, params=None, timeout=None):
         return self.publish_messages([message], params, timeout=timeout)
 
-    @_publish.register(list)
     def publish_messages(self, messages, params=None, timeout=None):
         request_body = self.__publish_request_body(messages)
         if not self.ably.options.use_binary_protocol:
@@ -96,9 +110,14 @@ class ChannelSync(SingleDispatch):
         if params:
             params = {k: str(v).lower() if type(v) is bool else v for k, v in params.items()}
             path += '?' + parse.urlencode(params)
-        return self.ably.http.post(path, body=request_body, timeout=timeout)
+        response = self.ably.http.post(path, body=request_body, timeout=timeout)
 
-    @_publish.register(str)
+        # Parse response to extract serials
+        result_data = response.to_native()
+        if result_data and isinstance(result_data, dict):
+            return PublishResult.from_dict(result_data)
+        return PublishResult()
+
     def publish_name_data(self, name, data, timeout=None):
         messages = [Message(name, data)]
         return self.publish_messages(messages, timeout=timeout)
@@ -134,10 +153,191 @@ class ChannelSync(SingleDispatch):
     def status(self):
         """Retrieves current channel active status with no. of publishers, subscribers, presence_members etc"""
 
-        path = '/channels/%s' % self.name
+        path = f'/channels/{self.name}'
         response = self.ably.http.get(path)
         obj = response.to_native()
         return ChannelDetails.from_dict(obj)
+
+    def _send_update(
+      self,
+      message: Message,
+      action: MessageAction,
+      operation: Optional[MessageOperation] = None,
+      params: Optional[dict] = None,
+    ):
+        """Internal method to send update/delete/append operations."""
+        if not message.serial:
+            raise AblyException(
+                "Message serial is required for update/delete/append operations",
+                400,
+                40003
+            )
+
+        if not operation:
+            version = None
+        else:
+            version = MessageVersion(
+                client_id=operation.client_id,
+                description=operation.description,
+                metadata=operation.metadata
+            )
+
+        # Create a new message with the operation fields
+        update_message = Message(
+            name=message.name,
+            data=message.data,
+            client_id=message.client_id,
+            serial=message.serial,
+            action=action,
+            version=version,
+        )
+
+        # Encrypt if needed
+        if self.cipher:
+            update_message.encrypt(self.__cipher)
+
+        # Serialize the message
+        request_body = update_message.as_dict(binary=self.ably.options.use_binary_protocol)
+
+        if not self.ably.options.use_binary_protocol:
+            request_body = json.dumps(request_body, separators=(',', ':'))
+        else:
+            request_body = msgpack.packb(request_body, use_bin_type=True)
+
+        # Build path with params
+        path = self.__base_path + 'messages/{}'.format(parse.quote_plus(message.serial, safe=':'))
+        if params:
+            params = {k: str(v).lower() if type(v) is bool else v for k, v in params.items()}
+            path += '?' + parse.urlencode(params)
+
+        # Send request
+        response = self.ably.http.patch(path, body=request_body)
+
+        # Parse response
+        result_data = response.to_native()
+        if result_data and isinstance(result_data, dict):
+            return UpdateDeleteResult.from_dict(result_data)
+        return UpdateDeleteResult()
+
+    def update_message(self, message: Message, operation: MessageOperation = None, params: dict = None):
+        """Updates an existing message on this channel.
+
+        Parameters:
+        - message: Message object to update. Must have a serial field.
+        - operation: Optional MessageOperation containing description and metadata for the update.
+        - params: Optional dict of query parameters.
+
+        Returns:
+        - UpdateDeleteResult containing the version serial of the updated message.
+        """
+        return self._send_update(message, MessageAction.MESSAGE_UPDATE, operation, params)
+
+    def delete_message(self, message: Message, operation: MessageOperation = None, params: dict = None):
+        """Deletes a message on this channel.
+
+        Parameters:
+        - message: Message object to delete. Must have a serial field.
+        - operation: Optional MessageOperation containing description and metadata for the delete.
+        - params: Optional dict of query parameters.
+
+        Returns:
+        - UpdateDeleteResult containing the version serial of the deleted message.
+        """
+        return self._send_update(message, MessageAction.MESSAGE_DELETE, operation, params)
+
+    def append_message(self, message: Message, operation: MessageOperation = None, params: dict = None):
+        """Appends data to an existing message on this channel.
+
+        Parameters:
+        - message: Message object with data to append. Must have a serial field.
+        - operation: Optional MessageOperation containing description and metadata for the append.
+        - params: Optional dict of query parameters.
+
+        Returns:
+        - UpdateDeleteResult containing the version serial of the appended message.
+        """
+        return self._send_update(message, MessageAction.MESSAGE_APPEND, operation, params)
+
+    def get_message(self, serial_or_message, timeout=None):
+        """Retrieves a single message by its serial.
+
+        Parameters:
+        - serial_or_message: Either a string serial or a Message object with a serial field.
+
+        Returns:
+        - Message object for the requested serial.
+
+        Raises:
+        - AblyException: If the serial is missing or the message cannot be retrieved.
+        """
+        # Extract serial from string or Message object
+        if isinstance(serial_or_message, str):
+            serial = serial_or_message
+        elif isinstance(serial_or_message, Message):
+            serial = serial_or_message.serial
+        else:
+            serial = None
+
+        if not serial:
+            raise AblyException(
+                'This message lacks a serial. Make sure you have enabled "Message annotations, '
+                'updates, and deletes" in channel settings on your dashboard.',
+                400,
+                40003
+            )
+
+        # Build the path
+        path = self.__base_path + 'messages/' + parse.quote_plus(serial, safe=':')
+
+        # Make the request
+        response = self.ably.http.get(path, timeout=timeout)
+
+        # Create Message from the response
+        message_handler = make_single_message_response_handler(self.__cipher)
+        return message_handler(response)
+
+    def get_message_versions(self, serial_or_message, params=None):
+        """Retrieves version history for a message.
+
+        Parameters:
+        - serial_or_message: Either a string serial or a Message object with a serial field.
+        - params: Optional dict of query parameters for pagination (e.g., limit, start, end, direction).
+
+        Returns:
+        - PaginatedResult containing Message objects representing each version.
+
+        Raises:
+        - AblyException: If the serial is missing or versions cannot be retrieved.
+        """
+        # Extract serial from string or Message object
+        if isinstance(serial_or_message, str):
+            serial = serial_or_message
+        elif isinstance(serial_or_message, Message):
+            serial = serial_or_message.serial
+        else:
+            serial = None
+
+        if not serial:
+            raise AblyException(
+                'This message lacks a serial. Make sure you have enabled "Message annotations, '
+                'updates, and deletes" in channel settings on your dashboard.',
+                400,
+                40003
+            )
+
+        # Build the path
+        params_str = format_params({}, **params) if params else ''
+        path = self.__base_path + 'messages/' + parse.quote_plus(serial, safe=':') + '/versions' + params_str
+
+        # Create message handler for decoding
+        message_handler = make_message_response_handler(self.__cipher)
+
+        # Return paginated result
+        return PaginatedResultSync.paginated_query(
+            self.ably.http,
+            url=path,
+            response_processor=message_handler
+        )
 
     @property
     def ably(self):

@@ -1,7 +1,7 @@
 // This contains definitions related to the support for Python objects and Qt's
 // meta-type system.
 //
-// Copyright (c) 2025 Riverbank Computing Limited <info@riverbankcomputing.com>
+// Copyright (c) 2026 Riverbank Computing Limited <info@riverbankcomputing.com>
 // 
 // This file is part of PyQt6.
 // 
@@ -40,6 +40,7 @@ public:
     ~PyQt_PyObject();
 
     PyQt_PyObject &operator=(const PyQt_PyObject &other);
+    operator QString() const;
 
     // The Python object being wrapped.
     PyObject *pyobject;

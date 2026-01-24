@@ -15,8 +15,7 @@
 #include "src/codec/SkJpegSourceMgr.h"
 
 extern "C" {
-    #include "jpeglib.h"
-    #include "jmorecfg.h"
+    #include "jpeglib.h"  // NO_G3_REWRITE
 }
 
 #include <memory>
@@ -40,7 +39,7 @@ public:
      * Create the decode manager
      * Does not take ownership of stream
      */
-    JpegDecoderMgr(SkStream* stream);
+    explicit JpegDecoderMgr(SkStream* stream);
 
     /*
      * Initialize decompress struct
@@ -80,7 +79,7 @@ private:
         static boolean FillInputBuffer(j_decompress_ptr dinfo);
         static void TermSource(j_decompress_ptr dinfo);
 
-        SourceMgr(std::unique_ptr<SkJpegSourceMgr> mgr);
+        explicit SourceMgr(std::unique_ptr<SkJpegSourceMgr> mgr);
         std::unique_ptr<SkJpegSourceMgr> fSourceMgr;
     };
 

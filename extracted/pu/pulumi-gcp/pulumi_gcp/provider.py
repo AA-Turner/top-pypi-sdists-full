@@ -39,10 +39,12 @@ class ProviderArgs:
                  beyondcorp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  big_query_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  biglake_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 biglake_iceberg_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_analytics_hub_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_connection_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_data_transfer_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_datapolicy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 bigquery_datapolicyv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_reservation_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigtable_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -50,6 +52,7 @@ class ProviderArgs:
                  binary_authorization_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  blockchain_node_engine_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  certificate_manager_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 ces_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  chronicle_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_asset_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -62,6 +65,7 @@ class ProviderArgs:
                  cloud_run_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_run_v2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_scheduler_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 cloud_security_compliance_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_tasks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloudbuildv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  clouddeploy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -149,10 +153,12 @@ class ProviderArgs:
                  monitoring_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  netapp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_connectivity_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_connectivityv1_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_management_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_security_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_services_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  notebooks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 observability_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  oracle_database_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  org_policy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  os_config_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -255,6 +261,8 @@ class ProviderArgs:
             pulumi.set(__self__, "big_query_custom_endpoint", big_query_custom_endpoint)
         if biglake_custom_endpoint is not None:
             pulumi.set(__self__, "biglake_custom_endpoint", biglake_custom_endpoint)
+        if biglake_iceberg_custom_endpoint is not None:
+            pulumi.set(__self__, "biglake_iceberg_custom_endpoint", biglake_iceberg_custom_endpoint)
         if bigquery_analytics_hub_custom_endpoint is not None:
             pulumi.set(__self__, "bigquery_analytics_hub_custom_endpoint", bigquery_analytics_hub_custom_endpoint)
         if bigquery_connection_custom_endpoint is not None:
@@ -263,6 +271,8 @@ class ProviderArgs:
             pulumi.set(__self__, "bigquery_data_transfer_custom_endpoint", bigquery_data_transfer_custom_endpoint)
         if bigquery_datapolicy_custom_endpoint is not None:
             pulumi.set(__self__, "bigquery_datapolicy_custom_endpoint", bigquery_datapolicy_custom_endpoint)
+        if bigquery_datapolicyv2_custom_endpoint is not None:
+            pulumi.set(__self__, "bigquery_datapolicyv2_custom_endpoint", bigquery_datapolicyv2_custom_endpoint)
         if bigquery_reservation_custom_endpoint is not None:
             pulumi.set(__self__, "bigquery_reservation_custom_endpoint", bigquery_reservation_custom_endpoint)
         if bigtable_custom_endpoint is not None:
@@ -277,6 +287,8 @@ class ProviderArgs:
             pulumi.set(__self__, "blockchain_node_engine_custom_endpoint", blockchain_node_engine_custom_endpoint)
         if certificate_manager_custom_endpoint is not None:
             pulumi.set(__self__, "certificate_manager_custom_endpoint", certificate_manager_custom_endpoint)
+        if ces_custom_endpoint is not None:
+            pulumi.set(__self__, "ces_custom_endpoint", ces_custom_endpoint)
         if chronicle_custom_endpoint is not None:
             pulumi.set(__self__, "chronicle_custom_endpoint", chronicle_custom_endpoint)
         if cloud_asset_custom_endpoint is not None:
@@ -301,6 +313,8 @@ class ProviderArgs:
             pulumi.set(__self__, "cloud_run_v2_custom_endpoint", cloud_run_v2_custom_endpoint)
         if cloud_scheduler_custom_endpoint is not None:
             pulumi.set(__self__, "cloud_scheduler_custom_endpoint", cloud_scheduler_custom_endpoint)
+        if cloud_security_compliance_custom_endpoint is not None:
+            pulumi.set(__self__, "cloud_security_compliance_custom_endpoint", cloud_security_compliance_custom_endpoint)
         if cloud_tasks_custom_endpoint is not None:
             pulumi.set(__self__, "cloud_tasks_custom_endpoint", cloud_tasks_custom_endpoint)
         if cloudbuildv2_custom_endpoint is not None:
@@ -475,6 +489,8 @@ class ProviderArgs:
             pulumi.set(__self__, "netapp_custom_endpoint", netapp_custom_endpoint)
         if network_connectivity_custom_endpoint is not None:
             pulumi.set(__self__, "network_connectivity_custom_endpoint", network_connectivity_custom_endpoint)
+        if network_connectivityv1_custom_endpoint is not None:
+            pulumi.set(__self__, "network_connectivityv1_custom_endpoint", network_connectivityv1_custom_endpoint)
         if network_management_custom_endpoint is not None:
             pulumi.set(__self__, "network_management_custom_endpoint", network_management_custom_endpoint)
         if network_security_custom_endpoint is not None:
@@ -483,6 +499,8 @@ class ProviderArgs:
             pulumi.set(__self__, "network_services_custom_endpoint", network_services_custom_endpoint)
         if notebooks_custom_endpoint is not None:
             pulumi.set(__self__, "notebooks_custom_endpoint", notebooks_custom_endpoint)
+        if observability_custom_endpoint is not None:
+            pulumi.set(__self__, "observability_custom_endpoint", observability_custom_endpoint)
         if oracle_database_custom_endpoint is not None:
             pulumi.set(__self__, "oracle_database_custom_endpoint", oracle_database_custom_endpoint)
         if org_policy_custom_endpoint is not None:
@@ -784,6 +802,15 @@ class ProviderArgs:
         pulumi.set(self, "biglake_custom_endpoint", value)
 
     @_builtins.property
+    @pulumi.getter(name="biglakeIcebergCustomEndpoint")
+    def biglake_iceberg_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "biglake_iceberg_custom_endpoint")
+
+    @biglake_iceberg_custom_endpoint.setter
+    def biglake_iceberg_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "biglake_iceberg_custom_endpoint", value)
+
+    @_builtins.property
     @pulumi.getter(name="bigqueryAnalyticsHubCustomEndpoint")
     def bigquery_analytics_hub_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "bigquery_analytics_hub_custom_endpoint")
@@ -818,6 +845,15 @@ class ProviderArgs:
     @bigquery_datapolicy_custom_endpoint.setter
     def bigquery_datapolicy_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "bigquery_datapolicy_custom_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryDatapolicyv2CustomEndpoint")
+    def bigquery_datapolicyv2_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "bigquery_datapolicyv2_custom_endpoint")
+
+    @bigquery_datapolicyv2_custom_endpoint.setter
+    def bigquery_datapolicyv2_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bigquery_datapolicyv2_custom_endpoint", value)
 
     @_builtins.property
     @pulumi.getter(name="bigqueryReservationCustomEndpoint")
@@ -881,6 +917,15 @@ class ProviderArgs:
     @certificate_manager_custom_endpoint.setter
     def certificate_manager_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "certificate_manager_custom_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="cesCustomEndpoint")
+    def ces_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "ces_custom_endpoint")
+
+    @ces_custom_endpoint.setter
+    def ces_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "ces_custom_endpoint", value)
 
     @_builtins.property
     @pulumi.getter(name="chronicleCustomEndpoint")
@@ -989,6 +1034,15 @@ class ProviderArgs:
     @cloud_scheduler_custom_endpoint.setter
     def cloud_scheduler_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "cloud_scheduler_custom_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="cloudSecurityComplianceCustomEndpoint")
+    def cloud_security_compliance_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "cloud_security_compliance_custom_endpoint")
+
+    @cloud_security_compliance_custom_endpoint.setter
+    def cloud_security_compliance_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "cloud_security_compliance_custom_endpoint", value)
 
     @_builtins.property
     @pulumi.getter(name="cloudTasksCustomEndpoint")
@@ -1774,6 +1828,15 @@ class ProviderArgs:
         pulumi.set(self, "network_connectivity_custom_endpoint", value)
 
     @_builtins.property
+    @pulumi.getter(name="networkConnectivityv1CustomEndpoint")
+    def network_connectivityv1_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "network_connectivityv1_custom_endpoint")
+
+    @network_connectivityv1_custom_endpoint.setter
+    def network_connectivityv1_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "network_connectivityv1_custom_endpoint", value)
+
+    @_builtins.property
     @pulumi.getter(name="networkManagementCustomEndpoint")
     def network_management_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "network_management_custom_endpoint")
@@ -1808,6 +1871,15 @@ class ProviderArgs:
     @notebooks_custom_endpoint.setter
     def notebooks_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "notebooks_custom_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="observabilityCustomEndpoint")
+    def observability_custom_endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "observability_custom_endpoint")
+
+    @observability_custom_endpoint.setter
+    def observability_custom_endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "observability_custom_endpoint", value)
 
     @_builtins.property
     @pulumi.getter(name="oracleDatabaseCustomEndpoint")
@@ -2384,10 +2456,12 @@ class Provider(pulumi.ProviderResource):
                  beyondcorp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  big_query_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  biglake_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 biglake_iceberg_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_analytics_hub_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_connection_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_data_transfer_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_datapolicy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 bigquery_datapolicyv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_reservation_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigtable_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2395,6 +2469,7 @@ class Provider(pulumi.ProviderResource):
                  binary_authorization_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  blockchain_node_engine_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  certificate_manager_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 ces_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  chronicle_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_asset_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2407,6 +2482,7 @@ class Provider(pulumi.ProviderResource):
                  cloud_run_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_run_v2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_scheduler_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 cloud_security_compliance_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_tasks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloudbuildv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  clouddeploy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2494,10 +2570,12 @@ class Provider(pulumi.ProviderResource):
                  monitoring_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  netapp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_connectivity_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_connectivityv1_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_management_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_security_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_services_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  notebooks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 observability_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  oracle_database_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  org_policy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  os_config_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2615,10 +2693,12 @@ class Provider(pulumi.ProviderResource):
                  beyondcorp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  big_query_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  biglake_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 biglake_iceberg_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_analytics_hub_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_connection_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_data_transfer_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_datapolicy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 bigquery_datapolicyv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigquery_reservation_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  bigtable_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2626,6 +2706,7 @@ class Provider(pulumi.ProviderResource):
                  binary_authorization_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  blockchain_node_engine_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  certificate_manager_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 ces_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  chronicle_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_asset_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_billing_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2638,6 +2719,7 @@ class Provider(pulumi.ProviderResource):
                  cloud_run_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_run_v2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_scheduler_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 cloud_security_compliance_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloud_tasks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  cloudbuildv2_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  clouddeploy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2725,10 +2807,12 @@ class Provider(pulumi.ProviderResource):
                  monitoring_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  netapp_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_connectivity_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_connectivityv1_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_management_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_security_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  network_services_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  notebooks_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
+                 observability_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  oracle_database_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  org_policy_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  os_config_custom_endpoint: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2818,10 +2902,12 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["beyondcorp_custom_endpoint"] = beyondcorp_custom_endpoint
             __props__.__dict__["big_query_custom_endpoint"] = big_query_custom_endpoint
             __props__.__dict__["biglake_custom_endpoint"] = biglake_custom_endpoint
+            __props__.__dict__["biglake_iceberg_custom_endpoint"] = biglake_iceberg_custom_endpoint
             __props__.__dict__["bigquery_analytics_hub_custom_endpoint"] = bigquery_analytics_hub_custom_endpoint
             __props__.__dict__["bigquery_connection_custom_endpoint"] = bigquery_connection_custom_endpoint
             __props__.__dict__["bigquery_data_transfer_custom_endpoint"] = bigquery_data_transfer_custom_endpoint
             __props__.__dict__["bigquery_datapolicy_custom_endpoint"] = bigquery_datapolicy_custom_endpoint
+            __props__.__dict__["bigquery_datapolicyv2_custom_endpoint"] = bigquery_datapolicyv2_custom_endpoint
             __props__.__dict__["bigquery_reservation_custom_endpoint"] = bigquery_reservation_custom_endpoint
             __props__.__dict__["bigtable_custom_endpoint"] = bigtable_custom_endpoint
             __props__.__dict__["billing_custom_endpoint"] = billing_custom_endpoint
@@ -2829,6 +2915,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["binary_authorization_custom_endpoint"] = binary_authorization_custom_endpoint
             __props__.__dict__["blockchain_node_engine_custom_endpoint"] = blockchain_node_engine_custom_endpoint
             __props__.__dict__["certificate_manager_custom_endpoint"] = certificate_manager_custom_endpoint
+            __props__.__dict__["ces_custom_endpoint"] = ces_custom_endpoint
             __props__.__dict__["chronicle_custom_endpoint"] = chronicle_custom_endpoint
             __props__.__dict__["cloud_asset_custom_endpoint"] = cloud_asset_custom_endpoint
             __props__.__dict__["cloud_billing_custom_endpoint"] = cloud_billing_custom_endpoint
@@ -2841,6 +2928,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["cloud_run_custom_endpoint"] = cloud_run_custom_endpoint
             __props__.__dict__["cloud_run_v2_custom_endpoint"] = cloud_run_v2_custom_endpoint
             __props__.__dict__["cloud_scheduler_custom_endpoint"] = cloud_scheduler_custom_endpoint
+            __props__.__dict__["cloud_security_compliance_custom_endpoint"] = cloud_security_compliance_custom_endpoint
             __props__.__dict__["cloud_tasks_custom_endpoint"] = cloud_tasks_custom_endpoint
             __props__.__dict__["cloudbuildv2_custom_endpoint"] = cloudbuildv2_custom_endpoint
             __props__.__dict__["clouddeploy_custom_endpoint"] = clouddeploy_custom_endpoint
@@ -2928,10 +3016,12 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["monitoring_custom_endpoint"] = monitoring_custom_endpoint
             __props__.__dict__["netapp_custom_endpoint"] = netapp_custom_endpoint
             __props__.__dict__["network_connectivity_custom_endpoint"] = network_connectivity_custom_endpoint
+            __props__.__dict__["network_connectivityv1_custom_endpoint"] = network_connectivityv1_custom_endpoint
             __props__.__dict__["network_management_custom_endpoint"] = network_management_custom_endpoint
             __props__.__dict__["network_security_custom_endpoint"] = network_security_custom_endpoint
             __props__.__dict__["network_services_custom_endpoint"] = network_services_custom_endpoint
             __props__.__dict__["notebooks_custom_endpoint"] = notebooks_custom_endpoint
+            __props__.__dict__["observability_custom_endpoint"] = observability_custom_endpoint
             __props__.__dict__["oracle_database_custom_endpoint"] = oracle_database_custom_endpoint
             __props__.__dict__["org_policy_custom_endpoint"] = org_policy_custom_endpoint
             __props__.__dict__["os_config_custom_endpoint"] = os_config_custom_endpoint
@@ -3093,6 +3183,11 @@ class Provider(pulumi.ProviderResource):
         return pulumi.get(self, "biglake_custom_endpoint")
 
     @_builtins.property
+    @pulumi.getter(name="biglakeIcebergCustomEndpoint")
+    def biglake_iceberg_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "biglake_iceberg_custom_endpoint")
+
+    @_builtins.property
     @pulumi.getter(name="bigqueryAnalyticsHubCustomEndpoint")
     def bigquery_analytics_hub_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "bigquery_analytics_hub_custom_endpoint")
@@ -3111,6 +3206,11 @@ class Provider(pulumi.ProviderResource):
     @pulumi.getter(name="bigqueryDatapolicyCustomEndpoint")
     def bigquery_datapolicy_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "bigquery_datapolicy_custom_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="bigqueryDatapolicyv2CustomEndpoint")
+    def bigquery_datapolicyv2_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "bigquery_datapolicyv2_custom_endpoint")
 
     @_builtins.property
     @pulumi.getter(name="bigqueryReservationCustomEndpoint")
@@ -3146,6 +3246,11 @@ class Provider(pulumi.ProviderResource):
     @pulumi.getter(name="certificateManagerCustomEndpoint")
     def certificate_manager_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "certificate_manager_custom_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="cesCustomEndpoint")
+    def ces_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "ces_custom_endpoint")
 
     @_builtins.property
     @pulumi.getter(name="chronicleCustomEndpoint")
@@ -3206,6 +3311,11 @@ class Provider(pulumi.ProviderResource):
     @pulumi.getter(name="cloudSchedulerCustomEndpoint")
     def cloud_scheduler_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "cloud_scheduler_custom_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="cloudSecurityComplianceCustomEndpoint")
+    def cloud_security_compliance_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "cloud_security_compliance_custom_endpoint")
 
     @_builtins.property
     @pulumi.getter(name="cloudTasksCustomEndpoint")
@@ -3623,6 +3733,11 @@ class Provider(pulumi.ProviderResource):
         return pulumi.get(self, "network_connectivity_custom_endpoint")
 
     @_builtins.property
+    @pulumi.getter(name="networkConnectivityv1CustomEndpoint")
+    def network_connectivityv1_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "network_connectivityv1_custom_endpoint")
+
+    @_builtins.property
     @pulumi.getter(name="networkManagementCustomEndpoint")
     def network_management_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "network_management_custom_endpoint")
@@ -3641,6 +3756,11 @@ class Provider(pulumi.ProviderResource):
     @pulumi.getter(name="notebooksCustomEndpoint")
     def notebooks_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "notebooks_custom_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="observabilityCustomEndpoint")
+    def observability_custom_endpoint(self) -> pulumi.Output[Optional[_builtins.str]]:
+        return pulumi.get(self, "observability_custom_endpoint")
 
     @_builtins.property
     @pulumi.getter(name="oracleDatabaseCustomEndpoint")

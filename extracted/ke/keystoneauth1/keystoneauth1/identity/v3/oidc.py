@@ -28,7 +28,7 @@ from keystoneauth1 import exceptions
 from keystoneauth1.identity.v3 import federation
 from keystoneauth1 import session as ks_session
 
-_logger = utils.get_logger(__name__)
+LOG = utils.get_logger(__name__)
 
 __all__ = (
     'OidcAuthorizationCode',
@@ -172,14 +172,16 @@ class _OidcBase(federation.FederationBaseAuth, metaclass=abc.ABCMeta):
                     self.discovery_endpoint, authenticated=False
                 )
             except exceptions.HttpError:
-                _logger.error(
-                    f"Cannot fetch discovery document {self.discovery_endpoint}"
+                LOG.error(
+                    "Cannot fetch discovery document %s",
+                    self.discovery_endpoint,
                 )
                 raise
 
             try:
                 self._discovery_document = resp.json()
-            except Exception:
+            except Exception:  # noqa: S110
+                # we handle this below
                 pass
 
             if not self._discovery_document:
@@ -244,9 +246,9 @@ class _OidcBase(federation.FederationBaseAuth, metaclass=abc.ABCMeta):
             payload.setdefault('client_id', self.client_id)
         access_token_endpoint = self._get_access_token_endpoint(session)
 
-        if _logger.isEnabledFor(logging.DEBUG):
+        if LOG.isEnabledFor(logging.DEBUG):
             sanitized_payload = self._sanitize(payload)
-            _logger.debug(
+            LOG.debug(
                 "Making OpenID-Connect authentication request to %s with "
                 "data %s",
                 access_token_endpoint,
@@ -261,9 +263,9 @@ class _OidcBase(federation.FederationBaseAuth, metaclass=abc.ABCMeta):
             authenticated=False,
         )
         response = op_response.json()
-        if _logger.isEnabledFor(logging.DEBUG):
+        if LOG.isEnabledFor(logging.DEBUG):
             sanitized_response = self._sanitize(response)
-            _logger.debug(
+            LOG.debug(
                 "OpenID-Connect authentication response from %s is %s",
                 access_token_endpoint,
                 sanitized_response,
@@ -381,7 +383,7 @@ class OidcPassword(_OidcBase):
         protocol: str,
         client_id: str,
         client_secret: str,
-        access_token_type: str = 'access_token',  # nosec B107
+        access_token_type: str = 'access_token',  # noqa: S107
         scope: str = 'openid profile',
         access_token_endpoint: str | None = None,
         discovery_endpoint: str | None = None,
@@ -500,7 +502,7 @@ class OidcClientCredentials(_OidcBase):
         protocol: str,
         client_id: str,
         client_secret: str,
-        access_token_type: str = 'access_token',  # nosec B107
+        access_token_type: str = 'access_token',  # noqa: S107
         scope: str = 'openid profile',
         access_token_endpoint: str | None = None,
         discovery_endpoint: str | None = None,
@@ -573,7 +575,7 @@ class OidcAuthorizationCode(_OidcBase):
         protocol: str,
         client_id: str,
         client_secret: str,
-        access_token_type: str = 'access_token',  # nosec B107
+        access_token_type: str = 'access_token',  # noqa: S107
         scope: str = 'openid profile',
         access_token_endpoint: str | None = None,
         discovery_endpoint: str | None = None,
@@ -650,7 +652,7 @@ class OidcAccessToken(_OidcBase):
         protocol: str,
         # client_id and client_id intentionally omitted since they don't make
         # sense with an access token
-        access_token_type: str = 'access_token',  # nosec B107
+        access_token_type: str = 'access_token',  # noqa: S107
         scope: str = 'openid profile',
         access_token_endpoint: str | None = None,
         discovery_endpoint: str | None = None,
@@ -753,7 +755,7 @@ class OidcDeviceAuthorization(_OidcBase):
         protocol: str,
         client_id: str,
         client_secret: str | None = None,
-        access_token_type: str = "access_token",  # nosec B107
+        access_token_type: str = "access_token",  # noqa: S107
         scope: str = 'openid profile',
         access_token_endpoint: str | None = None,
         discovery_endpoint: str | None = None,
@@ -897,9 +899,9 @@ class OidcDeviceAuthorization(_OidcBase):
             payload.setdefault('code_challenge', self.code_challenge)
         encoded_payload = urlparse.urlencode(payload)
 
-        if _logger.isEnabledFor(logging.DEBUG):
+        if LOG.isEnabledFor(logging.DEBUG):
             sanitized_payload = self._sanitize(payload)
-            _logger.debug(
+            LOG.debug(
                 "Making OpenID-Connect authentication request to %s with "
                 "data %s",
                 device_authz_endpoint,
@@ -913,9 +915,9 @@ class OidcDeviceAuthorization(_OidcBase):
             log=False,
             authenticated=False,
         )
-        if _logger.isEnabledFor(logging.DEBUG):
+        if LOG.isEnabledFor(logging.DEBUG):
             sanitized_response = self._sanitize(op_response.json())
-            _logger.debug(
+            LOG.debug(
                 "OpenID-Connect authentication response from %s is %s",
                 device_authz_endpoint,
                 sanitized_response,
@@ -952,16 +954,18 @@ class OidcDeviceAuthorization(_OidcBase):
                     'device_code': self.device_code,
                 }
         :type payload: dict
-        """
+        """  # noqa: E501
         # verification_uri_complete is optional and not implemented by EntraID
         if self.verification_uri_complete:
-            _logger.warning(
-                f"To authenticate please go to: {self.verification_uri_complete}"
+            LOG.warning(
+                "To authenticate please go to: %s",
+                self.verification_uri_complete,
             )
         else:
-            _logger.warning(
-                f"To authenticate please go to {self.verification_uri} "
-                f"and enter the code {self.user_code}"
+            LOG.warning(
+                "To authenticate please go to %s and enter the code %s",
+                self.verification_uri,
+                self.user_code,
             )
 
         if self.client_secret:
@@ -979,9 +983,9 @@ class OidcDeviceAuthorization(_OidcBase):
 
         while time.time() < self.timeout:
             try:
-                if _logger.isEnabledFor(logging.DEBUG):
+                if LOG.isEnabledFor(logging.DEBUG):
                     sanitized_payload = self._sanitize(payload)
-                    _logger.debug(
+                    LOG.debug(
                         "Making OpenID-Connect authentication request to %s "
                         "with data %s",
                         access_token_endpoint,
@@ -995,9 +999,9 @@ class OidcDeviceAuthorization(_OidcBase):
                     log=False,
                     authenticated=False,
                 )
-                if _logger.isEnabledFor(logging.DEBUG):
+                if LOG.isEnabledFor(logging.DEBUG):
                     sanitized_response = self._sanitize(op_response.json())
-                    _logger.debug(
+                    LOG.debug(
                         "OpenID-Connect authentication response from %s is %s",
                         access_token_endpoint,
                         sanitized_response,

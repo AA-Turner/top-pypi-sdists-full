@@ -1,0 +1,31 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.17                                                                                #
+# Generated on 2026-01-22T21:47:05.907241                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+
+from ..._vendor.packaging import tags as tags
+from ...exception import MetaflowException as MetaflowException
+
+MICROMAMBA_URL: str
+
+MICROMAMBA_MIRROR_URL: str
+
+def conda_platform():
+    ...
+
+def markers_from_platform(platform):
+    ...
+
+def wheel_tags(wheel):
+    ...
+
+def pip_tags(python_version, mamba_platform, freetheaded = False):
+    ...
+
+def parse_filename_from_url(url):
+    ...
+

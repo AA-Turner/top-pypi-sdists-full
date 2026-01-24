@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2021, 2024 by Rocky Bernstein
+# Copyright (c) 2015-2021, 2024-2025 by Rocky Bernstein
 # Copyright (c) 2000-2002 by hartmut Goebel <h.goebel@crazy-compilers.com>
 #
 #  This program is free software; you can redistribute it and/or
@@ -29,16 +29,17 @@ object.
 import io
 import sys
 from struct import unpack
+from types import EllipsisType
 from typing import Union
 
 from xdis.codetype import to_portable
 from xdis.cross_types import LongTypeForPython3, UnicodeForPython3
 from xdis.magics import GRAAL3_MAGICS, PYPY3_MAGICS, RUSTPYTHON_MAGICS, magic_int2tuple
-from xdis.version_info import PYTHON3, PYTHON_VERSION_TRIPLE
+from xdis.version_info import PYTHON3, PYTHON_VERSION_TRIPLE, version_tuple_to_str
 
 if PYTHON3:
 
-    def long(n):
+    def long(n: int) -> LongTypeForPython3:
         return LongTypeForPython3(n)
 
 else:
@@ -114,7 +115,7 @@ def compat_str(s: Union[str, bytes]) -> Union[str, bytes]:
         return s
 
 
-def compat_u2s(u):
+def compat_u2s(u) -> bytes | str:
     if PYTHON_VERSION_TRIPLE < (3, 0):
         # See also ``unaccent.py`` which can be found using Google. I
         # found it and this code via
@@ -130,7 +131,7 @@ def compat_u2s(u):
 
 
 class _VersionIndependentUnmarshaller:
-    def __init__(self, fp, magic_int, bytes_for_s, code_objects={}):
+    def __init__(self, fp, magic_int, bytes_for_s, code_objects={}) -> None:
         """
         Marshal versions:
             0/Historical: Until 2.4/magic int 62041
@@ -141,8 +142,6 @@ class _VersionIndependentUnmarshaller:
 
         In Python 3, a ``bytes`` type is used for strings.
         """
-        if magic_int in RUSTPYTHON_MAGICS:
-            raise NotImplementedError("RustPython not supported yet")
         self.fp = fp
         self.magic_int = magic_int
         self.code_objects = code_objects
@@ -166,6 +165,12 @@ class _VersionIndependentUnmarshaller:
         self.version_tuple = tuple()
         self.is_graal = magic_int in GRAAL3_MAGICS
         self.is_pypy = magic_int in PYPY3_MAGICS
+        self.is_rust = magic_int in RUSTPYTHON_MAGICS
+
+        if magic_int in RUSTPYTHON_MAGICS:
+            raise NotImplementedError(
+                f"RustPython {version_tuple_to_str(version)} is not supported yet."
+            )
 
     def load(self):
         """
@@ -193,7 +198,7 @@ class _VersionIndependentUnmarshaller:
             self.internObjects.append(obj)
         return obj, i
 
-    def r_ref_insert(self, obj, i):
+    def r_ref_insert(self, obj, i: int | None):
         if i is not None:
             self.internObjects[i] = obj
         return obj
@@ -204,7 +209,7 @@ class _VersionIndependentUnmarshaller:
         return obj
 
     # In marshal.c this is one big case statement
-    def r_object(self, bytes_for_s=False):
+    def r_object(self, bytes_for_s: bool = False):
         """
         In Python3 strings are bytes type
         """
@@ -242,28 +247,30 @@ class _VersionIndependentUnmarshaller:
 
     # In C this NULL. Not sure what it should
     # translate here. Note NULL != None which is below
-    def t_C_NULL(self, save_ref, bytes_for_s=False):
+    def t_C_NULL(self, save_ref, bytes_for_s: bool = False) -> None:
         return None
 
-    def t_None(self, save_ref, bytes_for_s=False):
+    def t_None(self, save_ref, bytes_for_s: bool = False) -> None:
         return None
 
-    def t_stopIteration(self, save_ref, bytes_for_s=False):
+    def t_stopIteration(
+        self, save_ref, bytes_for_s: bool = False
+    ) -> type[StopIteration]:
         return StopIteration
 
-    def t_Ellipsis(self, save_ref, bytes_for_s=False):
+    def t_Ellipsis(self, save_ref, bytes_for_s: bool = False) -> EllipsisType:
         return Ellipsis
 
-    def t_False(self, save_ref, bytes_for_s=False):
+    def t_False(self, save_ref, bytes_for_s: bool = False) -> bool:
         return False
 
-    def t_True(self, save_ref, bytes_for_s=False):
+    def t_True(self, save_ref, bytes_for_s: bool = False) -> bool:
         return True
 
-    def t_int32(self, save_ref, bytes_for_s=False):
+    def t_int32(self, save_ref, bytes_for_s: bool = False):
         return self.r_ref(int(unpack("<i", self.fp.read(4))[0]), save_ref)
 
-    def t_long(self, save_ref, bytes_for_s=False):
+    def t_long(self, save_ref, bytes_for_s: bool = False):
         n = unpack("<i", self.fp.read(4))[0]
         if n == 0:
             return long(0)
@@ -281,22 +288,22 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(d, save_ref)
 
     # Python 3.4 removed this.
-    def t_int64(self, save_ref, bytes_for_s=False):
+    def t_int64(self, save_ref, bytes_for_s: bool = False):
         obj = unpack("<q", self.fp.read(8))[0]
         if save_ref:
             self.internObjects.append(obj)
         return obj
 
     # float - Seems not in use after Python 2.4
-    def t_float(self, save_ref, bytes_for_s=False):
+    def t_float(self, save_ref, bytes_for_s: bool = False):
         strsize = unpack("B", self.fp.read(1))[0]
         s = self.fp.read(strsize)
         return self.r_ref(float(s), save_ref)
 
-    def t_binary_float(self, save_ref, bytes_for_s=False):
+    def t_binary_float(self, save_ref, bytes_for_s: bool = False):
         return self.r_ref(float(unpack("<d", self.fp.read(8))[0]), save_ref)
 
-    def t_complex(self, save_ref, bytes_for_s=False):
+    def t_complex(self, save_ref, bytes_for_s: bool = False):
         def unpack_pre_24() -> float:
             return float(self.fp.read(unpack("B", self.fp.read(1))[0]))
 
@@ -309,7 +316,7 @@ class _VersionIndependentUnmarshaller:
         imag = get_float()
         return self.r_ref(complex(real, imag), save_ref)
 
-    def t_binary_complex(self, save_ref, bytes_for_s=False):
+    def t_binary_complex(self, save_ref, bytes_for_s: bool = False):
         # binary complex
         real = unpack("<d", self.fp.read(8))[0]
         imag = unpack("<d", self.fp.read(8))[0]
@@ -328,7 +335,7 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(s, save_ref)
 
     # Python 3.4
-    def t_ASCII_interned(self, save_ref, bytes_for_s=False):
+    def t_ASCII_interned(self, save_ref, bytes_for_s: bool = False):
         """
         There are true strings in Python3 as opposed to
         bytes. "interned" just means we keep a reference to
@@ -341,7 +348,7 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(interned, save_ref)
 
     # Since Python 3.4
-    def t_ASCII(self, save_ref, bytes_for_s=False):
+    def t_ASCII(self, save_ref, bytes_for_s: bool = False):
         """
         There are true strings in Python3 as opposed to
         bytes.
@@ -352,12 +359,12 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(s, save_ref)
 
     # Since Python 3.4
-    def t_short_ASCII(self, save_ref, bytes_for_s=False):
+    def t_short_ASCII(self, save_ref, bytes_for_s: bool = False):
         strsize = unpack("B", self.fp.read(1))[0]
         return self.r_ref(compat_str(self.fp.read(strsize)), save_ref)
 
     # Since Python 3.4
-    def t_short_ASCII_interned(self, save_ref, bytes_for_s=False):
+    def t_short_ASCII_interned(self, save_ref, bytes_for_s: bool = False):
         # FIXME: check
         strsize = unpack("B", self.fp.read(1))[0]
         interned = compat_str(self.fp.read(strsize))
@@ -365,13 +372,13 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(interned, save_ref)
 
     # Since Python 3.4
-    def t_interned(self, save_ref, bytes_for_s=False):
+    def t_interned(self, save_ref, bytes_for_s: bool = False):
         strsize = unpack("<i", self.fp.read(4))[0]
         interned = compat_str(self.fp.read(strsize))
         self.internStrings.append(interned)
         return self.r_ref(interned, save_ref)
 
-    def t_unicode(self, save_ref, bytes_for_s=False):
+    def t_unicode(self, save_ref, bytes_for_s: bool = False):
         strsize = unpack("<i", self.fp.read(4))[0]
         unicodestring = self.fp.read(strsize)
         if PYTHON_VERSION_TRIPLE >= (3, 0) and self.version_tuple < (3, 0):
@@ -382,7 +389,7 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref(string, save_ref)
 
     # Since Python 3.4
-    def t_small_tuple(self, save_ref, bytes_for_s=False):
+    def t_small_tuple(self, save_ref, bytes_for_s: bool = False):
         # small tuple - since Python 3.4
         tuplesize = unpack("B", self.fp.read(1))[0]
         ret, i = self.r_ref_reserve(tuple(), save_ref)
@@ -392,7 +399,7 @@ class _VersionIndependentUnmarshaller:
             pass
         return self.r_ref_insert(ret, i)
 
-    def t_tuple(self, save_ref, bytes_for_s=False):
+    def t_tuple(self, save_ref, bytes_for_s: bool = False):
         tuplesize = unpack("<i", self.fp.read(4))[0]
         ret = self.r_ref(tuple(), save_ref)
         while tuplesize > 0:
@@ -400,7 +407,7 @@ class _VersionIndependentUnmarshaller:
             tuplesize -= 1
         return ret
 
-    def t_list(self, save_ref, bytes_for_s=False):
+    def t_list(self, save_ref, bytes_for_s: bool = False):
         # FIXME: check me
         n = unpack("<i", self.fp.read(4))[0]
         ret = self.r_ref(list(), save_ref)
@@ -409,7 +416,7 @@ class _VersionIndependentUnmarshaller:
             n -= 1
         return ret
 
-    def t_frozenset(self, save_ref, bytes_for_s=False):
+    def t_frozenset(self, save_ref, bytes_for_s: bool = False):
         setsize = unpack("<i", self.fp.read(4))[0]
         ret, i = self.r_ref_reserve(tuple(), save_ref)
         while setsize > 0:
@@ -417,7 +424,7 @@ class _VersionIndependentUnmarshaller:
             setsize -= 1
         return self.r_ref_insert(frozenset(ret), i)
 
-    def t_set(self, save_ref, bytes_for_s=False):
+    def t_set(self, save_ref, bytes_for_s: bool = False):
         setsize = unpack("<i", self.fp.read(4))[0]
         ret, i = self.r_ref_reserve(tuple(), save_ref)
         while setsize > 0:
@@ -425,7 +432,7 @@ class _VersionIndependentUnmarshaller:
             setsize -= 1
         return self.r_ref_insert(set(ret), i)
 
-    def t_dict(self, save_ref, bytes_for_s=False):
+    def t_dict(self, save_ref, bytes_for_s: bool = False):
         ret = self.r_ref(dict(), save_ref)
         # dictionary
         while True:
@@ -439,11 +446,14 @@ class _VersionIndependentUnmarshaller:
             pass
         return ret
 
-    def t_python2_string_reference(self, save_ref, bytes_for_s=False):
+    def t_python2_string_reference(self, save_ref, bytes_for_s: bool = False):
         refnum = unpack("<i", self.fp.read(4))[0]
         return self.internStrings[refnum]
 
-    def t_code(self, save_ref, bytes_for_s=False):
+    def t_code(self, save_ref, bytes_for_s: bool = False):
+        """
+          Python code type in all of its horrific variations.
+        """
         # FIXME: use tables to simplify this?
         # FIXME: Python 1.0 .. 1.3 isn't well known
 
@@ -472,7 +482,9 @@ class _VersionIndependentUnmarshaller:
             kwonlyargcount = 0
 
         co_nlocals = 0
-        if self.version_tuple < (3, 11):
+        if self.version_tuple < (3, 11) or (
+            self.version_tuple[:2] == (3, 11) and self.is_pypy
+        ):
             if self.version_tuple >= (2, 3):
                 co_nlocals = unpack("<i", self.fp.read(4))[0]
             elif self.version_tuple >= (1, 3):
@@ -493,9 +505,6 @@ class _VersionIndependentUnmarshaller:
             co_flags = 0
 
         co_code = self.r_object(bytes_for_s=True)
-
-        self.is_graal = self.magic_int in GRAAL3_MAGICS
-        self.is_pypy = self.magic_int in PYPY3_MAGICS
 
         # FIXME: Check/verify that is true:
         bytes_for_s = PYTHON_VERSION_TRIPLE >= (3, 0) and (self.version_tuple > (3, 0))
@@ -533,7 +542,7 @@ class _VersionIndependentUnmarshaller:
         co_freevars = tuple()
         co_cellvars = tuple()
 
-        if self.version_tuple >= (3, 11):
+        if self.version_tuple >= (3, 11) and not self.is_pypy:
             # parse localsplusnames list: https://github.com/python/cpython/blob/3.11/Objects/codeobject.c#L208C12
             co_localsplusnames = self.r_object(bytes_for_s=bytes_for_s)
             co_localspluskinds = self.r_object(bytes_for_s=bytes_for_s)
@@ -556,7 +565,7 @@ class _VersionIndependentUnmarshaller:
             co_filename = self.r_object(bytes_for_s=bytes_for_s)
             co_name = self.r_object(bytes_for_s=bytes_for_s)
             co_qualname = self.r_object(bytes_for_s=bytes_for_s)
-
+            pass
         else:
             co_qualname = None
             if self.version_tuple >= (1, 3):
@@ -570,15 +579,19 @@ class _VersionIndependentUnmarshaller:
 
             co_filename = self.r_object(bytes_for_s=bytes_for_s)
             co_name = self.r_object(bytes_for_s=bytes_for_s)
+            if self.version_tuple >= (3, 11) and self.is_pypy:
+                co_qualname = self.r_object(bytes_for_s=bytes_for_s)
 
         co_exceptiontable = None
+
+
         if self.version_tuple >= (1, 5):
             if self.version_tuple >= (2, 3):
                 co_firstlineno = unpack("<i", self.fp.read(4))[0]
             else:
                 co_firstlineno = unpack("<h", self.fp.read(2))[0]
 
-            if self.version_tuple >= (3, 11):
+            if self.version_tuple >= (3, 11) and not self.is_pypy:
                 co_linetable = self.r_object(bytes_for_s=bytes_for_s)
                 co_lnotab = (
                     co_linetable  # will be parsed later in opcode.findlinestarts
@@ -619,12 +632,12 @@ class _VersionIndependentUnmarshaller:
         return self.r_ref_insert(ret, i)
 
     # Since Python 3.4
-    def t_object_reference(self, save_ref=None, bytes_for_s=False):
+    def t_object_reference(self, save_ref=None, bytes_for_s: bool = False):
         refnum = unpack("<i", self.fp.read(4))[0]
         o = self.internObjects[refnum]
         return o
 
-    def t_unknown(self, save_ref=None, bytes_for_s=False):
+    def t_unknown(self, save_ref=None, bytes_for_s: bool = False):
         raise KeyError("?")
 
 
@@ -633,7 +646,7 @@ class _VersionIndependentUnmarshaller:
 # user interface
 
 
-def load_code(fp, magic_int, bytes_for_s=False, code_objects={}):
+def load_code(fp, magic_int, bytes_for_s: bool = False, code_objects={}):
     if isinstance(fp, bytes):
         fp = io.BytesIO(fp)
     um_gen = _VersionIndependentUnmarshaller(

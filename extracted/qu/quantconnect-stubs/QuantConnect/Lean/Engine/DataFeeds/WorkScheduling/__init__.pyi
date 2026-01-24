@@ -1,11 +1,12 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
 import QuantConnect
 import QuantConnect.Data.Market
 import QuantConnect.Lean.Engine.DataFeeds.WorkScheduling
+import QuantConnect.Securities
 import System
 
 
@@ -15,13 +16,14 @@ class WorkScheduler(System.Object, metaclass=abc.ABCMeta):
     workers_count: int = ...
     """The quantity of workers to be used"""
 
-    def queue_work(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], work_func: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
+    def queue_work(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], work_func: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
         """
         Add a new work item to the queue
         
         :param symbol: The symbol associated with this work
         :param work_func: The work function to run
-        :param weight_func: The weight function. Work will be sorted in ascending order based on this weight
+        :param weight_func: The weight function.
+        Work will be sorted in ascending order based on this weight
         """
         ...
 
@@ -48,13 +50,14 @@ class WeightedWorkScheduler(QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.Wo
         """Execute the given action in all workers once"""
         ...
 
-    def queue_work(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], work_func: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
+    def queue_work(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], work_func: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
         """
         Add a new work item to the queue
         
         :param symbol: The symbol associated with this work
         :param work_func: The work function to run
-        :param weight_func: The weight function. Work will be sorted in ascending order based on this weight
+        :param weight_func: The weight function.
+        Work will be sorted in ascending order based on this weight
         """
         ...
 
@@ -76,7 +79,8 @@ class WorkItem(System.Object):
         """
         Creates a new instance
         
-        :param work: The work function, takes an int, the amount of work to do and returns a bool, false if this work item is finished
+        :param work: The work function, takes an int, the amount of work to do
+        and returns a bool, false if this work item is finished
         :param weight_func: The function used to determine the current weight
         """
         ...

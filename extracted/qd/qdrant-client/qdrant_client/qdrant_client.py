@@ -5,9 +5,7 @@ from typing import (
     Callable,
     Iterable,
     Mapping,
-    Optional,
     Sequence,
-    Union,
 )
 
 import numpy as np
@@ -73,31 +71,34 @@ class QdrantClient(QdrantFastembedMixin):
             Only use this if you can guarantee that you can resolve the thread safety outside QdrantClient.
         auth_token_provider: Callback function to get Bearer access token. If given, the function will be called before each request to get the token.
         check_compatibility: If `true` - check compatibility with the server version. Default: `true`
+        grpc_options: a mapping of gRPC channel options
+        cloud_inference: If `true` - do inference of `models.Document` and other models in Qdrant Cloud. Default: `False`.
+        local_inference_batch_size: inference batch size used by fastembed when using local inference with `models.Document` and other models.
+        pool_size: connection pool size, Default: None. Default value for gRPC connection pool is 3, rest default is
+            inherited from `httpx` (default: 100)
         **kwargs: Additional arguments passed directly into REST client initialization
-
     """
 
     def __init__(
         self,
-        location: Optional[str] = None,
-        url: Optional[str] = None,
-        port: Optional[int] = 6333,
+        location: str | None = None,
+        url: str | None = None,
+        port: int | None = 6333,
         grpc_port: int = 6334,
         prefer_grpc: bool = False,
-        https: Optional[bool] = None,
-        api_key: Optional[str] = None,
-        prefix: Optional[str] = None,
-        timeout: Optional[int] = None,
-        host: Optional[str] = None,
-        path: Optional[str] = None,
+        https: bool | None = None,
+        api_key: str | None = None,
+        prefix: str | None = None,
+        timeout: int | None = None,
+        host: str | None = None,
+        path: str | None = None,
         force_disable_check_same_thread: bool = False,
-        grpc_options: Optional[dict[str, Any]] = None,
-        auth_token_provider: Optional[
-            Union[Callable[[], str], Callable[[], Awaitable[str]]]
-        ] = None,
+        grpc_options: dict[str, Any] | None = None,
+        auth_token_provider: Callable[[], str] | Callable[[], Awaitable[str]] | None = None,
         cloud_inference: bool = False,
-        local_inference_batch_size: Optional[int] = None,
+        local_inference_batch_size: int | None = None,
         check_compatibility: bool = True,
+        pool_size: int | None = None,
         **kwargs: Any,
     ):
         # Saving the init options to facilitate building AsyncQdrantClient from QdrantClient and vice versa.
@@ -109,20 +110,13 @@ class QdrantClient(QdrantFastembedMixin):
         }
         self._init_options.update({k: v for k, v in kwargs.items()})
 
-        self._inference_inspector = Inspector()
-        super().__init__(
-            parser=self._inference_inspector.parser, **kwargs
-        )  # If we want to pass any kwargs to the parent class or ignore unexpected kwargs,
-        # we will need to pop them from **kwargs. Otherwise, they might be passed to QdrantRemote as httpx kwargs.
-        # Httpx has specific set of params, which it accepts and will raise an error if it receives any other params.
-
-        self._client: QdrantBase
-
         if sum([param is not None for param in (location, url, host, path)]) > 1:
             raise ValueError(
                 "Only one of <location>, <url>, <host> or <path> should be specified."
             )
+        self._client: QdrantBase
 
+        server_version = None
         if location == ":memory:":
             self._client = QdrantLocal(
                 location=location,
@@ -149,8 +143,10 @@ class QdrantClient(QdrantFastembedMixin):
                 grpc_options=grpc_options,
                 auth_token_provider=auth_token_provider,
                 check_compatibility=check_compatibility,
+                pool_size=pool_size,
                 **kwargs,
             )
+            server_version = self._client.server_version
 
         if isinstance(self._client, QdrantLocal) and cloud_inference:
             raise ValueError(
@@ -159,10 +155,20 @@ class QdrantClient(QdrantFastembedMixin):
         self.cloud_inference = cloud_inference
         self.local_inference_batch_size = local_inference_batch_size
 
+        self._inference_inspector = Inspector()
+        super().__init__(
+            parser=self._inference_inspector.parser,
+            is_local_mode=isinstance(self._client, QdrantLocal),
+            server_version=server_version,
+        )  # If we'd like to pass any kwargs to the parent class or ignore unexpected kwargs,
+        # we will need to pop them from **kwargs and call super().__init__ before creating QdrantRemote instance.
+        # Otherwise, they might be passed to QdrantRemote as httpx kwargs.
+        # Httpx has specific set of params, which it accepts and will raise an error if it receives any other params.
+
     def __del__(self) -> None:
         self.close()
 
-    def close(self, grpc_grace: Optional[float] = None, **kwargs: Any) -> None:
+    def close(self, grpc_grace: float | None = None, **kwargs: Any) -> None:
         """Closes the connection to Qdrant
 
         Args:
@@ -196,23 +202,6 @@ class QdrantClient(QdrantFastembedMixin):
         raise NotImplementedError(f"gRPC client is not supported for {type(self._client)}")
 
     @property
-    def rest(self) -> SyncApis[ApiClient]:
-        """REST Client
-
-        Returns:
-            An instance of raw REST API client, generated from OpenAPI schema
-        """
-        warnings.warn(
-            "The 'rest' property is deprecated and will be removed in a future version. Use `http` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if isinstance(self._client, QdrantRemote):
-            return self._client.rest
-
-        raise NotImplementedError(f"REST client is not supported for {type(self._client)}")
-
-    @property
     def http(self) -> SyncApis[ApiClient]:
         """REST Client
 
@@ -233,169 +222,12 @@ class QdrantClient(QdrantFastembedMixin):
         """
         return self._init_options
 
-    def search_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.SearchRequest],
-        timeout: Optional[int] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
-        """Perform multiple searches in a collection mitigating network overhead
-
-        Args:
-            collection_name: Name of the collection
-            requests: List of search requests
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of search responses
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`search_batch` method is deprecated and will be removed in the future."
-            " Use `query_batch_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.search_batch(
-            collection_name=collection_name,
-            requests=requests,
-            consistency=consistency,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def search(
-        self,
-        collection_name: str,
-        query_vector: Union[
-            Sequence[float],
-            tuple[str, list[float]],
-            types.NamedVector,
-            types.NamedSparseVector,
-            types.NumpyArray,
-        ],
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        offset: Optional[int] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        append_payload: bool = True,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        """Search for closest vectors in collection taking into account filtering conditions
-
-        Args:
-            collection_name: Collection to search in
-            query_vector:
-                Search for vectors closest to this.
-                Can be either a vector itself, or a named vector, or a named sparse vector, or a tuple of vector name and vector itself
-            query_filter:
-                - Exclude vectors which doesn't fit given conditions.
-                - If `None` - search among all vectors
-            search_params: Additional search params
-            limit: How many results return
-            offset:
-                Offset of the first result to return.
-                May be used to paginate results.
-                Note: large offset values may cause performance issues.
-            with_payload:
-                - Specify which stored payload should be attached to the result.
-                - If `True` - attach all payload
-                - If `False` - do not attach any payload
-                - If List of string - include only specified fields
-                - If `PayloadSelector` - use explicit rules
-            with_vectors:
-                - If `True` - Attach stored vector to the search result.
-                - If `False` - Do not attach vector.
-                - If List of string - include only specified fields
-                - Default: `False`
-            score_threshold:
-                Define a minimal score threshold for the result.
-                If defined, less similar results will not be returned.
-                Score of the returned result might be higher or smaller than the threshold depending
-                on the Distance function used.
-                E.g. for cosine similarity only higher scores will be returned.
-            append_payload: Same as `with_payload`. Deprecated.
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            shard_key_selector:
-                This parameter allows to specify which shards should be queried.
-                If `None` - query all shards. Only works for collections with `custom` sharding method.
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Examples:
-
-        `Search with filter`::
-
-            qdrant.search(
-                collection_name="test_collection",
-                query_vector=[1.0, 0.1, 0.2, 0.7],
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key='color',
-                            range=Match(
-                                value="red"
-                            )
-                        )
-                    ]
-                )
-            )
-
-        Returns:
-            List of found close points with similarity scores.
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`search` method is deprecated and will be removed in the future."
-            " Use `query_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.search(
-            collection_name=collection_name,
-            query_vector=query_vector,
-            query_filter=query_filter,
-            search_params=search_params,
-            limit=limit,
-            offset=offset,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            score_threshold=score_threshold,
-            append_payload=append_payload,
-            consistency=consistency,
-            shard_key_selector=shard_key_selector,
-            timeout=timeout,
-            **kwargs,
-        )
-
     def query_batch_points(
         self,
         collection_name: str,
         requests: Sequence[types.QueryRequest],
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
+        consistency: types.ReadConsistency | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> list[types.QueryResponse]:
         """Perform any search, recommend, discovery, context search operations in batch, and mitigate network overhead
@@ -437,31 +269,29 @@ class QdrantClient(QdrantFastembedMixin):
     def query_points(
         self,
         collection_name: str,
-        query: Union[
-            types.PointId,
-            list[float],
-            list[list[float]],
-            types.SparseVector,
-            types.Query,
-            types.NumpyArray,
-            types.Document,
-            types.Image,
-            types.InferenceObject,
-            None,
-        ] = None,
-        using: Optional[str] = None,
-        prefetch: Union[types.Prefetch, list[types.Prefetch], None] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
+        query: types.PointId
+        | list[float]
+        | list[list[float]]
+        | types.SparseVector
+        | types.Query
+        | types.NumpyArray
+        | types.Document
+        | types.Image
+        | types.InferenceObject
+        | None = None,
+        using: str | None = None,
+        prefetch: types.Prefetch | list[types.Prefetch] | None = None,
+        query_filter: types.Filter | None = None,
+        search_params: types.SearchParams | None = None,
         limit: int = 10,
-        offset: Optional[int] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
+        offset: int | None = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        score_threshold: float | None = None,
+        lookup_from: types.LookupLocation | None = None,
+        consistency: types.ReadConsistency | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> types.QueryResponse:
         """Universal endpoint to run any available operation, such as search, recommendation, discovery, context search.
@@ -613,32 +443,30 @@ class QdrantClient(QdrantFastembedMixin):
         self,
         collection_name: str,
         group_by: str,
-        query: Union[
-            types.PointId,
-            list[float],
-            list[list[float]],
-            types.SparseVector,
-            types.Query,
-            types.NumpyArray,
-            types.Document,
-            types.Image,
-            types.InferenceObject,
-            None,
-        ] = None,
-        using: Optional[str] = None,
-        prefetch: Union[types.Prefetch, list[types.Prefetch], None] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
+        query: types.PointId
+        | list[float]
+        | list[list[float]]
+        | types.SparseVector
+        | types.Query
+        | types.NumpyArray
+        | types.Document
+        | types.Image
+        | types.InferenceObject
+        | None = None,
+        using: str | None = None,
+        prefetch: types.Prefetch | list[types.Prefetch] | None = None,
+        query_filter: types.Filter | None = None,
+        search_params: types.SearchParams | None = None,
         limit: int = 10,
         group_size: int = 3,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        score_threshold: float | None = None,
+        with_lookup: types.WithLookupInterface | None = None,
+        lookup_from: types.LookupLocation | None = None,
+        consistency: types.ReadConsistency | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> types.GroupsResult:
         """Universal endpoint to group on any available operation, such as search, recommendation, discovery, context search.
@@ -771,276 +599,9 @@ class QdrantClient(QdrantFastembedMixin):
             score_threshold=score_threshold,
             using=using,
             with_lookup=with_lookup,
-            consistency=consistency,
-            shard_key_selector=shard_key_selector,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def search_groups(
-        self,
-        collection_name: str,
-        query_vector: Union[
-            Sequence[float],
-            tuple[str, list[float]],
-            types.NamedVector,
-            types.NamedSparseVector,
-            types.NumpyArray,
-        ],
-        group_by: str,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        group_size: int = 1,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        score_threshold: Optional[float] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> types.GroupsResult:
-        """Search for closest vectors grouped by payload field.
-
-        Searches best matches for query vector grouped by the value of payload field.
-        Useful to obtain most relevant results for each category, deduplicate results,
-        finding the best representation vector for the same entity.
-
-        Args:
-            collection_name: Collection to search in
-            query_vector:
-                Search for vectors closest to this.
-                Can be either a vector itself, or a named vector, or a named sparse vector, or a tuple of vector name and vector itself
-            group_by: Name of the payload field to group by.
-                Field must be of type "keyword" or "integer".
-                Nested fields are specified using dot notation, e.g. "nested_field.subfield".
-            query_filter:
-                - Exclude vectors which doesn't fit given conditions.
-                - If `None` - search among all vectors
-            search_params: Additional search params
-            limit: How many groups return
-            group_size: How many results return for each group
-            with_payload:
-                - Specify which stored payload should be attached to the result.
-                - If `True` - attach all payload
-                - If `False` - do not attach any payload
-                - If List of string - include only specified fields
-                - If `PayloadSelector` - use explicit rules
-            with_vectors:
-                - If `True` - Attach stored vector to the search result.
-                - If `False` - Do not attach vector.
-                - If List of string - include only specified fields
-                - Default: `False`
-            score_threshold: Minimal score threshold for the result.
-                If defined, less similar results will not be returned.
-                Score of the returned result might be higher or smaller than the threshold depending
-                on the Distance function used.
-                E.g. for cosine similarity only higher scores will be returned.
-            with_lookup:
-                Look for points in another collection using the group ids.
-                If specified, each group will contain a record from the specified collection
-                with the same id as the group id. In addition, the parameter allows to specify
-                which parts of the record should be returned, like in `with_payload` and `with_vectors` parameters.
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result.
-                Values:
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            shard_key_selector:
-                This parameter allows to specify which shards should be queried.
-                If `None` - query all shards. Only works for collections with `custom` sharding method.
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of groups with not more than `group_size` hits in each group.
-            Each group also contains an id of the group, which is the value of the payload field.
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`search_groups` method is deprecated and will be removed in the future."
-            " Use `query_points_groups` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.search_groups(
-            collection_name=collection_name,
-            query_vector=query_vector,
-            group_by=group_by,
-            query_filter=query_filter,
-            search_params=search_params,
-            limit=limit,
-            group_size=group_size,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            score_threshold=score_threshold,
-            with_lookup=with_lookup,
-            consistency=consistency,
-            shard_key_selector=shard_key_selector,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def recommend_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.RecommendRequest],
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
-        """Perform multiple recommend requests in batch mode
-
-        Args:
-            collection_name: Name of the collection
-            requests: List of recommend requests
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of recommend responses
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`recommend_batch` method is deprecated and will be removed in the future."
-            " Use `query_batch_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.recommend_batch(
-            collection_name=collection_name,
-            requests=requests,
-            consistency=consistency,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def recommend(
-        self,
-        collection_name: str,
-        positive: Optional[Sequence[types.RecommendExample]] = None,
-        negative: Optional[Sequence[types.RecommendExample]] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        offset: int = 0,
-        with_payload: Union[bool, list[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, list[str]] = False,
-        score_threshold: Optional[float] = None,
-        using: Optional[str] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        strategy: Optional[types.RecommendStrategy] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        """Recommend points: search for similar points based on already stored in Qdrant examples.
-
-        Provide IDs of the stored points, and Qdrant will perform search based on already existing vectors.
-        This functionality is especially useful for recommendation over existing collection of points.
-
-        Args:
-            collection_name: Collection to search in
-            positive:
-                List of stored point IDs or vectors, which should be used as reference for similarity search.
-                If there is only one example - this request is equivalent to the regular search with vector of that
-                point.
-                If there are more than one example, Qdrant will attempt to search for similar to all of them.
-                Recommendation for multiple vectors is experimental.
-                Its behaviour may change depending on selected strategy.
-            negative:
-                List of stored point IDs or vectors, which should be dissimilar to the search result.
-                Negative examples is an experimental functionality.
-                Its behaviour may change depending on selected strategy.
-            query_filter:
-                - Exclude vectors which doesn't fit given conditions.
-                - If `None` - search among all vectors
-            search_params: Additional search params
-            limit: How many results return
-            offset:
-                Offset of the first result to return.
-                May be used to paginate results.
-                Note: large offset values may cause performance issues.
-            with_payload:
-                - Specify which stored payload should be attached to the result.
-                - If `True` - attach all payload
-                - If `False` - do not attach any payload
-                - If List of string - include only specified fields
-                - If `PayloadSelector` - use explicit rules
-            with_vectors:
-                - If `True` - Attach stored vector to the search result.
-                - If `False` - Do not attach vector.
-                - If List of string - include only specified fields
-                - Default: `False`
-            score_threshold:
-                Define a minimal score threshold for the result.
-                If defined, less similar results will not be returned.
-                Score of the returned result might be higher or smaller than the threshold depending
-                on the Distance function used.
-                E.g. for cosine similarity only higher scores will be returned.
-            using:
-                Name of the vectors to use for recommendations.
-                If `None` - use default vectors.
-            lookup_from:
-                Defines a location (collection and vector field name), used to lookup vectors for recommendations.
-                If `None` - current collection will be used.
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            shard_key_selector:
-                This parameter allows to specify which shards should be queried.
-                If `None` - query all shards. Only works for collections with `custom` sharding method.
-            strategy:
-                Strategy to use for recommendation.
-                Strategy defines how to combine multiple examples into a recommendation query.
-                Possible values:
-
-                - 'average_vector' - calculates average vector of all examples and uses it for search
-                - 'best_score' - finds the result which is closer to positive examples and further from negative
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of recommended points with similarity scores.
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`recommend` method is deprecated and will be removed in the future."
-            " Use `query_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.recommend(
-            collection_name=collection_name,
-            positive=positive,
-            negative=negative,
-            query_filter=query_filter,
-            search_params=search_params,
-            limit=limit,
-            offset=offset,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            score_threshold=score_threshold,
-            using=using,
             lookup_from=lookup_from,
             consistency=consistency,
             shard_key_selector=shard_key_selector,
-            strategy=strategy,
             timeout=timeout,
             **kwargs,
         )
@@ -1048,13 +609,13 @@ class QdrantClient(QdrantFastembedMixin):
     def search_matrix_pairs(
         self,
         collection_name: str,
-        query_filter: Optional[types.Filter] = None,
+        query_filter: types.Filter | None = None,
         limit: int = 3,
         sample: int = 10,
-        using: Optional[str] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        using: str | None = None,
+        consistency: types.ReadConsistency | None = None,
+        timeout: int | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixPairsResponse:
         """
@@ -1096,13 +657,13 @@ class QdrantClient(QdrantFastembedMixin):
     def search_matrix_offsets(
         self,
         collection_name: str,
-        query_filter: Optional[types.Filter] = None,
+        query_filter: types.Filter | None = None,
         limit: int = 3,
         sample: int = 10,
-        using: Optional[str] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        using: str | None = None,
+        consistency: types.ReadConsistency | None = None,
+        timeout: int | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixOffsetsResponse:
         """
@@ -1141,279 +702,20 @@ class QdrantClient(QdrantFastembedMixin):
             **kwargs,
         )
 
-    def recommend_groups(
-        self,
-        collection_name: str,
-        group_by: str,
-        positive: Optional[Sequence[types.RecommendExample]] = None,
-        negative: Optional[Sequence[types.RecommendExample]] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        group_size: int = 1,
-        score_threshold: Optional[float] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        using: Optional[str] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        with_lookup: Optional[types.WithLookupInterface] = None,
-        strategy: Optional[types.RecommendStrategy] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> types.GroupsResult:
-        """Recommend point groups: search for similar points based on already stored in Qdrant examples
-        and groups by payload field.
-
-        Recommend best matches for given stored examples grouped by the value of payload field.
-        Useful to obtain most relevant results for each category, deduplicate results,
-        finding the best representation vector for the same entity.
-
-        Args:
-            collection_name: Collection to search in
-            positive:
-                List of stored point IDs or vectors, which should be used as reference for similarity search.
-                If there is only one example - this request is equivalent to the regular search with vector of that
-                point.
-                If there are more than one example, Qdrant will attempt to search for similar to all of them.
-                Recommendation for multiple vectors is experimental.
-                Its behaviour may change depending on selected strategy.
-            negative:
-                List of stored point IDs or vectors, which should be dissimilar to the search result.
-                Negative examples is an experimental functionality.
-                Its behaviour may change depending on selected strategy.
-            group_by: Name of the payload field to group by.
-                Field must be of type "keyword" or "integer".
-                Nested fields are specified using dot notation, e.g. "nested_field.subfield".
-            query_filter:
-                - Exclude vectors which doesn't fit given conditions.
-                - If `None` - search among all vectors
-            search_params: Additional search params
-            limit: How many groups return
-            group_size: How many results return for each group
-            with_payload:
-                - Specify which stored payload should be attached to the result.
-                - If `True` - attach all payload
-                - If `False` - do not attach any payload
-                - If List of string - include only specified fields
-                - If `PayloadSelector` - use explicit rules
-            with_vectors:
-                - If `True` - Attach stored vector to the search result.
-                - If `False` - Do not attach vector.
-                - If List of string - include only specified fields
-                - Default: `False`
-            score_threshold:
-                Define a minimal score threshold for the result.
-                If defined, less similar results will not be returned.
-                Score of the returned result might be higher or smaller than the threshold depending
-                on the Distance function used.
-                E.g. for cosine similarity only higher scores will be returned.
-            using:
-                Name of the vectors to use for recommendations.
-                If `None` - use default vectors.
-            lookup_from:
-                Defines a location (collection and vector field name), used to lookup vectors for recommendations.
-                If `None` - current collection will be used.
-            with_lookup:
-                Look for points in another collection using the group ids.
-                If specified, each group will contain a record from the specified collection
-                with the same id as the group id. In addition, the parameter allows to specify
-                which parts of the record should be returned, like in `with_payload` and `with_vectors` parameters.
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-            shard_key_selector:
-                This parameter allows to specify which shards should be queried.
-                If `None` - query all shards. Only works for collections with `custom` sharding method.
-            strategy:
-                Strategy to use for recommendation.
-                Strategy defines how to combine multiple examples into a recommendation query.
-                Possible values:
-
-                - 'average_vector' - calculates average vector of all examples and uses it for search
-                - 'best_score' - finds the result which is closer to positive examples and further from negative
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of groups with not more than `group_size` hits in each group.
-            Each group also contains an id of the group, which is the value of the payload field.
-
-        """
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-        warnings.warn(
-            "`recommend_groups` method is deprecated and will be removed in the future."
-            " Use `query_points_groups` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.recommend_groups(
-            collection_name=collection_name,
-            group_by=group_by,
-            positive=positive,
-            negative=negative,
-            query_filter=query_filter,
-            search_params=search_params,
-            limit=limit,
-            group_size=group_size,
-            score_threshold=score_threshold,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            using=using,
-            lookup_from=lookup_from,
-            with_lookup=with_lookup,
-            strategy=strategy,
-            consistency=consistency,
-            shard_key_selector=shard_key_selector,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def discover(
-        self,
-        collection_name: str,
-        target: Optional[types.TargetVector] = None,
-        context: Optional[Sequence[types.ContextExamplePair]] = None,
-        query_filter: Optional[types.Filter] = None,
-        search_params: Optional[types.SearchParams] = None,
-        limit: int = 10,
-        offset: int = 0,
-        with_payload: Union[bool, list[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, list[str]] = False,
-        using: Optional[str] = None,
-        lookup_from: Optional[types.LookupLocation] = None,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        """
-        Use context and a target to find the most similar points, constrained by the context.
-
-        Args:
-            collection_name: Collection to discover in
-
-            target:
-                Look for vectors closest to this.
-
-                When using the target (with or without context), the integer part of the score represents the rank with respect to the context, while the decimal part of the score relates to the distance to the target.
-
-            context:
-                Pairs of { positive, negative } examples to constrain the search.
-
-                When using only the context (without a target), a special search - called context search - is performed where pairs of points are used to generate a loss that guides the search towards the zone where most positive examples overlap. This means that the score minimizes the scenario of finding a point closer to a negative than to a positive part of a pair.
-
-                Since the score of a context relates to loss, the maximum score a point can get is 0.0, and it becomes normal that many points can have a score of 0.0.
-
-                For discovery search (when including a target), the context part of the score for each pair is calculated +1 if the point is closer to a positive than to a negative part of a pair, and -1 otherwise.
-
-            query_filter:
-                Look only for points which satisfies this conditions
-
-            search_params:
-                Additional search params
-
-            limit:
-                Max number of result to return
-
-            offset:
-                Offset of the first result to return. May be used to paginate results. Note: large offset values may cause performance issues.
-
-            with_payload:
-                Select which payload to return with the response. Default: None
-
-            with_vectors:
-                Whether to return the point vector with the result?
-
-            using:
-                Define which vector to use for recommendation, if not specified - try to use default vector.
-
-            lookup_from:
-                The location used to lookup vectors. If not specified - use current collection. Note: the other collection should have the same vector size as the current collection.
-
-            consistency:
-                Read consistency of the search. Defines how many replicas should be queried before returning the result. Values:
-
-                - int - number of replicas to query, values should present in all queried replicas
-                - 'majority' - query all replicas, but return values present in the majority of replicas
-                - 'quorum' - query the majority of replicas, return values present in all of them
-                - 'all' - query all replicas, and return values present in all replicas
-
-            shard_key_selector:
-                This parameter allows to specify which shards should be queried.
-                If `None` - query all shards. Only works for collections with `custom` sharding method.
-
-            timeout:
-                Overrides global timeout for this search. Unit is seconds.
-
-        Returns:
-            List of discovered points with discovery or context scores, accordingly.
-        """
-        warnings.warn(
-            "`discover` method is deprecated and will be removed in the future."
-            " Use `query_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.discover(
-            collection_name=collection_name,
-            target=target,
-            context=context,
-            query_filter=query_filter,
-            search_params=search_params,
-            limit=limit,
-            offset=offset,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            using=using,
-            lookup_from=lookup_from,
-            consistency=consistency,
-            shard_key_selector=shard_key_selector,
-            timeout=timeout,
-            **kwargs,
-        )
-
-    def discover_batch(
-        self,
-        collection_name: str,
-        requests: Sequence[types.DiscoverRequest],
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> list[list[types.ScoredPoint]]:
-        warnings.warn(
-            "`discover_batch` method is deprecated and will be removed in the future."
-            " Use `query_batch_points` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._client.discover_batch(
-            collection_name=collection_name,
-            requests=requests,
-            consistency=consistency,
-            timeout=timeout,
-            **kwargs,
-        )
-
     def scroll(
         self,
         collection_name: str,
-        scroll_filter: Optional[types.Filter] = None,
+        scroll_filter: types.Filter | None = None,
         limit: int = 10,
-        order_by: Optional[types.OrderBy] = None,
-        offset: Optional[types.PointId] = None,
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
+        order_by: types.OrderBy | None = None,
+        offset: types.PointId | None = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        consistency: types.ReadConsistency | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
-    ) -> tuple[list[types.Record], Optional[types.PointId]]:
+    ) -> tuple[list[types.Record], types.PointId | None]:
         """Scroll over all (matching) points in the collection.
 
         This method provides a way to iterate over all stored points with some optional filtering condition.
@@ -1473,10 +775,10 @@ class QdrantClient(QdrantFastembedMixin):
     def count(
         self,
         collection_name: str,
-        count_filter: Optional[types.Filter] = None,
+        count_filter: types.Filter | None = None,
         exact: bool = True,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> types.CountResult:
         """Count points in the collection.
@@ -1515,12 +817,12 @@ class QdrantClient(QdrantFastembedMixin):
         self,
         collection_name: str,
         key: str,
-        facet_filter: Optional[types.Filter] = None,
+        facet_filter: types.Filter | None = None,
         limit: int = 10,
         exact: bool = False,
-        consistency: Optional[types.ReadConsistency] = None,
-        timeout: Optional[int] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        consistency: types.ReadConsistency | None = None,
+        timeout: int | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.FacetResponse:
         """Facet counts for the collection. For a specific payload key, returns unique values along with their counts.
@@ -1567,8 +869,9 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         points: types.Points,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        update_filter: types.Filter | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """
@@ -1593,6 +896,8 @@ class QdrantClient(QdrantFastembedMixin):
                 Defines the shard groups that should be used to write updates into.
                 If multiple shard_keys are provided, the update will be written to each of them.
                 Only works for collections with `custom` sharding method.
+
+            update_filter: If specified, only points that match this filter will be updated, others will be inserted
 
         Returns:
             Operation Result(UpdateResult)
@@ -1636,6 +941,7 @@ class QdrantClient(QdrantFastembedMixin):
             wait=wait,
             ordering=ordering,
             shard_key_selector=shard_key_selector,
+            update_filter=update_filter,
             **kwargs,
         )
 
@@ -1644,8 +950,9 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         points: Sequence[types.PointVectors],
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        update_filter: types.Filter | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Update specified vectors in the collection. Keeps payload and unspecified vectors unchanged.
@@ -1674,6 +981,9 @@ class QdrantClient(QdrantFastembedMixin):
                 If multiple shard_keys are provided, the update will be written to each of them.
                 Only works for collections with `custom` sharding method.
 
+            update_filter:
+                If specified, only points that match this filter will be updated
+
         Returns:
             Operation Result(UpdateResult)
         """
@@ -1692,6 +1002,7 @@ class QdrantClient(QdrantFastembedMixin):
             wait=wait,
             ordering=ordering,
             shard_key_selector=shard_key_selector,
+            update_filter=update_filter,
         )
 
     def delete_vectors(
@@ -1700,8 +1011,8 @@ class QdrantClient(QdrantFastembedMixin):
         vectors: Sequence[str],
         points: types.PointsSelector,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Delete specified vector from the collection. Does not affect payload.
@@ -1748,11 +1059,11 @@ class QdrantClient(QdrantFastembedMixin):
         self,
         collection_name: str,
         ids: Sequence[types.PointId],
-        with_payload: Union[bool, Sequence[str], types.PayloadSelector] = True,
-        with_vectors: Union[bool, Sequence[str]] = False,
-        consistency: Optional[types.ReadConsistency] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        timeout: Optional[int] = None,
+        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
+        with_vectors: bool | Sequence[str] = False,
+        consistency: types.ReadConsistency | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> list[types.Record]:
         """Retrieve stored points by IDs
@@ -1807,8 +1118,8 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         points_selector: types.PointsSelector,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Deletes selected points from collection
@@ -1854,10 +1165,10 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         payload: types.Payload,
         points: types.PointsSelector,
-        key: Optional[str] = None,
+        key: str | None = None,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """
@@ -1951,8 +1262,8 @@ class QdrantClient(QdrantFastembedMixin):
         payload: types.Payload,
         points: types.PointsSelector,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Overwrites payload of the specified points
@@ -2018,8 +1329,8 @@ class QdrantClient(QdrantFastembedMixin):
         keys: Sequence[str],
         points: types.PointsSelector,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Remove values from point's payload
@@ -2066,8 +1377,8 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         points_selector: types.PointsSelector,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        ordering: types.WriteOrdering | None = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Delete all payload for selected points
@@ -2110,7 +1421,7 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         update_operations: Sequence[types.UpdateOperation],
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
+        ordering: types.WriteOrdering | None = None,
         **kwargs: Any,
     ) -> list[types.UpdateResult]:
         """Batch update points in the collection.
@@ -2150,7 +1461,7 @@ class QdrantClient(QdrantFastembedMixin):
     def update_collection_aliases(
         self,
         change_aliases_operations: Sequence[types.AliasOperations],
-        timeout: Optional[int] = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> bool:
         """Operation for performing changes of collection aliases.
@@ -2238,14 +1549,15 @@ class QdrantClient(QdrantFastembedMixin):
     def update_collection(
         self,
         collection_name: str,
-        optimizers_config: Optional[types.OptimizersConfigDiff] = None,
-        collection_params: Optional[types.CollectionParamsDiff] = None,
-        vectors_config: Optional[types.VectorsConfigDiff] = None,
-        hnsw_config: Optional[types.HnswConfigDiff] = None,
-        quantization_config: Optional[types.QuantizationConfigDiff] = None,
-        timeout: Optional[int] = None,
-        sparse_vectors_config: Optional[Mapping[str, types.SparseVectorParams]] = None,
-        strict_mode_config: Optional[types.StrictModeConfig] = None,
+        optimizers_config: types.OptimizersConfigDiff | None = None,
+        collection_params: types.CollectionParamsDiff | None = None,
+        vectors_config: types.VectorsConfigDiff | None = None,
+        hnsw_config: types.HnswConfigDiff | None = None,
+        quantization_config: types.QuantizationConfigDiff | None = None,
+        timeout: int | None = None,
+        sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
+        strict_mode_config: types.StrictModeConfig | None = None,
+        metadata: types.Payload | None = None,
         **kwargs: Any,
     ) -> bool:
         """Update parameters of the collection
@@ -2262,6 +1574,7 @@ class QdrantClient(QdrantFastembedMixin):
                 If timeout is reached - request will return with service error.
             sparse_vectors_config: Override for sparse vector-specific configuration
             strict_mode_config: Override for strict mode configuration
+            metadata: Arbitrary JSON-like metadata for the collection, will be merged with already stored metadata
         Returns:
             Operation result
         """
@@ -2285,11 +1598,12 @@ class QdrantClient(QdrantFastembedMixin):
             timeout=timeout,
             sparse_vectors_config=sparse_vectors_config,
             strict_mode_config=strict_mode_config,
+            metadata=metadata,
             **kwargs,
         )
 
     def delete_collection(
-        self, collection_name: str, timeout: Optional[int] = None, **kwargs: Any
+        self, collection_name: str, timeout: int | None = None, **kwargs: Any
     ) -> bool:
         """Removes collection and all it's data
 
@@ -2311,22 +1625,20 @@ class QdrantClient(QdrantFastembedMixin):
     def create_collection(
         self,
         collection_name: str,
-        vectors_config: Optional[
-            Union[types.VectorParams, Mapping[str, types.VectorParams]]
-        ] = None,
-        sparse_vectors_config: Optional[Mapping[str, types.SparseVectorParams]] = None,
-        shard_number: Optional[int] = None,
-        sharding_method: Optional[types.ShardingMethod] = None,
-        replication_factor: Optional[int] = None,
-        write_consistency_factor: Optional[int] = None,
-        on_disk_payload: Optional[bool] = None,
-        hnsw_config: Optional[types.HnswConfigDiff] = None,
-        optimizers_config: Optional[types.OptimizersConfigDiff] = None,
-        wal_config: Optional[types.WalConfigDiff] = None,
-        quantization_config: Optional[types.QuantizationConfig] = None,
-        init_from: Optional[types.InitFrom] = None,
-        timeout: Optional[int] = None,
-        strict_mode_config: Optional[types.StrictModeConfig] = None,
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
+        sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
+        shard_number: int | None = None,
+        sharding_method: types.ShardingMethod | None = None,
+        replication_factor: int | None = None,
+        write_consistency_factor: int | None = None,
+        on_disk_payload: bool | None = None,
+        hnsw_config: types.HnswConfigDiff | None = None,
+        optimizers_config: types.OptimizersConfigDiff | None = None,
+        wal_config: types.WalConfigDiff | None = None,
+        quantization_config: types.QuantizationConfig | None = None,
+        timeout: int | None = None,
+        strict_mode_config: types.StrictModeConfig | None = None,
+        metadata: types.Payload | None = None,
         **kwargs: Any,
     ) -> bool:
         """Create empty collection with given parameters
@@ -2368,11 +1680,11 @@ class QdrantClient(QdrantFastembedMixin):
             optimizers_config: Params for optimizer
             wal_config: Params for Write-Ahead-Log
             quantization_config: Params for quantization, if None - quantization will be disabled
-            init_from: Use data stored in another collection to initialize this collection
             timeout:
                 Wait for operation commit timeout in seconds.
                 If timeout is reached - request will return with service error.
             strict_mode_config: Configure limitations for the collection, such as max size, rate limits, etc.
+            metadata: Arbitrary JSON-like metadata for the collection
 
         Returns:
             Operation result
@@ -2391,10 +1703,10 @@ class QdrantClient(QdrantFastembedMixin):
             optimizers_config=optimizers_config,
             wal_config=wal_config,
             quantization_config=quantization_config,
-            init_from=init_from,
             timeout=timeout,
             sparse_vectors_config=sparse_vectors_config,
             strict_mode_config=strict_mode_config,
+            metadata=metadata,
             **kwargs,
         )
 
@@ -2403,20 +1715,20 @@ class QdrantClient(QdrantFastembedMixin):
     def recreate_collection(
         self,
         collection_name: str,
-        vectors_config: Union[types.VectorParams, Mapping[str, types.VectorParams]],
-        sparse_vectors_config: Optional[Mapping[str, types.SparseVectorParams]] = None,
-        shard_number: Optional[int] = None,
-        sharding_method: Optional[types.ShardingMethod] = None,
-        replication_factor: Optional[int] = None,
-        write_consistency_factor: Optional[int] = None,
-        on_disk_payload: Optional[bool] = None,
-        hnsw_config: Optional[types.HnswConfigDiff] = None,
-        optimizers_config: Optional[types.OptimizersConfigDiff] = None,
-        wal_config: Optional[types.WalConfigDiff] = None,
-        quantization_config: Optional[types.QuantizationConfig] = None,
-        init_from: Optional[types.InitFrom] = None,
-        timeout: Optional[int] = None,
-        strict_mode_config: Optional[types.StrictModeConfig] = None,
+        vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
+        sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
+        shard_number: int | None = None,
+        sharding_method: types.ShardingMethod | None = None,
+        replication_factor: int | None = None,
+        write_consistency_factor: int | None = None,
+        on_disk_payload: bool | None = None,
+        hnsw_config: types.HnswConfigDiff | None = None,
+        optimizers_config: types.OptimizersConfigDiff | None = None,
+        wal_config: types.WalConfigDiff | None = None,
+        quantization_config: types.QuantizationConfig | None = None,
+        timeout: int | None = None,
+        strict_mode_config: types.StrictModeConfig | None = None,
+        metadata: types.Payload | None = None,
         **kwargs: Any,
     ) -> bool:
         """Delete and create empty collection with given parameters
@@ -2458,11 +1770,11 @@ class QdrantClient(QdrantFastembedMixin):
             optimizers_config: Params for optimizer
             wal_config: Params for Write-Ahead-Log
             quantization_config: Params for quantization, if None - quantization will be disabled
-            init_from: Use data stored in another collection to initialize this collection
             timeout:
                 Wait for operation commit timeout in seconds.
                 If timeout is reached - request will return with service error.
             strict_mode_config: Configure limitations for the collection, such as max size, rate limits, etc.
+            metadata: Arbitrary JSON metadata for the collection
 
         Returns:
             Operation result
@@ -2488,65 +1800,11 @@ class QdrantClient(QdrantFastembedMixin):
             optimizers_config=optimizers_config,
             wal_config=wal_config,
             quantization_config=quantization_config,
-            init_from=init_from,
             timeout=timeout,
             sparse_vectors_config=sparse_vectors_config,
             strict_mode_config=strict_mode_config,
+            metadata=metadata,
             **kwargs,
-        )
-
-    def upload_records(
-        self,
-        collection_name: str,
-        records: Iterable[types.Record],
-        batch_size: int = 64,
-        parallel: int = 1,
-        method: Optional[str] = None,
-        max_retries: int = 3,
-        wait: bool = False,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Upload records to the collection
-
-        Similar to `upload_collection` method, but operates with records, rather than vector and payload individually.
-
-        Args:
-            collection_name:  Name of the collection to upload to
-            records: Iterator over records to upload
-            batch_size: How many vectors upload per-request, Default: 64
-            parallel: Number of parallel processes of upload
-            method: Start method for parallel processes, Default: forkserver
-            max_retries: maximum number of retries in case of a failure
-                during the upload of a batch
-            wait:
-                Await for the results to be applied on the server side.
-                If `true`, each update request will explicitly wait for the confirmation of completion. Might be slower.
-                If `false`, each update request will return immediately after the confirmation of receiving.
-                Default: `false`
-            shard_key_selector: Defines the shard groups that should be used to write updates into.
-                If multiple shard_keys are provided, the update will be written to each of them.
-                Only works for collections with `custom` sharding method.
-                This parameter overwrites shard keys written in the records.
-
-        """
-        warnings.warn(
-            "`upload_records` is deprecated, use `upload_points` instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-
-        return self._client.upload_records(
-            collection_name=collection_name,
-            records=records,
-            batch_size=batch_size,
-            parallel=parallel,
-            method=method,
-            max_retries=max_retries,
-            wait=wait,
-            shard_key_selector=shard_key_selector,
         )
 
     def upload_points(
@@ -2555,10 +1813,11 @@ class QdrantClient(QdrantFastembedMixin):
         points: Iterable[types.PointStruct],
         batch_size: int = 64,
         parallel: int = 1,
-        method: Optional[str] = None,
+        method: str | None = None,
         max_retries: int = 3,
         wait: bool = False,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        update_filter: types.Filter | None = None,
         **kwargs: Any,
     ) -> None:
         """Upload points to the collection
@@ -2582,7 +1841,7 @@ class QdrantClient(QdrantFastembedMixin):
                 If multiple shard_keys are provided, the update will be written to each of them.
                 Only works for collections with `custom` sharding method.
                 This parameter overwrites shard keys written in the records.
-
+            update_filter: If specified, only points that match this filter will be updated, others will be inserted
         """
 
         def chain(*iterables: Iterable) -> Iterable:
@@ -2615,30 +1874,28 @@ class QdrantClient(QdrantFastembedMixin):
             max_retries=max_retries,
             wait=wait,
             shard_key_selector=shard_key_selector,
+            update_filter=update_filter,
         )
 
     def upload_collection(
         self,
         collection_name: str,
-        vectors: Union[
-            Iterable[types.VectorStruct],
-            dict[str, types.NumpyArray],
-            types.NumpyArray,
-        ],
-        payload: Optional[Iterable[dict[Any, Any]]] = None,
-        ids: Optional[Iterable[types.PointId]] = None,
+        vectors: Iterable[types.VectorStruct] | dict[str, types.NumpyArray] | types.NumpyArray,
+        payload: Iterable[dict[Any, Any]] | None = None,
+        ids: Iterable[types.PointId] | None = None,
         batch_size: int = 64,
         parallel: int = 1,
-        method: Optional[str] = None,
+        method: str | None = None,
         max_retries: int = 3,
         wait: bool = False,
-        shard_key_selector: Optional[types.ShardKeySelector] = None,
+        shard_key_selector: types.ShardKeySelector | None = None,
+        update_filter: types.Filter | None = None,
         **kwargs: Any,
     ) -> None:
         """Upload vectors and payload to the collection.
         This method will perform automatic batching of the data.
         If you need to perform a single update, use `upsert` method.
-        Note: use `upload_records` method if you want to upload multiple vectors with single payload.
+        Note: use `upload_points` method if you want to upload multiple vectors with single payload.
 
         Args:
             collection_name:  Name of the collection to upload to
@@ -2658,6 +1915,7 @@ class QdrantClient(QdrantFastembedMixin):
             shard_key_selector: Defines the shard groups that should be used to write updates into.
                 If multiple shard_keys are provided, the update will be written to each of them.
                 Only works for collections with `custom` sharding method.
+            update_filter: If specified, only points that match this filter will be updated, others will be inserted
         """
 
         def chain(*iterables: Iterable) -> Iterable:
@@ -2693,16 +1951,17 @@ class QdrantClient(QdrantFastembedMixin):
             max_retries=max_retries,
             wait=wait,
             shard_key_selector=shard_key_selector,
+            update_filter=update_filter,
         )
 
     def create_payload_index(
         self,
         collection_name: str,
         field_name: str,
-        field_schema: Optional[types.PayloadSchemaType] = None,
-        field_type: Optional[types.PayloadSchemaType] = None,
+        field_schema: types.PayloadSchemaType | None = None,
+        field_type: types.PayloadSchemaType | None = None,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
+        ordering: types.WriteOrdering | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Creates index for a given payload field.
@@ -2743,7 +2002,7 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         field_name: str,
         wait: bool = True,
-        ordering: Optional[types.WriteOrdering] = None,
+        ordering: types.WriteOrdering | None = None,
         **kwargs: Any,
     ) -> types.UpdateResult:
         """Removes index for a given payload field.
@@ -2791,7 +2050,7 @@ class QdrantClient(QdrantFastembedMixin):
 
     def create_snapshot(
         self, collection_name: str, wait: bool = True, **kwargs: Any
-    ) -> Optional[types.SnapshotDescription]:
+    ) -> types.SnapshotDescription | None:
         """Create snapshot for a given collection.
 
         Args:
@@ -2810,7 +2069,7 @@ class QdrantClient(QdrantFastembedMixin):
 
     def delete_snapshot(
         self, collection_name: str, snapshot_name: str, wait: bool = True, **kwargs: Any
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Delete snapshot for a given collection.
 
         Args:
@@ -2845,7 +2104,7 @@ class QdrantClient(QdrantFastembedMixin):
 
     def create_full_snapshot(
         self, wait: bool = True, **kwargs: Any
-    ) -> Optional[types.SnapshotDescription]:
+    ) -> types.SnapshotDescription | None:
         """Create snapshot for a whole storage.
 
         Args:
@@ -2863,7 +2122,7 @@ class QdrantClient(QdrantFastembedMixin):
 
     def delete_full_snapshot(
         self, snapshot_name: str, wait: bool = True, **kwargs: Any
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Delete snapshot for a whole storage.
 
         Args:
@@ -2884,12 +2143,12 @@ class QdrantClient(QdrantFastembedMixin):
         self,
         collection_name: str,
         location: str,
-        api_key: Optional[str] = None,
-        checksum: Optional[str] = None,
-        priority: Optional[types.SnapshotPriority] = None,
+        api_key: str | None = None,
+        checksum: str | None = None,
+        priority: types.SnapshotPriority | None = None,
         wait: bool = True,
         **kwargs: Any,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Recover collection from snapshot.
 
         Args:
@@ -2951,7 +2210,7 @@ class QdrantClient(QdrantFastembedMixin):
 
     def create_shard_snapshot(
         self, collection_name: str, shard_id: int, wait: bool = True, **kwargs: Any
-    ) -> Optional[types.SnapshotDescription]:
+    ) -> types.SnapshotDescription | None:
         """Create snapshot for a given shard.
 
         Args:
@@ -2981,7 +2240,7 @@ class QdrantClient(QdrantFastembedMixin):
         snapshot_name: str,
         wait: bool = True,
         **kwargs: Any,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Delete snapshot for a given shard.
 
         Args:
@@ -3012,12 +2271,12 @@ class QdrantClient(QdrantFastembedMixin):
         collection_name: str,
         shard_id: int,
         location: str,
-        api_key: Optional[str] = None,
-        checksum: Optional[str] = None,
-        priority: Optional[types.SnapshotPriority] = None,
+        api_key: str | None = None,
+        checksum: str | None = None,
+        priority: types.SnapshotPriority | None = None,
         wait: bool = True,
         **kwargs: Any,
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Recover shard from snapshot.
 
         Args:
@@ -3056,28 +2315,10 @@ class QdrantClient(QdrantFastembedMixin):
             **kwargs,
         )
 
-    def lock_storage(self, reason: str, **kwargs: Any) -> types.LocksOption:
-        """Lock storage for writing."""
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-
-        return self._client.lock_storage(reason=reason, **kwargs)
-
-    def unlock_storage(self, **kwargs: Any) -> types.LocksOption:
-        """Unlock storage for writing."""
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-
-        return self._client.unlock_storage(**kwargs)
-
-    def get_locks(self, **kwargs: Any) -> types.LocksOption:
-        """Get current locks state."""
-        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
-
-        return self._client.get_locks(**kwargs)
-
     def migrate(
         self,
         dest_client: QdrantBase,
-        collection_names: Optional[list[str]] = None,
+        collection_names: list[str] | None = None,
         batch_size: int = 100,
         recreate_on_collision: bool = False,
     ) -> None:
@@ -3102,9 +2343,9 @@ class QdrantClient(QdrantFastembedMixin):
         self,
         collection_name: str,
         shard_key: types.ShardKey,
-        shards_number: Optional[int] = None,
-        replication_factor: Optional[int] = None,
-        placement: Optional[list[int]] = None,
+        shards_number: int | None = None,
+        replication_factor: int | None = None,
+        placement: list[int] | None = None,
         **kwargs: Any,
     ) -> bool:
         """Create shard key for collection.
@@ -3161,3 +2402,75 @@ class QdrantClient(QdrantFastembedMixin):
 
         """
         return self._client.info()
+
+    def cluster_collection_update(
+        self,
+        collection_name: str,
+        cluster_operation: types.ClusterOperations,
+        timeout: int | None = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Updates the cluster configuration for a specified collection.
+
+        Args:
+            collection_name: Name of the collection
+            cluster_operation: Cluster operation to update
+            timeout: Timeout in seconds to wait for the operation to complete
+
+        Returns:
+            bool: Operation result
+        """
+        assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
+
+        return self._client.cluster_collection_update(
+            collection_name=collection_name,
+            cluster_operation=cluster_operation,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    def collection_cluster_info(self, collection_name: str) -> types.CollectionClusterInfo:
+        """Retrieves cluster details for a specified collection.
+
+        Args:
+            collection_name: Name of the collection
+
+        Returns:
+            types.CollectionClusterInfo: cluster details
+        """
+        return self._client.collection_cluster_info(collection_name=collection_name)
+
+    def cluster_status(self) -> types.ClusterStatus:
+        """Returns information about the cluster's current state and composition.
+
+        Returns: types.ClusterStatus
+        """
+        return self._client.cluster_status()
+
+    def recover_current_peer(self) -> bool:
+        """Attempts to restore or synchronize the node's current state with that of its peers.
+
+        Returns:
+            bool: Operation result
+        """
+        return self._client.recover_current_peer()
+
+    def remove_peer(
+        self,
+        peer_id: int,
+        force: bool | None = None,
+        timeout: int | None = None,
+        **kwargs: Any,
+    ) -> bool:
+        """Attempts to remove the node from the cluster. This endpoint returns an error if the node (peer) has
+        shards on it.
+
+        Args:
+            peer_id: Peer ID
+            force: If true - removes peer even if it has shards/replicas on it.
+            timeout: Wait for operation commit timeout in seconds. If timeout is reached - request will fail
+
+        Returns:
+            bool: Operation result
+        """
+        return self._client.remove_peer(peer_id, force=force, timeout=timeout, **kwargs)

@@ -23,7 +23,7 @@ public:
     }
 
     bool isSuitableFor(Backend backend) override {
-        return kNonRendering_Backend == backend;
+        return Backend::kNonRendering == backend;
     }
 
 protected:
@@ -35,7 +35,9 @@ protected:
      *  needed somewhere, and since this method is not const, the member fields cannot
      *  be assumed to be const before and after the call.
      */
-    virtual void virtualCallToFoilOptimizers(int n) { fVolatileInt += n; }
+    virtual void virtualCallToFoilOptimizers(int n) {
+        fVolatileInt = n;
+    }
 
 private:
     SkString fName;
@@ -261,14 +263,14 @@ public:
     }
 
     bool isSuitableFor(Backend backend) override {
-        return kNonRendering_Backend == backend;
+        return Backend::kNonRendering == backend;
     }
 
-    virtual void preparePath(SkPath*) = 0;
+    virtual SkPath preparePath() = 0;
 
 protected:
     void onPreDraw(SkCanvas*) override {
-        this->preparePath(&fPath);
+        fPath = this->preparePath();
     }
 
     void onDraw(int loops, SkCanvas* canvas) override {
@@ -285,10 +287,10 @@ class RRectConvexityBench : public ConvexityBench {
 public:
     RRectConvexityBench() : ConvexityBench("rrect") {}
 
-    void preparePath(SkPath* path) override {
+    SkPath preparePath() override {
         SkRRect rr;
         rr.setRectXY({0, 0, 100, 100}, 20, 30);
-        path->addRRect(rr);
+        return SkPath::RRect(rr);
     }
 };
 DEF_BENCH( return new RRectConvexityBench; )

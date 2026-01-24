@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Literal
-
-from dateutil.parser import isoparse
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..core import BaseDomain, DomainIdentityMixin
 
@@ -13,9 +11,32 @@ if TYPE_CHECKING:
     from ..load_balancer_types import BoundLoadBalancerType
     from ..locations import BoundLocation
     from ..metrics import Metrics
-    from ..networks import BoundNetwork
+    from ..networks import BoundNetwork, Network
     from ..servers import BoundServer
     from .client import BoundLoadBalancer
+
+
+__all__ = [
+    "LoadBalancer",
+    "LoadBalancerProtection",
+    "LoadBalancerService",
+    "LoadBalancerServiceHttp",
+    "LoadBalancerHealthCheck",
+    "LoadBalancerHealthCheckHttp",
+    "LoadBalancerHealtCheckHttp",
+    "LoadBalancerTarget",
+    "LoadBalancerTargetHealthStatus",
+    "LoadBalancerTargetLabelSelector",
+    "LoadBalancerTargetIP",
+    "LoadBalancerAlgorithm",
+    "PublicNetwork",
+    "IPv4Address",
+    "IPv6Network",
+    "PrivateNet",
+    "CreateLoadBalancerResponse",
+    "GetMetricsResponse",
+    "MetricsType",
+]
 
 
 class LoadBalancer(BaseDomain, DomainIdentityMixin):
@@ -83,7 +104,7 @@ class LoadBalancer(BaseDomain, DomainIdentityMixin):
         algorithm: LoadBalancerAlgorithm | None = None,
         services: list[LoadBalancerService] | None = None,
         load_balancer_type: BoundLoadBalancerType | None = None,
-        protection: dict | None = None,
+        protection: LoadBalancerProtection | None = None,
         labels: dict[str, str] | None = None,
         targets: list[LoadBalancerTarget] | None = None,
         created: str | None = None,
@@ -93,7 +114,7 @@ class LoadBalancer(BaseDomain, DomainIdentityMixin):
     ):
         self.id = id
         self.name = name
-        self.created = isoparse(created) if created else None
+        self.created = self._parse_datetime(created)
         self.public_net = public_net
         self.private_net = private_net
         self.location = location
@@ -106,6 +127,20 @@ class LoadBalancer(BaseDomain, DomainIdentityMixin):
         self.outgoing_traffic = outgoing_traffic
         self.ingoing_traffic = ingoing_traffic
         self.included_traffic = included_traffic
+
+    def private_net_for(self, network: BoundNetwork | Network) -> PrivateNet | None:
+        """
+        Returns the load balancer's network attachment information in the given Network,
+        and None if no attachment was found.
+        """
+        for o in self.private_net or []:
+            if o.network.id == network.id:
+                return o
+        return None
+
+
+class LoadBalancerProtection(TypedDict):
+    delete: bool
 
 
 class LoadBalancerService(BaseDomain):
@@ -326,7 +361,7 @@ class LoadBalancerHealthCheckHttp(BaseDomain):
         domain: str | None = None,
         path: str | None = None,
         response: str | None = None,
-        status_codes: list | None = None,
+        status_codes: list[str] | None = None,
         tls: bool | None = None,
     ):
         self.domain = domain
@@ -349,7 +384,7 @@ class LoadBalancerHealtCheckHttp(LoadBalancerHealthCheckHttp):
         domain: str | None = None,
         path: str | None = None,
         response: str | None = None,
-        status_codes: list | None = None,
+        status_codes: list[str] | None = None,
         tls: bool | None = None,
     ):
         warnings.warn(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ from seeq.spy._status import Status
 
 @dataclass
 class WorkbookContext:
-    workbook_object: Optional[spy.workbooks.Analysis] = None
+    workbook_object: Optional[Union[spy.workbooks.Analysis, spy.workbooks.Topic]] = None
     worksheet_object: Optional[spy.workbooks.AnalysisWorksheet] = None
     folder_id: Optional[str] = None
     to_push: list = field(default_factory=list)
@@ -41,11 +41,12 @@ class WorkbookContext:
 
         return self._lookup(self.worksheet_object.id)
 
-    def determine_folder_id(self):
+    def determine_folder_id(self, status: Status):
         # This is called deliberately at the top of the push function so that it's calculated once and then used
         # consistently throughout, even if the workbook_object changes.
 
         if self.workbook_object is None:
+            status.log('No workbook object; cannot determine folder ID')
             return None
 
         self.folder_id = None
@@ -53,6 +54,7 @@ class WorkbookContext:
             if (_common.present(self.workbook_object, 'Ancestors') and
                     len(self.workbook_object['Ancestors']) > 0):
                 self.folder_id = self.workbook_object['Ancestors'][-1]
+                status.log(f'Determined folder ID from workbook ancestors: {self.folder_id}')
 
         # Here we cover the case where an admin is pushing data to a single workbook that they don't own. In R51,
         # there's a proper user folder in the path that can be used as the folder_id. In R50 there is no such user
@@ -63,6 +65,8 @@ class WorkbookContext:
         if (self.folder_id in spy.workbooks.SYNTHETIC_FOLDERS and len(self.to_push) == 1 and
                 self.to_push[0] == self.workbook_object):
             self.folder_id = None
+            status.log(f'Primary workbook is in synthetic folder "{self.folder_id}", but since only pushing to '
+                       f'that workbook, not setting folder ID')
 
     def get_workbook_url(self, session: Session):
         if self.workbook_object is None:
@@ -76,18 +80,19 @@ class WorkbookContext:
         )
 
     @staticmethod
-    def from_id(session: Session, status: Status, workbook_arg, worksheet_arg) -> \
-            WorkbookContext:
-        primary_workbooks = spy.workbooks.pull(pd.DataFrame([{
-            'ID': _common.sanitize_guid(workbook_arg),
-            'Type': 'Workbook',
-            'Workbook Type': 'Analysis'
-        }]),
+    def from_id(session: Session, status: Status, workbook_arg, worksheet_arg) -> WorkbookContext:
+        primary_workbooks = spy.workbooks.pull(
+            pd.DataFrame([{
+                'ID': _common.sanitize_guid(workbook_arg),
+                'Type': 'Workbook',
+                'Workbook Type': 'Analysis'
+            }]),
             include_inventory=False,
             # Pulling worksheets can be expensive. If we just want to push items without changing the UI, skip that.
             specific_worksheet_ids=list() if worksheet_arg is None else None,
             status=status.create_inner('Pull Workbook', quiet=True),
-            session=session)
+            session=session
+        )
 
         if len(primary_workbooks) == 0 or primary_workbooks[0].__class__.__name__ == 'Workbook':
             raise SPyRuntimeError(f'Workbook with ID "{_common.sanitize_guid(workbook_arg)}" not found')
@@ -101,10 +106,13 @@ class WorkbookContext:
         else:
             primary_worksheet = None
 
+        status.log(f'Default workbook determined from ID: {primary_workbook}')
+        status.log(f'Default worksheet: {primary_worksheet}')
+
         return WorkbookContext(workbook_object=primary_workbook, worksheet_object=primary_worksheet)
 
     @staticmethod
-    def from_list(session: Session, status: Status, workbook_arg, datasource_arg):
+    def from_list(session: Session, status: Status, workbook_arg, datasource_arg, *, dry_run: bool = False):
         analysis_workbooks = [w for w in workbook_arg if w['Workbook Type'] == 'Analysis']
         if len(analysis_workbooks) == 0:
             raise SPyValueError(
@@ -119,6 +127,10 @@ class WorkbookContext:
                         f'result, the first workbook "{primary_workbook}" is the one to which '
                         f'signals/conditions/scalars (etc) will be pushed')
 
+        if dry_run:
+            status.log('[Dry Run] Default workbook would be pushed from list')
+            return None
+
         push_workbooks_df = spy.workbooks.push(workbook_arg, datasource=datasource_arg, specific_worksheet_ids=list(),
                                                include_inventory=False,
                                                status=status.create_inner('Create Workbook', quiet=True),
@@ -128,7 +140,12 @@ class WorkbookContext:
                                item_map=push_workbooks_df.spy.item_map)
 
     @staticmethod
-    def from_analysis_template(session: Session, status: Status, workbook_arg, datasource_arg):
+    def from_analysis_template(session: Session, status: Status, workbook_arg, datasource_arg, *,
+                               dry_run: bool = False):
+        if dry_run:
+            status.log('[Dry Run] Default workbook would be pushed from AnalysisTemplate')
+            return None
+
         push_workbooks_df = spy.workbooks.push(workbook_arg, datasource=datasource_arg, specific_worksheet_ids=list(),
                                                include_inventory=False,
                                                status=status.create_inner('Create Workbook', quiet=True),
@@ -141,7 +158,7 @@ class WorkbookContext:
 
     @staticmethod
     def from_string(session: Session, status: Status, workbook_arg, worksheet_arg,
-                    datasource_arg):
+                    datasource_arg, *, dry_run: bool = False):
         search_query, workbook_name = WorkbookContext.create_analysis_search_query(workbook_arg)
         search_df = spy.workbooks.search(search_query, quiet=True, session=session)
         workbooks_to_push = list()
@@ -159,12 +176,22 @@ class WorkbookContext:
                 # Don't push any worksheets, since we can't resolve template parameters yet
                 specific_worksheet_ids = list()
 
+                if dry_run:
+                    status.log('[Dry Run] Default workbook would be pushed from string, worksheet from '
+                               'AnalysisWorksheetTemplate')
+                    return None
+
                 spy.workbooks.push(
                     workbook_object, path=path, include_inventory=False, datasource=datasource_arg,
                     specific_worksheet_ids=specific_worksheet_ids, status=inner_status, session=session)
             else:
                 worksheet_name = worksheet_arg if isinstance(worksheet_arg, str) else _common.DEFAULT_WORKSHEET_NAME
                 worksheet_object = workbook_object.worksheet(worksheet_name)
+
+                if dry_run:
+                    status.log('[Dry Run] Default workbook would be pushed from string, worksheet from '
+                               'AnalysisWorksheetTemplate')
+                    return None
 
                 spy.workbooks.push(workbook_object, path=path, include_inventory=False, datasource=datasource_arg,
                                    status=inner_status, session=session)
@@ -192,23 +219,28 @@ class WorkbookContext:
                 worksheet_name = worksheet_arg if isinstance(worksheet_arg, str) else _common.DEFAULT_WORKSHEET_NAME
                 worksheet_object = workbook_object.worksheet(worksheet_name)
 
+        status.log(f'Default workbook determined from string: {workbook_object}')
+        status.log(f'Default worksheet: {worksheet_object}')
+
         return WorkbookContext(workbook_object=workbook_object, worksheet_object=worksheet_object,
                                to_push=workbooks_to_push)
 
     @staticmethod
-    def from_args(session: Session, status: Status, workbook_arg, worksheet_arg, datasource_arg) -> WorkbookContext:
+    def from_args(session: Session, status: Status, workbook_arg, worksheet_arg, datasource_arg, *,
+                  dry_run: bool = False) -> WorkbookContext:
         if _common.is_guid(workbook_arg):
             workbook_context = WorkbookContext.from_id(session, status, workbook_arg, worksheet_arg)
         elif isinstance(workbook_arg, list):
-            workbook_context = WorkbookContext.from_list(session, status, workbook_arg, datasource_arg)
+            workbook_context = WorkbookContext.from_list(session, status, workbook_arg, datasource_arg, dry_run=dry_run)
         elif isinstance(workbook_arg, spy.workbooks.AnalysisTemplate):
             workbook_context = WorkbookContext.from_analysis_template(session, status, workbook_arg, datasource_arg)
         elif workbook_arg is not None:
             workbook_context = WorkbookContext.from_string(session, status, workbook_arg, worksheet_arg, datasource_arg)
         else:
+            status.log('No workbook argument supplied; using empty WorkbookContext')
             workbook_context = WorkbookContext()
 
-        workbook_context.determine_folder_id()
+        workbook_context.determine_folder_id(status)
 
         return workbook_context
 

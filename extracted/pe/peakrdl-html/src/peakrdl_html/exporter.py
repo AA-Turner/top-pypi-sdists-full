@@ -45,6 +45,9 @@ class HTMLExporter:
             Additional context variables to load into the template namespace.
         show_signals: bool
             Show signal components. Default is False
+        reverse_fields: bool
+            (optional) Control whether register fields are displayed in reverse
+            bit order (LSB to MSB). Default is False
         extra_doc_properties: List[str]
             List of properties to explicitly document.
             Nodes that have a property explicitly set will show its value in a
@@ -60,10 +63,12 @@ class HTMLExporter:
         self.title = "" # type: str
         self.home_url = None # type: Optional[str]
         self.skip_not_present = True
+        self.reverse_fields = False
         self.current_top_node = None # type: AddrmapNode
 
         self.user_static_dir = kwargs.pop("user_static_dir", None) # type: Optional[str]
         self.show_signals = kwargs.pop("show_signals", False)
+        self.reverse_fields = kwargs.pop("reverse_fields", False)
         self.user_context = kwargs.pop("user_context", {})
         markdown_inst = kwargs.pop("markdown_inst", None) # type: Optional[markdown.Markdown]
         self.extra_properties = kwargs.pop("extra_doc_properties", []) # type: List[str]
@@ -176,7 +181,7 @@ class HTMLExporter:
             if node.get_property('bridge'):
                 node.env.msg.warning(
                     "HTML generator does not have proper support for bridge addmaps yet. The 'bridge' property will be ignored.",
-                    node.inst.property_src_ref.get('bridge', node.inst.inst_src_ref)
+                    node.property_src_ref.get('bridge', node.inst_src_ref)
                 )
             self.visit_addressable_node(node)
 
@@ -190,7 +195,7 @@ class HTMLExporter:
         self.indexer.write_index_js(os.path.join(output_dir, "search"))
 
 
-    def visit_addressable_node(self, node: Node, parent_id: 'Optional[int]'=None) -> int:
+    def visit_addressable_node(self, node: AddressableNode, parent_id: 'Optional[int]'=None) -> int:
         self.current_id += 1
         this_id = self.current_id
         child_ids = [] # type: List[int]
@@ -200,14 +205,15 @@ class HTMLExporter:
         ral_entry = {
             'parent'    : parent_id,
             'children'  : child_ids,
-            'name'      : node.inst.inst_name,
-            'offset'    : BigInt(node.inst.addr_offset),
+            'name'      : node.inst_name,
+            'offset'    : BigInt(node.raw_address_offset),
             'size'      : BigInt(node.size),
         }
-        if node.inst.is_array:
-            ral_entry['dims'] = node.inst.array_dimensions
-            ral_entry['stride'] = BigInt(node.inst.array_stride)
-            ral_entry['idxs'] = [0] * len(node.inst.array_dimensions)
+        if node.array_dimensions:
+            assert node.array_stride is not None
+            ral_entry['dims'] = node.array_dimensions
+            ral_entry['stride'] = BigInt(node.array_stride)
+            ral_entry['idxs'] = [0] * len(node.array_dimensions)
 
         if isinstance(node, RegNode):
             ral_fields = []
@@ -221,9 +227,9 @@ class HTMLExporter:
                     field_reset = 0
 
                 ral_field = {
-                    'name' : field.inst.inst_name,
-                    'lsb'  : field.inst.lsb,
-                    'msb'  : field.inst.msb,
+                    'name' : field.inst_name,
+                    'lsb'  : field.lsb,
+                    'msb'  : field.msb,
                     'reset': BigInt(field_reset),
                     'disp' : 'H'
                 }
@@ -298,6 +304,12 @@ class HTMLExporter:
 
     def write_page(self, this_id: int, node: Node, children: 'Dict[int, Node]') -> None:
 
+        def field_order(x):
+            if not self.reverse_fields:
+                return reversed(x)
+            else:
+                return x
+
         view_source_url, view_source_filename= self.get_view_source_info(node)
         context = {
             'this_id': this_id,
@@ -317,13 +329,14 @@ class HTMLExporter:
             'FieldNode': FieldNode,
             'AddressableNode': AddressableNode,
             'PropertyReference': rdltypes.PropertyReference,
-            'reversed': reversed,
+            'reversed': field_order,
             'isinstance': isinstance,
             'list': list,
             'view_source_url': view_source_url,
             'view_source_filename': view_source_filename,
             'reg_fields_are_low_to_high': reg_fields_are_low_to_high,
-            'skip_not_present': self.skip_not_present
+            'skip_not_present': self.skip_not_present,
+            'highest_fields_first': not self.reverse_fields
         }
         context.update(self.user_context)
 
@@ -399,7 +412,7 @@ class HTMLExporter:
                 else:
                     # Looks like a relative path
                     # See if it points to something relative to the source file
-                    path = self.try_resolve_rel_path(node.inst.def_src_ref, img_src)
+                    path = self.try_resolve_rel_path(node.def_src_ref, img_src)
                     if path is not None:
                         img_src = path
 
@@ -468,7 +481,7 @@ class HTMLExporter:
         if not self.generate_source_links:
             return None, None
 
-        src_ref = node.inst.def_src_ref or node.inst.inst_src_ref
+        src_ref = node.def_src_ref or node.inst_src_ref
         if isinstance(src_ref, DetailedFileSourceRef):
             path = src_ref.path
             line = src_ref.line

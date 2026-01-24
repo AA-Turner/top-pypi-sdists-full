@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -24,12 +25,6 @@ from botocore.response import StreamingBody
 
 from .literals import SSETypeType, StatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -76,7 +71,7 @@ class CompleteSnapshotRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -123,7 +118,7 @@ class GetSnapshotBlockResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListChangedBlocksResponseTypeDef(TypedDict):
-    ChangedBlocks: List[ChangedBlockTypeDef]
+    ChangedBlocks: list[ChangedBlockTypeDef]
     ExpiryTime: datetime
     VolumeSize: int
     BlockSize: int
@@ -131,7 +126,7 @@ class ListChangedBlocksResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ListSnapshotBlocksResponseTypeDef(TypedDict):
-    Blocks: List[BlockTypeDef]
+    Blocks: list[BlockTypeDef]
     ExpiryTime: datetime
     VolumeSize: int
     BlockSize: int
@@ -161,7 +156,7 @@ class StartSnapshotResponseTypeDef(TypedDict):
     StartTime: datetime
     VolumeSize: int
     BlockSize: int
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ParentSnapshotId: str
     KmsKeyArn: str
     SseType: SSETypeType

@@ -2,7 +2,7 @@ use chroma_error::{ChromaError, ErrorCodes};
 use chroma_types::{
     logical_size_of_metadata, Chunk, DataRecord, DeletedMetadata, LogRecord,
     MaterializedLogOperation, Metadata, MetadataDelta, MetadataValue, MetadataValueConversionError,
-    Operation, SegmentUuid, UpdateMetadata, UpdateMetadataValue,
+    Operation, Schema, SegmentUuid, UpdateMetadata, UpdateMetadataValue,
 };
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicU32;
@@ -15,8 +15,7 @@ use crate::distributed_spann::{SpannSegmentFlusher, SpannSegmentWriter};
 
 use super::blockfile_metadata::{MetadataSegmentFlusher, MetadataSegmentWriter};
 use super::blockfile_record::{
-    ApplyMaterializedLogError, RecordSegmentFlusher, RecordSegmentReader,
-    RecordSegmentReaderCreationError, RecordSegmentWriter,
+    ApplyMaterializedLogError, RecordSegmentFlusher, RecordSegmentReader, RecordSegmentWriter,
 };
 use super::distributed_hnsw::DistributedHNSWSegmentWriter;
 
@@ -394,7 +393,7 @@ impl<'log_data, 'segment_data: 'log_data> HydratedMaterializedLogRecord<'log_dat
         }
     }
 
-    pub fn get_data_record(&self) -> Option<&DataRecord> {
+    pub fn get_data_record(&'_ self) -> Option<&'_ DataRecord<'_>> {
         self.segment_data_record.as_ref()
     }
 
@@ -479,6 +478,7 @@ impl<'log_data, 'segment_data: 'log_data> HydratedMaterializedLogRecord<'log_dat
 pub struct MaterializeLogsResult {
     logs: Chunk<LogRecord>,
     materialized: Chunk<MaterializedLogRecord>,
+    has_backfill: bool,
 }
 
 impl MaterializeLogsResult {
@@ -490,7 +490,11 @@ impl MaterializeLogsResult {
         self.materialized.len()
     }
 
-    pub fn iter(&self) -> MaterializeLogsResultIter {
+    pub fn has_backfill(&self) -> bool {
+        self.has_backfill
+    }
+
+    pub fn iter(&'_ self) -> MaterializeLogsResultIter<'_> {
         MaterializeLogsResultIter {
             logs: &self.logs,
             chunk: &self.materialized,
@@ -586,53 +590,45 @@ pub async fn materialize_logs(
     let mut existing_id_to_materialized: HashMap<&str, MaterializedLogRecord> = HashMap::new();
     let mut new_id_to_materialized: HashMap<&str, MaterializedLogRecord> = HashMap::new();
     if let Some(reader) = &record_segment_reader {
+        let mut user_ids = logs
+            .iter()
+            .map(|(log, _)| log.record.id.as_str())
+            .collect::<Vec<_>>();
+        user_ids.sort_unstable();
+        user_ids.dedup();
         async {
-            for (log_record, _) in logs.iter() {
-                let exists = match reader
-                    .data_exists_for_user_id(log_record.record.id.as_str())
-                    .await
-                {
-                    Ok(res) => res,
-                    Err(e) => {
-                        return Err(LogMaterializerError::RecordSegment(e));
-                    }
+            reader.load_user_id_to_id(user_ids.iter().cloned()).await;
+
+            let mut existing_offset_ids = Vec::with_capacity(user_ids.len());
+            for user_id in user_ids {
+                if let Some(offset_id) = reader.get_offset_id_for_user_id(user_id).await? {
+                    existing_offset_ids.push(offset_id);
+                    existing_id_to_materialized.insert(
+                        user_id,
+                        MaterializedLogRecord::from_segment_offset_id(offset_id),
+                    );
                 };
-                if exists {
-                    match reader
-                        .get_offset_id_for_user_id(log_record.record.id.as_str())
-                        .await
-                    {
-                        Ok(Some(offset_id)) => {
-                            existing_id_to_materialized.insert(
-                                log_record.record.id.as_str(),
-                                MaterializedLogRecord::from_segment_offset_id(offset_id),
-                            );
-                        }
-                        Ok(None) => {
-                            return Err(LogMaterializerError::RecordSegment(Box::new(
-                                RecordSegmentReaderCreationError::UserRecordNotFound(format!(
-                                    "not found: {}",
-                                    log_record.record.id,
-                                )),
-                            )
-                                as _));
-                        }
-                        Err(e) => {
-                            return Err(LogMaterializerError::RecordSegment(e));
-                        }
-                    }
-                }
             }
-            Ok(())
+
+            reader
+                .load_id_to_data(existing_offset_ids.iter().cloned())
+                .await;
+            Ok::<_, LogMaterializerError>(())
         }
         .instrument(Span::current())
         .await?;
     }
+
+    let mut has_backfill = false;
     // Populate updates to these and fresh records that are being
     // inserted for the first time.
     async {
         for (log_record, log_index) in logs.iter() {
             match log_record.record.operation {
+                Operation::BackfillFn => {
+                    has_backfill = true;
+                    continue;
+                }
                 Operation::Add => {
                     // If this is an add of a record present in the segment then add
                     // only if it has been previously deleted in the log.
@@ -918,10 +914,12 @@ pub async fn materialize_logs(
     Ok(MaterializeLogsResult {
         logs,
         materialized: Chunk::new(res.into()),
+        has_backfill,
     })
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum VectorSegmentWriter {
     Hnsw(Box<DistributedHNSWSegmentWriter>),
     Spann(SpannSegmentWriter),
@@ -981,6 +979,7 @@ impl VectorSegmentWriter {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ChromaSegmentWriter<'bf> {
     RecordSegment(RecordSegmentWriter),
     MetadataSegment(MetadataSegmentWriter<'bf>),
@@ -1008,23 +1007,22 @@ impl ChromaSegmentWriter<'_> {
         &self,
         record_segment_reader: &Option<RecordSegmentReader<'_>>,
         materialized: &MaterializeLogsResult,
-    ) -> Result<(), ApplyMaterializedLogError> {
+        schema: Option<Schema>,
+    ) -> Result<Option<Schema>, ApplyMaterializedLogError> {
         match self {
-            ChromaSegmentWriter::RecordSegment(writer) => {
-                writer
-                    .apply_materialized_log_chunk(record_segment_reader, materialized)
-                    .await
-            }
+            ChromaSegmentWriter::RecordSegment(writer) => writer
+                .apply_materialized_log_chunk(record_segment_reader, materialized)
+                .await
+                .map(|_| None),
             ChromaSegmentWriter::MetadataSegment(writer) => {
                 writer
-                    .apply_materialized_log_chunk(record_segment_reader, materialized)
+                    .apply_materialized_log_chunk(record_segment_reader, materialized, schema)
                     .await
             }
-            ChromaSegmentWriter::VectorSegment(writer) => {
-                writer
-                    .apply_materialized_log_chunk(record_segment_reader, materialized)
-                    .await
-            }
+            ChromaSegmentWriter::VectorSegment(writer) => writer
+                .apply_materialized_log_chunk(record_segment_reader, materialized)
+                .await
+                .map(|_| None),
         }
     }
 
@@ -1050,12 +1048,14 @@ impl ChromaSegmentWriter<'_> {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum VectorSegmentFlusher {
     Hnsw(Box<DistributedHNSWSegmentWriter>),
     Spann(SpannSegmentFlusher),
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ChromaSegmentFlusher {
     RecordSegment(RecordSegmentFlusher),
     MetadataSegment(MetadataSegmentFlusher),
@@ -1164,6 +1164,7 @@ mod tests {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1172,6 +1173,7 @@ mod tests {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1229,7 +1231,7 @@ mod tests {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1321,6 +1323,7 @@ mod tests {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1329,6 +1332,7 @@ mod tests {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1337,7 +1341,7 @@ mod tests {
             .await
             .expect("Error applying materialized log chunk");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &res)
+            .apply_materialized_log_chunk(&some_reader, &res, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -1466,6 +1470,7 @@ mod tests {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1474,6 +1479,7 @@ mod tests {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1531,7 +1537,7 @@ mod tests {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1614,6 +1620,7 @@ mod tests {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1622,6 +1629,7 @@ mod tests {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1630,7 +1638,7 @@ mod tests {
             .await
             .expect("Error applying materialized log chunk");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &res)
+            .apply_materialized_log_chunk(&some_reader, &res, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -1760,6 +1768,7 @@ mod tests {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1768,6 +1777,7 @@ mod tests {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1825,7 +1835,7 @@ mod tests {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1928,6 +1938,7 @@ mod tests {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1936,6 +1947,7 @@ mod tests {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1944,7 +1956,7 @@ mod tests {
             .await
             .expect("Error applying materialized log chunk");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &res)
+            .apply_materialized_log_chunk(&some_reader, &res, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer
@@ -2064,6 +2076,7 @@ mod tests {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -2309,6 +2322,7 @@ mod tests {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");

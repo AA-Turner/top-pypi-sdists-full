@@ -14,6 +14,8 @@ import signal
 import socket
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 from select import select
 from subprocess import (
@@ -157,6 +159,12 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         "(instance needs to be started with --debug)",
     )
 
+    g_action.add_argument(
+        "--mcp",
+        action="store_true",
+        help="Start the MCP (Model Context Protocol) server for AI agent integration",
+    )
+
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -174,6 +182,27 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         "--no-virtme-ng-init",
         action="store_true",
         help="Fallback to the bash virtme-init (useful for debugging/development)",
+    )
+
+    parser.add_argument(
+        "--empty-passwords",
+        action="store_true",
+        help="Use empty passwords for all users",
+    )
+
+    parser.add_argument(
+        "--pin",
+        "-P",
+        nargs="?",
+        const="all",
+        help=(
+            "Pin each QEMU vCPU thread to a distinct host CPU. "
+            "If given without arguments, all host CPUs are used. "
+            "If given with an argument, it must be a list/range of CPUs "
+            "(e.g., 0,1,3-5,9)."
+            "NOTE: only a single virtme-ng guest can be pinned at a time, "
+            "pinning multiple virtme-ng guests is not supported yet."
+        ),
     )
 
     parser.add_argument(
@@ -257,6 +286,13 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         "--user",
         action="store",
         help="Change user inside the guest (default is same user as the host)",
+    )
+
+    parser.add_argument(
+        "--shell",
+        metavar="BINARY",
+        action="store",
+        help="Override the default user shell",
     )
 
     parser.add_argument(
@@ -374,6 +410,12 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         "-n",
         action="append",
         help="Enable network access: user, bridge(=<br>), loop",
+    )
+
+    parser.add_argument(
+        "--no-dhcp",
+        action="store_true",
+        help="Disable DHCP configuration for network interfaces.",
     )
 
     parser.add_argument(
@@ -633,8 +675,6 @@ git reset --hard __virtme__
 
 def create_root(destdir, arch, release):
     """Initialize a rootfs directory, populating files/directory if it doesn't exist."""
-    if os.path.exists(destdir):
-        return
     # Use Ubuntu's cloud images to create a rootfs, these images are fairly
     # small and they provide a nice environment to test kernels.
     if release is None:
@@ -926,7 +966,12 @@ class KernelSource:
 
     def _get_virtme_root(self, args):
         if args.root is not None:
-            create_root(args.root, args.arch or get_host_arch(), args.root_release)
+            if os.path.exists(args.root):
+                if not os.access(args.root, os.R_OK | os.X_OK):
+                    sys.stderr.write(f"Must have read permission on {args.root}\n")
+                    sys.exit(1)
+            else:
+                create_root(args.root, args.arch or get_host_arch(), args.root_release)
             self.virtme_param["root"] = f"--root {args.root}"
         else:
             self.virtme_param["root"] = ""
@@ -1035,6 +1080,12 @@ class KernelSource:
             self.virtme_param["network"] = network_str
         else:
             self.virtme_param["network"] = ""
+
+    def _get_virtme_no_dhcp(self, args):
+        if args.no_dhcp:
+            self.virtme_param["no_dhcp"] = "--no-dhcp"
+        else:
+            self.virtme_param["no_dhcp"] = ""
 
     def _get_virtme_net_mac_address(self, args):
         if args.net_mac_address is not None:
@@ -1177,6 +1228,7 @@ class KernelSource:
 
     def _get_virtme_append(self, args):
         append = []
+
         if args.append is not None:
             for item in args.append:
                 split_items = shlex.split(item)
@@ -1184,6 +1236,11 @@ class KernelSource:
                     append += ["-a", split_item]
         if args.debug:
             append += ["-a", "nokaslr"]
+
+        # Set default user's shell override, if specified.
+        if args.shell is not None:
+            append += ["-a", "virtme_shell=" + args.shell]
+
         self.virtme_param["append"] = shlex.join(append)
 
     def _get_virtme_memory(self, args):
@@ -1252,6 +1309,11 @@ class KernelSource:
         else:
             self.virtme_param["busybox"] = ""
 
+    def _get_virtme_empty_passwords(self, args):
+        self.virtme_param["empty_passwords"] = ""
+        if args.empty_passwords:
+            self.virtme_param["empty_passwords"] = "--empty-passwords"
+
     def _get_virtme_qemu(self, args):
         if args.qemu is not None:
             self.virtme_param["qemu"] = "--qemu-bin " + args.qemu
@@ -1273,7 +1335,7 @@ class KernelSource:
 
     def _get_virtme_qemu_opts(self, args):
         qemu_args = ""
-        if args.debug:
+        if args.debug or args.pin:
             # Enable debug mode and QMP (to trigger memory dump via `vng --dump`)
             qemu_args += "-s -qmp tcp:localhost:3636,server,nowait "
         if args.qemu_opts is not None:
@@ -1301,6 +1363,7 @@ class KernelSource:
         self._get_virtme_no_virtme_ng_init(args)
         self._get_virtme_mods(args)
         self._get_virtme_network(args)
+        self._get_virtme_no_dhcp(args)
         self._get_virtme_net_mac_address(args)
         self._get_virtme_console(args)
         self._get_virtme_console_client(args)
@@ -1326,6 +1389,7 @@ class KernelSource:
         self._get_virtme_balloon(args)
         self._get_virtme_gdb(args)
         self._get_virtme_snaps(args)
+        self._get_virtme_empty_passwords(args)
         self._get_virtme_busybox(args)
         self._get_virtme_nvgpu(args)
         self._get_virtme_qemu(args)
@@ -1345,11 +1409,13 @@ class KernelSource:
             + f"{self.virtme_param['rwdir']} "
             + f"{self.virtme_param['overlay_rwdir']} "
             + f"{self.virtme_param['cwd']} "
+            + f"{self.virtme_param['empty_passwords']} "
             + f"{self.virtme_param['kdir']} "
             + f"{self.virtme_param['dry_run']} "
             + f"{self.virtme_param['no_virtme_ng_init']} "
             + f"{self.virtme_param['mods']} "
             + f"{self.virtme_param['network']} "
+            + f"{self.virtme_param['no_dhcp']} "
             + f"{self.virtme_param['net_mac_address']} "
             + f"{self.virtme_param['console']} "
             + f"{self.virtme_param['console_client']} "
@@ -1381,6 +1447,8 @@ class KernelSource:
             + f"{self.virtme_param['qemu_opts']} "
             # Important: qemu_opts has to be the last one
         )
+        if args.pin:
+            self.set_affinity(args)
         check_call(cmd, shell=True)
 
     def dump(self, args):
@@ -1455,6 +1523,114 @@ class KernelSource:
                 # 1073741824}}}
                 break
 
+    def _parse_cpu_list(self, expr):
+        """Expand a CPU list expression, i.e., '0,1,3-5,9' into [0,1,3,4,5,9]."""
+        if not expr:
+            return []
+        cpus = []
+        for part in expr.split(","):
+            if "-" in part:
+                start, end = map(int, part.split("-", 1))
+                cpus.extend(range(start, end + 1))
+            else:
+                cpus.append(int(part))
+        return cpus
+
+    def pin_vcpus(self, args):
+        """Pin QEMU vCPU threads to host CPUs in order via QMP."""
+        # Attempt QMP connection to the guest (retry up to 5 times)
+        for attempt in range(5):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # TODO: support multiple vng guests. pylint: disable=W0511
+                sock.connect(("localhost", 3636))
+                sock_f = sock.makefile(encoding="utf-8")
+                break
+            except ConnectionRefusedError:
+                if attempt < 4:
+                    time.sleep(1)
+                else:
+                    sys.stderr.write("QMP connection failed after 5 attempts\n")
+                    sys.exit(1)
+
+        # Read initial QMP greeting message.
+        data = sock_f.readline()
+        if not data:
+            sys.stderr.write("QMP connection failed\n")
+            sys.exit(1)
+
+        # Negotiate capabilities.
+        sock.send(json.dumps({"execute": "qmp_capabilities"}).encode("utf-8"))
+        data = sock_f.readline()
+        if not data:
+            sys.stderr.write("QMP capabilities negotiation failed\n")
+            sys.exit(1)
+        resp = json.loads(data)
+        if resp != {"return": {}}:
+            sys.stderr.write(f"QMP capabilities negotiation failed:\n{data}\n")
+            sys.exit(1)
+
+        # Query vCPUs.
+        sock.send(json.dumps({"execute": "query-cpus-fast"}).encode("utf-8"))
+        data = sock_f.readline()
+        if not data:
+            sys.stderr.write("QMP query-cpus-fast failed\n")
+            sys.exit(1)
+
+        resp = json.loads(data)
+        vcpu_tids = [cpu["thread-id"] for cpu in resp.get("return", [])]
+        if not vcpu_tids:
+            sys.stderr.write("No vCPU threads found\n")
+            sys.exit(1)
+
+        # Determine the subset of physical CPUs.
+        n_host_cpus = os.cpu_count()
+        if n_host_cpus is None:
+            sys.stderr.write("Unable to determine number of host CPUs\n")
+            sys.exit(1)
+
+        if args.pin == "all":
+            allowed_cpus = list(range(n_host_cpus))
+        else:
+            allowed_cpus = self._parse_cpu_list(args.pin)
+            if not allowed_cpus:
+                raise RuntimeError("Invalid CPU list expression for --pin")
+
+        # Santiy checks.
+        if len(allowed_cpus) > n_host_cpus:
+            sys.stderr.write(
+                f"WARNING: not enough host CPUs available ({n_host_cpus}) for {len(vcpu_tids)} vCPUs\n"
+            )
+            sys.exit(1)
+        if len(vcpu_tids) > len(allowed_cpus):
+            sys.stderr.write(
+                f"WARNING: not enough host CPUs allowed ({len(allowed_cpus)}) for {len(vcpu_tids)} vCPUs\n"
+            )
+            sys.exit(1)
+
+        # Pin to the physical CPUs.
+        for cpu, tid in zip(allowed_cpus, vcpu_tids, strict=False):
+            try:
+                os.sched_setaffinity(tid, {cpu})
+            except PermissionError:
+                sys.stderr.write(
+                    f"Permission denied: cannot set affinity for TID {tid}\n"
+                )
+            except ProcessLookupError:
+                sys.stderr.write(f"TID {tid} does not exist\n")
+
+    def set_affinity(self, args):
+        """Spawn a thread that waits for QEMU and pins vCPUs."""
+
+        def worker():
+            try:
+                self.pin_vcpus(args)
+            except SystemExit:
+                sys.stderr.write("WARNING: Failed to pin vCPUs\n")
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
     def clean(self, args):
         """Clean a local or remote git repository."""
         if not os.path.exists(".git"):
@@ -1512,6 +1688,35 @@ def do_it() -> int:
     """Main body."""
     argcomplete.autocomplete(_ARGPARSER)
     args = _ARGPARSER.parse_args()
+
+    # Handle --mcp option early (it's a server mode, not a normal
+    # operation).
+    if args.mcp:
+        # Execute vng-mcp binary instead of importing to avoid MCP
+        # dependencies in the main vng script.
+        try:
+            vng_mcp = shutil.which("vng-mcp")
+            if vng_mcp is None:
+                # Find it in the same directory as vng.
+                script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                vng_mcp_local = os.path.join(script_dir, "vng-mcp")
+                if os.path.exists(vng_mcp_local):
+                    vng_mcp = vng_mcp_local
+
+            if vng_mcp is None:
+                sys.stderr.write(
+                    "Error: vng-mcp not found. Please install virtme-ng properly.\n"
+                )
+                return 1
+
+            # Execute vng-mcp and replace the current process.
+            os.execv(vng_mcp, [vng_mcp])
+        except OSError as e:
+            sys.stderr.write(
+                f"Error: Failed to execute vng-mcp: {e}\n"
+                "Make sure MCP dependencies are installed: pip install virtme-ng[mcp]\n"
+            )
+            return 1
 
     kern_source = KernelSource()
     if kern_source.default_opts:

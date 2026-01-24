@@ -128,7 +128,12 @@ class SingleConfluenceBuilder(ConfluenceBuilder):
 
             doctree = self.assemble_doctree()
             self._prepare_doctree_writing(self.config.root_doc, doctree)
-            self.assets.process_document(doctree, self.config.root_doc)
+
+        with progress_message(C('pre-process assets')):
+            if self._verbose:
+                print()
+
+            self.assets.preprocess_doctree(doctree, self.config.root_doc)
 
         with progress_message(C('writing single confluence document')):
             if self._verbose:
@@ -150,7 +155,7 @@ class SingleConfluenceBuilder(ConfluenceBuilder):
         Second, this change also removes the possibly of double-anchors
         generated when combining into a single toctree. When inlining toctree's,
         parses may stack target identifiers in a `refuri`. If this occurs, only
-        the last stacked target idenitifier is needed.
+        the last stacked target identifier is needed.
 
         Args:
             doctree: the doctree to parse
@@ -210,11 +215,20 @@ class SingleConfluenceBuilder(ConfluenceBuilder):
                 target['ids'] = new_ids
 
         for target in findall(tree, nodes.Element):
+            # update any reference targets to their new identifier (if any)
             refid = target.get('refid')
             if refid:
                 new_refid = updated_refids.get(refid)
                 if new_refid:
                     target['refid'] = new_refid
+
+            # update any back references to their new identifier (if any)
+            backrefs = target.get('backrefs')
+            if backrefs:
+                for idx, backref in enumerate(backrefs):
+                    new_backref = updated_refids.get(backref)
+                    if new_backref:
+                        backrefs[idx] = new_backref
 
         # in the cloned tree, look for other toctrees that we can include
         # into our new single tree
@@ -234,7 +248,7 @@ class SingleConfluenceBuilder(ConfluenceBuilder):
                         self.env.get_doctree(includefile), traversed, uids)
                 except Exception:  # noqa: BLE001
                     logger.warn(
-                        SLC('toctree contains ref to nonexisting file %r'),
+                        SLC('toctree contains ref to nonexistent file %r'),
                         includefile, location=docname)
                 else:
                     sof = addnodes.start_of_file(docname=includefile)

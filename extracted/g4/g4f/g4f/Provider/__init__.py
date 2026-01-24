@@ -12,13 +12,6 @@ try:
     from .needs_auth.mini_max import HailuoAI, MiniMax
 except ImportError as e:
     debug.error("MiniMax providers not loaded:", e)
-
-from .template import OpenaiTemplate, BackendApi
-from .qwen.QwenCode import QwenCode
-try:
-    from .not_working import *
-except ImportError as e:
-    debug.error("Not working providers not loaded:", e)
 try:
     from .local import *
 except ImportError as e:
@@ -36,31 +29,31 @@ try:
 except ImportError as e:
     debug.error("Search providers not loaded:", e)
 
-from .deprecated.ARTA import ARTA
-from .deprecated.DuckDuckGo import DuckDuckGo
+from .template import OpenaiTemplate, BackendApi
+from .qwen.QwenCode import QwenCode
 
 from .ApiAirforce          import ApiAirforce
-from .Blackbox             import Blackbox
 from .Chatai               import Chatai
 from .Cloudflare           import Cloudflare
 from .Copilot              import Copilot
+from .CopilotSession       import CopilotSession
 from .DeepInfra            import DeepInfra
 from .EasyChat             import EasyChat
 from .GLM                  import GLM
-from .Kimi                 import Kimi
+from .GradientNetwork      import GradientNetwork
+from .ItalyGPT             import ItalyGPT
 from .LambdaChat           import LambdaChat
 from .Mintlify             import Mintlify
-from .OIVSCodeSer2         import OIVSCodeSer2
-from .OIVSCodeSer0501      import OIVSCodeSer0501
+from .OIVSCodeSer          import OIVSCodeSer2, OIVSCodeSer0501
 from .OperaAria            import OperaAria
-from .PerplexityLabs       import PerplexityLabs
+from .Perplexity           import Perplexity
 from .PollinationsAI       import PollinationsAI
 from .PollinationsImage    import PollinationsImage
-from .Startnest            import Startnest
 from .Qwen                 import Qwen
 from .TeachAnything        import TeachAnything
 from .WeWordle             import WeWordle
 from .Yqcloud              import Yqcloud
+from .Yupp                 import Yupp
 
 import sys
 

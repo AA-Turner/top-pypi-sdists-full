@@ -12,9 +12,8 @@ import pytest
 
 from libtmux import exc
 from libtmux._internal.query_list import ObjectDoesNotExist
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, has_lt_version, has_lte_version
 from libtmux.constants import (
+    OptionScope,
     PaneDirection,
     ResizeAdjustmentDirection,
     WindowDirection,
@@ -24,6 +23,7 @@ from libtmux.server import Server
 from libtmux.window import Window
 
 if t.TYPE_CHECKING:
+    from libtmux._internal.types import StrPath
     from libtmux.session import Session
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def test_fresh_window_data(session: Session) -> None:
     """Verify window data is fresh."""
     active_window = session.active_window
     assert active_window is not None
-    pane_base_idx = active_window.show_window_option("pane-base-index", g=True)
+    pane_base_idx = active_window._show_option("pane-base-index", global_=True)
     assert pane_base_idx is not None
     pane_base_index = int(pane_base_idx)
 
@@ -86,13 +86,17 @@ def test_fresh_window_data(session: Session) -> None:
 
     active_window = session.active_window
     assert active_window is not None
-    active_window.select_pane(pane_base_index)
+    pane_to_select = active_window.panes.get(pane_index=str(pane_base_index))
+    assert pane_to_select is not None
+    pane_to_select.select()
 
     active_pane = session.active_pane
     assert active_pane is not None
     active_pane.send_keys("cd /srv/www/flaskr")
 
-    active_window.select_pane(pane_base_index + 1)
+    pane_to_select_2 = active_window.panes.get(pane_index=str(pane_base_index + 1))
+    assert pane_to_select_2 is not None
+    pane_to_select_2.select()
     active_pane = session.active_pane
     assert active_pane is not None
     active_pane.send_keys("source .venv/bin/activate")
@@ -104,7 +108,9 @@ def test_fresh_window_data(session: Session) -> None:
     assert current_windows == len(session.windows)
 
     session.select_window("1")
-    session.kill_window(target_window="hey")
+    window_to_kill = session.windows.get(window_name="hey")
+    assert window_to_kill is not None
+    window_to_kill.kill()
     current_windows -= 1
     assert current_windows == len(session.windows)
 
@@ -158,12 +164,8 @@ def test_split_shell(session: Session) -> None:
     assert window.window_width is not None
 
     assert float(first_pane.pane_height) <= ((float(window.window_width) + 1) / 2)
-    if has_gte_version("3.2"):
-        pane_start_command = pane.pane_start_command or ""
-        assert pane_start_command.replace('"', "") == cmd
-
-    else:
-        assert pane.pane_start_command == cmd
+    pane_start_command = pane.pane_start_command or ""
+    assert pane_start_command.replace('"', "") == cmd
 
 
 def test_split_horizontal(session: Session) -> None:
@@ -187,30 +189,17 @@ def test_split_size(session: Session) -> None:
     window = session.new_window(window_name="split window size")
     window.resize(height=100, width=100)
 
-    if has_gte_version("3.1"):
-        pane = window.split(size=10)
-        assert pane.pane_height == "10"
+    pane = window.split(size=10)
+    assert pane.pane_height == "10"
 
-        pane = window.split(direction=PaneDirection.Right, size=10)
-        assert pane.pane_width == "10"
+    pane = window.split(direction=PaneDirection.Right, size=10)
+    assert pane.pane_width == "10"
 
-        pane = window.split(size="10%")
-        assert pane.pane_height == "8"
+    pane = window.split(size="10%")
+    assert pane.pane_height == "8"
 
-        pane = window.split(direction=PaneDirection.Right, size="10%")
-        assert pane.pane_width == "8"
-    else:
-        window_height_before = (
-            int(window.window_height) if isinstance(window.window_height, str) else 0
-        )
-        window_width_before = (
-            int(window.window_width) if isinstance(window.window_width, str) else 0
-        )
-        pane = window.split(size="10%")
-        assert pane.pane_height == str(int(window_height_before * 0.1))
-
-        pane = window.split(direction=PaneDirection.Right, size="10%")
-        assert pane.pane_width == str(int(window_width_before * 0.1))
+    pane = window.split(direction=PaneDirection.Right, size="10%")
+    assert pane.pane_width == "8"
 
 
 class WindowRenameFixture(t.NamedTuple):
@@ -251,7 +240,7 @@ def test_window_rename(
     window_name_after: str,
 ) -> None:
     """Test Window.rename_window()."""
-    session.set_option("automatic-rename", "off")
+    session.set_option("automatic-rename", "off", scope=None)
     window = session.new_window(window_name=window_name_before, attach=True)
 
     assert window == session.active_window
@@ -264,7 +253,7 @@ def test_window_rename(
 
 
 def test_kill_window(session: Session) -> None:
-    """Test window.kill_window() kills window."""
+    """Test window.kill() kills window."""
     session.new_window()
     # create a second window to not kick out the client.
     # there is another way to do this via options too.
@@ -273,90 +262,123 @@ def test_kill_window(session: Session) -> None:
 
     assert w.window_id is not None
 
-    w.kill_window()
+    w.kill()
     with pytest.raises(ObjectDoesNotExist):
         w.refresh()
 
 
 def test_show_window_options(session: Session) -> None:
-    """Window.show_window_options() returns dict."""
+    """Window.show_options() returns dict."""
     window = session.new_window(window_name="test_window")
 
-    options = window.show_window_options()
+    options = window.show_options()
     assert isinstance(options, dict)
 
+    options_2 = window._show_options()
+    assert isinstance(options_2, dict)
 
-def test_set_show_window_options(session: Session) -> None:
-    """Set option then Window.show_window_options(key)."""
+    pane_options = window._show_options(scope=OptionScope.Pane)
+    assert isinstance(pane_options, dict)
+
+    pane_options_global = window._show_options(scope=OptionScope.Pane, global_=True)
+    assert isinstance(pane_options_global, dict)
+
+    window_options = window._show_options(scope=OptionScope.Window)
+    assert isinstance(window_options, dict)
+
+    window_options_global = window._show_options(scope=OptionScope.Window, global_=True)
+    assert isinstance(window_options_global, dict)
+
+    server_options = window._show_options(scope=OptionScope.Server)
+    assert isinstance(server_options, dict)
+
+    server_options_global = window._show_options(scope=OptionScope.Server, global_=True)
+    assert isinstance(server_options_global, dict)
+
+
+def test_set_window_and_show_window_options(session: Session) -> None:
+    """Window.set_option() then Window.show_option(key)."""
     window = session.new_window(window_name="test_window")
 
-    window.set_window_option("main-pane-height", 20)
-    assert window.show_window_option("main-pane-height") == 20
+    window.set_option("main-pane-height", 20)
+    assert window.show_option("main-pane-height") == 20
 
-    window.set_window_option("main-pane-height", 40)
-    assert window.show_window_option("main-pane-height") == 40
-    assert window.show_window_options()["main-pane-height"] == 40
+    window.set_option("main-pane-height", 40)
+    assert window.show_option("main-pane-height") == 40
+    assert window.show_options()["main-pane-height"] == 40
 
-    if has_gte_version("2.3"):
-        window.set_window_option("pane-border-format", " #P ")
-        assert window.show_window_option("pane-border-format") == " #P "
+    window.set_option("pane-border-format", " #P ")
+    assert window.show_option("pane-border-format") == " #P "
+
+
+def test_set_and_show_window_options(session: Session) -> None:
+    """Window.set_option() then Window._show_options(key)."""
+    window = session.new_window(window_name="test_window")
+
+    window.set_option("main-pane-height", 20)
+    assert window._show_option("main-pane-height") == 20
+
+    window.set_option("main-pane-height", 40)
+    assert window._show_option("main-pane-height") == 40
+
+    # By default, show-options will session scope, even if target is a window
+    with pytest.raises(KeyError):
+        assert window._show_options(scope=OptionScope.Session)["main-pane-height"] == 40
+
+    assert window._show_option("main-pane-height") == 40
+
+    window.set_option("pane-border-format", " #P ")
+    assert window._show_option("pane-border-format") == " #P "
 
 
 def test_empty_window_option_returns_None(session: Session) -> None:
     """Verify unset window option returns None."""
     window = session.new_window(window_name="test_window")
-    assert window.show_window_option("alternate-screen") is None
+    assert window.show_option("alternate-screen") is None
 
 
 def test_show_window_option(session: Session) -> None:
-    """Set option then Window.show_window_option(key)."""
+    """Set option then Window.show_option(key)."""
     window = session.new_window(window_name="test_window")
 
-    window.set_window_option("main-pane-height", 20)
-    assert window.show_window_option("main-pane-height") == 20
+    window.set_option("main-pane-height", 20)
+    assert window.show_option("main-pane-height") == 20
 
-    window.set_window_option("main-pane-height", 40)
-    assert window.show_window_option("main-pane-height") == 40
-    assert window.show_window_option("main-pane-height") == 40
+    window.set_option("main-pane-height", 40)
+    assert window.show_option("main-pane-height") == 40
+    assert window.show_option("main-pane-height") == 40
 
 
 def test_show_window_option_unknown(session: Session) -> None:
-    """Window.show_window_option raises UnknownOption for bad option key."""
+    """Window.show_option raises InvalidOption for bad option key."""
     window = session.new_window(window_name="test_window")
 
-    cmd_exception: type[exc.OptionError] = exc.UnknownOption
-    if has_gte_version("3.0"):
-        cmd_exception = exc.InvalidOption
-    with pytest.raises(cmd_exception):
-        window.show_window_option("moooz")
+    with pytest.raises(exc.InvalidOption):
+        window.show_option("moooz")
 
 
 def test_show_window_option_ambiguous(session: Session) -> None:
-    """show_window_option raises AmbiguousOption for ambiguous option."""
+    """show_option raises AmbiguousOption for ambiguous option."""
     window = session.new_window(window_name="test_window")
 
     with pytest.raises(exc.AmbiguousOption):
-        window.show_window_option("clock-mode")
+        window.show_option("clock-mode")
 
 
 def test_set_window_option_ambiguous(session: Session) -> None:
-    """set_window_option raises AmbiguousOption for ambiguous option."""
+    """set_option raises AmbiguousOption for ambiguous option."""
     window = session.new_window(window_name="test_window")
 
     with pytest.raises(exc.AmbiguousOption):
-        window.set_window_option("clock-mode", 12)
+        window.set_option("clock-mode", 12)
 
 
 def test_set_window_option_invalid(session: Session) -> None:
-    """Window.set_window_option raises ValueError for invalid option key."""
+    """Window.set_option raises InvalidOption for invalid option key."""
     window = session.new_window(window_name="test_window")
 
-    if has_gte_version("2.4"):
-        with pytest.raises(exc.InvalidOption):
-            window.set_window_option("afewewfew", 43)
-    else:
-        with pytest.raises(exc.UnknownOption):
-            window.set_window_option("afewewfew", 43)
+    with pytest.raises(exc.InvalidOption):
+        window.set_option("afewewfew", 43)
 
 
 def test_move_window(session: Session) -> None:
@@ -384,10 +406,6 @@ def test_select_layout_accepts_no_arg(server: Server, session: Session) -> None:
     window.select_layout()
 
 
-@pytest.mark.skipif(
-    has_lt_version("3.2"),
-    reason="needs filter introduced in tmux >= 3.2",
-)
 def test_empty_window_name(session: Session) -> None:
     """New windows can be created with empty string for window name."""
     session.set_option("automatic-rename", "off")
@@ -426,10 +444,6 @@ WINDOW_SPLIT_ENV_FIXTURES: list[WindowSplitEnvironmentFixture] = [
 ]
 
 
-@pytest.mark.skipif(
-    has_lt_version("3.0"),
-    reason="needs -e flag for split-window which was introduced in 3.0",
-)
 @pytest.mark.parametrize(
     list(WindowSplitEnvironmentFixture._fields),
     WINDOW_SPLIT_ENV_FIXTURES,
@@ -457,10 +471,6 @@ def test_split_with_environment(
         assert pane.capture_pane()[-2] == v
 
 
-@pytest.mark.skipif(
-    has_lte_version("3.1"),
-    reason="3.2 has the -Z flag on split-window",
-)
 def test_split_window_zoom(
     session: Session,
 ) -> None:
@@ -483,33 +493,6 @@ def test_split_window_zoom(
     assert pane_with_zoom.height == pane_with_zoom.window_height
 
 
-@pytest.mark.skipif(
-    has_gte_version("3.0"),
-    reason="3.0 has the -e flag on split-window",
-)
-def test_split_with_environment_logs_warning_for_old_tmux(
-    session: Session,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Verify splitting window with environment variables warns if tmux too old."""
-    env = shutil.which("env")
-    assert env is not None, "Cannot find usable `env` in Path."
-
-    window = session.new_window(window_name="split_with_environment")
-    window.split(
-        shell=f"{env} PS1='$ ' sh",
-        environment={"ENV_VAR": "pane"},
-    )
-
-    assert any("Environment flag ignored" in record.msg for record in caplog.records), (
-        "Warning missing"
-    )
-
-
-@pytest.mark.skipif(
-    has_lt_version("2.9"),
-    reason="resize-window only exists in tmux 2.9+",
-)
 def test_resize(
     session: Session,
 ) -> None:
@@ -586,10 +569,6 @@ def test_resize(
     assert window_height_before < window_height_expanded
 
 
-@pytest.mark.skipif(
-    has_lt_version("3.2"),
-    reason="Only 3.2+ has the -a and -b flag on new-window",
-)
 def test_new_window_with_direction(
     session: Session,
 ) -> None:
@@ -617,32 +596,6 @@ def test_new_window_with_direction(
     assert window_after.window_index == "4"
     assert window_initial.window_index == "3"
     assert window_before.window_index == "2"
-
-
-@pytest.mark.skipif(
-    has_gte_version("3.2"),
-    reason="Only 3.2+ has the -a and -b flag on new-window",
-)
-def test_new_window_with_direction_logs_warning_for_old_tmux(
-    session: Session,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Verify new window with direction create a warning if tmux is too old."""
-    window = session.active_window
-    window.refresh()
-
-    window.new_window(
-        window_name="window_with_direction",
-        direction=WindowDirection.After,
-    )
-
-    assert any("Window target ignored" in record.msg for record in caplog.records), (
-        "Warning missing"
-    )
-
-    assert any("Direction flag ignored" in record.msg for record in caplog.records), (
-        "Warning missing"
-    )
 
 
 def test_window_context_manager(session: Session) -> None:
@@ -712,8 +665,8 @@ def test_split_start_directory(
     actual_start_directory = start_directory
     expected_path = None
 
-    if start_directory and str(start_directory) not in ["", "None"]:
-        if "{user_path}" in str(start_directory):
+    if start_directory and str(start_directory) not in {"", "None"}:
+        if f"{user_path}" in str(start_directory):
             # Replace placeholder with actual user_path
             actual_start_directory = str(start_directory).format(user_path=user_path)
             expected_path = str(user_path)
@@ -739,7 +692,8 @@ def test_split_start_directory(
 
 
 def test_split_start_directory_pathlib(
-    session: Session, user_path: pathlib.Path
+    session: Session,
+    user_path: pathlib.Path,
 ) -> None:
     """Test Window.split accepts pathlib.Path for start_directory."""
     window = session.new_window(window_name="test_window_split_pathlib")
@@ -756,3 +710,63 @@ def test_split_start_directory_pathlib(
     actual_path = str(pathlib.Path(new_pane.pane_current_path).resolve())
     expected_path = str(user_path.resolve())
     assert actual_path == expected_path
+
+
+# --- Deprecation Warning Tests ---
+
+
+class DeprecatedMethodTestCase(t.NamedTuple):
+    """Test case for deprecated method errors."""
+
+    test_id: str
+    method_name: str  # Name of deprecated method to call
+    args: tuple[t.Any, ...]  # Positional args
+    kwargs: dict[str, t.Any]  # Keyword args
+    expected_error_match: str  # Regex pattern to match error message
+
+
+# These methods were deprecated in 0.50.0 and still emit warnings (not errors)
+DEPRECATED_WARNING_WINDOW_METHOD_TEST_CASES: list[DeprecatedMethodTestCase] = [
+    DeprecatedMethodTestCase(
+        test_id="set_window_option",
+        method_name="set_window_option",
+        args=("main-pane-height", 20),
+        kwargs={},
+        expected_error_match=r"Window\.set_window_option\(\) is deprecated",
+    ),
+    DeprecatedMethodTestCase(
+        test_id="show_window_options",
+        method_name="show_window_options",
+        args=(),
+        kwargs={},
+        expected_error_match=r"Window\.show_window_options\(\) is deprecated",
+    ),
+    DeprecatedMethodTestCase(
+        test_id="show_window_option",
+        method_name="show_window_option",
+        args=("main-pane-height",),
+        kwargs={},
+        expected_error_match=r"Window\.show_window_option\(\) is deprecated",
+    ),
+]
+
+
+def _build_deprecated_warning_method_params() -> list[t.Any]:
+    """Build pytest params for deprecated method warning tests."""
+    return [
+        pytest.param(tc, id=tc.test_id)
+        for tc in DEPRECATED_WARNING_WINDOW_METHOD_TEST_CASES
+    ]
+
+
+@pytest.mark.parametrize("test_case", _build_deprecated_warning_method_params())
+def test_deprecated_window_methods_emit_warning(
+    session: Session,
+    test_case: DeprecatedMethodTestCase,
+) -> None:
+    """Verify deprecated Window methods emit DeprecationWarning (0.50.0)."""
+    window = session.new_window(window_name="test_deprecation")
+    method = getattr(window, test_case.method_name)
+
+    with pytest.warns(DeprecationWarning, match=test_case.expected_error_match):
+        method(*test_case.args, **test_case.kwargs)

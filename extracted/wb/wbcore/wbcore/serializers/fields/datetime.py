@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 
 import pytz
+from django.core.exceptions import ValidationError
 from psycopg.types.range import DateRange, TimestampRange, TimestamptzRange
 from rest_framework import serializers
 from rest_framework.settings import api_settings
@@ -36,9 +37,28 @@ class ShortcutMixin(WBCoreSerializerFieldMixin):
         return key, representation
 
 
+class DateRangeBoundedValidator:
+    """
+    Ensure a psycopg DateRange has both lower and upper bounds set (no None).
+    """
+
+    def __call__(self, value):
+        # Accept empty values the usual DRF way; let `required` handle presence.
+        if value is None:
+            return
+
+        # DateRange / DateTimeTZRange objects expose .lower and .upper. [web:30][web:44]
+        lower = getattr(value, "lower", None)
+        upper = getattr(value, "upper", None)
+
+        if lower is None or upper is None:
+            raise ValidationError("This range must have both a lower and an upper bound.")
+
+
 class DateRangeField(RangeMixin, ShortcutMixin, serializers.DateField):
     field_type = WBCoreType.DATERANGE.value
     internal_field = DateRange
+    default_validators = [DateRangeBoundedValidator()]
 
     def __init__(
         self,
@@ -78,6 +98,7 @@ class DateRangeField(RangeMixin, ShortcutMixin, serializers.DateField):
 class DateTimeRangeField(RangeMixin, ShortcutMixin, serializers.DateTimeField):
     field_type = WBCoreType.DATETIMERANGE.value
     internal_field = TimestamptzRange
+    default_validators = [DateRangeBoundedValidator()]
 
     def __init__(self, *args, lower_time_choices=None, upper_time_choices=None, **kwargs):
         self.lower_time_choices = lower_time_choices
@@ -109,8 +130,6 @@ class DateTimeRangeField(RangeMixin, ShortcutMixin, serializers.DateTimeField):
                 representation["upper_time_choices"] = self.upper_time_choices(self, request)
             else:
                 representation["upper_time_choices"] = self.upper_time_choices
-        if timezone := getattr(self, "timezone", None):
-            representation["timezone"] = str(timezone)
         return key, representation
 
 
@@ -121,7 +140,6 @@ class TimeRange(RangeMixin, ShortcutMixin, serializers.TimeField):
     def __init__(self, *args, timerange_fields: tuple[str, str] | None = None, **kwargs):
         self.timerange_fields = timerange_fields
         super().__init__(*args, **kwargs)
-        self.timezone = None
         self.default_date_repr = date.min.strftime(getattr(self, "format", api_settings.DATE_FORMAT))
         if self.timerange_fields:
             self.source = "*"
@@ -141,7 +159,7 @@ class TimeRange(RangeMixin, ShortcutMixin, serializers.TimeField):
     def to_internal_value(self, data):
         ts_range = super().to_internal_value(data)
         if self.timerange_fields:
-            return dict(zip(self.timerange_fields, (ts_range.lower, ts_range.upper)))
+            return dict(zip(self.timerange_fields, (ts_range.lower, ts_range.upper), strict=False))
         return ts_range
 
 
@@ -158,7 +176,7 @@ class TimeZoneField(WBCoreSerializerFieldMixin, TimeZoneSerializerField):
 
     def __init__(self, choices=None, choices_display=None, *args, **kwargs):
         if choices:
-            values, displays = zip(*choices)
+            values, displays = zip(*choices, strict=False)
         else:
             values = pytz.common_timezones
             displays = None
@@ -168,7 +186,7 @@ class TimeZoneField(WBCoreSerializerFieldMixin, TimeZoneSerializerField):
         elif choices_display == "STANDARD":
             choices = standard(values)
         elif choices_display is None:
-            choices = zip(values, displays) if displays else standard(values)
+            choices = zip(values, displays, strict=False) if displays else standard(values)
         else:
             raise ValueError(f"Unrecognized value for kwarg 'choices_display' of '{choices_display}'")
 

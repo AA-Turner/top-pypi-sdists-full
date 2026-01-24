@@ -3,7 +3,7 @@ Type annotations for opensearch service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -48,6 +49,8 @@ from .type_defs import (
     CreateApplicationResponseTypeDef,
     CreateDomainRequestTypeDef,
     CreateDomainResponseTypeDef,
+    CreateIndexRequestTypeDef,
+    CreateIndexResponseTypeDef,
     CreateOutboundConnectionRequestTypeDef,
     CreateOutboundConnectionResponseTypeDef,
     CreatePackageRequestTypeDef,
@@ -62,6 +65,8 @@ from .type_defs import (
     DeleteDomainResponseTypeDef,
     DeleteInboundConnectionRequestTypeDef,
     DeleteInboundConnectionResponseTypeDef,
+    DeleteIndexRequestTypeDef,
+    DeleteIndexResponseTypeDef,
     DeleteOutboundConnectionRequestTypeDef,
     DeleteOutboundConnectionResponseTypeDef,
     DeletePackageRequestTypeDef,
@@ -109,10 +114,13 @@ from .type_defs import (
     GetCompatibleVersionsResponseTypeDef,
     GetDataSourceRequestTypeDef,
     GetDataSourceResponseTypeDef,
+    GetDefaultApplicationSettingResponseTypeDef,
     GetDirectQueryDataSourceRequestTypeDef,
     GetDirectQueryDataSourceResponseTypeDef,
     GetDomainMaintenanceStatusRequestTypeDef,
     GetDomainMaintenanceStatusResponseTypeDef,
+    GetIndexRequestTypeDef,
+    GetIndexResponseTypeDef,
     GetPackageVersionHistoryRequestTypeDef,
     GetPackageVersionHistoryResponseTypeDef,
     GetUpgradeHistoryRequestTypeDef,
@@ -149,6 +157,8 @@ from .type_defs import (
     ListVpcEndpointsResponseTypeDef,
     PurchaseReservedInstanceOfferingRequestTypeDef,
     PurchaseReservedInstanceOfferingResponseTypeDef,
+    PutDefaultApplicationSettingRequestTypeDef,
+    PutDefaultApplicationSettingResponseTypeDef,
     RejectInboundConnectionRequestTypeDef,
     RejectInboundConnectionResponseTypeDef,
     RemoveTagsRequestTypeDef,
@@ -165,6 +175,8 @@ from .type_defs import (
     UpdateDirectQueryDataSourceResponseTypeDef,
     UpdateDomainConfigRequestTypeDef,
     UpdateDomainConfigResponseTypeDef,
+    UpdateIndexRequestTypeDef,
+    UpdateIndexResponseTypeDef,
     UpdatePackageRequestTypeDef,
     UpdatePackageResponseTypeDef,
     UpdatePackageScopeRequestTypeDef,
@@ -177,12 +189,6 @@ from .type_defs import (
     UpgradeDomainResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -191,20 +197,21 @@ else:
 __all__ = ("OpenSearchServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BaseException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DependencyFailureException: Type[BotocoreClientError]
-    DisabledOperationException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidTypeException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    SlotNotAvailableException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BaseException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyFailureException: type[BotocoreClientError]
+    DisabledOperationException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidTypeException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    SlotNotAvailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class OpenSearchServiceClient(BaseClient):
     """
@@ -355,6 +362,17 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#create_domain)
         """
 
+    def create_index(
+        self, **kwargs: Unpack[CreateIndexRequestTypeDef]
+    ) -> CreateIndexResponseTypeDef:
+        """
+        Creates an OpenSearch index with optional automatic semantic enrichment for
+        specified text fields.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/create_index.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#create_index)
+        """
+
     def create_outbound_connection(
         self, **kwargs: Unpack[CreateOutboundConnectionRequestTypeDef]
     ) -> CreateOutboundConnectionResponseTypeDef:
@@ -388,7 +406,7 @@ class OpenSearchServiceClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified OpenSearch application.
 
@@ -436,6 +454,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/delete_inbound_connection.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#delete_inbound_connection)
+        """
+
+    def delete_index(
+        self, **kwargs: Unpack[DeleteIndexRequestTypeDef]
+    ) -> DeleteIndexResponseTypeDef:
+        """
+        Deletes an OpenSearch index.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/delete_index.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#delete_index)
         """
 
     def delete_outbound_connection(
@@ -646,7 +674,7 @@ class OpenSearchServiceClient(BaseClient):
         self, **kwargs: Unpack[DissociatePackagesRequestTypeDef]
     ) -> DissociatePackagesResponseTypeDef:
         """
-        Dissociates multiple packages from a domain simulatneously.
+        Dissociates multiple packages from a domain simultaneously.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/dissociate_packages.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#dissociate_packages)
@@ -683,6 +711,14 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_data_source)
         """
 
+    def get_default_application_setting(self) -> GetDefaultApplicationSettingResponseTypeDef:
+        """
+        Gets the ARN of the current default application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_default_application_setting.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_default_application_setting)
+        """
+
     def get_direct_query_data_source(
         self, **kwargs: Unpack[GetDirectQueryDataSourceRequestTypeDef]
     ) -> GetDirectQueryDataSourceResponseTypeDef:
@@ -702,6 +738,15 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_domain_maintenance_status.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_domain_maintenance_status)
+        """
+
+    def get_index(self, **kwargs: Unpack[GetIndexRequestTypeDef]) -> GetIndexResponseTypeDef:
+        """
+        Retrieves information about an OpenSearch index including its schema and
+        semantic enrichment configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_index.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#get_index)
         """
 
     def get_package_version_history(
@@ -895,6 +940,16 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#purchase_reserved_instance_offering)
         """
 
+    def put_default_application_setting(
+        self, **kwargs: Unpack[PutDefaultApplicationSettingRequestTypeDef]
+    ) -> PutDefaultApplicationSettingResponseTypeDef:
+        """
+        Sets the default application to the application with the specified ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/put_default_application_setting.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#put_default_application_setting)
+        """
+
     def reject_inbound_connection(
         self, **kwargs: Unpack[RejectInboundConnectionRequestTypeDef]
     ) -> RejectInboundConnectionResponseTypeDef:
@@ -919,7 +974,7 @@ class OpenSearchServiceClient(BaseClient):
 
     def revoke_vpc_endpoint_access(
         self, **kwargs: Unpack[RevokeVpcEndpointAccessRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Revokes access to an Amazon OpenSearch Service domain that was provided through
         an interface VPC endpoint.
@@ -988,6 +1043,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/update_domain_config.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#update_domain_config)
+        """
+
+    def update_index(
+        self, **kwargs: Unpack[UpdateIndexRequestTypeDef]
+    ) -> UpdateIndexResponseTypeDef:
+        """
+        Updates an existing OpenSearch index schema and semantic enrichment
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/update_index.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#update_index)
         """
 
     def update_package(

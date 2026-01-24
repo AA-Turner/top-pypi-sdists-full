@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numexpr
-Version: 2.12.1
+Version: 2.14.1
 Summary: Fast numerical expression evaluator for NumPy
 Author-email: "David M. Cooke, Francesc Alted, and others" <blosc@blosc.org>
 Maintainer-email: Blosc Development Team <blosc@blosc.org>

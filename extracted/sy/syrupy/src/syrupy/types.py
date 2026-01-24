@@ -1,21 +1,16 @@
 # noqa: A005
+from collections.abc import Callable, Hashable
 from typing import (
     Any,
-    Callable,
-    Hashable,
-    Optional,
-    Tuple,
-    Type,
-    Union,
 )
 
-SnapshotIndex = Union[int, str]
+SnapshotIndex = int | str
 SerializableData = Any
-SerializedData = Union[str, bytes]
+SerializedData = str | bytes
 PropertyName = Hashable
-PropertyValueType = Type[SerializableData]
-PropertyPathEntry = Tuple[PropertyName, PropertyValueType]
-PropertyPath = Tuple[PropertyPathEntry, ...]
+PropertyValueType = type[SerializableData]
+PropertyPathEntry = tuple[PropertyName, PropertyValueType]
+PropertyPath = tuple[PropertyPathEntry, ...]
 try:
     from mypy_extensions import NamedArg
 
@@ -24,7 +19,7 @@ try:
             NamedArg(SerializableData, "data"),  # noqa: F821
             NamedArg(PropertyPath, "path"),  # noqa: F821
         ],
-        Optional[SerializableData],
+        SerializableData | None,
     ]
     PropertyFilter = Callable[
         [
@@ -35,5 +30,5 @@ try:
     ]
 
 except ImportError:
-    globals()["PropertyMatcher"] = Callable[..., Optional[SerializableData]]
+    globals()["PropertyMatcher"] = Callable[..., SerializableData | None]
     globals()["PropertyFilter"] = Callable[..., bool]

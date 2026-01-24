@@ -74,21 +74,14 @@ AWS_CAL_API struct aws_ecc_key_pair *aws_ecc_key_pair_new_from_private_key(
     enum aws_ecc_curve_name curve_name,
     const struct aws_byte_cursor *priv_key);
 
-#if !defined(AWS_OS_IOS)
 /**
  * Creates an Elliptic Curve public/private key pair that can be used for signing and verifying.
  * Returns a new instance of aws_ecc_key_pair if the key was successfully built.
  * Otherwise returns NULL.
- * Note: On Apple platforms this function is only supported on MacOS. This is
- * due to usage of SecItemExport, which is only available on MacOS 10.7+
- * (yes, MacOS only and no other Apple platforms). There are alternatives for
- * ios and other platforms, but they are ugly to use. Hence for now it only
- * supports this call on MacOS.
  */
 AWS_CAL_API struct aws_ecc_key_pair *aws_ecc_key_pair_new_generate_random(
     struct aws_allocator *allocator,
     enum aws_ecc_curve_name curve_name);
-#endif /* !AWS_OS_IOS */
 
 /**
  * Creates an Elliptic Curve public key that can be used for verifying.
@@ -178,6 +171,55 @@ AWS_CAL_API void aws_ecc_key_pair_get_private_key(
     struct aws_byte_cursor *private_d);
 
 AWS_CAL_API size_t aws_ecc_key_coordinate_byte_size_from_curve_name(enum aws_ecc_curve_name curve_name);
+
+enum aws_ecc_key_export_format {
+    AWS_CAL_ECC_KEY_EXPORT_PRIVATE_SEC1,
+    AWS_CAL_ECC_KEY_EXPORT_PRIVATE_PKCS8,
+    AWS_CAL_ECC_KEY_EXPORT_PUBLIC_SPKI
+};
+
+/**
+ * Export key to a specified format.
+ * out should be initialized and have enough space for the key.
+ * returns error if export is not possible.
+ */
+AWS_CAL_API int aws_ecc_key_pair_export(
+    const struct aws_ecc_key_pair *key_pair,
+    enum aws_ecc_key_export_format format,
+    struct aws_byte_buf *out);
+
+/*
+ * Helper to decode ECDSA signature from DER format to base components R and S.
+ * Does not pad and returns values as they are in DER. r and s might be smaller than coord size
+ */
+AWS_CAL_API int aws_ecc_decode_signature_der_to_raw(
+    struct aws_allocator *allocator,
+    struct aws_byte_cursor signature,
+    struct aws_byte_cursor *out_r,
+    struct aws_byte_cursor *out_s);
+
+/*
+ * Helper to decode ECDSA signature from DER format to padded R || S.
+ * Common jwt format.
+ * Pads each R and S to pad_to.
+ * Returns error if pad_to is less than len of r or s.
+ * use aws_ecc_decode_signature_der_to_raw if you need unpadded values
+ */
+AWS_CAL_API int aws_ecc_decode_signature_der_to_raw_padded(
+    struct aws_allocator *allocator,
+    struct aws_byte_cursor signature,
+    struct aws_byte_buf *out,
+    size_t pad_to);
+
+/*
+ * Helper to encode ECDSA signature from raw format (R and S) to DER.
+ * out_signature must be initialized and must be able to fit signature
+ */
+AWS_CAL_API int aws_ecc_encode_signature_raw_to_der(
+    struct aws_allocator *allocator,
+    struct aws_byte_cursor r,
+    struct aws_byte_cursor s,
+    struct aws_byte_buf *out_signature);
 
 AWS_EXTERN_C_END
 AWS_POP_SANE_WARNING_LEVEL

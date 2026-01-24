@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 from itertools import product
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from ase import Atoms
 
@@ -26,13 +26,13 @@ class ClusterList:
     def __init__(self):
         self._clusters = []
         # Format of the names cache: {num_bf: names}
-        self._all_cf_name_cache: Dict[int, List[str]] = {}
+        self._all_cf_name_cache: dict[int, list[str]] = {}
 
-    def todict(self) -> Dict[str, Any]:
+    def todict(self) -> dict[str, Any]:
         return {"clusters": self.clusters}
 
     @classmethod
-    def from_dict(cls, dct: Dict[str, Any]) -> ClusterList:
+    def from_dict(cls, dct: dict[str, Any]) -> ClusterList:
         cluster_lst = cls()
         clusters = dct["clusters"]
         for cluster in clusters:
@@ -40,7 +40,7 @@ class ClusterList:
         return cluster_lst
 
     @property
-    def clusters(self) -> List[Cluster]:
+    def clusters(self) -> list[Cluster]:
         return self._clusters
 
     def append(self, cluster: Cluster) -> None:
@@ -57,11 +57,11 @@ class ClusterList:
         self._all_cf_name_cache.clear()
 
     @property
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         """Get all names in the cluster list"""
         return [cluster.name for cluster in self.clusters]
 
-    def get_by_name(self, name) -> List[Cluster]:
+    def get_by_name(self, name) -> list[Cluster]:
         return [cluster for cluster in self.clusters if cluster.name == name]
 
     def get_by_name_and_group(self, name, group) -> Cluster:
@@ -72,7 +72,7 @@ class ClusterList:
         msg = f"There is no cluster named {name} and in group {group}"
         raise ClusterDoesNotExistError(msg)
 
-    def get_by_size(self, size) -> List[Cluster]:
+    def get_by_size(self, size) -> list[Cluster]:
         # Return all clusters with a given size
         return [c for c in self.clusters if c.size == size]
 
@@ -112,7 +112,7 @@ class ClusterList:
             cf_names.append(name + "_" + dec_str)
         return sorted(list(set(cf_names)))
 
-    def get_all_cf_names(self, num_bf: int) -> List[str]:
+    def get_all_cf_names(self, num_bf: int) -> list[str]:
         """
         Return a list of all correlation function names
 
@@ -129,7 +129,7 @@ class ClusterList:
         self._all_cf_name_cache[num_bf] = all_cf
         return all_cf
 
-    def _build_all_cf_names(self, num_bf: int) -> List[str]:
+    def _build_all_cf_names(self, num_bf: int) -> list[str]:
         if not isinstance(num_bf, int):
             raise TypeError(f"Number of basis functions must be integer, got {num_bf}")
         all_cf_names = []
@@ -189,7 +189,7 @@ class ClusterList:
         new_list.sort()
         return new_list
 
-    def tolist(self) -> List[Cluster]:
+    def tolist(self) -> list[Cluster]:
         """Returns a copy of the ClusterList as a regular list."""
         return list(self.clusters)
 
@@ -213,7 +213,7 @@ class ClusterList:
                 indices_per_group[i].update(flatten(c.indices))
         return [list(x) for x in indices_per_group]
 
-    def multiplicity_factors(self, num_sites_per_group: List[int]) -> Dict[str, float]:
+    def multiplicity_factors(self, num_sites_per_group: list[int]) -> dict[str, float]:
         mult_factors = {}
         norm = {}
         for cluster in self.clusters:
@@ -233,9 +233,9 @@ class ClusterList:
         """Return all all subclusters of the passed cluster in the list."""
         return [c for c in self.clusters if c.is_subcluster(cluster)]
 
-    def get_figures(self, generator: ClusterGenerator) -> List[Atoms]:
+    def get_figures(self, generator: ClusterGenerator) -> list[Atoms]:
         """Get the figures (in their ASE Atoms object representation)"""
-        figures: List[Atoms] = []
+        figures: list[Atoms] = []
         self.sort()
         # We want to skip c0 and c1 anyways
         used_names = {"c0", "c1"}

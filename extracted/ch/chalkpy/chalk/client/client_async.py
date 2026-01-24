@@ -9,11 +9,13 @@ from uuid import UUID
 from chalk import DataFrame
 from chalk.client.models import (
     BulkOnlineQueryResponse,
+    BulkOnlineQueryResult,
     FeatureReference,
     FeatureStatisticsResponse,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
+    PlanQueryResponse,
     ResourceRequests,
     UploadFeaturesResponse,
     WhoAmIResponse,
@@ -26,6 +28,7 @@ from chalk.prompts import Prompt
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
+    import pyarrow as pa
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame | str
 
@@ -159,6 +162,7 @@ class AsyncChalkClient:
         connect_timeout: Optional[float] = None,
         headers: Mapping[str, str] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        trace: bool = False,
     ) -> OnlineQueryResult:
         """Compute features values using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information.
@@ -234,6 +238,10 @@ class AsyncChalkClient:
             An immutable context that can be accessed from Python resolvers.
             This context wraps a JSON-compatible dictionary or JSON string with type restrictions.
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
+        trace
+            Force tracing on the query. Requests using `trace=True` will be slower
+            than requests using `trace=False`. Requires datadog tracing to be installed
+            for this to have any effect
 
         Other Parameters
         ----------------
@@ -462,6 +470,147 @@ class AsyncChalkClient:
         """
         ...
 
+    async def plan_query(
+        self,
+        input: Sequence[FeatureReference],
+        output: Sequence[FeatureReference],
+        staleness: Mapping[FeatureReference, str] | None = None,
+        environment: EnvironmentId | None = None,
+        tags: list[str] | None = None,
+        preview_deployment_id: str | None = None,
+        branch: Union[BranchId, None] = ...,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
+        meta: Mapping[str, str] | None = None,
+        store_plan_stages: bool = False,
+        explain: bool = False,
+        num_input_rows: Optional[int] = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> PlanQueryResponse:
+        """Plan a query without executing it.
+
+        Parameters
+        ----------
+        input
+            The features for which there are known values, mapped to those values.
+            For example, `{User.id: 1234}`. Features can also be expressed as snakecased strings,
+            e.g. `{"user.id": 1234}`
+        output
+            Outputs are the features that you'd like to compute from the inputs.
+            For example, `[User.age, User.name, User.email]`.
+        staleness
+            Maximum staleness overrides for any output features or intermediate features.
+            See https://docs.chalk.ai/docs/query-caching for more information.
+        environment
+            The environment under which to run the resolvers.
+            API tokens can be scoped to an environment.
+            If no environment is specified in the query,
+            but the token supports only a single environment,
+            then that environment will be taken as the scope
+            for executing the request.
+        tags
+            The tags used to scope the resolvers.
+            See https://docs.chalk.ai/docs/resolver-tags for more information.
+        branch
+            If specified, Chalk will route your request to the relevant branch.
+        preview_deployment_id
+            If specified, Chalk will route your request to the relevant preview deployment.
+        query_name
+            The semantic name for the query you're making, for example, `"loan_application_model"`.
+            Typically, each query that you make from your application should have a name.
+            Chalk will present metrics and dashboard functionality grouped by 'query_name'.
+            If your query name matches a `NamedQuery`, the query will automatically pull outputs
+            and options specified in the matching `NamedQuery`.
+        query_name_version
+            If `query_name` is specified, this specifies the version of the named query you're making.
+            This is only useful if you want your query to use a `NamedQuery` with a specific name and a
+            specific version. If a `query_name` has not been supplied, then this parameter is ignored.
+        meta
+            Arbitrary `key:value` pairs to associate with a query.
+        store_plan_stages
+            If true, the plan will store the intermediate values at each stage in the plan
+        explain
+            If true, the plan will emit additional output to assist with debugging.
+        num_input_rows:
+            The number of input rows that this plan will be run with. If unknown, specify `None`.
+        headers
+            Additional headers to provide with the request
+
+        Returns
+        -------
+        PlanQueryResponse
+            The query plan, including the resolver execution order and the
+            resolver execution plan for each resolver.
+
+        Examples
+        --------
+        >>> from chalk.client import AsyncChalkClient
+        >>> result = await AsyncChalkClient().plan_query(
+        ...     input=[User.id],
+        ...     output=[User.fico_score],
+        ...     staleness={User.fico_score: "10m"},
+        ... )
+        >>> result.rendered_plan
+        >>> result.output_schema
+        """
+        ...
+
+    async def _run_serialized_query(
+        self,
+        serialized_plan_bytes: bytes,
+        input: Union[Mapping[FeatureReference, Sequence[Any]], pa.Table],
+        output: Sequence[FeatureReference] = (),
+        staleness: Mapping[FeatureReference, str] | None = None,
+        context: OnlineQueryContext | None = None,
+        query_name: str | None = None,
+        query_name_version: str | None = None,
+        correlation_id: str | None = None,
+        include_meta: bool = False,
+        explain: bool = False,
+        store_plan_stages: bool = False,
+        meta: Mapping[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> BulkOnlineQueryResult:
+        """Run a query using a pre-serialized plan.
+
+        This is a protected method for internal use and testing.
+
+        Parameters
+        ----------
+        serialized_plan_bytes
+            The serialized BatchPlan protobuf bytes
+        input
+            The input data, either as a mapping of features to values or as a PyArrow table
+        output
+            The output features to compute
+        staleness
+            Maximum staleness overrides for features
+        context
+            Query context including environment and tags
+        query_name
+            The name of the query
+        query_name_version
+            The version of the query
+        correlation_id
+            Correlation ID for logging
+        include_meta
+            Whether to include metadata in the response
+        explain
+            Whether to include explain output
+        store_plan_stages
+            Whether to store plan stages
+        meta
+            Customer metadata tags
+        headers
+            Additional headers to provide with the request
+
+        Returns
+        -------
+        OnlineQueryResult
+            The query result
+        """
+        ...
+
     async def offline_query(
         self,
         input: Union[QueryInput, OfflineQueryInputUri] | None = None,
@@ -497,6 +646,8 @@ class AsyncChalkClient:
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
+        *,
+        input_sql: str | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -511,6 +662,9 @@ class AsyncChalkClient:
             an observation in line with the timestamp in `input_times`.
         input_times
             A list of the times of the observations from `input`.
+        input_sql
+            An alternative to `input`: a ChalkSQL query that returns values
+            to use as inputs.
         output
             The features that you'd like to sample, if they exist.
             If an output feature was never computed for a sample (row) in

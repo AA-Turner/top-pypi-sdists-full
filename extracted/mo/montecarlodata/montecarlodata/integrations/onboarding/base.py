@@ -150,11 +150,16 @@ class BaseOnboardingService:
     def load_ssl_options(self, options: dict) -> dict:
         # Remove nulls and rename fields for they keys that start with ssl_
         # or skip_cert_verification
-        ssl_options = {
-            k.replace("ssl_", ""): v
-            for k, v in options.items()
-            if v is not None and (k.startswith("ssl_") or k == "skip_cert_verification")
-        }
+        ssl_options = {}
+        for k, v in options.items():
+            if v is not None and (k.startswith("ssl_") or k == "skip_cert_verification"):
+                if k == "skip_cert_verification":
+                    # Only include skip_verification if it's True (False means default behavior)
+                    # Note: The update mutation may not support this field, so we exclude it
+                    # for updates. It's handled separately in handle_cert for create operations.
+                    pass  # Skip this field - not supported in update mutations
+                else:
+                    ssl_options[k.replace("ssl_", "")] = v
 
         # Find cert keys
         cert_keys_in_options = {"ca", "cert", "key"}.intersection(ssl_options)

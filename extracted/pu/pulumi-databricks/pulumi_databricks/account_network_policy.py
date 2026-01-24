@@ -141,6 +141,8 @@ class AccountNetworkPolicy(pulumi.CustomResource):
                  network_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
         Network policies control which network destinations can be accessed from the Databricks environment.
 
         Each Databricks account includes a default policy named `default-policy`. This policy is:
@@ -152,6 +154,33 @@ class AccountNetworkPolicy(pulumi.CustomResource):
         The `default-policy` provides a baseline security configuration that ensures all workspaces have network access controls in place.
 
         > **Note** This resource can only be used with an account-level provider!
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        example_network_policy = databricks.AccountNetworkPolicy("example_network_policy",
+            network_policy_id="example-network-policy",
+            egress={
+                "network_access": {
+                    "restriction_mode": "RESTRICTED_ACCESS",
+                    "allowed_internet_destinations": [{
+                        "destination": "example.com",
+                        "internet_destination_type": "DNS_NAME",
+                    }],
+                    "allowed_storage_destinations": [{
+                        "bucket_name": "example-aws-cloud-storage",
+                        "region": "us-west-1",
+                        "storage_destination_type": "AWS_S3",
+                    }],
+                    "policy_enforcement": {
+                        "enforcement_mode": "ENFORCED",
+                    },
+                },
+            })
+        ```
 
         ## Import
 
@@ -170,7 +199,7 @@ class AccountNetworkPolicy(pulumi.CustomResource):
         If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
 
         ```sh
-        $ pulumi import databricks:index/accountNetworkPolicy:AccountNetworkPolicy databricks_account_network_policy "network_policy_id"
+        $ pulumi import databricks:index/accountNetworkPolicy:AccountNetworkPolicy this "network_policy_id"
         ```
 
         :param str resource_name: The name of the resource.
@@ -186,6 +215,8 @@ class AccountNetworkPolicy(pulumi.CustomResource):
                  args: Optional[AccountNetworkPolicyArgs] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
         Network policies control which network destinations can be accessed from the Databricks environment.
 
         Each Databricks account includes a default policy named `default-policy`. This policy is:
@@ -197,6 +228,33 @@ class AccountNetworkPolicy(pulumi.CustomResource):
         The `default-policy` provides a baseline security configuration that ensures all workspaces have network access controls in place.
 
         > **Note** This resource can only be used with an account-level provider!
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        example_network_policy = databricks.AccountNetworkPolicy("example_network_policy",
+            network_policy_id="example-network-policy",
+            egress={
+                "network_access": {
+                    "restriction_mode": "RESTRICTED_ACCESS",
+                    "allowed_internet_destinations": [{
+                        "destination": "example.com",
+                        "internet_destination_type": "DNS_NAME",
+                    }],
+                    "allowed_storage_destinations": [{
+                        "bucket_name": "example-aws-cloud-storage",
+                        "region": "us-west-1",
+                        "storage_destination_type": "AWS_S3",
+                    }],
+                    "policy_enforcement": {
+                        "enforcement_mode": "ENFORCED",
+                    },
+                },
+            })
+        ```
 
         ## Import
 
@@ -215,7 +273,7 @@ class AccountNetworkPolicy(pulumi.CustomResource):
         If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
 
         ```sh
-        $ pulumi import databricks:index/accountNetworkPolicy:AccountNetworkPolicy databricks_account_network_policy "network_policy_id"
+        $ pulumi import databricks:index/accountNetworkPolicy:AccountNetworkPolicy this "network_policy_id"
         ```
 
         :param str resource_name: The name of the resource.

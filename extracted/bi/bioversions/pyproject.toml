@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.6.6,<0.7"]
+requires = ["uv_build>=0.9.6,<1.0"]
 build-backend = "uv_build"
 
 [project]
 name = "bioversions"
-version = "0.8.143"
+version = "0.8.244"
 description = "Get the current version for biological databases"
 readme = "README.md"
 authors = [
@@ -67,6 +67,7 @@ dependencies = [
     "psycopg2-binary",
     "python-dateutil",
     "class-resolver>=0.7.1",
+    "ror-downloader>=0.0.4",
 ]
 
 # see https://peps.python.org/pep-0735/ and https://docs.astral.sh/uv/concepts/dependencies/#dependency-groups
@@ -114,8 +115,8 @@ bump = [
     "bump-my-version",
 ]
 build = [
-    "uv",
-    "uv-build",
+    "uv>=0.9.6",
+    "uv-build>=0.9.6",
 ]
 release = [
     { include-group = "build" },
@@ -262,7 +263,7 @@ known-first-party = [
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.8.143"
+current_version = "0.8.244"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+(?P<build>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",

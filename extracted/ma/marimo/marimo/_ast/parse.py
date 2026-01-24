@@ -1,8 +1,9 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import ast
 import io
+import sys
 import token as token_types
 import warnings
 from pathlib import Path
@@ -77,7 +78,25 @@ def fixed_dedent(text: str) -> str:
     return dedent("\n".join(map(refill, lines)))
 
 
+def extract_lineno(node: Node) -> int:
+    if not isinstance(
+        node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef)
+    ):
+        return node.lineno
+
+    # In the case of a decorated function etc., we should not point to the body,
+    # but instead the first line.
+    decorator = get_valid_decorator(node)
+    if not decorator or not decorator.end_lineno:
+        return node.lineno
+    return decorator.end_lineno
+
+
 class MarimoFileError(Exception):
+    pass
+
+
+class NonMarimoPythonScriptError(Exception):
     pass
 
 
@@ -136,7 +155,9 @@ class Extractor:
             ):
                 # We may have a decorator between cell decorator and function.
                 # This is invalid serialization, but still possible.
-                if is_cell_decorator(decorator, allowed=("cell",)):
+                if len(node.decorator_list) > 1 and is_cell_decorator(
+                    decorator, allowed=("cell",)
+                ):
                     # We just take the last decorator in this case, which will
                     # be removed on serialization.
                     violations.append(
@@ -159,6 +180,59 @@ class Extractor:
             _none_to_0(node.end_lineno) - 1,
             _none_to_0(node.end_col_offset),
         )
+
+        # Capture trailing comments after the AST's end position for app.function
+        # and the setup cell (which is in a with block).
+        #
+        # The AST doesn't include comments, so we look for lines after
+        # node.end_lineno that are at the body indentation level.
+        # We append trailing code BEFORE dedenting so both get dedented
+        # by the same amount, preserving relative indentation.
+        if (
+            isinstance(
+                node,
+                (
+                    ast.AsyncFunctionDef,
+                    ast.FunctionDef,
+                    ast.ClassDef,
+                    ast.With,
+                    ast.AsyncWith,
+                ),
+            )
+            and len(node.body) > 0
+        ):
+            end_lineno = _none_to_0(node.end_lineno)
+            # Extract actual indentation from the first body line
+            # (handles both tabs and spaces)
+            first_body_line = self.lines[node.body[0].lineno - 1]
+            body_indent = first_body_line[
+                : len(first_body_line) - len(first_body_line.lstrip())
+            ]
+            # Skip if body is on the same line as the definition (e.g.,
+            # `class Foo: ...` or `def f(): pass`) - empty indent would
+            # match all lines incorrectly.
+            if not body_indent:
+                return ParseResult(fixed_dedent(code), violations=violations)
+
+            # Find the extent of the body by consuming lines until we find
+            # a line that is not indented at the body level.
+            for line_idx in range(end_lineno, len(self.lines)):
+                line = self.lines[line_idx]
+                # Empty lines or lines at body indentation are included
+                if not line.strip() or line.startswith(body_indent):
+                    continue
+                # Found a line not at the right indentation
+                break
+            else:
+                line_idx = len(self.lines)
+
+            if line_idx > end_lineno:
+                trailing_code = "\n".join(
+                    self.lines[end_lineno:line_idx]
+                ).rstrip()
+                if trailing_code:
+                    code = code + "\n" + trailing_code
+
         return ParseResult(fixed_dedent(code), violations=violations)
 
     def to_cell_def(
@@ -169,9 +243,9 @@ class Extractor:
         #    - Multiline statements need to be accounted for
         #    - Painstaking testing can be found in test/_ast/test_{load, parse}
 
-        function_code_reult = self.extract_from_code(node)
-        violations = function_code_reult.violations
-        function_code = function_code_reult.unwrap()
+        function_code_result = self.extract_from_code(node)
+        violations = function_code_result.violations
+        function_code = function_code_result.unwrap()
 
         lineno_offset, col_offset = extract_offsets_post_colon(
             function_code,
@@ -185,7 +259,7 @@ class Extractor:
         if node.lineno - node.body[0].lineno == 0:
             # Quirk where the ellipse token seems to have a line index at
             # the end of the dots ...<
-            if isinstance(getattr(node.body[0], "value", None), ast.Ellipsis):
+            if _is_ellipsis(getattr(node.body[0], "value", None)):
                 col_offset += node.body[0].col_offset - 3
             else:
                 col_offset += node.body[0].col_offset - 1
@@ -291,31 +365,37 @@ class Extractor:
             violations=violations,
         )
 
-    def to_setup_cell(self, node: Node) -> SetupCell:
+    def to_setup_cell(self, node: Node) -> ParseResult[SetupCell]:
         kwargs, _violations = _maybe_kwargs(node.items[0].context_expr)  # type: ignore
         code_result = self.extract_from_code(node)
         _violations.extend(code_result.violations)
-        code = fixed_dedent(code_result.unwrap())
+        code = code_result.unwrap()
         if code.endswith("\npass"):
             code = code[: -len("\npass")]
-        return SetupCell(
-            code=code,
-            options=kwargs,
-            lineno=node.lineno,
-            col_offset=node.col_offset,
-            end_lineno=max(node.lineno, _none_to_0(node.end_lineno)),
-            end_col_offset=_none_to_0(node.end_col_offset),
-            name=SETUP_CELL_NAME,
+        return ParseResult(
+            SetupCell(
+                code=code,
+                options=kwargs,
+                lineno=node.lineno,
+                col_offset=node.col_offset,
+                end_lineno=max(node.lineno, _none_to_0(node.end_lineno)),
+                end_col_offset=_none_to_0(node.end_col_offset),
+                name=SETUP_CELL_NAME,
+            ),
+            violations=_violations,
         )
 
-    def to_cell(self, node: Node, attribute: Optional[str] = None) -> CellDef:
+    def to_cell(
+        self, node: Node, attribute: Optional[str] = None
+    ) -> ParseResult[CellDef]:
         """Convert an AST node to a CellDef."""
-        # TODO: Handle violations
+        violations: list[Violation] = []
         if isinstance(
             node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
         ):
             decorator = get_valid_decorator(node)
             kwargs, _violations = _maybe_kwargs(decorator)
+            violations.extend(_violations)
             if attribute is None and decorator is not None:
                 if isinstance(decorator, ast.Call):
                     if not hasattr(decorator.func, "attr"):
@@ -332,18 +412,23 @@ class Extractor:
                     node, (ast.FunctionDef, ast.AsyncFunctionDef)
                 ), "@app.cell cannot be used on classes."
                 cell_result = self.to_cell_def(node, kwargs)
-                return cell_result.unwrap()
+                violations.extend(cell_result.violations)
+                return ParseResult(cell_result.unwrap(), violations=violations)
             cell_types: dict[Optional[str], type[CellDef]] = {
                 "function": FunctionCell,
                 "class_definition": ClassCell,
             }
             cell_type = cell_types.get(attribute, None)
             if cell_type is not None:
-                code = self.extract_from_code(node)
-                return cell_type(
-                    code=code.unwrap(),
-                    _ast=node,
-                    options=kwargs,
+                code_result = self.extract_from_code(node)
+                violations.extend(code_result.violations)
+                return ParseResult(
+                    cell_type(
+                        code=code_result.unwrap(),
+                        _ast=node,
+                        options=kwargs,
+                    ),
+                    violations=violations,
                 )
 
             raise MarimoFileError(f"Unsupported cell type. {attribute}")
@@ -351,10 +436,30 @@ class Extractor:
             # These are all captured by is_unparsable_cell
             # but mypy is struggling.
             kwargs, _violations = _eval_kwargs(node.value.keywords)  # type: ignore
-            return UnparsableCell(
-                code=node.value.args[0].value,  # type: ignore
-                options=kwargs,
-                _ast=node,
+            violations.extend(_violations)
+            raw_string_node = node.value.args[0]  # type: ignore
+            if not isinstance(raw_string_node, ast.Constant) or not isinstance(
+                raw_string_node.value, str
+            ):
+                violations.append(
+                    Violation(
+                        f"Expected string constant in unparsable cell, got {type(raw_string_node).__name__}",
+                        lineno=node.lineno,
+                        col_offset=node.col_offset,
+                    )
+                )
+                unparsable_code = ""
+            else:
+                unparsable = raw_string_node.value
+                unparsable_code = fixed_dedent(unparsable).strip()
+
+            return ParseResult(
+                UnparsableCell(
+                    code=unparsable_code,
+                    options=kwargs,
+                    _ast=node,
+                ),
+                violations=violations,
             )
 
         raise MarimoFileError(
@@ -541,8 +646,10 @@ class Parser:
 
         if maybe_setup and is_setup_cell(maybe_setup):
             next(body)
+            setup_result = self.extractor.to_setup_cell(maybe_setup)
+            violations.extend(setup_result.violations)
             return ParseResult(
-                self.extractor.to_setup_cell(maybe_setup),
+                setup_result.unwrap(),
                 violations=violations,
             )
         return ParseResult(violations=violations)
@@ -554,7 +661,9 @@ class Parser:
 
         while node := next(body):
             if is_body_cell(node):
-                cells.append(self.extractor.to_cell(node))
+                cell_result = self.extractor.to_cell(node)
+                violations.extend(cell_result.violations)
+                cells.append(cell_result.unwrap())
             elif is_run_guard(node):
                 break
             else:
@@ -851,7 +960,8 @@ def is_app_def(node: Node, import_alias: str = "marimo") -> bool:
 
 def is_cell_decorator(
     decorator: ast.expr,
-    allowed: tuple[str, ...] = ("cell", "function", "class_definition"),
+    *,
+    allowed: tuple[str, ...],
 ) -> bool:
     if isinstance(decorator, ast.Attribute):
         return (
@@ -860,7 +970,7 @@ def is_cell_decorator(
             and decorator.attr in allowed
         )
     elif isinstance(decorator, ast.Call):
-        return is_cell_decorator(decorator.func)
+        return is_cell_decorator(decorator.func, allowed=allowed)
     return False
 
 
@@ -881,8 +991,18 @@ def is_body_cell(node: Node) -> bool:
     return (
         isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef))
         and (decorator := get_valid_decorator(node))
-        and is_cell_decorator(decorator)
+        and is_cell_decorator(
+            decorator, allowed=("cell", "function", "class_definition")
+        )
     ) or is_unparsable_cell(node)
+
+
+def _is_ellipsis(node: Optional[Node]) -> bool:
+    if node is None:
+        return False
+    if sys.version_info < (3, 14):
+        return isinstance(node, ast.Ellipsis)
+    return isinstance(node, ast.Constant) and node.value == ...
 
 
 def _is_setup_call(node: Node) -> bool:

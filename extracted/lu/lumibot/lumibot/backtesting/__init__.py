@@ -5,11 +5,28 @@ from .ccxt_backtesting import CcxtBacktesting
 from .interactive_brokers_rest_backtesting import InteractiveBrokersRESTBacktesting
 from .pandas_backtesting import PandasDataBacktesting
 from .polygon_backtesting import PolygonDataBacktesting
+from .routed_backtesting import RoutedBacktestingPandas
 from .thetadata_backtesting import ThetaDataBacktesting
+from .thetadata_backtesting_pandas import ThetaDataBacktestingPandas
 from .yahoo_backtesting import YahooDataBacktesting
 
-# Import DataBento backtesting - use polars by default if available
-try:
-    from .databento_backtesting_polars import DataBentoDataBacktestingPolars as DataBentoDataBacktesting
-except ImportError:
-    from .databento_backtesting import DataBentoDataBacktesting
+from .databento_backtesting import DataBentoDataBacktesting
+from .databento_backtesting_pandas import DataBentoDataBacktestingPandas
+from .databento_backtesting_polars import DataBentoDataBacktestingPolars
+
+__all__ = [
+    "AlpacaBacktesting",
+    "AlphaVantageBacktesting",
+    "BacktestingBroker",
+    "CcxtBacktesting",
+    "InteractiveBrokersRESTBacktesting",
+    "PandasDataBacktesting",
+    "PolygonDataBacktesting",
+    "RoutedBacktestingPandas",
+    "ThetaDataBacktesting",
+    "ThetaDataBacktestingPandas",
+    "YahooDataBacktesting",
+    "DataBentoDataBacktesting",
+    "DataBentoDataBacktestingPandas",
+    "DataBentoDataBacktestingPolars",
+]

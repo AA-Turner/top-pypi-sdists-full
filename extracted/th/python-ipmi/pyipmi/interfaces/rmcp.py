@@ -248,7 +248,7 @@ class IpmiMsg(object):
         return struct.unpack("<I", struct.pack(">I", seq))[0]
 
     def _padd_password(self):
-        """Padd the password.
+        """Pad the password.
 
         The password/key is 0 padded to 16-bytes for all specified
         authentication types.
@@ -393,12 +393,10 @@ class Rmcp(object):
         """
         self.host = None
         self.port = None
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.seq_number = 0xff
         self.slave_address = slave_address
         self.host_target = Target(host_target_address)
         self.max_retries = max_retries
-        self.set_timeout(2.0)
         self.next_sequence_number = 0
         self.keep_alive_interval = keep_alive_interval
         self._stop_keep_alive = None
@@ -407,6 +405,13 @@ class Rmcp(object):
         self.quirks_cfg = quirks_cfg
         self.ignore_sdu_length = quirks_cfg.get('rmcp_ignore_sdu_length', False)
         self.ignore_rq_seq = quirks_cfg.get('rmcp_ignore_rq_seq', False)
+
+    def open(self):
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.set_timeout(2.0)
+
+    def close(self):
+        pass
 
     def _send_rmcp_msg(self, sdu, class_of_msg):
         rmcp = RmcpMsg(class_of_msg)

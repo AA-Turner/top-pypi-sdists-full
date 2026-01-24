@@ -22,6 +22,7 @@ from bench.utils import (
 	get_git_version,
 	log,
 	run_frappe_cmd,
+	use_uv,
 )
 from bench.utils.bench import (
 	validate_app_installed_on_sites,
@@ -159,7 +160,7 @@ class Bench(Base, Validator):
 	def get_installed_apps(self) -> List:
 		"""Returns list of installed apps on bench, not in excluded_apps.txt"""
 		try:
-			if os.environ.get("BENCH_USE_UV"):
+			if use_uv():
 				installed_packages = get_cmd_output(f"uv pip freeze --python {self.python}", cwd=self.name)
 			else:
 				installed_packages = get_cmd_output(f"{self.python} -m pip freeze", cwd=self.name)
@@ -364,7 +365,7 @@ class BenchSetup(Base):
 		quiet_flag = "" if verbose else "--quiet"
 
 		if not os.path.exists(self.bench.python):
-			if os.environ.get("BENCH_USE_UV"):
+			if use_uv():
 				if os.environ.get("FRAPPE_DOCKER_BUILD"):
 					self.run(f"uv venv env --seed --link-mode=copy --python {python}", cwd=self.bench.name)
 				else:
@@ -387,7 +388,7 @@ class BenchSetup(Base):
 							"PKG_CONFIG_PATH": get_mariadb_pkgconfig_path(),
 						}
 
-				if os.environ.get("BENCH_USE_UV"):
+				if use_uv():
 					self.run(
 						f"uv pip install {quiet_flag} --upgrade -e {frappe} --python {self.bench.python}",
 						cwd=self.bench.name, env=env,
@@ -424,8 +425,16 @@ class BenchSetup(Base):
 		verbose = bench.cli.verbose or verbose
 		quiet_flag = "" if verbose else "--quiet"
 
+		if pip_version := os.environ.get("PIP_VERSION", ""):
+			pip_version = f"=={pip_version}"
+
+		if use_uv():
+			return self.run(
+				f"uv pip install {quiet_flag} --upgrade pip{pip_version} --python {self.bench.python}", cwd=self.bench.name
+			)
+
 		return self.run(
-			f"{self.bench.python} -m pip install {quiet_flag} --upgrade pip", cwd=self.bench.name
+			f"{self.bench.python} -m pip install {quiet_flag} --upgrade pip{pip_version}", cwd=self.bench.name
 		)
 
 	@step(title="Installing wheel", success="Installed wheel")
@@ -436,6 +445,11 @@ class BenchSetup(Base):
 
 		verbose = bench.cli.verbose or verbose
 		quiet_flag = "" if verbose else "--quiet"
+
+		if use_uv():
+			return self.run(
+				f"uv pip install {quiet_flag} wheel --python {self.bench.python}", cwd=self.bench.name
+			)
 
 		return self.run(
 			f"{self.bench.python} -m pip install {quiet_flag} wheel", cwd=self.bench.name
@@ -517,7 +531,7 @@ class BenchSetup(Base):
 						"PKG_CONFIG_PATH": get_mariadb_pkgconfig_path(),
 					}
 
-			if os.environ.get("BENCH_USE_UV"):
+			if use_uv():
 				self.run(f"uv pip install {quiet_flag} --upgrade -e {app_path} --python {self.bench.python}", env=env)
 			else:
 				self.run(f"{self.bench.python} -m pip install {quiet_flag} --upgrade -e {app_path}", env=env)

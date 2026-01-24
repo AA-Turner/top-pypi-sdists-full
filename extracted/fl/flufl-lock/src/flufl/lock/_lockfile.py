@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa I001: Import block is un-sorted or un-formatted
+from __future__ import annotations
 
 import os
 import sys
@@ -184,9 +184,7 @@ class Lock:
             lifetime = DEFAULT_LOCK_LIFETIME
         self._default_timeout = default_timeout
         self._lockfile = lockfile
-        # Mypy does not understand that setters can accept wider types than the getter is defined to
-        # return.  We're fine, so just ignore the complaint.
-        self.lifetime = lifetime  # type: ignore[assignment]
+        self.lifetime = lifetime
         # The separator must be set before we claim the lock.
         self._separator = separator
         self._claimfile: str
@@ -243,7 +241,7 @@ class Lock:
         except FileNotFoundError:
             return LockState.unlocked
         try:
-            lockfile, hostname, pid_str, random_ignored = filename.split(self._separator)
+            lockfile, hostname, pid_str, _random_ignored = filename.split(self._separator)
             pid = int(pid_str)
         except (ValueError, TypeError):
             # The contents of the lock file is corrupt, so we can't know
@@ -293,9 +291,7 @@ class Lock:
             ``unconditionally`` flag is set to True.
         """
         if lifetime is not None:
-            # Mypy does not understand that setters can accept wider types than the getter is
-            # defined to return.  We're fine, so just ignore the complaint.
-            self.lifetime = lifetime  # type: ignore[assignment]
+            self.lifetime = lifetime
         # Do we have the lock?  As a side effect, this refreshes the lock!
         if not self.is_locked and not unconditionally:
             # EM102 Exception must not use an f-string literal, assign to variable first

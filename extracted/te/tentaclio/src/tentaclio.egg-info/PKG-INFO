@@ -1,27 +1,27 @@
 Metadata-Version: 2.4
 Name: tentaclio
-Version: 1.3.7
+Version: 1.4.1
 Summary: Unification of data connectors for distributed data tasks
-Home-page: https://github.com/octoenergy/tentaclio
-Author: Octopus Energy
-Author-email: nerds@octoenergy.com
-License: MIT
+Author-email: Octopus Energy <nerds@octoenergy.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/octoenergy/tentaclio
+Project-URL: Repository, https://github.com/octoenergy/tentaclio
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Typing :: Typed
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: urllib3>=1.24.2
 Requires-Dist: requests
 Requires-Dist: sqlalchemy>=1.4
-Requires-Dist: paramiko<4.0.0
+Requires-Dist: paramiko<4.0.0,>=3.4.0
 Requires-Dist: pandas
 Requires-Dist: click
 Requires-Dist: pyyaml
@@ -40,22 +40,12 @@ Provides-Extra: gs
 Requires-Dist: tentaclio_gs; extra == "gs"
 Provides-Extra: snowflake
 Requires-Dist: tentaclio_snowflake; extra == "snowflake"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 # Tentaclio
 
-[![CircleCI status](https://circleci.com/gh/octoenergy/tentaclio/tree/master.png?circle-token=df7aad11367f1ace5bce253b18efb6b21eaa65bc)](https://circleci.com/gh/octoenergy/tentaclio/tree/master)
-[![Documentation Status](https://readthedocs.org/projects/tentaclio/badge/?version=latest)](https://tentaclio.readthedocs.io/en/latest/?badge=latest)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/octoenergy/tentaclio/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/octoenergy/tentaclio/tree/master)
+[![Documentation Status](https://readthedocs.org/projects/tentaclio/badge/?version=latest)](https://tentaclio.readthedocs.io/en/latest/)
 
 Python library that simplifies:
 * Handling streams from different protocols such as `file:`, `ftp:`, `sftp:`, `s3:`, ...
@@ -163,21 +153,25 @@ with tentaclio.db(
 
 # Installation
 
-You can get tentaclio using pip
+You can install tentaclio with your favourite package manager:
 
 ```sh
 pip install tentaclio
 ```
-or pipenv
 ```sh
 pipenv install tentaclio
+```
+```sh
+uv install tentaclio
 ```
 
 ## Developing.
 
-Clone this repo and install [pipenv](https://pipenv.readthedocs.io/en/latest/):
+Clone this repo and install [uv](https://docs.astral.sh/uv/#installation).
 
-In the `Makefile` you'll find some useful targets for linting, testing, etc. i.e.:
+In the `Makefile` you'll find some useful targets for linting, testing, etc.
+
+For example:
 ```sh
 make test
 ```
@@ -246,7 +240,7 @@ with tentaclio.open("s3::/path/to/my/file", mode='w') as writer:
 ```
 `Readers`, `Writers` and their closeable versions can be used anywhere expecting a file-like object; pandas or pickle are examples of such functions.
 
-##### Notes on writing files for Spark, Presto, and similar downstream systems
+#### Notes on writing files for Spark, Presto, and similar downstream systems
 
 The default behaviour for the `open` context manager in python is to create an empty file when opening
 it in writable mode. This can be annoying if the process that creates the data within the `with` clause

@@ -68,7 +68,7 @@ class GithubOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
         user = super().do_login()
         social = user.social[0]
 
-        self.assertIsNotNone(social.extra_data["expires"])
+        self.assertIsNotNone(social.extra_data["expires_in"])
         self.assertIsNotNone(social.extra_data["refresh_token"])
 
         return user
@@ -80,7 +80,7 @@ class GithubOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
         self.do_partial_pipeline()
 
     def test_refresh_token(self) -> None:
-        user, social = self.do_refresh_token()
+        _user, social = self.do_refresh_token()
         self.assertEqual(social.extra_data["access_token"], "foobar-new-token")
 
 

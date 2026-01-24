@@ -1,31 +1,41 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.726197                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.899537                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
 
 from .utils import TODOException as TODOException
 from .utils import safe_requests_wrapper as safe_requests_wrapper
 from .utils import MaximumRetriesExceeded as MaximumRetriesExceeded
 from .app_config import AppConfig as AppConfig
-from .app_config import AuthType as AuthType
+from .config.unified_config import AuthType as AuthType
 from . import experimental as experimental
 from ._state_machine import CapsuleWorkerSemanticStatus as CapsuleWorkerSemanticStatus
 from ._state_machine import WorkerStatus as WorkerStatus
 from ._state_machine import CapsuleStatus as CapsuleStatus
 from ._state_machine import DEPLOYMENT_READY_CONDITIONS as DEPLOYMENT_READY_CONDITIONS
 from ._state_machine import LogLine as LogLine
+from .exceptions import CapsuleApiException as CapsuleApiException
+from .exceptions import CapsuleConcurrentUpgradeException as CapsuleConcurrentUpgradeException
+from .exceptions import CapsuleCrashLoopException as CapsuleCrashLoopException
+from .exceptions import CapsuleDeletedDuringDeploymentException as CapsuleDeletedDuringDeploymentException
+from .exceptions import CapsuleDeploymentException as CapsuleDeploymentException
+from .exceptions import CapsuleReadinessException as CapsuleReadinessException
+from .exceptions import OuterboundsBackendUnhealthyException as OuterboundsBackendUnhealthyException
+from .exceptions import OuterboundsForbiddenException as OuterboundsForbiddenException
 
 CAPSULE_DEBUG: bool
+
+STATE_REFRESH_FREQUENCY: int
 
 class CapsuleStateMachine(object, metaclass=type):
     """
@@ -139,24 +149,31 @@ class CapsuleInput(object, metaclass=type):
     @classmethod
     def from_app_config(cls, app_config: metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig):
         ...
-    ...
-
-class CapsuleApiException(Exception, metaclass=type):
-    def __init__(self, url: str, method: str, status_code: int, text: str, message: typing.Optional[str] = None):
-        ...
-    def __str__(self):
-        ...
-    ...
-
-class CapsuleDeploymentException(Exception, metaclass=type):
-    def __init__(self, capsule_id: str, message: str):
-        ...
-    def __str__(self):
+    @classmethod
+    def from_backend_spec(cls, spec: dict, patch: dict = None) -> dict:
+        """
+        Transform a backend spec into a valid create payload.
+        
+        The backend returns specs with computed/runtime fields that should
+        not be sent back to the create endpoint.
+        
+        Parameters
+        ----------
+        spec : dict
+            The spec from backend (via capsule_api.get())
+        patch : dict, optional
+            Fields to update/merge into the spec
+        
+        Returns
+        -------
+        dict
+            A spec ready for the create endpoint
+        """
         ...
     ...
 
 class CapsuleApi(object, metaclass=type):
-    def __init__(self, base_url: str, perimeter: str, logger_fn = None):
+    def __init__(self, base_url: str, perimeter: str, logger_fn = None, retry_500s = False):
         ...
     def create(self, capsule_input: dict):
         ...

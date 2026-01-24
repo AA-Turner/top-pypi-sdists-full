@@ -1,6 +1,7 @@
 from typing import Optional
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_docs
 from anyscale._private.sdk.base_sdk import Timer
 from anyscale.cli_logger import BlockLogger
@@ -8,16 +9,19 @@ from anyscale.schedule._private.schedule_sdk import PrivateScheduleSDK
 from anyscale.schedule.commands import (
     _APPLY_ARG_DOCSTRINGS,
     _APPLY_EXAMPLE,
+    _LIST_ARG_DOCSTRINGS as _LIST_ARG_DOCSTRINGS,
+    _LIST_EXAMPLE as _LIST_EXAMPLE,
     _SET_STATE_ARG_DOCSTRINGS,
     _SET_STATE_EXAMPLE,
     _STATUS_ARG_DOCSTRINGS,
     _STATUS_EXAMPLE,
     _TRIGGER_ARG_DOCSTRINGS,
     _TRIGGER_EXAMPLE,
-    apply,
-    set_state,
-    status,
-    trigger,
+    apply as apply,
+    list as list,  # noqa: A004
+    set_state as set_state,
+    status as status,
+    trigger as trigger,
 )
 from anyscale.schedule.models import ScheduleConfig, ScheduleState, ScheduleStatus
 
@@ -89,3 +93,41 @@ class ScheduleSDK:
         """Trigger the execution of the schedule.
         """
         return self._private_sdk.trigger(id=id, name=name, cloud=cloud, project=project)
+
+    @sdk_docs(doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS)
+    def list(  # noqa: F811
+        self,
+        *,
+        name: Optional[str] = None,
+        schedule_id: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        page_size: Optional[int] = None,
+        max_items: Optional[int] = None,
+    ) -> ResultIterator[ScheduleStatus]:
+        """List schedules with filtering and pagination.
+
+        Returns a ResultIterator that lazily fetches pages of schedules.
+
+        Args:
+            name: Filter by schedule name.
+            schedule_id: Fetch a specific schedule by ID.
+            project: Filter by project name.
+            cloud: Filter by cloud name.
+            creator_id: Filter by creator ID.
+            page_size: Number of items per page. Defaults to server default.
+            max_items: Maximum total items to return.
+
+        Returns:
+            ResultIterator of ScheduleStatus objects.
+        """
+        return self._private_sdk.list(
+            name=name,
+            schedule_id=schedule_id,
+            project=project,
+            cloud=cloud,
+            creator_id=creator_id,
+            page_size=page_size,
+            max_items=max_items,
+        )

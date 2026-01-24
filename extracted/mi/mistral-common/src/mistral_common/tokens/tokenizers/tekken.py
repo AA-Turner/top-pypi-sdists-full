@@ -5,8 +5,9 @@ import warnings
 from functools import cached_property
 from itertools import groupby
 from pathlib import Path
-from typing import Dict, List, Optional, Type, TypedDict, Union
+from typing import TypedDict
 
+import numpy as np
 import tiktoken
 
 from mistral_common.tokens.tokenizers.audio import AudioConfig, AudioSpectrogramConfig
@@ -18,10 +19,17 @@ from mistral_common.tokens.tokenizers.base import (
 )
 from mistral_common.tokens.tokenizers.image import ImageConfig
 
+warnings.filterwarnings(
+    action="once",
+    category=FutureWarning,
+    message=r".*`get_control_token` is deprecated.*",
+)
+
+
 logger = logging.getLogger(__name__)
 
 
-def is_tekken(path: Union[str, Path]) -> bool:
+def is_tekken(path: str | Path) -> bool:
     r"""Check if the given path is a tekken tokenizer file."""
     if isinstance(path, str):
         path = Path(path)
@@ -40,7 +48,7 @@ class TokenInfo(TypedDict):
 
     rank: int
     token_bytes: str  # base64 encoded
-    token_str: Optional[str]
+    token_str: str | None
 
 
 class SpecialTokenInfo(TypedDict):
@@ -86,8 +94,8 @@ class ModelData(TypedDict):
         image: The image configuration of the tokenizer.
     """
 
-    vocab: List[TokenInfo]
-    special_tokens: Optional[List[SpecialTokenInfo]]
+    vocab: list[TokenInfo]
+    special_tokens: list[SpecialTokenInfo] | None
     config: TekkenConfig
     version: int
     type: str
@@ -131,17 +139,17 @@ class Tekkenizer(Tokenizer):
 
     def __init__(
         self,
-        vocab: List[TokenInfo],
-        special_tokens: List[SpecialTokenInfo],
+        vocab: list[TokenInfo],
+        special_tokens: list[SpecialTokenInfo],
         pattern: str,
         vocab_size: int,
         num_special_tokens: int,
         version: TokenizerVersion,
         *,
         name: str = "tekkenizer",
-        _path: Optional[Union[str, Path]] = None,
-        image_config: Optional[ImageConfig] = None,
-        audio_config: Optional[AudioConfig] = None,
+        _path: str | Path | None = None,
+        image_config: ImageConfig | None = None,
+        audio_config: AudioConfig | None = None,
     ):
         r"""Initialize the tekken tokenizer.
 
@@ -184,6 +192,7 @@ class Tekkenizer(Tokenizer):
         inner_vocab_size = vocab_size - num_special_tokens
 
         # reload vocab
+        logger.info(f"Non special vocabulary size is {inner_vocab_size} with {num_special_tokens} special tokens.")
         self._tekken_token2id_nospecial = _reload_mergeable_ranks(vocab, max_vocab=inner_vocab_size)
         assert set(range(inner_vocab_size)) == set(self._tekken_token2id_nospecial.values()), (
             inner_vocab_size,
@@ -202,6 +211,7 @@ class Tekkenizer(Tokenizer):
         self._audio_config = audio_config
 
         self._all_special_tokens = special_tokens
+        self._special_token_ids = {t["rank"] for t in special_tokens}
         self._special_tokens_reverse_vocab = {t["token_str"]: t["rank"] for t in special_tokens}
         self._vocab = [self.id_to_piece(i) for i in range(vocab_size)]
         self._special_token_policy = SpecialTokenPolicy.IGNORE
@@ -215,7 +225,7 @@ class Tekkenizer(Tokenizer):
         return self._file_path
 
     @classmethod
-    def from_file(cls: Type["Tekkenizer"], path: Union[str, Path]) -> "Tekkenizer":
+    def from_file(cls: type["Tekkenizer"], path: str | Path) -> "Tekkenizer":
         r"""Load the tekken tokenizer from a file.
 
         Args:
@@ -240,7 +250,7 @@ class Tekkenizer(Tokenizer):
         assert _version_str is not None
         version = TokenizerVersion(_version_str)
 
-        special_tokens_dicts: Optional[List[SpecialTokenInfo]] = untyped.get("special_tokens", None)
+        special_tokens_dicts: list[SpecialTokenInfo] | None = untyped.get("special_tokens", None)
         if special_tokens_dicts is None:
             # Tokenizer > v7 should find special tokens in the tokenizer file
             if version > TokenizerVersion("v7"):
@@ -287,7 +297,7 @@ class Tekkenizer(Tokenizer):
         )
 
     @property
-    def image(self) -> Optional[ImageConfig]:
+    def image(self) -> ImageConfig | None:
         r"""The image configuration of the tokenizer."""
         return self._image_config
 
@@ -296,7 +306,7 @@ class Tekkenizer(Tokenizer):
         raise ValueError("Can only set Image config at init")
 
     @property
-    def audio(self) -> Optional[AudioConfig]:
+    def audio(self) -> AudioConfig | None:
         r"""The audio configuration of the tokenizer.
 
         Returns:
@@ -347,24 +357,24 @@ class Tekkenizer(Tokenizer):
     @cached_property
     def bos_id(self) -> int:
         r"""The beginning of sentence token id."""
-        return self.get_control_token("<s>")
+        return self.get_special_token("<s>")
 
     @cached_property
     def eos_id(self) -> int:
         r"""The end of sentence token id."""
-        return self.get_control_token("</s>")
+        return self.get_special_token("</s>")
 
     @cached_property
     def pad_id(self) -> int:
         r"""The padding token id."""
-        return self.get_control_token("<pad>")
+        return self.get_special_token("<pad>")
 
     @cached_property
     def unk_id(self) -> int:
         r"""The unknown token id."""
-        return self.get_control_token("<unk>")
+        return self.get_special_token("<unk>")
 
-    def vocab(self) -> List[str]:
+    def vocab(self) -> list[str]:
         r"""All tokens in the vocabulary as strings.
 
         Note:
@@ -381,7 +391,7 @@ class Tekkenizer(Tokenizer):
         # be careful when using self._vocab
         return self._vocab
 
-    def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
+    def encode(self, s: str, bos: bool, eos: bool) -> list[int]:
         r"""Encode a string into a list of token ids.
 
         Args:
@@ -392,7 +402,7 @@ class Tekkenizer(Tokenizer):
         Returns:
             The list of token ids.
         """
-        tokens: List[int] = self._model.encode(s)
+        tokens: list[int] = self._model.encode(s)
         tokens = [t + self.num_special_tokens for t in tokens]
         if bos:
             tokens = [self.bos_id, *tokens]
@@ -400,9 +410,9 @@ class Tekkenizer(Tokenizer):
             tokens = [*tokens, self.eos_id]
         return tokens
 
-    def _decode_all(self, tokens: List[int], special_token_policy: SpecialTokenPolicy) -> List[str]:
+    def _decode_all(self, tokens: list[int], special_token_policy: SpecialTokenPolicy) -> list[str]:
         # Lump special and non-special tokens together to minimize calls to decode
-        decoded: List[str] = []
+        decoded: list[str] = []
         for is_special, group in groupby(tokens, lambda t: t < self.num_special_tokens):
             if is_special:
                 if special_token_policy == SpecialTokenPolicy.RAISE:
@@ -432,14 +442,27 @@ class Tekkenizer(Tokenizer):
         r"""Check if a token id is a byte token."""
         return 0 <= token_id - self.num_special_tokens < 256
 
-    def get_control_token(self, s: str) -> int:
-        r"""Get the token id of a control token."""
+    def get_special_token(self, s: str) -> int:
+        r"""Get the token id of a special token."""
         if s in self._special_tokens_reverse_vocab:
             return self._special_tokens_reverse_vocab[s]
         else:
             raise ValueError(f"Unknown control token {s}")
 
-    def decode(self, tokens: List[int], special_token_policy: Optional[SpecialTokenPolicy] = None) -> str:
+    def is_special(self, token: int | np.integer | str) -> bool:
+        """Return `True` if the passed `token` is a special token."""
+        if isinstance(token, (int, np.integer)):
+            return token in self._special_token_ids
+        elif isinstance(token, str):
+            return token in self._special_tokens_reverse_vocab
+        else:
+            raise TypeError(f"Expected int or str, got {type(token).__name__}")
+
+    def get_control_token(self, s: str) -> int:
+        warnings.warn("`get_control_token` is deprecated. Use `get_special_token` instead.", FutureWarning)
+        return self.get_special_token(s)
+
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
         r"""Decode a list of token ids into a string.
 
         Args:
@@ -471,7 +494,7 @@ class Tekkenizer(Tokenizer):
 
         return "".join(self._decode_all(tokens, special_token_policy=special_token_policy))
 
-    def to_string(self, tokens: List[int]) -> str:
+    def to_string(self, tokens: list[int]) -> str:
         r"""[DEPRECATED] Converts a list of token ids into a string, keeping special tokens.
 
         Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead.
@@ -487,14 +510,14 @@ class Tekkenizer(Tokenizer):
         )
         return self._to_string(tokens)
 
-    def _to_string(self, tokens: List[int]) -> str:
+    def _to_string(self, tokens: list[int]) -> str:
         return self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP)
 
     def id_to_piece(self, token_id: int) -> str:
         r"""Convert a token id to its string representation."""
         return self.decode([token_id], special_token_policy=SpecialTokenPolicy.KEEP)
 
-    def id_to_byte_piece(self, token_id: int, special_token_policy: Optional[SpecialTokenPolicy] = None) -> bytes:
+    def id_to_byte_piece(self, token_id: int, special_token_policy: SpecialTokenPolicy | None = None) -> bytes:
         r"""Convert a token id to its byte representation.
 
         Args:
@@ -533,18 +556,18 @@ class Tekkenizer(Tokenizer):
 
 
 def _reload_mergeable_ranks(
-    vocab: List[TokenInfo],
-    max_vocab: Union[int, None] = None,
-) -> Dict[bytes, int]:
+    vocab: list[TokenInfo],
+    max_vocab: int | None = None,
+) -> dict[bytes, int]:
     r"""Reload our tokenizer JSON file and convert it to Tiktoken format."""
-    logger.info(f"Vocab size: {len(vocab)}")
     if max_vocab is not None:
         assert len(vocab) >= max_vocab, (len(vocab), max_vocab)
-        vocab = vocab[:max_vocab]
-        logger.info(f"Cutting vocab to first {len(vocab)} tokens.")
+        if len(vocab) > max_vocab:
+            vocab = vocab[:max_vocab]
+            logger.info(f"Cutting non special vocabulary to first {len(vocab)} tokens.")
 
     # build ranks
-    ranks: Dict[bytes, int] = {}
+    ranks: dict[bytes, int] = {}
     for i, x in enumerate(vocab):
         assert x.keys() == {"rank", "token_bytes", "token_str"}
         assert x["rank"] == i

@@ -698,32 +698,36 @@ class TopicSubscription(pulumi.CustomResource):
             endpoint="https://example.com/endpoint",
             raw_message_delivery=True,
             delivery_policy=\"\"\"{
-          "healthyRetryPolicy": {
-            "minDelayTarget": 20,
-            "maxDelayTarget": 20,
-            "numRetries": 3,
-            "numMaxDelayRetries": 0,
-            "numNoDelayRetries": 0,
-            "numMinDelayRetries": 0,
-            "backoffFunction": "linear"
+          \\"healthyRetryPolicy\\": {
+            \\"minDelayTarget\\": 20,
+            \\"maxDelayTarget\\": 20,
+            \\"numRetries\\": 3,
+            \\"numMaxDelayRetries\\": 0,
+            \\"numNoDelayRetries\\": 0,
+            \\"numMinDelayRetries\\": 0,
+            \\"backoffFunction\\": \\"linear\\"
           },
-          "sicklyRetryPolicy": null,
-          "throttlePolicy": null,
-          "requestPolicy": {
-            "headerContentType": "text/plain; application/json"
+          \\"sicklyRetryPolicy\\": null,
+          \\"throttlePolicy\\": null,
+          \\"requestPolicy\\": {
+            \\"headerContentType\\": \\"text/plain; application/json\\"
           },
-          "guaranteed": false
+          \\"guaranteed\\": false
         }
         \"\"\")
         ```
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the SNS topic subscription.
+
         Using `pulumi import`, import SNS Topic Subscriptions using the subscription `arn`. For example:
 
-        ```sh
-        $ pulumi import aws:sns/topicSubscription:TopicSubscription user_updates_sqs_target arn:aws:sns:us-west-2:123456789012:my-topic:8a21d249-4329-4871-acc6-7be709c6ea7f
-        ```
+        % pulumi import aws_sns_topic_subscription.user_updates_sqs_target arn:aws:sns:us-west-2:123456789012:my-topic:8a21d249-4329-4871-acc6-7be709c6ea7f
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -910,32 +914,36 @@ class TopicSubscription(pulumi.CustomResource):
             endpoint="https://example.com/endpoint",
             raw_message_delivery=True,
             delivery_policy=\"\"\"{
-          "healthyRetryPolicy": {
-            "minDelayTarget": 20,
-            "maxDelayTarget": 20,
-            "numRetries": 3,
-            "numMaxDelayRetries": 0,
-            "numNoDelayRetries": 0,
-            "numMinDelayRetries": 0,
-            "backoffFunction": "linear"
+          \\"healthyRetryPolicy\\": {
+            \\"minDelayTarget\\": 20,
+            \\"maxDelayTarget\\": 20,
+            \\"numRetries\\": 3,
+            \\"numMaxDelayRetries\\": 0,
+            \\"numNoDelayRetries\\": 0,
+            \\"numMinDelayRetries\\": 0,
+            \\"backoffFunction\\": \\"linear\\"
           },
-          "sicklyRetryPolicy": null,
-          "throttlePolicy": null,
-          "requestPolicy": {
-            "headerContentType": "text/plain; application/json"
+          \\"sicklyRetryPolicy\\": null,
+          \\"throttlePolicy\\": null,
+          \\"requestPolicy\\": {
+            \\"headerContentType\\": \\"text/plain; application/json\\"
           },
-          "guaranteed": false
+          \\"guaranteed\\": false
         }
         \"\"\")
         ```
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the SNS topic subscription.
+
         Using `pulumi import`, import SNS Topic Subscriptions using the subscription `arn`. For example:
 
-        ```sh
-        $ pulumi import aws:sns/topicSubscription:TopicSubscription user_updates_sqs_target arn:aws:sns:us-west-2:123456789012:my-topic:8a21d249-4329-4871-acc6-7be709c6ea7f
-        ```
+        % pulumi import aws_sns_topic_subscription.user_updates_sqs_target arn:aws:sns:us-west-2:123456789012:my-topic:8a21d249-4329-4871-acc6-7be709c6ea7f
 
         :param str resource_name: The name of the resource.
         :param TopicSubscriptionArgs args: The arguments to use to populate this resource's properties.

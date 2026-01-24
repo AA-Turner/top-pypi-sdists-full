@@ -16,7 +16,6 @@ short_description: IMSI.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -145,8 +147,8 @@ EXAMPLES = '''
           action: allow # <value in [allow, deny]>
           apnmember: "your_value"
           id: 1
-          msisdn-prefix: "ansible"
-          selection-mode:
+          msisdn_prefix: "ansible"
+          selection_mode:
             - ms
             - net
             - vrf
@@ -225,6 +227,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'gtp': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_gtp_imsi': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

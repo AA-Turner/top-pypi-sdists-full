@@ -16,7 +16,6 @@ short_description: IPS sensor filter.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -340,6 +342,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'sensor': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'ips_sensor_entries': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -368,7 +371,7 @@ def main():
                 'rule': {'type': 'raw'},
                 'severity': {'type': 'raw'},
                 'status': {'choices': ['disable', 'enable', 'default'], 'type': 'str'},
-                'tags': {'v_range': [['6.2.0', '6.4.15']], 'type': 'str'},
+                'tags': {'v_range': [['6.2.0', '6.4.15'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 'cve': {'v_range': [['6.4.2', '']], 'type': 'raw'},
                 'default-action': {'v_range': [['7.2.0', '']], 'choices': ['block', 'pass', 'all', 'drop'], 'type': 'str'},
                 'default-status': {'v_range': [['7.2.0', '']], 'choices': ['disable', 'enable', 'all'], 'type': 'str'},

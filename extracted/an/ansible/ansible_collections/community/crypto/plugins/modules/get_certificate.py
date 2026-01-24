@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: get_certificate
 author: "John Westcott IV (@john-westcott-iv)"
@@ -280,6 +279,7 @@ from ssl import (
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.cryptography_support import (
     CRYPTOGRAPHY_TIMEZONE,
     cryptography_get_extensions_from_cert,
@@ -294,7 +294,6 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_now_datetime,
 )
-
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
@@ -375,9 +374,8 @@ def main() -> t.NoReturn:
     if timeout:
         setdefaulttimeout(timeout)
 
-    if ca_cert:
-        if not isfile(ca_cert):
-            module.fail_json(msg="ca_cert file does not exist")
+    if ca_cert and not isfile(ca_cert):
+        module.fail_json(msg="ca_cert file does not exist")
 
     verified_chain = None
     unverified_chain = None

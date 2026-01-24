@@ -56,10 +56,6 @@ class InlineObject(ModelNormal):
     """
 
     allowed_values = {
-        ('region',): {
-            'US': "us",
-            'EU': "eu",
-        },
     }
 
     validations = {

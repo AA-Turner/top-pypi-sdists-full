@@ -1,6 +1,12 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Union, Optional
+from typing import Dict, Optional
 from typing_extensions import Literal
 
 from ..._models import BaseModel
@@ -9,14 +15,11 @@ __all__ = ["SafetyViolation"]
 
 
 class SafetyViolation(BaseModel):
-    metadata: Dict[str, Union[bool, float, str, List[object], object, None]]
-    """
-    Additional metadata including specific violation codes for debugging and
-    telemetry
-    """
+    """Details of a safety violation detected by content moderation."""
 
     violation_level: Literal["info", "warn", "error"]
-    """Severity level of the violation"""
+    """Severity level of a safety violation."""
+
+    metadata: Optional[Dict[str, object]] = None
 
     user_message: Optional[str] = None
-    """(Optional) Message to convey to the user about the violation"""

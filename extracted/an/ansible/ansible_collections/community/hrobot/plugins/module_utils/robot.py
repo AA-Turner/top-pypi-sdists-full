@@ -7,11 +7,16 @@
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
+import sys
 
 from ansible.module_utils.common.text.converters import to_native
-from ansible.module_utils.six import PY3
-from ansible.module_utils.six.moves.urllib.error import HTTPError
 from ansible.module_utils.urls import fetch_url, open_url
+
+try:
+    from urllib.error import HTTPError
+except ImportError:
+    # Python 2.x fallback:
+    from urllib2 import HTTPError
 
 import json
 import time
@@ -32,6 +37,12 @@ _ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT = dict(
     hetzner_user=dict(type='str', required=False),
     hetzner_password=dict(type='str', required=False, no_log=True),
 )
+
+_ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT_DEPRECATED = dict(
+    hetzner_user=dict(type='str', required=False, removed_in_version="3.0.0", removed_from_collection="community.hrobot"),
+    hetzner_password=dict(type='str', required=False, no_log=True, removed_in_version="3.0.0", removed_from_collection="community.hrobot"),
+)
+
 
 # The API endpoint is fixed.
 BASE_URL = "https://robot-ws.your-server.de"
@@ -151,7 +162,7 @@ def raw_fetch_url_json(module, url, method='GET', timeout=10, data=None, headers
     try:
         # In Python 2, reading from a closed response yields a TypeError.
         # In Python 3, read() simply returns ''
-        if PY3 and resp.closed:
+        if sys.version_info[0] > 2 and resp.closed:
             raise TypeError
         content = resp.read()
     except (AttributeError, TypeError):

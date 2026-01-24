@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Union, List
+from typing import Union, List, Optional
 from hyperbrowser.models import (
     SessionDetail,
     ComputerActionParams,
@@ -12,6 +12,12 @@ from hyperbrowser.models import (
     ScrollActionParams,
     TypeTextActionParams,
     Coordinate,
+    HoldKeyActionParams,
+    MouseDownActionParams,
+    MouseUpActionParams,
+    ComputerActionMouseButton,
+    GetClipboardTextActionParams,
+    PutSelectionTextActionParams,
 )
 
 
@@ -42,9 +48,9 @@ class ComputerActionManager:
     def click(
         self,
         session: Union[SessionDetail, str],
-        x: int,
-        y: int,
-        button: str = "left",
+        x: Optional[int] = None,
+        y: Optional[int] = None,
+        button: ComputerActionMouseButton = "left",
         num_clicks: int = 1,
         return_screenshot: bool = False,
     ) -> ComputerActionResponse:
@@ -82,6 +88,38 @@ class ComputerActionManager:
         params = PressKeysActionParams(keys=keys, return_screenshot=return_screenshot)
         return self._execute_request(session, params)
 
+    def hold_key(
+        self,
+        session: Union[SessionDetail, str],
+        key: str,
+        duration: int,
+        return_screenshot: bool = False,
+    ) -> ComputerActionResponse:
+        params = HoldKeyActionParams(
+            key=key, duration=duration, return_screenshot=return_screenshot
+        )
+        return self._execute_request(session, params)
+
+    def mouse_down(
+        self,
+        session: Union[SessionDetail, str],
+        button: ComputerActionMouseButton = "left",
+        return_screenshot: bool = False,
+    ) -> ComputerActionResponse:
+        params = MouseDownActionParams(
+            button=button, return_screenshot=return_screenshot
+        )
+        return self._execute_request(session, params)
+
+    def mouse_up(
+        self,
+        session: Union[SessionDetail, str],
+        button: ComputerActionMouseButton = "left",
+        return_screenshot: bool = False,
+    ) -> ComputerActionResponse:
+        params = MouseUpActionParams(button=button, return_screenshot=return_screenshot)
+        return self._execute_request(session, params)
+
     def drag(
         self,
         session: Union[SessionDetail, str],
@@ -116,5 +154,24 @@ class ComputerActionManager:
             scroll_x=scroll_x,
             scroll_y=scroll_y,
             return_screenshot=return_screenshot,
+        )
+        return self._execute_request(session, params)
+
+    def get_clipboard_text(
+        self,
+        session: Union[SessionDetail, str],
+        return_screenshot: bool = False,
+    ) -> ComputerActionResponse:
+        params = GetClipboardTextActionParams(return_screenshot=return_screenshot)
+        return self._execute_request(session, params)
+
+    def put_selection_text(
+        self,
+        session: Union[SessionDetail, str],
+        text: str,
+        return_screenshot: bool = False,
+    ) -> ComputerActionResponse:
+        params = PutSelectionTextActionParams(
+            text=text, return_screenshot=return_screenshot
         )
         return self._execute_request(session, params)

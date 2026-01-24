@@ -49,6 +49,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             chat_request,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Chat with an assistant  # noqa: E501
@@ -57,12 +58,13 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.chat_assistant(assistant_name, chat_request, async_req=True)
+            >>> thread = api.chat_assistant(assistant_name, chat_request, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to be described.
                 chat_request (ChatRequest): The desired configuration to chat an assistant.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -109,6 +111,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['chat_request'] = \
@@ -128,10 +132,12 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'chat_request',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'chat_request',
                 ],
@@ -148,15 +154,19 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'chat_request':
                         (ChatRequest,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'chat_request': 'body',
                 },
@@ -179,6 +189,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             search_completions,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Chat through an OpenAI-compatible interface  # noqa: E501
@@ -187,12 +198,13 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.chat_completion_assistant(assistant_name, search_completions, async_req=True)
+            >>> thread = api.chat_completion_assistant(assistant_name, search_completions, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to be described.
                 search_completions (SearchCompletions): The desired configuration to chat an assistant.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -239,6 +251,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['search_completions'] = \
@@ -258,10 +272,12 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'search_completions',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'search_completions',
                 ],
@@ -278,15 +294,19 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'search_completions':
                         (SearchCompletions,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'search_completions': 'body',
                 },
@@ -310,6 +330,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             context_request,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Retrieve context from an assistant  # noqa: E501
@@ -318,12 +339,13 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.context_assistant(assistant_name, context_request, async_req=True)
+            >>> thread = api.context_assistant(assistant_name, context_request, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to be described.
                 context_request (ContextRequest): The desired configuration to retrieve context from an assistant.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -370,6 +392,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['context_request'] = \
@@ -389,10 +413,12 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'context_request',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'context_request',
                 ],
@@ -409,15 +435,19 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'context_request':
                         (ContextRequest,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'context_request': 'body',
                 },
@@ -440,6 +470,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             assistant_file_id,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Delete an uploaded file  # noqa: E501
@@ -448,12 +479,13 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.delete_file(assistant_name, assistant_file_id, async_req=True)
+            >>> thread = api.delete_file(assistant_name, assistant_file_id, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to upload files to.
                 assistant_file_id (str): The uuid of the file to be described.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
                 _return_http_data_only (bool): response data without head status
@@ -500,6 +532,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['assistant_file_id'] = \
@@ -519,10 +553,12 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'assistant_file_id',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'assistant_file_id',
                 ],
@@ -539,16 +575,20 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'assistant_file_id':
                         (str,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                     'assistant_file_id': 'assistant_file_id',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'assistant_file_id': 'path',
                 },
@@ -569,6 +609,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             assistant_file_id,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Describe a file upload  # noqa: E501
@@ -577,15 +618,16 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.describe_file(assistant_name, assistant_file_id, async_req=True)
+            >>> thread = api.describe_file(assistant_name, assistant_file_id, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to upload files to.
                 assistant_file_id (str): The uuid of the file to be described.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
-                include_url (str): Include the signed URL of the file in the response. [optional]
+                include_url (str): Include the signed URL of the file in the response.. [optional]
                 _return_http_data_only (bool): response data without head status
                     code and headers. Default is True.
                 _preload_content (bool): if False, the urllib3.HTTPResponse object
@@ -630,6 +672,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['assistant_file_id'] = \
@@ -649,18 +693,19 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'assistant_file_id',
                     'include_url',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'assistant_file_id',
                 ],
                 'nullable': [
                 ],
                 'enum': [
-                    'include_url',
                 ],
                 'validation': [
                 ]
@@ -669,13 +714,10 @@ class ManageAssistantsApi(object):
                 'validations': {
                 },
                 'allowed_values': {
-                    ('include_url',): {
-
-                        "TRUE": "true",
-                        "FALSE": "false"
-                    },
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'assistant_file_id':
@@ -684,11 +726,13 @@ class ManageAssistantsApi(object):
                         (str,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                     'assistant_file_id': 'assistant_file_id',
                     'include_url': 'include_url',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'assistant_file_id': 'path',
                     'include_url': 'query',
@@ -709,6 +753,7 @@ class ManageAssistantsApi(object):
         def __list_files(
             self,
             assistant_name,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """List Files  # noqa: E501
@@ -717,14 +762,15 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.list_files(assistant_name, async_req=True)
+            >>> thread = api.list_files(assistant_name, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to list files for.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
-                filter (str): Optional JSON-encoded metadata filter for files. [optional]
+                filter (str): Optional JSON-encoded metadata filter for files.. [optional]
                 _return_http_data_only (bool): response data without head status
                     code and headers. Default is True.
                 _preload_content (bool): if False, the urllib3.HTTPResponse object
@@ -769,6 +815,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             return self.call_with_http_info(**kwargs)
@@ -786,10 +834,12 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'filter',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                 ],
                 'nullable': [
@@ -805,16 +855,20 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'filter':
                         (str,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                     'filter': 'filter',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'filter': 'query',
                 },
@@ -835,6 +889,7 @@ class ManageAssistantsApi(object):
             self,
             assistant_name,
             file,
+            x_pinecone_api_version="2025-10",
             **kwargs
         ):
             """Upload file to assistant  # noqa: E501
@@ -843,16 +898,17 @@ class ManageAssistantsApi(object):
             This method makes a synchronous HTTP request by default. To make an
             asynchronous HTTP request, please pass async_req=True
 
-            >>> thread = api.upload_file(assistant_name, file, async_req=True)
+            >>> thread = api.upload_file(assistant_name, file, x_pinecone_api_version="2025-10", async_req=True)
             >>> result = thread.get()
 
             Args:
                 assistant_name (str): The name of the assistant to upload files to.
                 file (file_type): The file to upload.
+                x_pinecone_api_version (str): Required date-based version header. defaults to "2025-10", must be one of ["2025-10"]
 
             Keyword Args:
-                metadata (str): Optional JSON-encoded metadata for files. [optional]
-                multimodal (str): Optional flag to opt in to multimodal file processing (PDFs only). Can be either `true` or `false`. Default is `false`. [optional]
+                metadata (str): Optional JSON-encoded metadata for files.. [optional]
+                multimodal (str): Optional flag to opt in to multimodal file processing (PDFs only). Can be either `true` or `false`. Default is `false`.. [optional]
                 _return_http_data_only (bool): response data without head status
                     code and headers. Default is True.
                 _preload_content (bool): if False, the urllib3.HTTPResponse object
@@ -897,6 +953,8 @@ class ManageAssistantsApi(object):
                 '_check_return_type', True
             )
             kwargs['_host_index'] = kwargs.get('_host_index')
+            kwargs['x_pinecone_api_version'] = \
+                x_pinecone_api_version
             kwargs['assistant_name'] = \
                 assistant_name
             kwargs['file'] = \
@@ -916,12 +974,14 @@ class ManageAssistantsApi(object):
             },
             params_map={
                 'all': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'file',
                     'metadata',
                     'multimodal',
                 ],
                 'required': [
+                    'x_pinecone_api_version',
                     'assistant_name',
                     'file',
                 ],
@@ -938,6 +998,8 @@ class ManageAssistantsApi(object):
                 'allowed_values': {
                 },
                 'openapi_types': {
+                    'x_pinecone_api_version':
+                        (str,),
                     'assistant_name':
                         (str,),
                     'file':
@@ -948,12 +1010,14 @@ class ManageAssistantsApi(object):
                         (str,),
                 },
                 'attribute_map': {
+                    'x_pinecone_api_version': 'X-Pinecone-Api-Version',
                     'assistant_name': 'assistant_name',
                     'file': 'file',
                     'metadata': 'metadata',
                     'multimodal': 'multimodal',
                 },
                 'location_map': {
+                    'x_pinecone_api_version': 'header',
                     'assistant_name': 'path',
                     'file': 'form',
                     'metadata': 'query',

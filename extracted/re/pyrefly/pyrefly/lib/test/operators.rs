@@ -139,6 +139,17 @@ assert_type(x, Literal["a"])
 );
 
 testcase!(
+    test_html_escape_or_str_regression,
+    r#"
+import html
+from typing import assert_type
+
+x = html.escape("") or "a"
+assert_type(x, str)
+    "#,
+);
+
+testcase!(
     test_boolean_and_simple,
     r#"
 from typing import assert_type, Literal
@@ -276,6 +287,27 @@ assert_type(~c, Literal[100])
 );
 
 testcase!(
+    test_unary_dunders_typevar_bound,
+    r#"
+from typing import Self
+
+class Foo:
+    def __neg__(self) -> Self:
+        return self
+    def __pos__(self) -> Self:
+        return self
+    def __invert__(self) -> Self:
+        return self
+
+def test[F: Foo](foo: F) -> F:
+    a: F = -foo
+    b: F = +foo
+    c: F = ~foo
+    return c
+    "#,
+);
+
+testcase!(
     test_unary_error,
     r#"
 +None  # E: Unary `+` is not supported on `None`
@@ -370,7 +402,7 @@ testcase!(
     r#"
 from typing import TypeVar, reveal_type
 T_co = TypeVar("T_co", covariant=True)
-T_co == int 
+T_co == int
 reveal_type(T_co) # E:  revealed type: TypeVar[T_co]
     "#,
 );
@@ -434,9 +466,9 @@ testcase!(
     r#"
 from typing import assert_type
 class A:
-    def __eq__(self, other) -> int:
-        return 1
-assert_type(A() == 42, int)
+    def __eq__(self, other) -> bool:
+        return True
+assert_type(A() == 42, bool)
     "#,
 );
 
@@ -470,24 +502,36 @@ class Falsey:
 class Truthy:
     def __bool__(self) -> Literal[True]:
         return True
+class NotBoolable:
+    __bool__: int = 0
+
 assert_type(Falsey() or int(), int)
+# Note that although we evaluate `__bool__` and use the result for the boolean
+# operation control flow, the resulting value is the actual `Truthy` instance
+# and not a bool. This matches the runtime.
 assert_type(Truthy() or int(), Truthy)
 assert_type(int() if Truthy() else str(), int)
 assert_type(int() if Falsey() else str(), str)
+
+# Test the use of a non-boolean-convertible type in boolean operators.
+#
+# The runtime only uses truthiness in short-circuiting here, so it is actually
+# legal to use a non-boolable value as the rightmost entry of a bool op.
+assert_type(NotBoolable() or int(), int | NotBoolable)  # E: Expected `__bool__` to be a callable, got `int`
+assert_type(int() or NotBoolable(), int | NotBoolable)
 "#,
 );
 
 testcase!(
-    bug = "Mypy accepts this program and pyright rejects it wants quotes around the tensor type inside the callable. We should accept this program.",
     test_tensor_type_lambda,
     r#"
-from typing import Callable, cast, reveal_type
+from typing import Callable, cast, assert_type
 
 class Tensor:
     __pow__ = cast(Callable[[Tensor, int], Tensor], lambda x, y: x)  # No redundant cast warning - types are not exactly equal
 
 def f(x: Tensor, i: int):
-    reveal_type(x ** i) # E: Argument `int` is not assignable to parameter with type `Tensor` # E: revealed type: Tensor # E: `**` is not supported between `Tensor` and `int`
+    assert_type(x ** i, Tensor)
 
     "#,
 );
@@ -495,7 +539,7 @@ def f(x: Tensor, i: int):
 testcase!(
     test_tensor_type_method,
     r#"
-from typing import reveal_type
+from typing import assert_type
 
 def power(x: "Tensor", i: int) -> "Tensor":
     return x
@@ -504,7 +548,189 @@ class Tensor:
     __pow__ = power
 
 def f(x: Tensor, i: int):
-    reveal_type(x ** i) # E:  revealed type: Tensor
+    assert_type(x ** i, Tensor)
 
+    "#,
+);
+
+testcase!(
+    test_magic_dunder_call_with_metaclass,
+    r#"
+from typing import assert_type
+
+class Meta(type):
+    def __add__(cls, other) -> int:
+        return 0
+
+class A(metaclass=Meta):
+    @classmethod
+    def __add__(cls, other) -> str:
+        return ""
+
+class B(A):
+    pass
+
+# The `+` operation uses `Meta.__add__`, unlike a direct `__add__` call, which uses `A.__add__`.
+assert_type(B + B, int)
+assert_type(B.__add__(B), str)
+    "#,
+);
+
+testcase!(
+    test_iter_var_annotation_with_getitem,
+    r#"
+class A:
+    def __getitem__(self, i: int):
+        return 0
+
+x: int
+for x in A():
+    pass
+
+y: str
+for y in A():  # E: Cannot use variable `y` with type `str` to iterate over elements of type `Literal[0]`
+    pass
+    "#,
+);
+
+testcase!(
+    test_contains_bad_getitem,
+    r#"
+class A:
+    def __getitem__(self):
+        return 0
+0 in A()  # E: Expected 0 positional arguments, got 1 in function `A.__getitem__`
+    "#,
+);
+
+testcase!(
+    test_contains_getitem_wrong_type,
+    r#"
+class A:
+    def __getitem__(self, i) -> int:
+        return 0
+"" in A()  # E: `Literal['']` is not assignable to contained type `int`
+    "#,
+);
+
+testcase!(
+    test_deprecated,
+    r#"
+from typing import assert_type, Self
+from warnings import deprecated
+class A:
+    @deprecated("Super deprecated")
+    def __add__(self, other) -> Self:
+        return self
+class B:
+    def __radd__(self, other) -> Self:
+        return self
+assert_type(A() + B(), A)  # E: `A.__add__` is deprecated
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/396
+testcase!(
+    test_bind_dunder_callable_simple,
+    r#"
+from typing import Callable
+
+def foo_pow(base: "Foo", arg: "int | Foo") -> "Foo": return Foo()
+
+class Foo:
+    __pow__: Callable[["Foo", int], "Foo"] = foo_pow
+
+def test(foo: Foo) -> None:
+    foo ** 2
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/396
+testcase!(
+    test_bind_dunder_callable_2,
+    r#"
+from typing import *
+class ThisClassWorks:
+    def __init__(self, flag: bool) -> None:
+        self.flag = flag
+
+    def __and__(self, other: Union["ThisClassWorks", bool]) -> "ThisClassWorks":
+        if isinstance(other, bool):
+            return ThisClassWorks(self.flag and other)
+        return ThisClassWorks(self.flag and other.flag)
+
+    def __rand__(self, other: Union["ThisClassWorks", bool]) -> "ThisClassWorks":
+        if isinstance(other, bool):
+            return ThisClassWorks(self.flag and other)
+        return ThisClassWorks(self.flag and other.flag)
+
+
+def _produce_and_func() -> Callable[
+    ["ThisClassDoesNotWork", Union["ThisClassDoesNotWork", bool]],
+    "ThisClassDoesNotWork",
+]:
+    def and_func(
+        self: "ThisClassDoesNotWork", other: Union["ThisClassDoesNotWork", bool]
+    ) -> "ThisClassDoesNotWork":
+        if isinstance(other, bool):
+            return ThisClassDoesNotWork(self.flag and other)
+        return ThisClassDoesNotWork(self.flag and other.flag)
+
+    return and_func
+
+
+class ThisClassDoesNotWork:
+    def __init__(self, flag: bool) -> None:
+        self.flag = flag
+
+    __and__ = _produce_and_func()
+    __rand__ = _produce_and_func()
+
+ThisClassWorks(True) & ThisClassWorks(False)
+ThisClassWorks(True) & False
+True & ThisClassWorks(False)
+ThisClassDoesNotWork(True) & ThisClassDoesNotWork(False)
+ThisClassDoesNotWork(True) & False
+True & ThisClassDoesNotWork(False)
+    "#,
+);
+
+testcase!(
+    test_type_of_typevar_equality,
+    r#"
+def f[S, T](x: type[S], y: type[T]):
+    return x == y
+    "#,
+);
+
+testcase!(
+    test_chained_in,
+    r#"
+class Foo:
+    def __contains__(self, x: int) -> bool:
+        ...
+
+class Bar:
+    def __contains__(self, x: Foo) -> bool:
+        ...
+
+def test(x: int, foo: Foo, bar: Bar) -> None:
+    x in foo in bar  # Should be OK
+    x in bar # E: `in` is not supported between `int` and `Bar`
+    "#,
+);
+
+testcase!(
+    test_chained_lt,
+    r#"
+class A:
+    def __lt__(self, other: "B") -> bool: ...
+class B:
+    def __lt__(self, other: "C") -> bool: ...
+class C: pass
+
+def test(a: A, b: B, c: C) -> None:
+    a < b < c  # Should be OK: (a < b) and (b < c)
+    a < c      # E: `<` is not supported between `A` and `C`
     "#,
 );

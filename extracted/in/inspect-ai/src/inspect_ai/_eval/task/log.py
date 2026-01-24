@@ -1,3 +1,5 @@
+import logging
+import os
 from importlib import metadata as importlib_metadata
 from typing import Any, Literal, cast
 
@@ -11,9 +13,11 @@ from inspect_ai._util.git import git_context
 from inspect_ai._util.path import cwd_relative_path
 from inspect_ai._util.registry import (
     registry_log_name,
+    registry_package_name,
     registry_params,
 )
 from inspect_ai.dataset import Dataset
+from inspect_ai.event._event import Event
 from inspect_ai.log import (
     EvalConfig,
     EvalDataset,
@@ -34,22 +38,57 @@ from inspect_ai.log._log import (
     EvalScorer,
     eval_config_defaults,
 )
-from inspect_ai.log._model import model_args_for_log, model_roles_to_model_roles_config
 from inspect_ai.log._recorders import Recorder
 from inspect_ai.log._recorders.buffer import SampleBufferDatabase
 from inspect_ai.log._recorders.types import SampleEvent
-from inspect_ai.log._transcript import Event
 from inspect_ai.model import (
     GenerateConfig,
     Model,
     ModelName,
 )
 from inspect_ai.model._model import model_usage
+from inspect_ai.model._model_config import (
+    model_args_for_log,
+    model_roles_to_model_roles_config,
+)
 from inspect_ai.scorer._metric import MetricSpec
 from inspect_ai.scorer._scorer import ScorerSpec
+from inspect_ai.solver._constants import SOLVER_ALL_PARAMS_ATTR
 from inspect_ai.solver._plan import Plan
 from inspect_ai.solver._solver import Solver, SolverSpec
 from inspect_ai.util._sandbox.environment import SandboxEnvironmentSpec
+
+logger = logging.getLogger(__name__)
+
+
+def resolve_revision() -> EvalRevision | None:
+    git = git_context()
+    return (
+        EvalRevision(type="git", origin=git.origin, commit=git.commit, dirty=git.dirty)
+        if git
+        else None
+    )
+
+
+def resolve_external_registry_package_version(
+    task_registry_name: str | None,
+) -> tuple[str, str] | None:
+    if task_registry_name is None:
+        return None
+
+    package_name = registry_package_name(task_registry_name)
+
+    is_external = package_name != PKG_NAME
+    if package_name is None or not is_external:
+        return None
+
+    try:
+        package_version = importlib_metadata.version(package_name)
+    except importlib_metadata.PackageNotFoundError:
+        logger.warning(f"Could not resolve version for {package_name=}")
+        return None
+
+    return package_name, package_version
 
 
 class TaskLogger:
@@ -69,7 +108,9 @@ class TaskLogger:
         model_roles: dict[str, Model] | None,
         dataset: Dataset,
         scorer: list[ScorerSpec] | None,
-        metrics: list[MetricSpec] | dict[str, list[MetricSpec]] | None,
+        metrics: list[MetricSpec | dict[str, list[MetricSpec]]]
+        | dict[str, list[MetricSpec]]
+        | None,
         sandbox: SandboxEnvironmentSpec | None,
         task_attribs: dict[str, Any],
         task_args: dict[str, Any],
@@ -80,14 +121,16 @@ class TaskLogger:
         recorder: Recorder,
         header_only: bool,
     ) -> None:
-        # determine versions
-        git = git_context()
-        revision = (
-            EvalRevision(type="git", origin=git.origin, commit=git.commit)
-            if git
-            else None
+        packages = {
+            PKG_NAME: importlib_metadata.version(PKG_NAME),
+        }
+        revision = resolve_revision()
+        resolved_registry = resolve_external_registry_package_version(
+            task_registry_name
         )
-        packages = {PKG_NAME: importlib_metadata.version(PKG_NAME)}
+        if resolved_registry:
+            external_package, external_package_version = resolved_registry
+            packages[external_package] = external_package_version
 
         # redact authentication oriented model_args
         model_args = model_args_for_log(model_args)
@@ -137,7 +180,8 @@ class TaskLogger:
             solver=solver.solver if solver else None,
             tags=tags,
             solver_args=solver.args if solver else None,
-            model=str(ModelName(model)),
+            solver_args_passed=solver.args_passed if solver else None,
+            model=f"{ModelName(model).api}/{model.name}",
             model_generate_config=model.config,
             model_base_url=model.api.base_url,
             model_roles=model_roles_to_model_roles_config(model_roles),
@@ -176,12 +220,17 @@ class TaskLogger:
 
     async def init(self) -> None:
         self._location = await self.recorder.log_init(self.eval)
-        if self.eval.config.log_realtime is not False:
-            self._buffer_db = SampleBufferDatabase(
-                location=self._location,
-                log_images=self.eval.config.log_images is not False,
-                log_shared=self.eval.config.log_shared,
-            )
+
+        if self.eval.config.log_realtime is False or os.environ.get(
+            "PYTEST_CURRENT_TEST"
+        ):
+            return
+
+        self._buffer_db = SampleBufferDatabase(
+            location=self._location,
+            log_images=self.eval.config.log_images is not False,
+            log_shared=self.eval.config.log_shared,
+        )
 
     @property
     def location(self) -> str:
@@ -260,14 +309,12 @@ class TaskLogger:
         return log
 
 
-async def log_start(
-    logger: TaskLogger,
-    plan: Plan,
-    config: GenerateConfig,
-) -> None:
+def plan_to_eval_plan(plan: Plan, config: GenerateConfig) -> EvalPlan:
     def eval_plan_step(solver: Solver) -> EvalPlanStep:
         return EvalPlanStep(
-            solver=registry_log_name(solver), params=registry_params(solver)
+            solver=registry_log_name(solver),
+            params=getattr(solver, SOLVER_ALL_PARAMS_ATTR, {}),
+            params_passed=registry_params(solver),
         )
 
     eval_plan = EvalPlan(
@@ -278,7 +325,15 @@ async def log_start(
     )
     if plan.finish:
         eval_plan.steps.append(eval_plan_step(plan.finish))
+    return eval_plan
 
+
+async def log_start(
+    logger: TaskLogger,
+    plan: Plan,
+    config: GenerateConfig,
+) -> None:
+    eval_plan = plan_to_eval_plan(plan, config)
     await logger.log_start(eval_plan)
 
 
@@ -289,12 +344,38 @@ def collect_eval_data(stats: EvalStats) -> None:
 
 
 def resolve_eval_metrics(
-    metrics: list[MetricSpec] | dict[str, list[MetricSpec]] | None,
-) -> list[EvalMetricDefinition] | dict[str, list[EvalMetricDefinition]] | None:
+    metrics: list[MetricSpec | dict[str, list[MetricSpec]]]
+    | dict[str, list[MetricSpec]]
+    | None,
+) -> (
+    list[EvalMetricDefinition | dict[str, list[EvalMetricDefinition]]]
+    | dict[str, list[EvalMetricDefinition]]
+    | None
+):
     if metrics is None:
         return None
     elif isinstance(metrics, list):
-        return [EvalMetricDefinition(name=m.metric, options=m.args) for m in metrics]
+        result: list[EvalMetricDefinition | dict[str, list[EvalMetricDefinition]]] = []
+        for metric_item in metrics:
+            if isinstance(metric_item, dict):
+                # It's a dict of metric groups
+                result.append(
+                    {
+                        k: [
+                            EvalMetricDefinition(name=v.metric, options=v.args)
+                            for v in metric_list
+                        ]
+                        for k, metric_list in metric_item.items()
+                    }
+                )
+            else:
+                # It's a direct MetricSpec
+                result.append(
+                    EvalMetricDefinition(
+                        name=metric_item.metric, options=metric_item.args
+                    )
+                )
+        return result
     else:
         return {
             k: [

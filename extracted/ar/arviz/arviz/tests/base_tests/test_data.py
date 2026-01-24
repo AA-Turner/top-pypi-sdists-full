@@ -1510,6 +1510,15 @@ class TestDataTree:
             assert_identical(ds, idata_back[group])
         assert all(group in dt.children for group in idata.groups())
 
+    def test_datatree_attrs(self):
+        idata = load_arviz_data("centered_eight")
+        idata.attrs = {"not": "empty"}
+        assert idata.attrs
+        dt = idata.to_datatree()
+        idata_back = from_datatree(dt)
+        assert dt.attrs == idata.attrs
+        assert idata_back.attrs == idata.attrs
+
 
 class TestConversions:
     def test_id_conversion_idempotent(self):
@@ -1652,3 +1661,19 @@ class TestExtractDataset:
         post = extract(idata, num_samples=10)
         assert post.sizes["sample"] == 10
         assert post.attrs == idata.posterior.attrs
+
+
+def test_convert_to_inference_data_with_array_like():
+    class ArrayLike:
+        def __init__(self, data):
+            self._data = np.asarray(data)
+
+        def __array__(self):
+            return self._data
+
+    array_like = ArrayLike(np.random.randn(4, 100))
+    idata = convert_to_inference_data(array_like, group="posterior")
+
+    assert hasattr(idata, "posterior")
+    assert "x" in idata.posterior.data_vars
+    assert idata.posterior["x"].shape == (4, 100)

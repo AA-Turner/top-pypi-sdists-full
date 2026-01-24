@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: iminuit
-Version: 2.31.1
+Version: 2.32.0
 Summary: Jupyter-friendly Python frontend for MINUIT2 in C++
 Maintainer-Email: Hans Dembinski <hans.dembinski@gmail.com>
 License: MIT+LGPL
@@ -29,25 +29,25 @@ Requires-Dist: numpy>=1.21
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: ipywidgets; extra == "test"
-Requires-Dist: ipykernel; extra == "test"
-Requires-Dist: PySide6; extra == "test"
+Requires-Dist: ipykernel; platform_python_implementation == "CPython" and extra == "test"
+Requires-Dist: PySide6; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: joblib; extra == "test"
 Requires-Dist: jacobi; extra == "test"
-Requires-Dist: matplotlib; extra == "test"
-Requires-Dist: numpy; extra == "test"
+Requires-Dist: matplotlib; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: numba; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: numba-stats; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest-xvfb; extra == "test"
-Requires-Dist: pytest-qt; extra == "test"
-Requires-Dist: scipy; extra == "test"
+Requires-Dist: pytest-qt; platform_python_implementation == "CPython" and extra == "test"
+Requires-Dist: scipy; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: tabulate; extra == "test"
 Requires-Dist: boost_histogram; extra == "test"
-Requires-Dist: resample; extra == "test"
+Requires-Dist: resample; platform_python_implementation == "CPython" and extra == "test"
 Requires-Dist: unicodeitplus; extra == "test"
 Requires-Dist: pydantic; extra == "test"
 Requires-Dist: annotated_types; extra == "test"
+Requires-Dist: nox; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx-rtd-theme; extra == "doc"
 Requires-Dist: nbsphinx; extra == "doc"

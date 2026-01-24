@@ -3,7 +3,7 @@ Type annotations for appintegrations service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appintegrations/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -73,12 +74,6 @@ from .type_defs import (
     UpdateEventIntegrationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -89,15 +84,15 @@ __all__ = ("AppIntegrationsServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DuplicateResourceException: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DuplicateResourceException: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 
 class AppIntegrationsServiceClient(BaseClient):
@@ -179,7 +174,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Application.
 
@@ -189,7 +184,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def delete_data_integration(
         self, **kwargs: Unpack[DeleteDataIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the DataIntegration.
 
@@ -199,7 +194,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def delete_event_integration(
         self, **kwargs: Unpack[DeleteEventIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified existing event integration.
 
@@ -307,7 +302,7 @@ class AppIntegrationsServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appintegrations/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -315,7 +310,7 @@ class AppIntegrationsServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appintegrations/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -325,7 +320,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates and persists an Application resource.
 
@@ -335,7 +330,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def update_data_integration(
         self, **kwargs: Unpack[UpdateDataIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the description of a DataIntegration.
 
@@ -345,7 +340,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def update_data_integration_association(
         self, **kwargs: Unpack[UpdateDataIntegrationAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates and persists a DataIntegrationAssociation resource.
 
@@ -355,7 +350,7 @@ class AppIntegrationsServiceClient(BaseClient):
 
     def update_event_integration(
         self, **kwargs: Unpack[UpdateEventIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the description of an event integration.
 

@@ -1,19 +1,19 @@
 [build-system]
-requires = ["scikit-build-core", "cython", "numpy>=2.0; python_version >= '3.9'", "oldest-supported-numpy; python_version == '3.8'"]
+requires = ["scikit-build-core", "cython !=3.1.2,>=0.29.31", "numpy>=2.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "cantera"
-version = "3.1.0"
+version = "3.2.0"
 description = "Cantera is an open-source suite of tools for problems involving chemical kinetics, thermodynamics, and transport processes."
 authors = [{name = "Cantera Developers", email = "developers@cantera.org"}]
 keywords = ["chemistry physics"]
-license = { file = "License.txt" }
+license = "BSD-3-Clause"
+license-files = ["License.txt"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
@@ -22,19 +22,22 @@ classifiers = [
     "Programming Language :: Cython",
     "Programming Language :: Fortran",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Free Threading :: 1 - Unstable",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
 ]
-requires-python = ">=3.8,<3.14"
+requires-python = ">=3.10,<3.15"
 dependencies = [
-    "numpy >= 1.12.0,<3",
-    "ruamel.yaml >= 0.15.34",
+    "numpy <3,>=1.21.0",
+    "ruamel.yaml <1,>=0.17.21",
+    "typing_extensions >= 4.13.0",
 ]
 
 [project.readme]
@@ -68,8 +71,7 @@ build.verbose = true
 version = ">=3.27"
 
 [tool.scikit-build.ninja]
-# As of 01-DEC-2024, Ninja 1.12 is not available on PyPI
-version = ">=1.11"
+version = ">=1.13"
 make-fallback = false
 
 [tool.scikit-build.cmake.define]
@@ -84,8 +86,9 @@ exclude = ["pyproject.toml.in", "cantera/with_units/solution.py.in"]
 exclude = ["include", "lib", "share", "**.pyx", "cantera/CMakeLists.txt"]
 
 [tool.cibuildwheel]
-build-frontend = { name="build", args=["-vv"] }
-skip = "pp* *musllinux*"
+build-frontend = { name="build[uv]", args=["-vv"] }
+archs = "auto64"
+skip = ["*musllinux*", "cp3??t-win*"]
 test-extras = ["pandas", "units", "graphviz"]
 test-requires = ["pytest"]
 manylinux-x86_64-image = "ghcr.io/cantera/cantera-base-manylinux_2_28-x86_64"

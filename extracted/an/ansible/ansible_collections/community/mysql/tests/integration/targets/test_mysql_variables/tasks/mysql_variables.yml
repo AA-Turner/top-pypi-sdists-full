@@ -184,16 +184,6 @@
       register: oor_result
       ignore_errors: true
 
-    - include_tasks: assert_var.yml
-      vars:
-        changed: true
-        output: "{{ oor_result }}"
-        var_name: max_connect_errors
-        var_value: 1
-      when:
-        - connector_name == 'mysqlclient'
-        - db_engine == 'mysql'  # mysqlclient returns "changed" with MariaDB
-
     - include_tasks: assert_fail_msg.yml
       vars:
         output: "{{ oor_result }}"

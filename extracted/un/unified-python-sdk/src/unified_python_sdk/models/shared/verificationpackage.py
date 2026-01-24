@@ -5,12 +5,12 @@ from .verificationparameter import VerificationParameter, VerificationParameterT
 from .verificationtime import VerificationTime, VerificationTimeTypedDict
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class VerificationPackageType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -46,6 +46,8 @@ class VerificationPackageTypedDict(TypedDict):
     tags: NotRequired[List[str]]
     r"""Category (Verification, Validation, Background Check)"""
     updated_at: NotRequired[datetime]
+    valid_regions: NotRequired[List[str]]
+    r"""{country}-{stateprovince/territory} or just {country} 2-digit ISO codes"""
 
 
 class VerificationPackage(BaseModel):
@@ -53,7 +55,7 @@ class VerificationPackage(BaseModel):
 
     name: str
 
-    type: Annotated[VerificationPackageType, PlainValidator(validate_open_enum(False))]
+    type: VerificationPackageType
 
     aliases: Optional[List[str]] = None
 
@@ -87,3 +89,50 @@ class VerificationPackage(BaseModel):
     r"""Category (Verification, Validation, Background Check)"""
 
     updated_at: Optional[datetime] = None
+
+    valid_regions: Optional[List[str]] = None
+    r"""{country}-{stateprovince/territory} or just {country} 2-digit ISO codes"""
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.VerificationPackageType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "aliases",
+                "average_processing_times",
+                "cost_amount",
+                "created_at",
+                "currency",
+                "description",
+                "has_redirect_url",
+                "has_target_url",
+                "info_url",
+                "max_score",
+                "needs_ip_address",
+                "parameters",
+                "raw",
+                "tags",
+                "updated_at",
+                "valid_regions",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

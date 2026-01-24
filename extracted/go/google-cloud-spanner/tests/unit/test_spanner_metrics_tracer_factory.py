@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 from google.cloud.spanner_v1.metrics.spanner_metrics_tracer_factory import (
     SpannerMetricsTracerFactory,
 )
+
+pytest.importorskip("opentelemetry")
 
 
 class TestSpannerMetricsTracerFactory:
@@ -42,9 +45,3 @@ class TestSpannerMetricsTracerFactory:
     def test_get_client_name(self):
         client_name = SpannerMetricsTracerFactory._get_client_name()
         assert isinstance(client_name, str)
-        assert "spanner-python" in client_name
-
-    def test_get_location(self):
-        location = SpannerMetricsTracerFactory._get_location()
-        assert isinstance(location, str)
-        assert location  # Simply asserting for non empty as this can change depending on the instance this test runs in.

@@ -21,12 +21,18 @@ from dataclasses import dataclass
 import zipfile
 from typing import Dict, List, Any, Union, Optional, Tuple, Set
 import collections
+from collections import namedtuple
 import json
 import argparse
 from fabric import Connection
 import base64
 
-if sys.platform.startswith("win"):
+def is_supported() -> bool:
+    return (sys.platform.startswith("win")
+            and os.path.exists(r"C:\Windows\System32\inetsrv\Microsoft.Web.Administration.dll"))
+
+
+if is_supported():
     import winreg
     import clr
     import win32com.client
@@ -62,14 +68,14 @@ from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.core import io, fileoperations
 from ebcli.lib import utils, ec2, elasticbeanstalk, aws
 from ebcli.objects import requests
-from ebcli.objects.platform import PlatformVersion
+from ebcli.objects.platform import PlatformVersion, PlatformBranch
 from ebcli.objects.exceptions import (
     NotFoundError,
     NotAnEC2Instance,
     NotSupportedError,
 )
 from ebcli.resources.strings import prompts, flag_text
-from ebcli.operations import commonops, createops, platformops, statusops
+from ebcli.operations import commonops, createops, platformops, statusops, platform_version_ops
 from ebcli.operations.tagops import tagops
 from ebcli.resources.statics import namespaces
 
@@ -82,16 +88,42 @@ class MigrateExploreController(AbstractBaseController):
         usage = "eb migrate explore"
         stacked_on = "migrate"
         stacked_type = "nested"
+        arguments = [
+            (["--remote"], dict(action="store_true", help="Enable remote execution mode")),
+            (["--target-ip"], dict(help="IP address of the remote machine")),
+            (["--username"], dict(help="Username for authentication")),
+            (["--password"], dict(help="Password for authentication")),
+        ]
 
     def do_command(self):
-        if not sys.platform.startswith("win"):
-            raise NotSupportedError("'eb migrate explore' is only supported on Windows")
-        verbose = self.app.pargs.verbose
-
-        if verbose:
-            list_sites_verbosely()
+        remote = self.app.pargs.remote
+        
+        if remote:
+            target_ip = self.app.pargs.target_ip
+            username = self.app.pargs.username
+            password = self.app.pargs.password
+            
+            if not target_ip or not username or not password:
+                raise ValueError("--target-ip, --username, and --password are required with --remote")
+            
+            remote_connection = initialize_ssh_connection(target_ip, username, password)
+            validate_iis_and_powershell_remote(remote_connection)
+            verbose = self.app.pargs.verbose
+            
+            if verbose:
+                list_sites_verbosely_remote(remote_connection)
+            else:
+                site_names = establish_candidate_sites_remote(remote_connection, None)
+                io.echo("\n".join(site_names))
         else:
-            io.echo("\n".join([s.Name for s in ServerManager().Sites]))
+            if not is_supported():
+                raise NotSupportedError("'eb migrate explore' is only supported on Windows with IIS installed")
+            verbose = self.app.pargs.verbose
+
+            if verbose:
+                list_sites_verbosely()
+            else:
+                io.echo("\n".join([s.Name for s in ServerManager().Sites]))
 
 
 class MigrateCleanupController(AbstractBaseController):
@@ -107,8 +139,8 @@ class MigrateCleanupController(AbstractBaseController):
         ]
 
     def do_command(self):
-        if not sys.platform.startswith("win"):
-            raise NotSupportedError("'eb migrate cleanup' is only supported on Windows")
+        if not is_supported():
+            raise NotSupportedError("'eb migrate cleanup' is only supported on Windows with IIS installed")
         force = self.app.pargs.force
         cleanup_previous_migration_artifacts(force, self.app.pargs.verbose)
 
@@ -364,8 +396,8 @@ class MigrateController(AbstractBaseController):
 
     def do_command(self):
         remote = self.app.pargs.remote
-        if not remote and not sys.platform.startswith("win"):
-            raise NotSupportedError("'eb migrate' is only supported on Windows")
+        if not remote and not is_supported():
+            raise NotSupportedError("'eb migrate' is only supported on Windows with IIS installed")
 
         verbose = self.app.pargs.verbose
 
@@ -861,6 +893,9 @@ def process_keyname(keyname):
 def establish_platform(platform, interactive):
     if not platform and interactive:
         platform = platformops.prompt_for_platform()
+        # If prompt returns a PlatformBranch, convert it to PlatformVersion
+        if isinstance(platform, PlatformBranch):
+            platform = platform_version_ops.get_preferred_platform_version_for_branch(platform.branch_name)
     elif not platform:
         io.echo("Determining EB platform based on host machine properties")
         platform = _determine_platform(platform_string=get_windows_server_version())
@@ -1206,6 +1241,81 @@ def list_sites_verbosely():
         io.echo(f"  - {username}")
         io.echo(f"    - Home: {homedir}")
 
+
+def list_sites_verbosely_remote(remote_connection):
+    ps_command = '''
+    Import-Module WebAdministration
+    $sites = Get-Website
+    $output = @()
+    $index = 1
+    foreach ($site in $sites) {
+        $siteInfo = "$index`: $($site.Name):`n"
+        $siteInfo += "  - Bindings:`n"
+        $bindings = Get-WebBinding -Name $site.Name
+        foreach ($binding in $bindings) {
+            $siteInfo += "    - $($binding.bindingInformation)`n"
+        }
+        $applications = @(Get-WebApplication -Site $site.Name)
+        $rootApp = @{
+            Path = "/"
+            ApplicationPoolName = $site.applicationPool
+            EnabledProtocols = $site.enabledProtocols
+        }
+        $allApps = @($rootApp) + $applications
+        foreach ($app in $allApps) {
+            $appPath = if ($app.Path) { $app.Path } else { "/" }
+            $appPool = if ($app.ApplicationPoolName) { $app.ApplicationPoolName } else { $app.applicationPool }
+            $protocols = if ($app.EnabledProtocols) { $app.EnabledProtocols } else { $app.enabledProtocols }
+            $siteInfo += "  - Application '$appPath':`n"
+            $siteInfo += "    - Application Pool: $appPool`n"
+            $siteInfo += "    - Enabled Protocols: $protocols`n"
+            $siteInfo += "    - Virtual Directories:`n"
+            $vdirs = Get-WebConfiguration "/system.applicationHost/sites/site[@name='$($site.Name)']/application[@path='$appPath']/virtualDirectory"
+            foreach ($vdir in $vdirs) {
+                $vdirPath = $vdir.GetAttributeValue("path")
+                $physicalPath = $vdir.GetAttributeValue("physicalPath")
+                $logonMethodValue = $vdir.GetAttributeValue("logonMethod")
+                $logonMethod = switch ($logonMethodValue) {
+                    0 { "Interactive" }
+                    1 { "Batch" }
+                    2 { "Network" }
+                    3 { "ClearText" }
+                    default { $logonMethodValue }
+                }
+                $userName = $vdir.GetAttributeValue("userName")
+                $password = $vdir.GetAttributeValue("password")
+                $siteInfo += "      - $vdirPath`:`n"
+                $siteInfo += "        - Physical Path: $physicalPath`n"
+                $siteInfo += "        - Logon Method: $logonMethod`n"
+                if ($userName) {
+                    $siteInfo += "        - Username: $userName`n"
+                }
+                if ($password) {
+                    $siteInfo += "        - Password: <redacted>`n"
+                }
+            }
+        }
+        $output += $siteInfo
+        $index++
+    }
+    Write-Host ($output -join "")
+    Write-Host "----------------------------------------------------"
+    Write-Host "Users:"
+    try {
+        $users = Get-LocalUser | Where-Object { $_.Enabled -eq $true }
+        foreach ($user in $users) {
+            $homedir = if ($user.HomeDirectory) { $user.HomeDirectory } else { "None" }
+            Write-Host "  - $($user.Name)"
+            Write-Host "    - Home: $homedir"
+        }
+    } catch {
+        # Silently skip if user enumeration fails
+    }
+    '''
+    command_bytes = ps_command.encode('utf-16le')
+    encoded_command = base64.b64encode(command_bytes).decode()
+    result = remote_connection.run(f'powershell -NoProfile -NonInteractive -EncodedCommand {encoded_command}', hide=True)
+    io.echo(result.stdout.strip())
 
 def get_local_users():
     ctx = PrincipalContext(ContextType.Machine)

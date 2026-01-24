@@ -3,7 +3,7 @@ Type annotations for license-manager-linux-subscriptions service client paginato
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_license_manager_linux_subscriptions/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

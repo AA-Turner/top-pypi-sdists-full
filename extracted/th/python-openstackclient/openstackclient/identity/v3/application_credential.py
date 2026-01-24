@@ -18,24 +18,25 @@
 import datetime
 import json
 import logging
+import typing as ty
 import uuid
 
 from cliff import columns as cliff_columns
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
 LOG = logging.getLogger(__name__)
 
 
-class RolesColumn(cliff_columns.FormattableColumn):
+class RolesColumn(cliff_columns.FormattableColumn[ty.Any]):
     """Generate a formatted string of role names."""
 
     def human_readable(self):
-        return utils.format_list(r['name'] for r in self._value)
+        return utils.format_list(list(r['name'] for r in self._value))
 
 
 def _format_application_credential(
@@ -148,6 +149,7 @@ class CreateApplicationCredential(command.ShowOne):
         parser.add_argument(
             '--role',
             metavar='<role>',
+            dest='roles',
             action='append',
             default=[],
             help=_(
@@ -204,10 +206,15 @@ class CreateApplicationCredential(command.ShowOne):
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
         conn = self.app.client_manager.sdk_connection
-        user_id = conn.config.get_auth().get_user_id(conn.identity)
+        auth = conn.config.get_auth()
+        if auth is None:
+            # this will never happen
+            raise exceptions.CommandError('invalid authentication info')
+
+        user_id = auth.get_user_id(conn.identity)
 
         role_ids = []
-        for role in parsed_args.role:
+        for role in parsed_args.roles:
             if is_uuid_like(role):
                 role_ids.append({'id': role})
             else:
@@ -272,13 +279,18 @@ class DeleteApplicationCredential(command.Command):
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
         conn = self.app.client_manager.sdk_connection
-        user_id = conn.config.get_auth().get_user_id(conn.identity)
+        auth = conn.config.get_auth()
+        if auth is None:
+            # this will never happen
+            raise exceptions.CommandError('invalid authentication info')
+
+        user_id = auth.get_user_id(conn.identity)
 
         errors = 0
         for ac in parsed_args.application_credential:
             try:
                 app_cred = identity_client.find_application_credential(
-                    user_id, ac
+                    user_id, ac, ignore_missing=False
                 )
                 identity_client.delete_application_credential(
                     user_id, app_cred.id
@@ -325,7 +337,11 @@ class ListApplicationCredential(command.Lister):
             )
         else:
             conn = self.app.client_manager.sdk_connection
-            user_id = conn.config.get_auth().get_user_id(conn.identity)
+            auth = conn.config.get_auth()
+            if auth is None:
+                # this will never happen
+                raise exceptions.CommandError('invalid authentication info')
+            user_id = auth.get_user_id(conn.identity)
 
         application_credentials = identity_client.application_credentials(
             user=user_id
@@ -349,10 +365,14 @@ class ShowApplicationCredential(command.ShowOne):
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
         conn = self.app.client_manager.sdk_connection
-        user_id = conn.config.get_auth().get_user_id(conn.identity)
+        auth = conn.config.get_auth()
+        if auth is None:
+            # this will never happen
+            raise exceptions.CommandError('invalid authentication info')
+        user_id = auth.get_user_id(conn.identity)
 
         application_credential = identity_client.find_application_credential(
-            user_id, parsed_args.application_credential
+            user_id, parsed_args.application_credential, ignore_missing=False
         )
 
         return _format_application_credential(application_credential)

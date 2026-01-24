@@ -12,18 +12,34 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0003 import SimpleUser
+from .group_0043 import Label
+from .group_0050 import Issue
 
 
-class GitignoreTemplate(GitHubModel):
-    """Gitignore Template
+class IssuesEvent(GitHubModel):
+    """IssuesEvent"""
 
-    Gitignore Template
-    """
+    action: str = Field()
+    issue: Issue = Field(
+        title="Issue",
+        description="Issues are a great way to keep track of tasks, enhancements, and bugs for your projects.",
+    )
+    assignee: Missing[SimpleUser] = Field(
+        default=UNSET, title="Simple User", description="A GitHub user."
+    )
+    assignees: Missing[list[SimpleUser]] = Field(default=UNSET)
+    label: Missing[Label] = Field(
+        default=UNSET,
+        title="Label",
+        description="Color-coded labels help you categorize and filter your issues (just like labels in Gmail).",
+    )
+    labels: Missing[list[Label]] = Field(default=UNSET)
 
-    name: str = Field()
-    source: str = Field()
 
+model_rebuild(IssuesEvent)
 
-model_rebuild(GitignoreTemplate)
-
-__all__ = ("GitignoreTemplate",)
+__all__ = ("IssuesEvent",)

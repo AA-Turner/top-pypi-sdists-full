@@ -1,9 +1,15 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.14.1
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.25.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
+HashiCorp made the decision to stop publishing new versions of prebuilt [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.25.0) bindings for [CDK for Terraform](https://cdk.tf) on December 10, 2025. As such, this repository has been archived and is no longer supported in any way by HashiCorp. Previously-published versions of this prebuilt provider will still continue to be available on their respective package managers (e.g. npm, PyPi, Maven, NuGet), but these will not be compatible with new releases of `cdktf` past `0.21.0` and are no longer eligible for commercial support.
 
-## Available Packages
+As a reminder, you can continue to use the `hashicorp/aws` provider in your CDK for Terraform (CDKTF) projects, even with newer versions of CDKTF, but you will need to generate the bindings locally. The easiest way to do so is to use the [`provider add` command](https://developer.hashicorp.com/terraform/cdktf/cli-reference/commands#provider-add), optionally with the `--force-local` flag enabled:
+
+`cdktf provider add hashicorp/aws --force-local`
+
+For more information and additional examples, check out our documentation on [generating provider bindings manually](https://cdk.tf/imports).
+
+## Deprecated Packages
 
 ### NPM
 
@@ -55,43 +61,6 @@ Find auto-generated docs for this provider here:
 * [Go](./docs/API.go.md)
 
 You can also visit a hosted version of the documentation on [constructs.dev](https://constructs.dev/packages/@cdktf/provider-aws).
-
-## Versioning
-
-This project is explicitly not tracking the Terraform aws provider version 1:1. In fact, it always tracks `latest` of `~> 6.0` with every release. If there are scenarios where you explicitly have to pin your provider version, you can do so by [generating the provider constructs manually](https://cdk.tf/imports).
-
-These are the upstream dependencies:
-
-* [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.14.1)
-* [Terraform Engine](https://terraform.io)
-
-If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
-
-## Features / Issues / Bugs
-
-Please report bugs and issues to the [CDK for Terraform](https://cdk.tf) project:
-
-* [Create bug report](https://cdk.tf/bug)
-* [Create feature request](https://cdk.tf/feature)
-
-## Contributing
-
-### Projen
-
-This is mostly based on [Projen](https://github.com/projen/projen), which takes care of generating the entire repository.
-
-### cdktf-provider-project based on Projen
-
-There's a custom [project builder](https://github.com/cdktf/cdktf-provider-project) which encapsulate the common settings for all `cdktf` prebuilt providers.
-
-### Provider Version
-
-The provider version can be adjusted in [./.projenrc.js](./.projenrc.js).
-
-### Repository Management
-
-The repository is managed by [CDKTF Repository Manager](https://github.com/cdktf/cdktf-repository-manager/).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -304,6 +273,19 @@ __all__ = [
     "bedrockagent_flow",
     "bedrockagent_knowledge_base",
     "bedrockagent_prompt",
+    "bedrockagentcore_agent_runtime",
+    "bedrockagentcore_agent_runtime_endpoint",
+    "bedrockagentcore_api_key_credential_provider",
+    "bedrockagentcore_browser",
+    "bedrockagentcore_code_interpreter",
+    "bedrockagentcore_gateway",
+    "bedrockagentcore_gateway_target",
+    "bedrockagentcore_memory",
+    "bedrockagentcore_memory_strategy",
+    "bedrockagentcore_oauth2_credential_provider",
+    "bedrockagentcore_token_vault_cmk",
+    "bedrockagentcore_workload_identity",
+    "billing_view",
     "budgets_budget",
     "budgets_budget_action",
     "ce_anomaly_monitor",
@@ -388,6 +370,7 @@ __all__ = [
     "cloudwatch_log_resource_policy",
     "cloudwatch_log_stream",
     "cloudwatch_log_subscription_filter",
+    "cloudwatch_log_transformer",
     "cloudwatch_metric_alarm",
     "cloudwatch_metric_stream",
     "cloudwatch_query_definition",
@@ -503,6 +486,7 @@ __all__ = [
     "data_aws_apigatewayv2_apis",
     "data_aws_apigatewayv2_export",
     "data_aws_apigatewayv2_vpc_link",
+    "data_aws_appconfig_application",
     "data_aws_appconfig_configuration_profile",
     "data_aws_appconfig_configuration_profiles",
     "data_aws_appconfig_environment",
@@ -695,6 +679,7 @@ __all__ = [
     "data_aws_ecr_repository",
     "data_aws_ecr_repository_creation_template",
     "data_aws_ecrpublic_authorization_token",
+    "data_aws_ecrpublic_images",
     "data_aws_ecs_cluster",
     "data_aws_ecs_clusters",
     "data_aws_ecs_container_definition",
@@ -886,10 +871,21 @@ __all__ = [
     "data_aws_oam_sink",
     "data_aws_oam_sinks",
     "data_aws_odb_cloud_autonomous_vm_cluster",
+    "data_aws_odb_cloud_autonomous_vm_clusters",
     "data_aws_odb_cloud_exadata_infrastructure",
+    "data_aws_odb_cloud_exadata_infrastructures",
     "data_aws_odb_cloud_vm_cluster",
+    "data_aws_odb_cloud_vm_clusters",
+    "data_aws_odb_db_node",
+    "data_aws_odb_db_nodes",
+    "data_aws_odb_db_server",
+    "data_aws_odb_db_servers",
+    "data_aws_odb_db_system_shapes",
+    "data_aws_odb_gi_versions",
     "data_aws_odb_network",
     "data_aws_odb_network_peering_connection",
+    "data_aws_odb_network_peering_connections",
+    "data_aws_odb_networks",
     "data_aws_opensearch_domain",
     "data_aws_opensearchserverless_access_policy",
     "data_aws_opensearchserverless_collection",
@@ -936,6 +932,7 @@ __all__ = [
     "data_aws_rds_cluster_parameter_group",
     "data_aws_rds_clusters",
     "data_aws_rds_engine_version",
+    "data_aws_rds_global_cluster",
     "data_aws_rds_orderable_db_instance",
     "data_aws_rds_reserved_instance_offering",
     "data_aws_redshift_cluster",
@@ -1076,6 +1073,7 @@ __all__ = [
     "data_aws_vpclattice_service",
     "data_aws_vpclattice_service_network",
     "data_aws_vpcs",
+    "data_aws_vpn_connection",
     "data_aws_vpn_gateway",
     "data_aws_waf_ipset",
     "data_aws_waf_rate_based_rule",
@@ -1226,6 +1224,7 @@ __all__ = [
     "ebs_snapshot_copy",
     "ebs_snapshot_import",
     "ebs_volume",
+    "ec2_allowed_images_settings",
     "ec2_availability_zone_group",
     "ec2_capacity_block_reservation",
     "ec2_capacity_reservation",
@@ -1289,6 +1288,7 @@ __all__ = [
     "ecs_capacity_provider",
     "ecs_cluster",
     "ecs_cluster_capacity_providers",
+    "ecs_express_gateway_service",
     "ecs_service",
     "ecs_tag",
     "ecs_task_definition",
@@ -1306,6 +1306,7 @@ __all__ = [
     "eks_access_entry",
     "eks_access_policy_association",
     "eks_addon",
+    "eks_capability",
     "eks_cluster",
     "eks_fargate_profile",
     "eks_identity_provider_config",
@@ -1356,6 +1357,7 @@ __all__ = [
     "finspace_kx_user",
     "finspace_kx_volume",
     "fis_experiment_template",
+    "fis_target_account_configuration",
     "flow_log",
     "fms_admin_account",
     "fms_policy",
@@ -1485,6 +1487,7 @@ __all__ = [
     "internet_gateway",
     "internet_gateway_attachment",
     "internetmonitor_monitor",
+    "invoicing_invoice_unit",
     "iot_authorizer",
     "iot_billing_group",
     "iot_ca_certificate",
@@ -1537,13 +1540,16 @@ __all__ = [
     "kms_replica_key",
     "lakeformation_data_cells_filter",
     "lakeformation_data_lake_settings",
+    "lakeformation_identity_center_configuration",
     "lakeformation_lf_tag",
+    "lakeformation_lf_tag_expression",
     "lakeformation_opt_in",
     "lakeformation_permissions",
     "lakeformation_resource",
     "lakeformation_resource_lf_tag",
     "lakeformation_resource_lf_tags",
     "lambda_alias",
+    "lambda_capacity_provider",
     "lambda_code_signing_config",
     "lambda_event_source_mapping",
     "lambda_function",
@@ -1685,6 +1691,8 @@ __all__ = [
     "networkfirewall_rule_group",
     "networkfirewall_tls_inspection_configuration",
     "networkfirewall_vpc_endpoint_association",
+    "networkflowmonitor_monitor",
+    "networkflowmonitor_scope",
     "networkmanager_attachment_accepter",
     "networkmanager_connect_attachment",
     "networkmanager_connect_peer",
@@ -1714,6 +1722,7 @@ __all__ = [
     "oam_link",
     "oam_sink",
     "oam_sink_policy",
+    "observabilityadmin_centralization_rule_for_organization",
     "odb_cloud_autonomous_vm_cluster",
     "odb_cloud_exadata_infrastructure",
     "odb_cloud_vm_cluster",
@@ -1763,6 +1772,7 @@ __all__ = [
     "placement_group",
     "prometheus_alert_manager_definition",
     "prometheus_query_logging_configuration",
+    "prometheus_resource_policy",
     "prometheus_rule_group_namespace",
     "prometheus_scraper",
     "prometheus_workspace",
@@ -1907,6 +1917,7 @@ __all__ = [
     "s3_access_point",
     "s3_account_public_access_block",
     "s3_bucket",
+    "s3_bucket_abac",
     "s3_bucket_accelerate_configuration",
     "s3_bucket_acl",
     "s3_bucket_analytics_configuration",
@@ -1950,7 +1961,12 @@ __all__ = [
     "s3_tables_table",
     "s3_tables_table_bucket",
     "s3_tables_table_bucket_policy",
+    "s3_tables_table_bucket_replication",
     "s3_tables_table_policy",
+    "s3_tables_table_replication",
+    "s3_vectors_index",
+    "s3_vectors_vector_bucket",
+    "s3_vectors_vector_bucket_policy",
     "sagemaker_app",
     "sagemaker_app_image_config",
     "sagemaker_code_repository",
@@ -2150,11 +2166,14 @@ __all__ = [
     "transfer_agreement",
     "transfer_certificate",
     "transfer_connector",
+    "transfer_host_key",
     "transfer_profile",
     "transfer_server",
     "transfer_ssh_key",
     "transfer_tag",
     "transfer_user",
+    "transfer_web_app",
+    "transfer_web_app_customization",
     "transfer_workflow",
     "verifiedaccess_endpoint",
     "verifiedaccess_group",
@@ -2173,6 +2192,7 @@ __all__ = [
     "vpc_block_public_access_options",
     "vpc_dhcp_options",
     "vpc_dhcp_options_association",
+    "vpc_encryption_control",
     "vpc_endpoint",
     "vpc_endpoint_connection_accepter",
     "vpc_endpoint_connection_notification",
@@ -2209,6 +2229,7 @@ __all__ = [
     "vpc_security_group_vpc_association",
     "vpclattice_access_log_subscription",
     "vpclattice_auth_policy",
+    "vpclattice_domain_verification",
     "vpclattice_listener",
     "vpclattice_listener_rule",
     "vpclattice_resource_configuration",
@@ -2221,6 +2242,7 @@ __all__ = [
     "vpclattice_service_network_vpc_association",
     "vpclattice_target_group",
     "vpclattice_target_group_attachment",
+    "vpn_concentrator",
     "vpn_connection",
     "vpn_connection_route",
     "vpn_gateway",
@@ -2468,6 +2490,19 @@ from . import bedrockagent_data_source
 from . import bedrockagent_flow
 from . import bedrockagent_knowledge_base
 from . import bedrockagent_prompt
+from . import bedrockagentcore_agent_runtime
+from . import bedrockagentcore_agent_runtime_endpoint
+from . import bedrockagentcore_api_key_credential_provider
+from . import bedrockagentcore_browser
+from . import bedrockagentcore_code_interpreter
+from . import bedrockagentcore_gateway
+from . import bedrockagentcore_gateway_target
+from . import bedrockagentcore_memory
+from . import bedrockagentcore_memory_strategy
+from . import bedrockagentcore_oauth2_credential_provider
+from . import bedrockagentcore_token_vault_cmk
+from . import bedrockagentcore_workload_identity
+from . import billing_view
 from . import budgets_budget
 from . import budgets_budget_action
 from . import ce_anomaly_monitor
@@ -2552,6 +2587,7 @@ from . import cloudwatch_log_metric_filter
 from . import cloudwatch_log_resource_policy
 from . import cloudwatch_log_stream
 from . import cloudwatch_log_subscription_filter
+from . import cloudwatch_log_transformer
 from . import cloudwatch_metric_alarm
 from . import cloudwatch_metric_stream
 from . import cloudwatch_query_definition
@@ -2667,6 +2703,7 @@ from . import data_aws_apigatewayv2_api
 from . import data_aws_apigatewayv2_apis
 from . import data_aws_apigatewayv2_export
 from . import data_aws_apigatewayv2_vpc_link
+from . import data_aws_appconfig_application
 from . import data_aws_appconfig_configuration_profile
 from . import data_aws_appconfig_configuration_profiles
 from . import data_aws_appconfig_environment
@@ -2859,6 +2896,7 @@ from . import data_aws_ecr_repositories
 from . import data_aws_ecr_repository
 from . import data_aws_ecr_repository_creation_template
 from . import data_aws_ecrpublic_authorization_token
+from . import data_aws_ecrpublic_images
 from . import data_aws_ecs_cluster
 from . import data_aws_ecs_clusters
 from . import data_aws_ecs_container_definition
@@ -3050,10 +3088,21 @@ from . import data_aws_oam_links
 from . import data_aws_oam_sink
 from . import data_aws_oam_sinks
 from . import data_aws_odb_cloud_autonomous_vm_cluster
+from . import data_aws_odb_cloud_autonomous_vm_clusters
 from . import data_aws_odb_cloud_exadata_infrastructure
+from . import data_aws_odb_cloud_exadata_infrastructures
 from . import data_aws_odb_cloud_vm_cluster
+from . import data_aws_odb_cloud_vm_clusters
+from . import data_aws_odb_db_node
+from . import data_aws_odb_db_nodes
+from . import data_aws_odb_db_server
+from . import data_aws_odb_db_servers
+from . import data_aws_odb_db_system_shapes
+from . import data_aws_odb_gi_versions
 from . import data_aws_odb_network
 from . import data_aws_odb_network_peering_connection
+from . import data_aws_odb_network_peering_connections
+from . import data_aws_odb_networks
 from . import data_aws_opensearch_domain
 from . import data_aws_opensearchserverless_access_policy
 from . import data_aws_opensearchserverless_collection
@@ -3100,6 +3149,7 @@ from . import data_aws_rds_cluster
 from . import data_aws_rds_cluster_parameter_group
 from . import data_aws_rds_clusters
 from . import data_aws_rds_engine_version
+from . import data_aws_rds_global_cluster
 from . import data_aws_rds_orderable_db_instance
 from . import data_aws_rds_reserved_instance_offering
 from . import data_aws_redshift_cluster
@@ -3240,6 +3290,7 @@ from . import data_aws_vpclattice_resource_policy
 from . import data_aws_vpclattice_service
 from . import data_aws_vpclattice_service_network
 from . import data_aws_vpcs
+from . import data_aws_vpn_connection
 from . import data_aws_vpn_gateway
 from . import data_aws_waf_ipset
 from . import data_aws_waf_rate_based_rule
@@ -3390,6 +3441,7 @@ from . import ebs_snapshot_block_public_access
 from . import ebs_snapshot_copy
 from . import ebs_snapshot_import
 from . import ebs_volume
+from . import ec2_allowed_images_settings
 from . import ec2_availability_zone_group
 from . import ec2_capacity_block_reservation
 from . import ec2_capacity_reservation
@@ -3453,6 +3505,7 @@ from . import ecs_account_setting_default
 from . import ecs_capacity_provider
 from . import ecs_cluster
 from . import ecs_cluster_capacity_providers
+from . import ecs_express_gateway_service
 from . import ecs_service
 from . import ecs_tag
 from . import ecs_task_definition
@@ -3470,6 +3523,7 @@ from . import eip_domain_name
 from . import eks_access_entry
 from . import eks_access_policy_association
 from . import eks_addon
+from . import eks_capability
 from . import eks_cluster
 from . import eks_fargate_profile
 from . import eks_identity_provider_config
@@ -3520,6 +3574,7 @@ from . import finspace_kx_scaling_group
 from . import finspace_kx_user
 from . import finspace_kx_volume
 from . import fis_experiment_template
+from . import fis_target_account_configuration
 from . import flow_log
 from . import fms_admin_account
 from . import fms_policy
@@ -3649,6 +3704,7 @@ from . import instance
 from . import internet_gateway
 from . import internet_gateway_attachment
 from . import internetmonitor_monitor
+from . import invoicing_invoice_unit
 from . import iot_authorizer
 from . import iot_billing_group
 from . import iot_ca_certificate
@@ -3701,13 +3757,16 @@ from . import kms_replica_external_key
 from . import kms_replica_key
 from . import lakeformation_data_cells_filter
 from . import lakeformation_data_lake_settings
+from . import lakeformation_identity_center_configuration
 from . import lakeformation_lf_tag
+from . import lakeformation_lf_tag_expression
 from . import lakeformation_opt_in
 from . import lakeformation_permissions
 from . import lakeformation_resource
 from . import lakeformation_resource_lf_tag
 from . import lakeformation_resource_lf_tags
 from . import lambda_alias
+from . import lambda_capacity_provider
 from . import lambda_code_signing_config
 from . import lambda_event_source_mapping
 from . import lambda_function
@@ -3849,6 +3908,8 @@ from . import networkfirewall_resource_policy
 from . import networkfirewall_rule_group
 from . import networkfirewall_tls_inspection_configuration
 from . import networkfirewall_vpc_endpoint_association
+from . import networkflowmonitor_monitor
+from . import networkflowmonitor_scope
 from . import networkmanager_attachment_accepter
 from . import networkmanager_connect_attachment
 from . import networkmanager_connect_peer
@@ -3878,6 +3939,7 @@ from . import notificationscontacts_email_contact
 from . import oam_link
 from . import oam_sink
 from . import oam_sink_policy
+from . import observabilityadmin_centralization_rule_for_organization
 from . import odb_cloud_autonomous_vm_cluster
 from . import odb_cloud_exadata_infrastructure
 from . import odb_cloud_vm_cluster
@@ -3927,6 +3989,7 @@ from . import pipes_pipe
 from . import placement_group
 from . import prometheus_alert_manager_definition
 from . import prometheus_query_logging_configuration
+from . import prometheus_resource_policy
 from . import prometheus_rule_group_namespace
 from . import prometheus_scraper
 from . import prometheus_workspace
@@ -4071,6 +4134,7 @@ from . import rum_metrics_destination
 from . import s3_access_point
 from . import s3_account_public_access_block
 from . import s3_bucket
+from . import s3_bucket_abac
 from . import s3_bucket_accelerate_configuration
 from . import s3_bucket_acl
 from . import s3_bucket_analytics_configuration
@@ -4114,7 +4178,12 @@ from . import s3_tables_namespace
 from . import s3_tables_table
 from . import s3_tables_table_bucket
 from . import s3_tables_table_bucket_policy
+from . import s3_tables_table_bucket_replication
 from . import s3_tables_table_policy
+from . import s3_tables_table_replication
+from . import s3_vectors_index
+from . import s3_vectors_vector_bucket
+from . import s3_vectors_vector_bucket_policy
 from . import sagemaker_app
 from . import sagemaker_app_image_config
 from . import sagemaker_code_repository
@@ -4314,11 +4383,14 @@ from . import transfer_access
 from . import transfer_agreement
 from . import transfer_certificate
 from . import transfer_connector
+from . import transfer_host_key
 from . import transfer_profile
 from . import transfer_server
 from . import transfer_ssh_key
 from . import transfer_tag
 from . import transfer_user
+from . import transfer_web_app
+from . import transfer_web_app_customization
 from . import transfer_workflow
 from . import verifiedaccess_endpoint
 from . import verifiedaccess_group
@@ -4337,6 +4409,7 @@ from . import vpc_block_public_access_exclusion
 from . import vpc_block_public_access_options
 from . import vpc_dhcp_options
 from . import vpc_dhcp_options_association
+from . import vpc_encryption_control
 from . import vpc_endpoint
 from . import vpc_endpoint_connection_accepter
 from . import vpc_endpoint_connection_notification
@@ -4373,6 +4446,7 @@ from . import vpc_security_group_ingress_rule
 from . import vpc_security_group_vpc_association
 from . import vpclattice_access_log_subscription
 from . import vpclattice_auth_policy
+from . import vpclattice_domain_verification
 from . import vpclattice_listener
 from . import vpclattice_listener_rule
 from . import vpclattice_resource_configuration
@@ -4385,6 +4459,7 @@ from . import vpclattice_service_network_service_association
 from . import vpclattice_service_network_vpc_association
 from . import vpclattice_target_group
 from . import vpclattice_target_group_attachment
+from . import vpn_concentrator
 from . import vpn_connection
 from . import vpn_connection_route
 from . import vpn_gateway

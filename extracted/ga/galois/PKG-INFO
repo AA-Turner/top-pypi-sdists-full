@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: galois
-Version: 0.4.6
+Version: 0.4.10
 Summary: A performant NumPy extension for Galois fields and their applications
 Author-email: Matt Hostetter <matthostetter@gmail.com>
 License: MIT
@@ -30,6 +30,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -37,6 +38,10 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: numba>=0.55
+Requires-Dist: typing_extensions>=4.0.0
+Dynamic: license-file
 
 # ![Galois: A performant NumPy extension for Galois fields and their applications](https://raw.githubusercontent.com/mhostetter/galois/main/logo/galois-heading.png)
 
@@ -44,15 +49,17 @@ License-File: LICENSE
   <a href="https://pypi.org/project/galois"><img src="https://img.shields.io/pypi/v/galois"></a>
   <a href="https://pypi.org/project/galois"><img src="https://img.shields.io/pypi/pyversions/galois"></a>
   <a href="https://pypi.org/project/galois"><img src="https://img.shields.io/pypi/wheel/galois"></a>
+</div>
+<div align=center>
   <a href="https://pypistats.org/packages/galois"><img src="https://img.shields.io/pypi/dm/galois"></a>
   <a href="https://pypi.org/project/galois"><img src="https://img.shields.io/pypi/l/galois"></a>
+  <a href="https://twitter.com/galois_py"><img src="https://img.shields.io/static/v1?label=follow&message=@galois_py&color=blue&logo=twitter"></a>
 </div>
 <div align=center>
   <a href="https://github.com/mhostetter/galois/actions/workflows/lint.yaml"><img src="https://github.com/mhostetter/galois/actions/workflows/lint.yaml/badge.svg?branch=main"></a>
   <a href="https://github.com/mhostetter/galois/actions/workflows/build.yaml"><img src="https://github.com/mhostetter/galois/actions/workflows/build.yaml/badge.svg?branch=main"></a>
   <a href="https://github.com/mhostetter/galois/actions/workflows/test.yaml"><img src="https://github.com/mhostetter/galois/actions/workflows/test.yaml/badge.svg?branch=main"></a>
   <a href="https://codecov.io/gh/mhostetter/galois"><img src="https://codecov.io/gh/mhostetter/galois/branch/main/graph/badge.svg?token=3FJML79ZUK"></a>
-  <a href="https://twitter.com/galois_py"><img src="https://img.shields.io/static/v1?label=follow&message=@galois_py&color=blue&logo=twitter"></a>
 </div>
 
 The `galois` library is a Python 3 package that extends NumPy arrays to operate over finite fields.
@@ -64,7 +71,7 @@ The user creates a [`FieldArray`](https://mhostetter.github.io/galois/latest/api
 [`FieldArray`](https://mhostetter.github.io/galois/latest/api/galois.FieldArray/) `x` is operated on like any other NumPy array except
 all arithmetic is performed in $\mathrm{GF}(p^m)$, not $\mathbb{R}$.
 
-Internally, the finite field arithmetic is implemented by replacing [NumPy ufuncs](https://numpy.org/doc/stable/reference/ufuncs.html).
+Internally, the finite field arithmetic is implemented by replacing [NumPy ufuncs](https://numpy.org/doc/stable/reference/ufuncs.html) with specialized versions.
 The new ufuncs are written in pure Python and [just-in-time compiled](https://numba.pydata.org/numba-doc/dev/user/vectorize.html) with
 [Numba](https://numba.pydata.org/). The ufuncs can be configured to use either lookup tables (for speed) or explicit calculation (for memory savings).
 
@@ -73,8 +80,8 @@ The new ufuncs are written in pure Python and [just-in-time compiled](https://nu
 
 ## Features
 
-- Supports all [Galois fields](https://mhostetter.github.io/galois/latest/api/galois.GF/) $\mathrm{GF}(p^m)$, even arbitrarily large fields!
-- [**Faster**](https://mhostetter.github.io/galois/latest/performance/prime-fields/) than native NumPy! `GF(x) * GF(y)` is faster than `(x * y) % p` for $\mathrm{GF}(p)$.
+- Supports all [Galois fields](https://mhostetter.github.io/galois/latest/api/galois.GF/) $\mathrm{GF}(p^m)$, including arbitrarily large fields.
+- [**Faster**](https://mhostetter.github.io/galois/latest/performance/prime-fields/) than native NumPy. `GF(x) * GF(y)` is often faster than `(x * y) % p` for $\mathrm{GF}(p)$.
 - Seamless integration with NumPy -- normal NumPy functions work on [`FieldArray`](https://mhostetter.github.io/galois/latest/api/galois.FieldArray/)s.
 - Linear algebra over finite fields using normal [`np.linalg`](https://mhostetter.github.io/galois/latest/basic-usage/array-arithmetic/#linear-algebra) functions.
 - Linear transforms over finite fields, such as the FFT with [`np.fft.fft()`](https://mhostetter.github.io/galois/latest/basic-usage/array-arithmetic/#advanced-arithmetic) and the NTT with [`ntt()`](https://mhostetter.github.io/galois/latest/api/galois.ntt/).
@@ -88,9 +95,9 @@ The new ufuncs are written in pure Python and [just-in-time compiled](https://nu
 
 ## Roadmap
 
-- Elliptic curves over finite fields
 - Galois ring arrays
 - GPU support
+- Elliptic curves over finite fields
 
 ## Documentation
 
@@ -98,7 +105,7 @@ The documentation for `galois` is located at https://mhostetter.github.io/galois
 
 ## Getting Started
 
-The [Getting Started](https://mhostetter.github.io/galois/latest/getting-started/) guide is intended to assist the user with installing the
+The [Getting Started](https://mhostetter.github.io/galois/latest/getting-started/) guide is intended to assist users with installing the
 library, creating two example arrays, and performing basic array arithmetic. See [Basic Usage](https://mhostetter.github.io/galois/latest/basic-usage/array-classes/)
 for more detailed discussions and examples.
 
@@ -116,7 +123,7 @@ Import the `galois` package in Python.
 In [1]: import galois
 
 In [2]: galois.__version__
-Out[2]: '0.4.6'
+Out[2]: '0.4.10'
 ```
 
 ### Create a [`FieldArray`](https://mhostetter.github.io/galois/latest/api/galois.FieldArray/) subclass
@@ -140,7 +147,8 @@ Galois Field:
 ```
 
 The [`FieldArray`](https://mhostetter.github.io/galois/latest/api/galois.FieldArray/) subclass `GF` is a subclass of
-`np.ndarray` that performs all arithmetic in the Galois field $\mathrm{GF}(3^5)$, not in $\mathbb{R}$.
+`np.ndarray` that performs all arithmetic in the Galois field $\mathrm{GF}(3^5)$, rather than the real numbers
+$\mathbb{R}$.
 
 ```python
 In [5]: issubclass(GF, galois.FieldArray)
@@ -267,7 +275,7 @@ creation of large finite fields by avoiding the need to factor large integers.
 [SymPy](https://www.sympy.org/en/index.html) is used to generate some test vectors. [Octave](https://www.gnu.org/software/octave/index)
 is used to generate test vectors for forward error correction codes.
 
-This library would not be possible without all of the other libraries mentioned. Thank you to all their developers!
+This library would not be possible without all of the other libraries mentioned. Thank you to all their developers.
 
 ## Citation
 

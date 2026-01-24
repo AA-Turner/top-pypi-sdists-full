@@ -1,7 +1,7 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-    "setuptools>=61",
+    "setuptools>=77",
     "setuptools-scm[toml]>=6.2.3",
 ]
 
@@ -13,7 +13,8 @@ keywords = [
     "test",
     "unittest",
 ]
-license = { text = "MIT" }
+license = "MIT"
+license-files = [ "LICENSE" ]
 authors = [
     { name = "Holger Krekel" },
     { name = "Bruno Oliveira" },
@@ -23,17 +24,15 @@ authors = [
     { name = "Florian Bruhin" },
     { name = "Others (See AUTHORS)" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 6 - Mature",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -49,8 +48,8 @@ dynamic = [
 dependencies = [
     "colorama>=0.4; sys_platform=='win32'",
     "exceptiongroup>=1; python_version<'3.11'",
-    "iniconfig>=1",
-    "packaging>=20",
+    "iniconfig>=1.0.1",
+    "packaging>=22",
     "pluggy>=1.5,<2",
     "pygments>=2.7.2",
     "tomli>=1; python_version<'3.11'",
@@ -86,10 +85,10 @@ write_to = "src/_pytest/_version.py"
 
 [tool.black]
 # See https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html#t-target-version
-target-version = [ "py39", "py310", "py311", "py312", "py313" ]
+target-version = [ "py310", "py311", "py312", "py313" ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 src = [
     "src",
@@ -145,6 +144,7 @@ lint.ignore = [
     # pylint ignore
     "PLC0105", # `TypeVar` name "E" does not reflect its covariance;
     "PLC0414", # Import alias does not rename original package
+    "PLC0415", # import should be at top level of package
     "PLR0124", # Name compared with itself
     "PLR0133", # Two constants compared in a comparison (lots of those in tests)
     "PLR0402", # Use `from x.y import z` in lieu of alias
@@ -157,6 +157,7 @@ lint.ignore = [
     "PLR5501", # Use `elif` instead of `else` then `if`
     "PLW0120", # remove the else and dedent its contents
     "PLW0603", # Using the global statement
+    "PLW1641", # Does not implement the __hash__ method
     "PLW2901", # for loop variable overwritten by assignment target
     # ruff ignore
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
@@ -240,13 +241,13 @@ disable = [
     "else-if-used",                           # not activated by default, PLR5501 disabled in ruff
     "empty-comment",                          # not activated by default, PLR2044 disabled in ruff
     "eval-used",
-    "eq-without-hash",
+    "eq-without-hash",                        # PLW1641 disabled in ruff
     "exec-used",
     "expression-not-assigned",
     "fixme",
     "global-statement",                       # PLW0603 disabled in ruff
     "import-error",
-    "import-outside-toplevel",
+    "import-outside-toplevel",                # PLC0415 disabled in ruff
     "import-private-name",
     "inconsistent-return-statements",
     "invalid-bool-returned",
@@ -339,7 +340,7 @@ disable = [
 ]
 
 [tool.codespell]
-ignore-words-list = "afile,asend,asser,assertio,feld,hove,ned,noes,notin,paramete,parth,socio-economic,tesults,varius,wil"
+ignore-words-list = "afile,asend,asser,assertio,feld,hove,ned,noes,notin,paramete,parth,tesults,varius,wil"
 skip = "AUTHORS,*/plugin_list.rst"
 write-changes = true
 
@@ -352,9 +353,9 @@ ignore = "W009"
 indent = 4
 max_supported_python = "3.14"
 
-[tool.pytest.ini_options]
+[tool.pytest]
 minversion = "2.0"
-addopts = "-rfEX -p pytester --strict-markers"
+addopts = [ "-rfEX", "-p", "pytester" ]
 python_files = [
     "test_*.py",
     "*_test.py",
@@ -377,7 +378,7 @@ norecursedirs = [
     "build",
     "dist",
 ]
-xfail_strict = true
+strict = true
 filterwarnings = [
     "error",
     "default:Using or importing the ABCs:DeprecationWarning:unittest2.*",
@@ -518,7 +519,7 @@ files = [
 mypy_path = [
     "src",
 ]
-python_version = "3.9"
+python_version = "3.10"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_untyped_defs = true
@@ -541,7 +542,7 @@ include = [
 extraPaths = [
     "src",
 ]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 typeCheckingMode = "basic"
 reportMissingImports = "none"
 reportMissingModuleSource = "none"

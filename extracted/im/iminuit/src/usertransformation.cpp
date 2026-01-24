@@ -7,6 +7,8 @@ using namespace ROOT::Minuit2;
 
 static_assert(std::is_standard_layout<MnUserTransformation>(), "");
 
+// We cannot define this struct inside the body of the lambda,
+// MSVC will crash if we do
 struct Layout {
   MnMachinePrecision fPrecision;
 
@@ -60,7 +62,8 @@ void bind_usertransformation(py::module m) {
                                   d->fExtOfInt, self.InitialParValues());
           },
           [](py::tuple tp) {
-            if (tp.size() != 4) throw std::runtime_error("invalid state");
+            if (tp.size() != 4)
+              throw std::runtime_error("MnUserTransformation invalid state");
 
             MnUserTransformation tr;
             tr.SetPrecision(tp[0].cast<double>());

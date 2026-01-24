@@ -1,12 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 # Copyright (c) 2021, Florian Dambrine <android.florian@gmail.com>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
+from __future__ import annotations
 
-__metaclass__ = type
 
 DOCUMENTATION = r"""
 module: pritunl_user
@@ -48,13 +46,11 @@ options:
       - Name of the user to create or delete from Pritunl.
   user_email:
     type: str
-    required: false
     default:
     description:
       - Email address associated with the user O(user_name).
   user_type:
     type: str
-    required: false
     default: client
     choices:
       - client
@@ -64,19 +60,16 @@ options:
   user_groups:
     type: list
     elements: str
-    required: false
     default:
     description:
       - List of groups associated with the user O(user_name).
   user_disabled:
     type: bool
-    required: false
     default:
     description:
       - Enable/Disable the user O(user_name).
   user_gravatar:
     type: bool
-    required: false
     default:
     description:
       - Enable/Disable Gravatar usage for the user O(user_name).
@@ -149,7 +142,6 @@ response:
 
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.common.dict_transformations import dict_merge
 from ansible_collections.community.general.plugins.module_utils.net_tools.pritunl.api import (
     PritunlException,
@@ -186,9 +178,7 @@ def add_or_update_pritunl_user(module):
     )
 
     if len(org_obj_list) == 0:
-        module.fail_json(
-            msg="Can not add user to organization '%s' which does not exist" % org_name
-        )
+        module.fail_json(msg=f"Can not add user to organization '{org_name}' which does not exist")
 
     org_id = org_obj_list[0]["id"]
 
@@ -210,16 +200,18 @@ def add_or_update_pritunl_user(module):
         for key in user_params.keys():
             # When a param is not specified grab existing ones to prevent from changing it with the PUT request
             if user_params[key] is None:
-                user_params[key] = users[0][key]
+                user_params[key] = users[0].get(key)
 
             # 'groups' and 'mac_addresses' are list comparison
             if key == "groups" or key == "mac_addresses":
-                if set(users[0][key]) != set(user_params[key]):
+                remote_list = users[0].get(key) or []
+                local_list = user_params[key] or []
+                if set(remote_list) != set(local_list):
                     user_params_changed = True
 
             # otherwise it is either a boolean or a string
             else:
-                if users[0][key] != user_params[key]:
+                if users[0].get(key) != user_params[key]:
                     user_params_changed = True
 
         # Trigger a PUT on the API to update the current user if settings have changed
@@ -274,10 +266,7 @@ def remove_pritunl_user(module):
     )
 
     if len(org_obj_list) == 0:
-        module.fail_json(
-            msg="Can not remove user '%s' from a non existing organization '%s'"
-            % (user_name, org_name)
-        )
+        module.fail_json(msg=f"Can not remove user '{user_name}' from a non existing organization '{org_name}'")
 
     org_id = org_obj_list[0]["id"]
 
@@ -341,7 +330,7 @@ def main():
         elif state == "absent":
             remove_pritunl_user(module)
     except PritunlException as e:
-        module.fail_json(msg=to_native(e))
+        module.fail_json(msg=f"{e}")
 
 
 if __name__ == "__main__":

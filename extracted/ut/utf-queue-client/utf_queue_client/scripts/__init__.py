@@ -1,9 +1,11 @@
 import logging
 import os
+import pathlib
 import tempfile
 from contextlib import contextmanager
 
 import urllib3
+from certifi import contents as certifi_contents
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from otel_extensions import (
     TelemetryOptions,
@@ -17,8 +19,7 @@ telemetry_initialized = False
 
 SERVICE_NAME = "UTF-Queue-Client-CLI"
 
-SILABS_NET_CA = """
------BEGIN CERTIFICATE-----
+SILABS_NET_CA = """-----BEGIN CERTIFICATE-----
 MIIDMjCCAhqgAwIBAgIUDGFjXuAmh2l8HHbGrbQcyurWMRowDQYJKoZIhvcNAQEL
 BQAwFTETMBEGA1UEAxMKc2lsYWJzLm5ldDAeFw0yMDA1MjkyMDQyNDBaFw0zMDA1
 MjcyMDQzMDlaMBUxEzARBgNVBAMTCnNpbGFicy5uZXQwggEiMA0GCSqGSIb3DQEB
@@ -40,19 +41,19 @@ XBhoBcSg
 -----END CERTIFICATE-----
 """
 
-DEFAULT_SILABS_NET_CA_CERT_FILE = "/usr/local/share/ca-certificates/vault-ca-prod.crt"
+
+LOCAL_CA_FILE_PATH = (
+    pathlib.Path(tempfile.gettempdir()) / "cert-bundle-with-silabs-net-ca.crt"
+)
 
 
 def get_or_make_ca_file() -> str:
-    if os.path.isfile(DEFAULT_SILABS_NET_CA_CERT_FILE):
-        return DEFAULT_SILABS_NET_CA_CERT_FILE
-    temp_dir = tempfile.gettempdir()
-    ca_file_name = "silabs-net-ca.crt"
-    ca_file_path = os.path.join(temp_dir, ca_file_name)
-    if not os.path.isfile(ca_file_path):
-        with open(ca_file_path, "w") as f:
-            f.write(SILABS_NET_CA)
-    return ca_file_path
+    """Creates a local CA file, if it doesn't exist already, that includes both the certifi bundle and the silabs.net CA.
+    Returns the ca path as a string.
+    """
+    if not LOCAL_CA_FILE_PATH.is_file():
+        LOCAL_CA_FILE_PATH.write_text(certifi_contents() + SILABS_NET_CA)
+    return str(LOCAL_CA_FILE_PATH)
 
 
 @contextmanager

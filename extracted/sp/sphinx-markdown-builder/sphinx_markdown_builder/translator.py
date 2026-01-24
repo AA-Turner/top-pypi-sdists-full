@@ -34,16 +34,16 @@ from sphinx.util.docutils import SphinxTranslator
 from sphinx_markdown_builder.contexts import (
     CommaSeparatedContext,
     ContextStatus,
-    DocInfoContext,
+    DOC_INFO_CONTEXT,
     IndentContext,
-    ItalicContext,
+    ITALIC_CONTEXT,
     ListMarker,
     MetaContext,
     PushContext,
-    StrongContext,
+    STRONG_CONTEXT,
     SubContext,
     SubContextParams,
-    SubscriptContext,
+    SUBSCRIPT_CONTEXT,
     TableContext,
     TitleContext,
     UniqueString,
@@ -60,20 +60,21 @@ SKIP = UniqueString("skip")
 
 DOC_INFO_FIELDS = "author", "contact", "copyright", "date", "organization", "revision", "status", "version"
 
+# Defines context items, skip, or None (keep processing sub-tree).
 PREDEFINED_ELEMENTS: Dict[str, Union[PushContext, SKIP, None]] = dict(  # pylint: disable=use-dict-literal
     # Doctree elements for which Markdown element is <prefix><content><suffix>
-    emphasis=ItalicContext,
-    strong=StrongContext,
-    subscript=SubscriptContext,
-    superscript=SubscriptContext,
-    desc_annotation=ItalicContext,
-    literal_strong=StrongContext,
-    literal_emphasis=ItalicContext,
+    emphasis=ITALIC_CONTEXT,
+    strong=STRONG_CONTEXT,
+    subscript=SUBSCRIPT_CONTEXT,
+    superscript=SUBSCRIPT_CONTEXT,
+    desc_annotation=ITALIC_CONTEXT,
+    literal_strong=STRONG_CONTEXT,
+    literal_emphasis=ITALIC_CONTEXT,
     field_name=PushContext(WrappedContext, "**", ":**"),  # e.g 'returns', 'parameters'
     # Doc info elements
-    docinfo=DocInfoContext,
-    docinfo_item=DocInfoContext,
-    **dict.fromkeys(DOC_INFO_FIELDS, DocInfoContext),
+    docinfo=DOC_INFO_CONTEXT,
+    docinfo_item=DOC_INFO_CONTEXT,
+    **dict.fromkeys(DOC_INFO_FIELDS, DOC_INFO_CONTEXT),
     authors=None,  # not used: visit_author is called anyway for each author.
     # Doctree elements to skip subtree
     autosummary_toc=SKIP,
@@ -107,6 +108,7 @@ PREDEFINED_ELEMENTS: Dict[str, Union[PushContext, SKIP, None]] = dict(  # pylint
     colspec=None,
     tgroup=None,
     figure=None,
+    desc_signature_line=None,
 )
 
 
@@ -343,6 +345,9 @@ class MarkdownTranslator(SphinxTranslator):  # pylint: disable=too-many-public-m
     # noinspection PyPep8Naming
     def visit_Text(self, node):  # pylint: disable=invalid-name
         text = node.astext().replace("\r", "")
+        # Replace line breaks with spaces to create single-line paragraphs
+        if self.config.markdown_flavor == "github":
+            text = text.replace("\n", " ")
         if self.status.escape_text:
             text = escape_markdown_chars(text)
         self.add(text)
@@ -605,12 +610,13 @@ class MarkdownTranslator(SphinxTranslator):  # pylint: disable=too-many-public-m
     ################################################################################
     # desc (desctype: {function, class, method, etc.)
     #   desc_signature
-    #     desc_name
-    #       desc_annotation (optional)
-    #     desc_parameterlist
-    #       desc_annotation
-    #       desc_parameter
-    #     desc_returns
+    #     desc_signature_line (optional nesting)
+    #         desc_name
+    #           desc_annotation (optional)
+    #         desc_parameterlist
+    #           desc_annotation
+    #           desc_parameter
+    #         desc_returns
     #   desc_content
     #     field_list
     #       field

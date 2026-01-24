@@ -2,7 +2,6 @@
 Django models related to the Tasking system
 """
 
-import json
 import logging
 import traceback
 from gettext import gettext as _
@@ -23,7 +22,9 @@ from pulpcore.app.models.status import AppStatus
 from pulpcore.app.models.fields import EncryptedJSONField
 from pulpcore.constants import TASK_CHOICES, TASK_INCOMPLETE_STATES, TASK_STATES
 from pulpcore.exceptions import exception_to_dict
-from pulpcore.app.util import get_domain_pk, current_task
+from pulpcore.app.util import get_domain_pk
+from pulpcore.app.contexts import _current_task
+from pulpcore.app.role_util import get_users_with_perms
 from pulpcore.app.loggers import deprecation_logger
 
 _logger = logging.getLogger(__name__)
@@ -142,6 +143,31 @@ class Task(BaseModel, AutoAddObjPermsMixin):
 
     result = models.JSONField(default=None, null=True, encoder=DjangoJSONEncoder)
 
+    @property
+    def user(self):
+        # These queries were specifically constructed and ordered this way to ensure we have the
+        # highest chance of getting the user who dispatched the task since we don't have a user
+        # relation on the task model. The second query acts as a fallback to provide ZDU support.
+        # Future changes will require to keep these around till a breaking change release is
+        # planned (3.70 the earliest).
+        user = (
+            get_users_with_perms(
+                self,
+                only_with_perms_in=["core.add_task"],
+                with_group_users=False,
+                include_model_permissions=False,
+                include_domain_permissions=False,
+            ).first()
+            or get_users_with_perms(
+                self,
+                only_with_perms_in=["core.manage_roles_task"],
+                with_group_users=False,
+                include_model_permissions=False,
+                include_domain_permissions=False,
+            ).first()
+        )
+        return user
+
     def __str__(self):
         return "Task: {name} [{state}]".format(name=self.name, state=self.state)
 
@@ -152,7 +178,7 @@ class Task(BaseModel, AutoAddObjPermsMixin):
             uuid.UUID: The current task id.
         """
         try:
-            return current_task.get().pk
+            return _current_task.get().pk
         except AttributeError:
             return None
 
@@ -162,7 +188,7 @@ class Task(BaseModel, AutoAddObjPermsMixin):
         Returns:
             pulpcore.app.models.Task: The current task.
         """
-        return current_task.get()
+        return _current_task.get()
 
     @hook(AFTER_CREATE)
     def add_role_dispatcher(self):
@@ -206,16 +232,6 @@ class Task(BaseModel, AutoAddObjPermsMixin):
         This updates the :attr:`finished_at` and sets the :attr:`state` to :attr:`COMPLETED`.
         If `result` is provided, the :attr:`result` contains the result of the task.
         """
-        try:
-            json.dumps(result, cls=DjangoJSONEncoder)
-        except (TypeError, ValueError):
-            deprecation_logger.warning(
-                _(
-                    "The result of the {} function is not JSON-serializable and will be "
-                    "replaced with None: {}. This will raise an error in version 3.100."
-                ).format(self.name, result)
-            )
-            result = None
 
         # Only set the state to finished if it's running. This is important for when the task has
         # been canceled, so we don't move the task from canceled to finished.

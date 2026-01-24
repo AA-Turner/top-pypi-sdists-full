@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 import warnings
+from collections.abc import Iterator
+from collections.abc import Mapping
+from collections.abc import Sequence
 from datetime import datetime
 from stat import S_IFDIR
 from stat import S_IFLNK
 from stat import S_IFREG
 from typing import Any
-from typing import Iterator
-from typing import Mapping
-from typing import Sequence
 
 __all__ = [
     "UPathStatResult",
@@ -21,6 +21,8 @@ def _convert_value_to_timestamp(value: Any) -> int | float:
     if isinstance(value, (int, float)):
         return value
     elif isinstance(value, str):
+        if len(value) == 14:
+            return datetime.strptime(value, r"%Y%m%d%H%M%S").timestamp()
         if value.endswith("Z"):
             value = value[:-1] + "+00:00"
         return datetime.fromisoformat(value).timestamp()
@@ -262,6 +264,7 @@ class UPathStatResult:
             "timeModified",
             "modificationTime",
             "modified_at",
+            "modify",
         ]:
             try:
                 raw_value = self._info[key]
@@ -306,6 +309,42 @@ class UPathStatResult:
             except (TypeError, ValueError):
                 pass
         raise AttributeError("birthtime")
+
+    @property
+    def st_atime_ns(self) -> int:
+        """time of last access in nanoseconds"""
+        try:
+            return int(self._info["atime_ns"])
+        except KeyError:
+            pass
+        atime = self.st_atime
+        if isinstance(atime, float):
+            return int(atime * 1e9)
+        return atime * 1_000_000_000
+
+    @property
+    def st_mtime_ns(self) -> int:
+        """time of last modification in nanoseconds"""
+        try:
+            return int(self._info["mtime_ns"])
+        except KeyError:
+            pass
+        mtime = self.st_mtime
+        if isinstance(mtime, float):
+            return int(mtime * 1e9)
+        return mtime * 1_000_000_000
+
+    @property
+    def st_ctime_ns(self) -> int:
+        """time of last change in nanoseconds"""
+        try:
+            return int(self._info["ctime_ns"])
+        except KeyError:
+            pass
+        ctime = self.st_ctime
+        if isinstance(ctime, float):
+            return int(ctime * 1e9)
+        return ctime * 1_000_000_000
 
     # --- extra fields ------------------------------------------------
 

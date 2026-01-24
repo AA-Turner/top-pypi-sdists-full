@@ -1,4 +1,5 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
 
 import os
 from dataclasses import asdict, dataclass, field
@@ -6,6 +7,7 @@ from typing import Any, Optional
 
 from marimo import _loggers
 from marimo._config.config import ExportType, SqlOutputType, WidthType
+from marimo._utils.env import env_to_value
 
 LOGGER = _loggers.marimo_logger()
 
@@ -43,7 +45,7 @@ class _AppConfig:
     @staticmethod
     def from_untrusted_dict(
         updates: dict[str, Any], silent: bool = False
-    ) -> "_AppConfig":
+    ) -> _AppConfig:
         # Certain flags are useful to pass to App for construction, but
         # shouldn't make it into the config. (e.g. the _filename flag is
         # internal)
@@ -65,7 +67,7 @@ class _AppConfig:
             k: v for (k, v) in asdict(self).items() if not k.startswith("_")
         }
 
-    def update(self, updates: dict[str, Any]) -> "_AppConfig":
+    def update(self, updates: dict[str, Any]) -> _AppConfig:
         config_dict = asdict(self)
         for key in updates:
             if key in config_dict:
@@ -89,11 +91,7 @@ def overloads_from_env() -> _AppConfig:
     for key in os.environ:
         if key.startswith(prefix):
             new_key = key[len(prefix) :].lower()
-            value = os.environ[key]
-            if value.lower() in ("true", "false"):
-                overloads[new_key] = value.lower() == "true"
-            elif value.startswith("[") and value.endswith("]"):
-                overloads[new_key] = os.environ[key][1:-1].split(",")
-            else:
-                overloads[new_key] = os.environ[key]
+            value = env_to_value(key)
+            if isinstance(value, tuple):
+                overloads[new_key] = value[0]
     return _AppConfig.from_untrusted_dict(overloads, silent=True)

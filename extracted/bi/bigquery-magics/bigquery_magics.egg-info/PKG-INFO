@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigquery-magics
-Version: 0.10.3
+Version: 0.11.0
 Summary: Google BigQuery magics for Jupyter and IPython
 Home-page: https://github.com/googleapis/python-bigquery-magics
 Author: Google LLC
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.9
@@ -34,7 +35,8 @@ Requires-Dist: tqdm<5.0.0,>=4.7.4
 Provides-Extra: bqstorage
 Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.6.0; extra == "bqstorage"
 Requires-Dist: grpcio<2.0.0,>=1.47.0; extra == "bqstorage"
-Requires-Dist: grpcio<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "bqstorage"
+Requires-Dist: grpcio<2.0.0,>=1.49.1; (python_version >= "3.11" and python_version < "3.14") and extra == "bqstorage"
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "bqstorage"
 Provides-Extra: bigframes
 Requires-Dist: bigframes>=1.17.0; extra == "bigframes"
 Provides-Extra: geopandas
@@ -45,7 +47,8 @@ Requires-Dist: portpicker; extra == "spanner-graph-notebook"
 Provides-Extra: all
 Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.6.0; extra == "all"
 Requires-Dist: grpcio<2.0.0,>=1.47.0; extra == "all"
-Requires-Dist: grpcio<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "all"
+Requires-Dist: grpcio<2.0.0,>=1.49.1; (python_version >= "3.11" and python_version < "3.14") and extra == "all"
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "all"
 Requires-Dist: bigframes>=1.17.0; extra == "all"
 Requires-Dist: geopandas>=1.0.1; extra == "all"
 Requires-Dist: spanner-graph-notebook>=1.1.7; extra == "all"

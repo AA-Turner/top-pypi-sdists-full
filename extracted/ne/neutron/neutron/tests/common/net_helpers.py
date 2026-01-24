@@ -261,7 +261,7 @@ def create_patch_ports(source, destination):
     :param destination: Instance of OVSBridge
     """
     common = common_utils.get_rand_name(max_length=4, prefix='')
-    prefix = '{}-{}-'.format(PATCH_PREFIX, common)
+    prefix = f'{PATCH_PREFIX}-{common}-'
 
     source_name = common_utils.get_rand_device_name(prefix=prefix)
     destination_name = common_utils.get_rand_device_name(prefix=prefix)
@@ -420,7 +420,8 @@ class Pinger:
         self.interval = interval
 
     def _wait_for_death(self):
-        is_dead = lambda: self.proc.poll() is not None
+        def is_dead():
+            return self.proc.poll() is not None
         common_utils.wait_until_true(
             is_dead, timeout=self.TIMEOUT, exception=RuntimeError(
                 "Ping command hasn't ended after %d seconds." % self.TIMEOUT))

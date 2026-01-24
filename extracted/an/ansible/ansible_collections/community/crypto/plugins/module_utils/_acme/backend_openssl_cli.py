@@ -19,6 +19,7 @@ import traceback
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (
     CertificateInformation,
     CryptoBackend,
@@ -37,9 +38,9 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     ensure_utc_timezone,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._acme.certificates import (  # pragma: no cover
         Criterium,
     )

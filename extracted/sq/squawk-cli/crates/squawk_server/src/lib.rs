@@ -1,20 +1,36 @@
 use anyhow::{Context, Result};
+use line_index::LineIndex;
 use log::info;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     CodeAction, CodeActionKind, CodeActionOptions, CodeActionOrCommand, CodeActionParams,
-    CodeActionProviderCapability, CodeActionResponse, Command, Diagnostic,
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, Location, Position,
-    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Url, WorkDoneProgressOptions, WorkspaceEdit,
+    CodeActionProviderCapability, CodeActionResponse, Command, CompletionOptions, CompletionParams,
+    CompletionResponse, Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
+    InitializeParams, InlayHint, InlayHintKind, InlayHintLabel, InlayHintLabelPart,
+    InlayHintParams, LanguageString, Location, MarkedString, OneOf, PublishDiagnosticsParams,
+    ReferenceParams, SelectionRangeParams, SelectionRangeProviderCapability, ServerCapabilities,
+    SymbolKind, TextDocumentSyncCapability, TextDocumentSyncKind, Url, WorkDoneProgressOptions,
+    WorkspaceEdit,
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification as _,
         PublishDiagnostics,
     },
-    request::{CodeActionRequest, GotoDefinition, Request},
+    request::{
+        CodeActionRequest, Completion, DocumentSymbolRequest, GotoDefinition, HoverRequest,
+        InlayHintRequest, References, Request, SelectionRangeRequest,
+    },
 };
-use squawk_syntax::{Parse, SourceFile};
+use rowan::TextRange;
+use squawk_ide::code_actions::code_actions;
+use squawk_ide::completion::completion;
+use squawk_ide::document_symbols::{DocumentSymbolKind, document_symbols};
+use squawk_ide::find_references::find_references;
+use squawk_ide::goto_definition::goto_definition;
+use squawk_ide::hover::hover;
+use squawk_ide::inlay_hints::inlay_hints;
+use squawk_syntax::SourceFile;
 use std::collections::HashMap;
 
 use diagnostic::DIAGNOSTIC_NAME;
@@ -40,13 +56,30 @@ pub fn run() -> Result<()> {
             TextDocumentSyncKind::INCREMENTAL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Options(CodeActionOptions {
-            code_action_kinds: Some(vec![CodeActionKind::QUICKFIX]),
+            code_action_kinds: Some(vec![
+                CodeActionKind::QUICKFIX,
+                CodeActionKind::REFACTOR_REWRITE,
+            ]),
             work_done_progress_options: WorkDoneProgressOptions {
                 work_done_progress: None,
             },
             resolve_provider: None,
         })),
-        // definition_provider: Some(OneOf::Left(true)),
+        selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
+        references_provider: Some(OneOf::Left(true)),
+        definition_provider: Some(OneOf::Left(true)),
+        hover_provider: Some(HoverProviderCapability::Simple(true)),
+        inlay_hint_provider: Some(OneOf::Left(true)),
+        document_symbol_provider: Some(OneOf::Left(true)),
+        completion_provider: Some(CompletionOptions {
+            resolve_provider: Some(false),
+            trigger_characters: Some(vec![".".to_owned()]),
+            all_commit_characters: None,
+            work_done_progress_options: WorkDoneProgressOptions {
+                work_done_progress: None,
+            },
+            completion_item: None,
+        }),
         ..Default::default()
     })
     .unwrap();
@@ -85,16 +118,34 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 
                 match req.method.as_ref() {
                     GotoDefinition::METHOD => {
-                        handle_goto_definition(&connection, req)?;
+                        handle_goto_definition(&connection, req, &documents)?;
+                    }
+                    HoverRequest::METHOD => {
+                        handle_hover(&connection, req, &documents)?;
                     }
                     CodeActionRequest::METHOD => {
                         handle_code_action(&connection, req, &documents)?;
+                    }
+                    SelectionRangeRequest::METHOD => {
+                        handle_selection_range(&connection, req, &documents)?;
+                    }
+                    InlayHintRequest::METHOD => {
+                        handle_inlay_hints(&connection, req, &documents)?;
+                    }
+                    DocumentSymbolRequest::METHOD => {
+                        handle_document_symbol(&connection, req, &documents)?;
+                    }
+                    Completion::METHOD => {
+                        handle_completion(&connection, req, &documents)?;
                     }
                     "squawk/syntaxTree" => {
                         handle_syntax_tree(&connection, req, &documents)?;
                     }
                     "squawk/tokens" => {
                         handle_tokens(&connection, req, &documents)?;
+                    }
+                    References::METHOD => {
+                        handle_references(&connection, req, &documents)?;
                     }
                     _ => {
                         info!("Ignoring unhandled request: {}", req.method);
@@ -126,15 +177,361 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-fn handle_goto_definition(connection: &Connection, req: lsp_server::Request) -> Result<()> {
+fn handle_goto_definition(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
     let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document_position_params.text_document.uri;
+    let position = params.text_document_position_params.position;
 
-    let location = Location {
-        uri: params.text_document_position_params.text_document.uri,
-        range: Range::new(Position::new(1, 2), Position::new(1, 3)),
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+    let offset = lsp_utils::offset(&line_index, position).unwrap();
+
+    let ranges = goto_definition(file, offset);
+
+    let result = if ranges.is_empty() {
+        GotoDefinitionResponse::Array(vec![])
+    } else if ranges.len() == 1 {
+        // TODO: can we just always use the array response?
+        let target_range = ranges[0];
+        debug_assert!(
+            !target_range.contains(offset),
+            "Our target destination range must not include the source range otherwise go to def won't work in vscode."
+        );
+        GotoDefinitionResponse::Scalar(Location {
+            uri: uri.clone(),
+            range: lsp_utils::range(&line_index, target_range),
+        })
+    } else {
+        GotoDefinitionResponse::Array(
+            ranges
+                .into_iter()
+                .map(|target_range| {
+                    debug_assert!(
+                        !target_range.contains(offset),
+                        "Our target destination range must not include the source range otherwise go to def won't work in vscode."
+                    );
+                    Location {
+                        uri: uri.clone(),
+                        range: lsp_utils::range(&line_index, target_range),
+                    }
+                })
+                .collect(),
+        )
     };
 
-    let result = GotoDefinitionResponse::Scalar(location);
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&result).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_hover(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: HoverParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document_position_params.text_document.uri;
+    let position = params.text_document_position_params.position;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+    let offset = lsp_utils::offset(&line_index, position).unwrap();
+
+    let type_info = hover(&file, offset);
+
+    let result = type_info.map(|type_str| Hover {
+        contents: HoverContents::Scalar(MarkedString::LanguageString(LanguageString {
+            language: "sql".to_string(),
+            value: type_str,
+        })),
+        range: None,
+    });
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&result).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_inlay_hints(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: InlayHintParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+
+    let hints = inlay_hints(&file);
+
+    let lsp_hints: Vec<InlayHint> = hints
+        .into_iter()
+        .map(|hint| {
+            let line_col = line_index.line_col(hint.position);
+            let position = lsp_types::Position::new(line_col.line, line_col.col);
+            let kind = match hint.kind {
+                squawk_ide::inlay_hints::InlayHintKind::Type => InlayHintKind::TYPE,
+                squawk_ide::inlay_hints::InlayHintKind::Parameter => InlayHintKind::PARAMETER,
+            };
+
+            let label = if let Some(target_range) = hint.target {
+                InlayHintLabel::LabelParts(vec![InlayHintLabelPart {
+                    value: hint.label,
+                    location: Some(Location {
+                        uri: uri.clone(),
+                        range: lsp_utils::range(&line_index, target_range),
+                    }),
+                    tooltip: None,
+                    command: None,
+                }])
+            } else {
+                InlayHintLabel::String(hint.label)
+            };
+
+            InlayHint {
+                position,
+                label,
+                kind: Some(kind),
+                text_edits: None,
+                tooltip: None,
+                padding_left: None,
+                padding_right: None,
+                data: None,
+            }
+        })
+        .collect();
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&lsp_hints).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_document_symbol(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: DocumentSymbolParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+
+    let symbols = document_symbols(&file);
+
+    fn convert_symbol(
+        sym: squawk_ide::document_symbols::DocumentSymbol,
+        line_index: &LineIndex,
+    ) -> DocumentSymbol {
+        let range = lsp_utils::range(line_index, sym.full_range);
+        let selection_range = lsp_utils::range(line_index, sym.focus_range);
+
+        let children = sym
+            .children
+            .into_iter()
+            .map(|child| convert_symbol(child, line_index))
+            .collect::<Vec<_>>();
+
+        let children = (!children.is_empty()).then_some(children);
+
+        DocumentSymbol {
+            name: sym.name,
+            detail: sym.detail,
+            kind: match sym.kind {
+                DocumentSymbolKind::Schema => SymbolKind::NAMESPACE,
+                DocumentSymbolKind::Table => SymbolKind::STRUCT,
+                DocumentSymbolKind::View => SymbolKind::STRUCT,
+                DocumentSymbolKind::MaterializedView => SymbolKind::STRUCT,
+                DocumentSymbolKind::Function => SymbolKind::FUNCTION,
+                DocumentSymbolKind::Aggregate => SymbolKind::FUNCTION,
+                DocumentSymbolKind::Procedure => SymbolKind::FUNCTION,
+                DocumentSymbolKind::Type => SymbolKind::CLASS,
+                DocumentSymbolKind::Enum => SymbolKind::ENUM,
+                DocumentSymbolKind::Column => SymbolKind::FIELD,
+                DocumentSymbolKind::Variant => SymbolKind::ENUM_MEMBER,
+                DocumentSymbolKind::Cursor => SymbolKind::VARIABLE,
+                DocumentSymbolKind::PreparedStatement => SymbolKind::VARIABLE,
+                DocumentSymbolKind::Channel => SymbolKind::EVENT,
+                DocumentSymbolKind::EventTrigger => SymbolKind::EVENT,
+                DocumentSymbolKind::Role => SymbolKind::CLASS,
+            },
+            tags: None,
+            range,
+            selection_range,
+            children,
+            #[allow(deprecated)]
+            deprecated: None,
+        }
+    }
+
+    let lsp_symbols: Vec<DocumentSymbol> = symbols
+        .into_iter()
+        .map(|sym| convert_symbol(sym, &line_index))
+        .collect();
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&lsp_symbols).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_selection_range(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: SelectionRangeParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let root = parse.syntax_node();
+    let line_index = LineIndex::new(content);
+
+    let mut selection_ranges = vec![];
+
+    for position in params.positions {
+        let Some(offset) = lsp_utils::offset(&line_index, position) else {
+            continue;
+        };
+
+        let mut ranges = Vec::new();
+        {
+            let mut range = TextRange::new(offset, offset);
+            loop {
+                ranges.push(range);
+                let next = squawk_ide::expand_selection::extend_selection(&root, range);
+                if next == range {
+                    break;
+                } else {
+                    range = next
+                }
+            }
+        }
+
+        let mut range = lsp_types::SelectionRange {
+            range: lsp_utils::range(&line_index, *ranges.last().unwrap()),
+            parent: None,
+        };
+        for &r in ranges.iter().rev().skip(1) {
+            range = lsp_types::SelectionRange {
+                range: lsp_utils::range(&line_index, r),
+                parent: Some(Box::new(range)),
+            }
+        }
+        selection_ranges.push(range);
+    }
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&selection_ranges).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_references(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: ReferenceParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document_position.text_document.uri;
+    let position = params.text_document_position.position;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+    let offset = lsp_utils::offset(&line_index, position).unwrap();
+
+    let ranges = find_references(&file, offset);
+    let include_declaration = params.context.include_declaration;
+
+    let locations: Vec<Location> = ranges
+        .into_iter()
+        .filter(|range| include_declaration || !range.contains(offset))
+        .map(|range| Location {
+            uri: uri.clone(),
+            range: lsp_utils::range(&line_index, range),
+        })
+        .collect();
+
+    let resp = Response {
+        id: req.id,
+        result: Some(serde_json::to_value(&locations).unwrap()),
+        error: None,
+    };
+
+    connection.sender.send(Message::Response(resp))?;
+    Ok(())
+}
+
+fn handle_completion(
+    connection: &Connection,
+    req: lsp_server::Request,
+    documents: &HashMap<Url, DocumentState>,
+) -> Result<()> {
+    let params: CompletionParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document_position.text_document.uri;
+    let position = params.text_document_position.position;
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+
+    let Some(offset) = lsp_utils::offset(&line_index, position) else {
+        let resp = Response {
+            id: req.id,
+            result: Some(serde_json::to_value(CompletionResponse::Array(vec![])).unwrap()),
+            error: None,
+        };
+        connection.sender.send(Message::Response(resp))?;
+        return Ok(());
+    };
+
+    let completion_items = completion(&file, offset)
+        .into_iter()
+        .map(lsp_utils::completion_item)
+        .collect();
+
+    let result = CompletionResponse::Array(completion_items);
+
     let resp = Response {
         id: req.id,
         result: Some(serde_json::to_value(&result).unwrap()),
@@ -148,12 +545,25 @@ fn handle_goto_definition(connection: &Connection, req: lsp_server::Request) -> 
 fn handle_code_action(
     connection: &Connection,
     req: lsp_server::Request,
-    _documents: &HashMap<Url, DocumentState>,
+    documents: &HashMap<Url, DocumentState>,
 ) -> Result<()> {
     let params: CodeActionParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
-    let mut actions = Vec::new();
+    let mut actions: CodeActionResponse = Vec::new();
+
+    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let parse = SourceFile::parse(content);
+    let file = parse.tree();
+    let line_index = LineIndex::new(content);
+    let offset = lsp_utils::offset(&line_index, params.range.start).unwrap();
+
+    let ide_actions = code_actions(file, offset).unwrap_or_default();
+
+    for action in ide_actions {
+        let lsp_action = lsp_utils::code_action(&line_index, uri.clone(), action);
+        actions.push(CodeActionOrCommand::CodeAction(lsp_action));
+    }
 
     for mut diagnostic in params
         .context
@@ -380,7 +790,7 @@ fn handle_syntax_tree(
 
     let content = documents.get(&uri).map_or("", |doc| &doc.content);
 
-    let parse: Parse<SourceFile> = SourceFile::parse(content);
+    let parse = SourceFile::parse(content);
     let syntax_tree = format!("{:#?}", parse.syntax_node());
 
     let resp = Response {

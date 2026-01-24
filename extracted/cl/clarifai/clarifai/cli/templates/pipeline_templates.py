@@ -21,7 +21,11 @@ def get_pipeline_config_template(
         step_templates.append(f"""          - - name: step-{i}
               templateRef:
                 name: users/{user_id}/apps/{app_id}/pipeline_steps/{step_name}
-                template: users/{user_id}/apps/{app_id}/pipeline_steps/{step_name}""")
+                template: users/{user_id}/apps/{app_id}/pipeline_steps/{step_name}
+              arguments:
+                parameters:
+                  - name: input_text
+                    value: "{{{{workflow.parameters.input_text}}}}\"""")
 
     steps_yaml = "\n".join(step_templates)
 
@@ -35,14 +39,24 @@ def get_pipeline_config_template(
     argo_orchestration_spec: |
       apiVersion: argoproj.io/v1alpha1
       kind: Workflow
-      metadata:
-        generateName: {pipeline_id}-
       spec:
         entrypoint: sequence
+        arguments:
+          parameters:
+            - name: input_text
+              value: "Input Text Here"
         templates:
         - name: sequence
           steps:
 {steps_yaml}
+  # Optional: Define secrets for pipeline steps
+  # config:
+  #   step_version_secrets:
+  #     step-0:
+  #       API_KEY: users/{user_id}/apps//secrets/my-api-key
+  #       DB_PASSWORD: users/{user_id}/apps/secrets/db-secret
+  #     step-1:
+  #       EMAIL_TOKEN: users/{user_id}/apps/secrets/email-token
 """
 
 
@@ -59,6 +73,7 @@ pipeline_step_input_params:
 
 build_info:
   python_version: "3.12"
+  # platform: "linux/amd64,linux/arm64"  # Optional: Specify target platform(s) for Docker image build
 
 pipeline_step_compute_info:
   cpu_limit: "500m"

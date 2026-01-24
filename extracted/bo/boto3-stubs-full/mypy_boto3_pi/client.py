@@ -3,7 +3,7 @@ Type annotations for pi service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -51,12 +52,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -67,10 +62,10 @@ __all__ = ("PIClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
 
 
 class PIClient(BaseClient):
@@ -121,7 +116,7 @@ class PIClient(BaseClient):
 
     def delete_performance_analysis_report(
         self, **kwargs: Unpack[DeletePerformanceAnalysisReportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a performance analysis report.
 
@@ -226,7 +221,7 @@ class PIClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds metadata tags to the Amazon RDS Performance Insights resource.
 
@@ -234,7 +229,7 @@ class PIClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the metadata tags from the Amazon RDS Performance Insights resource.
 

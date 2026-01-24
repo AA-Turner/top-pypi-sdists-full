@@ -11,6 +11,7 @@
 # under the License.
 
 import typing as ty
+import warnings
 
 import openstack.exceptions as exception
 from openstack.identity.v3 import (
@@ -53,11 +54,13 @@ from openstack.identity.v3 import (
 from openstack.identity.v3 import service as _service
 from openstack.identity.v3 import service_provider as _service_provider
 from openstack.identity.v3 import system as _system
+from openstack.identity.v3 import token as _token
 from openstack.identity.v3 import trust as _trust
 from openstack.identity.v3 import user as _user
 from openstack import proxy
 from openstack import resource
 from openstack import utils
+from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
@@ -87,6 +90,7 @@ class Proxy(proxy.Proxy):
         "service": _service.Service,
         "system": _system.System,
         "trust": _trust.Trust,
+        "token": _token.Token,
         "user": _user.User,
     }
 
@@ -976,6 +980,43 @@ class Proxy(proxy.Proxy):
         """
         return self._update(_user.User, user, **attrs)
 
+    # ========== Tokens ==========
+
+    def validate_token(
+        self, token: str, nocatalog: bool = False, allow_expired: bool = False
+    ) -> _token.Token:
+        """Validate a token
+
+        :param token: The token to validate.
+        :param nocatalog: Whether the returned token should not include a
+            catalog.
+        :param allow_expired: Whether to allow expired tokens.
+
+        :returns: A :class:`~openstack.identity.v3.token.Token`.
+        """
+        return _token.Token.validate(
+            self, token, nocatalog=nocatalog, allow_expired=allow_expired
+        )
+
+    def check_token(self, token: str, allow_expired: bool = False) -> bool:
+        """Check if a token is valid.
+
+        :param token: The token to check.
+        :param allow_expired: Whether to allow expired tokens.
+
+        :returns: True if valid, else False.
+        """
+        return _token.Token.check(self, token, allow_expired=allow_expired)
+
+    def revoke_token(self, token: str) -> None:
+        """Revoke a token.
+
+        :param token: The token to revoke.
+
+        :returns: None
+        """
+        _token.Token.revoke(self, token)
+
     # ========== Trusts ==========
 
     def create_trust(self, **attrs):
@@ -1084,6 +1125,11 @@ class Proxy(proxy.Proxy):
             attempting to find a nonexistent region.
         :returns: One :class:`~openstack.identity.v3.region.Region` or None
         """
+        warnings.warn(
+            "find_region is deprecated and will be removed in a future "
+            "release; please use get_region instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
         return self._find(
             _region.Region, name_or_id, ignore_missing=ignore_missing
         )
@@ -1641,7 +1687,8 @@ class Proxy(proxy.Proxy):
             the registered_limits being returned.
 
         :returns: A generator of registered_limits instances.
-        :rtype: :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
+        :rtype:
+            :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         """
         return self._list(_registered_limit.RegisteredLimit, **query)
 
@@ -1653,7 +1700,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
             instance.
 
-        :returns: One :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
+        :returns: One
+            :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
@@ -1667,7 +1715,8 @@ class Proxy(proxy.Proxy):
             comprised of the properties on the RegisteredLimit class.
 
         :returns: The results of registered_limit creation.
-        :rtype: :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
+        :rtype:
+            :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
         """
         return self._create(_registered_limit.RegisteredLimit, **attrs)
 
@@ -1696,8 +1745,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.identity.v3.registered_limit.RegisteredLimit`
             instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the registered_limit does not exist. When set to ``True``, no
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the registered_limit does not exist. When set to ``True``, no
             exception will be thrown when attempting to delete a nonexistent
             registered_limit.
 
@@ -1765,9 +1814,9 @@ class Proxy(proxy.Proxy):
         :param limit: The value can be either the ID of a limit or a
             :class:`~openstack.identity.v3.limit.Limit` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the limit does not exist. When set to ``True``, no exception will
-            be thrown when attempting to delete a nonexistent limit.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the limit does not exist. When set to ``True``, no exception
+            will be thrown when attempting to delete a nonexistent limit.
 
         :returns: ``None``
         """
@@ -2277,9 +2326,10 @@ class Proxy(proxy.Proxy):
         :param access rule: The value can be either the ID of an
             access rule or a :class:`~.access_rule.AccessRule` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the access rule does not exist. When set to ``True``, no exception
-            will be thrown when attempting to delete a nonexistent access rule.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the access rule does not exist. When set to ``True``, no
+            exception will be thrown when attempting to delete a nonexistent
+            access rule.
 
         :returns: ``None``
         """
@@ -2331,9 +2381,9 @@ class Proxy(proxy.Proxy):
 
         :param name_or_id: The name or ID of a service provider
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the resource does not exist. When set to ``True``, None will be
-            returned when attempting to find a nonexistent resource.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the resource does not exist. When set to ``True``, None will
+            be returned when attempting to find a nonexistent resource.
 
         :returns: The details of an service provider or None.
         :rtype:

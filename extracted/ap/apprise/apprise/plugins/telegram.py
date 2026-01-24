@@ -137,7 +137,7 @@ class NotifyTelegram(NotifyBase):
     secure_protocol = "tgram"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_telegram"
+    setup_url = "https://appriseit.com/services/telegram/"
 
     # Default Notify Format
     notify_format = NotifyFormat.HTML
@@ -306,19 +306,6 @@ class NotifyTelegram(NotifyBase):
             re.compile(r"<\s*li([^a-z0-9>][^>]*)?>\s*", (re.I | re.M | re.S)),
             " -",
             {},
-        ),
-        # convert pre tags to code (supported by Telegram)
-        (
-            re.compile(r"<\s*pre([^a-z0-9>][^>]*)?>", (re.I | re.M | re.S)),
-            "{}<code>",
-            {"html": "\r\n"},
-        ),
-        (
-            re.compile(
-                r"<\s*/\s*pre([^a-z0-9>][^>]*)?>", (re.I | re.M | re.S)
-            ),
-            "</code>{}",
-            {"html": "\r\n"},
         ),
         # New Lines
         (
@@ -649,7 +636,8 @@ class NotifyTelegram(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     return False
 

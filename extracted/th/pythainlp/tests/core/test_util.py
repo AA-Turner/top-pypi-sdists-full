@@ -67,6 +67,7 @@ from pythainlp.util import (
     tone_detector,
     words_to_num,
     spelling,
+    analyze_thai_text,
 )
 from pythainlp.util.morse import morse_decode, morse_encode
 
@@ -164,26 +165,34 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(
             arabic_digit_to_thai_digit("ไทยแลนด์ 4.0"), "ไทยแลนด์ ๔.๐"
         )
-        self.assertEqual(arabic_digit_to_thai_digit(""), "")
-        self.assertEqual(arabic_digit_to_thai_digit(None), "")
+        with self.assertRaises(TypeError):
+            arabic_digit_to_thai_digit("")
+        with self.assertRaises(TypeError):
+            arabic_digit_to_thai_digit(None)
 
         self.assertEqual(
             thai_digit_to_arabic_digit("๔๐๔ Not Found"), "404 Not Found"
         )
-        self.assertEqual(thai_digit_to_arabic_digit(""), "")
-        self.assertEqual(thai_digit_to_arabic_digit(None), "")
+        with self.assertRaises(TypeError):
+            thai_digit_to_arabic_digit("")
+        with self.assertRaises(TypeError):
+            thai_digit_to_arabic_digit(None)
 
         self.assertEqual(digit_to_text("RFC 7258"), "RFC เจ็ดสองห้าแปด")
-        self.assertEqual(digit_to_text(""), "")
-        self.assertEqual(digit_to_text(None), "")
+        with self.assertRaises(TypeError):
+            digit_to_text("")
+        with self.assertRaises(TypeError):
+            digit_to_text(None)
 
         self.assertEqual(text_to_arabic_digit("เจ็ด"), "7")
         self.assertEqual(text_to_arabic_digit(""), "")
-        self.assertEqual(text_to_arabic_digit(None), "")
+        with self.assertRaises(TypeError):
+            text_to_arabic_digit(None)
 
         self.assertEqual(text_to_thai_digit("เก้า"), "๙")
         self.assertEqual(text_to_thai_digit(""), "")
-        self.assertEqual(text_to_thai_digit(None), "")
+        with self.assertRaises(TypeError):
+            text_to_thai_digit(None)
 
     # ### pythainlp.util.keyboard
 
@@ -866,3 +875,13 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(longest_common_subsequence("", "ABC"), "")
         self.assertEqual(longest_common_subsequence("ABC", ""), "")
         self.assertEqual(longest_common_subsequence("", ""), "")
+
+    def test_analyze_thai_text(self):
+        self.assertEqual(
+            analyze_thai_text("คนดี"),
+            {"ค": 1, "น": 1, "ด": 1, "สระ อี": 1}
+        )
+        self.assertEqual(
+            analyze_thai_text("เล่น"),
+            {'สระ เอ': 1, 'ล': 1, 'ไม้เอก': 1, 'น': 1}
+        )

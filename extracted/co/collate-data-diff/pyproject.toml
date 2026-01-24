@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "collate-data-diff"
-version = "0.11.7"
+version = "0.11.9"
 description = "Command-line tool and Python library to efficiently diff rows across two different databases."
 authors = ["Collate <info@getcollate.io>", "Datafold <data-diff@datafold.com>"]
 license = "MIT"
@@ -22,7 +22,7 @@ classifiers = [
 packages = [{ include = "data_diff" }]
 [tool.poetry.dependencies]
 pydantic = ">=1.10.12"
-python = ">=3.8.0,<4.0"
+python = ">=3.10,<4.0"
 dsnparse = "<0.2.0"
 click = ">=8.1"
 rich = "*"
@@ -32,13 +32,16 @@ mysql-connector-python = [
     {version=">=9.1", python = ">=3.9", optional=true}
 ]
 psycopg2 = {version="*", optional=true}
-snowflake-connector-python = {version = ">=3.13.1,<4.0.0", optional=true}
+snowflake-connector-python = [
+    {version = ">=3.15.0,<4.0.0", python = ">=3.9", optional=true}
+]
 cryptography = {version="*", optional=true}
 trino = {version=">=0.314.0", optional=true}
 presto-python-client = {version="*", optional=true}
 clickhouse-driver = {version="*", optional=true}
 duckdb = {version="*", optional=true}
 dbt-core = {version="^1.0.0"}
+deepdiff = ">=8.6.1,<9.0" # Security fix for CVE-2025-58367
 keyring = "*"
 tabulate = ">=0.9.0"
 preql = {version=">=0.2.19", optional=true}
@@ -49,27 +52,6 @@ pyodbc = {version=">=4.0.39", optional=true}
 typing-extensions = ">=4.0.1"
 attrs = ">=23.1.0"
 mashumaro = {version = ">=2.9,<3.11.0", extras = ["msgpack"]}
-
-[tool.poetry.dev-dependencies]
-parameterized = "*"
-unittest-parallel = "*"
-preql = ">=0.2.19"
-mysql-connector-python = [
-    {version=">=8.0.29", python = "<3.9"},
-    {version=">=9.1", python = ">=3.9"}
-]
-psycopg2 = "*"
-snowflake-connector-python = ">=3.13.1,<4.0.0"
-cryptography = "*"
-trino = ">=0.314.0"
-presto-python-client = ">=0.8.3"
-clickhouse-driver = "*"
-vertica-python = "*"
-duckdb = ">=0.9.0"
-dbt-core = ">=1.0.0"
-ruff = ">=0.1.4"
-# google-cloud-bigquery = "*"
-# databricks-sql-connector = "*"
 
 [tool.poetry.extras]
 # When adding, update also: README + dev deps just above
@@ -93,6 +75,27 @@ all-dbs = [
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = ">=3.5.0"
+parameterized = "*"
+unittest-parallel = "*"
+preql = ">=0.2.19"
+mysql-connector-python = [
+    {version=">=8.0.29", python = "<3.9"},
+    {version=">=9.1", python = ">=3.9"}
+]
+psycopg2 = "*"
+snowflake-connector-python = [
+    {version=">=3.13.1,<4.0.0", python = ">=3.9"}
+]
+cryptography = "*"
+trino = ">=0.314.0"
+presto-python-client = ">=0.8.3"
+clickhouse-driver = "*"
+vertica-python = "*"
+duckdb = ">=0.9.0"
+dbt-core = ">=1.0.0"
+ruff = ">=0.1.4"
+# google-cloud-bigquery = "*"
+# databricks-sql-connector = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{Utf8ArrayUtils, binary_utf8_evaluate, binary_utf8_to_field};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct EndsWith;
 
 #[typetag::serde]
@@ -62,65 +62,35 @@ fn endswith_impl(s: &Series, pattern: &Series) -> DaftResult<Series> {
 #[cfg(test)]
 mod tests {
     use common_error::DaftResult;
-    use daft_core::{
-        prelude::{AsArrow, Utf8Array},
-        series::IntoSeries,
-    };
+    use daft_core::{prelude::Utf8Array, series::IntoSeries};
 
     #[test]
     fn check_endswith_utf_arrays_broadcast() -> DaftResult<()> {
-        let data = Utf8Array::from((
-            "data",
-            Box::new(arrow2::array::Utf8Array::<i64>::from(vec![
-                "x_foo".into(),
-                "y_foo".into(),
-                "z_bar".into(),
-            ])),
-        ))
-        .into_series();
-        let pattern = Utf8Array::from((
-            "pattern",
-            Box::new(arrow2::array::Utf8Array::<i64>::from(vec!["foo".into()])),
-        ))
-        .into_series();
+        let data = Utf8Array::from_values("data", ["x_foo", "y_foo", "z_bar"].iter()).into_series();
+        let pattern = Utf8Array::from_values("pattern", ["foo"].iter()).into_series();
         let result = super::endswith_impl(&data, &pattern)?;
         let result = result.bool()?;
 
         assert_eq!(result.len(), 3);
-        assert!(result.as_arrow().value(0));
-        assert!(result.as_arrow().value(1));
-        assert!(!result.as_arrow().value(2));
+        assert!(result.get(0).unwrap());
+        assert!(result.get(1).unwrap());
+        assert!(!result.get(2).unwrap());
         Ok(())
     }
 
     #[test]
     fn check_endswith_utf_arrays() -> DaftResult<()> {
-        let data = Utf8Array::from((
-            "data",
-            Box::new(arrow2::array::Utf8Array::<i64>::from(vec![
-                "x_foo".into(),
-                "y_foo".into(),
-                "z_bar".into(),
-            ])),
-        ))
-        .into_series();
-        let pattern = Utf8Array::from((
-            "pattern",
-            Box::new(arrow2::array::Utf8Array::<i64>::from(vec![
-                "foo".into(),
-                "wrong".into(),
-                "bar".into(),
-            ])),
-        ))
-        .into_series();
+        let data = Utf8Array::from_values("data", ["x_foo", "y_foo", "z_bar"].iter()).into_series();
+        let pattern =
+            Utf8Array::from_values("pattern", ["foo", "wrong", "bar"].iter()).into_series();
         let result = super::endswith_impl(&data, &pattern)?;
 
         let result = result.bool()?;
 
         assert_eq!(result.len(), 3);
-        assert!(result.as_arrow().value(0));
-        assert!(!result.as_arrow().value(1));
-        assert!(result.as_arrow().value(2));
+        assert!(result.get(0).unwrap());
+        assert!(!result.get(1).unwrap());
+        assert!(result.get(2).unwrap());
         Ok(())
     }
 }

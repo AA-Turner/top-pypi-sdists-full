@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: yaspin
-Version: 3.2.0
+Version: 3.4.0
 Summary: Yet Another Terminal Spinner
 License: MIT
+License-File: LICENSE
 Keywords: spinner,console,terminal,loader,indicator
 Author: Pavlo Dmytrenko
 Author-email: pavdmyt@aiven.io
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: MacOS X
@@ -21,13 +22,12 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -39,7 +39,7 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
-Requires-Dist: termcolor (>=3.1,<4.0)
+Requires-Dist: termcolor (>=3.2,<4.0)
 Project-URL: Bug Tracker, https://github.com/pavdmyt/yaspin/issues
 Project-URL: Changelog, https://github.com/pavdmyt/yaspin/releases
 Project-URL: Documentation, https://github.com/pavdmyt/yaspin/blob/master/README.md
@@ -100,7 +100,7 @@ with yaspin().white.bold.shark.on_blue as sp:
 
 ## Features
 
-- Runs at all major **CPython** versions (*3.9*, *3.10*, *3.11*, *3.12*, *3.13*, *3.14*), **PyPy**
+- Runs at all major **CPython** versions (*3.10*, *3.11*, *3.12*, *3.13*, *3.14*), **PyPy**
 - Supports all (70+) spinners from [cli-spinners](https://github.com/sindresorhus/cli-spinners)
 - Supports all *colors*, *highlights*, *attributes* and their mixes from [termcolor](https://pypi.org/project/termcolor/) library
 - Easy to combine with other command-line libraries, e.g. [prompt-toolkit](https://github.com/jonathanslenders/python-prompt-toolkit/)
@@ -124,6 +124,7 @@ $ python script_that_uses_yaspin.py | grep ERROR
   - [Building custom spinners](#run-any-spinner-you-want)
   - [Changing spinner properties on the fly](#change-spinner-properties-on-the-fly)
   - [Timer](#spinner-with-timer)
+  - [Custom streams](#custom-streams)
   - [Custom Ellipsis](#custom-ellipsis)
   - [Dynamic text](#dynamic-text)
   - [Writing messages](#writing-messages)
@@ -290,6 +291,41 @@ with yaspin(text="elapsed time", timer=True) as sp:
     time.sleep(3.1415)
     sp.ok()
 ```
+
+### Custom streams
+
+By default, yaspin outputs to `sys.stdout`. You can redirect spinner output to any stream using the `stream` parameter:
+
+```python
+import sys
+import time
+from io import StringIO
+from yaspin import yaspin
+
+# Output to stderr instead of stdout
+with yaspin(text="Processing...", stream=sys.stderr):
+    time.sleep(2)
+
+# Capture spinner output in a string
+output_buffer = StringIO()
+with yaspin(text="Buffered output", stream=output_buffer):
+    time.sleep(1)
+
+print("Captured:", output_buffer.getvalue())
+```
+
+For debugging stream lifecycle issues, enable warnings when operations are attempted on closed streams:
+
+```python
+import time
+from yaspin import yaspin
+
+# Enable warnings for debugging (disabled by default)
+with yaspin(text="Debug mode", warn_on_closed_stream=True):
+    time.sleep(2)
+```
+
+This is particularly useful in testing environments or when integrating with libraries that manage stream lifecycles.
 
 ### Custom Ellipsis
 

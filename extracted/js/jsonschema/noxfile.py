@@ -28,6 +28,7 @@ REQUIREMENTS_IN = [  # this is actually ordered, as files depend on each other
 
 NONGPL_LICENSES = [
     "Apache Software License",
+    "Apache-2.0",
     "BSD License",
     "ISC License (ISCL)",
     "MIT",
@@ -37,7 +38,7 @@ NONGPL_LICENSES = [
     "The Unlicense (Unlicense)",
 ]
 
-SUPPORTED = ["3.9", "3.10", "pypy3.11", "3.11", "3.12", "3.13"]
+SUPPORTED = ["3.10", "pypy3.11", "3.11", "3.12", "3.13", "3.14t", "3.14"]
 LATEST_STABLE = SUPPORTED[-1]
 
 nox.options.default_venv_backend = "uv|virtualenv"
@@ -98,16 +99,6 @@ def tests(session, installable):
 
 
 @session()
-@nox.parametrize("installable", INSTALLABLE)
-def audit(session, installable):
-    """
-    Audit dependencies for vulnerabilities.
-    """
-    session.install("pip-audit", installable)
-    session.run("python", "-m", "pip_audit")
-
-
-@session()
 def license_check(session):
     """
     Check that the non-GPL extra does not allow arbitrary licenses.
@@ -126,6 +117,7 @@ def license_check(session):
 
         # because pip-licenses doesn't yet support PEP 639 :/
         "attrs",
+        "idna",
         "jsonschema",
         "jsonschema-specifications",
         "referencing",
@@ -238,6 +230,7 @@ def docs_style(session):
 
 
 @session(default=False)
+@nox.parametrize("installable", INSTALLABLE)
 @nox.parametrize(
     "benchmark",
     [
@@ -245,11 +238,11 @@ def docs_style(session):
         for each in BENCHMARKS.glob("[!_]*.py")
     ],
 )
-def bench(session, benchmark):
+def bench(session, installable, benchmark):
     """
     Run a performance benchmark.
     """
-    session.install("pyperf", f"{ROOT}[format]")
+    session.install("pyperf", installable)
     tmpdir = Path(session.create_tmp())
     output = tmpdir / f"bench-{benchmark}.json"
     session.run("python", BENCHMARKS / f"{benchmark}.py", "--output", output)

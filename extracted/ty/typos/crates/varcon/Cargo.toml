@@ -1,6 +1,6 @@
 [package]
 name = "varcon"
-version = "1.0.1"
+version = "1.0.3"
 description = "Source Code Spelling Correction"
 readme = "README.md"
 categories = ["development-tools", "text-processing"]
@@ -13,7 +13,7 @@ include.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [features]
 default = ["all"]
@@ -26,7 +26,7 @@ varcon-core = { version = "^5.0", path = "../varcon-core" }
 [dev-dependencies]
 codegenrs = "3.0"
 varcon-core = { version = "^5.0", path = "../varcon-core", features = ["parser"] }
-snapbox = "0.6.5"
+snapbox = "0.6.21"
 
 [lints]
 workspace = true

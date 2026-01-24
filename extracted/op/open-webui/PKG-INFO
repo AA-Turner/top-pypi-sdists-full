@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.30
+Version: 0.7.2
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
-License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
+License: Copyright (c) 2023- Open WebUI Inc. [Created by Timothy Jaeryang Baek]
         All rights reserved.
         
         Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@ License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
 License-File: LICENSE_HISTORY
+License-File: LICENSE_NOTICE
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
@@ -49,109 +50,115 @@ Requires-Python: <3.13.0a1,>=3.11
 Requires-Dist: accelerate
 Requires-Dist: aiocache
 Requires-Dist: aiofiles
-Requires-Dist: aiohttp==3.12.15
-Requires-Dist: alembic==1.14.0
+Requires-Dist: aiohttp==3.13.2
+Requires-Dist: alembic==1.17.2
 Requires-Dist: anthropic
-Requires-Dist: apscheduler==3.10.4
-Requires-Dist: argon2-cffi==23.1.0
-Requires-Dist: asgiref==3.8.1
+Requires-Dist: apscheduler==3.11.2
+Requires-Dist: argon2-cffi==25.1.0
+Requires-Dist: asgiref==3.11.0
 Requires-Dist: async-timeout
-Requires-Dist: authlib==1.6.3
+Requires-Dist: authlib==1.6.6
 Requires-Dist: azure-ai-documentintelligence==1.0.2
-Requires-Dist: azure-identity==1.20.0
-Requires-Dist: azure-storage-blob==12.24.1
-Requires-Dist: bcrypt==4.3.0
-Requires-Dist: black==25.1.0
-Requires-Dist: boto3==1.40.5
-Requires-Dist: chromadb==1.0.20
+Requires-Dist: azure-identity==1.25.1
+Requires-Dist: azure-storage-blob==12.27.1
+Requires-Dist: bcrypt==5.0.0
+Requires-Dist: black==25.12.0
+Requires-Dist: boto3==1.42.21
+Requires-Dist: chardet==5.2.0
+Requires-Dist: chromadb==1.4.0
 Requires-Dist: cryptography
-Requires-Dist: ddgs==9.0.0
-Requires-Dist: docx2txt==0.8
+Requires-Dist: ddgs==9.10.0
+Requires-Dist: docx2txt==0.9
 Requires-Dist: einops==0.8.1
 Requires-Dist: fake-useragent==2.2.0
-Requires-Dist: fastapi==0.115.7
-Requires-Dist: faster-whisper==1.1.1
-Requires-Dist: firecrawl-py==1.12.0
-Requires-Dist: fpdf2==2.8.2
-Requires-Dist: ftfy==6.2.3
+Requires-Dist: fastapi==0.128.0
+Requires-Dist: faster-whisper==1.2.1
+Requires-Dist: fpdf2==2.8.5
+Requires-Dist: ftfy==6.3.1
 Requires-Dist: google-api-python-client
 Requires-Dist: google-auth-httplib2
 Requires-Dist: google-auth-oauthlib
-Requires-Dist: google-cloud-storage==2.19.0
-Requires-Dist: google-genai==1.32.0
-Requires-Dist: google-generativeai==0.8.5
-Requires-Dist: googleapis-common-protos==1.70.0
+Requires-Dist: google-cloud-storage==3.7.0
+Requires-Dist: google-genai==1.56.0
+Requires-Dist: googleapis-common-protos==1.72.0
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
-Requires-Dist: langchain-community==0.3.27
-Requires-Dist: langchain==0.3.26
+Requires-Dist: itsdangerous==2.2.0
+Requires-Dist: langchain-classic==1.0.1
+Requires-Dist: langchain-community==0.4.1
+Requires-Dist: langchain-text-splitters==1.1.0
+Requires-Dist: langchain==1.2.0
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
-Requires-Dist: markdown==3.8.2
-Requires-Dist: nltk==3.9.1
-Requires-Dist: onnxruntime==1.20.1
+Requires-Dist: markdown==3.10
+Requires-Dist: mcp==1.25.0
+Requires-Dist: msoffcrypto-tool==5.4.2
+Requires-Dist: nltk==3.9.2
+Requires-Dist: onnxruntime==1.23.2
 Requires-Dist: openai
-Requires-Dist: opencv-python-headless==4.11.0.86
+Requires-Dist: opencv-python-headless==4.12.0.88
 Requires-Dist: openpyxl==3.1.5
-Requires-Dist: opensearch-py==2.8.0
-Requires-Dist: oracledb>=3.2.0
-Requires-Dist: pandas==2.2.3
-Requires-Dist: passlib[bcrypt]==1.7.4
-Requires-Dist: peewee-migrate==1.12.2
-Requires-Dist: peewee==3.18.1
-Requires-Dist: pillow==11.3.0
+Requires-Dist: opensearch-py==3.1.0
+Requires-Dist: pandas==2.3.3
+Requires-Dist: peewee-migrate==1.14.3
+Requires-Dist: peewee==3.18.3
+Requires-Dist: pillow==12.1.0
 Requires-Dist: psutil
 Requires-Dist: pyarrow==20.0.0
-Requires-Dist: pycrdt==0.12.25
-Requires-Dist: pydantic==2.11.7
+Requires-Dist: pycrdt==0.12.44
+Requires-Dist: pydantic==2.12.5
 Requires-Dist: pydub
 Requires-Dist: pyjwt[crypto]==2.10.1
-Requires-Dist: pymdown-extensions==10.14.2
-Requires-Dist: pymysql==1.1.1
-Requires-Dist: pypandoc==1.15
-Requires-Dist: pypdf==6.0.0
-Requires-Dist: python-jose==3.4.0
-Requires-Dist: python-multipart==0.0.20
+Requires-Dist: pymdown-extensions==10.20
+Requires-Dist: pymysql==1.1.2
+Requires-Dist: pypandoc==1.16.2
+Requires-Dist: pypdf==6.5.0
+Requires-Dist: python-jose==3.5.0
+Requires-Dist: python-mimeparse==2.0.0
+Requires-Dist: python-multipart==0.0.21
 Requires-Dist: python-pptx==1.0.2
-Requires-Dist: python-socketio==5.13.0
+Requires-Dist: python-socketio==5.16.0
 Requires-Dist: pytube==15.0.0
 Requires-Dist: pyxlsb==1.0.10
 Requires-Dist: rank-bm25==0.2.2
 Requires-Dist: rapidocr-onnxruntime==1.4.4
 Requires-Dist: redis
-Requires-Dist: requests==2.32.4
-Requires-Dist: restrictedpython==8.0
-Requires-Dist: sentence-transformers==4.1.0
+Requires-Dist: requests==2.32.5
+Requires-Dist: restrictedpython==8.1
+Requires-Dist: sentence-transformers==5.2.0
 Requires-Dist: sentencepiece
 Requires-Dist: soundfile==0.13.1
-Requires-Dist: sqlalchemy==2.0.38
-Requires-Dist: starlette-compress==1.6.0
-Requires-Dist: tencentcloud-sdk-python==3.0.1336
+Requires-Dist: sqlalchemy==2.0.45
+Requires-Dist: starlette-compress==1.6.1
+Requires-Dist: starsessions[redis]==2.2.1
 Requires-Dist: tiktoken
-Requires-Dist: transformers
-Requires-Dist: unstructured==0.16.17
-Requires-Dist: uvicorn[standard]==0.35.0
+Requires-Dist: transformers==4.57.3
+Requires-Dist: unstructured==0.18.24
+Requires-Dist: uvicorn[standard]==0.40.0
 Requires-Dist: validators==0.35.0
-Requires-Dist: xlrd==2.0.1
-Requires-Dist: youtube-transcript-api==1.1.0
+Requires-Dist: xlrd==2.0.2
+Requires-Dist: youtube-transcript-api==1.2.3
 Provides-Extra: all
-Requires-Dist: colbert-ai==0.2.21; extra == 'all'
+Requires-Dist: azure-search-documents==11.6.0; extra == 'all'
+Requires-Dist: colbert-ai==0.2.22; extra == 'all'
 Requires-Dist: docker~=7.1.0; extra == 'all'
-Requires-Dist: elasticsearch==9.1.0; extra == 'all'
+Requires-Dist: elasticsearch==9.2.1; extra == 'all'
+Requires-Dist: firecrawl-py==4.12.0; extra == 'all'
 Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
 Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
-Requires-Dist: oracledb==3.2.0; extra == 'all'
-Requires-Dist: pgvector==0.4.0; extra == 'all'
+Requires-Dist: oracledb==3.4.1; extra == 'all'
+Requires-Dist: pgvector==0.4.2; extra == 'all'
 Requires-Dist: pinecone==6.0.2; extra == 'all'
-Requires-Dist: playwright==1.49.1; extra == 'all'
-Requires-Dist: psycopg2-binary==2.9.9; extra == 'all'
-Requires-Dist: pymilvus==2.5.0; extra == 'all'
+Requires-Dist: playwright==1.57.0; extra == 'all'
+Requires-Dist: psycopg2-binary==2.9.11; extra == 'all'
+Requires-Dist: pymilvus==2.6.6; extra == 'all'
 Requires-Dist: pymongo; extra == 'all'
-Requires-Dist: pytest-docker~=3.1.1; extra == 'all'
+Requires-Dist: pytest-docker~=3.2.5; extra == 'all'
 Requires-Dist: pytest~=8.3.2; extra == 'all'
-Requires-Dist: qdrant-client==1.14.3; extra == 'all'
+Requires-Dist: qdrant-client==1.16.2; extra == 'all'
+Requires-Dist: weaviate-client==4.19.2; extra == 'all'
 Provides-Extra: postgres
-Requires-Dist: pgvector==0.4.1; extra == 'postgres'
-Requires-Dist: psycopg2-binary==2.9.10; extra == 'postgres'
+Requires-Dist: pgvector==0.4.2; extra == 'postgres'
+Requires-Dist: psycopg2-binary==2.9.11; extra == 'postgres'
 Description-Content-Type: text/markdown
 
 # Open WebUI 👋
@@ -166,14 +173,16 @@ Description-Content-Type: text/markdown
 [![Discord](https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white)](https://discord.gg/5rJgQTnV4s)
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/tjbck)
 
+![Open WebUI Banner](./banner.png)
+
 **Open WebUI is an [extensible](https://docs.openwebui.com/features/plugin/), feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with **built-in inference engine** for RAG, making it a **powerful AI deployment solution**.
 
 Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
 
-![Open WebUI Demo](./demo.gif)
+![Open WebUI Demo](./demo.png)
 
 > [!TIP]  
-> **Looking for an [Enterprise Plan](https://docs.openwebui.com/enterprise)?** – **[Speak with Our Sales Team Today!](mailto:sales@openwebui.com)**
+> **Looking for an [Enterprise Plan](https://docs.openwebui.com/enterprise)?** – **[Speak with Our Sales Team Today!](https://docs.openwebui.com/enterprise)**
 >
 > Get **enhanced capabilities**, including **custom theming and branding**, **Service Level Agreement (SLA) support**, **Long-Term Support (LTS) versions**, and **more!**
 
@@ -187,31 +196,43 @@ For more information, be sure to check out our [Open WebUI Documentation](https:
 
 - 🛡️ **Granular Permissions and User Groups**: By allowing administrators to create detailed user roles and permissions, we ensure a secure user environment. This granularity not only enhances security but also allows for customized user experiences, fostering a sense of ownership and responsibility amongst users.
 
-- 🔄 **SCIM 2.0 Support**: Enterprise-grade user and group provisioning through SCIM 2.0 protocol, enabling seamless integration with identity providers like Okta, Azure AD, and Google Workspace for automated user lifecycle management.
-
 - 📱 **Responsive Design**: Enjoy a seamless experience across Desktop PC, Laptop, and Mobile devices.
 
 - 📱 **Progressive Web App (PWA) for Mobile**: Enjoy a native app-like experience on your mobile device with our PWA, providing offline access on localhost and a seamless user interface.
 
 - ✒️🔢 **Full Markdown and LaTeX Support**: Elevate your LLM experience with comprehensive Markdown and LaTeX capabilities for enriched interaction.
 
-- 🎤📹 **Hands-Free Voice/Video Call**: Experience seamless communication with integrated hands-free voice and video call features, allowing for a more dynamic and interactive chat environment.
+- 🎤📹 **Hands-Free Voice/Video Call**: Experience seamless communication with integrated hands-free voice and video call features using multiple Speech-to-Text providers (Local Whisper, OpenAI, Deepgram, Azure) and Text-to-Speech engines (Azure, ElevenLabs, OpenAI, Transformers, WebAPI), allowing for dynamic and interactive chat environments.
 
 - 🛠️ **Model Builder**: Easily create Ollama models via the Web UI. Create and add custom characters/agents, customize chat elements, and import models effortlessly through [Open WebUI Community](https://openwebui.com/) integration.
 
 - 🐍 **Native Python Function Calling Tool**: Enhance your LLMs with built-in code editor support in the tools workspace. Bring Your Own Function (BYOF) by simply adding your pure Python functions, enabling seamless integration with LLMs.
 
-- 📚 **Local RAG Integration**: Dive into the future of chat interactions with groundbreaking Retrieval Augmented Generation (RAG) support. This feature seamlessly integrates document interactions into your chat experience. You can load documents directly into the chat or add files to your document library, effortlessly accessing them using the `#` command before a query.
+- 💾 **Persistent Artifact Storage**: Built-in key-value storage API for artifacts, enabling features like journals, trackers, leaderboards, and collaborative tools with both personal and shared data scopes across sessions.
 
-- 🔍 **Web Search for RAG**: Perform web searches using providers like `SearXNG`, `Google PSE`, `Brave Search`, `serpstack`, `serper`, `Serply`, `DuckDuckGo`, `TavilySearch`, `SearchApi` and `Bing` and inject the results directly into your chat experience.
+- 📚 **Local RAG Integration**: Dive into the future of chat interactions with groundbreaking Retrieval Augmented Generation (RAG) support using your choice of 9 vector databases and multiple content extraction engines (Tika, Docling, Document Intelligence, Mistral OCR, External loaders). Load documents directly into chat or add files to your document library, effortlessly accessing them using the `#` command before a query.
+
+- 🔍 **Web Search for RAG**: Perform web searches using 15+ providers including `SearXNG`, `Google PSE`, `Brave Search`, `Kagi`, `Mojeek`, `Tavily`, `Perplexity`, `serpstack`, `serper`, `Serply`, `DuckDuckGo`, `SearchApi`, `SerpApi`, `Bing`, `Jina`, `Exa`, `Sougou`, `Azure AI Search`, and `Ollama Cloud`, injecting results directly into your chat experience.
 
 - 🌐 **Web Browsing Capability**: Seamlessly integrate websites into your chat experience using the `#` command followed by a URL. This feature allows you to incorporate web content directly into your conversations, enhancing the richness and depth of your interactions.
 
-- 🎨 **Image Generation Integration**: Seamlessly incorporate image generation capabilities using options such as AUTOMATIC1111 API or ComfyUI (local), and OpenAI's DALL-E (external), enriching your chat experience with dynamic visual content.
+- 🎨 **Image Generation & Editing Integration**: Create and edit images using multiple engines including OpenAI's DALL-E, Gemini, ComfyUI (local), and AUTOMATIC1111 (local), with support for both generation and prompt-based editing workflows.
 
 - ⚙️ **Many Models Conversations**: Effortlessly engage with various models simultaneously, harnessing their unique strengths for optimal responses. Enhance your experience by leveraging a diverse set of models in parallel.
 
 - 🔐 **Role-Based Access Control (RBAC)**: Ensure secure access with restricted permissions; only authorized individuals can access your Ollama, and exclusive model creation/pulling rights are reserved for administrators.
+
+- 🗄️ **Flexible Database & Storage Options**: Choose from SQLite (with optional encryption), PostgreSQL, or configure cloud storage backends (S3, Google Cloud Storage, Azure Blob Storage) for scalable deployments.
+
+- 🔍 **Advanced Vector Database Support**: Select from 9 vector database options including ChromaDB, PGVector, Qdrant, Milvus, Elasticsearch, OpenSearch, Pinecone, S3Vector, and Oracle 23ai for optimal RAG performance.
+
+- 🔐 **Enterprise Authentication**: Full support for LDAP/Active Directory integration, SCIM 2.0 automated provisioning, and SSO via trusted headers alongside OAuth providers. Enterprise-grade user and group provisioning through SCIM 2.0 protocol, enabling seamless integration with identity providers like Okta, Azure AD, and Google Workspace for automated user lifecycle management.
+
+- ☁️ **Cloud-Native Integration**: Native support for Google Drive and OneDrive/SharePoint file picking, enabling seamless document import from enterprise cloud storage.
+
+- 📊 **Production Observability**: Built-in OpenTelemetry support for traces, metrics, and logs, enabling comprehensive monitoring with your existing observability stack.
+
+- ⚖️ **Horizontal Scalability**: Redis-backed session management and WebSocket support for multi-worker and multi-node deployments behind load balancers.
 
 - 🌐🌍 **Multilingual Support**: Experience Open WebUI in your preferred language with our internationalization (i18n) support. Join us in expanding our supported languages! We're actively seeking contributors!
 
@@ -220,43 +241,6 @@ For more information, be sure to check out our [Open WebUI Documentation](https:
 - 🌟 **Continuous Updates**: We are committed to improving Open WebUI with regular updates, fixes, and new features.
 
 Want to learn more about Open WebUI's features? Check out our [Open WebUI documentation](https://docs.openwebui.com/features) for a comprehensive overview!
-
-## Sponsors 🙌
-
-#### Emerald
-
-<table>
-  <!-- <tr>
-    <td>
-      <a href="https://n8n.io/" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/n8n.png" alt="n8n" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://n8n.io/">n8n</a> • Does your interface have a backend yet?<br>Try <a href="https://n8n.io/">n8n</a>
-    </td>
-  </tr> -->
-  <tr>
-    <td>
-      <a href="https://tailscale.com/blog/self-host-a-local-ai-stack/?utm_source=OpenWebUI&utm_medium=paid-ad-placement&utm_campaign=OpenWebUI-Docs" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/tailscale.png" alt="Tailscale" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://tailscale.com/blog/self-host-a-local-ai-stack/?utm_source=OpenWebUI&utm_medium=paid-ad-placement&utm_campaign=OpenWebUI-Docs">Tailscale</a> • Connect self-hosted AI to any device with Tailscale
-    </td>
-  </tr>
-   <tr>
-    <td>
-      <a href="https://warp.dev/open-webui" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/warp.png" alt="Warp" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://warp.dev/open-webui">Warp</a> • The intelligent terminal for developers
-    </td>
-  </tr>
-</table>
 
 ---
 
@@ -369,14 +353,6 @@ docker run -d --network=host -v open-webui:/app/backend/data -e OLLAMA_BASE_URL=
 
 ### Keeping Your Docker Installation Up-to-Date
 
-In case you want to update your local Docker installation to the latest version, you can do it with [Watchtower](https://containrrr.dev/watchtower/):
-
-```bash
-docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once open-webui
-```
-
-In the last part of the command, replace `open-webui` with your container name if it is different.
-
 Check our Updating Guide available in our [Open WebUI Documentation](https://docs.openwebui.com/getting-started/updating).
 
 ### Using the Dev Branch 🌙
@@ -404,7 +380,7 @@ Discover upcoming features on our roadmap in the [Open WebUI Documentation](http
 
 ## License 📜
 
-This project is licensed under the [Open WebUI License](LICENSE), a revised BSD-3-Clause license. You receive all the same rights as the classic BSD-3 license: you can use, modify, and distribute the software, including in proprietary and commercial products, with minimal restrictions. The only additional requirement is to preserve the "Open WebUI" branding, as detailed in the LICENSE file. For full terms, see the [LICENSE](LICENSE) document. 📄
+This project contains code under multiple licenses. The current codebase includes components licensed under the Open WebUI License with an additional requirement to preserve the "Open WebUI" branding, as well as prior contributions under their respective original licenses. For a detailed record of license changes and the applicable terms for each section of the code, please refer to [LICENSE_HISTORY](./LICENSE_HISTORY). For complete and updated licensing details, please see the [LICENSE](./LICENSE) and [LICENSE_HISTORY](./LICENSE_HISTORY) files.
 
 ## Support 💬
 

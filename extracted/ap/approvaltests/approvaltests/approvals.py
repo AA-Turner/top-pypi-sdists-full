@@ -2,7 +2,7 @@ import argparse
 import xml.dom.minidom
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, ByteString, Callable, Iterator, List, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional, Union
 
 import approvaltests.namer.default_namer_factory
 import approvaltests.reporters.default_reporter_factory
@@ -22,7 +22,6 @@ from approvaltests.core.scenario_namer import ScenarioNamer
 from approvaltests.existing_file_writer import ExistingFileWriter
 from approvaltests.file_approver import FileApprover
 from approvaltests.namer.namer_base import NamerBase
-from approvaltests.namer.stack_frame_namer import StackFrameNamer
 from approvaltests.reporters.diff_reporter import DiffReporter
 from approvaltests.reporters.executable_command_reporter import (
     ExecutableCommandReporter,
@@ -34,6 +33,9 @@ from approvaltests.verifiable_objects.formatter_of_argparse_namespace import (
 
 __unittest = True
 __tracebackhide__ = True
+
+# typing.ByteString was removed in Python 3.14
+_ByteString = Union[bytes, bytearray, memoryview]
 
 
 class Settings:
@@ -148,7 +150,7 @@ def find_formatter_for_specified_class(data: Any) -> Any:
 
 
 def verify_binary(
-    data: ByteString,
+    data: _ByteString,
     file_extension_with_dot: str,
     *,  # enforce keyword arguments - https://www.python.org/dev/peps/pep-3102/
     options: Optional[Options] = None,
@@ -325,7 +327,7 @@ def verify_file(
 
 def verify_all(
     header: str,
-    alist: List[Any],
+    alist: Iterable[Any],
     formatter: Optional[Callable] = None,
     reporter: Optional[DiffReporter] = None,
     encoding: None = None,
@@ -422,9 +424,12 @@ def verify_argument_parser(
 ) -> None:
     parser.formatter_class = lambda prog: argparse.HelpFormatter(prog, width=200)
     options = options or Options()
-    scrubber = lambda t: t.replace("options:", "<optional header>:").replace(
-        "optional arguments:", "<optional header>:"
-    )
+
+    def scrubber(t: str) -> str:
+        return t.replace("options:", "<optional header>:").replace(
+            "optional arguments:", "<optional header>:"
+        )
+
     verify(
         parser.format_help(),
         options=options.with_scrubber(scrubber),

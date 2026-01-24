@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-FileCopyrightText: 2018-2019, Nordic Semiconductor ASA and Ulf Magnusson
 # SPDX-License-Identifier: ISC
 # This file is copied from kconfiglib project:
@@ -812,11 +812,11 @@ def _load_config():
 
 
 def _needs_save():
-    # Returns True if a just-loaded .config file is outdated (would get
+    # Returns True if a just-loaded .config/sdkconfig file is outdated (would get
     # modified when saving)
 
     if _kconf.missing_syms:
-        # Assignments to undefined symbols in the .config
+        # Assignments to undefined symbols in the .config/sdkconfig
         return True
 
     for sym in _kconf.unique_defined_syms:
@@ -832,10 +832,10 @@ def _needs_save():
         # May still need to save changed (non-)default state
         else:
             # symbol set back to default value
-            if not sym._loaded_as_default and sym._user_value is None:
+            if not sym._loaded_as_default and sym.has_active_default_value():
                 return True
             # symbol was user-set during menuconfig session
-            elif sym._loaded_as_default and sym._user_value is not None:
+            elif sym._loaded_as_default and not sym.has_active_default_value():
                 return True
 
     # No need to prompt for save
@@ -1665,6 +1665,29 @@ def _change_node(node):
 
     sc: Union[Symbol, Choice] = node.item
 
+    # Take the "warning" flag into account only if the symbol
+    # * is not a choice symbol
+    # * does not have a user value (i)
+    if sc.__class__ == Symbol and sc.warning and not sc.choice and sc.has_active_default_value():
+        c = None
+        while c is None or c not in ("y", "n"):
+            c = _key_dialog(
+                "Set dangerous option?",
+                textwrap.dedent(
+                    f"""
+                    This symbol has a following warning:
+
+                    {sc.warning}
+
+                     Are you sure you want to change the value of this symbol?
+
+                                             (Y)es  (N)o
+                    """
+                ),
+                "yn",
+            )
+        if c == "n":
+            return True
     if sc.orig_type in (INT, HEX, STRING):
         s = sc.str_value
 
@@ -1674,7 +1697,6 @@ def _change_node(node):
                 s,
                 _range_info(sc),
             )
-
             if s is None:
                 break
 
@@ -2630,6 +2652,10 @@ def _draw_info_dialog(node, lines, scroll, top_line_win, text_win, bot_sep_win, 
     top_line_win.noutrefresh()
 
 
+def _warning_info(sym):
+    return f"This symbol has a 'warning' with the following reason: {sym.warning}\n" if sym.warning else ""
+
+
 def _info_str(node):
     # Returns information about the menu node 'node' as a string.
     #
@@ -2644,6 +2670,7 @@ def _info_str(node):
             + _prompt_info(sym)
             + f"Type: {TYPE_TO_STR[sym.type]}\n"
             + _value_info(sym)
+            + _warning_info(sym)
             + _help_info(sym)
             + _direct_dep_info(sym)
             + _defaults_info(sym)
@@ -2749,7 +2776,8 @@ def _defaults_info(sc):
     if len(sc.defaults) > 1:
         s += "s"
     s += ":\n"
-
+    if isinstance(sc, Symbol) and sc._default_value_injected:
+        s += f"  - {sc.defaults[0][0].name} (injected default value from sdkconfig)\n"
     for val, cond in sc.orig_defaults:
         s += "  - "
         if isinstance(sc, Symbol):

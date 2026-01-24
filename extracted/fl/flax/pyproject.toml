@@ -14,7 +14,7 @@ dependencies = [
     "numpy>=1.23.2; python_version>='3.11'",
     "numpy>=1.26.0; python_version>='3.12'",
     # keep in sync with jax-version in .github/workflows/build.yml
-    "jax>=0.6.0",
+    "jax>=0.8.1",
     "msgpack",
     "optax",
     "orbax-checkpoint",
@@ -29,9 +29,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = ["version", "readme"]
@@ -41,13 +40,17 @@ testing = [
     "clu",
     "clu<=0.0.9; python_version<'3.10'",
     "einops",
-    "gymnasium[atari, accept-rom-license]",
+    "gymnasium[atari]",
     "jaxlib",
     "jaxtyping",
     "jraph>=0.0.6dev0",
     "ml-collections",
     "mypy",
     "opencv-python",
+    # Set protobuf version for python 3.13+ to prevent error in
+    # examples/mnist/train_test.py::TrainTest::test_train_and_evaluate
+    # Failed to construct dataset "mnist", builder_kwargs "{}": Value out of range: 11594722
+    "protobuf<6; python_version>='3.13'",
     "pytest",
     "pytest-cov",
     "pytest-custom_exit_code",
@@ -55,16 +58,19 @@ testing = [
     "pytype",
     # WMT/LM1B examples
     "sentencepiece==0.2.0",  # Segfault bug in 0.2.1
-    "tensorflow_text>=2.11.0; platform_system!='Darwin'",
+    "tensorflow_text>=2.11.0; platform_system!='Darwin' and python_version < '3.13'",
     "tensorflow_datasets",
-    "tensorflow>=2.12.0", # to fix Numpy np.bool8 deprecation error
+    "tensorflow>=2.12.0; python_version<'3.13'", # to fix Numpy np.bool8 deprecation error
+    "tensorflow>=2.20.0; python_version>='3.13'",
+    # Temporary fix for https://github.com/google/flax/issues/5143
+    "keras<3.13",
     "torch",
     "treescope>=0.1.1; python_version>='3.10'",
     "cloudpickle>=3.0.0",
     "ale-py>=0.10.2",
 ]
 docs = [
-    "sphinx>=4.3.0",
+    "sphinx==6.2.1",
     "sphinx-book-theme",
     "Pygments>=2.6.1",
     "ipykernel",
@@ -75,9 +81,7 @@ docs = [
     "sphinx-design",
     "jupytext==1.13.8",
     "dm-haiku>=0.0.14",
-    # Need to pin docutils to 0.16 to make bulleted lists appear correctly on
-    # ReadTheDocs: https://stackoverflow.com/a/68008428
-    "docutils==0.16",
+    "docutils",
     # The next packages are for notebooks.
     "matplotlib",
     "scikit-learn",
@@ -189,6 +193,8 @@ filterwarnings = [
     "ignore:.*Sharding info not provided when restoring.*:UserWarning",
     # UserWarning: pkg_resources is deprecated as an API.
     "ignore:.*pkg_resources is deprecated as an API.*:UserWarning",
+    # DeprecationWarning: 'Data' is deprecated, please replace:
+    "ignore:.*[Data|Static]' is deprecated, please replace.*:DeprecationWarning",
 ]
 
 [tool.coverage.report]

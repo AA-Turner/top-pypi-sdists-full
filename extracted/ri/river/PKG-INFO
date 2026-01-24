@@ -1,19 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: river
-Version: 0.22.0
+Version: 0.23.0
 Summary: Online machine learning in Python
-Home-page: https://riverml.xyz/
+License: BSD-3-Clause
+License-File: LICENSE
 Author: Max Halford
 Author-email: maxhalford25@gmail.com
 Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: numpy (>=1.23.0)
 Requires-Dist: pandas (>=2.2.3,<3.0.0)
 Requires-Dist: scipy (>=1.14.1,<2.0.0)
+Project-URL: Homepage, https://riverml.xyz/
 Project-URL: Repository, https://github.com/online-ml/river/
 Description-Content-Type: text/markdown
 

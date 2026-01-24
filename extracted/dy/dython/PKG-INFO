@@ -1,33 +1,47 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dython
-Version: 0.7.9
+Version: 0.7.12
 Summary: A set of data tools in Python
 Home-page: http://shakedzy.xyz/dython
 Download-URL: https://pypi.org/project/dython/
 Author: Shaked Zychlinski
 Author-email: shakedzy@gmail.com
 License: MIT
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.23.0
-Requires-Dist: pandas>=1.4.2
-Requires-Dist: seaborn>=0.12.0
-Requires-Dist: scipy>=1.7.1
-Requires-Dist: matplotlib>=3.6.0
-Requires-Dist: scikit-learn>=0.24.2
-Requires-Dist: psutil>=5.9.1
-Requires-Dist: setuptools
+Requires-Dist: numpy>=2.2.6
+Requires-Dist: pandas>=2.3.3
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: scipy>=1.15.3
+Requires-Dist: matplotlib>=3.10.6
+Requires-Dist: scikit-learn>=1.7.2
+Requires-Dist: psutil>=7.1.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.2; extra == "dev"
 Requires-Dist: hypothesis>=6.111.0; extra == "dev"
 Requires-Dist: black>=24.8.0; extra == "dev"
 Requires-Dist: pre-commit>=3.8.0; extra == "dev"
 Requires-Dist: pytest-enabler>=3.1.1; extra == "dev"
+Requires-Dist: pytest-cov>=7.0.0; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![banner](http://shakedzy.xyz/dython/images/index_banner.png)
 
@@ -37,6 +51,7 @@ Requires-Dist: pytest-enabler>=3.1.1; extra == "dev"
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/dython)](https://anaconda.org/conda-forge/dython)
 [![Python Version](https://img.shields.io/pypi/pyversions/dython.svg)](https://pypi.org/project/dython/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/dython)](https://pypistats.org/packages/dython)
+[![Coverage](https://codecov.io/github/shakedzy/dython/coverage.svg?branch=main)](https://app.codecov.io/github/shakedzy/dython/)
 [![License](https://img.shields.io/pypi/l/dython)](https://github.com/shakedzy/dython/blob/master/LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.12698421-eb34c6)](https://zenodo.org/doi/10.5281/zenodo.12698421)
 

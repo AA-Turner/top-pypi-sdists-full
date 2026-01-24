@@ -1,18 +1,26 @@
 [package]
-name = "squawk_syntax"
+name = "squawk-syntax"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
 readme = "README.md"
 
+[lib]
+doctest = false
+
 [dependencies]
-squawk_parser.workspace = true
+squawk-parser.workspace = true
 rowan.workspace = true
 smol_str.workspace = true
 
 [dev-dependencies]
+annotate-snippets.workspace = true
 insta.workspace = true
 dir-test.workspace = true
 camino.workspace = true

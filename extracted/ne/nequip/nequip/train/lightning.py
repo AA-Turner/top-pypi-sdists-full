@@ -147,12 +147,12 @@ class NequIPLightningModule(lightning.LightningModule):
         # to ensure correct DDP syncing of loss function for batch steps
         for metric in self.loss.values():
             metric.dist_sync_on_step = True
-        self.loss.eval()
+        self.loss
 
         # == instantiate other metrics ==
         self.train_metrics = instantiate(train_metrics, type_names=type_names)
         if self.train_metrics is not None:
-            self.train_metrics.eval()
+            self.train_metrics
         # may need to instantate multiple instances to account for multiple val and test datasets
         self.val_metrics = torch.nn.ModuleList(
             [
@@ -161,7 +161,7 @@ class NequIPLightningModule(lightning.LightningModule):
             ]
         )
         if self.val_metrics is not None:
-            self.val_metrics.eval()
+            self.val_metrics
         self.test_metrics = torch.nn.ModuleList(
             [
                 instantiate(test_metrics, type_names=type_names)
@@ -169,7 +169,7 @@ class NequIPLightningModule(lightning.LightningModule):
             ]
         )
         if self.test_metrics is not None:
-            self.test_metrics.eval()
+            self.test_metrics
 
         # use "/" as delimiter for loggers to automatically categorize logged metrics
         self.logging_delimiter = "/"

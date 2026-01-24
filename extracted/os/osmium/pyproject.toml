@@ -4,10 +4,10 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "osmium"
-version = "4.1.1"
+version = "4.2.0"
 description = "Python bindings for libosmium, the data processing library for OSM data"
 requires-python = ">=3.8"
-
+readme = "README.rst"
 license = {text = 'BSD-2-Clause'}
 authors = [
     {name = "Sarah Hoffmann", email = "lonvia@denofr.de"}
@@ -36,6 +36,12 @@ classifiers = [
 dependencies = [
     "requests"
     ]
+
+[project.urls]
+Homepage = "https://osmcode.org/pyosmium"
+Documentation = "https://docs.osmcode.org/pyosmium/latest/"
+Repository = "https://github.com/osmcode/pyosmium"
+Issues = "https://github.com/osmcode/pyosmium/issues"
 
 [project.optional-dependencies]
 tests = [
@@ -95,3 +101,6 @@ include = ['/src/**/*.py',
            '/contrib/protozero/LICENSE',
            '/contrib/protozero/README.md',
            ]
+
+[tool.pytest.ini_options]
+log_cli = false

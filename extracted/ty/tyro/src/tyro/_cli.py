@@ -2,30 +2,34 @@
 
 from __future__ import annotations
 
-import dataclasses
 import pathlib
+import shutil
 import sys
 import warnings
 from typing import Callable, Literal, Sequence, TypeVar, cast, overload
 
-import shtab
-from typing_extensions import Annotated
+from typing_extensions import Annotated, assert_never, deprecated
 
-from . import _argparse as argparse
 from . import (
-    _argparse_formatter,
     _arguments,
     _calling,
-    _fields,
     _parsers,
     _resolver,
-    _singleton,
+    _settings,
     _strings,
     _unsafe_cache,
     conf,
 )
+from . import _fmtlib as fmt
+from ._backends import _argparse as argparse
+from ._singleton import (
+    MISSING_NONPROP,
+    NonpropagatingMissingType,
+    PropagatingMissingType,
+)
 from ._typing import TypeForm
 from .constructors import ConstructorRegistry
+from .constructors._primitive_spec import UnsupportedTypeAnnotationError
 
 OutT = TypeVar("OutT")
 
@@ -44,11 +48,14 @@ def cli(
     prog: None | str = None,
     description: None | str = None,
     args: None | Sequence[str] = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: Literal[False] = False,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
+    compact_help: bool = False,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
 ) -> OutT: ...
@@ -61,11 +68,14 @@ def cli(
     prog: None | str = None,
     description: None | str = None,
     args: None | Sequence[str] = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: Literal[True],
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
+    compact_help: bool = False,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
 ) -> tuple[OutT, list[str]]: ...
@@ -81,11 +91,12 @@ def cli(
     # Passing a default makes sense for things like dataclasses, but are not
     # supported for general callables. These can, however, be specified in the
     # signature of the callable itself.
-    default: None = None,
+    default: NonpropagatingMissingType | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: Literal[False] = False,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
+    compact_help: bool = False,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
 ) -> OutT: ...
@@ -101,11 +112,12 @@ def cli(
     # Passing a default makes sense for things like dataclasses, but are not
     # supported for general callables. These can, however, be specified in the
     # signature of the callable itself.
-    default: None = None,
+    default: NonpropagatingMissingType | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: Literal[True],
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
+    compact_help: bool = False,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
 ) -> tuple[OutT, list[str]]: ...
@@ -117,11 +129,14 @@ def cli(
     prog: None | str = None,
     description: None | str = None,
     args: None | Sequence[str] = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     return_unknown_args: bool = False,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
+    compact_help: bool = False,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
     **deprecated_kwargs,
@@ -176,9 +191,10 @@ def cli(
             the command line. This is useful for testing or programmatic usage. This mirrors
             the argument from :py:meth:`argparse.ArgumentParser.parse_args()`.
         default: An instance to use for default values. This is only supported if ``f`` is a
-            type like a dataclass or dictionary, not if ``f`` is a general callable like a
-            function. This is useful for merging CLI arguments with values loaded from
-            elsewhere, such as a config file.
+            type like a dataclass or dictionary, not if ``f`` is a general
+            callable like a function. This is useful for merging CLI arguments
+            with values loaded from elsewhere, such as a config file. The
+            default value is :data:`tyro.MISSING_NONPROP`.
         return_unknown_args: If True, returns a tuple of the output and a list of unknown
             arguments that weren't consumed by the parser. This mirrors the behavior of
             :py:meth:`argparse.ArgumentParser.parse_known_args()`.
@@ -192,6 +208,10 @@ def cli(
             workers but console output is only desired from the main process.
         add_help: Add a -h/--help option to the parser. This mirrors the argument from
             :py:class:`argparse.ArgumentParser()`.
+        compact_help: If True, use compact help format that omits full argument descriptions.
+            This mode shows only ``--flag TYPE (default: value)`` instead of including
+            the full docstring. When enabled, users can access full help with
+            ``--help-verbose``. Only applies to the TyroBackend; ignored for ArgparseBackend.
         config: A sequence of configuration marker objects from :mod:`tyro.conf`. This
             allows applying markers globally instead of annotating individual fields.
             For example: ``tyro.cli(Config, config=(tyro.conf.PositionalRequiredArgs,))``
@@ -209,22 +229,42 @@ def cli(
     # memory address conflicts.
     _unsafe_cache.clear_cache()
 
-    with _strings.delimeter_context("_" if use_underscores else "-"):
-        output = _cli_impl(
-            f,
-            prog=prog,
-            description=description,
-            args=args,
-            default=default,
-            return_parser=False,
-            return_unknown_args=return_unknown_args,
-            use_underscores=use_underscores,
-            console_outputs=console_outputs,
-            add_help=add_help,
-            config=config,
-            registry=registry,
-            **deprecated_kwargs,
+    try:
+        with _strings.delimeter_context("_" if use_underscores else "-"):
+            output = _cli_impl(
+                f,
+                prog=prog,
+                description=description,
+                args=args,
+                default=default,
+                return_parser=False,
+                return_unknown_args=return_unknown_args,
+                use_underscores=use_underscores,
+                console_outputs=console_outputs,
+                add_help=add_help,
+                compact_help=compact_help,
+                config=config,
+                registry=registry,
+                **deprecated_kwargs,
+            )
+    except UnsupportedTypeAnnotationError as e:
+        # Format and display the error nicely.
+        error_message = fmt.box["bright_red"](
+            fmt.text["bright_red", "bold"]("Invalid input to tyro.cli()"),
+            fmt.rows(
+                fmt.text("Could not create CLI parser from the provided type."),
+                fmt.hr["red"](),
+                *[fmt.cols((fmt.text["dim"]("• "), 2), msg) for msg in e.message],
+            ),
         )
+        print(
+            "\n".join(
+                error_message.render(width=min(shutil.get_terminal_size()[0], 80))
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
+        sys.exit(2)
 
     # Prevent unnecessary memory usage.
     _unsafe_cache.clear_cache()
@@ -232,19 +272,28 @@ def cli(
     if return_unknown_args:
         assert isinstance(output, tuple)
         run_with_args_from_cli = output[0]
-        return run_with_args_from_cli(), output[1]
+        out = run_with_args_from_cli()
+        while isinstance(out, _calling.DummyWrapper):
+            out = out.__tyro_dummy_inner__
+        return out, output[1]  # type: ignore
     else:
         run_with_args_from_cli = cast(Callable[[], OutT], output)
-        return run_with_args_from_cli()
+        out = run_with_args_from_cli()
+        while isinstance(out, _calling.DummyWrapper):
+            out = out.__tyro_dummy_inner__
+        return out
 
 
 @overload
+@deprecated("get_parser() is deprecated and will be removed in a future version.")
 def get_parser(
     f: TypeForm[OutT],
     *,
     prog: None | str = None,
     description: None | str = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
@@ -254,12 +303,15 @@ def get_parser(
 
 
 @overload
+@deprecated("get_parser() is deprecated and will be removed in a future version.")
 def get_parser(
     f: Callable[..., OutT],
     *,
     prog: None | str = None,
     description: None | str = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
@@ -268,6 +320,7 @@ def get_parser(
 ) -> argparse.ArgumentParser: ...
 
 
+@deprecated("get_parser() is deprecated and will be removed in a future version.")
 def get_parser(
     f: TypeForm[OutT] | Callable[..., OutT],
     *,
@@ -275,15 +328,26 @@ def get_parser(
     # parser.parse_args() is called.
     prog: None | str = None,
     description: None | str = None,
-    default: None | OutT = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
     use_underscores: bool = False,
     console_outputs: bool = True,
     add_help: bool = True,
     config: None | Sequence[conf._markers.Marker] = None,
     registry: None | ConstructorRegistry = None,
 ) -> argparse.ArgumentParser:
-    """Get the :py:class:`argparse.ArgumentParser` object generated under-the-hood by
-    :func:`tyro.cli`. Useful for tools like ``sphinx-argparse``, ``argcomplete``, etc.
+    """Get an :py:class:`argparse.ArgumentParser` object that approximates the CLI generated
+    by :func:`tyro.cli`. Useful for tools like ``sphinx-argparse``, ``argcomplete``, etc.
+
+    .. deprecated:: 1.0.0
+
+        This function is deprecated and will be removed in a future version.
+
+    .. note::
+
+        The returned parser uses argparse-style subparsers, which is less flexible than
+        tyro's subcommand parser.
 
     For tab completion, we recommend using :func:`tyro.cli`'s built-in
     ``--tyro-write-completion`` flag.
@@ -315,6 +379,7 @@ def get_parser(
                 use_underscores=use_underscores,
                 console_outputs=console_outputs,
                 add_help=add_help,
+                compact_help=False,  # get_parser() always uses verbose help.
                 config=config,
                 registry=registry,
             ),
@@ -327,11 +392,12 @@ def _cli_impl(
     prog: None | str = None,
     description: None | str,
     args: None | Sequence[str],
-    default: None | OutT,
+    default: OutT | NonpropagatingMissingType | PropagatingMissingType,
     return_parser: bool,
     return_unknown_args: bool,
     console_outputs: bool,
     add_help: bool,
+    compact_help: bool,
     config: None | Sequence[conf._markers.Marker],
     registry: None | ConstructorRegistry = None,
     **deprecated_kwargs,
@@ -361,37 +427,17 @@ def _cli_impl(
             stacklevel=2,
         )
 
+    # Resolve any aliases, apply custom constructors that are directly attached
+    # to the input type, etc.
+    f = _resolver.TypeParamResolver.resolve_params_and_aliases(f)
+
     # Internally, we distinguish between two concepts:
     # - "default", which is used for individual arguments.
     # - "default_instance", which is used for _fields_ (which may be broken down into
     #   one or many arguments, depending on various factors).
     #
     # This could be revisited.
-    default_instance_internal: _singleton.NonpropagatingMissingType | OutT = (
-        _singleton.MISSING_NONPROP if default is None else default
-    )
-
-    # We wrap our type with a dummy dataclass if it can't be treated as a nested type.
-    # For example: passing in f=int will result in a dataclass with a single field
-    # typed as int.
-    #
-    # Why don't we always use a dummy dataclass?
-    # => Docstrings for inner structs are currently lost when we nest struct types.
-    f = _resolver.TypeParamResolver.resolve_params_and_aliases(f)
-    if not _fields.is_struct_type(cast(type, f), default_instance_internal):
-        dummy_field = cast(
-            dataclasses.Field,
-            dataclasses.field(),
-        )
-        f = dataclasses.make_dataclass(
-            cls_name="dummy",
-            fields=[(_strings.dummy_field_name, cast(type, f), dummy_field)],
-            frozen=True,
-        )
-        default_instance_internal = f(default_instance_internal)  # type: ignore
-        dummy_wrapped = True
-    else:
-        dummy_wrapped = False
+    default_instance = default
 
     # Read and fix arguments. If the user passes in --field_name instead of
     # --field-name, correct for them.
@@ -400,26 +446,33 @@ def _cli_impl(
     # Fix arguments. This will modify all option-style arguments replacing
     # underscores with hyphens, or vice versa if use_underscores=True.
     # If two options are ambiguous, e.g., --a_b and --a-b, raise a runtime error.
-    modified_args: dict[str, str] = {}
-    for index, arg in enumerate(args):
-        if not arg.startswith("--"):
-            continue
+    #
+    # This is only done for the argparse backend; the tyro backend handles
+    # conversion internally.
+    modified_args: dict[str, str] | None = None
+    backend_name = _settings._experimental_options["backend"]
+    if backend_name == "argparse":
+        modified_args = {}
+        for index, arg in enumerate(args):
+            if not arg.startswith("--"):
+                continue
 
-        if "=" in arg:
-            arg, _, val = arg.partition("=")
-            fixed = "--" + _strings.swap_delimeters(arg[2:]) + "=" + val
-        else:
-            fixed = "--" + _strings.swap_delimeters(arg[2:])
-        if (
-            return_unknown_args
-            and fixed in modified_args
-            and modified_args[fixed] != arg
-        ):
-            raise RuntimeError(
-                "Ambiguous arguments: " + modified_args[fixed] + " and " + arg
-            )
-        modified_args[fixed] = arg
-        args[index] = fixed
+            if "=" in arg:
+                argname, _, val = arg.partition("=")
+                fixed = "--" + _strings.swap_delimeters(argname[2:]) + "=" + val
+                del argname, val
+            else:
+                fixed = "--" + _strings.swap_delimeters(arg[2:])
+            if (
+                return_unknown_args
+                and fixed in modified_args
+                and modified_args[fixed] != arg
+            ):
+                raise RuntimeError(
+                    "Ambiguous arguments: " + modified_args[fixed] + " and " + arg
+                )
+            modified_args[fixed] = arg
+            args[index] = fixed
 
     # If we pass in the --tyro-print-completion or --tyro-write-completion flags: turn
     # formatting tags, and get the shell we want to generate a completion script for
@@ -448,108 +501,107 @@ def _cli_impl(
         completion_shell = args[1]
     if write_completion:
         completion_target_path = pathlib.Path(args[2])
-    if print_completion or write_completion or return_parser:
-        _arguments.USE_RICH = False
-    else:
-        _arguments.USE_RICH = True
 
     # Map a callable to the relevant CLI arguments + subparsers.
-    if registry is not None:
-        with registry:
+    with _settings.timing_context("Generate parser specification"):
+        if registry is not None:
+            with registry:
+                parser_spec = _parsers.ParserSpecification.from_callable_or_type(
+                    f,
+                    markers=set(),
+                    description=description,
+                    parent_classes=set(),  # Used for recursive calls.
+                    default_instance=default_instance,  # Overrides for default values.
+                    intern_prefix="",  # Used for recursive calls.
+                    extern_prefix="",  # Used for recursive calls.
+                    subcommand_prefix="",
+                    support_single_arg_types=False,
+                    prog_suffix="",
+                )
+        else:
             parser_spec = _parsers.ParserSpecification.from_callable_or_type(
                 f,
                 markers=set(),
                 description=description,
                 parent_classes=set(),  # Used for recursive calls.
-                default_instance=default_instance_internal,  # Overrides for default values.
+                default_instance=default_instance,  # Overrides for default values.
                 intern_prefix="",  # Used for recursive calls.
                 extern_prefix="",  # Used for recursive calls.
-                add_help=add_help,
+                subcommand_prefix="",
+                support_single_arg_types=False,
+                prog_suffix="",
             )
+
+    # Initialize backend.
+    if backend_name == "argparse":
+        from ._backends._argparse_backend import ArgparseBackend
+
+        backend = ArgparseBackend()
+    elif backend_name == "tyro":
+        from ._backends._tyro_backend import TyroBackend
+
+        backend = TyroBackend()
     else:
-        parser_spec = _parsers.ParserSpecification.from_callable_or_type(
-            f,
-            markers=set(),
-            description=description,
-            parent_classes=set(),  # Used for recursive calls.
-            default_instance=default_instance_internal,  # Overrides for default values.
-            intern_prefix="",  # Used for recursive calls.
-            extern_prefix="",  # Used for recursive calls.
-            add_help=add_help,
-        )
+        assert_never(backend_name)
 
-    # Generate parser!
-    with _argparse_formatter.ansi_context():
-        parser = _argparse_formatter.TyroArgumentParser(
+    # Handle shell completion.
+    if print_completion or write_completion:
+        assert completion_shell in (
+            "bash",
+            "zsh",
+            "tcsh",
+        ), f"Shell should be one `bash`, `zsh`, or `tcsh`, but got {completion_shell}"
+
+        # Determine program name for completion script.
+        if prog is None:
+            prog = sys.argv[0]
+
+        # Sanitize prog for use in function/variable names by replacing
+        # non-alphanumeric characters with underscores.
+        safe_prog = "".join(c if c.isalnum() or c == "_" else "_" for c in prog)
+
+        # Generate completion script using the backend's method.
+        completion_script = backend.generate_completion(
+            parser_spec,
             prog=prog,
-            formatter_class=_argparse_formatter.TyroArgparseHelpFormatter,
-            allow_abbrev=False,
-            add_help=add_help,
+            shell=completion_shell,  # type: ignore
+            root_prefix=f"tyro_{safe_prog}",
         )
-        parser._parser_specification = parser_spec
-        parser._parsing_known_args = return_unknown_args
-        parser._console_outputs = console_outputs
-        parser._args = args
-        parser_spec.apply(parser, force_required_subparsers=False)
 
-        # Print help message when no arguments are passed in. (but arguments are
-        # expected)
-        # if len(args) == 0 and parser_spec.has_required_args:
-        #     args = ["--help"]
-
-        if return_parser:
-            _arguments.USE_RICH = True
-            return parser
-
-        if print_completion or write_completion:
-            _arguments.USE_RICH = True
-            assert completion_shell in (
-                "bash",
-                "zsh",
-                "tcsh",
-            ), (
-                "Shell should be one `bash`, `zsh`, or `tcsh`, but got"
-                f" {completion_shell}"
-            )
-
-            if write_completion and completion_target_path != pathlib.Path("-"):
-                assert completion_target_path is not None
-                completion_target_path.write_text(
-                    shtab.complete(
-                        parser=parser,
-                        shell=completion_shell,
-                        root_prefix=f"tyro_{parser.prog}",
-                    )
-                )
-            else:
-                print(
-                    shtab.complete(
-                        parser=parser,
-                        shell=completion_shell,
-                        root_prefix=f"tyro_{parser.prog}",
-                    )
-                )
-            sys.exit()
-
-        if return_unknown_args:
-            namespace, unknown_args = parser.parse_known_args(args=args)
+        if write_completion and completion_target_path != pathlib.Path("-"):
+            assert completion_target_path is not None
+            completion_target_path.write_text(completion_script)
         else:
-            unknown_args = None
-            namespace = parser.parse_args(args=args)
-        value_from_prefixed_field_name = vars(namespace)
+            print(completion_script)
+        sys.exit()
 
-    if dummy_wrapped:
-        value_from_prefixed_field_name = {
-            k.replace(_strings.dummy_field_name, ""): v
-            for k, v in value_from_prefixed_field_name.items()
-        }
+    # For backwards compatibility with get_parser().
+    if return_parser:
+        return backend.get_parser_for_completion(
+            parser_spec, prog=prog, add_help=add_help
+        )
+
+    # Parse arguments using the backend.
+    if prog is None:
+        prog = sys.argv[0]
+
+    with _settings.timing_context("Parsing arguments"):
+        value_from_prefixed_field_name, unknown_args = backend.parse_args(
+            parser_spec=parser_spec,
+            args=args,
+            prog=prog,
+            return_unknown_args=return_unknown_args,
+            console_outputs=console_outputs,
+            add_help=add_help,
+            compact_help=compact_help,
+        )
 
     try:
         # Attempt to call `f` using whatever was passed in.
         get_out, consumed_keywords = _calling.callable_with_args(
             f,
             parser_spec,
-            default_instance_internal,
+            default_instance,
             value_from_prefixed_field_name,
             field_name_prefix="",
         )
@@ -561,70 +613,71 @@ def _cli_impl(
         # condition in `callable_with_args()`!
 
         # Emulate argparse's error behavior when invalid arguments are passed in.
-        from rich.console import Console, Group
-        from rich.padding import Padding
-        from rich.panel import Panel
-        from rich.rule import Rule
-        from rich.style import Style
-
-        from ._argparse_formatter import THEME
-
-        if console_outputs:
-            console = Console(theme=THEME.as_rich_theme(), stderr=True)
-            console.print(
-                Panel(
-                    Group(
-                        "[bright_red][bold]Error parsing"
-                        f" {'/'.join(e.arg.lowered.name_or_flags) if isinstance(e.arg, _arguments.ArgumentDefinition) else e.arg}[/bold]:[/bright_red] {e.message}",
-                        *cast(  # Cast to appease mypy...
-                            list,
-                            (
-                                []
-                                if not isinstance(e.arg, _arguments.ArgumentDefinition)
-                                or e.arg.lowered.help is None
-                                else [
-                                    Rule(style=Style(color="red")),
-                                    "Argument helptext:",
-                                    Padding(
-                                        Group(
-                                            f"{'/'.join(e.arg.lowered.name_or_flags)} [bold]{e.arg.lowered.metavar}[/bold]",
-                                            e.arg.lowered.help,
-                                        ),
-                                        pad=(0, 0, 0, 4),
-                                    ),
-                                    *(
-                                        [
-                                            Rule(style=Style(color="red")),
-                                            f"For full helptext, see [bold]{parser.prog} --help[/bold]",
-                                        ]
-                                        if parser.add_help
-                                        else []
-                                    ),
-                                ]
-                            ),
+        error_box_rows: list[str | fmt.Element] = []
+        if isinstance(e.arg, _arguments.ArgumentDefinition):
+            display_name = (
+                str(e.arg.lowered.metavar)
+                if e.arg.is_positional()
+                else "/".join(e.arg.lowered.name_or_flags)
+            )
+            error_box_rows.extend(
+                [
+                    fmt.text(
+                        fmt.text["bright_red", "bold"](
+                            f"Error parsing {display_name}:"
+                        ),
+                        " ",
+                        e.message,
+                    ),
+                    fmt.hr["red"](),
+                    "Argument helptext:",
+                    fmt.cols(
+                        ("", 4),
+                        fmt.rows(
+                            e.arg.get_invocation_text()[1],
+                            _arguments.generate_argument_helptext(e.arg, e.arg.lowered),
                         ),
                     ),
-                    title="[bold]Value error[/bold]",
-                    title_align="left",
-                    border_style=Style(color="red"),
-                )
+                ]
             )
+        else:
+            error_box_rows.append(
+                fmt.text(
+                    fmt.text["bright_red", "bold"](
+                        f"Error parsing {e.arg}:",
+                    ),
+                    " ",
+                    e.message,
+                ),
+            )
+
+        if add_help:
+            error_box_rows.extend(
+                [
+                    fmt.hr["red"](),
+                    fmt.text(
+                        "For full helptext, see ",
+                        fmt.text["bold"](f"{prog} --help"),
+                    ),
+                ]
+            )
+        print(
+            fmt.box["red"](fmt.text["red"]("Value error"), fmt.rows(*error_box_rows)),
+            file=sys.stderr,
+            flush=True,
+        )
         sys.exit(2)
 
     assert len(value_from_prefixed_field_name.keys() - consumed_keywords) == 0, (
         f"Parsed {value_from_prefixed_field_name.keys()}, but only consumed"
         f" {consumed_keywords}"
     )
-
-    if dummy_wrapped:
-        get_wrapped_out = get_out
-        get_out = lambda: getattr(get_wrapped_out(), _strings.dummy_field_name)  # noqa
-
     if return_unknown_args:
         assert unknown_args is not None, "Should have parsed with `parse_known_args()`"
         # If we're parsed unknown args, we should return the original args, not
         # the fixed ones.
-        unknown_args = [modified_args.get(arg, arg) for arg in unknown_args]
+        if modified_args is not None:
+            unknown_args = [modified_args.get(arg, arg) for arg in unknown_args]
         return get_out, unknown_args  # type: ignore
     else:
         assert unknown_args is None, "Should have parsed with `parse_args()`"

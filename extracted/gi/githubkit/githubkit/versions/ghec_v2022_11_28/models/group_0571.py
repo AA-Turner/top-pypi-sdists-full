@@ -14,17 +14,16 @@ from pydantic import Field
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class WebhookCheckRunRequestedActionFormEncoded(GitHubModel):
-    """Check Run Requested Action Event
+class WebhooksRepositoriesItems(GitHubModel):
+    """WebhooksRepositoriesItems"""
 
-    The check_run.requested_action webhook encoded with URL encoding
-    """
+    full_name: str = Field()
+    id: int = Field(description="Unique identifier of the repository")
+    name: str = Field(description="The name of the repository.")
+    node_id: str = Field()
+    private: bool = Field(description="Whether the repository is private or public.")
 
-    payload: str = Field(
-        description="A URL-encoded string of the check_run.requested_action JSON payload. The decoded payload is a JSON object."
-    )
 
+model_rebuild(WebhooksRepositoriesItems)
 
-model_rebuild(WebhookCheckRunRequestedActionFormEncoded)
-
-__all__ = ("WebhookCheckRunRequestedActionFormEncoded",)
+__all__ = ("WebhooksRepositoriesItems",)

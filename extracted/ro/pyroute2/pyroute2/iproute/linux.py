@@ -363,7 +363,7 @@ class RTNL_API:
         The issue with RTNL calls is that they are not synchronous:
         even if the kernel returns success for a call, the changes
         may become visible after some short time. Because of that
-        adding dependant object immediately one after another may fail.
+        adding dependent object immediately one after another may fail.
         Say, adding a route directly after the required interface
         address.
 
@@ -1048,7 +1048,7 @@ class RTNL_API:
 
     async def link_lookup(self, match=None, **kwarg):
         '''
-        Lookup interface index (indeces) by first level NLA
+        Lookup interface index (indices) by first level NLA
         value.
 
         Example::
@@ -1299,7 +1299,7 @@ class RTNL_API:
             * kernel:Documentation/networking/switchdev.txt
             * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
 
-        Setting PVID or specifying a range will specify the approprate flags.
+        Setting PVID or specifying a range will specify the appropriate flags.
 
         One can specify `flags` as int or as a list of flag names:
             * `master` == 0x1
@@ -1678,7 +1678,7 @@ class RTNL_API:
                     macvlan_mode="private").commit()
 
         Several macvlan modes are available: "private", "vepa", "bridge",
-        "passthru". Ususally the default is "vepa".
+        "passthru". Usually the default is "vepa".
 
         ► macvtap
 
@@ -1820,7 +1820,7 @@ class RTNL_API:
             # bring link up
             ip.link("set", index=x, state="up")
 
-        Seting bridge or tunnel attributes require `kind` to be
+        Setting bridge or tunnel attributes require `kind` to be
         specified in order to properly encode `IFLA_LINKINFO`::
 
             ip.link("set",
@@ -2189,7 +2189,7 @@ class RTNL_API:
             ipr.route(
                 "add",
                 dst="10.0.0.0/24",
-                oif=ip.link_lookup(ifname="eth0"),
+                oif=ipr.link_lookup(ifname="eth0"),
                 encap={
                     "type": "mpls",
                     "labels": "200/300",
@@ -2707,7 +2707,9 @@ class IPRoute(NetlinkSocket):
             use_event_loop=use_event_loop,
             telemetry=telemetry,
         )
-        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.status['event_loop'] = (
+            'new' if use_event_loop is None else 'auto'
+        )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-json-ctrf
-Version: 0.3.5
+Version: 0.3.6
 Summary: Pytest plugin to generate json report in CTRF (Common Test Report Format)
 Author: Oleksii Ostapov
 Project-URL: Infopulse, https://infopulse.com/

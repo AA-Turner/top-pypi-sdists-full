@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 from typing import Optional, Generator, Literal
@@ -55,6 +56,7 @@ class ZephyrEssentialApiWrapper(NonCodeIndexerToolkit):
     def create_test_case_issue_link(self, test_case_key: str, json: str):
         """Create an issue link for a test case."""
         issue_link_data = self._parse_json(json)
+        self._validate_issue_link_data(issue_link_data, "test case")
         return self._client.create_test_case_issue_link(test_case_key, issue_link_data)
 
     def create_test_case_web_link(self, test_case_key: str, json: str):
@@ -119,6 +121,7 @@ class ZephyrEssentialApiWrapper(NonCodeIndexerToolkit):
     def create_test_cycle_issue_link(self, test_cycle_id_or_key: str, json: str):
         """Create an issue link for a test cycle."""
         issue_link_data = self._parse_json(json)
+        self._validate_issue_link_data(issue_link_data, "test cycle")
         return self._client.create_test_cycle_issue_link(test_cycle_id_or_key, issue_link_data)
 
     def create_test_cycle_web_link(self, test_cycle_id_or_key: str, json: str):
@@ -164,6 +167,7 @@ class ZephyrEssentialApiWrapper(NonCodeIndexerToolkit):
     def create_test_execution_issue_link(self, test_execution_id_or_key: str, json: str):
         """Create an issue link for a test execution."""
         issue_link_data = self._parse_json(json)
+        self._validate_issue_link_data(issue_link_data, "test execution")
         return self._client.create_test_execution_issue_link(test_execution_id_or_key, issue_link_data)
 
     def list_projects(self, max_results: int = None, start_at: int = None):
@@ -266,6 +270,21 @@ class ZephyrEssentialApiWrapper(NonCodeIndexerToolkit):
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON string: {str(e)}")
 
+    def _validate_issue_link_data(self, issue_link_data: dict, entity_type: str):
+        """Validate issue link payload has issueId, not issueKey."""
+        if 'issueId' not in issue_link_data:
+            if 'issueKey' in issue_link_data:
+                raise ToolException(
+                    f"Zephyr Essential API requires 'issueId' (numeric Jira issue ID), "
+                    f"not 'issueKey'. You provided issueKey='{issue_link_data['issueKey']}'. "
+                    f"To find the issueId, Jira toolkit can be used or raw Jira API: GET /rest/api/2/issue/{issue_link_data['issueKey']} "
+                    f"and look for the 'id' field in the response."
+                )
+            raise ToolException(
+                f"Missing required field 'issueId' in JSON payload for {entity_type} issue link. "
+                f"Example: {{\"issueId\": 10100}}"
+            )
+
     def _index_tool_params(self):
         return {
             'chunking_tool':(Literal['json', ''], Field(description="Name of chunking tool", default='json'))
@@ -284,22 +303,20 @@ class ZephyrEssentialApiWrapper(NonCodeIndexerToolkit):
                 if isinstance(v, (str, int, float, bool, list, dict))
             }
             metadata['type'] = "TEST_CASE"
-
-            yield Document(page_content="", metadata=metadata)
-
-    def _extend_data(self, documents: Generator[Document, None, None]) -> Generator[Document, None, None]:
-        for document in documents:
+            #
             try:
-                if 'type' in document.metadata and document.metadata['type'] == "TEST_CASE":
-                    additional_content = self._process_test_case(document.metadata['key'])
-                    for steps_type, content in additional_content.items():
-                        if content:
-                            page_content = json.dumps(content)
-                            document.metadata[IndexerKeywords.CONTENT_IN_BYTES.value] = page_content.encode('utf-8')
-                            document.metadata["steps_type"] = steps_type
+                additional_content = self._process_test_case(metadata['key'])
+                for steps_type, content in additional_content.items():
+                    if content:
+                        page_content = json.dumps(content)
+                        content_hash = hashlib.sha256(page_content.encode('utf-8')).hexdigest()
+                        metadata[IndexerKeywords.UPDATED_ON.value] = content_hash
+                        metadata[IndexerKeywords.CONTENT_IN_BYTES.value] = page_content.encode('utf-8')
+                        metadata["steps_type"] = steps_type
             except Exception as e:
                 logging.error(f"Failed to process document: {e}")
-            yield document
+            #
+            yield Document(page_content="", metadata=metadata)
 
     def _process_test_case(self, key) -> dict:
         steps = self.get_test_case_test_steps(key)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-vies
-Version: 6.2.0
+Version: 6.2.2
 Summary: Validate and store VAT Information Exchange System (VIES) data in Django.
 Author-email: Johannes Hoppe <info@johanneshoppe.com>
 Requires-Python: >=3.10
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.1
@@ -27,7 +28,7 @@ License-File: LICENSE
 Requires-Dist: Django>=4.2
 Requires-Dist: retrying>=1.1.0
 Requires-Dist: zeep>=2.5.0
-Requires-Dist: ruff==0.11.7 ; extra == "lint"
+Requires-Dist: ruff==0.14.6 ; extra == "lint"
 Requires-Dist: msgcheck==4.1.0 ; extra == "lint"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"

@@ -3,10 +3,11 @@ import io
 import logging
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Optional
 
-from kagglehub.clients import KaggleApiV1Client
-from kagglehub.config import set_kaggle_credentials
+from kagglesdk.models.types.model_api_service import ApiGetModelRequest
+
+from kagglehub.clients import build_kaggle_client
+from kagglehub.config import get_kaggle_credentials, set_kaggle_api_token
 from kagglehub.exceptions import UnauthenticatedError
 
 _logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
 src=https://www.kaggle.com/static/images/site-logo.png
 alt='Kaggle'> <br> Create an API token from <a
 href="https://www.kaggle.com/settings/account" target="_blank">your Kaggle
-settings page</a> and paste it below along with your Kaggle username. <br> </center>"""
+settings page</a> and paste it below. <br> </center>"""
 
 NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 <b>Thank You</b></center>"""
@@ -73,14 +74,12 @@ def _notebook_login(validate_credentials: bool) -> None:  # noqa: FBT001
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
 
-    username_widget = widgets.Text(description="Username:")
-    token_widget = widgets.Password(description="Token:")
+    token_widget = widgets.Password(description="API Token:")
     login_button = widgets.Button(description="Login")
 
     login_token_widget = widgets.VBox(
         [
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            username_widget,
             token_widget,
             login_button,
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
@@ -90,7 +89,6 @@ def _notebook_login(validate_credentials: bool) -> None:  # noqa: FBT001
     display(login_token_widget)
 
     def on_click_login_button(_: str) -> None:
-        username = username_widget.value
         token = token_widget.value
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
@@ -100,7 +98,7 @@ def _notebook_login(validate_credentials: bool) -> None:  # noqa: FBT001
         try:
             with _capture_logger_output() as captured:
                 # Set Kaggle credentials
-                set_kaggle_credentials(username=username, api_key=token)
+                set_kaggle_api_token(token)
 
                 # Validate credentials if necessary
                 if validate_credentials is True:
@@ -114,34 +112,37 @@ def _notebook_login(validate_credentials: bool) -> None:  # noqa: FBT001
     login_button.on_click(on_click_login_button)
 
 
-def _validate_credentials_helper(*, verbose: bool = True) -> Optional[str]:
-    api_client = KaggleApiV1Client()
-    response = api_client.get("/hello")
-    if "userName" in response:
-        if verbose:
-            _logger.info("Kaggle credentials successfully validated.")
-        return response["userName"]
-    elif "code" in response and response["code"] == INVALID_CREDENTIALS_ERROR:
-        if verbose:
-            _logger.error(
-                "Invalid Kaggle credentials. You can check your credentials on the [Kaggle settings page](https://www.kaggle.com/settings/account)."
-            )
-    elif verbose:
-        _logger.warning("Unable to validate Kaggle credentials at this time.")
-    return None
+def _validate_credentials_helper(*, verbose: bool = True) -> str | None:
+    with build_kaggle_client() as api_client:
+        # HACK(b/307576378): Remove once kagglesdk generates binding for the DiagnosticsService.
+        http_client = api_client.http_client()
+        http_client._init_session()
+        request = http_client._prepare_request("api.v1.DiagnosticsService", "Hello", ApiGetModelRequest())
+        response = http_client._session.send(request).json()
+        if "userName" in response:
+            if verbose:
+                _logger.info("Kaggle credentials successfully validated.")
+            return response["userName"]
+        elif "code" in response and response["code"] == INVALID_CREDENTIALS_ERROR:
+            if verbose:
+                _logger.error(
+                    "Invalid Kaggle credentials. You can obtain a Kaggle API token on your [Kaggle settings page](https://www.kaggle.com/settings/account)."
+                )
+        elif verbose:
+            _logger.warning("Unable to validate Kaggle credentials at this time.")
+        return None
 
 
 def login(validate_credentials: bool = True) -> None:  # noqa: FBT002, FBT001
-    """Prompt the user for their Kaggle username and API key and save them globally."""
+    """Prompt the user for their Kaggle API token and save it globally."""
 
     if _is_in_notebook():
         _notebook_login(validate_credentials)
         return
     else:
-        username = input("Enter your Kaggle username: ")
-        api_key = getpass.getpass("Enter your Kaggle API key (input will not be visible): ")
+        token = getpass.getpass("Enter your Kaggle API token (input will not be visible): ")
 
-    set_kaggle_credentials(username=username, api_key=api_key)
+    set_kaggle_api_token(token)
 
     if not validate_credentials:
         return
@@ -153,8 +154,7 @@ def whoami(*, verbose: bool = True) -> dict:
     """
     Return a dictionary with the username of the authenticated Kaggle user or raise an error if unauthenticated.
     """
-    api_client = KaggleApiV1Client()
-    if not api_client.has_credentials():
+    if not get_kaggle_credentials():
         raise UnauthenticatedError()
     try:
         username = _validate_credentials_helper(verbose=verbose)
@@ -165,7 +165,7 @@ def whoami(*, verbose: bool = True) -> dict:
         raise UnauthenticatedError() from e
 
 
-def get_username() -> Optional[str]:
+def get_username() -> str | None:
     """Returns the username of the authenticated logged-in user if configured, otherwise None."""
     try:
         return whoami(verbose=False)["username"]

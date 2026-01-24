@@ -1,32 +1,29 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: taskiq-fastapi
-Version: 0.3.5
+Version: 0.4.0
 Summary: FastAPI integration for taskiq
-License: LICENSE
+Author-email: Taskiq team <taskiq@no-reply.com>
+Maintainer-email: Taskiq team <taskiq@no-reply.com>
+License-Expression: MIT
 Keywords: taskiq,tasks,distributed,async,fastapi
-Author: Taskiq team
-Author-email: taskiq@no-reply.com
-Maintainer: Taskiq team
-Maintainer-email: taskiq@no-reply.com
-Requires-Python: >=3.8.1,<4.0.0
-Classifier: Development Status :: 3 - Alpha
-Classifier: Intended Audience :: Developers
-Classifier: License :: Other/Proprietary License
-Classifier: Operating System :: OS Independent
+Classifier: Typing :: Typed
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
 Classifier: Topic :: System :: Networking
-Classifier: Typing :: Typed
-Requires-Dist: fastapi (>=0.93.0)
-Requires-Dist: taskiq (>=0.8.0,<1)
+Classifier: Development Status :: 3 - Alpha
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: taskiq>=0.8.0
+Requires-Dist: fastapi>=0.93.0
+Dynamic: license-file
 
 # Taskiq + FastAPI
 
@@ -166,4 +163,3 @@ app = FastAPI()
 taskiq_fastapi.init(broker, "test_script:app")
 taskiq_fastapi.populate_dependency_context(broker, app)
 ```
-

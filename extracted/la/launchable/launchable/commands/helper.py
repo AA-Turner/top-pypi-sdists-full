@@ -33,7 +33,7 @@ def require_session(
         click.style(
             "No saved test session found.\n"
             "If you already created a test session on a different machine, use the --session option. "
-            "See https://docs.launchableinc.com/sending-data-to-launchable/managing-complex-test-session-layouts",
+            "See https://help.launchableinc.com/sending-data-to-launchable/managing-complex-test-session-layouts",
             fg="yellow"))
 
 
@@ -48,7 +48,7 @@ def require_build() -> str:
                 "No saved build name found.\n"
                 "To fix this, run `launchable record build`.\n"
                 "If you already ran this command on a different machine, use the --session option. "
-                "See https://www.launchableinc.com/docs/sending-data-to-launchable/using-the-launchable-cli/"
+                "See https://help.launchableinc.com/sending-data-to-launchable/using-the-launchable-cli/"
                 "recording-test-results-with-the-launchable-cli/managing-complex-test-session-layouts/",
                 fg="yellow"))
     return b
@@ -117,7 +117,7 @@ def find_or_create_session(
                 "The build name you provided ({}) is different from the last build name recorded on this machine ({}).\n"
                 "Make sure to run `launchable record build --name {}` before you run this command.\n"
                 "If you already recorded this build on a different machine, use the --session option instead of --build. "
-                "See https://www.launchableinc.com/docs/sending-data-to-launchable/using-the-launchable-cli/"
+                "See https://help.launchableinc.com/sending-data-to-launchable/using-the-launchable-cli/"
                 "recording-test-results-with-the-launchable-cli/managing-complex-test-session-layouts/".format(
                     build_name, saved_build_name, build_name), fg="yellow", ))
 

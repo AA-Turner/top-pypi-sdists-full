@@ -61,6 +61,7 @@ class Chargebee:
         self.DifferentialPrice = chargebee.DifferentialPrice(self.env)
         self.Discount = chargebee.Discount(self.env)
         self.Download = chargebee.Download(self.env)
+        self.Einvoice = chargebee.Einvoice(self.env)
         self.Entitlement = chargebee.Entitlement(self.env)
         self.EntitlementOverride = chargebee.EntitlementOverride(self.env)
         self.Estimate = chargebee.Estimate(self.env)
@@ -83,6 +84,8 @@ class Chargebee:
         self.ItemFamily = chargebee.ItemFamily(self.env)
         self.ItemPrice = chargebee.ItemPrice(self.env)
         self.Metadata = chargebee.Metadata(self.env)
+        self.OfferEvent = chargebee.OfferEvent(self.env)
+        self.OfferFulfillment = chargebee.OfferFulfillment(self.env)
         self.OmnichannelOneTimeOrder = chargebee.OmnichannelOneTimeOrder(self.env)
         self.OmnichannelOneTimeOrderItem = chargebee.OmnichannelOneTimeOrderItem(
             self.env
@@ -90,6 +93,9 @@ class Chargebee:
         self.OmnichannelSubscription = chargebee.OmnichannelSubscription(self.env)
         self.OmnichannelSubscriptionItem = chargebee.OmnichannelSubscriptionItem(
             self.env
+        )
+        self.OmnichannelSubscriptionItemOffer = (
+            chargebee.OmnichannelSubscriptionItemOffer(self.env)
         )
         self.OmnichannelSubscriptionItemScheduledChange = (
             chargebee.OmnichannelSubscriptionItemScheduledChange(self.env)
@@ -103,6 +109,7 @@ class Chargebee:
         self.PaymentScheduleScheme = chargebee.PaymentScheduleScheme(self.env)
         self.PaymentSource = chargebee.PaymentSource(self.env)
         self.PaymentVoucher = chargebee.PaymentVoucher(self.env)
+        self.PersonalizedOffer = chargebee.PersonalizedOffer(self.env)
         self.Plan = chargebee.Plan(self.env)
         self.PortalSession = chargebee.PortalSession(self.env)
         self.PriceVariant = chargebee.PriceVariant(self.env)
@@ -112,6 +119,7 @@ class Chargebee:
         self.Quote = chargebee.Quote(self.env)
         self.QuoteLineGroup = chargebee.QuoteLineGroup(self.env)
         self.QuotedCharge = chargebee.QuotedCharge(self.env)
+        self.QuotedDeltaRamp = chargebee.QuotedDeltaRamp(self.env)
         self.QuotedRamp = chargebee.QuotedRamp(self.env)
         self.QuotedSubscription = chargebee.QuotedSubscription(self.env)
         self.Ramp = chargebee.Ramp(self.env)

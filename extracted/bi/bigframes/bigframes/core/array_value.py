@@ -18,18 +18,21 @@ import datetime
 import functools
 import typing
 from typing import Iterable, List, Mapping, Optional, Sequence, Tuple
-import warnings
 
 import google.cloud.bigquery
 import pandas
 import pyarrow as pa
 
-from bigframes.core import agg_expressions
+from bigframes.core import (
+    agg_expressions,
+    bq_data,
+    expression_factoring,
+    join_def,
+    local_data,
+)
 import bigframes.core.expression as ex
 import bigframes.core.guid
 import bigframes.core.identifiers as ids
-import bigframes.core.join_def as join_def
-import bigframes.core.local_data as local_data
 import bigframes.core.nodes as nodes
 from bigframes.core.ordering import OrderingExpression
 import bigframes.core.ordering as orderings
@@ -37,7 +40,6 @@ import bigframes.core.schema as schemata
 import bigframes.core.tree_properties
 from bigframes.core.window_spec import WindowSpec
 import bigframes.dtypes
-import bigframes.exceptions as bfe
 import bigframes.operations as ops
 import bigframes.operations.aggregations as agg_ops
 
@@ -65,7 +67,7 @@ class ArrayValue:
     def from_managed(cls, source: local_data.ManagedArrowTable, session: Session):
         scan_list = nodes.ScanList(
             tuple(
-                nodes.ScanItem(ids.ColumnId(item.column), item.dtype, item.column)
+                nodes.ScanItem(ids.ColumnId(item.column), item.column)
                 for item in source.schema.items
             )
         )
@@ -90,9 +92,9 @@ class ArrayValue:
     def from_table(
         cls,
         table: google.cloud.bigquery.Table,
-        schema: schemata.ArraySchema,
         session: Session,
         *,
+        columns: Optional[Sequence[str]] = None,
         predicate: Optional[str] = None,
         at_time: Optional[datetime.datetime] = None,
         primary_key: Sequence[str] = (),
@@ -101,14 +103,8 @@ class ArrayValue:
     ):
         if offsets_col and primary_key:
             raise ValueError("must set at most one of 'offests', 'primary_key'")
-        if any(i.field_type == "JSON" for i in table.schema if i.name in schema.names):
-            msg = bfe.format_message(
-                "JSON column interpretation as a custom PyArrow extention in `db_dtypes` "
-                "is a preview feature and subject to change."
-            )
-            warnings.warn(msg, bfe.PreviewWarning)
         # define data source only for needed columns, this makes row-hashing cheaper
-        table_def = nodes.GbqTable.from_table(table, columns=schema.names)
+        table_def = bq_data.GbqTable.from_table(table, columns=columns or ())
 
         # create ordering from info
         ordering = None
@@ -119,15 +115,17 @@ class ArrayValue:
                 [ids.ColumnId(key_part) for key_part in primary_key]
             )
 
+        bf_schema = schemata.ArraySchema.from_bq_table(table, columns=columns)
         # Scan all columns by default, we define this list as it can be pruned while preserving source_def
         scan_list = nodes.ScanList(
             tuple(
-                nodes.ScanItem(ids.ColumnId(item.column), item.dtype, item.column)
-                for item in schema.items
+                nodes.ScanItem(ids.ColumnId(item.column), item.column)
+                for item in bf_schema.items
             )
         )
-        source_def = nodes.BigqueryDataSource(
+        source_def = bq_data.BigqueryDataSource(
             table=table_def,
+            schema=bf_schema,
             at_time=at_time,
             sql_predicate=predicate,
             ordering=ordering,
@@ -138,7 +136,7 @@ class ArrayValue:
     @classmethod
     def from_bq_data_source(
         cls,
-        source: nodes.BigqueryDataSource,
+        source: bq_data.BigqueryDataSource,
         scan_list: nodes.ScanList,
         session: Session,
     ):
@@ -224,11 +222,6 @@ class ArrayValue:
     def slice(
         self, start: Optional[int], stop: Optional[int], step: Optional[int]
     ) -> ArrayValue:
-        if self.node.order_ambiguous and not (self.session._strictly_ordered):
-            msg = bfe.format_message(
-                "Window ordering may be ambiguous, this can cause unstable results."
-            )
-            warnings.warn(msg, bfe.AmbiguousWindowWarning)
         return ArrayValue(
             nodes.SliceNode(
                 self.node,
@@ -243,17 +236,6 @@ class ArrayValue:
         Convenience function to promote copy of column offsets to a value column. Can be used to reset index.
         """
         col_id = self._gen_namespaced_uid()
-        if self.node.order_ambiguous and not (self.session._strictly_ordered):
-            if not self.session._allows_ambiguity:
-                raise ValueError(
-                    "Generating offsets not supported in partial ordering mode"
-                )
-            else:
-                msg = bfe.format_message(
-                    "Window ordering may be ambiguous, this can cause unstable results."
-                )
-                warnings.warn(msg, category=bfe.AmbiguousWindowWarning)
-
         return (
             ArrayValue(
                 nodes.PromoteOffsetsNode(child=self.node, col_id=ids.ColumnId(col_id))
@@ -282,6 +264,97 @@ class ArrayValue:
             ArrayValue(nodes.ProjectionNode(child=self.node, assignments=ex_id_pairs)),
             col_ids,
         )
+
+    def compute_general_expression(self, assignments: Sequence[ex.Expression]):
+        """
+        Applies arbitrary column expressions to the current execution block.
+
+        This method transforms the logical plan by applying a sequence of expressions that
+        preserve the length of the input columns. It supports both scalar operations
+        and window functions. Each expression is assigned a unique internal column identifier.
+
+        Args:
+            assignments (Sequence[ex.Expression]): A sequence of expression objects
+                representing the transformations to apply to the columns.
+
+        Returns:
+            Tuple[ArrayValue, Tuple[str, ...]]: A tuple containing:
+                - An `ArrayValue` wrapping the new root node of the updated logical plan.
+                - A tuple of strings representing the unique column IDs generated for
+                  each expression in the assignments.
+        """
+        named_exprs = [
+            nodes.ColumnDef(expr, ids.ColumnId.unique()) for expr in assignments
+        ]
+        # TODO: Push this to rewrite later to go from block expression to planning form
+        new_root = expression_factoring.apply_col_exprs_to_plan(self.node, named_exprs)
+
+        target_ids = tuple(named_expr.id for named_expr in named_exprs)
+        return (ArrayValue(new_root), target_ids)
+
+    def compute_general_reduction(
+        self,
+        assignments: Sequence[ex.Expression],
+        by_column_ids: typing.Sequence[str] = (),
+        *,
+        dropna: bool = False,
+    ):
+        """
+        Applies arbitrary aggregation expressions to the block, optionally grouped by keys.
+
+        This method handles reduction operations (e.g., sum, mean, count) that collapse
+        multiple input rows into a single scalar value per group. If grouping keys are
+        provided, the operation is performed per group; otherwise, it is a global reduction.
+
+        Note: Intermediate aggregations (those that are inputs to further aggregations)
+        must be windowizable. Notably excluded are approx quantile, top count ops.
+
+        Args:
+            assignments (Sequence[ex.Expression]): A sequence of aggregation expressions
+                to be calculated.
+            by_column_ids (typing.Sequence[str], optional): A sequence of column IDs
+                to use as grouping keys. Defaults to an empty tuple (global reduction).
+            dropna (bool, optional): If True, rows containing null values in the
+                `by_column_ids` columns will be filtered out before the reduction
+                is applied. Defaults to False.
+
+        Returns:
+            ArrayValue:
+               The new root node representing the aggregation/group-by result.
+        """
+        plan = self.node
+
+        # shortcircuit to keep things simple if all aggs are simple
+        # TODO: Fully unify paths once rewriters are strong enough to simplify complexity from full path
+        def _is_direct_agg(agg_expr):
+            return isinstance(agg_expr, agg_expressions.Aggregation) and all(
+                isinstance(child, (ex.DerefOp, ex.ScalarConstantExpression))
+                for child in agg_expr.children
+            )
+
+        if all(_is_direct_agg(agg) for agg in assignments):
+            agg_defs = tuple((agg, ids.ColumnId.unique()) for agg in assignments)
+            return ArrayValue(
+                nodes.AggregateNode(
+                    child=self.node,
+                    aggregations=agg_defs,  # type: ignore
+                    by_column_ids=tuple(map(ex.deref, by_column_ids)),
+                    dropna=dropna,
+                )
+            )
+
+        if dropna:
+            for col_id in by_column_ids:
+                plan = nodes.FilterNode(plan, ops.notnull_op.as_expr(col_id))
+
+        named_exprs = [
+            nodes.ColumnDef(expr, ids.ColumnId.unique()) for expr in assignments
+        ]
+        # TODO: Push this to rewrite later to go from block expression to planning form
+        new_root = expression_factoring.apply_agg_exprs_to_plan(
+            plan, named_exprs, grouping_keys=[ex.deref(by) for by in by_column_ids]
+        )
+        return ArrayValue(new_root)
 
     def project_to_id(self, expression: ex.Expression):
         array_val, ids = self.compute_values(
@@ -401,74 +474,38 @@ class ArrayValue:
             )
         )
 
-    def project_window_op(
-        self,
-        column_name: str,
-        op: agg_ops.UnaryWindowOp,
-        window_spec: WindowSpec,
-        *,
-        never_skip_nulls=False,
-        skip_reproject_unsafe: bool = False,
-    ) -> Tuple[ArrayValue, str]:
-        """
-        Creates a new expression based on this expression with unary operation applied to one column.
-        column_name: the id of the input column present in the expression
-        op: the windowable operator to apply to the input column
-        window_spec: a specification of the window over which to apply the operator
-        output_name: the id to assign to the output of the operator, by default will replace input col if distinct output id not provided
-        never_skip_nulls: will disable null skipping for operators that would otherwise do so
-        skip_reproject_unsafe: skips the reprojection step, can be used when performing many non-dependent window operations, user responsible for not nesting window expressions, or using outputs as join, filter or aggregation keys before a reprojection
-        """
-
-        return self.project_window_expr(
-            agg_expressions.UnaryAggregation(op, ex.deref(column_name)),
-            window_spec,
-            never_skip_nulls,
-            skip_reproject_unsafe,
-        )
-
     def project_window_expr(
         self,
-        expression: agg_expressions.Aggregation,
+        expressions: Sequence[agg_expressions.Aggregation],
         window: WindowSpec,
-        never_skip_nulls=False,
-        skip_reproject_unsafe: bool = False,
     ):
-        # TODO: Support non-deterministic windowing
-        if window.is_row_bounded or not expression.op.order_independent:
-            if self.node.order_ambiguous and not self.session._strictly_ordered:
-                if not self.session._allows_ambiguity:
-                    raise ValueError(
-                        "Generating offsets not supported in partial ordering mode"
-                    )
-                else:
-                    msg = bfe.format_message(
-                        "Window ordering may be ambiguous, this can cause unstable results."
-                    )
-                    warnings.warn(msg, category=bfe.AmbiguousWindowWarning)
-        output_name = self._gen_namespaced_uid()
+        id_strings = [self._gen_namespaced_uid() for _ in expressions]
+        agg_exprs = tuple(
+            nodes.ColumnDef(expression, ids.ColumnId(id_str))
+            for expression, id_str in zip(expressions, id_strings)
+        )
+
         return (
             ArrayValue(
                 nodes.WindowOpNode(
                     child=self.node,
-                    expression=expression,
+                    agg_exprs=agg_exprs,
                     window_spec=window,
-                    output_name=ids.ColumnId(output_name),
-                    never_skip_nulls=never_skip_nulls,
-                    skip_reproject_unsafe=skip_reproject_unsafe,
                 )
             ),
-            output_name,
+            id_strings,
         )
 
     def isin(
-        self, other: ArrayValue, lcol: str, rcol: str
+        self,
+        other: ArrayValue,
+        lcol: str,
     ) -> typing.Tuple[ArrayValue, str]:
+        assert len(other.column_ids) == 1
         node = nodes.InNode(
             self.node,
             other.node,
             ex.deref(lcol),
-            ex.deref(rcol),
             indicator_col=ids.ColumnId.unique(),
         )
         return ArrayValue(node), node.indicator_col.name
@@ -480,6 +517,14 @@ class ArrayValue:
         type: typing.Literal["inner", "outer", "left", "right", "cross"] = "inner",
         propogate_order: Optional[bool] = None,
     ) -> typing.Tuple[ArrayValue, typing.Tuple[dict[str, str], dict[str, str]]]:
+        for lcol, rcol in conditions:
+            ltype = self.get_column_type(lcol)
+            rtype = other.get_column_type(rcol)
+            if not bigframes.dtypes.can_compare(ltype, rtype):
+                raise TypeError(
+                    f"Cannot join with non-comparable join key types: {ltype}, {rtype}"
+                )
+
         l_mapping = {  # Identity mapping, only rename right side
             lcol.name: lcol.name for lcol in self.node.ids
         }

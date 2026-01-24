@@ -1,30 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx_design
-Version: 0.6.1
+Version: 0.7.0
 Summary: A sphinx extension for designing beautiful, view size responsive web components.
 Keywords: sphinx,extension,material design,web components
 Author-email: Chris Sewell <chrisj_sewell@hotmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Sphinx :: Extension
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Topic :: Text Processing :: Markup :: reStructuredText
-Requires-Dist: sphinx>=6,<9
+License-File: LICENSE
+Requires-Dist: sphinx>=7,<10
 Requires-Dist: pre-commit>=3,<4 ; extra == "code-style"
-Requires-Dist: myst-parser>=2,<4 ; extra == "rtd"
-Requires-Dist: myst-parser>=2,<4 ; extra == "testing"
+Requires-Dist: myst-parser>=4,<6 ; extra == "rtd"
+Requires-Dist: myst-parser>=4,<6 ; extra == "testing"
 Requires-Dist: pytest~=8.3 ; extra == "testing"
 Requires-Dist: pytest-cov ; extra == "testing"
 Requires-Dist: pytest-regressions ; extra == "testing"

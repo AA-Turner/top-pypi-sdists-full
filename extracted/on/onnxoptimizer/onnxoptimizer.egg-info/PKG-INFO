@@ -1,17 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: onnxoptimizer
-Version: 0.3.13
-Summary: Open Neural Network Exchange
-Home-page: https://github.com/onnx/optimizer
-Author: ONNX Optimizer Authors
-Author-email: onnx-technical-discuss@lists.lfai.foundation
-License: Apache License v2.0
-Keywords: deep-learning ONNX
+Version: 0.4.2
+Summary: ONNX Optimizer
+Author-email: ONNX Optimizer Authors <onnx-technical-discuss@lists.lfai.foundation>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/onnx/optimizer
+Keywords: deep-learning,ONNX
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: mypy
 License-File: LICENSE
+Requires-Dist: onnx
+Dynamic: license-file
 
-<!--- SPDX-License-Identifier: Apache-2.0 -->
+<!--
+SPDX-FileCopyrightText: ONNX Project Contributors
+
+SPDX-License-Identifier: Apache-2.0
+-->
 
 # ONNX Optimizer
 
@@ -83,8 +88,6 @@ optional arguments:
 ## Relevant tools
 
 * [onnx-simplifier](https://github.com/daquexian/onnx-simplifier): A handy and popular tool based on onnxoptimizer
-
-* [convertmodel.com](https://convertmodel.com/#outputFormat=onnx&inputFormat=onnx): onnx optimizer compiled as WebAssembly so that it can be used out-of-the-box
 
 ## Code of Conduct
 

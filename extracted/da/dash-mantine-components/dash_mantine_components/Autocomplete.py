@@ -876,7 +876,7 @@ Keyword arguments:
 
     `wrapperProps` is a dict with keys:
 """
-    _children_props = ['clearButtonProps.children', 'clearButtonProps.icon', 'label', 'description', 'error', 'leftSection', 'rightSection', 'comboboxProps.children', 'comboboxProps.middlewares.flip.boundary']
+    _children_props: typing.List[str] = ['clearButtonProps.children', 'clearButtonProps.icon', 'label', 'description', 'error', 'leftSection', 'rightSection', 'comboboxProps.children', 'comboboxProps.middlewares.flip.boundary']
     _base_nodes = ['label', 'description', 'error', 'leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Autocomplete'

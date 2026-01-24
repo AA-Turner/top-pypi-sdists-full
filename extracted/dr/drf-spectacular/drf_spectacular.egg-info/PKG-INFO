@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: drf-spectacular
-Version: 0.28.0
+Version: 0.29.0
 Summary: Sane and flexible OpenAPI 3 schema generation for Django REST framework
-Home-page: https://github.com/tfranzel/drf-spectacular
-Author: T. Franzel
-Author-email: tfranzel@gmail.com
-License: BSD
+Author-email: "T. Franzel" <tfranzel@gmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/tfranzel/drf-spectacular
 Project-URL: Source, https://github.com/tfranzel/drf-spectacular
 Project-URL: Documentation, https://drf-spectacular.readthedocs.io
+Keywords: django,rest,openapi,schema,api,swagger
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -18,8 +18,8 @@ Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
@@ -30,6 +30,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Code Generators
@@ -47,6 +49,7 @@ Provides-Extra: offline
 Requires-Dist: drf-spectacular-sidecar; extra == "offline"
 Provides-Extra: sidecar
 Requires-Dist: drf-spectacular-sidecar; extra == "sidecar"
+Dynamic: license-file
 
 ===============
 drf-spectacular
@@ -74,7 +77,7 @@ Features
         - ... and more customization options
     - Authentication support (DRF natives included, easily extendable)
     - Custom serializer class support (easily extendable)
-    - ``SerializerMethodField()`` type via type hinting or ``@extend_schema_field``
+    - `SerializerMethodField() <https://drf-spectacular.readthedocs.io/en/latest/customization.html#step-3-extend-schema-field-and-type-hints>`_ type via type hinting or ``@extend_schema_field``
     - i18n support
     - Tags extraction
     - Request/response/parameter examples
@@ -112,8 +115,8 @@ Requirements
 ------------
 
 -  Python >= 3.7
--  Django (2.2, 3.2, 4.0, 4.1, 4.2, 5.0)
--  Django REST Framework (3.10.3, 3.11, 3.12, 3.13, 3.14, 3.15)
+-  Django (2.2, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2)
+-  Django REST Framework (3.10.3, 3.11, 3.12, 3.13, 3.14, 3.15, 3.16)
 
 Installation
 ------------
@@ -209,7 +212,7 @@ Generate your schema with the CLI:
 .. code:: bash
 
     $ ./manage.py spectacular --color --file schema.yml
-    $ docker run -p 80:8080 -e SWAGGER_JSON=/schema.yml -v ${PWD}/schema.yml:/schema.yml swaggerapi/swagger-ui
+    $ docker run -p 8080:8080 -e SWAGGER_JSON=/schema.yml -v ${PWD}/schema.yml:/schema.yml swaggerapi/swagger-ui
 
 If you also want to validate your schema add the ``--validate`` flag. Or serve your schema directly
 from your API. We also provide convenience wrappers for ``swagger-ui`` or ``redoc``.

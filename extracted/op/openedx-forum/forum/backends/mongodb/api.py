@@ -346,7 +346,9 @@ class MongoBackend(AbstractBackend):
             thread_id (str): The ID of the thread to pin/unpin.
             action (str): The action to perform ("pin" or "unpin").
         """
-        CommentThread().update(thread_id, pinned=action == "pin")
+        CommentThread().update(
+            thread_id, pinned=action == "pin", skip_timestamp_update=True
+        )
 
     @classmethod
     def get_pinned_unpinned_thread_serialized_data(
@@ -552,6 +554,7 @@ class MongoBackend(AbstractBackend):
         context: str = "course",
         raw_query: bool = False,
         commentable_ids: Optional[list[str]] = None,
+        is_moderator: bool = False,
     ) -> dict[str, Any]:
         """
         Handles complex thread queries based on various filters and returns paginated results.
@@ -573,6 +576,8 @@ class MongoBackend(AbstractBackend):
             per_page (int): The number of threads per page.
             context (str): The context to filter threads by.
             raw_query (bool): Whether to return raw query results without further processing.
+            commentable_ids (Optional[list[str]]): List of commentable IDs to filter threads by topic id.
+            is_moderator (bool): Whether the user is a discussion moderator.
 
         Returns:
             dict[str, Any]: A dictionary containing the paginated thread results and associated metadata.
@@ -641,7 +646,9 @@ class MongoBackend(AbstractBackend):
             base_query["comment_count"] = 0
 
         # filter by topics: if commentable_ids are provided, commentable_id is basically topic id
-        if commentable_ids:
+        # For moderators: show all topics (no filtering by commentable_ids)
+        # For learners: apply commentable_ids filtering (cohorted topics shown as archived)
+        if commentable_ids and not is_moderator:
             base_query["commentable_id"] = {"$in": commentable_ids}
         sort_criteria = get_sort_criteria(sort_key)
 
@@ -984,6 +991,7 @@ class MongoBackend(AbstractBackend):
             int(params.get("page", 1)),
             int(params.get("per_page", 100)),
             commentable_ids=params.get("commentable_ids", []),
+            is_moderator=params.get("is_moderator", False),
         )
         context: dict[str, Any] = {
             "count_flagged": count_flagged,
@@ -1535,7 +1543,7 @@ class MongoBackend(AbstractBackend):
         raise ValueError("Comment doesn't have the thread.")
 
     @staticmethod
-    def get_user(user_id: str) -> dict[str, Any] | None:
+    def get_user(user_id: str, get_full_dict: bool = True) -> dict[str, Any] | None:
         """Return user from user_id."""
         return Users().get(user_id)
 
@@ -1587,13 +1595,18 @@ class MongoBackend(AbstractBackend):
         return CommentThread().update(thread_id, **kwargs)
 
     @staticmethod
-    def get_filtered_threads(query: dict[str, Any]) -> list[dict[str, Any]]:
+    def get_filtered_threads(
+        query: dict[str, Any], ids_only: bool = False
+    ) -> list[dict[str, Any]]:
         """Return threads from filter."""
         thread_filter = {
             "_type": {"$in": [CommentThread().content_type]},
             "course_id": query.get("course_id"),
         }
-        return list(CommentThread().find(thread_filter))
+        threads = list(CommentThread().find(thread_filter))
+        if ids_only:
+            return [{"_id": thread["_id"]} for thread in threads]
+        return threads
 
     @staticmethod
     def update_user(user_id: str, data: dict[str, Any]) -> int:

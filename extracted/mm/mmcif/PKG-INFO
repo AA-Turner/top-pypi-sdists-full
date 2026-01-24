@@ -1,51 +1,44 @@
 Metadata-Version: 2.4
 Name: mmcif
-Version: 0.92.0
+Version: 1.1.0
 Summary: mmCIF Core Access Library
-Home-page: http://mmcif.wwpdb.org
-Author: John Westbrook
-Author-email: john.westbrook@rcsb.org
-License: Apache 2.0
-Classifier: Development Status :: 4 - Beta
+Author-email: John Westbrook <john.westbrook@rcsb.org>
+License: Apache-2.0
+Project-URL: Homepage, https://mmcif.wwpdb.org
+Project-URL: Repository, https://github.com/rcsb/py-mmcif
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: future
-Requires-Dist: six
 Requires-Dist: requests>=2.25
 Requires-Dist: msgpack
-Provides-Extra: all
-Requires-Dist: future; extra == "all"
-Requires-Dist: six; extra == "all"
-Requires-Dist: requests>=2.25; extra == "all"
-Requires-Dist: msgpack; extra == "all"
-Requires-Dist: tox; extra == "all"
-Requires-Dist: coverage; extra == "all"
-Requires-Dist: tox; extra == "all"
-Requires-Dist: coverage; extra == "all"
 Provides-Extra: test
 Requires-Dist: tox; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Provides-Extra: docs
 Requires-Dist: tox; extra == "docs"
 Requires-Dist: coverage; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocstrings[python-legacy]>=0.18; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: markdown-include; extra == "docs"
+Requires-Dist: pymdown-extensions; extra == "docs"
+Requires-Dist: mkdocs-material-extensions; extra == "docs"
+Provides-Extra: all
+Requires-Dist: tox; extra == "all"
+Requires-Dist: coverage; extra == "all"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 # mmCIF Core Access Library
 

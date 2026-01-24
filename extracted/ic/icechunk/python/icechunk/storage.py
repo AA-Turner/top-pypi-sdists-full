@@ -74,6 +74,7 @@ def s3_store(
     s3_compatible: bool = False,
     force_path_style: bool = False,
     network_stream_timeout_seconds: int = 60,
+    requester_pays: bool = False,
 ) -> ObjectStoreConfig.S3Compatible | ObjectStoreConfig.S3:
     """Build an ObjectStoreConfig instance for S3 or S3 compatible object stores."""
 
@@ -81,8 +82,10 @@ def s3_store(
         region=region,
         endpoint_url=endpoint_url,
         allow_http=allow_http,
+        anonymous=anonymous,
         force_path_style=force_path_style,
         network_stream_timeout_seconds=network_stream_timeout_seconds,
+        requester_pays=requester_pays,
     )
     return (
         ObjectStoreConfig.S3Compatible(options)
@@ -108,6 +111,7 @@ def s3_storage(
     scatter_initial_credentials: bool = False,
     force_path_style: bool = False,
     network_stream_timeout_seconds: int = 60,
+    requester_pays: bool = False,
 ) -> Storage:
     """Create a Storage instance that saves data in S3 or S3 compatible object stores.
 
@@ -148,6 +152,8 @@ def s3_storage(
     network_stream_timeout_seconds: int
         Timeout requests if no bytes can be transmitted during this period of time.
         If set to 0, timeout is disabled.
+    requester_pays: bool
+        Enable requester pays for S3 buckets
     """
 
     credentials = s3_credentials(
@@ -166,6 +172,7 @@ def s3_storage(
         allow_http=allow_http,
         force_path_style=force_path_style,
         network_stream_timeout_seconds=network_stream_timeout_seconds,
+        requester_pays=requester_pays,
     )
     return Storage.new_s3(
         config=options,
@@ -404,6 +411,7 @@ def gcs_storage(
     service_account_key: str | None = None,
     application_credentials: str | None = None,
     bearer_token: str | None = None,
+    anonymous: bool | None = None,
     from_env: bool | None = None,
     config: dict[str, str] | None = None,
     get_credentials: Callable[[], GcsBearerCredential] | None = None,
@@ -425,6 +433,8 @@ def gcs_storage(
         The path to the application credentials file
     bearer_token: str | None
         The bearer token to use for the object store
+    anonymous: bool | None
+        If set to True requests to the object store will not be signed
     from_env: bool | None
         Fetch credentials from the operative system environment
     config: dict[str, str] | None
@@ -444,6 +454,7 @@ def gcs_storage(
         application_credentials=application_credentials,
         bearer_token=bearer_token,
         from_env=from_env,
+        anonymous=anonymous,
         get_credentials=get_credentials,
         scatter_initial_credentials=scatter_initial_credentials,
     )
@@ -453,6 +464,23 @@ def gcs_storage(
         credentials=credentials,
         config=config,
     )
+
+
+def azure_store(
+    *,
+    account: str,
+    config: dict[str, str] | None = None,
+) -> ObjectStoreConfig.Azure:
+    """Build an ObjectStoreConfig instance for Azure stores.
+
+    Parameters
+    ----------
+    account: str
+        The account to which the caller must have access privileges
+    config: dict[str, str] | None
+        A dictionary of options for the Azure Blob Storage object store. See https://docs.rs/object_store/latest/object_store/azure/enum.AzureConfigKey.html#variants for a list of possible configuration keys.
+    """
+    return ObjectStoreConfig.Azure({"account": account, **(config or {})})
 
 
 def azure_storage(

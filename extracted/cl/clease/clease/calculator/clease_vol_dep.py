@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Union
+from collections.abc import Iterable, Sequence
 
 from ase import Atoms
 
@@ -80,17 +80,15 @@ class CleaseVolDep(Clease):
     def __init__(
         self,
         settings: ClusterExpansionSettings,
-        eci: Dict[str, float],
-        vol_coeff: Dict[str, float],
-        init_cf: Optional[Dict[str, float]] = None,
+        eci: dict[str, float],
+        vol_coeff: dict[str, float],
+        init_cf: dict[str, float] | None = None,
     ):
         if not eci_format_ok(eci.keys()):
             raise ValueError(f"Invalid format of ECI names. Got\n{eci.keys()}")
 
         if not vol_coeff_format_ok(vol_coeff.keys()):
-            raise ValueError(
-                "Invalid format of volume coefficient names. " f"Got\n{vol_coeff.keys()}"
-            )
+            raise ValueError(f"Invalid format of volume coefficient names. Got\n{vol_coeff.keys()}")
 
         cf_to_track = unique_eci_names_no_vol(eci.keys())
         cf_to_track = cf_to_track.union(set(vol_coeff.keys()))
@@ -111,7 +109,7 @@ class CleaseVolDep(Clease):
         self.vol_coeff = vol_coeff
         self.max_power = max(int(k[-1]) for k in self.eci_with_vol.keys())
 
-    def get_volume(self, cf: Optional[Dict[str, float]] = None) -> float:
+    def get_volume(self, cf: dict[str, float] | None = None) -> float:
         """
         Returns the volume per atom
 
@@ -127,7 +125,7 @@ class CleaseVolDep(Clease):
         self.results["volume"] = vol * len(self.atoms)
         return vol
 
-    def get_pressure(self, cf: Optional[Dict[str, float]] = None) -> float:
+    def get_pressure(self, cf: dict[str, float] | None = None) -> float:
         """
         Return the pressure
 
@@ -148,7 +146,7 @@ class CleaseVolDep(Clease):
         self.results["pressure"] = P
         return P
 
-    def get_bulk_modulus(self, cf: Optional[Dict[str, float]] = None) -> float:
+    def get_bulk_modulus(self, cf: dict[str, float] | None = None) -> float:
         """
         Return the bulk modulus of the current atoms object
 
@@ -165,7 +163,7 @@ class CleaseVolDep(Clease):
         self.results["bulk_mod"] = B
         return B
 
-    def _d2EdV2(self, cf: Dict[str, float], vol: float) -> float:
+    def _d2EdV2(self, cf: dict[str, float], vol: float) -> float:
         """
         Return the double derivative of the energy with respect
         to the volume
@@ -179,7 +177,7 @@ class CleaseVolDep(Clease):
             for p in range(2, self.max_power + 1)
         )
 
-    def _d3EdV3(self, cf: Dict[str, float], vol: float) -> float:
+    def _d3EdV3(self, cf: dict[str, float], vol: float) -> float:
         """
         Return the third derivative of the energy with respect to
         the volume
@@ -198,7 +196,7 @@ class CleaseVolDep(Clease):
             for p in range(3, self.max_power + 1)
         )
 
-    def get_dBdP(self, cf: Optional[Dict[str, float]] = None) -> float:
+    def get_dBdP(self, cf: dict[str, float] | None = None) -> float:
         """
         Return the pressure derivative of the bulk modulus of the
         current structure.
@@ -232,9 +230,9 @@ class CleaseVolDep(Clease):
 
     def calculate(
         self,
-        atoms: Optional[Atoms] = None,
-        properties: Optional[List[str]] = None,
-        system_changes: Union[Sequence[SystemChange], None] = None,
+        atoms: Atoms | None = None,
+        properties: list[str] | None = None,
+        system_changes: Sequence[SystemChange] | None = None,
     ) -> float:
         """Calculate the energy of the passed Atoms object.
 
@@ -260,7 +258,7 @@ class CleaseVolDep(Clease):
             self.eci_with_vol[vol_dep_key] = v
 
 
-def unique_eci_names_no_vol(eci_names: Iterable[str]) -> Set[str]:
+def unique_eci_names_no_vol(eci_names: Iterable[str]) -> set[str]:
     """
     Return a set with the unique ECI names without any volume tag
     """

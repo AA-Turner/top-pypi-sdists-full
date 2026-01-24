@@ -1,0 +1,19 @@
+name: regionmask-tests
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - cartopy
+  - cf_xarray
+  - geopandas
+  - matplotlib-base
+  - numpy
+  - packaging
+  - pooch
+  - pyogrio
+  - rasterio
+  - xarray
+# for testing
+  - pytest
+  - pytest-cov
+  - pytest-timeout

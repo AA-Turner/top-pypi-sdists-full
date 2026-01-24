@@ -8,19 +8,13 @@ To access these members use directly :mod:`tango` module and NOT
 tango.attribute_proxy.
 """
 
-import collections.abc
-
 from tango._tango import (
-    StdStringVector,
-    DbData,
-    DbDatum,
     DeviceProxy,
     DevFailed,
     Except,
 )
-from tango._tango import __AttributeProxy as _AttributeProxy
-from tango.utils import seq_2_StdStringVector, seq_2_DbData, DbData_2_dict
-from tango.utils import is_pure_str, is_non_str_seq
+from tango._tango import __AttributeProxy as _AttributeProxy, DbDatum, DbData
+from tango.utils import parameter_2_dbdata, get_property_from_db
 from tango.utils import _get_device_fqtrl_if_necessary
 from tango.green import green, get_green_mode
 from tango.utils import _trace_client
@@ -30,7 +24,8 @@ __all__ = ("AttributeProxy", "attribute_proxy_init", "get_attribute_proxy")
 
 
 @green(consume_green_mode=False)
-def get_attribute_proxy(*args, **kwargs):
+@_trace_client
+def get_attribute_proxy(*args, green_mode=None):
     """
     get_attribute_proxy(self, full_attr_name, green_mode=None, wait=True, timeout=True) -> AttributeProxy
     get_attribute_proxy(self, device_proxy, attr_name, green_mode=None, wait=True, timeout=True) -> AttributeProxy
@@ -80,197 +75,129 @@ def get_attribute_proxy(*args, **kwargs):
 
     New in PyTango 8.1.0
     """
-    return AttributeProxy(*args, **kwargs)
+    return AttributeProxy(*args, green_mode=green_mode)
 
 
-def __AttributeProxy__get_property(self, propname, value=None):
-    """
-    get_property(self, propname, value) -> DbData
-
-            Get a (list) property(ies) for an attribute.
-
-            This method accepts the following types as propname parameter:
-            1. string [in] - single property data to be fetched
-            2. sequence<string> [in] - several property data to be fetched
-            3. tango.DbDatum [in] - single property data to be fetched
-            4. tango.DbData [in,out] - several property data to be fetched.
-            5. sequence<DbDatum> - several property data to be feteched
-
-            Note: for cases 3, 4 and 5 the 'value' parameter if given, is IGNORED.
-
-            If value is given it must be a tango.DbData that will be filled with the
-            property values
-
-        Parameters :
-            - propname : (str) property(ies) name(s)
-            - value : (tango.DbData) (optional, default is None meaning that the
-                      method will create internally a tango.DbData and return
-                      it filled with the property values
-
-        Return     : (DbData) containing the property(ies) value(s). If a
-                     tango.DbData is given as parameter, it returns the same
-                     object otherwise a new tango.DbData is returned
-
-        Throws     : NonDbDevice, ConnectionFailed (with database),
-                     CommunicationFailed (with database),
-                     DevFailed from database device
+def __AttributeProxy__get_property(
+    self,
+    propname: (
+        str
+        | DbDatum
+        | DbData
+        | list[str | bytes | DbDatum]
+        | dict[str, DbDatum]
+        | dict[str, list[str]]
+        | dict[str, object]
+    ),
+    value=None,
+) -> dict[str, list[str]]:
     """
 
-    if is_pure_str(propname) or isinstance(propname, StdStringVector):
-        new_value = value
-        if new_value is None:
-            new_value = DbData()
-        self._get_property(propname, new_value)
-        return DbData_2_dict(new_value)
-    elif isinstance(propname, DbDatum):
-        new_value = DbData()
-        new_value.append(propname)
-        self._get_property(new_value)
-        return DbData_2_dict(new_value)
-    elif isinstance(propname, collections.abc.Sequence):
-        if isinstance(propname, DbData):
-            self._get_property(propname)
-            return DbData_2_dict(propname)
+    Get a (list) property(ies) for an attribute.
 
-        if is_pure_str(propname[0]):
-            new_propname = StdStringVector()
-            for i in propname:
-                new_propname.append(i)
-            new_value = value
-            if new_value is None:
-                new_value = DbData()
-            self._get_property(new_propname, new_value)
-            return DbData_2_dict(new_value)
-        elif isinstance(propname[0], DbDatum):
-            new_value = DbData()
-            for i in propname:
-                new_value.append(i)
-            self._get_property(new_value)
-            return DbData_2_dict(new_value)
+    :param propname: Can be one of the following: \n
+                    1. :py:obj:`str` [in] - Single property data to be fetched. \n
+                    2. :py:obj:`~tango.DbDatum` [in] - Single property data to be fetched. \n
+                    3. :py:obj:`~tango.DbData` [in] - Several property data to be fetched. \n
+                    4. :py:obj:`list`\\[:py:obj:`str` | :py:obj:`bytes`] [in] - Several property data to be fetched. \n
+                    5. :py:obj:`list`\\[:py:obj:`tango.DbDatum`] [in] - Several property data to be fetched. \n
+                    6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - Keys are property names
+                       to be fetched (values are ignored). \n
+                    7. :py:obj:`dict`\\[:py:obj:`str`, :obj:`tango.DbDatum`] [in] - Several `DbDatum.name` are
+                       property names to be fetched (keys are ignored). \n
 
+    :param value: Optional. For propname overloads with :py:obj:`str` and :py:obj:`list`\\[:py:obj:`str`] will be filed with the property values, if provided.
+    :type value: :obj:`tango.DbData`, optional
 
-def __AttributeProxy__put_property(self, value):
+    :returns: A :obj:`dict` object, which keys are the property names the value
+              associated with each key being a sequence of strings being the
+              property value.
+
+    :throws:
+        :py:obj:`TypeError`: Raised in case of propname has the wrong type. \n
+        :py:obj:`tango.NonDbDevice`: Raised in case of a non-database device error. \n
+        :py:obj:`tango.ConnectionFailed`: Raised on connection failure with the database. \n
+        :py:obj:`tango.CommunicationFailed`: Raised on communication failure with the database. \n
+        :py:obj:`tango.DevFailed`: Raised on a device failure from the database device.`
+
+    .. versionadded:: 10.1.0: overloads with :obj:`dict` as propname parameter
+
+    .. versionchanged:: 10.1.0: raises if propname has an invalid type instead of returning None
     """
-    put_property(self, value) -> None
 
-            Insert or update a list of properties for this attribute.
-            This method accepts the following types as value parameter:
-            1. tango.DbDatum - single property data to be inserted
-            2. tango.DbData - several property data to be inserted
-            3. sequence<DbDatum> - several property data to be inserted
-            4. dict<str, DbDatum> - keys are property names and value has data to be inserted
-            5. dict<str, seq<str>> - keys are property names and value has data to be inserted
-            6. dict<str, obj> - keys are property names and str(obj) is property value
+    return get_property_from_db(self, propname, value)
 
-        Parameters :
-            - value : can be one of the following:
-                1. tango.DbDatum - single property data to be inserted
-                2. tango.DbData - several property data to be inserted
-                3. sequence<DbDatum> - several property data to be inserted
-                4. dict<str, DbDatum> - keys are property names and value has data to be inserted
-                5. dict<str, seq<str>> - keys are property names and value has data to be inserted
-                6. dict<str, obj> - keys are property names and str(obj) is property value
 
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed
-                     DevFailed from device (DB_SQLError),
-                     TypeError
+def __AttributeProxy__put_property(
+    self,
+    value: (
+        str
+        | DbDatum
+        | DbData
+        | list[str | bytes | DbDatum]
+        | dict[str, DbDatum]
+        | dict[str, list[str]]
+        | dict[str, object]
+    ),
+) -> None:
     """
-    if isinstance(value, DbData):
-        pass
-    elif isinstance(value, DbDatum):
-        new_value = DbData()
-        new_value.append(value)
-        value = new_value
-    elif is_non_str_seq(value):
-        new_value = seq_2_DbData(value)
-    elif isinstance(value, collections.abc.Mapping):
-        new_value = DbData()
-        for k, v in value.items():
-            if isinstance(v, DbDatum):
-                new_value.append(v)
-                continue
-            db_datum = DbDatum(k)
-            if is_non_str_seq(v):
-                seq_2_StdStringVector(v, db_datum.value_string)
-            else:
-                db_datum.value_string.append(str(v))
-            new_value.append(db_datum)
-        value = new_value
-    else:
-        raise TypeError(
-            "Value must be a tango.DbDatum, tango.DbData, "
-            "a sequence<DbDatum> or a dictionary"
-        )
+    Insert or update a list of properties for this attribute.
+
+    :param value: Can be one of the following: \n
+                    1. :py:obj:`str` - Single property data to be inserted. \n
+                    2. :py:obj:`~tango.DbDatum` - Single property data to be inserted. \n
+                    3. :py:obj:`~tango.DbData` - Several property data to be inserted. \n
+                    4. :py:obj:`list`\\[:py:obj:`str` | :py:obj:`bytes` | :py:obj:`~tango.DbDatum`] - Several property data to be inserted. \n
+                    5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`~tango.DbDatum`] -
+                        DbDatum is property to be inserted (keys are ignored). \n
+                    6. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`list`\\[:py:obj:`str`]] - Keys are property names,
+                        and value has data to be inserted. \n
+                    7. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] - Keys are property names, and `str(obj)` is property value.
+
+    :throws:
+        :py:obj:`TypeError`: Raised in case of value has the wrong type. \n
+        :py:obj:`tango.NonDbDevice`: Raised in case of a non-database device error. \n
+        :py:obj:`tango.ConnectionFailed`: Raised on connection failure with the database. \n
+        :py:obj:`tango.CommunicationFailed`: Raised on communication failure with the database. \n
+        :py:obj:`tango.DevFailed`: Raised on a device failure from the database device.`
+    """
+    value = parameter_2_dbdata(value, "value")
     return self._put_property(value)
 
 
-def __AttributeProxy__delete_property(self, value):
+def __AttributeProxy__delete_property(
+    self,
+    value: (
+        str
+        | DbDatum
+        | DbData
+        | list[str | bytes | DbDatum]
+        | dict[str, DbDatum]
+        | dict[str, list[str]]
+        | dict[str, object]
+    ),
+) -> None:
     """
-    delete_property(self, value) -> None
+    Delete a the given of properties for this attribute.
+    :param value: Can be one of the following: \n
+                    1. :py:obj:`str` [in] - Single property data to be deleted. \n
+                    2. :py:obj:`~tango.DbDatum` [in] - Single property data to be deleted. \n
+                    3. :py:obj:`~tango.DbData` [in] - Several property data to be deleted. \n
+                    4. :py:obj:`list`\\[:py:obj:`str` | :py:obj:`bytes` | :py:obj:`~tango.DbDatum`] [in] - Several property data to be deleted. \n
+                    5. :py:obj:`dict`\\[:py:obj:`str`, :py:obj:`object`] [in] - Keys are property names
+                       to be deleted (values are ignored). \n
+                    6. :py:obj:`dict`\\[:py:obj:`str`, :obj:`tango.DbDatum`] [in] - Several `DbDatum.name` are
+                       property names to be deleted (keys are ignored). \n
 
-        Delete a the given of properties for this attribute.
-        This method accepts the following types as value parameter:
-
-            1. string [in] - single property to be deleted
-            2. tango.DbDatum [in] - single property data to be deleted
-            3. tango.DbData [in] - several property data to be deleted
-            4. sequence<string> [in]- several property data to be deleted
-            5. sequence<DbDatum> [in] - several property data to be deleted
-            6. dict<str, obj> [in] - keys are property names to be deleted
-               (values are ignored)
-            7. dict<str, DbDatum> [in] - several DbDatum.name are property names
-               to be deleted (keys are ignored)
-
-        Parameters :
-            - value : can be one of the following:
-
-                1. string [in] - single property data to be deleted
-                2. tango.DbDatum [in] - single property data to be deleted
-                3. tango.DbData [in] - several property data to be deleted
-                4. sequence<string> [in]- several property data to be deleted
-                5. sequence<DbDatum> [in] - several property data to be deleted
-                6. dict<str, obj> [in] - keys are property names to be deleted
-                   (values are ignored)
-                7. dict<str, DbDatum> [in] - several DbDatum.name are property
-                   names to be deleted (keys are ignored)
-
-        Return     : None
-
-        Throws     : ConnectionFailed, CommunicationFailed
-                     DevFailed from device (DB_SQLError),
-                     TypeError
+    :throws:
+        :py:obj:`TypeError`: Raised in case of value has the wrong type. \n
+        :py:obj:`tango.NonDbDevice`: Raised in case of a non-database device error. \n
+        :py:obj:`tango.ConnectionFailed`: Raised on connection failure with the database. \n
+        :py:obj:`tango.CommunicationFailed`: Raised on communication failure with the database. \n
+        :py:obj:`tango.DevFailed`: Raised on a device failure from the database device.`
     """
-    if (
-        isinstance(value, DbData)
-        or isinstance(value, StdStringVector)
-        or is_pure_str(value)
-    ):
-        new_value = value
-    elif isinstance(value, DbDatum):
-        new_value = DbData()
-        new_value.append(value)
-    elif isinstance(value, collections.abc.Sequence):
-        new_value = DbData()
-        for e in value:
-            if isinstance(e, DbDatum):
-                new_value.append(e)
-            else:
-                new_value.append(DbDatum(str(e)))
-    elif isinstance(value, collections.abc.Mapping):
-        new_value = DbData()
-        for k, v in value.items():
-            if isinstance(v, DbDatum):
-                new_value.append(v)
-            else:
-                new_value.append(DbDatum(k))
-    else:
-        raise TypeError(
-            "Value must be a string, tango.DbDatum, "
-            "tango.DbData, a sequence or a dictionary"
-        )
 
+    new_value = parameter_2_dbdata(value, "value")
     return self._delete_property(new_value)
 
 
@@ -297,22 +224,22 @@ class AttributeProxy:
     """
 
     @_trace_client
-    def __init__(self, *args, **kwds):
-        green_mode = kwds.pop("green_mode", get_green_mode())
+    def __init__(self, *args, green_mode=None):
+        self.__initialized = False
         # If TestContext active, short TRL is replaced with fully-qualified
         # TRL, using test server's connection details.  Otherwise, left as-is.
         attr_name = args[0]
         new_attr_name = _get_device_fqtrl_if_necessary(attr_name)
         new_args = [new_attr_name] + list(args[1:])
         try:
-            self.__attr_proxy = _AttributeProxy(*new_args, **kwds)
+            self.__attr_proxy = _AttributeProxy(*new_args)
         except DevFailed as orig_err:
             if new_attr_name != attr_name:
                 # If attribute was not found, it could be an attempt to access a real
                 # device with a short name while running TestContext.  I.e., we need
                 # to use the short name so that the real TANGO_HOST will be tried.
                 try:
-                    self.__attr_proxy = _AttributeProxy(*args, **kwds)
+                    self.__attr_proxy = _AttributeProxy(*args)
                 except DevFailed as retry_exc:
                     Except.re_throw_exception(
                         retry_exc,
@@ -328,7 +255,10 @@ class AttributeProxy:
         # we don't want a different object, so we save the current one.
         self.__dev_proxy = dp = self.__attr_proxy.get_device_proxy()
         init_device_proxy(dp)
-        dp.set_green_mode(green_mode)
+        dp.__dict__["_green_mode"] = (
+            green_mode if green_mode is not None else get_green_mode()
+        )
+        self.__initialized = True
 
     def get_device_proxy(self):
         """
@@ -351,7 +281,11 @@ class AttributeProxy:
             Parameters : None
             Return     : (str) with the attribute name
         """
-        return self.__attr_proxy.name()
+        if self.__initialized:
+            name = self.__attr_proxy.name()
+        else:
+            name = "<Unknown: object was not fully initialized>"
+        return name
 
     def __str__(self):
         return f"AttributeProxy({self.name()})"
@@ -413,7 +347,7 @@ def _method_attribute(dp_fn_name, doc=True):
     return __new_fn
 
 
-def __init_AttributeProxy(doc=True):
+def attribute_proxy_init(doc=True):
     _AttributeProxy.get_property = __AttributeProxy__get_property
     _AttributeProxy.put_property = __AttributeProxy__put_property
     _AttributeProxy.delete_property = __AttributeProxy__delete_property
@@ -478,7 +412,3 @@ def __init_AttributeProxy(doc=True):
     AttributeProxy.is_event_queue_empty = _method_device(
         "is_event_queue_empty", doc=doc
     )
-
-
-def attribute_proxy_init(doc=True):
-    __init_AttributeProxy(doc=doc)

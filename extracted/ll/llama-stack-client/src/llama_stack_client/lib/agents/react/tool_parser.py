@@ -8,8 +8,7 @@ import json
 import uuid
 from typing import List, Optional, Union
 
-from llama_stack_client.types.shared.completion_message import CompletionMessage
-from llama_stack_client.types.shared.tool_call import ToolCall
+from ..types import CompletionMessage, ToolCall
 
 from pydantic import BaseModel, ValidationError
 
@@ -55,8 +54,7 @@ class ReActToolParser(ToolParser):
                     ToolCall(
                         call_id=call_id,
                         tool_name=tool_name,
-                        arguments=params,
-                        arguments_json=json.dumps(params),
+                        arguments=json.dumps(params),
                     )
                 ]
 

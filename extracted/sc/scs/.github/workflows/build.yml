@@ -25,10 +25,10 @@ jobs:
       PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.8.14
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -51,8 +51,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 runners have intel chips. macos-14 and above
-        # runners have Apple silicon chips.
         os: [ ubuntu-latest ]
         python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13"]
         link_mkl: [true]
@@ -62,7 +60,7 @@ jobs:
       LINK_MKL: ${{ matrix.link_mkl }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -70,7 +68,7 @@ jobs:
         shell: bash
         run: |
           echo "PYTHON_SUBVERSION=$(echo $PYTHON_VERSION | cut -c 3-)" >> $GITHUB_ENV
-      - uses: prefix-dev/setup-pixi@v0.8.14
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
           cache: false
           pixi-version: v0.46.0
@@ -99,27 +97,29 @@ jobs:
           pixi r pytest
           rm -rf build/
 
-  # from here to end it's a copy-paste, with few changes, of
-  # https://github.com/pypa/cibuildwheel/blob/main/examples/github-deploy.yml
-
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        # macos-13 is an intel runner, macos-14 is apple silicon
-        os: [ubuntu-latest, macos-14, windows-latest, macos-13]
+        include:
+          # Standard x86 builds
+          - os: ubuntu-latest
+            arch: x86_64
+          # NATIVE ARM builds (No QEMU needed!)
+          # Note: Uses ubuntu-24.04-arm specifically
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+          - os: macos-latest
+            arch: auto
+          - os: windows-latest
+            arch: auto
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
-
-      - name: Set up QEMU for aarch64 compilation on Linux
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
 
       - name: Install conda on Windows
         if: runner.os == 'Windows'
@@ -133,9 +133,12 @@ jobs:
         run: conda install -y openblas pkgconfig
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.3
+        uses: pypa/cibuildwheel@v3.3.0
+        env:
+          # Explicitly set the architecture based on the matrix
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -144,14 +147,14 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
 
       - name: Build sdist
         run: pipx run build --sdist -Csetup-args=-Dsdist_mode=true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -168,7 +171,7 @@ jobs:
     # Only run this step on GH release
     # if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           # unpacks all CIBW artifacts into dist/
           pattern: cibw-*

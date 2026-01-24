@@ -11,9 +11,10 @@ from wbcore.cache.registry import periodic_cache_registry
 from wbcore.models import DynamicModel
 from wbcore.utils.itertools import get_inheriting_subclasses
 from wbcore.utils.models import ComplexToStringMixin, DeleteToDisableMixin
+from wbcore.workers import Queue
 
 
-@shared_task
+@shared_task(queue=Queue.EXTENDED_BACKGROUND.value)
 def recompute_latest_modified_dynamic_fields(from_datetime=None, to_datetime=None, timedelta_days=1):
     """
     Daily (expected frequency) recompute of all dynamic model objects that falls within the specified time frame (default to the last 24h).
@@ -39,13 +40,13 @@ def recompute_latest_modified_dynamic_fields(from_datetime=None, to_datetime=Non
             DynamicModel.update_dynamic_fields_of_dependant_objects(already_updated_object)
 
 
-@shared_task
+@shared_task(queue=Queue.EXTENDED_BACKGROUND.value)
 def recompute_computed_str(debug: bool = False):
     """
     When this task is executed, it will loop over all objects that inherit from ComplexToStringMixin and compare their current computed_str value with the expected one.
     If different, the expected one is saved in place.
     """
-    BULK_SIZE = 1000
+    bulk_size = 1000
     for subclass in get_inheriting_subclasses(ComplexToStringMixin):
         if getattr(subclass, "COMPUTED_STR_RECOMPUTE_PERIODICALLY", True):
             objs = []
@@ -59,14 +60,14 @@ def recompute_computed_str(debug: bool = False):
                     if new_computed_str != instance.computed_str:
                         instance.computed_str = new_computed_str
                         objs.append(instance)
-                    if len(objs) % BULK_SIZE == 0:
+                    if len(objs) % bulk_size == 0:
                         subclass.objects.bulk_update(objs, ["computed_str"])
                         objs = []
             if objs:
                 subclass.objects.bulk_update(objs, ["computed_str"])
 
 
-@shared_task
+@shared_task(queue=Queue.EXTENDED_BACKGROUND.value)
 def clean_deleted_objects():
     """
     Periodically arise deleted objects that have passed the retention period from the database.
@@ -80,7 +81,7 @@ def clean_deleted_objects():
                 ).delete()
 
 
-@shared_task
+@shared_task(queue=Queue.EXTENDED_BACKGROUND.value)
 def refetch_pandas_api_view():
     for cache_api_view in periodic_cache_registry.classes:
         cache_api_view.fetch_cache()

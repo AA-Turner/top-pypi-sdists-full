@@ -10,10 +10,11 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType1RawFlowFailureModuleRetryCon
 
 @_attrs_define
 class ListJobsResponse200ItemType1RawFlowFailureModuleRetryConstant:
-    """
+    """Retry with constant delay between attempts
+
     Attributes:
-        attempts (Union[Unset, int]):
-        seconds (Union[Unset, int]):
+        attempts (Union[Unset, int]): Number of retry attempts
+        seconds (Union[Unset, int]): Seconds to wait between retries
     """
 
     attempts: Union[Unset, int] = UNSET

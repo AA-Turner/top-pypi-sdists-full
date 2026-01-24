@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pymongo-schema
-Version: 0.4.1
+Version: 0.4.2
 Summary: A schema analyser for MongoDB written in Python
 Home-page: https://github.com/pajachiet/pymongo-schema
 Author: Pierre-Alain Jachiet
@@ -9,6 +9,27 @@ License: GNU General Public License v3.0
 Keywords: mongo,mongodb,schema,mongo-connector,mongo-connector-postgresql
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pymongo>=4.0.0
+Requires-Dist: pyyaml
+Requires-Dist: docopt
+Requires-Dist: ete4
+Requires-Dist: pandas
+Requires-Dist: xlwt
+Requires-Dist: xlsxwriter
+Requires-Dist: openpyxl
+Requires-Dist: jinja2
+Requires-Dist: future>=0.18.0
+Requires-Dist: scipy
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # pymongo-schema
 A schema analyser for MongoDB, written in Python. 
@@ -373,3 +394,9 @@ To tackle bigger databases, it certainly would be usefull to implement the follo
 
 ## Tests
 The codebase is still under development. It should not be trusted blindly.
+
+## Devcontainer
+
+This project contains a devcontainer definition.
+
+Just open the project in VS Code and hit `[CTRL]` + `[SHIFT]` + `[P]` > `Reopen in container` and it will launch the dev container with all dependencies installed.

@@ -4,12 +4,13 @@ import re
 from os import PathLike
 from pathlib import Path
 from re import Pattern
-from typing import TYPE_CHECKING, Sequence, TypeAlias
+from typing import TYPE_CHECKING, Sequence, TypeAlias, cast
 
 from inspect_ai._util.error import pip_dependency_error
 from inspect_ai._util.file import FileInfo, filesystem
 from inspect_ai._util.version import verify_required_version
-from inspect_ai.log._file import EvalLogInfo, log_files_from_ls
+from inspect_ai.log._file import EvalLogInfo, list_eval_logs, log_files_from_ls
+from inspect_ai.log._log import EvalLog
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -43,16 +44,36 @@ def verify_prerequisites() -> None:
     verify_required_version("inspect_ai.analysis", "pyarrow", "10.0.1")
 
 
-def resolve_logs(logs: LogPaths) -> list[str]:
+def resolve_logs(
+    logs: LogPaths | EvalLog | Sequence[EvalLog] | None = None,
+) -> list[str] | list[EvalLog]:
+    # Handle EvalLog inputs (pass through as list)
+    if isinstance(logs, EvalLog):
+        return [logs]
+    if (
+        isinstance(logs, Sequence)
+        and not isinstance(logs, str)
+        and len(logs) > 0
+        and isinstance(logs[0], EvalLog)
+    ):
+        return cast(list[EvalLog], list(logs))
+
+    # Handle path-based inputs (including falsy for default)
+    path_logs: LogPaths = list_eval_logs() if not logs else cast(LogPaths, logs)
+
     # normalize to list of str
-    logs = [logs] if isinstance(logs, str | PathLike | EvalLogInfo) else logs
+    path_logs = (
+        [path_logs]
+        if isinstance(path_logs, str | PathLike | EvalLogInfo)
+        else path_logs
+    )
     logs_str = [
         Path(log).as_posix()
         if isinstance(log, PathLike)
         else log.name
         if isinstance(log, EvalLogInfo)
         else log
-        for log in logs
+        for log in path_logs
     ]
 
     # expand directories
@@ -144,6 +165,22 @@ def records_to_pandas(records: list[dict[str, ColumnType]]) -> "pd.DataFrame":
 
     # arrow backed df w/ our types mapper
     df = pd.DataFrame(records)
+
+    # Handle mixed-type object columns that PyArrow can't convert.
+    # Score columns often have mixed types (e.g., string 'INVALID' and float 0.5)
+    for col in df.columns:
+        if df[col].dtype == "object":
+            non_null = df[col].dropna()
+            if len(non_null) > 0:
+                types = set(type(v).__name__ for v in non_null)
+                # If mixed types (not all str/bytes), convert to string
+                if len(types) > 1 and not types.issubset({"str", "bytes"}):
+                    df[col] = df[col].apply(
+                        lambda x: str(x)
+                        if x is not None and not isinstance(x, str)
+                        else x
+                    )
+
     table = pa.Table.from_pandas(df)
     return table.to_pandas(types_mapper=arrow_types_mapper)
 

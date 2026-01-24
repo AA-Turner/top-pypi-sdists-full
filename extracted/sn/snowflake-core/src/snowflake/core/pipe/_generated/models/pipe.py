@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -45,21 +45,21 @@ class Pipe(BaseModel):
     integration : str, optional
         Link to integration object that ties a user provided storage queue to an auto_ingest enabled pipe. Required for auto_ingest to work on azure.
     created_on : datetime, optional
-        Date and time when the pipe was created.
+        Date and time when the pipe was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the pipe is stored
+        Database in which the pipe is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the pipe is stored
+        Schema in which the pipe is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the pipe
+        Role that owns the pipe — **Read-only:** *any user-provided value will be ignored.*
     pattern : str, optional
-        PATTERN copy option value in the COPY INTO <table> statement in the pipe definition, if the copy option was specified.
+        PATTERN copy option value in the COPY INTO <table> statement in the pipe definition, if the copy option was specified — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the pipe
+        The type of role that owns the pipe — **Read-only:** *any user-provided value will be ignored.*
     invalid_reason : str, optional
-        Displays some detailed information for your pipes that may have issues
+        Displays some detailed information for your pipes that may have issues — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Name of the budget if the pipe is monitored by a budget
+        Name of the budget if the pipe is monitored by a budget — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -116,9 +116,10 @@ class Pipe(BaseModel):
             raise ValueError(r"""must validate the regular expression /(?i)^COPY INTO .*/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -154,7 +155,7 @@ class Pipe(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -169,9 +170,9 @@ class Pipe(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Pipe.parse_obj(obj)
+            return Pipe.model_validate(obj)
 
-        _obj = Pipe.parse_obj(
+        _obj = Pipe.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

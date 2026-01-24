@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pymatgen.core.composition import Composition
-from pymatgen.core.periodic_table import Element
 from pymatgen.core.structure import Molecule, Structure
 
-from emmet.core.base import EmmetBaseModel
 from emmet.core.symmetry import PointGroupData, SymmetryData
+from emmet.core.types.pymatgen_types.composition_adapter import CompositionType
+from emmet.core.types.pymatgen_types.element_adapter import ElementType
 from emmet.core.utils import get_graph_hash
 
 if TYPE_CHECKING:
@@ -25,21 +25,21 @@ except Exception:
     openbabel = None
 
 
-class StructureMetadata(EmmetBaseModel):
+class StructureMetadata(BaseModel):
     """Mix-in class for structure metadata."""
 
     # Structure metadata
     nsites: int | None = Field(
         None, description="Total number of sites in the structure."
     )
-    elements: list[Element] | None = Field(
+    elements: list[ElementType] | None = Field(
         None, description="List of elements in the material."
     )
     nelements: int | None = Field(None, description="Number of elements.")
-    composition: Composition | None = Field(
+    composition: CompositionType | None = Field(
         None, description="Full composition for the material."
     )
-    composition_reduced: Composition | None = Field(
+    composition_reduced: CompositionType | None = Field(
         None,
         title="Reduced Composition",
         description="Simplified representation of the composition.",
@@ -113,7 +113,7 @@ class StructureMetadata(EmmetBaseModel):
             "chemsys": "-".join(elsyms),
         }
 
-        return cls(**{k: v for k, v in data.items() if k in fields}, **kwargs)
+        return cls(**{k: v for k, v in data.items() if k in fields}, **kwargs)  # type: ignore[arg-type]
 
     @classmethod
     def from_structure(
@@ -162,7 +162,7 @@ class StructureMetadata(EmmetBaseModel):
         return cls(**kwargs)
 
 
-class MoleculeMetadata(EmmetBaseModel):
+class MoleculeMetadata(BaseModel):
     """Mix-in class for molecule metadata."""
 
     charge: int | None = Field(None, description="Charge of the molecule")
@@ -172,7 +172,7 @@ class MoleculeMetadata(EmmetBaseModel):
     natoms: int | None = Field(
         None, description="Total number of atoms in the molecule"
     )
-    elements: list[Element] | None = Field(
+    elements: list[ElementType] | None = Field(
         None, description="List of elements in the molecule"
     )
     nelements: int | None = Field(None, title="Number of Elements")
@@ -181,10 +181,10 @@ class MoleculeMetadata(EmmetBaseModel):
         title="Number of electrons",
         description="The total number of electrons for the molecule",
     )
-    composition: Composition | None = Field(
+    composition: CompositionType | None = Field(
         None, description="Full composition for the molecule"
     )
-    composition_reduced: Composition | None = Field(
+    composition_reduced: CompositionType | None = Field(
         None,
         title="Reduced Composition",
         description="Simplified representation of the composition",
@@ -274,7 +274,7 @@ class MoleculeMetadata(EmmetBaseModel):
             "chemsys": "-".join(elsyms),
         }
 
-        return cls(**{k: v for k, v in data.items() if k in fields}, **kwargs)
+        return cls(**{k: v for k, v in data.items() if k in fields}, **kwargs)  # type: ignore[arg-type]
 
     @classmethod
     def from_molecule(

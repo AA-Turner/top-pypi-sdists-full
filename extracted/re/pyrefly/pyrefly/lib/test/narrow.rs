@@ -53,18 +53,6 @@ def f(x: str | None):
 );
 
 testcase!(
-    test_bool_special_exports_bug,
-    r#"
-from typing import assert_type, Literal
-def f(x: bool):
-    if bool(x):
-        assert_type(x, Literal[True])
-    else:
-        assert_type(x, Literal[False])
-    "#,
-);
-
-testcase!(
     test_eq,
     r#"
 from typing import assert_type
@@ -198,7 +186,7 @@ testcase!(
     r#"
 from typing import assert_type, Literal, Never
 def f(x: bool | None):
-    if x is True and x is None:
+    if x is True and x is None:  # E: Identity comparison `True is None` is always False
         assert_type(x, Never)
     else:
         assert_type(x, bool | None)
@@ -274,14 +262,14 @@ def f(x: str | None, y: int | None):
 testcase!(
     test_not,
     r#"
-from typing import assert_type
+from typing import assert_type, Literal
 def f(x: str | None):
     if not x is None:
         assert_type(x, str)
     else:
         assert_type(x, None)
     if not x:
-        assert_type(x, str | None)
+        assert_type(x, None | Literal[""])
     else:
         assert_type(x, str)
     "#,
@@ -317,7 +305,7 @@ testcase!(
     r#"
 from typing import assert_type, Literal
 def f(x: bool | None):
-    if not (x is True and x is None):
+    if not (x is True and x is None):  # E: Identity comparison `True is None` is always False
         assert_type(x, Literal[False] | bool | None)
     "#,
 );
@@ -328,6 +316,22 @@ testcase!(
 from typing import assert_type
 def f(x: str | None):
     assert x is not None
+    assert_type(x, str)
+    "#,
+);
+
+testcase!(
+    test_prod_assert,
+    r#"
+from typing import assert_type
+def prod_assert(x: object, msg: str | None = None): ...
+
+def test_only(x: str | None) -> None:
+    prod_assert(x is not None)
+    assert_type(x, str)
+
+def test_and_message(x: str | None) -> None:
+    prod_assert(x is not None, "x is None")
     assert_type(x, str)
     "#,
 );
@@ -349,7 +353,7 @@ assert_type(x, str)
 );
 
 testcase!(
-    test_while_break,
+    test_while_break_no_else,
     r#"
 from typing import assert_type
 def f() -> str | None: ...
@@ -392,7 +396,7 @@ assert_type(x, Literal[42] | str)
 testcase!(
     test_while_narrow,
     r#"
-from typing import assert_type, Literal, reveal_type
+from typing import assert_type, Literal
 def test(x: bool, z: bool):
     while x:
         assert_type(x, Literal[True])
@@ -419,7 +423,7 @@ from typing import assert_type, Never
 def f(x: bool | None, y: bool | None):
     if x is None is None:
         assert_type(x, None)
-    if y is None is True:
+    if y is None is True:  # E: Identity comparison `None is True` is always False
         assert_type(y, Never)
     "#,
 );
@@ -869,6 +873,7 @@ class B: ...
 def test(x: A | B):
     y = isinstance(x, A) and (z := True)
     assert_type(x, A | B)
+    # Intended false negative for uninitialized local check.
     assert_type(z, Literal[True])
     "#,
 );
@@ -945,14 +950,62 @@ if "foo" in foo and foo["foo"] is not "as":
 testcase!(
     test_issubclass,
     r#"
-from typing import assert_type
+from typing import assert_type, reveal_type
 class A: ...
 class B(A): ...
 def f(x: type[B] | type[int]):
     if issubclass(x, A):
-        assert_type(x, type[B])
+        reveal_type(x)  # E: type[(A & int) | B]
     else:
         assert_type(x, type[int])
+    "#,
+);
+
+testcase!(
+    test_issubclass_nondisjoint_classes,
+    r#"
+from typing import reveal_type
+
+class A: ...
+class B: ...
+
+def f(x: type[A]):
+    if issubclass(x, B):
+        reveal_type(x)  # E: type[A & B]
+    "#,
+);
+
+testcase!(
+    test_issubclass_disjoint_classes,
+    r#"
+from typing import assert_type, Never
+def f(x: type[int]):
+    if issubclass(x, str):
+        assert_type(x, type[Never])
+    "#,
+);
+
+testcase!(
+    test_call_after_issubclass,
+    r#"
+class A: ...
+class B: ...
+def f(x: type[A]):
+    if issubclass(x, B):
+        return x()
+    "#,
+);
+
+testcase!(
+    test_attribute_access_after_issubclass,
+    r#"
+from typing import assert_type
+class A: ...
+class B:
+    b: int
+def f(x: type[A]):
+    if issubclass(x, B):
+        assert_type(x.b, int)
     "#,
 );
 
@@ -962,6 +1015,106 @@ testcase!(
 def f(x: int):
     if issubclass(x, int):  # E: Argument `int` is not assignable to parameter `cls` with type `type`
         return True
+    "#,
+);
+
+testcase!(
+    test_issubclass_bare_type,
+    r#"
+from typing import assert_type, Any
+
+class Foo: ...
+
+def test_bare_type(x: type) -> None:
+    # `type` is equivalent to `type[Any]`, so issubclass can narrow it
+    if issubclass(x, Foo):
+        assert_type(x, type[Foo])
+
+def test_type_any(x: type[Any]) -> None:
+    if issubclass(x, Foo):
+        assert_type(x, type[Foo])
+
+def test_isinstance_then_issubclass(x: object) -> None:
+    # Common pattern: check if x is a class, then check if it's a subclass of Foo
+    if isinstance(x, type) and issubclass(x, Foo):
+        assert_type(x, type[Foo])
+    "#,
+);
+
+testcase!(
+    test_issubclass_typevar_object,
+    r#"
+from typing import TypeVar
+
+class Foo:
+    @classmethod
+    def check(cls) -> None:
+        ...
+
+T = TypeVar("T", bound=type[object])
+
+def needs_foo(cls: type[Foo]) -> None:
+    cls.check()
+
+def check(t: T) -> T:
+    if issubclass(t, Foo):
+        needs_foo(t)
+        t.check()
+        return t
+    return t
+    "#,
+);
+
+testcase!(
+    test_isinstance_typevar_intersection,
+    r#"
+def test[T: int | str](value: T) -> T:
+    if isinstance(value, int):
+        return value
+    else:
+        return value
+    "#,
+);
+
+testcase!(
+    test_issubclass_typevar_nondisjoint_classes,
+    r#"
+from typing import reveal_type
+
+class A: ...
+class B: ...
+
+def f[T: type[A]](x: T) -> T:
+    if issubclass(x, B):
+        reveal_type(x)  # E: type[B] & T
+    return x
+    "#,
+);
+
+testcase!(
+    test_issubclass_typevar_disjoint_classes,
+    r#"
+from typing import assert_type, Never
+def f[T: type[int]](x: T) -> T:
+    if issubclass(x, str):
+        assert_type(x, type[Never])
+    return x
+    "#,
+);
+
+testcase!(
+    test_issubclass_typevar_union,
+    r#"
+from typing import assert_type, Never
+def f1[T: type[str]](x: T | type[bytes]) -> T | type[bytes]:
+    if issubclass(x, int):
+        assert_type(x, type[Never])
+    return x
+
+def f2[T: type[str] | type[bytes]](x: T) -> T:
+    if issubclass(x, int):
+        assert_type(x, type[Never])
+    return x
     "#,
 );
 
@@ -1261,16 +1414,69 @@ def f(x: int | None, y: int | None):
 testcase!(
     test_narrow_to_anonymous_intersection,
     r#"
-from typing import assert_type
+from typing import reveal_type
 class A: pass
 class B: pass
 class C(A, B): pass  # not used, but demonstrates why the narrow is not Never
 def f(x: A):
     if isinstance(x, B):
-        # In theory we could use `A & B` here; any common subclass like `C` is possible.
-        # Given that we don't have intersections, we follow Pyre's lead and use `B`
-        assert_type(x, B)
+        reveal_type(x)  # E: A & B
 "#,
+);
+
+testcase!(
+    test_narrow_to_anonymous_intersection2,
+    r#"
+from typing import assert_type
+class A:
+    x: int
+class B:
+    y: str
+def f(x: A) -> A:
+    assert isinstance(x, B)
+    assert_type(x.x, int)
+    assert_type(x.y, str)
+    return x
+    "#,
+);
+
+testcase!(
+    test_keep_anonymous_intersection_after_flow_merge,
+    r#"
+from typing import reveal_type
+class A: ...
+class B: ...
+def f(a: A):
+    assert isinstance(a, B)
+    if hasattr(a, "value") and a.value is None:
+        raise ValueError()
+    reveal_type(a) # E: A & B
+    "#,
+);
+
+testcase!(
+    test_anonymous_intersection_with_union,
+    r#"
+class A: ...
+class B: ...
+class C: ...
+def f(a: A | B):
+    assert isinstance(a, C)
+    g(a)
+def g(a: A | B): ...
+    "#,
+);
+
+testcase!(
+    test_typed_dict_and_dict,
+    r#"
+from typing import TypedDict
+class A(TypedDict):
+    x: int
+def f(a: A | list[int]):
+    if isinstance(a, dict):
+        return a["x"]
+    "#,
 );
 
 testcase!(
@@ -1400,6 +1606,19 @@ def test(x: tuple[int, int], y: tuple[int, *tuple[int, ...], int], z: tuple[int,
     else:
         assert_type(u, tuple[int, int] | tuple[int, *tuple[int, ...], int] | tuple[int, ...])
 "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1616
+testcase!(
+    test_dict_literal_key_isinstance_narrowing,
+    r#"
+from typing import Literal, reveal_type
+def get_value(x: dict[Literal["value"], int] | int) -> int | None:
+    if isinstance(x, dict):
+        return x.get("value")
+    reveal_type(x) # E: revealed type: int
+    return x
+    "#,
 );
 
 testcase!(
@@ -1534,6 +1753,10 @@ class C:
     @staticmethod
     def guard_kw_arg_static(*, x) -> TypeGuard[int]: # E: Type guard functions must accept at least one positional argument
         return True
+
+class D:
+    def guard_missing_self() -> TypeGuard[int]: # E: Type guard functions must accept at least one positional argument
+        return True
 "#,
 );
 
@@ -1597,6 +1820,10 @@ class C:
 
     @staticmethod
     def guard_kw_arg_static(*, x) -> TypeIs[int]: # E: Type guard functions must accept at least one positional argument
+        return True
+
+class D:
+    def guard_missing_self() -> TypeIs[int]: # E: Type guard functions must accept at least one positional argument
         return True
 "#,
 );
@@ -1714,7 +1941,7 @@ def test(x: tuple[Literal["user"], Literal[None]] | tuple[Literal["admin"], int]
     if x[1] is not None:
         assert_type(x, tuple[Literal["admin"], int])
     else:
-        assert_type(x, tuple[Literal["user"], Literal[None]])  
+        assert_type(x, tuple[Literal["user"], Literal[None]])
     "#,
 );
 
@@ -1742,12 +1969,420 @@ def test3(x: A | B, y: A | B):
     if isinstance(x, A) and isinstance(y, B):
         pass
     else:
-        assert_type(x, A | B) 
+        assert_type(x, A | B)
 
 def foo() -> bool: ...
 def test4(x: int | None) -> None:
     if x is not None and foo():
         return
-    assert_type(x, int | None) 
+    assert_type(x, int | None)
+    "#,
+);
+
+testcase!(
+    test_truthy_falsy_builtins,
+    r#"
+from typing import assert_type, Literal
+def test(a: int, b: str, c: bytes):
+    if not a:
+        assert_type(a, Literal[0])
+    else:
+        assert_type(a, int)
+    assert_type(a, int)
+
+    if not b:
+        assert_type(b, Literal[""])
+    else:
+        assert_type(b, str)
+    assert_type(b, str)
+
+    if not c:
+        assert_type(c, Literal[b""])
+    else:
+        assert_type(c, bytes)
+    assert_type(c, bytes)
+
+    if a:
+        assert_type(a, int)
+    else:
+        assert_type(a, Literal[0])
+
+    if b:
+        assert_type(b, str)
+    else:
+        assert_type(b, Literal[""])
+
+    if c:
+        assert_type(c, bytes)
+    else:
+        assert_type(c, Literal[b""])
+    "#,
+);
+
+testcase!(
+    test_do_not_narrow_class_name,
+    r#"
+assert issubclass(list, object)
+x: list[int] = [1]
+    "#,
+);
+
+testcase!(
+    test_disjoint_bases,
+    r#"
+from typing import assert_never
+def f(x: int):
+    if isinstance(x, str):
+        # `int` and `str` are disjoint bases that cannot be multiply inherited from by the same class.
+        assert_never(x)
+    "#,
+);
+
+testcase!(
+    test_literals_are_disjoint,
+    r#"
+from typing import Literal, LiteralString, assert_never
+class A: ...
+def f1(a: None):
+    if isinstance(a, A):
+        assert_never(a)
+def f2(a: Literal[1]):
+    if isinstance(a, A):
+        assert_never(a)
+def f3(a: LiteralString):
+    if isinstance(a, A):
+        assert_never(a)
+    "#,
+);
+
+testcase!(
+    test_callable,
+    r#"
+from typing import Callable
+def f(x: int | Callable[[], int]) -> int:
+    if callable(x):
+        return x()
+    else:
+        return x
+    "#,
+);
+
+testcase!(
+    test_isinstance_local_var,
+    r#"
+from typing import assert_type, Literal
+def f(x: int | str):
+    isint = isinstance(x, int)
+    if isint:
+        assert_type(x, int)
+        assert_type(isint, Literal[True])
+    else:
+        assert_type(x, str)
+        assert_type(isint, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_truthy_local_var,
+    r#"
+from typing import assert_type
+def f(x: int | None):
+    y = x
+    if y:
+        assert_type(x, int)
+        assert_type(y, int)
+    "#,
+);
+
+testcase!(
+    test_reuse_local_var,
+    r#"
+from typing import assert_type
+def f(x: int | str):
+    isint = isinstance(x, int)
+    if isint:
+        assert_type(x, int)
+    if isint:
+        assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_local_var_in_complex_expression,
+    r#"
+from typing import assert_type, Literal
+def f(x: int | str, y: int | str, z: int | str):
+    x_or_y_is_int = isinstance(x, int) or isinstance(y, int)
+    if not x_or_y_is_int and isinstance(z, str):
+        assert_type(x, str)
+        assert_type(y, str)
+        assert_type(z, str)
+        assert_type(x_or_y_is_int, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_circular_reference_to_name,
+    r#"
+from typing import assert_type, Literal
+def f(x, y: bool, force: bool = True):
+    force = force or y
+    if not force and x:
+        assert_type(force, Literal[False])
+    "#,
+);
+
+testcase!(
+    test_local_var_redefinition,
+    r#"
+from typing import assert_type
+def f1(x: int | str):
+    check = isinstance(x, int)
+    check = isinstance(x, str)
+    if check:
+        assert_type(x, str)
+def f2(x: int | str, y: int):
+    check = isinstance(x, int)
+    check += y  # truthiness is unknown now
+    if check:
+        assert_type(x, int | str)
+    "#,
+);
+
+testcase!(
+    test_change_expression_after_test,
+    r#"
+from typing import assert_type, Literal
+def f1(x: int | str, y: int | str):
+    isint = isinstance(x, int)
+    x = y
+    if isint:
+        assert_type(x, int | str)
+        assert_type(isint, Literal[True])
+def f2(x: dict[str, int]):
+    val = x.get("k")
+    del x["k"]
+    if val:
+        assert_type(x.get("k"), int | None)
+    "#,
+);
+
+// Regression test for a case that used to crash pyrefly due to duplicate narrow ranges
+testcase!(
+    test_redundant_elif,
+    r#"
+class A:
+    x: int | None
+def f(a: A, common: list[int]) -> None:
+    prefer_device_type = a.x
+    if prefer_device_type is not None:
+        common_has_preferred = prefer_device_type in common
+        if not common_has_preferred:
+            return
+        elif common_has_preferred:
+            return
+    "#,
+);
+
+// Regression test for a case that used to crash pyrefly due to duplicate narrow ranges
+testcase!(
+    test_nested_if,
+    r#"
+def f(other):
+    f_other = isinstance(other, (float, str))
+    if f_other:
+        if not f_other:
+            other = 3.14
+    return other
+    "#,
+);
+
+testcase!(
+    test_property,
+    r#"
+class A:
+    x: int
+class B:
+    @property
+    def a(self) -> A | None: ...
+def f(b: B) -> int:
+    a = b.a
+    return a.x if a else 0
+    "#,
+);
+
+testcase!(
+    test_dict_get,
+    r#"
+def f(x: dict[str, int]) -> int:
+    v = x.get("k")
+    if v:
+        return v
+    else:
+        return 0
+    "#,
+);
+
+testcase!(
+    test_chained_isinstance,
+    r#"
+from typing import reveal_type
+class A: ...
+class B: ...
+class C: ...
+def f(x: A):
+    if isinstance(x, B) and isinstance(x, C):
+        reveal_type(x) # E: A & B & C
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1642
+testcase!(
+    test_typed_dict_truthiness_narrowing,
+    r#"
+from typing import TypedDict, assert_type, NotRequired
+class RequiredDict(TypedDict):
+    val: int
+class EmptyDict(TypedDict):
+    val: NotRequired[int]
+def test_narrowing(x: RequiredDict | None, y: EmptyDict | None):
+    xval = x and x['val']
+    assert_type(xval, int | None)
+    yval = y and y.get('val')
+    assert_type(yval, int | None | EmptyDict)
+"#,
+);
+
+testcase!(
+    test_typevar_intersection,
+    r#"
+from collections.abc import Mapping, Sequence
+
+def identity_on_mapping[M: Mapping](m: M) -> M: return m
+
+def test_isinstance[T: Mapping[str, int] | Sequence[int]](arg: T) -> T:
+    if isinstance(arg, Mapping):
+        return identity_on_mapping(arg)
+    return arg
+    "#,
+);
+
+testcase!(
+    test_match_intersection_against_constrained_typevar,
+    r#"
+class A: ...
+class B: ...
+class C: ...
+
+def f[T: (A, B)](x: T) -> T:
+    return x
+
+def g(x: C):
+    if isinstance(x, A):
+        f(x)
+    "#,
+);
+
+testcase!(
+    test_len_gt_empty_string,
+    r#"
+def test(unknown):
+    s = ""
+    if unknown:
+        s = unknown.foo
+    if len(s) > 0:
+      s[0]
+    "#,
+);
+
+testcase!(
+    test_typeis_narrow_to_intersection_not_never,
+    r#"
+from typing import TypeIs, reveal_type
+
+class A: ...
+
+def f(x: object) -> TypeIs[A]:
+    return True
+
+class B: ...
+
+def g(b: B):
+    if f(b):
+        reveal_type(b)  # E: A & B
+    "#,
+);
+
+testcase!(
+    test_typeguard_return_without_annotation,
+    r#"
+from typing import TypeGuard
+
+def is_int(x: int | str) -> TypeGuard[int]:
+    return isinstance(x, int)
+
+class X:
+    def __init__(self, param: int | str) -> None:
+        self.param = param
+
+    # This function returns a TypeGuard value but does not have a TypeGuard annotation,
+    # so it should not be validated as a TypeGuard function.
+    # No "Type guard functions must accept at least one positional argument" error expected.
+    def has_int(self):
+        return is_int(self.param)
+    "#,
+);
+
+testcase!(
+    test_typeis_return_without_annotation,
+    r#"
+from typing import TypeIs
+
+def is_int(x: int | str) -> TypeIs[int]:
+    return isinstance(x, int)
+
+class X:
+    def __init__(self, param: int | str) -> None:
+        self.param = param
+
+    # This function returns a TypeIs value but does not have a TypeIs annotation,
+    # so it should not be validated as a TypeIs function.
+    # No "Type guard functions must accept at least one positional argument" error expected.
+    def has_int(self):
+        return is_int(self.param)
+    "#,
+);
+
+testcase!(
+    test_isinstance_invalid_special_form,
+    r#"
+from typing import Final
+
+def f(x: object):
+    isinstance(x, Final)  # E: Expected class object, got special form `Final`
+    "#,
+);
+
+testcase!(
+    test_isinstance_valid_special_form,
+    r#"
+from typing import Protocol
+
+def f(x: object):
+    if isinstance(x, Protocol):
+        pass  # No error - Protocol is valid for isinstance
+    "#,
+);
+
+testcase!(
+    test_narrow_to_unknown_name,
+    r#"
+class C:
+    # expected error, leading to Unknown type
+    x: XXX | None  # E: Could not find name `XXX`
+
+def f(o: C):
+    if o.x is not None:
+        o.x.foo
     "#,
 );

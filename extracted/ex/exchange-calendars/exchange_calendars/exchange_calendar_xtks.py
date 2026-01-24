@@ -50,6 +50,7 @@ from .xtks_holidays import (
 class XTKSExchangeCalendar(ExchangeCalendar):
     """
     Exchange calendar for the Tokyo Stock Exchange
+    https://www.jpx.co.jp/english/corporate/about-jpx/calendar/index.html
 
     First session: 9:00am - 11:30am
     Lunch Break: 11:30am - 12:30pm

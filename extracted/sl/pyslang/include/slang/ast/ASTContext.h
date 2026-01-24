@@ -180,8 +180,11 @@ enum class SLANG_EXPORT ASTFlags : uint64_t {
 
     /// AST binding is for a bind instantiation (port connection or param value).
     BindInstantiation = 1ull << 41,
+
+    /// AST binding is for a wildcard port connection.
+    WildcardPortConn = 1ull << 42,
 };
-SLANG_BITMASK(ASTFlags, BindInstantiation)
+SLANG_BITMASK(ASTFlags, WildcardPortConn)
 
 // clang-format off
 #define DK(x) \
@@ -212,14 +215,10 @@ enum class SLANG_EXPORT EvalFlags : uint8_t {
     /// Specparams are allowed during evaluation.
     SpecparamsAllowed = 1 << 2,
 
-    /// Evaluation is for a covergroup expression, which allows some
-    /// forms of non-constant variables to be referenced.
-    CovergroupExpr = 1 << 3,
-
     /// For parameter evaluation, allow unbounded literals to evaluate to
     /// the placeholder value. Other expressions that have an unbounded literal
     /// without a queue target will return an invalid value.
-    AllowUnboundedPlaceholder = 1 << 4
+    AllowUnboundedPlaceholder = 1 << 3
 };
 SLANG_BITMASK(EvalFlags, AllowUnboundedPlaceholder)
 
@@ -300,7 +299,7 @@ public:
     bitmask<ASTFlags> flags;
 
 private:
-    const Symbol* instanceOrProc = nullptr;
+    const Symbol* symbolCtx = nullptr;
 
 public:
     /// If any temporary variables have been materialized in this context,
@@ -376,9 +375,12 @@ public:
     /// Sets the procedural block associated with the context.
     void setProceduralBlock(const ProceduralBlockSymbol& block);
 
-    /// Clears the parent instance and parent procedural block symbol
-    /// associated with the context.
-    void clearInstanceAndProc() { instanceOrProc = nullptr; }
+    /// Sets the port associated with the context.
+    void setPort(const Symbol& port);
+
+    /// Clears the symbol assocated with the context (either a parent instance,
+    /// a port, or a procedural block).
+    void clearSymbolCtx() { symbolCtx = nullptr; }
 
     /// Tries to fill the @a assertionInstance member by searching upward through
     /// parent scopes to find an assertion instantiation.
@@ -547,6 +549,9 @@ public:
 private:
     void evalRangeDimension(const syntax::SelectorSyntax& syntax, bool isPacked,
                             EvaluatedDimension& result) const;
+
+    template<typename TLoc>
+    Diagnostic& addDiagImpl(DiagCode code, TLoc location) const;
 };
 
 } // namespace slang::ast

@@ -18,12 +18,12 @@ struct Stuff {
 // the test
 #[test]
 fn test_deserialize_and_serialize() {
-    let ry_time = RyTime::py_new(Some(4), Some(3), Some(2), Option::from(1)).unwrap();
+    let ry_time = RyTime::py_new(4, 3, 2, 1).unwrap();
     let ry_date = RyDate::py_new(2025, 5, 21).unwrap();
     let ry_datetime = ry_date.at(4, 3, 2, 1);
     let ry_zoned = ry_datetime.in_tz("America/New_York").unwrap();
     let ry_signed_duration = RySignedDuration::py_new(123, 123).unwrap();
-    let ry_timestamp = RyTimestamp::py_new(Some(1234), Some(5678)).unwrap();
+    let ry_timestamp = RyTimestamp::py_new(1234, 5678).unwrap();
     let span = Span::new().days(1).hours(2).minutes(4);
     let ry_span = RySpan::from(span);
 

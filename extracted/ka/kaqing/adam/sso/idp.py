@@ -3,19 +3,18 @@ import getpass
 import os
 import sys
 import termios
-import traceback
 from typing import Callable, TypeVar
 import requests
 from kubernetes import config
 import yaml
 
-from adam.k8s_utils.secrets import Secrets
+from adam.utils_k8s.secrets import Secrets
 
 from .cred_cache import CredCache
 from .idp_session import IdpSession
 from .idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import log, log2
+from adam.utils import debug, log, log_exc
 
 T = TypeVar('T')
 
@@ -31,6 +30,8 @@ class Idp:
     def login(app_host: str, username: str = None, idp_uri: str = None, forced = False, use_token_from_env = True, use_cached_creds = True, verify = True) -> IdpLogin:
         session: IdpSession = IdpSession.create(username, app_host, app_host, idp_uri=idp_uri)
 
+        debug(f'Idp.login({username})')
+
         if use_token_from_env:
             if l0 := session.login_from_env_var():
                 return l0
@@ -39,11 +40,9 @@ class Idp:
                 token_server = Config().get('app.login.token-server-url', 'http://localhost:{port}').replace('{port}', port)
                 res: requests.Response = requests.get(token_server)
                 if res.status_code == 200 and res.text:
-                    try:
+                    with log_exc():
                         # may fail if the idp token is not complete
                         return session.login_from_token(res.text)
-                    except:
-                        pass
 
         r: IdpLogin = None
         try:
@@ -57,10 +56,11 @@ class Idp:
                 default_user: str = None
                 if use_cached_creds:
                     default_user = CredCache().get_username()
-                    Config().debug(f'User read from cache: {default_user}')
+                    debug(f'User read from cache: {default_user}')
 
-                if from_env := os.getenv('USERNAME'):
-                    default_user = from_env
+                # no value in using USERNAME
+                # if from_env := os.getenv('USERNAME') and in_docker():
+                #     default_user = from_env
                 if default_user and default_user != username:
                     session = IdpSession.create(default_user, app_host, app_host)
 
@@ -125,7 +125,7 @@ class Idp:
             termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
     def try_kubeconfig(username: str, kubeconfig: str):
-        try:
+        with log_exc():
             if kubeconfig[0] == '\t':
                 kubeconfig = kubeconfig[1:]
             kubeconfig_string = base64.b64decode(kubeconfig.encode('ascii') + b'==').decode('utf-8')
@@ -136,8 +136,5 @@ class Idp:
                 Secrets.list_secrets(os.getenv('NAMESPACE'))
 
                 return IdpLogin(None, None, None, username)
-        except:
-            Config().debug(traceback.format_exc())
-            pass
 
         return None

@@ -1,18 +1,19 @@
-# This file is part of ssh-python.
-# Copyright (C) 2018 Panos Kittenis
+#  This file is part of ssh-python.
+#  Copyright (C) 2018-2025 Panos Kittenis.
+#  Copyright (C) 2018-2025 ssh-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-130
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-130
 
 from libc.time cimport time_t
 from posix.types cimport mode_t, suseconds_t
@@ -183,6 +184,10 @@ cdef extern from "libssh/libssh.h" nogil:
         SSH_KEYTYPE_ECDSA_P384_CERT01,
         SSH_KEYTYPE_ECDSA_P521_CERT01,
         SSH_KEYTYPE_ED25519_CERT01
+    enum ssh_file_format_e:
+        SSH_FILE_FORMAT_DEFAULT
+        SSH_FILE_FORMAT_OPENSSH
+        SSH_FILE_FORMAT_PEM
     enum ssh_keycmp_e:
         SSH_KEY_CMP_PUBLIC,
         SSH_KEY_CMP_PRIVATE
@@ -264,6 +269,10 @@ cdef extern from "libssh/libssh.h" nogil:
     int ssh_channel_change_pty_size(ssh_channel channel, int cols, int rows)
     int ssh_channel_close(ssh_channel channel)
     void ssh_channel_free(ssh_channel channel)
+    int ssh_channel_get_exit_state(ssh_channel channel,
+                                   uint32_t *pexit_code,
+                                   char **pexit_signal,
+                                   int *pcore_dumped)
     int ssh_channel_get_exit_status(ssh_channel channel)
     ssh_session ssh_channel_get_session(ssh_channel channel)
     int ssh_channel_is_closed(ssh_channel channel)
@@ -438,6 +447,13 @@ cdef extern from "libssh/libssh.h" nogil:
     int ssh_pki_export_privkey_file(
         const ssh_key privkey, const char *passphrase,
         ssh_auth_callback auth_fn, void *auth_data, const char *filename)
+    int ssh_pki_export_privkey_file_format(
+        const ssh_key privkey,
+        const char *passphrase,
+        ssh_auth_callback auth_fn,
+        void *auth_data,
+        const char *filename,
+        ssh_file_format_e format)
 
     int ssh_pki_copy_cert_to_privkey(const ssh_key cert_key,
                                      ssh_key privkey)

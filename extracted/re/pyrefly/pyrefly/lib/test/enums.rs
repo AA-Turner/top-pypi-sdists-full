@@ -45,7 +45,7 @@ class MyEnum(Enum):
 
 assert_type(MyEnum.X, Literal[MyEnum.X])
 assert_type(MyEnum["X"], Literal[MyEnum.X])
-assert_type(MyEnum.__PRIVATE, int)
+assert_type(MyEnum.__PRIVATE, int)  # E: Private attribute `__PRIVATE` cannot be accessed outside of its defining class
 assert_type(MyEnum.X.name, Literal["X"])
 assert_type(MyEnum.X._name_, Literal["X"])
 assert_type(MyEnum.X.value, int)
@@ -117,7 +117,6 @@ Color = Enum("C", 'RED', 'GREEN', 'BLUE')  # E: Expected string literal "Color"
 );
 
 testcase!(
-    bug = "Enums with multiple inheritance are not iterable. Maybe a MRO / metaclass resolution issue?",
     test_iterate,
     r#"
 from typing import assert_type
@@ -134,9 +133,9 @@ class E3(StrEnum):
 
 for e in E1:
     assert_type(e, E1)
-for e in E2: # E: Type `type[E2]` is not iterable
+for e in E2:
     assert_type(e, E2)
-for e in E3: # E: Type `type[E3]` is not iterable
+for e in E3:
     assert_type(e, E3)
 
     "#,
@@ -412,12 +411,26 @@ assert_type(f(True, MyEnum.X, MyEnum.X), MyEnum)
 "#,
 );
 
+testcase!(
+    test_enum_override_value,
+    r#"
+from enum import Enum
+from typing import assert_type
+
+class MyIntEnum(int, Enum):
+    TWENTYSIX = '1a', 16
+    value: int
+
+assert_type(MyIntEnum.TWENTYSIX.value, int)
+"#,
+);
+
 // In 3.10 and lower versions, _magic_enum_attr is a different type than in 3.11+
 testcase!(
     test_magic_enum_attr_3_10,
     TestEnv::new_with_version(PythonVersion::new(3, 10, 0)),
     r#"
-from typing_extensions import assert_type
+from typing_extensions import assert_type, Any
 import enum
 class E(enum.Enum):
     _value_: int
@@ -426,7 +439,7 @@ class E(enum.Enum):
     @enum._magic_enum_attr
     def foo(self) -> str: ...
 e = E.E0
-assert_type(e.foo, str)
+assert_type(e.foo, Any)
     "#,
 );
 
@@ -434,7 +447,7 @@ testcase!(
     test_magic_enum_attr_3_11,
     TestEnv::new_with_version(PythonVersion::new(3, 11, 0)),
     r#"
-from typing_extensions import assert_type, Any
+from typing_extensions import assert_type
 import enum
 class E(enum.Enum):
     _value_: int
@@ -510,7 +523,7 @@ class classproperty[_TClass, _TReturnType]:
     fget: Callable[[_TClass], _TReturnType]
     def __init__(self, f: Callable[[_TClass], _TReturnType]) -> None: ...
     def __get__(self, obj: _TClass | None, cls: _TClass) -> _TReturnType: ...
-    
+
 class Foo(IntEnum):
     X = 1
     @classproperty
@@ -523,7 +536,6 @@ assert_type(Foo.Y, list[Foo])
 );
 
 testcase!(
-    bug = "The RED = ... in pyi should be fine",
     test_enum_value_dots_pyi,
     env_enum_dots(),
     r#"
@@ -554,5 +566,184 @@ class EmptyEnum(Enum):
     pass
 def test(x: EmptyEnum):
     assert_type(x.value, Any)
+    "#,
+);
+
+testcase!(
+    test_enum_iter,
+    r#"
+from enum import Enum
+from typing import TypeVar
+
+class MyEnum(Enum):
+    A = "a"
+    B = "b"
+
+T_Enum = TypeVar("T_Enum", bound=Enum)
+
+def get_labels(enum_cls: type[T_Enum]) -> list[str]:
+    return [e.name for e in enum_cls]
+    "#,
+);
+
+testcase!(
+    test_enum_type_getitem,
+    r#"
+from enum import Enum
+from typing import TypeVar, assert_type
+
+class Color(Enum):
+    RED = "red"
+    BLUE = "blue"
+
+def accepts_base(cls: type[Enum], key: str) -> None:
+    assert_type(cls[key], Enum)
+
+def accepts_specific(cls: type[Color], key: str) -> None:
+    assert_type(cls[key], Color)
+
+T_Enum = TypeVar("T_Enum", bound=Enum)
+
+def accepts_generic(cls: type[T_Enum], key: str) -> None:
+    assert_type(cls[key], T_Enum)
+
+def bad_key(cls: type[Enum]) -> None:
+    cls[0]  # E: Enum type `type[Enum]` can only be indexed by strings
+"#,
+);
+
+testcase!(
+    test_mixin_datatype,
+    r#"
+from enum import Enum
+from typing import assert_type
+
+class A(float, Enum):
+    X = 1
+
+class FloatEnum(float, Enum):
+    pass
+class B(FloatEnum):
+    X = 1
+
+assert_type(A.X.value, float)
+assert_type(B.X.value, float)
+    "#,
+);
+
+testcase!(
+    test_override_value_prop,
+    r#"
+from enum import Enum
+from typing import assert_type
+class E(Enum):
+    X = 1
+    @property
+    def value(self) -> str: ...
+assert_type(E.X._value_, int)
+assert_type(E.X.value, str)
+    "#,
+);
+
+testcase!(
+    test_auto,
+    r#"
+from enum import auto, Enum, StrEnum
+from typing import assert_type
+class E1(Enum):
+    X = auto()
+class E2(StrEnum):
+    X = auto()
+class E3(str, Enum):
+    X = auto()
+class E4(Enum):
+    X = (auto(),)
+assert_type(E1.X.value, int)
+assert_type(E2.X.value, str)
+assert_type(E3.X.value, str)
+assert_type(E4.X.value, tuple[int])
+    "#,
+);
+
+testcase!(
+    test_callable_nonmember,
+    r#"
+from enum import Enum
+from typing import Callable
+
+class InclusionLevel(Enum):
+    A = 1
+    B = 2
+    C = 3
+
+    def is_included(self):
+        return self.value >  self.B.value
+
+x: Callable[[InclusionLevel], bool] = InclusionLevel.is_included
+    "#,
+);
+
+testcase!(
+    test_callable_enum,
+    r#"
+from enum import Enum
+from typing import assert_type
+
+class MyCallable:
+    def __call__(self) -> int:
+        return 42
+
+class E1(MyCallable, Enum):
+    pass
+
+class E2(E1):
+    X = 1
+
+assert_type(E2.X(), int)
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/755
+testcase!(
+    test_access_value_on_mixed_type_enum,
+    r#"
+from enum import Enum
+
+class StrEnum(str, Enum):
+    FOO = "FOO"
+    DEFAULT = "DEFAULT"
+
+    @classmethod
+    def normalize(cls, val: str) -> str:
+        try:
+            return cls(val).value
+        except ValueError:
+            return cls.DEFAULT.value
+
+class IntEnum(int, Enum):
+    FOO = 1
+    DEFAULT = 0
+
+    @classmethod
+    def normalize(cls, val: int) -> int:
+        try:
+            return cls(val).value
+        except ValueError:
+            return cls.DEFAULT.value
+    "#,
+);
+
+testcase!(
+    bug = "Enum aliases should have the type of the original member. The alias itself is not a member as per the spec.",
+    test_enum_alias,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+
+class TrafficLight(Enum):
+    YELLOW = 3
+    AMBER = YELLOW  # Alias for YELLOW
+
+assert_type(TrafficLight.AMBER, Literal[TrafficLight.YELLOW])  # E: assert_type(Literal[TrafficLight.AMBER], Literal[TrafficLight.YELLOW]) failed
     "#,
 );

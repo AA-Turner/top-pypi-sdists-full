@@ -1,23 +1,44 @@
 use nu_ansi_term::{Color, Style};
 
-use crate::{printer::Simple, Diagnostic, Level, Print};
+use crate::{Diagnostic, Level, Print, printer::Simple};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Pretty;
+pub struct Pretty {
+    pub use_ansi_color: bool,
+}
+
+impl std::default::Default for Pretty {
+    fn default() -> Self {
+        Self {
+            use_ansi_color: true,
+        }
+    }
+}
 
 impl Print<Pretty> for Level {
-    fn print(&self, _printer: &mut Pretty) {
-        self.print(&mut Simple);
+    fn print(&self, printer: &mut Pretty) {
+        self.print(&mut Simple {
+            use_ansi_color: printer.use_ansi_color,
+        });
     }
 }
 
 impl Print<Pretty> for Diagnostic {
     fn print(&self, printer: &mut Pretty) {
         self.level().print(printer);
-        println!(": {}", Style::new().bold().paint(self.message()));
 
-        let at_style: Style = Style::new().fg(Color::DarkGray);
-        let link_style: Style = Style::new().fg(Color::Cyan);
+        let (message_style, at_style, link_style) = if printer.use_ansi_color {
+            (
+                Style::new().bold(),
+                Style::new().fg(Color::DarkGray),
+                Style::new().fg(Color::Cyan),
+            )
+        } else {
+            (Style::new(), Style::new(), Style::new())
+        };
+
+        println!(": {}", message_style.paint(self.message()));
+
         if let Some(source_file) = self.source_file() {
             println!(
                 "    {} {}",

@@ -11,20 +11,15 @@
 #include "include/core/SkData.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkString.h"
-#include "src/core/SkOpts.h"
+#include "src/core/SkChecksum.h"
 #include "src/core/SkTDynamicHash.h"
 
 #include <unordered_map>
-
-/*
- * A simple class which allows clients to add opaque data types, and returns a url where this data
- * will be hosted.  Its up to the owner of this class to actually serve the data.
- */
-bool operator==(const SkData& a, const SkData& b);
+#include <vector>
 
 class UrlDataManager {
 public:
-    UrlDataManager(SkString rootUrl);
+    explicit UrlDataManager(SkString rootUrl);
     ~UrlDataManager() { this->reset(); }
 
     /*
@@ -42,7 +37,7 @@ public:
     /*
      * returns the UrlData object which should be hosted at 'url'
      */
-    UrlData* getDataFromUrl(SkString url) {
+    UrlData* getDataFromUrl(const SkString& url) {
         return fUrlLookup.find(url);
     }
     void reset();
@@ -76,7 +71,7 @@ private:
         }
 
         static uint32_t Hash(const SkData& key) {
-            return SkOpts::hash(key.bytes(), key.size());
+            return SkChecksum::Hash32(key.bytes(), key.size());
         }
     };
 
@@ -86,7 +81,7 @@ private:
         }
 
         static uint32_t Hash(const SkString& key) {
-            return SkOpts::hash(key.c_str(), strlen(key.c_str()));
+            return SkChecksum::Hash32(key.c_str(), strlen(key.c_str()));
         }
     };
 

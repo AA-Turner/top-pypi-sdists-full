@@ -1,7 +1,7 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import lxml.etree as ET
 
-from md2conf.drawio import extract_diagram, extract_xml_from_png, extract_xml_from_svg
+from md2conf.drawio.render import extract_diagram, extract_xml_from_png, extract_xml_from_svg
 from md2conf.xml import is_xml_equal
 from tests.utility import TypedTestCase
 

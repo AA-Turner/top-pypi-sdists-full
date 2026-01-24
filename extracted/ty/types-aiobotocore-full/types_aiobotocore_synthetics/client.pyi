@@ -3,7 +3,7 @@ Type annotations for synthetics service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -66,12 +67,6 @@ from .type_defs import (
     UpdateCanaryRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -80,18 +75,18 @@ else:
 __all__ = ("SyntheticsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    RequestEntityTooLargeException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    RequestEntityTooLargeException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SyntheticsClient(AioBaseClient):
     """
@@ -130,7 +125,7 @@ class SyntheticsClient(AioBaseClient):
 
     async def associate_resource(
         self, **kwargs: Unpack[AssociateResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a canary with a group.
 
@@ -159,7 +154,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#create_group)
         """
 
-    async def delete_canary(self, **kwargs: Unpack[DeleteCanaryRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_canary(self, **kwargs: Unpack[DeleteCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently deletes the specified canary.
 
@@ -167,7 +162,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#delete_canary)
         """
 
-    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group.
 
@@ -209,7 +204,7 @@ class SyntheticsClient(AioBaseClient):
 
     async def disassociate_resource(
         self, **kwargs: Unpack[DisassociateResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a canary from a group.
 
@@ -287,7 +282,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#list_tags_for_resource)
         """
 
-    async def start_canary(self, **kwargs: Unpack[StartCanaryRequestTypeDef]) -> Dict[str, Any]:
+    async def start_canary(self, **kwargs: Unpack[StartCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Use this operation to run a canary that has already been created.
 
@@ -306,7 +301,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#start_canary_dry_run)
         """
 
-    async def stop_canary(self, **kwargs: Unpack[StopCanaryRequestTypeDef]) -> Dict[str, Any]:
+    async def stop_canary(self, **kwargs: Unpack[StopCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the canary to prevent all future runs.
 
@@ -314,7 +309,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#stop_canary)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified canary or group.
 
@@ -322,7 +317,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -330,7 +325,7 @@ class SyntheticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_synthetics/client/#untag_resource)
         """
 
-    async def update_canary(self, **kwargs: Unpack[UpdateCanaryRequestTypeDef]) -> Dict[str, Any]:
+    async def update_canary(self, **kwargs: Unpack[UpdateCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the configuration of a canary that has already been created.
 
@@ -346,7 +341,7 @@ class SyntheticsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

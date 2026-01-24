@@ -4,13 +4,15 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'gmpy2'
-version = '2.2.1'
+version = '2.2.2'
 description = 'gmpy2 interface to GMP, MPFR, and MPC for Python 3.7+'
 keywords = ['gmp', 'mpfr', 'mpc', 'multiple-precision',
             'arbitrary-precision', 'precision', 'bignum']
 license = {text = 'LGPL-3.0+'}
-authors = [{name = 'Case Van Horsen'}]
-maintainers = [{name = 'Case Van Horsen', email = 'casevh@gmail.com'}]
+authors = [{name = 'Alex Martelli'},
+           {name = 'Case Van Horsen'}]
+maintainers = [{name = 'Matthias Köppe', email='mkoeppe@math.ucdavis.edu'},
+               {name = 'Sergey B Kirpichev', email='skirpichev@gmail.com'}]
 classifiers = ['Development Status :: 5 - Production/Stable',
                'Intended Audience :: Developers',
                'Intended Audience :: Science/Research',
@@ -28,6 +30,7 @@ classifiers = ['Development Status :: 5 - Production/Stable',
                'Programming Language :: Python :: 3.11',
                'Programming Language :: Python :: 3.12',
                'Programming Language :: Python :: 3.13',
+               'Programming Language :: Python :: 3.14',
                'Programming Language :: Python :: Implementation :: CPython',
                'Topic :: Scientific/Engineering :: Mathematics',
                'Topic :: Software Development :: Libraries :: Python Modules']
@@ -42,7 +45,7 @@ docs = ['sphinx>=4', 'sphinx-rtd-theme>=1']
 tests = ['pytest', 'hypothesis', 'cython', 'mpmath', 'setuptools']
 
 [project.urls]
-Homepage = 'https://github.com/aleaxit/gmpy'
+Homepage = 'https://github.com/gmpy2/gmpy2'
 
 [tool.setuptools]
 zip-safe = false

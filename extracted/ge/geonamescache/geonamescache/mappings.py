@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-
 # Map country name variants to the ones used in GeoNames.
-country_names = {
+country_names: dict[str, str] = {
     'Bolivia (Plurinational State of)': 'Bolivia',
     'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
     'Brunei Darussalam': 'Brunei',
@@ -59,8 +57,8 @@ country_names = {
     'The former Yugoslav Republic of Macedonia': 'Macedonia',
     'the former Yugoslav Republic of Macedonia': 'Macedonia',
     'The Gambia': 'Gambia',
-    'The Netherlands': 'Netherlands',
-    'Timor-Leste': 'East Timor',
+    'Netherlands': 'The Netherlands',
+    'Timor Leste': 'East Timor',
     'UAE': 'United Arab Emirates',
     'United Republic of Tanzania': 'Tanzania',
     'United Republic of Tanzania (the)': 'Tanzania',
@@ -71,5 +69,5 @@ country_names = {
     'Vatican City': 'Vatican',
     'Venezuela (Bolivarian Republic of)': 'Venezuela',
     'Viet Nam': 'Vietnam',
-    'West Bank and Gaza Strip': 'Palestinian Territory'
+    'West Bank and Gaza Strip': 'Palestinian Territory',
 }

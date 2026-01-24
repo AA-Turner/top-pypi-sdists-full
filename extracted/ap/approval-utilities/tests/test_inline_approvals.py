@@ -1,15 +1,11 @@
 import sys
 import unittest
-from inspect import FrameInfo
-from typing import Any, Callable
 
 import pytest
 
-from approval_utilities.utilities.multiline_string_utils import remove_indentation_from
 from approvaltests import (
     ApprovalException,
     Options,
-    StackFrameNamer,
     verify,
     verify_all,
     verify_all_combinations_with_labeled_input,
@@ -21,17 +17,22 @@ from approvaltests.namer.inline_comparator import InlineComparator
 from approvaltests.namer.inline_python_reporter import (
     detect_trailing_whitespace,
     escape_backslashes,
+    escape_characters_dict,
     handle_preceeding_whitespace,
 )
 from approvaltests.reporters.report_quietly import ReportQuietly
 from approvaltests.reporters.report_with_beyond_compare import (
     ReportWithBeyondCompare,
-    ReportWithPycharm,
 )
 
 # Todo:
 # detect the actual tab
 # detect if the quote type used in the docstring  (i.e. " or ')
+
+
+def verify_approval_failure(text: str) -> None:
+    with pytest.raises(ApprovalException):
+        verify(text, options=Options().with_reporter(ReportQuietly()).inline())
 
 
 def fizz_buzz(param: int) -> str:
@@ -266,3 +267,87 @@ def test_escape_backslashes_windows_path() -> None:
 def test_escape_backslashes_mixed_sequences() -> None:
     text = "a\\b\\c\\n"
     assert escape_backslashes(text) == "a\\b\\c\\n".replace("\\", "\\\\")
+
+
+def test_unicode_and_special_characters__passing() -> None:
+    """
+    é
+    """
+    text = "e\u0301"  # 'e' + COMBINING ACUTE (2 code points)
+    verify(text, options=Options().inline())
+
+
+def test_unicode_and_special_characters__mismatch() -> None:
+    """
+    é
+    """
+    # 'e' + COMBINING ACUTE (2 code points)
+    verify_approval_failure("xe\u0301")
+
+
+def test_unicode_and_special_characters__missing() -> None:
+    text = "e\u0301"  # 'e' + COMBINING ACUTE (2 code points)
+    verify_approval_failure(text)
+
+
+def test_unicode_and_special_characters__not_inline() -> None:
+    text = "e\u0301"  # 'e' + COMBINING ACUTE (2 code points)
+    verify(text)
+
+
+def test_unicode_null_character__passing() -> None:
+    """
+    \x00
+    """
+    text = "\x00"  # Null character
+    verify(text, options=Options().inline())
+
+
+def test_unicode_null_character__missing() -> None:
+    text = "hello\x00world"  # Null character
+    verify_approval_failure(text)
+
+
+def test_unicode_null_character__incorrect_test() -> None:
+    """
+    hello\x00world
+    """
+    verify_approval_failure("hello world")
+
+
+def test_unicode_null_character__incorrect_approval() -> None:
+    """
+    hello .
+    """
+    verify_approval_failure("hello\x00.")
+
+
+def test_unicode_right_to_left_mark__passing() -> None:
+    """
+    hello!\u200fworld
+    """
+    text = "hello!\u200fworld"  # Right-to-left mark
+    verify(text, options=Options().inline())
+
+
+def test_unicode_right_to_left_mark__missing() -> None:
+    text = "hello!\u200fworld"  # Right-to-left mark
+    verify_approval_failure(text)
+
+
+def test_unicode_right_to_left_mark__incorrect_approval() -> None:
+    """
+    hello world
+    """
+    verify_approval_failure("hello!\u200fworld")
+
+
+def test_unicode_right_to_left_mark__incorrect_test() -> None:
+    """
+    hello!\u200fworld
+    """
+    verify_approval_failure("hello world")
+
+
+def test_escape_characters_dict() -> None:
+    verify_all("", escape_characters_dict.items())

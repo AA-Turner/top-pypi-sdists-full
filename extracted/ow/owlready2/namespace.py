@@ -484,7 +484,18 @@ class World(_GraphManager):
   
   def prepare_sparql(self, sparql, error_on_undefined_entities = True): # lru_cache does not handle optional args
     return self._prepare_sparql(sparql, error_on_undefined_entities)
-  
+
+  def register_sparql_function(self, func, return_type, deterministic = False, name = None, num_params = None):
+    from owlready2.base import _universal_datatype_2_abbrev
+    from owlready2.rply import Rule
+    from owlready2.sparql.func import _FUNC_2_DATATYPE
+    
+    name = "PY_FUNC_%s" % (name or func.__name__).upper()
+    if num_params is None: num_params = func.__code__.co_argcount
+    _FUNC_2_DATATYPE[name] = _universal_datatype_2_abbrev[return_type]
+    self.graph.db.create_function(name, num_params, func, deterministic = deterministic)
+    
+    
   def get_ontology(self, base_iri, OntologyClass = None):
     if (not base_iri.endswith("/")) and (not base_iri.endswith("#")):
       if   ("%s/" % base_iri) in PREDEFINED_ONTOLOGIES: base_iri = base_iri = "%s/" % base_iri
@@ -964,7 +975,7 @@ class Ontology(Namespace, _GraphManager):
       f = fileobj or _get_onto_file(self._orig_base_iri, self.name, "r", only_local)
     else:
       f = ""
-    
+
     if reload_if_newer and not(f.startswith("http:") or f.startswith("https:")):
       reload = os.path.getmtime(f) > self.graph.get_last_update_time()
       

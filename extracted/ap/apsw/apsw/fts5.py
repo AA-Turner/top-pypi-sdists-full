@@ -1391,11 +1391,7 @@ class Table:
             for token in self.tokenize(utf8, include_colocated=False, include_offsets=False, locale=locale):
                 token_counter[token] += 1
 
-        try:
-            row_token_count = token_counter.total()
-        except AttributeError:
-            # Py <= 3.9 doesn't have total so do it the hard way
-            row_token_count = sum(token_counter.values())
+        row_token_count = token_counter.total()
 
         # calculate per token score
         scores: list[tuple[float, str]] = []
@@ -1506,8 +1502,8 @@ class Table:
 
         The rowid of the inserted/modified row is returned.
 
-        If you are using an [external
-        content](https://www.sqlite.org/fts5.html#external_content_tables)
+        If you are using an `external
+        content <https://www.sqlite.org/fts5.html#external_content_tables>`__
         table:
 
         * The insert will be directed to the external content table

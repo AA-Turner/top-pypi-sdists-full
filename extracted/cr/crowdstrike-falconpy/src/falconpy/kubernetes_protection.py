@@ -98,7 +98,8 @@ class KubernetesProtection(ServiceClass):
                     cloud_region        node_count
                     cloud_service       pod_count
                     cluster_id          tags
-                    cluster_name
+                    cluster_name        pod_name
+                    namespace
         parameters -- Full parameters payload dictionary. Not required if using other keywords.
 
         Arguments: When not specified, the first argument to this method is assumed to be 'filter'.
@@ -141,7 +142,8 @@ class KubernetesProtection(ServiceClass):
                     cloud_region        node_count
                     cloud_service       pod_count
                     cluster_id          tags
-                    cluster_name
+                    cluster_name        pod_name
+                    namespace
         parameters -- Full parameters payload dictionary. Not required if using other keywords.
 
         Arguments: When not specified, the first argument to this method is assumed to be 'filter'.
@@ -183,7 +185,8 @@ class KubernetesProtection(ServiceClass):
                     cloud_region        node_count
                     cloud_service       pod_count
                     cluster_id          tags
-                    cluster_name
+                    cluster_name        pod_name
+                    namespace
         parameters -- Full parameters payload dictionary. Not required if using other keywords.
 
         Arguments: When not specified, the first argument to this method is assumed to be 'filter'.
@@ -1412,7 +1415,8 @@ class KubernetesProtection(ServiceClass):
                     cloud_region        node_count
                     cloud_service       pod_count
                     cluster_id          tags
-                    cluster_name
+                    cluster_name        pod_name
+                    namespace
         limit -- The upper-bound on the number of records to retrieve. Integer.
         offset -- The offset from where to begin. Integer.
         sort -- Field to sort results by. String.
@@ -1455,7 +1459,8 @@ class KubernetesProtection(ServiceClass):
                     cloud_region        node_count
                     cloud_service       pod_count
                     cluster_id          tags
-                    cluster_name
+                    cluster_name        pod_name
+                    namespace
         limit -- The upper-bound on the number of records to retrieve. Integer.
         offset -- The offset from where to begin. Integer.
         sort -- Field to sort results by. String.
@@ -1602,6 +1607,64 @@ class KubernetesProtection(ServiceClass):
             calling_object=self,
             endpoints=Endpoints,
             operation_id="ReadDeploymentCombined",
+            keywords=kwargs,
+            params=parameters
+            )
+
+    @force_default(defaults=["body", "parameters"], default_types=["dict", "dict"])
+    def search_kubernetes_ioms(self: object,
+                               body: dict = None,
+                               parameters: dict = None,
+                               **kwargs
+                               ) -> Union[Dict[str, Union[int, dict]], Result]:
+        """Search for Kubernetes IOMs with filtering options.
+
+        Pagination is supported via Elasticsearch's search_after search param and point in time.
+        Assets are sorted by unique ID in ascending direction.
+
+        Keyword arguments:
+        body -- Full body payload as a JSON formatted dictionary. Not required if using other keywords.
+                {
+                    "pit": "string",
+                    "search_after": [
+                        null
+                    ]
+                }
+        filter -- Search Kubernetes IOMs using a query in Falcon Query Language (FQL). String.
+                  Supported filter fields:
+                    cid                                   cis_id
+                    cluster_id                            cluster_name
+                    containers_impacted_ai_related        containers_impacted_count
+                    containers_impacted_ids               detection_type
+                    name                                  namespace
+                    prevented                             resource_id
+                    resource_name                         resource_type
+                    severity
+        sort -- The fields to sort the records on. FQL Format. String.
+        limit -- Maximum number of records to return. Integer. Default: 100, Max: 500
+        parameters -- Full parameters payload dictionary. Not required if using other keywords.
+
+        This method only supports keywords for providing arguments.
+
+        Returns: dict object containing API response.
+
+        HTTP Method: POST
+
+        Swagger URL
+        https://assets.falcon.crowdstrike.com/support/api/swagger.html#/kubernetes-protection/PostSearchKubernetesIOMEntities
+        """
+        if not body:
+            if kwargs.get("pit", None):
+                body["pit"] = kwargs.get("pit", None)
+            if kwargs.get("search_after", None):
+                search_after = kwargs.get("search_after", None)
+                if isinstance(search_after, str):
+                    search_after = search_after.split(",")
+                body["search_after"] = search_after
+        return process_service_request(
+            calling_object=self,
+            endpoints=Endpoints,
+            operation_id="PostSearchKubernetesIOMEntities",
             keywords=kwargs,
             params=parameters
             )
@@ -2381,6 +2444,7 @@ class KubernetesProtection(ServiceClass):
     ReadRunningContainerImages = read_running_images
     ReadContainerCombined = read_containers_combined
     ReadDeploymentCombined = read_deployments_combined
+    PostSearchKubernetesIOMEntities = search_kubernetes_ioms
     SearchAndReadKubernetesIomEntities = search_and_read_ioms
     ReadNodeCombined = read_nodes_combined
     ReadPodCombined = read_pods_combined

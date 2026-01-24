@@ -3,7 +3,7 @@ Type annotations for eks service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -18,6 +18,7 @@ Usage::
         ListAccessPoliciesPaginator,
         ListAddonsPaginator,
         ListAssociatedAccessPoliciesPaginator,
+        ListCapabilitiesPaginator,
         ListClustersPaginator,
         ListEksAnywhereSubscriptionsPaginator,
         ListFargateProfilesPaginator,
@@ -38,6 +39,7 @@ Usage::
         list_access_policies_paginator: ListAccessPoliciesPaginator = client.get_paginator("list_access_policies")
         list_addons_paginator: ListAddonsPaginator = client.get_paginator("list_addons")
         list_associated_access_policies_paginator: ListAssociatedAccessPoliciesPaginator = client.get_paginator("list_associated_access_policies")
+        list_capabilities_paginator: ListCapabilitiesPaginator = client.get_paginator("list_capabilities")
         list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
         list_eks_anywhere_subscriptions_paginator: ListEksAnywhereSubscriptionsPaginator = client.get_paginator("list_eks_anywhere_subscriptions")
         list_fargate_profiles_paginator: ListFargateProfilesPaginator = client.get_paginator("list_fargate_profiles")
@@ -69,6 +71,8 @@ from .type_defs import (
     ListAddonsResponseTypeDef,
     ListAssociatedAccessPoliciesRequestPaginateTypeDef,
     ListAssociatedAccessPoliciesResponseTypeDef,
+    ListCapabilitiesRequestPaginateTypeDef,
+    ListCapabilitiesResponseTypeDef,
     ListClustersRequestPaginateTypeDef,
     ListClustersResponseTypeDef,
     ListEksAnywhereSubscriptionsRequestPaginateTypeDef,
@@ -99,6 +103,7 @@ __all__ = (
     "ListAccessPoliciesPaginator",
     "ListAddonsPaginator",
     "ListAssociatedAccessPoliciesPaginator",
+    "ListCapabilitiesPaginator",
     "ListClustersPaginator",
     "ListEksAnywhereSubscriptionsPaginator",
     "ListFargateProfilesPaginator",
@@ -217,6 +222,24 @@ class ListAssociatedAccessPoliciesPaginator(_ListAssociatedAccessPoliciesPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListAssociatedAccessPolicies.html#EKS.Paginator.ListAssociatedAccessPolicies.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/paginators/#listassociatedaccesspoliciespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCapabilitiesPaginatorBase = AioPaginator[ListCapabilitiesResponseTypeDef]
+else:
+    _ListCapabilitiesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListCapabilitiesPaginator(_ListCapabilitiesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListCapabilities.html#EKS.Paginator.ListCapabilities)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/paginators/#listcapabilitiespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCapabilitiesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCapabilitiesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListCapabilities.html#EKS.Paginator.ListCapabilities.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/paginators/#listcapabilitiespaginator)
         """
 
 if TYPE_CHECKING:

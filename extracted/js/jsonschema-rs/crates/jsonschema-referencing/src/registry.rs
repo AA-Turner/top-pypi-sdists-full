@@ -1,20 +1,17 @@
 use std::{
-    collections::{hash_map::Entry, HashSet, VecDeque},
-    hash::{Hash, Hasher},
+    collections::{hash_map::Entry, VecDeque},
+    num::NonZeroUsize,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, LazyLock},
 };
 
-use ahash::{AHashMap, AHashSet, AHasher};
-use fluent_uri::Uri;
-use once_cell::sync::Lazy;
+use ahash::{AHashMap, AHashSet};
+use fluent_uri::{pct_enc::EStr, Uri};
 use serde_json::Value;
 
 use crate::{
     anchors::{AnchorKey, AnchorKeyRef},
     cache::{SharedUriCache, UriCache},
-    hasher::BuildNoHashHasher,
-    list::List,
     meta::{self, metas_for_draft},
     resource::{unescape_segment, InnerResourcePtr, JsonSchemaResource},
     uri,
@@ -44,8 +41,8 @@ type DocumentStore = AHashMap<Arc<Uri<String>>, Pin<Arc<ValueWrapper>>>;
 type ResourceMap = AHashMap<Arc<Uri<String>>, InnerResourcePtr>;
 
 /// Pre-loaded registry containing all JSON Schema meta-schemas and their vocabularies
-pub static SPECIFICATIONS: Lazy<Registry> =
-    Lazy::new(|| Registry::build_from_meta_schemas(meta::META_SCHEMAS_ALL.as_slice()));
+pub static SPECIFICATIONS: LazyLock<Registry> =
+    LazyLock::new(|| Registry::build_from_meta_schemas(meta::META_SCHEMAS_ALL.as_slice()));
 
 /// A registry of JSON Schema resources, each identified by their canonical URIs.
 ///
@@ -89,7 +86,7 @@ pub static SPECIFICATIONS: Lazy<Registry> =
 ///                     // Should be retrieved by `ExampleRetriever`
 ///                     "role": {"$ref": "https://example.com/role.json"}
 ///                 }
-///             }))?
+///             }))
 ///         )
 ///     ])?;
 /// # Ok(())
@@ -106,7 +103,8 @@ pub static SPECIFICATIONS: Lazy<Registry> =
 ///
 /// struct ExampleRetriever;
 ///
-/// #[async_trait::async_trait]
+/// #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+/// #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 /// impl AsyncRetrieve for ExampleRetriever {
 ///     async fn retrieve(
 ///         &self,
@@ -126,7 +124,7 @@ pub static SPECIFICATIONS: Lazy<Registry> =
 ///             Resource::from_contents(json!({
 ///                 // Should be retrieved by `ExampleRetriever`
 ///                 "$ref": "https://example.com/common/user.json"
-///             }))?
+///             }))
 ///         )
 ///     ])
 ///     .await?;
@@ -326,7 +324,7 @@ impl Registry {
         let mut resources = ResourceMap::new();
         let mut anchors = AHashMap::new();
         let mut resolution_cache = UriCache::new();
-        process_resources(
+        let custom_metaschemas = process_resources(
             pairs,
             retriever,
             &mut documents,
@@ -335,6 +333,10 @@ impl Registry {
             &mut resolution_cache,
             draft,
         )?;
+
+        // Validate that all custom $schema references are registered
+        validate_custom_metaschemas(&custom_metaschemas, &resources)?;
+
         Ok(Registry {
             documents,
             resources,
@@ -362,7 +364,7 @@ impl Registry {
         let mut anchors = AHashMap::new();
         let mut resolution_cache = UriCache::new();
 
-        process_resources_async(
+        let custom_metaschemas = process_resources_async(
             pairs,
             retriever,
             &mut documents,
@@ -372,6 +374,9 @@ impl Registry {
             draft,
         )
         .await?;
+
+        // Validate that all custom $schema references are registered
+        validate_custom_metaschemas(&custom_metaschemas, &resources)?;
 
         Ok(Registry {
             documents,
@@ -420,7 +425,7 @@ impl Registry {
         let mut resources = self.resources;
         let mut anchors = self.anchors;
         let mut resolution_cache = self.resolution_cache.into_local();
-        process_resources(
+        let custom_metaschemas = process_resources(
             pairs,
             retriever,
             &mut documents,
@@ -429,6 +434,7 @@ impl Registry {
             &mut resolution_cache,
             draft,
         )?;
+        validate_custom_metaschemas(&custom_metaschemas, &resources)?;
         Ok(Registry {
             documents,
             resources,
@@ -452,7 +458,7 @@ impl Registry {
         let mut resources = self.resources;
         let mut anchors = self.anchors;
         let mut resolution_cache = self.resolution_cache.into_local();
-        process_resources_async(
+        let custom_metaschemas = process_resources_async(
             pairs,
             retriever,
             &mut documents,
@@ -462,6 +468,7 @@ impl Registry {
             draft,
         )
         .await?;
+        validate_custom_metaschemas(&custom_metaschemas, &resources)?;
         Ok(Registry {
             documents,
             resources,
@@ -482,14 +489,6 @@ impl Registry {
     #[must_use]
     pub fn resolver(&self, base_uri: Uri<String>) -> Resolver<'_> {
         Resolver::new(self, Arc::new(base_uri))
-    }
-    #[must_use]
-    pub fn resolver_from_raw_parts(
-        &self,
-        base_uri: Arc<Uri<String>>,
-        scopes: List<Uri<String>>,
-    ) -> Resolver<'_> {
-        Resolver::from_parts(self, base_uri, scopes)
     }
     pub(crate) fn anchor<'a>(&self, uri: &'a Uri<String>, name: &'a str) -> Result<&Anchor, Error> {
         let key = AnchorKeyRef::new(uri, name);
@@ -519,34 +518,48 @@ impl Registry {
         self.resolution_cache.resolve_against(base, uri)
     }
     /// Returns vocabulary set configured for given draft and contents.
+    ///
+    /// For custom meta-schemas (`Draft::Unknown`), looks up the meta-schema in the registry
+    /// and extracts its `$vocabulary` declaration. If the meta-schema is not registered,
+    /// returns the default Draft 2020-12 vocabularies.
     #[must_use]
     pub fn find_vocabularies(&self, draft: Draft, contents: &Value) -> VocabularySet {
         match draft.detect(contents) {
-            Ok(draft) => draft.default_vocabularies(),
-            Err(Error::UnknownSpecification { specification }) => {
-                // Try to lookup the specification and find enabled vocabularies
-                if let Ok(Some(resource)) =
-                    uri::from_str(&specification).map(|uri| self.resources.get(&uri))
+            Draft::Unknown => {
+                // Custom/unknown meta-schema - try to look it up in the registry
+                if let Some(specification) = contents
+                    .as_object()
+                    .and_then(|obj| obj.get("$schema"))
+                    .and_then(|s| s.as_str())
                 {
-                    if let Ok(Some(vocabularies)) = vocabularies::find(resource.contents()) {
-                        return vocabularies;
+                    if let Ok(mut uri) = uri::from_str(specification) {
+                        // Remove fragment for lookup (e.g., "http://example.com/schema#" -> "http://example.com/schema")
+                        // Resources are stored without fragments, so we must strip it to find the meta-schema
+                        uri.set_fragment(None);
+                        if let Some(resource) = self.resources.get(&uri) {
+                            // Found the custom meta-schema - extract vocabularies
+                            if let Ok(Some(vocabularies)) = vocabularies::find(resource.contents())
+                            {
+                                return vocabularies;
+                            }
+                        }
+                        // Meta-schema not registered - this will be caught during compilation
+                        // For now, return default vocabularies to allow resource creation
                     }
                 }
-                draft.default_vocabularies()
+                // Default to Draft 2020-12 vocabularies for unknown meta-schemas
+                Draft::Unknown.default_vocabularies()
             }
-            _ => unreachable!(),
+            draft => draft.default_vocabularies(),
         }
     }
 
     /// Build a registry with all the given meta-schemas from specs.
     pub(crate) fn build_from_meta_schemas(schemas: &[(&'static str, &'static Value)]) -> Self {
         let schemas_count = schemas.len();
-        let pairs = schemas.iter().map(|(uri, schema)| {
-            (
-                uri,
-                ResourceRef::from_contents(schema).expect("Invalid resource"),
-            )
-        });
+        let pairs = schemas
+            .iter()
+            .map(|(uri, schema)| (uri, ResourceRef::from_contents(schema)));
 
         let mut documents = DocumentStore::with_capacity(schemas_count);
         let mut resources = ResourceMap::with_capacity(schemas_count);
@@ -616,22 +629,58 @@ fn process_meta_schemas(
     Ok(())
 }
 
+#[derive(Hash, Eq, PartialEq)]
+struct ReferenceKey {
+    base_ptr: NonZeroUsize,
+    reference: String,
+}
+
+impl ReferenceKey {
+    fn new(base: &Arc<Uri<String>>, reference: &str) -> Self {
+        Self {
+            base_ptr: NonZeroUsize::new(Arc::as_ptr(base) as usize)
+                .expect("Arc pointer should never be null"),
+            reference: reference.to_owned(),
+        }
+    }
+}
+
+type ReferenceTracker = AHashSet<ReferenceKey>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum ReferenceKind {
+    Ref,
+    Schema,
+}
+
+/// An entry in the processing queue.
+/// The optional third element is the document root URI, used when the resource
+/// was extracted from a fragment of a larger document. Local `$ref`s need to be
+/// resolved against the document root, not just the fragment content.
+type QueueEntry = (Arc<Uri<String>>, InnerResourcePtr, Option<Arc<Uri<String>>>);
+
 struct ProcessingState {
-    queue: VecDeque<(Arc<Uri<String>>, InnerResourcePtr)>,
-    seen: HashSet<u64, BuildNoHashHasher>,
-    external: AHashSet<(String, Uri<String>)>,
+    queue: VecDeque<QueueEntry>,
+    seen: ReferenceTracker,
+    external: AHashSet<(String, Uri<String>, ReferenceKind)>,
     scratch: String,
     refers_metaschemas: bool,
+    custom_metaschemas: Vec<Arc<Uri<String>>>,
+    /// Tracks schema pointers we've visited during recursive external resource collection.
+    /// This prevents infinite recursion when schemas reference each other.
+    visited_schemas: AHashSet<usize>,
 }
 
 impl ProcessingState {
     fn new() -> Self {
         Self {
             queue: VecDeque::with_capacity(32),
-            seen: HashSet::with_hasher(BuildNoHashHasher::default()),
+            seen: ReferenceTracker::new(),
             external: AHashSet::new(),
             scratch: String::new(),
             refers_metaschemas: false,
+            custom_metaschemas: Vec::new(),
+            visited_schemas: AHashSet::new(),
         }
     }
 }
@@ -652,7 +701,13 @@ fn process_input_resources(
                 let wrapped_value = Arc::pin(ValueWrapper::Owned(contents));
                 let resource = InnerResourcePtr::new((*wrapped_value).as_ref(), draft);
                 resources.insert(Arc::clone(&key), resource.clone());
-                state.queue.push_back((key, resource));
+
+                // Track resources with custom meta-schemas for later validation
+                if draft == Draft::Unknown {
+                    state.custom_metaschemas.push(Arc::clone(&key));
+                }
+
+                state.queue.push_back((key, resource, None));
                 entry.insert(wrapped_value);
             }
         }
@@ -666,9 +721,9 @@ fn process_queue(
     anchors: &mut AHashMap<AnchorKey, Anchor>,
     resolution_cache: &mut UriCache,
 ) -> Result<(), Error> {
-    while let Some((mut base, resource)) = state.queue.pop_front() {
+    while let Some((mut base, resource, document_root_uri)) = state.queue.pop_front() {
         if let Some(id) = resource.id() {
-            base = resolution_cache.resolve_against(&base.borrow(), id)?;
+            base = resolve_id(&base, id, resolution_cache)?;
             resources.insert(base.clone(), resource.clone());
         }
 
@@ -676,19 +731,38 @@ fn process_queue(
             anchors.insert(AnchorKey::new(base.clone(), anchor.name()), anchor);
         }
 
-        collect_external_resources(
-            &base,
-            resource.contents(),
-            &mut state.external,
-            &mut state.seen,
-            resolution_cache,
-            &mut state.scratch,
-            &mut state.refers_metaschemas,
-        )?;
+        // Determine the document root for resolving local $refs.
+        // If document_root_uri is set (e.g., for fragment-extracted resources),
+        // look up the full document. Otherwise, this resource IS the document root.
+        let root = document_root_uri
+            .as_ref()
+            .and_then(|uri| resources.get(uri))
+            .map_or_else(|| resource.contents(), InnerResourcePtr::contents);
 
+        // Skip if already visited during local $ref resolution
+        let contents_ptr = std::ptr::from_ref::<Value>(resource.contents()) as usize;
+        if state.visited_schemas.insert(contents_ptr) {
+            collect_external_resources(
+                &base,
+                root,
+                resource.contents(),
+                &mut state.external,
+                &mut state.seen,
+                resolution_cache,
+                &mut state.scratch,
+                &mut state.refers_metaschemas,
+                resource.draft(),
+                &mut state.visited_schemas,
+            )?;
+        }
+
+        // Subresources inherit the document root URI, or use the current base if none set
+        let subresource_root_uri = document_root_uri.or_else(|| Some(base.clone()));
         for contents in resource.draft().subresources_of(resource.contents()) {
             let subresource = InnerResourcePtr::new(contents, resource.draft());
-            state.queue.push_back((base.clone(), subresource));
+            state
+                .queue
+                .push_back((base.clone(), subresource, subresource_root_uri.clone()));
         }
     }
     Ok(())
@@ -699,17 +773,17 @@ fn handle_fragment(
     resource: &InnerResourcePtr,
     key: &Arc<Uri<String>>,
     default_draft: Draft,
-    queue: &mut VecDeque<(Arc<Uri<String>>, InnerResourcePtr)>,
-) -> Result<(), Error> {
+    queue: &mut VecDeque<QueueEntry>,
+    document_root_uri: Arc<Uri<String>>,
+) {
     if let Some(fragment) = uri.fragment() {
         if let Some(resolved) = pointer(resource.contents(), fragment.as_str()) {
-            let draft = default_draft.detect(resolved)?;
+            let draft = default_draft.detect(resolved);
             let contents = std::ptr::addr_of!(*resolved);
             let resource = InnerResourcePtr::new(contents, draft);
-            queue.push_back((Arc::clone(key), resource));
+            queue.push_back((Arc::clone(key), resource, Some(document_root_uri)));
         }
     }
-    Ok(())
 }
 
 fn handle_metaschemas(
@@ -738,14 +812,21 @@ fn create_resource(
     default_draft: Draft,
     documents: &mut DocumentStore,
     resources: &mut ResourceMap,
-) -> Result<(Arc<Uri<String>>, InnerResourcePtr), Error> {
-    let draft = default_draft.detect(&retrieved)?;
+    custom_metaschemas: &mut Vec<Arc<Uri<String>>>,
+) -> (Arc<Uri<String>>, InnerResourcePtr) {
+    let draft = default_draft.detect(&retrieved);
     let wrapped_value = Arc::pin(ValueWrapper::Owned(retrieved));
     let resource = InnerResourcePtr::new((*wrapped_value).as_ref(), draft);
     let key = Arc::new(fragmentless);
     documents.insert(Arc::clone(&key), wrapped_value);
     resources.insert(Arc::clone(&key), resource.clone());
-    Ok((key, resource))
+
+    // Track resources with custom meta-schemas for later validation
+    if draft == Draft::Unknown {
+        custom_metaschemas.push(Arc::clone(&key));
+    }
+
+    (key, resource)
 }
 
 fn process_resources(
@@ -756,7 +837,7 @@ fn process_resources(
     anchors: &mut AHashMap<AnchorKey, Anchor>,
     resolution_cache: &mut UriCache,
     default_draft: Draft,
-) -> Result<(), Error> {
+) -> Result<Vec<Arc<Uri<String>>>, Error> {
     let mut state = ProcessingState::new();
     process_input_resources(pairs, documents, resources, &mut state)?;
 
@@ -768,37 +849,42 @@ fn process_resources(
         process_queue(&mut state, resources, anchors, resolution_cache)?;
 
         // Retrieve external resources
-        for (original, uri) in state.external.drain() {
+        for (original, uri, kind) in state.external.drain() {
             let mut fragmentless = uri.clone();
             fragmentless.set_fragment(None);
             if !resources.contains_key(&fragmentless) {
                 let retrieved = match retriever.retrieve(&fragmentless) {
                     Ok(retrieved) => retrieved,
                     Err(error) => {
-                        return if uri.scheme().as_str() == "json-schema" {
-                            Err(Error::unretrievable(
-                                original,
-                                "No base URI is available".into(),
-                            ))
-                        } else {
-                            Err(Error::unretrievable(fragmentless.as_str(), error))
-                        }
+                        handle_retrieve_error(&uri, &original, &fragmentless, error, kind)?;
+                        continue;
                     }
                 };
 
-                let (key, resource) =
-                    create_resource(retrieved, fragmentless, default_draft, documents, resources)?;
-
-                handle_fragment(&uri, &resource, &key, default_draft, &mut state.queue)?;
-
-                state.queue.push_back((key, resource));
+                let (key, resource) = create_resource(
+                    retrieved,
+                    fragmentless,
+                    default_draft,
+                    documents,
+                    resources,
+                    &mut state.custom_metaschemas,
+                );
+                handle_fragment(
+                    &uri,
+                    &resource,
+                    &key,
+                    default_draft,
+                    &mut state.queue,
+                    Arc::clone(&key),
+                );
+                state.queue.push_back((key, resource, None));
             }
         }
     }
 
     handle_metaschemas(state.refers_metaschemas, resources, anchors, default_draft);
 
-    Ok(())
+    Ok(state.custom_metaschemas)
 }
 
 #[cfg(feature = "retrieve-async")]
@@ -810,7 +896,9 @@ async fn process_resources_async(
     anchors: &mut AHashMap<AnchorKey, Anchor>,
     resolution_cache: &mut UriCache,
     default_draft: Draft,
-) -> Result<(), Error> {
+) -> Result<Vec<Arc<Uri<String>>>, Error> {
+    type ExternalRefsByBase = AHashMap<Uri<String>, Vec<(String, Uri<String>, ReferenceKind)>>;
+
     let mut state = ProcessingState::new();
     process_input_resources(pairs, documents, resources, &mut state)?;
 
@@ -822,70 +910,144 @@ async fn process_resources_async(
         process_queue(&mut state, resources, anchors, resolution_cache)?;
 
         if !state.external.is_empty() {
-            let data = state
-                .external
-                .drain()
-                .filter_map(|(original, uri)| {
-                    let mut fragmentless = uri.clone();
-                    fragmentless.set_fragment(None);
-                    if resources.contains_key(&fragmentless) {
-                        None
-                    } else {
-                        Some((original, uri, fragmentless))
-                    }
-                })
-                .collect::<Vec<_>>();
+            // Group external refs by fragmentless URI to avoid fetching the same resource multiple times.
+            // Multiple refs may point to the same base URL with different fragments (e.g., #/$defs/foo and #/$defs/bar).
+            // We need to fetch each unique base URL only once, then handle all fragment refs against it.
+            let mut grouped = ExternalRefsByBase::new();
+            for (original, uri, kind) in state.external.drain() {
+                let mut fragmentless = uri.clone();
+                fragmentless.set_fragment(None);
+                if !resources.contains_key(&fragmentless) {
+                    grouped
+                        .entry(fragmentless)
+                        .or_default()
+                        .push((original, uri, kind));
+                }
+            }
 
+            // Fetch each unique fragmentless URI once
+            let entries: Vec<_> = grouped.into_iter().collect();
             let results = {
-                let futures = data
+                let futures = entries
                     .iter()
-                    .map(|(_, _, fragmentless)| retriever.retrieve(fragmentless));
+                    .map(|(fragmentless, _)| retriever.retrieve(fragmentless));
                 futures::future::join_all(futures).await
             };
 
-            for ((original, uri, fragmentless), result) in data.iter().zip(results) {
+            for ((fragmentless, refs), result) in entries.into_iter().zip(results) {
                 let retrieved = match result {
                     Ok(retrieved) => retrieved,
                     Err(error) => {
-                        return if uri.scheme().as_str() == "json-schema" {
-                            Err(Error::unretrievable(
-                                original,
-                                "No base URI is available".into(),
-                            ))
-                        } else {
-                            Err(Error::unretrievable(fragmentless.as_str(), error))
+                        // Report error for the first ref that caused this fetch
+                        if let Some((original, uri, kind)) = refs.into_iter().next() {
+                            handle_retrieve_error(&uri, &original, &fragmentless, error, kind)?;
                         }
+                        continue;
                     }
                 };
 
                 let (key, resource) = create_resource(
                     retrieved,
-                    fragmentless.clone(),
+                    fragmentless,
                     default_draft,
                     documents,
                     resources,
-                )?;
+                    &mut state.custom_metaschemas,
+                );
 
-                handle_fragment(uri, &resource, &key, default_draft, &mut state.queue)?;
+                // Handle all fragment refs that pointed to this base URL
+                for (_, uri, _) in &refs {
+                    handle_fragment(
+                        uri,
+                        &resource,
+                        &key,
+                        default_draft,
+                        &mut state.queue,
+                        Arc::clone(&key),
+                    );
+                }
 
-                state.queue.push_back((key, resource));
+                state.queue.push_back((key, resource, None));
             }
         }
     }
 
     handle_metaschemas(state.refers_metaschemas, resources, anchors, default_draft);
 
+    Ok(state.custom_metaschemas)
+}
+
+fn handle_retrieve_error(
+    uri: &Uri<String>,
+    original: &str,
+    fragmentless: &Uri<String>,
+    error: Box<dyn std::error::Error + Send + Sync>,
+    kind: ReferenceKind,
+) -> Result<(), Error> {
+    match kind {
+        ReferenceKind::Schema => {
+            // $schema fetch failures are non-fatal during resource processing
+            // Unregistered custom meta-schemas will be caught in validate_custom_metaschemas()
+            Ok(())
+        }
+        ReferenceKind::Ref => {
+            // $ref fetch failures are fatal - they're required for validation
+            if uri.scheme().as_str() == "json-schema" {
+                Err(Error::unretrievable(
+                    original,
+                    "No base URI is available".into(),
+                ))
+            } else {
+                Err(Error::unretrievable(fragmentless.as_str(), error))
+            }
+        }
+    }
+}
+
+fn validate_custom_metaschemas(
+    custom_metaschemas: &[Arc<Uri<String>>],
+    resources: &ResourceMap,
+) -> Result<(), Error> {
+    // Only validate resources with Draft::Unknown
+    for uri in custom_metaschemas {
+        if let Some(resource) = resources.get(uri) {
+            // Extract the $schema value from this resource
+            if let Some(schema_uri) = resource
+                .contents()
+                .as_object()
+                .and_then(|obj| obj.get("$schema"))
+                .and_then(|s| s.as_str())
+            {
+                // Check if this meta-schema is registered
+                match uri::from_str(schema_uri) {
+                    Ok(mut meta_uri) => {
+                        // Remove fragment for lookup (e.g., "http://example.com/schema#" -> "http://example.com/schema")
+                        meta_uri.set_fragment(None);
+                        if !resources.contains_key(&meta_uri) {
+                            return Err(Error::unknown_specification(schema_uri));
+                        }
+                    }
+                    Err(_) => {
+                        return Err(Error::unknown_specification(schema_uri));
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 
 fn collect_external_resources(
-    base: &Uri<String>,
+    base: &Arc<Uri<String>>,
+    root: &Value,
     contents: &Value,
-    collected: &mut AHashSet<(String, Uri<String>)>,
-    seen: &mut HashSet<u64, BuildNoHashHasher>,
+    collected: &mut AHashSet<(String, Uri<String>, ReferenceKind)>,
+    seen: &mut ReferenceTracker,
     resolution_cache: &mut UriCache,
     scratch: &mut String,
     refers_metaschemas: &mut bool,
+    draft: Draft,
+    visited: &mut AHashSet<usize>,
 ) -> Result<(), Error> {
     // URN schemes are not supported for external resolution
     if base.scheme().as_str() == "urn" {
@@ -903,28 +1065,36 @@ fn collect_external_resources(
                     *refers_metaschemas = true;
                 }
             } else if $reference != "#" {
-                let mut hasher = AHasher::default();
-                (base.as_str(), $reference).hash(&mut hasher);
-                let hash = hasher.finish();
-                if seen.insert(hash) {
+                if mark_reference(seen, base, $reference) {
                     // Handle local references separately as they may have nested references to external resources
                     if $reference.starts_with('#') {
-                        if let Some(referenced) =
-                            pointer(contents, $reference.trim_start_matches('#'))
-                        {
-                            collect_external_resources(
-                                base,
+                        // Use the root document for pointer resolution since local refs are always
+                        // relative to the document root, not the current subschema.
+                        // Also track $id changes along the path to get the correct base URI.
+                        if let Some((referenced, resolved_base)) = pointer_with_base(
+                            root,
+                            $reference.trim_start_matches('#'),
+                            base,
+                            resolution_cache,
+                            draft,
+                        )? {
+                            // Recursively collect from the referenced schema and all its subresources
+                            collect_external_resources_recursive(
+                                &resolved_base,
+                                root,
                                 referenced,
                                 collected,
                                 seen,
                                 resolution_cache,
                                 scratch,
                                 refers_metaschemas,
+                                draft,
+                                visited,
                             )?;
                         }
                     } else {
                         let resolved = if base.has_fragment() {
-                            let mut base_without_fragment = base.clone();
+                            let mut base_without_fragment = base.as_ref().clone();
                             base_without_fragment.set_fragment(None);
 
                             let (path, fragment) = match $reference.split_once('#') {
@@ -951,10 +1121,17 @@ fn collect_external_resources(
                             }
                             resolved
                         } else {
-                            (*resolution_cache.resolve_against(&base.borrow(), $reference)?).clone()
+                            (*resolution_cache
+                                .resolve_against(&base.borrow(), $reference)?)
+                            .clone()
                         };
 
-                        collected.insert(($reference.to_string(), resolved));
+                        let kind = if $key == "$schema" {
+                            ReferenceKind::Schema
+                        } else {
+                            ReferenceKind::Ref
+                        };
+                        collected.insert(($reference.to_string(), resolved, kind));
                     }
                 }
             }
@@ -986,6 +1163,88 @@ fn collect_external_resources(
     Ok(())
 }
 
+/// Recursively collect external resources from a schema and all its subresources.
+///
+/// The `visited` set tracks schema pointers we've already processed to avoid infinite
+/// recursion when schemas reference each other (directly or through subresources).
+fn collect_external_resources_recursive(
+    base: &Arc<Uri<String>>,
+    root: &Value,
+    contents: &Value,
+    collected: &mut AHashSet<(String, Uri<String>, ReferenceKind)>,
+    seen: &mut ReferenceTracker,
+    resolution_cache: &mut UriCache,
+    scratch: &mut String,
+    refers_metaschemas: &mut bool,
+    draft: Draft,
+    visited: &mut AHashSet<usize>,
+) -> Result<(), Error> {
+    // Track by pointer address to avoid processing the same schema twice
+    let ptr = std::ptr::from_ref::<Value>(contents) as usize;
+    if !visited.insert(ptr) {
+        return Ok(());
+    }
+
+    let current_base = match draft.id_of(contents) {
+        Some(id) => resolve_id(base, id, resolution_cache)?,
+        None => Arc::clone(base),
+    };
+
+    // First, collect from the current schema
+    collect_external_resources(
+        &current_base,
+        root,
+        contents,
+        collected,
+        seen,
+        resolution_cache,
+        scratch,
+        refers_metaschemas,
+        draft,
+        visited,
+    )?;
+
+    // Then recursively process all subresources
+    for subresource in draft.subresources_of(contents) {
+        collect_external_resources_recursive(
+            &current_base,
+            root,
+            subresource,
+            collected,
+            seen,
+            resolution_cache,
+            scratch,
+            refers_metaschemas,
+            draft,
+            visited,
+        )?;
+    }
+    Ok(())
+}
+
+fn mark_reference(seen: &mut ReferenceTracker, base: &Arc<Uri<String>>, reference: &str) -> bool {
+    seen.insert(ReferenceKey::new(base, reference))
+}
+
+/// Resolve an `$id` against a base URI, handling anchor-style IDs and empty fragments.
+///
+/// Anchor-style `$id` values (starting with `#`) don't change the base URI.
+/// Empty fragments are stripped from the resolved URI.
+fn resolve_id(
+    base: &Arc<Uri<String>>,
+    id: &str,
+    resolution_cache: &mut UriCache,
+) -> Result<Arc<Uri<String>>, Error> {
+    if id.starts_with('#') {
+        return Ok(Arc::clone(base));
+    }
+    let mut resolved = (*resolution_cache.resolve_against(&base.borrow(), id)?).clone();
+    if resolved.fragment().is_some_and(EStr::is_empty) {
+        resolved.set_fragment(None);
+    }
+    Ok(Arc::new(resolved))
+}
+
 /// Look up a value by a JSON Pointer.
 ///
 /// **NOTE**: A slightly faster version of pointer resolution based on `Value::pointer` from `serde_json`.
@@ -1004,6 +1263,53 @@ pub fn pointer<'a>(document: &'a Value, pointer: &str) -> Option<&'a Value> {
             _ => None,
         },
     )
+}
+
+/// Look up a value by a JSON Pointer, tracking `$id` changes along the path.
+///
+/// Returns both the resolved value and the accumulated base URI after processing
+/// any `$id` declarations encountered along the path. Note that anchor-style `$id`
+/// values (starting with `#`) don't change the base URI.
+#[allow(clippy::type_complexity)]
+fn pointer_with_base<'a>(
+    document: &'a Value,
+    pointer: &str,
+    base: &Arc<Uri<String>>,
+    resolution_cache: &mut UriCache,
+    draft: Draft,
+) -> Result<Option<(&'a Value, Arc<Uri<String>>)>, Error> {
+    if pointer.is_empty() {
+        return Ok(Some((document, Arc::clone(base))));
+    }
+    if !pointer.starts_with('/') {
+        return Ok(None);
+    }
+
+    let mut current = document;
+    let mut current_base = Arc::clone(base);
+
+    for token in pointer.split('/').skip(1).map(unescape_segment) {
+        // Check for $id in the current value before traversing deeper
+        if let Some(id) = draft.id_of(current) {
+            current_base = resolve_id(&current_base, id, resolution_cache)?;
+        }
+
+        current = match current {
+            Value::Object(map) => match map.get(&*token) {
+                Some(v) => v,
+                None => return Ok(None),
+            },
+            Value::Array(list) => match parse_index(&token).and_then(|x| list.get(x)) {
+                Some(v) => v,
+                None => return Ok(None),
+            },
+            _ => return Ok(None),
+        };
+    }
+
+    // Note: We don't check $id in the final value here because
+    // `collect_external_resources_recursive` will handle it
+    Ok(Some((current, current_base)))
 }
 
 // Taken from `serde_json`.
@@ -1079,6 +1385,111 @@ mod tests {
         let schema = Draft::Draft202012.create_resource(json!({"$ref": "./virtualNetwork.json"}));
         let error = Registry::try_new("json-schema:///", schema).expect_err("Should fail");
         assert_eq!(error.to_string(), "Resource './virtualNetwork.json' is not present in a registry and retrieving it failed: No base URI is available");
+    }
+
+    #[test]
+    fn test_try_with_resources_requires_registered_custom_meta_schema() {
+        let base_registry = Registry::try_new(
+            "http://example.com/root",
+            Resource::from_contents(json!({"type": "object"})),
+        )
+        .expect("Base registry should be created");
+
+        let custom_schema = Resource::from_contents(json!({
+            "$id": "http://example.com/custom",
+            "$schema": "http://example.com/meta/custom",
+            "type": "string"
+        }));
+
+        let error = base_registry
+            .try_with_resources(
+                [("http://example.com/custom", custom_schema)],
+                Draft::default(),
+            )
+            .expect_err("Extending registry must fail when the custom $schema is not registered");
+
+        let error_msg = error.to_string();
+        assert_eq!(
+            error_msg,
+            "Unknown meta-schema: 'http://example.com/meta/custom'. Custom meta-schemas must be registered in the registry before use"
+        );
+    }
+
+    #[test]
+    fn test_try_with_resources_accepts_registered_custom_meta_schema_fragment() {
+        let meta_schema = Resource::from_contents(json!({
+            "$id": "http://example.com/meta/custom#",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object"
+        }));
+
+        let registry = Registry::try_new("http://example.com/meta/custom#", meta_schema)
+            .expect("Meta-schema should be registered successfully");
+
+        let schema = Resource::from_contents(json!({
+            "$id": "http://example.com/schemas/my-schema",
+            "$schema": "http://example.com/meta/custom#",
+            "type": "string"
+        }));
+
+        registry
+            .clone()
+            .try_with_resources(
+                [("http://example.com/schemas/my-schema", schema)],
+                Draft::default(),
+            )
+            .expect("Schema should accept registered meta-schema URI with trailing '#'");
+    }
+
+    #[test]
+    fn test_chained_custom_meta_schemas() {
+        // Meta-schema B (uses standard Draft 2020-12)
+        let meta_schema_b = json!({
+            "$id": "json-schema:///meta/level-b",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$vocabulary": {
+                "https://json-schema.org/draft/2020-12/vocab/core": true,
+                "https://json-schema.org/draft/2020-12/vocab/validation": true,
+            },
+            "type": "object",
+            "properties": {
+                "customProperty": {"type": "string"}
+            }
+        });
+
+        // Meta-schema A (uses Meta-schema B)
+        let meta_schema_a = json!({
+            "$id": "json-schema:///meta/level-a",
+            "$schema": "json-schema:///meta/level-b",
+            "customProperty": "level-a-meta",
+            "type": "object"
+        });
+
+        // Schema (uses Meta-schema A)
+        let schema = json!({
+            "$id": "json-schema:///schemas/my-schema",
+            "$schema": "json-schema:///meta/level-a",
+            "customProperty": "my-schema",
+            "type": "string"
+        });
+
+        // Register all meta-schemas and schema in a chained manner
+        // All resources are provided upfront, so no external retrieval should occur
+        Registry::try_from_resources([
+            (
+                "json-schema:///meta/level-b",
+                Resource::from_contents(meta_schema_b),
+            ),
+            (
+                "json-schema:///meta/level-a",
+                Resource::from_contents(meta_schema_a),
+            ),
+            (
+                "json-schema:///schemas/my-schema",
+                Resource::from_contents(schema),
+            ),
+        ])
+        .expect("Chained custom meta-schemas should be accepted when all are registered");
     }
 
     struct TestRetriever {
@@ -1294,12 +1705,7 @@ mod tests {
             .input_resources
             .clone()
             .into_iter()
-            .map(|(uri, value)| {
-                (
-                    uri,
-                    Resource::from_contents(value).expect("Invalid resource"),
-                )
-            });
+            .map(|(uri, value)| (uri, Resource::from_contents(value)));
 
         let registry = Registry::options()
             .retriever(retriever)
@@ -1316,8 +1722,7 @@ mod tests {
     fn test_default_retriever_with_remote_refs() {
         let result = Registry::try_from_resources([(
             "http://example.com/schema1",
-            Resource::from_contents(json!({"$ref": "http://example.com/schema2"}))
-                .expect("Invalid resource"),
+            Resource::from_contents(json!({"$ref": "http://example.com/schema2"})),
         )]);
         let error = result.expect_err("Should fail");
         assert_eq!(error.to_string(), "Resource 'http://example.com/schema2' is not present in a registry and retrieving it failed: Default retriever does not fetch resources");
@@ -1327,10 +1732,7 @@ mod tests {
     #[test]
     fn test_options() {
         let _registry = RegistryOptions::default()
-            .build([(
-                "",
-                Resource::from_contents(json!({})).expect("Invalid resource"),
-            )])
+            .build([("", Resource::from_contents(json!({})))])
             .expect("Invalid resources");
     }
 
@@ -1393,10 +1795,7 @@ mod tests {
     fn test_resolver_debug() {
         let registry = SPECIFICATIONS
             .clone()
-            .try_with_resource(
-                "http://example.com",
-                Resource::from_contents(json!({})).expect("Invalid resource"),
-            )
+            .try_with_resource("http://example.com", Resource::from_contents(json!({})))
             .expect("Invalid resource");
         let resolver = registry
             .try_resolver("http://127.0.0.1/schema")
@@ -1411,10 +1810,7 @@ mod tests {
     fn test_try_with_resource() {
         let registry = SPECIFICATIONS
             .clone()
-            .try_with_resource(
-                "http://example.com",
-                Resource::from_contents(json!({})).expect("Invalid resource"),
-            )
+            .try_with_resource("http://example.com", Resource::from_contents(json!({})))
             .expect("Invalid resource");
         let resolver = registry.try_resolver("").expect("Invalid base URI");
         let resolved = resolver
@@ -1432,7 +1828,6 @@ mod tests {
 
     #[test]
     fn test_invalid_reference() {
-        // Found via fuzzing
         let resource = Draft::Draft202012.create_resource(json!({"$schema": "$##"}));
         let _ = Registry::try_new("http://#/", resource);
     }
@@ -1443,7 +1838,10 @@ mod async_tests {
     use crate::{uri, DefaultRetriever, Draft, Registry, Resource, Uri};
     use ahash::AHashMap;
     use serde_json::{json, Value};
-    use std::error::Error;
+    use std::{
+        error::Error,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     struct TestAsyncRetriever {
         schemas: AHashMap<String, Value>,
@@ -1457,7 +1855,8 @@ mod async_tests {
         }
     }
 
-    #[async_trait::async_trait]
+    #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
     impl crate::AsyncRetrieve for TestAsyncRetriever {
         async fn retrieve(
             &self,
@@ -1476,8 +1875,7 @@ mod async_tests {
             .async_retriever(DefaultRetriever)
             .build([(
                 "http://example.com/schema1",
-                Resource::from_contents(json!({"$ref": "http://example.com/schema2"}))
-                    .expect("Invalid resource"),
+                Resource::from_contents(json!({"$ref": "http://example.com/schema2"})),
             )])
             .await;
 
@@ -1564,8 +1962,7 @@ mod async_tests {
             .async_retriever(retriever)
             .build([(
                 "http://example.com",
-                Resource::from_contents(json!({"$ref": "http://example.com/schema2"}))
-                    .expect("Invalid resource"),
+                Resource::from_contents(json!({"$ref": "http://example.com/schema2"})),
             )])
             .await
             .expect("Invalid resource");
@@ -1602,8 +1999,7 @@ mod async_tests {
                         "obj": {"$ref": "http://example.com/schema2"},
                         "str": {"$ref": "http://example.com/schema3"}
                     }
-                }))
-                .expect("Invalid resource"),
+                })),
             )])
             .await
             .expect("Invalid resource");
@@ -1656,8 +2052,7 @@ mod async_tests {
                         "name": {"type": "string"},
                         "address": {"$ref": "http://example.com/address"}
                     }
-                }))
-                .expect("Invalid resource"),
+                })),
             )])
             .await
             .expect("Invalid resource");
@@ -1671,6 +2066,106 @@ mod async_tests {
         assert_eq!(
             resolved.contents(),
             &json!({"type": "string", "minLength": 1})
+        );
+    }
+
+    // Multiple refs to the same external schema with different fragments were fetched multiple times in async mode.
+    #[tokio::test]
+    async fn test_async_registry_with_duplicate_fragment_refs() {
+        static FETCH_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+        struct CountingRetriever {
+            inner: TestAsyncRetriever,
+        }
+
+        #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+        #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+        impl crate::AsyncRetrieve for CountingRetriever {
+            async fn retrieve(
+                &self,
+                uri: &Uri<String>,
+            ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+                FETCH_COUNT.fetch_add(1, Ordering::SeqCst);
+                self.inner.retrieve(uri).await
+            }
+        }
+
+        FETCH_COUNT.store(0, Ordering::SeqCst);
+
+        let retriever = CountingRetriever {
+            inner: TestAsyncRetriever::with_schema(
+                "http://example.com/external",
+                json!({
+                    "$defs": {
+                        "foo": {
+                            "type": "object",
+                            "properties": {
+                                "nested": { "type": "string" }
+                            }
+                        },
+                        "bar": {
+                            "type": "object",
+                            "properties": {
+                                "value": { "type": "integer" }
+                            }
+                        }
+                    }
+                }),
+            ),
+        };
+
+        // Schema references the same external URL with different fragments
+        let registry = Registry::options()
+            .async_retriever(retriever)
+            .build([(
+                "http://example.com/main",
+                Resource::from_contents(json!({
+                    "type": "object",
+                    "properties": {
+                        "name": { "$ref": "http://example.com/external#/$defs/foo" },
+                        "age": { "$ref": "http://example.com/external#/$defs/bar" }
+                    }
+                })),
+            )])
+            .await
+            .expect("Invalid resource");
+
+        // Should only fetch the external schema once
+        let fetches = FETCH_COUNT.load(Ordering::SeqCst);
+        assert_eq!(
+            fetches, 1,
+            "External schema should be fetched only once, but was fetched {fetches} times"
+        );
+
+        let resolver = registry
+            .try_resolver("http://example.com/main")
+            .expect("Invalid base URI");
+
+        // Verify both fragment references resolve correctly
+        let foo = resolver
+            .lookup("http://example.com/external#/$defs/foo")
+            .expect("Lookup failed");
+        assert_eq!(
+            foo.contents(),
+            &json!({
+                "type": "object",
+                "properties": {
+                    "nested": { "type": "string" }
+                }
+            })
+        );
+
+        let bar = resolver
+            .lookup("http://example.com/external#/$defs/bar")
+            .expect("Lookup failed");
+        assert_eq!(
+            bar.contents(),
+            &json!({
+                "type": "object",
+                "properties": {
+                    "value": { "type": "integer" }
+                }
+            })
         );
     }
 }

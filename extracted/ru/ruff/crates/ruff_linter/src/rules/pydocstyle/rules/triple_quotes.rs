@@ -31,6 +31,10 @@ use crate::{Edit, Fix, FixAvailability, Violation};
 /// We recommend against using this rule alongside the [formatter]. The
 /// formatter enforces consistent quotes, making the rule redundant.
 ///
+/// ## Options
+///
+/// - `lint.pydocstyle.ignore-decorators`
+///
 /// ## References
 /// - [PEP 257 – Docstring Conventions](https://peps.python.org/pep-0257/)
 /// - [NumPy Style Guide](https://numpydoc.readthedocs.io/en/latest/format.html)
@@ -38,6 +42,7 @@ use crate::{Edit, Fix, FixAvailability, Violation};
 ///
 /// [formatter]: https://docs.astral.sh/ruff/formatter/
 #[derive(ViolationMetadata)]
+#[violation_metadata(stable_since = "v0.0.69")]
 pub(crate) struct TripleSingleQuotes {
     expected_quote: Quote,
 }

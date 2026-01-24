@@ -7,16 +7,18 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .assembly_ai_transcriber_language import AssemblyAiTranscriberLanguage
+from .assembly_ai_transcriber_provider import AssemblyAiTranscriberProvider
 from .fallback_transcriber_plan import FallbackTranscriberPlan
 
 
 class AssemblyAiTranscriber(UncheckedBaseModel):
-    provider: typing.Literal["assembly-ai"] = pydantic.Field(default="assembly-ai")
+    provider: AssemblyAiTranscriberProvider = pydantic.Field()
     """
     This is the transcription provider that will be used.
     """
 
-    language: typing.Optional[typing.Literal["en"]] = pydantic.Field(default=None)
+    language: typing.Optional[AssemblyAiTranscriberLanguage] = pydantic.Field(default=None)
     """
     This is the language that will be set for the transcription.
     """
@@ -61,13 +63,7 @@ class AssemblyAiTranscriber(UncheckedBaseModel):
 
     word_finalization_max_wait_time: typing_extensions.Annotated[
         typing.Optional[float], FieldMetadata(alias="wordFinalizationMaxWaitTime")
-    ] = pydantic.Field(default=None)
-    """
-    This is the maximum wait time for word finalization in milliseconds.
-    Note: Only used if startSpeakingPlan.smartEndpointingPlan is not set.
-    @default 160
-    """
-
+    ] = None
     max_turn_silence: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="maxTurnSilence")] = (
         pydantic.Field(default=None)
     )
@@ -89,6 +85,15 @@ class AssemblyAiTranscriber(UncheckedBaseModel):
     )
     """
     Add up to 2500 characters of custom vocabulary.
+    """
+
+    keyterms_prompt: typing_extensions.Annotated[
+        typing.Optional[typing.List[str]], FieldMetadata(alias="keytermsPrompt")
+    ] = pydantic.Field(default=None)
+    """
+    Keyterms prompting improves recognition accuracy for specific words and phrases.
+    Can include up to 100 keyterms, each up to 50 characters.
+    Costs an additional $0.04/hour when enabled.
     """
 
     end_utterance_silence_threshold: typing_extensions.Annotated[

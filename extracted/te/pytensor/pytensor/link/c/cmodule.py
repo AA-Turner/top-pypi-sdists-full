@@ -806,7 +806,7 @@ class ModuleCache:
                 to_delete_empty.append((args, kwargs))
 
         # add entries that are not in the entry_from_key dictionary
-        time_now = time.perf_counter()
+        time_now = time.time()
         # Go through directories in alphabetical order to ensure consistent
         # behavior.
         try:
@@ -976,7 +976,7 @@ class ModuleCache:
                             # directories in alphabetical order so as to make
                             # sure all new processes only use the first one.
                             if cleanup:
-                                age = time.perf_counter() - last_access_time(entry)
+                                age = time.time() - last_access_time(entry)
                                 if delete_if_problem or age > self.age_thresh_del:
                                     rmtree(
                                         root,
@@ -1496,7 +1496,7 @@ class ModuleCache:
                 # May happen for broken versioned keys.
                 continue
             for key_idx, key in enumerate(key_data.keys):
-                version, rest = key
+                version, _rest = key
                 if version:
                     # Since the version is included in the module hash,
                     # it should not be possible to mix versioned and
@@ -1528,7 +1528,7 @@ class ModuleCache:
             assert key[0]
 
         to_del = []
-        time_now = time.perf_counter()
+        time_now = time.time()
         for filename in os.listdir(self.dirname):
             if filename.startswith("tmp"):
                 try:
@@ -2243,7 +2243,7 @@ class GCC_compiler(Compiler):
                                 if "target-cpu" in p:
                                     opt = p.split()
                                     if len(opt) == 2:
-                                        opt_name, opt_val = opt
+                                        _opt_name, opt_val = opt
                                         new_flags[i] = f"-march={opt_val}"
 
                             # Some versions of GCC report the native arch
@@ -2474,7 +2474,7 @@ class GCC_compiler(Compiler):
         else:
             # In explicit else because of https://github.com/python/mypy/issues/10773
             def sort_key(lib):
-                name, *numbers, extension = lib.split(".")
+                _name, *numbers, extension = lib.split(".")
                 return (extension == "dll", tuple(map(int, numbers)))
 
             patched_lib_ldflags = []
@@ -2890,7 +2890,7 @@ def default_blas_ldflags() -> str:
     if rpath is not None:
         maybe_add_to_os_environ_pathlist("PATH", rpath)
     try:
-        # 1. Try to use MKL with INTEL OpenMP threading
+        # 1a. Try to use MKL with INTEL OpenMP threading
         _logger.debug("Checking MKL flags with intel threading")
         return _check_libs(
             all_libs,
@@ -2899,6 +2899,24 @@ def default_blas_ldflags() -> str:
                 "mkl_rt",
                 "mkl_intel_thread",
                 "iomp5",
+                "pthread",
+            ],
+            extra_compile_flags=[f"-Wl,-rpath,{rpath}"] if rpath is not None else [],
+            cxx_library_dirs=cxx_library_dirs,
+        )
+    except Exception as e:
+        _logger.debug(e)
+    try:
+        # 1b. Try to use MKL with INTEL OpenMP threading with renamed iomp5 library
+        # Ref: <https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-windows/2024-1/selecting-libraries-to-link-with.html>
+        _logger.debug("Checking MKL flags with intel threading, iomp5md")
+        return _check_libs(
+            all_libs,
+            required_libs=[
+                "mkl_core",
+                "mkl_rt",
+                "mkl_intel_thread",
+                "iomp5md",
                 "pthread",
             ],
             extra_compile_flags=[f"-Wl,-rpath,{rpath}"] if rpath is not None else [],

@@ -31,9 +31,10 @@ def read(*rnames):
 
 setup(
     name='zope.event',
-    version='6.0',
+    version='6.1',
     url='https://github.com/zopefoundation/zope.event',
     license='ZPL-2.1',
+    license_files=['LICENSE.txt'],
     description='Very basic event publishing system',
     author='Zope Foundation and Contributors',
     author_email='zope-dev@zope.dev',
@@ -46,15 +47,14 @@ setup(
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: Zope Public License",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: Jython",
         "Programming Language :: Python :: Implementation :: PyPy",
@@ -62,8 +62,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     include_package_data=True,
-    python_requires='>=3.9',
-    install_requires=['setuptools >= 75.8.2'],
+    python_requires='>=3.10',
     zip_safe=False,
     extras_require={
         'docs': [

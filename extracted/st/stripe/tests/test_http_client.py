@@ -1,3 +1,4 @@
+import io
 import base64
 import json
 import sys
@@ -17,7 +18,7 @@ from contextlib import contextmanager
 import urllib3
 
 import stripe
-from stripe import APIConnectionError, _http_client, _util
+from stripe import APIConnectionError, _http_client
 from stripe._encode import _api_encode
 from stripe._http_client import (
     AIOHTTPClient,
@@ -30,7 +31,7 @@ from stripe._http_client import (
     UrlFetchClient as AppEngineClient,
 )
 from stripe._http_client import (
-    Urllib2Client as BuiltinClient,
+    UrllibClient as BuiltinClient,
 )
 
 VALID_API_METHODS = ("get", "post", "delete")
@@ -636,7 +637,7 @@ class TestRequestsClient(ClientTestBase):
             result.status_code = code
             result.headers = {}
             result.raw = urllib3.response.HTTPResponse(
-                body=_util.io.BytesIO(str.encode(body)),
+                body=io.BytesIO(str.encode(body)),
                 preload_content=False,
                 status=code,
             )
@@ -717,13 +718,13 @@ class TestRequestClientRetryBehavior(TestRequestsClient):
 
     @pytest.fixture
     def response(self):
-        def response(code=200, headers={}):
+        def response(code=200, headers=None):
             result = Mock()
             result.content = "{}"
             result.status_code = code
-            result.headers = headers
+            result.headers = headers or {}
             result.raw = urllib3.response.HTTPResponse(
-                body=_util.io.BytesIO(str.encode(result.content)),
+                body=io.BytesIO(str.encode(result.content)),
                 preload_content=False,
                 status=code,
             )
@@ -995,10 +996,8 @@ class TestUrlFetchClient(ClientTestBase):
         return check_call
 
 
-class TestUrllib2Client(ClientTestBase):
-    REQUEST_CLIENT: Type[_http_client.Urllib2Client] = (
-        _http_client.Urllib2Client
-    )
+class TestUrllibClient(ClientTestBase):
+    REQUEST_CLIENT: Type[_http_client.UrllibClient] = _http_client.UrllibClient
     USE_PROXY = False
 
     request_object: Any
@@ -1063,7 +1062,7 @@ class TestUrllib2Client(ClientTestBase):
         return _check_call
 
 
-class TestUrllib2ClientHttpsProxy(TestUrllib2Client):
+class TestUrllibClientHttpsProxy(TestUrllibClient):
     USE_PROXY = True
     ALWAYS_INIT_CLIENT = True
 
@@ -1083,7 +1082,7 @@ class TestPycurlClient(ClientTestBase):
 
     @pytest.fixture
     def bio_mock(self, mocker):
-        bio_patcher = mocker.patch("stripe.util.io.BytesIO")
+        bio_patcher = mocker.patch("stripe._http_client.BytesIO")
         bio_mock = Mock()
         bio_patcher.return_value = bio_mock
         return bio_mock
@@ -1177,7 +1176,7 @@ class TestAPIEncode:
     def test_encode_dict(self):
         body = {"foo": {"dob": {"month": 1}, "name": "bat"}}
 
-        values = [t for t in _api_encode(body, "V1")]
+        values = [t for t in _api_encode(body)]
 
         assert ("foo[dob][month]", 1) in values
         assert ("foo[name]", "bat") in values
@@ -1185,7 +1184,7 @@ class TestAPIEncode:
     def test_encode_array(self):
         body = {"foo": [{"dob": {"month": 1}, "name": "bat"}]}
 
-        values = [t for t in _api_encode(body, "V1")]
+        values = [t for t in _api_encode(body)]
 
         assert ("foo[0][dob][month]", 1) in values
         assert ("foo[0][name]", "bat") in values
@@ -1193,10 +1192,10 @@ class TestAPIEncode:
     def test_encode_v2_array(self):
         body = {"foo": [{"dob": {"month": 1}, "name": "bat"}]}
 
-        values = [t for t in _api_encode(body, "V2")]
+        values = [t for t in _api_encode(body)]
 
-        assert ("foo[dob][month]", 1) in values
-        assert ("foo[name]", "bat") in values
+        assert ("foo[0][dob][month]", 1) in values
+        assert ("foo[0][name]", "bat") in values
 
 
 class TestHTTPXClient(ClientTestBase):
@@ -1220,7 +1219,7 @@ class TestHTTPXClient(ClientTestBase):
 
     @pytest.fixture
     def mock_response(self, request_mock):
-        def _mock_response(mock, body={}, code=200):
+        def _mock_response(mock, body="", code=200):
             result = Mock()
             result.content = body
 
@@ -1623,7 +1622,10 @@ class TestAIOHTTPClient(ClientTestBase):
 
     @pytest.fixture
     def mock_response(self, mocker, mocked_request_lib):
-        def mock_response(mock, body={}, code=200):
+        def mock_response(mock, body=None, code=200):
+            if body is None:
+                body = {}
+
             class Content:
                 def __aiter__(self):
                     async def chunk():

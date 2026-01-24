@@ -9,88 +9,238 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
-
-class SecurityAndAnalysisType(TypedDict):
-    """SecurityAndAnalysis"""
-
-    advanced_security: NotRequired[SecurityAndAnalysisPropAdvancedSecurityType]
-    code_security: NotRequired[SecurityAndAnalysisPropCodeSecurityType]
-    dependabot_security_updates: NotRequired[
-        SecurityAndAnalysisPropDependabotSecurityUpdatesType
-    ]
-    secret_scanning: NotRequired[SecurityAndAnalysisPropSecretScanningType]
-    secret_scanning_push_protection: NotRequired[
-        SecurityAndAnalysisPropSecretScanningPushProtectionType
-    ]
-    secret_scanning_non_provider_patterns: NotRequired[
-        SecurityAndAnalysisPropSecretScanningNonProviderPatternsType
-    ]
-    secret_scanning_ai_detection: NotRequired[
-        SecurityAndAnalysisPropSecretScanningAiDetectionType
-    ]
+from .group_0052 import PullRequestMinimalType, PullRequestMinimalTypeForResponse
 
 
-class SecurityAndAnalysisPropAdvancedSecurityType(TypedDict):
-    """SecurityAndAnalysisPropAdvancedSecurity
+class PullRequestReviewCommentEventType(TypedDict):
+    """PullRequestReviewCommentEvent"""
 
-    Enable or disable GitHub Advanced Security for the repository.
-
-    For standalone Code Scanning or Secret Protection products, this parameter
-    cannot be used.
-    """
-
-    status: NotRequired[Literal["enabled", "disabled"]]
+    action: str
+    pull_request: PullRequestMinimalType
+    comment: PullRequestReviewCommentEventPropCommentType
 
 
-class SecurityAndAnalysisPropCodeSecurityType(TypedDict):
-    """SecurityAndAnalysisPropCodeSecurity"""
+class PullRequestReviewCommentEventTypeForResponse(TypedDict):
+    """PullRequestReviewCommentEvent"""
 
-    status: NotRequired[Literal["enabled", "disabled"]]
-
-
-class SecurityAndAnalysisPropDependabotSecurityUpdatesType(TypedDict):
-    """SecurityAndAnalysisPropDependabotSecurityUpdates
-
-    Enable or disable Dependabot security updates for the repository.
-    """
-
-    status: NotRequired[Literal["enabled", "disabled"]]
+    action: str
+    pull_request: PullRequestMinimalTypeForResponse
+    comment: PullRequestReviewCommentEventPropCommentTypeForResponse
 
 
-class SecurityAndAnalysisPropSecretScanningType(TypedDict):
-    """SecurityAndAnalysisPropSecretScanning"""
+class PullRequestReviewCommentEventPropCommentType(TypedDict):
+    """PullRequestReviewCommentEventPropComment"""
 
-    status: NotRequired[Literal["enabled", "disabled"]]
+    id: int
+    node_id: str
+    url: str
+    pull_request_review_id: Union[int, None]
+    diff_hunk: str
+    path: str
+    position: Union[int, None]
+    original_position: int
+    subject_type: NotRequired[Union[str, None]]
+    commit_id: str
+    user: Union[PullRequestReviewCommentEventPropCommentPropUserType, None]
+    body: str
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    html_url: str
+    pull_request_url: str
+    links: PullRequestReviewCommentEventPropCommentPropLinksType
+    original_commit_id: str
+    reactions: PullRequestReviewCommentEventPropCommentPropReactionsType
+    in_reply_to_id: NotRequired[int]
 
 
-class SecurityAndAnalysisPropSecretScanningPushProtectionType(TypedDict):
-    """SecurityAndAnalysisPropSecretScanningPushProtection"""
+class PullRequestReviewCommentEventPropCommentTypeForResponse(TypedDict):
+    """PullRequestReviewCommentEventPropComment"""
 
-    status: NotRequired[Literal["enabled", "disabled"]]
+    id: int
+    node_id: str
+    url: str
+    pull_request_review_id: Union[int, None]
+    diff_hunk: str
+    path: str
+    position: Union[int, None]
+    original_position: int
+    subject_type: NotRequired[Union[str, None]]
+    commit_id: str
+    user: Union[PullRequestReviewCommentEventPropCommentPropUserTypeForResponse, None]
+    body: str
+    created_at: str
+    updated_at: str
+    html_url: str
+    pull_request_url: str
+    links: PullRequestReviewCommentEventPropCommentPropLinksTypeForResponse
+    original_commit_id: str
+    reactions: PullRequestReviewCommentEventPropCommentPropReactionsTypeForResponse
+    in_reply_to_id: NotRequired[int]
 
 
-class SecurityAndAnalysisPropSecretScanningNonProviderPatternsType(TypedDict):
-    """SecurityAndAnalysisPropSecretScanningNonProviderPatterns"""
+class PullRequestReviewCommentEventPropCommentPropUserType(TypedDict):
+    """User"""
 
-    status: NotRequired[Literal["enabled", "disabled"]]
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: NotRequired[int]
+    login: NotRequired[str]
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
 
 
-class SecurityAndAnalysisPropSecretScanningAiDetectionType(TypedDict):
-    """SecurityAndAnalysisPropSecretScanningAiDetection"""
+class PullRequestReviewCommentEventPropCommentPropUserTypeForResponse(TypedDict):
+    """User"""
 
-    status: NotRequired[Literal["enabled", "disabled"]]
+    avatar_url: NotRequired[str]
+    deleted: NotRequired[bool]
+    email: NotRequired[Union[str, None]]
+    events_url: NotRequired[str]
+    followers_url: NotRequired[str]
+    following_url: NotRequired[str]
+    gists_url: NotRequired[str]
+    gravatar_id: NotRequired[str]
+    html_url: NotRequired[str]
+    id: NotRequired[int]
+    login: NotRequired[str]
+    name: NotRequired[str]
+    node_id: NotRequired[str]
+    organizations_url: NotRequired[str]
+    received_events_url: NotRequired[str]
+    repos_url: NotRequired[str]
+    site_admin: NotRequired[bool]
+    starred_url: NotRequired[str]
+    subscriptions_url: NotRequired[str]
+    type: NotRequired[Literal["Bot", "User", "Organization"]]
+    url: NotRequired[str]
+    user_view_type: NotRequired[str]
+
+
+class PullRequestReviewCommentEventPropCommentPropReactionsType(TypedDict):
+    """Reactions"""
+
+    plus_one: NotRequired[int]
+    minus_one: NotRequired[int]
+    confused: NotRequired[int]
+    eyes: NotRequired[int]
+    heart: NotRequired[int]
+    hooray: NotRequired[int]
+    laugh: NotRequired[int]
+    rocket: NotRequired[int]
+    total_count: NotRequired[int]
+    url: NotRequired[str]
+
+
+class PullRequestReviewCommentEventPropCommentPropReactionsTypeForResponse(TypedDict):
+    """Reactions"""
+
+    plus_one: NotRequired[int]
+    minus_one: NotRequired[int]
+    confused: NotRequired[int]
+    eyes: NotRequired[int]
+    heart: NotRequired[int]
+    hooray: NotRequired[int]
+    laugh: NotRequired[int]
+    rocket: NotRequired[int]
+    total_count: NotRequired[int]
+    url: NotRequired[str]
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksType(TypedDict):
+    """PullRequestReviewCommentEventPropCommentPropLinks"""
+
+    html: PullRequestReviewCommentEventPropCommentPropLinksPropHtmlType
+    pull_request: PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestType
+    self_: PullRequestReviewCommentEventPropCommentPropLinksPropSelfType
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksTypeForResponse(TypedDict):
+    """PullRequestReviewCommentEventPropCommentPropLinks"""
+
+    html: PullRequestReviewCommentEventPropCommentPropLinksPropHtmlTypeForResponse
+    pull_request: (
+        PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestTypeForResponse
+    )
+    self_: PullRequestReviewCommentEventPropCommentPropLinksPropSelfTypeForResponse
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropHtmlType(TypedDict):
+    """Link"""
+
+    href: str
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropHtmlTypeForResponse(
+    TypedDict
+):
+    """Link"""
+
+    href: str
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestType(TypedDict):
+    """Link"""
+
+    href: str
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestTypeForResponse(
+    TypedDict
+):
+    """Link"""
+
+    href: str
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropSelfType(TypedDict):
+    """Link"""
+
+    href: str
+
+
+class PullRequestReviewCommentEventPropCommentPropLinksPropSelfTypeForResponse(
+    TypedDict
+):
+    """Link"""
+
+    href: str
 
 
 __all__ = (
-    "SecurityAndAnalysisPropAdvancedSecurityType",
-    "SecurityAndAnalysisPropCodeSecurityType",
-    "SecurityAndAnalysisPropDependabotSecurityUpdatesType",
-    "SecurityAndAnalysisPropSecretScanningAiDetectionType",
-    "SecurityAndAnalysisPropSecretScanningNonProviderPatternsType",
-    "SecurityAndAnalysisPropSecretScanningPushProtectionType",
-    "SecurityAndAnalysisPropSecretScanningType",
-    "SecurityAndAnalysisType",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropHtmlType",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropHtmlTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestType",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropPullRequestTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropSelfType",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropSelfTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentPropLinksType",
+    "PullRequestReviewCommentEventPropCommentPropLinksTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentPropReactionsType",
+    "PullRequestReviewCommentEventPropCommentPropReactionsTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentPropUserType",
+    "PullRequestReviewCommentEventPropCommentPropUserTypeForResponse",
+    "PullRequestReviewCommentEventPropCommentType",
+    "PullRequestReviewCommentEventPropCommentTypeForResponse",
+    "PullRequestReviewCommentEventType",
+    "PullRequestReviewCommentEventTypeForResponse",
 )

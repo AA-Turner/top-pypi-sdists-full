@@ -39,24 +39,39 @@ def __activate_standard_virtual_display():
     width = settings.HEADLESS_START_WIDTH
     height = settings.HEADLESS_START_HEIGHT
     with suppress(Exception):
-        _xvfb_display = Display(
-            visible=0, size=(width, height)
-        )
+        _xvfb_display = Display(visible=0, size=(width, height))
         _xvfb_display.start()
+        time.sleep(0.03)
         sb_config._virtual_display = _xvfb_display
         sb_config.headless_active = True
 
 
 def __activate_virtual_display_as_needed(
-    headless, headed, xvfb, xvfb_metrics
+    headless, headed, xvfb, xvfb_metrics, override_display=False
 ):
     """This is only needed on Linux."""
+    reset_virtual_display = False
+    if IS_LINUX and (not headed or xvfb):
+        if (
+            not hasattr(sb_config, "_closed_connection_ids")
+            or not isinstance(sb_config._closed_connection_ids, list)
+        ):
+            sb_config._closed_connection_ids = []
+        if (
+            not hasattr(sb_config, "_xvfb_users")
+            or not isinstance(sb_config._xvfb_users, int)
+        ):
+            reset_virtual_display = True
+            sb_config._xvfb_users = 0
+        sb_config._xvfb_users += 1
     if (
         IS_LINUX
         and (not headed or xvfb)
         and (
             not hasattr(sb_config, "_virtual_display")
             or not sb_config._virtual_display
+            or reset_virtual_display
+            or override_display
         )
     ):
         from sbvirtualdisplay import Display
@@ -94,6 +109,7 @@ def __activate_virtual_display_as_needed(
                         backend="xvfb",
                         use_xauth=True,
                     )
+                    time.sleep(0.05)
                     if "--debug-display" in sys.argv:
                         print(
                             "Starting VDisplay from cdp_util: (%s, %s)"
@@ -102,7 +118,8 @@ def __activate_virtual_display_as_needed(
                     _xvfb_display.start()
                     if "DISPLAY" not in os.environ.keys():
                         print(
-                            "\nX11 display failed! Will use regular xvfb!"
+                            "\n  X11 display failed! Is Xvfb installed? "
+                            "\n  Try this: `sudo apt install -y xvfb`"
                         )
                         __activate_standard_virtual_display()
                     else:
@@ -121,22 +138,26 @@ def __activate_virtual_display_as_needed(
                     import pyautogui
                     with suppress(Exception):
                         use_pyautogui_ver = constants.PyAutoGUI.VER
-                        if pyautogui.__version__ != use_pyautogui_ver:
+                        u_pv = shared_utils.make_version_tuple(
+                            use_pyautogui_ver
+                        )
+                        pv = shared_utils.make_version_tuple(
+                            pyautogui.__version__
+                        )
+                        if pv < u_pv:
                             del pyautogui  # To get newer ver
                             shared_utils.pip_install(
-                                "pyautogui", version=use_pyautogui_ver
+                                "pyautogui", version="Latest"
                             )
                             import pyautogui
                     pyautogui_is_installed = True
                 except Exception:
                     message = (
-                        "PyAutoGUI is required for UC Mode on Linux! "
+                        "PyAutoGUI is required for CDP Mode on Linux! "
                         "Installing now..."
                     )
                     print("\n" + message)
-                    shared_utils.pip_install(
-                        "pyautogui", version=constants.PyAutoGUI.VER
-                    )
+                    shared_utils.pip_install("pyautogui", version="Latest")
                     import pyautogui
                     pyautogui_is_installed = True
                 if (
@@ -258,13 +279,13 @@ async def start(
     config: Optional[Config] = None,
     *,
     user_data_dir: Optional[PathLike] = None,
-    headless: Optional[bool] = False,
-    incognito: Optional[bool] = False,
-    guest: Optional[bool] = False,
+    headless: Optional[bool] = None,
+    incognito: Optional[bool] = None,
+    guest: Optional[bool] = None,
     browser_executable_path: Optional[PathLike] = None,
     browser_args: Optional[List[str]] = None,
     xvfb_metrics: Optional[List[str]] = None,  # "Width,Height" for Linux
-    ad_block: Optional[bool] = False,
+    ad_block: Optional[bool] = None,
     sandbox: Optional[bool] = True,
     lang: Optional[str] = None,  # Set the Language Locale Code
     host: Optional[str] = None,  # Chrome remote-debugging-host
@@ -276,7 +297,10 @@ async def start(
     proxy: Optional[str] = None,  # "host:port" or "user:pass@host:port"
     tzone: Optional[str] = None,  # Eg "America/New_York", "Asia/Kolkata"
     geoloc: Optional[list | tuple] = None,  # Eg (48.87645, 2.26340)
+    mobile: Optional[bool] = None,  # Use Mobile Mode with default args
+    disable_csp: Optional[str] = None,  # Disable content security policy
     extension_dir: Optional[str] = None,  # Chrome extension directory
+    use_chromium: Optional[str] = None,  # Use the base Chromium browser
     **kwargs: Optional[dict],
 ) -> Browser:
     """
@@ -318,9 +342,235 @@ async def start(
      (For example, ensuring shadow-root is always in "open" mode.)
     :type expert: bool
     """
+    sys_argv = sys.argv
+    arg_join = " ".join(sys_argv)
+    if headless is None:
+        if "--headless" in sys_argv:
+            headless = True
+        else:
+            headless = False
+    if headed is None:
+        if "--gui" in sys_argv or "--headed" in sys_argv:
+            headed = True
+        else:
+            headed = False
+    if xvfb is None:
+        if "--xvfb" in sys_argv:
+            xvfb = True
+        else:
+            xvfb = False
+    if not hasattr(sb_config, "xvfb"):
+        sb_config.xvfb = xvfb
+    if incognito is None:
+        if "--incognito" in sys_argv:
+            incognito = True
+        else:
+            incognito = False
+    if guest is None:
+        if "--guest" in sys_argv:
+            guest = True
+        else:
+            guest = False
+    if mobile is None:
+        if "--mobile" in sys_argv:
+            mobile = True
+        else:
+            mobile = False
+    if mobile:
+        sb_config._cdp_mobile_mode = True
+    else:
+        sb_config._cdp_mobile_mode = False
+    if ad_block is None:
+        if "--ad-block" in sys_argv or "--ad_block" in sys_argv:
+            ad_block = True
+        else:
+            ad_block = False
+    if disable_csp is None:
+        if "--disable-csp" in sys_argv or "--disable_csp" in sys_argv:
+            disable_csp = True
+        else:
+            disable_csp = False
+    if xvfb_metrics is None and "--xvfb-metrics" in arg_join:
+        x_m = xvfb_metrics
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--xvfb-metrics="):
+                x_m = arg.split("--xvfb-metrics=")[1]
+                break
+            elif arg == "--xvfb-metrics" and len(sys_argv) > count + 1:
+                x_m = sys_argv[count + 1]
+                if x_m.startswith("-"):
+                    x_m = None
+                break
+            count += 1
+        if x_m:
+            if x_m.startswith('"') and x_m.endswith('"'):
+                x_m = x_m[1:-1]
+            elif x_m.startswith("'") and x_m.endswith("'"):
+                x_m = x_m[1:-1]
+        xvfb_metrics = x_m
+    if agent is None and "user_agent" not in kwargs and "--agent" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--agent="):
+                agent = arg.split("--agent=")[1]
+                break
+            elif arg == "--agent" and len(sys_argv) > count + 1:
+                agent = sys_argv[count + 1]
+                if agent.startswith("-"):
+                    agent = None
+                break
+            count += 1
+        if agent:
+            if agent.startswith('"') and agent.endswith('"'):
+                agent = agent[1:-1]
+            elif agent.startswith("'") and agent.endswith("'"):
+                agent = agent[1:-1]
+    if (
+        geoloc is None
+        and "geolocation" not in kwargs
+        and "--geolocation" in arg_join
+    ):
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--geolocation="):
+                geoloc = arg.split("--geolocation=")[1]
+                break
+            elif arg == "--geolocation" and len(sys_argv) > count + 1:
+                geoloc = sys_argv[count + 1]
+                if geoloc.startswith("-"):
+                    geoloc = None
+                break
+            count += 1
+        if geoloc:
+            if geoloc.startswith('"') and geoloc.endswith('"'):
+                geoloc = geoloc[1:-1]
+            elif geoloc.startswith("'") and geoloc.endswith("'"):
+                geoloc = geoloc[1:-1]
+            if geoloc:
+                import ast
+                geoloc = ast.literal_eval(geoloc)
+    if not lang and "locale" not in kwargs and "locale_code" not in kwargs:
+        if "--locale" in arg_join:
+            count = 0
+            for arg in sys_argv:
+                if arg.startswith("--locale="):
+                    lang = arg.split("--locale=")[1]
+                    break
+                elif arg == "--locale" and len(sys_argv) > count + 1:
+                    lang = sys_argv[count + 1]
+                    if lang.startswith("-"):
+                        lang = None
+                    break
+                count += 1
+        elif "--lang" in arg_join:
+            count = 0
+            for arg in sys_argv:
+                if arg.startswith("--lang="):
+                    lang = arg.split("--lang=")[1]
+                    break
+                elif arg == "--lang" and len(sys_argv) > count + 1:
+                    lang = sys_argv[count + 1]
+                    if lang.startswith("-"):
+                        lang = None
+                    break
+                count += 1
+        if lang:
+            if lang.startswith('"') and lang.endswith('"'):
+                lang = lang[1:-1]
+            elif lang.startswith("'") and lang.endswith("'"):
+                lang = lang[1:-1]
+    if not browser_executable_path and "binary_location" not in kwargs:
+        bin_loc = None
+        if "--binary-location" in arg_join or "--binary_location" in arg_join:
+            bin_loc_cmd = "--binary-location"
+            if "--binary_location" in arg_join:
+                bin_loc_cmd = "--binary_location"
+            count = 0
+            bin_loc = None
+            for arg in sys_argv:
+                if arg.startswith("%s=" % bin_loc_cmd):
+                    bin_loc = arg.split("%s=" % bin_loc_cmd)[1]
+                    break
+                elif arg == bin_loc_cmd and len(sys_argv) > count + 1:
+                    bin_loc = sys_argv[count + 1]
+                    if bin_loc.startswith("-"):
+                        bin_loc = None
+                    break
+                count += 1
+        elif "--bl=" in arg_join:
+            count = 0
+            bin_loc = None
+            for arg in sys_argv:
+                if arg.startswith("--bl="):
+                    bin_loc = arg.split("--bl=")[1]
+                    break
+                count += 1
+        if bin_loc:
+            if bin_loc.startswith('"') and bin_loc.endswith('"'):
+                bin_loc = bin_loc[1:-1]
+            elif bin_loc.startswith("'") and bin_loc.endswith("'"):
+                bin_loc = bin_loc[1:-1]
+            if bin_loc and not os.path.exists(bin_loc):
+                print("  No browser executable at PATH {%s}! " % bin_loc)
+                print("  Using default Chrome browser instead!")
+                bin_loc = None
+            browser_executable_path = bin_loc
+        elif use_chromium or "--use-chromium" in arg_join:
+            browser_executable_path = "_chromium_"
+    if proxy is None and "--proxy" in arg_join:
+        proxy_string = None
+        if "--proxy=" in arg_join:
+            proxy_string = arg_join.split("--proxy=")[1].split(" ")[0]
+        elif "--proxy " in arg_join:
+            proxy_string = arg_join.split("--proxy ")[1].split(" ")[0]
+        if proxy_string:
+            if proxy_string.startswith('"') and proxy_string.endswith('"'):
+                proxy_string = proxy_string[1:-1]
+            elif proxy_string.startswith("'") and proxy_string.endswith("'"):
+                proxy_string = proxy_string[1:-1]
+            proxy = proxy_string
+    if tzone is None and "timezone" not in kwargs and "--timezone" in arg_join:
+        tz_string = None
+        if "--timezone=" in arg_join:
+            tz_string = arg_join.split("--timezone=")[1].split(" ")[0]
+        elif "--timezone " in arg_join:
+            tz_string = arg_join.split("--timezone ")[1].split(" ")[0]
+        if tz_string:
+            if tz_string.startswith('"') and tz_string.endswith('"'):
+                tz_string = proxy_string[1:-1]
+            elif tz_string.startswith("'") and tz_string.endswith("'"):
+                tz_string = proxy_string[1:-1]
+            tzone = tz_string
+    platform_var = None
+    if (
+        "platform" not in kwargs
+        and "plat" not in kwargs
+        and "--platform" in arg_join
+    ):
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--platform="):
+                platform_var = arg.split("--platform=")[1]
+                break
+            elif arg == "--platform" and len(sys_argv) > count + 1:
+                platform_var = sys_argv[count + 1]
+                if platform_var.startswith("-"):
+                    platform_var = None
+                break
+            count += 1
+        if platform_var:
+            if platform_var.startswith('"') and platform_var.endswith('"'):
+                platform_var = platform_var[1:-1]
+            elif platform_var.startswith("'") and platform_var.endswith("'"):
+                platform_var = platform_var[1:-1]
     if IS_LINUX and not headless and not headed and not xvfb:
         xvfb = True  # The default setting on Linux
-    __activate_virtual_display_as_needed(headless, headed, xvfb, xvfb_metrics)
+    if not host or not port:
+        # The browser hasn't been launched yet. (May need a virtual display)
+        __activate_virtual_display_as_needed(
+            headless, headed, xvfb, xvfb_metrics
+        )
     if proxy and "@" in str(proxy):
         user_with_pass = proxy.split("@")[0]
         if ":" in user_with_pass:
@@ -338,17 +588,70 @@ async def start(
                 proxy_scheme,
             )
     if ad_block:
+        sb_config.ad_block_on = True
         incognito = False
         guest = False
         ad_block_zip = AD_BLOCK_ZIP_PATH
         ad_block_dir = os.path.join(DOWNLOADS_FOLDER, "ad_block")
         __unzip_to_new_folder(ad_block_zip, ad_block_dir)
         extension_dir = __add_chrome_ext_dir(extension_dir, ad_block_dir)
-    if (
-        "binary_location" in kwargs
-        and not browser_executable_path
-    ):
+    if disable_csp:
+        sb_config.disable_csp = True
+    if "binary_location" in kwargs and not browser_executable_path:
         browser_executable_path = kwargs["binary_location"]
+    if not browser_executable_path:
+        browser = None
+        if "browser" in kwargs:
+            browser = kwargs["browser"]
+        if not browser and "--browser" in arg_join:
+            br_string = None
+            if "--browser=" in arg_join:
+                br_string = arg_join.split("--browser=")[1].split(" ")[0]
+            elif "--browser " in arg_join:
+                br_string = arg_join.split("--browser ")[1].split(" ")[0]
+            if br_string:
+                if br_string.startswith('"') and br_string.endswith('"'):
+                    br_string = proxy_string[1:-1]
+                elif br_string.startswith("'") and br_string.endswith("'"):
+                    br_string = proxy_string[1:-1]
+                browser = br_string
+        if not browser:
+            if "--edge" in sys_argv:
+                browser = "edge"
+            elif "--opera" in sys_argv:
+                browser = "opera"
+            elif "--brave" in sys_argv:
+                browser = "brave"
+            elif "--comet" in sys_argv:
+                browser = "comet"
+            elif "--atlas" in sys_argv:
+                browser = "atlas"
+            else:
+                browser = "chrome"
+        sb_config._cdp_browser = browser
+        if browser == "comet" or browser == "atlas":
+            incognito = False
+            guest = False
+        with suppress(Exception):
+            browser_binary = detect_b_ver.get_binary_location(browser)
+            if browser_binary and os.path.exists(browser_binary):
+                browser_executable_path = browser_binary
+    else:
+        bin_loc = str(browser_executable_path).lower()
+        if bin_loc.endswith("opera") or bin_loc.endswith("opera.exe"):
+            sb_config._cdp_browser = "opera"
+        elif bin_loc.endswith("edge") or bin_loc.endswith("edge.exe"):
+            sb_config._cdp_browser = "edge"
+        elif bin_loc.endswith("brave") or bin_loc.endswith("brave.exe"):
+            sb_config._cdp_browser = "brave"
+        elif bin_loc.endswith("comet") or bin_loc.endswith("comet.exe"):
+            sb_config._cdp_browser = "comet"
+        elif bin_loc.endswith("atlas") or bin_loc.endswith("atlas.exe"):
+            sb_config._cdp_browser = "atlas"
+        else:
+            sb_config._cdp_browser = "chrome"
+    sb_config.incognito = incognito
+    sb_config.guest_mode = guest
     if not config:
         config = Config(
             user_data_dir,
@@ -370,7 +673,12 @@ async def start(
     try:
         driver = await Browser.create(config)
     except Exception:
-        time.sleep(0.15)
+        time.sleep(0.12)
+        if not host or not port:
+            __activate_virtual_display_as_needed(
+                headless, headed, xvfb, xvfb_metrics, override_display=True
+            )
+            time.sleep(0.05)
         driver = await Browser.create(config)
     if proxy:
         sb_config._cdp_proxy = proxy
@@ -404,29 +712,18 @@ async def start(
         sb_config._cdp_platform = kwargs["platform"]
     elif "plat" in kwargs:
         sb_config._cdp_platform = kwargs["plat"]
+    elif platform_var:
+        sb_config._cdp_platform = platform_var
     else:
         sb_config._cdp_platform = None
+    driver.page = driver.main_tab
+    driver.solve_captcha = driver.page.solve_captcha
     return driver
 
 
 async def start_async(*args, **kwargs) -> Browser:
-    headless = False
-    binary_location = None
-    if "browser_executable_path" in kwargs:
-        binary_location = kwargs["browser_executable_path"]
-        if binary_location and isinstance(binary_location, str):
-            binary_location = binary_location.strip()
-    else:
-        binary_location = detect_b_ver.get_binary_location("google-chrome")
-        if binary_location and isinstance(binary_location, str):
-            binary_location = binary_location.strip()
-            if not os.path.exists(binary_location):
-                binary_location = None
-    if (
-        shared_utils.is_chrome_130_or_newer(binary_location)
-        and "user_data_dir" in kwargs
-        and kwargs["user_data_dir"]
-    ):
+    if "user_data_dir" in kwargs and kwargs["user_data_dir"]:
+        headless = False
         if "headless" in kwargs:
             headless = kwargs["headless"]
         decoy_args = kwargs
@@ -450,38 +747,14 @@ def start_sync(*args, **kwargs) -> Browser:
         loop = kwargs["loop"]
     else:
         loop = asyncio.new_event_loop()
-    headless = False
-    binary_location = None
-    if "browser_executable_path" in kwargs:
-        binary_location = kwargs["browser_executable_path"]
-        if binary_location and isinstance(binary_location, str):
-            binary_location = binary_location.strip()
-    else:
-        binary_location = detect_b_ver.get_binary_location("google-chrome")
-        if binary_location and isinstance(binary_location, str):
-            binary_location = binary_location.strip()
-            if not os.path.exists(binary_location):
-                binary_location = None
-    if (
-        shared_utils.is_chrome_130_or_newer(binary_location)
-        and "user_data_dir" in kwargs
-        and kwargs["user_data_dir"]
-    ):
-        if "headless" in kwargs:
-            headless = kwargs["headless"]
-        decoy_args = kwargs
-        decoy_args["headless"] = True
-        driver = loop.run_until_complete(start(**decoy_args))
-        kwargs["headless"] = headless
-        kwargs["user_data_dir"] = driver.config.user_data_dir
-        time.sleep(0.2)
-        driver.stop()  # Due to Chrome-130, must stop & start
-        time.sleep(0.1)
     return loop.run_until_complete(start(*args, **kwargs))
 
 
 async def create_from_driver(driver) -> Browser:
-    """Create a Browser instance from a running driver instance."""
+    """Create a CDP Browser instance from a running UC driver.
+    This method is DEPRECATED in favor of activate_cdp_mode(),
+     which includes the option of switching between the modes,
+     and also properly handles configuration based on options."""
     from .config import Config
 
     conf = Config()

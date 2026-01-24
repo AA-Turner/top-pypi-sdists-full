@@ -2,15 +2,15 @@
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
 # Copyright (c) 2013-2016 California Institute of Technology.
-# Copyright (c) 2016-2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2016-2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/klepto/blob/master/LICENSE
 
 import os
 import sys
 # drop support for older python
-if sys.version_info < (3, 8):
-    unsupported = 'Versions of Python before 3.8 are not supported'
+if sys.version_info < (3, 9):
+    unsupported = 'Versions of Python before 3.9 are not supported'
     raise ValueError(unsupported)
 
 # get distribution meta info
@@ -55,19 +55,19 @@ setup_kwds = dict(
         'Source Code':'https://github.com/uqfoundation/klepto',
         'Bug Tracker':'https://github.com/uqfoundation/klepto/issues',
     },
-    python_requires = '>=3.8',
+    python_requires = '>=3.9',
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Database',
@@ -86,8 +86,8 @@ class BinaryDistribution(Distribution):
 
 # define dependencies
 sysversion = sys.version_info[:3]
-dill_version = 'dill>=0.4.0'
-pox_version = 'pox>=0.3.6'
+dill_version = 'dill>=0.4.1'
+pox_version = 'pox>=0.3.7'
 jsonpickle_version = 'jsonpickle>=0.9.6'
 cloudpickle_version = 'cloudpickle>=0.5.2'
 sqlalchemy_version = 'sqlalchemy>=1.4.0'

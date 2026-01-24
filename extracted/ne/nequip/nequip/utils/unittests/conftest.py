@@ -86,7 +86,8 @@ def temp_data(default_dtype):
 def CH3CHO(CH3CHO_no_typemap) -> Tuple[Atoms, AtomicDataDict.Type]:
     atoms, data = CH3CHO_no_typemap
     tm = ChemicalSpeciesToAtomTypeMapper(
-        chemical_symbols=["C", "O", "H"],
+        model_type_names=["C", "O", "H"],
+        chemical_species_to_atom_type_map={"C": "C", "O": "O", "H": "H"},
     )
     data = tm(data)
     return atoms, data
@@ -107,7 +108,8 @@ def Cu_bulk(default_dtype) -> Tuple[Atoms, AtomicDataDict.Type]:
     atoms.rattle()
     data = from_ase(atoms)
     tm = ChemicalSpeciesToAtomTypeMapper(
-        chemical_symbols=["Cu"],
+        model_type_names=["Cu"],
+        chemical_species_to_atom_type_map={"Cu": "Cu"},
     )
     nl = NeighborListTransform(r_max=3.5)
     data = nl(tm(data))
@@ -139,7 +141,8 @@ def nequip_dataset(molecules):
         yield ASEDataset(
             transforms=[
                 ChemicalSpeciesToAtomTypeMapper(
-                    chemical_symbols=["H", "C", "O"],
+                    model_type_names=["H", "C", "O"],
+                    chemical_species_to_atom_type_map={"H": "H", "C": "C", "O": "O"},
                 ),
                 NeighborListTransform(r_max=3.0),
             ],
@@ -169,7 +172,8 @@ def diamond_carbon(default_dtype) -> AtomicDataDict.Type:
         )
         data = from_ase(atoms)
         tm = ChemicalSpeciesToAtomTypeMapper(
-            chemical_symbols=["H", "C", "O"],
+            model_type_names=["H", "C", "O"],
+            chemical_species_to_atom_type_map={"H": "H", "C": "C", "O": "O"},
         )
         nl = NeighborListTransform(r_max=3.5)
         data = nl(tm(data))

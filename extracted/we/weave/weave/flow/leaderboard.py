@@ -1,23 +1,28 @@
-from typing import Any
+from __future__ import annotations
 
-from pydantic import BaseModel
+from dataclasses import dataclass
+from typing import Any
 
 from weave.trace.refs import OpRef
 from weave.trace.weave_client import WeaveClient, get_ref
 from weave.trace_server.interface.builtin_object_classes import leaderboard
 from weave.trace_server.trace_server_interface import CallsFilter
+from weave.utils.project_id import from_project_id
 
 
-class LeaderboardModelEvaluationResult(BaseModel):
+@dataclass
+class LeaderboardModelEvaluationResult:
     evaluate_call_ref: str
     value: Any
 
 
-class ModelScoresForColumn(BaseModel):
+@dataclass
+class ModelScoresForColumn:
     scores: list[LeaderboardModelEvaluationResult]
 
 
-class LeaderboardModelResult(BaseModel):
+@dataclass
+class LeaderboardModelResult:
     model_ref: str
     column_scores: list[ModelScoresForColumn]
 
@@ -25,7 +30,7 @@ class LeaderboardModelResult(BaseModel):
 def get_leaderboard_results(
     spec: leaderboard.Leaderboard, client: WeaveClient
 ) -> list[LeaderboardModelResult]:
-    entity, project = client._project_id().split("/")
+    entity, project = from_project_id(client._project_id())
     calls = client.get_calls(
         filter=CallsFilter(
             op_names=[

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -90,9 +90,9 @@ class PolicyNotFoundException(ServiceException):
     status_code: int = 400
 
 
-AllowedHeaders = List[Header]
-AllowedMethods = List[MethodName]
-AllowedOrigins = List[Origin]
+AllowedHeaders = list[Header]
+AllowedMethods = list[MethodName]
+AllowedOrigins = list[Origin]
 TimeStamp = datetime
 
 
@@ -101,16 +101,16 @@ class Container(TypedDict, total=False):
     Elemental MediaStore container.
     """
 
-    Endpoint: Optional[Endpoint]
-    CreationTime: Optional[TimeStamp]
-    ARN: Optional[ContainerARN]
-    Name: Optional[ContainerName]
-    Status: Optional[ContainerStatus]
-    AccessLoggingEnabled: Optional[ContainerAccessLoggingEnabled]
+    Endpoint: Endpoint | None
+    CreationTime: TimeStamp | None
+    ARN: ContainerARN | None
+    Name: ContainerName | None
+    Status: ContainerStatus | None
+    AccessLoggingEnabled: ContainerAccessLoggingEnabled | None
 
 
-ContainerList = List[Container]
-ExposeHeaders = List[Header]
+ContainerList = list[Container]
+ExposeHeaders = list[Header]
 
 
 class CorsRule(TypedDict, total=False):
@@ -120,13 +120,13 @@ class CorsRule(TypedDict, total=False):
     """
 
     AllowedOrigins: AllowedOrigins
-    AllowedMethods: Optional[AllowedMethods]
+    AllowedMethods: AllowedMethods | None
     AllowedHeaders: AllowedHeaders
-    MaxAgeSeconds: Optional[MaxAgeSeconds]
-    ExposeHeaders: Optional[ExposeHeaders]
+    MaxAgeSeconds: MaxAgeSeconds | None
+    ExposeHeaders: ExposeHeaders | None
 
 
-CorsPolicy = List[CorsRule]
+CorsPolicy = list[CorsRule]
 
 
 class Tag(TypedDict, total=False):
@@ -141,15 +141,15 @@ class Tag(TypedDict, total=False):
     """
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateContainerInput(ServiceRequest):
     ContainerName: ContainerName
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateContainerOutput(TypedDict, total=False):
@@ -197,11 +197,11 @@ class DeleteMetricPolicyOutput(TypedDict, total=False):
 
 
 class DescribeContainerInput(ServiceRequest):
-    ContainerName: Optional[ContainerName]
+    ContainerName: ContainerName | None
 
 
 class DescribeContainerOutput(TypedDict, total=False):
-    Container: Optional[Container]
+    Container: Container | None
 
 
 class GetContainerPolicyInput(ServiceRequest):
@@ -246,7 +246,7 @@ class MetricPolicyRule(TypedDict, total=False):
     ObjectGroupName: ObjectGroupName
 
 
-MetricPolicyRules = List[MetricPolicyRule]
+MetricPolicyRules = list[MetricPolicyRule]
 
 
 class MetricPolicy(TypedDict, total=False):
@@ -262,7 +262,7 @@ class MetricPolicy(TypedDict, total=False):
     """
 
     ContainerLevelMetrics: ContainerLevelMetrics
-    MetricPolicyRules: Optional[MetricPolicyRules]
+    MetricPolicyRules: MetricPolicyRules | None
 
 
 class GetMetricPolicyOutput(TypedDict, total=False):
@@ -270,13 +270,13 @@ class GetMetricPolicyOutput(TypedDict, total=False):
 
 
 class ListContainersInput(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[ContainerListLimit]
+    NextToken: PaginationToken | None
+    MaxResults: ContainerListLimit | None
 
 
 class ListContainersOutput(TypedDict, total=False):
     Containers: ContainerList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
@@ -284,7 +284,7 @@ class ListTagsForResourceInput(ServiceRequest):
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class PutContainerPolicyInput(ServiceRequest):
@@ -339,7 +339,7 @@ class StopAccessLoggingOutput(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -361,8 +361,8 @@ class UntagResourceOutput(TypedDict, total=False):
 
 
 class MediastoreApi:
-    service = "mediastore"
-    version = "2017-09-01"
+    service: str = "mediastore"
+    version: str = "2017-09-01"
 
     @handler("CreateContainer")
     def create_container(

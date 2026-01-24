@@ -56,8 +56,8 @@ class TTS(tts.TTS):
         self,
         *,
         base_url: NotGivenOr[str] = NOT_GIVEN,
-        model: TTSModels | str = "playai-tts",
-        voice: TTSVoices | str = "Arista-PlayAI",
+        model: TTSModels | str = "canopylabs/orpheus-v1-english",
+        voice: TTSVoices | str = "autumn",
         api_key: NotGivenOr[str] = NOT_GIVEN,
         http_session: aiohttp.ClientSession | None = None,
     ) -> None:
@@ -68,8 +68,8 @@ class TTS(tts.TTS):
         environmental variable.
 
         Args:
-            model (SpeechModels | str, optional): Model to use. Default is "playai-tts".
-            voice (SpeechVoices | str, optional): Voice to use. Default is "Autumn-PlayAI".
+            model (SpeechModels | str, optional): Model to use. Default is "canopylabs/orpheus-v1-english".
+            voice (SpeechVoices | str, optional): Voice to use. Default is "autumn".
             api_key (str | None, optional): API key to use. Default is None.
         """
 
@@ -94,6 +94,14 @@ class TTS(tts.TTS):
             api_key=groq_api_key,
             base_url=base_url,
         )
+
+    @property
+    def model(self) -> str:
+        return self._opts.model
+
+    @property
+    def provider(self) -> str:
+        return "Groq"
 
     def _ensure_session(self) -> aiohttp.ClientSession:
         if not self._session:

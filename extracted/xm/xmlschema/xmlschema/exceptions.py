@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2020, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -55,6 +55,10 @@ class XMLResourceError(XMLSchemaException):
 
 class XMLResourceParseError(XMLResourceError, ParseError):
     """Raised when an error is found parsing an XML resource."""
+
+
+class XMLResourceExceeded(XMLResourceError):
+    """Raised when the parsing of an XML resource exceeds a safety limit."""
 
 
 class XMLResourceBlocked(XMLResourceError):

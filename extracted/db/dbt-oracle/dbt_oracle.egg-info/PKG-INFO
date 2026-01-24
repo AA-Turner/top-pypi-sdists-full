@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: dbt-oracle
-Version: 1.9.3
+Version: 1.10.0
 Summary: dbt (data build tool) adapter for Oracle Autonomous Database
 Home-page: https://github.com/oracle/dbt-oracle
 Author: Oracle
-License: Apache Software License 2.0
+License: Apache License 2.0
 Project-URL: Documentation, https://docs.getdbt.com/reference/warehouse-profiles/oracle-profile
 Project-URL: Source, https://github.com/oracle/dbt-oracle
 Project-URL: Bug Tracker, https://github.com/oracle/dbt-oracle/issues
@@ -13,21 +13,20 @@ Project-URL: Release Notes, https://github.com/oracle/dbt-oracle/releases
 Keywords: Oracle dbt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-License-File: NOTICE.txt
 Requires-Dist: dbt-common<2.0,>=1.1.0
 Requires-Dist: dbt-adapters<2.0,>=1.2.1
-Requires-Dist: dbt-core<1.10,~=1.9
-Requires-Dist: oracledb==3.2.0
+Requires-Dist: dbt-core<1.11,~=1.10
+Requires-Dist: oracledb==3.4.1
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

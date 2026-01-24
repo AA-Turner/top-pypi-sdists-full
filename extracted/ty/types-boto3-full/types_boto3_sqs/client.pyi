@@ -3,7 +3,7 @@ Type annotations for sqs service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sqs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -67,11 +68,6 @@ from .type_defs import (
     UntagQueueRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -80,35 +76,35 @@ else:
 __all__ = ("SQSClient",)
 
 class Exceptions(BaseClientExceptions):
-    BatchEntryIdsNotDistinct: Type[BotocoreClientError]
-    BatchRequestTooLong: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    EmptyBatchRequest: Type[BotocoreClientError]
-    InvalidAddress: Type[BotocoreClientError]
-    InvalidAttributeName: Type[BotocoreClientError]
-    InvalidAttributeValue: Type[BotocoreClientError]
-    InvalidBatchEntryId: Type[BotocoreClientError]
-    InvalidIdFormat: Type[BotocoreClientError]
-    InvalidMessageContents: Type[BotocoreClientError]
-    InvalidSecurity: Type[BotocoreClientError]
-    KmsAccessDenied: Type[BotocoreClientError]
-    KmsDisabled: Type[BotocoreClientError]
-    KmsInvalidKeyUsage: Type[BotocoreClientError]
-    KmsInvalidState: Type[BotocoreClientError]
-    KmsNotFound: Type[BotocoreClientError]
-    KmsOptInRequired: Type[BotocoreClientError]
-    KmsThrottled: Type[BotocoreClientError]
-    MessageNotInflight: Type[BotocoreClientError]
-    OverLimit: Type[BotocoreClientError]
-    PurgeQueueInProgress: Type[BotocoreClientError]
-    QueueDeletedRecently: Type[BotocoreClientError]
-    QueueDoesNotExist: Type[BotocoreClientError]
-    QueueNameExists: Type[BotocoreClientError]
-    ReceiptHandleIsInvalid: Type[BotocoreClientError]
-    RequestThrottled: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyEntriesInBatchRequest: Type[BotocoreClientError]
-    UnsupportedOperation: Type[BotocoreClientError]
+    BatchEntryIdsNotDistinct: type[BotocoreClientError]
+    BatchRequestTooLong: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EmptyBatchRequest: type[BotocoreClientError]
+    InvalidAddress: type[BotocoreClientError]
+    InvalidAttributeName: type[BotocoreClientError]
+    InvalidAttributeValue: type[BotocoreClientError]
+    InvalidBatchEntryId: type[BotocoreClientError]
+    InvalidIdFormat: type[BotocoreClientError]
+    InvalidMessageContents: type[BotocoreClientError]
+    InvalidSecurity: type[BotocoreClientError]
+    KmsAccessDenied: type[BotocoreClientError]
+    KmsDisabled: type[BotocoreClientError]
+    KmsInvalidKeyUsage: type[BotocoreClientError]
+    KmsInvalidState: type[BotocoreClientError]
+    KmsNotFound: type[BotocoreClientError]
+    KmsOptInRequired: type[BotocoreClientError]
+    KmsThrottled: type[BotocoreClientError]
+    MessageNotInflight: type[BotocoreClientError]
+    OverLimit: type[BotocoreClientError]
+    PurgeQueueInProgress: type[BotocoreClientError]
+    QueueDeletedRecently: type[BotocoreClientError]
+    QueueDoesNotExist: type[BotocoreClientError]
+    QueueNameExists: type[BotocoreClientError]
+    ReceiptHandleIsInvalid: type[BotocoreClientError]
+    RequestThrottled: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyEntriesInBatchRequest: type[BotocoreClientError]
+    UnsupportedOperation: type[BotocoreClientError]
 
 class SQSClient(BaseClient):
     """

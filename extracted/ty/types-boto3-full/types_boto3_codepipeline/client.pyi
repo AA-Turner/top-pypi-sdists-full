@@ -3,7 +3,7 @@ Type annotations for codepipeline service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codepipeline/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -112,12 +113,6 @@ from .type_defs import (
     UpdatePipelineOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -126,49 +121,49 @@ else:
 __all__ = ("CodePipelineClient",)
 
 class Exceptions(BaseClientExceptions):
-    ActionExecutionNotFoundException: Type[BotocoreClientError]
-    ActionNotFoundException: Type[BotocoreClientError]
-    ActionTypeAlreadyExistsException: Type[BotocoreClientError]
-    ActionTypeNotFoundException: Type[BotocoreClientError]
-    ApprovalAlreadyCompletedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConcurrentPipelineExecutionsLimitExceededException: Type[BotocoreClientError]
-    ConditionNotOverridableException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DuplicatedStopRequestException: Type[BotocoreClientError]
-    InvalidActionDeclarationException: Type[BotocoreClientError]
-    InvalidApprovalTokenException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidBlockerDeclarationException: Type[BotocoreClientError]
-    InvalidClientTokenException: Type[BotocoreClientError]
-    InvalidJobException: Type[BotocoreClientError]
-    InvalidJobStateException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidNonceException: Type[BotocoreClientError]
-    InvalidStageDeclarationException: Type[BotocoreClientError]
-    InvalidStructureException: Type[BotocoreClientError]
-    InvalidTagsException: Type[BotocoreClientError]
-    InvalidWebhookAuthenticationParametersException: Type[BotocoreClientError]
-    InvalidWebhookFilterPatternException: Type[BotocoreClientError]
-    JobNotFoundException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotLatestPipelineExecutionException: Type[BotocoreClientError]
-    OutputVariablesSizeExceededException: Type[BotocoreClientError]
-    PipelineExecutionNotFoundException: Type[BotocoreClientError]
-    PipelineExecutionNotStoppableException: Type[BotocoreClientError]
-    PipelineExecutionOutdatedException: Type[BotocoreClientError]
-    PipelineNameInUseException: Type[BotocoreClientError]
-    PipelineNotFoundException: Type[BotocoreClientError]
-    PipelineVersionNotFoundException: Type[BotocoreClientError]
-    RequestFailedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    StageNotFoundException: Type[BotocoreClientError]
-    StageNotRetryableException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnableToRollbackStageException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    WebhookNotFoundException: Type[BotocoreClientError]
+    ActionExecutionNotFoundException: type[BotocoreClientError]
+    ActionNotFoundException: type[BotocoreClientError]
+    ActionTypeAlreadyExistsException: type[BotocoreClientError]
+    ActionTypeNotFoundException: type[BotocoreClientError]
+    ApprovalAlreadyCompletedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConcurrentPipelineExecutionsLimitExceededException: type[BotocoreClientError]
+    ConditionNotOverridableException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DuplicatedStopRequestException: type[BotocoreClientError]
+    InvalidActionDeclarationException: type[BotocoreClientError]
+    InvalidApprovalTokenException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidBlockerDeclarationException: type[BotocoreClientError]
+    InvalidClientTokenException: type[BotocoreClientError]
+    InvalidJobException: type[BotocoreClientError]
+    InvalidJobStateException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidNonceException: type[BotocoreClientError]
+    InvalidStageDeclarationException: type[BotocoreClientError]
+    InvalidStructureException: type[BotocoreClientError]
+    InvalidTagsException: type[BotocoreClientError]
+    InvalidWebhookAuthenticationParametersException: type[BotocoreClientError]
+    InvalidWebhookFilterPatternException: type[BotocoreClientError]
+    JobNotFoundException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotLatestPipelineExecutionException: type[BotocoreClientError]
+    OutputVariablesSizeExceededException: type[BotocoreClientError]
+    PipelineExecutionNotFoundException: type[BotocoreClientError]
+    PipelineExecutionNotStoppableException: type[BotocoreClientError]
+    PipelineExecutionOutdatedException: type[BotocoreClientError]
+    PipelineNameInUseException: type[BotocoreClientError]
+    PipelineNotFoundException: type[BotocoreClientError]
+    PipelineVersionNotFoundException: type[BotocoreClientError]
+    RequestFailedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    StageNotFoundException: type[BotocoreClientError]
+    StageNotRetryableException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnableToRollbackStageException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    WebhookNotFoundException: type[BotocoreClientError]
 
 class CodePipelineClient(BaseClient):
     """
@@ -267,7 +262,7 @@ class CodePipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codepipeline/client/#delete_pipeline)
         """
 
-    def delete_webhook(self, **kwargs: Unpack[DeleteWebhookInputTypeDef]) -> Dict[str, Any]:
+    def delete_webhook(self, **kwargs: Unpack[DeleteWebhookInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a previously created webhook by name.
 
@@ -277,7 +272,7 @@ class CodePipelineClient(BaseClient):
 
     def deregister_webhook_with_third_party(
         self, **kwargs: Unpack[DeregisterWebhookWithThirdPartyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the connection between the webhook that was created by CodePipeline and
         the external tool with events to be detected.
@@ -561,7 +556,7 @@ class CodePipelineClient(BaseClient):
 
     def register_webhook_with_third_party(
         self, **kwargs: Unpack[RegisterWebhookWithThirdPartyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configures a connection between the webhook that was created and the external
         tool with events to be detected.
@@ -611,7 +606,7 @@ class CodePipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codepipeline/client/#stop_pipeline_execution)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds to or modifies the tags of the given resource.
 
@@ -619,7 +614,7 @@ class CodePipelineClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codepipeline/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes tags from an Amazon Web Services resource.
 

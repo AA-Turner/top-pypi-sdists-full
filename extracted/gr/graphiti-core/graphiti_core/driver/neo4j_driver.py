@@ -19,23 +19,47 @@ from collections.abc import Coroutine
 from typing import Any
 
 from neo4j import AsyncGraphDatabase, EagerResult
+from neo4j.exceptions import ClientError
 from typing_extensions import LiteralString
 
 from graphiti_core.driver.driver import GraphDriver, GraphDriverSession, GraphProvider
+from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices
+from graphiti_core.helpers import semaphore_gather
 
 logger = logging.getLogger(__name__)
 
 
 class Neo4jDriver(GraphDriver):
     provider = GraphProvider.NEO4J
+    default_group_id: str = ''
 
-    def __init__(self, uri: str, user: str | None, password: str | None, database: str = 'neo4j'):
+    def __init__(
+        self,
+        uri: str,
+        user: str | None,
+        password: str | None,
+        database: str = 'neo4j',
+    ):
         super().__init__()
         self.client = AsyncGraphDatabase.driver(
             uri=uri,
             auth=(user or '', password or ''),
         )
         self._database = database
+
+        # Schedule the indices and constraints to be built
+        import asyncio
+
+        try:
+            # Try to get the current event loop
+            loop = asyncio.get_running_loop()
+            # Schedule the build_indices_and_constraints to run
+            loop.create_task(self.build_indices_and_constraints())
+        except RuntimeError:
+            # No event loop running, this will be handled later
+            pass
+
+        self.aoss_client = None
 
     async def execute_query(self, cypher_query_: LiteralString, **kwargs: Any) -> EagerResult:
         # Check if database_ is provided in kwargs.
@@ -60,7 +84,43 @@ class Neo4jDriver(GraphDriver):
     async def close(self) -> None:
         return await self.client.close()
 
-    def delete_all_indexes(self) -> Coroutine[Any, Any, EagerResult]:
+    def delete_all_indexes(self) -> Coroutine:
         return self.client.execute_query(
             'CALL db.indexes() YIELD name DROP INDEX name',
         )
+
+    async def _execute_index_query(self, query: LiteralString) -> EagerResult | None:
+        """Execute an index creation query, ignoring 'index already exists' errors.
+
+        Neo4j can raise EquivalentSchemaRuleAlreadyExists when concurrent CREATE INDEX
+        IF NOT EXISTS queries race, even though the index exists. This is safe to ignore.
+        """
+        try:
+            return await self.execute_query(query)
+        except ClientError as e:
+            # Ignore "equivalent index already exists" error (race condition with IF NOT EXISTS)
+            if 'EquivalentSchemaRuleAlreadyExists' in str(e):
+                logger.debug(f'Index already exists (concurrent creation): {query[:50]}...')
+                return None
+            raise
+
+    async def build_indices_and_constraints(self, delete_existing: bool = False):
+        if delete_existing:
+            await self.delete_all_indexes()
+
+        range_indices: list[LiteralString] = get_range_indices(self.provider)
+
+        fulltext_indices: list[LiteralString] = get_fulltext_indices(self.provider)
+
+        index_queries: list[LiteralString] = range_indices + fulltext_indices
+
+        await semaphore_gather(*[self._execute_index_query(query) for query in index_queries])
+
+    async def health_check(self) -> None:
+        """Check Neo4j connectivity by running the driver's verify_connectivity method."""
+        try:
+            await self.client.verify_connectivity()
+            return None
+        except Exception as e:
+            print(f'Neo4j health check failed: {e}')
+            raise

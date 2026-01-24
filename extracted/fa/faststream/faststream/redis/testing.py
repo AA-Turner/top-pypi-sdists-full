@@ -1,13 +1,11 @@
 import re
+from collections.abc import Iterator, Sequence
+from contextlib import ExitStack, contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
-    List,
     Optional,
     Protocol,
-    Sequence,
-    Tuple,
-    Type,
     Union,
     cast,
 )
@@ -16,9 +14,10 @@ from unittest.mock import AsyncMock, MagicMock
 import anyio
 from typing_extensions import TypedDict, override
 
-from faststream.broker.message import gen_cor_id
-from faststream.broker.utils import resolve_custom_func
-from faststream.exceptions import WRONG_PUBLISH_ARGS, SetupError, SubscriberNotFound
+from faststream._internal.endpoint.utils import ParserComposition
+from faststream._internal.testing.broker import TestBroker, change_producer
+from faststream.exceptions import SetupError, SubscriberNotFound
+from faststream.message import gen_cor_id
 from faststream.redis.broker.broker import RedisBroker
 from faststream.redis.message import (
     BatchListMessage,
@@ -28,23 +27,20 @@ from faststream.redis.message import (
     PubSubMessage,
     bDATA_KEY,
 )
-from faststream.redis.parser import MessageFormat, RedisPubSubParser
+from faststream.redis.parser import MessageFormat, ParserConfig, RedisPubSubParser
 from faststream.redis.publisher.producer import RedisFastProducer
+from faststream.redis.response import DestinationType, RedisPublishCommand
 from faststream.redis.schemas import INCORRECT_SETUP_MSG
-from faststream.redis.subscriber.usecase import (
-    ChannelSubscriber,
-    LogicSubscriber,
-    _ListHandlerMixin,
-    _StreamHandlerMixin,
-)
-from faststream.testing.broker import TestBroker
-from faststream.utils.functions import timeout_scope
+from faststream.redis.subscriber.usecases.channel_subscriber import ChannelSubscriber
+from faststream.redis.subscriber.usecases.list_subscriber import _ListHandlerMixin
+from faststream.redis.subscriber.usecases.stream_subscriber import _StreamHandlerMixin
 
 if TYPE_CHECKING:
-    from redis.asyncio.client import Pipeline
+    from fast_depends.library.serializer import SerializerProto
 
-    from faststream.redis.publisher.asyncapi import AsyncAPIPublisher
-    from faststream.types import AnyDict, SendableMessage
+    from faststream._internal.basic_types import SendableMessage
+    from faststream.redis.publisher.usecase import LogicPublisher
+    from faststream.redis.subscriber.usecases.basic import LogicSubscriber
 
 __all__ = ("TestRedisBroker",)
 
@@ -52,17 +48,34 @@ __all__ = ("TestRedisBroker",)
 class TestRedisBroker(TestBroker[RedisBroker]):
     """A class to test Redis brokers."""
 
+    @contextmanager
+    def _patch_producer(self, broker: RedisBroker) -> Iterator[None]:
+        with ExitStack() as es:
+            es.enter_context(
+                change_producer(
+                    broker.config.broker_config, FakeProducer(broker, broker.config)
+                ),
+            )
+
+            for publisher in cast("list[LogicPublisher]", broker.publishers):
+                es.enter_context(
+                    change_producer(publisher, FakeProducer(broker, publisher.config)),
+                )
+
+            yield
+
     @staticmethod
     def create_publisher_fake_subscriber(
         broker: RedisBroker,
-        publisher: "AsyncAPIPublisher",
-    ) -> Tuple["LogicSubscriber", bool]:
-        sub: Optional[LogicSubscriber] = None
+        publisher: "LogicPublisher",
+    ) -> tuple["LogicSubscriber", bool]:
+        sub: LogicSubscriber | None = None
 
         named_property = publisher.subscriber_property(name_only=True)
         visitors = (ChannelVisitor(), ListVisitor(), StreamVisitor())
 
-        for handler in broker._subscribers.values():  # pragma: no branch
+        for handler in broker.subscribers:  # pragma: no branch
+            handler = cast("LogicSubscriber", handler)
             for visitor in visitors:
                 if visitor.visit(**named_property, sub=handler):
                     sub = handler
@@ -70,8 +83,8 @@ class TestRedisBroker(TestBroker[RedisBroker]):
 
         if sub is None:
             is_real = False
-            sub = broker.subscriber(**publisher.subscriber_property(name_only=False))
-
+            sub_options = publisher.subscriber_property(name_only=False)
+            sub = broker.subscriber(**sub_options, persistent=False)
         else:
             is_real = True
 
@@ -83,73 +96,56 @@ class TestRedisBroker(TestBroker[RedisBroker]):
         *args: Any,
         **kwargs: Any,
     ) -> AsyncMock:
-        broker._producer = FakeProducer(broker, broker.message_format)
         connection = MagicMock()
 
         pub_sub = AsyncMock()
 
         async def get_msg(*args: Any, timeout: float, **kwargs: Any) -> None:
             await anyio.sleep(timeout)
-            return None
 
         pub_sub.get_message = get_msg
 
         connection.pubsub.side_effect = lambda: pub_sub
+        connection.aclose = AsyncMock()
+
+        connection.xack = AsyncMock()
+        connection.xdel = AsyncMock()
+
+        broker.config.broker_config.connection._client = connection
         return connection
 
 
 class FakeProducer(RedisFastProducer):
-    def __init__(
-        self, broker: RedisBroker, message_format: Type["MessageFormat"]
-    ) -> None:
+    def __init__(self, broker: RedisBroker, config: ParserConfig) -> None:
         self.broker = broker
-        self.message_format = message_format
 
-        default = RedisPubSubParser(message_format=message_format)
-        self._parser = resolve_custom_func(
+        default = RedisPubSubParser(config)
+
+        self._parser = ParserComposition(
             broker._parser,
             default.parse_message,
         )
-        self._decoder = resolve_custom_func(
+        self._decoder = ParserComposition(
             broker._decoder,
             default.decode_message,
         )
 
     @override
-    async def publish(
-        self,
-        message: "SendableMessage",
-        *,
-        channel: Optional[str] = None,
-        list: Optional[str] = None,
-        stream: Optional[str] = None,
-        maxlen: Optional[int] = None,
-        headers: Optional["AnyDict"] = None,
-        reply_to: str = "",
-        correlation_id: Optional[str] = None,
-        rpc: bool = False,
-        rpc_timeout: Optional[float] = 30.0,
-        raise_timeout: bool = False,
-        pipeline: Optional["Pipeline[bytes]"] = None,
-        message_format: Optional[Type["MessageFormat"]] = None,
-    ) -> Optional[Any]:
-        if rpc and reply_to:
-            raise WRONG_PUBLISH_ARGS
-
-        correlation_id = correlation_id or gen_cor_id()
-
+    async def publish(self, cmd: "RedisPublishCommand") -> int | bytes:
         body = build_message(
-            message=message,
-            message_format=(message_format or self.message_format),
-            reply_to=reply_to,
-            correlation_id=correlation_id,
-            headers=headers,
+            message=cmd.body,
+            reply_to=cmd.reply_to,
+            correlation_id=cmd.correlation_id or gen_cor_id(),
+            headers=cmd.headers,
+            message_format=cmd.message_format,
+            serializer=self.broker.config.fd_config._serializer,
         )
 
-        destination = _make_destionation_kwargs(channel, list, stream)
+        destination = _make_destination_kwargs(cmd)
         visitors = (ChannelVisitor(), ListVisitor(), StreamVisitor())
 
-        for handler in self.broker._subscribers.values():  # pragma: no branch
+        for handler in self.broker.subscribers:  # pragma: no branch
+            handler = cast("LogicSubscriber", handler)
             for visitor in visitors:
                 if visited_ch := visitor.visit(**destination, sub=handler):
                     msg = visitor.get_message(
@@ -158,40 +154,25 @@ class FakeProducer(RedisFastProducer):
                         handler,  # type: ignore[arg-type]
                     )
 
-                    with timeout_scope(rpc_timeout, raise_timeout):
-                        response_msg = await self._execute_handler(msg, handler)
-                        if rpc:
-                            return await self._decoder(await self._parser(response_msg))
+                    await self._execute_handler(msg, handler)
 
-        return None
+        return 0
 
     @override
-    async def request(  # type: ignore[override]
-        self,
-        message: "SendableMessage",
-        *,
-        correlation_id: str,
-        channel: Optional[str] = None,
-        list: Optional[str] = None,
-        stream: Optional[str] = None,
-        maxlen: Optional[int] = None,
-        headers: Optional["AnyDict"] = None,
-        timeout: Optional[float] = 30.0,
-        message_format: Optional[Type["MessageFormat"]] = None,
-    ) -> "PubSubMessage":
-        correlation_id = correlation_id or gen_cor_id()
-
+    async def request(self, cmd: "RedisPublishCommand") -> "PubSubMessage":
         body = build_message(
-            message=message,
-            message_format=(message_format or self.message_format),
-            correlation_id=correlation_id,
-            headers=headers,
+            message=cmd.body,
+            correlation_id=cmd.correlation_id or gen_cor_id(),
+            headers=cmd.headers,
+            message_format=cmd.message_format,
+            serializer=self.broker.config.fd_config._serializer,
         )
 
-        destination = _make_destionation_kwargs(channel, list, stream)
+        destination = _make_destination_kwargs(cmd)
         visitors = (ChannelVisitor(), ListVisitor(), StreamVisitor())
 
-        for handler in self.broker._subscribers.values():  # pragma: no branch
+        for handler in self.broker.subscribers:  # pragma: no branch
+            handler = cast("LogicSubscriber", handler)
             for visitor in visitors:
                 if visited_ch := visitor.visit(**destination, sub=handler):
                     msg = visitor.get_message(
@@ -200,44 +181,45 @@ class FakeProducer(RedisFastProducer):
                         handler,  # type: ignore[arg-type]
                     )
 
-                    with anyio.fail_after(timeout):
+                    with anyio.fail_after(cmd.timeout):
                         return await self._execute_handler(msg, handler)
 
         raise SubscriberNotFound
 
-    async def publish_batch(
-        self,
-        *msgs: "SendableMessage",
-        list: str,
-        headers: Optional["AnyDict"] = None,
-        correlation_id: Optional[str] = None,
-        pipeline: Optional["Pipeline[bytes]"] = None,
-        message_format: Optional[Type["MessageFormat"]] = None,
-    ) -> None:
+    @override
+    async def publish_batch(self, cmd: "RedisPublishCommand") -> int:
         data_to_send = [
             build_message(
                 m,
-                message_format=(message_format or self.message_format),
-                correlation_id=correlation_id or gen_cor_id(),
-                headers=headers,
+                correlation_id=cmd.correlation_id or gen_cor_id(),
+                headers=cmd.headers,
+                message_format=cmd.message_format,
+                serializer=self.broker.config.fd_config._serializer,
             )
-            for m in msgs
+            for m in cmd.batch_bodies
         ]
 
         visitor = ListVisitor()
-        for handler in self.broker._subscribers.values():  # pragma: no branch
-            if visitor.visit(list=list, sub=handler):
+        for handler in self.broker.subscribers:  # pragma: no branch
+            handler = cast("LogicSubscriber", handler)
+            if visitor.visit(list=cmd.destination, sub=handler):
                 casted_handler = cast("_ListHandlerMixin", handler)
 
                 if casted_handler.list_sub.batch:
-                    msg = visitor.get_message(list, data_to_send, casted_handler)
+                    msg = visitor.get_message(
+                        channel=cmd.destination,
+                        body=data_to_send,
+                        sub=casted_handler,
+                    )
 
                     await self._execute_handler(msg, handler)
 
-        return None
+        return 0
 
     async def _execute_handler(
-        self, msg: Any, handler: "LogicSubscriber"
+        self,
+        msg: Any,
+        handler: "LogicSubscriber",
     ) -> "PubSubMessage":
         result = await handler.process_message(msg)
 
@@ -245,9 +227,10 @@ class FakeProducer(RedisFastProducer):
             type="message",
             data=build_message(
                 message=result.body,
-                message_format=self.message_format,
                 headers=result.headers,
                 correlation_id=result.correlation_id or "",
+                message_format=handler.config.message_format,
+                serializer=self.broker.config.fd_config._serializer,
             ),
             channel="",
             pattern=None,
@@ -258,28 +241,29 @@ def build_message(
     message: Union[Sequence["SendableMessage"], "SendableMessage"],
     *,
     correlation_id: str,
-    message_format: Type["MessageFormat"],
+    message_format: type["MessageFormat"],
     reply_to: str = "",
-    headers: Optional["AnyDict"] = None,
+    headers: dict[str, Any] | None = None,
+    serializer: Optional["SerializerProto"] = None,
 ) -> bytes:
-    data = message_format.encode(
+    return message_format.encode(
         message=message,
         reply_to=reply_to,
         headers=headers,
         correlation_id=correlation_id,
+        serializer=serializer,
     )
-    return data
 
 
 class Visitor(Protocol):
     def visit(
         self,
         *,
-        channel: Optional[str],
-        list: Optional[str],
-        stream: Optional[str],
+        channel: str | None,
+        list: str | None,
+        stream: str | None,
         sub: "LogicSubscriber",
-    ) -> Optional[str]: ...
+    ) -> str | None: ...
 
     def get_message(self, channel: str, body: Any, sub: "LogicSubscriber") -> Any: ...
 
@@ -289,10 +273,10 @@ class ChannelVisitor(Visitor):
         self,
         *,
         sub: "LogicSubscriber",
-        channel: Optional[str] = None,
-        list: Optional[str] = None,
-        stream: Optional[str] = None,
-    ) -> Optional[str]:
+        channel: str | None = None,
+        list: str | None = None,
+        stream: str | None = None,
+    ) -> str | None:
         if channel is None or not isinstance(sub, ChannelSubscriber):
             return None
 
@@ -304,7 +288,7 @@ class ChannelVisitor(Visitor):
                 re.match(
                     sub_channel.name.replace(".", "\\.").replace("*", ".*"),
                     channel or "",
-                )
+                ),
             )
         ) or channel == sub_channel.name:
             return channel
@@ -330,10 +314,10 @@ class ListVisitor(Visitor):
         self,
         *,
         sub: "LogicSubscriber",
-        channel: Optional[str] = None,
-        list: Optional[str] = None,
-        stream: Optional[str] = None,
-    ) -> Optional[str]:
+        channel: str | None = None,
+        list: str | None = None,
+        stream: str | None = None,
+    ) -> str | None:
         if list is None or not isinstance(sub, _ListHandlerMixin):
             return None
 
@@ -352,15 +336,14 @@ class ListVisitor(Visitor):
             return BatchListMessage(
                 type="blist",
                 channel=channel,
-                data=body if isinstance(body, List) else [body],
+                data=body if isinstance(body, list) else [body],
             )
 
-        else:
-            return DefaultListMessage(
-                type="list",
-                channel=channel,
-                data=body,
-            )
+        return DefaultListMessage(
+            type="list",
+            channel=channel,
+            data=body,
+        )
 
 
 class StreamVisitor(Visitor):
@@ -368,10 +351,10 @@ class StreamVisitor(Visitor):
         self,
         *,
         sub: "LogicSubscriber",
-        channel: Optional[str] = None,
-        list: Optional[str] = None,
-        stream: Optional[str] = None,
-    ) -> Optional[str]:
+        channel: str | None = None,
+        list: str | None = None,
+        stream: str | None = None,
+    ) -> str | None:
         if stream is None or not isinstance(sub, _StreamHandlerMixin):
             return None
 
@@ -394,13 +377,12 @@ class StreamVisitor(Visitor):
                 message_ids=[],
             )
 
-        else:
-            return DefaultStreamMessage(
-                type="stream",
-                channel=channel,
-                data={bDATA_KEY: body},
-                message_ids=[],
-            )
+        return DefaultStreamMessage(
+            type="stream",
+            channel=channel,
+            data={bDATA_KEY: body},
+            message_ids=[],
+        )
 
 
 class _DestinationKwargs(TypedDict, total=False):
@@ -409,18 +391,14 @@ class _DestinationKwargs(TypedDict, total=False):
     stream: str
 
 
-def _make_destionation_kwargs(
-    channel: Optional[str],
-    list: Optional[str],
-    stream: Optional[str],
-) -> _DestinationKwargs:
+def _make_destination_kwargs(cmd: RedisPublishCommand) -> _DestinationKwargs:
     destination: _DestinationKwargs = {}
-    if channel:
-        destination["channel"] = channel
-    if list:
-        destination["list"] = list
-    if stream:
-        destination["stream"] = stream
+    if cmd.destination_type is DestinationType.Channel:
+        destination["channel"] = cmd.destination
+    if cmd.destination_type is DestinationType.List:
+        destination["list"] = cmd.destination
+    if cmd.destination_type is DestinationType.Stream:
+        destination["stream"] = cmd.destination
 
     if len(destination) != 1:
         raise SetupError(INCORRECT_SETUP_MSG)

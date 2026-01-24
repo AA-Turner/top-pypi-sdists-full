@@ -3,7 +3,7 @@ Type annotations for comprehend service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_comprehend/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -58,12 +59,6 @@ from .literals import (
     ToxicContentTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -374,7 +369,7 @@ __all__ = (
 
 class AugmentedManifestsListItemOutputTypeDef(TypedDict):
     S3Uri: str
-    AttributeNames: List[str]
+    AttributeNames: list[str]
     Split: NotRequired[SplitType]
     AnnotationDataS3Uri: NotRequired[str]
     SourceDocumentsS3Uri: NotRequired[str]
@@ -408,7 +403,7 @@ class BatchItemErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -468,7 +463,7 @@ class ChildBlockTypeDef(TypedDict):
 RelationshipsListItemTypeDef = TypedDict(
     "RelationshipsListItemTypeDef",
     {
-        "Ids": NotRequired[List[str]],
+        "Ids": NotRequired[list[str]],
         "Type": NotRequired[Literal["CHILD"]],
     },
 )
@@ -551,8 +546,8 @@ class DocumentClassifierOutputDataConfigTypeDef(TypedDict):
 
 
 class VpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
 
 
 class VpcConfigTypeDef(TypedDict):
@@ -763,7 +758,7 @@ TextSegmentTypeDef = TypedDict(
 
 class DocumentClassificationConfigOutputTypeDef(TypedDict):
     Mode: DocumentClassifierModeType
-    Labels: NotRequired[List[str]]
+    Labels: NotRequired[list[str]]
 
 
 class DocumentClassificationConfigTypeDef(TypedDict):
@@ -784,7 +779,7 @@ class DocumentClassifierDocumentsTypeDef(TypedDict):
 class DocumentReaderConfigOutputTypeDef(TypedDict):
     DocumentReadAction: DocumentReadActionType
     DocumentReadMode: NotRequired[DocumentReadModeType]
-    FeatureTypes: NotRequired[List[DocumentReadFeatureTypesType]]
+    FeatureTypes: NotRequired[list[DocumentReadFeatureTypesType]]
 
 
 class DocumentReaderConfigTypeDef(TypedDict):
@@ -908,7 +903,7 @@ class PiiOutputDataConfigTypeDef(TypedDict):
 
 
 class RedactionConfigOutputTypeDef(TypedDict):
-    PiiEntityTypes: NotRequired[List[PiiEntityTypeType]]
+    PiiEntityTypes: NotRequired[list[PiiEntityTypeType]]
     MaskMode: NotRequired[PiiEntitiesDetectionMaskModeType]
     MaskCharacter: NotRequired[str]
 
@@ -986,7 +981,7 @@ class UpdateEndpointRequestTypeDef(TypedDict):
 
 class BatchDetectDominantLanguageItemResultTypeDef(TypedDict):
     Index: NotRequired[int]
-    Languages: NotRequired[List[DominantLanguageTypeDef]]
+    Languages: NotRequired[list[DominantLanguageTypeDef]]
 
 
 class CreateDatasetResponseTypeDef(TypedDict):
@@ -1025,7 +1020,7 @@ class DescribeResourcePolicyResponseTypeDef(TypedDict):
 
 
 class DetectDominantLanguageResponseTypeDef(TypedDict):
-    Languages: List[DominantLanguageTypeDef]
+    Languages: list[DominantLanguageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1159,11 +1154,11 @@ class UpdateEndpointResponseTypeDef(TypedDict):
 
 class BatchDetectKeyPhrasesItemResultTypeDef(TypedDict):
     Index: NotRequired[int]
-    KeyPhrases: NotRequired[List[KeyPhraseTypeDef]]
+    KeyPhrases: NotRequired[list[KeyPhraseTypeDef]]
 
 
 class DetectKeyPhrasesResponseTypeDef(TypedDict):
-    KeyPhrases: List[KeyPhraseTypeDef]
+    KeyPhrases: list[KeyPhraseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1188,7 +1183,7 @@ class BlockReferenceTypeDef(TypedDict):
     BlockId: NotRequired[str]
     BeginOffset: NotRequired[int]
     EndOffset: NotRequired[int]
-    ChildBlocks: NotRequired[List[ChildBlockTypeDef]]
+    ChildBlocks: NotRequired[list[ChildBlockTypeDef]]
 
 
 class ClassifierMetadataTypeDef(TypedDict):
@@ -1199,7 +1194,7 @@ class ClassifierMetadataTypeDef(TypedDict):
 
 
 class ContainsPiiEntitiesResponseTypeDef(TypedDict):
-    Labels: List[EntityLabelTypeDef]
+    Labels: list[EntityLabelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1224,7 +1219,7 @@ class ImportModelRequestTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     ResourceArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1364,7 +1359,7 @@ class DescribeDatasetResponseTypeDef(TypedDict):
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    DatasetPropertiesList: List[DatasetPropertiesTypeDef]
+    DatasetPropertiesList: list[DatasetPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1375,13 +1370,13 @@ class DescribeEndpointResponseTypeDef(TypedDict):
 
 
 class ListEndpointsResponseTypeDef(TypedDict):
-    EndpointPropertiesList: List[EndpointPropertiesTypeDef]
+    EndpointPropertiesList: list[EndpointPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DetectPiiEntitiesResponseTypeDef(TypedDict):
-    Entities: List[PiiEntityTypeDef]
+    Entities: list[PiiEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1395,7 +1390,7 @@ class DocumentClassifierInputDataConfigOutputTypeDef(TypedDict):
     S3Uri: NotRequired[str]
     TestS3Uri: NotRequired[str]
     LabelDelimiter: NotRequired[str]
-    AugmentedManifests: NotRequired[List[AugmentedManifestsListItemOutputTypeDef]]
+    AugmentedManifests: NotRequired[list[AugmentedManifestsListItemOutputTypeDef]]
     DocumentType: NotRequired[DocumentClassifierDocumentTypeFormatType]
     Documents: NotRequired[DocumentClassifierDocumentsTypeDef]
     DocumentReaderConfig: NotRequired[DocumentReaderConfigOutputTypeDef]
@@ -1430,18 +1425,18 @@ class InputDataConfigTypeDef(TypedDict):
 
 
 class ListDocumentClassifierSummariesResponseTypeDef(TypedDict):
-    DocumentClassifierSummariesList: List[DocumentClassifierSummaryTypeDef]
+    DocumentClassifierSummariesList: list[DocumentClassifierSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DocumentMetadataTypeDef(TypedDict):
     Pages: NotRequired[int]
-    ExtractedCharacters: NotRequired[List[ExtractedCharactersListItemTypeDef]]
+    ExtractedCharacters: NotRequired[list[ExtractedCharactersListItemTypeDef]]
 
 
 class EntityRecognitionConfigOutputTypeDef(TypedDict):
-    EntityTypes: List[EntityTypesListItemTypeDef]
+    EntityTypes: list[EntityTypesListItemTypeDef]
 
 
 class EntityRecognitionConfigTypeDef(TypedDict):
@@ -1449,12 +1444,12 @@ class EntityRecognitionConfigTypeDef(TypedDict):
 
 
 class EntityRecognizerInputDataConfigOutputTypeDef(TypedDict):
-    EntityTypes: List[EntityTypesListItemTypeDef]
+    EntityTypes: list[EntityTypesListItemTypeDef]
     DataFormat: NotRequired[EntityRecognizerDataFormatType]
     Documents: NotRequired[EntityRecognizerDocumentsTypeDef]
     Annotations: NotRequired[EntityRecognizerAnnotationsTypeDef]
     EntityList: NotRequired[EntityRecognizerEntityListTypeDef]
-    AugmentedManifests: NotRequired[List[AugmentedManifestsListItemOutputTypeDef]]
+    AugmentedManifests: NotRequired[list[AugmentedManifestsListItemOutputTypeDef]]
 
 
 class EntityRecognizerInputDataConfigTypeDef(TypedDict):
@@ -1477,7 +1472,7 @@ EntityRecognizerMetadataEntityTypesListItemTypeDef = TypedDict(
 
 
 class ListEntityRecognizerSummariesResponseTypeDef(TypedDict):
-    EntityRecognizerSummariesList: List[EntityRecognizerSummaryTypeDef]
+    EntityRecognizerSummariesList: list[EntityRecognizerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1497,14 +1492,14 @@ class FlywheelIterationPropertiesTypeDef(TypedDict):
 
 
 class ListFlywheelsResponseTypeDef(TypedDict):
-    FlywheelSummaryList: List[FlywheelSummaryTypeDef]
+    FlywheelSummaryList: list[FlywheelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GeometryTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
-    Polygon: NotRequired[List[PointTypeDef]]
+    Polygon: NotRequired[list[PointTypeDef]]
 
 
 SyntaxTokenTypeDef = TypedDict(
@@ -1521,25 +1516,25 @@ RedactionConfigUnionTypeDef = Union[RedactionConfigTypeDef, RedactionConfigOutpu
 
 
 class ToxicLabelsTypeDef(TypedDict):
-    Labels: NotRequired[List[ToxicContentTypeDef]]
+    Labels: NotRequired[list[ToxicContentTypeDef]]
     Toxicity: NotRequired[float]
 
 
 class BatchDetectDominantLanguageResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectDominantLanguageItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectDominantLanguageItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDetectKeyPhrasesResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectKeyPhrasesItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectKeyPhrasesItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDetectSentimentResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectSentimentItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectSentimentItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1563,7 +1558,7 @@ EntityTypeDef = TypedDict(
         "Text": NotRequired[str],
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
-        "BlockReferences": NotRequired[List[BlockReferenceTypeDef]],
+        "BlockReferences": NotRequired[list[BlockReferenceTypeDef]],
     },
 )
 DataSecurityConfigUnionTypeDef = Union[DataSecurityConfigTypeDef, DataSecurityConfigOutputTypeDef]
@@ -1808,7 +1803,7 @@ class EventsDetectionJobPropertiesTypeDef(TypedDict):
     OutputDataConfig: NotRequired[OutputDataConfigTypeDef]
     LanguageCode: NotRequired[LanguageCodeType]
     DataAccessRoleArn: NotRequired[str]
-    TargetEventTypes: NotRequired[List[str]]
+    TargetEventTypes: NotRequired[list[str]]
 
 
 class KeyPhrasesDetectionJobPropertiesTypeDef(TypedDict):
@@ -1917,12 +1912,12 @@ InputDataConfigUnionTypeDef = Union[InputDataConfigTypeDef, InputDataConfigOutpu
 
 
 class ClassifyDocumentResponseTypeDef(TypedDict):
-    Classes: List[DocumentClassTypeDef]
-    Labels: List[DocumentLabelTypeDef]
+    Classes: list[DocumentClassTypeDef]
+    Labels: list[DocumentLabelTypeDef]
     DocumentMetadata: DocumentMetadataTypeDef
-    DocumentType: List[DocumentTypeListItemTypeDef]
-    Errors: List[ErrorsListItemTypeDef]
-    Warnings: List[WarningsListItemTypeDef]
+    DocumentType: list[DocumentTypeListItemTypeDef]
+    Errors: list[ErrorsListItemTypeDef]
+    Warnings: list[WarningsListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1947,7 +1942,7 @@ class EntityRecognizerMetadataTypeDef(TypedDict):
     NumberOfTrainedDocuments: NotRequired[int]
     NumberOfTestDocuments: NotRequired[int]
     EvaluationMetrics: NotRequired[EntityRecognizerEvaluationMetricsTypeDef]
-    EntityTypes: NotRequired[List[EntityRecognizerMetadataEntityTypesListItemTypeDef]]
+    EntityTypes: NotRequired[list[EntityRecognizerMetadataEntityTypesListItemTypeDef]]
 
 
 class DescribeFlywheelIterationResponseTypeDef(TypedDict):
@@ -1956,7 +1951,7 @@ class DescribeFlywheelIterationResponseTypeDef(TypedDict):
 
 
 class ListFlywheelIterationHistoryResponseTypeDef(TypedDict):
-    FlywheelIterationPropertiesList: List[FlywheelIterationPropertiesTypeDef]
+    FlywheelIterationPropertiesList: list[FlywheelIterationPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1969,34 +1964,34 @@ BlockTypeDef = TypedDict(
         "Text": NotRequired[str],
         "Page": NotRequired[int],
         "Geometry": NotRequired[GeometryTypeDef],
-        "Relationships": NotRequired[List[RelationshipsListItemTypeDef]],
+        "Relationships": NotRequired[list[RelationshipsListItemTypeDef]],
     },
 )
 
 
 class BatchDetectSyntaxItemResultTypeDef(TypedDict):
     Index: NotRequired[int]
-    SyntaxTokens: NotRequired[List[SyntaxTokenTypeDef]]
+    SyntaxTokens: NotRequired[list[SyntaxTokenTypeDef]]
 
 
 class DetectSyntaxResponseTypeDef(TypedDict):
-    SyntaxTokens: List[SyntaxTokenTypeDef]
+    SyntaxTokens: list[SyntaxTokenTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DetectToxicContentResponseTypeDef(TypedDict):
-    ResultList: List[ToxicLabelsTypeDef]
+    ResultList: list[ToxicLabelsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TargetedSentimentEntityTypeDef(TypedDict):
-    DescriptiveMentionIndex: NotRequired[List[int]]
-    Mentions: NotRequired[List[TargetedSentimentMentionTypeDef]]
+    DescriptiveMentionIndex: NotRequired[list[int]]
+    Mentions: NotRequired[list[TargetedSentimentMentionTypeDef]]
 
 
 class BatchDetectEntitiesItemResultTypeDef(TypedDict):
     Index: NotRequired[int]
-    Entities: NotRequired[List[EntityTypeDef]]
+    Entities: NotRequired[list[EntityTypeDef]]
 
 
 class UpdateFlywheelRequestTypeDef(TypedDict):
@@ -2022,7 +2017,7 @@ class DescribeDocumentClassifierResponseTypeDef(TypedDict):
 
 
 class ListDocumentClassifiersResponseTypeDef(TypedDict):
-    DocumentClassifierPropertiesList: List[DocumentClassifierPropertiesTypeDef]
+    DocumentClassifierPropertiesList: list[DocumentClassifierPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2033,7 +2028,7 @@ class DescribeDocumentClassificationJobResponseTypeDef(TypedDict):
 
 
 class ListDocumentClassificationJobsResponseTypeDef(TypedDict):
-    DocumentClassificationJobPropertiesList: List[DocumentClassificationJobPropertiesTypeDef]
+    DocumentClassificationJobPropertiesList: list[DocumentClassificationJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2044,7 +2039,7 @@ class DescribeDominantLanguageDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListDominantLanguageDetectionJobsResponseTypeDef(TypedDict):
-    DominantLanguageDetectionJobPropertiesList: List[DominantLanguageDetectionJobPropertiesTypeDef]
+    DominantLanguageDetectionJobPropertiesList: list[DominantLanguageDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2055,7 +2050,7 @@ class DescribeEntitiesDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListEntitiesDetectionJobsResponseTypeDef(TypedDict):
-    EntitiesDetectionJobPropertiesList: List[EntitiesDetectionJobPropertiesTypeDef]
+    EntitiesDetectionJobPropertiesList: list[EntitiesDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2066,7 +2061,7 @@ class DescribeEventsDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListEventsDetectionJobsResponseTypeDef(TypedDict):
-    EventsDetectionJobPropertiesList: List[EventsDetectionJobPropertiesTypeDef]
+    EventsDetectionJobPropertiesList: list[EventsDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2077,7 +2072,7 @@ class DescribeKeyPhrasesDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListKeyPhrasesDetectionJobsResponseTypeDef(TypedDict):
-    KeyPhrasesDetectionJobPropertiesList: List[KeyPhrasesDetectionJobPropertiesTypeDef]
+    KeyPhrasesDetectionJobPropertiesList: list[KeyPhrasesDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2088,7 +2083,7 @@ class DescribePiiEntitiesDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListPiiEntitiesDetectionJobsResponseTypeDef(TypedDict):
-    PiiEntitiesDetectionJobPropertiesList: List[PiiEntitiesDetectionJobPropertiesTypeDef]
+    PiiEntitiesDetectionJobPropertiesList: list[PiiEntitiesDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2099,7 +2094,7 @@ class DescribeSentimentDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListSentimentDetectionJobsResponseTypeDef(TypedDict):
-    SentimentDetectionJobPropertiesList: List[SentimentDetectionJobPropertiesTypeDef]
+    SentimentDetectionJobPropertiesList: list[SentimentDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2110,7 +2105,7 @@ class DescribeTargetedSentimentDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListTargetedSentimentDetectionJobsResponseTypeDef(TypedDict):
-    TargetedSentimentDetectionJobPropertiesList: List[
+    TargetedSentimentDetectionJobPropertiesList: list[
         TargetedSentimentDetectionJobPropertiesTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2123,7 +2118,7 @@ class DescribeTopicsDetectionJobResponseTypeDef(TypedDict):
 
 
 class ListTopicsDetectionJobsResponseTypeDef(TypedDict):
-    TopicsDetectionJobPropertiesList: List[TopicsDetectionJobPropertiesTypeDef]
+    TopicsDetectionJobPropertiesList: list[TopicsDetectionJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2307,33 +2302,33 @@ class EntityRecognizerPropertiesTypeDef(TypedDict):
 
 
 class DetectEntitiesResponseTypeDef(TypedDict):
-    Entities: List[EntityTypeDef]
+    Entities: list[EntityTypeDef]
     DocumentMetadata: DocumentMetadataTypeDef
-    DocumentType: List[DocumentTypeListItemTypeDef]
-    Blocks: List[BlockTypeDef]
-    Errors: List[ErrorsListItemTypeDef]
+    DocumentType: list[DocumentTypeListItemTypeDef]
+    Blocks: list[BlockTypeDef]
+    Errors: list[ErrorsListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDetectSyntaxResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectSyntaxItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectSyntaxItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDetectTargetedSentimentItemResultTypeDef(TypedDict):
     Index: NotRequired[int]
-    Entities: NotRequired[List[TargetedSentimentEntityTypeDef]]
+    Entities: NotRequired[list[TargetedSentimentEntityTypeDef]]
 
 
 class DetectTargetedSentimentResponseTypeDef(TypedDict):
-    Entities: List[TargetedSentimentEntityTypeDef]
+    Entities: list[TargetedSentimentEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDetectEntitiesResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectEntitiesItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectEntitiesItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2365,12 +2360,12 @@ class DescribeEntityRecognizerResponseTypeDef(TypedDict):
 
 
 class ListEntityRecognizersResponseTypeDef(TypedDict):
-    EntityRecognizerPropertiesList: List[EntityRecognizerPropertiesTypeDef]
+    EntityRecognizerPropertiesList: list[EntityRecognizerPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class BatchDetectTargetedSentimentResponseTypeDef(TypedDict):
-    ResultList: List[BatchDetectTargetedSentimentItemResultTypeDef]
-    ErrorList: List[BatchItemErrorTypeDef]
+    ResultList: list[BatchDetectTargetedSentimentItemResultTypeDef]
+    ErrorList: list[BatchItemErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

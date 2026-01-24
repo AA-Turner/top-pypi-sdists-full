@@ -14,6 +14,338 @@ except ImportError:
     import toml
 
 PROJECT_SPEC = "project_spec.json"
+DEFAULT_APP_CONFIG = "config.yml"
+
+# CI Environment Registry
+class CIEnvironment:
+    """Base class for CI environment handlers"""
+
+    @staticmethod
+    def is_active():
+        raise NotImplementedError
+
+    @staticmethod
+    def get_branch():
+        return ""
+
+    @staticmethod
+    def get_urls():
+        raise NotImplementedError
+
+    @staticmethod
+    def post_comment(url, token, comment):
+        raise NotImplementedError
+
+    @staticmethod
+    def write_summary(markdown):
+        pass
+
+
+class GitHubEnvironment(CIEnvironment):
+    @staticmethod
+    def is_active():
+        return os.getenv("GITHUB_ACTIONS") == "true"
+
+    @staticmethod
+    def get_branch():
+        # Try PR head ref first, then push ref
+        return os.getenv("GH_HEAD_REF") or os.getenv("GH_REF", "")
+
+    @staticmethod
+    def get_urls():
+        repo = os.getenv("GITHUB_REPOSITORY", "")
+        return {
+            "commit_url": f"https://github.com/{repo}/commit/",
+            "ci_url": f"https://github.com/{repo}/actions/runs/{os.getenv('GITHUB_RUN_ID', '')}",
+            "comments_api": os.getenv("COMMENTS_URL"),
+            "token": os.getenv("GH_TOKEN"),
+            "pr_number": os.getenv("GITHUB_EVENT_NAME") == "pull_request",
+        }
+
+    @staticmethod
+    def post_comment(url, token, comment):
+        requests.post(
+            url=url,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"token {token}",
+            },
+            json={"body": comment},
+        )
+
+    @staticmethod
+    def write_summary(markdown):
+        if "GITHUB_STEP_SUMMARY" in os.environ:
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "w") as f:
+                f.write(markdown)
+
+
+class AzureDevOpsEnvironment(CIEnvironment):
+
+    @staticmethod
+    def get_collection_uri():
+        return os.getenv("SYSTEM_COLLECTIONURI", "").rstrip("/")
+
+    @staticmethod
+    def is_active():
+        return bool(AzureDevOpsEnvironment.get_collection_uri())
+
+    @staticmethod
+    def get_branch():
+        # For PRs: refs/pull/1/merge -> extract source branch name
+        branch = os.getenv("BUILD_SOURCEBRANCH", "")
+        if branch.startswith("refs/pull/"):
+            # In PR context, get the actual source branch name
+            return os.getenv("SYSTEM_PULLREQUEST_SOURCEBRANCH", "").replace(
+                "refs/heads/", ""
+            )
+        else:
+            # Direct push: refs/heads/main -> main
+            return branch.replace("refs/heads/", "")
+
+    @staticmethod
+    def get_urls():
+        collection_uri = AzureDevOpsEnvironment.get_collection_uri()
+        team_project = os.getenv("SYSTEM_TEAMPROJECT", "")
+        repo_name = os.getenv("BUILD_REPOSITORY_NAME", "")
+
+        # Comments API only available in PR context
+        pr_id = os.getenv("SYSTEM_PULLREQUEST_PULLREQUESTID")
+        comments_api = None
+        if pr_id:
+            repo_id = os.getenv("BUILD_REPOSITORY_ID", "")
+            comments_api = (
+                f"{collection_uri}/{team_project}/_apis/git/repositories/"
+                f"{repo_id}/pullRequests/{pr_id}/threads?api-version=6.0"
+            )
+
+        return {
+            "commit_url": f"{collection_uri}/{team_project}/_git/{repo_name}/commit/",
+            "ci_url": f"{collection_uri}/{team_project}/_build/results?buildId={os.getenv('BUILD_BUILDID', '')}&view=results",
+            "comments_api": comments_api,
+            "token": os.getenv("SYSTEM_ACCESSTOKEN"),
+            "pr_number": pr_id is not None,
+        }
+
+    @staticmethod
+    def post_comment(url, token, comment):
+        requests.post(
+            url=url,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
+            json={
+                "comments": [
+                    {"parentCommentId": 0, "content": comment, "commentType": 1}
+                ],
+                "status": 1,
+            },
+        )
+
+    @staticmethod
+    def write_summary(markdown):
+        # Azure DevOps uses ##vso commands for markdown summaries
+        summary_file = os.path.abspath("deployment_summary.md")
+        with open(summary_file, "w") as f:
+            f.write(markdown)
+        print(f"##vso[task.uploadsummary]{summary_file}")
+
+
+class CircleCIEnvironment(CIEnvironment):
+    """CI environment handler for CircleCI."""
+
+    @staticmethod
+    def is_active():
+        return os.getenv("CIRCLECI") == "true"
+
+    @staticmethod
+    def get_branch():
+        # CIRCLE_BRANCH contains the branch name
+        # For PRs from forks, CIRCLE_BRANCH is the PR branch
+        return os.getenv("CIRCLE_BRANCH", "")
+
+    @staticmethod
+    def get_urls():
+        # Determine VCS provider for commit URL
+        # CircleCI supports GitHub, Bitbucket, and GitLab
+        project_username = os.getenv("CIRCLE_PROJECT_USERNAME", "")
+        project_reponame = os.getenv("CIRCLE_PROJECT_REPONAME", "")
+
+        # Try to determine the VCS host from the repository URL
+        repo_url = os.getenv("CIRCLE_REPOSITORY_URL", "")
+        if "github.com" in repo_url:
+            vcs_host = "github.com"
+        elif "bitbucket.org" in repo_url:
+            vcs_host = "bitbucket.org"
+        elif "gitlab.com" in repo_url:
+            vcs_host = "gitlab.com"
+        else:
+            # Default to GitHub
+            vcs_host = "github.com"
+
+        commit_url = f"https://{vcs_host}/{project_username}/{project_reponame}/commit/"
+
+        # Check if this is a PR build
+        pr_url = os.getenv("CIRCLE_PULL_REQUEST")
+        is_pr = pr_url is not None and pr_url != ""
+
+        return {
+            "commit_url": commit_url,
+            "ci_url": os.getenv("CIRCLE_BUILD_URL", ""),
+            "comments_api": None,  # CircleCI doesn't have native PR comments API
+            "token": None,  # Would need separate GitHub/Bitbucket token for PR comments
+            "pr_number": is_pr,
+        }
+
+    @staticmethod
+    def post_comment(url, token, comment):
+        # CircleCI doesn't have a native PR comments API
+        # PR commenting would require using the underlying VCS API (GitHub, Bitbucket, etc.)
+        # with a separate token. For now, skip PR commenting in CircleCI.
+        pass
+
+    @staticmethod
+    def write_summary(markdown):
+        # CircleCI doesn't have a native job summary feature like GitHub Actions or Azure DevOps
+        # Write to a file that can be stored as an artifact
+        summary_file = os.path.abspath("deployment_summary.md")
+        with open(summary_file, "w") as f:
+            f.write(markdown)
+        print(f"Deployment summary written to {summary_file}")
+        print("To view this summary, store it as a CircleCI artifact.")
+
+
+class GitLabEnvironment(CIEnvironment):
+    """CI environment handler for GitLab CI/CD."""
+
+    @staticmethod
+    def is_active():
+        return os.getenv("GITLAB_CI") == "true"
+
+    @staticmethod
+    def get_branch():
+        # CI_COMMIT_REF_NAME contains the branch or tag name
+        # For MRs, CI_MERGE_REQUEST_SOURCE_BRANCH_NAME has the source branch
+        return os.getenv("CI_MERGE_REQUEST_SOURCE_BRANCH_NAME") or os.getenv(
+            "CI_COMMIT_REF_NAME", ""
+        )
+
+    @staticmethod
+    def get_urls():
+        project_url = os.getenv("CI_PROJECT_URL", "")
+        commit_sha = os.getenv("CI_COMMIT_SHA", "")
+
+        # Check if this is a merge request pipeline
+        mr_iid = os.getenv("CI_MERGE_REQUEST_IID")
+        is_mr = mr_iid is not None and mr_iid != ""
+
+        # GitLab MR comments API
+        # Requires CI_JOB_TOKEN or a personal access token with api scope
+        comments_api = None
+        if is_mr:
+            project_id = os.getenv("CI_PROJECT_ID", "")
+            api_url = os.getenv("CI_API_V4_URL", "https://gitlab.com/api/v4")
+            comments_api = f"{api_url}/projects/{project_id}/merge_requests/{mr_iid}/notes"
+
+        return {
+            "commit_url": f"{project_url}/-/commit/",
+            "ci_url": os.getenv("CI_PIPELINE_URL", ""),
+            "comments_api": comments_api,
+            "token": os.getenv("GITLAB_TOKEN") or os.getenv("CI_JOB_TOKEN"),
+            "pr_number": is_mr,
+        }
+
+    @staticmethod
+    def post_comment(url, token, comment):
+        # GitLab uses "notes" for MR comments
+        requests.post(
+            url=url,
+            headers={
+                "Content-Type": "application/json",
+                "PRIVATE-TOKEN": token,
+            },
+            json={"body": comment},
+        )
+
+    @staticmethod
+    def write_summary(markdown):
+        # GitLab doesn't have a native job summary feature like GitHub Actions
+        # Write to a file that can be stored as an artifact
+        summary_file = os.path.abspath("deployment_summary.md")
+        with open(summary_file, "w") as f:
+            f.write(markdown)
+        print(f"Deployment summary written to {summary_file}")
+        print("To view this summary, store it as a GitLab CI artifact.")
+
+
+CI_ENVIRONMENTS = {
+    "github": GitHubEnvironment,
+    "azuredevops": AzureDevOpsEnvironment,
+    "circleci": CircleCIEnvironment,
+    "gitlab": GitLabEnvironment,
+}
+
+# Global CI environment detection (cached)
+_CI_ENV = None
+_CI_HANDLER = None
+
+
+def detect_ci_environment():
+    """
+    Detect which CI/CD environment we're running in.
+    Returns the CI environment name or None if running locally.
+    Caches the result to avoid repeated detection.
+    """
+    global _CI_ENV, _CI_HANDLER
+
+    if _CI_ENV is not None:
+        return _CI_ENV
+
+    detected_envs = []
+
+    # Check each CI environment handler
+    for name, handler in CI_ENVIRONMENTS.items():
+        if handler.is_active():
+            detected_envs.append(name)
+
+    # Validate we don't have conflicting environments
+    if len(detected_envs) > 1:
+        raise RuntimeError(
+            f"Multiple CI environments detected: {', '.join(detected_envs)}. "
+            f"This usually happens when CI-specific environment variables are manually set. "
+            f"Please ensure only one set of CI environment variables is present."
+        )
+
+    _CI_ENV = detected_envs[0] if detected_envs else "local"
+    _CI_HANDLER = CI_ENVIRONMENTS.get(_CI_ENV, None)
+    return _CI_ENV
+
+
+def get_ci_handler():
+    """Get the CI handler for the current environment."""
+    if _CI_HANDLER is None:
+        detect_ci_environment()
+    return _CI_HANDLER
+
+
+def get_ci_urls():
+    """
+    Get CI/CD-specific URLs and tokens based on the detected environment.
+    Returns a dict with commit_url, ci_url, comments_api, and token.
+    """
+    handler = get_ci_handler()
+    if handler:
+        return handler.get_urls()
+    else:
+        # Local or unknown environment
+        return {
+            "commit_url": os.getenv("COMMIT_URL", "https://no-commit-url/"),
+            "ci_url": os.getenv("CI_URL"),
+            "comments_api": None,
+            "token": None,
+            "pr_number": False,
+        }
 
 
 def listdir(root):
@@ -28,9 +360,202 @@ def read_toml_config(filename):
         return toml.loads(f.read())
 
 
+def detect_multi_project_config():
+    """
+    Detect and validate multi-project configuration.
+    Returns (is_multi_project, multi_config, project_dirs) tuple.
+    """
+    multi_project_file = "obproject_multi.toml"
+    single_project_file = "obproject.toml"
+
+    # Check current directory for config files
+    has_multi = os.path.exists(multi_project_file)
+    has_single = os.path.exists(single_project_file)
+
+    # Validation: Can't have both at the same level
+    if has_multi and has_single:
+        raise RuntimeError(
+            f"Found both {multi_project_file} and {single_project_file} in the same directory. "
+            f"Please use either single-project ({single_project_file}) or "
+            f"multi-project ({multi_project_file}) configuration, not both."
+        )
+
+    if has_multi:
+        # Check for multiple multi-project files (walking up the tree)
+        multi_files_found = []
+        current_dir = os.path.abspath(".")
+        root_dir = os.path.abspath(os.sep)
+
+        while current_dir != root_dir:
+            check_file = os.path.join(current_dir, multi_project_file)
+            if os.path.exists(check_file):
+                multi_files_found.append(check_file)
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:  # Reached filesystem root
+                break
+            current_dir = parent
+
+        if len(multi_files_found) > 1:
+            raise RuntimeError(
+                f"Found multiple {multi_project_file} files in the directory tree:\n"
+                + "\n".join(f"  - {f}" for f in multi_files_found)
+                + f"\nOnly one {multi_project_file} is allowed per repository."
+            )
+
+        # Read and validate multi-project config
+        multi_config = read_toml_config(multi_project_file)
+
+        if "projects" not in multi_config:
+            raise RuntimeError(
+                f"{multi_project_file} must contain a [projects] section with project mappings."
+            )
+
+        projects = multi_config["projects"]
+        if not isinstance(projects, dict):
+            raise RuntimeError(
+                f"[projects] section in {multi_project_file} must be a table/dict of project names to paths."
+            )
+
+        if not projects:
+            raise RuntimeError(
+                f"[projects] section in {multi_project_file} cannot be empty."
+            )
+
+        # Validate all project directories exist and have obproject.toml
+        project_dirs = {}
+        for name, path in projects.items():
+            full_path = os.path.abspath(path)
+            if not os.path.isdir(full_path):
+                raise RuntimeError(
+                    f"Project '{name}' points to non-existent directory: {path}"
+                )
+
+            project_toml = os.path.join(full_path, single_project_file)
+            if not os.path.exists(project_toml):
+                raise RuntimeError(
+                    f"Project '{name}' directory '{path}' does not contain {single_project_file}"
+                )
+
+            project_dirs[name] = full_path
+
+        return True, multi_config, project_dirs
+
+    # Single project mode
+    if not has_single:
+        raise RuntimeError(
+            f"No {single_project_file} or {multi_project_file} found in the current directory."
+        )
+
+    return False, None, None
+
+
 def get(key, default=None):
     config = read_toml_config("obproject.toml")
     return config.get(key, default)
+
+
+def get_environment_name():
+    """
+    Map current branch to environment name using branch_to_environment mapping.
+    Supports glob patterns (e.g., 'feature/*' matches 'feature/new-ui').
+    Returns 'default' if no mapping matches.
+    """
+    import fnmatch
+
+    branch = git_branch()
+    # Use PROJECT_ROOT to find obproject.toml
+    config_path = os.path.join(PROJECT_ROOT, "obproject.toml")
+    config = read_toml_config(config_path)
+    branch_map = config.get("branch_to_environment", {})
+
+    # Check exact match first
+    if branch in branch_map:
+        return branch_map[branch]
+
+    # Check glob patterns
+    for pattern, env in branch_map.items():
+        if fnmatch.fnmatch(branch, pattern):
+            return env
+
+    # Fallback
+    return "default"
+
+
+def get_branch_config(key, default=None):
+    """
+    Get branch-specific configuration value for the current environment.
+    Looks up config in [environments.<env>] based on current branch.
+
+
+    """
+    env_name = get_environment_name()
+    # Use PROJECT_ROOT to find obproject.toml
+    config_path = os.path.join(PROJECT_ROOT, "obproject.toml")
+    config = read_toml_config(config_path)
+    environments = config.get("environments", {})
+    env_config = environments.get(env_name, {})
+
+    return env_config.get(key, default)
+
+
+def get_flow_configs():
+    """
+    Get flow-specific configs for current environment.
+
+    Looks up [environments.<env>.flow_configs] and returns a dict of
+    config_name -> absolute_path mappings.
+
+    Example obproject.toml:
+        [environments.production.flow_configs]
+        model_config = "configs/model.prod.json"
+        training_config = "configs/training.prod.json"
+
+    Returns:
+        Dict mapping config names to absolute paths
+    """
+    env_name = get_environment_name()
+    config_path = os.path.join(PROJECT_ROOT, "obproject.toml")
+    config = read_toml_config(config_path)
+    environments = config.get("environments", {})
+    env_config = environments.get(env_name, {})
+
+    flow_configs = env_config.get("flow_configs", {})
+
+    # Resolve paths relative to PROJECT_ROOT
+    resolved = {}
+    for key, path in flow_configs.items():
+        abs_path = os.path.join(PROJECT_ROOT, path)
+        if os.path.exists(abs_path):
+            resolved[key] = abs_path
+        else:
+            print(f"⚠️  Warning: flow_config '{key}' path not found: {abs_path}")
+
+    return resolved
+
+
+def get_flow_config_names(flow_file_path):
+    """
+    Parse a flow file to find Config() declarations.
+
+    Returns a set of config names declared in the flow.
+    Uses simple regex to avoid full AST parsing.
+    """
+    import re
+
+    config_names = set()
+    try:
+        with open(flow_file_path, "r") as f:
+            content = f.read()
+
+        # Match patterns like: Config("name" or Config('name'
+        # Also match: = Config("name" for class attributes
+        pattern = r'Config\s*\(\s*["\']([^"\']+)["\']'
+        matches = re.findall(pattern, content)
+        config_names.update(matches)
+    except Exception:
+        pass
+
+    return config_names
 
 
 def project():
@@ -52,19 +577,20 @@ def project():
 
 def git_branch():
     try:
-        # this should work for local git repos
+        # Try CI environment first
+        handler = get_ci_handler()
+        if handler:
+            ci_branch = handler.get_branch()
+            if ci_branch:
+                return ci_branch
+
+        # Fall back to local git
         current_branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
-        # this should work for pull requests
-        head_ref = os.environ.get("GH_HEAD_REF")
-        # this should work for direct pushes to a branch
-        ref = os.environ.get("GH_REF")
-        for branch in (head_ref, ref, current_branch):
-            if branch:
-                return branch
+        return current_branch
     except subprocess.CalledProcessError:
         return ""
 
@@ -77,11 +603,11 @@ def is_main_branch():
 def branch():
     branch_name = get("branch") or git_branch()
     if is_main_branch():
-        print("Deploying to the main branch (aka --production)")
+        print("Deploying to the main branch (aka --production)\n")
         return branch_name
     elif branch_name:
         trimmed_branch = re.sub(r"[-/]", "_", branch_name).lower()
-        print(f"Deploying to branch {trimmed_branch}")
+        print(f"Deploying to branch {trimmed_branch}\n")
         return trimmed_branch
     else:
         raise Exception("Branch not found - is this a Git repo?")
@@ -96,7 +622,7 @@ def version():
         git_sha = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
         ).strip()
-        return git_sha[:7]
+        return git_sha
     except subprocess.CalledProcessError:
         raise RuntimeError(
             "No version found in obproject.toml and not in a git repository!"
@@ -104,6 +630,11 @@ def version():
 
 
 def current_perimeter():
+    # Check branch-specific perimeter first
+    branch_perimeter = get_branch_config("perimeter")
+    if branch_perimeter:
+        return branch_perimeter
+
     try:
         result = subprocess.check_output(
             ["outerbounds", "perimeter", "show-current", "-o", "json"],
@@ -148,15 +679,39 @@ def created_at():
     return "2025-01-01T00:00:00.000000Z"
 
 
-PROJECT_ROOT = os.path.abspath(os.getcwd())
-DEPLOYED_AT = datetime.datetime.now(datetime.timezone.utc).strftime(
-    "%Y-%m-%dT%H:%M:%S.%fZ"
-)
-PROJECT = project()
-GIT_BRANCH = git_branch()
-BRANCH = branch()
-VERSION = version()
-PERIMETER = current_perimeter()
+# These globals will be set per project in multi-project mode
+PROJECT_ROOT = None
+REPO_ROOT = None  # Set in multi-project mode to the directory containing obproject_multi.toml
+DEPLOYED_AT = None
+PROJECT = None
+GIT_BRANCH = None
+BRANCH = None
+VERSION = None
+PERIMETER = None
+
+
+def init_project_globals(project_root=None):
+    """Initialize global variables for a specific project directory."""
+    global PROJECT_ROOT, DEPLOYED_AT, PROJECT, GIT_BRANCH, BRANCH, VERSION, PERIMETER
+
+    # Save current directory and change to project root if specified
+    original_cwd = os.getcwd()
+    if project_root:
+        os.chdir(project_root)
+
+    try:
+        PROJECT_ROOT = os.path.abspath(os.getcwd())
+        DEPLOYED_AT = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        PROJECT = project()
+        GIT_BRANCH = git_branch()
+        BRANCH = branch()
+        VERSION = version()
+        PERIMETER = current_perimeter()
+    finally:
+        # Always restore original directory
+        os.chdir(original_cwd)
 
 
 def pyproject_cmd(flag):
@@ -173,11 +728,18 @@ def deploy_flows(flows):
     project_config = os.path.abspath("obproject.toml")
     project_spec = os.path.abspath(PROJECT_SPEC)
 
+    # Get flow-specific configs from [environments.<env>.flow_configs]
+    all_flow_configs = get_flow_configs()
+
     if is_main_branch():
         project_branch = "--production"
     else:
         project_branch = f"--branch={BRANCH}"
     for flow_dir, flow_file, flow_spec in flows:
+        # Detect which configs this flow actually uses
+        # flow_file is already the full relative path (e.g., "flows/train/flow.py")
+        declared_configs = get_flow_config_names(flow_file)
+
         cmd = [
             sys.executable,
             os.path.basename(flow_file),
@@ -190,54 +752,133 @@ def deploy_flows(flows):
             project_config,
             "--package-suffixes=.html",
             "--environment=fast-bakery",
-        ] + pyproject_cmd(["--config", "project_deps"])
+        ]
+
+        # Only add configs that this flow declares
+        for config_name, config_path in all_flow_configs.items():
+            if config_name in declared_configs:
+                cmd.extend(["--config", config_name, config_path])
+
+        cmd += pyproject_cmd(["--config", "project_deps"])
         cmd += [
             "argo-workflows",
             "create",
         ]
         print(f"⚙️ Deploying flow at {flow_dir}:")
-        subprocess.run(cmd, check=True, cwd=flow_dir)
+
+        # Set PYTHONPATH to project root so flows can import shared modules
+        # (e.g., `from src import ...`). This enables METAFLOW_PACKAGE_POLICY
+        # to work - modules with METAFLOW_PACKAGE_POLICY="include" in their
+        # __init__.py will be automatically included in the code package.
+        #
+        # In multi-project mode, also include REPO_ROOT so flows can import
+        # shared modules at the repository root level (e.g., `import utils`
+        # when utils/ is at repo root, not inside the project directory).
+        env = os.environ.copy()
+        pythonpath_parts = [PROJECT_ROOT]
+        if REPO_ROOT and REPO_ROOT != PROJECT_ROOT:
+            pythonpath_parts.append(REPO_ROOT)
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        if existing_pythonpath:
+            pythonpath_parts.append(existing_pythonpath)
+        env["PYTHONPATH"] = ":".join(pythonpath_parts)
+
+        subprocess.run(cmd, check=True, cwd=flow_dir, env=env)
+
+
+def app_config_has_dependencies(config_path):
+    """Check if app config.yml has a dependencies section."""
+    try:
+        import yaml
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        return config and "dependencies" in config
+    except Exception:
+        return False
 
 
 def deploy_apps():
+    """Deploy apps from project root.
+
+    Apps are deployed from the project root directory so that the entire
+    project structure is packaged. This allows apps to import from src/.
+
+    Apps should use full module paths in their gunicorn commands, e.g.:
+        gunicorn deployments.api.app:app
+
+    The config.yml should NOT use package.src_paths since the whole project
+    is already packaged from root.
+    """
     num_apps = 0
-    cwd = os.getcwd()
-    try:
-        for app_dir in listdir("deployments"):
-            num_apps += 1
-            root = os.path.join(cwd, "deployments", app_dir)
-            os.chdir(root)
+    for app_dir in listdir("deployments"):
+        app_path = os.path.join("deployments", app_dir)
+        # Skip non-directories (e.g., __init__.py files)
+        if not os.path.isdir(app_path):
+            continue
 
-            # TODO: Include packages under src/ automatically,
-            # similar to flows
+        # Skip directories that start with _ or . (e.g., __pycache__, .git)
+        if app_dir.startswith(('_', '.')):
+            continue
 
-            app_config = "config.yml"
-            if os.path.exists(app_config):
-                cmd = [
-                    "outerbounds",
-                    "app",
-                    "deploy",
-                    "--no-loader",
-                    "--config-file",
-                    app_config,
-                    f"--project={PROJECT}",
-                    f"--branch={BRANCH}",
-                    "--readiness-condition=async",
-                    "--readiness-wait-time=0",
-                    "--env",
-                    f"OB_PROJECT={PROJECT}",
-                    "--env",
-                    f"OB_BRANCH={BRANCH}",
-                ] + pyproject_cmd(["--dep-from-pyproject"])
-                print(f"⚙️ Deploying app at {app_dir}:")
-                subprocess.run(cmd, check=True)
+        # Use branch-specific deployment config
+        app_config = os.path.join(app_path, get_branch_config("deployment_config", DEFAULT_APP_CONFIG))
+        # Skip directories without a config file - they're not apps
+        # Check for both .yml and .yaml extensions
+        if not os.path.exists(app_config):
+            # Try .yaml if .yml doesn't exist
+            if app_config.endswith('.yml'):
+                app_config_yaml = app_config[:-4] + '.yaml'
+                if os.path.exists(app_config_yaml):
+                    app_config = app_config_yaml
+                else:
+                    continue
+            elif app_config.endswith('.yaml'):
+                app_config_yml = app_config[:-5] + '.yml'
+                if os.path.exists(app_config_yml):
+                    app_config = app_config_yml
+                else:
+                    continue
             else:
-                raise FileNotFoundError(
-                    f"App config '{app_config}' for app '{app_dir}' not found!"
-                )
-        return num_apps
-    finally:
-        os.chdir(cwd)
+                continue
+
+        num_apps += 1
+        cmd = [
+            "outerbounds",
+            "app",
+            "deploy",
+            "--no-loader",
+            "--config-file",
+            app_config,
+            f"--project={PROJECT}",
+            f"--branch={BRANCH}",
+            "--readiness-condition=async",
+            "--readiness-wait-time=0",
+            "--env",
+            f"OB_PROJECT={PROJECT}",
+            "--env",
+            f"OB_BRANCH={BRANCH}",
+            # Add project root to PYTHONPATH so apps can import from src/
+            "--env",
+            "PYTHONPATH=.",
+        ]
+        # Only add --dep-from-pyproject if config.yml doesn't have dependencies
+        if not app_config_has_dependencies(app_config):
+            cmd += pyproject_cmd(["--dep-from-pyproject"])
+        print(f"⚙️ Deploying app at {app_dir}:")
+        print(f"   Running command: {' '.join(cmd)}")
+        print(f"   Working directory: {os.getcwd()}")
+
+        # Run with output capture for better error diagnostics
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"   Error output: {result.stderr}")
+            print(f"   Standard output: {result.stdout}")
+            raise subprocess.CalledProcessError(
+                result.returncode, cmd, result.stdout, result.stderr
+            )
+        else:
+            print(f"   {result.stdout}")
+    return num_apps
 
 
 """
@@ -256,6 +897,12 @@ def persist_asset(config, previous_version=None, asset_dir=None):
 
 def register_assets():
     from obproject.assets import Asset
+
+    # Read custom folder names from obproject.toml [obproject_dirs] section
+    conf = read_toml_config(os.path.join(PROJECT_ROOT, "obproject.toml"))
+    obproject_dirs = conf.get("obproject_dirs", {})
+    models_folder = obproject_dirs.get("models", "models")
+    data_folder = obproject_dirs.get("data", "data")
 
     def ensure_types(d):
         for k, v in d.items():
@@ -305,14 +952,14 @@ def register_assets():
                 print(f"❌ parsing {root} failed:")
                 raise
 
-    return list(register("models", asset.register_model_asset)), list(
-        register("data", asset.register_data_asset)
+    return list(register(models_folder, asset.register_model_asset)), list(
+        register(data_folder, asset.register_data_asset)
     )
 
 
 def git_log():
     # Format: SHA | Timestamp | Author | Subject | Body
-    format_str = "%h|%aI|%ae|%s|%b"
+    format_str = "%H|%aI|%ae|%s|%b"
     result = subprocess.run(
         ["git", "log", "-20", f"--pretty=format:{format_str}"],
         stdout=subprocess.PIPE,
@@ -321,7 +968,10 @@ def git_log():
         check=True,
     )
 
-    repo = os.environ.get("COMMIT_URL", "https://no-commit-url/")
+    # Get commit URL from CI environment
+    ci_urls = get_ci_urls()
+    repo = ci_urls.get("commit_url", "https://no-commit-url/")
+
     commits = []
     for line in result.stdout.split("\n"):
         parts = line.split("|", 4)
@@ -331,8 +981,8 @@ def git_log():
 
         commit = {
             "commit_sha": sha,
-            "commit_link": f"{repo}/{sha}",
-            "container_image": f"some.container:image:{sha}",  # Placeholder logic
+            "commit_link": f"{repo}{sha}",
+            # "container_image": f"some.container:image:{sha}",  # Placeholder logic
             "owner": email,
             "pr_description": body.strip().replace("\n", " "),
             "pr_title": title.strip(),
@@ -413,18 +1063,19 @@ def summary(conf):
                 f"| {prefix:<15} | [`{name}`]({workflow_url}) | {description[:42]}{'...' if len(description) > 42 else ''} |"
             )
 
-    markdown_lines.extend(
-        [
-            f"| {'🚀 **Deployments**':<15} | [`staging`](https://staging.example.com) | Model deployed to staging environment |",
-            f"| {'':<15} | [`production`](https://prod.example.com) | Live production model endpoint |",
-        ]
-    )
+    # markdown_lines.extend(
+    #     [
+    #         f"| {'🚀 **Deployments**':<15} | [`staging`](https://staging.example.com) | Model deployed to staging environment |",
+    #         f"| {'':<15} | [`production`](https://prod.example.com) | Live production model endpoint |",
+    #     ]
+    # )
 
     markdown = "\n".join(markdown_lines)
 
-    if "GITHUB_STEP_SUMMARY" in os.environ:
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "w") as f:
-            f.write(markdown)
+    # Write summary based on CI environment
+    handler = get_ci_handler()
+    if handler:
+        handler.write_summary(markdown)
 
     comment_pr(markdown)
 
@@ -432,26 +1083,26 @@ def summary(conf):
 
 
 def comment_pr(comment):
-    gh_token = os.environ.get("GH_TOKEN", None)
-    if not gh_token:
-        print("No GH_TOKEN set. Skipping PR commenting.")
+    handler = get_ci_handler()
+    ci_urls = get_ci_urls()
+
+    token = ci_urls.get("token")
+    url = ci_urls.get("comments_api")
+
+    if not token:
+        print(
+            f"No auth token for {detect_ci_environment()} environment. Skipping PR commenting."
+        )
         return
-    url = os.environ.get("COMMENTS_URL", None)
     if not url:
-        print("No COMMENTS_URL set. Skipping PR commenting.")
+        print("Not in PR context. Skipping PR commenting.")
         return
 
     try:
-        requests.post(
-            url=url,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"token {gh_token}",
-            },
-            json={"body": comment},
-        )
+        if handler:
+            handler.post_comment(url, token, comment)
     except Exception as ex:
-        print("Posting comment failed", str(ex))
+        print(f"Posting comment to {detect_ci_environment()} failed:", str(ex))
 
 
 def check_evaluation_flow(flow_src):
@@ -590,7 +1241,9 @@ def create_spec(flows, evals, data, models):
         "display_name": f"{first['pr_title']} ({first['commit_sha'][:6]})",
         "url": first["commit_link"],
     }
-    ci_url = os.environ.get("CI_URL")
+    # Get CI URL from environment detection
+    ci_urls = get_ci_urls()
+    ci_url = ci_urls.get("ci_url")
     # should match schema https://github.com/outerbounds/obp-foundation/blob/master/utqiagvik/backend/internal/services/assets_api/internal/api_types/api_types.go#L47
     # and spec should be https://github.com/outerbounds/obp-foundation/blob/master/utqiagvik/backend/internal/services/assets_api/internal/api_types/api_types.go#L54
 
@@ -636,9 +1289,7 @@ def create_spec(flows, evals, data, models):
             else (
                 [clean(item) for item in obj if item is not None]
                 if isinstance(obj, list)
-                else obj
-                if obj is not None
-                else None
+                else obj if obj is not None else None
             )
         )
 
@@ -654,36 +1305,137 @@ def register_spec(spec):
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
 
 
+def deploy_single_project(project_name=None):
+    """Deploy a single project. If project_name is provided, it's from a multi-project setup."""
+    cwd = os.getcwd()
+    try:
+        if project_name:
+            print(f"\n{'='*60}")
+            print(f"🚀 Deploying project: {project_name}")
+            print(f"{'='*60}\n")
+
+        # Switch to branch-specific perimeter if configured
+        target_perimeter = get_branch_config("perimeter")
+        if target_perimeter:
+            print(f"🔄 Switching to perimeter: {target_perimeter}")
+            try:
+                result = subprocess.run(
+                    ["outerbounds", "perimeter", "switch", "--id", target_perimeter, "--force"],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                print(f"✅ Switched to perimeter: {target_perimeter}")
+            except subprocess.CalledProcessError as e:
+                error_msg = e.stderr.strip() if e.stderr else e.stdout.strip()
+                print(f"\n❌ Failed to switch to perimeter '{target_perimeter}'")
+                print(f"   Error: {error_msg}\n")
+                sys.exit(1)
+
+        print("🟩🟩🟩 Registering Assets")
+        models, data = register_assets()
+        print(
+            f"✅ {len(data)} data assets and {len(models)} models registered successfully"
+        )
+
+        print("🟩🟩🟩 Discovering Flows")
+        flows, evals = discover_flows()
+        print(
+            f"✅ {len(flows)} flows parsed successfully - found {len(evals)} evaluation flows"
+        )
+
+        print("🟩🟩🟩 Updating Project Specification")
+        spec = create_spec(flows, evals, data, models)
+        print(f"✅ project specification ok")
+
+        if not os.environ.get("SPEC_ONLY"):
+            print("🟩🟩🟩 Deploying flows")
+            deploy_flows(flows)
+            print(f"✅ {len(flows)} flows deployed successfully")
+
+            print("🟩🟩🟩 Deploying apps and endpoints")
+            num_apps = deploy_apps()
+            print(f"✅ {num_apps} endpoints and apps deployed successfully")
+
+            print("🟩🟩🟩 Pushing Project Specification")
+            register_spec(spec)
+            print(f"✅ project updated successfully")
+
+            summary(spec)
+            print("✅✅✅ Deployment successful!")
+
+        return True
+    except Exception as e:
+        if project_name:
+            print(f"\n❌ Failed to deploy project '{project_name}': {str(e)}\n")
+        raise
+    finally:
+        os.chdir(cwd)
+
+
 def main():
-    print("🟩🟩🟩 Registering Assets")
-    models, data = register_assets()
-    print(f"✅ {len(data)} data assets and {len(models)} models registered successfully")
+    import argparse
 
-    print("🟩🟩🟩 Discovering Flows")
-    flows, evals = discover_flows()
-    print(
-        f"✅ {len(flows)} flows parsed successfully - found {len(evals)} evaluation flows"
+    parser = argparse.ArgumentParser(description="Deploy Outerbounds projects")
+    parser.add_argument(
+        "--project",
+        help="Deploy only the specified project from obproject_multi.toml",
+        default=None,
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Deploy all projects in obproject_multi.toml (default if no --project specified)",
+    )
+    args = parser.parse_args()
 
-    print("🟩🟩🟩 Updating Project Specification")
-    spec = create_spec(flows, evals, data, models)
-    print(f"✅ project specification ok")
+    global REPO_ROOT
 
-    if not os.environ.get("SPEC_ONLY"):
-        print("🟩🟩🟩 Deploying flows")
-        deploy_flows(flows)
-        print(f"✅ {len(flows)} flows deployed successfully")
+    is_multi, _, project_dirs = detect_multi_project_config()
+    if is_multi:
+        # Store the repo root (where obproject_multi.toml lives) so shared
+        # modules at repo root level can be imported by flows in sub-projects.
+        REPO_ROOT = os.path.abspath(os.getcwd())
 
-        print("🟩🟩🟩 Deploying apps and endpoints")
-        num_apps = deploy_apps()
-        print(f"✅ {num_apps} endpoints and apps deployed successfully")
+        if args.project:
+            # Deploy specific project
+            if args.project not in project_dirs:
+                available = ", ".join(sorted(project_dirs.keys()))
+                raise RuntimeError(
+                    f"Project '{args.project}' not found in obproject_multi.toml.\n"
+                    f"Available projects: {available}"
+                )
 
-        print("🟩🟩🟩 Pushing Project Specification")
-        register_spec(spec)
-        print(f"✅ project updated successfully")
+            project_root = project_dirs[args.project]
+            os.chdir(project_root)
+            init_project_globals()
+            deploy_single_project(args.project)
+        else:
+            # Deploy all projects
+            print(f"🌟 Found {len(project_dirs)} projects to deploy")
+            failed_projects = []
 
-        summary(spec)
-        print("✅✅✅ Deployment successful!")
+            for project_name, project_root in project_dirs.items():
+                try:
+                    os.chdir(project_root)
+                    init_project_globals()
+                    deploy_single_project(project_name)
+                except Exception as e:
+                    failed_projects.append((project_name, str(e)))
+                    if not os.environ.get("CONTINUE_ON_ERROR"):
+                        raise
+
+            if failed_projects:
+                print(f"\n❌ {len(failed_projects)} project(s) failed to deploy:")
+                for name, error in failed_projects:
+                    print(f"  - {name}: {error}")
+                raise RuntimeError("Some projects failed to deploy")
+            else:
+                print(f"\n✅ All {len(project_dirs)} projects deployed successfully!")
+    else:
+        # Single project mode
+        init_project_globals()
+        deploy_single_project()
 
 
 if __name__ == "__main__":

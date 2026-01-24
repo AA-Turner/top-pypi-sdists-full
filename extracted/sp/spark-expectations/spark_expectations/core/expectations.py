@@ -1,8 +1,7 @@
 import functools
 import importlib
-import json
 from dataclasses import dataclass
-from typing import Dict, Optional, Any, Union, List
+from typing import Dict, Optional, Any, Union, List, TypeAlias, overload
 
 from pyspark.version import __version__ as spark_version
 from pyspark import StorageLevel
@@ -64,17 +63,14 @@ if check_if_pyspark_connect_is_supported():
     from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
     from pyspark.sql.connect.session import SparkSession as ConnectSparkSession
 
-    DataFrame = Union[sql.DataFrame, ConnectDataFrame]  # type: ignore
-    SparkSession = Union[sql.SparkSession, ConnectSparkSession]  # type: ignore
-else:
-    # Otherwise, use the default PySpark classes
-    from pyspark.sql.dataframe import DataFrame  # type: ignore
-    from pyspark.sql.session import SparkSession  # type: ignore
+DataFrame: TypeAlias = Union[sql.DataFrame, ConnectDataFrame]  # type: ignore
+SparkSession: TypeAlias = Union[sql.SparkSession, ConnectSparkSession]  # type: ignore
 
 
 __all__ = [
     "SparkExpectations",
     "WrappedDataFrameWriter",
+    "WrappedDataFrameStreamWriter"
 ]
 
 
@@ -93,13 +89,12 @@ class SparkExpectations:
     """
 
     product_id: str
-    rules_df: DataFrame
+    rules_df: "DataFrame"
     stats_table: str
-    target_and_error_table_writer: "WrappedDataFrameWriter"
+    target_and_error_table_writer: Union["WrappedDataFrameWriter", "WrappedDataFrameStreamWriter"]
     stats_table_writer: "WrappedDataFrameWriter"
     debugger: bool = False
     stats_streaming_options: Optional[Dict[str, Union[str, bool]]] = None
-    spark: Optional[SparkSession] = None
 
     def __post_init__(self) -> None:
         if isinstance(self.rules_df, DataFrame):  # type: ignore
@@ -139,13 +134,16 @@ class SparkExpectations:
         )
         self.reader = SparkExpectationsReader(_context=self._context)
 
+        if isinstance(self.target_and_error_table_writer, WrappedDataFrameStreamWriter):
+            self._context.set_target_and_error_table_writer_type("streaming")
+
         self._context.set_target_and_error_table_writer_config(self.target_and_error_table_writer.build())
         self._context.set_stats_table_writer_config(self.stats_table_writer.build())
         self._context.set_detailed_stats_table_writer_config(self.stats_table_writer.build())
         self._context.set_debugger_mode(self.debugger)
         self._context.set_dq_stats_table_name(self.stats_table)
         self._context.set_dq_detailed_stats_table_name(f"{self.stats_table}_detailed")
-        self.rules_df = self.rules_df.persist(StorageLevel.MEMORY_AND_DISK)
+        # self.rules_df = self.rules_df.persist(StorageLevel.MEMORY_AND_DISK)
 
     # TODO Add target_error_table_writer and stats_table_writer as parameters to this function so this takes precedence
     #  if user provides it
@@ -156,7 +154,7 @@ class SparkExpectations:
         write_to_temp_table: bool = False,
         user_conf: Optional[Dict[str, Union[str, int, bool, Dict[str, str]]]] = None,
         target_table_view: Optional[str] = None,
-        target_and_error_table_writer: Optional["WrappedDataFrameWriter"] = None,
+        target_and_error_table_writer: Optional[Union["WrappedDataFrameWriter", "WrappedDataFrameStreamWriter"]] = None,
     ) -> Any:
         """
         This decorator helps to wrap a function which returns dataframe and apply dataframe rules on it
@@ -177,6 +175,9 @@ class SparkExpectations:
         """
 
         def _except(func: Any) -> Any:
+            is_serverless = user_conf.get("spark.expectations.is.serverless", False) if user_conf else False
+            if not is_serverless:
+                self.rules_df = self.rules_df.persist(StorageLevel.MEMORY_AND_DISK)
             # variable used for enabling notification at different level
             _default_notification_dict, _default_stats_streaming_dict = get_config_dict(self.spark, user_conf)
 
@@ -184,13 +185,21 @@ class SparkExpectations:
                 user_config.querydq_output_custom_table_name
             ] = f"{self.stats_table}_querydq_output"
 
-            _notification_dict: Dict[str, Union[str, int, bool, Dict[str, str], None]] = (
+            _notification_dict: Dict[str, Union[str, int, bool, Dict[str, str]]] = (
                 {**_default_notification_dict, **user_conf} if user_conf else _default_notification_dict
             )
 
             _se_stats_streaming_dict: Dict[str, Any] = (
                 {**self.stats_streaming_options} if self.stats_streaming_options else _default_stats_streaming_dict
             )
+
+            enable_kafka_custom_config = _se_stats_streaming_dict.get('se.streaming.stats.kafka.custom.config.enable', False)
+            self._context.set_se_streaming_stats_kafka_custom_config_enable(
+                enable_kafka_custom_config if isinstance(enable_kafka_custom_config, bool) else False
+            )
+            
+            if 'se.streaming.stats.kafka.bootstrap.server' in _se_stats_streaming_dict:
+                self._context.set_se_streaming_stats_kafka_bootstrap_server(str(_se_stats_streaming_dict['se.streaming.stats.kafka.bootstrap.server']))
 
             enable_error_table = _notification_dict.get(user_config.se_enable_error_table, True)
             self._context.set_se_enable_error_table(
@@ -302,7 +311,9 @@ class SparkExpectations:
                 notifications_on_error_drop_threshold if isinstance(notifications_on_error_drop_threshold, int) else 100
             )
 
-            self.reader.set_notification_param(user_conf)
+            min_priority_slack = user_config.se_notifications_min_priority_slack
+
+            self.reader.set_notification_param(_notification_dict)
             self._context.set_notification_on_start(_notification_on_start)
             self._context.set_notification_on_completion(_notification_on_completion)
             self._context.set_notification_on_fail(_notification_on_fail)
@@ -312,6 +323,9 @@ class SparkExpectations:
             self._context.set_rules_execution_settings_config(rules_execution_settings)
             self._context.set_querydq_secondary_queries(dq_queries_dict)
             self._context.set_job_metadata(_job_metadata)
+            self._context.set_min_priority_slack(
+                        str(_notification_dict[min_priority_slack])
+                    )
 
             @self._notification.send_notification_decorator
             @self._statistics_decorator.collect_stats_decorator
@@ -323,20 +337,30 @@ class SparkExpectations:
                     _df: DataFrame = func(*args, **kwargs)
                     table_name: str = self._context.get_table_name
 
-                    # run rule validations
+                    # run rule validations (non-blocking - invalid rules are logged but don't stop execution)
                     rules = [row.asDict() for row in self.rules_df.collect()]
-                    failed = SparkExpectationsValidateRules.validate_expectations(
+                    invalid_results = SparkExpectationsValidateRules.validate_expectations(
                         df=_df,
                         rules=rules,
                         spark=self.spark,
                     )
-                    if failed:
-                        # Optionally, raise or log details for each failed rule
-                        failed_rules = [r.get("rule") for rules_list in failed.values() for r in rules_list]
-                        raise SparkExpectationsMiscException(f"Validation failed for rules: {failed_rules}")
-                    _log.info("Validation for rules completed successfully")
+                    if invalid_results:
+                        # Log failed rule names - validation continues with valid rules only
+                        failed_rules = [
+                            result.rule.get("rule") if result.rule else "unknown"
+                            for results_list in invalid_results.values()
+                            for result in results_list
+                        ]
+                        # pylint: disable=logging-too-many-args
+                        _log.warning(
+                            "Some rules failed validation: %s. "
+                            "Check earlier log messages for details on each invalid rule.",
+                            failed_rules
+                        )
+                    else:
+                        _log.info("Validation for rules completed successfully - all rules are valid")
 
-                    _input_count = _df.count()
+                    _input_count = _df.count() if not _df.isStreaming else 0
                     _log.info(f"data frame input record count: {_input_count}")
                     _output_count: int = 0
                     _error_count: int = 0
@@ -414,7 +438,14 @@ class SparkExpectations:
                             _input_count=_input_count,
                         )
 
-                        if _source_agg_dq is True:
+                        if _df.isStreaming:
+                            _log.info("Streaming dataframe detected. Only row_dq checks applicable.")
+                            if _source_agg_dq is True:
+                                _log.info("agg_dq expectations provided. Not applicable for streaming dataframe.")
+                            if _source_query_dq:
+                                _log.info("query_dq expectations provided. Not applicable for streaming dataframe.")
+
+                        if _source_agg_dq is True and not _df.isStreaming:
                             _log.info(
                                 "started processing data quality rules for agg level expectations on soure dataframe"
                             )
@@ -444,7 +475,7 @@ class SparkExpectations:
                                 "ended processing data quality rules for agg level expectations on source dataframe"
                             )
 
-                        if _source_query_dq is True:
+                        if _source_query_dq is True and not _df.isStreaming:
                             _log.info(
                                 "started processing data quality rules for query level expectations on soure dataframe"
                             )
@@ -492,7 +523,7 @@ class SparkExpectations:
 
                             _row_dq_df.createOrReplaceTempView(_target_table_view)
 
-                            _output_count = _row_dq_df.count() if _row_dq_df else 0
+                            _output_count = _row_dq_df.count() if not _row_dq_df.isStreaming else 0
                             self._context.set_output_count(_output_count)
 
                             self._context.set_row_dq_status(status)
@@ -524,7 +555,7 @@ class SparkExpectations:
                                 # )
                             _log.info("ended processing data quality rules for row level expectations")
 
-                        if _row_dq is True and _target_agg_dq is True:
+                        if _row_dq is True and _target_agg_dq is True and not _df.isStreaming:
                             _log.info(
                                 "started processing data quality rules for agg level expectations on final dataframe"
                             )
@@ -555,7 +586,7 @@ class SparkExpectations:
                                 "ended processing data quality rules for agg level expectations on final dataframe"
                             )
 
-                        if _row_dq is True and _target_query_dq is True:
+                        if _row_dq is True and _target_query_dq is True and not _df.isStreaming:
                             _log.info(
                                 "started processing data quality rules for query level expectations on final dataframe"
                             )
@@ -614,9 +645,10 @@ class SparkExpectations:
 
                         # TODO if row_dq is False and source_agg/source_query is True then we need to write the
                         #  dataframe into the target table
+                        streaming_query = None
                         if write_to_table:
                             _log.info("Writing into the final table started")
-                            self._writer.save_df_as_table(
+                            streaming_query = self._writer.save_df_as_table(
                                 _row_dq_df,
                                 f"{table_name}",
                                 self._context.get_target_and_error_table_writer_config,
@@ -630,7 +662,8 @@ class SparkExpectations:
                         )
                     # self.spark.catalog.clearCache()
 
-                    return _row_dq_df
+                    # Return streaming query if available (for streaming DataFrames), otherwise return DataFrame
+                    return streaming_query if streaming_query is not None else _row_dq_df
 
                 except Exception as e:
                     raise SparkExpectationsMiscException(f"error occurred while processing spark expectations {e}")
@@ -733,19 +766,110 @@ class WrappedDataFrameWriter:
             "sortBy": self._sort_by,
         }
 
-        # config = {}
-        #
-        # if cls._mode:
-        #     config["mode"] = cls._mode
-        # if cls._format:
-        #     config["format"] = cls._format
-        # if cls._partition_by:
-        #     config["partitionBy"] = cls._partition_by
-        # if cls._options:
-        #     config["options"] = cls._options
-        # if cls._bucket_by:
-        #     config["bucketBy"] = cls._bucket_by
-        # if cls._sort_by:
-        #     config["sortBy"] = cls._sort_by
-        #
-        # return config
+
+class WrappedDataFrameStreamWriter:
+    """
+    A builder pattern class that mimics the functions of PySpark's DataStreamWriter.
+
+    This class allows for chaining methods to set configurations for streaming writes like
+    output mode, format, query name, trigger, options, and partitioning. It does not require
+    a DataFrame object and is designed purely to collect and return configurations.
+
+    Example usage:
+    --------------
+    stream_writer = WrappedDataFrameStreamWriter().outputMode("append")\
+                                   .format("delta")\
+                                   .queryName("my_streaming_query")\
+                                   .trigger(processingTime="10 seconds")\
+                                   .option("checkpointLocation", "/path/to/checkpoint")\
+                                   .partitionBy("date")
+
+    config = stream_writer.build()
+    print(config)
+
+    Attributes:
+    -----------
+    _output_mode : str
+        The output mode for streaming (e.g., "append", "complete", "update").
+    _format : str
+        The format for writing (e.g., "delta", "parquet", "kafka").
+    _query_name : str
+        The name of the streaming query.
+    _trigger : dict
+        The trigger configuration (e.g., {"processingTime": "10 seconds"}).
+    _partition_by : list
+        Columns by which the data should be partitioned.
+    _options : dict
+        Additional options for writing (e.g., checkpointLocation).
+    """
+
+    def __init__(self) -> None:
+        self._output_mode: Optional[str] = None
+        self._format: Optional[str] = None
+        self._query_name: Optional[str] = None
+        self._trigger: Dict[str, str] = {}
+        self._partition_by: list = []
+        self._options: dict[str, str] = {}
+
+    def outputMode(self, output_mode: str) -> "WrappedDataFrameStreamWriter":  # noqa: N802
+        """Set the output mode for streaming (append, complete, or update)."""
+        self._output_mode = output_mode
+        return self
+
+    def format(self, source: str) -> "WrappedDataFrameStreamWriter":
+        """Set the format for writing."""
+        self._format = source
+        return self
+
+    def queryName(self, query_name: str) -> "WrappedDataFrameStreamWriter":  # noqa: N802
+        """Set the name of the streaming query."""
+        self._query_name = query_name
+        return self
+
+    def trigger(self, **trigger_options: str) -> "WrappedDataFrameStreamWriter":
+        """
+        Set the trigger for the streaming query.
+        
+        Common trigger types:
+        - processingTime: "10 seconds" (process every 10 seconds)
+        - once: True (process available data once and stop)
+        - continuous: "1 second" (continuous processing with 1 second checkpoints)
+        """
+        self._trigger.update(trigger_options)
+        return self
+    @overload  
+    def partitionBy(self, *cols: str) -> "WrappedDataFrameStreamWriter": ... # noqa: N802
+    
+    @overload  # type: ignore   
+    def partitionBy(self, __cols: list[str]) -> "WrappedDataFrameStreamWriter": ... # noqa: N802
+    
+    def partitionBy(self, *columns: str | List[str]) -> "WrappedDataFrameStreamWriter":  # noqa: N802
+        """Set the columns by which the data should be partitioned."""
+        # Handle case where a single list is passed: partitionBy(["col1", "col2"])
+        if len(columns) == 1 and isinstance(columns[0], list):
+            self._partition_by.extend(columns[0])
+        else:
+            # Handle case where multiple strings are passed: partitionBy("col1", "col2")
+            self._partition_by.extend(columns)
+        return self
+
+    def option(self, key: str, value: str) -> "WrappedDataFrameStreamWriter":
+        """Set a single option for writing."""
+        self._options[key] = value
+        return self
+
+    def options(self, **options: str) -> "WrappedDataFrameStreamWriter":
+        """Set multiple options for writing."""
+        self._options.update(options)
+        return self
+
+    def build(self) -> Dict[str, Union[str, list, dict, None]]:
+        """Return the collected configurations."""
+        return {
+            "outputMode": self._output_mode,
+            "format": self._format,
+            "queryName": self._query_name,
+            "trigger": self._trigger if self._trigger else None,
+            "partitionBy": self._partition_by,
+            "options": self._options,
+        }

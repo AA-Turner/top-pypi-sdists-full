@@ -34,14 +34,18 @@ class LazyImport:
         self._module: ModuleType | None = None
 
     def module_available(self) -> bool:
-        return self._load_module() is not None
+        try:
+            self._load_module()
+            return True
+        except ImportError:
+            return False
 
-    def _load_module(self) -> ModuleType | None:
+    def _load_module(self) -> ModuleType:
         if self._module is None:
             try:
                 self._module = importlib.import_module(self._module_name)
-            except ImportError:
-                pass
+            except ImportError as e:
+                raise ImportError(f"Failed to import lazily-loaded module '{self._module_name}'.") from e
         return self._module
 
     def __getattr__(self, name: str) -> Any:
@@ -56,8 +60,6 @@ class LazyImport:
                 return self.__dict__[name]
             return getattr(self._load_module(), name)
         except AttributeError as e:
-            if self._module is None:
-                raise e
             # Dynamically create a new LazyImport instance for the submodule.
             submodule_name = f"{self._module_name}.{name}"
             lazy_submodule = LazyImport(submodule_name)
@@ -65,3 +67,12 @@ class LazyImport:
                 setattr(self, name, lazy_submodule)
                 return lazy_submodule
             raise e
+
+    def __getstate__(self) -> dict[str, Any]:
+        # Only serialize the module name, don't serialize the loaded module to avoid pickling issues
+        return {"_module_name": self._module_name}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        # Restore the module name and initialize module as None
+        self._module_name = state["_module_name"]
+        self._module = None

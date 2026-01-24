@@ -8,21 +8,29 @@ import inspect
 import os
 import platform
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from warnings import warn
 
 from airflow.models.dag import DAG
-from airflow.utils.task_group import TaskGroup
+
+try:
+    # Airflow 3.1 onwards
+    from airflow.sdk import TaskGroup
+except ImportError:
+    from airflow.utils.task_group import TaskGroup
 
 from cosmos import cache, settings
 from cosmos.airflow.graph import build_airflow_graph
 from cosmos.config import ExecutionConfig, ProfileConfig, ProjectConfig, RenderConfig
-from cosmos.constants import ExecutionMode, LoadMode
+from cosmos.constants import ExecutionMode, InvocationMode, LoadMode
+from cosmos.dbt.executable import get_system_dbt, is_dbt_installed_in_same_environment
 from cosmos.dbt.graph import DbtGraph
 from cosmos.dbt.project import has_non_empty_dependencies_file
 from cosmos.dbt.selector import retrieve_by_label
 from cosmos.exceptions import CosmosValueError
 from cosmos.log import get_logger
+from cosmos.versioning import _create_folder_version_hash
 
 logger = get_logger(__name__)
 
@@ -144,8 +152,7 @@ def validate_initial_user_config(
             + "If using RenderConfig.dbt_project_path or ExecutionConfig.dbt_project_path, ProjectConfig.dbt_project_path should be None"
         )
 
-    # Cosmos 2.0 will remove the ability to pass in operator_args with 'env' and 'vars' in place of ProjectConfig.env_vars and
-    # ProjectConfig.dbt_vars.
+    # Cosmos 2.0 will remove the ability to pass in operator_args with 'env' in place of ProjectConfig.env_vars.
     if "env" in operator_args:
         warn(
             "operator_args with 'env' is deprecated since Cosmos 1.3 and will be removed in Cosmos 2.0. Use ProjectConfig.env_vars instead.",
@@ -167,6 +174,16 @@ def validate_initial_user_config(
             "Both ProjectConfig.env_vars and RenderConfig.env_vars were provided. RenderConfig.env_vars is deprecated since Cosmos 1.3, "
             "please use ProjectConfig.env_vars instead."
         )
+
+    if render_config is not None and render_config.invocation_mode == InvocationMode.DBT_RUNNER:
+        if not is_dbt_installed_in_same_environment():
+            raise CosmosValueError(
+                "RenderConfig.invocation_mode is set to InvocationMode.DBT_RUNNER, but dbt is not installed in the same environment as Airflow. Use InvocationMode.DBT_SUBPROCESS instead."
+            )
+        if render_config.dbt_executable_path and render_config.dbt_executable_path != get_system_dbt():
+            raise CosmosValueError(
+                "RenderConfig.dbt_executable_path is set, but it is not the same as the system dbt executable path. Do not set render_config.dbt_executable_path when using InvocationMode.DBT_RUNNER."
+            )
 
 
 def validate_changed_config_paths(
@@ -213,7 +230,7 @@ def override_configuration(
     if execution_config.invocation_mode:
         operator_args["invocation_mode"] = execution_config.invocation_mode
 
-    if execution_config.execution_mode in (ExecutionMode.LOCAL, ExecutionMode.VIRTUALENV):
+    if execution_config.execution_mode in (ExecutionMode.LOCAL, ExecutionMode.VIRTUALENV, ExecutionMode.WATCHER):
         if "install_deps" not in operator_args:
             operator_args["install_deps"] = project_config.install_dbt_deps
         if "copy_dbt_packages" not in operator_args:
@@ -253,7 +270,7 @@ class DbtToAirflowConverter:
         # do not affect other DAGs or TaskGroups that may reuse the same original configuration
         execution_config = copy.deepcopy(execution_config) if execution_config is not None else ExecutionConfig()
         render_config = copy.deepcopy(render_config) if render_config is not None else RenderConfig()
-        operator_args = copy.deepcopy(operator_args) if operator_args is not None else {}
+        operator_args = copy.copy(operator_args) if operator_args is not None else {}
 
         project_config.validate_project()
         validate_initial_user_config(execution_config, profile_config, project_config, render_config, operator_args)
@@ -285,6 +302,8 @@ class DbtToAirflowConverter:
             airflow_metadata=cache._get_airflow_metadata(dag, task_group),
         )
         self.dbt_graph.load(method=render_config.load_method, execution_mode=execution_config.execution_mode)
+
+        self._add_dbt_project_hash_to_dag_docs(dag)
 
         current_time = time.perf_counter()
         elapsed_time = current_time - previous_time
@@ -329,6 +348,7 @@ class DbtToAirflowConverter:
             on_warning_callback=on_warning_callback,
             render_config=render_config,
             async_py_requirements=execution_config.async_py_requirements,
+            execution_config=execution_config,
         )
 
         current_time = time.perf_counter()
@@ -336,3 +356,28 @@ class DbtToAirflowConverter:
         logger.info(
             f"Cosmos performance ({cache_identifier}) - [{platform.node()}|{os.getpid()}]: It took {elapsed_time:.3}s to build the Airflow DAG."
         )
+
+    def _add_dbt_project_hash_to_dag_docs(self, dag: DAG | None) -> None:
+        """
+        Add dbt project content hash to DAG documentation for Airflow 3 dag versioning support.
+
+        This enables Airflow 3's automatic DAG versioning to detect when dbt project
+        files change, ensuring proper DAG version updates.
+
+        :param dag: The Airflow DAG to add versioning information to. If None, no action is taken.
+        """
+        if dag is None:
+            return
+
+        try:
+            dbt_project_hash = _create_folder_version_hash(self.dbt_graph.project_path)
+            hash_suffix = f"\n\n**dbt project hash:** `{dbt_project_hash}`"
+
+            if dag.doc_md:
+                dag.doc_md += hash_suffix
+            else:
+                dag.doc_md = f"**dbt project hash:** `{dbt_project_hash}`"
+
+            logger.debug(f"Appended dbt project hash {dbt_project_hash} to DAG {dag.dag_id} documentation")
+        except Exception as e:
+            logger.warning(f"Failed to append dbt project hash to DAG documentation: {e}")

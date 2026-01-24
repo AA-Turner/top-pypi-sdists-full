@@ -19,7 +19,6 @@ from numpy.typing import ArrayLike, NDArray
 from typing_extensions import Any, overload, SupportsBytes, TypedDict, Unpack
 
 from .. import tool
-from . import utils
 from . import v2_v3_constants as v23c
 from .utils import (
     BlockKwargs,
@@ -219,7 +218,7 @@ class Channel:
             self.address = address = kwargs["address"]
             mapped = kwargs.get("mapped", False)
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (size,) = UINT16_uf(stream, address + 2)
 
                 if size == v23c.CN_DISPLAYNAME_BLOCK_SIZE:
@@ -1001,7 +1000,7 @@ class ChannelConversion(_ChannelConversionBase):
 
             except KeyError:
                 stream = kwargs["stream"]
-                if utils.stream_is_mmap(stream, mapped):
+                if mapped:
                     (self.id, self.block_len) = COMMON_uf(stream, address)
                     block_size = size = self.block_len
                     block = stream[address + 4 : address + size]
@@ -2002,7 +2001,7 @@ class ChannelExtension:
 
                 self.address = kwargs.get("address", 0)
             except KeyError:
-                if utils.stream_is_mmap(stream, kwargs.get("mapped", False)):
+                if kwargs.get("mapped", False):
                     self.address = address = kwargs["address"]
 
                     (self.id, self.block_len, self.type) = SOURCE_COMMON_uf(stream, address)
@@ -2288,7 +2287,7 @@ class ChannelGroup:
             mapped = kwargs.get("mapped", False)
             self.address = address = kwargs["address"]
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (
                     self.id,
                     self.block_len,
@@ -2559,7 +2558,7 @@ class DataGroup:
             stream = kwargs["stream"]
             mapped = kwargs.get("mapped", False)
             self.address = address = kwargs["address"]
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 block = stream.read(v23c.DG_PRE_320_BLOCK_SIZE)
 
                 (
@@ -3199,7 +3198,7 @@ class TextBlock:
             stream = kwargs["stream"]
             mapped = kwargs.get("mapped", False)
             self.address = address = kwargs["address"]
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.block_len) = COMMON_uf(stream, address)
                 if self.id != b"TX":
                     message = f'Expected "TX" block @{hex(address)} but found "{self.id!r}"'

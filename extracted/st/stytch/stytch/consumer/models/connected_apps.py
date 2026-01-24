@@ -25,10 +25,12 @@ class ConnectedApp(pydantic.BaseModel):
       - access_token_template_content: (no documentation yet)
       - post_logout_redirect_urls: Array of redirect URI values for use in OIDC Logout flows.
       - bypass_consent_for_offline_access: Valid for first party clients only. If true, the client does not need to request explicit user consent for the `offline_access` scope.
+      - creation_method: (no documentation yet)
       - client_secret_last_four: The last four characters of the client secret.
       - next_client_secret_last_four: The last four characters of the `next_client_secret`. Null if no `next_client_secret` exists.
       - access_token_custom_audience: (no documentation yet)
       - logo_url: The logo URL of the Connected App, if any.
+      - client_id_metadata_url: (no documentation yet)
     """  # noqa
 
     client_id: str
@@ -42,10 +44,12 @@ class ConnectedApp(pydantic.BaseModel):
     access_token_template_content: str
     post_logout_redirect_urls: List[str]
     bypass_consent_for_offline_access: bool
+    creation_method: str
     client_secret_last_four: Optional[str] = None
     next_client_secret_last_four: Optional[str] = None
     access_token_custom_audience: Optional[str] = None
     logo_url: Optional[str] = None
+    client_id_metadata_url: Optional[str] = None
 
 
 class ConnectedAppPublic(pydantic.BaseModel):
@@ -75,6 +79,7 @@ class ConnectedAppWithClientSecret(pydantic.BaseModel):
       - client_secret: The secret of the Connected App client. **Required for confidential clients**
       - access_token_custom_audience: (no documentation yet)
       - logo_url: The logo URL of the Connected App, if any.
+      - client_id_metadata_url: (no documentation yet)
     """  # noqa
 
     client_id: str
@@ -93,6 +98,7 @@ class ConnectedAppWithClientSecret(pydantic.BaseModel):
     client_secret: Optional[str] = None
     access_token_custom_audience: Optional[str] = None
     logo_url: Optional[str] = None
+    client_id_metadata_url: Optional[str] = None
 
 
 class ConnectedAppWithNextClientSecret(pydantic.BaseModel):
@@ -114,6 +120,7 @@ class ConnectedAppWithNextClientSecret(pydantic.BaseModel):
       - next_client_secret_last_four: The last four characters of the `next_client_secret`. Null if no `next_client_secret` exists.
       - access_token_custom_audience: (no documentation yet)
       - logo_url: The logo URL of the Connected App, if any.
+      - client_id_metadata_url: (no documentation yet)
     """  # noqa
 
     client_id: str
@@ -132,6 +139,7 @@ class ConnectedAppWithNextClientSecret(pydantic.BaseModel):
     next_client_secret_last_four: Optional[str] = None
     access_token_custom_audience: Optional[str] = None
     logo_url: Optional[str] = None
+    client_id_metadata_url: Optional[str] = None
 
 
 class ResultsMetadata(pydantic.BaseModel):

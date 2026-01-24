@@ -1,6 +1,7 @@
 import objc
 import os
 from objc import super  # noqa: A004
+from .supercall import OCSuperCallHelper
 from PyObjCTools.TestSupport import (
     TestCase,
     pyobjc_options,
@@ -10,6 +11,8 @@ from PyObjCTools.TestSupport import (
     os_release,
 )
 import objc.simd
+
+NSObject = objc.lookUpClass("NSObject")
 
 
 class TestMetadataRegistry(TestCase):
@@ -143,58 +146,109 @@ class TestRescanClass(TestCase):
         # aren't used elsewhere in the test suite.
 
         # Use '_updatingMetadata' to force a rescan
-        objc._updatingMetadata(True)
-        objc._updatingMetadata(False)
-        objc._rescanClass(name="NSObject")
 
-        objc._updatingMetadata(True)
-        objc._updatingMetadata(False)
-        objc._rescanClass("NSObject")
-
-        objc._updatingMetadata(True)
-        objc._updatingMetadata(False)
-        objc._rescanClass("SomeNonexistingClass")
-
-        def dummy_extender(klass, class_dict):
-            if klass.__name__ == "NSURLSession":
-                class_dict["_dummy_attribute_"] = 42
-
-        cls = objc.lookUpClass("NSURLSession")
-        self.assertNotHasAttr(cls, "_dummy_attribute_")
-        with pyobjc_options(_class_extender=dummy_extender):
+        with self.subTest("setup"):
             objc._updatingMetadata(True)
             objc._updatingMetadata(False)
-            objc._rescanClass("NSURLSession")
-            self.assertHasAttr(cls, "_dummy_attribute_")
+            objc._rescanClass(name="NSObject")
+
+            objc._updatingMetadata(True)
+            objc._updatingMetadata(False)
+            objc._rescanClass("NSObject")
+
+            objc._updatingMetadata(True)
+            objc._updatingMetadata(False)
+            objc._rescanClass("SomeNonexistingClass")
 
         objc._updatingMetadata(True)
         objc._updatingMetadata(False)
 
-        def dummy_extender(klass, class_dict):
-            if klass.__name__ == "NSURLSession":
-                class_dict[2001] = "spaces"
-                class_dict["__has_python_implementation__"] = 0
+        with self.subTest("dummy attribute"):
 
-        with pyobjc_options(_class_extender=dummy_extender):
-            objc._updatingMetadata(True)
-            objc._updatingMetadata(False)
-
-            objc._rescanClass("NSURLSession")
-            self.assertIn(2001, cls.__dict__)
-            self.assertNotEqual(cls.init, 42)
-
-        for attr in ("__dict__", "__bases__", "__slots__", "__mro__"):
-
-            def dummy_extender(klass, class_dict, attr=attr):
+            def dummy_extender(klass, class_dict):
                 if klass.__name__ == "NSURLSession":
-                    class_dict[attr] = attr
+                    class_dict["_dummy_attribute_"] = 42
+
+            cls = objc.lookUpClass("NSURLSession")
+            self.assertNotHasAttr(cls, "_dummy_attribute_")
+            with pyobjc_options(_class_extender=dummy_extender):
+                objc._updatingMetadata(True)
+                objc._updatingMetadata(False)
+                objc._rescanClass("NSURLSession")
+                self.assertHasAttr(cls, "_dummy_attribute_")
+
+        objc._updatingMetadata(True)
+        objc._updatingMetadata(False)
+
+        with self.subTest("weird attributes"):
+
+            def dummy_extender(klass, class_dict):
+                if klass.__name__ == "NSURLSession":
+                    class_dict[2001] = "spaces"
+                    class_dict["__has_python_implementation__"] = 0
 
             with pyobjc_options(_class_extender=dummy_extender):
                 objc._updatingMetadata(True)
                 objc._updatingMetadata(False)
 
                 objc._rescanClass("NSURLSession")
-                self.assertNotEqual(getattr(cls, attr), attr)
+                self.assertIn(2001, cls.__dict__)
+                self.assertNotEqual(cls.init, 42)
+
+        objc._updatingMetadata(True)
+        objc._updatingMetadata(False)
+
+        class NoCompare:
+            def __eq__(self, other):
+                raise TypeError("cannot compare")
+
+        no_compare = NoCompare()
+
+        with self.subTest("No compare  class extender"):
+
+            def dummy_extender(klass, class_dict):
+                class_dict["foo"] = no_compare
+
+            cls.foo = objc.python_method(lambda self: 99)
+            try:
+                with pyobjc_options(_class_extender=dummy_extender):
+                    objc._updatingMetadata(True)
+                    objc._updatingMetadata(False)
+
+                    with self.assertRaisesRegex(TypeError, "cannot compare"):
+                        objc._rescanClass(cls.__name__)
+
+                        print(cls.foo)
+
+            finally:
+                del cls.foo
+
+        objc._updatingMetadata(True)
+        objc._updatingMetadata(False)
+
+        info1 = cls.downloadTaskWithURL_completionHandler_.__metadata__()
+        objc._updatingMetadata(True)
+        objc._updatingMetadata(False)
+        info2 = cls.downloadTaskWithURL_completionHandler_.__metadata__()
+        self.assertEqual(info1, info2)
+
+        for attr in ("__dict__", "__bases__", "__slots__", "__mro__"):
+
+            with self.subTest("tweak attr", key=attr):
+
+                def dummy_extender(klass, class_dict, attr=attr):
+                    if klass.__name__ == "NSURLSession":
+                        class_dict[attr] = attr
+
+                with pyobjc_options(_class_extender=dummy_extender):
+                    objc._updatingMetadata(True)
+                    objc._updatingMetadata(False)
+
+                    objc._rescanClass("NSURLSession")
+                    self.assertNotEqual(getattr(cls, attr), attr)
+
+            objc._updatingMetadata(True)
+            objc._updatingMetadata(False)
 
     def test_rescan_raises(self):
         def raising_extender(*args, **kwds):
@@ -519,3 +573,107 @@ class TestSizeOfType(TestCase):
 
         with self.assertRaisesRegex(TypeError, "a bytes-like object is required"):
             objc._sizeOfType(42)
+
+
+class TestOverrideResolution(TestCase):
+    # Tests checks validate the logic for resolving a custom method call function
+    # when overrides are registered in different orders for base and sub classes.
+    @classmethod
+    def setUpClass(cls):
+        cls.baseclass = NSObject.alloc().init()
+        cls.subclass = OCSuperCallHelper.alloc().init()
+
+    def test_register_nsobject_first(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerFirst(), "overriden-first-nsobject"
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerFirst(), "overriden-first-subclass"
+        )
+
+    def test_register_nsobject_last(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerLast(), "overriden-last-nsobject"
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerLast(), "overriden-last-subclass"
+        )
+
+    def test_register_nsobject_first_nil_before(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerFirstNone1(),
+            "overriden-first-none1-nsobject",
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerFirstNone1(), "overriden-first-none1-subclass"
+        )
+
+    def test_register_nsobject_last_nil_before(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerLastNone1(), "overriden-last-none1-nsobject"
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerLastNone1(), "overriden-last-none1-subclass"
+        )
+
+    def test_register_nsobject_first_nil_after(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerFirstNone2(),
+            "overriden-first-none2-nsobject",
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerFirstNone2(), "overriden-first-none2-subclass"
+        )
+
+    def test_register_nsobject_last_nil_after(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterCallerLastNone2(), "overriden-last-none2-nsobject"
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterCallerLastNone2(), "overriden-last-none2-subclass"
+        )
+
+    def test_register_subclss_only(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterSubClassOnly(), "native-subclass-only"
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterSubClassOnly(), "overriden-subclass-only-subclass"
+        )
+
+    def test_register_subclss_only_none_first(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterSubClassOnlyNone1(),
+            "overriden-subclass-only-none1-none",
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterSubClassOnlyNone1(),
+            "overriden-subclass-only-none1-subclass",
+        )
+
+    def test_register_subclss_only_none_last(self):
+        self.assertEqual(
+            self.baseclass.ocRegisterSubClassOnlyNone2(),
+            "overriden-subclass-only-none2-none",
+        )
+        self.assertEqual(
+            self.subclass.ocRegisterSubClassOnlyNone2(),
+            "overriden-subclass-only-none2-subclass",
+        )
+
+
+class TestSelectorEdgeCases(TestCase):
+    def test_selector_invalid_name(self):
+        def fn(self):
+            pass
+
+        fn.__name__ = "\udfff"
+        with self.assertRaisesRegex(UnicodeError, "surrogate"):
+            fn.__name__.encode()
+
+        with self.assertRaisesRegex(UnicodeError, "surrogate"):
+            objc.selector(fn)
+
+        # Setting the name to non-string doesn't work:
+        with self.assertRaises(TypeError):
+            fn.__name__ = b"fn"

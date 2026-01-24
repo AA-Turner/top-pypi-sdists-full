@@ -56,6 +56,14 @@ class LanguageChoices(TextChoices):
     EN = 'en'
 
 
+class LanguageStrEnumWithCallable(str, Enum):
+    EN = 'en'
+
+    @classmethod
+    def as_choices(cls):
+        return ((cls.EN, 'English'),)
+
+
 blank_null_language_list = ['en', '', None]
 
 
@@ -122,6 +130,23 @@ def test_global_enum_naming_override(no_warnings, clear_caches):
     class XSerializer(serializers.Serializer):
         foo = serializers.ChoiceField(choices=language_choices)
         bar = serializers.ChoiceField(choices=language_choices)
+
+    class XView(generics.RetrieveAPIView):
+        serializer_class = XSerializer
+
+    schema = generate_schema('/x', view=XView)
+    assert 'LanguageEnum' in schema['components']['schemas']['X']['properties']['foo']['$ref']
+    assert 'LanguageEnum' in schema['components']['schemas']['X']['properties']['bar']['$ref']
+    assert len(schema['components']['schemas']) == 2
+
+
+@mock.patch('drf_spectacular.settings.spectacular_settings.ENUM_NAME_OVERRIDES', {
+    'LanguageEnum': 'tests.test_postprocessing.LanguageStrEnumWithCallable.as_choices'
+})
+def test_global_enum_naming_override_callable(no_warnings, clear_caches):
+    class XSerializer(serializers.Serializer):
+        foo = serializers.ChoiceField(choices=LanguageStrEnumWithCallable.as_choices())
+        bar = serializers.ChoiceField(choices=LanguageStrEnumWithCallable.as_choices())
 
     class XView(generics.RetrieveAPIView):
         serializer_class = XSerializer
@@ -288,6 +313,21 @@ def test_enum_override_variations_with_blank_and_null(no_warnings):
         ):
             _load_enum_name_overrides.cache_clear()
             # Should match after None and blank strings are removed
+            assert list_hash(expected_hashed_keys) in load_enum_name_overrides()
+
+
+def test_unsorted_enum(no_warnings):
+    enum_override_variations = [
+        ('LanguageEnum', [('fr', 'FR'), ('en', 'EN'), ('es', 'ES')]),
+        ('LanguageStrEnum', [('en', 'EN'), ('es', 'ES'), ('fr', 'FR')]),
+    ]
+
+    for variation, expected_hashed_keys in enum_override_variations:
+        with mock.patch(
+            'drf_spectacular.settings.spectacular_settings.ENUM_NAME_OVERRIDES',
+            {'LanguageEnum': [('es', 'ES'), ('en', 'EN'), ('fr', 'FR')]}
+        ):
+            _load_enum_name_overrides.cache_clear()
             assert list_hash(expected_hashed_keys) in load_enum_name_overrides()
 
 

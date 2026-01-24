@@ -9,47 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
 from typing_extensions import TypedDict
 
-
-class SimpleCommitType(TypedDict):
-    """Simple Commit
-
-    A commit.
-    """
-
-    id: str
-    tree_id: str
-    message: str
-    timestamp: datetime
-    author: Union[SimpleCommitPropAuthorType, None]
-    committer: Union[SimpleCommitPropCommitterType, None]
+from .group_0232 import (
+    RulesetVersionWithStateAllof1PropStateType,
+    RulesetVersionWithStateAllof1PropStateTypeForResponse,
+)
 
 
-class SimpleCommitPropAuthorType(TypedDict):
-    """SimpleCommitPropAuthor
+class RulesetVersionWithStateAllof1Type(TypedDict):
+    """RulesetVersionWithStateAllof1"""
 
-    Information about the Git author
-    """
-
-    name: str
-    email: str
+    state: RulesetVersionWithStateAllof1PropStateType
 
 
-class SimpleCommitPropCommitterType(TypedDict):
-    """SimpleCommitPropCommitter
+class RulesetVersionWithStateAllof1TypeForResponse(TypedDict):
+    """RulesetVersionWithStateAllof1"""
 
-    Information about the Git committer
-    """
-
-    name: str
-    email: str
+    state: RulesetVersionWithStateAllof1PropStateTypeForResponse
 
 
 __all__ = (
-    "SimpleCommitPropAuthorType",
-    "SimpleCommitPropCommitterType",
-    "SimpleCommitType",
+    "RulesetVersionWithStateAllof1Type",
+    "RulesetVersionWithStateAllof1TypeForResponse",
 )

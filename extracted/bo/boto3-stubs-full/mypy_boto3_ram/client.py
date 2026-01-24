@@ -3,7 +3,7 @@ Type annotations for ram service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -101,12 +102,6 @@ from .type_defs import (
     UpdateResourceShareResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -117,35 +112,35 @@ __all__ = ("RAMClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    InvalidClientTokenException: Type[BotocoreClientError]
-    InvalidMaxResultsException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPolicyException: Type[BotocoreClientError]
-    InvalidResourceTypeException: Type[BotocoreClientError]
-    InvalidStateTransitionException: Type[BotocoreClientError]
-    MalformedArnException: Type[BotocoreClientError]
-    MalformedPolicyTemplateException: Type[BotocoreClientError]
-    MissingRequiredParameterException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    PermissionAlreadyExistsException: Type[BotocoreClientError]
-    PermissionLimitExceededException: Type[BotocoreClientError]
-    PermissionVersionsLimitExceededException: Type[BotocoreClientError]
-    ResourceArnNotFoundException: Type[BotocoreClientError]
-    ResourceShareInvitationAlreadyAcceptedException: Type[BotocoreClientError]
-    ResourceShareInvitationAlreadyRejectedException: Type[BotocoreClientError]
-    ResourceShareInvitationArnNotFoundException: Type[BotocoreClientError]
-    ResourceShareInvitationExpiredException: Type[BotocoreClientError]
-    ResourceShareLimitExceededException: Type[BotocoreClientError]
-    ServerInternalException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TagLimitExceededException: Type[BotocoreClientError]
-    TagPolicyViolationException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnknownResourceException: Type[BotocoreClientError]
-    UnmatchedPolicyPermissionException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    InvalidClientTokenException: type[BotocoreClientError]
+    InvalidMaxResultsException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPolicyException: type[BotocoreClientError]
+    InvalidResourceTypeException: type[BotocoreClientError]
+    InvalidStateTransitionException: type[BotocoreClientError]
+    MalformedArnException: type[BotocoreClientError]
+    MalformedPolicyTemplateException: type[BotocoreClientError]
+    MissingRequiredParameterException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    PermissionAlreadyExistsException: type[BotocoreClientError]
+    PermissionLimitExceededException: type[BotocoreClientError]
+    PermissionVersionsLimitExceededException: type[BotocoreClientError]
+    ResourceArnNotFoundException: type[BotocoreClientError]
+    ResourceShareInvitationAlreadyAcceptedException: type[BotocoreClientError]
+    ResourceShareInvitationAlreadyRejectedException: type[BotocoreClientError]
+    ResourceShareInvitationArnNotFoundException: type[BotocoreClientError]
+    ResourceShareInvitationExpiredException: type[BotocoreClientError]
+    ResourceShareLimitExceededException: type[BotocoreClientError]
+    ServerInternalException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TagLimitExceededException: type[BotocoreClientError]
+    TagPolicyViolationException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnknownResourceException: type[BotocoreClientError]
+    UnmatchedPolicyPermissionException: type[BotocoreClientError]
 
 
 class RAMClient(BaseClient):
@@ -518,7 +513,7 @@ class RAMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/client/#set_default_permission_version)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tag keys and values to a resource share or managed
         permission.
@@ -527,7 +522,7 @@ class RAMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ram/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tag key and value pairs from the specified resource share
         or managed permission.

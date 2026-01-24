@@ -4,15 +4,38 @@ import subprocess
 import pathlib
 import random
 
+from functools import cache
 from string import ascii_lowercase
 
 import pexpect
 import pytest
 import yaml
+from packaging.version import parse as parse_version
 
 from ansible_runner.config.runner import RunnerConfig
+from ansible_runner.utils.importlib_compat import importlib_metadata
+
 
 here = pathlib.Path(__file__).parent
+
+
+@cache
+def get_ansible_version():
+    """Get the ansible version string."""
+    return importlib_metadata.version("ansible-core")
+
+
+@pytest.fixture(scope='session')
+def is_ansible_219_or_higher():
+    """Return True if ansible-core version is >= 2.19.0."""
+    version_str = get_ansible_version()
+    return parse_version(version_str) >= parse_version("2.19.0")
+
+
+@pytest.fixture(scope='session')
+def skipif_ansible_219_or_higher(is_ansible_219_or_higher):  # pylint: disable=W0621
+    if is_ansible_219_or_higher:
+        pytest.skip("Test skipped for ansible-core version 2.19.0 or higher")
 
 
 @pytest.fixture(scope='function')
@@ -100,14 +123,6 @@ def container_image(request, cli, tmp_path):  # pylint: disable=W0621
         yield env_image_name
         return
 
-    cli(
-        ['pyproject-build', '-w', '-o', str(tmp_path)],
-        cwd=here.parent.parent,
-        bare=True,
-    )
-
-    wheel = next(tmp_path.glob('*.whl'))  # pylint: disable=R1708
-
     runtime = request.getfixturevalue('runtime')
     dockerfile_path = tmp_path / 'Dockerfile'
     dockerfile_path.write_text(
@@ -117,12 +132,12 @@ def container_image(request, cli, tmp_path):  # pylint: disable=W0621
     image_name = f'ansible-runner-{random_string}-event-test'
 
     cli(
-        [runtime, 'build', '--build-arg', f'WHEEL={wheel.name}', '--rm=true', '-t', image_name, '-f', str(dockerfile_path), str(tmp_path)],
+        [runtime, 'build', '-t', image_name, '-f', str(dockerfile_path), str(tmp_path)],
         bare=True,
     )
     yield image_name
     cli(
-        [runtime, 'rmi', '-f', image_name],
+        [runtime, 'rmi', '-f', '--no-prune', image_name],
         bare=True,
     )
 
@@ -133,19 +148,17 @@ def container_image_devel(request, cli, tmp_path):  # pylint: disable=W0621
 
     DOCKERFILE = f"""
 FROM quay.io/centos/centos:stream9
-ARG WHEEL
-COPY $WHEEL /$WHEEL
 
 # Need python 3.11 minimum for devel
 RUN dnf install -y python3.11 python3.11-pip git
 RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 0
-RUN python3 -m pip install /$WHEEL git+https://github.com/ansible/ansible@{branch}
+RUN python3 -m pip install git+https://github.com/ansible/ansible@{branch}
 
 RUN mkdir -p /runner/{{env,inventory,project,artifacts}} /home/runner/.ansible/tmp
 RUN chmod -R 777 /runner /home/runner
 WORKDIR /runner
 ENV HOME=/home/runner
-CMD ["ansible-runner", "run", "/runner"]
+CMD ["ansible", "--version"]
 """
 
     try:
@@ -161,14 +174,6 @@ CMD ["ansible-runner", "run", "/runner"]
         yield env_image_name
         return
 
-    cli(
-        ['pyproject-build', '-w', '-o', str(tmp_path)],
-        cwd=here.parent.parent,
-        bare=True,
-    )
-
-    wheel = next(tmp_path.glob('*.whl'))  # pylint: disable=R1708
-
     runtime = request.getfixturevalue('runtime')
     dockerfile_path = tmp_path / 'Dockerfile'
     dockerfile_path.write_text(DOCKERFILE)
@@ -176,11 +181,11 @@ CMD ["ansible-runner", "run", "/runner"]
     image_name = f'ansible-runner-{random_string}-event-test'
 
     cli(
-        [runtime, 'build', '--build-arg', f'WHEEL={wheel.name}', '--rm=true', '-t', image_name, '-f', str(dockerfile_path), str(tmp_path)],
+        [runtime, 'build', '-t', image_name, '-f', str(dockerfile_path), str(tmp_path)],
         bare=True,
     )
     yield image_name
     cli(
-        [runtime, 'rmi', '-f', image_name],
+        [runtime, 'rmi', '-f', '--no-prune', image_name],
         bare=True,
     )

@@ -2,7 +2,7 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
-from pyspark.sql.functions import lit, struct, array, udf
+from pyspark.sql.functions import lit, struct, array, udf, create_map
 
 from spark_expectations.core import get_spark_session
 from spark_expectations.core.context import SparkExpectationsContext
@@ -158,6 +158,7 @@ def fixture_expectations():
                 "table_name": "test_table",
                 "tag": "validity",
                 "description": "col1 gt or eq 1",
+                "priority": "medium"
             },
             {
                 "product_id": "product_1",
@@ -169,6 +170,7 @@ def fixture_expectations():
                 "table_name": "test_table",
                 "tag": "accuracy",
                 "description": "col1 gt or eq 2",
+                "priority": "medium"
             },
             {
                 "product_id": "product_1",
@@ -180,6 +182,7 @@ def fixture_expectations():
                 "table_name": "test_table",
                 "tag": "completeness",
                 "description": "col1 gt or eq 3",
+                "priority": "medium"
             },
         ],
         "agg_dq_rules": [
@@ -195,6 +198,7 @@ def fixture_expectations():
                 "enable_for_source_dq_validation": True,
                 "enable_for_target_dq_validation": True,
                 "description": "col1 sum gt 1",
+                "priority": "medium"
             },
             {
                 "product_id": "product_1",
@@ -208,6 +212,7 @@ def fixture_expectations():
                 "enable_for_source_dq_validation": True,
                 "enable_for_target_dq_validation": True,
                 "description": "col2 unique value grater than 3",
+                "priority": "medium"
             },
             {
                 "product_id": "product_1",
@@ -221,6 +226,7 @@ def fixture_expectations():
                 "enable_for_source_dq_validation": True,
                 "enable_for_target_dq_validation": True,
                 "description": "sum of col1 value grater than 6 and less than 10",
+                "priority": "medium"
             },
         ],
         "query_dq_rules": [
@@ -239,6 +245,7 @@ def fixture_expectations():
                 "description": "table count should be greater than 1",
                 "expectation_source_f1": "select count(*) from query_test_table",
                 "expectation_target_f1": "select count(*) from query_test_table_target",
+                "priority": "medium"
             },
             {
                 "product_id": "product_1",
@@ -255,6 +262,7 @@ def fixture_expectations():
                 "description": "table distinct row count should be greater than 3",
                 "expectation_source_f1": "select count(*) from (select distinct col1, col2 from query_test_table)",
                 "expectation_target_f1": "select count(*) from (select distinct col1, col2 from query_test_table_target)",
+                "priority": "medium"
             },
         ],
     }
@@ -346,6 +354,7 @@ def fixture_row_dq_expected_result():
                     'column_name': 'col1',
                     "status": "pass",
                     "tag": "validity",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_2": {
                     "rule_type": "row_dq",
@@ -355,6 +364,7 @@ def fixture_row_dq_expected_result():
                     "status": "fail",
                     "tag": "accuracy",
                     "description": "col1 gt or eq 2",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_3": {
                     "rule_type": "row_dq",
@@ -364,6 +374,7 @@ def fixture_row_dq_expected_result():
                     "status": "fail",
                     "tag": "completeness",
                     "description": "col1 gt or eq 3",
+                    "priority": "medium"
                 },
             },
             {
@@ -375,6 +386,7 @@ def fixture_row_dq_expected_result():
                     "rule_type": "row_dq",
                     "status": "pass",
                     "tag": "validity",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_2": {
                     "rule_type": "row_dq",
@@ -384,6 +396,7 @@ def fixture_row_dq_expected_result():
                     "status": "pass",
                     "tag": "accuracy",
                     "description": "col1 gt or eq 2",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_3": {
                     "rule_type": "row_dq",
@@ -393,6 +406,7 @@ def fixture_row_dq_expected_result():
                     "status": "fail",
                     "tag": "completeness",
                     "description": "col1 gt or eq 3",
+                    "priority": "medium"
                 },
             },
             {
@@ -404,6 +418,7 @@ def fixture_row_dq_expected_result():
                     'column_name': 'col1',
                     "status": "pass",
                     "tag": "validity",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_2": {
                     "rule_type": "row_dq",
@@ -413,6 +428,7 @@ def fixture_row_dq_expected_result():
                     'column_name': 'col1',
                     "tag": "accuracy",
                     "description": "col1 gt or eq 2",
+                    "priority": "medium"
                 },
                 "row_dq_col1_gt_eq_3": {
                     "rule_type": "row_dq",
@@ -422,6 +438,7 @@ def fixture_row_dq_expected_result():
                     "status": "pass",
                     "tag": "completeness",
                     "description": "col1 gt or eq 3",
+                    "priority": "medium"
                 },
             },
         ]
@@ -441,6 +458,7 @@ def fixture_agg_dq_expected_result():
                 'column_name': 'col1',
                 "status": "pass",
                 "tag": "validity",
+                "priority": "medium"
             },
             {
                 "rule_type": "agg_dq",
@@ -450,6 +468,7 @@ def fixture_agg_dq_expected_result():
                 "status": "fail",
                 "tag": "accuracy",
                 "description": "col2 unique value grater than 3",
+                "priority": "medium"
             },
             {
                 "rule_type": "agg_dq",
@@ -459,6 +478,7 @@ def fixture_agg_dq_expected_result():
                 "status": "fail",
                 "tag": "accuracy",
                 "description": "sum of col1 value grater than 6 and less than 10",
+                "priority": "medium"
             },
         ]
     }
@@ -477,6 +497,7 @@ def fixture_query_dq_expected_result():
                 "status": "fail",
                 "tag": "validity",
                 "action_if_failed": "ignore",
+                "priority": "medium"
             },
             {
                 "rule": "table_distinct_count",
@@ -486,6 +507,7 @@ def fixture_query_dq_expected_result():
                 "status": "fail",
                 "tag": "accuracy",
                 "action_if_failed": "fail",
+                "priority": "medium"
             },
         ]
     }
@@ -1084,7 +1106,6 @@ def test_agg_query_dq_detailed_result_type_error(_fixture_agg_dq_rule, _fixture_
             _fixture_mock_context, _fixture_agg_dq_rule, dummy_df, []
         )
 
-
 @pytest.mark.parametrize(
     "input_df, rule_type_name, expected_output",
     # input_df
@@ -1172,6 +1193,12 @@ def test_create_agg_dq_results_exception(input_df, _fixture_mock_context):
             input_df,
             "<test>",
         )
+
+
+def test_create_agg_dq_results_streaming_skip(_fixture_mock_context):
+    """Test line 449-454: streaming DataFrame skips aggregation results collection"""
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    assert SparkExpectationsActions().create_agg_dq_results(_fixture_mock_context, streaming_df, "agg_dq") is None
 
 @pytest.mark.parametrize(
     "input_df, table_name, input_count, error_count, output_count, "
@@ -1885,4 +1912,29 @@ def test_action_on_rules_exception(
         SparkExpectationsActions.action_on_rules(
             _fixture_mock_context, input_df, table_name, input_count, error_count, output_count, rule_type, row_dq_flag
         )
+
+
+def test_action_on_rules_streaming_skip(_fixture_mock_context):
+    """Test line 663: streaming DataFrame handles streaming mode safely"""
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    streaming_df = streaming_df.withColumn(
+        "meta_row_dq_results", array(create_map(lit("status"), lit("pass"), lit("action_if_failed"), lit("ignore")))
+    ).withColumn("col1", lit(1))
+    result_df = SparkExpectationsActions.action_on_rules(
+        _fixture_mock_context, streaming_df, 10, 0, 0, "row_dq", True
+    )
+    assert result_df.isStreaming is True
+
+
+def test_agg_query_dq_detailed_result_type_error_line_210(_fixture_agg_dq_rule, _fixture_mock_context):
+    """Test line 210: TypeError for unexpected aggregation result type"""
+    df = spark.createDataFrame([{"col1": 1}])
+    with patch.object(df, 'agg') as mock_agg:
+        mock_result = Mock()
+        mock_result.collect.return_value = [[[]]]  # Return list to trigger TypeError
+        mock_agg.return_value = mock_result
+        with pytest.raises(SparkExpectationsMiscException, match="error occurred while running agg_query_dq_detailed_result .*"):
+            SparkExpectationsActions.agg_query_dq_detailed_result(
+                _fixture_mock_context, _fixture_agg_dq_rule, df, []
+            )
 

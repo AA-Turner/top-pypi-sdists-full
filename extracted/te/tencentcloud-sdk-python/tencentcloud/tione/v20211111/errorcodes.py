@@ -41,6 +41,9 @@ FAILEDOPERATION_BINDINGTAGSFAILED = 'FailedOperation.BindingTagsFailed'
 # CAM内部错误。
 FAILEDOPERATION_CAMFAILURE = 'FailedOperation.CAMFailure'
 
+# 日志内容太大无法加载，建议缩小日志查询时间范围，或者通过日志下载查看
+FAILEDOPERATION_CLSSIZEEXCEED = 'FailedOperation.CLSSizeExceed'
+
 # 调用集群失败。
 FAILEDOPERATION_CALLCLUSTERFAIL = 'FailedOperation.CallClusterFail'
 
@@ -124,6 +127,9 @@ FAILEDOPERATION_KMSKEYNOTOPEN = 'FailedOperation.KmsKeyNotOpen'
 
 # 变更计费配置失败。
 FAILEDOPERATION_MODIFYBILLINGINSTANCEBATCHFAILED = 'FailedOperation.ModifyBillingInstanceBatchFailed'
+
+# 修改计费统计的资源关联标签失败
+FAILEDOPERATION_MODIFYRESOURCEBILLINGTAGSFAILED = 'FailedOperation.ModifyResourceBillingTagsFailed'
 
 # 移动模型目录失败。
 FAILEDOPERATION_MOVEMODELDIRFAILED = 'FailedOperation.MoveModelDirFailed'
@@ -464,6 +470,9 @@ INVALIDPARAMETERVALUE_UNSUPPORTEDGOOSEFSCONFIG = 'InvalidParameterValue.Unsuppor
 # 不支持同一实例挂载多个CBS存储
 INVALIDPARAMETERVALUE_UNSUPPORTEDMULTICBSSTORAGE = 'InvalidParameterValue.UnsupportedMultiCBSStorage'
 
+# Notebook卷大小只能增加，如需减小容量请重新创建实例。
+INVALIDPARAMETERVALUE_VOLUMESHRINKNOTALLOW = 'InvalidParameterValue.VolumeShrinkNotAllow'
+
 # 超过配额限制。
 LIMITEXCEEDED = 'LimitExceeded'
 
@@ -484,6 +493,9 @@ OPERATIONDENIED_BILLINGSTATUSNOTSUPPORTWHITELISTGPUTYPE = 'OperationDenied.Billi
 
 # 按量计费资源售罄。
 OPERATIONDENIED_BILLINGSTATUSRESOURCEINSUFFICIENT = 'OperationDenied.BillingStatusResourceInsufficient'
+
+# vpc 和 子网 禁止修改
+OPERATIONDENIED_FORBIDMODIFYVPCANDSUBNET = 'OperationDenied.ForbidModifyVpcAndSubnet'
 
 # IP不合法。
 OPERATIONDENIED_IPILLEGAL = 'OperationDenied.IpIllegal'

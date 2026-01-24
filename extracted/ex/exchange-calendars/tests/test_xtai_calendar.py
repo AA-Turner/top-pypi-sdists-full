@@ -17,6 +17,14 @@ class TestXTAICalendar(ExchangeCalendarTestBase):
     @pytest.fixture
     def regular_holidays_sample(self):
         yield [
+            # New holidays introduced in 2025
+            "2026-09-28",  # Teachers Day
+            "2026-10-26",  # Taiwan Restoration Day
+            "2026-12-25",  # Constitution Day
+            "2025-09-29",  # Teachers Day
+            "2025-10-24",  # Taiwan Restoration Day
+            "2025-12-25",  # Constitution Day
+            #
             # 2019
             "2019-01-01",  # New Year's Day
             "2019-02-04",  # Chinese New Year's Eve

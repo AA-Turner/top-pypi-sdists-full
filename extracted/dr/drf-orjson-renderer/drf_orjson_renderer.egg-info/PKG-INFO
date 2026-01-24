@@ -1,26 +1,50 @@
-Metadata-Version: 2.1
-Name: drf-orjson-renderer
-Version: 1.7.3
+Metadata-Version: 2.4
+Name: drf_orjson_renderer
+Version: 1.8.0
 Summary: Django RestFramework JSON Renderer Backed by orjson
 Home-page: https://github.com/brianjbuck/drf_orjson_renderer
 Author: brianjbuck
-Author-email: brian@thebuckpasser.com
+Author-email: brianjbuck <brian@thebuckpasser.com>
 License: MIT
+Project-URL: Homepage, https://github.com/brianjbuck/drf_orjson_renderer
+Project-URL: Repository, https://github.com/brianjbuck/drf_orjson_renderer
+Project-URL: Issues, https://github.com/brianjbuck/drf_orjson_renderer/issues
 Keywords: drf_orjson_renderer,rest_framework,orjson
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.6.0
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: django>=3.2
+Requires-Dist: djangorestframework>=3.9
+Requires-Dist: orjson>=3.3.0
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: django-stubs==1.9.0; extra == "dev"
+Requires-Dist: djangorestframework-stubs==1.4.0; extra == "dev"
+Requires-Dist: ipdb; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy==0.910; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest-cov==3.0.0; extra == "dev"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 Django Rest Framework ORJSON Renderer
 =====================================
 
 [![DRF ORJSON Renderer Tests](https://github.com/brianjbuck/drf_orjson_renderer/actions/workflows/main.yml/badge.svg)](https://github.com/brianjbuck/drf_orjson_renderer/actions/workflows/main.yml)
+[![codecov](https://codecov.io/gh/brianjbuck/drf_orjson_renderer/branch/master/graph/badge.svg)](https://codecov.io/gh/brianjbuck/drf_orjson_renderer)
 
 `drf_orjson_renderer` is JSON renderer and parser for Django Rest Framework
 using the [orjson](https://github.com/ijl/orjson) library. Backed by
@@ -121,7 +145,8 @@ requested media type is not `application/json`, the ORJSON renderer will add
 When this package was originally written ORJSON did not natively support
 serializing numpy types. This package provided an encoder class that
 overrides the DjangoJSONEncoder with support for numpy types. This encoder
-is no longer necessary but included for backwards compatibility.
+is no longer necessary but included for backwards compatibility. As of version
+1.8.0, the encoder supports NumPy 2.0.
 
 ```Python
 from drf_orjson_renderer.encoders import DjangoNumpyJSONEncoder

@@ -1,4 +1,4 @@
-'''Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
+"""Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
 Copyright (C) 2016, 2017 Caleb Bell <Caleb.Andrew.Bell@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,12 +18,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import pytest
 
 from fluids.numerics import assert_close, assert_close1d, assert_close2d
-from fluids.separator import K_separator_demister_York, K_separator_Watkins, K_Sounders_Brown_theoretical, v_Sounders_Brown
+from fluids.separator import K_separator_demister_York, K_separator_Watkins, K_Souders_Brown_theoretical, v_Souders_Brown
 
 
 @pytest.mark.scipy
@@ -74,7 +74,7 @@ def test_K_separator_Watkins_fit():
 
 def test_K_separator_Watkins():
     calc = [[K_separator_Watkins(0.88, 985.4, 1.3, horizontal, method) for
-    method in ['spline', 'branan', 'blackwell']] for horizontal in [False, True]]
+    method in ["spline", "branan", "blackwell"]] for horizontal in [False, True]]
 
     expect = [[0.06361290880381038, 0.06108986837654085, 0.06994527471072351],
     [0.07951613600476297, 0.07636233547067607, 0.0874315933884044]]
@@ -83,7 +83,7 @@ def test_K_separator_Watkins():
     assert_close2d(calc, expect, rtol=1e-4)
 
     with pytest.raises(Exception):
-        K_separator_Watkins(0.88, 985.4, 1.3, horizontal=True, method='BADMETHOD')
+        K_separator_Watkins(0.88, 985.4, 1.3, horizontal=True, method="BADMETHOD")
 
 
 def test_K_separator_demister_York():
@@ -100,11 +100,11 @@ def test_K_separator_demister_York():
     assert_close(K, 0.13334999999999997)
 
 
-def test_v_Sounders_Brown():
-    v = v_Sounders_Brown(K=0.08, rhol=985.4, rhog=1.3)
+def test_v_Souders_Brown():
+    v = v_Souders_Brown(K=0.08, rhol=985.4, rhog=1.3)
     assert_close(v, 2.2010906387516167)
 
 
-def test_K_Sounders_Brown_theoretical():
-    K = K_Sounders_Brown_theoretical(D=150E-6, Cd=0.5)
+def test_K_Souders_Brown_theoretical():
+    K = K_Souders_Brown_theoretical(D=150E-6, Cd=0.5)
     assert_close(K, 0.06263114241333939)

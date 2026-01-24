@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -8,6 +8,7 @@ AccountSettingName = str
 AccountSettingValue = str
 Arch = str
 Arn = str
+ArtifactType = str
 AttributeKey = str
 AttributeValue = str
 Author = str
@@ -19,6 +20,7 @@ CustomRoleArn = str
 Epoch = int
 ExceptionMessage = str
 ExploitAvailable = str
+FiftyMaxResults = int
 FilePath = str
 FindingArn = str
 FindingDescription = str
@@ -50,6 +52,7 @@ PTCValidateFailure = str
 PackageManager = str
 Platform = str
 Prefix = str
+PrincipalArn = str
 ProxyEndpoint = str
 PullThroughCacheRuleRepositoryPrefix = str
 Reason = str
@@ -73,9 +76,14 @@ Score = float
 ScoringVector = str
 Severity = str
 SeverityCount = int
+SigningProfileArn = str
+SigningRepositoryFilterValue = str
+SigningStatusFailureCode = str
+SigningStatusFailureReason = str
 Source = str
 SourceLayerHash = str
 Status = str
+String = str
 TagKey = str
 TagValue = str
 Title = str
@@ -85,6 +93,19 @@ Url = str
 Version = str
 VulnerabilityId = str
 VulnerablePackageName = str
+
+
+class ArtifactStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ACTIVATING = "ACTIVATING"
+
+
+class ArtifactStatusFilter(StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ACTIVATING = "ACTIVATING"
+    ANY = "ANY"
 
 
 class EncryptionType(StrEnum):
@@ -104,6 +125,7 @@ class FindingSeverity(StrEnum):
 
 class ImageActionType(StrEnum):
     EXPIRE = "EXPIRE"
+    TRANSITION = "TRANSITION"
 
 
 class ImageFailureCode(StrEnum):
@@ -117,6 +139,20 @@ class ImageFailureCode(StrEnum):
     UpstreamAccessDenied = "UpstreamAccessDenied"
     UpstreamTooManyRequests = "UpstreamTooManyRequests"
     UpstreamUnavailable = "UpstreamUnavailable"
+    ImageInaccessible = "ImageInaccessible"
+
+
+class ImageStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ACTIVATING = "ACTIVATING"
+
+
+class ImageStatusFilter(StrEnum):
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ACTIVATING = "ACTIVATING"
+    ANY = "ANY"
 
 
 class ImageTagMutability(StrEnum):
@@ -133,6 +169,7 @@ class ImageTagMutabilityExclusionFilterType(StrEnum):
 class LayerAvailability(StrEnum):
     AVAILABLE = "AVAILABLE"
     UNAVAILABLE = "UNAVAILABLE"
+    ARCHIVED = "ARCHIVED"
 
 
 class LayerFailureCode(StrEnum):
@@ -145,6 +182,15 @@ class LifecyclePolicyPreviewStatus(StrEnum):
     COMPLETE = "COMPLETE"
     EXPIRED = "EXPIRED"
     FAILED = "FAILED"
+
+
+class LifecyclePolicyStorageClass(StrEnum):
+    ARCHIVE = "ARCHIVE"
+    STANDARD = "STANDARD"
+
+
+class LifecyclePolicyTargetStorageClass(StrEnum):
+    ARCHIVE = "ARCHIVE"
 
 
 class RCTAppliedFor(StrEnum):
@@ -178,6 +224,7 @@ class ScanStatus(StrEnum):
     SCAN_ELIGIBILITY_EXPIRED = "SCAN_ELIGIBILITY_EXPIRED"
     FINDINGS_UNAVAILABLE = "FINDINGS_UNAVAILABLE"
     LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
+    IMAGE_ARCHIVED = "IMAGE_ARCHIVED"
 
 
 class ScanType(StrEnum):
@@ -193,10 +240,25 @@ class ScanningRepositoryFilterType(StrEnum):
     WILDCARD = "WILDCARD"
 
 
+class SigningRepositoryFilterType(StrEnum):
+    WILDCARD_MATCH = "WILDCARD_MATCH"
+
+
+class SigningStatus(StrEnum):
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETE = "COMPLETE"
+    FAILED = "FAILED"
+
+
 class TagStatus(StrEnum):
     TAGGED = "TAGGED"
     UNTAGGED = "UNTAGGED"
     ANY = "ANY"
+
+
+class TargetStorageClass(StrEnum):
+    STANDARD = "STANDARD"
+    ARCHIVE = "ARCHIVE"
 
 
 class UpstreamRegistry(StrEnum):
@@ -210,10 +272,38 @@ class UpstreamRegistry(StrEnum):
     gitlab_container_registry = "gitlab-container-registry"
 
 
+class BlockedByOrganizationPolicyException(ServiceException):
+    """The operation did not succeed because the account is managed by a
+    organization policy.
+    """
+
+    code: str = "BlockedByOrganizationPolicyException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class EmptyUploadException(ServiceException):
     """The specified layer upload does not contain any layer parts."""
 
     code: str = "EmptyUploadException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ExclusionAlreadyExistsException(ServiceException):
+    """The specified pull time update exclusion already exists for the
+    registry.
+    """
+
+    code: str = "ExclusionAlreadyExistsException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ExclusionNotFoundException(ServiceException):
+    """The specified pull time update exclusion was not found."""
+
+    code: str = "ExclusionNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -224,6 +314,14 @@ class ImageAlreadyExistsException(ServiceException):
     """
 
     code: str = "ImageAlreadyExistsException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ImageArchivedException(ServiceException):
+    """The specified image is archived and cannot be scanned."""
+
+    code: str = "ImageArchivedException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -242,6 +340,14 @@ class ImageNotFoundException(ServiceException):
     """The image requested does not exist in the specified repository."""
 
     code: str = "ImageNotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ImageStorageClassUpdateNotSupportedException(ServiceException):
+    """The requested image storage class update is not supported."""
+
+    code: str = "ImageStorageClassUpdateNotSupportedException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -277,10 +383,10 @@ class InvalidLayerPartException(ServiceException):
     code: str = "InvalidLayerPartException"
     sender_fault: bool = False
     status_code: int = 400
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    uploadId: Optional[UploadId]
-    lastValidByteReceived: Optional[PartSize]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    uploadId: UploadId | None
+    lastValidByteReceived: PartSize | None
 
 
 class InvalidParameterException(ServiceException):
@@ -310,7 +416,7 @@ class KmsException(ServiceException):
     code: str = "KmsException"
     sender_fault: bool = False
     status_code: int = 400
-    kmsError: Optional[KmsError]
+    kmsError: KmsError | None
 
 
 class LayerAlreadyExistsException(ServiceException):
@@ -494,6 +600,17 @@ class ServerException(ServiceException):
     status_code: int = 400
 
 
+class SigningConfigurationNotFoundException(ServiceException):
+    """The specified signing configuration was not found. This occurs when
+    attempting to retrieve or delete a signing configuration that does not
+    exist.
+    """
+
+    code: str = "SigningConfigurationNotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class TemplateAlreadyExistsException(ServiceException):
     """The repository creation template already exists. Specify a unique prefix
     and try again.
@@ -599,51 +716,55 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
+Annotations = dict[String, String]
+ArtifactTypeList = list[ArtifactType]
+
+
 class Attribute(TypedDict, total=False):
     """This data type is used in the ImageScanFinding data type."""
 
     key: AttributeKey
-    value: Optional[AttributeValue]
+    value: AttributeValue | None
 
 
-AttributeList = List[Attribute]
+AttributeList = list[Attribute]
 ExpirationTimestamp = datetime
 
 
 class AuthorizationData(TypedDict, total=False):
     """An object representing authorization data for an Amazon ECR registry."""
 
-    authorizationToken: Optional[Base64]
-    expiresAt: Optional[ExpirationTimestamp]
-    proxyEndpoint: Optional[ProxyEndpoint]
+    authorizationToken: Base64 | None
+    expiresAt: ExpirationTimestamp | None
+    proxyEndpoint: ProxyEndpoint | None
 
 
-AuthorizationDataList = List[AuthorizationData]
+AuthorizationDataList = list[AuthorizationData]
 InUseCount = int
 Date = datetime
-ImageTagsList = List[ImageTag]
+ImageTagsList = list[ImageTag]
 
 
 class AwsEcrContainerImageDetails(TypedDict, total=False):
     """The image details of the Amazon ECR container image."""
 
-    architecture: Optional[Arch]
-    author: Optional[Author]
-    imageHash: Optional[ImageDigest]
-    imageTags: Optional[ImageTagsList]
-    platform: Optional[Platform]
-    pushedAt: Optional[Date]
-    lastInUseAt: Optional[Date]
-    inUseCount: Optional[InUseCount]
-    registry: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
+    architecture: Arch | None
+    author: Author | None
+    imageHash: ImageDigest | None
+    imageTags: ImageTagsList | None
+    platform: Platform | None
+    pushedAt: Date | None
+    lastInUseAt: Date | None
+    inUseCount: InUseCount | None
+    registry: RegistryId | None
+    repositoryName: RepositoryName | None
 
 
-BatchedOperationLayerDigestList = List[BatchedOperationLayerDigest]
+BatchedOperationLayerDigestList = list[BatchedOperationLayerDigest]
 
 
 class BatchCheckLayerAvailabilityRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     layerDigests: BatchedOperationLayerDigestList
 
@@ -651,30 +772,30 @@ class BatchCheckLayerAvailabilityRequest(ServiceRequest):
 class LayerFailure(TypedDict, total=False):
     """An object representing an Amazon ECR image layer failure."""
 
-    layerDigest: Optional[BatchedOperationLayerDigest]
-    failureCode: Optional[LayerFailureCode]
-    failureReason: Optional[LayerFailureReason]
+    layerDigest: BatchedOperationLayerDigest | None
+    failureCode: LayerFailureCode | None
+    failureReason: LayerFailureReason | None
 
 
-LayerFailureList = List[LayerFailure]
+LayerFailureList = list[LayerFailure]
 LayerSizeInBytes = int
 
 
 class Layer(TypedDict, total=False):
     """An object representing an Amazon ECR image layer."""
 
-    layerDigest: Optional[LayerDigest]
-    layerAvailability: Optional[LayerAvailability]
-    layerSize: Optional[LayerSizeInBytes]
-    mediaType: Optional[MediaType]
+    layerDigest: LayerDigest | None
+    layerAvailability: LayerAvailability | None
+    layerSize: LayerSizeInBytes | None
+    mediaType: MediaType | None
 
 
-LayerList = List[Layer]
+LayerList = list[Layer]
 
 
 class BatchCheckLayerAvailabilityResponse(TypedDict, total=False):
-    layers: Optional[LayerList]
-    failures: Optional[LayerFailureList]
+    layers: LayerList | None
+    failures: LayerFailureList | None
 
 
 class ImageIdentifier(TypedDict, total=False):
@@ -682,11 +803,11 @@ class ImageIdentifier(TypedDict, total=False):
     repository.
     """
 
-    imageDigest: Optional[ImageDigest]
-    imageTag: Optional[ImageTag]
+    imageDigest: ImageDigest | None
+    imageTag: ImageTag | None
 
 
-ImageIdentifierList = List[ImageIdentifier]
+ImageIdentifierList = list[ImageIdentifier]
 
 
 class BatchDeleteImageRequest(ServiceRequest):
@@ -694,7 +815,7 @@ class BatchDeleteImageRequest(ServiceRequest):
     specified with either the ``imageTag`` or ``imageDigest``.
     """
 
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageIds: ImageIdentifierList
 
@@ -702,48 +823,48 @@ class BatchDeleteImageRequest(ServiceRequest):
 class ImageFailure(TypedDict, total=False):
     """An object representing an Amazon ECR image failure."""
 
-    imageId: Optional[ImageIdentifier]
-    failureCode: Optional[ImageFailureCode]
-    failureReason: Optional[ImageFailureReason]
+    imageId: ImageIdentifier | None
+    failureCode: ImageFailureCode | None
+    failureReason: ImageFailureReason | None
 
 
-ImageFailureList = List[ImageFailure]
+ImageFailureList = list[ImageFailure]
 
 
 class BatchDeleteImageResponse(TypedDict, total=False):
-    imageIds: Optional[ImageIdentifierList]
-    failures: Optional[ImageFailureList]
+    imageIds: ImageIdentifierList | None
+    failures: ImageFailureList | None
 
 
-MediaTypeList = List[MediaType]
+MediaTypeList = list[MediaType]
 
 
 class BatchGetImageRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageIds: ImageIdentifierList
-    acceptedMediaTypes: Optional[MediaTypeList]
+    acceptedMediaTypes: MediaTypeList | None
 
 
 class Image(TypedDict, total=False):
     """An object representing an Amazon ECR image."""
 
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageId: Optional[ImageIdentifier]
-    imageManifest: Optional[ImageManifest]
-    imageManifestMediaType: Optional[MediaType]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    imageManifest: ImageManifest | None
+    imageManifestMediaType: MediaType | None
 
 
-ImageList = List[Image]
+ImageList = list[Image]
 
 
 class BatchGetImageResponse(TypedDict, total=False):
-    images: Optional[ImageList]
-    failures: Optional[ImageFailureList]
+    images: ImageList | None
+    failures: ImageFailureList | None
 
 
-ScanningConfigurationRepositoryNameList = List[RepositoryName]
+ScanningConfigurationRepositoryNameList = list[RepositoryName]
 
 
 class BatchGetRepositoryScanningConfigurationRequest(ServiceRequest):
@@ -755,12 +876,12 @@ class RepositoryScanningConfigurationFailure(TypedDict, total=False):
     configuration of a repository.
     """
 
-    repositoryName: Optional[RepositoryName]
-    failureCode: Optional[ScanningConfigurationFailureCode]
-    failureReason: Optional[ScanningConfigurationFailureReason]
+    repositoryName: RepositoryName | None
+    failureCode: ScanningConfigurationFailureCode | None
+    failureReason: ScanningConfigurationFailureReason | None
 
 
-RepositoryScanningConfigurationFailureList = List[RepositoryScanningConfigurationFailure]
+RepositoryScanningConfigurationFailureList = list[RepositoryScanningConfigurationFailure]
 
 
 class ScanningRepositoryFilter(TypedDict, total=False):
@@ -774,81 +895,81 @@ class ScanningRepositoryFilter(TypedDict, total=False):
     filterType: ScanningRepositoryFilterType
 
 
-ScanningRepositoryFilterList = List[ScanningRepositoryFilter]
+ScanningRepositoryFilterList = list[ScanningRepositoryFilter]
 
 
 class RepositoryScanningConfiguration(TypedDict, total=False):
     """The details of the scanning configuration for a repository."""
 
-    repositoryArn: Optional[Arn]
-    repositoryName: Optional[RepositoryName]
-    scanOnPush: Optional[ScanOnPushFlag]
-    scanFrequency: Optional[ScanFrequency]
-    appliedScanFilters: Optional[ScanningRepositoryFilterList]
+    repositoryArn: Arn | None
+    repositoryName: RepositoryName | None
+    scanOnPush: ScanOnPushFlag | None
+    scanFrequency: ScanFrequency | None
+    appliedScanFilters: ScanningRepositoryFilterList | None
 
 
-RepositoryScanningConfigurationList = List[RepositoryScanningConfiguration]
+RepositoryScanningConfigurationList = list[RepositoryScanningConfiguration]
 
 
 class BatchGetRepositoryScanningConfigurationResponse(TypedDict, total=False):
-    scanningConfigurations: Optional[RepositoryScanningConfigurationList]
-    failures: Optional[RepositoryScanningConfigurationFailureList]
+    scanningConfigurations: RepositoryScanningConfigurationList | None
+    failures: RepositoryScanningConfigurationFailureList | None
 
 
-LayerDigestList = List[LayerDigest]
+LayerDigestList = list[LayerDigest]
 
 
 class CompleteLayerUploadRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     uploadId: UploadId
     layerDigests: LayerDigestList
 
 
 class CompleteLayerUploadResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    uploadId: Optional[UploadId]
-    layerDigest: Optional[LayerDigest]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    uploadId: UploadId | None
+    layerDigest: LayerDigest | None
 
 
 class CreatePullThroughCacheRuleRequest(ServiceRequest):
     ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix
     upstreamRegistryUrl: Url
-    registryId: Optional[RegistryId]
-    upstreamRegistry: Optional[UpstreamRegistry]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
+    registryId: RegistryId | None
+    upstreamRegistry: UpstreamRegistry | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
 
 
 CreationTimestamp = datetime
 
 
 class CreatePullThroughCacheRuleResponse(TypedDict, total=False):
-    ecrRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    upstreamRegistryUrl: Optional[Url]
-    createdAt: Optional[CreationTimestamp]
-    registryId: Optional[RegistryId]
-    upstreamRegistry: Optional[UpstreamRegistry]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
+    ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    upstreamRegistryUrl: Url | None
+    createdAt: CreationTimestamp | None
+    registryId: RegistryId | None
+    upstreamRegistry: UpstreamRegistry | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
 
 
-RCTAppliedForList = List[RCTAppliedFor]
+RCTAppliedForList = list[RCTAppliedFor]
 
 
 class ImageTagMutabilityExclusionFilter(TypedDict, total=False):
-    """Overrides the default image tag mutability setting of the repository for
-    image tags that match the specified filters.
+    """A filter that specifies which image tags should be excluded from the
+    repository's image tag mutability setting.
     """
 
     filterType: ImageTagMutabilityExclusionFilterType
     filter: ImageTagMutabilityExclusionFilterValue
 
 
-ImageTagMutabilityExclusionFilters = List[ImageTagMutabilityExclusionFilter]
+ImageTagMutabilityExclusionFilters = list[ImageTagMutabilityExclusionFilter]
 
 
 class Tag(TypedDict, total=False):
@@ -862,7 +983,7 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class EncryptionConfigurationForRepositoryCreationTemplate(TypedDict, total=False):
@@ -871,20 +992,20 @@ class EncryptionConfigurationForRepositoryCreationTemplate(TypedDict, total=Fals
     """
 
     encryptionType: EncryptionType
-    kmsKey: Optional[KmsKeyForRepositoryCreationTemplate]
+    kmsKey: KmsKeyForRepositoryCreationTemplate | None
 
 
 class CreateRepositoryCreationTemplateRequest(ServiceRequest):
     prefix: Prefix
-    description: Optional[RepositoryTemplateDescription]
-    encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
-    resourceTags: Optional[TagList]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
-    repositoryPolicy: Optional[RepositoryPolicyText]
-    lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
+    description: RepositoryTemplateDescription | None
+    encryptionConfiguration: EncryptionConfigurationForRepositoryCreationTemplate | None
+    resourceTags: TagList | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
+    repositoryPolicy: RepositoryPolicyText | None
+    lifecyclePolicy: LifecyclePolicyTextForRepositoryCreationTemplate | None
     appliedFor: RCTAppliedForList
-    customRoleArn: Optional[CustomRoleArn]
+    customRoleArn: CustomRoleArn | None
 
 
 class RepositoryCreationTemplate(TypedDict, total=False):
@@ -892,23 +1013,23 @@ class RepositoryCreationTemplate(TypedDict, total=False):
     request.
     """
 
-    prefix: Optional[Prefix]
-    description: Optional[RepositoryTemplateDescription]
-    encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
-    resourceTags: Optional[TagList]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
-    repositoryPolicy: Optional[RepositoryPolicyText]
-    lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
-    appliedFor: Optional[RCTAppliedForList]
-    customRoleArn: Optional[CustomRoleArn]
-    createdAt: Optional[Date]
-    updatedAt: Optional[Date]
+    prefix: Prefix | None
+    description: RepositoryTemplateDescription | None
+    encryptionConfiguration: EncryptionConfigurationForRepositoryCreationTemplate | None
+    resourceTags: TagList | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
+    repositoryPolicy: RepositoryPolicyText | None
+    lifecyclePolicy: LifecyclePolicyTextForRepositoryCreationTemplate | None
+    appliedFor: RCTAppliedForList | None
+    customRoleArn: CustomRoleArn | None
+    createdAt: Date | None
+    updatedAt: Date | None
 
 
 class CreateRepositoryCreationTemplateResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryCreationTemplate: Optional[RepositoryCreationTemplate]
+    registryId: RegistryId | None
+    repositoryCreationTemplate: RepositoryCreationTemplate | None
 
 
 class EncryptionConfiguration(TypedDict, total=False):
@@ -930,50 +1051,50 @@ class EncryptionConfiguration(TypedDict, total=False):
     """
 
     encryptionType: EncryptionType
-    kmsKey: Optional[KmsKey]
+    kmsKey: KmsKey | None
 
 
 class ImageScanningConfiguration(TypedDict, total=False):
     """The image scanning configuration for a repository."""
 
-    scanOnPush: Optional[ScanOnPushFlag]
+    scanOnPush: ScanOnPushFlag | None
 
 
 class CreateRepositoryRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    tags: Optional[TagList]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
-    imageScanningConfiguration: Optional[ImageScanningConfiguration]
-    encryptionConfiguration: Optional[EncryptionConfiguration]
+    tags: TagList | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
+    imageScanningConfiguration: ImageScanningConfiguration | None
+    encryptionConfiguration: EncryptionConfiguration | None
 
 
 class Repository(TypedDict, total=False):
     """An object representing a repository."""
 
-    repositoryArn: Optional[Arn]
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    repositoryUri: Optional[Url]
-    createdAt: Optional[CreationTimestamp]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
-    imageScanningConfiguration: Optional[ImageScanningConfiguration]
-    encryptionConfiguration: Optional[EncryptionConfiguration]
+    repositoryArn: Arn | None
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    repositoryUri: Url | None
+    createdAt: CreationTimestamp | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
+    imageScanningConfiguration: ImageScanningConfiguration | None
+    encryptionConfiguration: EncryptionConfiguration | None
 
 
 class CreateRepositoryResponse(TypedDict, total=False):
-    repository: Optional[Repository]
+    repository: Repository | None
 
 
 class CvssScore(TypedDict, total=False):
     """The CVSS score for a finding."""
 
-    baseScore: Optional[BaseScore]
-    scoringVector: Optional[ScoringVector]
-    source: Optional[Source]
-    version: Optional[Version]
+    baseScore: BaseScore | None
+    scoringVector: ScoringVector | None
+    source: Source | None
+    version: Version | None
 
 
 class CvssScoreAdjustment(TypedDict, total=False):
@@ -981,28 +1102,28 @@ class CvssScoreAdjustment(TypedDict, total=False):
     finding.
     """
 
-    metric: Optional[Metric]
-    reason: Optional[Reason]
+    metric: Metric | None
+    reason: Reason | None
 
 
-CvssScoreAdjustmentList = List[CvssScoreAdjustment]
+CvssScoreAdjustmentList = list[CvssScoreAdjustment]
 
 
 class CvssScoreDetails(TypedDict, total=False):
     """Information about the CVSS score."""
 
-    adjustments: Optional[CvssScoreAdjustmentList]
-    score: Optional[Score]
-    scoreSource: Optional[Source]
-    scoringVector: Optional[ScoringVector]
-    version: Optional[Version]
+    adjustments: CvssScoreAdjustmentList | None
+    score: Score | None
+    scoreSource: Source | None
+    scoringVector: ScoringVector | None
+    version: Version | None
 
 
-CvssScoreList = List[CvssScore]
+CvssScoreList = list[CvssScore]
 
 
 class DeleteLifecyclePolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
 
 
@@ -1010,25 +1131,25 @@ EvaluationTimestamp = datetime
 
 
 class DeleteLifecyclePolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
-    lastEvaluatedAt: Optional[EvaluationTimestamp]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    lifecyclePolicyText: LifecyclePolicyText | None
+    lastEvaluatedAt: EvaluationTimestamp | None
 
 
 class DeletePullThroughCacheRuleRequest(ServiceRequest):
     ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
 
 
 class DeletePullThroughCacheRuleResponse(TypedDict, total=False):
-    ecrRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    upstreamRegistryUrl: Optional[Url]
-    createdAt: Optional[CreationTimestamp]
-    registryId: Optional[RegistryId]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
+    ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    upstreamRegistryUrl: Url | None
+    createdAt: CreationTimestamp | None
+    registryId: RegistryId | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
 
 
 class DeleteRegistryPolicyRequest(ServiceRequest):
@@ -1036,8 +1157,8 @@ class DeleteRegistryPolicyRequest(ServiceRequest):
 
 
 class DeleteRegistryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    policyText: Optional[RegistryPolicyText]
+    registryId: RegistryId | None
+    policyText: RegistryPolicyText | None
 
 
 class DeleteRepositoryCreationTemplateRequest(ServiceRequest):
@@ -1045,170 +1166,221 @@ class DeleteRepositoryCreationTemplateRequest(ServiceRequest):
 
 
 class DeleteRepositoryCreationTemplateResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryCreationTemplate: Optional[RepositoryCreationTemplate]
+    registryId: RegistryId | None
+    repositoryCreationTemplate: RepositoryCreationTemplate | None
 
 
 class DeleteRepositoryPolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
 
 
 class DeleteRepositoryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    policyText: Optional[RepositoryPolicyText]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    policyText: RepositoryPolicyText | None
 
 
 class DeleteRepositoryRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    force: Optional[ForceFlag]
+    force: ForceFlag | None
 
 
 class DeleteRepositoryResponse(TypedDict, total=False):
-    repository: Optional[Repository]
+    repository: Repository | None
+
+
+class DeleteSigningConfigurationRequest(ServiceRequest):
+    pass
+
+
+class SigningRepositoryFilter(TypedDict, total=False):
+    """A repository filter used to determine which repositories have their
+    images automatically signed on push. Each filter consists of a filter
+    type and filter value.
+    """
+
+    filter: SigningRepositoryFilterValue
+    filterType: SigningRepositoryFilterType
+
+
+SigningRepositoryFilterList = list[SigningRepositoryFilter]
+
+
+class SigningRule(TypedDict, total=False):
+    """A signing rule that specifies a signing profile and optional repository
+    filters. When an image is pushed to a matching repository, a signing job
+    is created using the specified profile.
+    """
+
+    signingProfileArn: SigningProfileArn
+    repositoryFilters: SigningRepositoryFilterList | None
+
+
+SigningRuleList = list[SigningRule]
+
+
+class SigningConfiguration(TypedDict, total=False):
+    """The signing configuration for a registry, which specifies rules for
+    automatically signing images when pushed.
+    """
+
+    rules: SigningRuleList
+
+
+class DeleteSigningConfigurationResponse(TypedDict, total=False):
+    registryId: RegistryId | None
+    signingConfiguration: SigningConfiguration | None
+
+
+class DeregisterPullTimeUpdateExclusionRequest(ServiceRequest):
+    principalArn: PrincipalArn
+
+
+class DeregisterPullTimeUpdateExclusionResponse(TypedDict, total=False):
+    principalArn: PrincipalArn | None
 
 
 class DescribeImageReplicationStatusRequest(ServiceRequest):
     repositoryName: RepositoryName
     imageId: ImageIdentifier
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
 
 
 class ImageReplicationStatus(TypedDict, total=False):
     """The status of the replication process for an image."""
 
-    region: Optional[Region]
-    registryId: Optional[RegistryId]
-    status: Optional[ReplicationStatus]
-    failureCode: Optional[ReplicationError]
+    region: Region | None
+    registryId: RegistryId | None
+    status: ReplicationStatus | None
+    failureCode: ReplicationError | None
 
 
-ImageReplicationStatusList = List[ImageReplicationStatus]
+ImageReplicationStatusList = list[ImageReplicationStatus]
 
 
 class DescribeImageReplicationStatusResponse(TypedDict, total=False):
-    repositoryName: Optional[RepositoryName]
-    imageId: Optional[ImageIdentifier]
-    replicationStatuses: Optional[ImageReplicationStatusList]
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    replicationStatuses: ImageReplicationStatusList | None
 
 
 class DescribeImageScanFindingsRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageId: ImageIdentifier
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ScoreDetails(TypedDict, total=False):
     """Information about the Amazon Inspector score given to a finding."""
 
-    cvss: Optional[CvssScoreDetails]
+    cvss: CvssScoreDetails | None
 
 
-Tags = Dict[TagKey, TagValue]
+Tags = dict[TagKey, TagValue]
 
 
 class ResourceDetails(TypedDict, total=False):
     """Contains details about the resource involved in the finding."""
 
-    awsEcrContainerImage: Optional[AwsEcrContainerImageDetails]
+    awsEcrContainerImage: AwsEcrContainerImageDetails | None
 
 
 class Resource(TypedDict, total=False):
-    details: Optional[ResourceDetails]
-    id: Optional[ResourceId]
-    tags: Optional[Tags]
-    type: Optional[Type]
+    details: ResourceDetails | None
+    id: ResourceId | None
+    tags: Tags | None
+    type: Type | None
 
 
-ResourceList = List[Resource]
+ResourceList = list[Resource]
 
 
 class Recommendation(TypedDict, total=False):
     """Details about the recommended course of action to remediate the finding."""
 
-    url: Optional[Url]
-    text: Optional[RecommendationText]
+    url: Url | None
+    text: RecommendationText | None
 
 
 class Remediation(TypedDict, total=False):
     """Information on how to remediate a finding."""
 
-    recommendation: Optional[Recommendation]
+    recommendation: Recommendation | None
 
 
 class VulnerablePackage(TypedDict, total=False):
     """Information on the vulnerable package identified by a finding."""
 
-    arch: Optional[Arch]
-    epoch: Optional[Epoch]
-    filePath: Optional[FilePath]
-    name: Optional[VulnerablePackageName]
-    packageManager: Optional[PackageManager]
-    release: Optional[Release]
-    sourceLayerHash: Optional[SourceLayerHash]
-    version: Optional[Version]
-    fixedInVersion: Optional[FixedInVersion]
+    arch: Arch | None
+    epoch: Epoch | None
+    filePath: FilePath | None
+    name: VulnerablePackageName | None
+    packageManager: PackageManager | None
+    release: Release | None
+    sourceLayerHash: SourceLayerHash | None
+    version: Version | None
+    fixedInVersion: FixedInVersion | None
 
 
-VulnerablePackagesList = List[VulnerablePackage]
-RelatedVulnerabilitiesList = List[RelatedVulnerability]
-ReferenceUrlsList = List[Url]
+VulnerablePackagesList = list[VulnerablePackage]
+RelatedVulnerabilitiesList = list[RelatedVulnerability]
+ReferenceUrlsList = list[Url]
 
 
 class PackageVulnerabilityDetails(TypedDict, total=False):
     """Information about a package vulnerability finding."""
 
-    cvss: Optional[CvssScoreList]
-    referenceUrls: Optional[ReferenceUrlsList]
-    relatedVulnerabilities: Optional[RelatedVulnerabilitiesList]
-    source: Optional[Source]
-    sourceUrl: Optional[Url]
-    vendorCreatedAt: Optional[Date]
-    vendorSeverity: Optional[Severity]
-    vendorUpdatedAt: Optional[Date]
-    vulnerabilityId: Optional[VulnerabilityId]
-    vulnerablePackages: Optional[VulnerablePackagesList]
+    cvss: CvssScoreList | None
+    referenceUrls: ReferenceUrlsList | None
+    relatedVulnerabilities: RelatedVulnerabilitiesList | None
+    source: Source | None
+    sourceUrl: Url | None
+    vendorCreatedAt: Date | None
+    vendorSeverity: Severity | None
+    vendorUpdatedAt: Date | None
+    vulnerabilityId: VulnerabilityId | None
+    vulnerablePackages: VulnerablePackagesList | None
 
 
 class EnhancedImageScanFinding(TypedDict, total=False):
-    awsAccountId: Optional[RegistryId]
-    description: Optional[FindingDescription]
-    findingArn: Optional[FindingArn]
-    firstObservedAt: Optional[Date]
-    lastObservedAt: Optional[Date]
-    packageVulnerabilityDetails: Optional[PackageVulnerabilityDetails]
-    remediation: Optional[Remediation]
-    resources: Optional[ResourceList]
-    score: Optional[Score]
-    scoreDetails: Optional[ScoreDetails]
-    severity: Optional[Severity]
-    status: Optional[Status]
-    title: Optional[Title]
-    type: Optional[Type]
-    updatedAt: Optional[Date]
-    fixAvailable: Optional[FixAvailable]
-    exploitAvailable: Optional[ExploitAvailable]
+    awsAccountId: RegistryId | None
+    description: FindingDescription | None
+    findingArn: FindingArn | None
+    firstObservedAt: Date | None
+    lastObservedAt: Date | None
+    packageVulnerabilityDetails: PackageVulnerabilityDetails | None
+    remediation: Remediation | None
+    resources: ResourceList | None
+    score: Score | None
+    scoreDetails: ScoreDetails | None
+    severity: Severity | None
+    status: Status | None
+    title: Title | None
+    type: Type | None
+    updatedAt: Date | None
+    fixAvailable: FixAvailable | None
+    exploitAvailable: ExploitAvailable | None
 
 
-EnhancedImageScanFindingList = List[EnhancedImageScanFinding]
+EnhancedImageScanFindingList = list[EnhancedImageScanFinding]
 
 
 class ImageScanFinding(TypedDict, total=False):
     """Contains information about an image scan finding."""
 
-    name: Optional[FindingName]
-    description: Optional[FindingDescription]
-    uri: Optional[Url]
-    severity: Optional[FindingSeverity]
-    attributes: Optional[AttributeList]
+    name: FindingName | None
+    description: FindingDescription | None
+    uri: Url | None
+    severity: FindingSeverity | None
+    attributes: AttributeList | None
 
 
-ImageScanFindingList = List[ImageScanFinding]
-FindingSeverityCounts = Dict[FindingSeverity, SeverityCount]
+ImageScanFindingList = list[ImageScanFinding]
+FindingSeverityCounts = dict[FindingSeverity, SeverityCount]
 VulnerabilitySourceUpdateTimestamp = datetime
 ScanTimestamp = datetime
 
@@ -1216,58 +1388,88 @@ ScanTimestamp = datetime
 class ImageScanFindings(TypedDict, total=False):
     """The details of an image scan."""
 
-    imageScanCompletedAt: Optional[ScanTimestamp]
-    vulnerabilitySourceUpdatedAt: Optional[VulnerabilitySourceUpdateTimestamp]
-    findingSeverityCounts: Optional[FindingSeverityCounts]
-    findings: Optional[ImageScanFindingList]
-    enhancedFindings: Optional[EnhancedImageScanFindingList]
+    imageScanCompletedAt: ScanTimestamp | None
+    vulnerabilitySourceUpdatedAt: VulnerabilitySourceUpdateTimestamp | None
+    findingSeverityCounts: FindingSeverityCounts | None
+    findings: ImageScanFindingList | None
+    enhancedFindings: EnhancedImageScanFindingList | None
 
 
 class ImageScanStatus(TypedDict, total=False):
     """The current status of an image scan."""
 
-    status: Optional[ScanStatus]
-    description: Optional[ScanStatusDescription]
+    status: ScanStatus | None
+    description: ScanStatusDescription | None
 
 
 class DescribeImageScanFindingsResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageId: Optional[ImageIdentifier]
-    imageScanStatus: Optional[ImageScanStatus]
-    imageScanFindings: Optional[ImageScanFindings]
-    nextToken: Optional[NextToken]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    imageScanStatus: ImageScanStatus | None
+    imageScanFindings: ImageScanFindings | None
+    nextToken: NextToken | None
+
+
+class DescribeImageSigningStatusRequest(ServiceRequest):
+    repositoryName: RepositoryName
+    imageId: ImageIdentifier
+    registryId: RegistryId | None
+
+
+class ImageSigningStatus(TypedDict, total=False):
+    """The signing status for an image. Each status corresponds to a signing
+    profile.
+    """
+
+    signingProfileArn: SigningProfileArn | None
+    failureCode: SigningStatusFailureCode | None
+    failureReason: SigningStatusFailureReason | None
+    status: SigningStatus | None
+
+
+ImageSigningStatusList = list[ImageSigningStatus]
+
+
+class DescribeImageSigningStatusResponse(TypedDict, total=False):
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    registryId: RegistryId | None
+    signingStatuses: ImageSigningStatusList | None
 
 
 class DescribeImagesFilter(TypedDict, total=False):
     """An object representing a filter on a DescribeImages operation."""
 
-    tagStatus: Optional[TagStatus]
+    tagStatus: TagStatus | None
+    imageStatus: ImageStatusFilter | None
 
 
 class DescribeImagesRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    imageIds: Optional[ImageIdentifierList]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    filter: Optional[DescribeImagesFilter]
+    imageIds: ImageIdentifierList | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    filter: DescribeImagesFilter | None
 
 
+LastActivatedAtTimestamp = datetime
+LastArchivedAtTimestamp = datetime
 RecordedPullTimestamp = datetime
 
 
 class ImageScanFindingsSummary(TypedDict, total=False):
     """A summary of the last completed image scan."""
 
-    imageScanCompletedAt: Optional[ScanTimestamp]
-    vulnerabilitySourceUpdatedAt: Optional[VulnerabilitySourceUpdateTimestamp]
-    findingSeverityCounts: Optional[FindingSeverityCounts]
+    imageScanCompletedAt: ScanTimestamp | None
+    vulnerabilitySourceUpdatedAt: VulnerabilitySourceUpdateTimestamp | None
+    findingSeverityCounts: FindingSeverityCounts | None
 
 
 PushTimestamp = datetime
 ImageSizeInBytes = int
-ImageTagList = List[ImageTag]
+ImageTagList = list[ImageTag]
 
 
 class ImageDetail(TypedDict, total=False):
@@ -1275,35 +1477,39 @@ class ImageDetail(TypedDict, total=False):
     operation.
     """
 
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageDigest: Optional[ImageDigest]
-    imageTags: Optional[ImageTagList]
-    imageSizeInBytes: Optional[ImageSizeInBytes]
-    imagePushedAt: Optional[PushTimestamp]
-    imageScanStatus: Optional[ImageScanStatus]
-    imageScanFindingsSummary: Optional[ImageScanFindingsSummary]
-    imageManifestMediaType: Optional[MediaType]
-    artifactMediaType: Optional[MediaType]
-    lastRecordedPullTime: Optional[RecordedPullTimestamp]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageDigest: ImageDigest | None
+    imageTags: ImageTagList | None
+    imageSizeInBytes: ImageSizeInBytes | None
+    imagePushedAt: PushTimestamp | None
+    imageScanStatus: ImageScanStatus | None
+    imageScanFindingsSummary: ImageScanFindingsSummary | None
+    imageManifestMediaType: MediaType | None
+    artifactMediaType: MediaType | None
+    lastRecordedPullTime: RecordedPullTimestamp | None
+    subjectManifestDigest: ImageDigest | None
+    imageStatus: ImageStatus | None
+    lastArchivedAt: LastArchivedAtTimestamp | None
+    lastActivatedAt: LastActivatedAtTimestamp | None
 
 
-ImageDetailList = List[ImageDetail]
+ImageDetailList = list[ImageDetail]
 
 
 class DescribeImagesResponse(TypedDict, total=False):
-    imageDetails: Optional[ImageDetailList]
-    nextToken: Optional[NextToken]
+    imageDetails: ImageDetailList | None
+    nextToken: NextToken | None
 
 
-PullThroughCacheRuleRepositoryPrefixList = List[PullThroughCacheRuleRepositoryPrefix]
+PullThroughCacheRuleRepositoryPrefixList = list[PullThroughCacheRuleRepositoryPrefix]
 
 
 class DescribePullThroughCacheRulesRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
-    ecrRepositoryPrefixes: Optional[PullThroughCacheRuleRepositoryPrefixList]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    registryId: RegistryId | None
+    ecrRepositoryPrefixes: PullThroughCacheRuleRepositoryPrefixList | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 UpdatedTimestamp = datetime
@@ -1312,23 +1518,23 @@ UpdatedTimestamp = datetime
 class PullThroughCacheRule(TypedDict, total=False):
     """The details of a pull through cache rule."""
 
-    ecrRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    upstreamRegistryUrl: Optional[Url]
-    createdAt: Optional[CreationTimestamp]
-    registryId: Optional[RegistryId]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    upstreamRegistry: Optional[UpstreamRegistry]
-    updatedAt: Optional[UpdatedTimestamp]
+    ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    upstreamRegistryUrl: Url | None
+    createdAt: CreationTimestamp | None
+    registryId: RegistryId | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    upstreamRegistry: UpstreamRegistry | None
+    updatedAt: UpdatedTimestamp | None
 
 
-PullThroughCacheRuleList = List[PullThroughCacheRule]
+PullThroughCacheRuleList = list[PullThroughCacheRule]
 
 
 class DescribePullThroughCacheRulesResponse(TypedDict, total=False):
-    pullThroughCacheRules: Optional[PullThroughCacheRuleList]
-    nextToken: Optional[NextToken]
+    pullThroughCacheRules: PullThroughCacheRuleList | None
+    nextToken: NextToken | None
 
 
 class DescribeRegistryRequest(ServiceRequest):
@@ -1346,7 +1552,7 @@ class RepositoryFilter(TypedDict, total=False):
     filterType: RepositoryFilterType
 
 
-RepositoryFilterList = List[RepositoryFilter]
+RepositoryFilterList = list[RepositoryFilter]
 
 
 class ReplicationDestination(TypedDict, total=False):
@@ -1356,7 +1562,7 @@ class ReplicationDestination(TypedDict, total=False):
     registryId: RegistryId
 
 
-ReplicationDestinationList = List[ReplicationDestination]
+ReplicationDestinationList = list[ReplicationDestination]
 
 
 class ReplicationRule(TypedDict, total=False):
@@ -1365,10 +1571,10 @@ class ReplicationRule(TypedDict, total=False):
     """
 
     destinations: ReplicationDestinationList
-    repositoryFilters: Optional[RepositoryFilterList]
+    repositoryFilters: RepositoryFilterList | None
 
 
-ReplicationRuleList = List[ReplicationRule]
+ReplicationRuleList = list[ReplicationRule]
 
 
 class ReplicationConfiguration(TypedDict, total=False):
@@ -1378,44 +1584,44 @@ class ReplicationConfiguration(TypedDict, total=False):
 
 
 class DescribeRegistryResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    replicationConfiguration: Optional[ReplicationConfiguration]
+    registryId: RegistryId | None
+    replicationConfiguration: ReplicationConfiguration | None
 
 
-RepositoryNameList = List[RepositoryName]
+RepositoryNameList = list[RepositoryName]
 
 
 class DescribeRepositoriesRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
-    repositoryNames: Optional[RepositoryNameList]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    registryId: RegistryId | None
+    repositoryNames: RepositoryNameList | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-RepositoryList = List[Repository]
+RepositoryList = list[Repository]
 
 
 class DescribeRepositoriesResponse(TypedDict, total=False):
-    repositories: Optional[RepositoryList]
-    nextToken: Optional[NextToken]
+    repositories: RepositoryList | None
+    nextToken: NextToken | None
 
 
-PrefixList = List[Prefix]
+PrefixList = list[Prefix]
 
 
 class DescribeRepositoryCreationTemplatesRequest(ServiceRequest):
-    prefixes: Optional[PrefixList]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    prefixes: PrefixList | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-RepositoryCreationTemplateList = List[RepositoryCreationTemplate]
+RepositoryCreationTemplateList = list[RepositoryCreationTemplate]
 
 
 class DescribeRepositoryCreationTemplatesResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryCreationTemplates: Optional[RepositoryCreationTemplateList]
-    nextToken: Optional[NextToken]
+    registryId: RegistryId | None
+    repositoryCreationTemplates: RepositoryCreationTemplateList | None
+    nextToken: NextToken | None
 
 
 class GetAccountSettingRequest(ServiceRequest):
@@ -1423,90 +1629,103 @@ class GetAccountSettingRequest(ServiceRequest):
 
 
 class GetAccountSettingResponse(TypedDict, total=False):
-    name: Optional[AccountSettingName]
-    value: Optional[AccountSettingName]
+    name: AccountSettingName | None
+    value: AccountSettingName | None
 
 
-GetAuthorizationTokenRegistryIdList = List[RegistryId]
+GetAuthorizationTokenRegistryIdList = list[RegistryId]
 
 
 class GetAuthorizationTokenRequest(ServiceRequest):
-    registryIds: Optional[GetAuthorizationTokenRegistryIdList]
+    registryIds: GetAuthorizationTokenRegistryIdList | None
 
 
 class GetAuthorizationTokenResponse(TypedDict, total=False):
-    authorizationData: Optional[AuthorizationDataList]
+    authorizationData: AuthorizationDataList | None
 
 
 class GetDownloadUrlForLayerRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     layerDigest: LayerDigest
 
 
 class GetDownloadUrlForLayerResponse(TypedDict, total=False):
-    downloadUrl: Optional[Url]
-    layerDigest: Optional[LayerDigest]
+    downloadUrl: Url | None
+    layerDigest: LayerDigest | None
 
 
 class LifecyclePolicyPreviewFilter(TypedDict, total=False):
     """The filter for the lifecycle policy preview."""
 
-    tagStatus: Optional[TagStatus]
+    tagStatus: TagStatus | None
 
 
 class GetLifecyclePolicyPreviewRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    imageIds: Optional[ImageIdentifierList]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[LifecyclePreviewMaxResults]
-    filter: Optional[LifecyclePolicyPreviewFilter]
+    imageIds: ImageIdentifierList | None
+    nextToken: NextToken | None
+    maxResults: LifecyclePreviewMaxResults | None
+    filter: LifecyclePolicyPreviewFilter | None
+
+
+class TransitioningImageTotalCount(TypedDict, total=False):
+    """The total count of images transitioning to a storage class."""
+
+    targetStorageClass: LifecyclePolicyTargetStorageClass | None
+    imageTotalCount: ImageCount | None
+
+
+TransitioningImageTotalCounts = list[TransitioningImageTotalCount]
 
 
 class LifecyclePolicyPreviewSummary(TypedDict, total=False):
     """The summary of the lifecycle policy preview request."""
 
-    expiringImageTotalCount: Optional[ImageCount]
+    expiringImageTotalCount: ImageCount | None
+    transitioningImageTotalCounts: TransitioningImageTotalCounts | None
 
 
 class LifecyclePolicyRuleAction(TypedDict, total=False):
-    type: Optional[ImageActionType]
+    type: ImageActionType | None
+    targetStorageClass: LifecyclePolicyTargetStorageClass | None
 
 
 class LifecyclePolicyPreviewResult(TypedDict, total=False):
     """The result of the lifecycle policy preview."""
 
-    imageTags: Optional[ImageTagList]
-    imageDigest: Optional[ImageDigest]
-    imagePushedAt: Optional[PushTimestamp]
-    action: Optional[LifecyclePolicyRuleAction]
-    appliedRulePriority: Optional[LifecyclePolicyRulePriority]
+    imageTags: ImageTagList | None
+    imageDigest: ImageDigest | None
+    imagePushedAt: PushTimestamp | None
+    action: LifecyclePolicyRuleAction | None
+    appliedRulePriority: LifecyclePolicyRulePriority | None
+    storageClass: LifecyclePolicyStorageClass | None
 
 
-LifecyclePolicyPreviewResultList = List[LifecyclePolicyPreviewResult]
+LifecyclePolicyPreviewResultList = list[LifecyclePolicyPreviewResult]
 
 
 class GetLifecyclePolicyPreviewResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
-    status: Optional[LifecyclePolicyPreviewStatus]
-    nextToken: Optional[NextToken]
-    previewResults: Optional[LifecyclePolicyPreviewResultList]
-    summary: Optional[LifecyclePolicyPreviewSummary]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    lifecyclePolicyText: LifecyclePolicyText | None
+    status: LifecyclePolicyPreviewStatus | None
+    nextToken: NextToken | None
+    previewResults: LifecyclePolicyPreviewResultList | None
+    summary: LifecyclePolicyPreviewSummary | None
 
 
 class GetLifecyclePolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
 
 
 class GetLifecyclePolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
-    lastEvaluatedAt: Optional[EvaluationTimestamp]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    lifecyclePolicyText: LifecyclePolicyText | None
+    lastEvaluatedAt: EvaluationTimestamp | None
 
 
 class GetRegistryPolicyRequest(ServiceRequest):
@@ -1514,8 +1733,8 @@ class GetRegistryPolicyRequest(ServiceRequest):
 
 
 class GetRegistryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    policyText: Optional[RegistryPolicyText]
+    registryId: RegistryId | None
+    policyText: RegistryPolicyText | None
 
 
 class GetRegistryScanningConfigurationRequest(ServiceRequest):
@@ -1529,62 +1748,126 @@ class RegistryScanningRule(TypedDict, total=False):
     repositoryFilters: ScanningRepositoryFilterList
 
 
-RegistryScanningRuleList = List[RegistryScanningRule]
+RegistryScanningRuleList = list[RegistryScanningRule]
 
 
 class RegistryScanningConfiguration(TypedDict, total=False):
     """The scanning configuration for a private registry."""
 
-    scanType: Optional[ScanType]
-    rules: Optional[RegistryScanningRuleList]
+    scanType: ScanType | None
+    rules: RegistryScanningRuleList | None
 
 
 class GetRegistryScanningConfigurationResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    scanningConfiguration: Optional[RegistryScanningConfiguration]
+    registryId: RegistryId | None
+    scanningConfiguration: RegistryScanningConfiguration | None
 
 
 class GetRepositoryPolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
 
 
 class GetRepositoryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    policyText: Optional[RepositoryPolicyText]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    policyText: RepositoryPolicyText | None
+
+
+class GetSigningConfigurationRequest(ServiceRequest):
+    pass
+
+
+class GetSigningConfigurationResponse(TypedDict, total=False):
+    registryId: RegistryId | None
+    signingConfiguration: SigningConfiguration | None
+
+
+class ImageReferrer(TypedDict, total=False):
+    """An object representing an artifact associated with a subject image."""
+
+    digest: ImageDigest
+    mediaType: MediaType
+    artifactType: ArtifactType | None
+    size: ImageSizeInBytes
+    annotations: Annotations | None
+    artifactStatus: ArtifactStatus | None
+
+
+ImageReferrerList = list[ImageReferrer]
 
 
 class InitiateLayerUploadRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
 
 
 class InitiateLayerUploadResponse(TypedDict, total=False):
-    uploadId: Optional[UploadId]
-    partSize: Optional[PartSize]
+    uploadId: UploadId | None
+    partSize: PartSize | None
 
 
 LayerPartBlob = bytes
 
 
+class ListImageReferrersFilter(TypedDict, total=False):
+    """An object representing a filter on a ListImageReferrers operation."""
+
+    artifactTypes: ArtifactTypeList | None
+    artifactStatus: ArtifactStatusFilter | None
+
+
+class SubjectIdentifier(TypedDict, total=False):
+    """An object that identifies an image subject."""
+
+    imageDigest: ImageDigest
+
+
+class ListImageReferrersRequest(ServiceRequest):
+    registryId: RegistryId | None
+    repositoryName: RepositoryName
+    subjectId: SubjectIdentifier
+    filter: ListImageReferrersFilter | None
+    nextToken: NextToken | None
+    maxResults: FiftyMaxResults | None
+
+
+class ListImageReferrersResponse(TypedDict, total=False):
+    referrers: ImageReferrerList | None
+    nextToken: NextToken | None
+
+
 class ListImagesFilter(TypedDict, total=False):
     """An object representing a filter on a ListImages operation."""
 
-    tagStatus: Optional[TagStatus]
+    tagStatus: TagStatus | None
+    imageStatus: ImageStatusFilter | None
 
 
 class ListImagesRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    filter: Optional[ListImagesFilter]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    filter: ListImagesFilter | None
 
 
 class ListImagesResponse(TypedDict, total=False):
-    imageIds: Optional[ImageIdentifierList]
-    nextToken: Optional[NextToken]
+    imageIds: ImageIdentifierList | None
+    nextToken: NextToken | None
+
+
+class ListPullTimeUpdateExclusionsRequest(ServiceRequest):
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
+
+
+PullTimeUpdateExclusionList = list[PrincipalArn]
+
+
+class ListPullTimeUpdateExclusionsResponse(TypedDict, total=False):
+    pullTimeUpdateExclusions: PullTimeUpdateExclusionList | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1592,7 +1875,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class PutAccountSettingRequest(ServiceRequest):
@@ -1601,59 +1884,59 @@ class PutAccountSettingRequest(ServiceRequest):
 
 
 class PutAccountSettingResponse(TypedDict, total=False):
-    name: Optional[AccountSettingName]
-    value: Optional[AccountSettingValue]
+    name: AccountSettingName | None
+    value: AccountSettingValue | None
 
 
 class PutImageRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageManifest: ImageManifest
-    imageManifestMediaType: Optional[MediaType]
-    imageTag: Optional[ImageTag]
-    imageDigest: Optional[ImageDigest]
+    imageManifestMediaType: MediaType | None
+    imageTag: ImageTag | None
+    imageDigest: ImageDigest | None
 
 
 class PutImageResponse(TypedDict, total=False):
-    image: Optional[Image]
+    image: Image | None
 
 
 class PutImageScanningConfigurationRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageScanningConfiguration: ImageScanningConfiguration
 
 
 class PutImageScanningConfigurationResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageScanningConfiguration: Optional[ImageScanningConfiguration]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageScanningConfiguration: ImageScanningConfiguration | None
 
 
 class PutImageTagMutabilityRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageTagMutability: ImageTagMutability
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
 
 
 class PutImageTagMutabilityResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
 
 
 class PutLifecyclePolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     lifecyclePolicyText: LifecyclePolicyText
 
 
 class PutLifecyclePolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    lifecyclePolicyText: LifecyclePolicyText | None
 
 
 class PutRegistryPolicyRequest(ServiceRequest):
@@ -1661,17 +1944,17 @@ class PutRegistryPolicyRequest(ServiceRequest):
 
 
 class PutRegistryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    policyText: Optional[RegistryPolicyText]
+    registryId: RegistryId | None
+    policyText: RegistryPolicyText | None
 
 
 class PutRegistryScanningConfigurationRequest(ServiceRequest):
-    scanType: Optional[ScanType]
-    rules: Optional[RegistryScanningRuleList]
+    scanType: ScanType | None
+    rules: RegistryScanningRuleList | None
 
 
 class PutRegistryScanningConfigurationResponse(TypedDict, total=False):
-    registryScanningConfiguration: Optional[RegistryScanningConfiguration]
+    registryScanningConfiguration: RegistryScanningConfiguration | None
 
 
 class PutReplicationConfigurationRequest(ServiceRequest):
@@ -1679,49 +1962,66 @@ class PutReplicationConfigurationRequest(ServiceRequest):
 
 
 class PutReplicationConfigurationResponse(TypedDict, total=False):
-    replicationConfiguration: Optional[ReplicationConfiguration]
+    replicationConfiguration: ReplicationConfiguration | None
+
+
+class PutSigningConfigurationRequest(ServiceRequest):
+    signingConfiguration: SigningConfiguration
+
+
+class PutSigningConfigurationResponse(TypedDict, total=False):
+    signingConfiguration: SigningConfiguration | None
+
+
+class RegisterPullTimeUpdateExclusionRequest(ServiceRequest):
+    principalArn: PrincipalArn
+
+
+class RegisterPullTimeUpdateExclusionResponse(TypedDict, total=False):
+    principalArn: PrincipalArn | None
+    createdAt: CreationTimestamp | None
 
 
 class SetRepositoryPolicyRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     policyText: RepositoryPolicyText
-    force: Optional[ForceFlag]
+    force: ForceFlag | None
 
 
 class SetRepositoryPolicyResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    policyText: Optional[RepositoryPolicyText]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    policyText: RepositoryPolicyText | None
 
 
 class StartImageScanRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     imageId: ImageIdentifier
 
 
 class StartImageScanResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    imageId: Optional[ImageIdentifier]
-    imageScanStatus: Optional[ImageScanStatus]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    imageScanStatus: ImageScanStatus | None
 
 
 class StartLifecyclePolicyPreviewRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
+    lifecyclePolicyText: LifecyclePolicyText | None
 
 
 class StartLifecyclePolicyPreviewResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    lifecyclePolicyText: Optional[LifecyclePolicyText]
-    status: Optional[LifecyclePolicyPreviewStatus]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    lifecyclePolicyText: LifecyclePolicyText | None
+    status: LifecyclePolicyPreviewStatus | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1742,42 +2042,56 @@ class UntagResourceResponse(TypedDict, total=False):
     pass
 
 
+class UpdateImageStorageClassRequest(ServiceRequest):
+    registryId: RegistryId | None
+    repositoryName: RepositoryName
+    imageId: ImageIdentifier
+    targetStorageClass: TargetStorageClass
+
+
+class UpdateImageStorageClassResponse(TypedDict, total=False):
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    imageId: ImageIdentifier | None
+    imageStatus: ImageStatus | None
+
+
 class UpdatePullThroughCacheRuleRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
 
 
 class UpdatePullThroughCacheRuleResponse(TypedDict, total=False):
-    ecrRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    registryId: Optional[RegistryId]
-    updatedAt: Optional[UpdatedTimestamp]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
+    ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    registryId: RegistryId | None
+    updatedAt: UpdatedTimestamp | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
 
 
 class UpdateRepositoryCreationTemplateRequest(ServiceRequest):
     prefix: Prefix
-    description: Optional[RepositoryTemplateDescription]
-    encryptionConfiguration: Optional[EncryptionConfigurationForRepositoryCreationTemplate]
-    resourceTags: Optional[TagList]
-    imageTagMutability: Optional[ImageTagMutability]
-    imageTagMutabilityExclusionFilters: Optional[ImageTagMutabilityExclusionFilters]
-    repositoryPolicy: Optional[RepositoryPolicyText]
-    lifecyclePolicy: Optional[LifecyclePolicyTextForRepositoryCreationTemplate]
-    appliedFor: Optional[RCTAppliedForList]
-    customRoleArn: Optional[CustomRoleArn]
+    description: RepositoryTemplateDescription | None
+    encryptionConfiguration: EncryptionConfigurationForRepositoryCreationTemplate | None
+    resourceTags: TagList | None
+    imageTagMutability: ImageTagMutability | None
+    imageTagMutabilityExclusionFilters: ImageTagMutabilityExclusionFilters | None
+    repositoryPolicy: RepositoryPolicyText | None
+    lifecyclePolicy: LifecyclePolicyTextForRepositoryCreationTemplate | None
+    appliedFor: RCTAppliedForList | None
+    customRoleArn: CustomRoleArn | None
 
 
 class UpdateRepositoryCreationTemplateResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryCreationTemplate: Optional[RepositoryCreationTemplate]
+    registryId: RegistryId | None
+    repositoryCreationTemplate: RepositoryCreationTemplate | None
 
 
 class UploadLayerPartRequest(ServiceRequest):
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
     repositoryName: RepositoryName
     uploadId: UploadId
     partFirstByte: PartSize
@@ -1786,31 +2100,31 @@ class UploadLayerPartRequest(ServiceRequest):
 
 
 class UploadLayerPartResponse(TypedDict, total=False):
-    registryId: Optional[RegistryId]
-    repositoryName: Optional[RepositoryName]
-    uploadId: Optional[UploadId]
-    lastByteReceived: Optional[PartSize]
+    registryId: RegistryId | None
+    repositoryName: RepositoryName | None
+    uploadId: UploadId | None
+    lastByteReceived: PartSize | None
 
 
 class ValidatePullThroughCacheRuleRequest(ServiceRequest):
     ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix
-    registryId: Optional[RegistryId]
+    registryId: RegistryId | None
 
 
 class ValidatePullThroughCacheRuleResponse(TypedDict, total=False):
-    ecrRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    registryId: Optional[RegistryId]
-    upstreamRegistryUrl: Optional[Url]
-    credentialArn: Optional[CredentialArn]
-    customRoleArn: Optional[CustomRoleArn]
-    upstreamRepositoryPrefix: Optional[PullThroughCacheRuleRepositoryPrefix]
-    isValid: Optional[IsPTCRuleValid]
-    failure: Optional[PTCValidateFailure]
+    ecrRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    registryId: RegistryId | None
+    upstreamRegistryUrl: Url | None
+    credentialArn: CredentialArn | None
+    customRoleArn: CustomRoleArn | None
+    upstreamRepositoryPrefix: PullThroughCacheRuleRepositoryPrefix | None
+    isValid: IsPTCRuleValid | None
+    failure: PTCValidateFailure | None
 
 
 class EcrApi:
-    service = "ecr"
-    version = "2015-09-21"
+    service: str = "ecr"
+    version: str = "2015-09-21"
 
     @handler("BatchCheckLayerAvailability")
     def batch_check_layer_availability(
@@ -2031,9 +2345,11 @@ class EcrApi:
         :param tags: The metadata that you apply to the repository to help you categorize and
         organize them.
         :param image_tag_mutability: The tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: Creates a repository with a list of filters that define which image tags
-        can override the default image tag mutability setting.
-        :param image_scanning_configuration: The image scanning configuration for the repository.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
+        the repository's image tag mutability setting.
+        :param image_scanning_configuration: The ``imageScanningConfiguration`` parameter is being deprecated, in
+        favor of specifying the image scanning configuration at the registry
+        level.
         :param encryption_configuration: The encryption configuration for the repository.
         :returns: CreateRepositoryResponse
         :raises ServerException:
@@ -2079,9 +2395,8 @@ class EcrApi:
         :param resource_tags: The metadata to apply to the repository to help you categorize and
         organize.
         :param image_tag_mutability: The tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: Creates a repository creation template with a list of filters that
-        define which image tags can override the default image tag mutability
-        setting.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
+        the repository creation template's image tag mutability setting.
         :param repository_policy: The repository policy to apply to repositories created using the
         template.
         :param lifecycle_policy: The lifecycle policy to use for repositories created using the template.
@@ -2219,6 +2534,47 @@ class EcrApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteSigningConfiguration")
+    def delete_signing_configuration(
+        self, context: RequestContext, **kwargs
+    ) -> DeleteSigningConfigurationResponse:
+        """Deletes the registry's signing configuration. Images pushed after
+        deletion of the signing configuration will no longer be automatically
+        signed.
+
+        For more information, see `Managed
+        signing <https://docs.aws.amazon.com/AmazonECR/latest/userguide/managed-signing.html>`__
+        in the *Amazon Elastic Container Registry User Guide*.
+
+        Deleting the signing configuration does not affect existing image
+        signatures.
+
+        :returns: DeleteSigningConfigurationResponse
+        :raises ServerException:
+        :raises ValidationException:
+        :raises SigningConfigurationNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("DeregisterPullTimeUpdateExclusion")
+    def deregister_pull_time_update_exclusion(
+        self, context: RequestContext, principal_arn: PrincipalArn, **kwargs
+    ) -> DeregisterPullTimeUpdateExclusionResponse:
+        """Removes a principal from the pull time update exclusion list for a
+        registry. Once removed, Amazon ECR will resume updating the pull time if
+        the specified principal pulls an image.
+
+        :param principal_arn: The ARN of the IAM principal to remove from the pull time update
+        exclusion list.
+        :returns: DeregisterPullTimeUpdateExclusionResponse
+        :raises InvalidParameterException:
+        :raises ExclusionNotFoundException:
+        :raises LimitExceededException:
+        :raises ValidationException:
+        :raises ServerException:
+        """
+        raise NotImplementedError
+
     @handler("DescribeImageReplicationStatus")
     def describe_image_replication_status(
         self,
@@ -2274,6 +2630,36 @@ class EcrApi:
         :raises ImageNotFoundException:
         :raises ScanNotFoundException:
         :raises ValidationException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeImageSigningStatus")
+    def describe_image_signing_status(
+        self,
+        context: RequestContext,
+        repository_name: RepositoryName,
+        image_id: ImageIdentifier,
+        registry_id: RegistryId | None = None,
+        **kwargs,
+    ) -> DescribeImageSigningStatusResponse:
+        """Returns the signing status for a specified image. If the image matched
+        signing rules that reference different signing profiles, a status is
+        returned for each profile.
+
+        For more information, see `Managed
+        signing <https://docs.aws.amazon.com/AmazonECR/latest/userguide/managed-signing.html>`__
+        in the *Amazon Elastic Container Registry User Guide*.
+
+        :param repository_name: The name of the repository that contains the image.
+        :param image_id: An object containing identifying information for an image.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that
+        contains the repository.
+        :returns: DescribeImageSigningStatusResponse
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ValidationException:
+        :raises ImageNotFoundException:
+        :raises RepositoryNotFoundException:
         """
         raise NotImplementedError
 
@@ -2600,6 +2986,25 @@ class EcrApi:
         """
         raise NotImplementedError
 
+    @handler("GetSigningConfiguration")
+    def get_signing_configuration(
+        self, context: RequestContext, **kwargs
+    ) -> GetSigningConfigurationResponse:
+        """Retrieves the registry's signing configuration, which defines rules for
+        automatically signing images using Amazon Web Services Signer.
+
+        For more information, see `Managed
+        signing <https://docs.aws.amazon.com/AmazonECR/latest/userguide/managed-signing.html>`__
+        in the *Amazon Elastic Container Registry User Guide*.
+
+        :returns: GetSigningConfigurationResponse
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ValidationException:
+        :raises SigningConfigurationNotFoundException:
+        """
+        raise NotImplementedError
+
     @handler("InitiateLayerUpload")
     def initiate_layer_upload(
         self,
@@ -2627,6 +3032,40 @@ class EcrApi:
         :raises InvalidParameterException:
         :raises RepositoryNotFoundException:
         :raises KmsException:
+        """
+        raise NotImplementedError
+
+    @handler("ListImageReferrers")
+    def list_image_referrers(
+        self,
+        context: RequestContext,
+        repository_name: RepositoryName,
+        subject_id: SubjectIdentifier,
+        registry_id: RegistryId | None = None,
+        filter: ListImageReferrersFilter | None = None,
+        next_token: NextToken | None = None,
+        max_results: FiftyMaxResults | None = None,
+        **kwargs,
+    ) -> ListImageReferrersResponse:
+        """Lists the artifacts associated with a specified subject image.
+
+        :param repository_name: The name of the repository that contains the subject image.
+        :param subject_id: An object containing the image digest of the subject image for which to
+        retrieve associated artifacts.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that
+        contains the repository in which to list image referrers.
+        :param filter: The filter key and value with which to filter your
+        ``ListImageReferrers`` results.
+        :param next_token: The ``nextToken`` value returned from a previous paginated
+        ``ListImageReferrers`` request where ``maxResults`` was used and the
+        results exceeded the value of that parameter.
+        :param max_results: The maximum number of image referrer results returned by
+        ``ListImageReferrers`` in paginated output.
+        :returns: ListImageReferrersResponse
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises RepositoryNotFoundException:
+        :raises ValidationException:
         """
         raise NotImplementedError
 
@@ -2664,6 +3103,30 @@ class EcrApi:
         :raises ServerException:
         :raises InvalidParameterException:
         :raises RepositoryNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("ListPullTimeUpdateExclusions")
+    def list_pull_time_update_exclusions(
+        self,
+        context: RequestContext,
+        max_results: MaxResults | None = None,
+        next_token: NextToken | None = None,
+        **kwargs,
+    ) -> ListPullTimeUpdateExclusionsResponse:
+        """Lists the IAM principals that are excluded from having their image pull
+        times recorded.
+
+        :param max_results: The maximum number of pull time update exclusion results returned by
+        ``ListPullTimeUpdateExclusions`` in paginated output.
+        :param next_token: The ``nextToken`` value returned from a previous paginated
+        ``ListPullTimeUpdateExclusions`` request where ``maxResults`` was used
+        and the results exceeded the value of that parameter.
+        :returns: ListPullTimeUpdateExclusionsResponse
+        :raises InvalidParameterException:
+        :raises ValidationException:
+        :raises LimitExceededException:
+        :raises ServerException:
         """
         raise NotImplementedError
 
@@ -2797,8 +3260,8 @@ class EcrApi:
         :param registry_id: The Amazon Web Services account ID associated with the registry that
         contains the repository in which to update the image tag mutability
         settings.
-        :param image_tag_mutability_exclusion_filters: Creates or updates a repository with filters that define which image
-        tags can override the default image tag mutability setting.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
+        the image tag mutability setting being applied.
         :returns: PutImageTagMutabilityResponse
         :raises ServerException:
         :raises InvalidParameterException:
@@ -2867,6 +3330,7 @@ class EcrApi:
         :raises ServerException:
         :raises InvalidParameterException:
         :raises ValidationException:
+        :raises BlockedByOrganizationPolicyException:
         """
         raise NotImplementedError
 
@@ -2896,6 +3360,48 @@ class EcrApi:
         :raises ServerException:
         :raises InvalidParameterException:
         :raises ValidationException:
+        """
+        raise NotImplementedError
+
+    @handler("PutSigningConfiguration")
+    def put_signing_configuration(
+        self, context: RequestContext, signing_configuration: SigningConfiguration, **kwargs
+    ) -> PutSigningConfigurationResponse:
+        """Creates or updates the registry's signing configuration, which defines
+        rules for automatically signing images with Amazon Web Services Signer.
+
+        For more information, see `Managed
+        signing <https://docs.aws.amazon.com/AmazonECR/latest/userguide/managed-signing.html>`__
+        in the *Amazon Elastic Container Registry User Guide*.
+
+        To successfully generate a signature, the IAM principal pushing images
+        must have permission to sign payloads with the Amazon Web Services
+        Signer signing profile referenced in the signing configuration.
+
+        :param signing_configuration: The signing configuration to assign to the registry.
+        :returns: PutSigningConfigurationResponse
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
+    @handler("RegisterPullTimeUpdateExclusion")
+    def register_pull_time_update_exclusion(
+        self, context: RequestContext, principal_arn: PrincipalArn, **kwargs
+    ) -> RegisterPullTimeUpdateExclusionResponse:
+        """Adds an IAM principal to the pull time update exclusion list for a
+        registry. Amazon ECR will not record the pull time if an excluded
+        principal pulls an image.
+
+        :param principal_arn: The ARN of the IAM principal to exclude from having image pull times
+        recorded.
+        :returns: RegisterPullTimeUpdateExclusionResponse
+        :raises InvalidParameterException:
+        :raises ExclusionAlreadyExistsException:
+        :raises LimitExceededException:
+        :raises ValidationException:
+        :raises ServerException:
         """
         raise NotImplementedError
 
@@ -2960,6 +3466,7 @@ class EcrApi:
         :raises RepositoryNotFoundException:
         :raises ImageNotFoundException:
         :raises ValidationException:
+        :raises ImageArchivedException:
         """
         raise NotImplementedError
 
@@ -3027,6 +3534,37 @@ class EcrApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateImageStorageClass")
+    def update_image_storage_class(
+        self,
+        context: RequestContext,
+        repository_name: RepositoryName,
+        image_id: ImageIdentifier,
+        target_storage_class: TargetStorageClass,
+        registry_id: RegistryId | None = None,
+        **kwargs,
+    ) -> UpdateImageStorageClassResponse:
+        """Transitions an image between storage classes. You can transition images
+        from Amazon ECR standard storage class to Amazon ECR archival storage
+        class for long-term storage, or restore archived images back to Amazon
+        ECR standard.
+
+        :param repository_name: The name of the repository that contains the image to transition.
+        :param image_id: An object with identifying information for an image in an Amazon ECR
+        repository.
+        :param target_storage_class: The target storage class for the image.
+        :param registry_id: The Amazon Web Services account ID associated with the registry that
+        contains the image to transition.
+        :returns: UpdateImageStorageClassResponse
+        :raises InvalidParameterException:
+        :raises ImageNotFoundException:
+        :raises ImageStorageClassUpdateNotSupportedException:
+        :raises RepositoryNotFoundException:
+        :raises ServerException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
     @handler("UpdatePullThroughCacheRule")
     def update_pull_through_cache_rule(
         self,
@@ -3086,8 +3624,8 @@ class EcrApi:
         :param resource_tags: The metadata to apply to the repository to help you categorize and
         organize.
         :param image_tag_mutability: Updates the tag mutability setting for the repository.
-        :param image_tag_mutability_exclusion_filters: Updates a repository with filters that define which image tags can
-        override the default image tag mutability setting.
+        :param image_tag_mutability_exclusion_filters: A list of filters that specify which image tags should be excluded from
+        the repository creation template's image tag mutability setting.
         :param repository_policy: Updates the repository policy created using the template.
         :param lifecycle_policy: Updates the lifecycle policy associated with the specified repository
         creation template.

@@ -8,6 +8,8 @@ from dbt.adapters.capability import CapabilityDict, CapabilitySupport, Support, 
 from dbt.adapters.catalogs import CatalogRelation, CatalogIntegration, CatalogIntegrationConfig
 from dbt.adapters.contracts.relation import RelationConfig
 from dbt.adapters.sql import SQLAdapter
+from dbt.adapters.events.types import ColTypeChange
+from dbt.adapters.cache import _make_ref_key_dict
 from dbt.adapters.sql.impl import (
     LIST_SCHEMAS_MACRO_NAME,
     LIST_RELATIONS_MACRO_NAME,
@@ -20,6 +22,7 @@ from dbt_common.contracts.metadata import (
     CatalogTable,
     ColumnMetadata,
 )
+from dbt_common.events.functions import fire_event
 from dbt_common.exceptions import CompilationError, DbtDatabaseError, DbtRuntimeError
 from dbt_common.utils import filter_null_values
 
@@ -44,6 +47,7 @@ SHOW_OBJECT_METADATA_MACRO_NAME = "snowflake__show_object_metadata"
 @dataclass
 class SnowflakeConfig(AdapterConfig):
     transient: Optional[bool] = None
+    partition_by: Optional[Union[str, List[str]]] = None
     cluster_by: Optional[Union[str, List[str]]] = None
     automatic_clustering: Optional[bool] = None
     secure: Optional[bool] = None
@@ -124,19 +128,36 @@ class SnowflakeAdapter(SQLAdapter):
         return super()._catalog_filter_table(lowered, used_schemas)
 
     def _make_match_kwargs(self, database, schema, identifier):
+        # if any path part is already quoted then consider same casing but without quotes
         quoting = self.config.quoting
-        if identifier is not None and quoting["identifier"] is False:
+        if self._is_quoted(identifier):
+            identifier = self._strip_quotes(identifier)
+        elif identifier is not None and quoting["identifier"] is False:
             identifier = identifier.upper()
 
-        if schema is not None and quoting["schema"] is False:
+        if self._is_quoted(schema):
+            schema = self._strip_quotes(schema)
+        elif schema is not None and quoting["schema"] is False:
             schema = schema.upper()
 
-        if database is not None and quoting["database"] is False:
+        if self._is_quoted(database):
+            database = self._strip_quotes(database)
+        elif database is not None and quoting["database"] is False:
             database = database.upper()
 
         return filter_null_values(
             {"identifier": identifier, "schema": schema, "database": database}
         )
+
+    def _is_quoted(self, identifier: str) -> bool:
+        return (
+            identifier is not None
+            and identifier.startswith(self.Relation.quote_character)
+            and identifier.endswith(self.Relation.quote_character)
+        )
+
+    def _strip_quotes(self, identifier: str) -> str:
+        return identifier.strip(self.Relation.quote_character)
 
     def _get_warehouse(self) -> str:
         _, table = self.execute("select current_warehouse() as warehouse", fetch=True)
@@ -520,3 +541,26 @@ CALL {proc_name}();
                 ]
             )
         }
+
+    def expand_column_types(self, goal, current):
+        reference_columns = {c.name: c for c in self.get_columns_in_relation(goal)}
+
+        target_columns = {c.name: c for c in self.get_columns_in_relation(current)}
+
+        for column_name, reference_column in reference_columns.items():
+            target_column = target_columns.get(column_name)
+
+            if target_column is not None and target_column.can_expand_to(reference_column):
+                col_string_size = reference_column.string_size()
+                new_type = self.Column.string_type(col_string_size)
+                if collation := target_column.collation:
+                    new_type += f"collate '{collation}'"
+                fire_event(
+                    ColTypeChange(
+                        orig_type=target_column.data_type,
+                        new_type=new_type,
+                        table=_make_ref_key_dict(current),
+                    )
+                )
+
+                self.alter_column_type(current, column_name, new_type)

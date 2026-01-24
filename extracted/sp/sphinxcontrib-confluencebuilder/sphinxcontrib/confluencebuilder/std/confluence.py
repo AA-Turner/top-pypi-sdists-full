@@ -4,6 +4,9 @@
 from sphinxcontrib.confluencebuilder.std.sphinx import DEFAULT_HIGHLIGHT_STYLE
 import os
 
+# modern cloud api endpoint (scoped tokens)
+API_CLOUD_ENDPOINT = 'https://api.atlassian.com/ex/confluence'
+
 # prefix for all api path requests to a confluence instance (v1 api)
 API_REST_V1 = 'rest/api'
 
@@ -22,6 +25,12 @@ API_MODES = {
 # a table in the v2 editor, Confluence applies a default data width of 760 on
 # the table.
 CONFLUENCE_DEFAULT_V2_TABLE_WIDTH = 760
+
+# default "maximum" width for a table (v2 editor)
+#
+# It has been observed that when attempting to maximum the width of a table in
+# the v2 editor, Confluence applies a limit of 1800 on the table.
+CONFLUENCE_DEFAULT_V2_TABLE_WIDTH_MAX = 1800
 
 # maximum length for a confluence page title
 #

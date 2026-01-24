@@ -1,41 +1,33 @@
 Metadata-Version: 2.4
 Name: jpholiday
-Version: 1.0.2
+Version: 1.0.3
 Summary: Pure-Python Japan Public Holiday Generate
-Home-page: https://github.com/Lalcs/jpholiday
+License: MIT
+License-File: LICENSE
+Keywords: japan,holiday,japanese,calendar,public-holiday,祝日
 Author: Vatis
 Author-email: vatis@lalcs.com
-License: MIT License
-Keywords: Japan,Holiday
-Platform: POSIX
-Platform: Windows
-Platform: Unix
-Platform: MacOS
+Requires-Python: >=3.9
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Natural Language :: Japanese
-Classifier: Operating System :: MacOS
-Classifier: Operating System :: Microsoft
-Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Other/Nonlisted Topic
+Classifier: Natural Language :: Japanese
+Classifier: Natural Language :: English
+Classifier: Typing :: Typed
+Project-URL: Bug Tracker, https://github.com/Lalcs/jpholiday/issues
+Project-URL: Homepage, https://github.com/Lalcs/jpholiday
+Project-URL: Repository, https://github.com/Lalcs/jpholiday
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: summary
 
 # JPHoliday
 
@@ -419,3 +411,4 @@ jpholiday.is_holiday_name(datetime.date(2020, 2, 9))
 jpholiday.is_holiday(datetime.date(2020, 2, 9))
 > False
 ```
+

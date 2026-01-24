@@ -21,7 +21,7 @@ except ImportError:
     import urllib.parse as urlparse
 
 from tablestore.credentials import CredentialsProvider, StaticCredentialsProvider
-from tablestore.auth import SignV2, SignV4
+from tablestore.auth import SignV2, SignV4, SignBase, RequestContext
 from tablestore.protocol import OTSProtocol
 from tablestore.connection import ConnectionPool, AsyncConnectionPool
 from tablestore.metadata import *
@@ -90,10 +90,9 @@ class BaseOTSClient(ABC):
         if self.encoding is None:
             self.encoding = OTSClient.DEFAULT_ENCODING
         if region is None:
-            self._signer = SignV2(self.credentials_provider, self.encoding)
+            self._signer: SignBase = SignV2(self.encoding)
         else:
-            self._signer = SignV4(
-                self.credentials_provider,
+            self._signer: SignBase = SignV4(
                 self.encoding,
                 region=region,
                 **kwargs
@@ -191,14 +190,14 @@ class OTSClient(BaseOTSClient):
     def _request_helper(self, api_name, *args, **kwargs):
         # Generate signing key, each request generate once
         # Must generate before making request headers
-        self._signer.gen_signing_key()
-        query, req_headers, req_body = self.protocol.make_request(api_name, self._signer, *args, **kwargs)
+        request_context: RequestContext = RequestContext(self.credentials_provider.get_credentials())
+        query, req_headers, req_body = self.protocol.make_request(api_name, self._signer, request_context, *args, **kwargs)
 
         retry_times = 0
         while True:
             try:
                 status, reason, res_headers, res_body = self.connection.send_receive(query, req_headers, req_body)
-                self.protocol.handle_error(api_name, query, status, reason, res_headers, res_body, self._signer)
+                self.protocol.handle_error(api_name, query, status, reason, res_headers, res_body, self._signer, request_context)
                 break
             except OTSServiceError as e:
                 if self.retry_policy.should_retry(retry_times, e, api_name):
@@ -1038,15 +1037,14 @@ class AsyncOTSClient(BaseOTSClient):
         # Generate signing key, each request generate once
         # Must generate before making request headers
         connection = self._get_or_create_connection()
-
-        self._signer.gen_signing_key()
-        query, req_headers, req_body = self.protocol.make_request(api_name, self._signer, *args, **kwargs)
+        request_context: RequestContext = RequestContext(self.credentials_provider.get_credentials())
+        query, req_headers, req_body = self.protocol.make_request(api_name, self._signer, request_context, *args, **kwargs)
 
         retry_times = 0
         while True:
             try:
                 status, reason, res_headers, res_body = await connection.send_receive(query, req_headers, req_body)
-                self.protocol.handle_error(api_name, query, status, reason, res_headers, res_body, self._signer)
+                self.protocol.handle_error(api_name, query, status, reason, res_headers, res_body, self._signer, request_context)
                 break
             except OTSServiceError as e:
                 if self.retry_policy.should_retry(retry_times, e, api_name):

@@ -34,10 +34,11 @@ class Scripts:
         self.commands = {
             "addStandardJob": self.redisClient.register_script(self.getScript("addStandardJob-9.lua")),
             "addDelayedJob": self.redisClient.register_script(self.getScript("addDelayedJob-6.lua")),
-            "addParentJob": self.redisClient.register_script(self.getScript("addParentJob-5.lua")),
+            "addParentJob": self.redisClient.register_script(self.getScript("addParentJob-6.lua")),
             "addPrioritizedJob": self.redisClient.register_script(self.getScript("addPrioritizedJob-9.lua")),
             "changePriority": self.redisClient.register_script(self.getScript("changePriority-7.lua")),
             "cleanJobsInSet": self.redisClient.register_script(self.getScript("cleanJobsInSet-3.lua")),
+            "drain": self.redisClient.register_script(self.getScript("drain-5.lua")),
             "extendLock": self.redisClient.register_script(self.getScript("extendLock-2.lua")),
             "getCounts": self.redisClient.register_script(self.getScript("getCounts-1.lua")),
             "getCountsPerPriority": self.redisClient.register_script(self.getScript("getCountsPerPriority-4.lua")),
@@ -86,21 +87,59 @@ class Scripts:
             return self.keys[key]
         return list(map(mapKey, keys))
 
-    def addJobArgs(self, job: Job, waiting_children_key: str|None):
-        #  We are still lacking some arguments here:
+    def encodeOpts(self, opts: dict) -> dict:
+        """
+        Encode options keys from long form to short form for Redis storage.
+        For example: 'deduplication' -> 'de', 'failParentOnFailure' -> 'fpof'
+        """
+        from bullmq.job import optsEncodeMap
+        
+        encoded = {}
+        for key, value in opts.items():
+            # Use encoded key if available, otherwise use original key
+            encoded_key = optsEncodeMap.get(key, key)
+            encoded[encoded_key] = value
+        return encoded
+
+    def addJobArgs(self, job: Job):
         #  ARGV[1] msgpacked arguments array
-        #         [9]  repeat job key
+        #         [1]  key prefix,
+        #         [2]  custom id (will not generate one automatically)
+        #         [3]  name
+        #         [4]  timestamp
+        #         [5]  parentKey?
+        #         [6]  parent dependencies key.
+        #         [7]  parent? {id, queueKey}
+        #         [8]  repeat job key
+        #         [9]  deduplication key
 
         jsonData = json.dumps(job.data, separators=(',', ':'), allow_nan=False)
-        packedOpts = msgpack.packb(job.opts)
+        
+        # Encode opts keys before packing
+        encodedOpts = self.encodeOpts(job.opts)
+        packedOpts = msgpack.packb(encodedOpts)
 
         parent = job.parent
         parentKey = job.parentKey
+        
+        # Build deduplication key if deduplication ID exists
+        deduplicationKey = None
+        if job.deduplication_id:
+            deduplicationKey = f"{self.keys['']}de:{job.deduplication_id}"
 
         packedArgs = msgpack.packb(
-            [self.keys[""], job.id or "", job.name, job.timestamp, job.parentKey,
-                waiting_children_key,
-                f"{parentKey}:dependencies" if parentKey else None, parent],use_bin_type=True)
+            [
+                self.keys[""],                                              # [1] key prefix
+                job.id or "",                                               # [2] custom id
+                job.name,                                                   # [3] name
+                job.timestamp,                                              # [4] timestamp
+                job.parentKey,                                              # [5] parentKey
+                f"{parentKey}:dependencies" if parentKey else None,         # [6] parent dependencies key
+                parent,                                                     # [7] parent {id, queueKey}
+                job.repeatJobKey,                                           # [8] repeat job key
+                deduplicationKey                                            # [9] deduplication key
+            ],
+            use_bin_type=True)
         
         return [packedArgs, jsonData, packedOpts]
 
@@ -131,7 +170,7 @@ class Scripts:
         """
         keys = self.getKeys(['wait', 'paused', 'meta', 'id', 'completed',
                              'delayed', 'active', 'events', 'marker'])
-        args = self.addJobArgs(job, None)
+        args = self.addJobArgs(job)
         args.append(timestamp)
 
         return self.commands["addStandardJob"](keys=keys, args=args, client=pipe)
@@ -142,7 +181,7 @@ class Scripts:
         """
         keys = self.getKeys(['marker', 'meta', 'id',
                             'delayed', 'completed', 'events'])
-        args = self.addJobArgs(job, None)
+        args = self.addJobArgs(job)
         args.append(timestamp)
 
         return self.commands["addDelayedJob"](keys=keys, args=args, client=pipe)
@@ -153,18 +192,18 @@ class Scripts:
         """
         keys = self.getKeys(['marker', 'meta', 'id', 'prioritized',
                              'delayed', 'completed', 'active', 'events', 'pc'])
-        args = self.addJobArgs(job, None)
+        args = self.addJobArgs(job)
         args.append(timestamp)
 
         return self.commands["addPrioritizedJob"](keys=keys, args=args, client=pipe)
 
-    def addParentJob(self, job: Job, waiting_children_key: str, pipe = None):
+    def addParentJob(self, job: Job, pipe = None):
         """
         Add a job to the queue that is a parent
         """
-        keys = self.getKeys(['meta', 'id', 'delayed', 'completed', 'events'])
-        
-        args = self.addJobArgs(job, waiting_children_key)
+        keys = self.getKeys(['meta', 'id', 'delayed', 'waiting-children', 'completed', 'events'])
+
+        args = self.addJobArgs(job)
 
         return self.commands["addParentJob"](keys=keys, args=args, client=pipe)
 
@@ -445,7 +484,7 @@ class Scripts:
                     })
         return None
 
-    async def reprocessJob(self, job: Job, state: str):
+    async def reprocessJob(self, job: Job, state: str, opts: dict = {}):
         keys = [self.toKey(job.id)]
         keys.append(self.keys['events'])
         keys.append(self.keys[state])
@@ -459,7 +498,9 @@ class Scripts:
             job.id,
             ("R" if job.opts.get("lifo") else "L") + "PUSH",
             "failedReason" if state == "failed" else "returnvalue",
-            state
+            state,
+            "1" if opts.get("resetAttemptsMade") else "0",
+            "1" if opts.get("resetAttemptsStarted") else "0"
             ]
 
         result = await self.commands["reprocessJob"](keys=keys, args=args)
@@ -488,13 +529,24 @@ class Scripts:
         Remove a queue completely
         """
         keys = self.getKeys(['meta', ''])
-        result = await self.commands["obliterate"](keys, args=[count, force or ""])
+        result = await self.commands["obliterate"](keys, args=[count, "force" if force else ""])
         if (result < 0):
             if (result == -1):
                 raise Exception("Cannot obliterate non-paused queue")
             if (result == -2):
                 raise Exception("Cannot obliterate queue with active jobs")
         return result
+
+    async def drain(self, delayed: bool = False):
+        """
+        Drains the queue, removes all jobs that are waiting
+        or delayed, but not active, completed or failed.
+        
+        @param delayed: Pass True if it should also clean the delayed jobs.
+        """
+        keys = self.getKeys(['wait', 'paused', 'delayed', 'prioritized', 'repeat'])
+        args = [self.keys[''], '1' if delayed else '0']
+        await self.commands["drain"](keys, args=args)
 
     def moveJobsToWaitArgs(self, state: str, count: int, timestamp: int) -> int:
         keys = self.getKeys(
@@ -597,9 +649,10 @@ class Scripts:
             "attempts": job.attempts,
             "attemptsMade": job.attemptsMade,
             "maxMetricsSize": getMetricsSize(opts),
-            "fpof": opts.get("failParentOnFailure", False),
-            "cpof": opts.get("continueParentOnFailure", False),
-            "idof": opts.get("ignoreDependencyOnFailure", False)
+            "fpof": job.opts.get("failParentOnFailure", False),
+            "cpof": job.opts.get("continueParentOnFailure", False),
+            "idof": job.opts.get("ignoreDependencyOnFailure", False),
+            "rdof": job.opts.get("removeDependencyOnFailure", False)
         }, use_bin_type=True)
 
         args = [job.id, timestamp, propVal, transformed_value or "", target,

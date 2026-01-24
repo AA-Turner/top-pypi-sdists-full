@@ -6,18 +6,35 @@ use oxigraph::model::vocab::{rdf, xsd};
 use oxigraph::model::*;
 use oxigraph::store::Store;
 use std::error::Error;
+#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+use std::fs::remove_dir_all;
 #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
-use std::fs::{File, create_dir_all, remove_dir, remove_dir_all};
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
-use std::fs::{read, read_dir, write};
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+use std::fs::{File, create_dir_all, read_dir, remove_dir};
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
+use std::fs::{read, write};
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 use std::io;
 #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
 use std::io::Write;
 use std::iter::empty;
 #[cfg(all(target_os = "linux", feature = "rocksdb"))]
 use std::iter::once;
-#[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 use std::path::PathBuf;
 #[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
 use tempfile::TempDir;
@@ -188,6 +205,28 @@ fn test_bulk_load_empty() -> Result<(), Box<dyn Error>> {
     loader.commit()?;
     assert!(store.is_empty()?);
     store.validate()?;
+    Ok(())
+}
+
+#[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+#[test]
+fn test_bulk_load_rollback() -> Result<(), Box<dyn Error>> {
+    let dir = TempDir::new()?;
+    let store = Store::open(&dir)?;
+    let before_files = read_dir(&dir)?
+        .map(|e| e.map(|e| e.path()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut loader = store.bulk_loader();
+    loader.load_from_slice(RdfFormat::Turtle, DATA.as_bytes())?;
+    drop(loader);
+    store.validate()?;
+    let after_files = read_dir(&dir)?
+        .map(|e| e.map(|e| e.path()))
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(
+        before_files, after_files,
+        "Files created even if bulk loader got rolled back"
+    );
     Ok(())
 }
 
@@ -424,7 +463,12 @@ fn test_backup_on_in_memory() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 fn test_backward_compatibility() -> Result<(), Box<dyn Error>> {
     // We run twice to check if data is properly saved and closed
     let _reset = DirSaver::new("tests/rocksdb_bc_data")?;
@@ -448,7 +492,13 @@ fn test_backward_compatibility() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-#[cfg(all(target_os = "linux", feature = "rocksdb", feature = "rdf-12"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb",
+    feature = "rdf-12"
+))]
 fn test_rdf_star_backward_compatibility() -> Result<(), Box<dyn Error>> {
     // We run twice to check if data is properly saved and closed
     let _reset = DirSaver::new("tests/rocksdb_bc_rdf_star_data")?;
@@ -542,13 +592,23 @@ fn test_open_read_only_bad_dir() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 struct DirSaver {
     path: PathBuf,
     elements: Vec<(PathBuf, Vec<u8>)>,
 }
 
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 impl DirSaver {
     fn new(path: &str) -> io::Result<Self> {
         Ok(Self {
@@ -564,7 +624,12 @@ impl DirSaver {
     }
 }
 
-#[cfg(all(target_os = "linux", feature = "rocksdb"))]
+#[cfg(all(
+    target_os = "linux",
+    target_pointer_width = "64",
+    target_endian = "little",
+    feature = "rocksdb"
+))]
 impl Drop for DirSaver {
     fn drop(&mut self) {
         remove_dir_all(&self.path).unwrap();

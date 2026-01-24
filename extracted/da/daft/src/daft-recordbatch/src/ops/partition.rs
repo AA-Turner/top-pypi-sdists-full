@@ -1,12 +1,7 @@
 use std::ops::Rem;
 
-use arrow2::array::{Array, DictionaryKey};
 use common_error::{DaftError, DaftResult};
-use daft_core::{
-    array::ops::{IntoGroups, as_arrow::AsArrow},
-    datatypes::UInt64Array,
-    series::IntoSeries,
-};
+use daft_core::{array::ops::IntoGroups, datatypes::UInt64Array};
 use daft_dsl::expr::bound_expr::BoundExpr;
 use rand::SeedableRng;
 
@@ -27,27 +22,27 @@ impl RecordBatch {
         }
         let mut output_to_input_idx =
             vec![Vec::with_capacity(self.len() / num_partitions); num_partitions];
-        if targets.as_arrow().null_count() != 0 {
+        if targets.null_count() != 0 {
             return Err(DaftError::ComputeError(format!(
                 "target array can not contain nulls, contains {} nulls",
-                targets.as_arrow().null_count()
+                targets.null_count()
             )));
         }
 
-        for (s_idx, t_idx) in targets.as_arrow().values_iter().enumerate() {
+        for (s_idx, t_idx) in targets.values().iter().enumerate() {
             if *t_idx >= (num_partitions as u64) {
                 return Err(DaftError::ComputeError(format!(
                     "idx in target array is out of bounds, target idx {t_idx} at index {s_idx} out of {num_partitions} partitions"
                 )));
             }
 
-            output_to_input_idx[unsafe { t_idx.as_usize() }].push(s_idx as u64);
+            output_to_input_idx[*t_idx as usize].push(s_idx as u64);
         }
         output_to_input_idx
             .into_iter()
             .map(|v| {
                 let indices = UInt64Array::from(("idx", v));
-                self.take(&indices.into_series())
+                self.take(&indices)
             })
             .collect::<DaftResult<Vec<_>>>()
     }
@@ -109,13 +104,13 @@ impl RecordBatch {
     ) -> DaftResult<(Vec<Self>, Self)> {
         let partition_key_table = self.eval_expression_list(partition_keys)?;
         let (key_idx, group_idx) = partition_key_table.make_groups()?;
-        let key_idx = UInt64Array::from(("idx", key_idx)).into_series();
+        let key_idx = UInt64Array::from(("idx", key_idx));
         let pkeys_per_output_table = partition_key_table.take(&key_idx)?;
         drop(partition_key_table);
         let output_tables = group_idx
             .into_iter()
             .map(|gidx| {
-                let gidx = UInt64Array::from(("idx", gidx)).into_series();
+                let gidx = UInt64Array::from(("idx", gidx));
                 self.take(&gidx)
             })
             .collect::<DaftResult<Vec<_>>>()?;

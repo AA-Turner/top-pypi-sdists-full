@@ -15,27 +15,19 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0087 import RunnerLabel
 
+class ActionsCacheStorageLimitForOrganization(GitHubModel):
+    """Actions cache storage limit for an organization
 
-class Runner(GitHubModel):
-    """Self hosted runners
-
-    A self hosted runner
+    GitHub Actions cache storage policy for an organization.
     """
 
-    id: int = Field(description="The ID of the runner.")
-    runner_group_id: Missing[int] = Field(
-        default=UNSET, description="The ID of the runner group."
+    max_cache_size_gb: Missing[int] = Field(
+        default=UNSET,
+        description="For repositories in the organization, the maximum size limit for the sum of all caches in a repository, in gigabytes.",
     )
-    name: str = Field(description="The name of the runner.")
-    os: str = Field(description="The Operating System of the runner.")
-    status: str = Field(description="The status of the runner.")
-    busy: bool = Field()
-    labels: list[RunnerLabel] = Field()
-    ephemeral: Missing[bool] = Field(default=UNSET)
 
 
-model_rebuild(Runner)
+model_rebuild(ActionsCacheStorageLimitForOrganization)
 
-__all__ = ("Runner",)
+__all__ = ("ActionsCacheStorageLimitForOrganization",)

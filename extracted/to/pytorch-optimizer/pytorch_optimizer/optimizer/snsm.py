@@ -4,11 +4,11 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 def closest_smaller_divisor_of_n_to_k(n: int, k: int) -> int:
-    r"""Get closest smaller divisor of n to k."""
+    """Get closest smaller divisor of n to k."""
     if n % k == 0:
         return k
 
@@ -22,35 +22,35 @@ def closest_smaller_divisor_of_n_to_k(n: int, k: int) -> int:
 
 
 class AdamWSN(BaseOptimizer):
-    r"""Lean and Mean Adaptive Optimization via Subset-Norm and Subspace-Momentum with Convergence Guarantees.
+    """Lean and Mean Adaptive Optimization via Subset-Norm and Subspace-Momentum with Convergence Guarantees.
 
-    .. code-block:: python
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        subset_size (int): If you do not know what subset_size to set, a good rule of thumb is to set it as d/2 where
+            d is the hidden dimension of your transformer model. For example, the hidden dimension is 4096 for Llama 7B
+            and so a good subset_size could be 2048. You can leave the subset_size argument to its default value of -1
+            to use the recommended subset size as stated above.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
 
-        sn_params = [module.weight for module in model.modules() if isinstance(module, nn.Linear)]
-        sn_param_ids = [id(p) for p in sn_params]
-        regular_params = [p for p in model.parameters() if id(p) not in sn_param_ids]
-        param_groups = [{'params': regular_params, 'sn': False}, {'params': sn_params, 'sn': True}]
-        optimizer = AdamWSN(param_groups, lr=args.lr, weight_decay=args.weight_decay, subset_size=args.subset_size)
-
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param subset_size: int. If you do not know what subset_size to set, a good rule of thumb is to set it as d/2 where
-        d is the hidden dimension of your transformer model. For example, the hidden dimension is 4096 for Llama 7B and
-        so a good subset_size could be 2048. You can leave the subset_size argument to its default value of -1 to use
-        the recommended subset size as stated above.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Example:
+        >>> sn_params = [module.weight for module in model.modules() if isinstance(module, nn.Linear)]
+        >>> sn_param_ids = [id(p) for p in sn_params]
+        >>> regular_params = [p for p in model.parameters() if id(p) not in sn_param_ids]
+        >>> param_groups = [{'params': regular_params, 'sn': False}, {'params': sn_params, 'sn': True}]
+        >>> optimizer = AdamWSN(param_groups, lr=args.lr, weight_decay=args.weight_decay, subset_size=args.subset_size)
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
@@ -66,7 +66,7 @@ class AdamWSN(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -82,7 +82,10 @@ class AdamWSN(BaseOptimizer):
     def __str__(self) -> str:
         return 'AdamWSN'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -119,18 +122,15 @@ class AdamWSN(BaseOptimizer):
                     state['exp_avg_sq'] = torch.zeros_like(grad)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

@@ -1,6 +1,7 @@
 # Copyright (c) 2017, 2022 ZettaScale Technology Inc.
 import sys
 import time
+from glob import glob
 from os import getpgid, killpg, path
 from signal import SIGINT
 from subprocess import PIPE, Popen, TimeoutExpired
@@ -19,18 +20,22 @@ import fixtures
 
 
 examples = path.realpath(__file__).split("/tests")[0] + "/examples/"
+docs_examples = path.realpath(__file__).split("/tests")[0] + "/docs/examples/"
 tab = "\t"
 ret = "\r\n"
 
 
 class Pyrun(fixtures.Fixture):
-    def __init__(self, p, args=None) -> None:
+    def __init__(self, p, args=None, basedir=None, timeout=30) -> None:
         if args is None:
             args = []
+        if basedir is None:
+            basedir = examples
         self.name = p
+        self.timeout = timeout
         print(f"starting {self.name}")
         self.process: Popen = Popen(
-            ["python3", path.join(examples, p), *args],
+            ["python3", path.join(basedir, p), *args],
             stdout=PIPE,
             stderr=PIPE,
             start_new_session=True,
@@ -61,7 +66,7 @@ class Pyrun(fixtures.Fixture):
 
     def wait(self):
         try:
-            code = self.process.wait(timeout=10)
+            code = self.process.wait(timeout=self.timeout)
         except TimeoutExpired:
             self.process.send_signal(SIGINT)
             code = self.process.wait(timeout=10)
@@ -386,3 +391,45 @@ def test_z_advanced_pub_z_advanced_sub():
 
     assert not pub.errors
     assert not sub.errors
+
+
+def test_z_pub_shm():
+    """Test z_pub_shm."""
+    ## Run z_sub
+    sub = Pyrun("z_sub.py")
+    time.sleep(3)
+    ## z_pub: Put two messages (to storage & sub)
+    pub = Pyrun("z_pub.py", ["--iter=1", "--interval=0"])
+    if error := pub.status():
+        pub.dbg()
+        pub.errors.append(error)
+    ## z_sub_queued: Should receive two messages
+    if error := sub.interrupt():
+        sub.dbg()
+        sub.errors.append(error)
+    sub_out = "".join(sub.stdout)
+    if not (
+        "Received SampleKind.PUT ('demo/example/zenoh-python-pub': '[   0] Pub from Python!')"
+        in sub_out
+    ):
+        sub.errors.append("z_sub_queued didn't catch the first z_pub")
+
+    assert not pub.errors
+    assert not sub.errors
+
+
+def test_docs_examples():
+    """Test all docs/examples - run each one and verify no timeout or non-zero exit."""
+    example_files = glob(path.join(docs_examples, "*.py"))
+    errors = []
+
+    for example_file in example_files:
+        example_name = path.basename(example_file)
+        print(f"\nTesting docs example: {example_name}")
+
+        example = Pyrun(example_name, basedir=docs_examples)
+        if error := example.status():
+            example.dbg()
+            errors.append(f"{example_name}: {error}")
+
+    assert not errors, f"Docs examples failed: {errors}"

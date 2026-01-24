@@ -19,11 +19,6 @@ pub struct ProguardMapping<'a> {
 }
 
 impl<'a> ProguardMapping<'a> {
-    /// Get the length of the mapping in bytes.
-    pub fn len(&self) -> usize {
-        self.bytes.len()
-    }
-
     /// Get the UUID of the mapping.
     pub fn uuid(&self) -> Uuid {
         self.uuid
@@ -69,7 +64,7 @@ impl AsRef<[u8]> for ProguardMapping<'_> {
 }
 
 impl Assemblable for ProguardMapping<'_> {
-    fn name(&self) -> Cow<str> {
+    fn name(&self) -> Cow<'_, str> {
         format!("/proguard/{}.txt", self.uuid).into()
     }
 

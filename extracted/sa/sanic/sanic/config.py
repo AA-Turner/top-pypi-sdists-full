@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from abc import ABCMeta
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import Sequence
 from inspect import getmembers, isclass, isdatadescriptor
 from os import environ
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal
 from warnings import filterwarnings
 
 from sanic.constants import LocalCertCreator
@@ -16,14 +16,14 @@ from sanic.log import error_logger
 from sanic.utils import load_module_from_file_location, str_to_bool
 
 
-FilterWarningType = Union[
-    Literal["default"],
-    Literal["error"],
-    Literal["ignore"],
-    Literal["always"],
-    Literal["module"],
-    Literal["once"],
-]
+FilterWarningType = (
+    Literal["default"]
+    | Literal["error"]
+    | Literal["ignore"]
+    | Literal["always"]
+    | Literal["module"]
+    | Literal["once"]
+)
 
 SANIC_PREFIX = "SANIC_"
 
@@ -84,6 +84,50 @@ class DescriptorMeta(ABCMeta):
         return isdatadescriptor(member) and hasattr(member, "setter")
 
 
+class DetailedConverter(ABC):
+    """Base class for detailed converters that need additional context.
+
+    DetailedConverter provides access to the full environment variable key,
+    the raw value, and the current config defaults. This allows for more
+    sophisticated conversion logic that can take into account the variable
+    name pattern, perform validation, or use default values for fallback.
+
+    Examples:
+        ```python
+        # Example of a converter that casts values to the type of the default
+        class DefaultsCastConverter(DetailedConverter):
+            def __call__(self, full_key: str, config_key: str, value: str,
+                                                        defaults: dict) -> Any:
+                try:
+                    if config_key in defaults:
+                        return type(defaults[config_key])(value)
+                except (ValueError, TypeError):
+                    raise ValueError
+        ```
+    """
+
+    @abstractmethod
+    def __call__(
+        self, full_key: str, config_key: str, value: str, defaults: dict
+    ) -> Any:
+        """Convert an environment variable to a Python value.
+
+        Args:
+            full_key: The full environment variable name (with prefix)
+                            (e.g., "SANIC_DATABASE_URL")
+            config_key: The environment variable name (without prefix)
+                            (e.g., "DATABASE_URL")
+            value: The raw string value from the environment
+            defaults: The current default configuration values
+
+        Returns:
+            The converted Python value
+
+        Raises:
+            ValueError: If the value cannot be converted by this converter
+        """
+
+
 class Config(dict, metaclass=DescriptorMeta):
     """Configuration object for Sanic.
 
@@ -97,28 +141,28 @@ class Config(dict, metaclass=DescriptorMeta):
     EVENT_AUTOREGISTER: bool
     DEPRECATION_FILTER: FilterWarningType
     FORWARDED_FOR_HEADER: str
-    FORWARDED_SECRET: Optional[str]
+    FORWARDED_SECRET: str | None
     GRACEFUL_SHUTDOWN_TIMEOUT: float
     GRACEFUL_TCP_CLOSE_TIMEOUT: float
     INSPECTOR: bool
     INSPECTOR_HOST: str
     INSPECTOR_PORT: int
-    INSPECTOR_TLS_KEY: Union[Path, str, Default]
-    INSPECTOR_TLS_CERT: Union[Path, str, Default]
+    INSPECTOR_TLS_KEY: Path | str | Default
+    INSPECTOR_TLS_CERT: Path | str | Default
     INSPECTOR_API_KEY: str
     KEEP_ALIVE_TIMEOUT: int
     KEEP_ALIVE: bool
-    LOCAL_CERT_CREATOR: Union[str, LocalCertCreator]
-    LOCAL_TLS_KEY: Union[Path, str, Default]
-    LOCAL_TLS_CERT: Union[Path, str, Default]
+    LOCAL_CERT_CREATOR: str | LocalCertCreator
+    LOCAL_TLS_KEY: Path | str | Default
+    LOCAL_TLS_CERT: Path | str | Default
     LOCALHOST: str
-    LOG_EXTRA: Union[Default, bool]
+    LOG_EXTRA: Default | bool
     MOTD: bool
     MOTD_DISPLAY: dict[str, str]
     NO_COLOR: bool
     NOISY_EXCEPTIONS: bool
-    PROXIES_COUNT: Optional[int]
-    REAL_IP_HEADER: Optional[str]
+    PROXIES_COUNT: int | None
+    REAL_IP_HEADER: str | None
     REQUEST_BUFFER_SIZE: int
     REQUEST_MAX_HEADER_SIZE: int
     REQUEST_ID_HEADER: str
@@ -127,24 +171,23 @@ class Config(dict, metaclass=DescriptorMeta):
     RESPONSE_TIMEOUT: int
     SERVER_NAME: str
     TLS_CERT_PASSWORD: str
-    TOUCHUP: Union[Default, bool]
-    USE_UVLOOP: Union[Default, bool]
+    TOUCHUP: Default | bool
+    USE_UVLOOP: Default | bool
     WEBSOCKET_MAX_SIZE: int
     WEBSOCKET_PING_INTERVAL: int
     WEBSOCKET_PING_TIMEOUT: int
 
     def __init__(
         self,
-        defaults: Optional[
-            dict[str, Union[str, bool, int, float, None]]
-        ] = None,
-        env_prefix: Optional[str] = SANIC_PREFIX,
-        keep_alive: Optional[bool] = None,
+        defaults: dict[str, str | bool | int | float | None] | None = None,
+        env_prefix: str | None = SANIC_PREFIX,
+        keep_alive: bool | None = None,
         *,
-        converters: Optional[Sequence[Callable[[str], Any]]] = None,
+        converters: Sequence[Callable[[str], Any]] | None = None,
     ):
         defaults = defaults or {}
-        super().__init__({**DEFAULT_CONFIG, **defaults})
+        self.defaults = {**DEFAULT_CONFIG, **defaults}
+        super().__init__(self.defaults)
         self._configure_warnings()
 
         self._converters = [str, str_to_bool, float, int]
@@ -276,7 +319,7 @@ class Config(dict, metaclass=DescriptorMeta):
             module=r"sanic.*",
         )
 
-    def _check_error_format(self, format: Optional[str] = None):
+    def _check_error_format(self, format: str | None = None):
         check_error_format(format or self.FALLBACK_ERROR_FORMAT)
 
     def load_environment_vars(self, prefix=SANIC_PREFIX):
@@ -327,12 +370,17 @@ class Config(dict, metaclass=DescriptorMeta):
 
             for converter in reversed(self._converters):
                 try:
-                    self[config_key] = converter(value)
+                    if isinstance(converter, DetailedConverter):
+                        self[config_key] = converter(
+                            key, config_key, value, self.defaults
+                        )
+                    else:
+                        self[config_key] = converter(value)
                     break
                 except ValueError:
                     pass
 
-    def update_config(self, config: Union[bytes, str, dict[str, Any], Any]):
+    def update_config(self, config: bytes | str | dict[str, Any] | Any):
         """Update app.config.
 
         .. note::
@@ -413,7 +461,7 @@ class Config(dict, metaclass=DescriptorMeta):
 
         Args:
             converter (Callable[[str], Any]): A function that takes a string
-                and returns a value of any type.
+            and returns a value of any type, or a DetailedConverter instance.
 
         Examples:
             ```python
@@ -422,6 +470,20 @@ class Config(dict, metaclass=DescriptorMeta):
                 return value
 
             config.register_type(my_converter)
+
+            # Or use a DetailedConverter for more context
+            # Example of a converter that casts values to
+            # the type of the default
+            class DefaultsCastConverter(DetailedConverter):
+                def __call__(self, full_key: str, config_key: str, value: str,
+                                                    defaults: dict) -> Any:
+                    try:
+                        if config_key in defaults:
+                            return type(defaults[config_key])(value)
+                    except (ValueError, TypeError):
+                        raise ValueError
+
+            config.register_type(DefaultsCastConverter())
             ```
         """
         if converter in self._converters:

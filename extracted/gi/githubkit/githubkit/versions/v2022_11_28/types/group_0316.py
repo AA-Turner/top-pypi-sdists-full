@@ -9,37 +9,46 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+import datetime as _dt
+from typing import Literal, Union
+from typing_extensions import TypedDict
 
-from .group_0315 import CustomDeploymentRuleAppType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class DeploymentProtectionRuleType(TypedDict):
-    """Deployment protection rule
+class ReactionType(TypedDict):
+    """Reaction
 
-    Deployment protection rule
+    Reactions to conversations provide a way to help people express their feelings
+    more simply and effectively.
     """
 
     id: int
     node_id: str
-    enabled: bool
-    app: CustomDeploymentRuleAppType
+    user: Union[None, SimpleUserType]
+    content: Literal[
+        "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"
+    ]
+    created_at: _dt.datetime
 
 
-class ReposOwnerRepoEnvironmentsEnvironmentNameDeploymentProtectionRulesGetResponse200Type(
-    TypedDict
-):
-    """ReposOwnerRepoEnvironmentsEnvironmentNameDeploymentProtectionRulesGetResponse200
+class ReactionTypeForResponse(TypedDict):
+    """Reaction
 
-    Examples:
-        {'$ref': '#/components/examples/deployment-protection-rules'}
+    Reactions to conversations provide a way to help people express their feelings
+    more simply and effectively.
     """
 
-    total_count: NotRequired[int]
-    custom_deployment_protection_rules: NotRequired[list[DeploymentProtectionRuleType]]
+    id: int
+    node_id: str
+    user: Union[None, SimpleUserTypeForResponse]
+    content: Literal[
+        "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"
+    ]
+    created_at: str
 
 
 __all__ = (
-    "DeploymentProtectionRuleType",
-    "ReposOwnerRepoEnvironmentsEnvironmentNameDeploymentProtectionRulesGetResponse200Type",
+    "ReactionType",
+    "ReactionTypeForResponse",
 )

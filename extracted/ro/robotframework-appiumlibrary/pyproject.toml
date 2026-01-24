@@ -4,14 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robotframework-appiumlibrary"
-version = "3.1"
+version = "3.2.1"
 dependencies = [
     "decorator >= 3.3.2",
     "robotframework >= 2.6.0",
     "docutils >= 0.8.1",
     "selenium >=4.26.0",
     "Appium-Python-Client >= 5.1.1",
-    "kitchen >= 1.2.4",
     "six >= 1.10.0",
     "geopy >= 2.4.1",
 ]
@@ -42,6 +41,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Framework :: Robot Framework",
     "Framework :: Robot Framework :: Library",
 ]

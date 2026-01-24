@@ -14,25 +14,11 @@
 # limitations under the License.
 """optimum.exporters command-line interface base classes."""
 
-from .. import BaseOptimumCLICommand, CommandInfo
-from .onnx import ONNXExportCommand
-from .tflite import TFLiteExportCommand
+from ..base import BaseOptimumCLICommand, CommandInfo
 
 
 class ExportCommand(BaseOptimumCLICommand):
     COMMAND = CommandInfo(
         name="export",
-        help="Export PyTorch and TensorFlow models to several format.",
-    )
-    SUBCOMMANDS = (
-        CommandInfo(
-            name="onnx",
-            help="Export PyTorch and TensorFlow to ONNX.",
-            subcommand_class=ONNXExportCommand,
-        ),
-        CommandInfo(
-            name="tflite",
-            help="Export TensorFlow to TensorFlow Lite.",
-            subcommand_class=TFLiteExportCommand,
-        ),
+        help="Export PyTorch models to several format.",
     )

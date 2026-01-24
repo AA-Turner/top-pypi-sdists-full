@@ -63,6 +63,15 @@ class TestBeta:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "plan_phase_order": 0,
                     "price": {
@@ -72,7 +81,7 @@ class TestBeta:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -150,6 +159,15 @@ class TestBeta:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "plan_phase_order": 0,
                     "price": {
@@ -159,7 +177,7 @@ class TestBeta:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -370,6 +388,15 @@ class TestAsyncBeta:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "plan_phase_order": 0,
                     "price": {
@@ -379,7 +406,7 @@ class TestAsyncBeta:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,
@@ -457,6 +484,15 @@ class TestAsyncBeta:
                             "duration_unit": "day",
                         },
                         "expires_at_end_of_cadence": True,
+                        "filters": [
+                            {
+                                "field": "item_id",
+                                "operator": "includes",
+                                "values": ["string"],
+                            }
+                        ],
+                        "item_id": "item_id",
+                        "per_unit_cost_basis": "per_unit_cost_basis",
                     },
                     "plan_phase_order": 0,
                     "price": {
@@ -466,7 +502,7 @@ class TestAsyncBeta:
                         "name": "Annual fee",
                         "unit_config": {
                             "unit_amount": "unit_amount",
-                            "scaling_factor": 0,
+                            "prorated": True,
                         },
                         "billable_metric_id": "billable_metric_id",
                         "billed_in_advance": True,

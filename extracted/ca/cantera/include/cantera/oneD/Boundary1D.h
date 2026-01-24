@@ -109,7 +109,7 @@ public:
 
     void setupGrid(size_t n, const double* z) override {}
 
-    void fromArray(SolutionArray& arr, double* soln) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
 
 protected:
     //! Initialize member variables based on the adjacent domains.
@@ -144,9 +144,9 @@ public:
     Inlet1D();
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    Inlet1D(shared_ptr<Solution> solution, const string& id="");
+    Inlet1D(shared_ptr<Solution> phase, const string& id="");
 
     string domainType() const override {
         return "inlet";
@@ -171,10 +171,12 @@ public:
     double massFraction(size_t k) override {
         return m_yin[k];
     }
+
+    void updateState(size_t loc) override;
     void init() override;
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
-    void fromArray(SolutionArray& arr, double* soln) override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
 
 protected:
     //! A marker that indicates whether this is a left inlet or a right inlet.
@@ -189,6 +191,7 @@ protected:
     Flow1D* m_flow = nullptr; //!< the adjacent flow domain
 };
 
+
 /**
  * A terminator that does nothing.
  */
@@ -199,10 +202,11 @@ public:
     Empty1D() = default;
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents
+    //! @param phase  Solution representing contents
     //! @param id  Name used to identify this domain
-    Empty1D(shared_ptr<Solution> solution, const string& id="") : Empty1D() {
-        setSolution(solution);
+    Empty1D(shared_ptr<Solution> phase, const string& id="") : Empty1D() {
+        m_solution = phase;
+        m_solution->thermo()->addSpeciesLock();
         m_id = id;
     }
 
@@ -216,8 +220,9 @@ public:
 
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
 
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
 };
+
 
 /**
  * A symmetry plane. The axial velocity u = 0, and all other components have
@@ -230,10 +235,11 @@ public:
     Symm1D() = default;
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    Symm1D(shared_ptr<Solution> solution, const string& id="") : Symm1D() {
-        setSolution(solution);
+    Symm1D(shared_ptr<Solution> phase, const string& id="") : Symm1D() {
+        m_solution = phase;
+        m_solution->thermo()->addSpeciesLock();
         m_id = id;
     }
 
@@ -245,7 +251,7 @@ public:
 
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
 
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
 };
 
 
@@ -260,10 +266,11 @@ public:
     Outlet1D() = default;
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    Outlet1D(shared_ptr<Solution> solution, const string& id="") : Outlet1D() {
-        setSolution(solution);
+    Outlet1D(shared_ptr<Solution> phase, const string& id="") : Outlet1D() {
+        m_solution = phase;
+        m_solution->thermo()->addSpeciesLock();
         m_id = id;
     }
 
@@ -275,7 +282,7 @@ public:
 
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
 
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
 };
 
 
@@ -290,9 +297,9 @@ public:
     OutletRes1D();
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    OutletRes1D(shared_ptr<Solution> solution, const string& id="");
+    OutletRes1D(shared_ptr<Solution> phase, const string& id="");
 
     string domainType() const override {
         return "outlet-reservoir";
@@ -312,8 +319,8 @@ public:
 
     void init() override;
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
-    void fromArray(SolutionArray& arr, double* soln) override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
 
 protected:
     size_t m_nsp = 0; //!< Number of species in the adjacent flow domain
@@ -321,6 +328,7 @@ protected:
     string m_xstr; //!< Mole fractions in the reservoir
     Flow1D* m_flow = nullptr; //!< The adjacent flow domain
 };
+
 
 /**
  * A non-reacting surface. The axial velocity is zero (impermeable), as is the
@@ -334,10 +342,11 @@ public:
     Surf1D() = default;
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    Surf1D(shared_ptr<Solution> solution, const string& id="") : Surf1D() {
-        setSolution(solution);
+    Surf1D(shared_ptr<Solution> phase, const string& id="") : Surf1D() {
+        m_solution = phase;
+        m_solution->thermo()->addSpeciesLock();
         m_id = id;
     }
 
@@ -346,17 +355,12 @@ public:
     }
 
     void init() override;
-
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
-
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
-    void fromArray(SolutionArray& arr, double* soln) override;
-
-    //! @deprecated To be removed after Cantera 3.1.
-    void show(std::ostream& s, const double* x) override;
-
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
     void show(const double* x) override;
 };
+
 
 /**
  * A reacting surface.
@@ -368,9 +372,9 @@ public:
     ReactingSurf1D();
 
     //! Constructor with contents
-    //! @param solution  Solution representing contents of adjacent flow domain
+    //! @param phase  Solution representing contents of adjacent flow domain
     //! @param id  Name used to identify this domain
-    ReactingSurf1D(shared_ptr<Solution> solution, const string& id="");
+    ReactingSurf1D(shared_ptr<Solution> phase, const string& id="");
 
     string domainType() const override {
         return "reacting-surface";
@@ -390,14 +394,16 @@ public:
     }
 
     string componentName(size_t n) const override;
+    size_t componentIndex(const string& name, bool checkAlias=true) const override;
 
     void init() override;
     void resetBadValues(double* xg) override;
 
     void eval(size_t jg, double* xg, double* rg, integer* diagg, double rdt) override;
 
-    shared_ptr<SolutionArray> asArray(const double* soln) const override;
-    void fromArray(SolutionArray& arr, double* soln) override;
+    double value(const string& component) const override;
+    shared_ptr<SolutionArray> toArray(bool normalize=false) override;
+    void fromArray(const shared_ptr<SolutionArray>& arr) override;
 
     void _getInitialSoln(double* x) override {
         m_sphase->getCoverages(x);

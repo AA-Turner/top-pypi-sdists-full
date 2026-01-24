@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast, final
 
 import pandas as pd
 import sqlalchemy
+import sqlalchemy.exc
 import ulid
 from pandas import Index
 from pydantic import BaseModel, Field
@@ -92,6 +93,9 @@ class SqlConfig(BaseModel, abc.ABC):
     table_prefix: str | None = ""
     """A prefix to add to created table names."""
 
+    _engine: Engine | None = None
+    """Cached SQL engine instance."""
+
     @abc.abstractmethod
     def get_sql_alchemy_url(self) -> SecretString:
         """Returns a SQL Alchemy URL."""
@@ -133,16 +137,24 @@ class SqlConfig(BaseModel, abc.ABC):
         return {}
 
     def get_sql_engine(self) -> Engine:
-        """Return a new SQL engine to use."""
-        return create_engine(
-            url=self.get_sql_alchemy_url(),
-            echo=DEBUG_MODE,
-            execution_options={
-                "schema_translate_map": {None: self.schema_name},
-            },
-            future=True,
-            connect_args=self.get_sql_alchemy_connect_args(),
-        )
+        """Return a cached SQL engine, creating it if necessary."""
+        if self._engine is None:
+            self._engine = create_engine(
+                url=self.get_sql_alchemy_url(),
+                echo=DEBUG_MODE,
+                execution_options={
+                    "schema_translate_map": {None: self.schema_name},
+                },
+                future=True,
+                connect_args=self.get_sql_alchemy_connect_args(),
+            )
+        return self._engine
+
+    def dispose_engine(self) -> None:
+        """Dispose of the cached SQL engine and release all connections."""
+        if self._engine is not None:
+            self._engine.dispose()
+            self._engine = None
 
     def get_vendor_client(self) -> object:
         """Return the vendor-specific client object.
@@ -201,9 +213,12 @@ class SqlProcessorBase(abc.ABC):
         ] = defaultdict(list, {})
 
         self._setup()
-        self.file_writer = file_writer or self.file_writer_class(
-            cache_dir=cast("Path", temp_dir),
-            cleanup=temp_file_cleanup,
+        self.file_writer = (
+            file_writer
+            or self.file_writer_class(  # pyrefly: ignore[bad-instantiation]
+                cache_dir=cast("Path", temp_dir),
+                cleanup=temp_file_cleanup,
+            )
         )
         self.type_converter = self.type_converter_class()
         self._cached_table_definitions: dict[str, sqlalchemy.Table] = {}
@@ -262,7 +277,7 @@ class SqlProcessorBase(abc.ABC):
         This method assumes that the catalog is already registered with the processor.
         """
         if not isinstance(write_strategy, WriteStrategy):
-            raise exc.AirbyteInternalError(
+            raise exc.AirbyteInternalError(  # pyrefly: ignore[missing-attribute]
                 message="Invalid `write_strategy` argument. Expected instance of WriteStrategy.",
                 context={"write_strategy": write_strategy},
             )
@@ -687,7 +702,7 @@ class SqlProcessorBase(abc.ABC):
             )
 
         columns[AB_RAW_ID_COLUMN] = self.type_converter_class.get_string_type()
-        columns[AB_EXTRACTED_AT_COLUMN] = sqlalchemy.TIMESTAMP()
+        columns[AB_EXTRACTED_AT_COLUMN] = sqlalchemy.TIMESTAMP(timezone=True)
         columns[AB_META_COLUMN] = self.type_converter_class.get_json_type()
 
         return columns

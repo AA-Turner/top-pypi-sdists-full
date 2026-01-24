@@ -21,14 +21,14 @@ import os.path
 import platform
 import subprocess
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Callable, Iterable, Iterator
 
 import port_for
 import pytest
 from port_for import PortForException, get_port
 from pytest import FixtureRequest, TempPathFactory
 
-from pytest_postgresql.config import PostgresqlConfigDict, get_config
+from pytest_postgresql.config import PostgreSQLConfig, get_config
 from pytest_postgresql.exceptions import ExecutableMissingException
 from pytest_postgresql.executor import PostgreSQLExecutor
 from pytest_postgresql.janitor import DatabaseJanitor
@@ -36,35 +36,29 @@ from pytest_postgresql.janitor import DatabaseJanitor
 PortType = port_for.PortType  # mypy requires explicit export
 
 
-def _pg_exe(executable: Optional[str], config: PostgresqlConfigDict) -> str:
+def _pg_exe(executable: str | None, config: PostgreSQLConfig) -> str:
     """If executable is set, use it. Otherwise best effort to find the executable."""
-    postgresql_ctl = executable or config["exec"]
-    # check if that executable exists, as it's no on system PATH
-    # only replace if executable isn't passed manually
+    postgresql_ctl = executable or config.exec
+    # check if that executable exists, as it's no on systems' PATH
+    # only replace it if executable isn't passed manually
     if not os.path.exists(postgresql_ctl) and executable is None:
         try:
-            pg_bindir = subprocess.check_output(
-                ["pg_config", "--bindir"], universal_newlines=True
-            ).strip()
+            pg_bindir = subprocess.check_output(["pg_config", "--bindir"], universal_newlines=True).strip()
         except FileNotFoundError as ex:
-            raise ExecutableMissingException(
-                "Could not found pg_config executable. Is it in systenm $PATH?"
-            ) from ex
+            raise ExecutableMissingException("Could not found pg_config executable. Is it in systenm $PATH?") from ex
         postgresql_ctl = os.path.join(pg_bindir, "pg_ctl")
     return postgresql_ctl
 
 
-def _pg_port(
-    port: Optional[PortType], config: PostgresqlConfigDict, excluded_ports: Iterable[int]
-) -> int:
+def _pg_port(port: PortType | None, config: PostgreSQLConfig, excluded_ports: Iterable[int]) -> int:
     """User specified port, otherwise find an unused port from config."""
-    pg_port = get_port(port, excluded_ports) or get_port(config["port"], excluded_ports)
+    pg_port = get_port(port, excluded_ports) or get_port(config.port, excluded_ports)
     assert pg_port is not None
     return pg_port
 
 
-def _prepare_dir(tmpdir: Path, pg_port: PortType) -> Tuple[Path, Path]:
-    """Prepare directory for the executor."""
+def _prepare_dir(tmpdir: Path, pg_port: PortType) -> tuple[Path, Path]:
+    """Prepare a directory for the executor."""
     datadir = tmpdir / f"data-{pg_port}"
     datadir.mkdir()
     logfile_path = tmpdir / f"postgresql.{pg_port}.log"
@@ -76,17 +70,17 @@ def _prepare_dir(tmpdir: Path, pg_port: PortType) -> Tuple[Path, Path]:
 
 
 def postgresql_proc(
-    executable: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[PortType] = -1,
-    user: Optional[str] = None,
-    password: Optional[str] = None,
-    dbname: Optional[str] = None,
+    executable: str | None = None,
+    host: str | None = None,
+    port: PortType | None = -1,
+    user: str | None = None,
+    password: str | None = None,
+    dbname: str | None = None,
     options: str = "",
-    startparams: Optional[str] = None,
-    unixsocketdir: Optional[str] = None,
-    postgres_options: Optional[str] = None,
-    load: Optional[List[Union[Callable, str, Path]]] = None,
+    startparams: str | None = None,
+    unixsocketdir: str | None = None,
+    postgres_options: str | None = None,
+    load: list[Callable | str | Path] | None = None,
 ) -> Callable[[FixtureRequest, TempPathFactory], Iterator[PostgreSQLExecutor]]:
     """Postgresql process factory.
 
@@ -121,8 +115,8 @@ def postgresql_proc(
         :returns: tcp executor
         """
         config = get_config(request)
-        pg_dbname = dbname or config["dbname"]
-        pg_load = load or config["load"]
+        pg_dbname = dbname or config.dbname
+        pg_load = load or config.load
         postgresql_ctl = _pg_exe(executable, config)
         port_path = tmp_path_factory.getbasetemp()
         if hasattr(request.config, "workerinput"):
@@ -144,7 +138,7 @@ def postgresql_proc(
                     port_file.write(f"pg_port {pg_port}\n")
                 break
             except FileExistsError:
-                if n >= config["port_search_count"]:
+                if n >= config.port_search_count:
                     raise PortForException(
                         f"Attempted {n} times to select ports. "
                         f"All attempted ports: {', '.join(map(str, used_ports))} are already "
@@ -157,29 +151,33 @@ def postgresql_proc(
 
         postgresql_executor = PostgreSQLExecutor(
             executable=postgresql_ctl,
-            host=host or config["host"],
+            host=host or config.host,
             port=pg_port,
-            user=user or config["user"],
-            password=password or config["password"],
+            user=user or config.user,
+            password=password or config.password,
             dbname=pg_dbname,
-            options=options or config["options"],
+            options=options or config.options,
             datadir=str(datadir),
-            unixsocketdir=unixsocketdir or config["unixsocketdir"],
+            unixsocketdir=unixsocketdir or config.unixsocketdir,
             logfile=str(logfile_path),
-            startparams=startparams or config["startparams"],
-            postgres_options=postgres_options or config["postgres_options"],
+            startparams=startparams or config.startparams,
+            postgres_options=postgres_options or config.postgres_options,
         )
         # start server
         with postgresql_executor:
             postgresql_executor.wait_for_postgres()
-            with DatabaseJanitor(
+            janitor = DatabaseJanitor(
                 user=postgresql_executor.user,
                 host=postgresql_executor.host,
                 port=postgresql_executor.port,
-                template_dbname=postgresql_executor.template_dbname,
+                dbname=postgresql_executor.template_dbname,
+                as_template=True,
                 version=postgresql_executor.version,
                 password=postgresql_executor.password,
-            ) as janitor:
+            )
+            if config.drop_test_database:
+                janitor.drop()
+            with janitor:
                 for load_element in pg_load:
                     janitor.load(load_element)
                 yield postgresql_executor

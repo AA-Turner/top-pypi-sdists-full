@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '5fc4b25c5fd6b2833aabf992583d1b1e3f843f42'
+_SKYPILOT_COMMIT_SHA = '589a8da7e8ff669fc485fd6f0d5f9a98a5ba38c7'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250922'
+__version__ = '1.0.0.dev20260122'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -122,6 +122,7 @@ from sky.data import StoreType
 from sky.jobs import ManagedJobStatus
 from sky.optimizer import Optimizer
 from sky.resources import Resources
+from sky.server.requests.request_names import AdminPolicyRequestName
 from sky.skylet.job_lib import JobStatus
 from sky.task import Task
 from sky.utils.common import OptimizeTarget
@@ -139,8 +140,10 @@ Cudo = clouds.Cudo
 GCP = clouds.GCP
 Lambda = clouds.Lambda
 SCP = clouds.SCP
+Slurm = clouds.Slurm
 Kubernetes = clouds.Kubernetes
 K8s = Kubernetes
+SSH = clouds.SSH
 OCI = clouds.OCI
 Paperspace = clouds.Paperspace
 PrimeIntellect = clouds.PrimeIntellect
@@ -150,6 +153,7 @@ Vsphere = clouds.Vsphere
 Fluidstack = clouds.Fluidstack
 Nebius = clouds.Nebius
 Hyperbolic = clouds.Hyperbolic
+Shadeform = clouds.Shadeform
 Seeweb = clouds.Seeweb
 
 __all__ = [
@@ -161,6 +165,7 @@ __all__ = [
     'IBM',
     'Kubernetes',
     'K8s',
+    'SSH',
     'Lambda',
     'OCI',
     'Paperspace',
@@ -168,10 +173,12 @@ __all__ = [
     'RunPod',
     'Vast',
     'SCP',
+    'Slurm',
     'Vsphere',
     'Fluidstack',
     'Nebius',
     'Hyperbolic',
+    'Shadeform',
     'Seeweb',
     'Optimizer',
     'OptimizeTarget',
@@ -226,6 +233,7 @@ __all__ = [
     'MutatedUserRequest',
     'AdminPolicy',
     'Config',
+    'AdminPolicyRequestName',
     # Registry
     'CLOUD_REGISTRY',
     'JOBS_RECOVERY_STRATEGY_REGISTRY',

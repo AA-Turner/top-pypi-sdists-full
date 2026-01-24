@@ -4,7 +4,6 @@ from adam.repl_state import ReplState, RequiredState
 
 class PostgresPreview(Command):
     COMMAND = 'pg preview'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -19,21 +18,18 @@ class PostgresPreview(Command):
         return PostgresPreview.COMMAND
 
     def required(self):
-        return RequiredState.NAMESPACE
+        return RequiredState.PG_DATABASE
 
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state, RequiredState.PG_DATABASE):
+        with self.validate(args, state) as (args, state):
+            state.device = ReplState.P
+
+            PreviewTable().run(f'preview {" ".join(args)}', state)
+
             return state
-
-        state.device = ReplState.P
-
-        PreviewTable().run(f'preview {" ".join(args)}', state)
-
-        return state
 
     def completion(self, state: ReplState):
         if state.sts:
@@ -41,5 +37,5 @@ class PostgresPreview(Command):
 
         return {}
 
-    def help(self, _: ReplState):
-        return f'{PostgresPreview.COMMAND}\t preview postgres table'
+    def help(self, state: ReplState):
+        return super().help(state, 'preview postgres table')

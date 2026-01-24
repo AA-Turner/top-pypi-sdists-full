@@ -1,0 +1,65 @@
+Metadata-Version: 2.1
+Name: pdm-build-locked
+Version: 0.3.7
+Summary:     pdm-build-locked is a pdm plugin to add locked packages as additional optional dependency groups to the distribution metadata
+Keywords: pdm,plugin
+Author-Email: sigma67 <sigma67.github@gmail.com>, Frost Ming <me@frostming.com>
+License: MIT License
+         
+         Copyright (c) 2023 sigma67
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+         
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: tomli; python_version < "3.11"
+Description-Content-Type: text/x-rst
+
+pdm-build-locked: Publish locked dependencies
+#############################################
+
+.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/pdm-build-locked?style=flat-square
+    :alt: PyPI Downloads
+    :target: https://pypi.org/project/pdm-build-locked/
+
+.. |code-coverage| image:: https://img.shields.io/codecov/c/github/pdm-project/pdm-build-locked?style=flat-square
+    :alt: Code coverage
+    :target: https://codecov.io/gh/pdm-project/pdm-build-locked
+
+.. |latest-release| image:: https://img.shields.io/github/v/release/pdm-project/pdm-build-locked?style=flat-square
+    :alt: Latest release
+    :target: https://github.com/pdm-project/pdm-build-locked/releases/latest
+
+.. |commits-since-latest| image:: https://img.shields.io/github/commits-since/pdm-project/pdm-build-locked/latest?style=flat-square
+    :alt: Commits since latest release
+    :target: https://github.com/pdm-project/pdm-build-locked/commits
+
+|pypi-downloads| |code-coverage| |latest-release| |commits-since-latest|
+
+pdm-build-locked is a pdm plugin to add locked packages as additional
+optional dependency groups to the distribution metadata.
+
+Documentation: https://pdm-build-locked.readthedocs.io

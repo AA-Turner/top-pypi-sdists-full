@@ -11,6 +11,8 @@
 #include "slang/ast/Expression.h"
 #include "slang/ast/Scope.h"
 #include "slang/ast/Symbol.h"
+#include "slang/ast/TypeProvider.h"
+#include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
 #include "slang/ast/symbols/SubroutineSymbols.h"
@@ -18,6 +20,7 @@
 #include "slang/ast/types/AllTypes.h"
 #include "slang/ast/types/NetType.h"
 #include "slang/diagnostics/DeclarationsDiags.h"
+#include "slang/diagnostics/LookupDiags.h"
 #include "slang/diagnostics/ParserDiags.h"
 #include "slang/diagnostics/StatementsDiags.h"
 #include "slang/diagnostics/TypesDiags.h"
@@ -147,9 +150,22 @@ void DeclaredType::resolveType(const ASTContext& typeContext,
             type = &comp.getType(*type, *dimensions, typeContext);
 
         if (typedefTarget) {
-            // When resolving a typedef target we need to force resolution
-            // of the canonical type to make sure there are no cycles.
-            type->getCanonicalType();
+            // When resolving a typedef target we need to check resolution of aliases
+            // to make sure there are no cycles.
+            auto tt = type;
+            while (tt->isAlias()) {
+                auto& alias = tt->as<TypeAliasType>();
+                if (alias.targetType.isEvaluating()) {
+                    auto& diag = typeContext.addDiag(diag::RecursiveDefinition,
+                                                     syntax->sourceRange());
+                    diag << alias.name;
+                    diag.addNote(diag::NoteDeclarationHere, alias.location);
+                    type = &comp.getErrorType();
+                    break;
+                }
+
+                tt = &alias.targetType.getType();
+            }
         }
     }
 
@@ -287,10 +303,14 @@ void DeclaredType::checkType(const ASTContext& context) const {
             if (!type->isIntegral() && (lv < LanguageVersion::v1800_2023 || !type->isFloating()))
                 context.addDiag(diag::InvalidCoverageExpr, parent.location) << *type;
             break;
-        case uint32_t(DeclaredTypeFlags::InterfaceVariable):
-            if (!isValidForIfaceVar(*type))
+        case uint32_t(DeclaredTypeFlags::IfaceOrGenBlkVar): {
+            auto def = context.scope->asSymbol().getDeclaringDefinition();
+            if (def && def->definitionKind == DefinitionKind::Interface &&
+                !isValidForIfaceVar(*type)) {
                 context.addDiag(diag::VirtualInterfaceIfaceMember, parent.location);
+            }
             break;
+        }
         default:
             SLANG_UNREACHABLE;
     }
@@ -348,14 +368,15 @@ void DeclaredType::mergePortTypes(
 
         bool shouldBeSigned = implicit.signing.kind == TokenKind::SignedKeyword;
         if (shouldBeSigned && !sourceType->isSigned()) {
-            sourceType = &sourceType->makeSigned(context.getCompilation());
+            auto& comp = context.getCompilation();
+            sourceType = &sourceType->makeSigned(comp);
             if (!sourceType->isSigned()) {
                 warnSignedness();
             }
             else {
                 // Put the unpacked dimensions back on the type now that it
                 // has been made signed.
-                destType = &FixedSizeUnpackedArrayType::fromDims(*context.scope, *sourceType,
+                destType = &FixedSizeUnpackedArrayType::fromDims(comp, context, *sourceType,
                                                                  destDims, SourceRange::NoLocation);
             }
         }
@@ -413,10 +434,9 @@ void DeclaredType::resolveAt(const ASTContext& context) const {
             return;
     }
 
-    if (!initializerSyntax) {
-        initializer = NoInitializer;
+    initializer = NoInitializer;
+    if (!initializerSyntax)
         return;
-    }
 
     // Enums are special in that their initializers target the base type of the enum
     // instead of the actual enum type (which doesn't allow implicit conversions from

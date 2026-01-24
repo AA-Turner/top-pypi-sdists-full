@@ -12,9 +12,9 @@ authors = [
     { name = "Alex Wolf" },
     { name = "Isaac Virshup" },
     { name = "Sergei Rybakov" },
+    { name = "Ilan Gold" },
 ]
 maintainers = [
-    { name = "Isaac Virshup", email = "ivirshup@gmail.com" },
     { name = "Philipp Angerer", email = "philipp.angerer@helmholtz-munich.de" },
     { name = "Ilan Gold", email = "ilan.gold@helmholtz-munich.de" },
 ]
@@ -32,11 +32,12 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dependencies = [
-    "pandas >=2.1.0, !=2.1.2",
+    "pandas >=2.1.0, !=2.1.2, <3",
     "numpy>=1.26",
     # https://github.com/scverse/anndata/issues/1434
     "scipy >=1.12",
@@ -57,12 +58,10 @@ Home-page = "https://github.com/scverse/anndata"
 
 [project.optional-dependencies]
 dev = [
-    # runtime dev version generation
-    "hatch-vcs",
     "anndata[dev-doc]",
 ]
 doc = [
-    "sphinx>=8.2.1",
+    "sphinx>=8.2.1,<9",                    # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/586
     "sphinx-book-theme>=1.1.0",
     "sphinx-autodoc-typehints>=2.2.0",
     "sphinx-issues>=5.0.1",
@@ -81,8 +80,8 @@ doc = [
 dev-doc = [ "towncrier>=24.8.0" ] # release notes tool
 test-min = [
     "loompy>=3.0.5",
-    "pytest>=8.2,<8.3.4",
-    "pytest-cov",
+    "pytest",
+    "pytest-cov",           # only for VS Code
     "pytest-randomly",
     "pytest-memray",
     "pytest-mock",
@@ -98,7 +97,7 @@ test-min = [
     "httpx<1.0",         # For data downloading
     "dask[distributed]",
     "awkward>=2.3.2",
-    "pyarrow<21",        # https://github.com/scikit-hep/awkward/issues/3579
+    "pyarrow",
     "anndata[dask]",
 ]
 test = [ "anndata[test-min,lazy]" ]
@@ -109,7 +108,9 @@ cu11 = [ "cupy-cuda11x" ]
 lazy = [ "xarray>=2025.06.1", "aiohttp", "requests", "anndata[dask]" ]
 # https://github.com/dask/dask/issues/11290
 # https://github.com/dask/dask/issues/11752
-dask = [ "dask[array]>=2023.5.1,!=2024.8.*,!=2024.9.*,<2025.2.0" ]
+dask = [
+    "dask[array]>=2023.5.1,!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*",
+]
 
 [tool.hatch.version]
 source = "vcs"
@@ -118,26 +119,24 @@ raw-options.version_scheme = "release-branch-semver"
 packages = [ "src/anndata", "src/testing" ]
 
 [tool.coverage.run]
-data_file = "test-data/coverage"
+data_file = "test-data/raw-coverage"
 source_pkgs = [ "anndata" ]
 omit = [ "src/anndata/_version.py", "**/test_*.py" ]
-concurrency = [ "multiprocessing" ]
-parallel = "true"
+patch = [ "subprocess" ]
 
 [tool.coverage.xml]
 output = "test-data/coverage.xml"
 [tool.coverage.paths]
 source = [ "./src", "**/site-packages" ]
-
 [tool.coverage.report]
 exclude_also = [
     "if TYPE_CHECKING:",
 ]
 
-[tool.pytest.ini_options]
+[tool.pytest]
+strict = true
 addopts = [
     "--import-mode=importlib",
-    "--strict-markers",
     "--doctest-modules",
     "--pyargs",
     "-ptesting.anndata._pytest",
@@ -146,7 +145,11 @@ addopts = [
 filterwarnings = [
     "ignore::anndata._warnings.OldFormatWarning",
     "ignore::anndata._warnings.ExperimentalFeatureWarning",
-    "ignore:.*first_column_names:FutureWarning:scanpy",     # scanpy 1.10.x
+    "ignore:.*first_column_names:FutureWarning:scanpy",                           # scanpy 1.10.x
+    "ignore:Importing read_.* from `anndata` is deprecated:FutureWarning:scanpy",
+    "ignore:`__version__` is deprecated:FutureWarning:scanpy",
+    # https://github.com/matplotlib/matplotlib/pull/30589
+    "ignore:.*'(oneOf|parseString|resetCache|enablePackrat)'.*'(one_of|parse_string|reset_cache|enable_packrat)':DeprecationWarning:matplotlib",
 ]
 # When `--strict-warnings` is used, all warnings are treated as errors, except those:
 filterwarnings_when_strict = [
@@ -161,8 +164,9 @@ filterwarnings_when_strict = [
     "default:Consolidated metadata is:UserWarning",
     "default:.*Structured:zarr.core.dtype.common.UnstableSpecificationWarning",
     "default:.*FixedLengthUTF32:zarr.core.dtype.common.UnstableSpecificationWarning",
+    "default:Automatic shard shape inference is experimental",
 ]
-python_files = "test_*.py"
+python_files = [ "test_*.py" ]
 testpaths = [
     "anndata",                  # docstrings (module name due to --pyargs)
     "./tests",                  # unit tests
@@ -170,13 +174,17 @@ testpaths = [
     "./docs/concatenation.rst", # further doctests
 ]
 # For some reason this effects how logging is shown when tests are run
-xfail_strict = true
-markers = [ "gpu: mark test to run on GPU", "zarr_io: mark tests that involve zarr io" ]
+markers = [
+    "gpu: mark test to run on GPU",
+    "zarr_io: mark tests that involve zarr io",
+    "dask_distributed: tests that need a distributed client with multiple processes",
+]
 
 [tool.ruff]
 src = [ "src" ]
 
 [tool.ruff.format]
+preview = true
 docstring-code-format = true
 
 [tool.ruff.lint]
@@ -250,10 +258,13 @@ single_file = false
 package_dir = "src"
 issue_format = "{{pr}}`{issue}`"
 title_format = "(v{version})=\n### {version} {{small}}`{project_date}`"
-fragment.bugfix.name = "Bug fixes"
-fragment.doc.name = "Documentation"
-fragment.feature.name = "Features"
-fragment.misc.name = "Miscellaneous improvements"
-fragment.performance.name = "Performance"
-fragment.breaking.name = "Breaking changes"
-fragment.dev.name = "Development Process"
+# Valid fragments should be a subset of conventional commit types (except for `breaking`):
+# https://github.com/commitizen/conventional-commit-types/blob/master/index.json
+# style, refactor, test, build, ci: should not go into changelog
+fragment.feat.name = "Features"
+fragment.fix.name = "Bug fixes"
+fragment.docs.name = "Documentation"
+fragment.perf.name = "Performance"
+fragment.chore.name = "Miscellaneous changes"
+fragment.revert.name = "Revert"
+fragment.breaking.name = "Breaking changes"   # add `!` to commit type (e.g. “feature!:”)

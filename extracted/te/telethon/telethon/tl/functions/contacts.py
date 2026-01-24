@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeInputContact, TypeInputGeoPoint, TypeInputPeer, TypeInputUser, TypeTopPeerCategory
+    from ...tl.types import TypeInputContact, TypeInputGeoPoint, TypeInputPeer, TypeInputUser, TypeTextWithEntities, TypeTopPeerCategory
 
 
 
@@ -42,10 +42,10 @@ class AcceptContactRequest(TLRequest):
 
 
 class AddContactRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xe8f463d0
+    CONSTRUCTOR_ID = 0xd9ba2e54
     SUBCLASS_OF_ID = 0x8af52aac
 
-    def __init__(self, id: 'TypeInputUser', first_name: str, last_name: str, phone: str, add_phone_privacy_exception: Optional[bool]=None):
+    def __init__(self, id: 'TypeInputUser', first_name: str, last_name: str, phone: str, add_phone_privacy_exception: Optional[bool]=None, note: Optional['TypeTextWithEntities']=None):
         """
         :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
         """
@@ -54,6 +54,7 @@ class AddContactRequest(TLRequest):
         self.last_name = last_name
         self.phone = phone
         self.add_phone_privacy_exception = add_phone_privacy_exception
+        self.note = note
 
     async def resolve(self, client, utils):
         self.id = utils.get_input_user(await client.get_input_entity(self.id))
@@ -65,17 +66,19 @@ class AddContactRequest(TLRequest):
             'first_name': self.first_name,
             'last_name': self.last_name,
             'phone': self.phone,
-            'add_phone_privacy_exception': self.add_phone_privacy_exception
+            'add_phone_privacy_exception': self.add_phone_privacy_exception,
+            'note': self.note.to_dict() if isinstance(self.note, TLObject) else self.note
         }
 
     def _bytes(self):
         return b''.join((
-            b'\xd0c\xf4\xe8',
-            struct.pack('<I', (0 if self.add_phone_privacy_exception is None or self.add_phone_privacy_exception is False else 1)),
+            b'T.\xba\xd9',
+            struct.pack('<I', (0 if self.add_phone_privacy_exception is None or self.add_phone_privacy_exception is False else 1) | (0 if self.note is None or self.note is False else 2)),
             self.id._bytes(),
             self.serialize_bytes(self.first_name),
             self.serialize_bytes(self.last_name),
             self.serialize_bytes(self.phone),
+            b'' if self.note is None or self.note is False else (self.note._bytes()),
         ))
 
     @classmethod
@@ -87,7 +90,11 @@ class AddContactRequest(TLRequest):
         _first_name = reader.tgread_string()
         _last_name = reader.tgread_string()
         _phone = reader.tgread_string()
-        return cls(id=_id, first_name=_first_name, last_name=_last_name, phone=_phone, add_phone_privacy_exception=_add_phone_privacy_exception)
+        if flags & 2:
+            _note = reader.tgread_object()
+        else:
+            _note = None
+        return cls(id=_id, first_name=_first_name, last_name=_last_name, phone=_phone, add_phone_privacy_exception=_add_phone_privacy_exception, note=_note)
 
 
 class BlockRequest(TLRequest):
@@ -909,4 +916,39 @@ class UnblockRequest(TLRequest):
         _my_stories_from = bool(flags & 1)
         _id = reader.tgread_object()
         return cls(id=_id, my_stories_from=_my_stories_from)
+
+
+class UpdateContactNoteRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x139f63fb
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, id: 'TypeInputUser', note: 'TypeTextWithEntities'):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.id = id
+        self.note = note
+
+    async def resolve(self, client, utils):
+        self.id = utils.get_input_user(await client.get_input_entity(self.id))
+
+    def to_dict(self):
+        return {
+            '_': 'UpdateContactNoteRequest',
+            'id': self.id.to_dict() if isinstance(self.id, TLObject) else self.id,
+            'note': self.note.to_dict() if isinstance(self.note, TLObject) else self.note
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xfbc\x9f\x13',
+            self.id._bytes(),
+            self.note._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _id = reader.tgread_object()
+        _note = reader.tgread_object()
+        return cls(id=_id, note=_note)
 

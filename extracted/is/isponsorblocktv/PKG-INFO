@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iSponsorBlockTV
-Version: 2.6.0
+Version: 2.6.1
 Summary: SponsorBlock client for all YouTube TV clients
 Project-URL: Homepage, https://github.com/dmunozv04/iSponsorBlockTV
 Project-URL: Bug Tracker, https://github.com/dmunozv04/iSponsorBlockTV/issues
@@ -11,16 +11,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Home Automation
 Requires-Python: >=3.9
-Requires-Dist: aiohttp==3.12.14
+Requires-Dist: aiohttp==3.12.15
 Requires-Dist: appdirs==1.4.4
 Requires-Dist: async-cache==1.1.1
 Requires-Dist: pyytlounge==2.3.0
 Requires-Dist: rich-click==1.8.9
 Requires-Dist: rich==14.1.0
-Requires-Dist: ssdp==1.3.0
+Requires-Dist: ssdp==1.3.1
 Requires-Dist: textual-slider==0.2.0
 Requires-Dist: textual==5.3.0
-Requires-Dist: xmltodict==0.14.2
+Requires-Dist: xmltodict==0.15.1
 Description-Content-Type: text/markdown
 
 # iSponsorBlockTV
@@ -30,10 +30,11 @@ Description-Content-Type: text/markdown
 [![GitHub Release](https://img.shields.io/github/v/release/dmunozv04/isponsorblocktv?logo=GitHub&style=flat)](https://github.com/dmunozv04/iSponsorBlockTV/releases/latest)
 [![GitHub Repo stars](https://img.shields.io/github/stars/dmunozv04/isponsorblocktv?style=flat)](https://github.com/dmunozv04/isponsorblocktv)
 
-Skip sponsor segments in YouTube videos playing on a YouTube TV device (see
-below for compatibility details).
-
-This project is written in asynchronous python and should be pretty quick.
+iSponsorBlockTV is a self-hosted application that connects to your YouTube TV
+app (see compatibility below) and automatically skips segments (like Sponsors
+or intros) in YouTube videos using the [SponsorBlock](https://sponsor.ajay.app/)
+API. It can also auto mute and press the "Skip Ad" button the moment it becomes
+available on YouTube ads.
 
 ## Installation
 
@@ -47,7 +48,7 @@ Open an issue/pull request if you have tested a device that isn't listed here.
 
 | Device             | Status |
 |:-------------------|:------:|
-| Apple TV           |   ✅    |
+| Apple TV           |   ✅*   |
 | Samsung TV (Tizen) |   ✅    |
 | LG TV (WebOS)      |   ✅    |
 | Android TV         |   ✅    |
@@ -60,17 +61,17 @@ Open an issue/pull request if you have tested a device that isn't listed here.
 | Xbox One/Series    |   ✅    |
 | Playstation 4/5    |   ✅    |
 
+*Ad muting won't work when using AirPlay to send the audio to another speaker.
+
 ## Usage
 
-Run iSponsorBlockTV on a computer that has network access.
+Run iSponsorBlockTV on a computer that has network access. It doesn't need to
+be on the same network as the device, only access to youtube.com is required.
+
 Auto discovery will require the computer to be on the same network as the device
 during setup.
 The device can also be manually added to iSponsorBlockTV with a YouTube TV code.
-This code can be found in the settings page of your YouTube application.
-
-It connects to the device, watches its activity and skips any sponsor segment
-using the [SponsorBlock](https://sponsor.ajay.app/) API.
-It can also skip/mute YouTube ads.
+This code can be found in the settings page of your YouTube TV application.
 
 ## Libraries used
 
@@ -96,11 +97,9 @@ It can also skip/mute YouTube ads.
 
 ## Contributors
 
-- [dmunozv04](https://github.com/dmunozv04) - creator and maintainer
-- [HaltCatchFire](https://github.com/HaltCatchFire) - updated dependencies and
-  improved skip logic
-- [Oxixes](https://github.com/oxixes) - added support for channel whitelist and
-  minor improvements
+[![Contributors](https://contrib.rocks/image?repo=dmunozv04/iSponsorBlockTV)](https://github.com/dmunozv04/iSponsorBlockTV/graphs/contributors)
+
+Made with [contrib.rocks](https://contrib.rocks).
 
 ## License
 

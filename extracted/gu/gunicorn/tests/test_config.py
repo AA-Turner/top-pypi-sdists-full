@@ -165,10 +165,18 @@ def test_str_validation():
 
 def test_str_to_addr_list_validation():
     c = config.Config()
+    # Values remain as strings for backward compatibility
     assert c.proxy_allow_ips == ["127.0.0.1", "::1"]
     assert c.forwarded_allow_ips == ["127.0.0.1", "::1"]
+    # Single IPs are validated but kept as strings
     c.set("forwarded_allow_ips", "127.0.0.1,192.0.2.1")
     assert c.forwarded_allow_ips == ["127.0.0.1", "192.0.2.1"]
+    # CIDR networks are supported and kept as strings
+    c.set("forwarded_allow_ips", "127.0.0.0/8,192.168.0.0/16")
+    assert c.forwarded_allow_ips == ["127.0.0.0/8", "192.168.0.0/16"]
+    # Wildcard is preserved as string
+    c.set("forwarded_allow_ips", "*")
+    assert c.forwarded_allow_ips == ["*"]
     c.set("forwarded_allow_ips", "")
     assert c.forwarded_allow_ips == []
     c.set("forwarded_allow_ips", None)
@@ -179,6 +187,9 @@ def test_str_to_addr_list_validation():
     pytest.raises(ValueError, c.set, "forwarded_allow_ips", "127.0.0")
     # detect typos
     pytest.raises(ValueError, c.set, "forwarded_allow_ips", "::f:")
+    # dangerous typos such as accidentally permitting half the internet
+    # clearly recognizable - masked bits are not zero
+    pytest.raises(ValueError, c.set, "forwarded_allow_ips", "100.64.0.0/1")
 
 
 def test_str_to_list():

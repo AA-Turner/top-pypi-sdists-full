@@ -43,37 +43,63 @@ class V1ConversationResponseChunk(object):
     swagger_types = {
         'choices': 'list[V1ResponseChoice]',
         'conversation_id': 'str',
+        'executable': 'bool',
         'id': 'str',
-        'object': 'str'
+        'message_id': 'str',
+        'object': 'str',
+        'stats': 'dict(str, str)',
+        'throughput': 'float',
+        'usage': 'V1TokenUsage'
     }
 
     attribute_map = {
         'choices': 'choices',
         'conversation_id': 'conversationId',
+        'executable': 'executable',
         'id': 'id',
-        'object': 'object'
+        'message_id': 'messageId',
+        'object': 'object',
+        'stats': 'stats',
+        'throughput': 'throughput',
+        'usage': 'usage'
     }
 
-    def __init__(self, choices: 'list[V1ResponseChoice]' =None, conversation_id: 'str' =None, id: 'str' =None, object: 'str' =None):  # noqa: E501
+    def __init__(self, choices: 'list[V1ResponseChoice]' =None, conversation_id: 'str' =None, executable: 'bool' =None, id: 'str' =None, message_id: 'str' =None, object: 'str' =None, stats: 'dict(str, str)' =None, throughput: 'float' =None, usage: 'V1TokenUsage' =None):  # noqa: E501
         """V1ConversationResponseChunk - a model defined in Swagger"""  # noqa: E501
         self._choices = None
         self._conversation_id = None
+        self._executable = None
         self._id = None
+        self._message_id = None
         self._object = None
+        self._stats = None
+        self._throughput = None
+        self._usage = None
         self.discriminator = None
         if choices is not None:
             self.choices = choices
         if conversation_id is not None:
             self.conversation_id = conversation_id
+        if executable is not None:
+            self.executable = executable
         if id is not None:
             self.id = id
+        if message_id is not None:
+            self.message_id = message_id
         if object is not None:
             self.object = object
+        if stats is not None:
+            self.stats = stats
+        if throughput is not None:
+            self.throughput = throughput
+        if usage is not None:
+            self.usage = usage
 
     @property
     def choices(self) -> 'list[V1ResponseChoice]':
         """Gets the choices of this V1ConversationResponseChunk.  # noqa: E501
 
+        A list of chat completion choices. Can be more than one if n is greater than 1.  # noqa: E501
 
         :return: The choices of this V1ConversationResponseChunk.  # noqa: E501
         :rtype: list[V1ResponseChoice]
@@ -84,6 +110,7 @@ class V1ConversationResponseChunk(object):
     def choices(self, choices: 'list[V1ResponseChoice]'):
         """Sets the choices of this V1ConversationResponseChunk.
 
+        A list of chat completion choices. Can be more than one if n is greater than 1.  # noqa: E501
 
         :param choices: The choices of this V1ConversationResponseChunk.  # noqa: E501
         :type: list[V1ResponseChoice]
@@ -113,6 +140,27 @@ class V1ConversationResponseChunk(object):
         self._conversation_id = conversation_id
 
     @property
+    def executable(self) -> 'bool':
+        """Gets the executable of this V1ConversationResponseChunk.  # noqa: E501
+
+
+        :return: The executable of this V1ConversationResponseChunk.  # noqa: E501
+        :rtype: bool
+        """
+        return self._executable
+
+    @executable.setter
+    def executable(self, executable: 'bool'):
+        """Sets the executable of this V1ConversationResponseChunk.
+
+
+        :param executable: The executable of this V1ConversationResponseChunk.  # noqa: E501
+        :type: bool
+        """
+
+        self._executable = executable
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1ConversationResponseChunk.  # noqa: E501
 
@@ -134,6 +182,27 @@ class V1ConversationResponseChunk(object):
         self._id = id
 
     @property
+    def message_id(self) -> 'str':
+        """Gets the message_id of this V1ConversationResponseChunk.  # noqa: E501
+
+
+        :return: The message_id of this V1ConversationResponseChunk.  # noqa: E501
+        :rtype: str
+        """
+        return self._message_id
+
+    @message_id.setter
+    def message_id(self, message_id: 'str'):
+        """Sets the message_id of this V1ConversationResponseChunk.
+
+
+        :param message_id: The message_id of this V1ConversationResponseChunk.  # noqa: E501
+        :type: str
+        """
+
+        self._message_id = message_id
+
+    @property
     def object(self) -> 'str':
         """Gets the object of this V1ConversationResponseChunk.  # noqa: E501
 
@@ -153,6 +222,69 @@ class V1ConversationResponseChunk(object):
         """
 
         self._object = object
+
+    @property
+    def stats(self) -> 'dict(str, str)':
+        """Gets the stats of this V1ConversationResponseChunk.  # noqa: E501
+
+
+        :return: The stats of this V1ConversationResponseChunk.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._stats
+
+    @stats.setter
+    def stats(self, stats: 'dict(str, str)'):
+        """Sets the stats of this V1ConversationResponseChunk.
+
+
+        :param stats: The stats of this V1ConversationResponseChunk.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._stats = stats
+
+    @property
+    def throughput(self) -> 'float':
+        """Gets the throughput of this V1ConversationResponseChunk.  # noqa: E501
+
+
+        :return: The throughput of this V1ConversationResponseChunk.  # noqa: E501
+        :rtype: float
+        """
+        return self._throughput
+
+    @throughput.setter
+    def throughput(self, throughput: 'float'):
+        """Sets the throughput of this V1ConversationResponseChunk.
+
+
+        :param throughput: The throughput of this V1ConversationResponseChunk.  # noqa: E501
+        :type: float
+        """
+
+        self._throughput = throughput
+
+    @property
+    def usage(self) -> 'V1TokenUsage':
+        """Gets the usage of this V1ConversationResponseChunk.  # noqa: E501
+
+
+        :return: The usage of this V1ConversationResponseChunk.  # noqa: E501
+        :rtype: V1TokenUsage
+        """
+        return self._usage
+
+    @usage.setter
+    def usage(self, usage: 'V1TokenUsage'):
+        """Sets the usage of this V1ConversationResponseChunk.
+
+
+        :param usage: The usage of this V1ConversationResponseChunk.  # noqa: E501
+        :type: V1TokenUsage
+        """
+
+        self._usage = usage
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

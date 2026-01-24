@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.schema
-Version: 8.0
+Version: 8.1
 Summary: zope.interface extension for defining data schemas
 Home-page: https://github.com/zopefoundation/zope.schema
 Author: Zope Foundation and Contributors
@@ -24,7 +24,6 @@ Classifier: Framework :: Zope :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.interface>=5.0.0
 Requires-Dist: zope.event
 Provides-Extra: docs
@@ -86,6 +85,12 @@ See https://zopeschema.readthedocs.io/ for more information.
 =========
  Changes
 =========
+
+8.1 (2025-10-26)
+================
+
+- Remove unnecessary ``setuptools`` runtime dependency.
+
 
 8.0 (2025-09-12)
 ================

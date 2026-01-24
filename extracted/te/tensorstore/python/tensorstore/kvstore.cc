@@ -22,6 +22,7 @@
 // Other headers
 #include <stddef.h>
 
+#include <algorithm>
 #include <limits>
 #include <optional>
 #include <string>
@@ -35,23 +36,28 @@
 #include <nlohmann/json_fwd.hpp>
 #include "python/tensorstore/batch.h"
 #include "python/tensorstore/context.h"
+#include "python/tensorstore/critical_section.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/locking_type_casters.h"  // IWYU pragma: keep
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"
+#include "python/tensorstore/type_name_override.h"
+#include "python/tensorstore/with_handle.h"
 #include "tensorstore/batch.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -61,6 +67,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -74,9 +81,9 @@ py::bytes CordToPython(const absl::Cord& value) {
 }
 
 std::optional<absl::Cord> OptionalCordFromPython(
-    std::optional<std::string_view> value) {
+    std::optional<StrOrBytesView> value) {
   if (!value) return std::nullopt;
-  return absl::Cord(*value);
+  return absl::Cord(value->value);
 }
 
 namespace kvstore_spec_setters {
@@ -270,8 +277,15 @@ void DefineKvStoreAttributes(KvStoreCls& cls) {
   using Self = PythonKvStoreObject;
 
   cls.def_property(
-      "path", [](Self& self) -> std::string_view { return self.value.path; },
-      [](Self& self, std::string path) { self.value.path = std::move(path); },
+      "path",
+      [](const Self& self) -> std::string {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return self.value.path;
+      },
+      [](Self& self, StrOrBytes path) {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        self.value.path = std::move(path.value);
+      },
       R"(
 Path prefix within the base key-value store.
 
@@ -293,7 +307,8 @@ Group:
 
   cls.def_property_readonly(
       "url",
-      [](Self& self) -> std::string {
+      [](const Self& self) -> std::string {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return ValueOrThrow(self.value.ToUrl());
       },
       R"(
@@ -315,9 +330,10 @@ Group:
 
   cls.def(
       "__add__",
-      [](Self& self, std::string_view suffix) {
+      [](const Self& self, StrOrBytesView suffix) -> KvStore {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_store = self.value;
-        new_store.AppendSuffix(suffix);
+        new_store.AppendSuffix(suffix.value);
         return new_store;
       },
       py::arg("suffix"), R"(
@@ -358,9 +374,12 @@ Group:
 
   cls.def(
       "__truediv__",
-      [](Self& self, std::string_view component) {
+      [](const Self& self, StrOrBytesView component) -> KvStore {
+        std::optional<ScopedPyCriticalSection> cs(
+            reinterpret_cast<const PyObject*>(&self));
         auto new_store = self.value;
-        new_store.AppendPathComponent(component);
+        cs = std::nullopt;
+        new_store.AppendPathComponent(component.value);
         return new_store;
       },
       py::arg("component"), R"(
@@ -398,12 +417,15 @@ Group:
 
   cls.def_property(
       "transaction",
-      [](Self& self) -> std::optional<internal::TransactionState::CommitPtr> {
+      [](const Self& self)
+          -> std::optional<internal::TransactionState::CommitPtr> {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         if (self.value.transaction == no_transaction) return std::nullopt;
         return internal::TransactionState::ToCommitPtr(self.value.transaction);
       },
       [](Self& self,
          std::optional<internal::TransactionState::CommitPtr> transaction) {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         if (!transaction) {
           self.value.transaction = no_transaction;
         } else {
@@ -420,9 +442,10 @@ Group:
 
   cls.def(
       "with_transaction",
-      [](Self& self,
+      [](const Self& self,
          std::optional<internal::TransactionState::CommitPtr> transaction)
           -> KvStore {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         if (!transaction) transaction.emplace();
         return ValueOrThrow(
             self.value |
@@ -449,7 +472,8 @@ Group:
 
   cls.def_property_readonly(
       "base",
-      [](Self& self) -> std::optional<KvStore> {
+      [](const Self& self) -> std::optional<KvStore> {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto kvs = ValueOrThrow(self.value.base());
         if (!kvs.valid()) return std::nullopt;
         return kvs;
@@ -483,8 +507,9 @@ Group:
 
   cls.def(
       "list",
-      [](Self& self, std::optional<KeyRange> range,
-         size_t strip_prefix_length) {
+      [](const Self& self, std::optional<KeyRange> range,
+         size_t strip_prefix_length) -> Future<BytesVector> {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         kvstore::ListOptions options;
         if (range) options.range = std::move(*range);
         options.strip_prefix_length = strip_prefix_length;
@@ -543,20 +568,22 @@ Group:
 
   cls.def(
       "read",
-      [](Self& self, std::string_view key,
-         std::optional<std::string> if_not_equal,
-         std::optional<double> staleness_bound, std::optional<Batch> batch) {
+      [](const Self& self, StrOrBytesView key,
+         std::optional<StrOrBytes> if_not_equal,
+         std::optional<double> staleness_bound,
+         std::optional<Batch> batch) -> Future<kvstore::ReadResult> {
         kvstore::ReadOptions options;
         if (if_not_equal) {
           options.generation_conditions.if_not_equal.value =
-              std::move(*if_not_equal);
+              std::move(if_not_equal->value);
         }
         if (staleness_bound) {
           options.staleness_bound = FromPythonTimestamp(*staleness_bound);
         }
         options.batch =
             internal_python::ValidateOptionalBatch(std::move(batch));
-        return kvstore::Read(self.value, key, std::move(options));
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return kvstore::Read(self.value, key.value, std::move(options));
       },
       py::arg("key"), py::kw_only(), py::arg("if_not_equal") = std::nullopt,
       py::arg("staleness_bound") = std::nullopt,
@@ -645,9 +672,11 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](Self& self, std::string_view key) {
-        auto result =
-            ValueOrThrow(InterruptibleWait(kvstore::Read(self.value, key)));
+      [](const Self& self, StrOrBytesView key) -> py::bytes {
+        auto result = ValueOrThrow(InterruptibleWait([&]() {
+          ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+          return kvstore::Read(self.value, key.value);
+        }()));
         if (result.state == kvstore::ReadResult::kMissing) {
           throw py::key_error();
         }
@@ -698,11 +727,13 @@ Group:
 
   cls.def(
       "__contains__",
-      [](Self& self, std::string_view key) {
+      [](const Self& self, StrOrBytesView key) -> bool {
         kvstore::ReadOptions options;
         options.byte_range = OptionalByteRangeRequest::Stat();
-        auto result = ValueOrThrow(InterruptibleWait(
-            kvstore::Read(self.value, key, std::move(options))));
+        auto result = ValueOrThrow(InterruptibleWait([&]() {
+          ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+          return kvstore::Read(self.value, key.value, std::move(options));
+        }()));
         return result.has_value();
       },
       py::arg("key"), R"(
@@ -746,15 +777,17 @@ Group:
 
   cls.def(
       "write",
-      [](Self& self, std::string_view key,
-         std::optional<std::string_view> value,
-         std::optional<std::string> if_equal) {
+      [](const Self& self, StrOrBytesView key, std::optional<StrOrBytes> value,
+         std::optional<StrOrBytes> if_equal)
+          -> Future<TimestampedStorageGeneration> {
         kvstore::WriteOptions options;
         if (if_equal) {
           options.generation_conditions.if_equal =
-              StorageGeneration{std::move(*if_equal)};
+              StorageGeneration{std::move(if_equal->value)};
         }
-        return kvstore::Write(self.value, key, OptionalCordFromPython(value),
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return kvstore::Write(self.value, key.value,
+                              OptionalCordFromPython(value),
                               std::move(options));
       },
       py::arg("key"), py::arg("value"), py::kw_only(),
@@ -807,10 +840,13 @@ Group:
 
   cls.def(
       "__setitem__",
-      [](Self& self, std::string_view key,
-         std::optional<std::string_view> value) {
-        ValueOrThrow(InterruptibleWait(
-            kvstore::Write(self.value, key, OptionalCordFromPython(value))));
+      [](const Self& self, StrOrBytesView key,
+         std::optional<StrOrBytesView> value) {
+        ValueOrThrow(InterruptibleWait([&]() {
+          ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+          return kvstore::Write(self.value, key.value,
+                                OptionalCordFromPython(value));
+        }()));
       },
       py::arg("key"), py::arg("value"), R"(
 Synchronously writes the value of a single key.
@@ -868,9 +904,11 @@ Group:
 
   cls.def(
       "__delitem__",
-      [](Self& self, std::string_view key) {
-        ValueOrThrow(
-            InterruptibleWait(kvstore::Write(self.value, key, std::nullopt)));
+      [](const Self& self, StrOrBytesView key) {
+        ValueOrThrow(InterruptibleWait([&]() {
+          ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+          return kvstore::Write(self.value, key.value, std::nullopt);
+        }()));
       },
       py::arg("key"), R"(
 Synchronously deletes a single key.
@@ -921,7 +959,8 @@ Group:
 
   cls.def(
       "delete_range",
-      [](Self& self, KeyRange range) {
+      [](const Self& self, KeyRange range) -> Future<const void> {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return kvstore::DeleteRange(self.value, std::move(range));
       },
       py::arg("range"), R"(
@@ -962,8 +1001,10 @@ Group:
 
   cls.def(
       "experimental_copy_range_to",
-      [](Self& self, const Self& target, std::optional<KeyRange> source_range,
-         std::optional<double> source_staleness_bound) {
+      [](const Self& self, const Self& target,
+         std::optional<KeyRange> source_range,
+         std::optional<double> source_staleness_bound)
+          -> PythonFutureWrapper<const void> {
         kvstore::CopyRangeOptions options;
         if (source_staleness_bound) {
           options.source_staleness_bound =
@@ -972,6 +1013,7 @@ Group:
         if (source_range) {
           options.source_range = std::move(*source_range);
         }
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto future = kvstore::ExperimentalCopyRange(self.value, target.value,
                                                      std::move(options));
         // The returned `PythonFutureObject` must keep Python objects referenced
@@ -979,7 +1021,7 @@ Group:
         PythonObjectReferenceManager reference_manager;
         reference_manager.Update(std::pair<const KvStore&, const KvStore&>(
             self.value, target.value));
-        return PythonFutureWrapper<const void>(std ::move(future),
+        return PythonFutureWrapper<const void>(std::move(future),
                                                std::move(reference_manager));
       },
       py::arg("target"), py::arg("source_range") = std::nullopt,
@@ -1083,9 +1125,11 @@ Group:
 
     cls.def(
         "spec",
-        [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
+        [](const Self& self, KeywordArgument<decltype(param_def)>... kwarg)
+            -> Result<kvstore::Spec> {
           kvstore::SpecRequestOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
+          ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
           return self.value.spec(std::move(options));
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
@@ -1133,7 +1177,8 @@ Group:
     cls.def_static(
         "open",
         [](std::variant<PythonKvStoreSpecObject*, ::nlohmann::json> spec_like,
-           KeywordArgument<decltype(param_def)>... kwarg) {
+           KeywordArgument<decltype(param_def)>... kwarg)
+            -> PythonFutureWrapper<KvStore> {
           kvstore::OpenOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
           kvstore::Spec spec;
@@ -1154,7 +1199,8 @@ Group:
 
   cls.def(
       "__repr__",
-      [](Self& self) {
+      [](const Self& self) -> std::string {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return internal_python::PrettyPrintJsonAsPythonRepr(
             self.value.spec(tensorstore::unbind_context) |
                 [](const auto& spec) { return spec.ToJson(); },
@@ -1183,7 +1229,13 @@ Example:
 
 )");
 
-  cls.def("copy", [](Self& self) { return self.value; }, R"(
+  cls.def(
+      "copy",
+      [](const Self& self) -> KvStore {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return self.value;
+      },
+      R"(
 Returns a copy of the key-value store.
 
 Example:
@@ -1218,7 +1270,10 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](Self& self) { return self.value; });
+  cls.def("__copy__", [](const Self& self) -> KvStore {
+    ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+    return self.value;
+  });
 
   EnableGarbageCollectedObjectPicklingFromSerialization(cls);
 }
@@ -1286,14 +1341,22 @@ Group:
         [](Self& self, KeywordArgument<decltype(param_def)>... kwarg) {
           kvstore::SpecConvertOptions options;
           ApplyKeywordArguments<decltype(param_def)...>(options, kwarg...);
+          ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(&self));
           ThrowStatusException(self.value.Set(std::move(options)));
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
   });
 
   cls.def_property(
-      "path", [](Self& self) -> std::string_view { return self.value.path; },
-      [](Self& self, std::string_view path) { self.value.path = path; },
+      "path",
+      [](const Self& self) -> std::string {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return self.value.path;
+      },
+      [](Self& self, StrOrBytesView path) {
+        ScopedPyCriticalSection cs(reinterpret_cast<PyObject*>(&self));
+        self.value.path = path.value;
+      },
       R"(
 Path prefix within the base key-value store.
 
@@ -1309,7 +1372,8 @@ Group:
 
   cls.def_property_readonly(
       "url",
-      [](Self& self) -> std::string {
+      [](const Self& self) -> std::string {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return ValueOrThrow(self.value.ToUrl());
       },
       R"(
@@ -1331,9 +1395,10 @@ Group:
 
   cls.def(
       "__add__",
-      [](Self& self, std::string_view suffix) {
+      [](const Self& self, StrOrBytesView  suffix) -> kvstore::Spec {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_spec = self.value;
-        new_spec.AppendSuffix(suffix);
+        new_spec.AppendSuffix(suffix.value);
         return new_spec;
       },
       py::arg("suffix"), R"(
@@ -1356,9 +1421,10 @@ Group:
 
   cls.def(
       "__truediv__",
-      [](Self& self, std::string_view component) {
+      [](const Self& self, StrOrBytesView component) -> kvstore::Spec {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto new_spec = self.value;
-        new_spec.AppendPathComponent(component);
+        new_spec.AppendPathComponent(component.value);
         return new_spec;
       },
       py::arg("component"), R"(
@@ -1378,7 +1444,7 @@ Group:
 
   cls.def(
       "__new__",
-      [](py::handle cls, ::nlohmann::json json_spec) {
+      [](py::handle cls, ::nlohmann::json json_spec) -> kvstore::Spec {
         return ValueOrThrow(kvstore::Spec::FromJson(std::move(json_spec)));
       },
       py::arg("json"), R"(
@@ -1400,7 +1466,8 @@ Example of constructing from a :json:schema:`URL<KvStoreUrl>`:
 
   cls.def(
       "to_json",
-      [](Self& self, bool include_defaults) {
+      [](const Self& self, bool include_defaults) -> ::nlohmann::json {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return ValueOrThrow(
             self.value.ToJson({IncludeDefaults{include_defaults}}));
       },
@@ -1429,7 +1496,8 @@ Group:
 
   cls.def_property_readonly(
       "base",
-      [](Self& self) -> std::optional<kvstore::Spec> {
+      [](const Self& self) -> std::optional<kvstore::Spec> {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         auto spec = ValueOrThrow(self.value.base());
         if (!spec.valid()) return std::nullopt;
         return spec;
@@ -1458,7 +1526,13 @@ Group:
   Accessors
 )");
 
-  cls.def("copy", [](Self& self) { return self.value; }, R"(
+  cls.def(
+      "copy",
+      [](const Self& self) -> kvstore::Spec {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return self.value;
+      },
+      R"(
 Returns a copy of the key-value store spec.
 
 Example:
@@ -1475,17 +1549,25 @@ Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](Self& self) { return self.value; });
+  cls.def("__copy__", [](const Self& self) -> kvstore::Spec {
+    ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+    return self.value;
+  });
 
   cls.def(
-      "__deepcopy__", [](Self& self, py::dict memo) { return self.value; },
+      "__deepcopy__",
+      [](const Self& self, py::dict memo) -> kvstore::Spec {
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
+        return self.value;
+      },
       py::arg("memo"));
 
   cls.def(
       "__repr__",
-      [](Self& self) {
+      [](const Self& self) -> std::string {
         JsonSerializationOptions options;
         options.preserve_bound_context_resources_ = true;
+        ScopedPyCriticalSection cs(reinterpret_cast<const PyObject*>(&self));
         return internal_python::PrettyPrintJsonAsPythonRepr(
             self.value.ToJson(options), "KvStore.Spec(", ")");
       },
@@ -1501,7 +1583,11 @@ Example:
 
   cls.def(
       "__eq__",
-      [](Self& self, Self& other) { return self.value == other.value; },
+      [](const Self& self, const Self& other) -> bool {
+        ScopedPyCriticalSection2 cs(reinterpret_cast<const PyObject*>(&self),
+                                    reinterpret_cast<const PyObject*>(&other));
+        return self.value == other.value;
+      },
       py::arg("other"),
       R"(
 Compares with another :py:obj:`KvStore.Spec` for equality based on the :json:schema:`JSON representation<KvStore>`.
@@ -1533,8 +1619,12 @@ Half-open interval of byte string keys, according to lexicographical order.
 
 void DefineKeyRangeAttributes(KeyRangeCls& cls) {
   using Self = KeyRange;
-  cls.def(py::init([](std::string inclusive_min, std::string exclusive_max) {
-            return KeyRange(std::move(inclusive_min), std::move(exclusive_max));
+  using Handle = with_handle<Self&>;
+  using ConstHandle = with_handle<const Self&>;
+
+  cls.def(py::init([](StrOrBytes inclusive_min, StrOrBytes exclusive_max) {
+            return KeyRange(std::move(inclusive_min.value),
+                            std::move(exclusive_max.value));
           }),
           py::arg("inclusive_min") = "", py::arg("exclusive_max") = "",
           R"(
@@ -1552,8 +1642,15 @@ Args:
 
   cls.def_property(
       "inclusive_min",
-      [](const Self& self) -> std::string_view { return self.inclusive_min; },
-      [](Self& self, std::string value) { self.inclusive_min = value; }, R"(
+      [](ConstHandle self) -> py::bytes {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.inclusive_min;
+      },
+      [](Handle self, StrOrBytes value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.inclusive_min = value.value;
+      },
+      R"(
 Inclusive lower bound of the range.
 
 In accordance with the usual lexicographical order, an empty string indicates no
@@ -1565,8 +1662,15 @@ Group:
 
   cls.def_property(
       "exclusive_max",
-      [](const Self& self) -> std::string_view { return self.exclusive_max; },
-      [](Self& self, std::string value) { self.exclusive_max = value; }, R"(
+      [](ConstHandle self) -> py::bytes {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.exclusive_max;
+      },
+      [](Handle self, StrOrBytes value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.exclusive_max = value.value;
+      },
+      R"(
 Exclusive upper bound of the range.
 
 As a special case, an empty string indicates no upper bound.
@@ -1575,22 +1679,39 @@ Group:
   Accessors
 )");
 
-  cls.def("copy", [](const Self& self) { return self; }, R"(
+  cls.def(
+      "copy",
+      [](ConstHandle self) -> KeyRange {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value;
+      },
+      R"(
 Returns a copy of the range.
 
 Group:
   Accessors
 )");
 
-  cls.def("__copy__", [](const Self& self) { return self; });
+  cls.def("__copy__", [](ConstHandle self) -> KeyRange {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return self.value;
+  });
   cls.def(
-      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
+      "__deepcopy__",
+      [](ConstHandle self, py::dict memo) -> KeyRange {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value;
+      },
       py::arg("memo"));
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 
   cls.def_property_readonly(
-      "empty", [](const KeyRange& self) { return self.empty(); },
+      "empty",
+      [](ConstHandle self) -> bool {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.empty();
+      },
       R"(
 Indicates if the range contains no keys.
 
@@ -1610,15 +1731,19 @@ Group:
   Accessors
 )");
 
-  cls.def("__repr__", [](const Self& self) {
-    return tensorstore::StrCat("KvStore.KeyRange(",
-                               py::repr(py::bytes(self.inclusive_min)), ", ",
-                               py::repr(py::bytes(self.exclusive_max)), ")");
+  cls.def("__repr__", [](ConstHandle self) -> std::string {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return tensorstore::StrCat(
+        "KvStore.KeyRange(", py::repr(py::bytes(self.value.inclusive_min)),
+        ", ", py::repr(py::bytes(self.value.exclusive_max)), ")");
   });
 
   cls.def(
       "__eq__",
-      [](const KeyRange& self, const KeyRange& other) { return self == other; },
+      [](ConstHandle self, ConstHandle other) {
+        ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+        return self.value == other.value;
+      },
       py::arg("other"), R"(
 Compares with another range for equality.
 )");
@@ -1634,10 +1759,13 @@ Specifies a storage generation identifier and a timestamp.
 
 void DefineTimestampedStorageGenerationAttributes(
     TimestampedStorageGenerationCls& cls) {
-  using Self = TimestampedStorageGeneration;
-  cls.def(py::init([](std::string generation, double time) {
-            return Self(StorageGeneration{std::move(generation)},
-                        internal_python::FromPythonTimestamp(time));
+  using ConstHandle = with_handle<const TimestampedStorageGeneration&>;
+  using MutableHandle = with_handle<TimestampedStorageGeneration&>;
+
+  cls.def(py::init([](StrOrBytes generation, double time) {
+            return TimestampedStorageGeneration(
+                StorageGeneration{std::move(generation.value)},
+                internal_python::FromPythonTimestamp(time));
           }),
           py::arg("generation") = "",
           py::arg("time") = -std::numeric_limits<double>::infinity(),
@@ -1645,20 +1773,23 @@ void DefineTimestampedStorageGenerationAttributes(
 Constructs from a storage generation and time.
 )");
 
-  cls.def("__repr__", [](const Self& self) {
-    return tensorstore::StrCat("KvStore.TimestampedStorageGeneration(",
-                               py::repr(py::bytes(self.generation.value)), ", ",
-                               internal_python::ToPythonTimestamp(self.time),
-                               ")");
+  cls.def("__repr__", [](ConstHandle self) -> std::string {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return tensorstore::StrCat(
+        "KvStore.TimestampedStorageGeneration(",
+        py::repr(py::bytes(self.value.generation.value)), ", ",
+        internal_python::ToPythonTimestamp(self.value.time), ")");
   });
 
   cls.def_property(
       "generation",
-      [](const Self& self) -> py::bytes {
-        return py::bytes(self.generation.value);
+      [](ConstHandle self) -> py::bytes {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return py::bytes(self.value.generation.value);
       },
-      [](Self& self, std::string value) {
-        self.generation.value = std::move(value);
+      [](MutableHandle self, StrOrBytes value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.generation.value = std::move(value.value);
       },
       R"(
 Identifies a specific version of a key-value store entry.
@@ -1671,11 +1802,13 @@ Group:
 
   cls.def_property(
       "time",
-      [](const Self& self) -> double {
-        return internal_python::ToPythonTimestamp(self.time);
+      [](ConstHandle self) -> double {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return internal_python::ToPythonTimestamp(self.value.time);
       },
-      [](Self& self, double value) {
-        self.time = internal_python::FromPythonTimestamp(value);
+      [](MutableHandle self, double value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.time = internal_python::FromPythonTimestamp(value);
       },
       R"(
 Time (seconds since Unix epoch) at which :py:obj:`.generation` is valid.
@@ -1686,17 +1819,27 @@ Group:
 
   cls.def(
       "__eq__",
-      [](const Self& self, const Self& other) { return self == other; },
+      [](ConstHandle self, ConstHandle other) -> bool {
+        ScopedPyCriticalSection2 cs(self.handle.ptr(), other.handle.ptr());
+        return self.value == other.value;
+      },
       py::arg("other"), R"(
 Compares two timestamped storage generations for equality.
 )");
 
-  cls.def("__copy__", [](const Self& self) { return self; });
+  cls.def("__copy__", [](ConstHandle self) {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return self.value;
+  });
   cls.def(
-      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
+      "__deepcopy__",
+      [](ConstHandle self, py::dict memo) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value;
+      },
       py::arg("memo"));
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 ReadResultCls MakeReadResultClass(KvStoreCls& kvstore_cls) {
@@ -1706,57 +1849,83 @@ Specifies the result of a read operation.
 }
 
 void DefineReadResultAttributes(ReadResultCls& cls) {
-  using Self = kvstore::ReadResult;
+  using ConstHandle = with_handle<const kvstore::ReadResult&>;
+  using MutableHandle = with_handle<kvstore::ReadResult&>;
+  using State = kvstore::ReadResult::State;
 
-  cls.def(py::init([](Self::State state, std::string value,
+  cls.def(py::init([](State state, StrOrBytes value,
                       TimestampedStorageGeneration stamp) {
-            return kvstore::ReadResult{state, absl::Cord(std::move(value)),
-                                       std::move(stamp)};
+            return kvstore::ReadResult{
+                state, absl::Cord(std::move(value.value)), std::move(stamp)};
           }),
-          py::arg("state") = Self::State::kUnspecified, py::arg("value") = "",
+          py::arg("state") = State::kUnspecified, py::arg("value") = "",
           py::arg("stamp") = TimestampedStorageGeneration(), R"(
 Constructs a read result.
 )");
 
   cls.def_property(
-      "state", [](const Self& self) { return self.state; },
-      [](Self& self, Self::State state) { self.state = state; },
+      "state",
+      [](ConstHandle self) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.state;
+      },
+      [](MutableHandle self, State state) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.state = state;
+      },
       R"(
 Indicates the interpretation of :py:obj:`.value`.
 )");
 
   cls.def_property(
       "value",
-      [](const Self& self) -> py::bytes { return CordToPython(self.value); },
-      [](Self& self, std::string value) {
-        self.value = absl::Cord(std::move(value));
+      [](ConstHandle self) -> py::bytes {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return CordToPython(self.value.value);
+      },
+      [](MutableHandle self, StrOrBytes value) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.value = absl::Cord(std::move(value.value));
       },
       R"(
 Value associated with the key.
 )");
 
   cls.def_property(
-      "stamp", [](const Self& self) { return self.stamp; },
-      [](Self& self, TimestampedStorageGeneration stamp) {
-        self.stamp = std::move(stamp);
+      "stamp",
+      [](ConstHandle self) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value.stamp;
+      },
+      [](MutableHandle self, TimestampedStorageGeneration stamp) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        self.value.stamp = std::move(stamp);
       },
       R"(
 Generation and timestamp associated with the value.
 )");
 
-  cls.def("__repr__", [](const Self& self) {
+  cls.def("__repr__", [](ConstHandle self) -> std::string {
+    ScopedPyCriticalSection cs(self.handle.ptr());
     return tensorstore::StrCat(
-        "KvStore.ReadResult(state=", pybind11::repr(py::cast(self.state)),
-        ", value=", pybind11::repr(py::bytes(std::string(self.value))),
-        ", stamp=", pybind11::repr(py::cast(self.stamp)), ")");
+        "KvStore.ReadResult(state=", pybind11::repr(py::cast(self.value.state)),
+        ", value=", pybind11::repr(py::bytes(std::string(self.value.value))),
+        ", stamp=", pybind11::repr(py::cast(self.value.stamp)), ")");
   });
 
-  cls.def("__copy__", [](const Self& self) { return self; });
+  cls.def("__copy__", [](ConstHandle self) {
+    ScopedPyCriticalSection cs(self.handle.ptr());
+    return self.value;
+  });
   cls.def(
-      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
+      "__deepcopy__",
+      [](ConstHandle self, py::dict memo) {
+        ScopedPyCriticalSection cs(self.handle.ptr());
+        return self.value;
+      },
       py::arg("memo"));
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/true>(cls);
 }
 
 void RegisterKvStoreBindings(pybind11::module m, Executor defer) {

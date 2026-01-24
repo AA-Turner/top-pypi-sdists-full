@@ -2,7 +2,7 @@ import io
 import time
 from binascii import crc32
 from collections.abc import Iterable
-from typing import Literal, Optional, Union, cast, overload
+from typing import Literal, cast, overload
 
 from typing_extensions import Self
 
@@ -16,7 +16,6 @@ from aiokafka.codec import (
     snappy_decode,
     zstd_decode,
 )
-from aiokafka.errors import UnsupportedCodecError
 
 from .struct import Struct
 from .types import Bytes, Int8, Int32, Int64, Schema, UInt32
@@ -64,8 +63,8 @@ class Message(Struct):
     def __init__(
         self,
         *,
-        value: Optional[bytes],
-        key: Optional[bytes],
+        value: bytes | None,
+        key: bytes | None,
         magic: Literal[0],
         attributes: int,
         crc: int,
@@ -75,8 +74,8 @@ class Message(Struct):
     def __init__(
         self,
         *,
-        value: Optional[bytes],
-        key: Optional[bytes],
+        value: bytes | None,
+        key: bytes | None,
         magic: Literal[1],
         attributes: int,
         crc: int,
@@ -86,12 +85,12 @@ class Message(Struct):
     def __init__(
         self,
         *,
-        value: Optional[bytes],
-        key: Optional[bytes],
+        value: bytes | None,
+        key: bytes | None,
         magic: Literal[0, 1],
         attributes: int,
         crc: int,
-        timestamp: Optional[int] = None,
+        timestamp: int | None = None,
     ) -> None:
         assert value is None or isinstance(value, bytes), "value must be bytes"
         assert key is None or isinstance(key, bytes), "key must be bytes"
@@ -102,14 +101,14 @@ class Message(Struct):
             timestamp = int(time.time() * 1000)
         self.timestamp = timestamp
         self.crc = crc
-        self._validated_crc: Optional[int] = None
+        self._validated_crc: int | None = None
         self.magic = magic
         self.attributes = attributes
         self.key = key
         self.value = value
 
     @property
-    def timestamp_type(self) -> Optional[Literal[0, 1]]:
+    def timestamp_type(self) -> Literal[0, 1] | None:
         """0 for CreateTime; 1 for LogAppendTime; None if unsupported.
 
         Value is determined by broker; produced messages should always set to 0
@@ -148,8 +147,8 @@ class Message(Struct):
         return crc_field.encode(self.crc) + message[4:]
 
     @classmethod
-    def decode(cls, data: Union[io.BytesIO, bytes]) -> Self:
-        _validated_crc: Optional[int] = None
+    def decode(cls, data: io.BytesIO | bytes) -> Self:
+        _validated_crc: int | None = None
         if isinstance(data, bytes):
             _validated_crc = crc32(data[4:])
             data = io.BytesIO(data)
@@ -204,7 +203,7 @@ class Message(Struct):
 
     def decompress(
         self,
-    ) -> list[Union[tuple[int, int, "Message"], tuple[None, None, "PartialMessage"]]]:
+    ) -> list[tuple[int, int, "Message"] | tuple[None, None, "PartialMessage"]]:
         assert self.value is not None
         codec = self.attributes & self.CODEC_MASK
         assert codec in (
@@ -221,13 +220,7 @@ class Message(Struct):
             raw_bytes = snappy_decode(self.value)
         elif codec == self.CODEC_LZ4:
             assert has_lz4(), "LZ4 decompression unsupported"
-            if self.magic == 0:
-                # https://issues.apache.org/jira/browse/KAFKA-3160
-                raise UnsupportedCodecError(
-                    "LZ4 is not supported for broker version 0.8/0.9"
-                )
-            else:
-                raw_bytes = lz4_decode(self.value)
+            raw_bytes = lz4_decode(self.value)
         elif codec == self.CODEC_ZSTD:
             assert has_zstd(), "ZSTD decompression unsupported"
             raw_bytes = zstd_decode(self.value)
@@ -235,9 +228,6 @@ class Message(Struct):
             raise AssertionError("This should be impossible")
 
         return MessageSet.decode(raw_bytes, bytes_to_read=len(raw_bytes))
-
-    def __hash__(self) -> int:
-        return hash(self.encode(recalc_crc=False))
 
 
 class PartialMessage(bytes):
@@ -252,7 +242,7 @@ class MessageSet:
     @classmethod
     def encode(
         cls,
-        items: Union[io.BytesIO, Iterable[tuple[int, bytes]]],
+        items: io.BytesIO | Iterable[tuple[int, bytes]],
         prepend_size: bool = True,
     ) -> bytes:
         # RecordAccumulator encodes messagesets internally
@@ -276,8 +266,8 @@ class MessageSet:
 
     @classmethod
     def decode(
-        cls, data: Union[io.BytesIO, bytes], bytes_to_read: Optional[int] = None
-    ) -> list[Union[tuple[int, int, Message], tuple[None, None, PartialMessage]]]:
+        cls, data: io.BytesIO | bytes, bytes_to_read: int | None = None
+    ) -> list[tuple[int, int, Message] | tuple[None, None, PartialMessage]]:
         """Compressed messages should pass in bytes_to_read (via message size)
         otherwise, we decode from data as Int32
         """
@@ -291,9 +281,7 @@ class MessageSet:
         # So create an internal buffer to avoid over-reading
         raw = io.BytesIO(data.read(bytes_to_read))
 
-        items: list[
-            Union[tuple[int, int, Message], tuple[None, None, PartialMessage]]
-        ] = []
+        items: list[tuple[int, int, Message] | tuple[None, None, PartialMessage]] = []
         try:
             while bytes_to_read:
                 offset = Int64.decode(raw)
@@ -313,10 +301,8 @@ class MessageSet:
     @classmethod
     def repr(
         cls,
-        messages: Union[
-            io.BytesIO,
-            list[Union[tuple[int, int, Message], tuple[None, None, PartialMessage]]],
-        ],
+        messages: io.BytesIO
+        | list[tuple[int, int, Message] | tuple[None, None, PartialMessage]],
     ) -> str:
         if isinstance(messages, io.BytesIO):
             offset = messages.tell()

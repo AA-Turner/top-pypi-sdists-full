@@ -106,7 +106,7 @@ import warnings
 from collections import Counter, defaultdict
 from urllib.parse import urlparse
 
-from astroid import ClassDef, FunctionDef, NodeNG, nodes
+from astroid import nodes
 from pylint.checkers import BaseChecker, utils
 from pylint.lint import PyLinter
 
@@ -126,7 +126,7 @@ ODOO_MSGS = {
         "manifest-required-author",
         CHECK_DESCRIPTION,
     ),
-    "C8102": ('Missing required key %s"%s" in manifest file', "manifest-required-key", CHECK_DESCRIPTION),
+    "C8102": ('Missing required key "%s" in manifest file', "manifest-required-key", CHECK_DESCRIPTION),
     "C8103": ('Deprecated key "%s" in manifest file', "manifest-deprecated-key", CHECK_DESCRIPTION),
     "C8105": ('License "%s" not allowed in manifest file.', "license-allowed", CHECK_DESCRIPTION),
     "C8106": (
@@ -156,8 +156,28 @@ ODOO_MSGS = {
     ),
     "C8114": ('Category "%s" not allowed in manifest file.', "category-allowed", CHECK_DESCRIPTION),
     "C8115": (
-        "Missing %s %sfile",
+        "Missing %s file",
         "missing-odoo-file",
+        CHECK_DESCRIPTION,
+    ),
+    "C8116": (
+        'Manifest superfluous key "%s". It is the same as the default value: %s. Better remove it',
+        "manifest-superfluous-key",
+        CHECK_DESCRIPTION,
+    ),
+    "C8117": (
+        'Category "%s" not allowed in manifest file for modules with price.',
+        "category-allowed-app",
+        CHECK_DESCRIPTION,
+    ),
+    "C8118": (
+        "Missing %s file for modules with price",
+        "missing-odoo-file-app",
+        CHECK_DESCRIPTION,
+    ),
+    "C8119": (
+        'Missing required key "%s" in manifest file for modules with price.',
+        "manifest-required-key-app",
         CHECK_DESCRIPTION,
     ),
     "E8101": (
@@ -311,10 +331,16 @@ ODOO_MSGS = {
         "no-search-all",
         CHECK_DESCRIPTION,
     ),
+    "W8164": (
+        "`super().%s` mismatch but defined method is `%s`",
+        "super-method-mismatch",
+        CHECK_DESCRIPTION,
+    ),
 }
 
 DFTL_MANIFEST_REQUIRED_KEYS = ["license"]
 DFTL_MANIFEST_REQUIRED_KEYS_APP = ["currency", "images", "license", "support"]
+DFTL_ODOO_REQUIRED_FILES = []
 DFTL_ODOO_REQUIRED_FILES_APP = [os.path.join("static", "description", "index.html")]
 DFTL_MANIFEST_REQUIRED_AUTHORS = ["Odoo Community Association (OCA)"]
 DFTL_MANIFEST_DEPRECATED_KEYS = ["description"]
@@ -341,6 +367,27 @@ DFTL_ATTRIBUTE_DEPRECATED = [
     "length",
 ]
 DFTL_CATEGORY_ALLOWED = []
+DFTL_CATEGORY_ALLOWED_APP = [
+    # Based on https://apps.odoo.com/apps
+    "Accounting",
+    "Discuss",
+    "Document Management",
+    "eCommerce",
+    "Extra Tools",
+    "Human Resources",
+    "Industries",
+    "Localization",
+    "Manufacturing",
+    "Marketing",
+    "Point of Sale",
+    "Productivity",
+    "Project",
+    "Purchases",
+    "Sales",
+    "Tutorial",
+    "Warehouse",
+    "Website",
+]
 DFTL_METHOD_REQUIRED_SUPER = [
     "copy",
     "create",
@@ -411,6 +458,8 @@ DFTL_EXTERNAL_REQUEST_TIMEOUT_METHODS = [
     "urllib.request.urlopen",
 ]
 DFTL_DEPRECATED_ODOO_MODEL_METHODS = {"16.0": {"fields_view_get"}}
+
+DFTL_MANIFEST_KEYS_VALUES_TRUE = ["active", "installable"]
 
 # Regex used from https://github.com/translate/translate/blob/9de0d72437/translate/filters/checks.py#L50-L62  # noqa
 PRINTF_PATTERN = re.compile(
@@ -509,6 +558,15 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
             },
         ),
         (
+            "manifest-keys-values-true",
+            {
+                "type": "csv",
+                "metavar": "<comma separated values>",
+                "default": DFTL_MANIFEST_KEYS_VALUES_TRUE,
+                "help": "List of keys in manifest file whose the default value is `True`, separated by a comma.",
+            },
+        ),
+        (
             "manifest-required-authors",
             {
                 "type": "csv",
@@ -587,9 +645,21 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
             {
                 "type": "csv",
                 "metavar": "<comma separated values>",
-                "default": DFTL_ODOO_REQUIRED_FILES_APP,
+                "default": DFTL_ODOO_REQUIRED_FILES,
                 "help": (
                     "List of mandatory relative paths (comma-separated) expected inside Odoo module. "
+                    "Example: static/description/index.html"
+                ),
+            },
+        ),
+        (
+            "odoo-required-files-app",
+            {
+                "type": "csv",
+                "metavar": "<comma separated values>",
+                "default": DFTL_ODOO_REQUIRED_FILES_APP,
+                "help": (
+                    "List of mandatory relative paths (comma-separated) expected inside Odoo module for modules with price. "
                     "Example: static/description/index.html"
                 ),
             },
@@ -628,6 +698,15 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 "metavar": "<comma separated values>",
                 "default": DFTL_CATEGORY_ALLOWED,
                 "help": "List of categories allowed in manifest file, separated by a comma.",
+            },
+        ),
+        (
+            "category-allowed-app",
+            {
+                "type": "csv",
+                "metavar": "<comma separated values>",
+                "default": DFTL_CATEGORY_ALLOWED_APP,
+                "help": "List of categories allowed in manifest file for apps, separated by a comma.",
             },
         ),
     )
@@ -902,6 +981,34 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         )
         return lib_original_func_name
 
+    def _get_field_arg_string(self, node):
+        """Extract the ``string`` label value from a field definition AST node.
+
+        This method inspects a field constructor call (e.g. ``fields.Char(...)``)
+        and attempts to retrieve the human-readable label (``string``) either from:
+
+        - A positional argument, based on the expected position defined in
+        ``FIELDS_METHOD`` for the given field type.
+        - A keyword argument explicitly named ``string``.
+
+        If the ``string`` value cannot be found, ``None`` is returned.
+
+        :param node: AST node representing a field constructor call.
+        :type node: ast.Call
+        :return: The extracted string value or ``None`` if not present.
+        :rtype: str | None
+        """
+        field_class_name = node.func.attrname
+        field_args = getattr(node, "args", None) or []
+        field_kwargs = getattr(node, "keywords", None) or []
+        pos_str = FIELDS_METHOD.get(field_class_name, 0)
+        try:
+            string_arg = field_args[pos_str]
+            return self._get_str_value(string_arg)
+        except IndexError:
+            field_kwarg = next((kw for kw in field_kwargs if kw.arg == "string"), None)
+            return self._get_str_value(field_kwarg and field_kwarg.value)
+
     @utils.only_required_for_messages(
         "attribute-string-redundant",
         "bad-builtin-groupby",
@@ -919,6 +1026,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         "print-used",
         "renamed-field-parameter",
         "sql-injection",
+        "super-method-mismatch",
         "translation-contains-variable",
         "translation-field",
         "translation-positional-used",
@@ -946,17 +1054,15 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 and node.parent.targets
                 and isinstance(node.parent.targets[0], nodes.AssignName)
             ):
-                field_name = node.parent.targets[0].name.replace("_", " ")
-            is_related = bool([1 for kw in node.keywords or [] if kw.arg == "related"])
+                field_name = node.parent.targets[0].name.removesuffix("_ids").removesuffix("_id").replace("_", " ")
+            is_related = any(kw.arg == "related" for kw in (node.keywords or []))
+            arg_string_value = self._get_field_arg_string(node)
+            if not is_related and arg_string_value == field_name.title():
+                # Check this 'name = fields.Char("name")'
+                # Check this 'name = fields.Char(string="name")'
+                self.add_message("attribute-string-redundant", node=node)
             for argument in args:
                 argument_aux = argument
-                # Check this 'name = fields.Char("name")'
-                if (
-                    not is_related
-                    and self._get_str_value(argument) == field_name.title()
-                    and index == FIELDS_METHOD.get(argument.parent.func.attrname, 0)
-                ):
-                    self.add_message("attribute-string-redundant", node=node)
                 if isinstance(argument, nodes.Keyword):
                     argument_aux = argument.value
                     deprecated = self.deprecated_field_parameters
@@ -967,14 +1073,6 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                         and not value.startswith("_" + argument.arg + "_")
                     ):
                         self.add_message("method-" + argument.arg, node=argument_aux)
-                    # Check if the param string is equal to the name
-                    #   of variable
-                    elif (
-                        not is_related
-                        and argument.arg == "string"
-                        and self._get_str_value(argument_aux) == field_name.title()
-                    ):
-                        self.add_message("attribute-string-redundant", node=node)
                     elif argument.arg in deprecated:
                         self.add_message(
                             "renamed-field-parameter", node=node, args=(argument.arg, deprecated[argument.arg])
@@ -988,9 +1086,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                         method_name = (
                             argument.value.value
                             if isinstance(argument.value, nodes.Const)
-                            else argument.value.name
-                            if isinstance(argument.value, nodes.Name)
-                            else None
+                            else argument.value.name if isinstance(argument.value, nodes.Name) else None
                         )
                         if method_name and self.class_odoo_models:
                             self.odoo_computes.add(method_name)
@@ -1217,8 +1313,23 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 )
                 if empty_domain and not limit_or_count:
                     self.add_message("no-search-all", node=node, args=(self.get_func_name(node.func),))
+        if (
+            isinstance(node.func, nodes.Attribute)
+            and isinstance(node.func.expr, nodes.Call)
+            and (func := node.func.expr.func)
+            and self.get_func_name(func) == "super"
+            and (frame := node.frame())
+            and isinstance(frame, nodes.FunctionDef)
+            and isinstance(frame.parent.frame(), nodes.ClassDef)
+            and isinstance(func.parent, nodes.Call)
+        ):
+            meth_called = self.get_func_name(node.func)
+            meth_defined = frame.name
+            if meth_called != meth_defined and "queue" not in meth_defined and "cache" not in meth_defined:
+                self.add_message("super-method-mismatch", node=node, args=(meth_called, meth_defined))
 
     @utils.only_required_for_messages(
+        "category-allowed-app",
         "category-allowed",
         "development-status-allowed",
         "invalid-email",
@@ -1230,8 +1341,11 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         "manifest-external-assets",
         "manifest-maintainers-list",
         "manifest-required-author",
+        "manifest-required-key-app",
         "manifest-required-key",
+        "manifest-superfluous-key",
         "manifest-version-format",
+        "missing-odoo-file-app",
         "missing-odoo-file",
         "missing-readme",
         "resource-not-exist",
@@ -1276,10 +1390,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 self.add_message(
                     "manifest-required-key",
                     node=node,
-                    args=(
-                        "",
-                        required_key,
-                    ),
+                    args=(required_key,),
                 )
 
         # Check keys deprecated
@@ -1303,6 +1414,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
             category_str
             and self.linter.config.category_allowed
             and category_str not in self.linter.config.category_allowed
+            and "price" not in manifest_dict
         ):
             self.add_message(
                 "category-allowed", node=manifest_keys_nodes.get("category") or node, args=(category_str,)
@@ -1420,14 +1532,12 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                 self.linter.config.manifest_required_keys
             )
             for app_required_key in app_required_keys:
-                self.add_message(
-                    "manifest-required-key",
-                    node=node,
-                    args=(
-                        "app ",
-                        app_required_key,
-                    ),
-                )
+                if app_required_key not in manifest_dict:
+                    self.add_message(
+                        "manifest-required-key-app",
+                        node=node,
+                        args=(app_required_key,),
+                    )
 
             for subpath in self.linter.config.odoo_required_files:
                 required_path = os.path.join(dirname, subpath)
@@ -1436,10 +1546,39 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                     self.add_message(
                         "missing-odoo-file",
                         node=node,
-                        args=(
-                            required_relative_path,
-                            "app ",
-                        ),
+                        args=(required_relative_path,),
+                    )
+
+            for subpath in self.linter.config.odoo_required_files_app:
+                required_path = os.path.join(dirname, subpath)
+                if not os.path.isfile(required_path):
+                    required_relative_path = os.path.join(os.path.basename(dirname), subpath)
+                    self.add_message(
+                        "missing-odoo-file-app",
+                        node=node,
+                        args=(required_relative_path,),
+                    )
+
+            # Check category allowed for apps
+            if (
+                category_str
+                and self.linter.config.category_allowed_app
+                and category_str not in self.linter.config.category_allowed_app
+            ):
+                self.add_message(
+                    "category-allowed-app",
+                    node=manifest_keys_nodes.get("category") or node,
+                    args=(category_str,),
+                )
+        if self.linter.is_message_enabled("manifest-superfluous-key"):
+            for key, value in manifest_dict.items():
+                if (not value and key not in self.linter.config.manifest_keys_values_true) or (
+                    value and key in self.linter.config.manifest_keys_values_true
+                ):
+                    self.add_message(
+                        "manifest-superfluous-key",
+                        node=manifest_keys_nodes.get(key) or node,
+                        args=(key, value),
                     )
 
     def _check_manifest_external_assets(self, node):
@@ -1456,7 +1595,7 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
                         if isinstance(entry, nodes.Const) and is_external_url(entry.value):
                             self.add_message("manifest-external-assets", node=element, args=(entry.value,))
 
-    def check_deprecated_odoo_method(self, node: NodeNG) -> bool:
+    def check_deprecated_odoo_method(self, node: nodes.NodeNG) -> bool:
         """Verify the given method is not marked as deprecated under the set Odoo versions.
         :param node: Function definition to be checked
         :return: True if the method is deprecated, false otherwise.
@@ -1609,19 +1748,19 @@ class OdooAddons(OdooBaseChecker, BaseChecker):
         return ""
 
     @staticmethod
-    def _is_unlink(node: FunctionDef) -> bool:
+    def _is_unlink(node: nodes.FunctionDef) -> bool:
         parent = getattr(node, "parent", False)
         return (
-            isinstance(parent, ClassDef)
+            isinstance(parent, nodes.ClassDef)
             and ("_name" in parent.locals or "_inherit" in parent.locals)
             and node.name == "unlink"
         )
 
     @staticmethod
-    def get_enclosing_function(node: NodeNG, depth=10):
+    def get_enclosing_function(node: nodes.NodeNG, depth=10):
         parent = getattr(node, "parent", False)
         for _i in range(depth):
-            if not parent or isinstance(parent, FunctionDef):
+            if not parent or isinstance(parent, nodes.FunctionDef):
                 break
             parent = parent.parent
 

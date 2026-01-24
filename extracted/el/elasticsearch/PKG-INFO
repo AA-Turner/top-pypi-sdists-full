@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elasticsearch
-Version: 9.1.1
+Version: 9.2.1
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch-py
@@ -18,16 +18,17 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
-Requires-Dist: elastic-transport<10,>=9.1.0
+Requires-Python: >=3.10
+Requires-Dist: anyio
+Requires-Dist: elastic-transport<10,>=9.2.0
 Requires-Dist: python-dateutil
+Requires-Dist: sniffio
 Requires-Dist: typing-extensions
 Provides-Extra: async
 Requires-Dist: aiohttp<4,>=3; extra == 'async'
@@ -36,6 +37,7 @@ Requires-Dist: aiohttp; extra == 'dev'
 Requires-Dist: black; extra == 'dev'
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: httpx; extra == 'dev'
 Requires-Dist: isort; extra == 'dev'
 Requires-Dist: jinja2; extra == 'dev'
 Requires-Dist: mapbox-vector-tile; extra == 'dev'
@@ -44,7 +46,8 @@ Requires-Dist: nox; extra == 'dev'
 Requires-Dist: numpy; extra == 'dev'
 Requires-Dist: orjson; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'
-Requires-Dist: pyarrow; extra == 'dev'
+Requires-Dist: pyarrow; (python_version < '3.14') and extra == 'dev'
+Requires-Dist: pydantic; extra == 'dev'
 Requires-Dist: pyright; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
@@ -55,6 +58,7 @@ Requires-Dist: pyyaml>=5.4; extra == 'dev'
 Requires-Dist: requests<3,>=2; extra == 'dev'
 Requires-Dist: simsimd; extra == 'dev'
 Requires-Dist: tqdm; extra == 'dev'
+Requires-Dist: trio; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Requires-Dist: types-python-dateutil; extra == 'dev'
 Requires-Dist: types-tqdm; extra == 'dev'
@@ -164,6 +168,24 @@ Documentation for the client is [available on elastic.co] and [Read the Docs].
 
 [available on elastic.co]: https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/index.html
 [Read the Docs]: https://elasticsearch-py.readthedocs.io
+
+
+## Try Elasticsearch and Kibana locally
+
+If you want to try Elasticsearch and Kibana locally, you can run the following command:
+
+```bash
+curl -fsSL https://elastic.co/start-local | sh
+```
+
+This will run Elasticsearch at [http://localhost:9200](http://localhost:9200) and Kibana at [http://localhost:5601](http://localhost:5601).
+
+More information is available [here](https://www.elastic.co/guide/en/elasticsearch/reference/current/run-elasticsearch-locally.html).
+
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 
 ## License

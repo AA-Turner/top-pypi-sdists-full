@@ -24,13 +24,8 @@ from janitor.functions.utils import _is_str_or_cat
 from janitor.utils import check, deprecated_alias, refactored_function
 
 
+@pf.register_dataframe_groupby_method
 @pf.register_dataframe_method
-@refactored_function(
-    message=(
-        "This function will be deprecated in a 1.x release. "
-        "Please use `jn.select` instead."
-    )
-)
 def select_columns(
     df: pd.DataFrame,
     *args: Any,
@@ -54,11 +49,6 @@ def select_columns(
         is with `.loc` or `.iloc` methods.
         `select_columns` is primarily for convenience.
 
-    !!!note
-
-        This function will be deprecated in a 1.x release.
-        Please use `jn.select` instead.
-
     Examples:
         >>> import pandas as pd
         >>> import janitor
@@ -66,18 +56,31 @@ def select_columns(
         >>> pd.set_option("display.max_columns", None)
         >>> pd.set_option("display.expand_frame_repr", False)
         >>> pd.set_option("max_colwidth", None)
-        >>> data = {'name': ['Cheetah','Owl monkey','Mountain beaver',
-        ...                  'Greater short-tailed shrew','Cow'],
-        ...         'genus': ['Acinonyx', 'Aotus', 'Aplodontia', 'Blarina', 'Bos'],
-        ...         'vore': ['carni', 'omni', 'herbi', 'omni', 'herbi'],
-        ...         'order': ['Carnivora','Primates','Rodentia','Soricomorpha','Artiodactyla'],
-        ...         'conservation': ['lc', nan, 'nt', 'lc', 'domesticated'],
-        ...         'sleep_total': [12.1, 17.0, 14.4, 14.9, 4.0],
-        ...         'sleep_rem': [nan, 1.8, 2.4, 2.3, 0.7],
-        ...         'sleep_cycle': [nan, nan, nan, 0.133333333, 0.666666667],
-        ...         'awake': [11.9, 7.0, 9.6, 9.1, 20.0],
-        ...         'brainwt': [nan, 0.0155, nan, 0.00029, 0.423],
-        ...         'bodywt': [50.0, 0.48, 1.35, 0.019, 600.0]}
+        >>> data = {
+        ...     "name": [
+        ...         "Cheetah",
+        ...         "Owl monkey",
+        ...         "Mountain beaver",
+        ...         "Greater short-tailed shrew",
+        ...         "Cow",
+        ...     ],
+        ...     "genus": ["Acinonyx", "Aotus", "Aplodontia", "Blarina", "Bos"],
+        ...     "vore": ["carni", "omni", "herbi", "omni", "herbi"],
+        ...     "order": [
+        ...         "Carnivora",
+        ...         "Primates",
+        ...         "Rodentia",
+        ...         "Soricomorpha",
+        ...         "Artiodactyla",
+        ...     ],
+        ...     "conservation": ["lc", nan, "nt", "lc", "domesticated"],
+        ...     "sleep_total": [12.1, 17.0, 14.4, 14.9, 4.0],
+        ...     "sleep_rem": [nan, 1.8, 2.4, 2.3, 0.7],
+        ...     "sleep_cycle": [nan, nan, nan, 0.133333333, 0.666666667],
+        ...     "awake": [11.9, 7.0, 9.6, 9.1, 20.0],
+        ...     "brainwt": [nan, 0.0155, nan, 0.00029, 0.423],
+        ...     "bodywt": [50.0, 0.48, 1.35, 0.019, 600.0],
+        ... }
         >>> df = pd.DataFrame(data)
         >>> df
                                  name       genus   vore         order  conservation  sleep_total  sleep_rem  sleep_cycle  awake  brainwt   bodywt
@@ -88,7 +91,7 @@ def select_columns(
         4                         Cow         Bos  herbi  Artiodactyla  domesticated          4.0        0.7     0.666667   20.0  0.42300  600.000
 
         Explicit label selection:
-        >>> df.select_columns('name', 'order')
+        >>> df.select_columns("name", "order")
                                  name         order
         0                     Cheetah     Carnivora
         1                  Owl monkey      Primates
@@ -116,7 +119,9 @@ def select_columns(
         4  Artiodactyla  domesticated
 
         Selection via slicing:
-        >>> df.select_columns(slice('name','order'), slice('sleep_total','sleep_cycle'))
+        >>> df.select_columns(
+        ...     slice("name", "order"), slice("sleep_total", "sleep_cycle")
+        ... )
                                  name       genus   vore         order  sleep_total  sleep_rem  sleep_cycle
         0                     Cheetah    Acinonyx  carni     Carnivora         12.1        NaN          NaN
         1                  Owl monkey       Aotus   omni      Primates         17.0        1.8          NaN
@@ -160,14 +165,30 @@ def select_columns(
         3  0.00029    0.019
         4  0.42300  600.000
 
+
+        Selection is possible on a grouped object:
+        >>> df.groupby("name").select_columns(
+        ...     "*wt"
+        ... ).min()  # doctest: +NORMALIZE_WHITESPACE
+                                    brainwt   bodywt
+        name
+        Cheetah                         NaN   50.000
+        Cow                         0.42300  600.000
+        Greater short-tailed shrew  0.00029    0.019
+        Mountain beaver                 NaN    1.350
+        Owl monkey                  0.01550    0.480
+
+
         Selection on MultiIndex columns:
-        >>> d = {'num_legs': [4, 4, 2, 2],
-        ...      'num_wings': [0, 0, 2, 2],
-        ...      'class': ['mammal', 'mammal', 'mammal', 'bird'],
-        ...      'animal': ['cat', 'dog', 'bat', 'penguin'],
-        ...      'locomotion': ['walks', 'walks', 'flies', 'walks']}
+        >>> d = {
+        ...     "num_legs": [4, 4, 2, 2],
+        ...     "num_wings": [0, 0, 2, 2],
+        ...     "class": ["mammal", "mammal", "mammal", "bird"],
+        ...     "animal": ["cat", "dog", "bat", "penguin"],
+        ...     "locomotion": ["walks", "walks", "flies", "walks"],
+        ... }
         >>> df = pd.DataFrame(data=d)
-        >>> df = df.set_index(['class', 'animal', 'locomotion']).T
+        >>> df = df.set_index(["class", "animal", "locomotion"]).T
         >>> df
         class      mammal                bird
         animal        cat   dog   bat penguin
@@ -176,7 +197,7 @@ def select_columns(
         num_wings       0     0     2       2
 
         Selection with a scalar:
-        >>> df.select_columns('mammal')
+        >>> df.select_columns("mammal")  # doctest: +NORMALIZE_WHITESPACE
         class      mammal
         animal        cat   dog   bat
         locomotion  walks walks flies
@@ -184,7 +205,7 @@ def select_columns(
         num_wings       0     0     2
 
         Selection with a tuple:
-        >>> df.select_columns(('mammal','bat'))
+        >>> df.select_columns(("mammal", "bat"))
         class      mammal
         animal        bat
         locomotion  flies
@@ -193,13 +214,13 @@ def select_columns(
 
         Selection within a level is possible with a dictionary,
         where the key is either a level name or number:
-        >>> df.select_columns({'animal':'cat'})
+        >>> df.select_columns({"animal": "cat"})
         class      mammal
         animal        cat
         locomotion  walks
         num_legs        4
         num_wings       0
-        >>> df.select_columns({1:["bat", "cat"]})
+        >>> df.select_columns({1: ["bat", "cat"]})  # doctest: +NORMALIZE_WHITESPACE
         class      mammal
         animal        bat   cat
         locomotion  flies walks
@@ -207,7 +228,7 @@ def select_columns(
         num_wings       2     0
 
         Selection on multiple levels:
-        >>> df.select_columns({"class":"mammal", "locomotion":"flies"})
+        >>> df.select_columns({"class": "mammal", "locomotion": "flies"})
         class      mammal
         animal        bat
         locomotion  flies
@@ -215,7 +236,9 @@ def select_columns(
         num_wings       2
 
         Selection with a regex on a level:
-        >>> df.select_columns({"animal":re.compile(".+t$")})
+        >>> df.select_columns(
+        ...     {"animal": re.compile(".+t$")}
+        ... )  # doctest: +NORMALIZE_WHITESPACE
         class      mammal
         animal        cat   bat
         locomotion  walks flies
@@ -223,7 +246,9 @@ def select_columns(
         num_wings       0     2
 
         Selection with a callable on a level:
-        >>> df.select_columns({"animal":lambda f: f.str.endswith('t')})
+        >>> df.select_columns(
+        ...     {"animal": lambda f: f.str.endswith("t")}
+        ... )  # doctest: +NORMALIZE_WHITESPACE
         class      mammal
         animal        cat   bat
         locomotion  walks flies
@@ -231,7 +256,7 @@ def select_columns(
         num_wings       0     2
 
     Args:
-        df: A pandas DataFrame.
+        df: A pandas DataFrame, Series or GroupBy object.
         *args: Valid inputs include: an exact column name to look for,
             a shell-style glob string (e.g. `*_thing_*`),
             a regular expression,
@@ -245,19 +270,15 @@ def select_columns(
             of the complement of the columns provided.
 
     Returns:
-        A pandas DataFrame with the specified columns selected.
+        A pandas DataFrame, Series, or GroupBy object, with the specified columns selected.
     """  # noqa: E501
-
+    if isinstance(df, DataFrameGroupBy):
+        return _get_columns_on_a_grouped_object(group=df, label=list(args))
     return _select(df, columns=list(args), invert=invert)
 
 
 @pf.register_dataframe_method
-@refactored_function(
-    message=(
-        "This function will be deprecated in a 1.x release. "
-        "Please use `jn.select` instead."
-    )
-)
+@pf.register_series_method
 def select_rows(
     df: pd.DataFrame,
     *args: Any,
@@ -284,16 +305,11 @@ def select_rows(
         is with `.loc` or `.iloc` methods, as they are generally performant.
         `select_rows` is primarily for convenience.
 
-    !!!note
-
-        This function will be deprecated in a 1.x release.
-        Please use `jn.select` instead.
-
     Examples:
         >>> import pandas as pd
         >>> import janitor
         >>> df = {"col1": [1, 2], "foo": [3, 4], "col2": [5, 6]}
-        >>> df = pd.DataFrame.from_dict(df, orient='index')
+        >>> df = pd.DataFrame.from_dict(df, orient="index")
         >>> df
               0  1
         col1  1  2
@@ -308,7 +324,7 @@ def select_rows(
     [`select_columns`][janitor.functions.select.select_columns] section.
 
     Args:
-        df: A pandas DataFrame.
+        df: A pandas DataFrame or Series.
         *args: Valid inputs include: an exact index name to look for,
             a shell-style glob string (e.g. `*_thing_*`),
             a regular expression,
@@ -322,22 +338,30 @@ def select_rows(
             of the complement of the rows provided.
 
     Returns:
-        A pandas DataFrame with the specified rows selected.
+        A pandas DataFrame or Series with the specified rows selected.
     """  # noqa: E501
     return _select(df, rows=list(args), invert=invert)
 
 
+@pf.register_dataframe_groupby_method
 @pf.register_dataframe_method
+@pf.register_series_groupby_method
 @pf.register_series_method
 @deprecated_alias(rows="index")
+@refactored_function(
+    message=(
+        "This function has been deprecated. "
+        "Kindly use `jn.select_columns` or `jn.select_rows` instead."
+    )
+)
 def select(
-    df: pd.DataFrame | pd.Series,
+    df: pd.DataFrame | pd.Series | DataFrameGroupBy,
     *args: tuple,
     index: Any = None,
     columns: Any = None,
     axis: str = "columns",
     invert: bool = False,
-) -> pd.DataFrame | pd.Series:
+) -> pd.DataFrame | pd.Series | DataFrameGroupBy:
     """Method-chainable selection of rows and/or columns.
 
     It accepts a string, shell-like glob strings `(*string*)`,
@@ -364,6 +388,11 @@ def select(
         is with `.loc` or `.iloc` methods, as they are generally performant.
         `select` is primarily for convenience.
 
+    !!!note
+
+        This function has been deprecated.
+        Kindly use `jn.select_columns` or `jn.select_rows`
+
     !!! abstract "Version Changed"
 
         - 0.26.0
@@ -371,25 +400,29 @@ def select(
             - `rows` keyword deprecated in favour of `index`.
         - 0.31.0
             - Add support for pd.Series.
+        - 0.32.0
+            - Add support for DataFrameGroupBy.
 
     Examples:
         >>> import pandas as pd
         >>> import janitor
-        >>> df = pd.DataFrame([[1, 2], [4, 5], [7, 8]],
-        ...      index=['cobra', 'viper', 'sidewinder'],
-        ...      columns=['max_speed', 'shield'])
+        >>> df = pd.DataFrame(
+        ...     [[1, 2], [4, 5], [7, 8]],
+        ...     index=["cobra", "viper", "sidewinder"],
+        ...     columns=["max_speed", "shield"],
+        ... )
         >>> df
                     max_speed  shield
         cobra               1       2
         viper               4       5
         sidewinder          7       8
-        >>> df.select(index='cobra', columns='shield')
+        >>> df.select(index="cobra", columns="shield")
                shield
         cobra       2
 
         Labels can be dropped with the `DropLabel` class:
 
-        >>> df.select(index=DropLabel('cobra'))
+        >>> df.select(index=DropLabel("cobra"))
                     max_speed  shield
         viper               4       5
         sidewinder          7       8
@@ -398,7 +431,7 @@ def select(
     [`select_columns`][janitor.functions.select.select_columns] section.
 
     Args:
-        df: A pandas DataFrame.
+        df: A pandas DataFrame or a GroupBy object.
         *args: Valid inputs include: an exact index name to look for,
             a shell-style glob string (e.g. `*_thing_*`),
             a regular expression,
@@ -436,6 +469,10 @@ def select(
     Returns:
         A pandas DataFrame or Series with the specified rows and/or columns selected.
     """  # noqa: E501
+    if args and isinstance(df, DataFrameGroupBy):
+        return _get_columns_on_a_grouped_object(group=df, label=list(args))
+    if isinstance(df, DataFrameGroupBy):
+        return _get_columns_on_a_grouped_object(group=df, label=[columns])
     if args:
         check("invert", invert, [bool])
         if (index is not None) or (columns is not None):
@@ -478,15 +515,52 @@ def get_index_labels(
     return index[_select_index(arg, df, axis)]
 
 
-def get_columns(
+@pf.register_dataframe_groupby_method
+def get_columns(group: DataFrameGroupBy | SeriesGroupBy, label: Any) -> pd.DataFrame:
+    """
+    Get column(s) from a grouped object,
+    using the
+    [`select`][janitor.functions.select.select] syntax.
+
+    !!! info "New in version 0.25.0"
+
+    Examples:
+        >>> import pandas as pd
+        >>> import janitor
+        >>> df = pd.DataFrame(
+        ...     [[1, 2], [4, 5], [7, 8]],
+        ...     index=["cobra", "viper", "sidewinder"],
+        ...     columns=["max_speed", "shield"],
+        ... )
+        >>> df
+                    max_speed  shield
+        cobra               1       2
+        viper               4       5
+        sidewinder          7       8
+        >>> df.groupby(level=0).get_columns("*ed")
+                    max_speed
+        cobra               1
+        viper               4
+        sidewinder          7
+
+
+    Args:
+        group: A Pandas GroupBy object.
+        label: column(s) to select.
+
+    Returns:
+        A pandas DataFrame.
+    """
+    return _select(group.obj, columns=label, invert=None)
+
+
+def _get_columns_on_a_grouped_object(
     group: DataFrameGroupBy | SeriesGroupBy, label: Any
 ) -> DataFrameGroupBy | SeriesGroupBy:
     """
     Helper function for selecting columns on a grouped object,
     using the
     [`select`][janitor.functions.select.select] syntax.
-
-    !!! info "New in version 0.25.0"
 
     Args:
         group: A Pandas GroupBy object.
@@ -525,8 +599,7 @@ def _select_callable(arg, func: Callable, axis=None):
     bools = np.asanyarray(bools)
     if not is_bool_dtype(bools):
         raise ValueError(
-            "The output of the applied callable "
-            "should be a 1-D boolean array."
+            "The output of the applied callable should be a 1-D boolean array."
         )
     if axis:
         arg = getattr(arg, axis)
@@ -639,8 +712,7 @@ def _index_dispatch(arg, df, axis):  # noqa: F811
             )
         if is_datetime64_dtype(index):
             raise ValueError(
-                "The DatetimeIndex should be monotonic increasing."
-                "Kindly sort the index"
+                "The DatetimeIndex should be monotonic increasing.Kindly sort the index"
             )
 
     return index._convert_slice_indexer(arg, kind="loc")
@@ -702,12 +774,9 @@ def _index_dispatch(arg, df, axis):  # noqa: F811
         level_label[key] = value
 
     level_label = {
-        index._get_level_number(level): label
-        for level, label in level_label.items()
+        index._get_level_number(level): label for level, label in level_label.items()
     }
-    level_label = [
-        level_label.get(num, slice(None)) for num in range(index.nlevels)
-    ]
+    level_label = [level_label.get(num, slice(None)) for num in range(index.nlevels)]
     return index.get_locs(level_label)
 
 
@@ -737,21 +806,16 @@ def _index_dispatch(arg, df, axis):  # noqa: F811
             arr = arg.array
         else:
             arr = arg
-        if isinstance(index, pd.MultiIndex) and not isinstance(
-            arg, pd.MultiIndex
-        ):
+        if isinstance(index, pd.MultiIndex) and not isinstance(arg, pd.MultiIndex):
             return index.get_locs([arg])
         arr = index.get_indexer_for(arr)
         not_found = arr == -1
         if not_found.all():
-            raise KeyError(
-                f"No match was returned for any of the labels in {arg}"
-            )
+            raise KeyError(f"No match was returned for any of the labels in {arg}")
         elif not_found.any():
             not_found = set(arg).difference(index)
             raise KeyError(
-                f"No match was returned for these labels in {arg} - "
-                f"{*not_found,}"
+                f"No match was returned for these labels in {arg} - {(*not_found,)}"
             )
         return arr
     except Exception as exc:

@@ -9,8 +9,8 @@
 #define ChromeTracingTracer_DEFINED
 
 #include "include/core/SkString.h"
-#include "include/private/SkSpinlock.h"
 #include "include/utils/SkEventTracer.h"
+#include "src/base/SkSpinlock.h"
 #include "src/core/SkTHash.h"
 #include "tools/trace/EventTracingPriv.h"
 
@@ -21,7 +21,7 @@ class SkJSONWriter;
  */
 class ChromeTracingTracer : public SkEventTracer {
 public:
-    ChromeTracingTracer(const char* filename);
+    explicit ChromeTracingTracer(const char* filename);
     ~ChromeTracingTracer() override;
 
     SkEventTracer::Handle addTraceEvent(char            phase,

@@ -40,18 +40,16 @@ if TYPE_CHECKING:
 class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
     _base_path: str  # path, to be overridden in inheriting classes
     # nulls are to account for the partial featurelist created inside models
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.Or(String, t.Null),
-            t.Key("name"): t.Or(String, t.Null),
-            t.Key("features"): t.Or(t.List(String), t.Null),
-            t.Key("project_id"): t.Or(String(), t.Null),
-            t.Key("created"): t.Or(t.Null, t.Call(parse_time)),
-            t.Key("is_user_created"): t.Or(t.Bool, t.Null),
-            t.Key("num_models"): t.Or(Int, t.Null),
-            t.Key("description"): String(allow_blank=True),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.Or(String, t.Null),
+        t.Key("name"): t.Or(String, t.Null),
+        t.Key("features"): t.Or(t.List(String), t.Null),
+        t.Key("project_id"): t.Or(String(), t.Null),
+        t.Key("created"): t.Or(t.Null, t.Call(parse_time)),
+        t.Key("is_user_created"): t.Or(t.Bool, t.Null),
+        t.Key("num_models"): t.Or(Int, t.Null),
+        t.Key("description"): String(allow_blank=True),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -103,9 +101,7 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
         if description is not None:
             self.description = description
 
-    def delete(
-        self, dry_run: bool = False, delete_dependencies: bool = False
-    ) -> DeleteFeatureListResult:
+    def delete(self, dry_run: bool = False, delete_dependencies: bool = False) -> DeleteFeatureListResult:
         """Delete a featurelist, and any models and jobs using it
 
         All models using a featurelist, whether as the training featurelist or as a monotonic
@@ -150,15 +146,13 @@ class BaseFeaturelist(APIObject):  # pylint: disable=missing-class-docstring
             self._make_url(),
             params=to_api({"dry_run": dry_run, "delete_dependencies": delete_dependencies}),
         )
-        checker = t.Dict(
-            {
-                t.Key("dry_run"): t.Bool(),
-                t.Key("can_delete"): t.Bool(),
-                t.Key("deletion_blocked_reason"): String(allow_blank=True),
-                t.Key("num_affected_models"): Int(),
-                t.Key("num_affected_jobs"): Int(),
-            }
-        ).ignore_extra("*")
+        checker = t.Dict({
+            t.Key("dry_run"): t.Bool(),
+            t.Key("can_delete"): t.Bool(),
+            t.Key("deletion_blocked_reason"): String(allow_blank=True),
+            t.Key("num_affected_models"): Int(),
+            t.Key("num_affected_jobs"): Int(),
+        }).ignore_extra("*")
         return cast("DeleteFeatureListResult", checker.check(from_api(result.json())))
 
 
@@ -329,9 +323,7 @@ class ModelingFeaturelist(BaseFeaturelist):
     _base_path = "projects/{}/modelingFeaturelists/"
 
     @classmethod
-    def get(
-        cls: Type[TModelingFeaturelist], project_id: str, featurelist_id: str
-    ) -> TModelingFeaturelist:
+    def get(cls: Type[TModelingFeaturelist], project_id: str, featurelist_id: str) -> TModelingFeaturelist:
         """Retrieve a modeling featurelist
 
         Modeling featurelists can only be retrieved once the target and partitioning options have
@@ -379,19 +371,17 @@ class DatasetFeaturelist(APIObject):
     """
 
     _base_path = "datasets/{}/featurelists/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.Or(String, t.Null),
-            t.Key("name"): t.Or(String, t.Null),
-            t.Key("features"): t.Or(t.List(String), t.Null),
-            t.Key("dataset_id"): t.Or(String, t.Null),
-            t.Key("dataset_version_id", optional=True): t.Or(String, t.Null),
-            t.Key("creation_date"): t.Or(t.Null, t.Call(parse_time)),
-            t.Key("created_by"): t.Or(String, t.Null),
-            t.Key("user_created"): t.Or(t.Bool, t.Null),
-            t.Key("description", optional=True): String(allow_blank=True),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.Or(String, t.Null),
+        t.Key("name"): t.Or(String, t.Null),
+        t.Key("features"): t.Or(t.List(String), t.Null),
+        t.Key("dataset_id"): t.Or(String, t.Null),
+        t.Key("dataset_version_id", optional=True): t.Or(String, t.Null),
+        t.Key("creation_date"): t.Or(t.Null, t.Call(parse_time)),
+        t.Key("created_by"): t.Or(String, t.Null),
+        t.Key("user_created"): t.Or(t.Bool, t.Null),
+        t.Key("description", optional=True): String(allow_blank=True),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -419,9 +409,7 @@ class DatasetFeaturelist(APIObject):
         return f"{self._base_path.format(self.dataset_id)}{self.id}/"
 
     @classmethod
-    def get(
-        cls: Type[TDatasetFeaturelist], dataset_id: str, featurelist_id: str
-    ) -> TDatasetFeaturelist:
+    def get(cls: Type[TDatasetFeaturelist], dataset_id: str, featurelist_id: str) -> TDatasetFeaturelist:
         """Retrieve a dataset featurelist
 
         Parameters

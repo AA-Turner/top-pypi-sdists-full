@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from collections.abc import Sequence
 from enum import Enum
 from typing import Any, ClassVar
 
@@ -18,8 +19,8 @@ class UnknownFieldBehavior(Enum):
 
 class FilterSetOptions:
     model: type[Model] | None
-    fields: list[str] | dict[str, list[str]] | str | None
-    exclude: list[str] | None
+    fields: Sequence[str] | dict[str, Sequence[str]] | str | None
+    exclude: Sequence[str] | None
     filter_overrides: dict[type[models.Field[Any, Any]], dict[str, Any]]  # Field override mapping
     form: type[Form]
     unknown_field_behavior: UnknownFieldBehavior
@@ -76,10 +77,12 @@ class BaseFilterSet:
         cls, field: models.Field[Any, Any], field_name: str, lookup_expr: str | None = None
     ) -> Filter: ...  # Accepts any Django field type
     @classmethod
-    def filter_for_lookup(cls, field: models.Field[Any, Any], lookup_type: str) -> type[Filter]: ...  # Field type varies by model
+    def filter_for_lookup(
+        cls, field: models.Field[Any, Any], lookup_type: str  # Field type varies by model
+    ) -> tuple[type[Filter], dict[str, Any]]: ...
 
 class FilterSet(BaseFilterSet, metaclass=FilterSetMetaclass): ...
 
 def filterset_factory(
-    model: type[Model], filterset: FilterSetMetaclass = ..., fields: list[str] | dict[str, list[str]] | str | None = None
+    model: type[Model], filterset: FilterSetMetaclass = ..., fields: Sequence[str] | dict[str, Sequence[str]] | str | None = None
 ) -> type[FilterSet]: ...

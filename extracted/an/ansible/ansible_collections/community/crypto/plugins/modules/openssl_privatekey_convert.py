@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssl_privatekey_convert
 short_description: Convert OpenSSL private keys
@@ -77,9 +76,9 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
     write_file,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.privatekey_convert import (  # pragma: no cover
         PrivateKeyConvertBackend,
     )

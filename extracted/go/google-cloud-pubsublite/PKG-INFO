@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-cloud-pubsublite
-Version: 1.12.0
+Version: 1.13.0
 Summary: Google Cloud Pubsublite API client library
 Home-page: https://github.com/googleapis/python-pubsublite
 Author: Google LLC
@@ -17,18 +17,33 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.8
 License-File: LICENSE
-Requires-Dist: google-cloud-pubsub<3.0.0dev,>=2.10.0
-Requires-Dist: grpcio<2.0.0dev,>=1.38.1
-Requires-Dist: grpcio-status<2.0.0dev,>=1.38.1
+Requires-Dist: google-cloud-pubsub<3.0.0,>=2.10.0
+Requires-Dist: grpcio<2.0.0,>=1.38.1
+Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
+Requires-Dist: grpcio-status<2.0.0,>=1.38.1
+Requires-Dist: grpcio-status<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: overrides<8.0.0,>=6.0.1
 Requires-Dist: overrides<8.0.0,>=7.0.1; python_version >= "3.12"
-Requires-Dist: google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,<3.0.0dev,>=1.33.2
-Requires-Dist: proto-plus<2.0.0dev,>=1.22.3
-Requires-Dist: proto-plus<2.0.0dev,>=1.25.0; python_version >= "3.13"
+Requires-Dist: google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,<3.0.0,>=1.33.2
+Requires-Dist: proto-plus<2.0.0,>=1.22.3
+Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python Client for Pub/Sub Lite API
 ==================================

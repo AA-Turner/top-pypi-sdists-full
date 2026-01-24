@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Glymur
-Version: 0.14.3
+Version: 0.14.4
 Summary: Read and write JPEG 2000 files
 Author-email: John Evans <jevans667cc@proton.me>
 License-Expression: MIT
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent

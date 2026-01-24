@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: libvirt-python
-Version: 11.7.0
+Version: 12.0.0
 Summary: The libvirt virtualization API python binding
 Home-page: http://www.libvirt.org
 Maintainer: Libvirt Maintainers

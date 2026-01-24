@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.769996                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.903603                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -65,6 +65,63 @@ class FieldBehavior(object, metaclass=type):
     Integration with Merging:
         The behavior is enforced by the `merge_field_values` function during configuration
         merging. Each field's behavior is checked and the appropriate merging logic is applied.
+    """
+    ...
+
+class ConfigFieldContext(object, metaclass=type):
+    """
+    Defines which interfaces a ConfigField is available in.
+    
+    ConfigFieldContext controls whether a field appears in the CLI, programmatic API, or both.
+    This allows the same CoreConfig class to serve different interfaces while keeping
+    interface-specific fields properly scoped.
+    
+    Context Types:
+    
+    ALL (Default):
+        Field is available in both CLI and programmatic API.
+        Most configuration fields fall into this category.
+    
+        Example:
+        ```python
+        name = ConfigField(
+            field_type=str,
+            # available_in=ConfigFieldContext.ALL is the default
+        )
+        ```
+    
+    CLI:
+        Field is only available in the CLI interface.
+        Use for CLI-specific options that don't make sense programmatically.
+    
+        Example:
+        ```python
+        # config_file path only makes sense when running from CLI
+        config_file = ConfigField(
+            cli_meta=CLIOption(name="config_file", cli_option_str="--config-file"),
+            field_type=str,
+            available_in=ConfigFieldContext.CLI,
+        )
+        ```
+    
+    PROGRAMMATIC:
+        Field is only available in the programmatic API.
+        Use for fields that accept programmatic-only types (like PackagedCode)
+        or don't map well to CLI options.
+    
+        Example:
+        ```python
+        # code_package accepts PackagedCode namedtuple from package_code()
+        code_package = ConfigField(
+            field_type=PackagedCode,
+            available_in=ConfigFieldContext.PROGRAMMATIC,
+        )
+        ```
+    
+    Integration:
+        - CLI generators check `available_in` to decide whether to generate CLI options
+        - TypedConfig generators check `available_in` to decide whether to include in __init__
+        - Schema exporters can filter fields based on target interface
     """
     ...
 
@@ -211,10 +268,23 @@ class ConfigField(object, metaclass=type):
         Optional function to validate field values.
     is_experimental : bool, optional
         Whether this field is experimental (for documentation).
+    available_in : str, optional
+        ConfigFieldContext specifying which interfaces this field is available in.
+        One of ConfigFieldContext.ALL (default), ConfigFieldContext.CLI, or ConfigFieldContext.PROGRAMMATIC.
     """
-    def __init__(self, default: typing.Union[typing.Any, typing.Callable[["ConfigField"], typing.Any]] = None, cli_meta = None, field_type = None, required = False, help = None, behavior: str = 'union', example = None, strict_types = True, validation_fn: typing.Optional[typing.Callable] = None, is_experimental = False, parsing_fn: typing.Optional[typing.Callable] = None):
+    def __init__(self, default: typing.Union[typing.Any, typing.Callable[["ConfigField"], typing.Any]] = None, cli_meta = None, field_type = None, required = False, help = None, behavior: str = 'union', example = None, strict_types = True, validation_fn: typing.Optional[typing.Callable] = None, is_experimental = False, parsing_fn: typing.Optional[typing.Callable] = None, available_in: str = 'all'):
         ...
     def fully_qualified_name(self):
+        ...
+    def is_available_in_cli(self) -> bool:
+        """
+        Check if this field should be available in the CLI interface.
+        """
+        ...
+    def is_available_in_programmatic(self) -> bool:
+        """
+        Check if this field should be available in the programmatic API.
+        """
         ...
     def __set_name__(self, owner, name):
         ...

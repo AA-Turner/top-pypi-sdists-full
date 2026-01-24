@@ -18,7 +18,7 @@ from beartype._check.metadata.hint.hintsane import (
     HintOrSane,
     HintSane,
 )
-from beartype._data.hint.datahintpep import (
+from beartype._data.typing.datatypingport import (
     Hint,
     ListHints,
     TupleHints,
@@ -66,7 +66,7 @@ def reduce_hint_pep484604(hint: Hint, exception_prefix: str, **kwargs) -> (
     semantics. There exist a countably infinite number of possible unions
     subscripted by one or more ignorable child hints. Ergo, these subscriptions
     *cannot* be explicitly listed in the
-    :data:`beartype._data.hint.pep.datapeprepr.HINTS_REPR_IGNORABLE_SHALLOW`
+    :data:`beartype._data.hint.datahintrepr.HINTS_REPR_IGNORABLE_SHALLOW`
     set. Instead, these subscriptions are dynamically detected by this tester at
     runtime and thus referred to as **deeply ignorable unions.**
 
@@ -78,7 +78,7 @@ def reduce_hint_pep484604(hint: Hint, exception_prefix: str, **kwargs) -> (
         Human-readable substring prefixing raised exception messages.
 
     All remaining passed keyword parameters are passed to the parent
-    :func:`beartype._check.convert._reduce.redhint.reduce_hint` function
+    :func:`beartype._check.convert._reduce.redmain.reduce_hint` function
     recursively called by this reducer.
 
     Returns
@@ -94,7 +94,7 @@ def reduce_hint_pep484604(hint: Hint, exception_prefix: str, **kwargs) -> (
 
     # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._check.convert._reduce.redhint import reduce_hint_child
+    from beartype._check.convert._reduce.redmain import reduce_hint_child
 
     # ....................{ LOCALS                         }....................
     # Tuple of the two or more child hints subscripting this union.

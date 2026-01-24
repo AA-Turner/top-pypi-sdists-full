@@ -7,6 +7,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    ClassVar,
     Deque,
     Dict,
     Generic,
@@ -31,27 +32,27 @@ TModelBase = TypeVar("TModelBase", bound="ModelBase")
 
 class ModelEnumType(EnumMeta):
     def __new__(cls, subcls, bases, classdict):
-        cls = super().__new__(cls, subcls, bases, classdict)
+        new_cls = super().__new__(cls, subcls, bases, classdict)
 
         # Assert that all enum values have docstrings.
-        if not isinstance(cls.__docstrings__, dict) or not all(
+        if not isinstance(new_cls.__docstrings__, dict) or not all(
             isinstance(k, str) and isinstance(v, str)
-            for k, v in cls.__docstrings__.items()
+            for k, v in new_cls.__docstrings__.items()
         ):
             raise TypeError(
-                f"ModelEnum '{cls.__name__}.__docstrings__' is the wrong type. "
+                f"ModelEnum '{new_cls.__name__}.__docstrings__' is the wrong type. "
                 "Must be a Dict[ModelEnum, str] documenting all enum values"
             )
 
-        missing = {v.value for v in cls if not v.name.startswith("_")} - set(
-            cls.__docstrings__.keys()
+        missing = {v.value for v in new_cls if not v.name.startswith("_")} - set(
+            new_cls.__docstrings__.keys()
         )
         if missing:
             raise ValueError(
-                f"ModelEnum '{cls.__name__}.__docstrings__' is missing docstrings for values: {sorted(missing)}"
+                f"ModelEnum '{new_cls.__name__}.__docstrings__' is missing docstrings for values: {sorted(missing)}"
             )
 
-        return cls
+        return new_cls
 
 
 M = TypeVar("M", bound="ModelEnum")
@@ -59,7 +60,7 @@ M = TypeVar("M", bound="ModelEnum")
 
 class ModelEnum(str, Enum, metaclass=ModelEnumType):
     # Must be populated by subclasses to document every value.
-    __docstrings__: Dict[str, str] = {}
+    __docstrings__: ClassVar[Dict[str, str]] = {}
 
     def __str__(self):
         return self.name
@@ -80,7 +81,7 @@ class ModelBaseType(type):
 
 
 class ModelBase(metaclass=ModelBaseType):
-    def __new__(cls, *args, **kwargs):  # noqa: ARG003
+    def __new__(cls, *_args, **_kwargs):
         """Validate that the subclass is a conforming dataclass."""
         if (
             not hasattr(cls, "__dataclass_params__")
@@ -155,14 +156,29 @@ class ModelBase(metaclass=ModelBaseType):
             return cls.from_dict(args)
 
     @classmethod
-    def parse_from_internal_model(cls: Type[TModelBase], internal_model) -> TModelBase:
-        raise NotImplementedError
+    def parse_from_internal_model(
+        cls: Type[TModelBase], _internal_model: Any
+    ) -> TModelBase:
+        raise NotImplementedError(
+            f"{cls.__name__}.parse_from_internal_model must be implemented"
+        )
 
     def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
         """Convert the model to a dictionary representation.
 
         If `exclude_none` is `True`, keys whose values are `None` will be excluded.
         """
+        # First, manually convert any nested ModelBase objects to dicts
+        # because asdict() would convert them to dicts using raw field values
+        converted_fields = {}
+        for field in fields(self):
+            value = getattr(self, field.name)
+
+            if isinstance(value, ModelBase):
+                # Convert nested ModelBase objects using their to_dict method
+                converted_fields[field.name] = value.to_dict(exclude_none=exclude_none)
+            else:
+                converted_fields[field.name] = value
 
         def maybe_exclude_nones(i: Iterable[Tuple[str, Any]]):
             d = {}
@@ -172,10 +188,12 @@ class ModelBase(metaclass=ModelBaseType):
                     continue
 
                 # Convert enums to their string representation.
+                final_v = v
                 if isinstance(v, ModelEnum):
-                    v = v.value
-
-                d[k] = v
+                    final_v = v.value
+                elif k in converted_fields and isinstance(converted_fields[k], dict):
+                    final_v = converted_fields[k]
+                d[k] = final_v
 
             return d
 

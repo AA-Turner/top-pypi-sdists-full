@@ -6,7 +6,7 @@ except ImportError:  # pragma: no cover
     from urllib.parse import urlunparse
 
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 
 class UrlsMetaclass(type):
@@ -45,6 +45,9 @@ class Urls(metaclass=UrlsMetaclass):
         self.context = {"self": self.instance}
         self.context.update(self.urls)
         self.__qualname__ = ".".join((klass.__qualname__, name))
+        self.__objclass__ = klass
+        self.__name__ = name
+        self.__wrapped__ = None
 
     def __getattr__(self, attr):
         return self.get_url(attr)

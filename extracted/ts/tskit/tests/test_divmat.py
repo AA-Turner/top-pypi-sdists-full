@@ -32,7 +32,7 @@ import pytest
 
 import tskit
 from tests import tsutil
-from tests.test_highlevel import get_example_tree_sequences
+from tests.tsutil import get_example_tree_sequences
 
 # ↑ See https://github.com/tskit-dev/tskit/issues/1804 for when
 # we can remove this.
@@ -489,6 +489,30 @@ class TestExamplesWithAnswer:
             ]
         )
         np.testing.assert_array_equal(D1, m * D2)
+
+    @pytest.mark.parametrize("m", [1, 3])
+    def test_single_tree_mutations_per_branch(self, m):
+        # 3.00┊   6     ┊
+        #     ┊ ┏━┻━┓   ┊
+        # 2.00┊ ┃   5   ┊
+        #     ┊ ┃ ┏━┻┓  ┊
+        # 1.00┊ ┃ ┃  4  ┊
+        #     ┊ ┃ ┃ ┏┻┓ ┊
+        # 0.00┊ 0 1 2 3 ┊
+        #     0         1
+        # state 2 3 4 4
+        ts = tskit.Tree.generate_comb(4).tree_sequence
+        ts = tsutil.insert_branch_mutations(ts, m, num_states=5)
+        D1 = check_divmat(ts, mode="site")
+        D2 = np.array(
+            [
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0, 0.0],
+            ]
+        )
+        np.testing.assert_array_equal(D1, D2)
 
     @pytest.mark.parametrize("n", [2, 3, 5])
     def test_single_tree_unique_sample_alleles(self, n):
@@ -1384,6 +1408,30 @@ class TestGeneticRelatednessMatrix:
         ts = tskit.Tree.generate_balanced(4).tree_sequence
         ts = tsutil.insert_branch_sites(ts)
         self.check(ts, mode)
+
+    @pytest.mark.parametrize("m", [1, 3])
+    def test_single_tree_mutations_per_branch(self, m):
+        # 3.00┊   6     ┊
+        #     ┊ ┏━┻━┓   ┊
+        # 2.00┊ ┃   5   ┊
+        #     ┊ ┃ ┏━┻┓  ┊
+        # 1.00┊ ┃ ┃  4  ┊
+        #     ┊ ┃ ┃ ┏┻┓ ┊
+        # 0.00┊ 0 1 2 3 ┊
+        #     0         1
+        # state 2 3 4 4
+        ts = tskit.Tree.generate_comb(4).tree_sequence
+        ts = tsutil.insert_branch_mutations(ts, m, num_states=5)
+        D1 = check_divmat(ts, mode="site")
+        D2 = np.array(
+            [
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0, 0.0],
+            ]
+        )
+        np.testing.assert_array_equal(D1, D2)
 
     @pytest.mark.parametrize("mode", DIVMAT_MODES)
     def test_single_tree_sample_sets(self, mode):

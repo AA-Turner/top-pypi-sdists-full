@@ -1,3 +1,6 @@
+import time
+from collections import namedtuple
+
 import pytest
 
 import skrub
@@ -165,7 +168,9 @@ def test_param_grid_nested_choices():
     c2 = skrub.choose_from([{"C": c0}, {"C": c1}], name="c2")
     c3 = skrub.choose_from([12, 22, 40, 50, 60], name="c3")
     e = skrub.as_data_op([c2, c3])
-    assert e.skb.describe_param_grid() == """\
+    assert (
+        e.skb.describe_param_grid()
+        == """\
 - c3: [12, 22, 40, 50, 60]
   c2: {'C': choose_from([10, 20, 30], name='c0')}
   c0: [10, 20, 30]
@@ -173,6 +178,7 @@ def test_param_grid_nested_choices():
   c2: {'C': choose_from([11, 21, 22, 24], name='c1')}
   c1: [11, 21, 22, 24]
 """
+    )
     assert _evaluation.param_grid(e) == [
         {2: [0], 0: [0, 1, 2], 3: [0, 1, 2, 3, 4]},
         {2: [1], 1: [0, 1, 2, 3], 3: [0, 1, 2, 3, 4]},
@@ -188,11 +194,14 @@ def test_param_grid_choice_before_X():
     assert _evaluation.param_grid(c) == [
         {0: [0, 1], 1: skrub.choose_float(0.0, 1.0, name="c1"), 2: [0, 1]}
     ]
-    assert c.skb.describe_param_grid() == """\
+    assert (
+        c.skb.describe_param_grid()
+        == """\
 - c0: [10, 20]
   c1: choose_float(0.0, 1.0, name='c1')
   c2: [12, 22]
 """
+    )
 
     with pytest.warns(
         UserWarning,
@@ -216,11 +225,14 @@ def test_param_grid_choice_before_X():
                 2: [0, 1],
             }
         ]
-        assert c.skb.describe_param_grid().replace("np.float64(0.5)", "0.5") == """\
+        assert (
+            c.skb.describe_param_grid().replace("np.float64(0.5)", "0.5")
+            == """\
 - c0: 10
   c1: [0.5]
   c2: [12, 22]
 """
+        )
 
 
 def test_unnamed_choices():
@@ -332,3 +344,59 @@ def test_as_gen():
         return 1
 
     assert _evaluation._as_gen(g) is g
+
+
+def test_eval_duration():
+    def after(obj, duration):
+        time.sleep(duration)
+        return obj
+
+    a = skrub.as_data_op(1)
+    b = skrub.as_data_op(2).skb.apply_func(after, 3.0)
+    c = a + b
+
+    def get_duration(dop):
+        return dop._skrub_impl.metadata["preview"]["eval_duration"]
+
+    # timing has large variance in CI, prob. due to not having 100% of CPU
+    assert get_duration(a) == pytest.approx(0.0, abs=0.5)
+    assert get_duration(b) == pytest.approx(3.0, abs=0.5)
+    assert get_duration(c) == pytest.approx(0.0, abs=0.5)
+
+
+def test_eval_builtin_sequence_subclass():
+    # eval() recurses into some built-in collections. When evaluating a list,
+    # we evaluate each of the items then construct a new list with the items'
+    # values. We should not do it for the collection's subclasses because their
+    # initialization may work differently, we do not know enough to safely
+    # reconstruct the collection of values. For example tuple subclasses
+    # created with namedtuple cannot be initialized with a sequence.
+    # subclasses.
+
+    Pair = namedtuple("Pair", ["first", "second"])
+    p = Pair(1, 2)
+    assert skrub.as_data_op(p).skb.eval() is p
+    # this means items only get evaluated if they are stored in a builtin
+    # collection
+    p = Pair(skrub.as_data_op(1) + skrub.as_data_op(2), skrub.as_data_op(3))
+    first = skrub.as_data_op(p).skb.eval()[0]
+    assert isinstance(first, skrub.DataOp)
+    first = skrub.as_data_op(tuple(p)).skb.eval()[0]
+    assert isinstance(first, int)
+    assert first == 3
+
+    # same for dicts
+    class Dict(dict):
+        pass
+
+    d = Dict()
+    assert skrub.as_data_op(d).skb.eval() is d
+
+
+def test_eval_fit():
+    # evaluate() does no special handling of "fit" mode.
+    # the learner's fit() discards the result and returns self.
+    dop = skrub.as_data_op(1)
+    assert _evaluation.evaluate(dop, mode="fit") == 1
+    learner = dop.skb.make_learner()
+    assert learner.fit({}) is learner

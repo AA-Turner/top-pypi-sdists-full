@@ -40,6 +40,7 @@ SCRIPTS: Dict[str, str] = {
     "navigator_user_agent": from_file("evasions/navigator.userAgent.js"),
     "navigator_vendor": from_file("evasions/navigator.vendor.js"),
     "navigator_webdriver": from_file("evasions/navigator.webdriver.js"),
+    "error_prototype": from_file("evasions/error.prototype.js"),
     "webgl_vendor": from_file("evasions/webgl.vendor.js"),
 }
 
@@ -64,36 +65,38 @@ class Stealth:
 
     _USER_AGENT_OVERRIDE_PIGGYBACK_KEY = "_stealth_user_agent"
     _SEC_CH_UA_OVERRIDE_PIGGYBACK_KEY = "_stealth_sec_ch_ua"
+    _STEALTH_APPLIED_KEY = "_playwright_stealth_applied"
 
     def __init__(
-            self,
-            *,
-            chrome_app: bool = True,
-            chrome_csi: bool = True,
-            chrome_load_times: bool = True,
-            chrome_runtime: bool = False,
-            hairline: bool = True,
-            iframe_content_window: bool = True,
-            media_codecs: bool = True,
-            navigator_hardware_concurrency: bool = True,
-            navigator_languages: bool = True,
-            navigator_permissions: bool = True,
-            navigator_platform: bool = True,
-            navigator_plugins: bool = True,
-            navigator_user_agent: bool = True,
-            navigator_vendor: bool = True,
-            navigator_webdriver: bool = True,
-            sec_ch_ua: bool = True,
-            webgl_vendor: bool = True,
-            navigator_languages_override: Tuple[str, str] = ("en-US", "en"),
-            navigator_platform_override: str = "Win32",
-            navigator_user_agent_override: Optional[str] = None,
-            navigator_vendor_override: str = None,
-            sec_ch_ua_override: Optional[str] = None,
-            webgl_renderer_override: str = None,
-            webgl_vendor_override: str = None,
-            init_scripts_only: bool = False,
-            script_logging: bool = False,
+        self,
+        *,
+        chrome_app: bool = True,
+        chrome_csi: bool = True,
+        chrome_load_times: bool = True,
+        chrome_runtime: bool = False,
+        hairline: bool = True,
+        iframe_content_window: bool = True,
+        media_codecs: bool = True,
+        navigator_hardware_concurrency: bool = True,
+        navigator_languages: bool = True,
+        navigator_permissions: bool = True,
+        navigator_platform: bool = True,
+        navigator_plugins: bool = True,
+        navigator_user_agent: bool = True,
+        navigator_vendor: bool = True,
+        navigator_webdriver: bool = True,
+        error_prototype: bool = True,
+        sec_ch_ua: bool = True,
+        webgl_vendor: bool = True,
+        navigator_languages_override: Tuple[str, str] = ("en-US", "en"),
+        navigator_platform_override: str = "Win32",
+        navigator_user_agent_override: Optional[str] = None,
+        navigator_vendor_override: str = None,
+        sec_ch_ua_override: Optional[str] = None,
+        webgl_renderer_override: str = None,
+        webgl_vendor_override: str = None,
+        init_scripts_only: bool = False,
+        script_logging: bool = False,
     ):
         # scripts to load
         self.chrome_app: bool = chrome_app
@@ -111,6 +114,7 @@ class Stealth:
         self.navigator_user_agent: bool = navigator_user_agent
         self.navigator_vendor: bool = navigator_vendor
         self.navigator_webdriver: bool = navigator_webdriver
+        self.error_prototype: bool = error_prototype
         self.sec_ch_ua: bool = sec_ch_ua
         self.webgl_vendor: bool = webgl_vendor
 
@@ -198,8 +202,18 @@ class Stealth:
             yield SCRIPTS["navigator_vendor"]
         if self.navigator_webdriver:
             yield SCRIPTS["navigator_webdriver"]
+        if self.error_prototype:
+            yield SCRIPTS["error_prototype"]
         if self.webgl_vendor:
             yield SCRIPTS["webgl_vendor"]
+
+    def warn_if_stealth_applied(self, obj: Any) -> bool:
+        if hasattr(obj, self._STEALTH_APPLIED_KEY):
+            warnings.warn(
+                "Stealth has already been applied to this page or context. Skipping duplicate application.",
+            )
+            return True
+        return False
 
     def use_async(self, ctx: async_api.PlaywrightContextManager) -> AsyncWrappingContextManager:
         """
@@ -224,12 +238,14 @@ class Stealth:
         return SyncWrappingContextManager(self, ctx)
 
     async def apply_stealth_async(self, page_or_context: Union[async_api.Page, async_api.BrowserContext]) -> None:
-        if len(self.script_payload) > 0:
+        if len(self.script_payload) > 0 and not self.warn_if_stealth_applied(page_or_context):
             await page_or_context.add_init_script(self.script_payload)
+            setattr(page_or_context, self._STEALTH_APPLIED_KEY, True)
 
     def apply_stealth_sync(self, page_or_context: Union[sync_api.Page, sync_api.BrowserContext]) -> None:
-        if len(self.script_payload) > 0:
+        if len(self.script_payload) > 0 and not self.warn_if_stealth_applied(page_or_context):
             page_or_context.add_init_script(self.script_payload)
+            setattr(page_or_context, self._STEALTH_APPLIED_KEY, True)
 
     def hook_playwright_context(self, ctx: Union[async_api.Playwright, sync_api.Playwright]) -> None:
         """
@@ -246,7 +262,7 @@ class Stealth:
                     setattr(browser_type, name, hooked_method)
 
     def _kwargs_with_patched_cli_arg(
-            self, method: Callable, packed_kwargs: Dict[str, Any], chromium_mode: bool
+        self, method: Callable, packed_kwargs: Dict[str, Any], chromium_mode: bool
     ) -> Dict[str, Any]:
         signature = inspect.signature(method).parameters
         args_parameter = signature.get("args")
@@ -288,14 +304,16 @@ class Stealth:
     def _generate_hooked_new_context(self, new_context_method: Callable, new_page_method: Callable) -> Callable:
         async def hooked_new_context_async(*args, **kwargs):
             context = await new_context_method(
-                *args, **(await self._kwargs_new_page_context_with_patches_async(new_page_method, kwargs))
+                *args,
+                **(await self._kwargs_new_page_context_with_patches_async(new_page_method, kwargs)),
             )
             await self.apply_stealth_async(context)
             return context
 
         def hooked_browser_method_sync(*args, **kwargs):
             context = new_context_method(
-                *args, **(self._kwargs_new_page_context_with_patches_sync(new_page_method, kwargs))
+                *args,
+                **(self._kwargs_new_page_context_with_patches_sync(new_page_method, kwargs)),
             )
             self.apply_stealth_sync(context)
             return context
@@ -337,7 +355,7 @@ class Stealth:
         return hooked_new_page_sync
 
     async def _kwargs_new_page_context_with_patches_async(
-            self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
+        self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         This returns kwargs with arguments added based on enabled evasions, while respecting any kwargs the caller
@@ -371,7 +389,11 @@ class Stealth:
                 await temp_page.close(reason="playwright_stealth internal temp utility page")
                 sec_ch_ua = self._get_greased_chrome_sec_ua_ch(stealth_user_agent)
                 setattr(browser_instance, self._SEC_CH_UA_OVERRIDE_PIGGYBACK_KEY, sec_ch_ua)
-                setattr(browser_instance, self._USER_AGENT_OVERRIDE_PIGGYBACK_KEY, stealth_user_agent)
+                setattr(
+                    browser_instance,
+                    self._USER_AGENT_OVERRIDE_PIGGYBACK_KEY,
+                    stealth_user_agent,
+                )
             return stealth_user_agent, sec_ch_ua
 
         new_kwargs = deepcopy(packed_kwargs)
@@ -392,7 +414,7 @@ class Stealth:
         return new_kwargs
 
     def _kwargs_new_page_context_with_patches_sync(
-            self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
+        self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """see self._kwargs_new_page_context_with_patches_async for docs."""
         browser_or_context = unpatched_new_page.__self__
@@ -412,7 +434,11 @@ class Stealth:
                 sec_ch_ua = self._get_greased_chrome_sec_ua_ch(stealth_user_agent)
                 temp_page.close(reason="playwright_stealth internal temp utility page")
                 setattr(browser_instance, self._SEC_CH_UA_OVERRIDE_PIGGYBACK_KEY, sec_ch_ua)
-                setattr(browser_instance, self._USER_AGENT_OVERRIDE_PIGGYBACK_KEY, stealth_user_agent)
+                setattr(
+                    browser_instance,
+                    self._USER_AGENT_OVERRIDE_PIGGYBACK_KEY,
+                    stealth_user_agent,
+                )
             return stealth_user_agent, sec_ch_ua
 
         new_kwargs = deepcopy(packed_kwargs)
@@ -471,7 +497,7 @@ class Stealth:
         ]
         random.shuffle(brands)
         return ", ".join(f'"{brand}";v="{version}"' for brand, version in brands)
-        
+
     @staticmethod
     def _patch_blink_features_cli_args(existing_args: Optional[List[str]]) -> List[str]:
         """Patches CLI args list to disable AutomationControlled blink feature, while preserving other args"""
@@ -518,8 +544,11 @@ class Stealth:
     def _check_for_disabled_options_overridden(packed_kwargs: Dict[str, Any]) -> None:
         for key in ALL_EVASIONS_DISABLED_KWARGS.keys():
             if not packed_kwargs.get(key) and packed_kwargs.get(f"{key}_override") is not None:
-                warnings.warn(f"{key} is False, but an override ({key}_override) was provided, "
-                              f"which is probably not what you intended to do", stacklevel=3)
+                warnings.warn(
+                    f"{key} is False, but an override ({key}_override) was provided, "
+                    f"which is probably not what you intended to do",
+                    stacklevel=3,
+                )
 
 
 ALL_EVASIONS_DISABLED_KWARGS = {
@@ -538,6 +567,7 @@ ALL_EVASIONS_DISABLED_KWARGS = {
     "navigator_user_agent": False,
     "navigator_vendor": False,
     "navigator_webdriver": False,
+    "error_prototype": False,
     "sec_ch_ua": False,
     "webgl_vendor": False,
 }

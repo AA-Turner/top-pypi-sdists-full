@@ -22,9 +22,9 @@ import aiofiles
 import jax
 import numpy as np
 from orbax.checkpoint._src.arrays import numpy_utils
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
-from orbax.checkpoint.experimental.v1._src.path import format_utils
 from orbax.checkpoint.experimental.v1._src.path import types
 
 CheckpointLayout = checkpoint_layout.CheckpointLayout
@@ -35,7 +35,7 @@ HEADER_NUM_BYTES = 8
 
 
 def _get_dtypes() -> dict[str, Any]:
-  """Returns the mapping from safetensor dtype strings to numpy dtypes."""
+  """Returns the mapping from safetensor `dtype` strings to NumPy `dtypes`."""
   return {
       "BOOL": np.bool_,
       "I8": np.int8,
@@ -49,6 +49,7 @@ def _get_dtypes() -> dict[str, Any]:
       "F16": np.float16,
       "F32": np.float32,
       "F64": np.float64,
+      "BF16": jax.numpy.bfloat16,
       "F8_E8M0": "float8_e8m0fnu (specialized ML dtype)",
       "F4": "float4_e2m1fn_x2 (specialized ML dtype)",
   }
@@ -57,12 +58,12 @@ def _get_dtypes() -> dict[str, Any]:
 async def _read_safetensors_header(path: Path) -> tuple[dict[str, Any], int]:
   """Reads a safetensors file header, returning the header and data start offset."""
   async with aiofiles.open(path, mode="rb") as f:
-    header_size_bytes = await f.read(HEADER_NUM_BYTES)
+    header_size_bytes = await f.read(HEADER_NUM_BYTES)  # pytype: disable=attribute-error
     if not header_size_bytes:
       raise ValueError("Could not read header size from safetensors file.")
 
     header_size = int.from_bytes(header_size_bytes, byteorder="little")
-    header_bytes = await f.read(header_size)
+    header_bytes = await f.read(header_size)  # pytype: disable=attribute-error
     if len(header_bytes) != header_size:
       raise ValueError("Could not read header content from safetensors file.")
 
@@ -72,7 +73,7 @@ async def _read_safetensors_header(path: Path) -> tuple[dict[str, Any], int]:
 
 
 def _get_array_properties(info: dict[str, Any]) -> tuple[tuple[int, ...], Any]:
-  """Parses shape and dtype from a safetensors tensor header."""
+  """Parses shape and `dtype` from a safetensors tensor header."""
   try:
     dtype_str = info["dtype"]
     dtype = _get_dtypes()[dtype_str]
@@ -92,7 +93,7 @@ async def _read_non_contiguous_slice(
   """Reads a slice of a tensor from a file.
 
   This function solves the problem of reading a multi-dimensional slice from an
-  array, where the slice's data is not stored as a single, contiguous block in
+  array where the slice's data is not stored as a single, contiguous block in
   the file. It does so by recursively "walking" the dimensions of the slice.
 
   Args:
@@ -100,7 +101,7 @@ async def _read_non_contiguous_slice(
       idx: A tuple of slice objects representing the n-dimensional slice to
         read.
       stored_shape: The shape of the tensor.
-      stored_dtype: The dtype of the tensor.
+      stored_dtype: The `dtype` of the tensor.
       tensor_file_offset: The starting byte offset of the tensor's data within
         the file.
 
@@ -109,9 +110,9 @@ async def _read_non_contiguous_slice(
   """
   # Handle 0-d scalar case
   if not idx:
-    await f.seek(tensor_file_offset)
+    await f.seek(tensor_file_offset)  # pytype: disable=attribute-error
     num_bytes = np.dtype(stored_dtype).itemsize
-    scalar_bytes = await f.read(num_bytes)
+    scalar_bytes = await f.read(num_bytes)  # pytype: disable=attribute-error
     # Reshape to () to create a 0-D NumPy array.
     return np.frombuffer(scalar_bytes, dtype=stored_dtype).reshape(())
 
@@ -132,8 +133,8 @@ async def _read_non_contiguous_slice(
     if dim == len(stored_shape) - 1:
       start = base_offset + s.start * global_strides[dim]
       num_bytes = (s.stop - s.start) * itemsize
-      await f.seek(tensor_file_offset + start)
-      return await f.read(num_bytes)
+      await f.seek(tensor_file_offset + start)  # pytype: disable=attribute-error
+      return await f.read(num_bytes)  # pytype: disable=attribute-error
 
     # For all other dimensions, iterate through the indices
     # of the slice and make a recursive call for the next dimension.
@@ -156,8 +157,8 @@ async def _load_safetensors_as_numpy(path: Path) -> dict[str, np.ndarray]:
   header, data_start_offset = await _read_safetensors_header(path)
   tensors = {}
   async with aiofiles.open(path, mode="rb") as f:
-    await f.seek(data_start_offset)
-    data_bytes = await f.read()
+    await f.seek(data_start_offset)  # pytype: disable=attribute-error
+    data_bytes = await f.read()  # pytype: disable=attribute-error
   for name, info in header.items():
     if name == "__metadata__":
       continue
@@ -213,7 +214,7 @@ async def _load_safetensors_on_device(
             stored_dtype,
             st_data_offsets[0] + data_start_offset,
         )
-        shard_np = shard_np.reshape(shard_shape)
+        shard_np = shard_np.reshape(shard_shape)  # pytype: disable=attribute-error
 
         if shard_np.dtype != target_dtype:
           shard_np = shard_np.astype(target_dtype)
@@ -238,31 +239,28 @@ async def _load_safetensors(
     # Return on-device JAX arrays.
     restored_pytree = await _load_safetensors_on_device(path, abstract_pytree)
 
-  return {format_utils.PYTREE_CHECKPOINTABLE_KEY: restored_pytree}
+  return {checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY: restored_pytree}
 
 
 class SafetensorsLayout(CheckpointLayout):
   """SafetensorsLayout.
 
   This class defines a class to handle Safetensors checkpoint formats. It
-  inherits
-  abstract methods from CheckpointLayout. It performs a few core functions:
+  inherits abstract methods from :py:class:`~.CheckpointLayout`.
+  It performs a few core functions:
     - Resolves handlers for saving and loading.
     - Saves and loads checkpointables to/from individual subdirectories by
     delegating to the resolved handlers.
   """
 
-  def __init__(self, path: Path):
-    self._path = path
+  def __init__(self):
+    pass
 
-  @property
-  def path(self) -> Path:
-    """Returns the path of the SafeTensors checkpoint."""
-    return self._path
-
-  async def metadata(self) -> metadata_types.CheckpointMetadata[dict[str, Any]]:
+  async def metadata(
+      self, path: Path
+  ) -> metadata_types.CheckpointMetadata[dict[str, Any]]:
     """Returns the metadata of the SafeTensors checkpoint."""
-    header, _ = await _read_safetensors_header(self._path)
+    header, _ = await _read_safetensors_header(path)
 
     metadata = {}
     for name, info in header.items():
@@ -272,34 +270,37 @@ class SafetensorsLayout(CheckpointLayout):
       metadata[name] = jax.ShapeDtypeStruct(shape=shape, dtype=dtype)
 
     custom_metadata = header.get("__metadata__")
-    commit_timestamp_nsecs = int(os.stat(self._path).st_mtime)
+    commit_timestamp_nsecs = int(os.stat(path).st_mtime)
 
     return metadata_types.CheckpointMetadata[dict[str, Any]](
-        metadata={format_utils.PYTREE_CHECKPOINTABLE_KEY: metadata},
+        metadata={checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY: metadata},
         commit_timestamp_nsecs=commit_timestamp_nsecs,
         custom_metadata=custom_metadata,
     )
 
-  def validate(self):
-    if self._path.is_file() and self._path.suffix == ".safetensors":
+  async def validate(self, path: Path):
+    if await async_path.is_file(path) and path.suffix == ".safetensors":
       return
     else:
       raise InvalidLayoutError(
-          f"Failed to interpret path {self._path} as a SafeTensors checkpoint."
+          f"Failed to interpret path {path} as a SafeTensors checkpoint."
           " A SafeTensors checkpoint must be a file with the '.safetensors'"
           " suffix."
       )
 
-  def validate_pytree(self, checkpointable_name: str | None) -> None:
+  async def validate_pytree(
+      self, path: Path, checkpointable_name: str | None
+  ) -> None:
     return
 
   async def load(
       self,
+      path: Path,
       abstract_checkpointables: dict[str, Any] | None = None,
   ) -> Awaitable[dict[str, Any]]:
     abstract_pytree = None
     if abstract_checkpointables:
       abstract_pytree = abstract_checkpointables.get(
-          format_utils.PYTREE_CHECKPOINTABLE_KEY
+          checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY
       )
-    return _load_safetensors(self._path, abstract_pytree)
+    return _load_safetensors(path, abstract_pytree)

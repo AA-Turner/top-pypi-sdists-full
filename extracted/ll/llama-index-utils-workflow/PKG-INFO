@@ -1,13 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: llama-index-utils-workflow
-Version: 0.4.1
+Version: 0.8.0
 Summary: llama-index utils for workflows
-Author-email: Your Name <you@example.com>
-License-Expression: MIT
-License-File: LICENSE
-Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-index-core<0.15,>=0.13.0
-Requires-Dist: pyvis<0.4,>=0.3.2
+Author: Adrian Lyjak
+Author-email: Adrian Lyjak <adrianlyjak@gmail.com>
+Requires-Dist: llama-index-core>=0.14,<0.15.0
+Requires-Dist: llama-index-workflows>=2.12.0,<3.0.0
+Requires-Dist: pyvis>=0.3.2
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 # LlamaIndex Utils: Workflow
@@ -36,6 +36,7 @@ draw_all_possible_flows(my_workflow, "workflow.html")
 draw_all_possible_flows(my_workflow, "workflow.html", max_label_length=15)
 
 # Latest execution visualization
-result = await my_workflow.run()
-draw_most_recent_execution(my_workflow, "workflow.html")
+handler = my_workflow.run()
+await handler
+draw_most_recent_execution(handler, "workflow.html")
 ```

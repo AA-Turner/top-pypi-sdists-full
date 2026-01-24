@@ -24,6 +24,7 @@ import prefect.types._datetime
 from prefect.blocks.core import Block
 from prefect.cli._types import PrefectTyper
 from prefect.cli._utilities import exit_with_error, exit_with_success
+from prefect.cli.flow_runs_watching import watch_flow_run
 from prefect.cli.root import app, is_interactive
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.filters import (
@@ -45,7 +46,6 @@ from prefect.exceptions import (
     ObjectNotFound,
     PrefectHTTPStatusError,
 )
-from prefect.flow_runs import wait_for_flow_run
 from prefect.states import Scheduled
 from prefect.types._datetime import (
     DateTime,
@@ -664,7 +664,15 @@ async def resume_schedule(
 
 
 @schedule_app.command("ls")
-async def list_schedules(deployment_name: str):
+async def list_schedules(
+    deployment_name: str,
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Specify an output format. Currently supports: json",
+    ),
+):
     """
     View all schedules for a deployment.
     """
@@ -674,6 +682,9 @@ async def list_schedules(deployment_name: str):
             deployment = await client.read_deployment_by_name(deployment_name)
         except ObjectNotFound:
             return exit_with_error(f"Deployment {deployment_name!r} not found!")
+
+    if output and output.lower() != "json":
+        exit_with_error("Only 'json' output format is supported.")
 
     def sort_by_created_key(schedule: DeploymentSchedule):  # type: ignore
         assert schedule.created is not None, "All schedules should have a created time."
@@ -689,21 +700,32 @@ async def list_schedules(deployment_name: str):
         else:
             return "unknown"
 
-    table = Table(
-        title="Deployment Schedules",
-    )
-    table.add_column("ID", style="blue", no_wrap=True)
-    table.add_column("Schedule", style="cyan", no_wrap=False)
-    table.add_column("Active", style="purple", no_wrap=True)
-
-    for schedule in sorted(deployment.schedules, key=sort_by_created_key):
-        table.add_row(
-            str(schedule.id),
-            schedule_details(schedule),
-            str(schedule.active),
+    if output and output.lower() == "json":
+        schedules_json = [
+            {
+                **schedule.model_dump(mode="json"),
+                "schedule": schedule_details(schedule),
+            }
+            for schedule in deployment.schedules
+        ]
+        json_output = orjson.dumps(schedules_json, option=orjson.OPT_INDENT_2).decode()
+        app.console.print(json_output)
+    else:
+        table = Table(
+            title="Deployment Schedules",
         )
+        table.add_column("ID", style="blue", no_wrap=True)
+        table.add_column("Schedule", style="cyan", no_wrap=False)
+        table.add_column("Active", style="purple", no_wrap=True)
 
-    app.console.print(table)
+        for schedule in sorted(deployment.schedules, key=sort_by_created_key):
+            table.add_row(
+                str(schedule.id),
+                schedule_details(schedule),
+                str(schedule.active),
+            )
+
+        app.console.print(table)
 
 
 @schedule_app.command("clear")
@@ -744,10 +766,21 @@ async def clear_schedules(
 
 
 @deployment_app.command()
-async def ls(flow_name: Optional[list[str]] = None, by_created: bool = False):
+async def ls(
+    flow_name: Optional[list[str]] = None,
+    by_created: bool = False,
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Specify an output format. Currently supports: json",
+    ),
+):
     """
     View all deployments or deployments for specific flows.
     """
+    if output and output.lower() != "json":
+        exit_with_error("Only 'json' output format is supported.")
     async with get_client() as client:
         deployments = await client.read_deployments(
             flow_filter=FlowFilter(name=FlowFilterName(any_=flow_name))
@@ -770,26 +803,35 @@ async def ls(flow_name: Optional[list[str]] = None, by_created: bool = False):
         assert d.created is not None, "All deployments should have a created time."
         return DateTime.now("utc") - d.created
 
-    table = Table(
-        title="Deployments",
-        expand=True,
-    )
-    table.add_column("Name", style="blue", no_wrap=True, ratio=40)
-    table.add_column("ID", style="cyan", no_wrap=True, ratio=40)
-    table.add_column(
-        "Work Pool", style="green", no_wrap=True, ratio=20, overflow="crop"
-    )
-
-    for deployment in sorted(
-        deployments, key=sort_by_created_key if by_created else sort_by_name_keys
-    ):
-        table.add_row(
-            f"{flows[deployment.flow_id].name}/[bold]{deployment.name}[/]",
-            str(deployment.id),
-            deployment.work_pool_name or "",
+    if output and output.lower() == "json":
+        deployments_json = [
+            deployment.model_dump(mode="json") for deployment in deployments
+        ]
+        json_output = orjson.dumps(
+            deployments_json, option=orjson.OPT_INDENT_2
+        ).decode()
+        app.console.print(json_output)
+    else:
+        table = Table(
+            title="Deployments",
+            expand=True,
+        )
+        table.add_column("Name", style="blue", no_wrap=True, ratio=40)
+        table.add_column("ID", style="cyan", no_wrap=True, ratio=40)
+        table.add_column(
+            "Work Pool", style="green", no_wrap=True, ratio=20, overflow="crop"
         )
 
-    app.console.print(table)
+        for deployment in sorted(
+            deployments, key=sort_by_created_key if by_created else sort_by_name_keys
+        ):
+            table.add_row(
+                f"{flows[deployment.flow_id].name}/[bold]{deployment.name}[/]",
+                str(deployment.id),
+                deployment.work_pool_name or "",
+            )
+
+        app.console.print(table)
 
 
 @deployment_app.command()
@@ -892,10 +934,6 @@ async def run(
             multi_params = json.loads(multiparams)
         except ValueError as exc:
             exit_with_error(f"Failed to parse JSON: {exc}")
-        if watch_interval and not watch:
-            exit_with_error(
-                "`--watch-interval` can only be used with `--watch`.",
-            )
     cli_params: dict[str, Any] = _load_json_key_values(params or [], "parameter")
     conflicting_keys = set(cli_params.keys()).intersection(multi_params.keys())
     if conflicting_keys:
@@ -957,7 +995,11 @@ async def run(
 
         if TYPE_CHECKING:
             assert deployment.parameter_openapi_schema is not None
-        deployment_parameters = deployment.parameter_openapi_schema["properties"].keys()
+        deployment_parameters = (
+            deployment.parameter_openapi_schema.get("properties", {}).keys()
+            if deployment.parameter_openapi_schema
+            else []
+        )
         unknown_keys = set(parameters.keys()).difference(deployment_parameters)
         if unknown_keys:
             available_parameters = (
@@ -1026,12 +1068,16 @@ async def run(
         soft_wrap=True,
     )
     if watch:
-        app.console.print(f"Watching flow run {flow_run.name!r}...")
-        finished_flow_run = await wait_for_flow_run(
-            flow_run.id,
-            timeout=watch_timeout,
-            poll_interval=watch_interval,
-            log_states=True,
+        if watch_interval is not None:
+            warnings.warn(
+                "The --watch-interval flag is deprecated and will be removed in a future release. "
+                "Flow run watching now uses real-time event streaming.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        finished_flow_run = await watch_flow_run(
+            flow_run.id, app.console, timeout=watch_timeout
         )
         finished_flow_run_state = finished_flow_run.state
         if finished_flow_run_state is None:

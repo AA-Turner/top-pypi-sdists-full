@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List
 
 from dirty_equals import IsDict, IsOneOf
 from fastapi import FastAPI
@@ -15,7 +14,7 @@ class Item(BaseModel):
 
 
 @app.post("/items/")
-def save_item_no_body(item: List[Item]):
+def save_item_no_body(item: list[Item]):
     return {"item": item}
 
 
@@ -185,7 +184,15 @@ def test_openapi_schema():
                                 "title": "Age",
                                 "anyOf": [
                                     {"exclusiveMinimum": 0.0, "type": "number"},
-                                    {"type": "string"},
+                                    IsOneOf(
+                                        # pydantic < 2.12.0
+                                        {"type": "string"},
+                                        # pydantic >= 2.12.0
+                                        {
+                                            "type": "string",
+                                            "pattern": r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$",
+                                        },
+                                    ),
                                 ],
                             }
                         )

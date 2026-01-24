@@ -1,16 +1,9 @@
 //! Extended Character Range Tests
 //!
 //! This module contains character range tests for additional rules
-//! covering MD006-MD053.
+//! covering MD007-MD053.
 
 use super::{ExpectedWarning, multi_warning_test, simple_test, test_character_ranges};
-
-// MD006 - Start bullets at beginning of line
-#[test]
-fn test_md006_start_bullets() {
-    let test = simple_test("MD006", "  - Indented bullet", ExpectedWarning::new(1, 1, 1, 5, "  - "));
-    test_character_ranges(test);
-}
 
 // MD007 - Unordered list indentation
 #[test]
@@ -125,29 +118,24 @@ fn test_md031_blanks_around_fences() {
 }
 
 // MD032 - Lists should be surrounded by blank lines
+// Per markdownlint-cli: only 1 warning (missing preceding blank); "More text" is lazy continuation
 #[test]
 fn test_md032_blanks_around_lists() {
-    let test = multi_warning_test(
+    let test = simple_test(
         "MD032",
         "Text\n- List item\nMore text",
-        vec![
-            ExpectedWarning::new(2, 1, 2, 12, "- List item"),
-            ExpectedWarning::new(2, 1, 2, 12, "- List item"),
-        ],
+        ExpectedWarning::new(2, 1, 2, 12, "- List item"),
     );
     test_character_ranges(test);
 }
 
-// MD033 - Inline HTML
+// MD033 - Inline HTML (only opening tags are reported)
 #[test]
 fn test_md033_no_inline_html() {
-    let test = multi_warning_test(
+    let test = simple_test(
         "MD033",
         "Some <b>bold</b> text",
-        vec![
-            ExpectedWarning::new(1, 6, 1, 9, "<b>"),
-            ExpectedWarning::new(1, 13, 1, 17, "</b>"),
-        ],
+        ExpectedWarning::new(1, 6, 1, 9, "<b>"),
     );
     test_character_ranges(test);
 }

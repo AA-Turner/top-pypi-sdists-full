@@ -4,18 +4,38 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #ifndef AtlasRenderTask_DEFINED
 #define AtlasRenderTask_DEFINED
 
 #include "include/core/SkPath.h"
+#include "include/core/SkRefCnt.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkNoncopyable.h"
+#include "src/base/SkBlockAllocator.h"
 #include "src/base/SkTBlockList.h"
+#include "src/core/SkColorData.h"
+#include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDynamicAtlas.h"
+#include "src/gpu/ganesh/GrSurfaceProxyView.h"
 #include "src/gpu/ganesh/GrTexture.h"
+#include "src/gpu/ganesh/ops/GrOp.h"
 #include "src/gpu/ganesh/ops/OpsTask.h"
 #include "src/gpu/ganesh/tessellate/PathTessellator.h"
 
+#include <memory>
+#include <utility>
+
+class GrArenas;
+class GrOnFlushResourceProvider;
+class GrOpFlushState;
+class GrRecordingContext;
+class GrTextureProxy;
+class SkMatrix;
+struct GrUserStencilSettings;
 struct SkIPoint16;
+struct SkIPoint;
+struct SkIRect;
+struct SkRect;
 
 namespace skgpu::ganesh {
 
@@ -42,8 +62,8 @@ public:
 
     // Must be called at flush time. The texture proxy is instantiated with 'backingTexture', if
     // provided. See GrDynamicAtlas.
-    bool SK_WARN_UNUSED_RESULT instantiate(GrOnFlushResourceProvider* onFlushRP,
-                     sk_sp<GrTexture> backingTexture = nullptr) {
+    [[nodiscard]] bool instantiate(GrOnFlushResourceProvider* onFlushRP,
+                                   sk_sp<GrTexture> backingTexture = nullptr) {
         SkASSERT(this->isClosed());
         return fDynamicAtlas->instantiate(onFlushRP, std::move(backingTexture));
     }

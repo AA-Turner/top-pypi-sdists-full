@@ -20,9 +20,9 @@ from angr.block import BlockNode
 from angr.errors import SimTranslationError
 from angr.calling_conventions import SimStackArg
 from angr.utils.types import dereference_simtype_by_lib
+from angr.codenode import FuncNode
 
 from .analysis import Analysis
-
 
 if TYPE_CHECKING:
     from angr.block import Block
@@ -787,9 +787,10 @@ class StackPointerTracker(Analysis, ForwardAnalysis):
                                 ):
                                     sp_adjusted = True
                                     sp_v = state.regs[self.project.arch.sp_offset]
-                                    sp_v -= Constant(stmt.data.con.value)
-                                    state.put(self.project.arch.sp_offset, sp_v, force=True)  # sp -= OFFSET
-                                    state.put(stmt.offset, Constant(0), force=True)  # rax = 0
+                                    if sp_v is not None:
+                                        sp_v -= Constant(stmt.data.con.value)
+                                        state.put(self.project.arch.sp_offset, sp_v, force=True)  # sp -= OFFSET
+                                        state.put(stmt.offset, Constant(0), force=True)  # rax = 0
                                     break
 
                 callee_cleanups = [
@@ -945,8 +946,9 @@ class StackPointerTracker(Analysis, ForwardAnalysis):
 
         callees: list[Function] = []
         for _, dst, data in self._func.transition_graph.out_edges(node, data=True):
-            if data.get("type") == "call" and isinstance(dst, Function):
-                callees.append(dst)
+            if data.get("type") == "call" and isinstance(dst, FuncNode):
+                func = self.kb.functions.get_by_addr(dst.addr)
+                callees.append(func)
         return callees
 
 

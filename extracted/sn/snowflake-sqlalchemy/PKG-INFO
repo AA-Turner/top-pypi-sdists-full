@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-sqlalchemy
-Version: 1.7.7
+Version: 1.8.2
 Summary: Snowflake SQLAlchemy Dialect
 Project-URL: Changelog, https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md
 Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/sqlalchemy.html
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -35,7 +36,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
-Requires-Dist: snowflake-connector-python<4.0.0
+Requires-Dist: snowflake-connector-python<5.0.0
 Requires-Dist: sqlalchemy>=1.4.19
 Provides-Extra: development
 Requires-Dist: mock; extra == 'development'
@@ -45,9 +46,10 @@ Requires-Dist: pytest; extra == 'development'
 Requires-Dist: pytest-cov; extra == 'development'
 Requires-Dist: pytest-rerunfailures; extra == 'development'
 Requires-Dist: pytest-timeout; extra == 'development'
+Requires-Dist: pytest-xdist; extra == 'development'
 Requires-Dist: pytz; extra == 'development'
 Requires-Dist: setuptools; extra == 'development'
-Requires-Dist: syrupy==4.6.1; extra == 'development'
+Requires-Dist: syrupy; extra == 'development'
 Provides-Extra: pandas
 Requires-Dist: snowflake-connector-python[pandas]; extra == 'pandas'
 Description-Content-Type: text/markdown
@@ -62,9 +64,6 @@ Description-Content-Type: text/markdown
 
 Snowflake SQLAlchemy runs on the top of the Snowflake Connector for Python as a [dialect](http://docs.sqlalchemy.org/en/latest/dialects/) to bridge a Snowflake database and SQLAlchemy applications.
 
-
-| :exclamation: | Effective May 8th, 2025, Snowflake SQLAlchemy will transition to maintenance mode and will cease active development. Support will be limited to addressing critical bugs and security vulnerabilities. To report such issues, please [create a case with Snowflake Support](https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge). for individual evaluation. Please note that pull requests from external contributors may not receive action from Snowflake. |
-|---------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 
 ## Prerequisites

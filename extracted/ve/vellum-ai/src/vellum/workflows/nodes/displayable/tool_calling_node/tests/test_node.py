@@ -1,8 +1,11 @@
+import pytest
 import json
+from unittest import mock
 from uuid import uuid4
-from typing import Any, Iterator, List
+from typing import Any, Iterator, List, cast
 
 from vellum import ChatMessage
+from vellum.client.core.api_error import ApiError
 from vellum.client.types.execute_prompt_event import ExecutePromptEvent
 from vellum.client.types.fulfilled_execute_prompt_event import FulfilledExecutePromptEvent
 from vellum.client.types.function_call import FunctionCall
@@ -14,19 +17,29 @@ from vellum.client.types.string_vellum_value import StringVellumValue
 from vellum.client.types.variable_prompt_block import VariablePromptBlock
 from vellum.prompts.constants import DEFAULT_PROMPT_PARAMETERS
 from vellum.workflows import BaseWorkflow
+from vellum.workflows.constants import AuthorizationType, VellumIntegrationProviderType
+from vellum.workflows.errors.types import WorkflowErrorCode
+from vellum.workflows.exceptions import NodeException
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes.bases import BaseNode
 from vellum.workflows.nodes.displayable.tool_calling_node.node import ToolCallingNode
 from vellum.workflows.nodes.displayable.tool_calling_node.state import ToolCallingState
 from vellum.workflows.nodes.displayable.tool_calling_node.utils import (
     create_function_node,
+    create_mcp_tool_node,
     create_router_node,
     create_tool_prompt_node,
 )
-from vellum.workflows.outputs.base import BaseOutputs
+from vellum.workflows.outputs.base import BaseOutput, BaseOutputs
+from vellum.workflows.ports.utils import validate_ports
 from vellum.workflows.state.base import BaseState, StateMeta
 from vellum.workflows.state.context import WorkflowContext
-from vellum.workflows.types.definition import DeploymentDefinition
+from vellum.workflows.types.definition import (
+    DeploymentDefinition,
+    MCPServer,
+    MCPToolDefinition,
+    VellumIntegrationToolDefinition,
+)
 from vellum.workflows.workflows.event_filters import all_workflow_event_filter
 
 
@@ -36,6 +49,55 @@ def first_function() -> str:
 
 def second_function() -> str:
     return "second_function"
+
+
+def test_router_node_port_ordering_with_multiple_tools():
+    """
+    Test that router node ports are created in the correct order: on_if, on_elif, ..., on_else.
+
+    This test validates the fix for the bug where multiple tools would create multiple on_if
+    ports instead of on_if followed by on_elif ports, which violates port validation rules.
+    """
+
+    # GIVEN three functions to ensure we test multiple elif cases
+    def third_function() -> str:
+        return "third_function"
+
+    # AND a tool prompt node
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[first_function, second_function, third_function],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    # WHEN a router node is created with multiple functions
+    router_node = create_router_node(
+        functions=[first_function, second_function, third_function],
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # THEN the first function port should be an on_if port
+    first_function_port = getattr(router_node.Ports, "first_function")
+    assert first_function_port._condition_type.value == "IF"
+
+    # AND the second function port should be an on_elif port
+    second_function_port = getattr(router_node.Ports, "second_function")
+    assert second_function_port._condition_type.value == "ELIF"
+
+    # AND the third function port should also be an on_elif port
+    third_function_port = getattr(router_node.Ports, "third_function")
+    assert third_function_port._condition_type.value == "ELIF"
+
+    # AND the default port should be an on_else port
+    default_port = getattr(router_node.Ports, "default")
+    assert default_port._condition_type.value == "ELSE"
+
+    # AND the ports should pass validation
+    ports = [first_function_port, second_function_port, third_function_port, default_port]
+    # This should not raise an exception
+    validate_ports(ports)
 
 
 def test_port_condition_match_function_name():
@@ -121,14 +183,38 @@ def test_tool_calling_node_inline_workflow_context():
         tool_prompt_node=tool_prompt_node,
     )
 
+    # AND we create a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={},
+                            id="call_test",
+                            name="MyWorkflow",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
     # AND we create an instance with a context containing generated_files
-    function_node = function_node_class()
+    function_node = function_node_class(state=state)
 
     # Create a parent context with test data
     parent_context = WorkflowContext(
         generated_files={"script.py": "print('hello world')"},
     )
     function_node._context = parent_context
+
+    # AND the _inputs should be populated with resolved values from state
+    assert function_node._inputs == {
+        function_node_class.arguments: {},
+        function_node_class.function_call_id: "call_test",
+    }
 
     # WHEN the function node runs
     outputs = list(function_node.run())
@@ -303,14 +389,14 @@ def test_tool_calling_node_workflow_is_dynamic(vellum_adhoc_prompt_client):
         prompt_inputs = {}
 
     # GIVEN a workflow with just a tool calling node
-    class ToolCallingWorkflow(BaseWorkflow[BaseInputs, BaseState]):
+    class AgentWorkflow(BaseWorkflow[BaseInputs, BaseState]):
         graph = TestToolCallingNode
 
         class Outputs(BaseWorkflow.Outputs):
             text: str = TestToolCallingNode.Outputs.text
             chat_history: List[ChatMessage] = TestToolCallingNode.Outputs.chat_history
 
-    workflow = ToolCallingWorkflow()
+    workflow = AgentWorkflow()
 
     # WHEN the workflow is executed and we capture all events
     events = list(workflow.stream(event_filter=all_workflow_event_filter))
@@ -322,3 +408,591 @@ def test_tool_calling_node_workflow_is_dynamic(vellum_adhoc_prompt_client):
     assert initiated_events[0].body.workflow_definition.is_dynamic is False  # Main workflow
     assert initiated_events[1].body.workflow_definition.is_dynamic is True  # Tool calling internal
     assert initiated_events[2].body.workflow_definition.is_dynamic is True  # Inline workflow
+
+
+def test_tool_node_preserves_node_exception():
+    """Test that tool nodes preserve NodeException error codes and raw_data."""
+
+    def failing_function() -> str:
+        raise NodeException(
+            message="Custom error",
+            code=WorkflowErrorCode.INVALID_INPUTS,
+            raw_data={"key": "value"},
+        )
+
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[failing_function],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    function_node_class = create_function_node(
+        function=failing_function,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={},
+                            id="call_123",
+                            name="failing_function",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    function_node = function_node_class(state=state)
+
+    with pytest.raises(NodeException) as exc_info:
+        list(function_node.run())
+
+    e = exc_info.value
+    assert e.code == WorkflowErrorCode.INVALID_INPUTS
+    assert e.raw_data == {"key": "value"}
+    assert "Custom error" in e.message
+
+
+def test_function_node_outputs_result():
+    """Test that FunctionNode yields output with name 'result' matching the Outputs class."""
+
+    # GIVEN a simple function that returns a value
+    def my_tool_function() -> str:
+        return "test_result"
+
+    # AND a tool prompt node with that function
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[my_tool_function],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    function_node_class = create_function_node(
+        function=my_tool_function,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # AND a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={},
+                            id="call_789",
+                            name="my_tool_function",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    function_node = function_node_class(state=state)
+
+    # WHEN the function node runs
+    outputs = list(function_node.run())
+
+    # THEN there should be exactly one output with name "result"
+    assert len(outputs) == 1
+    result_output = outputs[0]
+    assert isinstance(result_output, BaseOutput)
+    assert result_output.name == "result"
+    assert result_output.is_fulfilled is True
+    assert result_output.value == "test_result"
+
+
+def test_tool_node_error_message_includes_function_name():
+    """Test that error messages include the actual function name, not 'wrapper'."""
+
+    # GIVEN a function that raises a regular exception
+    def my_tool_function() -> str:
+        raise ValueError("Something went wrong")
+
+    # AND a tool prompt node with that function
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[my_tool_function],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    function_node_class = create_function_node(
+        function=my_tool_function,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # AND a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={},
+                            id="call_456",
+                            name="my_tool_function",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    function_node = function_node_class(state=state)
+
+    # WHEN the function node runs and raises an exception
+    with pytest.raises(NodeException) as exc_info:
+        list(function_node.run())
+
+    # THEN the error message should include the actual function name
+    e = exc_info.value
+    assert "my_tool_function" in e.message
+    assert "wrapper" not in e.message.lower()
+    assert "Something went wrong" in e.message
+
+
+def test_mcp_node_outputs_result():
+    """Test that MCPNode yields output with name 'result' matching the Outputs class."""
+
+    # GIVEN an MCP tool definition
+    mcp_server = MCPServer(
+        name="test_server",
+        url="https://test.server.com",
+        authorization_type=AuthorizationType.BEARER_TOKEN,
+    )
+    mcp_tool = MCPToolDefinition(
+        name="test_tool",
+        server=mcp_server,
+        description="A test MCP tool",
+        parameters={},
+    )
+
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[mcp_tool],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    mcp_node_class = create_mcp_tool_node(
+        tool_def=mcp_tool,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # AND a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={"key": "value"},
+                            id="call_mcp_test",
+                            name="test_tool",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    mcp_node = mcp_node_class(state=state)
+
+    # AND mock MCPService to return a result
+    with mock.patch("vellum.workflows.nodes.displayable.tool_calling_node.utils.MCPService") as mock_mcp_service_class:
+        mock_mcp_service = mock.Mock()
+        mock_mcp_service.execute_tool.return_value = {"result": "mcp_test_result"}
+        mock_mcp_service_class.return_value = mock_mcp_service
+
+        # WHEN the MCP node runs
+        outputs = list(mcp_node.run())
+
+        # THEN there should be exactly one output with name "result"
+        assert len(outputs) == 1
+        result_output = outputs[0]
+        assert isinstance(result_output, BaseOutput)
+        assert result_output.name == "result"
+        assert result_output.is_fulfilled is True
+        assert result_output.value == {"result": "mcp_test_result"}
+
+
+def test_vellum_integration_node_outputs_result(vellum_client):
+    """Test that VellumIntegrationNode yields output with name 'result' matching the Outputs class."""
+
+    # GIVEN a VellumIntegrationToolDefinition
+    github_tool = VellumIntegrationToolDefinition(
+        provider=VellumIntegrationProviderType.COMPOSIO,
+        integration_name="GITHUB",
+        name="create_issue",
+        description="Create a new issue in a GitHub repository",
+    )
+
+    # AND a tool prompt node
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[github_tool],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    function_node_class = create_function_node(
+        function=github_tool,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # AND a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={"owner": "test-owner", "repo": "test-repo", "title": "Test Issue"},
+                            id="call_vellum_test",
+                            name="create_issue",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    # AND mock the vellum client's integration service
+    mock_response = mock.Mock()
+    mock_response.data = {"id": 123, "url": "https://github.com/test-owner/test-repo/issues/123"}
+    vellum_client.integrations.execute_integration_tool.return_value = mock_response
+
+    # AND create a context with the vellum client
+    context = WorkflowContext()
+    context.vellum_client = vellum_client
+
+    function_node = function_node_class(state=state)
+    function_node._context = context
+
+    # WHEN the VellumIntegration node runs
+    outputs = list(function_node.run())
+
+    # THEN there should be exactly one output with name "result"
+    assert len(outputs) == 1
+    result_output = outputs[0]
+    assert isinstance(result_output, BaseOutput)
+    assert result_output.name == "result"
+    assert result_output.is_fulfilled is True
+    assert result_output.value == {"id": 123, "url": "https://github.com/test-owner/test-repo/issues/123"}
+
+
+def test_vellum_integration_node_error_outputs_result(vellum_client):
+    """Test that VellumIntegrationNode yields error payload as result output when NodeException occurs."""
+
+    # GIVEN a VellumIntegrationToolDefinition
+    github_tool = VellumIntegrationToolDefinition(
+        provider=VellumIntegrationProviderType.COMPOSIO,
+        integration_name="GITHUB",
+        name="create_issue",
+        description="Create a new issue in a GitHub repository",
+    )
+
+    # AND a tool prompt node
+    tool_prompt_node = create_tool_prompt_node(
+        ml_model="test-model",
+        blocks=[],
+        functions=[github_tool],
+        prompt_inputs=None,
+        parameters=DEFAULT_PROMPT_PARAMETERS,
+    )
+
+    function_node_class = create_function_node(
+        function=github_tool,
+        tool_prompt_node=tool_prompt_node,
+    )
+
+    # AND a state with a function call
+    state = ToolCallingState(
+        meta=StateMeta(
+            node_outputs={
+                tool_prompt_node.Outputs.results: [
+                    FunctionCallVellumValue(
+                        value=FunctionCall(
+                            arguments={"owner": "test-owner", "repo": "test-repo", "title": "Test Issue"},
+                            id="call_vellum_error_test",
+                            name="create_issue",
+                            state="FULFILLED",
+                        ),
+                    )
+                ],
+            },
+        )
+    )
+
+    # AND mock the vellum client's integration service to raise a 500 error
+    vellum_client.integrations.execute_integration_tool.side_effect = ApiError(
+        status_code=500,
+        body={"detail": "Internal server error occurred while executing the tool."},
+    )
+
+    # AND create a context with the vellum client
+    context = WorkflowContext()
+    context.vellum_client = vellum_client
+
+    function_node = function_node_class(state=state)
+    function_node._context = context
+
+    # WHEN the VellumIntegration node runs
+    outputs = list(function_node.run())
+
+    # THEN there should be exactly one output with name "result"
+    assert len(outputs) == 1
+    result_output = outputs[0]
+    assert isinstance(result_output, BaseOutput)
+    assert result_output.name == "result"
+    assert result_output.is_fulfilled is True
+
+    # AND the result should contain the error payload
+    error_result = result_output.value
+    assert isinstance(error_result, dict)
+    assert "code" in error_result
+    assert "message" in error_result
+    assert error_result["code"] == "PROVIDER_ERROR"
+    assert "Internal server error occurred while executing the tool" in error_result["message"]
+
+    # AND the error should also be in chat history
+    assert len(state.chat_history) == 1
+    function_message = state.chat_history[0]
+    assert function_message.role == "FUNCTION"
+    assert isinstance(function_message.content, StringChatMessageContent)
+    error_data = json.loads(function_message.content.value)
+    assert "error" in error_data
+    assert error_data["error"]["code"] == "PROVIDER_ERROR"
+
+
+def test_tool_calling_node_400_error_preserves_invalid_inputs(vellum_adhoc_prompt_client):
+    """
+    Test that ToolCallingNode preserves INVALID_INPUTS error code when the underlying prompt node returns a 400 error.
+    """
+
+    # GIVEN a ToolCallingNode with minimal configuration
+    class TestToolCallingNode(ToolCallingNode):
+        ml_model = "gpt-4o-mini"
+        blocks = []
+        functions = []
+        max_prompt_iterations = 1
+
+    # AND the API client raises a 400 error
+    api_error = ApiError(
+        status_code=400,
+        body={"detail": "Invalid request parameters"},
+    )
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = api_error
+
+    # AND a state
+    state = BaseState()
+
+    # WHEN the ToolCallingNode runs
+    node = TestToolCallingNode(state=state)
+
+    with pytest.raises(NodeException) as exc_info:
+        list(node.run())
+
+    # THEN the error code should be INVALID_INPUTS (preserved from the underlying prompt node)
+    e = exc_info.value
+    assert e.code == WorkflowErrorCode.INVALID_INPUTS
+    assert e.message == "Invalid request parameters"
+
+
+def test_vellum_integration_node_500_error_feeds_back_to_model(vellum_adhoc_prompt_client, vellum_client):
+    """
+    Test that NodeException errors from integration tools feed back an error response to the model.
+    """
+    # GIVEN a VellumIntegrationToolDefinition
+    github_create_issue_tool = VellumIntegrationToolDefinition(
+        provider=VellumIntegrationProviderType.COMPOSIO,
+        integration_name="GITHUB",
+        name="create_issue",
+        description="Create a new issue in a GitHub repository",
+    )
+
+    # AND a ToolCallingNode that uses the integration tool
+    class TestToolCallingNode(ToolCallingNode):
+        ml_model = "gpt-4o-mini"
+        blocks = []
+        functions = [github_create_issue_tool]
+        max_prompt_iterations = 2
+
+    # AND the integration API raises a 500 error
+    vellum_client.integrations.execute_integration_tool.side_effect = ApiError(
+        status_code=500,
+        body={"detail": "Internal server error occurred while executing the tool."},
+    )
+
+    def generate_prompt_events(*args: Any, **kwargs: Any) -> Iterator[Any]:
+        execution_id = str(uuid4())
+        call_count = vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.call_count
+
+        outputs: List[PromptOutput]
+        if call_count == 1:
+            outputs = [
+                FunctionCallVellumValue(
+                    value=FunctionCall(
+                        arguments={"owner": "test-owner", "repo": "test-repo", "title": "Test Issue"},
+                        id="call_500_error_test",
+                        name="create_issue",
+                        state="FULFILLED",
+                    ),
+                )
+            ]
+        else:
+            outputs = [
+                StringVellumValue(
+                    value="I apologize, but I encountered an error while trying to create the issue. "
+                    "The integration service is currently unavailable."
+                )
+            ]
+
+        events = [
+            InitiatedExecutePromptEvent(execution_id=execution_id),
+            FulfilledExecutePromptEvent(
+                execution_id=execution_id,
+                outputs=outputs,
+            ),
+        ]
+        yield from events
+
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = generate_prompt_events
+
+    # WHEN the ToolCallingNode runs
+    state = ToolCallingState()
+    node = TestToolCallingNode(state=state)
+    node_outputs = {}
+    for output in node.run():
+        if output.is_fulfilled:
+            node_outputs[output.name] = output.value
+
+    # THEN the node should fulfill successfully
+    # AND the chat history should contain a FUNCTION message with the error
+    chat_history = cast(List[ChatMessage], node_outputs["chat_history"])
+    assert len(chat_history) == 3
+
+    # AND the first message should be the assistant's function call
+    assert chat_history[0].role == "ASSISTANT"
+
+    # AND the second message should be the FUNCTION error result
+    function_message = chat_history[1]
+    assert function_message.role == "FUNCTION"
+    assert isinstance(function_message.content, StringChatMessageContent)
+
+    # AND the error payload should contain the error details
+    error_data = json.loads(function_message.content.value)
+    assert "error" in error_data
+    assert error_data["error"]["code"] == "PROVIDER_ERROR"
+    assert "Internal server error occurred while executing the tool" in error_data["error"]["message"]
+
+    # AND the third message should be the assistant's response to the error
+    assert chat_history[2].role == "ASSISTANT"
+
+
+def test_tool_calling_node_json_output(vellum_adhoc_prompt_client):
+    """
+    Tests that ToolCallingNode exposes a json output when the LLM returns valid JSON.
+    """
+
+    # GIVEN a ToolCallingNode with a simple function
+    class TestToolCallingNode(ToolCallingNode):
+        ml_model = "gpt-4o-mini"
+        blocks = []
+        functions = [first_function]
+        max_prompt_iterations = 1
+
+    # AND the LLM returns a JSON response
+    expected_json = {"items": ["apple", "banana", "cherry"], "count": 3}
+
+    def generate_prompt_events(*args: Any, **kwargs: Any) -> Iterator[ExecutePromptEvent]:
+        execution_id = str(uuid4())
+        events: List[ExecutePromptEvent] = [
+            InitiatedExecutePromptEvent(execution_id=execution_id),
+            FulfilledExecutePromptEvent(
+                execution_id=execution_id,
+                outputs=[StringVellumValue(value=json.dumps(expected_json))],
+            ),
+        ]
+        yield from events
+
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = generate_prompt_events
+
+    # WHEN the ToolCallingNode runs
+    state = BaseState()
+    node = TestToolCallingNode(state=state)
+    node_outputs = {}
+    for output in node.run():
+        if output.is_fulfilled:
+            node_outputs[output.name] = output.value
+
+    # THEN the json output should contain the parsed JSON
+    assert "json" in node_outputs
+    assert node_outputs["json"] == expected_json
+
+    # AND the text output should contain the raw JSON string
+    assert "text" in node_outputs
+    assert node_outputs["text"] == json.dumps(expected_json)
+
+
+def test_tool_calling_node_json_output_not_present_for_non_json(vellum_adhoc_prompt_client):
+    """
+    Tests that ToolCallingNode does not expose a json output when the LLM returns non-JSON text.
+    """
+
+    # GIVEN a ToolCallingNode with a simple function
+    class TestToolCallingNode(ToolCallingNode):
+        ml_model = "gpt-4o-mini"
+        blocks = []
+        functions = [first_function]
+        max_prompt_iterations = 1
+
+    # AND the LLM returns a plain text response (not JSON)
+    plain_text_response = "Hello! I can help you with that."
+
+    def generate_prompt_events(*args: Any, **kwargs: Any) -> Iterator[ExecutePromptEvent]:
+        execution_id = str(uuid4())
+        events: List[ExecutePromptEvent] = [
+            InitiatedExecutePromptEvent(execution_id=execution_id),
+            FulfilledExecutePromptEvent(
+                execution_id=execution_id,
+                outputs=[StringVellumValue(value=plain_text_response)],
+            ),
+        ]
+        yield from events
+
+    vellum_adhoc_prompt_client.adhoc_execute_prompt_stream.side_effect = generate_prompt_events
+
+    # WHEN the ToolCallingNode runs
+    state = BaseState()
+    node = TestToolCallingNode(state=state)
+    node_outputs = {}
+    for output in node.run():
+        if output.is_fulfilled:
+            node_outputs[output.name] = output.value
+
+    # THEN the json output should not be present
+    assert "json" not in node_outputs
+
+    # AND the text output should contain the plain text
+    assert "text" in node_outputs
+    assert node_outputs["text"] == plain_text_response

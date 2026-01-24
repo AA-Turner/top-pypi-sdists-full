@@ -1,12 +1,14 @@
 import re
 from pathlib import Path
+import traceback
 
 from adam.checks.check import Check
 from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
-from adam.k8s_utils.cassandra_nodes import CassandraNodes
+from adam.utils import Color, log_exc
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
 
 class Disk(Check):
     def name(self):
@@ -18,16 +20,16 @@ class Disk(Check):
 
         try:
             cass_data_path = Config().get('checks.cassandra-data-path', '/c3/cassandra')
-            df_result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"df -h | grep -e '{cass_data_path}' -e 'overlay'", show_out=ctx.show_output)
+            df_result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"df -h | grep -e '{cass_data_path}' -e 'overlay'", show_out=ctx.show_output, text_color=Color.gray)
 
             snapshot_size = Config().get('checks.snapshot-size-cmd', "ls /c3/cassandra/data/data/*/*/snapshots | grep snapshots | sed 's/:$//g' | xargs -I {} du -sk {} | awk '{print $1}' | awk '{s+=$1} END {print s}'")
-            ss_result = CassandraNodes.exec(ctx.pod, ctx.namespace, snapshot_size, show_out=ctx.show_output)
+            ss_result = CassandraNodes.exec(ctx.pod, ctx.namespace, snapshot_size, show_out=ctx.show_output, text_color=Color.gray)
 
             data_sizes = Config().get('checks.data-size-cmd', "du -sh /c3/cassandra/data/data")
-            ds_result = CassandraNodes.exec(ctx.pod, ctx.namespace, data_sizes, show_out=ctx.show_output)
+            ds_result = CassandraNodes.exec(ctx.pod, ctx.namespace, data_sizes, show_out=ctx.show_output, text_color=Color.gray)
 
             table_sizes = Config().get('checks.table-sizes-cmd', "ls -Al /c3/cassandra/data/data/ | awk '{print $9}' | sed 's/\^r//g' | xargs -I {} du -sk /c3/cassandra/data/data/{}")
-            ts_result = CassandraNodes.exec(ctx.pod, ctx.namespace, table_sizes, show_out=ctx.show_output)
+            ts_result = CassandraNodes.exec(ctx.pod, ctx.namespace, table_sizes, show_out=ctx.show_output, text_color=Color.gray)
 
             result = self.build_details(ctx, df_result.stdout, ss_result.stdout, ds_result.stdout, ts_result.stdout)
 
@@ -87,10 +89,8 @@ class Disk(Check):
 
         ss_size = 0.0
         if ss_out:
-            try:
+            with log_exc():
                 ss_size = round(float(ss_out.strip(' \r\n')) / 1024 / 1024, 2)
-            except:
-                pass
 
         def parse_du_out(l: str, default: str = None):
             groups = re.match(r'^(\S+)\s+(\S+)$', l.strip('\r'))

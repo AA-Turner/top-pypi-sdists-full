@@ -17,6 +17,7 @@ filters:
  
 website:
    title: "Inspect"
+   favicon: favicon.svg
    bread-crumbs: true
    page-navigation: true
    repo-url: https://github.com/UKGovernmentBEIS/inspect_ai
@@ -79,6 +80,7 @@ website:
                  href: providers.qmd
                - caching.qmd
                - models-batch.qmd
+               - compaction.qmd
                - multimodal.qmd
                - reasoning.qmd
                - structured.qmd
@@ -116,6 +118,7 @@ website:
                - tracing.qmd
                - parallelism.qmd
                - interactivity.qmd
+               - early-stopping.qmd
                - extensions.qmd
 
    page-footer: 

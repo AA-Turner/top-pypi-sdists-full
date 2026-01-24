@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: HyperPyYAML
-Version: 1.2.2
+Version: 1.2.3
 Summary: Extensions to YAML syntax for better python interaction
 Home-page: https://github.com/speechbrain/HyperPyYAML
 Author: Peter Plantinga, Aku Rouhe
@@ -10,7 +10,16 @@ Classifier: License :: OSI Approved :: Apache Software License
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyyaml>=5.1
-Requires-Dist: ruamel.yaml>=0.17.28
+Requires-Dist: ruamel.yaml<0.19.0,>=0.17.28
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Introduction
 ------------
@@ -30,6 +39,12 @@ up python files for data analysis to just the bare algorithm.
     * [Tuples](#tuples)
 * [How to use HyperPyYAML](#how-to-use-hyperpyyaml)
 * [Conclusion](#conclusion)
+
+### Security note
+Loading HyperPyYAML allows arbitrary code execution. 
+This is a feature: HyperPyYAML allows you to construct *anything* and *everything*
+you need in your experiment.
+However, take care to verify any untrusted recipes' YAML files just as you would verify the Python code.
 
 YAML basics
 -----------

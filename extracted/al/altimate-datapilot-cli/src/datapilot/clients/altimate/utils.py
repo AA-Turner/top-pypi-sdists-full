@@ -1,0 +1,183 @@
+import os
+from pathlib import Path
+from typing import Dict
+from typing import Optional
+
+import click
+from requests import Response
+
+from datapilot.clients.altimate.client import APIClient
+from datapilot.clients.altimate.constants import SUPPORTED_ARTIFACT_TYPES
+
+
+def check_token_and_instance(
+    token: Optional[str],
+    instance_name: Optional[str],
+):
+    if not token:
+        token = os.environ.get("ALTIMATE_API_KEY")
+
+    if not instance_name:
+        instance_name = os.environ.get("ALTIMATE_INSTANCE_NAME")
+
+    if not token or not instance_name:
+        click.echo(
+            "Error: API TOKEN and instance name is required. Please provide a valid API token."
+            " You can pass it as command line arguments or set it using environment variables like "
+            "ALTIMATE_API_KEY and ALTIMATE_INSTANCE_NAME."
+        )
+        return
+
+
+def upload_content_to_signed_url(file_path, signed_url) -> Response:
+    api_client = APIClient()
+
+    with Path(file_path).open("rb") as file:
+        file_content = file.read()
+
+    return api_client.put(signed_url, data=file_content)
+
+
+def validate_credentials(
+    token,
+    backend_url,
+    tenant,
+) -> Response:
+    api_client = APIClient(api_token=token, base_url=backend_url, tenant=tenant)
+    return api_client.validate_credentials()
+
+
+def validate_permissions(
+    token,
+    backend_url,
+    tenant,
+) -> Response:
+    api_client = APIClient(api_token=token, base_url=backend_url, tenant=tenant)
+    return api_client.validate_upload_to_integration()
+
+
+def onboard_file(api_token, tenant, dbt_core_integration_id, dbt_core_integration_environment, file_type, file_path, backend_url) -> Dict:
+    """
+    Upload a dbt artifact file to the Altimate backend.
+
+    Args:
+        api_token: API authentication token
+        tenant: Tenant/instance name
+        dbt_core_integration_id: ID of the dbt integration
+        dbt_core_integration_environment: Environment type (e.g., PROD)
+        file_type: Type of artifact - one of: manifest, catalog, run_results, sources, semantic_manifest
+        file_path: Path to the artifact file
+        backend_url: URL of the Altimate backend
+
+    Returns:
+        Dict with 'ok' boolean and optional 'message' on failure
+    """
+    if file_type not in SUPPORTED_ARTIFACT_TYPES:
+        return {
+            "ok": False,
+            "message": f"Unsupported file type: {file_type}. Supported types: {', '.join(sorted(SUPPORTED_ARTIFACT_TYPES))}",
+        }
+
+    api_client = APIClient(api_token, base_url=backend_url, tenant=tenant)
+
+    params = {
+        "dbt_core_integration_id": dbt_core_integration_id,
+        "dbt_core_integration_environment_type": dbt_core_integration_environment,
+        "file_type": file_type,
+    }
+    signed_url_data = api_client.get_signed_url(params)
+    if signed_url_data:
+        signed_url = signed_url_data.get("url")
+        file_id = signed_url_data.get("dbt_core_integration_file_id")
+        api_client.log(f"Received signed URL: {signed_url}")
+        api_client.log(f"Received File ID: {file_id}")
+
+        upload_response = upload_content_to_signed_url(file_path, signed_url)
+
+        if upload_response:
+            verify_params = {"dbt_core_integration_file_id": file_id}
+            api_client.verify_upload(verify_params)
+            return {"ok": True}
+        else:
+            api_client.log(f"Error uploading file: {upload_response.status_code}, {upload_response.text}")
+            return {"ok": False, "message": f"Error uploading file: {upload_response.status_code}, {upload_response.text}"}
+
+    else:
+        api_client.log("Error getting signed URL.")
+        return {
+            "ok": False,
+            "message": f"Error in uploading the {file_type}.",
+        }
+
+
+def start_dbt_ingestion(api_token, tenant, dbt_core_integration_id, dbt_core_integration_environment, backend_url):
+    api_client = APIClient(api_token, base_url=backend_url, tenant=tenant)
+    params = {
+        "dbt_core_integration_id": dbt_core_integration_id,
+        "dbt_core_integration_environment_type": dbt_core_integration_environment,
+    }
+    data = api_client.start_dbt_ingestion(params)
+    if data and data.get("ok"):
+        return {"ok": True}
+    else:
+        api_client.log("Error starting dbt ingestion worker")
+        return {
+            "ok": False,
+            "message": "Error starting dbt ingestion worker.                                                                                                                              ",
+        }
+
+
+def get_project_governance_llm_checks(
+    api_token,
+    tenant,
+    backend_url,
+):
+    api_client = APIClient(api_token=api_token, base_url=backend_url, tenant=tenant)
+    return api_client.get_project_governance_llm_checks()
+
+
+def run_project_governance_llm_checks(
+    api_token,
+    tenant,
+    backend_url,
+    manifest,
+    catalog,
+    check_names,
+):
+    api_client = APIClient(api_token=api_token, base_url=backend_url, tenant=tenant)
+    return api_client.run_project_governance_llm_checks(manifest, catalog, check_names)
+
+
+def get_all_dbt_configs(
+    api_token,
+    tenant,
+    backend_url,
+):
+    """Get all DBT configs from the API."""
+    api_client = APIClient(api_token=api_token, base_url=backend_url, tenant=tenant)
+    return api_client.get_all_dbt_configs()
+
+
+def get_all_integrations(
+    api_token,
+    tenant,
+    backend_url,
+):
+    """Get all integrations from the API."""
+    api_client = APIClient(api_token=api_token, base_url=backend_url, tenant=tenant)
+    return api_client.get_all_integrations()
+
+
+def resolve_integration_name_to_id(
+    integration_name,
+    api_token,
+    tenant,
+    backend_url,
+):
+    """Resolve integration name to ID."""
+    integrations = get_all_integrations(api_token, tenant, backend_url)
+    if integrations:
+        matching_integrations = [i for i in integrations if i.get("name") == integration_name]
+        if matching_integrations:
+            return matching_integrations[0].get("id")
+    return None

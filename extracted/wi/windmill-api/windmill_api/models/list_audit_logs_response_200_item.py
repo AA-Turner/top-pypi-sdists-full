@@ -20,6 +20,7 @@ T = TypeVar("T", bound="ListAuditLogsResponse200Item")
 class ListAuditLogsResponse200Item:
     """
     Attributes:
+        workspace_id (str):
         id (int):
         timestamp (datetime.datetime):
         username (str):
@@ -30,6 +31,7 @@ class ListAuditLogsResponse200Item:
         span (Union[Unset, str]):
     """
 
+    workspace_id: str
     id: int
     timestamp: datetime.datetime
     username: str
@@ -41,6 +43,7 @@ class ListAuditLogsResponse200Item:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        workspace_id = self.workspace_id
         id = self.id
         timestamp = self.timestamp.isoformat()
 
@@ -60,6 +63,7 @@ class ListAuditLogsResponse200Item:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "workspace_id": workspace_id,
                 "id": id,
                 "timestamp": timestamp,
                 "username": username,
@@ -81,6 +85,8 @@ class ListAuditLogsResponse200Item:
         from ..models.list_audit_logs_response_200_item_parameters import ListAuditLogsResponse200ItemParameters
 
         d = src_dict.copy()
+        workspace_id = d.pop("workspace_id")
+
         id = d.pop("id")
 
         timestamp = isoparse(d.pop("timestamp"))
@@ -103,6 +109,7 @@ class ListAuditLogsResponse200Item:
         span = d.pop("span", UNSET)
 
         list_audit_logs_response_200_item = cls(
+            workspace_id=workspace_id,
             id=id,
             timestamp=timestamp,
             username=username,

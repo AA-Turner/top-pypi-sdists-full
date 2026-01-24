@@ -1,0 +1,14 @@
+file:
+- statement:
+  - access_statement:
+    - keyword: grant
+    - keyword: select
+    - keyword: on
+    - object_reference:
+      - naked_identifier: mytable
+    - keyword: to
+    - role_reference:
+      - naked_identifier: public
+    - keyword: with
+    - keyword: grant
+    - keyword: option

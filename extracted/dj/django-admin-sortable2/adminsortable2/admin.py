@@ -1,17 +1,14 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from itertools import chain
 from types import MethodType
-from typing import Optional
 
 from django import VERSION as DJANGO_VERSION
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.contenttypes.forms import BaseGenericInlineFormSet
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, FieldDoesNotExist
 from django.core.paginator import EmptyPage
 from django.db import router, transaction, models
 from django.db.models import OrderBy
@@ -19,6 +16,7 @@ from django.db.models.aggregates import Max
 from django.db.models.expressions import BaseExpression, F
 from django.db.models.functions import Coalesce
 from django.db.models.signals import post_save, pre_save
+from django.db.utils import IntegrityError
 from django.forms import widgets
 from django.forms.fields import IntegerField
 from django.forms.models import BaseInlineFormSet
@@ -30,7 +28,7 @@ from django.urls import path, reverse
 __all__ = ['SortableAdminMixin', 'SortableInlineAdminMixin']
 
 
-def _parse_ordering_part(part: OrderBy | BaseExpression | F | str) -> tuple[str, Optional[str]]:
+def _parse_ordering_part(part):
     if isinstance(part, str):
         return ('-', part[1:]) if part.startswith('-') else ('', part)
     elif isinstance(part, OrderBy) and isinstance(part.expression, F):
@@ -82,9 +80,16 @@ class MovePageActionForm(admin.helpers.ActionForm):
 class SortableAdminBase:
     @property
     def media(self):
-        css = {'all': ['adminsortable2/css/sortable.css']}
-        js = ['adminsortable2/js/adminsortable2{}.js'.format('' if settings.DEBUG else '.min')]
-        return super().media + widgets.Media(css=css, js=js)
+        media = super().media
+        css = dict(media._css)
+        css.setdefault('all', [])
+        css['all'].append('adminsortable2/css/sortable.css')
+        js = list(media._js)
+        # replace actions.js with our patched version until https://code.djangoproject.com/ticket/36757 is fixed
+        if 'admin/js/actions.js' in js:
+            js[js.index('admin/js/actions.js')] = 'adminsortable2/js/actions-{0}.{1}.js'.format(*DJANGO_VERSION)
+        js.append('adminsortable2/js/adminsortable2{}.js'.format('' if settings.DEBUG else '.min'))
+        return widgets.Media(css=css, js=js)
 
     def get_formset_kwargs(self, request, obj, inline, prefix):
         formset_params = super().get_formset_kwargs(request, obj, inline, prefix)
@@ -172,7 +177,10 @@ class SortableAdminMixin(SortableAdminBase):
         actions = super().get_actions(request)
         qs = self.get_queryset(request)
         paginator = self.get_paginator(request, qs, self.list_per_page)
-        if paginator.num_pages > 1 and 'all' not in request.GET and self.enable_sorting:
+        if (
+            self.has_change_permission(request) and
+            paginator.num_pages > 1 and 'all' not in request.GET and self.enable_sorting
+        ):
             # add actions for moving items to other pages
             move_actions = []
             cur_page = int(request.GET.get('p', 1))
@@ -240,6 +248,12 @@ class SortableAdminMixin(SortableAdminBase):
             extra_model_filters = self.get_extra_model_filters(request)
             num_updated = self._update_order(json.loads(request.body).get('updatedItems'), extra_model_filters)
             return HttpResponse(f"Updated {num_updated} items")
+        except IntegrityError as exc:
+            msg = (
+                f"{exc}. Run 'manage.py reorder "
+                f"{self.model._meta.app_label}.{self.model._meta.model_name}' to fix the ordering."
+            )
+            return HttpResponseBadRequest(msg)
         except Exception as exc:
             return HttpResponseBadRequest(f"Invalid POST request: {exc}")
 
@@ -370,13 +384,22 @@ class SortableAdminMixin(SortableAdminBase):
         current_page_number = int(request.GET.get('p', 1))
 
         if method == self.EXACT:
-            page_number = int(request.POST.get('page', current_page_number))
+            try:
+                page_number = int(request.POST.get('page'))
+            except (ValueError, TypeError):
+                page_number = current_page_number
             target_page_number = page_number
         elif method == self.BACK:
-            step = int(request.POST.get('step', 1))
+            try:
+                step = int(request.POST.get('step'))
+            except (ValueError, TypeError):
+                step = 1
             target_page_number = current_page_number - step
         elif method == self.FORWARD:
-            step = int(request.POST.get('step', 1))
+            try:
+                step = int(request.POST.get('step'))
+            except (ValueError, TypeError):
+                step = 1
             target_page_number = current_page_number + step
         elif method == self.FIRST:
             target_page_number = 1
@@ -486,10 +509,15 @@ class CustomInlineFormSetMixin:
         """
         obj = super().save_new(form, commit=False)
 
-        order_field_value = getattr(obj, self.default_order_field, None)
-        if order_field_value is None or order_field_value <= 0:
-            max_order = self.get_max_order()
-            setattr(obj, self.default_order_field, max_order + 1)
+        try:
+            self.model._meta.get_field(self.default_order_field)
+        except FieldDoesNotExist:
+            pass
+        else:
+            order_field_value = getattr(obj, self.default_order_field)
+            if order_field_value is None or order_field_value <= 0:
+                max_order = self.get_max_order()
+                setattr(obj, self.default_order_field, max_order + 1)
         if commit:
             obj.save()
         # form.save_m2m() can be called via the formset later on

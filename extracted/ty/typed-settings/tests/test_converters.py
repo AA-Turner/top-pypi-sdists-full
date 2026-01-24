@@ -5,18 +5,14 @@ Tests for `typed_settings.attrs.converters`.
 import collections.abc
 import dataclasses
 import json
+import re
 import typing
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
-from typing import (
-    Any,
-    Callable,
-    Optional,
-    Union,
-)
+from typing import Any, Literal
 
 import attrs
 import cattrs
@@ -25,8 +21,9 @@ import pytest
 from hypothesis import assume, given, strategies
 
 from typed_settings import converters
-from typed_settings._compat import PY_310, PY_311
+from typed_settings._compat import PY_311
 from typed_settings.cls_attrs import option, secret, settings
+from typed_settings.types import Secret, SecretStr
 
 
 if PY_311:
@@ -35,9 +32,23 @@ else:
     IntEnum = StrEnum = None  # type: ignore
 
 
-def custom_converter(v: Union[str, Path]) -> Path:
+def custom_converter(v: str | Path) -> Path:
     """A custom converter for attrs fields."""
     return Path(v).resolve()
+
+
+class SecretWithEq(Secret):
+    """
+    Secret intances are not comparable for security reasons.
+
+    This subclass allows testing the converters with secrets.
+    """
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, Secret)
+            and self.get_secret_value() == other.get_secret_value()
+        )
 
 
 class LeEnum(Enum):
@@ -76,6 +87,7 @@ class AttrsCls:
 
     u: str = option()
     p: str = secret()
+    a: str = option(alias="b")
 
 
 class PydanticCls(pydantic.BaseModel):
@@ -83,6 +95,7 @@ class PydanticCls(pydantic.BaseModel):
 
     u: str
     p: str
+    a: str = pydantic.Field(alias="b")
 
 
 @dataclasses.dataclass
@@ -307,12 +320,38 @@ if PY_311:
     )
 SUPPORTED_TYPES_DATA += [(n, v, e, type(e)) for n, v, e in SUPPORTED_ENUM]
 
+# Literal - only valid strings are accepted
+SUPPORTED_LITERAL = [
+    ("literal[spam]", "spam", "spam", Literal["spam", 42]),
+    ("literal[42]", 42, 42, Literal["spam", 42]),
+]
+SUPPORTED_TYPES_DATA += SUPPORTED_LITERAL
+
 # Path - Paths are resolved by default
 SUPPORTED_PATH = [
     ("path(str)", "spam", Path.cwd().joinpath("spam")),
     ("path(inst)", Path("eggs"), Path.cwd().joinpath("eggs")),
 ]
 SUPPORTED_TYPES_DATA += [(n, v, e, Path) for n, v, e in SUPPORTED_PATH]
+
+# re.Pattern - strings are passed through re.compile()
+SUPPORTED_RE_PATTERN = [
+    ("re.compile(inst)", re.compile("spam"), re.compile("spam")),
+    ("re.compile(str)", "spam", re.compile("spam")),
+]
+SUPPORTED_TYPES_DATA += [(n, v, e, re.Pattern) for n, v, e in SUPPORTED_RE_PATTERN]
+
+# TS secret types
+SUPPORTED_SECRET_TYPES = [
+    ("Secret(inst)", Secret("spam"), SecretWithEq("spam"), Secret),
+    ("Secret(str)", "spam", SecretWithEq("spam"), Secret),
+    ("Secret[str](inst)", Secret("spam"), SecretWithEq("spam"), Secret[str]),
+    ("Secret[str](str)", "spam", SecretWithEq("spam"), Secret[str]),
+    ("Secret[str](int)", 3, SecretWithEq("3"), Secret[str]),
+    ("SecretStr(inst)", SecretStr("spam"), SecretStr("spam"), SecretStr),
+    ("SecretStr(str)", "spam", SecretStr("spam"), SecretStr),
+]
+SUPPORTED_TYPES_DATA += SUPPORTED_SECRET_TYPES
 
 # Pydantic Secret Str|Bytes
 SUPPORTED_PYDANTIC_SECRET = [
@@ -433,11 +472,14 @@ SUPPORTED_TYPES_DATA += SUPPORTED_FROZENSET
 
 # Union / Optional
 SUPPORTED_UNION: Example4T = [
-    ("Optional(None)", None, None, Optional[str]),
-    ("Optional(int)", 1, "1", Optional[str]),
-    ("dc|None(None)", None, None, Optional[DataCls]),
-    ("dc|None(dict)", {"u": "u", "p": "p"}, DataCls("u", "p"), Optional[DataCls]),
-    ("enum|None", "spam", LeEnum.spam, Optional[LeEnum]),
+    ("Optional(None)", None, None, str | None),
+    ("Optional(str)", 1, "1", str | None),
+    ("dc|None(None)", None, None, DataCls | None),
+    ("dc|None(dict)", {"u": "u", "p": "p"}, DataCls("u", "p"), DataCls | None),
+    ("enum|None", "spam", LeEnum.spam, LeEnum | None),
+    ("str|None(None)", None, None, str | None),
+    ("str|None(int)", 1, "1", str | None),
+    # (S | List[str], [1, 2], ["1", "2"], "attrs|list(list)"),
     # ("Union(None)", None, None, Union[None, S, List[str]]),
     # (
     #     "Union(attrs)",
@@ -448,17 +490,21 @@ SUPPORTED_UNION: Example4T = [
     # ("Union(list)", [1, 2], ["1", "2"], Union[None, S, List[str]]),
 ]
 SUPPORTED_TYPES_DATA += SUPPORTED_UNION
-if PY_310:
-    SUPPORTED_UNION = [
-        ("str|None(None)", None, None, str | None),
-        ("str|None(int)", 1, "1", str | None),
-        # (S | List[str], [1, 2], ["1", "2"], "attrs|list(list)"),
-    ]
 
 # attrs classes
 SUPPORTED_ATTRSCLASSES: Example4T = [
-    ("attrs(dict)", {"u": "user", "p": "pwd"}, AttrsCls("user", "pwd"), AttrsCls),
-    ("attrs(inst)", AttrsCls("user", "pwd"), AttrsCls("user", "pwd"), AttrsCls),
+    (
+        "attrs(dict)",
+        {"u": "user", "p": "pwd", "b": "alias"},
+        AttrsCls("user", "pwd", "alias"),
+        AttrsCls,
+    ),
+    (
+        "attrs(inst)",
+        AttrsCls("user", "pwd", "alias"),
+        AttrsCls("user", "pwd", "alias"),
+        AttrsCls,
+    ),
     (
         "attrs(nested)",
         {
@@ -523,14 +569,14 @@ SUPPORTED_TYPES_DATA += list(SUPPORTED_DATACLASSES)
 SUPPORTED_PYDANTIC: Example4T = [
     (
         "pydantic(dict)",
-        {"u": "user", "p": "pwd"},
-        PydanticCls(u="user", p="pwd"),
+        {"u": "user", "p": "pwd", "b": "alias"},
+        PydanticCls(u="user", p="pwd", b="alias"),
         PydanticCls,
     ),
     (
         "pydantic(inst)",
-        PydanticCls(u="user", p="pwd"),
-        PydanticCls(u="user", p="pwd"),
+        PydanticCls(u="user", p="pwd", b="alias"),
+        PydanticCls(u="user", p="pwd", b="alias"),
         PydanticCls,
     ),
     (
@@ -632,12 +678,12 @@ class TestToTimedelta:
         self,
         simple_fmt: bool,
         left_pad: bool,
-        sign: Optional[str],
-        days: Optional[int],
-        hours: Optional[int],
-        minutes: Optional[int],
-        seconds: Optional[int],
-        micros: Optional[int],
+        sign: str | None,
+        days: int | None,
+        hours: int | None,
+        minutes: int | None,
+        seconds: int | None,
+        micros: int | None,
     ) -> None:
         """
         Timedeltas can be parsed from ISO strings and simplified ISO strings (missing
@@ -697,13 +743,13 @@ class TestToTimedelta:
     def test_from_simple_string(
         self,
         left_pad: bool,
-        sign: Optional[str],
+        sign: str | None,
         comma: str,
-        days: Optional[int],
-        hours: Optional[int],
-        minutes: Optional[int],
+        days: int | None,
+        hours: int | None,
+        minutes: int | None,
         seconds: int,
-        micros: Optional[int],
+        micros: int | None,
     ) -> None:
         """
         Timedeltas can be parsed a simple string format..
@@ -794,10 +840,11 @@ class TestToTimedelta:
         (date, 3),
         (timedelta, datetime(1, 1, 1)),
         (timedelta, "1s1h"),  # Not ordered properly
+        (Literal["spam", "eggs"], "bacon"),
         # len(value) does not match len(tuple-args)
         (tuple[int, int], (1,)),
         (tuple[int, int], (1, 2, 3)),
-        (Union[int, datetime, None], "3.1"),  # float is not part of the Union
+        (int | datetime | None, "3.1"),  # float is not part of the Union
         (Sequence, [0, 1]),  # Type not supported
         (AttrsCls, {"foo": 3}),  # Invalid attribute
         (AttrsCls, {"opt", "x"}),  # Invalid value
@@ -896,7 +943,7 @@ def test_cattrs_strlist_hook_either_arg() -> None:
 def test_ts_strlist_hook(
     cls_decorator: Callable,
     input: str,
-    sep: Union[str, Callable],
+    sep: str | Callable,
     typ: type,
     expected: Any,
 ) -> None:

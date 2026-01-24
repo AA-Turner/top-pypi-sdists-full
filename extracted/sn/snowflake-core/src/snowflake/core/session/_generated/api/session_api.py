@@ -1322,7 +1322,7 @@ class SessionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["named_default"]:
+        if _params["named_default"] is not None:
             _body_params = _params["named_default"]
 
         # set the HTTP header `Accept`
@@ -1498,7 +1498,7 @@ class SessionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["named_default"]:
+        if _params["named_default"] is not None:
             _body_params = _params["named_default"]
 
         # set the HTTP header `Accept`
@@ -1674,7 +1674,7 @@ class SessionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["named_default"]:
+        if _params["named_default"] is not None:
             _body_params = _params["named_default"]
 
         # set the HTTP header `Accept`
@@ -1850,7 +1850,7 @@ class SessionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["named_default"]:
+        if _params["named_default"] is not None:
             _body_params = _params["named_default"]
 
         # set the HTTP header `Accept`
@@ -2026,7 +2026,7 @@ class SessionApi:
         # process the body parameter
         _body_params = None
 
-        if _params["secondary_roles"]:
+        if _params["secondary_roles"] is not None:
             _body_params = _params["secondary_roles"]
 
         # set the HTTP header `Accept`

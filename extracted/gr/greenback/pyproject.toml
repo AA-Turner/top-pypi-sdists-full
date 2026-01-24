@@ -1,0 +1,6 @@
+[tool.towncrier]
+package = "greenback"
+filename = "docs/source/history.rst"
+directory = "newsfragments"
+underlines = ["-", "~", "^"]
+issue_format = "`#{issue} <https://github.com/oremanj/greenback/issues/{issue}>`__"

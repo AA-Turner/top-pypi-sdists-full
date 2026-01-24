@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class UnassignApplicationEntitlement(BaseModel):
@@ -29,21 +30,25 @@ class UnassignApplicationEntitlement(BaseModel):
         json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_integration_specific_id: StrictStr = Field(
-        description="The integration-specific identifier for the user account"
+        description="The integration-specific identifier for the user account",
+        json_schema_extra={"x-semantic": "account-id"},
     )
     resource_type: StrictStr = Field(
-        description="Should match a previously declared resource type from this connector"
+        description="Should match a previously declared resource type from this connector",
+        json_schema_extra={"x-resource-type": True},
     )
     resource_integration_specific_id: StrictStr = Field(
         description="The integration-specific identifier for the resource"
     )
     entitlement_type: StrictStr = Field(
-        description="Should match a previously declared entitlement type from this connector"
+        description="Should match a previously declared entitlement type from this connector",
+        json_schema_extra={"x-entitlement-type": True},
     )
     entitlement_integration_specific_id: StrictStr = Field(
         description="The integration-specific identifier for the entitlement"
     )
     __properties: ClassVar[List[str]] = [
+        "application_instance_id",
         "account_integration_specific_id",
         "resource_type",
         "resource_integration_specific_id",
@@ -93,6 +98,7 @@ class UnassignApplicationEntitlement(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
             {
+                "application_instance_id": obj.get("application_instance_id"),
                 "account_integration_specific_id": obj.get("account_integration_specific_id"),
                 "resource_type": obj.get("resource_type"),
                 "resource_integration_specific_id": obj.get("resource_integration_specific_id"),
@@ -103,3 +109,6 @@ class UnassignApplicationEntitlement(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

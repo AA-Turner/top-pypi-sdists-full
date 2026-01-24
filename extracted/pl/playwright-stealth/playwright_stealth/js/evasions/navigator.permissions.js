@@ -1,7 +1,7 @@
 log("loading navigator.permissions.js");
 
 const handler = {
-  apply: function (target, ctx, args) {
+  apply: function(target, ctx, args) {
     const param = (args || [])[0];
 
     if (param && param.name && param.name === "notifications") {
@@ -11,7 +11,7 @@ const handler = {
     }
 
     return utils.cache.Reflect.apply(...arguments);
-  },
+  }
 };
 
 utils.replaceWithProxy(

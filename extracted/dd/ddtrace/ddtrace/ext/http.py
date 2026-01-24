@@ -6,6 +6,7 @@ For example:
 span.set_tag(URL, '/user/home')
 span.set_tag(STATUS_CODE, 404)
 """
+
 # tags
 URL = "http.url"
 METHOD = "http.method"
@@ -18,6 +19,7 @@ VERSION = "http.version"
 CLIENT_IP = "http.client_ip"
 ROUTE = "http.route"
 REFERRER_HOSTNAME = "http.referrer_hostname"
+ENDPOINT = "http.endpoint"
 
 # HTTP headers
 REFERER_HEADER = "referer"

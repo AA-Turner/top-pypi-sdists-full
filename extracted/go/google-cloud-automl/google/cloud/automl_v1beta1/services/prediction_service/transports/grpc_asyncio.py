@@ -151,8 +151,9 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -203,9 +204,10 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -361,23 +363,23 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
         directly returned in the response. Available for following ML
         problems, and their expected request payloads:
 
-        -  Image Classification - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Image Object Detection - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Text Classification - TextSnippet, content up to 60,000
-           characters, UTF-8 encoded.
-        -  Text Extraction - TextSnippet, content up to 30,000
-           characters, UTF-8 NFC encoded.
-        -  Translation - TextSnippet, content up to 25,000 characters,
-           UTF-8 encoded.
-        -  Tables - Row, with column values matching the columns of the
-           model, up to 5MB. Not available for FORECASTING
+        - Image Classification - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Image Object Detection - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Text Classification - TextSnippet, content up to 60,000
+          characters, UTF-8 encoded.
+        - Text Extraction - TextSnippet, content up to 30,000
+          characters, UTF-8 NFC encoded.
+        - Translation - TextSnippet, content up to 25,000 characters,
+          UTF-8 encoded.
+        - Tables - Row, with column values matching the columns of the
+          model, up to 5MB. Not available for FORECASTING
 
         [prediction_type][google.cloud.automl.v1beta1.TablesModelMetadata.prediction_type].
 
-        -  Text Sentiment - TextSnippet, content up 500 characters,
-           UTF-8 encoded.
+        - Text Sentiment - TextSnippet, content up 500 characters, UTF-8
+          encoded.
 
         Returns:
             Callable[[~.PredictRequest],
@@ -417,11 +419,11 @@ class PredictionServiceGrpcAsyncIOTransport(PredictionServiceTransport):
         [response][google.longrunning.Operation.response] field.
         Available for following ML problems:
 
-        -  Image Classification
-        -  Image Object Detection
-        -  Video Classification
-        -  Video Object Tracking \* Text Extraction
-        -  Tables
+        - Image Classification
+        - Image Object Detection
+        - Video Classification
+        - Video Object Tracking \* Text Extraction
+        - Tables
 
         Returns:
             Callable[[~.BatchPredictRequest],

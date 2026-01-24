@@ -20,6 +20,7 @@ from unitycatalog.client.models.aws_iam_role_response import AwsIamRoleResponse
 from unitycatalog.client.models.azure_user_delegation_sas import AzureUserDelegationSAS
 from unitycatalog.client.models.catalog_info import CatalogInfo
 from unitycatalog.client.models.column_info import ColumnInfo
+from unitycatalog.client.models.column_infos import ColumnInfos
 from unitycatalog.client.models.column_type_name import ColumnTypeName
 from unitycatalog.client.models.create_catalog import CreateCatalog
 from unitycatalog.client.models.create_credential_request import CreateCredentialRequest
@@ -29,11 +30,18 @@ from unitycatalog.client.models.create_function_request import CreateFunctionReq
 from unitycatalog.client.models.create_model_version import CreateModelVersion
 from unitycatalog.client.models.create_registered_model import CreateRegisteredModel
 from unitycatalog.client.models.create_schema import CreateSchema
+from unitycatalog.client.models.create_staging_table import CreateStagingTable
 from unitycatalog.client.models.create_table import CreateTable
 from unitycatalog.client.models.create_volume_request_content import CreateVolumeRequestContent
 from unitycatalog.client.models.credential_info import CredentialInfo
 from unitycatalog.client.models.credential_purpose import CredentialPurpose
 from unitycatalog.client.models.data_source_format import DataSourceFormat
+from unitycatalog.client.models.delta_commit import DeltaCommit
+from unitycatalog.client.models.delta_commit_info import DeltaCommitInfo
+from unitycatalog.client.models.delta_commit_metadata_properties import DeltaCommitMetadataProperties
+from unitycatalog.client.models.delta_get_commits import DeltaGetCommits
+from unitycatalog.client.models.delta_get_commits_response import DeltaGetCommitsResponse
+from unitycatalog.client.models.delta_metadata import DeltaMetadata
 from unitycatalog.client.models.dependency import Dependency
 from unitycatalog.client.models.dependency_list import DependencyList
 from unitycatalog.client.models.external_location_info import ExternalLocationInfo
@@ -71,6 +79,7 @@ from unitycatalog.client.models.privilege_assignment import PrivilegeAssignment
 from unitycatalog.client.models.registered_model_info import RegisteredModelInfo
 from unitycatalog.client.models.schema_info import SchemaInfo
 from unitycatalog.client.models.securable_type import SecurableType
+from unitycatalog.client.models.staging_table_info import StagingTableInfo
 from unitycatalog.client.models.table_dependency import TableDependency
 from unitycatalog.client.models.table_info import TableInfo
 from unitycatalog.client.models.table_operation import TableOperation

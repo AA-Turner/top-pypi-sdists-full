@@ -1,11 +1,7 @@
 """Test cases."""
 
-import os
 import socket
-import tempfile
-import unittest
-from typing import List, Set, Tuple, Union
-from unittest import mock
+import sys
 
 import pytest
 
@@ -41,18 +37,21 @@ def test_something_works() -> None:
     assert len(port_for.available_good_ports()) > 1000
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows runner seems to allow binding low ports.",
+)
 def test_binding() -> None:
-    """Low ports are not available."""
+    """Low ports are not available (for user without root privileges)."""
     assert port_for.port_is_used(10)
 
 
 def test_binding_high() -> None:
     """Test ports that are not used."""
-    s = socket.socket()
-    s.bind(("", 0))
-    port = s.getsockname()[1]
-    assert port_for.port_is_used(port)
-    s.close()
+    with socket.socket() as s:
+        s.bind(("", 1025))
+        port = s.getsockname()[1]
+        assert port_for.port_is_used(port)
     assert not port_for.port_is_used(port)
 
 
@@ -75,7 +74,7 @@ def test_get_port_exclude() -> None:
 
 
 @pytest.mark.parametrize("port", (1234, "1234"))
-def test_get_port_specific(port: Union[str, int]) -> None:
+def test_get_port_specific(port: str | int) -> None:
     """Test special case for get_port to return same value."""
     assert get_port(port) == 1234
 
@@ -88,7 +87,7 @@ def test_get_port_specific(port: Union[str, int]) -> None:
     ),
 )
 def test_get_port_from_range(
-    port_range: Union[List[Tuple[int, int]], Tuple[int, int]]
+    port_range: list[tuple[int, int]] | tuple[int, int],
 ) -> None:
     """Test getting random port from given range."""
     assert get_port(port_range) in list(range(2000, 3000 + 1))
@@ -101,98 +100,20 @@ def test_get_port_from_range(
         {4001, 4002, 4003},
     ),
 )
-def test_get_port_from_set(port_set: Union[List[Set[int]], Set[int]]) -> None:
+def test_get_port_from_set(port_set: list[set[int]] | set[int]) -> None:
     """Test getting random port from given set."""
     assert get_port(port_set) in {4001, 4002, 4003}
 
 
 def test_port_mix() -> None:
     """Test getting random port from given set and range."""
-    sets_and_ranges: List[Union[Tuple[int, int], Set[int]]] = [
+    sets_and_ranges: list[tuple[int, int] | set[int]] = [
         (2000, 3000),
         {4001, 4002, 4003},
     ]
-    assert get_port(sets_and_ranges) in set(range(2000, 3000 + 1)) and {
+    want_set = set(range(2000, 3000 + 1)) | {
         4001,
         4002,
         4003,
     }
-
-
-class SelectPortTest(unittest.TestCase):
-    """Port selecting tests."""
-
-    @mock.patch("port_for.api.port_is_used")
-    def test_all_used(self, port_is_used: mock.MagicMock) -> None:
-        """Check behaviour if there are no ports to use."""
-        port_is_used.return_value = True
-        self.assertRaises(port_for.PortForException, port_for.select_random)
-
-    @mock.patch("port_for.api.port_is_used")
-    def test_random_port(self, port_is_used: mock.MagicMock) -> None:
-        """Test random ports."""
-        ports = set([1, 2, 3])
-        used = {1: True, 2: False, 3: True}
-        port_is_used.side_effect = lambda port: used[port]
-
-        for x in range(100):
-            self.assertEqual(port_for.select_random(ports), 2)
-
-
-class StoreTest(unittest.TestCase):
-    """Port Store test suite."""
-
-    def setUp(self) -> None:
-        """Set up tests."""
-        fd, self.fname = tempfile.mkstemp()
-        self.store = port_for.PortStore(self.fname)
-
-    def tearDown(self) -> None:
-        """Tear down tests."""
-        os.remove(self.fname)
-
-    def test_store(self) -> None:
-        """Test port store."""
-        assert self.store.bound_ports() == []
-
-        port = self.store.bind_port("foo")
-        self.assertTrue(port)
-        self.assertEqual(self.store.bound_ports(), [("foo", port)])
-        self.assertEqual(port, self.store.bind_port("foo"))
-
-        port2 = self.store.bind_port("aar")
-        self.assertNotEqual(port, port2)
-        self.assertEqual(
-            self.store.bound_ports(), [("foo", port), ("aar", port2)]
-        )
-
-        self.store.unbind_port("aar")
-        self.assertEqual(self.store.bound_ports(), [("foo", port)])
-
-    def test_rebind(self) -> None:
-        """Try to rebind an used port for an another app."""
-        port = self.store.bind_port("foo")
-        self.assertRaises(
-            port_for.PortForException, self.store.bind_port, "baz", port
-        )
-
-    def test_change_port(self) -> None:
-        """Changing app ports is not supported."""
-        port = self.store.bind_port("foo")
-        another_port = port_for.select_random()
-        assert port != another_port
-        self.assertRaises(
-            port_for.PortForException, self.store.bind_port, "foo", another_port
-        )
-
-    def test_bind_unavailable(self) -> None:
-        """It is possible to explicitly bind currently unavailable port."""
-        port = self.store.bind_port("foo", 80)
-        self.assertEqual(port, 80)
-        self.assertEqual(self.store.bound_ports(), [("foo", 80)])
-
-    def test_bind_non_auto(self) -> None:
-        """It is possible to pass a port."""
-        port = port_for.select_random()
-        res_port = self.store.bind_port("foo", port)
-        self.assertEqual(res_port, port)
+    assert get_port(sets_and_ranges) in want_set

@@ -238,14 +238,26 @@ impl Schema {
         })
     }
 
-    pub fn to_arrow(&self) -> DaftResult<arrow2::datatypes::Schema> {
-        let arrow_fields: DaftResult<Vec<arrow2::datatypes::Field>> =
-            self.fields.iter().map(Field::to_arrow).collect();
+    #[deprecated(note = "use .to_arrow instead")]
+    #[allow(deprecated, reason = "arrow2 migration")]
+    pub fn to_arrow2(&self) -> DaftResult<daft_arrow::datatypes::Schema> {
+        let arrow_fields: DaftResult<Vec<daft_arrow::datatypes::Field>> =
+            self.fields.iter().map(Field::to_arrow2).collect();
         let arrow_fields = arrow_fields?;
-        Ok(arrow2::datatypes::Schema {
+        Ok(daft_arrow::datatypes::Schema {
             fields: arrow_fields,
             metadata: Default::default(),
         })
+    }
+
+    pub fn to_arrow(&self) -> DaftResult<arrow_schema::Schema> {
+        let arrow_fields = self
+            .fields
+            .iter()
+            .map(Field::to_arrow)
+            .collect::<DaftResult<Vec<_>>>()?;
+
+        Ok(arrow_schema::Schema::new(arrow_fields))
     }
 
     pub fn repr_html(&self) -> String {
@@ -425,17 +437,39 @@ impl DisplayAs for Schema {
         }
     }
 }
-
-impl From<arrow2::datatypes::Schema> for Schema {
-    fn from(arrow_schema: arrow2::datatypes::Schema) -> Self {
+#[allow(deprecated, reason = "arrow2 migration")]
+impl From<daft_arrow::datatypes::Schema> for Schema {
+    fn from(arrow_schema: daft_arrow::datatypes::Schema) -> Self {
         (&arrow_schema).into()
     }
 }
 
-impl From<&arrow2::datatypes::Schema> for Schema {
-    fn from(arrow_schema: &arrow2::datatypes::Schema) -> Self {
+#[allow(deprecated, reason = "arrow2 migration")]
+impl From<&daft_arrow::datatypes::Schema> for Schema {
+    fn from(arrow_schema: &daft_arrow::datatypes::Schema) -> Self {
         let daft_fields: Vec<Field> = arrow_schema.fields.iter().map(|f| f.into()).collect();
         Self::new(daft_fields)
+    }
+}
+
+impl TryFrom<arrow_schema::Schema> for Schema {
+    type Error = DaftError;
+
+    fn try_from(arrow_schema: arrow_schema::Schema) -> DaftResult<Self> {
+        (&arrow_schema).try_into()
+    }
+}
+
+impl TryFrom<&arrow_schema::Schema> for Schema {
+    type Error = DaftError;
+
+    fn try_from(arrow_schema: &arrow_schema::Schema) -> DaftResult<Self> {
+        let daft_fields = arrow_schema
+            .fields
+            .iter()
+            .map(|f| f.as_ref().try_into())
+            .collect::<DaftResult<Vec<Field>>>()?;
+        Ok(Self::new(daft_fields))
     }
 }
 

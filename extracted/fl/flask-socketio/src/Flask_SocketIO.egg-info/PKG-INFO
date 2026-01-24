@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Flask-SocketIO
-Version: 5.5.1
+Version: 5.6.0
 Summary: Socket.IO integration for Flask applications
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
 Project-URL: Homepage, https://github.com/miguelgrinberg/flask-socketio
@@ -10,13 +10,19 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Flask>=0.9
+Requires-Dist: Flask>=2.1.0
 Requires-Dist: python-socketio>=5.12.0
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: redis; extra == "dev"
+Dynamic: license-file
 
 Flask-SocketIO
 ==============

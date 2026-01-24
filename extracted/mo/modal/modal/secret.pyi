@@ -1,5 +1,6 @@
 import datetime
 import google.protobuf.message
+import modal._load_context
 import modal._object
 import modal.client
 import modal.object
@@ -219,7 +220,7 @@ class SecretManager:
             """
             ...
 
-    create: __create_spec
+    create: typing.ClassVar[__create_spec]
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(
@@ -292,7 +293,7 @@ class SecretManager:
             """
             ...
 
-    list: __list_spec
+    list: typing.ClassVar[__list_spec]
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -353,7 +354,13 @@ class SecretManager:
             """
             ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
+
+async def _load_from_env_dict(
+    instance: _Secret, load_context: modal._load_context.LoadContext, env_dict: dict[str, str]
+):
+    """helper method for loaders .from_dict and .from_dotenv etc."""
+    ...
 
 class _Secret(modal._object._Object):
     """Secrets provide a dictionary of environment variables for images.
@@ -392,7 +399,7 @@ class _Secret(modal._object._Object):
         ...
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env") -> _Secret:
+    def from_dotenv(path=None, *, filename=".env", client: typing.Optional[modal.client._Client] = None) -> _Secret:
         """Create secrets from a .env file automatically.
 
         If no argument is provided, it will use the current working directory as the starting
@@ -423,7 +430,12 @@ class _Secret(modal._object._Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
+        name: str,
+        *,
+        namespace=None,
+        environment_name: typing.Optional[str] = None,
+        required_keys: list[str] = [],
+        client: typing.Optional[modal.client._Client] = None,
     ) -> _Secret:
         """Reference a Secret by its name.
 
@@ -439,17 +451,6 @@ class _Secret(modal._object._Object):
            ...
         ```
         """
-        ...
-
-    @staticmethod
-    async def lookup(
-        name: str,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        required_keys: list[str] = [],
-    ) -> _Secret:
-        """mdmd:hidden"""
         ...
 
     @staticmethod
@@ -479,8 +480,6 @@ class _Secret(modal._object._Object):
     async def info(self) -> SecretInfo:
         """Return information about the Secret object."""
         ...
-
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Secret(modal.object.Object):
     """Secrets provide a dictionary of environment variables for images.
@@ -523,7 +522,7 @@ class Secret(modal.object.Object):
         ...
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env") -> Secret:
+    def from_dotenv(path=None, *, filename=".env", client: typing.Optional[modal.client.Client] = None) -> Secret:
         """Create secrets from a .env file automatically.
 
         If no argument is provided, it will use the current working directory as the starting
@@ -554,7 +553,12 @@ class Secret(modal.object.Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
+        name: str,
+        *,
+        namespace=None,
+        environment_name: typing.Optional[str] = None,
+        required_keys: list[str] = [],
+        client: typing.Optional[modal.client.Client] = None,
     ) -> Secret:
         """Reference a Secret by its name.
 
@@ -571,33 +575,6 @@ class Secret(modal.object.Object):
         ```
         """
         ...
-
-    class __lookup_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            required_keys: list[str] = [],
-        ) -> Secret:
-            """mdmd:hidden"""
-            ...
-
-        async def aio(
-            self,
-            /,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            required_keys: list[str] = [],
-        ) -> Secret:
-            """mdmd:hidden"""
-            ...
-
-    lookup: __lookup_spec
 
     class __create_deployed_spec(typing_extensions.Protocol):
         def __call__(
@@ -626,7 +603,7 @@ class Secret(modal.object.Object):
             """mdmd:hidden"""
             ...
 
-    create_deployed: __create_deployed_spec
+    create_deployed: typing.ClassVar[__create_deployed_spec]
 
     class ___create_deployed_spec(typing_extensions.Protocol):
         def __call__(
@@ -655,9 +632,9 @@ class Secret(modal.object.Object):
             """mdmd:hidden"""
             ...
 
-    _create_deployed: ___create_deployed_spec
+    _create_deployed: typing.ClassVar[___create_deployed_spec]
 
-    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __info_spec(typing_extensions.Protocol):
         def __call__(self, /) -> SecretInfo:
             """Return information about the Secret object."""
             ...
@@ -666,4 +643,4 @@ class Secret(modal.object.Object):
             """Return information about the Secret object."""
             ...
 
-    info: __info_spec[typing_extensions.Self]
+    info: __info_spec

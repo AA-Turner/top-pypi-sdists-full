@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Modified work Copyright (c) 2017-2024 Science and Technology
+# Modified work Copyright (c) 2017-2025 Science and Technology
 # Facilities Council.
 # Original work Copyright (c) 1999-2008 Pearu Peterson
 
@@ -65,14 +65,15 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Fortran 2003 Syntax Rules.
-"""
+"""Fortran 2003 Syntax Rules."""
 # Original author: Pearu Peterson <pearu@cens.ioc.ee>
 # First version created: Oct 2006
 
 import inspect
 import re
 import sys
+
+from typing import Union
 
 from fparser.common.splitline import string_replace_map
 from fparser.two import pattern_tools as pattern
@@ -117,9 +118,105 @@ from fparser.two.utils import (
 # R102: <xyz-name> = <name>
 # R103: <scalar-xyz> = <xyz>
 
+
 #
 # SECTION  2
 #
+class Directive(Base):
+    """
+    Represents a Directive. Directives are leaves in the tree, containing
+    a single item consisting of the directive string.
+
+    Fparser supports the following directive formats:
+
+        1. '!$dir' for generic directives.
+        2. '!dir$' for the flang, ifx or ifort compilers.
+        3. '!gcc$' for the gfortran compiler.
+        4. '!$omp', '!$ompx', 'c$omp', '*$omp', '!$omx', 'c$omx', and '*$omx' for
+        OpenMP directives.
+    """
+
+    subclass_names = []
+    # TODO #483 - Add OpenACC directive support.
+    _directive_formats = [
+        "!$dir",  # Generic directive
+        "!dir$",  # flang, ifx, ifort directives.
+        "cdir$",  # flang, ifx, ifort fixed format directive.
+        "!$omp",  # OpenMP directive
+        "c$omp",  # OpenMP fixed format directive
+        "*$omp",  # OpenMP fixed format directive
+        "!$omx",  # OpenMP fixed format directive
+        "c$omx",  # OpenMP fixed format directive
+        "*$omx",  # OpenMP fixed format directive
+        "!gcc$",  # GCC compiler directive
+        "!$ompx",  # OpenMP extension directive
+    ]
+
+    @show_result
+    def __new__(cls, string: Union[str, FortranReaderBase], parent_cls=None):
+        """
+        Create a new Directive instance.
+
+        :param type cls: the class of object to create.
+        :param string: (source of) Fortran string to parse.
+        :param parent_cls: the parent class of this object.
+        :type parent_cls: :py:type:`type`
+
+        """
+        from fparser.common import readfortran
+
+        if isinstance(string, readfortran.Comment):
+            # Directives must start with one of the specified directive
+            # prefixes.
+            lower = string.comment.lower()
+            if not (
+                any(
+                    [
+                        lower.startswith(prefix)
+                        for prefix in Directive._directive_formats
+                    ]
+                )
+            ):
+                return
+            # We were after a directive and we got a directive. Construct
+            # one manually to avoid recursively calling this __new__
+            # method again...
+            obj = object.__new__(cls)
+            obj.init(string)
+            return obj
+        if isinstance(string, FortranReaderBase):
+            reader = string
+            item = reader.get_item()
+            if item is None:
+                return
+            if isinstance(item, readfortran.Comment):
+                # This effectively recursively calls this routine
+                res = Directive(item)
+                if not res:
+                    # We didn't get a directive so put the item back in
+                    # the FIFO
+                    reader.put_item(item)
+                return res
+            # We didn't get a directive so put the item back in the FIFO
+            reader.put_item(item)
+        # We didn't get a directive
+        return
+
+    def init(self, comment) -> None:
+        """
+        Initialise this Directive from a comment object.
+
+        :param comment: The comment object produced by the reader
+        :type comment: :py:class:`readfortran.Comment`
+        """
+        self.items = [comment.comment]
+        self.item = comment
+
+    def tostr(self) -> str:
+        """
+        :returns: this directive as a string.
+        """
+        return str(self.items[0])
 
 
 class Comment(Base):
@@ -183,32 +280,28 @@ class Comment(Base):
         """
         return str(self.items[0])
 
-    def restore_reader(self, reader):
-        """
-        Undo the read of this comment by putting its content back
-        into the reader (which has a FIFO buffer)
-
-        :param reader: the reader instance to return the comment to
-        :type reader: :py:class:`fparser.readfortran.FortranReaderBase`
-        """
-        reader.put_item(self.item)
-
 
 def match_comment_or_include(reader):
-    """Creates a comment or include object from the current line.
+    """Creates a comment, directive, or include object from the current line.
 
-    :param reader: the fortran file reader containing the line \
+    :param reader: the fortran file reader containing the line
                    of code that we are trying to match
-    :type reader: :py:class:`fparser.common.readfortran.FortranFileReader` \
-                  or \
-                  :py:class:`fparser.common.readfortran.FortranStringReader`
+    :type reader: :py:class:`fparser.common.readfortran.FortranFileReader`
+                   or
+                   :py:class:`fparser.common.readfortran.FortranStringReader`
 
-    :return: a comment or include object if found, otherwise `None`.
-    :rtype: :py:class:`fparser.two.Fortran2003.Comment` or \
+    :return: a comment, directive, or include object if found, otherwise
+             `None`.
+    :rtype: :py:class:`fparser.two.Fortran2003.Comment` or
             :py:class:`fparser.two.Fortran2003.Include_Stmt`
+            or :py:class:`fparser.two.Fortran2003.Directive`
 
     """
-    obj = Comment(reader)
+    obj = None
+    # Whether or not to specialise Directives is a run-time option.
+    if reader.process_directives:
+        obj = Directive(reader)
+    obj = Comment(reader) if not obj else obj
     obj = Include_Stmt(reader) if not obj else obj
     return obj
 
@@ -316,7 +409,9 @@ class Program(BlockBase):  # R201
         try:
             while True:
                 obj = Program_Unit(reader)
-                content.append(obj)
+                if obj:
+                    # obj could be None if there are only Comments
+                    content.append(obj)
                 add_comments_includes_directives(content, reader)
                 # cause a StopIteration exception if there are no more lines
                 next_line = reader.next()
@@ -1410,7 +1505,17 @@ class Char_Selector(Base):  # R424
     use_names = ["Type_Param_Value", "Scalar_Int_Initialization_Expr"]
 
     @staticmethod
-    def match(string):
+    def match(string: str):
+        """
+        Attempts to match the supplied text as a char-selector.
+
+        :param string: the text to attempt to match.
+
+        :returns: the matched Char_Selector object or None.
+        :rtype: Union[None, Tuple[Optional[Type_Param_Value],
+                                  Scalar_Int_Initialization_Expr]]
+
+        """
         if string[0] + string[-1] != "()":
             return
         line, repmap = string_replace_map(string[1:-1].strip())
@@ -1431,7 +1536,8 @@ class Char_Selector(Base):  # R424
             v = repmap(v)
             line = repmap(line)
             return Type_Param_Value(v), Scalar_Int_Initialization_Expr(line)
-        elif line[:4].upper() == "KIND" and line[4:].lstrip().startswith("="):
+
+        if line[:4].upper() == "KIND" and line[4:].lstrip().startswith("="):
             line = line[4:].lstrip()
             line = line[1:].lstrip()
             i = line.find(",")
@@ -1446,17 +1552,16 @@ class Char_Selector(Base):  # R424
                 return
             v = v[1:].lstrip()
             return Type_Param_Value(v), Scalar_Int_Initialization_Expr(line)
-        else:
-            i = line.find(",")
-            if i == -1:
-                return
-            v = line[:i].rstrip()
-            line = line[i + 1 :].lstrip()
-            if line[:4].upper() == "KIND" and line[4:].lstrip().startswith("="):
-                line = line[4:].lstrip()
-                line = line[1:].lstrip()
-            return Type_Param_Value(v), Scalar_Int_Initialization_Expr(line)
-        return None
+
+        i = line.find(",")
+        if i == -1:
+            return
+        v = line[:i].rstrip()
+        line = line[i + 1 :].lstrip()
+        if line[:4].upper() == "KIND" and line[4:].lstrip().startswith("="):
+            line = line[4:].lstrip()
+            line = line[1:].lstrip()
+        return Type_Param_Value(v), Scalar_Int_Initialization_Expr(line)
 
     def tostr(self):
         if self.items[0] is None:
@@ -2946,13 +3051,24 @@ class Ac_Implied_Do(Base):
     use_names = ["Ac_Value_List", "Ac_Implied_Do_Control"]
 
     @staticmethod
-    def match(string):
+    def match(string: str):
+        """
+        Attempts to match the supplied string as an implicit do within an
+        array constructor.
+
+        :param string: the text to match against.
+
+        :returns: a tuple describing the match or None if there is no match.
+        :rtype: Optional[Tuple[Ac_Value_List, Ac_Implied_Do_Control]]
+
+        """
         if string[0] + string[-1] != "()":
-            return
+            return None
         line, repmap = string_replace_map(string[1:-1].strip())
         i = line.rfind("=")
-        if i == -1:
-            return
+        if i == -1 or (i > 0 and line[i - 1] == "="):
+            # No "=" or it is "==" so no match.
+            return None
         j = line[:i].rfind(",")
         assert j != -1
         s1 = repmap(line[:j].rstrip())
@@ -4578,24 +4694,22 @@ class Implicit_Stmt(StmtBase):  # R549
     use_names = ["Implicit_Spec_List"]
 
     @staticmethod
-    def match(string):
+    def match(string: str):
+        """
+        Attempts to match the supplied string with an IMPLICIT statement.
+
+        :param string: the string to attempt to match.
+
+        :returns: the Implicit_Spec_List resulting from the match or None.
+        :rtype: Union[None, Tuple[str], Tuple[Implicit_Spec_List]]
+
+        """
         if string[:8].upper() != "IMPLICIT":
             return
         line = string[8:].lstrip()
         if len(line) == 4 and line.upper() == "NONE":
             return ("NONE",)
         return (Implicit_Spec_List(line),)
-        for w, cls in [
-            (pattern.abs_implicit_none, None),
-            ("IMPLICIT", Implicit_Spec_List),
-        ]:
-            try:
-                obj = WORDClsBase.match(w, cls, string)
-            except NoMatchError:
-                obj = None
-            if obj is not None:
-                return obj
-        return None
 
     def tostr(self):
         return "IMPLICIT %s" % (self.items[0])

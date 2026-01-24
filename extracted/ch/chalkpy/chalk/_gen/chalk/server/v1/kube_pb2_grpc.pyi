@@ -8,10 +8,14 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.kube_pb2 import (
+    GetKubernetesAutoscalersRequest,
+    GetKubernetesAutoscalersResponse,
     GetKubernetesEventsRequest,
     GetKubernetesEventsResponse,
     GetKubernetesPersistentVolumesRequest,
     GetKubernetesPersistentVolumesResponse,
+    GetKubernetesServiceAccountsRequest,
+    GetKubernetesServiceAccountsResponse,
     GetPodStackTraceDumpRequest,
     GetPodStackTraceDumpResponse,
 )
@@ -39,6 +43,14 @@ class KubeServiceStub:
         GetKubernetesPersistentVolumesRequest,
         GetKubernetesPersistentVolumesResponse,
     ]
+    GetKubernetesServiceAccounts: UnaryUnaryMultiCallable[
+        GetKubernetesServiceAccountsRequest,
+        GetKubernetesServiceAccountsResponse,
+    ]
+    GetKubernetesAutoscalers: UnaryUnaryMultiCallable[
+        GetKubernetesAutoscalersRequest,
+        GetKubernetesAutoscalersResponse,
+    ]
 
 class KubeServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -62,5 +74,17 @@ class KubeServiceServicer(metaclass=ABCMeta):
         request: GetKubernetesPersistentVolumesRequest,
         context: ServicerContext,
     ) -> GetKubernetesPersistentVolumesResponse: ...
+    @abstractmethod
+    def GetKubernetesServiceAccounts(
+        self,
+        request: GetKubernetesServiceAccountsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesServiceAccountsResponse: ...
+    @abstractmethod
+    def GetKubernetesAutoscalers(
+        self,
+        request: GetKubernetesAutoscalersRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesAutoscalersResponse: ...
 
 def add_KubeServiceServicer_to_server(servicer: KubeServiceServicer, server: Server) -> None: ...

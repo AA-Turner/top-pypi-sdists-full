@@ -49,11 +49,8 @@ The test outcome methods ``addSuccess``, ``addError``, ``addExpectedFailure``,
 ``addFailure``, ``addSkip`` take an optional keyword parameter ``details``
 which can be used instead of the usual python unittest parameter.
 When used the value of details should be a dict from ``string`` to
-``testtools.content.Content`` objects. This is a draft API being worked on with
-the Python Testing In Python mail list, with the goal of permitting a common
-way to provide additional data beyond a traceback, such as captured data from
-disk, logging messages etc. The reference for this API is in testtools (0.9.0
-and newer).
+``testtools.content.Content`` objects. This API permits providing additional
+data beyond a traceback, such as captured data from disk, logging messages etc.
 
 The ``tags(new_tags, gone_tags)`` method is called (if present) to add or
 remove tags in the test run that is currently executing. If called when no
@@ -124,16 +121,12 @@ from io import BytesIO
 from io import UnsupportedOperation as _UnsupportedOperation
 
 import iso8601
+
 from testtools import ExtendedToOriginalDecorator, content, content_type
-from testtools.compat import _b, _u
 from testtools.content import TracebackContent
 
-try:
-    from testtools.testresult.real import _StringException
-    RemoteException = _StringException
-except ImportError:
-    raise ImportError ("testtools.testresult.real does not contain "
-        "_StringException, check your version.")
+from testtools.testresult.real import _StringException as RemoteException
+
 from testtools import CopyStreamResult, testresult
 
 from subunit import chunked, details
@@ -151,26 +144,29 @@ from subunit.v2 import ByteStreamToStreamResult, StreamResultToBytes
 # If the releaselevel is 'final', then the tarball will be major.minor.micro.
 # Otherwise it is major.minor.micro~$(revno).
 
-__version__ = (1, 4, 4, 'final', 0)
+__version__ = (1, 4, 5, "final", 0)
+
+version_string = ".".join(map(str, __version__[:3]))
+
 
 __all__ = [
-    'join_dir',
-    'tags_to_new_gone',
-    'content',
-    'content_type',
-    'TestProtocolServer',
-    'TestProtocolClient',
-    'RemoteError',
-    'RemotedTestCase',
-    'IsolatedTestCase',
-    'IsolatedTestSuite',
-    'run_isolated',
-    'TAP2SubUnit',
-    'tag_stream',
-    'ProtocolTestCase',
-    'make_stream_binary',
-    'read_test_list',
-    'TestResultStats',
+    "join_dir",
+    "tags_to_new_gone",
+    "content",
+    "content_type",
+    "TestProtocolServer",
+    "TestProtocolClient",
+    "RemoteError",
+    "RemotedTestCase",
+    "IsolatedTestCase",
+    "IsolatedTestSuite",
+    "run_isolated",
+    "TAP2SubUnit",
+    "tag_stream",
+    "ProtocolTestCase",
+    "make_stream_binary",
+    "read_test_list",
+    "TestResultStats",
 ]
 
 PROGRESS_SET = 0
@@ -181,6 +177,7 @@ PROGRESS_POP = 3
 
 def test_suite():
     import subunit.tests
+
     return subunit.tests.test_suite()
 
 
@@ -203,7 +200,7 @@ def tags_to_new_gone(tags):
     new_tags = set()
     gone_tags = set()
     for tag in tags:
-        if tag[0] == '-':
+        if tag[0] == "-":
             gone_tags.add(tag[1:])
         else:
             new_tags.add(tag)
@@ -220,7 +217,7 @@ class DiscardStream(object):
         pass
 
     def read(self, len=0):
-        return _b('')
+        return b""
 
 
 class _ParserState(object):
@@ -228,19 +225,19 @@ class _ParserState(object):
 
     def __init__(self, parser):
         self.parser = parser
-        self._test_sym = (_b('test'), _b('testing'))
-        self._colon_sym = _b(':')
-        self._error_sym = (_b('error'),)
-        self._failure_sym = (_b('failure'),)
-        self._progress_sym = (_b('progress'),)
-        self._skip_sym = _b('skip')
-        self._success_sym = (_b('success'), _b('successful'))
-        self._tags_sym = (_b('tags'),)
-        self._time_sym = (_b('time'),)
-        self._xfail_sym = (_b('xfail'),)
-        self._uxsuccess_sym = (_b('uxsuccess'),)
-        self._start_simple = _u(" [")
-        self._start_multipart = _u(" [ multipart")
+        self._test_sym = (b"test", b"testing")
+        self._colon_sym = b":"
+        self._error_sym = (b"error",)
+        self._failure_sym = (b"failure",)
+        self._progress_sym = (b"progress",)
+        self._skip_sym = b"skip"
+        self._success_sym = (b"success", b"successful")
+        self._tags_sym = (b"tags",)
+        self._time_sym = (b"time",)
+        self._xfail_sym = (b"xfail",)
+        self._uxsuccess_sym = (b"uxsuccess",)
+        self._start_simple = " ["
+        self._start_multipart = " [ multipart"
 
     def addError(self, offset, line):
         """An 'error:' directive has been read."""
@@ -298,7 +295,7 @@ class _ParserState(object):
 
     def lostConnection(self):
         """Connection lost."""
-        self.parser._lostConnectionInTest(_u('unknown state of '))
+        self.parser._lostConnectionInTest("unknown state of ")
 
     def startTest(self, offset, line):
         """A test start command received."""
@@ -315,7 +312,7 @@ class _InTest(_ParserState):
         :param details_state: The state to switch to for details
             processing of this outcome.
         """
-        test_name = line[offset:-1].decode('utf8')
+        test_name = line[offset:-1].decode("utf8")
         if self.parser.current_test_description == test_name:
             self.parser._state = self.parser._outside_test
             self.parser.current_test_description = None
@@ -323,13 +320,11 @@ class _InTest(_ParserState):
             self.parser.client.stopTest(self.parser._current_test)
             self.parser._current_test = None
             self.parser.subunitLineReceived(line)
-        elif self.parser.current_test_description + self._start_simple == \
-            test_name:
+        elif self.parser.current_test_description + self._start_simple == test_name:
             self.parser._state = details_state
             details_state.set_simple()
             self.parser.subunitLineReceived(line)
-        elif self.parser.current_test_description + self._start_multipart == \
-            test_name:
+        elif self.parser.current_test_description + self._start_multipart == test_name:
             self.parser._state = details_state
             details_state.set_multipart()
             self.parser.subunitLineReceived(line)
@@ -337,58 +332,50 @@ class _InTest(_ParserState):
             self.parser.stdOutLineReceived(line)
 
     def _error(self):
-        self.parser.client.addError(self.parser._current_test,
-            details={})
+        self.parser.client.addError(self.parser._current_test, details={})
 
     def addError(self, offset, line):
         """An 'error:' directive has been read."""
-        self._outcome(offset, line, self._error,
-            self.parser._reading_error_details)
+        self._outcome(offset, line, self._error, self.parser._reading_error_details)
 
     def _xfail(self):
-        self.parser.client.addExpectedFailure(self.parser._current_test,
-            details={})
+        self.parser.client.addExpectedFailure(self.parser._current_test, details={})
 
     def addExpectedFail(self, offset, line):
         """An 'xfail:' directive has been read."""
-        self._outcome(offset, line, self._xfail,
-            self.parser._reading_xfail_details)
+        self._outcome(offset, line, self._xfail, self.parser._reading_xfail_details)
 
     def _uxsuccess(self):
         self.parser.client.addUnexpectedSuccess(self.parser._current_test)
 
     def addUnexpectedSuccess(self, offset, line):
         """A 'uxsuccess:' directive has been read."""
-        self._outcome(offset, line, self._uxsuccess,
-            self.parser._reading_uxsuccess_details)
+        self._outcome(offset, line, self._uxsuccess, self.parser._reading_uxsuccess_details)
 
     def _failure(self):
         self.parser.client.addFailure(self.parser._current_test, details={})
 
     def addFailure(self, offset, line):
         """A 'failure:' directive has been read."""
-        self._outcome(offset, line, self._failure,
-            self.parser._reading_failure_details)
+        self._outcome(offset, line, self._failure, self.parser._reading_failure_details)
 
     def _skip(self):
         self.parser.client.addSkip(self.parser._current_test, details={})
 
     def addSkip(self, offset, line):
         """A 'skip:' directive has been read."""
-        self._outcome(offset, line, self._skip,
-            self.parser._reading_skip_details)
+        self._outcome(offset, line, self._skip, self.parser._reading_skip_details)
 
     def _succeed(self):
         self.parser.client.addSuccess(self.parser._current_test, details={})
 
     def addSuccess(self, offset, line):
         """A 'success:' directive has been read."""
-        self._outcome(offset, line, self._succeed,
-            self.parser._reading_success_details)
+        self._outcome(offset, line, self._succeed, self.parser._reading_success_details)
 
     def lostConnection(self):
         """Connection lost."""
-        self.parser._lostConnectionInTest(_u(''))
+        self.parser._lostConnectionInTest("")
 
 
 class _OutSideTest(_ParserState):
@@ -400,7 +387,7 @@ class _OutSideTest(_ParserState):
     def startTest(self, offset, line):
         """A test start command received."""
         self.parser._state = self.parser._in_test
-        test_name = line[offset:-1].decode('utf8')
+        test_name = line[offset:-1].decode("utf8")
         self.parser._current_test = RemotedTestCase(test_name)
         self.parser.current_test_description = test_name
         self.parser.client.startTest(self.parser._current_test)
@@ -424,8 +411,7 @@ class _ReadingDetails(_ParserState):
 
     def lostConnection(self):
         """Connection lost."""
-        self.parser._lostConnectionInTest(_u('%s report of ') %
-            self._outcome_label())
+        self.parser._lostConnectionInTest("%s report of " % self._outcome_label())
 
     def _outcome_label(self):
         """The label to describe this outcome."""
@@ -444,8 +430,7 @@ class _ReadingFailureDetails(_ReadingDetails):
     """State for the subunit parser when reading failure details."""
 
     def _report_outcome(self):
-        self.parser.client.addFailure(self.parser._current_test,
-            details=self.details_parser.get_details())
+        self.parser.client.addFailure(self.parser._current_test, details=self.details_parser.get_details())
 
     def _outcome_label(self):
         return "failure"
@@ -455,8 +440,7 @@ class _ReadingErrorDetails(_ReadingDetails):
     """State for the subunit parser when reading error details."""
 
     def _report_outcome(self):
-        self.parser.client.addError(self.parser._current_test,
-            details=self.details_parser.get_details())
+        self.parser.client.addError(self.parser._current_test, details=self.details_parser.get_details())
 
     def _outcome_label(self):
         return "error"
@@ -466,8 +450,7 @@ class _ReadingExpectedFailureDetails(_ReadingDetails):
     """State for the subunit parser when reading xfail details."""
 
     def _report_outcome(self):
-        self.parser.client.addExpectedFailure(self.parser._current_test,
-            details=self.details_parser.get_details())
+        self.parser.client.addExpectedFailure(self.parser._current_test, details=self.details_parser.get_details())
 
     def _outcome_label(self):
         return "xfail"
@@ -477,8 +460,7 @@ class _ReadingUnexpectedSuccessDetails(_ReadingDetails):
     """State for the subunit parser when reading uxsuccess details."""
 
     def _report_outcome(self):
-        self.parser.client.addUnexpectedSuccess(self.parser._current_test,
-            details=self.details_parser.get_details())
+        self.parser.client.addUnexpectedSuccess(self.parser._current_test, details=self.details_parser.get_details())
 
     def _outcome_label(self):
         return "uxsuccess"
@@ -488,8 +470,7 @@ class _ReadingSkipDetails(_ReadingDetails):
     """State for the subunit parser when reading skip details."""
 
     def _report_outcome(self):
-        self.parser.client.addSkip(self.parser._current_test,
-            details=self.details_parser.get_details("skip"))
+        self.parser.client.addSkip(self.parser._current_test, details=self.details_parser.get_details("skip"))
 
     def _outcome_label(self):
         return "skip"
@@ -499,8 +480,7 @@ class _ReadingSuccessDetails(_ReadingDetails):
     """State for the subunit parser when reading success details."""
 
     def _report_outcome(self):
-        self.parser.client.addSuccess(self.parser._current_test,
-            details=self.details_parser.get_details("success"))
+        self.parser.client.addSuccess(self.parser._current_test, details=self.details_parser.get_details("success"))
 
     def _outcome_label(self):
         return "success"
@@ -542,9 +522,9 @@ class TestProtocolServer(object):
         # start with outside test.
         self._state = self._outside_test
         # Avoid casts on every call
-        self._plusminus = _b('+-')
-        self._push_sym = _b('push')
-        self._pop_sym = _b('pop')
+        self._plusminus = b"+-"
+        self._push_sym = b"push"
+        self._pop_sym = b"pop"
 
     def _handleProgress(self, offset, line):
         """Process a progress directive."""
@@ -565,7 +545,7 @@ class TestProtocolServer(object):
 
     def _handleTags(self, offset, line):
         """Process a tags command."""
-        tags = line[offset:].decode('utf8').split()
+        tags = line[offset:].decode("utf8").split()
         new_tags, gone_tags = tags_to_new_gone(tags)
         self.client.tags(new_tags, gone_tags)
 
@@ -574,8 +554,7 @@ class TestProtocolServer(object):
         try:
             event_time = iso8601.parse_date(line[offset:-1].decode())
         except TypeError:
-            raise TypeError(_u("Failed to parse %r, got %r")
-                % (line, sys.exc_info()[1]))
+            raise TypeError("Failed to parse %r, got %r" % (line, sys.exc_info()[1]))
         self.client.time(event_time)
 
     def lineReceived(self, line):
@@ -583,8 +562,7 @@ class TestProtocolServer(object):
         self._state.lineReceived(line)
 
     def _lostConnectionInTest(self, state_string):
-        error_string = _u("lost connection during %stest '%s'") % (
-            state_string, self.current_test_description)
+        error_string = "lost connection during %stest '%s'" % (state_string, self.current_test_description)
         self.client.addError(self._current_test, RemoteError(error_string))
         self.client.stopTest(self._current_test)
 
@@ -636,14 +614,14 @@ class TestProtocolClient(testresult.TestResult):
         testresult.TestResult.__init__(self)
         stream = make_stream_binary(stream)
         self._stream = stream
-        self._progress_fmt = _b("progress: ")
-        self._bytes_eol = _b("\n")
-        self._progress_plus = _b("+")
-        self._progress_push = _b("push")
-        self._progress_pop = _b("pop")
-        self._empty_bytes = _b("")
-        self._start_simple = _b(" [\n")
-        self._end_simple = _b("]\n")
+        self._progress_fmt = b"progress: "
+        self._bytes_eol = b"\n"
+        self._progress_plus = b"+"
+        self._progress_push = b"push"
+        self._progress_pop = b"pop"
+        self._empty_bytes = b""
+        self._start_simple = b" [\n"
+        self._end_simple = b"]\n"
 
     def addError(self, test, error=None, details=None):
         """Report an error in test test.
@@ -694,8 +672,7 @@ class TestProtocolClient(testresult.TestResult):
         if self.failfast:
             self.stop()
 
-    def _addOutcome(self, outcome, test, error=None, details=None,
-        error_permitted=True):
+    def _addOutcome(self, outcome, test, error=None, details=None, error_permitted=True):
         """Report a failure in test test.
 
         Only one of error and details should be provided: conceptually there
@@ -711,8 +688,8 @@ class TestProtocolClient(testresult.TestResult):
             to subunit.Content objects.
         :param error_permitted: If True then one and only one of error or
             details must be supplied. If False then error must not be supplied
-            and details is still optional.  """
-        self._stream.write(_b("%s: " % outcome) + self._test_id(test))
+            and details is still optional."""
+        self._stream.write(("%s: " % outcome).encode() + self._test_id(test))
         if error_permitted:
             if error is None and details is None:
                 raise ValueError
@@ -727,7 +704,7 @@ class TestProtocolClient(testresult.TestResult):
         elif details is not None:
             self._write_details(details)
         else:
-            self._stream.write(_b("\n"))
+            self._stream.write(b"\n")
         if details is not None or error is not None:
             self._stream.write(self._end_simple)
 
@@ -736,8 +713,8 @@ class TestProtocolClient(testresult.TestResult):
         if reason is None:
             self._addOutcome("skip", test, error=None, details=details)
         else:
-            self._stream.write(_b("skip: %s [\n" % test.id()))
-            self._stream.write(_b("%s\n" % reason))
+            self._stream.write(("skip: %s [\n" % test.id()).encode())
+            self._stream.write(("%s\n" % reason).encode())
             self._stream.write(self._end_simple)
 
     def addSuccess(self, test, details=None):
@@ -755,21 +732,20 @@ class TestProtocolClient(testresult.TestResult):
         :param details: New Testing-in-python drafted API; a dict from string
             to subunit.Content objects.
         """
-        self._addOutcome("uxsuccess", test, details=details,
-            error_permitted=False)
+        self._addOutcome("uxsuccess", test, details=details, error_permitted=False)
         if self.failfast:
             self.stop()
 
     def _test_id(self, test):
         result = test.id()
-        if type(result) is not bytes:
-            result = result.encode('utf8')
+        if not isinstance(result, bytes):
+            result = result.encode("utf8")
         return result
 
     def startTest(self, test):
         """Mark a test as starting its test run."""
         super(TestProtocolClient, self).startTest(test)
-        self._stream.write(_b("test: ") + self._test_id(test) + _b("\n"))
+        self._stream.write(b"test: " + self._test_id(test) + b"\n")
         self._stream.flush()
 
     def stopTest(self, test):
@@ -788,7 +764,7 @@ class TestProtocolClient(testresult.TestResult):
         """
         if whence == PROGRESS_CUR and offset > -1:
             prefix = self._progress_plus
-            offset = _b(str(offset))
+            offset = str(offset).encode()
         elif whence == PROGRESS_PUSH:
             prefix = self._empty_bytes
             offset = self._progress_push
@@ -797,17 +773,16 @@ class TestProtocolClient(testresult.TestResult):
             offset = self._progress_pop
         else:
             prefix = self._empty_bytes
-            offset = _b(str(offset))
-        self._stream.write(self._progress_fmt + prefix + offset +
-            self._bytes_eol)
+            offset = str(offset).encode()
+        self._stream.write(self._progress_fmt + prefix + offset + self._bytes_eol)
 
     def tags(self, new_tags, gone_tags):
         """Inform the client about tags added/removed from the stream."""
         if not new_tags and not gone_tags:
             return
-        tags = set([tag.encode('utf8') for tag in new_tags])
-        tags.update([_b("-") + tag.encode('utf8') for tag in gone_tags])
-        tag_line = _b("tags: ") + _b(" ").join(tags) + _b("\n")
+        tags = set([tag.encode("utf8") for tag in new_tags])
+        tags.update([b"-" + tag.encode("utf8") for tag in gone_tags])
+        tag_line = b"tags: " + b" ".join(tags) + b"\n"
         self._stream.write(tag_line)
 
     def time(self, a_datetime):
@@ -816,27 +791,29 @@ class TestProtocolClient(testresult.TestResult):
         ":param datetime: A datetime.datetime object.
         """
         time = a_datetime.astimezone(iso8601.UTC)
-        self._stream.write(_b("time: %04d-%02d-%02d %02d:%02d:%02d.%06dZ\n" % (
-            time.year, time.month, time.day, time.hour, time.minute,
-            time.second, time.microsecond)))
+        self._stream.write(
+            b"time: %04d-%02d-%02d %02d:%02d:%02d.%06dZ\n"
+            % (time.year, time.month, time.day, time.hour, time.minute, time.second, time.microsecond)
+        )
 
     def _write_details(self, details):
         """Output details to the stream.
 
         :param details: An extended details dict for a test outcome.
         """
-        self._stream.write(_b(" [ multipart\n"))
+        self._stream.write(b" [ multipart\n")
         for name, content in sorted(details.items()):  # noqa: F402
-            self._stream.write(_b("Content-Type: %s/%s" %
-                (content.content_type.type, content.content_type.subtype)))
+            self._stream.write(
+                ("Content-Type: %s/%s" % (content.content_type.type, content.content_type.subtype)).encode()
+            )
             parameters = content.content_type.parameters
             if parameters:
-                self._stream.write(_b(";"))
+                self._stream.write(b";")
                 param_strs = []
                 for param, value in sorted(parameters.items()):
                     param_strs.append("%s=%s" % (param, value))
-                self._stream.write(_b(",".join(param_strs)))
-            self._stream.write(_b("\n%s\n" % name))
+                self._stream.write(",".join(param_strs).encode())
+            self._stream.write(b"\n" + name.encode() + b"\n")
             encoder = chunked.Encoder(self._stream)
             list(map(encoder.write, content.iter_bytes()))
             encoder.close()
@@ -844,9 +821,17 @@ class TestProtocolClient(testresult.TestResult):
     def done(self):
         """Obey the testtools result.done() interface."""
 
+    def addDuration(self, test, duration):
+        """Called to add a test duration.
 
-def RemoteError(description=_u("")):
-    return (_StringException, _StringException(description), None)
+        :param test: The test that completed.
+        :param duration: The duration of the test as a float in seconds.
+        """
+        pass
+
+
+def RemoteError(description=""):
+    return (RemoteException, RemoteException(description), None)
 
 
 class RemotedTestCase(unittest.TestCase):
@@ -859,19 +844,18 @@ class RemotedTestCase(unittest.TestCase):
     actions.
     """
 
-    def __eq__ (self, other):
+    def __eq__(self, other):
         try:
             return self.__description == other.__description
         except AttributeError:
             return False
 
     def __init__(self, description):
-        """Create a psuedo test case with description description."""
+        """Create a pseudo test case with description description."""
         self.__description = description
 
     def error(self, label):
-        raise NotImplementedError("%s on RemotedTestCases is not permitted." %
-            label)
+        raise NotImplementedError("%s on RemotedTestCases is not permitted." % label)
 
     def setUp(self):
         self.error("setUp")
@@ -889,14 +873,13 @@ class RemotedTestCase(unittest.TestCase):
         return "%s (%s)" % (self.__description, self._strclass())
 
     def __repr__(self):
-        return "<%s description='%s'>" % \
-               (self._strclass(), self.__description)
+        return "<%s description='%s'>" % (self._strclass(), self.__description)
 
     def run(self, result=None):
         if result is None:
             result = self.defaultTestResult()
         result.startTest(self)
-        result.addError(self, RemoteError(_u("Cannot run RemotedTestCases.\n")))
+        result.addError(self, RemoteError("Cannot run RemotedTestCases.\n"))
         result.stopTest(self)
 
     def _strclass(self):
@@ -907,15 +890,14 @@ class RemotedTestCase(unittest.TestCase):
 class ExecTestCase(unittest.TestCase):
     """A test case which runs external scripts for test fixtures."""
 
-    def __init__(self, methodName='runTest'):
+    def __init__(self, methodName="runTest"):
         """Create an instance of the class that will use the named test
-           method when executed. Raises a ValueError if the instance does
-           not have a method with the specified name.
+        method when executed. Raises a ValueError if the instance does
+        not have a method with the specified name.
         """
         unittest.TestCase.__init__(self, methodName)
         testMethod = getattr(self, methodName)
-        self.script = join_dir(sys.modules[self.__class__.__module__].__file__,
-                               testMethod.__doc__)
+        self.script = join_dir(sys.modules[self.__class__.__module__].__file__, testMethod.__doc__)
 
     def countTestCases(self):
         return 1
@@ -931,8 +913,7 @@ class ExecTestCase(unittest.TestCase):
 
     def _run(self, result):
         protocol = TestProtocolServer(result)
-        process = subprocess.Popen(self.script, shell=True,
-            stdout=subprocess.PIPE)
+        process = subprocess.Popen(self.script, shell=True, stdout=subprocess.PIPE)
         make_stream_binary(process.stdout)
         output = process.communicate()[0]
         protocol.readFrom(BytesIO(output))
@@ -968,8 +949,7 @@ class IsolatedTestSuite(unittest.TestSuite):
 
 
 def run_isolated(klass, self, result):
-    """Run a test suite or case in a subprocess, using the run method on klass.
-    """
+    """Run a test suite or case in a subprocess, using the run method on klass."""
     c2pread, c2pwrite = os.pipe()
     # fixme - error -> result
     # now fork
@@ -985,8 +965,7 @@ def run_isolated(klass, self, result):
 
         # at this point, sys.stdin is redirected, now we want
         # to filter it to escape ]'s.
-        ### XXX: test and write that bit.
-        stream = os.fdopen(1, 'wb')
+        stream = os.fdopen(1, "wb")
         result = TestProtocolClient(stream)
         klass.run(self, result)
         stream.flush()
@@ -999,10 +978,9 @@ def run_isolated(klass, self, result):
         os.close(c2pwrite)
         # hookup a protocol engine
         protocol = TestProtocolServer(result)
-        fileobj = os.fdopen(c2pread, 'rb')
+        fileobj = os.fdopen(c2pread, "rb")
         protocol.readFrom(fileobj)
         os.waitpid(pid, 0)
-        # TODO return code evaluation.
     return result
 
 
@@ -1017,7 +995,7 @@ def TAP2SubUnit(tap, output_stream):
     :return: The exit code to exit with.
     """
     output = StreamResultToBytes(output_stream)
-    UTF8_TEXT = 'text/plain; charset=UTF8'
+    UTF8_TEXT = "text/plain; charset=UTF8"
     BEFORE_PLAN = 0
     AFTER_PLAN = 1
     SKIP_STREAM = 2
@@ -1028,19 +1006,26 @@ def TAP2SubUnit(tap, output_stream):
     test_name = None
     log = []
     result = None
+
     def missing_test(plan_start):
-        output.status(test_id='test %d' % plan_start,
-            test_status='fail', runnable=False, 
-            mime_type=UTF8_TEXT, eof=True, file_name="tap meta",
-            file_bytes=b"test missing from TAP output")
+        output.status(
+            test_id="test %d" % plan_start,
+            test_status="fail",
+            runnable=False,
+            mime_type=UTF8_TEXT,
+            eof=True,
+            file_name="tap meta",
+            file_bytes=b"test missing from TAP output",
+        )
+
     def _emit_test():
         "write out a test"
         if test_name is None:
             return
         if log:
-            log_bytes = b'\n'.join(log_line.encode('utf8') for log_line in log)
+            log_bytes = b"\n".join(log_line.encode("utf8") for log_line in log)
             mime_type = UTF8_TEXT
-            file_name = 'tap comment'
+            file_name = "tap comment"
             eof = True
         else:
             log_bytes = None
@@ -1048,9 +1033,16 @@ def TAP2SubUnit(tap, output_stream):
             file_name = None
             eof = True
         del log[:]
-        output.status(test_id=test_name, test_status=result,
-            file_bytes=log_bytes, mime_type=mime_type, eof=eof,
-            file_name=file_name, runnable=False)
+        output.status(
+            test_id=test_name,
+            test_status=result,
+            file_bytes=log_bytes,
+            mime_type=mime_type,
+            eof=eof,
+            file_name=file_name,
+            runnable=False,
+        )
+
     for line in tap:
         if state == BEFORE_PLAN:
             match = re.match(r"(\d+)\.\.(\d+)\s*(?:\#\s+(.*))?\n", line)
@@ -1061,31 +1053,36 @@ def TAP2SubUnit(tap, output_stream):
                 if plan_start > plan_stop and plan_stop == 0:
                     # skipped file
                     state = SKIP_STREAM
-                    output.status(test_id='file skip', test_status='skip',
-                        file_bytes=comment.encode('utf8'), eof=True,
-                        file_name='tap comment')
+                    output.status(
+                        test_id="file skip",
+                        test_status="skip",
+                        file_bytes=comment.encode("utf8"),
+                        eof=True,
+                        file_name="tap comment",
+                    )
                 continue
         # not a plan line, or have seen one before
         match = re.match(
-            r"(ok|not ok)(?:\s+(\d+)?)?(?:\s+([^#]*[^#\s]+)\s*)?"
-            r"(?:\s+#\s+(TODO|SKIP|skip|todo)(?:\s+(.*))?)?\n", line)
+            r"(ok|not ok)(?:\s+(\d+)?)?(?:\s+([^#]*[^#\s]+)\s*)?" r"(?:\s+#\s+(TODO|SKIP|skip|todo)(?:\s+(.*))?)?\n",
+            line,
+        )
         if match:
             # new test, emit current one.
             _emit_test()
             status, number, description, directive, directive_comment = match.groups()
-            if status == 'ok':
-                result = 'success'
+            if status == "ok":
+                result = "success"
             else:
                 result = "fail"
             if description is None:
-                description = ''
+                description = ""
             else:
-                description = ' ' + description
+                description = " " + description
             if directive is not None:
-                if directive.upper() == 'TODO':
-                    result = 'xfail'
-                elif directive.upper() == 'SKIP':
-                    result = 'skip'
+                if directive.upper() == "TODO":
+                    result = "xfail"
+                elif directive.upper() == "SKIP":
+                    result = "skip"
                 if directive_comment is not None:
                     log.append(directive_comment)
             if number is not None:
@@ -1098,11 +1095,11 @@ def TAP2SubUnit(tap, output_stream):
             continue
         match = re.match(r"Bail out\!(?:\s*(.*))?\n", line)
         if match:
-            reason, = match.groups()
+            (reason,) = match.groups()
             if reason is None:
-                extra = ''
+                extra = ""
             else:
-                extra = ' %s' % reason
+                extra = " %s" % reason
             _emit_test()
             test_name = "Bail out!%s" % extra
             result = "fail"
@@ -1113,8 +1110,7 @@ def TAP2SubUnit(tap, output_stream):
             log.append(line[:-1])
             continue
         # Should look at buffering status and binding this to the prior result.
-        output.status(file_bytes=line.encode('utf8'), file_name='stdout',
-            mime_type=UTF8_TEXT)
+        output.status(file_bytes=line.encode("utf8"), file_name="stdout", mime_type=UTF8_TEXT)
     _emit_test()
     while plan_start <= plan_stop:
         # record missed tests
@@ -1147,19 +1143,21 @@ def tag_stream(original, filtered, tags):
     :return: 0
     """
     new_tags, gone_tags = tags_to_new_gone(tags)
-    source = ByteStreamToStreamResult(original, non_subunit_name='stdout')
+    source = ByteStreamToStreamResult(original, non_subunit_name="stdout")
+
     class Tagger(CopyStreamResult):
         def status(self, **kwargs):
-            tags = kwargs.get('test_tags')
+            tags = kwargs.get("test_tags")
             if not tags:
                 tags = set()
             tags.update(new_tags)
             tags.difference_update(gone_tags)
             if tags:
-                kwargs['test_tags'] = tags
+                kwargs["test_tags"] = tags
             else:
-                kwargs['test_tags'] = None
+                kwargs["test_tags"] = None
             super(Tagger, self).status(**kwargs)
+
     output = Tagger([StreamResultToBytes(filtered)])
     source.run(output)
     return 0
@@ -1271,6 +1269,14 @@ class TestResultStats(testresult.TestResult):
         """Tells whether or not this result was a success"""
         return self.failed_tests == 0
 
+    def addDuration(self, test, duration):
+        """Called to add a test duration.
+
+        :param test: The test that completed.
+        :param duration: The duration of the test as a float in seconds.
+        """
+        pass
+
 
 def read_test_list(path):
     """Read a list of test ids from a file on disk.
@@ -1278,14 +1284,13 @@ def read_test_list(path):
     :param path: Path to the file
     :return: Sequence of test ids
     """
-    with open(path, 'r') as f:
-        return [line.split('#')[0].rstrip() for line in f.readlines()
-                if line.split('#')[0]]
+    with open(path, "r") as f:
+        return [line.split("#")[0].rstrip() for line in f.readlines() if line.split("#")[0]]
 
 
 def make_stream_binary(stream):
     """Ensure that a stream will be binary safe. See _make_binary_on_windows.
-    
+
     :return: A binary version of the same stream (some streams cannot be
         'fixed' but can be unwrapped).
     """
@@ -1302,6 +1307,7 @@ def _make_binary_on_windows(fileno):
     """Win32 mangles \r\n to \n and that breaks streams. See bug lp:505078."""
     if sys.platform == "win32":
         import msvcrt
+
         msvcrt.setmode(fileno, os.O_BINARY)
 
 
@@ -1316,7 +1322,7 @@ def _unwrap_text(stream):
     except exceptions:
         # Cannot read from the stream: try via writes
         try:
-            stream.write(_b(''))
+            stream.write(b"")
         except TypeError:
             return stream.buffer
     return stream

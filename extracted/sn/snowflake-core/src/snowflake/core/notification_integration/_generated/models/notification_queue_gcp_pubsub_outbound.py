@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.notification_integration._generated.models.notification_hook import (
     NotificationHook,
@@ -35,7 +35,7 @@ class NotificationQueueGcpPubsubOutbound(NotificationHook):
     gcp_pubsub_topic_name : str, optional
         Identification of the Pub/Sub topic to which Snowpipe pushes notifications.
     gcp_pubsub_service_account : str, optional
-        Google Cloud Platform (GCP) service account created for your account.
+        Google Cloud Platform (GCP) service account created for your account — **Read-only:** *any user-provided value will be ignored.*
     """
 
     gcp_pubsub_topic_name: Optional[StrictStr] = None
@@ -44,9 +44,10 @@ class NotificationQueueGcpPubsubOutbound(NotificationHook):
 
     __properties = ["type"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -75,7 +76,7 @@ class NotificationQueueGcpPubsubOutbound(NotificationHook):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["type"] = NotificationHook.get_child_model_discriminator_value("NotificationQueueGcpPubsubOutbound")
 
@@ -92,9 +93,9 @@ class NotificationQueueGcpPubsubOutbound(NotificationHook):
             return None
 
         if type(obj) is not dict:
-            return NotificationQueueGcpPubsubOutbound.parse_obj(obj)
+            return NotificationQueueGcpPubsubOutbound.model_validate(obj)
 
-        _obj = NotificationQueueGcpPubsubOutbound.parse_obj(
+        _obj = NotificationQueueGcpPubsubOutbound.model_validate(
             {
                 "gcp_pubsub_topic_name": obj.get("gcp_pubsub_topic_name"),
                 "gcp_pubsub_service_account": obj.get("gcp_pubsub_service_account"),

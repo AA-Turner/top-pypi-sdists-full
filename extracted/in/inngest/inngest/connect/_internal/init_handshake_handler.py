@@ -2,30 +2,30 @@ import asyncio
 import dataclasses
 import platform
 import re
-import typing
 
 import psutil
 import pydantic_core
 
 from inngest._internal import const, errors, server_lib, types
 
-from . import connect_pb2
+from . import connect_pb2, ws_utils
 from .base_handler import _BaseHandler
 from .models import ConnectionState, _State
 
 
 class _InitHandshakeHandler(_BaseHandler):
-    _closed_event: typing.Optional[asyncio.Event] = None
-    _send_data_task: typing.Optional[asyncio.Task[None]] = None
-    _reconnect_task: typing.Optional[asyncio.Task[None]] = None
+    _closed_event: asyncio.Event | None = None
+    _send_data_task: asyncio.Task[None] | None = None
+    _reconnect_task: asyncio.Task[None] | None = None
 
     def __init__(
         self,
         logger: types.Logger,
         state: _State,
         app_configs: dict[str, list[server_lib.FunctionConfig]],
-        env: typing.Optional[str],
+        env: str | None,
         instance_id: str,
+        max_worker_concurrency: int | None,
     ) -> None:
         self._app_configs = app_configs
         self._env = env
@@ -33,6 +33,7 @@ class _InitHandshakeHandler(_BaseHandler):
         self._logger = logger
         self._kind_state = _KindState()
         self._state = state
+        self._max_worker_concurrency = max_worker_concurrency
 
     def start(self) -> types.MaybeError[None]:
         err = super().start()
@@ -80,6 +81,9 @@ class _InitHandshakeHandler(_BaseHandler):
                 return
             self._kind_state.GATEWAY_HELLO = True
 
+            # Reset because we were told to redo the initial handshake
+            self._state.init_handshake_complete.value = False
+
         if self._kind_state.SYNCED is False:
             self._logger.debug("Syncing")
 
@@ -125,6 +129,7 @@ class _InitHandshakeHandler(_BaseHandler):
 
             self._kind_state.GATEWAY_CONNECTION_READY = True
             self._state.conn_state.value = ConnectionState.ACTIVE
+            self._state.init_handshake_complete.value = True
 
         return
 
@@ -141,6 +146,7 @@ class _InitHandshakeHandler(_BaseHandler):
             connection_id=connection_id,
             env=self._env,
             instance_id=self._instance_id,
+            max_worker_concurrency=self._max_worker_concurrency,
         )
         if isinstance(sync_message, Exception):
             self._logger.error(
@@ -149,7 +155,19 @@ class _InitHandshakeHandler(_BaseHandler):
             )
             return
 
-        await ws.send(sync_message.SerializeToString())
+        err = await ws_utils.safe_send(
+            self._logger,
+            self._state,
+            ws,
+            sync_message.SerializeToString(),
+        )
+        if err is not None:
+            self._logger.error(
+                "Failed to send sync message",
+                extra={"error": str(err)},
+            )
+            return
+
         self._kind_state.SYNCED = True
         return None
 
@@ -166,13 +184,16 @@ def _create_sync_message(
     apps_configs: dict[str, list[server_lib.FunctionConfig]],
     auth_data: connect_pb2.AuthData,
     connection_id: str,
-    env: typing.Optional[str],
+    env: str | None,
     instance_id: str,
+    max_worker_concurrency: int | None,
 ) -> types.MaybeError[connect_pb2.ConnectMessage]:
     apps: list[connect_pb2.AppConfiguration] = []
     for app_id, functions in apps_configs.items():
         try:
-            functions_bytes = pydantic_core.to_json(functions)
+            functions_bytes = pydantic_core.to_json(
+                functions, exclude_none=True
+            )
         except Exception as err:
             return err
 
@@ -201,6 +222,7 @@ def _create_sync_message(
             os=platform.system().lower(),
         ),
         worker_manual_readiness_ack=False,
+        max_worker_concurrency=max_worker_concurrency,
     )
 
     return connect_pb2.ConnectMessage(

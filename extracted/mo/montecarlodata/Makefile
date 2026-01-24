@@ -55,10 +55,10 @@ distribute: install
 	twine upload --non-interactive dist/*
 
 generate-docs: install
-	. $(ENVIRONMENT_NAME)/bin/activate; \
-	pip install -r requirements-ci.txt; \
-	make -C docs clean; \
-	make -C docs html; \
+	. $(ENVIRONMENT_NAME)/bin/activate && \
+	pip install -r requirements-ci.txt && \
+	make -C docs clean && \
+	make -C docs html && \
 	cp -a ./docs/_static/. $(DOCS_PATH)
 
 publish-docs: generate-docs

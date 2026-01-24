@@ -31,8 +31,8 @@ class NetworkPolicyCollection(NetworkPolicyCollectionBase):
 class NetworkPolicyResource(NetworkPolicyResourceBase):
     """Represents a reference to a Snowflake Network Policy resource.
 
-    With this network policy reference, you can create, update, and fetch information about network policies, as well
-    as perform certain actions on them.
+    With this network policy reference, you can fetch information about a network policy, as well
+    as perform certain actions on it.
     """
 
     _plural_name = "network_policies"

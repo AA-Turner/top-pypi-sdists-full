@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,6 +81,8 @@ class ClippyAdagrad(tf.keras.optimizers.Optimizer):
         + accumulator_relative_threshold / sqrt(accum) + absolute_threshold,
   where `accum` is the respective Adagrad accumulator.
 
+  Reference: https://arxiv.org/pdf/2302.09178.pdf.
+
   Attributes:
     iterations: The number of training steps this optimizer has run.
     learning_rate: The learning rate constant or schedule.
@@ -120,7 +122,7 @@ class ClippyAdagrad(tf.keras.optimizers.Optimizer):
       accumulator_relative_threshold: A non-negative floating point value. The
         clipping threshold factor relatively to the inverse square root of the
         Adagrad accumulators. Default to 0.0 but a non-negative value
-        (e.g., 1e-3) allows loosening the clipping threshold in later training.
+        (e.g., 1e-3) allows tightening the clipping threshold in later training.
       absolute_threshold: A non-negative floating point value. The absolute
         clipping threshold constant.
       epsilon: Small floating point value used to maintain numerical stability.

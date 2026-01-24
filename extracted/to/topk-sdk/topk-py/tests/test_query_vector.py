@@ -1,10 +1,8 @@
-from typing import Any
-
-from topk_sdk.data import binary_vector, f32_vector, u8_vector
+from topk_sdk.data import binary_vector, f32_vector, u8_vector, i8_vector
 from topk_sdk.query import field, fn, select
 
 from . import ProjectContext
-from .utils import dataset, doc_ids, is_sorted
+from .utils import dataset, doc_ids, is_sorted, doc_fields
 
 
 def test_query_vector_distance(ctx: ProjectContext):
@@ -18,7 +16,7 @@ def test_query_vector_distance(ctx: ProjectContext):
     )
 
     assert is_sorted(result, "summary_distance")
-    assert all(field in result[0] for field in ["_id", "title", "summary_distance"])
+    assert doc_fields(result) == {"_id", "title", "summary_distance"}
     assert doc_ids(result) == {"1984", "pride", "mockingbird"}
 
 
@@ -48,6 +46,21 @@ def test_query_vector_distance_u8_vector(ctx: ProjectContext):
 
     assert is_sorted(result, "summary_distance")
     assert doc_ids(result) == {"harry", "1984", "catcher"}
+
+
+def test_query_vector_distance_i8_vector(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(
+            summary_distance=fn.vector_distance(
+                "scalar_i8_embedding", i8_vector([-10] * 16)
+            )
+        ).topk(field("summary_distance"), 3, True)
+    )
+
+    assert is_sorted(result, "summary_distance")
+    assert doc_ids(result) == {"pride", "1984", "gatsby"}
 
 
 def test_query_vector_distance_binary_vector(ctx: ProjectContext):

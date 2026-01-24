@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ckzg
-Version: 2.1.4
+Version: 2.1.5
 Summary: Python bindings for C-KZG-4844
 Home-page: https://github.com/ethereum/c-kzg-4844
 Author: Ethereum Foundation

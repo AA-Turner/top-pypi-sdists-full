@@ -1,6 +1,6 @@
 """Module providing drift_monitor functionality."""
 
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 from datetime import datetime, timedelta
 
 """Module for interacting with backend API to manage drift monitoring."""

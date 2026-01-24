@@ -3,7 +3,7 @@ Main interface for sso-admin service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_admin/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

@@ -3,7 +3,7 @@ Type annotations for chatbot service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_chatbot/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -94,12 +95,6 @@ from .type_defs import (
     UpdateTeamsChannelConfigurationResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -110,39 +105,39 @@ __all__ = ("ChatbotClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    CreateChimeWebhookConfigurationException: Type[BotocoreClientError]
-    CreateSlackChannelConfigurationException: Type[BotocoreClientError]
-    CreateTeamsChannelConfigurationException: Type[BotocoreClientError]
-    DeleteChimeWebhookConfigurationException: Type[BotocoreClientError]
-    DeleteMicrosoftTeamsUserIdentityException: Type[BotocoreClientError]
-    DeleteSlackChannelConfigurationException: Type[BotocoreClientError]
-    DeleteSlackUserIdentityException: Type[BotocoreClientError]
-    DeleteSlackWorkspaceAuthorizationFault: Type[BotocoreClientError]
-    DeleteTeamsChannelConfigurationException: Type[BotocoreClientError]
-    DeleteTeamsConfiguredTeamException: Type[BotocoreClientError]
-    DescribeChimeWebhookConfigurationsException: Type[BotocoreClientError]
-    DescribeSlackChannelConfigurationsException: Type[BotocoreClientError]
-    DescribeSlackUserIdentitiesException: Type[BotocoreClientError]
-    DescribeSlackWorkspacesException: Type[BotocoreClientError]
-    GetAccountPreferencesException: Type[BotocoreClientError]
-    GetTeamsChannelConfigurationException: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ListMicrosoftTeamsConfiguredTeamsException: Type[BotocoreClientError]
-    ListMicrosoftTeamsUserIdentitiesException: Type[BotocoreClientError]
-    ListTeamsChannelConfigurationsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    UpdateAccountPreferencesException: Type[BotocoreClientError]
-    UpdateChimeWebhookConfigurationException: Type[BotocoreClientError]
-    UpdateSlackChannelConfigurationException: Type[BotocoreClientError]
-    UpdateTeamsChannelConfigurationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    CreateChimeWebhookConfigurationException: type[BotocoreClientError]
+    CreateSlackChannelConfigurationException: type[BotocoreClientError]
+    CreateTeamsChannelConfigurationException: type[BotocoreClientError]
+    DeleteChimeWebhookConfigurationException: type[BotocoreClientError]
+    DeleteMicrosoftTeamsUserIdentityException: type[BotocoreClientError]
+    DeleteSlackChannelConfigurationException: type[BotocoreClientError]
+    DeleteSlackUserIdentityException: type[BotocoreClientError]
+    DeleteSlackWorkspaceAuthorizationFault: type[BotocoreClientError]
+    DeleteTeamsChannelConfigurationException: type[BotocoreClientError]
+    DeleteTeamsConfiguredTeamException: type[BotocoreClientError]
+    DescribeChimeWebhookConfigurationsException: type[BotocoreClientError]
+    DescribeSlackChannelConfigurationsException: type[BotocoreClientError]
+    DescribeSlackUserIdentitiesException: type[BotocoreClientError]
+    DescribeSlackWorkspacesException: type[BotocoreClientError]
+    GetAccountPreferencesException: type[BotocoreClientError]
+    GetTeamsChannelConfigurationException: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ListMicrosoftTeamsConfiguredTeamsException: type[BotocoreClientError]
+    ListMicrosoftTeamsUserIdentitiesException: type[BotocoreClientError]
+    ListTeamsChannelConfigurationsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    UpdateAccountPreferencesException: type[BotocoreClientError]
+    UpdateChimeWebhookConfigurationException: type[BotocoreClientError]
+    UpdateSlackChannelConfigurationException: type[BotocoreClientError]
+    UpdateTeamsChannelConfigurationException: type[BotocoreClientError]
 
 
 class ChatbotClient(BaseClient):
@@ -182,7 +177,7 @@ class ChatbotClient(BaseClient):
 
     def associate_to_configuration(
         self, **kwargs: Unpack[AssociateToConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Links a resource (for example, a custom action) to a channel configuration.
 
@@ -233,7 +228,7 @@ class ChatbotClient(BaseClient):
 
     def delete_chime_webhook_configuration(
         self, **kwargs: Unpack[DeleteChimeWebhookConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Amazon Chime webhook configuration for AWS Chatbot.
 
@@ -243,7 +238,7 @@ class ChatbotClient(BaseClient):
 
     def delete_custom_action(
         self, **kwargs: Unpack[DeleteCustomActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom action.
 
@@ -253,7 +248,7 @@ class ChatbotClient(BaseClient):
 
     def delete_microsoft_teams_channel_configuration(
         self, **kwargs: Unpack[DeleteTeamsChannelConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Microsoft Teams channel configuration for AWS Chatbot.
 
@@ -263,7 +258,7 @@ class ChatbotClient(BaseClient):
 
     def delete_microsoft_teams_configured_team(
         self, **kwargs: Unpack[DeleteTeamsConfiguredTeamRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Microsoft Teams team authorization allowing for channels to be
         configured in that Microsoft Teams team.
@@ -274,7 +269,7 @@ class ChatbotClient(BaseClient):
 
     def delete_microsoft_teams_user_identity(
         self, **kwargs: Unpack[DeleteMicrosoftTeamsUserIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Identifes a user level permission for a channel configuration.
 
@@ -284,7 +279,7 @@ class ChatbotClient(BaseClient):
 
     def delete_slack_channel_configuration(
         self, **kwargs: Unpack[DeleteSlackChannelConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Slack channel configuration for AWS Chatbot.
 
@@ -294,7 +289,7 @@ class ChatbotClient(BaseClient):
 
     def delete_slack_user_identity(
         self, **kwargs: Unpack[DeleteSlackUserIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a user level permission for a Slack channel configuration.
 
@@ -304,7 +299,7 @@ class ChatbotClient(BaseClient):
 
     def delete_slack_workspace_authorization(
         self, **kwargs: Unpack[DeleteSlackWorkspaceAuthorizationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Slack workspace authorization that allows channels to be configured
         in that workspace.
@@ -357,7 +352,7 @@ class ChatbotClient(BaseClient):
 
     def disassociate_from_configuration(
         self, **kwargs: Unpack[DisassociateFromConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unlink a resource, for example a custom action, from a channel configuration.
 
@@ -454,7 +449,7 @@ class ChatbotClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_chatbot/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Attaches a key-value pair to a resource, as identified by its Amazon Resource
         Name (ARN).
@@ -463,7 +458,7 @@ class ChatbotClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_chatbot/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Detaches a key-value pair from a resource, as identified by its Amazon Resource
         Name (ARN).

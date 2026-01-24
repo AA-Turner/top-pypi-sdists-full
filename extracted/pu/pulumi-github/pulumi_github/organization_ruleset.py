@@ -31,7 +31,7 @@ class OrganizationRulesetArgs:
         The set of arguments for constructing a OrganizationRuleset resource.
         :param pulumi.Input[_builtins.str] enforcement: (String) Possible values for Enforcement are `disabled`, `active`, `evaluate`. Note: `evaluate` is currently only supported for owners of type `organization`.
         :param pulumi.Input['OrganizationRulesetRulesArgs'] rules: (Block List, Min: 1, Max: 1) Rules within the ruleset. (see below for nested schema)
-        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch` and `tag`.
+        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch`, `tag` and `push`.
         :param pulumi.Input[Sequence[pulumi.Input['OrganizationRulesetBypassActorArgs']]] bypass_actors: (Block List) The actors that can bypass the rules in this ruleset. (see below for nested schema)
         :param pulumi.Input['OrganizationRulesetConditionsArgs'] conditions: (Block List, Max: 1) Parameters for an organization ruleset condition. `ref_name` is required alongside one of `repository_name` or `repository_id`. (see below for nested schema)
         :param pulumi.Input[_builtins.str] name: (String) The name of the ruleset.
@@ -74,7 +74,7 @@ class OrganizationRulesetArgs:
     @pulumi.getter
     def target(self) -> pulumi.Input[_builtins.str]:
         """
-        (String) Possible values are `branch` and `tag`.
+        (String) Possible values are `branch`, `tag` and `push`.
         """
         return pulumi.get(self, "target")
 
@@ -141,7 +141,7 @@ class _OrganizationRulesetState:
         :param pulumi.Input[_builtins.str] node_id: (String) GraphQL global node id for use with v4 API.
         :param pulumi.Input['OrganizationRulesetRulesArgs'] rules: (Block List, Min: 1, Max: 1) Rules within the ruleset. (see below for nested schema)
         :param pulumi.Input[_builtins.int] ruleset_id: (Number) GitHub ID for the ruleset.
-        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch` and `tag`.
+        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch`, `tag` and `push`.
         """
         if bypass_actors is not None:
             pulumi.set(__self__, "bypass_actors", bypass_actors)
@@ -262,7 +262,7 @@ class _OrganizationRulesetState:
     @pulumi.getter
     def target(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (String) Possible values are `branch` and `tag`.
+        (String) Possible values are `branch`, `tag` and `push`.
         """
         return pulumi.get(self, "target")
 
@@ -322,6 +322,57 @@ class OrganizationRuleset(pulumi.CustomResource):
                     "operator": "starts_with",
                     "pattern": "ex",
                 },
+                "required_workflows": {
+                    "do_not_enforce_on_create": True,
+                    "required_workflows": [{
+                        "repository_id": 1234,
+                        "path": ".github/workflows/ci.yml",
+                        "ref": "main",
+                    }],
+                },
+                "required_code_scanning": {
+                    "required_code_scanning_tools": [{
+                        "alerts_threshold": "errors",
+                        "security_alerts_threshold": "high_or_higher",
+                        "tool": "CodeQL",
+                    }],
+                },
+            })
+        # Example with push ruleset  
+        example_push = github.OrganizationRuleset("example_push",
+            name="example_push",
+            target="push",
+            enforcement="active",
+            conditions={
+                "ref_name": {
+                    "includes": ["~ALL"],
+                    "excludes": [],
+                },
+                "repository_name": {
+                    "includes": ["~ALL"],
+                    "excludes": [],
+                },
+            },
+            rules={
+                "file_path_restriction": {
+                    "restricted_file_paths": [
+                        ".github/workflows/*",
+                        "*.env",
+                    ],
+                },
+                "max_file_size": {
+                    "max_file_size": 100,
+                },
+                "max_file_path_length": {
+                    "max_file_path_length": 255,
+                },
+                "file_extension_restriction": {
+                    "restricted_file_extensions": [
+                        "*.exe",
+                        "*.dll",
+                        "*.so",
+                    ],
+                },
             })
         ```
 
@@ -340,7 +391,7 @@ class OrganizationRuleset(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] enforcement: (String) Possible values for Enforcement are `disabled`, `active`, `evaluate`. Note: `evaluate` is currently only supported for owners of type `organization`.
         :param pulumi.Input[_builtins.str] name: (String) The name of the ruleset.
         :param pulumi.Input[Union['OrganizationRulesetRulesArgs', 'OrganizationRulesetRulesArgsDict']] rules: (Block List, Min: 1, Max: 1) Rules within the ruleset. (see below for nested schema)
-        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch` and `tag`.
+        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch`, `tag` and `push`.
         """
         ...
     @overload
@@ -385,6 +436,57 @@ class OrganizationRuleset(pulumi.CustomResource):
                     "negate": False,
                     "operator": "starts_with",
                     "pattern": "ex",
+                },
+                "required_workflows": {
+                    "do_not_enforce_on_create": True,
+                    "required_workflows": [{
+                        "repository_id": 1234,
+                        "path": ".github/workflows/ci.yml",
+                        "ref": "main",
+                    }],
+                },
+                "required_code_scanning": {
+                    "required_code_scanning_tools": [{
+                        "alerts_threshold": "errors",
+                        "security_alerts_threshold": "high_or_higher",
+                        "tool": "CodeQL",
+                    }],
+                },
+            })
+        # Example with push ruleset  
+        example_push = github.OrganizationRuleset("example_push",
+            name="example_push",
+            target="push",
+            enforcement="active",
+            conditions={
+                "ref_name": {
+                    "includes": ["~ALL"],
+                    "excludes": [],
+                },
+                "repository_name": {
+                    "includes": ["~ALL"],
+                    "excludes": [],
+                },
+            },
+            rules={
+                "file_path_restriction": {
+                    "restricted_file_paths": [
+                        ".github/workflows/*",
+                        "*.env",
+                    ],
+                },
+                "max_file_size": {
+                    "max_file_size": 100,
+                },
+                "max_file_path_length": {
+                    "max_file_path_length": 255,
+                },
+                "file_extension_restriction": {
+                    "restricted_file_extensions": [
+                        "*.exe",
+                        "*.dll",
+                        "*.so",
+                    ],
                 },
             })
         ```
@@ -476,7 +578,7 @@ class OrganizationRuleset(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] node_id: (String) GraphQL global node id for use with v4 API.
         :param pulumi.Input[Union['OrganizationRulesetRulesArgs', 'OrganizationRulesetRulesArgsDict']] rules: (Block List, Min: 1, Max: 1) Rules within the ruleset. (see below for nested schema)
         :param pulumi.Input[_builtins.int] ruleset_id: (Number) GitHub ID for the ruleset.
-        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch` and `tag`.
+        :param pulumi.Input[_builtins.str] target: (String) Possible values are `branch`, `tag` and `push`.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -561,7 +663,7 @@ class OrganizationRuleset(pulumi.CustomResource):
     @pulumi.getter
     def target(self) -> pulumi.Output[_builtins.str]:
         """
-        (String) Possible values are `branch` and `tag`.
+        (String) Possible values are `branch`, `tag` and `push`.
         """
         return pulumi.get(self, "target")
 

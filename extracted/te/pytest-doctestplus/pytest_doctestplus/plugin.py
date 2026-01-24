@@ -28,14 +28,8 @@ from .output_checker import (FIX, IGNORE_WARNINGS, REMOTE_DATA, SHOW_WARNINGS,
                              OutputChecker)
 
 _pytest_version = Version(pytest.__version__)
-PYTEST_GT_5 = _pytest_version > Version('5.9.9')
-PYTEST_GE_5_4 = _pytest_version >= Version('5.4')
-PYTEST_GE_7_0 = _pytest_version >= Version('7.0')
 PYTEST_GE_8_0 = _pytest_version >= Version('8.0')
 PYTEST_GE_8_1_1 = _pytest_version >= Version('8.1.1')
-PYTEST_GE_8_2 = any([_pytest_version.is_devrelease,
-                     _pytest_version.is_prerelease,
-                     _pytest_version >= Version('8.2')])
 
 comment_characters = {
     '.txt': '#',
@@ -256,30 +250,21 @@ def pytest_configure(config):
         def collect(self):
             # When running directly from pytest we need to make sure that we
             # don't accidentally import setup.py!
-            if PYTEST_GE_7_0:
-                fspath = self.path
-                filepath = self.path.name
-            else:
-                fspath = self.fspath
-                filepath = self.fspath.basename
+            fspath = self.path
+            filepath = self.path.name
 
             if filepath in ("setup.py", "__main__.py"):
                 return
             try:
-                if PYTEST_GT_5:
-                    from _pytest.pathlib import import_path
-                    mode = self.config.getoption("importmode")
+                from _pytest.pathlib import import_path
+                mode = self.config.getoption("importmode")
 
                 if PYTEST_GE_8_1_1:
                     consider_namespace_packages = self.config.getini("consider_namespace_packages")
                     module = import_path(fspath, mode=mode, root=self.config.rootpath,
                                          consider_namespace_packages=consider_namespace_packages)
-                elif PYTEST_GE_7_0:
-                    module = import_path(fspath, mode=mode, root=self.config.rootpath)
-                elif PYTEST_GT_5:
-                    module = import_path(fspath, mode=mode)
                 else:
-                    module = fspath.pyimport()
+                    module = import_path(fspath, mode=mode, root=self.config.rootpath)
             except ImportError:
                 if self.config.getvalue("doctest_ignore_import_errors"):
                     pytest.skip("unable to import module %r" % fspath)
@@ -345,12 +330,8 @@ def pytest_configure(config):
         obj = None
 
         def collect(self):
-            if PYTEST_GE_7_0:
-                fspath = self.path
-                filepath = self.path.name
-            else:
-                fspath = self.fspath
-                filepath = self.fspath.basename
+            fspath = self.path
+            filepath = self.path.name
 
             encoding = self.config.getini("doctest_encoding")
             text = fspath.read_text(encoding)
@@ -444,7 +425,7 @@ def pytest_configure(config):
                         continue
 
                     if config.getoption('remote_data', 'none') != 'any':
-                        if any(re.match(fr'{comment_char}\s+doctest-remote-data-all\s*::', x.strip())
+                        if any(re.match(fr'{comment_char}\s+doctest-remote-data-all\s*::', x.strip())  # noqa: E501
                                for x in lines):
                             skip_all = True
                             continue
@@ -689,14 +670,10 @@ class DoctestPlus:
             Skip paths that match any of the doctest_norecursedirs patterns or
             if doctest_only is True then skip all regular test files (eg test_*.py).
             """
-            if PYTEST_GE_7_0:
-                dirpath = Path(path).parent
-                collect_ignore = config._getconftest_pathlist("collect_ignore",
-                                                              path=dirpath,
-                                                              rootpath=config.rootpath)
-            else:
-                dirpath = path.dirpath()
-                collect_ignore = config._getconftest_pathlist("collect_ignore", path=dirpath)
+            dirpath = Path(path).parent
+            collect_ignore = config._getconftest_pathlist("collect_ignore",
+                                                          path=dirpath,
+                                                          rootpath=config.rootpath)
 
             # The collect_ignore conftest.py variable should cause all test
             # runners to ignore this file and all subfiles and subdirectories
@@ -779,12 +756,7 @@ class DoctestPlus:
                     return None
 
                 # Don't override the built-in doctest plugin
-                if PYTEST_GE_7_0:
-                    return self._doctest_module_item_cls.from_parent(parent, path=Path(path))
-                elif PYTEST_GE_5_4:
-                    return self._doctest_module_item_cls.from_parent(parent, fspath=path)
-                else:
-                    return self._doctest_module_item_cls(path, parent)
+                return self._doctest_module_item_cls.from_parent(parent, path=Path(path))
 
             elif any([path.check(fnmatch=pat) for pat in self._file_globs]):
                 # Ignore generated .rst files
@@ -811,12 +783,7 @@ class DoctestPlus:
 
                 # TODO: Get better names on these items when they are
                 # displayed in py.test output
-                if PYTEST_GE_7_0:
-                    return self._doctest_textfile_item_cls.from_parent(parent, path=Path(path))
-                elif PYTEST_GE_5_4:
-                    return self._doctest_textfile_item_cls.from_parent(parent, fspath=path)
-                else:
-                    return self._doctest_textfile_item_cls(path, parent)
+                return self._doctest_textfile_item_cls.from_parent(parent, path=Path(path))
 
 
 class DocTestFinderPlus(doctest.DocTestFinder):
@@ -879,14 +846,17 @@ class DocTestFinderPlus(doctest.DocTestFinder):
 
         if hasattr(obj, '__doctest_skip__') or hasattr(obj, '__doctest_requires__'):
 
-            def test_filter(test):
+            def conditionally_insert_skip(test):
+                """
+                Insert skip statement if `test` matches `__doctest_(skip|requires)__`.
+                """
                 for pat in getattr(obj, '__doctest_skip__', []):
                     if pat == '*':
-                        return False
+                        self._prepend_skip(test)
                     elif pat == '.' and test.name == name:
-                        return False
+                        self._prepend_skip(test)
                     elif fnmatch.fnmatch(test.name, '.'.join((name, pat))):
-                        return False
+                        self._prepend_skip(test)
 
                 reqs = getattr(obj, '__doctest_requires__', {})
                 for pats, mods in reqs.items():
@@ -903,22 +873,46 @@ class DocTestFinderPlus(doctest.DocTestFinder):
                         else:
                             continue  # The pattern does not apply
 
-                        if not self.check_required_modules(mods):
-                            return False
+                        for mod in mods:
+                            self._prepend_importorskip(test, module=mod)
                 return True
 
-            tests = list(filter(test_filter, tests))
+            for _test in tests:
+                conditionally_insert_skip(_test)
 
         return tests
 
+    def _prepend_skip(self, test):
+        """Prepends `pytest.skip` before the doctest."""
+        source = (
+            "import pytest; "
+            "pytest.skip('listed in `__doctest_skip__`'); "
+            # Don't impact what's available in the namespace
+            "del pytest"
+        )
+        importorskip = doctest.Example(source=source, want="")
+        test.examples.insert(0, importorskip)
 
-def write_modified_file(fname, new_fname, changes):
+    def _prepend_importorskip(self, test, *, module):
+        """Prepends `pytest.importorskip` before the doctest."""
+        source = (
+            "import pytest; "
+            # Hide output of this statement in `___`, otherwise doctests fail
+            f"___ = pytest.importorskip({module!r}); "
+            # Don't impact what's available in the namespace
+            "del pytest; del ___"
+        )
+        importorskip = doctest.Example(source=source, want="")
+        test.examples.insert(0, importorskip)
+
+
+def write_modified_file(fname, new_fname, changes, encoding=None):
     # Sort in reversed order to edit the lines:
     bad_tests = []
     changes.sort(key=lambda x: (x["test_lineno"], x["example_lineno"]),
                  reverse=True)
 
-    with open(fname) as f:
+    with open(fname, encoding=encoding) as f:
         text = f.readlines()
 
     for change in changes:
@@ -939,7 +933,7 @@ def write_modified_file(fname, new_fname, changes):
 
         text[lineno:lineno+want.count("\n")] = [got]
 
-    with open(new_fname, "w") as f:
+    with open(new_fname, "w", encoding=encoding) as f:
         f.write("".join(text))
 
     return bad_tests
@@ -953,6 +947,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     all_bad_tests = []
     if not diff_mode:
         return  # we do not report or apply diffs
+
+    encoding = config.getini("doctest_encoding")
 
     if diff_mode != "overwrite":
         # In this mode, we write a corrected file to a temporary folder in
@@ -974,14 +970,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 new_fname = fname.replace(common_path, tmpdirname)
                 os.makedirs(os.path.split(new_fname)[0], exist_ok=True)
 
-                bad_tests = write_modified_file(fname, new_fname, changes)
+                bad_tests = write_modified_file(fname, new_fname, changes, encoding)
                 all_bad_tests.extend(bad_tests)
 
                 # git diff returns 1 to signal changes, so just ignore the
                 # exit status:
                 with subprocess.Popen(
                         ["git", "diff", "-p", "--no-index", fname, new_fname],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as p:
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding=encoding) as p:
                     p.wait()
                     # Diff should be fine, but write error if not:
                     diff = p.stderr.read()
@@ -1013,7 +1009,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             return
         terminalreporter.write_line("Applied fix to the following files:")
         for fname, changes in changesets.items():
-            bad_tests = write_modified_file(fname, fname, changes)
+            bad_tests = write_modified_file(fname, fname, changes, encoding)
             all_bad_tests.extend(bad_tests)
             terminalreporter.write_line(f"    {fname}")
 

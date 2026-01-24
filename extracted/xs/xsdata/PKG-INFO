@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xsdata
-Version: 25.7
+Version: 26.1
 Summary: Python XML Binding
 Author-email: Christodoulos Tsoulloftas <chris@komposta.net>
 License: MIT
@@ -15,23 +15,21 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.7.0
 Provides-Extra: cli
 Requires-Dist: click>=5.0; extra == "cli"
-Requires-Dist: click-default-group>=1.2; extra == "cli"
-Requires-Dist: docformatter>=1.7.2; extra == "cli"
 Requires-Dist: jinja2>=2.10; extra == "cli"
 Requires-Dist: toposort>=1.5; extra == "cli"
 Requires-Dist: ruff>=0.9.8; extra == "cli"
@@ -131,11 +129,29 @@ Check the [documentation](https://xsdata.readthedocs.io) for more ✨✨✨
 - Support xinclude statements and unknown properties
 - Customize behaviour through config
 
-## Changelog: 25.7 (2025-07-06)
+## Changelog: 26.1 (2026-01-20)
 
 **Fixes**
 
-- Ignore dynamic classes in auto-discovery mode.
-  ([#1144](https://github.com/tefra/xsdata/pull/1144))
-- Parsing tail content with nested mixed classes
-  ([#1151](https://github.com/tefra/xsdata/pull/1151))
+- Fixed missing imports on inheriting multiple mixins for the same class
+  ([#1156](https://github.com/tefra/xsdata/pull/1156))
+- Fixed choice elements with minOccurs <= 1 not marked as optional
+- Fixed incorrect max_occurs for elements in different choice blocks
+  ([#1179](https://github.com/tefra/xsdata/pull/1179))
+- Fixed AttributeError when retrieving subclasses from cython packages
+  ([#1200](https://github.com/tefra/xsdata/pull/1200))
+
+**Features**
+
+- Added flag for specifying extensions
+  ([#1168](https://github.com/tefra/xsdata/pull/1168))
+- Added support for python 3.14 ([#1173](https://github.com/tefra/xsdata/pull/1173))
+- Switched to Sequence when using generic containers
+  ([#1201](https://github.com/tefra/xsdata/pull/1201))
+
+**Deprecations**
+
+- Removed Python 3.9 support ([#1189](https://github.com/tefra/xsdata/pull/1189))
+  ([#1191](https://github.com/tefra/xsdata/pull/1191))
+- Removed cli options union-type, kw-only, postponed-annotations are now always enabled
+- Removed xsdata <SOURCE> shorthand ([#1128](https://github.com/tefra/xsdata/pull/1128))

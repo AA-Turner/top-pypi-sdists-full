@@ -1,16 +1,14 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.sqlitedb"""
 
 from __future__ import annotations
 
-from typing import NoReturn
 from unittest import mock
 
 import pytest
 
-import coverage.sqlitedb
 from coverage.exceptions import DataError
 from coverage.sqlitedb import SqliteDb
 
@@ -77,16 +75,10 @@ class SqliteDbTest(CoverageTest):
 
     def test_open_fails_on_bad_db(self) -> None:
         self.make_file("bad.db", "boogers")
-
-        def fake_failing_open(filename: str, mode: str) -> NoReturn:
-            assert (filename, mode) == ("bad.db", "rb")
-            raise RuntimeError("No you can't!")
-
-        with mock.patch.object(coverage.sqlitedb, "open", fake_failing_open):
-            msg = "Couldn't use data file 'bad.db': file is not a database"
-            with pytest.raises(DataError, match=msg):
-                with SqliteDb("bad.db", DebugControlString(options=["sql"])):
-                    pass  # pragma: not covered
+        msg = "Couldn't use data file 'bad.db': file is not a database"
+        with pytest.raises(DataError, match=msg):
+            with SqliteDb("bad.db", DebugControlString(options=["sql"])):
+                pass  # pragma: not covered
 
     def test_execute_void_can_allow_failure(self) -> None:
         with SqliteDb("fail.db", DebugControlString(options=["sql"])) as db:

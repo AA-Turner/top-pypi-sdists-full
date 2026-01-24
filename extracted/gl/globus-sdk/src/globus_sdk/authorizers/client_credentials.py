@@ -4,8 +4,7 @@ import logging
 import typing as t
 
 import globus_sdk
-from globus_sdk._types import ScopeCollectionType
-from globus_sdk.scopes import scopes_to_str
+from globus_sdk.scopes import Scope, ScopeParser
 
 from .renewing import RenewingAuthorizer
 
@@ -58,7 +57,7 @@ class ClientCredentialsAuthorizer(
     def __init__(
         self,
         confidential_client: globus_sdk.ConfidentialAppAuthClient,
-        scopes: ScopeCollectionType,
+        scopes: str | Scope | t.Iterable[str | Scope],
         *,
         access_token: str | None = None,
         expires_at: int | None = None,
@@ -68,7 +67,7 @@ class ClientCredentialsAuthorizer(
     ) -> None:
         # values for _get_token_data
         self.confidential_client = confidential_client
-        self.scopes = scopes_to_str(scopes)
+        self.scopes = ScopeParser.serialize(scopes)
 
         log.debug(
             "Setting up ClientCredentialsAuthorizer with confidential_client="

@@ -1,6 +1,0 @@
-from collections.abc import Generator
-from typing import Any
-
-def k_clique_communities(
-    G, k, cliques: Any | None = ...
-) -> Generator[Any, None, None]: ...

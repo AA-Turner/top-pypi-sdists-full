@@ -124,7 +124,10 @@ class ManagedAccountCollection(AccountObjectCollectionParent["ManagedAccountReso
 
 
 class ManagedAccountResource(ObjectReferenceMixin[ManagedAccountCollection]):
-    """A reference to a ManagedAccount in Snowflake."""
+    """Represents a reference to a Snowflake managed account.
+
+    With this managed account reference, you can delete a managed account.
+    """
 
     def __init__(self, name: str, collection: ManagedAccountCollection) -> None:
         self.name = name

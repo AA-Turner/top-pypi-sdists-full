@@ -1,25 +1,20 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import abc
 import os
-import pathlib
-import signal
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional
+from pathlib import Path
+from typing import Optional
 
 from marimo import _loggers
-from marimo._config.config import ExportType, SqlOutputType, WidthType
-from marimo._server.api.status import HTTPException, HTTPStatus
-from marimo._server.file_manager import AppFileManager
-from marimo._server.files.os_file_system import natural_sort_file
+from marimo._server.app_defaults import AppDefaults
+from marimo._server.files.directory_scanner import DirectoryScanner
+from marimo._server.files.path_validator import PathValidator
 from marimo._server.models.files import FileInfo
 from marimo._server.models.home import MarimoFile
+from marimo._session.notebook import AppFileManager
+from marimo._utils.http import HTTPException, HTTPStatus
 from marimo._utils.marimo_path import MarimoPath
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-    from types import FrameType
 
 LOGGER = _loggers.marimo_logger()
 
@@ -28,9 +23,7 @@ MarimoFileKey = str
 
 
 class AppFileRouter(abc.ABC):
-    """
-    Abstract class for routing files to an AppFileManager.
-    """
+    """Abstract class for routing files to an AppFileManager."""
 
     NEW_FILE: MarimoFileKey = "__new__"
 
@@ -76,41 +69,27 @@ class AppFileRouter(abc.ABC):
 
     def get_single_app_file_manager(
         self,
-        default_width: WidthType | None = None,
-        default_auto_download: list[ExportType] | None = None,
-        default_sql_output: SqlOutputType | None = None,
+        defaults: Optional[AppDefaults] = None,
     ) -> AppFileManager:
         key = self.get_unique_file_key()
         assert key is not None, "Expected a single file"
-        return self.get_file_manager(
-            key, default_width, default_auto_download, default_sql_output
-        )
+        return self.get_file_manager(key, defaults)
 
     def get_file_manager(
         self,
         key: MarimoFileKey,
-        default_width: WidthType | None = None,
-        default_auto_download: list[ExportType] | None = None,
-        default_sql_output: SqlOutputType | None = None,
+        defaults: Optional[AppDefaults] = None,
     ) -> AppFileManager:
         """
         Given a key, return an AppFileManager.
         """
+        defaults = defaults or AppDefaults()
+
         if key.startswith(AppFileRouter.NEW_FILE):
-            return AppFileManager(
-                None,
-                default_width=default_width,
-                default_auto_download=default_auto_download,
-                default_sql_output=default_sql_output,
-            )
+            return AppFileManager(None, defaults=defaults)
 
         if os.path.exists(key):
-            return AppFileManager(
-                key,
-                default_width=default_width,
-                default_auto_download=default_auto_download,
-                default_sql_output=default_sql_output,
-            )
+            return AppFileManager(key, defaults=defaults)
 
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -188,10 +167,16 @@ class ListOfFilesAppFileRouter(AppFileRouter):
 
 class LazyListOfFilesAppFileRouter(AppFileRouter):
     def __init__(self, directory: str, include_markdown: bool) -> None:
-        # pass through Path to canonicalize, strips trailing slashes
-        self._directory = str(pathlib.Path(directory))
+        # Make directory absolute but don't resolve symlinks to preserve user paths
+        abs_directory = Path(directory).absolute()
+        self._directory = str(abs_directory)
         self.include_markdown = include_markdown
         self._lazy_files: Optional[list[FileInfo]] = None
+
+        # Use PathValidator for security validation
+        self._validator = PathValidator(abs_directory)
+        # Use DirectoryScanner for file discovery (use absolute path)
+        self._scanner = DirectoryScanner(str(abs_directory), include_markdown)
 
     @property
     def directory(self) -> str:
@@ -210,103 +195,85 @@ class LazyListOfFilesAppFileRouter(AppFileRouter):
     def mark_stale(self) -> None:
         self._lazy_files = None
 
+    def register_temp_dir(self, temp_dir: str) -> None:
+        """Register a temp directory as allowed for file access.
+
+        Args:
+            temp_dir: The absolute path to the temp directory to allow.
+        """
+        self._validator.register_temp_dir(temp_dir)
+
+    def is_file_in_allowed_temp_dir(self, filepath: str) -> bool:
+        """Check if a file is inside an allowed temp directory.
+
+        Args:
+            filepath: The file path to check.
+
+        Returns:
+            True if the file is in an allowed temp directory, False otherwise.
+        """
+        return self._validator.is_file_in_allowed_temp_dir(filepath)
+
+    def get_file_manager(
+        self,
+        key: MarimoFileKey,
+        defaults: Optional[AppDefaults] = None,
+    ) -> AppFileManager:
+        """
+        Given a key, return an AppFileManager.
+
+        For directory sources, if the key is a relative path, resolve it
+        relative to the source's directory. Absolute paths must be within
+        the source's directory for security.
+        """
+        defaults = defaults or AppDefaults()
+
+        if key.startswith(AppFileRouter.NEW_FILE):
+            return AppFileManager(None, defaults=defaults)
+
+        directory = Path(self._directory)
+        filepath = Path(key)
+
+        # Resolve filepath for use
+        # If filepath is relative, resolve it relative to directory
+        if not filepath.is_absolute():
+            filepath = directory / filepath
+
+        # Use PathValidator for security validation
+        # Check if file is in an allowed temp directory (e.g., for tutorials)
+        # If so, skip the directory validation
+        is_in_allowed_temp_dir = self._validator.is_file_in_allowed_temp_dir(
+            str(filepath)
+        )
+
+        if not is_in_allowed_temp_dir:
+            # Validate that filepath is inside directory
+            self._validator.validate_inside_directory(directory, filepath)
+
+        if filepath.exists():
+            return AppFileManager(str(filepath), defaults=defaults)
+
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f"File {key} not found",
+        )
+
     @property
     def files(self) -> list[FileInfo]:
         if self._lazy_files is None:
-            self._lazy_files = self._load_files()
-        return self._lazy_files
-
-    def _load_files(self) -> list[FileInfo]:
-        import time
-
-        start_time = time.time()
-        MAX_EXECUTION_TIME = 5  # 5 seconds timeout
-
-        def recurse(
-            directory: str, depth: int = 0
-        ) -> Optional[list[FileInfo]]:
-            if depth > MAX_DEPTH:
-                return None
-
-            if time.time() - start_time > MAX_EXECUTION_TIME:
-                raise HTTPException(
-                    status_code=HTTPStatus.REQUEST_TIMEOUT,
-                    detail="Request timed out: Loading workspace files took too long.",  # noqa: E501
-                )
-
             try:
-                entries = os.scandir(directory)
-            except OSError as e:
-                LOGGER.debug("OSError scanning directory: %s", str(e))
-                return None
-
-            files: list[FileInfo] = []
-            folders: list[FileInfo] = []
-
-            for entry in entries:
-                # Skip hidden files and directories
-                if entry.name.startswith("."):
-                    continue
-
-                if entry.is_dir():
-                    if entry.name in skip_dirs or depth == MAX_DEPTH:
-                        continue
-                    children = recurse(entry.path, depth + 1)
-                    if children:
-                        folders.append(
-                            FileInfo(
-                                id=entry.path,
-                                path=entry.path,
-                                name=entry.name,
-                                is_directory=True,
-                                is_marimo_file=False,
-                                children=children,
-                            )
-                        )
-                elif entry.name.endswith(tuple(allowed_extensions)):
-                    if self._is_marimo_app(entry.path):
-                        files.append(
-                            FileInfo(
-                                id=entry.path,
-                                path=entry.path,
-                                name=entry.name,
-                                is_directory=False,
-                                is_marimo_file=True,
-                                last_modified=entry.stat().st_mtime,
-                            )
-                        )
-
-            # Sort folders then files, based on natural sort (alpha, then num)
-            return sorted(folders, key=natural_sort_file) + sorted(
-                files, key=natural_sort_file
-            )
-
-        MAX_DEPTH = 5
-        skip_dirs = {
-            "venv",
-            "__pycache__",
-            "node_modules",
-            "site-packages",
-            "eggs",
-        }
-        allowed_extensions = (
-            (".py", ".md", ".qmd") if self.include_markdown else (".py",)
-        )
-
-        return recurse(self.directory) or []
-
-    def _is_marimo_app(self, full_path: str) -> bool:
-        try:
-            path = MarimoPath(full_path)
-            contents = path.read_text()
-            if path.is_markdown():
-                return "marimo-version:" in contents
-            if path.is_python():
-                return "marimo.App" in contents and "import marimo" in contents
-            return False
-        except Exception as e:
-            LOGGER.debug("Error reading file %s: %s", full_path, e)
-            return False
+                # Use DirectoryScanner to load files
+                self._lazy_files = self._scanner.scan()
+            except HTTPException as e:
+                if e.status_code == HTTPStatus.REQUEST_TIMEOUT:
+                    # Return partial results on timeout
+                    LOGGER.warning(
+                        "Timeout during file scan, returning partial results"
+                    )
+                    self._lazy_files = self._scanner.partial_results
+                else:
+                    raise
+        return self._lazy_files
 
     def get_unique_file_key(self) -> str | None:
         return None
@@ -315,20 +282,12 @@ class LazyListOfFilesAppFileRouter(AppFileRouter):
         return None
 
 
-@contextmanager
-def timeout(seconds: int, message: str) -> Generator[None, None, None]:
-    def timeout_handler(signum: int, frame: Optional[FrameType]) -> None:
-        del signum, frame
-        raise HTTPException(
-            status_code=HTTPStatus.REQUEST_TIMEOUT,
-            detail=f"Request timed out: {message}",
-        )
-
-    # Set the timeout handler
-    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    try:
-        signal.alarm(seconds)
-        yield
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, original_handler)
+# Count total marimo files (not directories)
+def count_files(file_list: list[FileInfo]) -> int:
+    count = 0
+    for item in file_list:
+        if not item.is_directory:
+            count += 1
+        if item.children:
+            count += count_files(item.children)
+    return count

@@ -1,8 +1,15 @@
 import sentry_sdk
-from sentry_sdk.ai.utils import set_data_normalized
-from sentry_sdk.consts import SPANDATA
+from sentry_sdk.ai.utils import (
+    GEN_AI_ALLOWED_MESSAGE_ROLES,
+    normalize_message_roles,
+    set_data_normalized,
+    normalize_message_role,
+    truncate_and_annotate_messages,
+)
+from sentry_sdk.consts import SPANDATA, SPANSTATUS, OP
 from sentry_sdk.integrations import DidNotEnable
 from sentry_sdk.scope import should_send_default_pii
+from sentry_sdk.tracing_utils import set_span_errored
 from sentry_sdk.utils import event_from_exception, safe_serialize
 
 from typing import TYPE_CHECKING
@@ -11,6 +18,8 @@ if TYPE_CHECKING:
     from typing import Any
     from agents import Usage
 
+    from sentry_sdk.tracing import Span
+
 try:
     import agents
 
@@ -18,8 +27,9 @@ except ImportError:
     raise DidNotEnable("OpenAI Agents not installed")
 
 
-def _capture_exception(exc):
-    # type: (Any) -> None
+def _capture_exception(exc: "Any") -> None:
+    set_span_errored()
+
     event, hint = event_from_exception(
         exc,
         client_options=sentry_sdk.get_client().options,
@@ -28,8 +38,20 @@ def _capture_exception(exc):
     sentry_sdk.capture_event(event, hint=hint)
 
 
-def _set_agent_data(span, agent):
-    # type: (sentry_sdk.tracing.Span, agents.Agent) -> None
+def _record_exception_on_span(span: "Span", error: Exception) -> "Any":
+    set_span_errored(span)
+    span.set_data("span.status", "error")
+
+    # Optionally capture the error details if we have them
+    if hasattr(error, "__class__"):
+        span.set_data("error.type", error.__class__.__name__)
+    if hasattr(error, "__str__"):
+        error_message = str(error)
+        if error_message:
+            span.set_data("error.message", error_message)
+
+
+def _set_agent_data(span: "sentry_sdk.tracing.Span", agent: "agents.Agent") -> None:
     span.set_data(
         SPANDATA.GEN_AI_SYSTEM, "openai"
     )  # See footnote for  https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#gen-ai-system for explanation why.
@@ -72,8 +94,7 @@ def _set_agent_data(span, agent):
         )
 
 
-def _set_usage_data(span, usage):
-    # type: (sentry_sdk.tracing.Span, Usage) -> None
+def _set_usage_data(span: "sentry_sdk.tracing.Span", usage: "Usage") -> None:
     span.set_data(SPANDATA.GEN_AI_USAGE_INPUT_TOKENS, usage.input_tokens)
     span.set_data(
         SPANDATA.GEN_AI_USAGE_INPUT_TOKENS_CACHED,
@@ -87,51 +108,72 @@ def _set_usage_data(span, usage):
     span.set_data(SPANDATA.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens)
 
 
-def _set_input_data(span, get_response_kwargs):
-    # type: (sentry_sdk.tracing.Span, dict[str, Any]) -> None
+def _set_input_data(
+    span: "sentry_sdk.tracing.Span", get_response_kwargs: "dict[str, Any]"
+) -> None:
     if not should_send_default_pii():
         return
+    request_messages = []
 
-    messages_by_role = {
-        "system": [],
-        "user": [],
-        "assistant": [],
-        "tool": [],
-    }  # type: (dict[str, list[Any]])
     system_instructions = get_response_kwargs.get("system_instructions")
     if system_instructions:
-        messages_by_role["system"].append({"type": "text", "text": system_instructions})
+        request_messages.append(
+            {
+                "role": GEN_AI_ALLOWED_MESSAGE_ROLES.SYSTEM,
+                "content": [{"type": "text", "text": system_instructions}],
+            }
+        )
 
     for message in get_response_kwargs.get("input", []):
         if "role" in message:
-            messages_by_role[message.get("role")].append(
-                {"type": "text", "text": message.get("content")}
+            normalized_role = normalize_message_role(message.get("role"))
+            content = message.get("content")
+            request_messages.append(
+                {
+                    "role": normalized_role,
+                    "content": (
+                        [{"type": "text", "text": content}]
+                        if isinstance(content, str)
+                        else content
+                    ),
+                }
             )
         else:
             if message.get("type") == "function_call":
-                messages_by_role["assistant"].append(message)
+                request_messages.append(
+                    {
+                        "role": GEN_AI_ALLOWED_MESSAGE_ROLES.ASSISTANT,
+                        "content": [message],
+                    }
+                )
             elif message.get("type") == "function_call_output":
-                messages_by_role["tool"].append(message)
+                request_messages.append(
+                    {
+                        "role": GEN_AI_ALLOWED_MESSAGE_ROLES.TOOL,
+                        "content": [message],
+                    }
+                )
 
-    request_messages = []
-    for role, messages in messages_by_role.items():
-        if len(messages) > 0:
-            request_messages.append({"role": role, "content": messages})
+    normalized_messages = normalize_message_roles(request_messages)
+    scope = sentry_sdk.get_current_scope()
+    messages_data = truncate_and_annotate_messages(normalized_messages, span, scope)
+    if messages_data is not None:
+        set_data_normalized(
+            span,
+            SPANDATA.GEN_AI_REQUEST_MESSAGES,
+            messages_data,
+            unpack=False,
+        )
 
-    set_data_normalized(
-        span, SPANDATA.GEN_AI_REQUEST_MESSAGES, request_messages, unpack=False
-    )
 
-
-def _set_output_data(span, result):
-    # type: (sentry_sdk.tracing.Span, Any) -> None
+def _set_output_data(span: "sentry_sdk.tracing.Span", result: "Any") -> None:
     if not should_send_default_pii():
         return
 
-    output_messages = {
+    output_messages: "dict[str, list[Any]]" = {
         "response": [],
         "tool": [],
-    }  # type: (dict[str, list[Any]])
+    }
 
     for output in result.output:
         if output.type == "function_call":
@@ -153,3 +195,28 @@ def _set_output_data(span, result):
         set_data_normalized(
             span, SPANDATA.GEN_AI_RESPONSE_TEXT, output_messages["response"]
         )
+
+
+def _create_mcp_execute_tool_spans(
+    span: "sentry_sdk.tracing.Span", result: "agents.Result"
+) -> None:
+    for output in result.output:
+        if output.__class__.__name__ == "McpCall":
+            with sentry_sdk.start_span(
+                op=OP.GEN_AI_EXECUTE_TOOL,
+                description=f"execute_tool {output.name}",
+                start_timestamp=span.start_timestamp,
+            ) as execute_tool_span:
+                set_data_normalized(execute_tool_span, SPANDATA.GEN_AI_TOOL_TYPE, "mcp")
+                set_data_normalized(
+                    execute_tool_span, SPANDATA.GEN_AI_TOOL_NAME, output.name
+                )
+                if should_send_default_pii():
+                    execute_tool_span.set_data(
+                        SPANDATA.GEN_AI_TOOL_INPUT, output.arguments
+                    )
+                    execute_tool_span.set_data(
+                        SPANDATA.GEN_AI_TOOL_OUTPUT, output.output
+                    )
+                if output.error:
+                    execute_tool_span.set_status(SPANSTATUS.INTERNAL_ERROR)

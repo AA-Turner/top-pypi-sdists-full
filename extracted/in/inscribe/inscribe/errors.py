@@ -1,2 +1,0 @@
-class InscribeAPIException(Exception):
-    pass

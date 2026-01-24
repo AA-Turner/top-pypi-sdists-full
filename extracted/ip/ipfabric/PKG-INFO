@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ipfabric
-Version: 7.3.1
+Version: 7.9.0
 Summary: Python package for interacting with IP Fabric
 License: MIT
+License-File: LICENSE
+License-File: NOTICES.md
 Keywords: ipfabric,ip-fabric,community-fabric
 Author: Solution Architecture
 Author-email: solution.architecture@ipfabric.io
@@ -14,19 +16,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: all
 Provides-Extra: cli
 Provides-Extra: cve
+Provides-Extra: dynamic-attributes
 Provides-Extra: examples
 Provides-Extra: matrix
 Provides-Extra: pd
+Provides-Extra: webhook
 Requires-Dist: case-insensitive-dictionary (>=0.2.1,<0.3.0)
 Requires-Dist: deepdiff (>=8.0.0,<9.0.0)
-Requires-Dist: h2 (>=4.1.0,<5.0.0)
-Requires-Dist: httpx (>=0.26,<0.29)
+Requires-Dist: fastapi (>=0.121.2,<0.122.0) ; extra == "webhook" or extra == "all"
 Requires-Dist: jinja2 (>=3.1.4,<4.0.0) ; extra == "matrix" or extra == "all"
 Requires-Dist: macaddress (>=2.0.2,<2.1.0)
-Requires-Dist: openpyxl (>=3.1.2,<4.0.0) ; extra == "cve" or extra == "matrix" or extra == "cli" or extra == "examples" or extra == "all"
+Requires-Dist: niquests (>=3.16.0,<4.0.0)
+Requires-Dist: openpyxl (>=3.1.2,<4.0.0) ; extra == "cve" or extra == "matrix" or extra == "cli" or extra == "examples" or extra == "dynamic-attributes" or extra == "all"
 Requires-Dist: packaging (>=24.2,<26.0)
 Requires-Dist: pandas (>=2.1.4,<3.0.0) ; extra == "cve" or extra == "matrix" or extra == "cli" or extra == "examples" or extra == "pd" or extra == "all"
 Requires-Dist: pydantic (>=2.0.0,<3.0.0,!=2.11.0,!=2.11.1)
@@ -37,8 +42,12 @@ Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0,<2.0)
 Requires-Dist: python-json-logger (>=2.0.7,<3.0.0) ; extra == "examples" or extra == "all"
 Requires-Dist: pytz (>=2024,<2026)
-Requires-Dist: pyyaml (>=6.0.1,<7.0.0) ; extra == "examples" or extra == "all"
+Requires-Dist: pyyaml (>=6.0.1,<7.0.0) ; extra == "examples" or extra == "dynamic-attributes" or extra == "all"
+Requires-Dist: pyyaml-include (>=2.2,<3.0) ; extra == "dynamic-attributes" or extra == "all"
 Requires-Dist: rich (>=13.7.0,<15.0) ; extra == "cli" or extra == "examples" or extra == "all"
+Requires-Dist: sqlmodel (>=0.0.27,<0.0.28) ; extra == "webhook" or extra == "all"
+Requires-Dist: tomli (>=2.0.0,<3.0.0) ; (python_version < "3.11") and (extra == "dynamic-attributes" or extra == "all")
+Requires-Dist: uvicorn (>=0.38.0,<0.39.0) ; extra == "webhook" or extra == "all"
 Project-URL: Changelog, https://gitlab.com/ip-fabric/integrations/python-ipfabric/-/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://gitlab.com/ip-fabric/integrations/python-ipfabric
 Project-URL: IP Fabric, https://ipfabric.io/
@@ -76,6 +85,8 @@ implementation of `http2`. The workaround is to set `http2=False` in the `IPFCli
 
 ## Notices
 
+**Please note IP Fabric's new [API Versioning Policy](https://docs.ipfabric.io/latest/IP_Fabric_API/#api-versioning).**
+
 IP Fabric team is migrating from `httpx` to [`niquests`](https://github.com/jawah/niquests) in IP Fabric SDK `v7.5.0`.
 This is outside of a major release however the IP Fabric version `7.5.0` will include our new database and will require
 through testing to ensure compatibility.
@@ -96,43 +107,11 @@ Reasons:
 
 ## Upcoming Deprecation Notices
 
-### v7.3.0
-
-#### Login IP Column Change
-
-**In `ipfabric>=v7.3.0` new columns `loginIpv4` and `loginIpv6` have been introduced to replace `loginIp`.**
-
-The current `loginIp` column has been marked as `Deprecated` in the 7.3 release but it will not be removed after further
-discussions with our Development Team.  You may see this warning in your logs but it can safely be ignored.
-
-* Inventory > Devices: `tables/inventory/devices`
-* Discovery Snapshot > Connectivity Report: `tables/reports/discovery-tasks`
-* Management > Discovery History: `tables/inventory/discovery-history`
-* Management > Changes: 
-  * `tables/management/changes/devices`
-  * `tables/management/changes/managed-devs`
-* Management > Saved Config Consistency: `tables/management/configuration/saved`
-* Technology > Management > Telnet access: `tables/security/enabled-telnet`
-
-SDK Device Model will be updated to reflect this change and will include the following properties:
-
-* `login_ipv4` - Python `ipaddress.IPv4Address` object.
-* `login_ipv6` - Python `ipaddress.IPv6Address` object.
-* `login_ip` - No change until the next major release, object will be changed to string returning the IPv4 or IPv6 address.
-
-### v7.5.0
-
-#### HTTPX Client
-
-In `ipfabric>=v7.5.0` the HTTP Client will be changed from `httpx` to `niquests`.
-Please see the notice above for more information.
-
-#### Restore Intents
-With the introduction of the IP Fabric **Configuration Import/Export** Feature in version `7.2` 
-`ipfabric.tools.restore_intents.RestoreIntents()` will be removed.  Please utilize the new 
-`IPFClient().settings.appliance_configuration` methods.
-
 ### v8.0.0
+
+#### Python 3.9 Removed
+
+Python 3.9 (End of Life 2025-10) will be removed in `v8.0.0`.  Please ensure you are using Python 3.10+.
 
 #### Moved Models
 
@@ -159,6 +138,8 @@ The current `loginIp` column are removed from these tables:
 * Technology > Management > Telnet access: `tables/security/enabled-telnet`
 
 ## Versioning
+
+**Please note IP Fabric's new [API Versioning Policy](https://docs.ipfabric.io/latest/IP_Fabric_API/#api-versioning).**
 
 Semantic Versioning: `Major.Minor.Patch`
 

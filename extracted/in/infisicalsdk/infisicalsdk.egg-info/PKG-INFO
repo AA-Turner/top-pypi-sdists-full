@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: infisicalsdk
-Version: 1.0.11
+Version: 1.0.15
 Summary: Official Infisical SDK for Python (Latest)
 Home-page: https://github.com/Infisical/python-sdk-official
 Author: Infisical
 Author-email: support@infisical.com
 Keywords: Infisical,Infisical API,Infisical SDK,SDK,Secrets Management
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: python-dateutil
 Requires-Dist: aenum
 Requires-Dist: requests~=2.32
@@ -18,6 +19,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 

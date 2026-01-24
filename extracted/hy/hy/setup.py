@@ -10,18 +10,13 @@ requires = [
 
 import os
 
+from pathlib import Path
 from setuptools import find_packages, setup
 from setuptools.command.install import install
 
 os.chdir(os.path.split(os.path.abspath(__file__))[0])
 
 PKG = "hy"
-
-long_description = """Hy is a Lisp dialect that's embedded in Python.
-Since Hy transforms its Lisp code into Python abstract syntax tree (AST)
-objects, you have the whole beautiful world of Python at your fingertips,
-in Lisp form."""
-
 
 class install(install):
     def run(self):
@@ -39,7 +34,7 @@ class install(install):
 
 setup(
     name=PKG,
-    version='1.1.0',
+    version='1.2.0',
     setup_requires=["wheel"] + requires,
     install_requires=requires,
     python_requires=">= 3.9, < 3.15",
@@ -56,7 +51,8 @@ setup(
     },
     author="Paul Tagliamonte",
     author_email="tag@pault.ag",
-    long_description=long_description,
+    long_description=Path('README.rst').read_text(),
+    long_description_content_type='text/x-rst',
     description="A Lisp dialect embedded in Python",
     license="Expat",
     url="http://hylang.org/",

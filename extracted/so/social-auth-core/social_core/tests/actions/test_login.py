@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING, cast
+
 from social_core.backends.oauth import BaseOAuth2
 from social_core.tests.models import TestUserSocialAuth, User
 from social_core.utils import PARTIAL_TOKEN_SESSION_NAME
 
 from .actions import BaseActionTest
+
+if TYPE_CHECKING:
+    from social_core.tests.models import TestStorage
 
 
 class BackendThatControlsRedirect(BaseOAuth2):
@@ -71,8 +76,12 @@ class LoginActionTest(BaseActionTest):
 
     def test_login_with_invalid_partial_pipeline(self) -> None:
         def before_complete() -> None:
-            partial_token = self.strategy.session_get(PARTIAL_TOKEN_SESSION_NAME)
-            partial = self.strategy.storage.partial.load(partial_token)
+            partial_token = cast(
+                "str", self.strategy.session_get(PARTIAL_TOKEN_SESSION_NAME)
+            )
+            partial = cast("TestStorage", self.strategy.storage).partial.load(
+                partial_token
+            )
             partial.data["backend"] = "foobar"
 
         self.do_login_with_partial_pipeline(before_complete)
@@ -87,6 +96,12 @@ class LoginActionTest(BaseActionTest):
         User.set_active(False)
         redirect = self.do_login(after_complete_checks=False)
         self.assertEqual(redirect.url, "/inactive")
+
+    def test_inactive_user_allowed(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_ALLOW_INACTIVE_USERS_LOGIN": True})
+        User.set_active(False)
+        redirect = self.do_login(after_complete_checks=False)
+        self.assertEqual(redirect.url, "/success")
 
     def test_invalid_user(self) -> None:
         self.strategy.set_settings(

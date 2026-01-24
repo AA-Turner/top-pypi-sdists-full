@@ -1,0 +1,375 @@
+Metadata-Version: 2.4
+Name: openedx-authz
+Version: 0.20.0
+Summary: Open edX AuthZ provides the architecture and foundations of the authorization framework.
+Home-page: https://github.com/openedx/openedx-authz
+Author: Open edX Project
+Author-email: oscm@openedx.org
+License: AGPL 3.0
+Keywords: Python edx
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: Django
+Requires-Dist: attrs
+Requires-Dist: casbin-django-orm-adapter
+Requires-Dist: djangorestframework
+Requires-Dist: edx-api-doc-tools
+Requires-Dist: edx-django-utils
+Requires-Dist: edx-drf-extensions
+Requires-Dist: edx-opaque-keys
+Requires-Dist: openedx-atlas
+Requires-Dist: pycasbin
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+openedx-authz
+#############
+
+|pypi-badge| |ci-badge| |codecov-badge| |doc-badge| |pyversions-badge|
+|license-badge| |status-badge|
+
+Purpose
+*******
+
+Open edX AuthZ provides the architecture and foundations of the authorization framework. It implements the core machinery needed to support consistent authorization across the Open edX ecosystem.
+
+This repository centralizes the architecture, design decisions, and reference implementation of a unified model for roles and permissions. It introduces custom roles, flexible scopes, and policy-based evaluation, aiming to replace the fragmented legacy system with a scalable, extensible, and reusable solution.
+
+See the `Product Requirements document for Roles & Permissions`_ for detailed specifications and requirements.
+
+.. _Product Requirements document for Roles & Permissions: https://openedx.atlassian.net/wiki/spaces/OEPM/pages/4724490259/PRD+Roles+Permissions
+
+.. |pypi-badge| image:: https://img.shields.io/pypi/v/openedx-authz.svg
+    :target: https://pypi.python.org/pypi/openedx-authz/
+    :alt: PyPI
+
+.. |ci-badge| image:: https://github.com/openedx/openedx-authz/actions/workflows/ci.yml/badge.svg?branch=main
+    :target: https://github.com/openedx/openedx-authz/actions/workflows/ci.yml
+    :alt: CI
+
+.. |codecov-badge| image:: https://codecov.io/github/openedx/openedx-authz/coverage.svg?branch=main
+    :target: https://codecov.io/github/openedx/openedx-authz?branch=main
+    :alt: Codecov
+
+.. |doc-badge| image:: https://readthedocs.org/projects/openedx-authz/badge/?version=latest
+    :target: https://docs.openedx.org/projects/openedx-authz
+    :alt: Documentation
+
+.. |pyversions-badge| image:: https://img.shields.io/pypi/pyversions/openedx-authz.svg
+    :target: https://pypi.python.org/pypi/openedx-authz/
+    :alt: Supported Python versions
+
+.. |license-badge| image:: https://img.shields.io/github/license/openedx/openedx-authz.svg
+    :target: https://github.com/openedx/openedx-authz/blob/main/LICENSE.txt
+    :alt: License
+
+.. |status-badge| image:: https://img.shields.io/badge/Status-Experimental-yellow
+
+
+Change Log
+##########
+
+..
+   All enhancements and patches to openedx_authz will be documented
+   in this file.  It adheres to the structure of https://keepachangelog.com/ ,
+   but in reStructuredText instead of Markdown (for ease of incorporation into
+   Sphinx documentation and the PyPI description).
+
+   This project adheres to Semantic Versioning (https://semver.org/).
+
+.. There should always be an "Unreleased" section for changes pending release.
+
+Unreleased
+**********
+
+*
+
+0.20.0 - 2025-11-27
+********************
+
+Added
+=====
+
+* Add configurable logging level for Casbin enforcer via ``CASBIN_LOG_LEVEL`` setting (defaults to WARNING).
+
+
+0.19.2 - 2025-11-25
+********************
+
+Performance
+===========
+
+* Use a RequestCache for is_admin_or_superuser matcher to improve performance.
+
+0.19.1 - 2025-11-25
+********************
+
+Fixed
+=====
+
+* Use `short_name` instead of `name` from organization when building library key.
+
+0.19.0 - 2025-11-18
+********************
+
+Added
+=====
+
+* Handle cache invalidation via a uuid in the database to ensure policy reloads
+  occur only when necessary.
+
+0.18.0 - 2025-11-17
+********************
+
+Added
+=====
+
+* Migration to transfer legacy permissions from ContentLibraryPermission to the new Casbin-based authorization model.
+
+0.17.1 - 2025-11-14
+********************
+
+Fixed
+=====
+
+* Avoid circular import of AuthzEnforcer.
+
+0.17.0 - 2025-11-14
+********************
+
+Added
+=====
+
+* Signal to clear policies associated to a user when they are retired.
+
+0.16.0 - 2025-11-13
+********************
+
+Changed
+=======
+
+* **BREAKING**: Update permission format to include app namespace prefix.
+
+Added
+=====
+
+* Register ``CasbinRule`` model in the Django admin.
+* Register ``ExtendedCasbinRule`` model in the Django admin as an inline model of ``CasbinRule``.
+
+0.15.0 - 2025-11-11
+********************
+
+Added
+=====
+
+* `ExtendedCasbinRule` model to extend the base CasbinRule model for additional metadata, and cascade delete
+  support.
+
+0.14.0 - 2025-11-11
+********************
+
+Added
+=====
+
+* Implement custom matcher to check for staff and superuser status.
+
+0.13.1 - 2025-11-11
+********************
+
+Fixed
+=====
+
+* Avoid duplicates when getting scopes for given user and permissions.
+
+0.13.0 - 2025-11-05
+********************
+
+Added
+=====
+
+* Add support for global scopes instead of generic `sc` scope to support instance-level permissions.
+
+0.12.0 - 2025-10-30
+********************
+
+Changed
+=======
+
+* Load authorization policies in permission class.
+
+0.11.2 - 2025-10-30
+********************
+
+Added
+=====
+
+* Consider Content Library V2 toggle only in CMS service variant.
+
+0.11.1 - 2025-10-29
+********************
+
+Changed
+=======
+
+* Refactor to get permissions' scopes instead of role.
+
+Fixed
+=====
+
+* Use correct content library toggle to check if Content Library V2 is enabled.
+
+0.11.0 - 2025-10-29
+********************
+
+Added
+=====
+
+* Disable auto-save and auto-load of policies if Content Library V2 is disabled.
+
+0.10.1 - 2025-10-28
+********************
+
+Fixed
+=====
+
+* Fix constants and test class to be able to use it outside this app.
+
+0.10.0 - 2025-10-28
+*******************
+
+Added
+=====
+
+* New ``get_object()`` method in ScopeData to retrieve underlying domain objects
+* Implementation of ``get_object()`` for ContentLibraryData with canonical key validation
+
+Changed
+=======
+
+* Refactor ``ContentLibraryData.exists()`` to use ``get_object()`` internally
+
+0.9.1 - 2025-10-28
+******************
+
+Fixed
+=====
+
+* Fix role user count to accurately filter users assigned to roles within specific scopes instead of across all scopes.
+
+0.9.0 - 2025-10-27
+******************
+
+Added
+=====
+
+* Function API to retrieve scopes for a given role and subject.
+
+0.8.0 - 2025-10-24
+******************
+
+Added
+=====
+
+* Allow disabling auto-load and auto-save of policies by setting CASBIN_AUTO_LOAD_POLICY_INTERVAL to -1.
+
+Changed
+=======
+
+* Migrate from using pycodestyle and isort to ruff for code quality checks and formatting.
+* Enhance enforcement command with dual operational modes (database and file mode).
+
+0.7.0 - 2025-10-23
+******************
+
+Added
+=====
+
+* Initial migration to establish dependency on casbin_adapter for automatic CasbinRule table creation.
+
+0.6.0 - 2025-10-22
+******************
+
+Changed
+=======
+
+* Use a SyncedEnforcer with default auto load policy.
+
+Removed
+=======
+
+* Remove Casbin Redis watcher from engine configuration.
+
+0.5.0 - 2025-10-21
+******************
+
+Added
+=====
+
+* Default policy for Content Library roles and permissions.
+
+Fixed
+=====
+
+* Add plugin_settings in test settings.
+* Update permissions for RoleListView.
+
+0.4.1 - 2025-10-16
+******************
+
+Fixed
+=====
+
+* Load policy before adding policies in the loading script to avoid duplicates.
+
+0.4.0 - 2025-16-10
+******************
+
+Changed
+=======
+
+* Initialize enforcer when application is ready to avoid access errors.
+
+0.3.0 - 2025-10-10
+******************
+
+Added
+=====
+
+* Implementation of REST API for roles and permissions management.
+
+0.2.0 - 2025-10-10
+******************
+
+Added
+=====
+
+* ADRs for key design decisions.
+* Casbin model (CONF) and engine layer for authorization.
+* Implementation of public API for roles and permissions management.
+
+0.1.0 - 2025-08-27
+******************
+
+Added
+=====
+
+* Basic repo structure and initial setup.

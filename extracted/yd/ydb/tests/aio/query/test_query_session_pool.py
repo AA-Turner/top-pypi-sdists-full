@@ -6,10 +6,9 @@ import ydb
 
 from typing import Optional
 
-from tests.conftest import wait_container_ready_async
 from ydb import QueryExplainResultFormat
 from ydb.aio.query.pool import QuerySessionPool
-from ydb.aio.query.session import QuerySession, QuerySessionStateEnum
+from ydb.aio.query.session import QuerySession
 from ydb.aio.query.transaction import QueryTxContext
 
 
@@ -17,7 +16,7 @@ class TestQuerySessionPool:
     @pytest.mark.asyncio
     async def test_checkout_provides_created_session(self, pool: QuerySessionPool):
         async with pool.checkout() as session:
-            assert session._state._state == QuerySessionStateEnum.CREATED
+            assert session.is_active
 
     @pytest.mark.asyncio
     async def test_oneshot_query_normal(self, pool: QuerySessionPool):
@@ -38,7 +37,7 @@ class TestQuerySessionPool:
     @pytest.mark.asyncio
     async def test_retry_op_uses_created_session(self, pool: QuerySessionPool):
         async def callee(session: QuerySession):
-            assert session._state._state == QuerySessionStateEnum.CREATED
+            assert session.is_active
 
         await pool.retry_operation_async(callee)
 
@@ -69,6 +68,7 @@ class TestQuerySessionPool:
             (None),
             (ydb.QuerySerializableReadWrite()),
             (ydb.QuerySnapshotReadOnly()),
+            (ydb.QuerySnapshotReadWrite()),
             (ydb.QueryOnlineReadOnly()),
             (ydb.QueryStaleReadOnly()),
         ],
@@ -109,17 +109,17 @@ class TestQuerySessionPool:
         for i in range(1, target_size + 1):
             session = await pool.acquire()
             assert pool._current_size == i
-            assert session._state.session_id not in ids
-            ids.add(session._state.session_id)
+            assert session.session_id not in ids
+            ids.add(session.session_id)
 
         with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(pool.acquire(), timeout=0.1)
 
-        last_id = session._state.session_id
+        last_id = session.session_id
         await pool.release(session)
 
         session = await pool.acquire()
-        assert session._state.session_id == last_id
+        assert session.session_id == last_id
         assert pool._current_size == target_size
 
     @pytest.mark.asyncio
@@ -128,18 +128,18 @@ class TestQuerySessionPool:
         for _ in range(10):
             async with pool.checkout() as session:
                 if session_id is None:
-                    session_id = session._state.session_id
+                    session_id = session.session_id
                 assert pool._current_size == 1
-                assert session_id == session._state.session_id
+                assert session_id == session.session_id
 
     @pytest.mark.asyncio
     async def test_pool_recreates_bad_sessions(self, pool: QuerySessionPool):
         async with pool.checkout() as session:
-            session_id = session._state.session_id
+            session_id = session.session_id
             await session.delete()
 
         async with pool.checkout() as session:
-            assert session_id != session._state.session_id
+            assert session_id != session.session_id
             assert pool._current_size == 1
 
     @pytest.mark.asyncio
@@ -166,7 +166,6 @@ class TestQuerySessionPool:
 
         docker_project.start()
         await pool.stop()
-        await wait_container_ready_async(driver)
 
     @pytest.mark.asyncio
     async def test_acquire_no_race_condition(self, driver):
@@ -175,7 +174,7 @@ class TestQuerySessionPool:
 
             async def acquire_session():
                 session = await pool.acquire()
-                ids.add(session._state.session_id)
+                ids.add(session.session_id)
                 await pool.release(session)
 
             tasks = [acquire_session() for _ in range(10)]
@@ -184,6 +183,18 @@ class TestQuerySessionPool:
 
             assert len(ids) == 1
             assert pool._current_size == 1
+
+    @pytest.mark.asyncio
+    async def test_released_after_future_canceled(self, driver):
+        async with ydb.aio.QuerySessionPool(driver, 1) as pool:
+            s = await pool.acquire()
+            waiter = asyncio.ensure_future(pool.acquire())
+            await asyncio.sleep(0)  # let waiter run until waiting point
+            waiter.cancel()
+            await pool.release(s)
+            await asyncio.wait([waiter])
+
+            assert pool._queue.qsize() == 1
 
     @pytest.mark.asyncio
     async def test_explain_with_retries(self, pool: QuerySessionPool):

@@ -27,7 +27,10 @@ from langextract import io
 from langextract import prompt_validation as pv
 from langextract import prompting
 from langextract import resolver
+from langextract.core import base_model
 from langextract.core import data
+from langextract.core import format_handler as fh
+from langextract.core import tokenizer as tokenizer_lib
 
 
 def extract(
@@ -56,7 +59,9 @@ def extract(
     fetch_urls: bool = True,
     prompt_validation_level: pv.PromptValidationLevel = pv.PromptValidationLevel.WARNING,
     prompt_validation_strict: bool = False,
-) -> typing.Any:
+    show_progress: bool = True,
+    tokenizer: tokenizer_lib.Tokenizer | None = None,
+) -> list[data.AnnotatedDocument] | data.AnnotatedDocument:
   """Extracts structured information from text.
 
   Retrieves structured information from the provided text or documents using a
@@ -70,6 +75,8 @@ def extract(
         is True), or an iterable of Document objects.
       prompt_description: Instructions for what to extract from the text.
       examples: List of ExampleData objects to guide the extraction.
+      tokenizer: Optional Tokenizer instance to use for chunking and alignment.
+        If None, defaults to RegexTokenizer.
       api_key: API key for Gemini or other LLM services (can also use
         environment variable LANGEXTRACT_API_KEY). Cost considerations: Most
         APIs charge by token volume. Smaller max_char_buffer values increase the
@@ -94,7 +101,7 @@ def extract(
         ```yaml). When True, the model is prompted to generate fenced output and
         the resolver expects it. When False, raw JSON/YAML is expected. When None,
         automatically determined based on provider schema capabilities: if a schema
-        is applied and supports_strict_mode is True, defaults to False; otherwise
+        is applied and requires_raw_output is True, defaults to False; otherwise
         True. If your model utilizes schema constraints, this can generally be set
         to False unless the constraint also accounts for code fence delimiters.
       use_schema_constraints: Whether to generate schema constraints for models.
@@ -110,12 +117,16 @@ def extract(
       resolver_params: Parameters for the `resolver.Resolver`, which parses the
         raw language model output string (e.g., extracting JSON from ```json ...
         ``` blocks) into structured `data.Extraction` objects. This dictionary
-        overrides default settings. Keys include: - 'fence_output' (bool):
-        Whether to expect fenced output. - 'extraction_index_suffix' (str |
-        None): Suffix for keys indicating extraction order. Default is None
-        (order by appearance). - 'extraction_attributes_suffix' (str | None):
-        Suffix for keys containing extraction attributes. Default is
-        "_attributes".
+        overrides default settings. Keys include: - 'extraction_index_suffix'
+        (str | None): Suffix for keys indicating extraction order. Default is
+        None (order by appearance). Additional alignment parameters can be
+        included: 'enable_fuzzy_alignment' (bool): Whether to use fuzzy matching
+        if exact matching fails. Disabling this can improve performance but may
+        reduce recall. Default is True. 'fuzzy_alignment_threshold' (float):
+        Minimum token overlap ratio for fuzzy match (0.0-1.0). Default is 0.75.
+        'accept_match_lesser' (bool): Whether to accept partial exact matches.
+        Default is True. 'suppress_parse_errors' (bool): Whether to suppress
+        parsing errors and continue pipeline. Default is False.
       language_model_params: Additional parameters for the language model.
       debug: Whether to enable debug logging. When True, enables detailed logging
         of function calls, arguments, return values, and timing for the langextract
@@ -143,6 +154,7 @@ def extract(
         raises on failures. Defaults to WARNING.
       prompt_validation_strict: When True and prompt_validation_level is ERROR,
         raises on non-exact matches (MATCH_FUZZY, MATCH_LESSER). Defaults to False.
+      show_progress: Whether to show progress bar during extraction. Defaults to True.
 
   Returns:
       An AnnotatedDocument with the extracted information when input is a
@@ -166,6 +178,7 @@ def extract(
         examples=examples,
         aligner=resolver.WordAligner(),
         policy=pv.AlignmentPolicy(),
+        tokenizer=tokenizer,
     )
     pv.handle_alignment_report(
         report,
@@ -202,7 +215,7 @@ def extract(
   )
   prompt_template.examples.extend(examples)
 
-  language_model = None
+  language_model: base_model.BaseLanguageModel | None = None
 
   if model:
     language_model = model
@@ -273,27 +286,48 @@ def extract(
         fence_output=fence_output,
     )
 
-  fence_output = language_model.requires_fence_output
+  format_handler, remaining_params = fh.FormatHandler.from_resolver_params(
+      resolver_params=resolver_params,
+      base_format_type=format_type,
+      base_use_fences=language_model.requires_fence_output,
+      base_attribute_suffix=data.ATTRIBUTE_SUFFIX,
+      base_use_wrapper=True,
+      base_wrapper_key=data.EXTRACTIONS_KEY,
+  )
 
-  resolver_defaults = {
-      "fence_output": fence_output,
-      "format_type": format_type,
-      "extraction_attributes_suffix": "_attributes",
-      "extraction_index_suffix": None,
-  }
-  resolver_defaults.update(resolver_params or {})
+  if language_model.schema is not None:
+    language_model.schema.validate_format(format_handler)
 
-  res = resolver.Resolver(**resolver_defaults)
+  # Pull alignment settings from normalized params
+  alignment_kwargs = {}
+  for key in resolver.ALIGNMENT_PARAM_KEYS:
+    val = remaining_params.pop(key, None)
+    if val is not None:
+      alignment_kwargs[key] = val
+
+  effective_params = {"format_handler": format_handler, **remaining_params}
+
+  try:
+    res = resolver.Resolver(**effective_params)
+  except TypeError as e:
+    msg = str(e)
+    if (
+        "unexpected keyword argument" in msg
+        or "got an unexpected keyword argument" in msg
+    ):
+      raise TypeError(
+          f"Unknown key in resolver_params; check spelling: {e}"
+      ) from e
+    raise
 
   annotator = annotation.Annotator(
       language_model=language_model,
       prompt_template=prompt_template,
-      format_type=format_type,
-      fence_output=fence_output,
+      format_handler=format_handler,
   )
 
   if isinstance(text_or_documents, str):
-    return annotator.annotate_text(
+    result = annotator.annotate_text(
         text=text_or_documents,
         resolver=res,
         max_char_buffer=max_char_buffer,
@@ -301,16 +335,24 @@ def extract(
         additional_context=additional_context,
         debug=debug,
         extraction_passes=extraction_passes,
+        show_progress=show_progress,
         max_workers=max_workers,
+        tokenizer=tokenizer,
+        **alignment_kwargs,
     )
+    return result
   else:
     documents = cast(Iterable[data.Document], text_or_documents)
-    return annotator.annotate_documents(
+    result = annotator.annotate_documents(
         documents=documents,
         resolver=res,
         max_char_buffer=max_char_buffer,
         batch_length=batch_length,
         debug=debug,
         extraction_passes=extraction_passes,
+        show_progress=show_progress,
         max_workers=max_workers,
+        tokenizer=tokenizer,
+        **alignment_kwargs,
     )
+    return list(result)

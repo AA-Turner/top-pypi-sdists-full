@@ -3,7 +3,7 @@ Type annotations for clouddirectory service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -170,12 +171,6 @@ from .type_defs import (
     UpgradePublishedSchemaResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -184,42 +179,42 @@ else:
 __all__ = ("CloudDirectoryClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BatchWriteException: Type[BotocoreClientError]
-    CannotListParentOfRootException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DirectoryAlreadyExistsException: Type[BotocoreClientError]
-    DirectoryDeletedException: Type[BotocoreClientError]
-    DirectoryNotDisabledException: Type[BotocoreClientError]
-    DirectoryNotEnabledException: Type[BotocoreClientError]
-    FacetAlreadyExistsException: Type[BotocoreClientError]
-    FacetInUseException: Type[BotocoreClientError]
-    FacetNotFoundException: Type[BotocoreClientError]
-    FacetValidationException: Type[BotocoreClientError]
-    IncompatibleSchemaException: Type[BotocoreClientError]
-    IndexedAttributeMissingException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidAttachmentException: Type[BotocoreClientError]
-    InvalidFacetUpdateException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidRuleException: Type[BotocoreClientError]
-    InvalidSchemaDocException: Type[BotocoreClientError]
-    InvalidTaggingRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    LinkNameAlreadyInUseException: Type[BotocoreClientError]
-    NotIndexException: Type[BotocoreClientError]
-    NotNodeException: Type[BotocoreClientError]
-    NotPolicyException: Type[BotocoreClientError]
-    ObjectAlreadyDetachedException: Type[BotocoreClientError]
-    ObjectNotDetachedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    RetryableConflictException: Type[BotocoreClientError]
-    SchemaAlreadyExistsException: Type[BotocoreClientError]
-    SchemaAlreadyPublishedException: Type[BotocoreClientError]
-    StillContainsLinksException: Type[BotocoreClientError]
-    UnsupportedIndexTypeException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BatchWriteException: type[BotocoreClientError]
+    CannotListParentOfRootException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DirectoryAlreadyExistsException: type[BotocoreClientError]
+    DirectoryDeletedException: type[BotocoreClientError]
+    DirectoryNotDisabledException: type[BotocoreClientError]
+    DirectoryNotEnabledException: type[BotocoreClientError]
+    FacetAlreadyExistsException: type[BotocoreClientError]
+    FacetInUseException: type[BotocoreClientError]
+    FacetNotFoundException: type[BotocoreClientError]
+    FacetValidationException: type[BotocoreClientError]
+    IncompatibleSchemaException: type[BotocoreClientError]
+    IndexedAttributeMissingException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidAttachmentException: type[BotocoreClientError]
+    InvalidFacetUpdateException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidRuleException: type[BotocoreClientError]
+    InvalidSchemaDocException: type[BotocoreClientError]
+    InvalidTaggingRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    LinkNameAlreadyInUseException: type[BotocoreClientError]
+    NotIndexException: type[BotocoreClientError]
+    NotNodeException: type[BotocoreClientError]
+    NotPolicyException: type[BotocoreClientError]
+    ObjectAlreadyDetachedException: type[BotocoreClientError]
+    ObjectNotDetachedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    RetryableConflictException: type[BotocoreClientError]
+    SchemaAlreadyExistsException: type[BotocoreClientError]
+    SchemaAlreadyPublishedException: type[BotocoreClientError]
+    StillContainsLinksException: type[BotocoreClientError]
+    UnsupportedIndexTypeException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class CloudDirectoryClient(AioBaseClient):
     """
@@ -258,7 +253,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def add_facet_to_object(
         self, **kwargs: Unpack[AddFacetToObjectRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a new <a>Facet</a> to an object.
 
@@ -288,7 +283,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#attach_object)
         """
 
-    async def attach_policy(self, **kwargs: Unpack[AttachPolicyRequestTypeDef]) -> Dict[str, Any]:
+    async def attach_policy(self, **kwargs: Unpack[AttachPolicyRequestTypeDef]) -> dict[str, Any]:
         """
         Attaches a policy object to a regular object.
 
@@ -346,7 +341,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#create_directory)
         """
 
-    async def create_facet(self, **kwargs: Unpack[CreateFacetRequestTypeDef]) -> Dict[str, Any]:
+    async def create_facet(self, **kwargs: Unpack[CreateFacetRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new <a>Facet</a> in a schema.
 
@@ -386,7 +381,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def create_typed_link_facet(
         self, **kwargs: Unpack[CreateTypedLinkFacetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a <a>TypedLinkFacet</a>.
 
@@ -404,7 +399,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#delete_directory)
         """
 
-    async def delete_facet(self, **kwargs: Unpack[DeleteFacetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_facet(self, **kwargs: Unpack[DeleteFacetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a given <a>Facet</a>.
 
@@ -412,7 +407,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#delete_facet)
         """
 
-    async def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an object and its associated attributes.
 
@@ -432,7 +427,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def delete_typed_link_facet(
         self, **kwargs: Unpack[DeleteTypedLinkFacetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <a>TypedLinkFacet</a>.
 
@@ -460,7 +455,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#detach_object)
         """
 
-    async def detach_policy(self, **kwargs: Unpack[DetachPolicyRequestTypeDef]) -> Dict[str, Any]:
+    async def detach_policy(self, **kwargs: Unpack[DetachPolicyRequestTypeDef]) -> dict[str, Any]:
         """
         Detaches a policy from an object.
 
@@ -819,7 +814,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def remove_facet_from_object(
         self, **kwargs: Unpack[RemoveFacetFromObjectRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified facet from the specified object.
 
@@ -827,7 +822,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#remove_facet_from_object)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for adding tags to a resource.
 
@@ -835,7 +830,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for removing tags from a resource.
 
@@ -843,7 +838,7 @@ class CloudDirectoryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_clouddirectory/client/#untag_resource)
         """
 
-    async def update_facet(self, **kwargs: Unpack[UpdateFacetRequestTypeDef]) -> Dict[str, Any]:
+    async def update_facet(self, **kwargs: Unpack[UpdateFacetRequestTypeDef]) -> dict[str, Any]:
         """
         Does the following:.
 
@@ -853,7 +848,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def update_link_attributes(
         self, **kwargs: Unpack[UpdateLinkAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a given typed link's attributes.
 
@@ -883,7 +878,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def update_typed_link_facet(
         self, **kwargs: Unpack[UpdateTypedLinkFacetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a <a>TypedLinkFacet</a>.
 
@@ -1130,7 +1125,7 @@ class CloudDirectoryClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

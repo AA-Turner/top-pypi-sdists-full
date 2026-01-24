@@ -5,13 +5,15 @@ import pytest
 
 from snowflake.core import PollingOperation, Root
 from snowflake.core.user_defined_function import (
+    ColumnType,
     ReturnDataType,
+    ReturnTable,
     SQLFunction,
     UserDefinedFunction,
     UserDefinedFunctionResource,
 )
 
-from ...utils import BASE_URL, extra_params, mock_http_response
+from ...utils import BASE_URL, extra_params, mock_http_response, random_string
 
 
 API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
@@ -151,3 +153,26 @@ def test_rename_user_defined_function(fake_root, user_defined_function, user_def
         op.result()
         assert udf_res2.name_with_args == "new_udf()"
     mocked_request.assert_called_once_with(*format_args("my_udf2()"), **kwargs)
+
+
+def test_execute_udf_table_raises_not_implemented_error(fake_root, user_defined_functions):
+    udf_name = random_string(10, "test_create_user_defined_function_sql_")
+    func_body = """
+        SELECT 1, 2
+        UNION ALL
+        SELECT 3, 4
+    """
+    model = UserDefinedFunction(
+        name=udf_name,
+        arguments=[],
+        return_type=ReturnTable(
+            column_list=[ColumnType(name="x", datatype="INTEGER"), ColumnType(name="y", datatype="INTEGER")]
+        ),
+        language_config=SQLFunction(),
+        body=func_body,
+    )
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        udf_handle = user_defined_functions.create(model)
+        mocked_request.return_value = mock_http_response(model.to_json())
+        with pytest.raises(NotImplementedError):
+            udf_handle.execute([])

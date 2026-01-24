@@ -278,7 +278,7 @@ install_requires = [
 
 setup(
     name='gssapi',
-    version='1.10.0',
+    version='1.10.1',
     author='The Python GSSAPI Team',
     author_email='jborean93@gmail.com',
     packages=['gssapi', 'gssapi.raw', 'gssapi.raw._enum_extensions',
@@ -289,7 +289,9 @@ setup(
     },
     description='Python GSSAPI Wrapper',
     long_description=long_desc,
-    license='LICENSE.txt',
+    long_description_content_type='text/x-rst',
+    license='ISC',
+    license_files=['LICENSE.txt'],
     url="https://github.com/pythongssapi/python-gssapi",
     python_requires=">=3.9",
     classifiers=[

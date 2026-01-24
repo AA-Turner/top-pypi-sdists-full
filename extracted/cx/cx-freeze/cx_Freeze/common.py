@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import importlib.resources as importlib_resources
-from contextlib import suppress
 from pathlib import Path, PurePath
-from textwrap import dedent
-from types import CodeType
 from typing import TYPE_CHECKING
 
 from cx_Freeze.exception import OptionError
@@ -16,16 +13,12 @@ if TYPE_CHECKING:
 
 
 def resource_path(name: str | Path) -> Path | None:
-    """Return the path to a resource file shipped with cx_Freeze.
+    """Return the path to a resource file shipped with freeze-core.
 
     This is used to find our base executables and initscripts when they are
     just specified by name.
     """
-    resource = importlib_resources.files(__package__) / name
-    if resource.exists():
-        return resource
-    # Support for name argument in the old Camelcase value
-    resource = resource.parent / resource.name.lower()
+    resource = importlib_resources.files("freeze_core") / name
     if resource.exists():
         return resource
     return None
@@ -76,40 +69,3 @@ def process_path_specs(specs: IncludesList | None) -> InternalIncludesList:
             raise OptionError(msg)
         processed_specs.append((source, target))
     return processed_specs
-
-
-def code_object_replace(code: CodeType, **kwargs) -> CodeType:
-    """Return a copy of the code object with new values for the specified
-    fields.
-    """
-    with suppress(ValueError, KeyError):
-        kwargs["co_consts"] = tuple(kwargs["co_consts"])
-    return code.replace(**kwargs)
-
-
-def code_object_replace_function(
-    code: CodeType, name: str, source: str
-) -> CodeType:
-    """Return a copy of the code object with the function 'name' replaced."""
-    if code is None:
-        return code
-
-    new_code = compile(
-        dedent(source), code.co_filename, "exec", dont_inherit=True
-    )
-    new_co_func = None
-    for constant in new_code.co_consts:
-        if isinstance(constant, CodeType) and constant.co_name == name:
-            new_co_func = constant
-            break
-    if new_co_func is None:
-        return code
-
-    consts = list(code.co_consts)
-    for i, constant in enumerate(consts):
-        if isinstance(constant, CodeType) and constant.co_name == name:
-            consts[i] = code_object_replace(
-                new_co_func, co_firstlineno=constant.co_firstlineno
-            )
-            break
-    return code_object_replace(code, co_consts=consts)

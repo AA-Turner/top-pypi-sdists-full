@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import gzip
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any
 
 from httpx import (
     AsyncClient,
@@ -20,21 +21,25 @@ from meilisearch_python_sdk.errors import (
     MeilisearchCommunicationError,
     MeilisearchError,
 )
-from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler, UjsonHandler
+from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
 
 
 class AsyncHttpRequests:
     def __init__(
-        self, http_client: AsyncClient, json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler
+        self, http_client: AsyncClient, json_handler: BuiltinHandler | OrjsonHandler
     ) -> None:
         self.http_client = http_client
         self.json_handler = json_handler
+
+    def parse_json(self, response: Response) -> Any:  # noqa: ANN401
+        """Parse JSON response using the custom json_handler."""
+        return self.json_handler.loads(response.content)
 
     async def _send_request(
         self,
         http_method: Callable,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -48,11 +53,19 @@ class AsyncHttpRequests:
                     path, content=self.json_handler.dumps(body), headers=headers
                 )
             else:
-                if body and compress:
+                if compress:
                     if content_type == "application/json":
-                        body = gzip.compress(self.json_handler.dumps(body).encode("utf-8"))
+                        body = gzip.compress(self.json_handler.dump_bytes(body))
                     else:
-                        body = gzip.compress((body).encode("utf-8"))
+                        if isinstance(body, bytes):
+                            data = body
+                        elif isinstance(body, bytearray):
+                            data = bytes(body)
+                        else:
+                            data = body.encode("utf-8")
+
+                        body = gzip.compress(data)
+
                 response = await http_method(path, content=body, headers=headers)
 
             response.raise_for_status()
@@ -76,7 +89,7 @@ class AsyncHttpRequests:
     async def patch(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -85,7 +98,7 @@ class AsyncHttpRequests:
     async def post(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -94,7 +107,7 @@ class AsyncHttpRequests:
     async def put(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -105,17 +118,19 @@ class AsyncHttpRequests:
 
 
 class HttpRequests:
-    def __init__(
-        self, http_client: Client, json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler
-    ) -> None:
+    def __init__(self, http_client: Client, json_handler: BuiltinHandler | OrjsonHandler) -> None:
         self.http_client = http_client
         self.json_handler = json_handler
+
+    def parse_json(self, response: Response) -> Any:  # noqa: ANN401
+        """Parse JSON response using the custom json_handler."""
+        return self.json_handler.loads(response.content)
 
     def _send_request(
         self,
         http_method: Callable,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -126,11 +141,19 @@ class HttpRequests:
             elif content_type == "application/json" and not compress:
                 response = http_method(path, content=self.json_handler.dumps(body), headers=headers)
             else:
-                if body and compress:
+                if compress:
                     if content_type == "application/json":
-                        body = gzip.compress(self.json_handler.dumps(body).encode("utf-8"))
+                        body = gzip.compress(self.json_handler.dump_bytes(body))
                     else:
-                        body = gzip.compress((body).encode("utf-8"))
+                        if isinstance(body, bytes):
+                            data = body
+                        elif isinstance(body, bytearray):
+                            data = bytes(body)
+                        else:
+                            data = body.encode("utf-8")
+
+                        body = gzip.compress(data)
+
                 response = http_method(path, content=body, headers=headers)
 
             response.raise_for_status()
@@ -154,7 +177,7 @@ class HttpRequests:
     def patch(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -163,7 +186,7 @@ class HttpRequests:
     def post(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:
@@ -172,7 +195,7 @@ class HttpRequests:
     def put(
         self,
         path: str,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         content_type: str = "application/json",
         compress: bool = False,
     ) -> Response:

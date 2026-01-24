@@ -27,7 +27,6 @@ Example::
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 from typing_extensions import deprecated
@@ -35,6 +34,8 @@ from typing_extensions import deprecated
 from tcod.cffi import ffi, lib
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import tcod.random
 
 
@@ -125,7 +126,11 @@ class BSP:
         self.children[1].parent = self
         self.children[1]._unpack_bsp_tree(lib.TCOD_bsp_right(cdata))
 
-    def split_once(self, horizontal: bool, position: int) -> None:
+    def split_once(
+        self,
+        horizontal: bool,  # noqa: FBT001
+        position: int,
+    ) -> None:
         """Split this partition into 2 sub-partitions.
 
         Args:
@@ -148,20 +153,17 @@ class BSP:
         """Divide this partition recursively.
 
         Args:
-            depth (int): The maximum depth to divide this object recursively.
-            min_width (int): The minimum width of any individual partition.
-            min_height (int): The minimum height of any individual partition.
-            max_horizontal_ratio (float):
-                Prevent creating a horizontal ratio more extreme than this.
-            max_vertical_ratio (float):
-                Prevent creating a vertical ratio more extreme than this.
-            seed (Optional[tcod.random.Random]):
-                The random number generator to use.
+            depth: The maximum depth to divide this object recursively.
+            min_width: The minimum width of any individual partition.
+            min_height: The minimum height of any individual partition.
+            max_horizontal_ratio: Prevent creating a horizontal ratio more extreme than this.
+            max_vertical_ratio: Prevent creating a vertical ratio more extreme than this.
+            seed: The random number generator to use.
         """
         cdata = self._as_cdata()
         lib.TCOD_bsp_split_recursive(
             cdata,
-            seed or ffi.NULL,
+            seed.random_c if seed is not None else ffi.NULL,
             depth,
             min_width,
             min_height,
@@ -214,13 +216,13 @@ class BSP:
 
         .. versionadded:: 8.3
         """
-        next = [self]
-        while next:
-            level = next
-            next = []
+        next_ = [self]
+        while next_:
+            level = next_
+            next_ = []
             yield from level
             for node in level:
-                next.extend(node.children)
+                next_.extend(node.children)
 
     def inverted_level_order(self) -> Iterator[BSP]:
         """Iterate over this BSP's hierarchy in inverse level order.

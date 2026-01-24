@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=72", "wheel", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jsontas"
+description = "JSONTas is a tool for generating dynamic JSON structures."
+authors = [
+    {name = "Tobias Persson", email = "tobias.persson@axis.com"}
+]
+license = "Apache-2.0"
+readme = "README.rst"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+    "requests"
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/AxisCommunications/jsontas/"
+Documentation = "https://jsontas.readthedocs.io/"
+
+[project.optional-dependencies]
+testing = [
+    "pytest",
+    "pytest-cov"
+]
+
+[project.scripts]
+jsontas = "jsontas.__main__:run"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=jsontas",
+    "--cov-report=term-missing",
+    "--verbose"
+]
+norecursedirs = [
+    "dist",
+    "build",
+    ".tox"
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["jsontas"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:"
+]
+
+[tool.flake8]
+exclude = [
+    ".tox",
+    "build",
+    "dist",
+    ".eggs",
+    "docs/conf.py"
+]
+
+[tool.pycodestyle]
+max-line-length = 100
+ignore = ["E722"]
+
+[tool.build_sphinx]
+source-dir = "docs"
+build-dir = "build/sphinx"
+
+[tool.bdist_wheel]
+universal = true
+
+[tool.setuptools_scm]
+root = "."

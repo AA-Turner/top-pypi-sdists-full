@@ -1,4 +1,3 @@
-
 # Copyright (c) [2025] [OpenAI]
 # Copyright (c) [2025] [ByteDance Ltd. and/or its affiliates.]
 # SPDX-License-Identifier: Apache-2.0
@@ -26,6 +25,9 @@ class Content(BaseModel):
 
     last_frame_url: str
     """The URL of the last frame of the generated video, if any."""
+
+    file_url: str
+    """The URL of the generated file, if any."""
 
 
 class ContentGenerationError(BaseModel):
@@ -55,6 +57,18 @@ class ContentGenerationTask(BaseModel):
     usage: Usage
     """The usage information for the task."""
 
+    subdivisionlevel: str
+    """The subdivision level of the task."""
+
+    fileformat: str
+    """The file format of the generated content."""
+
+    frames: int
+    """The number of frames in the generated content."""
+
+    framespersecond: int
+    """The number of frames per second in the generated content."""
+
     created_at: int
     """The Unix timestamp when the task was created."""
 
@@ -66,3 +80,27 @@ class ContentGenerationTask(BaseModel):
 
     revised_prompt: str
     """The revised prompt the model uses to generate content"""
+
+    service_tier: str
+    """The service tier used to run the task (optional)."""
+
+    execution_expires_after: int
+    """The expiration time in seconds after which execution should end (optional)."""
+
+    generate_audio: bool
+    """Whether to generate audio."""
+
+    duration: int
+    """The duration of the generated content in seconds."""
+
+    ratio: str
+    """The aspect ratio of the generated content."""
+
+    resolution: str
+    """The resolution of the generated content."""
+
+    draft: bool
+    """Whether to generate a draft version of the content."""
+
+    draft_task_id: str
+    """The ID of the draft task, if applicable."""

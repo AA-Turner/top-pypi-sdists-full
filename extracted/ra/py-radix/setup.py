@@ -4,8 +4,13 @@ import codecs
 import sys
 import os
 
+from datetime import datetime, timezone
 from setuptools import setup, find_packages, Extension
+from subprocess import Popen, PIPE
 from os.path import abspath, dirname, join
+
+# specify the version
+version = 'v1.1.0'
 
 here = abspath(dirname(__file__))
 
@@ -26,15 +31,24 @@ if not IS_PYPY and not RADIX_NO_EXT:
                       include_dirs=[join(here, 'radix')])
     extra_kwargs['ext_modules'] = [radix]
 
+# if we're not building in a v-tag == version + the version
+if os.environ.get('VERSION') != version:
+    try:
+        process = Popen(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            shell=False,
+            stdout=PIPE
+        )
+        rev = process.communicate()[0].decode('utf8').strip()
+    except Exception:
+        rev = 'unknown'
+    version = f'{version}+dev-{version}'
 
 tests_require = ['nose', 'coverage']
-if sys.version_info < (2, 7):
-    tests_require.append('unittest2')
-
 
 setup(
     name='py-radix',
-    version='0.10.0',
+    version=version,
     maintainer='Michael J. Schultz',
     maintainer_email='mjschultz@gmail.com',
     url='https://github.com/mjschultz/py-radix',
@@ -47,12 +61,12 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: System :: Networking',
         'License :: OSI Approved :: BSD License',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
     tests_require=tests_require,
     packages=find_packages(exclude=['tests', 'tests.*']),

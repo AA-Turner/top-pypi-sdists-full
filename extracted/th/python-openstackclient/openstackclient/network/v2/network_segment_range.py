@@ -20,10 +20,10 @@ import itertools
 import logging
 import typing as ty
 
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -315,25 +315,32 @@ class ListNetworkSegmentRange(command.Lister):
         used_group.add_argument(
             '--used',
             action='store_true',
-            help=_('List network segment ranges that have segments in use'),
+            help=_(
+                'List only network segment ranges that have segments in use'
+            ),
         )
         used_group.add_argument(
             '--unused',
             action='store_true',
             help=_(
-                'List network segment ranges that have segments not in use'
+                'List only network segment ranges that have segments '
+                'not in use'
             ),
         )
         available_group = parser.add_mutually_exclusive_group()
         available_group.add_argument(
             '--available',
             action='store_true',
-            help=_('List network segment ranges that have available segments'),
+            help=_(
+                'List only network segment ranges that have available segments'
+            ),
         )
         available_group.add_argument(
             '--unavailable',
             action='store_true',
-            help=_('List network segment ranges without available segments'),
+            help=_(
+                'List only network segment ranges without available segments'
+            ),
         )
         return parser
 
@@ -395,7 +402,7 @@ class ListNetworkSegmentRange(command.Lister):
                 'available',
             )
 
-        display_props: tuple[str, ...] = tuple()
+        display_props: tuple[ty.Any, ...] = tuple()
         for s in data:
             props = utils.get_item_properties(s, columns)
             if (

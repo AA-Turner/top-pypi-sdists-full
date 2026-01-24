@@ -1,31 +1,30 @@
 Metadata-Version: 2.4
 Name: particle
-Version: 0.25.4
+Version: 0.26.1
 Summary: Extended PDG particle data and MC identification codes
 Project-URL: Homepage, https://github.com/scikit-hep/particle
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>, Henry Schreiner <henryfs@princeton.edu>
 Maintainer-email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: HEP,MC identification codes,PDG,PDGID,particle,particle data table,particle properties
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
-Requires-Dist: attrs>=19.2
-Requires-Dist: hepunits>=2.0.0
-Requires-Dist: importlib-resources>=2.0; python_version < '3.9'
+Requires-Python: >=3.9
+Requires-Dist: attrs>=22.2.0
+Requires-Dist: hepunits>=2.4.0
 Requires-Dist: typing-extensions>=4.5; python_version < '3.13'
 Provides-Extra: all
 Requires-Dist: pandas; extra == 'all'
@@ -58,7 +57,7 @@ Description-Content-Type: text/markdown
 [![Zenodo DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2552429.svg)](https://doi.org/10.5281/zenodo.2552429)
 
 [![GitHub Actions Status: CI](https://github.com/scikit-hep/particle/workflows/CI/badge.svg)](https://github.com/scikit-hep/particle/actions)
-[![Code Coverage](https://codecov.io/gh/scikit-hep/particle/graph/badge.svg?branch=main)](https://codecov.io/gh/scikit-hep/particle?branch=main)
+[![Code Coverage](https://codecov.io/gh/scikit-hep/particle/branch/main/graph/badge.svg)](https://app.codecov.io/gh/scikit-hep/particle/tree/main)
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/scikit-hep/particle/main?urlpath=lab/tree/notebooks/ParticleDemo.ipynb)
 
@@ -86,8 +85,7 @@ or similar (use `--user`, `virtualenv`, etc. if you wish).
 
 ## Strict dependencies
 
-- [Python](http://docs.python-guide.org/en/latest/starting/installation/) (3.8+)
-- [importlib_resources backport](http://importlib-resources.readthedocs.io/en/latest/) if using Python < 3.9
+- [Python](http://docs.python-guide.org/en/latest/starting/installation/) (3.9)
 - [attrs](http://www.attrs.org/en/stable/) provides classes without boilerplate (similar to DataClasses in Python 3.7)
 - [hepunits](https://github.com/scikit-hep/hepunits)\_ provides units for the Scikit-HEP packages
 
@@ -260,7 +258,7 @@ with easily recognisable names. For example:
 >>>
 >>> from particle.literals import Lambda_b_0
 >>> Lambda_b_0
-<Particle: name="Lambda(b)0", pdgid=5122, mass=5619.60 ± 0.17 MeV>
+<Particle: name="Lambda(b)0", pdgid=5122, mass=5619.57 ± 0.16 MeV>
 >>> Lambda_b_0.J
 0.5
 ```
@@ -306,7 +304,7 @@ If you want a non-default data file distributed with the package just proceed as
 
 ```python
 >>> from particle import data
->>> Particle.load_table(data.basepath / "particle2024.csv"))
+>>> Particle.load_table(data.basepath / "particle2025.csv"))
 >>> Particle.load_table(data.basepath / "nuclei2022.csv"), append=True)  # I still want nuclei info
 >>> Particle.table_names()  # list the loaded tables
 ```
@@ -485,6 +483,7 @@ similarly to what is available in the standard (i.e. non-experiment-specific) co
 ## Contributors
 
 We hereby acknowledge the contributors that made this project possible ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->

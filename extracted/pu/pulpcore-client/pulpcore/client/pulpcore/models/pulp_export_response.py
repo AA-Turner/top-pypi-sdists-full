@@ -36,7 +36,7 @@ class PulpExportResponse(BaseModel):
     exported_resources: Optional[List[StrictStr]] = Field(default=None, description="Resources that were exported.")
     params: Optional[Dict[str, Any]] = Field(default=None, description="Any additional parameters that were used to create the export.")
     output_file_info: Optional[Dict[str, Any]] = Field(default=None, description="Dictionary of filename: sha256hash entries for export-output-file(s)")
-    toc_info: Optional[Dict[str, Any]] = Field(default=None, description="Filename and sha256-checksum of table-of-contents for this export")
+    toc_info: Optional[Dict[str, Any]] = Field(default=None, description="Filename, sha256-checksum and meta of table-of-contents for this export")
     __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "task", "exported_resources", "params", "output_file_info", "toc_info"]
 
     model_config = ConfigDict(

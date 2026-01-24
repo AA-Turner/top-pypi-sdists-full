@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spotdl
-Version: 4.4.2
+Version: 4.4.3
 Summary: Download your Spotify playlists and songs along with album art and metadata
 Project-URL: Homepage, https://github.com/spotDL/spotify-downloader/
 Project-URL: Repository, https://github.com/spotDL/spotify-downloader.git
@@ -39,7 +39,7 @@ Requires-Dist: spotipy<3,>=2.24.0
 Requires-Dist: syncedlyrics<2,>=1.0.1
 Requires-Dist: uvicorn<0.24,>=0.23.2
 Requires-Dist: websockets~=14.1
-Requires-Dist: yt-dlp<2026,>=2025.08.27
+Requires-Dist: yt-dlp<2027,>=2025.09.26
 Requires-Dist: ytmusicapi<2,>=1.11.1
 Description-Content-Type: text/markdown
 
@@ -162,9 +162,9 @@ For a list of all **options** use ```spotdl -h```
     - Usage:
         `spotdl save [query] --save-file {filename}.spotdl`
 
-- `web`: Starts a web interface instead of using the command line. However, it has limited features and only supports downloading single songs.
+- `web`: Starts a web interface instead of using the command line. However, it has limited features and only supports downloading individual songs.
 
-- `url`: Get direct download link for each song from the query.
+- `url`: Get user-friendly URL for each song from the query.
     - Usage:
         `spotdl url [query]`
 
@@ -173,7 +173,7 @@ For a list of all **options** use ```spotdl -h```
     - Usage:
         `spotdl sync [query] --save-file {filename}.spotdl`
 
-        This create a new **sync** file, to update the directory in the future, use:
+        This creates a new **sync** file. To update the directory in the future, use:
 
         `spotdl sync {filename}.spotdl`
 

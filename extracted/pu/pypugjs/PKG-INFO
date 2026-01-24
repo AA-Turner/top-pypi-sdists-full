@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pypugjs
-Version: 5.12.0
+Version: 6.0.1
 Summary: PugJS syntax template adapter for Django, Jinja2, Mako and Tornado templates
 Home-page: https://github.com/kakulukia/pypugjs
-Download-URL: https://github.com/kakulukia/pypugjs/tarball/5.12.0
+Download-URL: https://github.com/kakulukia/pypugjs/tarball/6.0.1
 Author: Andy Grabow
 Author-email: andy@freilandkiwis.de
 License: MIT
@@ -15,22 +15,30 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 1.11
-Classifier: Framework :: Django :: 2.0
 Classifier: Framework :: Django :: 3.0
 Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 5.0
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Requires-Dist: six
 Requires-Dist: charset_normalizer
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 PyPugJS |PyPiPackage| |BuildStatus| |Coverage|
 ===================================================

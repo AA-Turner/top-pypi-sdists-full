@@ -1095,6 +1095,17 @@ def mock_fx_forecast(_cls, _q, ignore_errors=False):
     return df
 
 
+def mock_fx_forecast_time_series(_cls, _q, ignore_errors=False):
+    d = {
+        'relativePeriod': ['3m', '6m', 'EOY1', 'EOY2'],
+        'fxForecast': [1.18, 1.20, 1.25, 1.23]
+    }
+    df = MarketDataResponseFrame(data=d, index=pd.to_datetime([dt.date(2027, 1, 1), dt.date(2028, 1, 1),
+                                                               dt.date(2029, 1, 1), dt.date(2030, 1, 1)]))
+    df.dataset_ids = _test_datasets
+    return df
+
+
 def mock_fx_delta(_cls, _q, ignore_errors=False):
     d = {
         'relativeStrike': [25, -25, 0],
@@ -1330,6 +1341,18 @@ def mock_commodity_forecast(_cls, _q, ignore_errors=False):
     }
     df = MarketDataResponseFrame(data=d, index=pd.to_datetime([dt.date(2020, 8, 13), dt.date(2020, 8, 14),
                                                                dt.date(2020, 8, 17), dt.date(2020, 8, 18)]))
+    df.dataset_ids = _test_datasets
+    return df
+
+
+def mock_commodity_forecast_time_series(_cls, _q, ignore_errors=False):
+    d = {
+        'forecastFrequency': ['Annual', 'Monthly', 'Quarterly', '3/6/12-Month Rolling'],
+        'forecastType': ['spot', 'spot', 'spot', 'spot'],
+        'commodityForecast': [56, 63, 77.75, 80]
+    }
+    df = MarketDataResponseFrame(data=d, index=pd.to_datetime([dt.date(2027, 1, 1), dt.date(2027, 1, 1),
+                                                               dt.date(2028, 1, 1), dt.date(2029, 1, 1)]))
     df.dataset_ids = _test_datasets
     return df
 
@@ -1585,6 +1608,29 @@ def test_fx_forecast_inverse():
     assert_series_equal(pd.Series([1 / 1.1, 1 / 1.1, 1 / 1.1], index=_index * 3, name='fxForecast'),
                         pd.Series(actual))
     assert actual.dataset_ids == _test_datasets
+    replace.restore()
+
+
+def test_fx_forecast_time_series():
+    replace = Replacer()
+    mock = Cross('MAA0NE9QX2ABETG6', 'USD/EUR')
+    xrefs = replace('gs_quant.timeseries.measures.GsAssetApi.get_asset_xrefs', Mock())
+    xrefs.return_value = [GsTemporalXRef(dt.date(2019, 1, 1), dt.date(2952, 12, 31), XRef(bbid='EURUSD', ))]
+    replace('gs_quant.markets.securities.SecurityMaster.get_asset', Mock()).return_value = mock
+    replace('gs_quant.timeseries.measures.GsDataApi.get_market_data', mock_fx_forecast_time_series)
+
+    with pytest.raises(ValueError):
+        tm.fx_forecast_time_series(100, tm._FxForecastTimeSeriesPeriodType.ANNUAL.value)
+    actual = tm.fx_forecast_time_series('MATGYV0J9MPX534Z', tm._FxForecastTimeSeriesPeriodType.ANNUAL.value)
+    assert not pd.Series(actual).empty
+    actual = tm.fx_forecast_time_series(mock, tm._FxForecastTimeSeriesPeriodType.SHORT_TERM.value)
+    assert not pd.Series(actual).empty
+    actual = tm.fx_forecast_time_series(mock, tm._FxForecastTimeSeriesPeriodType.ANNUAL.value)
+    assert not pd.Series(actual).empty
+    actual = tm.fx_forecast_time_series(mock, 'Annual')
+    assert not pd.Series(actual).empty
+    with pytest.raises(NotImplementedError):
+        tm.fx_forecast_time_series(mock, tm._FxForecastTimeSeriesPeriodType.SHORT_TERM.value, real_time=True)
     replace.restore()
 
 
@@ -5071,48 +5117,59 @@ def test_commodity_forecast():
     replace.restore()
 
 
-def test_spot_carry():
+def test_commodity_forecast_time_series():
+    # import sys
+    # sys.path.append(r'Z:\\My Documents\\Gitlab\\gs_quant\\gs_quant\\timeseries')
+    # import measures as tm
+
+    mock_brent = Index('MA8MBQN6VHKZMW92', 'CO', 'Brent')
     replace = Replacer()
-    mock = Cross('MAA0NE9QX2ABETG6', 'USD/EUR')
-    assets = replace('gs_quant.timeseries.measures.cross_stored_direction_for_fx_vol', Mock())
-    assets.return_value = mock.get_marquee_id()
-    df = pd.DataFrame({
-        '3m': [-0.001978858350951374, -0.0019735843327766817, -0.00198293829264794],
-        '2y': [-0.016989429175475686, -0.016994753976688093, -0.017416104834150414],
-        '3m_ann': [-0.007660096842392416, -0.007400941247912555, -0.0075142924774027195],
-        'date': [pd.Timestamp('2020-09-02'), pd.Timestamp('2020-09-03'), pd.Timestamp('2020-09-04')],
-        'settlementDate': [pd.Timestamp('2020-12-04'), pd.Timestamp('2020-12-08'), pd.Timestamp('2020-12-08')]
-    })
-    df = df.set_index('date')
+    replace('gs_quant.timeseries.measures.GsDataApi.get_market_data', mock_commodity_forecast_time_series)
 
-    with DataContext(dt.date(2020, 9, 2), dt.date(2020, 9, 4)):
-        # tenors in terms of months
-        replace('gs_quant.data.dataset.Dataset.get_data', mock_fx_spot_fwd_3m)
-        actual_3m = tm.spot_carry(mock, '3m')
-        assert_series_equal(df['3m'], pd.Series(actual_3m, name='3m'))
+    with pytest.raises(ValueError):
+        tm.commodity_forecast_time_series(
+            100,
+            forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.ANNUAL,
+            forecastType=tm._CommodityForecastType.SPOT
+        )
 
-        # annualized
-        actual_3m_ann = tm.spot_carry(mock, '3m', tm.FXSpotCarry.ANNUALIZED)
-        assert_series_equal(df['3m_ann'], pd.Series(actual_3m_ann, name='3m_ann'))
-
-        with pytest.raises(MqError):
-            tm.spot_carry(mock, '13m')
-
-        # tenors in terms of years
-        replace('gs_quant.data.dataset.Dataset.get_data', mock_fx_spot_fwd_2y)
-        actual_2y = tm.spot_carry(mock, '2y')
-        assert_series_equal(df['2y'], pd.Series(actual_2y, name='2y'))
-
-    with DataContext(pd.Timestamp('2020-09-02'), pd.Timestamp('2020-09-04')):
-        df.index.names = ['time']
-
-        replace('gs_quant.data.dataset.Dataset.get_data', mock_fx_spot_fwd_3m_rt)
-        actual_3m = tm.spot_carry(mock, '3m', real_time=True)
-        assert_series_equal(df['3m'], pd.Series(actual_3m, name='3m'))
-
-        replace('gs_quant.data.dataset.Dataset.get_data', mock_fx_spot_fwd_2y_rt)
-        actual_2y = tm.spot_carry(mock, '2y', real_time=True)
-        assert_series_equal(df['2y'], pd.Series(actual_2y, name='2y'))
+    actual = tm.commodity_forecast_time_series(
+        'MA8MBQN6VHKZMW92',
+        forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.ANNUAL.value,
+        forecastType=tm._CommodityForecastType.SPOT
+    )
+    assert not pd.Series(actual).empty
+    actual = tm.commodity_forecast_time_series(
+        mock_brent,
+        forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.QUARTERLY.value,
+        forecastType=tm._CommodityForecastType.SPOT
+    )
+    assert not pd.Series(actual).empty
+    actual = tm.commodity_forecast_time_series(
+        mock_brent,
+        forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.MONTHLY.value,
+        forecastType=tm._CommodityForecastType.SPOT
+    )
+    assert not pd.Series(actual).empty
+    actual = tm.commodity_forecast_time_series(
+        mock_brent,
+        forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.SHORT_TERM.value,
+        forecastType=tm._CommodityForecastType.SPOT
+    )
+    assert not pd.Series(actual).empty
+    with pytest.raises(ValueError):
+        tm.commodity_forecast_time_series(
+            mock_brent,
+            forecastFrequency='Annually',
+            forecastType=tm._CommodityForecastType.SPOT
+        )
+    with pytest.raises(NotImplementedError):
+        tm.commodity_forecast_time_series(
+            mock_brent,
+            forecastFrequency=tm._CommodityForecastTimeSeriesPeriodType.ANNUAL,
+            forecastType=tm._CommodityForecastType.SPOT,
+            real_time=True
+        )
 
     replace.restore()
 

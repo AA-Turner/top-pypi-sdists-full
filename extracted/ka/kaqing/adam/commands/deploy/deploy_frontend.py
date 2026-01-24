@@ -26,27 +26,24 @@ class DeployFrontend(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            log2('This will support c3/c3 only for demo.')
+
+            pod_name = Config().get('pod.name', 'ops')
+            label_selector = Config().get('pod.label-selector', 'run=ops')
+            try:
+                uri = deploy_frontend(pod_name, state.namespace, label_selector)
+                log2(f'Ops pod is available at {uri}.')
+            except Exception as e:
+                if e.status == 409:
+                    log2(f"Error: '{pod_name}' already exists in namespace '{state.namespace}'.")
+                else:
+                    log2(f"Error creating ingress or service: {e}")
+
             return state
-
-        log2('This will support c3/c3 only for demo.')
-
-        pod_name = Config().get('pod.name', 'ops')
-        label_selector = Config().get('pod.label-selector', 'run=ops')
-        try:
-            uri = deploy_frontend(pod_name, state.namespace, label_selector)
-            log2(f'Ops pod is available at {uri}.')
-        except Exception as e:
-            if e.status == 409:
-                log2(f"Error: '{pod_name}' already exists in namespace '{state.namespace}'.")
-            else:
-                log2(f"Error creating ingress or service: {e}")
-
-        return state
 
     def completion(self, state: ReplState):
         return super().completion(state)
 
-    def help(self, _: ReplState):
-        return f'{DeployFrontend.COMMAND}\t deploy Web frontend'
+    def help(self, state: ReplState):
+        return super().help(state, 'deploy Web frontend')

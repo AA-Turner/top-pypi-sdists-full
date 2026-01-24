@@ -14,6 +14,7 @@ from inspect_ai._util._async import is_callable_coroutine
 from inspect_ai.agent._agent import Agent, AgentState, agent
 from inspect_ai.agent._bridge.types import AgentBridge
 from inspect_ai.log._samples import sample_active
+from inspect_ai.model._compaction.types import CompactionStrategy
 from inspect_ai.model._model import GenerateFilter, get_model
 from inspect_ai.model._model_output import ModelOutput
 from inspect_ai.model._openai_convert import (
@@ -24,6 +25,7 @@ from inspect_ai.model._providers.providers import (
     validate_anthropic_client,
     validate_openai_client,
 )
+from inspect_ai.tool._tools._code_execution import CodeExecutionProviders
 from inspect_ai.tool._tools._web_search._web_search import (
     WebSearchProviders,
 )
@@ -32,6 +34,7 @@ from .anthropic_api import inspect_anthropic_api_request
 from .completions import inspect_completions_api_request
 from .responses import inspect_responses_api_request
 from .util import (
+    default_code_execution_providers,
     internal_web_search_providers,
     resolve_web_search_providers,
 )
@@ -43,7 +46,9 @@ async def agent_bridge(
     *,
     filter: GenerateFilter | None = None,
     retry_refusals: int | None = None,
+    compaction: CompactionStrategy | None = None,
     web_search: WebSearchProviders | None = None,
+    code_execution: CodeExecutionProviders | None = None,
 ) -> AsyncGenerator[AgentBridge, None]:
     """Agent bridge.
 
@@ -61,28 +66,42 @@ async def agent_bridge(
           an updated state based on traffic over the bridge.
        filter: Filter for bridge model generation.
        retry_refusals: Should refusals be retried? (pass number of times to retry)
+       compaction: Compact the conversation when it it is close to overflowing
+          the model's context window. See [Compaction](https://inspect.aisi.org.uk/compaction.html) for details on compaction strategies.
        web_search: Configuration for mapping model internal
           web_search tools to Inspect. By default, will map to the
           internal provider of the target model (supported for OpenAI,
           Anthropic, Gemini, Grok, and Perplexity). Pass an alternate
           configuration to use to use an external provider like
           Tavili or Exa for models that don't support internal search.
+       code_execution: Configuration for mapping model internal
+          code_execution tools to Inspect. By default, will map to the
+          internal provider of the target model (supported for OpenAI,
+          Anthropic, Google, and Grok). If the provider does not support
+          native code execution then the bash() tool will be provided
+          (note that this requires a sandbox by declared for the task).
     """
     # ensure one time init
     init_bridge_request_patch()
 
     # resolve web search config
     web_search = resolve_web_search_providers(web_search)
+    code_execution = code_execution or default_code_execution_providers()
 
     # create a state value that will be used to track mesages going over the bridge
     state = state or AgentState(messages=[])
 
     # create the bridge
-    bridge = AgentBridge(state, filter, retry_refusals)
+    bridge = AgentBridge(state, filter, retry_refusals, compaction)
 
     # set the patch config for this context and child coroutines
     token = _patch_config.set(
-        PatchConfig(enabled=True, web_search=web_search, bridge=bridge)
+        PatchConfig(
+            enabled=True,
+            web_search=web_search,
+            code_execution=code_execution,
+            bridge=bridge,
+        )
     )
     try:
         yield bridge
@@ -98,6 +117,9 @@ class PatchConfig:
     enabled: bool = field(default=False)
     web_search: WebSearchProviders = field(
         default_factory=internal_web_search_providers
+    )
+    code_execution: CodeExecutionProviders = field(
+        default_factory=default_code_execution_providers
     )
     bridge: AgentBridge = field(
         default_factory=lambda: AgentBridge(AgentState(messages=[]))
@@ -162,7 +184,10 @@ def init_openai_request_patch() -> None:
                     )
                 else:
                     return await inspect_responses_api_request(
-                        json_data, config.web_search, config.bridge
+                        json_data,
+                        config.web_search,
+                        config.code_execution,
+                        config.bridge,
                     )
 
         # otherwise just delegate
@@ -218,7 +243,7 @@ def init_anthropic_request_patch() -> None:
                     raise_stream_error()
 
                 return await inspect_anthropic_api_request(
-                    json_data, config.web_search, config.bridge
+                    json_data, config.web_search, config.code_execution, config.bridge
                 )
 
         # otherwise just delegate

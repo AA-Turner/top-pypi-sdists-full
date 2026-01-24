@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ascii_magic",
-    version="2.3.0",
+    version="2.7.2",
     author="Leandro Barone",
     author_email="web@leandrobarone.com.ar",
     description="Converts pictures into ASCII art",
@@ -14,12 +14,15 @@ setuptools.setup(
     url="https://github.com/LeandroBarone/python-ascii_magic",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    package_data={"tests": ["*.png", "*.jpg"]},
+    data_files=[
+        ("ascii_magic/fonts", ["ascii_magic/fonts/courier_prime.ttf"]),
+        ("ascii_magic/tests", ["ascii_magic/tests/lion.jpg", "ascii_magic/tests/chicken_transparent.png"]),
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.5',
-    install_requires=['colorama', 'Pillow'],
+    install_requires=['Pillow'],
 )

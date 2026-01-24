@@ -18,7 +18,7 @@ SNAPSHOT_TABLE = "tables/management/snapshots"
 
 class Snapshots(BaseModel):
     client: Any = Field(exclude=True)
-    _snapshots: OrderedDictType[str, Snapshot] = PrivateAttr(default_factory=dict)
+    _snapshots: OrderedDictType[str, Snapshot] = PrivateAttr(default_factory=OrderedDict)
 
     def model_post_init(self, __context) -> None:
         self.snapshots = self.get_snapshots()
@@ -28,7 +28,7 @@ class Snapshots(BaseModel):
         """get all snapshots and assigns them to an attribute"""
         self.snapshots = self.get_snapshots()
         self.client._last_snapshot_update = datetime.now(timezone.utc)
-        self.client._no_loaded_snapshots = self.loaded_snapshots == dict()
+        self.client._no_loaded_snapshots = self.loaded_snapshots == {}
 
     @property
     def snapshots(self) -> OrderedDictType[str, Snapshot]:
@@ -65,28 +65,23 @@ class Snapshots(BaseModel):
         if snapshot_id in self.snapshots:
             return self.snapshots[snapshot_id]
         else:
-            payload = {
-                "columns": self.client.oas[SNAPSHOT_TABLE].post.columns,
-                "filters": {"id": ["eq", snapshot_id]},
-            }
-            results = list(self.client._ipf_pager(SNAPSHOT_TABLE, payload))
+            results = self.client.fetch(SNAPSHOT_TABLE, filters={"id": ["eq", snapshot_id]}, limit=1)
             if not results:
                 logger.error(f"Snapshot {snapshot_id} not found.")
                 return None
-            get_results = self._get_snapshots()
-            snapshot = self._create_snapshot_model(results[0], get_results)
-            if snapshot.loaded:
-                snapshot.get_assurance_engine_settings()
+            get_result = self.client.get(f"/snapshots/{snapshot_id}")
+            snapshot = self._create_snapshot_model(results[0], get_result)
             return snapshot
 
-    def _create_snapshot_model(self, s, get_results):
+    def _create_snapshot_model(self, s: dict, get_result: dict) -> Snapshot:
         return Snapshot(
             client=self.client,
             **s,
-            licensedDevCount=get_results[s["id"]].get("licensedDevCount", None),
-            errors=get_results[s["id"]].get("errors", None),
-            version=get_results[s["id"]].get("version", None),
-            initialVersion=get_results[s["id"]].get("initialVersion", None),
+            snapshot_id=get_result["id"],
+            licensedDevCount=get_result.get("licensedDevCount", None),
+            errors=get_result.get("errors", None),
+            version=get_result.get("version", None),
+            initialVersion=get_result.get("initialVersion", None),
         )
 
     def get_snapshot_id(self, snapshot: Union[Snapshot, str]) -> str:
@@ -107,7 +102,7 @@ class Snapshots(BaseModel):
             UUID(snapshot, version=4)
             return self.snapshots[snapshot].snapshot_id
         except ValueError:
-            for snap in list(self.snapshots.values()):
+            for snap in self.snapshots.values():
                 if snapshot == snap.name:
                     return snap.snapshot_id
         raise ValueError(f"Could not locate Snapshot ID for {snapshot}.")
@@ -130,21 +125,19 @@ class Snapshots(BaseModel):
         Returns:
             Dictionary with ID as key and dictionary with info as the value
         """
-        payload = {
-            "columns": self.client.oas[SNAPSHOT_TABLE].post.columns,
-            "sort": {"order": "desc", "column": "tsEnd"},
-        }
-        if not self.client.unloaded:
-            payload["filters"] = {"status": ["nreg", "unloaded|error"]}
-        results = list(self.client._ipf_pager(SNAPSHOT_TABLE, payload))
+        results = self.client.fetch_all(
+            SNAPSHOT_TABLE,
+            sort={"order": "desc", "column": "tsEnd"},
+            filters={"status": ["nreg", "unloaded|error"]} if not self.client.unloaded else None,
+        )
         get_results = self._get_snapshots()
 
         snap_dict = OrderedDict()
         for s in results:
-            snap = self._create_snapshot_model(s, get_results)
+            snap = self._create_snapshot_model(s, get_results[s["id"]])
             snap_dict[snap.snapshot_id] = snap
             if snap.loaded:
-                snap.get_assurance_engine_settings()
+                # snap.get_assurance_engine_settings()  # REMOVED TOO MANY API CALLS
                 if LASTLOCKED_ID not in snap_dict and snap.locked:
                     snap_dict[LASTLOCKED_ID] = snap
                 if LAST_ID not in snap_dict:

@@ -66,7 +66,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -416,7 +416,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(
                     project_id=project_id,
                     tables=db_tables,
@@ -449,10 +449,12 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
                 else:
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",
@@ -525,19 +527,32 @@ class BigQuerySchemaGenerator:
                 )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
+            logger.debug(
+                f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
+            )
             for table_item in self.schema_api.list_tables(dataset_name, project_id):
+                table_type = getattr(table_item, "table_type", "UNKNOWN")
+
                 identifier = BigqueryTableIdentifier(
                     project_id=project_id,
                     dataset=dataset_name,
                     table=table_item.table_id,
                 )
+
+                logger.debug(f"Processing {table_type}: {identifier.raw_table_name()}")
+
                 if not self.config.table_pattern.allowed(identifier.raw_table_name()):
+                    logger.debug(
+                        f"Dropped by table_pattern: {identifier.raw_table_name()}"
+                    )
                     self.report.report_dropped(identifier.raw_table_name())
                     continue
                 try:
-                    self.table_refs.add(
-                        str(BigQueryTableRef(identifier).get_sanitized_table_ref())
+                    table_ref = str(
+                        BigQueryTableRef(identifier).get_sanitized_table_ref()
                     )
+                    self.table_refs.add(table_ref)
+                    logger.debug(f"Added to table_refs: {table_ref}")
                 except Exception as e:
                     logger.warning(
                         f"Could not create table ref for {table_item.path}: {e}"
@@ -626,14 +641,24 @@ class BigQuerySchemaGenerator:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name())
+        logger.debug(
+            f"Full schema processing - Scanning TABLE: {table_identifier.raw_table_name()}"
+        )
 
         if not self.config.table_pattern.allowed(table_identifier.raw_table_name()):
+            logger.debug(
+                f"Full schema processing - Dropped TABLE by table_pattern: {table_identifier.raw_table_name()}"
+            )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         if self.store_table_refs:
-            self.table_refs.add(
-                str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+            table_ref = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
+            self.table_refs.add(table_ref)
+            logger.debug(
+                f"Full schema processing - Added TABLE to table_refs: {table_ref}"
             )
         table.column_count = len(columns)
 
@@ -666,13 +691,20 @@ class BigQuerySchemaGenerator:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name(), "view")
+        logger.debug(
+            f"Full schema processing - Scanning VIEW: {table_identifier.raw_table_name()}"
+        )
 
         if not self.config.view_pattern.allowed(table_identifier.raw_table_name()):
+            logger.debug(
+                f"Full schema processing - Dropped VIEW by view_pattern: {table_identifier.raw_table_name()}"
+            )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
+        logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
         if view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
@@ -718,6 +750,9 @@ class BigQuerySchemaGenerator:
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
+        logger.debug(
+            f"Full schema processing - Added SNAPSHOT to table_refs: {table_ref}"
+        )
         if snapshot.base_table_identifier:
             self.snapshot_refs_by_project[project_id].add(table_ref)
             self.snapshots_by_ref[table_ref] = snapshot

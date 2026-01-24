@@ -42,9 +42,9 @@ from .jenkins_utils import (
     JobParamValue,
     JobResult,
     QueueId,
+    QueueItem,
     apply_common_jenkins_cli_args,
     extract_credentials,
-    params_from,
 )
 from .utils import Fatal
 from .version import __version__
@@ -55,6 +55,7 @@ from .version import __version__
 
 PathHashes = Mapping[str, str]
 shared_build_info: asyncio.Queue[str] = asyncio.Queue(maxsize=1)
+MAX_RETRY_ATTEMPTS = 3
 
 
 def parse_args() -> Args:
@@ -115,6 +116,18 @@ def parse_args() -> Args:
             action="store_true",
             help="Do not raise an Exception in case of errors",
         )
+        subparser.add_argument(
+            "--no-simple-logging",
+            dest="no_simple_logging",
+            action="store_true",
+            help="Use colored and linebreaking rich logger over default python logger",
+        )
+        subparser.add_argument(
+            "--ignore-build-queue",
+            dest="ignore_build_queue",
+            action="store_true",
+            help="Do not query jenkins build queue for matching job runs",
+        )
 
     def apply_request_args(subparser: ArgumentParser) -> None:
         subparser.add_argument(
@@ -169,7 +182,7 @@ def parse_args() -> Args:
         subparser.add_argument(
             "--total-download-timeout",
             type=int,
-            default=60,
+            default=240,
             help="Time in seconds a download for a single file may take before rising a TimeoutError",
         )
 
@@ -288,7 +301,7 @@ def download_artifacts(
     client: Jenkins,
     build: Build,
     out_dir: Path,
-    total_download_timeout: int = 60,
+    total_download_timeout: int = 240,
     no_remove_others: bool = False,
     no_raise: bool = False,
 ) -> tuple[Sequence[str | None], Sequence[str | None]]:
@@ -358,14 +371,14 @@ def download_artifacts(
                 fp_hash,
             )
 
-        MAX_RETRIES = 2
-        for attempts_left in range(MAX_RETRIES, -1, -1):
+        for attempts_left in reversed(range(MAX_RETRY_ATTEMPTS + 1)):
             time_start = time.time()
             try:
                 with client._session.get(f"{build.url}artifact/{artifact}", stream=True) as reply:
                     log().debug("download: %s", artifact)
                     reply.raise_for_status()
                     artifact_filename.parent.mkdir(parents=True, exist_ok=True)
+                    current_dl_duration = 0.0
                     with open(artifact_filename, "wb") as out_file:
                         for chunk in reply.iter_content(chunk_size=8192):
                             if (
@@ -554,24 +567,55 @@ def meets_constraints(
     return result
 
 
-def build_id_from_queue_item(
-    client: Jenkins, queue_id: QueueId, next_check_sleep: int = 30
+async def build_id_from_queue_item(
+    client: AugmentedJenkinsClient, queue_id: QueueId, next_check_sleep: int = 30
 ) -> BuildId:
     """Waits for queue item with given @queue_id to be scheduled and returns Build instance"""
-    queue_item = client.get_queue_item(queue_id)
+    queue_item = await client.queue_item(queue_id)
     log().info(
         "waiting for queue item %s to be scheduled (%s%s)",
         queue_id,
-        queue_item["task"]["url"],
-        queue_item["url"],
+        queue_item.task.url,
+        f"queue/item/{queue_item.id}/",
     )
 
     while True:
-        queue_item = client.get_queue_item(queue_id)
-        if executable := queue_item.get("executable"):
-            return executable["number"]
-        log().debug("still waiting in queue, because %s", queue_item["why"])
-        time.sleep(next_check_sleep)
+        queue_item = await client.queue_item(queue_id)
+        if queue_item.executable:
+            return queue_item.executable.number
+        log().debug("still waiting in queue, because %s", queue_item.why)
+        await asyncio.sleep(next_check_sleep)
+
+
+def job_url_from_queue_item(queue_item: QueueItem) -> None | str:
+    """Fiddles the (relative) job URL out of a queue item if present
+    >>> base = {"type": "Queue", "id": 42, "blocked": False, "buildable": False, "inQueueSince": 0,
+    ...         "stuck": False}
+    >>> job_url_from_queue_item(QueueItem(**base,
+    ...     task={"type": "egal"}))
+    >>> job_url_from_queue_item(QueueItem(**base,
+    ...     task={"type": "egal", "url": "job/nested/job/project/job/do-it-all/1/"}))
+    'job/nested/job/project/job/do-it-all/'
+    >>> job_url_from_queue_item(QueueItem(**base,
+    ...     task={"type": "egal", "url": "https://my.ci.com/job/nested/job/project/job/do-it-all/"}))
+    'job/nested/job/project/job/do-it-all/'
+    >>> job_url_from_queue_item(QueueItem(**base,
+    ...     task={"type": "egal"},
+    ...     executable={"type": "egal", "number": 1,
+    ...                 "url": "https://my.ci.com/job/nested/job/project/job/do-it-all/1/"}))
+    'job/nested/job/project/job/do-it-all/'
+    """
+    # executable can be None and executable.url is always a build url - strip it off the build number
+    if queue_item.executable and (job_url := f"{queue_item.executable.url.rsplit('/', 2)[0]}/"):
+        return job_url[job_url.find("/job/") + 1 :]
+    # task.url can be None, too, unfortunately
+    if queue_item.task.url is None:
+        return None
+    if queue_item.task.url.startswith("http"):
+        # if url is absolute, it's a job url
+        return queue_item.task.url[queue_item.task.url.find("/job/") + 1 :]
+    # otherwise it's a relative path to a build url - make it absolute and strip off the build number
+    return f"{queue_item.task.url.rsplit('/', 2)[0]}/"
 
 
 async def find_matching_queue_item(
@@ -582,46 +626,56 @@ async def find_matching_queue_item(
     next_check_sleep: int = 30,
 ) -> None | BuildId:
     """Looks for a queued build matching job and parameters and returns the QueueId"""
-    for queue_item in await jenkins_client.queue_info():
-        if not cast(str, queue_item.get("_class", "")).startswith("hudson.model.Queue"):
-            continue
-        if cast(str, cast(GenMap, queue_item.get("task", {})).get("url", "")) != job.url:
+    log().debug("Checking queued items with the Jenkins API")
+
+    for simple_queue_item in await jenkins_client.queue_info():
+        queue_item = await jenkins_client.queue_item(simple_queue_item.id, depth=2)
+
+        # In order to compare with `job.url` we would have to inject the jenkins base URL
+        # Instead we can also strip it off from `job.url` and compare relative URLs instead
+        # Instead of "https://ci.com/job/name/42/" == "https://ci.com/job/name/42/" we compare
+        # "job/name/42/" == "job/name/42/" here
+        if job.url[job.url.find("/job/") + 1 :] != job_url_from_queue_item(queue_item):
             continue
 
-        queue_item_params = params_from(queue_item, "ParametersAction", "parameters")
+        if job.url != queue_item.task.url:
+            log().debug("(ignore me) queue item would have been skipped before bugfix")
+
         mismatching_parameters = find_mismatching_parameters(
             params or {},
-            queue_item_params,
+            queue_item.parameters,
         )
         if mismatching_parameters:
             log().debug(
                 "queue item %s has mismatching parameters: %s",
-                queue_item.get("id"),
+                queue_item.id,
                 mismatching_parameters,
             )
             continue
 
-        expected_path_hashes = extract_path_hashes(queue_item_params)
+        expected_path_hashes = extract_path_hashes(queue_item.parameters)
 
         if expected_path_hashes and not path_hashes:
             log().warning(
                 "strange: queued item %s has expected path hashes set but we don't care?",
-                queue_item.get("id"),
+                queue_item.id,
             )
 
         if not path_hashes_match(expected_path_hashes, path_hashes):
             log().debug(
                 "queued item %s has mismatching expected path hashes: %s != %s",
-                queue_item.get("id"),
+                queue_item.id,
                 expected_path_hashes,
                 path_hashes,
             )
             continue
-        return build_id_from_queue_item(
-            client=jenkins_client.client,
-            queue_id=cast(int, queue_item.get("id")),
+        return await build_id_from_queue_item(
+            client=jenkins_client,
+            queue_id=queue_item.id,
             next_check_sleep=next_check_sleep,
         )
+
+    log().debug("Found no matching queued item")
 
     return None
 
@@ -753,6 +807,7 @@ async def _fn_await_and_handle_build(args: Args) -> None:
             allow_to_cancel=False,
             next_check_sleep=args.poll_sleep,
             no_raise=args.no_raise,
+            download=args.download,
         )
         print(
             json.dumps(
@@ -778,26 +833,38 @@ async def _fn_await_and_handle_build(args: Args) -> None:
             )
         )
 
-def query_matching_builds(influx_client: InfluxDBClient, bucket: str, project_path: str, fields: List[str], time_range: str = "start: -3h", org: str = "jenkins") -> List[Mapping[str, Any]]:
+
+def query_matching_builds(
+    influx_client: InfluxDBClient,
+    bucket: str,
+    project_path: str,
+    fields: List[str],
+    time_range: str = "start: -3h",
+    org: str = "jenkins",
+) -> List[Mapping[str, Any]]:
     """Query InfluxDB for builds with fields of interest"""
     fields_of_interest = " or ".join(f'''r["_field"] == "{this_field}"''' for this_field in fields)
     # someone with better understanding of Flux might fix and optimize this query
-    query = f'''from(bucket: "{bucket}")
+    query = f"""from(bucket: "{bucket}")
       |> range({time_range})
       |> filter(fn: (r) => {fields_of_interest})
       |> filter(fn: (r) => r["project_path"] == "{project_path}")
       |> filter(fn: (r) => r["_measurement"] == "custom_jenkins_job_params")
       |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-    '''
+    """
 
     this_data: List[Mapping[str, Any]] = []
     keys_to_skip = (
         # do not add non JSON processable datetime objects
-        '_time', '_stop', '_start',
+        "_time",
+        "_stop",
+        "_start",
         # do not add common meta data infos
-        'instance', 'table', 'result',
+        "instance",
+        "table",
+        "result",
         # do not add name of measurement
-        '_measurement',
+        "_measurement",
     )
 
     try:
@@ -808,7 +875,7 @@ def query_matching_builds(influx_client: InfluxDBClient, bucket: str, project_pa
             row_dict = {}
 
             # Always add time column
-            row_dict['time'] = record.get_time().isoformat()    # type: ignore[no-untyped-call]
+            row_dict["time"] = record.get_time().isoformat()  # type: ignore[no-untyped-call]
 
             # Add values for each field
             for key, value in record.values.items():
@@ -821,6 +888,7 @@ def query_matching_builds(influx_client: InfluxDBClient, bucket: str, project_pa
     except Exception as e:
         log().error(f"Error querying InfluxDB: {e}")
         return []
+
 
 async def _fn_fetch(args: Args) -> None:
     """Entry point for fetching (request and download combined) artifacts"""
@@ -880,7 +948,7 @@ async def _fn_fetch(args: Args) -> None:
                         out_dir,
                         args.total_download_timeout,
                         args.no_remove_others,
-                        args.no_raise
+                        args.no_raise,
                     )
                 )
             )
@@ -915,13 +983,15 @@ async def identify_matching_build(
     # pylint: disable=too-many-locals
     if isinstance(args, Args) and args.use_influxdb:
         log().info("Start finding matching builds in InfluxDB")
-        influxdb_config = extract_credentials(credentials=args.credentials, config_section="influxdb")
+        influxdb_config = extract_credentials(
+            credentials=args.credentials, config_section="influxdb"
+        )
 
         this_org = "jenkins"
         this_port = f":{influxdb_config.get('port')}" if "port" in influxdb_config else ""
         influx_client = InfluxDBClient(
             url=f"{influxdb_config['url']}{this_port}",
-            token=influxdb_config['password'],
+            token=influxdb_config["password"],
             org=this_org,
         )
 
@@ -935,46 +1005,75 @@ async def identify_matching_build(
             bucket="job_bucket",
             project_path=args.job,
             fields=fields,
-            time_range=f"start: {datetime.now().strftime('%Y-%m-%d')}T00:00:00Z, stop: now()" if time_constraints == "today" else "start: 0, stop: now()",
+            time_range=f"start: {datetime.now().strftime('%Y-%m-%d')}T00:00:00Z, stop: now()"
+            if time_constraints == "today"
+            else "start: 0, stop: now()",
             org=this_org,
         )
 
         build: Build
         builds: MutableMapping[int, Build] = {}
-        for this_build in matching_builds:
+        # iterate over the results in latest to oldest order
+        # to return the latest build instead of the first match
+        # to take rebuilds and reruns into account
+        for this_build in reversed(matching_builds):
             # if a job with this build number exists already, update it in the dict
             # be prepared for timestamps with or without milliseconds
             try:
-                this_timestamp = int(datetime.strptime(this_build["time"].split('+')[0], '%Y-%m-%dT%H:%M:%S.%f').timestamp() * 1000)
+                this_timestamp = int(
+                    datetime.strptime(
+                        this_build["time"].split("+")[0], "%Y-%m-%dT%H:%M:%S.%f"
+                    ).timestamp()
+                    * 1000
+                )
             except ValueError as e:
                 if "does not match format" in str(e):
-                    this_timestamp = int(datetime.strptime(this_build["time"].split('+')[0], '%Y-%m-%dT%H:%M:%S').timestamp() * 1000)
+                    this_timestamp = int(
+                        datetime.strptime(
+                            this_build["time"].split("+")[0], "%Y-%m-%dT%H:%M:%S"
+                        ).timestamp()
+                        * 1000
+                    )
                 else:
                     this_timestamp = 0
             this_duration = 0
             build_result: JobResult = this_build.get("build_result", "FAILURE")
             build_number: int = this_build.get("build_number", 0)
+            this_result: JobResult | None = build_result if isinstance(build_result, str) else None
+            build_parameters: Mapping[str, str | bool] = {
+                k: v if v is not None else ""
+                for k, v in this_build.items()
+                if isinstance(k, str) and k.isupper()
+            }
 
             if existing_job := builds.get(build_number):
                 # existing timestamp is stored in seconds already
                 this_duration = abs(existing_job.timestamp * 1000 - this_timestamp)
                 # update timestamp to earlier timestamp, as this is the real start timestamp of the job
                 this_timestamp = min(this_timestamp, existing_job.timestamp) * 1000
+                # do not overwrite an existing build result with an earlier (running) result
+                if this_result == "RUNNING":
+                    this_result = existing_job.result
+                    build_parameters = existing_job.parameters
 
             # reconstruct a Build object as good as possible
             builds[build_number] = Build(
-                url=f"{jenkins_client.client.server}/job/{'/job/'.join(p for p in this_build['project_path'].split('/'))}/{build_number}",  # type: ignore[attr-defined]
+                type="WorkflowJob",
+                url=f"{jenkins_client.client.server}/job/{'/job/'.join(p for p in this_build['project_path'].split('/'))}/{build_number}",
                 number=build_number,
                 timestamp=this_timestamp,
                 duration=this_duration,
-                result=build_result if isinstance(build_result, str) else None,
+                result=this_result,
                 path_hashes={},
                 artifacts=[],
+                causes=[],
                 inProgress=True if build_result == "RUNNING" else False,
-                parameters={k: v if v is not None else "" for k, v in this_build.items() if isinstance(k, str) and k.isupper()}
+                parameters=build_parameters,
             )
 
-        log().info(f"Got {len(matching_builds)} InfluxDB job history entries of today, generated {len(builds)} builds to check")
+        log().info(
+            f"Got {len(matching_builds)} InfluxDB job history entries of today, generated {len(builds)} builds to check"
+        )
 
         # ugly code duplication incomming, rework this to a dedicated function
         for build in list(builds.values()):
@@ -982,18 +1081,16 @@ async def identify_matching_build(
                 log().info("found matching (may finished) build: %s (%s)", build.number, build.url)
                 return build
 
-        log().debug(f"Checked {builds} to find a match, but did not find anything valid")
-
-        log().debug("Checking queued items with the Jenkins API")
-        if matching_item := await find_matching_queue_item(
-            jenkins_client=jenkins_client,
-            job=job,
-            params=params,
-            path_hashes=path_hashes,
-            next_check_sleep=next_check_sleep,
-        ):
-            log().debug("Found queued item %s", matching_item)
-            return await jenkins_client.build_info(job.path, matching_item)
+        if not args.ignore_build_queue:
+            if matching_item := await find_matching_queue_item(
+                jenkins_client=jenkins_client,
+                job=job,
+                params=params,
+                path_hashes=path_hashes,
+                next_check_sleep=next_check_sleep,
+            ):
+                log().debug("Found matching queued item %s", matching_item)
+                return await jenkins_client.build_info(job.path, matching_item)
 
         # exit here with no matching result if
         # - the InfluxDB connection was a success
@@ -1018,14 +1115,16 @@ async def identify_matching_build(
             log().info("found matching unfinished build: %s (%s)", build.number, build.url)
             return build
 
-    if matching_item := await find_matching_queue_item(
-        jenkins_client=jenkins_client,
-        job=job,
-        params=params,
-        path_hashes=path_hashes,
-        next_check_sleep=next_check_sleep,
-    ):
-        return await jenkins_client.build_info(job.path, matching_item)
+    if args and not args.ignore_build_queue:
+        if matching_item := await find_matching_queue_item(
+            jenkins_client=jenkins_client,
+            job=job,
+            params=params,
+            path_hashes=path_hashes,
+            next_check_sleep=next_check_sleep,
+        ):
+            log().debug("Found matching queued item %s", matching_item)
+            return await jenkins_client.build_info(job.path, matching_item)
 
     return None
 
@@ -1077,8 +1176,8 @@ async def trigger_build(
 
     return await jenkins_client.build_info(
         job.path,
-        build_id_from_queue_item(
-            client=jenkins_client.client,
+        await build_id_from_queue_item(
+            client=jenkins_client,
             queue_id=jenkins_client.client.build_job(job.path, parameters=params),
             next_check_sleep=next_check_sleep,
         ),
@@ -1095,6 +1194,7 @@ async def await_build(
     allow_to_cancel: bool = True,
     next_check_sleep: int = 60,
     no_raise: bool = False,
+    download: bool = False,
 ) -> Build:
     """Awaits a Jenkins job build specified by @job_full_path and @build_number and returns the
     awaited Build object. Unexpected build failures or non-matching path hashes will be raised on.
@@ -1107,14 +1207,14 @@ async def await_build(
         while True:
             if not current_build_info.completed:
                 log().debug("build %s in progress", build_number)
-                time.sleep(next_check_sleep)
+                await asyncio.sleep(next_check_sleep)
                 current_build_info = await jenkins_client.build_info(job_full_path, build_number)
                 continue
             break
 
         log().info("build finished with result=%s", current_build_info.result)
 
-    if all([check_result, current_build_info.result != "SUCCESS", not no_raise]):
+    if all([check_result, current_build_info.result != "SUCCESS", not download]):
         raise Fatal(
             "The build we started has "
             f"result={current_build_info.result} ({current_build_info.url})"
@@ -1173,21 +1273,38 @@ def main() -> None:
     try:
         args = parse_args()
 
-        # for some reasons terminal type and properties are not recognized correctly by rich,
-        # so 'temporarily' we force width and color
-        if "CI" in os.environ:
-            os.environ.setdefault("FORCE_COLOR", "true")
-            os.environ.setdefault("COLUMNS", "200")
+        if args.no_simple_logging:
+            # for some reasons terminal type and properties are not recognized correctly by rich,
+            # so 'temporarily' we force width and color
+            if "CI" in os.environ:
+                os.environ.setdefault("FORCE_COLOR", "true")
+                os.environ.setdefault("COLUMNS", "200")
 
-        setup_logging(
-            logger=log(),
-            level=args.log_level,
-            show_name=False,
-            show_funcname=False,
+            setup_logging(
+                logger=log(),
+                level=args.log_level,
+                show_name=False,
+                show_funcname=False,
+            )
+        else:
+            logging.basicConfig(
+                format="[%(asctime)s] [%(levelname)-8s] [%(funcName)-5s:%(lineno)4s] %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+                level=logging.DEBUG if args.log_level == "ALL_DEBUG" else logging.INFO,
+            )
+            # trickkiste supports level=ALL_DEBUG which sets all loggers to DEBUG,
+            # let's not brake this.
+            logging.getLogger("trickkiste").setLevel(args.log_level.split("_")[-1])
+
+        log().debug("Parsed args: %s", ", ".join(f"{k}={v}" for k, v in args.__dict__.items()))
+        log().debug(
+            "checkmk-dev-tools version: %s from %s", __version__, Path(__file__).parent
         )
+        if asyncio.iscoroutinefunction(args.func):
+            asyncio.run(args.func(args))
+        else:
+            args.func(args)
 
-        log().debug("Parsed args: %s", args)
-        asyncio.run(args.func(args))
     except KeyboardInterrupt:
         if not shared_build_info.empty():
             if query_yes_no(question="Cancel ongoing build?"):
@@ -1196,8 +1313,11 @@ def main() -> None:
                 log().debug("Stopping ongoing job")
     except Fatal as exc:
         log().error("Fatal exception: %s", exc)
-        print(json.dumps({"err": f"Fatal exception: {exc}" }))  # always return a valid JSON to the caller
-        raise SystemExit(-1) from exc
+        print(
+            json.dumps({"err": f"Fatal exception: {exc}"})
+        )  # always return a valid JSON to the caller
+        if not args.no_raise:
+            raise SystemExit(-1) from exc
 
 
 if __name__ == "__main__":

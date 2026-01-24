@@ -7,13 +7,15 @@ from langchain_core.callbacks import (
     CallbackManagerForToolRun,
 )
 from langchain_core.tools import BaseTool, ToolException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from langchain_tavily._utilities import TavilySearchAPIWrapper
 
 
 class TavilySearchInput(BaseModel):
     """Input for [TavilySearch]"""
+
+    model_config = ConfigDict(extra="allow")
 
     query: str = Field(description=("Search query to look up"))
     include_domains: Optional[List[str]] = Field(
@@ -44,14 +46,18 @@ class TavilySearchInput(BaseModel):
         Default is None (no domain exclusion).
         """,  # noqa: E501
     )
-    search_depth: Optional[Literal["basic", "advanced"]] = Field(
+    search_depth: Optional[Literal["basic", "advanced", "fast", "ultra-fast"]] = Field(
         default="basic",
         description="""Controls search thoroughness and result comprehensiveness.
     
         Use "basic" for simple queries requiring quick, straightforward answers.
         
-        Use "advanced" (default) for complex queries, specialized topics, 
+        Use "advanced" for complex queries, specialized topics, 
         rare information, or when in-depth analysis is needed.
+        
+        Use "fast" for optimized low latency with high relevance.
+        
+        Use "ultra-fast" when latency is prioritized above all else.
         """,  # noqa: E501
     )
     include_images: Optional[bool] = Field(
@@ -91,22 +97,6 @@ class TavilySearchInput(BaseModel):
 
         Use "news" ONLY for politics, sports, or major current events covered by 
         mainstream media - NOT simply because a query asks for "new" information.
-        """,  # noqa: E501
-    )
-    include_favicon: Optional[bool] = Field(
-        default=False,
-        description="""Determines whether to include favicon URLs for each search result.
-        
-        When enabled, each search result will include the website's favicon URL,
-        which can be useful for:
-        - Building rich UI interfaces with visual website indicators
-        - Providing visual cues about the source's credibility or brand
-        - Creating bookmark-like displays with recognizable site icons
-        
-        Set to True when creating user interfaces that benefit from visual branding
-        or when favicon information enhances the user experience.
-        
-        Default is False to minimize response size and API usage.
         """,  # noqa: E501
     )
     start_date: Optional[str] = Field(
@@ -183,54 +173,56 @@ class TavilySearch(BaseTool):  # type: ignore[override]
     """Tool that queries the Tavily Search API and gets back json.
 
     Setup:
-        Install ``langchain-tavily`` and set environment variable ``TAVILY_API_KEY``.
+        Install `langchain-tavily` and set environment variable `TAVILY_API_KEY`.
 
-        .. code-block:: bash
-
-            pip install -U langchain-tavily
-            export TAVILY_API_KEY="your-api-key"
+        ```bash
+        pip install -U langchain-tavily
+        export TAVILY_API_KEY="your-api-key"
+        ```
 
     Instantiate:
 
-        .. code-block:: python
-            from langchain_tavily import TavilySearch
+        ```python
+        from langchain_tavily import TavilySearch
 
-            tool = TavilySearch(
-                max_results=1,
-                topic="general",
-                # include_answer=False,
-                # include_raw_content=False,
-                # include_images=False,
-                # include_image_descriptions=False,
-                # search_depth="basic",
-                # time_range="day",
-                # include_domains=None,
-                # exclude_domains=None,
-                # country=None
-                # include_favicon=False
-            )
+        tool = TavilySearch(
+            max_results=1,
+            topic="general",
+            # include_answer=False,
+            # include_raw_content=False,
+            # include_images=False,
+            # include_image_descriptions=False,
+            # search_depth="basic",
+            # time_range="day",
+            # include_domains=None,
+            # exclude_domains=None,
+            # country=None
+            # include_favicon=False
+            # include_usage=False
+        )
+        ```
 
     Invoke directly with args:
 
-        .. code-block:: python
+        ```python
+        tool.invoke({"query": "What happened at the last wimbledon"})
+        ```
 
-            tool.invoke({"query": "What happened at the last wimbledon"})
-
-        .. code-block:: json
-
-            {
-                'query': 'What happened at the last wimbledon',
-                'follow_up_questions': None,
-                'answer': None,
-                'images': [],
-                'results': [{'title': "Andy Murray pulls out of the men's singles draw at his last Wimbledon",
-                            'url': 'https://www.nbcnews.com/news/sports/andy-murray-wimbledon-tennis-singles-draw-rcna159912',
-                            'content': "NBC News Now LONDON — Andy Murray, one of the last decade's most successful ..."
-                            'score': 0.6755297,
-                            'raw_content': None
-                            }],
-                'response_time': 1.31
-            }
+        ```json
+        {
+            'query': 'What happened at the last wimbledon',
+            'follow_up_questions': None,
+            'answer': None,
+            'images': [],
+            'results': [{'title': "Andy Murray pulls out of the men's singles draw at his last Wimbledon",
+                        'url': 'https://www.nbcnews.com/news/sports/andy-murray-wimbledon-tennis-singles-draw-rcna159912',
+                        'content': "NBC News Now LONDON — Andy Murray, one of the last decade's most successful ..."
+                        'score': 0.6755297,
+                        'raw_content': None
+                        }],
+            'response_time': 1.31
+        }
+        ```
 
     """  # noqa: E501
 
@@ -271,8 +263,8 @@ class TavilySearch(BaseTool):  # type: ignore[override]
 
     default is None
     """
-    search_depth: Optional[Literal["basic", "advanced"]] = None
-    """The depth of the search. It can be 'basic' or 'advanced'
+    search_depth: Optional[Literal["basic", "advanced", "fast", "ultra-fast"]] = None
+    """The depth of the search. It can be 'basic', 'advanced', 'fast', or 'ultra-fast'
     
     default is "basic"
     """
@@ -325,6 +317,11 @@ class TavilySearch(BaseTool):  # type: ignore[override]
     
     Default is False.
     """
+    include_usage: Optional[bool] = None
+    """Whether to include credit usage information in the response..
+    
+    Default is False.
+    """
     api_wrapper: TavilySearchAPIWrapper = Field(default_factory=TavilySearchAPIWrapper)  # type: ignore[arg-type]
 
     def __init__(self, **kwargs: Any) -> None:
@@ -344,14 +341,14 @@ class TavilySearch(BaseTool):  # type: ignore[override]
         query: str,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
-        search_depth: Optional[Literal["basic", "advanced"]] = None,
+        search_depth: Optional[Literal["basic", "advanced", "fast", "ultra-fast"]] = None,
         include_images: Optional[bool] = None,
         time_range: Optional[Literal["day", "week", "month", "year"]] = None,
         topic: Optional[Literal["general", "news", "finance"]] = None,
-        include_favicon: Optional[bool] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         run_manager: Optional[CallbackManagerForToolRun] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Execute a search query using the Tavily Search API.
 
@@ -367,6 +364,16 @@ class TavilySearch(BaseTool):  # type: ignore[override]
                 - response_time: Time taken for the search
         """
         try:
+            forbidden_params = [
+                "include_usage", "auto_parameters", "max_results", "include_answer", 
+                "include_raw_content", "include_image_descriptions", "include_favicon", "country"
+            ]
+            for param in forbidden_params:
+                if param in kwargs:
+                    raise ValueError(
+                        f"The parameter '{param}' can only be set during instantiation, not during invocation. Please set it when creating the TavilySearch instance."
+                    )
+            
             # Execute search with parameters directly
             raw_results = self.api_wrapper.raw_results(
                 query=query,
@@ -382,9 +389,7 @@ class TavilySearch(BaseTool):  # type: ignore[override]
                 else include_images,
                 time_range=self.time_range if self.time_range else time_range,
                 topic=self.topic if self.topic else topic,
-                include_favicon=self.include_favicon
-                if self.include_favicon
-                else include_favicon,
+                include_favicon=self.include_favicon,
                 country=self.country,
                 max_results=self.max_results,
                 include_answer=self.include_answer,
@@ -393,6 +398,8 @@ class TavilySearch(BaseTool):  # type: ignore[override]
                 auto_parameters=self.auto_parameters,
                 start_date=start_date,
                 end_date=end_date,
+                include_usage=self.include_usage,
+                **kwargs,
             )
 
             # Check if results are empty and raise a specific exception
@@ -425,17 +432,27 @@ class TavilySearch(BaseTool):  # type: ignore[override]
         query: str,
         include_domains: Optional[List[str]] = None,
         exclude_domains: Optional[List[str]] = None,
-        search_depth: Optional[Literal["basic", "advanced"]] = "basic",
+        search_depth: Optional[Literal["basic", "advanced", "fast", "ultra-fast"]] = "basic",
         include_images: Optional[bool] = False,
         time_range: Optional[Literal["day", "week", "month", "year"]] = None,
         topic: Optional[Literal["general", "news", "finance"]] = "general",
-        include_favicon: Optional[bool] = False,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Use the tool asynchronously."""
         try:
+            forbidden_params = [
+                "include_usage", "auto_parameters", "max_results", "include_answer", 
+                "include_raw_content", "include_image_descriptions", "include_favicon", "country"
+            ]
+            for param in forbidden_params:
+                if param in kwargs:
+                    raise ValueError(
+                        f"The parameter '{param}' can only be set during instantiation, not during invocation. Please set it when creating the TavilySearch instance."
+                    )
+            
             raw_results = await self.api_wrapper.raw_results_async(
                 query=query,
                 include_domains=self.include_domains
@@ -450,9 +467,7 @@ class TavilySearch(BaseTool):  # type: ignore[override]
                 else include_images,
                 time_range=self.time_range if self.time_range else time_range,
                 topic=self.topic if self.topic else topic,
-                include_favicon=self.include_favicon
-                if self.include_favicon
-                else include_favicon,
+                include_favicon=self.include_favicon,
                 country=self.country,
                 max_results=self.max_results,
                 include_answer=self.include_answer,
@@ -461,6 +476,8 @@ class TavilySearch(BaseTool):  # type: ignore[override]
                 auto_parameters=self.auto_parameters,
                 start_date=start_date,
                 end_date=end_date,
+                include_usage=self.include_usage,
+                **kwargs,
             )
 
             # Check if results are empty and raise a specific exception

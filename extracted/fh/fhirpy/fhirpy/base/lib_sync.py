@@ -9,7 +9,13 @@ from typing import Any, Generic, Literal, TypeVar, Union, cast, overload
 import requests
 
 from fhirpy.base.client import AbstractClient
-from fhirpy.base.exceptions import MultipleResourcesFound, OperationOutcome, ResourceNotFound
+from fhirpy.base.exceptions import (
+    AuthorizationError,
+    ForbiddenError,
+    MultipleResourcesFound,
+    OperationOutcome,
+    ResourceNotFound,
+)
 from fhirpy.base.resource import BaseReference, BaseResource, serialize
 from fhirpy.base.resource_protocol import (
     TReference,
@@ -245,6 +251,12 @@ class SyncClient(AbstractClient, ABC):
         if 200 <= r.status_code < 300:  # noqa: PLR2004
             r_data = json.loads(r.content.decode(), object_hook=AttrDict) if r.content else None
             return (r_data, r.status_code) if returning_status else r_data
+
+        if r.status_code == 401:  # noqa: PLR2004
+            raise AuthorizationError(r.content.decode())
+
+        if r.status_code == 403:  # noqa: PLR2004
+            raise ForbiddenError(r.content.decode())
 
         if r.status_code == 304:  # noqa: PLR2004
             return (None, r.status_code) if returning_status else None

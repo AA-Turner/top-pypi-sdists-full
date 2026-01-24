@@ -5,14 +5,15 @@ from typing import cast
 import yaml
 
 from adam.config import Config
-from adam.k8s_utils.ingresses import Ingresses
+from adam.utils_k8s.ingresses import Ingresses
 
 from . import __version__
-from adam.k8s_utils.services import Services
+from adam.utils_k8s.services import Services
 from adam.utils import copy_config_file
 
 class AppAction:
-    def __init__(self, name: str, payload: str = None, args: dict[str, str] = None, help: str = None):
+    def __init__(self, typ: str, name: str, payload: str = None, args: dict[str, str] = None, help: str = None):
+        self.typ = typ
         self.name = name
         self.payload = payload
         self.args = args
@@ -32,6 +33,19 @@ class AppAction:
                     args = [v if x == k else x for x in args]
 
         return args
+
+    def __str__(self):
+        line = None
+
+        args = ','.join(self.arguments())
+        if args:
+            line = f'{self.typ}.{self.name},{args}'
+        else:
+            line = f'{self.typ}.{self.name},'
+        if self.help:
+            line = f'{line},{self.help}'
+
+        return line
 
 class AppType:
     all_types: list['AppType'] = []
@@ -62,12 +76,12 @@ class AppType:
                         aa: AppAction = None
 
                         if isinstance(v, str):
-                            aa = AppAction(k, help=v)
+                            aa = AppAction(typ, k, help=v)
                         elif isinstance(v, dict):
                             args = {k: v1 for k, v1 in v.items()}
-                            aa = AppAction(k, payload=v['payload'], args=args, help=v['help'])
+                            aa = AppAction(typ, k, payload=v['payload'], args=args, help=v['help'])
                         else:
-                            aa = AppAction(k)
+                            aa = AppAction(typ, k)
 
                         app_actions.append(aa)
 

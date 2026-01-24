@@ -1,0 +1,66 @@
+interactions:
+- request:
+    body: '{"project_id": "803826145ba90b42d5d860.46800099", "card_id": 2185, "briefing":
+      "DRY RUN", "source_language_iso": "en", "target_language_isos": ["ru_RU"], "keys":
+      [74189435], "provider_slug": "gengo", "translation_tier": 1, "dry_run": true}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '239'
+      User-Agent:
+      - python-lokalise-api plugin/0.3.0
+      x-api-token:
+      - FILTERED
+    method: POST
+    uri: https://api.lokalise.com/api2/teams/176692/orders
+  response:
+    body:
+      string: '{"order_id":null,"project_id":"803826145ba90b42d5d860.46800099","branch":"master","card_id":2185,"payment_method":"credit_card","status":"draft","created_at":"2021-02-26
+        15:23:23 (Etc\/UTC)","created_at_timestamp":1614353003,"created_by":20181,"created_by_email":"bodrovis@protonmail.com","source_language_iso":"en","target_language_isos":["ru_RU"],"keys":["74189435"],"source_words":{"ru_RU":2},"provider_slug":"gengo","translation_tier":1,"translation_tier_name":"Native
+        speaker","briefing":"DRY RUN","total":0.14,"dry_run":true}'
+    headers:
+      Access-Control-Allow-Headers:
+      - Content-Type
+      Access-Control-Allow-Origin:
+      - '*'
+      Allow:
+      - GET
+      Cache-Control:
+      - max-age=0, must-revalidate, no-cache, no-store, private
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 26 Feb 2021 15:23:23 GMT
+      Expires:
+      - Fri, 26 Feb 2021 15:23:23 GMT
+      Pragma:
+      - no-cache
+      Referrer-Policy:
+      - origin
+      Server:
+      - nginx
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - deny
+      X-XSS-Protection:
+      - 1; mode=block
+      content-length:
+      - '531'
+    status:
+      code: 200
+      message: OK
+version: 1

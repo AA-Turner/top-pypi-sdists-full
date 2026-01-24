@@ -25,9 +25,7 @@ def _format_token(
     provider: str | None,
 ) -> str:
     formatted_token = _format_token_for_provider(provider, token, host)
-    url = _replace_netloc_in_url(parsed_url, formatted_token)
-
-    return url
+    return _replace_netloc_in_url(parsed_url, formatted_token)
 
 
 def _quote_if_not_none(value: str | None) -> str | None:
@@ -36,8 +34,7 @@ def _quote_if_not_none(value: str | None) -> str | None:
 
 def _quote_path_in_url(url: str) -> ParseResult:
     parsed_url = urlparse(url)
-    parsed_url = parsed_url._replace(path=quote(unquote(parsed_url.path)))
-    return parsed_url
+    return parsed_url._replace(path=quote(unquote(parsed_url.path)))
 
 
 def _get_host_from_url(parsed_url: ParseResult) -> str:
@@ -47,7 +44,7 @@ def _get_host_from_url(parsed_url: ParseResult) -> str:
     return host
 
 
-def _get_url_based_on_credentials(
+def _get_url_based_on_credentials(  # noqa: PLR0913
     *,
     parsed_url: ParseResult,
     token: str | None,
@@ -63,7 +60,7 @@ def _get_url_based_on_credentials(
     return parsed_url.geturl()
 
 
-def format_url(
+def format_url(  # noqa: PLR0913
     *,
     repo_url: str,
     user: str | None = None,
@@ -79,7 +76,7 @@ def format_url(
     host = _get_host_from_url(parsed_url)
     user = _quote_if_not_none(user)
     password = _quote_if_not_none(password)
-    url = _get_url_based_on_credentials(
+    return _get_url_based_on_credentials(
         parsed_url=parsed_url,
         token=token,
         host=host,
@@ -87,5 +84,3 @@ def format_url(
         user=user,
         password=password,
     )
-
-    return url

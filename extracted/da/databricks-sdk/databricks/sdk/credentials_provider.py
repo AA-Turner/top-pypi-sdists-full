@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from datetime import datetime
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import google.auth  # type: ignore
 import requests
@@ -21,6 +21,7 @@ from google.auth.transport.requests import Request  # type: ignore
 from google.oauth2 import service_account  # type: ignore
 
 from . import azure, oauth, oidc, oidc_token_supplier
+from .client_types import ClientType
 
 CredentialsProvider = Callable[[], Dict[str, str]]
 
@@ -89,7 +90,6 @@ def credentials_strategy(name: str, require: List[str]):
         @functools.wraps(func)
         def wrapper(cfg: "Config") -> Optional[CredentialsProvider]:
             for attr in require:
-                getattr(cfg, attr)
                 if not getattr(cfg, attr):
                     return None
             return func(cfg)
@@ -103,7 +103,12 @@ def credentials_strategy(name: str, require: List[str]):
 def oauth_credentials_strategy(name: str, require: List[str]):
     """Given the function that receives a Config and returns an OauthHeaderFactory,
     create an OauthCredentialsProvider with a given name and required configuration
-    attribute names to be present for this function to be called."""
+    attribute names to be present for this function to be called.
+
+    Args:
+        name: The name of the authentication strategy
+        require: List of config attributes that must be present
+    """
 
     def inner(
         func: Callable[["Config"], OAuthCredentialsProvider],
@@ -172,6 +177,42 @@ def runtime_native_auth(cfg: "Config") -> Optional[CredentialsProvider]:
     return None
 
 
+@oauth_credentials_strategy("runtime-oauth", ["scopes"])
+def runtime_oauth(cfg: "Config") -> Optional[CredentialsProvider]:
+    if "DATABRICKS_RUNTIME_VERSION" not in os.environ:
+        return None
+
+    def get_notebook_pat_token() -> Optional[str]:
+        native_auth = runtime_native_auth(cfg)
+        if native_auth is None:
+            return None
+        notebook_pat_token = None
+        notebook_pat_authorization = native_auth().get("Authorization", "").strip()
+        if notebook_pat_authorization.lower().startswith("bearer "):
+            notebook_pat_token = notebook_pat_authorization[len("bearer ") :].strip()
+        return notebook_pat_token
+
+    notebook_pat_token = get_notebook_pat_token()
+    if notebook_pat_token is None:
+        return None
+
+    token_source = oauth.PATOAuthTokenExchange(
+        get_original_token=get_notebook_pat_token,
+        host=cfg.host,
+        scopes=cfg.get_scopes_as_string(),
+        authorization_details=cfg.authorization_details,
+    )
+
+    def inner() -> Dict[str, str]:
+        token = token_source.token()
+        return {"Authorization": f"{token.token_type} {token.access_token}"}
+
+    def token() -> oauth.Token:
+        return token_source.token()
+
+    return OAuthCredentialsProvider(inner, token)
+
+
 @oauth_credentials_strategy("oauth-m2m", ["host", "client_id", "client_secret"])
 def oauth_service_principal(cfg: "Config") -> Optional[CredentialsProvider]:
     """Adds refreshed Databricks machine-to-machine OAuth Bearer token to every request,
@@ -185,9 +226,10 @@ def oauth_service_principal(cfg: "Config") -> Optional[CredentialsProvider]:
         client_id=cfg.client_id,
         client_secret=cfg.client_secret,
         token_url=oidc.token_endpoint,
-        scopes=["all-apis"],
+        scopes=cfg.get_scopes_as_string(),
         use_header=True,
         disable_async=cfg.disable_async_token_refresh,
+        authorization_details=cfg.authorization_details,
     )
 
     def inner() -> Dict[str, str]:
@@ -215,6 +257,11 @@ def external_browser(cfg: "Config") -> Optional[CredentialsProvider]:
     if not client_id:
         client_id = "databricks-cli"
 
+    scopes = cfg.get_scopes()
+    if not cfg.disable_oauth_refresh_token:
+        if "offline_access" not in scopes:
+            scopes = scopes + ["offline_access"]
+
     # Load cached credentials from disk if they exist. Note that these are
     # local to the Python SDK and not reused by other SDKs.
     oidc_endpoints = cfg.oidc_endpoints
@@ -225,6 +272,7 @@ def external_browser(cfg: "Config") -> Optional[CredentialsProvider]:
         client_id=client_id,
         client_secret=client_secret,
         redirect_url=redirect_url,
+        scopes=scopes,
     )
     credentials = token_cache.load()
     if credentials:
@@ -243,6 +291,7 @@ def external_browser(cfg: "Config") -> Optional[CredentialsProvider]:
         client_id=client_id,
         redirect_url=redirect_url,
         client_secret=client_secret,
+        scopes=scopes,
     )
     consent = oauth_client.initiate_consent()
     if not consent:
@@ -288,6 +337,8 @@ def azure_service_principal(cfg: "Config") -> CredentialsProvider:
             endpoint_params={"resource": resource},
             use_params=True,
             disable_async=cfg.disable_async_token_refresh,
+            scopes=cfg.get_scopes_as_string(),
+            authorization_details=cfg.authorization_details,
         )
 
     _ensure_host_present(cfg, token_source_for)
@@ -344,6 +395,7 @@ def oidc_credentials_provider(cfg, id_token_source: oidc.IdTokenSource) -> Optio
         account_id=cfg.account_id,
         id_token_source=id_token_source,
         disable_async=cfg.disable_async_token_refresh,
+        scopes=cfg.get_scopes_as_string(),
     )
 
     def refreshed_headers() -> Dict[str, str]:
@@ -356,33 +408,47 @@ def oidc_credentials_provider(cfg, id_token_source: oidc.IdTokenSource) -> Optio
     return OAuthCredentialsProvider(refreshed_headers, token)
 
 
-@oauth_credentials_strategy("github-oidc", ["host", "client_id"])
-def github_oidc(cfg: "Config") -> Optional[CredentialsProvider]:
+def _oidc_credentials_provider(
+    cfg: "Config", supplier_factory: Callable[[], Any], provider_name: str
+) -> Optional[CredentialsProvider]:
     """
-    DatabricksWIFCredentials uses a Token Supplier to get a JWT Token and exchanges
-    it for a Databricks Token.
+    Generic OIDC credentials provider that works with any OIDC token supplier.
 
-    Supported suppliers:
-    - GitHub OIDC
+    Args:
+        cfg: Databricks configuration
+        supplier_factory: Callable that returns an OIDC token supplier instance
+        provider_name: Human-readable name (e.g., "GitHub OIDC", "Azure DevOps OIDC")
+
+    Returns:
+        OAuthCredentialsProvider if successful, None if supplier unavailable or token retrieval fails
     """
-    supplier = oidc_token_supplier.GitHubOIDCTokenSupplier()
+    # Try to create the supplier
+    try:
+        supplier = supplier_factory()
+    except Exception as e:
+        logger.debug(f"{provider_name}: {str(e)}")
+        return None
 
+    # Determine the audience for token exchange
     audience = cfg.token_audience
-    if audience is None and cfg.is_account_client:
+    if audience is None and cfg.client_type == ClientType.ACCOUNT:
         audience = cfg.account_id
-    if audience is None and not cfg.is_account_client:
+    if audience is None and cfg.client_type != ClientType.ACCOUNT:
         audience = cfg.oidc_endpoints.token_endpoint
 
-    # Try to get an idToken. If no supplier returns a token, we cannot use this authentication mode.
+    # Try to get an OIDC token. If no supplier returns a token, we cannot use this authentication mode.
     id_token = supplier.get_oidc_token(audience)
     if not id_token:
+        logger.debug(f"{provider_name}: no token available, skipping authentication method")
         return None
+
+    logger.info(f"Configured {provider_name} authentication")
 
     def token_source_for(audience: str) -> oauth.TokenSource:
         id_token = supplier.get_oidc_token(audience)
         if not id_token:
             # Should not happen, since we checked it above.
-            raise Exception("Cannot get OIDC token")
+            raise Exception(f"Cannot get {provider_name} token")
 
         return oauth.ClientCredentials(
             client_id=cfg.client_id,
@@ -393,9 +459,10 @@ def github_oidc(cfg: "Config") -> Optional[CredentialsProvider]:
                 "subject_token": id_token,
                 "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
             },
-            scopes=["all-apis"],
+            scopes=cfg.get_scopes_as_string(),
             use_params=True,
             disable_async=cfg.disable_async_token_refresh,
+            authorization_details=cfg.authorization_details,
         )
 
     def refreshed_headers() -> Dict[str, str]:
@@ -406,6 +473,36 @@ def github_oidc(cfg: "Config") -> Optional[CredentialsProvider]:
         return token_source_for(audience).token()
 
     return OAuthCredentialsProvider(refreshed_headers, token)
+
+
+@oauth_credentials_strategy("github-oidc", ["host", "client_id"])
+def github_oidc(cfg: "Config") -> Optional[CredentialsProvider]:
+    """
+    GitHub OIDC authentication uses a Token Supplier to get a JWT Token and exchanges
+    it for a Databricks Token.
+
+    Supported in GitHub Actions with OIDC service connections.
+    """
+    return _oidc_credentials_provider(
+        cfg=cfg,
+        supplier_factory=lambda: oidc_token_supplier.GitHubOIDCTokenSupplier(),
+        provider_name="GitHub OIDC",
+    )
+
+
+@oauth_credentials_strategy("azure-devops-oidc", ["host", "client_id"])
+def azure_devops_oidc(cfg: "Config") -> Optional[CredentialsProvider]:
+    """
+    Azure DevOps OIDC authentication uses a Token Supplier to get a JWT Token
+    and exchanges it for a Databricks Token.
+
+    Supported in Azure DevOps pipelines with OIDC service connections.
+    """
+    return _oidc_credentials_provider(
+        cfg=cfg,
+        supplier_factory=lambda: oidc_token_supplier.AzureDevOpsOIDCTokenSupplier(),
+        provider_name="Azure DevOps OIDC",
+    )
 
 
 @oauth_credentials_strategy("github-oidc-azure", ["host", "azure_client_id"])
@@ -445,6 +542,8 @@ def github_oidc_azure(cfg: "Config") -> Optional[CredentialsProvider]:
         },
         use_params=True,
         disable_async=cfg.disable_async_token_refresh,
+        scopes=cfg.get_scopes_as_string(),
+        authorization_details=cfg.authorization_details,
     )
 
     def refreshed_headers() -> Dict[str, str]:
@@ -491,7 +590,7 @@ def google_credentials(cfg: "Config") -> Optional[CredentialsProvider]:
     def refreshed_headers() -> Dict[str, str]:
         credentials.refresh(request)
         headers = {"Authorization": f"Bearer {credentials.token}"}
-        if cfg.is_account_client:
+        if cfg.client_type == ClientType.ACCOUNT:
             gcp_credentials.refresh(request)
             headers["X-Databricks-GCP-SA-Access-Token"] = gcp_credentials.token
         return headers
@@ -532,7 +631,7 @@ def google_id(cfg: "Config") -> Optional[CredentialsProvider]:
     def refreshed_headers() -> Dict[str, str]:
         id_creds.refresh(request)
         headers = {"Authorization": f"Bearer {id_creds.token}"}
-        if cfg.is_account_client:
+        if cfg.client_type == ClientType.ACCOUNT:
             gcp_impersonated_credentials.refresh(request)
             headers["X-Databricks-GCP-SA-Access-Token"] = gcp_impersonated_credentials.token
         return headers
@@ -754,7 +853,14 @@ class DatabricksCliTokenSource(CliTokenSource):
 
     def __init__(self, cfg: "Config"):
         args = ["auth", "token", "--host", cfg.host]
-        if cfg.is_account_client:
+        if cfg.experimental_is_unified_host:
+            # For unified hosts, pass account_id, workspace_id, and experimental flag
+            args += ["--experimental-is-unified-host"]
+            if cfg.account_id:
+                args += ["--account-id", cfg.account_id]
+            if cfg.workspace_id:
+                args += ["--workspace-id", str(cfg.workspace_id)]
+        elif cfg.client_type == ClientType.ACCOUNT:
             args += ["--account-id", cfg.account_id]
 
         cli_path = cfg.databricks_cli_path
@@ -1019,8 +1125,10 @@ class DefaultCredentials:
             azure_service_principal,
             github_oidc_azure,
             azure_cli,
+            azure_devops_oidc,
             external_browser,
             databricks_cli,
+            runtime_oauth,
             runtime_native_auth,
             google_credentials,
             google_id,

@@ -86,6 +86,13 @@ def apply_token_bitmask_inplace_triton(
     NUM_SMS = torch.cuda.get_device_properties("cuda").multi_processor_count
     BLOCK_SIZE = 4096
 
+    arch = torch.cuda.get_device_properties(0).gcnArchName
+    if torch.version.hip is not None and "gfx1" not in arch:
+        # For AMD GPUs (non-Navi)
+        WARP_SIZE = 64
+    else:
+        WARP_SIZE = 32
+
     assert bitmask.dtype == torch.int32, "bitmask must be of type int32"
 
     detected_vocab_size = min(logits.shape[-1], bitmask.shape[-1] * 32)
@@ -99,7 +106,8 @@ def apply_token_bitmask_inplace_triton(
     num_rows = len(indices) if indices is not None else logits.shape[0] if logits.ndim == 2 else 1
 
     if indices is not None:
-        indices = torch.tensor(indices, dtype=torch.int32, device=logits.device)
+        indices_cpu = torch.tensor(indices, dtype=torch.int32)
+        indices = indices_cpu.to(device=logits.device, non_blocking=True)
 
     grid = (NUM_SMS,)
 
@@ -113,6 +121,6 @@ def apply_token_bitmask_inplace_triton(
         bitmask.stride()[0],
         NUM_SMS,
         BLOCK_SIZE,
-        num_warps=BLOCK_SIZE // 32 // (16 // logits.element_size()),
+        num_warps=BLOCK_SIZE // WARP_SIZE // (16 // logits.element_size()),
         num_stages=3,
     )

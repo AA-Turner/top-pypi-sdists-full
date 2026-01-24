@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/// @file bsp.h
+/// Binary space partitioning module.
 #pragma once
 #ifndef TCOD_BSP_H_
 #define TCOD_BSP_H_
@@ -37,6 +39,8 @@
 #include "portability.h"
 #include "tree.h"
 
+/// @defgroup BSP Binary space partitioning
+/// @{
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -74,4 +78,5 @@ TCODLIB_API void TCOD_bsp_remove_sons(TCOD_bsp_t* node);
 #ifdef __cplusplus
 }
 #endif
+/// @}
 #endif  // TCOD_BSP_H_

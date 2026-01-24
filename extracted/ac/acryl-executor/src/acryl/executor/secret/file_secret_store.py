@@ -59,5 +59,5 @@ class FileSecretStore(SecretStore):
 
     @classmethod
     def create(cls, config: dict) -> "FileSecretStore":
-        parsed_config = FileSecretStoreConfig.parse_obj(config)
+        parsed_config = FileSecretStoreConfig.model_validate(config)
         return cls(parsed_config)

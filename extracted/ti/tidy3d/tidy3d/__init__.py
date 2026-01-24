@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from tidy3d.components.base import Tidy3dBaseModel
+from tidy3d.components.boundary import BroadbandModeABCFitterParam, BroadbandModeABCSpec
+from tidy3d.components.data.index import SimulationDataMap
+from tidy3d.components.frequency_extrapolation import LowFrequencySmoothingSpec
+from tidy3d.components.index import SimulationMap
 from tidy3d.components.material.multi_physics import MultiPhysicsMedium
 from tidy3d.components.material.tcad.charge import (
     ChargeConductorMedium,
@@ -16,14 +21,53 @@ from tidy3d.components.material.tcad.heat import (
 )
 from tidy3d.components.microwave.data.monitor_data import (
     AntennaMetricsData,
+    MicrowaveModeData,
+    MicrowaveModeSolverData,
 )
+from tidy3d.components.microwave.impedance_calculator import ImpedanceCalculator
+from tidy3d.components.microwave.mode_spec import (
+    MicrowaveModeSpec,
+)
+from tidy3d.components.microwave.monitor import (
+    MicrowaveModeMonitor,
+    MicrowaveModeSolverMonitor,
+)
+from tidy3d.components.microwave.path_integrals.integrals.auto import (
+    path_integrals_from_lumped_element,
+)
+from tidy3d.components.microwave.path_integrals.integrals.current import (
+    AxisAlignedCurrentIntegral,
+    CompositeCurrentIntegral,
+    Custom2DCurrentIntegral,
+)
+from tidy3d.components.microwave.path_integrals.integrals.voltage import (
+    AxisAlignedVoltageIntegral,
+    Custom2DVoltageIntegral,
+)
+from tidy3d.components.microwave.path_integrals.specs.current import (
+    AxisAlignedCurrentIntegralSpec,
+    CompositeCurrentIntegralSpec,
+    Custom2DCurrentIntegralSpec,
+)
+from tidy3d.components.microwave.path_integrals.specs.impedance import (
+    AutoImpedanceSpec,
+    CustomImpedanceSpec,
+)
+from tidy3d.components.microwave.path_integrals.specs.voltage import (
+    AxisAlignedVoltageIntegralSpec,
+    Custom2DVoltageIntegralSpec,
+)
+from tidy3d.components.spice.analysis.ac import IsothermalSSACAnalysis, SSACAnalysis
 from tidy3d.components.spice.analysis.dc import (
     ChargeToleranceSpec,
     IsothermalSteadyChargeDCAnalysis,
+    SteadyChargeDCAnalysis,
 )
-from tidy3d.components.spice.sources.dc import DCCurrentSource, DCVoltageSource
+from tidy3d.components.spice.sources.ac import SSACVoltageSource
+from tidy3d.components.spice.sources.dc import DCCurrentSource, DCVoltageSource, GroundVoltage
 from tidy3d.components.spice.sources.types import VoltageSourceType
 from tidy3d.components.tcad.analysis.heat_simulation_type import UnsteadyHeatAnalysis, UnsteadySpec
+from tidy3d.components.tcad.boundary.heat import VerticalNaturalConvectionCoeffModel
 from tidy3d.components.tcad.boundary.specification import (
     HeatBoundarySpec,
     HeatChargeBoundarySpec,
@@ -37,13 +81,14 @@ from tidy3d.components.tcad.data.sim_data import (
 )
 from tidy3d.components.tcad.data.types import (
     SteadyCapacitanceData,
+    SteadyCurrentDensityData,
     SteadyElectricFieldData,
     SteadyEnergyBandData,
     SteadyFreeCarrierData,
     SteadyPotentialData,
     TemperatureData,
 )
-from tidy3d.components.tcad.doping import ConstantDoping, GaussianDoping
+from tidy3d.components.tcad.doping import ConstantDoping, CustomDoping, GaussianDoping
 from tidy3d.components.tcad.generation_recombination import FossumCarrierLifetime
 from tidy3d.components.tcad.grid import (
     DistanceUnstructuredGrid,
@@ -54,6 +99,7 @@ from tidy3d.components.tcad.grid import (
 from tidy3d.components.tcad.mesher import VolumeMesher
 from tidy3d.components.tcad.monitors.charge import (
     SteadyCapacitanceMonitor,
+    SteadyCurrentDensityMonitor,
     SteadyElectricFieldMonitor,
     SteadyEnergyBandMonitor,
     SteadyFreeCarrierMonitor,
@@ -66,18 +112,27 @@ from tidy3d.components.tcad.simulation.heat_charge import HeatChargeSimulation
 from tidy3d.components.tcad.types import (
     AugerRecombination,
     CaugheyThomasMobility,
+    ConstantEffectiveDOS,
+    ConstantEnergyBandGap,
     ConstantMobilityModel,
     ConvectionBC,
     CurrentBC,
+    DistributedGeneration,
+    DualValleyEffectiveDOS,
     HeatFluxBC,
     HeatFromElectricSource,
     HeatSource,
+    HurkxDirectBandToBandTunneling,
     InsulatingBC,
+    IsotropicEffectiveDOS,
+    MultiValleyEffectiveDOS,
     RadiativeRecombination,
+    SelberherrImpactIonization,
     ShockleyReedHallRecombination,
     SlotboomBandGapNarrowing,
     TemperatureBC,
     UniformHeatSource,
+    VarshniEnergyBandGap,
     VoltageBC,
 )
 
@@ -103,6 +158,7 @@ from .components.beam import (
 # boundary
 from .components.boundary import (
     PML,
+    ABCBoundary,
     Absorber,
     AbsorberParams,
     BlochBoundary,
@@ -113,6 +169,8 @@ from .components.boundary import (
     DefaultAbsorberParameters,
     DefaultPMLParameters,
     DefaultStablePMLParameters,
+    InternalAbsorber,
+    ModeABCBoundary,
     PECBoundary,
     Periodic,
     PMCBoundary,
@@ -127,6 +185,8 @@ from .components.data.data_array import (
     ChargeDataArray,
     DiffractionDataArray,
     EMECoefficientDataArray,
+    EMEFluxDataArray,
+    EMEInterfaceSMatrixDataArray,
     EMEModeIndexDataArray,
     EMEScalarFieldDataArray,
     EMEScalarModeFieldDataArray,
@@ -136,6 +196,7 @@ from .components.data.data_array import (
     FieldProjectionKSpaceDataArray,
     FluxDataArray,
     FluxTimeDataArray,
+    GroupIndexDataArray,
     HeatDataArray,
     IndexedDataArray,
     IndexedFieldVoltageDataArray,
@@ -155,11 +216,13 @@ from .components.data.data_array import (
 from .components.data.dataset import (
     FieldDataset,
     FieldTimeDataset,
+    MediumDataset,
     ModeSolverDataset,
     PermittivityDataset,
 )
 from .components.data.monitor_data import (
     AbstractFieldProjectionData,
+    AuxFieldTimeData,
     DiffractionData,
     DirectivityData,
     FieldData,
@@ -169,6 +232,7 @@ from .components.data.monitor_data import (
     FieldTimeData,
     FluxData,
     FluxTimeData,
+    MediumData,
     ModeData,
     ModeSolverData,
     PermittivityData,
@@ -181,7 +245,9 @@ from .components.data.utils import (
 from .components.eme.data.dataset import (
     EMECoefficientDataset,
     EMEFieldDataset,
+    EMEInterfaceSMatrixDataset,
     EMEModeSolverDataset,
+    EMEOverlapDataset,
     EMESMatrixDataset,
 )
 from .components.eme.data.monitor_data import EMECoefficientData, EMEFieldData, EMEModeSolverData
@@ -259,14 +325,10 @@ from .components.medium import (
     FullyAnisotropicMedium,
     HammerstadSurfaceRoughness,
     HuraySurfaceRoughness,
-    KerrNonlinearity,
     Lorentz,
     LossyMetalMedium,
     Medium,
     Medium2D,
-    NonlinearModel,
-    NonlinearSpec,
-    NonlinearSusceptibility,
     PECMedium,
     PerturbationMedium,
     PerturbationPoleResidue,
@@ -274,7 +336,6 @@ from .components.medium import (
     PoleResidue,
     Sellmeier,
     SurfaceImpedanceFitterParam,
-    TwoPhotonAbsorption,
     medium_from_nk,
 )
 from .components.mode.data.sim_data import ModeSimulationData
@@ -283,7 +344,14 @@ from .components.mode.data.sim_data import ModeSimulationData
 from .components.mode.simulation import ModeSimulation
 
 # modes
-from .components.mode_spec import ModeSpec
+from .components.mode_spec import (
+    ChebSampling,
+    CustomSampling,
+    ModeInterpSpec,
+    ModeSortSpec,
+    ModeSpec,
+    UniformSampling,
+)
 
 # monitors
 from .components.monitor import (
@@ -298,10 +366,20 @@ from .components.monitor import (
     FieldTimeMonitor,
     FluxMonitor,
     FluxTimeMonitor,
+    MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
     Monitor,
     PermittivityMonitor,
+)
+
+# nonlinear
+from .components.nonlinear import (
+    KerrNonlinearity,
+    NonlinearModel,
+    NonlinearSpec,
+    NonlinearSusceptibility,
+    TwoPhotonAbsorption,
 )
 from .components.parameter_perturbation import (
     CustomChargePerturbation,
@@ -339,9 +417,13 @@ from .components.source.field import (
     ModeSource,
     PlaneWave,
 )
+from .components.source.frame import (
+    PECFrame,
+)
 
 # sources
 from .components.source.time import (
+    BroadbandPulse,
     ContinuousWave,
     CustomSourceTime,
     GaussianPulse,
@@ -406,6 +488,12 @@ Transformed.update_forward_refs()
 ClipOperation.update_forward_refs()
 GeometryGroup.update_forward_refs()
 
+# Backwards compatibility: Remove 2.11 renamed integral classes
+VoltageIntegralAxisAligned = AxisAlignedVoltageIntegral
+CurrentIntegralAxisAligned = AxisAlignedCurrentIntegral
+CustomVoltageIntegral2D = Custom2DVoltageIntegral
+CustomCurrentIntegral2D = Custom2DCurrentIntegral
+
 __all__ = [
     "C_0",
     "DATA_TYPE_MAP",
@@ -419,6 +507,7 @@ __all__ = [
     "PMC",
     "PML",
     "TFSF",
+    "ABCBoundary",
     "Absorber",
     "AbsorberParams",
     "AbstractFieldProjectionData",
@@ -431,23 +520,36 @@ __all__ = [
     "AstigmaticGaussianBeamProfile",
     "AugerRecombination",
     "AutoGrid",
+    "AutoImpedanceSpec",
     "AuxFieldTimeData",
     "AuxFieldTimeMonitor",
+    "AxisAlignedCurrentIntegral",
+    "AxisAlignedCurrentIntegralSpec",
+    "AxisAlignedVoltageIntegral",
+    "AxisAlignedVoltageIntegralSpec",
     "BlochBoundary",
     "Boundary",
     "BoundaryEdge",
     "BoundaryEdgeType",
     "BoundarySpec",
     "Box",
+    "BroadbandModeABCFitterParam",
+    "BroadbandModeABCSpec",
+    "BroadbandPulse",
     "CaugheyThomasMobility",
     "CellDataArray",
     "ChargeConductorMedium",
     "ChargeDataArray",
     "ChargeInsulatorMedium",
     "ChargeToleranceSpec",
+    "ChebSampling",
     "ClipOperation",
     "CoaxialLumpedResistor",
+    "CompositeCurrentIntegral",
+    "CompositeCurrentIntegralSpec",
     "ConstantDoping",
+    "ConstantEffectiveDOS",
+    "ConstantEnergyBandGap",
     "ConstantMobilityModel",
     "ContinuousWave",
     "ContinuousWaveTimeModulation",
@@ -457,20 +559,30 @@ __all__ = [
     "Coords1D",
     "CornerFinderSpec",
     "CurrentBC",
+    "CurrentIntegralAxisAligned",  # Backwards compatibility alias
+    "Custom2DCurrentIntegral",
+    "Custom2DCurrentIntegralSpec",
+    "Custom2DVoltageIntegral",
+    "Custom2DVoltageIntegralSpec",
     "CustomAnisotropicMedium",
     "CustomChargePerturbation",
+    "CustomCurrentIntegral2D",  # Backwards compatibility alias
     "CustomCurrentSource",
     "CustomDebye",
+    "CustomDoping",
     "CustomDrude",
     "CustomFieldSource",
     "CustomGrid",
     "CustomGridBoundaries",
     "CustomHeatPerturbation",
+    "CustomImpedanceSpec",
     "CustomLorentz",
     "CustomMedium",
     "CustomPoleResidue",
+    "CustomSampling",
     "CustomSellmeier",
     "CustomSourceTime",
+    "CustomVoltageIntegral2D",  # Backwards compatibility alias
     "Cylinder",
     "DCCurrentSource",
     "DCVoltageSource",
@@ -485,7 +597,9 @@ __all__ = [
     "DirectivityData",
     "DirectivityMonitor",
     "DistanceUnstructuredGrid",
+    "DistributedGeneration",
     "Drude",
+    "DualValleyEffectiveDOS",
     "EMECoefficientData",
     "EMECoefficientDataArray",
     "EMECoefficientDataset",
@@ -495,8 +609,11 @@ __all__ = [
     "EMEFieldData",
     "EMEFieldDataset",
     "EMEFieldMonitor",
+    "EMEFluxDataArray",
     "EMEFreqSweep",
     "EMEGrid",
+    "EMEInterfaceSMatrixDataArray",
+    "EMEInterfaceSMatrixDataset",
     "EMELengthSweep",
     "EMEModeIndexDataArray",
     "EMEModeSolverData",
@@ -505,6 +622,7 @@ __all__ = [
     "EMEModeSpec",
     "EMEModeSweep",
     "EMEMonitor",
+    "EMEOverlapDataset",
     "EMEPeriodicitySweep",
     "EMESMatrixDataArray",
     "EMESMatrixDataset",
@@ -558,6 +676,8 @@ __all__ = [
     "GridRefinementLine",
     "GridRefinementRegion",
     "GridSpec",
+    "GroundVoltage",
+    "GroupIndexDataArray",
     "HammerstadSurfaceRoughness",
     "HeatBoundarySpec",
     "HeatChargeBoundarySpec",
@@ -571,13 +691,18 @@ __all__ = [
     "HeatSource",
     "HeuristicPECStaircasing",
     "HuraySurfaceRoughness",
+    "HurkxDirectBandToBandTunneling",
+    "ImpedanceCalculator",
     "IndexPerturbation",
     "IndexedDataArray",
     "IndexedFieldVoltageDataArray",
     "IndexedTimeDataArray",
     "IndexedVoltageDataArray",
     "InsulatingBC",
+    "InternalAbsorber",
+    "IsothermalSSACAnalysis",
     "IsothermalSteadyChargeDCAnalysis",
+    "IsotropicEffectiveDOS",
     "KerrNonlinearity",
     "LayerRefinementSpec",
     "LinearChargePerturbation",
@@ -585,32 +710,46 @@ __all__ = [
     "LinearLumpedElement",
     "Lorentz",
     "LossyMetalMedium",
+    "LowFrequencySmoothingSpec",
     "LumpedElement",
     "LumpedResistor",
     "Medium",
     "Medium2D",
+    "MediumData",
+    "MediumDataset",
     "MediumMediumInterface",
+    "MediumMonitor",
     "MeshOverrideStructure",
+    "MicrowaveModeData",
+    "MicrowaveModeMonitor",
+    "MicrowaveModeSolverData",
+    "MicrowaveModeSolverMonitor",
+    "MicrowaveModeSpec",
+    "ModeABCBoundary",
     "ModeAmpsDataArray",
     "ModeData",
     "ModeIndexDataArray",
+    "ModeInterpSpec",
     "ModeMonitor",
     "ModeSimulation",
     "ModeSimulationData",
     "ModeSolverData",
     "ModeSolverDataset",
     "ModeSolverMonitor",
+    "ModeSortSpec",
     "ModeSource",
     "ModeSpec",
     "ModulationSpec",
     "Monitor",
     "MultiPhysicsMedium",
+    "MultiValleyEffectiveDOS",
     "NedeljkovicSorefMashanovich",
     "NonlinearModel",
     "NonlinearSpec",
     "NonlinearSusceptibility",
     "PECBoundary",
     "PECConformal",
+    "PECFrame",
     "PECMedium",
     "PMCBoundary",
     "PMCMedium",
@@ -638,17 +777,22 @@ __all__ = [
     "RectangularLumpedElement",
     "RotationAroundAxis",
     "RunTimeSpec",
+    "SSACAnalysis",
+    "SSACVoltageSource",
     "ScalarFieldDataArray",
     "ScalarFieldTimeDataArray",
     "ScalarModeFieldCylindricalDataArray",
     "ScalarModeFieldDataArray",
     "Scene",
+    "SelberherrImpactIonization",
     "Sellmeier",
     "SemiconductorMedium",
     "ShockleyReedHallRecombination",
     "Simulation",
     "SimulationBoundary",
     "SimulationData",
+    "SimulationDataMap",
+    "SimulationMap",
     "SlotboomBandGapNarrowing",
     "SolidMedium",
     "SolidSpec",
@@ -663,6 +807,9 @@ __all__ = [
     "Staircasing",
     "SteadyCapacitanceData",
     "SteadyCapacitanceMonitor",
+    "SteadyChargeDCAnalysis",
+    "SteadyCurrentDensityData",
+    "SteadyCurrentDensityMonitor",
     "SteadyElectricFieldData",
     "SteadyElectricFieldMonitor",
     "SteadyEnergyBandData",
@@ -683,6 +830,7 @@ __all__ = [
     "TemperatureData",
     "TemperatureMonitor",
     "TetrahedralGridDataset",
+    "Tidy3dBaseModel",
     "Transformed",
     "TriangleMesh",
     "TriangularGridDataset",
@@ -690,12 +838,16 @@ __all__ = [
     "UniformCurrentSource",
     "UniformGrid",
     "UniformHeatSource",
+    "UniformSampling",
     "UniformUnstructuredGrid",
     "UnsteadyHeatAnalysis",
     "UnsteadySpec",
     "Updater",
+    "VarshniEnergyBandGap",
+    "VerticalNaturalConvectionCoeffModel",
     "VisualizationSpec",
     "VoltageBC",
+    "VoltageIntegralAxisAligned",  # Backwards compatibility alias
     "VoltageSourceType",
     "VolumeMeshData",
     "VolumeMeshMonitor",
@@ -710,6 +862,7 @@ __all__ = [
     "log",
     "material_library",
     "medium_from_nk",
+    "path_integrals_from_lumped_element",
     "restore_matplotlib_rcparams",
     "set_logging_console",
     "set_logging_file",

@@ -39,6 +39,8 @@ class _FeatureStatusEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._
     DELETION_IN_PROGRESS: _FeatureStatus.ValueType  # 5
     DELETION_FAILED: _FeatureStatus.ValueType  # 6
     BACKFILL_IN_PROGRESS: _FeatureStatus.ValueType  # 7
+    UPDATE_FAILED: _FeatureStatus.ValueType  # 8
+    UPDATE_IN_PROGRESS: _FeatureStatus.ValueType  # 9
 
 class FeatureStatus(_FeatureStatus, metaclass=_FeatureStatusEnumTypeWrapper): ...
 
@@ -50,6 +52,8 @@ REGISTRATION_IN_PROGRESS: FeatureStatus.ValueType  # 4
 DELETION_IN_PROGRESS: FeatureStatus.ValueType  # 5
 DELETION_FAILED: FeatureStatus.ValueType  # 6
 BACKFILL_IN_PROGRESS: FeatureStatus.ValueType  # 7
+UPDATE_FAILED: FeatureStatus.ValueType  # 8
+UPDATE_IN_PROGRESS: FeatureStatus.ValueType  # 9
 global___FeatureStatus = FeatureStatus
 
 class _FeaturesetSchedulingState:

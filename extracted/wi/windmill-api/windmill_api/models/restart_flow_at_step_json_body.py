@@ -1,28 +1,62 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="RestartFlowAtStepJsonBody")
 
 
 @_attrs_define
 class RestartFlowAtStepJsonBody:
-    """The arguments to pass to the script or flow"""
+    """
+    Attributes:
+        step_id (str): step id to restart the flow from
+        branch_or_iteration_n (Union[Unset, int]): for branchall or loop, the iteration at which the flow should restart
+            (optional)
+        flow_version (Union[Unset, int]): specific flow version to use for restart (optional, uses current version if
+            not specified)
+    """
 
+    step_id: str
+    branch_or_iteration_n: Union[Unset, int] = UNSET
+    flow_version: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        step_id = self.step_id
+        branch_or_iteration_n = self.branch_or_iteration_n
+        flow_version = self.flow_version
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update(
+            {
+                "step_id": step_id,
+            }
+        )
+        if branch_or_iteration_n is not UNSET:
+            field_dict["branch_or_iteration_n"] = branch_or_iteration_n
+        if flow_version is not UNSET:
+            field_dict["flow_version"] = flow_version
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
-        restart_flow_at_step_json_body = cls()
+        step_id = d.pop("step_id")
+
+        branch_or_iteration_n = d.pop("branch_or_iteration_n", UNSET)
+
+        flow_version = d.pop("flow_version", UNSET)
+
+        restart_flow_at_step_json_body = cls(
+            step_id=step_id,
+            branch_or_iteration_n=branch_or_iteration_n,
+            flow_version=flow_version,
+        )
 
         restart_flow_at_step_json_body.additional_properties = d
         return restart_flow_at_step_json_body

@@ -20,9 +20,9 @@
 
 """Tests for merge driver support."""
 
+import importlib.util
 import sys
 import unittest
-from typing import Optional
 
 from dulwich.attrs import GitAttributes, Pattern
 from dulwich.config import ConfigDict
@@ -33,6 +33,8 @@ from dulwich.merge_drivers import (
     get_merge_driver_registry,
 )
 from dulwich.objects import Blob
+
+from . import DependencyMissing
 
 
 class _TestMergeDriver:
@@ -48,7 +50,7 @@ class _TestMergeDriver:
         ancestor: bytes,
         ours: bytes,
         theirs: bytes,
-        path: Optional[str] = None,
+        path: str | None = None,
         marker_size: int = 7,
     ) -> tuple[bytes, bool]:
         """Test merge implementation."""
@@ -209,6 +211,10 @@ class MergeBlobsWithDriversTests(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        # Check if merge3 module is available
+        if importlib.util.find_spec("merge3") is None:
+            raise DependencyMissing("merge3")
+
         # Reset global registry
         global _merge_driver_registry
         from dulwich import merge_drivers

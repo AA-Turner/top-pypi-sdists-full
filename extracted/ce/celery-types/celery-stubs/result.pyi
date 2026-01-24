@@ -6,6 +6,7 @@ from typing import (
     Any,
     Generic,
     Literal,
+    TypeAlias,
     TypeVar,
 )
 
@@ -23,11 +24,11 @@ def allow_join_result() -> Iterator[None]: ...
 class ResultBase:
     parent: ResultBase | None
 
-_State = Literal["PENDING", "STARTED", "RETRY", "FAILURE", "SUCCESS"]
+_State: TypeAlias = Literal["PENDING", "STARTED", "RETRY", "FAILURE", "SUCCESS"]
 
-_R = TypeVar("_R", covariant=True)
+_R_co = TypeVar("_R_co", covariant=True)
 
-class AsyncResult(ResultBase, Generic[_R]):
+class AsyncResult(ResultBase, Generic[_R_co]):
     app: Celery
     id: str
     backend: Backend
@@ -76,7 +77,7 @@ class AsyncResult(ResultBase, Generic[_R]):
         disable_sync_subtasks: bool = ...,
         EXCEPTION_STATES: frozenset[str] = ...,
         PROPAGATE_STATES: frozenset[str] = ...,
-    ) -> _R: ...
+    ) -> _R_co: ...
     def collect(
         self, intermediate: bool = ..., **kwargs: Any
     ) -> Iterator[tuple[AsyncResult[Any], object]]: ...
@@ -103,7 +104,7 @@ class AsyncResult(ResultBase, Generic[_R]):
         self,
     ) -> list[tuple[int, tuple[int, Any | None, None] | None, None]] | None: ...
     @property
-    def result(self) -> _R | BaseException: ...
+    def result(self) -> _R_co | BaseException: ...
     @property
     def info(self) -> Any: ...
     @property
@@ -133,6 +134,45 @@ class AsyncResult(ResultBase, Generic[_R]):
     @property
     def queue(self) -> str | None: ...
 
-class EagerResult(AsyncResult[_R]): ...
-class ResultSet(ResultBase): ...
-class GroupResult(ResultSet): ...
+class EagerResult(AsyncResult[_R_co]):
+    def __init__(
+        self,
+        id: str,
+        ret_value: _R_co,
+        state: str,
+        traceback: str | None = ...,
+        name: str | None = ...,
+    ) -> None: ...
+
+class ResultSet(ResultBase):
+    results: list[AsyncResult[Any]] | None
+    app: Celery
+    def __init__(
+        self,
+        results: list[AsyncResult[Any]] | None,
+        app: Celery | None = ...,
+        ready_barrier: Any | None = ...,
+        **kwargs: Any,
+    ) -> None: ...
+
+class GroupResult(ResultSet):
+    id: str | None
+    def __init__(
+        self,
+        id: str | None = ...,
+        results: list[AsyncResult[Any]] | None = ...,
+        parent: ResultBase | None = ...,
+        app: Celery | None = ...,
+        **kwargs: Any,
+    ) -> None: ...
+    @classmethod
+    def restore(
+        cls,
+        id: str,
+        backend: Backend | None = ...,
+        app: Celery | None = ...,
+    ) -> GroupResult: ...
+    def save(self, backend: Backend | None = ...) -> Any: ...
+    def delete(self, backend: Backend | None = ...) -> None: ...
+    @property
+    def children(self) -> list[AsyncResult[Any]] | None: ...

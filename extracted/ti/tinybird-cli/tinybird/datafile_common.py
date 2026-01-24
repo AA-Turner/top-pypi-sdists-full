@@ -2,7 +2,7 @@
 Datafile is like a Dockerfile but to describe ETL processes
 """
 
-from asyncio import Semaphore, gather
+from asyncio import Semaphore, ensure_future, gather
 from datetime import datetime
 
 import aiofiles
@@ -147,6 +147,9 @@ ON_DEMAND = "@on-demand"
 DEFAULT_CRON_PERIOD: int = 60
 
 
+# TODO: This class is duplicated in tinybird/datafile/common.py with a slightly different
+# _REPLACEMENTS tuple. The duplication happened during the CLI/server code split (commit
+# f86d02cdd7). Consider extracting shared code into a common module that both files can import.
 class ImportReplacements:
     _REPLACEMENTS: Tuple[Tuple[str, str, Optional[str]], ...] = (
         ("import_service", "service", None),
@@ -167,7 +170,7 @@ class ImportReplacements:
         return [x[0] for x in ImportReplacements._REPLACEMENTS]
 
     @staticmethod
-    def get_api_param_for_datafile_param(connector_service: str, key: str) -> Tuple[Optional[str], Optional[str]]:
+    def get_api_param_for_datafile_param(key: str) -> Tuple[Optional[str], Optional[str]]:
         """Returns the API parameter name and default value for a given
         datafile parameter.
         """
@@ -337,7 +340,7 @@ class CLIGitRelease:
 
         def as_feedback_message(self, diff: Diff) -> str:
             change_type = self.name.lower().replace("_", " ")
-            changed = f"{diff.a_path} -> {diff.b_path}" if self.value == self.RENAMED.value else f"{diff.a_path}"  # type: ignore
+            changed = f"{diff.a_path} -> {diff.b_path}" if self.value == self.RENAMED.value else f"{diff.a_path}"
             return FeedbackManager.info_git_release_diff(change_type=change_type, datafile_changed=changed)
 
     def __init__(self, path=None):
@@ -552,9 +555,7 @@ class Deployment:
                 and self.cli_git_release.ChangeType(type) == self.cli_git_release.ChangeType.MODIFIED
             ):
                 filenames_from_changed += [
-                    filename
-                    for filename in filenames
-                    if filename.endswith(f"{change}.pipe") or filename.endswith(f"{change}.datasource")
+                    filename for filename in filenames if filename.endswith((f"{change}.pipe", f"{change}.datasource"))
                 ]
         return filenames_from_changed
 
@@ -1280,7 +1281,7 @@ def parse(
                 if (
                     parser_state.multiline
                     and cmd.lower() in cmds
-                    and not (line.startswith(" ") or line.startswith("\t") or line.lower().startswith("from"))
+                    and not (line.startswith((" ", "\t")) or line.lower().startswith("from"))
                 ):
                     parser_state.multiline = False
                     cmds[parser_state.command](
@@ -1458,11 +1459,8 @@ async def process_file(
                 raise click.ClickException(FeedbackManager.error_missing_table_arn(datasource=datasource["name"]))
             if not params.get("import_export_bucket", None):
                 raise click.ClickException(FeedbackManager.error_missing_export_bucket(datasource=datasource["name"]))
-        else:
-            if not params.get("import_external_datasource", None):
-                raise click.ClickException(
-                    FeedbackManager.error_missing_external_datasource(datasource=datasource["name"])
-                )
+        elif not params.get("import_external_datasource", None):
+            raise click.ClickException(FeedbackManager.error_missing_external_datasource(datasource=datasource["name"]))
 
         return params
 
@@ -1585,7 +1583,7 @@ async def process_file(
             #
             # Note: any unknown import_ parameter is leaved as is.
             for key in ImportReplacements.get_datafile_parameter_keys():
-                replacement, default_value = ImportReplacements.get_api_param_for_datafile_param(service, key)
+                replacement, default_value = ImportReplacements.get_api_param_for_datafile_param(key)
                 if not replacement:
                     continue  # We should not reach this never, but just in case...
 
@@ -3057,26 +3055,23 @@ async def new_pipe(
         if wait_populate:
             result = await wait_job(tb_client, job_id, job_url, "Populating")
             click.echo(FeedbackManager.info_populate_job_result(result=result))
-    else:
-        if data.get("type") == "default" and not skip_tokens and not as_standard and not copy_node and not sink_node:
-            # FIXME: set option to add last node as endpoint in the API
-            endpoint_node = next(
-                (node for node in data.get("nodes", []) if node.get("type") == "endpoint"), data.get("nodes", [])[-1]
+    elif data.get("type") == "default" and not skip_tokens and not as_standard and not copy_node and not sink_node:
+        # FIXME: set option to add last node as endpoint in the API
+        endpoint_node = next(
+            (node for node in data.get("nodes", []) if node.get("type") == "endpoint"), data.get("nodes", [])[-1]
+        )
+        try:
+            data = await tb_client._req(
+                f"/v0/pipes/{p['name']}/nodes/{endpoint_node.get('id')}/endpoint?{urlencode(cli_params)}",
+                method="POST",
+                headers=headers,
             )
-            try:
-                data = await tb_client._req(
-                    f"/v0/pipes/{p['name']}/nodes/{endpoint_node.get('id')}/endpoint?{urlencode(cli_params)}",
-                    method="POST",
-                    headers=headers,
-                )
-            except Exception as e:
-                raise Exception(
-                    FeedbackManager.error_creating_endpoint(
-                        node=endpoint_node.get("name"), pipe=p["name"], error=str(e)
-                    )
-                )
+        except Exception as e:
+            raise Exception(
+                FeedbackManager.error_creating_endpoint(node=endpoint_node.get("name"), pipe=p["name"], error=str(e))
+            )
 
-            click.echo(FeedbackManager.success_test_endpoint_no_token(host=host, pipe=p["name"]))
+        click.echo(FeedbackManager.success_test_endpoint_no_token(host=host, pipe=p["name"]))
 
     if copy_node:
         pipe_id = data["id"]
@@ -3520,35 +3515,35 @@ async def new_ds(
         except Exception as e:
             promote_error_message = str(e)
 
+    # Update token scopes when force-pushing an existing datasource
+    if ds.get("tokens"):
+        await manage_tokens()
+
     if alter_response and make_changes:
         # alter operation finished
         pass
+    elif (
+        os.getenv("TB_I_KNOW_WHAT_I_AM_DOING")
+        and click.prompt(FeedbackManager.info_ask_for_datasource_confirmation()) == ds_name
+    ):  # TODO move to CLI
+        try:
+            await client.datasource_delete(ds_name)
+            click.echo(FeedbackManager.success_delete_datasource(datasource=ds_name))
+        except Exception:
+            raise click.ClickException(FeedbackManager.error_removing_datasource(datasource=ds_name))
+        return
+    elif alter_error_message:
+        raise click.ClickException(
+            FeedbackManager.error_datasource_already_exists_and_alter_failed(
+                datasource=ds_name, alter_error_message=alter_error_message
+            )
+        )
+    elif promote_error_message:
+        raise click.ClickException(
+            FeedbackManager.error_promoting_datasource(datasource=ds_name, error=promote_error_message)
+        )
     else:
-        # removed replacing by default. When a datasource is removed data is
-        # removed and all the references needs to be updated
-        if (
-            os.getenv("TB_I_KNOW_WHAT_I_AM_DOING")
-            and click.prompt(FeedbackManager.info_ask_for_datasource_confirmation()) == ds_name
-        ):  # TODO move to CLI
-            try:
-                await client.datasource_delete(ds_name)
-                click.echo(FeedbackManager.success_delete_datasource(datasource=ds_name))
-            except Exception:
-                raise click.ClickException(FeedbackManager.error_removing_datasource(datasource=ds_name))
-            return
-        else:
-            if alter_error_message:
-                raise click.ClickException(
-                    FeedbackManager.error_datasource_already_exists_and_alter_failed(
-                        datasource=ds_name, alter_error_message=alter_error_message
-                    )
-                )
-            if promote_error_message:
-                raise click.ClickException(
-                    FeedbackManager.error_promoting_datasource(datasource=ds_name, error=promote_error_message)
-                )
-            else:
-                click.echo(FeedbackManager.warning_datasource_already_exists(datasource=ds_name))
+        click.echo(FeedbackManager.warning_datasource_already_exists(datasource=ds_name))
 
 
 async def new_token(token: Dict[str, Any], client: TinyB, force: bool = False):
@@ -4450,52 +4445,44 @@ async def folder_push(
                             error=e,
                         )
                         raise click.ClickException(exception)
-                else:
-                    if raise_on_exists:
-                        raise AlreadyExistsException(
-                            FeedbackManager.warning_name_already_exists(
-                                name=name if to_run[name]["version"] is None else f"{name}__v{to_run[name]['version']}"
-                            )
+                elif raise_on_exists:
+                    raise AlreadyExistsException(
+                        FeedbackManager.warning_name_already_exists(
+                            name=name if to_run[name]["version"] is None else f"{name}__v{to_run[name]['version']}"
                         )
+                    )
+                elif await name_matches_existing_resource(resource, name, tb_client):
+                    if resource == "pipes":
+                        click.echo(FeedbackManager.error_pipe_cannot_be_pushed(name=name))
                     else:
-                        if await name_matches_existing_resource(resource, name, tb_client):
-                            if resource == "pipes":
-                                click.echo(FeedbackManager.error_pipe_cannot_be_pushed(name=name))
-                            else:
-                                click.echo(FeedbackManager.error_datasource_cannot_be_pushed(name=name))
-                        else:
-                            click.echo(
-                                FeedbackManager.warning_name_already_exists(
-                                    name=(
-                                        name
-                                        if to_run[name]["version"] is None
-                                        else f"{name}__v{to_run[name]['version']}"
-                                    )
-                                )
-                            )
+                        click.echo(FeedbackManager.error_datasource_cannot_be_pushed(name=name))
+                else:
+                    click.echo(
+                        FeedbackManager.warning_name_already_exists(
+                            name=(name if to_run[name]["version"] is None else f"{name}__v{to_run[name]['version']}")
+                        )
+                    )
+            elif should_push_file(name, remote_resource_names, latest_datasource_versions, force, run_tests):
+                if name not in resource_versions:
+                    version = ""
+                    if name in latest_datasource_versions:
+                        version = f"(v{latest_datasource_versions[name]})"
+                    click.echo(FeedbackManager.info_dry_processing_new_resource(name=name, version=version))
+                else:
+                    click.echo(
+                        FeedbackManager.info_dry_processing_resource(
+                            name=name,
+                            version=latest_datasource_versions[name],
+                            latest_version=resource_versions.get(name),
+                        )
+                    )
+            elif await name_matches_existing_resource(resource, name, tb_client):
+                if resource == "pipes":
+                    click.echo(FeedbackManager.warning_pipe_cannot_be_pushed(name=name))
+                else:
+                    click.echo(FeedbackManager.warning_datasource_cannot_be_pushed(name=name))
             else:
-                if should_push_file(name, remote_resource_names, latest_datasource_versions, force, run_tests):
-                    if name not in resource_versions:
-                        version = ""
-                        if name in latest_datasource_versions:
-                            version = f"(v{latest_datasource_versions[name]})"
-                        click.echo(FeedbackManager.info_dry_processing_new_resource(name=name, version=version))
-                    else:
-                        click.echo(
-                            FeedbackManager.info_dry_processing_resource(
-                                name=name,
-                                version=latest_datasource_versions[name],
-                                latest_version=resource_versions.get(name),
-                            )
-                        )
-                else:
-                    if await name_matches_existing_resource(resource, name, tb_client):
-                        if resource == "pipes":
-                            click.echo(FeedbackManager.warning_pipe_cannot_be_pushed(name=name))
-                        else:
-                            click.echo(FeedbackManager.warning_datasource_cannot_be_pushed(name=name))
-                    else:
-                        click.echo(FeedbackManager.warning_dry_name_already_exists(name=name))
+                click.echo(FeedbackManager.warning_dry_name_already_exists(name=name))
 
     async def push_files(
         dependency_graph: GraphDependencies,
@@ -4745,9 +4732,8 @@ async def folder_push(
                         force,
                         mode="append" if is_branch else "replace",
                     )
-        else:
-            if verbose:
-                click.echo(FeedbackManager.info_not_pushing_fixtures())
+        elif verbose:
+            click.echo(FeedbackManager.info_not_pushing_fixtures())
 
     await deployment.update_release(has_semver=has_semver, release_created=release_created)
 
@@ -4873,6 +4859,7 @@ async def format_datasource(
     for_deploy_diff: bool = False,
     skip_eval: bool = False,
     content: Optional[str] = None,
+    resource_source: Optional[str] = None,  # Not used for datasources, but kept for API consistency with format_pipe
 ) -> str:
     if datafile:
         doc = datafile
@@ -4976,11 +4963,25 @@ def format_tokens(file_parts: List[str], doc: Datafile) -> List[str]:
 
 
 def format_node_sql(
-    file_parts: List[str], node: Dict[str, Any], line_length: Optional[int] = None, lower_keywords: bool = False
+    file_parts: List[str],
+    node: Dict[str, Any],
+    line_length: Optional[int] = None,
+    lower_keywords: bool = False,
+    resource_name: Optional[str] = None,
+    resource_source: Optional[str] = None,
 ) -> List[str]:
     file_parts.append("SQL >")
     file_parts.append(DATAFILE_NEW_LINE)
-    file_parts.append(format_sql(node["sql"], DATAFILE_INDENT, line_length=line_length, lower_keywords=lower_keywords))
+    file_parts.append(
+        format_sql(
+            node["sql"],
+            DATAFILE_INDENT,
+            line_length=line_length,
+            lower_keywords=lower_keywords,
+            resource_name=resource_name,
+            resource_source=resource_source,
+        )
+    )
     file_parts.append(DATAFILE_NEW_LINE)
     file_parts.append(DATAFILE_NEW_LINE)
     return file_parts
@@ -5100,6 +5101,8 @@ async def format_node(
     line_length: Optional[int] = None,
     unroll_includes: bool = False,
     lower_keywords: bool = False,
+    resource_name: Optional[str] = None,
+    resource_source: Optional[str] = None,
 ) -> None:
     if not unroll_includes:
         format_pipe_include(file_parts, node, includes)
@@ -5114,7 +5117,14 @@ async def format_node(
 
     Doc = namedtuple("Doc", ["description"])
     format_description(file_parts, Doc(node.get("description", "")))
-    format_node_sql(file_parts, node, line_length=line_length, lower_keywords=lower_keywords)
+    format_node_sql(
+        file_parts,
+        node,
+        line_length=line_length,
+        lower_keywords=lower_keywords,
+        resource_name=resource_name,
+        resource_source=resource_source,
+    )
     await format_node_type(file_parts, node)
 
 
@@ -5127,6 +5137,7 @@ async def format_pipe(
     for_deploy_diff: bool = False,
     skip_eval: bool = False,
     content: Optional[str] = None,
+    resource_source: Optional[str] = None,
 ) -> str:
     if datafile:
         doc = datafile
@@ -5159,7 +5170,7 @@ async def format_pipe(
                 if "." in include_file
                 else eval_var(include_file)
             )
-            included_pipe = parse_pipe(include_file, skip_eval=skip_eval)
+            included_pipe = parse_pipe(str(include_file), skip_eval=skip_eval)
             pipe_nodes = doc.nodes.copy()
             for included_node in included_pipe.nodes.copy():
                 unrolled_included_node = next(
@@ -5175,10 +5186,12 @@ async def format_pipe(
             line_length=line_length,
             unroll_includes=unroll_includes,
             lower_keywords=bool(for_deploy_diff),
+            resource_name=filename,
+            resource_source=resource_source,
         )
 
     if not unroll_includes:
-        for k, _ in doc.includes.items():
+        for k in doc.includes.keys():
             if ".incl" not in k:
                 continue
             file_parts.append(f"INCLUDE {k}")
@@ -5190,8 +5203,21 @@ async def format_pipe(
     return result
 
 
-def format_sql(sql: str, DATAFILE_INDENT: str, line_length: Optional[int] = None, lower_keywords: bool = False) -> str:
-    sql = format_sql_template(sql.strip(), line_length=line_length, lower_keywords=lower_keywords)
+def format_sql(
+    sql: str,
+    DATAFILE_INDENT: str,
+    line_length: Optional[int] = None,
+    lower_keywords: bool = False,
+    resource_name: Optional[str] = None,
+    resource_source: Optional[str] = None,
+) -> str:
+    sql = format_sql_template(
+        sql.strip(),
+        line_length=line_length,
+        lower_keywords=lower_keywords,
+        resource_name=resource_name,
+        resource_source=resource_source,
+    )
     return "\n".join([f"{DATAFILE_INDENT}{part}" for part in sql.split("\n") if len(part.strip())])
 
 
@@ -5202,7 +5228,15 @@ async def _gather_with_concurrency(n, *tasks):
         async with semaphore:
             return await task
 
-    return await gather(*(sem_task(task) for task in tasks))
+    wrapped = [ensure_future(sem_task(t)) for t in tasks]
+    try:
+        return await gather(*wrapped)
+    except:
+        for t in wrapped:
+            if not t.done():
+                t.cancel()
+        await gather(*wrapped, return_exceptions=True)
+        raise
 
 
 async def folder_pull(
@@ -5299,9 +5333,8 @@ async def folder_pull(
                                 if m in resources or m in resource_names:
                                     resource_to_write = resource_to_write.replace(match, m)
                             await fd.write(resource_to_write)
-                else:
-                    if verbose:
-                        click.echo(FeedbackManager.info_skip_already_exists())
+                elif verbose:
+                    click.echo(FeedbackManager.info_skip_already_exists())
             except Exception as e:
                 raise click.ClickException(FeedbackManager.error_exception(error=e))
 
@@ -5429,7 +5462,7 @@ async def diff_command(
                 sys.stdout.writelines(diff_lines)
                 click.echo("")
 
-    for rfilename, _ in local_resources.items():
+    for rfilename in local_resources.keys():
         if rfilename not in changed:
             for resource in remote_datasources + remote_pipes:
                 properties = get_name_version(resource["name"])
@@ -5460,7 +5493,7 @@ async def diff_files(
         with open(filename) as file:
             return file.readlines()
 
-    async def parse(filename, with_format=True, unroll_includes=False):
+    async def parse(filename, with_format=True, unroll_includes=False, resource_source=None):
         extensions = Path(filename).suffixes
         lines = None
         if is_file_a_datasource(filename):
@@ -5472,6 +5505,7 @@ async def diff_files(
                     client=client,
                     replace_includes=True,
                     for_deploy_diff=for_deploy,
+                    resource_source=resource_source,
                 )
                 if with_format
                 else file_lines(filename)
@@ -5484,6 +5518,7 @@ async def diff_files(
                     unroll_includes=unroll_includes,
                     replace_includes=True,
                     for_deploy_diff=for_deploy,
+                    resource_source=resource_source,
                 )
                 if with_format
                 else file_lines(filename)
@@ -5494,8 +5529,8 @@ async def diff_files(
             return [f"{l}\n" for l in lines.split("\n")] if with_format else lines  # noqa: E741
 
     try:
-        lines1 = await parse(from_file, with_format)
-        lines2 = await parse(to_file, with_format, unroll_includes=True)
+        lines1 = await parse(from_file, with_format, resource_source="remote")
+        lines2 = await parse(to_file, with_format, unroll_includes=True, resource_source="local")
     except FileNotFoundError as e:
         filename = os.path.basename(str(e)).strip("'")
         raise click.ClickException(FeedbackManager.error_diff_file(filename=filename))
@@ -5583,16 +5618,20 @@ def is_datasource(resource: Optional[Dict[str, Any]]) -> bool:
 
 
 async def create_release(
-    client: TinyB, config: Union[Dict[str, Any], CLIConfig], semver: str, folder: Optional[str] = None
+    client: TinyB,
+    config: Union[Dict[str, Any], CLIConfig],
+    semver: str,
+    folder: Optional[str] = None,
+    commit: Optional[str] = None,
 ) -> None:
     if not folder:
         folder = getcwd()
-    cli_git_release = None
-    try:
-        cli_git_release = CLIGitRelease(path=folder)
-        commit = cli_git_release.head_commit()
-    except CLIGitReleaseException:
-        raise CLIGitReleaseException(FeedbackManager.error_no_git_repo_for_init(repo_path=folder))
+    if not commit:
+        try:
+            cli_git_release = CLIGitRelease(path=folder)
+            commit = cli_git_release.head_commit()
+        except CLIGitReleaseException:
+            raise CLIGitReleaseException(FeedbackManager.error_no_git_repo_for_init(repo_path=folder))
 
     await client.release_new(config["id"], semver, commit)
     click.echo(FeedbackManager.success_deployment_release(semver=semver))
@@ -5616,7 +5655,7 @@ def is_file_a_datasource(filename: str) -> bool:
 
         for line in lines:
             trimmed_line = line.strip().lower()
-            if trimmed_line.startswith("schema") or trimmed_line.startswith("engine"):
+            if trimmed_line.startswith(("schema", "engine")):
                 return True
 
     return False

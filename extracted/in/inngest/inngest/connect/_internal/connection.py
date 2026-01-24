@@ -12,8 +12,9 @@ import websockets
 import inngest
 from inngest._internal import comm_lib, const, net, server_lib, types
 
-from . import connect_pb2
+from . import async_lib, connect_pb2
 from .base_handler import _BaseHandler
+from .configs_lib import get_max_worker_concurrency
 from .conn_init_starter import _ConnInitHandler
 from .consts import (
     _default_shutdown_signals,
@@ -76,22 +77,19 @@ class WorkerConnection(typing.Protocol):
 
 
 class _WebSocketWorkerConnection(WorkerConnection):
-    _consumers_closed_task: typing.Optional[asyncio.Task[None]] = None
-    _event_loop_keep_alive_task: typing.Optional[asyncio.Task[None]] = None
+    _consumers_closed_task: asyncio.Task[None] | None = None
+    _event_loop_keep_alive_task: asyncio.Task[None] | None = None
 
-    _message_handler_task: typing.Optional[
-        asyncio.Task[types.MaybeError[None]]
-    ] = None
+    _message_handler_task: asyncio.Task[types.MaybeError[None]] | None = None
 
     def __init__(
         self,
         apps: list[tuple[inngest.Inngest, list[inngest.Function[typing.Any]]]],
         *,
-        instance_id: typing.Optional[str] = None,
-        rewrite_gateway_endpoint: typing.Optional[
-            typing.Callable[[str], str]
-        ] = None,
-        shutdown_signals: typing.Optional[list[signal.Signals]] = None,
+        instance_id: str | None = None,
+        rewrite_gateway_endpoint: typing.Callable[[str], str] | None = None,
+        shutdown_signals: list[signal.Signals] | None = None,
+        max_worker_concurrency: int | None = None,
     ) -> None:
         # Used to ensure that no messages are being handled when we fully close.
         self._handling_message_count = _ValueWatcher(0)
@@ -157,6 +155,10 @@ class _WebSocketWorkerConnection(WorkerConnection):
         if instance_id is None:
             instance_id = socket.gethostname()
         self._instance_id = instance_id
+        # Maximum number of worker concurrency to use. Defaults to None.
+        if max_worker_concurrency is None:
+            max_worker_concurrency = get_max_worker_concurrency()
+        self._max_worker_concurrency = max_worker_concurrency
 
         self._rewrite_gateway_endpoint = rewrite_gateway_endpoint
         self._http_client = net.ThreadAwareAsyncHTTPClient().initialize()
@@ -184,6 +186,8 @@ class _WebSocketWorkerConnection(WorkerConnection):
             exclude_gateways=[],
             extend_lease_interval=_ValueWatcher(None),
             fatal_error=_ValueWatcher(None),
+            init_handshake_complete=_ValueWatcher(False),
+            pending_request_count=_ValueWatcher(0),
             ws=_ValueWatcher(None),
         )
 
@@ -206,6 +210,7 @@ class _WebSocketWorkerConnection(WorkerConnection):
                 self._app_configs,
                 default_client.env,
                 self._instance_id,
+                max_worker_concurrency=self._max_worker_concurrency,
             ),
             _ExecutionHandler(
                 api_origin=self._api_origin,
@@ -236,6 +241,7 @@ class _WebSocketWorkerConnection(WorkerConnection):
         self,
         ws: websockets.ClientConnection,
     ) -> types.MaybeError[None]:
+        disconnect = False
         try:
             async for raw_msg in ws:
                 if self._state.conn_init.value is None:
@@ -252,7 +258,7 @@ class _WebSocketWorkerConnection(WorkerConnection):
                 self._logger.debug(
                     "Received message",
                     extra={
-                        "kind": msg.kind,
+                        "kind": connect_pb2.GatewayMessageType.Name(msg.kind),
                         "payload": msg.payload,
                     },
                 )
@@ -268,19 +274,30 @@ class _WebSocketWorkerConnection(WorkerConnection):
                 finally:
                     self._handling_message_count.value -= 1
 
+            if ws.close_code is not None:
+                # Normal connection close
+                self._logger.debug(
+                    "Connection closed",
+                    extra={
+                        "close_code": ws.close_code,
+                        "close_reason": ws.close_reason,
+                    },
+                )
+                disconnect = True
         except websockets.exceptions.ConnectionClosedError as e:
             self._logger.debug(
                 "Connection closed abnormally", extra={"error": str(e)}
             )
-            self._state.conn_state.value = ConnectionState.RECONNECTING
-            self._state.conn_init.value = None
+            disconnect = True
         except websockets.exceptions.ConnectionClosedOK:
             self._logger.debug("Connection closed normally")
-            await self.close()
+            disconnect = True
         except Exception as e:
             self._logger.debug("Connection error", extra={"error": str(e)})
-            self._state.conn_state.value = ConnectionState.RECONNECTING
-            self._state.conn_init.value = None
+            disconnect = True
+
+        if disconnect is True:
+            self._state.close_ws()
         return None
 
     async def start(self) -> None:
@@ -295,10 +312,7 @@ class _WebSocketWorkerConnection(WorkerConnection):
             self._wait_for_consumers_closed(),
         )
 
-        while self._state.conn_state.value not in [
-            ConnectionState.CLOSED,
-            ConnectionState.CLOSING,
-        ]:
+        while self._state.allow_reconnect():
             gateway_endpoint = await _wait_for_gateway_endpoint(self._state)
             if isinstance(gateway_endpoint, Exception):
                 # Fatal error.
@@ -329,11 +343,11 @@ class _WebSocketWorkerConnection(WorkerConnection):
                 self._logger.error(
                     f"Gateway connection error: {e}. Reconnecting..."
                 )
-                self._state.conn_state.value = ConnectionState.RECONNECTING
+                self._state.close_ws()
                 await asyncio.sleep(5)  # Reconnection delay
             except asyncio.CancelledError:
-                # TODO: Figure out why we reach here sometimes.
-                pass
+                self._logger.debug("Gateway connection cancelled")
+                break
             finally:
                 self._logger.debug("Gateway connection closed")
 
@@ -354,6 +368,25 @@ class _WebSocketWorkerConnection(WorkerConnection):
 
         self._state.conn_state.value = ConnectionState.CLOSING
 
+        ws = self._state.ws.value
+        if ws is not None:
+            result = async_lib.run_sync(
+                ws.send(
+                    connect_pb2.ConnectMessage(
+                        kind=connect_pb2.GatewayMessageType.WORKER_PAUSE,
+                    ).SerializeToString()
+                ),
+            )
+            if isinstance(result, Exception):
+                self._logger.error(
+                    "Failed to send worker pause message",
+                    extra={"error": str(result)},
+                )
+        else:
+            self._logger.warning(
+                "Unable to send worker pause message because the WebSocket connection is not open"
+            )
+
         # Tell all the handlers to close.
         for h in self._handlers:
             h.close()
@@ -365,6 +398,7 @@ class _WebSocketWorkerConnection(WorkerConnection):
 
         await self._wait_for_consumers_closed()
         self._state.conn_state.value = ConnectionState.CLOSED
+        self._state.close_ws()
 
         if self._event_loop_keep_alive_task is not None:
             self._event_loop_keep_alive_task.cancel()
@@ -418,11 +452,7 @@ async def _wait_for_gateway_endpoint(
         # Need to cast because Mypy doesn't understand the type (it thinks it's
         # `object`).
         r = typing.cast(
-            typing.Union[
-                ConnectionState,
-                tuple[connect_pb2.AuthData, str],
-                Exception,
-            ],
+            ConnectionState | tuple[connect_pb2.AuthData, str] | Exception,
             t.result(),
         )
 

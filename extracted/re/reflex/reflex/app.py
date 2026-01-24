@@ -11,6 +11,7 @@ import functools
 import inspect
 import io
 import json
+import operator
 import sys
 import time
 import traceback
@@ -69,7 +70,6 @@ from reflex.components.core.banner import (
 )
 from reflex.components.core.breakpoints import set_breakpoints
 from reflex.components.core.sticky import sticky
-from reflex.components.core.upload import Upload, get_upload_dir
 from reflex.components.radix import themes
 from reflex.components.sonner.toast import toast
 from reflex.config import get_config
@@ -84,7 +84,6 @@ from reflex.event import (
     get_hydrate_event,
     noop,
 )
-from reflex.model import Model, get_db_status
 from reflex.page import DECORATED_PAGES
 from reflex.route import (
     get_route_args,
@@ -113,9 +112,15 @@ from reflex.utils import (
     prerequisites,
     types,
 )
-from reflex.utils.exec import get_compile_context, is_prod_mode, is_testing_env
+from reflex.utils.exec import (
+    get_compile_context,
+    is_prod_mode,
+    is_testing_env,
+    should_prerender_routes,
+)
 from reflex.utils.imports import ImportVar
-from reflex.utils.token_manager import TokenManager
+from reflex.utils.misc import run_in_thread
+from reflex.utils.token_manager import RedisTokenManager, TokenManager
 from reflex.utils.types import ASGIApp, Message, Receive, Scope, Send
 
 if TYPE_CHECKING:
@@ -292,7 +297,7 @@ class UnevaluatedPage:
     description: Var | str | None
     image: str
     on_load: EventType[()] | None
-    meta: Sequence[Mapping[str, str]]
+    meta: Sequence[Mapping[str, Any] | Component]
     context: Mapping[str, Any]
 
     def merged_with(self, other: UnevaluatedPage) -> UnevaluatedPage:
@@ -527,11 +532,15 @@ class App(MiddlewareMixin, LifespanMixin):
             self.sio = AsyncServer(
                 async_mode="asgi",
                 cors_allowed_origins=(
-                    "*"
-                    if config.cors_allowed_origins == ("*",)
-                    else list(config.cors_allowed_origins)
+                    (
+                        "*"
+                        if config.cors_allowed_origins == ("*",)
+                        else list(config.cors_allowed_origins)
+                    )
+                    if config.transport == "websocket"
+                    else []
                 ),
-                cors_credentials=True,
+                cors_credentials=config.transport == "websocket",
                 max_http_buffer_size=environment.REFLEX_SOCKET_MAX_HTTP_BUFFER_SIZE.get(),
                 ping_interval=environment.REFLEX_SOCKET_INTERVAL.get(),
                 ping_timeout=environment.REFLEX_SOCKET_TIMEOUT.get(),
@@ -539,7 +548,8 @@ class App(MiddlewareMixin, LifespanMixin):
                     dumps=staticmethod(format.json_dumps),
                     loads=staticmethod(json.loads),
                 ),
-                transports=["websocket"],
+                allow_upgrades=False,
+                transports=[config.transport],
             )
         elif getattr(self.sio, "async_mode", "") != "asgi":
             msg = f"Custom `sio` must use `async_mode='asgi'`, not '{self.sio.async_mode}'."
@@ -607,7 +617,7 @@ class App(MiddlewareMixin, LifespanMixin):
         """
         from reflex.vars.base import GLOBAL_CACHE
 
-        self._compile(prerender_routes=is_prod_mode())
+        self._compile(prerender_routes=should_prerender_routes())
 
         config = get_config()
 
@@ -623,6 +633,18 @@ class App(MiddlewareMixin, LifespanMixin):
 
         asgi_app = self._api
 
+        if environment.REFLEX_MOUNT_FRONTEND_COMPILED_APP.get():
+            asgi_app.mount(
+                "/" + config.frontend_path.strip("/"),
+                StaticFiles(
+                    directory=prerequisites.get_web_dir()
+                    / constants.Dirs.STATIC
+                    / config.frontend_path.strip("/"),
+                    html=True,
+                ),
+                name="frontend",
+            )
+
         if self.api_transformer is not None:
             api_transformers: Sequence[Starlette | Callable[[ASGIApp], ASGIApp]] = (
                 [self.api_transformer]
@@ -632,7 +654,7 @@ class App(MiddlewareMixin, LifespanMixin):
 
             for api_transformer in api_transformers:
                 if isinstance(api_transformer, Starlette):
-                    # Mount the api to the fastapi app.
+                    # Mount the api to the starlette app.
                     App._add_cors(api_transformer)
                     api_transformer.mount("", asgi_app)
                     asgi_app = api_transformer
@@ -665,6 +687,8 @@ class App(MiddlewareMixin, LifespanMixin):
 
     def _add_optional_endpoints(self):
         """Add optional api endpoints (_upload)."""
+        from reflex.components.core.upload import Upload, get_upload_dir
+
         if not self._api:
             return
         upload_is_used_marker = (
@@ -748,7 +772,7 @@ class App(MiddlewareMixin, LifespanMixin):
         description: str | Var | None = None,
         image: str = constants.DefaultPage.IMAGE,
         on_load: EventType[()] | None = None,
-        meta: list[dict[str, str]] = constants.DefaultPage.META_LIST,
+        meta: Sequence[Mapping[str, Any] | Component] = constants.DefaultPage.META_LIST,
         context: dict[str, Any] | None = None,
     ):
         """Add a page to the app.
@@ -832,7 +856,7 @@ class App(MiddlewareMixin, LifespanMixin):
 
         # Setup dynamic args for the route.
         # this state assignment is only required for tests using the deprecated state kwarg for App
-        state = self._state if self._state else State
+        state = self._state or State
         state.setup_dynamic_args(get_route_args(route))
 
         self._load_events[route] = (
@@ -939,6 +963,8 @@ class App(MiddlewareMixin, LifespanMixin):
         try:
             from starlette_admin.contrib.sqla.admin import Admin
             from starlette_admin.contrib.sqla.view import ModelView
+
+            from reflex.model import Model
         except ImportError:
             return
 
@@ -950,14 +976,10 @@ class App(MiddlewareMixin, LifespanMixin):
 
         if admin_dash and admin_dash.models:
             # Build the admin dashboard
-            admin = (
-                admin_dash.admin
-                if admin_dash.admin
-                else Admin(
-                    engine=Model.get_db_engine(),
-                    title="Reflex Admin Dashboard",
-                    logo_url="https://reflex.dev/Reflex.svg",
-                )
+            admin = admin_dash.admin or Admin(
+                engine=Model.get_db_engine(),
+                title="Reflex Admin Dashboard",
+                logo_url="https://reflex.dev/Reflex.svg",
             )
 
             for model in admin_dash.models:
@@ -990,26 +1012,33 @@ class App(MiddlewareMixin, LifespanMixin):
         page_imports = {i for i in page_imports if i not in pinned}
 
         frontend_packages = get_config().frontend_packages
-        _frontend_packages = []
+        filtered_frontend_packages = []
         for package in frontend_packages:
             if package in page_imports:
                 console.warn(
                     f"React packages and their dependencies are inferred from Component.library and Component.lib_dependencies, remove `{package}` from `frontend_packages`"
                 )
                 continue
-            _frontend_packages.append(package)
-        page_imports.update(_frontend_packages)
+            filtered_frontend_packages.append(package)
+        page_imports.update(filtered_frontend_packages)
         js_runtimes.install_frontend_packages(page_imports, get_config())
 
     def _app_root(self, app_wrappers: dict[tuple[int, str], Component]) -> Component:
         for component in tuple(app_wrappers.values()):
             app_wrappers.update(component._get_all_app_wrap_components())
-        order = sorted(app_wrappers, key=lambda k: k[0], reverse=True)
-        root = parent = copy.deepcopy(app_wrappers[order[0]])
-        for key in order[1:]:
+        order = sorted(app_wrappers, key=operator.itemgetter(0), reverse=True)
+        root = copy.deepcopy(app_wrappers[order[0]])
+
+        def reducer(parent: Component, key: tuple[int, str]) -> Component:
             child = copy.deepcopy(app_wrappers[key])
             parent.children.append(child)
-            parent = child
+            return child
+
+        functools.reduce(
+            lambda parent, key: reducer(parent, key),
+            order[1:],
+            root,
+        )
         return root
 
     def _should_compile(self) -> bool:
@@ -1069,7 +1098,7 @@ class App(MiddlewareMixin, LifespanMixin):
             sticky_badge._add_style_recursive({})
             return sticky_badge
 
-        self.app_wraps[(0, "StickyBadge")] = lambda _: memoized_badge()
+        self.app_wraps[0, "StickyBadge"] = lambda _: memoized_badge()
 
     def _apply_decorated_pages(self):
         """Add @rx.page decorated pages to the app."""
@@ -1164,13 +1193,13 @@ class App(MiddlewareMixin, LifespanMixin):
 
         if self.theme is not None:
             # If a theme component was provided, wrap the app with it
-            app_wrappers[(20, "Theme")] = self.theme
+            app_wrappers[20, "Theme"] = self.theme
 
         # Get the env mode.
         config = get_config()
 
         if config.react_strict_mode:
-            app_wrappers[(200, "StrictMode")] = StrictMode.create()
+            app_wrappers[200, "StrictMode"] = StrictMode.create()
 
         if not should_compile and not dry_run:
             with console.timing("Evaluate Pages (Backend)"):
@@ -1225,7 +1254,7 @@ class App(MiddlewareMixin, LifespanMixin):
                 + "\n".join(
                     f"{route}: {time * 1000:.1f}ms"
                     for route, time in sorted(
-                        performance_metrics, key=lambda x: x[1], reverse=True
+                        performance_metrics, key=operator.itemgetter(1), reverse=True
                     )[:10]
                 )
             )
@@ -1269,7 +1298,7 @@ class App(MiddlewareMixin, LifespanMixin):
 
             toast_provider = Fragment.create(memoized_toast_provider())
 
-            app_wrappers[(1, "ToasterProvider")] = toast_provider
+            app_wrappers[44, "ToasterProvider"] = toast_provider
 
         # Add the app wraps to the app.
         for key, app_wrap in chain(
@@ -1401,12 +1430,10 @@ class App(MiddlewareMixin, LifespanMixin):
                 plugin.pre_compile(
                     add_save_task=_submit_work_without_advancing,
                     add_modify_task=(
-                        lambda *args, plugin=plugin: modify_files_tasks.append(
-                            (
-                                plugin.__class__.__module__ + plugin.__class__.__name__,
-                                *args,
-                            )
-                        )
+                        lambda *args, plugin=plugin: modify_files_tasks.append((
+                            plugin.__class__.__module__ + plugin.__class__.__name__,
+                            *args,
+                        ))
                     ),
                     unevaluated_pages=list(self._unevaluated_pages.values()),
                 )
@@ -1526,7 +1553,7 @@ class App(MiddlewareMixin, LifespanMixin):
         if not self._api:
             return
 
-        async def all_routes(_request: Request) -> Response:
+        def all_routes(_request: Request) -> Response:
             return JSONResponse(list(self._unevaluated_pages.keys()))
 
         self._api.add_route(
@@ -1534,11 +1561,18 @@ class App(MiddlewareMixin, LifespanMixin):
         )
 
     @contextlib.asynccontextmanager
-    async def modify_state(self, token: str) -> AsyncIterator[BaseState]:
+    async def modify_state(
+        self,
+        token: str,
+        background: bool = False,
+        previous_dirty_vars: dict[str, set[str]] | None = None,
+    ) -> AsyncIterator[BaseState]:
         """Modify the state out of band.
 
         Args:
             token: The token to modify the state for.
+            background: Whether the modification is happening in a background task.
+            previous_dirty_vars: Vars that are considered dirty from a previous operation.
 
         Yields:
             The state to modify.
@@ -1551,15 +1585,20 @@ class App(MiddlewareMixin, LifespanMixin):
             raise RuntimeError(msg)
 
         # Get exclusive access to the state.
-        async with self.state_manager.modify_state(token) as state:
+        async with self.state_manager.modify_state_with_links(
+            token, previous_dirty_vars=previous_dirty_vars
+        ) as state:
             # No other event handler can modify the state while in this context.
             yield state
             delta = await state._get_resolved_delta()
+            state._clean()
             if delta:
-                # When the state is modified reset dirty status and emit the delta to the frontend.
-                state._clean()
+                # When the frontend vars are modified emit the delta to the frontend.
                 await self.event_namespace.emit_update(
-                    update=StateUpdate(delta=delta),
+                    update=StateUpdate(
+                        delta=delta,
+                        final=True if not background else None,
+                    ),
                     token=token,
                 )
 
@@ -1637,21 +1676,21 @@ class App(MiddlewareMixin, LifespanMixin):
             strict=True,
         ):
             if hasattr(handler_fn, "__name__"):
-                _fn_name = handler_fn.__name__
+                fn_name_ = handler_fn.__name__
             else:
-                _fn_name = type(handler_fn).__name__
+                fn_name_ = type(handler_fn).__name__
 
             if isinstance(handler_fn, functools.partial):
-                msg = f"Provided custom {handler_domain} exception handler `{_fn_name}` is a partial function. Please provide a named function instead."
+                msg = f"Provided custom {handler_domain} exception handler `{fn_name_}` is a partial function. Please provide a named function instead."
                 raise ValueError(msg)
 
             if not callable(handler_fn):
-                msg = f"Provided custom {handler_domain} exception handler `{_fn_name}` is not a function."
+                msg = f"Provided custom {handler_domain} exception handler `{fn_name_}` is not a function."
                 raise ValueError(msg)
 
             # Allow named functions only as lambda functions cannot be introspected
-            if _fn_name == "<lambda>":
-                msg = f"Provided custom {handler_domain} exception handler `{_fn_name}` is a lambda function. Please use a named function instead."
+            if fn_name_ == "<lambda>":
+                msg = f"Provided custom {handler_domain} exception handler `{fn_name_}` is a lambda function. Please use a named function instead."
                 raise ValueError(msg)
 
             # Check if the function has the necessary annotations and types in the right order
@@ -1664,18 +1703,18 @@ class App(MiddlewareMixin, LifespanMixin):
 
             for required_arg_index, required_arg in enumerate(handler_spec):
                 if required_arg not in arg_annotations:
-                    msg = f"Provided custom {handler_domain} exception handler `{_fn_name}` does not take the required argument `{required_arg}`"
+                    msg = f"Provided custom {handler_domain} exception handler `{fn_name_}` does not take the required argument `{required_arg}`"
                     raise ValueError(msg)
                 if list(arg_annotations.keys())[required_arg_index] != required_arg:
                     msg = (
-                        f"Provided custom {handler_domain} exception handler `{_fn_name}` has the wrong argument order."
+                        f"Provided custom {handler_domain} exception handler `{fn_name_}` has the wrong argument order."
                         f"Expected `{required_arg}` as the {required_arg_index + 1} argument but got `{list(arg_annotations.keys())[required_arg_index]}`"
                     )
                     raise ValueError(msg)
 
                 if not issubclass(arg_annotations[required_arg], Exception):
                     msg = (
-                        f"Provided custom {handler_domain} exception handler `{_fn_name}` has the wrong type for {required_arg} argument."
+                        f"Provided custom {handler_domain} exception handler `{fn_name_}` has the wrong type for {required_arg} argument."
                         f"Expected to be `Exception` but got `{arg_annotations[required_arg]}`"
                     )
                     raise ValueError(msg)
@@ -1699,7 +1738,7 @@ class App(MiddlewareMixin, LifespanMixin):
 
                 if not valid:
                     msg = (
-                        f"Provided custom {handler_domain} exception handler `{_fn_name}` has the wrong return type."
+                        f"Provided custom {handler_domain} exception handler `{fn_name_}` has the wrong return type."
                         f"Expected `EventSpec | list[EventSpec] | None` but got `{return_type}`"
                     )
                     raise ValueError(msg)
@@ -1728,17 +1767,17 @@ async def process(
     try:
         # Add request data to the state.
         router_data = event.router_data
-        router_data.update(
-            {
-                constants.RouteVar.QUERY: format.format_query_params(event.router_data),
-                constants.RouteVar.CLIENT_TOKEN: event.token,
-                constants.RouteVar.SESSION_ID: sid,
-                constants.RouteVar.HEADERS: headers,
-                constants.RouteVar.CLIENT_IP: client_ip,
-            }
-        )
+        router_data.update({
+            constants.RouteVar.QUERY: format.format_query_params(event.router_data),
+            constants.RouteVar.CLIENT_TOKEN: event.token,
+            constants.RouteVar.SESSION_ID: sid,
+            constants.RouteVar.HEADERS: headers,
+            constants.RouteVar.CLIENT_IP: client_ip,
+        })
         # Get the state for the session exclusively.
-        async with app.state_manager.modify_state(event.substate_token) as state:
+        async with app.state_manager.modify_state_with_links(
+            event.substate_token, event=event
+        ) as state:
             # When this is a brand new instance of the state, signal the
             # frontend to reload before processing it.
             if (
@@ -1755,16 +1794,16 @@ async def process(
                     name=f"reflex_emit_reload|{event.name}|{time.time()}|{event.token}",
                 )
                 return
+            router_data[constants.RouteVar.PATH] = "/" + (
+                app.router(path) or "404"
+                if (path := router_data.get(constants.RouteVar.PATH))
+                else "404"
+            ).removeprefix("/")
             # re-assign only when the value is different
             if state.router_data != router_data:
                 # assignment will recurse into substates and force recalculation of
                 # dependent ComputedVar (dynamic route variables)
                 state.router_data = router_data
-                router_data[constants.RouteVar.PATH] = "/" + (
-                    app.router(path) or "404"
-                    if (path := router_data.get(constants.RouteVar.PATH))
-                    else "404"
-                ).removeprefix("/")
                 state.router = RouterData.from_router_data(router_data)
 
             # Preprocess the event.
@@ -1794,7 +1833,7 @@ async def process(
         raise
 
 
-async def ping(_request: Request) -> Response:
+def ping(_request: Request) -> Response:
     """Test API endpoint.
 
     Args:
@@ -1824,7 +1863,9 @@ async def health(_request: Request) -> JSONResponse:
     tasks = []
 
     if prerequisites.check_db_used():
-        tasks.append(get_db_status())
+        from reflex.model import get_db_status
+
+        tasks.append(run_in_thread(get_db_status))
     if prerequisites.check_redis_used():
         tasks.append(prerequisites.get_redis_status())
 
@@ -1968,7 +2009,9 @@ def upload(app: App):
                 Each state update as JSON followed by a new line.
             """
             # Process the event.
-            async with app.state_manager.modify_state(event.substate_token) as state:
+            async with app.state_manager.modify_state_with_links(
+                event.substate_token
+            ) as state:
                 async for update in state._process(event):
                     # Postprocess the event.
                     update = await app._postprocess(state, event, update)
@@ -2003,11 +2046,13 @@ class EventNamespace(AsyncNamespace):
         self._token_manager = TokenManager.create()
 
     @property
-    def token_to_sid(self) -> dict[str, str]:
+    def token_to_sid(self) -> Mapping[str, str]:
         """Get token to SID mapping for backward compatibility.
 
+        Note: this mapping is read-only.
+
         Returns:
-            The token to SID mapping dict.
+            The token to SID mapping.
         """
         # For backward compatibility, expose the underlying dict
         return self._token_manager.token_to_sid
@@ -2029,6 +2074,9 @@ class EventNamespace(AsyncNamespace):
             sid: The Socket.IO session id.
             environ: The request information, including HTTP headers.
         """
+        if isinstance(self._token_manager, RedisTokenManager):
+            # Make sure this instance is watching for updates from other instances.
+            self._token_manager.ensure_lost_and_found_task(self.emit_update)
         query_params = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
         token_list = query_params.get("token", [])
         if token_list:
@@ -2042,11 +2090,14 @@ class EventNamespace(AsyncNamespace):
                 f"Frontend version {subprotocol} for session {sid} does not match the backend version {constants.Reflex.VERSION}."
             )
 
-    def on_disconnect(self, sid: str):
+    def on_disconnect(self, sid: str) -> asyncio.Task | None:
         """Event for when the websocket disconnects.
 
         Args:
             sid: The Socket.IO session id.
+
+        Returns:
+            An asyncio Task for cleaning up the token, or None.
         """
         # Get token before cleaning up
         disconnect_token = self.sid_to_token.get(sid)
@@ -2061,6 +2112,8 @@ class EventNamespace(AsyncNamespace):
                 lambda t: t.exception()
                 and console.error(f"Token cleanup error: {t.exception()}")
             )
+            return task
+        return None
 
     async def emit_update(self, update: StateUpdate, token: str) -> None:
         """Emit an update to the client.
@@ -2070,16 +2123,30 @@ class EventNamespace(AsyncNamespace):
             token: The client token (tab) associated with the event.
         """
         client_token, _ = _split_substate_key(token)
-        sid = self.token_to_sid.get(client_token)
-        if sid is None:
-            # If the sid is None, we are not connected to a client. Prevent sending
-            # updates to all clients.
-            console.warn(f"Attempting to send delta to disconnected client {token!r}")
+        socket_record = self._token_manager.token_to_socket.get(client_token)
+        if (
+            socket_record is None
+            or socket_record.instance_id != self._token_manager.instance_id
+        ):
+            if isinstance(self._token_manager, RedisTokenManager):
+                # The socket belongs to another instance of the app, send it to the lost and found.
+                if not await self._token_manager.emit_lost_and_found(
+                    client_token, update
+                ):
+                    console.warn(
+                        f"Failed to send delta to lost and found for client {token!r}"
+                    )
+            else:
+                # If the socket record is None, we are not connected to a client. Prevent sending
+                # updates to all clients.
+                console.warn(
+                    f"Attempting to send delta to disconnected client {token!r}"
+                )
             return
         # Creating a task prevents the update from being blocked behind other coroutines.
         await asyncio.create_task(
-            self.emit(str(constants.SocketEvent.EVENT), update, to=sid),
-            name=f"reflex_emit_event|{token}|{sid}|{time.time()}",
+            self.emit(str(constants.SocketEvent.EVENT), update, to=socket_record.sid),
+            name=f"reflex_emit_event|{token}|{socket_record.sid}|{time.time()}",
         )
 
     async def on_event(self, sid: str, data: Any):
@@ -2191,7 +2258,7 @@ class EventNamespace(AsyncNamespace):
             await self.emit("new_token", new_token, to=sid)
 
         # Update client state to apply new sid/token for running background tasks.
-        async with self.app.modify_state(
+        async with self.app.state_manager.modify_state(
             _substate_key(new_token or token, self.app.state_manager.state)
         ) as state:
             state.router_data[constants.RouteVar.SESSION_ID] = sid

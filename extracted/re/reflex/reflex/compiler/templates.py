@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from reflex import constants
 from reflex.constants import Hooks
@@ -83,9 +83,9 @@ class _RenderUtils:
 
     @staticmethod
     def render_iterable_tag(component: Any) -> str:
-        children_rendered = "".join(
-            [_RenderUtils.render(child) for child in component.get("children", [])]
-        )
+        children_rendered = "".join([
+            _RenderUtils.render(child) for child in component.get("children", [])
+        ])
         return f"Array.prototype.map.call({component['iterable_state']} ?? [],(({component['arg_name']},{component['arg_index']})=>({children_rendered})))"
 
     @staticmethod
@@ -189,16 +189,14 @@ def app_root_template(
 
     custom_code_str = "\n".join(custom_codes)
 
-    import_window_libraries = "\n".join(
-        [
-            f'import * as {lib_alias} from "{lib_path}";'
-            for lib_alias, lib_path in window_libraries
-        ]
-    )
+    import_window_libraries = "\n".join([
+        f'import * as {lib_alias} from "{lib_path}";'
+        for lib_alias, lib_path in window_libraries
+    ])
 
-    window_imports_str = "\n".join(
-        [f'    "{lib_path}": {lib_alias},' for lib_alias, lib_path in window_libraries]
-    )
+    window_imports_str = "\n".join([
+        f'    "{lib_path}": {lib_alias},' for lib_alias, lib_path in window_libraries
+    ])
 
     return f"""
 {imports_str}
@@ -277,12 +275,10 @@ def context_template(
         Rendered context file content as string.
     """
     initial_state = initial_state or {}
-    state_contexts_str = "".join(
-        [
-            f"{format_state_name(state_name)}: createContext(null),"
-            for state_name in initial_state
-        ]
-    )
+    state_contexts_str = "".join([
+        f"{format_state_name(state_name)}: createContext(null),"
+        for state_name in initial_state
+    ])
 
     state_str = (
         rf"""
@@ -382,7 +378,11 @@ export function ClientSide(component) {{
   return ({{ children, ...props }}) => {{
     const [Component, setComponent] = useState(null);
     useEffect(() => {{
-      setComponent(component);
+      async function load() {{
+        const comp = await component();
+        setComponent(() => comp);
+      }}
+      load();
     }}, []);
     return Component ? jsx(Component, props, children) : null;
   }};
@@ -486,25 +486,31 @@ def package_json_template(
     Returns:
         Rendered package.json content as string.
     """
-    return json.dumps(
-        {
-            "name": "reflex",
-            "type": "module",
-            "scripts": scripts,
-            "dependencies": dependencies,
-            "devDependencies": dev_dependencies,
-            "overrides": overrides,
-        }
-    )
+    return json.dumps({
+        "name": "reflex",
+        "type": "module",
+        "scripts": scripts,
+        "dependencies": dependencies,
+        "devDependencies": dev_dependencies,
+        "overrides": overrides,
+    })
 
 
-def vite_config_template(base: str, hmr: bool, force_full_reload: bool):
+def vite_config_template(
+    base: str,
+    hmr: bool,
+    force_full_reload: bool,
+    experimental_hmr: bool,
+    sourcemap: bool | Literal["inline", "hidden"],
+):
     """Template for vite.config.js.
 
     Args:
         base: The base path for the Vite config.
         hmr: Whether to enable hot module replacement.
         force_full_reload: Whether to force a full reload on changes.
+        experimental_hmr: Whether to enable experimental HMR features.
+        sourcemap: The sourcemap configuration.
 
     Returns:
         Rendered vite.config.js content as string.
@@ -556,7 +562,12 @@ export default defineConfig((config) => ({{
   ].concat({"[fullReload()]" if force_full_reload else "[]"}),
   build: {{
     assetsDir: "{base}assets".slice(1),
+    sourcemap: {"true" if sourcemap is True else "false" if sourcemap is False else repr(sourcemap)},
     rollupOptions: {{
+      onwarn(warning, warn) {{
+        if (warning.code === "EVAL" && warning.id && warning.id.endsWith("state.js")) return;
+        warn(warning);
+      }},
       jsx: {{}},
       output: {{
         advancedChunks: {{
@@ -572,6 +583,7 @@ export default defineConfig((config) => ({{
   }},
   experimental: {{
     enableNativePlugin: false,
+    hmr: {"true" if experimental_hmr else "false"},
   }},
   server: {{
     port: process.env.PORT,
@@ -689,9 +701,9 @@ def styles_template(stylesheets: list[str]) -> str:
     Returns:
         Rendered styles.css content as string.
     """
-    return "@layer __reflex_base;\n" + "\n".join(
-        [f"@import url('{sheet_name}');" for sheet_name in stylesheets]
-    )
+    return "@layer __reflex_base;\n" + "\n".join([
+        f"@import url('{sheet_name}');" for sheet_name in stylesheets
+    ])
 
 
 def _render_hooks(hooks: dict[str, VarData | None], memo: list | None = None) -> str:

@@ -1,0 +1,33 @@
+- pipeline:
+    name: "Commits Specified"
+    nodes:
+      - name: preprocess
+        type: execution
+        commit: "library:generic-preprocessors/csv-into-parquet"
+        step: parquetify
+      - name: mangle
+        type: task
+        # A technically valid sha, though unlikely ((10/16)^40, IOW 1 in 146 million).
+        commit: "1240727603076510911526043033166"
+        step: mangle
+    edges:
+      # Note we can't validate these with the knowledge in this file only...
+      - [preprocess.output.*, mangle.input.mangles]
+- pipeline:
+    name: "One Library Step, One Local Step"
+    nodes:
+      - name: preprocess
+        type: execution
+        commit: "library:generic-preprocessors/csv-into-parquet"
+        step: parquetify
+      - name: mangle
+        type: execution
+        step: mangle
+    edges:
+      - [preprocess.output.*, mangle.input.mangles]
+- step:
+    name: mangle
+    image: python:3.13
+    command: "false"
+    inputs:
+      - name: mangles

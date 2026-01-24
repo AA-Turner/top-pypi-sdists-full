@@ -31,6 +31,7 @@ target_sources(
           statements/MiscStatements.cpp
           symbols/AttributeSymbol.cpp
           symbols/BlockSymbols.cpp
+          symbols/CheckerSymbols.cpp
           symbols/ClassSymbols.cpp
           symbols/CompilationUnitSymbols.cpp
           symbols/CoverSymbols.cpp
@@ -59,6 +60,7 @@ target_sources(
           Expression.cpp
           FmtHelpers.cpp
           HierarchicalReference.cpp
+          InstanceCacheKey.cpp
           Lookup.cpp
           LSPUtilities.cpp
           LValue.cpp
@@ -71,4 +73,5 @@ target_sources(
           Statement.cpp
           Symbol.cpp
           SystemSubroutine.cpp
-          TimingControl.cpp)
+          TimingControl.cpp
+          TypeProvider.cpp)

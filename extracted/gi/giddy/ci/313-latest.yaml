@@ -1,0 +1,27 @@
+name: 313-latest
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  # required
+  - esda
+  - libpysal
+  - mapclassify
+  - quantecon
+  - scipy
+  # testing
+  - codecov
+  - ipywidgets
+  - matplotlib
+  - seaborn
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  # docs (this env only)
+  - nbsphinx
+  - numpydoc
+  - sphinx
+  - sphinxcontrib-bibtex
+  - sphinxcontrib-napoleon
+  - sphinx-gallery
+  - sphinx_bootstrap_theme

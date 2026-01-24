@@ -83,10 +83,12 @@ class ExecutionStatus(StrEnum):
 
     INITIALIZING = "initializing"
     PROVISIONING = "provisioning"
+    RUNNING = "running"
     FAILED = "failed"
     COMPLETED = "completed"
-    RUNNING = "running"
     CACHED = "cached"
+    # When a step that can be retried failed, its status is set to retrying.
+    # Once the next retry is attempted, the status is set to retried.
     RETRYING = "retrying"
     RETRIED = "retried"
     STOPPED = "stopped"
@@ -157,10 +159,12 @@ class StackComponentType(StrEnum):
     EXPERIMENT_TRACKER = "experiment_tracker"
     FEATURE_STORE = "feature_store"
     IMAGE_BUILDER = "image_builder"
+    LOG_STORE = "log_store"
     MODEL_DEPLOYER = "model_deployer"
     ORCHESTRATOR = "orchestrator"
     STEP_OPERATOR = "step_operator"
     MODEL_REGISTRY = "model_registry"
+    DEPLOYER = "deployer"
 
     @property
     def plural(self) -> str:
@@ -395,6 +399,8 @@ class TaggableResourceTypes(StrEnum):
     PIPELINE = "pipeline"
     PIPELINE_RUN = "pipeline_run"
     RUN_TEMPLATE = "run_template"
+    PIPELINE_SNAPSHOT = "pipeline_snapshot"
+    DEPLOYMENT = "deployment"
 
 
 class ResponseUpdateStrategy(StrEnum):
@@ -415,6 +421,48 @@ class MetadataResourceTypes(StrEnum):
     SCHEDULE = "schedule"
 
 
+class VisualizationResourceTypes(StrEnum):
+    """Resource types that support curated visualizations.
+
+    Curated visualizations can be attached to these ZenML resources to provide
+    contextual dashboards and visual insights throughout the ML lifecycle:
+
+    - **DEPLOYMENT**: Server-side pipeline deployments - surface visualizations
+      on deployment monitoring dashboards and status pages
+    - **MODEL**: ZenML model entities - surface model evaluation dashboards and
+      performance summaries directly on the model detail pages
+    - **PIPELINE**: Pipeline definitions - associate visualizations with pipeline
+      configurations for reusable visual documentation
+    - **PIPELINE_RUN**: Pipeline execution runs - attach visualizations to specific
+      run results for detailed analysis and debugging
+    - **PIPELINE_SNAPSHOT**: Pipeline snapshots - link visualizations to captured
+      pipeline configurations for version comparison and historical analysis
+    - **PROJECT**: Project-level overviews - provide high-level project dashboards
+      and KPI visualizations for cross-pipeline insights
+    """
+
+    DEPLOYMENT = "deployment"  # Server-side pipeline deployments
+    MODEL = "model"  # ZenML models
+    PIPELINE = "pipeline"  # Pipeline definitions
+    PIPELINE_RUN = "pipeline_run"  # Execution runs
+    PIPELINE_SNAPSHOT = "pipeline_snapshot"  # Snapshot configurations
+    PROJECT = "project"  # Project-level dashboards
+
+
+class CuratedVisualizationSize(StrEnum):
+    """Layout size options for curated visualizations."""
+
+    FULL_WIDTH = "full_width"
+    HALF_WIDTH = "half_width"
+
+
+class SecretResourceTypes(StrEnum):
+    """All possible resource types for adding secrets."""
+
+    STACK = "stack"
+    STACK_COMPONENT = "stack_component"
+
+
 class DatabaseBackupStrategy(StrEnum):
     """All available database backup strategies."""
 
@@ -426,6 +474,10 @@ class DatabaseBackupStrategy(StrEnum):
     DUMP_FILE = "dump-file"
     # Create a backup of the database in the remote database service
     DATABASE = "database"
+    # Use mydumper/myloader for parallel backup/restore (MySQL only)
+    MYDUMPER = "mydumper"
+    # Use a custom backup engine
+    CUSTOM = "custom"
 
 
 class PluginType(StrEnum):
@@ -462,6 +514,7 @@ class OnboardingStep(StrEnum):
     PIPELINE_RUN_WITH_REMOTE_ARTIFACT_STORE = (
         "pipeline_run_with_remote_artifact_store"
     )
+    PIPELINE_DEPLOYED = "pipeline_deployed"
     OSS_ONBOARDING_COMPLETED = "oss_onboarding_completed"
     PRO_ONBOARDING_COMPLETED = "pro_onboarding_completed"
 
@@ -483,3 +536,35 @@ class ServiceState(StrEnum):
     PENDING_SHUTDOWN = "pending_shutdown"
     ERROR = "error"
     SCALED_TO_ZERO = "scaled_to_zero"
+
+
+class DeploymentStatus(StrEnum):
+    """Status of a deployment."""
+
+    UNKNOWN = "unknown"
+    PENDING = "pending"
+    RUNNING = "running"
+    ABSENT = "absent"
+    ERROR = "error"
+
+
+class PipelineRunTriggeredByType(StrEnum):
+    """All possible types that can trigger a pipeline run."""
+
+    STEP_RUN = "step_run"
+    DEPLOYMENT = "deployment"
+
+
+class KubernetesServiceType(StrEnum):
+    """Kubernetes Service types for the Kubernetes deployer."""
+
+    LOAD_BALANCER = "LoadBalancer"
+    NODE_PORT = "NodePort"
+    CLUSTER_IP = "ClusterIP"
+
+
+class StepRuntime(StrEnum):
+    """All possible runtime modes for a step."""
+
+    INLINE = "inline"
+    ISOLATED = "isolated"

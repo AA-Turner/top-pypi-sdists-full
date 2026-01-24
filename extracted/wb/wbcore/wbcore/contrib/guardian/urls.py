@@ -1,4 +1,5 @@
 from django.urls import include, path
+
 from wbcore.contrib.guardian.viewsets import PivotUserObjectPermissionModelViewSet
 from wbcore.routers import WBCoreRouter
 

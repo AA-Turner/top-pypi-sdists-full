@@ -4,7 +4,7 @@ import base64
 import pickle
 from collections.abc import Callable, Sequence
 from textwrap import indent
-from typing import Any, cast
+from typing import Any
 
 import numba
 import numpy as np
@@ -15,8 +15,8 @@ from numba.core.base import BaseContext
 from numba.core.types.misc import NoneType
 from numba.np import arrayobj
 
+from pytensor.link.numba.cache import compile_numba_function_src
 from pytensor.link.numba.dispatch import basic as numba_basic
-from pytensor.link.utils import compile_function_src
 
 
 def encode_literals(literals: Sequence) -> str:
@@ -52,10 +52,13 @@ def store_core_outputs({inp_signature}, {out_signature}):
 {indent(store_outputs, " " * 4)}
 """
     global_env = {"core_op_fn": core_op_fn}
-    func = compile_function_src(
-        func_src, "store_core_outputs", {**globals(), **global_env}
+
+    func = compile_numba_function_src(
+        func_src,
+        "store_core_outputs",
+        {**globals(), **global_env},
     )
-    return cast(Callable, numba_basic.numba_njit(func))
+    return numba_basic.numba_njit(func)
 
 
 _jit_options = {
@@ -74,22 +77,24 @@ _jit_options = {
 @numba.extending.intrinsic(jit_options=_jit_options, prefer_literal=True)
 def _vectorized(
     typingctx,
-    scalar_func,
+    core_func,
     input_bc_patterns,
     output_bc_patterns,
     output_dtypes,
     inplace_pattern,
+    allow_core_scalar,
     constant_inputs_types,
     input_types,
     output_core_shape_types,
     size_type,
 ):
     arg_types = [
-        scalar_func,
+        core_func,
         input_bc_patterns,
         output_bc_patterns,
         output_dtypes,
         inplace_pattern,
+        allow_core_scalar,
         constant_inputs_types,
         input_types,
         output_core_shape_types,
@@ -116,6 +121,10 @@ def _vectorized(
     inplace_pattern = inplace_pattern.literal_value
     inplace_pattern = pickle.loads(base64.decodebytes(inplace_pattern.encode()))
 
+    if not isinstance(allow_core_scalar, types.Literal):
+        raise TypeError("allow_core_scalar must be literal.")
+    allow_core_scalar = allow_core_scalar.literal_value
+
     batch_ndim = len(input_bc_patterns[0])
     nin = len(constant_inputs_types) + len(input_types)
     nout = len(output_bc_patterns)
@@ -139,8 +148,7 @@ def _vectorized(
     core_input_types = []
     for input_type, bc_pattern in zip(input_types, input_bc_patterns, strict=True):
         core_ndim = input_type.ndim - len(bc_pattern)
-        # TODO: Reconsider this
-        if core_ndim == 0:
+        if allow_core_scalar and core_ndim == 0:
             core_input_type = input_type.dtype
         else:
             core_input_type = types.Array(
@@ -173,16 +181,6 @@ def _vectorized(
         )
         out_types[output_idx] = output_type
 
-    core_signature = typingctx.resolve_function_type(
-        scalar_func,
-        [
-            *constant_inputs_types,
-            *core_input_types,
-            *core_out_types,
-        ],
-        {},
-    )
-
     ret_type = types.Tuple(out_types)
 
     if len(output_dtypes) == 1:
@@ -203,7 +201,7 @@ def _vectorized(
         sig,
         args,
     ):
-        [_, _, _, _, _, constant_inputs, inputs, output_core_shapes, size] = args
+        [_, _, _, _, _, _, constant_inputs, inputs, output_core_shapes, size] = args
 
         constant_inputs = cgutils.unpack_tuple(builder, constant_inputs)
         inputs = cgutils.unpack_tuple(builder, inputs)
@@ -239,11 +237,21 @@ def _vectorized(
             output_core_shapes,
         )
 
+        core_signature = typingctx.resolve_function_type(
+            core_func,
+            [
+                *constant_inputs_types,
+                *core_input_types,
+                *core_out_types,
+            ],
+            {},
+        )
+
         make_loop_call(
             typingctx,
             ctx,
             builder,
-            scalar_func,
+            core_func,
             core_signature,
             iter_shape,
             constant_inputs,
@@ -253,6 +261,7 @@ def _vectorized(
             output_bc_patterns_val,
             input_types,
             output_types,
+            core_scalar=allow_core_scalar,
         )
 
         if len(outputs) == 1:
@@ -416,8 +425,8 @@ def make_loop_call(
     typingctx,
     context: numba.core.base.BaseContext,
     builder: ir.IRBuilder,
-    scalar_func: Any,
-    scalar_signature: types.FunctionType,
+    core_func: Any,
+    core_signature: types.FunctionType,
     iter_shape: tuple[ir.Instruction, ...],
     constant_inputs: tuple[ir.Instruction, ...],
     inputs: tuple[ir.Instruction, ...],
@@ -426,6 +435,7 @@ def make_loop_call(
     output_bc: tuple[tuple[bool, ...], ...],
     input_types: tuple[Any, ...],
     output_types: tuple[Any, ...],
+    core_scalar: bool = True,
 ):
     safe = (False, False)
 
@@ -483,7 +493,7 @@ def make_loop_call(
             idxs_bc,
             *safe,
         )
-        if core_ndim == 0:
+        if core_scalar and core_ndim == 0:
             # Retrive scalar item at index
             val = builder.load(ptr)
             # val.set_metadata("alias.scope", input_scope_set)
@@ -496,15 +506,19 @@ def make_loop_call(
                 dtype=input_type.dtype, ndim=core_ndim, layout=input_type.layout
             )
             core_array = context.make_array(core_arry_type)(context, builder)
-            core_shape = cgutils.unpack_tuple(builder, input.shape)[-core_ndim:]
-            core_strides = cgutils.unpack_tuple(builder, input.strides)[-core_ndim:]
+            core_shape = cgutils.unpack_tuple(builder, input.shape)[
+                input_type.ndim - core_ndim :
+            ]
+            core_strides = cgutils.unpack_tuple(builder, input.strides)[
+                input_type.ndim - core_ndim :
+            ]
             itemsize = context.get_abi_sizeof(context.get_data_type(input_type.dtype))
             context.populate_array(
                 core_array,
                 # TODO whey do we need to bitcast?
                 data=builder.bitcast(ptr, core_array.data.type),
-                shape=cgutils.pack_array(builder, core_shape),
-                strides=cgutils.pack_array(builder, core_strides),
+                shape=core_shape,
+                strides=core_strides,
                 itemsize=context.get_constant(types.intp, itemsize),
                 # TODO what is meminfo about?
                 meminfo=None,
@@ -517,9 +531,9 @@ def make_loop_call(
     output_slices = []
     for output, output_type, bc in zip(outputs, output_types, output_bc, strict=True):
         core_ndim = output_type.ndim - len(bc)
-        size_type = output.shape.type.element  # type: ignore
-        output_shape = cgutils.unpack_tuple(builder, output.shape)  # type: ignore
-        output_strides = cgutils.unpack_tuple(builder, output.strides)  # type: ignore
+        size_type = output.shape.type.element  # pyright: ignore[reportAttributeAccessIssue]
+        output_shape = cgutils.unpack_tuple(builder, output.shape)  # pyright: ignore[reportAttributeAccessIssue]
+        output_strides = cgutils.unpack_tuple(builder, output.strides)  # pyright: ignore[reportAttributeAccessIssue]
 
         idxs_bc = [zero if bc else idx for idx, bc in zip(idxs, bc, strict=True)] + [
             zero
@@ -527,7 +541,7 @@ def make_loop_call(
         ptr = cgutils.get_item_pointer2(
             context,
             builder,
-            output.data,  # type:ignore
+            output.data,
             output_shape,
             output_strides,
             output_type.layout,
@@ -557,10 +571,10 @@ def make_loop_call(
         val = core_array._getvalue()
         output_slices.append(val)
 
-    inner_codegen = context.get_function(scalar_func, scalar_signature)
+    inner_codegen = context.get_function(core_func, core_signature)
 
-    if isinstance(scalar_signature.args[0], types.StarArgTuple | types.StarArgUniTuple):
-        input_vals = [context.make_tuple(builder, scalar_signature.args[0], input_vals)]
+    if isinstance(core_signature.args[0], types.StarArgTuple | types.StarArgUniTuple):
+        input_vals = [context.make_tuple(builder, core_signature.args[0], input_vals)]
 
     inner_codegen(builder, [*constant_inputs, *input_vals, *output_slices])
 

@@ -3,7 +3,9 @@
 #
 
 from abc import ABCMeta, abstractmethod
-from typing import Literal, Mapping, final
+from collections.abc import Mapping
+from typing import Literal, final
+from typing_extensions import disjoint_base
 
 from .._types import (
     _AttrMapping,
@@ -108,9 +110,11 @@ class EntityBase(_Entity):
 # https://lxml.de/element_classes.html#setting-up-a-class-lookup-scheme
 #
 
+@disjoint_base
 class ElementClassLookup:
     """Superclass of Element class lookups"""
 
+@disjoint_base
 class FallbackElementClassLookup(ElementClassLookup):
     """Superclass of Element class lookups with additional fallback"""
 
@@ -120,6 +124,7 @@ class FallbackElementClassLookup(ElementClassLookup):
     def set_fallback(self, lookup: ElementClassLookup) -> None:
         """Sets the fallback scheme for this lookup method"""
 
+@disjoint_base
 class ElementDefaultClassLookup(ElementClassLookup):
     """Element class lookup scheme that always returns the default Element
     class.
@@ -143,6 +148,7 @@ class ElementDefaultClassLookup(ElementClassLookup):
         entity: type[EntityBase] | None = None,
     ) -> None: ...
 
+@disjoint_base
 class AttributeBasedElementClassLookup(FallbackElementClassLookup):
     """Checks an attribute of an Element and looks up the value in a
     class dictionary.

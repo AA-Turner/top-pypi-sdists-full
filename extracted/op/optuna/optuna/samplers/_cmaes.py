@@ -8,7 +8,6 @@ from typing import Any
 from typing import cast
 from typing import TYPE_CHECKING
 from typing import Union
-import warnings
 
 import numpy as np
 
@@ -18,6 +17,7 @@ from optuna import logging
 from optuna._experimental import warn_experimental_argument
 from optuna._imports import _LazyImport
 from optuna._transform import _SearchSpaceTransform
+from optuna._warnings import optuna_warn
 from optuna.distributions import BaseDistribution
 from optuna.distributions import FloatDistribution
 from optuna.distributions import IntDistribution
@@ -267,7 +267,7 @@ class CmaEsSampler(BaseSampler):
             msg = _deprecated._DEPRECATION_WARNING_TEMPLATE.format(
                 name="`restart_strategy`", d_ver="4.4.0", r_ver="6.0.0"
             )
-            warnings.warn(
+            optuna_warn(
                 f"{msg} From v4.4.0 onward, `restart_strategy` automatically falls back to "
                 "`None`. `restart_strategy` will be supported in OptunaHub.",
                 FutureWarning,
@@ -311,8 +311,7 @@ class CmaEsSampler(BaseSampler):
 
         if source_trials is not None and (x0 is not None or sigma0 is not None):
             raise ValueError(
-                "It is prohibited to pass `source_trials` argument when "
-                "x0 or sigma0 is specified."
+                "It is prohibited to pass `source_trials` argument when x0 or sigma0 is specified."
             )
 
         # TODO(c-bata): Support WS-sep-CMA-ES.
@@ -381,11 +380,10 @@ class CmaEsSampler(BaseSampler):
 
         if optimizer.dim != len(trans.bounds):
             if self._warn_independent_sampling:
+                ind_sampler_name = self._independent_sampler.__class__.__name__
                 _logger.warning(
                     "`CmaEsSampler` does not support dynamic search space. "
-                    "`{}` is used instead of `CmaEsSampler`.".format(
-                        self._independent_sampler.__class__.__name__
-                    )
+                    f"`{ind_sampler_name}` is used instead of `CmaEsSampler`."
                 )
                 self._warn_independent_sampling = False
             return {}
@@ -443,8 +441,7 @@ class CmaEsSampler(BaseSampler):
 
     def _concat_optimizer_attrs(self, optimizer_attrs: dict[str, str]) -> str:
         return "".join(
-            optimizer_attrs["{}:{}".format(self._attr_key_optimizer, i)]
-            for i in range(len(optimizer_attrs))
+            optimizer_attrs[f"{self._attr_key_optimizer}:{i}"] for i in range(len(optimizer_attrs))
         )
 
     def _split_optimizer_str(self, optimizer_str: str) -> dict[str, str]:
@@ -453,7 +450,7 @@ class CmaEsSampler(BaseSampler):
         for i in range(math.ceil(optimizer_len / _SYSTEM_ATTR_MAX_LENGTH)):
             start = i * _SYSTEM_ATTR_MAX_LENGTH
             end = min((i + 1) * _SYSTEM_ATTR_MAX_LENGTH, optimizer_len)
-            attrs["{}:{}".format(self._attr_key_optimizer, i)] = optimizer_str[start:end]
+            attrs[f"{self._attr_key_optimizer}:{i}"] = optimizer_str[start:end]
         return attrs
 
     def _restore_optimizer(
@@ -520,7 +517,7 @@ class CmaEsSampler(BaseSampler):
 
         if self._use_separable_cma:
             if len(trans.bounds) == 1:
-                warnings.warn(
+                optuna_warn(
                     "Separable CMA-ES does not operate meaningfully on single-dimensional "
                     "search spaces. The setting `use_separable_cma=True` will be ignored.",
                     UserWarning,

@@ -43,7 +43,225 @@ class OrganizationsServiceApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def organizations_service_create_org_membership(self, body: 'OrgIdMembershipsBody', org_id: 'str', **kwargs) -> 'V1OrgMembership':  # noqa: E501
+    def organizations_service_approve_auto_join_domain(self, body: 'OrganizationsServiceApproveAutoJoinDomainBody', org_id: 'str', domain: 'str', **kwargs) -> 'V1ApproveAutoJoinDomainResponse':  # noqa: E501
+        """organizations_service_approve_auto_join_domain  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_approve_auto_join_domain(body, org_id, domain, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceApproveAutoJoinDomainBody body: (required)
+        :param str org_id: (required)
+        :param str domain: (required)
+        :return: V1ApproveAutoJoinDomainResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_approve_auto_join_domain_with_http_info(body, org_id, domain, **kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_approve_auto_join_domain_with_http_info(body, org_id, domain, **kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_approve_auto_join_domain_with_http_info(self, body: 'OrganizationsServiceApproveAutoJoinDomainBody', org_id: 'str', domain: 'str', **kwargs) -> 'V1ApproveAutoJoinDomainResponse':  # noqa: E501
+        """organizations_service_approve_auto_join_domain  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_approve_auto_join_domain_with_http_info(body, org_id, domain, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceApproveAutoJoinDomainBody body: (required)
+        :param str org_id: (required)
+        :param str domain: (required)
+        :return: V1ApproveAutoJoinDomainResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'org_id', 'domain']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_approve_auto_join_domain" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `organizations_service_approve_auto_join_domain`")  # noqa: E501
+        # verify the required parameter 'org_id' is set
+        if ('org_id' not in params or
+                params['org_id'] is None):
+            raise ValueError("Missing the required parameter `org_id` when calling `organizations_service_approve_auto_join_domain`")  # noqa: E501
+        # verify the required parameter 'domain' is set
+        if ('domain' not in params or
+                params['domain'] is None):
+            raise ValueError("Missing the required parameter `domain` when calling `organizations_service_approve_auto_join_domain`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'org_id' in params:
+            path_params['orgId'] = params['org_id']  # noqa: E501
+        if 'domain' in params:
+            path_params['domain'] = params['domain']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs/{orgId}/approveautojoindomain/{domain}', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ApproveAutoJoinDomainResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def organizations_service_auto_join_org(self, body: 'OrganizationsServiceAutoJoinOrgBody', org_id: 'str', **kwargs) -> 'V1AutoJoinOrgResponse':  # noqa: E501
+        """organizations_service_auto_join_org  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_auto_join_org(body, org_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceAutoJoinOrgBody body: (required)
+        :param str org_id: (required)
+        :return: V1AutoJoinOrgResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_auto_join_org_with_http_info(body, org_id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_auto_join_org_with_http_info(body, org_id, **kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_auto_join_org_with_http_info(self, body: 'OrganizationsServiceAutoJoinOrgBody', org_id: 'str', **kwargs) -> 'V1AutoJoinOrgResponse':  # noqa: E501
+        """organizations_service_auto_join_org  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_auto_join_org_with_http_info(body, org_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceAutoJoinOrgBody body: (required)
+        :param str org_id: (required)
+        :return: V1AutoJoinOrgResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'org_id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_auto_join_org" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `organizations_service_auto_join_org`")  # noqa: E501
+        # verify the required parameter 'org_id' is set
+        if ('org_id' not in params or
+                params['org_id'] is None):
+            raise ValueError("Missing the required parameter `org_id` when calling `organizations_service_auto_join_org`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'org_id' in params:
+            path_params['orgId'] = params['org_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs/{orgId}/join', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1AutoJoinOrgResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def organizations_service_create_org_membership(self, body: 'OrganizationsServiceCreateOrgMembershipBody', org_id: 'str', **kwargs) -> 'V1OrgMembership':  # noqa: E501
         """organizations_service_create_org_membership  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -52,7 +270,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgIdMembershipsBody body: (required)
+        :param OrganizationsServiceCreateOrgMembershipBody body: (required)
         :param str org_id: (required)
         :return: V1OrgMembership
                  If the method is called asynchronously,
@@ -65,7 +283,7 @@ class OrganizationsServiceApi(object):
             (data) = self.organizations_service_create_org_membership_with_http_info(body, org_id, **kwargs)  # noqa: E501
             return data
 
-    def organizations_service_create_org_membership_with_http_info(self, body: 'OrgIdMembershipsBody', org_id: 'str', **kwargs) -> 'V1OrgMembership':  # noqa: E501
+    def organizations_service_create_org_membership_with_http_info(self, body: 'OrganizationsServiceCreateOrgMembershipBody', org_id: 'str', **kwargs) -> 'V1OrgMembership':  # noqa: E501
         """organizations_service_create_org_membership  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -74,7 +292,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgIdMembershipsBody body: (required)
+        :param OrganizationsServiceCreateOrgMembershipBody body: (required)
         :param str org_id: (required)
         :return: V1OrgMembership
                  If the method is called asynchronously,
@@ -148,7 +366,7 @@ class OrganizationsServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def organizations_service_create_org_membership_role_binding(self, body: 'UserIdMembershiprolebindingsBody', org_id: 'str', user_id: 'str', **kwargs) -> 'V1OrgMembershipRoleBinding':  # noqa: E501
+    def organizations_service_create_org_membership_role_binding(self, body: 'OrganizationsServiceCreateOrgMembershipRoleBindingBody', org_id: 'str', user_id: 'str', **kwargs) -> 'V1OrgMembershipRoleBinding':  # noqa: E501
         """organizations_service_create_org_membership_role_binding  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -157,7 +375,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param UserIdMembershiprolebindingsBody body: (required)
+        :param OrganizationsServiceCreateOrgMembershipRoleBindingBody body: (required)
         :param str org_id: (required)
         :param str user_id: (required)
         :return: V1OrgMembershipRoleBinding
@@ -171,7 +389,7 @@ class OrganizationsServiceApi(object):
             (data) = self.organizations_service_create_org_membership_role_binding_with_http_info(body, org_id, user_id, **kwargs)  # noqa: E501
             return data
 
-    def organizations_service_create_org_membership_role_binding_with_http_info(self, body: 'UserIdMembershiprolebindingsBody', org_id: 'str', user_id: 'str', **kwargs) -> 'V1OrgMembershipRoleBinding':  # noqa: E501
+    def organizations_service_create_org_membership_role_binding_with_http_info(self, body: 'OrganizationsServiceCreateOrgMembershipRoleBindingBody', org_id: 'str', user_id: 'str', **kwargs) -> 'V1OrgMembershipRoleBinding':  # noqa: E501
         """organizations_service_create_org_membership_role_binding  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -180,7 +398,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param UserIdMembershiprolebindingsBody body: (required)
+        :param OrganizationsServiceCreateOrgMembershipRoleBindingBody body: (required)
         :param str org_id: (required)
         :param str user_id: (required)
         :return: V1OrgMembershipRoleBinding
@@ -261,7 +479,7 @@ class OrganizationsServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def organizations_service_create_org_role(self, body: 'OrgIdRolesBody', org_id: 'str', **kwargs) -> 'V1OrgRole':  # noqa: E501
+    def organizations_service_create_org_role(self, body: 'OrganizationsServiceCreateOrgRoleBody', org_id: 'str', **kwargs) -> 'V1OrgRole':  # noqa: E501
         """organizations_service_create_org_role  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -270,7 +488,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgIdRolesBody body: (required)
+        :param OrganizationsServiceCreateOrgRoleBody body: (required)
         :param str org_id: (required)
         :return: V1OrgRole
                  If the method is called asynchronously,
@@ -283,7 +501,7 @@ class OrganizationsServiceApi(object):
             (data) = self.organizations_service_create_org_role_with_http_info(body, org_id, **kwargs)  # noqa: E501
             return data
 
-    def organizations_service_create_org_role_with_http_info(self, body: 'OrgIdRolesBody', org_id: 'str', **kwargs) -> 'V1OrgRole':  # noqa: E501
+    def organizations_service_create_org_role_with_http_info(self, body: 'OrganizationsServiceCreateOrgRoleBody', org_id: 'str', **kwargs) -> 'V1OrgRole':  # noqa: E501
         """organizations_service_create_org_role  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -292,7 +510,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgIdRolesBody body: (required)
+        :param OrganizationsServiceCreateOrgRoleBody body: (required)
         :param str org_id: (required)
         :return: V1OrgRole
                  If the method is called asynchronously,
@@ -1073,6 +1291,91 @@ class OrganizationsServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def organizations_service_list_joinable_organizations(self, **kwargs) -> 'V1ListJoinableOrganizationsResponse':  # noqa: E501
+        """organizations_service_list_joinable_organizations  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_list_joinable_organizations(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1ListJoinableOrganizationsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_list_joinable_organizations_with_http_info(**kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_list_joinable_organizations_with_http_info(**kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_list_joinable_organizations_with_http_info(self, **kwargs) -> 'V1ListJoinableOrganizationsResponse':  # noqa: E501
+        """organizations_service_list_joinable_organizations  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_list_joinable_organizations_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :return: V1ListJoinableOrganizationsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = []  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_list_joinable_organizations" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs/joinable/list', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ListJoinableOrganizationsResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def organizations_service_list_org_members(self, org_id: 'str', **kwargs) -> 'V1ListOrgMembersResponse':  # noqa: E501
         """organizations_service_list_org_members  # noqa: E501
 
@@ -1462,7 +1765,7 @@ class OrganizationsServiceApi(object):
             collection_formats=collection_formats)
 
     def organizations_service_list_organizations(self, **kwargs) -> 'V1ListOrganizationsResponse':  # noqa: E501
-        """TODO: probably a merge with user search API and have a single API to search for anything rpc SearchOrganizations(SearchOrganizationsRequest) returns (SearchOrganizationsResponse) {   option (google.api.http) = {     get: \"/v1/orgs/search\"   }; };  # noqa: E501
+        """organizations_service_list_organizations  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1483,7 +1786,7 @@ class OrganizationsServiceApi(object):
             return data
 
     def organizations_service_list_organizations_with_http_info(self, **kwargs) -> 'V1ListOrganizationsResponse':  # noqa: E501
-        """TODO: probably a merge with user search API and have a single API to search for anything rpc SearchOrganizations(SearchOrganizationsRequest) returns (SearchOrganizationsResponse) {   option (google.api.http) = {     get: \"/v1/orgs/search\"   }; };  # noqa: E501
+        """organizations_service_list_organizations  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1550,7 +1853,104 @@ class OrganizationsServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def organizations_service_update_organization(self, body: 'OrgsIdBody', id: 'str', **kwargs) -> 'V1Organization':  # noqa: E501
+    def organizations_service_search_organizations(self, **kwargs) -> 'V1ListOrganizationsResponse':  # noqa: E501
+        """organizations_service_search_organizations  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_search_organizations(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str search_query: they can query can be by name or domain
+        :param str page_token:
+        :param str page_size:
+        :return: V1ListOrganizationsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_search_organizations_with_http_info(**kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_search_organizations_with_http_info(**kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_search_organizations_with_http_info(self, **kwargs) -> 'V1ListOrganizationsResponse':  # noqa: E501
+        """organizations_service_search_organizations  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_search_organizations_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param str search_query: they can query can be by name or domain
+        :param str page_token:
+        :param str page_size:
+        :return: V1ListOrganizationsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['search_query', 'page_token', 'page_size']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_search_organizations" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'search_query' in params:
+            query_params.append(('searchQuery', params['search_query']))  # noqa: E501
+        if 'page_token' in params:
+            query_params.append(('pageToken', params['page_token']))  # noqa: E501
+        if 'page_size' in params:
+            query_params.append(('pageSize', params['page_size']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs:search', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ListOrganizationsResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def organizations_service_update_organization(self, body: 'OrganizationsServiceUpdateOrganizationBody', id: 'str', **kwargs) -> 'V1Organization':  # noqa: E501
         """Update organization  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -1559,7 +1959,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgsIdBody body: (required)
+        :param OrganizationsServiceUpdateOrganizationBody body: (required)
         :param str id: (required)
         :return: V1Organization
                  If the method is called asynchronously,
@@ -1572,7 +1972,7 @@ class OrganizationsServiceApi(object):
             (data) = self.organizations_service_update_organization_with_http_info(body, id, **kwargs)  # noqa: E501
             return data
 
-    def organizations_service_update_organization_with_http_info(self, body: 'OrgsIdBody', id: 'str', **kwargs) -> 'V1Organization':  # noqa: E501
+    def organizations_service_update_organization_with_http_info(self, body: 'OrganizationsServiceUpdateOrganizationBody', id: 'str', **kwargs) -> 'V1Organization':  # noqa: E501
         """Update organization  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -1581,7 +1981,7 @@ class OrganizationsServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param OrgsIdBody body: (required)
+        :param OrganizationsServiceUpdateOrganizationBody body: (required)
         :param str id: (required)
         :return: V1Organization
                  If the method is called asynchronously,
@@ -1648,6 +2048,224 @@ class OrganizationsServiceApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='V1Organization',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def organizations_service_update_organization_credits_auto_replenish(self, body: 'OrganizationsServiceUpdateOrganizationCreditsAutoReplenishBody', org_id: 'str', **kwargs) -> 'V1UpdateOrganizationCreditsAutoReplenishResponse':  # noqa: E501
+        """organizations_service_update_organization_credits_auto_replenish  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_update_organization_credits_auto_replenish(body, org_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceUpdateOrganizationCreditsAutoReplenishBody body: (required)
+        :param str org_id: (required)
+        :return: V1UpdateOrganizationCreditsAutoReplenishResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_update_organization_credits_auto_replenish_with_http_info(body, org_id, **kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_update_organization_credits_auto_replenish_with_http_info(body, org_id, **kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_update_organization_credits_auto_replenish_with_http_info(self, body: 'OrganizationsServiceUpdateOrganizationCreditsAutoReplenishBody', org_id: 'str', **kwargs) -> 'V1UpdateOrganizationCreditsAutoReplenishResponse':  # noqa: E501
+        """organizations_service_update_organization_credits_auto_replenish  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_update_organization_credits_auto_replenish_with_http_info(body, org_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceUpdateOrganizationCreditsAutoReplenishBody body: (required)
+        :param str org_id: (required)
+        :return: V1UpdateOrganizationCreditsAutoReplenishResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'org_id']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_update_organization_credits_auto_replenish" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `organizations_service_update_organization_credits_auto_replenish`")  # noqa: E501
+        # verify the required parameter 'org_id' is set
+        if ('org_id' not in params or
+                params['org_id'] is None):
+            raise ValueError("Missing the required parameter `org_id` when calling `organizations_service_update_organization_credits_auto_replenish`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'org_id' in params:
+            path_params['orgId'] = params['org_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs/{orgId}/credits/auto-replenish', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1UpdateOrganizationCreditsAutoReplenishResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=params.get('async_req'),
+            _return_http_data_only=params.get('_return_http_data_only'),
+            _preload_content=params.get('_preload_content', True),
+            _request_timeout=params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def organizations_service_validate_auto_join_domain(self, body: 'OrganizationsServiceValidateAutoJoinDomainBody', org_id: 'str', domain: 'str', **kwargs) -> 'V1ValidateAutoJoinDomainResponse':  # noqa: E501
+        """AutoJoin Domain management  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_validate_auto_join_domain(body, org_id, domain, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceValidateAutoJoinDomainBody body: (required)
+        :param str org_id: (required)
+        :param str domain: (required)
+        :return: V1ValidateAutoJoinDomainResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        if kwargs.get('async_req'):
+            return self.organizations_service_validate_auto_join_domain_with_http_info(body, org_id, domain, **kwargs)  # noqa: E501
+        else:
+            (data) = self.organizations_service_validate_auto_join_domain_with_http_info(body, org_id, domain, **kwargs)  # noqa: E501
+            return data
+
+    def organizations_service_validate_auto_join_domain_with_http_info(self, body: 'OrganizationsServiceValidateAutoJoinDomainBody', org_id: 'str', domain: 'str', **kwargs) -> 'V1ValidateAutoJoinDomainResponse':  # noqa: E501
+        """AutoJoin Domain management  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.organizations_service_validate_auto_join_domain_with_http_info(body, org_id, domain, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool
+        :param OrganizationsServiceValidateAutoJoinDomainBody body: (required)
+        :param str org_id: (required)
+        :param str domain: (required)
+        :return: V1ValidateAutoJoinDomainResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body', 'org_id', 'domain']  # noqa: E501
+        all_params.append('async_req')
+        all_params.append('_return_http_data_only')
+        all_params.append('_preload_content')
+        all_params.append('_request_timeout')
+
+        params = locals()
+        for key, val in six.iteritems(params['kwargs']):
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method organizations_service_validate_auto_join_domain" % key
+                )
+            params[key] = val
+        del params['kwargs']
+        # verify the required parameter 'body' is set
+        if ('body' not in params or
+                params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `organizations_service_validate_auto_join_domain`")  # noqa: E501
+        # verify the required parameter 'org_id' is set
+        if ('org_id' not in params or
+                params['org_id'] is None):
+            raise ValueError("Missing the required parameter `org_id` when calling `organizations_service_validate_auto_join_domain`")  # noqa: E501
+        # verify the required parameter 'domain' is set
+        if ('domain' not in params or
+                params['domain'] is None):
+            raise ValueError("Missing the required parameter `domain` when calling `organizations_service_validate_auto_join_domain`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'org_id' in params:
+            path_params['orgId'] = params['org_id']  # noqa: E501
+        if 'domain' in params:
+            path_params['domain'] = params['domain']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/v1/orgs/{orgId}/validateautojoindomain/{domain}', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='V1ValidateAutoJoinDomainResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),

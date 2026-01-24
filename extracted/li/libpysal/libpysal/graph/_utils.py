@@ -6,7 +6,6 @@ import pandas as pd
 import shapely
 from packaging.version import Version
 
-GPD_013 = Version(geopandas.__version__) >= Version("0.13")
 PANDAS_GE_21 = Version(pd.__version__) >= Version("2.1.0")
 NUMPY_GE_2 = Version(np.__version__) >= Version("2.0.0")
 
@@ -32,7 +31,7 @@ def _sparse_to_arrays(sparray, ids=None, resolve_isolates=True, return_adjacency
     When we know we are dealing with cliques, we don't want to resolve
     isolates here but will do that later once cliques are induced.
     """
-    argsort_kwds = {"stable": True} if NUMPY_GE_2 else {}
+    argsort_kwds = {"stable": True} if NUMPY_GE_2 else {"kind": "stable"}
     sparray = sparray.tocoo(copy=False)
     if ids is not None:
         ids = np.asarray(ids)
@@ -147,7 +146,7 @@ def _neighbor_dict_to_edges(neighbors, weights=None):
                 FutureWarning,
             )
             idxs = idxs.fillna(pd.Series(idxs.index, index=idxs.index))  # self-loops
-    heads, tails = idxs.index.values, idxs.values
+    heads, tails = idxs.index.to_numpy(), idxs.to_numpy()
     tails = tails.astype(heads.dtype)
     if weights is not None:
         with warnings.catch_warnings():
@@ -172,7 +171,7 @@ def _build_coplanarity_lookup(geoms):
     geoms = geoms.reset_index(drop=True)
     coplanar = []
     nearest = []
-    r = geoms.groupby(geoms).groups if GPD_013 else geoms.groupby(geoms.to_wkb()).groups
+    r = geoms.groupby(geoms).groups
     for g in r.values():
         if len(g) == 2:
             coplanar.append(g[0])

@@ -353,7 +353,7 @@ class CortexEmbedApi:
         # process the body parameter
         _body_params = None
 
-        if _params["embed_request"]:
+        if _params["embed_request"] is not None:
             _body_params = _params["embed_request"]
 
         # set the HTTP header `Accept`

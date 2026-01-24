@@ -46,6 +46,7 @@ from webob import exc
 
 from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
 from neutron.api.rpc.handlers import l3_rpc
+from neutron.common.ovn import utils as ovn_utils
 from neutron.db import db_base_plugin_v2
 from neutron.db import dns_db
 from neutron.db import external_net_db
@@ -1639,6 +1640,10 @@ class L3NatTestCaseBase(L3NatTestCaseMixin):
         there is no ambiguity regarding on which port to add an IPv6 subnet
         when executing router-interface-add with a subnet and no port.
         """
+        plugin = directory.get_plugin(plugin_constants.L3)
+        if ovn_utils.is_ovn_l3(plugin):
+            self.skipTest("Plugin does not support unique IPv6 "
+                          "router ports per network id")
         with self.network() as n, self.router() as r:
             with self.subnet(network=n, cidr='fd00::/64',
                              ip_version=lib_constants.IP_VERSION_6) as s1, (
@@ -3649,9 +3654,9 @@ class L3NatTestCaseBase(L3NatTestCaseMixin):
             'tenant_id': 'some_tenant'}}
 
         def mock_fail__update_router_gw_info(ctx, router_id, info,
-                                             router=None):
+                                             request_body, router=None):
             # Fail with breaking transaction
-            with db_api.CONTEXT_WRITER.using(self.ctx):
+            with db_api.CONTEXT_WRITER.using(ctx):
                 raise n_exc.NeutronException
 
         mock.patch.object(plugin, '_update_router_gw_info',
@@ -3680,7 +3685,7 @@ class L3NatTestCaseBase(L3NatTestCaseMixin):
             'tenant_id': 'some_tenant'}}
 
         def mock_fail__update_router_gw_info(ctx, router_id, info,
-                                             router=None):
+                                             request_body, router=None):
             # Fail with breaking transaction
             with db_api.CONTEXT_WRITER.using(ctx):
                 raise n_exc.NeutronException
@@ -4252,8 +4257,8 @@ class L3AgentDbTestCaseBase(L3NatTestCaseMixin):
                                  events.AFTER_DELETE)
 
     def test_router_create_precommit_event(self):
-        nset = lambda r, e, t, payload: \
-            setattr(payload.metadata['router_db'], 'name', 'hello')
+        def nset(r, e, t, payload):
+            return setattr(payload.metadata['router_db'], 'name', 'hello')
         registry.subscribe(nset, resources.ROUTER, events.PRECOMMIT_CREATE)
         with self.router() as r:
             self.assertEqual('hello', r['router']['name'])
@@ -4298,8 +4303,8 @@ class L3AgentDbTestCaseBase(L3NatTestCaseMixin):
 
     def test_router_delete_precommit_event(self):
         deleted = []
-        auditor = lambda r, e, t, payload: \
-            deleted.append(payload.resource_id)
+        def auditor(r, e, t, payload):
+            return deleted.append(payload.resource_id)
         registry.subscribe(auditor, resources.ROUTER, events.PRECOMMIT_DELETE)
         with self.router() as r:
             self._delete('routers', r['router']['id'])
@@ -4703,7 +4708,7 @@ class L3NatDBFloatingIpTestCaseWithDNS(L3BaseForSepTests, L3NatTestCaseMixin):
             floating_ip_address)
         self.mock_admin_client.recordsets.create.assert_called_with(
             in_addr_zone_name, in_addr_name, 'PTR',
-            ['{}.{}'.format(self.DNS_NAME, self.DNS_DOMAIN)])
+            [f'{self.DNS_NAME}.{self.DNS_DOMAIN}'])
 
     @mock.patch(MOCK_PATH, **mock_config)
     def test_floatingip_create(self, mock_args):

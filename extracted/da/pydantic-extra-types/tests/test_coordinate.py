@@ -112,7 +112,7 @@ def test_limit_for_coordinate(coord: (Any, Any), error: Optional[Pattern]):
         ('-90.0', True),
         (Decimal('90.0'), True),
         (Decimal('-90.0'), True),
-        # Unvalid latitude
+        # Invalid latitude
         (91.0, False),
         (-91.0, False),
         (Decimal('91.0'), False),
@@ -144,7 +144,7 @@ def test_format_latitude(latitude: float, valid: bool):
         (-180.0, True),
         (Decimal('180.0'), True),
         (Decimal('-180.0'), True),
-        # Unvalid latitude
+        # Invalid latitude
         (181.0, False),
         (-181.0, False),
         (Decimal('181.0'), False),
@@ -218,11 +218,17 @@ def test_json_schema():
     assert Model.model_json_schema(mode='validation')['$defs']['Coordinate'] == {
         'properties': {
             'latitude': {
-                'anyOf': [{'maximum': 90.0, 'minimum': -90.0, 'type': 'number'}, {'type': 'string'}],
+                'anyOf': [
+                    {'maximum': 90.0, 'minimum': -90.0, 'type': 'number'},
+                    {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'},
+                ],
                 'title': 'Latitude',
             },
             'longitude': {
-                'anyOf': [{'maximum': 180.0, 'minimum': -180.0, 'type': 'number'}, {'type': 'string'}],
+                'anyOf': [
+                    {'maximum': 180.0, 'minimum': -180.0, 'type': 'number'},
+                    {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'},
+                ],
                 'title': 'Longitude',
             },
         },
@@ -237,8 +243,8 @@ def test_json_schema():
                 'maxItems': 2,
                 'minItems': 2,
                 'prefixItems': [
-                    {'anyOf': [{'type': 'number'}, {'type': 'string'}]},
-                    {'anyOf': [{'type': 'number'}, {'type': 'string'}]},
+                    {'anyOf': [{'type': 'number'}, {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'}]},
+                    {'anyOf': [{'type': 'number'}, {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'}]},
                 ],
                 'type': 'array',
             },
@@ -251,11 +257,17 @@ def test_json_schema():
             'Coordinate': {
                 'properties': {
                     'latitude': {
-                        'anyOf': [{'maximum': 90.0, 'minimum': -90.0, 'type': 'number'}, {'type': 'string'}],
+                        'anyOf': [
+                            {'maximum': 90.0, 'minimum': -90.0, 'type': 'number'},
+                            {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'},
+                        ],
                         'title': 'Latitude',
                     },
                     'longitude': {
-                        'anyOf': [{'maximum': 180.0, 'minimum': -180.0, 'type': 'number'}, {'type': 'string'}],
+                        'anyOf': [
+                            {'maximum': 180.0, 'minimum': -180.0, 'type': 'number'},
+                            {'type': 'string', 'pattern': '^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$'},
+                        ],
                         'title': 'Longitude',
                     },
                 },

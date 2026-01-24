@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use test_context::test_context;
 
 use topk_rs::data::literal;
-use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, r#match, select};
+use topk_rs::{doc, Error};
 
 mod utils;
 use utils::dataset;
@@ -204,6 +204,50 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_query_select_indexed_vector(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("vec", field("summary_embedding"))]).limit(10),
+            None,
+            None,
+        )
+        .await
+        .expect_err("expected query to fail");
+
+    assert!(
+        matches!(err, Error::InvalidArgument(_) if err.to_string().contains("Selecting indexed vector fields in query is not supported.")),
+        "Got error: {:?}",
+        err
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_select_u8_vector(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("scalar_embedding", field("scalar_embedding"))]).limit(10),
+            None,
+            None,
+        )
+        .await
+        .expect_err("expected query to fail");
+
+    assert!(
+        matches!(err, Error::InvalidArgument(_) if err.to_string().contains("Selecting indexed vector fields in query is not supported.")),
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
@@ -240,7 +284,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
     assert_eq!(
         results
             .into_iter()
-            .map(|d| d.fields.get("a").unwrap().clone())
+            .map(|d| d.fields.get("a").cloned().unwrap_or(Value::null()))
             .collect::<Vec<_>>(),
         vec![Value::null(), Value::null()]
     );

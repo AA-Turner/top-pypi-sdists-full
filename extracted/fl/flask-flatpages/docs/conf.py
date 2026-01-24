@@ -11,14 +11,9 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os, re
+import os
+import re
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
-sys.path.append(os.path.abspath('..'))
-sys.path.append(os.path.abspath('_themes'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -34,7 +29,7 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx',
 intersphinx_mapping = {'flask': ('http://flask.pocoo.org/docs/', None)}
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+# templates_path = ['_templates']
 
 # The suffix of source filenames.
 source_suffix = '.rst'
@@ -46,8 +41,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Flask-FlatPages'
-copyright = u'2010-2015, Simon Sapin. 2013-2015, Igor Davydenko'
+project = 'Flask-FlatPages'
+copyright = '2010-2015, Simon Sapin. 2013-2015, Igor Davydenko'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -190,8 +185,8 @@ htmlhelp_basename = 'Flask-FlatPagesdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'Flask-FlatPages.tex', u'Flask-FlatPages Documentation',
-   u'Simon Sapin', 'manual'),
+    ('index', 'Flask-FlatPages.tex', 'Flask-FlatPages Documentation',
+     'Simon Sapin', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -223,6 +218,6 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'flask-flatpages', u'Flask-FlatPages Documentation',
-     [u'Simon Sapin', u'Igor Davydenko', u'Padraic Calpin'], 1)
+    ('index', 'flask-flatpages', 'Flask-FlatPages Documentation',
+     ['Simon Sapin', 'Igor Davydenko', 'Padraic Calpin'], 1)
 ]

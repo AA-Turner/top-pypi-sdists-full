@@ -252,7 +252,7 @@ Keyword arguments:
 - withBorder (boolean; optional):
     Determines whether the card should have border, border color
     depends on color scheme, `False` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Card'

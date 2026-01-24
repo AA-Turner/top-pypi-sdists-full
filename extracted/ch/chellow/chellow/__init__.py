@@ -7,6 +7,9 @@ from pathlib import Path
 
 from flask import Flask, Response, g, make_response, render_template, request
 
+from markdown_it import MarkdownIt
+
+from markupsafe import Markup
 
 from sqlalchemy import select
 
@@ -18,16 +21,16 @@ import chellow.api
 import chellow.bank_holidays
 import chellow.dloads
 import chellow.e.bmarketidx
-import chellow.e.bsuos
 import chellow.e.elexon
 import chellow.e.hh_importer
+import chellow.e.isd
+import chellow.e.neso
 import chellow.e.rcrc
 import chellow.e.system_price
 import chellow.e.views
 import chellow.fake_batch_updater
 import chellow.gas.cv
 import chellow.gas.views
-import chellow.national_grid
 import chellow.rrun
 import chellow.testing
 from chellow.models import (
@@ -40,7 +43,6 @@ from chellow.models import (
 )
 from chellow.proxy import MsProxy
 from chellow.utils import HH, ct_datetime, to_ct, utc_datetime_now
-
 
 TEMPLATE_FORMATS = {
     "year": "%Y",
@@ -55,14 +57,14 @@ TEMPLATE_FORMATS = {
 
 def get_importer_modules():
     return (
+        chellow.e.isd,
         chellow.e.elexon,
-        chellow.e.bsuos,
         chellow.e.lcc,
         chellow.testing,
         chellow.bank_holidays,
         chellow.gas.cv,
         chellow.e.bmarketidx,
-        chellow.national_grid,
+        chellow.e.neso,
         chellow.rate_server,
         chellow.rrun,
         chellow.fake_batch_updater,
@@ -71,6 +73,7 @@ def get_importer_modules():
 
 def create_app(testing=False, instance_path=None):
     app = Flask("chellow", instance_relative_config=True, instance_path=instance_path)
+    app.config["RESTX_VALIDATE"] = True
     app.wsgi_app = MsProxy(app.wsgi_app)
     app.secret_key = os.urandom(24)
     start_sqlalchemy()
@@ -224,6 +227,7 @@ def create_app(testing=False, instance_path=None):
                         "/reports/111",
                         "/reports/149",
                     )
+                    or path.startswith("/api/")
                 )
                 and path not in ("/system",)
             ):
@@ -327,6 +331,11 @@ def create_app(testing=False, instance_path=None):
     @app.template_filter("dumps")
     def dumps_filter(d):
         return dumps(d)
+
+    @app.template_filter("markdown")
+    def markdown_filter(txt):
+        md = MarkdownIt()
+        return Markup(md.render(txt))
 
     return app
 

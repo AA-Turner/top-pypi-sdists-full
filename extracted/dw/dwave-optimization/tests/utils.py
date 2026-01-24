@@ -257,9 +257,37 @@ class BinaryOpTests(SymbolTests):
         # if the op is different for symbols, allow the override
         return self.op(lhs, rhs)
 
+    def test_broadcasting(self):
+        lhs = np.arange(1, 5).reshape(4, 1)
+        rhs = np.arange(1, 4)
+
+        model = Model()
+
+        out_arr = self.op(lhs, rhs)
+        out_sym = self.symbol_op(lhs, model.constant(rhs))
+
+        model.states.resize(1)
+        with model.lock():
+            np.testing.assert_equal(out_arr, out_sym.state())
+
     def test_deterministic(self):
         x = next(self.generate_symbols())
         self.assertTrue(x._deterministic_state())
+
+    def test_info(self):
+        for x in self.generate_symbols():
+            info = x.info()
+            model = x.model
+            model.states.resize(1)
+            with model.lock():
+                self.assertLessEqual(info.min, x.state(0).min())
+                self.assertGreaterEqual(info.max, x.state(0).max())
+
+    def test_invalid_broadcasting(self):
+        model = Model()
+        lhs = model.constant(0)
+        with self.assertRaises(TypeError):
+            self.symbol_op(lhs, object())
 
     def test_numpy_equivalence(self):
         lhs_array = np.arange(10)
@@ -291,6 +319,10 @@ class BinaryOpTests(SymbolTests):
         with model.lock():
             np.testing.assert_array_equal(op_array, op_symbol.state())
 
+        # Make sure we let the binaryop symbol handle the scalar broadcasting
+        # I.e., we didn't add a new broadcast symbol
+        self.assertEqual(model.num_symbols(), 3)
+
     def test_size1_broadcasting(self):
         lhs_array = np.asarray([5])
         rhs_array = np.asarray([-10, 100, 16])
@@ -305,6 +337,10 @@ class BinaryOpTests(SymbolTests):
         model.states.resize(1)
         with model.lock():
             np.testing.assert_array_equal(op_array, op_symbol.state())
+
+        # Make sure we let the binaryop symbol handle the scalar broadcasting
+        # I.e., we didn't add a new broadcast symbol
+        self.assertEqual(model.num_symbols(), 3)
 
 
 class NaryOpTests(SymbolTests):
@@ -419,23 +455,12 @@ class ReduceTests(SymbolTests):
             with model.lock():
                 self.assertEqual(out.state(), self.op(np.asarray(arr)))
 
-            if self.empty_requires_initial:
-                with self.assertRaises(ValueError):
-                    self.op(empty, initial=None)
-                with self.assertRaises(ValueError):
-                    self.op(dynamic, initial=None)
+            with self.assertRaises(ValueError):
+                self.op(empty, initial=None)
+            with self.assertRaises(ValueError):
+                self.op(dynamic, initial=None)
 
-                self.assertEqual(model.num_symbols(), 4)  # no side-effects
-            else:
-                out = self.op(empty, initial=None)
-                with model.lock():
-                    self.assertEqual(out.state(), self.op(empty.state()))
-
-                out = self.op(dynamic, initial=None)
-                with model.lock():
-                    self.assertEqual(out.state(), self.op(dynamic.state()))
-
-                self.assertEqual(model.num_symbols(), 6)
+            self.assertEqual(model.num_symbols(), 4)  # no side-effects
 
     def test_numpy_equivalence(self):
         model = Model()
@@ -490,6 +515,7 @@ class UnaryOpTests(SymbolTests):
 
     def test_scalar_input(self):
         for scalar in [-5, -.5, 0, 1, 1.5]:
+
             with self.subTest(f"a = {scalar}"):
                 model = Model()
                 a = model.constant(scalar)
@@ -502,7 +528,13 @@ class UnaryOpTests(SymbolTests):
 
                 model.lock()
                 model.states.resize(1)
-                self.assertEqual(op_a.state(0), self.op(scalar))
+
+                # Using `assertAlmostEqual()` instead of `assertEqual()` b.c.
+                # `std::tanh()` and `numpy.tanh()` have implementation specific
+                # discrepencies that occasionally result in rounding
+                # differences
+                self.assertAlmostEqual(op_a.state(0), self.op(scalar), 12)
+
 
     def test_1d_input(self):
         model = Model()

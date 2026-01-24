@@ -46,7 +46,8 @@ def right_join(
     left_columns: List[str],
     right_columns: List[str],
     left_hash,
-    filter_index
+    filter_index,
+    columns=None
 ):
     """
     Perform a RIGHT JOIN.
@@ -60,13 +61,15 @@ def right_join(
         right_relation (pyarrow.Table): The right pyarrow.Table to join.
         left_columns (list of str): Column names from the left table to join on.
         right_columns (list of str): Column names from the right table to join on.
+        columns (list of str, optional): Columns to include in the result. If None, all columns are included.
 
     Yields:
         pyarrow.Table: A chunk of the result of the RIGHT JOIN operation.
     """
     # Build hash table of left side
-    left_hash_table = HashTable()
-    num_left_rows = left_relation.num_rows
+    cdef HashTable left_hash_table = HashTable()
+    cdef Py_ssize_t num_left_rows = left_relation.num_rows
+    cdef Py_ssize_t i
 
     cdef uint64_t* raw_hashes = <uint64_t*> malloc(num_left_rows * sizeof(uint64_t))
     if raw_hashes == NULL:

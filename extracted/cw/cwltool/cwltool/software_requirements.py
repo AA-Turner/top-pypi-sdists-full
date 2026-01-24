@@ -8,26 +8,24 @@ ways to adapt new packages managers and such as well.
 """
 
 import argparse
+import importlib.metadata
 import os
 import string
 from collections.abc import MutableMapping, MutableSequence
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from .utils import HasReqsHints
 
 if TYPE_CHECKING:
+    from galaxy.tool_util.deps.requirements import ToolRequirements
+
     from .builder import Builder
 
 try:
-    from galaxy.tool_util import deps
-    from galaxy.tool_util.deps.requirements import ToolRequirement, ToolRequirements
-except ImportError:
-    ToolRequirement = None  # type: ignore
-    ToolRequirements = None  # type: ignore
-    deps = None  # type: ignore
-
-
-SOFTWARE_REQUIREMENTS_ENABLED = deps is not None
+    importlib.metadata.Distribution.from_name("galaxy-tool-util")
+    SOFTWARE_REQUIREMENTS_ENABLED = True
+except ModuleNotFoundError:
+    SOFTWARE_REQUIREMENTS_ENABLED = False
 
 COMMAND_WITH_DEPENDENCIES_TEMPLATE = string.Template(
     """#!/bin/bash
@@ -50,8 +48,8 @@ class DependenciesConfiguration:
 
     def __init__(self, args: argparse.Namespace) -> None:
         """Initialize."""
-        self.tool_dependency_dir: Optional[str] = None
-        self.dependency_resolvers_config_file: Optional[str] = None
+        self.tool_dependency_dir: str | None = None
+        self.dependency_resolvers_config_file: str | None = None
         conf_file = getattr(args, "beta_dependency_resolvers_configuration", None)
         tool_dependency_dir = getattr(args, "beta_dependencies_directory", None)
         conda_dependencies = getattr(args, "beta_conda_dependencies", None)
@@ -74,6 +72,8 @@ class DependenciesConfiguration:
 
     def build_job_script(self, builder: "Builder", command: list[str]) -> str:
         """Use the galaxy-tool-util library to construct a build script."""
+        from galaxy.tool_util import deps
+
         ensure_galaxy_lib_available()
         resolution_config_dict = {
             "use": self.use_tool_dependencies,
@@ -102,8 +102,12 @@ class DependenciesConfiguration:
         return job_script
 
 
-def get_dependencies(builder: HasReqsHints) -> ToolRequirements:
+def get_dependencies(
+    builder: HasReqsHints,
+) -> "ToolRequirements":
     (software_requirement, _) = builder.get_requirement("SoftwareRequirement")
+    from galaxy.tool_util.deps.requirements import ToolRequirement, ToolRequirements
+
     dependencies: list[Union["ToolRequirement", dict[str, Any]]] = []
     if software_requirement and software_requirement.get("packages"):
         packages = cast(
@@ -133,8 +137,8 @@ def get_dependencies(builder: HasReqsHints) -> ToolRequirements:
 
 
 def get_container_from_software_requirements(
-    use_biocontainers: bool, builder: HasReqsHints, container_image_cache_path: Optional[str] = "."
-) -> Optional[str]:
+    use_biocontainers: bool, builder: HasReqsHints, container_image_cache_path: str | None = "."
+) -> str | None:
     if use_biocontainers:
         ensure_galaxy_lib_available()
         from galaxy.tool_util.deps.container_classes import DOCKER_CONTAINER_TYPE

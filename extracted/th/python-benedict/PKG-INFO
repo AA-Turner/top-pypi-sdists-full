@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-benedict
-Version: 0.34.1
+Version: 0.35.0
 Summary: python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>
@@ -56,11 +56,14 @@ Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: python-fsutil<1.0.0,>=0.9.3
 Requires-Dist: python-slugify<9.0.0,>=7.0.0
 Requires-Dist: requests<3.0.0,>=2.26.0
+Requires-Dist: typing_extensions<4.16.0,>=4.13.2
+Requires-Dist: useful-types<0.3.0,>=0.2.1
 Provides-Extra: all
 Requires-Dist: python-benedict[io,parse,s3]; extra == "all"
 Provides-Extra: html
@@ -71,7 +74,7 @@ Requires-Dist: python-benedict[html,toml,xls,xml,yaml]; extra == "io"
 Provides-Extra: parse
 Requires-Dist: ftfy<7.0.0,>=6.0.0; extra == "parse"
 Requires-Dist: mailchecker<7.0.0,>=4.1.0; extra == "parse"
-Requires-Dist: phonenumbers<9.0.0,>=8.12.0; extra == "parse"
+Requires-Dist: phonenumbers<10.0.0,>=8.12.0; extra == "parse"
 Requires-Dist: python-dateutil<3.0.0,>=2.8.0; extra == "parse"
 Provides-Extra: s3
 Requires-Dist: boto3<2.0.0,>=1.24.89; extra == "s3"
@@ -81,9 +84,10 @@ Provides-Extra: xls
 Requires-Dist: openpyxl<4.0.0,>=3.0.0; extra == "xls"
 Requires-Dist: xlrd<3.0.0,>=2.0.0; extra == "xls"
 Provides-Extra: xml
-Requires-Dist: xmltodict<1.0.0,>=0.12.0; extra == "xml"
+Requires-Dist: xmltodict<2.0.0,>=0.12.0; extra == "xml"
 Provides-Extra: yaml
 Requires-Dist: pyyaml<7.0,>=6.0; extra == "yaml"
+Dynamic: license-file
 
 [![](https://img.shields.io/pypi/pyversions/python-benedict.svg?color=blue&logo=python&logoColor=white)](https://www.python.org/)
 [![](https://img.shields.io/pypi/v/python-benedict.svg?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/python-benedict/)
@@ -94,7 +98,6 @@ Requires-Dist: pyyaml<7.0,>=6.0; extra == "yaml"
 [![](https://results.pre-commit.ci/badge/github/fabiocaccamo/python-benedict/main.svg)](https://results.pre-commit.ci/latest/github/fabiocaccamo/python-benedict/main)
 [![](https://img.shields.io/github/actions/workflow/status/fabiocaccamo/python-benedict/test-package.yml?branch=main&label=build&logo=github)](https://github.com/fabiocaccamo/python-benedict)
 [![](https://img.shields.io/codecov/c/gh/fabiocaccamo/python-benedict?logo=codecov)](https://codecov.io/gh/fabiocaccamo/python-benedict)
-[![](https://img.shields.io/codeclimate/maintainability/fabiocaccamo/python-benedict?logo=code-climate)](https://codeclimate.com/github/fabiocaccamo/python-benedict/)
 [![](https://img.shields.io/codacy/grade/0dbd5cc2089f4dce80a0e49e6822be3c?logo=codacy)](https://www.codacy.com/app/fabiocaccamo/python-benedict)
 [![](https://img.shields.io/scrutinizer/quality/g/fabiocaccamo/python-benedict?logo=scrutinizer)](https://scrutinizer-ci.com/g/fabiocaccamo/python-benedict/?branch=main)
 [![](https://img.shields.io/badge/code%20style-black-000000.svg?logo=python&logoColor=black)](https://github.com/psf/black)
@@ -1127,7 +1130,7 @@ Released under [MIT License](LICENSE.txt).
 
 - :star: Star this project on [GitHub](https://github.com/fabiocaccamo/python-benedict)
 - :octocat: Follow me on [GitHub](https://github.com/fabiocaccamo)
-- :blue_heart: Follow me on [Twitter](https://twitter.com/fabiocaccamo)
+- :blue_heart: Follow me on [Bluesky](https://bsky.app/profile/fabiocaccamo.bsky.social)
 - :moneybag: Sponsor me on [Github](https://github.com/sponsors/fabiocaccamo)
 
 ## See also

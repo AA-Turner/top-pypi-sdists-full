@@ -3,9 +3,7 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 from re import Pattern
-from typing import Literal, Mapping, Optional, Tuple, Union
-
-from typing_extensions import TypeAlias
+from typing import Literal, Mapping, Optional, Tuple, TypeAlias, Union
 
 Duration: TypeAlias = Union[str, timedelta, Literal["infinity", "all"]]
 """

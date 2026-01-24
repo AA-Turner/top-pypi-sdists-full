@@ -64,6 +64,7 @@ _: TypeGetText
 ESEF_DISCLOSURE_SYSTEM_TEST_PROPERTY = "ESEFplugin"
 
 ixErrorPattern = re.compile(r"ix11[.]|xmlSchema[:]|(?!xbrl.5.2.5.2|xbrl.5.2.6.2)xbrl[.]|xbrld[ti]e[:]|utre[:]")
+dupIdErrorPattern = re.compile(r"xml.3.3.1:idMustBeUnique|ix11.14.1.2:uniqueIxId")
 
 
 def validateEntity(modelXbrl: ModelXbrl, filename:str, filesource: FileSource) -> None:
@@ -75,7 +76,7 @@ def validateEntity(modelXbrl: ModelXbrl, filename:str, filesource: FileSource) -
         parser = XMLParser(load_dtd=True, resolve_entities=False)
         root = parse(file[0], parser=parser)
         if root.docinfo.internalDTD:
-            for entity in root.docinfo.internalDTD.iterentities():  # type: ignore[union-attr]
+            for entity in root.docinfo.internalDTD.iterentities():
                 modelXbrl.error(f"{contentOtherThanXHTMLGuidance}.maliciousCodePresent",
                                 _("Documents MUST NOT contain any malicious content. Dangerous XML entity found: %(element)s."),
                                 modelObject=filename, element=entity.name)
@@ -87,6 +88,11 @@ def validateEntity(modelXbrl: ModelXbrl, filename:str, filesource: FileSource) -
 def esefDisclosureSystemSelected(modelXbrl: ModelXbrl) -> bool:
     return getattr(modelXbrl.modelManager.disclosureSystem, ESEF_DISCLOSURE_SYSTEM_TEST_PROPERTY, False)
 
+
+def shouldRunEsefValidationRules(val: ValidateXbrl) -> bool:
+    if not val.validateDisclosureSystem:
+        return False
+    return esefDisclosureSystemSelected(val.modelXbrl)
 
 class ESEFPlugin(PluginHooks):
     @staticmethod
@@ -216,7 +222,7 @@ class ESEFPlugin(PluginHooks):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        if not esefDisclosureSystemSelected(val.modelXbrl) and val.validateDisclosureSystem:
+        if not shouldRunEsefValidationRules(val):
             return None
         modelXbrl = val.modelXbrl
         val.extensionImportedUrls = set()
@@ -281,7 +287,7 @@ class ESEFPlugin(PluginHooks):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        if not esefDisclosureSystemSelected(val.modelXbrl) and val.validateDisclosureSystem:
+        if not shouldRunEsefValidationRules(val):
             return None
         disclosureSystemYear = getDisclosureSystemYear(val.modelXbrl)
         if disclosureSystemYear == 2021:
@@ -294,7 +300,7 @@ class ESEFPlugin(PluginHooks):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        if not esefDisclosureSystemSelected(val.modelXbrl) and val.validateDisclosureSystem:
+        if not shouldRunEsefValidationRules(val):
             return None
         if val.unconsolidated:
             return None
@@ -305,6 +311,14 @@ class ESEFPlugin(PluginHooks):
                             _("RTS on ESEF requires inline XBRL, no facts were reported."),
                             modelObject=modelXbrl)
             return # never loaded properly
+
+        disclosureSystemYear = getDisclosureSystemYear(modelXbrl)
+        if disclosureSystemYear >= 2025:
+            numDupIdErrors = sum(dupIdErrorPattern.match(e) is not None for e in modelXbrl.errors if isinstance(e,str))
+            if numDupIdErrors:
+                modelXbrl.warning("ESEF.2.2.8.duplicatedIdAttribute",
+                                _("ID attributes should be unique, %(numDupIdErrors)s such errors were reported."),
+                                modelObject=modelXbrl, numDupIdErrors=numDupIdErrors)
 
         numXbrlErrors = sum(ixErrorPattern.match(e) is not None for e in modelXbrl.errors if isinstance(e,str))
         if numXbrlErrors:
@@ -329,7 +343,7 @@ class ESEFPlugin(PluginHooks):
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        if not esefDisclosureSystemSelected(val.modelXbrl) and val.validateDisclosureSystem:
+        if not shouldRunEsefValidationRules(val):
             return None
         modelXbrl = val.modelXbrl
         if hasattr(val, 'priorFormulaOptionsRunIDs'):  # reset environment formula run IDs if they were saved
@@ -370,7 +384,7 @@ __pluginInfo__ = {
         "Validate ESMA ESEF-2022",
         "validate/ESEF_2022",
     ],
-    "version": "1.2024.00",
+    "version": "1.2025.00",
     "description": """ESMA ESEF Filer Manual and RTS Validations.""",
     "license": "Apache-2",
     "author": authorLabel,

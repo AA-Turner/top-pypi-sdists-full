@@ -4,11 +4,11 @@ from inspect import isfunction
 
 import tablib
 from django.template import Context, Template
+from django.utils.module_loading import import_string
 from import_export import resources
 
 from wbcore.serializers import ListSerializer
 from wbcore.serializers.fields.related import ListSerializer as RelatedListSerializer
-from wbcore.utils.importlib import import_from_dotted_path
 
 
 class ExportResourceMixin:
@@ -84,7 +84,7 @@ class ViewResource(ExportResourceMixin, resources.Resource):
         super().__init__(**kwargs)
         # in that case, serializer_class is lazy loaded,
         if serializer_class_path:
-            serializer_class = import_from_dotted_path(serializer_class_path)
+            serializer_class = import_string(serializer_class_path)
             if isfunction(serializer_class):
                 serializer_class = serializer_class(*serializer_class_method_args)
         if not serializer_class:

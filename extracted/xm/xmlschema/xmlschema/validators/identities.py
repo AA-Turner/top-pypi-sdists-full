@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2020, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -17,17 +17,18 @@ from collections import Counter
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast, Any, Optional, Union
 
-from elementpath import ElementPathError, XPathContext, XPathToken, \
+from elementpath import ElementPathError, XPathContext, \
     ElementNode, translate_pattern, AttributeNode
 from elementpath.datatypes import UntypedAtomic
 from elementpath.xpath_nodes import EtreeElementNode
 
+import xmlschema.names as nm
 from xmlschema.exceptions import XMLSchemaTypeError, XMLSchemaValueError
-from xmlschema.names import XSD_UNIQUE, XSD_KEY, XSD_KEYREF, XSD_SELECTOR, XSD_FIELD
 from xmlschema.translation import gettext as _
 from xmlschema.utils.qnames import get_qname, get_extended_qname
 from xmlschema.aliases import ElementType, SchemaType, NsmapType, AtomicValueType, \
     BaseXsdType, SchemaElementType, SchemaAttributeType
+from .helpers import parse_xpath_default_namespace
 from ..xpath import IdentityXPathParser, XPathElement, XMLSchemaProxy
 
 from .exceptions import XMLSchemaNotBuiltError
@@ -47,20 +48,6 @@ IdentityCounterType = tuple[IdentityFieldItemType, ...]
 # not used for the specific selection of fields and elements and the XSD
 # fields are collected at first validation run.
 
-def iter_root_elements(token: XPathToken) -> Iterator[XPathToken]:
-    if token.symbol in ('(name)', ':', '*', '.'):
-        yield token
-    elif token.symbol in ('//', '/'):
-        yield from iter_root_elements(token[0])
-        for tk in token[1].iter():
-            if tk.symbol == '|':
-                yield from iter_root_elements(tk[1])
-                break
-    elif token.symbol in '|':
-        for tk in token:
-            yield from iter_root_elements(tk)
-
-
 IdentityMapType = dict[Union['XsdKey', 'XsdKeyref', str, None],
                        Union['IdentityCounter', 'KeyrefCounter']]
 IdentityNodeType = Union[ElementNode, AttributeNode]
@@ -69,7 +56,7 @@ FieldDecoderType = Union[SchemaElementType, SchemaAttributeType]
 
 class XsdSelector(XsdComponent):
     """Class for defining an XPath selector for an XSD identity constraint."""
-    _ADMITTED_TAGS = XSD_SELECTOR,
+    _ADMITTED_TAGS = nm.XSD_SELECTOR,
     _REGEXP = (
         r"(\.//)?(((child::)?((\i\c*:)?(\i\c*|\*)))|\.)(/(((child::)?"
         r"((\i\c*:)?(\i\c*|\*)))|\.))*(\|(\.//)?(((child::)?((\i\c*:)?"
@@ -107,7 +94,7 @@ class XsdSelector(XsdComponent):
         # XSD 1.1 xpathDefaultNamespace attribute
         if self.schema.XSD_VERSION > '1.0':
             if 'xpathDefaultNamespace' in self.elem.attrib:
-                self.xpath_default_namespace = self._parse_xpath_default_namespace(self.elem)
+                self.xpath_default_namespace = parse_xpath_default_namespace(self)
             else:
                 self.xpath_default_namespace = self.schema.xpath_default_namespace
 
@@ -130,7 +117,7 @@ class XsdSelector(XsdComponent):
 
 class XsdFieldSelector(XsdSelector):
     """Class for defining an XPath field selector for an XSD identity constraint."""
-    _ADMITTED_TAGS = XSD_FIELD,
+    _ADMITTED_TAGS = nm.XSD_FIELD,
     _REGEXP = (
         r"(\.//)?((((child::)?((\i\c*:)?(\i\c*|\*)))|\.)/)*((((child::)?"
         r"((\i\c*:)?(\i\c*|\*)))|\.)|((attribute::|@)((\i\c*:)?(\i\c*|\*))))"
@@ -174,7 +161,7 @@ class XsdIdentity(XsdComponent):
             self.name = ''
 
         for child in self.elem:
-            if child.tag == XSD_SELECTOR:
+            if child.tag == nm.XSD_SELECTOR:
                 self.selector = XsdSelector(child, self.schema, self)
                 break
         else:
@@ -183,38 +170,45 @@ class XsdIdentity(XsdComponent):
 
         self.fields = []
         for child in self.elem:
-            if child.tag == XSD_FIELD:
+            if child.tag == nm.XSD_FIELD:
                 self.fields.append(XsdFieldSelector(child, self.schema, self))
 
         self.elements = {}
 
     def build(self) -> None:
-        if self._built:
+        if self._built is not False:
             return
-        self._built = True
-
-        if self.ref is True:  # type: ignore[comparison-overlap]
-            try:
-                ref = self.maps.identities[self.name]
-            except KeyError:
-                self.fields = []
-                self.elements = {}
-                msg = _("unknown identity constraint {!r}")
-                self.parse_error(msg.format(self.name))
-                return
-            else:
-                if not isinstance(ref, self.__class__):
-                    msg = _("attribute 'ref' points to a different kind constraint")
-                    self.parse_error(msg)
-                self.selector = ref.selector
-                self.fields = ref.fields
-                self.elements = {}
-                self.ref = ref
+        self._built = None
 
         try:
-            self.update_elements(base_element=self.parent)
-        except TypeError as err:
-            self.parse_error(err)
+            if self.ref is self:
+                try:
+                    ref = self.maps.identities[self.name]
+                except KeyError:
+                    self.fields = []
+                    self.elements = {}
+                    msg = _("unknown identity constraint {!r}")
+                    self.parse_error(msg.format(self.name))
+                    self.ref = None
+                    return
+                else:
+                    if not isinstance(ref, self.__class__):
+                        msg = _("attribute 'ref' points to a different kind constraint")
+                        self.parse_error(msg)
+                    self.selector = ref.selector
+                    self.fields = ref.fields
+                    self.elements = {}
+                    self.ref = ref
+
+            try:
+                self.update_elements(base_element=self.parent)
+            except TypeError as err:
+                self.parse_error(err)
+
+            self._built = True
+        finally:
+            if self._built is None:
+                self._built = False
 
     def update_elements(self, base_element: Union['XsdElement', XPathElement]) -> None:
         if self.selector is None:
@@ -256,11 +250,11 @@ class XsdIdentity(XsdComponent):
 
 
 class XsdUnique(XsdIdentity):
-    _ADMITTED_TAGS = XSD_UNIQUE,
+    _ADMITTED_TAGS = nm.XSD_UNIQUE,
 
 
 class XsdKey(XsdIdentity):
-    _ADMITTED_TAGS = XSD_KEY,
+    _ADMITTED_TAGS = nm.XSD_KEY,
 
 
 class XsdKeyref(XsdIdentity):
@@ -270,8 +264,8 @@ class XsdKeyref(XsdIdentity):
     :ivar refer: reference to a *xs:key* declaration that must be in the same element \
     or in a descendant element.
     """
-    _ADMITTED_TAGS = XSD_KEYREF,
-    refer: Optional[Union[str, XsdKey]] = None
+    _ADMITTED_TAGS = nm.XSD_KEYREF,
+    refer: str | XsdKey | None = None
     refer_path = '.'
 
     def _parse(self) -> None:
@@ -346,7 +340,7 @@ class XsdKeyref(XsdIdentity):
 class Xsd11Unique(XsdUnique):
     def _parse(self) -> None:
         if self._parse_reference():
-            self.ref = True  # type: ignore[assignment]
+            self.ref = self
         else:
             super()._parse()
 
@@ -354,7 +348,7 @@ class Xsd11Unique(XsdUnique):
 class Xsd11Key(XsdKey):
     def _parse(self) -> None:
         if self._parse_reference():
-            self.ref = True  # type: ignore[assignment]
+            self.ref = self
         else:
             super()._parse()
 
@@ -362,7 +356,7 @@ class Xsd11Key(XsdKey):
 class Xsd11Keyref(XsdKeyref):
     def _parse(self) -> None:
         if self._parse_reference():
-            self.ref = True  # type: ignore[assignment]
+            self.ref = self
         else:
             super()._parse()
 
@@ -473,7 +467,7 @@ class FieldValueSelector:
         :param namespaces: is an optional mapping from namespace prefix to URI.
         """
         value: Union[AtomicValueType, list[Optional[AtomicValueType]], None] = None
-        element_node.schema = None
+        element_node.schema = None  # type: ignore[assignment]
         context = XPathContext(
             element_node,
             namespaces=namespaces,
@@ -525,24 +519,26 @@ class FieldValueSelector:
             if empty:
                 value = self.value_constraints.get(None)
 
-        if value is None:
-            if not isinstance(self.field.parent, XsdKey) or \
-                    'ref' in element_node.obj.attrib and \
-                    self.field.schema.meta_schema is None and \
-                    self.field.schema.XSD_VERSION != '1.0':
-                return None
-            else:
-                msg = _("missing key field {0!r} for {1!r}")
-                raise XMLSchemaValueError(msg.format(self.field.path, self))
-        elif isinstance(value, list):
-            return tuple(value)
-        elif isinstance(value, UntypedAtomic):
-            return str(value)
-        elif isinstance(value, bool):
-            return value, bool
-        elif not isinstance(value, float):
-            return value
-        elif math.isnan(value):
-            return 'nan', float
-        else:
-            return value, float
+        match value:
+            case None:
+                if not isinstance(self.field.parent, XsdKey) or \
+                        'ref' in element_node.obj.attrib and \
+                        self.field.schema.meta_schema is None and \
+                        self.field.schema.XSD_VERSION != '1.0':
+                    return None
+                else:
+                    msg = _("missing key field {0!r} for {1!r}")
+                    raise XMLSchemaValueError(msg.format(self.field.path, self))
+            case list():
+                return tuple(value)
+            case UntypedAtomic():
+                return str(value)
+            case bool():
+                return value, bool
+            case float():
+                if math.isnan(value):
+                    return 'nan', float
+                else:
+                    return value, float
+            case _:
+                return value

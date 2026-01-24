@@ -1,14 +1,15 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: nba_api
-Version: 1.10.1
+Version: 1.11.3
 Summary: An API Client package to access the APIs for NBA.com
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: api,basketball,data,nba,sports,stats
 Author: Swar Patel
 Author-email: <swar.m.patel@gmail.com>
 Maintainer: Swar Patel
 Maintainer-email: <swar.m.patel@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -17,7 +18,6 @@ Classifier: Topic :: Software Development
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -36,7 +36,7 @@ Description-Content-Type: text/markdown
 [![Downloads per Month: PyPY](https://img.shields.io/pypi/dm/nba_api.svg?style=for-the-badge)](https://pepy.tech/project/nba-api)
 [![Build: CircleCI](https://img.shields.io/circleci/project/github/swar/nba_api.svg?style=for-the-badge&logo=circleci)](https://circleci.com/gh/swar/nba_api)
 [![License: MIT](https://img.shields.io/github/license/swar/nba_api.svg?style=for-the-badge)](https://github.com/swar/nba_api/blob/master/LICENSE)
-[![Slack](https://img.shields.io/badge/Slack-NBA_API-4A154B?style=for-the-badge&logo=slack)](https://join.slack.com/t/nbaapi/shared_invite/zt-2zq2d17hu-Fs4Z~F6elRVVcebnDnjYuA)
+[![Slack](https://img.shields.io/badge/Slack-NBA_API-4A154B?style=for-the-badge&logo=slack)](https://join.slack.com/t/nbaapi/shared_invite/zt-3dc2qtnh0-udQJoSYrQVWaXOF3owVaAw)
 
 # nba_api
 
@@ -46,7 +46,7 @@ Description-Content-Type: text/markdown
 
 # Getting Started
 
-`nba_api` requires Python 3.7+ along with the `requests` and `numpy` packages. While `pandas` is not required, it is required to work with Pandas DataFrames.
+`nba_api` requires Python 3.10+ along with the `requests` and `numpy` packages. While `pandas` is not required, it is required to work with Pandas DataFrames.
 
 ```bash
 pip install nba_api
@@ -58,10 +58,10 @@ pip install nba_api
 from nba_api.stats.endpoints import playercareerstats
 
 # Nikola Jokić
-career = playercareerstats.PlayerCareerStats(player_id='203999') 
+career = playercareerstats.PlayerCareerStats(player_id='203999')
 
 # pandas data frames (optional: pip install pandas)
-career.get_data_frames()[0]
+career.season_totals_regular_season.get_data_frame()
 
 # json
 career.get_json()
@@ -107,7 +107,7 @@ games.get_dict()
 # Join the Community
 ## Slack
 
-Join [Slack](https://join.slack.com/t/nbaapi/shared_invite/zt-2zq2d17hu-Fs4Z~F6elRVVcebnDnjYuA) to get help, help others, provide feedback, see amazing projects, participates in discussions, and collaborate with others from around the world.
+Join [Slack](https://join.slack.com/t/nbaapi/shared_invite/zt-3dc2qtnh0-udQJoSYrQVWaXOF3owVaAw) to get help, help others, provide feedback, see amazing projects, participates in discussions, and collaborate with others from around the world.
 
 ## Stack Overflow
 

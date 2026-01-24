@@ -85,10 +85,7 @@ def _validate_pip_option(pip_option: Union[str, List[str]]) -> Optional[List[str
     elif isinstance(pip_option, list) and all(
         isinstance(dep, str) for dep in pip_option
     ):
-        if len(pip_option) == 0:
-            result = None
-        else:
-            result = pip_option
+        result = None if len(pip_option) == 0 else pip_option
 
     return result
 
@@ -314,6 +311,10 @@ class BaseHAJobConfig(BaseModel):
         description="Configuration specifying semantic of the execution using job queues",
     )
 
+    tags: Optional[Dict[str, str]] = Field(
+        None, description="Key/value tags to associate with the job."
+    )
+
     class Config:
         extra = Extra.forbid
 
@@ -398,12 +399,20 @@ class BaseHAJobConfig(BaseModel):
             project_id = _get_project_id_from_id_or_name(
                 values.get("project_id"), values.get("project")
             )
-        if bool(compute_config_id) + bool(compute_config) + bool(cloud) > 1:
+        # Validation: allow (`compute_config` + optional `cloud`) OR `compute_config_id` OR `cloud` alone.
+        # Disallow providing `compute_config_id` together with either `compute_config` or `cloud`.
+        if compute_config_id and (compute_config or cloud):
             raise click.ClickException(
-                "Only one of `compute_config_id`, `compute_config`, or `cloud` can be provided in the config file."
+                "Provide either `compute_config_id` or (`compute_config` with optional `cloud`), not both."
             )
         if compute_config and isinstance(compute_config, str):
-            compute_config_id = get_cluster_compute_from_name(compute_config).id
+            # If a cloud name is provided alongside the compute config name, use it to disambiguate.
+            if cloud:
+                compute_config_id = get_cluster_compute_from_name(
+                    compute_config, cloud_name=cloud
+                ).id
+            else:
+                compute_config_id = get_cluster_compute_from_name(compute_config).id
         elif compute_config and isinstance(compute_config, dict):
             compute_config_id = register_compute_template(compute_config).id
         elif cloud:

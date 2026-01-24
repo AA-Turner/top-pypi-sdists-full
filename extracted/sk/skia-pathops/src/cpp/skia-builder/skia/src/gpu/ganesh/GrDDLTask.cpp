@@ -7,19 +7,27 @@
 
 #include "src/gpu/ganesh/GrDDLTask.h"
 
-#include "include/core/SkDeferredDisplayList.h"
-#include "src/core/SkDeferredDisplayListPriv.h"
+#include "include/core/SkString.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkTArray.h"
+#include "include/private/chromium/GrDeferredDisplayList.h"
+#include "src/gpu/ganesh/GrDeferredDisplayListPriv.h"
+#include "src/gpu/ganesh/GrDrawingManager.h"
 #include "src/gpu/ganesh/GrRenderTargetProxy.h"
 #include "src/gpu/ganesh/GrResourceAllocator.h"
 
+#include <utility>
+
+class GrOpFlushState;
+class GrRecordingContext;
+class GrSurfaceProxy;
+struct SkIRect;
+
 GrDDLTask::GrDDLTask(GrDrawingManager* drawingMgr,
                      sk_sp<GrRenderTargetProxy> ddlTarget,
-                     sk_sp<const SkDeferredDisplayList> ddl,
-                     SkIPoint offset)
+                     sk_sp<const GrDeferredDisplayList> ddl)
         : fDDL(std::move(ddl))
-        , fDDLTarget(std::move(ddlTarget))
-        , fOffset(offset) {
-    (void) fOffset;  // fOffset will be used shortly
+        , fDDLTarget(std::move(ddlTarget)) {
 
     for (auto& task : fDDL->priv().renderTasks()) {
         SkASSERT(task->isClosed());
@@ -98,7 +106,7 @@ bool GrDDLTask::onExecute(GrOpFlushState* flushState) {
     return anyCommandsIssued;
 }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 void GrDDLTask::dump(const SkString& label,
                      SkString indent,
                      bool printDependencies,

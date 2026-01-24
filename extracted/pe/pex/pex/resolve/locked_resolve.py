@@ -12,7 +12,7 @@ from functools import total_ordering
 from pex.artifact_url import VCS, ArtifactURL, Fingerprint, VCSScheme
 from pex.common import pluralize
 from pex.dependency_configuration import DependencyConfiguration
-from pex.dist_metadata import DistMetadata, Requirement, is_sdist, is_wheel
+from pex.dist_metadata import ProjectMetadata, Requirement, is_sdist, is_wheel
 from pex.enum import Enum
 from pex.exceptions import production_assert
 from pex.interpreter_constraints import InterpreterConstraint
@@ -90,15 +90,23 @@ class LockConfiguration(object):
             implementations[interpreter_constraint.implementation].add(
                 interpreter_constraint.requires_python
             )
-        if len(implementations) > 1 and frozenset(implementations) != frozenset(
-            InterpreterImplementation.values()
+        if (
+            len(implementations) > 1
+            and frozenset(implementations) not in InterpreterImplementation.covering_sets()
         ):
             raise ValueError(
                 "The interpreter constraints for a universal resolve cannot have mixed "
                 "implementations unless they are all explicit and span the full set of Pex "
                 "supported implementations: {implementations}.\n"
                 "Given: {constraints}".format(
-                    implementations=" and ".join(map(str, InterpreterImplementation.values())),
+                    implementations=" or ".join(
+                        "({elements})".format(
+                            elements=", ".join(
+                                impl.value for impl in sorted(covering_set, key=lambda i: i.value)
+                            )
+                        )
+                        for covering_set in InterpreterImplementation.covering_sets()
+                    ),
                     constraints=" or ".join(map(str, interpreter_constraints)),
                 )
             )
@@ -281,7 +289,11 @@ class VCSArtifact(Artifact):
     def split_requested_revision(artifact_url):
         # type: (ArtifactURL) -> Tuple[ArtifactURL, Optional[str]]
 
-        vcs_url, _, requested_revision = artifact_url.normalized_url.partition("@")
+        vcs_url = artifact_url.normalized_url
+        if "@" in artifact_url.path:
+            vcs_url, _, requested_revision = vcs_url.rpartition("@")
+        else:
+            requested_revision = None
         return ArtifactURL.parse(vcs_url), requested_revision or None
 
     @classmethod
@@ -656,7 +668,7 @@ class LockedResolve(object):
     def create(
         cls,
         resolved_requirements,  # type: Iterable[ResolvedRequirement]
-        dist_metadatas,  # type: Iterable[DistMetadata]
+        project_metadatas,  # type: Iterable[ProjectMetadata]
         fingerprinter,  # type: Fingerprinter
         platform_tag=None,  # type: Optional[tags.Tag]
         marker=None,  # type: Optional[Marker]
@@ -699,21 +711,21 @@ class LockedResolve(object):
                 editable=partial_artifact.editable,
             )
 
-        dist_metadata_by_pin = {
+        project_metadata_by_pin = {
             Pin(dist_info.project_name, dist_info.version): dist_info
-            for dist_info in dist_metadatas
+            for dist_info in project_metadatas
         }
         locked_requirements = []
         for resolved_requirement in resolved_requirements:
-            distribution_metadata = dist_metadata_by_pin.get(resolved_requirement.pin)
-            if distribution_metadata is None:
+            project_metadata = project_metadata_by_pin.get(resolved_requirement.pin)
+            if project_metadata is None:
                 raise ValueError(
-                    "No distribution metadata found for {project}.\n"
-                    "Given distribution metadata for:\n"
+                    "No project metadata found for {project}.\n"
+                    "Given project metadata for:\n"
                     "{projects}".format(
                         project=resolved_requirement.pin.as_requirement(),
                         projects="\n".join(
-                            sorted(str(pin.as_requirement()) for pin in dist_metadata_by_pin)
+                            sorted(str(pin.as_requirement()) for pin in project_metadata_by_pin)
                         ),
                     )
                 )
@@ -721,8 +733,8 @@ class LockedResolve(object):
                 LockedRequirement.create(
                     pin=resolved_requirement.pin,
                     artifact=resolve_fingerprint(resolved_requirement.artifact),
-                    requires_dists=distribution_metadata.requires_dists,
-                    requires_python=distribution_metadata.requires_python,
+                    requires_dists=project_metadata.requires_dists,
+                    requires_python=project_metadata.requires_python,
                     additional_artifacts=(
                         resolve_fingerprint(artifact)
                         for artifact in resolved_requirement.additional_artifacts

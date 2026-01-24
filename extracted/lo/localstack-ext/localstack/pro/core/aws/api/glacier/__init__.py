@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from enum import StrEnum
-from typing import IO, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -82,7 +83,7 @@ class InsufficientCapacityException(ServiceException):
     code: str = "InsufficientCapacityException"
     sender_fault: bool = False
     status_code: int = 400
-    type: Optional[string]
+    type: string | None
 
 
 class InvalidParameterValueException(ServiceException):
@@ -91,7 +92,7 @@ class InvalidParameterValueException(ServiceException):
     code: str = "InvalidParameterValueException"
     sender_fault: bool = False
     status_code: int = 400
-    type: Optional[string]
+    type: string | None
 
 
 class LimitExceededException(ServiceException):
@@ -102,7 +103,7 @@ class LimitExceededException(ServiceException):
     code: str = "LimitExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    type: Optional[string]
+    type: string | None
 
 
 class MissingParameterValueException(ServiceException):
@@ -111,7 +112,7 @@ class MissingParameterValueException(ServiceException):
     code: str = "MissingParameterValueException"
     sender_fault: bool = False
     status_code: int = 400
-    type: Optional[string]
+    type: string | None
 
 
 class PolicyEnforcedException(ServiceException):
@@ -123,7 +124,7 @@ class PolicyEnforcedException(ServiceException):
     code: str = "PolicyEnforcedException"
     sender_fault: bool = False
     status_code: int = 400
-    type: Optional[string]
+    type: string | None
 
 
 class RequestTimeoutException(ServiceException):
@@ -134,7 +135,7 @@ class RequestTimeoutException(ServiceException):
     code: str = "RequestTimeoutException"
     sender_fault: bool = False
     status_code: int = 408
-    type: Optional[string]
+    type: string | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -145,7 +146,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    type: Optional[string]
+    type: string | None
 
 
 class ServiceUnavailableException(ServiceException):
@@ -154,7 +155,7 @@ class ServiceUnavailableException(ServiceException):
     code: str = "ServiceUnavailableException"
     sender_fault: bool = False
     status_code: int = 500
-    type: Optional[string]
+    type: string | None
 
 
 class AbortMultipartUploadInput(ServiceRequest):
@@ -183,21 +184,21 @@ class Grantee(TypedDict, total=False):
     """Contains information about the grantee."""
 
     Type: Type
-    DisplayName: Optional[string]
-    URI: Optional[string]
-    ID: Optional[string]
-    EmailAddress: Optional[string]
+    DisplayName: string | None
+    URI: string | None
+    ID: string | None
+    EmailAddress: string | None
 
 
 class Grant(TypedDict, total=False):
     """Contains information about a grant."""
 
-    Grantee: Optional[Grantee]
-    Permission: Optional[Permission]
+    Grantee: Grantee | None
+    Permission: Permission | None
 
 
-AccessControlPolicyList = List[Grant]
-TagMap = Dict[TagKey, TagValue]
+AccessControlPolicyList = list[Grant]
+TagMap = dict[TagKey, TagValue]
 
 
 class AddTagsToVaultInput(ServiceRequest):
@@ -205,7 +206,7 @@ class AddTagsToVaultInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class ArchiveCreationOutput(TypedDict, total=False):
@@ -217,9 +218,9 @@ class ArchiveCreationOutput(TypedDict, total=False):
     Glacier <https://docs.aws.amazon.com/amazonglacier/latest/dev/working-with-archives.html>`__.
     """
 
-    location: Optional[string]
-    checksum: Optional[string]
-    archiveId: Optional[string]
+    location: string | None
+    checksum: string | None
+    archiveId: string | None
 
 
 class CSVInput(TypedDict, total=False):
@@ -227,12 +228,12 @@ class CSVInput(TypedDict, total=False):
     select from.
     """
 
-    FileHeaderInfo: Optional[FileHeaderInfo]
-    Comments: Optional[string]
-    QuoteEscapeCharacter: Optional[string]
-    RecordDelimiter: Optional[string]
-    FieldDelimiter: Optional[string]
-    QuoteCharacter: Optional[string]
+    FileHeaderInfo: FileHeaderInfo | None
+    Comments: string | None
+    QuoteEscapeCharacter: string | None
+    RecordDelimiter: string | None
+    FieldDelimiter: string | None
+    QuoteCharacter: string | None
 
 
 class CSVOutput(TypedDict, total=False):
@@ -240,11 +241,11 @@ class CSVOutput(TypedDict, total=False):
     job results are stored in.
     """
 
-    QuoteFields: Optional[QuoteFields]
-    QuoteEscapeCharacter: Optional[string]
-    RecordDelimiter: Optional[string]
-    FieldDelimiter: Optional[string]
-    QuoteCharacter: Optional[string]
+    QuoteFields: QuoteFields | None
+    QuoteEscapeCharacter: string | None
+    RecordDelimiter: string | None
+    FieldDelimiter: string | None
+    QuoteCharacter: string | None
 
 
 class CompleteMultipartUploadInput(ServiceRequest):
@@ -258,8 +259,8 @@ class CompleteMultipartUploadInput(ServiceRequest):
     accountId: string
     vaultName: string
     uploadId: string
-    archiveSize: Optional[string]
-    checksum: Optional[string]
+    archiveSize: string | None
+    checksum: string | None
 
 
 class CompleteVaultLockInput(ServiceRequest):
@@ -280,7 +281,7 @@ class CreateVaultInput(ServiceRequest):
 class CreateVaultOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    location: Optional[string]
+    location: string | None
 
 
 NullableLong = int
@@ -289,17 +290,17 @@ NullableLong = int
 class DataRetrievalRule(TypedDict, total=False):
     """Data retrieval policy rule."""
 
-    Strategy: Optional[string]
-    BytesPerHour: Optional[NullableLong]
+    Strategy: string | None
+    BytesPerHour: NullableLong | None
 
 
-DataRetrievalRulesList = List[DataRetrievalRule]
+DataRetrievalRulesList = list[DataRetrievalRule]
 
 
 class DataRetrievalPolicy(TypedDict, total=False):
     """Data retrieval policy."""
 
-    Rules: Optional[DataRetrievalRulesList]
+    Rules: DataRetrievalRulesList | None
 
 
 class DeleteArchiveInput(ServiceRequest):
@@ -358,12 +359,12 @@ long = int
 class DescribeVaultOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    VaultARN: Optional[string]
-    VaultName: Optional[string]
-    CreationDate: Optional[string]
-    LastInventoryDate: Optional[string]
-    NumberOfArchives: Optional[long]
-    SizeInBytes: Optional[long]
+    VaultARN: string | None
+    VaultName: string | None
+    CreationDate: string | None
+    LastInventoryDate: string | None
+    NumberOfArchives: long | None
+    SizeInBytes: long | None
 
 
 class Encryption(TypedDict, total=False):
@@ -371,9 +372,9 @@ class Encryption(TypedDict, total=False):
     in Amazon S3.
     """
 
-    EncryptionType: Optional[EncryptionType]
-    KMSKeyId: Optional[string]
-    KMSContext: Optional[string]
+    EncryptionType: EncryptionType | None
+    KMSKeyId: string | None
+    KMSContext: string | None
 
 
 class GetDataRetrievalPolicyInput(ServiceRequest):
@@ -387,7 +388,7 @@ class GetDataRetrievalPolicyOutput(TypedDict, total=False):
     ``GetDataRetrievalPolicy`` request.
     """
 
-    Policy: Optional[DataRetrievalPolicy]
+    Policy: DataRetrievalPolicy | None
 
 
 class GetJobOutputInput(ServiceRequest):
@@ -396,7 +397,7 @@ class GetJobOutputInput(ServiceRequest):
     accountId: string
     vaultName: string
     jobId: string
-    range: Optional[string]
+    range: string | None
 
 
 Stream = bytes
@@ -405,13 +406,13 @@ Stream = bytes
 class GetJobOutputOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    body: Optional[Union[Stream, IO[Stream], Iterable[Stream]]]
-    checksum: Optional[string]
-    status: Optional[httpstatus]
-    contentRange: Optional[string]
-    acceptRanges: Optional[string]
-    contentType: Optional[string]
-    archiveDescription: Optional[string]
+    body: Stream | IO[Stream] | Iterable[Stream] | None
+    checksum: string | None
+    status: httpstatus | None
+    contentRange: string | None
+    acceptRanges: string | None
+    contentType: string | None
+    archiveDescription: string | None
 
 
 class GetVaultAccessPolicyInput(ServiceRequest):
@@ -424,13 +425,13 @@ class GetVaultAccessPolicyInput(ServiceRequest):
 class VaultAccessPolicy(TypedDict, total=False):
     """Contains the vault access policy."""
 
-    Policy: Optional[string]
+    Policy: string | None
 
 
 class GetVaultAccessPolicyOutput(TypedDict, total=False):
     """Output for GetVaultAccessPolicy."""
 
-    policy: Optional[VaultAccessPolicy]
+    policy: VaultAccessPolicy | None
 
 
 class GetVaultLockInput(ServiceRequest):
@@ -443,10 +444,10 @@ class GetVaultLockInput(ServiceRequest):
 class GetVaultLockOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    Policy: Optional[string]
-    State: Optional[string]
-    ExpirationDate: Optional[string]
-    CreationDate: Optional[string]
+    Policy: string | None
+    State: string | None
+    ExpirationDate: string | None
+    CreationDate: string | None
 
 
 class GetVaultNotificationsInput(ServiceRequest):
@@ -458,23 +459,23 @@ class GetVaultNotificationsInput(ServiceRequest):
     vaultName: string
 
 
-NotificationEventList = List[string]
+NotificationEventList = list[string]
 
 
 class VaultNotificationConfig(TypedDict, total=False):
     """Represents a vault's notification configuration."""
 
-    SNSTopic: Optional[string]
-    Events: Optional[NotificationEventList]
+    SNSTopic: string | None
+    Events: NotificationEventList | None
 
 
 class GetVaultNotificationsOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    vaultNotificationConfig: Optional[VaultNotificationConfig]
+    vaultNotificationConfig: VaultNotificationConfig | None
 
 
-hashmap = Dict[string, string]
+hashmap = dict[string, string]
 
 
 class S3Location(TypedDict, total=False):
@@ -482,14 +483,14 @@ class S3Location(TypedDict, total=False):
     job results are stored.
     """
 
-    BucketName: Optional[string]
-    Prefix: Optional[string]
-    Encryption: Optional[Encryption]
-    CannedACL: Optional[CannedACL]
-    AccessControlList: Optional[AccessControlPolicyList]
-    Tagging: Optional[hashmap]
-    UserMetadata: Optional[hashmap]
-    StorageClass: Optional[StorageClass]
+    BucketName: string | None
+    Prefix: string | None
+    Encryption: Encryption | None
+    CannedACL: CannedACL | None
+    AccessControlList: AccessControlPolicyList | None
+    Tagging: hashmap | None
+    UserMetadata: hashmap | None
+    StorageClass: StorageClass | None
 
 
 class OutputLocation(TypedDict, total=False):
@@ -497,38 +498,38 @@ class OutputLocation(TypedDict, total=False):
     stored.
     """
 
-    S3: Optional[S3Location]
+    S3: S3Location | None
 
 
 class OutputSerialization(TypedDict, total=False):
     """Describes how the select output is serialized."""
 
-    csv: Optional[CSVOutput]
+    csv: CSVOutput | None
 
 
 class InputSerialization(TypedDict, total=False):
     """Describes how the archive is serialized."""
 
-    csv: Optional[CSVInput]
+    csv: CSVInput | None
 
 
 class SelectParameters(TypedDict, total=False):
     """Contains information about the parameters used for a select."""
 
-    InputSerialization: Optional[InputSerialization]
-    ExpressionType: Optional[ExpressionType]
-    Expression: Optional[string]
-    OutputSerialization: Optional[OutputSerialization]
+    InputSerialization: InputSerialization | None
+    ExpressionType: ExpressionType | None
+    Expression: string | None
+    OutputSerialization: OutputSerialization | None
 
 
 class InventoryRetrievalJobDescription(TypedDict, total=False):
     """Describes the options for a range inventory retrieval job."""
 
-    Format: Optional[string]
-    StartDate: Optional[DateTime]
-    EndDate: Optional[DateTime]
-    Limit: Optional[string]
-    Marker: Optional[string]
+    Format: string | None
+    StartDate: DateTime | None
+    EndDate: DateTime | None
+    Limit: string | None
+    Marker: string | None
 
 
 Size = int
@@ -537,51 +538,51 @@ Size = int
 class GlacierJobDescription(TypedDict, total=False):
     """Contains the description of an Amazon S3 Glacier job."""
 
-    JobId: Optional[string]
-    JobDescription: Optional[string]
-    Action: Optional[ActionCode]
-    ArchiveId: Optional[string]
-    VaultARN: Optional[string]
-    CreationDate: Optional[string]
-    Completed: Optional[boolean]
-    StatusCode: Optional[StatusCode]
-    StatusMessage: Optional[string]
-    ArchiveSizeInBytes: Optional[Size]
-    InventorySizeInBytes: Optional[Size]
-    SNSTopic: Optional[string]
-    CompletionDate: Optional[string]
-    SHA256TreeHash: Optional[string]
-    ArchiveSHA256TreeHash: Optional[string]
-    RetrievalByteRange: Optional[string]
-    Tier: Optional[string]
-    InventoryRetrievalParameters: Optional[InventoryRetrievalJobDescription]
-    JobOutputPath: Optional[string]
-    SelectParameters: Optional[SelectParameters]
-    OutputLocation: Optional[OutputLocation]
+    JobId: string | None
+    JobDescription: string | None
+    Action: ActionCode | None
+    ArchiveId: string | None
+    VaultARN: string | None
+    CreationDate: string | None
+    Completed: boolean | None
+    StatusCode: StatusCode | None
+    StatusMessage: string | None
+    ArchiveSizeInBytes: Size | None
+    InventorySizeInBytes: Size | None
+    SNSTopic: string | None
+    CompletionDate: string | None
+    SHA256TreeHash: string | None
+    ArchiveSHA256TreeHash: string | None
+    RetrievalByteRange: string | None
+    Tier: string | None
+    InventoryRetrievalParameters: InventoryRetrievalJobDescription | None
+    JobOutputPath: string | None
+    SelectParameters: SelectParameters | None
+    OutputLocation: OutputLocation | None
 
 
 class InventoryRetrievalJobInput(TypedDict, total=False):
     """Provides options for specifying a range inventory retrieval job."""
 
-    StartDate: Optional[string]
-    EndDate: Optional[string]
-    Limit: Optional[string]
-    Marker: Optional[string]
+    StartDate: string | None
+    EndDate: string | None
+    Limit: string | None
+    Marker: string | None
 
 
 class JobParameters(TypedDict, total=False):
     """Provides options for defining a job."""
 
-    Format: Optional[string]
-    Type: Optional[string]
-    ArchiveId: Optional[string]
-    Description: Optional[string]
-    SNSTopic: Optional[string]
-    RetrievalByteRange: Optional[string]
-    Tier: Optional[string]
-    InventoryRetrievalParameters: Optional[InventoryRetrievalJobInput]
-    SelectParameters: Optional[SelectParameters]
-    OutputLocation: Optional[OutputLocation]
+    Format: string | None
+    Type: string | None
+    ArchiveId: string | None
+    Description: string | None
+    SNSTopic: string | None
+    RetrievalByteRange: string | None
+    Tier: string | None
+    InventoryRetrievalParameters: InventoryRetrievalJobInput | None
+    SelectParameters: SelectParameters | None
+    OutputLocation: OutputLocation | None
 
 
 class InitiateJobInput(ServiceRequest):
@@ -589,15 +590,15 @@ class InitiateJobInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    jobParameters: Optional[JobParameters]
+    jobParameters: JobParameters | None
 
 
 class InitiateJobOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    location: Optional[string]
-    jobId: Optional[string]
-    jobOutputPath: Optional[string]
+    location: string | None
+    jobId: string | None
+    jobOutputPath: string | None
 
 
 class InitiateMultipartUploadInput(ServiceRequest):
@@ -607,21 +608,21 @@ class InitiateMultipartUploadInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    archiveDescription: Optional[string]
-    partSize: Optional[string]
+    archiveDescription: string | None
+    partSize: string | None
 
 
 class InitiateMultipartUploadOutput(TypedDict, total=False):
     """The Amazon S3 Glacier response to your request."""
 
-    location: Optional[string]
-    uploadId: Optional[string]
+    location: string | None
+    uploadId: string | None
 
 
 class VaultLockPolicy(TypedDict, total=False):
     """Contains the vault lock policy."""
 
-    Policy: Optional[string]
+    Policy: string | None
 
 
 class InitiateVaultLockInput(ServiceRequest):
@@ -629,16 +630,16 @@ class InitiateVaultLockInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    policy: Optional[VaultLockPolicy]
+    policy: VaultLockPolicy | None
 
 
 class InitiateVaultLockOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    lockId: Optional[string]
+    lockId: string | None
 
 
-JobList = List[GlacierJobDescription]
+JobList = list[GlacierJobDescription]
 
 
 class ListJobsInput(ServiceRequest):
@@ -648,17 +649,17 @@ class ListJobsInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    limit: Optional[string]
-    marker: Optional[string]
-    statuscode: Optional[string]
-    completed: Optional[string]
+    limit: string | None
+    marker: string | None
+    statuscode: string | None
+    completed: string | None
 
 
 class ListJobsOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    JobList: Optional[JobList]
-    Marker: Optional[string]
+    JobList: JobList | None
+    Marker: string | None
 
 
 class ListMultipartUploadsInput(ServiceRequest):
@@ -668,28 +669,28 @@ class ListMultipartUploadsInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    marker: Optional[string]
-    limit: Optional[string]
+    marker: string | None
+    limit: string | None
 
 
 class UploadListElement(TypedDict, total=False):
     """A list of in-progress multipart uploads for a vault."""
 
-    MultipartUploadId: Optional[string]
-    VaultARN: Optional[string]
-    ArchiveDescription: Optional[string]
-    PartSizeInBytes: Optional[long]
-    CreationDate: Optional[string]
+    MultipartUploadId: string | None
+    VaultARN: string | None
+    ArchiveDescription: string | None
+    PartSizeInBytes: long | None
+    CreationDate: string | None
 
 
-UploadsList = List[UploadListElement]
+UploadsList = list[UploadListElement]
 
 
 class ListMultipartUploadsOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    UploadsList: Optional[UploadsList]
-    Marker: Optional[string]
+    UploadsList: UploadsList | None
+    Marker: string | None
 
 
 class ListPartsInput(ServiceRequest):
@@ -700,30 +701,30 @@ class ListPartsInput(ServiceRequest):
     accountId: string
     vaultName: string
     uploadId: string
-    marker: Optional[string]
-    limit: Optional[string]
+    marker: string | None
+    limit: string | None
 
 
 class PartListElement(TypedDict, total=False):
     """A list of the part sizes of the multipart upload."""
 
-    RangeInBytes: Optional[string]
-    SHA256TreeHash: Optional[string]
+    RangeInBytes: string | None
+    SHA256TreeHash: string | None
 
 
-PartList = List[PartListElement]
+PartList = list[PartListElement]
 
 
 class ListPartsOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    MultipartUploadId: Optional[string]
-    VaultARN: Optional[string]
-    ArchiveDescription: Optional[string]
-    PartSizeInBytes: Optional[long]
-    CreationDate: Optional[string]
-    Parts: Optional[PartList]
-    Marker: Optional[string]
+    MultipartUploadId: string | None
+    VaultARN: string | None
+    ArchiveDescription: string | None
+    PartSizeInBytes: long | None
+    CreationDate: string | None
+    Parts: PartList | None
+    Marker: string | None
 
 
 class ListProvisionedCapacityInput(ServiceRequest):
@@ -733,16 +734,16 @@ class ListProvisionedCapacityInput(ServiceRequest):
 class ProvisionedCapacityDescription(TypedDict, total=False):
     """The definition for a provisioned capacity unit."""
 
-    CapacityId: Optional[string]
-    StartDate: Optional[string]
-    ExpirationDate: Optional[string]
+    CapacityId: string | None
+    StartDate: string | None
+    ExpirationDate: string | None
 
 
-ProvisionedCapacityList = List[ProvisionedCapacityDescription]
+ProvisionedCapacityList = list[ProvisionedCapacityDescription]
 
 
 class ListProvisionedCapacityOutput(TypedDict, total=False):
-    ProvisionedCapacityList: Optional[ProvisionedCapacityList]
+    ProvisionedCapacityList: ProvisionedCapacityList | None
 
 
 class ListTagsForVaultInput(ServiceRequest):
@@ -755,7 +756,7 @@ class ListTagsForVaultInput(ServiceRequest):
 class ListTagsForVaultOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class ListVaultsInput(ServiceRequest):
@@ -764,18 +765,18 @@ class ListVaultsInput(ServiceRequest):
     """
 
     accountId: string
-    marker: Optional[string]
-    limit: Optional[string]
+    marker: string | None
+    limit: string | None
 
 
-VaultList = List[DescribeVaultOutput]
+VaultList = list[DescribeVaultOutput]
 
 
 class ListVaultsOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    VaultList: Optional[VaultList]
-    Marker: Optional[string]
+    VaultList: VaultList | None
+    Marker: string | None
 
 
 class PurchaseProvisionedCapacityInput(ServiceRequest):
@@ -783,10 +784,10 @@ class PurchaseProvisionedCapacityInput(ServiceRequest):
 
 
 class PurchaseProvisionedCapacityOutput(TypedDict, total=False):
-    capacityId: Optional[string]
+    capacityId: string | None
 
 
-TagKeyList = List[string]
+TagKeyList = list[string]
 
 
 class RemoveTagsFromVaultInput(ServiceRequest):
@@ -794,14 +795,14 @@ class RemoveTagsFromVaultInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    TagKeys: Optional[TagKeyList]
+    TagKeys: TagKeyList | None
 
 
 class SetDataRetrievalPolicyInput(ServiceRequest):
     """SetDataRetrievalPolicy input."""
 
     accountId: string
-    Policy: Optional[DataRetrievalPolicy]
+    Policy: DataRetrievalPolicy | None
 
 
 class SetVaultAccessPolicyInput(ServiceRequest):
@@ -809,7 +810,7 @@ class SetVaultAccessPolicyInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    policy: Optional[VaultAccessPolicy]
+    policy: VaultAccessPolicy | None
 
 
 class SetVaultNotificationsInput(ServiceRequest):
@@ -819,17 +820,17 @@ class SetVaultNotificationsInput(ServiceRequest):
 
     accountId: string
     vaultName: string
-    vaultNotificationConfig: Optional[VaultNotificationConfig]
+    vaultNotificationConfig: VaultNotificationConfig | None
 
 
 class UploadArchiveInput(ServiceRequest):
     """Provides options to add an archive to a vault."""
 
-    body: Optional[IO[Stream]]
+    body: IO[Stream] | None
     vaultName: string
     accountId: string
-    archiveDescription: Optional[string]
-    checksum: Optional[string]
+    archiveDescription: string | None
+    checksum: string | None
 
 
 class UploadMultipartPartInput(ServiceRequest):
@@ -837,23 +838,23 @@ class UploadMultipartPartInput(ServiceRequest):
     operation.
     """
 
-    body: Optional[IO[Stream]]
+    body: IO[Stream] | None
     accountId: string
     vaultName: string
     uploadId: string
-    checksum: Optional[string]
-    range: Optional[string]
+    checksum: string | None
+    range: string | None
 
 
 class UploadMultipartPartOutput(TypedDict, total=False):
     """Contains the Amazon S3 Glacier response to your request."""
 
-    checksum: Optional[string]
+    checksum: string | None
 
 
 class GlacierApi:
-    service = "glacier"
-    version = "2012-06-01"
+    service: str = "glacier"
+    version: str = "2012-06-01"
 
     @handler("AbortMultipartUpload")
     def abort_multipart_upload(

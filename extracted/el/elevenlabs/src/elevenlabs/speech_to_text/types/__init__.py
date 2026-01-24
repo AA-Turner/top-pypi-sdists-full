@@ -6,12 +6,16 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .speech_to_text_convert_request_entity_detection import SpeechToTextConvertRequestEntityDetection
     from .speech_to_text_convert_request_file_format import SpeechToTextConvertRequestFileFormat
+    from .speech_to_text_convert_request_model_id import SpeechToTextConvertRequestModelId
     from .speech_to_text_convert_request_timestamps_granularity import SpeechToTextConvertRequestTimestampsGranularity
     from .speech_to_text_convert_request_webhook_metadata import SpeechToTextConvertRequestWebhookMetadata
     from .speech_to_text_convert_response import SpeechToTextConvertResponse
 _dynamic_imports: typing.Dict[str, str] = {
+    "SpeechToTextConvertRequestEntityDetection": ".speech_to_text_convert_request_entity_detection",
     "SpeechToTextConvertRequestFileFormat": ".speech_to_text_convert_request_file_format",
+    "SpeechToTextConvertRequestModelId": ".speech_to_text_convert_request_model_id",
     "SpeechToTextConvertRequestTimestampsGranularity": ".speech_to_text_convert_request_timestamps_granularity",
     "SpeechToTextConvertRequestWebhookMetadata": ".speech_to_text_convert_request_webhook_metadata",
     "SpeechToTextConvertResponse": ".speech_to_text_convert_response",
@@ -24,8 +28,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -38,7 +44,9 @@ def __dir__():
 
 
 __all__ = [
+    "SpeechToTextConvertRequestEntityDetection",
     "SpeechToTextConvertRequestFileFormat",
+    "SpeechToTextConvertRequestModelId",
     "SpeechToTextConvertRequestTimestampsGranularity",
     "SpeechToTextConvertRequestWebhookMetadata",
     "SpeechToTextConvertResponse",

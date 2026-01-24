@@ -117,6 +117,56 @@ def f(foo: Foo):
 );
 
 testcase!(
+    test_missing_attribute_call_does_not_narrow,
+    r#"
+from typing import reveal_type
+def f(x: str):
+    if (
+        len(x.magic)  # E: Object of class `str` has no attribute `magic`
+        or reveal_type(  # E: revealed type: Unknown
+            x.magic  # E: Object of class `str` has no attribute `magic`
+        )
+    ):
+        pass
+"#,
+);
+
+testcase!(
+    test_missing_attribute_call_does_not_narrow_overload,
+    r#"
+from typing import overload
+class History:
+    pass
+@overload
+def open_like(path: str) -> int: ...
+@overload
+def open_like(path: bytes) -> int: ...
+def open_like(path: object) -> int:
+    return 0
+def f(history: History):
+    if (
+        len(history.filename)  # E: Object of class `History` has no attribute `filename`
+        or open_like(
+            history.filename  # E: Object of class `History` has no attribute `filename`
+        )
+    ):
+        pass
+"#,
+);
+
+testcase!(
+    test_missing_attribute_call_does_not_narrow_union,
+    r#"
+def f(x: int | str):
+    if (
+        len(x.missing)  # E: Object of class `int` has no attribute `missing`\nObject of class `str` has no attribute `missing`
+        or x.missing  # E: Object of class `int` has no attribute `missing`\nObject of class `str` has no attribute `missing`
+    ):
+        pass
+"#,
+);
+
+testcase!(
     test_attr_assignment_introduction,
     r#"
 from typing import Any, Literal, assert_type
@@ -194,7 +244,7 @@ def f(c: C):
 testcase!(
     test_isinstance_getitem,
     r#"
-from typing import Any, Optional, reveal_type
+from typing import Any, Optional, assert_type
 
 Arg = Optional[tuple["Arg", ...]]
 
@@ -212,7 +262,7 @@ class N:
 def f(n: N):
     assert isinstance(n.args[0], N)
     t1 = n.args[0].type
-    reveal_type(t1)  # E: revealed type: DataType | None
+    assert_type(t1, DataType | None)
 "#,
 );
 
@@ -275,7 +325,7 @@ def f(foo: object):
 testcase!(
     test_join_empty_facets_vs_nonempty,
     r#"
-from typing import reveal_type
+from typing import reveal_type, Literal
 class A:
     x: int | None
 def test(y: A | None) -> None:
@@ -283,7 +333,7 @@ def test(y: A | None) -> None:
         if y.x:
             reveal_type(y)  # E: revealed type: A (_.x: int)
         else:
-            reveal_type(y)  # E: revealed type: A (_.x: int | None)
+            reveal_type(y)  # E: revealed type: A (_.x: Literal[0] | None)
     else:
         reveal_type(y)  # E: revealed type: None
     reveal_type(y)  # E: revealed type: A | None
@@ -293,12 +343,12 @@ def test(y: A | None) -> None:
 testcase!(
     test_join_empty_facets_in_or,
     r#"
-from typing import reveal_type
+from typing import assert_type
 class A:
     kind: str
 def test(y: A | None) -> None:
     if not y or y.kind:
-        reveal_type(y)  # E: revealed type: A | None
+        assert_type(y, A | None)
 "#,
 );
 
@@ -416,12 +466,11 @@ def f(foo: Foo, condition: Callable[[], bool]):
         assert_type(foo.x, Bar)
         if isinstance(foo.x, Baz):
             assert_type(foo.x, Baz)
-        # TODO(stroxler): Should this simplify to just Bar? Open question.
-        assert_type(foo.x, Bar | Baz)
+        assert_type(foo.x, Bar)
         while condition():
             assert isinstance(foo.x, Baz)
             assert_type(foo.x, Baz)
-        assert_type(foo.x, Bar| Baz)
+        assert_type(foo.x, Bar)
 "#,
 );
 
@@ -494,7 +543,7 @@ def f(foo: Foo):
 testcase!(
     test_hasattr_narrowing,
     r#"
-from typing import reveal_type, assert_type, Any
+from typing import assert_type, Any
 class C:
     x: int
 

@@ -1,6 +1,6 @@
 [project]
 name = "types-awscrt"
-version = "0.27.6"
+version = "0.31.1"
 requires-python = ">= 3.8"
 description = "Type annotations and code completion for awscrt"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Stubs Only",

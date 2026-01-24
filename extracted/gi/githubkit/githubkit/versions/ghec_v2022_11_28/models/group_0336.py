@@ -14,28 +14,19 @@ from pydantic import Field
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class BranchShort(GitHubModel):
-    """Branch Short
+class WorkflowDispatchResponse(GitHubModel):
+    """Workflow Dispatch Response
 
-    Branch Short
+    Response containing the workflow run ID and URLs.
     """
 
-    name: str = Field()
-    commit: BranchShortPropCommit = Field()
-    protected: bool = Field()
+    workflow_run_id: int = Field(
+        title="Workflow Run ID", description="The ID of the workflow run."
+    )
+    run_url: str = Field(description="The URL to the workflow run.")
+    html_url: str = Field()
 
 
-class BranchShortPropCommit(GitHubModel):
-    """BranchShortPropCommit"""
+model_rebuild(WorkflowDispatchResponse)
 
-    sha: str = Field()
-    url: str = Field()
-
-
-model_rebuild(BranchShort)
-model_rebuild(BranchShortPropCommit)
-
-__all__ = (
-    "BranchShort",
-    "BranchShortPropCommit",
-)
+__all__ = ("WorkflowDispatchResponse",)

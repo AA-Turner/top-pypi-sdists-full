@@ -15,17 +15,14 @@
 #include <numeric>
 #include <tango/tango.h>
 
-void eval_telemetry_overhead(const int n = 100, const int m = 100)
-{
+void eval_telemetry_overhead(const int n = 100, const int m = 100) {
     std::vector<double> time_per_iteration;
     time_per_iteration.reserve(m);
     // auto dp = Tango::DeviceProxy("tango://127.0.0.1:44555/test/device/1#dbase=no");
     auto dp = Tango::DeviceProxy("sys/tg_test/1");
-    for(int i = 0; i < m; ++i)
-    {
+    for(int i = 0; i < m; ++i) {
         auto start = std::chrono::steady_clock::now();
-        for(int i = 0; i < n; ++i)
-        {
+        for(int i = 0; i < n; ++i) {
             dp.read_attribute("double_scalar");
         }
         auto end = std::chrono::steady_clock::now();
@@ -37,8 +34,7 @@ void eval_telemetry_overhead(const int n = 100, const int m = 100)
     double average_tpi = std::accumulate(time_per_iteration.begin(), time_per_iteration.end(), 0.0) / m;
 
     double square_sum = 0.0;
-    for(double tpi : time_per_iteration)
-    {
+    for(double tpi : time_per_iteration) {
         square_sum += (tpi - average_tpi) * (tpi - average_tpi);
     }
 
@@ -48,7 +44,6 @@ void eval_telemetry_overhead(const int n = 100, const int m = 100)
     std::cout << "Standard deviation of execution times: " << rms_tpi << " milliseconds." << std::endl;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     eval_telemetry_overhead(100, 200);
 }

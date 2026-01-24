@@ -1,11 +1,11 @@
 from adam.commands.command import Command
-from .reaper_session import ReaperSession
+from adam.commands.reaper.reaper_forward_session import ReaperForwardSession
+from adam.commands.reaper.utils_reaper import Reapers
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2
 
 class ReaperForwardStop(Command):
     COMMAND = 'reaper forward stop'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -26,24 +26,18 @@ class ReaperForwardStop(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            if not Reapers.pod_name(state):
+                return state
+
+            ReaperForwardSession.is_forwarding = False
+            ReaperForwardSession.stopping.set()
+            log2("Stopped reaper forward session.")
+
             return state
-
-        if not ReaperSession.create(state):
-            return state
-
-        ReaperSession.is_forwarding = False
-        ReaperSession.stopping.set()
-        log2("Stopped reaper forward session.")
-
-        return state
 
     def completion(self, state: ReplState):
-        if state.sts:
-            return super().completion(state)
+        return super().completion(state)
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{ReaperForwardStop.COMMAND}\t stop port-forward to reaper'
+    def help(self, state: ReplState):
+        return super().help(state, 'stop port-forward to reaper')

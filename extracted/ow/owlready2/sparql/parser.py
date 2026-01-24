@@ -59,7 +59,7 @@ lg.add("?",                    r"""\?""")
 lg.add(".",                    r"""\.""")
 lg.add("PREFIXED_NAME",        r"""[\w\.\-]*:([\w\.\-:]|%[0-9a-fA-F]{2}|\\[_~\.\-!$&"'()*+,;=/?#@%])*([\w\-:]|%[0-9a-fA-F]{2}|\\[_~\.\-!$&"'()*+,;=/?#@%])""")
 lg.add("PNAME_NS",             r"""[\w\.\-]*:""")
-lg.add("FUNC",                 r"""(?:STRLANG)|(?:STRDT)|(?:STRLEN)|(?:STRSTARTS)|(?:STRENDS)|(?:STRBEFORE)|(?:STRAFTER)|(?:LANGMATCHES)|(?:LANG)|(?:DATATYPE)|(?:BOUND)|(?:IRI)|(?:URI)|(?:BNODE)|(?:RAND)|(?:ABS)|(?:CEIL)|(?:FLOOR)|(?:ROUND)|(?:CONCAT)|(?:STR)|(?:UCASE)|(?:LCASE)|(?:ENCODE_FOR_URI)|(?:CONTAINS)|(?:YEAR)|(?:MONTH)|(?:DAY)|(?:HOURS)|(?:MINUTES)|(?:SECONDS)|(?:TIMEZONE)|(?:TZ)|(?:NOW)|(?:UUID)|(?:STRUUID)|(?:MD5)|(?:SHA1)|(?:SHA256)|(?:SHA384)|(?:SHA512)|(?:COALESCE)|(?:IF)|(?:sameTerm)|(?:isIRI)|(?:isURI)|(?:isBLANK)|(?:isLITERAL)|(?:isNUMERIC)|(?:REGEX)|(?:SUBSTR)|(?:REPLACE)|(?:SIMPLEREPLACE)|(?:NEWINSTANCEIRI)|(?:LOADED)|(?:STORID)|(?:DATETIME_DIFF)|(?:DATETIME_ADD)|(?:DATETIME_SUB)|(?:DATETIME)|(?:DATE_ADD)|(?:DATE_DIFF)|(?:DATE_SUB)|(?:DATE)|(?:TIME)|(?:LIKE)|(?:FTS)\b""", re.IGNORECASE)
+lg.add("FUNC",                 r"""(?:STRLANG)|(?:STRDT)|(?:STRLEN)|(?:STRSTARTS)|(?:STRENDS)|(?:STRBEFORE)|(?:STRAFTER)|(?:LANGMATCHES)|(?:LANG)|(?:DATATYPE)|(?:BOUND)|(?:IRI)|(?:URI)|(?:BNODE)|(?:RAND)|(?:ABS)|(?:CEIL)|(?:FLOOR)|(?:ROUND)|(?:CONCAT)|(?:STR)|(?:UCASE)|(?:LCASE)|(?:ENCODE_FOR_URI)|(?:CONTAINS)|(?:YEAR)|(?:MONTH)|(?:DAY)|(?:HOURS)|(?:MINUTES)|(?:SECONDS)|(?:TIMEZONE)|(?:TZ)|(?:NOW)|(?:UUID)|(?:STRUUID)|(?:MD5)|(?:SHA1)|(?:SHA256)|(?:SHA384)|(?:SHA512)|(?:COALESCE)|(?:IF)|(?:sameTerm)|(?:isIRI)|(?:isURI)|(?:isBLANK)|(?:isLITERAL)|(?:isNUMERIC)|(?:REGEX)|(?:SUBSTR)|(?:REPLACE)|(?:SIMPLEREPLACE)|(?:NEWINSTANCEIRI)|(?:LOADED)|(?:STORID)|(?:DATETIME_DIFF)|(?:DATETIME_ADD)|(?:DATETIME_SUB)|(?:DATETIME)|(?:DATE_ADD)|(?:DATE_DIFF)|(?:DATE_SUB)|(?:DATE)|(?:TIME)|(?:LIKE)|(?:FTS)|(?:PY_FUNC_\w+)\b""", re.IGNORECASE)
 lg.add("MINUS",                r"""MINUS\b""", re.IGNORECASE)
 lg.add("AGGREGATE_FUNC",       r"""(?:COUNT)|(?:SUM)|(?:MIN)|(?:MAX)|(?:AVG)|(?:SAMPLE)|(?:GROUP_CONCAT)\b""", re.IGNORECASE)
 lg.add("BASE",                 r"""BASE\b""", re.IGNORECASE)
@@ -458,7 +458,9 @@ def f(p): return p[0]
 @pg.production("group_graph_pattern_item : group_graph_pattern+") # UNION
 def f(p):
   if len(p[0]) == 1: return p[0][0]
-  return UnionBlock(p[0])
+  block = UnionBlock(p[0])
+  if isinstance(block.simple_union_triples, Block): return block.simple_union_triples
+  return block
 @pg.production("group_graph_pattern_item : OPTIONAL group_graph_pattern")
 def f(p):
   p = p[1]
@@ -939,6 +941,21 @@ def f(p):
   if len(p) > 5:
     p[4:-1] = [rply.Token(",", ","), p[-2]]
   return p
+@pg.production("aggregate : AGGREGATE_FUNC ( DISTINCT? expression ; SEPARATOR = string ORDER_BY expression )")
+def f(p):
+  if p[2]: p[2].value += " "
+  p[0].value = p[0].value.upper()
+  p[0].name = "FUNC"
+  p[8].value += " "
+  p[4:8] = [rply.Token(",", ","), p[7]]
+  return p
+@pg.production("aggregate : AGGREGATE_FUNC ( DISTINCT? expression ORDER_BY expression )")
+def f(p):
+  if p[2]: p[2].value += " "
+  p[0].value = p[0].value.upper()
+  p[0].name = "FUNC"
+  p[4].value += " "
+  return p
 
 @pg.production("exists : EXISTS group_graph_pattern")
 @pg.production("not_exists : NOT_EXISTS group_graph_pattern")
@@ -1097,16 +1114,18 @@ class Block(list):
 class UnionBlock(Block):
   def __init__(self, l = None):
     Block.__init__(self, l or [])
-    
     self.simple_union_triples = self._to_simple_union()
     
   def __repr__(self): return "<%s %s %s>" % (self.__class__.__name__, "Simple" if self.simple_union_triples else "Non-Simple", list.__repr__(self))
   
   def _to_simple_union(self):
-    if len(self[0]) == 2:
+    if   len(self[0]) == 2:
       r = self._to_simple_union2()
       if r: return r
-
+    elif (len(self[0]) == 1) and self[0].static_valuess:
+      r = self._to_simple_union3()
+      if r: return r
+      
     for i in self:
       if not isinstance(i, SimpleTripleBlock): return None
       if len(i) > 1: return None
@@ -1127,6 +1146,7 @@ class UnionBlock(Block):
     if len(ss) > 1: nb_many += 1; n = 0
     if len(ps) > 1: nb_many += 1; n = 1
     if len(os) > 1: nb_many += 1; n = 2
+
     if nb_many > 1:  return None
     if nb_many == 0: return None
     if n == 1: # Prop; prop path modifier not supported in that case
@@ -1135,8 +1155,11 @@ class UnionBlock(Block):
         
     vs = [i[0][n] for i in self]
     for v in vs:
-      if (not isinstance(v, rply.Token)) or (v.name != "IRI"): return None
-      
+      if not isinstance(v, rply.Token): return None
+      if not v.name in { "IRI", "STRING", "INTEGER", "DECIMAL", "DOUBLE", "BOOL", "PARAM" }: return None
+    #for v in vs:
+    #  if (not isinstance(v, rply.Token)) or (v.name != "IRI"): return None
+    
     r = list(self[0][0])
     r[n] = SimpleUnion(vs)
     r = Triple(r)
@@ -1160,6 +1183,22 @@ class UnionBlock(Block):
     
     vs = [i[1][2] for i in self]
     return [self[0][0], Triple([self[0][1][0], self[0][1][1], SimpleUnion(vs)])]
+  
+  def _to_simple_union3(self):
+    ss = set()
+    for i in self:
+      if len(i) != 1: return None
+      if len(i.static_valuess) != 1: return None
+      if getattr(i[0][1], "storid", None) != rdf_type: return None
+      if getattr(i[0][1], "modifier", None): return None
+      ss.add(repr(i[0][0]))
+    if len(ss) != 1: return None
+    
+    for i in self[1:]:
+      static_values = i.static_valuess[0]
+      static_values.map_var_to = self[0].static_valuess[0]
+      self[0].static_valuess.append(static_values)
+    return self[0]
   
       
   def _get_ordered_vars(self, vars, ordered_vars, root_call = False):
@@ -1237,7 +1276,7 @@ class Triple(tuple):
     self.var_names    = { x.value for x in self if x.name == "VAR" }
     p_storid = getattr(self[1], "storid", None)
     self.Prop = p_storid and CURRENT_TRANSLATOR.get().world._get_by_storid(p_storid)
-    
+
     if   self[2].name == "IRI":          self.table_type = "objs"
     elif self[2].name in _DATA_TYPE:     self.table_type = "datas"
     elif p_storid in _OBJ_PROPS:         self.table_type = "objs"
@@ -1246,7 +1285,6 @@ class Triple(tuple):
     elif isinstance(self.Prop, ObjectPropertyClass): self.table_type = "objs"
     elif isinstance(self.Prop, DataPropertyClass):   self.table_type = "datas"
     else:                                            self.table_type = "quads2"
-      
     
   def _get_ordered_vars(self, vars, ordered_vars):
     if self[1].inversed: triple = self[::-1]
@@ -1264,9 +1302,15 @@ class SimpleUnion(SpecialCondition):
   inversed = False
   def __init__(self, items):
     self.items = items
+
+  def _map_token(self, p):
+    if   p.name == "IRI":   return str(p.storid)
+    elif p.name == "PARAM": return p.value[1:]
+    else:                   return p.value
     
   def create_conditions(self, conditions, table, n):
-    conditions.append("%s.%s IN (%s)" % (table.name, n, ",".join(str(p.storid) for p in self.items)))
+    #conditions.append("%s.%s IN (%s)" % (table.name, n, ",".join(str(p.storid) if p.name == "IRI" else p.value for p in self.items)))
+    conditions.append("%s.%s IN (%s)" % (table.name, n, ",".join(self._map_token(p) for p in self.items)))
 
   def __repr__(self): return "<SimpleUnion %s>" % self.items
   def __str__ (self): return ",".join(str(i) for i in self.items)
@@ -1338,9 +1382,10 @@ class Filter(object):
   
 class StaticValues(object):
   def __init__(self):
-    self.vars    = []
-    self.valuess = []
-    self.types   = []
+    self.vars       = []
+    self.valuess    = []
+    self.types      = []
+    self.map_var_to = ""
     
   def _get_ordered_vars(self, vars, ordered_vars, root_call = False): pass
   
@@ -1353,6 +1398,7 @@ class StaticBlock(StaticValues):
     self.inner_blocks = blocks
     self.ordered_vars = list(_get_vars(blocks))
     self.all_vars     = set(_get_vars(blocks))
+    self.map_var_to   = ""
     
     self.old_translator = CURRENT_TRANSLATOR.get()
     self.translator = self.old_translator.make_translator()

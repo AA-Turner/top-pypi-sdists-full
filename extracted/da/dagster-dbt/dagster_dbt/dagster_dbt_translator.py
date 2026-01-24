@@ -12,7 +12,7 @@ from dagster import (
     AutoMaterializePolicy,
     AutomationCondition,
     DagsterInvalidDefinitionError,
-    LegacyFreshnessPolicy,
+    MetadataValue,
     PartitionMapping,
 )
 from dagster._annotations import beta, public
@@ -36,7 +36,6 @@ from dagster_dbt.asset_utils import (
     default_auto_materialize_policy_fn,
     default_code_version_fn,
     default_description_fn,
-    default_freshness_policy_fn,
     default_group_from_dbt_resource_props,
     default_metadata_from_dbt_resource_props,
     default_owners_from_dbt_resource_props,
@@ -64,6 +63,8 @@ class DagsterDbtTranslatorSettings(Resolvable):
             rather than fully qualified name. Defaults to False.
         enable_source_tests_as_checks (bool): Whether to load dbt source tests as Dagster asset checks.
             Defaults to False. If False, asset observations will be emitted for source tests.
+        enable_source_metadata (bool): Whether to include metadata on AssetDep objects for dbt sources.
+            If set to True, enables the ability to remap upstream asset keys based on table name. Defaults to False.
     """
 
     enable_asset_checks: bool = True
@@ -71,6 +72,7 @@ class DagsterDbtTranslatorSettings(Resolvable):
     enable_code_references: bool = False
     enable_dbt_selection_by_name: bool = False
     enable_source_tests_as_checks: bool = False
+    enable_source_metadata: bool = False
 
 
 class DagsterDbtTranslator:
@@ -96,6 +98,34 @@ class DagsterDbtTranslator:
 
         return self._settings
 
+    def get_resource_props(self, manifest: Mapping[str, Any], unique_id: str) -> Mapping[str, Any]:
+        """Given a parsed manifest and a dbt unique_id, returns the dictionary of properties
+        for the corresponding dbt resource (e.g. model, seed, snapshot, source) as defined
+        in your dbt project. This can be used as a convenience method when overriding the
+        `get_asset_spec` method.
+
+        Args:
+            manifest (Mapping[str, Any]): The parsed manifest of the dbt project.
+            unique_id (str): The unique_id of the dbt resource.
+
+        Returns:
+            Mapping[str, Any]: The dictionary of properties for the corresponding dbt resource.
+
+        Examples:
+            .. code-block:: python
+
+                class CustomDagsterDbtTranslator(DagsterDbtTranslator):
+
+                    def get_asset_spec(self, manifest: Mapping[str, Any], unique_id: str, project: Optional[DbtProject]) -> dg.AssetSpec:
+                        base_spec = super().get_asset_spec(manifest, unique_id, project)
+                        resource_props = self.get_resource_props(manifest, unique_id)
+                        if resource_props["meta"].get("use_custom_group"):
+                            return base_spec.replace_attributes(group_name="custom_group")
+                        else:
+                            return base_spec
+        """
+        return get_node(manifest, unique_id)
+
     def get_asset_spec(
         self,
         manifest: Mapping[str, Any],
@@ -115,19 +145,27 @@ class DagsterDbtTranslator:
             return self._resolved_specs[memo_id]
 
         group_props = {group["name"]: group for group in manifest.get("groups", {}).values()}
-        resource_props = get_node(manifest, unique_id)
+        resource_props = self.get_resource_props(manifest, unique_id)
 
         # calculate the dependencies for the asset
         upstream_ids = get_upstream_unique_ids(manifest, resource_props)
-        deps = [
-            AssetDep(
-                asset=self.get_asset_spec(manifest, upstream_id, project).key,
-                partition_mapping=self.get_partition_mapping(
-                    resource_props, get_node(manifest, upstream_id)
-                ),
+        deps: list[AssetDep] = []
+        for upstream_id in upstream_ids:
+            spec = self.get_asset_spec(manifest, upstream_id, project)
+            partition_mapping = self.get_partition_mapping(
+                resource_props, self.get_resource_props(manifest, upstream_id)
             )
-            for upstream_id in upstream_ids
-        ]
+
+            deps.append(
+                AssetDep(
+                    asset=spec.key,
+                    partition_mapping=partition_mapping,
+                    metadata=spec.metadata
+                    if self.settings.enable_source_metadata and upstream_id.startswith("source")
+                    else None,
+                )
+            )
+
         self_partition_mapping = self.get_partition_mapping(resource_props, resource_props)
         if self_partition_mapping and has_self_dependency(resource_props):
             deps.append(
@@ -158,7 +196,6 @@ class DagsterDbtTranslator:
             group_name=self.get_group_name(resource_props),
             code_version=self.get_code_version(resource_props),
             automation_condition=self.get_automation_condition(resource_props),
-            legacy_freshness_policy=self.get_freshness_policy(resource_props),
             owners=self.get_owners(owners_resource_props),
             tags=self.get_tags(resource_props),
             kinds={"dbt", manifest.get("metadata", {}).get("adapter_type", "dbt")},
@@ -174,6 +211,14 @@ class DagsterDbtTranslator:
                 **({DAGSTER_DBT_PROJECT_METADATA_KEY: project} if project else {}),
             }
         )
+
+        # Add dbt Core project_id for tracking/debugging
+        project_id = manifest.get("metadata", {}).get("project_id")
+        if project_id:
+            spec = spec.merge_attributes(
+                metadata={"dagster_dbt/project_id": MetadataValue.text(project_id)}
+            )
+
         if self.settings.enable_code_references:
             if not project:
                 raise DagsterInvalidDefinitionError(
@@ -492,60 +537,6 @@ class DagsterDbtTranslator:
                         return ["user@owner.com", "team:team@owner.com"]
         """
         return default_owners_from_dbt_resource_props(dbt_resource_props)
-
-    @public
-    @beta(emit_runtime_warning=False)
-    def get_freshness_policy(
-        self, dbt_resource_props: Mapping[str, Any]
-    ) -> Optional[LegacyFreshnessPolicy]:
-        """A function that takes a dictionary representing properties of a dbt resource, and
-        returns the Dagster :py:class:`dagster.FreshnessPolicy` for that resource.
-
-        Note that a dbt resource is unrelated to Dagster's resource concept, and simply represents
-        a model, seed, snapshot or source in a given dbt project. You can learn more about dbt
-        resources and the properties available in this dictionary here:
-        https://docs.getdbt.com/reference/artifacts/manifest-json#resource-details
-
-        This method can be overridden to provide a custom freshness policy for a dbt resource.
-
-        Args:
-            dbt_resource_props (Mapping[str, Any]): A dictionary representing the dbt resource.
-
-        Returns:
-            Optional[FreshnessPolicy]: A Dagster freshness policy.
-
-        Examples:
-            Set a custom freshness policy for all dbt resources:
-
-            .. code-block:: python
-
-                from typing import Any, Mapping
-
-                from dagster_dbt import DagsterDbtTranslator
-
-
-                class CustomDagsterDbtTranslator(DagsterDbtTranslator):
-                    def get_freshness_policy(self, dbt_resource_props: Mapping[str, Any]) -> Optional[FreshnessPolicy]:
-                        return FreshnessPolicy(maximum_lag_minutes=60)
-
-            Set a custom freshness policy for dbt resources with a specific tag:
-
-            .. code-block:: python
-
-                from typing import Any, Mapping
-
-                from dagster_dbt import DagsterDbtTranslator
-
-
-                class CustomDagsterDbtTranslator(DagsterDbtTranslator):
-                    def get_freshness_policy(self, dbt_resource_props: Mapping[str, Any]) -> Optional[FreshnessPolicy]:
-                        freshness_policy = None
-                        if "my_custom_tag" in dbt_resource_props.get("tags", []):
-                            freshness_policy = FreshnessPolicy(maximum_lag_minutes=60)
-
-                        return freshness_policy
-        """
-        return default_freshness_policy_fn(dbt_resource_props)
 
     @public
     @beta(emit_runtime_warning=False)

@@ -117,28 +117,38 @@ class ColumnarAttributeRange : public std::ranges::view_interface<ColumnarAttrib
         std::span<AttributeBuffer<Data> const> attribute_buffers_{};
     };
 
-    class iterator
-        : public IteratorFacade<iterator, std::conditional_t<is_data_mutable_v<dataset_type>, Proxy, Proxy const>,
-                                Idx> {
+    class iterator : public IteratorFacade {
       public:
-        using value_type = Proxy;
+        using value_type = std::conditional_t<is_data_mutable_v<dataset_type>, Proxy, Proxy const>;
         using difference_type = Idx;
+        using pointer = std::add_pointer_t<value_type>;
+        using reference = std::add_lvalue_reference_t<value_type>;
 
-        iterator() = default;
+        iterator() : IteratorFacade{*this} {};
         iterator(difference_type idx, std::span<AttributeBuffer<Data> const> attribute_buffers)
-            : current_{idx, attribute_buffers} {}
+            : IteratorFacade{*this}, current_{idx, attribute_buffers} {}
 
-      private:
-        friend class IteratorFacade<iterator, std::conditional_t<is_data_mutable_v<dataset_type>, Proxy, Proxy const>,
-                                    Idx>;
-
-        constexpr auto dereference() -> value_type& { return current_; }
-        constexpr auto dereference() const -> std::add_lvalue_reference_t<std::add_const_t<value_type>> {
+        constexpr auto operator*() -> reference { return current_; }
+        constexpr auto operator*() const -> std::add_lvalue_reference_t<std::add_const_t<value_type>> {
             return current_;
         }
-        constexpr auto three_way_compare(iterator const& other) const { return current_.idx_ <=> other.current_.idx_; }
-        constexpr auto distance_to(iterator const& other) const { return other.current_.idx_ - current_.idx_; }
-        constexpr void advance(difference_type n) { current_.idx_ += n; }
+
+        friend constexpr auto operator<=>(iterator const& first, iterator const& second) {
+            return first.current_idx() <=> second.current_idx();
+        }
+
+        constexpr auto operator+=(difference_type n) -> std::add_lvalue_reference_t<iterator> {
+            current_idx() += n;
+            return *this;
+        }
+
+        friend constexpr auto operator-(iterator const& first, iterator const& second) -> difference_type {
+            return first.current_idx() - second.current_idx();
+        }
+
+      private:
+        constexpr auto current_idx() const { return current_.idx_; }
+        constexpr auto& current_idx() { return current_.idx_; }
 
         Proxy current_;
     };
@@ -277,6 +287,9 @@ template <dataset_type_tag dataset_type_> class Dataset {
     }
     constexpr bool is_dense(Idx const i) const { return is_dense(buffers_[i]); }
     constexpr bool is_dense(Buffer const& buffer) const { return buffer.indptr.empty(); }
+    constexpr bool is_dense() const {
+        return std::ranges::all_of(buffers_, [this](Buffer const& buffer) { return is_dense(buffer); });
+    }
     constexpr bool is_sparse(std::string_view component, bool with_attribute_buffers = false) const {
         Idx const idx = find_component(component, false);
         if (idx == invalid_index) {
@@ -475,37 +488,77 @@ template <dataset_type_tag dataset_type_> class Dataset {
     Dataset get_individual_scenario(Idx scenario) const
         requires(!is_indptr_mutable_v<dataset_type>)
     {
-        using AdvanceablePtr = std::conditional_t<is_data_mutable_v<dataset_type>, char*, char const*>;
-
         assert(0 <= scenario && scenario < batch_size());
 
-        Dataset result{false, 1, dataset().name, meta_data()};
-        for (Idx i{}; i != n_components(); ++i) {
-            auto const& buffer = get_buffer(i);
-            auto const& component_info = get_component_info(i);
+        Dataset result{*this};
+        result.dataset_info_.is_batch = false;
+        result.dataset_info_.batch_size = 1;
+        for (auto&& [buffer, component_info] : std::views::zip(result.buffers_, result.dataset_info_.component_info)) {
             Idx const size = component_info.elements_per_scenario >= 0
                                  ? component_info.elements_per_scenario
                                  : buffer.indptr[scenario + 1] - buffer.indptr[scenario];
             Idx const offset = component_info.elements_per_scenario >= 0 ? size * scenario : buffer.indptr[scenario];
+            component_info.total_elements = size;
+            component_info.elements_per_scenario = size;
+            buffer.indptr = {};
             if (is_columnar(buffer)) {
-                result.add_buffer(component_info.component->name, size, size, nullptr, nullptr);
-                for (auto const& attribute_buffer : buffer.attributes) {
-                    result.add_attribute_buffer(component_info.component->name, attribute_buffer.meta_attribute->name,
-                                                static_cast<Data*>(static_cast<AdvanceablePtr>(attribute_buffer.data) +
-                                                                   attribute_buffer.meta_attribute->size * offset));
+                buffer.data = nullptr;
+                for (auto& attribute_buffer : buffer.attributes) {
+                    attribute_buffer.data = attribute_buffer.meta_attribute->advance_ptr(attribute_buffer.data, offset);
                 }
             } else {
-                Data* data = component_info.component->advance_ptr(buffer.data, offset);
-                result.add_buffer(component_info.component->name, size, size, nullptr, data);
+                buffer.data = component_info.component->advance_ptr(buffer.data, offset);
             }
         }
         return result;
     }
 
+    // get slice dataset from batch
+    Dataset get_slice_scenario(Idx begin, Idx end) const
+        requires(!is_indptr_mutable_v<dataset_type>)
+    {
+        assert(begin <= end);
+        assert(0 <= begin);
+        assert(end <= batch_size());
+        assert(is_batch());
+        assert(is_dense());
+
+        // empty slice
+        if (begin == end) {
+            Dataset result{true, 0, dataset_info_.dataset->name, *meta_data_};
+            result.add_buffer("node", 0, 0, nullptr, nullptr);
+            return result;
+        }
+
+        // start with begin
+        Dataset result = get_individual_scenario(begin);
+        Idx const batch_size = end - begin;
+        result.dataset_info_.is_batch = true;
+        result.dataset_info_.batch_size = batch_size;
+        for (auto& component_info : result.dataset_info_.component_info) {
+            Idx const size = component_info.elements_per_scenario * batch_size;
+            component_info.total_elements = size;
+        }
+        return result;
+    }
+
+    void set_next_cartesian_product_dimension(Dataset const* next) {
+        Dataset const* current = next;
+        while (current != nullptr) {
+            if (this == current) {
+                throw DatasetError{"Cannot create cyclic cartesian product dimension linked list!\n"};
+            }
+            current = current->get_next_cartesian_product_dimension();
+        }
+        next_ = next;
+    }
+    Dataset const* get_next_cartesian_product_dimension() const { return next_; }
+
   private:
     MetaData const* meta_data_;
     DatasetInfo dataset_info_;
     std::vector<Buffer> buffers_;
+    Dataset const* next_{};
 
     std::span<Indptr> get_indptr_span(Indptr* indptr) const {
         return std::span{indptr, static_cast<size_t>(batch_size() + 1)};
@@ -558,8 +611,12 @@ template <dataset_type_tag dataset_type_> class Dataset {
             }) != buffer.attributes.end()) {
             throw DatasetError{"Cannot have duplicated attribute buffers!\n"};
         }
+        auto const& component_info = dataset_info_.component_info[idx];
+        if (component_info.total_elements > 0 && data == nullptr) {
+            throw DatasetError{"Attribute buffer data pointer cannot be null for non-empty component!\n"};
+        }
         AttributeBuffer<Data> const attribute_buffer{
-            .data = data, .meta_attribute = &dataset_info_.component_info[idx].component->get_attribute(attribute)};
+            .data = data, .meta_attribute = &component_info.component->get_attribute(attribute)};
         buffer.attributes.emplace_back(attribute_buffer);
     }
 

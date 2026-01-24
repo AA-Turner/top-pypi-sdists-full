@@ -52,7 +52,7 @@ impl FileParallelProcessor {
             return Ok(files
                 .iter()
                 .map(|(path, content)| {
-                    let result = crate::lint(content, rules, false, crate::config::MarkdownFlavor::Standard);
+                    let result = crate::lint(content, rules, false, crate::config::MarkdownFlavor::Standard, None);
                     (path.clone(), result)
                 })
                 .collect());
@@ -70,7 +70,7 @@ impl FileParallelProcessor {
             .par_iter()
             .map(|(path, content)| {
                 let start = Instant::now();
-                let result = crate::lint(content, rules, false, crate::config::MarkdownFlavor::Standard);
+                let result = crate::lint(content, rules, false, crate::config::MarkdownFlavor::Standard, None);
                 let duration = start.elapsed();
 
                 if duration.as_millis() > 1000 {
@@ -96,7 +96,7 @@ impl FileParallelProcessor {
         }
 
         // Check if we have enough CPU cores
-        let cpu_cores = num_cpus::get();
+        let cpu_cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
         if cpu_cores < 2 {
             return false;
         }
@@ -115,7 +115,12 @@ pub struct ParallelPerformanceComparison {
 
 impl ParallelPerformanceComparison {
     pub fn new(sequential_time: std::time::Duration, parallel_time: std::time::Duration) -> Self {
-        let speedup_factor = sequential_time.as_secs_f64() / parallel_time.as_secs_f64();
+        // Guard against division by zero: if parallel_time is zero, speedup is infinite
+        let speedup_factor = if parallel_time.is_zero() {
+            f64::INFINITY
+        } else {
+            sequential_time.as_secs_f64() / parallel_time.as_secs_f64()
+        };
         let parallel_overhead = if parallel_time > sequential_time {
             parallel_time - sequential_time
         } else {
@@ -464,5 +469,71 @@ mod tests {
             assert_eq!(warnings1.len(), warnings2.len());
             assert_eq!(warnings2.len(), warnings3.len());
         }
+    }
+
+    // =========================================================================
+    // Tests for ParallelPerformanceComparison edge cases
+    // =========================================================================
+
+    #[test]
+    fn test_performance_comparison_normal() {
+        let sequential = std::time::Duration::from_millis(100);
+        let parallel = std::time::Duration::from_millis(50);
+
+        let comparison = ParallelPerformanceComparison::new(sequential, parallel);
+
+        assert_eq!(comparison.sequential_time, sequential);
+        assert_eq!(comparison.parallel_time, parallel);
+        assert!((comparison.speedup_factor - 2.0).abs() < 0.001);
+        assert_eq!(comparison.parallel_overhead, std::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn test_performance_comparison_zero_parallel_time() {
+        // Edge case: parallel_time is zero (instant completion)
+        let sequential = std::time::Duration::from_millis(100);
+        let parallel = std::time::Duration::ZERO;
+
+        let comparison = ParallelPerformanceComparison::new(sequential, parallel);
+
+        // Should not panic, speedup should be infinity
+        assert!(comparison.speedup_factor.is_infinite());
+        assert!(comparison.speedup_factor.is_sign_positive());
+    }
+
+    #[test]
+    fn test_performance_comparison_both_zero() {
+        // Edge case: both times are zero
+        let sequential = std::time::Duration::ZERO;
+        let parallel = std::time::Duration::ZERO;
+
+        let comparison = ParallelPerformanceComparison::new(sequential, parallel);
+
+        // Should not panic, speedup should be infinity (0/0 guarded)
+        assert!(comparison.speedup_factor.is_infinite());
+    }
+
+    #[test]
+    fn test_performance_comparison_parallel_slower() {
+        // Case where parallel is actually slower (overhead dominates)
+        let sequential = std::time::Duration::from_millis(10);
+        let parallel = std::time::Duration::from_millis(20);
+
+        let comparison = ParallelPerformanceComparison::new(sequential, parallel);
+
+        assert!((comparison.speedup_factor - 0.5).abs() < 0.001);
+        assert_eq!(comparison.parallel_overhead, std::time::Duration::from_millis(10));
+    }
+
+    #[test]
+    fn test_performance_comparison_very_small_times() {
+        // Very small durations (nanoseconds)
+        let sequential = std::time::Duration::from_nanos(100);
+        let parallel = std::time::Duration::from_nanos(50);
+
+        let comparison = ParallelPerformanceComparison::new(sequential, parallel);
+
+        // Should handle small durations without precision issues
+        assert!(comparison.speedup_factor > 1.0);
     }
 }

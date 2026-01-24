@@ -16,6 +16,8 @@ export interface IAppProps {
     needLoadDatas?: boolean;
     specType: string;
     showCloudTool: boolean;
+    enableAskViz: boolean;
+    enableVlChat: boolean;
     needInitChart: boolean;
     useKernelCalc: boolean;
     useSaveTool: boolean;

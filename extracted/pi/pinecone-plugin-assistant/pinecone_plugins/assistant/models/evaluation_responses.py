@@ -27,7 +27,7 @@ class EvaluatedFact(BaseDataclass):
     def from_openapi(cls, evaluated_fact: OpenAPIEvaluatedFact):
         return cls(
             fact=Fact.from_openapi(evaluated_fact.fact),
-            entailment=evaluated_fact.entailment.value
+            entailment=evaluated_fact.entailment
         )
 
 

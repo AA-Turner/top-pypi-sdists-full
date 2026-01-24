@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Union
 
 from pydantic import Field
@@ -18,36 +18,24 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
 
+class Autolink(GitHubModel):
+    """Autolink reference
 
-class CodeScanningCodeqlDatabase(GitHubModel):
-    """CodeQL Database
-
-    A CodeQL database.
+    An autolink reference.
     """
 
-    id: int = Field(description="The ID of the CodeQL database.")
-    name: str = Field(description="The name of the CodeQL database.")
-    language: str = Field(description="The language of the CodeQL database.")
-    uploader: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    content_type: str = Field(description="The MIME type of the CodeQL database file.")
-    size: int = Field(description="The size of the CodeQL database file in bytes.")
-    created_at: datetime = Field(
-        description="The date and time at which the CodeQL database was created, in ISO 8601 format':' YYYY-MM-DDTHH:MM:SSZ."
+    id: int = Field()
+    key_prefix: str = Field(description="The prefix of a key that is linkified.")
+    url_template: str = Field(
+        description="A template for the target URL that is generated if a key was found."
     )
-    updated_at: datetime = Field(
-        description="The date and time at which the CodeQL database was last updated, in ISO 8601 format':' YYYY-MM-DDTHH:MM:SSZ."
+    is_alphanumeric: bool = Field(
+        description="Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters."
     )
-    url: str = Field(
-        description="The URL at which to download the CodeQL database. The `Accept` header must be set to the value of the `content_type` property."
-    )
-    commit_oid: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        description="The commit SHA of the repository at the time the CodeQL database was created.",
-    )
+    updated_at: Missing[Union[_dt.datetime, None]] = Field(default=UNSET)
 
 
-model_rebuild(CodeScanningCodeqlDatabase)
+model_rebuild(Autolink)
 
-__all__ = ("CodeScanningCodeqlDatabase",)
+__all__ = ("Autolink",)

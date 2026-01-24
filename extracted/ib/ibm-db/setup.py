@@ -31,7 +31,7 @@ from setuptools.command.build_ext import build_ext
 from setuptools.command.install import install
 
 PACKAGE = 'ibm_db'
-VERSION = '3.2.7'
+VERSION = '3.2.8'
 LICENSE = 'Apache License 2.0'
 readme = os.path.join(os.path.dirname(__file__),'README.md')
 
@@ -546,13 +546,12 @@ setup( name    = PACKAGE,
                     'Operating System :: MacOS',
                     'Operating System :: MacOS :: MacOS X',
                     'Programming Language :: Python',
-                    'Programming Language :: Python :: 3.7',
-                    'Programming Language :: Python :: 3.8',
                     'Programming Language :: Python :: 3.9',
                     'Programming Language :: Python :: 3.10',
                     'Programming Language :: Python :: 3.11',
                     'Programming Language :: Python :: 3.12',
                     'Programming Language :: Python :: 3.13',
+                    'Programming Language :: Python :: 3.14',
                     'Topic :: Database :: Front-Ends'],
 
     long_description = open(readme).read(),

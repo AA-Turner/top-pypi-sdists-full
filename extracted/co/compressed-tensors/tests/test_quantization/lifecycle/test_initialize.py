@@ -24,7 +24,6 @@ from compressed_tensors.quantization import (
     QuantizationScheme,
     QuantizationStatus,
     QuantizationStrategy,
-    QuantizationType,
 )
 from compressed_tensors.quantization.lifecycle.initialize import (
     initialize_module_for_quantization,
@@ -157,13 +156,23 @@ def test_initialize_module_for_quantization_offloaded(
         ),
         (
             QuantizationArgs(
-                strategy="tensor_group", group_size=16, type="float", num_bits=4
+                strategy="tensor_group",
+                group_size=16,
+                type="float",
+                num_bits=4,
+                scale_dtype=FP8_E4M3_DATA.dtype,
+                zp_dtype=FP8_E4M3_DATA.dtype,
             ),
             None,
         ),
         (
             QuantizationArgs(
-                strategy="tensor_group", group_size=16, type="float", num_bits=4
+                strategy="tensor_group",
+                group_size=16,
+                type="float",
+                num_bits=4,
+                scale_dtype=FP8_E4M3_DATA.dtype,
+                zp_dtype=FP8_E4M3_DATA.dtype,
             ),
             QuantizationArgs(
                 strategy="tensor_group",
@@ -171,15 +180,13 @@ def test_initialize_module_for_quantization_offloaded(
                 type="float",
                 num_bits=4,
                 dynamic="local",
+                scale_dtype=FP8_E4M3_DATA.dtype,
+                zp_dtype=FP8_E4M3_DATA.dtype,
             ),
         ),
         (
             QuantizationArgs(strategy="block", block_structure=[2, 4]),
             None,
-        ),
-        (
-            QuantizationArgs(strategy="token"),
-            QuantizationArgs(strategy="token"),
         ),
     ],
 )
@@ -203,7 +210,7 @@ def test_initialize_quantization_parameters(weights, input_activations):
                 assert hasattr(layer, "weight_global_scale")
                 assert layer.weight_global_scale.dtype == torch.float32
                 assert layer.weight_global_scale.numel() == 1
-                assert layer.weight_scale.dtype == FP8_E4M3_DATA.dtype
+                assert layer.weight_scale.dtype == layer.weight.dtype
             elif q_type == "input_activations":
                 assert hasattr(layer, "input_global_scale")
                 assert layer.input_global_scale.dtype == torch.float32
@@ -238,9 +245,6 @@ def test_initialize_quantization_parameters(weights, input_activations):
             else:
                 # For activations or when block_structure is None
                 expected_shape = (1,)
-
-        elif args.strategy == QuantizationStrategy.TOKEN:
-            expected_shape = (1, 1)
 
         if not args.dynamic:
             assert getattr(layer, f"{q_param_name}_scale").shape == expected_shape

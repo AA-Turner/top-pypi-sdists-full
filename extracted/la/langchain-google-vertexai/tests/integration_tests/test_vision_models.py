@@ -11,8 +11,13 @@ from langchain_google_vertexai.vision_models import (
 )
 
 
-@pytest.mark.release
-def test_vertex_ai_image_captioning_chat(base64_image: str):
+@pytest.mark.skip(
+    reason=(
+        "Image captioning is deprecated: "
+        "https://cloud.google.com/vertex-ai/generative-ai/docs/image/image-captioning"
+    )
+)
+def test_vertex_ai_image_captioning_chat(base64_image: str) -> None:
     # This should work
     model = VertexAIImageCaptioningChat()
     response = model.invoke(
@@ -45,8 +50,13 @@ def test_vertex_ai_image_captioning_chat(base64_image: str):
         )
 
 
-@pytest.mark.release
-def test_vertex_ai_image_captioning(base64_image: str):
+@pytest.mark.skip(
+    reason=(
+        "Image captioning is deprecated: "
+        "https://cloud.google.com/vertex-ai/generative-ai/docs/image/image-captioning"
+    )
+)
+def test_vertex_ai_image_captioning(base64_image: str) -> None:
     model = VertexAIImageCaptioning()
     response = model.invoke(base64_image)
     assert isinstance(response, str)
@@ -55,8 +65,13 @@ def test_vertex_ai_image_captioning(base64_image: str):
     assert isinstance(response, str)
 
 
-@pytest.mark.release
-def test_vertex_ai_visual_qna_chat(base64_image: str):
+@pytest.mark.skip(
+    reason=(
+        "Visual question answering is deprecated: "
+        "https://cloud.google.com/vertex-ai/generative-ai/docs/image/image-captioning"
+    )
+)
+def test_vertex_ai_visual_qna_chat(base64_image: str) -> None:
     model = VertexAIVisualQnAChat()
 
     # This should work
@@ -121,7 +136,7 @@ def test_vertex_ai_visual_qna_chat(base64_image: str):
 
 @pytest.mark.release
 @pytest.mark.flaky(retries=3)
-def test_vertex_ai_image_generation_and_edition():
+def test_vertex_ai_image_generation_and_edition() -> None:
     generator = VertexAIImageGeneratorChat()
 
     messages = [HumanMessage(content=["Generate a dog reading the newspaper"])]
@@ -139,7 +154,7 @@ def test_vertex_ai_image_generation_and_edition():
 
     chain = prompt | model
 
-    response = chain.invoke(dict(img_object="cat", img_context="beach"))
+    response = chain.invoke({"img_object": "cat", "img_context": "beach"})
     assert isinstance(response, AIMessage)
 
     editor = VertexAIImageEditorChat()

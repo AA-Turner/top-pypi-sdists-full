@@ -220,9 +220,14 @@ def parse_repo(repo_root: Path) -> RepoContents:
     return res
 
 
-def plan(repo_config: RepoConfig, repo_path: Path, skip_source_validation: bool):
+def plan(
+    repo_config: RepoConfig,
+    repo_path: Path,
+    skip_source_validation: bool,
+    skip_feature_view_validation: bool = False,
+):
     os.chdir(repo_path)
-    repo = _get_repo_contents(repo_path, repo_config.project)
+    repo = _get_repo_contents(repo_path, repo_config.project, repo_config)
     for project in repo.projects:
         repo_config.project = project.name
         store, registry = _get_store_and_registry(repo_config)
@@ -234,12 +239,18 @@ def plan(repo_config: RepoConfig, repo_path: Path, skip_source_validation: bool)
             for data_source in data_sources:
                 provider.validate_data_source(store.config, data_source)
 
-        registry_diff, infra_diff, _ = store.plan(repo)
+        registry_diff, infra_diff, _ = store.plan(
+            repo, skip_feature_view_validation=skip_feature_view_validation
+        )
         click.echo(registry_diff.to_string())
         click.echo(infra_diff.to_string())
 
 
-def _get_repo_contents(repo_path, project_name: Optional[str] = None):
+def _get_repo_contents(
+    repo_path,
+    project_name: Optional[str] = None,
+    repo_config: Optional[RepoConfig] = None,
+):
     sys.dont_write_bytecode = True
     repo = parse_repo(repo_path)
 
@@ -248,7 +259,12 @@ def _get_repo_contents(repo_path, project_name: Optional[str] = None):
             print(
                 f"No project found in the repository. Using project name {project_name} defined in feature_store.yaml"
             )
-            repo.projects.append(Project(name=project_name))
+            project_description = (
+                repo_config.project_description if repo_config else None
+            )
+            repo.projects.append(
+                Project(name=project_name, description=project_description or "")
+            )
         else:
             print(
                 "No project found in the repository. Either define Project in repository or define a project in feature_store.yaml"
@@ -325,6 +341,7 @@ def apply_total_with_repo_instance(
     registry: BaseRegistry,
     repo: RepoContents,
     skip_source_validation: bool,
+    skip_feature_view_validation: bool = False,
 ):
     if not skip_source_validation:
         provider = store._get_provider()
@@ -341,15 +358,40 @@ def apply_total_with_repo_instance(
         views_to_delete,
     ) = extract_objects_for_apply_delete(project_name, registry, repo)
 
-    if store._should_use_plan():
-        registry_diff, infra_diff, new_infra = store.plan(repo)
-        click.echo(registry_diff.to_string())
+    try:
+        if store._should_use_plan():
+            # Planning phase - compute diffs first without progress bars
+            registry_diff, infra_diff, new_infra = store.plan(
+                repo,
+                skip_feature_view_validation=skip_feature_view_validation,
+            )
+            click.echo(registry_diff.to_string())
 
-        store._apply_diffs(registry_diff, infra_diff, new_infra)
-        click.echo(infra_diff.to_string())
-    else:
-        store.apply(all_to_apply, objects_to_delete=all_to_delete, partial=False)
-        log_infra_changes(views_to_keep, views_to_delete)
+            # Only show progress bars if there are actual infrastructure changes
+            progress_ctx = None
+            if len(infra_diff.infra_object_diffs) > 0:
+                from feast.diff.apply_progress import ApplyProgressContext
+
+                progress_ctx = ApplyProgressContext()
+                progress_ctx.start_overall_progress()
+
+            # Apply phase
+            store._apply_diffs(
+                registry_diff, infra_diff, new_infra, progress_ctx=progress_ctx
+            )
+            click.echo(infra_diff.to_string())
+        else:
+            # Legacy apply path - no progress bars for legacy path
+            store.apply(
+                all_to_apply,
+                objects_to_delete=all_to_delete,
+                partial=False,
+                skip_feature_view_validation=skip_feature_view_validation,
+            )
+            log_infra_changes(views_to_keep, views_to_delete)
+    finally:
+        # Cleanup is handled in the new _apply_diffs method
+        pass
 
 
 def log_infra_changes(
@@ -387,9 +429,14 @@ def create_feature_store(
         return FeatureStore(repo_path=str(repo), fs_yaml_file=fs_yaml_file)
 
 
-def apply_total(repo_config: RepoConfig, repo_path: Path, skip_source_validation: bool):
+def apply_total(
+    repo_config: RepoConfig,
+    repo_path: Path,
+    skip_source_validation: bool,
+    skip_feature_view_validation: bool = False,
+):
     os.chdir(repo_path)
-    repo = _get_repo_contents(repo_path, repo_config.project)
+    repo = _get_repo_contents(repo_path, repo_config.project, repo_config)
     for project in repo.projects:
         repo_config.project = project.name
         store, registry = _get_store_and_registry(repo_config)
@@ -402,7 +449,12 @@ def apply_total(repo_config: RepoConfig, repo_path: Path, skip_source_validation
         # TODO: When we support multiple projects in a single repo, we should filter repo contents by project. Currently there is no way to associate Feast objects to project.
         print(f"Applying changes for project {project.name}")
         apply_total_with_repo_instance(
-            store, project.name, registry, repo, skip_source_validation
+            store,
+            project.name,
+            registry,
+            repo,
+            skip_source_validation,
+            skip_feature_view_validation,
         )
 
 
@@ -436,27 +488,37 @@ def cli_check_repo(repo_path: Path, fs_yaml_file: Path):
         sys.exit(1)
 
 
-def init_repo(repo_name: str, template: str):
+def init_repo(repo_name: str, template: str, repo_path: Optional[str] = None):
     import os
     from pathlib import Path
     from shutil import copytree
 
     from colorama import Fore, Style
 
+    # Validate project name
     if not is_valid_name(repo_name):
         raise BadParameter(
             message="Name should be alphanumeric values, underscores, and hyphens but not start with an underscore or hyphen",
             param_hint="PROJECT_DIRECTORY",
         )
-    repo_path = Path(os.path.join(Path.cwd(), repo_name))
-    repo_path.mkdir(exist_ok=True)
-    repo_config_path = repo_path / "feature_store.yaml"
+
+    # Determine where to create the repository
+    if repo_path:
+        # User specified a custom path
+        target_path = Path(repo_path).resolve()
+        target_path.mkdir(parents=True, exist_ok=True)
+        display_path = repo_path
+    else:
+        # Default behavior: create subdirectory with project name
+        target_path = Path(os.path.join(Path.cwd(), repo_name))
+        target_path.mkdir(exist_ok=True)
+        display_path = repo_name
+
+    repo_config_path = target_path / "feature_store.yaml"
 
     if repo_config_path.exists():
-        new_directory = os.path.relpath(repo_path, os.getcwd())
-
         print(
-            f"The directory {Style.BRIGHT + Fore.GREEN}{new_directory}{Style.RESET_ALL} contains an existing feature "
+            f"The directory {Style.BRIGHT + Fore.GREEN}{display_path}{Style.RESET_ALL} contains an existing feature "
             f"store repository that may cause a conflict"
         )
         print()
@@ -466,14 +528,14 @@ def init_repo(repo_name: str, template: str):
     template_path = str(Path(Path(__file__).parent / "templates" / template).absolute())
     if not os.path.exists(template_path):
         raise IOError(f"Could not find template {template}")
-    copytree(template_path, str(repo_path), dirs_exist_ok=True)
+    copytree(template_path, str(target_path), dirs_exist_ok=True)
 
     # Rename gitignore files back to .gitignore
-    for gitignore_path in repo_path.rglob("gitignore"):
+    for gitignore_path in target_path.rglob("gitignore"):
         gitignore_path.rename(gitignore_path.with_name(".gitignore"))
 
     # Seed the repository
-    bootstrap_path = repo_path / "bootstrap.py"
+    bootstrap_path = target_path / "bootstrap.py"
     if os.path.exists(bootstrap_path):
         import importlib.util
 
@@ -486,7 +548,7 @@ def init_repo(repo_name: str, template: str):
         os.remove(bootstrap_path)
 
     # Template the feature_store.yaml file
-    feature_store_yaml_path = repo_path / "feature_repo" / "feature_store.yaml"
+    feature_store_yaml_path = target_path / "feature_repo" / "feature_store.yaml"
     replace_str_in_file(
         feature_store_yaml_path, "project: my_project", f"project: {repo_name}"
     )
@@ -494,13 +556,13 @@ def init_repo(repo_name: str, template: str):
     # Remove the __pycache__ folder if it exists
     import shutil
 
-    shutil.rmtree(repo_path / "__pycache__", ignore_errors=True)
+    shutil.rmtree(target_path / "__pycache__", ignore_errors=True)
 
     import click
 
     click.echo()
     click.echo(
-        f"Creating a new Feast repository in {Style.BRIGHT + Fore.GREEN}{repo_path}{Style.RESET_ALL}."
+        f"Creating a new Feast repository in {Style.BRIGHT + Fore.GREEN}{target_path}{Style.RESET_ALL}."
     )
     click.echo()
 

@@ -12,35 +12,27 @@ import os
 import pickle
 import sqlite3
 import tarfile
-import zipfile
-from collections.abc import Generator, Mapping, Sequence
+import typing
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Literal,
-    Optional,
-    Union,
-    cast,
-    overload,
-)
-
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, overload
 
 from . import utils
-from .constants import JSON, BytesOpener, Provider
+from .constants import JSON, Provider
 from .utils import (
     base_from_gzip_name,
     download_from_google,
     download_from_s3,
     get_base,
+    get_mode_pair,
     gunzip,
     mkdir,
     name_from_s3_key,
     name_from_url,
+    open_tarfile,
+    open_zipfile,
     path_to_sqlite,
     read_rdf,
     read_tarfile_csv,
@@ -66,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 #: A type hint for something that can be passed to the
 #: `version` argument of Module.join, Module.ensure, etc.
-VersionHint: TypeAlias = Union[None, str, Callable[[], Optional[str]]]
+VersionHint: TypeAlias = None | str | Callable[[], str | None]
 
 
 class Module:
@@ -274,11 +266,15 @@ class Module:
             :func:`pystow.utils.download`.
         :param mode: The read mode, passed to :func:`open`
         :param open_kwargs: Additional keyword arguments passed to :func:`open`
-        :param beautiful_soup_kwargs: Additional keyword arguments passed to :class:`BeautifulSoup`
+        :param beautiful_soup_kwargs: Additional keyword arguments passed to
+            :class:`BeautifulSoup`
 
         :returns: An BeautifulSoup object
 
-        .. note:: If you don't need to cache, consider using :func:`pystow.utils.get_soup` instead.
+        .. note::
+
+            If you don't need to cache, consider using :func:`pystow.utils.get_soup`
+            instead.
         """
         from bs4 import BeautifulSoup
 
@@ -688,6 +684,36 @@ class Module:
         with lzma.open(path, **open_kwargs) as file:
             yield file
 
+    # docstr-coverage:excused `overload`
+    @overload
+    @contextmanager
+    def ensure_open_tarfile(
+        self,
+        *subkeys: str,
+        url: str,
+        inner_path: str,
+        name: str | None = ...,
+        force: bool = ...,
+        download_kwargs: Mapping[str, Any] | None = ...,
+        mode: Literal["rt"] = ...,
+        open_kwargs: Mapping[str, Any] | None = ...,
+    ) -> Generator[typing.TextIO, None, None]: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    @contextmanager
+    def ensure_open_tarfile(
+        self,
+        *subkeys: str,
+        url: str,
+        inner_path: str,
+        name: str | None = ...,
+        force: bool = ...,
+        download_kwargs: Mapping[str, Any] | None = ...,
+        mode: Literal["r", "rb"] = ...,
+        open_kwargs: Mapping[str, Any] | None = ...,
+    ) -> Generator[typing.IO[bytes], None, None]: ...
+
     @contextmanager
     def ensure_open_tarfile(
         self,
@@ -697,9 +723,9 @@ class Module:
         name: str | None = None,
         force: bool = False,
         download_kwargs: Mapping[str, Any] | None = None,
-        mode: str = "r",
+        mode: Literal["r", "rb", "rt"] = "r",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> BytesOpener:
+    ) -> Generator[typing.TextIO, None, None] | Generator[typing.IO[bytes], None, None]:
         """Ensure a tar file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -722,9 +748,46 @@ class Module:
         )
         open_kwargs = {} if open_kwargs is None else dict(open_kwargs)
         open_kwargs.setdefault("mode", mode)
-        with tarfile.open(path, **open_kwargs) as tar_file:
-            with tar_file.extractfile(inner_path) as file:  # type:ignore
-                yield file
+        operation, representation = get_mode_pair(open_kwargs.pop("mode"), interpretation="binary")
+
+        with open_tarfile(
+            path=path,
+            inner_path=inner_path,
+            operation=operation,
+            representation=representation,
+            open_kwargs=open_kwargs,
+        ) as file:
+            yield file
+
+    # docstr-coverage:excused `overload`
+    @overload
+    @contextmanager
+    def ensure_open_zip(
+        self,
+        *subkeys: str,
+        url: str,
+        inner_path: str,
+        name: str | None = ...,
+        force: bool = ...,
+        download_kwargs: Mapping[str, Any] | None = ...,
+        mode: Literal["r", "rb"] = ...,
+        open_kwargs: Mapping[str, Any] | None = ...,
+    ) -> Generator[typing.BinaryIO, None, None]: ...
+
+    # docstr-coverage:excused `overload`
+    @overload
+    @contextmanager
+    def ensure_open_zip(
+        self,
+        *subkeys: str,
+        url: str,
+        inner_path: str,
+        name: str | None = ...,
+        force: bool = ...,
+        download_kwargs: Mapping[str, Any] | None = ...,
+        mode: Literal["rt"] = ...,
+        open_kwargs: Mapping[str, Any] | None = ...,
+    ) -> Generator[typing.TextIO, None, None]: ...
 
     @contextmanager
     def ensure_open_zip(
@@ -735,9 +798,10 @@ class Module:
         name: str | None = None,
         force: bool = False,
         download_kwargs: Mapping[str, Any] | None = None,
-        mode: str = "r",
+        mode: Literal["r", "rb", "rt"] = "r",
+        zipfile_kwargs: Mapping[str, Any] | None = None,
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> BytesOpener:
+    ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
         """Ensure a file is downloaded then open it with :mod:`zipfile`.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -750,7 +814,9 @@ class Module:
             exists? Defaults to false.
         :param download_kwargs: Keyword arguments to pass through to
             :func:`pystow.utils.download`.
-        :param mode: The read mode, passed to :func:`zipfile.open`
+        :param mode: The read mode, passed to :func:`zipfile.open`. Defaults to bytes mode
+            for ``r`` and ``w``.
+        :param zipfile_kwargs: Additional keyword arguments passed to :class:`zipfile.ZipFile`
         :param open_kwargs: Additional keyword arguments passed to :func:`zipfile.open`
 
         :yields: An open file object
@@ -758,11 +824,20 @@ class Module:
         path = self.ensure(
             *subkeys, url=url, name=name, force=force, download_kwargs=download_kwargs
         )
+
         open_kwargs = {} if open_kwargs is None else dict(open_kwargs)
         open_kwargs.setdefault("mode", mode)
-        with zipfile.ZipFile(file=path) as zip_file:
-            with zip_file.open(inner_path) as file:
-                yield file
+        operation, representation = get_mode_pair(open_kwargs.pop("mode"), interpretation="binary")
+
+        with open_zipfile(
+            path=path,
+            inner_path=inner_path,
+            operation=operation,
+            representation=representation,
+            zipfile_kwargs=zipfile_kwargs,
+            open_kwargs=open_kwargs,
+        ) as file:
+            yield file
 
     # docstr-coverage:excused `overload`
     @overload
@@ -1018,6 +1093,68 @@ class Module:
             open_kwargs=open_kwargs,
         ) as file:
             return json.load(file, **(json_load_kwargs or {}))
+
+    def ensure_yaml(
+        self,
+        *subkeys: str,
+        url: str,
+        name: str | None = None,
+        force: bool = False,
+        download_kwargs: Mapping[str, Any] | None = None,
+        open_kwargs: Mapping[str, Any] | None = None,
+        yaml_load_kwargs: Mapping[str, Any] | None = None,
+    ) -> JSON:
+        """Download YAML and open with :mod:`yaml`.
+
+        :param subkeys: A sequence of additional strings to join. If none are given,
+            returns the directory for this module.
+        :param url: The URL to download.
+        :param name: Overrides the name of the file at the end of the URL, if given.
+            Also useful for URLs that don't have proper filenames with extensions.
+        :param force: Should the download be done again, even if the path already
+            exists? Defaults to false.
+        :param download_kwargs: Keyword arguments to pass through to
+            :func:`pystow.utils.download`.
+        :param open_kwargs: Additional keyword arguments passed to :func:`open`
+        :param yaml_load_kwargs: Keyword arguments to pass through to :func:`yaml.safe_load`.
+
+        :returns: A JSON object (list, dict, etc.)
+        """
+        import yaml
+
+        with self.ensure_open(
+            *subkeys,
+            url=url,
+            name=name,
+            force=force,
+            download_kwargs=download_kwargs,
+            open_kwargs=open_kwargs,
+        ) as file:
+            return yaml.safe_load(file, **(yaml_load_kwargs or {}))
+
+    def load_yaml(
+        self,
+        *subkeys: str,
+        name: str,
+        open_kwargs: Mapping[str, Any] | None = None,
+        yaml_load_kwargs: Mapping[str, Any] | None = None,
+    ) -> JSON:
+        """Open a JSON file :mod:`json`.
+
+        :param subkeys: A sequence of additional strings to join. If none are given,
+            returns the directory for this module.
+        :param name: The name of the file to open
+        :param open_kwargs: Additional keyword arguments passed to :func:`open`
+        :param yaml_load_kwargs: Keyword arguments to pass through to :func:`yaml.safe_load`.
+
+        :returns: A JSON object (list, dict, etc.)
+        """
+        import yaml
+
+        with self.open(
+            *subkeys, name=name, mode="r", open_kwargs=open_kwargs, ensure_exists=False
+        ) as file:
+            return yaml.safe_load(file, **(yaml_load_kwargs or {}))
 
     def load_json(
         self,

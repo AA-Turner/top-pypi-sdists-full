@@ -3,7 +3,7 @@ Type annotations for forecast service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_forecast/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -152,12 +153,6 @@ from .type_defs import (
     UpdateDatasetGroupRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -166,13 +161,13 @@ else:
 __all__ = ("ForecastServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class ForecastServiceClient(BaseClient):
     """
@@ -860,7 +855,7 @@ class ForecastServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_forecast/client/#stop_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
         <code>resourceArn</code>.
@@ -869,7 +864,7 @@ class ForecastServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_forecast/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified tags from a resource.
 
@@ -879,7 +874,7 @@ class ForecastServiceClient(BaseClient):
 
     def update_dataset_group(
         self, **kwargs: Unpack[UpdateDatasetGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Replaces the datasets in a dataset group with the specified datasets.
 

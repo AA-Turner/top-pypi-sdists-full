@@ -16,7 +16,7 @@ from typing import Any, Dict, Iterator, Text
 import pytest
 
 import testing
-from pex import targets, toml
+from pex import toml
 from pex.atomic_directory import atomic_directory
 from pex.common import CopyMode, iter_copytree, safe_copy
 from pex.compatibility import string
@@ -321,7 +321,8 @@ def iter_expected_devpi_server_deps(interpreter):
 
 
 @pytest.mark.skipif(
-    sys.version_info[:2] < (3, 10), reason="The lock under test requires Python >= 3.10."
+    sys.version_info[:2] < (3, 10) or sys.version_info[:2] >= (3, 14),
+    reason="The lock under test requires Python >=3.10,<3.14.",
 )
 def test_universal_export_interop(
     tmpdir,  # type: Tempdir
@@ -348,8 +349,7 @@ def test_universal_export_interop(
 
     assert_valid_toml(result.output)
 
-    interpreter = PythonInterpreter.get() if sys.version_info[:2] < (3, 14) else py310
-
+    interpreter = PythonInterpreter.get()
     venv_dir = tmpdir.join("venv")
     venv = Virtualenv.create(venv_dir=venv_dir, interpreter=interpreter)
     assert [] == list(venv.iter_distributions())
@@ -392,10 +392,10 @@ def test_lock_all_package_types(
                 # Stress extras handling, sdists and wheels.
                 requests[socks]
                 
-                # Stress archive handling.
+                # Stress VCS handling.
                 PySocks @ git+https://github.com/Anorov/PySocks@1.7.0
                 
-                # Stress VCS handling.
+                # Stress archive handling.
                 cowsay @ https://github.com/VaasuDevanS/cowsay-python/archive/dcf7236f0b5ece9ed56e91271486e560526049cf.zip
                 """.format(
                     pex_project_dir=pex_project_dir
@@ -675,10 +675,30 @@ def pdm_exported_pylock_toml(shared_integration_test_tmpdir):
                     )
                 )
 
+            with open(os.path.join(chroot.work_dir, "constraints.txt"), "w") as fp:
+                fp.write(
+                    dedent(
+                        """\
+                        # hishel 1.0.0 breaks pdm as of 10/28/2025.
+                        hishel<1
+                        """
+                    )
+                )
+
             def run_pdm(*args):
                 # type: (*str) -> None
                 subprocess.check_call(
-                    args=["uv", "tool", "run", "--from", "pdm>=2.24.2", "pdm"] + list(args),
+                    args=[
+                        "uv",
+                        "tool",
+                        "run",
+                        "--from",
+                        "pdm>=2.24.2",
+                        "--constraints",
+                        "constraints.txt",
+                        "pdm",
+                    ]
+                    + list(args),
                     cwd=chroot.work_dir,
                     env=make_env(PDM_USE_VENV="False"),
                 )
@@ -706,7 +726,7 @@ def assert_pdm_less_than_39_failure(
                     "support the current target.\n"
                     "The supported environments are:\n"
                     '+ python_version >= "3.9"\n'.format(
-                        pylock=pdm_exported_pylock_toml, target=targets.current()
+                        pylock=pdm_exported_pylock_toml, target=result.target
                     )
                 )
             )

@@ -12,14 +12,29 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class SocialAccountType(TypedDict):
-    """Social account
+class CommitActivityType(TypedDict):
+    """Commit Activity
 
-    Social media account
+    Commit Activity
     """
 
-    provider: str
-    url: str
+    days: list[int]
+    total: int
+    week: int
 
 
-__all__ = ("SocialAccountType",)
+class CommitActivityTypeForResponse(TypedDict):
+    """Commit Activity
+
+    Commit Activity
+    """
+
+    days: list[int]
+    total: int
+    week: int
+
+
+__all__ = (
+    "CommitActivityType",
+    "CommitActivityTypeForResponse",
+)

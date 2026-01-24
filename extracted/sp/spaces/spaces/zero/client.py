@@ -1,7 +1,5 @@
 """
 """
-from __future__ import annotations
-
 import os
 import time
 import warnings
@@ -46,15 +44,13 @@ def api_client():
     return APIClient(httpx_client)
 
 
-def startup_report(cgroup_path: str, gpu_size: GPUSize):
+def startup_report():
     retries, max_retries = 0, 2
     client = api_client()
-    while (status := client.startup_report(cgroup_path, gpu_size)) is httpx.codes.NOT_FOUND: # pragma: no cover
+    while (status := client.startup_report()) is httpx.codes.NOT_FOUND: # pragma: no cover
         time.sleep(1)
         if (retries := retries + 1) > max_retries:
             raise RuntimeError("Error while initializing ZeroGPU: NotFound")
-    if status is httpx.codes.CONFLICT: # pragma: no cover (quickfix: should be fixed at device-api level)
-        return
     if status is not httpx.codes.OK: # pragma: no cover
         raise RuntimeError("Error while initializing ZeroGPU: Unknown")
 
@@ -100,6 +96,7 @@ def schedule(
     task_id: int,
     request: gr.Request | None = None,
     duration: timedelta | None = None,
+    gpu_size: GPUSize | None = None,
     _first_attempt: bool = True,
 ) -> ScheduleResponse:
 
@@ -109,7 +106,8 @@ def schedule(
     GRADIO_HTML_TOASTS = gradio_version >= version.Version('4.39')
     GRADIO_HANDSHAKE = gradio_version >= version.Version('5.16.1')
 
-    token, payload = _get_token_and_payload(request)
+    headers = _get_headers(request)
+    token, payload = _get_token_and_payload(headers)
     if token is not None and (token_error := payload.get('error')):
         message = f"Falling back to IP-based quotas ({token_error})"
         info("ZeroGPU client warning", message, level='warning')
@@ -120,6 +118,7 @@ def schedule(
         token=token,
         token_version=2 if GRADIO_HANDSHAKE else 1,
         duration_seconds=duration.seconds if duration is not None else None,
+        gpu_size=gpu_size,
     )
 
     auth = meta.auth
@@ -166,7 +165,8 @@ def schedule(
                     )
                 else:
                     message_mcp = message_gui
-                message = html_string(message_gui, message_mcp)
+                mcp_user = headers.get('x-gradio-user') == 'mcp'
+                message = message_mcp if mcp_user else html_string(message_gui, message_mcp)
             raise error("ZeroGPU quota exceeded", message, html=True)
 
     if not isinstance(res, httpx.codes): # pragma: no cover
@@ -266,10 +266,10 @@ def release(
     raise RuntimeError(f"ZeroGPU API /release error: {res} ({httpx.codes.get_reason_phrase(res)})") # pragma: no cover
 
 
-def _get_token(request: gr.Request | None) -> str | None:
+def _get_headers(request: gr.Request | None) -> dict[str, str]:
 
     if request is None:
-        return None
+        return {}
 
     headers = getattr(request, 'headers', None)
     if headers is None or not hasattr(headers, '__dict__'):
@@ -279,11 +279,11 @@ def _get_token(request: gr.Request | None) -> str | None:
     if not hasattr(headers, 'get'):
         headers = headers.__dict__ # pragma: no cover
 
-    return headers.get(TOKEN_HEADER.lower())
+    return headers
 
 
-def _get_token_and_payload(request: gr.Request | None) -> tuple[str | None, dict[str, Any]]:
-    if (token := _get_token(request)) is None:
+def _get_token_and_payload(headers: dict[str, str]) -> tuple[str | None, dict[str, Any]]:
+    if (token := headers.get(TOKEN_HEADER.lower())) is None:
         return None, {}
     try:
         payload = utils.jwt_payload(token)

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from aiven.client.speller import suggest
-from typing import Container
+from collections.abc import Container
 
 import pytest
 
@@ -15,7 +15,6 @@ SERVICE_TYPES = [
     "cassandra",
     "elasticsearch",
     "grafana",
-    "influxdb",
     "kafka",
     "kafka_connect",
     "kafka_mirrormaker",
@@ -24,7 +23,7 @@ SERVICE_TYPES = [
     "m3aggregator",
     "mysql",
     "pg",
-    "redis",
+    "valkey",
     "sw",
     "flink",
 ]

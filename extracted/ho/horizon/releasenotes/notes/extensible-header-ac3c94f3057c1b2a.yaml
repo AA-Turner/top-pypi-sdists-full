@@ -1,5 +1,0 @@
----
-features:
-  - >
-    [`blueprint extensible-header <https://blueprints.launchpad.net/horizon/+spec/extensible-header>`_]
-    Added a feature to insert custom headers into horizon's topbar.

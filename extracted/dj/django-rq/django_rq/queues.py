@@ -1,16 +1,19 @@
 import warnings
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any, Callable, Optional, Union
 
-import redis
-from redis.sentinel import Sentinel
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from redis import Redis
 from rq.job import Job
 from rq.queue import Queue
 from rq.utils import import_attribute
 
-from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
-
 from . import thread_queue
+from .connection_utils import (
+    filter_connection_params,
+    get_connection,
+    get_redis_connection,
+)
 from .jobs import get_job_class
 
 
@@ -60,15 +63,13 @@ class DjangoRQ(Queue):
         autocommit = kwargs.pop('autocommit', None)
         self._autocommit = get_commit_mode() if autocommit is None else autocommit
 
-        super(DjangoRQ, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def original_enqueue_call(self, *args, **kwargs):
-        from .settings import QUEUES
-
         queue_name = kwargs.get('queue_name') or self.name
         kwargs['result_ttl'] = kwargs.get('result_ttl', get_result_ttl(queue_name))
 
-        return super(DjangoRQ, self).enqueue_call(*args, **kwargs)
+        return super().enqueue_call(*args, **kwargs)
 
     def enqueue_call(self, *args, **kwargs):
         if self._autocommit:
@@ -77,94 +78,14 @@ class DjangoRQ(Queue):
             thread_queue.add(self, args, kwargs)
 
 
-def get_redis_connection(config, use_strict_redis=False):
-    """
-    Returns a redis connection from a connection config
-    """
-    redis_cls = redis.StrictRedis if use_strict_redis else redis.Redis
-
-    if 'URL' in config:
-        if config.get('SSL') or config.get('URL').startswith('rediss://'):
-            return redis_cls.from_url(
-                config['URL'],
-                db=config.get('DB'),
-                ssl_cert_reqs=config.get('SSL_CERT_REQS', 'required'),
-            )
-        else:
-            return redis_cls.from_url(
-                config['URL'],
-                db=config.get('DB'),
-            )
-
-    if 'USE_REDIS_CACHE' in config.keys():
-        try:
-            # Assume that we're using django-redis
-            from django_redis import get_redis_connection as get_redis
-
-            return get_redis(config['USE_REDIS_CACHE'])
-        except ImportError:
-            pass
-
-        from django.core.cache import caches
-
-        cache = caches[config['USE_REDIS_CACHE']]
-        # We're using django-redis-cache
-        try:
-            return cache._client  # type: ignore[attr-defined]
-        except AttributeError:
-            # For django-redis-cache > 0.13.1
-            return cache.get_master_client()  # type: ignore[attr-defined]
-
-    if 'UNIX_SOCKET_PATH' in config:
-        return redis_cls(unix_socket_path=config['UNIX_SOCKET_PATH'], db=config['DB'])
-
-    if 'SENTINELS' in config:
-        connection_kwargs = {
-            'db': config.get('DB'),
-            'password': config.get('PASSWORD'),
-            'username': config.get('USERNAME'),
-            'socket_timeout': config.get('SOCKET_TIMEOUT'),
-        }
-        connection_kwargs.update(config.get('CONNECTION_KWARGS', {}))
-        sentinel_kwargs = config.get('SENTINEL_KWARGS', {})
-        sentinel = Sentinel(config['SENTINELS'], sentinel_kwargs=sentinel_kwargs, **connection_kwargs)
-        return sentinel.master_for(
-            service_name=config['MASTER_NAME'],
-            redis_class=redis_cls,
-        )
-
-    return redis_cls(
-        host=config['HOST'],
-        port=config['PORT'],
-        db=config.get('DB', 0),
-        username=config.get('USERNAME', None),
-        password=config.get('PASSWORD'),
-        ssl=config.get('SSL', False),
-        ssl_cert_reqs=config.get('SSL_CERT_REQS', 'required'),
-        **config.get('REDIS_CLIENT_KWARGS', {})
-    )
-
-
-def get_connection(
-    name: str = 'default',
-    use_strict_redis: bool = False,
-) -> redis.Redis:
-    """
-    Returns a Redis connection to use based on parameters in settings.RQ_QUEUES
-    """
-    from .settings import QUEUES
-
-    return get_redis_connection(QUEUES[name], use_strict_redis)
-
-
 def get_queue(
     name: str = 'default',
     default_timeout: Optional[int] = None,
     is_async: Optional[bool] = None,
     autocommit: Optional[bool] = None,
-    connection: Optional[redis.Redis] = None,
-    queue_class: Optional[Union[str, Type[DjangoRQ]]] = None,
-    job_class: Optional[Union[str, Type[Job]]] = None,
+    connection: Optional[Redis] = None,
+    queue_class: Optional[Union[str, type[DjangoRQ]]] = None,
+    job_class: Optional[Union[str, type[Job]]] = None,
     serializer: Any = None,
     **kwargs: Any,
 ) -> DjangoRQ:
@@ -198,7 +119,7 @@ def get_queue(
         job_class=job_class,
         autocommit=autocommit,
         serializer=serializer,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -213,8 +134,9 @@ def get_queue_by_index(index):
         config['name'],
         connection=get_redis_connection(config['connection_config']),
         is_async=config.get('ASYNC', True),
-        serializer=config['connection_config'].get('SERIALIZER')
+        serializer=config['connection_config'].get('SERIALIZER'),
     )
+
 
 def get_scheduler_by_index(index):
     """
@@ -224,30 +146,6 @@ def get_scheduler_by_index(index):
 
     config = QUEUES_LIST[int(index)]
     return get_scheduler(config['name'])
-
-
-def filter_connection_params(queue_params):
-    """
-    Filters the queue params to keep only the connection related params.
-    """
-    CONNECTION_PARAMS = (
-        'URL',
-        'DB',
-        'USE_REDIS_CACHE',
-        'UNIX_SOCKET_PATH',
-        'HOST',
-        'PORT',
-        'PASSWORD',
-        'SENTINELS',
-        'MASTER_NAME',
-        'SOCKET_TIMEOUT',
-        'SSL',
-        'CONNECTION_KWARGS',
-    )
-
-    # return {p:v for p,v in queue_params.items() if p in CONNECTION_PARAMS}
-    # Dict comprehension compatible with python 2.6
-    return dict((p, v) for (p, v) in queue_params.items() if p in CONNECTION_PARAMS)
 
 
 def get_queues(*queue_names, **kwargs):
@@ -274,16 +172,10 @@ def get_queues(*queue_names, **kwargs):
     for name in queue_names[1:]:
         queue = get_queue(name, **kwargs)
         if type(queue) is not type(queues[0]):
-            raise ValueError(
-                'Queues must have the same class.'
-                '"{0}" and "{1}" have '
-                'different classes'.format(name, queue_names[0])
-            )
+            raise ValueError(f'Queues must have the same class."{name}" and "{queue_names[0]}" have different classes')
         if connection_params != filter_connection_params(QUEUES[name]):
             raise ValueError(
-                'Queues must have the same redis connection.'
-                '"{0}" and "{1}" have '
-                'different connections'.format(name, queue_names[0])
+                f'Queues must have the same redis connection."{name}" and "{queue_names[0]}" have different connections'
             )
         queues.append(queue)
 
@@ -298,23 +190,6 @@ def enqueue(func: Callable, *args, **kwargs) -> Job:
     enqueue(func, *args, **kwargs)
     """
     return get_queue().enqueue(func, *args, **kwargs)
-
-
-def get_unique_connection_configs(config=None):
-    """
-    Returns a list of unique Redis connections from config
-    """
-    if config is None:
-        from .settings import QUEUES
-
-        config = QUEUES
-
-    connection_configs = []
-    for key, value in config.items():
-        value = filter_connection_params(value)
-        if value not in connection_configs:
-            connection_configs.append(value)
-    return connection_configs
 
 
 def get_result_ttl(name: str = 'default'):
@@ -351,13 +226,13 @@ try:
             if kwargs.get('result_ttl') is None:
                 kwargs['result_ttl'] = getattr(settings, 'RQ', {}).get('DEFAULT_RESULT_TTL')
 
-            return super(DjangoScheduler, self)._create_job(*args, **kwargs)
+            return super()._create_job(*args, **kwargs)
 
     def get_scheduler(
         name: str = 'default',
         queue: Optional[DjangoRQ] = None,
         interval: int = 60,
-        connection: Optional[redis.Redis] = None,
+        connection: Optional[Redis] = None,
     ) -> DjangoScheduler:
         """
         Returns an RQ Scheduler instance using parameters defined in

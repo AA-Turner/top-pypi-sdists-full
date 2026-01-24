@@ -27,6 +27,7 @@ from .artifact import (
     GetMavenArtifactRequest,
     GetNpmPackageRequest,
     GetPythonPackageRequest,
+    ImageManifest,
     ListDockerImagesRequest,
     ListDockerImagesResponse,
     ListMavenArtifactsRequest,
@@ -46,6 +47,11 @@ from .attachment import (
     GetAttachmentRequest,
     ListAttachmentsRequest,
     ListAttachmentsResponse,
+)
+from .export import (
+    ExportArtifactMetadata,
+    ExportArtifactRequest,
+    ExportArtifactResponse,
 )
 from .file import (
     DeleteFileRequest,
@@ -139,6 +145,7 @@ __all__ = (
     "GetMavenArtifactRequest",
     "GetNpmPackageRequest",
     "GetPythonPackageRequest",
+    "ImageManifest",
     "ListDockerImagesRequest",
     "ListDockerImagesResponse",
     "ListMavenArtifactsRequest",
@@ -156,6 +163,9 @@ __all__ = (
     "GetAttachmentRequest",
     "ListAttachmentsRequest",
     "ListAttachmentsResponse",
+    "ExportArtifactMetadata",
+    "ExportArtifactRequest",
+    "ExportArtifactResponse",
     "DeleteFileRequest",
     "File",
     "GetFileRequest",

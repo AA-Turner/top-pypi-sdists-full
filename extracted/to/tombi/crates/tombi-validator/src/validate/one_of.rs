@@ -4,9 +4,13 @@ use tombi_comment_directive::value::CommonLintRules;
 use tombi_document_tree::ValueImpl;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::{CurrentSchema, OneOfSchema, ValueSchema};
+use tombi_severity_level::SeverityLevelDefaultError;
 
 use super::Validate;
-use crate::validate::{all_of::validate_all_of, any_of::validate_any_of, type_mismatch};
+use crate::validate::{
+    all_of::validate_all_of, any_of::validate_any_of, handle_deprecated, handle_type_mismatch,
+    not_schema::validate_not,
+};
 
 pub fn validate_one_of<'a: 'b, 'b, T>(
     value: &'a T,
@@ -14,16 +18,30 @@ pub fn validate_one_of<'a: 'b, 'b, T>(
     one_of_schema: &'a OneOfSchema,
     current_schema: &'a CurrentSchema<'a>,
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+    comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
     common_rules: Option<&'a CommonLintRules>,
-) -> BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>>
+) -> BoxFuture<'b, Result<(), crate::Error>>
 where
     T: Validate + ValueImpl + Sync + Send + Debug,
 {
     async move {
+        if let Some(not_schema) = one_of_schema.not.as_ref() {
+            validate_not(
+                value,
+                accessors,
+                not_schema,
+                current_schema,
+                schema_context,
+                comment_directives,
+                common_rules,
+            )
+            .await?;
+        }
+
         let mut valid_count = 0;
 
         let mut schemas = one_of_schema.schemas.write().await;
-        let mut each_diagnostics = Vec::with_capacity(schemas.len());
+        let mut each_results = Vec::with_capacity(schemas.len());
         for referable_schema in schemas.iter_mut() {
             let current_schema = if let Ok(Some(current_schema)) = referable_schema
                 .resolve(
@@ -39,7 +57,7 @@ where
                 continue;
             };
 
-            let diagnostics = match (value.value_type(), current_schema.value_schema.as_ref()) {
+            let result = match (value.value_type(), current_schema.value_schema.as_ref()) {
                 (tombi_document_tree::ValueType::Boolean, ValueSchema::Boolean(_))
                 | (
                     tombi_document_tree::ValueType::Integer,
@@ -56,13 +74,9 @@ where
                 | (tombi_document_tree::ValueType::LocalTime, ValueSchema::LocalTime(_))
                 | (tombi_document_tree::ValueType::Table, ValueSchema::Table(_))
                 | (tombi_document_tree::ValueType::Array, ValueSchema::Array(_)) => {
-                    match value
+                    value
                         .validate(accessors, Some(&current_schema), schema_context)
                         .await
-                    {
-                        Ok(()) => Vec::with_capacity(0),
-                        Err(diagnostics) => diagnostics,
-                    }
                 }
                 (_, ValueSchema::Null) => {
                     continue;
@@ -76,91 +90,139 @@ where
                 | (_, ValueSchema::LocalDate(_))
                 | (_, ValueSchema::LocalTime(_))
                 | (_, ValueSchema::Table(_))
-                | (_, ValueSchema::Array(_)) => match type_mismatch(
+                | (_, ValueSchema::Array(_)) => handle_type_mismatch(
                     current_schema.value_schema.value_type().await,
                     value.value_type(),
                     value.range(),
                     common_rules,
-                ) {
-                    Ok(()) => continue,
-                    Err(diagnostics) => diagnostics,
-                },
+                ),
                 (_, ValueSchema::OneOf(one_of_schema)) => {
-                    match validate_one_of(
+                    validate_one_of(
                         value,
                         accessors,
                         one_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
-                    {
-                        Ok(()) => Vec::with_capacity(0),
-                        Err(diagnostics) => diagnostics,
-                    }
                 }
                 (_, ValueSchema::AnyOf(any_of_schema)) => {
-                    match validate_any_of(
+                    validate_any_of(
                         value,
                         accessors,
                         any_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
-                    {
-                        Ok(()) => Vec::with_capacity(0),
-                        Err(diagnostics) => diagnostics,
-                    }
                 }
                 (_, ValueSchema::AllOf(all_of_schema)) => {
-                    match validate_all_of(
+                    validate_all_of(
                         value,
                         accessors,
                         all_of_schema,
                         &current_schema,
                         schema_context,
+                        comment_directives,
                         common_rules,
                     )
                     .await
-                    {
-                        Ok(()) => Vec::with_capacity(0),
-                        Err(diagnostics) => diagnostics,
-                    }
                 }
             };
 
-            if diagnostics
-                .iter()
-                .filter(|d| d.level() == tombi_diagnostic::Level::ERROR)
-                .count()
-                == 0
-            {
-                valid_count += 1;
+            match &result {
+                Ok(()) => {
+                    valid_count += 1;
+                }
+                Err(error) => {
+                    if error
+                        .diagnostics
+                        .iter()
+                        .filter(|d| d.level() == tombi_diagnostic::Level::ERROR)
+                        .count()
+                        == 0
+                    {
+                        valid_count += 1;
+                    }
+                }
             }
 
-            each_diagnostics.push(diagnostics);
+            each_results.push(result);
         }
 
         if valid_count == 1 {
-            for diagnostics in each_diagnostics {
-                if diagnostics.is_empty() {
-                    return Ok(());
-                } else if diagnostics
-                    .iter()
-                    .filter(|diagnostic| diagnostic.level() == tombi_diagnostic::Level::ERROR)
-                    .count()
-                    == 0
-                {
-                    return Err(diagnostics);
+            for result in each_results {
+                match result {
+                    Ok(()) => return Ok(()),
+                    Err(error) => {
+                        if error
+                            .diagnostics
+                            .iter()
+                            .filter(|d| d.level() == tombi_diagnostic::Level::ERROR)
+                            .count()
+                            == 0
+                        {
+                            return Err(error);
+                        }
+                    }
                 }
             }
 
             unreachable!("one_of_schema must have exactly one valid schema");
         } else {
-            Err(each_diagnostics.into_iter().flatten().collect())
+            let mut error = each_results
+                .into_iter()
+                .fold(crate::Error::new(), |mut a, b| {
+                    if let Err(error) = b {
+                        a.combine(error);
+                    }
+                    a
+                });
+
+            if error.diagnostics.is_empty() {
+                handle_deprecated(
+                    &mut error.diagnostics,
+                    one_of_schema.deprecated,
+                    accessors,
+                    value,
+                    comment_directives,
+                    common_rules,
+                );
+            }
+
+            if error
+                .diagnostics
+                .iter()
+                .filter(|d| d.level() == tombi_diagnostic::Level::ERROR)
+                .count()
+                == 0
+                && valid_count > 1
+            {
+                let mut diagnostics = vec![];
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::OneOfMultipleMatch {
+                        valid_count,
+                        total_count: schemas.len(),
+                    }),
+                    range: value.range(),
+                }
+                .push_diagnostic_with_level(
+                    common_rules
+                        .and_then(|rules| rules.one_of_multiple_match.as_ref())
+                        .map(SeverityLevelDefaultError::from)
+                        .unwrap_or_default(),
+                    &mut diagnostics,
+                );
+
+                Err(diagnostics.into())
+            } else {
+                Err(error)
+            }
         }
     }
     .boxed()

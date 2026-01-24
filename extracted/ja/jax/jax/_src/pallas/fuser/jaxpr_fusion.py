@@ -21,6 +21,7 @@ import jax
 from jax._src import api_util
 from jax._src import core as jax_core
 from jax._src import linear_util as lu
+from jax._src.traceback_util import api_boundary
 from jax._src import tree_util
 from jax._src.interpreters import partial_eval as pe
 from jax._src.pallas.fuser import fusible_dtype
@@ -28,6 +29,7 @@ from jax._src.pallas.fuser import fusion as fusion_lib
 from jax._src.pallas.fuser.fusible import fusible_p
 
 
+@functools.partial(api_boundary, repro_api_name="fuser.fuse")
 def fuse(f=None, *, resolve_fusion_dtypes: bool = True, debug: bool = False):
   """Fuses a function into a single fusible.
 
@@ -92,13 +94,11 @@ def _construct_fusion_jaxpr(
       c for used, c in zip(used_consts, candidate_values, strict=True) if used
   )
   kernel_in_tree = tree_util.tree_structure((invars, kwargs))
-  flat_in_type = [
-      jax.ShapeDtypeStruct(x.aval.shape, x.aval.dtype) for x in flat_invars
-  ]
+  flat_in_type = [x.aval for x in flat_invars]
   in_type = tree_util.tree_unflatten(kernel_in_tree, flat_in_type)
   out_type = tree_util.tree_unflatten(
       out_tree,
-      [jax.ShapeDtypeStruct(x.aval.shape, x.aval.dtype) for x in flat_outvars],
+      [x.aval for x in flat_outvars],
   )
   return new_jaxpr, new_values, in_type, out_type, out_tree
 
@@ -229,14 +229,8 @@ def _construct_output_fusions(
       return tuple(out_flat)
 
     fn = functools.partial(_fn, jaxpr_out_for_group, values_for_jaxpr)
-    in_type = jax.tree.map(
-        lambda v: jax.ShapeDtypeStruct(v.aval.shape, v.aval.dtype),  # pytype: disable=attribute-error
-        outvars_group,
-    )
-    out_type = tuple(
-        jax.ShapeDtypeStruct(v.aval.shape, v.aval.dtype)  # pytype: disable=attribute-error
-        for v in jaxpr_out_for_group.outvars
-    )
+    in_type = jax.tree.map(lambda x: x.aval, outvars_group)
+    out_type = tuple(v.aval for v in jaxpr_out_for_group.outvars)
     fusion = fusion_lib.Fusion(
         fn,
         (in_type, {}),

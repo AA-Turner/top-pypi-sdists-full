@@ -16,7 +16,7 @@ def get_ids(results):
 
 
 def add_items(r: redis.Redis, stream: str, n: int):
-    id_list = list()
+    id_list = []
     for i in range(n):
         id_list.append(r.xadd(stream, {"k": i}))
     return id_list
@@ -357,6 +357,7 @@ def test_xgroup_create_connection7(r: redis.Redis):
 
 
 @pytest.mark.min_server("7")
+@pytest.mark.max_server("8.2")
 def test_xgroup_setid_redis7(r: redis.Redis):
     stream, group = "stream", "group"
     message_id = r.xadd(stream, {"foo": "bar"})
@@ -637,8 +638,14 @@ def test_xpending_range(r: redis.Redis):
     assert len(response) == 2
     assert response[0]["message_id"] == m1
     assert response[0]["consumer"] == consumer1.encode()
+    assert isinstance(response[0]["time_since_delivered"], int)
+    assert response[0]["time_since_delivered"] >= 0
+    assert response[0]["times_delivered"] == 1
     assert response[1]["message_id"] == m2
     assert response[1]["consumer"] == consumer2.encode()
+    assert isinstance(response[1]["time_since_delivered"], int)
+    assert response[1]["time_since_delivered"] >= 0
+    assert response[1]["times_delivered"] == 1
 
     # test with consumer name
     response = r.xpending_range(stream, group, min="-", max="+", count=5, consumername=consumer1)

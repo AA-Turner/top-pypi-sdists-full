@@ -8,6 +8,8 @@ from .login import login
 from .state import get_api_key, get_endpoint
 from .__version__ import __version__
 from .utils.initialization import ensure_setup, setup
+from .prompts.types import FetchPolicy
+
 
 # Type hints for IntelliSense (only imported for typing)
 from typing import TYPE_CHECKING
@@ -15,7 +17,8 @@ from typing import TYPE_CHECKING
 # Type hints for IntelliSense (only imported for typing)
 if TYPE_CHECKING:
     import langwatch.evaluations as evaluations
-    import langwatch.evaluation as evaluation
+    import langwatch.experiment as experiment
+    import langwatch.evaluation as evaluation  # Deprecated, use experiment
     import langwatch.dataset as dataset
     import langwatch.dspy as dspy
     import langwatch.langchain as langchain
@@ -39,7 +42,8 @@ def _api_key():
 # Lazy loading configuration
 _LAZY_MODULES = {
     "evaluations": "langwatch.evaluations",
-    "evaluation": "langwatch.evaluation",
+    "experiment": "langwatch.experiment",
+    "evaluation": "langwatch.evaluation",  # Deprecated, use experiment
     "dataset": "langwatch.dataset",
     "dspy": "langwatch.dspy",  # Special handling
     "langchain": "langwatch.langchain",  # Special handling
@@ -148,10 +152,11 @@ __all__ = [
     "ensure_setup",
     "get_current_trace",
     "get_current_span",
-    "evaluation",
+    "experiment",
+    "evaluation",  # Deprecated, use experiment
     "dataset",
     "evaluations",
     "langchain",
     "dspy",
-    "prompts",
+    "FetchPolicy",
 ]

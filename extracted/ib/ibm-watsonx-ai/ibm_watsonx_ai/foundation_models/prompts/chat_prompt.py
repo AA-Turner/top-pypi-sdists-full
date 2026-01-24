@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ class ChatPrompt(BasePrompt):
         prompt = ChatPrompt(
             name="My chat prompt",
             model_id="<some model>",
-            system_prompt="system prompt"
+            system_prompt="system prompt",
         )
 
     """

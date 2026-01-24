@@ -17,10 +17,10 @@ def perm_to_permission(perm: str) -> Permission:
     """
     try:
         app_label, codename = perm.split(".", 1)
-    except IndexError:
+    except IndexError as e:
         raise AttributeError(
             "The format of identifier string permission (perm) is wrong. " "It should be in 'app_label.codename'."
-        )
+        ) from e
     else:
         permission = Permission.objects.get(content_type__app_label=app_label, codename=codename)
         return permission

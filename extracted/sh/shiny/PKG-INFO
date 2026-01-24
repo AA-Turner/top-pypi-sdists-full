@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shiny
-Version: 1.5.0
+Version: 1.5.1
 Summary: A web development framework for Python.
 Author-email: Winston Chang <winston@posit.co>
 License: MIT
@@ -12,12 +12,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.10.0
@@ -50,7 +50,7 @@ Requires-Dist: pytest-playwright>=0.5.2; extra == "test"
 Requires-Dist: playwright>=1.48.0; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
-Requires-Dist: pytest-rerunfailures<16; extra == "test"
+Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: syrupy>=4.7.1; extra == "test"
@@ -90,7 +90,7 @@ Requires-Dist: Flake8-pyproject>=1.2.3; extra == "dev"
 Requires-Dist: isort>=5.10.1; extra == "dev"
 Requires-Dist: libsass>=0.23.0; extra == "dev"
 Requires-Dist: brand_yml>=0.1.0; extra == "dev"
-Requires-Dist: pyright==1.1.398; extra == "dev"
+Requires-Dist: pyright>=1.1.407; extra == "dev"
 Requires-Dist: pre-commit>=2.15.0; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
@@ -115,7 +115,7 @@ Provides-Extra: add-test
 Requires-Dist: chatlas[anthropic,openai]; extra == "add-test"
 Requires-Dist: openai>=1.104.1; extra == "add-test"
 Requires-Dist: anthropic>=0.62.0; extra == "add-test"
-Requires-Dist: inspect-ai>=0.3.129; extra == "add-test"
+Requires-Dist: inspect-ai>=0.3.129; python_version >= "3.10" and extra == "add-test"
 Requires-Dist: pytest-timeout; extra == "add-test"
 Requires-Dist: pytest>=6.2.4; extra == "add-test"
 Requires-Dist: pytest-playwright>=0.5.2; extra == "add-test"

@@ -1,5 +1,4 @@
 import operator
-import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, cast, no_type_check
 from unittest.mock import Mock
@@ -20,14 +19,6 @@ from psygnal import (
     testing,
 )
 from psygnal._group import SignalRelay
-
-try:
-    import pydantic.version
-
-    PYDANTIC_V2 = pydantic.version.VERSION.startswith("2")
-except ImportError:
-    PYDANTIC_V2 = False
-
 
 decorated_or_descriptor = pytest.mark.parametrize(
     "decorator", [True, False], ids=["decorator", "descriptor"]
@@ -64,13 +55,8 @@ def _check_events(cls, events_ns="events"):
     assert np.array_equal(obj.qux, np.ones(3))
 
 
-DCLASS_KWARGS = []
-if sys.version_info >= (3, 10):
-    DCLASS_KWARGS.extend([{"slots": True}, {"slots": False}])
-
-
 @decorated_or_descriptor
-@pytest.mark.parametrize("kwargs", DCLASS_KWARGS)
+@pytest.mark.parametrize("kwargs", ({"slots": True}, {"slots": False}))
 def test_native_dataclass(decorator: bool, kwargs: dict) -> None:
     @dataclass(**kwargs)
     class Base:
@@ -117,12 +103,7 @@ def test_attrs_dataclass(decorator: bool, slots: bool) -> None:
     _check_events(Foo)
 
 
-if PYDANTIC_V2:
-    Config = {"arbitrary_types_allowed": True}
-else:
-
-    class Config:
-        arbitrary_types_allowed = True
+Config = {"arbitrary_types_allowed": True}
 
 
 @decorated_or_descriptor
@@ -159,10 +140,7 @@ def test_pydantic_base_model(decorator: bool) -> None:
         baz: str
         qux: np.ndarray
 
-        if PYDANTIC_V2:
-            model_config = Config
-        else:
-            Config = Config  # type: ignore
+        model_config: ClassVar = Config
 
     if decorator:
 

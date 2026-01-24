@@ -17,11 +17,18 @@
 import torch
 import numpy as np
 from typing import Union, Optional, List, Any, Callable, Tuple
-from packaging.version import Version
 import os
 import warnings
-from .utils import _get_dtype
-from . import DEVICE_TYPE
+import gc
+from .utils import _get_dtype, Version
+from .device_type import (
+    is_hip,
+    get_device_type,
+    DEVICE_TYPE,
+    DEVICE_TYPE_TORCH,
+    DEVICE_COUNT,
+    ALLOW_PREQUANTIZED_MODELS,
+)
 
 __all__ = [
     "calculate_n_gradient_checkpoints",
@@ -37,8 +44,14 @@ __all__ = [
     "unpatch_gradient_checkpointing",
 
     "patch_unsloth_smart_gradient_checkpointing",
-    "unpatch_unsloth_smart_gradient_checkpointing"
+    "unpatch_unsloth_smart_gradient_checkpointing",
+    "reset_unsloth_gradient_checkpointing_buffers",
 ]
+
+# Initial buffer sizes for gradient checkpointing
+INITIAL_CPU_BUFFER_SIZE = 128 * 1024       # Initial size per CPU buffer
+INITIAL_GPU_BUFFER_SIZE = 2 * 256 * 2048   # Initial size per GPU buffer
+INITIAL_CPU_BUFFER_COUNT = 200             # Initial number of CPU buffers
 
 torch_version = torch.__version__
 if Version(torch_version) < Version("2.4.0"):
@@ -338,10 +351,18 @@ def initialize_unsloth_gradient_checkpointing(dtype = None):
 
     # Allocate buffers to how many GPUs
     n_gpus = torch.cuda.device_count() if DEVICE_TYPE in ("cuda", "hip") else torch.xpu.device_count()
-    GPU_BUFFERS = tuple([torch.empty(2*256*2048, dtype = dtype, device = f"{DEVICE_TYPE}:{i}") for i in range(n_gpus)])
+    try:
+        GPU_BUFFERS = tuple([torch.empty(2*256*2048, dtype = dtype, device = f"{DEVICE_TYPE_TORCH}:{i}") for i in range(n_gpus)])
+    except Exception as e:
+        print("="*10 + "\n")
+        print("Unsloth: Your setup does not support `PYTORCH_CUDA_ALLOC_CONF`\n")
+        print("Please set `import os; os.environ['PYTORCH_CUDA_ALLOC_CONF'] = '';`\n")
+        print("Then re-run Unsloth from the start.")
+        print("="*10 + "\n")
+        raise
 
     BACKWARD_PASS = True
-    EXTRA_STREAMS = tuple([torch.cuda.Stream() if DEVICE_TYPE == "cuda" else torch.xpu.Stream() for i in range(n_gpus)])
+    EXTRA_STREAMS = tuple([torch.cuda.Stream() if DEVICE_TYPE_TORCH == "cuda" else torch.xpu.Stream() for i in range(n_gpus)])
     if DEVICE_TYPE in ("cuda", "hip"):
         MAIN_STREAMS  = tuple([torch.cuda.default_stream(torch.device(f"cuda:{i}")) for i in range(n_gpus)])
     elif DEVICE_TYPE == "xpu":
@@ -414,7 +435,7 @@ class UnslothCheckpointFunction(torch.autograd.Function):
 
                     global MINIMUM_SIZE
                     global CPU_INDEX
-                    if new_size > MINIMUM_SIZE and CURRENT_GC_INDEX != LAST_GC_INDEX:
+                    if new_size > MINIMUM_SIZE and ((CURRENT_GC_INDEX != LAST_GC_INDEX) or FIRST_PASS):
                         use_gpu_buffer = True
                         global CPU_BUFFERS
                         global GPU_BUFFERS
@@ -803,11 +824,83 @@ def unpatch_unsloth_smart_gradient_checkpointing():
             if type(GPU_BUFFERS) is list: GPU_BUFFERS[i] = None
         CPU_BUFFERS = None
         GPU_BUFFERS = None
+        torch.cuda.empty_cache()
+        gc.collect()
 
     if (torch.utils.checkpoint.checkpoint.__name__ == "unsloth_checkpoint") and \
         hasattr(torch.utils.checkpoint, "_old_checkpoint"):
 
         torch.utils.checkpoint.checkpoint = torch.utils.checkpoint._old_checkpoint
+pass
+
+
+def reset_unsloth_gradient_checkpointing_buffers():
+    """
+    All Unsloth Zoo code licensed under LGPLv3
+
+    Resets CPU_BUFFERS and GPU_BUFFERS to their initial sizes after training.
+
+    This function should be called after trainer.train() completes to free up
+    memory that was allocated during training while keeping the buffers ready
+    for another potential training run. Unlike unpatch_unsloth_smart_gradient_checkpointing,
+    this does NOT destroy the buffers or unpatch the checkpointing - it just resets
+    them to their initial state.
+
+    Usage:
+        trainer.train()
+        reset_unsloth_gradient_checkpointing_buffers()  # Free memory, stay ready
+        # Can run trainer.train() again without re-initializing
+    """
+    global CPU_BUFFERS
+    global GPU_BUFFERS
+    global CPU_INDEX
+    global BACKWARD_PASS
+    global LAST_GC_INDEX
+    global FIRST_PASS
+    global CURRENT_GC_INDEX
+    global USE_UNSLOTH_GC
+
+    # Check if buffers exist
+    if CPU_BUFFERS is None or GPU_BUFFERS is None:
+        return
+    if len(CPU_BUFFERS) == 0:
+        return
+
+    # Reset CPU buffers to initial size and remove excess buffers
+    for i in range(len(CPU_BUFFERS)):
+        if i < INITIAL_CPU_BUFFER_COUNT:
+            # Resize existing buffers back to initial size
+            if CPU_BUFFERS[i] is not None and hasattr(CPU_BUFFERS[i], "resize_"):
+                CPU_BUFFERS[i].resize_(INITIAL_CPU_BUFFER_SIZE)
+        else:
+            # Free excess buffers that were added during training
+            if CPU_BUFFERS[i] is not None and hasattr(CPU_BUFFERS[i], "resize_"):
+                CPU_BUFFERS[i].resize_(0)
+            CPU_BUFFERS[i] = None
+    pass
+
+    # Trim the list back to initial count if it grew
+    if len(CPU_BUFFERS) > INITIAL_CPU_BUFFER_COUNT:
+        del CPU_BUFFERS[INITIAL_CPU_BUFFER_COUNT:]
+    pass
+
+    # Reset GPU buffers to initial size
+    for i in range(len(GPU_BUFFERS)):
+        if GPU_BUFFERS[i] is not None and hasattr(GPU_BUFFERS[i], "resize_"):
+            GPU_BUFFERS[i].resize_(INITIAL_GPU_BUFFER_SIZE)
+    pass
+
+    # Reset state variables for fresh training run
+    CPU_INDEX = 0
+    BACKWARD_PASS = True
+    LAST_GC_INDEX = 0
+    FIRST_PASS = True
+    CURRENT_GC_INDEX = 0
+    USE_UNSLOTH_GC = True  # Re-enable the "Will smartly offload" message
+
+    # Clean up freed memory
+    torch.cuda.empty_cache()
+    gc.collect()
 pass
 
 

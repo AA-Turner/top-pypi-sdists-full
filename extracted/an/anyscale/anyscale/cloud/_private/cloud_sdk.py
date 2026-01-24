@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk.base_sdk import BaseSDK
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
@@ -53,6 +54,37 @@ class PrivateCloudSDK(BaseSDK):
         openapi_cloud = self.client.get_default_cloud()
 
         return self._to_sdk_cloud(openapi_cloud)
+
+    def list(
+        self,
+        *,
+        cloud_id: Optional[str] = None,
+        name: Optional[str] = None,
+        max_items: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ):
+        # Single item by ID
+        if cloud_id is not None:
+            openapi_cloud = self.client.get_cloud(cloud_id=cloud_id)
+            cloud = self._to_sdk_cloud(openapi_cloud)
+            return [cloud] if cloud is not None else []
+
+        # Single item by name
+        if name is not None:
+            openapi_cloud = self.client.get_cloud_by_name(name=name)
+            cloud = self._to_sdk_cloud(openapi_cloud)
+            return [cloud] if cloud is not None else []
+
+        # Iterator over all
+        def _fetch(token: Optional[str]):
+            return self.client.list_clouds(paging_token=token, count=page_size)
+
+        return ResultIterator[Cloud](
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch,
+            parse_fn=self._to_sdk_cloud,
+        )
 
     def _to_sdk_cloud(self, openapi_cloud: Optional["CloudModel"]) -> Optional[Cloud]:
         if openapi_cloud is None:

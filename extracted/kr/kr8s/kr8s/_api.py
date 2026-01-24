@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 from __future__ import annotations
 
@@ -19,13 +19,20 @@ from typing import (
 import anyio
 import httpx
 import httpx_ws
-from asyncache import cached  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from cryptography import x509
+from packaging.version import InvalidVersion
+from packaging.version import parse as parse_version
 
 from ._auth import KubeAuth
+from ._constants import (
+    KUBERNETES_MAXIMUM_SUPPORTED_VERSION,
+    KUBERNETES_MINIMUM_SUPPORTED_VERSION,
+)
 from ._data_utils import dict_to_selector, sort_versions
 from ._exceptions import APITimeoutError, ServerError
+from ._vendored.asyncache import cached  # type: ignore
+from ._version import __version__
 
 if TYPE_CHECKING:
     from ._objects import APIObject
@@ -81,6 +88,7 @@ class Api:
     def __await__(self):
         async def f():
             await self.auth
+            await self._check_version()
             return self
 
         return f().__await__()
@@ -109,6 +117,7 @@ class Api:
             verify=await self.auth.ssl_context(),
             timeout=self._timeout,
             follow_redirects=True,
+            proxy=self.auth.proxy,
         )
 
     def _construct_url(
@@ -262,6 +271,40 @@ class Api:
         async with self.call_api(method="GET", version="", base="/version") as response:
             return response.json()
 
+    async def _check_version(self) -> None:
+        version = await self.async_version()
+        git_version = version["gitVersion"]
+
+        supported_message = (
+            f"Supported versions for kr8s {__version__} are "
+            f"{KUBERNETES_MINIMUM_SUPPORTED_VERSION}"
+            " to "
+            f"{KUBERNETES_MAXIMUM_SUPPORTED_VERSION}."
+        )
+
+        try:
+            # Remove variant suffix if present before parsing, e.g v1.32.9-eks-113cf36 -> v1.32.9
+            version = parse_version(git_version.split("-")[0])
+        except InvalidVersion:
+            warnings.warn(
+                f"Unable to parse Kubernetes version {git_version}. {supported_message}",
+                UserWarning,
+                stacklevel=2,
+            )
+            return
+
+        # We only care about major/minor version differences, so we truncate the patch version
+        version = parse_version(f"{version.major}.{version.minor}")
+        if (
+            version < KUBERNETES_MINIMUM_SUPPORTED_VERSION
+            or version > KUBERNETES_MAXIMUM_SUPPORTED_VERSION
+        ):
+            warnings.warn(
+                f"Kubernetes version {git_version} is not supported. {supported_message}",
+                UserWarning,
+                stacklevel=2,
+            )
+
     async def reauthenticate(self) -> None:
         """Reauthenticate the API."""
         return await self.async_reauthenticate()
@@ -316,11 +359,16 @@ class Api:
         """
         return await self.async_lookup_kind(kind)
 
-    async def async_lookup_kind(self, kind) -> tuple[str, str, bool]:
+    async def async_lookup_kind(
+        self, kind, skip_cache: bool = False
+    ) -> tuple[str, str, bool]:
         """Lookup a Kubernetes resource kind."""
         from ._objects import parse_kind
 
-        resources = await self.async_api_resources()
+        if skip_cache:
+            resources = await self.async_api_resources_uncached()
+        else:
+            resources = await self.async_api_resources()
         kind, group, version = parse_kind(kind)
         if group:
             version = f"{group}/{version}"
@@ -342,6 +390,10 @@ class Api:
                     resource["name"],
                     resource["namespaced"],
                 )
+
+        if not skip_cache:
+            return await self.async_lookup_kind(kind, skip_cache=True)
+
         raise ValueError(f"Kind {kind} not found.")
 
     @contextlib.asynccontextmanager
@@ -422,8 +474,9 @@ class Api:
         field_selector: str | dict | None = None,
         as_object: type[APIObject] | None = None,
         allow_unknown_type: bool = True,
+        raw: bool = False,
         **kwargs,
-    ) -> AsyncGenerator[APIObject]:
+    ) -> AsyncGenerator[APIObject | dict]:
         """Get Kubernetes resources.
 
         Args:
@@ -434,6 +487,7 @@ class Api:
             field_selector: The field selector to filter the resources by.
             as_object: The object to return the resources as.
             allow_unknown_type: Automatically create a class for the resource if none exists, default True.
+            raw: If True, return raw dictionaries instead of APIObject instances, default False.
             **kwargs: Additional keyword arguments to pass to the API call.
 
         Returns:
@@ -447,6 +501,7 @@ class Api:
             field_selector=field_selector,
             as_object=as_object,
             allow_unknown_type=allow_unknown_type,
+            raw=raw,
             **kwargs,
         ):
             yield resource
@@ -460,8 +515,9 @@ class Api:
         field_selector: str | dict | None = None,
         as_object: type[APIObject] | None = None,
         allow_unknown_type: bool = True,
+        raw: bool = False,
         **kwargs,
-    ) -> AsyncGenerator[APIObject]:
+    ) -> AsyncGenerator[APIObject | dict]:
         names_list = [None] if not names else names
         for name in names_list:
             async for resource in self._async_get_single(
@@ -472,6 +528,7 @@ class Api:
                 field_selector=field_selector,
                 as_object=as_object,
                 allow_unknown_type=allow_unknown_type,
+                raw=raw,
                 **kwargs,
             ):
                 yield resource
@@ -485,8 +542,9 @@ class Api:
         field_selector: str | dict | None = None,
         as_object: type[APIObject] | None = None,
         allow_unknown_type: bool = True,
+        raw: bool = False,
         **kwargs,
-    ) -> AsyncGenerator[APIObject]:
+    ) -> AsyncGenerator[APIObject | dict]:
 
         if name is not None:
             # Normalized field_selector to a string
@@ -526,12 +584,18 @@ class Api:
                     and "kind" in resourcelist
                     and resourcelist["kind"] == as_object.kind
                 ):
-                    yield as_object(resourcelist, api=self)
+                    if raw:
+                        yield resourcelist
+                    else:
+                        yield as_object(resourcelist, api=self)
                 else:
                     if "items" in resourcelist:
                         for item in resourcelist["items"]:
                             if name is None or item["metadata"]["name"] == name:
-                                yield obj_cls(item, api=self)
+                                if raw:
+                                    yield item
+                                else:
+                                    yield obj_cls(item, api=self)
                 if (
                     "metadata" in resourcelist
                     and "continue" in resourcelist["metadata"]
@@ -610,6 +674,9 @@ class Api:
     # https://github.com/kubernetes/cli-runtime/blob/980bedf450ab21617b33d68331786942227fe93a/pkg/genericclioptions/config_flags.go#L297
     @cached(TTLCache(1, 60 * 60 * 6))
     async def async_api_resources(self) -> list[dict]:
+        return await self.async_api_resources_uncached()
+
+    async def async_api_resources_uncached(self) -> list[dict]:
         """Get the Kubernetes API resources."""
         resources = []
         async with self.call_api(method="GET", version="", base="/api") as response:
@@ -674,8 +741,6 @@ class Api:
 
     @property
     def __version__(self) -> str:
-        from . import __version__
-
         return f"kr8s/{__version__}"
 
     @property

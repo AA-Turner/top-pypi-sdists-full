@@ -38,6 +38,10 @@ mod core_metrics;
 mod coverage;
 mod database;
 mod debug;
+#[cfg(feature = "benchmark")]
+#[doc(hidden)]
+pub mod dispatcher;
+#[cfg(not(feature = "benchmark"))]
 mod dispatcher;
 mod error;
 mod error_recording;
@@ -190,6 +194,12 @@ fn launch_with_glean_mut(callback: impl FnOnce(&mut Glean) + Send + 'static) {
 /// This will panic if called before Glean is initialized.
 fn block_on_dispatcher() {
     dispatcher::block_on_queue()
+}
+
+/// Returns a timestamp corresponding to "now" with millisecond precision, awake time only.
+pub fn get_awake_timestamp_ms() -> u64 {
+    const NANOS_PER_MILLI: u64 = 1_000_000;
+    zeitstempel::now_awake() / NANOS_PER_MILLI
 }
 
 /// Returns a timestamp corresponding to "now" with millisecond precision.
@@ -419,6 +429,10 @@ fn initialize_inner(
 
         log::info!("Glean initialized");
 
+        core::with_glean(|glean| {
+            glean.health_metrics.init_count.add_sync(glean, 1);
+        });
+
         setup_state(State {
             client_info,
             callbacks,
@@ -574,9 +588,10 @@ fn initialize_inner(
             // a health ping with reason "pre_init".
             record_dir_info_and_submit_health_ping(dir_info, "pre_init");
 
-            // Now capture a post_init snapshot of the state of Glean's data directories after initialization to send
-            // in a health ping with reason "post_init".
-            record_dir_info_and_submit_health_ping(collect_directory_info(data_path), "post_init");
+            let state = global_state().lock().unwrap();
+            if let Err(e) = state.callbacks.trigger_upload() {
+                log::error!("Triggering upload failed. Error: {}", e);
+            }
         }
         let state = global_state().lock().unwrap();
         state.callbacks.initialize_finished();
@@ -645,7 +660,7 @@ fn uploader_shutdown() {
     //   * We don't know how long uploads take until we get data from bug 1814592.
     let result = rx.recv_timeout(Duration::from_secs(30));
 
-    let stop_time = zeitstempel::now();
+    let stop_time = zeitstempel::now_awake();
     core::with_glean(|glean| {
         glean
             .additional_metrics
@@ -721,7 +736,7 @@ pub fn shutdown() {
     let blocked = dispatcher::block_on_queue_timeout(Duration::from_secs(10));
 
     // Always record the dispatcher wait, regardless of the timeout.
-    let stop_time = zeitstempel::now();
+    let stop_time = zeitstempel::now_awake();
     core::with_glean(|glean| {
         glean
             .additional_metrics
@@ -744,7 +759,7 @@ pub fn shutdown() {
     // Be sure to call this _after_ draining the dispatcher
     core::with_glean(|glean| {
         if let Err(e) = glean.persist_ping_lifetime_data() {
-            log::error!("Can't persist ping lifetime data: {:?}", e);
+            log::info!("Can't persist ping lifetime data: {:?}", e);
         }
     });
 }
@@ -792,7 +807,7 @@ fn initialize_core_metrics(glean: &Glean, client_info: &ClientInfoMetrics) {
     }
 }
 
-/// Checks if [`initialize`] was ever called.
+/// Checks if [`glean_initialize`] was ever called.
 ///
 /// # Returns
 ///
@@ -925,7 +940,7 @@ pub fn set_ping_enabled(ping: &PingType, enabled: bool) {
     }
 }
 
-/// Register a new [`PingType`](PingType).
+/// Register a new [`PingType`].
 pub(crate) fn register_ping_type(ping: &PingType) {
     // If this happens after Glean.initialize is called (and returns),
     // we dispatch ping registration on the thread pool.

@@ -1,0 +1,132 @@
+# -- Project
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "setuptools_scm[toml]>=6.2",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ligotimegps"
+authors = [
+    {name = "Duncan Macleod", email = "duncan.macleod@ligo.org"},
+]
+description = "A pure Python version of lal.LIGOTimeGPS"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://ligotimegps.readthedocs.io/"
+"Download" = "https://pypi.org/project/ligotimegps/"
+"Bug Tracker" = "https://gitlab.com/gwpy/ligotimegps/-/issues"
+"Documentation" = "https://ligotimegps.readthedocs.io/"
+"Source Code" = "https://gitlab.com/gwpy/ligotimegps"
+
+[dependency-groups]
+docs = [
+    "furo >= 2025.9.25",
+    "Sphinx >= 8.1.0",
+    "sphinx-automodapi",
+    "sphinx-copybutton",
+    "sphinx-tabs",
+]
+test = [
+    "pytest >= 8.4.1",
+    "pytest-cov >= 6.2.1",
+]
+
+# -- Tools
+
+[tool.coverage.paths]
+source = [
+  "ligotimegps/",
+  "*/ligotimegps/",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  # ignore when asked
+  "pragma: no( |-)cover",
+  # don't complain about typing blocks
+  "if (typing\\.)?TYPE_CHECKING",
+  # don't complain about __main__ blocks
+  "if __name__ == '__main__'",
+]
+omit = [
+  # don't report coverage for _version.py
+  # (generated automatically by setuptools-scm)
+  "*/_version.py",
+]
+# print report with one decimal point
+precision = 1
+
+[tool.pytest.ini_options]
+addopts = "-r a --color=yes"
+filterwarnings = [
+    "error",
+    "ignore:Using or importing the ABCs",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN003",  # type annotations for **kwargs
+  "D203",  # blank line before class docstring
+  "D213",  # docstring summary on second line
+  "D413",  # blank line after last section
+  "ICN001",  # unconventional import alias
+  "PLC0415",  # import outside top level
+  "PLR0913",  # too many arguments
+  "SIM108",  # if-else instead of ternary if
+  "TID252",  # relative imports
+]
+# allow 'mock_...' variables to go unused in tests
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|mock_.*)$"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+  "F403",  # undefined-local-with-import-star
+  "I001",  # import order
+]
+"*/tests/*" = [
+  "ANN",  # type annotations
+  "B904",  # raise from
+  "EM101",  # string literal in exception
+  "PLR2004",  # magic value used in comparison
+  "S101",  # assert
+]
+"docs/*" = [
+  "A",  # builtins
+  "ANN",  # type annotations
+  "D",  # docstrings
+  "INP001",  # implicit namespace package
+]
+
+[tool.setuptools]
+packages = ["ligotimegps"]
+
+[tool.setuptools_scm]
+write_to = "ligotimegps/_version.py"

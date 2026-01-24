@@ -18,16 +18,18 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class OnboardInstrumentResponse(BaseModel):
     """
     Simplified structure converted from the LUSID UpsertInstrumentReponse  # noqa: E501
     """
     href:  Optional[StrictStr] = Field(None,alias="href", description="The specific Uniform Resource Identifier (URI) for this resource at the requested effective and asAt datetime.") 
-    values: conlist(StrictStr) = Field(..., description="The instruments which have been successfully updated or created.")
-    failed: Dict[str, StrictStr] = Field(..., description="The instruments that could not be updated or created or were left unchanged without error along with a reason for their failure.")
+    values: List[StrictStr] = Field(description="The instruments which have been successfully updated or created.")
+    failed: Dict[str, StrictStr] = Field(description="The instruments that could not be updated or created or were left unchanged without error along with a reason for their failure.")
     __properties = ["href", "values", "failed"]
 
     class Config:
@@ -84,3 +86,5 @@ class OnboardInstrumentResponse(BaseModel):
             "failed": obj.get("failed")
         })
         return _obj
+
+OnboardInstrumentResponse.update_forward_refs()

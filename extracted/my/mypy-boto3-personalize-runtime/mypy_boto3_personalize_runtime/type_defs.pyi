@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -56,7 +51,7 @@ class PredictedActionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -73,8 +68,8 @@ class PredictedItemTypeDef(TypedDict):
     itemId: NotRequired[str]
     score: NotRequired[float]
     promotionName: NotRequired[str]
-    metadata: NotRequired[Dict[str, str]]
-    reason: NotRequired[List[str]]
+    metadata: NotRequired[dict[str, str]]
+    reason: NotRequired[list[str]]
 
 class PromotionTypeDef(TypedDict):
     name: NotRequired[str]
@@ -83,17 +78,17 @@ class PromotionTypeDef(TypedDict):
     filterValues: NotRequired[Mapping[str, str]]
 
 class GetActionRecommendationsResponseTypeDef(TypedDict):
-    actionList: List[PredictedActionTypeDef]
+    actionList: list[PredictedActionTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPersonalizedRankingResponseTypeDef(TypedDict):
-    personalizedRanking: List[PredictedItemTypeDef]
+    personalizedRanking: list[PredictedItemTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRecommendationsResponseTypeDef(TypedDict):
-    itemList: List[PredictedItemTypeDef]
+    itemList: list[PredictedItemTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 

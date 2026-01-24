@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.policy
-Version: 4.6.0
+Version: 4.8.0
 Summary: Oslo Policy library
-Home-page: https://docs.openstack.org/oslo.policy/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+Project-URL: Homepage, https://docs.openstack.org/oslo.policy
+Project-URL: Repository, https://opendev.org/openstack/oslo.policy
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -12,13 +12,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=2.14.2
 Requires-Dist: oslo.config>=6.0.0
@@ -28,23 +29,24 @@ Requires-Dist: oslo.serialization>=2.18.0
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: oslo.utils>=3.40.0
+Dynamic: license-file
+Dynamic: requires-dist
 
-========================
-Team and repository tags
-========================
+===========
+oslo.policy
+===========
 
 .. image:: https://governance.openstack.org/tc/badges/oslo.policy.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
-
-=============
- oslo.policy
-=============
 
 .. image:: https://img.shields.io/pypi/v/oslo.policy.svg
     :target: https://pypi.org/project/oslo.policy/
     :alt: Latest Version
+
+.. image:: https://img.shields.io/pypi/dm/oslo.policy.svg
+    :target: https://pypi.org/project/oslo.policy/
+    :alt: Downloads
 
 The Oslo Policy library provides support for RBAC policy enforcement across
 all OpenStack services.
@@ -55,4 +57,3 @@ all OpenStack services.
 * Bugs: https://bugs.launchpad.net/oslo.policy
 * Blueprints: https://blueprints.launchpad.net/oslo.policy
 * Release Notes: https://docs.openstack.org/releasenotes/oslo.policy
-

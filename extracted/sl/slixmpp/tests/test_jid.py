@@ -1,5 +1,4 @@
 # -*- encoding: utf8 -*-
-from __future__ import unicode_literals
 import unittest
 from slixmpp.test import SlixTest
 from slixmpp import JID, InvalidJID

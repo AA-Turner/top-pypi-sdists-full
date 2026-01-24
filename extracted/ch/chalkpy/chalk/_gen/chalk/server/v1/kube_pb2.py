@@ -15,11 +15,16 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.kubernetes.v1 import events_pb2 as chalk_dot_kubernetes_dot_v1_dot_events__pb2
+from chalk._gen.chalk.kubernetes.v1 import (
+    horizontalpodautoscaler_pb2 as chalk_dot_kubernetes_dot_v1_dot_horizontalpodautoscaler__pb2,
+)
 from chalk._gen.chalk.kubernetes.v1 import persistentvolume_pb2 as chalk_dot_kubernetes_dot_v1_dot_persistentvolume__pb2
+from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as chalk_dot_kubernetes_dot_v1_dot_scaledobject__pb2
+from chalk._gen.chalk.kubernetes.v1 import serviceaccounts_pb2 as chalk_dot_kubernetes_dot_v1_dot_serviceaccounts__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1a\x63halk/server/v1/kube.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/kubernetes/v1/events.proto\x1a*chalk/kubernetes/v1/persistentvolume.proto"\xb2\x02\n\x1bGetPodStackTraceDumpRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x02R\rcontainerName\x88\x01\x01\x12\x1f\n\nprocess_id\x18\x04 \x01(\x05H\x00R\tprocessId\x12#\n\x0cprocess_name\x18\x05 \x01(\tH\x00R\x0bprocessName\x12\x30\n\x13\x61uto_detect_process\x18\x06 \x01(\x08H\x00R\x11\x61utoDetectProcessB\x10\n\x0eprocess_filterB\x0c\n\n_namespaceB\x11\n\x0f_container_name"?\n\x1cGetPodStackTraceDumpResponse\x12\x1f\n\x0bstack_trace\x18\x01 \x01(\tR\nstackTrace"\x84\x02\n\x1aGetKubernetesEventsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x12*\n\x0e\x66ield_selector\x18\x04 \x01(\tH\x03R\rfieldSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selectorB\x11\n\x0f_field_selector"`\n\x1bGetKubernetesEventsResponse\x12\x41\n\x06\x65vents\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.ChalkKubernetesEventR\x06\x65vents"\'\n%GetKubernetesPersistentVolumesRequest"x\n&GetKubernetesPersistentVolumesResponse\x12N\n\x07volumes\x18\x01 \x03(\x0b\x32\x34.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeR\x07volumes2\xa0\x03\n\x0bKubeService\x12{\n\x14GetPodStackTraceDump\x12,.chalk.server.v1.GetPodStackTraceDumpRequest\x1a-.chalk.server.v1.GetPodStackTraceDumpResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetKubernetesEvents\x12+.chalk.server.v1.GetKubernetesEventsRequest\x1a,.chalk.server.v1.GetKubernetesEventsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x99\x01\n\x1eGetKubernetesPersistentVolumes\x12\x36.chalk.server.v1.GetKubernetesPersistentVolumesRequest\x1a\x37.chalk.server.v1.GetKubernetesPersistentVolumesResponse"\x06\x90\x02\x01\x80}\x0b\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tKubeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1a\x63halk/server/v1/kube.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/kubernetes/v1/events.proto\x1a\x31\x63halk/kubernetes/v1/horizontalpodautoscaler.proto\x1a*chalk/kubernetes/v1/persistentvolume.proto\x1a&chalk/kubernetes/v1/scaledobject.proto\x1a)chalk/kubernetes/v1/serviceaccounts.proto"\xb2\x02\n\x1bGetPodStackTraceDumpRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x02R\rcontainerName\x88\x01\x01\x12\x1f\n\nprocess_id\x18\x04 \x01(\x05H\x00R\tprocessId\x12#\n\x0cprocess_name\x18\x05 \x01(\tH\x00R\x0bprocessName\x12\x30\n\x13\x61uto_detect_process\x18\x06 \x01(\x08H\x00R\x11\x61utoDetectProcessB\x10\n\x0eprocess_filterB\x0c\n\n_namespaceB\x11\n\x0f_container_name"?\n\x1cGetPodStackTraceDumpResponse\x12\x1f\n\x0bstack_trace\x18\x01 \x01(\tR\nstackTrace"\x84\x02\n\x1aGetKubernetesEventsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x12*\n\x0e\x66ield_selector\x18\x04 \x01(\tH\x03R\rfieldSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selectorB\x11\n\x0f_field_selector"`\n\x1bGetKubernetesEventsResponse\x12\x41\n\x06\x65vents\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.ChalkKubernetesEventR\x06\x65vents"\'\n%GetKubernetesPersistentVolumesRequest"x\n&GetKubernetesPersistentVolumesResponse\x12N\n\x07volumes\x18\x01 \x03(\x0b\x32\x34.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeR\x07volumes"\xce\x01\n#GetKubernetesServiceAccountsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\x80\x01\n$GetKubernetesServiceAccountsResponse\x12X\n\x10service_accounts\x18\x01 \x03(\x0b\x32-.chalk.kubernetes.v1.KubernetesServiceAccountR\x0fserviceAccounts"\xca\x01\n\x1fGetKubernetesAutoscalersRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\xc1\x01\n GetKubernetesAutoscalersResponse\x12J\n\x04hpas\x18\x01 \x03(\x0b\x32\x36.chalk.kubernetes.v1.KubernetesHorizontalPodAutoscalerR\x04hpas\x12Q\n\rscaledobjects\x18\x02 \x03(\x0b\x32+.chalk.kubernetes.v1.KubernetesScaledObjectR\rscaledobjects2\xc0\x05\n\x0bKubeService\x12{\n\x14GetPodStackTraceDump\x12,.chalk.server.v1.GetPodStackTraceDumpRequest\x1a-.chalk.server.v1.GetPodStackTraceDumpResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetKubernetesEvents\x12+.chalk.server.v1.GetKubernetesEventsRequest\x1a,.chalk.server.v1.GetKubernetesEventsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x99\x01\n\x1eGetKubernetesPersistentVolumes\x12\x36.chalk.server.v1.GetKubernetesPersistentVolumesRequest\x1a\x37.chalk.server.v1.GetKubernetesPersistentVolumesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x93\x01\n\x1cGetKubernetesServiceAccounts\x12\x34.chalk.server.v1.GetKubernetesServiceAccountsRequest\x1a\x35.chalk.server.v1.GetKubernetesServiceAccountsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesAutoscalers\x12\x30.chalk.server.v1.GetKubernetesAutoscalersRequest\x1a\x31.chalk.server.v1.GetKubernetesAutoscalersResponse"\x06\x90\x02\x01\x80}\x0b\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tKubeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -38,18 +43,32 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_KUBESERVICE"].methods_by_name[
         "GetKubernetesPersistentVolumes"
     ]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_start = 159
-    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_end = 465
-    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_start = 467
-    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_end = 530
-    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_start = 533
-    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_end = 793
-    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_start = 795
-    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_end = 891
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_start = 893
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_end = 932
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_start = 934
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_end = 1054
-    _globals["_KUBESERVICE"]._serialized_start = 1057
-    _globals["_KUBESERVICE"]._serialized_end = 1473
+    _globals["_KUBESERVICE"].methods_by_name["GetKubernetesServiceAccounts"]._options = None
+    _globals["_KUBESERVICE"].methods_by_name[
+        "GetKubernetesServiceAccounts"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_KUBESERVICE"].methods_by_name["GetKubernetesAutoscalers"]._options = None
+    _globals["_KUBESERVICE"].methods_by_name["GetKubernetesAutoscalers"]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_start = 293
+    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_end = 599
+    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_start = 601
+    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_end = 664
+    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_start = 667
+    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_end = 927
+    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_start = 929
+    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_end = 1025
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_start = 1027
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_end = 1066
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_start = 1068
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_end = 1188
+    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_start = 1191
+    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_end = 1397
+    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_start = 1400
+    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_end = 1528
+    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_start = 1531
+    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_end = 1733
+    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_start = 1736
+    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_end = 1929
+    _globals["_KUBESERVICE"]._serialized_start = 1932
+    _globals["_KUBESERVICE"]._serialized_end = 2636
 # @@protoc_insertion_point(module_scope)

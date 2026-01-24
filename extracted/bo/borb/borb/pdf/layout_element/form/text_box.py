@@ -37,7 +37,7 @@ class TextBox(FormField):
         self,
         background_color: typing.Optional[Color] = None,
         border_color: typing.Optional[Color] = X11Color.LIGHT_GRAY,
-        border_dash_pattern: typing.List[int] = [],
+        border_dash_pattern: typing.Optional[typing.List[int]] = None,
         border_dash_phase: int = 0,
         border_width_bottom: int = 1,
         border_width_left: int = 1,
@@ -213,7 +213,7 @@ class TextBox(FormField):
 
         This function renders the layout element within the given available space on the specified page.
 
-        :param available_space: A tuple representing the available space (left, top, right, bottom).
+        :param available_space: A tuple representing the available space (x, y, width, height).
         :param page:            The Page object on which to render the LayoutElement.
         :return:                None.
         """

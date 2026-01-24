@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safety
-Version: 3.6.1
+Version: 3.7.0
 Summary: Scan dependencies for known vulnerabilities and licenses.
 Project-URL: homepage, https://safetycli.com
 Project-URL: source, https://github.com/pyupio/safety
@@ -23,14 +23,14 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: authlib>=1.2.0
 Requires-Dist: click>=8.0.2
 Requires-Dist: dparse>=0.6.4
@@ -40,13 +40,11 @@ Requires-Dist: jinja2>=3.1.0
 Requires-Dist: marshmallow>=3.15.0
 Requires-Dist: nltk>=3.9
 Requires-Dist: packaging>=21.0
-Requires-Dist: psutil<8.0,>=6.1.0
-Requires-Dist: pydantic<2.10.0,>=2.6.0
+Requires-Dist: pydantic>=2.6.0
 Requires-Dist: requests
 Requires-Dist: ruamel-yaml>=0.17.21
-Requires-Dist: safety-schemas==0.0.14
-Requires-Dist: setuptools>=65.5.1
-Requires-Dist: tenacity
+Requires-Dist: safety-schemas==0.0.16
+Requires-Dist: tenacity>=8.1.0
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: tomlkit
 Requires-Dist: typer>=0.16.0
@@ -199,7 +197,7 @@ Upon creating an account, a 7-day free trial of our Team plan is offered to new 
 Our paid [plans for commercial use](https://safetycli.com/resources/plans) begin at just $25 per seat per month and allow scans to be performed using our full vulnerability database, complete with 3x more tracked vulnerabilities and malicious packages than our free plan and other providers. To learn more about our Team and Enterprise plans, please visit [https://safetycli.com/resources/plans](https://safetycli.com/resources/plans) or email sales@safetycli.com.
 
 # Supported Python Versions
-Safety CLI 3 supports Python versions >=3.8. Further details on supported versions, as well as options to run Safety CLI on versions <3.8 using a Docker image are available in our [Documentation Hub](https://docs.safetycli.com).
+Safety CLI 3 supports Python versions >=3.9. Further details on supported versions, as well as options to run Safety CLI on versions <3.9 using a Docker image are available in our [Documentation Hub](https://docs.safetycli.com).
 
 We maintain a policy of supporting all maintained and secure versions of Python, plus one minor version below the oldest maintained and secure version. Details on Python versions that meet these criteria can be found here: https://endoflife.date/python.
 

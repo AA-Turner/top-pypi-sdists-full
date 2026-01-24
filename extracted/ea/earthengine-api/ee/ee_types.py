@@ -9,7 +9,7 @@ from typing import Any
 from ee import computedobject
 
 
-# A dictionary of the classes in the ee module.  Set by registerClasses.
+# A dictionary of the classes in the ee module. Set by registerClasses.
 _registered_classes = {}
 
 
@@ -48,7 +48,7 @@ def classToName(a_class: type[Any]) -> str:
 
 # TODO(user): Any -> Optional[type[Any]].
 def nameToClass(name: str) -> Any:
-  """Converts a class name to a class.  Returns None if not an ee class.
+  """Converts a class name to a class. Returns None if not an ee class.
 
   Args:
     name: The class name.
@@ -77,6 +77,7 @@ def isSubtype(firstType: str, secondType: str) -> bool:
                           'Collection', 'ImageCollection', 'FeatureCollection')
   elif firstType in ('FeatureCollection', 'Collection'):
     return secondType in ('Collection', 'ImageCollection', 'FeatureCollection')
+  # TODO: elif firstType == 'Object':
   elif firstType == object:
     return True
   else:

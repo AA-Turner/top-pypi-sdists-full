@@ -28,7 +28,7 @@ from howso.client.protocols import (
     LocalSaveableProtocol,
     ProjectClient,
 )
-from howso.client.schemas import AggregateReaction
+from howso.client.schemas import AggregateReaction, GroupReaction
 from howso.client.schemas import Project as BaseProject
 from howso.client.schemas import Reaction
 from howso.client.schemas import Session as BaseSession
@@ -50,6 +50,7 @@ from howso.client.typing import (
     Persistence,
     Precision,
     SeriesIDTracking,
+    SeriesStopMap,
     SortByFeature,
     TabularData2D,
     TabularData3D,
@@ -402,10 +403,12 @@ class Trainee(BaseTrainee):
             file_name = self.id
 
         if self.id:
-            self.client.amlg.store_entity(
-                handle=self.id,
-                file_path=self.client.resolve_trainee_filepath(file_name, filepath=file_path)
-            )
+            resolved_path = self.client.resolve_trainee_filepath(file_name, filepath=file_path)
+            is_persisted = self.client.amlg.store_entity(handle=self.id, file_path=resolved_path)
+            if not is_persisted:
+                raise HowsoError(
+                    f'Failed to write Trainee "{self.id}" to file path: {resolved_path}', code="persist_failed"
+                )
         else:
             raise ValueError("Trainee ID is needed for saving.")
 
@@ -642,6 +645,7 @@ class Trainee(BaseTrainee):
         series: t.Optional[str] = None,
         skip_auto_analyze: bool = False,
         skip_reduce_data: bool = False,
+        start_index: t.Optional[int] = None,
         train_weights_only: bool = False,
         validate: bool = True,
     ):
@@ -709,6 +713,10 @@ class Trainee(BaseTrainee):
         skip_reduce_data : bool, default False
             When true, the Trainee will not call `reduce_data` when
             appropriate.
+        start_index : int, optional
+            When specified, the indices of trained cases will start at this
+            value. This value must be greater than the latest index trained
+            in the active session.
         train_weights_only:  bool, default False
             When true, and accumulate_weight_feature is provided,
             will accumulate all of the cases' neighbor weights instead of
@@ -733,6 +741,7 @@ class Trainee(BaseTrainee):
                 series=series,
                 skip_auto_analyze=skip_auto_analyze,
                 skip_reduce_data=skip_reduce_data,
+                start_index=start_index,
                 train_weights_only=train_weights_only,
                 validate=validate,
             )
@@ -785,6 +794,7 @@ class Trainee(BaseTrainee):
         min_num_cases: int = 10_000,
         max_num_cases: int = 200_000,
         reduce_data_influence_weight_entropy_threshold: float = 0.6,
+        reduce_max_cases: int = 50_000,
         rel_threshold_map: t.Optional[AblationThresholdMap] = None,
         relative_prediction_threshold_map: t.Optional[Mapping[str, float]] = None,
         residual_prediction_features: t.Optional[Collection[str]] = None,
@@ -816,7 +826,8 @@ class Trainee(BaseTrainee):
             Number of cases in a batch to consider for ablation prior to training and
             to recompute influence weight entropy.
         min_num_cases : int, default 10,000
-            The threshold ofr the minimum number of cases at which the model should auto-ablate.
+            The threshold ofr the minimum number of cases at which the model should auto-ablate. This is also
+            the minimum number of cases that may remain after data reduction.
         max_num_cases: int, default 200,000
             The threshold of the maximum number of cases at which the model should auto-reduce
         exact_prediction_features : Collection of str, optional
@@ -832,6 +843,8 @@ class Trainee(BaseTrainee):
             and the prediction <= (case value + MAX).
         reduce_data_influence_weight_entropy_threshold: float, default 0.6
             The influence weight entropy quantile that a case must be above in order to not be removed.
+        reduce_max_cases: int, default 50,000
+            The maximum number of cases that may remain after a call to reduce_data.
         relative_prediction_threshold_map : map of str -> (float, float), optional
             For each of the features specified, will ablate a case if
             abs(prediction - case value) / prediction <= relative threshold
@@ -875,6 +888,7 @@ class Trainee(BaseTrainee):
                 min_num_cases=min_num_cases,
                 max_num_cases=max_num_cases,
                 reduce_data_influence_weight_entropy_threshold=reduce_data_influence_weight_entropy_threshold,
+                reduce_max_cases=reduce_max_cases,
                 rel_threshold_map=rel_threshold_map,
                 relative_prediction_threshold_map=relative_prediction_threshold_map,
                 residual_prediction_features=residual_prediction_features,
@@ -887,23 +901,19 @@ class Trainee(BaseTrainee):
         self,
         features: t.Optional[Collection[str]] = None,
         distribute_weight_feature: t.Optional[str] = None,
-        influence_weight_entropy_threshold: t.Optional[float] = None,
+        reduce_max_cases: t.Optional[int] = None,
         skip_auto_analyze: bool = False,
         **kwargs,
     ) -> dict:
         """
         Smartly reduce the amount of trained cases while accumulating case weights.
 
-        Determines which cases to remove by comparing the influence weight entropy of each trained
-        case to the ``influence_weight_entropy_threshold`` quantile of existing influence weight
-        entropies.
-
         .. note::
             All ablation endpoints, including :meth:`reduce_data` are experimental and may have their
             API changed without deprecation.
 
         .. seealso::
-            The default ``distribute_weight_feature`` and ``influence_weight_entropy_threshold`` are
+            The default ``distribute_weight_feature`` and ``reduce_max_cases`` are
             pulled from the auto-ablation parameters, which can be set or retrieved with
             :meth:`set_auto_ablation_params` and :meth:`get_auto_ablation_params`, respectively.
 
@@ -918,10 +928,10 @@ class Trainee(BaseTrainee):
             The name of the weight feature to accumulate case weights to as cases are removed. This
             defaults to the value of ``auto_ablation_weight_feature`` from :meth:`set_auto_ablation_params`,
             which defaults to ".case_weight".
-        influence_weight_entropy_threshold : float, optional
-            The quantile of influence weight entropy above which cases will be removed. This defaults
-            to the value of ``reduce_data_influence_weight_entropy_threshold`` from :meth:`set_auto_ablation_params`,
-            which defaults to 0.6.
+        reduce_max_cases : int, optional
+            The maximum number of cases that may remain after a call to reduce_data.
+            Defaults to the value stored within the Trainee via :meth:`set_auto_ablation_params`,
+            which defaults to 50,000.
         skip_auto_analyze : bool, default False
             Whether to skip auto-analyzing as cases are removed.
 
@@ -936,7 +946,7 @@ class Trainee(BaseTrainee):
                 trainee_id=self.id,
                 features=features,
                 distribute_weight_feature=distribute_weight_feature,
-                influence_weight_entropy_threshold=influence_weight_entropy_threshold,
+                reduce_max_cases=reduce_max_cases,
                 skip_auto_analyze=skip_auto_analyze,
                 **kwargs,
             )
@@ -1006,10 +1016,11 @@ class Trainee(BaseTrainee):
         analysis_sub_model_size: t.Optional[int] = None,
         p_values: t.Optional[Collection[float]] = None,
         rebalance_features: t.Optional[t.Collection[str]] = None,
+        reduce_only: bool = False,
         targeted_model: t.Optional[TargetedModel] = None,
         use_case_weights: t.Optional[bool] = None,
         use_deviations: t.Optional[bool] = None,
-        use_sdm: t.Optional[bool] = True,
+        use_sdm: bool = True,
         weight_feature: t.Optional[str] = None,
         **kwargs
     ):
@@ -1076,6 +1087,9 @@ class Trainee(BaseTrainee):
         rebalance_features : Collection[str], optional
             The list of features whose values to use to rebalance case
             weighting of the data and to store into weight_feature.
+        reduce_only: bool, default False
+            When true, used by reduce_data flow to simplify analyze flow by
+            skipping computation of feature weights.
         targeted_model : {"omni_targeted", "single_targeted", "targetless"}, optional
             Type of hyperparameter targeting.
             Valid options include:
@@ -1130,6 +1144,7 @@ class Trainee(BaseTrainee):
                 analysis_sub_model_size=analysis_sub_model_size,
                 p_values=p_values,
                 rebalance_features=rebalance_features,
+                reduce_only=reduce_only,
                 targeted_model=targeted_model,
                 use_deviations=use_deviations,
                 use_sdm=use_sdm,
@@ -1268,7 +1283,7 @@ class Trainee(BaseTrainee):
         conditioned on the optionally provided ``contexts``.
 
         If ``desired_conviction`` is **not** specified, executes a discriminative
-        react. Provided a list of ``contexts``, the trainee reacts to the model
+        react. Provided a list of ``contexts``, the trainee reacts to the data
         and produces predictions for the specified actions.
 
         Parameters
@@ -1282,6 +1297,10 @@ class Trainee(BaseTrainee):
             Feature names to treat as action features during react.
             If `actions` is a DataFrame, overrides what columns will be used
             in `action_values` supplied to the Engine.
+            ".cluster_id" may be listed as an action feature to predict the cluster
+            of a case. If listed, "non_clustered_distance_contribution" and
+            "non_clustered_similarity_contribution" will be automatically returned as
+            a detail.
         actions : DataFrame or 2-dimensional list of object, optional
             One or more action values to use for action features. If specified,
             will only return the specified explanation details for the given
@@ -1291,7 +1310,7 @@ class Trainee(BaseTrainee):
             list, `action_features` must also be specified.
         allow_nulls : bool, default False
             When true will allow return of null values if there
-            are nulls in the local model for the action features, applicable
+            are nulls in the local data for the action features, applicable
             only to discriminative reacts.
         batch_size: int, optional
             Define the number of cases to react to at once. If left unspecified,
@@ -1397,7 +1416,7 @@ class Trainee(BaseTrainee):
                           features.
             - case_full_accuracy_contributions : bool, optional
                 If True, outputs each influential case's accuracy contributions
-                of predicting the action feature in the local model area, as if
+                of predicting the action feature in the local data area, as if
                 each individual case were included versus not included. Uses
                 only the context features of the reacted case to determine that
                 area. Uses full calculations, which uses leave-one-out for
@@ -1411,7 +1430,7 @@ class Trainee(BaseTrainee):
                 computations.
             - case_robust_accuracy_contributions : bool, optional
                 If True, outputs each influential case's accuracy contributions
-                of predicting the action feature in the local model area, as if
+                of predicting the action feature in the local data area, as if
                 each individual case were included versus not included. Uses
                 only the context features of the reacted case to determine that
                 area. Uses robust calculations, which uses uniform sampling
@@ -1432,7 +1451,7 @@ class Trainee(BaseTrainee):
                 feature_weights, feature_deviations, nominal_class_counts,
                 and use_irw.
 
-                - k: the number of cases used for the local model.
+                - k: the number of cases used for the local data.
                 - p: the parameter for the Lebesgue space.
                 - distance_transform: the distance transform used as an
                   exponent to convert distances to raw influence weights.
@@ -1470,20 +1489,23 @@ class Trainee(BaseTrainee):
                 If True, outputs each context feature's accuracy contributions
                 of predicting the action feature given the context. Uses only
                 the context features of the reacted case to determine that
-                area. Uses full calculations, which uses leave-one-out for
-                cases for computations.
+                area. Averages out the result of predictions for all cases in
+                this local data area. Uses full calculations, which uses
+                leave-one-out for cases for computations.
             - feature_full_accuracy_contributions_ex_post : bool, optional
                 If True, outputs each context feature's accuracy contributions
                 of predicting the action feature as an explanation detail given
                 that the specified prediction was already made as specified by
                 the action value. Uses both context and action features of the
-                reacted case to determine that area. Uses full calculations,
-                which uses leave-one-out for cases for computations.
+                reacted case to determine that area. Averages out the result of
+                predictions for all cases in this local data area. Uses full
+                calculations, which uses leave-one-out for cases for computations.
             - feature_full_prediction_contributions : bool, optional
                 If True outputs each context feature's absolute and directional
                 differences between the predicted action feature value and the
                 predicted action feature value if each context were not in the
-                model for all context features in the local model area. Uses
+                model for all context features. Averages out the result of
+                predictions for all cases in this local data area. Uses
                 full calculations, which uses leave-one-out for cases for
                 computations. Directional feature contributions are returned
                 under the key 'feature_full_directional_prediction_contributions'.
@@ -1491,11 +1513,11 @@ class Trainee(BaseTrainee):
                 If True outputs each context feature's absolute and directional
                 differences between the predicted action feature value and the
                 predicted action feature value if each context feature were not
-                in the model for all context features in this case, using only
-                the values from this specific case. Uses
-                full calculations, which uses leave-one-out for cases for
-                computations. Directional case feature
-                contributions are returned under the
+                in the dataset for all context features. Predicts action feature
+                value using only using only the values from this specific case.
+                Uses full calculations, which uses leave-one-out for cases for
+                computations. Directional case feature contributions are
+                returned under the
                 'feature_full_directional_prediction_contributions_for_case' key.
             - feature_full_residual_convictions_for_case : bool, optional
                 If True, outputs this case's feature residual convictions for
@@ -1522,21 +1544,25 @@ class Trainee(BaseTrainee):
                 If True, outputs each context feature's accuracy contributions
                 of predicting the action feature given the context. Uses only
                 the context features of the reacted case to determine that
-                area. Uses robust calculations, which uses uniform sampling
-                from the power set of features as the contexts for predictions.
+                area. Averages out the result of predictions for all cases in
+                this local data area. Uses robust calculations, which uses
+                uniform sampling from the power set of features as the
+                contexts for predictions.
             - feature_robust_accuracy_contributions_ex_post : bool, optional
                 If True, outputs each context feature's accuracy contributions
                 of predicting the action feature as an explanation detail given
                 that the specified prediction was already made as specified by
                 the action value. Uses both context and action features of the
-                reacted case to determine that area. Uses robust calculations,
-                which uses uniform sampling from the power set of features as
-                the contexts for predictions.
+                reacted case to determine that area. Averages out the result
+                of predictions for all cases in this local data area. Uses
+                robust calculations, which uses uniform sampling from the power
+                set of features as the contexts for predictions.
             - feature_robust_prediction_contributions : bool, optional
                 If True outputs each context feature's absolute and directional
                 differences between the predicted action feature value and the
                 predicted action feature value if each context were not in the
-                model for all context features in the local model area Uses
+                dataset for all context features. Averages out the result of
+                predictions for all cases in this local data area. Uses
                 robust calculations, which uses uniform sampling from the power
                 set of features as the contexts for predictions. Directional feature
                 contributions are returned under the key
@@ -1545,11 +1571,11 @@ class Trainee(BaseTrainee):
                 If True outputs each context feature's absolute and directional
                 differences between the predicted action feature value and the
                 predicted action feature value if each context feature were not
-                in the model for all context features in this case, using only
-                the values from this specific case. Uses robust calculations,
-                which uses uniform sampling from the power set of features as
-                the contexts for predictions. Directional case prediction
-                contributions are returned under the
+                in the dataset for all context features. Predicts action feature
+                value using only the values from this specific case. Uses robust
+                calculations, which uses uniform sampling from the power set of
+                features as the contexts for predictions. Directional case
+                prediction contributions are returned under the
                 'feature_robust_directional_feature_contributions_for_case' key.
             - feature_robust_residuals : bool, optional
                 If True, outputs feature residuals for all (context and action)
@@ -1611,7 +1637,7 @@ class Trainee(BaseTrainee):
             - outlying_feature_values : bool, optional
                 If True, outputs the reacted case's context feature values that
                 are outside the min or max of the corresponding feature values
-                of all the cases in the local model area. Uses only the context
+                of all the cases in the local data area. Uses only the context
                 features of the reacted case to determine that area.
             - prediction_stats : bool, optional
                 When true outputs feature prediction stats for all (context
@@ -1895,7 +1921,7 @@ class Trainee(BaseTrainee):
         series_id_tracking: SeriesIDTracking = "fixed",
         series_id_values: t.Optional[TabularData2D] = None,
         series_index: str = ".series",
-        series_stop_maps: t.Optional[list[Mapping[str, Mapping[str, t.Any]]]] = None,
+        series_stop_maps: t.Optional[list[SeriesStopMap]] = None,
         substitute_output: bool = True,
         suppress_warning: bool = False,
         use_aggregation_based_differential_privacy: bool = False,
@@ -3064,10 +3090,12 @@ class Trainee(BaseTrainee):
     def react_group(
         self,
         *,
-        case_indices: t.Optional[CaseIndices] = None,
+        action_features: t.Optional[Collection[str]] = None,
+        case_indices: t.Optional[Collection[CaseIndices]] = None,
         conditions: t.Optional[list[Mapping]] = None,
+        details: t.Optional[Mapping[str, bool]] = None,
         distance_contributions: bool = False,
-        familiarity_conviction_addition: bool = True,
+        familiarity_conviction_addition: bool = False,
         familiarity_conviction_removal: bool = False,
         kl_divergence_addition: bool = False,
         kl_divergence_removal: bool = False,
@@ -3078,7 +3106,7 @@ class Trainee(BaseTrainee):
         use_case_weights: t.Optional[bool] = None,
         features: t.Optional[Collection[str]] = None,
         weight_feature: t.Optional[str] = None,
-    ) -> DataFrame:
+    ) -> GroupReaction:
         """
         Computes specified data for a **set** of cases.
 
@@ -3087,7 +3115,11 @@ class Trainee(BaseTrainee):
 
         Parameters
         ----------
-        case_indices: list of lists of tuples of {str, int}, optional
+        action_features : list of str, optional
+            A list of features whose values should be predicted for
+            each group. Each group of cases gets a single action value for each
+            feature.
+        case_indices : list of lists of lists of tuples of {str, int}, optional
             A list of lists of case indices tuples containing the session ID and
             the session training indices that uniquely identify trained cases.
             Each sublist defines a set of trained cases to react to. Only one of
@@ -3114,10 +3146,25 @@ class Trainee(BaseTrainee):
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
+        details : dict of str to bool, optional
+            Ignored if action features are not specified.
+            If details are specified, the response will contain the requested
+            explanation data along with the group reaction. Below are the valid keys
+            and data types for the different details.
+
+            - influential_cases : bool, optional
+                If true, returns the cases influential to the prediction of the
+                action values for each group.
+            - categorical_action_probabilities : bool, optional
+                If true, returns the categorical action probabilities for the
+                nominal action features for each group.
+            - feature_full_residuals : bool, optional
+                If true, returns the full residuals of the action features
+                predicted for each group.
         distance_contributions : bool, default False
             Calculate and output distance contribution ratios in
             the output dict for each case.
-        familiarity_conviction_addition : bool, default True
+        familiarity_conviction_addition : bool, default False
             Calculate and output familiarity conviction of adding the
             specified cases.
         familiarity_conviction_removal : bool, default False
@@ -3166,12 +3213,14 @@ class Trainee(BaseTrainee):
         DataFrame
             The conviction of grouped cases.
         """
-        if isinstance(self.client, HowsoPandasClientMixin):
+        if isinstance(self.client, AbstractHowsoClient):
             return self.client.react_group(
                 trainee_id=self.id,
+                action_features=action_features,
                 new_cases=new_cases,
                 case_indices=case_indices,
                 conditions=conditions,
+                details=details,
                 features=features,
                 familiarity_conviction_addition=familiarity_conviction_addition,
                 familiarity_conviction_removal=familiarity_conviction_removal,
@@ -3409,6 +3458,9 @@ class Trainee(BaseTrainee):
         self,
         *,
         analyze: t.Optional[bool] = None,
+        clustering: bool = False,
+        clustering_expansion_threshold: t.Optional[float] = None,
+        clustering_inclusion_relative_threshold: t.Optional[float] = None,
         distance_contribution: str | bool = False,
         familiarity_conviction_addition: str | bool = False,
         familiarity_conviction_removal: str | bool = False,
@@ -3426,9 +3478,21 @@ class Trainee(BaseTrainee):
 
         Parameters
         ----------
-        analyze: bool, default None
+        analyze : bool, optional
             When set to True, will enable auto_analyze, and run analyze with
             these specified features computing their values.
+        clustering : bool, optional
+            If True, will cluster and store cluster ids into ".cluster_id".
+			Will also compute and overwrite distance contributions and similarity convictions.
+        clustering_expansion_threshold : float, optional
+            Similarity conviction threshold of cases considered for expansion of a cluster, only
+            cases with similarity conviction equal to or greater than this value will be
+            considered to be clustered in the same cluster as their neighbors. If none is provided,
+            will default to 0.5
+        clustering_inclusion_relative_threshold : float, optional
+            The initially unclustered candidate cases' distance contribution needs to be less than
+            this value times the max distance contribution from their nearest cluster to be included
+            in that cluster. If none is provided, will default to 1.5
         distance_contribution : bool or str, default False
             The name of the feature to store distance contribution.
             If set to True the values will be stored to the feature
@@ -3475,6 +3539,9 @@ class Trainee(BaseTrainee):
             self.client.react_into_features(
                 trainee_id=self.id,
                 analyze=analyze,
+                clustering=clustering,
+                clustering_expansion_threshold=clustering_expansion_threshold,
+                clustering_inclusion_relative_threshold=clustering_inclusion_relative_threshold,
                 distance_contribution=distance_contribution,
                 familiarity_conviction_addition=familiarity_conviction_addition,
                 familiarity_conviction_removal=familiarity_conviction_removal,
@@ -3520,6 +3587,11 @@ class Trainee(BaseTrainee):
         sample_model_fraction: t.Optional[float] = None,
         sub_model_size: t.Optional[int] = None,
         use_case_weights: t.Optional[bool] = None,
+        value_robust_contributions_action_feature: t.Optional[str] = None,
+        value_robust_contributions_buckets: t.Optional[dict[str, list[tuple[float, float]]]] = None,
+        value_robust_contributions_features: t.Optional[Collection[str]] = None,
+        value_robust_contributions_num_buckets: int = 30,
+        value_robust_contributions_min_samples: int = 15,
         weight_feature: t.Optional[str] = None,
     ) -> AggregateReaction:
         """
@@ -3643,6 +3715,10 @@ class Trainee(BaseTrainee):
                 For each feature in ``action_features``, use the robust
                 (power set/permutations) set of all other context features to predict
                 the feature and return the mean absolute error.
+            - missing_information : bool, optional
+                For each feature in ``action_features``, return the average estimated missing information. This is
+                computed by measuring the surprisal between the full prediction and the prediction including the true
+                value in the context.
             - prediction_stats : bool, optional
                 If True outputs full feature prediction stats for all features in
                 ``action_features``. The prediction stats returned are set by the
@@ -3683,6 +3759,18 @@ class Trainee(BaseTrainee):
                   in the data. This helps alleviate limitations with smape when the values are 0 or near 0.
             - estimated_residual_lower_bound : bool, optional
                 When True, computes and outputs estimated lower bound of residuals for specified action features.
+            - value_robust_accuracy_contributions : bool, optional
+                Perform a focused computation to determine how all the individual combinations of specified
+                'value_robust_contributions_features' values affect the accuracy of
+                'value_robust_contributions_action_feature'.
+            - value_robust_prediction_contributions : bool. optional
+                Perform a focused computation to determine how all the individual combinations of specified
+                'value_robust_contributions_features' values affect the predicted values of
+                'value_robust_contributions_action_feature'.
+            - value_robust_surprisal_asymmetry : bool. optional
+                Perform a focused computation to determine how all the individual values of specified
+                'value_robust_contributions_features' relationships with `value_robust_contributions_action_feature"
+			    vary in terms of AC-surprisal asymmetry.
         convergence_min_size: int, optional
             The minimum size of the first batch of cases used when dynamically sampling robust
             residuals used to determine feature accuracy contributions. Defaults to 5000 when unspecified.
@@ -3756,7 +3844,8 @@ class Trainee(BaseTrainee):
         num_robust_accuracy_contributions_samples : int, optional
             Total sample size of model to use (using sampling with replacement)
             when computing robust accuracy contributions. Defaults to the
-            smaller of 150000 or (6321 * number of context features).
+            smaller of 150,000 or (6,321 * number of context features).
+            Defaults to 100,000 for all value-details.
         num_robust_influence_samples : int, optional
             Total sample size of model to use (using sampling with replacement)
             when computing robust accuracy contributions and robust prediction
@@ -3816,6 +3905,25 @@ class Trainee(BaseTrainee):
             If set to True, will scale influence weights by each case's
             ``weight_feature`` weight. If unspecified, case weights will
             be used if the Trainee has them.
+        value_robust_contributions_action_feature : str, optional
+			The name of the feature being predicted when computing the "value_robust_accuracy_contributions",
+            "value_robust_prediction_contributions" or "value_robust_surprisal_asymmetry" details.
+        value_robust_contributions_buckets : dict of str to list of tuples of float and float, optional
+            A mapping of continuous feature names to lists of ranges defined as two float tuples that describe the
+            buckets to compute metrics for when computing the "value_robust_accuracy_contributions",
+            "value_robust_prediction_contributions" or "value_robust_surprisal_asymmetry" details.
+        value_robust_contributions_features: list of str, optional
+            The feature names for which to measure the accuracy contributions across combinations of values when
+            computing the "value_robust_accuracy_contributions", "value_robust_prediction_contributions" or
+            "value_robust_surprisal_asymmetry" details.
+        value_robust_contributions_num_buckets: int, default 30
+            The maximum number of buckets to bin continuous values into when computing the
+            "value_robust_accuracy_contributions", "value_robust_prediction_contributions" or
+            "value_robust_surprisal_asymmetry" details.
+        value_robust_contributions_num_samples: int, default 15
+            The minumum number of samples required for a combination of feature values for its
+            aggregated measure to be returned when computing the "value_robust_accuracy_contributions",
+            "value_robust_prediction_contributions" or "value_robust_surprisal_asymmetry" details.
         weight_feature : str, optional
             The name of feature whose values to use as case weights.
             When left unspecified uses the internally managed case weight.
@@ -3854,6 +3962,11 @@ class Trainee(BaseTrainee):
                 sample_model_fraction=sample_model_fraction,
                 sub_model_size=sub_model_size,
                 use_case_weights=use_case_weights,
+                value_robust_contributions_features=value_robust_contributions_features,
+                value_robust_contributions_action_feature=value_robust_contributions_action_feature,
+                value_robust_contributions_buckets=value_robust_contributions_buckets,
+                value_robust_contributions_num_buckets=value_robust_contributions_num_buckets,
+                value_robust_contributions_min_samples=value_robust_contributions_min_samples,
                 weight_feature=weight_feature,
             )
         else:
@@ -4187,14 +4300,15 @@ class Trainee(BaseTrainee):
             A dictionary with feature name keys and custom Amalgam code string
             values.
 
-            The custom code can use \"#feature_name 0\" to reference the value
-            of that feature for each case.
+            The custom code can use "(call value {feature \"feature name\"})"
+            to reference the value of that feature for each case.
         aggregation_code : str, optional
             A string of custom Amalgam code that can access the list of values
             derived form the custom code in features_to_code_map.
 
-            The custom code can use \"#feature_name 0\" to reference the list of
-            values derived from using the custom code in features_to_code_map.
+            The custom code can use "(call value {feature \"feature name\"})"
+            to reference the list of values derived from using the custom code
+            in features_to_code_map.
 
         Returns
         -------

@@ -34,7 +34,6 @@ from orbax.checkpoint import args as args_lib
 from orbax.checkpoint import checkpoint_args
 from orbax.checkpoint import options as options_lib
 from orbax.checkpoint import utils
-from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src import threading as threading_lib
 from orbax.checkpoint._src.checkpoint_managers import policy_checkpoint_info
 from orbax.checkpoint._src.checkpoint_managers import preservation_policy as preservation_policy_lib
@@ -103,6 +102,7 @@ METADATA_ITEM_NAME = 'metadata'
 RESERVED_ITEM_NAMES = []
 
 _INIT_TIME = datetime.datetime.now(tz=datetime.timezone.utc)
+_WAIT_FOR_PREV_SAVE_WARNING_THRESHOLD_SECS = 1.0
 
 
 def _metrics_file_exists(metrics_item_path: epath.Path) -> bool:
@@ -317,8 +317,6 @@ class CheckpointManagerOptions:
     gs://my-bucket/trash/<step_id>. Useful when direct deletion is time
     consuming. It gathers all deleted items in a centralized path for
     future cleanup.
-  enable_hns: If True, enables HNS-specific path manipulation logic.
-    Experimental feature.
   enable_background_delete: If True, old checkpoint deletions will be done in a
     background thread, otherwise, it will be done at the end of each save.  When
     it's enabled, make sure to call CheckpointManager.close() or use context to
@@ -366,6 +364,12 @@ class CheckpointManagerOptions:
     supposed to be created per process. This is used to support async
     directory creation. If True, `multiprocessing_options.primary_host` must be
     None.
+  lightweight_initialize: If True, checkpoint step metadata is not
+  read on
+    CheckpointManager initialization during checkpoint info loading. This is
+    useful to improve init performance
+    when there are O(1k) or more existing checkpoint step present and checkpoint
+    info properties like `time` and `metrics` are not needed.
   """
 
   save_interval_steps: int = 1
@@ -385,7 +389,6 @@ class CheckpointManagerOptions:
   single_host_load_and_broadcast: bool = False
   todelete_subdir: Optional[str] = None
   todelete_full_path: Optional[str] = None
-  enable_hns: bool = False
   enable_background_delete: bool = False
   read_only: bool = False
   enable_async_checkpointing: bool = True
@@ -407,6 +410,7 @@ class CheckpointManagerOptions:
   # TODO(b/428061876) Remove this option.
   enable_should_save_is_saving_in_progress_check: bool = True
   enable_per_process_directory_creation: bool = False
+  lightweight_initialize: bool = False
 
   def __post_init__(self):
     step_name_format_single_host_load_and_broadcast = (
@@ -553,7 +557,11 @@ def _create_root_directory(
       multiprocessing_options.primary_host
   ):
     # exists_ok=True is required, see b/362903314.
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(
+        parents=True,
+        exist_ok=True,
+        mode=file_options.path_permission_mode if file_options else None,
+    )
     logging.info('Created directory=%s', directory)
   multihost.sync_global_processes(
       multihost.unique_barrier_key(
@@ -617,22 +625,29 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       # Multiple items.
       with CheckpointManager(
         'path/to/dir/',
+        # Global metadata.
         metadata={'version': 1.1, 'lang': 'en'},
       ) as mngr:
-        mngr.save(0, args=args.Composite(
-            train_state=args.StandardSave(train_state),
-            custom_metadata=args.JsonSave(custom_metadata),
-          )
+        mngr.save(
+            0,
+            args=args.Composite(
+              train_state=args.StandardSave(train_state),
+              json_states=args.JsonSave(json_states),
+            ),
+            # Metadata varying by step.
+            custom_metadata={'learning_rate': 0.001}
         )
         restored = mngr.restore(0)
         print(restored.train_state)
-        print(restored.custom_metadata)
+        print(restored.json_states)
         restored = mngr.restore(0, args=args.Composite(
             train_state=args.StandardRestore(abstract_train_state),
           )
         )
         print(restored.train_state)
-        print(restored.custom_metadata)  # Error, not restored
+        print(restored.json_states)  # Error, not restored
+        global_metadata = mngr.metadata()
+        step_metadata = mngr.metadata(0)  # custom_metadata in here
 
       # Single, unnamed (default) item.
       with CheckpointManager(
@@ -849,8 +864,9 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
 
     # Cleanup directories from previous runs that may not have been finalized.
+    self._cleanup_tmp_directory_future = None
     if self._options.cleanup_tmp_directories:
-      asyncio_utils.run_sync(
+      self._cleanup_tmp_directory_future = future.CommitFuture(
           temporary_paths.cleanup_temporary_paths(
               self._directory,
               multiprocessing_options=self._options.multiprocessing_options,
@@ -866,12 +882,13 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             single_host_load_and_broadcast=(
                 self._options.single_host_load_and_broadcast
             ),
-            enable_hns=self._options.enable_hns,
         )
     )
 
     self._checkpoints = checkpoint_info.CheckpointInfos(
-        self._load_checkpoint_infos()
+        self._load_checkpoint_infos(
+            skip_metadata_read=self._options.lightweight_initialize
+        )
     )
 
     self._metadata_dir = self.directory / METADATA_ITEM_NAME
@@ -897,7 +914,6 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             primary_host=self._multiprocessing_options.primary_host,
             todelete_subdir=self._options.todelete_subdir,
             todelete_full_path=self._options.todelete_full_path,
-            enable_hns=self._options.enable_hns,
             enable_background_delete=self._options.enable_background_delete,
         )
     )
@@ -907,6 +923,8 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         multiprocessing_options=self._multiprocessing_options,
         async_options=self._options.async_options,
     )
+
+    self._last_save_time = None
 
     logging.info(
         '[process=%s][thread=%s] CheckpointManager created,  primary_host=%s,'
@@ -918,6 +936,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         self.directory,
         self,
     )
+
+  def _maybe_await_cleanup_tmp_directory(self):
+    if self._cleanup_tmp_directory_future is None:
+      return
+
+    self._cleanup_tmp_directory_future.result()
+    # Reset the future to None to avoid waiting for cleanup again.
+    self._cleanup_tmp_directory_future = None
 
   def _configure_checkpointer_common(
       self,
@@ -1379,7 +1405,8 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     self._validate_args(items, args)
     if not force and not self.should_save(step):
       return False
-
+    # Wait for any ongoing temporary path cleanup before starting the save.
+    self._maybe_await_cleanup_tmp_directory()
     multihost.sync_global_processes(
         multihost.unique_barrier_key(
             'CheckpointManager:save_start',
@@ -1403,6 +1430,18 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     # checkpointers are AsyncCheckpointers.
     # Must happen after `should_save` to avoid blocking callers.
     step_stats.wait_for_prev_start_time = time.time()
+    if self._last_save_time is not None:
+      # This may be negative if we arrive at
+      # wait_until_finished() before the save completed.
+      # TODO: b/448361885 - Investigate if we can make this more robust to
+      # manual wait_until_finished() calls.
+      step_stats.time_between_consecutive_saves_sec = (
+          step_stats.wait_for_prev_start_time - self._last_save_time
+      )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/checkpoint_manager/time_between_consecutive_saves_secs',
+          step_stats.time_between_consecutive_saves_sec,
+      )
     self.wait_until_finished()
     step_stats.wait_for_prev_duration_secs = (
         time.time() - step_stats.wait_for_prev_start_time
@@ -1412,6 +1451,15 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         '/jax/checkpoint/write/wait_for_prev_duration_secs',
         step_stats.wait_for_prev_duration_secs,
     )
+    if (
+        step_stats.wait_for_prev_duration_secs
+        > _WAIT_FOR_PREV_SAVE_WARNING_THRESHOLD_SECS
+    ):
+      logging.warning(
+          'Waiting for previous save to complete took %f seconds. If this'
+          ' number is high, consider checkpointing less frequently.',
+          step_stats.wait_for_prev_duration_secs,
+      )
     # We consider the save in progress only when we have finished waiting for
     # previous save to complete.
     self._save_progress_tracker.set(True)
@@ -1688,7 +1736,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     """Retrieves metadata for all known items.
 
     Important note: This method will soon be deprecated in favor of
-    `metadata().item_metadata`. Please use that method instead.
+    `metadata(step).item_metadata`. Please use that method instead.
 
     Note that metadata will only be returned for items that can actually be
     interpreted. If an item is present in the checkpoint but not registered
@@ -1725,10 +1773,16 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     """Returns true if we should track the best checkpoints by given metric."""
     return self._options.best_fn is not None
 
-  def _load_checkpoint_infos(self) -> List[CheckpointInfo]:
+  def _load_checkpoint_infos(
+      self, skip_metadata_read=False
+  ) -> List[CheckpointInfo]:
     """Loads a list of CheckpointInfo for existing checkpoints.
 
     If none are present, returns empty list.
+
+    Args:
+      skip_metadata_read: If True, will not read metadata from disk to build
+        checkpoint infos.
 
     Returns:
       a list of CheckpointInfo, sorted by increasing step.
@@ -1739,11 +1793,18 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     step_metadatas = self._step_name_format.find_all(self.directory)
 
     def build_checkpoint_info(step_metadata):
-      return CheckpointInfo(
-          step=step_metadata.step,
-          time=step_metadata.commit_timestamp,
-          metrics=self.metrics(step_metadata.step),
-      )
+      if skip_metadata_read:
+        return CheckpointInfo(
+            step=step_metadata.step,
+            time=datetime.datetime.min,
+            metrics=None,
+        )
+      else:
+        return CheckpointInfo(
+            step=step_metadata.step,
+            time=step_metadata.commit_timestamp,
+            metrics=self.metrics(step_metadata.step),
+        )
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
       checkpoint_infos = list(
@@ -2085,6 +2146,8 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
           current_thread.name,
           step,
       )
+      # This time is tracked for metric purposes only.
+      self._last_save_time = time.time()
 
   def close(self):
     """Waits for outstanding operations to finish and closes internal objects."""

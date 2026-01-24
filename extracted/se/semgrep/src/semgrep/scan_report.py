@@ -241,21 +241,29 @@ def _print_sca_parse_error(error: out.DependencyParserError) -> None:
 
 
 def _print_sca_resolution_error(error: out.ScaResolutionError) -> None:
+    def format_resolution_error_message(message: str) -> str:
+        # the Ocaml code returns error messages with \n instead of newlines,
+        # which makes the error output look messy. We switch back to using real
+        # newlines, and then prepend each line of the output with > to show
+        # that it is a replication of third-party output.
+        with_newlines = message.replace("\\n", "\n")
+        processed_message = "\n".join(
+            [f"  > {line}" for line in with_newlines.split("\n")]
+        )
+        return processed_message
+
+    # duplicated mostly in error.py in DependencyResolutionSemgrepError.__str__
     def print_resolution_error(err: out.ResolutionErrorKind) -> str:
         if isinstance(err.value, out.UnsupportedManifest):
             return "Unsupported Manifest"
         elif isinstance(err.value, out.MissingRequirement):
             return f"Missing Requirement ({err.value.value})"
         elif isinstance(err.value, out.ResolutionCmdFailed_):
-            # the Ocaml code returns error messages with \n instead of newlines,
-            # which makes the error output look messy. We switch back to using real
-            # newlines, and then prepend each line of the output with > to show
-            # that it is a replication of third-party output.
-            with_newlines = err.value.value.message.replace("\\n", "\n")
-            processed_message = "\n".join(
-                [f"  > {line}" for line in with_newlines.split("\n")]
-            )
+            processed_message = format_resolution_error_message(err.value.value.message)
             return f"Resolution Command Failed.\nCommand: {err.value.value.command}\nOutput from third-party command:\n{processed_message})"
+        elif isinstance(err.value, out.ResourceInaccessible_):
+            processed_message = format_resolution_error_message(err.value.value.message)
+            return f"Resource Inaccessible (command: {err.value.value.command}) (registry_url: {err.value.value.registry_url}) (output from third-party command:\n{processed_message})"
         else:
             return f"Parsing dependency output failed ({err.value.value})"
 
@@ -329,7 +337,9 @@ def _print_detailed_sca_table(
     """
     Pretty print the plan to stdout with the detailed CLI UX.
     """
-    if rule_count:
+    # even if no rules, we still want to print the subproject table to
+    # show any resolution failures (rules get filtered out when resolution fails)
+    if rule_count or sca_plan.all_subprojects:
         _print_sca_table(sca_plan, rule_count)
         return
 
@@ -473,7 +483,12 @@ def print_scan_status(
         )
         return plans
 
-    if not has_sca_rules and not has_secret_rules and legacy_ux:
+    if (
+        not has_sca_rules
+        and not has_secret_rules
+        and legacy_ux
+        and not dependency_resolution_errors
+    ):
         # Print these SAST table without section headers
         _print_sast_table(
             sast_plan=sast_plan,
@@ -521,7 +536,6 @@ def print_scan_status(
         # Show the basic table for supply chain
         console.print(Title("Supply Chain Rules", order=2))
         _print_sca_table(sca_plan=sca_plan, rule_count=alt_sca_rule_count)
-        _print_sca_resolution_errors(dependency_resolution_errors)
     else:
         # Show the table with a supply chain nudge or supply chain
         console.print(Title("Supply Chain Rules", order=2))
@@ -532,7 +546,9 @@ def print_scan_status(
             # without supply-chain to upgrade their usage to the `ci` command
             with_supply_chain=with_supply_chain,
         )
-        _print_sca_resolution_errors(dependency_resolution_errors)
+    # always show SCA resolution errors regardless of if there are rules,
+    # since if resolution fails the rules will be filtered out
+    _print_sca_resolution_errors(dependency_resolution_errors)
 
     if detailed_ux:
         console.print(Title("Progress", order=2))

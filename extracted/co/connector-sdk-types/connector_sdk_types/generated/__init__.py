@@ -48,7 +48,6 @@ from .models.assigned_application_entitlement import AssignedApplicationEntitlem
 from .models.assigned_entitlement import AssignedEntitlement
 from .models.assignment_mode import AssignmentMode
 from .models.auth_credential import AuthCredential
-from .models.auth_model import AuthModel
 from .models.authorization_url import AuthorizationUrl
 from .models.basic_authentication import BasicAuthentication
 from .models.basic_credential import BasicCredential
@@ -60,7 +59,7 @@ from .models.create_account_entitlement import CreateAccountEntitlement
 from .models.create_account_request import CreateAccountRequest
 from .models.create_account_response import CreateAccountResponse
 from .models.created_account import CreatedAccount
-from .models.credential_config import CredentialConfig
+from .models.created_effect import CreatedEffect
 from .models.custom_attribute_customized_type import CustomAttributeCustomizedType
 from .models.custom_attribute_schema import CustomAttributeSchema
 from .models.custom_attribute_type import CustomAttributeType
@@ -75,17 +74,21 @@ from .models.delete_account200_response import DeleteAccount200Response
 from .models.delete_account_request import DeleteAccountRequest
 from .models.delete_account_response import DeleteAccountResponse
 from .models.deleted_account import DeletedAccount
+from .models.deleted_effect import DeletedEffect
 from .models.delta import Delta
 from .models.downgrade_license import DowngradeLicense
 from .models.downgrade_license200_response import DowngradeLicense200Response
 from .models.downgrade_license_request import DowngradeLicenseRequest
 from .models.downgrade_license_response import DowngradeLicenseResponse
 from .models.downgraded_license import DowngradedLicense
+from .models.effect import Effect
 from .models.entitlement_requirement import EntitlementRequirement
 from .models.entitlement_type import EntitlementType
 from .models.error import Error
 from .models.error_code import ErrorCode
 from .models.error_response import ErrorResponse
+from .models.execution_effect import ExecutionEffect
+from .models.execution_summary import ExecutionSummary
 from .models.expense import Expense
 from .models.expense_approval_status import ExpenseApprovalStatus
 from .models.expense_filters import ExpenseFilters
@@ -145,6 +148,8 @@ from .models.info_response import InfoResponse
 from .models.jwt_claims import JWTClaims
 from .models.jwt_credential import JWTCredential
 from .models.jwt_headers import JWTHeaders
+from .models.key_gen_type import KeyGenType
+from .models.key_pair_credential import KeyPairCredential
 from .models.last_activity_data import LastActivityData
 from .models.list_accounts import ListAccounts
 from .models.list_accounts200_response import ListAccounts200Response
@@ -199,6 +204,8 @@ from .models.list_updated_accounts import ListUpdatedAccounts
 from .models.list_updated_accounts200_response import ListUpdatedAccounts200Response
 from .models.list_updated_accounts_request import ListUpdatedAccountsRequest
 from .models.list_updated_accounts_response import ListUpdatedAccountsResponse
+from .models.noop_effect import NoopEffect
+from .models.noop_effect_reason import NoopEffectReason
 from .models.normalized_expense_approval_status import NormalizedExpenseApprovalStatus
 from .models.normalized_expense_payment_status import NormalizedExpensePaymentStatus
 from .models.o_auth1_credential import OAuth1Credential
@@ -210,6 +217,8 @@ from .models.o_auth_client_credential_authorization import OAuthClientCredential
 from .models.o_auth_credential import OAuthCredential
 from .models.o_auth_scopes import OAuthScopes
 from .models.oauth_credentials import OauthCredentials
+from .models.open_api_specification import OpenAPISpecification
+from .models.open_api_specification_info import OpenAPISpecificationInfo
 from .models.page import Page
 from .models.refresh_access_token import RefreshAccessToken
 from .models.refresh_access_token200_response import RefreshAccessToken200Response
@@ -255,10 +264,16 @@ from .models.update_account_request import UpdateAccountRequest
 from .models.update_account_response import UpdateAccountResponse
 from .models.updateable_account import UpdateableAccount
 from .models.updated_accounts import UpdatedAccounts
+from .models.updated_effect import UpdatedEffect
+from .models.validate_credential_config import ValidateCredentialConfig
+from .models.validate_credential_config200_response import ValidateCredentialConfig200Response
+from .models.validate_credential_config_request import ValidateCredentialConfigRequest
+from .models.validate_credential_config_response import ValidateCredentialConfigResponse
 from .models.validate_credentials import ValidateCredentials
 from .models.validate_credentials200_response import ValidateCredentials200Response
 from .models.validate_credentials_request import ValidateCredentialsRequest
 from .models.validate_credentials_response import ValidateCredentialsResponse
+from .models.validated_credential_config import ValidatedCredentialConfig
 from .models.validated_credentials import ValidatedCredentials
 from .models.vendor import Vendor
 
@@ -308,7 +323,6 @@ __all__ = [
     "AssignedEntitlement",
     "AssignmentMode",
     "AuthCredential",
-    "AuthModel",
     "AuthorizationUrl",
     "BasicAuthentication",
     "BasicCredential",
@@ -320,7 +334,7 @@ __all__ = [
     "CreateAccountRequest",
     "CreateAccountResponse",
     "CreatedAccount",
-    "CredentialConfig",
+    "CreatedEffect",
     "CustomAttributeCustomizedType",
     "CustomAttributeSchema",
     "CustomAttributeType",
@@ -335,17 +349,21 @@ __all__ = [
     "DeleteAccountRequest",
     "DeleteAccountResponse",
     "DeletedAccount",
+    "DeletedEffect",
     "Delta",
     "DowngradeLicense",
     "DowngradeLicense200Response",
     "DowngradeLicenseRequest",
     "DowngradeLicenseResponse",
     "DowngradedLicense",
+    "Effect",
     "EntitlementRequirement",
     "EntitlementType",
     "Error",
     "ErrorCode",
     "ErrorResponse",
+    "ExecutionEffect",
+    "ExecutionSummary",
     "Expense",
     "ExpenseApprovalStatus",
     "ExpenseFilters",
@@ -405,6 +423,8 @@ __all__ = [
     "JWTClaims",
     "JWTCredential",
     "JWTHeaders",
+    "KeyGenType",
+    "KeyPairCredential",
     "LastActivityData",
     "ListAccounts",
     "ListAccounts200Response",
@@ -459,6 +479,8 @@ __all__ = [
     "ListUpdatedAccounts200Response",
     "ListUpdatedAccountsRequest",
     "ListUpdatedAccountsResponse",
+    "NoopEffect",
+    "NoopEffectReason",
     "NormalizedExpenseApprovalStatus",
     "NormalizedExpensePaymentStatus",
     "OAuth1Credential",
@@ -470,6 +492,8 @@ __all__ = [
     "OAuthCredential",
     "OAuthScopes",
     "OauthCredentials",
+    "OpenAPISpecification",
+    "OpenAPISpecificationInfo",
     "Page",
     "RefreshAccessToken",
     "RefreshAccessToken200Response",
@@ -515,10 +539,16 @@ __all__ = [
     "UpdateAccountResponse",
     "UpdateableAccount",
     "UpdatedAccounts",
+    "UpdatedEffect",
+    "ValidateCredentialConfig",
+    "ValidateCredentialConfig200Response",
+    "ValidateCredentialConfigRequest",
+    "ValidateCredentialConfigResponse",
     "ValidateCredentials",
     "ValidateCredentials200Response",
     "ValidateCredentialsRequest",
     "ValidateCredentialsResponse",
+    "ValidatedCredentialConfig",
     "ValidatedCredentials",
     "Vendor",
 ]

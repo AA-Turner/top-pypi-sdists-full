@@ -60,7 +60,7 @@ class NotifyPushy(NotifyBase):
     secure_protocol = "pushy"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_pushy"
+    setup_url = "https://appriseit.com/services/pushy/"
 
     # Pushy uses the http protocol with JSON requests
     notify_url = "https://api.pushy.me/push?api_key={apikey}"
@@ -289,7 +289,8 @@ class NotifyPushy(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     has_error = True
                     continue

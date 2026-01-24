@@ -31,6 +31,28 @@ T = TypeVar("T")
 W = NewType("W", str)
 
 
+@dataclass
+class WarningInfo:
+    """Properties and assertion methods for warnings."""
+
+    regexp: str
+    type: str
+
+    def assert_regexp(self, message: str) -> None:
+        regexp = self.regexp
+        msg = f"Regex pattern did not match.\n Regex: {regexp!r}\n Input: {message!r}"
+        assert re.search(regexp, message), msg
+
+    def assert_type(self, message: str) -> None:
+        expected = f"[{self.type}]"
+        msg = f"Warning did not contain type and subtype.\n Expected: {expected}\n Input: {message}"
+        assert expected in message, msg
+
+    def assert_warning(self, message: str) -> None:
+        self.assert_regexp(message)
+        self.assert_type(message)
+
+
 def expected(expected: str, **options: dict[str, Any]) -> Callable[[T], T]:
     def dec(val: T) -> T:
         val.EXPECTED = expected
@@ -40,9 +62,9 @@ def expected(expected: str, **options: dict[str, Any]) -> Callable[[T], T]:
     return dec
 
 
-def warns(pattern: str) -> Callable[[T], T]:
+def warns(info: WarningInfo) -> Callable[[T], T]:
     def dec(val: T) -> T:
-        val.WARNING = pattern
+        val.WARNING = info
         return val
 
     return dec
@@ -58,7 +80,7 @@ def get_local_function():  # noqa: ANN201
     return wrapper
 
 
-@warns("Cannot handle as a local function")
+@warns(WarningInfo(regexp="Cannot handle as a local function", type="sphinx_autodoc_typehints.local_function"))
 @expected(
     """\
 class mod.Class(x, y, z=None)
@@ -70,7 +92,7 @@ class mod.Class(x, y, z=None)
 
       * **y** ("int") -- bar
 
-      * **z** ("Optional"["str"]) -- baz
+      * **z** ("str" | "None") -- baz
 
    class InnerClass
 
@@ -95,7 +117,7 @@ class mod.Class(x, y, z=None)
 
          * **y** ("int") -- bar
 
-         * **z** ("Optional"["str"]) -- baz
+         * **z** ("str" | "None") -- baz
 
       Return type:
          "str"
@@ -109,7 +131,7 @@ class mod.Class(x, y, z=None)
 
          * **y** ("int") -- bar
 
-         * **z** ("Optional"["str"]) -- baz
+         * **z** ("str" | "None") -- baz
 
       Return type:
          "str"
@@ -127,7 +149,7 @@ class mod.Class(x, y, z=None)
 
          * **y** ("int") -- bar
 
-         * **z** ("Optional"["str"]) -- baz
+         * **z** ("str" | "None") -- baz
 
       Return type:
          "str"
@@ -262,7 +284,7 @@ mod.function(x, y, z_=None)
 
       * **y** ("int") -- bar
 
-      * **z_** ("Optional"["str"]) -- baz
+      * **z_** ("str" | "None") -- baz
 
    Returns:
       something
@@ -330,7 +352,11 @@ def function_with_escaped_default(x: str = "\b"):  # noqa: ANN201
     """
 
 
-@warns("Cannot resolve forward reference in type annotations")
+@warns(
+    WarningInfo(
+        regexp="Cannot resolve forward reference in type annotations", type="sphinx_autodoc_typehints.forward_reference"
+    )
+)
 @expected(
     """\
 mod.function_with_unresolvable_annotation(x)
@@ -445,7 +471,7 @@ mod.function_with_typehint_comment_not_inline(x=None, *y, z, **kwargs)
    Function docstring.
 
    Parameters:
-      * **x** ("Union"["str", "bytes", "None"]) -- foo
+      * **x** ("str" | "bytes" | "None") -- foo
 
       * **y** ("str") -- bar
 
@@ -476,7 +502,7 @@ class mod.ClassWithTypehintsNotInline(x=None)
    Class docstring.
 
    Parameters:
-      **x** ("Optional"["Callable"[["int", "bytes"], "int"]]) -- foo
+      **x** ("Callable"[["int", "bytes"], "int"] | "None") -- foo
 
    foo(x=1)
 
@@ -493,8 +519,7 @@ class mod.ClassWithTypehintsNotInline(x=None)
       Method docstring.
 
       Parameters:
-         **x** ("Optional"["Callable"[["int", "bytes"], "int"]]) --
-         foo
+         **x** ("Callable"[["int", "bytes"], "int"] | "None") -- foo
 
       Return type:
          "ClassWithTypehintsNotInline"
@@ -640,9 +665,9 @@ mod.func_with_overload(a, b)
    they must both have the same type.
 
    Parameters:
-      * **a** ("Union"["int", "str"]) -- The first thing
+      * **a** ("int" | "str") -- The first thing
 
-      * **b** ("Union"["int", "str"]) -- The second thing
+      * **b** ("int" | "str") -- The second thing
 
    Return type:
       "None"
@@ -721,7 +746,7 @@ class mod.TestClassAttributeDocs
 
    A class
 
-   code: "Optional"["CodeType"]
+   code: CodeType | None
 
       An attribute
 """,
@@ -988,7 +1013,7 @@ def decorator_2(f: Any) -> Any:
        Parameters:
           **blah** ("CodeType") -- Description of parameter blah
 
-       blah: "ModuleType"
+       blah: ModuleType
 
           Description of attribute blah
 
@@ -1196,7 +1221,7 @@ def docstring_with_enum_list_after_params(param: int) -> None:
     """
 
 
-@warns("Definition list ends without a blank line")
+@warns(WarningInfo(regexp="Definition list ends without a blank line", type="docutils"))
 @expected(
     """
     mod.docstring_with_definition_list_after_params_no_blank_line(param)
@@ -1251,7 +1276,7 @@ def docstring_with_definition_list_after_params_no_blank_line(param: int) -> Non
 
     """,
 )
-def has_typevar(param: T) -> T:
+def has_typevar[T](param: T) -> T:
     """Do something.
 
     Args:
@@ -1457,7 +1482,7 @@ def has_doctest1() -> None:
 Unformatted = TypeVar("Unformatted")
 
 
-@warns("cannot cache unpickleable configuration value: 'typehints_formatter'")
+@warns(WarningInfo(regexp="cannot cache unpickleable configuration value: 'typehints_formatter'", type="config.cache"))
 @expected(
     """
     mod.typehints_formatter_applied_to_signature(param: Formatted) -> Formatted
@@ -1477,7 +1502,7 @@ Unformatted = TypeVar("Unformatted")
     typehints_use_signature_return=True,
     typehints_formatter=lambda _, __=None: "Formatted",
 )
-def typehints_formatter_applied_to_signature(param: Unformatted) -> Unformatted:
+def typehints_formatter_applied_to_signature[Unformatted](param: Unformatted) -> Unformatted:
     """
     Do nothing
 
@@ -1521,15 +1546,15 @@ def test_integration(
     (Path(app.srcdir) / "index.rst").write_text(template.format(val.__name__))
     app.config.__dict__.update(configs[conf_run])
     app.config.__dict__.update(val.OPTIONS)
+    app.config.always_use_bars_union = True
     monkeypatch.setitem(sys.modules, "mod", sys.modules[__name__])
     app.build()
     assert "build succeeded" in status.getvalue()  # Build succeeded
 
-    regexp = getattr(val, "WARNING", None)
+    warning_info: Union[WarningInfo, None] = getattr(val, "WARNING", None)
     value = warning.getvalue().strip()
-    if regexp:
-        msg = f"Regex pattern did not match.\n Regex: {regexp!r}\n Input: {value!r}"
-        assert re.search(regexp, value), msg
+    if warning_info:
+        warning_info.assert_warning(value)
     else:
         assert not value
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyobjc-framework-ThreadNetwork
-Version: 11.1
+Version: 12.1
 Summary: Wrappers for the framework ThreadNetwork on macOS
 Home-page: https://github.com/ronaldoussoren/pyobjc
 Author: Ronald Oussoren
@@ -17,20 +17,21 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Programming Language :: Objective C
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst; charset=UTF-8
-Requires-Dist: pyobjc-core>=11.1
-Requires-Dist: pyobjc-framework-Cocoa>=11.1
+Requires-Dist: pyobjc-core>=12.1
+Requires-Dist: pyobjc-framework-Cocoa>=12.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

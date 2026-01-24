@@ -25,7 +25,7 @@ class Execution(BaseModel):
                  stacktrace: Optional[str] = None,
                  thread: Optional[str] = QaseUtils.get_thread_name()
                  ):
-        self.start_time = time.time()
+        self.start_time = QaseUtils.get_real_time()
         self.status = status
         self.end_time = end_time
         self.duration = duration
@@ -33,16 +33,22 @@ class Execution(BaseModel):
         self.thread = thread
 
     def set_status(self, status: Optional[str]):
-        if status in ['passed', 'failed', 'skipped', 'untested', 'invalid']:
+        if status is None:
             self.status = status
+            return
+        
+        # Convert to lowercase for validation
+        status_lower = status.lower()
+        if status_lower in ['passed', 'failed', 'skipped', 'untested', 'invalid', 'disabled', 'blocked']:
+            self.status = status_lower
         else:
-            raise ValueError('Step status must be one of: passed, failed, skipped, untested, invalid')
+            raise ValueError('Step status must be one of: passed, failed, skipped, untested, invalid, disabled, blocked')
 
     def get_status(self):
         return self.status
 
     def complete(self):
-        self.end_time = time.time()
+        self.end_time = QaseUtils.get_real_time()
         self.duration = (int)((self.end_time - self.start_time) * 1000)
 
 

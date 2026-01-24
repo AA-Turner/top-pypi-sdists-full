@@ -1,4 +1,4 @@
-# distutils: language=c++
+#cython: freethreading_compatible = True
 
 from cpp_common cimport (
     CreateProcessorContext,

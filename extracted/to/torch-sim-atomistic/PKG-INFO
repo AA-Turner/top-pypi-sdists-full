@@ -1,10 +1,10 @@
 Metadata-Version: 2.3
 Name: torch-sim-atomistic
-Version: 0.3.0
+Version: 0.5.0
 Summary: A pytorch toolkit for calculating material properties using MLIPs
 Keywords: chemistry,interatomic-potentials,machine-learning,materials-science
-Author: Abhijeet Gangan, Janosh Riebesell, Orion Cohen, Radical AI
-Author-email: Abhijeet Gangan <abhijeetgangan@g.ucla.edu>, Janosh Riebesell <jriebesell@radical-ai.com>, Orion Cohen <orion@radical-ai.com>, Radical AI <info@radical.ai>
+Author: Abhijeet Gangan, Janosh Riebesell, Orion Cohen
+Author-email: Abhijeet Gangan <abhijeetgangan@g.ucla.edu>, Janosh Riebesell <janosh.riebesell@gmail.com>, Orion Cohen <orioncohen@berkeley.edu>
 License: The MIT License (MIT)
          Copyright 2025 Radical AI
          
@@ -15,23 +15,25 @@ License: The MIT License (MIT)
          THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Dist: h5py>=3.12.1
-Requires-Dist: numpy>=1.26
+Requires-Dist: nvalchemi-toolkit-ops
+Requires-Dist: numpy>=1.26,<3
 Requires-Dist: tables>=3.10.2
 Requires-Dist: torch>=2
 Requires-Dist: tqdm>=4.67
-Requires-Dist: vesin-torch>=0.3.7
-Requires-Dist: vesin>=0.3.7
 Requires-Dist: autodoc-pydantic==2.2.0 ; extra == 'docs'
 Requires-Dist: furo==2024.8.6 ; extra == 'docs'
 Requires-Dist: ipython==8.34.0 ; extra == 'docs'
+Requires-Dist: ipykernel==6.30.1 ; extra == 'docs'
 Requires-Dist: jsonschema[format] ; extra == 'docs'
 Requires-Dist: jupyterlab==4.3.4 ; extra == 'docs'
+Requires-Dist: jupyter-core==5.8.1 ; extra == 'docs'
 Requires-Dist: jupytext==1.16.7 ; extra == 'docs'
 Requires-Dist: myst-parser==4.0.0 ; extra == 'docs'
 Requires-Dist: nbsphinx>=0.9.7 ; extra == 'docs'
@@ -39,31 +41,35 @@ Requires-Dist: numpydoc==1.8.0 ; extra == 'docs'
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == 'docs'
 Requires-Dist: sphinx==8.1.3 ; extra == 'docs'
 Requires-Dist: sphinx-design==0.6.1 ; extra == 'docs'
-Requires-Dist: graph-pes>=0.0.34 ; extra == 'graphpes'
+Requires-Dist: fairchem-core>=2.7 ; extra == 'fairchem'
+Requires-Dist: graph-pes>=0.1 ; extra == 'graphpes'
 Requires-Dist: mace-torch>=0.3.12 ; extra == 'graphpes'
-Requires-Dist: ase>=3.24 ; extra == 'io'
+Requires-Dist: ase>=3.26 ; extra == 'io'
 Requires-Dist: phonopy>=2.37.0 ; extra == 'io'
-Requires-Dist: pymatgen>=2024.11.3 ; extra == 'io'
-Requires-Dist: mace-torch>=0.3.12 ; extra == 'mace'
+Requires-Dist: pymatgen>=2025.6.14 ; extra == 'io'
+Requires-Dist: mace-torch>=0.3.14 ; extra == 'mace'
 Requires-Dist: mattersim>=0.1.2 ; extra == 'mattersim'
-Requires-Dist: metatomic-torch>=0.1.1,<0.2 ; extra == 'metatomic'
-Requires-Dist: metatrain[pet]==2025.7 ; extra == 'metatomic'
+Requires-Dist: metatomic-torch>=0.1.3 ; extra == 'metatomic'
+Requires-Dist: metatrain[pet]>=2025.7 ; extra == 'metatomic'
+Requires-Dist: nequip>=0.12.0 ; extra == 'nequip'
 Requires-Dist: orb-models>=0.5.2 ; extra == 'orb'
 Requires-Dist: sevenn>=0.11.0 ; extra == 'sevenn'
-Requires-Dist: ase>=3.24 ; extra == 'test'
+Requires-Dist: ase>=3.26 ; extra == 'test'
 Requires-Dist: phonopy>=2.37.0 ; extra == 'test'
 Requires-Dist: psutil>=7.0.0 ; extra == 'test'
-Requires-Dist: pymatgen>=2024.11.3 ; extra == 'test'
+Requires-Dist: pymatgen>=2025.6.14 ; extra == 'test'
 Requires-Dist: pytest-cov>=6 ; extra == 'test'
 Requires-Dist: pytest>=8 ; extra == 'test'
-Requires-Python: >=3.11
-Project-URL: Repo, https://github.com/radical-ai/torch-sim
+Requires-Python: >=3.12
+Project-URL: Repo, https://github.com/torchsim/torch-sim
 Provides-Extra: docs
+Provides-Extra: fairchem
 Provides-Extra: graphpes
 Provides-Extra: io
 Provides-Extra: mace
 Provides-Extra: mattersim
 Provides-Extra: metatomic
+Provides-Extra: nequip
 Provides-Extra: orb
 Provides-Extra: sevenn
 Provides-Extra: test
@@ -71,10 +77,10 @@ Description-Content-Type: text/markdown
 
 # TorchSim
 
-[![CI](https://github.com/radical-ai/torch-sim/actions/workflows/test.yml/badge.svg)](https://github.com/radical-ai/torch-sim/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/radical-ai/torch-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/radical-ai/torch-sim)
-[![This project supports Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
-[![PyPI](https://img.shields.io/pypi/v/torch_sim_atomistic?logo=pypi&logoColor=white)](https://pypi.org/project/torch_sim_atomistic)
+[![CI](https://github.com/torchsim/torch-sim/actions/workflows/test.yml/badge.svg)](https://github.com/torchsim/torch-sim/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/torchsim/torch-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/torchsim/torch-sim)
+[![This project supports Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+[![PyPI](https://img.shields.io/pypi/v/torch-sim-atomistic?logo=pypi&logoColor=white)](https://pypi.org/project/torch-sim-atomistic)
 [![Zenodo](https://img.shields.io/badge/Zenodo-15127004-blue?logo=Zenodo&logoColor=white)][zenodo]
 
 [zenodo]: https://zenodo.org/records/15127004
@@ -129,7 +135,7 @@ final_state = ts.integrate(
     n_steps=50,
     timestep=0.002,
     temperature=1000,
-    integrator=ts.integrators.nvt_langevin,
+    integrator=ts.Integrator.nvt_langevin,
     trajectory_reporter=dict(filenames=trajectory_files, state_frequency=10),
 )
 final_atoms_list = final_state.to_atoms()
@@ -152,8 +158,9 @@ To then relax those structures with FIRE is just a few more lines.
 relaxed_state = ts.optimize(
     system=final_state,
     model=mace_model,
-    optimizer=ts.frechet_cell_fire,
+    optimizer=ts.Optimizer.fire,
     autobatcher=True,
+    init_kwargs=dict(cell_filter=ts.CellFilter.frechet),
 )
 
 print(relaxed_state.energy)
@@ -163,7 +170,7 @@ print(relaxed_state.energy)
 
 TorchSim achieves up to 100x speedup compared to ASE with popular MLIPs.
 
-<img src="/docs/_static/speedup_plot.svg" alt="Speedup comparison" width="100%">
+<img src="https://raw.githubusercontent.com/TorchSim/torch-sim/main/docs/_static/speedup_plot.svg" alt="Speedup comparison" width="100%">
 
 This figure compares the time per atom of ASE and `torch_sim`. Time per atom is defined
 as the number of atoms / total time. While ASE can only run a single system of `n_atoms`
@@ -184,20 +191,24 @@ pip install torch-sim-atomistic
 ### Installing from source
 
 ```sh
-git clone https://github.com/radical-ai/torch-sim
+git clone https://github.com/TorchSim/torch-sim
 cd torch-sim
 pip install .
 ```
 
 ## Examples
 
-To understand how TorchSim works, start with the [comprehensive tutorials](https://radical-ai.github.io/torch-sim/user/overview.html) in the documentation.
+To understand how TorchSim works, start with the [comprehensive tutorials](https://torchsim.github.io/torch-sim/user/overview.html) in the documentation.
 
 ## Core Modules
 
-TorchSim's package structure is summarized in the [API reference](https://radical-ai.github.io/torch-sim/reference/index.html) documentation and drawn as a treemap below.
+TorchSim's package structure is summarized in the [API reference](https://torchsim.github.io/torch-sim/reference/index.html) documentation and drawn as a treemap below.
 
 ![TorchSim package treemap](https://github.com/user-attachments/assets/1ccb3a15-233d-4bc0-b11c-35a676a2bcf3)
+
+## Contributing
+
+If you are interested in contributing, please join our [slack](https://join.slack.com/t/torchsim/shared_invite/zt-3fkiju9ip-XhUH7TYp_ejJT6QqEPKMJQ) and check out the [contributing.md](CONTRIBUTING.md).
 
 ## License
 
@@ -205,4 +216,4 @@ TorchSim is released under an [MIT license](LICENSE).
 
 ## Citation
 
-A manuscript is in preparation. Meanwhile, if you use TorchSim in your research, please [cite the Zenodo archive][zenodo].
+If you use TorchSim in your research, please cite our [publication](https://iopscience.iop.org/article/10.1088/3050-287X/ae1799).

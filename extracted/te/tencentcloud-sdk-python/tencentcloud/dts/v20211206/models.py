@@ -652,12 +652,18 @@ class CompareDetailInfo(AbstractModel):
         :type DifferenceData: :class:`tencentcloud.dts.v20211206.models.DifferenceDataDetail`
         :param _DifferenceRow: 数据行不一致的详情，mongodb业务用到
         :type DifferenceRow: :class:`tencentcloud.dts.v20211206.models.DifferenceRowDetail`
+        :param _DifferenceSchema: 表结构不一致详情，pg用
+        :type DifferenceSchema: :class:`tencentcloud.dts.v20211206.models.DifferenceSchemaDetail`
+        :param _DifferenceOwner: 对象owner不一致详情，pg用
+        :type DifferenceOwner: :class:`tencentcloud.dts.v20211206.models.DifferenceOwnerDetail`
         """
         self._Difference = None
         self._Skipped = None
         self._DifferenceAdvancedObjects = None
         self._DifferenceData = None
         self._DifferenceRow = None
+        self._DifferenceSchema = None
+        self._DifferenceOwner = None
 
     @property
     def Difference(self):
@@ -714,6 +720,28 @@ class CompareDetailInfo(AbstractModel):
     def DifferenceRow(self, DifferenceRow):
         self._DifferenceRow = DifferenceRow
 
+    @property
+    def DifferenceSchema(self):
+        r"""表结构不一致详情，pg用
+        :rtype: :class:`tencentcloud.dts.v20211206.models.DifferenceSchemaDetail`
+        """
+        return self._DifferenceSchema
+
+    @DifferenceSchema.setter
+    def DifferenceSchema(self, DifferenceSchema):
+        self._DifferenceSchema = DifferenceSchema
+
+    @property
+    def DifferenceOwner(self):
+        r"""对象owner不一致详情，pg用
+        :rtype: :class:`tencentcloud.dts.v20211206.models.DifferenceOwnerDetail`
+        """
+        return self._DifferenceOwner
+
+    @DifferenceOwner.setter
+    def DifferenceOwner(self, DifferenceOwner):
+        self._DifferenceOwner = DifferenceOwner
+
 
     def _deserialize(self, params):
         if params.get("Difference") is not None:
@@ -731,6 +759,12 @@ class CompareDetailInfo(AbstractModel):
         if params.get("DifferenceRow") is not None:
             self._DifferenceRow = DifferenceRowDetail()
             self._DifferenceRow._deserialize(params.get("DifferenceRow"))
+        if params.get("DifferenceSchema") is not None:
+            self._DifferenceSchema = DifferenceSchemaDetail()
+            self._DifferenceSchema._deserialize(params.get("DifferenceSchema"))
+        if params.get("DifferenceOwner") is not None:
+            self._DifferenceOwner = DifferenceOwnerDetail()
+            self._DifferenceOwner._deserialize(params.get("DifferenceOwner"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -965,10 +999,22 @@ class CompareOptions(AbstractModel):
         :type SampleRate: int
         :param _ThreadCount: 线程数，取值1-8，默认为1
         :type ThreadCount: int
+        :param _Type: 对比类型：builtin（内置校验）、independent（独立校验）。默认为builtin，mongodb及redis链路不支持独立校验。
+        :type Type: str
+        :param _CompareMode: 校验类型，枚举值：structureCheck-结构校验(目前仅postgresql支持)、full-全量校验、increment-增量校验(如果勾选了增量校验，Method只能选dataCheck)、advanceObject-数据库信息校验(目前仅mongodb支持) 
+        :type CompareMode: list of str
+        :param _ReCheckTime: 复检次数
+        :type ReCheckTime: int
+        :param _ReCheckInterval: 复检时间间隔，单位为分钟，取值 1-60
+        :type ReCheckInterval: int
         """
         self._Method = None
         self._SampleRate = None
         self._ThreadCount = None
+        self._Type = None
+        self._CompareMode = None
+        self._ReCheckTime = None
+        self._ReCheckInterval = None
 
     @property
     def Method(self):
@@ -1003,11 +1049,59 @@ class CompareOptions(AbstractModel):
     def ThreadCount(self, ThreadCount):
         self._ThreadCount = ThreadCount
 
+    @property
+    def Type(self):
+        r"""对比类型：builtin（内置校验）、independent（独立校验）。默认为builtin，mongodb及redis链路不支持独立校验。
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def CompareMode(self):
+        r"""校验类型，枚举值：structureCheck-结构校验(目前仅postgresql支持)、full-全量校验、increment-增量校验(如果勾选了增量校验，Method只能选dataCheck)、advanceObject-数据库信息校验(目前仅mongodb支持) 
+        :rtype: list of str
+        """
+        return self._CompareMode
+
+    @CompareMode.setter
+    def CompareMode(self, CompareMode):
+        self._CompareMode = CompareMode
+
+    @property
+    def ReCheckTime(self):
+        r"""复检次数
+        :rtype: int
+        """
+        return self._ReCheckTime
+
+    @ReCheckTime.setter
+    def ReCheckTime(self, ReCheckTime):
+        self._ReCheckTime = ReCheckTime
+
+    @property
+    def ReCheckInterval(self):
+        r"""复检时间间隔，单位为分钟，取值 1-60
+        :rtype: int
+        """
+        return self._ReCheckInterval
+
+    @ReCheckInterval.setter
+    def ReCheckInterval(self, ReCheckInterval):
+        self._ReCheckInterval = ReCheckInterval
+
 
     def _deserialize(self, params):
         self._Method = params.get("Method")
         self._SampleRate = params.get("SampleRate")
         self._ThreadCount = params.get("ThreadCount")
+        self._Type = params.get("Type")
+        self._CompareMode = params.get("CompareMode")
+        self._ReCheckTime = params.get("ReCheckTime")
+        self._ReCheckInterval = params.get("ReCheckInterval")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1031,10 +1125,16 @@ class CompareTableItem(AbstractModel):
         :type ColumnMode: str
         :param _Columns: 当 ColumnMode 为 partial 时必填(该参数仅对数据同步任务有效)
         :type Columns: list of CompareColumnItem
+        :param _FilterCondition: 过滤条件
+        :type FilterCondition: str
+        :param _FilterTimeZone: 时区选择。如 "+08:00", "-08:00", "+00:00"（空值等价于"+00:00"）	
+        :type FilterTimeZone: str
         """
         self._TableName = None
         self._ColumnMode = None
         self._Columns = None
+        self._FilterCondition = None
+        self._FilterTimeZone = None
 
     @property
     def TableName(self):
@@ -1069,6 +1169,28 @@ class CompareTableItem(AbstractModel):
     def Columns(self, Columns):
         self._Columns = Columns
 
+    @property
+    def FilterCondition(self):
+        r"""过滤条件
+        :rtype: str
+        """
+        return self._FilterCondition
+
+    @FilterCondition.setter
+    def FilterCondition(self, FilterCondition):
+        self._FilterCondition = FilterCondition
+
+    @property
+    def FilterTimeZone(self):
+        r"""时区选择。如 "+08:00", "-08:00", "+00:00"（空值等价于"+00:00"）	
+        :rtype: str
+        """
+        return self._FilterTimeZone
+
+    @FilterTimeZone.setter
+    def FilterTimeZone(self, FilterTimeZone):
+        self._FilterTimeZone = FilterTimeZone
+
 
     def _deserialize(self, params):
         self._TableName = params.get("TableName")
@@ -1079,6 +1201,8 @@ class CompareTableItem(AbstractModel):
                 obj = CompareColumnItem()
                 obj._deserialize(item)
                 self._Columns.append(obj)
+        self._FilterCondition = params.get("FilterCondition")
+        self._FilterTimeZone = params.get("FilterTimeZone")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1422,7 +1546,8 @@ class CompleteMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _CompleteMode: 完成任务的方式,仅支持旧版MySQL迁移任务。waitForSync-等待主从差距为0才停止,immediately-立即完成，不会等待主从差距一致。默认为waitForSync
         :type CompleteMode: str
@@ -1432,7 +1557,8 @@ class CompleteMigrateJobRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -1501,7 +1627,7 @@ class ConfigureSubscribeJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type SubscribeId: str
         :param _SubscribeMode: 数据订阅的类型，当 DatabaseType 不为 mongodb 时，枚举值为：all-全实例更新；dml-数据更新；ddl-结构更新；dmlAndDdl-数据更新+结构更新。当 DatabaseType 为 mongodb 时，枚举值为 all-全实例更新；database-订阅单库；collection-订阅单集合
         :type SubscribeMode: str
@@ -1541,7 +1667,7 @@ mongo选填参数：SubscribeType-订阅类型，目前只支持changeStream，�
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -1743,11 +1869,12 @@ class ConfigureSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23
+        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
-        :param _SrcAccessType: 源端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云),注意具体可选值依赖当前链路
+        :param _SrcAccessType: 源端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云),注意具体可选值依赖当前链路
         :type SrcAccessType: str
-        :param _DstAccessType: 目标端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)、ckafka(CKafka实例),注意具体可选值依赖当前链路
+        :param _DstAccessType: 目标端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)、ckafka(CKafka实例),注意具体可选值依赖当前链路
         :type DstAccessType: str
         :param _Objects: 同步库表对象信息
         :type Objects: :class:`tencentcloud.dts.v20211206.models.Objects`
@@ -1798,7 +1925,8 @@ class ConfigureSyncJobRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23
+        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -1809,7 +1937,7 @@ class ConfigureSyncJobRequest(AbstractModel):
 
     @property
     def SrcAccessType(self):
-        r"""源端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云),注意具体可选值依赖当前链路
+        r"""源端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云),注意具体可选值依赖当前链路
         :rtype: str
         """
         return self._SrcAccessType
@@ -1820,7 +1948,7 @@ class ConfigureSyncJobRequest(AbstractModel):
 
     @property
     def DstAccessType(self):
-        r"""目标端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)、ckafka(CKafka实例),注意具体可选值依赖当前链路
+        r"""目标端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)、ckafka(CKafka实例),注意具体可选值依赖当前链路
         :rtype: str
         """
         return self._DstAccessType
@@ -2061,9 +2189,9 @@ class ConflictHandleOption(AbstractModel):
         r"""
         :param _ConditionColumn: 条件覆盖的列
         :type ConditionColumn: str
-        :param _ConditionOperator: 条件覆盖操作
+        :param _ConditionOperator: 条件覆盖操作，目前仅支持>
         :type ConditionOperator: str
-        :param _ConditionOrderInSrcAndDst: 条件覆盖优先级处理
+        :param _ConditionOrderInSrcAndDst: 条件覆盖优先级处理，支持类型有>,<,=
         :type ConditionOrderInSrcAndDst: str
         """
         self._ConditionColumn = None
@@ -2083,7 +2211,7 @@ class ConflictHandleOption(AbstractModel):
 
     @property
     def ConditionOperator(self):
-        r"""条件覆盖操作
+        r"""条件覆盖操作，目前仅支持>
         :rtype: str
         """
         return self._ConditionOperator
@@ -2094,7 +2222,7 @@ class ConflictHandleOption(AbstractModel):
 
     @property
     def ConditionOrderInSrcAndDst(self):
-        r"""条件覆盖优先级处理
+        r"""条件覆盖优先级处理，支持类型有>,<,=
         :rtype: str
         """
         return self._ConditionOrderInSrcAndDst
@@ -2127,8 +2255,18 @@ class ConsistencyOption(AbstractModel):
         r"""
         :param _Mode: 一致性检测类型: full(全量检测迁移对象)、noCheck(不检测)、notConfigured(未配置)
         :type Mode: str
+        :param _ObjectMode: 校验对象选择。枚举值：sameAsMigrate-与迁移同步任务相同、custom-用户自定义，搭配Objects操作
+        :type ObjectMode: str
+        :param _Objects: 校验对象
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Objects: :class:`tencentcloud.dts.v20211206.models.DatabaseTableObject`
+        :param _Options: 校验配置
+        :type Options: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
         """
         self._Mode = None
+        self._ObjectMode = None
+        self._Objects = None
+        self._Options = None
 
     @property
     def Mode(self):
@@ -2141,9 +2279,50 @@ class ConsistencyOption(AbstractModel):
     def Mode(self, Mode):
         self._Mode = Mode
 
+    @property
+    def ObjectMode(self):
+        r"""校验对象选择。枚举值：sameAsMigrate-与迁移同步任务相同、custom-用户自定义，搭配Objects操作
+        :rtype: str
+        """
+        return self._ObjectMode
+
+    @ObjectMode.setter
+    def ObjectMode(self, ObjectMode):
+        self._ObjectMode = ObjectMode
+
+    @property
+    def Objects(self):
+        r"""校验对象
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dts.v20211206.models.DatabaseTableObject`
+        """
+        return self._Objects
+
+    @Objects.setter
+    def Objects(self, Objects):
+        self._Objects = Objects
+
+    @property
+    def Options(self):
+        r"""校验配置
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
+        """
+        return self._Options
+
+    @Options.setter
+    def Options(self, Options):
+        self._Options = Options
+
 
     def _deserialize(self, params):
         self._Mode = params.get("Mode")
+        self._ObjectMode = params.get("ObjectMode")
+        if params.get("Objects") is not None:
+            self._Objects = DatabaseTableObject()
+            self._Objects._deserialize(params.get("Objects"))
+        if params.get("Options") is not None:
+            self._Options = CompareOptions()
+            self._Options._deserialize(params.get("Options"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2161,14 +2340,16 @@ class ContinueMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -2225,14 +2406,16 @@ class ContinueSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -2289,14 +2472,16 @@ class CreateCheckSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -2353,7 +2538,8 @@ class CreateCompareTaskRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务 Id
+        :param _JobId: 任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _TaskName: 数据对比任务名称，若为空则默认给CompareTaskId相同值
         :type TaskName: str
@@ -2372,7 +2558,8 @@ class CreateCompareTaskRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""任务 Id
+        r"""任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -2496,7 +2683,8 @@ class CreateConsumerGroupRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例id
+        :param _SubscribeId: 订阅实例id，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :type SubscribeId: str
         :param _ConsumerGroupName: 消费组名称，以数字、字母(大小写)或者_ - .开头，以数字、字母(大小写)结尾。实际生成的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}
         :type ConsumerGroupName: str
@@ -2515,7 +2703,8 @@ class CreateConsumerGroupRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""订阅实例id
+        r"""订阅实例id，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :rtype: str
         """
         return self._SubscribeId
@@ -2620,14 +2809,16 @@ class CreateMigrateCheckJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -2875,14 +3066,14 @@ class CreateModifyCheckSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -2939,14 +3130,14 @@ class CreateSubscribeCheckJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -3185,6 +3376,151 @@ class CreateSubscribeResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateSyncCompareTaskRequest(AbstractModel):
+    r"""CreateSyncCompareTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _TaskName: 数据对比任务名称，若为空则默认给CompareTaskId相同值
+        :type TaskName: str
+        :param _ObjectMode: 数据对比对象模式，sameAsMigrate(全部迁移对象， 默认为此项配置)，custom(自定义模式)
+        :type ObjectMode: str
+        :param _Objects: 对比对象，当ObjectMode值为custom时，此项需要填写
+        :type Objects: :class:`tencentcloud.dts.v20211206.models.CompareObject`
+        :param _Options: 一致性校验选项
+        :type Options: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
+        """
+        self._JobId = None
+        self._TaskName = None
+        self._ObjectMode = None
+        self._Objects = None
+        self._Options = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def TaskName(self):
+        r"""数据对比任务名称，若为空则默认给CompareTaskId相同值
+        :rtype: str
+        """
+        return self._TaskName
+
+    @TaskName.setter
+    def TaskName(self, TaskName):
+        self._TaskName = TaskName
+
+    @property
+    def ObjectMode(self):
+        r"""数据对比对象模式，sameAsMigrate(全部迁移对象， 默认为此项配置)，custom(自定义模式)
+        :rtype: str
+        """
+        return self._ObjectMode
+
+    @ObjectMode.setter
+    def ObjectMode(self, ObjectMode):
+        self._ObjectMode = ObjectMode
+
+    @property
+    def Objects(self):
+        r"""对比对象，当ObjectMode值为custom时，此项需要填写
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareObject`
+        """
+        return self._Objects
+
+    @Objects.setter
+    def Objects(self, Objects):
+        self._Objects = Objects
+
+    @property
+    def Options(self):
+        r"""一致性校验选项
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
+        """
+        return self._Options
+
+    @Options.setter
+    def Options(self, Options):
+        self._Options = Options
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._TaskName = params.get("TaskName")
+        self._ObjectMode = params.get("ObjectMode")
+        if params.get("Objects") is not None:
+            self._Objects = CompareObject()
+            self._Objects._deserialize(params.get("Objects"))
+        if params.get("Options") is not None:
+            self._Options = CompareOptions()
+            self._Options._deserialize(params.get("Options"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateSyncCompareTaskResponse(AbstractModel):
+    r"""CreateSyncCompareTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CompareTaskId: 数据对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CompareTaskId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._CompareTaskId = None
+        self._RequestId = None
+
+    @property
+    def CompareTaskId(self):
+        r"""数据对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateSyncJobRequest(AbstractModel):
     r"""CreateSyncJob请求参数结构体
 
@@ -3202,7 +3538,7 @@ class CreateSyncJobRequest(AbstractModel):
         :type DstDatabaseType: str
         :param _DstRegion: 目标端数据库所在地域,如ap-guangzhou
         :type DstRegion: str
-        :param _Specification: 同步任务规格，Standard:标准版
+        :param _Specification: 同步任务规格，Standard:标准版，目前仅支持Standard规格。
         :type Specification: str
         :param _TimeSpan: 购买时长（单位：月），当PayMode值为PrePay则此项配置有意义，默认为1月，取值范围为[1,100]
         :type TimeSpan: int
@@ -3290,7 +3626,7 @@ class CreateSyncJobRequest(AbstractModel):
 
     @property
     def Specification(self):
-        r"""同步任务规格，Standard:标准版
+        r"""同步任务规格，Standard:标准版，目前仅支持Standard规格。
         :rtype: str
         """
         return self._Specification
@@ -4337,6 +4673,99 @@ class DBItem(AbstractModel):
         
 
 
+class DBOpFilter(AbstractModel):
+    r"""库/表/视图级别的 DDL/DML 白名单
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DbName: 规则生效的库名
+        :type DbName: str
+        :param _OpFilter: 库级 DDL/DML 过滤规则
+        :type OpFilter: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        :param _Tables: 表级 DDL/DML 过滤信息
+        :type Tables: list of TableFilter
+        :param _Views: 视图级 DDL/DML 过滤信息
+        :type Views: list of ViewFilter
+        """
+        self._DbName = None
+        self._OpFilter = None
+        self._Tables = None
+        self._Views = None
+
+    @property
+    def DbName(self):
+        r"""规则生效的库名
+        :rtype: str
+        """
+        return self._DbName
+
+    @DbName.setter
+    def DbName(self, DbName):
+        self._DbName = DbName
+
+    @property
+    def OpFilter(self):
+        r"""库级 DDL/DML 过滤规则
+        :rtype: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        """
+        return self._OpFilter
+
+    @OpFilter.setter
+    def OpFilter(self, OpFilter):
+        self._OpFilter = OpFilter
+
+    @property
+    def Tables(self):
+        r"""表级 DDL/DML 过滤信息
+        :rtype: list of TableFilter
+        """
+        return self._Tables
+
+    @Tables.setter
+    def Tables(self, Tables):
+        self._Tables = Tables
+
+    @property
+    def Views(self):
+        r"""视图级 DDL/DML 过滤信息
+        :rtype: list of ViewFilter
+        """
+        return self._Views
+
+    @Views.setter
+    def Views(self, Views):
+        self._Views = Views
+
+
+    def _deserialize(self, params):
+        self._DbName = params.get("DbName")
+        if params.get("OpFilter") is not None:
+            self._OpFilter = OpFilter()
+            self._OpFilter._deserialize(params.get("OpFilter"))
+        if params.get("Tables") is not None:
+            self._Tables = []
+            for item in params.get("Tables"):
+                obj = TableFilter()
+                obj._deserialize(item)
+                self._Tables.append(obj)
+        if params.get("Views") is not None:
+            self._Views = []
+            for item in params.get("Views"):
+                obj = ViewFilter()
+                obj._deserialize(item)
+                self._Views.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Database(AbstractModel):
     r"""需要同步的库表对象
 
@@ -4634,7 +5063,9 @@ class DatabaseTableObject(AbstractModel):
         :type ObjectMode: str
         :param _Databases: 迁移对象，当 ObjectMode 为 partial 时，不为空
         :type Databases: list of DBItem
-        :param _AdvancedObjects: 高级对象类型，如trigger、function、procedure、event。注意：如果要迁移同步高级对象，此配置中应该包含对应的高级对象类型
+        :param _AdvancedObjects: 高级对象类型，如trigger(触发器)、function(函数)、procedure(存储过程)、event(事件)。注意：如果要迁移同步高级对象，此配置中应该包含对应的高级对象类型。
+
+> 当前支持高级对象迁移的场景为MySQL、TDSQL-CMySQL、MariaDB、Percona之间的数据迁移。
 注意：此字段可能返回 null，表示取不到有效值。
         :type AdvancedObjects: list of str
         """
@@ -4666,7 +5097,9 @@ class DatabaseTableObject(AbstractModel):
 
     @property
     def AdvancedObjects(self):
-        r"""高级对象类型，如trigger、function、procedure、event。注意：如果要迁移同步高级对象，此配置中应该包含对应的高级对象类型
+        r"""高级对象类型，如trigger(触发器)、function(函数)、procedure(存储过程)、event(事件)。注意：如果要迁移同步高级对象，此配置中应该包含对应的高级对象类型。
+
+> 当前支持高级对象迁移的场景为MySQL、TDSQL-CMySQL、MariaDB、Percona之间的数据迁移。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of str
         """
@@ -4756,9 +5189,9 @@ class DeleteCompareTaskRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :type JobId: str
-        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9。可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :type CompareTaskId: str
         """
         self._JobId = None
@@ -4766,7 +5199,7 @@ class DeleteCompareTaskRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -4777,7 +5210,7 @@ class DeleteCompareTaskRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9。可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :rtype: str
         """
         return self._CompareTaskId
@@ -4835,13 +5268,14 @@ class DeleteConsumerGroupRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :type SubscribeId: str
         :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。
-请务必保证消费组名称正确。
+请务必保证消费组名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type ConsumerGroupName: str
         :param _AccountName: 账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。
-请务必保证账户名称正确。
+请务必保证账户名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type AccountName: str
         """
         self._SubscribeId = None
@@ -4850,7 +5284,8 @@ class DeleteConsumerGroupRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :rtype: str
         """
         return self._SubscribeId
@@ -4862,7 +5297,7 @@ class DeleteConsumerGroupRequest(AbstractModel):
     @property
     def ConsumerGroupName(self):
         r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。
-请务必保证消费组名称正确。
+请务必保证消费组名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._ConsumerGroupName
@@ -4874,7 +5309,7 @@ class DeleteConsumerGroupRequest(AbstractModel):
     @property
     def AccountName(self):
         r"""账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。
-请务必保证账户名称正确。
+请务必保证账户名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._AccountName
@@ -4926,6 +5361,85 @@ class DeleteConsumerGroupResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteSyncCompareTaskRequest(AbstractModel):
+    r"""DeleteSyncCompareTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :type CompareTaskId: str
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteSyncCompareTaskResponse(AbstractModel):
+    r"""DeleteSyncCompareTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeCheckSyncJobResultRequest(AbstractModel):
     r"""DescribeCheckSyncJobResult请求参数结构体
 
@@ -4933,14 +5447,16 @@ class DescribeCheckSyncJobResultRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23，此值必填
+        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23，此值必填，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23，此值必填
+        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23，此值必填，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -5079,9 +5595,9 @@ class DescribeCompareReportRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :type JobId: str
-        :param _CompareTaskId: 校验任务 Id
+        :param _CompareTaskId: 校验任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :type CompareTaskId: str
         :param _DifferenceLimit: 校验不一致结果的 limit
         :type DifferenceLimit: int
@@ -5113,7 +5629,7 @@ class DescribeCompareReportRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -5124,7 +5640,7 @@ class DescribeCompareReportRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""校验任务 Id
+        r"""校验任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :rtype: str
         """
         return self._CompareTaskId
@@ -5312,7 +5828,8 @@ class DescribeCompareTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 Id，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :type JobId: str
         :param _Limit: 分页设置，表示每页显示多少条任务，默认为 20
         :type Limit: int
@@ -5331,7 +5848,8 @@ class DescribeCompareTasksRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 Id，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -5471,7 +5989,7 @@ class DescribeConsumerGroupsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例id
+        :param _SubscribeId: 订阅实例id，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _Offset: 返回记录的起始偏移量。默认0
         :type Offset: int
@@ -5484,7 +6002,7 @@ class DescribeConsumerGroupsRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""订阅实例id
+        r"""订阅实例id，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -5600,13 +6118,13 @@ class DescribeMigrateDBInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DatabaseType: 数据库类型，如mysql,redis等
+        :param _DatabaseType: 数据库类型，如mysql,percona,mariadb,tdsqlmysql,mariadb,postgresql,cynosdbmysql,redis,tendis,keewidb,tdstore,mongodb,clickhouse,sqlserver等。
         :type DatabaseType: str
         :param _MigrateRole: 实例作为迁移的源还是目标,src(表示源)，dst(表示目标)
         :type MigrateRole: str
-        :param _InstanceId: 云数据库实例ID
+        :param _InstanceId: 云数据库实例ID，可通过对应业务实例列表获取实例信息。
         :type InstanceId: str
-        :param _InstanceName: 云数据库名称
+        :param _InstanceName: 云数据库名称，可通过对应业务实例列表获取实例信息。
         :type InstanceName: str
         :param _Limit: 返回数量限制
         :type Limit: int
@@ -5634,7 +6152,7 @@ class DescribeMigrateDBInstancesRequest(AbstractModel):
 
     @property
     def DatabaseType(self):
-        r"""数据库类型，如mysql,redis等
+        r"""数据库类型，如mysql,percona,mariadb,tdsqlmysql,mariadb,postgresql,cynosdbmysql,redis,tendis,keewidb,tdstore,mongodb,clickhouse,sqlserver等。
         :rtype: str
         """
         return self._DatabaseType
@@ -5656,7 +6174,7 @@ class DescribeMigrateDBInstancesRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""云数据库实例ID
+        r"""云数据库实例ID，可通过对应业务实例列表获取实例信息。
         :rtype: str
         """
         return self._InstanceId
@@ -5667,7 +6185,7 @@ class DescribeMigrateDBInstancesRequest(AbstractModel):
 
     @property
     def InstanceName(self):
-        r"""云数据库名称
+        r"""云数据库名称，可通过对应业务实例列表获取实例信息。
         :rtype: str
         """
         return self._InstanceName
@@ -5834,14 +6352,16 @@ class DescribeMigrationCheckJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -5963,14 +6483,16 @@ class DescribeMigrationDetailRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -6718,14 +7240,16 @@ class DescribeModifyCheckSyncJobResultRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -6864,7 +7388,7 @@ class DescribeOffsetByTimeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _Time: 时间点，格式为：Y-m-d h:m:s。如果输入时间比当前时间晚的多，相当于查询最新offset；如果输入时间比当前时间早的多，相当于查询最老offset；如果输入空，默认0时间，等价于查询最老offset。
         :type Time: str
@@ -6874,7 +7398,7 @@ class DescribeOffsetByTimeRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -6963,14 +7487,14 @@ class DescribeSubscribeCheckJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -7003,7 +7527,7 @@ class DescribeSubscribeCheckJobResponse(AbstractModel):
         :type SubscribeId: str
         :param _Message: 失败或者报错提示，成功则提示success。
         :type Message: str
-        :param _Status: 任务运行状态，可能值为 running,failed,success
+        :param _Status: 任务运行状态，可能值为 running(运行中),failed(失败),success(成功),unknown(未知状态)。
         :type Status: str
         :param _Progress: 当前总体进度，范围 0~100
         :type Progress: int
@@ -7049,7 +7573,7 @@ class DescribeSubscribeCheckJobResponse(AbstractModel):
 
     @property
     def Status(self):
-        r"""任务运行状态，可能值为 running,failed,success
+        r"""任务运行状态，可能值为 running(运行中),failed(失败),success(成功),unknown(未知状态)。
         :rtype: str
         """
         return self._Status
@@ -7137,14 +7661,14 @@ class DescribeSubscribeDetailRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例ID
+        :param _SubscribeId: 订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""订阅实例ID
+        r"""订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -8003,14 +8527,14 @@ class DescribeSubscribeReturnableRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的ID
+        :param _SubscribeId: 数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的ID
+        r"""数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -8090,6 +8614,423 @@ class DescribeSubscribeReturnableResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeSyncCompareReportRequest(AbstractModel):
+    r"""DescribeSyncCompareReport请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 校验任务 Id
+        :type CompareTaskId: str
+        :param _DifferenceLimit: 校验不一致结果的 limit
+        :type DifferenceLimit: int
+        :param _DifferenceOffset: 不一致的 Offset
+        :type DifferenceOffset: int
+        :param _DifferenceDB: 搜索条件，不一致的库名
+        :type DifferenceDB: str
+        :param _DifferenceTable: 搜索条件，不一致的表名
+        :type DifferenceTable: str
+        :param _SkippedLimit: 未校验的 Limit
+        :type SkippedLimit: int
+        :param _SkippedOffset: 未校验的 Offset
+        :type SkippedOffset: int
+        :param _SkippedDB: 搜索条件，未校验的库名
+        :type SkippedDB: str
+        :param _SkippedTable: 搜索条件，未校验的表名
+        :type SkippedTable: str
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+        self._DifferenceLimit = None
+        self._DifferenceOffset = None
+        self._DifferenceDB = None
+        self._DifferenceTable = None
+        self._SkippedLimit = None
+        self._SkippedOffset = None
+        self._SkippedDB = None
+        self._SkippedTable = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""校验任务 Id
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def DifferenceLimit(self):
+        r"""校验不一致结果的 limit
+        :rtype: int
+        """
+        return self._DifferenceLimit
+
+    @DifferenceLimit.setter
+    def DifferenceLimit(self, DifferenceLimit):
+        self._DifferenceLimit = DifferenceLimit
+
+    @property
+    def DifferenceOffset(self):
+        r"""不一致的 Offset
+        :rtype: int
+        """
+        return self._DifferenceOffset
+
+    @DifferenceOffset.setter
+    def DifferenceOffset(self, DifferenceOffset):
+        self._DifferenceOffset = DifferenceOffset
+
+    @property
+    def DifferenceDB(self):
+        r"""搜索条件，不一致的库名
+        :rtype: str
+        """
+        return self._DifferenceDB
+
+    @DifferenceDB.setter
+    def DifferenceDB(self, DifferenceDB):
+        self._DifferenceDB = DifferenceDB
+
+    @property
+    def DifferenceTable(self):
+        r"""搜索条件，不一致的表名
+        :rtype: str
+        """
+        return self._DifferenceTable
+
+    @DifferenceTable.setter
+    def DifferenceTable(self, DifferenceTable):
+        self._DifferenceTable = DifferenceTable
+
+    @property
+    def SkippedLimit(self):
+        r"""未校验的 Limit
+        :rtype: int
+        """
+        return self._SkippedLimit
+
+    @SkippedLimit.setter
+    def SkippedLimit(self, SkippedLimit):
+        self._SkippedLimit = SkippedLimit
+
+    @property
+    def SkippedOffset(self):
+        r"""未校验的 Offset
+        :rtype: int
+        """
+        return self._SkippedOffset
+
+    @SkippedOffset.setter
+    def SkippedOffset(self, SkippedOffset):
+        self._SkippedOffset = SkippedOffset
+
+    @property
+    def SkippedDB(self):
+        r"""搜索条件，未校验的库名
+        :rtype: str
+        """
+        return self._SkippedDB
+
+    @SkippedDB.setter
+    def SkippedDB(self, SkippedDB):
+        self._SkippedDB = SkippedDB
+
+    @property
+    def SkippedTable(self):
+        r"""搜索条件，未校验的表名
+        :rtype: str
+        """
+        return self._SkippedTable
+
+    @SkippedTable.setter
+    def SkippedTable(self, SkippedTable):
+        self._SkippedTable = SkippedTable
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._DifferenceLimit = params.get("DifferenceLimit")
+        self._DifferenceOffset = params.get("DifferenceOffset")
+        self._DifferenceDB = params.get("DifferenceDB")
+        self._DifferenceTable = params.get("DifferenceTable")
+        self._SkippedLimit = params.get("SkippedLimit")
+        self._SkippedOffset = params.get("SkippedOffset")
+        self._SkippedDB = params.get("SkippedDB")
+        self._SkippedTable = params.get("SkippedTable")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeSyncCompareReportResponse(AbstractModel):
+    r"""DescribeSyncCompareReport返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Abstract: 一致性校验摘要信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Abstract: :class:`tencentcloud.dts.v20211206.models.CompareAbstractInfo`
+        :param _Detail: 一致性校验详细信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Detail: :class:`tencentcloud.dts.v20211206.models.CompareDetailInfo`
+        :param _IncAbstract: 增量校验阶段的摘要
+        :type IncAbstract: :class:`tencentcloud.dts.v20211206.models.IncCompareAbstractInfo`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Abstract = None
+        self._Detail = None
+        self._IncAbstract = None
+        self._RequestId = None
+
+    @property
+    def Abstract(self):
+        r"""一致性校验摘要信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareAbstractInfo`
+        """
+        return self._Abstract
+
+    @Abstract.setter
+    def Abstract(self, Abstract):
+        self._Abstract = Abstract
+
+    @property
+    def Detail(self):
+        r"""一致性校验详细信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareDetailInfo`
+        """
+        return self._Detail
+
+    @Detail.setter
+    def Detail(self, Detail):
+        self._Detail = Detail
+
+    @property
+    def IncAbstract(self):
+        r"""增量校验阶段的摘要
+        :rtype: :class:`tencentcloud.dts.v20211206.models.IncCompareAbstractInfo`
+        """
+        return self._IncAbstract
+
+    @IncAbstract.setter
+    def IncAbstract(self, IncAbstract):
+        self._IncAbstract = IncAbstract
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Abstract") is not None:
+            self._Abstract = CompareAbstractInfo()
+            self._Abstract._deserialize(params.get("Abstract"))
+        if params.get("Detail") is not None:
+            self._Detail = CompareDetailInfo()
+            self._Detail._deserialize(params.get("Detail"))
+        if params.get("IncAbstract") is not None:
+            self._IncAbstract = IncCompareAbstractInfo()
+            self._IncAbstract._deserialize(params.get("IncAbstract"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeSyncCompareTasksRequest(AbstractModel):
+    r"""DescribeSyncCompareTasks请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _Limit: 分页设置，表示每页显示多少条任务，默认为 20
+        :type Limit: int
+        :param _Offset: 分页偏移量
+        :type Offset: int
+        :param _CompareTaskId: 校验任务 ID
+        :type CompareTaskId: str
+        :param _Status: 任务状态过滤，可能的值：created - 创建完成；readyRun - 等待运行；running - 运行中；success - 成功；stopping - 结束中；failed - 失败；canceled - 已终止
+        :type Status: list of str
+        """
+        self._JobId = None
+        self._Limit = None
+        self._Offset = None
+        self._CompareTaskId = None
+        self._Status = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def Limit(self):
+        r"""分页设置，表示每页显示多少条任务，默认为 20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""分页偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def CompareTaskId(self):
+        r"""校验任务 ID
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def Status(self):
+        r"""任务状态过滤，可能的值：created - 创建完成；readyRun - 等待运行；running - 运行中；success - 成功；stopping - 结束中；failed - 失败；canceled - 已终止
+        :rtype: list of str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeSyncCompareTasksResponse(AbstractModel):
+    r"""DescribeSyncCompareTasks返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TotalCount: int
+        :param _Items: 一致性校验任务列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Items: list of CompareTaskItem
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._Items = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Items(self):
+        r"""一致性校验任务列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of CompareTaskItem
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = CompareTaskItem()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeSyncJobsRequest(AbstractModel):
     r"""DescribeSyncJobs请求参数结构体
 
@@ -8097,13 +9038,14 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id，如sync-werwfs23
+        :param _JobId: 同步任务id，如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
-        :param _JobIds: 同步任务id列表，如sync-werwfs23
+        :param _JobIds: 同步任务id列表，如["sync-n3gh7md9"]
         :type JobIds: list of str
         :param _JobName: 同步任务名
         :type JobName: str
-        :param _Order: 排序字段，可以取值为CreateTime
+        :param _Order: 排序字段，目前仅支持CreateTime字段排序
         :type Order: str
         :param _OrderSeq: 排序方式，升序为ASC，降序为DESC，默认为CreateTime降序
         :type OrderSeq: str
@@ -8111,11 +9053,11 @@ class DescribeSyncJobsRequest(AbstractModel):
         :type Offset: int
         :param _Limit: 返回同步任务实例数量，默认20，有效区间[1,100]
         :type Limit: int
-        :param _Status: 状态集合，如Initialized,CheckPass,Running,ResumableErr,Stopped
+        :param _Status: 状态集合，如Initialized(初始化),CheckPass(校验通过),Running(运行中),ResumableErr(恢复中),Stopped(已结束)
         :type Status: list of str
         :param _RunMode: 运行模式，如Immediate:立即运行，Timed:定时运行
         :type RunMode: str
-        :param _JobType: 任务类型，如mysql2mysql：msyql同步到mysql
+        :param _JobType: 任务类型，如mysql2mysql：msyql同步到mysql;可取值有mysql2mysql、mysql2kafka、tdsqlmysql2kafka、tdsqlmysql2tdsqlmysql、tdsqlmysql2mysql、mysql2tdsqlmysql、mysql2mariadb、mariadb2mariadb、mariadb2kafka、cynosdbmysql2kafka、cynosdbmysql2cynosdbmysql、cynosdbmysql2mysql、mysql2cynosdbmysql、mariadb2tdsqlmysql、tdsqlmysql2cynosdbmysql、cynosdbmysql2tdsqlmysql、tdstore2mysql、tdstore2percona、tdstore2mariadb、tdstore2cynosdbmysql、cynosdbmysql2mariadb、mariadb2cynosdbmysql、tdsqlmysql2mariadb、mariadb2mysql、percona2mariadb、postgresql2postgresql、tdstore2tdsqlmysql、mongodb2mongodb
         :type JobType: str
         :param _PayMode: 付费类型，PrePay：预付费，PostPay：后付费
         :type PayMode: str
@@ -8143,7 +9085,8 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""同步任务id，如sync-werwfs23
+        r"""同步任务id，如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -8154,7 +9097,7 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     @property
     def JobIds(self):
-        r"""同步任务id列表，如sync-werwfs23
+        r"""同步任务id列表，如["sync-n3gh7md9"]
         :rtype: list of str
         """
         return self._JobIds
@@ -8176,7 +9119,7 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     @property
     def Order(self):
-        r"""排序字段，可以取值为CreateTime
+        r"""排序字段，目前仅支持CreateTime字段排序
         :rtype: str
         """
         return self._Order
@@ -8220,7 +9163,7 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     @property
     def Status(self):
-        r"""状态集合，如Initialized,CheckPass,Running,ResumableErr,Stopped
+        r"""状态集合，如Initialized(初始化),CheckPass(校验通过),Running(运行中),ResumableErr(恢复中),Stopped(已结束)
         :rtype: list of str
         """
         return self._Status
@@ -8242,7 +9185,7 @@ class DescribeSyncJobsRequest(AbstractModel):
 
     @property
     def JobType(self):
-        r"""任务类型，如mysql2mysql：msyql同步到mysql
+        r"""任务类型，如mysql2mysql：msyql同步到mysql;可取值有mysql2mysql、mysql2kafka、tdsqlmysql2kafka、tdsqlmysql2tdsqlmysql、tdsqlmysql2mysql、mysql2tdsqlmysql、mysql2mariadb、mariadb2mariadb、mariadb2kafka、cynosdbmysql2kafka、cynosdbmysql2cynosdbmysql、cynosdbmysql2mysql、mysql2cynosdbmysql、mariadb2tdsqlmysql、tdsqlmysql2cynosdbmysql、cynosdbmysql2tdsqlmysql、tdstore2mysql、tdstore2percona、tdstore2mariadb、tdstore2cynosdbmysql、cynosdbmysql2mariadb、mariadb2cynosdbmysql、tdsqlmysql2mariadb、mariadb2mysql、percona2mariadb、postgresql2postgresql、tdstore2tdsqlmysql、mongodb2mongodb
         :rtype: str
         """
         return self._JobType
@@ -8396,14 +9339,14 @@ class DestroyIsolatedSubscribeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的ID
+        :param _SubscribeId: 数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的ID
+        r"""数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -8460,14 +9403,16 @@ class DestroyMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -8524,14 +9469,16 @@ class DestroySyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -8799,6 +9746,8 @@ class DifferenceData(AbstractModel):
         :type SrcItem: str
         :param _DstItem: 目标端值
         :type DstItem: str
+        :param _CreatedAt: 创建时间
+        :type CreatedAt: str
         :param _UpdatedAt: 更新时间
         :type UpdatedAt: str
         """
@@ -8808,6 +9757,7 @@ class DifferenceData(AbstractModel):
         self._DstChunk = None
         self._SrcItem = None
         self._DstItem = None
+        self._CreatedAt = None
         self._UpdatedAt = None
 
     @property
@@ -8877,6 +9827,17 @@ class DifferenceData(AbstractModel):
         self._DstItem = DstItem
 
     @property
+    def CreatedAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+    @property
     def UpdatedAt(self):
         r"""更新时间
         :rtype: str
@@ -8895,6 +9856,7 @@ class DifferenceData(AbstractModel):
         self._DstChunk = params.get("DstChunk")
         self._SrcItem = params.get("SrcItem")
         self._DstItem = params.get("DstItem")
+        self._CreatedAt = params.get("CreatedAt")
         self._UpdatedAt = params.get("UpdatedAt")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -9208,6 +10170,64 @@ class DifferenceItem(AbstractModel):
         
 
 
+class DifferenceOwnerDetail(AbstractModel):
+    r"""pg owner不一致性详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: owner不一致总数
+        :type TotalCount: int
+        :param _Items: owner不一致详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Items: list of OwnerDifference
+        """
+        self._TotalCount = None
+        self._Items = None
+
+    @property
+    def TotalCount(self):
+        r"""owner不一致总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Items(self):
+        r"""owner不一致详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of OwnerDifference
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = OwnerDifference()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class DifferenceRowDetail(AbstractModel):
     r"""mongodb行数校验不一致性详情结果
 
@@ -9254,6 +10274,64 @@ class DifferenceRowDetail(AbstractModel):
             self._Items = []
             for item in params.get("Items"):
                 obj = RowsCountDifference()
+                obj._deserialize(item)
+                self._Items.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DifferenceSchemaDetail(AbstractModel):
+    r"""表结构不一致信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 表结构不一致的数量
+        :type TotalCount: int
+        :param _Items: 表结构不一致信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Items: list of SchemaDifference
+        """
+        self._TotalCount = None
+        self._Items = None
+
+    @property
+    def TotalCount(self):
+        r"""表结构不一致的数量
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Items(self):
+        r"""表结构不一致信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of SchemaDifference
+        """
+        return self._Items
+
+    @Items.setter
+    def Items(self, Items):
+        self._Items = Items
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Items") is not None:
+            self._Items = []
+            for item in params.get("Items"):
+                obj = SchemaDifference()
                 obj._deserialize(item)
                 self._Items.append(obj)
         memeber_set = set(params.keys())
@@ -10628,6 +11706,102 @@ class GroupInfo(AbstractModel):
         
 
 
+class IncCompareAbstractInfo(AbstractModel):
+    r"""增量校验阶段的摘要信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StartPosition: 增量起始位点
+        :type StartPosition: str
+        :param _CurrentPosition: 增量当前位点
+        :type CurrentPosition: str
+        :param _CheckedRecord: 已校验行数
+        :type CheckedRecord: int
+        :param _DiffRecord: 不一致行数
+        :type DiffRecord: int
+        :param _DiffTable: 不一致表的数量
+        :type DiffTable: int
+        """
+        self._StartPosition = None
+        self._CurrentPosition = None
+        self._CheckedRecord = None
+        self._DiffRecord = None
+        self._DiffTable = None
+
+    @property
+    def StartPosition(self):
+        r"""增量起始位点
+        :rtype: str
+        """
+        return self._StartPosition
+
+    @StartPosition.setter
+    def StartPosition(self, StartPosition):
+        self._StartPosition = StartPosition
+
+    @property
+    def CurrentPosition(self):
+        r"""增量当前位点
+        :rtype: str
+        """
+        return self._CurrentPosition
+
+    @CurrentPosition.setter
+    def CurrentPosition(self, CurrentPosition):
+        self._CurrentPosition = CurrentPosition
+
+    @property
+    def CheckedRecord(self):
+        r"""已校验行数
+        :rtype: int
+        """
+        return self._CheckedRecord
+
+    @CheckedRecord.setter
+    def CheckedRecord(self, CheckedRecord):
+        self._CheckedRecord = CheckedRecord
+
+    @property
+    def DiffRecord(self):
+        r"""不一致行数
+        :rtype: int
+        """
+        return self._DiffRecord
+
+    @DiffRecord.setter
+    def DiffRecord(self, DiffRecord):
+        self._DiffRecord = DiffRecord
+
+    @property
+    def DiffTable(self):
+        r"""不一致表的数量
+        :rtype: int
+        """
+        return self._DiffTable
+
+    @DiffTable.setter
+    def DiffTable(self, DiffTable):
+        self._DiffTable = DiffTable
+
+
+    def _deserialize(self, params):
+        self._StartPosition = params.get("StartPosition")
+        self._CurrentPosition = params.get("CurrentPosition")
+        self._CheckedRecord = params.get("CheckedRecord")
+        self._DiffRecord = params.get("DiffRecord")
+        self._DiffTable = params.get("DiffTable")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class IsolateMigrateJobRequest(AbstractModel):
     r"""IsolateMigrateJob请求参数结构体
 
@@ -10635,14 +11809,16 @@ class IsolateMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -10699,14 +11875,14 @@ class IsolateSubscribeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例ID
+        :param _SubscribeId: 订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""订阅实例ID
+        r"""订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -10763,14 +11939,14 @@ class IsolateSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -11162,11 +12338,14 @@ class KafkaOption(AbstractModel):
         :type DDLTopicName: str
         :param _TopicRules: 单topic和自定义topic的描述
         :type TopicRules: list of TopicRule
+        :param _DataOption: 其他附加信息，对于特定数据类型可设置额外参数，比如针对Canal兼容的功能支持："canalOfficialFormat":"on"表示打开Canal兼容功能，默认不带。
+        :type DataOption: list of KeyValuePairOption
         """
         self._DataType = None
         self._TopicType = None
         self._DDLTopicName = None
         self._TopicRules = None
+        self._DataOption = None
 
     @property
     def DataType(self):
@@ -11212,6 +12391,17 @@ class KafkaOption(AbstractModel):
     def TopicRules(self, TopicRules):
         self._TopicRules = TopicRules
 
+    @property
+    def DataOption(self):
+        r"""其他附加信息，对于特定数据类型可设置额外参数，比如针对Canal兼容的功能支持："canalOfficialFormat":"on"表示打开Canal兼容功能，默认不带。
+        :rtype: list of KeyValuePairOption
+        """
+        return self._DataOption
+
+    @DataOption.setter
+    def DataOption(self, DataOption):
+        self._DataOption = DataOption
+
 
     def _deserialize(self, params):
         self._DataType = params.get("DataType")
@@ -11223,6 +12413,12 @@ class KafkaOption(AbstractModel):
                 obj = TopicRule()
                 obj._deserialize(item)
                 self._TopicRules.append(obj)
+        if params.get("DataOption") is not None:
+            self._DataOption = []
+            for item in params.get("DataOption"):
+                obj = KeyValuePairOption()
+                obj._deserialize(item)
+                self._DataOption.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11776,9 +12972,11 @@ class ModifyCompareTaskNameRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
-        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type CompareTaskId: str
         :param _TaskName: 一致性校验任务名称
         :type TaskName: str
@@ -11789,7 +12987,8 @@ class ModifyCompareTaskNameRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -11800,7 +12999,8 @@ class ModifyCompareTaskNameRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._CompareTaskId
@@ -11870,9 +13070,11 @@ class ModifyCompareTaskRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务 Id
+        :param _JobId: 任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
-        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type CompareTaskId: str
         :param _TaskName: 任务名称
         :type TaskName: str
@@ -11892,7 +13094,8 @@ class ModifyCompareTaskRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""任务 Id
+        r"""任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -11903,7 +13106,8 @@ class ModifyCompareTaskRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._CompareTaskId
@@ -12013,13 +13217,13 @@ class ModifyConsumerGroupDescriptionRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。
-请务必保证消费组名称正确。
+请务必保证消费组名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type ConsumerGroupName: str
         :param _AccountName: 账户名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。
-请务必保证账户名称正确。
+请务必保证账户名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type AccountName: str
         :param _Description: 修改之后的消费组描述
         :type Description: str
@@ -12031,7 +13235,7 @@ class ModifyConsumerGroupDescriptionRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -12043,7 +13247,7 @@ class ModifyConsumerGroupDescriptionRequest(AbstractModel):
     @property
     def ConsumerGroupName(self):
         r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。
-请务必保证消费组名称正确。
+请务必保证消费组名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._ConsumerGroupName
@@ -12055,7 +13259,7 @@ class ModifyConsumerGroupDescriptionRequest(AbstractModel):
     @property
     def AccountName(self):
         r"""账户名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。
-请务必保证账户名称正确。
+请务必保证账户名称正确。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._AccountName
@@ -12126,11 +13330,12 @@ class ModifyConsumerGroupPasswordRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :type SubscribeId: str
-        :param _AccountName: 账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}
+        :param _AccountName: 账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type AccountName: str
-        :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}
+        :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :type ConsumerGroupName: str
         :param _NewPassword: 新密码。字符长度不小于3，不大于32
         :type NewPassword: str
@@ -12142,7 +13347,8 @@ class ModifyConsumerGroupPasswordRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :rtype: str
         """
         return self._SubscribeId
@@ -12153,7 +13359,7 @@ class ModifyConsumerGroupPasswordRequest(AbstractModel):
 
     @property
     def AccountName(self):
-        r"""账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}
+        r"""账号名称。实际的账户全称形如：account-#{SubscribeId}-#{AccountName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._AccountName
@@ -12164,7 +13370,7 @@ class ModifyConsumerGroupPasswordRequest(AbstractModel):
 
     @property
     def ConsumerGroupName(self):
-        r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}
+        r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/product/571/102947)接口获取。
         :rtype: str
         """
         return self._ConsumerGroupName
@@ -12235,7 +13441,8 @@ class ModifyMigrateJobSpecRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _NewInstanceClass: 新实例规格大小，包括：micro、small、medium、large、xlarge、2xlarge
         :type NewInstanceClass: str
@@ -12245,7 +13452,8 @@ class ModifyMigrateJobSpecRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -12314,7 +13522,8 @@ class ModifyMigrateNameRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务id
+        :param _JobId: 迁移任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _JobName: 修改后的迁移任务名
         :type JobName: str
@@ -12324,7 +13533,8 @@ class ModifyMigrateNameRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务id
+        r"""迁移任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -12393,7 +13603,7 @@ class ModifyMigrateRateLimitRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务ID
+        :param _JobId: 迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :type JobId: str
         :param _DumpThread: 迁移任务全量导出线程数、有效值为 1-16
         :type DumpThread: int
@@ -12415,7 +13625,7 @@ class ModifyMigrateRateLimitRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务ID
+        r"""迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -12532,7 +13742,8 @@ class ModifyMigrateRuntimeAttributeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务id，如：dts-2rgv0f09
+        :param _JobId: 迁移任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _OtherOptions: 需要修改的属性，此结构设计为通用结构，用于屏蔽多个业务的定制属性。<br>例如对于Redis:<br>{<br>	 "Key": "DstWriteMode",	//目标库写入模式<br> 	"Value": "normal"	          //clearData(清空目标实例数据)、overwrite(以覆盖写的方式执行任务)、normal(跟正常流程一样，不做额外动作，默认为此值) <br>},<br>{<br/>	 "Key": "IsDstReadOnly",	//是否在迁移时设置目标库只读<br/> 	"Value": "true"	          //true(设置只读)、false(不设置只读) <br/>} 
         :type OtherOptions: list of KeyValuePairOption
@@ -12542,7 +13753,8 @@ class ModifyMigrateRuntimeAttributeRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务id，如：dts-2rgv0f09
+        r"""迁移任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -12616,7 +13828,8 @@ class ModifyMigrationJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _RunMode: 运行模式，取值如：immediate(表示立即运行)、timed(表示定时运行)
         :type RunMode: str
@@ -12647,7 +13860,8 @@ class ModifyMigrationJobRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -12811,7 +14025,7 @@ class ModifySubscribeAutoRenewFlagRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例ID
+        :param _SubscribeId: 订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _AutoRenewFlag: 自动续费标识。1-自动续费，0-不自动续费
         :type AutoRenewFlag: int
@@ -12821,7 +14035,7 @@ class ModifySubscribeAutoRenewFlagRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""订阅实例ID
+        r"""订阅实例ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -12890,7 +14104,7 @@ class ModifySubscribeNameRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的ID
+        :param _SubscribeId: 数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _SubscribeName: 修改后的数据订阅实例的名称，长度限制为[1,60]
         :type SubscribeName: str
@@ -12900,7 +14114,7 @@ class ModifySubscribeNameRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的ID
+        r"""数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -12969,11 +14183,11 @@ class ModifySubscribeObjectsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的ID
+        :param _SubscribeId: 数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         :param _SubscribeObjectType: 数据订阅的类型，非mongo任务的枚举值：0-全实例更新；1-数据更新；2-结构更新；3-数据更新+结构更新。mongo任务的枚举值：0-全实例更新；4-订阅单库；5-订阅单集合
         :type SubscribeObjectType: int
-        :param _Objects: 修改后的订阅数据库表信息。会覆盖原来的订阅对象，所以除非 SubscribeObjectType = 0或2，否则改字段必填。
+        :param _Objects: 修改后的订阅数据库表信息。会覆盖原来的订阅对象，所以除非 SubscribeObjectType = 0或2，否则该字段必填。
         :type Objects: list of ModifiedSubscribeObject
         :param _DistributeRules: kafka分区策略。如果不填，默认不修改。如果填了，会覆盖原来的策略。
         :type DistributeRules: list of DistributeRule
@@ -12993,7 +14207,7 @@ class ModifySubscribeObjectsRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的ID
+        r"""数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -13015,7 +14229,7 @@ class ModifySubscribeObjectsRequest(AbstractModel):
 
     @property
     def Objects(self):
-        r"""修改后的订阅数据库表信息。会覆盖原来的订阅对象，所以除非 SubscribeObjectType = 0或2，否则改字段必填。
+        r"""修改后的订阅数据库表信息。会覆盖原来的订阅对象，所以除非 SubscribeObjectType = 0或2，否则该字段必填。
         :rtype: list of ModifiedSubscribeObject
         """
         return self._Objects
@@ -13120,6 +14334,243 @@ class ModifySubscribeObjectsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifySyncCompareTaskNameRequest(AbstractModel):
+    r"""ModifySyncCompareTaskName请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :type CompareTaskId: str
+        :param _TaskName: 一致性校验任务名称
+        :type TaskName: str
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+        self._TaskName = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def TaskName(self):
+        r"""一致性校验任务名称
+        :rtype: str
+        """
+        return self._TaskName
+
+    @TaskName.setter
+    def TaskName(self, TaskName):
+        self._TaskName = TaskName
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._TaskName = params.get("TaskName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifySyncCompareTaskNameResponse(AbstractModel):
+    r"""ModifySyncCompareTaskName返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifySyncCompareTaskRequest(AbstractModel):
+    r"""ModifySyncCompareTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :type CompareTaskId: str
+        :param _TaskName: 任务名称
+        :type TaskName: str
+        :param _ObjectMode: 数据对比对象模式，sameAsMigrate(全部迁移对象， 默认为此项配置)、custom(自定义)，注意自定义对比对象必须是迁移对象的子集
+        :type ObjectMode: str
+        :param _Objects: 对比对象，若CompareObjectMode取值为custom，则此项必填
+        :type Objects: :class:`tencentcloud.dts.v20211206.models.CompareObject`
+        :param _Options: 一致性校验选项
+        :type Options: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+        self._TaskName = None
+        self._ObjectMode = None
+        self._Objects = None
+        self._Options = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def TaskName(self):
+        r"""任务名称
+        :rtype: str
+        """
+        return self._TaskName
+
+    @TaskName.setter
+    def TaskName(self, TaskName):
+        self._TaskName = TaskName
+
+    @property
+    def ObjectMode(self):
+        r"""数据对比对象模式，sameAsMigrate(全部迁移对象， 默认为此项配置)、custom(自定义)，注意自定义对比对象必须是迁移对象的子集
+        :rtype: str
+        """
+        return self._ObjectMode
+
+    @ObjectMode.setter
+    def ObjectMode(self, ObjectMode):
+        self._ObjectMode = ObjectMode
+
+    @property
+    def Objects(self):
+        r"""对比对象，若CompareObjectMode取值为custom，则此项必填
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareObject`
+        """
+        return self._Objects
+
+    @Objects.setter
+    def Objects(self, Objects):
+        self._Objects = Objects
+
+    @property
+    def Options(self):
+        r"""一致性校验选项
+        :rtype: :class:`tencentcloud.dts.v20211206.models.CompareOptions`
+        """
+        return self._Options
+
+    @Options.setter
+    def Options(self, Options):
+        self._Options = Options
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._TaskName = params.get("TaskName")
+        self._ObjectMode = params.get("ObjectMode")
+        if params.get("Objects") is not None:
+            self._Objects = CompareObject()
+            self._Objects._deserialize(params.get("Objects"))
+        if params.get("Options") is not None:
+            self._Options = CompareOptions()
+            self._Options._deserialize(params.get("Options"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifySyncCompareTaskResponse(AbstractModel):
+    r"""ModifySyncCompareTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifySyncJobConfigRequest(AbstractModel):
     r"""ModifySyncJobConfig请求参数结构体
 
@@ -13127,7 +14578,7 @@ class ModifySyncJobConfigRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type JobId: str
         :param _DynamicObjects: 修改后的同步对象
         :type DynamicObjects: :class:`tencentcloud.dts.v20211206.models.Objects`
@@ -13140,7 +14591,7 @@ class ModifySyncJobConfigRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -13225,11 +14676,11 @@ class ModifySyncRateLimitRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务ID
+        :param _JobId: 同步任务ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type JobId: str
         :param _DumpThread: 同步任务全量导出线程数、有效值为 1-16
         :type DumpThread: int
-        :param _DumpRps: 同步任务全量导出的 Rps 限制、需要大于 0
+        :param _DumpRps: 同步任务全量导出的 Rps 限制、需要大于 0;对于mongodb最大值为20000，其他数据库最大值为50000000
         :type DumpRps: int
         :param _LoadThread: 同步任务全量导入线程数、有效值为 1-16
         :type LoadThread: int
@@ -13247,7 +14698,7 @@ class ModifySyncRateLimitRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务ID
+        r"""同步任务ID，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -13269,7 +14720,7 @@ class ModifySyncRateLimitRequest(AbstractModel):
 
     @property
     def DumpRps(self):
-        r"""同步任务全量导出的 Rps 限制、需要大于 0
+        r"""同步任务全量导出的 Rps 限制、需要大于 0;对于mongodb最大值为20000，其他数据库最大值为50000000
         :rtype: int
         """
         return self._DumpRps
@@ -13454,11 +14905,14 @@ class Objects(AbstractModel):
         :type AdvancedObjects: list of str
         :param _OnlineDDL: OnlineDDL类型，冗余字段不做配置用途
         :type OnlineDDL: :class:`tencentcloud.dts.v20211206.models.OnlineDDL`
+        :param _DatabasesOpFilter: 库/表/视图级 DML/DDL 白名单
+        :type DatabasesOpFilter: list of DBOpFilter
         """
         self._Mode = None
         self._Databases = None
         self._AdvancedObjects = None
         self._OnlineDDL = None
+        self._DatabasesOpFilter = None
 
     @property
     def Mode(self):
@@ -13505,6 +14959,17 @@ class Objects(AbstractModel):
     def OnlineDDL(self, OnlineDDL):
         self._OnlineDDL = OnlineDDL
 
+    @property
+    def DatabasesOpFilter(self):
+        r"""库/表/视图级 DML/DDL 白名单
+        :rtype: list of DBOpFilter
+        """
+        return self._DatabasesOpFilter
+
+    @DatabasesOpFilter.setter
+    def DatabasesOpFilter(self, DatabasesOpFilter):
+        self._DatabasesOpFilter = DatabasesOpFilter
+
 
     def _deserialize(self, params):
         self._Mode = params.get("Mode")
@@ -13518,6 +14983,12 @@ class Objects(AbstractModel):
         if params.get("OnlineDDL") is not None:
             self._OnlineDDL = OnlineDDL()
             self._OnlineDDL._deserialize(params.get("OnlineDDL"))
+        if params.get("DatabasesOpFilter") is not None:
+            self._DatabasesOpFilter = []
+            for item in params.get("DatabasesOpFilter"):
+                obj = DBOpFilter()
+                obj._deserialize(item)
+                self._DatabasesOpFilter.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13586,14 +15057,14 @@ class OnlineDDL(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Status: 状态
+        :param _Status: 状态，ON-启用，OFF-不启用。
         :type Status: str
         """
         self._Status = None
 
     @property
     def Status(self):
-        r"""状态
+        r"""状态，ON-启用，OFF-不启用。
         :rtype: str
         """
         return self._Status
@@ -13605,6 +15076,62 @@ class OnlineDDL(AbstractModel):
 
     def _deserialize(self, params):
         self._Status = params.get("Status")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class OpFilter(AbstractModel):
+    r"""DDL/DML 过滤规则
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _OpTypes: DML 白名单
+        :type OpTypes: list of str
+        :param _DdlOptions: DDL 白名单
+        :type DdlOptions: list of DdlOption
+        """
+        self._OpTypes = None
+        self._DdlOptions = None
+
+    @property
+    def OpTypes(self):
+        r"""DML 白名单
+        :rtype: list of str
+        """
+        return self._OpTypes
+
+    @OpTypes.setter
+    def OpTypes(self, OpTypes):
+        self._OpTypes = OpTypes
+
+    @property
+    def DdlOptions(self):
+        r"""DDL 白名单
+        :rtype: list of DdlOption
+        """
+        return self._DdlOptions
+
+    @DdlOptions.setter
+    def DdlOptions(self, DdlOptions):
+        self._DdlOptions = DdlOptions
+
+
+    def _deserialize(self, params):
+        self._OpTypes = params.get("OpTypes")
+        if params.get("DdlOptions") is not None:
+            self._DdlOptions = []
+            for item in params.get("DdlOptions"):
+                obj = DdlOption()
+                obj._deserialize(item)
+                self._DdlOptions.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13846,6 +15373,117 @@ class Options(AbstractModel):
         
 
 
+class OwnerDifference(AbstractModel):
+    r"""pg对象owner不一致信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Db: owner不一致的pg对象所在库
+        :type Db: str
+        :param _Schema: owner不一致的pg对象所在schema
+        :type Schema: str
+        :param _ObjectName: owner不一致的pg对象名
+        :type ObjectName: str
+        :param _ObjectType: owner不一致的pg对象类型
+        :type ObjectType: str
+        :param _SrcOwner: 源库对象owner
+        :type SrcOwner: str
+        :param _DstOwner: 目标库对象owner
+        :type DstOwner: str
+        """
+        self._Db = None
+        self._Schema = None
+        self._ObjectName = None
+        self._ObjectType = None
+        self._SrcOwner = None
+        self._DstOwner = None
+
+    @property
+    def Db(self):
+        r"""owner不一致的pg对象所在库
+        :rtype: str
+        """
+        return self._Db
+
+    @Db.setter
+    def Db(self, Db):
+        self._Db = Db
+
+    @property
+    def Schema(self):
+        r"""owner不一致的pg对象所在schema
+        :rtype: str
+        """
+        return self._Schema
+
+    @Schema.setter
+    def Schema(self, Schema):
+        self._Schema = Schema
+
+    @property
+    def ObjectName(self):
+        r"""owner不一致的pg对象名
+        :rtype: str
+        """
+        return self._ObjectName
+
+    @ObjectName.setter
+    def ObjectName(self, ObjectName):
+        self._ObjectName = ObjectName
+
+    @property
+    def ObjectType(self):
+        r"""owner不一致的pg对象类型
+        :rtype: str
+        """
+        return self._ObjectType
+
+    @ObjectType.setter
+    def ObjectType(self, ObjectType):
+        self._ObjectType = ObjectType
+
+    @property
+    def SrcOwner(self):
+        r"""源库对象owner
+        :rtype: str
+        """
+        return self._SrcOwner
+
+    @SrcOwner.setter
+    def SrcOwner(self, SrcOwner):
+        self._SrcOwner = SrcOwner
+
+    @property
+    def DstOwner(self):
+        r"""目标库对象owner
+        :rtype: str
+        """
+        return self._DstOwner
+
+    @DstOwner.setter
+    def DstOwner(self, DstOwner):
+        self._DstOwner = DstOwner
+
+
+    def _deserialize(self, params):
+        self._Db = params.get("Db")
+        self._Schema = params.get("Schema")
+        self._ObjectName = params.get("ObjectName")
+        self._ObjectType = params.get("ObjectType")
+        self._SrcOwner = params.get("SrcOwner")
+        self._DstOwner = params.get("DstOwner")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class PartitionAssignment(AbstractModel):
     r"""数据订阅中kafka消费者组的分区分配情况。该数据是实时查询的，如果需要最新数据，需重新掉接口查询。
 
@@ -13906,14 +15544,16 @@ class PauseMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -13970,14 +15610,16 @@ class PauseSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -14453,14 +16095,16 @@ class RecoverMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id
+        :param _JobId: 任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""任务id
+        r"""任务id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -14517,14 +16161,16 @@ class RecoverSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23
+        :param _JobId: 同步实例id（即标识一个同步作业），形如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23
+        r"""同步实例id（即标识一个同步作业），形如sync-werwfs23，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -14581,13 +16227,13 @@ class ResetConsumerGroupOffsetRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 订阅实例id
+        :param _SubscribeId: 订阅实例id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type SubscribeId: str
-        :param _TopicName: 订阅的kafka topic
+        :param _TopicName: 订阅的kafka topic，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type TopicName: str
-        :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}
+        :param _ConsumerGroupName: 消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/api/571/102947)接口获取。
         :type ConsumerGroupName: str
-        :param _PartitionNos: 需要修改offset的分区编号
+        :param _PartitionNos: 需要修改offset的分区编号，可通过[DescribeOffsetByTime](https://cloud.tencent.com/document/api/571/102946)接口获取。
         :type PartitionNos: list of int
         :param _ResetMode: 重置方式。枚举值为 earliest-从最开始位置开始消费；latest-从最新位置开始消费；datetime-从指定时间前最近的checkpoint开始消费
         :type ResetMode: str
@@ -14603,7 +16249,7 @@ class ResetConsumerGroupOffsetRequest(AbstractModel):
 
     @property
     def SubscribeId(self):
-        r"""订阅实例id
+        r"""订阅实例id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -14614,7 +16260,7 @@ class ResetConsumerGroupOffsetRequest(AbstractModel):
 
     @property
     def TopicName(self):
-        r"""订阅的kafka topic
+        r"""订阅的kafka topic，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._TopicName
@@ -14625,7 +16271,7 @@ class ResetConsumerGroupOffsetRequest(AbstractModel):
 
     @property
     def ConsumerGroupName(self):
-        r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}
+        r"""消费组名称。实际的消费组全称形如：consumer-grp-#{SubscribeId}-#{ConsumerGroupName}。可通过[DescribeConsumerGroups](https://cloud.tencent.com/document/api/571/102947)接口获取。
         :rtype: str
         """
         return self._ConsumerGroupName
@@ -14636,7 +16282,7 @@ class ResetConsumerGroupOffsetRequest(AbstractModel):
 
     @property
     def PartitionNos(self):
-        r"""需要修改offset的分区编号
+        r"""需要修改offset的分区编号，可通过[DescribeOffsetByTime](https://cloud.tencent.com/document/api/571/102946)接口获取。
         :rtype: list of int
         """
         return self._PartitionNos
@@ -14720,14 +16366,16 @@ class ResetSubscribeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的ID
+        :param _SubscribeId: 数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的ID
+        r"""数据订阅实例的ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
+
         :rtype: str
         """
         return self._SubscribeId
@@ -14848,9 +16496,10 @@ class ResizeSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
-        :param _NewInstanceClass: 任务规格
+        :param _NewInstanceClass: 任务规格，可选值包括micro,small,medium,large
         :type NewInstanceClass: str
         """
         self._JobId = None
@@ -14858,7 +16507,8 @@ class ResizeSyncJobRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -14869,7 +16519,7 @@ class ResizeSyncJobRequest(AbstractModel):
 
     @property
     def NewInstanceClass(self):
-        r"""任务规格
+        r"""任务规格，可选值包括micro,small,medium,large
         :rtype: str
         """
         return self._NewInstanceClass
@@ -14927,7 +16577,8 @@ class ResumeMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         :param _ResumeOption: 恢复任务的模式，目前的取值有：clearData 清空目标实例数据，overwrite 以覆盖写的方式执行任务，normal 跟正常流程一样，不做额外动作；注意，clearData、overwrite仅对redis生效，normal仅针对非redis链路生效
         :type ResumeOption: str
@@ -14937,7 +16588,8 @@ class ResumeMigrateJobRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15006,14 +16658,14 @@ class ResumeSubscribeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -15070,14 +16722,16 @@ class ResumeSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15259,6 +16913,102 @@ class RowsCountDifference(AbstractModel):
         
 
 
+class SchemaDifference(AbstractModel):
+    r"""结构不一致详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Db: 结构不一致的表所在库
+        :type Db: str
+        :param _Schema: 结构不一致的表所在schema
+        :type Schema: str
+        :param _Table: 结构不一致的表
+        :type Table: str
+        :param _SrcSchema: 源库表结构
+        :type SrcSchema: str
+        :param _DstSchema: 目标库表结构
+        :type DstSchema: str
+        """
+        self._Db = None
+        self._Schema = None
+        self._Table = None
+        self._SrcSchema = None
+        self._DstSchema = None
+
+    @property
+    def Db(self):
+        r"""结构不一致的表所在库
+        :rtype: str
+        """
+        return self._Db
+
+    @Db.setter
+    def Db(self, Db):
+        self._Db = Db
+
+    @property
+    def Schema(self):
+        r"""结构不一致的表所在schema
+        :rtype: str
+        """
+        return self._Schema
+
+    @Schema.setter
+    def Schema(self, Schema):
+        self._Schema = Schema
+
+    @property
+    def Table(self):
+        r"""结构不一致的表
+        :rtype: str
+        """
+        return self._Table
+
+    @Table.setter
+    def Table(self, Table):
+        self._Table = Table
+
+    @property
+    def SrcSchema(self):
+        r"""源库表结构
+        :rtype: str
+        """
+        return self._SrcSchema
+
+    @SrcSchema.setter
+    def SrcSchema(self, SrcSchema):
+        self._SrcSchema = SrcSchema
+
+    @property
+    def DstSchema(self):
+        r"""目标库表结构
+        :rtype: str
+        """
+        return self._DstSchema
+
+    @DstSchema.setter
+    def DstSchema(self, DstSchema):
+        self._DstSchema = DstSchema
+
+
+    def _deserialize(self, params):
+        self._Db = params.get("Db")
+        self._Schema = params.get("Schema")
+        self._Table = params.get("Table")
+        self._SrcSchema = params.get("SrcSchema")
+        self._DstSchema = params.get("DstSchema")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class SkipCheckItemRequest(AbstractModel):
     r"""SkipCheckItem请求参数结构体
 
@@ -15266,9 +17016,10 @@ class SkipCheckItemRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
-        :param _StepIds: 需要跳过校验项的步骤id，需要通过DescribeMigrationCheckJob接口返回StepInfo[i].StepId字段获取，例如：["OptimizeCheck"]
+        :param _StepIds: 需要跳过校验项的步骤id，需要通过[DescribeMigrationCheckJob](https://cloud.tencent.com/document/product/571/82086)接口返回StepInfo[i].StepId字段获取，例如：["OptimizeCheck"]
         :type StepIds: list of str
         :param _ForeignKeyFlag: 当出现外键依赖检查导致校验不通过时、可以通过该字段选择是否迁移外键依赖，当StepIds包含ConstraintCheck且该字段值为shield时表示不迁移外键依赖、当StepIds包含ConstraintCheck且值为migrate时表示迁移外键依赖
         :type ForeignKeyFlag: str
@@ -15279,7 +17030,8 @@ class SkipCheckItemRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15290,7 +17042,7 @@ class SkipCheckItemRequest(AbstractModel):
 
     @property
     def StepIds(self):
-        r"""需要跳过校验项的步骤id，需要通过DescribeMigrationCheckJob接口返回StepInfo[i].StepId字段获取，例如：["OptimizeCheck"]
+        r"""需要跳过校验项的步骤id，需要通过[DescribeMigrationCheckJob](https://cloud.tencent.com/document/product/571/82086)接口返回StepInfo[i].StepId字段获取，例如：["OptimizeCheck"]
         :rtype: list of str
         """
         return self._StepIds
@@ -15375,7 +17127,8 @@ class SkipSyncCheckItemRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务id，如：sync-4ddgid2
+        :param _JobId: 任务id，如：sync-4ddgid2，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         :param _StepIds: 需要跳过校验项的步骤id，需要通过`DescribeCheckSyncJobResult`接口返回StepInfos[i].StepId字段获取，例如：["OptimizeCheck"]
         :type StepIds: list of str
@@ -15385,7 +17138,8 @@ class SkipSyncCheckItemRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""任务id，如：sync-4ddgid2
+        r"""任务id，如：sync-4ddgid2，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15591,9 +17345,11 @@ class StartCompareRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 ID，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :type JobId: str
-        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :type CompareTaskId: str
         """
         self._JobId = None
@@ -15601,7 +17357,8 @@ class StartCompareRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 ID，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15612,7 +17369,8 @@ class StartCompareRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过 [DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084) 接口获取。
+
         :rtype: str
         """
         return self._CompareTaskId
@@ -15670,14 +17428,16 @@ class StartMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15734,14 +17494,16 @@ class StartModifySyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -15798,14 +17560,14 @@ class StartSubscribeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubscribeId: 数据订阅实例的 ID
+        :param _SubscribeId: 数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :type SubscribeId: str
         """
         self._SubscribeId = None
 
     @property
     def SubscribeId(self):
-        r"""数据订阅实例的 ID
+        r"""数据订阅实例的 ID，可通过[DescribeSubscribeJobs](https://cloud.tencent.com/document/product/571/102943)接口获取。
         :rtype: str
         """
         return self._SubscribeId
@@ -15855,6 +17617,85 @@ class StartSubscribeResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class StartSyncCompareRequest(AbstractModel):
+    r"""StartSyncCompare请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :type CompareTaskId: str
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StartSyncCompareResponse(AbstractModel):
+    r"""StartSyncCompare返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class StartSyncJobRequest(AbstractModel):
     r"""StartSyncJob请求参数结构体
 
@@ -15862,14 +17703,14 @@ class StartSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
         :rtype: str
         """
         return self._JobId
@@ -16343,11 +18184,13 @@ class StopCompareRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 迁移任务 Id
+        :param _JobId: 迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
-        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        :param _CompareTaskId: 对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type CompareTaskId: str
-        :param _ForceStop: 是否强制停止。如果填true，同步任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
+        :param _ForceStop: 是否强制停止。默认值为false，表示不强制停止；如果填true，同步任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
         :type ForceStop: bool
         """
         self._JobId = None
@@ -16356,7 +18199,8 @@ class StopCompareRequest(AbstractModel):
 
     @property
     def JobId(self):
-        r"""迁移任务 Id
+        r"""迁移任务 Id，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -16367,7 +18211,8 @@ class StopCompareRequest(AbstractModel):
 
     @property
     def CompareTaskId(self):
-        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9
+        r"""对比任务 ID，形如：dts-8yv4w2i1-cmp-37skmii9，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._CompareTaskId
@@ -16378,7 +18223,7 @@ class StopCompareRequest(AbstractModel):
 
     @property
     def ForceStop(self):
-        r"""是否强制停止。如果填true，同步任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
+        r"""是否强制停止。默认值为false，表示不强制停止；如果填true，同步任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
         :rtype: bool
         """
         return self._ForceStop
@@ -16437,14 +18282,16 @@ class StopMigrateJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 数据迁移任务ID
+        :param _JobId: 数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""数据迁移任务ID
+        r"""数据迁移任务ID，可通过[DescribeMigrationJobs](https://cloud.tencent.com/document/product/571/82084)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -16494,6 +18341,100 @@ class StopMigrateJobResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class StopSyncCompareRequest(AbstractModel):
+    r"""StopSyncCompare请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务 Id
+        :type JobId: str
+        :param _CompareTaskId: 对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :type CompareTaskId: str
+        :param _ForceStop: 是否强制停止。如果填true，迁移任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
+        :type ForceStop: bool
+        """
+        self._JobId = None
+        self._CompareTaskId = None
+        self._ForceStop = None
+
+    @property
+    def JobId(self):
+        r"""任务 Id
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def CompareTaskId(self):
+        r"""对比任务 ID，形如：sync-8yv4w2i1-cmp-37skmii9
+        :rtype: str
+        """
+        return self._CompareTaskId
+
+    @CompareTaskId.setter
+    def CompareTaskId(self, CompareTaskId):
+        self._CompareTaskId = CompareTaskId
+
+    @property
+    def ForceStop(self):
+        r"""是否强制停止。如果填true，迁移任务增量阶段会跳过一致性校验产生的binlog，达到快速恢复任务的效果
+        :rtype: bool
+        """
+        return self._ForceStop
+
+    @ForceStop.setter
+    def ForceStop(self, ForceStop):
+        self._ForceStop = ForceStop
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._CompareTaskId = params.get("CompareTaskId")
+        self._ForceStop = params.get("ForceStop")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StopSyncCompareResponse(AbstractModel):
+    r"""StopSyncCompare返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class StopSyncJobRequest(AbstractModel):
     r"""StopSyncJob请求参数结构体
 
@@ -16501,14 +18442,16 @@ class StopSyncJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 同步任务id
+        :param _JobId: 同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""同步任务id
+        r"""同步任务id，可通过[DescribeSyncJobs](https://cloud.tencent.com/document/product/571/82103)接口获取。
+
         :rtype: str
         """
         return self._JobId
@@ -16637,7 +18580,7 @@ class SubscribeCheckStepInfo(AbstractModel):
         :type StepId: str
         :param _StepNo: 步骤编号，从 1 开始
         :type StepNo: int
-        :param _Status: 当前步骤状态，可能值为 notStarted,running,finished,failed
+        :param _Status: 当前步骤状态，可能值为 notStarted-未开始，running-运行中，finished-已完成，failed-失败，unknown-未知
         :type Status: str
         :param _Percent: 当前步骤进度
         :type Percent: int
@@ -16689,7 +18632,7 @@ class SubscribeCheckStepInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""当前步骤状态，可能值为 notStarted,running,finished,failed
+        r"""当前步骤状态，可能值为 notStarted-未开始，running-运行中，finished-已完成，failed-失败，unknown-未知
         :rtype: str
         """
         return self._Status
@@ -17624,9 +19567,9 @@ class SyncJobInfo(AbstractModel):
         :type ExpireTime: str
         :param _SrcRegion: 源端地域，如：ap-guangzhou等
         :type SrcRegion: str
-        :param _SrcDatabaseType: 源端数据库类型，mysql,cynosdbmysql,tdapg,tdpg,tdsqlmysql等
+        :param _SrcDatabaseType: 源端数据库类型，mysql,tdsqlmysql,mariadb,cynosdbmysql(表示tdsql-c实例),tdstore,percona,postgresql,mongodb等。
         :type SrcDatabaseType: str
-        :param _SrcAccessType: 源端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)
+        :param _SrcAccessType: 源端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)
         :type SrcAccessType: str
         :param _SrcInfo: 源端信息，单节点数据库使用
         :type SrcInfo: :class:`tencentcloud.dts.v20211206.models.Endpoint`
@@ -17636,7 +19579,7 @@ class SyncJobInfo(AbstractModel):
         :type SrcInfos: :class:`tencentcloud.dts.v20211206.models.SyncDBEndpointInfos`
         :param _DstRegion: 目标端地域，如：ap-guangzhou等
         :type DstRegion: str
-        :param _DstDatabaseType: 目标端数据库类型，mysql,cynosdbmysql,tdapg,tdpg,tdsqlmysql等
+        :param _DstDatabaseType: 目标端数据库类型，mysql,tdsqlmysql,mariadb,cynosdbmysql(表示tdsql-c实例),tdstore,percona,postgresql,mongodb等。
         :type DstDatabaseType: str
         :param _DstAccessType: 目标端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)
         :type DstAccessType: str
@@ -17845,7 +19788,7 @@ class SyncJobInfo(AbstractModel):
 
     @property
     def SrcDatabaseType(self):
-        r"""源端数据库类型，mysql,cynosdbmysql,tdapg,tdpg,tdsqlmysql等
+        r"""源端数据库类型，mysql,tdsqlmysql,mariadb,cynosdbmysql(表示tdsql-c实例),tdstore,percona,postgresql,mongodb等。
         :rtype: str
         """
         return self._SrcDatabaseType
@@ -17856,7 +19799,7 @@ class SyncJobInfo(AbstractModel):
 
     @property
     def SrcAccessType(self):
-        r"""源端接入类型，cdb(云数据库)、cvm(云主机自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)
+        r"""源端接入类型，cdb(云数据库)、cvm(云服务器自建)、vpc(私有网络)、extranet(外网)、vpncloud(vpn接入)、dcg(专线接入)、ccn(云联网)、intranet(自研上云)
         :rtype: str
         """
         return self._SrcAccessType
@@ -17911,7 +19854,7 @@ class SyncJobInfo(AbstractModel):
 
     @property
     def DstDatabaseType(self):
-        r"""目标端数据库类型，mysql,cynosdbmysql,tdapg,tdpg,tdsqlmysql等
+        r"""目标端数据库类型，mysql,tdsqlmysql,mariadb,cynosdbmysql(表示tdsql-c实例),tdstore,percona,postgresql,mongodb等。
         :rtype: str
         """
         return self._DstDatabaseType
@@ -18295,6 +20238,59 @@ class Table(AbstractModel):
                 self._Columns.append(obj)
         self._TmpTables = params.get("TmpTables")
         self._TableEditMode = params.get("TableEditMode")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TableFilter(AbstractModel):
+    r"""表级 DDL/DML 过滤信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TableName: 规则生效的表名
+        :type TableName: str
+        :param _OpFilter: 表级 DDL/DML 过滤规则
+        :type OpFilter: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        """
+        self._TableName = None
+        self._OpFilter = None
+
+    @property
+    def TableName(self):
+        r"""规则生效的表名
+        :rtype: str
+        """
+        return self._TableName
+
+    @TableName.setter
+    def TableName(self, TableName):
+        self._TableName = TableName
+
+    @property
+    def OpFilter(self):
+        r"""表级 DDL/DML 过滤规则
+        :rtype: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        """
+        return self._OpFilter
+
+    @OpFilter.setter
+    def OpFilter(self, OpFilter):
+        self._OpFilter = OpFilter
+
+
+    def _deserialize(self, params):
+        self._TableName = params.get("TableName")
+        if params.get("OpFilter") is not None:
+            self._OpFilter = OpFilter()
+            self._OpFilter._deserialize(params.get("OpFilter"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18843,6 +20839,59 @@ class View(AbstractModel):
     def _deserialize(self, params):
         self._ViewName = params.get("ViewName")
         self._NewViewName = params.get("NewViewName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ViewFilter(AbstractModel):
+    r"""视图级 DDL/DML 过滤信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ViewName: 规则生效的视图名
+        :type ViewName: str
+        :param _OpFilter: 视图级 DDL/DML 过滤规则
+        :type OpFilter: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        """
+        self._ViewName = None
+        self._OpFilter = None
+
+    @property
+    def ViewName(self):
+        r"""规则生效的视图名
+        :rtype: str
+        """
+        return self._ViewName
+
+    @ViewName.setter
+    def ViewName(self, ViewName):
+        self._ViewName = ViewName
+
+    @property
+    def OpFilter(self):
+        r"""视图级 DDL/DML 过滤规则
+        :rtype: :class:`tencentcloud.dts.v20211206.models.OpFilter`
+        """
+        return self._OpFilter
+
+    @OpFilter.setter
+    def OpFilter(self, OpFilter):
+        self._OpFilter = OpFilter
+
+
+    def _deserialize(self, params):
+        self._ViewName = params.get("ViewName")
+        if params.get("OpFilter") is not None:
+            self._OpFilter = OpFilter()
+            self._OpFilter._deserialize(params.get("OpFilter"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

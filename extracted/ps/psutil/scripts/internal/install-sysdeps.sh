@@ -30,6 +30,9 @@ case "$UNAME_S" in
     OpenBSD)
         OPENBSD=true
         ;;
+    SunOS)
+        SUNOS=true
+        ;;
 esac
 
 # Check if running as root
@@ -40,18 +43,17 @@ fi
 # Function to install system dependencies
 main() {
     if [ $HAS_APT ]; then
-        $SUDO apt-get update
         $SUDO apt-get install -y python3-dev gcc
-        $SUDO apt-get install -y net-tools coreutils util-linux  # for tests
-        $SUDO apt-get install -y sudo  # for test-sudo
+        $SUDO apt-get install -y net-tools coreutils util-linux sudo  # for tests
     elif [ $HAS_YUM ]; then
         $SUDO yum install -y python3-devel gcc
-        $SUDO yum install -y net-tools coreutils util-linux  # for tests
-        $SUDO yum install -y sudo  # for test-sudo
+        $SUDO yum install -y net-tools coreutils-single util-linux sudo  # for tests
     elif [ $HAS_PACMAN ]; then
-        $SUDO pacman -S --noconfirm python gcc sudo net-tools coreutils util-linux
+        $SUDO pacman -S --noconfirm python gcc
+        $SUDO pacman -S --noconfirm net-tools coreutils util-linux sudo  # for tests
     elif [ $HAS_APK ]; then
-        $SUDO apk add --no-confirm python3-dev gcc musl-dev linux-headers coreutils procps
+        $SUDO apk add --no-interactive python3-dev gcc musl-dev linux-headers
+        $SUDO apk add --no-interactive coreutils util-linux procps  # for tests
     elif [ $FREEBSD ]; then
         $SUDO pkg install -y python3 gcc
     elif [ $NETBSD ]; then
@@ -60,6 +62,8 @@ main() {
         $SUDO pkgin -y install python311-* gcc12-*
     elif [ $OPENBSD ]; then
         $SUDO pkg_add gcc python3
+    elif [ $SUNOS ]; then
+        $SUDO pkg install developer/gcc
     else
         echo "Unsupported platform '$UNAME_S'. Ignoring."
     fi

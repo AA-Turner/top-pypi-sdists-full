@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from kernels import (
     CUDAProperties,
     Device,
+    FuncRepository,
     LayerRepository,
     LocalLayerRepository,
     Mode,
@@ -17,18 +18,24 @@ from kernels import (
     use_kernel_forward_from_hub,
     use_kernel_mapping,
 )
-from kernels.layer import (
+from kernels.layer.layer import (
     _KERNEL_MAPPING,
     _validate_layer,
 )
-from kernels.utils import install_kernel
+from kernels.utils import (
+    install_kernel,
+)
 
 kernel_layer_mapping = {
     "SiluAndMul": {
         Device(type="cuda"): LayerRepository(
             repo_id="kernels-community/activation",
             layer_name="SiluAndMul",
-        )
+        ),
+        "npu": LayerRepository(
+            repo_id="kernels-ext-npu/SwiGlu",
+            layer_name="SwiGlu",
+        ),
     },
     "SiluAndMulNoCompile": {
         "cuda": LayerRepository(
@@ -116,16 +123,6 @@ class TorchLinearWithCounter(nn.Linear):
         return super().forward(input)
 
 
-@pytest.fixture
-def device():
-    if torch.cuda.is_available():
-        return "cuda"
-    elif hasattr(torch, "xpu") and torch.xpu.is_available():
-        return "xpu"
-
-    pytest.skip("No CUDA or XPU")
-
-
 def test_arg_kinds():
     @use_kernel_forward_from_hub("ArgKind")
     class ArgKind(nn.Module):
@@ -154,6 +151,35 @@ def test_hub_forward(cls):
     Y = silu_and_mul(X)
 
     silu_and_mul_with_kernel = kernelize(cls(), device="cuda", mode=Mode.INFERENCE)
+    Y_kernel = silu_and_mul_with_kernel(X)
+
+    torch.testing.assert_close(Y_kernel, Y)
+
+    assert silu_and_mul.n_calls == 1
+    assert silu_and_mul_with_kernel.n_calls == 0
+
+
+@pytest.mark.cuda_only
+@pytest.mark.parametrize("cls", [SiluAndMulWithKernel, SiluAndMulStringDevice])
+def test_hub_func(cls):
+    torch.random.manual_seed(0)
+
+    silu_and_mul = SiluAndMul()
+    X = torch.randn((32, 64), device="cuda")
+    Y = silu_and_mul(X)
+
+    # SiluAndMul is pure, so we can also use a function.
+    with use_kernel_mapping(
+        {
+            "surprise_me": {
+                "cuda": FuncRepository(
+                    "kernels-test/flattened-build",
+                    func_name="silu_and_mul",
+                )
+            }
+        }
+    ):
+        silu_and_mul_with_kernel = kernelize(cls(), device="cuda", mode=Mode.INFERENCE)
     Y_kernel = silu_and_mul_with_kernel(X)
 
     torch.testing.assert_close(Y_kernel, Y)
@@ -204,12 +230,32 @@ def test_hub_forward_xpu():
     assert rms_norm_with_kernel.n_calls == 0
 
 
-@pytest.mark.skipif(
-    hasattr(torch, "xpu") and getattr(torch.xpu, "is_available", lambda: False)(),
-    reason="Skip on xpu devices",
-)
-def test_rocm_kernel_mapping():
+@pytest.mark.npu_only
+def test_hub_forward_npu():
+    torch.manual_seed(0)
+
+    silu_and_mul = SiluAndMul()
+    X = torch.randn((32, 64), device="npu")
+    Y = silu_and_mul(X)
+
+    silu_and_mul_with_kernel = kernelize(
+        SiluAndMulWithKernel(), device="npu", mode=Mode.INFERENCE
+    )
+    Y_kernel = silu_and_mul_with_kernel(X)
+
+    torch.testing.assert_close(Y_kernel, Y)
+
+    assert silu_and_mul.n_calls == 1
+    assert silu_and_mul_with_kernel.n_calls == 0
+
+
+def test_rocm_kernel_mapping(device):
     """Test that ROCm shorthand device mapping works correctly."""
+
+    # Lookup uses the GPU capability, so it fails for non-ROCm/CUDA.
+    if device not in ["cuda", "rocm"]:
+        pytest.skip("Test only applicable to CUDA and ROCM devices")
+
     kernel_layer_mapping = {
         "SiluAndMul": {
             "rocm": LayerRepository(

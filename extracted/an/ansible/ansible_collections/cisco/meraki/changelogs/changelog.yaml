@@ -1267,3 +1267,52 @@ releases:
       bugfixes:
         - cisco.meraki.networks_appliance_traffic_shaping_uplink_bandwidth - fix idempotency error.
     release_date: "2025-06-10"
+  2.21.5:
+    changes:
+      bugfixes:
+        - cisco.meraki.devices_appliance_uplinks_settings - fix idempotency error.
+    release_date: "2025-09-10"
+  2.21.6:
+    changes:
+      bugfixes:
+        - "Fixed function name typo in organizations_appliance_vpn_third_party_vpnpeers
+          changed 'getOrganizationApplianceVpnThirdPartyVpnpeers' to 'getOrganizationApplianceVpnThirdPartyVPNPeers'"
+        - "Fixed function name typo in organizations_appliance_vpn_third_party_vpnpeers
+           changed 'updateOrganizationApplianceVpnThirdPartyVpnpeers' to 'updateOrganizationApplianceVpnThirdPartyVPNPeers'"
+        - "Fixed comparison function call in networks_switch_dscp_to_cos_mappings
+           changed 'meraki_compare_equality2' to 'meraki_compare_equality'"
+        - "Fixed VLAN parameter handling in networks_switch_qos_rules_order
+           changed name parameter to vlan parameter for proper object lookup"
+        - "Improved dictionary comparison logic in meraki.py plugin utils to handle nested dictionaries correctly"
+      features:
+        - "Added new organizations_appliance_vpn_stats_info module and action plugin for retrieving
+          VPN history statistics for networks in an organization"
+        - "Added new playbook for networks_switch_dscp_to_cos_mappings configuration"
+        - "Added new playbook for organizations_appliance_vpn_third_party_vpnpeers configuration"
+        - "Enhanced networks_switch_qos_rules_order with improved VLAN handling and debugging capabilities"
+
+    release_date: "2025-01-10"
+  2.21.7:
+    changes:
+      bugfixes:
+        - "Enhanced networks_switch_qos_rules_order object lookup logic to properly match QoS rules by vlan, protocol, srcPort, and dstPort parameters"
+        - "Fixed parameter handling in networks_switch_qos_rules_order to use qosRuleId instead of id for object identification"
+        - "Improved meraki_compare_equality2 function to handle None value comparisons more accurately"
+        - "Updated networks_switch_qos_rules_order playbook with corrected parameter values and VLAN configuration"
+    release_date: "2025-01-10"
+  2.21.8:
+    changes:
+      bugfixes:
+        - "networks_switch_qos_rules_order: extend object lookup to include srcPortRange and dstPortRange when matching existing QoS rules
+          to improve idempotency"
+    release_date: "2025-06-10"
+  2.21.9:
+    changes:
+      bugfixes:
+        - "administered_licensing_subscription_subscriptions_bind - Fixed parameter naming from 'subscription_id' to 'subscriptionId'
+          for proper API compatibility"
+        - "networks_appliance_content_filtering - Enhanced idempotency by extracting category IDs from blockedUrlCategories
+          before comparison"
+        - "meraki.py plugin utils - Added type checking in has_diff_elem2 function to prevent errors when comparing lists
+          of non-dictionary elements"
+    release_date: "2025-11-26"

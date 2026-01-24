@@ -8,8 +8,11 @@ from typing import Dict
 from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import Computed
+from sqlalchemy import DATE
+from sqlalchemy import DATETIME
 from sqlalchemy import exc
 from sqlalchemy import ForeignKey
+from sqlalchemy import func
 from sqlalchemy import Identity
 from sqlalchemy import inspect
 from sqlalchemy import Integer
@@ -20,10 +23,10 @@ from sqlalchemy import text
 
 from alembic import command
 from alembic import op
+from alembic import testing
 from alembic import util
 from alembic.testing import assert_raises_message
 from alembic.testing import combinations
-from alembic.testing import config
 from alembic.testing import eq_
 from alembic.testing import expect_warnings
 from alembic.testing import fixture
@@ -470,7 +473,6 @@ class OpTest(TestBase):
             lambda: Computed("foo * 5"),
         ),
     )
-    @config.requirements.computed_columns
     def test_alter_column_computed_not_supported(self, sd, esd):
         op_fixture("mssql")
         assert_raises_message(
@@ -485,7 +487,6 @@ class OpTest(TestBase):
             existing_server_default=esd(),
         )
 
-    @config.requirements.identity_columns
     @combinations(
         ({},),
         (dict(always=True),),
@@ -518,7 +519,6 @@ class OpTest(TestBase):
             lambda: Identity(),
         ),
     )
-    @config.requirements.identity_columns
     def test_alter_column_identity_add_not_supported(self, sd, esd):
         op_fixture("mssql")
         assert_raises_message(
@@ -531,6 +531,71 @@ class OpTest(TestBase):
             "c1",
             server_default=sd(),
             existing_server_default=esd(),
+        )
+
+    def test_alter_column_add_comment(self):
+        context = op_fixture("mssql")
+        op.alter_column(
+            "t1",
+            "c1",
+            existing_type=String(50),
+            comment="c1 comment",
+        )
+        context.assert_contains(
+            "exec sp_addextendedproperty 'MS_Description', "
+            "N'c1 comment', 'schema', dbo, 'table', t1, 'column', c1"
+        )
+
+    def test_alter_column_update_comment(self):
+        context = op_fixture("mssql")
+        op.alter_column(
+            "t1",
+            "c1",
+            existing_type=String(50),
+            comment="updated comment",
+            existing_comment="old comment",
+        )
+        context.assert_contains(
+            "exec sp_updateextendedproperty 'MS_Description', "
+            "N'updated comment', 'schema', dbo, 'table', t1, 'column', c1"
+        )
+
+    def test_alter_column_add_comment_schema(self):
+        context = op_fixture("mssql")
+        op.alter_column(
+            "t1",
+            "c1",
+            existing_type=String(50),
+            comment="c1 comment",
+            schema="xyz",
+        )
+        context.assert_contains("'schema', xyz, 'table', t1, 'column', c1")
+
+    def test_alter_column_add_comment_quoting(self):
+        context = op_fixture("mssql")
+        op.alter_column(
+            "user",
+            "theme",
+            existing_type=String(20),
+            comment="Column comment with 'quotes'",
+            existing_nullable=True,
+            schema="dbo",
+        )
+        context.assert_contains("N'Column comment with ''quotes'''")
+        context.assert_contains("'table', [user], 'column', theme")
+
+    def test_alter_column_drop_comment(self):
+        context = op_fixture("mssql")
+        op.alter_column(
+            "t1",
+            "c1",
+            existing_type=String(50),
+            comment=None,
+            existing_comment="existing comment",
+        )
+        context.assert_contains(
+            "exec sp_dropextendedproperty 'MS_Description', "
+            "'schema', dbo, 'table', t1, 'column', c1"
         )
 
 
@@ -580,3 +645,86 @@ class RoundTripTest(TestBase):
 
     # don't know if a default constraint can be explicitly named, but
     # the path is the same as the check constraint, so it should be good
+
+    @testing.variation("op", ["drop", "alter"])
+    def test_issue_1744(self, ops_context, connection, metadata, op):
+        access = Table(
+            "access",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("created_at", DATE, server_default=func.getdate()),
+        )
+        access.create(connection)
+
+        if op.alter:
+            ops_context.alter_column(
+                "access",
+                "created_at",
+                existing_type=DATETIME(),
+                type_=DATETIME(timezone=True),
+                server_default=func.getdate(),
+                existing_nullable=False,
+                existing_server_default=text("(getdate())"),
+            )
+        elif op.drop:
+            ops_context.drop_column(
+                "access", "created_at", mssql_drop_default=True
+            )
+
+    @testing.variation("op", ["add", "update", "drop"])
+    def test_column_comment(
+        self, ops_context, connection, metadata, op: testing.Variation
+    ):
+        """test #1755"""
+        t = Table(
+            "t",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+        )
+        t.create(connection)
+
+        if op.update or op.drop:
+            ops_context.alter_column(
+                "t",
+                "data",
+                existing_type=String(50),
+                comment="initial comment",
+            )
+
+        if op.add:
+            ops_context.alter_column(
+                "t", "data", existing_type=String(50), comment="data comment"
+            )
+            expected = "data comment"
+        elif op.update:
+            ops_context.alter_column(
+                "t",
+                "data",
+                existing_type=String(50),
+                comment="updated comment",
+                existing_comment="initial comment",
+            )
+            expected = "updated comment"
+        elif op.drop:
+            ops_context.alter_column(
+                "t",
+                "data",
+                existing_type=String(50),
+                comment=None,
+                existing_comment="initial comment",
+            )
+            expected = None
+        else:
+            op.fail()
+
+        # Verify expected result
+        result = connection.execute(
+            text(
+                "SELECT value FROM sys.extended_properties "
+                "WHERE major_id = OBJECT_ID('t') "
+                "AND minor_id = COLUMNPROPERTY(major_id, 'data', 'ColumnId') "
+                "AND name = 'MS_Description'"
+            )
+        ).scalar()
+        eq_(result, expected)

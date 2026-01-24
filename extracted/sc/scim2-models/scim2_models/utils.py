@@ -3,7 +3,6 @@ import re
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Literal
-from typing import Optional
 from typing import Union
 
 from pydantic import EncodedBytes
@@ -22,8 +21,12 @@ except ImportError:
     # Python 3.9 has no UnionType
     UNION_TYPES = [Union]
 
+_UNDERSCORE_ALPHANUMERIC = re.compile(r"_+([0-9A-Za-z]+)")
+_NON_WORD_UNDERSCORE = re.compile(r"[\W_]+")
+_VALID_PATH_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9._:\-\[\]"=\s]*$')
 
-def _int_to_str(status: Optional[int]) -> Optional[str]:
+
+def _int_to_str(status: int | None) -> str | None:
     return None if status is None else str(status)
 
 
@@ -87,7 +90,7 @@ def _to_camel(string: str) -> str:
     '$ref' stays '$ref'.
     """
     snake = to_snake(string)
-    camel = re.sub(r"_+([0-9A-Za-z]+)", lambda m: m.group(1).title(), snake)
+    camel = _UNDERSCORE_ALPHANUMERIC.sub(lambda m: m.group(1).title(), snake)
     return camel
 
 
@@ -98,7 +101,7 @@ def _normalize_attribute_name(attribute_name: str) -> str:
     """
     is_extension_attribute = ":" in attribute_name
     if not is_extension_attribute:
-        attribute_name = re.sub(r"[\W_]+", "", attribute_name)
+        attribute_name = _NON_WORD_UNDERSCORE.sub("", attribute_name)
 
     return attribute_name.lower()
 
@@ -122,7 +125,7 @@ def _validate_scim_path_syntax(path: str) -> bool:
 
     # Cannot contain invalid characters (basic check)
     # Allow alphanumeric, dots, underscores, hyphens, colons (for URNs), brackets
-    if not re.match(r'^[a-zA-Z][a-zA-Z0-9._:\-\[\]"=\s]*$', path):
+    if not _VALID_PATH_PATTERN.match(path):
         return False
 
     # If it contains a colon, validate it's a proper URN format
@@ -158,7 +161,7 @@ def _validate_scim_urn_syntax(path: str) -> bool:
     return True
 
 
-def _extract_field_name(path: str) -> Optional[str]:
+def _extract_field_name(path: str) -> str | None:
     """Extract the field name from a path.
 
     For now, only handle simple paths (no filters, no complex expressions).
@@ -181,7 +184,7 @@ def _extract_field_name(path: str) -> Optional[str]:
     return path
 
 
-def _find_field_name(model_class: type["BaseModel"], attr_name: str) -> Optional[str]:
+def _find_field_name(model_class: type["BaseModel"], attr_name: str) -> str | None:
     """Find the actual field name in a resource class from an attribute name.
 
     :param resource_class: The resource class to search in

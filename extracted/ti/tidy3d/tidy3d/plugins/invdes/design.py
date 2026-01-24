@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import typing
+from typing import Any
 
 import autograd.numpy as anp
 import numpy as np
@@ -99,7 +100,7 @@ class AbstractInverseDesign(InvdesBaseModel, abc.ABC):
         initial_params = self.design_region.initial_parameters
         return self.to_simulation(initial_params)
 
-    def run(self, simulation, **kwargs) -> td.SimulationData:
+    def run(self, simulation, **kwargs: Any) -> td.SimulationData:
         """Run a single tidy3d simulation."""
         from tidy3d.web import run
 
@@ -107,7 +108,7 @@ class AbstractInverseDesign(InvdesBaseModel, abc.ABC):
         kwargs.setdefault("task_name", self.task_name)
         return run(simulation, **kwargs)
 
-    def run_async(self, simulations, **kwargs) -> web.BatchData:  # noqa: F821
+    def run_async(self, simulations, **kwargs: Any) -> web.BatchData:  # noqa: F821
         """Run a batch of tidy3d simulations."""
         from tidy3d.web import run_async
 
@@ -128,10 +129,9 @@ class InverseDesign(AbstractInverseDesign):
         None,
         title="Output Monitor Names",
         description="Optional names of monitors whose data the differentiable output depends on."
-        "If this field is left ``None``, the plugin will try to add all compatible monitors to "
-        "``JaxSimulation.output_monitors``. While this will work, there may be warnings if the "
-        "monitors are not compatible with the ``adjoint`` plugin, for example if there are "
-        "``FieldMonitor`` instances with ``.colocate != False``.",
+        "If this field is left ``None``, the plugin will try to add all compatible monitors "
+        "automatically. While this will work, there may be warnings if certain monitor types are "
+        "not fully supported, for example ``FieldMonitor`` instances with ``.colocate != False``.",
     )
 
     _check_sim_pixel_size = check_pixel_size("simulation")
@@ -251,7 +251,7 @@ class InverseDesign(AbstractInverseDesign):
             grid_spec=grid_spec,
         )
 
-    def to_simulation_data(self, params: anp.ndarray, **kwargs) -> td.SimulationData:
+    def to_simulation_data(self, params: anp.ndarray, **kwargs: Any) -> td.SimulationData:
         """Convert the ``InverseDesign`` to a ``td.Simulation`` and run it."""
         simulation = self.to_simulation(params=params)
         return self.run(simulation, **kwargs)
@@ -270,10 +270,9 @@ class InverseDesignMulti(AbstractInverseDesign):
         None,
         title="Output Monitor Names",
         description="Optional names of monitors whose data the differentiable output depends on."
-        "If this field is left ``None``, the plugin will try to add all compatible monitors to "
-        "``JaxSimulation.output_monitors``. While this will work, there may be warnings if the "
-        "monitors are not compatible with the ``adjoint`` plugin, for example if there are "
-        "``FieldMonitor`` instances with ``.colocate != False``.",
+        "If this field is left ``None``, the plugin will try to add all compatible monitors "
+        "automatically. While this will work, there may be warnings if certain monitor types are "
+        "not fully supported, for example ``FieldMonitor`` instances with ``.colocate != False``.",
     )
 
     _check_sim_pixel_size = check_pixel_size("simulations")
@@ -324,7 +323,7 @@ class InverseDesignMulti(AbstractInverseDesign):
         simulation_list = [design.to_simulation(params) for design in self.designs]
         return dict(zip(self.task_names, simulation_list))
 
-    def to_simulation_data(self, params: anp.ndarray, **kwargs) -> web.BatchData:  # noqa: F821
+    def to_simulation_data(self, params: anp.ndarray, **kwargs: Any) -> web.BatchData:  # noqa: F821
         """Convert the ``InverseDesignMulti`` to a set of ``td.Simulation``s and run async."""
         simulations = self.to_simulation(params)
         return self.run_async(simulations, **kwargs)

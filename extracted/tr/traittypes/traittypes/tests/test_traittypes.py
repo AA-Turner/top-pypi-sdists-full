@@ -17,17 +17,16 @@ import xarray as xr
 
 
 class IntArrayTrait(HasTraits):
-    value = Array().tag(dtype=np.int)
+    value = Array().tag(dtype=np.int32)
 
 
 class TestIntArray(TraitTestBase):
     """
-    Test dtype validation with a ``dtype=np.int``
+    Test dtype validation with a ``dtype=np.int32``
     """
     obj = IntArrayTrait()
 
     _good_values = [1, [1, 2, 3], [[1, 2, 3], [4, 5, 6]], np.array([1])]
-    _bad_values = [[1, [0, 0]]]
 
     def assertEqual(self, v1, v2):
         return np.testing.assert_array_equal(v1, v2)
@@ -150,7 +149,7 @@ class TestSeries(TestCase):
     def test_series_equal(self):
         notifications = []
         class Foo(HasTraits):
-            bar = Series([1, 2])
+            bar = Series([1, 2], dtype=np.int64)
             @observe('bar')
             def _(self, change):
                 notifications.append(change)

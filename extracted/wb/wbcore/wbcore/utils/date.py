@@ -1,5 +1,6 @@
 from collections import defaultdict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo, available_timezones
 
 from dateutil import rrule
 from django.utils.dateparse import parse_date
@@ -153,8 +154,11 @@ def get_date_interval_from_request(
 
 
 def get_number_of_hours_between_dates(
-    d1, d2, skip_weekends=True, list_public_holidays=False, hours_range=range(0, 23), granularity=12
+    d1, d2, skip_weekends=True, list_public_holidays=False, hours_range=None, granularity=12
 ):
+    if hours_range is None:
+        hours_range = range(0, 23)
+
     def convert_days_from_hours(hours, granularity, hours_per_day):
         return int(hours / granularity) * granularity / hours_per_day
 
@@ -219,3 +223,15 @@ def get_next_day_timedelta(now: datetime | None = None) -> int:
     if not now:
         now = datetime.now()
     return (datetime.combine(now.date() + timedelta(days=1), time(0, 0, 0)) - now).seconds
+
+
+def get_timezone_choices() -> list[tuple[str, str]]:
+    now_utc = datetime.now(timezone.utc)
+    tz_tuples = []  # a list of (timezone_name, timezone_name (UTC offset))
+    for tz_name in sorted(available_timezones()):
+        tz = ZoneInfo(tz_name)
+        now_in_tz = now_utc.astimezone(tz)
+        offset_str = now_in_tz.strftime("UTC%z")  # gives UTC+HHMM
+        offset_str = offset_str[:-2] + ":" + offset_str[-2:]
+        tz_tuples.append((tz_name, f"{tz_name} ({offset_str})"))
+    return tz_tuples

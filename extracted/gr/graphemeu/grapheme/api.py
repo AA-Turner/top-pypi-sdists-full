@@ -1,9 +1,11 @@
+from collections.abc import Iterator
+
 from grapheme.finder import GraphemeIterator, get_last_certain_break_index
 
 UNICODE_VERSION = "17.0.0"
 
 
-def graphemes(string):
+def graphemes(string: str) -> Iterator[str]:
     """
     Returns an iterator of all graphemes of given string.
 
@@ -16,7 +18,7 @@ def graphemes(string):
     return iter(GraphemeIterator(string))
 
 
-def length(string, until=None):
+def length(string: str, until=None) -> int:
     """
     Returns the number of graphemes in the string.
 
@@ -54,20 +56,20 @@ def length(string, until=None):
 
 
 # TODO: should probably use an optimized iterator that only deals with code point counts
-def grapheme_lengths(string):
+def grapheme_lengths(string: str) -> Iterator[int]:
     """
     Returns an iterator of number of code points in each grapheme of the string.
     """
     return iter(len(g) for g in graphemes(string))
 
 
-def slice(string, start=None, end=None):
+def slice(string: str, start: int | None = None, end: int | None = None) -> str:
     """
     Returns a substring of the given string, counting graphemes instead of codepoints.
 
     Negative indices is currently not supported.
-    >>> string = "tamil நி (ni)"
 
+    >>> string = "tamil நி (ni)"
     >>> string[:7]
     'tamil ந'
     >>> grapheme.slice(string, end=7)
@@ -101,7 +103,59 @@ def slice(string, start=None, end=None):
     return ""
 
 
-def contains(string, substring):
+def index(string: str, substring: str) -> int:
+    """
+    Returns the grapheme index of substring in string, or -1 if not found.
+
+    This differs from the normal str.index, since str.index returns the codepoint index and
+    str.index does not consider grapheme boundaries.
+
+    Performance notes: Very fast if `substring not in string`, since that also means that
+    the same graphemes can not be in the two strings. Otherwise this function has linear time
+    complexity in relation to the string length. It will traverse the sequence of graphemes until
+    a match is found, so it will generally perform better for grapheme sequences that match early.
+
+    >>> "🇪🇸🇪🇪".index("🇸🇪")
+    1  # str.index doesn't consider grapheme boundaries and therefore matches
+    >>> grapheme.index("🇪🇸🇪🇪", "🇸🇪")
+    -1 # grapheme.index considers grapheme boundaries and therefore doesn't match
+    >>> "a🇪🇸🇪🇪".index("🇪🇪")
+    3  # str.index returns codepoint index
+    >>> grapheme.index("a🇪🇸🇪🇪", "🇪🇪")
+    2  # grapheme.index returns grapheme index
+    """
+    if substring not in string:
+        return -1
+
+    substr_graphemes = list(graphemes(substring))
+
+    if len(substr_graphemes) == 0:
+        # parity with str.index("") behavior
+        return 0
+    elif len(substr_graphemes) == 1:
+        for i, g in enumerate(graphemes(string)):
+            if g == substr_graphemes[0]:
+                return i
+        return -1
+    else:
+        str_iter = graphemes(string)
+        str_sub_part = []  # sliding window of graphemes from string with length of substring
+        for _ in range(len(substr_graphemes)):
+            str_sub_part.append(next(str_iter))
+            # substring is in string (first check), so `str_iter` never stops before
+
+        for idx, g in enumerate(str_iter):
+            if str_sub_part == substr_graphemes:
+                return idx
+
+            # slide window: remove first grapheme and add next grapheme from string to the end
+            str_sub_part.append(g)
+            str_sub_part.pop(0)
+        idx += 1
+        return idx if str_sub_part == substr_graphemes else -1
+
+
+def contains(string: str, substring: str) -> bool:
     """
     Returns true if the sequence of graphemes in substring is also present in string.
 
@@ -119,34 +173,10 @@ def contains(string, substring):
     >>> grapheme.contains("🇪🇸🇪🇪", "🇸🇪")
     False
     """
-    if substring not in string:
-        return False
-
-    substr_graphemes = list(graphemes(substring))
-
-    if len(substr_graphemes) == 0:
-        return True
-    elif len(substr_graphemes) == 1:
-        return substr_graphemes[0] in graphemes(string)
-    else:
-        str_iter = graphemes(string)
-        str_sub_part = []
-        for _ in range(len(substr_graphemes)):
-            try:
-                str_sub_part.append(next(str_iter))
-            except StopIteration:
-                return False
-
-        for g in str_iter:
-            if str_sub_part == substr_graphemes:
-                return True
-
-            str_sub_part.append(g)
-            str_sub_part.pop(0)
-        return str_sub_part == substr_graphemes
+    return index(string, substring) != -1
 
 
-def startswith(string, prefix):
+def startswith(string: str, prefix: str) -> bool:
     """
     Like str.startswith, but also checks that the string starts with the given prefixes sequence of
     graphemes.
@@ -162,7 +192,7 @@ def startswith(string, prefix):
     return string.startswith(prefix) and safe_split_index(string, len(prefix)) == len(prefix)
 
 
-def endswith(string, suffix):
+def endswith(string: str, suffix: str) -> bool:
     """
     Like str.endswith, but also checks that the string endswith the given prefixes sequence of
     graphemes.
@@ -179,7 +209,7 @@ def endswith(string, suffix):
     return string.endswith(suffix) and safe_split_index(string, expected_index) == expected_index
 
 
-def safe_split_index(string, max_len):
+def safe_split_index(string: str, max_len: int) -> int:
     """
     Returns the highest index up to `max_len` at which the given string can be sliced,
     without breaking a grapheme.

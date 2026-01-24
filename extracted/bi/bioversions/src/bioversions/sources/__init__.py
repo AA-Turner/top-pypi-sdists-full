@@ -15,6 +15,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 from .antibodyregistry import AntibodyRegistryGetter
 from .bigg import BiGGGetter
 from .biogrid import BioGRIDGetter
+from .ccle import CCLEGetter
 from .cellosaurus import CellosaurusGetter
 from .chebi import ChEBIGetter
 from .chembl import ChEMBLGetter
@@ -41,6 +42,7 @@ from .intact import IntActGetter
 from .interpro import InterProGetter
 from .itis import ITISGetter
 from .kegg import KEGGGetter
+from .loinc import LOINCGetter
 from .mesh import MeshGetter
 from .mgi import MGIGetter
 from .mirbase import MirbaseGetter
@@ -62,6 +64,7 @@ from .reactome import ReactomeGetter
 from .rfam import RfamGetter
 from .rgd import RGDGetter
 from .rhea import RheaGetter
+from .ror import RORGetter
 from .rxnorm import RxNormGetter
 from .sgd import SgdGetter
 from .signor import SignorGetter
@@ -86,6 +89,7 @@ __all__ = [
     "AntibodyRegistryGetter",
     "BiGGGetter",
     "BioGRIDGetter",
+    "CCLEGetter",
     "CellosaurusGetter",
     "ChEBIGetter",
     "ChEMBLGetter",
@@ -113,6 +117,7 @@ __all__ = [
     "IntActGetter",
     "InterProGetter",
     "KEGGGetter",
+    "LOINCGetter",
     "MGIGetter",
     "MOAlmanacGetter",
     "MSigDBGetter",
@@ -130,6 +135,7 @@ __all__ = [
     "PombaseGetter",
     "PubChemGetter",
     "RGDGetter",
+    "RORGetter",
     "ReactomeGetter",
     "RfamGetter",
     "RheaGetter",
@@ -257,7 +263,7 @@ def iter_versions(
     """Iterate over versions, without caching."""
     with logging_redirect_tqdm():
         getters = tqdm(
-            getter_resolver, disable=not use_tqdm, desc="Getting versions", unit="resource"
+            list(getter_resolver), disable=not use_tqdm, desc="Getting versions", unit="resource"
         )
         for cls in getters:
             getters.set_postfix(name=cls.name)

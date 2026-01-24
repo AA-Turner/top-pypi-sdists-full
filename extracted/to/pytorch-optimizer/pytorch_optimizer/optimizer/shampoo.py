@@ -2,7 +2,7 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.shampoo_utils import (
     LayerWiseGrafting,
     PreConditioner,
@@ -13,23 +13,24 @@ from pytorch_optimizer.optimizer.shampoo_utils import (
 
 
 class Shampoo(BaseOptimizer):
-    r"""Preconditioned Stochastic Tensor Optimization.
+    """Preconditioned Stochastic Tensor Optimization.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. momentum.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param preconditioning_compute_steps: int. performance tuning params for controlling memory and compute
-        requirements. How often to compute pre-conditioner.
-    :param matrix_eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): learning rate.
+        momentum (float): momentum factor.
+        weight_decay (float): weight decay (L2 penalty).
+        weight_decouple (bool): optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): fix weight decay.
+        preconditioning_compute_steps (int): how often to compute the preconditioner,
+            tuning memory and compute requirements.
+        matrix_eps (float): term added to denominator to improve numerical stability.
+        maximize (bool): maximize the objective instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
         momentum: float = 0.0,
         weight_decay: float = 0.0,
@@ -49,7 +50,7 @@ class Shampoo(BaseOptimizer):
         self.preconditioning_compute_steps = preconditioning_compute_steps
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'momentum': momentum,
             'weight_decay': weight_decay,
@@ -63,7 +64,10 @@ class Shampoo(BaseOptimizer):
     def __str__(self) -> str:
         return 'Shampoo'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -86,18 +90,15 @@ class Shampoo(BaseOptimizer):
                     state[f'inv_pre_cond_{dim_id}'] = grad.new(dim, dim).zero_()
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             momentum = group['momentum']
 
@@ -153,63 +154,51 @@ class Shampoo(BaseOptimizer):
 
 
 class ScalableShampoo(BaseOptimizer):
-    r"""Scalable Preconditioned Stochastic Tensor Optimization.
+    """Scalable Preconditioned Stochastic Tensor Optimization.
 
-        This version of Scalable Shampoo Optimizer aims for a single GPU environment, not for a distributed environment
-        or XLA devices. So, the original intention is to compute pre-conditioners asynchronously on the distributed
-        CPUs, but this implementation calculates them which takes 99% of the optimization time on a GPU synchronously.
+    This version of the Scalable Shampoo Optimizer targets single GPU environments,
+    computing pre-conditioners synchronously on GPU (which takes most of the optimization time).
+    It is faster than previous Shampoo implementations by using coupled Newton iteration
+    for matrix inverse powers instead of slow SVD calculations.
 
-        Still, it is much faster than the previous Shampoo Optimizer because using coupled Newton iteration when
-        computing G^{-1/p} matrices while the previous one uses SVD which is really slow.
+    Features include:
+    1. Various plug-ins (e.g., gradient grafting, preconditioning types),
+    2. Additional features beyond official PyTorch code,
+    3. Readable and well-organized implementation.
 
-        Also, this implementation offers
-            1. lots of plug-ins (e.g. gradient grafting, type of pre-conditioning, etc)
-            2. not-yet implemented features in the official Pytorch code.
-            3. readable, organized, clean code.
+    Reference:
+    https://github.com/google-research/google-research/blob/master/scalable_shampoo/pytorch/shampoo.py
 
-        Reference : https://github.com/google-research/google-research/blob/master/scalable_shampoo/pytorch/shampoo.py.
-
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. beta1, beta2.
-    :param moving_average_for_momentum: bool. perform moving_average for momentum (beta1).
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param decoupled_weight_decay: bool. use decoupled weight_decay.
-    :param decoupled_learning_rate: bool. use decoupled lr, otherwise couple it w/ preconditioned gradient.
-    :param inverse_exponent_override: int. fixed exponent for pre-conditioner, if > 0.
-    :param start_preconditioning_step: int.
-    :param preconditioning_compute_steps: int. performance tuning params for controlling memory and compute
-        requirements. How often to compute pre-conditioner. Ideally, 1 is the best. However, the current implementation
-        doesn't work on the distributed environment (there are no statistics & pre-conditioners sync among replicas),
-        compute on the GPU (not CPU) and the precision is fp32 (not fp64).
-        Also, followed by the paper, `preconditioning_compute_steps` does not have a significant effect on the
-        performance. So, If you have a problem with the speed, try to set this step bigger (e.g. 1000).
-    :param statistics_compute_steps: int. How often to compute statistics. usually set to 1 (or 10).
-    :param block_size: int. Block size for large layers (if > 0).
-        Block size = 1 ==> AdaGrad (Don't do this, extremely inefficient!)
-        Block size should be as large as feasible under memory/time constraints.
-    :param skip_preconditioning_rank_lt: int. Skips preconditioning for parameters with rank less than this value.
-    :param no_preconditioning_for_layers_with_dim_gt: int. avoid preconditioning large layers to reduce overall memory.
-    :param shape_interpretation: bool. Automatic shape interpretation (for eg: [4, 3, 1024, 512] would
-        result in 12 x [1024, 512] L and R statistics. Disabled by default which results in Shampoo constructing
-        statistics [4, 4], [3, 3], [1024, 1024], [512, 512].
-    :param graft_type: int. type of grafting (SGD or AdaGrad or RMSProp or SQRT_N or None).
-    :param pre_conditioner_type: int. type of pre-conditioner.
-    :param nesterov: bool. Nesterov momentum.
-    :param diagonal_eps: float. term added to the denominator to improve numerical stability.
-    :param matrix_eps: float. term added to the denominator to improve numerical stability.
-    :param use_svd: bool. use SVD instead of Schur-Newton method to calculate M^{-1/p}.
-        Theoretically, Schur-Newton method is faster than SVD method. However, the inefficiency of the loop code and
-        proper svd kernel, SVD is much faster in some cases (usually in case of small models).
-        see https://github.com/kozistr/pytorch_optimizer/pull/103
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): iterable or dicts defining parameter groups.
+        lr (float): learning rate.
+        betas (tuple): beta1 and beta2 for momentum.
+        moving_average_for_momentum (bool): whether to perform moving average for momentum (beta1).
+        weight_decay (float): weight decay (L2 penalty).
+        decoupled_weight_decay (bool): use decoupled weight decay.
+        decoupled_learning_rate (bool): use decoupled learning rate, otherwise coupled with preconditioned gradient.
+        inverse_exponent_override (int): fixed exponent for preconditioner if > 0.
+        start_preconditioning_step (int): step to start preconditioning.
+        preconditioning_compute_steps (int): frequency of preconditioner computation.
+        statistics_compute_steps (int): frequency of statistics computation.
+        block_size (int): block size for large layers; 1 means AdaGrad (inefficient).
+        skip_preconditioning_rank_lt (int): skip preconditioning for layers with rank below this.
+        no_preconditioning_for_layers_with_dim_gt (int): avoid preconditioning large layers.
+        shape_interpretation (bool): automatic shape interpretation for tensor dims.
+        graft_type (int): type of grafting (SGD, AdaGrad, RMSProp, etc.).
+        pre_conditioner_type (int): type of preconditioner.
+        nesterov (bool): enable Nesterov momentum.
+        diagonal_eps (float): epsilon for numerical stability in diagonal.
+        matrix_eps (float): epsilon for numerical stability in matrix.
+        use_svd (bool): whether to use SVD for matrix inverse powers (alternative is Schur-Newton).
+        maximize (bool): maximize the objective instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         moving_average_for_momentum: bool = False,
         weight_decay: float = 0.0,
         decoupled_weight_decay: bool = False,
@@ -255,7 +244,7 @@ class ScalableShampoo(BaseOptimizer):
         self.use_svd = use_svd
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -270,7 +259,10 @@ class ScalableShampoo(BaseOptimizer):
     def __str__(self) -> str:
         return 'ScalableShampoo'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         _, beta2 = group['betas']
 
         for p in group['params']:
@@ -306,18 +298,15 @@ class ScalableShampoo(BaseOptimizer):
         return step >= self.start_preconditioning_step
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 
